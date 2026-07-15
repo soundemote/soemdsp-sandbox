@@ -79,6 +79,12 @@ $modules = @(
   @{ Name = "chord_memory"; Simd = $false; Exports = @("soemdsp_chord_memory_create", "soemdsp_chord_memory_destroy", "soemdsp_chord_memory_sample", "soemdsp_chord_memory_note2", "soemdsp_chord_memory_note3", "soemdsp_chord_memory_note4", "soemdsp_chord_memory_arp", "soemdsp_chord_memory_gate", "soemdsp_chord_memory_version") }
   @{ Name = "turing_machine"; Simd = $false; Exports = @("soemdsp_turing_machine_create", "soemdsp_turing_machine_destroy", "soemdsp_turing_machine_sample", "soemdsp_turing_machine_scale", "soemdsp_turing_machine_gate", "soemdsp_turing_machine_version") }
   @{ Name = "flower_child_envelope_follower"; Simd = $false; Exports = @("soemdsp_flower_child_envelope_follower_create", "soemdsp_flower_child_envelope_follower_destroy", "soemdsp_flower_child_envelope_follower_sample", "soemdsp_flower_child_envelope_follower_version") }
+  @{ Name = "trigger_divider"; Simd = $false; Exports = @("soemdsp_trigger_divider_create", "soemdsp_trigger_divider_destroy", "soemdsp_trigger_divider_sample", "soemdsp_trigger_divider_version") }
+  @{ Name = "step_sequencer"; Simd = $false; Exports = @("soemdsp_step_sequencer_create", "soemdsp_step_sequencer_destroy", "soemdsp_step_sequencer_sample", "soemdsp_step_sequencer_gate", "soemdsp_step_sequencer_version") }
+  @{ Name = "trigger_counter"; Simd = $false; Exports = @("soemdsp_trigger_counter_create", "soemdsp_trigger_counter_destroy", "soemdsp_trigger_counter_sample", "soemdsp_trigger_counter_count", "soemdsp_trigger_counter_version") }
+  @{ Name = "delayed_trigger"; Simd = $false; Exports = @("soemdsp_delayed_trigger_create", "soemdsp_delayed_trigger_destroy", "soemdsp_delayed_trigger_sample", "soemdsp_delayed_trigger_version") }
+  @{ Name = "clock"; Simd = $false; Exports = @("soemdsp_clock_create", "soemdsp_clock_destroy", "soemdsp_clock_sample", "soemdsp_clock_analog_out", "soemdsp_clock_pulse", "soemdsp_clock_version") }
+  @{ Name = "random_clock"; Simd = $false; Exports = @("soemdsp_random_clock_create", "soemdsp_random_clock_destroy", "soemdsp_random_clock_sample", "soemdsp_random_clock_gate", "soemdsp_random_clock_version") }
 )
 
 foreach ($module in $modules) {

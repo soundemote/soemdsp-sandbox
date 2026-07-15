@@ -6,6 +6,8 @@ NodeLiveAudioProcessor.prototype.createRandomClockState = function createRandomC
       randomState: 0,
       remainingTriggerSamples: 0,
       seedKey: "",
+      nativeHandle: 0,
+      lastGate: 0,
     };
   };
 
@@ -32,7 +34,7 @@ NodeLiveAudioProcessor.prototype.randomClockChooseIntervalSamples = function ran
     return Math.max(1, Math.round((low + (high - low) * random) * rate));
   };
 
-NodeLiveAudioProcessor.prototype.randomClockSample = function randomClockSample(state, reset, params, rateHz = sampleRate, nodeId = "") {
+NodeLiveAudioProcessor.prototype.randomClockSampleJs = function randomClockSampleJs(state, reset, params, rateHz = sampleRate, nodeId = "") {
     const safeReset = this.safeFilterNumber(reset, null);
     const threshold = this.safeFilterNumber(params.threshold, null);
     const rate = Math.max(1, rateHz || sampleRate || 44100);
@@ -61,5 +63,46 @@ NodeLiveAudioProcessor.prototype.randomClockSample = function randomClockSample(
       Gate: this.safeFilterNumber(gate, null),
       Trigger: this.safeFilterNumber(trigger, null),
     };
+  };
+
+NodeLiveAudioProcessor.prototype.randomClockSample = function randomClockSample(state, reset, params, rateHz = sampleRate, nodeId = "") {
+    if (this.nativeRandomClockReady) {
+      try {
+        if (!state.nativeHandle) {
+          state.nativeHandle = this.nativeRandomClock.soemdsp_random_clock_create();
+        }
+        if (state.nativeHandle) {
+          const safeRate = Math.max(1, Number(rateHz) || sampleRate || 44100);
+          const seedKeyStr = `${nodeId}:${Math.round(Number(params.seed) || 0)}`;
+          const seedInt = this.stableSeed(seedKeyStr) | 0;
+          const trigger = this.nativeRandomClock.soemdsp_random_clock_sample(
+            state.nativeHandle,
+            this.safeFilterNumber(reset, null),
+            this.safeFilterNumber(params.threshold, null),
+            Math.max(0, this.safeFilterNumber(params.minSeconds, null)),
+            Math.max(0, this.safeFilterNumber(params.maxSeconds, null)),
+            this.clampValue(this.safeFilterNumber(params.duty, null), 0, 1),
+            Math.max(0, this.safeFilterNumber(params.triggerTime, null)),
+            this.safeFilterNumber(params.level, null),
+            safeRate,
+            seedInt,
+          );
+          return {
+            Gate: this.safeFilterNumber(this.nativeRandomClock.soemdsp_random_clock_gate(state.nativeHandle), null),
+            Trigger: this.safeFilterNumber(trigger, null),
+          };
+        }
+      } catch (error) {
+        this.nativeRandomClockReady = false;
+        state.nativeHandle = 0;
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "random_clock",
+          status: "disabled",
+          message: String(error?.message || error || "native Random Clock failed"),
+        });
+      }
+    }
+    return this.randomClockSampleJs(state, reset, params, rateHz, nodeId);
   };
 

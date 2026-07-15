@@ -2,6 +2,7 @@ NodeLiveAudioProcessor.prototype.createClockState = function createClockState() 
     return {
       hasStarted: false,
       phase: 0,
+      nativeHandle: 0,
     };
   };
 
@@ -17,7 +18,7 @@ NodeLiveAudioProcessor.prototype.clockAnalogWhipSample = function clockAnalogWhi
     return (body + sheen) * snapEnvelope * level;
   };
 
-NodeLiveAudioProcessor.prototype.clockSample = function clockSample(state, reset, phaseOffset, rate, duty, level, rateHz = sampleRate) {
+NodeLiveAudioProcessor.prototype.clockSampleJs = function clockSampleJs(state, reset, phaseOffset, rate, duty, level, rateHz = sampleRate) {
     const safeReset = this.safeFilterNumber(reset, null);
     const safePhaseOffset = this.wrapValue(this.safeFilterNumber(phaseOffset, null), 0, 1);
     const safeRate = Math.max(0, this.safeFilterNumber(rate, null));
@@ -38,5 +39,48 @@ NodeLiveAudioProcessor.prototype.clockSample = function clockSample(state, reset
       Out: digital,
       Pulse: pulse,
     };
+  };
+
+NodeLiveAudioProcessor.prototype.clockSample = function clockSample(state, reset, phaseOffset, rate, duty, level, rateHz = sampleRate) {
+    if (this.nativeClockReady) {
+      try {
+        if (!state.nativeHandle) {
+          state.nativeHandle = this.nativeClock.soemdsp_clock_create();
+        }
+        if (state.nativeHandle) {
+          const safeRateHz = Math.max(1, Number(rateHz) || sampleRate || 44100);
+          const digital = this.safeFilterNumber(
+            this.nativeClock.soemdsp_clock_sample(
+              state.nativeHandle,
+              this.safeFilterNumber(reset, null),
+              this.safeFilterNumber(phaseOffset, null),
+              Math.max(0, this.safeFilterNumber(rate, null)),
+              this.clampValue(this.safeFilterNumber(duty, null), 0, 1),
+              this.safeFilterNumber(level, null),
+              safeRateHz,
+            ),
+            null,
+          );
+          const analog = this.safeFilterNumber(this.nativeClock.soemdsp_clock_analog_out(state.nativeHandle), null);
+          const pulse = this.safeFilterNumber(this.nativeClock.soemdsp_clock_pulse(state.nativeHandle), null);
+          return {
+            "Analog Out": analog,
+            "Digital Out": digital,
+            Out: digital,
+            Pulse: pulse,
+          };
+        }
+      } catch (error) {
+        this.nativeClockReady = false;
+        state.nativeHandle = 0;
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "clock",
+          status: "disabled",
+          message: String(error?.message || error || "native Clock failed"),
+        });
+      }
+    }
+    return this.clockSampleJs(state, reset, phaseOffset, rate, duty, level, rateHz);
   };
 

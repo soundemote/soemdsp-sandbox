@@ -78,6 +78,7 @@ async function fetchNodeGraphLiveNativeModuleBytes(entry) {
 // priority boost below.
 const nodeGraphLiveNativeModuleTypeAliases = Object.freeze({
   vactrolEnvelopeSeries: ["vactrolEnvelopeCustom"],
+  triggerDivider: ["clockDivider"],
 });
 
 function nodeGraphLiveActivePatchNativeTargetTypes(plan) {

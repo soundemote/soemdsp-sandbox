@@ -134,6 +134,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "clock",
+      "label": "Clock",
+      "targetType": "clock",
+      "kind": "utility",
+      "source": "native_modules/clock/clock.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/clock/clock.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/clock/clock.wasm",
+      "wasmUrl": "native_modules/clock/clock.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "comparator",
       "label": "Comparator",
       "targetType": "comparator",
@@ -155,6 +167,18 @@
       "libUrl": "",
       "wasm": "native_modules/delay_effect/delay_effect.wasm",
       "wasmUrl": "native_modules/delay_effect/delay_effect.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "delayed_trigger",
+      "label": "Delayed Trigger",
+      "targetType": "delayedTrigger",
+      "kind": "utility",
+      "source": "native_modules/delayed_trigger/delayed_trigger.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/delayed_trigger/delayed_trigger.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/delayed_trigger/delayed_trigger.wasm",
+      "wasmUrl": "native_modules/delayed_trigger/delayed_trigger.wasm",
       "wasmAvailable": true
     },
     {
@@ -578,6 +602,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "random_clock",
+      "label": "Random Clock",
+      "targetType": "randomClock",
+      "kind": "utility",
+      "source": "native_modules/random_clock/random_clock.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/random_clock/random_clock.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/random_clock/random_clock.wasm",
+      "wasmUrl": "native_modules/random_clock/random_clock.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "random_walk",
       "label": "Random Walk",
       "targetType": "randomWalk",
@@ -698,6 +734,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "step_sequencer",
+      "label": "Step Sequencer",
+      "targetType": "stepSequencer",
+      "kind": "utility",
+      "source": "native_modules/step_sequencer/step_sequencer.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/step_sequencer/step_sequencer.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/step_sequencer/step_sequencer.wasm",
+      "wasmUrl": "native_modules/step_sequencer/step_sequencer.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "superlove_filter",
       "label": "SuperLove Filter",
       "targetType": "superloveFilter",
@@ -743,6 +791,30 @@
       "libUrl": "",
       "wasm": "native_modules/transport/transport.wasm",
       "wasmUrl": "native_modules/transport/transport.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "trigger_counter",
+      "label": "Trigger Counter",
+      "targetType": "triggerCounter",
+      "kind": "utility",
+      "source": "native_modules/trigger_counter/trigger_counter.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/trigger_counter/trigger_counter.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/trigger_counter/trigger_counter.wasm",
+      "wasmUrl": "native_modules/trigger_counter/trigger_counter.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "trigger_divider",
+      "label": "Trigger Divider",
+      "targetType": "triggerDivider",
+      "kind": "utility",
+      "source": "native_modules/trigger_divider/trigger_divider.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/trigger_divider/trigger_divider.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/trigger_divider/trigger_divider.wasm",
+      "wasmUrl": "native_modules/trigger_divider/trigger_divider.wasm",
       "wasmAvailable": true
     },
     {
