@@ -686,6 +686,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "transport",
+      "label": "Transport",
+      "targetType": "transport",
+      "kind": "utility",
+      "source": "native_modules/transport/transport.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/transport/transport.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/transport/transport.wasm",
+      "wasmUrl": "native_modules/transport/transport.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "vactrol_envelope",
       "label": "Vactrol Envelope",
       "targetType": "vactrolEnvelope",

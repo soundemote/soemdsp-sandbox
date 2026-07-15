@@ -13,10 +13,11 @@ NodeLiveAudioProcessor.prototype.createTransportState = function createTransport
     return {
       elapsedSamples: 0,
       phase: 0,
+      nativeHandle: 0,
     };
   };
 
-NodeLiveAudioProcessor.prototype.transportSample = function transportSample(state, params, rateHz = sampleRate) {
+NodeLiveAudioProcessor.prototype.transportSampleJs = function transportSampleJs(state, params, rateHz = sampleRate) {
     const rate = Math.max(1, Number(rateHz) || sampleRate || 44100);
     const tempoBpm = Math.max(1, Number(this.timing?.tempoBpm) || 120);
     const frequency = (tempoBpm / 60) * this.transportDivisionFactor(params.divisions);
@@ -28,5 +29,42 @@ NodeLiveAudioProcessor.prototype.transportSample = function transportSample(stat
       "-1..1": high ? amplitude : -amplitude,
       "0..1": high ? amplitude : 0,
     };
+  };
+
+NodeLiveAudioProcessor.prototype.transportSample = function transportSample(state, params, rateHz = sampleRate) {
+    if (this.nativeTransportReady) {
+      try {
+        if (!state.nativeHandle) {
+          state.nativeHandle = this.nativeTransport.soemdsp_transport_create();
+        }
+        if (state.nativeHandle) {
+          const safeRate = Math.max(1, Number(rateHz) || sampleRate || 44100);
+          const tempoBpm = Math.max(1, Number(this.timing?.tempoBpm) || 120);
+          const bipolar = this.safeFilterNumber(
+            this.nativeTransport.soemdsp_transport_sample(
+              state.nativeHandle,
+              this.safeFilterNumber(params.amplitude, state),
+              this.safeFilterNumber(params.divisions, state),
+              tempoBpm,
+              safeRate,
+            ),
+            state,
+          );
+          const unipolar = this.safeFilterNumber(this.nativeTransport.soemdsp_transport_unipolar?.(state.nativeHandle) || 0, state);
+          state.elapsedSamples += 1;
+          return { "-1..1": bipolar, "0..1": unipolar };
+        }
+      } catch (error) {
+        this.nativeTransportReady = false;
+        state.nativeHandle = 0;
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "transport",
+          status: "disabled",
+          message: String(error?.message || error || "native Transport failed"),
+        });
+      }
+    }
+    return this.transportSampleJs(state, params, rateHz);
   };
 

@@ -17479,6 +17479,7 @@ def require_native_module_contract(base_url: str) -> None:
     )
 
     expected_native_exports = {
+        "transport": ["soemdsp_transport_create", "soemdsp_transport_destroy", "soemdsp_transport_sample", "soemdsp_transport_unipolar"],
         "chord_sequencer": ["soemdsp_chord_sequencer_create", "soemdsp_chord_sequencer_destroy", "soemdsp_chord_sequencer_sample"],
         "lut_cell": ["soemdsp_lut_cell_create", "soemdsp_lut_cell_destroy", "soemdsp_lut_cell_sample", "soemdsp_lut_cell_q"],
         "metallic_ratio": ["soemdsp_metallic_ratio_sample"],

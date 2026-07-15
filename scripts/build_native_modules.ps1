@@ -42,7 +42,6 @@ $modules = @(
   @{ Name = "robin_supersaw"; Simd = $false; Exports = @("soemdsp_robin_supersaw_create", "soemdsp_robin_supersaw_destroy", "soemdsp_robin_supersaw_reset", "soemdsp_robin_supersaw_sample", "soemdsp_robin_supersaw_left", "soemdsp_robin_supersaw_right", "soemdsp_robin_supersaw_mono", "soemdsp_robin_supersaw_version") }
   @{ Name = "henon_map"; Simd = $false; Exports = @("soemdsp_henon_map_create", "soemdsp_henon_map_destroy", "soemdsp_henon_map_sample", "soemdsp_henon_map_x", "soemdsp_henon_map_y", "soemdsp_henon_map_version") }
   @{ Name = "chua_attractor"; Simd = $false; Exports = @("soemdsp_chua_attractor_create", "soemdsp_chua_attractor_destroy", "soemdsp_chua_attractor_sample", "soemdsp_chua_attractor_x", "soemdsp_chua_attractor_y", "soemdsp_chua_attractor_z", "soemdsp_chua_attractor_version") }
-  @{ Name = "surge_oscillator"; Simd = $false; Exports = @("soemdsp_surge_oscillator_create", "soemdsp_surge_oscillator_destroy", "soemdsp_surge_oscillator_reset", "soemdsp_surge_oscillator_sample", "soemdsp_surge_oscillator_out", "soemdsp_surge_oscillator_saw", "soemdsp_surge_oscillator_square", "soemdsp_surge_oscillator_tri", "soemdsp_surge_oscillator_sine", "soemdsp_surge_oscillator_synced", "soemdsp_surge_oscillator_internal_sync", "soemdsp_surge_oscillator_version") }
   @{ Name = "jerobeam_wirdo_spiral"; Simd = $false; Exports = @("soemdsp_jbwirdo_create", "soemdsp_jbwirdo_destroy", "soemdsp_jbwirdo_reset", "soemdsp_jbwirdo_sample", "soemdsp_jbwirdo_x", "soemdsp_jbwirdo_y", "soemdsp_jbwirdo_version") }
   @{ Name = "jerobeam_blubb"; Simd = $false; Exports = @("soemdsp_jbblubb_create", "soemdsp_jbblubb_destroy", "soemdsp_jbblubb_reset", "soemdsp_jbblubb_sample", "soemdsp_jbblubb_x", "soemdsp_jbblubb_y", "soemdsp_jbblubb_version") }
   @{ Name = "jerobeam_mushroom"; Simd = $false; Exports = @("soemdsp_jbmushroom_create", "soemdsp_jbmushroom_destroy", "soemdsp_jbmushroom_reset", "soemdsp_jbmushroom_sample", "soemdsp_jbmushroom_x", "soemdsp_jbmushroom_y", "soemdsp_jbmushroom_version") }
@@ -74,6 +73,7 @@ $modules = @(
   @{ Name = "bradley_2a"; Simd = $false; Exports = @("soemdsp_bradley_2a_create", "soemdsp_bradley_2a_destroy", "soemdsp_bradley_2a_sample", "soemdsp_bradley_2a_version", "soemdsp_bradley_2a_metadata_json", "soemdsp_bradley_2a_metadata_json_size") }
   @{ Name = "antisaw"; Simd = $false; Exports = @("soemdsp_antisaw_create", "soemdsp_antisaw_destroy", "soemdsp_antisaw_sample", "soemdsp_antisaw_version", "soemdsp_antisaw_metadata_json", "soemdsp_antisaw_metadata_json_size") }
   @{ Name = "videoscope"; Simd = $false; Exports = @("soemdsp_videoscope_create", "soemdsp_videoscope_destroy", "soemdsp_videoscope_push", "soemdsp_videoscope_window_size", "soemdsp_videoscope_column_min", "soemdsp_videoscope_column_max", "soemdsp_videoscope_xy_a", "soemdsp_videoscope_xy_b", "soemdsp_videoscope_version") }
+  @{ Name = "transport"; Simd = $false; Exports = @("soemdsp_transport_create", "soemdsp_transport_destroy", "soemdsp_transport_sample", "soemdsp_transport_unipolar", "soemdsp_transport_version") }
 )
 
 foreach ($module in $modules) {

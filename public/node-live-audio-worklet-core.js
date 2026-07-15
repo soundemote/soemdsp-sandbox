@@ -149,6 +149,8 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.nativeArchimedes = null;
     this.nativeArchimedesReady = false;
     this.archimedesStates = new Map();
+    this.nativeTransport = null;
+    this.nativeTransportReady = false;
     this.pllStates = new Map();
     this.fractalBrownianNoiseStates = new Map();
     this.graphInputConnections = new Map();
@@ -725,6 +727,22 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
           type: "nativeModuleStatus",
           name: "alias_sine",
           status: this.nativeAliasSineReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "transport" || targetType === "transport") {
+        for (const state of this.transportStates.values()) {
+          this.destroyTransportNativeState(state);
+        }
+        this.nativeTransport = exports;
+        this.nativeTransportReady = Boolean(
+          this.nativeTransport?.soemdsp_transport_create &&
+          this.nativeTransport?.soemdsp_transport_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "transport",
+          status: this.nativeTransportReady ? "ready" : "missing exports",
         });
         return;
       }
@@ -1473,6 +1491,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.phosphillatorDecodedPathCache = new Map();
     this.clockDividerStates = new Map();
     this.clockStates = new Map();
+    for (const state of this.transportStates.values()) {
+      this.destroyTransportNativeState(state);
+    }
     this.transportStates = new Map();
     this.codeblockFunctions = new Map();
     this.cookbookFilterStates = new Map();
@@ -2302,6 +2323,12 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       if (!ids.has(id)) {
         this.destroyComparatorNativeState(this.comparatorStates.get(id));
         this.comparatorStates.delete(id);
+      }
+    }
+    for (const id of [...this.transportStates.keys()]) {
+      if (!ids.has(id)) {
+        this.destroyTransportNativeState(this.transportStates.get(id));
+        this.transportStates.delete(id);
       }
     }
     for (const id of [...this.aliasSineStates.keys()]) {
@@ -4115,6 +4142,13 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   destroyComparatorNativeState(state) {
     if (state.nativeHandle && this.nativeComparator?.soemdsp_comparator_destroy) {
       this.nativeComparator.soemdsp_comparator_destroy(state.nativeHandle);
+      state.nativeHandle = 0;
+    }
+  }
+
+  destroyTransportNativeState(state) {
+    if (state.nativeHandle && this.nativeTransport?.soemdsp_transport_destroy) {
+      this.nativeTransport.soemdsp_transport_destroy(state.nativeHandle);
       state.nativeHandle = 0;
     }
   }
