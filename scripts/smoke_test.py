@@ -17480,6 +17480,11 @@ def require_native_module_contract(base_url: str) -> None:
 
     expected_native_exports = {
         "transport": ["soemdsp_transport_create", "soemdsp_transport_destroy", "soemdsp_transport_sample", "soemdsp_transport_unipolar"],
+        "slew_limiter": ["soemdsp_slew_limiter_create", "soemdsp_slew_limiter_destroy", "soemdsp_slew_limiter_sample"],
+        "sample_hold": ["soemdsp_sample_hold_create", "soemdsp_sample_hold_destroy", "soemdsp_sample_hold_sample"],
+        "chord_memory": ["soemdsp_chord_memory_create", "soemdsp_chord_memory_destroy", "soemdsp_chord_memory_sample"],
+        "turing_machine": ["soemdsp_turing_machine_create", "soemdsp_turing_machine_destroy", "soemdsp_turing_machine_sample"],
+        "flower_child_envelope_follower": ["soemdsp_flower_child_envelope_follower_create", "soemdsp_flower_child_envelope_follower_destroy", "soemdsp_flower_child_envelope_follower_sample"],
         "chord_sequencer": ["soemdsp_chord_sequencer_create", "soemdsp_chord_sequencer_destroy", "soemdsp_chord_sequencer_sample"],
         "lut_cell": ["soemdsp_lut_cell_create", "soemdsp_lut_cell_destroy", "soemdsp_lut_cell_sample", "soemdsp_lut_cell_q"],
         "metallic_ratio": ["soemdsp_metallic_ratio_sample"],

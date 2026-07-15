@@ -2,6 +2,7 @@ NodeLiveAudioProcessor.prototype.createSlewLimiterState = function createSlewLim
     return {
       initialized: false,
       out: 0,
+      nativeHandle: 0,
     };
   };
 
@@ -13,7 +14,7 @@ NodeLiveAudioProcessor.prototype.createStereoSlewLimiterState = function createS
     };
   };
 
-NodeLiveAudioProcessor.prototype.slewLimiterSample = function slewLimiterSample(state, input, upTime, downTime, rate = sampleRate) {
+NodeLiveAudioProcessor.prototype.slewLimiterSampleJs = function slewLimiterSampleJs(state, input, upTime, downTime, rate = sampleRate) {
     const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
     const target = this.safeFilterNumber(input, state);
     if (!state.initialized) {
@@ -31,5 +32,38 @@ NodeLiveAudioProcessor.prototype.slewLimiterSample = function slewLimiterSample(
       state,
     );
     return state.out;
+  };
+
+NodeLiveAudioProcessor.prototype.slewLimiterSample = function slewLimiterSample(state, input, upTime, downTime, rate = sampleRate) {
+    if (this.nativeSlewLimiterReady) {
+      try {
+        if (!state.nativeHandle) {
+          state.nativeHandle = this.nativeSlewLimiter.soemdsp_slew_limiter_create();
+        }
+        if (state.nativeHandle) {
+          const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
+          return this.safeFilterNumber(
+            this.nativeSlewLimiter.soemdsp_slew_limiter_sample(
+              state.nativeHandle,
+              this.safeFilterNumber(input, state),
+              Math.max(0, this.safeFilterNumber(upTime, state)),
+              Math.max(0, this.safeFilterNumber(downTime, state)),
+              safeRate,
+            ),
+            state,
+          );
+        }
+      } catch (error) {
+        this.nativeSlewLimiterReady = false;
+        state.nativeHandle = 0;
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "slew_limiter",
+          status: "disabled",
+          message: String(error?.message || error || "native Slew Limiter failed"),
+        });
+      }
+    }
+    return this.slewLimiterSampleJs(state, input, upTime, downTime, rate);
   };
 

@@ -151,6 +151,16 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.archimedesStates = new Map();
     this.nativeTransport = null;
     this.nativeTransportReady = false;
+    this.nativeSlewLimiter = null;
+    this.nativeSlewLimiterReady = false;
+    this.nativeSampleHold = null;
+    this.nativeSampleHoldReady = false;
+    this.nativeChordMemory = null;
+    this.nativeChordMemoryReady = false;
+    this.nativeTuringMachine = null;
+    this.nativeTuringMachineReady = false;
+    this.nativeFlowerChildEnvelopeFollower = null;
+    this.nativeFlowerChildEnvelopeFollowerReady = false;
     this.pllStates = new Map();
     this.fractalBrownianNoiseStates = new Map();
     this.graphInputConnections = new Map();
@@ -743,6 +753,86 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
           type: "nativeModuleStatus",
           name: "transport",
           status: this.nativeTransportReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "slew_limiter" || targetType === "slewLimiter") {
+        for (const bundle of this.slewLimiterStates.values()) {
+          this.destroyStereoFilterNativeState(bundle, (s) => this.destroySlewLimiterNativeState(s));
+        }
+        this.nativeSlewLimiter = exports;
+        this.nativeSlewLimiterReady = Boolean(
+          this.nativeSlewLimiter?.soemdsp_slew_limiter_create &&
+          this.nativeSlewLimiter?.soemdsp_slew_limiter_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "slew_limiter",
+          status: this.nativeSlewLimiterReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "sample_hold" || targetType === "sampleHold") {
+        for (const bundle of this.sampleHoldStates.values()) {
+          this.destroyStereoFilterNativeState(bundle, (s) => this.destroySampleHoldNativeState(s));
+        }
+        this.nativeSampleHold = exports;
+        this.nativeSampleHoldReady = Boolean(
+          this.nativeSampleHold?.soemdsp_sample_hold_create &&
+          this.nativeSampleHold?.soemdsp_sample_hold_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "sample_hold",
+          status: this.nativeSampleHoldReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "chord_memory" || targetType === "chordMemory") {
+        for (const state of this.chordMemoryStates.values()) {
+          this.destroyChordMemoryNativeState(state);
+        }
+        this.nativeChordMemory = exports;
+        this.nativeChordMemoryReady = Boolean(
+          this.nativeChordMemory?.soemdsp_chord_memory_create &&
+          this.nativeChordMemory?.soemdsp_chord_memory_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "chord_memory",
+          status: this.nativeChordMemoryReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "turing_machine" || targetType === "turingMachine") {
+        for (const state of this.turingMachineStates.values()) {
+          this.destroyTuringMachineNativeState(state);
+        }
+        this.nativeTuringMachine = exports;
+        this.nativeTuringMachineReady = Boolean(
+          this.nativeTuringMachine?.soemdsp_turing_machine_create &&
+          this.nativeTuringMachine?.soemdsp_turing_machine_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "turing_machine",
+          status: this.nativeTuringMachineReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "flower_child_envelope_follower" || targetType === "flowerChildEnvelopeFollower") {
+        for (const state of this.flowerChildEnvelopeFollowerStates.values()) {
+          this.destroyFlowerChildEnvelopeFollowerNativeState(state);
+        }
+        this.nativeFlowerChildEnvelopeFollower = exports;
+        this.nativeFlowerChildEnvelopeFollowerReady = Boolean(
+          this.nativeFlowerChildEnvelopeFollower?.soemdsp_flower_child_envelope_follower_create &&
+          this.nativeFlowerChildEnvelopeFollower?.soemdsp_flower_child_envelope_follower_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "flower_child_envelope_follower",
+          status: this.nativeFlowerChildEnvelopeFollowerReady ? "ready" : "missing exports",
         });
         return;
       }
@@ -1508,6 +1598,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.gpuAdditiveQueues = new Map();
     this.gpuAdditiveStatusCounter = 0;
     this.gpuAdditiveUnderruns = 0;
+    for (const state of this.flowerChildEnvelopeFollowerStates.values()) {
+      this.destroyFlowerChildEnvelopeFollowerNativeState(state);
+    }
     this.flowerChildEnvelopeFollowerStates = new Map();
     for (const state of this.ladderFilterStates.values()) {
       this.destroyStereoFilterNativeState(state, (s) => this.destroyLadderFilterNativeState(s));
@@ -1571,9 +1664,15 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.keplerBouwkampStates = new Map();
     this.nyquistShannonStates = new Map();
     this.radarStates = new Map();
+    for (const state of this.chordMemoryStates.values()) {
+      this.destroyChordMemoryNativeState(state);
+    }
     this.chordMemoryStates = new Map();
     this.chordSequencerStates = new Map();
     this.lutCellStates = new Map();
+    for (const state of this.turingMachineStates.values()) {
+      this.destroyTuringMachineNativeState(state);
+    }
     this.turingMachineStates = new Map();
     this.pitchQuantizerStates = new Map();
     this.surgeOscillatorStates = new Map();
@@ -1602,9 +1701,15 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.piSpigotNoiseStates = new Map();
     this.bradley2AStates = new Map();
     this.antisawStates = new Map();
+    for (const bundle of this.sampleHoldStates.values()) {
+      this.destroyStereoFilterNativeState(bundle, (s) => this.destroySampleHoldNativeState(s));
+    }
     this.sampleHoldStates = new Map();
     this.samplePlaybackStates = new Map();
     this.samples = new Map();
+    for (const bundle of this.slewLimiterStates.values()) {
+      this.destroyStereoFilterNativeState(bundle, (s) => this.destroySlewLimiterNativeState(s));
+    }
     this.slewLimiterStates = new Map();
     this.scopeBuffers = new Map();
     this.scopeCounter = 0;
@@ -2165,11 +2270,13 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
     for (const id of [...this.chordMemoryStates.keys()]) {
       if (!ids.has(id)) {
+        this.destroyChordMemoryNativeState(this.chordMemoryStates.get(id));
         this.chordMemoryStates.delete(id);
       }
     }
     for (const id of [...this.turingMachineStates.keys()]) {
       if (!ids.has(id)) {
+        this.destroyTuringMachineNativeState(this.turingMachineStates.get(id));
         this.turingMachineStates.delete(id);
       }
     }
@@ -2384,6 +2491,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
     for (const id of [...this.sampleHoldStates.keys()]) {
       if (!ids.has(id)) {
+        this.destroyStereoFilterNativeState(this.sampleHoldStates.get(id), (s) => this.destroySampleHoldNativeState(s));
         this.sampleHoldStates.delete(id);
       }
     }
@@ -2399,6 +2507,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
     for (const id of [...this.slewLimiterStates.keys()]) {
       if (!ids.has(id)) {
+        this.destroyStereoFilterNativeState(this.slewLimiterStates.get(id), (s) => this.destroySlewLimiterNativeState(s));
         this.slewLimiterStates.delete(id);
       }
     }
@@ -2451,6 +2560,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
     for (const id of [...this.flowerChildEnvelopeFollowerStates.keys()]) {
       if (!ids.has(id)) {
+        this.destroyFlowerChildEnvelopeFollowerNativeState(this.flowerChildEnvelopeFollowerStates.get(id));
         this.flowerChildEnvelopeFollowerStates.delete(id);
       }
     }
@@ -4149,6 +4259,41 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   destroyTransportNativeState(state) {
     if (state.nativeHandle && this.nativeTransport?.soemdsp_transport_destroy) {
       this.nativeTransport.soemdsp_transport_destroy(state.nativeHandle);
+      state.nativeHandle = 0;
+    }
+  }
+
+  destroySlewLimiterNativeState(state) {
+    if (state.nativeHandle && this.nativeSlewLimiter?.soemdsp_slew_limiter_destroy) {
+      this.nativeSlewLimiter.soemdsp_slew_limiter_destroy(state.nativeHandle);
+      state.nativeHandle = 0;
+    }
+  }
+
+  destroySampleHoldNativeState(state) {
+    if (state.nativeHandle && this.nativeSampleHold?.soemdsp_sample_hold_destroy) {
+      this.nativeSampleHold.soemdsp_sample_hold_destroy(state.nativeHandle);
+      state.nativeHandle = 0;
+    }
+  }
+
+  destroyChordMemoryNativeState(state) {
+    if (state.nativeHandle && this.nativeChordMemory?.soemdsp_chord_memory_destroy) {
+      this.nativeChordMemory.soemdsp_chord_memory_destroy(state.nativeHandle);
+      state.nativeHandle = 0;
+    }
+  }
+
+  destroyTuringMachineNativeState(state) {
+    if (state.nativeHandle && this.nativeTuringMachine?.soemdsp_turing_machine_destroy) {
+      this.nativeTuringMachine.soemdsp_turing_machine_destroy(state.nativeHandle);
+      state.nativeHandle = 0;
+    }
+  }
+
+  destroyFlowerChildEnvelopeFollowerNativeState(state) {
+    if (state.nativeHandle && this.nativeFlowerChildEnvelopeFollower?.soemdsp_flower_child_envelope_follower_destroy) {
+      this.nativeFlowerChildEnvelopeFollower.soemdsp_flower_child_envelope_follower_destroy(state.nativeHandle);
       state.nativeHandle = 0;
     }
   }

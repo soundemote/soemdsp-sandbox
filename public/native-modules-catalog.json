@@ -98,6 +98,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "chord_memory",
+      "label": "Chord Memory",
+      "targetType": "chordMemory",
+      "kind": "utility",
+      "source": "native_modules/chord_memory/chord_memory.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/chord_memory/chord_memory.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/chord_memory/chord_memory.wasm",
+      "wasmUrl": "native_modules/chord_memory/chord_memory.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "chord_sequencer",
       "label": "Chord Sequencer",
       "targetType": "chordSequencer",
@@ -179,6 +191,18 @@
       "libUrl": "",
       "wasm": "native_modules/exp_adsr/exp_adsr.wasm",
       "wasmUrl": "native_modules/exp_adsr/exp_adsr.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "flower_child_envelope_follower",
+      "label": "Flower Child Envelope Follower",
+      "targetType": "flowerChildEnvelopeFollower",
+      "kind": "envelope",
+      "source": "native_modules/flower_child_envelope_follower/flower_child_envelope_follower.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/flower_child_envelope_follower/flower_child_envelope_follower.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/flower_child_envelope_follower/flower_child_envelope_follower.wasm",
+      "wasmUrl": "native_modules/flower_child_envelope_follower/flower_child_envelope_follower.wasm",
       "wasmAvailable": true
     },
     {
@@ -614,6 +638,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "sample_hold",
+      "label": "Sample & Hold",
+      "targetType": "sampleHold",
+      "kind": "utility",
+      "source": "native_modules/sample_hold/sample_hold.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/sample_hold/sample_hold.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/sample_hold/sample_hold.wasm",
+      "wasmUrl": "native_modules/sample_hold/sample_hold.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "shooting_star_explosion",
       "label": "Shooting Star Explosion",
       "targetType": "shootingStarExplosion",
@@ -635,6 +671,18 @@
       "libUrl": "",
       "wasm": "native_modules/sine_wavetable/sine_wavetable.wasm",
       "wasmUrl": "native_modules/sine_wavetable/sine_wavetable.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "slew_limiter",
+      "label": "Slew Limiter",
+      "targetType": "slewLimiter",
+      "kind": "utility",
+      "source": "native_modules/slew_limiter/slew_limiter.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/slew_limiter/slew_limiter.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/slew_limiter/slew_limiter.wasm",
+      "wasmUrl": "native_modules/slew_limiter/slew_limiter.wasm",
       "wasmAvailable": true
     },
     {
@@ -695,6 +743,18 @@
       "libUrl": "",
       "wasm": "native_modules/transport/transport.wasm",
       "wasmUrl": "native_modules/transport/transport.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "turing_machine",
+      "label": "Turing Machine",
+      "targetType": "turingMachine",
+      "kind": "utility",
+      "source": "native_modules/turing_machine/turing_machine.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/turing_machine/turing_machine.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/turing_machine/turing_machine.wasm",
+      "wasmUrl": "native_modules/turing_machine/turing_machine.wasm",
       "wasmAvailable": true
     },
     {

@@ -74,6 +74,11 @@ $modules = @(
   @{ Name = "antisaw"; Simd = $false; Exports = @("soemdsp_antisaw_create", "soemdsp_antisaw_destroy", "soemdsp_antisaw_sample", "soemdsp_antisaw_version", "soemdsp_antisaw_metadata_json", "soemdsp_antisaw_metadata_json_size") }
   @{ Name = "videoscope"; Simd = $false; Exports = @("soemdsp_videoscope_create", "soemdsp_videoscope_destroy", "soemdsp_videoscope_push", "soemdsp_videoscope_window_size", "soemdsp_videoscope_column_min", "soemdsp_videoscope_column_max", "soemdsp_videoscope_xy_a", "soemdsp_videoscope_xy_b", "soemdsp_videoscope_version") }
   @{ Name = "transport"; Simd = $false; Exports = @("soemdsp_transport_create", "soemdsp_transport_destroy", "soemdsp_transport_sample", "soemdsp_transport_unipolar", "soemdsp_transport_version") }
+  @{ Name = "slew_limiter"; Simd = $false; Exports = @("soemdsp_slew_limiter_create", "soemdsp_slew_limiter_destroy", "soemdsp_slew_limiter_sample", "soemdsp_slew_limiter_version") }
+  @{ Name = "sample_hold"; Simd = $false; Exports = @("soemdsp_sample_hold_create", "soemdsp_sample_hold_destroy", "soemdsp_sample_hold_sample", "soemdsp_sample_hold_version") }
+  @{ Name = "chord_memory"; Simd = $false; Exports = @("soemdsp_chord_memory_create", "soemdsp_chord_memory_destroy", "soemdsp_chord_memory_sample", "soemdsp_chord_memory_note2", "soemdsp_chord_memory_note3", "soemdsp_chord_memory_note4", "soemdsp_chord_memory_arp", "soemdsp_chord_memory_gate", "soemdsp_chord_memory_version") }
+  @{ Name = "turing_machine"; Simd = $false; Exports = @("soemdsp_turing_machine_create", "soemdsp_turing_machine_destroy", "soemdsp_turing_machine_sample", "soemdsp_turing_machine_scale", "soemdsp_turing_machine_gate", "soemdsp_turing_machine_version") }
+  @{ Name = "flower_child_envelope_follower"; Simd = $false; Exports = @("soemdsp_flower_child_envelope_follower_create", "soemdsp_flower_child_envelope_follower_destroy", "soemdsp_flower_child_envelope_follower_sample", "soemdsp_flower_child_envelope_follower_version") }
 )
 
 foreach ($module in $modules) {
