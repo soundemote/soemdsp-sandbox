@@ -177,6 +177,8 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.nativePingPongDelayReady = false;
     this.nativePapoulisFilter = null;
     this.nativePapoulisFilterReady = false;
+    this.nativePhosphillator = null;
+    this.nativePhosphillatorReady = false;
     this.pllStates = new Map();
     this.fractalBrownianNoiseStates = new Map();
     this.graphInputConnections = new Map();
@@ -980,6 +982,23 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
         });
         return;
       }
+      if (name === "phosphillator" || targetType === "phosphillator") {
+        for (const state of this.phosphillatorPlaybackStates.values()) {
+          this.destroyPhosphillatorNativeState(state);
+        }
+        this.nativePhosphillator = exports;
+        this.nativePhosphillatorReady = Boolean(
+          this.nativePhosphillator?.soemdsp_phosphillator_create &&
+          this.nativePhosphillator?.soemdsp_phosphillator_sample &&
+          this.nativePhosphillator?.soemdsp_phosphillator_set_path,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "phosphillator",
+          status: this.nativePhosphillatorReady ? "ready" : "missing exports",
+        });
+        return;
+      }
       if (name === "tb303_filter" || targetType === "tb303Filter") {
         for (const state of this.tb303FilterStates.values()) {
           this.destroyStereoFilterNativeState(state, (s) => this.destroyTb303FilterNativeState(s));
@@ -1724,6 +1743,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       this.destroyPapoulisFilterNativeState(state);
     }
     this.papoulisFilterStates = new Map();
+    for (const state of this.phosphillatorPlaybackStates.values()) {
+      this.destroyPhosphillatorNativeState(state);
+    }
     this.phosphillatorPlaybackStates = new Map();
     this.phosphillatorDecodedPathCache = new Map();
     this.clockDividerStates = new Map();
@@ -2510,6 +2532,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
     for (const id of [...this.phosphillatorPlaybackStates.keys()]) {
       if (!ids.has(id)) {
+        this.destroyPhosphillatorNativeState(this.phosphillatorPlaybackStates.get(id));
         this.phosphillatorPlaybackStates.delete(id);
         this.phosphillatorDecodedPathCache.delete(id);
       }
@@ -4520,6 +4543,13 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       this.nativePapoulisFilter.soemdsp_papoulis_filter_destroy(state.nativeHandle);
       state.nativeHandle = 0;
     }
+  }
+  destroyPhosphillatorNativeState(state) {
+    if (state.nativeHandle && this.nativePhosphillator?.soemdsp_phosphillator_destroy) {
+      this.nativePhosphillator.soemdsp_phosphillator_destroy(state.nativeHandle);
+      state.nativeHandle = 0;
+    }
+    state.nativePathRef = null;
   }
 
   destroyAliasSineNativeState(state) {

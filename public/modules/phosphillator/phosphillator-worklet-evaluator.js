@@ -12,7 +12,7 @@ NodeLiveAudioProcessor.prototype.unpackPhosphorDrawSampleXY = function unpackPho
   };
 
 NodeLiveAudioProcessor.prototype.createPhosphillatorPlaybackState = function createPhosphillatorPlaybackState() {
-    return { lastReset: false, phase: 0 };
+    return { lastReset: false, phase: 0, nativeHandle: 0, nativePathRef: null, nativePathTooLong: false };
   };
 
 NodeLiveAudioProcessor.prototype.phosphillatorDecodedPath = function phosphillatorDecodedPath(nodeId, node) {
@@ -49,7 +49,7 @@ NodeLiveAudioProcessor.prototype.phosphillatorLoopSample = function phosphillato
     };
   };
 
-NodeLiveAudioProcessor.prototype.phosphillatorPlaybackSample = function phosphillatorPlaybackSample(state, node, nodeId, cvInput, frequency, phaseOffset, reset, rate) {
+NodeLiveAudioProcessor.prototype.phosphillatorPlaybackSampleJs = function phosphillatorPlaybackSampleJs(state, node, nodeId, cvInput, frequency, phaseOffset, reset, rate) {
     const resetActive = Number(reset) > 0.5;
     if (resetActive && !state.lastReset) {
       state.phase = 0;
@@ -65,5 +65,61 @@ NodeLiveAudioProcessor.prototype.phosphillatorPlaybackSample = function phosphil
     const effectivePhase = (((state.phase + (Number(phaseOffset) || 0)) % 1) + 1) % 1;
     const point = this.phosphillatorLoopSample(decoded, effectivePhase);
     return { X: point.x, Y: point.y };
+  };
+
+// Unlike every other native-first wrapper in this codebase, this one has to
+// push a variable-length array into wasm linear memory (the drawn path)
+// before it can call the native sample function -- so the "native path
+// worked" check also covers whether the path fit in the module's fixed
+// kMaxPathPoints buffer, not just whether the .wasm loaded.
+NodeLiveAudioProcessor.prototype.phosphillatorPlaybackSample = function phosphillatorPlaybackSample(state, node, nodeId, cvInput, frequency, phaseOffset, reset, rate) {
+    if (this.nativePhosphillatorReady && !state.nativePathTooLong) {
+      try {
+        if (!state.nativeHandle) {
+          state.nativeHandle = this.nativePhosphillator.soemdsp_phosphillator_create();
+        }
+        if (state.nativeHandle) {
+          const decoded = this.phosphillatorDecodedPath(nodeId, node);
+          if (!decoded) {
+            state.nativePathRef = null;
+            this.nativePhosphillator.soemdsp_phosphillator_clear_path(state.nativeHandle);
+          } else if (state.nativePathRef !== decoded.pointsRef) {
+            const maxPoints = this.nativePhosphillator.soemdsp_phosphillator_max_path_points();
+            if (decoded.count > maxPoints) {
+              state.nativePathTooLong = true;
+              return this.phosphillatorPlaybackSampleJs(state, node, nodeId, cvInput, frequency, phaseOffset, reset, rate);
+            }
+            const xPtr = this.nativePhosphillator.soemdsp_phosphillator_path_x_ptr(state.nativeHandle);
+            const yPtr = this.nativePhosphillator.soemdsp_phosphillator_path_y_ptr(state.nativeHandle);
+            new Float32Array(this.nativePhosphillator.memory.buffer, xPtr, decoded.count).set(decoded.decodedX);
+            new Float32Array(this.nativePhosphillator.memory.buffer, yPtr, decoded.count).set(decoded.decodedY);
+            this.nativePhosphillator.soemdsp_phosphillator_set_path(state.nativeHandle, decoded.count);
+            state.nativePathRef = decoded.pointsRef;
+          }
+          const x = this.nativePhosphillator.soemdsp_phosphillator_sample(
+            state.nativeHandle,
+            this.safeFilterNumber(cvInput, null),
+            this.safeFilterNumber(frequency, null),
+            this.safeFilterNumber(phaseOffset, null),
+            this.safeFilterNumber(reset, null),
+            this.safeFilterNumber(rate, null),
+          );
+          return {
+            X: this.safeFilterNumber(x, null),
+            Y: this.safeFilterNumber(this.nativePhosphillator.soemdsp_phosphillator_y(state.nativeHandle), null),
+          };
+        }
+      } catch (error) {
+        this.nativePhosphillatorReady = false;
+        state.nativeHandle = 0;
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "phosphillator",
+          status: "disabled",
+          message: String(error?.message || error || "native Phosphillator failed"),
+        });
+      }
+    }
+    return this.phosphillatorPlaybackSampleJs(state, node, nodeId, cvInput, frequency, phaseOffset, reset, rate);
   };
 

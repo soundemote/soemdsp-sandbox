@@ -542,6 +542,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "phosphillator",
+      "label": "Phosphillator",
+      "targetType": "phosphillator",
+      "kind": "oscillator",
+      "source": "native_modules/phosphillator/phosphillator.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/phosphillator/phosphillator.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/phosphillator/phosphillator.wasm",
+      "wasmUrl": "native_modules/phosphillator/phosphillator.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "pi_spigot_noise",
       "label": "Pi Spigot Noise",
       "targetType": "piSpigotNoise",
