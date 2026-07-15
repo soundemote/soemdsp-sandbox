@@ -2,6 +2,9 @@
 // offline/render-time algorithm, now living next to the rest of its
 // per-module code instead of the shared file.
 
+const nodeGraphBadValueExplosionLimit = 999999999;
+const nodeGraphBadValueDenormalLimit = 1.1754943508222875e-38;
+
 function nodeGraphBadValueReason(value) {
   const number = Number(value);
   if (Number.isNaN(number)) {

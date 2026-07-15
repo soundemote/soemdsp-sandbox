@@ -1,13 +1,5 @@
-function normalizeNodeSliderCurve(value, nonlinearSlider = false) {
-  const curve = String(value || "").trim().toLowerCase();
-  if (curve === "edges" || curve === "edge" || curve === "s") {
-    return "edges";
-  }
-  if (curve === "skew" || curve === "nonlinear" || curve === "exponential") {
-    return "skew";
-  }
-  return nonlinearSlider ? "skew" : "linear";
-}
+// normalizeNodeSliderCurve now lives in node-graph-slider-metadata.js
+// (this file's copy was byte-for-byte identical).
 
 function normalizeNodeSliderCurveAmount(value, fallback = 0) {
   const number = Number(value);

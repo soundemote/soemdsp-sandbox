@@ -2,6 +2,9 @@
 // offline/render-time algorithm, now living next to the rest of its
 // per-module code instead of the shared file.
 
+const nodeGraphPluckEnvelopeMinValue = 1e-8;
+const nodeGraphPluckEnvelopeMaxFeedback = 1 - 1e-6;
+
 function nodeGraphExponentialCurve(value, skew) {
   const safeValue = clampNodeSliderValue(Number(value) || 0, 0, 1);
   const safeSkew = clampNodeSliderValue(Number(skew) || 0, -0.99, 0.99);

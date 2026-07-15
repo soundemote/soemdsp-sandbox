@@ -2,6 +2,14 @@
 // offline/render-time algorithm, now living next to the rest of its
 // per-module code instead of the shared file.
 
+// Unlike node-live-audio-worklet-core.js, this evaluator runs on the main
+// thread (module groups / offline render), which does have fetch -- so
+// rather than duplicate the 333,333-sample pi-digit dataset in JS, it
+// just loads the same pi_spigot_noise.wasm the worklet uses and calls
+// its exports directly. See pi_spigot_noise.cpp for what that dataset is
+// and why it replaced computing every sample live.
+const nodeGraphPiSpigotNoiseWasm = { promise: null, exports: null, failed: false };
+
 function applyNodeGraphPiSpigotSmoothing(channel, x, smoothing) {
   const safeSmoothing = clampNodeSliderValue(Number(smoothing) || 0, 0, 1);
   if (safeSmoothing <= 0) return x;

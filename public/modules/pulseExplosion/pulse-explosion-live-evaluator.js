@@ -2,6 +2,9 @@
 // offline/render-time algorithm, now living next to the rest of its
 // per-module code instead of the shared file.
 
+const kNodeGraphPulseExplosionMaxPulses = 128;
+const kNodeGraphPulseExplosionMaxRejectionAttempts = 200;
+
 function nodeGraphPulseExplosionRationalCurve(p, skew) {
   let denom = 1 - skew + 2 * skew * p;
   if (denom > -1e-12 && denom < 1e-12) denom = denom >= 0 ? 1e-12 : -1e-12;

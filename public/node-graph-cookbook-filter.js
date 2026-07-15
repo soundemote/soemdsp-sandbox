@@ -205,30 +205,15 @@ function nodeGraphBandpassMagnitudeAt(lowCut, highCut, frequency, sampleRate) {
 // public/modules/ladderFilter/ladder-filter-live-evaluator.js (this file's
 // copies were byte-for-byte identical).
 
-function nodeGraphLadderFilterFeedbackFactor(feedback, cosWc, a) {
-  const b = 1 + a;
-  const denominator = Math.max(1e-12, 1 + a * a + 2 * a * cosWc);
-  const g2 = (b * b) / denominator;
-  return feedback / Math.max(1e-12, g2 * g2);
-}
-
-function nodeGraphLadderFilterCoefficients(frequency, resonance, mode, stages, sampleRate) {
-  const rate = Math.max(1, Number(sampleRate) || Number(globalThis.nodeGraphMvp?.sampleRate) || 44100);
-  const safeFrequency = clampNodeSliderValue(Number(frequency) || 0.000001, 0.000001, Math.min(20000, rate * 0.49));
-  const feedback = clampNodeSliderValue(Number(resonance) || 0, 0, 0.999);
-  const wc = clampNodeSliderValue((2 * Math.PI * safeFrequency) / rate, 1e-9, Math.PI * 0.98);
-  const sine = Math.sin(wc);
-  const cosine = Math.cos(wc);
-  const tangent = Math.tan(0.25 * (wc - Math.PI));
-  let a = tangent / Math.max(1e-12, sine - cosine * tangent);
-  if (!Number.isFinite(a)) {
-    a = -1;
-  }
-  const mix = nodeGraphLadderFilterMix(mode, stages);
-  const k = nodeGraphLadderFilterFeedbackFactor(feedback, cosine, a);
-  const g = 1 + mix.s * k;
-  return { ...mix, a, g, k };
-}
+// nodeGraphLadderFilterFeedbackFactor / nodeGraphLadderFilterCoefficients
+// used to be defined here too, but public/modules/ladderFilter/
+// ladder-filter-live-evaluator.js's script tag loads after this file and
+// redeclares both under the same global names -- meaning this file's own
+// copies were already dead/shadowed code (the call below has actually been
+// resolving to ladderFilter's richer version, with its extra runtime/
+// nodeId/state sanitization params defaulting harmlessly, ever since that
+// module file was added). Removed rather than left as confusing unreachable
+// code; no behavior change, since the shadowing was already in effect.
 
 function nodeGraphComplexMultiply(a, b) {
   return {

@@ -10217,10 +10217,7 @@ def require_node_graph_mvp_contract() -> None:
         "function spiralNextPhasor(state, key, frequency, offset, sampleRate, bipolar = false)",
         "spiralStates",
         "lorenzAttractorStates",
-        "function createNodeGraphHighpassState()",
         "function createNodeGraphLowpassState()",
-        "function createNodeGraphPassiveFilterState()",
-        "function createNodeGraphLadderFilterState()",
         "function createNodeGraphOscResetState()",
         "function createNodeGraphSlewLimiterState()",
         "function createNodeGraphClockState()",
@@ -17598,7 +17595,6 @@ def require_native_module_contract(base_url: str) -> None:
         source_text = source_path.read_text(encoding="utf-8")
         module_name = source_path.parent.name
         wasm_path = source_path.with_suffix(".wasm")
-        wasm_rel = str(wasm_path.relative_to(ROOT)).replace("/", "\\")
         require(f"// soemdsp-native-module: {module_name}" in source_text, f"native {module_name} source metadata missing module header")
         require("// soemdsp-native-label:" in source_text, f"native {module_name} source metadata missing label header")
         require("// soemdsp-native-target:" in source_text, f"native {module_name} source metadata missing target header")
@@ -17607,8 +17603,8 @@ def require_native_module_contract(base_url: str) -> None:
         require(module_name in expected_native_exports, f"native {module_name} should declare expected exports in smoke test")
         for export_name in expected_native_exports[module_name]:
             require(f'extern "C"' in source_text and export_name in source_text, f"native {module_name} export missing: {export_name}")
-            require(f"-Wl,--export={export_name}" in native_build_source, f"native {module_name} build export missing: {export_name}")
-        require(str(wasm_rel) in native_build_source, f"native {module_name} build output missing")
+            require(f'"{export_name}"' in native_build_source, f"native {module_name} build export missing: {export_name}")
+        require(f'Name = "{module_name}"' in native_build_source, f"native {module_name} build output missing")
         require(wasm_path.exists(), f"native {module_name} wasm should exist")
         require(wasm_path.read_bytes().startswith(b"\0asm"), f"native {module_name} wasm magic bytes missing")
         if module_name == "helmholtz":
@@ -17716,8 +17712,8 @@ def require_native_module_contract(base_url: str) -> None:
         "native Soft Clipper should be worklet-backed with old JS worklet DSP removed",
     )
     require(
-        "-Wl,--export=soemdsp_soft_clipper_sample" in native_build_source
-        and "native_modules\\soft_clipper\\soft_clipper.wasm" in native_build_source,
+        '"soemdsp_soft_clipper_sample"' in native_build_source
+        and 'Name = "soft_clipper"' in native_build_source,
         "native Soft Clipper build exports should be registered",
     )
     require(

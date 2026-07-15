@@ -141,36 +141,10 @@ function nodeGraphVisualControlSignedValue(value, fallback = 0) {
   return Math.max(-1, Math.min(1, number));
 }
 
-function nodeGraphVisualHslToRgb(hue, saturation, lightness) {
-  const h = ((Number(hue) || 0) % 1 + 1) % 1;
-  const s = Math.max(0, Math.min(1, Number(saturation) || 0));
-  const l = Math.max(0, Math.min(1, Number(lightness) || 0));
-  if (s <= 0) {
-    return [l, l, l];
-  }
-  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-  const p = 2 * l - q;
-  const channel = (offset) => {
-    let t = h + offset;
-    if (t < 0) {
-      t += 1;
-    }
-    if (t > 1) {
-      t -= 1;
-    }
-    if (t < 1 / 6) {
-      return p + (q - p) * 6 * t;
-    }
-    if (t < 1 / 2) {
-      return q;
-    }
-    if (t < 2 / 3) {
-      return p + (q - p) * (2 / 3 - t) * 6;
-    }
-    return p;
-  };
-  return [channel(1 / 3), channel(0), channel(-1 / 3)];
-}
+// nodeGraphVisualHslToRgb now lives in
+// public/modules/rgbaHsla/rgba-hsla-live-evaluator.js (this file's copy
+// was byte-for-byte equivalent -- Math.max/min(0,1) vs clampNodeSliderValue
+// to the same range).
 
 function nodeGraphSetVisualControls(values = {}) {
   const current = nodeGraphMvp.visualControls || {};
