@@ -3,7 +3,11 @@
 // soemdsp-native-target: chordSequencer
 // soemdsp-native-kind: pitch
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
+
+using namespace soemdsp_maths;
 
 static const int kMaxInstances = 32;
 static const int kStepsPerProgression = 4;
@@ -43,10 +47,6 @@ int rotateLeft12(int mask, int amount) {
   const int n = ((amount % 12) + 12) % 12;
   if (n == 0) return mask & 0xFFF;
   return ((mask << n) | (mask >> (12 - n))) & 0xFFF;
-}
-
-int clampInt(int v, int lo, int hi) {
-  return v < lo ? lo : (v > hi ? hi : v);
 }
 
 }  // namespace
@@ -96,7 +96,7 @@ extern "C" void soemdsp_chord_sequencer_sample(
 extern "C" int soemdsp_chord_sequencer_scale(int handle, double progression) {
   if (handle < 1 || handle > kMaxInstances) return 0;
   const ChordSequencerState& s = gPool[handle - 1];
-  const int prog = clampInt((int)progression, 0, kProgressionCount - 1);
+  const int prog = clamp_int((int)progression, 0, kProgressionCount - 1);
   const ChordStep& step = kProgressions[prog][s.stepIndex];
   const int baseMask = step.quality == 0 ? kMajorTriadMask : kMinorTriadMask;
   return rotateLeft12(baseMask, step.root);
@@ -105,7 +105,7 @@ extern "C" int soemdsp_chord_sequencer_scale(int handle, double progression) {
 extern "C" double soemdsp_chord_sequencer_root(int handle, double progression) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
   const ChordSequencerState& s = gPool[handle - 1];
-  const int prog = clampInt((int)progression, 0, kProgressionCount - 1);
+  const int prog = clamp_int((int)progression, 0, kProgressionCount - 1);
   const ChordStep& step = kProgressions[prog][s.stepIndex];
   return (60.0 + step.root) / 120.0;
 }

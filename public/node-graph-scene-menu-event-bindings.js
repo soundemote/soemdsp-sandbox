@@ -56,6 +56,9 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeSceneOpenSavedPatches", "click", () => {
     setNodeGraphSavedPatchesWindowVisible(true);
   });
+  bindNodeGraphSceneElementEvent("nodeSceneCopyPatch", "click", copyNodeGraphScriptToClipboard);
+  bindNodeGraphSceneElementEvent("nodeScenePastePatch", "click", pasteNodeGraphScriptFromClipboard);
+  bindNodeGraphSceneElementEvent("nodeSceneSharePatch", "click", copyNodeGraphShareLinkToClipboard);
   bindNodeGraphSceneElementEvent("nodeSceneOpenUiSettings", "click", () => {
     setNodeUserUiSettingsVisible(true);
   });

@@ -17,6 +17,25 @@ function syncNodeGraphHeaderTimingWidgets() {
   }
 }
 
+// Keeps every transport node's own "BPM" parameter mirrored to the patch-wide
+// tempo -- transport nodes have no independent tempo of their own, the param
+// exists so the node can display/edit the same global value in place. Mutates
+// the given patch object in place; caller is expected to pass a clone that's
+// about to be committed (matches updateNodeGraphPatchTimingFromHeader's own
+// clone-then-commit shape).
+function syncNodeGraphTransportBpmParams(patch, timing) {
+  const tempoBpm = normalizeNodeGraphPatchTiming(timing).tempoBpm;
+  for (const node of patch?.nodes || []) {
+    if (node.type !== "transport") {
+      continue;
+    }
+    node.params = {
+      ...(node.params || {}),
+      bpm: normalizeNodeGraphPatchParameter(node.type, "bpm", tempoBpm, node.paramMeta?.bpm),
+    };
+  }
+}
+
 function updateNodeGraphPatchTimingFromHeader(input) {
   const key = input?.dataset?.timingField;
   if (!key) {
@@ -37,6 +56,7 @@ function updateNodeGraphPatchTimingFromHeader(input) {
   }
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   patch.timing = next;
+  syncNodeGraphTransportBpmParams(patch, next);
   commitNodeGraphPatch(patch, {
     markPending: false,
     status: "timing synced",
@@ -246,6 +266,7 @@ function handleNodeGraphTapTempo() {
     ...patch.timing,
     tempoBpm,
   });
+  syncNodeGraphTransportBpmParams(patch, patch.timing);
   commitNodeGraphPatch(patch, {
     markPending: false,
     status: "tap tempo synced",

@@ -20,77 +20,17 @@
 // (a typical presence-shaping bell default) are used here, documented
 // rather than silently guessed as exact.
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
 
+using namespace soemdsp_maths;
+
 static const int kMaxInstances = 32;
-static const double kPi     = 3.141592653589793238;
-static const double kTwoPi  = 6.283185307179586476;
-static const double kHalfPi = 1.5707963267948966192;
-
-union DoubleBits {
-  double d;
-  unsigned long long u;
-};
-
-static double poly_sin_0_halfpi(double x) {
-  const double x2 = x * x;
-  return x * (1.0 + x2 * (-1.6666666666666667e-1 + x2 * (8.3333333333333329e-3 + x2 * (-1.9841269841269841e-4 + x2 * (2.7557319223985888e-6 + x2 * (-2.5052108385441720e-8 + x2 * 1.6059043836821614e-10))))));
-}
-
-static double dsp_sin_0_pi(double x) {
-  if (x > kHalfPi) x = kPi - x;
-  return poly_sin_0_halfpi(x);
-}
-
-static double dsp_cos_0_pi(double x) {
-  double y = kHalfPi - x;
-  if (y < 0.0) return -poly_sin_0_halfpi(-y);
-  return poly_sin_0_halfpi(y);
-}
-
-static double dsp_tan_neg_halfquarter(double x) {
-  const double ax = -x;
-  const double s = poly_sin_0_halfpi(ax);
-  const double c = poly_sin_0_halfpi(kHalfPi - ax);
-  return (c == 0.0) ? -1e15 : -(s / c);
-}
-
 static inline double dsp_tan_0_halfpi(double x) {
   double s = dsp_sin_0_pi(x);
   double c = dsp_cos_0_pi(x);
   return (c == 0.0) ? 1e15 : s / c;
-}
-
-static inline double dsp_floor(double x) {
-  double xi = (double)(long long)x;
-  return (x < xi) ? xi - 1.0 : xi;
-}
-
-static double pow2_frac(double f) {
-  const double c1 = 0.6931471805599453, c2 = 0.2402265069591007,
-               c3 = 0.05550410866482158, c4 = 0.009618129107628477,
-               c5 = 0.001333355814670365, c6 = 0.0001540353039338161;
-  return 1.0 + f * (c1 + f * (c2 + f * (c3 + f * (c4 + f * (c5 + f * c6)))));
-}
-
-static double dsp_exp2(double x) {
-  double xi = dsp_floor(x);
-  double f = x - xi;
-  double p = pow2_frac(f);
-  long long n = (long long)xi;
-  DoubleBits bits;
-  bits.d = p;
-  long long expBits = (long long)((bits.u >> 52) & 0x7FF);
-  expBits += n;
-  if (expBits < 1) expBits = 1;
-  if (expBits > 2046) expBits = 2046;
-  bits.u = (bits.u & ~(0x7FFULL << 52)) | ((unsigned long long)expBits << 52);
-  return bits.d;
-}
-
-static inline double dsp_exp(double x) {
-  double clamped = x < -40.0 ? -40.0 : (x > 40.0 ? 40.0 : x);
-  return dsp_exp2(clamped * 1.4426950408889634);
 }
 
 static double dsp_ln(double x) {
@@ -105,13 +45,6 @@ static double dsp_ln(double x) {
   double t2 = t * t;
   double series = t * (1.0 + t2 * (1.0 / 3.0 + t2 * (1.0 / 5.0 + t2 * (1.0 / 7.0 + t2 * (1.0 / 9.0)))));
   return (double)e * 0.6931471805599453 + 2.0 * series;
-}
-
-static inline double dsp_sin(double x) {
-  double wrapped = x - kTwoPi * dsp_floor(x / kTwoPi);
-  double sign = 1.0;
-  if (wrapped >= kPi) { wrapped -= kPi; sign = -1.0; }
-  return sign * dsp_sin_0_pi(wrapped);
 }
 
 static inline double clampd(double v, double lo, double hi) {
@@ -130,37 +63,21 @@ static inline double dbToAmp(double db) {
   return dsp_exp2(db / 6.0205999132796239);  // 10^(db/20) = 2^(db/(20/log2(10)))
 }
 
-static inline double rationalCurve(double p, double skew) {
-  return ((1.0 + skew) * p) / (1.0 - skew + 2.0 * skew * p);
-}
-
+// Rev/mode shaping curves are literal soemdsp::utility::Graph node lists
+// (shape 1=RATIONAL, 2=EXPONENTIAL, else LINEAR, matching Graph::Shape's
+// enum ordinals) -- built directly as a Graph instead of a bespoke walker.
 struct GraphNode {
   double x, y, skew;
-  int shape;  // 0=linear, 1=RATIONAL, 2=EXPONENTIAL
+  int shape;
 };
 
 static double evalGraph(const GraphNode* nodes, int count, double x) {
-  if (count <= 0) return 0.0;
-  if (x < nodes[0].x) return nodes[0].y;
-  int i = -1;
-  for (int k = 0; k < count; k++) {
-    if (nodes[k].x > x) { i = k; break; }
+  Graph g;
+  for (int i = 0; i < count; i++) {
+    g.addNode(nodes[i].x, nodes[i].y, nodes[i].skew, (Graph::Shape)nodes[i].shape);
   }
-  if (i < 0) return nodes[count - 1].y;
-  if (i == 0) return nodes[0].y;
-  const GraphNode& n1 = nodes[i - 1];
-  const GraphNode& n2 = nodes[i];
-  if (n2.x - n1.x < 1e-9) return 0.5 * (n1.y + n2.y);
-  double p = (x - n1.x) / (n2.x - n1.x);
-  if (n2.shape == 1) return n1.y + (n2.y - n1.y) * rationalCurve(p, n2.skew);
-  if (n2.shape == 2) {
-    double c = 0.5 * (n2.skew + 1.0);
-    double a = 2.0 * dsp_ln((1.0 - c) / c);
-    return n1.y + (n2.y - n1.y) * (1.0 - dsp_exp(p * a)) / (1.0 - dsp_exp(a));
-  }
-  return n1.y + (n2.y - n1.y) * p;
+  return g.getValue(x);
 }
-
 static double ladderTapStep(double y[5], double input, double a, int mode, int stages) {
   double c[5] = {0, 0, 0, 0, 0};
   if (mode == 1) {

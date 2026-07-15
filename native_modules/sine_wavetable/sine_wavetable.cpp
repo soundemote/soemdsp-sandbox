@@ -11,7 +11,11 @@
 // -- strictly more accurate than the table's linear-interpolation
 // quantization, not less.
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
+
+using namespace soemdsp_maths;
 
 static const char kMetadataJson[] =
   "{"
@@ -29,44 +33,6 @@ static const char kMetadataJson[] =
   "}";
 
 static const int kMaxInstances = 64;
-static const double kPi     = 3.141592653589793238;
-static const double kTwoPi  = 6.283185307179586476;
-static const double kHalfPi = 1.5707963267948966192;
-
-static double poly_sin_0_halfpi(double x) {
-  const double x2 = x * x;
-  return x * (1.0 + x2 * (-1.6666666666666667e-1 + x2 * (8.3333333333333329e-3 + x2 * (-1.9841269841269841e-4 + x2 * (2.7557319223985888e-6 + x2 * (-2.5052108385441720e-8 + x2 * 1.6059043836821614e-10))))));
-}
-
-static double dsp_sin_0_pi(double x) {
-  if (x > kHalfPi) x = kPi - x;
-  return poly_sin_0_halfpi(x);
-}
-
-static inline double dsp_floor(double x) {
-  double xi = (double)(long long)x;
-  return (x < xi) ? xi - 1.0 : xi;
-}
-
-static double dsp_sin(double x) {
-  double wrapped = x - kTwoPi * dsp_floor(x / kTwoPi);
-  double sign = 1.0;
-  if (wrapped >= kPi) {
-    wrapped -= kPi;
-    sign = -1.0;
-  }
-  return sign * dsp_sin_0_pi(wrapped);
-}
-
-static double dsp_cos(double x) {
-  return dsp_sin(x + kHalfPi);
-}
-
-static inline double safe(double x) { return x * 0.0 == 0.0 ? x : 0.0; }
-static inline double clamp(double x, double lo, double hi) { return x < lo ? lo : (x > hi ? hi : x); }
-static inline double maxd(double a, double b) { return a > b ? a : b; }
-static inline double mind(double a, double b) { return a < b ? a : b; }
-
 static double smoothstep01(double value) {
   double t = clamp(value, 0.0, 1.0);
   return t * t * (3.0 - 2.0 * t);

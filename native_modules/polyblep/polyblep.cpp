@@ -3,10 +3,12 @@
 // soemdsp-native-target: polyBlep
 // soemdsp-native-kind: oscillator
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
 
-constexpr double kPi = 3.1415926535897932384626433832795;
-constexpr double kTwoPi = kPi * 2.0;
+using namespace soemdsp_maths;
+
 constexpr int kMaxInstances = 16;
 // Slot 0 is the currently-selected waveform (driven by the Waveform
 // parameter); slots 1-5 are the always-on Saw/Ramp/Square/Tri/Sine taps that
@@ -39,13 +41,6 @@ static PolyBlepState gPool[kMaxInstances];
 
 double clampD(double value, double lo, double hi) {
   return value < lo ? lo : (value > hi ? hi : value);
-}
-
-double wrap01(double value) {
-  double f = value - __builtin_floor(value);
-  if (f < 0.0) f += 1.0;
-  if (f >= 1.0) f -= 1.0;
-  return f;
 }
 
 double wrapRadians(double value) {

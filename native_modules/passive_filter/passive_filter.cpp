@@ -9,7 +9,11 @@
 // mode 1 = HP  (uses lowFrequency as cutoff)
 // mode 2 = BP  (HP at lowFrequency, then LP at highFrequency)
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
+
+using namespace soemdsp_maths;
 
 static const char kMetadataJson[] =
   "{"
@@ -59,8 +63,6 @@ static const char kMetadataJson[] =
   "}";
 
 static const int kMaxInstances = 64;
-static const double kTwoPi     = 6.283185307179586476;
-
 struct PassiveState {
   double lpOut;   // LP stage output
   double hpOut;   // HP stage output
@@ -69,16 +71,6 @@ struct PassiveState {
 };
 
 static PassiveState gPool[kMaxInstances];
-
-static inline double safe(double x) { return x * 0.0 == 0.0 ? x : 0.0; }
-
-// exp(x) via x/4 then square twice — accurate for |x| <= 4
-static double dsp_exp(double x) {
-  double y = x * 0.25;
-  double t = 1.0 + y*(1.0 + y*(0.5 + y*(1.0/6.0 + y*(1.0/24.0 + y*(1.0/120.0 + y*(1.0/720.0 + y/5040.0))))));
-  t *= t; t *= t;
-  return t;
-}
 
 }  // namespace
 
@@ -122,7 +114,7 @@ extern "C" double soemdsp_passive_filter_sample(
     const double hpFreq = lowFrequency < 0.0 ? 0.0 : (lowFrequency > 20000.0 ? 20000.0 : lowFrequency);
     const double hpW  = hpFreq * kTwoPi / rate;
     const double hpWc = hpW > maxW ? maxW : hpW;
-    const double hpA1 = dsp_exp(-hpWc);
+    const double hpA1 = dsp_exp_squaring(-hpWc);
     const double hpB0 = 0.5 * (1.0 + hpA1);
     s.hpOut = safe(hpB0 * safeIn - hpB0 * s.hpIn + hpA1 * s.hpOut);
     s.hpIn  = safeIn;
@@ -130,7 +122,7 @@ extern "C" double soemdsp_passive_filter_sample(
     const double lpFreq = highFrequency < 0.0 ? 0.0 : (highFrequency > 20000.0 ? 20000.0 : highFrequency);
     const double lpW  = lpFreq * kTwoPi / rate;
     const double lpWc = lpW > maxW ? maxW : lpW;
-    const double lpA1 = dsp_exp(-lpWc);
+    const double lpA1 = dsp_exp_squaring(-lpWc);
     const double lpB0 = 1.0 - lpA1;
     s.lpOut = safe(lpB0 * s.hpOut + lpA1 * s.lpOut);
     return s.lpOut;
@@ -141,7 +133,7 @@ extern "C" double soemdsp_passive_filter_sample(
     const double freq = lowFrequency < 0.0 ? 0.0 : (lowFrequency > 20000.0 ? 20000.0 : lowFrequency);
     const double w  = freq * kTwoPi / rate;
     const double wc = w > maxW ? maxW : w;
-    const double a1 = dsp_exp(-wc);
+    const double a1 = dsp_exp_squaring(-wc);
     const double b0 = 0.5 * (1.0 + a1);
     s.hpOut = safe(b0 * safeIn - b0 * s.hpIn + a1 * s.hpOut);
     s.hpIn  = safeIn;
@@ -152,7 +144,7 @@ extern "C" double soemdsp_passive_filter_sample(
   const double freq = highFrequency < 0.0 ? 0.0 : (highFrequency > 20000.0 ? 20000.0 : highFrequency);
   const double w  = freq * kTwoPi / rate;
   const double wc = w > maxW ? maxW : w;
-  const double a1 = dsp_exp(-wc);
+  const double a1 = dsp_exp_squaring(-wc);
   const double b0 = 1.0 - a1;
   s.lpOut = safe(b0 * safeIn + a1 * s.lpOut);
   return s.lpOut;

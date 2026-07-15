@@ -55,7 +55,11 @@
 
 #include "pi_digits_data.inc"
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
+
+using namespace soemdsp_maths;
 
 static const char kMetadataJson[] =
   "{"
@@ -117,7 +121,6 @@ struct PiSpigotNoiseState {
 
 static PiSpigotNoiseState gPool[kMaxInstances];
 
-static inline double clampd(double x, double lo, double hi) { return x < lo ? lo : (x > hi ? hi : x); }
 static inline int clampi(int x, int lo, int hi) { return x < lo ? lo : (x > hi ? hi : x); }
 
 // --- BBP spigot digit-extraction (see file header, capability #2) ---
@@ -185,7 +188,7 @@ static void resetChannelColorFilters(PiSpigotNoiseChannel& c) {
 }
 
 static void seedChannel(PiSpigotNoiseChannel& c, double seedFraction) {
-  double safeSeed = clampd(seedFraction, 0.0, 1.0);
+  double safeSeed = clamp(seedFraction, 0.0, 1.0);
   c.phase = safeSeed * (double)kPiDigitSampleCount;
   resetChannelColorFilters(c);
 }
@@ -209,7 +212,7 @@ static double applyColor(PiSpigotNoiseChannel& c, double white, int color) {
     return out;
   }
   if (color == 2) {
-    c.brown = clampd(c.brown + white * 0.05, -1.0, 1.0);
+    c.brown = clamp(c.brown + white * 0.05, -1.0, 1.0);
     return c.brown;
   }
   if (color == 3) {
@@ -238,7 +241,7 @@ static const double kSmoothMinG = 0.02;
 static const double kLnSmoothMinG = -3.912023005428146;  // ln(0.02)
 
 static double applySmoothing(PiSpigotNoiseChannel& c, double x, double smoothing) {
-  double safeSmoothing = clampd(smoothing, 0.0, 1.0);
+  double safeSmoothing = clamp(smoothing, 0.0, 1.0);
   if (safeSmoothing <= 0.0) return x;
   double g = dsp_exp(safeSmoothing * kLnSmoothMinG);
   double y = x;

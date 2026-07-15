@@ -15,7 +15,11 @@
 // string hash, not per-sample DSP -- same call as randomWalk's seed key,
 // computed once JS-side and passed in as a plain integer.
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
+
+using namespace soemdsp_maths;
 
 static const char kMetadataJson[] =
   "{"
@@ -42,32 +46,9 @@ static const double kMaxDelaySeconds = 4.25;
 // 4.25s @ 192kHz -- comfortably above any realistic Web Audio sample rate.
 static const int kMaxDelaySamples = 816002;
 
-static inline double safe(double x) { return x * 0.0 == 0.0 ? x : 0.0; }
-static inline double clamp(double x, double lo, double hi) { return x < lo ? lo : (x > hi ? hi : x); }
-static inline double maxd(double a, double b) { return a > b ? a : b; }
-static inline double mind(double a, double b) { return a < b ? a : b; }
-static inline double dsp_floor(double x) {
-  double xi = (double)(long long)x;
-  return (x < xi) ? xi - 1.0 : xi;
-}
-
-static inline double dsp_ceil(double x) {
-  return -dsp_floor(-x);
-}
-
 static double delay_parabol_sample(double phase) {
   const double wrapped = phase - dsp_floor(phase);
   return wrapped < 0.5 ? wrapped * 4.0 - 1.0 : 3.0 - wrapped * 4.0;
-}
-
-// MurmurHash3 fmix32, matching the JS hashBipolar bit-for-bit (unsigned
-// 32-bit multiply/xor wraps identically to Math.imul in JS).
-static double hash_bipolar(unsigned int index, unsigned int seed) {
-  unsigned int value = index ^ seed;
-  value = (unsigned int)(value ^ (value >> 16)); value = (unsigned int)(value * 2246822507u);
-  value = (unsigned int)(value ^ (value >> 13)); value = (unsigned int)(value * 3266489909u);
-  value = (unsigned int)(value ^ (value >> 16));
-  return ((double)value / 4294967295.0) * 2.0 - 1.0;
 }
 
 struct DelayState {

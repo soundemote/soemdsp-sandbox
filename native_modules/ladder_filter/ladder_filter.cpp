@@ -4,12 +4,13 @@
 // soemdsp-native-kind: filter
 // soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
 
+using namespace soemdsp_maths;
+
 static const int kMaxInstances = 64;
-static const double kPi     = 3.141592653589793238;
-static const double kTwoPi  = 6.283185307179586476;
-static const double kHalfPi = 1.5707963267948966192;
 
 static const char kMetadataJson[] =
   "{"
@@ -73,38 +74,6 @@ struct LadderState {
 };
 
 static LadderState gPool[kMaxInstances];
-
-static inline double safe(double x) {
-  return (x * 0.0 == 0.0) ? x : 0.0;
-}
-
-static double poly_sin_0_halfpi(double x) {
-  const double x2 = x * x;
-  return x * (1.0 + x2 * (-1.6666666666666667e-1 + x2 * (8.3333333333333329e-3 + x2 * (-1.9841269841269841e-4 + x2 * (2.7557319223985888e-6 + x2 * (-2.5052108385441720e-8 + x2 * 1.6059043836821614e-10))))));
-}
-
-// x must be in [0, pi]
-static double dsp_sin(double x) {
-  if (x > kHalfPi) x = kPi - x;
-  return poly_sin_0_halfpi(x);
-}
-
-// x must be in [0, pi]
-static double dsp_cos(double x) {
-  double y = kHalfPi - x;
-  if (y < 0.0) {
-    return -poly_sin_0_halfpi(-y);
-  }
-  return poly_sin_0_halfpi(y);
-}
-
-// x must be in (-pi/2, 0] — our use case: 0.25*(wc - pi) for wc in [1e-9, 0.98*pi]
-static double dsp_tan_neg_halfquarter(double x) {
-  const double ax = -x;
-  const double s = poly_sin_0_halfpi(ax);
-  const double c = poly_sin_0_halfpi(kHalfPi - ax);
-  return (c == 0.0) ? -1e15 : -(s / c);
-}
 
 static void compute_mix(int mode, int stages, double c[5], double* s_out) {
   for (int i = 0; i < 5; i++) c[i] = 0.0;
@@ -177,8 +146,8 @@ extern "C" double soemdsp_ladder_filter_sample(
   const double rawWc    = 2.0 * kPi * safeFreq / safeRate;
   const double wc       = rawWc < 1e-9 ? 1e-9 : (rawWc > kPi * 0.98 ? kPi * 0.98 : rawWc);
 
-  const double sine    = dsp_sin(wc);
-  const double cosine  = dsp_cos(wc);
+  const double sine    = dsp_sin_0_pi(wc);
+  const double cosine  = dsp_cos_0_pi(wc);
   const double tangent = dsp_tan_neg_halfquarter(0.25 * (wc - kPi));
 
   double a = (sine - cosine * tangent);

@@ -5,7 +5,11 @@
 
 #include <wasm_simd128.h>
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
+
+using namespace soemdsp_maths;
 constexpr int kDelayCount = 14;
 constexpr int kDiffusionCount = 12;
 constexpr int kMaxInstances = 2;
@@ -19,16 +23,6 @@ constexpr double kParamSmoothSeconds = 0.05;
 // used by fractal_brownian_noise's process_block API. 2048 covers any
 // AudioWorklet render quantum with a large safety margin.
 constexpr int kMaxBlockFrames = 2048;
-
-double clamp(double value, double minValue, double maxValue) {
-  if (value < minValue) {
-    return minValue;
-  }
-  if (value > maxValue) {
-    return maxValue;
-  }
-  return value;
-}
 
 bool finite(double value) {
   return value == value && value > -1.0e12 && value < 1.0e12;

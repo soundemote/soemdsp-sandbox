@@ -3,7 +3,11 @@
 // soemdsp-native-target: henonMap
 // soemdsp-native-kind: chaos
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
+
+using namespace soemdsp_maths;
 
 static const int kMaxInstances = 32;
 static const int kMaxIterationsPerSample = 4096;
@@ -17,14 +21,6 @@ struct HenonMapState {
 };
 
 static HenonMapState gPool[kMaxInstances];
-
-double clamp(double v, double lo, double hi) {
-  return v < lo ? lo : (v > hi ? hi : v);
-}
-
-double safe(double v) {
-  return (v == v && v > -1.0e300 && v < 1.0e300) ? v : 0.0;
-}
 
 }  // namespace
 
@@ -63,13 +59,13 @@ extern "C" void soemdsp_henon_map_sample(
 
   const bool resetActive = reset > 0.0;
   const double safeRate = rate > 0.0 ? rate : 0.0;
-  const double safeA = clamp(safe(a), 0.0, 2.0);
-  const double safeB = clamp(safe(b), -1.0, 1.0);
+  const double safeA = clamp(safe_bounded(a), 0.0, 2.0);
+  const double safeB = clamp(safe_bounded(b), -1.0, 1.0);
   const double rateHz = sampleRate < 1.0 ? 1.0 : sampleRate;
 
   if (resetActive || !s.hasStarted) {
-    s.x = clamp(safe(seedX), -1.0, 1.0);
-    s.y = clamp(safe(seedY), -1.0, 1.0);
+    s.x = clamp(safe_bounded(seedX), -1.0, 1.0);
+    s.y = clamp(safe_bounded(seedY), -1.0, 1.0);
     s.phase = 0.0;
     s.hasStarted = true;
   }
@@ -81,8 +77,8 @@ extern "C" void soemdsp_henon_map_sample(
       s.phase -= 1.0;
       const double nextX = 1.0 - safeA * s.x * s.x + s.y;
       const double nextY = safeB * s.x;
-      s.x = clamp(safe(nextX), -4.0, 4.0);
-      s.y = clamp(safe(nextY), -4.0, 4.0);
+      s.x = clamp(safe_bounded(nextX), -4.0, 4.0);
+      s.y = clamp(safe_bounded(nextY), -4.0, 4.0);
       iterations++;
     }
     if (s.phase >= 1.0) {

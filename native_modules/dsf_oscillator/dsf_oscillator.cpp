@@ -72,19 +72,14 @@
 // every waveform's shape and DC symmetry consistent from 20 Hz to
 // 18 kHz, where the fixed-retention version was measurably distorted.
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
 
-constexpr double kPi = 3.1415926535897932384626433832795;
+using namespace soemdsp_maths;
 
 double clampD(double value, double lo, double hi) {
   return value < lo ? lo : (value > hi ? hi : value);
-}
-
-double wrap01(double value) {
-  double f = value - __builtin_floor(value);
-  if (f < 0.0) f += 1.0;
-  if (f >= 1.0) f -= 1.0;
-  return f;
 }
 
 // Single-shot range reduction (round to nearest multiple of 2*pi and

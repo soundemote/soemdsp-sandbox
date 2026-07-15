@@ -1083,7 +1083,9 @@ function configureNodeSceneContextMenu(mode) {
     aliasControl.hidden = multiModuleMode;
     aliasInput.disabled = !targetNode || multiModuleMode;
     if (document.activeElement !== aliasInput) {
-      aliasInput.value = targetNode && !multiModuleMode ? normalizeNodeGraphPatchNodeAlias(targetNode.alias) : "";
+      aliasInput.value = targetNode && !multiModuleMode
+        ? normalizeNodeGraphPatchNodeAlias(targetNode.alias) || nodeGraphDefaultNodeTitle(targetNode.type, targetNode.id)
+        : "";
     }
     aliasInput.placeholder = targetNode && !multiModuleMode ? nodeGraphDefaultNodeTitle(targetNode.type, targetNode.id) : "module title alias";
     aliasInput.title = nodeGraphTooltipText("actions.moduleAlias");
@@ -1170,7 +1172,7 @@ function configureNodeSceneContextMenu(mode) {
       : "Disable this module.";
     if (nativeCodeButton) {
       nativeCodeButton.disabled = !nativeCodeEntry;
-      nativeCodeButton.querySelector("span").textContent = "SRC";
+      nativeCodeButton.querySelector("span").textContent = "Code";
       nativeCodeButton.title = nativeCodeEntry
         ? `Open ${nativeCodeEntry.source || "source"}.`
         : "Source unavailable.";

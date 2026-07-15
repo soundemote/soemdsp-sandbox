@@ -11,7 +11,11 @@
 //   - 0.125 input scale / 8.0 output scale (303 gain staging)
 //   - 15 output taps: LP/HP/BP at 6/12/18/24 dB per octave
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
+
+using namespace soemdsp_maths;
 
 static const char kMetadataJson[] =
   "{"
@@ -74,9 +78,6 @@ static const char kMetadataJson[] =
   "}";
 
 static const int    kMaxInstances = 64;
-static const double kPi           = 3.141592653589793238;
-static const double kTwoPi        = 6.283185307179586476;
-static const double kHalfPi       = 1.5707963267948966192;
 static const double kHpCutoff     = 150.0;
 static const double kExpNeg3      = 0.049787068367863944;   // exp(-3), precomputed
 
@@ -92,43 +93,13 @@ struct TeeBeeState {
 
 static TeeBeeState gPool[kMaxInstances];
 
-static inline double safe(double x)  { return x * 0.0 == 0.0 ? x : 0.0; }
-static inline double clamp(double x, double lo, double hi) { return x < lo ? lo : (x > hi ? hi : x); }
-
-// exp(x) via x/4 then square twice — accurate for |x| <= 4
-static double dsp_exp(double x) {
-  double y = x * 0.25;
-  double t = 1.0 + y*(1.0 + y*(0.5 + y*(1.0/6.0 + y*(1.0/24.0 + y*(1.0/120.0 + y*(1.0/720.0 + y/5040.0))))));
-  t *= t; t *= t;
-  return t;
-}
-
-// sin polynomial for u in [0, pi/2]
-static double poly_sin(double u) {
-  const double u2 = u * u;
-  return u * (1.0 + u2 * (-1.6666666666666667e-1 + u2 * (8.3333333333333329e-3 + u2 * (-1.9841269841269841e-4 + u2 * (2.7557319223985888e-6 + u2 * (-2.5052108385441720e-8 + u2 * 1.6059043836821614e-10))))));
-}
-
-static double dsp_sin(double x) {  // x in [0, pi]
-  if (x > kHalfPi) x = kPi - x;
-  return poly_sin(x);
-}
-
-static double dsp_cos(double x) {  // x in [0, pi]
-  double y = kHalfPi - x;
-  return y < 0.0 ? -poly_sin(-y) : poly_sin(y);
-}
-
-// tan(x) for x in (-pi/2, 0] — used for 0.25*(wc - pi) which is always in this range
-static double dsp_tan_neg(double x) {
-  double ax = -x;
-  double s  = poly_sin(ax);
-  double c  = poly_sin(kHalfPi - ax);
-  return c == 0.0 ? -1e15 : -(s / c);
-}
+// sin/cos/tan over [0, pi] and dsp_exp_squaring now live in
+// sandbox_native_maths.h (this file's copies were byte-for-byte identical
+// modulo the poly_sin/poly_sin_0_halfpi and dsp_tan_neg/dsp_tan_neg_halfquarter
+// naming).
 
 static void update_hp(TeeBeeState& s, double rate) {
-  s.hpP    = dsp_exp(-kTwoPi * kHpCutoff / rate);
+  s.hpP    = dsp_exp_squaring(-kTwoPi * kHpCutoff / rate);
   s.hpB0   = (1.0 + s.hpP) * 0.5;
   s.lastRate = rate;
 }
@@ -200,22 +171,22 @@ extern "C" double soemdsp_tb303_filter_sample(
   const double maxFreq     = rate * 0.49 < 20000.0 ? rate * 0.49 : 20000.0;
   const double safeCutoff  = clamp(cutoff, 200.0, maxFreq);
   const double r_raw       = clamp(resonance * 0.01, 0.0, 1.0);
-  const double driveFactor = dsp_exp(clamp(drive, -24.0, 24.0) * 0.11512925465);
+  const double driveFactor = dsp_exp_squaring(clamp(drive, -24.0, 24.0) * 0.11512925465);
 
   // resonance skewing: (1 - exp(-3*r)) / (1 - exp(-3))
-  const double r = (1.0 - dsp_exp(-3.0 * r_raw)) / (1.0 - kExpNeg3);
+  const double r = (1.0 - dsp_exp_squaring(-3.0 * r_raw)) / (1.0 - kExpNeg3);
 
   // filter coefficients (exact method from TeeBeeFilter::calculateCoefficientsExact)
   const double wc    = kTwoPi * safeCutoff / rate;
   const double wc_c  = clamp(wc, 1e-9, kPi * 0.98);
-  const double sinWc = dsp_sin(wc_c);
-  const double cosWc = dsp_cos(wc_c);
-  const double tanWc = dsp_tan_neg(0.25 * (wc_c - kPi));
+  const double sinWc = dsp_sin_0_pi(wc_c);
+  const double cosWc = dsp_cos_0_pi(wc_c);
+  const double tanWc = dsp_tan_neg_halfquarter(0.25 * (wc_c - kPi));
 
   // a1 = lerp(a1_noRes, a1_fullRes, r)
   const double denom_a    = sinWc - cosWc * tanWc;
   const double a1_fullRes = (denom_a > 1e-15 || denom_a < -1e-15) ? tanWc / denom_a : -1.0;
-  const double a1_noRes   = -dsp_exp(-wc_c);
+  const double a1_noRes   = -dsp_exp_squaring(-wc_c);
   const double a1         = r * a1_fullRes + (1.0 - r) * a1_noRes;
   const double b0         = 1.0 + a1;
 

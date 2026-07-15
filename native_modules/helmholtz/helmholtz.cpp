@@ -6,17 +6,17 @@
 // Monophonic pitch detector using the McLeod Pitch Method: NSDF over a
 // sliding window, peak picking, and parabolic interpolation.
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
+
+using namespace soemdsp_maths;
 
 constexpr int kMaxInstances = 4;
 constexpr int kMaxWindow = 1024;
 constexpr int kMinWindow = 128;
 constexpr int kDefaultWindow = 512;
 constexpr double kAnalysisRateHz = 20.0;
-
-static double clampd(double v, double lo, double hi) {
-  return v < lo ? lo : (v > hi ? hi : v);
-}
 
 static bool finited(double v) {
   return v == v && v > -1.0e15 && v < 1.0e15;
@@ -160,7 +160,7 @@ static void analyze(HelmholtzState& s) {
     }
   }
 
-  s.fidelityOut = clampd(refinedValue, 0.0, 1.0);
+  s.fidelityOut = clamp(refinedValue, 0.0, 1.0);
   if (refinedTau > 0.0 && s.fidelityOut >= s.threshold) {
     s.frequencyOut = s.sampleRate / refinedTau;
   } else {
@@ -203,7 +203,7 @@ extern "C" void soemdsp_helmholtz_set_params(
   s->windowSize = w;
   s->analysisIntervalSamples = (int)(s->sampleRate / kAnalysisRateHz + 0.5);
   if (s->analysisIntervalSamples < 1) s->analysisIntervalSamples = 1;
-  s->threshold = clampd(threshold, 0.5, 0.999);
+  s->threshold = clamp(threshold, 0.5, 0.999);
 }
 
 extern "C" void soemdsp_helmholtz_process(int handle, double input) {

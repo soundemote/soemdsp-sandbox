@@ -306,13 +306,13 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["chord progression", "digital signal", "scale mask output", "root output"],
   },
   lutCell: {
-    category: "Logic",
+    category: "Other",
     description: "An FPGA logic slice, modeled directly: a 4-input lookup table (A/B/C/D) feeding a clocked D flip-flop. Truth Table is a 16-bit digital signal -- bit i is the cell's output for input combination i. Out is the combinational result, Q is the registered result that only updates on a Clock rising edge. Unwired Clock and A free-run at 220 Hz so a bare cell demonstrates itself immediately -- wire either one for real to take over.",
     label: "LUT Cell",
     notes: ["FPGA logic slice", "lookup table", "flip-flop", "digital signal"],
   },
   metallicRatio: {
-    category: "Math",
+    category: "Other",
     description: "A tribute to Robin Schmidt's RS-MET library: RAPT::rsRatioGenerator::metallic() ported directly. Ratio = (Index + sqrt(Index^2 + 4)) / 2 -- the metallic mean family. Index 0 = unity, 1 = the golden ratio, 2 = silver, 3 = bronze. Useful as an oscillator frequency ratio or a feedback-delay length, per the original library's own doc comment.",
     label: "Metallic Ratio",
     notes: ["RS-MET tribute", "metallic mean", "golden ratio", "Robin Schmidt"],
@@ -663,7 +663,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["music playback", "scrubbable", "phasor", "audio source"],
   },
   phosphillator: {
-    category: "Generate",
+    category: "Oscillator",
     description: "Draw a shape freehand with the mouse (smoothed live with a Papoulis lowpass) and it becomes a closed-loop X/Y drawing you can play back.",
     label: "Phosphillator",
     notes: ["freehand draw", "phosphor", "xy oscillator", "papoulis smoothing"],

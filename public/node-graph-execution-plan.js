@@ -519,6 +519,11 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
       if (!clockCount && nodeGraphNodeSignalOutputRequired(graph, nodeId)) {
         issues.push(`missing ${nodeGraphNodeDisplayName(nodeId)} clock`);
       }
+    } else if (type === "comparator") {
+      const signalCount = (graph.inputConnections.get(nodeGraphInputKey(nodeId, "Signal In")) || []).length;
+      if (!signalCount && nodeGraphNodeSignalOutputRequired(graph, nodeId)) {
+        issues.push(`missing ${nodeGraphNodeDisplayName(nodeId)} signal`);
+      }
     } else if (!nodeGraphModuleProducesOutputWithoutSignalInput(type)) {
       issues.push(`unsupported source ${nodeId}`);
     }

@@ -3,7 +3,11 @@
 // soemdsp-native-target: logisticMap
 // soemdsp-native-kind: chaos
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
+
+using namespace soemdsp_maths;
 
 static const int kMaxInstances = 32;
 static const int kMaxIterationsPerSample = 4096;
@@ -16,16 +20,6 @@ struct LogisticMapState {
 };
 
 static LogisticMapState gPool[kMaxInstances];
-
-double clamp(double v, double lo, double hi) {
-  return v < lo ? lo : (v > hi ? hi : v);
-}
-
-double safe(double v) {
-  // No isnan/isinf in a -nostdlib build; a NaN/Inf fails every comparison
-  // against itself and against finite bounds, so this catches both.
-  return (v == v && v > -1.0e300 && v < 1.0e300) ? v : 0.0;
-}
 
 }  // namespace
 
@@ -62,9 +56,9 @@ extern "C" double soemdsp_logistic_map_sample(
 
   const bool resetActive = reset > 0.0;
   const double safeRate = rate > 0.0 ? rate : 0.0;
-  const double safeR = clamp(safe(r), 0.0, 4.0);
-  const double safeSeed = clamp(safe(seed), 0.0001, 0.9999);
-  const double safeLevel = safe(level);
+  const double safeR = clamp(safe_bounded(r), 0.0, 4.0);
+  const double safeSeed = clamp(safe_bounded(seed), 0.0001, 0.9999);
+  const double safeLevel = safe_bounded(level);
   const double rateHz = sampleRate < 1.0 ? 1.0 : sampleRate;
 
   if (resetActive || !s.hasStarted) {
@@ -78,7 +72,7 @@ extern "C" double soemdsp_logistic_map_sample(
     int iterations = 0;
     while (s.phase >= 1.0 && iterations < kMaxIterationsPerSample) {
       s.phase -= 1.0;
-      s.x = clamp(safe(safeR * s.x * (1.0 - s.x)), 0.0, 1.0);
+      s.x = clamp(safe_bounded(safeR * s.x * (1.0 - s.x)), 0.0, 1.0);
       iterations++;
     }
     if (s.phase >= 1.0) {
@@ -89,7 +83,7 @@ extern "C" double soemdsp_logistic_map_sample(
   }
 
   const double bipolar = s.x * 2.0 - 1.0;
-  return safe(bipolar * safeLevel);
+  return safe_bounded(bipolar * safeLevel);
 }
 
 extern "C" int soemdsp_logistic_map_version() {

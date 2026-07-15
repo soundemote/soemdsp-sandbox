@@ -3,7 +3,11 @@
 // soemdsp-native-target: linearEnvelope
 // soemdsp-native-kind: envelope
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
+
+using namespace soemdsp_maths;
 
 static const char kMetadataJson[] =
   "{"
@@ -39,11 +43,6 @@ struct LinearEnvelopeState {
 };
 
 static LinearEnvelopeState gPool[kMaxInstances];
-
-static inline double safe(double x) { return x * 0.0 == 0.0 ? x : 0.0; }
-static inline double clamp(double x, double lo, double hi) { return x < lo ? lo : (x > hi ? hi : x); }
-static inline double maxd(double a, double b) { return a > b ? a : b; }
-static inline double mind(double a, double b) { return a < b ? a : b; }
 
 static void trigger_attack(LinearEnvelopeState& s, double delay, double attack, double period) {
   if (delay < period) {

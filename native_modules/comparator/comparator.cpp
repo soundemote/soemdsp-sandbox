@@ -36,7 +36,11 @@
 // for native modules with more than one output (compare
 // soemdsp_pulse_explosion_curve, soemdsp_pll_vco_out, etc.).
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
+
+using namespace soemdsp_maths;
 
 static const int kMaxInstances = 64;
 
@@ -55,8 +59,6 @@ struct ComparatorState {
 };
 
 static ComparatorState gPool[kMaxInstances];
-
-static inline double safe(double x) { return x * 0.0 == 0.0 ? x : 0.0; }
 
 }  // namespace
 

@@ -1,3 +1,15 @@
+// Moved from node-graph-live-frame-evaluator.js: this module's own
+// offline/render-time algorithm, now living next to the rest of its
+// per-module code instead of the shared file.
+
+function createNodeGraphImpulseButtonState() {
+  return {
+    amplitude: 1,
+    pulseSamples: 0,
+  };
+}
+
+
 // Registers the offline/render-time dispatch handler for impulseButton into
 // nodeGraphLiveModuleEvaluators (declared in node-graph-live-frame-evaluator.js).
 // Extracted from the inline if/else-if branch that used to live in that file.

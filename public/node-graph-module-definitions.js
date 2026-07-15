@@ -33,6 +33,7 @@ const nodeGraphNodeLabels = Object.freeze({
   randomClock: "Random Clock",
   triggerCounter: "Trigger Counter",
   triggerDivider: "Trigger Divider",
+  comparator: "Comparator",
   stepSequencer: "Step Sequencer",
   spiral: "Spiral",
   fractalSpiral: "Fractal Spiral",
@@ -1674,6 +1675,13 @@ const nodeGraphModuleDefinitions = Object.freeze({
     ],
   },
   transport: {
+    displayModes: [
+      { key: "transportBpm", renderer: "transportBpm", source: { value: "bpm" } },
+    ],
+    displaySignals: [
+      { key: "bpm", kind: "scalar" },
+    ],
+    displayType: "transportBpm",
     inputs: [],
     outputLabels: {
       "-1..1": "-1..1",
@@ -1700,6 +1708,17 @@ const nodeGraphModuleDefinitions = Object.freeze({
         maxDigits: 3,
         mid: "0",
         min: "-31",
+        nonlinearSlider: false,
+        step: "1",
+      },
+      {
+        defaultValue: "120",
+        key: "bpm",
+        label: "BPM",
+        max: "320",
+        maxDigits: 3,
+        mid: "160",
+        min: "1",
         nonlinearSlider: false,
         step: "1",
       },

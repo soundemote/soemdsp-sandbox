@@ -1,3 +1,97 @@
+// Moved from node-graph-live-frame-evaluator.js: this module's own
+// offline/render-time algorithm, now living next to the rest of its
+// per-module code instead of the shared file.
+
+function applySabrinaDspBindingIfDirty(native, state, params, runtime, nodeId) {
+  const safeParams = {
+    delaySize: Math.max(0, Math.min(1, nodeGraphSafeFilterNumber(params.delaySize, runtime, nodeId, null, "Sabrina delay size"))),
+    diffusionAmount: Math.max(0, Math.min(0.98, nodeGraphSafeFilterNumber(params.diffusionAmount, runtime, nodeId, null, "Sabrina diffusion amount"))),
+    diffusionSize: Math.max(0, Math.min(1, nodeGraphSafeFilterNumber(params.diffusionSize, runtime, nodeId, null, "Sabrina diffusion size"))),
+    lfoAmplitude: Math.max(0, Math.min(1, nodeGraphSafeFilterNumber(params.lfoAmplitude, runtime, nodeId, null, "Sabrina lfo amplitude"))),
+    lfoBaseSpeed: Math.max(0, Math.min(1, nodeGraphSafeFilterNumber(params.lfoBaseSpeed, runtime, nodeId, null, "Sabrina lfo speed"))),
+    lfoVariation: Math.max(0, Math.min(1, nodeGraphSafeFilterNumber(params.lfoVariation, runtime, nodeId, null, "Sabrina lfo variation"))),
+    mix: Math.max(0, Math.min(1, nodeGraphSafeFilterNumber(params.mix, runtime, nodeId, null, "Sabrina mix"))),
+    recycle: Math.max(0, Math.min(0.98, nodeGraphSafeFilterNumber(params.recycle, runtime, nodeId, null, "Sabrina recycle"))),
+    seed: Math.max(0, Math.min(99999, Math.round(nodeGraphSafeFilterNumber(params.seed, runtime, nodeId, null, "Sabrina seed")))),
+  };
+  const paramKey = [
+    safeParams.mix,
+    safeParams.diffusionSize,
+    safeParams.diffusionAmount,
+    safeParams.delaySize,
+    safeParams.recycle,
+    safeParams.lfoAmplitude,
+    safeParams.lfoBaseSpeed,
+    safeParams.lfoVariation,
+  ].map((value) => Math.round(value * 1000000)).join(":") + `:${safeParams.seed}`;
+  if (paramKey === state.nativeParamKey || !native.soemdsp_sabrina_reverb_set_params) {
+    return;
+  }
+  state.nativeParamKey = paramKey;
+  native.soemdsp_sabrina_reverb_set_params(
+    state.nativeHandle,
+    safeParams.mix,
+    safeParams.diffusionSize,
+    safeParams.diffusionAmount,
+    safeParams.delaySize,
+    safeParams.recycle,
+    safeParams.lfoAmplitude,
+    safeParams.lfoBaseSpeed,
+    safeParams.lfoVariation,
+    safeParams.seed,
+  );
+}
+
+
+function createNodeGraphSabrinaReverbState() {
+  return {
+    nativeHandle: 0,
+    nativeParamKey: "",
+    nativeSampleRate: 0,
+  };
+}
+
+function nodeGraphSabrinaReverbSample(state, leftInput, rightInput, params, sampleRate, runtime = null, nodeId = "") {
+  const dryLeft = nodeGraphSafeFilterNumber(leftInput, runtime, nodeId, null, "Sabrina left input");
+  const dryRight = nodeGraphSafeFilterNumber(rightInput, runtime, nodeId, null, "Sabrina right input");
+  const dryMono = (dryLeft + dryRight) * 0.5;
+  const dry = { "Left Dry": dryLeft, "Mono Dry": dryMono, "Right Dry": dryRight, "Left Mix": dryLeft, "Mono Mix": dryMono, "Right Mix": dryRight };
+  const native = runtime?.nativeSabrinaReverbReady ? runtime?.nativeSabrinaReverb : null;
+  if (!native?.soemdsp_sabrina_reverb_create || !native?.soemdsp_sabrina_reverb_process) {
+    return dry;
+  }
+  try {
+    const safeRate = Math.max(1, Math.round(Number(sampleRate) || 44100));
+    if (!state.nativeHandle || state.nativeSampleRate !== safeRate) {
+      if (state.nativeHandle && native.soemdsp_sabrina_reverb_destroy) {
+        native.soemdsp_sabrina_reverb_destroy(state.nativeHandle);
+      }
+      state.nativeHandle = native.soemdsp_sabrina_reverb_create(safeRate) || 0;
+      state.nativeSampleRate = safeRate;
+      state.nativeParamKey = "";
+    }
+    if (!state.nativeHandle) {
+      return dry;
+    }
+    applySabrinaDspBindingIfDirty(native, state, params, runtime, nodeId);
+    native.soemdsp_sabrina_reverb_process(state.nativeHandle, dryLeft, dryRight);
+    const mixLeft = nodeGraphSafeFilterNumber(native.soemdsp_sabrina_reverb_left?.(state.nativeHandle), runtime, nodeId, null, "Sabrina mix left");
+    const mixRight = nodeGraphSafeFilterNumber(native.soemdsp_sabrina_reverb_right?.(state.nativeHandle), runtime, nodeId, null, "Sabrina mix right");
+    return { "Left Dry": dryLeft, "Mono Dry": dryMono, "Right Dry": dryRight, "Left Mix": mixLeft, "Mono Mix": (mixLeft + mixRight) * 0.5, "Right Mix": mixRight };
+  } catch (error) {
+    if (runtime) {
+      runtime.nativeSabrinaReverbReady = false;
+    }
+    if (state.nativeHandle && native.soemdsp_sabrina_reverb_destroy) {
+      native.soemdsp_sabrina_reverb_destroy(state.nativeHandle);
+    }
+    state.nativeHandle = 0;
+    state.nativeParamKey = "";
+    return dry;
+  }
+}
+
+
 // Registers the offline/render-time dispatch handler for reverbEffect into
 // nodeGraphLiveModuleEvaluators (declared in node-graph-live-frame-evaluator.js).
 // Extracted from the inline if/else-if branch that used to live in that file.

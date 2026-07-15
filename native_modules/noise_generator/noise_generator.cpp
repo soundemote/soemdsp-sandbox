@@ -5,7 +5,11 @@
 
 #include <wasm_simd128.h>
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
+
+using namespace soemdsp_maths;
 
 static const int kMaxInstances = 16;
 // Block-processing boundary buffers, same fixed-size-static-array pattern
@@ -65,10 +69,6 @@ static double nextGaussian(NoiseChan& chan) {
   double sum = 0.0;
   for (int i = 0; i < 12; i++) sum += nextUnipolar(chan);
   return sum - 6.0;
-}
-
-static double clamp(double v, double lo, double hi) {
-  return v < lo ? lo : (v > hi ? hi : v);
 }
 
 static double channelSample(NoiseChan& chan, int mode, double mean, double deviation) {

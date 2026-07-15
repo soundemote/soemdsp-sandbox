@@ -1,3 +1,18 @@
+// Moved from node-graph-live-frame-evaluator.js: this module's own
+// offline/render-time algorithm, now living next to the rest of its
+// per-module code instead of the shared file.
+
+function nodeGraphOfflineIncomingClockRate(nodeId) {
+  const connection = (Array.isArray(nodeGraphMvp?.patch?.connections) ? nodeGraphMvp.patch.connections : [])
+    .find((candidate) => candidate.destinationNode === nodeId && candidate.destinationPort === "Clock");
+  const sourceNode = (Array.isArray(nodeGraphMvp?.patch?.nodes) ? nodeGraphMvp.patch.nodes : [])
+    .find((node) => node.id === connection?.sourceNode);
+  return sourceNode?.type === "clock"
+    ? Math.max(0, Number(sourceNode.params?.rate) || 0)
+    : 0;
+}
+
+
 // Registers the offline/render-time dispatch handler for clockDivider into
 // nodeGraphLiveModuleEvaluators (declared in node-graph-live-frame-evaluator.js).
 // Extracted from the inline if/else-if branch that used to live in that file.

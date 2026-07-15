@@ -1353,7 +1353,7 @@ function fillNodeMetadataPopover(slider) {
   setNodeMetadataScriptDirty(false, "script ready", false);
   setNodeMetadataAdvancedScriptVisible(false);
   setNodeMetadataFieldsDirty(false);
-  document.getElementById("metadataSetDefaultButton").classList.remove("armed");
+  document.getElementById("metadataRestoreDefaultButton").classList.remove("armed");
 }
 
 function openNodeMetadataPopover(event, readout) {
@@ -1604,7 +1604,7 @@ function nodeGraphSmoothingModeStatusText(mode, smoothingSamples) {
     case "global":
       return `🌍 Global — ${globalSamples} samples.`;
     case "blockSize":
-      return "📟 Block Size — one audio block.";
+      return `📟 Block Size — ${nodeGraphAudioBlockSize} samples.`;
     case "internalGlobal":
       return `🙂🌍 Internal + Global — ${internalSamples} internal + ${globalSamples} global = ${internalSamples + globalSamples} samples.`;
     case "off":
@@ -1728,10 +1728,15 @@ function bindNodeGraphMetadataPopoverEvents() {
     document.addEventListener("pointerup", endNodeMetadataPopoverResize);
     document.addEventListener("pointercancel", endNodeMetadataPopoverResize);
   }
-  const defaultButton = document.getElementById("metadataSetDefaultButton");
+  const defaultButton = document.getElementById("metadataRestoreDefaultButton");
   if (defaultButton && defaultButton.dataset.metadataDefaultBound !== "true") {
     defaultButton.dataset.metadataDefaultBound = "true";
-    defaultButton.addEventListener("click", setNodeMetadataDefaultsFromKind);
+    defaultButton.addEventListener("click", confirmAndRestoreNodeMetadataDefaultsFromKind);
+  }
+  const setCurrentDefaultButton = document.getElementById("metadataSetCurrentAsDefaultButton");
+  if (setCurrentDefaultButton && setCurrentDefaultButton.dataset.metadataSetCurrentDefaultBound !== "true") {
+    setCurrentDefaultButton.dataset.metadataSetCurrentDefaultBound = "true";
+    setCurrentDefaultButton.addEventListener("click", confirmAndSetNodeMetadataCurrentValueAsDefault);
   }
   const saveFields = document.getElementById("metadataSaveFieldsButton");
   if (saveFields && saveFields.dataset.metadataSaveFieldsBound !== "true") {
@@ -1991,7 +1996,7 @@ function restoreNodeMetadataEditorFields() {
   setMetadataScriptSourceText(formatNodeMetadataScript(slider, metadata));
   setNodeMetadataScriptDirty(false, "restored", false);
   setNodeMetadataFieldsDirty(false);
-  document.getElementById("metadataSetDefaultButton").classList.remove("armed");
+  document.getElementById("metadataRestoreDefaultButton").classList.remove("armed");
 }
 
 function applyNodeMetadataScriptEditor() {
@@ -2112,13 +2117,51 @@ function setNodeMetadataDefaultsFromKind() {
   applyNodeMetadataEditor();
   syncNodeMetadataScriptFromFields({ force: true });
   setNodeMetadataFieldsDirty(false);
-  document.getElementById("metadataSetDefaultButton").classList.remove("armed");
+  document.getElementById("metadataRestoreDefaultButton").classList.remove("armed");
+}
+
+function confirmAndRestoreNodeMetadataDefaultsFromKind() {
+  if (!window.confirm("Restore this parameter's metadata to the standard default for its kind? Any custom range, unit, or tooltip changes here will be overwritten.")) {
+    return;
+  }
+  setNodeMetadataDefaultsFromKind();
+}
+
+// Complementary to "Restore Default": instead of resetting to the generic
+// kind template, this captures whatever the parameter's slider is currently
+// set to on the canvas right now and makes that the parameter's new default
+// value -- so a future reset/double-click returns to this value instead of
+// the generic template one.
+function setNodeMetadataCurrentValueAsDefault() {
+  const slider = document.getElementById(nodeGraphMvp.metadataEditorTarget);
+  if (!slider) {
+    return;
+  }
+  const currentValue = Number(slider.value);
+  if (!Number.isFinite(currentValue)) {
+    return;
+  }
+  document.getElementById("metadataDefaultValue").value = formatNodeSliderCompactNumber(currentValue);
+  syncNodeMetadataMidVisibility();
+  applyNodeMetadataEditor();
+  syncNodeMetadataScriptFromFields({ force: true });
+  setNodeMetadataFieldsDirty(false);
+}
+
+function confirmAndSetNodeMetadataCurrentValueAsDefault() {
+  const slider = document.getElementById(nodeGraphMvp.metadataEditorTarget);
+  const currentValue = slider ? Number(slider.value) : NaN;
+  const valueLabel = Number.isFinite(currentValue) ? formatNodeSliderCompactNumber(currentValue) : "its current value";
+  if (!window.confirm(`Set this parameter's default to ${valueLabel}? Anything currently patched or scripted to reset it will now reset to this value instead.`)) {
+    return;
+  }
+  setNodeMetadataCurrentValueAsDefault();
 }
 
 function handleNodeMetadataKindChange() {
   setNodeMetadataFieldsDirty(true);
   applyNodeMetadataEditor({ keepDirty: true });
-  document.getElementById("metadataSetDefaultButton").classList.add("armed");
+  document.getElementById("metadataRestoreDefaultButton").classList.add("armed");
 }
 
 function handleNodeMetadataEditorInput(event) {

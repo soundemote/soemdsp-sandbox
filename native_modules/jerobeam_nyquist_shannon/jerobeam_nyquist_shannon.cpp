@@ -10,13 +10,14 @@
 // frequency itself, blended and linearly smoothed to avoid zipper noise on
 // tone-mode changes.
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
 
-static const int kMaxInstances = 16;
-static const double kPi = 3.14159265358979323846;
-static const double kTau = 6.28318530717958647692;
-static const double kHalfPi = 1.57079632679489661923;
+using namespace soemdsp_maths;
 
+static const int kMaxInstances = 16;
+static const double kTau = 6.28318530717958647692;
 struct NyquistShannonState {
   bool active;
   double phase;
@@ -31,35 +32,13 @@ struct NyquistShannonState {
 
 static NyquistShannonState gPool[kMaxInstances];
 
-double clampd(double v, double lo, double hi) {
-  return v < lo ? lo : (v > hi ? hi : v);
-}
-
-double wrap01(double v) {
-  return v - __builtin_floor(v);
-}
-
 double dsp_abs(double v) {
   return v < 0.0 ? -v : v;
 }
 
-double poly_sin(double u) {
-  const double u2 = u * u;
-  return u * (1.0 + u2 * (-1.6666666666666667e-1 + u2 * (8.3333333333333329e-3 + u2 * (-1.9841269841269841e-4 + u2 * (2.7557319223985888e-6 + u2 * (-2.5052108385441720e-8 + u2 * 1.6059043836821614e-10))))));
-}
-
-double dsp_sin(double x) {
-  double t = wrap01(x / kTau) * kTau;
-  bool negate = t > kPi;
-  if (negate) t -= kPi;
-  double folded = t > kHalfPi ? kPi - t : t;
-  double s = poly_sin(folded);
-  return negate ? -s : s;
-}
-
 double trisaw(double phase, double warp) {
-  double safeWarp = clampd(warp, 0.001, 0.999);
-  double wrapped = wrap01(phase);
+  double safeWarp = clamp(warp, 0.001, 0.999);
+  double wrapped = wrap01_frac(phase);
   return wrapped < safeWarp ? wrapped / safeWarp : (1.0 - wrapped) / (1.0 - safeWarp);
 }
 
@@ -141,18 +120,18 @@ extern "C" void soemdsp_jbnyquist_sample(
   const double midiNote = midiNoteRaw - 48.0;
   const double sr = rate;
   const double blend = 1.0 / (1.0 - sampleDots + 0.001);
-  const double tri = clampd(1.0 - artifact, 0.001, 0.999);
+  const double tri = clamp(1.0 - artifact, 0.001, 0.999);
   const double freqToPitch = dsp_freq_to_pitch(dsp_abs(userFreqA)) - 48.0;
 
   const int toneMode = (enableToneModNote >= 0.5 ? 1 : 0) + (enableToneModPitch >= 0.5 ? 2 : 0) + (enableToneModFreq >= 0.5 ? 4 : 0);
 
   // Main phasor
-  const double mainPhas = wrap01(s.phase + phaseOffset);
+  const double mainPhas = wrap01_frac(s.phase + phaseOffset);
   const double fphas = trisaw(mainPhas, tri);
 
   const double stair = __builtin_floor(fphas * sr) / sr;
   const double fmodFphasSr = (fphas * sr) - __builtin_floor(fphas * sr);
-  const double phas = clampd(blend * fmodFphasSr, 0.0, 1.0) / sr + stair;
+  const double phas = clamp(blend * fmodFphasSr, 0.0, 1.0) / sr + stair;
 
   const double waveX = phas * 2.0 - 1.0;
   double waveY = 0.0;
@@ -189,7 +168,7 @@ extern "C" void soemdsp_jbnyquist_sample(
     default: actualTone = tone + runSmoother((pitch - 1.0) + midiNote * 0.5) + freqToPitch * 0.5; break;
   }
 
-  const double psXPi = wrap01(s.rotatorPhase - subPhase) * kTau;
+  const double psXPi = wrap01_frac(s.rotatorPhase - subPhase) * kTau;
 
   const bool wasFirstSample = !s.hasLastFphas;
   const int changed = wasFirstSample ? 0 : (s.lastFphas > fphas ? 1 : (s.lastFphas < fphas ? -1 : 0));
@@ -205,8 +184,8 @@ extern "C" void soemdsp_jbnyquist_sample(
   s.outX = waveX;
   s.outY = waveY;
 
-  s.phase = wrap01(s.phase + phasorFreq / safeRate);
-  s.rotatorPhase = wrap01(s.rotatorPhase + (-subPhaseRotationSpeed) / safeRate);
+  s.phase = wrap01_frac(s.phase + phasorFreq / safeRate);
+  s.rotatorPhase = wrap01_frac(s.rotatorPhase + (-subPhaseRotationSpeed) / safeRate);
 }
 
 extern "C" double soemdsp_jbnyquist_x(int handle) {

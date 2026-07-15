@@ -3,7 +3,11 @@
 // soemdsp-native-target: chuaAttractor
 // soemdsp-native-kind: chaos
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
+
+using namespace soemdsp_maths;
 
 static const int kMaxInstances = 32;
 
@@ -19,14 +23,6 @@ static ChuaState gPool[kMaxInstances];
 
 double absValue(double v) {
   return v < 0.0 ? -v : v;
-}
-
-double safe(double v) {
-  return (v == v && v > -1.0e300 && v < 1.0e300) ? v : 0.0;
-}
-
-double clamp(double v, double lo, double hi) {
-  return v < lo ? lo : (v > hi ? hi : v);
 }
 
 // Chua diode piecewise-linear nonlinearity.
@@ -81,10 +77,10 @@ extern "C" void soemdsp_chua_attractor_sample(
 
   const double rate = sampleRate < 1.0 ? 1.0 : sampleRate;
   const double safeSpeed = speed > 0.0 ? speed : 0.0;
-  const double safeAlpha = safe(alpha);
-  const double safeBeta = safe(beta);
-  const double safeM0 = safe(m0);
-  const double safeM1 = safe(m1);
+  const double safeAlpha = safe_bounded(alpha);
+  const double safeBeta = safe_bounded(beta);
+  const double safeM0 = safe_bounded(m0);
+  const double safeM1 = safe_bounded(m1);
 
   // Same fixed-substep integration strategy as the Lorenz attractor: derive
   // a small step count from the requested dt so fast "speed" settings don't

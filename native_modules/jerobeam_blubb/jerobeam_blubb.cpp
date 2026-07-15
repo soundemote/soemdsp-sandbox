@@ -12,13 +12,14 @@
 // fractions (matching how they're fed into the phase-domain rotate math),
 // since the header's own setters pass them through unconverted.
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
 
-static const int kMaxInstances = 16;
-static const double kPi = 3.14159265358979323846;
-static const double kTau = 6.28318530717958647692;
-static const double kHalfPi = 1.57079632679489661923;
+using namespace soemdsp_maths;
 
+static const int kMaxInstances = 16;
+static const double kTau = 6.28318530717958647692;
 struct BlubbState {
   bool active;
   double phase;
@@ -28,35 +29,9 @@ struct BlubbState {
 
 static BlubbState gPool[kMaxInstances];
 
-double clampd(double v, double lo, double hi) {
-  return v < lo ? lo : (v > hi ? hi : v);
-}
-
-double wrap01(double v) {
-  return v - __builtin_floor(v);
-}
-
-double poly_sin(double u) {
-  const double u2 = u * u;
-  return u * (1.0 + u2 * (-1.6666666666666667e-1 + u2 * (8.3333333333333329e-3 + u2 * (-1.9841269841269841e-4 + u2 * (2.7557319223985888e-6 + u2 * (-2.5052108385441720e-8 + u2 * 1.6059043836821614e-10))))));
-}
-
-double dsp_sin(double x) {
-  double t = wrap01(x / kTau) * kTau;
-  bool negate = t > kPi;
-  if (negate) t -= kPi;
-  double folded = t > kHalfPi ? kPi - t : t;
-  double s = poly_sin(folded);
-  return negate ? -s : s;
-}
-
-double dsp_cos(double x) {
-  return dsp_sin(x + kHalfPi);
-}
-
 // soemdsp::oscillator::bipolar::triangle(phase)
 double bipolarTriangle(double phase) {
-  double p = wrap01(phase);
+  double p = wrap01_frac(phase);
   return p < 0.5 ? (4.0 * p - 1.0) : (3.0 - 4.0 * p);
 }
 
@@ -125,7 +100,7 @@ extern "C" void soemdsp_jbblubb_sample(
   s.outX = (help21 - formula * help21) * m;
   s.outY = (help12 - formula * help12) * m;
 
-  s.phase = wrap01(s.phase + frequency / safeRate);
+  s.phase = wrap01_frac(s.phase + frequency / safeRate);
 }
 
 extern "C" double soemdsp_jbblubb_x(int handle) {

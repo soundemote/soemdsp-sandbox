@@ -5,7 +5,11 @@
 
 #include <wasm_simd128.h>
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
+
+using namespace soemdsp_maths;
 
 static const int kMaxInstances = 16;
 // Generous upper bound on a single block-processing call. Real AudioWorklet
@@ -45,23 +49,13 @@ static unsigned int seedHash(int seed, int axis) {
   return h ? h : 1u;
 }
 
-static double hashBipolar(int index, unsigned int seed) {
-  unsigned int value = (unsigned int)index ^ seed;
-  value ^= value >> 16;
-  value = value * 2246822507u;
-  value ^= value >> 13;
-  value = value * 3266489909u;
-  value ^= value >> 16;
-  return (double)value / 4294967295.0 * 2.0 - 1.0;
-}
-
 static double smoothNoise1d(double x, unsigned int seed) {
   int left = (int)x;
   if (x < 0.0 && x != (double)left) left -= 1;
   const double frac = x - (double)left;
   const double smooth = frac * frac * (3.0 - 2.0 * frac);
-  const double a = hashBipolar(left, seed);
-  const double b = hashBipolar(left + 1, seed);
+  const double a = hash_bipolar(left, seed);
+  const double b = hash_bipolar(left + 1, seed);
   return a + (b - a) * smooth;
 }
 

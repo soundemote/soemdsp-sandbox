@@ -1766,14 +1766,19 @@
               <span class="scene-context-global-smoothing-unit">sec</span>
             </div>
             <div id="nodeSceneTimingControls" class="scene-context-timing-controls" role="group" aria-label="Patch timing"></div>
-            <button id="nodeSceneOpenSavedPatches" class="scene-context-window-button" type="button">
-              <span class="scene-context-window-button-icon" aria-hidden="true">📁</span>
-              <span class="scene-context-window-button-label">Patch Explorer</span>
-            </button>
             <button id="nodeSceneOpenModuleBrowser" class="scene-context-window-button" type="button">
               <span class="scene-context-window-button-icon" aria-hidden="true">🎛️</span>
               <span class="scene-context-window-button-label">Module Browser</span>
             </button>
+            <button id="nodeSceneOpenSavedPatches" class="scene-context-window-button" type="button">
+              <span class="scene-context-window-button-icon" aria-hidden="true">📁</span>
+              <span class="scene-context-window-button-label">Patch Explorer</span>
+            </button>
+            <div class="scene-context-patch-actions" role="group" aria-label="Patch actions">
+              <button id="nodeSceneCopyPatch" class="scene-context-patch-action-button" type="button" data-tooltip-key="actions.copyPatch">Copy</button>
+              <button id="nodeScenePastePatch" class="scene-context-patch-action-button" type="button" data-tooltip-key="actions.pastePatch">Paste</button>
+              <button id="nodeSceneSharePatch" class="scene-context-patch-action-button" type="button" data-tooltip-key="actions.sharePatch">Share</button>
+            </div>
             <button id="nodeSceneOpenModuleActions" class="scene-context-window-button" type="button">
               <span class="scene-context-window-button-icon" aria-hidden="true">🛠️</span>
               <span class="scene-context-window-button-label">Module Settings</span>
@@ -2100,7 +2105,7 @@
         </button>
         <div id="nodeSceneCodeGroup" class="scene-context-button-group" role="group" hidden>
           <button id="nodeSceneOpenNativeCode" type="button" role="menuitem">
-            <span>SRC</span>
+            <span>Code</span>
           </button>
           <button id="nodeSceneOpenNativeLib" type="button" role="menuitem" hidden>
             <span>LIB</span>
@@ -2438,7 +2443,8 @@
           <div class="metadata-field-actions" aria-label="Metaparameter actions">
             <button id="metadataSaveFieldsButton" type="button">Save</button>
             <button id="metadataRestoreFieldsButton" type="button">Restore</button>
-            <button id="metadataSetDefaultButton" type="button">Defaults</button>
+            <button id="metadataSetCurrentAsDefaultButton" type="button" title="Set the parameter's current value as its new default">Set Default</button>
+            <button id="metadataRestoreDefaultButton" type="button" title="Reset this parameter's metadata to the standard template for its kind">Restore Default</button>
           </div>
           <div class="metadata-section-title">Range</div>
           <div class="metadata-field-section metadata-range-section">
@@ -3155,6 +3161,7 @@
   <script src="./public/node-graph-module-scopes.js?v=spectrum-bars-full-intensity-20260711"></script>
   <script src="./public/modules/oscilloscopeBank/oscilloscope-bank-display.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/videoscope/videoscope-display.js?v=videoscope-20260713"></script>
+  <script src="./public/modules/transport/transport-display.js?v=transport-bpm-20260714"></script>
   <script src="./public/node-graph-shader-script.js?v=unified-window-pos-1"></script>
   <script src="./public/node-graph-canvas-script.js?v=unified-window-pos-1"></script>
   <script src="./public/node-graph-module-factories.js?v=vactrol-series-impulse-button-20260710"></script>
@@ -3241,6 +3248,10 @@
   <script src="./public/node-graph-chord-sequencer.js?v=chord-sequencer-20260711"></script>
   <script src="./public/node-graph-lut-cell.js?v=lut-cell-selfclock-20260711"></script>
   <script src="./public/node-graph-metallic-ratio.js?v=metallic-ratio-20260711"></script>
+  <script src="./public/node-graph-stdlib/node-graph-analog-filter-helpers.js?v=stdlib-batch3-20260715"></script>
+  <script src="./public/node-graph-stdlib/node-graph-visual-control-helpers.js?v=stdlib-batch3-20260715"></script>
+  <script src="./public/node-graph-stdlib/node-graph-seeded-rng-helpers.js?v=stdlib-batch3-20260715"></script>
+  <script src="./public/node-graph-stdlib/node-graph-shared-dsp-helpers.js?v=stdlib-batch3-20260715"></script>
   <script src="./public/node-graph-live-frame-evaluator.js?v=metallic-ratio-20260711"></script>
   <script src="./native_modules/logistic_map/logistic_map-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/turingMachine/turing-machine-live-evaluator.js?v=per-module-dispatch-20260711"></script>

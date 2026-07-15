@@ -11,13 +11,14 @@
 // always ramp at Phasor's default 1.0 Hz baseline in addition to their
 // user-controlled phase offset -- replicated here exactly.
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
 
-static const int kMaxInstances = 16;
-static const double kPi = 3.14159265358979323846;
-static const double kTau = 6.28318530717958647692;
-static const double kHalfPi = 1.57079632679489661923;
+using namespace soemdsp_maths;
 
+static const int kMaxInstances = 16;
+static const double kTau = 6.28318530717958647692;
 struct TorusState {
   bool active;
   double phase;
@@ -32,38 +33,12 @@ struct TorusState {
 
 static TorusState gPool[kMaxInstances];
 
-double clampd(double v, double lo, double hi) {
-  return v < lo ? lo : (v > hi ? hi : v);
-}
-
-double wrap01(double v) {
-  return v - __builtin_floor(v);
-}
-
 double dsp_sign(double v) {
   return (v > 0.0) - (v < 0.0);
 }
 
 double dsp_abs(double v) {
   return v < 0.0 ? -v : v;
-}
-
-double poly_sin(double u) {
-  const double u2 = u * u;
-  return u * (1.0 + u2 * (-1.6666666666666667e-1 + u2 * (8.3333333333333329e-3 + u2 * (-1.9841269841269841e-4 + u2 * (2.7557319223985888e-6 + u2 * (-2.5052108385441720e-8 + u2 * 1.6059043836821614e-10))))));
-}
-
-double dsp_sin(double x) {
-  double t = wrap01(x / kTau) * kTau;
-  bool negate = t > kPi;
-  if (negate) t -= kPi;
-  double folded = t > kHalfPi ? kPi - t : t;
-  double s = poly_sin(folded);
-  return negate ? -s : s;
-}
-
-double dsp_cos(double x) {
-  return dsp_sin(x + kHalfPi);
 }
 
 // soemdsp::math::sincos(): argument is a 0..1 *cycles* value, not radians.
@@ -76,8 +51,8 @@ double dsp_cos_cycles(double y) {
 }
 
 double trisaw(double phase, double warp) {
-  double safeWarp = clampd(warp, 0.001, 0.999);
-  double wrapped = wrap01(phase);
+  double safeWarp = clamp(warp, 0.001, 0.999);
+  double wrapped = wrap01_frac(phase);
   return wrapped < safeWarp ? wrapped / safeWarp : (1.0 - wrapped) / (1.0 - safeWarp);
 }
 
@@ -188,10 +163,10 @@ extern "C" void soemdsp_jbtorus_sample(
   const double dank = __builtin_trunc(darkIntensity) * 2.0 + 1.0;
   const double wanderFreq = dense == 0.0 ? 0.0 : (wander / dense);
 
-  const double dangle = wrap01(s.darkAnglePhase + darkAngle) + 0.5;
-  const double rotXValue = -kTau * (wrap01(s.xPhase + rotX) + 1.0);
-  const double rotYValue = kTau * wrap01(s.yPhase + rotY) - kHalfPi;
-  const double rotZValue = kHalfPi - kTau * wrap01(s.zPhase + rotZ);
+  const double dangle = wrap01_frac(s.darkAnglePhase + darkAngle) + 0.5;
+  const double rotXValue = -kTau * (wrap01_frac(s.xPhase + rotX) + 1.0);
+  const double rotYValue = kTau * wrap01_frac(s.yPhase + rotY) - kHalfPi;
+  const double rotZValue = kHalfPi - kTau * wrap01_frac(s.zPhase + rotZ);
 
   const double triphase = trisaw(s.phase, sharp);
   const double phasRaw = triphase * length - rotXValue / kTau;
@@ -200,10 +175,10 @@ extern "C" void soemdsp_jbtorus_sample(
   const double blend = dsp_sin(rotYValue);
   const double normPhas = phas * (1.0 - 0.5 * dsp_abs(blend));
   const double phasBipolar = phas * 2.0 - 1.0;
-  const double dankedPos = 0.5 * clampd(blend, 0.0, 1.0) * (dsp_pow(phasBipolar, dank) + 1.0) / 2.0;
+  const double dankedPos = 0.5 * clamp(blend, 0.0, 1.0) * (dsp_pow(phasBipolar, dank) + 1.0) / 2.0;
   const double phasPlusHalf = phas + 0.5;
   const double phasPlusHalfWrapped = phasPlusHalf - __builtin_floor(phasPlusHalf);
-  const double dankedNeg = 0.5 * clampd(-blend, 0.0, 1.0) * (0.5 * dsp_pow(phasPlusHalfWrapped * 2.0 - 1.0, dank) + (dsp_sign(phasBipolar) + 1.0) / 2.0);
+  const double dankedNeg = 0.5 * clamp(-blend, 0.0, 1.0) * (0.5 * dsp_pow(phasPlusHalfWrapped * 2.0 - 1.0, dank) + (dsp_sign(phasBipolar) + 1.0) / 2.0);
   const double phasor = normPhas + dankedPos + dankedNeg + 0.25 + rotXValue / kTau + dangle;
 
   const double sp0sin = dsp_sin_cycles(phasor);
@@ -240,12 +215,12 @@ extern "C" void soemdsp_jbtorus_sample(
   s.outX = outL;
   s.outY = outR;
 
-  s.phase = wrap01(s.phase + frequency / safeRate);
-  s.wanderPhase = wrap01(s.wanderPhase + wanderFreq / safeRate);
-  s.xPhase = wrap01(s.xPhase + 1.0 / safeRate);
-  s.yPhase = wrap01(s.yPhase + 1.0 / safeRate);
-  s.zPhase = wrap01(s.zPhase + 1.0 / safeRate);
-  s.darkAnglePhase = wrap01(s.darkAnglePhase + 1.0 / safeRate);
+  s.phase = wrap01_frac(s.phase + frequency / safeRate);
+  s.wanderPhase = wrap01_frac(s.wanderPhase + wanderFreq / safeRate);
+  s.xPhase = wrap01_frac(s.xPhase + 1.0 / safeRate);
+  s.yPhase = wrap01_frac(s.yPhase + 1.0 / safeRate);
+  s.zPhase = wrap01_frac(s.zPhase + 1.0 / safeRate);
+  s.darkAnglePhase = wrap01_frac(s.darkAnglePhase + 1.0 / safeRate);
 }
 
 extern "C" double soemdsp_jbtorus_x(int handle) {

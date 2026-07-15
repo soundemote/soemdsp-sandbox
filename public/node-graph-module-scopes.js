@@ -1192,6 +1192,7 @@ function nodeGraphModuleScopeHasModelDisplay() {
     const renderer = nodeGraphModuleDisplayRendererForSlot(slot);
     const outputs = nodeGraphPatchNodeOutputPorts(nodeGraphModuleScopeNodeForSlot(slot));
     return slot.type === "clock" ||
+      slot.type === "transport" ||
       nodeGraphModuleScopeIsOscillatorType(slot.type) ||
       (["traceDisplay", "dotOscilloscope", "valueOscilloscope", "lineBurnOscilloscope"].includes(slot.type) &&
         nodeGraphModuleScopeConnectionsTo(slot.nodeId, "In").length > 0) ||
@@ -2715,7 +2716,7 @@ function nodeGraphTraceDisplaySettingsEditingTraceDefaults() {
   return nodeGraphModuleDisplaySettingsSchemaForNode(node) === "trace";
 }
 
-const nodeGraphDisplayModeRenderers = Object.freeze(["trace", "clock", "dot", "value", "lineBurn", "hypersawBurn", "oscilloscopeBankBurn", "videoscopeBurn", "scope2d", "scope2dTrace", "numberReadout", "spectrum"]);
+const nodeGraphDisplayModeRenderers = Object.freeze(["trace", "clock", "dot", "value", "lineBurn", "hypersawBurn", "oscilloscopeBankBurn", "videoscopeBurn", "transportBpm", "scope2d", "scope2dTrace", "numberReadout", "spectrum"]);
 const nodeGraphDisplayModeSignalKinds = Object.freeze(["scalar", "xy", "buffer"]);
 
 function nodeGraphDisplayModeSettingsSchemaForRenderer(renderer) {
@@ -3202,6 +3203,29 @@ function nodeGraphModuleScopeDotOscilloscopeLightBuffer(capturedBuffer = null) {
   return capturedBuffer;
 }
 
+// transport's BPM readout (displayType "transportBpm") is model-driven, not
+// buffer-driven -- it reads nodeGraphPatchTimingValue("tempoBpm") directly
+// and has no real audio-rate signal behind it at all ("bpm" isn't a wired
+// output port). Without this, nodeGraphModuleScopeDisplayBuffer() had no
+// branch for it, so it fell through to the generic else-clause and depended
+// entirely on an incidental buffers.get(nodeId) entry (populated by whatever
+// happened to be captured from the node's real audio output) just to pass
+// the "!buffer" gate in nodeGraphModuleScopeScreenItems. Any unrelated
+// parameter change that disturbed that incidental capture (nothing to do
+// with tempo) made the buffer momentarily missing -- and a missing buffer
+// there means the slot gets explicitly cleared and skipped for the frame,
+// with nothing to force a redraw afterward since the display's own cache
+// key (the BPM digits) hadn't changed. Same fix shape as clock's
+// nodeGraphModuleScopeOfflineClockBlinkBuffer above: always return a stable,
+// non-null sentinel so this slot can never be buffer-starved by something
+// that has nothing to do with what it actually displays.
+function nodeGraphModuleScopeTransportBpmBuffer(slot) {
+  if (slot?.type !== "transport") {
+    return null;
+  }
+  return { length: 1 };
+}
+
 function nodeGraphModuleScopeOfflineGainAnalyzerBuffer(slot) {
   if (slot?.type !== "gain") {
     return null;
@@ -3440,6 +3464,8 @@ function nodeGraphModuleScopeDisplayBuffer(slot, capturedBuffer = null) {
   } else if (slot?.type === "clock") {
     buffer = nodeGraphModuleScopeDotOscilloscopeLightBuffer(capturedBuffer) ||
       nodeGraphModuleScopeOfflineClockBlinkBuffer(slot, capturedBuffer);
+  } else if (renderer === "transportBpm") {
+    buffer = nodeGraphModuleScopeTransportBpmBuffer(slot);
   } else if (renderer === "dot") {
     buffer = nodeGraphModuleScopeDotOscilloscopeLightBuffer(capturedBuffer);
   } else if (slot?.type === "lineBurnOscilloscope") {

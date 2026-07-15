@@ -91,6 +91,24 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
   if (options.deferUi) {
     return;
   }
+  // transport's "BPM" param mirrors the patch-wide tempo, not an independent
+  // per-node value -- committing it here writes patch.timing.tempoBpm too
+  // (via the same clone-then-commit path the header's own BPM field uses) so
+  // the change reaches the worklet's this.timing and every other transport
+  // node's own BPM slider, instead of only updating this one node's params.
+  if (patchNode.type === "transport" && key === "bpm") {
+    const nextPatch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+    nextPatch.timing = normalizeNodeGraphPatchTiming({
+      ...nextPatch.timing,
+      tempoBpm: patchNode.params.bpm,
+    });
+    syncNodeGraphTransportBpmParams(nextPatch, nextPatch.timing);
+    commitNodeGraphPatch(nextPatch, {
+      markPending: false,
+      status: "bpm synced",
+    });
+    return;
+  }
   syncNodeGraphScriptView(options.status || "parameter synced", true);
   renderNodeGraphExecutionPlanDebug();
   syncNodeGraphGhostSliders();

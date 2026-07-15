@@ -8,7 +8,11 @@
 // Jerobeam port here was modeled after). Emits X/Y/Z motion plus a
 // stereo-rendered left/right pair.
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
+
+using namespace soemdsp_maths;
 
 static const char kMetadataJson[] =
   "{"
@@ -39,72 +43,10 @@ static const char kMetadataJson[] =
   "}";
 
 static const int kMaxInstances = 16;
-static const double kPi        = 3.141592653589793238;
-static const double kTwoPi     = 6.283185307179586476;
-static const double kHalfPi    = 1.5707963267948966192;
 static const double kQuarterPi = 0.7853981633974483096;
-
-static double poly_sin_0_halfpi(double x) {
-  const double x2 = x * x;
-  return x * (1.0 + x2 * (-1.6666666666666667e-1 + x2 * (8.3333333333333329e-3 + x2 * (-1.9841269841269841e-4 + x2 * (2.7557319223985888e-6 + x2 * (-2.5052108385441720e-8 + x2 * 1.6059043836821614e-10))))));
-}
-
-static double dsp_sin_0_pi(double x) {
-  if (x > kHalfPi) x = kPi - x;
-  return poly_sin_0_halfpi(x);
-}
-
-static inline double dsp_floor(double x) {
-  double xi = (double)(long long)x;
-  return (x < xi) ? xi - 1.0 : xi;
-}
 
 static inline double dsp_trunc(double x) {
   return (double)(long long)x;
-}
-
-static double dsp_sin(double x) {
-  double wrapped = x - kTwoPi * dsp_floor(x / kTwoPi);
-  double sign = 1.0;
-  if (wrapped >= kPi) {
-    wrapped -= kPi;
-    sign = -1.0;
-  }
-  return sign * dsp_sin_0_pi(wrapped);
-}
-
-static double dsp_cos(double x) {
-  return dsp_sin(x + kHalfPi);
-}
-
-static double dsp_exp(double x) {
-  if (x < -700.0) return 0.0;
-  if (x > 700.0) return 1e300;
-  const double LOG2E = 1.4426950408889634;
-  const double LN2 = 0.6931471805599453;
-  double t = x * LOG2E;
-  long long n = (long long)t;
-  if (t < 0.0 && (double)n != t) n -= 1;
-  double f = t - (double)n;
-  double y = f * LN2;
-  double ey = 1.0 + y*(1.0 + y*(0.5 + y*(1.0/6.0 + y*(1.0/24.0 + y*(1.0/120.0 + y*(1.0/720.0 + y/5040.0))))));
-  union { double d; unsigned long long u; } bits;
-  bits.u = (unsigned long long)(n + 1023) << 52;
-  return ey * bits.d;
-}
-
-static double dsp_ln(double x) {
-  if (x <= 0.0) return -700.0;
-  union { double d; unsigned long long u; } bits;
-  bits.d = x;
-  int e = (int)((bits.u >> 52) & 0x7FF) - 1023;
-  bits.u = (bits.u & 0x000FFFFFFFFFFFFFULL) | 0x3FF0000000000000ULL;
-  double m = bits.d;
-  double y = (m - 1.0) / (m + 1.0);
-  double y2 = y * y;
-  double series = y * (1.0 + y2*(1.0/3.0 + y2*(1.0/5.0 + y2*(1.0/7.0 + y2*(1.0/9.0 + y2/11.0)))));
-  const double LN2 = 0.6931471805599453;
-  return 2.0*series + (double)e*LN2;
 }
 
 // Newton-Raphson sqrt, seeded from an IEEE-754 exponent-halving guess.
@@ -143,22 +85,14 @@ static double dsp_asin(double x) {
   return sign * theta;
 }
 
-static inline double safe(double x) { return x * 0.0 == 0.0 ? x : 0.0; }
-static inline double clamp(double x, double lo, double hi) { return x < lo ? lo : (x > hi ? hi : x); }
-static inline double maxd(double a, double b) { return a > b ? a : b; }
-static inline double mind(double a, double b) { return a < b ? a : b; }
 static inline double absd(double a) { return a < 0.0 ? -a : a; }
-
-static double wrap01(double value) {
-  return value - dsp_floor(value);
-}
 
 static double spiral_fmod(double value, double divisor) {
   return value - dsp_trunc(value / divisor) * divisor;
 }
 
 static double spiral_trisaw(double phase, double sharp) {
-  const double wrapped = wrap01(phase);
+  const double wrapped = wrap01_frac(phase);
   const double warp = clamp(sharp, 0.001, 0.999);
   return wrapped < warp ? wrapped / warp : (1.0 - wrapped) / (1.0 - warp);
 }
@@ -257,8 +191,8 @@ static SpiralState gPool[kMaxInstances];
 
 static double next_phasor(double& stateField, double frequency, double offset, double sampleRate, bool bipolar) {
   const double base = stateField;
-  const double current = wrap01(base + offset);
-  stateField = wrap01(base + frequency / sampleRate);
+  const double current = wrap01_frac(base + offset);
+  stateField = wrap01_frac(base + frequency / sampleRate);
   return bipolar ? current * 2.0 - 1.0 : current;
 }
 

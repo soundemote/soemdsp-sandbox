@@ -1,3 +1,26 @@
+// Moved from node-graph-live-frame-evaluator.js: this module's own
+// offline/render-time algorithm, now living next to the rest of its
+// per-module code instead of the shared file.
+
+function createNodeGraphPatchCommandState() {
+  return {
+    lastTrigger: 0,
+  };
+}
+
+function nodeGraphPatchCommandTriggerSample(state, trigger, threshold, command, nodeId) {
+  const safeTrigger = Number.isFinite(Number(trigger)) ? Number(trigger) : 0;
+  const safeThreshold = Number.isFinite(Number(threshold)) ? Number(threshold) : 0;
+  if (state.lastTrigger <= safeThreshold && safeTrigger > safeThreshold) {
+    if (typeof queueNodeGraphLivePatchCommand === "function") {
+      queueNodeGraphLivePatchCommand(command, nodeId);
+    }
+  }
+  state.lastTrigger = safeTrigger;
+  return 0;
+}
+
+
 // Registers the offline/render-time dispatch handler for nextPatch and
 // previousPatch into nodeGraphLiveModuleEvaluators (declared in
 // node-graph-live-frame-evaluator.js) -- both types share one implementation,

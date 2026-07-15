@@ -12,13 +12,14 @@
 // apparent unit mismatch in the source, replicated here exactly rather than
 // "fixed", since this is a faithful port.
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
 
-static const int kMaxInstances = 16;
-static const double kPi = 3.14159265358979323846;
-static const double kTau = 6.28318530717958647692;
-static const double kHalfPi = 1.57079632679489661923;
+using namespace soemdsp_maths;
 
+static const int kMaxInstances = 16;
+static const double kTau = 6.28318530717958647692;
 struct KeplerBouwkampState {
   bool active;
   double phase;  // radians, 0..2*pi (matches the reference's own domain)
@@ -28,35 +29,9 @@ struct KeplerBouwkampState {
 
 static KeplerBouwkampState gPool[kMaxInstances];
 
-double clampd(double v, double lo, double hi) {
-  return v < lo ? lo : (v > hi ? hi : v);
-}
-
-double wrap01(double v) {
-  return v - __builtin_floor(v);
-}
-
 double wrapMod(double v, double modulus) {
   double r = v - __builtin_floor(v / modulus) * modulus;
   return r < 0.0 ? r + modulus : r;
-}
-
-double poly_sin(double u) {
-  const double u2 = u * u;
-  return u * (1.0 + u2 * (-1.6666666666666667e-1 + u2 * (8.3333333333333329e-3 + u2 * (-1.9841269841269841e-4 + u2 * (2.7557319223985888e-6 + u2 * (-2.5052108385441720e-8 + u2 * 1.6059043836821614e-10))))));
-}
-
-double dsp_sin(double x) {
-  double t = wrap01(x / kTau) * kTau;
-  bool negate = t > kPi;
-  if (negate) t -= kPi;
-  double folded = t > kHalfPi ? kPi - t : t;
-  double s = poly_sin(folded);
-  return negate ? -s : s;
-}
-
-double dsp_cos(double x) {
-  return dsp_sin(x + kHalfPi);
 }
 
 // soemdsp::math::sincos(): argument is a 0..1 *cycles* value, not radians.
@@ -72,8 +47,8 @@ double dsp_cos_cycles(double y) {
 // extra wrap-domain conversion, matching triangle(osc_phase, tri) being
 // called directly on the radian-domain osc_phase.
 double trisaw(double phase, double warp) {
-  double safeWarp = clampd(warp, 0.001, 0.999);
-  double wrapped = wrap01(phase);
+  double safeWarp = clamp(warp, 0.001, 0.999);
+  double wrapped = wrap01_frac(phase);
   return wrapped < safeWarp ? wrapped / safeWarp : (1.0 - wrapped) / (1.0 - safeWarp);
 }
 
@@ -115,9 +90,9 @@ extern "C" void soemdsp_jbkepler_sample(
   KeplerBouwkampState& s = gPool[handle - 1];
 
   const double safeRate = sampleRate < 1.0 ? 1.0 : sampleRate;
-  const int firstPolygon = (int)clampd(__builtin_trunc(start), 3.0, 20.0);
-  const int n = (int)clampd(__builtin_trunc(length), 1.0, 20.0);
-  const double circleblend = clampd(circles, 0.0001, 0.9999);
+  const int firstPolygon = (int)clamp(__builtin_trunc(start), 3.0, 20.0);
+  const int n = (int)clamp(__builtin_trunc(length), 1.0, 20.0);
+  const double circleblend = clamp(circles, 0.0001, 0.9999);
 
   double waveX = 0.0;
   double waveY = 0.0;
@@ -127,8 +102,8 @@ extern "C" void soemdsp_jbkepler_sample(
   const double stepPhas = phasXN - __builtin_floor(phasXN);
   const double polygonNumber = phasXN - stepPhas + (double)firstPolygon;
 
-  double polygonPhas = clampd((stepPhas - circleblend) / (1.0 - circleblend), 0.0, 1.0);
-  double circlePhas = clampd(stepPhas / circleblend, 0.0, 1.0);
+  double polygonPhas = clamp((stepPhas - circleblend) / (1.0 - circleblend), 0.0, 1.0);
+  double circlePhas = clamp(stepPhas / circleblend, 0.0, 1.0);
   if (stepPhas > circleblend) {
     circlePhas = 0.0;
   }

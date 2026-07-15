@@ -1,3 +1,18 @@
+// Moved from node-graph-live-frame-evaluator.js: this module's own
+// offline/render-time algorithm, now living next to the rest of its
+// per-module code instead of the shared file.
+
+function nodeGraphSoftClipperSample(input, center = 0, width = 2) {
+  const safeWidth = Math.max(0.000001, Math.abs(Number(width) || 2));
+  const safeCenter = Number(center) || 0;
+  const scaleX = 2 / safeWidth;
+  const shiftX = -1 - (scaleX * (safeCenter - 0.5 * safeWidth));
+  const scaleY = 1 / scaleX;
+  const shiftY = -shiftX * scaleY;
+  return shiftY + scaleY * Math.tanh(scaleX * (Number(input) || 0) + shiftX);
+}
+
+
 // Registers the offline/render-time dispatch handler for softClipper into
 // nodeGraphLiveModuleEvaluators (declared in node-graph-live-frame-evaluator.js).
 // Extracted from the inline if/else-if branch that used to live in that file.

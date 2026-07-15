@@ -87,6 +87,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.phosphillatorDecodedPathCache = new Map();
     this.clockDividerStates = new Map();
     this.clockStates = new Map();
+    this.transportStates = new Map();
     this.codeblockFunctions = new Map();
     this.cookbookFilterStates = new Map();
     this.delayedTriggerStates = new Map();
@@ -1472,6 +1473,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.phosphillatorDecodedPathCache = new Map();
     this.clockDividerStates = new Map();
     this.clockStates = new Map();
+    this.transportStates = new Map();
     this.codeblockFunctions = new Map();
     this.cookbookFilterStates = new Map();
     this.delayedTriggerStates = new Map();
@@ -6230,13 +6232,15 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
         );
       },
       transport: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+        const state = this.transportStates.get(nodeId) || this.createTransportState();
+        this.transportStates.set(nodeId, state);
         const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
         return this.transportSample(
+          state,
           {
             amplitude: read("amplitude", 1),
             divisions: read("divisions", 0),
           },
-          frame,
           safeRate,
         );
       },

@@ -48,7 +48,11 @@
 // virtual instance to match, rather than this module tracking six ports
 // per handle itself.
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
+
+using namespace soemdsp_maths;
 
 static const char kMetadataJson[] =
   "{"
@@ -66,42 +70,7 @@ static const char kMetadataJson[] =
   "}";
 
 static const int kMaxInstances = 256;  // 6 virtual per-port instances per node
-static const double kPi    = 3.141592653589793238;
-static const double kTwoPi = 6.283185307179586476;
-static const double kHalfPi = 1.5707963267948966192;
-
-static double poly_sin_0_halfpi(double x) {
-  const double x2 = x * x;
-  return x * (1.0 + x2 * (-1.6666666666666667e-1 + x2 * (8.3333333333333329e-3 + x2 * (-1.9841269841269841e-4 + x2 * (2.7557319223985888e-6 + x2 * (-2.5052108385441720e-8 + x2 * 1.6059043836821614e-10))))));
-}
-
-static double dsp_sin_0_pi(double x) {
-  if (x > kHalfPi) x = kPi - x;
-  return poly_sin_0_halfpi(x);
-}
-
-static inline double dsp_floor(double x) {
-  double xi = (double)(long long)x;
-  return (x < xi) ? xi - 1.0 : xi;
-}
-
-static double dsp_sin(double x) {
-  double wrapped = x - kTwoPi * dsp_floor(x / kTwoPi);
-  double sign = 1.0;
-  if (wrapped >= kPi) {
-    wrapped -= kPi;
-    sign = -1.0;
-  }
-  return sign * dsp_sin_0_pi(wrapped);
-}
-
-static inline double safe(double x) { return x * 0.0 == 0.0 ? x : 0.0; }
-static inline double clamp(double x, double lo, double hi) { return x < lo ? lo : (x > hi ? hi : x); }
 static inline double absd(double a) { return a < 0.0 ? -a : a; }
-
-static double wrap01(double value) {
-  return value - dsp_floor(value);
-}
 
 static double poly_blep(double phaseCycle, double phaseIncrement) {
   const double dt = clamp(absd(phaseIncrement), 1e-6, 0.5);
@@ -119,7 +88,7 @@ static double poly_blep(double phaseCycle, double phaseIncrement) {
 static double poly_blep_square(double phaseCycle, double phaseIncrement) {
   double value = phaseCycle < 0.5 ? 1.0 : -1.0;
   value += poly_blep(phaseCycle, phaseIncrement);
-  value -= poly_blep(wrap01(phaseCycle + 0.5), phaseIncrement);
+  value -= poly_blep(wrap01_frac(phaseCycle + 0.5), phaseIncrement);
   return value;
 }
 
@@ -131,7 +100,7 @@ static double poly_blep_square(double phaseCycle, double phaseIncrement) {
 // first and produces a spike (verified: a stray +/-2.0 sample right at the
 // wrap point) because it doesn't relocate which side of the discontinuity a
 // given phaseCycle sits on in time. The fix mirrors phaseCycle around 0
-// (wrap01(-phaseCycle)) before handing it to the ordinary forward poly_blep
+// (wrap01_frac(-phaseCycle)) before handing it to the ordinary forward poly_blep
 // with a positive dt, then negates the result. Reflecting phase this way
 // turns a backward-traveling trajectory into a forward-traveling one in the
 // mirrored coordinate, so the existing near-0/near-1 edge tests land on the
@@ -141,13 +110,13 @@ static double poly_blep_square(double phaseCycle, double phaseIncrement) {
 // reproduces that forward run reversed, sample for sample.
 static double poly_blep_directional(double phaseCycle, double phaseIncrement) {
   if (phaseIncrement >= 0.0) return poly_blep(phaseCycle, phaseIncrement);
-  return -poly_blep(wrap01(-phaseCycle), -phaseIncrement);
+  return -poly_blep(wrap01_frac(-phaseCycle), -phaseIncrement);
 }
 
 static double poly_blep_square_directional(double phaseCycle, double phaseIncrement) {
   double value = phaseCycle < 0.5 ? 1.0 : -1.0;
   value += poly_blep_directional(phaseCycle, phaseIncrement);
-  value -= poly_blep_directional(wrap01(phaseCycle + 0.5), phaseIncrement);
+  value -= poly_blep_directional(wrap01_frac(phaseCycle + 0.5), phaseIncrement);
   return value;
 }
 
@@ -213,7 +182,7 @@ extern "C" double soemdsp_basic_oscillator_sample(
     return s.stoppedSample;
   }
   const double renderPhaseIncrement = phaseStopped ? s.lastPhaseIncrement : phaseDelta;
-  const double phaseCycle = wrap01(safe(phase) / kTwoPi);
+  const double phaseCycle = wrap01_frac(safe(phase) / kTwoPi);
 
   double sample = 0.0;
   const int wf = (int)dsp_floor(safe(waveform) + 0.5);

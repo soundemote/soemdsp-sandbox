@@ -3,20 +3,11 @@
 // soemdsp-native-target: ellipsoid
 // soemdsp-native-kind: oscillator
 
-namespace {
-constexpr double kPi = 3.1415926535897932384626433832795;
-constexpr double kHalfPi = kPi * 0.5;
-constexpr double kTwoPi = kPi * 2.0;
+#include "../sandbox_native_maths/sandbox_native_maths.h"
 
-double clamp(double value, double minValue, double maxValue) {
-  if (value < minValue) {
-    return minValue;
-  }
-  if (value > maxValue) {
-    return maxValue;
-  }
-  return value;
-}
+namespace {
+
+using namespace soemdsp_maths;
 
 double wrapRadians(double value) {
   while (value > kPi) {

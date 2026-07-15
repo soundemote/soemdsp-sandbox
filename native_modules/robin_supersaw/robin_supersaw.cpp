@@ -36,14 +36,14 @@
 // that a mono fold-down of two full-amplitude channels doesn't come out
 // twice as loud as either channel alone.
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
+
+using namespace soemdsp_maths;
 
 constexpr int kMaxInstances = 8;
 constexpr int kMaxVoices = 9;
-
-double clampD(double value, double lo, double hi) {
-  return value < lo ? lo : (value > hi ? hi : value);
-}
 
 // xorshift32 -- freestanding WASM has no <random>. Deterministic, cheap,
 // good enough statistical quality for dithering noise (not cryptographic).
@@ -252,7 +252,7 @@ extern "C" void soemdsp_robin_supersaw_sample(
   const double safeSampleRate = sampleRate > 1.0 ? sampleRate : 48000.0;
   const double safeFrequency = frequencyHz > 1.0 ? frequencyHz : 1.0;
   const int numVoices = voices < 1 ? 1 : (voices > kMaxVoices ? kMaxVoices : voices);
-  const double spreadCents = clampD(detuneCents, 0.0, 100.0);
+  const double spreadCents = clamp(detuneCents, 0.0, 100.0);
 
   double left = sumVoiceBank(s.left, numVoices, safeFrequency, safeSampleRate, spreadCents);
   double right = sumVoiceBank(s.right, numVoices, safeFrequency, safeSampleRate, spreadCents);
@@ -260,8 +260,8 @@ extern "C" void soemdsp_robin_supersaw_sample(
   if (!(left * 0.0 == 0.0)) left = 0.0;
   if (!(right * 0.0 == 0.0)) right = 0.0;
 
-  s.outLeft = clampD(left, -1.5, 1.5) * level;
-  s.outRight = clampD(right, -1.5, 1.5) * level;
+  s.outLeft = clamp(left, -1.5, 1.5) * level;
+  s.outRight = clamp(right, -1.5, 1.5) * level;
   // Arithmetic average, not a raw sum -- matches this sandbox's own
   // Output module convention (see node-live-audio-worklet.js's "output"
   // case), so a mono fold-down of two full-amplitude channels doesn't

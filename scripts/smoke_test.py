@@ -228,6 +228,10 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-chord-sequencer.js",
     "./public/node-graph-lut-cell.js",
     "./public/node-graph-metallic-ratio.js",
+    "./public/node-graph-stdlib/node-graph-analog-filter-helpers.js",
+    "./public/node-graph-stdlib/node-graph-visual-control-helpers.js",
+    "./public/node-graph-stdlib/node-graph-seeded-rng-helpers.js",
+    "./public/node-graph-stdlib/node-graph-shared-dsp-helpers.js",
     "./public/node-graph-live-frame-evaluator.js",
     "./public/node-graph-surge-oscillator.js",
     "./public/node-graph-live-runtime.js",
@@ -250,6 +254,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/turingMachine/turing-machine-live-evaluator.js",
     "./public/modules/oscilloscopeBank/oscilloscope-bank-display.js",
     "./public/modules/videoscope/videoscope-display.js",
+    "./public/modules/transport/transport-display.js",
     "./public/modules/henonMap/henon-map-live-evaluator.js",
     "./public/modules/chuaAttractor/chua-attractor-live-evaluator.js",
     "./public/modules/chordMemory/chord-memory-live-evaluator.js",
@@ -824,7 +829,7 @@ REQUIRED_SHELL_IDS = {
     "metadataPopoverDragHandle",
     "metadataPopoverSubtitle",
     "metadataPopoverTitle",
-    "metadataSetDefaultButton",
+    "metadataRestoreDefaultButton",
     "metadataShowSignValue",
     "metadataScriptApply",
     "metadataScriptCopy",
@@ -3807,8 +3812,8 @@ def require_node_graph_mvp_contract() -> None:
         and "Math.max(128, Math.min(1024" in worklet_source
         and 'windowSize: read("windowSize", 512)' in worklet_source
         and 'hasInput(nodeId, "In"),\n          safeRate,' in worklet_source
-        and "function nodeGraphHelmholtzSample(state, input, params, inputConnected, sampleRate" in live_frame_evaluator_source
-        and "Math.max(128, Math.min(1024" in live_frame_evaluator_source
+        and "function nodeGraphHelmholtzSample(state, input, params, inputConnected, sampleRate" in node_graph_source
+        and "Math.max(128, Math.min(1024" in node_graph_source
         and 'windowSize: read("windowSize", 512)' in node_graph_source
         and 'hasInput(nodeId, "In"),\n    sampleRate,' in node_graph_source,
         "Helmholtz Pitch should output analyzer zeros on disconnected input and clamp analysis to the temporary safe window range",
@@ -4454,7 +4459,7 @@ def require_node_graph_mvp_contract() -> None:
         "definitions": script_sources["./public/node-graph-module-definitions.js"],
         "store": script_sources["./public/node-graph-module-store.js"],
         "plan": script_sources["./public/node-graph-live-plan-runtime.js"],
-        "runtime": script_sources["./public/node-graph-live-frame-evaluator.js"],
+        "runtime": node_graph_source,
         "live runtime": script_sources["./public/node-graph-live-runtime.js"],
         "worklet": worklet_source,
     }
@@ -4519,7 +4524,7 @@ def require_node_graph_mvp_contract() -> None:
         "execution plan": script_sources["./public/node-graph-execution-plan.js"],
         "rendering": script_sources["./public/node-graph-module-rendering.js"],
         "render output": script_sources["./public/node-graph-render-output.js"],
-        "runtime": script_sources["./public/node-graph-live-frame-evaluator.js"],
+        "runtime": node_graph_source,
         "live runtime": script_sources["./public/node-graph-live-runtime.js"],
         "worklet": worklet_source,
         "host client": script_sources["./public/node-graph-clap-host.js"],
@@ -7018,8 +7023,11 @@ def require_node_graph_mvp_contract() -> None:
     command_center_button_order = [
         "nodeSceneUndoButton",
         "nodeSceneRedoButton",
-        "nodeSceneOpenSavedPatches",
         "nodeSceneOpenModuleBrowser",
+        "nodeSceneOpenSavedPatches",
+        "nodeSceneCopyPatch",
+        "nodeScenePastePatch",
+        "nodeSceneSharePatch",
         "nodeSceneOpenModuleActions",
         "nodeSceneOpenUiSettings",
         "nodeSceneOpenPostProcessing",
@@ -7366,7 +7374,7 @@ def require_node_graph_mvp_contract() -> None:
         "rendering": script_sources["./public/node-graph-module-rendering.js"],
         "resources": script_sources["./public/node-graph-resources.js"],
         "external ui events": script_sources["./public/node-graph-external-ui-events.js"],
-        "runtime": script_sources["./public/node-graph-live-frame-evaluator.js"],
+        "runtime": node_graph_source,
         "samples": script_sources["./public/node-graph-samples.js"],
         "sizing": script_sources["./public/node-graph-module-sizing.js"],
         "scopes": script_sources["./public/node-graph-module-scopes.js"],
@@ -9512,7 +9520,7 @@ def require_node_graph_mvp_contract() -> None:
         "document.getElementById(\"metadataUnitValue\").value = template.unit",
         "document.getElementById(\"metadataChoicesValue\").value = formatNodeMetadataChoices(choices)",
         "function handleNodeMetadataKindChange()",
-        "metadataSetDefaultButton",
+        "metadataRestoreDefaultButton",
         'classList.add("armed")',
         'classList.remove("armed")',
         "function handleNodeMetadataEditorInput(event)",
@@ -13701,18 +13709,19 @@ def require_node_graph_mvp_contract() -> None:
     require('"transport"' in execution_plan_source and 'type === "transport"' in execution_plan_source, "execution plan should treat Transport as a supported source")
     require('"softClipper"' in execution_plan_source, "execution plan should treat Soft Clipper as a supported passthrough processor")
     require("timing: normalizeNodeGraphPatchTiming(patch.timing)" in execution_plan_source, "compiled live plan should carry patch timing")
-    require("function nodeGraphTransportSample" in live_frame_source and "nodeGraphLiveModuleEvaluators.transport = (" in node_graph_source, "browser fallback should evaluate Transport")
+    require("function nodeGraphTransportSample" in node_graph_source and "nodeGraphLiveModuleEvaluators.transport = (" in node_graph_source, "browser fallback should evaluate Transport")
     require(
-        "function nodeGraphSoftClipperSample(input, center = 0, width = 2)" in live_frame_source
-        and "const scaleX = 2 / safeWidth" in live_frame_source
-        and "Math.tanh(scaleX * (Number(input) || 0) + shiftX)" in live_frame_source
+        "function nodeGraphSoftClipperSample(input, center = 0, width = 2)" in node_graph_source
+        and "const scaleX = 2 / safeWidth" in node_graph_source
+        and "Math.tanh(scaleX * (Number(input) || 0) + shiftX)" in node_graph_source
         and "nodeGraphLiveModuleEvaluators.softClipper = (" in node_graph_source
         and "Left: nodeGraphSoftClipperSample(mixInput(nodeId, \"Left\") + softClipperMono, softClipperCenter, softClipperWidth)" in node_graph_source
         and "Right: nodeGraphSoftClipperSample(mixInput(nodeId, \"Right\") + softClipperMono, softClipperCenter, softClipperWidth)" in node_graph_source,
         "browser fallback should retain a stereo Soft Clipper evaluator for non-worklet fallback",
     )
     require("timing: normalizeNodeGraphPatchTiming(plan.timing)" in live_plan_runtime_source, "fallback runtime should retain plan timing")
-    require("transportSample(params, frame" in worklet_source and "transport: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {" in worklet_source, "AudioWorklet should evaluate Transport")
+    require("return this.transportSample(" in worklet_source and "transport: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {" in worklet_source, "AudioWorklet should evaluate Transport")
+    require("this.transportStates.get(nodeId) || this.createTransportState()" in worklet_source, "AudioWorklet Transport should keep persistent per-node state instead of recomputing phase from the per-callback frame index")
     require(
         "nativeSoftClipperSample(input, center = 0, width = 2)" in worklet_source
         and 'name === "soft_clipper" || targetType === "softClipper"' in worklet_source
@@ -13737,11 +13746,11 @@ def require_node_graph_mvp_contract() -> None:
         "browser fallback should evaluate Sabrina Reverb through the raw stateful DSP port",
     )
     require(
-        "const native = runtime?.nativeSabrinaReverbReady ? runtime?.nativeSabrinaReverb : null" in live_frame_source
-        and "return dry;" in live_frame_source
-        and '"Left Mix": dryLeft' in live_frame_source
-        and '"Mono Mix": dryMono' in live_frame_source
-        and '"Right Mix": dryRight' in live_frame_source,
+        "const native = runtime?.nativeSabrinaReverbReady ? runtime?.nativeSabrinaReverb : null" in node_graph_source
+        and "return dry;" in node_graph_source
+        and '"Left Mix": dryLeft' in node_graph_source
+        and '"Mono Mix": dryMono' in node_graph_source
+        and '"Right Mix": dryRight' in node_graph_source,
         "browser fallback should dry-through Sabrina mix outputs when the native DSP core is unavailable",
     )
     require(

@@ -3,15 +3,15 @@
 // soemdsp-native-target: pll
 // soemdsp-native-kind: effect
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
+
+using namespace soemdsp_maths;
 
 constexpr int kMaxInstances = 8;
 
 // ── helpers ────────────────────────────────────────────────────────────────
-
-static double pll_clamp(double v, double lo, double hi) {
-  return v < lo ? lo : (v > hi ? hi : v);
-}
 
 static bool pll_finite(double v) {
   return v == v && v > -1.0e15 && v < 1.0e15;
@@ -87,7 +87,7 @@ struct OnePoleLpf {
   }
 
   void setCutoff(double fc, double sr) {
-    const double w = 6.283185307179586 * pll_clamp(fc, 0.001, sr * 0.49) / sr;
+    const double w = 6.283185307179586 * clamp(fc, 0.001, sr * 0.49) / sr;
     a1 = pll_exp(-w);
     b0 = 1.0 - a1;
   }
@@ -380,8 +380,8 @@ extern "C" void soemdsp_pll_process(
 
   // determine VCO control voltage
   const double cv = cvConnected > 0.5
-    ? pll_clamp(pll_finite(cvIn) ? cvIn : 0.0, 0.0, 1.0)
-    : pll_clamp(s->lpfOut, 0.0, 1.0);
+    ? clamp(pll_finite(cvIn) ? cvIn : 0.0, 0.0, 1.0)
+    : clamp(s->lpfOut, 0.0, 1.0);
 
   // VCO
   const double freq = vcoFrequency(cv, s->range, s->offset);

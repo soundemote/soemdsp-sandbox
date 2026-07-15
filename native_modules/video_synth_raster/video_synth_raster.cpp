@@ -13,18 +13,16 @@
 // This is a standalone proof, not wired into the node graph or the live
 // AudioWorklet -- see the demo HTML page for how it's actually driven.
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
+
+using namespace soemdsp_maths;
 
 constexpr int kMaxWidth = 512;
 constexpr int kMaxHeight = 512;
 constexpr int kMaxPixels = kMaxWidth * kMaxHeight;
 constexpr int kMaxInstances = 4;
-
-double clamp(double value, double minValue, double maxValue) {
-  if (value < minValue) return minValue;
-  if (value > maxValue) return maxValue;
-  return value;
-}
 
 // Lorenz attractor step (classic parameters). Chosen over Henon/Logistic
 // because its continuous, unbounded-but-attracted trajectory gives a

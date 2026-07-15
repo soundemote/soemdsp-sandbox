@@ -7,7 +7,11 @@
 // 0 = DC, 1 = samplerate. Wraps naturally at Nyquist, demonstrating
 // aliasing as a pure design choice. frequency = normFreq * sampleRate.
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
+
+using namespace soemdsp_maths;
 
 static const char kMetadataJson[] =
   "{"
@@ -23,21 +27,12 @@ static const char kMetadataJson[] =
   "}";
 
 static const int kMaxInstances = 32;
-static const double kPi     = 3.141592653589793238;
-static const double kTwoPi  = 6.283185307179586476;
-static const double kHalfPi = 1.5707963267948966192;
 
-static double poly_sin_0_halfpi(double x) {
-  const double x2 = x * x;
-  return x * (1.0 + x2 * (-1.6666666666666667e-1 + x2 * (8.3333333333333329e-3 + x2 * (-1.9841269841269841e-4 + x2 * (2.7557319223985888e-6 + x2 * (-2.5052108385441720e-8 + x2 * 1.6059043836821614e-10))))));
-}
-
-static double dsp_sin_0_pi(double x) {
-  if (x > kHalfPi) x = kPi - x;
-  return poly_sin_0_halfpi(x);
-}
-
-static double dsp_sin(double x) {
+// Local name (not the shared soemdsp_maths::dsp_sin) because this wraps
+// via truncation instead of dsp_floor -- equivalent only because the sole
+// caller below always passes a non-negative x, so it's not safe to merge
+// with the general-purpose version without auditing that invariant away.
+static double alias_sine_dsp_sin(double x) {
   double wrapped = x - kTwoPi * (double)(long long)(x / kTwoPi);
   double sign = 1.0;
   if (wrapped >= kPi) {
@@ -46,9 +41,6 @@ static double dsp_sin(double x) {
   }
   return sign * dsp_sin_0_pi(wrapped);
 }
-
-static inline double safe(double x) { return x * 0.0 == 0.0 ? x : 0.0; }
-static inline double clamp(double x, double lo, double hi) { return x < lo ? lo : (x > hi ? hi : x); }
 
 struct AliasSineState {
   double phase;
@@ -93,7 +85,7 @@ extern "C" double soemdsp_alias_sine_sample(
   while (s.phase < 0.0) s.phase += 1.0;
 
   // convert phase [0,1] to radians [0, 2*pi]
-  double out = dsp_sin(s.phase * kTwoPi);
+  double out = alias_sine_dsp_sin(s.phase * kTwoPi);
 
   return clamp(out * safe(level), -1.0, 1.0);
 }

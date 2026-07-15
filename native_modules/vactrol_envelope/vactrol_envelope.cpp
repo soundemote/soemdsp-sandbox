@@ -19,7 +19,11 @@
 // timing/resistance figures, and this project is not affiliated with or
 // endorsed by PerkinElmer or Excelitas.
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
+
+using namespace soemdsp_maths;
 
 static const char kMetadataJson[] =
   "{"
@@ -107,18 +111,6 @@ struct VactrolState {
 
 static VactrolState gPool[kMaxInstances];
 
-static inline double safe(double x) { return x * 0.0 == 0.0 ? x : 0.0; }
-static inline double clamp(double x, double lo, double hi) { return x < lo ? lo : (x > hi ? hi : x); }
-
-// exp(x) via x/4 then square twice — accurate for |x| <= 4 (our x is always
-// -1/samples with samples >= 1, so x is always in [-1, 0]).
-static double dsp_exp(double x) {
-  double y = x * 0.25;
-  double t = 1.0 + y*(1.0 + y*(0.5 + y*(1.0/6.0 + y*(1.0/24.0 + y*(1.0/120.0 + y*(1.0/720.0 + y/5040.0))))));
-  t *= t; t *= t;
-  return t;
-}
-
 // Fast approximate pow(base, exponent) for base > 0 via IEEE-754 double bit
 // manipulation (the well-known Schraudolph/Ankerl "fastpow" one-liner). Good
 // to within a few percent -- this only shapes a curve-response knob, not used
@@ -138,7 +130,7 @@ static double vactrol_coefficient(double seconds, double sampleRate) {
   }
   double samples = seconds * (sampleRate < 1.0 ? 1.0 : sampleRate);
   if (samples < 1.0) samples = 1.0;
-  return 1.0 - dsp_exp(-1.0 / samples);
+  return 1.0 - dsp_exp_squaring(-1.0 / samples);
 }
 
 }  // namespace

@@ -200,46 +200,10 @@ function nodeGraphBandpassMagnitudeAt(lowCut, highCut, frequency, sampleRate) {
     nodeGraphOnePoleLowpassMagnitudeAt(high, frequency, sampleRate);
 }
 
-function nodeGraphLadderFilterStageCount(stages) {
-  const value = Math.round(Number(stages));
-  return Number.isFinite(value) ? clampNodeSliderValue(value, 1, 4) : 4;
-}
-
-function nodeGraphLadderFilterMix(mode, stages) {
-  const safeMode = Math.round(clampNodeSliderValue(Number(mode) || 0, 0, 3));
-  const stageCount = nodeGraphLadderFilterStageCount(stages);
-  const c = [0, 0, 0, 0, 0];
-  let s = 1;
-  if (safeMode === 0) {
-    c[0] = 1;
-    s = 0.125;
-  } else if (safeMode === 1) {
-    c[stageCount] = 1;
-    s = stageCount * 0.25;
-  } else if (safeMode === 2) {
-    const coefficients = [
-      [1, -1],
-      [1, -2, 1],
-      [1, -3, 3, -1],
-      [1, -4, 6, -4, 1],
-    ][stageCount - 1];
-    for (let index = 0; index < coefficients.length; index += 1) {
-      c[index] = coefficients[index];
-    }
-    s = stageCount * 0.25;
-  } else {
-    const coefficients = stageCount <= 2
-      ? [0, 2, -2, 0, 0]
-      : stageCount === 3
-        ? [0, 0, 3, -3, 0]
-        : [0, 0, 4, -8, 4];
-    for (let index = 0; index < coefficients.length; index += 1) {
-      c[index] = coefficients[index];
-    }
-    s = 0.125;
-  }
-  return { c, s, stageCount, mode: safeMode };
-}
+// nodeGraphLadderFilterStageCount / nodeGraphLadderFilterMix now live in
+// node-graph-stdlib/node-graph-shared-dsp-helpers.js and
+// public/modules/ladderFilter/ladder-filter-live-evaluator.js (this file's
+// copies were byte-for-byte identical).
 
 function nodeGraphLadderFilterFeedbackFactor(feedback, cosWc, a) {
   const b = 1 + a;

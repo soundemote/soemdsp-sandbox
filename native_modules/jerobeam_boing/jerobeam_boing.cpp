@@ -10,13 +10,14 @@
 // each sample by a "z darkness" feedback term derived from the previous
 // sample's Z.
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
 
-static const int kMaxInstances = 16;
-static const double kPi = 3.14159265358979323846;
-static const double kTau = 6.28318530717958647692;
-static const double kHalfPi = 1.57079632679489661923;
+using namespace soemdsp_maths;
 
+static const int kMaxInstances = 16;
+static const double kTau = 6.28318530717958647692;
 struct BoingState {
   bool active;
   double phase;
@@ -27,33 +28,7 @@ struct BoingState {
 
 static BoingState gPool[kMaxInstances];
 
-double clampd(double v, double lo, double hi) {
-  return v < lo ? lo : (v > hi ? hi : v);
-}
-
-double wrap01(double v) {
-  return v - __builtin_floor(v);
-}
-
-double poly_sin(double u) {
-  const double u2 = u * u;
-  return u * (1.0 + u2 * (-1.6666666666666667e-1 + u2 * (8.3333333333333329e-3 + u2 * (-1.9841269841269841e-4 + u2 * (2.7557319223985888e-6 + u2 * (-2.5052108385441720e-8 + u2 * 1.6059043836821614e-10))))));
-}
-
 // Standard library sin()/cos(): argument already in radians.
-double dsp_sin(double x) {
-  double t = wrap01(x / kTau) * kTau;
-  bool negate = t > kPi;
-  if (negate) t -= kPi;
-  double folded = t > kHalfPi ? kPi - t : t;
-  double s = poly_sin(folded);
-  return negate ? -s : s;
-}
-
-double dsp_cos(double x) {
-  return dsp_sin(x + kHalfPi);
-}
-
 // soemdsp::math::sincos(): argument is a 0..1 *cycles* value, not radians.
 double dsp_sin_cycles(double y) {
   return dsp_sin(y * kTau);
@@ -65,15 +40,15 @@ double dsp_cos_cycles(double y) {
 
 // soemdsp::utility::gen::triangle(x, y) == trisaw(wrap(x), y)
 double trisaw(double phase, double warp) {
-  double safeWarp = clampd(warp, 0.001, 0.999);
-  double wrapped = wrap01(phase);
+  double safeWarp = clamp(warp, 0.001, 0.999);
+  double wrapped = wrap01_frac(phase);
   return wrapped < safeWarp ? wrapped / safeWarp : (1.0 - wrapped) / (1.0 - safeWarp);
 }
 
 // asin via Newton refinement on sin (good enough for the fphas-mids reshape,
 // whose input is always in [-1, 1]).
 double dsp_asin(double x) {
-  x = clampd(x, -1.0, 1.0);
+  x = clamp(x, -1.0, 1.0);
   double guess = x * (kHalfPi);  // initial guess, refined below
   for (int i = 0; i < 6; i++) {
     double s = dsp_sin(guess);
@@ -81,7 +56,7 @@ double dsp_asin(double x) {
     if (c < 1e-9 && c > -1e-9) break;
     guess -= (s - x) / c;
   }
-  return clampd(guess, -kHalfPi, kHalfPi);
+  return clamp(guess, -kHalfPi, kHalfPi);
 }
 
 // Fast approximate pow(base, exponent) for base > 0, matching the
@@ -223,7 +198,7 @@ extern "C" void soemdsp_jbboing_sample(
   s.outX = outL;
   s.outY = outR;
 
-  s.phase = wrap01(s.phase + (frequency * zDarkness) / safeRate);
+  s.phase = wrap01_frac(s.phase + (frequency * zDarkness) / safeRate);
 }
 
 extern "C" double soemdsp_jbboing_x(int handle) {

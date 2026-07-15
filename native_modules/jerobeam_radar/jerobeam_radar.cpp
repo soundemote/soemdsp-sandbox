@@ -19,12 +19,14 @@
 // through the polar radius/angle terms, consistent with the existing
 // dsp_pow approximation tradeoff used elsewhere in this module set.
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
 
+using namespace soemdsp_maths;
+
 static const int kMaxInstances = 16;
-static const double kPi = 3.14159265358979323846;
 static const double kTau = 6.28318530717958647692;
-static const double kHalfPi = 1.57079632679489661923;
 static const double kQuarterPi = 0.78539816339744830962;
 static const double kInvTau = 0.15915494309189535;
 
@@ -38,38 +40,12 @@ struct RadarState {
 
 static RadarState gPool[kMaxInstances];
 
-double clampd(double v, double lo, double hi) {
-  return v < lo ? lo : (v > hi ? hi : v);
-}
-
-double wrap01(double v) {
-  return v - __builtin_floor(v);
-}
-
 double dsp_sign(double v) {
   return (v > 0.0) - (v < 0.0);
 }
 
 double dsp_abs(double v) {
   return v < 0.0 ? -v : v;
-}
-
-double poly_sin(double u) {
-  const double u2 = u * u;
-  return u * (1.0 + u2 * (-1.6666666666666667e-1 + u2 * (8.3333333333333329e-3 + u2 * (-1.9841269841269841e-4 + u2 * (2.7557319223985888e-6 + u2 * (-2.5052108385441720e-8 + u2 * 1.6059043836821614e-10))))));
-}
-
-double dsp_sin(double x) {
-  double t = wrap01(x / kTau) * kTau;
-  bool negate = t > kPi;
-  if (negate) t -= kPi;
-  double folded = t > kHalfPi ? kPi - t : t;
-  double s = poly_sin(folded);
-  return negate ? -s : s;
-}
-
-double dsp_cos(double x) {
-  return dsp_sin(x + kHalfPi);
 }
 
 // soemdsp::math::sincos(): argument is a 0..1 *cycles* value, not radians.
@@ -87,8 +63,8 @@ void dsp_sincos_cycles(double y, double& outSin, double& outCos) {
 }
 
 double trisaw(double phase, double warp) {
-  double safeWarp = clampd(warp, 0.001, 0.999);
-  double wrapped = wrap01(phase);
+  double safeWarp = clamp(warp, 0.001, 0.999);
+  double wrapped = wrap01_frac(phase);
   return wrapped < safeWarp ? wrapped / safeWarp : (1.0 - wrapped) / (1.0 - safeWarp);
 }
 
@@ -175,7 +151,7 @@ void render(
   double sphas = phas;
   if (inPhas > tri1 && spiralReturn) sphas = 2.0 - phas;
 
-  const double sinPhas = clampd(dsp_pow(trisaw(sphas * length * dens, tri2), pow2), -1.0e+100, 1.0e+100);
+  const double sinPhas = clamp(dsp_pow(trisaw(sphas * length * dens, tri2), pow2), -1.0e+100, 1.0e+100);
 
   double f002Sin, f002Cos;
   dsp_sincos_cycles(
@@ -197,7 +173,7 @@ void render(
     phas = 1.0 - phas - (1.0 - length) + frontring / dens;
   }
 
-  phas = clampd(phas - frontring / dens, 0.0, 1.0);
+  phas = clamp(phas - frontring / dens, 0.0, 1.0);
 
   double phSinNeg, phCosNeg;
   dsp_sincos_cycles(-ph, phSinNeg, phCosNeg);
@@ -314,7 +290,7 @@ extern "C" void soemdsp_jbradar_sample(
   const double tri1 = sharp * 0.5 + 0.5;
   const double pow1 = fade;
   const double tri2 = direction;
-  const double pow2 = clampd(shade, -80.0, 80.0);
+  const double pow2 = clamp(shade, -80.0, 80.0);
   const double lapPlusOne = lap + 1.0;
   const double safeLap = lapPlusOne > 1.0e-6 ? lapPlusOne : 1.0e-6;
   const double ration = ratio + 0.1;
@@ -329,8 +305,8 @@ extern "C" void soemdsp_jbradar_sample(
   double xOut, yOut, ph, r;
   updateXY(rx, ry, xOut, yOut, ph, r);
 
-  const double inPhas = wrap01(s.phase + phaseOffset);
-  const double rot = wrap01(s.rotatorPhase + rotation);
+  const double inPhas = wrap01_frac(s.phase + phaseOffset);
+  const double rot = wrap01_frac(s.rotatorPhase + rotation);
 
   double waveX, waveY, waveZ;
   render(
@@ -344,8 +320,8 @@ extern "C" void soemdsp_jbradar_sample(
   s.outX = waveX * f001;
   s.outY = waveY * f001 + yFixForZoom;
 
-  s.phase = wrap01(s.phase + frequency / safeRate);
-  s.rotatorPhase = wrap01(s.rotatorPhase + 1.0 / safeRate);
+  s.phase = wrap01_frac(s.phase + frequency / safeRate);
+  s.rotatorPhase = wrap01_frac(s.rotatorPhase + 1.0 / safeRate);
 }
 
 extern "C" double soemdsp_jbradar_x(int handle) {

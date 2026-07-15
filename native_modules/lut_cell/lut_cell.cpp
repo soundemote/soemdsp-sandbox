@@ -10,7 +10,11 @@
 // bit i of truthTable is the cell's output for input combination i, where
 // input combination is (D<<3 | C<<2 | B<<1 | A).
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
+
+using namespace soemdsp_maths;
 
 static const int kMaxInstances = 32;
 
@@ -21,10 +25,6 @@ struct LutCellState {
 };
 
 static LutCellState gPool[kMaxInstances];
-
-int clampInt(int v, int lo, int hi) {
-  return v < lo ? lo : (v > hi ? hi : v);
-}
 
 }  // namespace
 
@@ -66,7 +66,7 @@ extern "C" int soemdsp_lut_cell_sample(
     (b > 0.0 ? 2 : 0) |
     (c > 0.0 ? 4 : 0) |
     (d > 0.0 ? 8 : 0);
-  const int table = clampInt((int)truthTable, 0, 0xFFFF);
+  const int table = clamp_int((int)truthTable, 0, 0xFFFF);
   const int combinational = (table >> index) & 1;
 
   const bool clockHigh = clock > 0.0;

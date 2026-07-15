@@ -8,7 +8,11 @@
 // crossing, capture a window off the trigger, then let the JS side query
 // min/max per pixel column so oversampled windows don't lose narrow spikes.
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
+
+using namespace soemdsp_maths;
 
 static const int kMaxInstances = 16;
 static const int kBufferCapacity = 8192;  // buffer_size_max, a rough default
@@ -32,10 +36,6 @@ struct ScopeState {
 static ScopeState gPool[kMaxInstances];
 
 double absVal(double v) { return v < 0.0 ? -v : v; }
-
-double safe(double v) {
-  return (v == v && v > -1.0e300 && v < 1.0e300) ? v : 0.0;
-}
 
 int clampInt(int v, int lo, int hi) {
   return v < lo ? lo : (v > hi ? hi : v);
@@ -86,8 +86,8 @@ extern "C" void soemdsp_videoscope_push(
     return;  // frozen: don't buffer, don't trigger, don't recapture
   }
 
-  const double sa = safe(a);
-  const double sb = safe(b);
+  const double sa = safe_bounded(a);
+  const double sb = safe_bounded(b);
   s.bufA[s.writeIndex] = sa;
   s.bufB[s.writeIndex] = sb;
   s.writeIndex = (s.writeIndex + 1) % kBufferCapacity;

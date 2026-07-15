@@ -10,7 +10,11 @@
 // the LCG noise source, random-walk integration, rational-curve step
 // shaping, and the one-pole lowpass smoothing stage.
 
+#include "../sandbox_native_maths/sandbox_native_maths.h"
+
 namespace {
+
+using namespace soemdsp_maths;
 
 static const char kMetadataJson[] =
   "{"
@@ -39,29 +43,7 @@ struct RandomWalkState {
 
 static RandomWalkState gPool[kMaxInstances];
 
-static inline double safe(double x) { return x * 0.0 == 0.0 ? x : 0.0; }
-static inline double clamp(double x, double lo, double hi) { return x < lo ? lo : (x > hi ? hi : x); }
-static inline double maxd(double a, double b) { return a > b ? a : b; }
-static inline double mind(double a, double b) { return a < b ? a : b; }
-
 const double PI = 3.14159265358979323846;
-
-// Same range-reduction exp as pluck_envelope/exp_adsr.
-static double dsp_exp(double x) {
-  if (x < -700.0) return 0.0;
-  if (x > 700.0) return 1e300;
-  const double LOG2E = 1.4426950408889634;
-  const double LN2 = 0.6931471805599453;
-  double t = x * LOG2E;
-  long long n = (long long)t;
-  if (t < 0.0 && (double)n != t) n -= 1;
-  double f = t - (double)n;
-  double y = f * LN2;
-  double ey = 1.0 + y*(1.0 + y*(0.5 + y*(1.0/6.0 + y*(1.0/24.0 + y*(1.0/120.0 + y*(1.0/720.0 + y/5040.0))))));
-  union { double d; unsigned long long u; } bits;
-  bits.u = (unsigned long long)(n + 1023) << 52;
-  return ey * bits.d;
-}
 
 // Numerical Recipes LCG, matching the JS Math.imul(1664525, seed)+1013904223
 // (mod 2^32) exactly -- unsigned 32-bit multiply/add wraps the same way.
