@@ -9,6 +9,7 @@ NodeLiveAudioProcessor.prototype.createPapoulisFilterState = function createPapo
       coeffs: null,
       cutoffHz: NaN,
       sampleRate: NaN,
+      nativeHandle: 0,
     };
   };
 
@@ -32,7 +33,7 @@ NodeLiveAudioProcessor.prototype.papoulisFilterDesign = function papoulisFilterD
     };
   };
 
-NodeLiveAudioProcessor.prototype.papoulisFilterSample = function papoulisFilterSample(state, input, cutoffHz, rate) {
+NodeLiveAudioProcessor.prototype.papoulisFilterSampleJs = function papoulisFilterSampleJs(state, input, cutoffHz, rate) {
     const safeCutoff = Math.max(0.01, Math.min(rate * 0.49, Number(cutoffHz) || 0));
     if (state.cutoffHz !== safeCutoff || state.sampleRate !== rate) {
       state.coeffs = this.papoulisFilterDesign(safeCutoff, rate);
@@ -51,5 +52,36 @@ NodeLiveAudioProcessor.prototype.papoulisFilterSample = function papoulisFilterS
     state.biquadY2 = state.biquadY1;
     state.biquadY1 = biquadOut;
     return biquadOut;
+  };
+
+NodeLiveAudioProcessor.prototype.papoulisFilterSample = function papoulisFilterSample(state, input, cutoffHz, rate) {
+    if (this.nativePapoulisFilterReady) {
+      try {
+        if (!state.nativeHandle) {
+          state.nativeHandle = this.nativePapoulisFilter.soemdsp_papoulis_filter_create();
+        }
+        if (state.nativeHandle) {
+          return this.safeFilterNumber(
+            this.nativePapoulisFilter.soemdsp_papoulis_filter_sample(
+              state.nativeHandle,
+              this.safeFilterNumber(input, null),
+              this.safeFilterNumber(cutoffHz, null),
+              this.safeFilterNumber(rate, null),
+            ),
+            null,
+          );
+        }
+      } catch (error) {
+        this.nativePapoulisFilterReady = false;
+        state.nativeHandle = 0;
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "papoulis_filter",
+          status: "disabled",
+          message: String(error?.message || error || "native Papoulis Filter failed"),
+        });
+      }
+    }
+    return this.papoulisFilterSampleJs(state, input, cutoffHz, rate);
   };
 

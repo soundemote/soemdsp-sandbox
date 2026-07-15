@@ -173,6 +173,10 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.nativeClockReady = false;
     this.nativeRandomClock = null;
     this.nativeRandomClockReady = false;
+    this.nativePingPongDelay = null;
+    this.nativePingPongDelayReady = false;
+    this.nativePapoulisFilter = null;
+    this.nativePapoulisFilterReady = false;
     this.pllStates = new Map();
     this.fractalBrownianNoiseStates = new Map();
     this.graphInputConnections = new Map();
@@ -944,6 +948,38 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
         });
         return;
       }
+      if (name === "ping_pong_delay" || targetType === "pingPongDelay") {
+        for (const state of this.pingPongDelayStates.values()) {
+          this.destroyPingPongDelayNativeState(state);
+        }
+        this.nativePingPongDelay = exports;
+        this.nativePingPongDelayReady = Boolean(
+          this.nativePingPongDelay?.soemdsp_ping_pong_delay_create &&
+          this.nativePingPongDelay?.soemdsp_ping_pong_delay_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "ping_pong_delay",
+          status: this.nativePingPongDelayReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "papoulis_filter" || targetType === "papoulisFilter") {
+        for (const state of this.papoulisFilterStates.values()) {
+          this.destroyPapoulisFilterNativeState(state);
+        }
+        this.nativePapoulisFilter = exports;
+        this.nativePapoulisFilterReady = Boolean(
+          this.nativePapoulisFilter?.soemdsp_papoulis_filter_create &&
+          this.nativePapoulisFilter?.soemdsp_papoulis_filter_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "papoulis_filter",
+          status: this.nativePapoulisFilterReady ? "ready" : "missing exports",
+        });
+        return;
+      }
       if (name === "tb303_filter" || targetType === "tb303Filter") {
         for (const state of this.tb303FilterStates.values()) {
           this.destroyStereoFilterNativeState(state, (s) => this.destroyTb303FilterNativeState(s));
@@ -1684,6 +1720,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       this.destroyStereoFilterNativeState(state, (s) => this.destroyPassiveFilterNativeState(s));
     }
     this.passiveFilterStates = new Map();
+    for (const state of this.papoulisFilterStates.values()) {
+      this.destroyPapoulisFilterNativeState(state);
+    }
     this.papoulisFilterStates = new Map();
     this.phosphillatorPlaybackStates = new Map();
     this.phosphillatorDecodedPathCache = new Map();
@@ -1703,6 +1742,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
     this.delayedTriggerStates = new Map();
     this.delayEffectStates = new Map();
+    for (const state of this.pingPongDelayStates.values()) {
+      this.destroyPingPongDelayNativeState(state);
+    }
     this.pingPongDelayStates = new Map();
     this.expAdsrStates = new Map();
     for (const state of this.fractalBrownianNoiseStates.values()) {
@@ -2462,6 +2504,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
     for (const id of [...this.papoulisFilterStates.keys()]) {
       if (!ids.has(id)) {
+        this.destroyPapoulisFilterNativeState(this.papoulisFilterStates.get(id));
         this.papoulisFilterStates.delete(id);
       }
     }
@@ -2596,6 +2639,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
     for (const id of [...this.pingPongDelayStates.keys()]) {
       if (!ids.has(id)) {
+        this.destroyPingPongDelayNativeState(this.pingPongDelayStates.get(id));
         this.pingPongDelayStates.delete(id);
       }
     }
@@ -4462,6 +4506,18 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   destroyRandomClockNativeState(state) {
     if (state.nativeHandle && this.nativeRandomClock?.soemdsp_random_clock_destroy) {
       this.nativeRandomClock.soemdsp_random_clock_destroy(state.nativeHandle);
+      state.nativeHandle = 0;
+    }
+  }
+  destroyPingPongDelayNativeState(state) {
+    if (state.nativeHandle && this.nativePingPongDelay?.soemdsp_ping_pong_delay_destroy) {
+      this.nativePingPongDelay.soemdsp_ping_pong_delay_destroy(state.nativeHandle);
+      state.nativeHandle = 0;
+    }
+  }
+  destroyPapoulisFilterNativeState(state) {
+    if (state.nativeHandle && this.nativePapoulisFilter?.soemdsp_papoulis_filter_destroy) {
+      this.nativePapoulisFilter.soemdsp_papoulis_filter_destroy(state.nativeHandle);
       state.nativeHandle = 0;
     }
   }

@@ -518,6 +518,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "papoulis_filter",
+      "label": "Papoulis Filter",
+      "targetType": "papoulisFilter",
+      "kind": "filter",
+      "source": "native_modules/papoulis_filter/papoulis_filter.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/papoulis_filter/papoulis_filter.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/papoulis_filter/papoulis_filter.wasm",
+      "wasmUrl": "native_modules/papoulis_filter/papoulis_filter.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "passive_filter",
       "label": "Passive Filter",
       "targetType": "passiveFilter",
@@ -539,6 +551,18 @@
       "libUrl": "",
       "wasm": "native_modules/pi_spigot_noise/pi_spigot_noise.wasm",
       "wasmUrl": "native_modules/pi_spigot_noise/pi_spigot_noise.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "ping_pong_delay",
+      "label": "Ping Pong Delay",
+      "targetType": "pingPongDelay",
+      "kind": "effect",
+      "source": "native_modules/ping_pong_delay/ping_pong_delay.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/ping_pong_delay/ping_pong_delay.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/ping_pong_delay/ping_pong_delay.wasm",
+      "wasmUrl": "native_modules/ping_pong_delay/ping_pong_delay.wasm",
       "wasmAvailable": true
     },
     {

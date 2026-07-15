@@ -17491,6 +17491,8 @@ def require_native_module_contract(base_url: str) -> None:
         "delayed_trigger": ["soemdsp_delayed_trigger_create", "soemdsp_delayed_trigger_destroy", "soemdsp_delayed_trigger_sample"],
         "clock": ["soemdsp_clock_create", "soemdsp_clock_destroy", "soemdsp_clock_sample"],
         "random_clock": ["soemdsp_random_clock_create", "soemdsp_random_clock_destroy", "soemdsp_random_clock_sample"],
+        "ping_pong_delay": ["soemdsp_ping_pong_delay_create", "soemdsp_ping_pong_delay_destroy", "soemdsp_ping_pong_delay_sample"],
+        "papoulis_filter": ["soemdsp_papoulis_filter_create", "soemdsp_papoulis_filter_destroy", "soemdsp_papoulis_filter_sample"],
         "chord_sequencer": ["soemdsp_chord_sequencer_create", "soemdsp_chord_sequencer_destroy", "soemdsp_chord_sequencer_sample"],
         "lut_cell": ["soemdsp_lut_cell_create", "soemdsp_lut_cell_destroy", "soemdsp_lut_cell_sample", "soemdsp_lut_cell_q"],
         "metallic_ratio": ["soemdsp_metallic_ratio_sample"],

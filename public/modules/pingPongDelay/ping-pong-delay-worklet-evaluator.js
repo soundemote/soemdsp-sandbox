@@ -6,6 +6,7 @@ NodeLiveAudioProcessor.prototype.createPingPongDelayState = function createPingP
       position: 0,
       wetL: 0,
       wetR: 0,
+      nativeHandle: 0,
     };
   };
 
@@ -37,7 +38,7 @@ NodeLiveAudioProcessor.prototype.pingPongDelaySeconds = function pingPongDelaySe
     return syncedSeconds + offsetSeconds;
   };
 
-NodeLiveAudioProcessor.prototype.pingPongDelaySample = function pingPongDelaySample(state, input, params, rateHz = sampleRate) {
+NodeLiveAudioProcessor.prototype.pingPongDelaySampleJs = function pingPongDelaySampleJs(state, input, params, rateHz = sampleRate) {
     const safeRate = Math.max(1, Number(rateHz) || 44100);
     const maxDelaySeconds = 8;
     const requiredSize = Math.max(2, Math.ceil(safeRate * maxDelaySeconds) + 2);
@@ -80,5 +81,45 @@ NodeLiveAudioProcessor.prototype.pingPongDelaySample = function pingPongDelaySam
       Left: (dry * (1 - mix) + state.wetL * mix) * level,
       Right: (dry * (1 - mix) + state.wetR * mix) * level,
     };
+  };
+
+NodeLiveAudioProcessor.prototype.pingPongDelaySample = function pingPongDelaySample(state, input, params, rateHz = sampleRate) {
+    if (this.nativePingPongDelayReady) {
+      try {
+        if (!state.nativeHandle) {
+          state.nativeHandle = this.nativePingPongDelay.soemdsp_ping_pong_delay_create();
+        }
+        if (state.nativeHandle) {
+          const safeRate = Math.max(1, Number(rateHz) || sampleRate || 44100);
+          const left = this.nativePingPongDelay.soemdsp_ping_pong_delay_sample(
+            state.nativeHandle,
+            this.safeFilterNumber(input, null),
+            this.safeFilterNumber(params.feedback, null),
+            this.safeFilterNumber(params.mix, null),
+            this.safeFilterNumber(params.level, null),
+            this.safeFilterNumber(params.timeNumerator, null),
+            this.safeFilterNumber(params.timeDenominator, null),
+            this.safeFilterNumber(params.timingMode, null),
+            this.safeFilterNumber(params.offsetMs, null),
+            Math.max(1, Number(this.timing?.tempoBpm) || 120),
+            safeRate,
+          );
+          return {
+            Left: this.safeFilterNumber(left, null),
+            Right: this.safeFilterNumber(this.nativePingPongDelay.soemdsp_ping_pong_delay_right(state.nativeHandle), null),
+          };
+        }
+      } catch (error) {
+        this.nativePingPongDelayReady = false;
+        state.nativeHandle = 0;
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "ping_pong_delay",
+          status: "disabled",
+          message: String(error?.message || error || "native Ping Pong Delay failed"),
+        });
+      }
+    }
+    return this.pingPongDelaySampleJs(state, input, params, rateHz);
   };
 
