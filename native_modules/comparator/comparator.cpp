@@ -30,8 +30,12 @@
 //   Down      -- the same shape on every falling edge.
 //   Up/Dn     -- Up and Down summed onto one wire: fires on either
 //                direction's transition.
+//   Last High -- held signalIn value from the most recent sample where the
+//                input was above changeAmount (unchanged otherwise).
+//   Last Low  -- held signalIn value from the most recent sample where the
+//                input was at or below changeAmount (unchanged otherwise).
 //
-// Main _sample() call returns Gate; the other five are read via accessor
+// Main _sample() call returns Gate; the other seven are read via accessor
 // functions after the call, following this codebase's established pattern
 // for native modules with more than one output (compare
 // soemdsp_pulse_explosion_curve, soemdsp_pll_vco_out, etc.).
@@ -56,6 +60,8 @@ struct ComparatorState {
   double lastUp;
   double lastDown;
   double lastUpDn;
+  double lastHighValue;
+  double lastLowValue;
 };
 
 static ComparatorState gPool[kMaxInstances];
@@ -76,6 +82,8 @@ extern "C" int soemdsp_comparator_create() {
       s.lastUp = 0.0;
       s.lastDown = 0.0;
       s.lastUpDn = 0.0;
+      s.lastHighValue = 0.0;
+      s.lastLowValue = 0.0;
       s.active = true;
       return i + 1;
     }
@@ -110,6 +118,12 @@ extern "C" double soemdsp_comparator_sample(
   const bool risingEdge = high && !s.wasHigh;
   const bool fallingEdge = !high && s.wasHigh;
   s.wasHigh = high;
+
+  if (high) {
+    s.lastHighValue = raw;
+  } else {
+    s.lastLowValue = raw;
+  }
 
   const bool unchanged = s.hasPrev && raw == s.prevRaw;
   s.prevRaw = raw;
@@ -172,6 +186,16 @@ extern "C" double soemdsp_comparator_up_dn(int handle) {
   return gPool[handle - 1].lastUpDn;
 }
 
+extern "C" double soemdsp_comparator_last_high(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return 0.0;
+  return gPool[handle - 1].lastHighValue;
+}
+
+extern "C" double soemdsp_comparator_last_low(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return 0.0;
+  return gPool[handle - 1].lastLowValue;
+}
+
 extern "C" int soemdsp_comparator_version() {
-  return 2;
+  return 3;
 }

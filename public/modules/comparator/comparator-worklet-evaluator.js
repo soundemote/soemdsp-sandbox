@@ -2,6 +2,7 @@ NodeLiveAudioProcessor.prototype.createComparatorState = function createComparat
     return {
       wasHigh: false, hasPrev: false, prevRaw: 0,
       upPulseSamples: 0, downPulseSamples: 0, nativeHandle: 0,
+      lastHighValue: 0, lastLowValue: 0,
     };
   };
 
@@ -17,6 +18,12 @@ NodeLiveAudioProcessor.prototype.comparatorSampleJs = function comparatorSampleJ
     const risingEdge = high && !state.wasHigh;
     const fallingEdge = !high && state.wasHigh;
     state.wasHigh = high;
+
+    if (high) {
+      state.lastHighValue = raw;
+    } else {
+      state.lastLowValue = raw;
+    }
 
     const unchanged = state.hasPrev && raw === state.prevRaw;
     state.prevRaw = raw;
@@ -51,6 +58,8 @@ NodeLiveAudioProcessor.prototype.comparatorSampleJs = function comparatorSampleJ
       Up: this.safeFilterNumber(up, state),
       Down: this.safeFilterNumber(down, state),
       "Up/Dn": this.safeFilterNumber(up + down, state),
+      "Last High": this.safeFilterNumber(state.lastHighValue, state),
+      "Last Low": this.safeFilterNumber(state.lastLowValue, state),
     };
   };
 
@@ -79,6 +88,8 @@ NodeLiveAudioProcessor.prototype.comparatorSample = function comparatorSample(st
           const up = this.safeFilterNumber(this.nativeComparator.soemdsp_comparator_up?.(state.nativeHandle) || 0, state);
           const down = this.safeFilterNumber(this.nativeComparator.soemdsp_comparator_down?.(state.nativeHandle) || 0, state);
           const upDn = this.safeFilterNumber(this.nativeComparator.soemdsp_comparator_up_dn?.(state.nativeHandle) || 0, state);
+          const lastHigh = this.safeFilterNumber(this.nativeComparator.soemdsp_comparator_last_high?.(state.nativeHandle) || 0, state);
+          const lastLow = this.safeFilterNumber(this.nativeComparator.soemdsp_comparator_last_low?.(state.nativeHandle) || 0, state);
           return {
             Gate: gate,
             "Inv Gate": invGate,
@@ -86,6 +97,8 @@ NodeLiveAudioProcessor.prototype.comparatorSample = function comparatorSample(st
             Up: up,
             Down: down,
             "Up/Dn": upDn,
+            "Last High": lastHigh,
+            "Last Low": lastLow,
           };
         }
       } catch (error) {

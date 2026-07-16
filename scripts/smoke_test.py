@@ -17542,7 +17542,7 @@ def require_native_module_contract(base_url: str) -> None:
         "resonator_filter": ["soemdsp_resonator_filter_create", "soemdsp_resonator_filter_destroy", "soemdsp_resonator_filter_sample"],
         "human_filter": ["soemdsp_human_filter_create", "soemdsp_human_filter_destroy", "soemdsp_human_filter_sample"],
         "pulse_explosion": ["soemdsp_pulse_explosion_create", "soemdsp_pulse_explosion_destroy", "soemdsp_pulse_explosion_sample"],
-        "comparator": ["soemdsp_comparator_create", "soemdsp_comparator_destroy", "soemdsp_comparator_sample"],
+        "comparator": ["soemdsp_comparator_create", "soemdsp_comparator_destroy", "soemdsp_comparator_sample", "soemdsp_comparator_last_high", "soemdsp_comparator_last_low"],
         "alias_sine": ["soemdsp_alias_sine_create", "soemdsp_alias_sine_destroy", "soemdsp_alias_sine_sample"],
         "ladder_filter": ["soemdsp_ladder_filter_create", "soemdsp_ladder_filter_destroy", "soemdsp_ladder_filter_sample"],
         "logistic_map": ["soemdsp_logistic_map_create", "soemdsp_logistic_map_destroy", "soemdsp_logistic_map_sample"],

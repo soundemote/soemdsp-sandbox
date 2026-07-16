@@ -9,6 +9,8 @@ function createNodeGraphComparatorState() {
     prevRaw: 0,
     upPulseSamples: 0,
     downPulseSamples: 0,
+    lastHighValue: 0,
+    lastLowValue: 0,
   };
 }
 
@@ -24,6 +26,12 @@ function nodeGraphComparatorSample(state, signalIn, params, sampleRate, runtime 
   const risingEdge = high && !state.wasHigh;
   const fallingEdge = !high && state.wasHigh;
   state.wasHigh = high;
+
+  if (high) {
+    state.lastHighValue = raw;
+  } else {
+    state.lastLowValue = raw;
+  }
 
   const unchanged = state.hasPrev && raw === state.prevRaw;
   state.prevRaw = raw;
@@ -58,6 +66,8 @@ function nodeGraphComparatorSample(state, signalIn, params, sampleRate, runtime 
     Up: nodeGraphSafeFilterNumber(up, runtime, nodeId, null, "comparator up"),
     Down: nodeGraphSafeFilterNumber(down, runtime, nodeId, null, "comparator down"),
     "Up/Dn": nodeGraphSafeFilterNumber(up + down, runtime, nodeId, null, "comparator up/dn"),
+    "Last High": nodeGraphSafeFilterNumber(state.lastHighValue, runtime, nodeId, null, "comparator last high"),
+    "Last Low": nodeGraphSafeFilterNumber(state.lastLowValue, runtime, nodeId, null, "comparator last low"),
   };
 }
 
