@@ -506,6 +506,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "min_max",
+      "label": "Min/Max",
+      "targetType": "minMax",
+      "kind": "utility",
+      "source": "native_modules/min_max/min_max.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/min_max/min_max.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/min_max/min_max.wasm",
+      "wasmUrl": "native_modules/min_max/min_max.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "noise_generator",
       "label": "Noise Generator",
       "targetType": "noiseGenerator",

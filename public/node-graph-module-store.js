@@ -288,6 +288,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Divides incoming trigger pulses into slower clocks for envelopes, sequencers, and rhythmic patches.",
     notes: ["trigger division", "reset input", "pulse width"],
   },
+  minMax: {
+    category: "Dynamics",
+    description: "Port of the Doepfer A-172 Maximum/Minimum Selector. Four inputs, two continuous outputs: Max is the highest of whatever's patched, Min is the lowest. Unpatched inputs are ignored (not read as 0), matching the original's \"leave unused inputs open\" behavior -- patch in as few as 2 or as many as all 4.",
+    label: "Min/Max",
+    notes: ["Doepfer A-172", "voltage selector", "native"],
+  },
   comparator: {
     category: "Sequence",
     description: "One threshold, six views of it: continuous Gate/Inverted Gate, a Hold output for steady (unchanging) signal, and Up/Down/Up-Dn trigger-plus-pulse outputs on every rising and falling edge.",

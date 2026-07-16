@@ -129,6 +129,8 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.nativePulseExplosionReady = false;
     this.nativeComparator = null;
     this.nativeComparatorReady = false;
+    this.nativeMinMax = null;
+    this.nativeMinMaxReady = false;
     this.nativeAliasSine = null;
     this.nativeAliasSineReady = false;
     this.nativeTb303Filter = null;
@@ -195,6 +197,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.humanFilterStates = new Map();
     this.pulseExplosionStates = new Map();
     this.comparatorStates = new Map();
+    this.minMaxStates = new Map();
     this.aliasSineStates = new Map();
     this.ladderFilterStates = new Map();
     this.tb303FilterStates = new Map();
@@ -739,6 +742,22 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
           type: "nativeModuleStatus",
           name: "comparator",
           status: this.nativeComparatorReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "min_max" || targetType === "minMax") {
+        for (const state of this.minMaxStates.values()) {
+          this.destroyMinMaxNativeState(state);
+        }
+        this.nativeMinMax = exports;
+        this.nativeMinMaxReady = Boolean(
+          this.nativeMinMax?.soemdsp_min_max_create &&
+          this.nativeMinMax?.soemdsp_min_max_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "min_max",
+          status: this.nativeMinMaxReady ? "ready" : "missing exports",
         });
         return;
       }
@@ -1820,6 +1839,10 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       this.destroyComparatorNativeState(state);
     }
     this.comparatorStates = new Map();
+    for (const state of this.minMaxStates.values()) {
+      this.destroyMinMaxNativeState(state);
+    }
+    this.minMaxStates = new Map();
     for (const state of this.aliasSineStates.values()) {
       this.destroyAliasSineNativeState(state);
     }
@@ -2623,6 +2646,12 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       if (!ids.has(id)) {
         this.destroyComparatorNativeState(this.comparatorStates.get(id));
         this.comparatorStates.delete(id);
+      }
+    }
+    for (const id of [...this.minMaxStates.keys()]) {
+      if (!ids.has(id)) {
+        this.destroyMinMaxNativeState(this.minMaxStates.get(id));
+        this.minMaxStates.delete(id);
       }
     }
     for (const id of [...this.transportStates.keys()]) {
@@ -4455,6 +4484,13 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
   }
 
+  destroyMinMaxNativeState(state) {
+    if (state.nativeHandle && this.nativeMinMax?.soemdsp_min_max_destroy) {
+      this.nativeMinMax.soemdsp_min_max_destroy(state.nativeHandle);
+      state.nativeHandle = 0;
+    }
+  }
+
   destroyTransportNativeState(state) {
     if (state.nativeHandle && this.nativeTransport?.soemdsp_transport_destroy) {
       this.nativeTransport.soemdsp_transport_destroy(state.nativeHandle);
@@ -6154,6 +6190,17 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
           },
           safeRate,
         );
+      },
+      minMax: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
+        const state = this.minMaxStates.get(nodeId) || this.createMinMaxState();
+        this.minMaxStates.set(nodeId, state);
+        const ports = ["In 1", "In 2", "In 3", "In 4"];
+        const values = ports.map((port) => mixInput(nodeId, port));
+        let connectedMask = 0;
+        ports.forEach((port, i) => {
+          if (hasInput(nodeId, port)) connectedMask |= (1 << i);
+        });
+        return this.minMaxSample(state, values, connectedMask);
       },
       aliasSine: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.aliasSineStates.get(nodeId) || this.createAliasSineState();

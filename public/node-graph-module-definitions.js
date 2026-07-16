@@ -1875,6 +1875,11 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { defaultValue: "1", key: "level", label: "Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
     ],
   },
+  minMax: {
+    inputs: ["In 1", "In 2", "In 3", "In 4"],
+    outputs: ["Max", "Min"],
+    parameters: [],
+  },
   comparator: {
     inputs: ["Signal In"],
     outputs: ["Gate", "Inv Gate", "Hold", "Up", "Down", "Up/Dn", "Last High", "Last Low"],
