@@ -595,6 +595,24 @@
       if (isSameDirection(mode, endpoint)) {
         const key = endpointKey(endpoint);
         if (mode.selected.has(key)) {
+          // Re-clicking the single port that's the whole pending selection
+          // is an attempted self-connection (port -> itself) -- invalid,
+          // same as any other incompatible connect attempt, so it gets the
+          // same burst treatment instead of a silent cancel. Skipped when
+          // more than one port is selected: clicking an already-selected
+          // entry there is legitimate multi-select pruning, not a
+          // self-connection attempt.
+          if (mode.selected.size === 1) {
+            const { from } = mode.selected.get(key);
+            deps.burstZap(from);
+            deps.triggerWireBreak?.("port-click-self");
+            if (endpoint.io === "input" && typeof triggerNodeGraphInputWireBreakPulse === "function") {
+              triggerNodeGraphInputWireBreakPulse(endpoint.node, endpoint.port);
+            }
+            clearPortConnectionMode();
+            deps.drawWires();
+            return true;
+          }
           mode.selected.delete(key);
           hitboxElement.classList.remove("port-connection-selected");
           visualElement.classList.remove("port-connection-selected");
