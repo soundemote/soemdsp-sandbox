@@ -13553,21 +13553,20 @@ def require_node_graph_mvp_contract() -> None:
         and "function normalizeNodeGraphScope2dSettings(settings = {})" in node_graph_source
         and "function nodeGraphScope2dSettingsForNode(node)" in node_graph_source
         and "scope2d: Object.freeze({" in node_graph_source
-        and '"burn",\n      "decay",' in node_graph_source
-        and 'colors: Object.freeze(["dot1Color", "dot2Color"])' in node_graph_source,
+        and '"burn",\n      "decay",' in node_graph_source,
         "2D Burn should have local settings defaults, normalization, and active controls",
     )
     scope2d_active_controls_start = node_graph_source.index("scope2d: Object.freeze({")
-    scope2d_active_controls_end = node_graph_source.index("colors: Object.freeze([\"dot1Color\", \"dot2Color\"])", scope2d_active_controls_start)
+    scope2d_active_controls_end = node_graph_source.index("scope2dTrace: Object.freeze({", scope2d_active_controls_start)
     scope2d_active_controls_source = node_graph_source[scope2d_active_controls_start:scope2d_active_controls_end]
     require(
         '"dot1Size"' in scope2d_active_controls_source
         and '"dot1Brightness"' in scope2d_active_controls_source
-        and '"dot2Size"' in scope2d_active_controls_source
-        and '"dot2Brightness"' in scope2d_active_controls_source
         and '"lineThickness"' not in scope2d_active_controls_source
-        and '"dot2LineThickness"' in scope2d_active_controls_source,
-        "2D Burn settings should expose Dot 1 and Dot 2 controls without Dot 1 Blur controls",
+        and 'colors: Object.freeze(["dot1Color"])' in scope2d_active_controls_source
+        and 'toggles: Object.freeze(["dot1Enabled"])' in scope2d_active_controls_source
+        and "dot2" not in scope2d_active_controls_source,
+        "2D Burn settings should expose only Dot 1 controls; Dot 2 has been removed",
     )
     scope2d_stroke_space_start = node_graph_source.index("function nodeGraphScope2dStrokeSpace(canvas)")
     scope2d_stroke_space_end = node_graph_source.index("function drawNodeGraphOneDimensionalBurnTrail", scope2d_stroke_space_start)
@@ -13582,7 +13581,7 @@ def require_node_graph_mvp_contract() -> None:
         and "function nodeGraphTraceDisplaySectionHasActiveControls(section" in node_graph_source
         and "function setNodeGraphTraceDisplaySectionVisible(popover, section, visible)" in node_graph_source
         and 'setNodeGraphTraceDisplaySectionVisible(popover, "dot2", nodeGraphTraceDisplaySectionHasActiveControls("dot2", formType));' in node_graph_source
-        and 'toggles: Object.freeze(["dot1Enabled", "dot2Enabled"])' in node_graph_source
+        and '"dot1Enabled", "dot2Enabled"' in node_graph_source
         and "for (const key of activeToggles)" in node_graph_source
         and "next[key] = input.checked;" in node_graph_source,
         "Display Settings should show and persist only active typed controls, including Dot 2 toggles",
@@ -13645,7 +13644,7 @@ def require_node_graph_mvp_contract() -> None:
         and "return null;" in scope2d_buffer_source
         and "function nodeGraphScope2dFiniteSample(value)" in scope2d_helper_source
         and "return Number.isFinite(sample) ? sample : null;" in scope2d_helper_source
-        and "function nodeGraphScope2dLayerRadiusPx(settings, dotSpace, dotName)" in scope2d_helper_source
+        and "function nodeGraphScope2dLayerRadiusPx(settings, dotSpace)" in scope2d_helper_source
         and "function nodeGraphScope2dContinuitySpacingPx(settings, dotSpace)" in scope2d_helper_source
         and "return Math.max(0.5, radius * 0.18);" in scope2d_helper_source
         and "function nodeGraphScope2dInterpolationSpacingPx(settings = {}, dotSpace = 1)" in scope2d_helper_source
@@ -13716,7 +13715,7 @@ def require_node_graph_mvp_contract() -> None:
         and "nodeGraphScope2dSettingsForNode" in scope2d_source
         and "drawNodeGraphScope2dRetainedBurn(item, pixelRatio, square, buffer, settings)" in scope2d_source
         and "settings?.dot1Enabled !== false" in scope2d_burn_source
-        and "settings?.dot2Enabled !== false" in scope2d_burn_source
+        and "dot2" not in scope2d_burn_source
         and "settings?.burn" in node_graph_source
         and "settings?.decay" in node_graph_source
         and "function drawNodeGraphScope2dDotPass" not in node_graph_source
