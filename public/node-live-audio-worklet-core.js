@@ -34,6 +34,12 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.liveModuleEvaluators = this.buildLiveModuleEvaluators();
     this.liveModuleEvaluators.bipolarKnob = this.liveModuleEvaluators.macroKnob;
     this.liveModuleEvaluators.previousPatch = this.liveModuleEvaluators.nextPatch;
+    // vactrolEnvelopeSeries and vactrolEnvelopeCustom share one implementation
+    // (see the isSeries branch inside it) -- the offline/render evaluator
+    // registers this same alias in vactrol-envelope-live-evaluator.js; this
+    // real-time path was missing it, so vactrolEnvelopeCustom nodes silently
+    // produced a flat 0 in Live Audio instead of running the envelope.
+    this.liveModuleEvaluators.vactrolEnvelopeCustom = this.liveModuleEvaluators.vactrolEnvelopeSeries;
     this.inputConnections = new Map();
     this.badNumberCount = 0;
     this.lastBadValueReason = "";
