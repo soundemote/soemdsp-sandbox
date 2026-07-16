@@ -134,11 +134,6 @@
         "dot1Color": "#9a6565",
         "dot1Enabled": true,
         "dot1Size": 0.0296,
-        "dot2Brightness": 0.18,
-        "dot2Color": "#184fff",
-        "dot2Enabled": true,
-        "dot2Size": 0.24,
-        "dot2LineThickness": 0.48,
         "lineThickness": 0.2
       }
     },
@@ -342,11 +337,6 @@
         "dot1Color": "#ff0000",
         "dot1Enabled": true,
         "dot1Size": 0.0157,
-        "dot2Brightness": 0.18,
-        "dot2Color": "#184fff",
-        "dot2Enabled": true,
-        "dot2Size": 0.24,
-        "dot2LineThickness": 0.48,
         "lineThickness": 0.2
       }
     },
@@ -647,11 +637,6 @@
         "dot1Color": "#75ebff",
         "dot1Enabled": true,
         "dot1Size": 0.08,
-        "dot2Brightness": 0.18,
-        "dot2Color": "#184fff",
-        "dot2Enabled": true,
-        "dot2Size": 0.24,
-        "dot2LineThickness": 0.48,
         "lineThickness": 0.2
       }
     }

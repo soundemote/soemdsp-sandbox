@@ -93,17 +93,17 @@
         "color": "#75ebff",
         "dot1Enabled": true,
         "dot1Size": 0.08,
-        "dot2Brightness": 0.18,
-        "dot2Color": "#184fff",
-        "dot2Enabled": true,
-        "dot2Size": 0.24,
-        "dot2LineThickness": 0.48,
         "cycles": 2,
         "lineThickness": 0.2,
         "padding": 0,
         "skipSamples": 1,
         "sourceSync": true,
-        "zoomSeconds": 0.05
+        "zoomSeconds": 0.05,
+        "secondaryColor": "#184fff",
+        "secondarySize": 0.24,
+        "secondaryBrightness": 0.18,
+        "secondaryLineThickness": 0.48,
+        "secondaryEnabled": true
       }
     },
     {

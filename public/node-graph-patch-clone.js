@@ -220,23 +220,27 @@ function cloneNodeGraphTypedDisplaySettings(node) {
   const displayType = typeof nodeGraphModuleDisplaySettingsSchemaForNode === "function"
     ? nodeGraphModuleDisplaySettingsSchemaForNode(node)
     : nodeGraphModuleDefinitions?.[node?.type]?.displayType || "";
+  const isOutput = node?.type === "output";
+  const migrate = typeof migrateNodeGraphLegacyDot2Settings === "function"
+    ? migrateNodeGraphLegacyDot2Settings
+    : (settings) => settings;
   if (displayType === "dot") {
-    return { zeroDBurnSettings: normalizeNodeGraphZeroDBurnSettings(node.zeroDBurnSettings) };
+    return { zeroDBurnSettings: normalizeNodeGraphZeroDBurnSettings(migrate(node.zeroDBurnSettings, false)) };
   }
   if (displayType === "lineBurn") {
     return { traceDisplaySettings: normalizeNodeGraphLineBurnSettings(node.traceDisplaySettings) };
   }
   if (displayType === "value") {
-    return { traceDisplaySettings: normalizeNodeGraphValueOscilloscopeSettings(node.traceDisplaySettings) };
+    return { traceDisplaySettings: normalizeNodeGraphValueOscilloscopeSettings(migrate(node.traceDisplaySettings, false)) };
   }
   if (displayType === "scope2d") {
-    return { traceDisplaySettings: normalizeNodeGraphScope2dSettings(node.traceDisplaySettings) };
+    return { traceDisplaySettings: normalizeNodeGraphScope2dSettings(migrate(node.traceDisplaySettings, false)) };
   }
   if (displayType === "scope2dTrace") {
-    return { traceDisplaySettings: normalizeNodeGraphScope2dTraceSettings(node.traceDisplaySettings) };
+    return { traceDisplaySettings: normalizeNodeGraphScope2dTraceSettings(migrate(node.traceDisplaySettings, false)) };
   }
   if (displayType === "trace" && Object.hasOwn(node, "traceDisplaySettings")) {
-    return { traceDisplaySettings: normalizeNodeGraphTraceDisplaySettings(node.traceDisplaySettings) };
+    return { traceDisplaySettings: normalizeNodeGraphTraceDisplaySettings(migrate(node.traceDisplaySettings, isOutput)) };
   }
   return {};
 }

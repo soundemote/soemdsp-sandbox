@@ -8300,7 +8300,7 @@ def require_node_graph_mvp_contract() -> None:
         "if (!nodeGraphNodeCanOpenDisplaySettings(node))",
         "function cloneNodeGraphTypedDisplaySettings(node)",
         'if (displayType === "scope2d")',
-        "traceDisplaySettings: normalizeNodeGraphScope2dSettings(node.traceDisplaySettings)",
+        "traceDisplaySettings: normalizeNodeGraphScope2dSettings(migrate(node.traceDisplaySettings, false))",
         "...cloneNodeGraphTypedDisplaySettings(node)",
         'renderer === "trace") {\n    buffer = prepareNodeGraphTraceDisplayBuffer(\n      capturedBuffer,\n      nodeGraphTraceDisplaySettingsForSlot(slot),\n    );',
         '"traceDisplaySettings"',
@@ -12877,10 +12877,19 @@ def require_node_graph_mvp_contract() -> None:
     ]:
         require(snippet in node_graph_source, f"node graph source missing {snippet}")
     patch_normalizers_shader_source = script_sources["./public/node-graph-patch-normalizers.js"]
+    shader_default_template_start = patch_normalizers_shader_source.index(
+        "const nodeGraphScopeShaderDefaultSource = `",
+    )
+    shader_default_template_end = patch_normalizers_shader_source.index(
+        "const nodeGraphCanvasScriptDefaultSource", shader_default_template_start,
+    )
+    shader_default_template_source = patch_normalizers_shader_source[
+        shader_default_template_start:shader_default_template_end
+    ]
     require(
-        "dot1.color      = dot1.global.color;" in patch_normalizers_shader_source
-        and "dot1.brightness = 1.0 * dot1.global.brightness;" in patch_normalizers_shader_source
-        and "dot2" not in patch_normalizers_shader_source,
+        "dot1.color      = dot1.global.color;" in shader_default_template_source
+        and "dot1.brightness = 1.0 * dot1.global.brightness;" in shader_default_template_source
+        and "dot2" not in shader_default_template_source,
         "the live shader-script default template should have Dot 2 removed",
     )
     shader_script_legacy_source = script_sources["./public/node-graph-shader-script.js"]
@@ -12890,6 +12899,33 @@ def require_node_graph_mvp_contract() -> None:
         and "compact === dot2Legacy" in shader_script_legacy_source
         and "compact === dot2VisualLegacy" in shader_script_legacy_source,
         "a stored module shader default matching the old Dot 2 template should be regenerated from the new Dot 2-free one",
+    )
+    require(
+        "function migrateNodeGraphLegacyDot2Settings(settings, isOutput)" in patch_normalizers_shader_source
+        and "next.secondaryColor = next.dot2Color;" in patch_normalizers_shader_source
+        and "next.secondarySize = next.dot2Size;" in patch_normalizers_shader_source
+        and "next.secondaryBrightness = next.dot2Brightness;" in patch_normalizers_shader_source
+        and "next.secondaryLineThickness = next.dot2LineThickness;" in patch_normalizers_shader_source
+        and "next.secondaryEnabled = next.dot2Enabled;" in patch_normalizers_shader_source
+        and "next.dot1Enabled === false && next.dot2Enabled !== false" in patch_normalizers_shader_source
+        and "next.dot1Color = next.dot2Color;" in patch_normalizers_shader_source
+        and "next.dot1Size = next.dot2Size;" in patch_normalizers_shader_source
+        and "next.dot1Brightness = next.dot2Brightness;" in patch_normalizers_shader_source
+        and "next.lineThickness = next.dot2LineThickness;" in patch_normalizers_shader_source
+        and "delete next.dot2Enabled;" in patch_normalizers_shader_source
+        and "delete next.dot2Size;" in patch_normalizers_shader_source
+        and "delete next.dot2Brightness;" in patch_normalizers_shader_source
+        and "delete next.dot2Color;" in patch_normalizers_shader_source
+        and "delete next.dot2LineThickness;" in patch_normalizers_shader_source,
+        "loaded patches should migrate legacy Dot 2 settings: Output nodes rename to secondary*, others rescue dot1-off/dot2-only",
+    )
+    require(
+        "const isOutput = node?.type === \"output\";" in node_graph_source
+        and "const migrate = typeof migrateNodeGraphLegacyDot2Settings === \"function\"" in node_graph_source
+        and "migrate(node.zeroDBurnSettings, false)" in node_graph_source
+        and "migrate(node.traceDisplaySettings, false)" in node_graph_source
+        and "migrate(node.traceDisplaySettings, isOutput)" in node_graph_source,
+        "cloneNodeGraphTypedDisplaySettings should run the Dot 2 migration for every typed display, Output-aware",
     )
     for snippet in [
         "function setNodeGraphModuleScopeDotCore2Size(value)",
@@ -14427,7 +14463,7 @@ def require_node_graph_mvp_contract() -> None:
         and "adjustNodeGraphTraceDisplaySettingByControlDelta(key, baseValue, direction * quantum)" in node_graph_source
         and "for (const key of activeColors)" in node_graph_source
         and "0D Burn brightness mode. Off: only 0..1 lights up. On: -1 and +1 are equally bright." in tooltip_source
-        and "zeroDBurnSettings: normalizeNodeGraphZeroDBurnSettings(node.zeroDBurnSettings)" in node_graph_source
+        and "zeroDBurnSettings: normalizeNodeGraphZeroDBurnSettings(migrate(node.zeroDBurnSettings, false))" in node_graph_source
         and "dot2" not in dot_draw_source,
         "0D Burn settings should expose real normalized dot sizes and bipolar brightness mode, with Dot 2 removed",
     )

@@ -144,6 +144,64 @@ function nodeGraphScopeShaderDefaultSourceForType(type) {
     : nodeGraphScopeShaderDefaultSource;
 }
 
+// Dot 2 has been removed app-wide. A node's saved typed-display settings
+// (traceDisplaySettings / zeroDBurnSettings) may still carry legacy dot2*
+// keys from before that change -- migrate them once at patch-load time,
+// before the type-specific normalizer ever sees them:
+// - Output nodes reused dot1/dot2 as Left/Right stereo channels, so their
+//   dot2* keys get a straight rename onto the new secondary* fields.
+// - Every other display type only ever used dot2 as a decorative second
+//   dot layer. If dot1 was off and dot2 was the only visible dot, flip
+//   dot1 back on and adopt dot2's look so the display doesn't go blank;
+//   otherwise the dot2* keys are just dropped.
+function migrateNodeGraphLegacyDot2Settings(settings, isOutput) {
+  if (!settings || typeof settings !== "object" || Array.isArray(settings)) {
+    return settings;
+  }
+  const legacyKeys = ["dot2Enabled", "dot2Size", "dot2Brightness", "dot2Color", "dot2LineThickness"];
+  if (!legacyKeys.some((key) => Object.hasOwn(settings, key))) {
+    return settings;
+  }
+  const next = { ...settings };
+  if (isOutput) {
+    if (Object.hasOwn(next, "dot2Color")) {
+      next.secondaryColor = next.dot2Color;
+    }
+    if (Object.hasOwn(next, "dot2Size")) {
+      next.secondarySize = next.dot2Size;
+    }
+    if (Object.hasOwn(next, "dot2Brightness")) {
+      next.secondaryBrightness = next.dot2Brightness;
+    }
+    if (Object.hasOwn(next, "dot2LineThickness")) {
+      next.secondaryLineThickness = next.dot2LineThickness;
+    }
+    if (Object.hasOwn(next, "dot2Enabled")) {
+      next.secondaryEnabled = next.dot2Enabled;
+    }
+  } else if (next.dot1Enabled === false && next.dot2Enabled !== false) {
+    next.dot1Enabled = true;
+    if (Object.hasOwn(next, "dot2Color")) {
+      next.dot1Color = next.dot2Color;
+    }
+    if (Object.hasOwn(next, "dot2Size")) {
+      next.dot1Size = next.dot2Size;
+    }
+    if (Object.hasOwn(next, "dot2Brightness")) {
+      next.dot1Brightness = next.dot2Brightness;
+    }
+    if (Object.hasOwn(next, "dot2LineThickness")) {
+      next.lineThickness = next.dot2LineThickness;
+    }
+  }
+  delete next.dot2Enabled;
+  delete next.dot2Size;
+  delete next.dot2Brightness;
+  delete next.dot2Color;
+  delete next.dot2LineThickness;
+  return next;
+}
+
 function normalizeNodeGraphScopeShaderVideoInput(value = "~") {
   const text = String(value || "~").trim().toLowerCase();
   if (text === "none") {
