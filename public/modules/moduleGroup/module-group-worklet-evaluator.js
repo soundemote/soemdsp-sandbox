@@ -30,6 +30,7 @@ NodeLiveAudioProcessor.prototype.createNestedRuntime = function createNestedRunt
   runtime.wireDisconnectEvent = this.wireDisconnectEvent;
   runtime.windowReopenEvent = this.windowReopenEvent;
   runtime.shootingStarExplosionEvent = this.shootingStarExplosionEvent;
+  runtime.inputWireBreakTriggers = new Map();
   runtime.midiKeyboardGatePulseSamples = 0;
   runtime.midiKeyboardSignal = null;
   runtime.moduleGroupRuntimes = new Map();
