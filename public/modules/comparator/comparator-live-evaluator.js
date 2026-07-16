@@ -63,9 +63,9 @@ function nodeGraphComparatorSample(state, signalIn, params, sampleRate, runtime 
     Gate: nodeGraphSafeFilterNumber(gate, runtime, nodeId, null, "comparator gate"),
     "Inv Gate": nodeGraphSafeFilterNumber(invGate, runtime, nodeId, null, "comparator inv gate"),
     Hold: nodeGraphSafeFilterNumber(hold, runtime, nodeId, null, "comparator hold"),
-    Up: nodeGraphSafeFilterNumber(up, runtime, nodeId, null, "comparator up"),
-    Down: nodeGraphSafeFilterNumber(down, runtime, nodeId, null, "comparator down"),
-    "Up/Dn": nodeGraphSafeFilterNumber(up + down, runtime, nodeId, null, "comparator up/dn"),
+    "Up Trig": nodeGraphSafeFilterNumber(up, runtime, nodeId, null, "comparator up"),
+    "Down Trig": nodeGraphSafeFilterNumber(down, runtime, nodeId, null, "comparator down"),
+    "UpDn Trig": nodeGraphSafeFilterNumber(up + down, runtime, nodeId, null, "comparator up/dn"),
     "Last High": nodeGraphSafeFilterNumber(state.lastHighValue, runtime, nodeId, null, "comparator last high"),
     "Last Low": nodeGraphSafeFilterNumber(state.lastLowValue, runtime, nodeId, null, "comparator last low"),
   };

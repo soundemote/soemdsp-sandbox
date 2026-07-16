@@ -296,7 +296,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   comparator: {
     category: "Sequence",
-    description: "One threshold, six views of it: continuous Gate/Inverted Gate, a Hold output for steady (unchanging) signal, and Up/Down/Up-Dn trigger-plus-pulse outputs on every rising and falling edge.",
+    description: "One threshold, eight views of it: continuous Gate/Inverted Gate, a Hold output for steady (unchanging) signal, Up Trig/Down Trig/UpDn Trig pulse outputs on every rising and falling edge, and Last High/Last Low holding the signal's last value on each side of the threshold.",
     label: "Comparator",
     notes: ["gate", "edge detect", "native"],
   },

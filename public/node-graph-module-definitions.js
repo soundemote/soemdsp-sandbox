@@ -1882,7 +1882,7 @@ const nodeGraphModuleDefinitions = Object.freeze({
   },
   comparator: {
     inputs: ["Signal In"],
-    outputs: ["Gate", "Inv Gate", "Hold", "Up", "Down", "Up/Dn", "Last High", "Last Low"],
+    outputs: ["Gate", "Inv Gate", "Hold", "Up Trig", "Down Trig", "UpDn Trig", "Last High", "Last Low"],
     parameters: [
       { defaultValue: "0.5", key: "changeAmount", label: "Change Amount", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
       { defaultValue: "0.01", key: "pulseTime", kind: "time", label: "Pulse Time", max: "2", maxDigits: 5, mid: "0.05", min: "0", step: "any", unit: "s" },
