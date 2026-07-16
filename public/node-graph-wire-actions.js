@@ -58,6 +58,7 @@ function setSelectedNodeGraphWireType(wireType) {
 function disconnectNodeGraphConnection(index, kind = "signal") {
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   let removed = false;
+  let brokenInputTarget = null;
   if (kind === "graph") {
     removed = index >= 0 && index < patch.graphConnections.length;
     patch.graphConnections = patch.graphConnections.filter((_connection, connectionIndex) => connectionIndex !== index);
@@ -65,7 +66,11 @@ function disconnectNodeGraphConnection(index, kind = "signal") {
     removed = index >= 0 && index < patch.modulations.length;
     patch.modulations = patch.modulations.filter((_modulation, modulationIndex) => modulationIndex !== index);
   } else {
+    const connection = patch.connections[index];
     removed = index >= 0 && index < patch.connections.length;
+    if (removed && connection?.destinationNode && connection?.destinationPort) {
+      brokenInputTarget = { nodeId: connection.destinationNode, port: connection.destinationPort };
+    }
     patch.connections = patch.connections.filter((_connection, connectionIndex) => connectionIndex !== index);
   }
   if (!removed) {
@@ -80,6 +85,9 @@ function disconnectNodeGraphConnection(index, kind = "signal") {
   commitNodeGraphPatch(patch, { status: "wire disconnected", wireEdit: true });
   if (typeof triggerNodeGraphWireDisconnectEvent === "function") {
     triggerNodeGraphWireDisconnectEvent(kind);
+  }
+  if (brokenInputTarget && typeof triggerNodeGraphInputWireBreakPulse === "function") {
+    triggerNodeGraphInputWireBreakPulse(brokenInputTarget.nodeId, brokenInputTarget.port);
   }
 }
 

@@ -20,17 +20,25 @@ const nodeGraphLiveModuleEvaluators = {};
 
 function evaluateNodeGraphPlanFrame(runtime, sampleRate, frame, frames) {
   const frameValues = new Map();
-  const mixInput = (nodeId, port = "In") => (runtime.inputConnections.get(`${nodeId}.${port}`) || []).reduce(
-    (sum, connection) => sum + readNodeGraphRuntimePortOutput(
-      runtime,
-      frameValues,
-      connection.sourceNode,
-      connection.sourcePort,
-      frame,
-      frames,
-    ),
-    0,
-  );
+  const mixInput = (nodeId, port = "In") => {
+    const base = (runtime.inputConnections.get(`${nodeId}.${port}`) || []).reduce(
+      (sum, connection) => sum + readNodeGraphRuntimePortOutput(
+        runtime,
+        frameValues,
+        connection.sourceNode,
+        connection.sourcePort,
+        frame,
+        frames,
+      ),
+      0,
+    );
+    const triggerKey = `${nodeId}.${port}`;
+    if (runtime.inputWireBreakTriggers.has(triggerKey)) {
+      runtime.inputWireBreakTriggers.delete(triggerKey);
+      return base + 1;
+    }
+    return base;
+  };
   const hasInput = (nodeId, port) => runtime.inputConnections.has(`${nodeId}.${port}`);
 
   const graphSampleX = (node, nodeId) => {

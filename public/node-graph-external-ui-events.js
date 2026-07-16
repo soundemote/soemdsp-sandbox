@@ -314,6 +314,35 @@ function triggerNodeGraphWireDisconnectEvent(reason = "") {
   return scheduleNodeGraphLiveGameTriggerEvent(sendNodeGraphLiveWireDisconnectEvent, reason);
 }
 
+// Unlike the ambient wireBreakEvent/wireDisconnectEvent pulses above (a
+// global "something happened" cue, deliberately delayed via
+// scheduleNodeGraphLiveGameTriggerEvent for external/game-trigger use),
+// this feeds a real single-sample trigger into the SPECIFIC input port
+// that just lost its signal wire -- fired immediately, no delay, since
+// the point is for downstream modules (envelopes, sample+hold, etc.) to
+// feel the break happen, not to look/feel juicy. Called from
+// disconnectNodeGraphConnection for every "signal" kind disconnect,
+// regardless of which UI path removed the wire.
+function triggerNodeGraphInputWireBreakPulse(nodeId, port) {
+  if (!nodeId || !port) {
+    return false;
+  }
+  if (nodeGraphMvp.live.runtime) {
+    if (!(nodeGraphMvp.live.runtime.inputWireBreakTriggers instanceof Map)) {
+      nodeGraphMvp.live.runtime.inputWireBreakTriggers = new Map();
+    }
+    nodeGraphMvp.live.runtime.inputWireBreakTriggers.set(`${nodeId}.${port}`, 1);
+  }
+  if (nodeGraphMvp.live.usesWorklet && nodeGraphMvp.live.node?.port) {
+    nodeGraphMvp.live.node.port.postMessage({
+      nodeId,
+      port,
+      type: "inputWireBreakTrigger",
+    });
+  }
+  return true;
+}
+
 function nodeGraphShootingStarExplosionEventSpeed(payload) {
   const speed = Number(payload?.speed);
   return Number.isFinite(speed) ? speed : null;

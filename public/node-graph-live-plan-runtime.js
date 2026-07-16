@@ -614,6 +614,11 @@ function createNodeGraphLiveRuntime(plan) {
     wireDisconnectEvent: { pulseSamples: 0 },
     windowReopenEvent: { pulseSamples: 0, gateSamples: 0, totalSamples: 0 },
     shootingStarExplosionEvent: { pulseSamples: 0 },
+    // Any input-port wire disconnect (any kind/UI trigger -- see
+    // disconnectNodeGraphConnection) feeds a single-sample trigger into that
+    // port so downstream modules (envelopes, sample+hold, etc.) feel a poke
+    // when their signal supply is cut, instead of just dropping to silence.
+    inputWireBreakTriggers: new Map(),
     moduleGroupRuntimes,
     pitchModWheelSignal: {
       mod: Math.max(0, Math.min(1, Number(nodeGraphMvp?.modWheelSignal) || 0)),

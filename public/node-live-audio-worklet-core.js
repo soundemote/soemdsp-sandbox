@@ -70,6 +70,11 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.wireDisconnectEvent = { pulseSamples: 0 };
     this.windowReopenEvent = { pulseSamples: 0, gateSamples: 0, totalSamples: 0 };
     this.shootingStarExplosionEvent = { pulseSamples: 0 };
+    // Any input-port wire disconnect (any kind/UI trigger -- see
+    // disconnectNodeGraphConnection) feeds a single-sample trigger into that
+    // port so downstream modules (envelopes, sample+hold, etc.) feel a poke
+    // when their signal supply is cut, instead of just dropping to silence.
+    this.inputWireBreakTriggers = new Map();
     this.pitchModWheelSignal = { mod: 0, pitch: 0 };
     this.midiKeyboardGatePulseSamples = 0;
     this.midiKeyboardSignal = null;
@@ -460,6 +465,15 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       this.setImpulseButtonTrigger(message.nodeId, message.amplitude);
       return;
     }
+    if (message.type === "inputWireBreakTrigger") {
+      this.setInputWireBreakTrigger(message.nodeId, message.port);
+      return;
+    }
+  }
+
+  setInputWireBreakTrigger(nodeId, port) {
+    if (!nodeId || !port) return;
+    this.inputWireBreakTriggers.set(this.inputKey(nodeId, port), 1);
   }
 
   setImpulseButtonTrigger(nodeId, amplitude) {
@@ -7620,15 +7634,23 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   evaluateFrame(frame, frames, inputs = [], rate = this.engineSampleRate || sampleRate, inputFrame = frame) {
     const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
     const frameValues = new Map();
-    const mixInput = (nodeId, port = "In") => (
-      this.inputConnections.get(this.inputKey(nodeId, port)) || []
-    ).reduce((sum, connection) => sum + this.readRuntimePortOutput(
-      frameValues,
-      connection.sourceNode,
-      connection.sourcePort,
-      frame,
-      frames,
-    ), 0);
+    const mixInput = (nodeId, port = "In") => {
+      const base = (
+        this.inputConnections.get(this.inputKey(nodeId, port)) || []
+      ).reduce((sum, connection) => sum + this.readRuntimePortOutput(
+        frameValues,
+        connection.sourceNode,
+        connection.sourcePort,
+        frame,
+        frames,
+      ), 0);
+      const triggerKey = this.inputKey(nodeId, port);
+      if (this.inputWireBreakTriggers.has(triggerKey)) {
+        this.inputWireBreakTriggers.delete(triggerKey);
+        return base + 1;
+      }
+      return base;
+    };
     const hasInput = (nodeId, port) => this.inputConnections.has(this.inputKey(nodeId, port));
     const incomingClockRate = (nodeId) => {
       const connection = (this.inputConnections.get(this.inputKey(nodeId, "Clock")) || [])[0];
