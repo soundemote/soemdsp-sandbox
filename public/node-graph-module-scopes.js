@@ -2253,16 +2253,21 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
   return nodeGraphModuleScopeState.buffers.get(nodeId) || null;
 }
 
+// secondary* is read only when a "trace"-schema node is Output's stereo
+// display (drawNodeGraphTraceDisplayCanvasItem) -- Output shares this same
+// formType with plain single-value Trace nodes (both declare
+// displayType/renderer "trace"), so the field exists here for all of them,
+// but a non-Output trace node's draw path never reads it.
 const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
   brightness: 0.92,
   color: "#75ebff",
   dot1Enabled: true,
   dot1Size: 0.08,
-  dot2Brightness: 0.18,
-  dot2Color: "#184fff",
-  dot2Enabled: true,
-  dot2Size: 0.24,
-  dot2LineThickness: 0.48,
+  secondaryBrightness: 0.18,
+  secondaryColor: "#184fff",
+  secondaryEnabled: true,
+  secondarySize: 0.24,
+  secondaryLineThickness: 0.48,
   cycles: 2,
   lineThickness: 0.2,
   padding: 0,
@@ -2297,11 +2302,6 @@ const nodeGraphZeroDBurnSettingsDefaults = Object.freeze({
   dot1Color: "#75ebff",
   dot1Enabled: true,
   dot1Size: 0.08,
-  dot2LineThickness: 0.48,
-  dot2Brightness: 0.18,
-  dot2Color: "#184fff",
-  dot2Enabled: true,
-  dot2Size: 0.24,
   lineThickness: 0.2,
 });
 
@@ -2315,11 +2315,6 @@ const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
   decay: 0,
   dot1Enabled: true,
   dot1Size: 0.08,
-  dot2Brightness: 0.18,
-  dot2Color: "#184fff",
-  dot2Enabled: true,
-  dot2LineThickness: 0.48,
-  dot2Size: 0.24,
   lineLength: 0.88,
   lineThickness: 0.2,
 });
@@ -2424,16 +2419,6 @@ function normalizeNodeGraphZeroDBurnSettings(settings = {}) {
     dot1Color: normalizeNodeGraphTraceDisplayColor(source.dot1Color ?? source.color, defaults.dot1Color),
     dot1Enabled: source.dot1Enabled !== false,
     dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
-    dot2LineThickness: normalizeNodeGraphTraceDisplayNumber(
-      source.dot2LineThickness ?? source.dot2Blur,
-      defaults.dot2LineThickness,
-      0,
-      1,
-    ),
-    dot2Brightness: normalizeNodeGraphTraceDisplayNumber(source.dot2Brightness, defaults.dot2Brightness, 0, 2),
-    dot2Color: normalizeNodeGraphTraceDisplayColor(source.dot2Color, defaults.dot2Color),
-    dot2Enabled: source.dot2Enabled !== false,
-    dot2Size: normalizeNodeGraphTraceDisplayNumber(source.dot2Size, defaults.dot2Size, 0, 1),
     lineThickness: normalizeNodeGraphTraceDisplayNumber(
       source.lineThickness ?? source.dot1Blur,
       defaults.lineThickness,
@@ -2463,23 +2448,23 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
       0,
       1,
     ),
-    dot2Brightness: normalizeNodeGraphTraceDisplayNumber(
-      source.dot2Brightness,
-      defaults.dot2Brightness,
+    secondaryBrightness: normalizeNodeGraphTraceDisplayNumber(
+      source.secondaryBrightness,
+      defaults.secondaryBrightness,
       0,
       Infinity,
     ),
-    dot2Color: normalizeNodeGraphTraceDisplayColor(source.dot2Color, defaults.dot2Color),
-    dot2Enabled: source.dot2Enabled !== false,
-    dot2Size: normalizeNodeGraphTraceDisplayNumber(
-      source.dot2Size,
-      defaults.dot2Size,
+    secondaryColor: normalizeNodeGraphTraceDisplayColor(source.secondaryColor, defaults.secondaryColor),
+    secondaryEnabled: source.secondaryEnabled !== false,
+    secondarySize: normalizeNodeGraphTraceDisplayNumber(
+      source.secondarySize,
+      defaults.secondarySize,
       0,
       1,
     ),
-    dot2LineThickness: normalizeNodeGraphTraceDisplayNumber(
-      source.dot2LineThickness,
-      defaults.dot2LineThickness,
+    secondaryLineThickness: normalizeNodeGraphTraceDisplayNumber(
+      source.secondaryLineThickness,
+      defaults.secondaryLineThickness,
       0,
       1,
     ),
@@ -2510,21 +2495,6 @@ function normalizeNodeGraphValueOscilloscopeSettings(settings = {}) {
     decay: normalizeNodeGraphTraceDisplayNumber(source.decay, defaults.decay, 0, 1),
     dot1Enabled: source.dot1Enabled !== false,
     dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
-    dot2Brightness: normalizeNodeGraphTraceDisplayNumber(
-      source.dot2Brightness,
-      defaults.dot2Brightness,
-      0,
-      Infinity,
-    ),
-    dot2Color: normalizeNodeGraphTraceDisplayColor(source.dot2Color, defaults.dot2Color),
-    dot2Enabled: source.dot2Enabled !== false,
-    dot2LineThickness: normalizeNodeGraphTraceDisplayNumber(
-      source.dot2LineThickness,
-      defaults.dot2LineThickness,
-      0,
-      1,
-    ),
-    dot2Size: normalizeNodeGraphTraceDisplayNumber(source.dot2Size, defaults.dot2Size, 0, 1),
     lineLength: normalizeNodeGraphTraceDisplayNumber(source.lineLength, defaults.lineLength, 0, 1),
     lineThickness: normalizeNodeGraphTraceDisplayNumber(source.lineThickness, defaults.lineThickness, 0, 1),
   };
@@ -3448,12 +3418,12 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
   ["cycles", "Cycles"],
   ["decimals", "Decimals"],
 
-  ["dot1Size", "Dot 1 size"],
-  ["lineThickness", "Dot 1 blur"],
-  ["dot1Brightness", "Dot 1 light"],
-  ["dot2Size", "Dot 2 size"],
-  ["dot2LineThickness", "Dot 2 blur"],
-  ["dot2Brightness", "Dot 2 light"],
+  ["dot1Size", "Dot size"],
+  ["lineThickness", "Dot blur"],
+  ["dot1Brightness", "Dot light"],
+  ["secondarySize", "Secondary size"],
+  ["secondaryLineThickness", "Secondary blur"],
+  ["secondaryBrightness", "Secondary light"],
   ["lineLength", "Line length"],
   ["capSize", "Cap size"],
   ["capLength", "Cap length"],
@@ -3461,8 +3431,8 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
 
 const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
   fields: nodeGraphTraceDisplaySettingFields.map(([key]) => key),
-  colors: ["dot1Color", "dot2Color"],
-  toggles: ["sourceSync", "bipolarBrightness", "dot1Enabled", "dot2Enabled", "capEnabled"],
+  colors: ["dot1Color", "secondaryColor"],
+  toggles: ["sourceSync", "bipolarBrightness", "dot1Enabled", "secondaryEnabled", "capEnabled"],
   choices: [],
 });
 
@@ -3473,12 +3443,12 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Size",
       "lineThickness",
       "dot1Brightness",
-      "dot2Size",
-      "dot2LineThickness",
-      "dot2Brightness",
+      "secondarySize",
+      "secondaryLineThickness",
+      "secondaryBrightness",
     ]),
-    colors: Object.freeze(["dot1Color", "dot2Color"]),
-    toggles: Object.freeze(["sourceSync", "skipDiscontinuities", "dot1Enabled", "dot2Enabled"]),
+    colors: Object.freeze(["dot1Color", "secondaryColor"]),
+    toggles: Object.freeze(["sourceSync", "skipDiscontinuities", "dot1Enabled", "secondaryEnabled"]),
     choices: Object.freeze([]),
   }),
   dot: Object.freeze({
@@ -3486,12 +3456,9 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Size",
       "lineThickness",
       "dot1Brightness",
-      "dot2Size",
-      "dot2LineThickness",
-      "dot2Brightness",
     ]),
-    colors: Object.freeze(["dot1Color", "dot2Color"]),
-    toggles: Object.freeze(["bipolarBrightness", "dot1Enabled", "dot2Enabled"]),
+    colors: Object.freeze(["dot1Color"]),
+    toggles: Object.freeze(["bipolarBrightness", "dot1Enabled"]),
     choices: Object.freeze([]),
   }),
   lineBurn: Object.freeze({
@@ -3515,14 +3482,11 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Size",
       "lineThickness",
       "dot1Brightness",
-      "dot2Size",
-      "dot2LineThickness",
-      "dot2Brightness",
       "capSize",
       "capLength",
     ]),
-    colors: Object.freeze(["dot1Color", "dot2Color"]),
-    toggles: Object.freeze(["dot1Enabled", "dot2Enabled", "capEnabled"]),
+    colors: Object.freeze(["dot1Color"]),
+    toggles: Object.freeze(["dot1Enabled", "capEnabled"]),
     choices: Object.freeze([]),
   }),
   scope2d: Object.freeze({
@@ -3578,10 +3542,10 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
     toggles: Object.freeze(["bipolarBrightness", "dot1Enabled"]),
     choices: Object.freeze([]),
   }),
-  dot2: Object.freeze({
-    fields: Object.freeze(["dot2Size", "dot2LineThickness", "dot2Brightness"]),
-    colors: Object.freeze(["dot2Color"]),
-    toggles: Object.freeze(["dot2Enabled"]),
+  secondary: Object.freeze({
+    fields: Object.freeze(["secondarySize", "secondaryLineThickness", "secondaryBrightness"]),
+    colors: Object.freeze(["secondaryColor"]),
+    toggles: Object.freeze(["secondaryEnabled"]),
     choices: Object.freeze([]),
   }),
   trace: Object.freeze({
@@ -3756,11 +3720,11 @@ function nodeGraphTraceDisplaySettingsElement() {
         </label>
       </div>
       <div class="metadata-section-title node-trace-display-dot1-title">
-        <span>Dot 1</span>
+        <span>Dot</span>
         <input
           id="nodeTraceDisplayDot1Enabled"
           type="checkbox"
-          aria-label="Dot 1 on"
+          aria-label="Dot on"
           data-trace-display-toggle="dot1Enabled">
       </div>
       <div class="metadata-field-section node-trace-display-dot1-section">
@@ -3794,45 +3758,45 @@ function nodeGraphTraceDisplaySettingsElement() {
         </label>
         <label>
           <span>Color</span>
-          <input id="nodeTraceDisplayColor" type="color" data-trace-display-color="dot1Color" aria-label="Dot 1 color">
+          <input id="nodeTraceDisplayColor" type="color" data-trace-display-color="dot1Color" aria-label="Dot color">
         </label>
       </div>
-      <div class="metadata-section-title node-trace-display-dot2-title">
-        <span>Dot 2</span>
+      <div class="metadata-section-title node-trace-display-secondary-title">
+        <span>Secondary</span>
         <input
-          id="nodeTraceDisplayDot2Enabled"
+          id="nodeTraceDisplaySecondaryEnabled"
           type="checkbox"
-          aria-label="Dot 2 on"
-          data-trace-display-toggle="dot2Enabled">
+          aria-label="Secondary on"
+          data-trace-display-toggle="secondaryEnabled">
       </div>
-      <div class="metadata-field-section node-trace-display-dot2-section">
+      <div class="metadata-field-section node-trace-display-secondary-section">
         <label>
           <span>Brightness</span>
           <span class="metadata-stepper-control">
-            <button type="button" data-trace-display-step-target="dot2Brightness" data-trace-display-step-direction="-1">-</button>
-            <input id="nodeTraceDisplayDot2Brightness" type="text" inputmode="decimal" data-trace-display-field="dot2Brightness">
-            <button type="button" data-trace-display-step-target="dot2Brightness" data-trace-display-step-direction="1">+</button>
+            <button type="button" data-trace-display-step-target="secondaryBrightness" data-trace-display-step-direction="-1">-</button>
+            <input id="nodeTraceDisplaySecondaryBrightness" type="text" inputmode="decimal" data-trace-display-field="secondaryBrightness">
+            <button type="button" data-trace-display-step-target="secondaryBrightness" data-trace-display-step-direction="1">+</button>
           </span>
         </label>
-        <label class="node-trace-display-dot2-line-thickness-row">
+        <label class="node-trace-display-secondary-line-thickness-row">
           <span>Blur</span>
           <span class="metadata-stepper-control">
-            <button type="button" data-trace-display-step-target="dot2LineThickness" data-trace-display-step-direction="-1">-</button>
-            <input id="nodeTraceDisplayDot2LineThickness" type="text" inputmode="decimal" data-trace-display-field="dot2LineThickness">
-            <button type="button" data-trace-display-step-target="dot2LineThickness" data-trace-display-step-direction="1">+</button>
+            <button type="button" data-trace-display-step-target="secondaryLineThickness" data-trace-display-step-direction="-1">-</button>
+            <input id="nodeTraceDisplaySecondaryLineThickness" type="text" inputmode="decimal" data-trace-display-field="secondaryLineThickness">
+            <button type="button" data-trace-display-step-target="secondaryLineThickness" data-trace-display-step-direction="1">+</button>
           </span>
         </label>
         <label>
           <span>Size</span>
           <span class="metadata-stepper-control">
-            <button type="button" data-trace-display-step-target="dot2Size" data-trace-display-step-direction="-1">-</button>
-            <input id="nodeTraceDisplayDot2Size" type="text" inputmode="decimal" data-trace-display-field="dot2Size">
-            <button type="button" data-trace-display-step-target="dot2Size" data-trace-display-step-direction="1">+</button>
+            <button type="button" data-trace-display-step-target="secondarySize" data-trace-display-step-direction="-1">-</button>
+            <input id="nodeTraceDisplaySecondarySize" type="text" inputmode="decimal" data-trace-display-field="secondarySize">
+            <button type="button" data-trace-display-step-target="secondarySize" data-trace-display-step-direction="1">+</button>
           </span>
         </label>
         <label>
           <span>Color</span>
-          <input id="nodeTraceDisplayDot2Color" type="color" data-trace-display-color="dot2Color" aria-label="Dot 2 color">
+          <input id="nodeTraceDisplaySecondaryColor" type="color" data-trace-display-color="secondaryColor" aria-label="Secondary color">
         </label>
       </div>
       <div class="metadata-section-title node-trace-display-caps-title">Caps</div>
@@ -3879,9 +3843,9 @@ function applyNodeGraphTraceDisplaySettingsTooltips(popover) {
   const fieldKeys = {
     dot1Brightness: "traceDisplaySettings.brightness",
     dot1Size: "traceDisplaySettings.dot1Size",
-    dot2Brightness: "traceDisplaySettings.dot2Brightness",
-    dot2Size: "traceDisplaySettings.dot2Size",
-    dot2LineThickness: "traceDisplaySettings.dot2LineThickness",
+    secondaryBrightness: "traceDisplaySettings.secondaryBrightness",
+    secondarySize: "traceDisplaySettings.secondarySize",
+    secondaryLineThickness: "traceDisplaySettings.secondaryLineThickness",
     burn: "traceDisplaySettings.burn",
     decay: "traceDisplaySettings.decay",
     zoomSeconds: "traceDisplaySettings.zoomSeconds",
@@ -3899,7 +3863,7 @@ function applyNodeGraphTraceDisplaySettingsTooltips(popover) {
   }
   const colorKeys = {
     dot1Color: "traceDisplaySettings.color",
-    dot2Color: "traceDisplaySettings.dot2Color",
+    secondaryColor: "traceDisplaySettings.secondaryColor",
   };
   for (const [field, key] of Object.entries(colorKeys)) {
     popover.querySelector(`[data-trace-display-color="${field}"]`)?.setAttribute("data-tooltip-key", key);
@@ -3907,7 +3871,7 @@ function applyNodeGraphTraceDisplaySettingsTooltips(popover) {
   const toggleKeys = {
     bipolarBrightness: "traceDisplaySettings.bipolarBrightness",
     dot1Enabled: "traceDisplaySettings.dot1Enabled",
-    dot2Enabled: "traceDisplaySettings.dot2Enabled",
+    secondaryEnabled: "traceDisplaySettings.secondaryEnabled",
     capEnabled: "traceDisplaySettings.capEnabled",
     sourceSync: "traceDisplaySettings.sourceSync",
   };
@@ -4039,7 +4003,7 @@ function setNodeGraphTraceDisplaySettingsFormType(node = null) {
   }
   setNodeGraphTraceDisplaySectionVisible(popover, "value", nodeGraphTraceDisplaySectionHasActiveControls("value", formType));
   setNodeGraphTraceDisplaySectionVisible(popover, "dot1", nodeGraphTraceDisplaySectionHasActiveControls("dot1", formType));
-  setNodeGraphTraceDisplaySectionVisible(popover, "dot2", nodeGraphTraceDisplaySectionHasActiveControls("dot2", formType));
+  setNodeGraphTraceDisplaySectionVisible(popover, "secondary", nodeGraphTraceDisplaySectionHasActiveControls("secondary", formType));
   setNodeGraphTraceDisplaySectionVisible(popover, "caps", nodeGraphTraceDisplaySectionHasActiveControls("caps", formType));
 }
 
@@ -4278,19 +4242,19 @@ function nodeGraphTraceDisplayStepperQuantum(input) {
 }
 
 function nodeGraphTraceDisplaySizeControlField(key) {
-  return ["dot1Size", "dot2Size", "capSize"].includes(key);
+  return ["dot1Size", "secondarySize", "capSize"].includes(key);
 }
 
 function nodeGraphTraceDisplaySensitiveControlField(key) {
   return nodeGraphTraceDisplaySizeControlField(key) ||
     key === "historySeconds" ||
-    ["dot1Brightness", "dot2Brightness"].includes(key);
+    ["dot1Brightness", "secondaryBrightness"].includes(key);
 }
 
 const nodeGraphTraceDisplaySensitiveControlExponent = 3;
 
 function nodeGraphTraceDisplaySensitiveControlMax(key) {
-  return ["dot1Brightness", "dot2Brightness"].includes(key) ? 2 : 1;
+  return ["dot1Brightness", "secondaryBrightness"].includes(key) ? 2 : 1;
 }
 
 function nodeGraphTraceDisplaySizeToControlValue(value, max = 1) {
@@ -4350,9 +4314,9 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   decimals: (value) => Math.max(0, Math.min(8, Math.round(Number(value) || 0))),
   dot1Brightness: nodeGraphTraceDisplayClampBrightness,
   dot1Size: nodeGraphTraceDisplayClampUnit,
-  dot2Brightness: nodeGraphTraceDisplayClampBrightness,
-  dot2LineThickness: nodeGraphTraceDisplayClampNonNegative,
-  dot2Size: nodeGraphTraceDisplayClampUnit,
+  secondaryBrightness: nodeGraphTraceDisplayClampBrightness,
+  secondaryLineThickness: nodeGraphTraceDisplayClampNonNegative,
+  secondarySize: nodeGraphTraceDisplayClampUnit,
   historySeconds: nodeGraphTraceDisplayClampNonNegative,
   lineLength: nodeGraphTraceDisplayClampUnit,
   lineThickness: nodeGraphTraceDisplayClampNonNegative,
@@ -4366,7 +4330,6 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
 const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
   dot: Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampUnit,
-    dot2LineThickness: nodeGraphTraceDisplayClampUnit,
   }),
   scope2d: Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampUnit,
@@ -6528,9 +6491,9 @@ function nodeGraphTraceDisplayDrawSignature(slot, item, buffer, settings) {
     settings.lineThickness,
     settings.brightness,
     settings.color,
-    settings.dot2LineThickness,
-    settings.dot2Brightness,
-    settings.dot2Color,
+    settings.secondaryLineThickness,
+    settings.secondaryBrightness,
+    settings.secondaryColor,
     settings.sourceSync === false ? 0 : 1,
   ].join("|");
 }
@@ -6879,10 +6842,10 @@ function nodeGraphModuleScopeTraceEdgePaddingRatio(slot, rect) {
       size: clampNodeSliderValue(settings.dot1Size, 0, 1),
     });
   }
-  if (settings.dot2Enabled !== false && settings.dot2Brightness > 0) {
+  if (settings.secondaryEnabled !== false && settings.secondaryBrightness > 0) {
     activePasses.push({
-      blur: clampNodeSliderValue(settings.dot2LineThickness, 0, 1),
-      size: clampNodeSliderValue(settings.dot2Size, 0, 1),
+      blur: clampNodeSliderValue(settings.secondaryLineThickness, 0, 1),
+      size: clampNodeSliderValue(settings.secondarySize, 0, 1),
     });
   }
   const visualPadding = activePasses.reduce((largest, pass) => {
@@ -8446,17 +8409,8 @@ function drawNodeGraphDotOscilloscopeItem(renderer, item, pixelRatio) {
   const centerX = square.left + square.width * 0.5;
   const centerY = square.top + square.height * 0.5;
   const dotSpace = Math.min(square.width, square.height);
-  const outerThickness = Math.max(0, dotSpace * clampNodeSliderValue(settings.dot2Size, 0, 1));
   const innerThickness = Math.max(0, dotSpace * clampNodeSliderValue(settings.dot1Size, 0, 1));
   const dotHalfLength = 0.01;
-  if (settings.dot2Enabled !== false && settings.dot2Brightness > 0 && outerThickness > 0) {
-    drawNodeGraphOscilloscopeBeam(renderer, item, pixelRatio, centerX - dotHalfLength, centerY, centerX + dotHalfLength, centerY, {
-      blur: settings.dot2LineThickness,
-      color: nodeGraphScopeHexColorToRgb(settings.dot2Color),
-      intensity: brightness * settings.dot2Brightness,
-      thicknessPx: outerThickness,
-    });
-  }
   if (settings.dot1Enabled !== false && settings.dot1Brightness > 0 && innerThickness > 0) {
     drawNodeGraphOscilloscopeBeam(renderer, item, pixelRatio, centerX - dotHalfLength, centerY, centerX + dotHalfLength, centerY, {
       blur: settings.lineThickness,
@@ -8534,22 +8488,9 @@ function drawNodeGraphValueOscilloscopeTrail(item, pixelRatio, geometry, setting
     };
   });
   const lineBase = Math.max(1, Math.min(geometry.squareWidth, geometry.squareHeight)) * pixelRatio;
-  const outerThickness = Math.max(0, lineBase * clampNodeSliderValue(settings.dot2Size, 0, 1));
   const innerThickness = Math.max(0, lineBase * clampNodeSliderValue(settings.dot1Size, 0, 1));
   const capThickness = Math.max(0, lineBase * clampNodeSliderValue(settings.capSize, 0, 1));
   const trailIntensity = (0.04 + burn * 0.22) / Math.max(1, Math.sqrt(sampleLines.length));
-  if (settings.dot2Enabled !== false) {
-    for (const line of sampleLines) {
-      drawNodeGraphValueOscilloscopeCanvasLine(
-        context,
-        { x1: line.start.x, y1: line.start.y, x2: line.end.x, y2: line.end.y },
-        nodeGraphScopeHexColorToRgb(settings.dot2Color),
-        settings.dot2Brightness * trailIntensity,
-        outerThickness,
-        settings.dot2LineThickness,
-      );
-    }
-  }
   if (settings.dot1Enabled !== false) {
     for (const line of sampleLines) {
       drawNodeGraphValueOscilloscopeCanvasLine(
@@ -8570,16 +8511,6 @@ function drawNodeGraphValueOscilloscopeTrail(item, pixelRatio, geometry, setting
     for (const capX of [geometry.x1, geometry.x2]) {
       const capStart = toCanvas(capX, y - geometry.capLength);
       const capEnd = toCanvas(capX, y + geometry.capLength);
-      if (settings.dot2Enabled !== false) {
-        drawNodeGraphValueOscilloscopeCanvasLine(
-          context,
-          { x1: capStart.x, y1: capStart.y, x2: capEnd.x, y2: capEnd.y },
-          nodeGraphScopeHexColorToRgb(settings.dot2Color),
-          settings.dot2Brightness * trailIntensity,
-          capThickness,
-          settings.dot2LineThickness,
-        );
-      }
       if (settings.dot1Enabled !== false) {
         drawNodeGraphValueOscilloscopeCanvasLine(
           context,
@@ -8614,7 +8545,6 @@ function drawNodeGraphValueOscilloscopeItem(renderer, item, pixelRatio) {
   const y = square.top + square.height * 0.5 - value * square.height * 0.44;
   const span = Math.max(1, x2 - x1);
   const lineBase = Math.max(1, Math.min(square.width, square.height));
-  const outerThickness = Math.max(0, lineBase * clampNodeSliderValue(settings.dot2Size, 0, 1));
   const innerThickness = Math.max(0, lineBase * clampNodeSliderValue(settings.dot1Size, 0, 1));
   const capLength = square.height * clampNodeSliderValue(settings.capLength, 0, 1) * 0.5;
   const capThickness = Math.max(0, lineBase * clampNodeSliderValue(settings.capSize, 0, 1));
@@ -8627,15 +8557,6 @@ function drawNodeGraphValueOscilloscopeItem(renderer, item, pixelRatio) {
     x2,
     y,
   }, settings);
-  if (settings.dot2Enabled !== false && settings.dot2Brightness > 0 && outerThickness > 0) {
-    const options = {
-      blur: settings.dot2LineThickness,
-      color: nodeGraphScopeHexColorToRgb(settings.dot2Color),
-      intensity: settings.dot2Brightness,
-      thicknessPx: outerThickness,
-    };
-    drawNodeGraphOscilloscopeBeam(renderer, item, pixelRatio, x1, y, x2, y, options);
-  }
   if (settings.dot1Enabled !== false && settings.brightness > 0 && innerThickness > 0) {
     const options = {
       blur: settings.lineThickness,
@@ -8646,16 +8567,6 @@ function drawNodeGraphValueOscilloscopeItem(renderer, item, pixelRatio) {
     drawNodeGraphOscilloscopeBeam(renderer, item, pixelRatio, x1, y, x2, y, options);
   }
   if (settings.capEnabled !== false && capLength > 0 && capThickness > 0) {
-    if (settings.dot2Enabled !== false && settings.dot2Brightness > 0) {
-      const options = {
-        blur: settings.dot2LineThickness,
-        color: nodeGraphScopeHexColorToRgb(settings.dot2Color),
-        intensity: settings.dot2Brightness,
-        thicknessPx: capThickness,
-      };
-      drawNodeGraphOscilloscopeBeam(renderer, item, pixelRatio, x1, y - capLength, x1, y + capLength, options);
-      drawNodeGraphOscilloscopeBeam(renderer, item, pixelRatio, x2, y - capLength, x2, y + capLength, options);
-    }
     if (settings.dot1Enabled !== false && settings.brightness > 0) {
       const options = {
         blur: settings.lineThickness,
@@ -10080,19 +9991,18 @@ function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot) {
   return points;
 }
 
-function drawNodeGraphTraceDisplayCanvasLayer(context, points, settings, pass, canvas) {
+function drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas) {
   if (!context || !Array.isArray(points) || points.length < 2 || !canvas) {
     return;
   }
-  const isDot2 = pass === "dot2";
-  const enabled = isDot2 ? settings.dot2Enabled !== false : settings.dot1Enabled !== false;
-  const size = clampNodeSliderValue(isDot2 ? settings.dot2Size : settings.dot1Size, 0, 1);
-  const brightness = Math.max(0, Number(isDot2 ? settings.dot2Brightness : settings.brightness) || 0);
+  const enabled = layer.enabled !== false;
+  const size = clampNodeSliderValue(layer.size, 0, 1);
+  const brightness = Math.max(0, Number(layer.brightness) || 0);
   if (!enabled || size <= 0 || brightness <= 0) {
     return;
   }
-  const blur = clampNodeSliderValue(isDot2 ? settings.dot2LineThickness : settings.lineThickness, 0, 1);
-  const rgb = nodeGraphScopeRgbFloatsToCanvasRgb(nodeGraphScopeHexColorToRgb(isDot2 ? settings.dot2Color : settings.color));
+  const blur = clampNodeSliderValue(layer.blur, 0, 1);
+  const rgb = nodeGraphScopeRgbFloatsToCanvasRgb(nodeGraphScopeHexColorToRgb(layer.color));
   const lineWidth = Math.max(1, Math.min(canvas.width, canvas.height) * size);
   context.save();
   context.globalCompositeOperation = "lighter";
@@ -10109,11 +10019,12 @@ function drawNodeGraphTraceDisplayCanvasLayer(context, points, settings, pass, c
 }
 
 // The Output module shows its Left/Right channels as two separate colored
-// traces, mapped onto the trace display's existing dot1/dot2 slots (dot1 =
-// Left, dot2 = Right) so each channel's visibility and color use the
-// standard trace settings toggles/color pickers instead of being hardcoded.
-// Red/blue below are only the fallback defaults when the user hasn't set
-// dot1Color/dot2Color themselves.
+// traces: Left uses the trace display's primary/dot1 fields, Right uses its
+// own dedicated secondary* fields (secondaryColor/secondarySize/etc.) so
+// each channel's visibility and color use the standard trace settings
+// toggles/color pickers instead of being hardcoded. Red/blue below are only
+// the fallback defaults when the user hasn't set color/secondaryColor
+// themselves.
 const nodeGraphOutputTraceLeftColor = "#ff4d4d";
 const nodeGraphOutputTraceRightColor = "#4d8dff";
 
@@ -10153,25 +10064,37 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
     const leftPoints = buildNodeGraphTraceDisplayCanvasPoints(leftBuffer, canvas, slot);
     const rightPoints = buildNodeGraphTraceDisplayCanvasPoints(rightBuffer, canvas, slot);
     const rawTraceSettings = nodeGraphModuleScopeNodeForSlot(slot)?.traceDisplaySettings || {};
-    const leftSettings = {
-      ...settings,
+    const leftLayer = {
+      enabled: settings.dot1Enabled,
+      size: settings.dot1Size,
+      brightness: settings.brightness,
+      blur: settings.lineThickness,
       color: rawTraceSettings.color ?? rawTraceSettings.dot1Color ?? nodeGraphOutputTraceLeftColor,
     };
-    const rightSettings = {
-      ...settings,
-      dot2Color: rawTraceSettings.dot2Color ?? nodeGraphOutputTraceRightColor,
+    const rightLayer = {
+      enabled: settings.secondaryEnabled,
+      size: settings.secondarySize,
+      brightness: settings.secondaryBrightness,
+      blur: settings.secondaryLineThickness,
+      color: rawTraceSettings.secondaryColor ?? nodeGraphOutputTraceRightColor,
     };
     context.clearRect(0, 0, canvas.width, canvas.height);
-    drawNodeGraphTraceDisplayCanvasLayer(context, rightPoints, rightSettings, "dot2", canvas);
-    drawNodeGraphTraceDisplayCanvasLayer(context, leftPoints, leftSettings, "dot1", canvas);
+    drawNodeGraphTraceDisplayCanvasLayer(context, rightPoints, rightLayer, canvas);
+    drawNodeGraphTraceDisplayCanvasLayer(context, leftPoints, leftLayer, canvas);
     recordNodeGraphModuleScopeRenderMetrics(leftPoints.length + rightPoints.length, leftPoints.length + rightPoints.length);
     rememberNodeGraphTraceDisplaySignature(slot, item, buffer, settings);
     return true;
   }
   const points = buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot);
   context.clearRect(0, 0, canvas.width, canvas.height);
-  drawNodeGraphTraceDisplayCanvasLayer(context, points, settings, "dot2", canvas);
-  drawNodeGraphTraceDisplayCanvasLayer(context, points, settings, "dot1", canvas);
+  const layer = {
+    enabled: settings.dot1Enabled,
+    size: settings.dot1Size,
+    brightness: settings.brightness,
+    blur: settings.lineThickness,
+    color: settings.color,
+  };
+  drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas);
   recordNodeGraphModuleScopeRenderMetrics(points.length, points.length);
   rememberNodeGraphTraceDisplaySignature(slot, item, buffer, settings);
   return true;

@@ -13363,17 +13363,16 @@ def require_node_graph_mvp_contract() -> None:
     dot_draw_source = node_graph_source[dot_draw_start:dot_draw_end]
     require(
         "settings.bipolarBrightness ? buffer.nodeGraphScopeBipolarLightTarget : buffer.nodeGraphScopeLightTarget" in dot_draw_source
-        and dot_draw_source.count("drawNodeGraphOscilloscopeBeam(") >= 2
+        and dot_draw_source.count("drawNodeGraphOscilloscopeBeam(") >= 1
         and "dotHalfLength" in dot_draw_source
         and "clampNodeSliderValue(settings.dot1Size, 0, 1)" in dot_draw_source
-        and "clampNodeSliderValue(settings.dot2Size, 0, 1)" in dot_draw_source
         and "blur: settings.lineThickness" in dot_draw_source
-        and "blur: settings.dot2LineThickness" in dot_draw_source
         and "nodeGraphZeroDBurnSettingsForNode(nodeGraphModuleScopeNodeForSlot(item.slot))" in dot_draw_source
         and "nodeGraphTraceDisplaySettingsForNode" not in dot_draw_source
-        and "outerThickness" in dot_draw_source
-        and "innerThickness" in dot_draw_source,
-        "0D Burn should draw its own frame-brightness dot mark with normalized size and thick controls",
+        and "innerThickness" in dot_draw_source
+        and "dot2" not in dot_draw_source
+        and "outerThickness" not in dot_draw_source,
+        "0D Burn should draw its own frame-brightness dot mark with normalized size and thick controls, Dot 2 removed",
     )
     require(
         'uniform float uBlur;' in node_graph_source
@@ -13414,8 +13413,8 @@ def require_node_graph_mvp_contract() -> None:
         and "drawNodeGraphOscilloscopeBeam(renderer, item, pixelRatio, x1, y - capLength, x1, y + capLength, options)" in value_draw_source
         and "drawNodeGraphOscilloscopeBeam(renderer, item, pixelRatio, x2, y - capLength, x2, y + capLength, options)" in value_draw_source
         and "settings.dot1Enabled" in value_draw_source
-        and "settings.dot2Enabled" in value_draw_source,
-        "0D Value should draw the latest line and burn every captured sample into its retained value trail",
+        and "dot2" not in value_draw_source,
+        "0D Value should draw the latest line and burn every captured sample into its retained value trail, Dot 2 removed",
     )
     require("function drawNodeGraphLineBurnOscilloscopeItem" in node_graph_source, "LineBurn oscilloscope should have a renderer")
     line_burn_start = node_graph_source.index("function drawNodeGraphLineBurnOscilloscopeItem")
@@ -13580,11 +13579,11 @@ def require_node_graph_mvp_contract() -> None:
         "const nodeGraphTraceDisplaySectionControls = Object.freeze({" in node_graph_source
         and "function nodeGraphTraceDisplaySectionHasActiveControls(section" in node_graph_source
         and "function setNodeGraphTraceDisplaySectionVisible(popover, section, visible)" in node_graph_source
-        and 'setNodeGraphTraceDisplaySectionVisible(popover, "dot2", nodeGraphTraceDisplaySectionHasActiveControls("dot2", formType));' in node_graph_source
-        and '"dot1Enabled", "dot2Enabled"' in node_graph_source
+        and 'setNodeGraphTraceDisplaySectionVisible(popover, "secondary", nodeGraphTraceDisplaySectionHasActiveControls("secondary", formType));' in node_graph_source
+        and '"dot1Enabled", "secondaryEnabled"' in node_graph_source
         and "for (const key of activeToggles)" in node_graph_source
         and "next[key] = input.checked;" in node_graph_source,
-        "Display Settings should show and persist only active typed controls, including Dot 2 toggles",
+        "Display Settings should show and persist only active typed controls, including the renamed Secondary toggle",
     )
     require(
         'data-trace-display-choice-row="lineBurnMode"' not in node_graph_source
@@ -14265,7 +14264,7 @@ def require_node_graph_mvp_contract() -> None:
         and "scope2d: Object.freeze({" in trace_value_normalize_source
         and "scope2dTrace: Object.freeze({" in trace_value_normalize_source
         and "dot1Brightness: nodeGraphTraceDisplayClampBrightness," in trace_value_normalize_source
-        and "dot2Brightness: nodeGraphTraceDisplayClampBrightness," in trace_value_normalize_source
+        and "secondaryBrightness: nodeGraphTraceDisplayClampBrightness," in trace_value_normalize_source
         and "function normalizeNodeGraphTraceDisplaySettingValueForKey(key, value)" in trace_value_normalize_source
         and "nodeGraphTraceDisplayFormTypeValueClampOverrides[formType]?.[key] ||" in trace_value_normalize_source,
         "Trace settings clamp rules should be isolated per display type, not a shared cascading if-chain",
@@ -14373,15 +14372,15 @@ def require_node_graph_mvp_contract() -> None:
         )
     require(
         'data-trace-display-field="dot1Size"' in node_graph_source
-        and 'data-trace-display-field="dot2Size"' in node_graph_source
+        and 'data-trace-display-field="secondarySize"' in node_graph_source
         and 'data-trace-display-field="lineThickness"' in node_graph_source
-        and 'data-trace-display-field="dot2LineThickness"' in node_graph_source
+        and 'data-trace-display-field="secondaryLineThickness"' in node_graph_source
         and 'data-trace-display-field="dot1Blur"' not in node_graph_source
         and 'data-trace-display-field="dot2Blur"' not in node_graph_source
         and 'data-trace-display-field="dot1Brightness"' in node_graph_source
         and 'data-trace-display-toggle="bipolarBrightness"' in node_graph_source
         and 'data-trace-display-toggle="dot1Enabled"' in node_graph_source
-        and 'data-trace-display-toggle="dot2Enabled"' in node_graph_source
+        and 'data-trace-display-toggle="secondaryEnabled"' in node_graph_source
         and 'data-trace-display-color="dot1Color"' in node_graph_source
         and "const nodeGraphZeroDBurnSettingsDefaults = Object.freeze" in node_graph_source
         and "bipolarBrightness: false" in node_graph_source
@@ -14390,28 +14389,23 @@ def require_node_graph_mvp_contract() -> None:
         and "function nodeGraphZeroDBurnSettingsForNode(node)" in node_graph_source
         and "node.zeroDBurnSettings = normalizeNodeGraphZeroDBurnSettings" in node_graph_source
         and "lineThickness: normalizeNodeGraphTraceDisplayNumber(" in node_graph_source
-        and "dot2LineThickness: normalizeNodeGraphTraceDisplayNumber(" in node_graph_source
         and "dot1Enabled: source.dot1Enabled !== false" in node_graph_source
-        and "dot2Enabled: source.dot2Enabled !== false" in node_graph_source
         and "dot1Size: normalizeNodeGraphTraceDisplayNumber(" in node_graph_source
-        and "dot2Size: normalizeNodeGraphTraceDisplayNumber(" in node_graph_source
         and "gl.uniform1f(renderer.beamBlurLocation, clampNodeSliderValue(Number(options.blur) || 0, 0, 1))" in node_graph_source
-        and "const outerThickness = Math.max(0, dotSpace * clampNodeSliderValue(settings.dot2Size, 0, 1))" in node_graph_source
         and "const innerThickness = Math.max(0, dotSpace * clampNodeSliderValue(settings.dot1Size, 0, 1))" in node_graph_source
-        and "settings.dot2Enabled !== false && settings.dot2Brightness > 0 && outerThickness > 0" in node_graph_source
         and "settings.dot1Enabled !== false && settings.dot1Brightness > 0 && innerThickness > 0" in node_graph_source
         and "const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({" in node_graph_source
         and "const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({" in node_graph_source
         and "function setNodeGraphTraceDisplaySettingsFormType(node = null)" in node_graph_source
         and "nodeGraphTraceDisplayActiveControlsByType" in node_graph_source
         and "dot: Object.freeze({" in node_graph_source
-        and '"bipolarBrightness", "dot1Enabled", "dot2Enabled"' in node_graph_source
+        and '"bipolarBrightness", "dot1Enabled"' in node_graph_source
         and "const activeToggles = nodeGraphTraceDisplayActiveControlSet(\"toggles\", formType)" in node_graph_source
         and "normalizeNodeGraphTraceDisplaySettingValueForKey(key, value)" in node_graph_source
         and "function nodeGraphTraceDisplaySizeControlField(key)" in node_graph_source
         and "function nodeGraphTraceDisplaySensitiveControlField(key)" in node_graph_source
-        and "[\"dot1Size\", \"dot2Size\", \"capSize\"].includes(key)" in node_graph_source
-        and "[\"dot1Brightness\", \"dot2Brightness\"].includes(key)" in node_graph_source
+        and "[\"dot1Size\", \"secondarySize\", \"capSize\"].includes(key)" in node_graph_source
+        and "[\"dot1Brightness\", \"secondaryBrightness\"].includes(key)" in node_graph_source
         and "const nodeGraphTraceDisplaySensitiveControlExponent = 3;" in node_graph_source
         and "function nodeGraphTraceDisplaySizeToControlValue(value, max = 1)" in node_graph_source
         and "1 / nodeGraphTraceDisplaySensitiveControlExponent" in node_graph_source
@@ -14422,17 +14416,18 @@ def require_node_graph_mvp_contract() -> None:
         and "adjustNodeGraphTraceDisplaySettingByControlDelta(key, baseValue, direction * quantum)" in node_graph_source
         and "for (const key of activeColors)" in node_graph_source
         and "0D Burn brightness mode. Off: only 0..1 lights up. On: -1 and +1 are equally bright." in tooltip_source
-        and "zeroDBurnSettings: normalizeNodeGraphZeroDBurnSettings(node.zeroDBurnSettings)" in node_graph_source,
-        "0D Burn settings should expose real normalized dot sizes, bipolar brightness mode, and both dot colors",
+        and "zeroDBurnSettings: normalizeNodeGraphZeroDBurnSettings(node.zeroDBurnSettings)" in node_graph_source
+        and "dot2" not in dot_draw_source,
+        "0D Burn settings should expose real normalized dot sizes and bipolar brightness mode, with Dot 2 removed",
     )
     require(
-        '["lineThickness", "Dot 1 blur"]' in node_graph_source
-        and '["dot2LineThickness", "Dot 2 blur"]' in node_graph_source
+        '["lineThickness", "Dot blur"]' in node_graph_source
+        and '["secondaryLineThickness", "Secondary blur"]' in node_graph_source
         and "<span>Blur</span>" in node_graph_source
         and "grid-template-columns: 30px minmax(0, 1fr);" in style_source
         and "font-size: 20px;" in style_source
-        and "Blur of the 1D Trace Dot 1 beam." in tooltip_source
-        and "Blur of the 1D Trace Dot 2 beam." in tooltip_source,
+        and "Blur of the 1D Trace dot beam." in tooltip_source
+        and "Blur of the secondary signal beam" in tooltip_source,
         "Oscilloscope settings should present Thick controls as Blur",
     )
     require(
