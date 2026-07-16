@@ -107,11 +107,6 @@ const nodeGraphModuleScopeDefaultDotCores = Object.freeze({
     color: "#ffffff",
     size: 3.18,
   }),
-  dot2: Object.freeze({
-    brightness: 0.45,
-    color: "#17002f",
-    size: 4,
-  }),
   traceColor: "#3de0ff",
 });
 const nodeGraphModuleScopeMinCycles = 1;
@@ -184,12 +179,6 @@ function nodeGraphNormalizeScopeTraceColor(value) {
 function nodeGraphScopeHexColorToRgb(color) {
   const normalized = nodeGraphNormalizeScopeTraceColor(color);
   return [0, 2, 4].map((offset) => parseInt(normalized.slice(offset + 1, offset + 3), 16) / 255);
-}
-
-function nodeGraphModuleScopeDefaultDotCore(dotName) {
-  return dotName === "dot2"
-    ? nodeGraphModuleScopeDefaultDotCores.dot2
-    : nodeGraphModuleScopeDefaultDotCores.dot1;
 }
 
 function nodeGraphModuleScopeDefaultShaderSourceForNode(node) {
@@ -287,17 +276,21 @@ function nodeGraphModuleScopeShaderColor(source, dotName, fallback) {
   return fallback;
 }
 
+// Only "dot1" resolves to anything now that Dot 2 has been removed -- a
+// legacy custom shader script that still assigns from `dot2.global.color`
+// (parsed generically by nodeGraphModuleScopeShaderExpressionPartValue's
+// dot([12]) regex, independent of what this app calls it with) falls
+// through to null, which nodeGraphModuleScopeShaderColor's caller already
+// treats as "use the fallback" -- a true no-op, not a throw.
 function nodeGraphModuleScopeShaderGlobalColor(dotName) {
-  const defaultCore = nodeGraphModuleScopeDefaultDotCore(dotName);
-  return dotName === "dot2"
-    ? normalizeNodeGraphModuleScopeDotCoreColor(
-      nodeGraphMvp?.moduleScopeDotCore2Color ?? defaultCore.color,
-      defaultCore.color,
-    )
-    : normalizeNodeGraphModuleScopeDotCoreColor(
-      nodeGraphMvp?.moduleScopeDotCore1Color ?? defaultCore.color,
-      defaultCore.color,
-    );
+  if (dotName !== "dot1") {
+    return null;
+  }
+  const defaultCore = nodeGraphModuleScopeDefaultDotCores.dot1;
+  return normalizeNodeGraphModuleScopeDotCoreColor(
+    nodeGraphMvp?.moduleScopeDotCore1Color ?? defaultCore.color,
+    defaultCore.color,
+  );
 }
 
 function nodeGraphModuleScopeShaderNumber(source, dotName, key, fallback) {
@@ -310,22 +303,23 @@ function nodeGraphModuleScopeShaderNumber(source, dotName, key, fallback) {
   return Number.isFinite(value) ? value : fallback;
 }
 
+// Same reasoning as nodeGraphModuleScopeShaderGlobalColor above: a custom
+// shader script's embedded expression can still literally say "dot2.global.*"
+// (parsed by the generic dot([12]) regex in
+// nodeGraphModuleScopeShaderExpressionPartValue, independent of which dot
+// this call is actually computing) -- with no Dot 2 state left to read,
+// that resolves to the given fallback, i.e. no effect, not a throw.
 function nodeGraphModuleScopeShaderGlobalValue(dotName, key, fallback) {
-  const dotIndex = dotName === "dot2" ? 2 : 1;
-  const defaultCore = nodeGraphModuleScopeDefaultDotCore(dotName);
-  const enabled = dotIndex === 2
-    ? nodeGraphMvp?.moduleScopeDotCore2Enabled !== false
-    : nodeGraphMvp?.moduleScopeDotCore1Enabled !== false;
+  if (dotName !== "dot1") {
+    return fallback;
+  }
+  const defaultCore = nodeGraphModuleScopeDefaultDotCores.dot1;
+  const enabled = nodeGraphMvp?.moduleScopeDotCore1Enabled !== false;
   if (key === "size") {
-    const size = dotIndex === 2
-      ? normalizeNodeGraphModuleScopeDotCoreSize(
-        nodeGraphMvp?.moduleScopeDotCore2Size ?? defaultCore.size,
-        defaultCore.size,
-      )
-      : normalizeNodeGraphModuleScopeDotCoreSize(
-        nodeGraphMvp?.moduleScopeDotCore1Size ?? defaultCore.size,
-        defaultCore.size,
-      );
+    const size = normalizeNodeGraphModuleScopeDotCoreSize(
+      nodeGraphMvp?.moduleScopeDotCore1Size ?? defaultCore.size,
+      defaultCore.size,
+    );
     return normalizeNodeGraphModuleScopeDotCoreSize(
       (Number(fallback) || 0) * (size / defaultCore.size),
       defaultCore.size,
@@ -335,15 +329,10 @@ function nodeGraphModuleScopeShaderGlobalValue(dotName, key, fallback) {
     if (!enabled) {
       return 0;
     }
-    return dotIndex === 2
-      ? normalizeNodeGraphModuleScopeDotCoreBrightness(
-        nodeGraphMvp?.moduleScopeDotCore2Brightness ?? defaultCore.brightness,
-        defaultCore.brightness,
-      )
-      : normalizeNodeGraphModuleScopeDotCoreBrightness(
-        nodeGraphMvp?.moduleScopeDotCore1Brightness ?? defaultCore.brightness,
-        defaultCore.brightness,
-      );
+    return normalizeNodeGraphModuleScopeDotCoreBrightness(
+      nodeGraphMvp?.moduleScopeDotCore1Brightness ?? defaultCore.brightness,
+      defaultCore.brightness,
+    );
   }
   if (key === "blur") {
     return Number.isFinite(Number(defaultCore.blur)) ? normalizeNodeGraphModuleScopeDotBlur(defaultCore.blur, 0) : 0;
@@ -406,14 +395,9 @@ function nodeGraphModuleScopeShaderBlurRatio(source, dotName, fallback = 0) {
 function nodeGraphModuleScopeLightShaderStyle(slot, buffer) {
   const source = nodeGraphModuleScopeShaderSourceForSlot(slot);
   const dotCore1Enabled = nodeGraphMvp?.moduleScopeDotCore1Enabled !== false;
-  const dotCore2Enabled = nodeGraphMvp?.moduleScopeDotCore2Enabled !== false;
-  const outerFallback = normalizeNodeGraphModuleScopeDotCoreColor(
-    buffer.nodeGraphScopeLightOuterColor ?? nodeGraphMvp?.moduleScopeDotCore2Color ?? nodeGraphModuleScopeDefaultDotCores.dot2.color,
-    nodeGraphModuleScopeDefaultDotCores.dot2.color,
-  );
   const centerFallback = normalizeNodeGraphModuleScopeDotCoreColor(
-    buffer.nodeGraphScopeLightCenterColor ?? outerFallback,
-    outerFallback,
+    buffer.nodeGraphScopeLightCenterColor ?? nodeGraphMvp?.moduleScopeDotCore1Color ?? nodeGraphModuleScopeDefaultDotCores.dot1.color,
+    nodeGraphModuleScopeDefaultDotCores.dot1.color,
   );
   return {
     centerBrightness: clampNodeSliderValue(
@@ -435,26 +419,6 @@ function nodeGraphModuleScopeLightShaderStyle(slot, buffer) {
       source,
       "dot1",
       0.035,
-    ),
-    outerBrightness: clampNodeSliderValue(
-      (dotCore2Enabled ? 1 : 0) * nodeGraphModuleScopeShaderNumber(
-        source,
-        "dot2",
-        "brightness",
-        normalizeNodeGraphModuleScopeDotCoreBrightness(
-          nodeGraphMvp?.moduleScopeDotCore2Brightness ?? nodeGraphModuleScopeDefaultDotCores.dot2.brightness,
-          nodeGraphModuleScopeDefaultDotCores.dot2.brightness,
-        ),
-      ),
-      0,
-      40,
-    ),
-    outerColor: nodeGraphModuleScopeShaderColor(source, "dot2", outerFallback),
-    outerBlur: nodeGraphModuleScopeShaderBlurRatio(source, "dot2", 0),
-    outerSize: nodeGraphModuleScopeShaderSizeRatio(
-      source,
-      "dot2",
-      0.09,
     ),
     source,
     usesShader: Boolean(source),
@@ -719,10 +683,6 @@ function setNodeGraphScopeNumberInputValue(input, value) {
     setNodeGraphModuleScopeDotCore1Size(input.value);
   } else if (input.dataset.globalScopeInput === "dotCore1Brightness") {
     setNodeGraphModuleScopeDotCore1Brightness(input.value);
-  } else if (input.dataset.globalScopeInput === "dotCore2Size") {
-    setNodeGraphModuleScopeDotCore2Size(input.value);
-  } else if (input.dataset.globalScopeInput === "dotCore2Brightness") {
-    setNodeGraphModuleScopeDotCore2Brightness(input.value);
   } else if (input.dataset.globalScopeInput === "discontinuitySkipSamples") {
     setNodeGraphModuleScopeDiscontinuitySkipSamples(input.value);
   } else {
@@ -6436,40 +6396,15 @@ function nodeGraphModuleScopeMixColor(left, right, amount) {
   ];
 }
 
-function nodeGraphModuleScopeTraceColors(slot) {
-  const source = nodeGraphModuleScopeShaderSourceForSlot(slot);
-  const core = nodeGraphScopeHexColorToRgb(
-    nodeGraphModuleScopeShaderColor(
-      source,
-      "dot1",
-      nodeGraphModuleScopeShaderGlobalColor("dot1"),
-    ),
-  );
-  const haloBase = nodeGraphScopeHexColorToRgb(
-    nodeGraphModuleScopeShaderColor(
-      source,
-      "dot2",
-      nodeGraphModuleScopeShaderGlobalColor("dot2"),
-    ),
-  );
-  const halo = nodeGraphModuleScopeMixColor(haloBase, [0, 0, 0], 0.15);
-  return {
-    core,
-    halo,
-  };
-}
-
 function nodeGraphModuleScopeHeatmapTraceColors() {
   return {
     core: [1, 1, 1],
-    halo: [0.42, 0.42, 0.42],
   };
 }
 
 function nodeGraphModuleScopeDotStyle(slot, buffer) {
   const source = nodeGraphModuleScopeShaderSourceForSlot(slot);
   const coreFallback = nodeGraphModuleScopeShaderGlobalColor("dot1");
-  const haloFallback = nodeGraphModuleScopeShaderGlobalColor("dot2");
   const coreSize = nodeGraphMvp?.moduleScopeDotCore1Enabled === false
     ? 0
     : nodeGraphModuleScopeShaderNumber(
@@ -6479,17 +6414,6 @@ function nodeGraphModuleScopeDotStyle(slot, buffer) {
       normalizeNodeGraphModuleScopeDotCoreSize(
         nodeGraphMvp?.moduleScopeDotCore1Size ?? nodeGraphModuleScopeDefaultDotCores.dot1.size,
         nodeGraphModuleScopeDefaultDotCores.dot1.size,
-      ),
-    );
-  const haloSize = nodeGraphMvp?.moduleScopeDotCore2Enabled === false
-    ? 0
-    : nodeGraphModuleScopeShaderNumber(
-      source,
-      "dot2",
-      "size",
-      normalizeNodeGraphModuleScopeDotCoreSize(
-        nodeGraphMvp?.moduleScopeDotCore2Size ?? nodeGraphModuleScopeDefaultDotCores.dot2.size,
-        nodeGraphModuleScopeDefaultDotCores.dot2.size,
       ),
     );
   const coreBrightness = nodeGraphMvp?.moduleScopeDotCore1Enabled === false
@@ -6503,32 +6427,12 @@ function nodeGraphModuleScopeDotStyle(slot, buffer) {
         nodeGraphModuleScopeDefaultDotCores.dot1.brightness,
       ),
     );
-  const haloBrightness = nodeGraphMvp?.moduleScopeDotCore2Enabled === false
-    ? 0
-    : nodeGraphModuleScopeShaderNumber(
-      source,
-      "dot2",
-      "brightness",
-      normalizeNodeGraphModuleScopeDotCoreBrightness(
-        nodeGraphMvp?.moduleScopeDotCore2Brightness ?? nodeGraphModuleScopeDefaultDotCores.dot2.brightness,
-        nodeGraphModuleScopeDefaultDotCores.dot2.brightness,
-      ),
-    );
   return {
     coreBrightness: clampNodeSliderValue(coreBrightness, 0, 40),
     coreColor: nodeGraphScopeHexColorToRgb(
       nodeGraphModuleScopeShaderColor(source, "dot1", coreFallback),
     ),
     coreSize: normalizeNodeGraphModuleScopeDotCoreSize(coreSize, nodeGraphModuleScopeDefaultDotCores.dot1.size),
-    haloBrightness: clampNodeSliderValue(haloBrightness, 0, 40),
-    haloColor: nodeGraphModuleScopeMixColor(
-      nodeGraphScopeHexColorToRgb(
-        nodeGraphModuleScopeShaderColor(source, "dot2", haloFallback),
-      ),
-      [0, 0, 0],
-      0.15,
-    ),
-    haloSize: normalizeNodeGraphModuleScopeDotCoreSize(haloSize, nodeGraphModuleScopeDefaultDotCores.dot2.size),
   };
 }
 
@@ -7609,10 +7513,6 @@ function nodeGraphModuleScopeDotTextureOptions(
   size = 64,
   core1ColorValue = nodeGraphModuleScopeDefaultDotCores.dot1.color,
   core1BlurValue = 0,
-  core2SizeValue = nodeGraphMvp?.moduleScopeDotCore2Size,
-  core2BrightnessValue = nodeGraphMvp?.moduleScopeDotCore2Brightness,
-  core2ColorValue = nodeGraphModuleScopeDefaultDotCores.dot2.color,
-  core2BlurValue = 0,
   lineThicknessValue = nodeGraphMvp?.moduleScopeLineThickness,
 ) {
   if (core1SizeValue && typeof core1SizeValue === "object" && !Array.isArray(core1SizeValue)) {
@@ -7623,10 +7523,6 @@ function nodeGraphModuleScopeDotTextureOptions(
     core1Brightness: core1BrightnessValue,
     core1Color: core1ColorValue,
     core1Size: core1SizeValue,
-    core2Blur: core2BlurValue,
-    core2Brightness: core2BrightnessValue,
-    core2Color: core2ColorValue,
-    core2Size: core2SizeValue,
     lineThickness: lineThicknessValue,
     size,
   };
@@ -7642,45 +7538,28 @@ function nodeGraphModuleScopeGeneratedDotTextureData(...args) {
       nodeGraphModuleScopeDefaultDotCores.dot1.color,
     ),
   );
-  const core2Size = normalizeNodeGraphModuleScopeDotCoreSize(options.core2Size, nodeGraphModuleScopeDefaultDotCores.dot2.size);
-  const core2Brightness = normalizeNodeGraphModuleScopeDotCoreBrightness(options.core2Brightness, nodeGraphModuleScopeDefaultDotCores.dot2.brightness);
-  const core2Color = nodeGraphScopeHexColorToRgb(
-    normalizeNodeGraphModuleScopeDotCoreColor(
-      options.core2Color ?? nodeGraphModuleScopeDefaultDotCores.dot2.color,
-      nodeGraphModuleScopeDefaultDotCores.dot2.color,
-    ),
-  );
   const core1Blur = normalizeNodeGraphModuleScopeDotBlur(options.core1Blur, 0);
-  const core2Blur = normalizeNodeGraphModuleScopeDotBlur(options.core2Blur, 0);
   const lineThickness = normalizeNodeGraphModuleScopeLineThickness(
     options.lineThickness ?? nodeGraphModuleScopeDefaultSettings.lineThickness,
   );
   const size = Math.max(1, Math.min(512, Math.round(Number(options.size) || 64)));
   const finalCore1Size = core1Size * lineThickness;
-  const finalCore2Size = core2Size * lineThickness;
   const pixels = new Uint8Array(size * size * 4);
   const center = (size - 1) * 0.5;
-  const dotDiameterPx = Math.max(1, core1Size, core2Size);
+  const dotDiameterPx = Math.max(1, core1Size);
   const core1Radius = clampNodeSliderValue(finalCore1Size * 0.5, 0.005, 20);
-  const core2Radius = clampNodeSliderValue(finalCore2Size * 0.5, 0.005, 20);
   const core1Falloff = 2.6 / Math.max(0.0001, core1Radius * core1Radius);
-  const core2Falloff = 1.15 / Math.max(0.0001, core2Radius * core2Radius);
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
       const dx = ((x - center) / center) * dotDiameterPx * 0.5;
       const dy = ((y - center) / center) * dotDiameterPx * 0.5;
       const distanceSquared = dx * dx + dy * dy;
       const core1Mask = nodeGraphModuleScopeDotBlurMask(distanceSquared, core1Radius, core1Blur);
-      const core2Mask = nodeGraphModuleScopeDotBlurMask(distanceSquared, core2Radius, core2Blur);
       const core1Energy = Math.exp(-distanceSquared * core1Falloff) * core1Brightness * core1Mask;
-      const core2Energy = Math.exp(-distanceSquared * core2Falloff) * core2Brightness * core2Mask;
-      const energy = clampNodeSliderValue(core1Energy + core2Energy, 0, 1);
-      const colorEnergy = Math.max(0.0001, core1Energy + core2Energy);
-      const core1Mix = core1Energy / colorEnergy;
-      const core2Mix = core2Energy / colorEnergy;
-      const red = clampNodeSliderValue(core1Color[0] * core1Mix + core2Color[0] * core2Mix, 0, 1);
-      const green = clampNodeSliderValue(core1Color[1] * core1Mix + core2Color[1] * core2Mix, 0, 1);
-      const blue = clampNodeSliderValue(core1Color[2] * core1Mix + core2Color[2] * core2Mix, 0, 1);
+      const energy = clampNodeSliderValue(core1Energy, 0, 1);
+      const red = clampNodeSliderValue(core1Color[0], 0, 1);
+      const green = clampNodeSliderValue(core1Color[1], 0, 1);
+      const blue = clampNodeSliderValue(core1Color[2], 0, 1);
       const alpha = Math.round(energy * 255);
       const index = (y * size + x) * 4;
       pixels[index] = Math.round(red * 255);
@@ -7707,25 +7586,11 @@ function nodeGraphModuleScopeGeneratedDotTexture(renderer) {
     nodeGraphMvp?.moduleScopeDotCore1Color ?? nodeGraphModuleScopeDefaultDotCores.dot1.color,
     nodeGraphModuleScopeDefaultDotCores.dot1.color,
   );
-  const core2Enabled = nodeGraphMvp?.moduleScopeDotCore2Enabled !== false;
-  const core2Size = normalizeNodeGraphModuleScopeDotCoreSize(
-    nodeGraphMvp?.moduleScopeDotCore2Size ?? nodeGraphModuleScopeDefaultDotCores.dot2.size,
-    nodeGraphModuleScopeDefaultDotCores.dot2.size,
-  );
-  const core2Brightness = normalizeNodeGraphModuleScopeDotCoreBrightness(
-    nodeGraphMvp?.moduleScopeDotCore2Brightness ?? nodeGraphModuleScopeDefaultDotCores.dot2.brightness,
-    nodeGraphModuleScopeDefaultDotCores.dot2.brightness,
-  );
-  const core2Color = normalizeNodeGraphModuleScopeDotCoreColor(
-    nodeGraphMvp?.moduleScopeDotCore2Color ?? nodeGraphModuleScopeDefaultDotCores.dot2.color,
-    nodeGraphModuleScopeDefaultDotCores.dot2.color,
-  );
   const lineThickness = normalizeNodeGraphModuleScopeLineThickness(
     nodeGraphMvp?.moduleScopeLineThickness ?? nodeGraphModuleScopeDefaultSettings.lineThickness,
   );
   const core1Blur = 0;
-  const core2Blur = 0;
-  const key = `generated:${core1Enabled}:${core1Size.toFixed(3)}:${core1Brightness.toFixed(3)}:${core1Color}:${core1Blur.toFixed(3)}:${core2Enabled}:${core2Size.toFixed(3)}:${core2Brightness.toFixed(3)}:${core2Color}:${core2Blur.toFixed(3)}:${lineThickness.toFixed(3)}`;
+  const key = `generated:${core1Enabled}:${core1Size.toFixed(3)}:${core1Brightness.toFixed(3)}:${core1Color}:${core1Blur.toFixed(3)}:${lineThickness.toFixed(3)}`;
   if (state.generatedKey === key && state.texture) {
     return state.texture;
   }
@@ -7756,10 +7621,6 @@ function nodeGraphModuleScopeGeneratedDotTexture(renderer) {
       core1Brightness: core1Enabled ? core1Brightness : 0,
       core1Color,
       core1Size,
-      core2Blur,
-      core2Brightness: core2Enabled ? core2Brightness : 0,
-      core2Color,
-      core2Size,
       lineThickness,
       size: 64,
     }),
@@ -7807,14 +7668,10 @@ function nodeGraphModuleScopeDotSizeScale() {
     nodeGraphMvp?.moduleScopeDotCore1Size ?? nodeGraphModuleScopeDefaultDotCores.dot1.size,
     nodeGraphModuleScopeDefaultDotCores.dot1.size,
   );
-  const core2Size = normalizeNodeGraphModuleScopeDotCoreSize(
-    nodeGraphMvp?.moduleScopeDotCore2Size ?? nodeGraphModuleScopeDefaultDotCores.dot2.size,
-    nodeGraphModuleScopeDefaultDotCores.dot2.size,
-  );
   const lineThickness = normalizeNodeGraphModuleScopeLineThickness(
     nodeGraphMvp?.moduleScopeLineThickness ?? nodeGraphModuleScopeDefaultSettings.lineThickness,
   );
-  return clampNodeSliderValue(Math.max(core1Size, core2Size) * lineThickness, 0.01, 40);
+  return clampNodeSliderValue(core1Size * lineThickness, 0.01, 40);
 }
 
 function nodeGraphModuleScopeTraceDotSizeScale(dotSize, fallback = 1) {
@@ -8175,101 +8032,6 @@ function nodeGraphModuleScopeFallbackBufferView(buffer, limit = 2048) {
   return buffer;
 }
 
-function nodeGraphModuleScopeCanvasDotSprite(heatmapMode = false) {
-  const dataUrl = typeof nodeGraphTraceImageDataUrl === "function" ? nodeGraphTraceImageDataUrl() : "";
-  if (dataUrl && !heatmapMode) {
-    const imageKey = `canvas-dot-image:${dataUrl}`;
-    const cachedImage = nodeGraphModuleScopeState.lightSpriteTextures.get(imageKey);
-    if (cachedImage?.image?.complete) {
-      return cachedImage;
-    }
-    if (!cachedImage) {
-      const image = new Image();
-      image.onload = () => scheduleNodeGraphModuleScopeDraw();
-      image.src = dataUrl;
-      nodeGraphModuleScopeState.lightSpriteTextures.set(imageKey, { canvas: image, image, size: 64 });
-      nodeGraphModuleScopeTrimLightSpriteCache();
-    }
-  }
-
-  const core1Enabled = nodeGraphMvp?.moduleScopeDotCore1Enabled !== false;
-  const core2Enabled = nodeGraphMvp?.moduleScopeDotCore2Enabled !== false;
-  const core1Size = normalizeNodeGraphModuleScopeDotCoreSize(
-    nodeGraphMvp?.moduleScopeDotCore1Size ?? nodeGraphModuleScopeDefaultDotCores.dot1.size,
-    nodeGraphModuleScopeDefaultDotCores.dot1.size,
-  );
-  const core1Brightness = normalizeNodeGraphModuleScopeDotCoreBrightness(
-    nodeGraphMvp?.moduleScopeDotCore1Brightness ?? nodeGraphModuleScopeDefaultDotCores.dot1.brightness,
-    nodeGraphModuleScopeDefaultDotCores.dot1.brightness,
-  );
-  const core1Color = normalizeNodeGraphModuleScopeDotCoreColor(
-    nodeGraphMvp?.moduleScopeDotCore1Color ?? nodeGraphModuleScopeDefaultDotCores.dot1.color,
-    nodeGraphModuleScopeDefaultDotCores.dot1.color,
-  );
-  const core2Size = normalizeNodeGraphModuleScopeDotCoreSize(
-    nodeGraphMvp?.moduleScopeDotCore2Size ?? nodeGraphModuleScopeDefaultDotCores.dot2.size,
-    nodeGraphModuleScopeDefaultDotCores.dot2.size,
-  );
-  const core2Brightness = normalizeNodeGraphModuleScopeDotCoreBrightness(
-    nodeGraphMvp?.moduleScopeDotCore2Brightness ?? nodeGraphModuleScopeDefaultDotCores.dot2.brightness,
-    nodeGraphModuleScopeDefaultDotCores.dot2.brightness,
-  );
-  const core2Color = normalizeNodeGraphModuleScopeDotCoreColor(
-    nodeGraphMvp?.moduleScopeDotCore2Color ?? nodeGraphModuleScopeDefaultDotCores.dot2.color,
-    nodeGraphModuleScopeDefaultDotCores.dot2.color,
-  );
-  const lineThickness = normalizeNodeGraphModuleScopeLineThickness(
-    nodeGraphMvp?.moduleScopeLineThickness ?? nodeGraphModuleScopeDefaultSettings.lineThickness,
-  );
-  const key = [
-    "canvas-dot-generated",
-    heatmapMode ? "heatmap" : "color",
-    core1Enabled ? "core1-on" : "core1-off",
-    core1Size.toFixed(3),
-    core1Brightness.toFixed(3),
-    heatmapMode ? "#ffffff" : core1Color,
-    core2Enabled ? "core2-on" : "core2-off",
-    core2Size.toFixed(3),
-    core2Brightness.toFixed(3),
-    heatmapMode ? "#ffffff" : core2Color,
-    lineThickness.toFixed(3),
-  ].join(":");
-  const cached = nodeGraphModuleScopeState.lightSpriteTextures.get(key);
-  if (cached) {
-    return cached;
-  }
-
-  const size = 128;
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const context = canvas.getContext("2d");
-  if (!context) {
-    return null;
-  }
-  const pixels = nodeGraphModuleScopeGeneratedDotTextureData({
-    core1Blur: heatmapMode ? 0.72 : 0.58,
-    core1Brightness: core1Enabled
-      ? heatmapMode ? Math.max(0.55, core1Brightness) : core1Brightness
-      : 0,
-    core1Color: heatmapMode ? "#ffffff" : core1Color,
-    core1Size,
-    core2Blur: 0.95,
-    core2Brightness: core2Enabled
-      ? heatmapMode ? Math.max(0.18, core2Brightness * 0.65) : core2Brightness
-      : 0,
-    core2Color: heatmapMode ? "#ffffff" : core2Color,
-    core2Size,
-    lineThickness,
-    size,
-  });
-  context.putImageData(new ImageData(new Uint8ClampedArray(pixels), size, size), 0, 0);
-  const sprite = { canvas, size };
-  nodeGraphModuleScopeState.lightSpriteTextures.set(key, sprite);
-  nodeGraphModuleScopeTrimLightSpriteCache();
-  return sprite;
-}
-
 function nodeGraphModuleScopeCanvasRgba(rgb, alpha) {
   const color = Array.isArray(rgb) ? rgb : [1, 1, 1];
   const opacity = clampNodeSliderValue(Number(alpha) || 0, 0, 1);
@@ -8293,9 +8055,6 @@ function drawNodeGraphModuleScopeCanvasDotPath(context, points, proxyCanvas, pix
     : null;
   const skipSamples = nodeGraphModuleScopeDiscontinuitySkipSamplesForPoints(points);
   const colors = heatmapMode ? nodeGraphModuleScopeHeatmapTraceColors() : nodeGraphModuleScopeDotStyle(slot, null);
-  const haloBrightness = heatmapMode
-    ? (nodeGraphMvp?.moduleScopeDotCore2Enabled === false ? 0 : 1)
-    : colors.haloBrightness / nodeGraphModuleScopeDefaultDotCores.dot2.brightness;
   const coreBrightness = heatmapMode
     ? (nodeGraphMvp?.moduleScopeDotCore1Enabled === false ? 0 : 1)
     : colors.coreBrightness / nodeGraphModuleScopeDefaultDotCores.dot1.brightness;
@@ -8354,14 +8113,6 @@ function drawNodeGraphModuleScopeCanvasDotPath(context, points, proxyCanvas, pix
     context.stroke();
   };
 
-  if (haloBrightness > 0) {
-    drawConnectedStroke(
-      strokeUnit * 5.5,
-      strokeUnit * 4.5,
-      colors.haloColor ?? colors.halo,
-      (heatmapMode ? 0.14 : 0.18) * haloBrightness,
-    );
-  }
   if (coreBrightness > 0) {
     drawConnectedStroke(
       strokeUnit * 1.65,
@@ -8379,12 +8130,8 @@ function nodeGraphModuleScopeLightSpriteKey(options) {
   return [
     options.shape,
     Math.round(options.radius * 1000) / 1000,
-    Math.round(options.centerRatio * 1000) / 1000,
-    options.outerRgb.join(","),
     options.centerRgb.join(","),
-    Math.round(options.outerAlphaFactor * 1000) / 1000,
     Math.round(options.centerAlphaFactor * 1000) / 1000,
-    Math.round(options.outerBlur * 1000) / 1000,
     Math.round(options.centerBlur * 1000) / 1000,
     options.usesShader ? "shader" : "normal",
   ].join("|");
@@ -8428,23 +8175,11 @@ function nodeGraphModuleScopeLightSpriteTexture(options) {
     center,
     center,
     drawRadius,
-    options.outerRgb,
-    options.outerAlphaFactor,
-    options.outerBlur,
-  );
-  drawNodeGraphModuleScopeLightShape(context, options.shape, center, center, drawRadius);
-  context.fill();
-  context.globalCompositeOperation = "lighter";
-  context.fillStyle = nodeGraphModuleScopeLightFillStyle(
-    context,
-    center,
-    center,
-    drawRadius * options.centerRatio,
     options.centerRgb,
     options.centerAlphaFactor,
     options.centerBlur,
   );
-  drawNodeGraphModuleScopeLightShape(context, options.shape, center, center, drawRadius * options.centerRatio);
+  drawNodeGraphModuleScopeLightShape(context, options.shape, center, center, drawRadius);
   context.fill();
   context.restore();
 
@@ -8501,22 +8236,15 @@ function drawNodeGraphModuleScopeLightDisplay(context, rect, buffer, pixelRatio,
   }
 
   const lightStyle = nodeGraphModuleScopeLightShaderStyle(slot, buffer);
-  const outerColor = lightStyle.outerColor;
   const centerColor = lightStyle.centerColor;
-  const outerRgb = nodeGraphScopeHexColorToRgb(outerColor)
-    .map((component) => Math.round(clampNodeSliderValue(component, 0, 1) * 255));
   const centerRgb = nodeGraphScopeHexColorToRgb(centerColor)
     .map((component) => Math.round(clampNodeSliderValue(component, 0, 1) * 255));
   const core1Size = lightStyle.centerSize;
   const core1Brightness = lightStyle.centerBrightness;
   const core1Blur = lightStyle.centerBlur;
-  const core2Size = lightStyle.outerSize;
-  const core2Brightness = lightStyle.outerBrightness;
-  const core2Blur = lightStyle.outerBlur;
   const availableSize = Math.max(1, Math.min(rect.width, rect.height));
-  const outerSizeRatio = clampNodeSliderValue(core2Size, 0, 1);
   const centerSizeRatio = clampNodeSliderValue(core1Size, 0, 1);
-  const size = Math.max(1, availableSize * outerSizeRatio);
+  const size = Math.max(1, availableSize * centerSizeRatio);
   const centerX = (rect.left + rect.width * 0.5) * pixelRatio;
   const centerY = (rect.top + rect.height * 0.5) * pixelRatio;
   const radius = size * pixelRatio * 0.5;
@@ -8526,35 +8254,18 @@ function drawNodeGraphModuleScopeLightDisplay(context, rect, buffer, pixelRatio,
   const shape = ["circle", "square", "diamond"].includes(buffer.nodeGraphScopeLightShape)
     ? buffer.nodeGraphScopeLightShape
     : "circle";
-  const centerRatio = Math.max(
-    Number(buffer.nodeGraphScopeLightCenterMinRatio) || 0,
-    outerSizeRatio > 0
-      ? clampNodeSliderValue(centerSizeRatio / outerSizeRatio, 0, 1)
-      : 0,
-  );
-  const outerAlphaScale = Number.isFinite(Number(buffer.nodeGraphScopeLightOuterAlphaScale))
-    ? clampNodeSliderValue(Number(buffer.nodeGraphScopeLightOuterAlphaScale), 0, 4)
-    : lightStyle.usesShader ? 1 : 0.38;
   const centerAlphaScale = Number.isFinite(Number(buffer.nodeGraphScopeLightCenterAlphaScale))
     ? clampNodeSliderValue(Number(buffer.nodeGraphScopeLightCenterAlphaScale), 0, 4)
     : lightStyle.usesShader ? 1 : 0.5;
   const sharedFrameAlphaFactor = frameBrightnessMode ? 1 : null;
-  const outerAlphaFactor = sharedFrameAlphaFactor ?? clampNodeSliderValue(core2Brightness * outerAlphaScale, 0, 1);
   const centerAlphaFactor = sharedFrameAlphaFactor ?? clampNodeSliderValue(core1Brightness * centerAlphaScale, 0, 1);
-  const visibleOuterRgb = lightStyle.usesShader
-    ? nodeGraphModuleScopeEmissiveShaderRgb(outerRgb, core2Brightness)
-    : outerRgb;
   const visibleCenterRgb = lightStyle.usesShader
     ? nodeGraphModuleScopeEmissiveShaderRgb(centerRgb, core1Brightness)
     : centerRgb;
   const sprite = nodeGraphModuleScopeLightSpriteTexture({
     centerAlphaFactor,
     centerBlur: core1Blur,
-    centerRatio,
     centerRgb: visibleCenterRgb,
-    outerAlphaFactor,
-    outerBlur: core2Blur,
-    outerRgb: visibleOuterRgb,
     radius,
     shape,
     usesShader: lightStyle.usesShader,
@@ -10862,36 +10573,15 @@ function drawNodeGraphModuleScopes() {
       ? nodeGraphModuleScopeHeatmapTraceColors()
       : nodeGraphModuleScopeDotStyle(slot, buffer);
     // Spectrum bars are filled shapes, not points/lines, so they shouldn't be
-    // gated by the "Dot 1/2 Core" enable toggles (those exist to turn off the
-    // point-scope glow cores) -- without this, disabling Dot 1 Core zeroes
-    // coreBrightness for every node and leaves bars at halo-only intensity,
-    // which is far too dim to see across a filled area (unlike a thin trace
-    // beam, which still reads as bright at the same intensity via overdraw).
+    // gated by the "Dot Core" enable toggle (it exists to turn off the
+    // point-scope glow core) -- without this, disabling Dot Core zeroes
+    // coreBrightness for every node and leaves bars invisible.
     const isSpectrumBuffer = buffer?.nodeGraphScopeSpectrum === true;
-    const haloBrightness = isSpectrumBuffer
-      ? 0
-      : heatmapMode
-        ? (nodeGraphMvp?.moduleScopeDotCore2Enabled === false ? 0 : 1)
-        : colors.haloBrightness / nodeGraphModuleScopeDefaultDotCores.dot2.brightness;
     const coreBrightness = isSpectrumBuffer
       ? 1
       : heatmapMode
         ? (nodeGraphMvp?.moduleScopeDotCore1Enabled === false ? 0 : 1)
         : colors.coreBrightness / nodeGraphModuleScopeDefaultDotCores.dot1.brightness;
-    if (haloBrightness > 0) {
-      setNodeGraphModuleScopeDebugPhase(`draw-halo:${slot.type}`);
-      applyNodeGraphModuleScopeTraceBlendMode(gl, blendMode);
-      drawNodeGraphModuleScopeBufferWebGl(renderer, scopeRect, buffer, pixelRatio, slot, {
-        color: colors.haloColor ?? colors.halo,
-        dotSizeScale: heatmapMode
-          ? undefined
-          : nodeGraphModuleScopeTraceDotSizeScale(colors.haloSize, nodeGraphModuleScopeDefaultDotCores.dot2.size),
-        intensity: (heatmapMode ? 0.05 : 0.034) * brightness * haloBrightness,
-        thicknessPx: 3.25 * zoomScale,
-        visibleProgressRange,
-        visibleRect: visibleScopeRect,
-      });
-    }
     if (coreBrightness > 0) {
       setNodeGraphModuleScopeDebugPhase(`draw-core:${slot.type}`);
       applyNodeGraphModuleScopeTraceBlendMode(gl, blendMode);

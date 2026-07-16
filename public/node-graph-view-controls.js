@@ -197,11 +197,8 @@ function renderNodeGraphModuleScopeDotPreview(
   core1Size,
   core1Brightness,
   core1Color,
-  core2Size,
-  core2Brightness,
-  core2Color,
   lineThickness = nodeGraphMvp?.moduleScopeLineThickness,
-  canvasId = "nodeMasterScopeDotPreview",
+  canvasId = "nodeMasterScopeDotCore1Preview",
 ) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) {
@@ -223,9 +220,6 @@ function renderNodeGraphModuleScopeDotPreview(
       core1Brightness,
       core1Color,
       core1Size,
-      core2Brightness,
-      core2Color,
-      core2Size,
       lineThickness,
       size,
     })
@@ -245,10 +239,6 @@ function renderNodeGraphModuleScopeBrightnessControl() {
   const dotCore1Size = normalizeNodeGraphModuleScopeDotCoreSize(nodeGraphMvp.moduleScopeDotCore1Size ?? 2, 2);
   const dotCore1Brightness = normalizeNodeGraphModuleScopeDotCoreBrightness(nodeGraphMvp.moduleScopeDotCore1Brightness ?? 0.23, 0.23);
   const dotCore1Color = normalizeNodeGraphModuleScopeDotCoreColor(nodeGraphMvp.moduleScopeDotCore1Color ?? "#ffffff", "#ffffff");
-  const dotCore2Enabled = normalizeNodeGraphModuleScopeDotCoreEnabled(nodeGraphMvp.moduleScopeDotCore2Enabled);
-  const dotCore2Size = normalizeNodeGraphModuleScopeDotCoreSize(nodeGraphMvp.moduleScopeDotCore2Size ?? 4, 4);
-  const dotCore2Brightness = normalizeNodeGraphModuleScopeDotCoreBrightness(nodeGraphMvp.moduleScopeDotCore2Brightness ?? 0.45, 0.45);
-  const dotCore2Color = normalizeNodeGraphModuleScopeDotCoreColor(nodeGraphMvp.moduleScopeDotCore2Color ?? "#17002f", "#17002f");
   const framesPerSecond = normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp.moduleScopeFramesPerSecond ?? 60);
   const pointBudget = normalizeNodeGraphModuleScopePointBudget(nodeGraphMvp.moduleScopePointBudget ?? 4096);
   const lineThickness = normalizeNodeGraphModuleScopeLineThickness(nodeGraphMvp.moduleScopeLineThickness ?? 1);
@@ -260,10 +250,6 @@ function renderNodeGraphModuleScopeBrightnessControl() {
   nodeGraphMvp.moduleScopeDotCore1Size = dotCore1Size;
   nodeGraphMvp.moduleScopeDotCore1Brightness = dotCore1Brightness;
   nodeGraphMvp.moduleScopeDotCore1Color = dotCore1Color;
-  nodeGraphMvp.moduleScopeDotCore2Enabled = dotCore2Enabled;
-  nodeGraphMvp.moduleScopeDotCore2Size = dotCore2Size;
-  nodeGraphMvp.moduleScopeDotCore2Brightness = dotCore2Brightness;
-  nodeGraphMvp.moduleScopeDotCore2Color = dotCore2Color;
   nodeGraphMvp.moduleScopeFramesPerSecond = framesPerSecond;
   nodeGraphMvp.moduleScopePointBudget = pointBudget;
   nodeGraphMvp.moduleScopeLineThickness = lineThickness;
@@ -273,10 +259,6 @@ function renderNodeGraphModuleScopeBrightnessControl() {
   const dotCore1SizeInput = document.getElementById("nodeMasterScopeDotCore1Size");
   const dotCore1BrightnessInput = document.getElementById("nodeMasterScopeDotCore1Brightness");
   const dotCore1ColorInput = document.getElementById("nodeMasterScopeDotCore1Color");
-  const dotCore2EnabledInput = document.getElementById("nodeMasterScopeDotCore2Enabled");
-  const dotCore2SizeInput = document.getElementById("nodeMasterScopeDotCore2Size");
-  const dotCore2BrightnessInput = document.getElementById("nodeMasterScopeDotCore2Brightness");
-  const dotCore2ColorInput = document.getElementById("nodeMasterScopeDotCore2Color");
   const fpsInput = document.getElementById("nodeMasterScopeFps");
   const pointBudgetInput = document.getElementById("nodeMasterScopePointBudget");
   const lineInput = document.getElementById("nodeMasterScopeLineThickness");
@@ -298,48 +280,12 @@ function renderNodeGraphModuleScopeBrightnessControl() {
   if (dotCore1ColorInput && document.activeElement !== dotCore1ColorInput) {
     dotCore1ColorInput.value = dotCore1Color;
   }
-  if (dotCore2EnabledInput) {
-    dotCore2EnabledInput.setAttribute("aria-pressed", String(dotCore2Enabled));
-    dotCore2EnabledInput.closest(".node-master-scope-dot-core-row")
-      ?.classList.toggle("dot-core-disabled", !dotCore2Enabled);
-  }
-  if (dotCore2SizeInput && document.activeElement !== dotCore2SizeInput) {
-    dotCore2SizeInput.value = dotCore2Size.toFixed(2);
-  }
-  if (dotCore2BrightnessInput && document.activeElement !== dotCore2BrightnessInput) {
-    dotCore2BrightnessInput.value = dotCore2Brightness.toFixed(2);
-  }
-  if (dotCore2ColorInput && document.activeElement !== dotCore2ColorInput) {
-    dotCore2ColorInput.value = dotCore2Color;
-  }
   renderNodeGraphModuleScopeDotPreview(
     dotCore1Size,
     dotCore1Enabled ? dotCore1Brightness : 0,
     dotCore1Color,
-    0.01,
-    0,
-    dotCore2Color,
     lineThickness,
     "nodeMasterScopeDotCore1Preview",
-  );
-  renderNodeGraphModuleScopeDotPreview(
-    0.01,
-    0,
-    dotCore1Color,
-    dotCore2Size,
-    dotCore2Enabled ? dotCore2Brightness : 0,
-    dotCore2Color,
-    lineThickness,
-    "nodeMasterScopeDotCore2Preview",
-  );
-  renderNodeGraphModuleScopeDotPreview(
-    dotCore1Size,
-    dotCore1Enabled ? dotCore1Brightness : 0,
-    dotCore1Color,
-    dotCore2Size,
-    dotCore2Enabled ? dotCore2Brightness : 0,
-    dotCore2Color,
-    lineThickness,
   );
   if (fpsInput && document.activeElement !== fpsInput) {
     fpsInput.value = String(framesPerSecond);
@@ -431,18 +377,12 @@ function refreshNodeGraphModuleScopeGeneratedDot() {
 }
 
 function setNodeGraphModuleScopeDotCoreEnabled(dotName, enabled) {
-  if (dotName === "dot2") {
-    nodeGraphMvp.moduleScopeDotCore2Enabled = normalizeNodeGraphModuleScopeDotCoreEnabled(enabled);
-  } else {
-    nodeGraphMvp.moduleScopeDotCore1Enabled = normalizeNodeGraphModuleScopeDotCoreEnabled(enabled);
-  }
+  nodeGraphMvp.moduleScopeDotCore1Enabled = normalizeNodeGraphModuleScopeDotCoreEnabled(enabled);
   refreshNodeGraphModuleScopeGeneratedDot();
 }
 
 function toggleNodeGraphModuleScopeDotCore(dotName) {
-  const current = dotName === "dot2"
-    ? normalizeNodeGraphModuleScopeDotCoreEnabled(nodeGraphMvp.moduleScopeDotCore2Enabled)
-    : normalizeNodeGraphModuleScopeDotCoreEnabled(nodeGraphMvp.moduleScopeDotCore1Enabled);
+  const current = normalizeNodeGraphModuleScopeDotCoreEnabled(nodeGraphMvp.moduleScopeDotCore1Enabled);
   setNodeGraphModuleScopeDotCoreEnabled(dotName, !current);
 }
 
@@ -462,21 +402,6 @@ function setNodeGraphModuleScopeDotCore1Brightness(value) {
 
 function setNodeGraphModuleScopeDotCore1Color(value) {
   nodeGraphMvp.moduleScopeDotCore1Color = normalizeNodeGraphModuleScopeDotCoreColor(value, "#ffffff");
-  refreshNodeGraphModuleScopeGeneratedDot();
-}
-
-function setNodeGraphModuleScopeDotCore2Size(value) {
-  nodeGraphMvp.moduleScopeDotCore2Size = normalizeNodeGraphModuleScopeDotCoreSize(value, 4);
-  refreshNodeGraphModuleScopeGeneratedDot();
-}
-
-function setNodeGraphModuleScopeDotCore2Brightness(value) {
-  nodeGraphMvp.moduleScopeDotCore2Brightness = normalizeNodeGraphModuleScopeDotCoreBrightness(value, 0.45);
-  refreshNodeGraphModuleScopeGeneratedDot();
-}
-
-function setNodeGraphModuleScopeDotCore2Color(value) {
-  nodeGraphMvp.moduleScopeDotCore2Color = normalizeNodeGraphModuleScopeDotCoreColor(value, "#17002f");
   refreshNodeGraphModuleScopeGeneratedDot();
 }
 

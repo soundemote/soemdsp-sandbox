@@ -66,24 +66,6 @@ function bindNodeGraphHeaderControlEvents() {
     .getElementById("nodeMasterScopeDotCore1Color")
     .addEventListener("change", (event) => setNodeGraphModuleScopeDotCore1Color(event.currentTarget.value));
   document
-    .getElementById("nodeMasterScopeDotCore2Size")
-    .addEventListener("input", (event) => setNodeGraphModuleScopeDotCore2Size(event.currentTarget.value));
-  document
-    .getElementById("nodeMasterScopeDotCore2Size")
-    .addEventListener("change", (event) => setNodeGraphModuleScopeDotCore2Size(event.currentTarget.value));
-  document
-    .getElementById("nodeMasterScopeDotCore2Brightness")
-    .addEventListener("input", (event) => setNodeGraphModuleScopeDotCore2Brightness(event.currentTarget.value));
-  document
-    .getElementById("nodeMasterScopeDotCore2Brightness")
-    .addEventListener("change", (event) => setNodeGraphModuleScopeDotCore2Brightness(event.currentTarget.value));
-  document
-    .getElementById("nodeMasterScopeDotCore2Color")
-    .addEventListener("input", (event) => setNodeGraphModuleScopeDotCore2Color(event.currentTarget.value));
-  document
-    .getElementById("nodeMasterScopeDotCore2Color")
-    .addEventListener("change", (event) => setNodeGraphModuleScopeDotCore2Color(event.currentTarget.value));
-  document
     .querySelectorAll("input[type='number'][data-global-scope-input]")
     .forEach((input) => {
       input.addEventListener("dblclick", beginNodeGraphScopeNumberEdit);
@@ -104,9 +86,6 @@ function bindNodeGraphHeaderControlEvents() {
     .addEventListener("change", handleNodeGraphModuleScopeDiscontinuitySkipSamplesInput);
   document
     .getElementById("nodeMasterScopeDotCore1Enabled")
-    .addEventListener("click", handleNodeGraphModuleScopeDotCoreToggle);
-  document
-    .getElementById("nodeMasterScopeDotCore2Enabled")
     .addEventListener("click", handleNodeGraphModuleScopeDotCoreToggle);
   document
     .getElementById("nodeSceneScopeTime")

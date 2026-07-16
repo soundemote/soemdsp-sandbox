@@ -6711,30 +6711,16 @@ def require_node_graph_mvp_contract() -> None:
         "nodeMasterScopeDotCore1Brightness",
         "nodeMasterScopeDotCore1Color",
         "nodeMasterScopeDotCore1Preview",
-        "nodeMasterScopeDotCore2Enabled",
-        "nodeMasterScopeDotCore2Size",
-        "nodeMasterScopeDotCore2Brightness",
-        "nodeMasterScopeDotCore2Color",
-        "nodeMasterScopeDotCore2Preview",
         "Trace dot image layers",
-        "Dot 1",
-        "Dot 2",
+        "Dot",
         "<span>size px</span>",
         'id="nodeMasterScopeDotCore1Size" type="number" min="0.01" max="10"',
         'id="nodeMasterScopeDotCore1Color" type="color"',
-        'id="nodeMasterScopeDotCore2Size" type="number" min="0.01" max="10"',
         'id="nodeMasterScopeDotCore1Brightness" type="number" min="0" max="40"',
-        'id="nodeMasterScopeDotCore2Brightness" type="number" min="0" max="40"',
-        'id="nodeMasterScopeDotCore2Color" type="color"',
         'id="nodeMasterScopeDiscontinuitySkipSamples" type="number" min="0" max="2" step="1"',
         'data-global-scope-dot-toggle="dot1"',
-        'data-global-scope-dot-toggle="dot2"',
-        'aria-pressed="false">Dot 1</button>',
-        'aria-pressed="true">Dot 2</button>',
-        "nodeMasterScopeDotPreview",
-        "Generated display dot 1 image preview",
-        "Generated display dot 2 image preview",
-        "Generated display combined dot image preview",
+        'aria-pressed="false">Dot</button>',
+        "Generated display dot image preview",
         "nodeMasterScopeBackgroundColor",
         "display background",
         "nodeGlobalScopeMenu",
@@ -6750,9 +6736,6 @@ def require_node_graph_mvp_contract() -> None:
         "data-global-scope-input=\"dotCore1Size\"",
         "data-global-scope-input=\"dotCore1Brightness\"",
         "data-global-scope-input=\"dotCore1Color\"",
-        "data-global-scope-input=\"dotCore2Size\"",
-        "data-global-scope-input=\"dotCore2Brightness\"",
-        "data-global-scope-input=\"dotCore2Color\"",
         "data-global-scope-input=\"backgroundColor\"",
         "nodeModuleSlidersToggleButton",
         "Hide Sliders",
@@ -7039,6 +7022,18 @@ def require_node_graph_mvp_contract() -> None:
         "nodeMacroControlsPanel",
     ]:
         require(snippet not in index_source, f"fixed performance interface should be absent: {snippet}")
+
+    for snippet in [
+        "nodeMasterScopeDotCore2Enabled",
+        "nodeMasterScopeDotCore2Size",
+        "nodeMasterScopeDotCore2Brightness",
+        "nodeMasterScopeDotCore2Color",
+        "nodeMasterScopeDotCore2Preview",
+        "nodeMasterScopeDotPreview",
+        "Dot 2",
+        "combined dot image",
+    ]:
+        require(snippet not in index_source, f"Dot 2 has been removed app-wide, should be absent: {snippet}")
 
     require(
         index_source.index('class="node-user-ui-settings-actions"') <
@@ -11361,7 +11356,6 @@ def require_node_graph_mvp_contract() -> None:
         "function renderNodeGraphModuleScopeDotPreview(",
         "nodeGraphModuleScopeGeneratedDotTextureData({",
         "core1Color,\n      core1Size",
-        "core2Color,\n      core2Size",
         "context.putImageData(imageData, 0, 0)",
         "function renderNodeGraphModuleScopeBrightnessControl()",
         "function setNodeGraphModuleScopeLineThickness(value)",
@@ -11372,9 +11366,6 @@ def require_node_graph_mvp_contract() -> None:
         "function setNodeGraphModuleScopeDotCore1Size(value)",
         "function setNodeGraphModuleScopeDotCore1Brightness(value)",
         "function setNodeGraphModuleScopeDotCore1Color(value)",
-        "function setNodeGraphModuleScopeDotCore2Size(value)",
-        "function setNodeGraphModuleScopeDotCore2Brightness(value)",
-        "function setNodeGraphModuleScopeDotCore2Color(value)",
         "function handleNodeGraphModuleScopeLineThicknessInput(event)",
         "function handleNodeGraphModuleScopeDiscontinuitySkipSamplesInput(event)",
         "function toggleNodeGraphGridVisibility()",
@@ -11441,19 +11432,12 @@ def require_node_graph_mvp_contract() -> None:
         "setNodeGraphModuleScopeDotCore1Brightness(event.currentTarget.value)",
         'getElementById("nodeMasterScopeDotCore1Color")',
         "setNodeGraphModuleScopeDotCore1Color(event.currentTarget.value)",
-        'getElementById("nodeMasterScopeDotCore2Size")',
-        "setNodeGraphModuleScopeDotCore2Size(event.currentTarget.value)",
-        'getElementById("nodeMasterScopeDotCore2Brightness")',
-        "setNodeGraphModuleScopeDotCore2Brightness(event.currentTarget.value)",
-        'getElementById("nodeMasterScopeDotCore2Color")',
-        "setNodeGraphModuleScopeDotCore2Color(event.currentTarget.value)",
         "querySelectorAll(\"input[type='number'][data-global-scope-input]\")",
         'getElementById("nodeMasterScopeLineThickness")',
         'addEventListener("input", handleNodeGraphModuleScopeLineThicknessInput)',
         'getElementById("nodeMasterScopeDiscontinuitySkipSamples")',
         'addEventListener("input", handleNodeGraphModuleScopeDiscontinuitySkipSamplesInput)',
         'getElementById("nodeMasterScopeDotCore1Enabled")',
-        'getElementById("nodeMasterScopeDotCore2Enabled")',
         'addEventListener("click", handleNodeGraphModuleScopeDotCoreToggle)',
         "[data-context-module]",
         "const nodeGraphTooltipSourceUrl",
@@ -11592,10 +11576,6 @@ def require_node_graph_mvp_contract() -> None:
         "moduleScopeDotCore1Size",
         "moduleScopeDotCore1Brightness",
         "moduleScopeDotCore1Color",
-        "moduleScopeDotCore2Enabled",
-        "moduleScopeDotCore2Size",
-        "moduleScopeDotCore2Brightness",
-        "moduleScopeDotCore2Color",
         "moduleScopeBackgroundColor",
         "sliderAmountVisible",
         "sliderPositionVisible",
@@ -11606,10 +11586,8 @@ def require_node_graph_mvp_contract() -> None:
         "nodeMasterScopeLineThickness",
         "nodeMasterScopeDiscontinuitySkipSamples",
         "nodeMasterScopeDotCore1Enabled",
-        "nodeMasterScopeDotCore2Enabled",
         "nodeMasterScopeFps",
         "nodeMasterScopeDotCore1Size",
-        "nodeMasterScopeDotCore2Brightness",
         "nodeMasterScopeBackgroundColor",
         "function toggleNodeGlobalScopeMenu()",
         "function openNodeGlobalScopeMenu()",
@@ -12206,7 +12184,6 @@ def require_node_graph_mvp_contract() -> None:
         "function nodeGraphNormalizeScopeTraceColor(value)",
         "return nodeGraphModuleScopeDefaultDotCores.traceColor",
         "function nodeGraphScopeHexColorToRgb(color)",
-        "function nodeGraphModuleScopeDefaultDotCore(dotName)",
         "function nodeGraphModuleScopeShaderAssignmentValue(source, dotName, key)",
         "const safeDotName = dotName === \"dot2\" ? \"dot2\" : \"dot1\"",
         "function nodeGraphModuleScopeShaderColor(source, dotName, fallback)",
@@ -12512,17 +12489,11 @@ def require_node_graph_mvp_contract() -> None:
         "nodeGraphModuleScopeDefaultSettings.cycles",
         "function nodeGraphModuleScopeInterpolatedSample(buffer, position)",
         "nodeGraphModuleScopeBufferValue(buffer, position, view)",
-        "function nodeGraphModuleScopeTraceColors(slot)",
         "nodeGraphModuleScopeShaderGlobalColor(\"dot1\")",
-        "nodeGraphModuleScopeShaderGlobalColor(\"dot2\")",
-        "const halo = nodeGraphModuleScopeMixColor(haloBase, [0, 0, 0], 0.15)",
         "function nodeGraphModuleScopeDotStyle(slot, buffer)",
         "nodeGraphMvp?.moduleScopeDotCore1Enabled === false",
-        "nodeGraphMvp?.moduleScopeDotCore2Enabled === false",
         "coreSize: normalizeNodeGraphModuleScopeDotCoreSize(coreSize, nodeGraphModuleScopeDefaultDotCores.dot1.size)",
         "coreBrightness: clampNodeSliderValue(coreBrightness, 0, 40)",
-        "haloSize: normalizeNodeGraphModuleScopeDotCoreSize(haloSize, nodeGraphModuleScopeDefaultDotCores.dot2.size)",
-        "haloBrightness: clampNodeSliderValue(haloBrightness, 0, 40)",
         "function nodeGraphModuleScopeZoomScale()",
         "function nodeGraphModuleScopeUnzoomedLength(value, zoomScale = nodeGraphModuleScopeZoomScale())",
         "function nodeGraphModuleScopeRenderedSampleWidth(rect, zoomScale = nodeGraphModuleScopeZoomScale())",
@@ -12535,25 +12506,18 @@ def require_node_graph_mvp_contract() -> None:
         "const gaussianSharpness = 2.2 + (1 - blur) * 10",
         "function nodeGraphModuleScopeGeneratedDotTexture(renderer)",
         "normalizeNodeGraphModuleScopeDotCoreSize(options.core1Size, nodeGraphModuleScopeDefaultDotCores.dot1.size)",
-        "normalizeNodeGraphModuleScopeDotCoreBrightness(options.core2Brightness, nodeGraphModuleScopeDefaultDotCores.dot2.brightness)",
         "options.lineThickness ?? nodeGraphModuleScopeDefaultSettings.lineThickness",
         "const finalCore1Size = core1Size * lineThickness",
-        "const finalCore2Size = core2Size * lineThickness",
         "const core1Blur = normalizeNodeGraphModuleScopeDotBlur(options.core1Blur, 0)",
-        "const core2Blur = normalizeNodeGraphModuleScopeDotBlur(options.core2Blur, 0)",
-        "const key = `generated:${core1Enabled}:${core1Size.toFixed(3)}:${core1Brightness.toFixed(3)}:${core1Color}:${core1Blur.toFixed(3)}:${core2Enabled}:${core2Size.toFixed(3)}:${core2Brightness.toFixed(3)}:${core2Color}:${core2Blur.toFixed(3)}:${lineThickness.toFixed(3)}`",
-        "const dotDiameterPx = Math.max(1, core1Size, core2Size)",
+        "const key = `generated:${core1Enabled}:${core1Size.toFixed(3)}:${core1Brightness.toFixed(3)}:${core1Color}:${core1Blur.toFixed(3)}:${lineThickness.toFixed(3)}`",
+        "const dotDiameterPx = Math.max(1, core1Size)",
         "const core1Radius = clampNodeSliderValue(finalCore1Size * 0.5, 0.005, 20)",
         "const core1Mask = nodeGraphModuleScopeDotBlurMask(distanceSquared, core1Radius, core1Blur)",
-        "const core2Mask = nodeGraphModuleScopeDotBlurMask(distanceSquared, core2Radius, core2Blur)",
         "const dx = ((x - center) / center) * dotDiameterPx * 0.5",
         "const core1Falloff = 2.6 / Math.max(0.0001, core1Radius * core1Radius)",
         "nodeGraphMvp?.moduleScopeDotCore1Color ?? nodeGraphModuleScopeDefaultDotCores.dot1.color",
-        "nodeGraphMvp?.moduleScopeDotCore2Color ?? nodeGraphModuleScopeDefaultDotCores.dot2.color",
-        "core1Enabled ? \"core1-on\" : \"core1-off\"",
-        "core2Enabled ? \"core2-on\" : \"core2-off\"",
         "function nodeGraphModuleScopeDotSizeScale()",
-        "return clampNodeSliderValue(Math.max(core1Size, core2Size) * lineThickness, 0.01, 40)",
+        "return clampNodeSliderValue(core1Size * lineThickness, 0.01, 40)",
         "function nodeGraphModuleScopeTraceDotSizeScale(dotSize, fallback = 1)",
         "return clampNodeSliderValue(size * lineThickness, 0.01, 40)",
         "gl.texImage2D(\n    gl.TEXTURE_2D,\n    0,\n    gl.RGBA,\n    64,\n    64",
@@ -12688,8 +12652,6 @@ def require_node_graph_mvp_contract() -> None:
         "context.lineTo(x2, y2)",
         "context.stroke()",
         "const colors = heatmapMode ? nodeGraphModuleScopeHeatmapTraceColors() : nodeGraphModuleScopeDotStyle(slot, null)",
-        "if (haloBrightness > 0)",
-        "colors.haloColor ?? colors.halo",
         "if (coreBrightness > 0)",
         "colors.coreColor ?? colors.core",
         "const firstVisibleSlot = visibleItems[0]?.slot",
@@ -12766,9 +12728,6 @@ def require_node_graph_mvp_contract() -> None:
         "const core1Size = lightStyle.centerSize",
         "const core1Brightness = lightStyle.centerBrightness",
         "const core1Blur = lightStyle.centerBlur",
-        "const core2Size = lightStyle.outerSize",
-        "const core2Brightness = lightStyle.outerBrightness",
-        "const core2Blur = lightStyle.outerBlur",
         "function nodeGraphModuleScopeShaderSizeRatio(source, dotName, fallback)",
         "function nodeGraphModuleScopeShaderExpressionValue(expression, dotName, key, fallback)",
         "function nodeGraphModuleScopeShaderGlobalValue(dotName, key, fallback)",
@@ -12776,9 +12735,8 @@ def require_node_graph_mvp_contract() -> None:
         "dot1.global.blur",
         "dot2.global.brightness",
         "const availableSize = Math.max(1, Math.min(rect.width, rect.height))",
-        "const outerSizeRatio = clampNodeSliderValue(core2Size, 0, 1)",
         "const centerSizeRatio = clampNodeSliderValue(core1Size, 0, 1)",
-        "const size = Math.max(1, availableSize * outerSizeRatio)",
+        "const size = Math.max(1, availableSize * centerSizeRatio)",
         "nodeGraphModuleScopeTraceBrightness(slot, settings)",
         "nodeGraphModuleScopeState.lightDisplayStates.get(nodeId)",
         "nodeGraphModuleScopeState.lightDisplayStates.delete(nodeId)",
@@ -12791,14 +12749,12 @@ def require_node_graph_mvp_contract() -> None:
         "nodeGraphModuleScopeState.lightSpriteTextures.set(key, sprite)",
         "function nodeGraphModuleScopeEmissiveShaderRgb(rgb, brightness)",
         "const targetMax = clampNodeSliderValue(72 + Math.max(0, Number(brightness) || 0) * 144, 72, 255)",
-        "const visibleOuterRgb = lightStyle.usesShader",
         "context.globalCompositeOperation = lightStyle.usesShader ? \"source-over\" : \"lighter\"",
         "context.globalAlpha = alpha",
         "context.drawImage(sprite.canvas, centerX - sprite.size * 0.5, centerY - sprite.size * 0.5)",
         "if (shape === \"square\")",
         "else if (shape === \"diamond\")",
         "context.drawImage(sprite.canvas, centerX - sprite.size * 0.5, centerY - sprite.size * 0.5)",
-        "centerSizeRatio / outerSizeRatio",
         "function drawNodeGraphModuleScopeLightDisplays(items, pixelRatio)",
         "drawNodeGraphModuleScopeLightDisplay(context, item.scopeRect, item.buffer, pixelRatio, item.slot)",
         "if (buffer?.nodeGraphScopeLightDisplay)",
@@ -12832,15 +12788,10 @@ def require_node_graph_mvp_contract() -> None:
         "const zoomScale = nodeGraphModuleScopeZoomScale()",
         "const brightness = nodeGraphModuleScopeTraceBrightness(slot, scopeSettings)",
         "const lineThickness = nodeGraphModuleScopeTraceLineThickness(slot, scopeSettings)",
-        "const haloBrightness = heatmapMode",
         "const coreBrightness = heatmapMode",
-        "if (haloBrightness > 0)",
-        "dotSizeScale: heatmapMode\n          ? undefined\n          : nodeGraphModuleScopeTraceDotSizeScale(colors.haloSize, nodeGraphModuleScopeDefaultDotCores.dot2.size)",
-        "intensity: (heatmapMode ? 0.05 : 0.034) * brightness * haloBrightness",
         "if (coreBrightness > 0)",
         "dotSizeScale: heatmapMode\n          ? undefined\n          : nodeGraphModuleScopeTraceDotSizeScale(colors.coreSize, nodeGraphModuleScopeDefaultDotCores.dot1.size)",
         "intensity: (heatmapMode ? 0.34 : 1.0) * brightness * coreBrightness",
-        "thicknessPx: 3.25 * zoomScale",
         "thicknessPx: 1.25 * zoomScale",
         "const traceThicknessPx = Math.max(1, Number(options.thicknessPx) || 1)",
         "const requestedDotSizeScale = Number(options.dotSizeScale)",
@@ -12929,6 +12880,23 @@ def require_node_graph_mvp_contract() -> None:
         "initSandboxApp().catch((error) =>",
     ]:
         require(snippet in node_graph_source, f"node graph source missing {snippet}")
+    for snippet in [
+        "function setNodeGraphModuleScopeDotCore2Size(value)",
+        "function setNodeGraphModuleScopeDotCore2Brightness(value)",
+        "function setNodeGraphModuleScopeDotCore2Color(value)",
+        'getElementById("nodeMasterScopeDotCore2Size")',
+        'getElementById("nodeMasterScopeDotCore2Brightness")',
+        'getElementById("nodeMasterScopeDotCore2Color")',
+        'getElementById("nodeMasterScopeDotCore2Enabled")',
+        "moduleScopeDotCore2Enabled",
+        "moduleScopeDotCore2Size",
+        "moduleScopeDotCore2Brightness",
+        "moduleScopeDotCore2Color",
+        "function nodeGraphModuleScopeTraceColors(slot)",
+        "function nodeGraphModuleScopeCanvasDotSprite(",
+        "nodeGraphModuleScopeShaderGlobalColor(\"dot2\")",
+    ]:
+        require(snippet not in node_graph_source, f"Master Scope Dot 2 has been removed, should be absent: {snippet}")
     require(
         "Modules selected" not in node_graph_source,
         "selection count should not be appended to tooltips; SEL header owns that display",
@@ -14619,7 +14587,6 @@ def require_node_graph_mvp_contract() -> None:
         "function nodeGraphModuleScopeShaderBlurRatio(source, dotName, fallback = 0)",
         "function nodeGraphModuleScopeLightShaderStyle(slot, buffer)",
         "centerBlur: nodeGraphModuleScopeShaderBlurRatio(source, \"dot1\", 0)",
-        "outerBlur: nodeGraphModuleScopeShaderBlurRatio(source, \"dot2\", 0)",
         "nodeGraphModuleScopeDefaultShaderSourceForNode(node)",
         "usesShader: Boolean(source)",
         "nodeGraphScopeLightInstant: true",
@@ -14686,14 +14653,11 @@ def require_node_graph_mvp_contract() -> None:
     )
     require(
         "const lightStyle = nodeGraphModuleScopeLightShaderStyle(slot, buffer)" in light_display_source
-        and "const outerColor = lightStyle.outerColor" in light_display_source
-        and "const size = Math.max(1, availableSize * outerSizeRatio)" in light_display_source
-        and ": lightStyle.usesShader ? 1 : 0.38" in light_display_source
-        and "nodeGraphModuleScopeEmissiveShaderRgb(outerRgb, core2Brightness)" in light_display_source
+        and "const size = Math.max(1, availableSize * centerSizeRatio)" in light_display_source
+        and "nodeGraphModuleScopeEmissiveShaderRgb(centerRgb, core1Brightness)" in light_display_source
         and "context.globalCompositeOperation = lightStyle.usesShader ? \"source-over\" : \"lighter\"" in light_display_source
         and "const frameBrightnessMode = buffer.nodeGraphScopeFrameBrightness === true" in light_display_source
         and "const sharedFrameAlphaFactor = frameBrightnessMode ? 1 : null" in light_display_source
-        and "const outerAlphaFactor = sharedFrameAlphaFactor ?? clampNodeSliderValue(core2Brightness * outerAlphaScale, 0, 1)" in light_display_source
         and "const centerAlphaFactor = sharedFrameAlphaFactor ?? clampNodeSliderValue(core1Brightness * centerAlphaScale, 0, 1)" in light_display_source
         and "const sprite = nodeGraphModuleScopeLightSpriteTexture({" in light_display_source
         and "context.globalAlpha = alpha" in light_display_source
@@ -14707,10 +14671,22 @@ def require_node_graph_mvp_contract() -> None:
     )
     require(
         "const centerColor = lightStyle.centerColor" in light_display_source
-        and "const centerRatio = Math.max(" in light_display_source
         and ": lightStyle.usesShader ? 1 : 0.5" in light_display_source
         and "nodeGraphScopeLightCenterAlphaScale" in light_display_source,
-        "LED and clock light display should be able to draw a separate bright center dot",
+        "LED and clock light display should be able to draw a bright center dot",
+    )
+    require(
+        "outerColor" not in light_display_source
+        and "outerRgb" not in light_display_source
+        and "core2Size" not in light_display_source
+        and "core2Brightness" not in light_display_source
+        and "core2Blur" not in light_display_source
+        and "outerSizeRatio" not in light_display_source
+        and "centerRatio" not in light_display_source
+        and "outerAlphaScale" not in light_display_source
+        and "outerAlphaFactor" not in light_display_source
+        and "visibleOuterRgb" not in light_display_source,
+        "clock light display Dot 2 (outer halo) has been removed, should be absent",
     )
     require(
         "if (cycles === 0) {\n    return buffer.length;\n  }" not in node_graph_source,
