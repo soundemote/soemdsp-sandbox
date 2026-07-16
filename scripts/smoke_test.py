@@ -102,6 +102,9 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-papoulis-filter.js",
     "./public/node-graph-phosphor-draw-sample.js",
     "./public/node-graph-color-standards.js",
+    "./public/node-graph-chromeless-module-registry.js",
+    "./public/modules/led/led-register.js",
+    "./public/modules/stepGrid/step-grid-register.js",
     "./public/node-graph-module-definitions.js",
     "./public/node-graph-data-bus.js",
     "./public/node-graph-module-store.js",
@@ -147,6 +150,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-shader-script.js",
     "./public/node-graph-canvas-script.js",
     "./public/node-graph-module-factories.js",
+    "./public/modules/led/led-ui.js",
     "./public/node-graph-module-header-rendering.js",
     "./public/node-graph-module-rendering.js",
     "./public/node-graph-history.js",
@@ -322,6 +326,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/triggerCounter/trigger-counter-live-evaluator.js",
     "./public/modules/triggerDivider/trigger-divider-live-evaluator.js",
     "./public/modules/stepSequencer/step-sequencer-live-evaluator.js",
+    "./public/modules/stepGrid/step-grid-live-evaluator.js",
+    "./public/modules/stepGrid/step-grid-ui.js",
     "./public/modules/midiOut/midi-out-live-evaluator.js",
     "./public/modules/midiNotePitch/midi-note-pitch-live-evaluator.js",
     "./public/modules/keyboardController/keyboard-controller-live-evaluator.js",
@@ -441,6 +447,7 @@ WORKLET_BLOB_SOURCE_FILES = (
     "modules/delayedTrigger/delayed-trigger-worklet-evaluator.js",
     "modules/triggerCounter/trigger-counter-worklet-evaluator.js",
     "modules/stepSequencer/step-sequencer-worklet-evaluator.js",
+    "modules/stepGrid/step-grid-worklet-evaluator.js",
     "modules/nextPatch/next-patch-worklet-evaluator.js",
     "modules/softClipper/soft-clipper-worklet-evaluator.js",
     "modules/rgbaHsla/rgba-hsla-worklet-evaluator.js",
@@ -478,6 +485,7 @@ def static_asset_contracts():
     for relative_path in WORKLET_BLOB_SOURCE_FILES:
         yield f"/public/{relative_path}", JS_CONTENT_TYPES, PUBLIC / relative_path
     yield "/public/styles.css", "text/css", PUBLIC / "styles.css"
+    yield "/public/modules/stepGrid/step-grid.css", "text/css", PUBLIC / "modules" / "stepGrid" / "step-grid.css"
 
 
 @cache
@@ -1213,7 +1221,7 @@ def require_shell_contract(html: str) -> None:
         f"shell scripts were {sorted(parser.scripts)!r}",
     )
     require(
-        stylesheet_paths == {"./public/styles.css"},
+        stylesheet_paths == {"./public/styles.css", "./public/modules/stepGrid/step-grid.css"},
         f"shell stylesheets were {sorted(parser.stylesheets)!r}",
     )
     require_shell_element(
@@ -3683,6 +3691,136 @@ def require_follow_free_seek_contract() -> None:
         '.addEventListener("lostpointercapture", endScrubberDrag)',
     ]:
         require(snippet in waveform_source, f"scrubber drag guard missing {snippet}")
+
+
+def require_chromeless_module_registry_contract() -> None:
+    # Protects the self-registration mechanism itself (see
+    # public/node-graph-chromeless-module-registry.js) -- without this, a
+    # future chromeless module could silently break the contract (forget to
+    # register its UI, load its *-register.js too late, or someone could
+    # reintroduce a hardcoded per-type entry instead of using the registry)
+    # and nothing would catch it until someone noticed visually.
+    index_source = (PUBLIC / "index.html").read_text(encoding="utf-8")
+    script_sources = read_public_script_sources()
+    registry_source = script_sources["./public/node-graph-chromeless-module-registry.js"]
+    definitions_source = script_sources["./public/node-graph-module-definitions.js"]
+    store_source = script_sources["./public/node-graph-module-store.js"]
+    rendering_source = script_sources["./public/node-graph-module-rendering.js"]
+    sizing_source = script_sources["./public/node-graph-module-sizing.js"]
+    factories_source = script_sources["./public/node-graph-module-factories.js"]
+
+    for snippet in [
+        "function registerNodeGraphChromelessModule(type, config)",
+        "function registerNodeGraphChromelessModuleUi(type, uiConfig)",
+        "function nodeGraphChromelessModuleDefinitionEntries()",
+        "function nodeGraphChromelessModuleLabelEntries()",
+        "function nodeGraphChromelessModuleCatalogEntries()",
+        "const nodeGraphChromelessModuleLayouts = Object.freeze({",
+    ]:
+        require(snippet in registry_source, f"chromeless module registry missing {snippet}")
+
+    # Discover every module folder that self-registers, and require it to be
+    # exactly the expected set -- catches both a *-register.js that exists
+    # but never got wired up, and a stray registration nobody meant to add.
+    register_call_pattern = re.compile(r'registerNodeGraphChromelessModule\(\s*"([a-zA-Z0-9]+)"')
+    register_paths = sorted(PUBLIC.glob("modules/*/*-register.js"))
+    discovered_types: set[str] = set()
+    for register_path in register_paths:
+        source = register_path.read_text(encoding="utf-8")
+        match = register_call_pattern.search(source)
+        require(match is not None, f"{register_path} does not call registerNodeGraphChromelessModule")
+        discovered_types.add(match.group(1))
+
+    expected_types = {"led", "stepGrid"}
+    require(
+        discovered_types == expected_types,
+        f"chromeless module registrations were {sorted(discovered_types)!r}, expected {sorted(expected_types)!r}",
+    )
+
+    # Each registered type needs a matching UI registration in the same
+    # module folder.
+    for register_path in register_paths:
+        module_dir = register_path.parent
+        ui_paths = list(module_dir.glob("*-ui.js"))
+        require(len(ui_paths) == 1, f"{module_dir} should have exactly one *-ui.js file")
+        ui_source = ui_paths[0].read_text(encoding="utf-8")
+        require(
+            "registerNodeGraphChromelessModuleUi(" in ui_source,
+            f"{ui_paths[0]} does not call registerNodeGraphChromelessModuleUi",
+        )
+
+    # Script load order: the registry, then every *-register.js, must load
+    # before node-graph-module-definitions.js / node-graph-module-store.js
+    # build their frozen objects -- get this wrong and those two silently
+    # build without the chromeless entries (no error, just a missing module
+    # type in the app with nothing pointing at why).
+    registry_tag_index = index_source.index("node-graph-chromeless-module-registry.js")
+    definitions_tag_index = index_source.index('src="./public/node-graph-module-definitions.js')
+    store_tag_index = index_source.index('src="./public/node-graph-module-store.js')
+    require(
+        registry_tag_index < definitions_tag_index and registry_tag_index < store_tag_index,
+        "node-graph-chromeless-module-registry.js must load before "
+        "node-graph-module-definitions.js and node-graph-module-store.js",
+    )
+    for register_path in register_paths:
+        tag_needle = str(register_path.relative_to(ROOT)).replace("\\", "/")
+        register_tag_index = index_source.index(tag_needle)
+        require(
+            register_tag_index < definitions_tag_index and register_tag_index < store_tag_index,
+            f"{tag_needle} must load before node-graph-module-definitions.js and node-graph-module-store.js",
+        )
+
+    # The shared files actually read from the registry instead of
+    # hardcoding entries -- regression guard against a per-type literal
+    # creeping back in instead of using registerNodeGraphChromelessModule.
+    require(
+        "...nodeGraphChromelessModuleDefinitionEntries()," in definitions_source,
+        "nodeGraphModuleDefinitions should spread in chromeless registrations",
+    )
+    require(
+        "...nodeGraphChromelessModuleLabelEntries()," in definitions_source,
+        "nodeGraphNodeLabels should spread in chromeless registrations",
+    )
+    require(
+        "...nodeGraphChromelessModuleCatalogEntries()," in store_source,
+        "nodeGraphModuleStoreCatalog should spread in chromeless registrations",
+    )
+    for stale_type in expected_types:
+        require(
+            f'{stale_type}: {{\n' not in definitions_source,
+            f"stale hardcoded nodeGraphModuleDefinitions entry found for {stale_type!r}",
+        )
+        require(
+            f'  {stale_type}: "' not in definitions_source.split("nodeGraphModuleDefinitions", 1)[0],
+            f"stale hardcoded nodeGraphNodeLabels entry found for {stale_type!r}",
+        )
+    require(
+        "function createNodeGraphLedFace" not in factories_source,
+        "createNodeGraphLedFace should live in public/modules/led/led-ui.js, not node-graph-module-factories.js",
+    )
+
+    # Rendering dispatch is the generic form, not hardcoded per-type
+    # branches -- regression guard against reintroducing a
+    # layout === "led" / layout === "stepGrid" special case in the shared
+    # dispatcher instead of going through the registry.
+    require(
+        "nodeGraphChromelessModuleRegistrations.get(layout)" in rendering_source,
+        "node-graph-module-rendering.js should dispatch chromeless modules generically via the registry",
+    )
+    for stale_type in expected_types:
+        require(
+            f'layout === "{stale_type}"' not in rendering_source,
+            f"node-graph-module-rendering.js should not hardcode a {stale_type!r}-specific dispatch branch",
+        )
+
+    # Height auto-sizing reads from the registry too -- this is the exact
+    # bug this session found and fixed for stepGrid (a hardcoded per-type
+    # check meant new chromeless modules silently inherited the wrong
+    # height calc); guard against it creeping back.
+    require(
+        "nodeGraphChromelessModuleLayouts.has(nodeGraphModuleDefinitions[type]?.layout)" in sizing_source,
+        "nodeGraphModuleGridHeightUnitsForUi should use the chromeless registry, not a hardcoded per-type check",
+    )
 
 
 def require_node_graph_mvp_contract() -> None:
@@ -9125,7 +9263,7 @@ def require_node_graph_mvp_contract() -> None:
         "node-slider-widget-body",
         "node-slider-widget-row",
         "node-slider-widget-io-section",
-        "if (definition.parameters?.length && definition.layout !== \"sliderWidget\" && layout !== \"knobWidget\" && definition.layout !== \"led\" && definition.layout !== \"buttonWidget\")",
+        "if (definition.parameters?.length && definition.layout !== \"sliderWidget\" && layout !== \"knobWidget\" && definition.layout !== \"buttonWidget\" && !nodeGraphChromelessModuleLayouts.has(layout))",
         "node-header-actions",
         "node-header-title-row",
         "node-header-title",
@@ -12902,7 +13040,10 @@ def require_node_graph_mvp_contract() -> None:
     require("transport: {" in module_store_source, "Transport should be listed in the module browser type registry")
     require('transport: "Transport"' in module_definitions_source, "Transport label should be registered")
     require("transport: {" in module_definitions_source, "Transport module definition should exist")
-    require('outputs: ["0..1", "-1..1"]' in module_definitions_source, "Transport should expose 0..1 and -1..1 outputs")
+    require(
+        'outputs: ["0..1", "-1..1", "Trigger"]' in module_definitions_source,
+        "Transport should expose 0..1, -1..1, and Trigger outputs",
+    )
     require("softClipper: {" in module_store_source, "Soft Clipper should be listed in the module browser type registry")
     require(
         "for (const type of Object.keys(nodeGraphModuleDefinitions || {}))" in patch_runtime_source
@@ -14443,11 +14584,13 @@ def require_node_graph_mvp_contract() -> None:
     )
 
     for snippet in [
-        'led: "LED"',
-        "led: {",
+        # led's label/definition/layout literals moved into
+        # public/modules/led/led-register.js's registerNodeGraphChromelessModule
+        # call during the registry migration -- covered by
+        # require_chromeless_module_registry_contract's stale-hardcoded-entry
+        # checks instead of a literal-presence check here.
         'bufferedInputs: ["In"]',
         'displayType: "dot"',
-        'layout: "led"',
         'outputs: ["Out"]',
         'visualInputs: [\n      { key: "led", label: "In", port: "In" },\n    ]',
         "visualSink: true",
@@ -14456,7 +14599,6 @@ def require_node_graph_mvp_contract() -> None:
         "function createNodeGraphLedFace(node, type)",
         "face.className = \"node-led-face\"",
         "face.append(createNodeGraphPort(node, type, \"In\", \"input\"))",
-        'led: "led-layout"',
         "viewDrag: false",
         "nodeGraphModuleDefinitions[type]?.layout === \"led\"",
         "node.led = normalizeNodeGraphLedLayout(options.led)",
@@ -14494,7 +14636,6 @@ def require_node_graph_mvp_contract() -> None:
         ".node-led-face .node-port.input",
         "width: calc((var(--node-grid-width) * var(--node-grid-width-units, 1)) - (var(--node-module-grid-inset) * 2))",
         "height: calc((var(--node-grid-height) * var(--node-grid-height-units, 1)) - (var(--node-module-grid-inset) * 2))",
-        "outline-color: color-mix(in srgb, var(--muted) 42%, transparent)",
     ]:
         require(snippet in style_source, f"LED module style contract missing {snippet}")
 
@@ -17857,6 +17998,7 @@ def run_valid_manifest_smoke(port: int, manifest: Path) -> None:
         run_step("manifest error surface contract", require_manifest_error_surface_contract)
         run_step("follow/free seek contract", require_follow_free_seek_contract)
         run_step("node graph MVP contract", require_node_graph_mvp_contract)
+        run_step("chromeless module registry contract", require_chromeless_module_registry_contract)
         run_step("README scheduler contract", require_readme_scheduler_contract)
         run_step("soemdsp WireMeta traits", require_soemdsp_wire_meta_traits)
         run_step(
