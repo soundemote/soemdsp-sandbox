@@ -155,16 +155,39 @@ function nodeGraphCssColor(property, fallback) {
   return value || fallback;
 }
 
+// A port is "digital" -- solid white wire/tap instead of the usual role
+// color -- if it's one of this sandbox's two universal quantized-signal
+// names (0.1V/Oct pitch CV, Scale bitmask) on any node, or if the node's own
+// module definition explicitly lists it in digitalInputs/digitalOutputs.
+// The latter is how a module opts an unsmoothed gate/trigger/etc. port into
+// the same white treatment -- see e.g. comparator's "In" and transport's
+// pulse/trigger outputs in node-graph-module-definitions.js.
+function nodeGraphPortIsDigitalSignal(typeOrNode, port, io = null) {
+  if (port === "0.1V/Oct" || port === "Scale") {
+    return true;
+  }
+  const type = typeof typeOrNode === "string" && nodeGraphModuleDefinitions[typeOrNode]
+    ? typeOrNode
+    : nodeGraphPatchNodeType(typeOrNode);
+  const definition = nodeGraphModuleDefinitions[type];
+  if (!definition) {
+    return false;
+  }
+  if (io !== "output" && definition.digitalInputs?.includes(port)) {
+    return true;
+  }
+  if (io !== "input" && definition.digitalOutputs?.includes(port)) {
+    return true;
+  }
+  return false;
+}
+
 function nodeGraphPortWireColor(node, port, io) {
   const canonicalPort = nodeGraphCanonicalPortForNode(node, port, io);
   // Digital signal ports get a solid white wire instead of the usual role
   // color -- see the .node-io-row[data-digital-signal] CSS for the matching
-  // port tap color. This covers any 0.1V/Oct pitch CV port (a fixed,
-  // quantized-representation signal, not a free-form analog one) and any
-  // Scale port (a 12-bit pitch-class bitmask) on any node -- generalized
-  // from node-type-specific special cases once a third Scale port arrived,
-  // rather than growing that list forever.
-  if (canonicalPort === "0.1V/Oct" || canonicalPort === "Scale") {
+  // port tap color, and nodeGraphPortIsDigitalSignal for what qualifies.
+  if (nodeGraphPortIsDigitalSignal(nodeGraphPatchNodeType(node), canonicalPort, io)) {
     return "#ffffff";
   }
   if (io === "input") {

@@ -1766,7 +1766,7 @@ async function stopNodeGraphLiveAudio() {
 // then register.js calls registerProcessor last, once everything above it
 // has finished defining/registering.
 const nodeGraphLiveWorkletSourceFiles = [
-  "./public/node-live-audio-worklet-core.js?v=blob-loader-20260711",
+  "./public/node-live-audio-worklet-core.js?v=stepgrid-variable-steps-20260715",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=worklet-dedup-20260712",
   "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=worklet-dedup-20260712",
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=worklet-dedup-20260712",
@@ -1839,6 +1839,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/delayedTrigger/delayed-trigger-worklet-evaluator.js?v=worklet-dedup-20260712",
   "./public/modules/triggerCounter/trigger-counter-worklet-evaluator.js?v=worklet-dedup-20260712",
   "./public/modules/stepSequencer/step-sequencer-worklet-evaluator.js?v=worklet-dedup-20260712",
+  "./public/modules/stepGrid/step-grid-worklet-evaluator.js?v=stepgrid-20260714",
   "./public/modules/nextPatch/next-patch-worklet-evaluator.js?v=worklet-dedup-20260712",
   "./public/modules/softClipper/soft-clipper-worklet-evaluator.js?v=worklet-dedup-20260712",
   "./public/modules/rgbaHsla/rgba-hsla-worklet-evaluator.js?v=worklet-dedup-20260712",

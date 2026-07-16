@@ -520,7 +520,7 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
         issues.push(`missing ${nodeGraphNodeDisplayName(nodeId)} clock`);
       }
     } else if (type === "comparator") {
-      const signalCount = (graph.inputConnections.get(nodeGraphInputKey(nodeId, "Signal In")) || []).length;
+      const signalCount = (graph.inputConnections.get(nodeGraphInputKey(nodeId, "In")) || []).length;
       if (!signalCount && nodeGraphNodeSignalOutputRequired(graph, nodeId)) {
         issues.push(`missing ${nodeGraphNodeDisplayName(nodeId)} signal`);
       }

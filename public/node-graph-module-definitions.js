@@ -117,7 +117,6 @@ const nodeGraphNodeLabels = Object.freeze({
   chromaColor: "Chroma Color",
   image: "Image",
   canvas: "Canvas",
-  led: "LED",
   visualOscilloscope: "Display",
   traceDisplay: "1D Trace",
   dotOscilloscope: "0D Burn",
@@ -132,6 +131,10 @@ const nodeGraphNodeLabels = Object.freeze({
   badvalMonitor: "BADVAL Monitor",
   textBox: "Text Box",
   output: "Output",
+  // Chromeless / fully-custom-UI modules (stepGrid, led, ...) register
+  // their own label instead of it being hardcoded here -- see
+  // node-graph-chromeless-module-registry.js.
+  ...nodeGraphChromelessModuleLabelEntries(),
 });
 
 const nodeGraphLadderFilterModes = Object.freeze(["Flat", "Lowpass", "Highpass", "Bandpass"]);
@@ -1681,13 +1684,15 @@ const nodeGraphModuleDefinitions = Object.freeze({
     displaySignals: [
       { key: "bpm", kind: "scalar" },
     ],
+    digitalOutputs: ["0..1", "-1..1", "Trigger"],
     displayType: "transportBpm",
     inputs: [],
     outputLabels: {
       "-1..1": "-1..1",
       "0..1": "0..1",
+      Trigger: "Trigger",
     },
-    outputs: ["0..1", "-1..1"],
+    outputs: ["0..1", "-1..1", "Trigger"],
     parameters: [
       {
         defaultValue: "1",
@@ -1865,6 +1870,8 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { defaultValue: "0.25", key: "step8", label: "Step 8", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
     ],
   },
+  // stepGrid registers its own definition from public/modules/stepGrid/
+  // step-grid-register.js -- see node-graph-chromeless-module-registry.js.
   triggerDivider: {
     inputs: ["Trigger", "Reset"],
     outputs: ["Out"],
@@ -1881,7 +1888,9 @@ const nodeGraphModuleDefinitions = Object.freeze({
     parameters: [],
   },
   comparator: {
-    inputs: ["Signal In"],
+    digitalInputs: ["In"],
+    digitalOutputs: ["Gate", "Inv Gate", "Hold", "Up Trig", "Down Trig", "UpDn Trig"],
+    inputs: ["In"],
     outputs: ["Gate", "Inv Gate", "Hold", "Up Trig", "Down Trig", "UpDn Trig", "Last High", "Last Low"],
     parameters: [
       { defaultValue: "0.5", key: "changeAmount", label: "Change Amount", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
@@ -3153,18 +3162,8 @@ const nodeGraphModuleDefinitions = Object.freeze({
     ],
     visualSink: true,
   },
-  led: {
-    bufferedInputs: ["In"],
-    displayType: "dot",
-    inputs: ["In"],
-    layout: "led",
-    outputs: ["Out"],
-    parameters: [],
-    visualInputs: [
-      { key: "led", label: "In", port: "In" },
-    ],
-    visualSink: true,
-  },
+  // led registers its own definition from public/modules/led/led-register.js
+  // -- see node-graph-chromeless-module-registry.js.
   visualOscilloscope: {
     bufferedInputs: ["In", "X", "Y"],
     displayType: "scope2dTrace",
@@ -3397,6 +3396,10 @@ const nodeGraphModuleDefinitions = Object.freeze({
       },
     ],
   },
+  // Chromeless / fully-custom-UI modules (stepGrid, led, ...) register
+  // their own definition instead of it being hardcoded here -- see
+  // node-graph-chromeless-module-registry.js.
+  ...nodeGraphChromelessModuleDefinitionEntries(),
 });
 
 // Text Box and Animated Text Box share the exact same body/title rendering
@@ -3563,6 +3566,7 @@ function nodeGraphModuleProducesOutputWithoutSignalInput(type) {
     "sandboxVisuals",
     "screenSpaceShader",
     "sineWavetable",
+    "stepGrid",
     "stepSequencer",
     "triggerCounter",
     "triggerDivider",

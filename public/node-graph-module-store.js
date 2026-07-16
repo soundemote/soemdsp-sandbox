@@ -305,6 +305,8 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Eight-step trigger sequencer. Advance it with Clock and route stepped control values anywhere.",
     notes: ["trigger input", "reset input", "stepped modulation"],
   },
+  // stepGrid registers its own catalog entry from public/modules/stepGrid/
+  // step-grid-register.js -- see node-graph-chromeless-module-registry.js.
   chordSequencer: {
     category: "Sequence",
     description: "Steps through a built-in diatonic chord progression on each Clock. Scale outputs the current chord as a 12-bit pitch-class mask (feed it straight into Pitch Quantizer), Root outputs the chord's root as 0.1V/Oct.",
@@ -866,12 +868,8 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Layered RGBA compositor for images, scopes, shader passes, transforms, and future game-engine surfaces.",
     notes: ["layer compositor", "RGBA output", "shader script"],
   },
-  led: {
-    category: "Visual",
-    description: "One-grid-unit signal light. Patch any gate or control signal into In and use it as a compact in-world indicator.",
-    label: "LED",
-    notes: ["1 GU tile", "input light", "visual indicator"],
-  },
+  // led registers its own catalog entry from public/modules/led/led-register.js
+  // -- see node-graph-chromeless-module-registry.js.
   visualOscilloscope: {
     category: "Visual",
     description: "Square in-world display tile. Patch any signal into In and use it as a dedicated visual display.",
@@ -950,6 +948,10 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Text Box with data-plane Title/Text inputs and a Text Out -- wire it to Script Box or another Animated Text Box instead of typing it by hand.",
     notes: ["data-plane ports", "port scripts", "wired label"],
   },
+  // Chromeless / fully-custom-UI modules (stepGrid, led, ...) register
+  // their own catalog entry instead of it being hardcoded here -- see
+  // node-graph-chromeless-module-registry.js.
+  ...nodeGraphChromelessModuleCatalogEntries(),
 });
 
 function defaultNodeGraphModuleCatalogVisibility() {

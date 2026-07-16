@@ -476,7 +476,6 @@ function nodeGraphModuleLayoutClassNames(type, definition, layout) {
     image: "image-node-layout",
     keyboardController: "keyboard-controller-layout",
     knobWidget: "knob-widget-layout",
-    led: "led-layout",
     macroControls: "macro-controls-layout",
     patchCommand: "patch-command-layout",
     phosphillatorDraw: "phosphillator-draw-layout",
@@ -488,6 +487,7 @@ function nodeGraphModuleLayoutClassNames(type, definition, layout) {
     textBox: "text-box-layout",
     traceDisplay: "trace-display-layout",
     visualScope: "visual-scope-layout",
+    ...nodeGraphChromelessModuleLayoutClassEntries(),
   };
   if (definition.layout === "canvas") {
     classes.push("canvas-node-layout");
@@ -505,6 +505,16 @@ function appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, ou
   }
   article.append(ioSection);
 }
+
+// Third UI tier alongside "generic" (knob/slider rows) and "generic + custom"
+// (e.g. audioPlayer's waveform bolted onto the standard header/IO shell):
+// fully custom, no shell at all. No header, no title, no drag handle, no
+// labeled IO columns -- the module's own body IS the whole face, and ports
+// are tiny absolutely-positioned buttons glued directly onto it. A module
+// opts into this tier by self-registering (see
+// node-graph-chromeless-module-registry.js and
+// public/modules/stepGrid|led/*-register.js /-ui.js for the pattern) --
+// nodeGraphChromelessModuleLayouts itself is defined there, not here.
 
 function createNodeGraphModuleElement(type, node) {
   const definition = nodeGraphModuleDefinitions[type];
@@ -539,15 +549,13 @@ function createNodeGraphModuleElement(type, node) {
   article.classList.toggle("sliders-hidden", patchNodeUi.slidersHidden);
   article.classList.toggle("title-hidden", patchNodeUi.titleHidden);
 
-  if (layout === "led") {
-    const ledFace = createNodeGraphLedFace(node, type);
-    article.append(ledFace);
-    registerNodeGraphModuleScopeSlot(article, {
-      nodeId: node,
-      scopeElement: ledFace,
-      type,
-      viewDrag: false,
-    });
+  const chromelessRegistration = nodeGraphChromelessModuleLayouts.has(layout)
+    ? nodeGraphChromelessModuleRegistrations.get(layout)
+    : null;
+  if (chromelessRegistration) {
+    const chromelessBody = chromelessRegistration.createBody(node, type);
+    article.append(chromelessBody);
+    chromelessRegistration.afterMount?.(article, chromelessBody, node, type);
   } else {
     article.append(createNodeGraphModuleHeader(type, node, definition));
   }
@@ -559,8 +567,9 @@ function createNodeGraphModuleElement(type, node) {
   if (metaparameterButton) {
     metaparameterButton.setAttribute("aria-pressed", patchNodeUi.slidersHidden ? "false" : "true");
   }
-  if (layout === "led") {
-    // Compact LED body is the whole module face.
+  if (chromelessRegistration) {
+    // Body (and any afterMount setup) already appended above -- chromeless
+    // modules carry their own inline ports, no separate IO section.
   } else if (layout === "knobWidget") {
     article.append(createNodeGraphKnobWidgetBody(node, type));
   } else if (layout === "textBox") {
@@ -786,7 +795,7 @@ function createNodeGraphModuleElement(type, node) {
     article.append(stateBadge);
   }
 
-  if (definition.parameters?.length && definition.layout !== "sliderWidget" && layout !== "knobWidget" && definition.layout !== "led" && definition.layout !== "buttonWidget") {
+  if (definition.parameters?.length && definition.layout !== "sliderWidget" && layout !== "knobWidget" && definition.layout !== "buttonWidget" && !nodeGraphChromelessModuleLayouts.has(layout)) {
     const body = document.createElement("div");
     body.className = "dsp-node-body";
     const graphInputSection = createNodeGraphInputSection(node, type);

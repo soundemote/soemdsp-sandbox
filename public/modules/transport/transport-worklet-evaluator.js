@@ -14,7 +14,18 @@ NodeLiveAudioProcessor.prototype.createTransportState = function createTransport
       elapsedSamples: 0,
       phase: 0,
       nativeHandle: 0,
+      wasHigh: false,
     };
+  };
+
+// Edge detection shared by both the native and JS-fallback sample paths --
+// trigger fires for exactly one sample on the low-to-high transition of the
+// existing unipolar pulse, so it works regardless of which path produced
+// that pulse (native doesn't expose its internal phase to JS).
+NodeLiveAudioProcessor.prototype.transportTriggerSample = function transportTriggerSample(state, isHighNow, amplitude) {
+    const trigger = isHighNow && !state.wasHigh ? amplitude : 0;
+    state.wasHigh = isHighNow;
+    return trigger;
   };
 
 NodeLiveAudioProcessor.prototype.transportSampleJs = function transportSampleJs(state, params, rateHz = sampleRate) {
@@ -28,6 +39,7 @@ NodeLiveAudioProcessor.prototype.transportSampleJs = function transportSampleJs(
     return {
       "-1..1": high ? amplitude : -amplitude,
       "0..1": high ? amplitude : 0,
+      Trigger: this.transportTriggerSample(state, high, amplitude),
     };
   };
 
@@ -52,7 +64,8 @@ NodeLiveAudioProcessor.prototype.transportSample = function transportSample(stat
           );
           const unipolar = this.safeFilterNumber(this.nativeTransport.soemdsp_transport_unipolar?.(state.nativeHandle) || 0, state);
           state.elapsedSamples += 1;
-          return { "-1..1": bipolar, "0..1": unipolar };
+          const trigger = this.transportTriggerSample(state, unipolar > 0, this.safeFilterNumber(params.amplitude, state));
+          return { "-1..1": bipolar, "0..1": unipolar, Trigger: trigger };
         }
       } catch (error) {
         this.nativeTransportReady = false;

@@ -39,11 +39,13 @@ function createNodeGraphIoColumn(node, type, ports, io) {
     row.dataset.port = port;
     row.dataset.io = io;
     row.dataset.alias = nodeGraphLabel(node, port);
-    if (port === "0.1V/Oct" || port === "Scale") {
+    if (nodeGraphPortIsDigitalSignal(type, port, io)) {
       // 0.1V/Oct pitch CV and any Scale bitmask are this sandbox's "digital
-      // signal" types, on any node -- give their wire and port taps solid
-      // white (colors only, no shape/animation change) so they read as
-      // visually distinct from free-form analog CV wires.
+      // signal" types, on any node; any port a module explicitly lists in
+      // digitalInputs/digitalOutputs (unsmoothed gates, triggers, etc.) is
+      // too -- give their wire and port taps solid white (colors only, no
+      // shape/animation change) so they read as visually distinct from
+      // free-form analog CV wires. See nodeGraphPortIsDigitalSignal.
       row.dataset.digitalSignal = io;
     }
     const portLabel = nodeGraphPatchNodePortDisplayLabel(node, type, port, io);
@@ -212,15 +214,7 @@ function createNodeGraphModuleScopeSection(node, type) {
   return section;
 }
 
-function createNodeGraphLedFace(node, type) {
-  const face = document.createElement("div");
-  face.className = "node-led-face";
-  face.dataset.node = node;
-  face.dataset.nodeType = type;
-  face.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} LED`);
-  face.append(createNodeGraphPort(node, type, "In", "input"));
-  return face;
-}
+// createNodeGraphLedFace moved to public/modules/led/led-ui.js.
 
 function createNodeGraphSliderWidgetBody(node, type) {
   const definition = nodeGraphModuleDefinitions[type];
@@ -260,6 +254,11 @@ function createNodeGraphButtonWidgetBody(node, type) {
   }
   return body;
 }
+
+// Step Grid's UI (createNodeGraphStepGridBody, toggleNodeGraphStepGridStep)
+// lives in public/modules/stepGrid/step-grid-ui.js, alongside its DSP
+// evaluator files, not here -- see that file for the fully-custom /
+// chromeless UI pattern future 100%-custom modules should follow.
 
 function createNodeGraphPatchCommandBody(node) {
   const body = document.createElement("div");

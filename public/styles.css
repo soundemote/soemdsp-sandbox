@@ -9308,7 +9308,10 @@ html.soemdsp-hide-ui .status-strip {
   background:
     radial-gradient(circle at 50% 50%, rgba(243, 241, 236, 0.08), transparent 58%),
     rgba(2, 4, 7, 0.9);
-  outline-color: color-mix(in srgb, var(--muted) 42%, transparent);
+  /* No outline-color override here: .dsp-node's base rule already sets a
+     sensible default, and re-declaring it at this specificity would win
+     the cascade over .dsp-node.selected (defined earlier in the file),
+     silently killing the selection highlight for this layout. */
   box-shadow: none;
 }
 
@@ -9882,6 +9885,9 @@ html.soemdsp-hide-ui .status-strip {
 .node-button-widget-io-section {
   border-top: 1px solid rgba(128, 224, 224, 0.1);
 }
+
+/* Step Grid's CSS lives in public/modules/stepGrid/step-grid.css now,
+   loaded via its own <link> tag -- not here. */
 
 .node-module-graph-display {
   position: relative;

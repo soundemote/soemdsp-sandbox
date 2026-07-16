@@ -256,6 +256,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.fractalSpiralStates = new Map();
     this.logSpiralStates = new Map();
     this.stepSequencerStates = new Map();
+    this.stepGridStates = new Map();
     this.timing = this.normalizePatchTiming();
     this.triggerCounterStates = new Map();
     this.triggerDividerStates = new Map();
@@ -1925,6 +1926,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       this.destroyStepSequencerNativeState(state);
     }
     this.stepSequencerStates = new Map();
+    this.stepGridStates = new Map();
     for (const state of this.triggerCounterStates.values()) {
       this.destroyTriggerCounterNativeState(state);
     }
@@ -2296,6 +2298,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       }
       if (node?.type === "stepSequencer" && !this.stepSequencerStates.has(id)) {
         this.stepSequencerStates.set(id, this.createStepSequencerState());
+      }
+      if (node?.type === "stepGrid" && !this.stepGridStates.has(id)) {
+        this.stepGridStates.set(id, this.createStepGridState());
       }
       if (node?.type === "triggerCounter" && !this.triggerCounterStates.has(id)) {
         this.triggerCounterStates.set(id, this.createTriggerCounterState());
@@ -2799,6 +2804,11 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       if (!ids.has(id)) {
         this.destroyStepSequencerNativeState(this.stepSequencerStates.get(id));
         this.stepSequencerStates.delete(id);
+      }
+    }
+    for (const id of [...this.stepGridStates.keys()]) {
+      if (!ids.has(id)) {
+        this.stepGridStates.delete(id);
       }
     }
     for (const id of [...this.triggerCounterStates.keys()]) {
@@ -6181,7 +6191,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
         this.comparatorStates.set(nodeId, state);
         return this.comparatorSample(
           state,
-          mixInput(nodeId, "Signal In"),
+          mixInput(nodeId, "In"),
           {
             changeAmount: this.readEffectiveParameter(node, "changeAmount", 0.5, frame, frames, frameValues),
             pulseTime: this.readEffectiveParameter(node, "pulseTime", 0.01, frame, frames, frameValues),
@@ -6845,6 +6855,27 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
               read("step8", 0.25),
             ],
           },
+        );
+      },
+      stepGrid: (node, nodeId, frame, frames, frameValues, mixInput) => {
+        const state = this.stepGridStates.get(nodeId) || this.createStepGridState();
+        this.stepGridStates.set(nodeId, state);
+        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        // 16 duplicated from STEP_GRID_MAX_STEPS (public/modules/stepGrid/
+        // step-grid-register.js) rather than shared -- that file is
+        // main-thread-only (it also calls registerNodeGraphChromelessModule,
+        // which doesn't exist in this worklet blob's execution context), so
+        // it can't be added to nodeGraphLiveWorkletSourceFiles.
+        const stepCount = Math.max(1, Math.min(16, Math.round(read("steps", 8))));
+        const steps = [];
+        for (let index = 1; index <= stepCount; index += 1) {
+          steps.push(read(`step${index}`, 0));
+        }
+        return this.stepGridSample(
+          state,
+          mixInput(nodeId, "Trigger"),
+          mixInput(nodeId, "Reset"),
+          { threshold: read("threshold", 0), steps },
         );
       },
       midiOut: (node, nodeId, frame, frames, frameValues, mixInput) => {

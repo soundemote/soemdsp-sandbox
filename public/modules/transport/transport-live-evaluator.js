@@ -28,9 +28,17 @@ function nodeGraphTransportSample(params, absoluteFrame, sampleRate, runtime = n
   const frame = Math.max(0, Number(absoluteFrame) || 0);
   const phase = frequency > 0 ? wrapNodeSliderValue((frame / rate) * frequency, 0, 1) : 0;
   const high = phase < 0.5;
+  // Trigger fires for exactly one sample at the start of each cycle (the
+  // phase wrap) -- since this evaluator is stateless (recomputed per frame,
+  // not stepped forward like the worklet's), the wrap is detected by
+  // comparing against the previous frame's phase rather than a stored flag.
+  const previousFrame = Math.max(0, frame - 1);
+  const previousPhase = frequency > 0 ? wrapNodeSliderValue((previousFrame / rate) * frequency, 0, 1) : 0;
+  const wrapped = frame === 0 || phase < previousPhase;
   return {
     "-1..1": high ? amplitude : -amplitude,
     "0..1": high ? amplitude : 0,
+    Trigger: frequency > 0 && wrapped ? amplitude : 0,
   };
 }
 

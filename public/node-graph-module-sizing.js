@@ -40,7 +40,7 @@ const nodeGraphModuleDisplayHeightLimits = Object.freeze({
 });
 
 function nodeGraphModuleWidthLimitsForType(type) {
-  if (nodeGraphModuleDefinitions[type]?.layout === "led") {
+  if (nodeGraphChromelessModuleIsCompactTile(type)) {
     return { ...nodeGraphModuleWidthLimits, minGu: 1 };
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "knobWidget") {
@@ -76,6 +76,9 @@ function nodeGraphPatchNodeLayout(node) {
 
 function nodeGraphModuleTypeHasHideableOscilloscope(type) {
   const layout = nodeGraphModuleDefinitions[type]?.layout;
+  if (nodeGraphChromelessModuleIsCompactTile(type)) {
+    return false;
+  }
   return Boolean(nodeGraphModuleDefinitions[type]) && ![
     "canvas",
     "clapPlugin",
@@ -83,7 +86,6 @@ function nodeGraphModuleTypeHasHideableOscilloscope(type) {
     "image",
     "keyboardController",
     "knobWidget",
-    "led",
     "macroControls",
     "pitchModWheel",
     "screenSpaceShader",
@@ -203,8 +205,15 @@ function nodeGraphPatchNodeCanvasScriptGridUnits(node) {
 }
 
 function nodeGraphDefaultModuleGridWidthUnits(type) {
-  if (nodeGraphModuleDefinitions[type]?.layout === "led") {
+  if (nodeGraphChromelessModuleIsCompactTile(type)) {
     return 1;
+  }
+  if (nodeGraphModuleDefinitions[type]?.layout === "stepGrid") {
+    // Wide enough that up to 16 squares (plus the add affordance) stay
+    // comfortably clickable -- there's no generic per-node resize handle
+    // in this graph editor, so this is a fixed width the square count
+    // grows/shrinks within (see createNodeGraphStepGridBody).
+    return 11;
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "knobWidget") {
     return 4;
@@ -498,7 +507,26 @@ function nodeGraphModuleGridHeightUnits(type) {
 }
 
 function nodeGraphModuleGridHeightUnitsForUi(type, ui = {}) {
-  if (nodeGraphModuleDefinitions[type]?.layout === "led") {
+  // Chromeless layouts (see nodeGraphChromelessModuleLayouts in
+  // node-graph-module-rendering.js) have no header, no display, no IO
+  // section, and no generic param rows -- the widget-list calc below
+  // assumes at least some of those exist, which inflates the required
+  // height even though nothing extra is actually rendered. Most chromeless
+  // modules are sized by their own dedicated CSS rule
+  // (.dsp-node.<layout>-layout) at exactly 1gu tall, same as led always
+  // was; this generalizes led's existing shortcut so a future 100%
+  // custom-UI module gets it automatically just by joining that set.
+  // A chromeless module that opts into the hideable-oscilloscope capability
+  // (see nodeGraphModuleTypeHasHideableOscilloscope) is a whole-body display
+  // instead -- e.g. stepGrid, where more grid units means more room per
+  // square -- so it reuses the same configured-display-height mechanism
+  // every other display-capable module already exposes (context menu /
+  // keyboard shortcut), rather than being pinned at 1 regardless of that
+  // setting.
+  if (nodeGraphChromelessModuleLayouts.has(nodeGraphModuleDefinitions[type]?.layout)) {
+    if (nodeGraphModuleTypeHasHideableOscilloscope(type)) {
+      return nodeGraphModuleConfiguredDisplayHeightUnits(type, ui);
+    }
     return 1;
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "knobWidget") {
