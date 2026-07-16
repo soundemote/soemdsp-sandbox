@@ -83,10 +83,6 @@ dot1.color      = dot1.global.color;
 dot1.size       = 1.0 * dot1.global.size;
 dot1.blur       = 1.0 * dot1.global.blur;
 dot1.brightness = 1.0 * dot1.global.brightness;
-dot2.color      = dot2.global.color;
-dot2.size       = 1.0 * dot2.global.size;
-dot2.blur       = 1.0 * dot2.global.blur;
-dot2.brightness = 1.0 * dot2.global.brightness;
 blend.mode      = laser;`;
 
 const nodeGraphScopeShaderVisualOscilloscopeDefaultSource = nodeGraphScopeShaderDefaultSource

@@ -86,7 +86,35 @@ blend.mode      = laser;`);
   const visualLegacy = compactNodeGraphShaderScriptSource(
     genericLegacy.replace("scope.mode      = 1d_full;", "scope.mode      = x_y;"),
   );
-  if (compact === genericLegacy || compact === visualLegacy) {
+  // Dot 2 has been removed app-wide; this is the last generic default that
+  // still had it, kept here purely so stored module defaults matching it
+  // get regenerated from the current (Dot 2-free) template below.
+  const dot2Legacy = compactNodeGraphShaderScriptSource(`video.input     = ~;
+scope.mode      = 1d_full;
+scope.sync      = inherit;
+scope.cycles    = 2.0;
+scope.zoom      = 1.0;
+scope.length    = 1.0;
+scope.padding   = 0.04;
+scope.syncSpeed = 1.0;
+dot1.color      = dot1.global.color;
+dot1.size       = 1.0 * dot1.global.size;
+dot1.blur       = 1.0 * dot1.global.blur;
+dot1.brightness = 1.0 * dot1.global.brightness;
+dot2.color      = dot2.global.color;
+dot2.size       = 1.0 * dot2.global.size;
+dot2.blur       = 1.0 * dot2.global.blur;
+dot2.brightness = 1.0 * dot2.global.brightness;
+blend.mode      = laser;`);
+  const dot2VisualLegacy = compactNodeGraphShaderScriptSource(
+    dot2Legacy.replace("scope.mode      = 1d_full;", "scope.mode      = x_y;"),
+  );
+  if (
+    compact === genericLegacy ||
+    compact === visualLegacy ||
+    compact === dot2Legacy ||
+    compact === dot2VisualLegacy
+  ) {
     return nodeGraphScopeShaderDefaultSourceForType(type);
   }
   return current;

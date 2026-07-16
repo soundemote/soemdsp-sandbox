@@ -11880,10 +11880,6 @@ def require_node_graph_mvp_contract() -> None:
         "dot1.size       = 1.0 * dot1.global.size",
         "dot1.blur       = 1.0 * dot1.global.blur",
         "dot1.brightness = 1.0 * dot1.global.brightness",
-        "dot2.color      = dot2.global.color",
-        "dot2.size       = 1.0 * dot2.global.size",
-        "dot2.blur       = 1.0 * dot2.global.blur",
-        "dot2.brightness = 1.0 * dot2.global.brightness",
         'const nodeGraphScopeShaderModes = Object.freeze(["1d_full", "1d_scan", "x_y", "one_value"])',
         'const nodeGraphScopeShaderBlendModes = Object.freeze(["laser", "led", "light", "paint", "solid", "heatmap"])',
         "function nodeGraphScopeShaderDefaultSourceForType(type)",
@@ -12880,6 +12876,21 @@ def require_node_graph_mvp_contract() -> None:
         "initSandboxApp().catch((error) =>",
     ]:
         require(snippet in node_graph_source, f"node graph source missing {snippet}")
+    patch_normalizers_shader_source = script_sources["./public/node-graph-patch-normalizers.js"]
+    require(
+        "dot1.color      = dot1.global.color;" in patch_normalizers_shader_source
+        and "dot1.brightness = 1.0 * dot1.global.brightness;" in patch_normalizers_shader_source
+        and "dot2" not in patch_normalizers_shader_source,
+        "the live shader-script default template should have Dot 2 removed",
+    )
+    shader_script_legacy_source = script_sources["./public/node-graph-shader-script.js"]
+    require(
+        "const dot2Legacy = compactNodeGraphShaderScriptSource(" in shader_script_legacy_source
+        and "dot2.brightness = 1.0 * dot2.global.brightness;" in shader_script_legacy_source
+        and "compact === dot2Legacy" in shader_script_legacy_source
+        and "compact === dot2VisualLegacy" in shader_script_legacy_source,
+        "a stored module shader default matching the old Dot 2 template should be regenerated from the new Dot 2-free one",
+    )
     for snippet in [
         "function setNodeGraphModuleScopeDotCore2Size(value)",
         "function setNodeGraphModuleScopeDotCore2Brightness(value)",
