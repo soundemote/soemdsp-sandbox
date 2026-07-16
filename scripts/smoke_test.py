@@ -14545,13 +14545,20 @@ def require_node_graph_mvp_contract() -> None:
         "Trace display zoom edits should still suppress sync re-triggering while actively dragging/typing",
     )
     require(
-        "function nodeGraphTraceDisplayStabilizedSyncStart(buffer, syncBuffer, cycleEstimate, visibleSamples, validStart, validEnd)" in node_graph_source
-        and "buffer.nodeGraphScopeLastSyncStart" in node_graph_source
-        and "buffer.nodeGraphScopeLastSyncTotalSampleCount" in node_graph_source
+        "function nodeGraphTraceDisplayStabilizedSyncStart(lock, buffer, syncBuffer, cycleEstimate, visibleSamples, validStart, validEnd)" in node_graph_source
+        and "lock.lastSyncStart" in node_graph_source
+        and "lock.lastSyncTotalSampleCount" in node_graph_source
         and "totalSampleCount - prevTotalSampleCount" in node_graph_source
         and "periodDrift < 0.15" in node_graph_source,
         "Trace sync should hold the previous lock's absolute phase (via nodeGraphScopeTotalSampleCount) across frames, "
         "not re-anchor from scratch every frame -- otherwise a scrolling buffer makes the trigger jump constantly",
+    )
+    require(
+        "traceDisplaySyncLocks: new Map()" in node_graph_source
+        and "nodeGraphModuleScopeState.traceDisplaySyncLocks.get(lockKey)" in node_graph_source,
+        "Trace sync's trigger-lock must be keyed per DISPLAY node, not stored on the shared captured-signal "
+        "buffer -- otherwise multiple scopes watching the same source stomp each other's lock every frame "
+        "(worse the more scopes share a source)",
     )
     require(
         "Sync to source" not in node_graph_source

@@ -70,6 +70,14 @@ const nodeGraphModuleScopeState = {
   slots: new Map(),
   traceDisplayDrawCache: new Map(),
   traceDisplayScratch: new Map(),
+  // Per-DISPLAY-node trigger-lock cache for the "Sync" trace setting, keyed
+  // by the display's own node id -- NOT the shared captured-signal buffer.
+  // Multiple scopes watching the same source share one buffer object; the
+  // lock used to be cached as properties on that shared buffer, so with 2+
+  // scopes (each with its own zoom/cycles) each frame's draw clobbered the
+  // others' lock, forcing a full re-acquire almost every frame -- worse the
+  // more scopes shared a source. See nodeGraphTraceDisplayStabilizedSyncStart.
+  traceDisplaySyncLocks: new Map(),
   traceImageTexture: {
     dataUrl: "",
     generatedKey: "",
@@ -1242,6 +1250,7 @@ function clearNodeGraphModuleScopeBuffers(options = {}) {
     nodeGraphModuleScopeState.buffers.clear();
     nodeGraphModuleScopeState.traceDisplayDrawCache.clear();
     nodeGraphModuleScopeState.traceDisplayScratch.clear();
+    nodeGraphModuleScopeState.traceDisplaySyncLocks.clear();
     nodeGraphModuleScopeState.lightDisplayStates.clear();
     nodeGraphModuleScopeState.frames = 0;
     nodeGraphModuleScopeState.monitorFingerprint = "";
@@ -1268,6 +1277,7 @@ function clearNodeGraphRenderedModuleScopeBuffers() {
     nodeGraphModuleScopeState.buffers.clear();
     nodeGraphModuleScopeState.traceDisplayDrawCache.clear();
     nodeGraphModuleScopeState.traceDisplayScratch.clear();
+    nodeGraphModuleScopeState.traceDisplaySyncLocks.clear();
     nodeGraphModuleScopeState.frames = 0;
     nodeGraphModuleScopeState.monitorFingerprint = "";
     nodeGraphModuleScopeState.mode = "model";
@@ -1578,6 +1588,7 @@ function beginNodeGraphLiveModuleScopeCapture(plan = {}, options = {}) {
   } else {
     nodeGraphModuleScopeState.traceDisplayDrawCache.clear();
     nodeGraphModuleScopeState.traceDisplayScratch.clear();
+    nodeGraphModuleScopeState.traceDisplaySyncLocks.clear();
   }
   nodeGraphModuleScopeState.buffers = nextBuffers;
   nodeGraphModuleScopeState.frames = frameCapacity;
@@ -6195,15 +6206,22 @@ function nodeGraphTraceDisplayVisibleSamples(buffer, settings) {
 // tracks how far the window has actually scrolled since the last lock, so
 // the predicted anchor is shifted by exactly that amount, then folded back
 // into range by whole periods (which preserves phase).
-function nodeGraphTraceDisplayStabilizedSyncStart(buffer, syncBuffer, cycleEstimate, visibleSamples, validStart, validEnd) {
+//
+// `lock` is the caller's per-DISPLAY-node entry in
+// nodeGraphModuleScopeState.traceDisplaySyncLocks, not a property on
+// `buffer` -- `buffer` is the shared captured-signal object for whichever
+// source node this display watches, so two scopes watching the same source
+// (each with their own zoom/cycles) would otherwise stomp each other's lock
+// every frame instead of each holding a stable trigger.
+function nodeGraphTraceDisplayStabilizedSyncStart(lock, buffer, syncBuffer, cycleEstimate, visibleSamples, validStart, validEnd) {
   const periodSamples = Number(cycleEstimate?.periodSamples) || 0;
   if (!(periodSamples > 0)) {
     return null;
   }
-  const prevStart = Number(buffer.nodeGraphScopeLastSyncStart);
-  const prevPeriod = Number(buffer.nodeGraphScopeLastSyncPeriod);
-  const prevVisibleSamples = Number(buffer.nodeGraphScopeLastSyncVisibleSamples);
-  const prevTotalSampleCount = Number(buffer.nodeGraphScopeLastSyncTotalSampleCount);
+  const prevStart = Number(lock.lastSyncStart);
+  const prevPeriod = Number(lock.lastSyncPeriod);
+  const prevVisibleSamples = Number(lock.lastSyncVisibleSamples);
+  const prevTotalSampleCount = Number(lock.lastSyncTotalSampleCount);
   const totalSampleCount = Number(buffer.nodeGraphScopeTotalSampleCount);
   const elapsed = Number.isFinite(prevTotalSampleCount) && Number.isFinite(totalSampleCount)
     ? totalSampleCount - prevTotalSampleCount
@@ -6226,10 +6244,10 @@ function nodeGraphTraceDisplayStabilizedSyncStart(buffer, syncBuffer, cycleEstim
       predicted -= Math.ceil((predicted + visibleSamples - validEnd) / periodSamples) * periodSamples;
     }
     if (predicted >= validStart && predicted + visibleSamples <= validEnd) {
-      buffer.nodeGraphScopeLastSyncStart = predicted;
-      buffer.nodeGraphScopeLastSyncPeriod = periodSamples;
-      buffer.nodeGraphScopeLastSyncVisibleSamples = visibleSamples;
-      buffer.nodeGraphScopeLastSyncTotalSampleCount = totalSampleCount;
+      lock.lastSyncStart = predicted;
+      lock.lastSyncPeriod = periodSamples;
+      lock.lastSyncVisibleSamples = visibleSamples;
+      lock.lastSyncTotalSampleCount = totalSampleCount;
       return predicted;
     }
   }
@@ -6241,10 +6259,10 @@ function nodeGraphTraceDisplayStabilizedSyncStart(buffer, syncBuffer, cycleEstim
     validEnd,
   );
   if (reacquired !== null) {
-    buffer.nodeGraphScopeLastSyncStart = reacquired;
-    buffer.nodeGraphScopeLastSyncPeriod = periodSamples;
-    buffer.nodeGraphScopeLastSyncVisibleSamples = visibleSamples;
-    buffer.nodeGraphScopeLastSyncTotalSampleCount = totalSampleCount;
+    lock.lastSyncStart = reacquired;
+    lock.lastSyncPeriod = periodSamples;
+    lock.lastSyncVisibleSamples = visibleSamples;
+    lock.lastSyncTotalSampleCount = totalSampleCount;
   }
   return reacquired;
 }
@@ -6264,7 +6282,14 @@ function nodeGraphTraceDisplayBufferView(buffer, slot) {
   const syncEligible = settings.sourceSync && !zoomEditActive && visibleSamples < validSamples;
   const estimatedCycle = syncEligible ? nodeGraphModuleScopeEstimatedCycle(syncBuffer || buffer) : null;
   if (syncEligible && estimatedCycle) {
+    const lockKey = String(slot?.nodeId || "");
+    let lock = nodeGraphModuleScopeState.traceDisplaySyncLocks.get(lockKey);
+    if (!lock) {
+      lock = {};
+      nodeGraphModuleScopeState.traceDisplaySyncLocks.set(lockKey, lock);
+    }
     const triggeredStart = nodeGraphTraceDisplayStabilizedSyncStart(
+      lock,
       buffer,
       syncBuffer,
       estimatedCycle,
