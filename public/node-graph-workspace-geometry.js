@@ -131,17 +131,21 @@ function nodeGraphGraphRect() {
   };
 }
 
+// Long-standing bug: wires jittered and didn't quite land on their ports,
+// worse the further you zoomed in. This used to measure the client<->surface
+// scale as getBoundingClientRect().width / offsetWidth -- but CSS `zoom`
+// (unlike transform: scale) affects layout, and offsetWidth/offsetHeight are
+// spec-mandated to round to integer CSS pixels. Dividing a sub-pixel-precise
+// rect by that rounded integer produced a scale that drifted from the true
+// zoom by an amount that grew as the surface's own offsetWidth (the
+// denominator) shrank at higher zoom -- e.g. measured drift of -0.42 out of
+// 8 at zoom 8x. The zoom surface only ever has the one
+// `zoom: var(--node-graph-zoom)` applied (verified no compounding ancestor
+// zoom/transform), so the true scale is always exactly nodeGraphZoom() --
+// no need to reverse-engineer it from an already-rounded DOM measurement.
 function nodeGraphZoomSurfaceClientScale(surface = nodeGraphZoomSurface()) {
-  const rect = surface?.getBoundingClientRect?.();
-  const width = Number(surface?.offsetWidth) || 0;
-  const height = Number(surface?.offsetHeight) || 0;
-  const fallback = Math.max(0.0001, nodeGraphZoom());
-  const scaleX = rect && width > 0 ? rect.width / width : fallback;
-  const scaleY = rect && height > 0 ? rect.height / height : fallback;
-  return {
-    x: Number.isFinite(scaleX) && scaleX > 0 ? scaleX : fallback,
-    y: Number.isFinite(scaleY) && scaleY > 0 ? scaleY : fallback,
-  };
+  const zoom = Math.max(0.0001, nodeGraphZoom());
+  return { x: zoom, y: zoom };
 }
 
 function nodeGraphClientToZoomSurfacePoint(clientX, clientY, surface = nodeGraphZoomSurface()) {

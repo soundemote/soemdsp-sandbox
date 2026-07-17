@@ -16791,11 +16791,16 @@ def require_node_graph_mvp_contract() -> None:
     )
     require(
         "function nodeGraphZoomSurfaceClientScale(surface = nodeGraphZoomSurface())" in script_sources["./public/node-graph-workspace-geometry.js"]
-        and "rect.width / width" in script_sources["./public/node-graph-workspace-geometry.js"]
+        and "return { x: zoom, y: zoom };" in script_sources["./public/node-graph-workspace-geometry.js"]
+        and "rect.width / width" not in script_sources["./public/node-graph-workspace-geometry.js"]
         and "function nodeGraphClientToZoomSurfacePoint(clientX, clientY, surface = nodeGraphZoomSurface())" in script_sources["./public/node-graph-workspace-geometry.js"]
         and "return nodeGraphClientToZoomSurfacePoint(anchor.x, anchor.y);" in script_sources["./public/node-graph-port-geometry.js"]
         and "const topLeft = nodeGraphClientToZoomSurfacePoint(nodeRect.left, nodeRect.top, surface);" in script_sources["./public/node-graph-wire-rendering.js"],
-        "wire and port geometry should use measured zoom-surface scale",
+        # Was measuring the scale as getBoundingClientRect().width / offsetWidth,
+        # which drifted from the true zoom because offsetWidth rounds to an
+        # integer CSS pixel -- the bug behind wires jittering off their ports
+        # at high zoom. nodeGraphZoom() is the exact, already-known scale.
+        "wire and port geometry should use the exact zoom value for client<->surface scale, not a rounded DOM measurement",
     )
     require(
         "function nodeGraphRenderedPanValue(value, origin = 0)" in script_sources["./public/node-graph-workspace-geometry.js"]
