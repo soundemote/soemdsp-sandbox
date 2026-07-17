@@ -28,6 +28,22 @@ function bindNodeGraphHeaderControlEvents() {
   document.getElementById("nodeVisibilityMenuButton").addEventListener("click", toggleNodeGraphVisibilityMenu);
   document.getElementById("nodeSavedPatchesWindowButton")?.addEventListener("click", toggleNodeGraphSavedPatchesWindow);
   document.getElementById("nodeStandaloneMidiKeyboardButton")?.addEventListener("click", toggleNodeGraphStandaloneMidiKeyboard);
+  document.getElementById("nodeStandaloneMidiKeyboardCloseButton")?.addEventListener("click", closeNodeGraphStandaloneMidiKeyboard);
+  document
+    .getElementById("nodeStandaloneMidiKeyboardDragHandle")
+    ?.addEventListener("pointerdown", beginNodeGraphStandaloneMidiKeyboardDrag);
+  document
+    .getElementById("nodeStandaloneMidiKeyboardHeading")
+    ?.addEventListener("pointerdown", beginNodeGraphStandaloneMidiKeyboardDrag);
+  document
+    .getElementById("nodeStandaloneMidiKeyboardResizeHandle")
+    ?.addEventListener("pointerdown", beginNodeGraphStandaloneMidiKeyboardResize);
+  document.addEventListener("pointermove", dragNodeGraphStandaloneMidiKeyboard);
+  document.addEventListener("pointermove", dragNodeGraphStandaloneMidiKeyboardResize);
+  document.addEventListener("pointerup", endNodeGraphStandaloneMidiKeyboardDrag);
+  document.addEventListener("pointerup", endNodeGraphStandaloneMidiKeyboardResize);
+  document.addEventListener("pointercancel", endNodeGraphStandaloneMidiKeyboardDrag);
+  document.addEventListener("pointercancel", endNodeGraphStandaloneMidiKeyboardResize);
   document.getElementById("nodeGridToggleButton").addEventListener("click", toggleNodeGraphGridVisibility);
   document.getElementById("nodeVideoViewButton")?.addEventListener("click", toggleNodeGraphVideoView);
   document.getElementById("nodeMappingViewButton")?.addEventListener("click", () => setNodeGraphViewMode("mapping"));

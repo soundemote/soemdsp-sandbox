@@ -811,95 +811,184 @@ function resetNodeGraphStartupView() {
 // visibility changes after that.
 function initNodeGraphStandaloneMidiKeyboard() {
   const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
-  if (!dock || dock.dataset.populated === "true") {
+  const body = document.getElementById("nodeStandaloneMidiKeyboardBody");
+  if (!dock || !body || dock.dataset.populated === "true") {
     return;
   }
   dock.dataset.populated = "true";
   const performanceRow = document.createElement("div");
   performanceRow.className = "node-standalone-performance-row";
   performanceRow.append(createNodeGraphPitchModWheelBody(), createNodeGraphKeyboardControllerBody());
-  dock.append(createNodeGraphMacroControlsBody(), performanceRow);
+  body.append(createNodeGraphMacroControlsBody(), performanceRow);
   renderNodeGraphKeyboardControllerModules();
   bindNodeGraphMacroControlModuleEvents();
+}
+
+// Free-floating window, same generic drag/resize/lock/keyboard-nudge
+// subsystem as Command Center et al (node-graph-floating-windows.js) --
+// not a workspace-docked panel synced to #nodeGraphWorkspace's width
+// anymore. workspaceWindowStates.standaloneMidiKeyboard is the single
+// source of truth for open/closed, matching every other floating window
+// (no separate ad-hoc visibility flag).
+const nodeStandaloneMidiKeyboardDockDefaultSize = Object.freeze({
+  width: 860,
+  minWidth: 420,
+  maxWidth: 1400,
+  height: 260,
+  minHeight: 160,
+  maxHeight: 640,
+});
+
+function normalizeNodeGraphStandaloneMidiKeyboardDockSize(size = {}) {
+  return normalizeNodeGraphFloatingWindowSize(size, nodeStandaloneMidiKeyboardDockDefaultSize);
+}
+
+function applyNodeGraphStandaloneMidiKeyboardDockSize(size = nodeGraphMvp.standaloneMidiKeyboardWindowSize) {
+  const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
+  const normalized = normalizeNodeGraphStandaloneMidiKeyboardDockSize(size || nodeStandaloneMidiKeyboardDockDefaultSize);
+  nodeGraphMvp.standaloneMidiKeyboardWindowSize = normalized;
+  if (!dock) {
+    return normalized;
+  }
+  applyNodeGraphFloatingWindowSizeVars(dock, "node-standalone-keyboard", nodeStandaloneMidiKeyboardDockDefaultSize, normalized);
+  return normalized;
+}
+
+function positionNodeGraphStandaloneMidiKeyboardDockAtSavedOr(x, y) {
+  const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
+  if (!dock) {
+    return;
+  }
+  dock.hidden = false;
+  applyNodeGraphStandaloneMidiKeyboardDockSize();
+  const savedPosition = nodeGraphMvp.workspaceWindowStates?.standaloneMidiKeyboard?.position;
+  const hasSavedPosition =
+    Number.isFinite(Number(savedPosition?.left)) &&
+    Number.isFinite(Number(savedPosition?.top));
+  const { left, top } = nodeGraphFloatingWindowPosition(
+    dock,
+    hasSavedPosition ? savedPosition.left : x,
+    hasSavedPosition ? savedPosition.top : y,
+  );
+  setNodeGraphFloatingWindowViewportPosition(dock, left, top);
+  if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
+    rememberNodeGraphWorkspaceWindowState(
+      "standaloneMidiKeyboard",
+      dock,
+      { open: true, position: { left, top } },
+      { persist: false },
+    );
+  }
+}
+
+function beginNodeGraphStandaloneMidiKeyboardDrag(event) {
+  const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
+  if (!dock || dock.hidden) {
+    return;
+  }
+  beginNodeGraphFloatingWindowDrag(event, dock, "standaloneMidiKeyboardDragging");
+}
+
+function dragNodeGraphStandaloneMidiKeyboard(event) {
+  dragNodeGraphFloatingWindow(
+    event,
+    "standaloneMidiKeyboardDragging",
+    document.getElementById("nodeStandaloneMidiKeyboardDock"),
+    (next) => {
+      if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
+        rememberNodeGraphWorkspaceWindowState(
+          "standaloneMidiKeyboard",
+          document.getElementById("nodeStandaloneMidiKeyboardDock"),
+          { open: true, position: next },
+          { persist: false },
+        );
+      }
+    },
+  );
+}
+
+function endNodeGraphStandaloneMidiKeyboardDrag(event) {
+  endNodeGraphFloatingWindowDrag(event, "standaloneMidiKeyboardDragging", () => {
+    if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
+      rememberNodeGraphWorkspaceWindowState(
+        "standaloneMidiKeyboard",
+        document.getElementById("nodeStandaloneMidiKeyboardDock"),
+        { open: true },
+        { status: false },
+      );
+    }
+  });
+}
+
+function beginNodeGraphStandaloneMidiKeyboardResize(event) {
+  const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
+  beginNodeGraphFloatingWindowResize(event, dock, "standaloneMidiKeyboardResizing");
+}
+
+function dragNodeGraphStandaloneMidiKeyboardResize(event) {
+  dragNodeGraphFloatingWindowResize(event, "standaloneMidiKeyboardResizing", applyNodeGraphStandaloneMidiKeyboardDockSize);
+}
+
+function endNodeGraphStandaloneMidiKeyboardResize(event) {
+  endNodeGraphFloatingWindowResize(event, "standaloneMidiKeyboardResizing", () => {
+    if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
+      rememberNodeGraphWorkspaceWindowState(
+        "standaloneMidiKeyboard",
+        document.getElementById("nodeStandaloneMidiKeyboardDock"),
+        { open: true, size: normalizeNodeGraphStandaloneMidiKeyboardDockSize(nodeGraphMvp.standaloneMidiKeyboardWindowSize) },
+        { status: false },
+      );
+    }
+  });
 }
 
 function renderNodeGraphStandaloneMidiKeyboardToggle() {
   const button = document.getElementById("nodeStandaloneMidiKeyboardButton");
   const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
-  const visible = Boolean(nodeGraphMvp.standaloneMidiKeyboardVisible);
-  if (dock) {
-    dock.hidden = !visible;
-  }
+  const visible = Boolean(dock && !dock.hidden);
   if (button) {
     button.setAttribute("aria-pressed", visible ? "true" : "false");
   }
-  if (visible) {
-    syncNodeGraphStandaloneMidiKeyboardDockWidth();
-  }
 }
 
-// html has `scrollbar-gutter: stable both-edges` (styles.css), which
-// reserves scrollbar-width space on BOTH edges of the viewport -- normal
-// in-flow elements (like #nodeGraphWorkspace) lay out inside that
-// reserved area, but `position: fixed` elements are placed relative to
-// the un-reserved viewport, so a fixed element's `left` needs the gutter
-// width subtracted to land at the same visual x as a same-numbered
-// getBoundingClientRect().left on an in-flow element. Without this, the
-// dock rendered a whole gutter-width too far right, clipping its right
-// edge past the workspace (and often past the window itself). Measured
-// via a zero-offset probe rather than hardcoded, since gutter width
-// varies by OS/browser.
-function nodeGraphFixedPositionGutterOffset() {
-  const probe = document.createElement("div");
-  probe.style.cssText = "position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;";
-  document.body.appendChild(probe);
-  const offset = probe.getBoundingClientRect().left;
-  document.body.removeChild(probe);
-  return offset;
-}
-
-// Keeps the dock's left edge and width matched to #nodeGraphWorkspace's
-// actual rect, so it lines up exactly with the modular view instead of
-// an independently centered max-width. Bound once (ResizeObserver +
-// window resize) from bootstrap; also called directly whenever the dock
-// becomes visible in case the workspace resized while it was hidden.
-function syncNodeGraphStandaloneMidiKeyboardDockWidth() {
+function closeNodeGraphStandaloneMidiKeyboard() {
   const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
-  const workspace = document.getElementById("nodeGraphWorkspace");
-  if (!dock || !workspace) {
-    return;
+  if (dock) {
+    dock.hidden = true;
   }
-  const rect = workspace.getBoundingClientRect();
-  if (rect.width <= 0) {
-    return;
+  if (nodeGraphMvp.standaloneMidiKeyboardDragging?.handle) {
+    nodeGraphMvp.standaloneMidiKeyboardDragging.handle.classList.remove("dragging");
   }
-  const gutterOffset = nodeGraphFixedPositionGutterOffset();
-  dock.style.left = `${Math.round(rect.left - gutterOffset)}px`;
-  dock.style.width = `${Math.round(rect.width)}px`;
-}
-
-function bindNodeGraphStandaloneMidiKeyboardDockWidthSync() {
-  const workspace = document.getElementById("nodeGraphWorkspace");
-  if (!workspace || workspace.dataset.dockWidthSyncBound === "true") {
-    return;
+  if (nodeGraphMvp.standaloneMidiKeyboardResizing?.handle) {
+    nodeGraphMvp.standaloneMidiKeyboardResizing.handle.classList.remove("dragging");
   }
-  workspace.dataset.dockWidthSyncBound = "true";
-  syncNodeGraphStandaloneMidiKeyboardDockWidth();
-  if (typeof ResizeObserver === "function") {
-    new ResizeObserver(syncNodeGraphStandaloneMidiKeyboardDockWidth).observe(workspace);
+  nodeGraphMvp.standaloneMidiKeyboardDragging = null;
+  nodeGraphMvp.standaloneMidiKeyboardResizing = null;
+  if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
+    rememberNodeGraphWorkspaceWindowState("standaloneMidiKeyboard", dock, { open: false }, { status: false });
   }
-  window.addEventListener("resize", syncNodeGraphStandaloneMidiKeyboardDockWidth);
+  renderNodeGraphStandaloneMidiKeyboardToggle();
+  setNodeInteractionHelp("MIDI keyboard hidden.");
 }
 
 function toggleNodeGraphStandaloneMidiKeyboard() {
-  nodeGraphMvp.standaloneMidiKeyboardVisible = !nodeGraphMvp.standaloneMidiKeyboardVisible;
-  if (nodeGraphMvp.standaloneMidiKeyboardVisible) {
-    initNodeGraphStandaloneMidiKeyboard();
+  const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
+  const currentlyVisible = Boolean(dock && !dock.hidden);
+  if (currentlyVisible) {
+    closeNodeGraphStandaloneMidiKeyboard();
+    return;
   }
-  renderNodeGraphStandaloneMidiKeyboardToggle();
-  setNodeInteractionHelp(
-    nodeGraphMvp.standaloneMidiKeyboardVisible ? "MIDI keyboard shown." : "MIDI keyboard hidden.",
+  initNodeGraphStandaloneMidiKeyboard();
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 900;
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 700;
+  const defaultWidth = nodeStandaloneMidiKeyboardDockDefaultSize.width;
+  const defaultHeight = nodeStandaloneMidiKeyboardDockDefaultSize.height;
+  positionNodeGraphStandaloneMidiKeyboardDockAtSavedOr(
+    Math.max(12, (viewportWidth - defaultWidth) / 2),
+    Math.max(12, viewportHeight - defaultHeight - 24),
   );
+  renderNodeGraphStandaloneMidiKeyboardToggle();
+  setNodeInteractionHelp("MIDI keyboard shown.");
 }
 
 function renderNodeGraphVideoViewToggle() {

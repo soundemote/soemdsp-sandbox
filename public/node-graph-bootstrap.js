@@ -53,8 +53,6 @@ async function initNodeGraphMvp() {
   bindNodeGraphMetadataPopoverEvents();
   renderNodeGraphMacroControls();
   renderNodeGraphKeyboardControllerModules();
-  renderNodeGraphStandaloneMidiKeyboardToggle();
-  bindNodeGraphStandaloneMidiKeyboardDockWidthSync();
   renderNodeGraphModuleVisibilityToggles();
   renderNodeGraphPatchTimingControls();
   renderNodeGraphVisibilityMenuButton();
@@ -70,6 +68,7 @@ async function initNodeGraphMvp() {
   if (typeof applyNodeGraphWorkspaceWindowStates === "function") {
     applyNodeGraphWorkspaceWindowStates();
   }
+  renderNodeGraphStandaloneMidiKeyboardToggle();
   loadNodeMetadataKindTemplates();
   refreshNodeGraphLiveInputDevices();
   refreshNodeGraphLiveMicrophonePermissionState();

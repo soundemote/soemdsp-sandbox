@@ -415,8 +415,33 @@
       <div
         id="nodeStandaloneMidiKeyboardDock"
         class="node-standalone-midi-keyboard-dock"
+        role="dialog"
         aria-label="Standalone MIDI keyboard"
-        hidden></div>
+        hidden>
+        <div id="nodeStandaloneMidiKeyboardHeading" class="scene-context-heading">
+          <button
+            id="nodeStandaloneMidiKeyboardDragHandle"
+            class="scene-context-drag-handle"
+            type="button"
+            aria-label="Move keyboard">&#x2725;</button>
+          <div class="scene-context-title">
+            <span>Keyboard</span>
+          </div>
+          <button
+            id="nodeStandaloneMidiKeyboardCloseButton"
+            class="panel-close-button"
+            type="button"
+            aria-label="Close keyboard">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div id="nodeStandaloneMidiKeyboardBody" class="node-standalone-midi-keyboard-body"></div>
+        <button
+          id="nodeStandaloneMidiKeyboardResizeHandle"
+          class="scene-context-resize-handle"
+          type="button"
+          aria-label="Resize keyboard"></button>
+      </div>
 
       <section
         id="nodeUiView"

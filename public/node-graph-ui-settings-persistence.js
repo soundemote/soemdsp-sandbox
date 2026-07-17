@@ -12,6 +12,7 @@ const nodeGraphWorkspaceWindowStateKeys = Object.freeze([
   "uiSettings",
   "uiDev",
   "traceDisplaySettings",
+  "standaloneMidiKeyboard",
 ]);
 
 const nodeGraphWorkspaceWindowElements = Object.freeze({
@@ -25,6 +26,7 @@ const nodeGraphWorkspaceWindowElements = Object.freeze({
   uiSettings: "nodeUserUiSettingsPanel",
   uiDev: "nodeUiDevHelper",
   traceDisplaySettings: "nodeTraceDisplaySettingsPopover",
+  standaloneMidiKeyboard: "nodeStandaloneMidiKeyboardDock",
 });
 
 const nodeGraphSharedInspectorWindowKeys = Object.freeze([
@@ -351,7 +353,13 @@ function applyNodeGraphWorkspaceWindowStateToElement(key) {
     element.hidden = true;
     return;
   }
+  if (key === "standaloneMidiKeyboard" && state.open && typeof initNodeGraphStandaloneMidiKeyboard === "function") {
+    initNodeGraphStandaloneMidiKeyboard();
+  }
   element.hidden = !state.open;
+  if (key === "standaloneMidiKeyboard" && typeof applyNodeGraphStandaloneMidiKeyboardDockSize === "function") {
+    applyNodeGraphStandaloneMidiKeyboardDockSize(state.size);
+  }
   if (key === "moduleActions" && typeof applyNodeModuleActionsWindowSize === "function") {
     applyNodeModuleActionsWindowSize(nodeGraphMvp.sharedInspectorWindowState?.size);
   }

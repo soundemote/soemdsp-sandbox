@@ -429,6 +429,14 @@ function nodeGraphFloatingWindowKeyboardTargets() {
       applySize: typeof applyNodeGraphTraceDisplaySettingsWindowSize === "function" ? applyNodeGraphTraceDisplaySettingsWindowSize : null,
       sizeAxes: { width: true, height: true },
     },
+    {
+      draggingKey: "standaloneMidiKeyboardDragging",
+      resizingKey: "standaloneMidiKeyboardResizing",
+      elementId: "nodeStandaloneMidiKeyboardDock",
+      workspaceKey: "standaloneMidiKeyboard",
+      applySize: typeof applyNodeGraphStandaloneMidiKeyboardDockSize === "function" ? applyNodeGraphStandaloneMidiKeyboardDockSize : null,
+      sizeAxes: { width: true, height: true },
+    },
   ];
 }
 
