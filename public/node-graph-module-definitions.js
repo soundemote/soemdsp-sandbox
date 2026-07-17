@@ -2758,9 +2758,9 @@ const nodeGraphModuleDefinitions = Object.freeze({
     ],
   },
   macroControls: {
-    inputs: ["M1 In", "M2 In", "M3 In", "M4 In", "M5 In", "M6 In", "M7 In", "M8 In", "M9 In", "M10 In", "Reset"],
+    inputs: ["M1 In", "M2 In", "M3 In", "M4 In", "M5 In", "M6 In", "M7 In", "M8 In", "Reset"],
     layout: "macroControls",
-    outputs: ["M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10"],
+    outputs: ["M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8"],
     parameters: [],
   },
   pitchModWheel: {

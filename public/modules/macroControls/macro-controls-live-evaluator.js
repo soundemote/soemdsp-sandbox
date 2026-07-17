@@ -5,7 +5,7 @@ nodeGraphLiveModuleEvaluators.macroControls = ({ nodeId, mixInput, hasInput }) =
   const resetActive = hasInput(nodeId, "Reset") && Number(mixInput(nodeId, "Reset")) > 0;
   const macros = Array.isArray(nodeGraphMvp?.macroControls) ? nodeGraphMvp.macroControls : [];
   const value = {};
-  for (let index = 0; index < 10; index += 1) {
+  for (let index = 0; index < 8; index += 1) {
     const port = `M${index + 1} In`;
     value[`M${index + 1}`] = resetActive
       ? 0

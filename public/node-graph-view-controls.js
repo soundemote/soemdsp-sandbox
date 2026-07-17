@@ -861,8 +861,8 @@ function normalizeNodeGraphMacroValue(value) {
 }
 
 function ensureNodeGraphMacroControls() {
-  if (!Array.isArray(nodeGraphMvp.macroControls) || nodeGraphMvp.macroControls.length !== 10) {
-    nodeGraphMvp.macroControls = new Array(10).fill(0);
+  if (!Array.isArray(nodeGraphMvp.macroControls) || nodeGraphMvp.macroControls.length !== 8) {
+    nodeGraphMvp.macroControls = new Array(8).fill(0);
   }
   nodeGraphMvp.macroControls = nodeGraphMvp.macroControls.map(normalizeNodeGraphMacroValue);
 }
@@ -870,7 +870,7 @@ function ensureNodeGraphMacroControls() {
 function renderNodeGraphMacroControls() {
   ensureNodeGraphMacroControls();
   document.querySelectorAll("[data-macro-index]").forEach((knob) => {
-    const index = Math.max(0, Math.min(9, Math.round(Number(knob.dataset.macroIndex) || 0)));
+    const index = Math.max(0, Math.min(7, Math.round(Number(knob.dataset.macroIndex) || 0)));
     const value = normalizeNodeGraphMacroValue(nodeGraphMvp.macroControls[index]);
     const angle = -132 + value * 264;
     knob.style.setProperty("--macro-value", String(value));
@@ -883,13 +883,13 @@ function renderNodeGraphMacroControls() {
   });
   document.querySelectorAll("[data-macro-controls-status]").forEach((status) => {
     const activeCount = nodeGraphMvp.macroControls.filter((value) => value > 0).length;
-    status.textContent = activeCount ? `${activeCount} active` : "10 macros ready";
+    status.textContent = activeCount ? `${activeCount} active` : "8 macros ready";
   });
 }
 
 function setNodeGraphMacroControl(index, value) {
   ensureNodeGraphMacroControls();
-  const safeIndex = Math.max(0, Math.min(9, Math.round(Number(index) || 0)));
+  const safeIndex = Math.max(0, Math.min(7, Math.round(Number(index) || 0)));
   nodeGraphMvp.macroControls[safeIndex] = normalizeNodeGraphMacroValue(value);
   renderNodeGraphMacroControls();
   if (typeof sendNodeGraphLiveMacroControls === "function") {
@@ -899,7 +899,7 @@ function setNodeGraphMacroControl(index, value) {
 
 function beginNodeGraphMacroControlDrag(event) {
   const knob = event.currentTarget;
-  const index = Math.max(0, Math.min(9, Math.round(Number(knob.dataset.macroIndex) || 0)));
+  const index = Math.max(0, Math.min(7, Math.round(Number(knob.dataset.macroIndex) || 0)));
   event.preventDefault();
   knob.setPointerCapture?.(event.pointerId);
   nodeGraphMvp.dragging = {

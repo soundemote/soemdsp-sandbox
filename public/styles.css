@@ -1371,7 +1371,7 @@ html.soemdsp-hide-ui .status-strip {
      keyboard, flexible) second -- matches DOM order in
      initNodeGraphStandaloneMidiKeyboard. */
   grid-template-rows: auto minmax(0, 1fr);
-  gap: 8px;
+  gap: 4px;
 }
 
 .node-standalone-midi-keyboard-dock[hidden] {
@@ -1381,7 +1381,7 @@ html.soemdsp-hide-ui .status-strip {
 .node-standalone-performance-row {
   display: grid;
   grid-template-columns: minmax(140px, 22%) minmax(0, 1fr);
-  gap: 8px;
+  gap: 4px;
   min-height: 0;
 }
 
@@ -1401,6 +1401,8 @@ html.soemdsp-hide-ui .status-strip {
      avoids a second line entirely, but keep this unbounded rather than
      re-introduce a magic-number cap). */
   max-height: none;
+  gap: 4px;
+  padding: 4px 8px;
 }
 
 /* "Performance Surface" / "Macro Controls" / "N macros ready" -- the
@@ -1411,22 +1413,29 @@ html.soemdsp-hide-ui .status-strip {
   display: none;
 }
 
+.node-standalone-midi-keyboard-dock .node-macro-controls-row {
+  gap: 4px;
+}
+
 /* Bare knobs, no per-knob box -- the circular dial (.node-macro-knob i)
    already carries the value indicator; the rectangular border/background
    around it was just extra chrome in the dock's compact single-row
-   layout. */
+   layout. Also shorter than the module default now that there's no box
+   padding to fill. */
 .node-standalone-midi-keyboard-dock .node-macro-knob {
   border: none;
   border-radius: 0;
   background: none;
+  min-height: 48px;
+  padding: 0;
 }
 
 /* The node body's default (.node-macro-controls-module .node-macro-controls-row,
-   above) wraps to 2 rows of 5 -- appropriate for a narrow graph node, but
-   the dock is wide enough (up to 1100px) to fit all 10 on one row. Scoped
-   to the dock only; the macroControls node itself is unchanged. */
+   above) wraps to 2 rows of 4 -- appropriate for a narrow graph node, but
+   the dock is wide enough to fit all 8 on one row. Scoped to the dock
+   only; the macroControls node itself is unchanged. */
 .node-standalone-midi-keyboard-dock .node-macro-controls-module .node-macro-controls-row {
-  grid-template-columns: repeat(10, minmax(40px, 1fr));
+  grid-template-columns: repeat(8, minmax(40px, 1fr));
 }
 
 .node-midi-keyboard-heading {
@@ -1612,13 +1621,13 @@ html.soemdsp-hide-ui .status-strip {
 
 .node-macro-controls-row {
   display: grid;
-  grid-template-columns: repeat(10, minmax(54px, 1fr));
+  grid-template-columns: repeat(8, minmax(54px, 1fr));
   gap: 6px;
   min-width: 0;
 }
 
 .node-macro-controls-module .node-macro-controls-row {
-  grid-template-columns: repeat(5, minmax(42px, 1fr));
+  grid-template-columns: repeat(4, minmax(42px, 1fr));
 }
 
 .node-macro-knob {

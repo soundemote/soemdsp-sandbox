@@ -63,7 +63,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.meterProtectionMuteCount = 0;
     this.meterSamples = 0;
     this.meterSquareSum = 0;
-    this.macroControls = new Array(10).fill(0);
+    this.macroControls = new Array(8).fill(0);
     this.externalButtonEvents = new Map();
     this.wireBreakEvent = { pulseSamples: 0, gateSamples: 0 };
     this.wireConnectEvent = { pulseSamples: 0 };
@@ -1756,7 +1756,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.meterProtectionMuteCount = 0;
     this.meterSamples = 0;
     this.meterSquareSum = 0;
-    this.macroControls = new Array(10).fill(0);
+    this.macroControls = new Array(8).fill(0);
     this.externalButtonEvents = new Map();
     this.wireBreakEvent = { pulseSamples: 0, gateSamples: 0 };
     this.wireConnectEvent = { pulseSamples: 0 };
@@ -3000,7 +3000,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   }
 
   setMacroControls(values) {
-    this.macroControls = Array.from({ length: 10 }, (_, index) => (
+    this.macroControls = Array.from({ length: 8 }, (_, index) => (
       this.clampValue(Number(values?.[index]) || 0, 0, 1)
     ));
   }
@@ -7012,7 +7012,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       macroControls: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         const resetActive = hasInput(nodeId, "Reset") && Number(mixInput(nodeId, "Reset")) > 0;
         const value = {};
-        for (let index = 0; index < 10; index += 1) {
+        for (let index = 0; index < 8; index += 1) {
           const port = `M${index + 1} In`;
           value[`M${index + 1}`] = resetActive
             ? 0

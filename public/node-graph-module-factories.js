@@ -467,12 +467,12 @@ function createNodeGraphMacroControlsBody(node = null) {
   const status = document.createElement("span");
   status.className = "pill";
   status.dataset.macroControlsStatus = "true";
-  status.textContent = "10 macros ready";
+  status.textContent = "8 macros ready";
   heading.append(title, status);
   const row = document.createElement("div");
   row.className = "node-macro-controls-row";
   row.setAttribute("aria-label", "Macro knob row");
-  for (let index = 0; index < 10; index += 1) {
+  for (let index = 0; index < 8; index += 1) {
     const knob = document.createElement("button");
     knob.className = "node-macro-knob";
     knob.type = "button";
