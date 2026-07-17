@@ -14261,7 +14261,8 @@ button.saved-default,
 
 .scene-context-modular-view-controls {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* 3 now -- Show Keyboard joined Modular View/View Buttons in this row. */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   min-width: 0;
   border: 1px solid rgba(226, 168, 109, 0.24);
 }
