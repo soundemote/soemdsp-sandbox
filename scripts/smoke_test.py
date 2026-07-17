@@ -4764,7 +4764,7 @@ def require_node_graph_mvp_contract() -> None:
                 "function nodeGraphClapStateStatusText",
                 "function saveNodeGraphClapPluginState",
                 "function restoreNodeGraphClapPluginState",
-                "const nodeGraphClapHostUnderConstruction = true",
+                "const nodeGraphClapHostUnderConstruction = false",
                 "function markNodeGraphClapHostButtonUnderConstruction(button)",
                 "function createNodeGraphClapPluginActionButton(label, datasetKey, nodeId, handler)",
                 "function syncNodeGraphClapPluginActionButtons(buttons, binding, staleInstance)",

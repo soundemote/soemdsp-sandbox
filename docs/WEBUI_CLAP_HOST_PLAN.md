@@ -145,33 +145,77 @@ http://127.0.0.1:47991
 
 The browser Host field can override the localhost URL. The native prototype supports `--host` and `--port`.
 
-### Current state (2026-06-28)
+### Current state (2026-07-16)
 
-The connection UI is intentionally disabled via
-`nodeGraphClapHostUnderConstruction = true` in
-`public/node-graph-clap-host.js`. `bindNodeGraphClapHostControls` early-returns
-so the Connect/Plugins/Diagnostics buttons have no listeners.
+The connection UI is re-enabled: `nodeGraphClapHostUnderConstruction = false`
+in `public/node-graph-clap-host.js`. `bindNodeGraphClapHostControls` wires
+Connect/Plugins/Diagnostics normally.
+
+Verified against a real local host with 21 installed CLAP plugins: Connect
+reaches the running host, the catalog populates with real plugin
+descriptors, and creating an instance (`Crisp`) returns real native audio
+port metadata (`Input`/`Output`, stereo, 2 channels each).
+
+Re-enabling surfaced a real bug, now fixed: `GET /plugins` re-scanned and
+re-inspected every plugin's descriptor from scratch on every request (each
+inspected plugin spawns an isolated probe subprocess), taking ~4.8s for 21
+plugins on this machine. The browser's automatic post-connect scan used a
+6000ms timeout, which was not reliably enough headroom, and produced
+`plugin catalog error: plugin scan timed out` on the first connect. Fixed
+with a server-side cache (`cached_discover_clap_plugins` in
+`webui_clap_host.py`): the scan result is cached for the process's
+lifetime (scan dirs/explicit plugins/inspection flags are fixed at
+startup, so this is safe), and `GET /plugins?refresh=1` bypasses it.
+`refreshNodeGraphClapHostPlugins(forceRefresh)` in
+`public/node-graph-clap-host.js` threads this through: the automatic
+post-connect scan reads the cache (fast after the first warm), and the
+"Refresh Plugins" button passes `true` to see newly-installed plugins.
 
 The render path (`nodeGraphRenderExternalClapOutputs` in
-`public/node-graph-render-output.js`) still requires a connected host for any
-patch containing a `clapPlugin` node. The disconnect error now mentions the
-under-construction state and points at the local `.cmd` launcher.
+`public/node-graph-render-output.js`) still requires a connected host for
+any patch containing a `clapPlugin` node.
 
-To re-enable the UI when ready:
+Remaining from the original re-enablement checklist:
 
-1. Set `nodeGraphClapHostUnderConstruction = false`.
+1. Set `nodeGraphClapHostUnderConstruction = false` (done).
 2. Verify `bindNodeGraphClapHostControls` wires Connect/Plugins/Diagnostics
-   correctly against a running local host.
-3. Surface CLAP feedback at plan time (done —
-   `compileNodeGraphExecutionPlan` now pushes an issue for CLAP-involved
-   feedback).
-4. Surface CLAP latency/tail errors in debug status (done —
-   `nodeGraphClapReportedLatencyFrames`/`nodeGraphClapReportedTailState` now
-   log via `console.warn`).
-5. Audit render-tail/latency compensation (partial — output buffer is padded
-   by one process chunk to absorb latency shift, but trailing `latencyFrames`
-   of output remain zero. Proper fix: pre-query latency from host before
-   render, add to `engineFrames`, trim output).
+   correctly against a running local host (done, see above).
+3. Surface CLAP feedback at plan time (done).
+4. Surface CLAP latency/tail errors in debug status (done).
+5. Audit render-tail/latency compensation (still partial — output buffer is
+   padded by one process chunk to absorb latency shift, but trailing
+   `latencyFrames` of output remain zero. Proper fix: pre-query latency from
+   host before render, add to `engineFrames`, trim output).
+
+## Design Direction (2026-07-16)
+
+Discussed and agreed: a discovered-but-unconfigured `CLAP Plugin` module
+stays a single generic catalog entry (not one entry per installed plugin —
+that would need the Module Browser to merge in a dynamic, host-dependent
+list, which is materially more work for a static-catalog UI). Instead:
+
+- A configured node (plugin selected, params set) is already a complete,
+  self-describing preset, since patch nodes are plain JSON
+  (`clap: {catalogId, clapId, path, name, ...}`, `params`, saved
+  `clap.state`). No new data model needed.
+- Copy/duplicate of a configured `CLAP Plugin` node already works today via
+  the existing generic node copy/duplicate actions — reuse *within* a
+  session needs no new code.
+- Cross-session/cross-patch reuse needs a "Save as CLAP Preset" action that
+  exports that JSON as a small file (piggybacking on the existing
+  patch-file save/export machinery in `node-graph-file-actions.js`), plus a
+  small local preset list the Module Browser's CLAP category can read —
+  when empty, only the generic `CLAP Plugin` shell shows, same as today.
+- Loading a saved preset always creates a **fresh** host instance (never
+  tries to reconnect to a persisted `instanceId` — those are scoped to one
+  running host process's lifetime) and replays params/state onto it, the
+  same way patch reload already restores CLAP state today.
+- Multiple `CLAP Plugin` nodes/instances in one patch already work — the
+  host's instance table already supports many concurrent instances behind
+  one running host process; nothing new needed there.
+
+Not yet built: the "Save as CLAP Preset" action and the preset-driven
+Module Browser section.
 
 ## Phase 3: Plugin Discovery
 

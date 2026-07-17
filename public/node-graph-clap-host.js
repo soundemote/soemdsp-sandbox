@@ -2,7 +2,7 @@ const nodeGraphClapHostDefaultPort = 47991;
 const nodeGraphClapHostName = "Soundemote WebUI CLAP Host";
 const nodeGraphClapEditorRequestTimeoutMs = 12000;
 const nodeGraphClapHostStorageKey = "nodeGraphClapHostBaseUrl";
-const nodeGraphClapHostUnderConstruction = true;
+const nodeGraphClapHostUnderConstruction = false;
 
 const nodeGraphClapHostState = {
   status: "disconnected",
@@ -1488,7 +1488,7 @@ async function connectNodeGraphClapHost() {
   }
 }
 
-async function refreshNodeGraphClapHostPlugins() {
+async function refreshNodeGraphClapHostPlugins(forceRefresh = false) {
   if (nodeGraphClapHostState.status !== "connected") return;
   const pluginsButton = document.getElementById("nodeClapHostPluginsButton");
   const detailElement = document.getElementById("nodeClapHostDetail");
@@ -1500,7 +1500,14 @@ async function refreshNodeGraphClapHostPlugins() {
     detailElement.textContent = "scanning CLAP catalog";
   }
   try {
-    const payload = await fetchNodeGraphClapHostJson("/plugins", 6000);
+    // The host caches its scan result for its process lifetime (see
+    // cached_discover_clap_plugins in webui_clap_host.py) since a cold
+    // scan re-inspects every plugin's descriptor in an isolated
+    // subprocess and can take several seconds. The automatic post-connect
+    // scan is fine reading that cache; the explicit "Refresh Plugins"
+    // button needs to see newly-installed plugins, so it bypasses it.
+    const path = forceRefresh ? "/plugins?refresh=1" : "/plugins";
+    const payload = await fetchNodeGraphClapHostJson(path, 6000);
     if (!payload || payload.ok !== true || !Array.isArray(payload.plugins)) {
       throw new Error("unexpected plugin catalog response");
     }
@@ -1578,7 +1585,7 @@ function bindNodeGraphClapHostControls() {
     connectNodeGraphClapHost();
   });
   pluginsButton?.addEventListener("click", () => {
-    refreshNodeGraphClapHostPlugins();
+    refreshNodeGraphClapHostPlugins(true);
   });
   diagnosticsButton?.addEventListener("click", () => {
     runNodeGraphClapHostDiagnostics();

@@ -27,7 +27,7 @@ from ctypes import wintypes
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 if sys.platform == "win32" and not hasattr(wintypes, "LRESULT"):
     wintypes.LRESULT = ctypes.c_ssize_t  # type: ignore[attr-defined]
@@ -1083,6 +1083,20 @@ def discover_clap_plugins(
         "missingExplicitPlugins": missing_explicit,
         "capabilities": host_capabilities(inspect_metadata, test_instantiate),
     }
+
+
+def cached_discover_clap_plugins(server: Any, force_refresh: bool) -> dict[str, Any]:
+    with server.clap_catalog_cache_lock:
+        if not force_refresh and server.clap_catalog_cache is not None:
+            return server.clap_catalog_cache
+        catalog = discover_clap_plugins(
+            server.clap_scan_dirs,
+            server.clap_explicit_plugins,
+            server.clap_inspect_metadata,
+            server.clap_test_instantiate,
+        )
+        server.clap_catalog_cache = catalog
+        return catalog
 
 
 def host_diagnostics_payload(
@@ -2798,15 +2812,9 @@ class ClapHostRequestHandler(BaseHTTPRequestHandler):
             )
             return
         if path == "/plugins":
-            self.write_json(
-                200,
-                discover_clap_plugins(
-                    self.server.clap_scan_dirs,
-                    self.server.clap_explicit_plugins,
-                    self.server.clap_inspect_metadata,
-                    self.server.clap_test_instantiate,
-                ),
-            )
+            query = parse_qs(urlsplit(self.path).query)
+            force_refresh = query.get("refresh", ["0"])[0].lower() in ("1", "true", "yes")
+            self.write_json(200, cached_discover_clap_plugins(self.server, force_refresh))
             return
         if path == "/diagnostics":
             bind_host, bind_port = self.server.server_address[:2]
@@ -3185,6 +3193,16 @@ def main() -> int:
     server.clap_test_instantiate = bool(args.test_instantiate)
     server.clap_instances = {}
     server.clap_instances_lock = threading.RLock()
+    # Descriptor inspection spawns one isolated probe subprocess per
+    # discovered .clap file -- with metadata inspection on, a real plugin
+    # folder can take several seconds to scan, which used to happen fresh
+    # on every /plugins request (including the browser's automatic scan
+    # right after connecting) and could outrun the browser's fetch timeout.
+    # scan_dirs/explicit_plugins/inspect_metadata/test_instantiate are fixed
+    # for the process lifetime, so a lazily-populated cache is safe; the
+    # "Refresh Plugins" button bypasses it via ?refresh=1.
+    server.clap_catalog_cache = None
+    server.clap_catalog_cache_lock = threading.Lock()
 
     def stop_server(_signum: int, _frame: object) -> None:
         threading.Thread(target=server.shutdown, daemon=True).start()
