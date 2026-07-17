@@ -491,6 +491,7 @@ function normalizeNodeUiDevSettings(settings = {}) {
     }
   }
   const gridVisible = view.gridVisible ?? controls.gridVisible ?? controls.showGrid ?? nodeGraphMvp.gridVisible;
+  const keyboardDebugInfoVisible = Boolean(view.keyboardDebugInfoVisible ?? nodeGraphMvp.keyboardDebugInfoVisible);
   const moduleButtonsVisible = Boolean(view.moduleButtonsVisible ?? nodeGraphMvp.moduleButtonsVisible);
   const moduleInterfaceControlsVisible = Boolean(view.moduleInterfaceControlsVisible ?? nodeGraphMvp.moduleInterfaceControlsVisible);
   const moduleOscilloscopesVisible = Boolean(view.moduleOscilloscopesVisible ?? nodeGraphMvp.moduleOscilloscopesVisible);
@@ -636,6 +637,7 @@ function normalizeNodeUiDevSettings(settings = {}) {
     nodeColors: normalizedColors,
     view: {
       gridVisible: Boolean(gridVisible),
+      keyboardDebugInfoVisible,
       moduleButtonsVisible,
       moduleInterfaceControlsVisible,
       moduleOscilloscopesVisible,
@@ -716,6 +718,7 @@ function readNodeUiDevSettingsFromControls(options = {}) {
     nodeColors,
     view: {
       gridVisible: Boolean(nodeGraphMvp.gridVisible),
+      keyboardDebugInfoVisible: Boolean(nodeGraphMvp.keyboardDebugInfoVisible),
       moduleButtonsVisible: Boolean(nodeGraphMvp.moduleButtonsVisible),
       moduleInterfaceControlsVisible: Boolean(nodeGraphMvp.moduleInterfaceControlsVisible),
       moduleOscilloscopesVisible: Boolean(nodeGraphMvp.moduleOscilloscopesVisible),
@@ -818,6 +821,7 @@ function applyNodeUiDevSettings(settings) {
     }
   }
   nodeGraphMvp.gridVisible = Boolean(normalized.view.gridVisible);
+  nodeGraphMvp.keyboardDebugInfoVisible = Boolean(normalized.view.keyboardDebugInfoVisible);
   nodeGraphMvp.moduleButtonsVisible = Boolean(normalized.view.moduleButtonsVisible);
   nodeGraphMvp.moduleInterfaceControlsVisible = Boolean(normalized.view.moduleInterfaceControlsVisible);
   nodeGraphMvp.moduleOscilloscopesVisible = Boolean(normalized.view.moduleOscilloscopesVisible);
@@ -906,6 +910,9 @@ function applyNodeUiDevSettings(settings) {
     applyNodeGraphPan();
   }
   renderNodeGraphGridToggle();
+  if (typeof renderNodeGraphKeyboardDebugToggle === "function") {
+    renderNodeGraphKeyboardDebugToggle();
+  }
   renderNodeGraphModuleVisibilityToggles();
   renderNodeGraphModuleScopeBrightnessControl();
   renderNodeGraphSliderVisibilityToggles();

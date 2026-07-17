@@ -338,6 +338,9 @@ function setNodeGraphModuleButtonsVisibility(visible, options = {}) {
 
 function setNodeGraphModularOnlyControlsVisible(visible) {
   nodeGraphMvp.modularOnlyControlsVisible = Boolean(visible);
+  if (nodeGraphMvp.patch) {
+    nodeGraphMvp.patch.modularOnlyControlsVisible = nodeGraphMvp.modularOnlyControlsVisible;
+  }
   const hidden = nodeGraphMvp.modularOnlyControlsVisible === false;
   document.getElementById("nodeWiringPanel")?.classList.toggle("modular-only-controls-hidden", hidden);
   document.getElementById("nodeSceneToggleModularOnlyControls")?.classList.toggle("active", hidden);
@@ -587,7 +590,7 @@ function nodeGraphFloatingWindowPosition(element, x, y, options = {}) {
 
 function renderNodeGraphKeyboardDebugToggle() {
   const button = document.getElementById("nodeKeyboardDebugToggleButton");
-  const visible = nodeGraphMvp.keyboardDebugInfoVisible !== false;
+  const visible = nodeGraphMvp.keyboardDebugInfoVisible === true;
   document.body.classList.toggle("keyboard-debug-hidden", !visible);
   if (button) {
     button.textContent = visible ? "Hide Debug" : "Show Debug";
@@ -2402,7 +2405,7 @@ function toggleNodeGraphTooltipVisibility() {
 }
 
 function toggleNodeGraphKeyboardDebugVisibility() {
-  nodeGraphMvp.keyboardDebugInfoVisible = nodeGraphMvp.keyboardDebugInfoVisible === false;
+  nodeGraphMvp.keyboardDebugInfoVisible = !(nodeGraphMvp.keyboardDebugInfoVisible === true);
   renderNodeGraphKeyboardDebugToggle();
   setNodeInteractionHelp(nodeGraphMvp.keyboardDebugInfoVisible ? "Keyboard debug info shown." : "Keyboard debug info hidden.");
 }

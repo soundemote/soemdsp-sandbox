@@ -14,6 +14,7 @@ function serializeNodeGraphPatch(patch = nodeGraphMvp.patch) {
       graphConnections: patch.graphConnections || [],
       grid: patch.grid,
       info: normalizeNodeGraphPatchInfo(patch.info),
+      modularOnlyControlsVisible: Boolean(patch.modularOnlyControlsVisible),
       modulations: patch.modulations || [],
       monitors: normalizeNodeGraphPatchMonitors(patch.monitors, patch),
       nodes: patch.nodes,

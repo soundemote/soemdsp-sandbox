@@ -392,6 +392,7 @@ function validateNodeGraphPatch(patch) {
     graphConnections,
     grid,
     info: normalizeNodeGraphPatchInfo(patch.info),
+    modularOnlyControlsVisible: Boolean(patch.modularOnlyControlsVisible),
     modulations,
     monitors: normalizeNodeGraphPatchMonitors(patch.monitors, {
       ...patch,

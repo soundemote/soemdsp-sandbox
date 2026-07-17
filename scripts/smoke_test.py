@@ -15524,7 +15524,7 @@ def require_node_graph_mvp_contract() -> None:
         and "function toggleNodeGraphViewButtonsVisibility()" in node_graph_source
         and "function setNodeGraphModularOnlyControlsVisible(visible)" in node_graph_source
         and "function toggleNodeGraphModularOnlyControlsVisible()" in node_graph_source
-        and "modularOnlyControlsVisible: true," in script_sources["./public/node-graph-state.js"]
+        and "modularOnlyControlsVisible: false," in script_sources["./public/node-graph-state.js"]
         and "const modularOnlyExpanded = nodeGraphMvp.modularOnlyControlsVisible === false" in node_graph_source
         and ".node-wiring-panel.modular-only-view.modular-only-controls-hidden {\n  --node-modular-only-inset: 0px;" in style_source
         and ".node-wiring-panel.modular-only-controls-hidden .node-modular-only-back-button,\n.node-wiring-panel.modular-only-controls-hidden .node-graph-resize-handle {\n  display: none !important;" in style_source

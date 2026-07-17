@@ -58,4 +58,7 @@ function syncNodeGraphRuntimeFromPatch() {
     nodeGraphMvp.patch,
   );
   nodeGraphMvp.nodeTypeCounts = nextNodeGraphTypeCounts();
+  if (typeof setNodeGraphModularOnlyControlsVisible === "function") {
+    setNodeGraphModularOnlyControlsVisible(Boolean(nodeGraphMvp.patch.modularOnlyControlsVisible));
+  }
 }
