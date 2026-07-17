@@ -350,6 +350,28 @@ function toggleNodeGraphModularOnlyControlsVisible() {
   setNodeGraphModularOnlyControlsVisible(nodeGraphMvp.modularOnlyControlsVisible === false);
 }
 
+// Named so both the Command Center button click and the "M" hotkey
+// (node-graph-keyboard-shortcuts.js) can share the exact same behavior.
+function toggleNodeGraphModularOnlyView() {
+  const modularOnlyActive = document.getElementById("nodeWiringPanel")?.classList.contains("modular-only-view");
+  setNodeGraphViewMode(modularOnlyActive ? "modular" : "modular-only");
+}
+
+// Named so both the Command Center button click and the "V" hotkey
+// (node-graph-keyboard-shortcuts.js) can share the exact same behavior --
+// "View Buttons" toggles module-button visibility, but if we're
+// currently off in settings/script/UI/mapping view it also needs to
+// bring us back to the modular workspace first -- otherwise there's
+// nothing on screen for the toggle to visibly affect. Preserves
+// modular-only mode if that's what we were already in.
+function toggleNodeGraphViewButtonsVisibility() {
+  if (document.getElementById("nodeGraphWorkspace")?.hidden) {
+    const modularOnlyActive = document.getElementById("nodeWiringPanel")?.classList.contains("modular-only-view");
+    setNodeGraphViewMode(modularOnlyActive ? "modular-only" : "modular");
+  }
+  toggleNodeGraphModularOnlyControlsVisible();
+}
+
 function setNodeGraphModuleScopeFramesPerSecond(value) {
   nodeGraphMvp.moduleScopeFramesPerSecond = normalizeNodeGraphModuleScopeFramesPerSecond(value);
   renderNodeGraphModuleScopeBrightnessControl();
