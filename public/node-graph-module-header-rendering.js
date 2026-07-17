@@ -401,10 +401,18 @@ function createNodeGraphCommandCenterTimingWidgets() {
   const group = document.createElement("div");
   group.className = "node-header-timing-widgets node-command-center-timing-widgets";
   group.setAttribute("aria-label", "Command Center patch timing");
-  group.append(
+
+  const tempoRow = document.createElement("div");
+  tempoRow.className = "node-command-center-timing-row node-command-center-timing-row-tempo";
+  tempoRow.append(
     createNodeGraphHeaderTimingInput("tempoBpm", "BPM", { max: 320 }),
     createNodeGraphHeaderTimingInput("timeSignatureNumerator", "Beats"),
     createNodeGraphHeaderTimingInput("timeSignatureDenominator", "Unit"),
+  );
+
+  const pitchRow = document.createElement("div");
+  pitchRow.className = "node-command-center-timing-row node-command-center-timing-row-pitch";
+  pitchRow.append(
     createNodeGraphHeaderAudioInput("pitchReferenceHz", "Pitch", {
       ariaLabel: "Pitch Reference Frequency in Hz (0.1V/Oct reference)",
       tooltipKey: "timing.pitchReferenceHz",
@@ -413,6 +421,8 @@ function createNodeGraphCommandCenterTimingWidgets() {
       step: 1,
     }),
   );
+
+  group.append(tempoRow, pitchRow);
   return group;
 }
 
