@@ -1378,7 +1378,7 @@ html.soemdsp-hide-ui .status-strip {
   width: clamp(
     var(--node-standalone-keyboard-min-width, 420px),
     var(--node-standalone-keyboard-width, 860px),
-    min(var(--node-standalone-keyboard-max-width, 1400px), calc(100vw - 28px))
+    min(var(--node-standalone-keyboard-max-width, 8000px), calc(100vw - 28px))
   );
   height: var(--node-standalone-keyboard-height, auto);
   min-height: var(--node-standalone-keyboard-min-height, 160px);

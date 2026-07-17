@@ -833,7 +833,12 @@ function initNodeGraphStandaloneMidiKeyboard() {
 const nodeStandaloneMidiKeyboardDockDefaultSize = Object.freeze({
   width: 860,
   minWidth: 420,
-  maxWidth: 1400,
+  // No real ceiling on drag-resize width -- normalizeNodeGraphFloatingWindowSize
+  // falls back to 720 if maxWidth isn't finite, so this can't just be
+  // omitted/Infinity; a large-but-finite number here means the resize is
+  // bounded only by the actual screen (viewportWidth - 28, still applied
+  // inside that function), not an arbitrary product-chosen cap.
+  maxWidth: 8000,
   height: 260,
   minHeight: 160,
   maxHeight: 640,
