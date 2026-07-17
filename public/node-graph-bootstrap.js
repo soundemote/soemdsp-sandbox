@@ -54,6 +54,7 @@ async function initNodeGraphMvp() {
   renderNodeGraphMacroControls();
   renderNodeGraphKeyboardControllerModules();
   renderNodeGraphStandaloneMidiKeyboardToggle();
+  bindNodeGraphStandaloneMidiKeyboardDockWidthSync();
   renderNodeGraphModuleVisibilityToggles();
   renderNodeGraphPatchTimingControls();
   renderNodeGraphVisibilityMenuButton();

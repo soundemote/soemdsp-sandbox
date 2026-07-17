@@ -833,6 +833,41 @@ function renderNodeGraphStandaloneMidiKeyboardToggle() {
   if (button) {
     button.setAttribute("aria-pressed", visible ? "true" : "false");
   }
+  if (visible) {
+    syncNodeGraphStandaloneMidiKeyboardDockWidth();
+  }
+}
+
+// Keeps the dock's left edge and width matched to #nodeGraphWorkspace's
+// actual rect, so it lines up exactly with the modular view instead of
+// an independently centered max-width. Bound once (ResizeObserver +
+// window resize) from bootstrap; also called directly whenever the dock
+// becomes visible in case the workspace resized while it was hidden.
+function syncNodeGraphStandaloneMidiKeyboardDockWidth() {
+  const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
+  const workspace = document.getElementById("nodeGraphWorkspace");
+  if (!dock || !workspace) {
+    return;
+  }
+  const rect = workspace.getBoundingClientRect();
+  if (rect.width <= 0) {
+    return;
+  }
+  dock.style.left = `${Math.round(rect.left)}px`;
+  dock.style.width = `${Math.round(rect.width)}px`;
+}
+
+function bindNodeGraphStandaloneMidiKeyboardDockWidthSync() {
+  const workspace = document.getElementById("nodeGraphWorkspace");
+  if (!workspace || workspace.dataset.dockWidthSyncBound === "true") {
+    return;
+  }
+  workspace.dataset.dockWidthSyncBound = "true";
+  syncNodeGraphStandaloneMidiKeyboardDockWidth();
+  if (typeof ResizeObserver === "function") {
+    new ResizeObserver(syncNodeGraphStandaloneMidiKeyboardDockWidth).observe(workspace);
+  }
+  window.addEventListener("resize", syncNodeGraphStandaloneMidiKeyboardDockWidth);
 }
 
 function toggleNodeGraphStandaloneMidiKeyboard() {

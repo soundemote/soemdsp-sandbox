@@ -48,6 +48,15 @@ function bindNodeGraphSceneMenuEvents() {
     setNodeGraphViewMode(modularOnlyActive ? "modular" : "modular-only");
   });
   bindNodeGraphSceneElementEvent("nodeSceneToggleModularOnlyControls", "click", () => {
+    // "View Buttons" toggles module-button visibility, but if we're
+    // currently off in settings/script/UI/mapping view it also needs to
+    // bring us back to the modular workspace first -- otherwise there's
+    // nothing on screen for the toggle to visibly affect. Preserves
+    // modular-only mode if that's what we were already in.
+    if (document.getElementById("nodeGraphWorkspace")?.hidden) {
+      const modularOnlyActive = document.getElementById("nodeWiringPanel")?.classList.contains("modular-only-view");
+      setNodeGraphViewMode(modularOnlyActive ? "modular-only" : "modular");
+    }
     toggleNodeGraphModularOnlyControlsVisible();
   });
   bindNodeGraphSceneElementEvent("nodeSceneOpenModuleBrowser", "click", () => {

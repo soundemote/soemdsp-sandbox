@@ -1360,11 +1360,13 @@ html.soemdsp-hide-ui .status-strip {
 .node-standalone-midi-keyboard-dock {
   position: fixed;
   z-index: 60;
-  right: 12px;
   bottom: 12px;
+  /* left/width are set inline by syncNodeGraphStandaloneMidiKeyboardDockWidth
+     to track #nodeGraphWorkspace's actual rect, so the dock lines up with
+     the modular workspace exactly instead of an independent centered
+     max-width. These are just a sane fallback before that first runs. */
   left: 12px;
-  max-width: 1100px;
-  margin-inline: auto;
+  width: calc(100% - 24px);
   max-height: 48dvh;
   display: grid;
   /* Macro row (short, single row of knobs) above the performance row
@@ -1492,22 +1494,31 @@ html.soemdsp-hide-ui .status-strip {
    its own (narrower, 2-row) layout. */
 .node-standalone-midi-keyboard-dock .node-macro-controls-module .node-macro-controls-row,
 .node-standalone-midi-keyboard-dock .node-macro-controls-row {
-  grid-template-columns: repeat(8, minmax(40px, 1fr));
+  grid-template-columns: repeat(8, minmax(56px, 1fr));
   grid-template-rows: none;
-  gap: 4px;
+  gap: 6px;
 }
 
 /* Bare knobs, no per-knob box -- the circular dial (.node-macro-knob i)
    already carries the value indicator; the rectangular border/background
    around it was just extra chrome in the dock's compact single-row
-   layout. Also shorter than the module default now that there's no box
-   padding to fill. */
+   layout. Sized up from the module default (48px/0.62rem text) now that
+   the dock spans the full modular-view width and has room to spare. */
 .node-standalone-midi-keyboard-dock .node-macro-knob {
   border: none;
   border-radius: 0;
   background: none;
-  min-height: 48px;
+  min-height: 66px;
   padding: 0;
+  font-size: 0.78rem;
+}
+
+.node-standalone-midi-keyboard-dock .node-macro-knob strong {
+  font-size: 0.86rem;
+}
+
+.node-standalone-midi-keyboard-dock .node-macro-knob i {
+  width: min(56px, 82%);
 }
 
 .node-midi-keyboard-heading {
@@ -2292,14 +2303,14 @@ html.soemdsp-hide-ui .status-strip {
   flex-wrap: wrap;
   gap: 4px;
   min-width: 0;
-  margin-top: 4px;
+  margin-top: 6px;
   color: var(--muted);
-  font: 700 0.72rem/1 "Cascadia Mono", Consolas, monospace;
+  font: 700 0.86rem/1 "Cascadia Mono", Consolas, monospace;
 }
 
 .node-midi-keyboard-bitmask-row strong {
   color: var(--text);
-  font-size: 0.86rem;
+  font-size: 1.3rem;
   letter-spacing: 1px;
   word-break: break-all;
 }
