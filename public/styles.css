@@ -9406,7 +9406,10 @@ html.soemdsp-hide-ui .status-strip {
 }
 
 .node-clap-plugin-select,
-.node-clap-plugin-actions button {
+.node-clap-plugin-preset-select,
+.node-clap-plugin-preset-name,
+.node-clap-plugin-actions button,
+.node-clap-plugin-preset-row button {
   width: 100%;
   min-width: 0;
   min-height: 28px;
@@ -9419,8 +9422,16 @@ html.soemdsp-hide-ui .status-strip {
 }
 
 .node-clap-plugin-select:disabled,
-.node-clap-plugin-actions button:disabled {
+.node-clap-plugin-preset-select:disabled,
+.node-clap-plugin-actions button:disabled,
+.node-clap-plugin-preset-row button:disabled {
   opacity: 0.55;
+}
+
+.node-clap-plugin-preset-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
 }
 
 .node-clap-plugin-detail {

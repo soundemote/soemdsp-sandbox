@@ -15,6 +15,7 @@ const nodeGraphClapHostState = {
   pluginCount: null,
   parameterPayloads: new Map(),
   parameterWriteTimers: new Map(),
+  presets: [],
   lastError: "",
 };
 
@@ -763,6 +764,116 @@ function nodeGraphCommitClapPluginBinding(nodeId, clap, options = {}) {
   return true;
 }
 
+// Presets are files on the host (see cached_discover_clap_plugins-style
+// GET/POST/DELETE /presets in webui_clap_host.py), not a per-plugin Module
+// Browser catalog entry -- a configured node is already a self-describing
+// preset (clap binding + params + saved clap.state), so this just persists
+// that shape and replays it onto a *fresh* instance on load. instanceId is
+// deliberately never part of a preset; it's scoped to one running host
+// process's lifetime, not portable across sessions. See "Design Direction"
+// in docs/WEBUI_CLAP_HOST_PLAN.md.
+async function refreshNodeGraphClapPresets() {
+  if (nodeGraphClapHostState.status !== "connected") return;
+  try {
+    const payload = await fetchNodeGraphClapHostJson("/presets", 3000);
+    if (payload?.ok === true && Array.isArray(payload.presets)) {
+      nodeGraphClapHostState.presets = payload.presets;
+    }
+  } catch {
+    // Preset listing is a convenience; a failed fetch just leaves the
+    // picker showing whatever it last had (or empty on first connect).
+  }
+  syncNodeGraphClapPluginElements();
+}
+
+async function saveNodeGraphClapPluginPreset(nodeId) {
+  const patchNode = nodeGraphPatchNode(nodeId);
+  const binding = normalizeNodeGraphClapPluginBinding(patchNode?.clap);
+  if (!patchNode || !binding.catalogId || nodeGraphClapHostState.status !== "connected") {
+    return;
+  }
+  const detailElement = document.getElementById("nodeClapHostDetail");
+  const nameInput = document.querySelector(`[data-clap-plugin-preset-name="${CSS.escape(nodeId)}"]`);
+  const name = String(nameInput?.value || "").trim() || binding.name || "Untitled Preset";
+  try {
+    // Freshen saved state before capturing the preset, if there's a live
+    // instance -- otherwise the preset would carry whatever state was
+    // saved last (possibly none).
+    if (binding.instanceId) {
+      await saveNodeGraphClapPluginState(nodeId);
+    }
+    const freshNode = nodeGraphPatchNode(nodeId);
+    const freshBinding = normalizeNodeGraphClapPluginBinding(freshNode?.clap);
+    const payload = await postNodeGraphClapHostJson("/presets", {
+      name,
+      clap: freshBinding,
+      params: freshNode?.params || {},
+      paramMeta: freshNode?.paramMeta || {},
+    }, 4000);
+    if (payload?.ok !== true) {
+      throw new Error(payload?.error || "preset save failed");
+    }
+    if (detailElement) {
+      detailElement.textContent = `connected; saved preset "${payload.name}"`;
+    }
+    await refreshNodeGraphClapPresets();
+  } catch (error) {
+    if (detailElement) {
+      detailElement.textContent = `connected; preset save error: ${error?.message || error}`;
+    }
+  }
+  syncNodeGraphClapPluginElements();
+}
+
+function applyNodeGraphClapPluginPreset(nodeId, preset) {
+  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+  const patchNode = patch.nodes.find((node) => node.id === nodeId && node.type === "clapPlugin");
+  if (!patchNode) {
+    return false;
+  }
+  patchNode.clap = normalizeNodeGraphClapPluginBinding(preset?.clap);
+  patchNode.params = preset?.params && typeof preset.params === "object" ? { ...preset.params } : {};
+  patchNode.paramMeta = preset?.paramMeta && typeof preset.paramMeta === "object" ? { ...preset.paramMeta } : {};
+  commitNodeGraphPatch(patch, { status: `CLAP preset "${preset?.name || ""}" loaded` });
+  return true;
+}
+
+async function loadNodeGraphClapPluginPreset(nodeId, presetId) {
+  if (!presetId || nodeGraphClapHostState.status !== "connected") {
+    return;
+  }
+  const detailElement = document.getElementById("nodeClapHostDetail");
+  try {
+    const preset = await fetchNodeGraphClapHostJson(`/presets/${encodeURIComponent(presetId)}`, 3000);
+    if (preset?.ok !== true || !preset.clap?.clapId) {
+      throw new Error(preset?.error || "preset not found");
+    }
+    applyNodeGraphClapPluginPreset(nodeId, preset);
+    // Presets always create a fresh instance -- createNodeGraphClapPluginInstance
+    // already restores saved clap.state when present, or otherwise syncs the
+    // preset's stored params onto the new instance via
+    // refreshNodeGraphClapPluginParameters -> syncStoredNodeGraphClapParametersToHost.
+    await createNodeGraphClapPluginInstance(nodeId);
+  } catch (error) {
+    if (detailElement) {
+      detailElement.textContent = `connected; preset load error: ${error?.message || error}`;
+    }
+    syncNodeGraphClapPluginElements();
+  }
+}
+
+async function deleteNodeGraphClapPreset(presetId) {
+  if (!presetId || nodeGraphClapHostState.status !== "connected") {
+    return;
+  }
+  try {
+    await deleteNodeGraphClapHostJson(`/presets/${encodeURIComponent(presetId)}`, 3000);
+  } catch {
+    // Best-effort; the list refresh below will still reflect host truth.
+  }
+  await refreshNodeGraphClapPresets();
+}
+
 function createNodeGraphClapParameterRow(nodeId, binding, parameter) {
   const definition = nodeGraphClapParameterDefinition(parameter);
   const row = document.createElement("div");
@@ -851,6 +962,45 @@ function createNodeGraphClapPluginBody(nodeId) {
     });
   });
 
+  const presetRow = document.createElement("div");
+  presetRow.className = "node-clap-plugin-preset-row";
+
+  const presetSelect = document.createElement("select");
+  presetSelect.className = "node-clap-plugin-preset-select";
+  presetSelect.dataset.clapPluginPresetSelect = nodeId;
+  presetSelect.setAttribute("aria-label", "Load CLAP preset");
+  presetSelect.addEventListener("change", () => {
+    if (presetSelect.value) {
+      loadNodeGraphClapPluginPreset(nodeId, presetSelect.value);
+    }
+  });
+
+  // Deletes whichever preset is currently selected in presetSelect --
+  // simpler than a per-option delete affordance, and the picker naturally
+  // shows what's about to be deleted.
+  const presetDeleteButton = createNodeGraphClapPluginActionButton(
+    "Delete Preset",
+    "clapPluginDeletePreset",
+    nodeId,
+    () => deleteNodeGraphClapPreset(presetSelect.value),
+  );
+
+  const presetNameInput = document.createElement("input");
+  presetNameInput.type = "text";
+  presetNameInput.className = "node-clap-plugin-preset-name";
+  presetNameInput.dataset.clapPluginPresetName = nodeId;
+  presetNameInput.placeholder = "Preset name";
+  presetNameInput.setAttribute("aria-label", "CLAP preset name");
+
+  const presetSaveButton = createNodeGraphClapPluginActionButton(
+    "Save as Preset",
+    "clapPluginSavePreset",
+    nodeId,
+    saveNodeGraphClapPluginPreset,
+  );
+
+  presetRow.append(presetSelect, presetDeleteButton, presetNameInput, presetSaveButton);
+
   const detail = document.createElement("div");
   detail.className = "node-clap-plugin-detail";
   detail.dataset.clapPluginDetail = nodeId;
@@ -924,7 +1074,7 @@ function createNodeGraphClapPluginBody(nodeId) {
   params.className = "node-clap-plugin-param-list";
   params.dataset.clapPluginParamList = nodeId;
 
-  body.append(select, detail, safety, actions, params);
+  body.append(select, presetRow, detail, safety, actions, params);
   syncNodeGraphClapPluginBody(body, nodeGraphPatchNode(nodeId));
   return body;
 }
@@ -1006,6 +1156,10 @@ function syncNodeGraphClapPluginBody(body, patchNode) {
   }
   const binding = normalizeNodeGraphClapPluginBinding(patchNode.clap);
   const select = body.querySelector("[data-clap-plugin-select]");
+  const presetSelect = body.querySelector("[data-clap-plugin-preset-select]");
+  const presetNameInput = body.querySelector("[data-clap-plugin-preset-name]");
+  const presetSaveButton = body.querySelector("[data-clap-plugin-save-preset]");
+  const presetDeleteButton = body.querySelector("[data-clap-plugin-delete-preset]");
   const detail = body.querySelector("[data-clap-plugin-detail]");
   const createButton = body.querySelector("[data-clap-plugin-create]");
   const deleteButton = body.querySelector("[data-clap-plugin-delete]");
@@ -1034,6 +1188,41 @@ function syncNodeGraphClapPluginBody(body, patchNode) {
     }
     select.value = selectedValue;
     select.disabled = nodeGraphClapHostState.status !== "connected" || nodeGraphClapHostState.plugins.length === 0;
+  }
+  if (presetSelect) {
+    const previousValue = presetSelect.value;
+    presetSelect.replaceChildren();
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = nodeGraphClapHostState.presets.length
+      ? "Load saved preset..."
+      : "No saved presets";
+    presetSelect.append(placeholder);
+    for (const preset of nodeGraphClapHostState.presets) {
+      const option = document.createElement("option");
+      option.value = preset.id;
+      option.textContent = preset.pluginName ? `${preset.name} (${preset.pluginName})` : preset.name;
+      presetSelect.append(option);
+    }
+    // Only preserve a prior selection if it's still a real saved preset --
+    // otherwise leave it on the placeholder (e.g. right after a delete).
+    presetSelect.value = nodeGraphClapHostState.presets.some((preset) => preset.id === previousValue)
+      ? previousValue
+      : "";
+    presetSelect.disabled = nodeGraphClapHostState.status !== "connected" || nodeGraphClapHostState.presets.length === 0;
+  }
+  if (presetSaveButton) {
+    presetSaveButton.disabled = nodeGraphClapHostUnderConstruction ||
+      nodeGraphClapHostState.status !== "connected" ||
+      !binding.catalogId;
+  }
+  if (presetDeleteButton) {
+    presetDeleteButton.disabled = nodeGraphClapHostUnderConstruction ||
+      nodeGraphClapHostState.status !== "connected" ||
+      !presetSelect?.value;
+  }
+  if (presetNameInput && !presetNameInput.value) {
+    presetNameInput.placeholder = binding.name ? `Preset name (e.g. "${binding.name} lead")` : "Preset name";
   }
   const selectedPlugin = nodeGraphClapSelectedCatalogPlugin(patchNode);
   const staleInstance = nodeGraphClapInstanceIsStale(binding.instanceId);
@@ -1474,11 +1663,13 @@ async function connectNodeGraphClapHost() {
     setNodeGraphClapHostStatus("connected");
     await refreshNodeGraphClapHostInstances();
     refreshNodeGraphClapHostPlugins();
+    refreshNodeGraphClapPresets();
   } catch (error) {
     nodeGraphClapHostState.version = "";
     nodeGraphClapHostState.capabilities = {};
     nodeGraphClapHostState.hostConfig = {};
     nodeGraphClapHostState.plugins = [];
+    nodeGraphClapHostState.presets = [];
     clearNodeGraphClapHostInstanceSummaries();
     nodeGraphClapHostState.parameterPayloads.clear();
     nodeGraphClapHostState.pluginCount = null;

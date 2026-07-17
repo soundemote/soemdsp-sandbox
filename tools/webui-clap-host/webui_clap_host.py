@@ -17,12 +17,14 @@ import json
 import math
 import os
 import queue
+import re
 import signal
 import struct
 import subprocess
 import sys
 import threading
 import time
+from datetime import datetime, timezone
 from ctypes import wintypes
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -1097,6 +1099,90 @@ def cached_discover_clap_plugins(server: Any, force_refresh: bool) -> dict[str, 
         )
         server.clap_catalog_cache = catalog
         return catalog
+
+
+# CLAP presets: a saved node configuration (plugin identity, params, saved
+# clap.state) written as a small JSON file in the host's preset folder.
+# Presets always create a fresh instance on load -- instanceId is never
+# stored, since it's scoped to one running host process's lifetime, not
+# portable across sessions. See docs/WEBUI_CLAP_HOST_PLAN.md "Design
+# Direction" for why presets are files here rather than a per-plugin
+# Module Browser catalog entry.
+def sanitize_clap_preset_id(name: str) -> str:
+    slug = re.sub(r"[^A-Za-z0-9_-]+", "-", str(name or "").strip()).strip("-")
+    return slug[:80] or "preset"
+
+
+def unique_clap_preset_id(presets_dir: Path, base_id: str) -> str:
+    candidate = base_id
+    suffix = 1
+    while (presets_dir / f"{candidate}.json").exists():
+        suffix += 1
+        candidate = f"{base_id}-{suffix}"
+    return candidate
+
+
+def list_clap_presets(presets_dir: Path) -> dict[str, Any]:
+    presets_dir.mkdir(parents=True, exist_ok=True)
+    records: list[dict[str, Any]] = []
+    for path in sorted(presets_dir.glob("*.json")):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        clap = data.get("clap") if isinstance(data.get("clap"), dict) else {}
+        records.append({
+            "id": path.stem,
+            "name": str(data.get("name") or path.stem),
+            "clapId": str(clap.get("clapId") or ""),
+            "pluginName": str(clap.get("name") or ""),
+            "vendor": str(clap.get("vendor") or ""),
+            "savedAt": str(data.get("savedAt") or ""),
+        })
+    return {"ok": True, "presets": records, "count": len(records)}
+
+
+def read_clap_preset(presets_dir: Path, preset_id: str) -> dict[str, Any] | None:
+    path = presets_dir / f"{sanitize_clap_preset_id(preset_id)}.json"
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def write_clap_preset(presets_dir: Path, payload: dict[str, Any]) -> dict[str, Any]:
+    presets_dir.mkdir(parents=True, exist_ok=True)
+    name = str(payload.get("name") or "").strip() or "Untitled Preset"
+    clap = payload.get("clap") if isinstance(payload.get("clap"), dict) else {}
+    if not clap.get("clapId") or not clap.get("path"):
+        raise ValueError("preset requires clap.clapId and clap.path")
+    # Host-instance-specific fields don't belong in a portable preset --
+    # loading a preset always creates a fresh instance (see module comment).
+    clean_clap = {
+        key: value for key, value in clap.items()
+        if key not in ("instanceId", "audioInputs", "audioOutputs")
+    }
+    record = {
+        "name": name,
+        "clap": clean_clap,
+        "params": payload.get("params") if isinstance(payload.get("params"), dict) else {},
+        "paramMeta": payload.get("paramMeta") if isinstance(payload.get("paramMeta"), dict) else {},
+        "savedAt": datetime.now(timezone.utc).isoformat(),
+    }
+    preset_id = unique_clap_preset_id(presets_dir, sanitize_clap_preset_id(name))
+    (presets_dir / f"{preset_id}.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
+    return {"ok": True, "id": preset_id, **record}
+
+
+def delete_clap_preset(presets_dir: Path, preset_id: str) -> bool:
+    path = presets_dir / f"{sanitize_clap_preset_id(preset_id)}.json"
+    if not path.is_file():
+        return False
+    path.unlink()
+    return True
 
 
 def host_diagnostics_payload(
@@ -2816,6 +2902,17 @@ class ClapHostRequestHandler(BaseHTTPRequestHandler):
             force_refresh = query.get("refresh", ["0"])[0].lower() in ("1", "true", "yes")
             self.write_json(200, cached_discover_clap_plugins(self.server, force_refresh))
             return
+        if path == "/presets":
+            self.write_json(200, list_clap_presets(self.server.clap_preset_dir))
+            return
+        preset_get_id = self.match_preset_route(path)
+        if preset_get_id:
+            record = read_clap_preset(self.server.clap_preset_dir, preset_get_id)
+            if record is None:
+                self.write_json(404, {"ok": False, "error": "unknown preset"})
+                return
+            self.write_json(200, {"ok": True, "id": preset_get_id, **record})
+            return
         if path == "/diagnostics":
             bind_host, bind_port = self.server.server_address[:2]
             self.write_json(
@@ -2935,6 +3032,13 @@ class ClapHostRequestHandler(BaseHTTPRequestHandler):
                 self.write_json(400, {"ok": False, "error": str(error)})
                 return
             self.write_json(201, instance_payload)
+            return
+        if path == "/presets":
+            try:
+                payload = self.read_json_body()
+                self.write_json(201, write_clap_preset(self.server.clap_preset_dir, payload))
+            except Exception as error:
+                self.write_json(400, {"ok": False, "error": str(error)})
             return
         if path == "/process-batch":
             try:
@@ -3090,6 +3194,13 @@ class ClapHostRequestHandler(BaseHTTPRequestHandler):
             instance.close()
             self.write_json(200, {"ok": True, "instanceId": instance_id, "deleted": True})
             return
+        preset_id = self.match_preset_route(path)
+        if preset_id:
+            if not delete_clap_preset(self.server.clap_preset_dir, preset_id):
+                self.write_json(404, {"ok": False, "error": "unknown preset"})
+                return
+            self.write_json(200, {"ok": True, "id": preset_id, "deleted": True})
+            return
         self.write_json(404, {"ok": False, "error": "unknown endpoint"})
 
     def read_json_body(self) -> dict[str, Any]:
@@ -3113,6 +3224,13 @@ class ClapHostRequestHandler(BaseHTTPRequestHandler):
                 return ""
             return remainder[: -len(suffix)].strip("/")
         return remainder.strip("/")
+
+    @staticmethod
+    def match_preset_route(path: str) -> str:
+        prefix = "/presets/"
+        if not path.startswith(prefix):
+            return ""
+        return path[len(prefix):].strip("/")
 
     def write_json(self, status: int, payload: dict[str, Any]) -> None:
         body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
@@ -3147,6 +3265,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
         action="append",
         default=[],
         help="explicit .clap path to include in the catalog; may be provided more than once",
+    )
+    parser.add_argument(
+        "--preset-dir",
+        default="",
+        help="folder to read/write saved CLAP presets; default <script folder>/presets",
     )
     parser.add_argument(
         "--inspect-metadata",
@@ -3193,6 +3316,10 @@ def main() -> int:
     server.clap_test_instantiate = bool(args.test_instantiate)
     server.clap_instances = {}
     server.clap_instances_lock = threading.RLock()
+    server.clap_preset_dir = (
+        Path(args.preset_dir).expanduser() if args.preset_dir
+        else Path(__file__).resolve().parent / "presets"
+    )
     # Descriptor inspection spawns one isolated probe subprocess per
     # discovered .clap file -- with metadata inspection on, a real plugin
     # folder can take several seconds to scan, which used to happen fresh

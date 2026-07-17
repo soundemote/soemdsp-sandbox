@@ -187,35 +187,73 @@ Remaining from the original re-enablement checklist:
    `latencyFrames` of output remain zero. Proper fix: pre-query latency from
    host before render, add to `engineFrames`, trim output).
 
-## Design Direction (2026-07-16)
+## Design Direction (2026-07-16) — CLAP Presets
 
 Discussed and agreed: a discovered-but-unconfigured `CLAP Plugin` module
 stays a single generic catalog entry (not one entry per installed plugin —
 that would need the Module Browser to merge in a dynamic, host-dependent
-list, which is materially more work for a static-catalog UI). Instead:
+list, which is materially more work for a static-catalog UI). Instead, a
+configured node (plugin selected, params set) is already a complete,
+self-describing preset, since patch nodes are plain JSON
+(`clap: {catalogId, clapId, path, name, ...}`, `params`, saved
+`clap.state`) — so presets reuse that shape rather than inventing a new
+data model, and copy/duplicate of a configured node already worked before
+any of this for reuse *within* a session.
 
-- A configured node (plugin selected, params set) is already a complete,
-  self-describing preset, since patch nodes are plain JSON
-  (`clap: {catalogId, clapId, path, name, ...}`, `params`, saved
-  `clap.state`). No new data model needed.
-- Copy/duplicate of a configured `CLAP Plugin` node already works today via
-  the existing generic node copy/duplicate actions — reuse *within* a
-  session needs no new code.
-- Cross-session/cross-patch reuse needs a "Save as CLAP Preset" action that
-  exports that JSON as a small file (piggybacking on the existing
-  patch-file save/export machinery in `node-graph-file-actions.js`), plus a
-  small local preset list the Module Browser's CLAP category can read —
-  when empty, only the generic `CLAP Plugin` shell shows, same as today.
-- Loading a saved preset always creates a **fresh** host instance (never
-  tries to reconnect to a persisted `instanceId` — those are scoped to one
-  running host process's lifetime) and replays params/state onto it, the
-  same way patch reload already restores CLAP state today.
-- Multiple `CLAP Plugin` nodes/instances in one patch already work — the
-  host's instance table already supports many concurrent instances behind
-  one running host process; nothing new needed there.
+### Implemented (2026-07-17)
 
-Not yet built: the "Save as CLAP Preset" action and the preset-driven
-Module Browser section.
+Presets are files, matching the same "native host owns filesystem access"
+boundary CLAP plugin discovery already uses — the browser never touches
+the preset folder directly.
+
+Host (`tools/webui-clap-host/webui_clap_host.py`):
+
+- `--preset-dir` (default `<script folder>/presets`, auto-created).
+- `GET /presets` — list saved presets (id, name, plugin identity, saved
+  timestamp); `GET /presets/:id` — full preset content.
+- `POST /presets` — save one; strips `instanceId`/`audioInputs`/
+  `audioOutputs` from the stored `clap` binding (those are host-instance-
+  specific, not portable) and assigns a slugified, de-duplicated id.
+- `DELETE /presets/:id` — remove one.
+
+Browser (`public/node-graph-clap-host.js`):
+
+- Every `CLAP Plugin` node now has a preset picker row: a `<select>` of
+  saved presets, a name `<input>`, "Save as Preset", and "Delete Preset"
+  (deletes whichever preset is currently selected in the picker).
+- `saveNodeGraphClapPluginPreset` freshens saved `clap.state` first (if a
+  live instance exists, via the existing `saveNodeGraphClapPluginState`),
+  then `POST`s the node's current `clap`/`params`/`paramMeta`.
+- `loadNodeGraphClapPluginPreset` fetches the preset, applies it onto the
+  node, then calls the existing `createNodeGraphClapPluginInstance` —
+  which already restores saved `clap.state` when present, or otherwise
+  syncs the preset's stored params onto the fresh instance via the
+  existing `refreshNodeGraphClapPluginParameters` →
+  `syncStoredNodeGraphClapParametersToHost` path. No new instance-creation
+  or parameter-sync logic was needed; presets just feed the existing
+  patch-reload-restore machinery.
+- Always a **fresh** host instance — a preset never stores or reconnects
+  to a persisted `instanceId`, since those are scoped to one running host
+  process's lifetime.
+- Empty preset list → picker just shows "No saved presets", node behaves
+  exactly like the bare generic shell (nothing conditionally hidden).
+
+Verified live against the real local host: saved a configured `Crisp`
+instance (with a parameter changed from its default) as a preset, deleted
+that instance, placed a brand-new generic `CLAP Plugin` node, loaded the
+preset onto it, and confirmed a genuinely fresh instance id, the plugin's
+real saved `clap.state` restored, and the changed parameter value
+(`0.77`) present on the new instance. Delete-preset round-tripped
+correctly (list goes back to empty). No console errors; full smoke suite
+passes.
+
+Multiple `CLAP Plugin` nodes/instances in one patch already worked before
+any of this — the host's instance table already supports many concurrent
+instances behind one running host process.
+
+Not built: exporting/importing a preset as a downloadable file for
+cross-machine sharing (current presets live in the host's local preset
+folder only, same machine/host-process scope as everything else CLAP).
 
 ## Phase 3: Plugin Discovery
 

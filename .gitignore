@@ -7,3 +7,4 @@ sandbox-preview.png
 *.bak
 public/presets/useruisettings.json
 public/presets/useruisettings.js
+tools/webui-clap-host/presets/
