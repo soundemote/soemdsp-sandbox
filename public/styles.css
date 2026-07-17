@@ -1393,15 +1393,19 @@ html.soemdsp-hide-ui .status-strip {
 }
 
 .node-standalone-midi-keyboard-dock .node-macro-controls-panel {
-  /* The macro row is a fixed 5-column grid (10 knobs -> 2 rows), see
-     .node-macro-controls-module .node-macro-controls-row -- an explicit
-     max-height here (previously 120px) clipped the second row under
-     .node-macro-controls-panel's own overflow: hidden. Let it size to
-     its natural content height instead; the dock row is already `auto`
-     (see .node-standalone-midi-keyboard-dock's grid-template-rows) so
-     this doesn't grow unbounded, and the keyboard row above shrinks to
-     fit within the dock's overall max-height budget. */
+  /* Was clipping the knob row's second line under this panel's own
+     overflow: hidden (see the single-row override below, which now
+     avoids a second line entirely, but keep this unbounded rather than
+     re-introduce a magic-number cap). */
   max-height: none;
+}
+
+/* The node body's default (.node-macro-controls-module .node-macro-controls-row,
+   above) wraps to 2 rows of 5 -- appropriate for a narrow graph node, but
+   the dock is wide enough (up to 1100px) to fit all 10 on one row. Scoped
+   to the dock only; the macroControls node itself is unchanged. */
+.node-standalone-midi-keyboard-dock .node-macro-controls-module .node-macro-controls-row {
+  grid-template-columns: repeat(10, minmax(40px, 1fr));
 }
 
 .node-midi-keyboard-heading {
