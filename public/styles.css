@@ -1395,13 +1395,23 @@ html.soemdsp-hide-ui .status-strip {
 
 .node-standalone-performance-row {
   display: grid;
-  /* Wheel column wide enough for two wheels side by side (not stacked
-     vertically -- a vertical stack doubles the column's height for no
-     benefit when the keyboard next to it is already setting the row's
-     height). */
-  grid-template-columns: minmax(120px, 22%) minmax(0, 1fr);
+  /* Was minmax(140px, 22%), sized for two wheels side by side -- now that
+     they're stacked vertically (see the wheel-bank override below), each
+     wheel only needs to be wide enough to read its label, not a fifth of
+     the dock's width. Freed width goes to the keys instead. */
+  grid-template-columns: 64px minmax(0, 1fr);
   gap: 8px;
   min-height: 0;
+}
+
+/* Pitch and mod wheel stacked vertically in the dock instead of side by
+   side -- this is a deliberate, explicitly requested exception to
+   "keep everything horizontal": stacked wheels read better and take no
+   more height than the keyboard already needs. Scoped to the dock
+   only; the wheels inside a placed pitchModWheel node are unaffected. */
+.node-standalone-midi-keyboard-dock .node-midi-keyboard-wheel-bank {
+  grid-template-columns: 1fr;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
 }
 
 .node-standalone-midi-keyboard-dock .node-midi-keyboard-panel,
@@ -1438,11 +1448,23 @@ html.soemdsp-hide-ui .status-strip {
    and lets the controls wrap onto a second line; the dock has no
    title to share space with (hidden above) so the controls can run
    as a single flex row instead. */
-.node-standalone-midi-keyboard-dock .node-midi-keyboard-heading {
+/* Specificity note: .node-midi-keyboard-module .node-midi-keyboard-heading
+   (below) sets display: grid with a title/controls column split -- since
+   every dock surface also carries .node-midi-keyboard-module, that rule
+   ties with this one and wins on source order. Match its selector shape
+   (module + heading, doubled dock class to outrank it) so the dock
+   actually gets the single-row flex layout instead of a grid column the
+   hidden title's now-empty track leaves the controls stranded in. */
+.node-standalone-midi-keyboard-dock.node-standalone-midi-keyboard-dock .node-midi-keyboard-heading {
   display: flex;
 }
 
-.node-standalone-midi-keyboard-dock .node-midi-keyboard-midi-controls {
+/* Specificity note: .node-midi-keyboard-module .node-midi-keyboard-heading
+   > .node-midi-keyboard-midi-controls (below) sets flex-wrap: wrap and
+   would otherwise win here since every dock surface also carries the
+   .node-midi-keyboard-module class -- match its selector shape so this
+   override actually applies. */
+.node-standalone-midi-keyboard-dock.node-standalone-midi-keyboard-dock .node-midi-keyboard-heading > .node-midi-keyboard-midi-controls {
   flex-wrap: nowrap;
   justify-content: flex-start;
 }
