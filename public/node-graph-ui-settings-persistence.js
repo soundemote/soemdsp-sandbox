@@ -481,6 +481,9 @@ function normalizeNodeUiDevSettings(settings = {}) {
   const nodeColors = settings.nodeColors && typeof settings.nodeColors === "object"
     ? settings.nodeColors
     : {};
+  const moduleDefaultOverrides = settings.moduleDefaultOverrides && typeof settings.moduleDefaultOverrides === "object"
+    ? settings.moduleDefaultOverrides
+    : {};
   const view = settings.view && typeof settings.view === "object"
     ? settings.view
     : {};
@@ -489,6 +492,19 @@ function normalizeNodeUiDevSettings(settings = {}) {
     if (property.startsWith("--")) {
       normalizedColors[property] = normalizeNodeUiDevColor(value);
     }
+  }
+  const normalizedModuleDefaultOverrides = {};
+  for (const [type, override] of Object.entries(moduleDefaultOverrides)) {
+    if (!Object.hasOwn(nodeGraphModuleDefinitions, type) || !override || typeof override !== "object") {
+      continue;
+    }
+    const snapshot = {};
+    for (const field of nodeGraphModuleSettingsFields) {
+      if (Object.hasOwn(override, field)) {
+        snapshot[field] = override[field];
+      }
+    }
+    normalizedModuleDefaultOverrides[type] = snapshot;
   }
   const gridVisible = view.gridVisible ?? controls.gridVisible ?? controls.showGrid ?? nodeGraphMvp.gridVisible;
   const keyboardDebugInfoVisible = Boolean(view.keyboardDebugInfoVisible ?? nodeGraphMvp.keyboardDebugInfoVisible);
@@ -635,6 +651,7 @@ function normalizeNodeUiDevSettings(settings = {}) {
       ]),
     ),
     nodeColors: normalizedColors,
+    moduleDefaultOverrides: normalizedModuleDefaultOverrides,
     view: {
       gridVisible: Boolean(gridVisible),
       keyboardDebugInfoVisible,
@@ -716,6 +733,7 @@ function readNodeUiDevSettingsFromControls(options = {}) {
     controls,
     exposedControls,
     nodeColors,
+    moduleDefaultOverrides: nodeGraphMvp.moduleDefaultOverrides,
     view: {
       gridVisible: Boolean(nodeGraphMvp.gridVisible),
       keyboardDebugInfoVisible: Boolean(nodeGraphMvp.keyboardDebugInfoVisible),
@@ -820,6 +838,7 @@ function applyNodeUiDevSettings(settings) {
       input.value = color;
     }
   }
+  nodeGraphMvp.moduleDefaultOverrides = normalized.moduleDefaultOverrides;
   nodeGraphMvp.gridVisible = Boolean(normalized.view.gridVisible);
   nodeGraphMvp.keyboardDebugInfoVisible = Boolean(normalized.view.keyboardDebugInfoVisible);
   nodeGraphMvp.moduleButtonsVisible = Boolean(normalized.view.moduleButtonsVisible);

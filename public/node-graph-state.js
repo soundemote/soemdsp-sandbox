@@ -127,6 +127,8 @@ var nodeGraphMvp = {
   keyboardDebugInfoVisible: false,
   modularOnlyControlsVisible: false,
   moduleButtonsVisible: false,
+  moduleDefaultOverrides: {},
+  moduleSettingsClipboard: null,
   moduleInterfaceControlsVisible: true,
   moduleOscilloscopesVisible: false,
   modulePlacement: null,

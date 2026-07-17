@@ -611,6 +611,9 @@ function nodeGraphContextTargetSliderReadout(nodeId = nodeGraphModuleActionTarge
 
 const nodeGraphModuleActionControlIds = [
   "nodeSceneCopyModule",
+  "nodeSceneCopyModuleSettings",
+  "nodeScenePasteModuleSettings",
+  "nodeSceneSetModuleSettingsAsDefault",
   "nodeSceneSelectedModule",
   "nodeSceneAddToGroup",
   "nodeSceneAddToUi",
@@ -835,6 +838,9 @@ function configureNodeSceneContextMenu(mode) {
   const sceneMenu = document.getElementById("nodeSceneContextMenu");
   const moduleActionsWindow = document.getElementById("nodeModuleActionsWindow");
   const copyButton = document.getElementById("nodeSceneCopyModule");
+  const copySettingsButton = document.getElementById("nodeSceneCopyModuleSettings");
+  const pasteSettingsButton = document.getElementById("nodeScenePasteModuleSettings");
+  const setDefaultButton = document.getElementById("nodeSceneSetModuleSettingsAsDefault");
   const moduleActionsWindowButton = document.getElementById("nodeSceneOpenModuleActions");
   const metaparametersWindowButton = document.getElementById("nodeSceneOpenMetaparameters");
   const addToGroupButton = document.getElementById("nodeSceneAddToGroup");
@@ -1026,6 +1032,15 @@ function configureNodeSceneContextMenu(mode) {
     setNodeGraphModuleActionControlsHidden(false);
   }
   copyButton.hidden = !moduleMode;
+  if (copySettingsButton) {
+    copySettingsButton.hidden = !moduleMode || multiModuleMode;
+  }
+  if (pasteSettingsButton) {
+    pasteSettingsButton.hidden = !moduleMode || multiModuleMode;
+  }
+  if (setDefaultButton) {
+    setDefaultButton.hidden = !moduleMode || multiModuleMode;
+  }
   addToGroupButton.hidden = !moduleMode;
   const targetIsGraphType = nodeGraphModuleIsGraphType(targetNode?.type);
   if (addToUiButton) {
@@ -1095,6 +1110,30 @@ function configureNodeSceneContextMenu(mode) {
       : targetNode
         ? nodeGraphTooltipText("actions.copyUnavailableOutput")
         : nodeGraphTooltipText("actions.copyUnavailableOneModule");
+    const settingsClipboard = nodeGraphMvp.moduleSettingsClipboard;
+    const canPasteSettings = Boolean(targetNode) && Boolean(settingsClipboard) && settingsClipboard.type === targetNode?.type;
+    if (copySettingsButton) {
+      copySettingsButton.disabled = !targetNode;
+      copySettingsButton.title = targetNode
+        ? "Copy this module's settings to paste onto another module of the same type."
+        : "Select a module to copy its settings.";
+    }
+    if (pasteSettingsButton) {
+      pasteSettingsButton.disabled = !canPasteSettings;
+      pasteSettingsButton.title = !targetNode
+        ? "Select a module to paste settings onto."
+        : !settingsClipboard
+          ? "Copy a module's settings first."
+          : settingsClipboard.type !== targetNode.type
+            ? `Clipboard holds ${settingsClipboard.type} settings, not ${targetNode.type}.`
+            : "Paste the copied settings onto this module.";
+    }
+    if (setDefaultButton) {
+      setDefaultButton.disabled = !targetNode;
+      setDefaultButton.title = targetNode
+        ? `Save these settings as the default for new ${targetNode.type} modules.`
+        : "Select a module to set its default settings.";
+    }
     addToGroupButton.disabled = true;
     addToGroupButton.setAttribute("aria-disabled", "true");
     addToGroupButton.classList.add("node-under-construction-control");

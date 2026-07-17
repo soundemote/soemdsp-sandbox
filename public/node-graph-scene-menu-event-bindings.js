@@ -43,6 +43,9 @@ function bindNodeGraphSceneMenuEvents() {
       button.addEventListener("click", () => setSelectedNodeGraphWireType(button.dataset.wireType));
     });
   bindNodeGraphSceneElementEvent("nodeSceneCopyModule", "click", copyNodeGraphModuleFromContext);
+  bindNodeGraphSceneElementEvent("nodeSceneCopyModuleSettings", "click", copyNodeGraphModuleSettingsFromContext);
+  bindNodeGraphSceneElementEvent("nodeScenePasteModuleSettings", "click", pasteNodeGraphModuleSettingsFromContext);
+  bindNodeGraphSceneElementEvent("nodeSceneSetModuleSettingsAsDefault", "click", setNodeGraphModuleSettingsAsDefaultFromButton);
   bindNodeGraphSceneElementEvent("nodeSceneToggleModularOnlyView", "click", toggleNodeGraphModularOnlyView);
   bindNodeGraphSceneElementEvent("nodeSceneToggleModularOnlyControls", "click", toggleNodeGraphViewButtonsVisibility);
   bindNodeGraphSceneElementEvent("nodeSceneOpenModuleBrowser", "click", () => {

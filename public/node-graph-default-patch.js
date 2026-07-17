@@ -1,49 +1,83 @@
+// User-level "set as default" overrides for a module TYPE (see
+// node-graph-module-actions.js) are lower priority than an explicit caller
+// option but higher priority than the module definition's hardcoded
+// defaultValue -- so every "add a module" call site automatically picks up
+// the user's saved defaults for that type without having to know about them.
+function nodeGraphModuleDefaultOverrideForType(type) {
+  const overrides = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.moduleDefaultOverrides : null;
+  return overrides && typeof overrides === "object" && overrides[type] && typeof overrides[type] === "object"
+    ? overrides[type]
+    : null;
+}
+
 function createNodeGraphPatchNode(type, options = {}) {
+  const override = nodeGraphModuleDefaultOverrideForType(type);
+  const opts = override ? { ...override, ...options } : options;
   const node = {
-    gx: Number.isFinite(Number(options.gx)) ? Number(options.gx) : 0,
-    gy: Number.isFinite(Number(options.gy)) ? Number(options.gy) : 0,
-    id: String(options.id || type),
+    gx: Number.isFinite(Number(opts.gx)) ? Number(opts.gx) : 0,
+    gy: Number.isFinite(Number(opts.gy)) ? Number(opts.gy) : 0,
+    id: String(opts.id || type),
     paramMeta: nodeGraphDefaultParamMetaForType(type),
     params: nodeGraphDefaultParamsForType(type),
     type,
   };
-  if (Object.hasOwn(options, "widthGu")) {
-    node.widthGu = normalizeNodeGraphModuleWidthUnits(type, options.widthGu);
+  const paramsOverride = opts.params && typeof opts.params === "object" ? opts.params : null;
+  if (paramsOverride) {
+    for (const key of Object.keys(node.params)) {
+      if (!Object.hasOwn(paramsOverride, key)) {
+        continue;
+      }
+      const value = Number(paramsOverride[key]);
+      if (Number.isFinite(value)) {
+        node.params[key] = value;
+      }
+    }
   }
-  const alias = normalizeNodeGraphPatchNodeAlias(options.alias);
+  const paramMetaOverride = opts.paramMeta && typeof opts.paramMeta === "object" ? opts.paramMeta : null;
+  if (paramMetaOverride) {
+    for (const key of Object.keys(node.paramMeta)) {
+      if (Object.hasOwn(paramMetaOverride, key) && paramMetaOverride[key] && typeof paramMetaOverride[key] === "object") {
+        node.paramMeta[key] = { ...node.paramMeta[key], ...paramMetaOverride[key] };
+      }
+    }
+  }
+  if (Object.hasOwn(opts, "widthGu")) {
+    node.widthGu = normalizeNodeGraphModuleWidthUnits(type, opts.widthGu);
+  }
+  const alias = normalizeNodeGraphPatchNodeAlias(opts.alias);
   if (alias) {
     node.alias = alias;
   }
-  const ui = nodeGraphModuleDefinitions[type]?.layout === "textBox" && !Object.hasOwn(options, "ui")
+  const ui = nodeGraphModuleDefinitions[type]?.layout === "textBox" && !Object.hasOwn(opts, "ui")
     ? { buttonsHidden: true }
-    : normalizeNodeGraphPatchNodeUi(options.ui);
+    : normalizeNodeGraphPatchNodeUi(opts.ui);
   if (ui.buttonsHidden || ui.titleHidden) {
     node.ui = ui;
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "textBox") {
-    node.layout = normalizeNodeGraphTextBoxLayout(options.layout);
+    node.layout = normalizeNodeGraphTextBoxLayout(opts.layout);
   } else if (nodeGraphModuleDefinitions[type]?.layout === "image") {
-    node.layout = normalizeNodeGraphImageLayout(options.layout);
+    node.layout = normalizeNodeGraphImageLayout(opts.layout);
   } else if (nodeGraphModuleDefinitions[type]?.layout === "led") {
-    node.led = normalizeNodeGraphLedLayout(options.led);
+    node.led = normalizeNodeGraphLedLayout(opts.led);
   }
   if (nodeGraphModuleIsGraphType(type)) {
-    node.graph = normalizeNodeGraphGraph(options.graph);
+    node.graph = normalizeNodeGraphGraph(opts.graph);
   }
   if (type === "codeblock") {
-    node.codeblock = normalizeNodeGraphCodeblock(options.codeblock);
+    node.codeblock = normalizeNodeGraphCodeblock(opts.codeblock);
   }
   if (type === "scriptBox") {
-    node.scriptBox = normalizeNodeGraphScriptBox(options.scriptBox);
+    node.scriptBox = normalizeNodeGraphScriptBox(opts.scriptBox);
   }
   if (type === "canvas") {
-    node.canvasScript = normalizeNodeGraphCanvasScript(options.canvasScript);
+    node.canvasScript = normalizeNodeGraphCanvasScript(opts.canvasScript);
   }
   if (type === "screenSpaceShader") {
-    node.screenSpaceShader = normalizeNodeGraphScreenSpaceShader(options.screenSpaceShader);
+    node.screenSpaceShader = normalizeNodeGraphScreenSpaceShader(opts.screenSpaceShader);
   }
-  if (Object.hasOwn(options, "scopeShader")) {
-    node.scopeShader = normalizeNodeGraphScopeShader(options.scopeShader);
+  if (Object.hasOwn(opts, "scopeShader")) {
+    node.scopeShader = normalizeNodeGraphScopeShader(opts.scopeShader);
   }
   if (type === "moduleGroup") {
     node.moduleGroup = normalizeNodeGraphModuleGroup(options.moduleGroup);

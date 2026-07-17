@@ -616,6 +616,103 @@ function copyNodeGraphModuleFromContext() {
   configureNodeSceneContextMenu("module");
 }
 
+// The subset of a node's fields that count as "settings" for the Copy
+// Settings / Paste Settings / Set as Default actions -- everything about a
+// module except its grid position/id/type. Deliberately excludes
+// `moduleGroup` (a full nested sub-patch) and `clap` (a plugin instance
+// binding) since those aren't meaningfully "default-able" per module type.
+const nodeGraphModuleSettingsFields = Object.freeze([
+  "alias",
+  "widthGu",
+  "ui",
+  "layout",
+  "led",
+  "graph",
+  "codeblock",
+  "scriptBox",
+  "canvasScript",
+  "screenSpaceShader",
+  "scopeShader",
+  "paramMeta",
+  "params",
+]);
+
+function nodeGraphModuleSettingsSnapshot(node) {
+  const snapshot = {};
+  for (const field of nodeGraphModuleSettingsFields) {
+    if (Object.hasOwn(node, field)) {
+      snapshot[field] = JSON.parse(JSON.stringify(node[field]));
+    }
+  }
+  return snapshot;
+}
+
+// Re-runs the settings through createNodeGraphPatchNode so every field gets
+// the same normalization/validation a freshly-created node would get.
+function applyNodeGraphModuleSettingsSnapshot(targetNode, snapshot) {
+  const merged = createNodeGraphPatchNode(targetNode.type, {
+    id: targetNode.id,
+    gx: targetNode.gx,
+    gy: targetNode.gy,
+    ...snapshot,
+  });
+  for (const field of nodeGraphModuleSettingsFields) {
+    if (Object.hasOwn(merged, field)) {
+      targetNode[field] = merged[field];
+    } else {
+      delete targetNode[field];
+    }
+  }
+}
+
+function copyNodeGraphModuleSettingsFromContext() {
+  const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
+  if (!sourceNode) {
+    return;
+  }
+  nodeGraphMvp.moduleSettingsClipboard = {
+    type: sourceNode.type,
+    settings: nodeGraphModuleSettingsSnapshot(sourceNode),
+  };
+  setNodeInteractionHelp(`${nodeGraphNodeDisplayName(sourceNode.id)} settings copied.`);
+  configureNodeSceneContextMenu("module");
+}
+
+function pasteNodeGraphModuleSettingsFromContext() {
+  const clipboard = nodeGraphMvp.moduleSettingsClipboard;
+  const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
+  if (!clipboard || !sourceNode || clipboard.type !== sourceNode.type) {
+    return;
+  }
+  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+  const targetNode = patch.nodes.find((node) => node.id === sourceNode.id);
+  if (!targetNode) {
+    return;
+  }
+  applyNodeGraphModuleSettingsSnapshot(targetNode, clipboard.settings);
+  commitNodeGraphPatch(patch, { status: "module settings pasted" });
+  configureNodeSceneContextMenu("module");
+}
+
+async function setNodeGraphModuleSettingsAsDefaultFromButton(event) {
+  const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
+  if (!sourceNode) {
+    return;
+  }
+  if (!confirmNodeGraphDefaultButtonClick(event.currentTarget, () => {
+    setNodeInteractionHelp(`Click again to save these settings as the default for new ${sourceNode.type} modules.`);
+  }, { confirmText: "Confirm Default" })) {
+    return;
+  }
+  nodeGraphMvp.moduleDefaultOverrides = {
+    ...nodeGraphMvp.moduleDefaultOverrides,
+    [sourceNode.type]: nodeGraphModuleSettingsSnapshot(sourceNode),
+  };
+  saveNodeUiDevLocalDefaultSettings(serializeNodeUiDevSettings());
+  flashNodeGraphDefaultButtonSaved(event.currentTarget);
+  setNodeInteractionHelp(`Default settings saved for ${sourceNode.type}.`);
+}
+
 function addNodeGraphModuleToUiFromContext() {
   const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
   if (!sourceNode) {
