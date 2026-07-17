@@ -14033,14 +14033,28 @@ button.saved-default,
   grid-template-columns: calc(var(--node-floating-window-button-height) + 4px) minmax(0, 1fr) auto;
 }
 
-/* Icon-only buttons (no label span, e.g. View Buttons) collapse to a
-   single column so the icon centers across the whole button instead of
-   sitting in the narrow icon column with an empty label column beside it. */
+/* Icon-only buttons (no label span, e.g. Modular View/View Buttons)
+   collapse to a single column so the icon centers across the whole
+   button instead of sitting in the narrow icon column with an empty
+   label column beside it. Fixed height (not min-height) so a stacked
+   kbd badge can't grow the button taller than its siblings -- the
+   badge is pulled out of flow (absolute, see below) instead. */
 .scene-context-window-controls .scene-context-window-button:not(:has(.scene-context-window-button-label)) {
+  position: relative;
   grid-template-columns: minmax(0, 1fr);
+  height: var(--node-floating-window-button-height);
 }
 
-.scene-context-window-controls .scene-context-window-button kbd {
+.scene-context-window-controls .scene-context-window-button:not(:has(.scene-context-window-button-label)) kbd {
+  position: absolute;
+  right: 3px;
+  bottom: 1px;
+  padding: 0;
+  font-size: 0.55rem;
+  line-height: 1;
+}
+
+.scene-context-window-controls .scene-context-window-button:has(.scene-context-window-button-label) kbd {
   align-self: center;
   padding-right: 8px;
 }
