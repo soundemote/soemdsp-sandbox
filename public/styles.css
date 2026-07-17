@@ -1725,7 +1725,6 @@ html.soemdsp-hide-ui .status-strip {
   border-radius: 50%;
   background:
     conic-gradient(from -132deg, rgba(241, 184, 75, 0.88) calc(var(--macro-value, 0) * 264deg), rgba(243, 241, 236, 0.08) 0),
-    radial-gradient(circle at 38% 28%, rgba(243, 241, 236, 0.36), transparent 20%),
     #151a20;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.34);
   pointer-events: none;
