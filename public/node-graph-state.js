@@ -124,6 +124,7 @@ var nodeGraphMvp = {
   moduleActionWindowPosition: null,
   moduleCatalogVisibility: defaultNodeGraphModuleCatalogVisibility(),
   workspaceWindowStates: {},
+  modularOnlyControlsVisible: true,
   moduleButtonsVisible: false,
   moduleInterfaceControlsVisible: true,
   moduleOscilloscopesVisible: false,

@@ -1028,6 +1028,18 @@ audio {
   position: relative;
 }
 
+/* "View Buttons" off in the Command Center: hide the back button and resize
+   handle, and let the workspace fill the viewport edge-to-edge instead of
+   being contained to its saved grid size. */
+.node-wiring-panel.modular-only-view.modular-only-controls-hidden {
+  --node-modular-only-inset: 0px;
+}
+
+.node-wiring-panel.modular-only-controls-hidden .node-modular-only-back-button,
+.node-wiring-panel.modular-only-controls-hidden .node-graph-resize-handle {
+  display: none !important;
+}
+
 /* Full-screen "no nonsense" embed (?hideui=1): kill remaining chrome. */
 .soemdsp-hide-ui .node-wiring-panel.modular-only-view {
   --node-modular-only-inset: 0px;
@@ -13818,6 +13830,22 @@ button.saved-default,
   justify-items: center;
   padding-inline: 0;
   text-align: center;
+}
+
+.scene-context-modular-view-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+  border: 1px solid rgba(226, 168, 109, 0.24);
+}
+
+.scene-context-modular-view-controls .scene-context-window-button {
+  border: 0;
+  border-radius: 0;
+}
+
+.scene-context-modular-view-controls .scene-context-window-button + .scene-context-window-button {
+  border-left: 1px solid rgba(127, 199, 217, 0.16);
 }
 
 .scene-context-patch-actions {

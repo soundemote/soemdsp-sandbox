@@ -15513,6 +15513,23 @@ def require_node_graph_mvp_contract() -> None:
     )
 
     require(
+        'id="nodeSceneToggleModularOnlyView" class="scene-context-window-button" type="button" aria-pressed="false">' in index_source
+        and '<span class="scene-context-window-button-icon" aria-hidden="true">🎛️</span>' in index_source
+        and 'id="nodeSceneToggleModularOnlyControls" class="scene-context-window-button" type="button" aria-pressed="false">' in index_source
+        and '<span class="scene-context-window-button-icon" aria-hidden="true">🔘</span>' in index_source
+        and 'bindNodeGraphSceneElementEvent("nodeSceneToggleModularOnlyView", "click", () => {' in node_graph_source
+        and 'bindNodeGraphSceneElementEvent("nodeSceneToggleModularOnlyControls", "click", () => {' in node_graph_source
+        and "function setNodeGraphModularOnlyControlsVisible(visible)" in node_graph_source
+        and "function toggleNodeGraphModularOnlyControlsVisible()" in node_graph_source
+        and "modularOnlyControlsVisible: true," in script_sources["./public/node-graph-state.js"]
+        and "const modularOnlyExpanded = nodeGraphMvp.modularOnlyControlsVisible === false" in node_graph_source
+        and ".node-wiring-panel.modular-only-view.modular-only-controls-hidden {\n  --node-modular-only-inset: 0px;" in style_source
+        and ".node-wiring-panel.modular-only-controls-hidden .node-modular-only-back-button,\n.node-wiring-panel.modular-only-controls-hidden .node-graph-resize-handle {\n  display: none !important;" in style_source
+        and ".scene-context-modular-view-controls {" in style_source,
+        "Command Center should have a Modular View toggle and a View Buttons on/off toggle that hides the back button/resize handle and expands the modular workspace edge-to-edge",
+    )
+
+    require(
         "--node-move-cursor: move;" in style_source
         and ".node-drag-handle {\n  font-size: clamp(1rem, calc(var(--node-header-height) * var(--node-move-symbol-size-ratio, 0.6) * 0.47), 2rem);\n  cursor: var(--node-move-cursor);" in style_source
         and "font-weight: 700;\n  line-height: 1;\n  cursor: var(--node-move-cursor);" in style_source

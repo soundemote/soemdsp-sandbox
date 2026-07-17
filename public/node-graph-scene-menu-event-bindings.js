@@ -43,6 +43,13 @@ function bindNodeGraphSceneMenuEvents() {
       button.addEventListener("click", () => setSelectedNodeGraphWireType(button.dataset.wireType));
     });
   bindNodeGraphSceneElementEvent("nodeSceneCopyModule", "click", copyNodeGraphModuleFromContext);
+  bindNodeGraphSceneElementEvent("nodeSceneToggleModularOnlyView", "click", () => {
+    const modularOnlyActive = document.getElementById("nodeWiringPanel")?.classList.contains("modular-only-view");
+    setNodeGraphViewMode(modularOnlyActive ? "modular" : "modular-only");
+  });
+  bindNodeGraphSceneElementEvent("nodeSceneToggleModularOnlyControls", "click", () => {
+    toggleNodeGraphModularOnlyControlsVisible();
+  });
   bindNodeGraphSceneElementEvent("nodeSceneOpenModuleBrowser", "click", () => {
     openNodeGraphModuleShop(nodeGraphMvp.sceneContextPoint);
   });

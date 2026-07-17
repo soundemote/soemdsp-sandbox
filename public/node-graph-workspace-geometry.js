@@ -16,14 +16,18 @@ function applyNodeGraphWorkspaceView() {
   workspace.style.setProperty("--node-grid-height", `${nodeGraphGridHeight()}px`);
   workspace.style.setProperty("--node-grid-size", `${nodeGraphGridSize()}px`);
   workspace.style.setProperty("--node-grid-width", `${nodeGraphGridWidth()}px`);
+  // "View Buttons" off: let the modular-only workspace fill the viewport
+  // edge-to-edge instead of clamping it to the patch's saved grid size.
+  const modularOnlyExpanded = nodeGraphMvp.modularOnlyControlsVisible === false
+    && Boolean(workspace.closest(".node-wiring-panel.modular-only-view"));
   const view = normalizeNodeGraphPatchView(nodeGraphMvp.patch.view);
   const visibleView = view.widthGu > 0 && view.heightGu > 0
     ? clampNodeGraphWorkspaceGridSizeToViewport(view, workspace)
     : view;
-  const widthCss = visibleView.widthGu > 0
+  const widthCss = !modularOnlyExpanded && visibleView.widthGu > 0
     ? nodeGraphWorkspaceWidthCss(visibleView.widthGu * nodeGraphGridWidth())
     : null;
-  const heightCss = visibleView.heightGu > 0
+  const heightCss = !modularOnlyExpanded && visibleView.heightGu > 0
     ? nodeGraphWorkspaceHeightCss(visibleView.heightGu * nodeGraphGridHeight())
     : null;
   applyNodeGraphWorkspaceSizeCss(workspace, widthCss, heightCss);

@@ -336,6 +336,20 @@ function setNodeGraphModuleButtonsVisibility(visible, options = {}) {
   }
 }
 
+function setNodeGraphModularOnlyControlsVisible(visible) {
+  nodeGraphMvp.modularOnlyControlsVisible = Boolean(visible);
+  const hidden = nodeGraphMvp.modularOnlyControlsVisible === false;
+  document.getElementById("nodeWiringPanel")?.classList.toggle("modular-only-controls-hidden", hidden);
+  document.getElementById("nodeSceneToggleModularOnlyControls")?.classList.toggle("active", hidden);
+  document.getElementById("nodeSceneToggleModularOnlyControls")?.setAttribute("aria-pressed", String(hidden));
+  applyNodeGraphWorkspaceView();
+  setNodeInteractionHelp(hidden ? "Modular view controls hidden." : "Modular view controls shown.");
+}
+
+function toggleNodeGraphModularOnlyControlsVisible() {
+  setNodeGraphModularOnlyControlsVisible(nodeGraphMvp.modularOnlyControlsVisible === false);
+}
+
 function setNodeGraphModuleScopeFramesPerSecond(value) {
   nodeGraphMvp.moduleScopeFramesPerSecond = normalizeNodeGraphModuleScopeFramesPerSecond(value);
   renderNodeGraphModuleScopeBrightnessControl();
@@ -1789,12 +1803,14 @@ function setNodeGraphViewMode(mode) {
   renderNodeGraphVideoViewToggle();
   document.getElementById("nodeSettingsViewButton").classList.toggle("active", settingsMode);
   document.getElementById("nodeModularOnlyViewButton").classList.toggle("active", modularOnlyMode);
+  document.getElementById("nodeSceneToggleModularOnlyView")?.classList.toggle("active", modularOnlyMode);
   document.getElementById("nodeMappingViewButton")?.classList.toggle("active", mappingMode);
   document.getElementById("nodeCodeScreenViewButton").classList.toggle("active", codeMode);
   document.getElementById("nodeUiViewButton")?.classList.toggle("active", uiMode);
   document.getElementById("nodeSettingsScriptViewButton").classList.toggle("active", scriptMode);
   document.getElementById("nodeSettingsViewButton").setAttribute("aria-pressed", String(settingsMode));
   document.getElementById("nodeModularOnlyViewButton").setAttribute("aria-pressed", String(modularOnlyMode));
+  document.getElementById("nodeSceneToggleModularOnlyView")?.setAttribute("aria-pressed", String(modularOnlyMode));
   document.getElementById("nodeMappingViewButton")?.setAttribute("aria-pressed", String(mappingMode));
   document.getElementById("nodeCodeScreenViewButton").setAttribute("aria-pressed", String(codeMode));
   document.getElementById("nodeUiViewButton")?.setAttribute("aria-pressed", String(uiMode));
@@ -1815,5 +1831,8 @@ function setNodeGraphViewMode(mode) {
   }
   if (typeof renderNodeGraphCameraView === "function") {
     renderNodeGraphCameraView();
+  }
+  if (typeof applyNodeGraphWorkspaceView === "function") {
+    applyNodeGraphWorkspaceView();
   }
 }
