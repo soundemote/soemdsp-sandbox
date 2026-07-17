@@ -95,14 +95,36 @@ function createNodeGraphStepGridBody(node) {
   row.className = "node-step-grid-row";
   row.setAttribute("role", "group");
   row.setAttribute("aria-label", "Step grid");
-  // +1 column for the trailing "add step" square when there's room to grow.
-  const canGrow = stepCount < STEP_GRID_MAX_STEPS;
-  row.style.gridTemplateColumns = `repeat(${stepCount + (canGrow ? 1 : 0)}, minmax(0, 1fr))`;
+  // 2 leading columns for the remove/add boxes, always present (disabled
+  // rather than removed at the count boundaries, so the grid's column
+  // count -- and every step's position -- never shifts around).
+  row.style.gridTemplateColumns = `repeat(${stepCount + 2}, minmax(0, 1fr))`;
+
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "node-step-grid-square node-step-grid-remove";
+  remove.textContent = "×";
+  remove.disabled = stepCount <= 1;
+  remove.setAttribute("aria-label", `Remove step (${stepCount} of ${STEP_GRID_MAX_STEPS})`);
+  remove.addEventListener("click", (event) => {
+    resizeNodeGraphStepGridSteps(node, -1, event);
+  });
+  row.append(remove);
+
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = "node-step-grid-square node-step-grid-add";
+  add.textContent = "+";
+  add.disabled = stepCount >= STEP_GRID_MAX_STEPS;
+  add.setAttribute("aria-label", `Add step (${stepCount} of ${STEP_GRID_MAX_STEPS})`);
+  add.addEventListener("click", (event) => {
+    resizeNodeGraphStepGridSteps(node, 1, event);
+  });
+  row.append(add);
 
   for (let index = 0; index < stepCount; index += 1) {
     const key = `step${index + 1}`;
     const isOn = Number(patchNode?.params?.[key]) > 0.5;
-    const isLast = index === stepCount - 1;
     const square = document.createElement("button");
     square.type = "button";
     square.className = "node-step-grid-square";
@@ -114,36 +136,7 @@ function createNodeGraphStepGridBody(node) {
     square.addEventListener("click", (event) => {
       toggleNodeGraphStepGridStep(node, index, event);
     });
-    if (isLast && stepCount > 1) {
-      // Reveals a small remove affordance only on the last square, only on
-      // hover/focus -- no permanent extra chrome, but discoverable the
-      // moment you're looking at the one square that's actually removable.
-      const remove = document.createElement("span");
-      remove.className = "node-step-grid-square-remove";
-      remove.textContent = "×";
-      remove.setAttribute("aria-hidden", "true");
-      remove.addEventListener("click", (event) => {
-        resizeNodeGraphStepGridSteps(node, -1, event);
-      });
-      square.append(remove);
-      square.setAttribute(
-        "aria-label",
-        `Step ${index + 1} ${isOn ? "on" : "off"} (click the × in the corner to remove this step)`,
-      );
-    }
     row.append(square);
-  }
-
-  if (canGrow) {
-    const add = document.createElement("button");
-    add.type = "button";
-    add.className = "node-step-grid-square node-step-grid-add";
-    add.textContent = "+";
-    add.setAttribute("aria-label", `Add step (${stepCount} of ${STEP_GRID_MAX_STEPS})`);
-    add.addEventListener("click", (event) => {
-      resizeNodeGraphStepGridSteps(node, 1, event);
-    });
-    row.append(add);
   }
   body.append(row);
 
