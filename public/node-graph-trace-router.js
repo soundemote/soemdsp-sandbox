@@ -1,5 +1,24 @@
+// Trace wires render with `shape-rendering: crispEdges` (styles.css), so
+// their coordinates are snapped to a half-integer (N + 0.5) to center a
+// 1px stroke on a physical pixel -- the standard crisp-line trick. But
+// this coordinate is in PRE-ZOOM local units (the zoom factor has already
+// been divided out via nodeGraphClientToZoomSurfacePoint), and the SVG
+// then sits inside a container with CSS `zoom` applied, which scales the
+// already-rounded value up afterward. Since CSS `zoom` affects layout
+// (unlike transform: scale), a port's local coordinate drifts by
+// sub-pixel amounts as zoom changes continuously -- and every time that
+// drift crosses a .5 boundary, the old plain Math.round snapped by a full
+// LOCAL unit, which zoom then blew up into a multi-pixel jump at an
+// unpredictable point mid-zoom. That's the wire jitter bug.
+// Fix: snap in SCREEN space (after zoom), then divide back down to local
+// units -- the crisp-pixel alignment this was already trying to do, just
+// computed at the resolution it's actually meant for.
 function nodeGraphTracePoint(value) {
-  return Math.round((Number(value) || 0) - 0.5) + 0.5;
+  const number = Number(value) || 0;
+  const zoom = typeof nodeGraphZoom === "function" ? nodeGraphZoom() : 1;
+  const safeZoom = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+  const screen = number * safeZoom;
+  return (Math.round(screen - 0.5) + 0.5) / safeZoom;
 }
 
 function normalizeNodeGraphTracePoints(points) {

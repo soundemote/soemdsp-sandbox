@@ -68,8 +68,17 @@
       return `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
     }
 
+    // Currently unreachable from any live call site (nodeGraphManualTracePathOptions
+    // always supplies explicit pathData for trace-type wires, so the
+    // `explicitPathData || tracePath(...)` fallback below never fires) --
+    // fixed for consistency with nodeGraphTracePoint (node-graph-trace-router.js)
+    // rather than left as a landmine with the same zoom/rounding-order bug
+    // if something ever starts relying on the fallback again.
     function traceCoordinate(value) {
-      return Math.round(Number(value) || 0) + 0.5;
+      const number = Number(value) || 0;
+      const zoom = typeof nodeGraphZoom === "function" ? nodeGraphZoom() : 1;
+      const safeZoom = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+      return (Math.round(number * safeZoom) + 0.5) / safeZoom;
     }
 
     function traceSegmentCommands(from, to) {

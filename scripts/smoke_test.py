@@ -11213,7 +11213,7 @@ def require_node_graph_mvp_contract() -> None:
         "const targetNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId())",
         "function path(from, to)",
         "function normalizeNodeGraphTracePoints(points)",
-        "Math.round((Number(value) || 0) - 0.5) + 0.5",
+        "(Math.round(screen - 0.5) + 0.5) / safeZoom",
         "function nodeGraphTraceWaypointAttribute(points)",
         "function nodeGraphTracePushPoint(points, point)",
         "function nodeGraphTraceOrthogonalPoints(from, points, to)",
