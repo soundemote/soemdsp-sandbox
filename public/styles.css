@@ -12474,7 +12474,16 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   white-space: nowrap;
 }
 
-.node-trace-display-settings-popover .node-trace-display-dot1-title,
+/* Dot's title has no toggle checkbox anymore (removed app-wide -- see
+   dot1Enabled in node-graph-module-scopes.js -- redundant with the
+   display's own show/hide), so it's a single centered-text column;
+   Secondary still has its own enabled checkbox and keeps the 2-column
+   layout that reserves room for it. */
+.node-trace-display-settings-popover .node-trace-display-dot1-title {
+  grid-template-columns: minmax(0, 1fr);
+  place-items: center stretch;
+}
+
 .node-trace-display-settings-popover .node-trace-display-secondary-title {
   grid-template-columns: minmax(0, 1fr) 28px;
   place-items: center stretch;
@@ -12485,7 +12494,6 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   justify-self: center;
 }
 
-.node-trace-display-settings-popover .node-trace-display-dot1-title > input,
 .node-trace-display-settings-popover .node-trace-display-secondary-title > input {
   justify-self: center;
   margin: 0;

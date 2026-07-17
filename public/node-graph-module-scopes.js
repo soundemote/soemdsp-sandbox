@@ -2405,7 +2405,11 @@ function normalizeNodeGraphLineBurnSettings(settings = {}) {
       Infinity,
     ),
     dot1Color: normalizeNodeGraphTraceDisplayColor(source.dot1Color ?? source.color, defaults.dot1Color),
-    dot1Enabled: source.dot1Enabled !== false,
+    // Dot toggleability removed app-wide -- redundant with the display's
+    // own show/hide (if you don't want to see it, hide the whole
+    // display). Always true regardless of any stored/legacy value, same
+    // way this file already handles the Dot 2 removal.
+    dot1Enabled: true,
     dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
     lineThickness: normalizeNodeGraphTraceDisplayNumber(source.lineThickness, defaults.lineThickness, 0, 1),
     zoomSeconds: normalizeNodeGraphTraceDisplayZoomSeconds(zoomSeconds, defaults.zoomSeconds),
@@ -2424,7 +2428,7 @@ function normalizeNodeGraphZeroDBurnSettings(settings = {}) {
       2,
     ),
     dot1Color: normalizeNodeGraphTraceDisplayColor(source.dot1Color ?? source.color, defaults.dot1Color),
-    dot1Enabled: source.dot1Enabled !== false,
+    dot1Enabled: true,
     dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
     lineThickness: normalizeNodeGraphTraceDisplayNumber(
       source.lineThickness ?? source.dot1Blur,
@@ -2448,7 +2452,7 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
       Infinity,
     ),
     color: normalizeNodeGraphTraceDisplayColor(source.color ?? source.dot1Color, defaults.color),
-    dot1Enabled: source.dot1Enabled !== false,
+    dot1Enabled: true,
     dot1Size: normalizeNodeGraphTraceDisplayNumber(
       source.dot1Size,
       defaults.dot1Size,
@@ -2500,7 +2504,7 @@ function normalizeNodeGraphValueOscilloscopeSettings(settings = {}) {
     capSize: normalizeNodeGraphTraceDisplayNumber(source.capSize, defaults.capSize, 0, 1),
     color: normalizeNodeGraphTraceDisplayColor(source.color ?? source.dot1Color, defaults.color),
     decay: normalizeNodeGraphTraceDisplayNumber(source.decay, defaults.decay, 0, 1),
-    dot1Enabled: source.dot1Enabled !== false,
+    dot1Enabled: true,
     dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
     lineLength: normalizeNodeGraphTraceDisplayNumber(source.lineLength, defaults.lineLength, 0, 1),
     lineThickness: normalizeNodeGraphTraceDisplayNumber(source.lineThickness, defaults.lineThickness, 0, 1),
@@ -2535,7 +2539,7 @@ function normalizeNodeGraphScope2dSettings(settings = {}) {
       Infinity,
     ),
     dot1Color: normalizeNodeGraphTraceDisplayColor(source.dot1Color ?? source.color, defaults.dot1Color),
-    dot1Enabled: source.dot1Enabled !== false,
+    dot1Enabled: true,
     dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
     lineThickness: normalizeNodeGraphTraceDisplayNumber(
       source.lineThickness ?? source.dot1Blur,
@@ -2557,7 +2561,7 @@ function normalizeNodeGraphScope2dTraceSettings(settings = {}) {
       Infinity,
     ),
     dot1Color: normalizeNodeGraphTraceDisplayColor(source.dot1Color ?? source.color, defaults.dot1Color),
-    dot1Enabled: source.dot1Enabled !== false,
+    dot1Enabled: true,
     dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
     historySeconds: normalizeNodeGraphTraceDisplayZoomSeconds(
       source.historySeconds ?? source.history,
@@ -3439,7 +3443,7 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
 const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
   fields: nodeGraphTraceDisplaySettingFields.map(([key]) => key),
   colors: ["dot1Color", "secondaryColor"],
-  toggles: ["sourceSync", "bipolarBrightness", "dot1Enabled", "secondaryEnabled", "capEnabled"],
+  toggles: ["sourceSync", "bipolarBrightness", "secondaryEnabled", "capEnabled"],
   choices: [],
 });
 
@@ -3455,7 +3459,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "secondaryBrightness",
     ]),
     colors: Object.freeze(["dot1Color", "secondaryColor"]),
-    toggles: Object.freeze(["sourceSync", "skipDiscontinuities", "dot1Enabled", "secondaryEnabled"]),
+    toggles: Object.freeze(["sourceSync", "skipDiscontinuities", "secondaryEnabled"]),
     choices: Object.freeze([]),
   }),
   dot: Object.freeze({
@@ -3465,7 +3469,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
     ]),
     colors: Object.freeze(["dot1Color"]),
-    toggles: Object.freeze(["bipolarBrightness", "dot1Enabled"]),
+    toggles: Object.freeze(["bipolarBrightness"]),
     choices: Object.freeze([]),
   }),
   lineBurn: Object.freeze({
@@ -3478,7 +3482,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
     ]),
     colors: Object.freeze(["dot1Color"]),
-    toggles: Object.freeze(["dot1Enabled"]),
+    toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
   value: Object.freeze({
@@ -3493,7 +3497,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "capLength",
     ]),
     colors: Object.freeze(["dot1Color"]),
-    toggles: Object.freeze(["dot1Enabled", "capEnabled"]),
+    toggles: Object.freeze(["capEnabled"]),
     choices: Object.freeze([]),
   }),
   scope2d: Object.freeze({
@@ -3505,7 +3509,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
     ]),
     colors: Object.freeze(["dot1Color"]),
-    toggles: Object.freeze(["dot1Enabled"]),
+    toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
   scope2dTrace: Object.freeze({
@@ -3517,7 +3521,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
     ]),
     colors: Object.freeze(["dot1Color"]),
-    toggles: Object.freeze(["dot1Enabled"]),
+    toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
   numberReadout: Object.freeze({
@@ -3546,7 +3550,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
   dot1: Object.freeze({
     fields: Object.freeze(["dot1Size", "lineThickness", "dot1Brightness"]),
     colors: Object.freeze(["dot1Color"]),
-    toggles: Object.freeze(["bipolarBrightness", "dot1Enabled"]),
+    toggles: Object.freeze(["bipolarBrightness"]),
     choices: Object.freeze([]),
   }),
   secondary: Object.freeze({
@@ -3728,11 +3732,6 @@ function nodeGraphTraceDisplaySettingsElement() {
       </div>
       <div class="metadata-section-title node-trace-display-dot1-title">
         <span>Dot</span>
-        <input
-          id="nodeTraceDisplayDot1Enabled"
-          type="checkbox"
-          aria-label="Dot on"
-          data-trace-display-toggle="dot1Enabled">
       </div>
       <div class="metadata-field-section node-trace-display-dot1-section">
         <label class="metadata-checkbox-label node-trace-display-bipolar-brightness-row">
@@ -3877,7 +3876,6 @@ function applyNodeGraphTraceDisplaySettingsTooltips(popover) {
   }
   const toggleKeys = {
     bipolarBrightness: "traceDisplaySettings.bipolarBrightness",
-    dot1Enabled: "traceDisplaySettings.dot1Enabled",
     secondaryEnabled: "traceDisplaySettings.secondaryEnabled",
     capEnabled: "traceDisplaySettings.capEnabled",
     sourceSync: "traceDisplaySettings.sourceSync",

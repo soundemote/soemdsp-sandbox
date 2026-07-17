@@ -8875,7 +8875,6 @@ def require_node_graph_mvp_contract() -> None:
         "setNodeGraphViewMode(\"mapping\")",
         "nodeModuleShopView",
         "nodeSceneOpenModuleBrowser",
-        "openNodeGraphModuleShop(nodeGraphMvp.sceneContextPoint, contextMenuClientPoint)",
         "function rememberNodeGraphContextMenuClientPoint(event)",
         "const currentPosition = menu.hidden ? null : nodeSceneContextMenuCurrentPosition(menu)",
         "const chosenPosition = savedPosition || currentPosition",
@@ -13520,7 +13519,6 @@ def require_node_graph_mvp_contract() -> None:
         and '"lineThickness"' in line_burn_registry_source
         and '"dot1Brightness"' in line_burn_registry_source
         and '"dot1Color"' in line_burn_registry_source
-        and '"dot1Enabled"' in line_burn_registry_source
         and '"dot2Size"' not in line_burn_registry_source
         and '"dot2Brightness"' not in line_burn_registry_source
         and '"dot2Enabled"' not in line_burn_registry_source,
@@ -13611,7 +13609,6 @@ def require_node_graph_mvp_contract() -> None:
         and '"dot1Brightness"' in scope2d_active_controls_source
         and '"lineThickness"' not in scope2d_active_controls_source
         and 'colors: Object.freeze(["dot1Color"])' in scope2d_active_controls_source
-        and 'toggles: Object.freeze(["dot1Enabled"])' in scope2d_active_controls_source
         and "dot2" not in scope2d_active_controls_source,
         "2D Burn settings should expose only Dot 1 controls; Dot 2 has been removed",
     )
@@ -13630,7 +13627,7 @@ def require_node_graph_mvp_contract() -> None:
         and 'const secondaryActive = nodeGraphTraceDisplaySectionHasActiveControls("secondary", formType) &&' in node_graph_source
         and 'node?.type === "output";' in node_graph_source
         and 'setNodeGraphTraceDisplaySectionVisible(popover, "secondary", secondaryActive);' in node_graph_source
-        and '"dot1Enabled", "secondaryEnabled"' in node_graph_source
+        and '"skipDiscontinuities", "secondaryEnabled"' in node_graph_source
         and "for (const key of activeToggles)" in node_graph_source
         and "next[key] = input.checked;" in node_graph_source,
         "Display Settings should show and persist only active typed controls, including the renamed Secondary toggle",
@@ -14464,7 +14461,7 @@ def require_node_graph_mvp_contract() -> None:
         and 'data-trace-display-field="dot2Blur"' not in node_graph_source
         and 'data-trace-display-field="dot1Brightness"' in node_graph_source
         and 'data-trace-display-toggle="bipolarBrightness"' in node_graph_source
-        and 'data-trace-display-toggle="dot1Enabled"' in node_graph_source
+        and 'data-trace-display-toggle="dot1Enabled"' not in node_graph_source
         and 'data-trace-display-toggle="secondaryEnabled"' in node_graph_source
         and 'data-trace-display-color="dot1Color"' in node_graph_source
         and "const nodeGraphZeroDBurnSettingsDefaults = Object.freeze" in node_graph_source
@@ -14474,7 +14471,7 @@ def require_node_graph_mvp_contract() -> None:
         and "function nodeGraphZeroDBurnSettingsForNode(node)" in node_graph_source
         and "node.zeroDBurnSettings = normalizeNodeGraphZeroDBurnSettings" in node_graph_source
         and "lineThickness: normalizeNodeGraphTraceDisplayNumber(" in node_graph_source
-        and "dot1Enabled: source.dot1Enabled !== false" in node_graph_source
+        and "dot1Enabled: true" in node_graph_source
         and "dot1Size: normalizeNodeGraphTraceDisplayNumber(" in node_graph_source
         and "gl.uniform1f(renderer.beamBlurLocation, clampNodeSliderValue(Number(options.blur) || 0, 0, 1))" in node_graph_source
         and "const innerThickness = Math.max(0, dotSpace * clampNodeSliderValue(settings.dot1Size, 0, 1))" in node_graph_source
@@ -14484,7 +14481,7 @@ def require_node_graph_mvp_contract() -> None:
         and "function setNodeGraphTraceDisplaySettingsFormType(node = null)" in node_graph_source
         and "nodeGraphTraceDisplayActiveControlsByType" in node_graph_source
         and "dot: Object.freeze({" in node_graph_source
-        and '"bipolarBrightness", "dot1Enabled"' in node_graph_source
+        and 'toggles: Object.freeze(["bipolarBrightness"])' in node_graph_source
         and "const activeToggles = nodeGraphTraceDisplayActiveControlSet(\"toggles\", formType)" in node_graph_source
         and "normalizeNodeGraphTraceDisplaySettingValueForKey(key, value)" in node_graph_source
         and "function nodeGraphTraceDisplaySizeControlField(key)" in node_graph_source

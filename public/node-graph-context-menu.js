@@ -1609,16 +1609,12 @@ function openNodeSceneContextMenu(event) {
   nodeGraphMvp.sceneContextTargetNode = null;
   nodeGraphMvp.sceneContextTargetWire = null;
   clearNodeGraphSelection();
+  // Right-click on empty canvas always opens/repositions Command Center --
+  // it used to divert to opening the Module Browser instead when Command
+  // Center was already open, which was surprising (a second right-click
+  // should reposition the menu you already have, not switch to a
+  // different window).
   const commandCenter = document.getElementById("nodeSceneContextMenu");
-  const moduleBrowser = document.getElementById("nodeModuleShopView");
-  if (commandCenter && !commandCenter.hidden) {
-    if (moduleBrowser && !moduleBrowser.hidden) {
-      pulseNodeGraphFloatingWindowAttention(moduleBrowser);
-      return;
-    }
-    openNodeGraphModuleShop(nodeGraphMvp.sceneContextPoint, contextMenuClientPoint);
-    return;
-  }
   configureNodeSceneContextMenu("home");
   positionNodeSceneContextMenuAtCurrentSavedOrInitial(commandCenter, event.clientX, event.clientY);
   if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
