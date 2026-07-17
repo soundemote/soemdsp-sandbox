@@ -1746,6 +1746,30 @@ function updateNodeGraphMidiKeyboardSignal(event) {
     event.preventDefault();
     return;
   }
+  // A plain click on a key that's already held -- however it got held,
+  // ctrl+click/toggle-mode's bitmask or shift+click's single-note latch
+  // -- releases it, instead of requiring the exact gesture that held it
+  // in the first place (shift+click again, or another ctrl+click).
+  // Checked before mode-specific behavior below so this takes priority
+  // in every mode.
+  if (event.type === "pointerdown" && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+    const target = event.target?.closest?.("[data-key-index]");
+    if (target && surface.contains(target)) {
+      const index = Number(target.dataset.keyIndex);
+      if (nodeGraphMidiKeyboardBitmaskHasBit(nodeGraphMvp.midiKeyboardHeldKeysBitmask, index)) {
+        nodeGraphMidiKeyboardToggleHeldKeyBit(index);
+        event.preventDefault();
+        return;
+      }
+      const heldPointer = nodeGraphMidiKeyboardHeldPointerSignal();
+      const targetMidi = Number(target.dataset.midi);
+      if (heldPointer && heldPointer.midi === targetMidi) {
+        clearNodeGraphMidiKeyboardPointerHold(`${heldPointer.pitch} hold off`);
+        event.preventDefault();
+        return;
+      }
+    }
+  }
   // Toggle mode turns a plain click into what ctrl+click already does --
   // toggles that key's held-keys bit instead of playing a note. Ctrl and
   // Shift+Alt keep their own meanings above regardless of mode, so this
