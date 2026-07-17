@@ -1397,6 +1397,17 @@ html.soemdsp-hide-ui .status-strip {
   min-height: 0;
 }
 
+/* Pitch and mod wheel stacked vertically in the dock instead of side by
+   side -- 2 columns squeezed into the narrow wheel column (140px-22% of
+   the dock) left each wheel cramped; stacked, each gets the column's
+   full width. Scoped to the dock only, same as the other layout
+   overrides here -- the wheels inside a placed pitchModWheel node are
+   unaffected. */
+.node-standalone-midi-keyboard-dock .node-midi-keyboard-wheel-bank {
+  grid-template-columns: 1fr;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
 .node-standalone-midi-keyboard-dock .node-midi-keyboard-panel,
 .node-standalone-midi-keyboard-dock .node-performance-wheels-panel,
 .node-standalone-midi-keyboard-dock .node-macro-controls-panel {
