@@ -788,18 +788,27 @@ function resetNodeGraphStartupView() {
   setNodeGraphViewMode(nodeGraphStartupViewModeFromUrl());
 }
 
-// Docked (not floating/draggable) MIDI keyboard, toggled on/off, sitting
-// below the modular workspace -- a second instance of the exact same
-// playable keyboard as the keyboardController node's own body. Populated
-// once at bootstrap; only its visibility changes after that.
+// Docked (not floating/draggable) performance surface, toggled on/off,
+// sitting below the modular workspace -- second instances of the exact
+// same keyboardController/pitchModWheel/macroControls module bodies, not
+// a separate implementation. Every one of these already keeps its state
+// in shared nodeGraphMvp fields (midiKeyboardSignal, performance wheel
+// values, macroControls array) and re-renders every matching DOM surface
+// in the whole document on change, so a second instance of each mirrors
+// its node counterpart for free. Populated once at bootstrap; only
+// visibility changes after that.
 function initNodeGraphStandaloneMidiKeyboard() {
   const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
   if (!dock || dock.dataset.populated === "true") {
     return;
   }
   dock.dataset.populated = "true";
-  dock.append(createNodeGraphKeyboardControllerBody());
+  const performanceRow = document.createElement("div");
+  performanceRow.className = "node-standalone-performance-row";
+  performanceRow.append(createNodeGraphPitchModWheelBody(), createNodeGraphKeyboardControllerBody());
+  dock.append(performanceRow, createNodeGraphMacroControlsBody());
   renderNodeGraphKeyboardControllerModules();
+  bindNodeGraphMacroControlModuleEvents();
 }
 
 function renderNodeGraphStandaloneMidiKeyboardToggle() {

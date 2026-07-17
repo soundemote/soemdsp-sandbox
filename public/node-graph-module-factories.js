@@ -447,10 +447,14 @@ function refreshNodeGraphScreenSpaceShaderBodyStatus(body) {
   status.textContent = `${script.inputs.length} inputs / ${script.visualInputs.length} controls`;
 }
 
-function createNodeGraphMacroControlsBody(node) {
+// node is optional -- see the comment on createNodeGraphKeyboardControllerBody;
+// same reuse pattern for the standalone performance dock.
+function createNodeGraphMacroControlsBody(node = null) {
   const section = document.createElement("section");
   section.className = "node-macro-controls-panel node-macro-controls-module";
-  section.dataset.node = node;
+  if (node) {
+    section.dataset.node = node;
+  }
   section.setAttribute("aria-label", "Macro controls");
   const heading = document.createElement("div");
   heading.className = "node-macro-controls-heading";
@@ -491,10 +495,14 @@ function createNodeGraphMacroControlsBody(node) {
   return section;
 }
 
-function createNodeGraphPitchModWheelBody(node) {
+// node is optional -- see the comment on createNodeGraphKeyboardControllerBody;
+// same reuse pattern for the standalone performance dock.
+function createNodeGraphPitchModWheelBody(node = null) {
   const section = document.createElement("section");
   section.className = "node-performance-wheels-panel node-performance-wheels-module";
-  section.dataset.node = node;
+  if (node) {
+    section.dataset.node = node;
+  }
   section.setAttribute("aria-label", "Pitch and modulation wheels");
   const heading = document.createElement("div");
   heading.className = "node-performance-wheels-heading";
