@@ -15505,7 +15505,7 @@ def require_node_graph_mvp_contract() -> None:
         and "patch.audio = next;" in header_scope_source
         and "function createNodeGraphHeaderAudioInput(key, label, options = {})" in header_scope_source
         and "input.dataset.audioField = key;" in header_scope_source
-        and 'createNodeGraphHeaderAudioInput("pitchReferenceHz", "Pitch Ref", {' in header_scope_source
+        and 'createNodeGraphHeaderAudioInput("pitchReferenceHz", "Pitch", {' in header_scope_source
         and "input.dataset.audioField" in node_graph_source
         and "updateNodeGraphPatchAudioFromHeader(input);" in node_graph_source
         and '"pitchReferenceHz": "Pitch Reference Frequency in Hz' in tooltip_source,

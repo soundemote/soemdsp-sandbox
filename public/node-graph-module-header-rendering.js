@@ -405,7 +405,7 @@ function createNodeGraphCommandCenterTimingWidgets() {
     createNodeGraphHeaderTimingInput("tempoBpm", "BPM", { max: 320 }),
     createNodeGraphHeaderTimingInput("timeSignatureNumerator", "Beats"),
     createNodeGraphHeaderTimingInput("timeSignatureDenominator", "Unit"),
-    createNodeGraphHeaderAudioInput("pitchReferenceHz", "Pitch Ref", {
+    createNodeGraphHeaderAudioInput("pitchReferenceHz", "Pitch", {
       ariaLabel: "Pitch Reference Frequency in Hz (0.1V/Oct reference)",
       tooltipKey: "timing.pitchReferenceHz",
       min: 0.01,

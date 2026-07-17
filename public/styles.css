@@ -13792,7 +13792,7 @@ button.saved-default,
 
 .scene-context-timing-controls .node-command-center-timing-widgets {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   width: 100%;
   height: var(--scene-context-timing-row-height);
 }
@@ -13806,6 +13806,7 @@ button.saved-default,
 
 .scene-context-timing-controls .node-header-timing-field span:first-child {
   line-height: 1;
+  font-size: 0.68rem;
 }
 
 .scene-context-history-controls {
