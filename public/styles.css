@@ -1371,7 +1371,19 @@ html.soemdsp-hide-ui .status-strip {
      keyboard, flexible) second -- matches DOM order in
      initNodeGraphStandaloneMidiKeyboard. */
   grid-template-rows: auto minmax(0, 1fr);
-  gap: 4px;
+  gap: 6px;
+  /* One shared surface for the whole dock -- the keyboard/wheels/macro
+     panels below have their own card chrome (border, background,
+     border-radius) stripped so nothing seams between them; this is the
+     only visible boundary. Their actual controls (keys, wheel track,
+     knob dial) are untouched -- only the outer card wrapper merges away. */
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(241, 184, 75, 0.05), transparent 48%),
+    #080a0c;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 .node-standalone-midi-keyboard-dock[hidden] {
@@ -1381,14 +1393,18 @@ html.soemdsp-hide-ui .status-strip {
 .node-standalone-performance-row {
   display: grid;
   grid-template-columns: minmax(140px, 22%) minmax(0, 1fr);
-  gap: 4px;
+  gap: 8px;
   min-height: 0;
 }
 
 .node-standalone-midi-keyboard-dock .node-midi-keyboard-panel,
 .node-standalone-midi-keyboard-dock .node-performance-wheels-panel,
 .node-standalone-midi-keyboard-dock .node-macro-controls-panel {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  padding: 0;
 }
 
 .node-standalone-midi-keyboard-dock .node-midi-keyboard-panel {
@@ -1402,7 +1418,6 @@ html.soemdsp-hide-ui .status-strip {
      re-introduce a magic-number cap). */
   max-height: none;
   gap: 4px;
-  padding: 4px 8px;
 }
 
 /* "Performance Surface" / "Macro Controls" / "N macros ready" -- the
