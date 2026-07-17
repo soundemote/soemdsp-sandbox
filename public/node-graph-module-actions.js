@@ -681,7 +681,11 @@ function copyNodeGraphModuleSettingsFromContext() {
 function pasteNodeGraphModuleSettingsFromContext() {
   const clipboard = nodeGraphMvp.moduleSettingsClipboard;
   const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
-  if (!clipboard || !sourceNode || clipboard.type !== sourceNode.type) {
+  if (!clipboard || !sourceNode) {
+    return;
+  }
+  if (clipboard.type !== sourceNode.type) {
+    setNodeInteractionHelp(`Can't paste: clipboard holds ${clipboard.type} settings, not ${sourceNode.type}.`);
     return;
   }
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);

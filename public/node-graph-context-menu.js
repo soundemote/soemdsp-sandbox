@@ -1111,7 +1111,6 @@ function configureNodeSceneContextMenu(mode) {
         ? nodeGraphTooltipText("actions.copyUnavailableOutput")
         : nodeGraphTooltipText("actions.copyUnavailableOneModule");
     const settingsClipboard = nodeGraphMvp.moduleSettingsClipboard;
-    const canPasteSettings = Boolean(targetNode) && Boolean(settingsClipboard) && settingsClipboard.type === targetNode?.type;
     if (copySettingsButton) {
       copySettingsButton.disabled = !targetNode;
       copySettingsButton.title = targetNode
@@ -1119,12 +1118,14 @@ function configureNodeSceneContextMenu(mode) {
         : "Select a module to copy its settings.";
     }
     if (pasteSettingsButton) {
-      pasteSettingsButton.disabled = !canPasteSettings;
+      const settingsMismatch = Boolean(targetNode) && Boolean(settingsClipboard) && settingsClipboard.type !== targetNode.type;
+      pasteSettingsButton.disabled = !targetNode || !settingsClipboard;
+      pasteSettingsButton.classList.toggle("settings-paste-mismatch", settingsMismatch);
       pasteSettingsButton.title = !targetNode
         ? "Select a module to paste settings onto."
         : !settingsClipboard
           ? "Copy a module's settings first."
-          : settingsClipboard.type !== targetNode.type
+          : settingsMismatch
             ? `Clipboard holds ${settingsClipboard.type} settings, not ${targetNode.type}.`
             : "Paste the copied settings onto this module.";
     }
