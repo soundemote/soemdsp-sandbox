@@ -1087,7 +1087,7 @@ html.soemdsp-hide-ui .status-strip {
   display: none;
 }
 
-.node-wiring-panel.modular-only-view > :not(.node-graph-workspace):not(.node-view-toolbar):not(.node-scene-context-menu):not(.node-parameter-metadata-popover):not(.node-ui-dev-helper):not(.node-user-ui-settings-panel):not(.node-saved-patches-window):not(.node-module-shop-view):not(.node-shader-script-dialog):not(.node-standalone-midi-keyboard-dock) {
+.node-wiring-panel.modular-only-view > :not(.node-graph-workspace):not(.node-view-toolbar):not(.node-scene-context-menu):not(.node-parameter-metadata-popover):not(.node-ui-dev-helper):not(.node-user-ui-settings-panel):not(.node-saved-patches-window):not(.node-module-shop-view):not(.node-shader-script-dialog):not(.node-standalone-midi-keyboard-dock):not(.node-tooltip-window) {
   display: none;
 }
 
@@ -3583,12 +3583,38 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: none;
 }
 
+/* Free-floating window (drag to move, no resize -- it's a short status
+   readout, not something that benefits from resizing) hosting the
+   interaction tips. Explicitly exempted from the modular-only-view
+   chrome-hiding rule above so tips stay reachable there too, which is
+   the whole point of pulling this out of .node-help-stack (a plain
+   in-flow row that modular-only view hides along with everything else). */
+.node-tooltip-window {
+  position: fixed;
+  z-index: 60;
+  width: min(420px, calc(100vw - 28px));
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(127, 199, 217, 0.05), transparent 48%),
+    #080a0c;
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.42),
+    inset 0 0 0 1px rgba(127, 199, 217, 0.08);
+}
+
+.node-tooltip-window[hidden] {
+  display: none;
+}
+
 .node-interaction-help {
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 72px;
   height: 72px;
+  margin: 8px;
   padding: 6px 10px;
   border: 1px solid rgba(127, 199, 217, 0.16);
   border-radius: 6px;
@@ -3604,7 +3630,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   white-space: pre-line;
 }
 
-.node-help-stack.tips-hidden .node-interaction-help {
+.node-interaction-help.tips-hidden {
   border-color: rgba(127, 199, 217, 0.08);
   background:
     linear-gradient(180deg, rgba(5, 7, 9, 0.96), rgba(9, 12, 15, 0.92));

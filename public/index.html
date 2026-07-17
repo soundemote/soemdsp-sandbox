@@ -321,8 +321,33 @@
         </section>
       </div>
 
-      <div class="node-help-stack">
+      <div
+        id="nodeTooltipWindow"
+        class="node-tooltip-window"
+        role="dialog"
+        aria-label="Tips"
+        hidden>
+        <div id="nodeTooltipWindowHeading" class="scene-context-heading">
+          <button
+            id="nodeTooltipWindowDragHandle"
+            class="scene-context-drag-handle"
+            type="button"
+            aria-label="Move tips">&#x2725;</button>
+          <div class="scene-context-title">
+            <span>Tips</span>
+          </div>
+          <button
+            id="nodeTooltipWindowCloseButton"
+            class="panel-close-button"
+            type="button"
+            aria-label="Close tips">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
         <div id="nodeInteractionHelp" class="node-interaction-help" role="status" aria-live="polite"></div>
+      </div>
+
+      <div class="node-help-stack">
         <div class="node-constraint-color-guide" aria-label="Resource constraint color guide">
           <span class="node-constraint-stack" data-constraint-stack="cpu">
             <label class="node-constraint-chip" data-constraint="cpu" data-tooltip-key="constraints.cpu">
@@ -1829,6 +1854,11 @@
               <span class="scene-context-window-button-icon" aria-hidden="true">🎹</span>
               <span class="scene-context-window-button-label">Show Keyboard</span>
               <kbd>Ctrl+K</kbd>
+            </button>
+            <button id="nodeSceneToggleTooltipWindow" class="scene-context-window-button" type="button" aria-pressed="false">
+              <span class="scene-context-window-button-icon" aria-hidden="true">📐</span>
+              <span class="scene-context-window-button-label">Show Tips</span>
+              <kbd>Shift+T</kbd>
             </button>
             <div class="scene-context-patch-actions" role="group" aria-label="Patch actions">
               <button id="nodeSceneCopyPatch" class="scene-context-patch-action-button" type="button" data-tooltip-key="actions.copyPatch">Copy</button>

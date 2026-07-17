@@ -69,6 +69,7 @@ async function initNodeGraphMvp() {
     applyNodeGraphWorkspaceWindowStates();
   }
   renderNodeGraphStandaloneMidiKeyboardToggle();
+  renderNodeGraphTooltipWindowToggle();
   loadNodeMetadataKindTemplates();
   refreshNodeGraphLiveInputDevices();
   refreshNodeGraphLiveMicrophonePermissionState();

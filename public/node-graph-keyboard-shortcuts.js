@@ -254,6 +254,13 @@ function handleNodeGraphKeydown(event) {
     }
     return;
   }
+  if (event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey && event.key.toLowerCase() === "t") {
+    event.preventDefault();
+    if (typeof toggleNodeGraphTooltipWindow === "function") {
+      toggleNodeGraphTooltipWindow();
+    }
+    return;
+  }
   if (!event.ctrlKey && !event.metaKey && !event.altKey && event.key.toLowerCase() === "a") {
     if (addFocusedNodeGraphGraphNode()) {
       event.preventDefault();

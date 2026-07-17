@@ -437,6 +437,14 @@ function nodeGraphFloatingWindowKeyboardTargets() {
       applySize: typeof applyNodeGraphStandaloneMidiKeyboardDockSize === "function" ? applyNodeGraphStandaloneMidiKeyboardDockSize : null,
       sizeAxes: { width: true, height: true },
     },
+    {
+      draggingKey: "tooltipWindowDragging",
+      resizingKey: null,
+      elementId: "nodeTooltipWindow",
+      workspaceKey: "tooltipWindow",
+      applySize: null,
+      sizeAxes: { width: false, height: false },
+    },
   ];
 }
 

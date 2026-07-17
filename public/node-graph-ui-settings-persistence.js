@@ -13,6 +13,7 @@ const nodeGraphWorkspaceWindowStateKeys = Object.freeze([
   "uiDev",
   "traceDisplaySettings",
   "standaloneMidiKeyboard",
+  "tooltipWindow",
 ]);
 
 const nodeGraphWorkspaceWindowElements = Object.freeze({
@@ -27,6 +28,7 @@ const nodeGraphWorkspaceWindowElements = Object.freeze({
   uiDev: "nodeUiDevHelper",
   traceDisplaySettings: "nodeTraceDisplaySettingsPopover",
   standaloneMidiKeyboard: "nodeStandaloneMidiKeyboardDock",
+  tooltipWindow: "nodeTooltipWindow",
 });
 
 const nodeGraphSharedInspectorWindowKeys = Object.freeze([

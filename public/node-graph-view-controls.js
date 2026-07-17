@@ -598,11 +598,10 @@ function renderNodeGraphKeyboardDebugToggle() {
 }
 
 function renderNodeGraphTooltipToggle() {
-  const helpStack = document.querySelector(".node-help-stack");
   const help = document.getElementById("nodeInteractionHelp");
   const button = document.getElementById("nodeTooltipToggleButton");
   const visible = Boolean(nodeGraphMvp.tooltipVisible);
-  helpStack?.classList.toggle("tips-hidden", !visible);
+  help?.classList.toggle("tips-hidden", !visible);
   if (!visible && help) {
     help.textContent = "";
   }
@@ -1020,6 +1019,117 @@ function toggleNodeGraphStandaloneMidiKeyboard() {
   );
   renderNodeGraphStandaloneMidiKeyboardToggle();
   setNodeInteractionHelp("MIDI keyboard shown.");
+}
+
+// Free-floating window (drag only, no resize -- a short status readout
+// doesn't need it) hosting #nodeInteractionHelp, same generic
+// drag/lock/keyboard-nudge subsystem as Command Center et al
+// (node-graph-floating-windows.js). Exists so tips stay reachable in
+// modular-only view, where the old in-flow .node-help-stack row (and
+// everything else outside a floating window) gets hidden.
+function positionNodeGraphTooltipWindowAtSavedOr(x, y) {
+  const win = document.getElementById("nodeTooltipWindow");
+  if (!win) {
+    return;
+  }
+  win.hidden = false;
+  const savedPosition = nodeGraphMvp.workspaceWindowStates?.tooltipWindow?.position;
+  const hasSavedPosition =
+    Number.isFinite(Number(savedPosition?.left)) &&
+    Number.isFinite(Number(savedPosition?.top));
+  const { left, top } = nodeGraphFloatingWindowPosition(
+    win,
+    hasSavedPosition ? savedPosition.left : x,
+    hasSavedPosition ? savedPosition.top : y,
+  );
+  setNodeGraphFloatingWindowViewportPosition(win, left, top);
+  if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
+    rememberNodeGraphWorkspaceWindowState(
+      "tooltipWindow",
+      win,
+      { open: true, position: { left, top } },
+      { persist: false },
+    );
+  }
+}
+
+function beginNodeGraphTooltipWindowDrag(event) {
+  const win = document.getElementById("nodeTooltipWindow");
+  if (!win || win.hidden) {
+    return;
+  }
+  beginNodeGraphFloatingWindowDrag(event, win, "tooltipWindowDragging");
+}
+
+function dragNodeGraphTooltipWindow(event) {
+  dragNodeGraphFloatingWindow(
+    event,
+    "tooltipWindowDragging",
+    document.getElementById("nodeTooltipWindow"),
+    (next) => {
+      if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
+        rememberNodeGraphWorkspaceWindowState(
+          "tooltipWindow",
+          document.getElementById("nodeTooltipWindow"),
+          { open: true, position: next },
+          { persist: false },
+        );
+      }
+    },
+  );
+}
+
+function endNodeGraphTooltipWindowDrag(event) {
+  endNodeGraphFloatingWindowDrag(event, "tooltipWindowDragging", () => {
+    if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
+      rememberNodeGraphWorkspaceWindowState(
+        "tooltipWindow",
+        document.getElementById("nodeTooltipWindow"),
+        { open: true },
+        { status: false },
+      );
+    }
+  });
+}
+
+function renderNodeGraphTooltipWindowToggle() {
+  const button = document.getElementById("nodeSceneToggleTooltipWindow");
+  const win = document.getElementById("nodeTooltipWindow");
+  const visible = Boolean(win && !win.hidden);
+  if (button) {
+    button.setAttribute("aria-pressed", visible ? "true" : "false");
+  }
+}
+
+function closeNodeGraphTooltipWindow() {
+  const win = document.getElementById("nodeTooltipWindow");
+  if (win) {
+    win.hidden = true;
+  }
+  if (nodeGraphMvp.tooltipWindowDragging?.handle) {
+    nodeGraphMvp.tooltipWindowDragging.handle.classList.remove("dragging");
+  }
+  nodeGraphMvp.tooltipWindowDragging = null;
+  if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
+    rememberNodeGraphWorkspaceWindowState("tooltipWindow", win, { open: false }, { status: false });
+  }
+  renderNodeGraphTooltipWindowToggle();
+}
+
+function toggleNodeGraphTooltipWindow() {
+  const win = document.getElementById("nodeTooltipWindow");
+  const currentlyVisible = Boolean(win && !win.hidden);
+  if (currentlyVisible) {
+    closeNodeGraphTooltipWindow();
+    return;
+  }
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 900;
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 700;
+  positionNodeGraphTooltipWindowAtSavedOr(
+    Math.max(12, (viewportWidth - 420) / 2),
+    Math.max(12, viewportHeight - 220),
+  );
+  renderNodeGraphTooltipWindowToggle();
 }
 
 function renderNodeGraphVideoViewToggle() {
