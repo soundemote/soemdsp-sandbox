@@ -1392,7 +1392,11 @@ html.soemdsp-hide-ui .status-strip {
 
 .node-standalone-performance-row {
   display: grid;
-  grid-template-columns: minmax(140px, 22%) minmax(0, 1fr);
+  /* Was minmax(140px, 22%), sized for two wheels side by side -- now that
+     they're stacked vertically (see the wheel-bank override below), each
+     wheel only needs to be wide enough to read its label, not a fifth of
+     the dock's width. Freed width goes to the keys instead. */
+  grid-template-columns: 64px minmax(0, 1fr);
   gap: 8px;
   min-height: 0;
 }

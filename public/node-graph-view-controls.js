@@ -951,8 +951,104 @@ function bindNodeGraphMacroControlModuleEvents() {
 }
 
 const nodeGraphMidiKeyboardStartMidi = 48;
-const nodeGraphMidiKeyboardNoteCount = 25;
+const nodeGraphMidiKeyboardMinKeyCount = 8;
+const nodeGraphMidiKeyboardMaxKeyCount = 49;
+const nodeGraphMidiKeyboardWhitePitchClasses = Object.freeze([0, 2, 4, 5, 7, 9, 11]);
+const nodeGraphMidiKeyboardBlackPitchClasses = Object.freeze(new Set([1, 3, 6, 8, 10]));
 const nodeGraphMidiKeyboardSampleRate = 44100;
+
+// User-configurable key count (shared/global, same mirroring pattern as
+// midiKeyboardOctave -- every rendered .node-midi-keyboard-module surface
+// shows the same span). Anchor note (nodeGraphMidiKeyboardStartMidi, C3)
+// stays fixed; only how many keys are visible from there changes.
+function nodeGraphMidiKeyboardKeyCount(value = nodeGraphMvp.midiKeyboardKeyCount) {
+  const count = Math.round(Number(value));
+  return Number.isFinite(count)
+    ? Math.max(nodeGraphMidiKeyboardMinKeyCount, Math.min(nodeGraphMidiKeyboardMaxKeyCount, count))
+    : 25;
+}
+
+// Walks startMidi..startMidi+keyCount-1, classifying each MIDI note as a
+// white or black key. Black key horizontal position is expressed as a
+// percentage of the white-key row's width, placed just past the 0.65 mark
+// of the white key before it -- matches where a real keyboard's black
+// keys sit relative to the white key they're attached to (reverse-derived
+// from this module's original hand-placed --key-left percentages, which
+// this replaces for an arbitrary key count).
+function nodeGraphMidiKeyboardGenerateKeys(startMidi = nodeGraphMidiKeyboardStartMidi, keyCount = nodeGraphMidiKeyboardKeyCount()) {
+  const whiteKeys = [];
+  const blackKeys = [];
+  for (let offset = 0; offset < keyCount; offset += 1) {
+    const midi = startMidi + offset;
+    const pitchClass = ((midi % 12) + 12) % 12;
+    if (nodeGraphMidiKeyboardBlackPitchClasses.has(pitchClass)) {
+      blackKeys.push({ midi, leftWhiteIndex: whiteKeys.length - 1 });
+    } else {
+      whiteKeys.push({ midi });
+    }
+  }
+  const totalWhite = whiteKeys.length;
+  for (const key of blackKeys) {
+    key.leftPercent = totalWhite > 0 && key.leftWhiteIndex >= 0
+      ? ((key.leftWhiteIndex + 0.65) / totalWhite) * 100
+      : 0;
+  }
+  return { whiteKeys, blackKeys, totalWhite };
+}
+
+// Rebuilds every rendered keyboard surface's white/black key DOM from the
+// current key count -- called once at bind time (populating the empty
+// rows createNodeGraphKeyboardControllerBody leaves behind) and again on
+// every key-count change. Full rebuild rather than incremental diffing:
+// key count changes are rare (a user clicking +/-), not a per-frame path.
+function renderNodeGraphMidiKeyboardKeys() {
+  const { whiteKeys, blackKeys, totalWhite } = nodeGraphMidiKeyboardGenerateKeys();
+  const octave = nodeGraphMidiKeyboardOctaveOffset();
+  const blackWidthPercent = totalWhite > 0 ? (0.63 / totalWhite) * 100 : 4.2;
+  document.querySelectorAll(".node-midi-keyboard-module .node-midi-keyboard-surface").forEach((surface) => {
+    const whiteRow = surface.querySelector(".node-midi-keyboard-white-row");
+    const blackRow = surface.querySelector(".node-midi-keyboard-black-row");
+    if (!whiteRow || !blackRow) {
+      return;
+    }
+    whiteRow.style.gridTemplateColumns = `repeat(${totalWhite}, minmax(0, 1fr))`;
+    whiteRow.replaceChildren(...whiteKeys.map((key) => {
+      const span = document.createElement("span");
+      span.dataset.midi = String(key.midi);
+      span.textContent = nodeGraphMidiKeyboardPitchLabel(nodeGraphMidiKeyboardShiftMidi(key.midi, octave));
+      return span;
+    }));
+    blackRow.replaceChildren(...blackKeys.map((key) => {
+      const span = document.createElement("span");
+      span.dataset.midi = String(key.midi);
+      span.style.setProperty("--key-left", `${key.leftPercent}%`);
+      span.style.width = `${blackWidthPercent}%`;
+      span.textContent = nodeGraphMidiKeyboardPitchLabel(nodeGraphMidiKeyboardShiftMidi(key.midi, octave));
+      return span;
+    }));
+  });
+  renderNodeGraphMidiKeyboardSignal(null);
+}
+
+function renderNodeGraphMidiKeyboardKeyCountControl() {
+  const value = nodeGraphMidiKeyboardKeyCount();
+  document.querySelectorAll("[data-midi-keyboard-key-count-value]").forEach((el) => {
+    el.textContent = String(value);
+  });
+  document.querySelectorAll("[data-midi-keyboard-key-count-down]").forEach((button) => {
+    button.disabled = value <= nodeGraphMidiKeyboardMinKeyCount;
+  });
+  document.querySelectorAll("[data-midi-keyboard-key-count-up]").forEach((button) => {
+    button.disabled = value >= nodeGraphMidiKeyboardMaxKeyCount;
+  });
+}
+
+function changeNodeGraphMidiKeyboardKeyCount(delta) {
+  nodeGraphMvp.midiKeyboardKeyCount = nodeGraphMidiKeyboardKeyCount(nodeGraphMidiKeyboardKeyCount() + delta);
+  renderNodeGraphMidiKeyboardKeyCountControl();
+  renderNodeGraphMidiKeyboardKeys();
+  saveNodeGraphMidiKeyboardMemory();
+}
 const nodeGraphMidiKeyboardMinOctave = -4;
 const nodeGraphMidiKeyboardMaxOctave = 4;
 const nodeGraphMidiKeyboardNoteNames = Object.freeze(["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]);
@@ -973,8 +1069,8 @@ function normalizeNodeGraphMidiKeyboardMemorySignal(signal, options = {}) {
   const midi = Math.max(0, Math.min(127, Math.round(Number(signal.midi) || 60)));
   const rawMidi = Math.max(0, Math.min(127, Math.round(Number(signal.rawMidi) || midi)));
   const octave = nodeGraphMidiKeyboardOctaveOffset(signal.octave);
-  const keyIndex = Math.max(0, Math.min(nodeGraphMidiKeyboardNoteCount - 1, Number(signal.keyIndex) || 0));
-  const keyQuantized = nodeGraphMidiKeyboardClamp01(signal.keyQuantized ?? (keyIndex / Math.max(1, nodeGraphMidiKeyboardNoteCount - 1)));
+  const keyIndex = Math.max(0, Math.min(nodeGraphMidiKeyboardKeyCount() - 1, Number(signal.keyIndex) || 0));
+  const keyQuantized = nodeGraphMidiKeyboardClamp01(signal.keyQuantized ?? (keyIndex / Math.max(1, nodeGraphMidiKeyboardKeyCount() - 1)));
   const frequency = Math.max(0, Number(signal.frequency) || 440 * 2 ** ((midi - 69) / 12));
   const gate = options.preserveGate ? (Number(signal.gate) > 0 ? 1 : 0) : 0;
   return {
@@ -1000,6 +1096,7 @@ function normalizeNodeGraphMidiKeyboardMemorySignal(signal, options = {}) {
 function nodeGraphMidiKeyboardMemoryPayload() {
   return {
     inputId: nodeGraphMvp.midiKeyboardInputId || "",
+    keyCount: nodeGraphMidiKeyboardKeyCount(),
     mode: nodeGraphMidiKeyboardMode(),
     modWheel: nodeGraphPerformanceModWheelValue(),
     octave: nodeGraphMidiKeyboardOctaveOffset(),
@@ -1032,6 +1129,7 @@ function loadNodeGraphMidiKeyboardMemory() {
     }
     return {
       inputId: String(payload.inputId || ""),
+      keyCount: nodeGraphMidiKeyboardKeyCount(payload.keyCount),
       mode: nodeGraphMidiKeyboardMode(payload.mode),
       modWheel: nodeGraphPerformanceModWheelValue(payload.modWheel),
       octave: nodeGraphMidiKeyboardOctaveOffset(payload.octave),
@@ -1050,6 +1148,7 @@ function applyNodeGraphMidiKeyboardMemory() {
     return false;
   }
   nodeGraphMvp.midiKeyboardInputId = memory.inputId;
+  nodeGraphMvp.midiKeyboardKeyCount = memory.keyCount;
   nodeGraphMvp.midiKeyboardMode = memory.mode;
   nodeGraphMvp.modWheelSignal = memory.modWheel;
   nodeGraphMvp.midiKeyboardOctave = memory.octave;
@@ -1213,9 +1312,9 @@ function nodeGraphMidiKeyboardSignalFromRaw(rawMidi, options = {}) {
   const midi = nodeGraphMidiKeyboardShiftMidi(rawMidi, octave);
   const rawKeyIndex = Math.max(
     0,
-    Math.min(nodeGraphMidiKeyboardNoteCount - 1, Math.round(Number(rawMidi) || 0) - nodeGraphMidiKeyboardStartMidi),
+    Math.min(nodeGraphMidiKeyboardKeyCount() - 1, Math.round(Number(rawMidi) || 0) - nodeGraphMidiKeyboardStartMidi),
   );
-  const keyQuantized = nodeGraphMidiKeyboardNoteCount > 1 ? rawKeyIndex / (nodeGraphMidiKeyboardNoteCount - 1) : 0;
+  const keyQuantized = nodeGraphMidiKeyboardKeyCount() > 1 ? rawKeyIndex / (nodeGraphMidiKeyboardKeyCount() - 1) : 0;
   const frequency = 440 * 2 ** ((midi - 69) / 12);
   return {
     source: options.source || "keyboard",
@@ -1254,8 +1353,8 @@ function nodeGraphMidiKeyboardSignalFromPointer(event, surface) {
   const target = event.target?.closest?.("[data-midi]");
   const targetMidi = target && surface.contains(target) ? Number(target.dataset.midi) : NaN;
   const fallbackKeyIndex = Math.min(
-    nodeGraphMidiKeyboardNoteCount - 1,
-    Math.max(0, Math.floor(x * nodeGraphMidiKeyboardNoteCount)),
+    nodeGraphMidiKeyboardKeyCount() - 1,
+    Math.max(0, Math.floor(x * nodeGraphMidiKeyboardKeyCount())),
   );
   const rawMidi = Number.isFinite(targetMidi) ? targetMidi : nodeGraphMidiKeyboardStartMidi + fallbackKeyIndex;
   const gate = event.buttons > 0 ? 1 : 0;
@@ -1675,6 +1774,26 @@ function bindNodeGraphKeyboardControllerModuleEvents() {
     button.dataset.midiKeyboardOctaveBound = "true";
     button.addEventListener("click", () => changeNodeGraphMidiKeyboardOctave(1));
   });
+  document.querySelectorAll("[data-midi-keyboard-key-count-down]").forEach((button) => {
+    if (button.dataset.midiKeyboardKeyCountBound === "true") {
+      return;
+    }
+    button.dataset.midiKeyboardKeyCountBound = "true";
+    button.addEventListener("click", () => changeNodeGraphMidiKeyboardKeyCount(-1));
+  });
+  document.querySelectorAll("[data-midi-keyboard-key-count-up]").forEach((button) => {
+    if (button.dataset.midiKeyboardKeyCountBound === "true") {
+      return;
+    }
+    button.dataset.midiKeyboardKeyCountBound = "true";
+    button.addEventListener("click", () => changeNodeGraphMidiKeyboardKeyCount(1));
+  });
+  // Populates any newly-mounted surface's empty white/black rows (see
+  // createNodeGraphKeyboardControllerBody) and re-renders every surface
+  // to the current key count -- cheap enough to always run here rather
+  // than tracking "is this a first mount" separately.
+  renderNodeGraphMidiKeyboardKeys();
+  renderNodeGraphMidiKeyboardKeyCountControl();
   renderNodeGraphMidiKeyboardSignal(null);
   renderNodeGraphMidiKeyboardOctaveControl();
   renderNodeGraphPerformanceWheels();

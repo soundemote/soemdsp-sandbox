@@ -46,6 +46,12 @@ function nodeGraphModuleWidthLimitsForType(type) {
   if (nodeGraphModuleDefinitions[type]?.layout === "knobWidget") {
     return { ...nodeGraphModuleWidthLimits, minGu: 1 };
   }
+  if (nodeGraphModuleDefinitions[type]?.layout === "keyboardController") {
+    // No GU cap -- key count is user-configurable (see
+    // nodeGraphMidiKeyboardKeyCount in node-graph-view-controls.js) and a
+    // wide key range needs room to not cramp the keys.
+    return { maxGu: 9999, minGu: 1 };
+  }
   return nodeGraphModuleWidthLimits;
 }
 
@@ -55,6 +61,9 @@ function nodeGraphModuleHeightLimitsForType(type) {
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "knobWidget") {
     return { ...nodeGraphModuleHeightLimits, minGu: 1 };
+  }
+  if (nodeGraphModuleDefinitions[type]?.layout === "keyboardController") {
+    return { maxGu: 9999, minGu: 1 };
   }
   return nodeGraphModuleHeightLimits;
 }

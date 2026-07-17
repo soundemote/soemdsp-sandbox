@@ -597,6 +597,23 @@ function createNodeGraphKeyboardControllerBody(node = null) {
   up.setAttribute("aria-label", "Transpose keyboard up one octave");
   up.textContent = "+";
   octave.append(down, octaveValue, up);
+  const keyCount = document.createElement("span");
+  keyCount.className = "node-midi-keyboard-octave-control";
+  keyCount.setAttribute("aria-label", "Number of keys");
+  const keyCountDown = document.createElement("button");
+  keyCountDown.type = "button";
+  keyCountDown.dataset.midiKeyboardKeyCountDown = "true";
+  keyCountDown.setAttribute("aria-label", "Show fewer keys");
+  keyCountDown.textContent = "-";
+  const keyCountValue = document.createElement("strong");
+  keyCountValue.dataset.midiKeyboardKeyCountValue = "true";
+  keyCountValue.textContent = "25";
+  const keyCountUp = document.createElement("button");
+  keyCountUp.type = "button";
+  keyCountUp.dataset.midiKeyboardKeyCountUp = "true";
+  keyCountUp.setAttribute("aria-label", "Show more keys");
+  keyCountUp.textContent = "+";
+  keyCount.append(keyCountDown, keyCountValue, keyCountUp);
   const midiButton = document.createElement("button");
   midiButton.type = "button";
   midiButton.dataset.midiKeyboardMidiButton = "true";
@@ -609,7 +626,7 @@ function createNodeGraphKeyboardControllerBody(node = null) {
   emptyOption.value = "";
   emptyOption.textContent = "no midi input";
   midiSelect.append(emptyOption);
-  controls.append(modeLabel, octave, midiButton, midiSelect);
+  controls.append(modeLabel, octave, keyCount, midiButton, midiSelect);
   heading.append(title, controls);
 
   const performance = document.createElement("div");
@@ -617,28 +634,16 @@ function createNodeGraphKeyboardControllerBody(node = null) {
   const surface = document.createElement("div");
   surface.className = "node-midi-keyboard-surface";
   surface.setAttribute("aria-label", "Two octave keyboard preview");
+  // Left empty -- populated by renderNodeGraphMidiKeyboardKeys (called
+  // from bindNodeGraphKeyboardControllerModuleEvents right after mount)
+  // from the current key count, since the key set is now user-configurable
+  // rather than a fixed 2-octave layout.
   const whiteRow = document.createElement("div");
   whiteRow.className = "node-midi-keyboard-white-row";
   whiteRow.setAttribute("aria-hidden", "true");
-  for (const [midi, label] of [[48, "C3"], [50, "D3"], [52, "E3"], [53, "F3"], [55, "G3"], [57, "A3"], [59, "B3"], [60, "C4"], [62, "D4"], [64, "E4"], [65, "F4"], [67, "G4"], [69, "A4"], [71, "B4"], [72, "C5"]]) {
-    const key = document.createElement("span");
-    key.dataset.midi = String(midi);
-    key.textContent = label;
-    whiteRow.append(key);
-  }
   const blackRow = document.createElement("div");
   blackRow.className = "node-midi-keyboard-black-row";
   blackRow.setAttribute("aria-hidden", "true");
-  for (const keySpec of [
-    [49, "C#3", "4.6%"], [51, "D#3", "11.2%"], [54, "F#3", "24.6%"], [56, "G#3", "31.2%"], [58, "A#3", "37.9%"],
-    [61, "C#4", "51.2%"], [63, "D#4", "57.9%"], [66, "F#4", "71.2%"], [68, "G#4", "77.9%"], [70, "A#4", "84.6%"],
-  ]) {
-    const key = document.createElement("span");
-    key.dataset.midi = String(keySpec[0]);
-    key.style.setProperty("--key-left", keySpec[2]);
-    key.textContent = keySpec[1];
-    blackRow.append(key);
-  }
   surface.append(whiteRow, blackRow);
   performance.append(surface);
 
