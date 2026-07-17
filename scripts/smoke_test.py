@@ -16783,8 +16783,8 @@ def require_node_graph_mvp_contract() -> None:
         "node graph UI zoom should not bitmap-scale text",
     )
     require(
-        "height: graphElement?.offsetHeight || graphElement?.getBoundingClientRect?.().height || 0" in script_sources["./public/node-graph-workspace-geometry.js"]
-        and "width: graphElement?.offsetWidth || graphElement?.getBoundingClientRect?.().width || 0" in script_sources["./public/node-graph-workspace-geometry.js"],
+        "height: rect.height / zoom" in script_sources["./public/node-graph-workspace-geometry.js"]
+        and "width: rect.width / zoom" in script_sources["./public/node-graph-workspace-geometry.js"],
         "node graph world bounds should use layout size with CSS zoom",
     )
     require(

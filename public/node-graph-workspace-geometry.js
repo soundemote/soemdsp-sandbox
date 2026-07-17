@@ -122,12 +122,27 @@ function nodeGraphZoomSurface() {
   return document.getElementById("nodeGraphZoomSurface");
 }
 
+// Same rounding bug as the one fixed below for nodeGraphZoomSurfaceClientScale,
+// just showing up in a second place: this used to return offsetWidth/
+// offsetHeight (rounded to integer CSS pixels), which drawNodeGraphWires
+// feeds straight into the wire SVG's viewBox. Since the SVG is itself a
+// descendant of the zoomed surface, its rendered box is sub-pixel precise,
+// but the viewBox denominator was an integer -- so viewBox-to-rendered scale
+// drifted from the true zoom (measured ~0.22 out of 8 at zoom 8x), which
+// visibly desynced wires from their ports as zoom changed. Deriving the
+// local size from the precise getBoundingClientRect() divided by the true
+// zoom keeps the ratio exact.
 function nodeGraphGraphRect() {
   const surface = nodeGraphZoomSurface();
   const graphElement = surface || document.getElementById("nodeGraphWorkspace");
+  const rect = graphElement?.getBoundingClientRect?.();
+  if (!rect) {
+    return { height: 0, width: 0 };
+  }
+  const zoom = Math.max(0.0001, nodeGraphZoom());
   return {
-    height: graphElement?.offsetHeight || graphElement?.getBoundingClientRect?.().height || 0,
-    width: graphElement?.offsetWidth || graphElement?.getBoundingClientRect?.().width || 0,
+    height: rect.height / zoom,
+    width: rect.width / zoom,
   };
 }
 

@@ -14315,6 +14315,17 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   font-size: 0.7rem;
   font-weight: 700;
   text-align: center;
+  line-height: 1;
+}
+
+/* Beats the generic ".node-scene-context-menu button:not(...)" rule's
+   "justify-content: flex-start; text-align: left" (4 classes + 1 element)
+   with an ID-scoped selector instead of piling on more :not() clauses. */
+#nodeSceneContextMenu .scene-context-patch-action-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 .scene-context-patch-action-button + .scene-context-patch-action-button {
