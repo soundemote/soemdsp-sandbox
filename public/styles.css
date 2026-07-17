@@ -1040,6 +1040,19 @@ audio {
   display: none !important;
 }
 
+/* No hard edge in the buttonless modular view -- the workspace already
+   fills the viewport edge-to-edge here (--node-modular-only-inset: 0px
+   above); a visible border/shadow on top of that reads as a wall around
+   an "infinite" canvas instead of it actually looking borderless. Same
+   treatment as the ?hideui=1 embed case below, just triggered by the
+   View Buttons toggle instead of a query param. */
+.node-wiring-panel.modular-only-controls-hidden .node-graph-workspace {
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
 /* Full-screen "no nonsense" embed (?hideui=1): kill remaining chrome. */
 .soemdsp-hide-ui .node-wiring-panel.modular-only-view {
   --node-modular-only-inset: 0px;
