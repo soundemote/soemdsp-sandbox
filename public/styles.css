@@ -2374,14 +2374,20 @@ html.soemdsp-hide-ui .status-strip {
   word-break: break-all;
 }
 
-/* Debug info hidden -- the keyboard's signal readout and held-keys
-   bitmask row (everywhere a keyboardController surface renders, dock
-   and placed nodes both), plus the CPU/RAM/GPU constraint guide, whose
-   vertical space this reclaims. Toggled from the Visibility menu's
-   "Hide Debug" button. */
-body.keyboard-debug-hidden .node-midi-keyboard-signal-bar,
+/* Debug info hidden -- the keyboard's held-keys bitmask row (everywhere
+   a keyboardController surface renders, dock and placed nodes both)
+   and the CPU/RAM/GPU constraint guide, whose vertical space this
+   reclaims. Toggled from the Visibility menu's "Hide Debug" button. */
 body.keyboard-debug-hidden .node-midi-keyboard-bitmask-row,
 body.keyboard-debug-hidden .node-constraint-color-guide {
+  display: none;
+}
+
+/* The signal bar itself stays visible -- Freq/Pitch/X/Y aren't just
+   debug readouts, they're the keyboard's actual current output values,
+   so Hide Debug only hides the other (genuinely diagnostic) fields
+   inside it: gate/1s gate/key/q/oct/midi/double/.1v/oct/inc. */
+body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-keyboard-signal="frequency"])):not(:has([data-keyboard-signal="pitch"])):not(:has([data-keyboard-signal="x"])):not(:has([data-keyboard-signal="y"])) {
   display: none;
 }
 
@@ -14019,6 +14025,17 @@ button.saved-default,
   color: rgba(243, 241, 236, 0.9);
   font-size: 0.7rem;
   font-weight: 700;
+}
+
+/* Extra column for a hotkey badge (<kbd>Ctrl+K</kbd> etc.) on buttons
+   that have one -- icon | label | kbd instead of just icon | label. */
+.scene-context-window-controls .scene-context-window-button:has(kbd) {
+  grid-template-columns: calc(var(--node-floating-window-button-height) + 4px) minmax(0, 1fr) auto;
+}
+
+.scene-context-window-controls .scene-context-window-button kbd {
+  align-self: center;
+  padding-right: 8px;
 }
 
 .scene-context-global-smoothing-control {

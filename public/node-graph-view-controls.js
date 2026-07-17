@@ -949,10 +949,14 @@ function endNodeGraphStandaloneMidiKeyboardResize(event) {
 
 function renderNodeGraphStandaloneMidiKeyboardToggle() {
   const button = document.getElementById("nodeStandaloneMidiKeyboardButton");
+  const sceneButton = document.getElementById("nodeSceneToggleStandaloneMidiKeyboard");
   const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
   const visible = Boolean(dock && !dock.hidden);
   if (button) {
     button.setAttribute("aria-pressed", visible ? "true" : "false");
+  }
+  if (sceneButton) {
+    sceneButton.setAttribute("aria-pressed", visible ? "true" : "false");
   }
 }
 
