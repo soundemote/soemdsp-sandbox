@@ -2305,11 +2305,13 @@ html.soemdsp-hide-ui .status-strip {
 }
 
 /* Debug info hidden -- the keyboard's signal readout and held-keys
-   bitmask row, everywhere a keyboardController surface renders (dock
-   and placed nodes both carry these elements). Toggled from the
-   Visibility menu's "Hide Debug" button. */
+   bitmask row (everywhere a keyboardController surface renders, dock
+   and placed nodes both), plus the CPU/RAM/GPU constraint guide, whose
+   vertical space this reclaims. Toggled from the Visibility menu's
+   "Hide Debug" button. */
 body.keyboard-debug-hidden .node-midi-keyboard-signal-bar,
-body.keyboard-debug-hidden .node-midi-keyboard-bitmask-row {
+body.keyboard-debug-hidden .node-midi-keyboard-bitmask-row,
+body.keyboard-debug-hidden .node-constraint-color-guide {
   display: none;
 }
 
