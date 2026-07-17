@@ -439,11 +439,11 @@ function nodeGraphFloatingWindowKeyboardTargets() {
     },
     {
       draggingKey: "tooltipWindowDragging",
-      resizingKey: null,
+      resizingKey: "tooltipWindowResizing",
       elementId: "nodeTooltipWindow",
       workspaceKey: "tooltipWindow",
-      applySize: null,
-      sizeAxes: { width: false, height: false },
+      applySize: typeof applyNodeGraphTooltipWindowSize === "function" ? applyNodeGraphTooltipWindowSize : null,
+      sizeAxes: { width: true, height: true },
     },
   ];
 }

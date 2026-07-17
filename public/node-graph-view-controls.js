@@ -1021,18 +1021,42 @@ function toggleNodeGraphStandaloneMidiKeyboard() {
   setNodeInteractionHelp("MIDI keyboard shown.");
 }
 
-// Free-floating window (drag only, no resize -- a short status readout
-// doesn't need it) hosting #nodeInteractionHelp, same generic
-// drag/lock/keyboard-nudge subsystem as Command Center et al
-// (node-graph-floating-windows.js). Exists so tips stay reachable in
-// modular-only view, where the old in-flow .node-help-stack row (and
-// everything else outside a floating window) gets hidden.
+// Free-floating, draggable, resizable window hosting #nodeInteractionHelp,
+// same generic drag/resize/lock/keyboard-nudge subsystem as Command
+// Center et al (node-graph-floating-windows.js). Exists so tips stay
+// reachable in modular-only view, where the old in-flow .node-help-stack
+// row (and everything else outside a floating window) gets hidden.
+const nodeTooltipWindowDefaultSize = Object.freeze({
+  width: 420,
+  minWidth: 260,
+  maxWidth: 900,
+  height: 90,
+  minHeight: 90,
+  maxHeight: 480,
+});
+
+function normalizeNodeGraphTooltipWindowSize(size = {}) {
+  return normalizeNodeGraphFloatingWindowSize(size, nodeTooltipWindowDefaultSize);
+}
+
+function applyNodeGraphTooltipWindowSize(size = nodeGraphMvp.tooltipWindowSize) {
+  const win = document.getElementById("nodeTooltipWindow");
+  const normalized = normalizeNodeGraphTooltipWindowSize(size || nodeTooltipWindowDefaultSize);
+  nodeGraphMvp.tooltipWindowSize = normalized;
+  if (!win) {
+    return normalized;
+  }
+  applyNodeGraphFloatingWindowSizeVars(win, "node-tooltip-window", nodeTooltipWindowDefaultSize, normalized);
+  return normalized;
+}
+
 function positionNodeGraphTooltipWindowAtSavedOr(x, y) {
   const win = document.getElementById("nodeTooltipWindow");
   if (!win) {
     return;
   }
   win.hidden = false;
+  applyNodeGraphTooltipWindowSize();
   const savedPosition = nodeGraphMvp.workspaceWindowStates?.tooltipWindow?.position;
   const hasSavedPosition =
     Number.isFinite(Number(savedPosition?.left)) &&
@@ -1059,6 +1083,28 @@ function beginNodeGraphTooltipWindowDrag(event) {
     return;
   }
   beginNodeGraphFloatingWindowDrag(event, win, "tooltipWindowDragging");
+}
+
+function beginNodeGraphTooltipWindowResize(event) {
+  const win = document.getElementById("nodeTooltipWindow");
+  beginNodeGraphFloatingWindowResize(event, win, "tooltipWindowResizing");
+}
+
+function dragNodeGraphTooltipWindowResize(event) {
+  dragNodeGraphFloatingWindowResize(event, "tooltipWindowResizing", applyNodeGraphTooltipWindowSize);
+}
+
+function endNodeGraphTooltipWindowResize(event) {
+  endNodeGraphFloatingWindowResize(event, "tooltipWindowResizing", () => {
+    if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
+      rememberNodeGraphWorkspaceWindowState(
+        "tooltipWindow",
+        document.getElementById("nodeTooltipWindow"),
+        { open: true, size: normalizeNodeGraphTooltipWindowSize(nodeGraphMvp.tooltipWindowSize) },
+        { status: false },
+      );
+    }
+  });
 }
 
 function dragNodeGraphTooltipWindow(event) {
@@ -1109,7 +1155,11 @@ function closeNodeGraphTooltipWindow() {
   if (nodeGraphMvp.tooltipWindowDragging?.handle) {
     nodeGraphMvp.tooltipWindowDragging.handle.classList.remove("dragging");
   }
+  if (nodeGraphMvp.tooltipWindowResizing?.handle) {
+    nodeGraphMvp.tooltipWindowResizing.handle.classList.remove("dragging");
+  }
   nodeGraphMvp.tooltipWindowDragging = null;
+  nodeGraphMvp.tooltipWindowResizing = null;
   if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
     rememberNodeGraphWorkspaceWindowState("tooltipWindow", win, { open: false }, { status: false });
   }

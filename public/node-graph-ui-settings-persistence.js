@@ -362,6 +362,9 @@ function applyNodeGraphWorkspaceWindowStateToElement(key) {
   if (key === "standaloneMidiKeyboard" && typeof applyNodeGraphStandaloneMidiKeyboardDockSize === "function") {
     applyNodeGraphStandaloneMidiKeyboardDockSize(state.size);
   }
+  if (key === "tooltipWindow" && typeof applyNodeGraphTooltipWindowSize === "function") {
+    applyNodeGraphTooltipWindowSize(state.size);
+  }
   if (key === "moduleActions" && typeof applyNodeModuleActionsWindowSize === "function") {
     applyNodeModuleActionsWindowSize(nodeGraphMvp.sharedInspectorWindowState?.size);
   }

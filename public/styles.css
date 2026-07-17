@@ -3583,16 +3583,25 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: none;
 }
 
-/* Free-floating window (drag to move, no resize -- it's a short status
-   readout, not something that benefits from resizing) hosting the
-   interaction tips. Explicitly exempted from the modular-only-view
+/* Free-floating, draggable, resizable window -- same generic subsystem
+   as Command Center et al (node-graph-floating-windows.js) -- hosting
+   the interaction tips. Explicitly exempted from the modular-only-view
    chrome-hiding rule above so tips stay reachable there too, which is
    the whole point of pulling this out of .node-help-stack (a plain
    in-flow row that modular-only view hides along with everything else). */
 .node-tooltip-window {
   position: fixed;
   z-index: 60;
-  width: min(420px, calc(100vw - 28px));
+  display: flex;
+  flex-direction: column;
+  width: clamp(
+    var(--node-tooltip-window-min-width, 260px),
+    var(--node-tooltip-window-width, 420px),
+    min(var(--node-tooltip-window-max-width, 900px), calc(100vw - 28px))
+  );
+  height: var(--node-tooltip-window-height, auto);
+  min-height: var(--node-tooltip-window-min-height, 90px);
+  max-height: min(var(--node-tooltip-window-max-height, 480px), calc(100vh - 28px));
   border: 1px solid var(--line);
   border-radius: 10px;
   overflow: hidden;
@@ -3608,17 +3617,48 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: none;
 }
 
+.node-tooltip-window .scene-context-resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  min-height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 4px 0 6px 0;
+  background:
+    linear-gradient(135deg, transparent 0 48%, rgba(127, 199, 217, 0.36) 50% 56%, transparent 58%),
+    linear-gradient(135deg, transparent 0 64%, rgba(127, 199, 217, 0.58) 66% 72%, transparent 74%),
+    rgba(7, 10, 13, 0.72);
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.node-tooltip-window .scene-context-resize-handle:hover,
+.node-tooltip-window .scene-context-resize-handle.dragging {
+  background:
+    linear-gradient(135deg, transparent 0 48%, rgba(127, 199, 217, 0.5) 50% 56%, transparent 58%),
+    linear-gradient(135deg, transparent 0 64%, rgba(127, 199, 217, 0.78) 66% 72%, transparent 74%),
+    rgba(7, 10, 13, 0.72);
+}
+
 /* No border/background/box-shadow of its own -- .node-tooltip-window
    (the only place this renders now) already provides that chrome as
    the single visible boundary; this used to double up into a "box
    inside box" look (its own card border sitting inside the window's
-   card border) back when it lived loose in .node-help-stack. */
+   card border) back when it lived loose in .node-help-stack. Fills the
+   window (flex: 1 1 auto) instead of a fixed height now that the
+   window itself can be resized taller. */
 .node-interaction-help {
   display: flex;
+  flex: 1 1 auto;
   align-items: center;
   justify-content: center;
   min-height: 72px;
-  height: 72px;
   padding: 6px 10px;
   color: var(--muted);
   font-family: Consolas, "Courier New", monospace;

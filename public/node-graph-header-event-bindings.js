@@ -51,9 +51,15 @@ function bindNodeGraphHeaderControlEvents() {
   document
     .getElementById("nodeTooltipWindowHeading")
     ?.addEventListener("pointerdown", beginNodeGraphTooltipWindowDrag);
+  document
+    .getElementById("nodeTooltipWindowResizeHandle")
+    ?.addEventListener("pointerdown", beginNodeGraphTooltipWindowResize);
   document.addEventListener("pointermove", dragNodeGraphTooltipWindow);
+  document.addEventListener("pointermove", dragNodeGraphTooltipWindowResize);
   document.addEventListener("pointerup", endNodeGraphTooltipWindowDrag);
+  document.addEventListener("pointerup", endNodeGraphTooltipWindowResize);
   document.addEventListener("pointercancel", endNodeGraphTooltipWindowDrag);
+  document.addEventListener("pointercancel", endNodeGraphTooltipWindowResize);
   document.getElementById("nodeGridToggleButton").addEventListener("click", toggleNodeGraphGridVisibility);
   document.getElementById("nodeVideoViewButton")?.addEventListener("click", toggleNodeGraphVideoView);
   document.getElementById("nodeMappingViewButton")?.addEventListener("click", () => setNodeGraphViewMode("mapping"));
