@@ -293,6 +293,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/pulseExplosion/pulse-explosion-live-evaluator.js",
     "./public/modules/comparator/comparator-live-evaluator.js",
     "./public/modules/minMax/min-max-live-evaluator.js",
+    "./public/modules/bitConverter/bit-converter-live-evaluator.js",
     "./public/modules/aliasSine/alias-sine-live-evaluator.js",
     "./public/modules/tb303Filter/tb303-filter-live-evaluator.js",
     "./public/modules/delayEffect/delay-effect-live-evaluator.js",

@@ -838,6 +838,26 @@ function renderNodeGraphStandaloneMidiKeyboardToggle() {
   }
 }
 
+// html has `scrollbar-gutter: stable both-edges` (styles.css), which
+// reserves scrollbar-width space on BOTH edges of the viewport -- normal
+// in-flow elements (like #nodeGraphWorkspace) lay out inside that
+// reserved area, but `position: fixed` elements are placed relative to
+// the un-reserved viewport, so a fixed element's `left` needs the gutter
+// width subtracted to land at the same visual x as a same-numbered
+// getBoundingClientRect().left on an in-flow element. Without this, the
+// dock rendered a whole gutter-width too far right, clipping its right
+// edge past the workspace (and often past the window itself). Measured
+// via a zero-offset probe rather than hardcoded, since gutter width
+// varies by OS/browser.
+function nodeGraphFixedPositionGutterOffset() {
+  const probe = document.createElement("div");
+  probe.style.cssText = "position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;";
+  document.body.appendChild(probe);
+  const offset = probe.getBoundingClientRect().left;
+  document.body.removeChild(probe);
+  return offset;
+}
+
 // Keeps the dock's left edge and width matched to #nodeGraphWorkspace's
 // actual rect, so it lines up exactly with the modular view instead of
 // an independently centered max-width. Bound once (ResizeObserver +
@@ -853,7 +873,8 @@ function syncNodeGraphStandaloneMidiKeyboardDockWidth() {
   if (rect.width <= 0) {
     return;
   }
-  dock.style.left = `${Math.round(rect.left)}px`;
+  const gutterOffset = nodeGraphFixedPositionGutterOffset();
+  dock.style.left = `${Math.round(rect.left - gutterOffset)}px`;
   dock.style.width = `${Math.round(rect.width)}px`;
 }
 

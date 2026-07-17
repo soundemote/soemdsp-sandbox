@@ -300,6 +300,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Comparator",
     notes: ["gate", "edge detect", "native"],
   },
+  bitConverter: {
+    category: "Other",
+    description: "Converts a raw full-scale integer (e.g. keyboardController's Held Keys bitmask) to and from normalized 0..1 (unipolar) and -1..1 (bipolar) CV, using 2^bits - 1 as the ceiling. Patch a digital wire's exact value into audio-rate CV, or reconstruct the original integer from a CV signal on the way back.",
+    label: "Bit Converter",
+    notes: ["normalize", "0..1", "-1..1", "bitmask"],
+  },
   stepSequencer: {
     category: "Sequence",
     description: "Eight-step trigger sequencer. Advance it with Clock and route stepped control values anywhere.",

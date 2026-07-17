@@ -34,6 +34,7 @@ const nodeGraphNodeLabels = Object.freeze({
   triggerCounter: "Trigger Counter",
   triggerDivider: "Trigger Divider",
   comparator: "Comparator",
+  bitConverter: "Bit Converter",
   stepSequencer: "Step Sequencer",
   spiral: "Spiral",
   fractalSpiral: "Fractal Spiral",
@@ -1904,6 +1905,30 @@ const nodeGraphModuleDefinitions = Object.freeze({
     layout: "clapPlugin",
     outputs: ["Left", "Right"],
     parameters: [],
+  },
+  bitConverter: {
+    // Full Scale carries a raw, exact integer (e.g. keyboardController's
+    // Held Keys bitmask) -- must not be smoothed like a normal CV input,
+    // same reasoning as Held Keys itself being a digital output. The two
+    // "-> Full Scale" outputs are the same kind of raw value on the way
+    // back out; the two "Full Scale ->" outputs are normal 0..1/-1..1 CV
+    // and are left analog.
+    digitalInputs: ["Full Scale"],
+    digitalOutputs: ["Unipolar to Full Scale", "Bipolar to Full Scale"],
+    inputs: ["Full Scale", "Unipolar", "Bipolar"],
+    outputs: ["Full Scale to Unipolar", "Full Scale to Bipolar", "Unipolar to Full Scale", "Bipolar to Full Scale"],
+    parameters: [
+      {
+        defaultValue: "53",
+        key: "bits",
+        label: "Bits",
+        max: "53",
+        mid: "27",
+        min: "1",
+        nonlinearSlider: false,
+        step: "1",
+      },
+    ],
   },
   gain: {
     inputAliases: { Mono: "In" },
