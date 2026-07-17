@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import collections
 import ctypes
 import hashlib
 import itertools
@@ -59,8 +60,13 @@ METADATA_PROBE_TIMEOUT_SECONDS = 5
 CLAP_NAME_SIZE = 256
 CLAP_PATH_SIZE = 1024
 CLAP_CORE_EVENT_SPACE_ID = 0
+CLAP_EVENT_NOTE_ON = 0
+CLAP_EVENT_NOTE_OFF = 1
 CLAP_EVENT_PARAM_VALUE = 5
 CLAP_PROCESS_ERROR = 0
+CLAP_LIVE_MIN_BLOCK_FRAMES = 32
+CLAP_LIVE_MAX_BLOCK_FRAMES = 4096
+CLAP_LIVE_DEFAULT_BLOCK_FRAMES = 256
 CLAP_MAX_PROCESS_FRAMES = 48000
 CLAP_MAX_PROCESS_BATCH_ITEMS = 64
 CLAP_RENDER_SESSION_IDLE_TIMEOUT_SECONDS = 120.0
@@ -75,6 +81,22 @@ CLAP_EDITOR_MIN_WIDTH = 240
 CLAP_EDITOR_MIN_HEIGHT = 160
 CLAP_EDITOR_MAX_WIDTH = 4096
 CLAP_EDITOR_MAX_HEIGHT = 4096
+
+
+# Live audio (Architecture A, see docs/WEBUI_CLAP_HOST_PLAN.md "Design
+# Direction (2026-07-17) -- Live Audio"): the host owns its own real-time
+# audio device callback; the browser only ever sends control messages
+# (parameters, notes). This is the one new dependency this host takes on --
+# everything else here is deliberately stdlib + ctypes only. Kept optional
+# and feature-detected (like the native CLAP libraries themselves) so the
+# rest of the host (discovery, offline render, presets) works with zero
+# pip installs; only /instances/:id/live/* routes need it.
+try:
+    import sounddevice as _sounddevice
+    HAVE_SOUNDDEVICE = True
+except ImportError:
+    _sounddevice = None
+    HAVE_SOUNDDEVICE = False
 
 
 INSTANCE_ID_COUNTER = itertools.count(1)
@@ -162,6 +184,17 @@ class ClapEventParamValue(ctypes.Structure):
         ("channel", ctypes.c_int16),
         ("key", ctypes.c_int16),
         ("value", ctypes.c_double),
+    ]
+
+
+class ClapEventNote(ctypes.Structure):
+    _fields_ = [
+        ("header", ClapEventHeader),
+        ("note_id", ctypes.c_int32),
+        ("port_index", ctypes.c_int16),
+        ("channel", ctypes.c_int16),
+        ("key", ctypes.c_int16),
+        ("velocity", ctypes.c_double),
     ]
 
 
@@ -805,6 +838,13 @@ def host_capabilities(
         "pluginLatencyInfo": True,
         "pluginTailInfo": True,
         "pluginStatePersistence": True,
+        # Architecture A (see docs/WEBUI_CLAP_HOST_PLAN.md): the host owns
+        # its own real-time audio device callback; requires the optional
+        # sounddevice dependency, absent from a bare stdlib install.
+        "liveAudio": HAVE_SOUNDDEVICE,
+        "liveAudioMinBlockFrames": CLAP_LIVE_MIN_BLOCK_FRAMES,
+        "liveAudioMaxBlockFrames": CLAP_LIVE_MAX_BLOCK_FRAMES,
+        "liveAudioDefaultBlockFrames": CLAP_LIVE_DEFAULT_BLOCK_FRAMES,
     }
 
 
@@ -1392,6 +1432,73 @@ class MultiParamInputEvents:
         self.events = ClapInputEvents(None, self._size, self._get)
 
 
+def make_live_note_event(is_note_on: bool, key: int, velocity: float, channel: int = 0) -> ClapEventNote:
+    return ClapEventNote(
+        ClapEventHeader(
+            ctypes.sizeof(ClapEventNote),
+            0,
+            CLAP_CORE_EVENT_SPACE_ID,
+            CLAP_EVENT_NOTE_ON if is_note_on else CLAP_EVENT_NOTE_OFF,
+            0,
+        ),
+        -1,
+        -1,
+        int(channel),
+        int(key),
+        float(velocity),
+    )
+
+
+def make_live_param_event(param_id: int, value: float) -> ClapEventParamValue:
+    return ClapEventParamValue(
+        ClapEventHeader(
+            ctypes.sizeof(ClapEventParamValue),
+            0,
+            CLAP_CORE_EVENT_SPACE_ID,
+            CLAP_EVENT_PARAM_VALUE,
+            0,
+        ),
+        int(param_id),
+        None,
+        -1,
+        -1,
+        -1,
+        -1,
+        float(value),
+    )
+
+
+# Unlike MultiParamInputEvents (param-only, built from JSON dicts), this
+# takes already-constructed event structs of any type -- the live audio
+# callback queues a mix of ClapEventNote/ClapEventParamValue instances
+# between process() calls and hands the whole batch to the plugin at the
+# start of the next callback. Building event structs happens on the HTTP
+# thread when a note/param request arrives (rare, not real-time-critical);
+# the callback itself only ever drains a plain list, no allocation beyond
+# this thin wrapper.
+class MixedInputEvents:
+    def __init__(self, events: list[ctypes.Structure]):
+        self.event_pointers = [ctypes.pointer(event) for event in events]
+        self.header_pointers = [
+            ctypes.cast(pointer, ctypes.POINTER(ClapEventHeader))
+            for pointer in self.event_pointers
+        ]
+
+        @input_events_size_callback
+        def size(_events_pointer: int) -> int:
+            return len(self.header_pointers)
+
+        @input_events_get_callback
+        def get(_events_pointer: int, index: int):
+            if 0 <= index < len(self.header_pointers):
+                return ctypes.cast(self.header_pointers[index], ctypes.c_void_p).value
+            return None
+
+        self._size = size
+        self._get = get
+        self.events = ClapInputEvents(None, self._size, self._get)
+
+
 class EmptyInputEvents:
     def __init__(self):
         @input_events_size_callback
@@ -1475,6 +1582,29 @@ class PersistentClapInstance:
         self.editor_height = 0
         self._editor_window_api_bytes = b""
         self._editor_clap_window: ClapWindow | None = None
+        # Live audio (Architecture A): a real-time sounddevice OutputStream
+        # calling this instance's process() continuously. None when not
+        # live. Buffers are pre-allocated once in start_live_audio and
+        # reused every callback -- the callback itself never allocates
+        # (real-time-safety requirement for the audio thread).
+        self.live_stream: Any = None
+        self.live_sample_rate = 0.0
+        self.live_block_size = 0
+        self.live_input_arrays: list[Any] = []
+        self.live_output_arrays: list[Any] = []
+        self.live_input_buffer_array: Any = None
+        self.live_output_buffer_array: Any = None
+        self.live_input_port_count = 0
+        self.live_output_port_count = 0
+        self.live_total_output_channels = 0
+        self.live_empty_inputs: Any = None
+        self.live_ignored_outputs: Any = None
+        self.live_pending_events: collections.deque = collections.deque()
+        self.live_peak = 0.0
+        self.live_frame_count = 0
+        self.live_xrun_count = 0
+        self.live_dropped_callback_count = 0
+        self.live_error = ""
 
     @locked_clap_instance_method
     def summary(self) -> dict[str, Any]:
@@ -1942,6 +2072,260 @@ class PersistentClapInstance:
             return False
         self._stop_offline_render_locked()
         return True
+
+    @staticmethod
+    def _build_planar_audio_buffers(
+        arrays: list[Any],
+        channel_counts: list[int],
+    ) -> Any:
+        # Same buffer-building shape as the offline process() path (see the
+        # nested build_audio_buffers closure there), duplicated rather than
+        # shared since that one is a local closure built fresh per request;
+        # this one is built once at live-start and reused every callback.
+        buffers: list[ClapAudioBuffer] = []
+        channel_offset = 0
+        for channel_count in channel_counts:
+            if channel_count > 0:
+                port_arrays = arrays[channel_offset:channel_offset + channel_count]
+                channel_pointers = (ctypes.POINTER(ctypes.c_float) * channel_count)(
+                    *[ctypes.cast(array, ctypes.POINTER(ctypes.c_float)) for array in port_arrays]
+                )
+                channel_offset += channel_count
+                data32 = channel_pointers
+            else:
+                data32 = None
+            buffers.append(ClapAudioBuffer(data32, None, int(channel_count), 0, 0))
+        if not buffers:
+            return None
+        return (ClapAudioBuffer * len(buffers))(*buffers)
+
+    @locked_clap_instance_method
+    def start_live_audio(self, sample_rate: float, block_size: int) -> dict[str, Any]:
+        if not HAVE_SOUNDDEVICE:
+            raise RuntimeError("sounddevice is not installed on this host -- live audio is unavailable")
+        if self.live_stream is not None:
+            raise RuntimeError("live audio is already active for this instance")
+        if self.offline_render_session_id:
+            raise RuntimeError("instance has an active offline render session")
+        if self.safety_latched:
+            raise RuntimeError("instance safety latch is active")
+        if not math.isfinite(sample_rate) or sample_rate <= 0:
+            raise RuntimeError("sampleRate must be positive and finite")
+        if block_size < CLAP_LIVE_MIN_BLOCK_FRAMES or block_size > CLAP_LIVE_MAX_BLOCK_FRAMES:
+            raise RuntimeError(
+                f"blockSize must be in {CLAP_LIVE_MIN_BLOCK_FRAMES}..{CLAP_LIVE_MAX_BLOCK_FRAMES}"
+            )
+
+        input_ports = self.audio_ports(True)
+        output_ports = self.audio_ports(False)
+        input_channel_counts = [max(0, int(port.get("channelCount", 0) or 0)) for port in input_ports]
+        output_channel_counts = [max(0, int(port.get("channelCount", 0) or 0)) for port in output_ports]
+        total_input_channels = sum(input_channel_counts)
+        total_output_channels = sum(output_channel_counts)
+        if total_output_channels <= 0:
+            raise RuntimeError("plugin has no audio output channels")
+
+        activated = False
+        started = False
+        try:
+            activated = bool(
+                self.plugin_pointer.contents.activate(
+                    self.plugin_pointer, float(sample_rate), 1, int(block_size),
+                )
+            )
+            if not activated:
+                raise RuntimeError("plugin.activate returned false")
+            started = bool(self.plugin_pointer.contents.start_processing(self.plugin_pointer))
+            if not started:
+                raise RuntimeError("plugin.start_processing returned false")
+
+            # Pre-allocated once here, never again -- the audio callback
+            # only ever writes into these same buffers.
+            self.live_input_arrays = [(ctypes.c_float * block_size)() for _ in range(total_input_channels)]
+            self.live_output_arrays = [(ctypes.c_float * block_size)() for _ in range(total_output_channels)]
+            self.live_input_buffer_array = self._build_planar_audio_buffers(
+                self.live_input_arrays, input_channel_counts,
+            )
+            self.live_output_buffer_array = self._build_planar_audio_buffers(
+                self.live_output_arrays, output_channel_counts,
+            )
+            self.live_input_port_count = len(input_channel_counts)
+            self.live_output_port_count = len(output_channel_counts)
+            self.live_total_output_channels = total_output_channels
+            self.live_empty_inputs = EmptyInputEvents()
+            self.live_ignored_outputs = IgnoredOutputEvents()
+            self.live_sample_rate = float(sample_rate)
+            self.live_block_size = int(block_size)
+            self.live_pending_events = collections.deque()
+            self.live_peak = 0.0
+            self.live_frame_count = 0
+            self.live_xrun_count = 0
+            self.live_dropped_callback_count = 0
+            self.live_error = ""
+
+            stream = _sounddevice.RawOutputStream(
+                samplerate=sample_rate,
+                blocksize=block_size,
+                channels=total_output_channels,
+                dtype="float32",
+                callback=self._live_audio_callback,
+            )
+            stream.start()
+            self.live_stream = stream
+        except Exception:
+            if started:
+                try:
+                    self.plugin_pointer.contents.stop_processing(self.plugin_pointer)
+                except Exception:
+                    pass
+            if activated:
+                try:
+                    self.plugin_pointer.contents.deactivate(self.plugin_pointer)
+                except Exception:
+                    pass
+            self.live_stream = None
+            raise
+        return self.live_status_locked()
+
+    def _live_audio_callback(self, outdata: Any, frames: int, _time_info: Any, status: Any) -> None:
+        # Runs on PortAudio's own real-time thread, not the HTTP server's.
+        # Must never block for long or allocate -- lock.acquire is
+        # non-blocking so a contended lock (e.g. a concurrent stop/close)
+        # just drops one callback's audio to silence instead of stalling
+        # the audio thread.
+        if status:
+            self.live_xrun_count += 1
+        acquired = self.lock.acquire(blocking=False)
+        if not acquired:
+            self.live_dropped_callback_count += 1
+            outdata[:] = b"\x00" * len(outdata)
+            return
+        try:
+            if self.live_stream is None:
+                outdata[:] = b"\x00" * len(outdata)
+                return
+            pending = []
+            while self.live_pending_events:
+                pending.append(self.live_pending_events.popleft())
+            input_events = MixedInputEvents(pending) if pending else self.live_empty_inputs
+
+            # No live graph feed yet (Architecture A) -- the plugin always
+            # sees silence on its audio inputs; note/param events are how
+            # the browser controls it.
+            for array in self.live_input_arrays:
+                ctypes.memset(array, 0, ctypes.sizeof(array))
+
+            process = ClapProcess(
+                0,
+                int(frames),
+                None,
+                self.live_input_buffer_array,
+                self.live_output_buffer_array,
+                int(self.live_input_port_count),
+                int(self.live_output_port_count),
+                ctypes.cast(ctypes.byref(input_events.events), ctypes.c_void_p),
+                ctypes.cast(ctypes.byref(self.live_ignored_outputs.events), ctypes.c_void_p),
+            )
+            status_code = int(self.plugin_pointer.contents.process(self.plugin_pointer, ctypes.byref(process)))
+            if status_code == CLAP_PROCESS_ERROR:
+                self.live_error = "plugin.process returned CLAP_PROCESS_ERROR"
+                outdata[:] = b"\x00" * len(outdata)
+                return
+
+            channels = self.live_total_output_channels
+            peak = 0.0
+            finite = True
+            for array in self.live_output_arrays:
+                for index in range(frames):
+                    value = array[index]
+                    if value != value or value in (float("inf"), float("-inf")):
+                        finite = False
+                        break
+                    magnitude = value if value >= 0 else -value
+                    if magnitude > peak:
+                        peak = magnitude
+                if not finite:
+                    break
+            if not finite or peak > CLAP_SAFETY_PEAK_LIMIT:
+                self.safety_latched = True
+                self.safety_reason = "non-finite or excessive live output"
+                self.live_error = self.safety_reason
+                outdata[:] = b"\x00" * len(outdata)
+                return
+
+            self.live_peak = peak
+            self.live_frame_count += frames
+            # Planar (per-channel) source -> interleaved destination buffer.
+            # A pure-Python interleave loop, not vectorized -- acceptable
+            # for this first live-audio proof; worth revisiting with
+            # numpy/memoryview tricks if CPU usage becomes a problem at
+            # smaller block sizes.
+            out_view = (ctypes.c_float * (frames * channels)).from_buffer(outdata)
+            for channel_index, array in enumerate(self.live_output_arrays):
+                for frame_index in range(frames):
+                    out_view[frame_index * channels + channel_index] = array[frame_index]
+        except Exception as error:  # noqa: BLE001 -- audio thread must never raise
+            self.live_error = str(error)
+            try:
+                outdata[:] = b"\x00" * len(outdata)
+            except Exception:
+                pass
+        finally:
+            self.lock.release()
+
+    def _stop_live_audio_locked(self) -> None:
+        stream = self.live_stream
+        self.live_stream = None
+        if stream is not None:
+            try:
+                stream.stop()
+                stream.close()
+            except Exception:
+                pass
+        if getattr(self, "live_block_size", 0):
+            try:
+                self.plugin_pointer.contents.stop_processing(self.plugin_pointer)
+            except Exception:
+                pass
+            try:
+                self.plugin_pointer.contents.deactivate(self.plugin_pointer)
+            except Exception:
+                pass
+        self.live_block_size = 0
+        self.live_sample_rate = 0.0
+
+    @locked_clap_instance_method
+    def stop_live_audio(self) -> dict[str, Any]:
+        was_live = self.live_stream is not None
+        self._stop_live_audio_locked()
+        return {"ok": True, "instanceId": self.instance_id, "stopped": was_live}
+
+    @locked_clap_instance_method
+    def queue_live_note(self, is_note_on: bool, key: int, velocity: float, channel: int = 0) -> dict[str, Any]:
+        if self.live_stream is None:
+            raise RuntimeError("live audio is not active for this instance")
+        self.live_pending_events.append(make_live_note_event(is_note_on, key, velocity, channel))
+        return {"ok": True, "instanceId": self.instance_id, "queued": True}
+
+    def live_status_locked(self) -> dict[str, Any]:
+        return {
+            "ok": True,
+            "instanceId": self.instance_id,
+            "active": self.live_stream is not None,
+            "sampleRate": self.live_sample_rate,
+            "blockSize": self.live_block_size,
+            "outputChannels": self.live_total_output_channels,
+            "peak": self.live_peak,
+            "frameCount": self.live_frame_count,
+            "xrunCount": self.live_xrun_count,
+            "droppedCallbackCount": self.live_dropped_callback_count,
+            "safetyLatched": bool(self.safety_latched),
+            "error": self.live_error,
+        }
+
+    @locked_clap_instance_method
+    def live_status(self) -> dict[str, Any]:
+        return self.live_status_locked()
 
     @locked_clap_instance_method
     def begin_offline_render(self, sample_rate: float, max_block_frames: int) -> dict[str, Any]:
@@ -2536,6 +2920,7 @@ class PersistentClapInstance:
     @locked_clap_instance_method
     def close(self) -> None:
         self._close_editor_locked()
+        self._stop_live_audio_locked()
         self._stop_offline_render_locked()
         if getattr(self, "plugin_pointer", None):
             try:
@@ -2942,6 +3327,15 @@ class ClapHostRequestHandler(BaseHTTPRequestHandler):
                 },
             )
             return
+        instance_live = self.match_instance_route(path, "/live")
+        if instance_live:
+            with server_clap_instances_lock(self.server):
+                instance = self.server.clap_instances.get(instance_live)
+            if not instance:
+                self.write_json(404, {"ok": False, "error": "unknown instance"})
+                return
+            self.write_json(200, instance.live_status())
+            return
         instance_editor = self.match_instance_route(path, "/editor")
         if instance_editor:
             with server_clap_instances_lock(self.server):
@@ -3076,6 +3470,54 @@ class ClapHostRequestHandler(BaseHTTPRequestHandler):
             try:
                 payload = self.read_json_body()
                 self.write_json(200, instance.end_offline_render(str(payload.get("renderSessionId") or "")))
+            except Exception as error:
+                self.write_json(400, {"ok": False, "error": str(error)})
+            return
+        instance_live_start = self.match_instance_route(path, "/live/start")
+        if instance_live_start:
+            with server_clap_instances_lock(self.server):
+                instance = self.server.clap_instances.get(instance_live_start)
+            if not instance:
+                self.write_json(404, {"ok": False, "error": "unknown instance"})
+                return
+            try:
+                payload = self.read_json_body()
+                sample_rate = float(payload.get("sampleRate") or 48000.0)
+                block_size = int(payload.get("blockSize") or CLAP_LIVE_DEFAULT_BLOCK_FRAMES)
+                self.write_json(200, instance.start_live_audio(sample_rate, block_size))
+            except Exception as error:
+                self.write_json(400, {"ok": False, "error": str(error)})
+            return
+        instance_live_stop = self.match_instance_route(path, "/live/stop")
+        if instance_live_stop:
+            with server_clap_instances_lock(self.server):
+                instance = self.server.clap_instances.get(instance_live_stop)
+            if not instance:
+                self.write_json(404, {"ok": False, "error": "unknown instance"})
+                return
+            try:
+                self.write_json(200, instance.stop_live_audio())
+            except Exception as error:
+                self.write_json(400, {"ok": False, "error": str(error)})
+            return
+        instance_live_note = self.match_instance_route(path, "/live/note")
+        if instance_live_note:
+            with server_clap_instances_lock(self.server):
+                instance = self.server.clap_instances.get(instance_live_note)
+            if not instance:
+                self.write_json(404, {"ok": False, "error": "unknown instance"})
+                return
+            try:
+                payload = self.read_json_body()
+                self.write_json(
+                    200,
+                    instance.queue_live_note(
+                        bool(payload.get("noteOn")),
+                        int(payload.get("key") if payload.get("key") is not None else 60),
+                        float(payload.get("velocity") if payload.get("velocity") is not None else 0.8),
+                        int(payload.get("channel") or 0),
+                    ),
+                )
             except Exception as error:
                 self.write_json(400, {"ok": False, "error": str(error)})
             return

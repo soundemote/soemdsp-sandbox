@@ -119,6 +119,7 @@ function applyNodeGraphClapHostBaseUrlFromInput(options = {}) {
 const nodeGraphClapHostCapabilityKeys = [
   "audioProcessing",
   "instanceProbing",
+  "liveAudio",
   "metadataInspection",
   "offlineRenderSessions",
   "persistentInstances",
@@ -143,6 +144,12 @@ function normalizeNodeGraphClapHostCapabilities(capabilities = {}) {
   const maxProcessBatchItems = Number(capabilities?.maxProcessBatchItems);
   if (Number.isFinite(maxProcessBatchItems) && maxProcessBatchItems > 0) {
     normalized.maxProcessBatchItems = Math.floor(maxProcessBatchItems);
+  }
+  for (const key of ["liveAudioMinBlockFrames", "liveAudioMaxBlockFrames", "liveAudioDefaultBlockFrames"]) {
+    const value = Number(capabilities?.[key]);
+    if (Number.isFinite(value) && value > 0) {
+      normalized[key] = Math.floor(value);
+    }
   }
   return normalized;
 }

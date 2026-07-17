@@ -2,6 +2,8 @@
 
 Status: Phase 1, initial Phase 3, initial Phase 4, initial Phase 5, and initial Phase 6 prototype started. The localhost health/version host exists and supports browser CORS/preflight access. The host can discover `.clap` paths through scan folders and explicit `--plugin` paths. With `--inspect-metadata`, the host can read native CLAP plugin descriptors in isolated probe subprocesses. With `--test-instantiate`, the host can create, initialize, and destroy plugin instances in isolated probe subprocesses. The browser has a `CLAP Plugin` module shell that can store a selected catalog entry, request/delete a host instance, read host capabilities, read host config, read host audio port metadata, read host parameter metadata, read per-instance `clap.gui` editor capability, open and close supported non-floating Win32 `clap.gui` editors through the local host when the plugin accepts the GUI sequence, read per-instance `clap.latency`, read per-instance `clap.tail`, read/save/restore per-instance `clap.state`, persist host parameter values and saved plugin state in patch data, restore stored parameter values into a host instance, and write host parameter values. Host-discovered CLAP parameters now expose sandbox modulation input ports and slider-output ports. The instance API can keep initialized plugin instances alive, serialize access to the instance table and native instance operations, read CLAP audio ports, read CLAP parameter metadata, report editor capability through `GET /instances/:id/editor`, attempt supported Win32 plugin editors through `POST /instances/:id/editor/open`, close opened plugin editors through `POST /instances/:id/editor/close`, report latency through `GET /instances/:id/latency`, report tail length through `GET /instances/:id/tail`, save state through `GET /instances/:id/state`, load state through `POST /instances/:id/state`, set one parameter plain value through `POST /instances/:id/param`, set multiple parameter plain values through `POST /instances/:id/params`, run bounded offline process calls that can accept and return planar float audio as JSON arrays or base64 float32 channels, keep an offline render session active across multiple process chunks, reject overlapping non-idle render sessions, release abandoned render sessions after an idle timeout, and run a bounded `/process-batch` request for multiple process items. `/health` now reports `hostConfig` with bind host, port, Python executable, script path, working directory, scan dirs, explicit plugins, and probe flags. Host instances now report a safety latch, mute non-finite or excessive raw output, expose `POST /instances/:id/safety/reset`, and publish `maxProcessFrames`, `processBatch`, `offlineRenderSessions`, `renderSessionIdleTimeoutSeconds`, `pluginEditorOpening`, and `pluginStatePersistence` capabilities. Render Sample has an initial bounded bridge that renders reachable CLAP nodes chunk-by-chunk in graph order, requires `audioProcessing: true`, requires `offlineRenderSessions: true`, opens one host render session per reachable CLAP Plugin instance, chunks process calls by the host-reported frame limit, sends effective chunk-start CLAP parameter values inside each process request, sums incoming graph wires into all CLAP input port lanes, calls the host through `planar-f32-base64`, compensates reported CLAP latency when injecting returned output, appends bounded finite CLAP tail frames when reported before the render pass, records reported infinite CLAP tails as metadata, injects all CLAP output port lanes, batches independent CLAP nodes in the same chunk when the host supports it, blocks the render if host safety mutes a CLAP node, closes host render sessions after processing, and rejects feedback edges that touch CLAP Plugin nodes. Live Audio now blocks plans containing CLAP Plugin nodes with a clear status instead of silently routing plugin output. WebSocket transport, packaging, sample-accurate plugin-parameter automation, feedback-safe CLAP scheduling, and Live Audio graph routing are not implemented.
 
+Update 2026-07-17: the connection UI is re-enabled (see "Current state" under Phase 2). File-based CLAP presets exist (save/load a configured node, see "Design Direction" below Phase 2). Phase 8 Live Audio has started under Architecture A (host owns its own real-time audio device, verified against a real installed instrument) -- see Phase 8 for what's implemented vs. not.
+
 Working name:
 
 ```text
@@ -515,26 +517,110 @@ Danger path:
 dangerous plugin output -> mute -> latch -> user reset or host restart
 ```
 
-## Phase 8: Live Audio Later
+## Phase 8: Live Audio
 
-Live audio is deferred.
+Started 2026-07-17, Architecture A (the two live-audio architectures were
+discussed and Architecture A chosen explicitly): the native host owns its
+own real-time audio device callback entirely outside the browser's Web
+Audio graph. This is a deliberate constraint, not a placeholder --
+`AudioWorklet` runs on a hard real-time thread that cannot block on
+network I/O, so "call the localhost host over HTTP every audio quantum"
+was never viable. The alternative (streaming audio into the browser's
+live graph via a jitter-buffered ring buffer, so a CLAP node could sit
+between two other live modules) is a materially bigger, higher-risk build
+and was explicitly deferred in favor of this simpler first step.
 
-When live hosting is ready, the native host owns:
+The native host owns:
 
-- audio callback;
-- plugin processing;
-- MIDI queues;
-- audio output device;
-- speaker protection.
+- audio callback (implemented);
+- plugin processing (implemented);
+- note queue (implemented, single-note-event granularity);
+- audio output device (implemented, via the optional `sounddevice`
+  dependency -- see below);
+- speaker protection (implemented, reuses the same finite/peak-limit
+  safety latch the offline path already had).
 
-The browser sends:
+The browser sends parameter changes and note events (implemented at the
+host-API level; browser UI for this is not wired yet -- see below).
+Module graph changes and transport commands are not part of this first
+slice: a live CLAP instance in Architecture A is a standalone sound
+source, not summed with the rest of the live graph.
 
-- parameter changes;
-- module graph changes;
-- transport commands;
-- MIDI events.
+### Implemented (2026-07-17)
 
-Avoid real-time audio transport over WebSocket in the first live version.
+One new host dependency, deliberately isolated: `sounddevice` (a thin
+PortAudio wrapper), feature-detected at import time exactly like the
+native CLAP libraries themselves -- if it's not installed, `GET /health`
+reports `capabilities.liveAudio: false` and `/live/*` routes return a
+clear error; every other host feature (discovery, offline render,
+presets) needs zero pip installs, unchanged.
+
+New routes on `PersistentClapInstance`:
+
+- `POST /instances/:id/live/start` -- body `{sampleRate, blockSize}`.
+  Activates the plugin, pre-allocates all ctypes audio/event buffers once
+  (never again -- the audio callback must not allocate), and opens a
+  `sounddevice.RawOutputStream` (raw buffers, not numpy, to keep the new
+  dependency footprint to one package).
+- `POST /instances/:id/live/stop` -- stops the stream, deactivates.
+- `POST /instances/:id/live/note` -- body `{noteOn, key, velocity,
+  channel}`; queues a `clap_event_note` delivered at the start of the next
+  callback.
+- `GET /instances/:id/live` -- status: active, sample rate, block size,
+  peak, frame count, xrun count, dropped-callback count, safety state.
+- `DELETE /instances/:id` (existing route) now also tears down a live
+  stream first if one is active.
+
+Real-time safety notes:
+
+- The callback (`_live_audio_callback`) runs on PortAudio's own
+  real-time thread, not the HTTP server's. It uses a **non-blocking**
+  lock acquire against the instance's existing `RLock` -- a contended
+  lock (e.g. a concurrent stop/delete from the HTTP thread) drops that
+  one callback's audio to silence rather than blocking the audio thread,
+  logged as `droppedCallbackCount`.
+- No live browser-graph input yet -- the plugin's audio input ports (if
+  any) always see silence; only note/param events drive it. This matches
+  Architecture A's "standalone source" scope.
+- Reuses the exact same finite/peak-limit safety check the offline path
+  already had (`CLAP_SAFETY_PEAK_LIMIT`): non-finite or excessive output
+  mutes and latches, same as before.
+- The planar-to-interleaved output copy is a plain Python loop (no numpy,
+  to avoid a second new dependency) -- a known first-version cost, worth
+  revisiting if CPU usage becomes a problem at small block sizes.
+
+Verified live against the real local host and a real installed
+instrument (Vital): created an instance, started live audio
+(`sampleRate: 48000, blockSize: 256`), confirmed `frameCount` advancing
+in real time via `GET /instances/:id/live` (i.e. genuinely paced by the
+real audio device clock, not running ahead), sent a note-on and observed
+`peak` jump to a real non-zero, non-clipping value (`0.356`), sent
+note-off and watched `peak` return to `0.0` after the envelope release,
+stopped cleanly, and separately confirmed `DELETE /instances/:id` while
+live tears down the stream without error. Zero xruns, zero dropped
+callbacks throughout. Full smoke suite passes.
+
+`liveAudio`/`liveAudioMinBlockFrames`/`liveAudioMaxBlockFrames`/
+`liveAudioDefaultBlockFrames` were added to the browser's capability
+allowlist (`nodeGraphClapHostCapabilityKeys` in
+`public/node-graph-clap-host.js`) so the connected-host state correctly
+tracks the new capability -- this is the only browser-side change in this
+pass.
+
+### Not yet built
+
+- Browser UI: no Live/Stop/note buttons on the `CLAP Plugin` module body
+  yet, and no status display for peak/xruns. The host API is complete and
+  proven; this is now a UI-wiring pass, not an unknown.
+- MIDI queues beyond single note-on/off events (velocity curves, CC,
+  pitch bend, polyphony beyond what the plugin itself handles from
+  repeated note-on calls).
+- Module graph / transport integration -- out of scope for Architecture
+  A as designed; would be Architecture B territory (see the discussion
+  this phase opened with) if ever revisited.
+- WebSocket transport for lower-latency control (current control path is
+  still per-request HTTP, fine for occasional note/param events, not
+  attempted for anything higher-frequency).
 
 ## Phase 9: Plugin Editor Later
 
