@@ -1367,11 +1367,13 @@ html.soemdsp-hide-ui .status-strip {
   margin-inline: auto;
   max-height: 48dvh;
   display: grid;
-  /* Macro row first (auto-sized to content), performance row (wheel +
-     keyboard, flexible) second -- matches DOM order in
-     initNodeGraphStandaloneMidiKeyboard. */
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 2px;
+  /* One row: macro controls, wheel, and keyboard all sit side by side
+     instead of macros occupying their own row above the keyboard --
+     saves the vertical space that row used to take. */
+  grid-template-columns: minmax(120px, 160px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 6px;
   /* One shared surface for the whole dock -- the keyboard/wheels/macro
      panels below have their own card chrome (border, background,
      border-radius) stripped so nothing seams between them; this is the
@@ -1440,13 +1442,32 @@ html.soemdsp-hide-ui .status-strip {
   display: none;
 }
 
+/* Mode/octave/key-count/MIDI-input controls all on one horizontal row
+   in the dock -- the generic .node-midi-keyboard-module heading rule
+   (used by placed nodes too) grids title+controls into two columns
+   and lets the controls wrap onto a second line; the dock has no
+   title to share space with (hidden above) so the controls can run
+   as a single flex row instead. */
+.node-standalone-midi-keyboard-dock .node-midi-keyboard-heading {
+  display: flex;
+}
+
+.node-standalone-midi-keyboard-dock .node-midi-keyboard-midi-controls {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+}
+
 .node-standalone-midi-keyboard-dock .node-macro-controls-panel {
   /* Was clipping the knob row's second line under this panel's own
-     overflow: hidden (see the single-row override below, which now
-     avoids a second line entirely, but keep this unbounded rather than
-     re-introduce a magic-number cap). */
+     overflow: hidden (see the row override below); keep this unbounded
+     rather than re-introduce a magic-number cap. Also stretched to the
+     dock's full row height now that macros sit beside the wheel/keys
+     instead of in their own row above them. */
   max-height: none;
+  height: 100%;
+  margin: 0;
   gap: 4px;
+  grid-template-rows: minmax(0, 1fr);
 }
 
 /* "Performance Surface" / "Macro Controls" / "N macros ready" -- the
@@ -1457,29 +1478,27 @@ html.soemdsp-hide-ui .status-strip {
   display: none;
 }
 
+/* Macro knobs beside the wheel instead of a full-width row above the
+   keyboard -- 2 columns x 4 rows fits the narrow left column reserved
+   for it (see the dock's own grid-template-columns) and fills its
+   height instead of spreading 8 knobs across the dock's full width. */
+.node-standalone-midi-keyboard-dock .node-macro-controls-module .node-macro-controls-row,
 .node-standalone-midi-keyboard-dock .node-macro-controls-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(4, minmax(0, 1fr));
   gap: 4px;
+  height: 100%;
 }
 
 /* Bare knobs, no per-knob box -- the circular dial (.node-macro-knob i)
    already carries the value indicator; the rectangular border/background
-   around it was just extra chrome in the dock's compact single-row
-   layout. Also shorter than the module default now that there's no box
-   padding to fill. */
+   around it was just extra chrome in the dock's compact layout. */
 .node-standalone-midi-keyboard-dock .node-macro-knob {
   border: none;
   border-radius: 0;
   background: none;
-  min-height: 48px;
+  min-height: 0;
   padding: 0;
-}
-
-/* The node body's default (.node-macro-controls-module .node-macro-controls-row,
-   above) wraps to 2 rows of 4 -- appropriate for a narrow graph node, but
-   the dock is wide enough to fit all 8 on one row. Scoped to the dock
-   only; the macroControls node itself is unchanged. */
-.node-standalone-midi-keyboard-dock .node-macro-controls-module .node-macro-controls-row {
-  grid-template-columns: repeat(8, minmax(40px, 1fr));
 }
 
 .node-midi-keyboard-heading {
