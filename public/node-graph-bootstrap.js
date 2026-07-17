@@ -62,6 +62,7 @@ async function initNodeGraphMvp() {
   renderNodeGraphModuleScopeBrightnessControl();
   renderNodeGraphSnapGridButton();
   renderNodeGraphTooltipToggle();
+  renderNodeGraphKeyboardDebugToggle();
   renderNodeGraphSliderVisibilityToggles();
   renderNodeGraphSliderLayout();
   ensureNodeGraphStartupModulesVisible();

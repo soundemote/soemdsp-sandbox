@@ -2283,6 +2283,36 @@ html.soemdsp-hide-ui .status-strip {
   --keyboard-readout-width: 9ch;
 }
 
+/* Held-keys bitmask readout -- one square per bit (53, the largest
+   integer a double can represent exactly; see the bit-width note on
+   nodeGraphMidiKeyboardBitmaskHasBit), black square = held. */
+.node-midi-keyboard-bitmask-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+  margin-top: 4px;
+  color: var(--muted);
+  font: 700 0.72rem/1 "Cascadia Mono", Consolas, monospace;
+}
+
+.node-midi-keyboard-bitmask-row strong {
+  color: var(--text);
+  font-size: 0.86rem;
+  letter-spacing: 1px;
+  word-break: break-all;
+}
+
+/* Debug info hidden -- the keyboard's signal readout and held-keys
+   bitmask row, everywhere a keyboardController surface renders (dock
+   and placed nodes both carry these elements). Toggled from the
+   Visibility menu's "Hide Debug" button. */
+body.keyboard-debug-hidden .node-midi-keyboard-signal-bar,
+body.keyboard-debug-hidden .node-midi-keyboard-bitmask-row {
+  display: none;
+}
+
 .node-patch-header-fields {
   display: grid;
   grid-template-rows: repeat(3, minmax(0, 1fr));

@@ -563,6 +563,18 @@ function nodeGraphFloatingWindowPosition(element, x, y, options = {}) {
   return { left, top };
 }
 
+function renderNodeGraphKeyboardDebugToggle() {
+  const button = document.getElementById("nodeKeyboardDebugToggleButton");
+  const visible = nodeGraphMvp.keyboardDebugInfoVisible !== false;
+  document.body.classList.toggle("keyboard-debug-hidden", !visible);
+  if (button) {
+    button.textContent = visible ? "Hide Debug" : "Show Debug";
+    button.setAttribute("aria-pressed", visible ? "true" : "false");
+    button.removeAttribute("title");
+  }
+  renderNodeGraphVisibilityMenuButton();
+}
+
 function renderNodeGraphTooltipToggle() {
   const helpStack = document.querySelector(".node-help-stack");
   const help = document.getElementById("nodeInteractionHelp");
@@ -1117,6 +1129,28 @@ function renderNodeGraphMidiKeyboardHeldKeys() {
   document.querySelectorAll(".node-midi-keyboard-module [data-key-index]").forEach((key) => {
     const index = Number(key.dataset.keyIndex);
     key.classList.toggle("held", nodeGraphMidiKeyboardBitmaskHasBit(mask, index));
+  });
+  renderNodeGraphMidiKeyboardBitmaskDisplay();
+}
+
+// Doubles exactly represent integers up to 2^53 (see the bit-width note
+// on nodeGraphMidiKeyboardBitmaskHasBit above) -- shown here as the full
+// 53-square readout, not just the current key count, so the bitmask's
+// actual available range stays visible even at a smaller key count.
+const nodeGraphMidiKeyboardBitmaskDisplayBitCount = 53;
+
+function nodeGraphMidiKeyboardBitmaskEmoji(mask) {
+  let out = "";
+  for (let index = 0; index < nodeGraphMidiKeyboardBitmaskDisplayBitCount; index += 1) {
+    out += nodeGraphMidiKeyboardBitmaskHasBit(mask, index) ? "⬛" : "⬜";
+  }
+  return out;
+}
+
+function renderNodeGraphMidiKeyboardBitmaskDisplay() {
+  const text = nodeGraphMidiKeyboardBitmaskEmoji(nodeGraphMvp.midiKeyboardHeldKeysBitmask);
+  document.querySelectorAll("[data-midi-keyboard-bitmask-value]").forEach((el) => {
+    el.textContent = text;
   });
 }
 
@@ -2005,6 +2039,12 @@ function toggleNodeGraphModuleInterfaceControlsVisibility() {
 function toggleNodeGraphTooltipVisibility() {
   nodeGraphMvp.tooltipVisible = !nodeGraphMvp.tooltipVisible;
   renderNodeGraphTooltipToggle();
+}
+
+function toggleNodeGraphKeyboardDebugVisibility() {
+  nodeGraphMvp.keyboardDebugInfoVisible = nodeGraphMvp.keyboardDebugInfoVisible === false;
+  renderNodeGraphKeyboardDebugToggle();
+  setNodeInteractionHelp(nodeGraphMvp.keyboardDebugInfoVisible ? "Keyboard debug info shown." : "Keyboard debug info hidden.");
 }
 
 function toggleNodeGraphSliderAmount() {

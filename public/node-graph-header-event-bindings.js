@@ -147,6 +147,7 @@ function bindNodeGraphHeaderControlEvents() {
     .addEventListener("pointerdown", beginNodeUserUiSettingsDrag);
   document.getElementById("nodeSliderAmountToggleButton").addEventListener("click", toggleNodeGraphSliderAmount);
   document.getElementById("nodeSliderPositionToggleButton").addEventListener("click", toggleNodeGraphSliderPosition);
+  document.getElementById("nodeKeyboardDebugToggleButton").addEventListener("click", toggleNodeGraphKeyboardDebugVisibility);
   document
     .getElementById("nodeZoomOutButton")
     .addEventListener("click", (event) => zoomNodeGraphBy(-1, event));

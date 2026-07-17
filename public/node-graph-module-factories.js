@@ -678,7 +678,17 @@ function createNodeGraphKeyboardControllerBody(node = null) {
     }
     signalBar.append(item);
   }
-  section.append(heading, performance, signalBar);
+  const bitmaskBar = document.createElement("div");
+  bitmaskBar.className = "node-midi-keyboard-bitmask-row";
+  bitmaskBar.dataset.midiKeyboardBitmaskRow = "true";
+  bitmaskBar.setAttribute("aria-live", "polite");
+  const bitmaskLabel = document.createElement("span");
+  bitmaskLabel.textContent = "held ";
+  const bitmaskValue = document.createElement("strong");
+  bitmaskValue.dataset.midiKeyboardBitmaskValue = "true";
+  bitmaskBar.append(bitmaskLabel, bitmaskValue);
+
+  section.append(heading, performance, signalBar, bitmaskBar);
   return section;
 }
 
