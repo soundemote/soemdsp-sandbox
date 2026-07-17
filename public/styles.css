@@ -3608,32 +3608,28 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: none;
 }
 
+/* No border/background/box-shadow of its own -- .node-tooltip-window
+   (the only place this renders now) already provides that chrome as
+   the single visible boundary; this used to double up into a "box
+   inside box" look (its own card border sitting inside the window's
+   card border) back when it lived loose in .node-help-stack. */
 .node-interaction-help {
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 72px;
   height: 72px;
-  margin: 8px;
   padding: 6px 10px;
-  border: 1px solid rgba(127, 199, 217, 0.16);
-  border-radius: 6px;
-  background:
-    linear-gradient(180deg, rgba(7, 10, 13, 0.92), rgba(14, 18, 22, 0.86));
   color: var(--muted);
   font-family: Consolas, "Courier New", monospace;
   font-size: var(--node-tooltip-text-size);
   line-height: 1.35;
   overflow: hidden;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.28) inset;
   text-align: center;
   white-space: pre-line;
 }
 
 .node-interaction-help.tips-hidden {
-  border-color: rgba(127, 199, 217, 0.08);
-  background:
-    linear-gradient(180deg, rgba(5, 7, 9, 0.96), rgba(9, 12, 15, 0.92));
   color: transparent;
 }
 
@@ -14284,7 +14280,10 @@ button.saved-default,
   justify-items: center;
   width: 100%;
   height: var(--node-floating-window-button-height);
-  font-size: calc(var(--node-floating-window-button-height) * 0.48);
+  /* Was 0.48 -- emoji sat small in the middle of a lot of empty button
+     space. Bigger ratio lets them fill the button instead of floating
+     in a padded box. */
+  font-size: calc(var(--node-floating-window-button-height) * 0.78);
 }
 
 .scene-context-window-button-label {
