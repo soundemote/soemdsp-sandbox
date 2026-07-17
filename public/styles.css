@@ -1403,6 +1403,24 @@ html.soemdsp-hide-ui .status-strip {
   max-height: none;
 }
 
+/* "Performance Surface" / "Macro Controls" / "N macros ready" -- the
+   node body's heading text isn't useful in the dock (no ambiguity about
+   what this panel is). Hides the whole heading rather than picking
+   apart its three text pieces individually. */
+.node-standalone-midi-keyboard-dock .node-macro-controls-heading {
+  display: none;
+}
+
+/* Bare knobs, no per-knob box -- the circular dial (.node-macro-knob i)
+   already carries the value indicator; the rectangular border/background
+   around it was just extra chrome in the dock's compact single-row
+   layout. */
+.node-standalone-midi-keyboard-dock .node-macro-knob {
+  border: none;
+  border-radius: 0;
+  background: none;
+}
+
 /* The node body's default (.node-macro-controls-module .node-macro-controls-row,
    above) wraps to 2 rows of 5 -- appropriate for a narrow graph node, but
    the dock is wide enough (up to 1100px) to fit all 10 on one row. Scoped
@@ -1946,7 +1964,13 @@ html.soemdsp-hide-ui .status-strip {
   position: absolute;
   left: 12%;
   right: 12%;
-  bottom: calc((var(--wheel-value, 0.5) * 100%) - 10px);
+  /* Travel range must account for the thumb's own height (20px), or it
+     overshoots the track at both ends: the old `(value * 100%) - 10px`
+     put the thumb's bottom at -10px when value=0 (half hanging below the
+     container, clipped by overflow: hidden) and its top past 100% when
+     value=1. Interpolating across (100% - height) instead keeps the
+     whole thumb inside the track at every value. */
+  bottom: calc(var(--wheel-value, 0.5) * (100% - 20px));
   z-index: 1;
   height: 20px;
   border: 1px solid rgba(241, 184, 75, 0.46);
