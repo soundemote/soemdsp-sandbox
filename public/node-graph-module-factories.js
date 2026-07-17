@@ -573,7 +573,7 @@ function createNodeGraphKeyboardControllerBody(node = null) {
   const modeSelect = document.createElement("select");
   modeSelect.dataset.midiKeyboardModeSelect = "true";
   modeSelect.setAttribute("aria-label", "Keyboard mode");
-  for (const [value, label] of [["press", "Press"], ["hold", "Hold"]]) {
+  for (const [value, label] of [["press", "Press"], ["hold", "Hold"], ["toggle", "Toggle"]]) {
     const option = document.createElement("option");
     option.value = value;
     option.textContent = label;

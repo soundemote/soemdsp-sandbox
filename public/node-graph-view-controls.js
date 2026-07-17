@@ -1099,6 +1099,19 @@ function nodeGraphMidiKeyboardBitmaskTranspose(mask, keyCount, interval) {
   return transposed;
 }
 
+function nodeGraphMidiKeyboardToggleHeldKeyBit(index) {
+  nodeGraphMvp.midiKeyboardHeldKeysBitmask = nodeGraphMidiKeyboardBitmaskSetBit(
+    nodeGraphMvp.midiKeyboardHeldKeysBitmask,
+    index,
+    !nodeGraphMidiKeyboardBitmaskHasBit(nodeGraphMvp.midiKeyboardHeldKeysBitmask, index),
+  );
+  renderNodeGraphMidiKeyboardHeldKeys();
+  saveNodeGraphMidiKeyboardMemory();
+  if (typeof sendNodeGraphLiveMidiKeyboardHeldKeysBitmask === "function") {
+    sendNodeGraphLiveMidiKeyboardHeldKeysBitmask();
+  }
+}
+
 function renderNodeGraphMidiKeyboardHeldKeys() {
   const mask = nodeGraphMvp.midiKeyboardHeldKeysBitmask;
   document.querySelectorAll(".node-midi-keyboard-module [data-key-index]").forEach((key) => {
@@ -1362,7 +1375,7 @@ function nodeGraphMidiKeyboardOctaveLabel(value = nodeGraphMidiKeyboardOctaveOff
   return `${octave >= 0 ? "+" : ""}${octave}`;
 }
 
-const nodeGraphMidiKeyboardModes = Object.freeze(["press", "hold"]);
+const nodeGraphMidiKeyboardModes = Object.freeze(["press", "hold", "toggle"]);
 
 function nodeGraphMidiKeyboardMode(value = nodeGraphMvp.midiKeyboardMode) {
   return nodeGraphMidiKeyboardModes.includes(value) ? value : "press";
@@ -1372,6 +1385,7 @@ function nodeGraphMidiKeyboardModeLabel(value = nodeGraphMidiKeyboardMode()) {
   return {
     press: "Press",
     hold: "Hold",
+    toggle: "Toggle",
   }[nodeGraphMidiKeyboardMode(value)] || "Press";
 }
 
@@ -1686,18 +1700,26 @@ function updateNodeGraphMidiKeyboardSignal(event) {
           nodeGraphMvp.midiKeyboardHeldKeysBitmask,
           keyCount,
         );
+        renderNodeGraphMidiKeyboardHeldKeys();
+        saveNodeGraphMidiKeyboardMemory();
+        if (typeof sendNodeGraphLiveMidiKeyboardHeldKeysBitmask === "function") {
+          sendNodeGraphLiveMidiKeyboardHeldKeysBitmask();
+        }
       } else {
-        nodeGraphMvp.midiKeyboardHeldKeysBitmask = nodeGraphMidiKeyboardBitmaskSetBit(
-          nodeGraphMvp.midiKeyboardHeldKeysBitmask,
-          index,
-          !nodeGraphMidiKeyboardBitmaskHasBit(nodeGraphMvp.midiKeyboardHeldKeysBitmask, index),
-        );
+        nodeGraphMidiKeyboardToggleHeldKeyBit(index);
       }
-      renderNodeGraphMidiKeyboardHeldKeys();
-      saveNodeGraphMidiKeyboardMemory();
-      if (typeof sendNodeGraphLiveMidiKeyboardHeldKeysBitmask === "function") {
-        sendNodeGraphLiveMidiKeyboardHeldKeysBitmask();
-      }
+    }
+    event.preventDefault();
+    return;
+  }
+  // Toggle mode turns a plain click into what ctrl+click already does --
+  // toggles that key's held-keys bit instead of playing a note. Ctrl and
+  // Shift+Alt keep their own meanings above regardless of mode, so this
+  // only fires for an unmodified click.
+  if (event.type === "pointerdown" && mode === "toggle" && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+    const target = event.target?.closest?.("[data-key-index]");
+    if (target && surface.contains(target)) {
+      nodeGraphMidiKeyboardToggleHeldKeyBit(Number(target.dataset.keyIndex));
     }
     event.preventDefault();
     return;
