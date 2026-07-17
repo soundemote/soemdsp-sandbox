@@ -1077,6 +1077,28 @@ function nodeGraphMidiKeyboardBitmaskRotate(mask, keyCount) {
   return rotated;
 }
 
+// Placeholder for shift+alt+click -- distinct from ctrl+shift+click's
+// generic rotate-by-one. Shifts every currently-held bit by a fixed
+// musically-meaningful interval (7 positions, a perfect fifth if keys
+// are semitone-spaced) instead of rotating the whole mask uniformly,
+// so it reshapes a held chord rather than just spinning it. Bits that
+// land past the current key count wrap back around. Deliberately
+// simple/exploratory, same spirit as the rotate placeholder above.
+function nodeGraphMidiKeyboardBitmaskTranspose(mask, keyCount, interval) {
+  const safeMask = Number(mask) || 0;
+  if (keyCount <= 1) {
+    return safeMask;
+  }
+  let transposed = 0;
+  for (let index = 0; index < keyCount; index += 1) {
+    if (nodeGraphMidiKeyboardBitmaskHasBit(safeMask, index)) {
+      const target = ((index + interval) % keyCount + keyCount) % keyCount;
+      transposed = nodeGraphMidiKeyboardBitmaskSetBit(transposed, target, true);
+    }
+  }
+  return transposed;
+}
+
 function renderNodeGraphMidiKeyboardHeldKeys() {
   const mask = nodeGraphMvp.midiKeyboardHeldKeysBitmask;
   document.querySelectorAll(".node-midi-keyboard-module [data-key-index]").forEach((key) => {
@@ -1676,6 +1698,24 @@ function updateNodeGraphMidiKeyboardSignal(event) {
       if (typeof sendNodeGraphLiveMidiKeyboardHeldKeysBitmask === "function") {
         sendNodeGraphLiveMidiKeyboardHeldKeysBitmask();
       }
+    }
+    event.preventDefault();
+    return;
+  }
+  // Shift+Alt+click transposes the held-keys bitmask -- checked before
+  // the plain shift/hold-mode branch below so plain shift+click (no
+  // alt) still falls through unchanged to that existing behavior.
+  if (event.type === "pointerdown" && event.shiftKey && event.altKey && !event.ctrlKey) {
+    const keyCount = nodeGraphMidiKeyboardKeyCount();
+    nodeGraphMvp.midiKeyboardHeldKeysBitmask = nodeGraphMidiKeyboardBitmaskTranspose(
+      nodeGraphMvp.midiKeyboardHeldKeysBitmask,
+      keyCount,
+      7,
+    );
+    renderNodeGraphMidiKeyboardHeldKeys();
+    saveNodeGraphMidiKeyboardMemory();
+    if (typeof sendNodeGraphLiveMidiKeyboardHeldKeysBitmask === "function") {
+      sendNodeGraphLiveMidiKeyboardHeldKeysBitmask();
     }
     event.preventDefault();
     return;
