@@ -15505,11 +15505,15 @@ def require_node_graph_mvp_contract() -> None:
         and "patch.audio = next;" in header_scope_source
         and "function createNodeGraphHeaderAudioInput(key, label, options = {})" in header_scope_source
         and "input.dataset.audioField = key;" in header_scope_source
-        and 'createNodeGraphHeaderAudioInput("pitchReferenceHz", "Pitch", {' in header_scope_source
+        and 'createNodeGraphHeaderAudioInput("pitchReferenceHz", "Freq Ref", {' in header_scope_source
         and "input.dataset.audioField" in node_graph_source
         and "updateNodeGraphPatchAudioFromHeader(input);" in node_graph_source
         and '"pitchReferenceHz": "Pitch Reference Frequency in Hz' in tooltip_source,
         "Command Center should show and let you edit the patch's Pitch Reference Frequency, wired the same way as BPM/Beats/Unit",
+    )
+    require(
+        "if (options.tooltipKey) {\n    input.dataset.tooltipKey = options.tooltipKey;\n  }" in header_scope_source,
+        "the Freq Ref number input should carry the same tooltip key as its label so hover text matches instead of falling back to the generic edit-text hint",
     )
 
     require(

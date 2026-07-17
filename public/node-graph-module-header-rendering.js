@@ -200,6 +200,9 @@ function createNodeGraphHeaderAudioInput(key, label, options = {}) {
   input.type = "number";
   input.readOnly = true;
   input.value = String(nodeGraphPatchAudioValue(key));
+  if (options.tooltipKey) {
+    input.dataset.tooltipKey = options.tooltipKey;
+  }
   field.append(input);
 
   return field;
@@ -413,7 +416,7 @@ function createNodeGraphCommandCenterTimingWidgets() {
   const pitchRow = document.createElement("div");
   pitchRow.className = "node-command-center-timing-row node-command-center-timing-row-pitch";
   pitchRow.append(
-    createNodeGraphHeaderAudioInput("pitchReferenceHz", "Pitch", {
+    createNodeGraphHeaderAudioInput("pitchReferenceHz", "Freq Ref", {
       ariaLabel: "Pitch Reference Frequency in Hz (0.1V/Oct reference)",
       tooltipKey: "timing.pitchReferenceHz",
       min: 0.01,
