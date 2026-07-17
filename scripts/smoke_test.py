@@ -7163,7 +7163,6 @@ def require_node_graph_mvp_contract() -> None:
         "nodeSceneOpenSavedPatches",
         "nodeSceneCopyPatch",
         "nodeScenePastePatch",
-        "nodeSceneSharePatch",
         "nodeSceneOpenModuleActions",
         "nodeSceneOpenUiSettings",
         "nodeSceneOpenPostProcessing",
@@ -15517,8 +15516,8 @@ def require_node_graph_mvp_contract() -> None:
     require(
         'id="nodeSceneToggleModularOnlyView" class="scene-context-window-button" type="button" aria-pressed="false">' in index_source
         and '<span class="scene-context-window-button-icon" aria-hidden="true">💻</span>' in index_source
-        and 'id="nodeSceneToggleModularOnlyControls" class="scene-context-window-button" type="button" aria-pressed="false">' in index_source
-        and '<span class="scene-context-window-button-icon" aria-hidden="true">🔘</span>' in index_source
+        and 'id="nodeSceneToggleModularOnlyControls" class="scene-context-window-button" type="button" aria-label="View Buttons" aria-pressed="false">' in index_source
+        and '<span class="scene-context-window-button-icon" aria-hidden="true">🗺️</span>' in index_source
         and 'bindNodeGraphSceneElementEvent("nodeSceneToggleModularOnlyView", "click", () => {' in node_graph_source
         and 'bindNodeGraphSceneElementEvent("nodeSceneToggleModularOnlyControls", "click", () => {' in node_graph_source
         and "function setNodeGraphModularOnlyControlsVisible(visible)" in node_graph_source

@@ -14033,6 +14033,13 @@ button.saved-default,
   grid-template-columns: calc(var(--node-floating-window-button-height) + 4px) minmax(0, 1fr) auto;
 }
 
+/* Icon-only buttons (no label span, e.g. View Buttons) collapse to a
+   single column so the icon centers across the whole button instead of
+   sitting in the narrow icon column with an empty label column beside it. */
+.scene-context-window-controls .scene-context-window-button:not(:has(.scene-context-window-button-label)) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .scene-context-window-controls .scene-context-window-button kbd {
   align-self: center;
   padding-right: 8px;
