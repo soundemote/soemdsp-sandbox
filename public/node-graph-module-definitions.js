@@ -2697,13 +2697,14 @@ const nodeGraphModuleDefinitions = Object.freeze({
     parameters: [],
   },
   keyboardController: {
+    digitalOutputs: ["Held Keys"],
     inputs: ["MIDI Note", "Gate", "Velocity", "Octave", "Reset", "Hold", "X", "Y"],
     layout: "keyboardController",
     outputLabels: {
       "0.1V/Oct": "0.1V",
       Increment: "Inc.",
     },
-    outputs: ["Gate", "1 Sample Gate", "Key", "Q", "MIDI", "Double", "0.1V/Oct", "Increment", "Frequency", "Pitch", "X", "Y"],
+    outputs: ["Gate", "1 Sample Gate", "Key", "Q", "MIDI", "Double", "0.1V/Oct", "Increment", "Frequency", "Pitch", "X", "Y", "Held Keys"],
     parameters: [],
   },
   samplePlayer: {

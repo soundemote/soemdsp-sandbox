@@ -78,6 +78,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.pitchModWheelSignal = { mod: 0, pitch: 0 };
     this.midiKeyboardGatePulseSamples = 0;
     this.midiKeyboardSignal = null;
+    this.midiKeyboardHeldKeysBitmask = 0;
     this.moduleGroupRuntimes = new Map();
     this.modulationConnections = new Map();
     this.nodeOutputs = new Map();
@@ -427,6 +428,10 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
     if (message.type === "setMidiKeyboardSignal") {
       this.setMidiKeyboardSignal(message.signal);
+      return;
+    }
+    if (message.type === "setMidiKeyboardHeldKeysBitmask") {
+      this.setMidiKeyboardHeldKeysBitmask(message.mask);
       return;
     }
     if (message.type === "setMacroControls") {
@@ -1765,6 +1770,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.pitchModWheelSignal = { mod: 0, pitch: 0 };
     this.midiKeyboardGatePulseSamples = 0;
     this.midiKeyboardSignal = null;
+    this.midiKeyboardHeldKeysBitmask = 0;
     this.moduleGroupRuntimes = new Map();
     this.modulationConnections = new Map();
     this.nodeOutputs = new Map();
@@ -3003,6 +3009,11 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.macroControls = Array.from({ length: 8 }, (_, index) => (
       this.clampValue(Number(values?.[index]) || 0, 0, 1)
     ));
+  }
+
+  setMidiKeyboardHeldKeysBitmask(mask) {
+    const safeMask = Math.floor(Number(mask));
+    this.midiKeyboardHeldKeysBitmask = Number.isFinite(safeMask) && safeMask >= 0 ? safeMask : 0;
   }
 
   setPitchModWheelSignal(signal) {
@@ -6980,6 +6991,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
           Q: q,
           X: x,
           Y: velocity,
+          "Held Keys": this.midiKeyboardHeldKeysBitmask || 0,
         };
       },
       buttonEvents: () => ({

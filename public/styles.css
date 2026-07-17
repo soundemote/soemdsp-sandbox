@@ -2109,6 +2109,25 @@ html.soemdsp-hide-ui .status-strip {
   text-shadow: 0 0 7px rgba(234, 248, 255, 0.84);
 }
 
+/* Ctrl+click "held keys" bitmask toggle -- distinct from .active (the
+   transient pointer-press/currently-sounding state) since a key can be
+   both at once: amber instead of .active's blue, so the two states
+   stay visually distinguishable. Placed after .active so a key that's
+   both shows the held look, since held is the more persistent/
+   intentional state of the two. */
+.node-midi-keyboard-white-row span.held {
+  color: #1a1200;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255, 226, 173, 0.92), transparent 28%),
+    linear-gradient(180deg, #ffcf6b 0%, #e08a1e 74%, #7a3f06 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 226, 173, 0.82),
+    inset 0 0 22px rgba(224, 138, 30, 0.48),
+    0 0 14px rgba(241, 184, 75, 0.68),
+    0 0 34px rgba(224, 138, 30, 0.38);
+  text-shadow: 0 0 7px rgba(255, 236, 200, 0.84);
+}
+
 .node-midi-keyboard-white-row span:last-child {
   border-right: 0;
 }
@@ -2152,6 +2171,21 @@ html.soemdsp-hide-ui .status-strip {
     0 0 18px rgba(35, 162, 255, 0.72),
     0 0 36px rgba(35, 112, 255, 0.42);
   text-shadow: 0 0 7px rgba(234, 248, 255, 0.84);
+}
+
+.node-midi-keyboard-black-row span.held {
+  border-color: rgba(255, 200, 110, 0.96);
+  color: #1a1200;
+  background:
+    radial-gradient(circle at 50% 20%, rgba(255, 210, 140, 0.7), transparent 30%),
+    linear-gradient(180deg, #c9760f 0%, #4a2604 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 226, 173, 0.72),
+    inset 0 0 18px rgba(224, 138, 30, 0.48),
+    0 8px 18px rgba(0, 0, 0, 0.45),
+    0 0 18px rgba(241, 184, 75, 0.72),
+    0 0 36px rgba(224, 138, 30, 0.42);
+  text-shadow: 0 0 7px rgba(255, 236, 200, 0.84);
 }
 
 .node-midi-keyboard-signal-bar {

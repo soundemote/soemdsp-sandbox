@@ -982,9 +982,9 @@ function nodeGraphMidiKeyboardGenerateKeys(startMidi = nodeGraphMidiKeyboardStar
     const midi = startMidi + offset;
     const pitchClass = ((midi % 12) + 12) % 12;
     if (nodeGraphMidiKeyboardBlackPitchClasses.has(pitchClass)) {
-      blackKeys.push({ midi, leftWhiteIndex: whiteKeys.length - 1 });
+      blackKeys.push({ midi, index: offset, leftWhiteIndex: whiteKeys.length - 1 });
     } else {
-      whiteKeys.push({ midi });
+      whiteKeys.push({ midi, index: offset });
     }
   }
   const totalWhite = whiteKeys.length;
@@ -1015,12 +1015,14 @@ function renderNodeGraphMidiKeyboardKeys() {
     whiteRow.replaceChildren(...whiteKeys.map((key) => {
       const span = document.createElement("span");
       span.dataset.midi = String(key.midi);
+      span.dataset.keyIndex = String(key.index);
       span.textContent = nodeGraphMidiKeyboardPitchLabel(nodeGraphMidiKeyboardShiftMidi(key.midi, octave));
       return span;
     }));
     blackRow.replaceChildren(...blackKeys.map((key) => {
       const span = document.createElement("span");
       span.dataset.midi = String(key.midi);
+      span.dataset.keyIndex = String(key.index);
       span.style.setProperty("--key-left", `${key.leftPercent}%`);
       span.style.width = `${blackWidthPercent}%`;
       span.textContent = nodeGraphMidiKeyboardPitchLabel(nodeGraphMidiKeyboardShiftMidi(key.midi, octave));
@@ -1028,6 +1030,59 @@ function renderNodeGraphMidiKeyboardKeys() {
     }));
   });
   renderNodeGraphMidiKeyboardSignal(null);
+  renderNodeGraphMidiKeyboardHeldKeys();
+}
+
+// Ctrl/shift+click "held keys" bitmask -- bit i = "the key currently at
+// screen position i is toggled held." Positional, not absolute pitch:
+// stable across octave transpose (transpose only shifts output pitch,
+// never which screen position a key occupies), only shifts meaning if
+// key count itself changes. See docs/plan for the full design
+// discussion this came out of.
+//
+// Bit index can reach 48 (nodeGraphMidiKeyboardMaxKeyCount - 1), but
+// JS's native bitwise operators (<<, |, &, >>>) coerce to 32-bit
+// integers -- silently wrong past bit 31 (e.g. `1 << 40` does not
+// compute 2^40, it wraps to `1 << 8` per the spec's shift-amount-mod-32
+// rule). A double can exactly represent integers up to 2^53 via
+// ordinary arithmetic, just not via the truncating bitwise ops, so bit
+// set/clear/test here use arithmetic instead.
+function nodeGraphMidiKeyboardBitmaskHasBit(mask, index) {
+  return Math.floor((Number(mask) || 0) / 2 ** index) % 2 === 1;
+}
+
+function nodeGraphMidiKeyboardBitmaskSetBit(mask, index, on) {
+  const safeMask = Number(mask) || 0;
+  const has = nodeGraphMidiKeyboardBitmaskHasBit(safeMask, index);
+  if (has === Boolean(on)) {
+    return safeMask;
+  }
+  return on ? safeMask + 2 ** index : safeMask - 2 ** index;
+}
+
+// Placeholder for ctrl+shift+click -- rotates the whole mask by one bit
+// position (wrap-around) within the current key count. Deliberately
+// simple/exploratory per explicit direction, not a finished feature;
+// revisit later.
+function nodeGraphMidiKeyboardBitmaskRotate(mask, keyCount) {
+  const safeMask = Number(mask) || 0;
+  if (keyCount <= 1) {
+    return safeMask;
+  }
+  const topBit = nodeGraphMidiKeyboardBitmaskHasBit(safeMask, keyCount - 1);
+  let rotated = (safeMask % 2 ** (keyCount - 1)) * 2;
+  if (topBit) {
+    rotated += 1;
+  }
+  return rotated;
+}
+
+function renderNodeGraphMidiKeyboardHeldKeys() {
+  const mask = nodeGraphMvp.midiKeyboardHeldKeysBitmask;
+  document.querySelectorAll(".node-midi-keyboard-module [data-key-index]").forEach((key) => {
+    const index = Number(key.dataset.keyIndex);
+    key.classList.toggle("held", nodeGraphMidiKeyboardBitmaskHasBit(mask, index));
+  });
 }
 
 function renderNodeGraphMidiKeyboardKeyCountControl() {
@@ -1093,8 +1148,14 @@ function normalizeNodeGraphMidiKeyboardMemorySignal(signal, options = {}) {
   };
 }
 
+function nodeGraphMidiKeyboardHeldKeysBitmaskValue(value = nodeGraphMvp.midiKeyboardHeldKeysBitmask) {
+  const mask = Math.floor(Number(value));
+  return Number.isFinite(mask) && mask >= 0 ? mask : 0;
+}
+
 function nodeGraphMidiKeyboardMemoryPayload() {
   return {
+    heldKeysBitmask: nodeGraphMidiKeyboardHeldKeysBitmaskValue(),
     inputId: nodeGraphMvp.midiKeyboardInputId || "",
     keyCount: nodeGraphMidiKeyboardKeyCount(),
     mode: nodeGraphMidiKeyboardMode(),
@@ -1128,6 +1189,7 @@ function loadNodeGraphMidiKeyboardMemory() {
       return null;
     }
     return {
+      heldKeysBitmask: nodeGraphMidiKeyboardHeldKeysBitmaskValue(payload.heldKeysBitmask),
       inputId: String(payload.inputId || ""),
       keyCount: nodeGraphMidiKeyboardKeyCount(payload.keyCount),
       mode: nodeGraphMidiKeyboardMode(payload.mode),
@@ -1147,6 +1209,7 @@ function applyNodeGraphMidiKeyboardMemory() {
   if (!memory) {
     return false;
   }
+  nodeGraphMvp.midiKeyboardHeldKeysBitmask = memory.heldKeysBitmask;
   nodeGraphMvp.midiKeyboardInputId = memory.inputId;
   nodeGraphMvp.midiKeyboardKeyCount = memory.keyCount;
   nodeGraphMvp.midiKeyboardMode = memory.mode;
@@ -1588,6 +1651,35 @@ function updateNodeGraphMidiKeyboardSignal(event) {
     return;
   }
   const mode = nodeGraphMidiKeyboardMode();
+  // Ctrl+click builds the "held keys" bitmask -- checked before the
+  // existing shift/hold-mode branch below so plain shift+click (no
+  // ctrl) still falls through unchanged to that existing behavior.
+  if (event.type === "pointerdown" && event.ctrlKey) {
+    const target = event.target?.closest?.("[data-key-index]");
+    if (target && surface.contains(target)) {
+      const index = Number(target.dataset.keyIndex);
+      const keyCount = nodeGraphMidiKeyboardKeyCount();
+      if (event.shiftKey) {
+        nodeGraphMvp.midiKeyboardHeldKeysBitmask = nodeGraphMidiKeyboardBitmaskRotate(
+          nodeGraphMvp.midiKeyboardHeldKeysBitmask,
+          keyCount,
+        );
+      } else {
+        nodeGraphMvp.midiKeyboardHeldKeysBitmask = nodeGraphMidiKeyboardBitmaskSetBit(
+          nodeGraphMvp.midiKeyboardHeldKeysBitmask,
+          index,
+          !nodeGraphMidiKeyboardBitmaskHasBit(nodeGraphMvp.midiKeyboardHeldKeysBitmask, index),
+        );
+      }
+      renderNodeGraphMidiKeyboardHeldKeys();
+      saveNodeGraphMidiKeyboardMemory();
+      if (typeof sendNodeGraphLiveMidiKeyboardHeldKeysBitmask === "function") {
+        sendNodeGraphLiveMidiKeyboardHeldKeysBitmask();
+      }
+    }
+    event.preventDefault();
+    return;
+  }
   if (event.type === "pointerdown" && (event.shiftKey || mode === "hold")) {
     toggleNodeGraphMidiKeyboardPointerHold(event, surface);
     return;
