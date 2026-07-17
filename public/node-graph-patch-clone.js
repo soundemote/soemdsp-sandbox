@@ -228,7 +228,7 @@ function cloneNodeGraphTypedDisplaySettings(node) {
     return { zeroDBurnSettings: normalizeNodeGraphZeroDBurnSettings(migrate(node.zeroDBurnSettings, false)) };
   }
   if (displayType === "lineBurn") {
-    return { traceDisplaySettings: normalizeNodeGraphLineBurnSettings(node.traceDisplaySettings) };
+    return { traceDisplaySettings: normalizeNodeGraphLineBurnSettings(migrate(node.traceDisplaySettings, false)) };
   }
   if (displayType === "value") {
     return { traceDisplaySettings: normalizeNodeGraphValueOscilloscopeSettings(migrate(node.traceDisplaySettings, false)) };

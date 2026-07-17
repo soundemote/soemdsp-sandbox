@@ -523,7 +523,11 @@ function normalizeNodeUiDevSettings(settings = {}) {
     view.moduleScopeDiscontinuitySkipSamples ?? nodeGraphMvp.moduleScopeDiscontinuitySkipSamples ?? 1,
   );
   const traceSettings = typeof normalizeNodeGraphTraceDisplaySettings === "function"
-    ? normalizeNodeGraphTraceDisplaySettings(view.traceSettings ?? nodeGraphMvp.traceSettings)
+    ? normalizeNodeGraphTraceDisplaySettings(
+      typeof migrateNodeGraphLegacyDot2Settings === "function"
+        ? migrateNodeGraphLegacyDot2Settings(view.traceSettings ?? nodeGraphMvp.traceSettings, false)
+        : (view.traceSettings ?? nodeGraphMvp.traceSettings),
+    )
     : (view.traceSettings ?? nodeGraphMvp.traceSettings ?? {});
   const sliderLayout = normalizeNodeGraphSliderLayout(view.sliderLayout ?? nodeGraphMvp.sliderLayout);
   const sliderAmountVisible = Boolean(view.sliderAmountVisible ?? nodeGraphMvp.sliderAmountVisible);

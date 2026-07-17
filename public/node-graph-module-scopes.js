@@ -279,11 +279,16 @@ function nodeGraphModuleScopeShaderColor(source, dotName, fallback) {
 // Only "dot1" resolves to anything now that Dot 2 has been removed -- a
 // legacy custom shader script that still assigns from `dot2.global.color`
 // (parsed generically by nodeGraphModuleScopeShaderExpressionPartValue's
-// dot([12]) regex, independent of what this app calls it with) falls
-// through to null, which nodeGraphModuleScopeShaderColor's caller already
-// treats as "use the fallback" -- a true no-op, not a throw.
+// dot([12]) regex, independent of what this app calls it with) is gated
+// out by nodeGraphModuleScopeShaderDotNameIsPrimary below, which
+// nodeGraphModuleScopeShaderColor's caller already treats as "use the
+// fallback" -- a true no-op, not a throw.
+function nodeGraphModuleScopeShaderDotNameIsPrimary(dotName) {
+  return dotName === "dot1";
+}
+
 function nodeGraphModuleScopeShaderGlobalColor(dotName) {
-  if (dotName !== "dot1") {
+  if (!nodeGraphModuleScopeShaderDotNameIsPrimary(dotName)) {
     return null;
   }
   const defaultCore = nodeGraphModuleScopeDefaultDotCores.dot1;
@@ -310,7 +315,7 @@ function nodeGraphModuleScopeShaderNumber(source, dotName, key, fallback) {
 // this call is actually computing) -- with no Dot 2 state left to read,
 // that resolves to the given fallback, i.e. no effect, not a throw.
 function nodeGraphModuleScopeShaderGlobalValue(dotName, key, fallback) {
-  if (dotName !== "dot1") {
+  if (!nodeGraphModuleScopeShaderDotNameIsPrimary(dotName)) {
     return fallback;
   }
   const defaultCore = nodeGraphModuleScopeDefaultDotCores.dot1;
@@ -4003,7 +4008,14 @@ function setNodeGraphTraceDisplaySettingsFormType(node = null) {
   }
   setNodeGraphTraceDisplaySectionVisible(popover, "value", nodeGraphTraceDisplaySectionHasActiveControls("value", formType));
   setNodeGraphTraceDisplaySectionVisible(popover, "dot1", nodeGraphTraceDisplaySectionHasActiveControls("dot1", formType));
-  setNodeGraphTraceDisplaySectionVisible(popover, "secondary", nodeGraphTraceDisplaySectionHasActiveControls("secondary", formType));
+  // The "trace" schema is shared by Output's stereo display and every plain
+  // single-value Trace node -- secondary* only ever renders for Output (see
+  // drawNodeGraphTraceDisplayCanvasItem), so gate the section on node type
+  // too, or a Trace node would show live-looking Secondary controls that
+  // silently do nothing.
+  const secondaryActive = nodeGraphTraceDisplaySectionHasActiveControls("secondary", formType) &&
+    node?.type === "output";
+  setNodeGraphTraceDisplaySectionVisible(popover, "secondary", secondaryActive);
   setNodeGraphTraceDisplaySectionVisible(popover, "caps", nodeGraphTraceDisplaySectionHasActiveControls("caps", formType));
 }
 
@@ -6312,15 +6324,6 @@ function nodeGraphModuleScopeBufferValue(buffer, position, view) {
   return clampNodeSliderValue((nodeGraphModuleScopeInterpolatedSample(buffer, position) * view.gain) + view.offset, -1, 1);
 }
 
-function nodeGraphModuleScopeMixColor(left, right, amount) {
-  const mix = clampNodeSliderValue(Number(amount) || 0, 0, 1);
-  return [
-    left[0] + (right[0] - left[0]) * mix,
-    left[1] + (right[1] - left[1]) * mix,
-    left[2] + (right[2] - left[2]) * mix,
-  ];
-}
-
 function nodeGraphModuleScopeHeatmapTraceColors() {
   return {
     core: [1, 1, 1],
@@ -6842,7 +6845,7 @@ function nodeGraphModuleScopeTraceEdgePaddingRatio(slot, rect) {
       size: clampNodeSliderValue(settings.dot1Size, 0, 1),
     });
   }
-  if (settings.secondaryEnabled !== false && settings.secondaryBrightness > 0) {
+  if (slot?.type === "output" && settings.secondaryEnabled !== false && settings.secondaryBrightness > 0) {
     activePasses.push({
       blur: clampNodeSliderValue(settings.secondaryLineThickness, 0, 1),
       size: clampNodeSliderValue(settings.secondarySize, 0, 1),
@@ -10041,6 +10044,16 @@ function nodeGraphOutputStereoTraceBuffers(nodeId) {
   return { left, right };
 }
 
+function nodeGraphTraceDisplayPrimaryLayer(settings, color) {
+  return {
+    enabled: settings.dot1Enabled,
+    size: settings.dot1Size,
+    brightness: settings.brightness,
+    blur: settings.lineThickness,
+    color,
+  };
+}
+
 function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
   const slot = item?.slot;
   const buffer = item?.buffer;
@@ -10064,13 +10077,10 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
     const leftPoints = buildNodeGraphTraceDisplayCanvasPoints(leftBuffer, canvas, slot);
     const rightPoints = buildNodeGraphTraceDisplayCanvasPoints(rightBuffer, canvas, slot);
     const rawTraceSettings = nodeGraphModuleScopeNodeForSlot(slot)?.traceDisplaySettings || {};
-    const leftLayer = {
-      enabled: settings.dot1Enabled,
-      size: settings.dot1Size,
-      brightness: settings.brightness,
-      blur: settings.lineThickness,
-      color: rawTraceSettings.color ?? rawTraceSettings.dot1Color ?? nodeGraphOutputTraceLeftColor,
-    };
+    const leftLayer = nodeGraphTraceDisplayPrimaryLayer(
+      settings,
+      rawTraceSettings.color ?? rawTraceSettings.dot1Color ?? nodeGraphOutputTraceLeftColor,
+    );
     const rightLayer = {
       enabled: settings.secondaryEnabled,
       size: settings.secondarySize,
@@ -10087,13 +10097,7 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
   }
   const points = buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot);
   context.clearRect(0, 0, canvas.width, canvas.height);
-  const layer = {
-    enabled: settings.dot1Enabled,
-    size: settings.dot1Size,
-    brightness: settings.brightness,
-    blur: settings.lineThickness,
-    color: settings.color,
-  };
+  const layer = nodeGraphTraceDisplayPrimaryLayer(settings, settings.color);
   drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas);
   recordNodeGraphModuleScopeRenderMetrics(points.length, points.length);
   rememberNodeGraphTraceDisplaySignature(slot, item, buffer, settings);

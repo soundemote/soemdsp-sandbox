@@ -198,9 +198,8 @@ function renderNodeGraphModuleScopeDotPreview(
   core1Brightness,
   core1Color,
   lineThickness = nodeGraphMvp?.moduleScopeLineThickness,
-  canvasId = "nodeMasterScopeDotCore1Preview",
 ) {
-  const canvas = document.getElementById(canvasId);
+  const canvas = document.getElementById("nodeMasterScopeDotCore1Preview");
   if (!canvas) {
     return;
   }
@@ -285,7 +284,6 @@ function renderNodeGraphModuleScopeBrightnessControl() {
     dotCore1Enabled ? dotCore1Brightness : 0,
     dotCore1Color,
     lineThickness,
-    "nodeMasterScopeDotCore1Preview",
   );
   if (fpsInput && document.activeElement !== fpsInput) {
     fpsInput.value = String(framesPerSecond);

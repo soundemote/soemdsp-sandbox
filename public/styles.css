@@ -12219,18 +12219,18 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 }
 
 .node-trace-display-settings-popover .node-trace-display-dot1-title,
-.node-trace-display-settings-popover .node-trace-display-dot2-title {
+.node-trace-display-settings-popover .node-trace-display-secondary-title {
   grid-template-columns: minmax(0, 1fr) 28px;
   place-items: center stretch;
 }
 
 .node-trace-display-settings-popover .node-trace-display-dot1-title > span,
-.node-trace-display-settings-popover .node-trace-display-dot2-title > span {
+.node-trace-display-settings-popover .node-trace-display-secondary-title > span {
   justify-self: center;
 }
 
 .node-trace-display-settings-popover .node-trace-display-dot1-title > input,
-.node-trace-display-settings-popover .node-trace-display-dot2-title > input {
+.node-trace-display-settings-popover .node-trace-display-secondary-title > input {
   justify-self: center;
   margin: 0;
 }
@@ -14152,11 +14152,6 @@ button.saved-default,
 .node-master-scope-dot-core-row input[type="color"] {
   min-height: 1.85rem;
   padding: 2px;
-}
-
-.node-master-scope-dot-preview-combined {
-  justify-self: start;
-  min-width: 84px;
 }
 
 .scene-context-text-box-text-control,

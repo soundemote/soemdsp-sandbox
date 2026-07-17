@@ -12894,7 +12894,7 @@ def require_node_graph_mvp_contract() -> None:
     )
     shader_script_legacy_source = script_sources["./public/node-graph-shader-script.js"]
     require(
-        "const dot2Legacy = compactNodeGraphShaderScriptSource(" in shader_script_legacy_source
+        "const dot2Legacy = compactNodeGraphShaderScriptSource(\n    nodeGraphScopeShaderDefaultSource.replace(" in shader_script_legacy_source
         and "dot2.brightness = 1.0 * dot2.global.brightness;" in shader_script_legacy_source
         and "compact === dot2Legacy" in shader_script_legacy_source
         and "compact === dot2VisualLegacy" in shader_script_legacy_source,
@@ -12902,21 +12902,21 @@ def require_node_graph_mvp_contract() -> None:
     )
     require(
         "function migrateNodeGraphLegacyDot2Settings(settings, isOutput)" in patch_normalizers_shader_source
-        and "next.secondaryColor = next.dot2Color;" in patch_normalizers_shader_source
-        and "next.secondarySize = next.dot2Size;" in patch_normalizers_shader_source
-        and "next.secondaryBrightness = next.dot2Brightness;" in patch_normalizers_shader_source
-        and "next.secondaryLineThickness = next.dot2LineThickness;" in patch_normalizers_shader_source
-        and "next.secondaryEnabled = next.dot2Enabled;" in patch_normalizers_shader_source
+        and "const nodeGraphLegacyDot2OutputRenameTable = Object.freeze({" in patch_normalizers_shader_source
+        and 'dot2Color: "secondaryColor"' in patch_normalizers_shader_source
+        and 'dot2Size: "secondarySize"' in patch_normalizers_shader_source
+        and 'dot2Brightness: "secondaryBrightness"' in patch_normalizers_shader_source
+        and 'dot2LineThickness: "secondaryLineThickness"' in patch_normalizers_shader_source
+        and 'dot2Enabled: "secondaryEnabled"' in patch_normalizers_shader_source
+        and "const nodeGraphLegacyDot2RescueRenameTable = Object.freeze({" in patch_normalizers_shader_source
+        and 'dot2Color: "dot1Color"' in patch_normalizers_shader_source
+        and 'dot2Size: "dot1Size"' in patch_normalizers_shader_source
+        and 'dot2Brightness: "dot1Brightness"' in patch_normalizers_shader_source
+        and 'dot2LineThickness: "lineThickness"' in patch_normalizers_shader_source
         and "next.dot1Enabled === false && next.dot2Enabled !== false" in patch_normalizers_shader_source
-        and "next.dot1Color = next.dot2Color;" in patch_normalizers_shader_source
-        and "next.dot1Size = next.dot2Size;" in patch_normalizers_shader_source
-        and "next.dot1Brightness = next.dot2Brightness;" in patch_normalizers_shader_source
-        and "next.lineThickness = next.dot2LineThickness;" in patch_normalizers_shader_source
-        and "delete next.dot2Enabled;" in patch_normalizers_shader_source
-        and "delete next.dot2Size;" in patch_normalizers_shader_source
-        and "delete next.dot2Brightness;" in patch_normalizers_shader_source
-        and "delete next.dot2Color;" in patch_normalizers_shader_source
-        and "delete next.dot2LineThickness;" in patch_normalizers_shader_source,
+        and "for (const [from, to] of Object.entries(nodeGraphLegacyDot2OutputRenameTable))" in patch_normalizers_shader_source
+        and "for (const [from, to] of Object.entries(nodeGraphLegacyDot2RescueRenameTable))" in patch_normalizers_shader_source
+        and "for (const key of legacyKeys) {\n    delete next[key];\n  }" in patch_normalizers_shader_source,
         "loaded patches should migrate legacy Dot 2 settings: Output nodes rename to secondary*, others rescue dot1-off/dot2-only",
     )
     require(
@@ -13626,11 +13626,48 @@ def require_node_graph_mvp_contract() -> None:
         "const nodeGraphTraceDisplaySectionControls = Object.freeze({" in node_graph_source
         and "function nodeGraphTraceDisplaySectionHasActiveControls(section" in node_graph_source
         and "function setNodeGraphTraceDisplaySectionVisible(popover, section, visible)" in node_graph_source
-        and 'setNodeGraphTraceDisplaySectionVisible(popover, "secondary", nodeGraphTraceDisplaySectionHasActiveControls("secondary", formType));' in node_graph_source
+        and 'const secondaryActive = nodeGraphTraceDisplaySectionHasActiveControls("secondary", formType) &&' in node_graph_source
+        and 'node?.type === "output";' in node_graph_source
+        and 'setNodeGraphTraceDisplaySectionVisible(popover, "secondary", secondaryActive);' in node_graph_source
         and '"dot1Enabled", "secondaryEnabled"' in node_graph_source
         and "for (const key of activeToggles)" in node_graph_source
         and "next[key] = input.checked;" in node_graph_source,
         "Display Settings should show and persist only active typed controls, including the renamed Secondary toggle",
+    )
+    require(
+        "function nodeGraphModuleScopeTraceEdgePaddingRatio(slot, rect)" in node_graph_source
+        and 'if (slot?.type === "output" && settings.secondaryEnabled !== false && settings.secondaryBrightness > 0) {' in node_graph_source,
+        "trace edge padding should only reserve room for the secondary dot on Output nodes, since only Output draws it",
+    )
+    require(
+        "function nodeGraphModuleScopeMixColor" not in node_graph_source,
+        "the halo color-mix helper was only used by Dot 2's removed halo, should be deleted",
+    )
+    require(
+        ".node-trace-display-dot2-title" not in style_source
+        and ".node-trace-display-secondary-title" in style_source
+        and ".node-master-scope-dot-preview-combined" not in style_source,
+        "styles.css selectors should follow the Dot 2 -> Secondary rename, and the deleted combined-preview rule should be gone",
+    )
+    require(
+        "function nodeGraphModuleScopeShaderDotNameIsPrimary(dotName)" in node_graph_source
+        and "if (!nodeGraphModuleScopeShaderDotNameIsPrimary(dotName)) {" in node_graph_source,
+        "the dot1-only shader gate should be a single named predicate shared by ShaderGlobalColor and ShaderGlobalValue",
+    )
+    require(
+        "function nodeGraphTraceDisplayPrimaryLayer(settings, color)" in node_graph_source
+        and node_graph_source.count("enabled: settings.dot1Enabled,\n    size: settings.dot1Size,\n    brightness: settings.brightness,\n    blur: settings.lineThickness,") == 1,
+        "the primary-dot layer object should be built by one shared helper, not duplicated at each drawNodeGraphTraceDisplayCanvasItem call site",
+    )
+    require(
+        'function renderNodeGraphModuleScopeDotPreview(\n  core1Size,\n  core1Brightness,\n  core1Color,\n  lineThickness = nodeGraphMvp?.moduleScopeLineThickness,\n) {' in node_graph_source,
+        "renderNodeGraphModuleScopeDotPreview should not keep a vestigial canvasId parameter now that only one canvas ever calls it",
+    )
+    require(
+        "const nodeGraphLegacyDot2OutputRenameTable" in patch_normalizers_shader_source
+        and node_graph_source.count("traceDisplaySettings: normalizeNodeGraphLineBurnSettings(") == 1
+        and "normalizeNodeGraphLineBurnSettings(migrate(node.traceDisplaySettings, false))" in node_graph_source,
+        "cloneNodeGraphTypedDisplaySettings should run the Dot 2 migration for lineBurn too, consistent with every other display type",
     )
     require(
         'data-trace-display-choice-row="lineBurnMode"' not in node_graph_source
