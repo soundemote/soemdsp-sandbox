@@ -1074,7 +1074,7 @@ html.soemdsp-hide-ui .status-strip {
   display: none;
 }
 
-.node-wiring-panel.modular-only-view > :not(.node-graph-workspace):not(.node-view-toolbar):not(.node-scene-context-menu):not(.node-parameter-metadata-popover):not(.node-ui-dev-helper):not(.node-user-ui-settings-panel):not(.node-saved-patches-window):not(.node-module-shop-view):not(.node-shader-script-dialog) {
+.node-wiring-panel.modular-only-view > :not(.node-graph-workspace):not(.node-view-toolbar):not(.node-scene-context-menu):not(.node-parameter-metadata-popover):not(.node-ui-dev-helper):not(.node-user-ui-settings-panel):not(.node-saved-patches-window):not(.node-module-shop-view):not(.node-shader-script-dialog):not(.node-standalone-midi-keyboard-dock) {
   display: none;
 }
 
@@ -1349,6 +1349,31 @@ html.soemdsp-hide-ui .status-strip {
 
 .node-midi-keyboard-panel[hidden] {
   display: none;
+}
+
+/* Docked (not floating/draggable) standalone keyboard -- a second
+   .node-midi-keyboard-module instance mirroring every keyboardController
+   node's own keyboard (see createNodeGraphKeyboardControllerBody). Fixed
+   to the bottom of the viewport so it sits below the modular workspace
+   regardless of whatever layout mode that workspace is currently in. */
+.node-standalone-midi-keyboard-dock {
+  position: fixed;
+  z-index: 60;
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
+  max-width: 900px;
+  margin-inline: auto;
+  max-height: 34dvh;
+}
+
+.node-standalone-midi-keyboard-dock[hidden] {
+  display: none;
+}
+
+.node-standalone-midi-keyboard-dock .node-midi-keyboard-panel {
+  height: 100%;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 .node-midi-keyboard-heading {

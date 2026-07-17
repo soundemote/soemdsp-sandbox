@@ -532,10 +532,20 @@ function createNodeGraphPitchModWheelBody(node) {
   return section;
 }
 
-function createNodeGraphKeyboardControllerBody(node) {
+// node is optional -- the standalone MIDI keyboard dock (see
+// initNodeGraphStandaloneMidiKeyboard) calls this with no node at all.
+// Everything below is already generic/document-wide (renderNodeGraphMidiKeyboardSignal
+// and bindNodeGraphKeyboardControllerModuleEvents both query
+// ".node-midi-keyboard-module" across the whole document, not a specific
+// node), so a standalone instance mirrors every keyboardController node's
+// keyboard for free -- same shared nodeGraphMvp.midiKeyboardSignal, same
+// "active" key highlighting on every rendered surface.
+function createNodeGraphKeyboardControllerBody(node = null) {
   const section = document.createElement("section");
   section.className = "node-midi-keyboard-panel node-midi-keyboard-module";
-  section.dataset.node = node;
+  if (node) {
+    section.dataset.node = node;
+  }
   section.setAttribute("aria-label", "Mouse playable MIDI keyboard");
   const heading = document.createElement("div");
   heading.className = "node-midi-keyboard-heading";

@@ -788,6 +788,43 @@ function resetNodeGraphStartupView() {
   setNodeGraphViewMode(nodeGraphStartupViewModeFromUrl());
 }
 
+// Docked (not floating/draggable) MIDI keyboard, toggled on/off, sitting
+// below the modular workspace -- a second instance of the exact same
+// playable keyboard as the keyboardController node's own body. Populated
+// once at bootstrap; only its visibility changes after that.
+function initNodeGraphStandaloneMidiKeyboard() {
+  const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
+  if (!dock || dock.dataset.populated === "true") {
+    return;
+  }
+  dock.dataset.populated = "true";
+  dock.append(createNodeGraphKeyboardControllerBody());
+  renderNodeGraphKeyboardControllerModules();
+}
+
+function renderNodeGraphStandaloneMidiKeyboardToggle() {
+  const button = document.getElementById("nodeStandaloneMidiKeyboardButton");
+  const dock = document.getElementById("nodeStandaloneMidiKeyboardDock");
+  const visible = Boolean(nodeGraphMvp.standaloneMidiKeyboardVisible);
+  if (dock) {
+    dock.hidden = !visible;
+  }
+  if (button) {
+    button.setAttribute("aria-pressed", visible ? "true" : "false");
+  }
+}
+
+function toggleNodeGraphStandaloneMidiKeyboard() {
+  nodeGraphMvp.standaloneMidiKeyboardVisible = !nodeGraphMvp.standaloneMidiKeyboardVisible;
+  if (nodeGraphMvp.standaloneMidiKeyboardVisible) {
+    initNodeGraphStandaloneMidiKeyboard();
+  }
+  renderNodeGraphStandaloneMidiKeyboardToggle();
+  setNodeInteractionHelp(
+    nodeGraphMvp.standaloneMidiKeyboardVisible ? "MIDI keyboard shown." : "MIDI keyboard hidden.",
+  );
+}
+
 function renderNodeGraphVideoViewToggle() {
   const button = document.getElementById("nodeVideoViewButton");
   const panel = document.getElementById("nodeVideoViewPanel");
