@@ -1393,7 +1393,15 @@ html.soemdsp-hide-ui .status-strip {
 }
 
 .node-standalone-midi-keyboard-dock .node-macro-controls-panel {
-  max-height: 120px;
+  /* The macro row is a fixed 5-column grid (10 knobs -> 2 rows), see
+     .node-macro-controls-module .node-macro-controls-row -- an explicit
+     max-height here (previously 120px) clipped the second row under
+     .node-macro-controls-panel's own overflow: hidden. Let it size to
+     its natural content height instead; the dock row is already `auto`
+     (see .node-standalone-midi-keyboard-dock's grid-template-rows) so
+     this doesn't grow unbounded, and the keyboard row above shrinks to
+     fit within the dock's overall max-height budget. */
+  max-height: none;
 }
 
 .node-midi-keyboard-heading {
