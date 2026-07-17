@@ -1367,7 +1367,10 @@ html.soemdsp-hide-ui .status-strip {
   margin-inline: auto;
   max-height: 48dvh;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  /* Macro row first (auto-sized to content), performance row (wheel +
+     keyboard, flexible) second -- matches DOM order in
+     initNodeGraphStandaloneMidiKeyboard. */
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 8px;
 }
 

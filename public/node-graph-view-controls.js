@@ -806,7 +806,7 @@ function initNodeGraphStandaloneMidiKeyboard() {
   const performanceRow = document.createElement("div");
   performanceRow.className = "node-standalone-performance-row";
   performanceRow.append(createNodeGraphPitchModWheelBody(), createNodeGraphKeyboardControllerBody());
-  dock.append(performanceRow, createNodeGraphMacroControlsBody());
+  dock.append(createNodeGraphMacroControlsBody(), performanceRow);
   renderNodeGraphKeyboardControllerModules();
   bindNodeGraphMacroControlModuleEvents();
 }
