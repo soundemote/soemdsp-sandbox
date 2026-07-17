@@ -2962,7 +2962,9 @@ body.keyboard-debug-hidden .node-constraint-color-guide {
   overflow-wrap: normal;
 }
 
-#nodeModularOnlyViewButton {
+#nodeModularOnlyViewButton,
+#nodeModuleShopButton,
+#nodeSavedPatchesWindowButton {
   display: grid;
   place-items: center;
   padding: 3px;
@@ -2975,15 +2977,6 @@ body.keyboard-debug-hidden .node-constraint-color-guide {
   height: 100%;
   font-size: 2.35rem;
   line-height: 1;
-}
-
-#nodeModuleShopButton span {
-  display: block;
-  min-width: 0;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: clip;
-  white-space: nowrap;
 }
 
 #nodeDonateFiveButton,
