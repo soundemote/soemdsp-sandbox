@@ -14846,11 +14846,12 @@ def require_node_graph_mvp_contract() -> None:
         "header BPM/Beats/Unit fields should be drag-adjustable and double-click editable",
     )
     require(
-        "if (input.dataset.timingField && input.readOnly)" in header_scope_source
+        "if ((input.dataset.timingField || input.dataset.audioField) && input.readOnly)" in header_scope_source
         and "event.preventDefault();" in header_scope_source
-        and ".node-header-timing-input[data-timing-field][readonly]" in style_source
+        and ".node-header-timing-input[data-timing-field][readonly]," in style_source
+        and ".node-header-timing-input[data-audio-field][readonly] {" in style_source
         and "caret-color: transparent;" in style_source,
-        "header BPM/Beats/Unit fields should not text-select or focus until double-click edit",
+        "header BPM/Beats/Unit/Pitch Ref fields should not text-select or focus until double-click edit",
     )
     require(
         "if (input.dataset.timingField)" in scope_drag_scale_source
@@ -15490,10 +15491,25 @@ def require_node_graph_mvp_contract() -> None:
         and "padding: 0;\n  cursor: var(--node-dot-cursor);\n  border: 0;" in style_source
         and ".node-io-row:hover,\n.node-io-row.patch-point-hover {\n  cursor: var(--node-dot-cursor);" in style_source
         and ".node-header-timing-field[data-header-number-drag=\"true\"] {\n  cursor: var(--node-dot-cursor);" in style_source
-        and ".node-header-timing-input[data-timing-field][readonly] {\n  cursor: var(--node-dot-cursor);" in style_source
+        and ".node-header-timing-input[data-timing-field][readonly],\n.node-header-timing-input[data-audio-field][readonly] {\n  cursor: var(--node-dot-cursor);" in style_source
         and "input[data-global-scope-number-drag=\"true\"][readonly]" in style_source
         and ".node-trace-display-settings-popover input[data-trace-display-field][readonly]" in style_source,
         "ports and draggable number controls should use the shared dot cursor on hover",
+    )
+
+    require(
+        "function nodeGraphPatchAudioValue(key)" in header_scope_source
+        and "return normalizeNodeGraphPatchAudio(nodeGraphMvp?.patch?.audio)[key];" in header_scope_source
+        and "function updateNodeGraphPatchAudioFromHeader(input)" in header_scope_source
+        and "const key = input?.dataset?.audioField;" in header_scope_source
+        and "patch.audio = next;" in header_scope_source
+        and "function createNodeGraphHeaderAudioInput(key, label, options = {})" in header_scope_source
+        and "input.dataset.audioField = key;" in header_scope_source
+        and 'createNodeGraphHeaderAudioInput("pitchReferenceHz", "Pitch Ref", {' in header_scope_source
+        and "input.dataset.audioField" in node_graph_source
+        and "updateNodeGraphPatchAudioFromHeader(input);" in node_graph_source
+        and '"pitchReferenceHz": "Pitch Reference Frequency in Hz' in tooltip_source,
+        "Command Center should show and let you edit the patch's Pitch Reference Frequency, wired the same way as BPM/Beats/Unit",
     )
 
     require(

@@ -682,6 +682,8 @@ function setNodeGraphScopeNumberInputValue(input, value) {
     setNodeGraphModuleScopePointBudget(input.value);
   } else if (input.dataset.timingField) {
     updateNodeGraphPatchTimingFromHeader(input);
+  } else if (input.dataset.audioField) {
+    updateNodeGraphPatchAudioFromHeader(input);
   } else if (input.dataset.globalScopeInput === "lineThickness") {
     setNodeGraphModuleScopeLineThickness(input.value);
   } else if (input.dataset.globalScopeInput === "dotCore1Size") {

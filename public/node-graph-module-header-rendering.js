@@ -2,6 +2,10 @@ function nodeGraphPatchTimingValue(key) {
   return normalizeNodeGraphPatchTiming(nodeGraphMvp?.patch?.timing)[key];
 }
 
+function nodeGraphPatchAudioValue(key) {
+  return normalizeNodeGraphPatchAudio(nodeGraphMvp?.patch?.audio)[key];
+}
+
 const nodeGraphTapTempoState = {
   lastTapMs: 0,
   intervals: [],
@@ -9,10 +13,14 @@ const nodeGraphTapTempoState = {
 
 function syncNodeGraphHeaderTimingWidgets() {
   const timing = normalizeNodeGraphPatchTiming(nodeGraphMvp?.patch?.timing);
+  const audio = normalizeNodeGraphPatchAudio(nodeGraphMvp?.patch?.audio);
   for (const input of document.querySelectorAll(".node-header-timing-input")) {
-    const key = input.dataset.timingField;
-    if (Object.hasOwn(timing, key)) {
-      input.value = String(timing[key]);
+    const timingKey = input.dataset.timingField;
+    const audioKey = input.dataset.audioField;
+    if (timingKey && Object.hasOwn(timing, timingKey)) {
+      input.value = String(timing[timingKey]);
+    } else if (audioKey && Object.hasOwn(audio, audioKey)) {
+      input.value = String(audio[audioKey]);
     }
   }
 }
@@ -63,12 +71,36 @@ function updateNodeGraphPatchTimingFromHeader(input) {
   });
 }
 
+function updateNodeGraphPatchAudioFromHeader(input) {
+  const key = input?.dataset?.audioField;
+  if (!key) {
+    return;
+  }
+  const current = normalizeNodeGraphPatchAudio(nodeGraphMvp.patch.audio);
+  const next = normalizeNodeGraphPatchAudio({
+    ...current,
+    [key]: input.value,
+  });
+  if (current[key] === next[key]) {
+    input.value = String(next[key]);
+    return;
+  }
+  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+  patch.audio = next;
+  commitNodeGraphPatch(patch, {
+    markPending: false,
+    status: "pitch reference synced",
+  });
+}
+
 function commitNodeGraphHeaderNumberInput(input) {
   if (!input) {
     return;
   }
   if (input.dataset.timingField) {
     updateNodeGraphPatchTimingFromHeader(input);
+  } else if (input.dataset.audioField) {
+    updateNodeGraphPatchAudioFromHeader(input);
   } else if (input.dataset.globalScopeInput) {
     setNodeGraphScopeNumberInputValue(input, input.value);
   }
@@ -86,7 +118,7 @@ function bindNodeGraphHeaderTimingWidgets(root = document) {
     }
     input.addEventListener("change", () => commitNodeGraphHeaderNumberInput(input));
     input.addEventListener("blur", () => commitNodeGraphHeaderNumberInput(input));
-    if (input.dataset.timingField) {
+    if (input.dataset.timingField || input.dataset.audioField) {
       input.addEventListener("dblclick", beginNodeGraphScopeNumberEdit);
     }
     input.addEventListener("keydown", (event) => {
@@ -97,7 +129,7 @@ function bindNodeGraphHeaderTimingWidgets(root = document) {
       event.stopPropagation();
     });
     input.addEventListener("pointerdown", (event) => {
-      if (input.dataset.timingField && input.readOnly) {
+      if ((input.dataset.timingField || input.dataset.audioField) && input.readOnly) {
         event.preventDefault();
       }
       event.stopPropagation();
@@ -138,6 +170,36 @@ function createNodeGraphHeaderTimingInput(key, label, options = {}) {
   input.type = "number";
   input.readOnly = true;
   input.value = String(nodeGraphPatchTimingValue(key));
+  field.append(input);
+
+  return field;
+}
+
+function createNodeGraphHeaderAudioInput(key, label, options = {}) {
+  const field = document.createElement("label");
+  field.className = "node-header-timing-field";
+  field.dataset.headerNumberDrag = "true";
+  field.setAttribute("aria-label", options.ariaLabel || label);
+  if (options.tooltipKey) {
+    field.dataset.tooltipKey = options.tooltipKey;
+  }
+
+  const caption = document.createElement("span");
+  caption.className = "node-header-timing-caption";
+  caption.textContent = label;
+  field.append(caption);
+
+  const input = document.createElement("input");
+  input.className = "node-header-timing-input";
+  input.dataset.audioField = key;
+  input.dataset.globalScopeNumberDrag = "true";
+  input.inputMode = "decimal";
+  input.min = String(options.min ?? 0.01);
+  input.max = String(options.max ?? 20000);
+  input.step = String(options.step ?? 1);
+  input.type = "number";
+  input.readOnly = true;
+  input.value = String(nodeGraphPatchAudioValue(key));
   field.append(input);
 
   return field;
@@ -343,6 +405,13 @@ function createNodeGraphCommandCenterTimingWidgets() {
     createNodeGraphHeaderTimingInput("tempoBpm", "BPM", { max: 320 }),
     createNodeGraphHeaderTimingInput("timeSignatureNumerator", "Beats"),
     createNodeGraphHeaderTimingInput("timeSignatureDenominator", "Unit"),
+    createNodeGraphHeaderAudioInput("pitchReferenceHz", "Pitch Ref", {
+      ariaLabel: "Pitch Reference Frequency in Hz (0.1V/Oct reference)",
+      tooltipKey: "timing.pitchReferenceHz",
+      min: 0.01,
+      max: 20000,
+      step: 1,
+    }),
   );
   return group;
 }

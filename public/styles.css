@@ -10636,7 +10636,8 @@ html.soemdsp-hide-ui .status-strip {
   text-align: center;
 }
 
-.node-header-timing-input[data-timing-field][readonly] {
+.node-header-timing-input[data-timing-field][readonly],
+.node-header-timing-input[data-audio-field][readonly] {
   cursor: var(--node-dot-cursor);
   user-select: none;
   -webkit-user-select: none;
