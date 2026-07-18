@@ -3182,7 +3182,10 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 .node-visibility-menu-list button {
+  display: flex;
+  align-items: center;
   justify-content: center;
+  gap: 6px;
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
