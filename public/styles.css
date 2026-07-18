@@ -1842,7 +1842,22 @@ body.macro-knob-hitbox-outline .node-macro-knob {
   padding: 2px 4px;
 }
 
+/* Explicit rows for label/value (top/mid/bottom, user-configurable) and
+   the dial (always mid) -- no collision handling, so if label and value
+   (or either and the dial) land on the same row they just stack via
+   place-items: center. The dial needs its own explicit row too, or
+   auto-placement could shuffle it around depending on where label/value
+   land. */
+.node-macro-knob span {
+  grid-row: var(--macro-knob-label-row, 1);
+}
+
+.node-macro-knob i {
+  grid-row: 2;
+}
+
 .node-macro-knob strong {
+  grid-row: var(--macro-knob-value-row, 3);
   color: var(--text);
   font-size: 0.62rem;
 }

@@ -564,6 +564,12 @@ function normalizeNodeUiDevSettings(settings = {}) {
   const macroKnobHitboxOutlineVisible = Boolean(
     view.macroKnobHitboxOutlineVisible ?? nodeGraphMvp.macroKnobHitboxOutlineVisible,
   );
+  const macroKnobLabelPosition = normalizeNodeGraphMacroKnobLabelPosition(
+    view.macroKnobLabelPosition ?? nodeGraphMvp.macroKnobLabelPosition ?? "top",
+  );
+  const macroKnobValuePosition = normalizeNodeGraphMacroKnobValuePosition(
+    view.macroKnobValuePosition ?? nodeGraphMvp.macroKnobValuePosition ?? "bottom",
+  );
   const traceSettings = typeof normalizeNodeGraphTraceDisplaySettings === "function"
     ? normalizeNodeGraphTraceDisplaySettings(
       typeof migrateNodeGraphLegacyDot2Settings === "function"
@@ -686,6 +692,8 @@ function normalizeNodeUiDevSettings(settings = {}) {
       macroKnobArcGapBrightness,
       macroKnobSizeScale,
       macroKnobHitboxOutlineVisible,
+      macroKnobLabelPosition,
+      macroKnobValuePosition,
       traceSettings,
       sliderLayout,
       sliderAmountVisible,
@@ -776,6 +784,8 @@ function readNodeUiDevSettingsFromControls(options = {}) {
       macroKnobArcGapBrightness: normalizeNodeGraphMacroKnobArcGapBrightness(nodeGraphMvp.macroKnobArcGapBrightness ?? 0),
       macroKnobSizeScale: normalizeNodeGraphMacroKnobSizeScale(nodeGraphMvp.macroKnobSizeScale ?? 1),
       macroKnobHitboxOutlineVisible: Boolean(nodeGraphMvp.macroKnobHitboxOutlineVisible),
+      macroKnobLabelPosition: normalizeNodeGraphMacroKnobLabelPosition(nodeGraphMvp.macroKnobLabelPosition ?? "top"),
+      macroKnobValuePosition: normalizeNodeGraphMacroKnobValuePosition(nodeGraphMvp.macroKnobValuePosition ?? "bottom"),
       traceSettings: typeof normalizeNodeGraphTraceDisplaySettings === "function"
         ? normalizeNodeGraphTraceDisplaySettings(nodeGraphMvp.traceSettings)
         : nodeGraphMvp.traceSettings,
@@ -900,6 +910,14 @@ function applyNodeUiDevSettings(settings) {
   nodeGraphMvp.macroKnobHitboxOutlineVisible = Boolean(normalized.view.macroKnobHitboxOutlineVisible);
   if (typeof applyNodeGraphMacroKnobHitboxOutlineVisible === "function") {
     applyNodeGraphMacroKnobHitboxOutlineVisible();
+  }
+  nodeGraphMvp.macroKnobLabelPosition = normalizeNodeGraphMacroKnobLabelPosition(normalized.view.macroKnobLabelPosition);
+  if (typeof applyNodeGraphMacroKnobLabelPosition === "function") {
+    applyNodeGraphMacroKnobLabelPosition();
+  }
+  nodeGraphMvp.macroKnobValuePosition = normalizeNodeGraphMacroKnobValuePosition(normalized.view.macroKnobValuePosition);
+  if (typeof applyNodeGraphMacroKnobValuePosition === "function") {
+    applyNodeGraphMacroKnobValuePosition();
   }
   nodeGraphMvp.traceSettings = typeof normalizeNodeGraphTraceDisplaySettings === "function"
     ? normalizeNodeGraphTraceDisplaySettings(normalized.view.traceSettings)

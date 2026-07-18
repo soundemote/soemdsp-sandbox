@@ -334,6 +334,55 @@ function createNodeUserUiSettingsMacroKnobHitboxOutlineControl() {
   });
 }
 
+function createNodeUserUiSettingsSelect({ key, label, options, getValue, setValue }) {
+  const row = document.createElement("label");
+  row.className = "node-user-ui-setting-control select";
+  const title = document.createElement("span");
+  title.textContent = label;
+  const select = document.createElement("select");
+  select.dataset.nodeUiViewSetting = key;
+  for (const option of options) {
+    const optionElement = document.createElement("option");
+    optionElement.value = option.value;
+    optionElement.textContent = option.label;
+    select.append(optionElement);
+  }
+  select.value = getValue();
+  select.addEventListener("change", () => {
+    setValue(select.value);
+  });
+  row.append(title, select);
+  return row;
+}
+
+const nodeGraphMacroKnobPositionOptions = Object.freeze([
+  { value: "top", label: "Top" },
+  { value: "mid", label: "Mid" },
+  { value: "bottom", label: "Bottom" },
+]);
+
+// Deliberately no logic to keep label/value/dial apart -- any combination
+// (including all three on "mid") is allowed and just overlaps.
+function createNodeUserUiSettingsMacroKnobLabelPositionControl() {
+  return createNodeUserUiSettingsSelect({
+    key: "macroKnobLabelPosition",
+    label: "Macro knob label position",
+    options: nodeGraphMacroKnobPositionOptions,
+    getValue: () => normalizeNodeGraphMacroKnobLabelPosition(nodeGraphMvp.macroKnobLabelPosition),
+    setValue: (value) => setNodeGraphMacroKnobLabelPosition(value),
+  });
+}
+
+function createNodeUserUiSettingsMacroKnobValuePositionControl() {
+  return createNodeUserUiSettingsSelect({
+    key: "macroKnobValuePosition",
+    label: "Macro knob value position",
+    options: nodeGraphMacroKnobPositionOptions,
+    getValue: () => normalizeNodeGraphMacroKnobValuePosition(nodeGraphMvp.macroKnobValuePosition),
+    setValue: (value) => setNodeGraphMacroKnobValuePosition(value),
+  });
+}
+
 function createNodeUserUiSettingsModuleScopeFramesPerSecondControl() {
   const row = document.createElement("label");
   row.className = "node-user-ui-setting-control number";
@@ -432,6 +481,8 @@ function renderNodeUserUiSettingsControls() {
     createNodeUserUiSettingsMacroKnobArcGapBrightnessControl(),
     createNodeUserUiSettingsMacroKnobSizeControl(),
     createNodeUserUiSettingsMacroKnobHitboxOutlineControl(),
+    createNodeUserUiSettingsMacroKnobLabelPositionControl(),
+    createNodeUserUiSettingsMacroKnobValuePositionControl(),
   ]);
   if (sectionElement) {
     container.append(sectionElement);
@@ -604,6 +655,18 @@ function syncNodeUserUiSettingsViewControls() {
       continue;
     }
     input.checked = Boolean(nodeGraphMvp.macroKnobHitboxOutlineVisible);
+  }
+  for (const select of document.querySelectorAll("[data-node-ui-view-setting='macroKnobLabelPosition']")) {
+    if (document.activeElement === select) {
+      continue;
+    }
+    select.value = normalizeNodeGraphMacroKnobLabelPosition(nodeGraphMvp.macroKnobLabelPosition);
+  }
+  for (const select of document.querySelectorAll("[data-node-ui-view-setting='macroKnobValuePosition']")) {
+    if (document.activeElement === select) {
+      continue;
+    }
+    select.value = normalizeNodeGraphMacroKnobValuePosition(nodeGraphMvp.macroKnobValuePosition);
   }
   for (const button of document.querySelectorAll("[data-node-ui-view-setting='sliderLayout']")) {
     const label = nodeGraphSliderLayoutLabel(nodeGraphMvp.sliderLayout);

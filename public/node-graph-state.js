@@ -53,6 +53,8 @@ var nodeGraphMvp = {
   macroKnobArcGapBrightness: 0,
   macroKnobSizeScale: 1,
   macroKnobHitboxOutlineVisible: false,
+  macroKnobLabelPosition: "top",
+  macroKnobValuePosition: "bottom",
   sliderLayout: "text-inside",
   sliderAmountVisible: false,
   sliderPositionVisible: true,

@@ -1346,6 +1346,46 @@ function setNodeGraphMacroKnobHitboxOutlineVisible(visible) {
   applyNodeGraphMacroKnobHitboxOutlineVisible();
 }
 
+// Where the label and value readout sit inside the knob's own 3-row grid
+// (top/mid/bottom, same rows the dial itself lives in). Deliberately no
+// collision handling -- label/value/dial can all land on the same row and
+// just stack on top of each other via place-items: center, which is fine.
+const nodeGraphMacroKnobPositionRows = Object.freeze({ top: 1, mid: 2, bottom: 3 });
+
+function normalizeNodeGraphMacroKnobLabelPosition(value) {
+  return Object.hasOwn(nodeGraphMacroKnobPositionRows, value) ? value : "top";
+}
+
+function applyNodeGraphMacroKnobLabelPosition() {
+  const position = normalizeNodeGraphMacroKnobLabelPosition(nodeGraphMvp.macroKnobLabelPosition);
+  document.documentElement?.style?.setProperty(
+    "--macro-knob-label-row",
+    String(nodeGraphMacroKnobPositionRows[position]),
+  );
+}
+
+function setNodeGraphMacroKnobLabelPosition(value) {
+  nodeGraphMvp.macroKnobLabelPosition = normalizeNodeGraphMacroKnobLabelPosition(value);
+  applyNodeGraphMacroKnobLabelPosition();
+}
+
+function normalizeNodeGraphMacroKnobValuePosition(value) {
+  return Object.hasOwn(nodeGraphMacroKnobPositionRows, value) ? value : "bottom";
+}
+
+function applyNodeGraphMacroKnobValuePosition() {
+  const position = normalizeNodeGraphMacroKnobValuePosition(nodeGraphMvp.macroKnobValuePosition);
+  document.documentElement?.style?.setProperty(
+    "--macro-knob-value-row",
+    String(nodeGraphMacroKnobPositionRows[position]),
+  );
+}
+
+function setNodeGraphMacroKnobValuePosition(value) {
+  nodeGraphMvp.macroKnobValuePosition = normalizeNodeGraphMacroKnobValuePosition(value);
+  applyNodeGraphMacroKnobValuePosition();
+}
+
 function ensureNodeGraphMacroControls() {
   if (!Array.isArray(nodeGraphMvp.macroControls) || nodeGraphMvp.macroControls.length !== 8) {
     nodeGraphMvp.macroControls = new Array(8).fill(0);
