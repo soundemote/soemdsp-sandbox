@@ -1830,6 +1830,7 @@ html.soemdsp-hide-ui .status-strip {
   min-width: 0;
   overflow: hidden;
   text-overflow: clip;
+  padding: 2px 4px;
 }
 
 .node-macro-knob strong {
@@ -1837,32 +1838,27 @@ html.soemdsp-hide-ui .status-strip {
   font-size: 0.62rem;
 }
 
+/* Hollow arc, not a filled disc -- a conic-gradient value arc swept over
+   the knob's usual -132deg..+132deg (264deg) travel, transparent past
+   that so the bottom notch stays a true gap instead of wrapping the full
+   circle, then a radial mask punches the center out into a ring. No more
+   flat grey-black fill behind it; the arc reads directly against the
+   module's own background. */
 .node-macro-knob i {
   position: relative;
   display: block;
   width: min(42px, 80%);
   aspect-ratio: 1 / 1;
-  border: 1px solid rgba(241, 184, 75, 0.42);
-  border-radius: 50%;
-  background:
-    conic-gradient(from -132deg, rgba(241, 184, 75, 0.88) calc(var(--macro-value, 0) * 264deg), rgba(243, 241, 236, 0.08) 0),
-    #151a20;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.34);
+  background: conic-gradient(
+    from -132deg,
+    rgba(241, 184, 75, 0.95) calc(var(--macro-value, 0) * 264deg),
+    rgba(241, 184, 75, 0.16) calc(var(--macro-value, 0) * 264deg) 264deg,
+    transparent 264deg 360deg
+  );
+  -webkit-mask-image: radial-gradient(closest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
+  mask-image: radial-gradient(closest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
+  filter: drop-shadow(0 0 5px rgba(241, 184, 75, 0.4));
   pointer-events: none;
-}
-
-.node-macro-knob i::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 8%;
-  width: 2px;
-  height: 34%;
-  border-radius: 999px;
-  background: #fff6d5;
-  transform: translateX(-50%) rotate(var(--macro-angle, -132deg));
-  transform-origin: 50% 125%;
-  box-shadow: 0 0 6px rgba(241, 184, 75, 0.72);
 }
 
 .knob-widget-layout {
