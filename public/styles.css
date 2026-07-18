@@ -11327,6 +11327,14 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 input.node-header-title {
   appearance: none;
   -webkit-appearance: none;
+  /* Fill the title row's full cross-axis height -- an <input> isn't
+     stretched by the row's flex layout by default, which left a thin
+     strip above/below it still inside .node-header-title-row. That strip
+     showed the row's own (longer) drag/select tooltip right next to the
+     input's "click to edit" tooltip, reading as two tooltips fighting
+     over the same tiny title-bar area -- most noticeable once hiding
+     module buttons shrinks the header down to just this row's height. */
+  height: 100%;
   width: 100%;
   flex: 1 1 auto;
   border: none;
