@@ -11457,7 +11457,7 @@ def require_node_graph_mvp_contract() -> None:
         "function nodeInteractionMouseHint(element)",
         "nodeGraphElementTooltipText(element)",
         "const alias = element.dataset.alias || \"\"",
-        "Alias: ${alias}",
+        "`${alias}\\n${action}`",
         'nodeGraphTooltipText("wire.selected")',
         'nodeGraphTooltipText("wire.output")',
         'nodeGraphTooltipText("wire.input")',

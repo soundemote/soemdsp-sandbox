@@ -109,7 +109,7 @@
     "titleMove": "Mouse: drag to move modules. Click to select; Ctrl/Shift+click adds or removes from selection. Alt+click an empty I/O section to toggle bypass. When module buttons are hidden, Alt+click the title also toggles bypass.",
     "actions": "Mouse: click to open module settings.",
     "actionsTitle": "Module settings",
-    "displaySettings": "Display button: click opens this module's display settings. Alt+click shows or hides the display.",
+    "displaySettings": "Click opens this module's display settings. Alt+click shows or hides the display.",
     "metaparameters": "Click to open this module's metaparameters. Alt+click shows or hides this module's sliders.",
     "textBoxEdit": "Display-only text. Edit content from this module's actions menu. Text clips to the box height and scales down to fit width. Mouse wheel zooms the modular view.",
     "bypass": "Mouse: click to bypass this module. Bypassed modules are removed from the compiled engine.",
@@ -122,7 +122,7 @@
     "executionInactive": "Compiled order: inactive\nThis module is not reachable from Output or a visual sink.",
     "executionTitleInactive": "Not in compiled execution order",
     "executionListItem": "Compiled order {order}: {nodeName}\nSelection only happens from move handles or marquee.",
-    "scopeWindow": "Module display: right click to open display settings."
+    "scopeWindow": "Right-click to open display settings."
   },
   "displaySettings": {
     "globalLineThickness": "Global display line thickness for scope traces.",
@@ -220,8 +220,8 @@
     "deleteWire": "Delete selected wire (Delete)",
     "deleteWireMissing": "Delete unavailable: selected wire no longer exists",
     "wireType": {
-      "cable": "Cable: draw this selected wire with the current curvy cable style.",
-      "trace": "Trace: draw this selected wire as a crisp up/down/left/right circuit trace."
+      "cable": "Draw this selected wire with the current curvy cable style.",
+      "trace": "Draw this selected wire as a crisp up/down/left/right circuit trace."
     },
     "copyExecutionJson": "Mouse: click to copy the full compiled execution JSON.",
     "copyRuntimeSketch": "Mouse: click to copy the caller-owned C++ runtime sketch.",
