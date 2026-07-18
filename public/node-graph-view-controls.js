@@ -623,7 +623,7 @@ function renderNodeGraphTooltipToggle() {
     help.textContent = "";
   }
   if (button) {
-    const label = button.querySelector("span");
+    const label = button.querySelector(".scene-context-window-button-label") || button.querySelector("span");
     if (label) {
       label.textContent = visible ? "Hide Tips" : "Show Tips";
     } else {

@@ -14218,7 +14218,8 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   text-align: center;
 }
 
-.scene-context-window-controls .scene-context-window-button {
+.scene-context-window-controls .scene-context-window-button,
+.node-visibility-menu-list .scene-context-window-button {
   display: grid;
   grid-template-columns: calc(var(--node-floating-window-button-height) + 4px) minmax(0, 1fr);
   align-items: stretch;
@@ -14235,7 +14236,8 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 
 /* Extra column for a hotkey badge (<kbd>Ctrl+K</kbd> etc.) on buttons
    that have one -- icon | label | kbd instead of just icon | label. */
-.scene-context-window-controls .scene-context-window-button:has(kbd) {
+.scene-context-window-controls .scene-context-window-button:has(kbd),
+.node-visibility-menu-list .scene-context-window-button:has(kbd) {
   grid-template-columns: calc(var(--node-floating-window-button-height) + 4px) minmax(0, 1fr) auto;
 }
 
@@ -14245,13 +14247,15 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
    label column beside it. Fixed height (not min-height) so a stacked
    kbd badge can't grow the button taller than its siblings -- the
    badge is pulled out of flow (absolute, see below) instead. */
-.scene-context-window-controls .scene-context-window-button:not(:has(.scene-context-window-button-label)) {
+.scene-context-window-controls .scene-context-window-button:not(:has(.scene-context-window-button-label)),
+.node-visibility-menu-list .scene-context-window-button:not(:has(.scene-context-window-button-label)) {
   position: relative;
   grid-template-columns: minmax(0, 1fr);
   height: var(--node-floating-window-button-height);
 }
 
-.scene-context-window-controls .scene-context-window-button:not(:has(.scene-context-window-button-label)) kbd {
+.scene-context-window-controls .scene-context-window-button:not(:has(.scene-context-window-button-label)) kbd,
+.node-visibility-menu-list .scene-context-window-button:not(:has(.scene-context-window-button-label)) kbd {
   position: absolute;
   right: 3px;
   bottom: 1px;
@@ -14260,7 +14264,8 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   line-height: 1;
 }
 
-.scene-context-window-controls .scene-context-window-button:has(.scene-context-window-button-label) kbd {
+.scene-context-window-controls .scene-context-window-button:has(.scene-context-window-button-label) kbd,
+.node-visibility-menu-list .scene-context-window-button:has(.scene-context-window-button-label) kbd {
   align-self: center;
   padding-right: 8px;
 }
@@ -14492,7 +14497,9 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 }
 
 .scene-context-window-controls .scene-context-window-button:hover,
-.scene-context-window-controls .scene-context-window-button:focus-visible {
+.scene-context-window-controls .scene-context-window-button:focus-visible,
+.node-visibility-menu-list .scene-context-window-button:hover,
+.node-visibility-menu-list .scene-context-window-button:focus-visible {
   border-color: rgba(127, 199, 217, 0.5);
   background: rgba(22, 32, 38, 0.96);
 }
@@ -14508,7 +14515,9 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 }
 
 .scene-context-window-controls .scene-context-window-button:first-child,
-.scene-context-window-controls .scene-context-window-button:last-child {
+.scene-context-window-controls .scene-context-window-button:last-child,
+.node-visibility-menu-list .scene-context-window-button:first-child,
+.node-visibility-menu-list .scene-context-window-button:last-child {
   border-radius: 5px;
 }
 
