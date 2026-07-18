@@ -558,6 +558,12 @@ function normalizeNodeUiDevSettings(settings = {}) {
   const macroKnobArcGapBrightness = normalizeNodeGraphMacroKnobArcGapBrightness(
     view.macroKnobArcGapBrightness ?? nodeGraphMvp.macroKnobArcGapBrightness ?? 0,
   );
+  const macroKnobSizeScale = normalizeNodeGraphMacroKnobSizeScale(
+    view.macroKnobSizeScale ?? nodeGraphMvp.macroKnobSizeScale ?? 1,
+  );
+  const macroKnobHitboxOutlineVisible = Boolean(
+    view.macroKnobHitboxOutlineVisible ?? nodeGraphMvp.macroKnobHitboxOutlineVisible,
+  );
   const traceSettings = typeof normalizeNodeGraphTraceDisplaySettings === "function"
     ? normalizeNodeGraphTraceDisplaySettings(
       typeof migrateNodeGraphLegacyDot2Settings === "function"
@@ -678,6 +684,8 @@ function normalizeNodeUiDevSettings(settings = {}) {
       moduleScopeDiscontinuitySkipSamples,
       macroKnobArcThickness,
       macroKnobArcGapBrightness,
+      macroKnobSizeScale,
+      macroKnobHitboxOutlineVisible,
       traceSettings,
       sliderLayout,
       sliderAmountVisible,
@@ -766,6 +774,8 @@ function readNodeUiDevSettingsFromControls(options = {}) {
       ),
       macroKnobArcThickness: normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness ?? 7),
       macroKnobArcGapBrightness: normalizeNodeGraphMacroKnobArcGapBrightness(nodeGraphMvp.macroKnobArcGapBrightness ?? 0),
+      macroKnobSizeScale: normalizeNodeGraphMacroKnobSizeScale(nodeGraphMvp.macroKnobSizeScale ?? 1),
+      macroKnobHitboxOutlineVisible: Boolean(nodeGraphMvp.macroKnobHitboxOutlineVisible),
       traceSettings: typeof normalizeNodeGraphTraceDisplaySettings === "function"
         ? normalizeNodeGraphTraceDisplaySettings(nodeGraphMvp.traceSettings)
         : nodeGraphMvp.traceSettings,
@@ -882,6 +892,14 @@ function applyNodeUiDevSettings(settings) {
   nodeGraphMvp.macroKnobArcGapBrightness = normalizeNodeGraphMacroKnobArcGapBrightness(normalized.view.macroKnobArcGapBrightness);
   if (typeof applyNodeGraphMacroKnobArcGapBrightness === "function") {
     applyNodeGraphMacroKnobArcGapBrightness();
+  }
+  nodeGraphMvp.macroKnobSizeScale = normalizeNodeGraphMacroKnobSizeScale(normalized.view.macroKnobSizeScale);
+  if (typeof applyNodeGraphMacroKnobSizeScale === "function") {
+    applyNodeGraphMacroKnobSizeScale();
+  }
+  nodeGraphMvp.macroKnobHitboxOutlineVisible = Boolean(normalized.view.macroKnobHitboxOutlineVisible);
+  if (typeof applyNodeGraphMacroKnobHitboxOutlineVisible === "function") {
+    applyNodeGraphMacroKnobHitboxOutlineVisible();
   }
   nodeGraphMvp.traceSettings = typeof normalizeNodeGraphTraceDisplaySettings === "function"
     ? normalizeNodeGraphTraceDisplaySettings(normalized.view.traceSettings)

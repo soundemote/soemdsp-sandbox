@@ -278,6 +278,62 @@ function createNodeUserUiSettingsMacroKnobArcGapBrightnessControl() {
   return row;
 }
 
+// Felt/shown as a percent (100% = the knob's normal size) even though the
+// stored value is a plain scale multiplier -- matches how the rest of this
+// section (arc thickness, arc-space brightness) already reads as percent.
+function createNodeUserUiSettingsMacroKnobSizeControl() {
+  const row = document.createElement("label");
+  row.className = "node-user-ui-setting-control number";
+  const title = document.createElement("span");
+  title.textContent = "Macro knob size";
+  const minPercent = Math.round(nodeGraphMacroKnobSizeScaleMin * 100);
+  const maxPercent = Math.round(nodeGraphMacroKnobSizeScaleMax * 100);
+  const input = document.createElement("input");
+  input.type = "range";
+  input.min = String(minPercent);
+  input.max = String(maxPercent);
+  input.step = "5";
+  input.dataset.nodeUiViewSetting = "macroKnobSizeScale";
+  input.value = String(Math.round(normalizeNodeGraphMacroKnobSizeScale(nodeGraphMvp.macroKnobSizeScale ?? 1) * 100));
+  const output = document.createElement("input");
+  output.type = "number";
+  output.min = String(minPercent);
+  output.max = String(maxPercent);
+  output.step = "5";
+  output.dataset.nodeUiViewSettingValue = "macroKnobSizeScale";
+  output.value = input.value;
+  input.addEventListener("input", () => {
+    setNodeGraphMacroKnobSizeScale(Number(input.value) / 100);
+    output.value = String(Math.round(nodeGraphMvp.macroKnobSizeScale * 100));
+  });
+  input.addEventListener("change", () => {
+    setNodeGraphMacroKnobSizeScale(Number(input.value) / 100);
+    output.value = String(Math.round(nodeGraphMvp.macroKnobSizeScale * 100));
+  });
+  output.addEventListener("input", () => {
+    setNodeGraphMacroKnobSizeScale(Number(output.value) / 100);
+    input.value = String(Math.round(nodeGraphMvp.macroKnobSizeScale * 100));
+  });
+  output.addEventListener("change", () => {
+    setNodeGraphMacroKnobSizeScale(Number(output.value) / 100);
+    output.value = String(Math.round(nodeGraphMvp.macroKnobSizeScale * 100));
+    input.value = output.value;
+  });
+  row.append(title, input, output);
+  return row;
+}
+
+function createNodeUserUiSettingsMacroKnobHitboxOutlineControl() {
+  return createNodeUserUiSettingsViewCheckbox({
+    key: "macroKnobHitboxOutlineVisible",
+    label: "Show macro knob hit-box outline",
+    getValue: () => Boolean(nodeGraphMvp.macroKnobHitboxOutlineVisible),
+    setValue: (visible) => {
+      setNodeGraphMacroKnobHitboxOutlineVisible(visible);
+    },
+  });
+}
+
 function createNodeUserUiSettingsModuleScopeFramesPerSecondControl() {
   const row = document.createElement("label");
   row.className = "node-user-ui-setting-control number";
@@ -374,6 +430,8 @@ function renderNodeUserUiSettingsControls() {
   const sectionElement = createNodeUserUiSettingsSection("knob style", [
     createNodeUserUiSettingsMacroKnobArcThicknessControl(),
     createNodeUserUiSettingsMacroKnobArcGapBrightnessControl(),
+    createNodeUserUiSettingsMacroKnobSizeControl(),
+    createNodeUserUiSettingsMacroKnobHitboxOutlineControl(),
   ]);
   if (sectionElement) {
     container.append(sectionElement);
@@ -528,6 +586,24 @@ function syncNodeUserUiSettingsViewControls() {
       continue;
     }
     input.value = String(normalizeNodeGraphMacroKnobArcGapBrightness(nodeGraphMvp.macroKnobArcGapBrightness ?? 0));
+  }
+  for (const input of document.querySelectorAll("[data-node-ui-view-setting='macroKnobSizeScale']")) {
+    if (document.activeElement === input) {
+      continue;
+    }
+    input.value = String(Math.round(normalizeNodeGraphMacroKnobSizeScale(nodeGraphMvp.macroKnobSizeScale ?? 1) * 100));
+  }
+  for (const input of document.querySelectorAll("[data-node-ui-view-setting-value='macroKnobSizeScale']")) {
+    if (document.activeElement === input) {
+      continue;
+    }
+    input.value = String(Math.round(normalizeNodeGraphMacroKnobSizeScale(nodeGraphMvp.macroKnobSizeScale ?? 1) * 100));
+  }
+  for (const input of document.querySelectorAll("[data-node-ui-view-setting='macroKnobHitboxOutlineVisible']")) {
+    if (document.activeElement === input) {
+      continue;
+    }
+    input.checked = Boolean(nodeGraphMvp.macroKnobHitboxOutlineVisible);
   }
   for (const button of document.querySelectorAll("[data-node-ui-view-setting='sliderLayout']")) {
     const label = nodeGraphSliderLayoutLabel(nodeGraphMvp.sliderLayout);

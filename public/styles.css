@@ -1808,6 +1808,22 @@ html.soemdsp-hide-ui .status-strip {
   touch-action: none;
   cursor: var(--node-move-cursor);
   user-select: none;
+  /* Scales the whole widget (dial, label, value readout) as one unit,
+     centered in place -- a "zoom" on the knob rather than resizing any
+     one piece. Transform doesn't reflow the grid cell, so past ~100%
+     this deliberately overflows/clips against the panel's own
+     overflow:hidden instead of pushing sibling knobs around. */
+  transform: scale(var(--macro-knob-size-scale, 1));
+  transform-origin: center center;
+}
+
+/* Makes the knob's real interactive hit region visible -- it's this whole
+   rectangular button, not just the circular dial drawn inside it, so
+   dragging/clicking works well outside the visible arc unless you can see
+   where the actual box ends. */
+body.macro-knob-hitbox-outline .node-macro-knob {
+  outline: 1px solid rgba(241, 184, 75, 0.55);
+  outline-offset: -1px;
 }
 
 .node-macro-controls-module .node-macro-knob {

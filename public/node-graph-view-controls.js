@@ -1301,6 +1301,51 @@ function setNodeGraphMacroKnobArcGapBrightness(value) {
   applyNodeGraphMacroKnobArcGapBrightness();
 }
 
+// A plain transform: scale() on the whole .node-macro-knob button (dial,
+// label, and value readout together, scaled and re-centered as one unit --
+// "zooming in" on the widget itself) rather than resizing any one part in
+// isolation. Transform doesn't reflow layout, so this deliberately doesn't
+// grow the knob's grid cell -- past ~100% it just overflows/clips against
+// the panel's own overflow:hidden, which is the accepted tradeoff for
+// letting this go arbitrarily large without fighting the grid.
+const nodeGraphMacroKnobSizeScaleMin = 0.25;
+const nodeGraphMacroKnobSizeScaleMax = 4;
+
+function normalizeNodeGraphMacroKnobSizeScale(value) {
+  const number = Number(value);
+  return Number.isFinite(number)
+    ? clampNodeSliderValue(number, nodeGraphMacroKnobSizeScaleMin, nodeGraphMacroKnobSizeScaleMax)
+    : 1;
+}
+
+function applyNodeGraphMacroKnobSizeScale() {
+  const scale = normalizeNodeGraphMacroKnobSizeScale(nodeGraphMvp.macroKnobSizeScale);
+  document.documentElement?.style?.setProperty("--macro-knob-size-scale", String(scale));
+}
+
+function setNodeGraphMacroKnobSizeScale(value) {
+  nodeGraphMvp.macroKnobSizeScale = normalizeNodeGraphMacroKnobSizeScale(value);
+  applyNodeGraphMacroKnobSizeScale();
+}
+
+// The knob's actual interactive hit region is the whole rectangular
+// button (.node-macro-knob), not just the visible circular dial inside
+// it -- dragging/clicking works anywhere in that rectangle, including the
+// corners well outside the arc. This just makes that real hit region
+// visible with a one-pixel stroke so it stops being a surprise; it
+// doesn't change the hit region itself.
+function applyNodeGraphMacroKnobHitboxOutlineVisible() {
+  // Toggled on body rather than #nodeGraphWorkspace -- macro knobs also
+  // render inside the standalone MIDI keyboard dock, which isn't a
+  // descendant of the workspace, so this needs to reach both.
+  document.body.classList.toggle("macro-knob-hitbox-outline", Boolean(nodeGraphMvp.macroKnobHitboxOutlineVisible));
+}
+
+function setNodeGraphMacroKnobHitboxOutlineVisible(visible) {
+  nodeGraphMvp.macroKnobHitboxOutlineVisible = Boolean(visible);
+  applyNodeGraphMacroKnobHitboxOutlineVisible();
+}
+
 function ensureNodeGraphMacroControls() {
   if (!Array.isArray(nodeGraphMvp.macroControls) || nodeGraphMvp.macroControls.length !== 8) {
     nodeGraphMvp.macroControls = new Array(8).fill(0);

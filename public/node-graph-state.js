@@ -51,6 +51,8 @@ var nodeGraphMvp = {
   macroControls: new Array(10).fill(0),
   macroKnobArcThickness: 7,
   macroKnobArcGapBrightness: 0,
+  macroKnobSizeScale: 1,
+  macroKnobHitboxOutlineVisible: false,
   sliderLayout: "text-inside",
   sliderAmountVisible: false,
   sliderPositionVisible: true,

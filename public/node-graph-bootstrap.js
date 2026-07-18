@@ -54,6 +54,8 @@ async function initNodeGraphMvp() {
   renderNodeGraphMacroControls();
   applyNodeGraphMacroKnobArcThickness();
   applyNodeGraphMacroKnobArcGapBrightness();
+  applyNodeGraphMacroKnobSizeScale();
+  applyNodeGraphMacroKnobHitboxOutlineVisible();
   renderNodeGraphKeyboardControllerModules();
   renderNodeGraphModuleVisibilityToggles();
   renderNodeGraphPatchTimingControls();
