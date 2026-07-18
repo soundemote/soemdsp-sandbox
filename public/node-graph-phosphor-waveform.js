@@ -223,34 +223,40 @@ function nodeGraphPhosphorWaveformZoomAt(section, canvas, clientX, factor) {
   state.startFrame = anchorFrame - ratio * newWidth;
   state.endFrame = state.startFrame + newWidth;
   nodeGraphPhosphorWaveformClampWindow(state);
-  nodeGraphPhosphorWaveformMarkInteraction(section.dataset.node);
+  nodeGraphPhosphorWaveformMarkInteraction(nodeId);
+  nodeGraphPhosphorWaveformResyncFrameClock(nodeId);
   drawNodeGraphPhosphorWaveformDisplay(section);
 }
 
 function nodeGraphPhosphorWaveformPanBy(section, deltaPixels, canvasWidth) {
-  const entry = nodeGraphPhosphorWaveformSampleEntry(section.dataset.node);
+  const nodeId = section.dataset.node;
+  const entry = nodeGraphPhosphorWaveformSampleEntry(nodeId);
   if (!entry || canvasWidth <= 0) {
     return;
   }
-  const state = nodeGraphPhosphorWaveformViewState(section.dataset.node, entry.frames);
+  const state = nodeGraphPhosphorWaveformViewState(nodeId, entry.frames);
   const framesPerPixel = (state.endFrame - state.startFrame) / canvasWidth;
   state.startFrame -= deltaPixels * framesPerPixel;
   state.endFrame -= deltaPixels * framesPerPixel;
   nodeGraphPhosphorWaveformClampWindow(state);
-  nodeGraphPhosphorWaveformMarkInteraction(section.dataset.node);
+  nodeGraphPhosphorWaveformMarkInteraction(nodeId);
+  nodeGraphPhosphorWaveformResyncFrameClock(nodeId);
   drawNodeGraphPhosphorWaveformDisplay(section);
 }
 
 function nodeGraphPhosphorWaveformResetZoom(section) {
-  const entry = nodeGraphPhosphorWaveformSampleEntry(section.dataset.node);
+  const nodeId = section.dataset.node;
+  const entry = nodeGraphPhosphorWaveformSampleEntry(nodeId);
   if (!entry) {
     return;
   }
-  nodeGraphPhosphorWaveformViewStates.set(section.dataset.node, {
+  nodeGraphPhosphorWaveformViewStates.set(nodeId, {
     endFrame: entry.frames,
     startFrame: 0,
     totalFrames: entry.frames,
   });
+  nodeGraphPhosphorWaveformMarkInteraction(nodeId);
+  nodeGraphPhosphorWaveformResyncFrameClock(nodeId);
   drawNodeGraphPhosphorWaveformDisplay(section);
 }
 
@@ -305,28 +311,56 @@ function bindNodeGraphPhosphorWaveformInteractions(section, canvas) {
 // nodeGraphModuleScopeAdvanceFixedFrameClock -- this display ran on raw,
 // unthrottled requestAnimationFrame instead (uncapped to the monitor's own
 // refresh rate), which reads as inconsistent/less smooth next to
-// everything else in the app rendering on the same steady cadence. Self
-// contained (doesn't depend on the shared scope compositor's own
-// animation-time state, which may not even be ticking if no other
-// scope-based module exists in the patch) -- still requests a frame every
-// tick to keep checking, just skips the actual redraw until enough time
-// has passed for the configured FPS.
-const nodeGraphPhosphorWaveformLastFrameTime = new Map();
+// everything else in the app rendering on the same steady cadence.
+//
+// Reuses that exact function (node-graph-module-scopes.js) rather than a
+// bespoke "now - last < frameDuration" check -- a naive version like that
+// resets its own clock to `now` on every allowed frame instead of
+// carrying the frame-clock phase forward (lastUpdate + steps*frameDuration),
+// so it drifts against rAF's own timing and periodically double-skips or
+// double-fires a frame. That reads exactly as "not smooth" / stutter, and
+// showed up as the playhead visibly jumping ("desync with the position
+// line") whenever a frame got dropped out of phase. The shared function
+// already carries the phase forward and tolerates rAF's normal jitter
+// (5% of a frame duration) without falsely skipping an on-time frame.
+// Self contained -- keeps its own per-node {lastUpdate, time} state
+// rather than the shared scope compositor's animation-time clock, which
+// may not even be ticking if no other scope-based module exists in the
+// patch.
+const nodeGraphPhosphorWaveformFrameClockStates = new Map();
 
 function nodeGraphPhosphorWaveformFrameReady(nodeId) {
   const fps = typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
     ? normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp?.moduleScopeFramesPerSecond ?? 60)
     : 60;
-  if (!(fps > 0)) {
+  if (!(fps > 0) || typeof nodeGraphModuleScopeAdvanceFixedFrameClock !== "function") {
     return true;
   }
-  const now = performance.now();
-  const last = nodeGraphPhosphorWaveformLastFrameTime.get(nodeId) || 0;
-  if (now - last < 1000 / fps) {
+  const now = performance.now() / 1000;
+  let clock = nodeGraphPhosphorWaveformFrameClockStates.get(nodeId);
+  if (!clock) {
+    clock = { lastUpdate: 0, time: now };
+    nodeGraphPhosphorWaveformFrameClockStates.set(nodeId, clock);
+  }
+  const tick = nodeGraphModuleScopeAdvanceFixedFrameClock(clock, now, fps);
+  if (!tick.ready) {
     return false;
   }
-  nodeGraphPhosphorWaveformLastFrameTime.set(nodeId, now);
+  clock.lastUpdate = tick.lastUpdate;
+  clock.time = tick.time;
   return true;
+}
+
+// Manual interaction (zoom/pan/reset) draws immediately for responsive
+// feedback, bypassing the FPS gate -- but without this, the scheduled
+// loop's frame clock wouldn't know a draw just happened and could fire an
+// extra one right on its heels, or (worse) treat the gap since its last
+// tick as having grown, triggering a multi-step "catch-up" jump on the
+// next scheduled frame. Resyncing the clock to "now" after every manual
+// draw keeps the two draw paths on one consistent clock.
+function nodeGraphPhosphorWaveformResyncFrameClock(nodeId) {
+  const now = performance.now() / 1000;
+  nodeGraphPhosphorWaveformFrameClockStates.set(nodeId, { lastUpdate: now, time: now });
 }
 
 function scheduleNodeGraphPhosphorWaveformFrame(section) {
