@@ -1842,6 +1842,7 @@ html.soemdsp-hide-ui .status-strip {
   display: block;
   width: min(42px, 80%);
   aspect-ratio: 1 / 1;
+  border-radius: 50%;
   background: conic-gradient(
     from -132deg,
     rgba(241, 184, 75, 0.95) calc(var(--macro-value, 0) * 264deg),
