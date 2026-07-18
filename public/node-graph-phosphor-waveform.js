@@ -507,7 +507,10 @@ function nodeGraphPhosphorWaveformLineColor(settings, lightness, alpha) {
 }
 
 function nodeGraphPhosphorWaveformBackgroundColor(settings) {
-  const scaledLightness = Math.max(0, Math.min(30, 2 * settings.backgroundBrightness));
+  // Base lightness needs to be high enough that hue is actually visible --
+  // the original 2%-at-default-brightness was so close to black that
+  // rotating hue produced no perceptible change at all.
+  const scaledLightness = Math.max(0, Math.min(40, 8 * settings.backgroundBrightness));
   return `hsl(${settings.backgroundHue}, 70%, ${scaledLightness}%)`;
 }
 
@@ -571,8 +574,21 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   const phase = typeof nodeGraphSamplePhaseForNode === "function" ? nodeGraphSamplePhaseForNode(nodeId) : 0;
   const playheadFrame = phase * entry.frames;
   const scrollLineRatio = nodeGraphPhosphorWaveformScrollLineRatio(settings);
+  // Smooth mode must be smooth, full stop -- no pause, ever, even during an
+  // active zoom gesture. This used to share the same pause as snap mode,
+  // originally added to stop auto-scroll from fighting a cursor-anchored
+  // zoom; but smooth-mode zoom already anchors to the playhead (same
+  // invariant auto-scroll itself maintains every frame), so there's no
+  // longer anything to fight. Pausing anyway just froze the view for the
+  // whole gesture (every zoom tick renewed the pause) and only caught up
+  // once the playhead drifted out of the frozen window and the pause
+  // finally lapsed -- reported as "desync" and "moving slowly". Snap mode
+  // keeps the pause: its zoom is still cursor-anchored (deliberately, for
+  // manual browsing), so an unpaused page-jump mid-gesture would be an
+  // unwanted interruption there.
   const lastInteraction = nodeGraphPhosphorWaveformLastInteraction.get(nodeId) || 0;
-  const autoScrollPaused = Date.now() - lastInteraction < nodeGraphPhosphorWaveformAutoScrollPauseMs;
+  const autoScrollPaused = settings.scrollMode === "snap" &&
+    Date.now() - lastInteraction < nodeGraphPhosphorWaveformAutoScrollPauseMs;
   if (!autoScrollPaused) {
     // Only re-derive the window width from the Time Window setting when
     // that setting itself just changed (including the first time
