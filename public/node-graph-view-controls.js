@@ -1346,22 +1346,26 @@ function setNodeGraphMacroKnobHitboxOutlineVisible(visible) {
   applyNodeGraphMacroKnobHitboxOutlineVisible();
 }
 
-// Where the label and value readout sit inside the knob's own 3-row grid
-// (top/mid/bottom, same rows the dial itself lives in). Deliberately no
-// collision handling -- label/value/dial can all land on the same row and
-// just stack on top of each other via place-items: center, which is fine.
-const nodeGraphMacroKnobPositionRows = Object.freeze({ top: 1, mid: 2, bottom: 3 });
+// Where the label and value readout sit (top/mid/bottom). These are
+// absolutely positioned within the knob button, entirely independent of
+// the dial's own layout -- an earlier version put label/value/dial in a
+// shared CSS Grid row, which let the dial's track get squeezed down to
+// ~1px whenever something else shared its row (a grid track-sizing
+// interaction, not anything intentional). Absolute positioning can't
+// affect a sibling's size at all, which is exactly the point: the dial
+// stays centered and full size no matter where label/value are placed,
+// and label/value can still freely overlap each other or the dial (no
+// collision handling, same as before) since overlapping absolutely
+// positioned elements is just normal stacking.
+const nodeGraphMacroKnobPositionValues = Object.freeze(["top", "mid", "bottom"]);
 
 function normalizeNodeGraphMacroKnobLabelPosition(value) {
-  return Object.hasOwn(nodeGraphMacroKnobPositionRows, value) ? value : "top";
+  return nodeGraphMacroKnobPositionValues.includes(value) ? value : "top";
 }
 
 function applyNodeGraphMacroKnobLabelPosition() {
   const position = normalizeNodeGraphMacroKnobLabelPosition(nodeGraphMvp.macroKnobLabelPosition);
-  document.documentElement?.style?.setProperty(
-    "--macro-knob-label-row",
-    String(nodeGraphMacroKnobPositionRows[position]),
-  );
+  document.body.dataset.macroKnobLabelPosition = position;
 }
 
 function setNodeGraphMacroKnobLabelPosition(value) {
@@ -1370,15 +1374,12 @@ function setNodeGraphMacroKnobLabelPosition(value) {
 }
 
 function normalizeNodeGraphMacroKnobValuePosition(value) {
-  return Object.hasOwn(nodeGraphMacroKnobPositionRows, value) ? value : "bottom";
+  return nodeGraphMacroKnobPositionValues.includes(value) ? value : "bottom";
 }
 
 function applyNodeGraphMacroKnobValuePosition() {
   const position = normalizeNodeGraphMacroKnobValuePosition(nodeGraphMvp.macroKnobValuePosition);
-  document.documentElement?.style?.setProperty(
-    "--macro-knob-value-row",
-    String(nodeGraphMacroKnobPositionRows[position]),
-  );
+  document.body.dataset.macroKnobValuePosition = position;
 }
 
 function setNodeGraphMacroKnobValuePosition(value) {
