@@ -731,11 +731,11 @@ function createNodeGraphModuleElement(type, node) {
     ioSection.append(outputColumn || document.createElement("div"));
     appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, outputPorts);
   } else if (definition.layout === "phosphorWaveform") {
-    if (!patchNodeUi.oscilloscopeHidden) {
-      article.append(createNodeGraphPhosphorWaveformDisplay(node, type));
-    }
     if (typeof createNodeGraphSampleModuleBody === "function") {
       article.append(createNodeGraphSampleModuleBody(node));
+    }
+    if (!patchNodeUi.oscilloscopeHidden) {
+      article.append(createNodeGraphPhosphorWaveformDisplay(node, type));
     }
 
     const ioSection = document.createElement("div");
