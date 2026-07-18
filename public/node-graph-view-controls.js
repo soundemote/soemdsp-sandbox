@@ -1546,8 +1546,17 @@ function nodeGraphMidiKeyboardHeldKeysTransmitValue(low, high, phase) {
     : Number(low) || 0;
 }
 
+// Leading square is the phase flag itself, not a key -- 🔴 when the high
+// half has any bits set (the wire will alternate low/high, one per
+// sample) or 🟢 when it's empty (the wire always carries the low half,
+// true 0-sample-delay). This can't track the actual audio-thread's
+// per-sample phase toggle (that's 44.1kHz, nothing to usefully show a
+// human at that rate, and it lives inside the worklet/offline evaluator,
+// not the main thread) -- it shows the thing that DECIDES whether
+// alternation happens at all, which is what's actually meaningful to see
+// at a glance. Then one square per key, across the full key range.
 function nodeGraphMidiKeyboardBitmaskEmoji(low, high) {
-  let out = "";
+  let out = (Number(high) || 0) !== 0 ? "🔴" : "🟢";
   for (let index = 0; index < nodeGraphMidiKeyboardBitmaskDisplayBitCount(); index += 1) {
     out += nodeGraphMidiKeyboardHeldKeyBitIsSet(index, low, high) ? "⬛" : "⬜";
   }

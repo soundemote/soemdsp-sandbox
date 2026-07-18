@@ -9,7 +9,7 @@
 // whatever pattern was there before, which reads as more "undo-friendly"
 // than surprising. STEP_GRID_MAX_STEPS is also imported by
 // step-grid-ui.js/-live-evaluator.js/-worklet-evaluator.js.
-const STEP_GRID_MAX_STEPS = 16;
+const STEP_GRID_MAX_STEPS = 88;
 
 function stepGridParameterDefinitions() {
   const parameters = [
