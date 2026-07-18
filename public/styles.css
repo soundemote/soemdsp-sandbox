@@ -3705,6 +3705,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   color: rgba(180, 255, 210, 0.95);
 }
 
+.node-phosphor-waveform-settings-row input[type="range"] {
+  flex: 1 1 auto;
+  min-width: 0;
+  accent-color: rgba(90, 255, 150, 0.85);
+}
+
 .node-tooltip-window .scene-context-resize-handle {
   position: absolute;
   right: 0;

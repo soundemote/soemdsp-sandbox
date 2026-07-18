@@ -76,6 +76,30 @@ function bindNodeGraphHeaderControlEvents() {
   document
     .getElementById("nodePhosphorWaveformScrollSnapButton")
     ?.addEventListener("click", () => setNodeGraphPhosphorWaveformScrollMode("snap"));
+  document
+    .getElementById("nodePhosphorWaveformPositionLeftButton")
+    ?.addEventListener("click", () => setNodeGraphPhosphorWaveformScrollLinePosition("left"));
+  document
+    .getElementById("nodePhosphorWaveformPositionMidButton")
+    ?.addEventListener("click", () => setNodeGraphPhosphorWaveformScrollLinePosition("mid"));
+  document
+    .getElementById("nodePhosphorWaveformPositionRightButton")
+    ?.addEventListener("click", () => setNodeGraphPhosphorWaveformScrollLinePosition("right"));
+  document
+    .getElementById("nodePhosphorWaveformLineWidthInput")
+    ?.addEventListener("change", handleNodeGraphPhosphorWaveformLineWidthChange);
+  document
+    .getElementById("nodePhosphorWaveformHueInput")
+    ?.addEventListener("input", handleNodeGraphPhosphorWaveformHueChange);
+  document
+    .getElementById("nodePhosphorWaveformLineBrightnessInput")
+    ?.addEventListener("input", handleNodeGraphPhosphorWaveformLineBrightnessChange);
+  document
+    .getElementById("nodePhosphorWaveformBackgroundHueInput")
+    ?.addEventListener("input", handleNodeGraphPhosphorWaveformBackgroundHueChange);
+  document
+    .getElementById("nodePhosphorWaveformBackgroundBrightnessInput")
+    ?.addEventListener("input", handleNodeGraphPhosphorWaveformBackgroundBrightnessChange);
   document.getElementById("nodeGridToggleButton").addEventListener("click", toggleNodeGraphGridVisibility);
   document.getElementById("nodeVideoViewButton")?.addEventListener("click", toggleNodeGraphVideoView);
   document.getElementById("nodeMappingViewButton")?.addEventListener("click", () => setNodeGraphViewMode("mapping"));

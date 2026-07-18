@@ -386,6 +386,33 @@
           <button id="nodePhosphorWaveformScrollSmoothButton" type="button" data-scroll-mode="smooth" aria-pressed="true">Smooth</button>
           <button id="nodePhosphorWaveformScrollSnapButton" type="button" data-scroll-mode="snap" aria-pressed="false">Snap</button>
         </div>
+        <div class="node-phosphor-waveform-settings-row" role="group" aria-label="Scroll line position">
+          <span>Position</span>
+          <button id="nodePhosphorWaveformPositionLeftButton" type="button" data-scroll-position="left" aria-pressed="false">Left</button>
+          <button id="nodePhosphorWaveformPositionMidButton" type="button" data-scroll-position="mid" aria-pressed="true">Mid</button>
+          <button id="nodePhosphorWaveformPositionRightButton" type="button" data-scroll-position="right" aria-pressed="false">Right</button>
+        </div>
+        <label class="node-phosphor-waveform-settings-row">
+          <span>Line Width</span>
+          <input id="nodePhosphorWaveformLineWidthInput" type="number" inputmode="decimal" step="0.5" min="0.5" max="8" autocomplete="off">
+          <span>px</span>
+        </label>
+        <label class="node-phosphor-waveform-settings-row">
+          <span>Hue</span>
+          <input id="nodePhosphorWaveformHueInput" type="range" min="0" max="360" step="1">
+        </label>
+        <label class="node-phosphor-waveform-settings-row">
+          <span>Line Brightness</span>
+          <input id="nodePhosphorWaveformLineBrightnessInput" type="range" min="0" max="2" step="0.02">
+        </label>
+        <label class="node-phosphor-waveform-settings-row">
+          <span>BG Hue</span>
+          <input id="nodePhosphorWaveformBackgroundHueInput" type="range" min="0" max="360" step="1">
+        </label>
+        <label class="node-phosphor-waveform-settings-row">
+          <span>BG Brightness</span>
+          <input id="nodePhosphorWaveformBackgroundBrightnessInput" type="range" min="0" max="2" step="0.02">
+        </label>
       </div>
 
       <div class="node-help-stack">

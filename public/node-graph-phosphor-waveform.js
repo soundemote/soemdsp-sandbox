@@ -19,25 +19,71 @@ const nodeGraphPhosphorWaveformMinWindowFrames = 6;
 // spot traceDisplaySettings lives for the trace/scope family -- see
 // cloneNodeGraphTypedDisplaySettings in node-graph-patch-clone.js and its
 // call site in node-graph-patch-core.js's validateNodeGraphPatch.
+// scrollLinePosition is the anchor ratio (0..1, left..right across the
+// canvas) the playhead is held at -- "what's considered the point of
+// impact". left biases the view toward showing what's coming up, right
+// toward what's already played. Not flush against 0/1 so there's always a
+// sliver of context on the far side.
+const nodeGraphPhosphorWaveformScrollLinePositionRatios = Object.freeze({
+  left: 0.15,
+  mid: 0.5,
+  right: 0.85,
+});
+
 const nodeGraphPhosphorWaveformDefaultSettings = Object.freeze({
   scrollMode: "smooth",
   timeWindowSeconds: 2,
+  scrollLinePosition: "mid",
+  scrollLineWidth: 1.5,
+  // Both color pairs default to the phosphor-green look this display
+  // always had (hue ~140, a green), so an untouched node renders exactly
+  // as before.
+  hue: 140,
+  lineBrightness: 1,
+  backgroundHue: 140,
+  backgroundBrightness: 1,
 });
 
 function normalizeNodeGraphPhosphorWaveformSettings(settings = {}) {
   const source = settings && typeof settings === "object" ? settings : {};
   const timeWindowSeconds = Number(source.timeWindowSeconds);
+  const scrollLineWidth = Number(source.scrollLineWidth);
+  const hue = Number(source.hue);
+  const lineBrightness = Number(source.lineBrightness);
+  const backgroundHue = Number(source.backgroundHue);
+  const backgroundBrightness = Number(source.backgroundBrightness);
   return {
     scrollMode: source.scrollMode === "snap" ? "snap" : "smooth",
     timeWindowSeconds: Number.isFinite(timeWindowSeconds) && timeWindowSeconds > 0
       ? Math.max(0.05, Math.min(60, timeWindowSeconds))
       : nodeGraphPhosphorWaveformDefaultSettings.timeWindowSeconds,
+    scrollLinePosition: Object.hasOwn(nodeGraphPhosphorWaveformScrollLinePositionRatios, source.scrollLinePosition)
+      ? source.scrollLinePosition
+      : nodeGraphPhosphorWaveformDefaultSettings.scrollLinePosition,
+    scrollLineWidth: Number.isFinite(scrollLineWidth) && scrollLineWidth > 0
+      ? Math.max(0.5, Math.min(8, scrollLineWidth))
+      : nodeGraphPhosphorWaveformDefaultSettings.scrollLineWidth,
+    hue: Number.isFinite(hue) ? ((hue % 360) + 360) % 360 : nodeGraphPhosphorWaveformDefaultSettings.hue,
+    lineBrightness: Number.isFinite(lineBrightness)
+      ? Math.max(0, Math.min(2, lineBrightness))
+      : nodeGraphPhosphorWaveformDefaultSettings.lineBrightness,
+    backgroundHue: Number.isFinite(backgroundHue)
+      ? ((backgroundHue % 360) + 360) % 360
+      : nodeGraphPhosphorWaveformDefaultSettings.backgroundHue,
+    backgroundBrightness: Number.isFinite(backgroundBrightness)
+      ? Math.max(0, Math.min(2, backgroundBrightness))
+      : nodeGraphPhosphorWaveformDefaultSettings.backgroundBrightness,
   };
 }
 
 function nodeGraphPhosphorWaveformSettingsForNode(nodeId) {
   const node = nodeGraphPatchNode(nodeId);
   return normalizeNodeGraphPhosphorWaveformSettings(node?.phosphorWaveformSettings);
+}
+
+function nodeGraphPhosphorWaveformScrollLineRatio(settings) {
+  return nodeGraphPhosphorWaveformScrollLinePositionRatios[settings.scrollLinePosition]
+    ?? nodeGraphPhosphorWaveformScrollLinePositionRatios.mid;
 }
 
 // Auto-scroll pauses for a moment after the user manually wheel-zooms or
@@ -69,22 +115,31 @@ function renderNodeGraphPhosphorWaveformSettingsWindow() {
     return;
   }
   const settings = nodeGraphPhosphorWaveformSettingsForNode(nodeId);
-  const input = document.getElementById("nodePhosphorWaveformTimeWindowInput");
-  if (input && document.activeElement !== input) {
-    input.value = String(settings.timeWindowSeconds);
-  }
-  const smoothButton = document.getElementById("nodePhosphorWaveformScrollSmoothButton");
-  const snapButton = document.getElementById("nodePhosphorWaveformScrollSnapButton");
-  if (smoothButton) {
-    const active = settings.scrollMode === "smooth";
-    smoothButton.classList.toggle("active", active);
-    smoothButton.setAttribute("aria-pressed", String(active));
-  }
-  if (snapButton) {
-    const active = settings.scrollMode === "snap";
-    snapButton.classList.toggle("active", active);
-    snapButton.setAttribute("aria-pressed", String(active));
-  }
+  const setValueUnlessFocused = (id, value) => {
+    const el = document.getElementById(id);
+    if (el && document.activeElement !== el) {
+      el.value = String(value);
+    }
+  };
+  setValueUnlessFocused("nodePhosphorWaveformTimeWindowInput", settings.timeWindowSeconds);
+  setValueUnlessFocused("nodePhosphorWaveformLineWidthInput", settings.scrollLineWidth);
+  setValueUnlessFocused("nodePhosphorWaveformHueInput", settings.hue);
+  setValueUnlessFocused("nodePhosphorWaveformLineBrightnessInput", settings.lineBrightness);
+  setValueUnlessFocused("nodePhosphorWaveformBackgroundHueInput", settings.backgroundHue);
+  setValueUnlessFocused("nodePhosphorWaveformBackgroundBrightnessInput", settings.backgroundBrightness);
+  const setPressed = (id, active) => {
+    const el = document.getElementById(id);
+    if (!el) {
+      return;
+    }
+    el.classList.toggle("active", active);
+    el.setAttribute("aria-pressed", String(active));
+  };
+  setPressed("nodePhosphorWaveformScrollSmoothButton", settings.scrollMode === "smooth");
+  setPressed("nodePhosphorWaveformScrollSnapButton", settings.scrollMode === "snap");
+  setPressed("nodePhosphorWaveformPositionLeftButton", settings.scrollLinePosition === "left");
+  setPressed("nodePhosphorWaveformPositionMidButton", settings.scrollLinePosition === "mid");
+  setPressed("nodePhosphorWaveformPositionRightButton", settings.scrollLinePosition === "right");
 }
 
 function positionNodeGraphPhosphorWaveformSettingsAt(x, y) {
@@ -144,6 +199,34 @@ function handleNodeGraphPhosphorWaveformTimeWindowChange(event) {
 
 function setNodeGraphPhosphorWaveformScrollMode(mode) {
   updateNodeGraphPhosphorWaveformSettings({ scrollMode: mode === "snap" ? "snap" : "smooth" });
+}
+
+function setNodeGraphPhosphorWaveformScrollLinePosition(position) {
+  updateNodeGraphPhosphorWaveformSettings({ scrollLinePosition: position });
+}
+
+function handleNodeGraphPhosphorWaveformLineWidthChange(event) {
+  const value = Number(event.target.value);
+  if (!Number.isFinite(value) || value <= 0) {
+    return;
+  }
+  updateNodeGraphPhosphorWaveformSettings({ scrollLineWidth: value });
+}
+
+function handleNodeGraphPhosphorWaveformHueChange(event) {
+  updateNodeGraphPhosphorWaveformSettings({ hue: Number(event.target.value) });
+}
+
+function handleNodeGraphPhosphorWaveformLineBrightnessChange(event) {
+  updateNodeGraphPhosphorWaveformSettings({ lineBrightness: Number(event.target.value) });
+}
+
+function handleNodeGraphPhosphorWaveformBackgroundHueChange(event) {
+  updateNodeGraphPhosphorWaveformSettings({ backgroundHue: Number(event.target.value) });
+}
+
+function handleNodeGraphPhosphorWaveformBackgroundBrightnessChange(event) {
+  updateNodeGraphPhosphorWaveformSettings({ backgroundBrightness: Number(event.target.value) });
 }
 
 function beginNodeGraphPhosphorWaveformSettingsDrag(event) {
@@ -210,7 +293,7 @@ function nodeGraphPhosphorWaveformZoomAt(section, canvas, clientX, factor) {
   const useSmoothAnchor = settings.scrollMode === "smooth";
   const rect = canvas.getBoundingClientRect();
   const ratio = useSmoothAnchor
-    ? 0.5
+    ? nodeGraphPhosphorWaveformScrollLineRatio(settings)
     : (rect.width > 0 ? clampNodeSliderValue((clientX - rect.left) / rect.width, 0, 1) : 0.5);
   const anchorFrame = useSmoothAnchor
     ? phase * entry.frames
@@ -413,8 +496,23 @@ function nodeGraphPhosphorWaveformMinMaxColumns(samples, startFrame, endFrame, c
   return values;
 }
 
-function drawNodeGraphPhosphorWaveformPlaceholder(context, width, height, message, pixelRatio = 1) {
-  context.fillStyle = "rgba(70, 220, 140, 0.55)";
+// Every "line family" color (loop shading, sample grid, envelope glow/core,
+// placeholder text, zoom label) is this same hue at a different base
+// lightness -- settings.hue shifts the whole palette together, and
+// settings.lineBrightness scales every one of those base lightness values
+// by the same factor, preserving their relative contrast to each other.
+function nodeGraphPhosphorWaveformLineColor(settings, lightness, alpha) {
+  const scaledLightness = Math.max(0, Math.min(100, lightness * settings.lineBrightness));
+  return `hsla(${settings.hue}, 90%, ${scaledLightness}%, ${alpha})`;
+}
+
+function nodeGraphPhosphorWaveformBackgroundColor(settings) {
+  const scaledLightness = Math.max(0, Math.min(30, 2 * settings.backgroundBrightness));
+  return `hsl(${settings.backgroundHue}, 70%, ${scaledLightness}%)`;
+}
+
+function drawNodeGraphPhosphorWaveformPlaceholder(context, width, height, message, pixelRatio, settings) {
+  context.fillStyle = nodeGraphPhosphorWaveformLineColor(settings, 57, 0.55);
   context.font = `600 ${Math.round(11 * pixelRatio)}px system-ui, sans-serif`;
   context.textAlign = "center";
   context.textBaseline = "middle";
@@ -458,20 +556,21 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   const snap = (value) => Math.round(value);
   const crisp = (value) => Math.round(value) + 0.5;
 
+  const settings = nodeGraphPhosphorWaveformSettingsForNode(nodeId);
   context.clearRect(0, 0, width, height);
-  context.fillStyle = "#020a06";
+  context.fillStyle = nodeGraphPhosphorWaveformBackgroundColor(settings);
   context.fillRect(0, 0, width, height);
 
   const entry = nodeGraphPhosphorWaveformSampleEntry(nodeId);
   if (!entry) {
-    drawNodeGraphPhosphorWaveformPlaceholder(context, width, height, "No sample loaded", pixelRatio);
+    drawNodeGraphPhosphorWaveformPlaceholder(context, width, height, "No sample loaded", pixelRatio, settings);
     return;
   }
 
   const state = nodeGraphPhosphorWaveformViewState(nodeId, entry.frames);
   const phase = typeof nodeGraphSamplePhaseForNode === "function" ? nodeGraphSamplePhaseForNode(nodeId) : 0;
   const playheadFrame = phase * entry.frames;
-  const settings = nodeGraphPhosphorWaveformSettingsForNode(nodeId);
+  const scrollLineRatio = nodeGraphPhosphorWaveformScrollLineRatio(settings);
   const lastInteraction = nodeGraphPhosphorWaveformLastInteraction.get(nodeId) || 0;
   const autoScrollPaused = Date.now() - lastInteraction < nodeGraphPhosphorWaveformAutoScrollPauseMs;
   if (!autoScrollPaused) {
@@ -486,26 +585,28 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
       nodeGraphPhosphorWaveformMinWindowFrames,
       Math.min(entry.frames, settings.timeWindowSeconds * (entry.sampleRate || 44100)),
     );
-    const lastAppliedSeconds = nodeGraphPhosphorWaveformLastAppliedTimeWindow.get(nodeId);
-    const settingsJustChanged = lastAppliedSeconds !== settings.timeWindowSeconds;
-    nodeGraphPhosphorWaveformLastAppliedTimeWindow.set(nodeId, settings.timeWindowSeconds);
+    const appliedSignature = `${settings.timeWindowSeconds}:${settings.scrollLinePosition}`;
+    const lastAppliedSignature = nodeGraphPhosphorWaveformLastAppliedTimeWindow.get(nodeId);
+    const settingsJustChanged = lastAppliedSignature !== appliedSignature;
+    nodeGraphPhosphorWaveformLastAppliedTimeWindow.set(nodeId, appliedSignature);
     const windowFrames = settingsJustChanged
       ? settingsWindowFrames
       : Math.max(nodeGraphPhosphorWaveformMinWindowFrames, state.endFrame - state.startFrame);
     if (settings.scrollMode === "smooth") {
-      // Keep the playhead centered every frame -- continuous, gradual
-      // motion since it only moves as far as phase advanced since the
-      // last animation frame.
-      state.startFrame = playheadFrame - windowFrames / 2;
+      // Keep the playhead anchored at scrollLineRatio every frame --
+      // continuous, gradual motion since it only moves as far as phase
+      // advanced since the last animation frame.
+      state.startFrame = playheadFrame - windowFrames * scrollLineRatio;
       state.endFrame = state.startFrame + windowFrames;
     } else {
-      // "snap": only jump when the playhead has left the current page, or
-      // the Time Window setting itself just changed -- lands on the
-      // page-aligned window containing the playhead, no interpolation.
+      // "snap": only jump when the playhead has left the current window, or
+      // the Time Window/Scroll Position settings just changed -- lands the
+      // playhead at scrollLineRatio within the new window at the instant of
+      // the jump, then holds that window still (no interpolation) until the
+      // playhead exits it again.
       const outOfBounds = playheadFrame < state.startFrame || playheadFrame > state.endFrame;
       if (outOfBounds || settingsJustChanged) {
-        const page = Math.floor(playheadFrame / windowFrames);
-        state.startFrame = page * windowFrames;
+        state.startFrame = playheadFrame - windowFrames * scrollLineRatio;
         state.endFrame = state.startFrame + windowFrames;
       }
     }
@@ -523,7 +624,7 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   const regionX0 = snap(clampNodeSliderValue(frameToX(loopStart), 0, width));
   const regionX1 = snap(clampNodeSliderValue(frameToX(loopEnd), 0, width));
   if (regionX1 > regionX0) {
-    context.fillStyle = "rgba(70, 220, 140, 0.08)";
+    context.fillStyle = nodeGraphPhosphorWaveformLineColor(settings, 57, 0.08);
     context.fillRect(regionX0, 0, regionX1 - regionX0, height);
   }
 
@@ -533,7 +634,7 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   const pixelsPerFrame = width / Math.max(1, state.endFrame - state.startFrame);
   const showSampleGrid = pixelsPerFrame >= 6 * pixelRatio;
   if (showSampleGrid) {
-    context.strokeStyle = "rgba(90, 255, 150, 0.14)";
+    context.strokeStyle = nodeGraphPhosphorWaveformLineColor(settings, 68, 0.14);
     context.lineWidth = 1;
     context.beginPath();
     const firstFrame = Math.ceil(state.startFrame);
@@ -561,12 +662,12 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
     }
     if (glow) {
       context.shadowBlur = 8 * pixelRatio;
-      context.shadowColor = "rgba(90, 255, 150, 0.85)";
-      context.strokeStyle = "rgba(90, 255, 150, 0.35)";
+      context.shadowColor = nodeGraphPhosphorWaveformLineColor(settings, 68, 0.85);
+      context.strokeStyle = nodeGraphPhosphorWaveformLineColor(settings, 68, 0.35);
       context.lineWidth = 2.5 * pixelRatio;
     } else {
       context.shadowBlur = 0;
-      context.strokeStyle = "rgba(180, 255, 210, 0.95)";
+      context.strokeStyle = nodeGraphPhosphorWaveformLineColor(settings, 85, 0.95);
       context.lineWidth = 1;
     }
     context.stroke();
@@ -582,7 +683,7 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
     context.shadowBlur = 6 * pixelRatio;
     context.shadowColor = "rgba(255, 255, 255, 0.9)";
     context.strokeStyle = "rgba(255, 255, 255, 0.85)";
-    context.lineWidth = 1.5 * pixelRatio;
+    context.lineWidth = settings.scrollLineWidth * pixelRatio;
     context.beginPath();
     context.moveTo(x, 0);
     context.lineTo(x, height);
@@ -591,7 +692,7 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   }
 
   const zoomRatio = (state.endFrame - state.startFrame) / Math.max(1, state.totalFrames);
-  context.fillStyle = "rgba(180, 255, 210, 0.7)";
+  context.fillStyle = nodeGraphPhosphorWaveformLineColor(settings, 85, 0.7);
   context.font = `600 ${Math.round(10 * pixelRatio)}px system-ui, sans-serif`;
   context.fillText(`${(zoomRatio * 100).toFixed(zoomRatio < 0.1 ? 1 : 0)}%`, snap(6 * pixelRatio), snap(13 * pixelRatio));
 }
