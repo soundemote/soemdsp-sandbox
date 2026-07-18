@@ -2926,7 +2926,17 @@ function nodeGraphNodeCanOpenDisplaySettings(node) {
 }
 
 function nodeGraphTraceDisplaySettingsForSlot(slot) {
-  if (nodeGraphModuleDisplaySettingsSchemaForSlot(slot) === "trace") {
+  // Plain Trace nodes intentionally share one global look (see
+  // nodeGraphTraceDisplaySettingsEditingTraceDefaults). Output reuses the
+  // "trace" schema for its Left/Right channels but each Output node's own
+  // brightness/size/blur are per-node -- reading the global bucket here
+  // meant those fields silently never reflected what was actually saved
+  // on the node (only color worked, since the draw path reads color
+  // straight off the node as a separate override).
+  if (
+    nodeGraphModuleDisplaySettingsSchemaForSlot(slot) === "trace" &&
+    nodeGraphModuleScopeNodeForSlot(slot)?.type !== "output"
+  ) {
     return nodeGraphGlobalTraceSettings();
   }
   return nodeGraphTraceDisplaySettingsForNode(nodeGraphModuleScopeNodeForSlot(slot));
@@ -4177,6 +4187,12 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
   }
   if (settingsSchema === "numberReadout") {
     return normalizeNodeGraphNumberReadoutSettings(node.traceDisplaySettings);
+  }
+  // Reaching here with schema "trace" only happens for Output (plain Trace
+  // nodes are already caught by the editingTraceDefaults() check above) --
+  // its own per-node settings, not the shared global bucket.
+  if (settingsSchema === "trace" && node?.type === "output") {
+    return nodeGraphTraceDisplaySettingsForNode(node);
   }
   return nodeGraphGlobalTraceSettings();
 }
