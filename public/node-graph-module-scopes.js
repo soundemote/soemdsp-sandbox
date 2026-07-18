@@ -10027,7 +10027,7 @@ function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot) {
   return points;
 }
 
-function drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas) {
+function drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas, options = {}) {
   if (!context || !Array.isArray(points) || points.length < 2 || !canvas) {
     return;
   }
@@ -10037,6 +10037,7 @@ function drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas) {
   if (!enabled || size <= 0 || brightness <= 0) {
     return;
   }
+  const glow = options.glow !== false;
   const blur = clampNodeSliderValue(layer.blur, 0, 1);
   const rgb = nodeGraphScopeRgbFloatsToCanvasRgb(nodeGraphScopeHexColorToRgb(layer.color));
   const lineWidth = Math.max(1, Math.min(canvas.width, canvas.height) * size);
@@ -10046,8 +10047,10 @@ function drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas) {
   context.lineJoin = "round";
   context.lineWidth = lineWidth;
   context.strokeStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${Math.min(1, brightness)})`;
-  context.shadowColor = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${Math.min(1, brightness)})`;
-  context.shadowBlur = lineWidth * blur * 1.5;
+  if (glow) {
+    context.shadowColor = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${Math.min(1, brightness)})`;
+    context.shadowBlur = lineWidth * blur * 1.5;
+  }
   context.beginPath();
   drawNodeGraphScopeCanvasSmoothPath(context, points);
   context.stroke();
@@ -10122,8 +10125,8 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
       color: rawTraceSettings.secondaryColor ?? nodeGraphOutputTraceRightColor,
     };
     context.clearRect(0, 0, canvas.width, canvas.height);
-    drawNodeGraphTraceDisplayCanvasLayer(context, rightPoints, rightLayer, canvas);
-    drawNodeGraphTraceDisplayCanvasLayer(context, leftPoints, leftLayer, canvas);
+    drawNodeGraphTraceDisplayCanvasLayer(context, rightPoints, rightLayer, canvas, { glow: false });
+    drawNodeGraphTraceDisplayCanvasLayer(context, leftPoints, leftLayer, canvas, { glow: false });
     recordNodeGraphModuleScopeRenderMetrics(leftPoints.length + rightPoints.length, leftPoints.length + rightPoints.length);
     rememberNodeGraphTraceDisplaySignature(slot, item, buffer, settings);
     return true;
