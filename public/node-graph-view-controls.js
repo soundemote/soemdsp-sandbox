@@ -1301,7 +1301,7 @@ function bindNodeGraphMacroControlModuleEvents() {
   renderNodeGraphMacroControls();
 }
 
-const nodeGraphMidiKeyboardStartMidi = 48;
+const nodeGraphMidiKeyboardStartMidi = 24;
 const nodeGraphMidiKeyboardMinKeyCount = 8;
 const nodeGraphMidiKeyboardMaxKeyCount = 49;
 const nodeGraphMidiKeyboardWhitePitchClasses = Object.freeze([0, 2, 4, 5, 7, 9, 11]);
@@ -1310,7 +1310,7 @@ const nodeGraphMidiKeyboardSampleRate = 44100;
 
 // User-configurable key count (shared/global, same mirroring pattern as
 // midiKeyboardOctave -- every rendered .node-midi-keyboard-module surface
-// shows the same span). Anchor note (nodeGraphMidiKeyboardStartMidi, C3)
+// shows the same span). Anchor note (nodeGraphMidiKeyboardStartMidi, C1)
 // stays fixed; only how many keys are visible from there changes.
 function nodeGraphMidiKeyboardKeyCount(value = nodeGraphMvp.midiKeyboardKeyCount) {
   const count = Math.round(Number(value));
