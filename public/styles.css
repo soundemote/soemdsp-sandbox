@@ -1844,15 +1844,15 @@ html.soemdsp-hide-ui .status-strip {
   aspect-ratio: 1 / 1;
   border-radius: 50%;
   /* The last stop (264deg..360deg) is the knob's mechanical-travel notch --
-     transparent for a thin ring, but blended up to the same color/alpha as
-     the track as --macro-knob-arc-percent approaches 1 so max thickness
-     closes the gap into a genuinely complete pie instead of a solid ring
-     with a wedge missing. */
+     what makes this read as an open arc rather than a closed loop. Its
+     brightness is its own independent user setting (0% = fully
+     transparent, the normal open-arc look) rather than tied to arc
+     thickness. */
   background: conic-gradient(
     from -132deg,
     rgba(241, 184, 75, 0.95) calc(var(--macro-value, 0) * 264deg),
     rgba(241, 184, 75, 0.16) calc(var(--macro-value, 0) * 264deg) 264deg,
-    rgb(241 184 75 / calc(0.16 * var(--macro-knob-arc-percent, 0))) 264deg 360deg
+    rgb(241 184 75 / var(--macro-knob-arc-gap-brightness, 0)) 264deg 360deg
   );
   -webkit-mask-image: radial-gradient(closest-side, transparent calc(100% - var(--macro-knob-arc-thickness, 7px)), #000 calc(100% - var(--macro-knob-arc-thickness, 7px) + 1px));
   mask-image: radial-gradient(closest-side, transparent calc(100% - var(--macro-knob-arc-thickness, 7px)), #000 calc(100% - var(--macro-knob-arc-thickness, 7px) + 1px));

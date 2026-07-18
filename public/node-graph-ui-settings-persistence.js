@@ -555,6 +555,9 @@ function normalizeNodeUiDevSettings(settings = {}) {
   const macroKnobArcThickness = normalizeNodeGraphMacroKnobArcThickness(
     view.macroKnobArcThickness ?? nodeGraphMvp.macroKnobArcThickness ?? 7,
   );
+  const macroKnobArcGapBrightness = normalizeNodeGraphMacroKnobArcGapBrightness(
+    view.macroKnobArcGapBrightness ?? nodeGraphMvp.macroKnobArcGapBrightness ?? 0,
+  );
   const traceSettings = typeof normalizeNodeGraphTraceDisplaySettings === "function"
     ? normalizeNodeGraphTraceDisplaySettings(
       typeof migrateNodeGraphLegacyDot2Settings === "function"
@@ -674,6 +677,7 @@ function normalizeNodeUiDevSettings(settings = {}) {
       moduleScopeLineThickness,
       moduleScopeDiscontinuitySkipSamples,
       macroKnobArcThickness,
+      macroKnobArcGapBrightness,
       traceSettings,
       sliderLayout,
       sliderAmountVisible,
@@ -761,6 +765,7 @@ function readNodeUiDevSettingsFromControls(options = {}) {
         nodeGraphMvp.moduleScopeDiscontinuitySkipSamples ?? 1,
       ),
       macroKnobArcThickness: normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness ?? 7),
+      macroKnobArcGapBrightness: normalizeNodeGraphMacroKnobArcGapBrightness(nodeGraphMvp.macroKnobArcGapBrightness ?? 0),
       traceSettings: typeof normalizeNodeGraphTraceDisplaySettings === "function"
         ? normalizeNodeGraphTraceDisplaySettings(nodeGraphMvp.traceSettings)
         : nodeGraphMvp.traceSettings,
@@ -873,6 +878,10 @@ function applyNodeUiDevSettings(settings) {
   nodeGraphMvp.macroKnobArcThickness = normalizeNodeGraphMacroKnobArcThickness(normalized.view.macroKnobArcThickness);
   if (typeof applyNodeGraphMacroKnobArcThickness === "function") {
     applyNodeGraphMacroKnobArcThickness();
+  }
+  nodeGraphMvp.macroKnobArcGapBrightness = normalizeNodeGraphMacroKnobArcGapBrightness(normalized.view.macroKnobArcGapBrightness);
+  if (typeof applyNodeGraphMacroKnobArcGapBrightness === "function") {
+    applyNodeGraphMacroKnobArcGapBrightness();
   }
   nodeGraphMvp.traceSettings = typeof normalizeNodeGraphTraceDisplaySettings === "function"
     ? normalizeNodeGraphTraceDisplaySettings(normalized.view.traceSettings)

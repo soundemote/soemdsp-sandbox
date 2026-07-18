@@ -234,6 +234,50 @@ function createNodeUserUiSettingsMacroKnobArcThicknessControl() {
   return row;
 }
 
+// The knob's -132..+132deg travel-limit gap is what makes it read as an
+// open arc instead of a closed loop -- 0% keeps it fully transparent (the
+// normal arc look); turning it up dims it in rather than leaving it a hard
+// invisible notch, for anyone who wants a softer or fully closed pie look.
+function createNodeUserUiSettingsMacroKnobArcGapBrightnessControl() {
+  const row = document.createElement("label");
+  row.className = "node-user-ui-setting-control number";
+  const title = document.createElement("span");
+  title.textContent = "Macro knob arc-space brightness";
+  const input = document.createElement("input");
+  input.type = "range";
+  input.min = "0";
+  input.max = "100";
+  input.step = "1";
+  input.dataset.nodeUiViewSetting = "macroKnobArcGapBrightness";
+  input.value = String(normalizeNodeGraphMacroKnobArcGapBrightness(nodeGraphMvp.macroKnobArcGapBrightness ?? 0));
+  const output = document.createElement("input");
+  output.type = "number";
+  output.min = "0";
+  output.max = "100";
+  output.step = "1";
+  output.dataset.nodeUiViewSettingValue = "macroKnobArcGapBrightness";
+  output.value = input.value;
+  input.addEventListener("input", () => {
+    setNodeGraphMacroKnobArcGapBrightness(input.value);
+    output.value = String(normalizeNodeGraphMacroKnobArcGapBrightness(nodeGraphMvp.macroKnobArcGapBrightness));
+  });
+  input.addEventListener("change", () => {
+    setNodeGraphMacroKnobArcGapBrightness(input.value);
+    output.value = String(normalizeNodeGraphMacroKnobArcGapBrightness(nodeGraphMvp.macroKnobArcGapBrightness));
+  });
+  output.addEventListener("input", () => {
+    setNodeGraphMacroKnobArcGapBrightness(output.value);
+    input.value = String(normalizeNodeGraphMacroKnobArcGapBrightness(nodeGraphMvp.macroKnobArcGapBrightness));
+  });
+  output.addEventListener("change", () => {
+    setNodeGraphMacroKnobArcGapBrightness(output.value);
+    output.value = String(normalizeNodeGraphMacroKnobArcGapBrightness(nodeGraphMvp.macroKnobArcGapBrightness));
+    input.value = output.value;
+  });
+  row.append(title, input, output);
+  return row;
+}
+
 function createNodeUserUiSettingsModuleScopeFramesPerSecondControl() {
   const row = document.createElement("label");
   row.className = "node-user-ui-setting-control number";
@@ -329,6 +373,7 @@ function renderNodeUserUiSettingsControls() {
   container.textContent = "";
   const sectionElement = createNodeUserUiSettingsSection("knob style", [
     createNodeUserUiSettingsMacroKnobArcThicknessControl(),
+    createNodeUserUiSettingsMacroKnobArcGapBrightnessControl(),
   ]);
   if (sectionElement) {
     container.append(sectionElement);
@@ -471,6 +516,18 @@ function syncNodeUserUiSettingsViewControls() {
       continue;
     }
     input.value = normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness ?? 7).toFixed(1);
+  }
+  for (const input of document.querySelectorAll("[data-node-ui-view-setting='macroKnobArcGapBrightness']")) {
+    if (document.activeElement === input) {
+      continue;
+    }
+    input.value = String(normalizeNodeGraphMacroKnobArcGapBrightness(nodeGraphMvp.macroKnobArcGapBrightness ?? 0));
+  }
+  for (const input of document.querySelectorAll("[data-node-ui-view-setting-value='macroKnobArcGapBrightness']")) {
+    if (document.activeElement === input) {
+      continue;
+    }
+    input.value = String(normalizeNodeGraphMacroKnobArcGapBrightness(nodeGraphMvp.macroKnobArcGapBrightness ?? 0));
   }
   for (const button of document.querySelectorAll("[data-node-ui-view-setting='sliderLayout']")) {
     const label = nodeGraphSliderLayoutLabel(nodeGraphMvp.sliderLayout);

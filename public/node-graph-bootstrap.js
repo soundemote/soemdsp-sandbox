@@ -53,6 +53,7 @@ async function initNodeGraphMvp() {
   bindNodeGraphMetadataPopoverEvents();
   renderNodeGraphMacroControls();
   applyNodeGraphMacroKnobArcThickness();
+  applyNodeGraphMacroKnobArcGapBrightness();
   renderNodeGraphKeyboardControllerModules();
   renderNodeGraphModuleVisibilityToggles();
   renderNodeGraphPatchTimingControls();
