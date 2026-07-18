@@ -1653,10 +1653,14 @@ function openNodeSceneContextMenu(event) {
   // it used to divert to opening the Module Browser instead when Command
   // Center was already open, which was surprising (a second right-click
   // should reposition the menu you already have, not switch to a
-  // different window).
+  // different window). That change dropped the attention-pulse glow that
+  // used to accompany right-click along with it -- restored here so every
+  // right-click (open or reposition) glows the window, not just a
+  // conditional "already open" case.
   const commandCenter = document.getElementById("nodeSceneContextMenu");
   configureNodeSceneContextMenu("home");
   positionNodeSceneContextMenuAtCurrentSavedOrInitial(commandCenter, event.clientX, event.clientY);
+  pulseNodeGraphFloatingWindowAttention(commandCenter);
   if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
     rememberNodeGraphWorkspaceWindowState(
       "commandCenter",

@@ -228,7 +228,7 @@ function handleNodeGraphKeydown(event) {
     }
     return;
   }
-  if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "k") {
+  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "k") {
     event.preventDefault();
     if (typeof toggleNodeGraphStandaloneMidiKeyboard === "function") {
       toggleNodeGraphStandaloneMidiKeyboard();
@@ -251,6 +251,13 @@ function handleNodeGraphKeydown(event) {
     event.preventDefault();
     if (typeof toggleNodeGraphViewButtonsVisibility === "function") {
       toggleNodeGraphViewButtonsVisibility();
+    }
+    return;
+  }
+  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "d") {
+    event.preventDefault();
+    if (typeof toggleNodeGraphKeyboardDebugVisibility === "function") {
+      toggleNodeGraphKeyboardDebugVisibility();
     }
     return;
   }

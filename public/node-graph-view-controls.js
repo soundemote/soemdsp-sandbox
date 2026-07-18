@@ -593,7 +593,12 @@ function renderNodeGraphKeyboardDebugToggle() {
   const visible = nodeGraphMvp.keyboardDebugInfoVisible === true;
   document.body.classList.toggle("keyboard-debug-hidden", !visible);
   if (button) {
-    button.textContent = visible ? "Hide Debug" : "Show Debug";
+    const label = button.querySelector("span");
+    if (label) {
+      label.textContent = visible ? "Hide Debug" : "Show Debug";
+    } else {
+      button.textContent = visible ? "Hide Debug" : "Show Debug";
+    }
     button.setAttribute("aria-pressed", visible ? "true" : "false");
     button.removeAttribute("title");
   }
