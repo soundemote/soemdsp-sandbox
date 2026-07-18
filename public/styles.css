@@ -1831,6 +1831,22 @@ html.soemdsp-hide-ui .status-strip {
   font-size: 0.62rem;
 }
 
+.node-macro-knob-edit-input {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  min-width: 0;
+  padding: 2px 4px;
+  border: 1px solid rgba(241, 184, 75, 0.42);
+  border-radius: 3px;
+  background: rgba(5, 6, 7, 0.85);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.62rem;
+  text-align: center;
+  cursor: text;
+}
+
 /* Hollow arc, not a filled disc -- a conic-gradient value arc swept over
    the knob's usual -132deg..+132deg (264deg) travel, transparent past
    that so the bottom notch stays a true gap instead of wrapping the full

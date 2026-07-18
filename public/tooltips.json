@@ -175,7 +175,8 @@
   },
   "slider": {
     "numeric": "drag adjusts | Alt+drag sticks to the mouse | Ctrl+click resets to default | Ctrl/Shift drag fine tunes | double-click types | right-click edits metadata",
-    "choices": "click a segment to choose | Alt+drag sticks to the mouse | Ctrl+click resets to default | double-click types | right-click edits metadata"
+    "choices": "click a segment to choose | Alt+drag sticks to the mouse | Ctrl+click resets to default | double-click types | right-click edits metadata",
+    "knob": "drag adjusts | Alt+drag sticks to the mouse | Ctrl+click resets to default | Ctrl/Shift drag fine tunes | double-click types"
   },
   "audio": {
     "inputDevice": "browser audio input device",

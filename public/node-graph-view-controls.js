@@ -1325,17 +1325,50 @@ function setNodeGraphMacroControl(index, value) {
   }
 }
 
+// Same modifier vocabulary as regular parameter sliders (see
+// slider.numeric's tooltip and node-graph-slider-dragging.js) -- macro
+// knobs store a flat 0..1 in nodeGraphMvp.macroControls rather than a
+// DOM range-input-backed patch parameter, so the slider drag functions
+// themselves don't apply here, but the modifier detection/math is shared
+// via nodeGraphNumericDragMultiplier (node-graph-slider-values.js) and
+// reproduced 1:1 for the rest.
+function nodeGraphMacroKnobValueAtPointer(knob, event) {
+  const rect = knob.getBoundingClientRect();
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
+  const dx = event.clientX - centerX;
+  const dy = event.clientY - centerY;
+  // 0deg = up, clockwise positive -- matches the conic-gradient's own
+  // `from -132deg` angle convention (see .node-macro-knob i in styles.css)
+  // so this lines up exactly with what's drawn on screen.
+  const angleDegrees = Math.atan2(dx, -dy) * (180 / Math.PI);
+  const clampedAngle = clampNodeSliderValue(angleDegrees, -132, 132);
+  return normalizeNodeGraphMacroValue((clampedAngle + 132) / 264);
+}
+
 function beginNodeGraphMacroControlDrag(event) {
+  if (event.button > 0 || event.detail > 1) {
+    return;
+  }
   const knob = event.currentTarget;
   const index = Math.max(0, Math.min(7, Math.round(Number(knob.dataset.macroIndex) || 0)));
   event.preventDefault();
   knob.setPointerCapture?.(event.pointerId);
+  const resetToDefaultOnClick = (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey;
+  const jumpToPointerOnClick = event.altKey && !(event.shiftKey && (event.ctrlKey || event.metaKey));
+  if (jumpToPointerOnClick) {
+    setNodeGraphMacroControl(index, nodeGraphMacroKnobValueAtPointer(knob, event));
+  }
   nodeGraphMvp.dragging = {
     type: "macro-control",
+    knob,
     index,
+    moved: false,
+    resetToDefaultOnClick,
     startX: event.clientX,
     startY: event.clientY,
     startValue: normalizeNodeGraphMacroValue(nodeGraphMvp.macroControls?.[index]),
+    fineScale: nodeGraphNumericDragMultiplier(event),
   };
 }
 
@@ -1345,7 +1378,32 @@ function dragNodeGraphMacroControl(event) {
     return;
   }
   event.preventDefault();
-  const delta = ((event.clientX - drag.startX) - (event.clientY - drag.startY)) / 240;
+  const horizontalDelta = event.clientX - drag.startX;
+  const verticalDelta = drag.startY - event.clientY;
+  if (Math.abs(horizontalDelta) > 1 || Math.abs(verticalDelta) > 1) {
+    drag.moved = true;
+  }
+  if (event.altKey && !(event.shiftKey && (event.ctrlKey || event.metaKey))) {
+    setNodeGraphMacroControl(drag.index, nodeGraphMacroKnobValueAtPointer(drag.knob, event));
+    drag.startX = event.clientX;
+    drag.startY = event.clientY;
+    drag.startValue = normalizeNodeGraphMacroValue(nodeGraphMvp.macroControls?.[drag.index]);
+    return;
+  }
+  // Fine/coarse scale is read live from the current event on every move (not
+  // just at pointer-down), matching dragNodeSlider -- pressing/releasing
+  // Shift or Ctrl mid-drag changes sensitivity immediately. Re-anchor on a
+  // scale change so the value doesn't jump; only further movement's
+  // sensitivity changes.
+  const currentFineScale = nodeGraphNumericDragMultiplier(event);
+  if (currentFineScale !== drag.fineScale) {
+    drag.startX = event.clientX;
+    drag.startY = event.clientY;
+    drag.startValue = normalizeNodeGraphMacroValue(nodeGraphMvp.macroControls?.[drag.index]);
+    drag.fineScale = currentFineScale;
+    return;
+  }
+  const delta = ((horizontalDelta + verticalDelta) / 240) * drag.fineScale;
   setNodeGraphMacroControl(drag.index, drag.startValue + delta);
 }
 
@@ -1353,8 +1411,66 @@ function endNodeGraphMacroControlDrag(event) {
   const drag = nodeGraphMvp.dragging;
   if (drag?.type === "macro-control") {
     event.currentTarget?.releasePointerCapture?.(event.pointerId);
+    if (drag.resetToDefaultOnClick && !drag.moved) {
+      setNodeGraphMacroControl(drag.index, 0);
+    }
     nodeGraphMvp.dragging = null;
   }
+}
+
+function cancelNodeGraphMacroKnobEdit(knob) {
+  const input = knob?.querySelector?.(".node-macro-knob-edit-input");
+  const readout = knob?._macroKnobEditReadout;
+  if (input && readout) {
+    input.replaceWith(readout);
+  }
+  if (knob) {
+    knob.dataset.editing = "false";
+    delete knob._macroKnobEditReadout;
+  }
+}
+
+function beginNodeGraphMacroKnobEdit(event) {
+  const knob = event.currentTarget;
+  if (knob.dataset.editing === "true") {
+    return;
+  }
+  const index = Math.max(0, Math.min(7, Math.round(Number(knob.dataset.macroIndex) || 0)));
+  const readout = knob.querySelector("[data-macro-value]");
+  if (!readout) {
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  knob.dataset.editing = "true";
+  knob._macroKnobEditReadout = readout;
+  const input = document.createElement("input");
+  input.type = "text";
+  input.inputMode = "decimal";
+  input.className = "node-macro-knob-edit-input";
+  input.value = normalizeNodeGraphMacroValue(nodeGraphMvp.macroControls?.[index]).toFixed(2);
+  readout.replaceWith(input);
+  input.addEventListener("pointerdown", (pointerEvent) => pointerEvent.stopPropagation());
+  input.addEventListener("click", (clickEvent) => clickEvent.stopPropagation());
+  input.addEventListener("keydown", (keyEvent) => {
+    keyEvent.stopPropagation();
+    if (keyEvent.key === "Enter") {
+      keyEvent.preventDefault();
+      input.blur();
+    } else if (keyEvent.key === "Escape") {
+      keyEvent.preventDefault();
+      cancelNodeGraphMacroKnobEdit(knob);
+    }
+  });
+  input.addEventListener("blur", () => {
+    const parsed = Number(input.value);
+    cancelNodeGraphMacroKnobEdit(knob);
+    if (Number.isFinite(parsed)) {
+      setNodeGraphMacroControl(index, parsed);
+    }
+  });
+  input.focus();
+  input.select();
 }
 
 function bindNodeGraphMacroControlModuleEvents() {
@@ -1368,6 +1484,10 @@ function bindNodeGraphMacroControlModuleEvents() {
     knob.addEventListener("pointerup", endNodeGraphMacroControlDrag);
     knob.addEventListener("pointercancel", endNodeGraphMacroControlDrag);
     knob.addEventListener("lostpointercapture", endNodeGraphMacroControlDrag);
+    knob.addEventListener("dblclick", beginNodeGraphMacroKnobEdit);
+    if (typeof nodeGraphApplyTooltip === "function") {
+      nodeGraphApplyTooltip(knob, "slider.knob", {}, { title: false });
+    }
   });
   if (document.body.dataset.macroControlWindowBound !== "true") {
     document.body.dataset.macroControlWindowBound = "true";
