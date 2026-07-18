@@ -860,9 +860,11 @@ const nodeStandaloneMidiKeyboardDockDefaultSize = Object.freeze({
   // No real ceiling on drag-resize width -- normalizeNodeGraphFloatingWindowSize
   // falls back to 720 if maxWidth isn't finite, so this can't just be
   // omitted/Infinity; a large-but-finite number here means the resize is
-  // bounded only by the actual screen (viewportWidth - 28, still applied
-  // inside that function), not an arbitrary product-chosen cap.
+  // bounded only by the actual screen (viewportWidth, via viewportMargin: 0
+  // below -- this dock should be draggable all the way to the true edge,
+  // unlike most floating windows which keep the default small margin).
   maxWidth: 8000,
+  viewportMargin: 0,
   height: 260,
   minHeight: 160,
   maxHeight: 640,
