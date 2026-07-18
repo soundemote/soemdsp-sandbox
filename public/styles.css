@@ -1581,15 +1581,9 @@ html.soemdsp-hide-ui .status-strip {
   gap: 6px;
 }
 
-/* Bare knobs, no per-knob box -- the circular dial (.node-macro-knob i)
-   already carries the value indicator; the rectangular border/background
-   around it was just extra chrome in the dock's compact single-row
-   layout. Sized up from the module default (48px/0.62rem text) now that
-   the dock spans the full modular-view width and has room to spare. */
+/* Sized up from the module default (48px/0.62rem text) now that the dock
+   spans the full modular-view width and has room to spare. */
 .node-standalone-midi-keyboard-dock .node-macro-knob {
-  border: none;
-  border-radius: 0;
-  background: none;
   min-height: 66px;
   padding: 0;
   font-size: 0.78rem;
@@ -1795,6 +1789,8 @@ html.soemdsp-hide-ui .status-strip {
   grid-template-columns: repeat(4, minmax(42px, 1fr));
 }
 
+/* Bare knob, no card chrome around it -- the hollow arc (.node-macro-knob
+   i) is the whole visual, not a boxed square button. */
 .node-macro-knob {
   position: relative;
   display: grid;
@@ -1804,12 +1800,9 @@ html.soemdsp-hide-ui .status-strip {
   min-height: 86px;
   padding: 5px;
   overflow: hidden;
-  border: 1px solid rgba(243, 241, 236, 0.14);
-  border-radius: 6px;
-  background:
-    radial-gradient(circle at 50% 48%, rgba(127, 199, 217, 0.16), transparent 40%),
-    linear-gradient(180deg, rgba(243, 241, 236, 0.04), rgba(5, 6, 7, 0.52)),
-    #050607;
+  border: none;
+  border-radius: 0;
+  background: none;
   color: var(--muted);
   font: 700 0.62rem/1 "Cascadia Mono", Consolas, monospace;
   touch-action: none;
