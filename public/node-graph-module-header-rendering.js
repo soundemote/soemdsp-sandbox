@@ -490,6 +490,15 @@ function createNodeGraphModuleHeader(type, node, definition) {
 
   const actionRow = document.createElement("div");
   actionRow.className = "node-header-actions";
+  // Without its own tooltip, hovering the gaps between these buttons fell
+  // through closest() all the way to the whole-node ".dsp-node" fallback
+  // (module.drag) -- a third, differently-worded "drag to move" tooltip
+  // sandwiched between the title row's own module.titleMove and the
+  // display canvas's tooltip. Give it the same key as the title row so
+  // the whole header reads as one consistent zone; the buttons inside
+  // still show their own specific tooltips since closest() matches them
+  // first.
+  nodeGraphApplyTooltip(actionRow, "module.titleMove", {}, { title: false });
   const handle = document.createElement("button");
   handle.className = "node-drag-handle";
   handle.type = "button";
