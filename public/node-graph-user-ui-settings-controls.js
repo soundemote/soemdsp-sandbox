@@ -189,6 +189,11 @@ function createNodeUserUiSettingsModuleScopeLineThicknessControl() {
   return row;
 }
 
+// The slider itself is felt as a plain 0-100% -- 0% is the 1px floor,
+// 100% is the knob's own radius (past that a "ring" is just a filled
+// disc again, see nodeGraphMacroKnobArcThicknessMaxPx). The number
+// readout still shows/accepts real pixels, converting back to the
+// matching percent so the two stay in lockstep.
 function createNodeUserUiSettingsMacroKnobArcThicknessControl() {
   const row = document.createElement("label");
   row.className = "node-user-ui-setting-control number";
@@ -196,34 +201,34 @@ function createNodeUserUiSettingsMacroKnobArcThicknessControl() {
   title.textContent = "Macro knob arc thickness";
   const input = document.createElement("input");
   input.type = "range";
-  input.min = "2";
-  input.max = "16";
-  input.step = "0.5";
+  input.min = "0";
+  input.max = "100";
+  input.step = "1";
   input.dataset.nodeUiViewSetting = "macroKnobArcThickness";
-  input.value = normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness ?? 7).toFixed(1);
+  input.value = String(Math.round(nodeGraphMacroKnobArcThicknessPxToPercent(nodeGraphMvp.macroKnobArcThickness ?? 7)));
   const output = document.createElement("input");
   output.type = "number";
-  output.min = "2";
-  output.max = "16";
+  output.min = String(nodeGraphMacroKnobArcThicknessMinPx);
+  output.max = String(nodeGraphMacroKnobArcThicknessMaxPx);
   output.step = "0.5";
   output.dataset.nodeUiViewSettingValue = "macroKnobArcThickness";
-  output.value = input.value;
+  output.value = normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness ?? 7).toFixed(1);
   input.addEventListener("input", () => {
-    setNodeGraphMacroKnobArcThickness(input.value);
+    setNodeGraphMacroKnobArcThickness(nodeGraphMacroKnobArcThicknessPercentToPx(input.value));
     output.value = normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness).toFixed(1);
   });
   input.addEventListener("change", () => {
-    setNodeGraphMacroKnobArcThickness(input.value);
+    setNodeGraphMacroKnobArcThickness(nodeGraphMacroKnobArcThicknessPercentToPx(input.value));
     output.value = normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness).toFixed(1);
   });
   output.addEventListener("input", () => {
     setNodeGraphMacroKnobArcThickness(output.value);
-    input.value = normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness).toFixed(1);
+    input.value = String(Math.round(nodeGraphMacroKnobArcThicknessPxToPercent(nodeGraphMvp.macroKnobArcThickness)));
   });
   output.addEventListener("change", () => {
     setNodeGraphMacroKnobArcThickness(output.value);
     output.value = normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness).toFixed(1);
-    input.value = output.value;
+    input.value = String(Math.round(nodeGraphMacroKnobArcThicknessPxToPercent(nodeGraphMvp.macroKnobArcThickness)));
   });
   row.append(title, input, output);
   return row;
@@ -459,7 +464,7 @@ function syncNodeUserUiSettingsViewControls() {
     if (document.activeElement === input) {
       continue;
     }
-    input.value = normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness ?? 7).toFixed(1);
+    input.value = String(Math.round(nodeGraphMacroKnobArcThicknessPxToPercent(nodeGraphMvp.macroKnobArcThickness ?? 7)));
   }
   for (const input of document.querySelectorAll("[data-node-ui-view-setting-value='macroKnobArcThickness']")) {
     if (document.activeElement === input) {

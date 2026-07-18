@@ -1218,9 +1218,37 @@ function normalizeNodeGraphMacroValue(value) {
   return clampNodeSliderValue(Number(value) || 0, 0, 1);
 }
 
+// No arbitrary numeric ceiling (the old 2-16px range was just a made-up
+// cap) -- the real bounds are geometric. 1px is the hard floor a ring can
+// be and still read as a ring at all. The knob dial itself is
+// `width: min(42px, 80%)` (see .node-macro-knob i in styles.css), so its
+// radius -- 21px -- is the true maximum: past that the "ring" has consumed
+// its own hole and become a solid filled disc again, so there's nothing
+// more "100% thick" than that.
+const nodeGraphMacroKnobArcThicknessMinPx = 1;
+const nodeGraphMacroKnobArcThicknessMaxPx = 21;
+
 function normalizeNodeGraphMacroKnobArcThickness(value) {
   const number = Number(value);
-  return Number.isFinite(number) ? clampNodeSliderValue(number, 2, 16) : 7;
+  return Number.isFinite(number)
+    ? clampNodeSliderValue(number, nodeGraphMacroKnobArcThicknessMinPx, nodeGraphMacroKnobArcThicknessMaxPx)
+    : 7;
+}
+
+// The control itself is felt as a plain 0-100% slider (0% = the 1px floor,
+// 100% = the full-radius ceiling) -- these two convert between that percent
+// scale and the pixel value that's actually stored/applied, so the number
+// readout can keep showing real pixels while the slider stays percent-based.
+function nodeGraphMacroKnobArcThicknessPercentToPx(percent) {
+  const ratio = clampNodeSliderValue(Number(percent) || 0, 0, 100) / 100;
+  return nodeGraphMacroKnobArcThicknessMinPx +
+    ratio * (nodeGraphMacroKnobArcThicknessMaxPx - nodeGraphMacroKnobArcThicknessMinPx);
+}
+
+function nodeGraphMacroKnobArcThicknessPxToPercent(px) {
+  const clamped = normalizeNodeGraphMacroKnobArcThickness(px);
+  return ((clamped - nodeGraphMacroKnobArcThicknessMinPx) /
+    (nodeGraphMacroKnobArcThicknessMaxPx - nodeGraphMacroKnobArcThicknessMinPx)) * 100;
 }
 
 // The macro knob's ring is a mask cut into a circle (see .node-macro-knob i
