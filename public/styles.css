@@ -1053,6 +1053,25 @@ audio {
   box-shadow: none !important;
 }
 
+/* View Buttons off in the REGULAR (non-modular-only) view: the rule above
+   already drops the border/shadow, but the workspace itself was still
+   sized to its saved grid dimensions (a small box sitting in normal
+   document flow) instead of actually expanding -- modular-only-view's
+   edge-to-edge treatment above only fires alongside .modular-only-view,
+   so plain View Buttons off, Modular View off did nothing here. Command
+   Center/other panels are floating overlays (not in-flow siblings), so
+   taking the workspace out of flow and pinning it to the viewport is
+   safe -- it becomes the full-screen backdrop those floating panels
+   already expect to sit on top of. */
+.node-wiring-panel.modular-only-controls-hidden:not(.modular-only-view) .node-graph-workspace {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100dvw !important;
+  height: 100dvh !important;
+  max-width: 100dvw;
+  max-height: 100dvh;
+}
+
 /* Full-screen "no nonsense" embed (?hideui=1): kill remaining chrome. */
 .soemdsp-hide-ui .node-wiring-panel.modular-only-view {
   --node-modular-only-inset: 0px;
