@@ -446,11 +446,35 @@ function nodeGraphPhosphorWaveformResyncFrameClock(nodeId) {
   nodeGraphPhosphorWaveformFrameClockStates.set(nodeId, { lastUpdate: now, time: now });
 }
 
+// Mirrors the module-scope compositor's off-screen culling
+// (nodeGraphModuleScopeScreenItems/nodeGraphModuleScopeVisibleDrawGeometry
+// in node-graph-module-scopes.js) -- a Music Player scrolled/panned fully
+// outside the workspace viewport shouldn't keep paying for a canvas
+// clear+stroke every frame just because its section is still in the DOM.
+// A plain viewport-rect overlap test is enough here (unlike the scope
+// compositor, the waveform doesn't need a partial-visible-range draw).
+function nodeGraphPhosphorWaveformSectionOnScreen(section) {
+  const workspace = document.getElementById("nodeGraphWorkspace");
+  if (!workspace) {
+    return true;
+  }
+  const workspaceRect = workspace.getBoundingClientRect();
+  const rect = section.getBoundingClientRect();
+  return rect.right > workspaceRect.left &&
+    rect.left < workspaceRect.right &&
+    rect.bottom > workspaceRect.top &&
+    rect.top < workspaceRect.bottom;
+}
+
 function scheduleNodeGraphPhosphorWaveformFrame(section) {
   if (!section.isConnected) {
     return;
   }
-  if (nodeGraphPhosphorWaveformFrameReady(section.dataset.node)) {
+  // Order matters: skip the FPS-gate clock entirely while off-screen so it
+  // doesn't advance -- when the section scrolls back into view its frame
+  // clock's stalled-too-long resync path (nodeGraphModuleScopeAdvanceFixedFrameClock)
+  // fires a single fresh frame instead of a multi-step catch-up burst.
+  if (nodeGraphPhosphorWaveformSectionOnScreen(section) && nodeGraphPhosphorWaveformFrameReady(section.dataset.node)) {
     drawNodeGraphPhosphorWaveformDisplay(section);
   }
   window.requestAnimationFrame(() => scheduleNodeGraphPhosphorWaveformFrame(section));
