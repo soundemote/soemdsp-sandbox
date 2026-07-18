@@ -2635,7 +2635,13 @@ function nodeGraphTraceDisplaySettingsEditingTraceDefaults() {
     return true;
   }
   const node = nodeGraphPatchNode(nodeGraphMvp?.traceDisplaySettingsTargetNode);
-  return nodeGraphModuleDisplaySettingsSchemaForNode(node) === "trace";
+  // Plain Trace nodes intentionally share one global look -- edits fall
+  // through to nodeGraphMvp.traceSettings below. Output reuses the same
+  // "trace" schema to render its Left/Right channels, but each Output
+  // node's colors/sizes are its own per-node choice (read straight off
+  // node.traceDisplaySettings in drawNodeGraphTraceDisplayCanvasItem), so
+  // it must never share the global bucket the way plain Trace nodes do.
+  return nodeGraphModuleDisplaySettingsSchemaForNode(node) === "trace" && node?.type !== "output";
 }
 
 const nodeGraphDisplayModeRenderers = Object.freeze(["trace", "clock", "dot", "value", "lineBurn", "hypersawBurn", "oscilloscopeBankBurn", "videoscopeBurn", "transportBpm", "scope2d", "scope2dTrace", "numberReadout", "spectrum"]);
