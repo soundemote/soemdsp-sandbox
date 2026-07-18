@@ -3731,7 +3731,7 @@ function nodeGraphTraceDisplaySettingsElement() {
         </label>
       </div>
       <div class="metadata-section-title node-trace-display-dot1-title">
-        <span>Dot</span>
+        <span id="nodeTraceDisplayDot1TitleLabel">Dot</span>
       </div>
       <div class="metadata-field-section node-trace-display-dot1-section">
         <label class="metadata-checkbox-label node-trace-display-bipolar-brightness-row">
@@ -3768,7 +3768,7 @@ function nodeGraphTraceDisplaySettingsElement() {
         </label>
       </div>
       <div class="metadata-section-title node-trace-display-secondary-title">
-        <span>Secondary</span>
+        <span id="nodeTraceDisplaySecondaryTitleLabel">Secondary</span>
         <input
           id="nodeTraceDisplaySecondaryEnabled"
           type="checkbox"
@@ -4017,6 +4017,33 @@ function setNodeGraphTraceDisplaySettingsFormType(node = null) {
     node?.type === "output";
   setNodeGraphTraceDisplaySectionVisible(popover, "secondary", secondaryActive);
   setNodeGraphTraceDisplaySectionVisible(popover, "caps", nodeGraphTraceDisplaySectionHasActiveControls("caps", formType));
+
+  // Output repurposes the shared dot1/secondary fields to show its two
+  // speaker channels -- relabel them Left/Right there so it reads as a
+  // stereo pair instead of a "primary/secondary" trace pairing. Every other
+  // node type (plain Trace) keeps the generic labels, since "secondary"
+  // there is a decorative second layer, not a channel.
+  const isOutputNode = node?.type === "output";
+  const dot1TitleLabel = popover.querySelector("#nodeTraceDisplayDot1TitleLabel");
+  if (dot1TitleLabel) {
+    dot1TitleLabel.textContent = isOutputNode ? "Left" : "Dot";
+  }
+  const secondaryTitleLabel = popover.querySelector("#nodeTraceDisplaySecondaryTitleLabel");
+  if (secondaryTitleLabel) {
+    secondaryTitleLabel.textContent = isOutputNode ? "Right" : "Secondary";
+  }
+  const dot1ColorInput = popover.querySelector("#nodeTraceDisplayColor");
+  if (dot1ColorInput) {
+    dot1ColorInput.setAttribute("aria-label", isOutputNode ? "Left color" : "Dot color");
+  }
+  const secondaryEnabledInput = popover.querySelector("#nodeTraceDisplaySecondaryEnabled");
+  if (secondaryEnabledInput) {
+    secondaryEnabledInput.setAttribute("aria-label", isOutputNode ? "Right on" : "Secondary on");
+  }
+  const secondaryColorInput = popover.querySelector("#nodeTraceDisplaySecondaryColor");
+  if (secondaryColorInput) {
+    secondaryColorInput.setAttribute("aria-label", isOutputNode ? "Right color" : "Secondary color");
+  }
 }
 
 function nodeGraphTraceDisplaySettingsFormType() {
