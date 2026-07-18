@@ -284,11 +284,42 @@ function bindNodeGraphPhosphorWaveformInteractions(section, canvas) {
   });
 }
 
+// Every other display in this app paces its redraws to the shared FPS
+// setting (nodeGraphMvp.moduleScopeFramesPerSecond, default 60) via
+// nodeGraphModuleScopeAdvanceFixedFrameClock -- this display ran on raw,
+// unthrottled requestAnimationFrame instead (uncapped to the monitor's own
+// refresh rate), which reads as inconsistent/less smooth next to
+// everything else in the app rendering on the same steady cadence. Self
+// contained (doesn't depend on the shared scope compositor's own
+// animation-time state, which may not even be ticking if no other
+// scope-based module exists in the patch) -- still requests a frame every
+// tick to keep checking, just skips the actual redraw until enough time
+// has passed for the configured FPS.
+const nodeGraphPhosphorWaveformLastFrameTime = new Map();
+
+function nodeGraphPhosphorWaveformFrameReady(nodeId) {
+  const fps = typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
+    ? normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp?.moduleScopeFramesPerSecond ?? 60)
+    : 60;
+  if (!(fps > 0)) {
+    return true;
+  }
+  const now = performance.now();
+  const last = nodeGraphPhosphorWaveformLastFrameTime.get(nodeId) || 0;
+  if (now - last < 1000 / fps) {
+    return false;
+  }
+  nodeGraphPhosphorWaveformLastFrameTime.set(nodeId, now);
+  return true;
+}
+
 function scheduleNodeGraphPhosphorWaveformFrame(section) {
   if (!section.isConnected) {
     return;
   }
-  drawNodeGraphPhosphorWaveformDisplay(section);
+  if (nodeGraphPhosphorWaveformFrameReady(section.dataset.node)) {
+    drawNodeGraphPhosphorWaveformDisplay(section);
+  }
   window.requestAnimationFrame(() => scheduleNodeGraphPhosphorWaveformFrame(section));
 }
 
