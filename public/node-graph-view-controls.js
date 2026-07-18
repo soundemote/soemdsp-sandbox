@@ -34,7 +34,7 @@ function renderNodeGraphVisibilityMenuButton() {
     nodeGraphMvp.moduleInterfaceControlsVisible === false ? 1 : 0,
     nodeGraphMvp.moduleOscilloscopesVisible === false ? 1 : 0,
     nodeGraphMvp.moduleSlidersVisible === false ? 1 : 0,
-    nodeGraphMvp.tooltipVisible ? 0 : 1,
+    document.getElementById("nodeTooltipWindow")?.hidden === false ? 0 : 1,
     nodeGraphMvp.sliderAmountVisible ? 0 : 1,
     nodeGraphMvp.sliderPositionVisible ? 0 : 1,
   ].reduce((total, value) => total + value, 0);
@@ -614,26 +614,6 @@ function renderNodeGraphKeyboardDebugToggle() {
   renderNodeGraphVisibilityMenuButton();
 }
 
-function renderNodeGraphTooltipToggle() {
-  const help = document.getElementById("nodeInteractionHelp");
-  const button = document.getElementById("nodeTooltipToggleButton");
-  const visible = Boolean(nodeGraphMvp.tooltipVisible);
-  help?.classList.toggle("tips-hidden", !visible);
-  if (!visible && help) {
-    help.textContent = "";
-  }
-  if (button) {
-    const label = button.querySelector(".scene-context-window-button-label") || button.querySelector("span");
-    if (label) {
-      label.textContent = visible ? "Hide Tips" : "Show Tips";
-    } else {
-      button.textContent = visible ? "Hide Tips" : "Show Tips";
-    }
-    button.setAttribute("aria-pressed", visible ? "true" : "false");
-    button.removeAttribute("title");
-  }
-  renderNodeGraphVisibilityMenuButton();
-}
 
 function setNodeGraphVisibilityMenuOpen(open) {
   const menu = document.getElementById("nodeVisibilityMenu");
@@ -1163,12 +1143,18 @@ function endNodeGraphTooltipWindowDrag(event) {
 }
 
 function renderNodeGraphTooltipWindowToggle() {
-  const button = document.getElementById("nodeSceneToggleTooltipWindow");
+  const button = document.getElementById("nodeTooltipToggleButton");
   const win = document.getElementById("nodeTooltipWindow");
   const visible = Boolean(win && !win.hidden);
   if (button) {
+    const label = button.querySelector(".scene-context-window-button-label");
+    if (label) {
+      label.textContent = visible ? "Hide Tips" : "Show Tips";
+    }
     button.setAttribute("aria-pressed", visible ? "true" : "false");
+    button.removeAttribute("title");
   }
+  renderNodeGraphVisibilityMenuButton();
 }
 
 function closeNodeGraphTooltipWindow() {
@@ -2507,11 +2493,6 @@ function toggleNodeGraphModuleInterfaceControlsVisibility() {
   nodeGraphMvp.moduleInterfaceControlsVisible = nodeGraphMvp.moduleInterfaceControlsVisible === false;
   renderNodeGraphModuleVisibilityToggles();
   setNodeInteractionHelp(nodeGraphMvp.moduleInterfaceControlsVisible ? "Module control surfaces shown." : "Module control surfaces hidden.");
-}
-
-function toggleNodeGraphTooltipVisibility() {
-  nodeGraphMvp.tooltipVisible = !nodeGraphMvp.tooltipVisible;
-  renderNodeGraphTooltipToggle();
 }
 
 function toggleNodeGraphKeyboardDebugVisibility() {

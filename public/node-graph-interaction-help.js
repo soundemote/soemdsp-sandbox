@@ -146,7 +146,8 @@ function nodeInteractionMouseHint(element) {
     return nodeGraphTooltipText("view.gridHelp");
   }
   if (element.id === "nodeTooltipToggleButton") {
-    return nodeGraphTooltipText(nodeGraphMvp.tooltipVisible ? "view.tipsHide" : "view.tipsShow");
+    const windowOpen = !document.getElementById("nodeTooltipWindow")?.hidden;
+    return nodeGraphTooltipText(windowOpen ? "view.tipsHide" : "view.tipsShow");
   }
   if (element.id === "nodeSliderAmountToggleButton") {
     return nodeGraphTooltipText(nodeGraphMvp.sliderAmountVisible ? "view.sliderAmountHide" : "view.sliderAmountShow");
@@ -176,9 +177,6 @@ function nodeInteractionMouseHint(element) {
 }
 
 function setNodeInteractionHelp(text = "") {
-  if (!nodeGraphMvp.tooltipVisible) {
-    return;
-  }
   const help = document.getElementById("nodeInteractionHelp");
   if (help) {
     const composedText = composeNodeInteractionHelpText(text);

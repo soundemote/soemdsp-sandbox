@@ -62,7 +62,6 @@ function bindNodeGraphSceneMenuEvents() {
     setNodeGraphSavedPatchesWindowVisible(true);
   });
   bindNodeGraphSceneElementEvent("nodeSceneToggleStandaloneMidiKeyboard", "click", toggleNodeGraphStandaloneMidiKeyboard);
-  bindNodeGraphSceneElementEvent("nodeSceneToggleTooltipWindow", "click", toggleNodeGraphTooltipWindow);
   bindNodeGraphSceneElementEvent("nodeSceneCopyPatch", "click", copyNodeGraphScriptToClipboard);
   bindNodeGraphSceneElementEvent("nodeScenePastePatch", "click", pasteNodeGraphScriptFromClipboard);
   bindNodeGraphSceneElementEvent("nodeSceneOpenUiSettings", "click", () => {

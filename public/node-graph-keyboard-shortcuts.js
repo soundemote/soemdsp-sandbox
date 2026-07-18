@@ -263,13 +263,6 @@ function handleNodeGraphKeydown(event) {
   }
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "t") {
     event.preventDefault();
-    if (typeof toggleNodeGraphTooltipVisibility === "function") {
-      toggleNodeGraphTooltipVisibility();
-    }
-    return;
-  }
-  if (event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey && event.key.toLowerCase() === "t") {
-    event.preventDefault();
     if (typeof toggleNodeGraphTooltipWindow === "function") {
       toggleNodeGraphTooltipWindow();
     }

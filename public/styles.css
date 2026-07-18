@@ -3763,10 +3763,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   white-space: pre-line;
 }
 
-.node-interaction-help.tips-hidden {
-  color: transparent;
-}
-
 .node-interaction-help:empty {
   color: transparent;
 }

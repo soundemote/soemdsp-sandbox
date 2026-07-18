@@ -296,7 +296,6 @@ var nodeGraphMvp = {
   sliderDragging: null,
   smoothZoomDragging: null,
   snapGridWhilePanning: false,
-  tooltipVisible: true,
   tooltips: {},
   visualControlAnimationFrame: 0,
   visualControls: {

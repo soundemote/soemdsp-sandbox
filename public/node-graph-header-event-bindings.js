@@ -185,7 +185,7 @@ function bindNodeGraphHeaderControlEvents() {
     .getElementById("nodeSceneBlinkLightShape")
     .addEventListener("change", handleNodeGraphSceneScopeOptionInput);
   document.getElementById("nodeModuleSlidersToggleButton").addEventListener("click", toggleNodeGraphModuleSlidersVisibility);
-  document.getElementById("nodeTooltipToggleButton").addEventListener("click", toggleNodeGraphTooltipVisibility);
+  document.getElementById("nodeTooltipToggleButton").addEventListener("click", toggleNodeGraphTooltipWindow);
   document.getElementById("nodePreviousSavedPatchButton").addEventListener("click", () => loadAdjacentNodeGraphSavedPatch(-1));
   document.getElementById("nodeNextSavedPatchButton").addEventListener("click", () => loadAdjacentNodeGraphSavedPatch(1));
   document.getElementById("nodePatchInitButton").addEventListener("click", confirmAndInitNodeGraphPatchFromDefault);

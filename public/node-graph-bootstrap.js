@@ -60,7 +60,6 @@ async function initNodeGraphMvp() {
   scheduleNodeMetadataScriptParserSelfTestStatus();
   renderNodeGraphModuleScopeBrightnessControl();
   renderNodeGraphSnapGridButton();
-  renderNodeGraphTooltipToggle();
   renderNodeGraphKeyboardDebugToggle();
   renderNodeGraphSliderVisibilityToggles();
   renderNodeGraphSliderLayout();

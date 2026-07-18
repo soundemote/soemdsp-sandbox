@@ -16028,7 +16028,6 @@ def require_node_graph_mvp_contract() -> None:
         "--node-constraint-cpu: #f0b35f",
         "--node-constraint-ram: #5fc7ee",
         "--node-constraint-gpu: #c083ff",
-        ".node-interaction-help.tips-hidden",
         ".node-interaction-help",
         ".node-interaction-help:empty",
         "--node-tooltip-text-size",
