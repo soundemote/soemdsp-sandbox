@@ -1870,8 +1870,13 @@ html.soemdsp-hide-ui .status-strip {
     rgba(241, 184, 75, 0.16) calc(var(--macro-value, 0) * 264deg) 264deg,
     rgb(241 184 75 / var(--macro-knob-arc-gap-brightness, 0)) 264deg 360deg
   );
-  -webkit-mask-image: radial-gradient(closest-side, transparent calc(100% - var(--macro-knob-arc-thickness, 7px)), #000 calc(100% - var(--macro-knob-arc-thickness, 7px) + 1px));
-  mask-image: radial-gradient(closest-side, transparent calc(100% - var(--macro-knob-arc-thickness, 7px)), #000 calc(100% - var(--macro-knob-arc-thickness, 7px) + 1px));
+  /* A percent-of-radius fraction, not a fixed pixel amount -- this knob's
+     "100%" here is its own real closest-side distance, so the ring closes
+     into a genuinely full circle at 100% no matter what size this
+     particular dial actually renders at (compact module rows, the
+     standalone dock, etc. all use different dial sizes). */
+  -webkit-mask-image: radial-gradient(closest-side, transparent calc(100% - var(--macro-knob-arc-thickness-percent, 0.3) * 100%), #000 calc(100% - var(--macro-knob-arc-thickness-percent, 0.3) * 100% + 1px));
+  mask-image: radial-gradient(closest-side, transparent calc(100% - var(--macro-knob-arc-thickness-percent, 0.3) * 100%), #000 calc(100% - var(--macro-knob-arc-thickness-percent, 0.3) * 100% + 1px));
   filter: drop-shadow(0 0 5px rgba(241, 184, 75, 0.4));
   pointer-events: none;
 }

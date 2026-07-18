@@ -1255,9 +1255,22 @@ function nodeGraphMacroKnobArcThicknessPxToPercent(px) {
 // in styles.css) rather than a border, so its thickness has to travel in as
 // a CSS custom property instead of a class toggle -- one global var read by
 // every knob's mask-image, kept in sync with the user setting here.
+//
+// The mask itself is driven by --macro-knob-arc-thickness-percent (a 0..1
+// fraction of the mask's own closest-side, i.e. THAT knob's real on-screen
+// radius) rather than the raw pixel value -- knobs don't all render at the
+// same size (compact module rows use a smaller `min(42px, 80%)` dial than
+// the default panel, the standalone dock uses a bigger one), so a fixed
+// pixel thickness that happened to equal one context's radius could exceed
+// a smaller knob's actual radius elsewhere, pushing the mask's percentage
+// stops negative and leaving it stuck looking hollow instead of closing
+// into a full circle at 100%. The percent fraction is always correct
+// relative to whatever radius a given knob actually has.
 function applyNodeGraphMacroKnobArcThickness() {
   const thickness = normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness);
+  const percentOfRadius = thickness / nodeGraphMacroKnobArcThicknessMaxPx;
   document.documentElement?.style?.setProperty("--macro-knob-arc-thickness", `${thickness}px`);
+  document.documentElement?.style?.setProperty("--macro-knob-arc-thickness-percent", String(percentOfRadius));
 }
 
 function setNodeGraphMacroKnobArcThickness(value) {
