@@ -179,6 +179,7 @@ async function bindNodeGraphUiDevSettingsEvents() {
   }
   installNodeUiDevExposeControls();
   organizeNodeUiDevSections();
+  renderNodeUiDevHelperViewControls();
   installNodeSettingsHeaderTextFitObserver();
   installNodeLiveToggleTextFitObserver();
   await loadNodeUiDevDefaultSettings();

@@ -1,140 +1,9 @@
-function nodeUserUiSettingsMirrorValue(definition) {
-  const input = document.getElementById(definition.id);
-  if (!input) {
-    return definition.defaultValue;
-  }
-  return definition.type === "boolean" ? input.checked : input.value;
-}
-
-let nodeUserUiSettingsActiveMirrorKey = null;
-
-function dispatchNodeUiDevControlInput(source, commit = false) {
-  source.dispatchEvent(new Event("input", { bubbles: true }));
-  if (commit) {
-    source.dispatchEvent(new Event("change", { bubbles: true }));
-  }
-}
-
-function createNodeUserUiSettingsControl(definition) {
-  if (!definition) {
-    return null;
-  }
-  const source = document.getElementById(definition.id);
-  if (!source) {
-    return null;
-  }
-  const row = document.createElement("label");
-  row.className = `node-user-ui-setting-control ${definition.type}`;
-  const title = document.createElement("span");
-  title.textContent = nodeUiDevControlLabel(definition);
-  row.append(title);
-
-  if (definition.type === "boolean") {
-    const input = document.createElement("input");
-    input.type = "checkbox";
-    input.dataset.nodeUiDevMirror = definition.key;
-    input.checked = Boolean(nodeUserUiSettingsMirrorValue(definition));
-    input.addEventListener("change", () => {
-      source.checked = input.checked;
-      dispatchNodeUiDevControlInput(source, true);
-    });
-    row.append(input);
-    return row;
-  }
-
-  const input = definition.type === "select"
-    ? document.createElement("select")
-    : document.createElement("input");
-  if (definition.type === "select") {
-    for (const optionDefinition of definition.options || []) {
-      const option = document.createElement("option");
-      option.value = optionDefinition.value;
-      option.textContent = optionDefinition.label;
-      input.append(option);
-    }
-  } else {
-    input.type = definition.type === "color" ? "color" : "range";
-  }
-  input.value = String(nodeUserUiSettingsMirrorValue(definition));
-  input.dataset.nodeUiDevMirror = definition.key;
-  if (definition.type === "number") {
-    input.min = String(definition.min);
-    input.max = String(definition.max);
-    input.step = "1";
-  }
-  const output = definition.type === "number"
-    ? document.createElement("input")
-    : document.createElement("output");
-  if (definition.type === "number") {
-    output.type = "number";
-    output.min = String(definition.min);
-    output.max = String(definition.max);
-    output.step = "1";
-    output.dataset.nodeUiDevMirrorValue = definition.key;
-    output.value = input.value;
-  } else {
-    output.textContent = definition.type === "select"
-      ? nodeUiDevSelectLabel(definition, input.value)
-      : input.value;
-  }
-  const syncOutput = () => {
-    if (definition.type === "number") {
-      output.value = input.value;
-      return;
-    }
-    output.textContent = definition.type === "select"
-        ? nodeUiDevSelectLabel(definition, input.value)
-        : `${input.value}`;
-  };
-  const claimControl = () => {
-    nodeUserUiSettingsActiveMirrorKey = definition.key;
-  };
-  const releaseControl = () => {
-    window.setTimeout(() => {
-      if (nodeUserUiSettingsActiveMirrorKey === definition.key) {
-        nodeUserUiSettingsActiveMirrorKey = null;
-      }
-    }, 0);
-  };
-  input.addEventListener("pointerdown", claimControl);
-  input.addEventListener("focus", claimControl);
-  input.addEventListener("pointerup", releaseControl);
-  input.addEventListener("pointercancel", releaseControl);
-  input.addEventListener("blur", releaseControl);
-  input.addEventListener("input", () => {
-    claimControl();
-    source.value = input.value;
-    dispatchNodeUiDevControlInput(source, false);
-    syncOutput();
-  });
-  input.addEventListener("change", () => {
-    source.value = input.value;
-    dispatchNodeUiDevControlInput(source, true);
-    syncOutput();
-  });
-  if (definition.type === "number") {
-    output.addEventListener("pointerdown", claimControl);
-    output.addEventListener("focus", claimControl);
-    output.addEventListener("blur", releaseControl);
-    output.addEventListener("input", () => {
-      claimControl();
-      const value = normalizeNodeUiDevControlValue(definition, output.value);
-      input.value = String(value);
-      source.value = String(value);
-      dispatchNodeUiDevControlInput(source, false);
-    });
-    output.addEventListener("change", () => {
-      const value = normalizeNodeUiDevControlValue(definition, output.value);
-      output.value = String(value);
-      input.value = String(value);
-      source.value = String(value);
-      dispatchNodeUiDevControlInput(source, true);
-    });
-  }
-  row.append(input, output);
-  return row;
-}
-
+// The old exposed-control "mirror" system (createNodeUserUiSettingsControl
+// et al -- built a simplified proxy control that dispatched synthetic
+// input/change events back at the real UI Dev source input) has no callers
+// left now that renderNodeUserUiSettingsControls only renders the arc
+// thickness control directly; every UI Dev control already lives in UI Dev
+// itself, so there's nothing left to mirror out of it.
 function createNodeUserUiSettingsViewCheckbox({ key, label, getValue, setValue }) {
   const row = document.createElement("label");
   row.className = "node-user-ui-setting-control boolean";
@@ -443,52 +312,62 @@ function createNodeUserUiSettingsSection(title, controls) {
   return section;
 }
 
+// Every other user-facing view control that used to live in this panel has
+// moved into the UI Dev helper (see renderNodeUiDevHelperViewControls) --
+// User UI Settings is now just the one thing regular users are meant to
+// tune, everything else lives with the rest of the developer controls.
 function renderNodeUserUiSettingsControls() {
   const container = document.getElementById("nodeUserUiSettingsControls");
   if (!container) {
     return;
   }
   container.textContent = "";
-  const definitionsById = new Map(nodeUiDevSettingControls.map((definition) => [definition.id, definition]));
-  let renderedAnySection = false;
-  for (const section of nodeUiDevSettingSections) {
-    const controls = [];
-    if (section.title === "workspace") {
-      controls.push(createNodeUserUiSettingsHideMouseWhileDraggingControl());
-      controls.push(createNodeUserUiSettingsViewControl());
-      controls.push(createNodeUserUiSettingsSliderAmountControl());
-      controls.push(createNodeUserUiSettingsSliderPositionControl());
-    }
-    if (section.title === "modules and nodes") {
-      controls.push(createNodeUserUiSettingsModuleButtonsControl());
-      controls.push(createNodeUserUiSettingsModuleOscilloscopeControl());
-      controls.push(createNodeUserUiSettingsModuleInterfaceControlsControl());
-      controls.push(createNodeUserUiSettingsModuleScopeBrightnessControl());
-      controls.push(createNodeUserUiSettingsModuleScopeLineThicknessControl());
-      controls.push(createNodeUserUiSettingsModuleScopeFramesPerSecondControl());
-      controls.push(createNodeUserUiSettingsMacroKnobArcThicknessControl());
-      controls.push(createNodeUserUiSettingsModuleSlidersControl());
-      controls.push(createNodeUserUiSettingsSliderLayoutControl());
-    }
-    for (const id of section.ids) {
-      const definition = definitionsById.get(id);
-      if (!definition || !nodeUiDevControlIsExposed(definition.key)) {
-        continue;
-      }
-      controls.push(createNodeUserUiSettingsControl(definition));
-    }
-    const sectionElement = createNodeUserUiSettingsSection(section.title, controls);
-    if (sectionElement) {
-      container.append(sectionElement);
-      renderedAnySection = true;
-    }
-  }
-  if (!renderedAnySection) {
+  const sectionElement = createNodeUserUiSettingsSection("knob style", [
+    createNodeUserUiSettingsMacroKnobArcThicknessControl(),
+  ]);
+  if (sectionElement) {
+    container.append(sectionElement);
+  } else {
     const empty = document.createElement("div");
     empty.className = "node-user-ui-settings-empty";
     empty.textContent = "no ui settings exposed";
     container.append(empty);
   }
+}
+
+// Mounts everything that used to live in the User UI Settings panel (view
+// toggles, module display controls, slider layout) into the UI Dev helper
+// instead, reusing the same control-factory functions so behavior/
+// persistence (data-node-ui-view-setting) is unchanged -- only where they're
+// displayed moves. Guarded by a dataset flag so repeated helper opens don't
+// duplicate the section.
+function renderNodeUiDevHelperViewControls() {
+  const helperBody = document.querySelector(".node-ui-dev-helper-body");
+  if (!helperBody || helperBody.dataset.viewControlsMounted === "true") {
+    return;
+  }
+  const workspaceSection = createNodeUserUiSettingsSection("workspace view", [
+    createNodeUserUiSettingsHideMouseWhileDraggingControl(),
+    createNodeUserUiSettingsViewControl(),
+    createNodeUserUiSettingsSliderAmountControl(),
+    createNodeUserUiSettingsSliderPositionControl(),
+  ]);
+  const moduleSection = createNodeUserUiSettingsSection("modules and nodes view", [
+    createNodeUserUiSettingsModuleButtonsControl(),
+    createNodeUserUiSettingsModuleOscilloscopeControl(),
+    createNodeUserUiSettingsModuleInterfaceControlsControl(),
+    createNodeUserUiSettingsModuleScopeBrightnessControl(),
+    createNodeUserUiSettingsModuleScopeLineThicknessControl(),
+    createNodeUserUiSettingsModuleScopeFramesPerSecondControl(),
+    createNodeUserUiSettingsModuleSlidersControl(),
+    createNodeUserUiSettingsSliderLayoutControl(),
+  ]);
+  for (const section of [workspaceSection, moduleSection]) {
+    if (section) {
+      helperBody.append(section);
+    }
+  }
+  helperBody.dataset.viewControlsMounted = "true";
 }
 
 function syncNodeUserUiSettingsViewControls() {

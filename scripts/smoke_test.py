@@ -11483,7 +11483,6 @@ def require_node_graph_mvp_contract() -> None:
         "function renderNodeUserUiSettingsControls()",
         "function setNodeUserUiSettingsVisible(visible)",
         "function toggleNodeUserUiSettings()",
-        "let nodeUserUiSettingsActiveMirrorKey = null",
         "function syncNodeUserUiSettingsMirrorControls()",
         "nodeUserUiSettingsClearStartup",
         "function clearNodeUserStartupLocalStorage()",
