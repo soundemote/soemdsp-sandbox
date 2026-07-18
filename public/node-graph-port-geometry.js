@@ -155,15 +155,18 @@ function nodeGraphCssColor(property, fallback) {
   return value || fallback;
 }
 
-// A port is "digital" -- solid white wire/tap instead of the usual role
-// color -- if it's one of this sandbox's two universal quantized-signal
-// names (0.1V/Oct pitch CV, Scale bitmask) on any node, or if the node's own
-// module definition explicitly lists it in digitalInputs/digitalOutputs.
-// The latter is how a module opts an unsmoothed gate/trigger/etc. port into
-// the same white treatment -- see e.g. comparator's "In" and transport's
-// pulse/trigger outputs in node-graph-module-definitions.js.
+// App-wide policy: white wire == bit-based signal. A continuous CV like
+// 0.1V/Oct pitch (or anything else that's just a smoothly-varying float,
+// no matter how huge its usable range) does NOT get white -- only ports
+// that actually pack their value as a bitmask do, either via this
+// sandbox's one universal bitmask-signal name (Scale, a quantizer's
+// 12-bit scale-degree mask, see pitch-quantizer-worklet-evaluator.js's
+// `& 0xFFF`) on any node, or via the node's own module definition
+// explicitly listing it in digitalInputs/digitalOutputs -- see e.g.
+// comparator's "In" and transport's pulse/trigger outputs, or
+// keyboardController's "Held Keys" bitmask, in node-graph-module-definitions.js.
 function nodeGraphPortIsDigitalSignal(typeOrNode, port, io = null) {
-  if (port === "0.1V/Oct" || port === "Scale") {
+  if (port === "Scale") {
     return true;
   }
   const type = typeof typeOrNode === "string" && nodeGraphModuleDefinitions[typeOrNode]
