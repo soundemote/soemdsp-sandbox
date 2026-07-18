@@ -47,6 +47,11 @@ function nodeGraphPhosphorWaveformSettingsForNode(nodeId) {
 const nodeGraphPhosphorWaveformLastInteraction = new Map();
 const nodeGraphPhosphorWaveformAutoScrollPauseMs = 800;
 
+// Tracks the last Time Window value (seconds) auto-scroll actually applied
+// per node, so it can tell "the setting just changed" apart from "still
+// the same setting as last frame" -- see the draw loop below.
+const nodeGraphPhosphorWaveformLastAppliedTimeWindow = new Map();
+
 function nodeGraphPhosphorWaveformMarkInteraction(nodeId) {
   nodeGraphPhosphorWaveformLastInteraction.set(nodeId, Date.now());
 }
@@ -389,10 +394,23 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   const lastInteraction = nodeGraphPhosphorWaveformLastInteraction.get(nodeId) || 0;
   const autoScrollPaused = Date.now() - lastInteraction < nodeGraphPhosphorWaveformAutoScrollPauseMs;
   if (!autoScrollPaused) {
-    const windowFrames = Math.max(
+    // Only re-derive the window width from the Time Window setting when
+    // that setting itself just changed (including the first time
+    // auto-scroll engages for this node) -- otherwise keep whatever width
+    // is already in the view state. Without this, every auto-scroll frame
+    // would force width back to the configured seconds, silently undoing
+    // any manual wheel-zoom the instant the post-interaction pause above
+    // elapsed (reported as "zooming in un-zooms me").
+    const settingsWindowFrames = Math.max(
       nodeGraphPhosphorWaveformMinWindowFrames,
       Math.min(entry.frames, settings.timeWindowSeconds * (entry.sampleRate || 44100)),
     );
+    const lastAppliedSeconds = nodeGraphPhosphorWaveformLastAppliedTimeWindow.get(nodeId);
+    const settingsJustChanged = lastAppliedSeconds !== settings.timeWindowSeconds;
+    nodeGraphPhosphorWaveformLastAppliedTimeWindow.set(nodeId, settings.timeWindowSeconds);
+    const windowFrames = settingsJustChanged
+      ? settingsWindowFrames
+      : Math.max(nodeGraphPhosphorWaveformMinWindowFrames, state.endFrame - state.startFrame);
     if (settings.scrollMode === "smooth") {
       // Keep the playhead centered every frame -- continuous, gradual
       // motion since it only moves as far as phase advanced since the
@@ -401,12 +419,10 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
       state.endFrame = state.startFrame + windowFrames;
     } else {
       // "snap": only jump when the playhead has left the current page, or
-      // the window width no longer matches the configured time window
-      // (e.g. right after changing it) -- lands on the page-aligned
-      // window containing the playhead, no interpolation.
-      const currentWidth = state.endFrame - state.startFrame;
+      // the Time Window setting itself just changed -- lands on the
+      // page-aligned window containing the playhead, no interpolation.
       const outOfBounds = playheadFrame < state.startFrame || playheadFrame > state.endFrame;
-      if (outOfBounds || Math.round(currentWidth) !== Math.round(windowFrames)) {
+      if (outOfBounds || settingsJustChanged) {
         const page = Math.floor(playheadFrame / windowFrames);
         state.startFrame = page * windowFrames;
         state.endFrame = state.startFrame + windowFrames;

@@ -11154,6 +11154,38 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: none;
 }
 
+/* Music Player also carries .sample-module-layout (shared with
+   samplePlayer/sampleLooper), whose grid-template-rows/explicit grid-row
+   assignments have no slot for the waveform display -- it was landing
+   auto-placed into the unused scope row (row 2, since audioPlayer has no
+   .node-module-scope-window), rendering ABOVE the load-path/sample body
+   at row 3 regardless of DOM order. Inserts a dedicated row right after
+   the sample body and shifts io-section/body down one row accordingly;
+   scoped to .phosphor-waveform-layout specifically so
+   samplePlayer/sampleLooper's shared rows are untouched. Row 2 collapses
+   to 0 since nothing occupies it here. */
+.dsp-node.phosphor-waveform-layout.sample-module-layout {
+  grid-template-rows:
+    var(--node-header-height)
+    0px
+    var(--node-module-interface-controls-height)
+    auto
+    minmax(var(--node-io-section-min-height), auto)
+    auto;
+}
+
+.phosphor-waveform-layout.sample-module-layout .node-phosphor-waveform-display {
+  grid-row: 4;
+}
+
+.phosphor-waveform-layout.sample-module-layout .dsp-node-io-section {
+  grid-row: 5;
+}
+
+.phosphor-waveform-layout.sample-module-layout .dsp-node-body {
+  grid-row: 6;
+}
+
 .node-graph-workspace.module-oscilloscopes-hidden .dsp-node.filter-curve-layout,
 .dsp-node.filter-curve-layout.oscilloscope-hidden {
   grid-template-rows:
