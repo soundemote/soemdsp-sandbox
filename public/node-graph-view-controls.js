@@ -360,6 +360,15 @@ function toggleNodeGraphModularOnlyView() {
   setNodeGraphViewMode(modularOnlyActive ? "modular" : "modular-only");
 }
 
+// Named so the Full UI button can share the exact same behavior as every
+// other view-mode toggle (M/V/etc) -- clicking it while already in UI view
+// should turn UI view off (back to the modular workspace), not just
+// re-apply "ui" mode as a no-op.
+function toggleNodeGraphFullUiView() {
+  const uiActive = !document.getElementById("nodeUiView")?.hidden;
+  setNodeGraphViewMode(uiActive ? "modular" : "ui");
+}
+
 // Named so both the Command Center button click and the "V" hotkey
 // (node-graph-keyboard-shortcuts.js) can share the exact same behavior --
 // "View Buttons" toggles module-button visibility, but if we're

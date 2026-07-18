@@ -11,7 +11,7 @@ function bindNodeGraphHeaderControlEvents() {
   document.getElementById("nodeDeleteButton").addEventListener("click", deleteSelectedNodeGraphItem);
   document.getElementById("nodeUndoButton").addEventListener("click", undoNodeGraphPatch);
   document.getElementById("nodeRedoButton").addEventListener("click", redoNodeGraphPatch);
-  document.getElementById("nodeFullUiButton")?.addEventListener("click", () => setNodeGraphViewMode("ui"));
+  document.getElementById("nodeFullUiButton")?.addEventListener("click", toggleNodeGraphFullUiView);
   document.getElementById("nodeVisibilityMenuClose").addEventListener("click", () => setNodeGraphVisibilityMenuOpen(false));
   document
     .querySelector("#nodeVisibilityMenu .node-visibility-menu-heading")
