@@ -1257,7 +1257,16 @@ function nodeGraphMacroKnobArcThicknessPxToPercent(px) {
 // every knob's mask-image, kept in sync with the user setting here.
 function applyNodeGraphMacroKnobArcThickness() {
   const thickness = normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness);
+  const percent = nodeGraphMacroKnobArcThicknessPxToPercent(thickness) / 100;
   document.documentElement?.style?.setProperty("--macro-knob-arc-thickness", `${thickness}px`);
+  // The dial's conic-gradient always carries a transparent notch for the
+  // knob's -132..+132deg mechanical travel limit -- fine for a thin ring,
+  // but it stops 100% thickness from ever reading as a genuinely full pie
+  // (there'd still be a wedge missing regardless of how solid the ring
+  // itself got). Blending the notch toward the track's own color/alpha as
+  // thickness approaches 100% closes that gap, so max thickness is a true
+  // complete pie instead of a knob-shaped ring with a bite taken out.
+  document.documentElement?.style?.setProperty("--macro-knob-arc-percent", String(percent));
 }
 
 function setNodeGraphMacroKnobArcThickness(value) {
