@@ -99,21 +99,21 @@ function nodeInteractionMouseHint(element) {
       : element.classList.contains("output")
       ? nodeGraphTooltipText("wire.output")
       : nodeGraphTooltipText("wire.input");
-    return alias ? `${alias}\n${action}` : action;
+    return alias ? `${alias} | ${action}` : action;
   }
   if (element.classList.contains("node-io-row")) {
     const action = element.dataset.io === "output"
       ? nodeGraphTooltipText("wire.output")
       : nodeGraphTooltipText("wire.input");
-    return alias ? `${alias}\n${action}` : action;
+    return alias ? `${alias} | ${action}` : action;
   }
   if (element.classList.contains("node-param-port")) {
     const action = nodeGraphTooltipText("wire.modulationInput");
-    return alias ? `${alias}\n${action}` : action;
+    return alias ? `${alias} | ${action}` : action;
   }
   if (element.classList.contains("node-wire-hit-path") || element.classList.contains("node-wire-path")) {
     const action = nodeGraphTooltipText("wire.selected");
-    return alias ? `${alias}\n${action}` : action;
+    return alias ? `${alias} | ${action}` : action;
   }
   if (element.classList.contains("node-text-box-input")) {
     return nodeGraphTooltipText("module.textBoxEdit");

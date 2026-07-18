@@ -7401,28 +7401,28 @@ def require_node_graph_mvp_contract() -> None:
     for snippet in [
         '"name": "soemdsp-sandbox tooltip master"',
         '"constraints": {',
-        '"cpu": "Show CPU-constrained controls.',
-        '"ram": "Show RAM-constrained controls.',
-        '"gpu": "Show GPU-constrained controls.',
+        '"cpu": "show CPU-constrained controls',
+        '"ram": "show RAM-constrained controls',
+        '"gpu": "show GPU-constrained controls',
         '"module"',
         '"wire"',
         '"slider"',
         '"settings"',
         '"audio"',
         '"parameterSettings": {',
-        '"tooltip": "Tooltip text stored in this parameter',
-        '"skew": "Slider response curve.',
-        '"skewSensitivity": "Edge skew strength.',
-        '"max": "Highest value this parameter can reach."',
-        '"Mouse: middle-drag to move the modular view freely. Touch: drag empty workspace to move the view. Ctrl+middle-drag or Alt+middle-drag slowly zooms, including over modules and controls. Ctrl+Shift+G aligns the view to the grid."',
-        '"Mouse: drag to move modules. Click to select. Ctrl/Shift+click adds or removes from selection; Ctrl/Shift+drag adds to selection while moving."',
-        '"Mouse: drag to move modules. Click to select; Ctrl/Shift+click adds or removes from selection. Alt+click an empty I/O section to toggle bypass. When module buttons are hidden, Alt+click the title also toggles bypass."',
-        '"Display-only text. Edit content from this module\'s actions menu. Text clips to the box height and scales down to fit width. Mouse wheel zooms the modular view."',
-        '"Plain drag between this output and a signal input or modulation input to create a wire."',
-        '"view": "Open the Patch Script utility"',
+        '"tooltip": "tooltip text stored in this parameter',
+        '"skew": "slider response curve',
+        '"skewSensitivity": "edge skew strength',
+        '"max": "highest value this parameter can reach"',
+        '"middle-drag to move the modular view freely | Touch: drag empty workspace to move the view | Ctrl+middle-drag or Alt+middle-drag slowly zooms, including over modules and controls | Ctrl+Shift+G aligns the view to the grid"',
+        '"drag to move modules | click to select | Ctrl/Shift+click adds or removes from selection | Ctrl/Shift+drag adds to selection while moving"',
+        '"drag to move modules | click to select | Ctrl/Shift+click adds or removes from selection | Alt+click an empty I/O section to toggle bypass | when module buttons are hidden, Alt+click the title also toggles bypass"',
+        '"display-only text | edit content from this module\'s actions menu | text clips to box height, scales down to fit width | mouse wheel zooms the modular view"',
+        '"plain drag between this output and a signal input or modulation input to create a wire"',
+        '"view": "open the Patch Script utility"',
         "Ctrl+click resets to default",
-        '"Mouse: click to copy the full compiled execution JSON."',
-        '"Export the current circuit to CLAP/VST/AU/other that turns a sandbox patch into a multiplatform audio plugin. (currently unavailable)"',
+        '"copyExecutionJson": "click to copy the full compiled execution JSON"',
+        '"export the current circuit to CLAP/VST/AU/other, turning a sandbox patch into a multiplatform audio plugin | currently unavailable"',
     ]:
         require(snippet in tooltip_source, f"tooltip master document missing {snippet}")
 
@@ -11457,7 +11457,7 @@ def require_node_graph_mvp_contract() -> None:
         "function nodeInteractionMouseHint(element)",
         "nodeGraphElementTooltipText(element)",
         "const alias = element.dataset.alias || \"\"",
-        "`${alias}\\n${action}`",
+        "`${alias} | ${action}`",
         'nodeGraphTooltipText("wire.selected")',
         'nodeGraphTooltipText("wire.output")',
         'nodeGraphTooltipText("wire.input")',
@@ -12949,7 +12949,7 @@ def require_node_graph_mvp_contract() -> None:
     )
     require(
         'data-tooltip-key="timing.globalSmoothing"' in index_source
-        and "Global smoothing time in seconds. This controls how quickly smoothed module parameters glide toward new values." in tooltip_source,
+        and "global smoothing time in seconds | controls how quickly smoothed parameters glide to new values" in tooltip_source,
         "command center smoothing should have a specific tooltip instead of generic input help",
     )
     require(
@@ -12957,8 +12957,8 @@ def require_node_graph_mvp_contract() -> None:
         "default UI settings should explicitly define module display visibility",
     )
     for snippet in [
-        "Start live OUTPUT. Press Space to toggle.",
-        "Live OUTPUT is running. Press Space to stop.",
+        "start live OUTPUT | press Space to toggle",
+        "live OUTPUT is running | press Space to stop",
     ]:
         require(snippet in tooltip_source, f"tooltip source missing {snippet}")
     require(
@@ -14496,7 +14496,7 @@ def require_node_graph_mvp_contract() -> None:
         and "adjustNodeGraphTraceDisplaySettingByControlDelta(drag.key, startValue, controlDelta)" in node_graph_source
         and "adjustNodeGraphTraceDisplaySettingByControlDelta(key, baseValue, direction * quantum)" in node_graph_source
         and "for (const key of activeColors)" in node_graph_source
-        and "0D Burn brightness mode. Off: only 0..1 lights up. On: -1 and +1 are equally bright." in tooltip_source
+        and "0D Burn brightness mode | Off: only 0..1 lights up | On: -1 and +1 are equally bright" in tooltip_source
         and "zeroDBurnSettings: normalizeNodeGraphZeroDBurnSettings(migrate(node.zeroDBurnSettings, false))" in node_graph_source
         and "dot2" not in dot_draw_source,
         "0D Burn settings should expose real normalized dot sizes and bipolar brightness mode, with Dot 2 removed",
@@ -14507,8 +14507,8 @@ def require_node_graph_mvp_contract() -> None:
         and "<span>Blur</span>" in node_graph_source
         and "grid-template-columns: 30px minmax(0, 1fr);" in style_source
         and "font-size: 20px;" in style_source
-        and "Blur of the 1D Trace dot beam." in tooltip_source
-        and "Blur of the secondary signal beam" in tooltip_source,
+        and "blur of the 1D Trace dot beam" in tooltip_source
+        and "blur of the secondary signal beam" in tooltip_source,
         "Oscilloscope settings should present Thick controls as Blur",
     )
     require(
@@ -14542,8 +14542,8 @@ def require_node_graph_mvp_contract() -> None:
         and "lineLength: \"traceDisplaySettings.lineLength\"" in node_graph_source
         and "capSize: \"traceDisplaySettings.capSize\"" in node_graph_source
         and "capLength: \"traceDisplaySettings.capLength\"" in node_graph_source
-        and "0D Value line length. 1 reaches the display edge; lower values pull both ends inward." in tooltip_source
-        and "0D Value cap thickness as a 0..1 fraction of the display square." in tooltip_source,
+        and "0D Value line length | 1 reaches the display edge | lower values pull both ends inward" in tooltip_source
+        and "0D Value cap thickness as a 0..1 fraction of the display square" in tooltip_source,
         "0D Value settings should expose line, burn/decay, and Value-only Caps controls",
     )
     value_registry_source = node_graph_source[
