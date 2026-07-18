@@ -7882,7 +7882,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       }
     }
     this.meterCounter += frames;
-    if (this.meterCounter >= sampleRate / 10) {
+    if (this.meterCounter >= sampleRate / 60) {
       this.port.postMessage({
         audioPlayerNodeId: this.audioPlayerMeterNodeId || this.audioPlayerNodeIds[0] || "",
         audioPlayerNodeIds: [...this.audioPlayerNodeIds],
