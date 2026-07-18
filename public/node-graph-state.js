@@ -49,6 +49,7 @@ var nodeGraphMvp = {
   pan: { x: 0, y: 0 },
   gridVisible: false,
   macroControls: new Array(10).fill(0),
+  macroKnobArcThickness: 7,
   sliderLayout: "text-inside",
   sliderAmountVisible: false,
   sliderPositionVisible: true,

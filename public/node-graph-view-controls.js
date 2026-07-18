@@ -1218,6 +1218,25 @@ function normalizeNodeGraphMacroValue(value) {
   return clampNodeSliderValue(Number(value) || 0, 0, 1);
 }
 
+function normalizeNodeGraphMacroKnobArcThickness(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? clampNodeSliderValue(number, 2, 16) : 7;
+}
+
+// The macro knob's ring is a mask cut into a circle (see .node-macro-knob i
+// in styles.css) rather than a border, so its thickness has to travel in as
+// a CSS custom property instead of a class toggle -- one global var read by
+// every knob's mask-image, kept in sync with the user setting here.
+function applyNodeGraphMacroKnobArcThickness() {
+  const thickness = normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness);
+  document.documentElement?.style?.setProperty("--macro-knob-arc-thickness", `${thickness}px`);
+}
+
+function setNodeGraphMacroKnobArcThickness(value) {
+  nodeGraphMvp.macroKnobArcThickness = normalizeNodeGraphMacroKnobArcThickness(value);
+  applyNodeGraphMacroKnobArcThickness();
+}
+
 function ensureNodeGraphMacroControls() {
   if (!Array.isArray(nodeGraphMvp.macroControls) || nodeGraphMvp.macroControls.length !== 8) {
     nodeGraphMvp.macroControls = new Array(8).fill(0);

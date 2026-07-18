@@ -320,6 +320,46 @@ function createNodeUserUiSettingsModuleScopeLineThicknessControl() {
   return row;
 }
 
+function createNodeUserUiSettingsMacroKnobArcThicknessControl() {
+  const row = document.createElement("label");
+  row.className = "node-user-ui-setting-control number";
+  const title = document.createElement("span");
+  title.textContent = "Macro knob arc thickness";
+  const input = document.createElement("input");
+  input.type = "range";
+  input.min = "2";
+  input.max = "16";
+  input.step = "0.5";
+  input.dataset.nodeUiViewSetting = "macroKnobArcThickness";
+  input.value = normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness ?? 7).toFixed(1);
+  const output = document.createElement("input");
+  output.type = "number";
+  output.min = "2";
+  output.max = "16";
+  output.step = "0.5";
+  output.dataset.nodeUiViewSettingValue = "macroKnobArcThickness";
+  output.value = input.value;
+  input.addEventListener("input", () => {
+    setNodeGraphMacroKnobArcThickness(input.value);
+    output.value = normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness).toFixed(1);
+  });
+  input.addEventListener("change", () => {
+    setNodeGraphMacroKnobArcThickness(input.value);
+    output.value = normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness).toFixed(1);
+  });
+  output.addEventListener("input", () => {
+    setNodeGraphMacroKnobArcThickness(output.value);
+    input.value = normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness).toFixed(1);
+  });
+  output.addEventListener("change", () => {
+    setNodeGraphMacroKnobArcThickness(output.value);
+    output.value = normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness).toFixed(1);
+    input.value = output.value;
+  });
+  row.append(title, input, output);
+  return row;
+}
+
 function createNodeUserUiSettingsModuleScopeFramesPerSecondControl() {
   const row = document.createElement("label");
   row.className = "node-user-ui-setting-control number";
@@ -426,6 +466,7 @@ function renderNodeUserUiSettingsControls() {
       controls.push(createNodeUserUiSettingsModuleScopeBrightnessControl());
       controls.push(createNodeUserUiSettingsModuleScopeLineThicknessControl());
       controls.push(createNodeUserUiSettingsModuleScopeFramesPerSecondControl());
+      controls.push(createNodeUserUiSettingsMacroKnobArcThicknessControl());
       controls.push(createNodeUserUiSettingsModuleSlidersControl());
       controls.push(createNodeUserUiSettingsSliderLayoutControl());
     }
@@ -534,6 +575,18 @@ function syncNodeUserUiSettingsViewControls() {
       continue;
     }
     input.value = String(normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp.moduleScopeFramesPerSecond ?? 60));
+  }
+  for (const input of document.querySelectorAll("[data-node-ui-view-setting='macroKnobArcThickness']")) {
+    if (document.activeElement === input) {
+      continue;
+    }
+    input.value = normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness ?? 7).toFixed(1);
+  }
+  for (const input of document.querySelectorAll("[data-node-ui-view-setting-value='macroKnobArcThickness']")) {
+    if (document.activeElement === input) {
+      continue;
+    }
+    input.value = normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness ?? 7).toFixed(1);
   }
   for (const button of document.querySelectorAll("[data-node-ui-view-setting='sliderLayout']")) {
     const label = nodeGraphSliderLayoutLabel(nodeGraphMvp.sliderLayout);

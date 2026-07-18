@@ -552,6 +552,9 @@ function normalizeNodeUiDevSettings(settings = {}) {
   const moduleScopeDiscontinuitySkipSamples = normalizeNodeGraphModuleScopeDiscontinuitySkipSamples(
     view.moduleScopeDiscontinuitySkipSamples ?? nodeGraphMvp.moduleScopeDiscontinuitySkipSamples ?? 1,
   );
+  const macroKnobArcThickness = normalizeNodeGraphMacroKnobArcThickness(
+    view.macroKnobArcThickness ?? nodeGraphMvp.macroKnobArcThickness ?? 7,
+  );
   const traceSettings = typeof normalizeNodeGraphTraceDisplaySettings === "function"
     ? normalizeNodeGraphTraceDisplaySettings(
       typeof migrateNodeGraphLegacyDot2Settings === "function"
@@ -670,6 +673,7 @@ function normalizeNodeUiDevSettings(settings = {}) {
       moduleScopePointBudget,
       moduleScopeLineThickness,
       moduleScopeDiscontinuitySkipSamples,
+      macroKnobArcThickness,
       traceSettings,
       sliderLayout,
       sliderAmountVisible,
@@ -756,6 +760,7 @@ function readNodeUiDevSettingsFromControls(options = {}) {
       moduleScopeDiscontinuitySkipSamples: normalizeNodeGraphModuleScopeDiscontinuitySkipSamples(
         nodeGraphMvp.moduleScopeDiscontinuitySkipSamples ?? 1,
       ),
+      macroKnobArcThickness: normalizeNodeGraphMacroKnobArcThickness(nodeGraphMvp.macroKnobArcThickness ?? 7),
       traceSettings: typeof normalizeNodeGraphTraceDisplaySettings === "function"
         ? normalizeNodeGraphTraceDisplaySettings(nodeGraphMvp.traceSettings)
         : nodeGraphMvp.traceSettings,
@@ -865,6 +870,10 @@ function applyNodeUiDevSettings(settings) {
   nodeGraphMvp.moduleScopeDiscontinuitySkipSamples = normalizeNodeGraphModuleScopeDiscontinuitySkipSamples(
     normalized.view.moduleScopeDiscontinuitySkipSamples,
   );
+  nodeGraphMvp.macroKnobArcThickness = normalizeNodeGraphMacroKnobArcThickness(normalized.view.macroKnobArcThickness);
+  if (typeof applyNodeGraphMacroKnobArcThickness === "function") {
+    applyNodeGraphMacroKnobArcThickness();
+  }
   nodeGraphMvp.traceSettings = typeof normalizeNodeGraphTraceDisplaySettings === "function"
     ? normalizeNodeGraphTraceDisplaySettings(normalized.view.traceSettings)
     : normalized.view.traceSettings;
