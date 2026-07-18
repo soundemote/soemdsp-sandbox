@@ -27,9 +27,13 @@ function bindNodeGraphWorkspaceInteractionEvents() {
   document
     .getElementById("nodeGraphWorkspace")
     .addEventListener("click", nodeGraphWireInteractions.handleWorkspaceClick);
-  document
-    .getElementById("nodeGraphWorkspace")
-    .addEventListener("dblclick", handleNodeGraphWorkspaceDoubleClickToAddTextBox);
+  // Double-click-to-add-text-box is disabled for now (binding intentionally
+  // commented out, not removed -- handleNodeGraphWorkspaceDoubleClickToAddTextBox
+  // in node-graph-module-actions.js is untouched, ready to re-enable by
+  // uncommenting this one line).
+  // document
+  //   .getElementById("nodeGraphWorkspace")
+  //   .addEventListener("dblclick", handleNodeGraphWorkspaceDoubleClickToAddTextBox);
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       nodeGraphWireInteractions.cancelPortConnectionMode();
