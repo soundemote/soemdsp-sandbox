@@ -78,7 +78,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.pitchModWheelSignal = { mod: 0, pitch: 0 };
     this.midiKeyboardGatePulseSamples = 0;
     this.midiKeyboardSignal = null;
-    this.midiKeyboardHeldKeysBitmask = 0;
+    this.midiKeyboardHeldKeysLowBitmask = 0;
+    this.midiKeyboardHeldKeysHighBitmask = 0;
+    this.midiKeyboardHeldKeysPhase = 0;
     this.moduleGroupRuntimes = new Map();
     this.modulationConnections = new Map();
     this.nodeOutputs = new Map();
@@ -431,7 +433,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       return;
     }
     if (message.type === "setMidiKeyboardHeldKeysBitmask") {
-      this.setMidiKeyboardHeldKeysBitmask(message.mask);
+      this.setMidiKeyboardHeldKeysBitmask(message.low, message.high);
       return;
     }
     if (message.type === "setMacroControls") {
@@ -1770,7 +1772,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.pitchModWheelSignal = { mod: 0, pitch: 0 };
     this.midiKeyboardGatePulseSamples = 0;
     this.midiKeyboardSignal = null;
-    this.midiKeyboardHeldKeysBitmask = 0;
+    this.midiKeyboardHeldKeysLowBitmask = 0;
+    this.midiKeyboardHeldKeysHighBitmask = 0;
+    this.midiKeyboardHeldKeysPhase = 0;
     this.moduleGroupRuntimes = new Map();
     this.modulationConnections = new Map();
     this.nodeOutputs = new Map();
@@ -3011,9 +3015,11 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     ));
   }
 
-  setMidiKeyboardHeldKeysBitmask(mask) {
-    const safeMask = Math.floor(Number(mask));
-    this.midiKeyboardHeldKeysBitmask = Number.isFinite(safeMask) && safeMask >= 0 ? safeMask : 0;
+  setMidiKeyboardHeldKeysBitmask(low, high) {
+    const safeLow = Math.floor(Number(low));
+    const safeHigh = Math.floor(Number(high));
+    this.midiKeyboardHeldKeysLowBitmask = Number.isFinite(safeLow) && safeLow >= 0 ? safeLow : 0;
+    this.midiKeyboardHeldKeysHighBitmask = Number.isFinite(safeHigh) && safeHigh >= 0 ? safeHigh : 0;
   }
 
   setPitchModWheelSignal(signal) {
@@ -6978,6 +6984,21 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
           : y;
         const gatePulse = this.midiKeyboardGatePulseSamples > 0 ? 1 : 0;
         this.midiKeyboardGatePulseSamples = Math.max(0, this.midiKeyboardGatePulseSamples - 1);
+        // Held Keys phase-bit multiplexing -- see the design note on
+        // nodeGraphMidiKeyboardHeldKeysTransmitValue in
+        // node-graph-view-controls.js (duplicated here since this worklet
+        // runs in a separate global scope and can't call that function).
+        // Bit 49 of the transmitted value is a self-describing phase flag:
+        // low half every sample (0-delay) unless the high half is
+        // actually in use, in which case this instance alternates one
+        // half per sample via a persistent phase counter.
+        let heldKeysTransmitValue = this.midiKeyboardHeldKeysLowBitmask || 0;
+        if (this.midiKeyboardHeldKeysHighBitmask) {
+          this.midiKeyboardHeldKeysPhase = this.midiKeyboardHeldKeysPhase ? 0 : 1;
+          if (this.midiKeyboardHeldKeysPhase) {
+            heldKeysTransmitValue = (2 ** 49) + this.midiKeyboardHeldKeysHighBitmask;
+          }
+        }
         return {
           "1 Sample Gate": hasInput(nodeId, "Gate") ? gate : gatePulse,
           "0.1V/Oct": this.clampValue(midi / 120, 0, 1),
@@ -6991,7 +7012,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
           Q: q,
           X: x,
           Y: velocity,
-          "Held Keys": this.midiKeyboardHeldKeysBitmask || 0,
+          "Held Keys": heldKeysTransmitValue,
         };
       },
       buttonEvents: () => ({

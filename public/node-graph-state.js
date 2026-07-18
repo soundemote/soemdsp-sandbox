@@ -55,6 +55,8 @@ var nodeGraphMvp = {
   hideMouseWhileDragging: true,
   midiKeyboardSignal: null,
   midiKeyboardAccess: null,
+  midiKeyboardHeldKeysLowBitmask: 0,
+  midiKeyboardHeldKeysHighBitmask: 0,
   midiKeyboardHeldNotes: new Map(),
   midiKeyboardInputId: "",
   midiKeyboardInputs: [],

@@ -1303,7 +1303,12 @@ function bindNodeGraphMacroControlModuleEvents() {
 
 const nodeGraphMidiKeyboardStartMidi = 24;
 const nodeGraphMidiKeyboardMinKeyCount = 8;
-const nodeGraphMidiKeyboardMaxKeyCount = 49;
+// 88 covers a full piano keyboard. A single wire value can't safely hold an
+// 88-bit mask (see the Held Keys bit-width note below), so key indices are
+// split across a "low" half (0-48, 49 bits) and a "high" half (49-87, up to
+// 39 bits), each independently within the 53-bit safe-integer ceiling.
+const nodeGraphMidiKeyboardMaxKeyCount = 88;
+const nodeGraphMidiKeyboardHeldKeysLowBitCount = 49;
 const nodeGraphMidiKeyboardWhitePitchClasses = Object.freeze([0, 2, 4, 5, 7, 9, 11]);
 const nodeGraphMidiKeyboardBlackPitchClasses = Object.freeze(new Set([1, 3, 6, 8, 10]));
 const nodeGraphMidiKeyboardSampleRate = 44100;
@@ -1391,13 +1396,19 @@ function renderNodeGraphMidiKeyboardKeys() {
 // key count itself changes. See docs/plan for the full design
 // discussion this came out of.
 //
-// Bit index can reach 48 (nodeGraphMidiKeyboardMaxKeyCount - 1), but
+// Bit index can reach 87 (nodeGraphMidiKeyboardMaxKeyCount - 1), but
 // JS's native bitwise operators (<<, |, &, >>>) coerce to 32-bit
 // integers -- silently wrong past bit 31 (e.g. `1 << 40` does not
 // compute 2^40, it wraps to `1 << 8` per the spec's shift-amount-mod-32
-// rule). A double can exactly represent integers up to 2^53 via
-// ordinary arithmetic, just not via the truncating bitwise ops, so bit
-// set/clear/test here use arithmetic instead.
+// rule). A double can exactly represent integers up to 2^53 via ordinary
+// arithmetic, just not via the truncating bitwise ops, so bit set/clear/
+// test here use arithmetic instead -- but that 53-bit ceiling is still a
+// real limit: a single JS Number cannot combine a low bit (e.g. index 0)
+// and a high bit (e.g. index 87) in the SAME value without silently
+// losing the low bit (float64 precision near 2^87 is +/-2^35, way
+// bigger than 1). So the 88-key range is stored as two independent
+// numbers -- low (bits 0-48) and high (bits 0-38, representing absolute
+// key index 49-87) -- never combined into one.
 function nodeGraphMidiKeyboardBitmaskHasBit(mask, index) {
   return Math.floor((Number(mask) || 0) / 2 ** index) % 2 === 1;
 }
@@ -1411,21 +1422,49 @@ function nodeGraphMidiKeyboardBitmaskSetBit(mask, index, on) {
   return on ? safeMask + 2 ** index : safeMask - 2 ** index;
 }
 
+// Routes an absolute key index (0..nodeGraphMidiKeyboardMaxKeyCount-1) to
+// which of the two storage numbers it lives in, and its bit position
+// within that number.
+function nodeGraphMidiKeyboardHeldKeyBitLocation(index) {
+  return index < nodeGraphMidiKeyboardHeldKeysLowBitCount
+    ? { half: "low", localIndex: index }
+    : { half: "high", localIndex: index - nodeGraphMidiKeyboardHeldKeysLowBitCount };
+}
+
+function nodeGraphMidiKeyboardHeldKeyBitIsSet(index, low = nodeGraphMvp.midiKeyboardHeldKeysLowBitmask, high = nodeGraphMvp.midiKeyboardHeldKeysHighBitmask) {
+  const location = nodeGraphMidiKeyboardHeldKeyBitLocation(index);
+  return nodeGraphMidiKeyboardBitmaskHasBit(location.half === "low" ? low : high, location.localIndex);
+}
+
+// Pure -- returns the updated {low, high} pair rather than mutating
+// nodeGraphMvp directly, so it composes with the rotate/transpose helpers
+// below (which build up a whole new pair bit-by-bit).
+function nodeGraphMidiKeyboardHeldKeysWithBit(low, high, index, on) {
+  const location = nodeGraphMidiKeyboardHeldKeyBitLocation(index);
+  return location.half === "low"
+    ? { low: nodeGraphMidiKeyboardBitmaskSetBit(low, location.localIndex, on), high }
+    : { low, high: nodeGraphMidiKeyboardBitmaskSetBit(high, location.localIndex, on) };
+}
+
 // Placeholder for ctrl+shift+click -- rotates the whole mask by one bit
 // position (wrap-around) within the current key count. Deliberately
 // simple/exploratory per explicit direction, not a finished feature;
 // revisit later.
-function nodeGraphMidiKeyboardBitmaskRotate(mask, keyCount) {
-  const safeMask = Number(mask) || 0;
+function nodeGraphMidiKeyboardBitmaskRotate(low, high, keyCount) {
   if (keyCount <= 1) {
-    return safeMask;
+    return { low, high };
   }
-  const topBit = nodeGraphMidiKeyboardBitmaskHasBit(safeMask, keyCount - 1);
-  let rotated = (safeMask % 2 ** (keyCount - 1)) * 2;
-  if (topBit) {
-    rotated += 1;
+  const topBit = nodeGraphMidiKeyboardHeldKeyBitIsSet(keyCount - 1, low, high);
+  let rotated = { low: 0, high: 0 };
+  for (let index = keyCount - 1; index > 0; index -= 1) {
+    rotated = nodeGraphMidiKeyboardHeldKeysWithBit(
+      rotated.low,
+      rotated.high,
+      index,
+      nodeGraphMidiKeyboardHeldKeyBitIsSet(index - 1, low, high),
+    );
   }
-  return rotated;
+  return nodeGraphMidiKeyboardHeldKeysWithBit(rotated.low, rotated.high, 0, topBit);
 }
 
 // Placeholder for shift+alt+click -- distinct from ctrl+shift+click's
@@ -1435,27 +1474,29 @@ function nodeGraphMidiKeyboardBitmaskRotate(mask, keyCount) {
 // so it reshapes a held chord rather than just spinning it. Bits that
 // land past the current key count wrap back around. Deliberately
 // simple/exploratory, same spirit as the rotate placeholder above.
-function nodeGraphMidiKeyboardBitmaskTranspose(mask, keyCount, interval) {
-  const safeMask = Number(mask) || 0;
+function nodeGraphMidiKeyboardBitmaskTranspose(low, high, keyCount, interval) {
   if (keyCount <= 1) {
-    return safeMask;
+    return { low, high };
   }
-  let transposed = 0;
+  let transposed = { low: 0, high: 0 };
   for (let index = 0; index < keyCount; index += 1) {
-    if (nodeGraphMidiKeyboardBitmaskHasBit(safeMask, index)) {
+    if (nodeGraphMidiKeyboardHeldKeyBitIsSet(index, low, high)) {
       const target = ((index + interval) % keyCount + keyCount) % keyCount;
-      transposed = nodeGraphMidiKeyboardBitmaskSetBit(transposed, target, true);
+      transposed = nodeGraphMidiKeyboardHeldKeysWithBit(transposed.low, transposed.high, target, true);
     }
   }
   return transposed;
 }
 
 function nodeGraphMidiKeyboardToggleHeldKeyBit(index) {
-  nodeGraphMvp.midiKeyboardHeldKeysBitmask = nodeGraphMidiKeyboardBitmaskSetBit(
-    nodeGraphMvp.midiKeyboardHeldKeysBitmask,
+  const { low, high } = nodeGraphMidiKeyboardHeldKeysWithBit(
+    nodeGraphMvp.midiKeyboardHeldKeysLowBitmask,
+    nodeGraphMvp.midiKeyboardHeldKeysHighBitmask,
     index,
-    !nodeGraphMidiKeyboardBitmaskHasBit(nodeGraphMvp.midiKeyboardHeldKeysBitmask, index),
+    !nodeGraphMidiKeyboardHeldKeyBitIsSet(index),
   );
+  nodeGraphMvp.midiKeyboardHeldKeysLowBitmask = low;
+  nodeGraphMvp.midiKeyboardHeldKeysHighBitmask = high;
   renderNodeGraphMidiKeyboardHeldKeys();
   saveNodeGraphMidiKeyboardMemory();
   if (typeof sendNodeGraphLiveMidiKeyboardHeldKeysBitmask === "function") {
@@ -1464,30 +1505,60 @@ function nodeGraphMidiKeyboardToggleHeldKeyBit(index) {
 }
 
 function renderNodeGraphMidiKeyboardHeldKeys() {
-  const mask = nodeGraphMvp.midiKeyboardHeldKeysBitmask;
   document.querySelectorAll(".node-midi-keyboard-module [data-key-index]").forEach((key) => {
     const index = Number(key.dataset.keyIndex);
-    key.classList.toggle("held", nodeGraphMidiKeyboardBitmaskHasBit(mask, index));
+    key.classList.toggle("held", nodeGraphMidiKeyboardHeldKeyBitIsSet(index));
   });
   renderNodeGraphMidiKeyboardBitmaskDisplay();
 }
 
-// Doubles exactly represent integers up to 2^53 (see the bit-width note
-// on nodeGraphMidiKeyboardBitmaskHasBit above) -- shown here as the full
-// 53-square readout, not just the current key count, so the bitmask's
-// actual available range stays visible even at a smaller key count.
-const nodeGraphMidiKeyboardBitmaskDisplayBitCount = 53;
+// One square per key, across the full key range (not a fixed 53 -- the
+// old single-number storage capped the display at its own safe-integer
+// ceiling, but that ceiling doesn't apply the same way to the low/high
+// pair, so the display now just tracks the real key range).
+function nodeGraphMidiKeyboardBitmaskDisplayBitCount() {
+  return nodeGraphMidiKeyboardMaxKeyCount;
+}
 
-function nodeGraphMidiKeyboardBitmaskEmoji(mask) {
+// Phase-bit multiplexing for the "Held Keys" wire: a single wire is one
+// JS Number, safe up to 2^53-1, but the full held-keys state can span 88
+// bits. Rather than a second wire, the SAME wire carries the low half
+// (bits 0-48) every sample by default -- true 0-sample-delay as long as
+// nothing above key 48 is held -- and only starts alternating between
+// the low and high half, one per sample, once the high half is actually
+// in use. Bit 49 (nodeGraphMidiKeyboardHeldKeysLowBitCount) of the
+// TRANSMITTED value is a self-describing phase flag: any receiver can
+// decode a single sample in isolation (no shared state / sample-count
+// assumptions needed) as "value < 2^49 -> this is the low half" or
+// "value >= 2^49 -> subtract 2^49, this is the high half", then latch
+// each half into its own register and combine them for the real 88-bit
+// state. Worst-case update latency for any one bit is 1 sample, and only
+// while the high half is actively in use.
+const nodeGraphMidiKeyboardHeldKeysPhaseValue = 2 ** nodeGraphMidiKeyboardHeldKeysLowBitCount;
+
+function nodeGraphMidiKeyboardHeldKeysTransmitValue(low, high, phase) {
+  const safeHigh = Number(high) || 0;
+  if (!safeHigh) {
+    return Number(low) || 0;
+  }
+  return phase
+    ? nodeGraphMidiKeyboardHeldKeysPhaseValue + safeHigh
+    : Number(low) || 0;
+}
+
+function nodeGraphMidiKeyboardBitmaskEmoji(low, high) {
   let out = "";
-  for (let index = 0; index < nodeGraphMidiKeyboardBitmaskDisplayBitCount; index += 1) {
-    out += nodeGraphMidiKeyboardBitmaskHasBit(mask, index) ? "⬛" : "⬜";
+  for (let index = 0; index < nodeGraphMidiKeyboardBitmaskDisplayBitCount(); index += 1) {
+    out += nodeGraphMidiKeyboardHeldKeyBitIsSet(index, low, high) ? "⬛" : "⬜";
   }
   return out;
 }
 
 function renderNodeGraphMidiKeyboardBitmaskDisplay() {
-  const text = nodeGraphMidiKeyboardBitmaskEmoji(nodeGraphMvp.midiKeyboardHeldKeysBitmask);
+  const text = nodeGraphMidiKeyboardBitmaskEmoji(
+    nodeGraphMvp.midiKeyboardHeldKeysLowBitmask,
+    nodeGraphMvp.midiKeyboardHeldKeysHighBitmask,
+  );
   document.querySelectorAll("[data-midi-keyboard-bitmask-value]").forEach((el) => {
     el.textContent = text;
   });
@@ -1556,14 +1627,15 @@ function normalizeNodeGraphMidiKeyboardMemorySignal(signal, options = {}) {
   };
 }
 
-function nodeGraphMidiKeyboardHeldKeysBitmaskValue(value = nodeGraphMvp.midiKeyboardHeldKeysBitmask) {
+function nodeGraphMidiKeyboardHeldKeysBitmaskValue(value) {
   const mask = Math.floor(Number(value));
   return Number.isFinite(mask) && mask >= 0 ? mask : 0;
 }
 
 function nodeGraphMidiKeyboardMemoryPayload() {
   return {
-    heldKeysBitmask: nodeGraphMidiKeyboardHeldKeysBitmaskValue(),
+    heldKeysLowBitmask: nodeGraphMidiKeyboardHeldKeysBitmaskValue(nodeGraphMvp.midiKeyboardHeldKeysLowBitmask),
+    heldKeysHighBitmask: nodeGraphMidiKeyboardHeldKeysBitmaskValue(nodeGraphMvp.midiKeyboardHeldKeysHighBitmask),
     inputId: nodeGraphMvp.midiKeyboardInputId || "",
     keyCount: nodeGraphMidiKeyboardKeyCount(),
     mode: nodeGraphMidiKeyboardMode(),
@@ -1597,7 +1669,8 @@ function loadNodeGraphMidiKeyboardMemory() {
       return null;
     }
     return {
-      heldKeysBitmask: nodeGraphMidiKeyboardHeldKeysBitmaskValue(payload.heldKeysBitmask),
+      heldKeysLowBitmask: nodeGraphMidiKeyboardHeldKeysBitmaskValue(payload.heldKeysLowBitmask),
+      heldKeysHighBitmask: nodeGraphMidiKeyboardHeldKeysBitmaskValue(payload.heldKeysHighBitmask),
       inputId: String(payload.inputId || ""),
       keyCount: nodeGraphMidiKeyboardKeyCount(payload.keyCount),
       mode: nodeGraphMidiKeyboardMode(payload.mode),
@@ -1617,7 +1690,8 @@ function applyNodeGraphMidiKeyboardMemory() {
   if (!memory) {
     return false;
   }
-  nodeGraphMvp.midiKeyboardHeldKeysBitmask = memory.heldKeysBitmask;
+  nodeGraphMvp.midiKeyboardHeldKeysLowBitmask = memory.heldKeysLowBitmask;
+  nodeGraphMvp.midiKeyboardHeldKeysHighBitmask = memory.heldKeysHighBitmask;
   nodeGraphMvp.midiKeyboardInputId = memory.inputId;
   nodeGraphMvp.midiKeyboardKeyCount = memory.keyCount;
   nodeGraphMvp.midiKeyboardMode = memory.mode;
@@ -2069,10 +2143,13 @@ function updateNodeGraphMidiKeyboardSignal(event) {
       const index = Number(target.dataset.keyIndex);
       const keyCount = nodeGraphMidiKeyboardKeyCount();
       if (event.shiftKey) {
-        nodeGraphMvp.midiKeyboardHeldKeysBitmask = nodeGraphMidiKeyboardBitmaskRotate(
-          nodeGraphMvp.midiKeyboardHeldKeysBitmask,
+        const rotated = nodeGraphMidiKeyboardBitmaskRotate(
+          nodeGraphMvp.midiKeyboardHeldKeysLowBitmask,
+          nodeGraphMvp.midiKeyboardHeldKeysHighBitmask,
           keyCount,
         );
+        nodeGraphMvp.midiKeyboardHeldKeysLowBitmask = rotated.low;
+        nodeGraphMvp.midiKeyboardHeldKeysHighBitmask = rotated.high;
         renderNodeGraphMidiKeyboardHeldKeys();
         saveNodeGraphMidiKeyboardMemory();
         if (typeof sendNodeGraphLiveMidiKeyboardHeldKeysBitmask === "function") {
@@ -2095,7 +2172,7 @@ function updateNodeGraphMidiKeyboardSignal(event) {
     const target = event.target?.closest?.("[data-key-index]");
     if (target && surface.contains(target)) {
       const index = Number(target.dataset.keyIndex);
-      if (nodeGraphMidiKeyboardBitmaskHasBit(nodeGraphMvp.midiKeyboardHeldKeysBitmask, index)) {
+      if (nodeGraphMidiKeyboardHeldKeyBitIsSet(index)) {
         nodeGraphMidiKeyboardToggleHeldKeyBit(index);
         event.preventDefault();
         return;
@@ -2126,11 +2203,14 @@ function updateNodeGraphMidiKeyboardSignal(event) {
   // alt) still falls through unchanged to that existing behavior.
   if (event.type === "pointerdown" && event.shiftKey && event.altKey && !event.ctrlKey) {
     const keyCount = nodeGraphMidiKeyboardKeyCount();
-    nodeGraphMvp.midiKeyboardHeldKeysBitmask = nodeGraphMidiKeyboardBitmaskTranspose(
-      nodeGraphMvp.midiKeyboardHeldKeysBitmask,
+    const transposed = nodeGraphMidiKeyboardBitmaskTranspose(
+      nodeGraphMvp.midiKeyboardHeldKeysLowBitmask,
+      nodeGraphMvp.midiKeyboardHeldKeysHighBitmask,
       keyCount,
       7,
     );
+    nodeGraphMvp.midiKeyboardHeldKeysLowBitmask = transposed.low;
+    nodeGraphMvp.midiKeyboardHeldKeysHighBitmask = transposed.high;
     renderNodeGraphMidiKeyboardHeldKeys();
     saveNodeGraphMidiKeyboardMemory();
     if (typeof sendNodeGraphLiveMidiKeyboardHeldKeysBitmask === "function") {

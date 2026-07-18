@@ -55,6 +55,10 @@ nodeGraphLiveModuleEvaluators.keyboardController = ({ runtime, nodeId, frame, fr
     Q: q,
     X: x,
     Y: velocity,
-    "Held Keys": Number(nodeGraphMvp?.midiKeyboardHeldKeysBitmask) || 0,
+    "Held Keys": nodeGraphMidiKeyboardHeldKeysTransmitValue(
+      nodeGraphMvp?.midiKeyboardHeldKeysLowBitmask,
+      nodeGraphMvp?.midiKeyboardHeldKeysHighBitmask,
+      frame % 2,
+    ),
   };
 };
