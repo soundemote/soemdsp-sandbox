@@ -614,7 +614,12 @@ function renderNodeGraphTooltipToggle() {
     help.textContent = "";
   }
   if (button) {
-    button.textContent = visible ? "Hide Tips" : "Show Tips";
+    const label = button.querySelector("span");
+    if (label) {
+      label.textContent = visible ? "Hide Tips" : "Show Tips";
+    } else {
+      button.textContent = visible ? "Hide Tips" : "Show Tips";
+    }
     button.setAttribute("aria-pressed", visible ? "true" : "false");
     button.removeAttribute("title");
   }
