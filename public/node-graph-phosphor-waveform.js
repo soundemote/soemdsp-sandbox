@@ -13,6 +13,150 @@ const nodeGraphPhosphorWaveformViewStates = new Map();
 // grid threshold below — "zoomed all the way in" should reliably reach it.
 const nodeGraphPhosphorWaveformMinWindowFrames = 6;
 
+// Right-click "waveform display options" -- time window (seconds shown at
+// once) and scroll mode (does the view auto-follow the playhead, and how).
+// Persisted per-node on the patch (node.phosphorWaveformSettings), same
+// spot traceDisplaySettings lives for the trace/scope family -- see
+// cloneNodeGraphTypedDisplaySettings in node-graph-patch-clone.js and its
+// call site in node-graph-patch-core.js's validateNodeGraphPatch.
+const nodeGraphPhosphorWaveformDefaultSettings = Object.freeze({
+  scrollMode: "smooth",
+  timeWindowSeconds: 2,
+});
+
+function normalizeNodeGraphPhosphorWaveformSettings(settings = {}) {
+  const source = settings && typeof settings === "object" ? settings : {};
+  const timeWindowSeconds = Number(source.timeWindowSeconds);
+  return {
+    scrollMode: source.scrollMode === "snap" ? "snap" : "smooth",
+    timeWindowSeconds: Number.isFinite(timeWindowSeconds) && timeWindowSeconds > 0
+      ? Math.max(0.05, Math.min(60, timeWindowSeconds))
+      : nodeGraphPhosphorWaveformDefaultSettings.timeWindowSeconds,
+  };
+}
+
+function nodeGraphPhosphorWaveformSettingsForNode(nodeId) {
+  const node = nodeGraphPatchNode(nodeId);
+  return normalizeNodeGraphPhosphorWaveformSettings(node?.phosphorWaveformSettings);
+}
+
+// Auto-scroll pauses for a moment after the user manually wheel-zooms or
+// drags the display, so it doesn't immediately yank the view back out from
+// under their hands -- refreshed on every zoom/pan call, so a held drag
+// keeps postponing it continuously.
+const nodeGraphPhosphorWaveformLastInteraction = new Map();
+const nodeGraphPhosphorWaveformAutoScrollPauseMs = 800;
+
+function nodeGraphPhosphorWaveformMarkInteraction(nodeId) {
+  nodeGraphPhosphorWaveformLastInteraction.set(nodeId, Date.now());
+}
+
+// Right-click "waveform display options" window -- deliberately a fully
+// independent floating window (own drag state, own position, no
+// persistence), NOT part of the shared-inspector displacement system that
+// metadata/module-actions/trace-display-settings use to auto-close each
+// other -- opening this must never close anything else, and nothing else
+// should close it either.
+function renderNodeGraphPhosphorWaveformSettingsWindow() {
+  const nodeId = nodeGraphMvp.phosphorWaveformSettingsTargetNode;
+  const win = document.getElementById("nodePhosphorWaveformSettingsWindow");
+  if (!win || !nodeId) {
+    return;
+  }
+  const settings = nodeGraphPhosphorWaveformSettingsForNode(nodeId);
+  const input = document.getElementById("nodePhosphorWaveformTimeWindowInput");
+  if (input && document.activeElement !== input) {
+    input.value = String(settings.timeWindowSeconds);
+  }
+  const smoothButton = document.getElementById("nodePhosphorWaveformScrollSmoothButton");
+  const snapButton = document.getElementById("nodePhosphorWaveformScrollSnapButton");
+  if (smoothButton) {
+    const active = settings.scrollMode === "smooth";
+    smoothButton.classList.toggle("active", active);
+    smoothButton.setAttribute("aria-pressed", String(active));
+  }
+  if (snapButton) {
+    const active = settings.scrollMode === "snap";
+    snapButton.classList.toggle("active", active);
+    snapButton.setAttribute("aria-pressed", String(active));
+  }
+}
+
+function positionNodeGraphPhosphorWaveformSettingsAt(x, y) {
+  const win = document.getElementById("nodePhosphorWaveformSettingsWindow");
+  if (!win) {
+    return;
+  }
+  win.hidden = false;
+  const { left, top } = nodeGraphFloatingWindowPosition(win, x, y);
+  setNodeGraphFloatingWindowViewportPosition(win, left, top);
+}
+
+function openNodeGraphPhosphorWaveformSettings(nodeId, event) {
+  if (!nodeGraphPatchNode(nodeId)) {
+    return false;
+  }
+  nodeGraphMvp.phosphorWaveformSettingsTargetNode = nodeId;
+  renderNodeGraphPhosphorWaveformSettingsWindow();
+  positionNodeGraphPhosphorWaveformSettingsAt(
+    Number.isFinite(Number(event?.clientX)) ? event.clientX : window.innerWidth / 2,
+    Number.isFinite(Number(event?.clientY)) ? event.clientY : window.innerHeight / 2,
+  );
+  return true;
+}
+
+function closeNodeGraphPhosphorWaveformSettings() {
+  const win = document.getElementById("nodePhosphorWaveformSettingsWindow");
+  if (win) {
+    win.hidden = true;
+  }
+  nodeGraphMvp.phosphorWaveformSettingsTargetNode = null;
+}
+
+function updateNodeGraphPhosphorWaveformSettings(patch) {
+  const nodeId = nodeGraphMvp.phosphorWaveformSettingsTargetNode;
+  if (!nodeId) {
+    return;
+  }
+  const clonedPatch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+  const targetNode = clonedPatch.nodes.find((node) => node.id === nodeId);
+  if (!targetNode) {
+    return;
+  }
+  const current = normalizeNodeGraphPhosphorWaveformSettings(targetNode.phosphorWaveformSettings);
+  targetNode.phosphorWaveformSettings = normalizeNodeGraphPhosphorWaveformSettings({ ...current, ...patch });
+  commitNodeGraphPatch(clonedPatch, { status: "waveform display options changed" });
+  renderNodeGraphPhosphorWaveformSettingsWindow();
+}
+
+function handleNodeGraphPhosphorWaveformTimeWindowChange(event) {
+  const value = Number(event.target.value);
+  if (!Number.isFinite(value) || value <= 0) {
+    return;
+  }
+  updateNodeGraphPhosphorWaveformSettings({ timeWindowSeconds: value });
+}
+
+function setNodeGraphPhosphorWaveformScrollMode(mode) {
+  updateNodeGraphPhosphorWaveformSettings({ scrollMode: mode === "snap" ? "snap" : "smooth" });
+}
+
+function beginNodeGraphPhosphorWaveformSettingsDrag(event) {
+  const win = document.getElementById("nodePhosphorWaveformSettingsWindow");
+  if (!win || win.hidden) {
+    return;
+  }
+  beginNodeGraphFloatingWindowDrag(event, win, "phosphorWaveformSettingsDragging");
+}
+
+function dragNodeGraphPhosphorWaveformSettings(event) {
+  dragNodeGraphFloatingWindow(event, "phosphorWaveformSettingsDragging", document.getElementById("nodePhosphorWaveformSettingsWindow"));
+}
+
+function endNodeGraphPhosphorWaveformSettingsDrag(event) {
+  endNodeGraphFloatingWindowDrag(event, "phosphorWaveformSettingsDragging");
+}
+
 function nodeGraphPhosphorWaveformViewState(nodeId, frames) {
   const safeFrames = Math.max(1, Math.round(Number(frames) || 1));
   let state = nodeGraphPhosphorWaveformViewStates.get(nodeId);
@@ -58,6 +202,7 @@ function nodeGraphPhosphorWaveformZoomAt(section, canvas, clientX, factor) {
   state.startFrame = anchorFrame - ratio * newWidth;
   state.endFrame = state.startFrame + newWidth;
   nodeGraphPhosphorWaveformClampWindow(state);
+  nodeGraphPhosphorWaveformMarkInteraction(section.dataset.node);
   drawNodeGraphPhosphorWaveformDisplay(section);
 }
 
@@ -71,6 +216,7 @@ function nodeGraphPhosphorWaveformPanBy(section, deltaPixels, canvasWidth) {
   state.startFrame -= deltaPixels * framesPerPixel;
   state.endFrame -= deltaPixels * framesPerPixel;
   nodeGraphPhosphorWaveformClampWindow(state);
+  nodeGraphPhosphorWaveformMarkInteraction(section.dataset.node);
   drawNodeGraphPhosphorWaveformDisplay(section);
 }
 
@@ -237,6 +383,36 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   }
 
   const state = nodeGraphPhosphorWaveformViewState(nodeId, entry.frames);
+  const phase = typeof nodeGraphSamplePhaseForNode === "function" ? nodeGraphSamplePhaseForNode(nodeId) : 0;
+  const playheadFrame = phase * entry.frames;
+  const settings = nodeGraphPhosphorWaveformSettingsForNode(nodeId);
+  const lastInteraction = nodeGraphPhosphorWaveformLastInteraction.get(nodeId) || 0;
+  const autoScrollPaused = Date.now() - lastInteraction < nodeGraphPhosphorWaveformAutoScrollPauseMs;
+  if (!autoScrollPaused) {
+    const windowFrames = Math.max(
+      nodeGraphPhosphorWaveformMinWindowFrames,
+      Math.min(entry.frames, settings.timeWindowSeconds * (entry.sampleRate || 44100)),
+    );
+    if (settings.scrollMode === "smooth") {
+      // Keep the playhead centered every frame -- continuous, gradual
+      // motion since it only moves as far as phase advanced since the
+      // last animation frame.
+      state.startFrame = playheadFrame - windowFrames / 2;
+      state.endFrame = state.startFrame + windowFrames;
+    } else {
+      // "snap": only jump when the playhead has left the current page, or
+      // the window width no longer matches the configured time window
+      // (e.g. right after changing it) -- lands on the page-aligned
+      // window containing the playhead, no interpolation.
+      const currentWidth = state.endFrame - state.startFrame;
+      const outOfBounds = playheadFrame < state.startFrame || playheadFrame > state.endFrame;
+      if (outOfBounds || Math.round(currentWidth) !== Math.round(windowFrames)) {
+        const page = Math.floor(playheadFrame / windowFrames);
+        state.startFrame = page * windowFrames;
+        state.endFrame = state.startFrame + windowFrames;
+      }
+    }
+  }
   nodeGraphPhosphorWaveformClampWindow(state);
   const columns = width;
   const minMax = nodeGraphPhosphorWaveformMinMaxColumns(entry.samples, state.startFrame, state.endFrame, columns);
@@ -302,9 +478,8 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   drawEnvelope(false);
   context.shadowBlur = 0;
 
-  // Playhead.
-  const phase = typeof nodeGraphSamplePhaseForNode === "function" ? nodeGraphSamplePhaseForNode(nodeId) : 0;
-  const playheadFrame = phase * entry.frames;
+  // Playhead (phase/playheadFrame computed earlier, ahead of the
+  // auto-scroll decision above).
   if (playheadFrame >= state.startFrame && playheadFrame <= state.endFrame) {
     const x = crisp(frameToX(playheadFrame));
     context.shadowBlur = 6 * pixelRatio;

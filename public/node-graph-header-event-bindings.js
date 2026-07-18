@@ -60,6 +60,22 @@ function bindNodeGraphHeaderControlEvents() {
   document.addEventListener("pointerup", endNodeGraphTooltipWindowResize);
   document.addEventListener("pointercancel", endNodeGraphTooltipWindowDrag);
   document.addEventListener("pointercancel", endNodeGraphTooltipWindowResize);
+  document.getElementById("nodePhosphorWaveformSettingsClose")?.addEventListener("click", closeNodeGraphPhosphorWaveformSettings);
+  document
+    .getElementById("nodePhosphorWaveformSettingsDragHandle")
+    ?.addEventListener("pointerdown", beginNodeGraphPhosphorWaveformSettingsDrag);
+  document.addEventListener("pointermove", dragNodeGraphPhosphorWaveformSettings);
+  document.addEventListener("pointerup", endNodeGraphPhosphorWaveformSettingsDrag);
+  document.addEventListener("pointercancel", endNodeGraphPhosphorWaveformSettingsDrag);
+  document
+    .getElementById("nodePhosphorWaveformTimeWindowInput")
+    ?.addEventListener("change", handleNodeGraphPhosphorWaveformTimeWindowChange);
+  document
+    .getElementById("nodePhosphorWaveformScrollSmoothButton")
+    ?.addEventListener("click", () => setNodeGraphPhosphorWaveformScrollMode("smooth"));
+  document
+    .getElementById("nodePhosphorWaveformScrollSnapButton")
+    ?.addEventListener("click", () => setNodeGraphPhosphorWaveformScrollMode("snap"));
   document.getElementById("nodeGridToggleButton").addEventListener("click", toggleNodeGraphGridVisibility);
   document.getElementById("nodeVideoViewButton")?.addEventListener("click", toggleNodeGraphVideoView);
   document.getElementById("nodeMappingViewButton")?.addEventListener("click", () => setNodeGraphViewMode("mapping"));

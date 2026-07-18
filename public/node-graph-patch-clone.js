@@ -318,6 +318,9 @@ function cloneNodeGraphPatch(patch) {
         ...((node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer") && normalizeNodeGraphSampleId(node.sample?.id)
           ? { sample: { id: normalizeNodeGraphSampleId(node.sample?.id) } }
           : {}),
+        ...(node.type === "audioPlayer" && Object.hasOwn(node, "phosphorWaveformSettings")
+          ? { phosphorWaveformSettings: normalizeNodeGraphPhosphorWaveformSettings(node.phosphorWaveformSettings) }
+          : {}),
         paramMeta: normalizeNodeGraphParamMetaForNode(node.type, node.paramMeta),
         ...(Object.keys(normalizeNodeGraphPatchPortMeta(node.portMeta)).length
           ? { portMeta: normalizeNodeGraphPatchPortMeta(node.portMeta) }

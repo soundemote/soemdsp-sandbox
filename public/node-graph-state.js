@@ -124,6 +124,8 @@ var nodeGraphMvp = {
   moduleActionResizing: null,
   moduleActionWindowSize: null,
   moduleActionWindowPosition: null,
+  phosphorWaveformSettingsDragging: null,
+  phosphorWaveformSettingsTargetNode: null,
   moduleCatalogVisibility: defaultNodeGraphModuleCatalogVisibility(),
   workspaceWindowStates: {},
   keyboardDebugInfoVisible: false,

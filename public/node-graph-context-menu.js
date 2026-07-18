@@ -1546,10 +1546,32 @@ function openNodeScopeContextMenu(event) {
   return true;
 }
 
+// Right-click on the Music Player's waveform display -- deliberately does
+// NOT call closeNodeSceneContextMenu() or touch any other floating window.
+// The waveform settings window is fully independent, not part of the
+// shared-inspector displacement dance (metadata/module-actions/trace
+// settings auto-closing each other) -- opening it must never make another
+// window disappear.
+function openNodePhosphorWaveformContextMenu(event) {
+  const display = event.target.closest?.(".node-phosphor-waveform-display");
+  const nodeId = display?.dataset?.node || "";
+  if (!nodeId || !nodeGraphPatchNode(nodeId)) {
+    return false;
+  }
+  if (typeof openNodeGraphPhosphorWaveformSettings !== "function") {
+    return false;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  openNodeGraphPhosphorWaveformSettings(nodeId, event);
+  return true;
+}
+
 const nodeGraphWorkspaceInteractiveDialogSelector =
   "input, textarea, select, option, [contenteditable='true'], " +
   "#nodeSceneContextMenu, #nodeParameterMetadataPopover, #nodeGlobalScopeMenu, " +
-  "#nodeModuleActionsWindow, #nodeShaderScriptDialog, #nodeCanvasScriptDialog, #nodeSavedPatchesWindow";
+  "#nodeModuleActionsWindow, #nodeShaderScriptDialog, #nodeCanvasScriptDialog, #nodeSavedPatchesWindow, " +
+  "#nodePhosphorWaveformSettingsWindow";
 const nodeGraphWorkspaceOccupiedElementSelector =
   ".node-wire-hit-path, .node-wire-path, .dsp-node, .node-port, .node-param-port, .node-slider-readout";
 
@@ -1579,6 +1601,9 @@ function openNodeSceneContextMenu(event) {
     return;
   }
   if (openNodeScopeContextMenu(event)) {
+    return;
+  }
+  if (openNodePhosphorWaveformContextMenu(event)) {
     return;
   }
   const contextMenuClientPoint = rememberNodeGraphContextMenuClientPoint(event);

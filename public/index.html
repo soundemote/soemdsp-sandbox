@@ -352,6 +352,42 @@
           aria-label="Resize tips"></button>
       </div>
 
+      <div
+        id="nodePhosphorWaveformSettingsWindow"
+        class="node-phosphor-waveform-settings-window"
+        role="dialog"
+        aria-label="Waveform display options"
+        hidden>
+        <div class="scene-context-heading">
+          <button
+            id="nodePhosphorWaveformSettingsDragHandle"
+            class="scene-context-drag-handle"
+            type="button"
+            aria-label="Move waveform display options">&#x2725;</button>
+          <div class="scene-context-title">
+            <span>Waveform</span>
+            <small>display options</small>
+          </div>
+          <button
+            id="nodePhosphorWaveformSettingsClose"
+            class="panel-close-button"
+            type="button"
+            aria-label="Close waveform display options">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <label class="node-phosphor-waveform-settings-row">
+          <span>Time Window</span>
+          <input id="nodePhosphorWaveformTimeWindowInput" type="number" inputmode="decimal" step="0.05" min="0.05" max="60" autocomplete="off">
+          <span>s</span>
+        </label>
+        <div class="node-phosphor-waveform-settings-row" role="group" aria-label="Scroll mode">
+          <span>Scroll</span>
+          <button id="nodePhosphorWaveformScrollSmoothButton" type="button" data-scroll-mode="smooth" aria-pressed="true">Smooth</button>
+          <button id="nodePhosphorWaveformScrollSnapButton" type="button" data-scroll-mode="snap" aria-pressed="false">Snap</button>
+        </div>
+      </div>
+
       <div class="node-help-stack">
         <div class="node-constraint-color-guide" aria-label="Resource constraint color guide">
           <span class="node-constraint-stack" data-constraint-stack="cpu">
