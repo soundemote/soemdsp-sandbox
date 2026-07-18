@@ -191,14 +191,30 @@ function nodeGraphPhosphorWaveformSampleEntry(nodeId) {
 }
 
 function nodeGraphPhosphorWaveformZoomAt(section, canvas, clientX, factor) {
-  const entry = nodeGraphPhosphorWaveformSampleEntry(section.dataset.node);
+  const nodeId = section.dataset.node;
+  const entry = nodeGraphPhosphorWaveformSampleEntry(nodeId);
   if (!entry) {
     return;
   }
-  const state = nodeGraphPhosphorWaveformViewState(section.dataset.node, entry.frames);
+  const state = nodeGraphPhosphorWaveformViewState(nodeId, entry.frames);
+  // Smooth-scroll mode continuously re-centers the view on the playhead
+  // every auto-scroll frame -- if a manual zoom anchored to the mouse
+  // cursor instead, the very next auto-scroll frame after the interaction
+  // pause would visibly jump the view to re-center on the playhead. Anchor
+  // to the playhead here too so zooming in smooth mode feels like zooming
+  // into the scroll line itself, with no jump once auto-scroll resumes.
+  // Snap mode (and "no sample position yet") keep the normal
+  // cursor-anchored zoom.
+  const settings = nodeGraphPhosphorWaveformSettingsForNode(nodeId);
+  const phase = typeof nodeGraphSamplePhaseForNode === "function" ? nodeGraphSamplePhaseForNode(nodeId) : 0;
+  const useSmoothAnchor = settings.scrollMode === "smooth";
   const rect = canvas.getBoundingClientRect();
-  const ratio = rect.width > 0 ? clampNodeSliderValue((clientX - rect.left) / rect.width, 0, 1) : 0.5;
-  const anchorFrame = state.startFrame + ratio * (state.endFrame - state.startFrame);
+  const ratio = useSmoothAnchor
+    ? 0.5
+    : (rect.width > 0 ? clampNodeSliderValue((clientX - rect.left) / rect.width, 0, 1) : 0.5);
+  const anchorFrame = useSmoothAnchor
+    ? phase * entry.frames
+    : state.startFrame + ratio * (state.endFrame - state.startFrame);
   const width = state.endFrame - state.startFrame;
   const newWidth = Math.max(
     nodeGraphPhosphorWaveformMinWindowFrames,
