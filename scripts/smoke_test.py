@@ -10027,7 +10027,7 @@ def require_node_graph_mvp_contract() -> None:
         "\"🔊Sample\"",
         "\"⏳Grains\"",
         "\"⛪Space\"",
-        "\"⌚Clock\"",
+        "\"⌚Time\"",
         "\"🚥LED\"",
         "\"🌈RGB\"",
         "\"📺Oscilloscope\"",
@@ -13197,7 +13197,7 @@ def require_node_graph_mvp_contract() -> None:
     )
     require('category: "Sequence"' in module_store_source, "Transport and timing modules should still be authored as Sequence before display-category normalization")
     require('category: "Sequencer"' not in module_store_source, "module browser catalog should not use Sequencer category")
-    require('"⌚Clock",' in module_store_source and 'Sequence: "⌚Clock"' in module_store_source, "Sequence should display as ⌚Clock")
+    require('"⌚Time",' in module_store_source and 'Sequence: "⌚Time"' in module_store_source, "Sequence should display as ⌚Time")
     require('Delay: "⛪Space"' in module_store_source, "Delay should display as ⛪Space")
     require('"Game Triggers": "♟️Game Trigger"' in module_store_source, "Game Triggers should display inside ♟️Game Trigger")
     department_list_source = module_store_source[
@@ -13241,7 +13241,7 @@ def require_node_graph_mvp_contract() -> None:
     require('codeblock: {\n    category: "Digital"' in module_store_source, "Codeblock should live in Digital")
     require('scriptBox: {\n    category: "Digital"' in module_store_source, "Script Box should live in Digital")
     require('canvas: {\n    category: "Digital"' in module_store_source, "Canvas should live in Digital")
-    require('bitConverter: {\n    category: "Digital"' in module_store_source and 'label: "AD/DA Converter"' in module_store_source, "AD/DA Converter should live in Digital")
+    require('bitConverter: {\n    category: "Digital"' in module_store_source and 'label: "BitConverter"' in module_store_source, "BitConverter should live in Digital")
     require('traceDisplay: {\n    category: "Oscilloscope"' in module_store_source, "Trace Display should author as Oscilloscope before display-category normalization")
     require("dotOscilloscope: {" in module_store_source and 'label: "0D Burn"' in module_store_source, "0D Burn oscilloscope should exist")
     require("valueOscilloscope: {" in module_store_source and 'label: "0D Value"' in module_store_source, "0D Value oscilloscope should exist")

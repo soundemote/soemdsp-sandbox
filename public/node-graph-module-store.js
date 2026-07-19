@@ -42,7 +42,7 @@ const nodeGraphModuleStoreDepartments = Object.freeze([
   "🔊Sample",
   "⏳Grains",
   "⛪Space",
-  "⌚Clock",
+  "⌚Time",
   "🚥LED",
   "🌈RGB",
   "📺Oscilloscope",
@@ -64,7 +64,7 @@ const nodeGraphModuleStoreVisualGroupByDepartment = Object.freeze(
 );
 
 const nodeGraphModuleStoreDepartmentAliases = Object.freeze({
-  Arpeggiator: "⌚Clock",
+  Arpeggiator: "⌚Time",
   Audio: "🎶Music",
   "Audio Player": "🎶Music",
   Chaos: "♾️Chaos",
@@ -92,9 +92,9 @@ const nodeGraphModuleStoreDepartmentAliases = Object.freeze({
   Portals: "🌌Portal",
   RGB: "🌈RGB",
   Samples: "🔊Sample",
-  Sequence: "⌚Clock",
-  Sequencer: "⌚Clock",
-  Time: "⌚Clock",
+  Sequence: "⌚Time",
+  Sequencer: "⌚Time",
+  Time: "⌚Time",
   Visual: "🔬Digital",
 });
 
@@ -349,7 +349,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   bitConverter: {
     category: "Digital",
     description: "Converts a raw full-scale integer (e.g. keyboardController's Held Keys bitmask) to and from normalized 0..1 (unipolar) and -1..1 (bipolar) CV, using 2^bits - 1 as the ceiling. Patch a digital wire's exact value into audio-rate CV, or reconstruct the original integer from a CV signal on the way back.",
-    label: "AD/DA Converter",
+    label: "BitConverter",
     notes: ["normalize", "0..1", "-1..1", "bitmask"],
   },
   stepSequencer: {
@@ -552,12 +552,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["custom draw", "JavaScript display", "visual sink"],
   },
   graph: {
-    category: "Visual",
+    category: "Controllers",
     description: "Patch-local soemdsp-style graph object with curve nodes and a vertical cursor position.",
     notes: ["curve display", "cursor line", "graph nodes"],
   },
   graph2: {
-    category: "Visual",
+    category: "Controllers",
     description: "Single-algorithm graph testbed for comparing linear, smooth, and meandering point interpolation.",
     label: "Graph 2",
     notes: ["global smoothing", "curve laboratory", "graph nodes"],
@@ -884,17 +884,17 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["light input", "custom vactrol", "dark current", "native"],
   },
   sandboxVisuals: {
-    category: "Visual",
+    category: "RGB",
     description: "Sink module for routing patch signals into the screen view. Drive shake, dim, color, scope pause/shutoff, or patch X/Y for direct visual motion.",
     notes: ["visual sink", "shake input", "scope pause"],
   },
   screenSpaceShader: {
-    category: "Visual",
+    category: "RGB",
     description: "Scripted screen-space visual sink. Declare custom inputs and map them into screen shake, dim, color, scope pause, and offset controls.",
     notes: ["scripted visual sink", "custom inputs", "screen shader controls"],
   },
   bloomGlow: {
-    category: "Visual",
+    category: "RGB",
     description: "Visual sink for routing patch signals into screen dimming, brightness, bloom, and glow response.",
     notes: ["visual sink", "dim input", "bloom and glow"],
   },
@@ -989,12 +989,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["speaker safety", "ear protection", "hard limit"],
   },
   textBox: {
-    category: "Visual",
+    category: "RGB",
     description: "In-world label plate for prompts, lore, instructions, and electric annotations.",
     notes: ["annotation", "layout", "field notes"],
   },
   animatedTextBox: {
-    category: "Visual",
+    category: "LED",
     description: "Text Box with data-plane Title/Text inputs and a Text Out -- wire it to Script Box or another Animated Text Box instead of typing it by hand.",
     notes: ["data-plane ports", "port scripts", "wired label"],
   },
