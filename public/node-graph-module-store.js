@@ -17,8 +17,6 @@ const nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([
   "canvas",
   "graph",
   "graph2",
-  "groupInput",
-  "groupOutput",
   "humanFilter",
   "shootingStarTail",
 ]));
@@ -27,6 +25,7 @@ const nodeGraphModuleGroupStorageKey = "soemdsp-sandbox.moduleGroups.v1";
 const nodeGraphModuleCatalogVisibilityStorageKey = "soemdsp-sandbox.moduleCatalogVisibility.v2";
 
 const nodeGraphModuleStoreDepartments = Object.freeze([
+  "CLAP",
   "Oscillator",
   "Chaos",
   "Jerobeam",
@@ -50,6 +49,10 @@ const nodeGraphModuleStoreDepartments = Object.freeze([
 ]);
 
 const nodeGraphModuleStoreVisualGroups = Object.freeze([
+  {
+    label: "CLAP",
+    departments: Object.freeze(["CLAP"]),
+  },
   {
     label: "Generate",
     departments: Object.freeze(["Oscillator", "Chaos", "Jerobeam", "Noise", "Drum", "Envelope"]),
@@ -78,6 +81,11 @@ const nodeGraphModuleStoreVisualGroupByDepartment = Object.freeze(
 );
 
 const nodeGraphModuleStoreDepartmentAds = Object.freeze({
+  CLAP: {
+    symbol: "⧉",
+    title: "CLAP",
+    pitch: "Host a real installed CLAP plugin from a local companion process and run your patch's audio through it.",
+  },
   Oscillator: {
     symbol: "∿",
     title: "Oscillator",
@@ -485,8 +493,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["real pi digits", "stereo independent seeds", "noise color", "gaussian smoothing", "native"],
   },
   clapPlugin: {
-    category: "Audio",
-    developerOnly: true,
+    category: "CLAP",
     description: "Browser-side shell for a local CLAP host plugin. Stores plugin identity and can use a host instance during bounded Render Sample.",
     label: "CLAP Plugin",
     notes: ["local host", "native plugin", "offline render"],
@@ -651,18 +658,6 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Reads the separate pitch and mod wheel controls beside the keyboard. Pitch emits -1..1, while mod emits 0..1.",
     label: "Pitch / Mod Wheel",
     notes: ["pitch wheel", "mod wheel", "performance control"],
-  },
-  groupInput: {
-    category: "Portals",
-    description: "Defines an exposed input on a saved module group.",
-    label: "Group Input",
-    notes: ["group interface", "public input", "patch boundary"],
-  },
-  groupOutput: {
-    category: "Portals",
-    description: "Defines an exposed output on a saved module group.",
-    label: "Group Output",
-    notes: ["group interface", "public output", "patch boundary"],
   },
   samplePlayer: {
     category: "Audio",
@@ -1627,14 +1622,40 @@ function saveNodeGraphModuleGroupsLocal(groups) {
 }
 
 function createNodeGraphModuleGroupButton(name, group) {
-  const card = document.createElement("div");
+  // A real <button>, not a <div> -- nodeGraphDialogDragTargetIsInteractive
+  // (node-graph-view-controls.js) only recognizes button/[role='button']/
+  // [data-context-module]/etc. as "don't start dragging the panel" targets.
+  // A bare div here meant every click's pointerdown got captured by the
+  // floating-window drag handler first, which retargets the resulting
+  // click event's target away from this card -- so clicks silently never
+  // reached handleNodeGraphModuleStoreClick's [data-context-group] lookup,
+  // even though that handler and this card's dataset already matched.
+  const card = document.createElement("button");
+  card.type = "button";
   card.className = "scene-context-store-card";
   card.dataset.moduleGroup = name;
   card.dataset.contextGroup = name;
+  card.title = `Add "${name}" to the scene`;
+  card.setAttribute("aria-label", `Add module group ${name} to the scene`);
   const label = document.createElement("strong");
   label.textContent = name;
   card.append(label);
-  return card;
+
+  // Separate sibling button, not nested inside `card` -- a <button> can't
+  // contain another interactive <button> (invalid HTML, unreliable click
+  // targeting), so a wrapping, non-interactive container holds both.
+  const deleteButton = document.createElement("button");
+  deleteButton.type = "button";
+  deleteButton.className = "scene-context-store-card-delete";
+  deleteButton.textContent = "×";
+  deleteButton.title = `Delete saved group "${name}"`;
+  deleteButton.setAttribute("aria-label", `Delete saved module group ${name}`);
+  deleteButton.dataset.deleteGroup = name;
+
+  const wrap = document.createElement("div");
+  wrap.className = "scene-context-store-card-wrap";
+  wrap.append(card, deleteButton);
+  return wrap;
 }
 
 function renderNodeGraphModuleGroupCatalog() {

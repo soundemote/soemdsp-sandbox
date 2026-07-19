@@ -88,10 +88,24 @@ function showNodeGraphModule(node, point = null, options = {}) {
   counts[type] = (counts[type] || 0) + 1;
   const id = `${type}-${counts[type]}`;
   const gridPoint = point ? nodeGraphPixelToGrid(point) : defaultNodeGraphModuleGridPoint(type);
+  // Group Input/Output are meaningless until named (their name becomes the
+  // matching port's name on the outer group box, see
+  // nodeGraphModuleGroupEndpointName) -- default to "Input N"/"Output N"
+  // right at creation, counted against the patch actually being edited
+  // (counts[type], already computed above from patch.nodes), so a fresh
+  // one is never left blank/generic until someone remembers to rename it.
+  // Only this fresh-creation path gets it: duplicate/copy and group-expand
+  // explicitly pass through the source node's own alias instead of calling
+  // showNodeGraphModule, so a copy keeps its original name rather than
+  // being renumbered.
+  const defaultAlias = type === "groupInput" ? `Input ${counts[type]}`
+    : type === "groupOutput" ? `Output ${counts[type]}`
+    : undefined;
   patch.nodes.push(createNodeGraphPatchNode(type, {
     id,
     gx: gridPoint.gx,
     gy: gridPoint.gy,
+    ...(defaultAlias ? { alias: defaultAlias } : {}),
   }));
   commitNodeGraphPatch(patch, { status: options.status || "module added" });
   return id;
@@ -385,6 +399,13 @@ function handleNodeGraphModuleStoreClick(event) {
     event.stopPropagation();
     return;
   }
+  const deleteGroupButton = event.target.closest("[data-delete-group]");
+  if (deleteGroupButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    deleteNodeGraphModuleGroupLocal(deleteGroupButton.dataset.deleteGroup);
+    return;
+  }
   const groupButton = event.target.closest("[data-context-group]");
   if (groupButton) {
     addNodeGraphModuleGroupFromBrowser(groupButton.dataset.contextGroup);
@@ -453,14 +474,28 @@ function saveNodeGraphSelectionAsModuleGroup() {
   });
   const inferred = nodeGraphModuleGroupInterfaceFromPatch(sourcePatch);
   const groups = loadNodeGraphModuleGroupsLocal();
-  groups[groupName] = {
+  // groupName is auto-derived from the selected nodes' display names, so
+  // two DIFFERENT selections (e.g. plain default-labeled Group Input +
+  // Group Output pairs from separate test runs) can easily produce the
+  // exact same string and silently clobber an unrelated saved group with
+  // zero indication anything happened -- no new card, no overwrite
+  // warning. De-duping here means "Add to group" always produces a new,
+  // distinct entry; nothing is ever silently replaced. Explicit deletion
+  // (deleteNodeGraphModuleGroupLocal) is the only way to remove one.
+  let finalName = groupName;
+  let suffix = 2;
+  while (Object.hasOwn(groups, finalName)) {
+    finalName = `${groupName} (${suffix})`;
+    suffix += 1;
+  }
+  groups[finalName] = {
     createdAt: new Date().toISOString(),
     defaultSize: { heightGu: 6, widthGu: 8 },
     description: "",
-    id: `group-${nodeGraphStableSeed(`${groupName}:${Date.now()}`).toString(16)}`,
+    id: `group-${nodeGraphStableSeed(`${finalName}:${Date.now()}`).toString(16)}`,
     inputs: inferred.inputs,
     kind: "moduleGroup",
-    name: groupName,
+    name: finalName,
     outputs: inferred.outputs,
     parameters: [],
     sourcePatch,
@@ -480,6 +515,18 @@ function saveNodeGraphSelectionAsModuleGroup() {
   saveNodeGraphModuleGroupsLocal(groups);
   renderNodeGraphModuleStoreCatalog();
   configureNodeSceneContextMenu("module");
+  setNodeGraphScriptStatus(`saved module group "${finalName}" -- find it in the Module Browser's Portals section to add it to the scene`, true);
+}
+
+function deleteNodeGraphModuleGroupLocal(name) {
+  const groups = loadNodeGraphModuleGroupsLocal();
+  if (!Object.hasOwn(groups, name)) {
+    return;
+  }
+  delete groups[name];
+  saveNodeGraphModuleGroupsLocal(groups);
+  renderNodeGraphModuleStoreCatalog();
+  setNodeGraphScriptStatus(`deleted module group "${name}"`, true);
 }
 
 function addNodeGraphModuleGroupFromBrowser(name) {

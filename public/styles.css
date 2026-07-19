@@ -797,17 +797,51 @@ body.node-slider-dragging.node-hide-mouse-while-dragging::after {
   background: var(--panel);
 }
 
-.node-clap-host-under-construction {
-  border-color: rgba(226, 168, 109, 0.22);
-  background:
-    linear-gradient(180deg, rgba(226, 168, 109, 0.08), rgba(17, 20, 24, 0.68));
+.node-clap-host-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: min(100%, 280px);
+  margin-right: auto;
 }
 
-.node-clap-host-strip > div {
+.node-clap-host-heading > div {
   display: grid;
   gap: 2px;
-  min-width: min(100%, 260px);
-  margin-right: auto;
+}
+
+/* Local process liveness dot -- deliberately distinct from the connect
+   button so "is the companion process running" is visible without a
+   click, since the URL box next to it otherwise reads as "type in a
+   remote server address" (which it isn't -- 127.0.0.1 only). */
+.node-clap-host-indicator {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  margin-top: 4px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.node-clap-host-indicator[data-state="connected"] {
+  background: var(--good);
+  box-shadow: 0 0 8px 1px var(--good);
+}
+
+.node-clap-host-indicator[data-state="error"] {
+  background: var(--warn);
+  box-shadow: 0 0 8px 1px var(--warn);
+}
+
+.node-clap-host-indicator[data-state="connecting"],
+.node-clap-host-indicator[data-state="checking"] {
+  background: var(--warn);
+  animation: node-clap-host-indicator-pulse 1s ease-in-out infinite;
+}
+
+@keyframes node-clap-host-indicator-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
 }
 
 .node-clap-host-strip span {
@@ -865,6 +899,48 @@ body.node-slider-dragging.node-hide-mouse-while-dragging::after {
 
 .node-clap-host-strip button:disabled {
   opacity: 0.62;
+}
+
+.node-clap-host-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.node-clap-host-advanced {
+  flex: 1 0 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.node-clap-host-advanced summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  list-style: none;
+}
+
+.node-clap-host-advanced summary::-webkit-details-marker {
+  display: none;
+}
+
+.node-clap-host-advanced summary::before {
+  content: "\25b8 ";
+}
+
+.node-clap-host-advanced[open] summary::before {
+  content: "\25be ";
+}
+
+.node-clap-host-advanced[open] {
+  padding-top: 8px;
+  margin-top: 2px;
+  border-top: 1px dashed var(--line);
 }
 
 .audio-panel {
@@ -2507,6 +2583,19 @@ body.keyboard-debug-hidden .node-constraint-color-guide {
    so Hide Debug only hides the other (genuinely diagnostic) fields
    inside it: gate/1s gate/key/q/oct/midi/double/.1v/oct/inc. */
 body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-keyboard-signal="frequency"])):not(:has([data-keyboard-signal="pitch"])):not(:has([data-keyboard-signal="x"])):not(:has([data-keyboard-signal="y"])) {
+  display: none;
+}
+
+/* Same "Hide Debug" toggle also collapses the render/output/CLAP cluster
+   below the Share Patch / Input / Output row in the patch settings panel
+   -- Render Sample, the preview audio player, the CLAP host connection
+   strip, and the live-audio status pills are all diagnostic/output
+   plumbing, not something you need staring at while patching. */
+body.keyboard-debug-hidden .node-render-duration-control,
+body.keyboard-debug-hidden .node-patch-audio-player-row,
+body.keyboard-debug-hidden #nodeOutputSummary,
+body.keyboard-debug-hidden .node-clap-host-strip,
+body.keyboard-debug-hidden .node-live-controls {
   display: none;
 }
 
@@ -9825,6 +9914,18 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   grid-template-rows: var(--node-header-height) minmax(0, 1fr) minmax(var(--node-io-section-min-height), auto);
 }
 
+/* Without this override, .node-clap-plugin-body lands in the generic
+   .dsp-node row sized by --node-module-scope-height (a fixed ~2gu row
+   meant for a small display/scope widget) -- nowhere near enough for a
+   select + preset row + detail text + safety line + 8 action buttons +
+   a parameter list, so the body overflowed its row and visually
+   overlapped whatever sat below it. minmax(0, 1fr) lets that row use
+   the node's full (now much taller, see nodeGraphModuleHeightWidgetUnits'
+   clapPlugin case) height budget instead of a fixed small slice of it. */
+.dsp-node.clap-plugin-layout {
+  grid-template-rows: var(--node-header-height) minmax(0, 1fr) minmax(var(--node-io-section-min-height), auto);
+}
+
 .node-patch-command-body {
   display: grid;
   place-items: center;
@@ -9891,6 +9992,47 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   transform: translateY(-50%);
 }
 
+/* Group Input / Group Output -- same chromeless 1gu-tile tier as LED
+   (.dsp-node.led-layout above), just wired to a single input or output
+   port instead of a light. Ports sit on the conventional edge (inputs
+   left, outputs right), matching every other module's port placement. */
+.dsp-node.group-input-layout,
+.dsp-node.group-output-layout {
+  display: block;
+  width: calc((var(--node-grid-width) * var(--node-grid-width-units, 1)) - (var(--node-module-grid-inset) * 2));
+  min-width: calc((var(--node-grid-width) * var(--node-grid-width-units, 1)) - (var(--node-module-grid-inset) * 2));
+  height: calc((var(--node-grid-height) * var(--node-grid-height-units, 1)) - (var(--node-module-grid-inset) * 2));
+  min-height: calc((var(--node-grid-height) * var(--node-grid-height-units, 1)) - (var(--node-module-grid-inset) * 2));
+  border-radius: 3px;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(127, 199, 217, 0.16), transparent 62%),
+    rgba(3, 7, 10, 0.84);
+  box-shadow: none;
+}
+
+.node-group-input-face,
+.node-group-output-face {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.node-group-input-face .node-port.output {
+  position: absolute;
+  right: calc(var(--node-port-diameter) * -0.5);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.node-group-output-face .node-port.input {
+  position: absolute;
+  left: calc(var(--node-port-diameter) * -0.5);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
 .dsp-node-header {
   position: relative;
   box-sizing: border-box;
@@ -9919,8 +10061,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   padding: 0;
 }
 
-.node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.knob-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout),
-.dsp-node.buttons-hidden:not(.text-box-layout):not(.image-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.knob-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout) {
+.node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.knob-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.clap-plugin-layout),
+.dsp-node.buttons-hidden:not(.text-box-layout):not(.image-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.knob-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.clap-plugin-layout) {
   grid-template-rows:
     var(--node-header-height)
     var(--node-module-scope-height)
@@ -9929,15 +10071,15 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
     auto;
 }
 
-.node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.knob-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout)::after,
-.dsp-node.buttons-hidden:not(.text-box-layout):not(.image-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.knob-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout)::after {
+.node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.knob-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.clap-plugin-layout)::after,
+.dsp-node.buttons-hidden:not(.text-box-layout):not(.image-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.knob-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.clap-plugin-layout)::after {
   content: "";
   display: block;
   min-height: 0;
 }
 
-.node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.knob-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout) .dsp-node-body,
-.dsp-node.buttons-hidden:not(.text-box-layout):not(.image-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.knob-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout) .dsp-node-body {
+.node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.knob-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.clap-plugin-layout) .dsp-node-body,
+.dsp-node.buttons-hidden:not(.text-box-layout):not(.image-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.knob-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.clap-plugin-layout) .dsp-node-body {
   align-content: start;
   grid-auto-rows: var(--node-body-row-height);
 }
@@ -9946,6 +10088,17 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   grid-auto-rows: auto;
   gap: 6px;
   padding: 8px;
+  /* align-self defaults to "start" for .dsp-node-body elsewhere in this
+     file, which makes a grid item size to its own content instead of
+     filling its track -- with that default, min-height:0/overflow-y:auto
+     below never actually engage (there's no filled track to overflow
+     against), and the body just grows past its row into the io section
+     below it. "stretch" is what makes this row's real estate (the
+     minmax(0, 1fr) track from .dsp-node.clap-plugin-layout) actually
+     apply to this element instead of being sized-to-content and ignored. */
+  align-self: stretch;
+  min-height: 0;
+  overflow-y: auto;
   border-top: 1px solid rgba(128, 224, 224, 0.14);
   border-bottom: 1px solid rgba(128, 224, 224, 0.14);
   background: rgba(5, 10, 14, 0.28);
@@ -9986,6 +10139,20 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   line-height: 1.25;
 }
 
+.node-clap-plugin-copy-detail {
+  justify-self: start;
+  width: auto;
+  min-width: 0;
+  min-height: 22px;
+  padding: 2px 10px;
+  border: 1px solid rgba(128, 224, 224, 0.2);
+  border-radius: 4px;
+  background: rgba(8, 14, 18, 0.9);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.64rem;
+}
+
 .node-clap-plugin-safety {
   border: 1px solid rgba(127, 199, 217, 0.18);
   color: var(--muted);
@@ -10017,41 +10184,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   overflow: auto;
 }
 
-.node-clap-plugin-param-row {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-
-.node-clap-plugin-param-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
-  align-items: baseline;
-  color: var(--text);
-  font-size: 0.66rem;
-}
-
-.node-clap-plugin-param-name {
-  overflow: hidden;
-  text-overflow: clip;
-  white-space: nowrap;
-}
-
-.node-clap-plugin-param-value {
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.node-clap-plugin-param-row input[type="range"] {
-  display: block !important;
-  width: 100%;
-  min-width: 0;
-}
-
-.node-clap-plugin-param-row input[type="range"]:disabled {
-  opacity: 0.5;
-}
+/* No .node-clap-plugin-param-row/-header/-name/-value layout rules here
+   on purpose -- the row carries the plain .node-parameter-row class too
+   (see createNodeGraphClapParameterRow), so it renders with the exact
+   same generic slider (.node-slider-readout, styled track/thumb,
+   drag/fine-tune/reset/jump) every other module's parameters use, not a
+   bespoke bare <input type="range">. */
 
 .node-clap-plugin-param-empty {
   color: var(--muted);
@@ -13963,6 +14101,41 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   font-size: 0.76em;
 }
 
+/* Saved module group cards (createNodeGraphModuleGroupButton) are the
+   only .scene-context-store-card with a delete affordance -- a plain
+   card button can't nest another button, so a wrapping div holds the
+   spawn button and a small corner delete button as siblings instead. */
+.scene-context-store-card-wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.scene-context-store-card-wrap .scene-context-store-card {
+  width: 100%;
+  padding-left: 28px;
+}
+
+.scene-context-store-card-delete {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: rgba(17, 21, 24, 0.9);
+  color: var(--muted);
+  font: 700 0.9rem/1 var(--mono);
+  line-height: 1;
+}
+
+.scene-context-store-card-delete:hover,
+.scene-context-store-card-delete:focus-visible {
+  border-color: rgba(255, 122, 122, 0.6);
+  color: rgb(255 148 148);
+}
+
 .scene-context-store-empty {
   min-height: 42px;
   padding: 9px 10px;
@@ -16617,6 +16790,22 @@ body.debug-collapsed .node-wiring-panel ~ .grid {
 }
 
 body.debug-collapsed .status-strip {
+  display: none;
+}
+
+/* "Hide Debug" (nodeKeyboardDebugToggleButton, body.keyboard-debug-hidden)
+   is the master switch -- when it's off, the "Show Evidence" button and
+   everything it can reveal should be gone too, not just left in whatever
+   debug-collapsed state they happened to be in. Without this, someone
+   could turn off Hide Debug and still have previously-revealed evidence
+   panels sitting there, or still see a button offering to reveal more. */
+body.keyboard-debug-hidden #toggleDebugButton {
+  display: none;
+}
+
+body.keyboard-debug-hidden .node-wiring-panel ~ .panel,
+body.keyboard-debug-hidden .node-wiring-panel ~ .grid,
+body.keyboard-debug-hidden .status-strip {
   display: none;
 }
 

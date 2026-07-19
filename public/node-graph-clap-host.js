@@ -234,34 +234,48 @@ function setNodeGraphClapHostStatus(status, detail = "") {
   const connectButton = document.getElementById("nodeClapHostConnectButton");
   const pluginsButton = document.getElementById("nodeClapHostPluginsButton");
   const diagnosticsButton = document.getElementById("nodeClapHostDiagnosticsButton");
-  const commandButton = document.getElementById("nodeClapHostCommandButton");
+  const openFolderButton = document.getElementById("nodeClapHostOpenFolderButton");
+  const indicatorElement = document.getElementById("nodeClapHostIndicator");
   if (!statusElement || !detailElement || !connectButton) return;
 
-  if (nodeGraphClapHostUnderConstruction) {
-    statusElement.classList.add("warn");
-    statusElement.classList.remove("error");
-    statusElement.textContent = "CLAP Host: Under Construction";
-    detailElement.textContent = detail || "local companion UI is being built here under the render controls";
-    markNodeGraphClapHostButtonsUnderConstruction([
-      connectButton,
-      pluginsButton,
-      diagnosticsButton,
-      commandButton,
-    ]);
-    syncNodeGraphClapPluginElements();
-    return;
+  if (indicatorElement) {
+    indicatorElement.dataset.state = status;
   }
-
   statusElement.classList.toggle("warn", status !== "connected");
   statusElement.classList.toggle("error", status === "error");
-  connectButton.disabled = status === "connecting";
+  connectButton.disabled = status === "connecting" || status === "unavailable";
+  connectButton.textContent = status === "connecting" ? "Checking" : "Check Again";
   if (pluginsButton) {
     pluginsButton.disabled = status !== "connected";
   }
   if (diagnosticsButton) {
-    diagnosticsButton.disabled = status === "connecting";
+    diagnosticsButton.disabled = status === "connecting" || status === "unavailable";
+  }
+  if (openFolderButton) {
+    openFolderButton.disabled = status !== "connected";
   }
 
+  // A visitor with no local companion process to find at all (see the
+  // nodeGraphLocalDefaultPresetAllowed check in bindNodeGraphClapHostControls
+  // -- true for soundemote-site) never gets probed, so never see
+  // "connecting"/"error" -- they land here directly instead. This is the
+  // one honest thing the browser CAN say about CLAP hosting on its own:
+  // it structurally can't load native plugins itself, full stop, so point
+  // at the one place that can (the downloadable app) rather than dangling
+  // a "Check Again" button that will never succeed.
+  if (status === "unavailable") {
+    statusElement.textContent = "CLAP Plugins: Download Required";
+    detailElement.textContent = detail ||
+      "hosting a real CLAP plugin needs a native local process -- the browser can't load plugin binaries itself. Download the soemdsp-sandbox-clap app to use this.";
+    syncNodeGraphClapPluginElements();
+    return;
+  }
+
+  // "Local Plugin Host" (not "CLAP Host: Connected") is deliberate: this is
+  // a second OS process on this machine (tools/webui-clap-host), reached by
+  // a loopback fetch to 127.0.0.1, not a remote server. The wording here
+  // and the detail text below exist to keep that distinction obvious at a
+  // glance instead of reading like generic "connect to a server" UI.
   if (status === "connected") {
     const versionText = nodeGraphClapHostState.version
       ? ` ${nodeGraphClapHostState.version}`
@@ -269,25 +283,27 @@ function setNodeGraphClapHostStatus(status, detail = "") {
     const capabilityText = nodeGraphClapHostCanProcessAudio()
       ? "Render Sample CLAP processing available"
       : "Render Sample CLAP processing unavailable";
-    statusElement.textContent = `CLAP Host: Connected${versionText}`;
-    detailElement.textContent = detail || `local companion answered health check; ${capabilityText}; ${nodeGraphClapHostConfigSummary()}`;
+    statusElement.textContent = `Local Plugin Host: Running${versionText}`;
+    detailElement.textContent = detail || `local companion process answered; ${capabilityText}; ${nodeGraphClapHostConfigSummary()}`;
     syncNodeGraphClapPluginElements();
     return;
   }
   if (status === "connecting") {
-    statusElement.textContent = "CLAP Host: Connecting";
-    detailElement.textContent = `checking ${nodeGraphClapHostState.baseUrl}`;
+    statusElement.textContent = "Local Plugin Host: Checking";
+    detailElement.textContent = `looking for the local companion process at ${nodeGraphClapHostState.baseUrl} (this machine only)`;
     syncNodeGraphClapPluginElements();
     return;
   }
   if (status === "error") {
-    statusElement.textContent = "CLAP Host: Error";
-    detailElement.textContent = detail || nodeGraphClapHostState.lastError || "connection failed";
+    statusElement.textContent = "Local Plugin Host: Not Found";
+    detailElement.textContent = detail || nodeGraphClapHostState.lastError ||
+      "no local companion process answered; start it, then click Check Again";
     syncNodeGraphClapPluginElements();
     return;
   }
-  statusElement.textContent = "CLAP Host: Under Construction";
-  detailElement.textContent = detail || "local companion UI is being built here under the render controls";
+  statusElement.textContent = "Local Plugin Host: Not Running";
+  detailElement.textContent = detail ||
+    "no local CLAP host process detected on this machine yet; start it (see Advanced), then click Check Again";
   syncNodeGraphClapPluginElements();
 }
 
@@ -890,27 +906,28 @@ function createNodeGraphClapParameterRow(nodeId, binding, parameter) {
 
   row.append(createNodeParameterModulationPort(nodeId, "clapPlugin", definition));
 
+  // Same visible control every other module's parameters use: a
+  // .node-slider-readout button with drag-to-set, Ctrl/Shift fine-tune,
+  // Ctrl+click reset, Alt-drag jump (node-graph-slider-dragging.js), built
+  // by createNodeSliderReadout from a CSS-hidden native <input
+  // type="range"> -- CLAP parameters are dynamic (host-discovered, not in
+  // nodeGraphModuleDefinitions) but that machinery only cares about the
+  // dataset contract on the input itself, not where it came from. No
+  // bespoke header/name/value display needed; the readout already renders
+  // the label and current value from that same dataset.
   const control = document.createElement("label");
-  control.className = "node-parameter-control node-clap-plugin-param-control";
+  control.className = "node-parameter-control";
   control.dataset.paramLabel = definition.label;
   control.setAttribute("aria-label", definition.label);
 
-  const header = document.createElement("span");
-  header.className = "node-clap-plugin-param-header";
-  const name = document.createElement("span");
-  name.className = "node-clap-plugin-param-name";
-  name.textContent = definition.label;
-  const valueText = document.createElement("span");
-  valueText.className = "node-clap-plugin-param-value";
   const key = definition.key;
   const patchNode = nodeGraphPatchNode(nodeId);
   const patchValue = Number(patchNode?.params?.[key]);
   const value = Number.isFinite(patchValue) ? patchValue : nodeGraphClapParameterValue(parameter);
-  valueText.textContent = formatNodeGraphClapParameterValue(parameter, value);
-  header.append(name, valueText);
 
   const input = document.createElement("input");
   input.type = "range";
+  input.id = `node-${nodeId}-clap-${key}`;
   input.dataset.clapParamId = String(parameter.id);
   input.dataset.param = key;
   input.dataset.step = String(definition.step ?? 0);
@@ -940,12 +957,18 @@ function createNodeGraphClapParameterRow(nodeId, binding, parameter) {
   input.value = String(Math.max(range.min, Math.min(range.max, value)));
   input.disabled = Array.isArray(parameter.flagNames) && parameter.flagNames.includes("readonly");
   input.addEventListener("input", () => {
-    valueText.textContent = formatNodeGraphClapParameterValue(parameter, Number(input.value));
+    syncNodeSliderReadout(input);
     syncNodeGraphClapPatchParameterFromHostSlider(nodeId, parameter, Number(input.value));
     queueNodeGraphClapParameterWrite(nodeId, binding.instanceId, Number(parameter.id), Number(input.value));
+    scheduleNodeGraphLiveParameterSync();
   });
 
-  control.append(header, input);
+  control.append(input);
+  // createNodeSliderReadout reads slider.closest("label") to attach its
+  // companion readout button, so this has to run after the input is
+  // actually inside the label -- calling it any earlier is a silent
+  // no-op (no error, just no readout).
+  createNodeSliderReadout(input);
   row.append(control);
   row.append(createNodeParameterOutputPort(nodeId, "clapPlugin", definition));
   return row;
@@ -1009,8 +1032,36 @@ function createNodeGraphClapPluginBody(nodeId) {
   presetRow.append(presetSelect, presetDeleteButton, presetNameInput, presetSaveButton);
 
   const detail = document.createElement("div");
-  detail.className = "node-clap-plugin-detail";
+  detail.className = "node-clap-plugin-detail node-text-selectable";
   detail.dataset.clapPluginDetail = nodeId;
+
+  // A catalog/metadata/instantiation error here is exactly what a CLAP
+  // validator tool would report for this specific plugin -- worth
+  // grabbing verbatim to act on (paste into an issue, a fix, a chat), so
+  // it needs a reliable one-click copy, not just readable text sitting in
+  // a small, node-drag-adjacent area.
+  const copyDetailButton = document.createElement("button");
+  copyDetailButton.type = "button";
+  copyDetailButton.className = "node-secondary-button node-clap-plugin-copy-detail";
+  copyDetailButton.textContent = "Copy";
+  copyDetailButton.title = "Copy the status/error text above";
+  copyDetailButton.dataset.clapPluginCopyDetail = nodeId;
+  copyDetailButton.addEventListener("click", async () => {
+    const text = detail.textContent || "";
+    if (!text) {
+      return;
+    }
+    const originalLabel = copyDetailButton.textContent;
+    try {
+      await copyTextToClipboard(text);
+      copyDetailButton.textContent = "Copied";
+    } catch {
+      copyDetailButton.textContent = "Copy failed";
+    }
+    window.setTimeout(() => {
+      copyDetailButton.textContent = originalLabel;
+    }, 1500);
+  });
 
   const safety = document.createElement("div");
   safety.className = "node-clap-plugin-safety";
@@ -1081,7 +1132,7 @@ function createNodeGraphClapPluginBody(nodeId) {
   params.className = "node-clap-plugin-param-list";
   params.dataset.clapPluginParamList = nodeId;
 
-  body.append(select, presetRow, detail, safety, actions, params);
+  body.append(select, presetRow, detail, copyDetailButton, safety, actions, params);
   syncNodeGraphClapPluginBody(body, nodeGraphPatchNode(nodeId));
   return body;
 }
@@ -1178,6 +1229,53 @@ function syncNodeGraphClapPluginBody(body, patchNode) {
   const restoreStateButton = body.querySelector("[data-clap-plugin-restore-state]");
   const safety = body.querySelector("[data-clap-plugin-safety]");
   const paramList = body.querySelector("[data-clap-plugin-param-list]");
+  // The CLAP Plugin module is seamlessly part of every patch (see
+  // nodeGraphDefaultNodeConfigs) -- including on soundemote-site, where
+  // there's no local companion process to reach (see
+  // scripts/sync_soundemote_site.ps1 and nodeGraphLocalDefaultPresetAllowed).
+  // Rather than dangle a "Connect host first" / empty-catalog flow that can
+  // never succeed there, say the one true thing up front and stop: this
+  // needs the downloadable app.
+  if (!nodeGraphLocalDefaultPresetAllowed()) {
+    if (select) {
+      select.replaceChildren();
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "Download the app to use CLAP plugins";
+      select.append(placeholder);
+      select.value = "";
+      select.disabled = true;
+    }
+    if (presetSelect) {
+      presetSelect.disabled = true;
+    }
+    if (presetSaveButton) {
+      presetSaveButton.disabled = true;
+    }
+    if (presetDeleteButton) {
+      presetDeleteButton.disabled = true;
+    }
+    if (detail) {
+      detail.textContent = "Hosting a real CLAP plugin needs a native local process -- the browser can't load plugin binaries itself. Download the soemdsp-sandbox-clap app to use this module.";
+    }
+    if (safety) {
+      safety.classList.remove("warn", "good");
+      safety.textContent = "";
+    }
+    for (const button of [createButton, deleteButton, refreshButton, resetSafetyButton, editorButton, closeEditorButton, saveStateButton, restoreStateButton]) {
+      if (button) {
+        button.disabled = true;
+      }
+    }
+    if (paramList) {
+      paramList.replaceChildren();
+      const empty = document.createElement("div");
+      empty.className = "node-clap-plugin-param-empty";
+      empty.textContent = "Download the app to load real CLAP parameters here.";
+      paramList.append(empty);
+    }
+    return;
+  }
   if (select) {
     const selectedValue = binding.catalogId;
     select.replaceChildren();
@@ -1761,24 +1859,70 @@ async function runNodeGraphClapHostDiagnostics() {
   }
 }
 
+function nodeGraphClapHostPreferredScanDir() {
+  const dirs = nodeGraphClapHostState.hostConfig?.scanDirs || [];
+  return dirs.find((dir) => /appdata/i.test(dir)) || dirs[0] || "";
+}
+
+async function openNodeGraphClapHostScanDir() {
+  const detailElement = document.getElementById("nodeClapHostDetail");
+  const dir = nodeGraphClapHostPreferredScanDir();
+  if (!dir) {
+    if (detailElement) {
+      detailElement.textContent = "connected; no known CLAP scan directory to open yet";
+    }
+    return;
+  }
+  try {
+    const payload = await postNodeGraphClapHostJson("/open-scan-dir", { path: dir }, 4000);
+    if (payload?.ok !== true) {
+      throw new Error(payload?.error || "failed to open folder");
+    }
+  } catch (error) {
+    if (detailElement) {
+      detailElement.textContent = `connected; open folder error: ${error?.message || error}`;
+    }
+  }
+}
+
+// Metadata inspection and instantiation probing (see webui_clap_host.py
+// --inspect-metadata / --test-instantiate, already run automatically on
+// connect) make this strip double as a lightweight CLAP validator: the
+// error text it surfaces here is exactly "why did this plugin fail to
+// describe/instantiate," the same class of diagnostic the standalone
+// clap-validator tool reports. Someone debugging their own plugin (e.g.
+// the soemdsp DSP/GUI proof prototypes in clap-plugin/) needs to actually
+// grab that text to act on it -- paste it into an issue, a chat, a fix --
+// so it needs to be reliably copyable, not just readable.
+async function copyNodeGraphClapHostDetailText() {
+  const detailElement = document.getElementById("nodeClapHostDetail");
+  const copyButton = document.getElementById("nodeClapHostCopyDetailButton");
+  const text = detailElement?.textContent || "";
+  if (!text || !copyButton) {
+    return;
+  }
+  const originalLabel = copyButton.textContent;
+  try {
+    await copyTextToClipboard(text);
+    copyButton.textContent = "Copied";
+  } catch {
+    copyButton.textContent = "Copy failed";
+  }
+  window.setTimeout(() => {
+    copyButton.textContent = originalLabel;
+  }, 1500);
+}
+
 function bindNodeGraphClapHostControls() {
   const connectButton = document.getElementById("nodeClapHostConnectButton");
   const pluginsButton = document.getElementById("nodeClapHostPluginsButton");
   const diagnosticsButton = document.getElementById("nodeClapHostDiagnosticsButton");
   const commandButton = document.getElementById("nodeClapHostCommandButton");
+  const openFolderButton = document.getElementById("nodeClapHostOpenFolderButton");
+  const copyDetailButton = document.getElementById("nodeClapHostCopyDetailButton");
   const hostUrlInput = document.getElementById("nodeClapHostUrl");
   nodeGraphClapHostState.baseUrl = loadNodeGraphClapHostBaseUrl();
   syncNodeGraphClapHostUrlInput();
-  if (nodeGraphClapHostUnderConstruction) {
-    markNodeGraphClapHostButtonsUnderConstruction([
-      connectButton,
-      pluginsButton,
-      diagnosticsButton,
-      commandButton,
-    ]);
-    setNodeGraphClapHostStatus("disconnected");
-    return;
-  }
   connectButton?.addEventListener("click", () => {
     connectNodeGraphClapHost();
   });
@@ -1788,8 +1932,14 @@ function bindNodeGraphClapHostControls() {
   diagnosticsButton?.addEventListener("click", () => {
     runNodeGraphClapHostDiagnostics();
   });
+  openFolderButton?.addEventListener("click", () => {
+    openNodeGraphClapHostScanDir();
+  });
   commandButton?.addEventListener("click", () => {
     copyNodeGraphClapHostLaunchCommand();
+  });
+  copyDetailButton?.addEventListener("click", () => {
+    copyNodeGraphClapHostDetailText();
   });
   hostUrlInput?.addEventListener("change", () => {
     try {
@@ -1804,7 +1954,18 @@ function bindNodeGraphClapHostControls() {
       connectNodeGraphClapHost();
     }
   });
-  setNodeGraphClapHostStatus("disconnected");
+  // Probe the local companion process automatically on load rather than
+  // waiting for a manual click -- the indicator dot + status text should
+  // just tell you whether it's running, the same way a dev server's
+  // "port in use" state is discoverable without you doing anything.
+  // A soundemote-site visitor (see scripts/sync_soundemote_site.ps1) has
+  // no local companion process to find at all -- skip the network probe
+  // that can only ever fail there and go straight to the honest state.
+  if (nodeGraphLocalDefaultPresetAllowed()) {
+    connectNodeGraphClapHost();
+  } else {
+    setNodeGraphClapHostStatus("unavailable");
+  }
 }
 
 if (document.readyState === "loading") {

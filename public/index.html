@@ -1971,7 +1971,7 @@
             placeholder="module title alias">
         </label>
         <div id="nodeSceneHomeModules" class="scene-context-home-modules" hidden></div>
-        <button id="nodeSceneAddToGroup" class="node-under-construction-control" type="button" role="menuitem" disabled aria-disabled="true" title="Module grouping is under construction." hidden>
+        <button id="nodeSceneAddToGroup" type="button" role="menuitem" hidden>
           <span>Add to group</span>
         </button>
         <button id="nodeSceneAddToUi" type="button" role="menuitem" hidden>
@@ -2491,25 +2491,35 @@
           <audio id="audioPlayer" controls preload="metadata"></audio>
         </div>
         <p id="nodeOutputSummary" class="node-output-summary">Render Sample creates preview audio here.</p>
-        <section class="node-clap-host-strip node-clap-host-under-construction" aria-label="CLAP host connection">
-          <div>
-            <span id="nodeClapHostStatus" class="warn">CLAP Host: Under Construction</span>
-            <small id="nodeClapHostDetail">local companion UI is being built here under the render controls</small>
+        <section class="node-clap-host-strip" aria-label="CLAP host connection">
+          <div class="node-clap-host-heading">
+            <span id="nodeClapHostIndicator" class="node-clap-host-indicator" data-state="checking" aria-hidden="true"></span>
+            <div>
+              <span id="nodeClapHostStatus" class="warn">Local Plugin Host: Checking</span>
+              <small id="nodeClapHostDetail" class="node-text-selectable">Looking for a local companion process on this machine (127.0.0.1) -- not the internet.</small>
+            </div>
           </div>
-          <label class="node-clap-host-url-control">
-            <span>Host</span>
-            <input
-              id="nodeClapHostUrl"
-              type="text"
-              autocomplete="off"
-              spellcheck="false"
-              value="http://127.0.0.1:47991"
-              aria-label="CLAP host URL">
-          </label>
-          <button id="nodeClapHostConnectButton" class="node-under-construction-control" type="button" disabled aria-disabled="true">Connect Local Host</button>
-          <button id="nodeClapHostPluginsButton" class="node-under-construction-control" type="button" disabled aria-disabled="true">Refresh Plugins</button>
-          <button id="nodeClapHostDiagnosticsButton" class="node-under-construction-control" type="button" disabled aria-disabled="true">Diagnostics</button>
-          <button id="nodeClapHostCommandButton" class="node-under-construction-control" type="button" disabled aria-disabled="true">Copy Host Command</button>
+          <div class="node-clap-host-actions">
+            <button id="nodeClapHostConnectButton" type="button">Check Again</button>
+            <button id="nodeClapHostPluginsButton" type="button">Refresh Plugins</button>
+            <button id="nodeClapHostDiagnosticsButton" type="button">Diagnostics</button>
+            <button id="nodeClapHostOpenFolderButton" type="button" title="Open the local CLAP plugin folder in your file manager">Open CLAP Folder</button>
+            <button id="nodeClapHostCopyDetailButton" type="button" title="Copy the status/error text above">Copy</button>
+          </div>
+          <details class="node-clap-host-advanced">
+            <summary>Advanced: local host address</summary>
+            <label class="node-clap-host-url-control">
+              <span>Local host address (this machine only)</span>
+              <input
+                id="nodeClapHostUrl"
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                value="http://127.0.0.1:47991"
+                aria-label="CLAP host URL">
+            </label>
+            <button id="nodeClapHostCommandButton" type="button">Copy Start Command</button>
+          </details>
         </section>
         <div class="node-live-controls" aria-label="Live Audio">
           <span id="nodeLiveInputStatus" class="pill">input off</span>
@@ -2858,6 +2868,11 @@
             <button id="nodeCopyExecutionJsonButton" type="button">Copy JSON</button>
           </div>
           <pre id="nodeExecutionPlanDebug" class="node-execution-plan-debug">waiting for graph</pre>
+          <div class="panel-heading compact-heading node-live-plan-export-heading">
+            <h3>Live Plan (Native Engine)</h3>
+            <span id="nodeLivePlanExportStatus" class="pill">ready</span>
+            <button id="nodeExportLivePlanButton" type="button" title="Download the portable JSON plan (nodeGraphBuildLivePlan) for testing the native C++ graph interpreter">Download JSON</button>
+          </div>
         </div>
       </div>
     </section>
@@ -3240,6 +3255,8 @@
   <script src="./public/node-graph-chromeless-module-registry.js?v=stepgrid-variable-steps-20260715"></script>
   <script src="./public/modules/led/led-register.js?v=stepgrid-variable-steps-20260715"></script>
   <script src="./public/modules/stepGrid/step-grid-register.js?v=stepgrid-variable-steps-20260715"></script>
+  <script src="./public/modules/groupInput/group-input-register.js?v=chromeless-portals-1"></script>
+  <script src="./public/modules/groupOutput/group-output-register.js?v=chromeless-portals-1"></script>
   <script src="./public/node-graph-module-definitions.js?v=wall-delay-ray-bounce-dsp-20260718"></script>
   <script src="./public/node-graph-data-bus.js?v=data-plane-merge-20260711"></script>
   <script src="./public/node-graph-module-store.js?v=wall-delay-ray-bounce-dsp-20260718"></script>
@@ -3289,6 +3306,8 @@
   <script src="./public/node-graph-module-factories.js?v=stepgrid-variable-steps-20260715"></script>
   <script src="./public/modules/led/led-ui.js?v=stepgrid-variable-steps-20260715"></script>
   <script src="./public/modules/stepGrid/step-grid-ui.js?v=stepgrid-variable-steps-20260715"></script>
+  <script src="./public/modules/groupInput/group-input-ui.js?v=chromeless-portals-1"></script>
+  <script src="./public/modules/groupOutput/group-output-ui.js?v=chromeless-portals-1"></script>
   <script src="./public/node-graph-module-header-rendering.js?v=0032"></script>
   <script src="./public/node-graph-module-rendering.js?v=wall-delay-two-ear-20260718"></script>
   <script src="./public/node-graph-history.js?v=slider-unit-color-1780307400000"></script>

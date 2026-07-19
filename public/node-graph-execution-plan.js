@@ -419,7 +419,21 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
   if (hasOutputNode) {
     markReachable(outputNode);
   }
-  const groupOutputNodes = graph.nodes.filter((node) => node.type === "groupOutput");
+  // groupOutput nodes only need forced reachability when this compile IS a
+  // moduleGroup's own inner sourcePatch -- which, by construction
+  // (saveNodeGraphSelectionAsModuleGroup excludes type "output"), never has
+  // a real "output" node, so !hasOutputNode is exactly that signal. Forcing
+  // this unconditionally used to also run for the actual top-level patch,
+  // where a Group Output sitting around mid-build (not yet part of any
+  // built group, doing nothing real) would drag its whole upstream chain
+  // into strict validation and could invalidate the ENTIRE patch compile --
+  // muting all audio -- over an in-progress wire that has no bearing on
+  // anything the speaker route actually depends on. Elsewhere in this
+  // compiler, an unreached/dangling node is simply inert, never validated;
+  // this restores that same invariant for groupOutput on the top-level patch.
+  const groupOutputNodes = hasOutputNode
+    ? []
+    : graph.nodes.filter((node) => node.type === "groupOutput");
   for (const node of groupOutputNodes) {
     markReachable(node.id);
   }

@@ -2,6 +2,7 @@ function bindNodeGraphRenderLiveControlEvents() {
   document.getElementById("nodeRenderButton").addEventListener("click", renderNodeGraphAudio);
 document.getElementById("nodeCopyRuntimeSketchButton").addEventListener("click", copyNodeGraphRuntimeSketch);
   document.getElementById("nodeCopyExecutionJsonButton").addEventListener("click", copyNodeGraphExecutionJson);
+  document.getElementById("nodeExportLivePlanButton").addEventListener("click", downloadNodeGraphLivePlanJson);
   document.getElementById("nodeBadValueMonitorButton").addEventListener("click", toggleNodeGraphBadValueMonitor);
   document.getElementById("nodeTripEarProtectionButton")
     .addEventListener("click", () => nodeGraphTripEarProtection({ source: "manual", protectionMuteCount: 1 }));

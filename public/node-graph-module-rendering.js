@@ -193,6 +193,17 @@ function attachNodeGraphNodeEvents(node) {
   node.querySelector(".node-header-title-row")?.addEventListener("contextmenu", openNodeModuleActionMenu);
   node.querySelector(".node-led-face")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
   node.querySelector(".node-knob-widget-body")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
+  // Group Input/Output are chromeless (no .node-header-title-row to grab
+  // or double-click, see public/modules/groupInput|groupOutput/*-ui.js) --
+  // wire their own face to the exact same drag/settings behavior the
+  // header row gives every other module. Safe against the single .node-port
+  // each face contains: handlePortPointerDown (node-graph-wires.js)
+  // stopPropagation()s before this could also fire, same guarantee LED's
+  // face+port already relies on.
+  node.querySelector(".node-group-input-face")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
+  node.querySelector(".node-group-input-face")?.addEventListener("dblclick", openNodeModuleActionMenu);
+  node.querySelector(".node-group-output-face")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
+  node.querySelector(".node-group-output-face")?.addEventListener("dblclick", openNodeModuleActionMenu);
   node.querySelectorAll(".dsp-node-io-section")
     .forEach((section) => section.addEventListener("pointerdown", beginNodeGraphNodeDrag));
   node.querySelectorAll(".node-parameter-row")

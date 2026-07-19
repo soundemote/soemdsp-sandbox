@@ -3,8 +3,6 @@ const nodeGraphNodeLabels = Object.freeze({
   codeblock: "Codeblock",
   graph: "Graph",
   graph2: "Graph 2",
-  groupInput: "Group Input",
-  groupOutput: "Group Output",
   animatedTextBox: "Animated Text Box",
   moduleGroup: "Module Group",
   nextPatch: "Next Patch",
@@ -254,15 +252,6 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { defaultValue: "0", key: "outputMin", label: "Out Min", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
       { defaultValue: "1", key: "outputMax", label: "Out Max", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
     ],
-  },
-  groupInput: {
-    outputs: ["Out"],
-    parameters: [],
-  },
-  groupOutput: {
-    inputs: ["In"],
-    outputs: ["Out"],
-    parameters: [],
   },
   moduleGroup: {
     inputs: [],

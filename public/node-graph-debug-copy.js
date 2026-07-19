@@ -58,6 +58,46 @@ async function copyNodeGraphRuntimeSketch() {
   }
 }
 
+// nodeGraphBuildLivePlan() (node-graph-live-plan-runtime.js) is the exact
+// flattened, closure-free JSON shape already sent to the browser's
+// AudioWorklet (see setPlan in node-live-audio-worklet-core.js) -- the
+// same shape a native C++ graph interpreter (soemdsp-sandbox-native's
+// clap-plugin/graph-engine/) is meant to consume, so it can be tested
+// against a real exported patch instead of only synthetic fixtures.
+function downloadNodeGraphLivePlanJson() {
+  const status = document.getElementById("nodeLivePlanExportStatus");
+  let plan;
+  try {
+    plan = nodeGraphBuildLivePlan();
+  } catch (error) {
+    if (status) {
+      status.textContent = "blocked";
+      status.title = String(error?.issues?.join(", ") || error?.message || error);
+      status.className = "pill warn";
+    }
+    return;
+  }
+  const json = JSON.stringify(plan, null, 2);
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const patchName = String(nodeGraphMvp?.patch?.info?.name || "patch")
+    .trim()
+    .replace(/[^a-z0-9_-]+/gi, "-")
+    .replace(/^-+|-+$/g, "") || "patch";
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `${patchName}.live-plan.json`;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+  if (status) {
+    status.textContent = "downloaded";
+    status.title = `${plan.nodes.length} nodes, ${plan.order.length} in execution order`;
+    status.className = "pill good";
+  }
+}
+
 async function copyNodeGraphExecutionJson() {
   const debug = document.getElementById("nodeExecutionPlanDebug");
   const jsonStatus = document.getElementById("nodeExecutionJsonStatus");

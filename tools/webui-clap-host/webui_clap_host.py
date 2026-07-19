@@ -922,6 +922,21 @@ def default_clap_scan_dirs() -> list[Path]:
     return dedupe_paths(dirs)
 
 
+def open_folder_in_file_manager(path: Path) -> None:
+    # "Open CLAP Folder" in the sandbox's host connection strip hits this.
+    # Cross-platform on purpose (Explorer/Finder/xdg-open) even though this
+    # host is currently only exercised on Windows -- the sandbox itself
+    # runs anywhere, and there's nothing OS-specific-window-embedding-hard
+    # about "open a folder," unlike embedding a plugin's own GUI.
+    path.mkdir(parents=True, exist_ok=True)
+    if sys.platform == "win32":
+        os.startfile(str(path))  # noqa: S606 -- local-only server, path is validated against known scan dirs
+    elif sys.platform == "darwin":
+        subprocess.run(["open", str(path)], check=False)
+    else:
+        subprocess.run(["xdg-open", str(path)], check=False)
+
+
 def dedupe_paths(paths: list[Path]) -> list[Path]:
     deduped: list[Path] = []
     seen: set[str] = set()
@@ -3409,6 +3424,24 @@ class ClapHostRequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         path = urlsplit(self.path).path
+        if path == "/open-scan-dir":
+            try:
+                payload = self.read_json_body()
+                requested = Path(str(payload.get("path") or "")).expanduser()
+                # Only ever open a path this host itself already reported as
+                # a scan dir (see GET /health's hostConfig.scanDirs) -- this
+                # is a local HTTP server any local process can reach, so it
+                # must not become an arbitrary "open any folder on this
+                # machine" oracle.
+                allowed = {str(candidate.expanduser()).lower() for candidate in self.server.clap_scan_dirs}
+                if str(requested).lower() not in allowed:
+                    self.write_json(403, {"ok": False, "error": "path is not a known CLAP scan directory"})
+                    return
+                open_folder_in_file_manager(requested)
+                self.write_json(200, {"ok": True, "path": str(requested)})
+            except Exception as error:
+                self.write_json(400, {"ok": False, "error": str(error)})
+            return
         if path == "/shutdown":
             close_clap_instances(self.server)
             self.write_json(200, {"ok": True, "status": "shutting down"})

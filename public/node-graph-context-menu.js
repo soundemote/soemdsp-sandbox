@@ -1135,10 +1135,11 @@ function configureNodeSceneContextMenu(mode) {
         ? `Save these settings as the default for new ${targetNode.type} modules.`
         : "Select a module to set its default settings.";
     }
-    addToGroupButton.disabled = true;
-    addToGroupButton.setAttribute("aria-disabled", "true");
-    addToGroupButton.classList.add("node-under-construction-control");
-    addToGroupButton.title = "Module grouping is under construction.";
+    addToGroupButton.disabled = !canCopy;
+    addToGroupButton.removeAttribute("aria-disabled");
+    addToGroupButton.title = canCopy
+      ? "Freeze the current selection (needs a Group Input and a Group Output among the selected modules) into a reusable Module Group."
+      : "Select at least one non-Output module to add it to a group.";
     if (addToUiButton) {
       const canAddToUi = targetIsGraphType;
       const uiItems = normalizeNodeGraphPatchUiItems(nodeGraphMvp.patch.uiItems);

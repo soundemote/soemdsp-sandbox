@@ -49,7 +49,7 @@ function beginNodeGraphNodeDrag(event) {
     return;
   }
   const handle = event.currentTarget.closest(
-    ".node-drag-handle, .node-execution-order-badge, .node-header-title-row, .node-led-face, .node-knob-widget-body, .dsp-node-io-section, .node-parameter-row",
+    ".node-drag-handle, .node-execution-order-badge, .node-header-title-row, .node-led-face, .node-group-input-face, .node-group-output-face, .node-knob-widget-body, .dsp-node-io-section, .node-parameter-row",
   );
   if (!handle) {
     return;
