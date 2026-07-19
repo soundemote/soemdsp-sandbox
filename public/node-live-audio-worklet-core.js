@@ -107,6 +107,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.delayedTriggerStates = new Map();
     this.delayEffectStates = new Map();
     this.pingPongDelayStates = new Map();
+    this.wallDelayStates = new Map();
     this.expAdsrStates = new Map();
     this.ellipsoidOutputFrames = new Map();
     this.nativeEllipsoid = null;
@@ -1818,6 +1819,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       this.destroyPingPongDelayNativeState(state);
     }
     this.pingPongDelayStates = new Map();
+    this.wallDelayStates = new Map();
     this.expAdsrStates = new Map();
     for (const state of this.fractalBrownianNoiseStates.values()) {
       this.destroyFbmNativeState(state);
@@ -2268,6 +2270,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       }
       if (node?.type === "pingPongDelay" && !this.pingPongDelayStates.has(id)) {
         this.pingPongDelayStates.set(id, this.createPingPongDelayState());
+      }
+      if (node?.type === "wallDelay" && !this.wallDelayStates.has(id)) {
+        this.wallDelayStates.set(id, this.createWallDelayState());
       }
       if (node?.type === "reverbEffect" && !this.reverbEffectStates.has(id)) {
         this.reverbEffectStates.set(id, this.createSabrinaReverbState());
@@ -2728,6 +2733,11 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       if (!ids.has(id)) {
         this.destroyPingPongDelayNativeState(this.pingPongDelayStates.get(id));
         this.pingPongDelayStates.delete(id);
+      }
+    }
+    for (const id of [...this.wallDelayStates.keys()]) {
+      if (!ids.has(id)) {
+        this.wallDelayStates.delete(id);
       }
     }
     for (const id of [...this.reverbEffectStates.keys()]) {
@@ -6316,6 +6326,30 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
             timeDenominator: read("timeDenominator", 4),
             timeNumerator: read("timeNumerator", 1),
             timingMode: read("timingMode", 0),
+          },
+          safeRate,
+        );
+      },
+      wallDelay: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+        const state = this.wallDelayStates.get(nodeId) || this.createWallDelayState();
+        this.wallDelayStates.set(nodeId, state);
+        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        return this.wallDelaySample(
+          state,
+          mixInput(nodeId),
+          {
+            bounceCount: read("bounceCount", 3),
+            earDistance: read("earDistance", 17),
+            level: read("level", 1),
+            mix: read("mix", 0.5),
+            rayCount: read("rayCount", 6),
+            reflectivity: read("reflectivity", 0.6),
+            roomHeight: read("roomHeight", 1),
+            roomPreset: read("roomPreset", 0),
+            roomRoundness: read("roomRoundness", 0.3),
+            roomScale: read("roomScale", 4),
+            roomSeed: read("roomSeed", 0),
+            roomWidth: read("roomWidth", 1),
           },
           safeRate,
         );

@@ -409,6 +409,9 @@ function drawNodeGraphFilterCurveDisplays() {
   if (typeof drawNodeGraphPulseCurveDisplay === "function") {
     document.querySelectorAll(".node-pulse-curve-display").forEach(drawNodeGraphPulseCurveDisplay);
   }
+  if (typeof drawNodeGraphWallRoomDisplay === "function") {
+    document.querySelectorAll(".node-wall-room-display").forEach(drawNodeGraphWallRoomDisplay);
+  }
 }
 
 function scheduleNodeGraphFilterCurveDraw() {

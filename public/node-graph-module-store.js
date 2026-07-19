@@ -782,6 +782,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Ping Pong Delay",
     notes: ["ping pong", "tempo sync", "X/Y division", "dotted/triplet"],
   },
+  wallDelay: {
+    category: "Delay",
+    description: "Geometric delay from a superellipsoid room (Squircle/Random/Fractal, meters-scaled Width/Height/Roundness): Rays x Bounces delay taps per ear (Ear Distance in cm), each hop's distance and specular/scattered direction computed from the real room surface. Reflectivity blends mirror-like bounces against rough scattering, and drives a shared Sabrina-style diffusion cascade.",
+    label: "Wall Delay",
+    notes: ["wall geometry", "binaural", "superellipsoid", "ray bounces"],
+  },
   reverbEffect: {
     category: "Delay",
     description: "Raw Sabrina reverb port: serial diffusion stages with cross-feedback delay, modulation, recycle, and wet/dry mix. Seed randomizes the delay line pattern.",

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>soemdsp-sandbox</title>
-  <link rel="stylesheet" href="./public/styles.css?v=stepgrid-selection-fix-20260715">
+  <link rel="stylesheet" href="./public/styles.css?v=wall-delay-two-ear-20260718">
   <link rel="stylesheet" href="./public/modules/stepGrid/step-grid.css?v=stepgrid-own-folder-20260715">
 </head>
 <body class="debug-collapsed node-boot-loading">
@@ -3233,17 +3233,17 @@
   <script src="./public/node-graph-floating-windows.js?v=floating-arrow-editable-1"></script>
   <script src="./public/node-graph-file-actions.js?v=floating-window-attention-1"></script>
   <script src="./public/node-graph-default-buttons.js?v=patch-save-refresh-1"></script>
-  <script src="./public/node-graph-cookbook-filter.js?v=papoulis-filter-module-1"></script>
+  <script src="./public/node-graph-cookbook-filter.js?v=wall-delay-two-ear-20260718"></script>
   <script src="./public/node-graph-papoulis-filter.js?v=phosphillator-papoulis-2"></script>
   <script src="./public/node-graph-phosphor-draw-sample.js?v=phosphor-draw-sample-1"></script>
   <script src="./public/node-graph-color-standards.js?v=color-standards-1"></script>
   <script src="./public/node-graph-chromeless-module-registry.js?v=stepgrid-variable-steps-20260715"></script>
   <script src="./public/modules/led/led-register.js?v=stepgrid-variable-steps-20260715"></script>
   <script src="./public/modules/stepGrid/step-grid-register.js?v=stepgrid-variable-steps-20260715"></script>
-  <script src="./public/node-graph-module-definitions.js?v=stepgrid-variable-steps-20260715"></script>
+  <script src="./public/node-graph-module-definitions.js?v=wall-delay-ray-bounce-dsp-20260718"></script>
   <script src="./public/node-graph-data-bus.js?v=data-plane-merge-20260711"></script>
-  <script src="./public/node-graph-module-store.js?v=stepgrid-variable-steps-20260715"></script>
-  <script src="./public/node-graph-module-sizing.js?v=stepgrid-variable-steps-20260715"></script>
+  <script src="./public/node-graph-module-store.js?v=wall-delay-ray-bounce-dsp-20260718"></script>
+  <script src="./public/node-graph-module-sizing.js?v=wall-delay-two-ear-20260718"></script>
   <script src="./public/node-graph-metadata-kinds.js?v=0051"></script>
   <script src="./public/node-graph-parameter-metadata.js?v=script-box-merge-20260711"></script>
   <script src="./public/node-graph-metadata-defaults.js?v=decimal-template-1"></script>
@@ -3290,7 +3290,7 @@
   <script src="./public/modules/led/led-ui.js?v=stepgrid-variable-steps-20260715"></script>
   <script src="./public/modules/stepGrid/step-grid-ui.js?v=stepgrid-variable-steps-20260715"></script>
   <script src="./public/node-graph-module-header-rendering.js?v=0032"></script>
-  <script src="./public/node-graph-module-rendering.js?v=stepgrid-variable-steps-20260715"></script>
+  <script src="./public/node-graph-module-rendering.js?v=wall-delay-two-ear-20260718"></script>
   <script src="./public/node-graph-history.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-visual-utils.js?v=text-light-registry-1780800000000"></script>
   <script src="./public/node-graph-patch-clone.js?v=script-box-merge-20260711"></script>
@@ -3312,7 +3312,7 @@
   <script src="./public/node-graph-rendered-visual-output.js?v=beta-polish-1"></script>
   <script src="./public/node-graph-rendered-output-canvases.js?v=beta-polish-1"></script>
   <script src="./public/node-graph-execution-wires.js?v=external-graph-inputs-1780816800000"></script>
-  <script src="./public/node-graph-execution-plan.js?v=vactrol-series-impulse-button-20260710"></script>
+  <script src="./public/node-graph-execution-plan.js?v=wall-delay-generic-source-fallback-20260718"></script>
   <script src="./public/node-graph-execution-summary.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-wire-actions.js?v=wire-connect-1"></script>
   <script src="./public/node-graph-trace-router.js?v=no-self-burst-1780321400000"></script>
@@ -3341,7 +3341,7 @@
   <script src="./public/node-graph-state.js?v=vactrol-series-impulse-button-20260710"></script>
   <script src="./public/node-graph-external-ui-events.js?v=vactrol-series-impulse-button-20260710"></script>
   <script src="./public/node-graph-patch-core.js?v=script-box-merge-20260711"></script>
-  <script src="./public/node-graph-live-plan-runtime.js?v=phosphillator-playback-20260710"></script>
+  <script src="./public/node-graph-live-plan-runtime.js?v=wall-delay-two-ear-20260718"></script>
   <script src="./public/node-graph-live-parameter-runtime.js?v=skip-unmodulated-20260702"></script>
   <script src="./public/node-graph-oscillator-runtime.js?v=0147"></script>
   <script src="./public/node-graph-gpu-additive-backend.js?v=external-graph-inputs-1780816800000"></script>
@@ -3418,6 +3418,8 @@
   <script src="./public/modules/tb303Filter/tb303-filter-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/delayEffect/delay-effect-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/pingPongDelay/ping-pong-delay-live-evaluator.js?v=per-module-dispatch-20260711"></script>
+  <script src="./public/modules/wallDelay/wall-delay-live-evaluator.js?v=wall-delay-nudge-helper-20260718"></script>
+  <script src="./public/modules/wallDelay/wall-delay-room-display.js?v=wall-delay-nudge-helper-20260718"></script>
   <script src="./public/modules/reverbEffect/reverb-effect-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/pll/pll-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/helmholtzPitch/helmholtz-pitch-live-evaluator.js?v=per-module-dispatch-20260711"></script>
@@ -3485,7 +3487,7 @@
   <script src="./public/modules/graph/graph-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/polyBlep/poly-blep-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/node-graph-pulse-explosion-display.js?v=1"></script>
-  <script src="./public/node-graph-live-runtime.js?v=metallic-ratio-20260711"></script>
+  <script src="./public/node-graph-live-runtime.js?v=wall-delay-nudge-helper-20260718"></script>
   <script src="./public/node-graph-wire-controller-bootstrap.js?v=wire-break-trigger-0129"></script>
   <script src="./public/node-graph-workspace-event-bindings.js?v=dblclick-textbox-20260701"></script>
   <script src="./public/node-graph-render-live-event-bindings.js?v=beta-polish-1"></script>

@@ -1787,7 +1787,7 @@ async function stopNodeGraphLiveAudio() {
 // then register.js calls registerProcessor last, once everything above it
 // has finished defining/registering.
 const nodeGraphLiveWorkletSourceFiles = [
-  "./public/node-live-audio-worklet-core.js?v=stepgrid-variable-steps-20260715",
+  "./public/node-live-audio-worklet-core.js?v=wall-delay-ray-bounce-dsp-20260718",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=worklet-dedup-20260712",
   "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=worklet-dedup-20260712",
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=worklet-dedup-20260712",
@@ -1838,6 +1838,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/tb303Filter/tb303-filter-worklet-evaluator.js?v=worklet-dedup-20260712",
   "./public/modules/delayEffect/delay-effect-worklet-evaluator.js?v=worklet-dedup-20260712",
   "./public/modules/pingPongDelay/ping-pong-delay-worklet-evaluator.js?v=worklet-dedup-20260712",
+  "./public/modules/wallDelay/wall-delay-worklet-evaluator.js?v=wall-delay-nudge-helper-20260718",
   "./public/modules/reverbEffect/reverb-effect-worklet-evaluator.js?v=worklet-dedup-20260712",
   "./public/modules/pll/pll-worklet-evaluator.js?v=worklet-dedup-20260712",
   "./public/modules/helmholtzPitch/helmholtz-pitch-worklet-evaluator.js?v=worklet-dedup-20260712",
