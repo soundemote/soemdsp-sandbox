@@ -852,35 +852,35 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   expAdsr: {
     category: "Envelope",
     description: "Soundemote-style exponential ADSR. Gate it with a clock or pulse and shape the rise and fall curves. Native C++/WASM.",
-    label: "ExponentialEnvelope",
+    label: "Exponential Envelope",
     notes: ["gate input", "target-ratio curves", "loopable envelope", "native"],
   },
   flowerChildEnvelopeFollower: {
     category: "Envelope",
     description: "FlowerChild-style rectified envelope follower with attack, hold, and decay slew behavior.",
-    label: "FlowerChild Envelope Follower",
+    label: "Envelope Follower",
     notes: ["audio input", "attack hold decay", "signed follower port"],
   },
   linearEnvelope: {
     category: "Envelope",
     description: "Straight-line envelope for predictable ramps, fades, gates, and simple motion. Native C++/WASM.",
-    label: "LinearEnvelope",
+    label: "Linear Envelope",
     notes: ["gate input", "linear DADSR", "loopable ramp", "native"],
   },
   pluckEnvelope: {
     category: "Envelope",
     description: "Fast feedback pluck contour for struck, picked, pinged, and percussive behaviors. Native C++/WASM.",
-    label: "PluckEnvelope",
+    label: "Pluck Envelope",
     notes: ["trigger input", "decay energy", "auto release", "native"],
   },
   vactrolEnvelopeSeries: {
-    category: "Envelope",
+    category: "LED",
     description: "Optical-style control shaper with a 10-way Part switch selecting PerkinElmer VTL5C-series datasheet timing and resistance figures (VTL5C1 through VTL5C10), from the classic fast VTL5C3 to the ~40x-slower VTL5C4. Native C++/WASM.",
     notes: ["light input", "part switch", "dark current", "native"],
   },
   vactrolEnvelopeCustom: {
     category: "Envelope",
-    description: "Optical-style control shaper with the same attack/release/curve/sensitivity/light offset/dark current knobs as the VTL5C Series module, but not tied to a named real part -- roll your own hypothetical vactrol. Native C++/WASM.",
+    description: "Optical-style control shaper with the same attack/release/curve/sensitivity/light offset/dark current knobs as the VTL5C module, but not tied to a named real part -- roll your own hypothetical vactrol. Native C++/WASM.",
     notes: ["light input", "custom vactrol", "dark current", "native"],
   },
   sandboxVisuals: {
