@@ -18,7 +18,7 @@ registerNodeGraphChromelessModule("led", {
     visualSink: true,
   },
   catalog: {
-    category: "Visual",
+    category: "LED",
     description: "One-grid-unit signal light. Patch any gate or control signal into In and use it as a compact in-world indicator.",
     notes: ["1 GU tile", "input light", "visual indicator"],
   },

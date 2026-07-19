@@ -10010,29 +10010,31 @@ def require_node_graph_mvp_contract() -> None:
         "data-context-group",
         "function setNodeGraphModuleCatalogVisibility(type, visible, shelf = \"shop\")",
         "const nodeGraphModuleStoreDepartments = Object.freeze([",
-        "\"🎶AudioPlayer\"",
-        "\"♾️Chaos\"",
+        "\"🔌Plugin\"",
         "\"🕹️Controller\"",
-        "\"🐞Debug\"",
-        "\"🔬Digital\"",
+        "\"🌌Portal\"",
         "\"🥁Drum\"",
         "\"⚡Dynamics\"",
         "\"📐Envelope\"",
         "\"💧Filter\"",
-        "\"♟️Game Trigger\"",
-        "\"☄️Grains\"",
-        "\"♻️Jerobeam\"",
-        "\"🎞️Media\"",
-        "\"⚡Modulator\"",
-        "\"░Noise\"",
         "\"⚪Oscillator\"",
-        "\"🖥️Display\"",
-        "\"🔌Plugin\"",
-        "\"🌌Portal\"",
-        "\"🔊Samples\"",
+        "\"♾️Chaos\"",
+        "\"♻️Jerobeam\"",
+        "\"🌧️Noise\"",
+        "\"⚡Modulator\"",
+        "\"🔬Digital\"",
+        "\"🎶Music\"",
+        "\"🔊Sample\"",
+        "\"⏳Grains\"",
         "\"⛪Space\"",
-        "\"🔬Time\"",
-        "\"📺Video\"",
+        "\"⌚Clock\"",
+        "\"🚥LED\"",
+        "\"🌈RGB\"",
+        "\"📺Oscilloscope\"",
+        "\"📟Multimeter\"",
+        "\"🎞️Media\"",
+        "\"♟️Game Trigger\"",
+        "\"🐞Debug\"",
         'samplePlayer: {\n    category: "Audio"',
         'audioPlayer: {\n    category: "Audio"',
         'sampleLooper: {\n    category: "Audio"',
@@ -13195,7 +13197,7 @@ def require_node_graph_mvp_contract() -> None:
     )
     require('category: "Sequence"' in module_store_source, "Transport and timing modules should still be authored as Sequence before display-category normalization")
     require('category: "Sequencer"' not in module_store_source, "module browser catalog should not use Sequencer category")
-    require('"🔬Time",' in module_store_source and 'Sequence: "🔬Time"' in module_store_source, "Sequence should display as 🔬Time")
+    require('"⌚Clock",' in module_store_source and 'Sequence: "⌚Clock"' in module_store_source, "Sequence should display as ⌚Clock")
     require('Delay: "⛪Space"' in module_store_source, "Delay should display as ⛪Space")
     require('"Game Triggers": "♟️Game Trigger"' in module_store_source, "Game Triggers should display inside ♟️Game Trigger")
     department_list_source = module_store_source[
@@ -13207,7 +13209,7 @@ def require_node_graph_mvp_contract() -> None:
     require("width: 180" in module_store_source, "Module Browser fresh default width should be 180px")
     require("const workingCount = entries.filter((entry) => entry.visible && entry.implemented).length" in module_store_source, "module browser counts should include only working modules")
     require("nodeGraphModuleStoreDepartmentAliases[value] || value" in module_store_source, "old module browser state should normalize through the department alias map")
-    require('"🖥️Display",' in module_store_source, "Module Browser should expose a 🖥️Display category")
+    require('"📺Oscilloscope",' in module_store_source, "Module Browser should expose a 📺Oscilloscope category")
     require('"Game Triggers",' in module_store_source and "wireBreak: {" in module_store_source and "wireConnect: {" in module_store_source and "wireDisconnect: {" in module_store_source and "windowReopen: {" in module_store_source and '"shootingStarTail"' in module_store_source and "shootingStarExplosion: {" in module_store_source, "Game Triggers should expose wire, window, and shooting star trigger modules")
     wire_connect_definition = module_definitions_source[
         module_definitions_source.index("wireConnect: {"):

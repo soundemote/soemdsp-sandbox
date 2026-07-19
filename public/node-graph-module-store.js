@@ -25,29 +25,31 @@ const nodeGraphModuleGroupStorageKey = "soemdsp-sandbox.moduleGroups.v1";
 const nodeGraphModuleCatalogVisibilityStorageKey = "soemdsp-sandbox.moduleCatalogVisibility.v2";
 
 const nodeGraphModuleStoreDepartments = Object.freeze([
-  "🎶AudioPlayer",
-  "♾️Chaos",
+  "🔌Plugin",
   "🕹️Controller",
-  "🐞Debug",
-  "🔬Digital",
+  "🌌Portal",
   "🥁Drum",
   "⚡Dynamics",
   "📐Envelope",
   "💧Filter",
-  "♟️Game Trigger",
-  "☄️Grains",
-  "♻️Jerobeam",
-  "🎞️Media",
-  "⚡Modulator",
-  "░Noise",
   "⚪Oscillator",
-  "🖥️Display",
-  "🔌Plugin",
-  "🌌Portal",
-  "🔊Samples",
+  "♾️Chaos",
+  "♻️Jerobeam",
+  "🌧️Noise",
+  "⚡Modulator",
+  "🔬Digital",
+  "🎶Music",
+  "🔊Sample",
+  "⏳Grains",
   "⛪Space",
-  "🔬Time",
-  "📺Video",
+  "⌚Clock",
+  "🚥LED",
+  "🌈RGB",
+  "📺Oscilloscope",
+  "📟Multimeter",
+  "🎞️Media",
+  "♟️Game Trigger",
+  "🐞Debug",
 ]);
 
 const nodeGraphModuleStoreVisualGroups = Object.freeze([]);
@@ -62,9 +64,9 @@ const nodeGraphModuleStoreVisualGroupByDepartment = Object.freeze(
 );
 
 const nodeGraphModuleStoreDepartmentAliases = Object.freeze({
-  Arpeggiator: "🔬Time",
-  Audio: "🎶AudioPlayer",
-  "Audio Player": "🎶AudioPlayer",
+  Arpeggiator: "⌚Clock",
+  Audio: "🎶Music",
+  "Audio Player": "🎶Music",
   Chaos: "♾️Chaos",
   CLAP: "🔌Plugin",
   Controllers: "🕹️Controller",
@@ -76,21 +78,24 @@ const nodeGraphModuleStoreDepartmentAliases = Object.freeze({
   Envelope: "📐Envelope",
   Filter: "💧Filter",
   "Game Triggers": "♟️Game Trigger",
-  Grains: "☄️Grains",
+  Grains: "⏳Grains",
   Jerobeam: "♻️Jerobeam",
-  Loops: "🔊Samples",
+  LED: "🚥LED",
+  Loops: "🔊Sample",
   Modulator: "⚡Modulator",
   Modulators: "⚡Modulator",
-  Noise: "░Noise",
+  Multimeter: "📟Multimeter",
+  Noise: "🌧️Noise",
   Oscillator: "⚪Oscillator",
-  Oscilloscope: "🖥️Display",
+  Oscilloscope: "📺Oscilloscope",
   Other: "🔬Digital",
   Portals: "🌌Portal",
-  Samples: "🔊Samples",
-  Sequence: "🔬Time",
-  Sequencer: "🔬Time",
-  Time: "🔬Time",
-  Visual: "📺Video",
+  RGB: "🌈RGB",
+  Samples: "🔊Sample",
+  Sequence: "⌚Clock",
+  Sequencer: "⌚Clock",
+  Time: "⌚Clock",
+  Visual: "🔬Digital",
 });
 
 const nodeGraphModuleStoreDepartmentAds = Object.freeze({
@@ -136,7 +141,7 @@ const nodeGraphModuleStoreDepartmentAds = Object.freeze({
   },
   Audio: {
     symbol: "OUT",
-    title: "Audio Player",
+    title: "Music",
     pitch: "Music playback, audio sinks, and listening endpoints for turning patch signal into rendered or live sound.",
   },
   Dynamics: {
@@ -202,12 +207,27 @@ const nodeGraphModuleStoreDepartmentAds = Object.freeze({
   Visual: {
     symbol: "V",
     title: "Visual",
-    pitch: "Visual sinks, RGBA sources, canvas layers, and formula tiles for turning patch motion into screen output.",
+    pitch: "Canvas layers, shader passes, screen-space glow, and formula tiles for turning patch motion into screen output.",
   },
   Oscilloscope: {
     symbol: "OSC",
     title: "Oscilloscope",
-    pitch: "Dedicated display testbeds for trace, dot, line burn, 2D scope, and canvas-style visual inspection.",
+    pitch: "Dedicated display testbeds for trace, line burn, 2D scope, videoscope, and canvas-style waveform inspection.",
+  },
+  Multimeter: {
+    symbol: "0D",
+    title: "Multimeter",
+    pitch: "Single-value readouts. Burn, line, or text display for the latest value on a signal -- no waveform, just the number.",
+  },
+  LED: {
+    symbol: "●",
+    title: "LED",
+    pitch: "Compact in-world indicator lights. Patch any gate or control signal in and use it as a one-tile status light.",
+  },
+  RGB: {
+    symbol: "◍",
+    title: "RGB",
+    pitch: "Color sinks for the screen wash -- precise RGB/HSL channels or stylized chroma drift, alpha, bloom, and glow.",
   },
 });
 
@@ -879,12 +899,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["visual sink", "dim input", "bloom and glow"],
   },
   rgbaHsla: {
-    category: "Visual",
+    category: "RGB",
     description: "Precise color sink with RGB channels, HSL channels, an HSL mix control, and alpha for the screen wash.",
     notes: ["visual sink", "rgb channels", "hsla control"],
   },
   chromaColor: {
-    category: "Visual",
+    category: "RGB",
     description: "Stylized color sink for chroma-driven screen washes with hue drift, spread, alpha, trace brightness, bloom, and glow.",
     notes: ["visual sink", "chroma wash", "moving color"],
   },
@@ -901,7 +921,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   // led registers its own catalog entry from public/modules/led/led-register.js
   // -- see node-graph-chromeless-module-registry.js.
   visualOscilloscope: {
-    category: "Visual",
+    category: "Oscilloscope",
     description: "Square in-world display tile. Patch any signal into In and use it as a dedicated visual display.",
     notes: ["square display", "signal display", "visual sink"],
   },
@@ -911,7 +931,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["1D waveform", "display testbed", "input trace"],
   },
   dotOscilloscope: {
-    category: "Oscilloscope",
+    category: "Multimeter",
     description: "Placeholder for a clock-like oscilloscope that draws one efficient brightness dot from the current buffered value.",
     label: "0D Burn",
     notes: ["clock display", "single dot", "latest value"],
@@ -929,13 +949,13 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["oscilloscope", "trigger", "dot", "line", "xy", "native", "phosphor display"],
   },
   valueOscilloscope: {
-    category: "Oscilloscope",
+    category: "Multimeter",
     description: "Single-value oscilloscope that draws the latest input as one horizontal line across the display.",
     label: "0D Value",
     notes: ["value display", "horizontal line", "latest value"],
   },
   numberReadout: {
-    category: "Oscilloscope",
+    category: "Multimeter",
     description: "Digital readout that draws the latest input value as formatted text. Redraws only when the displayed value changes.",
     label: "Number Readout",
     notes: ["numeric display", "digital readout", "text display", "latest value"],
