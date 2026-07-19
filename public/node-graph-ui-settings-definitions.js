@@ -54,6 +54,8 @@ const nodeUiDevSettingControls = Object.freeze([
     key: "workspaceBackgroundColor",
     type: "color",
   },
+  { defaultValue: 3, exposeDefault: true, id: "nodeUiDevModuleBrowserEntryPadding", key: "moduleBrowserEntryPadding", max: 20, min: 0, type: "number" },
+  { defaultValue: 16, exposeDefault: true, id: "nodeUiDevModuleBrowserEntryTextSize", key: "moduleBrowserEntryTextSize", max: 28, min: 8, type: "number" },
   { defaultValue: 62, id: "nodeUiDevSettingsHeaderTopRatio", key: "settingsHeaderTopRatio", max: 100, min: 0, type: "number" },
   { defaultValue: 2, id: "nodeUiDevSettingsHeaderPadding", key: "settingsHeaderPadding", max: 20, min: 0, type: "number" },
   { defaultValue: 30, exposeDefault: true, id: "nodeUiDevFloatingWindowHeaderHeight", key: "floatingWindowHeaderHeight", max: 48, min: 20, type: "number" },
@@ -112,6 +114,8 @@ const nodeUiDevSettingSections = Object.freeze([
       "nodeUiDevModuleRoundness",
       "nodeUiDevGridColor",
       "nodeUiDevWorkspaceBackgroundColor",
+      "nodeUiDevModuleBrowserEntryPadding",
+      "nodeUiDevModuleBrowserEntryTextSize",
     ],
   },
   {

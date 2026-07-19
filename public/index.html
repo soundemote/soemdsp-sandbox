@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>soemdsp-sandbox</title>
-  <link rel="stylesheet" href="./public/styles.css?v=department-row-size-20260719">
+  <link rel="stylesheet" href="./public/styles.css?v=module-browser-entry-controls-20260719">
   <link rel="stylesheet" href="./public/modules/stepGrid/step-grid.css?v=stepgrid-own-folder-20260715">
 </head>
 <body class="debug-collapsed node-boot-loading">
@@ -1379,6 +1379,32 @@
             <span>modular background color</span>
             <input id="nodeUiDevWorkspaceBackgroundColor" type="color" value="#0d0d0d">
             <output id="nodeUiDevWorkspaceBackgroundColorValue" for="nodeUiDevWorkspaceBackgroundColor">#0d0d0d</output>
+          </label>
+          <label class="node-ui-dev-control">
+            <span>module browser entry padding</span>
+            <div class="node-ui-dev-control-row">
+              <input
+                id="nodeUiDevModuleBrowserEntryPadding"
+                type="range"
+                min="0"
+                max="20"
+                step="1"
+                value="3">
+              <output id="nodeUiDevModuleBrowserEntryPaddingValue" for="nodeUiDevModuleBrowserEntryPadding">3px</output>
+            </div>
+          </label>
+          <label class="node-ui-dev-control">
+            <span>module browser entry text/emoji size</span>
+            <div class="node-ui-dev-control-row">
+              <input
+                id="nodeUiDevModuleBrowserEntryTextSize"
+                type="range"
+                min="8"
+                max="28"
+                step="1"
+                value="16">
+              <output id="nodeUiDevModuleBrowserEntryTextSizeValue" for="nodeUiDevModuleBrowserEntryTextSize">16px</output>
+            </div>
           </label>
           <label class="node-ui-dev-control">
             <span>settings header top / bottom ratio</span>
@@ -3415,12 +3441,12 @@
   <script src="./public/node-graph-tooltips.js?v=0028"></script>
   <script src="./public/node-graph-interaction-help.js?v=0025"></script>
   <script src="./public/presets/useruisettings.js?v=noise-generator-stereo-20260630"></script>
-  <script src="./public/node-graph-ui-settings-definitions.js?v=shader-default-on-0161"></script>
+  <script src="./public/node-graph-ui-settings-definitions.js?v=module-browser-entry-controls-20260719"></script>
   <script src="./public/node-graph-ui-settings-utils.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-user-ui-settings-controls.js?v=0083"></script>
   <script src="./public/node-graph-ui-settings-panels.js?v=unified-window-pos-2"></script>
   <script src="./public/node-graph-ui-settings-persistence.js?v=code-box-auto-ports-20260719"></script>
-  <script src="./public/node-graph-ui-settings-sync.js?v=floating-window-header-height-1"></script>
+  <script src="./public/node-graph-ui-settings-sync.js?v=module-browser-entry-controls-20260719"></script>
   <script src="./public/node-graph-keyboard-shortcuts.js?v=display-height-type-20260719"></script>
   <script src="./public/node-graph-live-status-text.js?v=live-plan-preserve-20260634"></script>
   <script src="./public/node-graph-live-status-controls.js?v=slider-unit-color-1780307400000"></script>
@@ -3585,7 +3611,7 @@
   <script src="./public/node-graph-header-event-bindings.js?v=code-box-auto-ports-20260719"></script>
   <script src="./public/node-graph-help-event-bindings.js?v=remove-workspace-view-0002"></script>
   <script src="./public/node-graph-scene-menu-event-bindings.js?v=code-box-auto-ports-20260719"></script>
-  <script src="./public/node-graph-uidev-event-bindings.js?v=origin-marker-uidev-1"></script>
+  <script src="./public/node-graph-uidev-event-bindings.js?v=module-browser-entry-controls-20260719"></script>
   <script src="./public/node-graph-settings-event-bindings.js?v=metadata-popover-bind-1"></script>
   <script src="./public/node-graph-slider-event-bindings.js?v=node-graph-slider-event-bindings-refactor-1780369200000"></script>
   <script src="./public/node-graph-event-bindings.js?v=iframe-focus-on-pointerdown-20260702"></script>

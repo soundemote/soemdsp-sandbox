@@ -16940,7 +16940,7 @@ def require_node_graph_mvp_contract() -> None:
         and "font-size: 0.78rem" in module_department_title_style
         and "font-weight: 650" in module_department_title_style
         and "color: rgba(243, 241, 236, 0.9)" in module_category_row_title_style
-        and "font-size: 1rem" in module_category_row_title_style
+        and "font-size: var(--node-module-category-row-text-size, 1rem)" in module_category_row_title_style
         and "font-weight: 650" in module_category_row_title_style,
         "module browser selected-title should stay blue while clickable category rows use off-white text",
     )
