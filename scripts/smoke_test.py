@@ -10014,7 +10014,7 @@ def require_node_graph_mvp_contract() -> None:
         "\"♾️Chaos\"",
         "\"🕹️Controller\"",
         "\"🐞Debug\"",
-        "\"🔬Digital\"",
+        "\"👾Digitial\"",
         "\"🥁Drum\"",
         "\"⚡Dynamics\"",
         "\"📐Envelope\"",
@@ -10022,6 +10022,7 @@ def require_node_graph_mvp_contract() -> None:
         "\"♟️Game Trigger\"",
         "\"☄️Grains\"",
         "\"♻️Jerobeam\"",
+        "\"🎞️Media\"",
         "\"⚡Modulator\"",
         "\"░Noise\"",
         "\"⚪Oscillator\"",
@@ -13234,7 +13235,7 @@ def require_node_graph_mvp_contract() -> None:
         'outputs: ["Pulse", "Gate", "Sine"]' in window_reopen_definition,
         "Window Reopen should expose Pulse, Gate, and Sine outputs",
     )
-    require('"🔬Digital",' in module_store_source, "Module Browser should expose a 🔬Digital category")
+    require('"👾Digitial",' in module_store_source, "Module Browser should expose a 👾Digitial category")
     require('codeblock: {\n    category: "Digital"' in module_store_source, "Codeblock should live in Digital")
     require('scriptBox: {\n    category: "Digital"' in module_store_source, "Script Box should live in Digital")
     require('canvas: {\n    category: "Digital"' in module_store_source, "Canvas should live in Digital")
