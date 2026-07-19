@@ -304,6 +304,9 @@ function nodeGraphPatchNodeInputPorts(node) {
   if (patchNode?.type === "scriptBox") {
     return normalizeNodeGraphScriptBox(patchNode.scriptBox).inputs;
   }
+  if (patchNode?.type === "customDisplay") {
+    return normalizeNodeGraphCustomDisplay(patchNode.customDisplay).inputs;
+  }
   if (patchNode?.type === "moduleGroup") {
     return normalizeNodeGraphModuleGroup(patchNode.moduleGroup).inputs.map((input) => input.name);
   }
@@ -333,6 +336,9 @@ function nodeGraphPatchNodeOutputPorts(node) {
   }
   if (patchNode?.type === "scriptBox") {
     return normalizeNodeGraphScriptBox(patchNode.scriptBox).outputs;
+  }
+  if (patchNode?.type === "customDisplay") {
+    return [];
   }
   if (patchNode?.type === "moduleGroup") {
     return normalizeNodeGraphModuleGroup(patchNode.moduleGroup).outputs.map((output) => output.name);

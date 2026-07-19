@@ -246,7 +246,7 @@ function bindNodeGraphHeaderControlEvents() {
     .addEventListener("click", toggleNodeUserUiSettings);
   document
     .getElementById("nodeCodeScreenViewButton")
-    .addEventListener("click", () => setNodeGraphViewMode("code"));
+    .addEventListener("click", () => openNodeGraphCodeBoxWindowFromHeader());
   document
     .getElementById("nodeUiViewButton")
     ?.addEventListener("click", () => setNodeGraphViewMode("ui"));

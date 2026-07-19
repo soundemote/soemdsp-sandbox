@@ -4603,6 +4603,18 @@ body.keyboard-debug-hidden .node-live-controls {
   line-height: 1.25;
 }
 
+/* Codeblock (audio-rate, per-sample) and Script Box (main-thread,
+   data-rate) share this editor now (see nodeGraphCodeScreenCodeBoxKinds,
+   node-graph-code-screen.js) -- this line is the one thing that has to
+   change per kind so it's obvious which execution model you're writing
+   for without needing to remember it. */
+.node-code-screen-editor-context-hint {
+  margin: -4px 0 4px;
+  color: rgba(174, 180, 187, 0.72);
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+
 .node-code-screen-lookup {
   display: grid;
   gap: 7px;
@@ -6519,6 +6531,56 @@ body.keyboard-debug-hidden .node-live-controls {
   margin: 0;
 }
 
+.node-code-screen-codeblocks-landing {
+  align-content: center;
+  justify-items: center;
+  gap: 16px;
+  min-height: min(60vh, 420px);
+  padding: 32px;
+  text-align: center;
+  border-color: rgba(226, 168, 109, 0.32);
+  background: radial-gradient(circle at 50% 0%, rgba(226, 168, 109, 0.08), rgba(9, 13, 16, 0.82) 70%);
+}
+
+.node-code-screen-codeblocks-landing h3 {
+  margin: 0;
+  color: rgba(243, 241, 236, 0.95);
+  font-size: 1.4rem;
+  letter-spacing: 0.01em;
+}
+
+.node-code-screen-codeblocks-landing p {
+  max-width: 480px;
+  color: rgba(243, 241, 236, 0.68);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.node-code-screen-codeblocks-landing-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.node-code-screen-landing-cta {
+  padding: 12px 22px;
+  border: 1px solid rgba(226, 168, 109, 0.55);
+  border-radius: 6px;
+  background: rgba(226, 168, 109, 0.14);
+  color: rgba(243, 241, 236, 0.95);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, transform 0.12s ease;
+}
+
+.node-code-screen-landing-cta:hover {
+  background: rgba(226, 168, 109, 0.28);
+  border-color: rgba(226, 168, 109, 0.85);
+  transform: translateY(-1px);
+}
+
 .node-code-screen-autocomplete {
   position: absolute;
   right: 18px;
@@ -7806,7 +7868,7 @@ body.keyboard-debug-hidden .node-live-controls {
   min-height: var(--node-module-shop-min-height, 120px);
   max-width: min(var(--node-module-shop-max-width, 980px), calc(100vw - 28px));
   max-height: min(var(--node-module-shop-max-height, 760px), calc(100vh - 24px));
-  margin: 16px auto 0;
+  margin: 0;
   overflow: hidden;
   padding: 0;
   border: 1px solid var(--line);
@@ -8022,6 +8084,7 @@ body.keyboard-debug-hidden .node-live-controls {
   min-width: 0;
   min-height: 0;
   overflow: auto;
+  position: relative;
   scrollbar-width: none;
 }
 
@@ -8082,6 +8145,46 @@ body.keyboard-debug-hidden .node-live-controls {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 0;
+}
+
+.node-module-shop-section::before,
+.node-module-shop-section::after {
+  position: sticky;
+  left: 0;
+  right: 0;
+  display: grid;
+  place-items: center;
+  height: 0;
+  min-height: 0;
+  color: rgba(243, 241, 236, 0.88);
+  font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+  font-size: 0.88rem;
+  font-weight: 850;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  text-shadow:
+    0 0 8px rgba(127, 199, 217, 0.55),
+    0 0 18px rgba(127, 199, 217, 0.22);
+  transition: opacity 140ms ease;
+  z-index: 4;
+}
+
+.node-module-shop-section::before {
+  content: "▲";
+  top: 1px;
+  transform: translateY(2px);
+}
+
+.node-module-shop-section::after {
+  content: "▼";
+  bottom: 1px;
+  transform: translateY(-1rem);
+}
+
+.node-module-shop-section:hover.can-scroll-up::before,
+.node-module-shop-section:hover.can-scroll-down::after {
+  opacity: 1;
 }
 
 .scene-context-store-visual-group {
@@ -8153,7 +8256,7 @@ body.keyboard-debug-hidden .node-live-controls {
   display: block;
   max-width: 100%;
   overflow: hidden;
-  color: rgba(127, 199, 217, 0.9);
+  color: rgba(243, 241, 236, 0.9);
   font-size: 0.78rem;
   font-weight: 650;
   line-height: 1.1;
@@ -14830,6 +14933,239 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 #nodeSceneWindowControls .scene-context-window-button:last-child {
   padding: 0;
   border-radius: 0;
+}
+
+.node-code-box-window {
+  --node-code-box-window-width: 360px;
+  --node-code-box-window-height: 520px;
+  --node-code-box-window-min-width: 220px;
+  --node-code-box-window-max-width: 720px;
+  --node-code-box-window-min-height: 220px;
+  --node-code-box-window-max-height: 820px;
+  display: grid;
+  grid-template-rows:
+    var(--node-floating-window-header-height)
+    minmax(0, 1fr);
+  gap: 0;
+  width: var(--node-code-box-window-width);
+  min-width: var(--node-code-box-window-min-width);
+  max-width: var(--node-code-box-window-max-width);
+  height: var(--node-code-box-window-height);
+  min-height: var(--node-code-box-window-min-height);
+  max-height: var(--node-code-box-window-max-height);
+  overflow: hidden;
+  padding: 0;
+}
+
+.node-code-box-window[hidden] {
+  display: none;
+}
+
+.node-code-box-window-body {
+  --node-code-box-cell-height: calc(var(--node-floating-window-button-height) * 0.86);
+  display: grid;
+  gap: 0;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto auto;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.node-code-box-window-body label {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: stretch;
+  min-height: var(--node-code-box-cell-height);
+  margin: 0;
+  border-bottom: 1px solid rgba(130, 225, 245, 0.16);
+}
+
+.node-code-box-window-body label > span {
+  display: grid;
+  align-items: center;
+  min-width: 0;
+  padding: 0 4px;
+  color: rgba(151, 226, 242, 0.82);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: clip;
+}
+
+.node-code-box-window-body input,
+.node-code-box-window-body textarea {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  border-left: 1px solid rgba(130, 225, 245, 0.16);
+  border-radius: 0;
+  background: rgba(2, 6, 8, 0.9);
+  color: var(--node-text);
+  font: inherit;
+  outline: 0;
+}
+
+.node-code-box-window-body input {
+  min-height: var(--node-code-box-cell-height);
+  padding: 0 5px;
+  font-size: 0.68rem;
+}
+
+.node-code-box-source-label {
+  grid-template-columns: 1fr !important;
+  grid-template-rows: 18px minmax(0, 1fr);
+  min-height: 0;
+}
+
+.node-code-box-source-label > span {
+  min-height: 18px;
+  border-bottom: 1px solid rgba(130, 225, 245, 0.16);
+}
+
+.node-code-widget,
+.node-code-box-editor {
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+  background: rgba(2, 6, 8, 0.9);
+}
+
+.node-code-widget-fence {
+  color: rgba(245, 196, 105, 0.86);
+  font-weight: 800;
+}
+
+.node-code-widget-fence-lang {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 4px;
+  border: 1px solid rgba(134, 233, 189, 0.24);
+  border-radius: 3px;
+  background: rgba(134, 233, 189, 0.1);
+  color: rgba(174, 246, 213, 0.94);
+  font-size: 0.62rem;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.node-code-box-line-numbers,
+.node-code-widget-line-numbers,
+.node-code-box-highlight,
+.node-code-widget-highlight,
+.node-code-box-source-label textarea {
+  box-sizing: border-box;
+  min-height: 0;
+  margin: 0;
+  padding: 2px;
+  border: 0;
+  font-family: var(--node-mono-font, "Cascadia Mono", Consolas, monospace);
+  font-size: 0.68rem;
+  line-height: 1.2;
+  tab-size: 2;
+  white-space: pre;
+}
+
+.node-code-box-line-numbers,
+.node-code-widget-line-numbers {
+  z-index: 1;
+  overflow: hidden;
+  border-right: 1px solid rgba(130, 225, 245, 0.16);
+  color: rgba(151, 226, 242, 0.42);
+  text-align: right;
+  user-select: none;
+}
+
+.node-code-box-highlight,
+.node-code-widget-highlight,
+.node-code-box-source-label textarea {
+  grid-column: 2;
+  grid-row: 1;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+}
+
+.node-code-box-highlight,
+.node-code-widget-highlight {
+  overflow: hidden;
+  color: rgba(224, 240, 238, 0.92);
+  pointer-events: none;
+}
+
+.node-code-box-source-label textarea {
+  position: relative;
+  min-height: 0;
+  background: transparent;
+  color: rgba(224, 240, 238, 0.92);
+  caret-color: rgba(255, 255, 255, 0.96);
+  resize: none;
+  -webkit-text-fill-color: transparent;
+}
+
+.node-code-box-source-label textarea:focus {
+  outline: 0;
+}
+
+.node-code-token-keyword,
+.node-code-widget-keyword { color: #9fd4ff; }
+.node-code-token-number,
+.node-code-widget-number { color: #f5c469; }
+.node-code-token-string,
+.node-code-widget-string { color: #c8e88f; }
+.node-code-token-comment,
+.node-code-widget-comment { color: rgba(244, 241, 232, 0.42); }
+.node-code-token-property,
+.node-code-widget-key { color: #7fc7d9; }
+.node-code-widget-literal { color: #d1b3ff; }
+
+.node-custom-display-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#nodeCodeBoxStatus {
+  display: grid;
+  align-items: center;
+  min-height: var(--node-code-box-cell-height);
+  padding: 0;
+  border-top: 1px solid rgba(130, 225, 245, 0.16);
+  color: rgba(130, 255, 190, 0.92);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+#nodeCodeBoxStatus.changed {
+  color: rgba(255, 210, 126, 0.95);
+}
+
+#nodeCodeBoxStatus.error {
+  color: rgba(255, 126, 126, 0.95);
+}
+
+.node-code-box-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-height: var(--node-code-box-cell-height);
+  border-top: 1px solid rgba(130, 225, 245, 0.16);
+}
+
+.node-code-box-actions button {
+  min-width: 0;
+  min-height: var(--node-code-box-cell-height);
+  padding: 0;
+  border: 0;
+  border-right: 1px solid rgba(130, 225, 245, 0.16);
+  border-radius: 0;
+  background: rgba(18, 28, 32, 0.96);
+  color: var(--node-text);
+  font-size: 0.64rem;
+}
+
+.node-code-box-actions button:last-child {
+  border-right: 0;
 }
 
 .node-floating-window-attention {

@@ -2242,6 +2242,13 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
       nodeGraphModuleScopeConnectedSourceBuffer(nodeId, "In") ||
       null;
   }
+  if (slot?.type === "customDisplay") {
+    const displayScript = normalizeNodeGraphCustomDisplay(nodeGraphModuleScopeNodeForSlot(slot)?.customDisplay);
+    const primaryPort = displayScript.inputs[0] || "In1";
+    return nodeGraphModuleScopeState.buffers.get(`${nodeId}:${primaryPort}`) ||
+      nodeGraphModuleScopeConnectedSourceBuffer(nodeId, primaryPort) ||
+      new Float32Array([0]);
+  }
   const source = nodeGraphModuleDisplaySourceForSlot(slot);
   const sourcePort = String(source?.value || "").trim();
   if (sourcePort) {
@@ -2644,7 +2651,7 @@ function nodeGraphTraceDisplaySettingsEditingTraceDefaults() {
   return nodeGraphModuleDisplaySettingsSchemaForNode(node) === "trace" && node?.type !== "output";
 }
 
-const nodeGraphDisplayModeRenderers = Object.freeze(["trace", "clock", "dot", "value", "lineBurn", "hypersawBurn", "oscilloscopeBankBurn", "videoscopeBurn", "transportBpm", "scope2d", "scope2dTrace", "numberReadout", "spectrum"]);
+const nodeGraphDisplayModeRenderers = Object.freeze(["trace", "clock", "dot", "value", "lineBurn", "hypersawBurn", "oscilloscopeBankBurn", "videoscopeBurn", "transportBpm", "scope2d", "scope2dTrace", "numberReadout", "customDisplay", "spectrum"]);
 const nodeGraphDisplayModeSignalKinds = Object.freeze(["scalar", "xy", "buffer"]);
 
 function nodeGraphDisplayModeSettingsSchemaForRenderer(renderer) {
@@ -2885,7 +2892,7 @@ function nodeGraphWirelessVideoCatalog(options = {}) {
   const includeHidden = Boolean(options.includeHidden);
   const nodes = Array.isArray(nodeGraphMvp?.patch?.nodes) ? nodeGraphMvp.patch.nodes : [];
   return nodes
-    .filter((node) => includeHidden || !normalizeNodeGraphPatchNodeUi(node.ui).oscilloscopeHidden)
+    .filter((node) => includeHidden || !normalizeNodeGraphPatchNodeUi(node.ui, node.type).oscilloscopeHidden)
     .map((node) => nodeGraphWirelessVideoCatalogNode(node))
     .filter(Boolean);
 }
@@ -4684,7 +4691,7 @@ function assignNodeGraphDisplayModeKeyToNode(node, modeKey) {
     return null;
   }
   node.ui = {
-    ...normalizeNodeGraphPatchNodeUi(node.ui),
+    ...normalizeNodeGraphPatchNodeUi(node.ui, node.type),
     displayModeKey: selectedMode.key,
   };
   return selectedMode;
@@ -8748,6 +8755,102 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   context.restore();
 }
 
+function nodeGraphCustomDisplayCanvasForSlot(slot) {
+  const screenElement = slot?.scopeElement;
+  if (!screenElement) {
+    return null;
+  }
+  let canvas = screenElement.querySelector(":scope > .node-custom-display-canvas");
+  if (!canvas) {
+    canvas = document.createElement("canvas");
+    canvas.className = "node-custom-display-canvas";
+    canvas.setAttribute("aria-hidden", "true");
+    screenElement.appendChild(canvas);
+  }
+  return canvas;
+}
+
+function syncNodeGraphCustomDisplayCanvas(canvas, screenElement, pixelRatio) {
+  if (!canvas || !screenElement) {
+    return false;
+  }
+  const rect = screenElement.getBoundingClientRect();
+  const width = Math.max(1, Math.floor(rect.width * pixelRatio));
+  const height = Math.max(1, Math.floor(rect.height * pixelRatio));
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
+  canvas.style.width = `${rect.width}px`;
+  canvas.style.height = `${rect.height}px`;
+  return true;
+}
+
+function nodeGraphCustomDisplayInputApi(node, displayScript, primaryBuffer) {
+  const inputs = {};
+  for (const port of displayScript.inputs || []) {
+    const buffer = nodeGraphModuleScopeState.buffers.get(`${node.id}:${port}`) ||
+      nodeGraphModuleScopeConnectedSourceBuffer(node.id, port) ||
+      (port === displayScript.inputs[0] ? primaryBuffer : null);
+    inputs[port] = {
+      buffer: buffer || new Float32Array(0),
+      latest: buffer?.length ? Number(buffer[buffer.length - 1]) || 0 : 0,
+      length: buffer?.length || 0,
+    };
+  }
+  return inputs;
+}
+
+function drawNodeGraphCustomDisplayItem(renderer, item, pixelRatio) {
+  const slot = item?.slot;
+  const node = nodeGraphModuleScopeNodeForSlot(slot);
+  const screenElement = item?.screenElement || slot?.scopeElement;
+  if (!node || !screenElement) {
+    return;
+  }
+  renderNodeGraphModuleScopeAnalyzer(slot, item?.buffer || null);
+  const canvas = nodeGraphCustomDisplayCanvasForSlot(slot);
+  if (!canvas || !syncNodeGraphCustomDisplayCanvas(canvas, screenElement, pixelRatio)) {
+    return;
+  }
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return;
+  }
+  const displayScript = normalizeNodeGraphCustomDisplay(node.customDisplay);
+  const compiled = compiledNodeGraphCustomDisplayFunction(node);
+  if (!compiled?.fn) {
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.save();
+    context.fillStyle = "rgba(255, 126, 126, 0.9)";
+    context.font = `${Math.max(10, Math.min(18, canvas.height * 0.12))}px var(--node-mono-font, monospace)`;
+    context.fillText(compiled?.error || "compile error", 4 * pixelRatio, 16 * pixelRatio);
+    context.restore();
+    return;
+  }
+  try {
+    compiled.fn({
+      buffer: item?.buffer || new Float32Array(0),
+      canvas,
+      ctx: context,
+      frame: nodeGraphModuleScopeState.frames,
+      height: canvas.height,
+      inputs: nodeGraphCustomDisplayInputApi(node, displayScript, item?.buffer || null),
+      node,
+      pixelRatio,
+      time: (Number(nodeGraphModuleScopeState.frames) || 0) / 60,
+      width: canvas.width,
+    }, ...nodeGraphPortScriptHelperValues);
+  } catch (error) {
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.save();
+    context.fillStyle = "rgba(255, 126, 126, 0.9)";
+    context.font = `${Math.max(10, Math.min(18, canvas.height * 0.12))}px var(--node-mono-font, monospace)`;
+    context.fillText(error?.message || "runtime error", 4 * pixelRatio, 16 * pixelRatio);
+    context.restore();
+  }
+}
+
 function nodeGraphOneDimensionalBurnSampleToY(sample, rect) {
   return rect.top + rect.height * 0.5 - clampNodeSliderValue(sample, -1, 1) * rect.height * 0.44;
 }
@@ -10352,6 +10455,7 @@ const nodeGraphModuleScopeCustomRenderers = {
   scope2dTrace: drawNodeGraphScope2dTraceItem,
   scope2d: drawNodeGraphScope2dItem,
   numberReadout: drawNodeGraphNumberReadoutItem,
+  customDisplay: drawNodeGraphCustomDisplayItem,
   // oscilloscopeBankBurn self-registers from
   // public/modules/oscilloscopeBank/oscilloscope-bank-display.js
   // videoscopeBurn self-registers from

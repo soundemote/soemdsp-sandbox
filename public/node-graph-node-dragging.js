@@ -13,7 +13,7 @@ function nodeGraphNodeIoBypassClickCandidate(event, handle) {
 
 function nodeGraphPatchNodeMovementLocked(nodeId) {
   const patchNode = nodeGraphMvp.patch?.nodes?.find((candidate) => candidate.id === nodeId);
-  return Boolean(normalizeNodeGraphPatchNodeUi(patchNode?.ui).movementLocked);
+  return Boolean(normalizeNodeGraphPatchNodeUi(patchNode?.ui, patchNode?.type).movementLocked);
 }
 
 function toggleNodeGraphNodeMovementLock(event) {
@@ -27,7 +27,7 @@ function toggleNodeGraphNodeMovementLock(event) {
   if (!patchNode) {
     return;
   }
-  const ui = normalizeNodeGraphPatchNodeUi(patchNode.ui);
+  const ui = normalizeNodeGraphPatchNodeUi(patchNode.ui, patchNode.type);
   ui.movementLocked = !ui.movementLocked;
   patchNode.ui = ui;
   commitNodeGraphPatch(patch, {

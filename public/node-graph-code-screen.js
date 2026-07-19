@@ -1,9 +1,76 @@
+// Codeblock and Script Box are two different node types with different
+// storage properties (node.codeblock vs node.scriptBox), different
+// compile helpers, and different execution models (codeblock runs
+// per-sample in the AudioWorklet; scriptBox runs on the main thread at
+// data-bus rate) -- but the same {code, inputs, outputs} normalized
+// shape and the same {ok, message} compile-status shape. Rather than a
+// second, parallel copy of ~300 lines of list/editor/draft/apply
+// rendering code for scriptBox (which WOULD immediately start drifting
+// from codeblock's -- see the groupOutput reachability bug and Wall
+// Delay's "generic check against declared ports instead of a hardcoded
+// list" fix, both from this same session, both exactly this failure
+// mode), every rendering/draft/apply function below is parameterized by
+// this descriptor, keyed by node.type, instead.
+const nodeGraphCodeScreenCodeBoxKinds = Object.freeze({
+  codeblock: {
+    nodeType: "codeblock",
+    property: "codeblock",
+    label: "Codeblock",
+    kindLabelPlural: "codeblocks",
+    normalize: (value) => normalizeNodeGraphCodeblock(value),
+    compileStatus: (value) => nodeGraphCodeblockCompileStatus(value),
+    pruneConnections: (patch, nodeId, inputs, outputs) =>
+      pruneNodeGraphConnectionsForCodeblockPortChange(patch, nodeId, inputs, outputs),
+    contextHint: "state, time, dt, sampleRate, frame, frames in scope -- runs per sample in the audio thread.",
+    emptyStateMessage: "No Codeblock modules exist in this patch yet. Codeblocks stay in-circuit as debug utilities; the Code Screen is where they become easier to find and edit.",
+    createLabel: "New Debug Codeblock",
+    createFn: () => createNodeGraphCodeScreenDebugCodeblock(),
+  },
+  scriptBox: {
+    nodeType: "scriptBox",
+    property: "scriptBox",
+    label: "Script Box",
+    kindLabelPlural: "script boxes",
+    normalize: (value) => normalizeNodeGraphScriptBox(value),
+    compileStatus: (value) => nodeGraphScriptBoxCompileStatus(value),
+    pruneConnections: (patch, nodeId, inputs, outputs) =>
+      pruneNodeGraphConnectionsForScriptBoxPortChange(patch, nodeId, inputs, outputs),
+    contextHint: "Helper library (clamp, lerp, wrap01, ...) in scope -- runs on the main thread at data-bus rate, no per-sample state.",
+    emptyStateMessage: "No Script Box modules exist in this patch yet. Script Boxes run patch-local data logic on the main thread; the Code Screen is where they're easiest to author.",
+    createLabel: "New Script Box",
+    createFn: () => createNodeGraphCodeScreenDebugScriptBox(),
+  },
+  customDisplay: {
+    nodeType: "customDisplay",
+    property: "customDisplay",
+    label: "Custom Display",
+    kindLabelPlural: "custom displays",
+    normalize: (value) => normalizeNodeGraphCustomDisplay(value),
+    compileStatus: (value) => nodeGraphCustomDisplayCompileStatus(value),
+    pruneConnections: (patch, nodeId, inputs) =>
+      pruneNodeGraphConnectionsForCodeblockPortChange(patch, nodeId, inputs, []),
+    contextHint: "Define function draw(api). api has ctx, width, height, inputs, time, frame, pixelRatio, helpers, and node.",
+    emptyStateMessage: "No Custom Display modules exist in this patch yet. Custom Displays draw directly inside their module face from wired input buffers.",
+    createLabel: "New Custom Display",
+    createFn: () => {
+      const nodeId = showNodeGraphModule("customDisplay", null, { status: "custom display added" });
+      if (nodeId) {
+        openNodeGraphCodeBoxWindowForNode(nodeId);
+      }
+    },
+  },
+});
+
+function nodeGraphCodeScreenKindForNode(node) {
+  return nodeGraphCodeScreenCodeBoxKinds[node?.type] || nodeGraphCodeScreenCodeBoxKinds.codeblock;
+}
+
 const nodeGraphCodeScreenSections = Object.freeze([
   {
     id: "codeblocks",
-    title: "Circuit Debug Codeblocks",
-    eyebrow: "Codeblocks",
-    summary: "Central editing for in-circuit Codeblock debug modules.",
+    title: "Code Boxes",
+    eyebrow: "Code Boxes",
+    summary: "Central editing for Codeblock and Script Box modules.",
   },
   {
     id: "helpers",
@@ -1470,15 +1537,18 @@ function nodeGraphCodeScreenCurrentSection() {
 }
 
 function nodeGraphCodeScreenCodeblockNodes() {
-  return nodeGraphMvp.patch.nodes.filter((node) => node.type === "codeblock");
+  return nodeGraphMvp.patch.nodes.filter((node) =>
+    Object.hasOwn(nodeGraphCodeScreenCodeBoxKinds, node.type));
 }
 
 function nodeGraphCodeScreenCodeblockSearchText(node) {
-  const codeblock = normalizeNodeGraphCodeblock(node.codeblock);
-  const status = nodeGraphCodeblockCompileStatus(codeblock);
+  const kind = nodeGraphCodeScreenKindForNode(node);
+  const codeblock = kind.normalize(node[kind.property]);
+  const status = kind.compileStatus(codeblock);
   return [
     node.id,
     nodeGraphPatchNodeTitle(node),
+    kind.label,
     codeblock.inputs.join(" "),
     codeblock.outputs.join(" "),
     codeblock.code,
@@ -1505,6 +1575,489 @@ function nodeGraphCodeScreenSelectedCodeblock() {
   const fallback = filtered[0] || codeblocks[0] || null;
   nodeGraphMvp.codeScreenSelectedNodeId = fallback?.id || "";
   return fallback;
+}
+
+const nodeGraphCodeBoxWindowDefaultSize = Object.freeze({
+  width: 360,
+  height: 520,
+  minWidth: 220,
+  maxWidth: 720,
+  minHeight: 220,
+  maxHeight: 820,
+});
+
+let nodeGraphCodeBoxWindowPortsApplyTimer = 0;
+let nodeGraphCodeBoxWindowTitleApplyTimer = 0;
+
+function normalizeNodeGraphCodeBoxWindowSize(size = {}) {
+  return normalizeNodeGraphFloatingWindowSize(size, nodeGraphCodeBoxWindowDefaultSize);
+}
+
+function applyNodeGraphCodeBoxWindowSize(size = nodeGraphMvp.codeBoxWindowSize) {
+  const win = document.getElementById("nodeCodeBoxWindow");
+  const normalized = normalizeNodeGraphCodeBoxWindowSize(size || nodeGraphCodeBoxWindowDefaultSize);
+  nodeGraphMvp.codeBoxWindowSize = normalized;
+  if (win) {
+    applyNodeGraphFloatingWindowSizeVars(win, "node-code-box-window", nodeGraphCodeBoxWindowDefaultSize, normalized);
+  }
+  return normalized;
+}
+
+function nodeGraphCodeBoxWindowNode() {
+  const explicit = nodeGraphPatchNode(nodeGraphMvp.codeBoxWindowTargetNodeId);
+  if (explicit && Object.hasOwn(nodeGraphCodeScreenCodeBoxKinds, explicit.type)) {
+    return explicit;
+  }
+  const selected = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
+  if (selected && Object.hasOwn(nodeGraphCodeScreenCodeBoxKinds, selected.type)) {
+    return selected;
+  }
+  return nodeGraphCodeScreenCodeblockNodes()[0] || null;
+}
+
+function nodeGraphCodeBoxDraftFromWindow(node) {
+  if (!node) {
+    return null;
+  }
+  const kind = nodeGraphCodeScreenKindForNode(node);
+  const current = kind.normalize(node[kind.property]);
+  return kind.normalize({
+    ...current,
+    inputs: document.getElementById("nodeCodeBoxInputs")?.value ?? current.inputs,
+    outputs: kind.nodeType === "customDisplay" ? [] : (document.getElementById("nodeCodeBoxOutputs")?.value ?? current.outputs),
+    code: document.getElementById("nodeCodeBoxSource")?.value ?? current.code,
+  });
+}
+
+function nodeGraphCodeBoxPortListsEqual(a = [], b = []) {
+  if ((a || []).length !== (b || []).length) {
+    return false;
+  }
+  return (a || []).every((port, index) => port === (b || [])[index]);
+}
+
+function normalizeNodeGraphCodeWidgetLanguage(value) {
+  const language = String(value || "").trim().toLowerCase().split(/\s+/)[0] || "text";
+  const aliases = {
+    js: "javascript",
+    jsx: "javascript",
+    mjs: "javascript",
+    cjs: "javascript",
+    ts: "typescript",
+    tsx: "typescript",
+    md: "markdown",
+    markdown: "markdown",
+    json: "json",
+    jsonc: "jsonc",
+    html: "markup",
+    htm: "markup",
+    xml: "markup",
+    css: "css",
+    ps: "powershell",
+    ps1: "powershell",
+    pwsh: "powershell",
+    powershell: "powershell",
+    sh: "shell",
+    bash: "shell",
+    shell: "shell",
+    text: "text",
+    txt: "text",
+    plain: "text",
+  };
+  return aliases[language] || language;
+}
+
+function highlightNodeGraphCodeWidgetMarkdownLine(line = "") {
+  return nodeGraphCodeScreenEscapeHtml(line)
+    .replace(/(\/\*.*?\*\/)/g, '<span class="node-code-widget-comment">$1</span>')
+    .replace(/(^|\s)(\/\/.*)$/g, '$1<span class="node-code-widget-comment">$2</span>')
+    .replace(/(`[^`]+`)/g, '<span class="node-code-widget-string">$1</span>')
+    .replace(/(\*\*[^*\n]+\*\*)/g, '<span class="node-code-widget-literal">$1</span>')
+    .replace(/(\[[^\]]+\]\([^)]+\))/g, '<span class="node-code-widget-keyword">$1</span>');
+}
+
+function highlightNodeGraphCodeWidgetCodeLine(line = "", language = "javascript") {
+  const normalizedLanguage = normalizeNodeGraphCodeWidgetLanguage(language);
+  let rendered = nodeGraphCodeScreenEscapeHtml(line);
+
+  if (normalizedLanguage === "markdown") {
+    return highlightNodeGraphCodeWidgetMarkdownLine(line);
+  }
+
+  if (["json", "jsonc"].includes(normalizedLanguage)) {
+    return rendered
+      .replace(/(&quot;[^&]*?&quot;)(\s*:)/g, '<span class="node-code-widget-key">$1</span>$2')
+      .replace(/(&quot;[^&]*?&quot;)/g, '<span class="node-code-widget-string">$1</span>')
+      .replace(/\b(true|false|null)\b/g, '<span class="node-code-widget-literal">$1</span>')
+      .replace(/\b(-?\d+(?:\.\d+)?)\b/g, '<span class="node-code-widget-number">$1</span>')
+      .replace(/(\/\/.*)$/g, '<span class="node-code-widget-comment">$1</span>');
+  }
+
+  if (normalizedLanguage === "markup") {
+    return rendered
+      .replace(/(&lt;!--.*?--&gt;)/g, '<span class="node-code-widget-comment">$1</span>')
+      .replace(/(&lt;\/?[\w:-]+|\/?&gt;)/g, '<span class="node-code-widget-keyword">$1</span>')
+      .replace(/([\w:-]+)(=)/g, '<span class="node-code-widget-key">$1</span>$2')
+      .replace(/(&quot;[^&]*?&quot;|'[^']*')/g, '<span class="node-code-widget-string">$1</span>');
+  }
+
+  if (normalizedLanguage === "css") {
+    return rendered
+      .replace(/(\/\*.*?\*\/)/g, '<span class="node-code-widget-comment">$1</span>')
+      .replace(/([a-z-]+)(\s*:)/gi, '<span class="node-code-widget-key">$1</span>$2')
+      .replace(/(#[0-9a-f]{3,8}\b)/gi, '<span class="node-code-widget-number">$1</span>')
+      .replace(/(&quot;[^&]*?&quot;|'[^']*')/g, '<span class="node-code-widget-string">$1</span>')
+      .replace(/\b(-?\d+(?:\.\d+)?(?:px|rem|em|vh|vw|%)?)\b/g, '<span class="node-code-widget-number">$1</span>');
+  }
+
+  if (["powershell", "shell"].includes(normalizedLanguage)) {
+    return rendered
+      .replace(/(&quot;[^&]*?&quot;|'[^']*')/g, '<span class="node-code-widget-string">$1</span>')
+      .replace(/(\$[\w:]+)/g, '<span class="node-code-widget-literal">$1</span>')
+      .replace(/\b(function|param|if|else|elseif|foreach|for|while|return|try|catch|finally)\b/gi, '<span class="node-code-widget-keyword">$1</span>')
+      .replace(/\b(-?\d+(?:\.\d+)?)\b/g, '<span class="node-code-widget-number">$1</span>')
+      .replace(/(#.*)$/g, '<span class="node-code-widget-comment">$1</span>');
+  }
+
+  return rendered
+    .replace(/(&quot;[^&]*?&quot;|'[^']*'|`[^`]*`)/g, '<span class="node-code-widget-string">$1</span>')
+    .replace(/\b(function|return|const|let|var|if|else|for|while|class|async|await|import|export|from|new|try|catch|finally|throw)\b/g, '<span class="node-code-widget-keyword">$1</span>')
+    .replace(/\b(true|false|null|undefined)\b/g, '<span class="node-code-widget-literal">$1</span>')
+    .replace(/\b(-?\d+(?:\.\d+)?)\b/g, '<span class="node-code-widget-number">$1</span>')
+    .replace(/([A-Za-z_$][\w$]*)(\s*:)/g, '<span class="node-code-widget-key">$1</span>$2')
+    .replace(/(\/\/.*|#.*)$/g, '<span class="node-code-widget-comment">$1</span>');
+}
+
+function renderNodeGraphCodeWidgetHighlight(source = "", language = "javascript") {
+  const normalizedLanguage = normalizeNodeGraphCodeWidgetLanguage(language);
+  const lines = String(source || "").split("\n");
+  return lines
+    .map((line) => highlightNodeGraphCodeWidgetCodeLine(line, normalizedLanguage) || "&nbsp;")
+    .join("\n") || "&nbsp;";
+}
+
+function updateNodeGraphCodeBoxWindowEditorChrome() {
+  const source = document.getElementById("nodeCodeBoxSource");
+  const highlight = document.getElementById("nodeCodeBoxHighlight");
+  const lineNumbers = document.getElementById("nodeCodeBoxLineNumbers");
+  if (!source || !highlight || !lineNumbers) {
+    return;
+  }
+  const lines = String(source.value || "").split("\n");
+  highlight.innerHTML = renderNodeGraphCodeWidgetHighlight(source.value || "", "javascript");
+  lineNumbers.textContent = lines.map((_, index) => index + 1).join("\n") || "1";
+  highlight.scrollTop = source.scrollTop;
+  highlight.scrollLeft = source.scrollLeft;
+  lineNumbers.scrollTop = source.scrollTop;
+}
+
+function handleNodeGraphCodeBoxWindowSourceInput() {
+  updateNodeGraphCodeBoxWindowEditorChrome();
+  updateNodeGraphCodeBoxWindowStatus();
+}
+
+function applyNodeGraphCodeBoxWindowTitle({ sync = true } = {}) {
+  if (nodeGraphCodeBoxWindowTitleApplyTimer) {
+    window.clearTimeout(nodeGraphCodeBoxWindowTitleApplyTimer);
+    nodeGraphCodeBoxWindowTitleApplyTimer = 0;
+  }
+  const node = nodeGraphCodeBoxWindowNode();
+  const input = document.getElementById("nodeCodeBoxTitle");
+  if (!node || !input || typeof commitNodeGraphModuleTitleFromHeaderInput !== "function") {
+    return;
+  }
+  const nextAlias = normalizeNodeGraphPatchNodeAlias(input.value);
+  if (nextAlias === normalizeNodeGraphPatchNodeAlias(node.alias)) {
+    return;
+  }
+  const selectionStart = input.selectionStart ?? null;
+  const selectionEnd = input.selectionEnd ?? selectionStart;
+  commitNodeGraphModuleTitleFromHeaderInput(node.id, input.value);
+  if (!sync) {
+    return;
+  }
+  syncNodeGraphCodeBoxWindow();
+  if (document.activeElement === input && selectionStart !== null) {
+    input.setSelectionRange?.(selectionStart, selectionEnd);
+  }
+}
+
+function scheduleNodeGraphCodeBoxWindowTitleApply() {
+  updateNodeGraphCodeBoxWindowStatus();
+  if (nodeGraphCodeBoxWindowTitleApplyTimer) {
+    window.clearTimeout(nodeGraphCodeBoxWindowTitleApplyTimer);
+  }
+  nodeGraphCodeBoxWindowTitleApplyTimer = window.setTimeout(() => {
+    nodeGraphCodeBoxWindowTitleApplyTimer = 0;
+    applyNodeGraphCodeBoxWindowTitle();
+  }, 350);
+}
+
+function syncNodeGraphCodeBoxWindow() {
+  const win = document.getElementById("nodeCodeBoxWindow");
+  if (!win) {
+    return;
+  }
+  const node = nodeGraphCodeBoxWindowNode();
+  const titleInput = document.getElementById("nodeCodeBoxTitle");
+  const inputs = document.getElementById("nodeCodeBoxInputs");
+  const outputs = document.getElementById("nodeCodeBoxOutputs");
+  const source = document.getElementById("nodeCodeBoxSource");
+  const status = document.getElementById("nodeCodeBoxStatus");
+  const title = win.querySelector(".scene-context-title");
+  if (!node) {
+    if (title) {
+      title.innerHTML = "<span>CODE</span><small>Box</small>";
+    }
+    for (const element of [titleInput, inputs, outputs, source]) {
+      if (element) {
+        element.value = "";
+        element.disabled = true;
+      }
+    }
+    if (status) {
+      status.textContent = "select a Code Box";
+      status.className = "error";
+    }
+    updateNodeGraphCodeBoxWindowEditorChrome();
+    return;
+  }
+  nodeGraphMvp.codeBoxWindowTargetNodeId = node.id;
+  const kind = nodeGraphCodeScreenKindForNode(node);
+  const codeBox = kind.normalize(node[kind.property]);
+  const compile = kind.compileStatus(codeBox);
+  if (title) {
+    title.innerHTML = `<span>CODE</span><small>${nodeGraphCodeScreenEscapeHtml(kind.label)}</small>`;
+  }
+  if (titleInput && document.activeElement !== titleInput) {
+    titleInput.disabled = false;
+    titleInput.value = nodeGraphPatchNodeTitle(node) || "";
+  }
+  if (inputs && document.activeElement !== inputs) {
+    inputs.disabled = false;
+    inputs.value = codeBox.inputs.join(", ");
+  }
+  if (outputs && document.activeElement !== outputs) {
+    outputs.disabled = kind.nodeType === "customDisplay";
+    outputs.value = codeBox.outputs.join(", ");
+    outputs.placeholder = kind.nodeType === "customDisplay" ? "display only" : "";
+  }
+  if (source && document.activeElement !== source) {
+    source.disabled = false;
+    source.value = codeBox.code;
+  }
+  updateNodeGraphCodeBoxWindowEditorChrome();
+  if (status) {
+    status.textContent = compile.ok ? "code ok" : `compile error: ${compile.message}`;
+    status.className = compile.ok ? "ok" : "error";
+  }
+}
+
+function setNodeGraphCodeBoxWindowVisible(visible, nodeId = "", point = null) {
+  const win = document.getElementById("nodeCodeBoxWindow");
+  if (!win) {
+    return false;
+  }
+  if (nodeId) {
+    nodeGraphMvp.codeBoxWindowTargetNodeId = nodeId;
+  }
+  const wasVisible = !win.hidden;
+  win.hidden = !visible;
+  applyNodeGraphCodeBoxWindowSize(nodeGraphMvp.workspaceWindowStates?.codeBox?.size || nodeGraphMvp.codeBoxWindowSize);
+  if (visible) {
+    syncNodeGraphCodeBoxWindow();
+    const saved = nodeGraphMvp.workspaceWindowStates?.codeBox?.position;
+    if (saved) {
+      positionNodeSceneContextMenu(win, saved.left, saved.top, true);
+    } else if (point) {
+      positionNodeSceneContextMenu(win, point.x ?? point.clientX ?? 120, point.y ?? point.clientY ?? 120, true);
+    } else if (!wasVisible) {
+      positionNodeSceneContextMenu(win, 120, 120, true);
+    }
+    if (wasVisible) {
+      pulseNodeGraphFloatingWindowAttention(win);
+    }
+  }
+  if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
+    rememberNodeGraphWorkspaceWindowState("codeBox", win, { open: visible }, { status: false });
+  }
+  return true;
+}
+
+function closeNodeGraphCodeBoxWindow() {
+  const win = document.getElementById("nodeCodeBoxWindow");
+  if (win) {
+    win.hidden = true;
+  }
+  nodeGraphMvp.codeBoxWindowDragging = null;
+  nodeGraphMvp.codeBoxWindowResizing = null;
+  if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
+    rememberNodeGraphWorkspaceWindowState("codeBox", win, { open: false }, { status: false });
+  }
+}
+
+function openNodeGraphCodeBoxWindowForNode(nodeId = "", point = null) {
+  const node = nodeGraphPatchNode(nodeId || nodeGraphModuleActionTargetNodeId());
+  if (!node || !Object.hasOwn(nodeGraphCodeScreenCodeBoxKinds, node.type)) {
+    return false;
+  }
+  nodeGraphMvp.codeBoxWindowTargetNodeId = node.id;
+  setNodeGraphNodeSelection([node.id]);
+  return setNodeGraphCodeBoxWindowVisible(true, node.id, point);
+}
+
+function openNodeGraphCodeBoxWindowFromHeader() {
+  const selected = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
+  if (selected && Object.hasOwn(nodeGraphCodeScreenCodeBoxKinds, selected.type)) {
+    openNodeGraphCodeBoxWindowForNode(selected.id);
+    return;
+  }
+  const existing = nodeGraphCodeScreenCodeblockNodes()[0];
+  if (existing) {
+    openNodeGraphCodeBoxWindowForNode(existing.id);
+    return;
+  }
+  const nodeId = showNodeGraphModule("scriptBox", null, { status: "script box added" });
+  if (nodeId) {
+    openNodeGraphCodeBoxWindowForNode(nodeId);
+  }
+}
+
+function applyNodeGraphCodeBoxWindowPorts() {
+  if (nodeGraphCodeBoxWindowPortsApplyTimer) {
+    window.clearTimeout(nodeGraphCodeBoxWindowPortsApplyTimer);
+    nodeGraphCodeBoxWindowPortsApplyTimer = 0;
+  }
+  const sourceNode = nodeGraphCodeBoxWindowNode();
+  if (!sourceNode) {
+    return;
+  }
+  const kind = nodeGraphCodeScreenKindForNode(sourceNode);
+  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+  const targetNode = patch.nodes.find((node) => node.id === sourceNode.id);
+  if (!targetNode) {
+    return;
+  }
+  const current = kind.normalize(targetNode[kind.property]);
+  const next = kind.normalize({
+    ...current,
+    inputs: document.getElementById("nodeCodeBoxInputs")?.value,
+    outputs: document.getElementById("nodeCodeBoxOutputs")?.value,
+  });
+  if (
+    nodeGraphCodeBoxPortListsEqual(current.inputs, next.inputs) &&
+    nodeGraphCodeBoxPortListsEqual(current.outputs, next.outputs)
+  ) {
+    updateNodeGraphCodeBoxWindowStatus();
+    return;
+  }
+  targetNode[kind.property] = next;
+  kind.pruneConnections(patch, targetNode.id, next.inputs, next.outputs);
+  commitNodeGraphPatch(patch, { status: `code box ${kind.label.toLowerCase()} ports changed` });
+  syncNodeGraphCodeBoxWindow();
+}
+
+function scheduleNodeGraphCodeBoxWindowPortsApply() {
+  updateNodeGraphCodeBoxWindowStatus();
+  if (nodeGraphCodeBoxWindowPortsApplyTimer) {
+    window.clearTimeout(nodeGraphCodeBoxWindowPortsApplyTimer);
+  }
+  nodeGraphCodeBoxWindowPortsApplyTimer = window.setTimeout(() => {
+    nodeGraphCodeBoxWindowPortsApplyTimer = 0;
+    applyNodeGraphCodeBoxWindowPorts();
+  }, 350);
+}
+
+function applyNodeGraphCodeBoxWindowCode() {
+  applyNodeGraphCodeBoxWindowTitle({ sync: false });
+  const sourceNode = nodeGraphCodeBoxWindowNode();
+  if (!sourceNode) {
+    return;
+  }
+  const kind = nodeGraphCodeScreenKindForNode(sourceNode);
+  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+  const targetNode = patch.nodes.find((node) => node.id === sourceNode.id);
+  if (!targetNode) {
+    return;
+  }
+  const next = nodeGraphCodeBoxDraftFromWindow(sourceNode);
+  targetNode[kind.property] = next;
+  kind.pruneConnections(patch, targetNode.id, next.inputs, next.outputs);
+  const compile = kind.compileStatus(next);
+  commitNodeGraphPatch(patch, {
+    status: compile.ok ? `code box ${kind.label.toLowerCase()} changed` : "code box compile error",
+  });
+  syncNodeGraphCodeBoxWindow();
+}
+
+function updateNodeGraphCodeBoxWindowStatus() {
+  const node = nodeGraphCodeBoxWindowNode();
+  const status = document.getElementById("nodeCodeBoxStatus");
+  if (!node || !status) {
+    return;
+  }
+  const kind = nodeGraphCodeScreenKindForNode(node);
+  const draft = nodeGraphCodeBoxDraftFromWindow(node);
+  const compile = kind.compileStatus(draft);
+  status.textContent = compile.ok ? "draft ok" : `compile error: ${compile.message}`;
+  status.className = compile.ok ? "changed" : "error";
+}
+
+function openNodeGraphCodeBoxWindowFullScreen() {
+  const button = document.getElementById("nodeCodeBoxOpenFullScreen");
+  if (button?.disabled || button?.getAttribute("aria-disabled") === "true") {
+    return;
+  }
+  const node = nodeGraphCodeBoxWindowNode();
+  if (node) {
+    nodeGraphMvp.codeScreenSelectedNodeId = node.id;
+  }
+  nodeGraphMvp.codeScreenSection = "codeblocks";
+  setNodeGraphViewMode("code");
+}
+
+function beginNodeGraphCodeBoxWindowDrag(event) {
+  const win = document.getElementById("nodeCodeBoxWindow");
+  if (!win || win.hidden) {
+    return;
+  }
+  beginNodeGraphFloatingWindowDrag(event, win, "codeBoxWindowDragging");
+}
+
+function dragNodeGraphCodeBoxWindow(event) {
+  const win = document.getElementById("nodeCodeBoxWindow");
+  dragNodeGraphFloatingWindow(event, "codeBoxWindowDragging", win, (next) => {
+    if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
+      rememberNodeGraphWorkspaceWindowState("codeBox", win, { open: true, position: next }, { persist: false });
+    }
+  });
+}
+
+function endNodeGraphCodeBoxWindowDrag(event) {
+  endNodeGraphFloatingWindowDrag(event, "codeBoxWindowDragging", () => {
+    if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
+      rememberNodeGraphWorkspaceWindowState("codeBox", document.getElementById("nodeCodeBoxWindow"), { open: true }, { status: false });
+    }
+  });
+}
+
+function beginNodeGraphCodeBoxWindowResize(event) {
+  beginNodeGraphFloatingWindowResize(event, document.getElementById("nodeCodeBoxWindow"), "codeBoxWindowResizing");
+}
+
+function dragNodeGraphCodeBoxWindowResize(event) {
+  dragNodeGraphFloatingWindowResize(event, "codeBoxWindowResizing", applyNodeGraphCodeBoxWindowSize);
+}
+
+function endNodeGraphCodeBoxWindowResize(event) {
+  endNodeGraphFloatingWindowResize(event, "codeBoxWindowResizing", () => {
+    if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
+      rememberNodeGraphWorkspaceWindowState("codeBox", document.getElementById("nodeCodeBoxWindow"), {
+        open: true,
+        size: normalizeNodeGraphCodeBoxWindowSize(nodeGraphMvp.codeBoxWindowSize),
+      }, { status: false });
+    }
+  });
 }
 
 function nodeGraphCodeScreenEscapeHtml(value) {
@@ -1891,6 +2444,32 @@ function nodeGraphCodeScreenCreateEmptyState(message, actionText = "", action = 
   return empty;
 }
 
+function renderNodeGraphCodeScreenCodeblocksLanding() {
+  const landing = document.createElement("div");
+  landing.className = "node-code-screen-empty node-code-screen-codeblocks-landing";
+  const heading = document.createElement("h3");
+  heading.textContent = "Write your first Code Box";
+  const text = document.createElement("p");
+  text.textContent =
+    "Codeblocks run per-sample in the audio thread; Script Boxes run patch-local logic on the main thread. Pick one below to open the editor.";
+  landing.append(heading, text);
+  const actions = document.createElement("div");
+  actions.className = "node-code-screen-codeblocks-landing-actions";
+  const codeblockButton = document.createElement("button");
+  codeblockButton.type = "button";
+  codeblockButton.className = "node-code-screen-landing-cta";
+  codeblockButton.textContent = "New Debug Codeblock";
+  codeblockButton.addEventListener("click", createNodeGraphCodeScreenDebugCodeblock);
+  const scriptBoxButton = document.createElement("button");
+  scriptBoxButton.type = "button";
+  scriptBoxButton.className = "node-code-screen-landing-cta";
+  scriptBoxButton.textContent = "New Script Box";
+  scriptBoxButton.addEventListener("click", createNodeGraphCodeScreenDebugScriptBox);
+  actions.append(codeblockButton, scriptBoxButton);
+  landing.append(actions);
+  return landing;
+}
+
 function nodeGraphCodeScreenCodeblockListSummary(codeblock) {
   const inputs = codeblock.inputs || [];
   const outputs = codeblock.outputs || [];
@@ -1922,22 +2501,26 @@ function renderNodeGraphCodeScreenCodeblockList(selectedNode) {
   panel.append(statusLine);
   const actions = document.createElement("div");
   actions.className = "node-code-screen-registry-actions";
-  actions.innerHTML = `<button id="nodeCodeScreenCreateCodeblockFromList" type="button">New Debug Codeblock</button>`;
+  actions.innerHTML = `
+    <button id="nodeCodeScreenCreateCodeblockFromList" type="button">New Debug Codeblock</button>
+    <button id="nodeCodeScreenCreateScriptBoxFromList" type="button">New Script Box</button>
+  `;
   panel.append(actions);
   const list = document.createElement("div");
   list.className = "node-code-screen-codeblock-list";
   if (!codeblocks.length) {
-    list.append(nodeGraphCodeScreenCreateEmptyState("No debug Codeblocks match this search."));
+    list.append(nodeGraphCodeScreenCreateEmptyState("No code boxes match this search."));
   }
   for (const node of codeblocks) {
-    const codeblock = normalizeNodeGraphCodeblock(node.codeblock);
-    const status = nodeGraphCodeblockCompileStatus(codeblock);
+    const kind = nodeGraphCodeScreenKindForNode(node);
+    const codeblock = kind.normalize(node[kind.property]);
+    const status = kind.compileStatus(codeblock);
     const button = document.createElement("button");
     button.type = "button";
     button.dataset.codeScreenNode = node.id;
     button.setAttribute("aria-pressed", node.id === selectedNode?.id ? "true" : "false");
     button.innerHTML = `
-      <span>${nodeGraphCodeScreenEscapeHtml(nodeGraphPatchNodeTitle(node))}</span>
+      <span>${nodeGraphCodeScreenEscapeHtml(nodeGraphPatchNodeTitle(node))} <em>${nodeGraphCodeScreenEscapeHtml(kind.label)}</em></span>
       <strong>${nodeGraphCodeScreenEscapeHtml(node.id)}</strong>
       <small>${status.ok ? "code ok" : "compile error"}</small>
       <small class="node-code-screen-codeblock-list-summary">${nodeGraphCodeScreenEscapeHtml(nodeGraphCodeScreenCodeblockListSummary(codeblock))}</small>
@@ -3092,11 +3675,13 @@ function nodeGraphCodeScreenCodeblockDraftSummary(node, codeblock, status) {
 }
 
 function nodeGraphCodeScreenCodeblockDebugRows(node, codeblock, status) {
+  const kind = nodeGraphCodeScreenKindForNode(node);
   const inputs = codeblock.inputs || [];
   const outputs = codeblock.outputs || [];
   return [
     ["node id", node?.id || "unselected"],
-    ["title", nodeGraphPatchNodeTitle(node) || "Codeblock"],
+    ["title", nodeGraphPatchNodeTitle(node) || kind.label],
+    ["kind", kind.label],
     ["compile", status?.ok ? "ok" : status?.message || "compile error"],
     ["inputs", inputs.length ? inputs.join(", ") : "none"],
     ["outputs", outputs.length ? outputs.join(", ") : "none"],
@@ -3105,12 +3690,13 @@ function nodeGraphCodeScreenCodeblockDebugRows(node, codeblock, status) {
 }
 
 function renderNodeGraphCodeScreenCodeblockDebugValues(node, codeblock, status) {
+  const kind = nodeGraphCodeScreenKindForNode(node);
   const panel = document.createElement("section");
   panel.className = "node-code-screen-debug-values";
   panel.innerHTML = `
     <div class="node-code-screen-debug-values-heading">
       <span>Debug Values</span>
-      <strong>Selected Codeblock</strong>
+      <strong>Selected ${nodeGraphCodeScreenEscapeHtml(kind.label)}</strong>
     </div>
     <dl>
       ${nodeGraphCodeScreenCodeblockDebugRows(node, codeblock, status).map(([label, value]) => `
@@ -3128,8 +3714,9 @@ function nodeGraphCodeScreenCodeblockDraftFromInputs(node) {
   if (!node) {
     return null;
   }
-  const current = normalizeNodeGraphCodeblock(node.codeblock);
-  return normalizeNodeGraphCodeblock({
+  const kind = nodeGraphCodeScreenKindForNode(node);
+  const current = kind.normalize(node[kind.property]);
+  return kind.normalize({
     ...current,
     code: document.getElementById("nodeCodeScreenCodeblockSource")?.value ?? current.code,
     inputs: document.getElementById("nodeCodeScreenCodeblockInputs")?.value ?? current.inputs,
@@ -3155,7 +3742,8 @@ function updateNodeGraphCodeScreenCodeblockDraftState(node, draft, status) {
   if (!node || !draft) {
     return;
   }
-  const current = normalizeNodeGraphCodeblock(node.codeblock);
+  const kind = nodeGraphCodeScreenKindForNode(node);
+  const current = kind.normalize(node[kind.property]);
   const changes = nodeGraphCodeScreenCodeblockDraftChanges(current, draft);
   const changed = changes.length > 0;
   if (state) {
@@ -3178,8 +3766,9 @@ function updateNodeGraphCodeScreenCodeblockSummary() {
   if (!node || !summary) {
     return;
   }
+  const kind = nodeGraphCodeScreenKindForNode(node);
   const codeblock = nodeGraphCodeScreenCodeblockDraftFromInputs(node);
-  const status = nodeGraphCodeblockCompileStatus(codeblock);
+  const status = kind.compileStatus(codeblock);
   summary.textContent = nodeGraphCodeScreenCodeblockDraftSummary(node, codeblock, status);
   summary.className = status.ok
     ? "node-code-screen-codeblock-summary ok"
@@ -3192,8 +3781,9 @@ function updateNodeGraphCodeScreenCodeblockSummary() {
 }
 
 function renderNodeGraphCodeScreenCodeblockEditor(node) {
-  const codeblock = normalizeNodeGraphCodeblock(node.codeblock);
-  const status = nodeGraphCodeblockCompileStatus(codeblock);
+  const kind = nodeGraphCodeScreenKindForNode(node);
+  const codeblock = kind.normalize(node[kind.property]);
+  const status = kind.compileStatus(codeblock);
   const editor = document.createElement("div");
   editor.className = "node-code-screen-editor";
   const title = nodeGraphCodeScreenEscapeHtml(nodeGraphPatchNodeTitle(node));
@@ -3202,12 +3792,13 @@ function renderNodeGraphCodeScreenCodeblockEditor(node) {
   editor.innerHTML = `
     <div class="node-code-screen-editor-heading">
       <div>
-        <span>Debug utility</span>
+        <span>${nodeGraphCodeScreenEscapeHtml(kind.label)}</span>
         <strong>${title}</strong>
         <small>${nodeId}</small>
       </div>
       <output id="nodeCodeScreenCodeblockStatus" class="${status.ok ? "ok" : "error"}" aria-live="polite">${statusText}</output>
     </div>
+    <p class="node-code-screen-editor-context-hint">${nodeGraphCodeScreenEscapeHtml(kind.contextHint)}</p>
     <div id="nodeCodeScreenCodeblockSummary" class="node-code-screen-codeblock-summary ${status.ok ? "ok" : "error"}">${nodeGraphCodeScreenEscapeHtml(nodeGraphCodeScreenCodeblockDraftSummary(node, codeblock, status))}</div>
     <div id="nodeCodeScreenCodeblockDraftState" class="node-code-screen-codeblock-draft-state">saved draft matches module</div>
     <section id="nodeCodeScreenCodeblockDebugValues" class="node-code-screen-debug-values"></section>
@@ -3222,7 +3813,7 @@ function renderNodeGraphCodeScreenCodeblockEditor(node) {
     </label>
     <div class="node-code-screen-editor-actions">
       <span class="node-code-screen-shortcut-hint"><kbd>Ctrl+S</kbd> applies all</span>
-      <button id="nodeCodeScreenNewCodeblock" type="button">New Debug Codeblock</button>
+      <button id="nodeCodeScreenNewCodeblock" type="button">${nodeGraphCodeScreenEscapeHtml(kind.createLabel)}</button>
       <button id="nodeCodeScreenApplyCode" type="button">Apply Code</button>
       <button id="nodeCodeScreenApplyAll" type="button">Apply All</button>
       <button id="nodeCodeScreenResetCodeblockDraft" type="button">Reset Draft</button>
@@ -3249,11 +3840,7 @@ function renderNodeGraphCodeScreenCodeblocks(body) {
   const shell = document.createElement("div");
   shell.className = "node-code-screen-codeblocks";
   if (!selectedNode) {
-    shell.append(nodeGraphCodeScreenCreateEmptyState(
-      "No Codeblock modules exist in this patch yet. Codeblocks stay in-circuit as debug utilities; the Code Screen is where they become easier to find and edit.",
-      "Create Debug Codeblock",
-      createNodeGraphCodeScreenDebugCodeblock,
-    ));
+    shell.append(renderNodeGraphCodeScreenCodeblocksLanding());
     body.append(shell);
     return;
   }
@@ -4299,6 +4886,11 @@ function renderNodeGraphCodeScreen() {
   }
 }
 
+function openNodeGraphCodeScreenLanding() {
+  nodeGraphMvp.codeScreenSection = "codeblocks";
+  setNodeGraphViewMode("code");
+}
+
 function setNodeGraphCodeScreenSection(sectionId) {
   if (!nodeGraphCodeScreenSections.some((section) => section.id === sectionId)) {
     return;
@@ -4309,7 +4901,7 @@ function setNodeGraphCodeScreenSection(sectionId) {
 
 function openNodeGraphCodeScreenForNode(nodeId = "") {
   const node = nodeGraphPatchNode(nodeId || nodeGraphModuleActionTargetNodeId());
-  if (node?.type === "codeblock") {
+  if (node && Object.hasOwn(nodeGraphCodeScreenCodeBoxKinds, node.type)) {
     nodeGraphMvp.codeScreenSelectedNodeId = node.id;
   }
   nodeGraphMvp.codeScreenSection = "codeblocks";
@@ -4324,11 +4916,12 @@ function nodeGraphCodeScreenUpdateCodeStatus() {
   if (!node || !source || !statusOutput) {
     return;
   }
-  const current = normalizeNodeGraphCodeblock(node.codeblock);
+  const kind = nodeGraphCodeScreenKindForNode(node);
+  const current = kind.normalize(node[kind.property]);
   const danglingNamespace = /(^|[^A-Za-z0-9_$])([A-Za-z][A-Za-z0-9_]*)\.\s*$/.exec(source.value);
   const status = danglingNamespace
     ? { ok: false, message: `choose a ${danglingNamespace[2]}. helper` }
-    : nodeGraphCodeblockCompileStatus({ ...current, code: source.value });
+    : kind.compileStatus({ ...current, code: source.value });
   statusOutput.textContent = status.ok ? "code ok" : `compile error: ${status.message}`;
   statusOutput.className = status.ok ? "ok" : "error";
   updateNodeGraphCodeScreenCodeblockDraftState(
@@ -4359,20 +4952,21 @@ function applyNodeGraphCodeScreenCodeblockPorts() {
   if (!sourceNode) {
     return;
   }
+  const kind = nodeGraphCodeScreenKindForNode(sourceNode);
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   const targetNode = patch.nodes.find((node) => node.id === sourceNode.id);
   if (!targetNode) {
     return;
   }
-  const current = normalizeNodeGraphCodeblock(targetNode.codeblock);
-  const next = normalizeNodeGraphCodeblock({
+  const current = kind.normalize(targetNode[kind.property]);
+  const next = kind.normalize({
     ...current,
     inputs: document.getElementById("nodeCodeScreenCodeblockInputs")?.value,
     outputs: document.getElementById("nodeCodeScreenCodeblockOutputs")?.value,
   });
-  targetNode.codeblock = next;
-  pruneNodeGraphConnectionsForCodeblockPortChange(patch, targetNode.id, next.inputs, next.outputs);
-  commitNodeGraphPatch(patch, { status: "code screen codeblock ports changed" });
+  targetNode[kind.property] = next;
+  kind.pruneConnections(patch, targetNode.id, next.inputs, next.outputs);
+  commitNodeGraphPatch(patch, { status: `code screen ${kind.label.toLowerCase()} ports changed` });
 }
 
 function applyNodeGraphCodeScreenCodeblockSource() {
@@ -4381,19 +4975,20 @@ function applyNodeGraphCodeScreenCodeblockSource() {
   if (!sourceNode || !source) {
     return;
   }
+  const kind = nodeGraphCodeScreenKindForNode(sourceNode);
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   const targetNode = patch.nodes.find((node) => node.id === sourceNode.id);
   if (!targetNode) {
     return;
   }
-  const current = normalizeNodeGraphCodeblock(targetNode.codeblock);
-  targetNode.codeblock = normalizeNodeGraphCodeblock({
+  const current = kind.normalize(targetNode[kind.property]);
+  targetNode[kind.property] = kind.normalize({
     ...current,
     code: source.value,
   });
-  const status = nodeGraphCodeblockCompileStatus(targetNode.codeblock);
+  const status = kind.compileStatus(targetNode[kind.property]);
   commitNodeGraphPatch(patch, {
-    status: status.ok ? "code screen codeblock code changed" : "code screen compile error",
+    status: status.ok ? `code screen ${kind.label.toLowerCase()} code changed` : "code screen compile error",
   });
 }
 
@@ -4403,23 +4998,24 @@ function applyNodeGraphCodeScreenCodeblockAll() {
   if (!sourceNode || !source) {
     return;
   }
+  const kind = nodeGraphCodeScreenKindForNode(sourceNode);
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   const targetNode = patch.nodes.find((node) => node.id === sourceNode.id);
   if (!targetNode) {
     return;
   }
-  const current = normalizeNodeGraphCodeblock(targetNode.codeblock);
-  const next = normalizeNodeGraphCodeblock({
+  const current = kind.normalize(targetNode[kind.property]);
+  const next = kind.normalize({
     ...current,
     code: source.value,
     inputs: document.getElementById("nodeCodeScreenCodeblockInputs")?.value,
     outputs: document.getElementById("nodeCodeScreenCodeblockOutputs")?.value,
   });
-  targetNode.codeblock = next;
-  pruneNodeGraphConnectionsForCodeblockPortChange(patch, targetNode.id, next.inputs, next.outputs);
-  const status = nodeGraphCodeblockCompileStatus(next);
+  targetNode[kind.property] = next;
+  kind.pruneConnections(patch, targetNode.id, next.inputs, next.outputs);
+  const status = kind.compileStatus(next);
   commitNodeGraphPatch(patch, {
-    status: status.ok ? "code screen codeblock changed" : "code screen compile error",
+    status: status.ok ? `code screen ${kind.label.toLowerCase()} changed` : "code screen compile error",
   });
 }
 
@@ -7322,6 +7918,17 @@ function createNodeGraphCodeScreenDebugCodeblock() {
   renderNodeGraphCodeScreen();
 }
 
+function createNodeGraphCodeScreenDebugScriptBox() {
+  const nodeId = showNodeGraphModule("scriptBox", null, { status: "script box added" });
+  if (!nodeId) {
+    return;
+  }
+  nodeGraphMvp.codeScreenSelectedNodeId = nodeId;
+  nodeGraphMvp.codeScreenSection = "codeblocks";
+  setNodeGraphViewMode("code");
+  renderNodeGraphCodeScreen();
+}
+
 function addNodeGraphCodeScreenRegistryItem(key) {
   const config = nodeGraphCodeScreenRegistryConfig(
     nodeGraphCodeScreenSections.find((section) => nodeGraphCodeScreenRegistryConfig(section.id).key === key)?.id || "helpers",
@@ -8467,6 +9074,10 @@ function handleNodeGraphCodeScreenClick(event) {
     createNodeGraphCodeScreenDebugCodeblock();
     return;
   }
+  if (event.target.closest("#nodeCodeScreenCreateScriptBoxFromList")) {
+    createNodeGraphCodeScreenDebugScriptBox();
+    return;
+  }
   const duplicateSnippetButton = event.target.closest("[data-code-screen-duplicate-snippet]");
   if (duplicateSnippetButton) {
     duplicateNodeGraphCodeScreenSnippetItem(Number(duplicateSnippetButton.dataset.codeScreenDuplicateSnippet));
@@ -8730,7 +9341,11 @@ function bindNodeGraphCodeScreenEvents() {
     if (event.target?.id === "nodeCodeScreenApplyPorts") {
       applyNodeGraphCodeScreenCodeblockPorts();
     } else if (event.target?.id === "nodeCodeScreenNewCodeblock") {
-      createNodeGraphCodeScreenDebugCodeblock();
+      // Label reflects the currently-selected node's kind (see
+      // renderNodeGraphCodeScreenCodeblockEditor) -- "New Script Box"
+      // while viewing a scriptBox has to actually create a scriptBox,
+      // not silently create a Codeblock instead.
+      nodeGraphCodeScreenKindForNode(nodeGraphCodeScreenSelectedCodeblock()).createFn();
     } else if (event.target?.id === "nodeCodeScreenApplyCode") {
       applyNodeGraphCodeScreenCodeblockSource();
     } else if (event.target?.id === "nodeCodeScreenApplyAll") {

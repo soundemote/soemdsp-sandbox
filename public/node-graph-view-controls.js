@@ -311,7 +311,7 @@ function setNodeGraphModuleButtonsVisibility(visible, options = {}) {
     const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
     let changed = false;
     for (const node of patch.nodes) {
-      const ui = normalizeNodeGraphPatchNodeUi(node.ui);
+      const ui = normalizeNodeGraphPatchNodeUi(node.ui, node.type);
       if (!ui.buttonsHidden) {
         continue;
       }

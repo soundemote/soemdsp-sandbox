@@ -46,11 +46,13 @@ function normalizeNodeGraphPatchPortMeta(portMeta = {}) {
   };
 }
 
-function normalizeNodeGraphPatchNodeUi(ui = {}) {
+function normalizeNodeGraphPatchNodeUi(ui = {}, type = "") {
   const source = ui && typeof ui === "object" ? ui : {};
   return {
     buttonsHidden: Boolean(source.buttonsHidden),
-    displayHeightOffsetGu: normalizeNodeGraphModuleDisplayHeightOffsetUnits(source.displayHeightOffsetGu),
+    displayHeightOffsetGu: type
+      ? normalizeNodeGraphModuleDisplayHeightOffsetUnits(type, source.displayHeightOffsetGu)
+      : normalizeNodeGraphModuleDisplayHeightOffsetUnits(source.displayHeightOffsetGu),
     displayModeKey: String(source.displayModeKey || "").trim(),
     ioHidden: Boolean(source.ioHidden),
     interfaceControlsHidden: Boolean(source.interfaceControlsHidden),
@@ -270,7 +272,7 @@ function cloneNodeGraphPatch(patch) {
     nodes: (patch.nodes || []).map((node) => {
       const ui = nodeGraphModuleDefinitions[node.type]?.layout === "textBox" && !Object.hasOwn(node, "ui")
         ? { buttonsHidden: true }
-        : normalizeNodeGraphPatchNodeUi(node.ui);
+        : normalizeNodeGraphPatchNodeUi(node.ui, node.type);
       ui.displayModeKey = normalizeNodeGraphPatchNodeDisplayModeKey(node.type, ui.displayModeKey);
       return {
         ...node,
@@ -298,6 +300,9 @@ function cloneNodeGraphPatch(patch) {
           : {}),
         ...(node.type === "scriptBox"
           ? { scriptBox: normalizeNodeGraphScriptBox(node.scriptBox) }
+          : {}),
+        ...(node.type === "customDisplay"
+          ? { customDisplay: normalizeNodeGraphCustomDisplay(node.customDisplay) }
           : {}),
         ...(node.type === "canvas"
           ? { canvasScript: normalizeNodeGraphCanvasScript(node.canvasScript) }

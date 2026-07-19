@@ -87,6 +87,7 @@ const nodeGraphFloatingWindowLockHandleSelector = [
   ".node-module-shop-drag-handle",
   ".node-ui-dev-drag-handle",
   ".node-user-ui-settings-drag-handle",
+  "#nodeCodeBoxDragHandle",
 ].join(",");
 
 function nodeGraphFloatingWindowLocked(element) {

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>soemdsp-sandbox</title>
-  <link rel="stylesheet" href="./public/styles.css?v=wall-delay-two-ear-20260718">
+  <link rel="stylesheet" href="./public/styles.css?v=custom-display-20260719">
   <link rel="stylesheet" href="./public/modules/stepGrid/step-grid.css?v=stepgrid-own-folder-20260715">
 </head>
 <body class="debug-collapsed node-boot-loading">
@@ -1971,8 +1971,15 @@
             placeholder="module title alias">
         </label>
         <div id="nodeSceneHomeModules" class="scene-context-home-modules" hidden></div>
-        <button id="nodeSceneAddToGroup" type="button" role="menuitem" hidden>
-          <span>Add to group</span>
+        <button
+          id="nodeSceneAddToGroup"
+          class="node-under-construction-control"
+          type="button"
+          role="menuitem"
+          disabled
+          aria-disabled="true"
+          title="Add to group under construction. Module grouping is under construction.">
+          <span>Add to group under construction</span>
         </button>
         <button id="nodeSceneAddToUi" type="button" role="menuitem" hidden>
           <span>Add Graph UI</span>
@@ -2011,7 +2018,7 @@
             placeholder="text box content"></textarea>
         </label>
         <div id="nodeSceneCodeblockControls" class="scene-context-codeblock-controls" hidden>
-          <button id="nodeSceneCodeblockOpenCodeScreen" type="button">Open in Code Screen</button>
+          <button id="nodeSceneCodeblockOpenCodeScreen" type="button">Open Code Box</button>
           <label>
             <span>inputs</span>
             <input
@@ -2042,6 +2049,7 @@
           <output id="nodeSceneCodeblockStatus" aria-live="polite">code ok</output>
         </div>
         <div id="nodeSceneScriptBoxControls" class="scene-context-codeblock-controls" hidden>
+          <button id="nodeSceneScriptBoxOpenCodeScreen" type="button">Open Code Box</button>
           <label>
             <span>inputs</span>
             <input
@@ -2312,6 +2320,70 @@
           class="scene-context-resize-handle"
           type="button"
           aria-label="Resize module actions"></button>
+      </div>
+
+      <div
+        id="nodeCodeBoxWindow"
+        class="node-scene-context-menu node-code-box-window"
+        hidden
+        role="dialog"
+        aria-label="Code Box">
+        <div id="nodeCodeBoxWindowHeading" class="scene-context-heading">
+          <button
+            id="nodeCodeBoxDragHandle"
+            class="scene-context-drag-handle"
+            type="button"
+            aria-label="Move code box"
+            data-tooltip-key="metadata.sceneMove">&#x2725;</button>
+          <div class="scene-context-title">
+            <span>CODE</span>
+            <small>Box</small>
+          </div>
+          <button
+            id="nodeCodeBoxClose"
+            class="panel-close-button"
+            type="button"
+            aria-label="Close code box">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div id="nodeCodeBoxBody" class="node-code-box-window-body">
+          <label>
+            <span>title</span>
+            <input id="nodeCodeBoxTitle" type="text" autocomplete="off" spellcheck="false">
+          </label>
+          <label>
+            <span>inputs</span>
+            <input id="nodeCodeBoxInputs" type="text" autocomplete="off" spellcheck="false">
+          </label>
+          <label>
+            <span>outputs</span>
+            <input id="nodeCodeBoxOutputs" type="text" autocomplete="off" spellcheck="false">
+          </label>
+          <label class="node-code-box-source-label">
+            <span><code>```js</code></span>
+            <div class="node-code-widget node-code-box-editor" data-code-widget-language="javascript">
+              <div id="nodeCodeBoxLineNumbers" class="node-code-widget-line-numbers node-code-box-line-numbers" aria-hidden="true">1</div>
+              <pre id="nodeCodeBoxHighlight" class="node-code-widget-highlight node-code-box-highlight" aria-hidden="true"></pre>
+              <textarea id="nodeCodeBoxSource" spellcheck="false"></textarea>
+            </div>
+          </label>
+          <output id="nodeCodeBoxStatus" aria-live="polite">select a Code Box</output>
+          <div class="node-code-box-actions">
+            <button id="nodeCodeBoxApplyCode" type="button">Apply</button>
+            <button
+              id="nodeCodeBoxOpenFullScreen"
+              class="node-under-construction-control"
+              type="button"
+              disabled
+              aria-disabled="true">Full Screen</button>
+          </div>
+        </div>
+        <button
+          id="nodeCodeBoxResizeHandle"
+          class="scene-context-resize-handle"
+          type="button"
+          aria-label="Resize code box"></button>
       </div>
 
       <div
@@ -3245,7 +3317,7 @@
   <script src="./public/manifest-view.js?v=manifest-view-refactor-1780360800000"></script>
   <script src="./public/manifest-loader.js?v=manifest-loader-refactor-1780389600000"></script>
   <script src="./public/node-graph-wires.js?v=same-color-no-dip-20260701"></script>
-  <script src="./public/node-graph-floating-windows.js?v=floating-arrow-editable-1"></script>
+  <script src="./public/node-graph-floating-windows.js?v=code-box-auto-ports-20260719"></script>
   <script src="./public/node-graph-file-actions.js?v=floating-window-attention-1"></script>
   <script src="./public/node-graph-default-buttons.js?v=patch-save-refresh-1"></script>
   <script src="./public/node-graph-cookbook-filter.js?v=wall-delay-two-ear-20260718"></script>
@@ -3257,15 +3329,15 @@
   <script src="./public/modules/stepGrid/step-grid-register.js?v=stepgrid-variable-steps-20260715"></script>
   <script src="./public/modules/groupInput/group-input-register.js?v=chromeless-portals-1"></script>
   <script src="./public/modules/groupOutput/group-output-register.js?v=chromeless-portals-1"></script>
-  <script src="./public/node-graph-module-definitions.js?v=wall-delay-ray-bounce-dsp-20260718"></script>
+  <script src="./public/node-graph-module-definitions.js?v=custom-display-20260719"></script>
   <script src="./public/node-graph-data-bus.js?v=data-plane-merge-20260711"></script>
-  <script src="./public/node-graph-module-store.js?v=wall-delay-ray-bounce-dsp-20260718"></script>
-  <script src="./public/node-graph-module-sizing.js?v=wall-delay-two-ear-20260718"></script>
+  <script src="./public/node-graph-module-store.js?v=module-browser-display-video-grains-20260719"></script>
+  <script src="./public/node-graph-module-sizing.js?v=display-height-type-20260719"></script>
   <script src="./public/node-graph-metadata-kinds.js?v=0051"></script>
-  <script src="./public/node-graph-parameter-metadata.js?v=script-box-merge-20260711"></script>
+  <script src="./public/node-graph-parameter-metadata.js?v=custom-display-20260719"></script>
   <script src="./public/node-graph-metadata-defaults.js?v=decimal-template-1"></script>
   <script src="./public/node-graph-text-box-utils.js?v=text-box-size-1000-1"></script>
-  <script src="./public/node-graph-port-script.js?v=script-box-merge-20260711"></script>
+  <script src="./public/node-graph-port-script.js?v=custom-display-20260719"></script>
   <script src="./public/node-graph-image-utils.js?v=pre-formula-restore-1"></script>
   <script src="./public/node-graph-graph-utils.js?v=graph2-through-curves-1"></script>
   <script src="./public/node-graph-samples.js?v=file-grid-resources-1"></script>
@@ -3286,18 +3358,18 @@
   <script src="./public/node-graph-settings-text-fit.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-default-preset.js?v=embed-config-20260701"></script>
   <script src="./public/node-graph-script-status.js?v=slider-unit-color-1780307400000"></script>
-  <script src="./public/node-graph-view-controls.js?v=embed-hideui-merge-20260702"></script>
+  <script src="./public/node-graph-view-controls.js?v=display-height-type-20260719"></script>
   <script src="./public/node-graph-workspace-geometry.js?v=0020"></script>
   <script src="./public/node-graph-workspace-zoom.js?v=pixelated-canvas-zoom-20260711"></script>
-  <script src="./public/node-graph-workspace-view.js?v=pinch-pan-handoff-20260701"></script>
+  <script src="./public/node-graph-workspace-view.js?v=code-box-auto-ports-20260719"></script>
   <script src="./public/node-graph-camera-view.js?v=utility-camera-feed-1780810000000"></script>
   <script src="./public/node-graph-clap-host.js?v=0051"></script>
   <script src="./public/node-graph-marquee-selection.js?v=title-blur-on-marquee-20260707"></script>
-  <script src="./public/node-graph-node-dragging.js?v=io-alt-bypass-1"></script>
-  <script src="./public/node-graph-context-menu.js?v=src-lib-buttons-20260711"></script>
-  <script src="./public/node-graph-module-actions.js?v=src-lib-buttons-20260711"></script>
-  <script src="./public/node-graph-code-screen.js?v=canvas-video-list-20260650"></script>
-  <script src="./public/node-graph-module-scopes.js?v=spectrum-bars-full-intensity-20260711"></script>
+  <script src="./public/node-graph-node-dragging.js?v=display-height-type-20260719"></script>
+  <script src="./public/node-graph-context-menu.js?v=group-under-construction-20260719"></script>
+  <script src="./public/node-graph-module-actions.js?v=group-under-construction-20260719"></script>
+  <script src="./public/node-graph-code-screen.js?v=custom-display-20260719"></script>
+  <script src="./public/node-graph-module-scopes.js?v=display-height-type-20260719"></script>
   <script src="./public/modules/oscilloscopeBank/oscilloscope-bank-display.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/videoscope/videoscope-display.js?v=videoscope-20260713"></script>
   <script src="./public/modules/transport/transport-display.js?v=transport-bpm-20260714"></script>
@@ -3309,15 +3381,15 @@
   <script src="./public/modules/groupInput/group-input-ui.js?v=chromeless-portals-1"></script>
   <script src="./public/modules/groupOutput/group-output-ui.js?v=chromeless-portals-1"></script>
   <script src="./public/node-graph-module-header-rendering.js?v=0032"></script>
-  <script src="./public/node-graph-module-rendering.js?v=wall-delay-two-ear-20260718"></script>
+  <script src="./public/node-graph-module-rendering.js?v=display-height-type-20260719"></script>
   <script src="./public/node-graph-history.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-visual-utils.js?v=text-light-registry-1780800000000"></script>
-  <script src="./public/node-graph-patch-clone.js?v=script-box-merge-20260711"></script>
+  <script src="./public/node-graph-patch-clone.js?v=display-height-type-20260719"></script>
   <script src="./public/node-graph-slider-metadata.js?v=smoothing-mode-switch-20260703"></script>
   <script src="./public/node-graph-slider-values.js?v=finer-modifier-tier-20260709"></script>
   <script src="./public/node-graph-slider-dragging.js?v=finer-modifier-tier-20260709"></script>
   <script src="./public/node-graph-node-accessors.js?v=smoothing-time-20260701"></script>
-  <script src="./public/node-graph-selection.js?v=0045"></script>
+  <script src="./public/node-graph-selection.js?v=code-box-auto-ports-20260719"></script>
   <script src="./public/node-graph-port-geometry.js?v=pitch-quantizer-01v-oct-20260701"></script>
   <script src="./public/node-graph-slider-readout.js?v=vactrol-physics-20260701"></script>
   <script src="./public/node-graph-slider-readout-controls.js?v=unbounded-speed-1"></script>
@@ -3347,19 +3419,19 @@
   <script src="./public/node-graph-ui-settings-utils.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-user-ui-settings-controls.js?v=0083"></script>
   <script src="./public/node-graph-ui-settings-panels.js?v=unified-window-pos-2"></script>
-  <script src="./public/node-graph-ui-settings-persistence.js?v=stop-ambient-autosave-to-server-20260701"></script>
+  <script src="./public/node-graph-ui-settings-persistence.js?v=code-box-auto-ports-20260719"></script>
   <script src="./public/node-graph-ui-settings-sync.js?v=floating-window-header-height-1"></script>
-  <script src="./public/node-graph-keyboard-shortcuts.js?v=shift-height-resize-1"></script>
+  <script src="./public/node-graph-keyboard-shortcuts.js?v=display-height-type-20260719"></script>
   <script src="./public/node-graph-live-status-text.js?v=live-plan-preserve-20260634"></script>
   <script src="./public/node-graph-live-status-controls.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-live-meter-controls.js?v=audio-overrun-meter-2"></script>
   <script src="./public/node-graph-live-input-status.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-live-evidence.js?v=live-plan-preserve-20260634"></script>
   <script src="./public/node-graph-live-control-rendering.js?v=stable-live-buttons-20260641"></script>
-  <script src="./public/node-graph-default-patch.js?v=script-box-merge-20260711"></script>
-  <script src="./public/node-graph-state.js?v=vactrol-series-impulse-button-20260710"></script>
+  <script src="./public/node-graph-default-patch.js?v=display-height-type-20260719"></script>
+  <script src="./public/node-graph-state.js?v=code-box-auto-ports-20260719"></script>
   <script src="./public/node-graph-external-ui-events.js?v=vactrol-series-impulse-button-20260710"></script>
-  <script src="./public/node-graph-patch-core.js?v=script-box-merge-20260711"></script>
+  <script src="./public/node-graph-patch-core.js?v=display-height-type-20260719"></script>
   <script src="./public/node-graph-live-plan-runtime.js?v=wall-delay-two-ear-20260718"></script>
   <script src="./public/node-graph-live-parameter-runtime.js?v=skip-unmodulated-20260702"></script>
   <script src="./public/node-graph-oscillator-runtime.js?v=0147"></script>
@@ -3510,9 +3582,9 @@
   <script src="./public/node-graph-wire-controller-bootstrap.js?v=wire-break-trigger-0129"></script>
   <script src="./public/node-graph-workspace-event-bindings.js?v=dblclick-textbox-20260701"></script>
   <script src="./public/node-graph-render-live-event-bindings.js?v=beta-polish-1"></script>
-  <script src="./public/node-graph-header-event-bindings.js?v=module-diagnostics-2-20260711"></script>
+  <script src="./public/node-graph-header-event-bindings.js?v=code-box-auto-ports-20260719"></script>
   <script src="./public/node-graph-help-event-bindings.js?v=remove-workspace-view-0002"></script>
-  <script src="./public/node-graph-scene-menu-event-bindings.js?v=src-lib-buttons-20260711"></script>
+  <script src="./public/node-graph-scene-menu-event-bindings.js?v=code-box-auto-ports-20260719"></script>
   <script src="./public/node-graph-uidev-event-bindings.js?v=origin-marker-uidev-1"></script>
   <script src="./public/node-graph-settings-event-bindings.js?v=metadata-popover-bind-1"></script>
   <script src="./public/node-graph-slider-event-bindings.js?v=node-graph-slider-event-bindings-refactor-1780369200000"></script>

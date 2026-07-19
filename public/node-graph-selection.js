@@ -33,7 +33,7 @@ function handleNodeGraphDocumentClick(event) {
   const target = event.target;
   if (
     !(target instanceof Element) ||
-    target.closest("#nodeGraphWorkspace, #nodeSceneContextMenu, #nodeModuleActionsWindow, #nodeScopeContextMenu, #nodeGlobalScopeMenu, #nodeParameterMetadataPopover")
+    target.closest("#nodeGraphWorkspace, #nodeSceneContextMenu, #nodeModuleActionsWindow, #nodeCodeBoxWindow, #nodeScopeContextMenu, #nodeGlobalScopeMenu, #nodeParameterMetadataPopover")
   ) {
     return;
   }

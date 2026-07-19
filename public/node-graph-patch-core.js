@@ -177,6 +177,9 @@ function validateNodeGraphPatch(patch) {
     if (type === "scriptBox") {
       normalizedNode.scriptBox = normalizeNodeGraphScriptBox(node.scriptBox);
     }
+    if (type === "customDisplay") {
+      normalizedNode.customDisplay = normalizeNodeGraphCustomDisplay(node.customDisplay);
+    }
     const normalizedPortScripts = normalizeNodeGraphPortScripts(type, node.portScripts);
     if (normalizedPortScripts) {
       normalizedNode.portScripts = normalizedPortScripts;
@@ -214,7 +217,7 @@ function validateNodeGraphPatch(patch) {
     }
     const ui = nodeGraphModuleDefinitions[type].layout === "textBox" && !Object.hasOwn(node, "ui")
       ? { buttonsHidden: true }
-      : normalizeNodeGraphPatchNodeUi(node.ui);
+      : normalizeNodeGraphPatchNodeUi(node.ui, node.type);
     ui.displayModeKey = normalizeNodeGraphPatchNodeDisplayModeKey(type, ui.displayModeKey);
     if (ui.buttonsHidden || ui.displayModeKey || ui.ioHidden || ui.interfaceControlsHidden || ui.movementLocked || ui.titleHidden || ui.oscilloscopeHidden || ui.slidersHidden || ui.displayHeightOffsetGu) {
       normalizedNode.ui = ui;

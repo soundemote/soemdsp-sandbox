@@ -444,6 +444,11 @@ function nodeGraphModuleActionTargetNodeIds() {
 }
 
 function saveNodeGraphSelectionAsModuleGroup() {
+  setNodeGraphScriptStatus("module grouping is under construction", false);
+  if (typeof setNodeInteractionHelp === "function") {
+    setNodeInteractionHelp("Add to group under construction. Module grouping is under construction.");
+  }
+  return;
   const selectedIds = new Set(nodeGraphModuleGroupSelection());
   const selectionActive = selectedIds.size > 0;
   const sourceNodes = nodeGraphMvp.patch.nodes.filter((node) =>
@@ -644,6 +649,9 @@ function copyNodeGraphModule(sourceNode) {
     ...(sourceNode.type === "codeblock"
       ? { codeblock: normalizeNodeGraphCodeblock(sourceNode.codeblock) }
       : {}),
+    ...(sourceNode.type === "customDisplay"
+      ? { customDisplay: normalizeNodeGraphCustomDisplay(sourceNode.customDisplay) }
+      : {}),
     paramMeta: cloneNodeGraphParamMeta(sourceNode.paramMeta),
     params: { ...(sourceNode.params || {}) },
   });
@@ -677,6 +685,7 @@ const nodeGraphModuleSettingsFields = Object.freeze([
   "graph",
   "codeblock",
   "scriptBox",
+  "customDisplay",
   "canvasScript",
   "screenSpaceShader",
   "scopeShader",
@@ -864,7 +873,7 @@ function adjustNodeGraphModuleDisplayHeightFromContext(delta) {
   if (!targetNode || !nodeGraphPatchNodeHasHideableOscilloscope(targetNode)) {
     return;
   }
-  const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui);
+  const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui, targetNode.type);
   const nextOffsetGu = normalizeNodeGraphModuleDisplayHeightOffsetUnits(
     targetNode.type,
     ui.displayHeightOffsetGu + delta * nodeGraphModuleDisplayHeightLimits.stepGu,
@@ -1840,7 +1849,7 @@ function toggleNodeGraphModuleButtonsFromContext() {
   if (!targetNode) {
     return;
   }
-  const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui);
+  const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui, targetNode.type);
   ui.buttonsHidden = !ui.buttonsHidden;
   applyNodeGraphPatchNodeUi(targetNode, ui);
   commitNodeGraphPatch(patch, {
@@ -1889,7 +1898,7 @@ function toggleNodeGraphModuleTitleFromContext() {
   if (!targetNode) {
     return;
   }
-  const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui);
+  const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui, targetNode.type);
   ui.titleHidden = !ui.titleHidden;
   applyNodeGraphPatchNodeUi(targetNode, ui);
   commitNodeGraphPatch(patch, {
@@ -1909,7 +1918,7 @@ function toggleNodeGraphModuleOscilloscopeFromContext() {
   if (!targetNode || !nodeGraphPatchNodeHasHideableOscilloscope(targetNode)) {
     return;
   }
-  const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui);
+  const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui, targetNode.type);
   ui.oscilloscopeHidden = !ui.oscilloscopeHidden;
   applyNodeGraphPatchNodeUi(targetNode, ui);
   commitNodeGraphPatch(patch, {
@@ -1919,7 +1928,7 @@ function toggleNodeGraphModuleOscilloscopeFromContext() {
 }
 
 function applyNodeGraphPatchNodeUi(targetNode, ui) {
-  const normalizedUi = normalizeNodeGraphPatchNodeUi(ui);
+  const normalizedUi = normalizeNodeGraphPatchNodeUi(ui, targetNode?.type);
   if (
     normalizedUi.buttonsHidden ||
     normalizedUi.ioHidden ||
@@ -1946,7 +1955,7 @@ function toggleNodeGraphModuleInterfaceControlsFromContext() {
   if (!targetNode || !nodeGraphModuleTypeHasInterfaceControls(targetNode.type)) {
     return;
   }
-  const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui);
+  const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui, targetNode.type);
   ui.interfaceControlsHidden = !ui.interfaceControlsHidden;
   applyNodeGraphPatchNodeUi(targetNode, ui);
   commitNodeGraphPatch(patch, {
@@ -1966,7 +1975,7 @@ function toggleNodeGraphModuleIoFromContext() {
   if (!targetNode) {
     return;
   }
-  const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui);
+  const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui, targetNode.type);
   ui.ioHidden = !ui.ioHidden;
   applyNodeGraphPatchNodeUi(targetNode, ui);
   commitNodeGraphPatch(patch, {
@@ -1986,7 +1995,7 @@ function toggleNodeGraphModuleSlidersFromContext() {
   if (!targetNode || !nodeGraphModuleTypeHasHideableSliders(targetNode.type)) {
     return;
   }
-  const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui);
+  const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui, targetNode.type);
   ui.slidersHidden = !ui.slidersHidden;
   applyNodeGraphPatchNodeUi(targetNode, ui);
   commitNodeGraphPatch(patch, {

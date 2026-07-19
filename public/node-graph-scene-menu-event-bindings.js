@@ -36,6 +36,12 @@ function bindNodeGraphSceneMenuEvents() {
   document.addEventListener("pointermove", dragNodeModuleActionsWindowResize);
   document.addEventListener("pointerup", endNodeModuleActionsWindowResize);
   document.addEventListener("pointercancel", endNodeModuleActionsWindowResize);
+  document.addEventListener("pointermove", dragNodeGraphCodeBoxWindow);
+  document.addEventListener("pointerup", endNodeGraphCodeBoxWindowDrag);
+  document.addEventListener("pointercancel", endNodeGraphCodeBoxWindowDrag);
+  document.addEventListener("pointermove", dragNodeGraphCodeBoxWindowResize);
+  document.addEventListener("pointerup", endNodeGraphCodeBoxWindowResize);
+  document.addEventListener("pointercancel", endNodeGraphCodeBoxWindowResize);
   bindNodeGraphSceneElementEvent("nodeSceneDeleteModule", "click", deleteNodeGraphSelectionFromContext);
   document
     .querySelectorAll("#nodeSceneWireTypeControl [data-wire-type]")
@@ -56,6 +62,20 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeModuleActionsWindowHeading", "pointerdown", beginNodeModuleActionsWindowDrag);
   bindNodeGraphSceneElementEvent("nodeModuleActionsDragHandle", "pointerdown", beginNodeModuleActionsWindowDrag);
   bindNodeGraphSceneElementEvent("nodeModuleActionsResizeHandle", "pointerdown", beginNodeModuleActionsWindowResize);
+  bindNodeGraphSceneElementEvent("nodeCodeBoxClose", "click", closeNodeGraphCodeBoxWindow);
+  bindNodeGraphSceneElementEvent("nodeCodeBoxWindowHeading", "pointerdown", beginNodeGraphCodeBoxWindowDrag);
+  bindNodeGraphSceneElementEvent("nodeCodeBoxDragHandle", "pointerdown", beginNodeGraphCodeBoxWindowDrag);
+  bindNodeGraphSceneElementEvent("nodeCodeBoxResizeHandle", "pointerdown", beginNodeGraphCodeBoxWindowResize);
+  bindNodeGraphSceneElementEvent("nodeCodeBoxApplyCode", "click", applyNodeGraphCodeBoxWindowCode);
+  bindNodeGraphSceneElementEvent("nodeCodeBoxOpenFullScreen", "click", openNodeGraphCodeBoxWindowFullScreen);
+  bindNodeGraphSceneElementEvent("nodeCodeBoxTitle", "input", scheduleNodeGraphCodeBoxWindowTitleApply);
+  bindNodeGraphSceneElementEvent("nodeCodeBoxTitle", "change", applyNodeGraphCodeBoxWindowTitle);
+  bindNodeGraphSceneElementEvent("nodeCodeBoxInputs", "input", scheduleNodeGraphCodeBoxWindowPortsApply);
+  bindNodeGraphSceneElementEvent("nodeCodeBoxOutputs", "input", scheduleNodeGraphCodeBoxWindowPortsApply);
+  bindNodeGraphSceneElementEvent("nodeCodeBoxInputs", "change", applyNodeGraphCodeBoxWindowPorts);
+  bindNodeGraphSceneElementEvent("nodeCodeBoxOutputs", "change", applyNodeGraphCodeBoxWindowPorts);
+  bindNodeGraphSceneElementEvent("nodeCodeBoxSource", "input", handleNodeGraphCodeBoxWindowSourceInput);
+  bindNodeGraphSceneElementEvent("nodeCodeBoxSource", "scroll", updateNodeGraphCodeBoxWindowEditorChrome);
   bindNodeGraphSceneElementEvent("nodeSceneUndoButton", "click", undoNodeGraphPatch);
   bindNodeGraphSceneElementEvent("nodeSceneRedoButton", "click", redoNodeGraphPatch);
   bindNodeGraphSceneElementEvent("nodeSceneOpenSavedPatches", "click", () => {
@@ -145,9 +165,10 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeSceneTextBoxTextInput", "input", () => setNodeGraphTextBoxTextFromContext({ record: false }));
   bindNodeGraphSceneElementEvent("nodeSceneTextBoxTextInput", "change", () => setNodeGraphTextBoxTextFromContext({ record: true }));
   bindNodeGraphSceneElementEvent("nodeSceneCodeblockApplyPorts", "click", applyNodeGraphCodeblockPortsFromContext);
-  bindNodeGraphSceneElementEvent("nodeSceneCodeblockOpenCodeScreen", "click", () => openNodeGraphCodeScreenForNode());
+  bindNodeGraphSceneElementEvent("nodeSceneCodeblockOpenCodeScreen", "click", () => openNodeGraphCodeBoxWindowForNode());
   bindNodeGraphSceneElementEvent("nodeSceneCodeblockSource", "input", () => setNodeGraphCodeblockSourceFromContext({ record: false }));
   bindNodeGraphSceneElementEvent("nodeSceneCodeblockSource", "change", () => setNodeGraphCodeblockSourceFromContext({ record: true }));
+  bindNodeGraphSceneElementEvent("nodeSceneScriptBoxOpenCodeScreen", "click", () => openNodeGraphCodeBoxWindowForNode());
   bindNodeGraphSceneElementEvent("nodeSceneScriptBoxApplyPorts", "click", applyNodeGraphScriptBoxPortsFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneScriptBoxSource", "input", () => setNodeGraphScriptBoxSourceFromContext({ record: false }));
   bindNodeGraphSceneElementEvent("nodeSceneScriptBoxSource", "change", () => setNodeGraphScriptBoxSourceFromContext({ record: true }));

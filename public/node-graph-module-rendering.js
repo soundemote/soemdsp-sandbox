@@ -324,7 +324,7 @@ function toggleNodeModuleDisplayVisibility(event) {
   if (!targetNode || !nodeGraphPatchNodeHasHideableOscilloscope(targetNode)) {
     return;
   }
-  const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui);
+  const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui, targetNode.type);
   ui.oscilloscopeHidden = !ui.oscilloscopeHidden;
   applyNodeGraphPatchNodeUi(targetNode, ui);
   commitNodeGraphPatch(patch, {
@@ -363,7 +363,7 @@ function toggleNodeModuleSlidersVisibility(event) {
   if (!targetNode || !nodeGraphModuleTypeHasHideableSliders(targetNode.type)) {
     return;
   }
-  const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui);
+  const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui, targetNode.type);
   ui.slidersHidden = !ui.slidersHidden;
   applyNodeGraphPatchNodeUi(targetNode, ui);
   commitNodeGraphPatch(patch, {

@@ -50,7 +50,7 @@ function createNodeGraphPatchNode(type, options = {}) {
   }
   const ui = nodeGraphModuleDefinitions[type]?.layout === "textBox" && !Object.hasOwn(opts, "ui")
     ? { buttonsHidden: true }
-    : normalizeNodeGraphPatchNodeUi(opts.ui);
+    : normalizeNodeGraphPatchNodeUi(opts.ui, type);
   if (ui.buttonsHidden || ui.titleHidden) {
     node.ui = ui;
   }
@@ -69,6 +69,9 @@ function createNodeGraphPatchNode(type, options = {}) {
   }
   if (type === "scriptBox") {
     node.scriptBox = normalizeNodeGraphScriptBox(opts.scriptBox);
+  }
+  if (type === "customDisplay") {
+    node.customDisplay = normalizeNodeGraphCustomDisplay(opts.customDisplay);
   }
   if (type === "canvas") {
     node.canvasScript = normalizeNodeGraphCanvasScript(opts.canvasScript);

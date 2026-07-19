@@ -1,6 +1,7 @@
 const nodeGraphNodeLabels = Object.freeze({
   audioInput: "Input",
   codeblock: "Codeblock",
+  customDisplay: "Custom Display",
   graph: "Graph",
   graph2: "Graph 2",
   animatedTextBox: "Animated Text Box",
@@ -225,6 +226,19 @@ const nodeGraphModuleDefinitions = Object.freeze({
   },
   scriptBox: {
     parameters: [],
+  },
+  customDisplay: {
+    bufferedInputs: ["In1"],
+    displayHeightGu: 5,
+    displayType: "customDisplay",
+    inputs: ["In1"],
+    layout: "traceDisplay",
+    outputs: [],
+    parameters: [],
+    visualInputs: [
+      { key: "customDisplayIn1", label: "In1", port: "In1" },
+    ],
+    visualSink: true,
   },
   graph: {
     inputs: ["In"],

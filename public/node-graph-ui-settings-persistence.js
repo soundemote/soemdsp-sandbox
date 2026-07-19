@@ -3,6 +3,7 @@ const nodeUiDevDefaultSettingsStorageKey = "soemdsp-sandbox.userUiSettings.start
 
 const nodeGraphWorkspaceWindowStateKeys = Object.freeze([
   "commandCenter",
+  "codeBox",
   "moduleActions",
   "metaparameters",
   "oscilloscopeSettings",
@@ -18,6 +19,7 @@ const nodeGraphWorkspaceWindowStateKeys = Object.freeze([
 
 const nodeGraphWorkspaceWindowElements = Object.freeze({
   commandCenter: "nodeSceneContextMenu",
+  codeBox: "nodeCodeBoxWindow",
   moduleActions: "nodeModuleActionsWindow",
   metaparameters: "nodeParameterMetadataPopover",
   oscilloscopeSettings: "nodeGlobalScopeMenu",
@@ -368,6 +370,9 @@ function applyNodeGraphWorkspaceWindowStateToElement(key) {
   if (key === "moduleActions" && typeof applyNodeModuleActionsWindowSize === "function") {
     applyNodeModuleActionsWindowSize(nodeGraphMvp.sharedInspectorWindowState?.size);
   }
+  if (key === "codeBox" && typeof applyNodeGraphCodeBoxWindowSize === "function") {
+    applyNodeGraphCodeBoxWindowSize(state.size);
+  }
   if (key === "patchExplorer" && typeof applyNodeGraphSavedPatchesWindowSize === "function") {
     applyNodeGraphSavedPatchesWindowSize(state.size);
   }
@@ -405,6 +410,9 @@ function applyNodeGraphWorkspaceWindowStateToElement(key) {
   if (key === "moduleActions" && state.open && typeof configureNodeSceneContextMenu === "function") {
     const mode = nodeGraphMvp.selected?.type === "wire" ? "wire" : "module";
     configureNodeSceneContextMenu(mode);
+  }
+  if (key === "codeBox" && state.open && typeof syncNodeGraphCodeBoxWindow === "function") {
+    syncNodeGraphCodeBoxWindow();
   }
 }
 

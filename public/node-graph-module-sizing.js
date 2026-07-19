@@ -34,7 +34,7 @@ const nodeGraphModuleHeightLimits = Object.freeze({
 });
 
 const nodeGraphModuleDisplayHeightLimits = Object.freeze({
-  maxGu: 12,
+  maxGu: 48,
   minGu: 1,
   stepGu: 1,
 });
@@ -170,7 +170,7 @@ function nodeGraphModuleConfiguredDisplayHeightUnits(type, ui = {}) {
   if (!nodeGraphModuleTypeHasHideableOscilloscope(type)) {
     return 0;
   }
-  const normalizedUi = normalizeNodeGraphPatchNodeUi(ui);
+  const normalizedUi = normalizeNodeGraphPatchNodeUi(ui, type);
   const defaultHeightGu = nodeGraphModuleDefaultDisplayHeightUnits(type);
   return Math.max(
     1,

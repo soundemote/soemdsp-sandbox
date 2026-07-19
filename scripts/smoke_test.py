@@ -141,6 +141,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-workspace-view.js",
     "./public/node-graph-camera-view.js",
     "./public/node-graph-clap-host.js",
+    "./public/modules/groupInput/group-input-register.js",
+    "./public/modules/groupOutput/group-output-register.js",
     "./public/node-graph-marquee-selection.js",
     "./public/node-graph-node-dragging.js",
     "./public/node-graph-context-menu.js",
@@ -151,6 +153,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-canvas-script.js",
     "./public/node-graph-module-factories.js",
     "./public/modules/led/led-ui.js",
+    "./public/modules/groupInput/group-input-ui.js",
+    "./public/modules/groupOutput/group-output-ui.js",
     "./public/node-graph-module-header-rendering.js",
     "./public/node-graph-module-rendering.js",
     "./public/node-graph-history.js",
@@ -3735,7 +3739,7 @@ def require_chromeless_module_registry_contract() -> None:
         require(match is not None, f"{register_path} does not call registerNodeGraphChromelessModule")
         discovered_types.add(match.group(1))
 
-    expected_types = {"led", "stepGrid"}
+    expected_types = {"groupInput", "groupOutput", "led", "stepGrid"}
     require(
         discovered_types == expected_types,
         f"chromeless module registrations were {sorted(discovered_types)!r}, expected {sorted(expected_types)!r}",
@@ -4082,6 +4086,7 @@ def require_node_graph_mvp_contract() -> None:
         "metadata": script_sources["./public/node-graph-parameter-metadata.js"],
         "patch core": script_sources["./public/node-graph-patch-core.js"],
         "parameter metadata": script_sources["./public/node-graph-parameter-metadata.js"],
+        "port script": script_sources["./public/node-graph-port-script.js"],
         "actions": script_sources["./public/node-graph-module-actions.js"],
         "code screen": script_sources["./public/node-graph-code-screen.js"],
         "code screen model": script_sources["./public/node-graph-code-screen-model.js"],
@@ -4089,6 +4094,7 @@ def require_node_graph_mvp_contract() -> None:
         "header events": script_sources["./public/node-graph-header-event-bindings.js"],
         "menu": index_source,
         "menu events": script_sources["./public/node-graph-scene-menu-event-bindings.js"],
+        "styles": style_source,
         "runtime": script_sources["./public/node-graph-live-frame-evaluator.js"]
         + script_sources["./public/modules/codeblock/codeblock-live-evaluator.js"],
         "worklet": worklet_source,
@@ -4575,7 +4581,7 @@ def require_node_graph_mvp_contract() -> None:
             "\n".join([graph_contract_sources["index"], graph_contract_sources["state"], graph_contract_sources["runtime"]]),
             [
                 "dynamic-module-counts-1",
-                "floating-arrow-editable-1",
+                "code-box-auto-ports-20260719",
                 "node-graph-graph-utils.js",
                 "graphNodeDragging: null",
                 "graphClipboard: null",
@@ -4686,7 +4692,7 @@ def require_node_graph_mvp_contract() -> None:
         (
             "store",
             clap_contract_sources["store"],
-            ["clapPlugin: {", 'category: "Audio"', "developerOnly: true", "Browser-side shell for a local CLAP host plugin"],
+            ["clapPlugin: {", 'category: "CLAP"', "Browser-side shell for a local CLAP host plugin"],
         ),
         (
             "patch persistence",
@@ -4772,7 +4778,7 @@ def require_node_graph_mvp_contract() -> None:
                 "function markNodeGraphClapHostButtonUnderConstruction(button)",
                 "function createNodeGraphClapPluginActionButton(label, datasetKey, nodeId, handler)",
                 "function syncNodeGraphClapPluginActionButtons(buttons, binding, staleInstance)",
-                "markNodeGraphClapHostButtonsUnderConstruction([",
+                "markNodeGraphClapHostButtonsUnderConstruction(buttonList)",
                 'button.className = "node-secondary-button"',
                 "const nodeGraphClapHostCapabilityKeys",
                 "function normalizeNodeGraphClapHostCapabilities",
@@ -5156,8 +5162,7 @@ def require_node_graph_mvp_contract() -> None:
                 ".node-clap-plugin-safety.good",
                 ".node-clap-plugin-safety.warn",
                 ".node-clap-plugin-param-list",
-                ".node-clap-plugin-param-row",
-                ".node-clap-plugin-param-value",
+                ".node-clap-plugin-param-empty",
             ],
         ),
     ]:
@@ -5168,12 +5173,12 @@ def require_node_graph_mvp_contract() -> None:
         (
             "definitions",
             codeblock_contract_sources["definitions"],
-            ['codeblock: "Codeblock"', "codeblock: {", 'inputs: ["In1"]', 'outputs: ["Out1"]'],
+            ['codeblock: "Codeblock"', 'customDisplay: "Custom Display"', "codeblock: {", "customDisplay: {", 'displayType: "customDisplay"', 'inputs: ["In1"]', 'outputs: ["Out1"]'],
         ),
         (
             "store",
             codeblock_contract_sources["store"],
-            ["codeblock: {", 'category: "Controllers"', "Patch-local JavaScript signal processor"],
+            ["codeblock: {", "scriptBox: {", "customDisplay: {", 'category: "Digital"', 'category: "Oscilloscope"', "Patch-local JavaScript signal processor", "Patch-local JavaScript display surface"],
         ),
         (
             "dynamic ports",
@@ -5190,6 +5195,19 @@ def require_node_graph_mvp_contract() -> None:
                 '"frames"',
                 '"time"',
                 '"dt"',
+                "if (patchNode?.type === \"customDisplay\")",
+                "normalizeNodeGraphCustomDisplay(patchNode.customDisplay).inputs",
+            ],
+        ),
+        (
+            "display script",
+            codeblock_contract_sources["port script"],
+            [
+                "const nodeGraphCustomDisplayDefaultCode =",
+                "function normalizeNodeGraphCustomDisplay",
+                "function nodeGraphCustomDisplayCompileStatus",
+                "function compiledNodeGraphCustomDisplayFunction",
+                "define function draw(api)",
             ],
         ),
         (
@@ -5197,6 +5215,7 @@ def require_node_graph_mvp_contract() -> None:
             codeblock_contract_sources["patch core"],
             [
                 "normalizedNode.codeblock = normalizeNodeGraphCodeblock(node.codeblock)",
+                "normalizedNode.customDisplay = normalizeNodeGraphCustomDisplay(node.customDisplay)",
                 "nodeGraphPatchNodeOutputPorts(nodes.find",
                 "nodeGraphPatchNodeInputPorts(nodes.find",
             ],
@@ -5224,7 +5243,41 @@ def require_node_graph_mvp_contract() -> None:
                 "nodeSceneCodeblockSource",
                 "nodeSceneCodeblockStatus",
                 "nodeSceneCodeblockOpenCodeScreen",
-                "Open in Code Screen",
+                "Open Code Box",
+                "nodeCodeBoxWindow",
+                "nodeCodeBoxTitle",
+                "nodeCodeBoxInputs",
+                "nodeCodeBoxOutputs",
+                "nodeCodeBoxSource",
+                "nodeCodeBoxLineNumbers",
+                "nodeCodeBoxHighlight",
+                "node-code-widget",
+                "```js",
+                "Full Screen",
+            ],
+        ),
+        (
+            "floating code box styles",
+            codeblock_contract_sources["styles"],
+            [
+                ".node-code-box-window {",
+                "gap: 0;",
+                "padding: 0;",
+                ".node-code-box-window-body {",
+                ".node-code-box-window-body label > span {",
+                ".node-code-box-window-body input {",
+                ".node-custom-display-canvas",
+            ],
+        ),
+        (
+            "display renderer",
+            script_sources["./public/node-graph-module-scopes.js"],
+            [
+                "\"customDisplay\"",
+                "function nodeGraphCustomDisplayCanvasForSlot",
+                "function drawNodeGraphCustomDisplayItem",
+                "customDisplay: drawNodeGraphCustomDisplayItem",
+                "compiledNodeGraphCustomDisplayFunction(node)",
             ],
         ),
         (
@@ -5478,7 +5531,15 @@ def require_node_graph_mvp_contract() -> None:
                 "Library Demo Script",
                 "nodeCodeScreenNewCodeblock",
                 "New Debug Codeblock",
-                "Create Debug Codeblock",
+                "New Script Box",
+                "Write your first Code Box",
+                "nodeCodeScreenCreateScriptBoxFromList",
+                "nodeGraphCodeScreenCodeBoxKinds",
+                "openNodeGraphCodeBoxWindowFromHeader",
+                "openNodeGraphCodeBoxWindowForNode",
+                "customDisplay: {",
+                "Define function draw(api)",
+                "outputs: kind.nodeType === \"customDisplay\" ? []",
                 "nodeCodeScreenHelperSearch",
                 "nodeCodeScreenClearHelperSearch",
                 "codeScreenWorkspaceScriptStatus",
@@ -6093,7 +6154,7 @@ def require_node_graph_mvp_contract() -> None:
                 "codeblocks in patch",
                 "node-code-screen-codeblock-list-summary",
                 "`${inputs.length} in - ${outputs.length} out",
-                "No debug Codeblocks match this search.",
+                "No code boxes match this search.",
                 "node-code-screen-list-status",
                 "snippets saved",
                 "snippets shown",
@@ -6225,7 +6286,9 @@ def require_node_graph_mvp_contract() -> None:
                 "function applyNodeGraphCodeScreenCodeblockSource",
                 "function applyNodeGraphCodeScreenCodeblockAll",
                 "function resetNodeGraphCodeScreenCodeblockDraft",
-                "code screen codeblock changed",
+                "kind.pruneConnections(patch, targetNode.id, next.inputs, next.outputs)",
+                "kind.compileStatus(next)",
+                "kind.label.toLowerCase()",
                 "draft reset",
                 "function updateNodeGraphCodeScreenAutocomplete",
                 ".sort(nodeGraphCodeScreenSortHelpersByRecent)",
@@ -6288,14 +6351,24 @@ def require_node_graph_mvp_contract() -> None:
         (
             "events",
             "\n".join([
+                codeblock_contract_sources["code screen"],
                 codeblock_contract_sources["header events"],
                 codeblock_contract_sources["menu events"],
             ]),
             [
                 "bindNodeGraphCodeScreenEvents()",
-                "setNodeGraphViewMode(\"code\")",
                 "nodeSceneCodeblockOpenCodeScreen",
-                "openNodeGraphCodeScreenForNode",
+                "nodeSceneScriptBoxOpenCodeScreen",
+                "openNodeGraphCodeBoxWindowForNode",
+                "openNodeGraphCodeBoxWindowFromHeader",
+                "scheduleNodeGraphCodeBoxWindowPortsApply",
+                "scheduleNodeGraphCodeBoxWindowTitleApply",
+                "applyNodeGraphCodeBoxWindowTitle",
+                "normalizeNodeGraphCodeWidgetLanguage",
+                "highlightNodeGraphCodeWidgetCodeLine",
+                "renderNodeGraphCodeWidgetHighlight",
+                "handleNodeGraphCodeBoxWindowSourceInput",
+                "updateNodeGraphCodeBoxWindowEditorChrome",
             ],
         ),
         (
@@ -6705,7 +6778,7 @@ def require_node_graph_mvp_contract() -> None:
         "nodeSceneOpenUiSettings",
         "nodeSceneOpenPostProcessing",
         "scene-context-window-button",
-        "floating-arrow-editable-1",
+        "code-box-auto-ports-20260719",
         "share-link-1",
         "Module Settings",
         "Visibility",
@@ -6795,8 +6868,7 @@ def require_node_graph_mvp_contract() -> None:
         "Patch Explorer",
         "nodeSceneCopyModule",
         "nodeSceneAddToGroup",
-        "Add to group",
-        'id="nodeSceneAddToGroup" class="node-under-construction-control" type="button" role="menuitem" disabled aria-disabled="true" title="Module grouping is under construction."',
+        "Add to group under construction",
         "Copy",
         "Ctrl+C",
         "nodeSceneAliasControl",
@@ -6958,20 +7030,17 @@ def require_node_graph_mvp_contract() -> None:
         "<span>Output</span>",
         "<span>(Off)</span>",
         "nodeClapHostStatus",
-        "CLAP Host: Under Construction",
+        "Local Plugin Host: Checking",
         "nodeClapHostDetail",
         "nodeClapHostUrl",
         "CLAP host URL",
-        "Connect Local Host",
+        "Check Again",
         "Refresh Plugins",
-        'id="nodeClapHostConnectButton" class="node-under-construction-control" type="button" disabled aria-disabled="true"',
-        'id="nodeClapHostPluginsButton" class="node-under-construction-control" type="button" disabled aria-disabled="true"',
         "nodeClapHostDiagnosticsButton",
+        "Open CLAP Folder",
+        "Copy Start Command",
         "Diagnostics",
         "nodeClapHostCommandButton",
-        "Copy Host Command",
-        'id="nodeClapHostDiagnosticsButton" class="node-under-construction-control" type="button" disabled aria-disabled="true"',
-        'id="nodeClapHostCommandButton" class="node-under-construction-control" type="button" disabled aria-disabled="true"',
         "node-graph-clap-host.js?v=0051",
         'data-tooltip-key="settings.makePlugin"',
         'data-tooltip-key="settings.makeModule"',
@@ -7215,10 +7284,12 @@ def require_node_graph_mvp_contract() -> None:
         "command center should not expose width resize dragging",
     )
     require(
-        "addToGroupButton.disabled = true" in script_sources["./public/node-graph-context-menu.js"]
-        and 'addToGroupButton.setAttribute("aria-disabled", "true")' in script_sources["./public/node-graph-context-menu.js"]
-        and 'addToGroupButton.classList.add("node-under-construction-control")' in script_sources["./public/node-graph-context-menu.js"],
-        "add to group should be disabled and styled as under construction",
+        'bindNodeGraphSceneElementEvent("nodeSceneAddToGroup", "click", saveNodeGraphSelectionAsModuleGroup)'
+        in script_sources["./public/node-graph-scene-menu-event-bindings.js"]
+        and "addToGroupButton.disabled = true" in script_sources["./public/node-graph-context-menu.js"]
+        and 'addToGroupButton.title = "Add to group under construction. Module grouping is under construction."' in script_sources["./public/node-graph-context-menu.js"]
+        and 'setNodeGraphScriptStatus("module grouping is under construction", false);' in script_sources["./public/node-graph-module-actions.js"],
+        "add to group should be wired but disabled as an under-construction Module Settings action",
     )
     require(
         'id="nodeModuleActionsWindowBody"' in module_actions_window_source
@@ -7390,15 +7461,13 @@ def require_node_graph_mvp_contract() -> None:
         "module category rows should follow the explicit department order",
     )
     require(
-        "const nodeGraphModuleStoreVisualGroups = Object.freeze([" in script_sources["./public/node-graph-module-store.js"]
-        and 'label: "Generate"' in script_sources["./public/node-graph-module-store.js"]
-        and 'label: "Process"' in script_sources["./public/node-graph-module-store.js"]
-        and 'label: "Interact"' in script_sources["./public/node-graph-module-store.js"]
-        and 'label: "Memory"' in script_sources["./public/node-graph-module-store.js"]
-        and "renderNodeGraphModuleStoreDepartmentGroup(" in script_sources["./public/node-graph-module-store.js"]
-        and "for (const group of nodeGraphModuleStoreVisualGroups)" in script_sources["./public/node-graph-module-store.js"]
-        and ".scene-context-store-visual-group" in style_source,
-        "module category landing page should be split into visual groups",
+        "const nodeGraphModuleStoreVisualGroups = Object.freeze([])" in script_sources["./public/node-graph-module-store.js"]
+        and 'label: "Generate"' not in script_sources["./public/node-graph-module-store.js"]
+        and 'label: "Process"' not in script_sources["./public/node-graph-module-store.js"]
+        and 'label: "Interact"' not in script_sources["./public/node-graph-module-store.js"]
+        and 'label: "Memory"' not in script_sources["./public/node-graph-module-store.js"]
+        and "for (const [department, departmentEntries] of publicDepartmentEntries)" in script_sources["./public/node-graph-module-store.js"],
+        "module category landing page should render one flat department list without group headers",
     )
 
     for snippet in [
@@ -9145,7 +9214,10 @@ def require_node_graph_mvp_contract() -> None:
         "verticalAlignPercent: normalizeNodeGraphTextBoxVerticalAlignPercent",
         "function setNodeGraphTextBoxHorizontalAlignFromContext(value)",
         "function setNodeGraphTextBoxVerticalAlignFromContext",
-        "function normalizeNodeGraphPatchNodeUi(ui = {})",
+        'function normalizeNodeGraphPatchNodeUi(ui = {}, type = "")',
+        "? normalizeNodeGraphModuleDisplayHeightOffsetUnits(type, source.displayHeightOffsetGu)",
+        ": normalizeNodeGraphModuleDisplayHeightOffsetUnits(source.displayHeightOffsetGu)",
+        "normalizeNodeGraphPatchNodeUi(node.ui, node.type)",
         "oscilloscopeHidden: Boolean(source.oscilloscopeHidden)",
         "slidersHidden: Boolean(source.slidersHidden)",
         "function nodeGraphEffectivePatchNodeUi(ui = {})",
@@ -9701,7 +9773,6 @@ def require_node_graph_mvp_contract() -> None:
         "const nodeGraphModuleStoreTypes = Object.freeze(Object.keys(nodeGraphModuleDefinitions));",
         "\"additiveOsc\"",
         "\"gpuAdditiveOsc\"",
-        "developerOnly: true",
         "\"ellipsoid\"",
         "\"polyBlep\"",
         "Anti-aliased PolyBLEP oscillator for clean saw, ramp, square, triangle, sine, and noise waveform outputs.",
@@ -9868,7 +9939,7 @@ def require_node_graph_mvp_contract() -> None:
         "nodeGraphLiveModuleEvaluators.moduleGroup = (",
         "nodeGraphLiveModuleEvaluators.groupOutput = (",
         "function normalizeNodeGraphModuleStoreDepartment(department = \"\")",
-        "return \"Sequence\";",
+        "nodeGraphModuleStoreDepartmentAliases[value] || value",
         "function setNodeGraphModuleStoreDepartment(department = \"\")",
         "nodeGraphMvp.moduleStoreDepartment = normalizeNodeGraphModuleStoreDepartment(department)",
         "moduleStoreDepartmentSearch",
@@ -9939,38 +10010,40 @@ def require_node_graph_mvp_contract() -> None:
         "data-context-group",
         "function setNodeGraphModuleCatalogVisibility(type, visible, shelf = \"shop\")",
         "const nodeGraphModuleStoreDepartments = Object.freeze([",
-        "\"Oscillator\"",
-        "\"Chaos\"",
-        "\"Jerobeam\"",
-        "\"Noise\"",
-        "\"Filter\"",
-        "\"Envelope\"",
-        "\"Modulators\"",
-        "\"Delay\"",
-        "\"Drum\"",
-        "\"Dynamics\"",
-        "\"Sequence\"",
-        "\"Audio\"",
-        "\"Visual\"",
-        "\"Controllers\"",
-        "\"Portals\"",
-        "\"Loops\"",
-        "\"Samples\"",
-        "\"Debug\"",
+        "\"🎶AudioPlayer\"",
+        "\"♾️Chaos\"",
+        "\"🕹️Controller\"",
+        "\"🐞Debug\"",
+        "\"🔬Digital\"",
+        "\"🥁Drum\"",
+        "\"⚡Dynamics\"",
+        "\"📐Envelope\"",
+        "\"💧Filter\"",
+        "\"♟️Game Trigger\"",
+        "\"☄️Grains\"",
+        "\"♻️Jerobeam\"",
+        "\"⚡Modulator\"",
+        "\"░Noise\"",
+        "\"⚪Oscillator\"",
+        "\"🖥️Display\"",
+        "\"🔌Plugin\"",
+        "\"🌌Portal\"",
+        "\"🔊Samples\"",
+        "\"⛪Space\"",
+        "\"🔬Time\"",
+        "\"📺Video\"",
         'samplePlayer: {\n    category: "Audio"',
         'audioPlayer: {\n    category: "Audio"',
         'sampleLooper: {\n    category: "Audio"',
         'pitch: "Audio-file shelf. Empty by default',
         'pitch: "Loop-file shelf. Empty by default',
         "nodeGraphModuleStoreVisualGroups",
-        "Generate",
         'spiral: {\n    category: "Jerobeam"',
         'label: "Jerobeam Spiral"',
-        "Process",
         'rotate3dTo2d: {\n    category: "Dynamics"',
+        'lutCell: {\n    category: "Digital"',
+        'metallicRatio: {\n    category: "Modulators"',
         'label: "Rotation 3D to 2D"',
-        "Interact",
-        "Memory",
         "Ellipsoid",
         "PolyBLEP",
         "GPU Additive",
@@ -10608,7 +10681,7 @@ def require_node_graph_mvp_contract() -> None:
         "node.querySelectorAll(\".dsp-node-io-section\")",
         "node.querySelectorAll(\".node-parameter-row\")",
         "node.querySelector(\".node-bypass-button\")?.addEventListener(\"click\", toggleNodeGraphModuleBypass)",
-        '".node-drag-handle, .node-execution-order-badge, .node-header-title-row, .node-led-face, .node-knob-widget-body, .dsp-node-io-section, .node-parameter-row"',
+        '".node-drag-handle, .node-execution-order-badge, .node-header-title-row, .node-led-face, .node-group-input-face, .node-group-output-face, .node-knob-widget-body, .dsp-node-io-section, .node-parameter-row"',
         "node.querySelector(\".node-action-button\")?.addEventListener(\"click\", openNodeModuleActionMenu)",
         "handle.setPointerCapture(event.pointerId)",
         "handle.classList.add(\"dragging\")",
@@ -13119,18 +13192,21 @@ def require_node_graph_mvp_contract() -> None:
         and "serial diffusion stages with cross-feedback delay" in module_store_source,
         "Sabrina Reverb should be an implemented raw Sabrina port",
     )
-    require('category: "Sequence"' in module_store_source, "Transport and timing modules should live in Sequence")
+    require('category: "Sequence"' in module_store_source, "Transport and timing modules should still be authored as Sequence before display-category normalization")
     require('category: "Sequencer"' not in module_store_source, "module browser catalog should not use Sequencer category")
-    require('"Sequencer",' not in module_store_source and '"Time",' not in module_store_source, "module browser department list should not show Sequencer or Time")
-    require('departments: Object.freeze(["Filter", "Modulators", "Dynamics"])' in module_store_source, "Process group should not include Time, Delay, or Envelope")
-    require('departments: Object.freeze(["Oscillator", "Chaos", "Jerobeam", "Noise", "Drum", "Envelope"])' in module_store_source, "Generate group should include Envelope but not Sequence")
-    require('departments: Object.freeze(["Audio", "Delay", "Loops", "Samples", "Sequence"])' in module_store_source, "Memory group should include Delay and Sequence")
+    require('"🔬Time",' in module_store_source and 'Sequence: "🔬Time"' in module_store_source, "Sequence should display as 🔬Time")
+    require('Delay: "⛪Space"' in module_store_source, "Delay should display as ⛪Space")
+    require('"Game Triggers": "♟️Game Trigger"' in module_store_source, "Game Triggers should display inside ♟️Game Trigger")
+    department_list_source = module_store_source[
+        module_store_source.index("const nodeGraphModuleStoreDepartments = Object.freeze(["):
+        module_store_source.index("const nodeGraphModuleStoreVisualGroups", module_store_source.index("const nodeGraphModuleStoreDepartments = Object.freeze(["))
+    ]
+    require('"CLAP",' not in department_list_source and 'CLAP: "🔌Plugin"' in module_store_source, "CLAP should not be a top-level category and should display inside 🔌Plugin")
     require('slewLimiter: {\n    category: "Filter",' in module_store_source, "Slew Limiter should live in Filter category")
     require("width: 180" in module_store_source, "Module Browser fresh default width should be 180px")
     require("const workingCount = entries.filter((entry) => entry.visible && entry.implemented).length" in module_store_source, "module browser counts should include only working modules")
-    require('if (value === "Sequencer")' in module_store_source and 'return "Sequence";' in module_store_source, "old Sequencer state should normalize to Sequence")
-    require('"Oscilloscope",' in module_store_source, "Module Browser should expose an Oscilloscope category")
-    require('departments: Object.freeze(["Controllers", "Game Triggers", "Portals", "Oscilloscope", "Visual", "Debug"])' in module_store_source, "Oscilloscope and Game Triggers categories should live under Interact")
+    require("nodeGraphModuleStoreDepartmentAliases[value] || value" in module_store_source, "old module browser state should normalize through the department alias map")
+    require('"🖥️Display",' in module_store_source, "Module Browser should expose a 🖥️Display category")
     require('"Game Triggers",' in module_store_source and "wireBreak: {" in module_store_source and "wireConnect: {" in module_store_source and "wireDisconnect: {" in module_store_source and "windowReopen: {" in module_store_source and '"shootingStarTail"' in module_store_source and "shootingStarExplosion: {" in module_store_source, "Game Triggers should expose wire, window, and shooting star trigger modules")
     wire_connect_definition = module_definitions_source[
         module_definitions_source.index("wireConnect: {"):
@@ -13158,8 +13234,12 @@ def require_node_graph_mvp_contract() -> None:
         'outputs: ["Pulse", "Gate", "Sine"]' in window_reopen_definition,
         "Window Reopen should expose Pulse, Gate, and Sine outputs",
     )
-    require('canvas: {\n    category: "Oscilloscope"' in module_store_source, "Canvas should live in Oscilloscope")
-    require('traceDisplay: {\n    category: "Oscilloscope"' in module_store_source, "Trace Display should live in Oscilloscope")
+    require('"🔬Digital",' in module_store_source, "Module Browser should expose a 🔬Digital category")
+    require('codeblock: {\n    category: "Digital"' in module_store_source, "Codeblock should live in Digital")
+    require('scriptBox: {\n    category: "Digital"' in module_store_source, "Script Box should live in Digital")
+    require('canvas: {\n    category: "Digital"' in module_store_source, "Canvas should live in Digital")
+    require('bitConverter: {\n    category: "Digital"' in module_store_source and 'label: "AD/DA Converter"' in module_store_source, "AD/DA Converter should live in Digital")
+    require('traceDisplay: {\n    category: "Oscilloscope"' in module_store_source, "Trace Display should author as Oscilloscope before display-category normalization")
     require("dotOscilloscope: {" in module_store_source and 'label: "0D Burn"' in module_store_source, "0D Burn oscilloscope should exist")
     require("valueOscilloscope: {" in module_store_source and 'label: "0D Value"' in module_store_source, "0D Value oscilloscope should exist")
     require("lineBurnOscilloscope: {" in module_store_source and 'label: "1D Burn"' in module_store_source, "1D Burn oscilloscope should exist")
@@ -13167,7 +13247,7 @@ def require_node_graph_mvp_contract() -> None:
     require("scope2dTrace: {" in module_store_source and 'label: "2D Trace"' in module_store_source, "2D Trace oscilloscope should exist")
     require("dotOscilloscope: {" in module_store_source and "oscilloscopeBank: {" in module_store_source and "valueOscilloscope: {" in module_store_source and "numberReadout: {" in module_store_source and "lineBurnOscilloscope: {" in module_store_source and "scope2d: {" in module_store_source and "scope2dTrace: {" in module_store_source, "Oscilloscope modules should be listed together")
     require("oscilloscopeBank: {" in module_store_source and 'label: "Oscilloscope Bank"' in module_store_source, "Oscilloscope Bank should exist")
-    require('nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([\n  "canvas",\n  "graph",\n  "graph2",\n  "groupInput",\n  "groupOutput",\n  "humanFilter",\n  "shootingStarTail",\n]));' in module_store_source, "Canvas, graph modules, group portals, Human Filter, and shooting star tail should be under construction in the store set")
+    require('nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([\n  "canvas",\n  "graph",\n  "graph2",\n  "humanFilter",\n  "shootingStarTail",\n]));' in module_store_source, "Canvas, graph modules, Human Filter, and shooting star tail should be under construction in the store set")
     for oscilloscope_type in ["dotOscilloscope", "valueOscilloscope", "numberReadout", "lineBurnOscilloscope", "scope2d", "scope2dTrace"]:
         require(f"{oscilloscope_type}: {{" in module_definitions_source, f"{oscilloscope_type} should have a spawnable module definition")
     require('displayType: "dot"' in module_definitions_source, "0D Burn oscilloscope should declare dot display type")
@@ -15276,7 +15356,7 @@ def require_node_graph_mvp_contract() -> None:
         "module settings should show Alias before Add to group and configure GU adjustment rows through the shared size-row helper",
     )
     require(
-        'target.closest("#nodeGraphWorkspace, #nodeSceneContextMenu, #nodeModuleActionsWindow, #nodeScopeContextMenu, #nodeGlobalScopeMenu, #nodeParameterMetadataPopover")'
+        'target.closest("#nodeGraphWorkspace, #nodeSceneContextMenu, #nodeModuleActionsWindow, #nodeCodeBoxWindow, #nodeScopeContextMenu, #nodeGlobalScopeMenu, #nodeParameterMetadataPopover")'
         in script_sources["./public/node-graph-selection.js"],
         "clicking inside Module Settings should not clear the current module selection",
     )
@@ -16225,14 +16305,14 @@ def require_node_graph_mvp_contract() -> None:
         ".dsp-node-body",
         "align-content: start;",
         "grid-auto-rows: var(--node-body-row-height)",
-        ".node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.knob-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout)",
+        ".node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.knob-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.clap-plugin-layout)",
         "grid-template-rows:\n    var(--node-header-height)\n    var(--node-module-scope-height)\n    minmax(var(--node-io-section-min-height), auto)\n    auto\n    auto;",
         ".dsp-node.sample-module-layout.oscilloscope-hidden",
         "--node-module-scope-height: 0px",
         ".dsp-node.sample-module-layout,\n.dsp-node.sample-module-layout.oscilloscope-hidden",
         "grid-template-rows:\n    var(--node-header-height)\n    var(--node-module-scope-height)\n    var(--node-module-interface-controls-height)\n    minmax(var(--node-io-section-min-height), auto)\n    auto;",
         "align-content: start;",
-        ".node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.knob-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout)::after",
+        ".node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.knob-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.clap-plugin-layout)::after",
         "grid-auto-rows: var(--node-body-row-height)",
         "gap: var(--node-body-row-gap)",
         ".dsp-node-io-section",
@@ -16852,19 +16932,22 @@ def require_node_graph_mvp_contract() -> None:
         style_source.index(".scene-context-store-department-title {"):
         style_source.index(".scene-context-store-department-count")
     ]
-    module_group_title_style = style_source[
-        style_source.index(".scene-context-store-visual-group {"):
-        style_source.index(".scene-context-store-visual-group:first-child")
-    ]
     require(
-        "color: rgba(226, 168, 109, 0.9)" in module_group_title_style
-        and "color: rgba(127, 199, 217, 0.9)" in module_department_title_style
+        "color: rgba(127, 199, 217, 0.9)" in module_department_title_style
         and "font-size: 0.78rem" in module_department_title_style
         and "font-weight: 650" in module_department_title_style
-        and "color: rgba(127, 199, 217, 0.9)" in module_category_row_title_style
+        and "color: rgba(243, 241, 236, 0.9)" in module_category_row_title_style
         and "font-size: 0.78rem" in module_category_row_title_style
         and "font-weight: 650" in module_category_row_title_style,
-        "module browser group headers should be orange while clickable category rows stay blue",
+        "module browser selected-title should stay blue while clickable category rows use off-white text",
+    )
+    require(
+        "function updateNodeGraphModuleStoreScrollAffordance()" in module_store_source
+        and "available.classList.toggle(\"can-scroll-up\"" in module_store_source
+        and "available.classList.toggle(\"can-scroll-down\"" in module_store_source
+        and ".node-module-shop-section:hover.can-scroll-up::before" in style_source
+        and ".node-module-shop-section:hover.can-scroll-down::after" in style_source,
+        "module browser should show hover-only scroll arrows when more content exists",
     )
 
     for snippet in [

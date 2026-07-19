@@ -232,3 +232,68 @@ function evaluateNodeGraphScriptBoxNode(node) {
     writeNodeGraphDataOutput(node.id, port, outputs[port]);
   }
 }
+
+const nodeGraphCustomDisplayDefaultCode = `function draw({ ctx, width, height, inputs, time }) {
+  const value = inputs.In1?.latest ?? 0;
+  const radius = 8 + Math.abs(value) * Math.min(width, height) * 0.18;
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = "rgba(0, 0, 0, 0.16)";
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = "rgba(126, 230, 255, 0.95)";
+  ctx.beginPath();
+  ctx.arc(width * 0.5, height * 0.5, radius, 0, Math.PI * 2);
+  ctx.fill();
+}`;
+
+function normalizeNodeGraphCustomDisplay(value = {}) {
+  const source = value && typeof value === "object" ? value : {};
+  return {
+    code: String(source.code ?? nodeGraphCustomDisplayDefaultCode),
+    inputs: normalizeNodeGraphCodeblockPortList(source.inputs, "In"),
+    outputs: [],
+  };
+}
+
+function nodeGraphCustomDisplayBuildFunctionBody(displayScript) {
+  return `"use strict";\n${displayScript.code}\nif (typeof draw !== "function") {\n  throw new Error("define function draw(api)");\n}\nreturn draw(__api);`;
+}
+
+function nodeGraphCustomDisplayCompileStatus(displayScript) {
+  try {
+    const normalized = normalizeNodeGraphCustomDisplay(displayScript);
+    new Function(
+      "__api",
+      ...nodeGraphPortScriptHelperNames,
+      nodeGraphCustomDisplayBuildFunctionBody(normalized),
+    );
+    return { ok: true, message: "code ok" };
+  } catch (error) {
+    return { ok: false, message: error?.message || "compile error" };
+  }
+}
+
+const nodeGraphCustomDisplayFunctions = new Map();
+
+function compiledNodeGraphCustomDisplayFunction(node) {
+  const displayScript = normalizeNodeGraphCustomDisplay(node?.customDisplay);
+  const key = `${displayScript.inputs.join(",")}::${displayScript.code}`;
+  let compiled = nodeGraphCustomDisplayFunctions.get(node?.id);
+  if (!compiled || compiled.key !== key) {
+    let fn = null;
+    let error = "";
+    try {
+      fn = new Function(
+        "__api",
+        ...nodeGraphPortScriptHelperNames,
+        nodeGraphCustomDisplayBuildFunctionBody(displayScript),
+      );
+    } catch (caught) {
+      error = caught?.message || "compile error";
+    }
+    compiled = { error, fn, key };
+    if (node?.id) {
+      nodeGraphCustomDisplayFunctions.set(node.id, compiled);
+    }
+  }
+  return compiled;
+}

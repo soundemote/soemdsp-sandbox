@@ -84,7 +84,7 @@ function resizeNodeGraphDisplayModuleHeightOnGrid(patchNode, delta) {
   if (!nodeGraphModuleSizingCapabilities(patchNode?.type).displayHeight) {
     return false;
   }
-  const ui = normalizeNodeGraphPatchNodeUi(patchNode.ui);
+  const ui = normalizeNodeGraphPatchNodeUi(patchNode.ui, patchNode.type);
   const nextOffsetGu = normalizeNodeGraphModuleDisplayHeightOffsetUnits(
     patchNode.type,
     ui.displayHeightOffsetGu + delta * nodeGraphModuleDisplayHeightLimits.stepGu,

@@ -838,6 +838,7 @@ function preventNodeGraphMiddleMouseAuxClick(event) {
 const nodeGraphFloatingWindowSelector = [
   "#nodeSceneContextMenu",
   "#nodeModuleActionsWindow",
+  "#nodeCodeBoxWindow",
   "#nodeModuleShopView",
   "#nodeSavedPatchesWindow",
   "#nodeVisibilityMenu",
