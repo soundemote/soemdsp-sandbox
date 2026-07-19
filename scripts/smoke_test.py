@@ -298,6 +298,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/tb303Filter/tb303-filter-live-evaluator.js",
     "./public/modules/delayEffect/delay-effect-live-evaluator.js",
     "./public/modules/pingPongDelay/ping-pong-delay-live-evaluator.js",
+    "./public/modules/wallDelay/wall-delay-live-evaluator.js",
+    "./public/modules/wallDelay/wall-delay-room-display.js",
     "./public/modules/reverbEffect/reverb-effect-live-evaluator.js",
     "./public/modules/pll/pll-live-evaluator.js",
     "./public/modules/helmholtzPitch/helmholtz-pitch-live-evaluator.js",
@@ -426,6 +428,7 @@ WORKLET_BLOB_SOURCE_FILES = (
     "modules/tb303Filter/tb303-filter-worklet-evaluator.js",
     "modules/delayEffect/delay-effect-worklet-evaluator.js",
     "modules/pingPongDelay/ping-pong-delay-worklet-evaluator.js",
+    "modules/wallDelay/wall-delay-worklet-evaluator.js",
     "modules/reverbEffect/reverb-effect-worklet-evaluator.js",
     "modules/pll/pll-worklet-evaluator.js",
     "modules/helmholtzPitch/helmholtz-pitch-worklet-evaluator.js",
@@ -10098,7 +10101,7 @@ def require_node_graph_mvp_contract() -> None:
         "function nodeGraphModuleOutputPorts(type)",
         "function nodeGraphParameterOutputPort(typeOrNode, port)",
         "function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch)",
-        "const passthroughTypes = new Set([\"badvalMonitor\", \"bias\", \"chaoticPhaseLockingFilter\", \"cookbookFilter\", \"flowerChildFilter\", \"gain\", \"humanFilter\", \"ladderFilter\", \"papoulisFilter\", \"passiveFilter\", \"pll\", \"resonatorFilter\", \"reverbEffect\", \"rsmetFilter\", \"sampleHold\", \"slewLimiter\", \"softClipper\", \"speakerProtection\", \"superloveFilter\", \"tb303Filter\", \"yellowjacketFilter\"])",
+        "const passthroughTypes = new Set([\"badvalMonitor\", \"bias\", \"chaoticPhaseLockingFilter\", \"cookbookFilter\", \"flowerChildFilter\", \"gain\", \"humanFilter\", \"ladderFilter\", \"papoulisFilter\", \"passiveFilter\", \"pll\", \"resonatorFilter\", \"reverbEffect\", \"rsmetFilter\", \"sampleHold\", \"slewLimiter\", \"softClipper\", \"speakerProtection\", \"superloveFilter\", \"tb303Filter\", \"wallDelay\", \"yellowjacketFilter\"])",
         "nodeGraphModuleDefinitions[node?.type]?.visualSink",
         "function nodeGraphVisualSinkActiveInPlan(node, options = {})",
         "return true;",
@@ -17722,6 +17725,7 @@ def require_native_module_contract(base_url: str) -> None:
     )
 
     expected_native_exports = {
+        "wall_delay": ["soemdsp_wall_delay_version"],
         "transport": ["soemdsp_transport_create", "soemdsp_transport_destroy", "soemdsp_transport_sample", "soemdsp_transport_unipolar"],
         "slew_limiter": ["soemdsp_slew_limiter_create", "soemdsp_slew_limiter_destroy", "soemdsp_slew_limiter_sample"],
         "sample_hold": ["soemdsp_sample_hold_create", "soemdsp_sample_hold_destroy", "soemdsp_sample_hold_sample"],

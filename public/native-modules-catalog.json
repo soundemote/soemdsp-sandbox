@@ -914,6 +914,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "wall_delay",
+      "label": "Wall Delay",
+      "targetType": "wallDelay",
+      "kind": "effect",
+      "source": "native_modules/wall_delay/wall_delay.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/wall_delay/wall_delay.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/wall_delay/wall_delay.wasm",
+      "wasmUrl": "native_modules/wall_delay/wall_delay.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "yellowjacket_filter",
       "label": "Yellowjacket Filter",
       "targetType": "yellowjacketFilter",

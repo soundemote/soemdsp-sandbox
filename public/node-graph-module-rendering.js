@@ -487,6 +487,7 @@ function nodeGraphModuleLayoutClassNames(type, definition, layout) {
     textBox: "text-box-layout",
     traceDisplay: "trace-display-layout",
     visualScope: "visual-scope-layout",
+    wallRoomDisplay: "wall-room-display-layout",
     ...nodeGraphChromelessModuleLayoutClassEntries(),
   };
   if (definition.layout === "canvas") {
@@ -711,6 +712,18 @@ function createNodeGraphModuleElement(type, node) {
   } else if (definition.layout === "filterCurve") {
     if (!patchNodeUi.oscilloscopeHidden) {
       article.append(createNodeGraphFilterCurveDisplay(node, type));
+    }
+
+    const ioSection = document.createElement("div");
+    ioSection.className = "dsp-node-io-section";
+    const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input");
+    const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output");
+    ioSection.append(inputColumn || document.createElement("div"));
+    ioSection.append(outputColumn || document.createElement("div"));
+    appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, outputPorts);
+  } else if (definition.layout === "wallRoomDisplay") {
+    if (!patchNodeUi.oscilloscopeHidden && typeof createNodeGraphWallRoomDisplay === "function") {
+      article.append(createNodeGraphWallRoomDisplay(node, type));
     }
 
     const ioSection = document.createElement("div");

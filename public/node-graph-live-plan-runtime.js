@@ -250,6 +250,7 @@ function createNodeGraphLiveRuntime(plan) {
   const delayedTriggerStates = new Map();
   const delayEffectStates = new Map();
   const pingPongDelayStates = new Map();
+  const wallDelayStates = new Map();
   const expAdsrStates = new Map();
   const fractalBrownianNoiseStates = new Map();
   const flowerChildEnvelopeFollowerStates = new Map();
@@ -463,6 +464,9 @@ function createNodeGraphLiveRuntime(plan) {
     if (node.type === "pingPongDelay") {
       pingPongDelayStates.set(node.id, createNodeGraphPingPongDelayState());
     }
+    if (node.type === "wallDelay") {
+      wallDelayStates.set(node.id, createNodeGraphWallDelayState());
+    }
     if (node.type === "reverbEffect") {
       reverbEffectStates.set(node.id, createNodeGraphSabrinaReverbState());
     }
@@ -562,6 +566,7 @@ function createNodeGraphLiveRuntime(plan) {
     delayedTriggerStates,
     delayEffectStates,
     pingPongDelayStates,
+    wallDelayStates,
     expAdsrStates,
     fractalBrownianNoiseStates,
     flowerChildEnvelopeFollowerStates,
@@ -860,6 +865,9 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   if (!runtime.pingPongDelayStates) {
     runtime.pingPongDelayStates = new Map();
   }
+  if (!runtime.wallDelayStates) {
+    runtime.wallDelayStates = new Map();
+  }
   if (!runtime.reverbEffectStates) {
     runtime.reverbEffectStates = new Map();
   }
@@ -1083,6 +1091,9 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     }
     if (node.type === "pingPongDelay" && !runtime.pingPongDelayStates.has(node.id)) {
       runtime.pingPongDelayStates.set(node.id, createNodeGraphPingPongDelayState());
+    }
+    if (node.type === "wallDelay" && !runtime.wallDelayStates.has(node.id)) {
+      runtime.wallDelayStates.set(node.id, createNodeGraphWallDelayState());
     }
     if (node.type === "reverbEffect" && !runtime.reverbEffectStates.has(node.id)) {
       runtime.reverbEffectStates.set(node.id, createNodeGraphSabrinaReverbState());
@@ -1464,6 +1475,11 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   for (const id of [...runtime.pingPongDelayStates.keys()]) {
     if (!nodeIds.has(id)) {
       runtime.pingPongDelayStates.delete(id);
+    }
+  }
+  for (const id of [...runtime.wallDelayStates.keys()]) {
+    if (!nodeIds.has(id)) {
+      runtime.wallDelayStates.delete(id);
     }
   }
   for (const id of [...runtime.reverbEffectStates.keys()]) {

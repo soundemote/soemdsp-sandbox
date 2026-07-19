@@ -40,34 +40,123 @@ Use the existing modules as the template: `osc`, `noise`, `gain`, and `bias`.
    <button type="button" role="menuitem" data-context-module="noise">Noise</button>
    ```
 
-4. Add offline Render Sample behavior if the module produces or transforms
-   audio.
+4. Add offline Render Sample / preview behavior if the module produces or
+   transforms audio.
 
-   File: `public/node-graph-live-frame-evaluator.js`.
+   File: `public/modules/<Type>/<kebab-name>-live-evaluator.js` (its own
+   per-module file, e.g. `public/modules/wallDelay/wall-delay-live-evaluator.js`
+   -- not a shared/central file; every module gets its own pair of files
+   under `public/modules/`).
 
-   Main anchor: `evaluateNodeGraphPlanFrame(...)`.
+   Register a handler by assigning `nodeGraphLiveModuleEvaluators.<type> = (...) => {...}`
+   (that object is declared centrally in `node-graph-live-frame-evaluator.js`;
+   your per-module file just adds an entry to it). Add a `<script>` tag for
+   the new file in `public/index.html`, anywhere after
+   `node-graph-live-frame-evaluator.js`'s own tag.
 
-   Add a branch for the new `node.type`. Use existing helpers such as effective
-   parameter reads and input mixing where possible.
+5. Add matching Live Audio (realtime AudioWorklet) behavior if the module
+   should sound the same while Live Audio is running.
 
-5. Add matching Live Audio behavior if the module should sound the same while
-   Live Audio is running.
+   File: `public/modules/<Type>/<kebab-name>-worklet-evaluator.js`.
 
-   File: `public/node-live-audio-worklet.js`.
+   The AudioWorklet runs in a separate JS realm (`AudioWorkletGlobalScope`)
+   that shares no globals with the main thread/window -- anything the
+   worklet needs (math helpers, geometry, etc.) must be ported into this
+   file as `NodeLiveAudioProcessor.prototype.<name> = function ...`, not
+   just referenced from your live-evaluator file. Then:
+   - Add your file's path to `nodeGraphLiveWorkletSourceFiles` in
+     `public/node-graph-live-runtime.js` -- the realtime worklet module is
+     assembled at runtime by fetching and concatenating this whole list into
+     one Blob (core file + every per-module chunk + a final register file),
+     so a module missing from this list simply never loads worklet-side.
+   - Add a dispatch entry for your `node.type` inside `buildLiveModuleEvaluators()`
+     in `public/node-live-audio-worklet-core.js` (a large hand-written
+     type->handler object literal in that file; this is centralized, unlike
+     the per-module-file pattern above -- your per-module worklet file only
+     supplies the *methods* the dispatch entry calls into).
+   - Register the module's state Map in **six** places in
+     `public/node-graph-live-plan-runtime.js` (offline path) and in
+     **node-live-audio-worklet-core.js** (realtime path: constructor init,
+     the reset-on-reload block, node-add handler, cleanup-on-remove loop,
+     plus the dispatch entry above) -- grep an existing similar module (e.g.
+     `wallDelayStates`) for the full list of anchor points rather than
+     guessing; it's easy to miss one and get silent per-node state leaks or
+     stale state on patch changes.
 
-   Main anchor: `NodeLiveAudioProcessor.evaluateFrame(...)`.
+   Render Sample and Live Audio are sibling browser execution lanes with
+   fully separate code (not two branches of shared code) that must be kept
+   audibly consistent by hand. See `public/modules/wallDelay/` for a
+   complete, recently-built worked example of every one of these files.
 
-   Render Sample and Live Audio are sibling browser execution lanes. A module
-   with sound behavior must be implemented in both lanes to preserve audible
-   parity.
+6. **Register the module type for realtime playback validation**, or new
+   modules with an input port will build fine offline and then silently
+   refuse to play live audio at all.
 
-6. Update the smoke test when the new module becomes part of the durable
+   File: `public/node-graph-execution-plan.js`, function
+   `compileNodeGraphExecutionPlan`.
+
+   As of this note, the fallback here checks a module's own declared
+   `inputs` ports generically, so a plain single-`In`-port effect module
+   works with **no extra registration step**. You only need to add your
+   type to the `passthroughTypes` Set in that function if you want a
+   friendlier `"missing X input"` message instead of the generic one, or if
+   your module needs the special multi-port handling `reverbEffect` gets
+   (`["In", "Left", "Right"]`).
+   Before this generic fallback existed, forgetting this step didn't error
+   in an obvious way: the *offline/preview* evaluator (Render Sample, and
+   everything in this whole guide's step 4) never runs this check, so a
+   module could look completely finished and pass every offline test, then
+   throw `"unsupported source <nodeId>"` and refuse to start *any* live
+   audio at all -- for the whole patch, not just the new module -- the
+   moment someone actually pressed play. Two shipped modules (Ping Pong
+   Delay, then Wall Delay) hit exactly this before it was noticed and fixed.
+   **Always test the actual Live Audio path, not just Render Sample**, for
+   any new module with a signal input -- see the OfflineAudioContext note
+   below for how to do that without needing a real user gesture.
+
+7. Update the smoke test when the new module becomes part of the durable
    sandbox contract.
 
    File: `scripts/smoke_test.py`.
 
    Add checks for the source anchors, menu marker, metadata shape, execution
    branch, and worklet branch that should not regress.
+
+## Testing Live Audio (not just Render Sample) from a script
+
+`startNodeGraphLiveAudio()` / `setNodeGraphLiveOutputEnabled(true)` are gated
+by the browser's autoplay policy and effectively require a real user
+gesture -- calling them from an automated script (devtools, a test harness,
+an agent) typically silently no-ops (`nodeGraphMvp.live.usesWorklet` stays
+`false`, no node ever gets created, no error is thrown).
+
+To actually exercise the realtime AudioWorklet DSP from a script, drive it
+directly with an `OfflineAudioContext` instead (offline rendering has no
+autoplay gate):
+
+```js
+const offlineCtx = new OfflineAudioContext(2, sampleRate * durationSeconds, sampleRate);
+const workletNode = await createNodeGraphLiveWorkletNode(offlineCtx);
+workletNode.connect(offlineCtx.destination);
+const plan = nodeGraphBuildLivePlan(); // throws if compileNodeGraphExecutionPlan finds issues
+const audio = nodeGraphAudioDerivation(nodeGraphMvp.patch);
+workletNode.port.postMessage({
+  engineSampleRate: audio.clampedEngineSampleRate, oversamplingRatio: audio.oversamplingRatio,
+  plan, patchFingerprint: plan.patchFingerprint, pitchReferenceHz: 440, pitchReferenceMidiNote: 69,
+  planSerial: 1, sampleRate, sessionId: 1, type: "setPlan",
+});
+// IMPORTANT: the worklet runs on a separate thread; `postMessage` above is
+// async and this script's very next line can otherwise race ahead of the
+// worklet actually receiving and applying the plan. Without a yield here,
+// startRendering() below renders the first (and often *only*, for a short
+// render) block(s) against an unconfigured processor and comes back
+// silent -- not because the DSP is broken, but because the harness asked
+// for audio before the engine was told what to play. Confirmed directly:
+// even a bare oscillator-to-output patch rendered silence without this.
+await new Promise((resolve) => setTimeout(resolve, 200));
+const rendered = await offlineCtx.startRendering();
+// rendered.getChannelData(0) / (1) now hold real Left/Right samples.
+```
 
 ## Parameter Metadata
 
@@ -137,10 +226,20 @@ Before considering a hardcoded module complete:
 - The module label exists in `nodeGraphNodeLabels`.
 - The Add Module menu includes a `data-context-module` button if user creation
   is intended.
-- Render Sample behavior exists in `evaluateNodeGraphPlanFrame(...)` if the
-  module affects audio.
-- Live Audio behavior exists in `NodeLiveAudioProcessor.evaluateFrame(...)` if
-  the module affects audio.
+- Render Sample / offline behavior exists in its own
+  `public/modules/<Type>/<kebab-name>-live-evaluator.js`, registered onto
+  `nodeGraphLiveModuleEvaluators`, if the module affects audio.
+- Live Audio behavior exists in its own
+  `public/modules/<Type>/<kebab-name>-worklet-evaluator.js`
+  (`NodeLiveAudioProcessor.prototype.*` methods), wired into
+  `nodeGraphLiveWorkletSourceFiles` (`node-graph-live-runtime.js`) and the
+  dispatch table in `buildLiveModuleEvaluators()`
+  (`node-live-audio-worklet-core.js`), if the module affects audio.
+- **The module actually plays through real Live Audio, verified with an
+  `OfflineAudioContext`** (see above), not just Render Sample -- a module
+  can look completely done and still throw `"unsupported source"` the
+  moment someone plays it live, and Render Sample testing alone will never
+  catch that.
 - Smoke tests cover the source markers and behavior contract that must survive
   future edits.
 - The documentation still states that this is not a plugin API, manifest module
