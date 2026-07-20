@@ -2586,19 +2586,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: none;
 }
 
-/* Same "Hide Debug" toggle also collapses the render/output/CLAP cluster
-   below the Share Patch / Input / Output row in the patch settings panel
-   -- Render Sample, the preview audio player, the CLAP host connection
-   strip, and the live-audio status pills are all diagnostic/output
-   plumbing, not something you need staring at while patching. */
-body.keyboard-debug-hidden .node-render-duration-control,
-body.keyboard-debug-hidden .node-patch-audio-player-row,
-body.keyboard-debug-hidden #nodeOutputSummary,
-body.keyboard-debug-hidden .node-clap-host-strip,
-body.keyboard-debug-hidden .node-live-controls {
-  display: none;
-}
-
 .node-patch-header-fields {
   display: grid;
   grid-template-rows: repeat(3, minmax(0, 1fr));
