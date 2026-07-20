@@ -5178,7 +5178,7 @@ def require_node_graph_mvp_contract() -> None:
         (
             "store",
             codeblock_contract_sources["store"],
-            ["codeblock: {", "scriptBox: {", "customDisplay: {", 'category: "Digital"', 'category: "Oscilloscope"', "Patch-local JavaScript signal processor", "Patch-local JavaScript display surface"],
+            ["codeblock: {", "customDisplay: {", 'category: "Digital"', 'category: "Oscilloscope"', "Patch-local JavaScript signal processor", "Patch-local JavaScript display surface"],
         ),
         (
             "dynamic ports",
@@ -5531,9 +5531,7 @@ def require_node_graph_mvp_contract() -> None:
                 "Library Demo Script",
                 "nodeCodeScreenNewCodeblock",
                 "New Debug Codeblock",
-                "New Script Box",
                 "Write your first Code Box",
-                "nodeCodeScreenCreateScriptBoxFromList",
                 "nodeGraphCodeScreenCodeBoxKinds",
                 "openNodeGraphCodeBoxWindowFromHeader",
                 "openNodeGraphCodeBoxWindowForNode",
@@ -5589,7 +5587,7 @@ def require_node_graph_mvp_contract() -> None:
                 "nodeCodeScreenCodeblockDraftState",
                 "nodeCodeScreenCodeblockDebugValues",
                 "Debug Values",
-                "Selected Codeblock",
+                "Selected ${nodeGraphCodeScreenEscapeHtml(selectedKindLabel)}",
                 "draft has unapplied changes",
                 "saved draft matches module",
                 "unapplied ${changes.join(\" + \")}",
@@ -6358,7 +6356,6 @@ def require_node_graph_mvp_contract() -> None:
             [
                 "bindNodeGraphCodeScreenEvents()",
                 "nodeSceneCodeblockOpenCodeScreen",
-                "nodeSceneScriptBoxOpenCodeScreen",
                 "openNodeGraphCodeBoxWindowForNode",
                 "openNodeGraphCodeBoxWindowFromHeader",
                 "scheduleNodeGraphCodeBoxWindowPortsApply",
@@ -7988,7 +7985,7 @@ def require_node_graph_mvp_contract() -> None:
         "nodeGraphApplyTooltip(marker, \"workspace.origin\")",
         "World origin: X 0, Y 0",
         'nodeGraphRetiredNodeTypes.has(node?.type)',
-        'const nodeGraphRetiredNodeTypes = new Set(["formulaVisual", "moduleHome", "moduleShop"])',
+        'const nodeGraphRetiredNodeTypes = new Set(["formulaVisual", "moduleHome", "moduleShop", "scriptBox"])',
         "timing: {",
         "tempoBpm: 120",
         "timeSignatureDenominator: 4",
@@ -13240,7 +13237,6 @@ def require_node_graph_mvp_contract() -> None:
     )
     require('"🔬Digital",' in module_store_source, "Module Browser should expose a 🔬Digital category")
     require('codeblock: {\n    category: "Digital"' in module_store_source, "Codeblock should live in Digital")
-    require('scriptBox: {\n    category: "Digital"' in module_store_source, "Script Box should live in Digital")
     require('canvas: {\n    category: "Digital"' in module_store_source, "Canvas should live in Digital")
     require('bitConverter: {\n    category: "Digital"' in module_store_source and 'label: "BitConverter"' in module_store_source, "BitConverter should live in Digital")
     require('traceDisplay: {\n    category: "Oscilloscope"' in module_store_source, "Trace Display should author as Oscilloscope before display-category normalization")
@@ -15860,7 +15856,7 @@ def require_node_graph_mvp_contract() -> None:
         "control surface visibility should exist globally and per module with height-aware hiding",
     )
     require(
-        'nodeGraphRetiredNodeTypes = new Set(["formulaVisual", "moduleHome", "moduleShop"])' in script_sources["./public/node-graph-patch-core.js"]
+        'nodeGraphRetiredNodeTypes = new Set(["formulaVisual", "moduleHome", "moduleShop", "scriptBox"])' in script_sources["./public/node-graph-patch-core.js"]
         and "formulaVisual" not in script_sources["./public/node-graph-module-definitions.js"]
         and "formulaVisual" not in script_sources["./public/node-graph-module-store.js"]
         and "formulaVisual" not in script_sources["./public/node-graph-module-factories.js"]

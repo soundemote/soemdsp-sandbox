@@ -67,9 +67,6 @@ function createNodeGraphPatchNode(type, options = {}) {
   if (type === "codeblock") {
     node.codeblock = normalizeNodeGraphCodeblock(opts.codeblock);
   }
-  if (type === "scriptBox") {
-    node.scriptBox = normalizeNodeGraphScriptBox(opts.scriptBox);
-  }
   if (type === "customDisplay") {
     node.customDisplay = normalizeNodeGraphCustomDisplay(opts.customDisplay);
   }

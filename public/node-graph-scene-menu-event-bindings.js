@@ -168,10 +168,6 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeSceneCodeblockOpenCodeScreen", "click", () => openNodeGraphCodeBoxWindowForNode());
   bindNodeGraphSceneElementEvent("nodeSceneCodeblockSource", "input", () => setNodeGraphCodeblockSourceFromContext({ record: false }));
   bindNodeGraphSceneElementEvent("nodeSceneCodeblockSource", "change", () => setNodeGraphCodeblockSourceFromContext({ record: true }));
-  bindNodeGraphSceneElementEvent("nodeSceneScriptBoxOpenCodeScreen", "click", () => openNodeGraphCodeBoxWindowForNode());
-  bindNodeGraphSceneElementEvent("nodeSceneScriptBoxApplyPorts", "click", applyNodeGraphScriptBoxPortsFromContext);
-  bindNodeGraphSceneElementEvent("nodeSceneScriptBoxSource", "input", () => setNodeGraphScriptBoxSourceFromContext({ record: false }));
-  bindNodeGraphSceneElementEvent("nodeSceneScriptBoxSource", "change", () => setNodeGraphScriptBoxSourceFromContext({ record: true }));
   bindNodeGraphSceneElementEvent("nodeSceneTextBoxTitleScript", "input", () => setNodeGraphTextBoxPortScriptFromContext("Title", { record: false }));
   bindNodeGraphSceneElementEvent("nodeSceneTextBoxTitleScript", "change", () => setNodeGraphTextBoxPortScriptFromContext("Title", { record: true }));
   bindNodeGraphSceneElementEvent("nodeSceneTextBoxTextScript", "input", () => setNodeGraphTextBoxPortScriptFromContext("Text", { record: false }));

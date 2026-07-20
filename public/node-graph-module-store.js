@@ -541,11 +541,6 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Patch-local JavaScript signal processor with editable input and output ports.",
     notes: ["dynamic ports", "JavaScript body", "local patch code"],
   },
-  scriptBox: {
-    category: "Digital",
-    description: "Data-plane JavaScript transform with editable input and output ports -- runs on whole values (arrays, strings, numbers), not per-sample audio.",
-    notes: ["dynamic ports", "data-plane script", "port script node"],
-  },
   customDisplay: {
     category: "Oscilloscope",
     description: "Patch-local JavaScript display surface. Define inputs and draw custom visuals inside the module face.",
@@ -995,7 +990,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   animatedTextBox: {
     category: "LED",
-    description: "Text Box with data-plane Title/Text inputs and a Text Out -- wire it to Script Box or another Animated Text Box instead of typing it by hand.",
+    description: "Text Box with data-plane Title/Text inputs and a Text Out -- wire it to another Animated Text Box instead of typing it by hand.",
     notes: ["data-plane ports", "port scripts", "wired label"],
   },
   // Chromeless / fully-custom-UI modules (stepGrid, led, ...) register

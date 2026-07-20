@@ -298,9 +298,6 @@ function cloneNodeGraphPatch(patch) {
         ...(node.type === "codeblock"
           ? { codeblock: normalizeNodeGraphCodeblock(node.codeblock) }
           : {}),
-        ...(node.type === "scriptBox"
-          ? { scriptBox: normalizeNodeGraphScriptBox(node.scriptBox) }
-          : {}),
         ...(node.type === "customDisplay"
           ? { customDisplay: normalizeNodeGraphCustomDisplay(node.customDisplay) }
           : {}),

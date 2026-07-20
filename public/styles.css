@@ -4603,11 +4603,10 @@ body.keyboard-debug-hidden .node-live-controls {
   line-height: 1.25;
 }
 
-/* Codeblock (audio-rate, per-sample) and Script Box (main-thread,
-   data-rate) share this editor now (see nodeGraphCodeScreenCodeBoxKinds,
-   node-graph-code-screen.js) -- this line is the one thing that has to
-   change per kind so it's obvious which execution model you're writing
-   for without needing to remember it. */
+/* Codeblock and other code-box kinds (see nodeGraphCodeScreenCodeBoxKinds,
+   node-graph-code-screen.js) share this editor -- this line is the one
+   thing that has to change per kind so it's obvious which execution model
+   you're writing for without needing to remember it. */
 .node-code-screen-editor-context-hint {
   margin: -4px 0 4px;
   color: rgba(174, 180, 187, 0.72);

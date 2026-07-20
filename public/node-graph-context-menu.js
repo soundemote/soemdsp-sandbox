@@ -881,11 +881,6 @@ function configureNodeSceneContextMenu(mode) {
   const codeblockOutputs = document.getElementById("nodeSceneCodeblockOutputs");
   const codeblockSource = document.getElementById("nodeSceneCodeblockSource");
   const codeblockStatus = document.getElementById("nodeSceneCodeblockStatus");
-  const scriptBoxControls = document.getElementById("nodeSceneScriptBoxControls");
-  const scriptBoxInputs = document.getElementById("nodeSceneScriptBoxInputs");
-  const scriptBoxOutputs = document.getElementById("nodeSceneScriptBoxOutputs");
-  const scriptBoxSource = document.getElementById("nodeSceneScriptBoxSource");
-  const scriptBoxStatus = document.getElementById("nodeSceneScriptBoxStatus");
   const textBoxPortScriptControls = document.getElementById("nodeSceneTextBoxPortScriptControls");
   const textBoxTitleScript = document.getElementById("nodeSceneTextBoxTitleScript");
   const textBoxTitleScriptStatus = document.getElementById("nodeSceneTextBoxTitleScriptStatus");
@@ -1064,7 +1059,6 @@ function configureNodeSceneContextMenu(mode) {
   aliasControl.hidden = !moduleMode;
   textBoxTextControls.hidden = !(moduleMode && !multiModuleMode && targetSupportsTextBoxHeight);
   codeblockControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "codeblock");
-  scriptBoxControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "scriptBox");
   textBoxPortScriptControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "animatedTextBox");
   graphControls.hidden = !(moduleMode && !multiModuleMode && targetIsGraphType);
   toggleModuleEnabledButton.hidden = !moduleMode || multiModuleMode;
@@ -1305,19 +1299,6 @@ function configureNodeSceneContextMenu(mode) {
       codeblockSource.value = "";
       codeblockStatus.textContent = "";
     }
-    if (targetNode?.type === "scriptBox") {
-      const scriptBox = normalizeNodeGraphScriptBox(targetNode.scriptBox);
-      scriptBoxInputs.value = scriptBox.inputs.join(", ");
-      scriptBoxOutputs.value = scriptBox.outputs.join(", ");
-      scriptBoxSource.value = scriptBox.code;
-      const status = nodeGraphScriptBoxCompileStatus(scriptBox);
-      scriptBoxStatus.textContent = status.ok ? "code ok" : `compile error: ${status.message}`;
-    } else {
-      scriptBoxInputs.value = "";
-      scriptBoxOutputs.value = "";
-      scriptBoxSource.value = "";
-      scriptBoxStatus.textContent = "";
-    }
     if (targetNode?.type === "animatedTextBox") {
       const titleScript = targetNode.portScripts?.Title || "";
       const textScript = targetNode.portScripts?.Text || "";
@@ -1412,10 +1393,6 @@ function configureNodeSceneContextMenu(mode) {
     codeblockOutputs.value = "";
     codeblockSource.value = "";
     codeblockStatus.textContent = "";
-    scriptBoxInputs.value = "";
-    scriptBoxOutputs.value = "";
-    scriptBoxSource.value = "";
-    scriptBoxStatus.textContent = "";
     textBoxTitleScript.value = "";
     textBoxTextScript.value = "";
     textBoxTitleScriptStatus.textContent = "";
@@ -1470,10 +1447,6 @@ function configureNodeSceneContextMenu(mode) {
     codeblockOutputs.value = "";
     codeblockSource.value = "";
     codeblockStatus.textContent = "";
-    scriptBoxInputs.value = "";
-    scriptBoxOutputs.value = "";
-    scriptBoxSource.value = "";
-    scriptBoxStatus.textContent = "";
     textBoxTitleScript.value = "";
     textBoxTextScript.value = "";
     textBoxTitleScriptStatus.textContent = "";

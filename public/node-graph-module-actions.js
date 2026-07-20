@@ -684,7 +684,6 @@ const nodeGraphModuleSettingsFields = Object.freeze([
   "led",
   "graph",
   "codeblock",
-  "scriptBox",
   "customDisplay",
   "canvasScript",
   "screenSpaceShader",
@@ -1538,69 +1537,6 @@ function setNodeGraphCodeblockSourceFromContext({ record = true } = {}) {
   commitNodeGraphPatch(patch, {
     record,
     status: status.ok ? "codeblock code changed" : "codeblock compile error",
-  });
-  if (document.activeElement === sourceInput) {
-    sourceInput.focus();
-  }
-}
-
-function nodeGraphScriptBoxPortsFromInput(id, fallbackPrefix) {
-  return normalizeNodeGraphCodeblockPortList(
-    document.getElementById(id)?.value,
-    fallbackPrefix,
-  );
-}
-
-function pruneNodeGraphConnectionsForScriptBoxPortChange(patch, nodeId, inputs, outputs) {
-  pruneNodeGraphConnectionsForCodeblockPortChange(patch, nodeId, inputs, outputs);
-}
-
-function applyNodeGraphScriptBoxPortsFromContext() {
-  const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
-  if (!sourceNode || sourceNode.type !== "scriptBox") {
-    return;
-  }
-  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-  const targetNode = patch.nodes.find((node) => node.id === sourceNode.id);
-  if (!targetNode) {
-    return;
-  }
-  const current = normalizeNodeGraphScriptBox(targetNode.scriptBox);
-  const next = normalizeNodeGraphScriptBox({
-    ...current,
-    inputs: nodeGraphScriptBoxPortsFromInput("nodeSceneScriptBoxInputs", "In"),
-    outputs: nodeGraphScriptBoxPortsFromInput("nodeSceneScriptBoxOutputs", "Out"),
-  });
-  targetNode.scriptBox = next;
-  pruneNodeGraphConnectionsForScriptBoxPortChange(patch, targetNode.id, next.inputs, next.outputs);
-  commitNodeGraphPatch(patch, { status: "script box ports changed" });
-  configureNodeSceneContextMenu("module");
-}
-
-function setNodeGraphScriptBoxSourceFromContext({ record = true } = {}) {
-  const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
-  if (!sourceNode || sourceNode.type !== "scriptBox") {
-    return;
-  }
-  const sourceInput = document.getElementById("nodeSceneScriptBoxSource");
-  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-  const targetNode = patch.nodes.find((node) => node.id === sourceNode.id);
-  if (!targetNode) {
-    return;
-  }
-  const scriptBox = normalizeNodeGraphScriptBox(targetNode.scriptBox);
-  targetNode.scriptBox = normalizeNodeGraphScriptBox({
-    ...scriptBox,
-    code: sourceInput?.value ?? nodeGraphScriptBoxDefaultCode,
-  });
-  const status = nodeGraphScriptBoxCompileStatus(targetNode.scriptBox);
-  const statusOutput = document.getElementById("nodeSceneScriptBoxStatus");
-  if (statusOutput) {
-    statusOutput.textContent = status.ok ? "code ok" : `compile error: ${status.message}`;
-  }
-  commitNodeGraphPatch(patch, {
-    record,
-    status: status.ok ? "script box code changed" : "script box compile error",
   });
   if (document.activeElement === sourceInput) {
     sourceInput.focus();

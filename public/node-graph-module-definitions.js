@@ -7,7 +7,6 @@ const nodeGraphNodeLabels = Object.freeze({
   animatedTextBox: "Animated Text Box",
   moduleGroup: "Module Group",
   nextPatch: "Next Patch",
-  scriptBox: "Script Box",
   previousPatch: "Previous Patch",
   osc: "Osc",
   polyBlep: "PolyBLEP",
@@ -222,9 +221,6 @@ const nodeGraphModuleDefinitions = Object.freeze({
   codeblock: {
     inputs: ["In1"],
     outputs: ["Out1"],
-    parameters: [],
-  },
-  scriptBox: {
     parameters: [],
   },
   customDisplay: {

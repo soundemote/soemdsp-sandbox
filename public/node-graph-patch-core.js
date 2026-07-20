@@ -37,7 +37,7 @@ function normalizeNodeGraphPatchParameter(type, key, value, metadata = null) {
     : clampNodeSliderValue(candidate, min, max);
 }
 
-const nodeGraphRetiredNodeTypes = new Set(["formulaVisual", "moduleHome", "moduleShop"]);
+const nodeGraphRetiredNodeTypes = new Set(["formulaVisual", "moduleHome", "moduleShop", "scriptBox"]);
 
 function validateNodeGraphPatch(patch) {
   if (!patch || typeof patch !== "object") {
@@ -173,9 +173,6 @@ function validateNodeGraphPatch(patch) {
     }
     if (type === "codeblock") {
       normalizedNode.codeblock = normalizeNodeGraphCodeblock(node.codeblock);
-    }
-    if (type === "scriptBox") {
-      normalizedNode.scriptBox = normalizeNodeGraphScriptBox(node.scriptBox);
     }
     if (type === "customDisplay") {
       normalizedNode.customDisplay = normalizeNodeGraphCustomDisplay(node.customDisplay);
@@ -574,9 +571,6 @@ function applyNodeGraphPatchToDom() {
     }
     if (typeof syncNodeGraphModulePortLabels === "function") {
       syncNodeGraphModulePortLabels(element, patchNode);
-    }
-    if (patchNode.type === "scriptBox" && typeof evaluateNodeGraphScriptBoxNode === "function") {
-      evaluateNodeGraphScriptBoxNode(patchNode);
     }
     if (nodeGraphModuleDefinitions[patchNode.type]?.layout === "textBox") {
       syncNodeGraphTextBoxElement(element, patchNode);

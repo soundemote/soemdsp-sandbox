@@ -1,16 +1,13 @@
-// Codeblock and Script Box are two different node types with different
-// storage properties (node.codeblock vs node.scriptBox), different
-// compile helpers, and different execution models (codeblock runs
-// per-sample in the AudioWorklet; scriptBox runs on the main thread at
-// data-bus rate) -- but the same {code, inputs, outputs} normalized
-// shape and the same {ok, message} compile-status shape. Rather than a
-// second, parallel copy of ~300 lines of list/editor/draft/apply
-// rendering code for scriptBox (which WOULD immediately start drifting
-// from codeblock's -- see the groupOutput reachability bug and Wall
-// Delay's "generic check against declared ports instead of a hardcoded
-// list" fix, both from this same session, both exactly this failure
-// mode), every rendering/draft/apply function below is parameterized by
-// this descriptor, keyed by node.type, instead.
+// Codeblock is one of a few different node types that share the same
+// {code, inputs, outputs} normalized shape and {ok, message} compile-status
+// shape (see customDisplay below) but have their own storage property,
+// compile helpers, and execution model. Rather than a parallel copy of
+// list/editor/draft/apply rendering code per type (which would immediately
+// start drifting between them -- see the groupOutput reachability bug and
+// Wall Delay's "generic check against declared ports instead of a
+// hardcoded list" fix, both from this same session, both exactly this
+// failure mode), every rendering/draft/apply function below is
+// parameterized by this descriptor, keyed by node.type, instead.
 const nodeGraphCodeScreenCodeBoxKinds = Object.freeze({
   codeblock: {
     nodeType: "codeblock",
@@ -25,20 +22,6 @@ const nodeGraphCodeScreenCodeBoxKinds = Object.freeze({
     emptyStateMessage: "No Codeblock modules exist in this patch yet. Codeblocks stay in-circuit as debug utilities; the Code Screen is where they become easier to find and edit.",
     createLabel: "New Debug Codeblock",
     createFn: () => createNodeGraphCodeScreenDebugCodeblock(),
-  },
-  scriptBox: {
-    nodeType: "scriptBox",
-    property: "scriptBox",
-    label: "Script Box",
-    kindLabelPlural: "script boxes",
-    normalize: (value) => normalizeNodeGraphScriptBox(value),
-    compileStatus: (value) => nodeGraphScriptBoxCompileStatus(value),
-    pruneConnections: (patch, nodeId, inputs, outputs) =>
-      pruneNodeGraphConnectionsForScriptBoxPortChange(patch, nodeId, inputs, outputs),
-    contextHint: "Helper library (clamp, lerp, wrap01, ...) in scope -- runs on the main thread at data-bus rate, no per-sample state.",
-    emptyStateMessage: "No Script Box modules exist in this patch yet. Script Boxes run patch-local data logic on the main thread; the Code Screen is where they're easiest to author.",
-    createLabel: "New Script Box",
-    createFn: () => createNodeGraphCodeScreenDebugScriptBox(),
   },
   customDisplay: {
     nodeType: "customDisplay",
@@ -70,7 +53,7 @@ const nodeGraphCodeScreenSections = Object.freeze([
     id: "codeblocks",
     title: "Code Boxes",
     eyebrow: "Code Boxes",
-    summary: "Central editing for Codeblock and Script Box modules.",
+    summary: "Central editing for Codeblock modules.",
   },
   {
     id: "helpers",
@@ -1917,7 +1900,7 @@ function openNodeGraphCodeBoxWindowFromHeader() {
     openNodeGraphCodeBoxWindowForNode(existing.id);
     return;
   }
-  const nodeId = showNodeGraphModule("scriptBox", null, { status: "script box added" });
+  const nodeId = showNodeGraphModule("codeblock", null, { status: "debug codeblock added" });
   if (nodeId) {
     openNodeGraphCodeBoxWindowForNode(nodeId);
   }
@@ -2451,7 +2434,7 @@ function renderNodeGraphCodeScreenCodeblocksLanding() {
   heading.textContent = "Write your first Code Box";
   const text = document.createElement("p");
   text.textContent =
-    "Codeblocks run per-sample in the audio thread; Script Boxes run patch-local logic on the main thread. Pick one below to open the editor.";
+    "Codeblocks run per-sample in the audio thread. Create one below to open the editor.";
   landing.append(heading, text);
   const actions = document.createElement("div");
   actions.className = "node-code-screen-codeblocks-landing-actions";
@@ -2460,12 +2443,7 @@ function renderNodeGraphCodeScreenCodeblocksLanding() {
   codeblockButton.className = "node-code-screen-landing-cta";
   codeblockButton.textContent = "New Debug Codeblock";
   codeblockButton.addEventListener("click", createNodeGraphCodeScreenDebugCodeblock);
-  const scriptBoxButton = document.createElement("button");
-  scriptBoxButton.type = "button";
-  scriptBoxButton.className = "node-code-screen-landing-cta";
-  scriptBoxButton.textContent = "New Script Box";
-  scriptBoxButton.addEventListener("click", createNodeGraphCodeScreenDebugScriptBox);
-  actions.append(codeblockButton, scriptBoxButton);
+  actions.append(codeblockButton);
   landing.append(actions);
   return landing;
 }
@@ -2503,7 +2481,6 @@ function renderNodeGraphCodeScreenCodeblockList(selectedNode) {
   actions.className = "node-code-screen-registry-actions";
   actions.innerHTML = `
     <button id="nodeCodeScreenCreateCodeblockFromList" type="button">New Debug Codeblock</button>
-    <button id="nodeCodeScreenCreateScriptBoxFromList" type="button">New Script Box</button>
   `;
   panel.append(actions);
   const list = document.createElement("div");
@@ -4268,12 +4245,14 @@ function setNodeGraphCodeScreenSnippetTarget(target) {
 
 function renderNodeGraphCodeScreenSnippetTargetControls() {
   const current = nodeGraphCodeScreenSnippetTarget();
+  const selectedNode = nodeGraphCodeScreenSelectedCodeblock();
+  const selectedKindLabel = selectedNode ? nodeGraphCodeScreenKindForNode(selectedNode).label : "Code Box";
   const controls = document.createElement("div");
   controls.className = "node-code-screen-snippet-target";
   controls.innerHTML = `
     <span>send snippets to</span>
     <button type="button" data-code-screen-snippet-target="script" aria-pressed="${current === "script" ? "true" : "false"}">Workspace Script</button>
-    <button type="button" data-code-screen-snippet-target="codeblock" aria-pressed="${current === "codeblock" ? "true" : "false"}">Selected Codeblock</button>
+    <button type="button" data-code-screen-snippet-target="codeblock" aria-pressed="${current === "codeblock" ? "true" : "false"}">Selected ${nodeGraphCodeScreenEscapeHtml(selectedKindLabel)}</button>
   `;
   return controls;
 }
@@ -7918,17 +7897,6 @@ function createNodeGraphCodeScreenDebugCodeblock() {
   renderNodeGraphCodeScreen();
 }
 
-function createNodeGraphCodeScreenDebugScriptBox() {
-  const nodeId = showNodeGraphModule("scriptBox", null, { status: "script box added" });
-  if (!nodeId) {
-    return;
-  }
-  nodeGraphMvp.codeScreenSelectedNodeId = nodeId;
-  nodeGraphMvp.codeScreenSection = "codeblocks";
-  setNodeGraphViewMode("code");
-  renderNodeGraphCodeScreen();
-}
-
 function addNodeGraphCodeScreenRegistryItem(key) {
   const config = nodeGraphCodeScreenRegistryConfig(
     nodeGraphCodeScreenSections.find((section) => nodeGraphCodeScreenRegistryConfig(section.id).key === key)?.id || "helpers",
@@ -9074,10 +9042,6 @@ function handleNodeGraphCodeScreenClick(event) {
     createNodeGraphCodeScreenDebugCodeblock();
     return;
   }
-  if (event.target.closest("#nodeCodeScreenCreateScriptBoxFromList")) {
-    createNodeGraphCodeScreenDebugScriptBox();
-    return;
-  }
   const duplicateSnippetButton = event.target.closest("[data-code-screen-duplicate-snippet]");
   if (duplicateSnippetButton) {
     duplicateNodeGraphCodeScreenSnippetItem(Number(duplicateSnippetButton.dataset.codeScreenDuplicateSnippet));
@@ -9342,9 +9306,8 @@ function bindNodeGraphCodeScreenEvents() {
       applyNodeGraphCodeScreenCodeblockPorts();
     } else if (event.target?.id === "nodeCodeScreenNewCodeblock") {
       // Label reflects the currently-selected node's kind (see
-      // renderNodeGraphCodeScreenCodeblockEditor) -- "New Script Box"
-      // while viewing a scriptBox has to actually create a scriptBox,
-      // not silently create a Codeblock instead.
+      // renderNodeGraphCodeScreenCodeblockEditor) -- must create that same
+      // kind, not silently fall back to a Codeblock.
       nodeGraphCodeScreenKindForNode(nodeGraphCodeScreenSelectedCodeblock()).createFn();
     } else if (event.target?.id === "nodeCodeScreenApplyCode") {
       applyNodeGraphCodeScreenCodeblockSource();
