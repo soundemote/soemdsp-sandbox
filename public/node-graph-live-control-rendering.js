@@ -10,14 +10,11 @@ function nodeGraphLiveOutputButtonTitle(outputActive, outputEnabled) {
   }
   const inputActive = Boolean(nodeGraphMvp.live.inputActive);
   const inputStreaming = Boolean(nodeGraphMvp.live.inputStream);
-  const enginePaused = Boolean(nodeGraphMvp.live.paused);
+  const enginePaused = (nodeGraphMvp.live.speedMultiplier || 1) === 0;
   if (outputActive && enginePaused) {
     return nodeGraphTooltipText("audio.liveOutputPaused");
   }
   if (outputActive && inputStreaming) {
-    return nodeGraphTooltipText("audio.liveOutputRunningWithInput");
-  }
-  if (outputActive) {
     return nodeGraphTooltipText("audio.liveOutputRunning");
   }
   if (outputEnabled && inputActive) {
@@ -114,7 +111,7 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) 
   }
   if (outputButton) {
     const protectionTripped = nodeGraphEarProtectionIsTripped();
-    const enginePaused = Boolean(nodeGraphMvp.live.paused);
+    const enginePaused = (nodeGraphMvp.live.speedMultiplier || 1) === 0;
     outputButton.disabled = starting || protectionTripped;
     outputButton.classList.toggle("active", outputEnabled && !protectionTripped);
     outputButton.classList.toggle("paused", enginePaused && !protectionTripped);

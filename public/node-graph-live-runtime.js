@@ -458,27 +458,6 @@ function toggleNodeGraphLiveOutput() {
   setNodeGraphLiveOutputEnabled(!nodeGraphMvp.live.outputEnabled);
 }
 
-function setNodeGraphLivePaused(paused) {
-  const wasPaused = Boolean(nodeGraphMvp.live.paused);
-  const nextPaused = Boolean(paused);
-  if (wasPaused === nextPaused) {
-    return;
-  }
-  // Cannot pause if output isn't running.
-  if (nextPaused && (!nodeGraphMvp.live.node || !nodeGraphMvp.live.context)) {
-    return;
-  }
-  nodeGraphMvp.live.paused = nextPaused;
-  renderNodeGraphLiveControls(Boolean(nodeGraphMvp.live.node));
-  if (typeof nodeGraphExternalNotifyLiveOutputChanged === "function") {
-    nodeGraphExternalNotifyLiveOutputChanged();
-  }
-}
-
-function toggleNodeGraphLivePaused() {
-  setNodeGraphLivePaused(!nodeGraphMvp.live.paused);
-}
-
 function setNodeGraphLiveSpeed(speed) {
   const value = Number(speed);
   const clamped = Number.isFinite(value) ? Math.max(0, value) : 1;
@@ -530,14 +509,7 @@ function renderNodeGraphLiveScriptBlock(event) {
   const blockStartFrame = Number.isFinite(runtime.absoluteFrameCursor)
     ? runtime.absoluteFrameCursor
     : 0;
-  const enginePaused = Boolean(nodeGraphMvp.live.paused);
   for (let frame = 0; frame < frames; frame += 1) {
-    if (enginePaused) {
-      for (let channel = 0; channel < output.numberOfChannels; channel += 1) {
-        output.getChannelData(channel)[frame] = 0;
-      }
-      continue;
-    }
     runtime.absoluteFrame = blockStartFrame + frame;
     const inputLeft = Number(runtime.externalInput.left?.[frame]) || 0;
     const inputRight = Number(runtime.externalInput.right?.[frame]) || inputLeft;
@@ -598,9 +570,7 @@ function renderNodeGraphLiveScriptBlock(event) {
       output.getChannelData(channel)[frame] = channel === 0 ? left : right;
     }
   }
-  if (!enginePaused) {
-    runtime.absoluteFrameCursor = blockStartFrame + frames;
-  }
+  runtime.absoluteFrameCursor = blockStartFrame + frames;
   runtime.externalInput = null;
   nodeGraphSetVisualControls(runtime.visualControls || { screenShake: 0 });
   if (nodeGraphMvp.live.lastEvidence) {
@@ -1791,7 +1761,6 @@ async function stopNodeGraphLiveAudio() {
   nodeGraphMvp.live.context = null;
   nodeGraphMvp.live.meterGain = null;
   nodeGraphMvp.live.outputGain = null;
-  nodeGraphMvp.live.paused = false;
   nodeGraphMvp.live.activeNodeIds = new Set();
   nodeGraphMvp.live.lastEvidence = null;
   nodeGraphMvp.live.lastParameterUpdateTime = 0;

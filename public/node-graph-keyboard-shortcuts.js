@@ -189,9 +189,10 @@ function handleNodeGraphKeydown(event) {
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.code === "Space") {
     event.preventDefault();
     if (nodeGraphMvp?.live?.outputEnabled && nodeGraphMvp?.live?.node) {
-      // Engine is running: Space toggles pause.
-      if (typeof toggleNodeGraphLivePaused === "function") {
-        toggleNodeGraphLivePaused();
+      // Engine is running: Space toggles speed between 0 and 1.
+      const nextSpeed = (nodeGraphMvp.live.speedMultiplier || 1) === 0 ? 1 : 0;
+      if (typeof setNodeGraphLiveSpeed === "function") {
+        setNodeGraphLiveSpeed(nextSpeed);
       }
     } else if (typeof toggleNodeGraphLiveOutput === "function") {
       // Engine is off: Space starts it.

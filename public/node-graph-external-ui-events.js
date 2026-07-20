@@ -3,6 +3,32 @@ const nodeGraphWireBreakGateSeconds = 0.52;
 const nodeGraphWindowReopenGateSeconds = 1;
 const nodeGraphGameTriggerDispatchDelayMs = 40;
 const nodeGraphGameTriggerPulseSeconds = 0.02;
+
+// ── postMessage protocol ──
+const SANDBOX_MSG = Object.freeze({
+  AUTOSTART: "autostart",
+  AUTOSTART_VALUES: Object.freeze(["1", "true", "yes"]),
+  HIDEUI: "hideui",
+  HIDEUI_VALUES: Object.freeze(["1", "true", "yes"]),
+  // Parent → sandbox
+  AUTOFRA: "soundemote:autoframe",
+  SET_VIEW: "soundemote:set-view",
+  SET_LIVE_OUTPUT: "soundemote:set-live-output",
+  SET_LIVE_PAUSED: "soundemote:set-live-paused",
+  SET_LIVE_SPEED: "soundemote:set-live-speed",
+  REQUEST_LIVE_STATE: "soundemote:request-live-state",
+  REQUEST_CURRENT_PATCH: "soundemote:request-current-patch",
+  SANDBOX_PROJECT_DATA: "soundemote:sandbox-project-data",
+  SANDBOX_EVENT: "soundemote:sandbox-event",
+  SANDBOX_LOAD_RESOURCE: "soundemote:sandbox-load-resource",
+  // Sandbox → parent
+  LIVE_OUTPUT_CHANGED: "soundemote:live-output-changed",
+  LIVE_STATE: "soundemote:live-state",
+  CURRENT_PATCH: "soundemote:current-patch",
+  HERO_EVENT: "soundemote:hero-event",
+  // Worklet messages
+  WORKLET_SET_SPEED: "setSpeed",
+});
 const nodeGraphExternalSandboxEventNames = Object.freeze(new Set([
   "shootingStarExplosion",
 ]));
@@ -500,21 +526,17 @@ function soemdspSandboxLiveOutputEnabled() {
 // button, ear protection tripping, etc.) so an external play/stop button
 // can stay in sync without polling.
 let nodeGraphExternalLastReportedLiveOutputEnabled = null;
-let nodeGraphExternalLastReportedLivePaused = null;
 let nodeGraphExternalLastReportedLiveSpeed = null;
 function nodeGraphExternalNotifyLiveOutputChanged() {
   const enabled = soemdspSandboxLiveOutputEnabled();
-  const paused = Boolean(nodeGraphMvp?.live?.paused);
   const speed = Number(nodeGraphMvp?.live?.speedMultiplier) || 1;
   if (
     enabled === nodeGraphExternalLastReportedLiveOutputEnabled &&
-    paused === nodeGraphExternalLastReportedLivePaused &&
     speed === nodeGraphExternalLastReportedLiveSpeed
   ) {
     return;
   }
   nodeGraphExternalLastReportedLiveOutputEnabled = enabled;
-  nodeGraphExternalLastReportedLivePaused = paused;
   nodeGraphExternalLastReportedLiveSpeed = speed;
   const parentWindow = window.parent;
   if (!parentWindow || parentWindow === window) {
@@ -522,7 +544,7 @@ function nodeGraphExternalNotifyLiveOutputChanged() {
   }
   try {
     parentWindow.postMessage(
-      { type: "soundemote:live-output-changed", enabled, paused, speed },
+      { type: "soundemote:live-output-changed", enabled, speed },
       window.location.origin,
     );
   } catch (error) {
@@ -698,19 +720,6 @@ window.addEventListener("message", (event) => {
     } else {
       soemdspSandboxToggleLiveOutput();
     }
-  } else if (message.type === "soundemote:set-live-paused") {
-    if (!nodeGraphExternalMessageOriginAllowed(event)) {
-      return;
-    }
-    if (Object.hasOwn(message, "paused")) {
-      if (typeof setNodeGraphLivePaused === "function") {
-        setNodeGraphLivePaused(message.paused);
-      }
-    } else {
-      if (typeof toggleNodeGraphLivePaused === "function") {
-        toggleNodeGraphLivePaused();
-      }
-    }
   } else if (message.type === "soundemote:set-live-speed") {
     if (!nodeGraphExternalMessageOriginAllowed(event)) {
       return;
@@ -720,14 +729,12 @@ window.addEventListener("message", (event) => {
     }
   } else if (message.type === "soundemote:request-live-state") {
     const enabled = soemdspSandboxLiveOutputEnabled();
-    const paused = Boolean(nodeGraphMvp?.live?.paused);
     const speed = Number(nodeGraphMvp?.live?.speedMultiplier) || 1;
     event.source?.postMessage(
       {
         type: "soundemote:live-state",
         requestId: message.requestId || null,
         enabled,
-        paused,
         speed,
       },
       event.origin,
