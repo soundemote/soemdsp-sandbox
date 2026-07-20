@@ -119,6 +119,20 @@ function beginNodeGraphNodeDrag(event) {
   event.stopPropagation();
 }
 
+// A node visually snaps to the grid while dragging (positionNodeGraphNode
+// snaps by default), so the pointer has to cross half a grid cell before
+// the module actually moves on screen. Treating any smaller wiggle as "a
+// drag started" made ordinary selection clicks get swallowed constantly --
+// this threshold instead matches the exact point where a move first
+// becomes visible, so a click only ever gets reclassified as a drag once
+// one is genuinely underway.
+function nodeGraphNodeDragMoveThresholdPx() {
+  return {
+    x: Math.max(1, nodeGraphGridWidth() / 2),
+    y: Math.max(1, nodeGraphGridHeight() / 2),
+  };
+}
+
 function dragNodeGraphNode(event) {
   if (!nodeGraphMvp.nodeDragging) {
     return;
@@ -128,7 +142,8 @@ function dragNodeGraphNode(event) {
   const point = nodeGraphClientPoint(event);
   const deltaX = point.x - startPoint.x;
   const deltaY = point.y - startPoint.y;
-  if (Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1) {
+  const threshold = nodeGraphNodeDragMoveThresholdPx();
+  if (Math.abs(deltaX) >= threshold.x || Math.abs(deltaY) >= threshold.y) {
     nodeGraphMvp.nodeDragging.moved = true;
   }
   for (const dragged of draggedNodes) {
