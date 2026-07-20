@@ -1,9 +1,127 @@
-// The old exposed-control "mirror" system (createNodeUserUiSettingsControl
-// et al -- built a simplified proxy control that dispatched synthetic
-// input/change events back at the real UI Dev source input) has no callers
-// left now that renderNodeUserUiSettingsControls only renders the arc
-// thickness control directly; every UI Dev control already lives in UI Dev
-// itself, so there's nothing left to mirror out of it.
+// While a mirror control here is mid-interaction, syncNodeUserUiSettingsMirrorControls
+// (called on every UIDEV apply pass) must not overwrite it with the source
+// value -- that would fight the user's drag/keystroke. Set while an input is
+// focused/dragging, cleared on change/blur.
+let nodeUserUiSettingsActiveMirrorKey = null;
+
+// Generic proxy control for any UI Dev slider/checkbox/color/select the user
+// has exposed via the "Expose in UI settings" checkbox next to it in UI Dev.
+// Writes go to the real UI Dev source input (dispatching input/change so the
+// existing syncNodeUiDevSettingsHeaderControls pipeline applies them), reads
+// come back via [data-node-ui-dev-mirror] in syncNodeUserUiSettingsMirrorControls.
+function createNodeUserUiSettingsMirrorControl(definition) {
+  const source = document.getElementById(definition.id);
+  if (!source || definition.locked) {
+    return null;
+  }
+  const label = nodeUiDevControlLabel(definition);
+
+  if (definition.type === "boolean") {
+    const row = document.createElement("label");
+    row.className = "node-user-ui-setting-control boolean";
+    const title = document.createElement("span");
+    title.textContent = label;
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.dataset.nodeUiDevMirror = definition.key;
+    input.checked = Boolean(source.checked);
+    input.addEventListener("change", () => {
+      source.checked = input.checked;
+      source.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    row.append(title, input);
+    return row;
+  }
+
+  if (definition.type === "color") {
+    const row = document.createElement("label");
+    row.className = "node-user-ui-setting-control color";
+    const title = document.createElement("span");
+    title.textContent = label;
+    const input = document.createElement("input");
+    input.type = "color";
+    input.dataset.nodeUiDevMirror = definition.key;
+    input.value = normalizeNodeUiDevColor(source.value, definition.defaultValue);
+    const output = document.createElement("output");
+    output.dataset.nodeUiDevMirrorValue = definition.key;
+    output.textContent = input.value;
+    input.addEventListener("input", () => {
+      nodeUserUiSettingsActiveMirrorKey = definition.key;
+      source.value = input.value;
+      source.dispatchEvent(new Event("input", { bubbles: true }));
+      output.textContent = input.value;
+    });
+    input.addEventListener("change", () => {
+      source.value = input.value;
+      source.dispatchEvent(new Event("change", { bubbles: true }));
+      nodeUserUiSettingsActiveMirrorKey = null;
+    });
+    row.append(title, input, output);
+    return row;
+  }
+
+  if (definition.type === "select") {
+    const row = document.createElement("label");
+    row.className = "node-user-ui-setting-control select";
+    const title = document.createElement("span");
+    title.textContent = label;
+    const select = document.createElement("select");
+    select.dataset.nodeUiDevMirror = definition.key;
+    for (const option of definition.options || []) {
+      const optionElement = document.createElement("option");
+      optionElement.value = option.value;
+      optionElement.textContent = option.label;
+      select.append(optionElement);
+    }
+    select.value = source.value;
+    select.addEventListener("change", () => {
+      source.value = select.value;
+      source.dispatchEvent(new Event("input", { bubbles: true }));
+      source.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    row.append(title, select);
+    return row;
+  }
+
+  const row = document.createElement("label");
+  row.className = "node-user-ui-setting-control number";
+  const title = document.createElement("span");
+  title.textContent = label;
+  const input = document.createElement("input");
+  input.type = "range";
+  input.min = String(definition.min);
+  input.max = String(definition.max);
+  input.step = "1";
+  input.dataset.nodeUiDevMirror = definition.key;
+  input.value = String(source.value);
+  const readout = document.createElement("input");
+  readout.type = "number";
+  readout.min = String(definition.min);
+  readout.max = String(definition.max);
+  readout.step = "1";
+  readout.dataset.nodeUiDevMirrorValue = definition.key;
+  readout.value = String(source.value);
+  const commit = (value) => {
+    nodeUserUiSettingsActiveMirrorKey = definition.key;
+    const clamped = normalizeNodeUiDevControlValue(definition, value);
+    source.value = String(clamped);
+    source.dispatchEvent(new Event("input", { bubbles: true }));
+    input.value = String(clamped);
+    readout.value = String(clamped);
+  };
+  input.addEventListener("input", () => commit(input.value));
+  input.addEventListener("change", () => {
+    nodeUserUiSettingsActiveMirrorKey = null;
+  });
+  readout.addEventListener("input", () => commit(readout.value));
+  readout.addEventListener("change", () => {
+    commit(readout.value);
+    nodeUserUiSettingsActiveMirrorKey = null;
+  });
+  row.append(title, input, readout);
+  return row;
+}
+
 function createNodeUserUiSettingsViewCheckbox({ key, label, getValue, setValue }) {
   const row = document.createElement("label");
   row.className = "node-user-ui-setting-control boolean";
@@ -466,26 +584,35 @@ function createNodeUserUiSettingsSection(title, controls) {
   return section;
 }
 
-// Every other user-facing view control that used to live in this panel has
-// moved into the UI Dev helper (see renderNodeUiDevHelperViewControls) --
-// User UI Settings is now just the one thing regular users are meant to
-// tune, everything else lives with the rest of the developer controls.
+// Knob style is always-on; everything else in this panel is whatever UI Dev
+// controls have their "Expose in UI settings" checkbox checked, grouped by
+// the same sections UI Dev itself uses (see nodeUiDevSettingSections).
 function renderNodeUserUiSettingsControls() {
   const container = document.getElementById("nodeUserUiSettingsControls");
   if (!container) {
     return;
   }
   container.textContent = "";
-  const sectionElement = createNodeUserUiSettingsSection("knob style", [
-    createNodeUserUiSettingsMacroKnobArcThicknessControl(),
-    createNodeUserUiSettingsMacroKnobArcGapBrightnessControl(),
-    createNodeUserUiSettingsMacroKnobSizeControl(),
-    createNodeUserUiSettingsMacroKnobHitboxOutlineControl(),
-    createNodeUserUiSettingsMacroKnobLabelPositionControl(),
-    createNodeUserUiSettingsMacroKnobValuePositionControl(),
-  ]);
-  if (sectionElement) {
-    container.append(sectionElement);
+  const sections = [
+    createNodeUserUiSettingsSection("knob style", [
+      createNodeUserUiSettingsMacroKnobArcThicknessControl(),
+      createNodeUserUiSettingsMacroKnobArcGapBrightnessControl(),
+      createNodeUserUiSettingsMacroKnobSizeControl(),
+      createNodeUserUiSettingsMacroKnobHitboxOutlineControl(),
+      createNodeUserUiSettingsMacroKnobLabelPositionControl(),
+      createNodeUserUiSettingsMacroKnobValuePositionControl(),
+    ]),
+  ];
+  for (const section of nodeUiDevSettingSections) {
+    const controls = section.ids
+      .map((id) => nodeUiDevSettingControls.find((definition) => definition.id === id))
+      .filter((definition) => definition && nodeUiDevControlIsExposed(definition.key))
+      .map((definition) => createNodeUserUiSettingsMirrorControl(definition));
+    sections.push(createNodeUserUiSettingsSection(section.title, controls));
+  }
+  const visibleSections = sections.filter(Boolean);
+  if (visibleSections.length) {
+    container.append(...visibleSections);
   } else {
     const empty = document.createElement("div");
     empty.className = "node-user-ui-settings-empty";
