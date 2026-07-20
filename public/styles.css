@@ -8213,7 +8213,7 @@ body.keyboard-debug-hidden .node-live-controls {
   gap: 3px;
   align-items: center;
   min-width: 0;
-  min-height: 46px;
+  min-height: var(--node-module-category-row-height, 46px);
   padding: var(--node-module-category-row-padding, 2px 5px);
   border: 0;
   border-radius: 0;

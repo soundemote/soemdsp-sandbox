@@ -68,6 +68,9 @@ async function bindNodeGraphUiDevSettingsEvents() {
     .getElementById("nodeUiDevWorkspaceBackgroundColor")
     .addEventListener("change", syncNodeUiDevSettingsHeaderControls);
   document
+    .getElementById("nodeUiDevModuleBrowserEntryHeight")
+    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
+  document
     .getElementById("nodeUiDevModuleBrowserEntryPadding")
     .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
   document

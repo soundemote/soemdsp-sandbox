@@ -49,6 +49,8 @@ function syncNodeUiDevSettingsHeaderControls() {
   const gridColorValue = document.getElementById("nodeUiDevGridColorValue");
   const workspaceBackgroundColorInput = document.getElementById("nodeUiDevWorkspaceBackgroundColor");
   const workspaceBackgroundColorValue = document.getElementById("nodeUiDevWorkspaceBackgroundColorValue");
+  const moduleBrowserEntryHeightInput = document.getElementById("nodeUiDevModuleBrowserEntryHeight");
+  const moduleBrowserEntryHeightValue = document.getElementById("nodeUiDevModuleBrowserEntryHeightValue");
   const moduleBrowserEntryPaddingInput = document.getElementById("nodeUiDevModuleBrowserEntryPadding");
   const moduleBrowserEntryPaddingValue = document.getElementById("nodeUiDevModuleBrowserEntryPaddingValue");
   const moduleBrowserEntryTextSizeInput = document.getElementById("nodeUiDevModuleBrowserEntryTextSize");
@@ -149,6 +151,8 @@ function syncNodeUiDevSettingsHeaderControls() {
     !gridColorValue ||
     !workspaceBackgroundColorInput ||
     !workspaceBackgroundColorValue ||
+    !moduleBrowserEntryHeightInput ||
+    !moduleBrowserEntryHeightValue ||
     !moduleBrowserEntryPaddingInput ||
     !moduleBrowserEntryPaddingValue ||
     !moduleBrowserEntryTextSizeInput ||
@@ -245,6 +249,10 @@ function syncNodeUiDevSettingsHeaderControls() {
   const moduleRoundnessPercent = Math.max(0, Math.min(100, Number(moduleRoundnessInput.value) || 0));
   const gridColor = normalizeNodeUiDevColor(gridColorInput.value, "#ffffff");
   const workspaceBackgroundColor = normalizeNodeUiDevColor(workspaceBackgroundColorInput.value, "#0d0d0d");
+  const moduleBrowserEntryHeightPx = Math.max(
+    24,
+    Math.min(120, Number(moduleBrowserEntryHeightInput.value) || 46),
+  );
   const moduleBrowserEntryPaddingPx = Math.max(
     0,
     Math.min(20, Number(moduleBrowserEntryPaddingInput.value) || 0),
@@ -363,6 +371,10 @@ function syncNodeUiDevSettingsHeaderControls() {
     ?.style.setProperty("--node-workspace-bg", workspaceBackgroundColor);
   document.body.style.setProperty("--node-slider-dot-size", `${dotSizePx}px`);
   document.body.style.setProperty(
+    "--node-module-category-row-height",
+    `${moduleBrowserEntryHeightPx}px`,
+  );
+  document.body.style.setProperty(
     "--node-module-category-row-padding",
     `${moduleBrowserEntryPaddingPx}px`,
   );
@@ -470,6 +482,7 @@ function syncNodeUiDevSettingsHeaderControls() {
   moduleRoundnessValue.textContent = `${moduleRoundnessPercent}%`;
   gridColorValue.textContent = gridColor;
   workspaceBackgroundColorValue.textContent = workspaceBackgroundColor;
+  moduleBrowserEntryHeightValue.textContent = `${moduleBrowserEntryHeightPx}px`;
   moduleBrowserEntryPaddingValue.textContent = `${moduleBrowserEntryPaddingPx}px`;
   moduleBrowserEntryTextSizeValue.textContent = `${moduleBrowserEntryTextSizePx}px`;
   topRatioValue.textContent = `${topPercent}%`;
