@@ -188,7 +188,13 @@ function handleNodeGraphKeydown(event) {
   }
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.code === "Space") {
     event.preventDefault();
-    if (typeof toggleNodeGraphLiveOutput === "function") {
+    if (nodeGraphMvp?.live?.outputEnabled && nodeGraphMvp?.live?.node) {
+      // Engine is running: Space toggles pause.
+      if (typeof toggleNodeGraphLivePaused === "function") {
+        toggleNodeGraphLivePaused();
+      }
+    } else if (typeof toggleNodeGraphLiveOutput === "function") {
+      // Engine is off: Space starts it.
       toggleNodeGraphLiveOutput();
     }
     return;

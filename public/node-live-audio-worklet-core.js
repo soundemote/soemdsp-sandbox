@@ -92,6 +92,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.engineSampleRate = sampleRate;
     this.hostSampleRate = sampleRate;
     this.oversamplingRatio = 1;
+    this.speedMultiplier = 1;
     this.raptEllipticDecimatorLeft = this.createRaptEllipticDecimatorState();
     this.raptEllipticDecimatorRight = this.createRaptEllipticDecimatorState();
     this.raptEllipticDecimatorRatio = 1;
@@ -477,11 +478,24 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       this.setInputWireBreakTrigger(message.nodeId, message.port);
       return;
     }
+    if (message.type === "setSpeed") {
+      this.setSpeed(message.speed);
+      return;
+    }
   }
 
   setInputWireBreakTrigger(nodeId, port) {
     if (!nodeId || !port) return;
     this.inputWireBreakTriggers.set(this.inputKey(nodeId, port), 1);
+  }
+
+  setSpeed(speed) {
+    const value = Number(speed);
+    this.speedMultiplier = Number.isFinite(value) ? Math.max(0, value) : 1;
+  }
+
+  effectiveSampleRate() {
+    return Math.max(1, (this.engineSampleRate || sampleRate || 44100) * Math.max(0, this.speedMultiplier || 1));
   }
 
   setImpulseButtonTrigger(nodeId, amplitude) {
@@ -7816,7 +7830,8 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     const frames = output[0]?.length || 128;
     const input = inputs[0] || [];
     const oversamplingRatio = Math.max(1, Math.min(4, Math.round(this.oversamplingRatio) || 1));
-    const engineSampleRate = Math.max(1, this.engineSampleRate || sampleRate || 44100);
+    const rawEngineSampleRate = Math.max(1, this.engineSampleRate || sampleRate || 44100);
+    const effectiveRate = Math.max(1, rawEngineSampleRate * Math.max(0, this.speedMultiplier || 1));
     const engineFrames = frames * oversamplingRatio;
     if (!this.nodes.size || !this.order.length) {
       for (const channel of output) {
@@ -7838,7 +7853,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       const useRaptEllipticDecimator = oversamplingRatio === 4;
       for (let subframe = 0; subframe < oversamplingRatio; subframe += 1) {
         const engineFrame = frame * oversamplingRatio + subframe;
-        const subframeOutput = this.evaluateFrame(engineFrame, engineFrames, inputs, engineSampleRate, frame);
+        const subframeOutput = this.evaluateFrame(engineFrame, engineFrames, inputs, effectiveRate, frame);
         if (useRaptEllipticDecimator) {
           decimatedLeft = this.processRaptEllipticDecimatorSample(
             subframeOutput.left,
@@ -7854,12 +7869,12 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
         }
         this.captureModuleScopeFrame(this.currentFrameValues, engineFrame, engineFrames);
         this.scopeCounter += 1;
-        if (this.scopeCounter >= Math.max(1, Math.floor(engineSampleRate / 30))) {
+        if (this.scopeCounter >= Math.max(1, Math.floor(effectiveRate / 30))) {
           this.scopeCounter = 0;
           this.postModuleScopeSnapshot();
         }
         this.visualControlCounter += 1;
-        if (this.visualControlCounter >= Math.max(1, Math.floor(engineSampleRate / 30))) {
+        if (this.visualControlCounter >= Math.max(1, Math.floor(effectiveRate / 30))) {
           this.visualControlCounter = 0;
           this.postVisualControls();
         }

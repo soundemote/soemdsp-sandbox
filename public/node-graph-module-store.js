@@ -24,211 +24,87 @@ const nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([
 const nodeGraphModuleGroupStorageKey = "soemdsp-sandbox.moduleGroups.v1";
 const nodeGraphModuleCatalogVisibilityStorageKey = "soemdsp-sandbox.moduleCatalogVisibility.v2";
 
+// Unified module department definitions — single source of truth for
+// emoji, display label, ad copy, and backward-compatible alias resolution.
+// Previously split across three separate structures (Departments array,
+// DepartmentAliases map, DepartmentAds map) with emoji baked into identity
+// strings and mismatched keys between them.
 const nodeGraphModuleStoreDepartments = Object.freeze([
-  "🔌Plugin",
-  "🕹️Controller",
-  "🌌Portal",
-  "🥁Drum",
-  "⚡Dynamics",
-  "📐Envelope",
-  "💧Filter",
-  "⚪Oscillator",
-  "♾️Chaos",
-  "♻️Jerobeam",
-  "🌧️Noise",
-  "⚡Modulator",
-  "🔬Digital",
-  "🎶Music",
-  "🔊Sample",
-  "⏳Grains",
-  "⛪Space",
-  "⌚Time",
-  "🚥LED",
-  "🌈RGB",
-  "📺Oscilloscope",
-  "📟Multimeter",
-  "🎞️Media",
-  "♟️Game Trigger",
-  "🐞Debug",
+  { id: "plugin",       emoji: "🔌", label: "Plugin",       symbol: "⧉",   title: "CLAP",     pitch: "Host a real installed CLAP plugin from a local companion process and run your patch's audio through it." },
+  { id: "controller",   emoji: "🕹️", label: "Controller",   symbol: "⌘",   title: "Controllers", pitch: "Input devices and control bridges for keyboards, MIDI, gamepads, and external gestures." },
+  { id: "portal",       emoji: "🌐", label: "Portal",       symbol: "IO",  title: "Portals",   pitch: "Patch boundary portals for moving left, right, and mono signal lanes between rooms, templates, and larger circuits." },
+  { id: "drum",         emoji: "🥁", label: "Drum",         symbol: "▥",   title: "Drum",      pitch: "Rhythm machines, drum voices, pattern engines, and percussion control surfaces." },
+  { id: "dynamics",     emoji: "⚡", label: "Dynamics",     symbol: "⚡",   title: "Dynamics",  pitch: "Power routing, level control, offsets, and response shaping for keeping a circuit alive under pressure." },
+  { id: "envelope",     emoji: "📐", label: "Envelope",     symbol: "⌒",   title: "Envelope",  pitch: "Attack, decay, sustain, release, and gate-shaped motion. Make sound and visuals breathe on command." },
+  { id: "filter",       emoji: "💧", label: "Filter",       symbol: "◫",   title: "Filter",    pitch: "Shape the airframe. Carve mass, reveal brightness, and teach a signal where it is allowed to fly." },
+  { id: "oscillator",   emoji: "⚪", label: "Oscillator",   symbol: "∿",   title: "Oscillator", pitch: "Start with a voice. Tone generators, phase motion, and the raw signal that everything else learns to orbit." },
+  { id: "chaos",        emoji: "🌌", label: "Chaos",        symbol: "∞",   title: "Chaos",     pitch: "All the various attractors and strange motion systems. The wild shelf where math starts looking back." },
+  { id: "jerobeam",     emoji: "♻️", label: "Jerobeam",     symbol: "JRB", title: "Jerobeam",  pitch: "Jerobeam spiral and orbit motion systems. Spiral Generator lives here." },
+  { id: "noise",        emoji: "🌧️", label: "Noise",        symbol: "✦",   title: "Noise",     pitch: "Noise, dust, instability, sparks, and all the useful mess a clean machine secretly needs." },
+  { id: "modulator",    emoji: "♾️", label: "Modulator",    symbol: "⇄",   title: "Modulator", pitch: "Motion sources for pitch, amplitude, time, and texture. Small control engines that make patches move." },
+  { id: "digital",      emoji: "🔬", label: "Digital",      symbol: "{ }", title: "Digital",   pitch: "Patch-local code surfaces, exact value conversion, and digital/visual programming tools inside the sandbox." },
+  { id: "music",        emoji: "🎶", label: "Music",        symbol: "OUT", title: "Music",     pitch: "Music playback, audio sinks, and listening endpoints for turning patch signal into rendered or live sound." },
+  { id: "sample",       emoji: "🔊", label: "Sample",       symbol: "▣",   title: "Samples",   pitch: "Audio-file shelf. Empty by default until sandbox has a real file-library flow." },
+  { id: "grains",       emoji: "⏳", label: "Grains",       symbol: "",    title: "Grains",    pitch: "" },
+  { id: "space",        emoji: "⛪", label: "Space",        symbol: "FX",  title: "Delay",     pitch: "Delay, reverb, distortion, and performance processors for shaping finished sound." },
+  { id: "time",         emoji: "⌚", label: "Time",         symbol: "♪",   title: "Sequence",  pitch: "Pitch lanes and melodic pattern tools for generating lines, hooks, and motion." },
+  { id: "led",          emoji: "🚥", label: "LED",          symbol: "●",   title: "LED",       pitch: "Compact in-world indicator lights. Patch any gate or control signal in and use it as a one-tile status light." },
+  { id: "rgb",          emoji: "🌈", label: "RGB",          symbol: "◍",   title: "RGB",       pitch: "Color sinks for the screen wash — precise RGB/HSL channels or stylized chroma drift, alpha, bloom, and glow." },
+  { id: "oscilloscope", emoji: "📺", label: "Oscilloscope", symbol: "OSC", title: "Oscilloscope", pitch: "Dedicated display testbeds for trace, line burn, 2D scope, videoscope, and canvas-style waveform inspection." },
+  { id: "multimeter",   emoji: "📟", label: "Multimeter",   symbol: "0D",  title: "Multimeter", pitch: "Single-value readouts. Burn, line, or text display for the latest value on a signal — no waveform, just the number." },
+  { id: "media",        emoji: "🎞️", label: "Media",        symbol: "",    title: "Media",     pitch: "" },
+  { id: "gametrigger",  emoji: "♟️", label: "Game Trigger",  symbol: "",    title: "Game Triggers", pitch: "" },
+  { id: "debug",        emoji: "🐞", label: "Debug",        symbol: "DBG", title: "Debug",     pitch: "Inspection tools, sentinels, and safety monitors for catching bad values while a patch is under test." },
 ]);
 
-const nodeGraphModuleStoreVisualGroups = Object.freeze([]);
-
-const nodeGraphModuleStoreVisualGroupByDepartment = Object.freeze(
-  nodeGraphModuleStoreVisualGroups.reduce((groups, group) => {
-    for (const department of group.departments) {
-      groups[department] = group.label;
-    }
-    return groups;
+// Fast lookup: department ID → definition object.
+const nodeGraphModuleStoreDepartmentById = Object.freeze(
+  nodeGraphModuleStoreDepartments.reduce((map, dep) => {
+    map[dep.id] = dep;
+    return map;
   }, {}),
 );
 
-const nodeGraphModuleStoreDepartmentAliases = Object.freeze({
-  Arpeggiator: "⌚Time",
-  Audio: "🎶Music",
-  "Audio Player": "🎶Music",
-  Chaos: "♾️Chaos",
-  CLAP: "🔌Plugin",
-  Controllers: "🕹️Controller",
-  Debug: "🐞Debug",
-  Delay: "⛪Space",
-  Digital: "🔬Digital",
-  Drum: "🥁Drum",
-  Dynamics: "⚡Dynamics",
-  Envelope: "📐Envelope",
-  Filter: "💧Filter",
-  "Game Triggers": "♟️Game Trigger",
-  Grains: "⏳Grains",
-  Jerobeam: "♻️Jerobeam",
-  LED: "🚥LED",
-  Loops: "🔊Sample",
-  Modulator: "⚡Modulator",
-  Modulators: "⚡Modulator",
-  Multimeter: "📟Multimeter",
-  Noise: "🌧️Noise",
-  Oscillator: "⚪Oscillator",
-  Oscilloscope: "📺Oscilloscope",
-  Other: "🔬Digital",
-  Portals: "🌌Portal",
-  RGB: "🌈RGB",
-  Samples: "🔊Sample",
-  Sequence: "⌚Time",
-  Sequencer: "⌚Time",
-  Time: "⌚Time",
-  Visual: "🔬Digital",
-});
+// Set of valid department IDs — used by settings persistence validation.
+const nodeGraphModuleStoreDepartmentIds = Object.freeze(
+  new Set(nodeGraphModuleStoreDepartments.map((dep) => dep.id)),
+);
 
-const nodeGraphModuleStoreDepartmentAds = Object.freeze({
-  CLAP: {
-    symbol: "⧉",
-    title: "CLAP",
-    pitch: "Host a real installed CLAP plugin from a local companion process and run your patch's audio through it.",
-  },
-  Oscillator: {
-    symbol: "∿",
-    title: "Oscillator",
-    pitch: "Start with a voice. Tone generators, phase motion, and the raw signal that everything else learns to orbit.",
-  },
-  "Drum": {
-    symbol: "▥",
-    title: "Drum",
-    pitch: "Rhythm machines, drum voices, pattern engines, and percussion control surfaces.",
-  },
-  Filter: {
-    symbol: "◫",
-    title: "Filter",
-    pitch: "Shape the airframe. Carve mass, reveal brightness, and teach a signal where it is allowed to fly.",
-  },
-  Delay: {
-    symbol: "FX",
-    title: "Delay",
-    pitch: "Delay, reverb, distortion, and performance processors for shaping finished sound.",
-  },
-  Sequence: {
-    symbol: "♪",
-    title: "Sequence",
-    pitch: "Pitch lanes and melodic pattern tools for generating lines, hooks, and motion.",
-  },
-  "Chord Sequencer": {
-    symbol: "♬",
-    title: "Chord Sequencer",
-    pitch: "Progression tools for harmonic movement, voicings, and chord-triggered systems.",
-  },
-  Arpeggiator: {
-    symbol: "↟",
-    title: "Arpeggiator",
-    pitch: "Pattern engines for broken chords, rhythmic note motion, and performance arps.",
-  },
-  Audio: {
-    symbol: "OUT",
-    title: "Music",
-    pitch: "Music playback, audio sinks, and listening endpoints for turning patch signal into rendered or live sound.",
-  },
-  Dynamics: {
-    symbol: "⚡",
-    title: "Dynamics",
-    pitch: "Power routing, level control, offsets, and response shaping for keeping a circuit alive under pressure.",
-  },
-  Debug: {
-    symbol: "DBG",
-    title: "Debug",
-    pitch: "Inspection tools, sentinels, and safety monitors for catching bad values while a patch is under test.",
-  },
-  Envelope: {
-    symbol: "⌒",
-    title: "Envelope",
-    pitch: "Attack, decay, sustain, release, and gate-shaped motion. Make sound and visuals breathe on command.",
-  },
-  Modulators: {
-    symbol: "⇄",
-    title: "Modulator",
-    pitch: "Motion sources for pitch, amplitude, time, and texture. Small control engines that make patches move.",
-  },
-  Controllers: {
-    symbol: "⌘",
-    title: "Controllers",
-    pitch: "Input devices and control bridges for keyboards, MIDI, gamepads, and external gestures.",
-  },
-  Digital: {
-    symbol: "{ }",
-    title: "Digital",
-    pitch: "Patch-local code surfaces, exact value conversion, and digital/visual programming tools inside the sandbox.",
-  },
-  Portals: {
-    symbol: "IO",
-    title: "Portals",
-    pitch: "Patch boundary portals for moving left, right, and mono signal lanes between rooms, templates, and larger circuits.",
-  },
-  Samples: {
-    symbol: "▣",
-    title: "Samples",
-    pitch: "Audio-file shelf. Empty by default until sandbox has a real file-library flow.",
-  },
-  Loops: {
-    symbol: "∞",
-    title: "Loops",
-    pitch: "Loop-file shelf. Empty by default until sandbox has a real audio-loop library flow.",
-  },
-  Noise: {
-    symbol: "✦",
-    title: "Noise",
-    pitch: "Noise, dust, instability, sparks, and all the useful mess a clean machine secretly needs.",
-  },
-  Chaos: {
-    symbol: "∞",
-    title: "Chaos",
-    pitch: "All the various attractors and strange motion systems. The wild shelf where math starts looking back.",
-  },
-  Jerobeam: {
-    symbol: "JRB",
-    title: "Jerobeam",
-    pitch: "Jerobeam spiral and orbit motion systems. Spiral Generator lives here.",
-  },
-  Visual: {
-    symbol: "V",
-    title: "Visual",
-    pitch: "Canvas layers, shader passes, screen-space glow, and formula tiles for turning patch motion into screen output.",
-  },
-  Oscilloscope: {
-    symbol: "OSC",
-    title: "Oscilloscope",
-    pitch: "Dedicated display testbeds for trace, line burn, 2D scope, videoscope, and canvas-style waveform inspection.",
-  },
-  Multimeter: {
-    symbol: "0D",
-    title: "Multimeter",
-    pitch: "Single-value readouts. Burn, line, or text display for the latest value on a signal -- no waveform, just the number.",
-  },
-  LED: {
-    symbol: "●",
-    title: "LED",
-    pitch: "Compact in-world indicator lights. Patch any gate or control signal in and use it as a one-tile status light.",
-  },
-  RGB: {
-    symbol: "◍",
-    title: "RGB",
-    pitch: "Color sinks for the screen wash -- precise RGB/HSL channels or stylized chroma drift, alpha, bloom, and glow.",
-  },
+// Backward-compatible: maps old bare-name category strings (from the catalog
+// entries and from the previous DepartmentAliases map) to canonical IDs.
+const nodeGraphModuleStoreDepartmentAliasToId = Object.freeze({
+  Arpeggiator:       "time",
+  Audio:             "music",
+  "Audio Player":    "music",
+  Chaos:             "chaos",
+  CLAP:              "plugin",
+  Controllers:       "controller",
+  Debug:             "debug",
+  Delay:             "space",
+  Digital:           "digital",
+  Drum:              "drum",
+  Dynamics:          "dynamics",
+  Envelope:          "envelope",
+  Filter:            "filter",
+  "Game Triggers":   "gametrigger",
+  Grains:            "grains",
+  Jerobeam:          "jerobeam",
+  LED:               "led",
+  Loops:             "sample",
+  Modulator:         "modulator",
+  Modulators:        "modulator",
+  Multimeter:        "multimeter",
+  Noise:             "noise",
+  Oscillator:        "oscillator",
+  Oscilloscope:      "oscilloscope",
+  Other:             "digital",
+  Portals:           "portal",
+  RGB:               "rgb",
+  Samples:           "sample",
+  Sequence:          "time",
+  Sequencer:         "time",
+  Time:              "time",
+  Visual:            "digital",
 });
 
 const nodeGraphModuleStoreCatalog = Object.freeze({
@@ -1230,8 +1106,12 @@ function setNodeGraphModuleCatalogVisibility(type, visible, shelf = "shop") {
 }
 
 function normalizeNodeGraphModuleStoreDepartment(department = "") {
-  const value = String(department || "");
-  return nodeGraphModuleStoreDepartmentAliases[value] || value;
+  const value = String(department || "").trim();
+  if (!value) return "";
+  // Direct ID match — already canonical.
+  if (nodeGraphModuleStoreDepartmentById[value]) return value;
+  // Old bare-name → ID conversion.
+  return nodeGraphModuleStoreDepartmentAliasToId[value] || "";
 }
 
 function setNodeGraphModuleStoreDepartment(department = "") {
@@ -1303,26 +1183,28 @@ function nodeGraphModuleStoreSearchResultOrder(a, b) {
 
 function nodeGraphModuleStorePublicEntriesByDepartment(entries = []) {
   const groups = new Map();
-  for (const department of nodeGraphModuleStoreDepartments) {
-    groups.set(department, []);
+  for (const dep of nodeGraphModuleStoreDepartments) {
+    groups.set(dep.id, []);
   }
   entries
     .filter((entry) => entry.visible)
     .forEach((entry) => {
-      const department = entry.category || "Other";
-      if (!groups.has(department)) {
-        groups.set(department, []);
+      const rawCategory = entry.category || "Other";
+      const departmentId = nodeGraphModuleStoreDepartmentAliasToId[rawCategory]
+        || rawCategory;
+      if (!groups.has(departmentId)) {
+        groups.set(departmentId, []);
       }
-      groups.get(department).push(entry);
+      groups.get(departmentId).push(entry);
     });
   return [...groups.entries()]
-    .map(([department, departmentEntries]) => [
-      department,
+    .map(([departmentId, departmentEntries]) => [
+      departmentId,
       departmentEntries.sort((a, b) => a.label.localeCompare(b.label)),
     ])
     .sort(([a], [b]) => {
-      const aIndex = nodeGraphModuleStoreDepartments.indexOf(a);
-      const bIndex = nodeGraphModuleStoreDepartments.indexOf(b);
+      const aIndex = nodeGraphModuleStoreDepartments.findIndex((dep) => dep.id === a);
+      const bIndex = nodeGraphModuleStoreDepartments.findIndex((dep) => dep.id === b);
       const normalizedA = aIndex === -1 ? Number.POSITIVE_INFINITY : aIndex;
       const normalizedB = bIndex === -1 ? Number.POSITIVE_INFINITY : bIndex;
       return normalizedA - normalizedB || a.localeCompare(b);
@@ -1584,23 +1466,24 @@ function createNodeGraphModuleStoreButton(entry) {
   return card;
 }
 
-function createNodeGraphModuleDepartmentButton(department, entries) {
-  const ad = nodeGraphModuleStoreDepartmentAds[department] || {};
-  const titleText = ad.title || department;
+function createNodeGraphModuleDepartmentButton(departmentId, entries) {
+  const dep = nodeGraphModuleStoreDepartmentById[departmentId];
+  const emoji = dep ? dep.emoji : "";
+  const titleText = dep ? dep.label : departmentId;
   const button = document.createElement("button");
   button.className = "scene-context-store-department-card node-module-category-row";
   button.type = "button";
-  button.dataset.storeDepartment = department;
+  button.dataset.storeDepartment = departmentId;
   button.title = `${titleText}: module department`;
   button.setAttribute("aria-label", `Open ${titleText} module department.`);
   button.addEventListener("click", (event) => {
     event.stopPropagation();
-    setNodeGraphModuleStoreDepartment(department);
+    setNodeGraphModuleStoreDepartment(departmentId);
   });
 
   const title = document.createElement("strong");
   title.className = "scene-context-store-department-title";
-  title.textContent = titleText;
+  title.textContent = `${emoji}${titleText}`;
 
   const count = document.createElement("span");
   count.className = "scene-context-store-department-count";

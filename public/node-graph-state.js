@@ -102,6 +102,8 @@ var nodeGraphMvp = {
     node: null,
     outputEnabled: false,
     outputGain: null,
+    paused: false,
+    speedMultiplier: 1,
     planEvidence: null,
     activeNodeIds: new Set(),
     autoSmoothingSeconds: 0.5,

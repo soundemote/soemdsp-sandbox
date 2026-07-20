@@ -500,19 +500,29 @@ function soemdspSandboxLiveOutputEnabled() {
 // button, ear protection tripping, etc.) so an external play/stop button
 // can stay in sync without polling.
 let nodeGraphExternalLastReportedLiveOutputEnabled = null;
+let nodeGraphExternalLastReportedLivePaused = null;
+let nodeGraphExternalLastReportedLiveSpeed = null;
 function nodeGraphExternalNotifyLiveOutputChanged() {
   const enabled = soemdspSandboxLiveOutputEnabled();
-  if (enabled === nodeGraphExternalLastReportedLiveOutputEnabled) {
+  const paused = Boolean(nodeGraphMvp?.live?.paused);
+  const speed = Number(nodeGraphMvp?.live?.speedMultiplier) || 1;
+  if (
+    enabled === nodeGraphExternalLastReportedLiveOutputEnabled &&
+    paused === nodeGraphExternalLastReportedLivePaused &&
+    speed === nodeGraphExternalLastReportedLiveSpeed
+  ) {
     return;
   }
   nodeGraphExternalLastReportedLiveOutputEnabled = enabled;
+  nodeGraphExternalLastReportedLivePaused = paused;
+  nodeGraphExternalLastReportedLiveSpeed = speed;
   const parentWindow = window.parent;
   if (!parentWindow || parentWindow === window) {
     return;
   }
   try {
     parentWindow.postMessage(
-      { type: "soundemote:live-output-changed", enabled },
+      { type: "soundemote:live-output-changed", enabled, paused, speed },
       window.location.origin,
     );
   } catch (error) {
@@ -688,6 +698,40 @@ window.addEventListener("message", (event) => {
     } else {
       soemdspSandboxToggleLiveOutput();
     }
+  } else if (message.type === "soundemote:set-live-paused") {
+    if (!nodeGraphExternalMessageOriginAllowed(event)) {
+      return;
+    }
+    if (Object.hasOwn(message, "paused")) {
+      if (typeof setNodeGraphLivePaused === "function") {
+        setNodeGraphLivePaused(message.paused);
+      }
+    } else {
+      if (typeof toggleNodeGraphLivePaused === "function") {
+        toggleNodeGraphLivePaused();
+      }
+    }
+  } else if (message.type === "soundemote:set-live-speed") {
+    if (!nodeGraphExternalMessageOriginAllowed(event)) {
+      return;
+    }
+    if (typeof setNodeGraphLiveSpeed === "function" && Object.hasOwn(message, "speed")) {
+      setNodeGraphLiveSpeed(message.speed);
+    }
+  } else if (message.type === "soundemote:request-live-state") {
+    const enabled = soemdspSandboxLiveOutputEnabled();
+    const paused = Boolean(nodeGraphMvp?.live?.paused);
+    const speed = Number(nodeGraphMvp?.live?.speedMultiplier) || 1;
+    event.source?.postMessage(
+      {
+        type: "soundemote:live-state",
+        requestId: message.requestId || null,
+        enabled,
+        paused,
+        speed,
+      },
+      event.origin,
+    );
   } else if (message.type === "soundemote:request-current-patch") {
     let projectData = null;
     try {

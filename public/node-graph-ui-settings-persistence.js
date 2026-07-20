@@ -222,14 +222,8 @@ function normalizeNodeGraphModuleStoreDepartmentState(value = "") {
     return "";
   }
   if (
-    Array.isArray(window.nodeGraphModuleStoreDepartments) &&
-    window.nodeGraphModuleStoreDepartments.includes(department)
-  ) {
-    return department;
-  }
-  if (
-    typeof nodeGraphModuleStoreDepartments !== "undefined" &&
-    nodeGraphModuleStoreDepartments.includes?.(department)
+    typeof nodeGraphModuleStoreDepartmentIds !== "undefined" &&
+    nodeGraphModuleStoreDepartmentIds.has(department)
   ) {
     return department;
   }

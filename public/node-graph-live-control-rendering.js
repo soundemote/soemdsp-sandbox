@@ -10,6 +10,10 @@ function nodeGraphLiveOutputButtonTitle(outputActive, outputEnabled) {
   }
   const inputActive = Boolean(nodeGraphMvp.live.inputActive);
   const inputStreaming = Boolean(nodeGraphMvp.live.inputStream);
+  const enginePaused = Boolean(nodeGraphMvp.live.paused);
+  if (outputActive && enginePaused) {
+    return nodeGraphTooltipText("audio.liveOutputPaused");
+  }
   if (outputActive && inputStreaming) {
     return nodeGraphTooltipText("audio.liveOutputRunningWithInput");
   }
@@ -110,12 +114,17 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) 
   }
   if (outputButton) {
     const protectionTripped = nodeGraphEarProtectionIsTripped();
+    const enginePaused = Boolean(nodeGraphMvp.live.paused);
     outputButton.disabled = starting || protectionTripped;
     outputButton.classList.toggle("active", outputEnabled && !protectionTripped);
+    outputButton.classList.toggle("paused", enginePaused && !protectionTripped);
     outputButton.classList.toggle("node-under-construction-control", protectionTripped);
     outputButton.setAttribute("aria-pressed", outputEnabled && !protectionTripped ? "true" : "false");
     outputButton.setAttribute("aria-disabled", protectionTripped ? "true" : "false");
-    labelLiveToggle(outputButton, "Output", protectionTripped ? false : outputEnabled, protectionTripped ? "Close Dialog" : null);
+    labelLiveToggle(outputButton, "Output", protectionTripped ? false : outputEnabled,
+      protectionTripped ? "Close Dialog"
+        : enginePaused ? "Paused"
+        : null);
     outputButton.title = nodeGraphLiveOutputButtonTitle(outputActive, outputEnabled);
   }
   syncNodeGraphOutputBypassButton(outputEnabled);
