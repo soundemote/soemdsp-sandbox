@@ -122,4 +122,7 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) 
   syncNodeGraphInputModuleLiveState();
   updateNodeGraphLiveInputTestStatus();
   scheduleNodeLiveToggleTextFit();
+  if (typeof nodeGraphExternalNotifyLiveOutputChanged === "function") {
+    nodeGraphExternalNotifyLiveOutputChanged();
+  }
 }

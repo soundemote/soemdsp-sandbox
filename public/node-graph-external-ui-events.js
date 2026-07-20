@@ -467,6 +467,63 @@ function triggerNodeGraphWindowReopenEvent(reason = "") {
   return scheduleNodeGraphLiveGameTriggerEvent(sendNodeGraphLiveWindowReopenEvent, reason);
 }
 
+// Play/stop control for the whole sandbox's Live Audio output -- the thing
+// an embedding page's own transport button actually wants (start/stop
+// sound), distinct from triggerButtonEvent above (which fires a signal
+// *into* the patch graph, e.g. a Button Events module, not the engine
+// on/off switch itself). Mirrors setNodeGraphLiveOutputEnabled exactly, so
+// external and in-app control (the output power button) stay one state
+// machine, not two.
+function soemdspSandboxSetLiveOutput(enabled) {
+  if (typeof setNodeGraphLiveOutputEnabled !== "function") {
+    return false;
+  }
+  setNodeGraphLiveOutputEnabled(Boolean(enabled));
+  return true;
+}
+
+function soemdspSandboxToggleLiveOutput() {
+  if (typeof toggleNodeGraphLiveOutput !== "function") {
+    return false;
+  }
+  toggleNodeGraphLiveOutput();
+  return true;
+}
+
+function soemdspSandboxLiveOutputEnabled() {
+  return Boolean(nodeGraphMvp?.live?.outputEnabled);
+}
+
+// Fire-and-forget notice to the parent page whenever output actually
+// changes -- driven by renderNodeGraphLiveControls (called on every state
+// change regardless of what triggered it: this function, the in-app power
+// button, ear protection tripping, etc.) so an external play/stop button
+// can stay in sync without polling.
+let nodeGraphExternalLastReportedLiveOutputEnabled = null;
+function nodeGraphExternalNotifyLiveOutputChanged() {
+  const enabled = soemdspSandboxLiveOutputEnabled();
+  if (enabled === nodeGraphExternalLastReportedLiveOutputEnabled) {
+    return;
+  }
+  nodeGraphExternalLastReportedLiveOutputEnabled = enabled;
+  const parentWindow = window.parent;
+  if (!parentWindow || parentWindow === window) {
+    return;
+  }
+  try {
+    parentWindow.postMessage(
+      { type: "soundemote:live-output-changed", enabled },
+      window.location.origin,
+    );
+  } catch (error) {
+    // Cross-origin parent with a mismatched origin guess -- nothing to do.
+  }
+}
+
+window.soemdspSandboxSetLiveOutput = soemdspSandboxSetLiveOutput;
+window.soemdspSandboxToggleLiveOutput = soemdspSandboxToggleLiveOutput;
+window.soemdspSandboxLiveOutputEnabled = soemdspSandboxLiveOutputEnabled;
+
 window.soemdspSandboxTriggerButtonEvent = triggerNodeGraphExternalButtonEvent;
 window.soemdspSandboxTriggerWireBreakEvent = triggerNodeGraphWireBreakEvent;
 window.soemdspSandboxTriggerWireConnectEvent = triggerNodeGraphWireConnectEvent;
@@ -622,6 +679,15 @@ window.addEventListener("message", (event) => {
       return;
     }
     nodeGraphExternalScheduleViewApply(message.view || message);
+  } else if (message.type === "soundemote:set-live-output") {
+    if (!nodeGraphExternalMessageOriginAllowed(event)) {
+      return;
+    }
+    if (Object.hasOwn(message, "enabled")) {
+      soemdspSandboxSetLiveOutput(message.enabled);
+    } else {
+      soemdspSandboxToggleLiveOutput();
+    }
   } else if (message.type === "soundemote:request-current-patch") {
     let projectData = null;
     try {
