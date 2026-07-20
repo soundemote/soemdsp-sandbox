@@ -11531,7 +11531,7 @@ body.keyboard-debug-hidden .node-live-controls {
     var(--node-header-height)
     0px
     var(--node-module-interface-controls-height)
-    auto
+    var(--node-module-scope-height)
     minmax(var(--node-io-section-min-height), auto)
     auto;
 }
