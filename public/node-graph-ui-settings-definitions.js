@@ -99,6 +99,13 @@ const nodeUiDevSettingControls = Object.freeze([
 
 const nodeUiDevSettingSections = Object.freeze([
   {
+    title: "module browser",
+    ids: [
+      "nodeUiDevModuleBrowserEntryPadding",
+      "nodeUiDevModuleBrowserEntryTextSize",
+    ],
+  },
+  {
     title: "workspace",
     ids: [
       "nodeUiDevMouseLightEnabled",
@@ -114,8 +121,6 @@ const nodeUiDevSettingSections = Object.freeze([
       "nodeUiDevModuleRoundness",
       "nodeUiDevGridColor",
       "nodeUiDevWorkspaceBackgroundColor",
-      "nodeUiDevModuleBrowserEntryPadding",
-      "nodeUiDevModuleBrowserEntryTextSize",
     ],
   },
   {

@@ -6973,7 +6973,7 @@ def require_node_graph_mvp_contract() -> None:
         "Close",
         'aria-pressed="false">Show Evidence</button>',
         "nodeParameterMetadataPopover",
-        "floating-window-header-height-1",
+        "module-browser-entry-controls-20260719",
         "nodeMissingSampleAssetsDialog",
         "Patch Assets Required",
         "Missing Samples",
