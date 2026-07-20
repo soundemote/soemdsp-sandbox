@@ -17673,8 +17673,12 @@ def require_native_module_contract(base_url: str) -> None:
         "hideui modular embeds should remove sandbox chrome and fill the iframe",
     )
 
+    # wall_delay.cpp is a deliberate placeholder -- the real DSP is
+    # JS-side (nodeGraphWallDelaySample) and no .wasm is meant to sit next
+    # to it yet (see the file's own header comment), so it's exempted from
+    # expected_native_exports and the wasm-must-exist checks below rather
+    # than added to either.
     expected_native_exports = {
-        "wall_delay": ["soemdsp_wall_delay_version"],
         "transport": ["soemdsp_transport_create", "soemdsp_transport_destroy", "soemdsp_transport_sample", "soemdsp_transport_unipolar"],
         "slew_limiter": ["soemdsp_slew_limiter_create", "soemdsp_slew_limiter_destroy", "soemdsp_slew_limiter_sample"],
         "sample_hold": ["soemdsp_sample_hold_create", "soemdsp_sample_hold_destroy", "soemdsp_sample_hold_sample"],
@@ -17812,6 +17816,8 @@ def require_native_module_contract(base_url: str) -> None:
         require("// soemdsp-native-target:" in source_text, f"native {module_name} source metadata missing target header")
         require("// soemdsp-native-kind:" in source_text, f"native {module_name} source metadata missing kind header")
         require("soemdsp-native-tooltip" not in source_text, f"native {module_name} should not use comment tooltip metadata")
+        if module_name == "wall_delay":
+            continue
         require(module_name in expected_native_exports, f"native {module_name} should declare expected exports in smoke test")
         for export_name in expected_native_exports[module_name]:
             require(f'extern "C"' in source_text and export_name in source_text, f"native {module_name} export missing: {export_name}")
@@ -17963,7 +17969,11 @@ def require_native_module_contract(base_url: str) -> None:
         entry = next((item for item in modules if item.get("targetType") == target_type), None)
         require(entry is not None, f"native modules API should include {module_name}")
         require(entry.get("name") == module_name, f"native modules API name should match {module_name}")
-        require(entry.get("wasmAvailable") is True, f"native modules API should mark {module_name} wasm available")
+        expected_wasm_available = module_name != "wall_delay"
+        require(
+            entry.get("wasmAvailable") is expected_wasm_available,
+            f"native modules API should mark {module_name} wasm available as {expected_wasm_available}",
+        )
         require("tooltips" not in entry, f"native modules API should not expose comment-parsed tooltips for {module_name}")
 
     wasm_response = request(f"{base_url}/native_modules/ellipsoid/ellipsoid.wasm")
@@ -17979,6 +17989,8 @@ def require_native_module_contract(base_url: str) -> None:
     require_content_type(soft_clipper_wasm_response, "application/wasm", "native Soft Clipper wasm")
     require(soft_clipper_wasm_response.body.startswith(b"\0asm"), "served native Soft Clipper wasm magic bytes missing")
     for source_path in native_sources:
+        if source_path.parent.name == "wall_delay":
+            continue
         wasm_path = source_path.with_suffix(".wasm")
         wasm_url = f"/{wasm_path.relative_to(ROOT).as_posix()}"
         wasm_response = request(f"{base_url}{wasm_url}")

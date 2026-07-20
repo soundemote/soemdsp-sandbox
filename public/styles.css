@@ -17138,6 +17138,14 @@ body.keyboard-debug-hidden #toggleDebugButton {
   display: none;
 }
 
+/* Check All Modules runs the same Module Diagnostics sanity pass this
+   session's native-module-load failures kept surfacing informally --
+   worth a deliberate, easy-to-reach trigger, but only while debug mode
+   is actually on (same master switch as the rest of this block). */
+body.keyboard-debug-hidden #nodeCheckAllModulesButton {
+  display: none;
+}
+
 body.keyboard-debug-hidden .node-wiring-panel ~ .panel,
 body.keyboard-debug-hidden .node-wiring-panel ~ .grid,
 body.keyboard-debug-hidden .status-strip {
