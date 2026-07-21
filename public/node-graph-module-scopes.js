@@ -10254,6 +10254,7 @@ function nodeGraphTraceDisplayPrimaryLayer(settings, color) {
 }
 
 function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
+  const t0 = performance.now();
   const slot = item?.slot;
   const buffer = item?.buffer;
   const screenElement = item?.screenElement || slot?.scopeElement;
@@ -10292,6 +10293,9 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
     drawNodeGraphTraceDisplayCanvasLayer(context, leftPoints, leftLayer, canvas, { glow: false });
     recordNodeGraphModuleScopeRenderMetrics(leftPoints.length + rightPoints.length, leftPoints.length + rightPoints.length);
     rememberNodeGraphTraceDisplaySignature(slot, item, buffer, settings);
+    if ((nodeGraphModuleScopeState._tracePerf = (nodeGraphModuleScopeState._tracePerf || 0) + 1) % 30 === 0) {
+      console.log("[TRACE_2D] stereo " + (performance.now() - t0).toFixed(1) + "ms points=" + (leftPoints.length + rightPoints.length));
+    }
     return true;
   }
   const points = buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot);
@@ -10300,6 +10304,9 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
   drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas);
   recordNodeGraphModuleScopeRenderMetrics(points.length, points.length);
   rememberNodeGraphTraceDisplaySignature(slot, item, buffer, settings);
+  if ((nodeGraphModuleScopeState._tracePerf = (nodeGraphModuleScopeState._tracePerf || 0) + 1) % 30 === 0) {
+    console.log("[TRACE_2D] mono " + (performance.now() - t0).toFixed(1) + "ms points=" + points.length);
+  }
   return true;
 }
 
