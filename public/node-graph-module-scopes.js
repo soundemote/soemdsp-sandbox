@@ -10517,9 +10517,6 @@ function drawNodeGraphModuleScopeTypedItem(renderer, item, pixelRatio) {
 }
 
 function drawNodeGraphModuleScopes() {
-  const drawSeq = (nodeGraphModuleScopeState._drawSeq = (nodeGraphModuleScopeState._drawSeq || 0) + 1);
-  const dbg = (gate) => { if (drawSeq % 30 === 0) console.log("[SCOPE_DRAW]", gate, "#" + drawSeq); };
-
   const debug = setNodeGraphModuleScopeDebugPhase("enter", {
     drawAttempts: (Number(nodeGraphModuleScopeState.renderDebug?.drawAttempts) || 0) + 1,
     lastFrameStartMs: nodeGraphModuleScopeNowMs(),
@@ -10530,12 +10527,10 @@ function drawNodeGraphModuleScopes() {
   if (!nodeGraphModuleScopeHasDrawableSlots()) {
     setNodeGraphModuleScopesEnabled(false);
     markNodeGraphModuleScopeDebugSkip("no-drawable-slots");
-    dbg("SKIP:no-drawable-slots");
     return;
   }
   if (!canvas || !workspace || !nodeGraphModuleScopeBuffersCurrent()) {
     markNodeGraphModuleScopeDebugSkip(!canvas ? "no-canvas" : !workspace ? "no-workspace" : "stale-buffers");
-    dbg("SKIP:" + (!canvas ? "no-canvas" : !workspace ? "no-workspace" : "stale-buffers"));
     return;
   }
   debug.canvasWidth = canvas.width;
@@ -10545,7 +10540,6 @@ function drawNodeGraphModuleScopes() {
   setNodeGraphModuleScopeDebugPhase("sync-canvas");
   if (!syncNodeGraphModuleScopeCanvas()) {
     markNodeGraphModuleScopeDebugSkip("canvas-sync");
-    dbg("SKIP:canvas-sync");
     return;
   }
   debug.canvasWidth = canvas.width;
@@ -10554,7 +10548,6 @@ function drawNodeGraphModuleScopes() {
   if (!renderer) {
     setNodeGraphModuleScopesEnabled(false);
     markNodeGraphModuleScopeDebugSkip("no-renderer");
-    dbg("SKIP:no-renderer");
     return;
   }
   setNodeGraphModuleScopeDebugPhase("ready");
@@ -10564,7 +10557,6 @@ function drawNodeGraphModuleScopes() {
     }
     nodeGraphModuleScopeState.scopeTracesOffActive = true;
     markNodeGraphModuleScopeDebugSkip("traces-off");
-    dbg("SKIP:traces-off");
     return;
   }
   nodeGraphModuleScopeState.scopeTracesOffActive = false;
@@ -10572,7 +10564,6 @@ function drawNodeGraphModuleScopes() {
   if (scopePaused && !nodeGraphModuleScopeHasModelDisplay()) {
     nodeGraphModuleScopeState.animationLastTime = (performance.now?.() || Date.now()) / 1000;
     markNodeGraphModuleScopeDebugSkip("paused");
-    dbg("SKIP:paused");
     return;
   }
   const animationTime = (performance.now?.() || Date.now()) / 1000;
@@ -10599,17 +10590,14 @@ function drawNodeGraphModuleScopes() {
   if (!scopePaused && nodeGraphModuleScopeTraceDisplayFrameUnchanged(visibleItems)) {
     setNodeGraphModuleScopeDebugPhase("trace-unchanged");
     commitNodeGraphModuleScopeRenderMetricsFrame(animationTime);
-    dbg("SKIP:trace-unchanged items=" + visibleItems.length);
     return;
   }
   if (!nodeGraphModuleScopePhosphorFrameReady(firstVisibleSlot)) {
     setNodeGraphModuleScopeDebugPhase("fps-gate");
     commitNodeGraphModuleScopeRenderMetricsFrame(animationTime);
     scheduleNodeGraphModuleScopeDraw();
-    dbg("SKIP:phosphor-fps-gate");
     return;
   }
-  dbg("DRAW items=" + visibleItems.length);
   setNodeGraphModuleScopeDebugPhase("clear-current-frame");
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.viewport(0, 0, canvas.width, canvas.height);
@@ -10701,11 +10689,7 @@ function drawNodeGraphModuleScopes() {
 }
 
 function scheduleNodeGraphModuleScopeDraw() {
-  const schedSeq = (nodeGraphModuleScopeState._schedSeq = (nodeGraphModuleScopeState._schedSeq || 0) + 1);
-  const sdbg = (gate) => { if (schedSeq % 60 === 0) console.log("[SCOPE_SCHED]", gate, "#" + schedSeq); };
-
   if (!nodeGraphModuleScopeHasDrawableSlots()) {
-    sdbg("SKIP:no-drawable-slots");
     return;
   }
   if (nodeGraphModuleScopeTracesOff()) {
@@ -10714,11 +10698,9 @@ function scheduleNodeGraphModuleScopeDraw() {
       clearNodeGraphModuleScopeCanvas();
     }
     markNodeGraphModuleScopeDebugSkip("traces-off");
-    sdbg("SKIP:traces-off");
     return;
   }
   if (nodeGraphModuleScopePaused() && !nodeGraphModuleScopeHasModelDisplay()) {
-    sdbg("SKIP:paused");
     return;
   }
   if (nodeGraphModuleScopeState.drawFrame) {
@@ -10732,9 +10714,7 @@ function scheduleNodeGraphModuleScopeDraw() {
         window.clearTimeout(nodeGraphModuleScopeState.drawFrameWatchdog);
         nodeGraphModuleScopeState.drawFrameWatchdog = 0;
       }
-      sdbg("CANCEL:stuck-raf-" + Math.round(now - requestedAt) + "ms");
     } else {
-      sdbg("SKIP:already-pending");
       return;
     }
   }

@@ -1743,8 +1743,6 @@ function flushNodeGraphLivePlanSync() {
   const mode = nodeGraphMvp.live.syncMode || "plan";
   nodeGraphMvp.live.syncMode = "";
   clearNodeGraphLivePlanSync();
-  const fseq = (nodeGraphMvp.live._flushSeq = (nodeGraphMvp.live._flushSeq || 0) + 1);
-  if (fseq % 10 === 0) console.log("[PARAM_SYNC]", mode, "flush #" + fseq);
   if (mode === "params") {
     sendNodeGraphLiveParameterUpdate();
   } else {
