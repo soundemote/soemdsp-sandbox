@@ -1429,7 +1429,6 @@ function sendNodeGraphLiveParameterUpdate() {
     }
     const autoSmoothingSeconds = nodeGraphMvp.live.autoSmoothingSeconds;
     syncNodeGraphGlobalSmoothingControl();
-    updateNodeGraphLiveModuleScopeFingerprint(patchFingerprint);
     nodeGraphMvp.live.planSerial += 1;
     if (nodeGraphMvp.live.usesWorklet) {
       setNodeGraphLiveEvidence("params-sent", {
