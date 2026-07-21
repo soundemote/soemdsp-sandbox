@@ -10686,6 +10686,7 @@ function drawNodeGraphModuleScopes() {
   } else {
     setNodeGraphModuleScopeDebugPhase("idle");
   }
+  flushNodeSliderPendingValues();
 }
 
 function scheduleNodeGraphModuleScopeDraw() {

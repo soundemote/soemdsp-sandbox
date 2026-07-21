@@ -221,9 +221,10 @@ function setNodeSliderValue(slider, value, options = {}) {
   }
   const normalized = normalizeNodeSliderValue(slider, value);
   if (isDrag) {
-    window.requestAnimationFrame(() => {
-      slider.value = String(normalized);
-    });
+    if (!nodeGraphMvp._pendingSliderValues) {
+      nodeGraphMvp._pendingSliderValues = new Map();
+    }
+    nodeGraphMvp._pendingSliderValues.set(slider, normalized);
   } else {
     slider.value = String(normalized);
     syncNodeSliderReadout(slider);
@@ -523,4 +524,15 @@ function endNodeSliderDrag(event) {
     drag.resetToDefaultOnClick && !drag.moved ? "parameter reset to default" : "parameter changed",
   );
   nodeGraphMvp.sliderDragging = null;
+}
+
+function flushNodeSliderPendingValues() {
+  const pending = nodeGraphMvp?._pendingSliderValues;
+  if (!pending?.size) {
+    return;
+  }
+  for (const [slider, normalized] of pending) {
+    slider.value = String(normalized);
+  }
+  pending.clear();
 }
