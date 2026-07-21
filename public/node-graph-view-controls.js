@@ -117,6 +117,22 @@ function renderNodeGraphModuleVisibilityToggles() {
   workspace?.classList.toggle("module-interface-controls-hidden", !interfaceControlsVisible);
   workspace?.classList.toggle("module-sliders-hidden", !slidersVisible);
   syncNodeGraphVisibleModuleGridHeights();
+  // Refresh per-node visibility classes so unhiding works immediately
+  // without needing a full patch commit.
+  for (const element of document.querySelectorAll(".dsp-node[data-node]")) {
+    const patchNode = typeof nodeGraphPatchNode === "function"
+      ? nodeGraphPatchNode(element.dataset.node)
+      : null;
+    if (!patchNode) continue;
+    const effectiveUi = typeof nodeGraphEffectivePatchNodeUi === "function"
+      ? nodeGraphEffectivePatchNodeUi(patchNode.ui)
+      : null;
+    if (!effectiveUi) continue;
+    element.classList.toggle("buttons-hidden", effectiveUi.buttonsHidden);
+    element.classList.toggle("oscilloscope-hidden", effectiveUi.oscilloscopeHidden);
+    element.classList.toggle("interface-controls-hidden", effectiveUi.interfaceControlsHidden);
+    element.classList.toggle("sliders-hidden", effectiveUi.slidersHidden);
+  }
   if (buttonsButton) {
     buttonsButton.textContent = buttonsVisible ? "Hide Module Buttons" : "Show Module Buttons";
     buttonsButton.setAttribute("aria-pressed", buttonsVisible ? "true" : "false");

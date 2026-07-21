@@ -529,7 +529,8 @@ let nodeGraphExternalLastReportedLiveOutputEnabled = null;
 let nodeGraphExternalLastReportedLiveSpeed = null;
 function nodeGraphExternalNotifyLiveOutputChanged() {
   const enabled = soemdspSandboxLiveOutputEnabled();
-  const speed = Number(nodeGraphMvp?.live?.speedMultiplier) || 1;
+  const rawSpeed = nodeGraphMvp?.live?.speedMultiplier;
+  const speed = rawSpeed != null ? Number(rawSpeed) : 1;
   if (
     enabled === nodeGraphExternalLastReportedLiveOutputEnabled &&
     speed === nodeGraphExternalLastReportedLiveSpeed
@@ -729,7 +730,8 @@ window.addEventListener("message", (event) => {
     }
   } else if (message.type === "soundemote:request-live-state") {
     const enabled = soemdspSandboxLiveOutputEnabled();
-    const speed = Number(nodeGraphMvp?.live?.speedMultiplier) || 1;
+    const rawSpeed = nodeGraphMvp?.live?.speedMultiplier;
+    const speed = rawSpeed != null ? Number(rawSpeed) : 1;
     event.source?.postMessage(
       {
         type: "soundemote:live-state",
