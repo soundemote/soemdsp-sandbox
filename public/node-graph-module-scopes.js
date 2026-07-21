@@ -1574,9 +1574,6 @@ function updateNodeGraphLiveModuleScopeFingerprint(patchFingerprint = nodeGraphP
   if (!fingerprint || nodeGraphModuleScopeState.patchFingerprint === fingerprint) {
     return;
   }
-  nodeGraphModuleScopeState.buffers.clear();
-  nodeGraphModuleScopeState.traceDisplayDrawCache.clear();
-  nodeGraphModuleScopeState.traceDisplayScratch.clear();
   nodeGraphModuleScopeState.patchFingerprint = fingerprint;
 }
 
@@ -8432,16 +8429,7 @@ function drawNodeGraphTraceDisplayItem(renderer, item, pixelRatio) {
   const slot = item?.slot;
   const buffer = item?.buffer;
   if (!slot || !buffer?.length) {
-    if (slot?.nodeId === "output" || slot?.type === "output") {
-      console.warn("[MAIN SCOPE DEBUG] output trace draw SKIPPED — buffer missing!", "slot:", slot, "buffer:", buffer?.length);
-    }
     return;
-  }
-  if (slot?.nodeId === "output" || slot?.type === "output") {
-    nodeGraphModuleScopeState._debugOutputDrawCount = (nodeGraphModuleScopeState._debugOutputDrawCount || 0) + 1;
-    if (nodeGraphModuleScopeState._debugOutputDrawCount % 60 === 0) {
-      console.log("[MAIN SCOPE DEBUG] output trace draw #" + nodeGraphModuleScopeState._debugOutputDrawCount, "bufLen:", buffer.length, "firstSample:", buffer[0], "lastSample:", buffer[buffer.length - 1]);
-    }
   }
   renderNodeGraphModuleScopeAnalyzer(slot, buffer);
   drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio);
