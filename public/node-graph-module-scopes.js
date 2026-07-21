@@ -8444,7 +8444,16 @@ function drawNodeGraphTraceDisplayItem(renderer, item, pixelRatio) {
   const slot = item?.slot;
   const buffer = item?.buffer;
   if (!slot || !buffer?.length) {
+    if (slot?.nodeId === "output" || slot?.type === "output") {
+      console.warn("[MAIN SCOPE DEBUG] output trace draw SKIPPED — buffer missing!", "slot:", slot, "buffer:", buffer?.length);
+    }
     return;
+  }
+  if (slot?.nodeId === "output" || slot?.type === "output") {
+    nodeGraphModuleScopeState._debugOutputDrawCount = (nodeGraphModuleScopeState._debugOutputDrawCount || 0) + 1;
+    if (nodeGraphModuleScopeState._debugOutputDrawCount % 60 === 0) {
+      console.log("[MAIN SCOPE DEBUG] output trace draw #" + nodeGraphModuleScopeState._debugOutputDrawCount, "bufLen:", buffer.length, "firstSample:", buffer[0], "lastSample:", buffer[buffer.length - 1]);
+    }
   }
   renderNodeGraphModuleScopeAnalyzer(slot, buffer);
   drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio);
@@ -10603,6 +10612,10 @@ function drawNodeGraphModuleScopes() {
   debug.visibleItems = visibleItems.length;
   const firstVisibleSlot = visibleItems[0]?.slot;
   if (!scopePaused && nodeGraphModuleScopeTraceDisplayFrameUnchanged(visibleItems)) {
+    nodeGraphModuleScopeState._debugDrawSkipCount = (nodeGraphModuleScopeState._debugDrawSkipCount || 0) + 1;
+    if (nodeGraphModuleScopeState._debugDrawSkipCount % 60 === 0) {
+      console.log("[MAIN SCOPE DEBUG] trace-unchanged skip #" + nodeGraphModuleScopeState._debugDrawSkipCount, "visibleItems:", visibleItems.length);
+    }
     setNodeGraphModuleScopeDebugPhase("trace-unchanged");
     commitNodeGraphModuleScopeRenderMetricsFrame(animationTime);
     return;
