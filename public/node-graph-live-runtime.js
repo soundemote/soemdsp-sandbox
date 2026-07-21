@@ -1447,9 +1447,6 @@ function sendNodeGraphLiveParameterUpdate() {
         sessionId: nodeGraphMvp.live.sessionId,
         type: "setParams",
       });
-      const plan = nodeGraphBuildLivePlan();
-      const audio = nodeGraphAudioDerivation(nodeGraphMvp.patch);
-      nodeGraphStartGpuAdditiveProducer(plan, audio);
     } else if (nodeGraphMvp.live.runtime) {
       nodeGraphMvp.live.runtime.autoSmoothingSeconds = autoSmoothingSeconds;
       updateNodeGraphLiveRuntimeParameters(nodeGraphMvp.live.runtime, nodes);
