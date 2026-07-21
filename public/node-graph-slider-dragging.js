@@ -193,6 +193,7 @@ function scheduleNodeSliderDragAutosave() {
 
 function commitNodeSliderDragValue(slider, status = "parameter changed") {
   clearNodeSliderDragAutosaveTimer();
+  syncNodeSliderReadout(slider);
   syncNodeGraphPatchParameterFromSlider(slider, {
     record: true,
     status,
@@ -221,7 +222,9 @@ function setNodeSliderValue(slider, value, options = {}) {
   slider.value = String(
     normalizeNodeSliderValue(slider, value),
   );
-  syncNodeSliderReadout(slider);
+  if (!isDrag) {
+    syncNodeSliderReadout(slider);
+  }
   syncNodeGraphPatchParameterFromSlider(slider, {
     deferAutosave: isDrag,
     deferUi: true,
