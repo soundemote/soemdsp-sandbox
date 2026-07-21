@@ -7926,6 +7926,35 @@ function nodeGraphModuleScopeLightFillStyle(context, centerX, centerY, radius, r
 // rebuilt, the same canvas is re-attached instead of creating a fresh blank one.
 const nodeGraphModuleScopePersistentCanvases = new Map();
 
+// Watch for canvas removals (module DOM rebuilds) and immediately re-attach
+// so there's no visual gap between rebuild and next scope snapshot.
+(function setupNodeGraphModuleScopeCanvasRescue() {
+  if (typeof MutationObserver === "undefined") return;
+  const rescue = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      for (const node of m.removedNodes) {
+        if (node.nodeType !== 1) continue;
+        // Find any cached canvases that were just removed
+        for (const el of [node, ...(node.querySelectorAll?.(".node-module-scope-local-fallback-canvas") || [])]) {
+          if (el.className !== "node-module-scope-local-fallback-canvas" && el.nodeName !== "CANVAS") continue;
+          for (const [nid, cached] of nodeGraphModuleScopePersistentCanvases) {
+            if (cached !== el) continue;
+            // Find the node's current scope element and re-attach the canvas immediately
+            const scopeEl = document.querySelector(`[data-node-id="${nid}"] .node-module-scope`);
+            if (scopeEl && cached.parentNode !== scopeEl) {
+              scopeEl.appendChild(cached);
+            }
+            break;
+          }
+        }
+      }
+    }
+  });
+  // Observe the wiring panel (workspace root) for any DOM changes
+  const root = document.getElementById("nodeWiringPanel") || document.body;
+  rescue.observe(root, { childList: true, subtree: true });
+})();
+
 function nodeGraphModuleScopeLocalFallbackCanvas(slot) {
   const screenElement = slot?.scopeElement;
   const nodeId = slot?.nodeId;
