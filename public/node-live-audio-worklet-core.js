@@ -4142,7 +4142,10 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
 
   normalizeParameterModulationInput(value, metadata = {}) {
     const number = Number(value) || 0;
-    return metadata?.kind === "frequency" && metadata.nonlinearSlider
+    // Frequency parameters accept bipolar modulation [-1, 1] so through-zero
+    // FM is possible (set frequency to 0, modulate with an oscillator, and the
+    // pitch sweeps both positive and negative). All other parameters use [0, 1].
+    return metadata?.kind === "frequency"
       ? this.clampValue(number, -1, 1)
       : this.clampValue(number, 0, 1);
   }
