@@ -338,6 +338,10 @@ function handleNodeGraphKeydown(event) {
   if (event.key !== "Delete" && event.key !== "Backspace") {
     return;
   }
+  // Don't delete modules while the user is typing in a text field.
+  if (nodeGraphEventTargetIsEditable(event.target)) {
+    return;
+  }
 
   if (removeFocusedNodeGraphGraphNode()) {
     event.preventDefault();
