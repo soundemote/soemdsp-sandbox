@@ -86,6 +86,7 @@ NodeLiveAudioProcessor.prototype.spectrogramCollectDisplayData = function spectr
 
   const alpha = this.clampValue(this.safeFilterNumber(params.smoothing, 0.85) ?? 0.85, 0, 0.999);
   const outputBins = Math.min(fftSize / 2, Math.round(this.clampValue(this.safeFilterNumber(params.outputBins, 256) ?? 256, 32, 1024)));
+  const freqScaleIdx = Math.round(this.clampValue(this.safeFilterNumber(params.freqScale, 0) ?? 0, 0, 2)); // 0=Low, 1=Linear, 2=High
 
   // Allocate/reallocate FFT buffers if size changed
   if (!state.fftReal || state.fftSize !== fftSize) {
@@ -142,10 +143,7 @@ NodeLiveAudioProcessor.prototype.spectrogramCollectDisplayData = function spectr
   }
   state.accumCount = accIdx;
 
-  // Logarithmic bin remapping using actual frequencies (20 Hz → Nyquist).
-  // Previously Math.pow(halfN, t) biased heavily toward low bins because
-  // halfN is large (512-4096), causing 75%+ of output bins to land in
-  // the first ~5 linear bins. Now we map log-spaced by real frequency.
+  // Frequency bin remapping (3 modes: Low Bias / Linear / High Bias).
   const halfN = fftSize / 2;
   const sampleRate = Math.max(1, this.engineSampleRate || 44100);
   const nyquist = sampleRate / 2;
@@ -154,10 +152,21 @@ NodeLiveAudioProcessor.prototype.spectrogramCollectDisplayData = function spectr
   const remapped = new Float32Array(outputBins);
   for (let i = 0; i < outputBins; i++) {
     const t = i / (outputBins - 1 || 1);
-    // Log-spaced frequency: minFreq * ratio^t
-    const freq = minFreq * Math.pow(freqRatio, t);
-    // Convert frequency → linear FFT bin index
-    const linearBin = freq * fftSize / sampleRate;
+    let linearBin;
+    if (freqScaleIdx === 1) {
+      // Linear: equal spacing across all bins
+      linearBin = 1 + t * (halfN - 1);
+    } else if (freqScaleIdx === 2) {
+      // High Bias: log-spaced BUT flipped — high freqs get more visual space.
+      // Uses inverse of the Low Bias mapping.
+      const invT = 1 - t;
+      const freq = minFreq * Math.pow(freqRatio, invT);
+      linearBin = freq * fftSize / sampleRate;
+    } else {
+      // Low Bias (default, 0): log-spaced — low freqs get more visual space.
+      const freq = minFreq * Math.pow(freqRatio, t);
+      linearBin = freq * fftSize / sampleRate;
+    }
     const idx0 = Math.max(0, Math.min(halfN - 1, Math.floor(linearBin)));
     const idx1 = Math.min(halfN - 1, idx0 + 1);
     const frac = linearBin - idx0;
