@@ -68,6 +68,14 @@ NodeLiveAudioProcessor.prototype.nativeSabrinaReverbSample = function nativeSabr
         state.nativeParamKey = "";
         state.idleCounter = 0;
         state.isIdle = false;
+        // Force-apply params on handle creation: the native reverb initializes
+        // with hardcoded defaults, and if the WASM exports load in two steps
+        // (create before set_params), the normal paramKey check can miss the
+        // first opportunity. Force-apply now so the reverb always starts with
+        // the patch's actual parameter values.
+        if (state.nativeHandle && native.soemdsp_sabrina_reverb_set_params) {
+          this.applySabrinaDspBindingIfDirty(native, state, params);
+        }
       }
       if (!state.nativeHandle) {
         return null;
