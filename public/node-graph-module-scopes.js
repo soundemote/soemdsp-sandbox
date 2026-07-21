@@ -10551,6 +10551,7 @@ function drawNodeGraphModuleScopes() {
     return;
   }
   setNodeGraphModuleScopeDebugPhase("ready");
+  flushNodeSliderPendingValues();
   if (nodeGraphModuleScopeTracesOff()) {
     if (!nodeGraphModuleScopeState.scopeTracesOffActive) {
       clearNodeGraphModuleScopeCanvas();
@@ -10587,6 +10588,7 @@ function drawNodeGraphModuleScopes() {
   const visibleItems = nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio);
   debug.visibleItems = visibleItems.length;
   const firstVisibleSlot = visibleItems[0]?.slot;
+  flushNodeSliderPendingValues();
   if (!scopePaused && nodeGraphModuleScopeTraceDisplayFrameUnchanged(visibleItems)) {
     setNodeGraphModuleScopeDebugPhase("trace-unchanged");
     commitNodeGraphModuleScopeRenderMetricsFrame(animationTime);
