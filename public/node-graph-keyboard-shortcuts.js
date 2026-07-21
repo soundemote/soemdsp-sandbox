@@ -191,7 +191,8 @@ function handleNodeGraphKeydown(event) {
     event.stopPropagation(); // prevent the editable-target check below from eating it
     if (nodeGraphMvp?.live?.outputEnabled && nodeGraphMvp?.live?.node) {
       // Engine is running: Space toggles speed between 0 (pause) and 1 (play).
-      const nextSpeed = (nodeGraphMvp.live.speedMultiplier || 1) === 0 ? 1 : 0;
+      const isPaused = (nodeGraphMvp.live.speedMultiplier ?? 1) === 0;
+      const nextSpeed = isPaused ? 1 : 0;
       if (typeof setNodeGraphLiveSpeed === "function") {
         setNodeGraphLiveSpeed(nextSpeed);
       }
