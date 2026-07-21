@@ -2298,7 +2298,7 @@ const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   dot1Brightness: 2,
   dot1Color: "#75ebff",
   dot1Enabled: true,
-  dot1Size: 0.8,
+  dot1Size: 0.07,
   lineThickness: 0.2,
   zoomSeconds: 2,
 });
