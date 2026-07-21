@@ -220,16 +220,8 @@ function setNodeSliderValue(slider, value, options = {}) {
     delete slider.dataset.unboundedValue;
   }
   const normalized = normalizeNodeSliderValue(slider, value);
-  if (isDrag) {
-    if (!nodeGraphMvp._pendingSliderValues) {
-      nodeGraphMvp._pendingSliderValues = new Map();
-    }
-    nodeGraphMvp._pendingSliderValues.set(slider, normalized);
-    if ((nodeGraphMvp._pqDebug = (nodeGraphMvp._pqDebug || 0) + 1) % 15 === 0) {
-      console.log("[SLDR_PEND] queued", normalized, "slider:", slider.dataset.param, "queueSize:", nodeGraphMvp._pendingSliderValues.size);
-    }
-  } else {
-    slider.value = String(normalized);
+  slider.value = String(normalized);
+  if (!isDrag) {
     syncNodeSliderReadout(slider);
   }
   syncNodeGraphPatchParameterFromSlider(slider, {
@@ -527,23 +519,4 @@ function endNodeSliderDrag(event) {
     drag.resetToDefaultOnClick && !drag.moved ? "parameter reset to default" : "parameter changed",
   );
   nodeGraphMvp.sliderDragging = null;
-}
-
-function flushNodeSliderPendingValues() {
-  const pending = nodeGraphMvp?._pendingSliderValues;
-  if (!pending?.size) {
-    return;
-  }
-  const count = pending.size;
-  if ((nodeGraphMvp._fqDebug = (nodeGraphMvp._fqDebug || 0) + 1) % 10 === 0) {
-    console.log("[SLDR_FLUSH] flushing", count, "pending slider values");
-  }
-  for (const [slider, normalized] of pending) {
-    const prev = slider.value;
-    slider.value = String(normalized);
-    if ((nodeGraphMvp._fvDebug = (nodeGraphMvp._fvDebug || 0) + 1) % 20 === 0) {
-      console.log("[SLDR_VAL]", slider.dataset.param, prev, "→", normalized);
-    }
-  }
-  pending.clear();
 }
