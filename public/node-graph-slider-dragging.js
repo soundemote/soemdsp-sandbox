@@ -220,7 +220,12 @@ function setNodeSliderValue(slider, value, options = {}) {
     delete slider.dataset.unboundedValue;
   }
   const normalized = normalizeNodeSliderValue(slider, value);
+  const prev = slider.value;
   slider.value = String(normalized);
+  if (isDrag && nodeGraphMvp.sliderDragging) {
+    const d = (nodeGraphMvp._dragLog = (nodeGraphMvp._dragLog || 0) + 1);
+    if (d % 20 === 0) console.log("[DRAG]", slider.dataset.param, "prev:", prev, "→", normalized, "tag:", slider.tagName, "type:", slider.type);
+  }
   if (!isDrag) {
     syncNodeSliderReadout(slider);
   }
