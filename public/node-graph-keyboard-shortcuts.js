@@ -183,13 +183,14 @@ function handleNodeGraphKeydown(event) {
     setNodeGraphViewMode("modular");
     return;
   }
-  if (nodeGraphEventTargetIsEditable(event.target)) {
-    return;
-  }
+  // Space ALWAYS controls audio transport (pause/play/start) — even when
+  // an input is focused. Misused audio can cause distress; Space must be a
+  // reliable panic button regardless of UI focus.
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.code === "Space") {
     event.preventDefault();
+    event.stopPropagation(); // prevent the editable-target check below from eating it
     if (nodeGraphMvp?.live?.outputEnabled && nodeGraphMvp?.live?.node) {
-      // Engine is running: Space toggles speed between 0 and 1.
+      // Engine is running: Space toggles speed between 0 (pause) and 1 (play).
       const nextSpeed = (nodeGraphMvp.live.speedMultiplier || 1) === 0 ? 1 : 0;
       if (typeof setNodeGraphLiveSpeed === "function") {
         setNodeGraphLiveSpeed(nextSpeed);
