@@ -819,6 +819,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Videoscope",
     notes: ["oscilloscope", "trigger", "dot", "line", "xy", "native", "phosphor display"],
   },
+  sonogram: {
+    category: "oscilloscope",
+    description: "Sonogram SG-1 style scrolling spectrogram. Overlapping FFT windows with exponential moving-average smoothing per frequency bin, logarithmic frequency scaling, and a classic cool-to-hot color ramp (black → blue → cyan → yellow → white). Five controls: FFT Size, Overlap, Smoothing, Brightness, and output Bin count.",
+    label: "Sonogram",
+    notes: ["spectrogram", "fft", "spectrum", "frequency display", "waterfall"],
+  },
   valueOscilloscope: {
     category: "multimeter",
     description: "Single-value oscilloscope that draws the latest input as one horizontal line across the display.",

@@ -241,6 +241,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.robinSupersawStates = new Map();
     this.hypersawStates = new Map();
     this.videoscopeStates = new Map();
+    this.sonogramStates = new Map();
     this.noiseGeneratorStates = new Map();
     this.oscResetStates = new Map();
     this.graphLfoStates = new Map();
@@ -1928,6 +1929,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.robinSupersawStates = new Map();
     this.hypersawStates = new Map();
     this.videoscopeStates = new Map();
+    this.sonogramStates = new Map();
     this.noiseGeneratorStates = new Map();
     this.oscResetStates = new Map();
     this.graphLfoStates = new Map();
@@ -2218,6 +2220,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       }
       if (node?.type === "videoscope" && !this.videoscopeStates.has(id)) {
         this.videoscopeStates.set(id, this.createVideoscopeState());
+      }
+      if (node?.type === "sonogram" && !this.sonogramStates.has(id)) {
+        this.sonogramStates.set(id, this.createSonogramState());
       }
       if (node?.type === "passiveFilter" && !this.passiveFilterStates.has(id)) {
         this.passiveFilterStates.set(id, this.createStereoFilterState(() => this.createPassiveFilterState()));
@@ -3912,6 +3917,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
     for (const [nodeId, state] of this.videoscopeStates) {
       this.videoscopeCollectDisplayData(nodeId, state, dataPorts);
+    }
+    for (const [nodeId, state] of this.sonogramStates) {
+      this.sonogramCollectDisplayData(nodeId, state, dataPorts);
     }
     if (!values.length && !dataPorts.length) {
       return;
