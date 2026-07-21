@@ -3674,8 +3674,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
         this.captureModuleScopeOutput(nodeId, this.nodeOutputs.get(nodeId));
       }
     }
-    this._debugScopeLogCounter = (this._debugScopeLogCounter || 0) + 1;
-    const debugLog = this._debugScopeLogCounter % 120 === 0;
     for (const sink of this.visualSinks || []) {
       const nodeId = String(sink?.nodeId || "");
       if (!nodeId) {
@@ -3685,13 +3683,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
         Array.isArray(this.scopeCaptureNodeIds) &&
         !this.scopeCaptureNodeIds.includes(nodeId)
       ) {
-        if (debugLog) {
-          console.warn("[WORKLET SCOPE DEBUG] sink SKIPPED — nodeId", nodeId, "NOT in scopeCaptureNodeIds:", [...this.scopeCaptureNodeIds], "sink.displayType:", sink.displayType, "sink.inputs:", sink.inputs?.length);
-        }
         continue;
-      }
-      if (debugLog) {
-        console.log("[WORKLET SCOPE DEBUG] sink CAPTURING nodeId:", nodeId, "inputs:", sink.inputs?.length, "inScopeCapture:", Array.isArray(this.scopeCaptureNodeIds) ? this.scopeCaptureNodeIds.includes(nodeId) : "N/A");
       }
       let value = 0;
       for (const input of sink.inputs || []) {
@@ -3931,12 +3923,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
     if (!values.length && !dataPorts.length) {
       return;
-    }
-    this._debugScopePostCounter = (this._debugScopePostCounter || 0) + 1;
-    if (this._debugScopePostCounter % 30 === 0) {
-      const outputNodeIds = values.map((v) => v[0]).filter((id) => String(id).startsWith("output") || id === "output");
-      const allIds = values.map((v) => v[0]);
-      console.log("[WORKLET SCOPE DEBUG] postModuleScopeSnapshot #" + this._debugScopePostCounter, "values:", values.length, "nodeIds:", allIds.join(","), "outputPresent:", outputNodeIds.length > 0, "scopeCaptureNodeIds:", [...(this.scopeCaptureNodeIds || [])], "visualSinks:", this.visualSinks?.map((s) => s.nodeId + ":" + s.displayType).join(","));
     }
     this.port.postMessage({
       ...(dataPorts.length ? { dataPorts } : {}),
