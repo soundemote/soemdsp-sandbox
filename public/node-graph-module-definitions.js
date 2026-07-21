@@ -3385,6 +3385,8 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { key: "smoothing", label: "Smoothing", defaultValue: "0.85", min: "0", mid: "0.85", max: "0.999", step: "0.001", maxDigits: 4 },
       { key: "brightness", label: "Brightness", defaultValue: "1", min: "0.1", mid: "1", max: "2", step: "0.01", maxDigits: 4 },
       { key: "outputBins", label: "Bins", defaultValue: "256", min: "32", mid: "256", max: "1024", step: "1" },
+      { key: "minThreshold", label: "Min Thresh", defaultValue: "0", min: "0", mid: "0", max: "1", step: "0.01", maxDigits: 4 },
+      { key: "maxThreshold", label: "Max Thresh", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01", maxDigits: 4 },
       {
         choices: ["Low Bias", "Linear", "High Bias"],
         defaultValue: "0",

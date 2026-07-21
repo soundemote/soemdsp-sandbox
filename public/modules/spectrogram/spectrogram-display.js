@@ -72,6 +72,11 @@ function drawNodeGraphSpectrogramItem(renderer, item, pixelRatio) {
   const spectrum = nodeGraphDataBus.get(nodeGraphDataBusKey(nodeId, "Spectrum"));
   const bins = (spectrum instanceof Float32Array) ? spectrum.length : 0;
 
+  // Threshold params — default to 0–1 range (spectrum values are ~0–3 dB-scaled)
+  const minThresh = Math.max(0, Number(node?.params?.minThreshold) || 0);
+  const maxThresh = Math.max(minThresh + 0.001, Number(node?.params?.maxThreshold) || 1);
+  const threshRange = maxThresh - minThresh;
+
   if (bins > 0) {
     // Scroll history canvas left by colWidth
     histCtx.globalCompositeOperation = "copy";
@@ -82,12 +87,10 @@ function drawNodeGraphSpectrogramItem(renderer, item, pixelRatio) {
     const columnX = domWidth - colWidth;
 
     const barHeight = Math.max(1, domHeight / bins);
-    let maxVal = 0.01;
     for (let i = 0; i < bins; i++) {
-      if (spectrum[i] > maxVal) maxVal = spectrum[i];
-    }
-    for (let i = 0; i < bins; i++) {
-      const normalized = Math.min(1, (spectrum[i] / maxVal) * brightness);
+      // Map through thresholds: below minThresh=black, above maxThresh=full bright
+      const clamped = Math.max(0, Math.min(1, (spectrum[i] - minThresh) / threshRange));
+      const normalized = Math.min(1, clamped * brightness);
       const colorIdx = Math.floor(normalized * 255);
       histCtx.fillStyle = spectrogramColorRamp[Math.min(255, colorIdx)];
       const y = domHeight - Math.floor((i + 1) * barHeight);
