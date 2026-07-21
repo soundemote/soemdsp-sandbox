@@ -3330,9 +3330,9 @@ const nodeGraphModuleDefinitions = Object.freeze({
     ],
     visualSink: true,
   },
-  sonogram: {
+  spectrogram: {
     bufferedInputs: ["In"],
-    displayType: "sonogramBurn",
+    displayType: "spectrogramBurn",
     inputs: ["In"],
     layout: "traceDisplay",
     outputs: [],
@@ -3370,7 +3370,7 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { key: "outputBins", label: "Bins", defaultValue: "256", min: "32", mid: "256", max: "1024", step: "1" },
     ],
     visualInputs: [
-      { key: "sonogram", label: "In", port: "In" },
+      { key: "spectrogram", label: "In", port: "In" },
     ],
     visualSink: true,
   },

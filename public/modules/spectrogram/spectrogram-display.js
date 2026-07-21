@@ -1,10 +1,10 @@
-// Sonogram SG-1 style spectrogram display renderer.
+// Spectrogram SG-1 style spectrogram display renderer.
 // Receives smoothed spectrum data from the worklet via nodeGraphDataBus
 // and renders a scrolling waterfall spectrogram with color-ramped frequency bins.
 //
 // Colors: cool blues/cyans for quiet → hot yellow/red for loud.
 
-const sonogramColorRamp = (function buildSonogramColorRamp() {
+const spectrogramColorRamp = (function buildSpectrogramColorRamp() {
   // 256-entry lookup: index 0 = silent (black/transparent), index 255 = loudest
   const lut = new Array(256);
   for (let i = 0; i < 256; i++) {
@@ -40,7 +40,7 @@ const sonogramColorRamp = (function buildSonogramColorRamp() {
   return lut;
 })();
 
-function drawNodeGraphSonogramItem(renderer, item, pixelRatio) {
+function drawNodeGraphSpectrogramItem(renderer, item, pixelRatio) {
   const nodeId = item?.slot?.nodeId;
   if (!nodeId) return;
 
@@ -89,7 +89,7 @@ function drawNodeGraphSonogramItem(renderer, item, pixelRatio) {
   for (let i = 0; i < bins; i++) {
     const normalized = Math.min(1, (spectrum[i] / maxVal) * brightness);
     const colorIdx = Math.floor(normalized * 255);
-    ctx.fillStyle = sonogramColorRamp[Math.min(255, colorIdx)];
+    ctx.fillStyle = spectrogramColorRamp[Math.min(255, colorIdx)];
 
     // Y is inverted: low frequencies at bottom, high at top
     const y = canvasHeight - Math.floor((i + 1) * barHeight);
@@ -99,4 +99,4 @@ function drawNodeGraphSonogramItem(renderer, item, pixelRatio) {
 }
 
 // Self-register: called from node-graph-module-scopes.js drawNodeGraphModuleScopeTypedItem
-nodeGraphModuleScopeCustomRenderers.sonogramBurn = drawNodeGraphSonogramItem;
+nodeGraphModuleScopeCustomRenderers.spectrogramBurn = drawNodeGraphSpectrogramItem;

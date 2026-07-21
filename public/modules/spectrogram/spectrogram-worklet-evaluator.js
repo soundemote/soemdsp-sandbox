@@ -1,4 +1,4 @@
-// Sonogram SG-1 style spectrogram: worklet-side FFT + exponential smoothing.
+// Spectrogram SG-1 style spectrogram: worklet-side FFT + exponential smoothing.
 // Computes overlapping FFT windows on the buffered audio input, applies
 // per-bin exponential moving average (EMA), then posts smoothed spectrum
 // data to the main thread for rendering.
@@ -6,24 +6,22 @@
 // Pipeline: visual input buffer → overlapping FFT windows → EMA smoothing →
 // logarithmic bin remapping → dataPorts → nodeGraphDataBus → display renderer.
 
-NodeLiveAudioProcessor.prototype.createSonogramState = function createSonogramState() {
+NodeLiveAudioProcessor.prototype.createSpectrogramState = function createSpectrogramState() {
   return {
     // FFT scratch buffers (reused across snapshots)
     fftReal: null,
     fftImag: null,
     // EMA state: one smoothed magnitude per bin, persists across snapshots
     emaBins: null,
-    // Frame counter for overlap
-    frameCounter: 0,
     // Cached FFT size for buffer reallocation
     fftSize: 0,
-    // Bit-reversal table for FFT
-    bitRev: null,
+    // Own frame tracking — do NOT use buf.postedFrame (already consumed by generic code)
+    lastAbsoluteFrame: 0,
   };
 };
 
 // Radix-2 Cooley-Tukey FFT (in-place on real/imag arrays).
-NodeLiveAudioProcessor.prototype.sonogramFft = function sonogramFft(real, imag) {
+NodeLiveAudioProcessor.prototype.spectrogramFft = function spectrogramFft(real, imag) {
   const n = real.length;
   if (n <= 1 || (n & (n - 1)) !== 0) return; // power of 2 only
 
@@ -61,7 +59,7 @@ NodeLiveAudioProcessor.prototype.sonogramFft = function sonogramFft(real, imag) 
 };
 
 // Hann window
-NodeLiveAudioProcessor.prototype.sonogramHannWindow = function sonogramHannWindow(n) {
+NodeLiveAudioProcessor.prototype.spectrogramHannWindow = function spectrogramHannWindow(n) {
   const w = new Float32Array(n);
   for (let i = 0; i < n; i++) {
     w[i] = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (n - 1)));
@@ -69,8 +67,8 @@ NodeLiveAudioProcessor.prototype.sonogramHannWindow = function sonogramHannWindo
   return w;
 };
 
-// Collect spectrum data for all sonogram nodes and push to dataPorts.
-NodeLiveAudioProcessor.prototype.sonogramCollectDisplayData = function sonogramCollectDisplayData(nodeId, state, dataPorts) {
+// Collect spectrum data for all spectrogram nodes and push to dataPorts.
+NodeLiveAudioProcessor.prototype.spectrogramCollectDisplayData = function spectrogramCollectDisplayData(nodeId, state, dataPorts) {
   const bufKey = `${nodeId}:In`;
   const buf = this.visualInputBuffers.get(bufKey);
   if (!buf?.buffer?.length) return;
@@ -95,7 +93,7 @@ NodeLiveAudioProcessor.prototype.sonogramCollectDisplayData = function sonogramC
     state.fftReal = new Float32Array(fftSize);
     state.fftImag = new Float32Array(fftSize);
     state.fftSize = fftSize;
-    state.hannWindow = this.sonogramHannWindow(fftSize);
+    state.hannWindow = this.spectrogramHannWindow(fftSize);
     state.accumulator = new Float32Array(fftSize);
     state.accumCount = 0;
   }
@@ -105,29 +103,27 @@ NodeLiveAudioProcessor.prototype.sonogramCollectDisplayData = function sonogramC
     state.emaBins = new Float32Array(fftSize / 2);
   }
 
-  // Extract fresh samples from visual input ring buffer
+  // Extract fresh samples using own frame tracking (not buf.postedFrame —
+  // the generic postModuleScopeSnapshot loop already consumed that).
   const absFrame = Math.max(0, Math.floor(Number(buf.absoluteFrame) || 0));
-  const posted = Math.max(0, Math.floor(Number(buf.postedFrame) || 0));
+  const lastFrame = Math.max(0, Number(state.lastAbsoluteFrame) || 0);
   const capacity = buf.capacity || buf.buffer.length;
-  let freshCount = posted > 0
-    ? Math.max(0, absFrame - posted)
+  let freshCount = lastFrame > 0
+    ? Math.max(0, absFrame - lastFrame)
     : Math.min(capacity, Math.ceil((Number(this.engineSampleRate) || sampleRate || 44100) / 30));
   freshCount = Math.min(capacity, freshCount);
 
   if (freshCount <= 0) return;
+  state.lastAbsoluteFrame = absFrame;
 
-  const ordered = new Float32Array(freshCount);
-  const start = ((Number(buf.writeIndex) || 0) - freshCount + capacity) % capacity;
-  for (let i = 0; i < freshCount; i++) {
-    ordered[i] = buf.buffer[(start + i) % capacity] || 0;
-  }
-  buf.postedFrame = absFrame;
-
-  // Feed samples into the accumulator for overlapping FFT
+  // Feed samples directly from the ring buffer into the accumulator for overlapping FFT
+  const writeIdx = Number(buf.writeIndex) || 0;
+  const start = (writeIdx - freshCount + capacity) % capacity;
   let accIdx = state.accumCount;
   for (let i = 0; i < freshCount; i++) {
+    const sample = buf.buffer[(start + i) % capacity] || 0;
     if (accIdx < fftSize) {
-      state.accumulator[accIdx] = ordered[i];
+      state.accumulator[accIdx] = sample;
       accIdx++;
     }
     // When accumulator is full, process an FFT window
@@ -138,7 +134,7 @@ NodeLiveAudioProcessor.prototype.sonogramCollectDisplayData = function sonogramC
         state.fftImag[j] = 0;
       }
       // FFT
-      this.sonogramFft(state.fftReal, state.fftImag);
+      this.spectrogramFft(state.fftReal, state.fftImag);
 
       // Compute magnitudes and apply EMA smoothing
       const halfN = fftSize / 2;
