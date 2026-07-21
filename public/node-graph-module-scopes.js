@@ -2229,6 +2229,14 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
     return null;
   }
   const renderer = nodeGraphModuleDisplayRendererForSlot(slot);
+  // Debug: log buffer resolution for output-type slots
+  if (slot?.type === "output" || nodeId === "output") {
+    nodeGraphModuleScopeState._debugOutputBufCount = (nodeGraphModuleScopeState._debugOutputBufCount || 0) + 1;
+    if (nodeGraphModuleScopeState._debugOutputBufCount % 60 === 0) {
+      const directBuf = nodeGraphModuleScopeState.buffers.get(nodeId);
+      console.log("[MAIN SCOPE DEBUG] output buffer lookup #" + nodeGraphModuleScopeState._debugOutputBufCount, "nodeId:", nodeId, "renderer:", renderer, "slot.type:", slot?.type, "directBuf:", directBuf?.length || 0, "total buffers:", nodeGraphModuleScopeState.buffers.size);
+    }
+  }
   if (["scope2d", "scope2dTrace"].includes(renderer)) {
     const source = nodeGraphModuleScopeSlotUsesWiredInputs(slot)
       ? null
@@ -5428,6 +5436,10 @@ function pushNodeGraphLiveModuleScopeSnapshot(values, options = {}) {
     });
   }
   if (nodeGraphModuleScopeState.patchFingerprint !== patchFingerprint) {
+    nodeGraphModuleScopeState._debugPrintCount = (nodeGraphModuleScopeState._debugPrintCount || 0) + 1;
+    if (nodeGraphModuleScopeState._debugPrintCount % 10 === 0) {
+      console.log("[MAIN SCOPE DEBUG] fingerprint changed:", nodeGraphModuleScopeState.patchFingerprint, "→", patchFingerprint, "(clearing buffers)");
+    }
     updateNodeGraphLiveModuleScopeFingerprint(patchFingerprint);
   }
   if (Number.isFinite(Number(options.sampleRate)) && Number(options.sampleRate) > 0) {
