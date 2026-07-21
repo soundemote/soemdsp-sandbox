@@ -2291,15 +2291,16 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
 });
 
 const nodeGraphLineBurnSettingsDefaults = Object.freeze({
-  burn: 0.82,
+  burn: 0.3,
   cycles: 2,
-  decay: 0.12,
-  dot1Brightness: 0.92,
+  decay: 0.3,
+  dot1Blur: 0.2,
+  dot1Brightness: 2,
   dot1Color: "#75ebff",
   dot1Enabled: true,
-  dot1Size: 0.08,
+  dot1Size: 0.8,
   lineThickness: 0.2,
-  zoomSeconds: 0.05,
+  zoomSeconds: 2,
 });
 
 const nodeGraphTraceDisplayRenderPointBudgetDefault = 4096;
@@ -7920,17 +7921,35 @@ function nodeGraphModuleScopeLightFillStyle(context, centerX, centerY, radius, r
   return gradient;
 }
 
+// Persistent canvas cache — canvases survive DOM rebuilds (parameter changes,
+// module re-renders). Keyed by nodeId so when a module's DOM is torn down and
+// rebuilt, the same canvas is re-attached instead of creating a fresh blank one.
+const nodeGraphModuleScopePersistentCanvases = new Map();
+
 function nodeGraphModuleScopeLocalFallbackCanvas(slot) {
   const screenElement = slot?.scopeElement;
+  const nodeId = slot?.nodeId;
   if (!screenElement) {
     return null;
   }
+  // Try to find an existing canvas in the DOM first.
   let canvas = screenElement.querySelector(":scope > .node-module-scope-local-fallback-canvas");
-  if (!canvas) {
-    canvas = document.createElement("canvas");
-    canvas.className = "node-module-scope-local-fallback-canvas";
-    canvas.setAttribute("aria-hidden", "true");
+  if (canvas) {
+    return canvas;
+  }
+  // DOM rebuild may have destroyed the old canvas — re-attach the cached one.
+  if (nodeId && nodeGraphModuleScopePersistentCanvases.has(nodeId)) {
+    canvas = nodeGraphModuleScopePersistentCanvases.get(nodeId);
     screenElement.appendChild(canvas);
+    return canvas;
+  }
+  // Brand new canvas — create and cache it.
+  canvas = document.createElement("canvas");
+  canvas.className = "node-module-scope-local-fallback-canvas";
+  canvas.setAttribute("aria-hidden", "true");
+  screenElement.appendChild(canvas);
+  if (nodeId) {
+    nodeGraphModuleScopePersistentCanvases.set(nodeId, canvas);
   }
   return canvas;
 }

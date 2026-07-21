@@ -1898,6 +1898,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/badvalMonitor/badval-monitor-worklet-evaluator.js?v=worklet-dedup-20260712",
   "./public/modules/radar/radar-worklet-evaluator.js?v=worklet-dedup-20260712",
   "./public/modules/audioPlayer/audio-player-worklet-evaluator.js?v=worklet-dedup-20260712",
+  "./public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js?v=worklet-dedup-20260712",
   "./public/modules/videoscope/videoscope-worklet-evaluator.js?v=videoscope-20260713",
   "./public/modules/spectrogram/spectrogram-worklet-evaluator.js?v=spectrogram-20260720",
   "./public/node-live-audio-worklet-register.js?v=blob-loader-20260711",

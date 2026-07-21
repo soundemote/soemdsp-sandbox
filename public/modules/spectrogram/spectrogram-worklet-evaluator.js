@@ -142,16 +142,27 @@ NodeLiveAudioProcessor.prototype.spectrogramCollectDisplayData = function spectr
   }
   state.accumCount = accIdx;
 
-  // Logarithmic bin remapping
+  // Logarithmic bin remapping using actual frequencies (20 Hz → Nyquist).
+  // Previously Math.pow(halfN, t) biased heavily toward low bins because
+  // halfN is large (512-4096), causing 75%+ of output bins to land in
+  // the first ~5 linear bins. Now we map log-spaced by real frequency.
   const halfN = fftSize / 2;
+  const sampleRate = Math.max(1, this.engineSampleRate || 44100);
+  const nyquist = sampleRate / 2;
+  const minFreq = 20; // Hz — lowest frequency displayed
+  const freqRatio = nyquist / minFreq;
   const remapped = new Float32Array(outputBins);
   for (let i = 0; i < outputBins; i++) {
     const t = i / (outputBins - 1 || 1);
-    const logIdx = t === 0 ? 0 : Math.pow(halfN, t);
-    const idx0 = Math.max(0, Math.min(halfN - 1, Math.floor(logIdx)));
+    // Log-spaced frequency: minFreq * ratio^t
+    const freq = minFreq * Math.pow(freqRatio, t);
+    // Convert frequency → linear FFT bin index
+    const linearBin = freq * fftSize / sampleRate;
+    const idx0 = Math.max(0, Math.min(halfN - 1, Math.floor(linearBin)));
     const idx1 = Math.min(halfN - 1, idx0 + 1);
-    const frac = logIdx - idx0;
+    const frac = linearBin - idx0;
     remapped[i] = state.emaBins[idx0] * (1 - frac) + state.emaBins[idx1] * frac;
+    // dB-like scaling: compress dynamic range
     remapped[i] = Math.max(0, Math.log10(1 + remapped[i] * 100));
   }
 

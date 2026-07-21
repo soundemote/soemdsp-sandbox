@@ -438,6 +438,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Signal booster and throttle. Use it to push, tame, or route engine power.",
     notes: ["multiplication", "level control", "headroom"],
   },
+  gainBiasMix: {
+    category: "dynamics",
+    description: "4-channel utility mixer with per-channel volume and bias, plus 3 bleed sends into output 1. Clean signal routing for multi-voice patches.",
+    label: "GainBiasMix",
+    notes: ["mixer", "bias", "bleed", "4-channel", "utility"],
+  },
   bias: {
     category: "dynamics",
     description: "Offsets a signal away from center. Useful for steering modulation and shifting control lanes.",
