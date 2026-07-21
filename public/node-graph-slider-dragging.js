@@ -219,10 +219,13 @@ function setNodeSliderValue(slider, value, options = {}) {
   } else {
     delete slider.dataset.unboundedValue;
   }
-  slider.value = String(
-    normalizeNodeSliderValue(slider, value),
-  );
-  if (!isDrag) {
+  const normalized = normalizeNodeSliderValue(slider, value);
+  if (isDrag) {
+    window.requestAnimationFrame(() => {
+      slider.value = String(normalized);
+    });
+  } else {
+    slider.value = String(normalized);
     syncNodeSliderReadout(slider);
   }
   syncNodeGraphPatchParameterFromSlider(slider, {
