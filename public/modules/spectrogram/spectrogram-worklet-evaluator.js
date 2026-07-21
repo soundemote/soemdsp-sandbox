@@ -84,7 +84,11 @@ NodeLiveAudioProcessor.prototype.spectrogramCollectDisplayData = function spectr
   const overlap = SPECTROGRAM_OVERLAPS[overlapIdx] || 0.75;
   const hopSize = Math.max(1, Math.round(fftSize * (1 - overlap)));
 
-  const alpha = this.clampValue(this.safeFilterNumber(params.smoothing, 0.85) ?? 0.85, 0, 0.999);
+  // Smoothing: controls Gaussian blur sigma across frequency bins.
+  // Higher smoothing → wider kernel → more adjacent bins blended together.
+  const smoothingAlpha = this.clampValue(this.safeFilterNumber(params.smoothing, 0.85) ?? 0.85, 0, 0.999);
+  // Map alpha [0, 0.999] → sigma [0, 8] for Gaussian kernel width
+  const gaussianSigma = smoothingAlpha > 0 ? 0.5 + smoothingAlpha * 7.5 : 0;
   const outputBins = Math.min(fftSize / 2, Math.round(this.clampValue(this.safeFilterNumber(params.outputBins, 256) ?? 256, 32, 1024)));
   const freqScaleIdx = Math.round(this.clampValue(this.safeFilterNumber(params.freqScale, 0) ?? 0, 0, 2)); // 0=Low, 1=Linear, 2=High
 
@@ -132,7 +136,9 @@ NodeLiveAudioProcessor.prototype.spectrogramCollectDisplayData = function spectr
       const halfN = fftSize / 2;
       for (let j = 0; j < halfN; j++) {
         const mag = Math.sqrt(state.fftReal[j] * state.fftReal[j] + state.fftImag[j] * state.fftImag[j]);
-        state.emaBins[j] = alpha * state.emaBins[j] + (1 - alpha) * mag;
+        // Light temporal EMA (fixed 0.3) — reduces frame-to-frame jitter.
+        // The main smoothing comes from the Gaussian blur across frequency bins below.
+        state.emaBins[j] = 0.3 * state.emaBins[j] + 0.7 * mag;
       }
       const shift = hopSize;
       for (let j = 0; j < fftSize - shift; j++) {
@@ -175,6 +181,33 @@ NodeLiveAudioProcessor.prototype.spectrogramCollectDisplayData = function spectr
     remapped[i] = Math.max(0, Math.log10(1 + remapped[i] * 100));
   }
 
-  dataPorts.push([nodeId, "Spectrum", remapped]);
+  // Apply Gaussian blur across frequency bins (spatial smoothing).
+  // This is the standard approach used in PAMGuard and other spectrogram
+  // analyzers — a 1D Gaussian kernel that blends adjacent frequency bins.
+  if (gaussianSigma > 0) {
+    const radius = Math.max(1, Math.ceil(gaussianSigma * 3));
+    const kLen = radius * 2 + 1;
+    // Build Gaussian kernel
+    const kernel = new Float32Array(kLen);
+    let kernelSum = 0;
+    for (let i = 0; i < kLen; i++) {
+      const x = i - radius;
+      kernel[i] = Math.exp(-(x * x) / (2 * gaussianSigma * gaussianSigma));
+      kernelSum += kernel[i];
+    }
+    // Convolve
+    const blurred = new Float32Array(outputBins);
+    for (let i = 0; i < outputBins; i++) {
+      let sum = 0;
+      for (let j = 0; j < kLen; j++) {
+        const idx = Math.max(0, Math.min(outputBins - 1, i + j - radius));
+        sum += remapped[idx] * kernel[j];
+      }
+      blurred[i] = sum / kernelSum;
+    }
+    dataPorts.push([nodeId, "Spectrum", blurred]);
+  } else {
+    dataPorts.push([nodeId, "Spectrum", remapped]);
+  }
   dataPorts.push([nodeId, "FftSize", new Float32Array([fftSize, halfN, outputBins])]);
 };
