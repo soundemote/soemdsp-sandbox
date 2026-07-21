@@ -1,21 +1,24 @@
-// Spectrogram SG-1 style spectrogram: worklet-side FFT + exponential smoothing.
-// Computes overlapping FFT windows on the buffered audio input, applies
-// per-bin exponential moving average (EMA), then posts smoothed spectrum
-// data to the main thread for rendering.
+// Spectrogram: worklet-side FFT + exponential smoothing for real-time
+// scrolling waterfall display. Data flows through dataPorts → main thread
+// → nodeGraphDataBus → persistent off-screen canvas → DOM composite.
 //
-// Pipeline: visual input buffer → overlapping FFT windows → EMA smoothing →
-// logarithmic bin remapping → dataPorts → nodeGraphDataBus → display renderer.
+// IMPORTANT — visual buffer frame tracking:
+//   postModuleScopeSnapshot already reads ALL visual input buffers and
+//   updates buf.postedFrame BEFORE calling per-module collectors.
+//   DO NOT use buf.postedFrame to detect new samples — track your own
+//   frame position in state.lastAbsoluteFrame instead.
+
+// Choice-index → actual value tables (module definition uses choice params).
+const SPECTROGRAM_FFT_SIZES     = [256, 512, 1024, 2048];
+const SPECTROGRAM_OVERLAPS      = [0.5, 0.75, 0.875];
 
 NodeLiveAudioProcessor.prototype.createSpectrogramState = function createSpectrogramState() {
   return {
-    // FFT scratch buffers (reused across snapshots)
     fftReal: null,
     fftImag: null,
-    // EMA state: one smoothed magnitude per bin, persists across snapshots
     emaBins: null,
-    // Cached FFT size for buffer reallocation
     fftSize: 0,
-    // Own frame tracking — do NOT use buf.postedFrame (already consumed by generic code)
+    // Own frame tracking (NOT buf.postedFrame — see note above)
     lastAbsoluteFrame: 0,
   };
 };
@@ -23,9 +26,8 @@ NodeLiveAudioProcessor.prototype.createSpectrogramState = function createSpectro
 // Radix-2 Cooley-Tukey FFT (in-place on real/imag arrays).
 NodeLiveAudioProcessor.prototype.spectrogramFft = function spectrogramFft(real, imag) {
   const n = real.length;
-  if (n <= 1 || (n & (n - 1)) !== 0) return; // power of 2 only
+  if (n <= 1 || (n & (n - 1)) !== 0) return;
 
-  // Bit-reversal permutation
   const bits = Math.log2(n);
   for (let i = 0; i < n; i++) {
     let j = 0;
@@ -38,7 +40,6 @@ NodeLiveAudioProcessor.prototype.spectrogramFft = function spectrogramFft(real, 
     }
   }
 
-  // Butterfly
   for (let len = 2; len <= n; len *= 2) {
     const half = len / 2;
     const phase = -2 * Math.PI / len;
@@ -67,7 +68,6 @@ NodeLiveAudioProcessor.prototype.spectrogramHannWindow = function spectrogramHan
   return w;
 };
 
-// Collect spectrum data for all spectrogram nodes and push to dataPorts.
 NodeLiveAudioProcessor.prototype.spectrogramCollectDisplayData = function spectrogramCollectDisplayData(nodeId, state, dataPorts) {
   const bufKey = `${nodeId}:In`;
   const buf = this.visualInputBuffers.get(bufKey);
@@ -76,14 +76,13 @@ NodeLiveAudioProcessor.prototype.spectrogramCollectDisplayData = function spectr
   const node = this.nodes.get(nodeId);
   const params = node?.params || {};
 
-  const rawFftSize = Math.round(this.clampValue(this.safeFilterNumber(params.fftSize, 1024) ?? 1024, 64, 8192));
-  // Round up to next power of 2
-  let fftSize = 64;
-  while (fftSize < rawFftSize) fftSize *= 2;
-  fftSize = Math.min(fftSize, 8192);
+  // Map choice-index params to actual values
+  const fftSizeIdx = Math.round(this.clampValue(this.safeFilterNumber(params.fftSize, 2) ?? 2, 0, SPECTROGRAM_FFT_SIZES.length - 1));
+  const fftSize = SPECTROGRAM_FFT_SIZES[fftSizeIdx] || 1024;
 
-  const rawOverlap = this.clampValue(this.safeFilterNumber(params.overlap, 0.75) ?? 0.75, 0, 0.9375);
-  const hopSize = Math.max(1, Math.round(fftSize * (1 - rawOverlap)));
+  const overlapIdx = Math.round(this.clampValue(this.safeFilterNumber(params.overlap, 1) ?? 1, 0, SPECTROGRAM_OVERLAPS.length - 1));
+  const overlap = SPECTROGRAM_OVERLAPS[overlapIdx] || 0.75;
+  const hopSize = Math.max(1, Math.round(fftSize * (1 - overlap)));
 
   const alpha = this.clampValue(this.safeFilterNumber(params.smoothing, 0.85) ?? 0.85, 0, 0.999);
   const outputBins = Math.min(fftSize / 2, Math.round(this.clampValue(this.safeFilterNumber(params.outputBins, 256) ?? 256, 32, 1024)));
@@ -98,13 +97,11 @@ NodeLiveAudioProcessor.prototype.spectrogramCollectDisplayData = function spectr
     state.accumCount = 0;
   }
 
-  // Allocate/reallocate EMA bins
   if (!state.emaBins || state.emaBins.length !== fftSize / 2) {
     state.emaBins = new Float32Array(fftSize / 2);
   }
 
-  // Extract fresh samples using own frame tracking (not buf.postedFrame —
-  // the generic postModuleScopeSnapshot loop already consumed that).
+  // Extract fresh samples using own frame tracking
   const absFrame = Math.max(0, Math.floor(Number(buf.absoluteFrame) || 0));
   const lastFrame = Math.max(0, Number(state.lastAbsoluteFrame) || 0);
   const capacity = buf.capacity || buf.buffer.length;
@@ -116,7 +113,6 @@ NodeLiveAudioProcessor.prototype.spectrogramCollectDisplayData = function spectr
   if (freshCount <= 0) return;
   state.lastAbsoluteFrame = absFrame;
 
-  // Feed samples directly from the ring buffer into the accumulator for overlapping FFT
   const writeIdx = Number(buf.writeIndex) || 0;
   const start = (writeIdx - freshCount + capacity) % capacity;
   let accIdx = state.accumCount;
@@ -126,24 +122,17 @@ NodeLiveAudioProcessor.prototype.spectrogramCollectDisplayData = function spectr
       state.accumulator[accIdx] = sample;
       accIdx++;
     }
-    // When accumulator is full, process an FFT window
     if (accIdx >= fftSize) {
-      // Apply Hann window
       for (let j = 0; j < fftSize; j++) {
         state.fftReal[j] = state.accumulator[j] * state.hannWindow[j];
         state.fftImag[j] = 0;
       }
-      // FFT
       this.spectrogramFft(state.fftReal, state.fftImag);
-
-      // Compute magnitudes and apply EMA smoothing
       const halfN = fftSize / 2;
       for (let j = 0; j < halfN; j++) {
         const mag = Math.sqrt(state.fftReal[j] * state.fftReal[j] + state.fftImag[j] * state.fftImag[j]);
         state.emaBins[j] = alpha * state.emaBins[j] + (1 - alpha) * mag;
       }
-
-      // Shift accumulator by hop size for overlap
       const shift = hopSize;
       for (let j = 0; j < fftSize - shift; j++) {
         state.accumulator[j] = state.accumulator[j + shift];
@@ -153,18 +142,16 @@ NodeLiveAudioProcessor.prototype.spectrogramCollectDisplayData = function spectr
   }
   state.accumCount = accIdx;
 
-  // Remap linear bins → logarithmic output bins and post
+  // Logarithmic bin remapping
   const halfN = fftSize / 2;
   const remapped = new Float32Array(outputBins);
   for (let i = 0; i < outputBins; i++) {
-    // Log-spaced index mapping: maps output bin [0, outputBins) → linear bin [0, halfN)
     const t = i / (outputBins - 1 || 1);
     const logIdx = t === 0 ? 0 : Math.pow(halfN, t);
     const idx0 = Math.max(0, Math.min(halfN - 1, Math.floor(logIdx)));
     const idx1 = Math.min(halfN - 1, idx0 + 1);
     const frac = logIdx - idx0;
     remapped[i] = state.emaBins[idx0] * (1 - frac) + state.emaBins[idx1] * frac;
-    // dB-like scaling: compress dynamic range
     remapped[i] = Math.max(0, Math.log10(1 + remapped[i] * 100));
   }
 
