@@ -193,7 +193,6 @@ function scheduleNodeSliderDragAutosave() {
 
 function commitNodeSliderDragValue(slider, status = "parameter changed") {
   clearNodeSliderDragAutosaveTimer();
-  syncNodeSliderReadout(slider);
   syncNodeGraphPatchParameterFromSlider(slider, {
     record: true,
     status,
@@ -221,7 +220,7 @@ function setNodeSliderValue(slider, value, options = {}) {
   }
   const normalized = normalizeNodeSliderValue(slider, value);
   slider.value = String(normalized);
-  syncNodeSliderReadout(slider);
+  scheduleNodeSliderReadoutUpdate(slider);
   syncNodeGraphPatchParameterFromSlider(slider, {
     deferAutosave: isDrag,
     deferUi: true,
@@ -517,4 +516,31 @@ function endNodeSliderDrag(event) {
     drag.resetToDefaultOnClick && !drag.moved ? "parameter reset to default" : "parameter changed",
   );
   nodeGraphMvp.sliderDragging = null;
+}
+
+// ── Deferred readout display (decouples value from display, C++ ParameterPrototype pattern) ──
+// Moving the slider calls scheduleNodeSliderReadoutUpdate() which queues the display update.
+// The display is flushed in the scope draw rAF AFTER all layout reads, avoiding forced reflow.
+
+function scheduleNodeSliderReadoutUpdate(slider) {
+  if (!nodeGraphMvp._pendingReadoutUpdates) {
+    nodeGraphMvp._pendingReadoutUpdates = new Set();
+  }
+  nodeGraphMvp._pendingReadoutUpdates.add(slider);
+  if (!nodeGraphMvp._readoutRafPending) {
+    nodeGraphMvp._readoutRafPending = true;
+    window.requestAnimationFrame(() => {
+      nodeGraphMvp._readoutRafPending = false;
+      flushNodeSliderReadoutUpdates();
+    });
+  }
+}
+
+function flushNodeSliderReadoutUpdates() {
+  const pending = nodeGraphMvp?._pendingReadoutUpdates;
+  if (!pending?.size) return;
+  for (const slider of pending) {
+    syncNodeSliderReadout(slider);
+  }
+  pending.clear();
 }
