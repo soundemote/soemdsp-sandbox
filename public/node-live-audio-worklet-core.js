@@ -496,7 +496,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   }
 
   effectiveSampleRate() {
-    return Math.max(1, (this.engineSampleRate || sampleRate || 44100) * Math.max(0, this.speedMultiplier || 1));
+    return (this.engineSampleRate || sampleRate || 44100) * Math.max(0, this.speedMultiplier || 1);
   }
 
   setImpulseButtonTrigger(nodeId, amplitude) {
@@ -7844,6 +7844,13 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     const rawEngineSampleRate = Math.max(1, this.engineSampleRate || sampleRate || 44100);
     const effectiveRate = Math.max(1, rawEngineSampleRate * Math.max(0, this.speedMultiplier || 1));
     const engineFrames = frames * oversamplingRatio;
+    // Speed 0 = pause: fill silence and return immediately.
+    if (this.speedMultiplier === 0) {
+      for (const channel of output) {
+        channel.fill(0);
+      }
+      return true;
+    }
     if (!this.nodes.size || !this.order.length) {
       for (const channel of output) {
         channel.fill(0);
