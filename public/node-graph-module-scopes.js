@@ -10551,6 +10551,9 @@ function drawNodeGraphModuleScopes() {
     return;
   }
   setNodeGraphModuleScopeDebugPhase("ready");
+  // Read workspace layout BEFORE flushing readouts to avoid forced reflow
+  const workspaceRect = workspace.getBoundingClientRect();
+  const prePixelRatio = nodeGraphModuleScopeBackingPixelRatio(workspaceRect);
   flushNodeSliderReadoutUpdates();
   if (nodeGraphModuleScopeTracesOff()) {
     if (!nodeGraphModuleScopeState.scopeTracesOffActive) {
