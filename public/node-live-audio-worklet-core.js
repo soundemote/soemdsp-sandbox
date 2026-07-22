@@ -2983,8 +2983,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.sessionId = message.sessionId || 0;
     this.autoSmoothingSeconds = this.clampAutoSmoothingSeconds(message.autoSmoothingSeconds);
     this.syncNestedAutoSmoothingSeconds(this.autoSmoothingSeconds);
-    this.gpuAdditiveQueues = new Map();
-    this.gpuAdditiveUnderruns = 0;
     let parameterCount = 0;
     for (const node of Array.isArray(nodes) ? nodes : []) {
       const current = this.nodes.get(node.id);
