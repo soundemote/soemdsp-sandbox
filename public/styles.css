@@ -12306,7 +12306,6 @@ input.node-header-title:focus {
 .node-choice-debug-divider {
   stroke: rgba(243, 241, 236, 0.2);
   stroke-width: 1px;
-  vector-effect: non-scaling-stroke;
   shape-rendering: crispEdges;
 }
 
