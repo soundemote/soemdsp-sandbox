@@ -166,6 +166,8 @@ function updateNodeSliderCurrentValue(slider, rawValue) {
 let nodeSliderDragAutosaveTimer = 0;
 
 function scheduleNodeGraphModuleScopeDrawIfNeeded() {
+  // Fast-path: if a draw rAF is already pending, the loop is self-sustaining.
+  if (nodeGraphModuleScopeState?.drawFrame) return;
   if (
     typeof scheduleNodeGraphModuleScopeDraw === "function" &&
     (typeof nodeGraphModuleScopeHasDrawableSlots !== "function" || nodeGraphModuleScopeHasDrawableSlots()) &&
