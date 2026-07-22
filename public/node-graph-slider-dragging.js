@@ -498,9 +498,13 @@ function dragNodeSlider(event) {
     return;
   }
 
-  // Fine/coarse scale from modifier keys — live per-event, no re-anchor needed.
-  // Changing scale mid-drag only affects sensitivity of further movement.
-  drag.fineScale = nodeSliderFineTuneScale(event);
+  // Fine/coarse scale from modifier keys — live per-event.
+  // Re-anchor startTravel when scale changes to prevent value jump (10x delta).
+  const currentFineScale = nodeSliderFineTuneScale(event);
+  if (currentFineScale !== drag.fineScale) {
+    drag.startTravel = nodeSliderTravelFromValue(drag.slider, Number(drag.slider.value));
+    drag.fineScale = currentFineScale;
+  }
 
   // Wrap pointer at screen edges for infinite drag — re-centers without value jump
   wrapNodeSliderDragAtScreenEdge(drag, event);
