@@ -7113,6 +7113,10 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   background: rgb(3, 5, 7);
   user-select: none;
   touch-action: none;
+  /* Keep the title bar (move + close + title) pinned while the body scrolls */
+  position: sticky;
+  top: 0;
+  z-index: 6;
 }
 
 .metadata-popover-heading.dragging,

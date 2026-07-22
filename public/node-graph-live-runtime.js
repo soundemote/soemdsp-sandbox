@@ -1020,6 +1020,15 @@ function queueNodeGraphLivePatchCommand(command, nodeId = "") {
 
 function handleNodeGraphLiveWorkletMessage(event) {
   const message = event.data || {};
+  if (message.blockSizeSmoothingSamples != null) {
+    nodeGraphMvp.live.blockSizeSmoothingSamples = Math.max(0, Math.round(Number(message.blockSizeSmoothingSamples)) || 0);
+    const statusEl = document.getElementById("metadataSmoothingModeStatus");
+    const group = document.getElementById("metadataSmoothingModeGroup");
+    if (statusEl && group && group.dataset.mode === "blockSize" && typeof nodeGraphSmoothingModeStatusText === "function") {
+      const sInput = document.getElementById("metadataSmoothingSecondsValue");
+      statusEl.textContent = nodeGraphSmoothingModeStatusText("blockSize", sInput ? Number(sInput.value) : 0);
+    }
+  }
   if (message.type === "meter") {
     if (message.sessionId !== nodeGraphMvp.live.sessionId || !nodeGraphMvp.live.node) {
       return;
@@ -1244,7 +1253,7 @@ function assertNodeGraphLivePlanSupportsClap(plan = {}) {
     return;
   }
   const names = clapNodes.map((node) => nodeGraphLiveClapNodeTitle(node)).join(", ");
-  const error = new Error(`Live Audio does not route CLAP Plugin nodes yet. Use Render Sample for CLAP processing: ${names}`);
+  const error = new Error(`Live Audio cannot route CLAP Plugin nodes yet (CLAP is under construction). Bounce these with Render Sample instead, or remove them to run Live Audio: ${names}`);
   error.issues = clapNodes.map((node) => `Live Audio CLAP routing unavailable: ${nodeGraphLiveClapNodeTitle(node)}`);
   throw error;
 }
@@ -1810,7 +1819,7 @@ async function stopNodeGraphLiveAudio() {
 // then register.js calls registerProcessor last, once everything above it
 // has finished defining/registering.
 const nodeGraphLiveWorkletSourceFiles = [
-  "./public/node-live-audio-worklet-core.js?v=wall-delay-ray-bounce-dsp-20260718",
+  "./public/node-live-audio-worklet-core.js?v=blocksize-clock-20260722",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
   "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=gainbiasmix-fix-20260722",

@@ -521,7 +521,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       const exports = result?.instance?.exports || null;
       if (name === "ellipsoid" || targetType === "ellipsoid") {
         this.nativeEllipsoid = exports;
-        this.nativeEllipsoidReady = Boolean(this.nativeEllipsoid?.soemdsp_ellipsoid_vector_sample);
+        this.nativeEllipsoidReady = Boolean(this.nativeEllipsoid?.soemdsp_ellipsoid_sample);
         this.port.postMessage({
           type: "nativeModuleStatus",
           name: "ellipsoid",
@@ -2985,6 +2985,19 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.sessionId = message.sessionId || 0;
     this.autoSmoothingSeconds = this.clampAutoSmoothingSeconds(message.autoSmoothingSeconds);
     this.syncNestedAutoSmoothingSeconds(this.autoSmoothingSeconds);
+    // Track wall-clock interval between parameter updates so "blockSize"
+    // smoothing can bridge exactly one control-update block (see
+    // resolveSmoothingSecondsForMode). Idle gaps are clamped out.
+    {
+      // Use the AudioWorklet clock (currentTime, seconds). performance.now()
+      // is NOT available in AudioWorkletGlobalScope and returns 0 there.
+      const nowSec = (typeof currentTime !== "undefined") ? Number(currentTime) : ((globalThis.performance?.now?.() || 0) / 1000);
+      if (this._lastSetParamsSec != null) {
+        const dt = nowSec - this._lastSetParamsSec;
+        if (dt > 0.001 && dt < 0.5) this._paramUpdateIntervalSeconds = dt;
+      }
+      this._lastSetParamsSec = nowSec;
+    }
     let parameterCount = 0;
     for (const node of Array.isArray(nodes) ? nodes : []) {
       const current = this.nodes.get(node.id);
@@ -3011,6 +3024,10 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       patchFingerprint,
       planSerial: this.planSerial,
       sessionId: this.sessionId,
+      // Effective 'block size' smoothing window in samples: max(one audio
+      // block, measured control-update interval). This is exactly what the
+      // blockSize case of resolveSmoothingSecondsForMode uses.
+      blockSizeSmoothingSamples: Math.round(Math.max(this._engineFrames || 128, (this._paramUpdateIntervalSeconds || 0) * sampleRate)),
       type: "paramsApplied",
     });
   }
@@ -3954,7 +3971,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   //                       (0 samples bypasses smoothing for this param only)
   //   global          -- always use the global smoothing time, ignoring the
   //                       parameter's own smoothingSeconds
-  //   blockSize       -- always smooth over exactly one audio block
+  //   blockSize       -- smooth over one control-update block: at least one
+  //                       audio block, floored to the measured interval between
+  //                       parameter updates so fine-tune steps are bridged
   //   internalGlobal  -- internal samples PLUS the global smoothing time
   //   off             -- always instant, ignoring both internal and global
   resolveSmoothingSecondsForMode(mode, smoothingSamples, frames, rate = sampleRate, globalSeconds = this.autoSmoothingSeconds) {
@@ -3965,7 +3984,10 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       case "off":
         return 0;
       case "blockSize":
-        return Math.max(1, Number(frames) || 1) / safeRate;
+        // Smooth over one control-update block: at least one audio block, but
+        // long enough to bridge the gap between parameter updates (~16 ms while
+        // fine-tuning) so slider tweaks glide instead of stepping.
+        return Math.max(Math.max(1, Number(frames) || 1) / safeRate, this._paramUpdateIntervalSeconds || 0);
       case "global":
         return safeGlobal;
       case "internalGlobal":
@@ -7877,6 +7899,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     const rawEngineSampleRate = Math.max(1, this.engineSampleRate || sampleRate || 44100);
     const effectiveRate = Math.max(1, rawEngineSampleRate * Math.max(0, this.speedMultiplier ?? 1));
     const engineFrames = frames * oversamplingRatio;
+    this._engineFrames = engineFrames;
     // Speed 0 = pause: fill silence and return immediately.
     if (this.speedMultiplier === 0) {
       for (const channel of output) {

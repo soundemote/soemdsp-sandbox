@@ -2,6 +2,14 @@
 // soemdsp-native-label: Ellipsoid
 // soemdsp-native-target: ellipsoid
 // soemdsp-native-kind: oscillator
+//
+// Fully stateless. The X/Y vector pair is produced by calling the pure
+// soemdsp_ellipsoid_sample() twice from the caller (see
+// public/modules/ellipsoid/ellipsoid-worklet-evaluator.js), so this module
+// holds no file-scope mutable state. Multiple ellipsoid nodes therefore
+// cannot corrupt one another regardless of call ordering -- the previous
+// write-to-global-then-read-getter exports (a stateful vector-sample plus
+// mono/x/y getters backed by module globals) were removed for that reason.
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -29,9 +37,6 @@ double cosApprox(double value) {
   return sinApprox(value + kHalfPi);
 }
 
-double ellipsoidMono = 0.0;
-double ellipsoidX = 0.0;
-double ellipsoidY = 0.0;
 }  // namespace
 
 extern "C" double soemdsp_ellipsoid_sample(
@@ -54,35 +59,6 @@ extern "C" double soemdsp_ellipsoid_sample(
     return 0.0;
   }
   return clamp(((x * shapeCos) + (y * shapeSin)) / denominator, -1.0, 1.0);
-}
-
-extern "C" void soemdsp_ellipsoid_vector_sample(
-  double phase,
-  double level,
-  double offsetX,
-  double offsetY,
-  double scaleX,
-  double scaleY,
-  double shapeX,
-  double shapeY
-) {
-  const double x = soemdsp_ellipsoid_sample(phase, offsetX, shapeX, scaleX) * level;
-  const double y = soemdsp_ellipsoid_sample(phase - kHalfPi, offsetY, shapeY, scaleY) * level;
-  ellipsoidMono = x;
-  ellipsoidX = x;
-  ellipsoidY = y;
-}
-
-extern "C" double soemdsp_ellipsoid_mono() {
-  return ellipsoidMono;
-}
-
-extern "C" double soemdsp_ellipsoid_x() {
-  return ellipsoidX;
-}
-
-extern "C" double soemdsp_ellipsoid_y() {
-  return ellipsoidY;
 }
 
 extern "C" int soemdsp_ellipsoid_version() {

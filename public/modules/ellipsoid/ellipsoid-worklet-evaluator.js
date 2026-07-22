@@ -60,7 +60,7 @@ NodeLiveAudioProcessor.prototype.nativeEllipsoidVectorSample = function nativeEl
   shapeY = 0,
 ) {
   const native = this.nativeEllipsoidReady ? this.nativeEllipsoid : null;
-  if (!native?.soemdsp_ellipsoid_vector_sample) {
+  if (!native?.soemdsp_ellipsoid_sample) {
     return this.ellipsoidVectorSample(
       target,
       phase,
@@ -73,18 +73,31 @@ NodeLiveAudioProcessor.prototype.nativeEllipsoidVectorSample = function nativeEl
       shapeY,
     );
   }
-  native.soemdsp_ellipsoid_vector_sample(
-    Number(phase) || 0,
-    Number(levelValue) || 0,
-    Number(offsetX) || 0,
-    Number(offsetY) || 0,
-    Number(scaleX) || 0,
-    Number(scaleY) || 0,
-    Number(shapeX) || 0,
-    Number(shapeY) || 0,
+  // Stateless: call the pure native sample twice (X, then Y a quarter-cycle
+  // behind) rather than the old write-global-then-read-getter pattern, so
+  // concurrent ellipsoid nodes cannot read each other's leftover state.
+  const level = Number(levelValue) || 0;
+  const nativePhase = Number(phase) || 0;
+  const x = this.clampValue(
+    (Number(native.soemdsp_ellipsoid_sample(
+      nativePhase,
+      Number(offsetX) || 0,
+      Number(shapeX) || 0,
+      Number(scaleX) || 0,
+    )) || 0) * level,
+    -1,
+    1,
   );
-  const x = this.clampValue(Number(native.soemdsp_ellipsoid_x?.()) || 0, -1, 1);
-  const y = this.clampValue(Number(native.soemdsp_ellipsoid_y?.()) || 0, -1, 1);
+  const y = this.clampValue(
+    (Number(native.soemdsp_ellipsoid_sample(
+      nativePhase - Math.PI * 0.5,
+      Number(offsetY) || 0,
+      Number(shapeY) || 0,
+      Number(scaleY) || 0,
+    )) || 0) * level,
+    -1,
+    1,
+  );
   const output = target || {};
   output.Out = x;
   output.Mono = x;

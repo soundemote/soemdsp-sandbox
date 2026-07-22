@@ -276,6 +276,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/nyquistShannon/nyquist-shannon-live-evaluator.js",
     "./public/modules/radar/radar-live-evaluator.js",
     "./public/modules/surgeOscillator/surge-oscillator-live-evaluator.js",
+    "./public/modules/sinc/sinc-live-evaluator.js",
+    "./public/modules/spectrogram/spectrogram-display.js",
     "./public/modules/dsfOscillator/dsf-oscillator-live-evaluator.js",
     "./public/modules/robinSupersaw/robin-supersaw-live-evaluator.js",
     "./public/modules/hypersaw/hypersaw-live-evaluator.js",
@@ -1224,9 +1226,14 @@ def require_shell_contract(html: str) -> None:
         "resource widgets should show CPU/RAM/GPU without the word constrained",
     )
     require(parser.inline_script_count == 0, "shell includes inline script")
+    _expected_scripts = set(PUBLIC_SCRIPT_PATHS)
+    _missing_from_test = sorted(script_paths - _expected_scripts)
+    _stale_in_test = sorted(_expected_scripts - script_paths)
     require(
-        script_paths == set(PUBLIC_SCRIPT_PATHS),
-        f"shell scripts were {sorted(parser.scripts)!r}",
+        script_paths == _expected_scripts,
+        "index.html <script> tags drifted from PUBLIC_SCRIPT_PATHS in smoke_test.py. "
+        f"Add to PUBLIC_SCRIPT_PATHS: {_missing_from_test}. "
+        f"Remove from PUBLIC_SCRIPT_PATHS: {_stale_in_test}.",
     )
     require(
         stylesheet_paths == {"./public/styles.css", "./public/modules/stepGrid/step-grid.css"},
@@ -16905,7 +16912,7 @@ def require_node_graph_mvp_contract() -> None:
         "nativeEllipsoidVectorSample(",
         'message.type === "setNativeModuleWasm"',
         "async setNativeModuleWasm(message)",
-        "soemdsp_ellipsoid_vector_sample",
+        "soemdsp_ellipsoid_sample",
         "target,",
         "levelValue = 1",
         "output.Out = x",
@@ -17698,7 +17705,7 @@ def require_native_module_contract(base_url: str) -> None:
         "lut_cell": ["soemdsp_lut_cell_create", "soemdsp_lut_cell_destroy", "soemdsp_lut_cell_sample", "soemdsp_lut_cell_q"],
         "metallic_ratio": ["soemdsp_metallic_ratio_sample"],
         "chua_attractor": ["soemdsp_chua_attractor_create", "soemdsp_chua_attractor_destroy", "soemdsp_chua_attractor_sample"],
-        "ellipsoid": ["soemdsp_ellipsoid_sample", "soemdsp_ellipsoid_vector_sample"],
+        "ellipsoid": ["soemdsp_ellipsoid_sample"],
         "fractal_brownian_noise": ["soemdsp_fbm_create", "soemdsp_fbm_destroy", "soemdsp_fbm_sample"],
         "henon_map": ["soemdsp_henon_map_create", "soemdsp_henon_map_destroy", "soemdsp_henon_map_sample"],
         "jerobeam_wirdo_spiral": ["soemdsp_jbwirdo_create", "soemdsp_jbwirdo_destroy", "soemdsp_jbwirdo_sample", "soemdsp_jbwirdo_x", "soemdsp_jbwirdo_y"],
@@ -17847,7 +17854,12 @@ def require_native_module_contract(base_url: str) -> None:
     ellipsoid_source = ellipsoid_source_path.read_text(encoding="utf-8")
     require("// soemdsp-native-module: ellipsoid" in ellipsoid_source, "native ellipsoid source metadata missing")
     require("extern \"C\" double soemdsp_ellipsoid_sample" in ellipsoid_source, "native ellipsoid sample export missing")
-    require("extern \"C\" void soemdsp_ellipsoid_vector_sample" in ellipsoid_source, "native ellipsoid vector export missing")
+    require(
+        'extern "C" void soemdsp_ellipsoid_vector_sample' not in ellipsoid_source
+        and 'extern "C" double soemdsp_ellipsoid_mono' not in ellipsoid_source
+        and 'extern "C" double soemdsp_ellipsoid_x' not in ellipsoid_source,
+        "native ellipsoid must stay stateless (no vector_sample/mono/x/y file-scope-global exports)",
+    )
     require(ellipsoid_wasm_path.exists(), "native ellipsoid wasm should exist")
     require(ellipsoid_wasm_path.read_bytes().startswith(b"\0asm"), "native ellipsoid wasm magic bytes missing")
     require(sabrina_source_path.exists(), "native Sabrina Reverb source should exist")

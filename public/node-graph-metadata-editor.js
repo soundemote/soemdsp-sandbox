@@ -1603,8 +1603,10 @@ function nodeGraphSmoothingModeStatusText(mode, smoothingSamples) {
   switch (mode) {
     case "global":
       return `🌍 Global — ${globalSamples} samples.`;
-    case "blockSize":
-      return `📟 Block Size — ${nodeGraphAudioBlockSize} samples.`;
+    case "blockSize": {
+      const reported = Math.round(Number(nodeGraphMvp?.live?.blockSizeSmoothingSamples) || 0);
+      return `📟 Block Size — ${reported > 0 ? reported : nodeGraphAudioBlockSize} samples.`;
+    }
     case "internalGlobal":
       return `🙂🌍 Internal + Global — ${internalSamples} internal + ${globalSamples} global = ${internalSamples + globalSamples} samples.`;
     case "off":
