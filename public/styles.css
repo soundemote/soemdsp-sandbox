@@ -16647,8 +16647,8 @@ body.node-slider-dragging .node-param-port {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  aspect-ratio: 1 / 1;
+  height: 100%;
   padding: 0;
   border: 1px solid var(--line);
   border-radius: 3px;
@@ -16728,6 +16728,7 @@ body.node-slider-dragging .node-param-port {
 .node-render-duration-control {
   display: inline-grid;
   align-items: stretch;
+  justify-items: stretch;
   grid-template-columns: auto auto minmax(5.5em, 7em);
   gap: 0;
   min-height: 36px;
