@@ -221,6 +221,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.sineWavetableStates = new Map();
     this.lorenzAttractorStates = new Map();
     this.logisticMapStates = new Map();
+    this.gainBiasMixStates = new Map();
     this.henonMapStates = new Map();
     this.chuaAttractorStates = new Map();
     this.wirdoSpiralStates = new Map();
@@ -1903,6 +1904,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.sineWavetableStates = new Map();
     this.lorenzAttractorStates = new Map();
     this.logisticMapStates = new Map();
+    this.gainBiasMixStates = new Map();
     this.henonMapStates = new Map();
     this.chuaAttractorStates = new Map();
     this.wirdoSpiralStates = new Map();
@@ -7486,6 +7488,28 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
           X: radar.x * radarLevel,
           Y: radar.y * radarLevel,
         };
+      },
+      gainBiasMix: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+        const state = this.gainBiasMixStates.get(nodeId) || this.createGainBiasMixState();
+        this.gainBiasMixStates.set(nodeId, state);
+        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        return this.gainBiasMixSample(state, {
+          bias1: read("bias1", 0),
+          bias2: read("bias2", 0),
+          bias3: read("bias3", 0),
+          bias4: read("bias4", 0),
+          bleed2to1: read("bleed2to1", 0),
+          bleed3to1: read("bleed3to1", 0),
+          bleed4to1: read("bleed4to1", 0),
+          in1: mixInput(nodeId, "In1"),
+          in2: mixInput(nodeId, "In2"),
+          in3: mixInput(nodeId, "In3"),
+          in4: mixInput(nodeId, "In4"),
+          volume1: read("volume1", 1),
+          volume2: read("volume2", 1),
+          volume3: read("volume3", 1),
+          volume4: read("volume4", 1),
+        }, nodeId);
       },
     };
   }

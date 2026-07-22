@@ -26,10 +26,10 @@ NodeLiveAudioProcessor.prototype.gainBiasMixSample = function gainBiasMixSample(
   const bleed3to1 = this.safeFilterNumber(params.bleed3to1, 0) ?? 0;
   const bleed4to1 = this.safeFilterNumber(params.bleed4to1, 0) ?? 0;
 
-  const in1 = this.safeFilterNumber(this.readInput("In1"), 0) ?? 0;
-  const in2 = this.safeFilterNumber(this.readInput("In2"), 0) ?? 0;
-  const in3 = this.safeFilterNumber(this.readInput("In3"), 0) ?? 0;
-  const in4 = this.safeFilterNumber(this.readInput("In4"), 0) ?? 0;
+  const in1 = this.safeFilterNumber(params.in1, 0) ?? 0;
+  const in2 = this.safeFilterNumber(params.in2, 0) ?? 0;
+  const in3 = this.safeFilterNumber(params.in3, 0) ?? 0;
+  const in4 = this.safeFilterNumber(params.in4, 0) ?? 0;
 
   return {
     "Out1": this.clampValue(in1 * v1 + b1 + in2 * bleed2to1 + in3 * bleed3to1 + in4 * bleed4to1, -10, 10),

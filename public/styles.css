@@ -1895,9 +1895,9 @@ html.soemdsp-hide-ui .status-strip {
    rectangular button, not just the circular dial drawn inside it, so
    dragging/clicking works well outside the visible arc unless you can see
    where the actual box ends. */
-body.macro-knob-hitbox-outline .node-macro-knob {
+body.macro-knob-hitbox-outline .node-macro-knob i {
   outline: 1px solid rgba(241, 184, 75, 0.55);
-  outline-offset: -1px;
+  outline-offset: 1px;
 }
 
 .node-macro-controls-module .node-macro-knob {
@@ -16631,8 +16631,42 @@ body.node-slider-dragging .node-param-port {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: stretch;
   gap: 0;
+  border-right: none; /* remove divider between Output and Render Sample */
   min-width: min(100%, 11rem);
   padding-right: 10px;
+}
+
+.node-transport-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 10px;
+}
+
+.node-transport-group button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: rgba(17, 20, 24, 0.62);
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.node-transport-group button:hover {
+  background: rgba(17, 20, 24, 0.85);
+  color: var(--scope);
+}
+
+.node-transport-group button:active {
+  background: rgba(17, 20, 24, 1);
 }
 
 .node-live-toggle-palette .node-live-toggle {
@@ -16730,6 +16764,45 @@ body.node-slider-dragging .node-param-port {
   background: #101214;
   color: var(--text);
   font: inherit;
+}
+
+.node-render-duration-control .node-header-render-range-field {
+  grid-template-rows: auto 1fr;
+  align-items: center;
+  justify-items: center;
+  padding: 0 4px;
+  border: none;
+  border-inline-end: none;
+  border-inline-start: none;
+  font-size: 0.78rem;
+}
+
+.node-render-duration-control .node-header-render-range-field:first-of-type {
+  border-inline-start: none;
+}
+
+.node-render-duration-control .node-header-render-range-field span {
+  font-size: 0.62rem;
+  opacity: 0.5;
+  line-height: 1.1;
+  margin-bottom: 1px;
+}
+
+.node-render-duration-control .node-header-render-range-field input {
+  text-align: center;
+  font-size: inherit;
+  width: 100%;
+  min-width: 3.5em;
+  padding: 0 2px;
+  border: none;
+  background: transparent;
+  cursor: default;
+  pointer-events: none;
+}
+
+.node-render-duration-control .node-header-render-range-field.editing input {
+  cursor: text;
+  pointer-events: auto;
 }
 
 .node-render-duration-control input:focus {

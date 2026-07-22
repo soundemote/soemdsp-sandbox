@@ -28,6 +28,15 @@ function syncNodeGraphRenderSecondsFromInput(options = {}) {
   return seconds;
 }
 
+function syncNodeGraphRenderTimeDisplays() {
+  const start = nodeGraphMvp.renderStartSeconds ?? 0;
+  const end = nodeGraphMvp.renderEndSeconds ?? nodeGraphMvp.seconds ?? 2;
+  const startEl = document.getElementById("nodeRenderStartDisplay");
+  const endEl = document.getElementById("nodeRenderEndDisplay");
+  if (startEl) startEl.textContent = formatNodeSliderCompactNumber(start);
+  if (endEl) endEl.textContent = formatNodeSliderCompactNumber(end);
+}
+
 function syncNodeGraphRenderRangeFromInputs() {
   if (nodeGraphMvp.renderStartSeconds == null) nodeGraphMvp.renderStartSeconds = 0;
   if (nodeGraphMvp.renderEndSeconds == null) nodeGraphMvp.renderEndSeconds = nodeGraphMvp.seconds ?? 2;
@@ -74,3 +83,32 @@ function handleNodeGraphRenderRangeInput(event) {
   scheduleNodeGraphLiveParameterSync();
   event?.stopPropagation?.();
 }
+
+function bindNodeGraphRenderRangeDoubleClick() {
+  for (const field of document.querySelectorAll(".node-header-render-range-field")) {
+    if (field.dataset.dblClickBound) continue;
+    field.dataset.dblClickBound = "1";
+
+    const input = field.querySelector("input");
+    if (!input) continue;
+
+    field.addEventListener("dblclick", () => {
+      field.classList.add("editing");
+      input.focus();
+      input.select();
+    });
+
+    const finish = () => {
+      field.classList.remove("editing");
+    };
+    input.addEventListener("blur", finish);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { input.blur(); }
+      e.stopPropagation();
+    });
+  }
+}
+
+window.addEventListener("load", () => {
+  setTimeout(bindNodeGraphRenderRangeDoubleClick, 300);
+});

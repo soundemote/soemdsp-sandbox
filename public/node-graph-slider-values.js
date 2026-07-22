@@ -468,7 +468,10 @@ function nodeSliderHandleRangeFromTravel(slider, surface, travel) {
 }
 
 function nodeSliderTravelFromPointer(slider, surface, clientX) {
-  const rect = surface.getBoundingClientRect();
+  const drag = nodeGraphMvp?.sliderDragging;
+  const rect = (drag && drag.surface === surface && drag.surfaceRect)
+    ? drag.surfaceRect
+    : surface.getBoundingClientRect();
   const lane = nodeSliderVisualLane(surface, slider);
   const scale = nodeSliderElementVisualScale(surface);
   const x = (clientX - rect.left) / scale;

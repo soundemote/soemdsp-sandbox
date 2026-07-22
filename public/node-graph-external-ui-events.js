@@ -758,6 +758,25 @@ window.addEventListener("message", (event) => {
       },
       event.origin,
     );
+  } else if (message.type === "soundemote:render-sample") {
+    if (!nodeGraphExternalMessageOriginAllowed(event)) {
+      return;
+    }
+    // Render audio and respond with WAV blob URL for download
+    if (typeof renderNodeGraphAudio === "function") {
+      renderNodeGraphAudio().then(() => {
+        const url = nodeGraphMvp?.renderedAudioUrl || "";
+        event.source?.postMessage(
+          { type: "soundemote:rendered-sample", url },
+          event.origin,
+        );
+      }).catch(() => {
+        event.source?.postMessage(
+          { type: "soundemote:rendered-sample", url: "" },
+          event.origin,
+        );
+      });
+    }
   }
 });
 

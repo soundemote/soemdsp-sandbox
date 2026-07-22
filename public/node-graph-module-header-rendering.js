@@ -453,6 +453,20 @@ function renderNodeGraphPatchTimingControls() {
   bindNodeGraphHeaderTimingWidgets(host);
   syncNodeGraphHeaderTimingWidgets();
   syncNodeGraphRenderRangeToUI();
+  moveNodeGraphRenderRangeToDurationControl();
+}
+
+function moveNodeGraphRenderRangeToDurationControl() {
+  const dur = document.getElementById("nodeRenderDurationControl") || document.querySelector(".node-render-duration-control");
+  if (!dur) return;
+  // Move Start/End inputs from header toolbar into the Render Sample row
+  for (const cls of [".node-header-render-start-input", ".node-header-render-end-input"]) {
+    const input = document.querySelector(cls);
+    const field = input?.closest(".node-header-render-range-field");
+    if (field && field.parentElement !== dur) {
+      dur.appendChild(field);
+    }
+  }
 }
 
 function createNodeGraphModuleHeader(type, node, definition) {

@@ -2282,8 +2282,8 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
   cycles: 2,
   lineThickness: 0.2,
   padding: 0,
-  skipDiscontinuities: true,
-  sourceSync: true,
+  skipDiscontinuities: false,
+  sourceSync: false,
   zoomSeconds: 0.05,
 });
 

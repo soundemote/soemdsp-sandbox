@@ -2564,7 +2564,14 @@
             <span>(Off)</span>
           </button>
         </div>
-        <div class="node-render-duration-control">
+        <div class="node-transport-group" id="nodeTransportGroup" aria-label="Transport controls">
+          <button id="nodeTransportPrev" type="button" title="Previous patch" aria-label="Previous patch">⏮</button>
+          <button id="nodeTransportStop" type="button" title="Stop" aria-label="Stop">⏹</button>
+          <button id="nodeTransportPlay" type="button" title="Play / Pause" aria-label="Play">▶</button>
+          <button id="nodeTransportRecord" type="button" title="Record (under construction)" aria-label="Record" disabled class="under-construction">⏺</button>
+          <button id="nodeTransportNext" type="button" title="Next patch" aria-label="Next patch">⏭</button>
+        </div>
+        <div class="node-render-duration-control" id="nodeRenderDurationControl">
           <button id="nodeRenderButton" type="button">Render Sample</button>
         </div>
         <div class="node-patch-audio-player-row">
@@ -3377,7 +3384,7 @@
   <script src="./public/node-graph-context-menu.js?v=nuke-scriptbox-20260719"></script>
   <script src="./public/node-graph-module-actions.js?v=nuke-scriptbox-20260719"></script>
   <script src="./public/node-graph-code-screen.js?v=workspace-script-shrink-20260719"></script>
-  <script src="./public/node-graph-module-scopes.js?v=scope-stutter-fix-20260722"></script>
+  <script src="./public/node-graph-module-scopes.js?v=scope-stutter-fix-20260723"></script>
   <script src="./public/modules/oscilloscopeBank/oscilloscope-bank-display.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/videoscope/videoscope-display.js?v=videoscope-20260713"></script>
   <script src="./public/modules/spectrogram/spectrogram-display.js?v=spectrogram-20260720"></script>
@@ -3396,7 +3403,7 @@
   <script src="./public/node-graph-patch-clone.js?v=nuke-scriptbox-20260719"></script>
   <script src="./public/node-graph-slider-metadata.js?v=smoothing-mode-switch-20260703"></script>
   <script src="./public/node-graph-slider-values.js?v=finer-modifier-tier-20260709"></script>
-  <script src="./public/node-graph-slider-dragging.js?v=slider-reflow-fix-20260722"></script>
+  <script src="./public/node-graph-slider-dragging.js?v=slider-reflow-fix-20260723"></script>
   <script src="./public/node-graph-node-accessors.js?v=smoothing-time-20260701"></script>
   <script src="./public/node-graph-selection.js?v=code-box-auto-ports-20260719"></script>
   <script src="./public/node-graph-port-geometry.js?v=pitch-quantizer-01v-oct-20260701"></script>

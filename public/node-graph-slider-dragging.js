@@ -77,7 +77,11 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
   ) {
     patchNode.graph = nodeGraphGraphWithLockedEndpointY(patchNode.graph);
   }
-  if (options.deferAutosave) {
+  // Defer header/brand updates until rAF to avoid dirtying layout mid-pointer-event
+  if (options.interaction === "drag") {
+    nodeGraphMvp.patchDirtyState = "edited";
+    nodeGraphMvp._needsHeaderSync = true;
+  } else if (options.deferAutosave) {
     nodeGraphMvp.patchDirtyState = "edited";
     if (typeof syncNodeGraphCurrentSavedPatchHeader === "function") {
       syncNodeGraphCurrentSavedPatchHeader();
@@ -219,12 +223,23 @@ function setNodeSliderValue(slider, value, options = {}) {
     delete slider.dataset.unboundedValue;
   }
   const normalized = normalizeNodeSliderValue(slider, value);
-  slider.value = String(normalized);
-  scheduleNodeSliderReadoutUpdate(slider);
-  syncNodeGraphPatchParameterFromSlider(slider, {
-    deferAutosave: isDrag,
-    deferUi: true,
-  });
+  // Frame-gate during drags: if already pending rAF update, skip redundant patch work.
+  // The flush will apply the latest value — object-spreads mid-frame are wasted.
+  const alreadyPending = isDrag && nodeGraphMvp?._pendingReadoutUpdates?.has(slider);
+  if (isDrag) {
+    scheduleNodeSliderReadoutUpdate(slider, normalized);
+  } else {
+    slider.value = String(normalized);
+    syncNodeSliderReadout(slider);
+  }
+  if (!alreadyPending) {
+    syncNodeGraphPatchParameterFromSlider(slider, {
+      interaction: options.interaction,
+      deferAutosave: isDrag,
+      deferUi: true,
+    });
+    scheduleNodeGraphModuleScopeDrawIfNeeded();
+  }
   if (isDrag) {
     scheduleNodeSliderDragAutosave();
   } else {
@@ -232,8 +247,9 @@ function setNodeSliderValue(slider, value, options = {}) {
     syncNodeGraphGhostSliders();
     markNodeGraphRenderPending();
   }
-  scheduleNodeGraphLiveParameterSync();
-  scheduleNodeGraphModuleScopeDrawIfNeeded();
+  if (!alreadyPending) {
+    scheduleNodeGraphLiveParameterSync();
+  }
 }
 
 function nodeSliderSegmentValueFromPointer(slider, surface, clientX) {
@@ -360,6 +376,18 @@ function reanchorNodeSliderDragAtPointer(drag, event) {
   drag.startY = event.clientY;
 }
 
+const NODE_SLIDER_WRAP_MARGIN = 30;
+function wrapNodeSliderDragAtScreenEdge(drag, event) {
+  const x = event.clientX;
+  const y = event.clientY;
+  const { innerWidth: w, innerHeight: h } = window;
+  if (x > NODE_SLIDER_WRAP_MARGIN && x < w - NODE_SLIDER_WRAP_MARGIN &&
+      y > NODE_SLIDER_WRAP_MARGIN && y < h - NODE_SLIDER_WRAP_MARGIN) {
+    return;
+  }
+  reanchorNodeSliderDragAtPointer(drag, event);
+}
+
 function nodeSliderValueAtPointer(slider, surface, event) {
   if (!slider || !surface || !event) {
     return NaN;
@@ -415,6 +443,7 @@ function beginNodeSliderDrag(event) {
     setNodeChoiceSliderFromPointer(slider, surface, event.clientX, { interaction: "drag" });
     startTravel = nodeSliderTravelFromValue(slider, Number(slider.value));
   }
+  const surfaceRect = surface.getBoundingClientRect();
   nodeGraphMvp.sliderDragging = {
     moved: false,
     pointerId: event.pointerId ?? null,
@@ -422,6 +451,7 @@ function beginNodeSliderDrag(event) {
     resetToDefaultOnClick,
     slider,
     surface,
+    surfaceRect,
     startTravel,
     startX: event.clientX,
     startY: event.clientY,
@@ -450,11 +480,13 @@ function dragNodeSlider(event) {
     return;
   }
 
-  let horizontalDelta = event.clientX - drag.startX;
-  let verticalDelta = drag.startY - event.clientY;
+  const horizontalDelta = event.clientX - drag.startX;
+  const verticalDelta = drag.startY - event.clientY;
   if (Math.abs(horizontalDelta) > 1 || Math.abs(verticalDelta) > 1) {
     drag.moved = true;
   }
+
+  // ALT+click: jump slider to pointer position (fine-tune via SHIFT/CTRL handled by fineScale below)
   if (event.altKey && !(event.shiftKey && (event.ctrlKey || event.metaKey))) {
     if (setNodeSliderValueAtPointer(drag.slider, drag.surface, event, { interaction: "drag" })) {
       reanchorNodeSliderDragAtPointer(drag, event);
@@ -463,19 +495,14 @@ function dragNodeSlider(event) {
     event.preventDefault();
     return;
   }
-  // Fine/coarse scale is read live from the current event on every move (not
-  // just at mouse-down), so pressing/releasing Shift or Ctrl mid-drag changes
-  // sensitivity immediately. Re-anchor on a scale change (and recompute the
-  // delta from that fresh anchor) so the value doesn't jump -- only the
-  // sensitivity of further movement changes, matching RDraggableNumber::
-  // mouseDrag's isShiftDown() check in RS-MET.
-  const currentFineScale = nodeSliderFineTuneScale(event);
-  if (currentFineScale !== drag.fineScale) {
-    reanchorNodeSliderDragAtPointer(drag, event);
-    drag.fineScale = currentFineScale;
-    horizontalDelta = event.clientX - drag.startX;
-    verticalDelta = drag.startY - event.clientY;
-  }
+
+  // Fine/coarse scale from modifier keys — live per-event, no re-anchor needed.
+  // Changing scale mid-drag only affects sensitivity of further movement.
+  drag.fineScale = nodeSliderFineTuneScale(event);
+
+  // Wrap pointer at screen edges for infinite drag — re-centers without value jump
+  wrapNodeSliderDragAtScreenEdge(drag, event);
+
   const visualTravelWidth = Math.max(1, drag.width * (Number(drag.visualScale) || 1));
   const travelDelta = ((horizontalDelta + verticalDelta) / visualTravelWidth) * drag.fineScale;
   const nextTravel = drag.startTravel + travelDelta;
@@ -487,6 +514,7 @@ function dragNodeSlider(event) {
     ),
     { interaction: "drag" },
   );
+  // Re-anchor at travel boundaries to prevent value stagnation
   if (nextTravel <= 0 || nextTravel >= 1) {
     reanchorNodeSliderDragAtPointer(drag, event);
   }
@@ -522,25 +550,23 @@ function endNodeSliderDrag(event) {
 // Moving the slider calls scheduleNodeSliderReadoutUpdate() which queues the display update.
 // The display is flushed in the scope draw rAF AFTER all layout reads, avoiding forced reflow.
 
-function scheduleNodeSliderReadoutUpdate(slider) {
+function scheduleNodeSliderReadoutUpdate(slider, normalized) {
   if (!nodeGraphMvp._pendingReadoutUpdates) {
-    nodeGraphMvp._pendingReadoutUpdates = new Set();
+    nodeGraphMvp._pendingReadoutUpdates = new Map();
   }
-  nodeGraphMvp._pendingReadoutUpdates.add(slider);
-  if (!nodeGraphMvp._readoutRafPending) {
-    nodeGraphMvp._readoutRafPending = true;
-    window.requestAnimationFrame(() => {
-      nodeGraphMvp._readoutRafPending = false;
-      flushNodeSliderReadoutUpdates();
-    });
-  }
+  nodeGraphMvp._pendingReadoutUpdates.set(slider, normalized);
 }
 
 function flushNodeSliderReadoutUpdates() {
   const pending = nodeGraphMvp?._pendingReadoutUpdates;
   if (!pending?.size) return;
-  for (const slider of pending) {
+  for (const [slider, normalized] of pending) {
+    slider.value = String(normalized);
     syncNodeSliderReadout(slider);
   }
   pending.clear();
+  if (nodeGraphMvp._needsHeaderSync && typeof syncNodeGraphCurrentSavedPatchHeader === "function") {
+    nodeGraphMvp._needsHeaderSync = false;
+    syncNodeGraphCurrentSavedPatchHeader();
+  }
 }

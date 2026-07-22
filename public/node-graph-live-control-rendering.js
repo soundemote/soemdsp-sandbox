@@ -131,4 +131,55 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) 
   if (typeof nodeGraphExternalNotifyLiveOutputChanged === "function") {
     nodeGraphExternalNotifyLiveOutputChanged();
   }
+  // Update transport play/pause button text
+  const tp = document.getElementById("nodeTransportPlay");
+  if (tp) {
+    const enginePaused = (nodeGraphMvp.live.speedMultiplier ?? 1) === 0;
+    const playing = outputActive && !enginePaused;
+    tp.textContent = playing ? "⏸" : "▶";
+    tp.setAttribute("aria-label", playing ? "Pause" : "Play");
+  }
 }
+
+function bindNodeGraphTransportButtons() {
+  const play = document.getElementById("nodeTransportPlay");
+  const stop = document.getElementById("nodeTransportStop");
+  const prev = document.getElementById("nodeTransportPrev");
+  const next = document.getElementById("nodeTransportNext");
+
+  if (play) {
+    play.addEventListener("click", () => {
+      const outputActive = nodeGraphLiveOutputIsActive(Boolean(nodeGraphMvp.live.node));
+      if (!outputActive) {
+        if (typeof soemdspSandboxToggleLiveOutput === "function") soemdspSandboxToggleLiveOutput();
+      } else {
+        const speed = (nodeGraphMvp.live.speedMultiplier ?? 1) > 0 ? 0 : 1;
+        if (typeof setNodeGraphLiveSpeed === "function") setNodeGraphLiveSpeed(speed);
+      }
+      renderNodeGraphLiveControls();
+    });
+  }
+  if (stop) {
+    stop.addEventListener("click", () => {
+      if (typeof soemdspSandboxToggleLiveOutput === "function") {
+        const outputActive = nodeGraphLiveOutputIsActive(Boolean(nodeGraphMvp.live.node));
+        if (outputActive) soemdspSandboxToggleLiveOutput();
+      }
+      renderNodeGraphLiveControls();
+    });
+  }
+  if (prev) {
+    prev.addEventListener("click", () => {
+      window.parent?.postMessage?.({ type: "soundemote:prev-patch" }, window.location.origin);
+    });
+  }
+  if (next) {
+    next.addEventListener("click", () => {
+      window.parent?.postMessage?.({ type: "soundemote:next-patch" }, window.location.origin);
+    });
+  }
+}
+
+window.addEventListener("load", () => {
+  setTimeout(bindNodeGraphTransportButtons, 200);
+});
