@@ -144,6 +144,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "SinCos",
     notes: ["implemented", "wavetable", "sin/cos", "native"],
   },
+  sinc: {
+    category: "oscillator",
+    description: "Sinc (sin(x)/x) oscillator — classic band-limited impulse at each cycle center. Useful as a modulation source and for resampling theory demos.",
+    label: "Sinc",
+    notes: ["sinc", "sin(x)/x", "impulse", "oscillator"],
+  },
   osc: {
     category: "oscillator",
     description: "Multi-waveform oscillator (saw, ramp, square, triangle, sine, noise) with 0.1V/Oct and increment CV inputs.",

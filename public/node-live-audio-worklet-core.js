@@ -222,6 +222,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.lorenzAttractorStates = new Map();
     this.logisticMapStates = new Map();
     this.gainBiasMixStates = new Map();
+    this.sincStates = new Map();
     this.henonMapStates = new Map();
     this.chuaAttractorStates = new Map();
     this.wirdoSpiralStates = new Map();
@@ -1905,6 +1906,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.lorenzAttractorStates = new Map();
     this.logisticMapStates = new Map();
     this.gainBiasMixStates = new Map();
+    this.sincStates = new Map();
     this.henonMapStates = new Map();
     this.chuaAttractorStates = new Map();
     this.wirdoSpiralStates = new Map();
@@ -7507,6 +7509,15 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
           volume2: read("volume2", 1),
           volume3: read("volume3", 1),
           volume4: read("volume4", 1),
+        }, nodeId);
+      },
+      sinc: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+        const state = this.sincStates.get(nodeId) || this.createSincState();
+        this.sincStates.set(nodeId, state);
+        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        return this.sincSample(state, {
+          freq: read("freq", 100),
+          phase: read("phase", 0),
         }, nodeId);
       },
     };

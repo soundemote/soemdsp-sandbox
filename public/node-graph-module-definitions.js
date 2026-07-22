@@ -3518,6 +3518,38 @@ const nodeGraphModuleDefinitions = Object.freeze({
       },
     ],
   },
+  sinc: {
+    displayType: "trace",
+    inputs: ["0.1V/Oct", "Freq", "Phase"],
+    inputAliases: { "0.1V": "0.1V/Oct", freq: "Freq", phase: "Phase" },
+    inputLabels: { "0.1V/Oct": "0.1V" },
+    outputs: ["Out"],
+    parameters: [
+      {
+        defaultValue: "0",
+        key: "phase",
+        kind: "phase",
+        label: "Phase",
+        max: "1",
+        min: "0",
+        step: "0.01",
+        unit: "cycle",
+        wraparound: true,
+      },
+      {
+        defaultValue: "100",
+        key: "freq",
+        kind: "frequency",
+        label: "Freq",
+        max: "20000",
+        mid: "100",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        unit: "Hz",
+      },
+    ],
+  },
   // Chromeless / fully-custom-UI modules (stepGrid, led, ...) register
   // their own definition instead of it being hardcoded here -- see
   // node-graph-chromeless-module-registry.js.

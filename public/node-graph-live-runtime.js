@@ -1895,6 +1895,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/radar/radar-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
   "./public/modules/audioPlayer/audio-player-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
   "./public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
+  "./public/modules/sinc/sinc-worklet-evaluator.js?v=sinc-20260723",
   "./public/modules/videoscope/videoscope-worklet-evaluator.js?v=videoscope-20260713",
   "./public/modules/spectrogram/spectrogram-worklet-evaluator.js?v=spectrogram-20260720",
   "./public/node-live-audio-worklet-register.js?v=blob-loader-20260711",
