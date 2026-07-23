@@ -88,6 +88,11 @@ function nodeGraphModuleTypeHasHideableOscilloscope(type) {
   if (nodeGraphChromelessModuleIsCompactTile(type)) {
     return false;
   }
+  // xyPad never renders a scope section (its pad is the display), so don't
+  // offer a show/hide oscilloscope toggle for it either.
+  if (type === "xyPad") {
+    return false;
+  }
   return Boolean(nodeGraphModuleDefinitions[type]) && ![
     "canvas",
     "clapPlugin",

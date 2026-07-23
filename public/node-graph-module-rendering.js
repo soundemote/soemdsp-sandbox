@@ -783,7 +783,8 @@ function createNodeGraphModuleElement(type, node) {
     appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, outputPorts);
   } else {
     let scopeSection = null;
-    if (!patchNodeUi.oscilloscopeHidden) {
+    // xyPad's interactive pad IS its display -- no oscilloscope section.
+    if (!patchNodeUi.oscilloscopeHidden && type !== "xyPad") {
       scopeSection = createNodeGraphModuleScopeSection(node, type);
       article.append(scopeSection);
     }

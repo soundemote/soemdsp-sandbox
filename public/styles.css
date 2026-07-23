@@ -10167,7 +10167,13 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 /* XY Pad -- interactive pad body above the generic quantize/phase sliders
-   (standard chrome, custom widget: same tier as audioPlayer's waveform). */
+   (standard chrome, custom widget: same tier as audioPlayer's waveform).
+   The module article is a GRID column (not flex), so the pad row must be
+   granted the leftover height explicitly: header / pad / io / parameters.
+   minmax(0, 1fr) lets the pad shrink cleanly on short modules too. */
+.dsp-node[data-node-type="xyPad"] {
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+}
 .node-xy-pad {
   box-sizing: border-box;
   padding: 4px 6px 2px;
