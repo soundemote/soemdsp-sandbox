@@ -93,10 +93,10 @@ $modules = @(
 )
 
 foreach ($module in $modules) {
-  $clangArgs = @("--target=wasm32", "-O3", "-nostdlib", "-fno-exceptions", "-fno-rtti")
-  if ($module.Simd) {
-    $clangArgs += "-msimd128"
-  }
+  # -msimd128 for ALL modules (not just the ones using <wasm_simd128.h>
+  # explicitly): wasm SIMD has been baseline in every browser since 2021,
+  # and the flag lets clang autovectorize ordinary scalar DSP loops.
+  $clangArgs = @("--target=wasm32", "-O3", "-msimd128", "-nostdlib", "-fno-exceptions", "-fno-rtti")
   $clangArgs += "-Wl,--no-entry"
   foreach ($export in $module.Exports) {
     $clangArgs += "-Wl,--export=$export"
@@ -149,10 +149,11 @@ New-Item -ItemType Directory -Force -Path $objDir | Out-Null
 
 $objFiles = @()
 foreach ($module in $modules) {
-  $compileArgs = @("--target=wasm32", "-O3", "-nostdlib", "-fno-exceptions", "-fno-rtti")
-  if ($module.Simd) {
-    $compileArgs += "-msimd128"
-  }
+  # -msimd128 everywhere (autovectorization; baseline since 2021) and -flto:
+  # objects carry LLVM bitcode so wasm-ld optimizes ACROSS module boundaries
+  # at link time -- the modules share a lot of structurally identical helper
+  # math (clamps, interpolators, smoothers) that LTO merges and inlines.
+  $compileArgs = @("--target=wasm32", "-O3", "-msimd128", "-flto", "-nostdlib", "-fno-exceptions", "-fno-rtti")
   $obj = "$objDir\$($module.Name).o"
   $compileArgs += @("-c", "$root\native_modules\$($module.Name)\$($module.Name).cpp", "-o", $obj)
   & $clang @compileArgs
@@ -165,7 +166,7 @@ foreach ($module in $modules) {
 # resolves these via the driver, but a direct wasm-ld link of many objects
 # does not, so shim.cpp provides them once for the combined binary.
 $shimObj = "$objDir\zz_shim.o"
-& $clang @("--target=wasm32", "-O3", "-nostdlib", "-fno-builtin", "-fno-exceptions", "-fno-rtti", "-c", "$combinedDir\shim.cpp", "-o", $shimObj)
+& $clang @("--target=wasm32", "-O3", "-msimd128", "-flto", "-nostdlib", "-fno-builtin", "-fno-exceptions", "-fno-rtti", "-c", "$combinedDir\shim.cpp", "-o", $shimObj)
 if ($LASTEXITCODE -ne 0) {
   throw "Combined build: compile failed for shim.cpp"
 }
@@ -193,3 +194,16 @@ if ($LASTEXITCODE -ne 0) {
   throw "Combined build: wasm-ld link failed"
 }
 Write-Output "Built combined native module: native_modules\combined\soemdsp_combined.wasm"
+
+# Smoke test: instantiate the combined binary and call every _version()
+# export, failing the build on any missing export or bad startup. Requires
+# node; skipped with a loud warning if it isn't installed.
+$node = Get-Command node -ErrorAction SilentlyContinue
+if ($node) {
+  & $node.Source "$root\scripts\smoke_test_combined.js" "$combinedDir\soemdsp_combined.wasm" $responseFile
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: smoke test FAILED (see output above)"
+  }
+} else {
+  Write-Warning "node not found -- combined wasm smoke test SKIPPED. Install Node.js to enable it."
+}
