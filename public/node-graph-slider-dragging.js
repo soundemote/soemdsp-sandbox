@@ -451,7 +451,7 @@ function setNodeSliderValueAtPointer(slider, surface, event, options = {}) {
 }
 
 function beginNodeSliderDrag(event) {
-  if (nodeGraphMvp.sliderDragging || event.button > 0 || event.detail > 1) {
+  if (nodeGraphMvp.sliderDragging || event.button > 0) {
     return;
   }
   if (typeof nodeGraphNumericModifierReserved === "function" && nodeGraphNumericModifierReserved(event)) {
@@ -467,6 +467,35 @@ function beginNodeSliderDrag(event) {
     ? event.currentTarget
     : event.target?.closest?.(".node-slider-readout");
   if (!surface) {
+    return;
+  }
+
+  // Double-click -> type-in edit, detected MANUALLY from pointerdown timing
+  // instead of relying on the native "dblclick" event. The first click of a
+  // double-click starts a drag that engages Pointer Lock (see
+  // requestNodeSliderPointerLock below); the lock enter/exit around that
+  // click makes Chrome swallow the native dblclick, which is how
+  // double-click-to-type silently broke when pointer-lock dragging landed.
+  // pointerdown always fires, so this path can't be suppressed. The old
+  // `event.detail > 1` early-return is folded in here: either signal routes
+  // to the editor instead of a second drag.
+  const lastDown = nodeGraphMvp.sliderLastPointerDown;
+  const now = performance.now();
+  const isDoubleClick =
+    event.detail > 1 ||
+    (lastDown &&
+      lastDown.surface === surface &&
+      now - lastDown.time < 400 &&
+      Math.abs(event.clientX - lastDown.x) < 6 &&
+      Math.abs(event.clientY - lastDown.y) < 6);
+  nodeGraphMvp.sliderLastPointerDown = { surface, time: now, x: event.clientX, y: event.clientY };
+  if (isDoubleClick) {
+    nodeGraphMvp.sliderLastPointerDown = null;
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof beginNodeSliderReadoutEdit === "function") {
+      beginNodeSliderReadoutEdit(surface);
+    }
     return;
   }
   const slider = document.getElementById(surface.dataset.sliderTarget);
