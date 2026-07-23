@@ -77,6 +77,17 @@ function nodeGraphChromelessModuleIsCompactTile(type) {
   return Boolean(nodeGraphChromelessModuleRegistrations.get(type)?.compactTile);
 }
 
+function nodeGraphChromelessModuleHasCustomDisplayArea(type) {
+  return Boolean(nodeGraphChromelessModuleRegistrations.get(type)?.customDisplayArea);
+}
+
+// Solid custom modules keep the app's normal signal/parameter language while
+// replacing only the center surface: inputs at left, custom UI in the middle,
+// outputs at right, and ordinary parameter sliders below.
+function nodeGraphChromelessModuleUsesSolidShell(type) {
+  return Boolean(nodeGraphChromelessModuleRegistrations.get(type)?.solidModule);
+}
+
 // CSS layout class for a registered chromeless module -- always the
 // kebab-case of its own type (which is also its layout, see
 // nodeGraphChromelessModuleLayouts) plus "-layout", matching the convention

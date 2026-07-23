@@ -1,12 +1,6 @@
-// Module Diagnostics: a purely informational failure-reporting popup,
-// modeled on node-graph-ear-protection.js's fault-latch shape but for a
-// different job. Ear Protection mutes audio and stops playback because a
-// signal is dangerously loud; this reports when a module quietly fails to
-// do its job at all (native WASM didn't load, a native call threw, or a
-// wired/reachable node is stuck outputting nothing/NaN) -- it never mutes
-// or stops anything, it just tells the user, in detail, what broke and why,
-// instead of leaving them with silence and no explanation (see the
-// keplerBouwkamp "no audio" report this was built to prevent recurring).
+// Native/module fault diagnostics: informational failure reporting for
+// problems. These faults used to open their own modal. The app now has one
+// debug log/error surface, so diagnostics are recorded there instead.
 
 const nodeGraphModuleDiagnosticsSilenceWindowSeconds = 3;
 
@@ -43,6 +37,22 @@ function nodeGraphModuleDiagnosticsFaultDetail(details = {}) {
   return `${label} reported an unspecified issue.`;
 }
 
+function nodeGraphReportModuleDiagnosticsError(fault) {
+  if (!fault) {
+    return;
+  }
+  const message = fault.count > 1 ? `${fault.detail} (x${fault.count})` : fault.detail;
+  if (globalThis.SE?.ERROR) {
+    globalThis.SE.ERROR(message, "module-diagnostics");
+    return;
+  }
+  try {
+    console.error("[module-diagnostics]", message);
+  } catch (_error) {
+    // Diagnostics must never become the thing that breaks the app.
+  }
+}
+
 function nodeGraphRecordModuleFault(details = {}) {
   const key = nodeGraphModuleFaultKey(details);
   const state = nodeGraphModuleDiagnosticsState();
@@ -64,7 +74,7 @@ function nodeGraphRecordModuleFault(details = {}) {
       serial: state.serial,
     });
   }
-  nodeGraphApplyModuleDiagnosticsFaultUi();
+  nodeGraphReportModuleDiagnosticsError(existing || state.faults[state.faults.length - 1]);
   return true;
 }
 
@@ -75,69 +85,12 @@ function nodeGraphClearModuleFault(key) {
     return false;
   }
   state.faults.splice(index, 1);
-  nodeGraphApplyModuleDiagnosticsFaultUi();
   return true;
-}
-
-function closeNodeGraphModuleDiagnosticsFaultUi() {
-  const fault = document.getElementById("nodeModuleDiagnosticsFault");
-  if (fault) {
-    fault.hidden = true;
-  }
-  document.body?.classList.remove("node-module-diagnostics-tripped");
 }
 
 function nodeGraphResetModuleDiagnosticsFault() {
   const state = nodeGraphModuleDiagnosticsState();
   state.faults = [];
-  closeNodeGraphModuleDiagnosticsFaultUi();
-}
-
-function bindNodeGraphModuleDiagnosticsFaultUi() {
-  document
-    .getElementById("nodeModuleDiagnosticsFaultClose")
-    ?.addEventListener("click", nodeGraphResetModuleDiagnosticsFault);
-  if (document.documentElement.dataset.nodeModuleDiagnosticsFaultDelegatedClose === "true") {
-    return;
-  }
-  document.documentElement.dataset.nodeModuleDiagnosticsFaultDelegatedClose = "true";
-  document.addEventListener("click", (event) => {
-    if (event.target?.closest?.("#nodeModuleDiagnosticsFaultClose")) {
-      nodeGraphResetModuleDiagnosticsFault();
-    }
-  });
-}
-
-function nodeGraphApplyModuleDiagnosticsFaultUi() {
-  const state = nodeGraphModuleDiagnosticsState();
-  const fault = document.getElementById("nodeModuleDiagnosticsFault");
-  const list = document.getElementById("nodeModuleDiagnosticsFaultList");
-  if (!fault || !list) {
-    return;
-  }
-  if (state.faults.length === 0) {
-    closeNodeGraphModuleDiagnosticsFaultUi();
-    return;
-  }
-  const kicker = document.getElementById("nodeModuleDiagnosticsFaultKicker");
-  const title = document.getElementById("nodeModuleDiagnosticsFaultTitle");
-  const explain = document.getElementById("nodeModuleDiagnosticsFaultExplain");
-  if (kicker) kicker.textContent = "Module Diagnostics";
-  if (title) title.textContent = "A module isn't working correctly";
-  if (explain) {
-    explain.textContent = "This is informational only -- audio keeps playing. It flags native modules that "
-      + "failed to load, threw an error while running, or a wired node stuck producing no signal, so a "
-      + "silent failure doesn't look like nothing is wrong.";
-  }
-  list.innerHTML = "";
-  for (const item of state.faults) {
-    const entry = document.createElement("li");
-    entry.className = "node-module-diagnostics-fault-entry";
-    entry.textContent = item.count > 1 ? `${item.detail} (x${item.count})` : item.detail;
-    list.append(entry);
-  }
-  document.body?.classList.add("node-module-diagnostics-tripped");
-  fault.hidden = false;
 }
 
 // Native WASM load failure or in-flight exception, reported via the
@@ -368,36 +321,22 @@ async function nodeGraphRunGenericModuleLoadCheck(entry) {
 }
 
 function nodeGraphShowModuleSelfTestReport(report) {
-  const fault = document.getElementById("nodeModuleDiagnosticsFault");
-  const list = document.getElementById("nodeModuleDiagnosticsFaultList");
-  const kicker = document.getElementById("nodeModuleDiagnosticsFaultKicker");
-  const title = document.getElementById("nodeModuleDiagnosticsFaultTitle");
-  const explain = document.getElementById("nodeModuleDiagnosticsFaultExplain");
-  if (!fault || !list) {
+  if (report.running) {
+    globalThis.SE?.INFO?.("module self-test running: fetching and checking native modules");
     return;
   }
-  if (kicker) kicker.textContent = "Module Self-Test";
-  list.innerHTML = "";
-  if (report.running) {
-    if (title) title.textContent = "Checking all modules...";
-    if (explain) explain.textContent = "Fetching and testing every native module. This takes a few seconds.";
-  } else {
-    const okCount = report.results.filter((item) => item.ok).length;
-    if (title) title.textContent = `${okCount}/${report.results.length} modules OK`;
-    if (explain) {
-      explain.textContent = "\"load + signal check\" ran the module for 2000 samples and confirmed varying, "
-        + "finite output. \"load check only\" confirmed its WASM loads, but didn't run it (this module's call "
-        + "convention isn't part of this self-test's known list).";
-    }
-    for (const item of report.results) {
-      const entry = document.createElement("li");
-      entry.className = `node-module-diagnostics-fault-entry${item.ok ? " node-module-diagnostics-fault-entry-ok" : ""}`;
-      entry.textContent = `${item.ok ? "OK" : "FAIL"} — ${item.label} (${item.depth}): ${item.reason}`;
-      list.append(entry);
+  const okCount = report.results.filter((item) => item.ok).length;
+  globalThis.SE?.INFO?.(`module self-test complete: ${okCount}/${report.results.length} modules OK`);
+  for (const item of report.results) {
+    const text = `${item.ok ? "OK" : "FAIL"} - ${item.label} (${item.depth}): ${item.reason}`;
+    if (item.ok) {
+      globalThis.SE?.INFO?.(text);
+    } else if (globalThis.SE?.ERROR) {
+      globalThis.SE.ERROR(text, "module-self-test");
+    } else {
+      console.error("[module-self-test]", text);
     }
   }
-  document.body?.classList.add("node-module-diagnostics-tripped");
-  fault.hidden = false;
 }
 
 let nodeGraphModuleSelfTestRunning = false;

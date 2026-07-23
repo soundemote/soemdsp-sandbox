@@ -282,6 +282,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.triangleStates = new Map();
     this.vactrolEnvelopeStates = new Map();
     this.impulseButtonStates = new Map();
+    this.bugButtonStates = new Map();
     this.visualInputBuffers = new Map();
     this.visualSinks = [];
     this.resetVisualControls();
@@ -477,6 +478,10 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       this.setImpulseButtonTrigger(message.nodeId, message.amplitude);
       return;
     }
+    if (message.type === "bugButtonInteraction") {
+      this.setBugButtonInteraction(message);
+      return;
+    }
     if (message.type === "inputWireBreakTrigger") {
       this.setInputWireBreakTrigger(message.nodeId, message.port);
       return;
@@ -508,6 +513,30 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     const normalized = Number(amplitude);
     state.amplitude = Number.isFinite(normalized) ? Math.max(0, Math.min(1, normalized)) : 1;
     this.impulseButtonStates.set(nodeId, state);
+  }
+
+  createBugButtonState() {
+    return {
+      down: 0,
+      downPulseSamples: 0,
+      hover: 0,
+      upPulseSamples: 0,
+      x: 0,
+      y: 0,
+    };
+  }
+
+  setBugButtonInteraction(message = {}) {
+    const nodeId = String(message.nodeId || "");
+    if (!nodeId) return;
+    const state = this.bugButtonStates.get(nodeId) || this.createBugButtonState();
+    if (message.down !== undefined) state.down = message.down ? 1 : 0;
+    if (message.hover !== undefined) state.hover = message.hover ? 1 : 0;
+    if (Number.isFinite(Number(message.x))) state.x = Math.max(-1, Math.min(1, Number(message.x)));
+    if (Number.isFinite(Number(message.y))) state.y = Math.max(-1, Math.min(1, Number(message.y)));
+    if (message.downPulse) state.downPulseSamples += 1;
+    if (message.upPulse) state.upPulseSamples += 1;
+    this.bugButtonStates.set(nodeId, state);
   }
 
   async setNativeModuleWasm(message) {
@@ -2038,6 +2067,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.triangleStates = new Map();
     this.vactrolEnvelopeStates = new Map();
     this.impulseButtonStates = new Map();
+    this.bugButtonStates = new Map();
     this.polyBlepStates = new Map();
     this.visualSinks = [];
     this.resetVisualControls();
@@ -2419,6 +2449,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       }
       if (node?.type === "impulseButton" && !this.impulseButtonStates.has(id)) {
         this.impulseButtonStates.set(id, this.createImpulseButtonState());
+      }
+      if (node?.type === "bugButton" && !this.bugButtonStates.has(id)) {
+        this.bugButtonStates.set(id, this.createBugButtonState());
       }
       if (node?.type === "polyBlep" && !this.polyBlepStates.has(id)) {
         this.polyBlepStates.set(id, this.createPolyBlepState());
@@ -2943,6 +2976,11 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     for (const id of [...this.impulseButtonStates.keys()]) {
       if (!ids.has(id)) {
         this.impulseButtonStates.delete(id);
+      }
+    }
+    for (const id of [...this.bugButtonStates.keys()]) {
+      if (!ids.has(id)) {
+        this.bugButtonStates.delete(id);
       }
     }
     for (const id of [...this.polyBlepStates.keys()]) {
@@ -8088,4 +8126,3 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return true;
   }
 }
-

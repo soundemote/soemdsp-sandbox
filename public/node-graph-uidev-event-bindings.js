@@ -83,9 +83,6 @@ async function bindNodeGraphUiDevSettingsEvents() {
     .getElementById("nodeUiDevSettingsHeaderPadding")
     .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
   document
-    .getElementById("nodeUiDevSliderDotSize")
-    .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
-  document
     .getElementById("nodeUiDevModuleTitleFont")
     .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
   document

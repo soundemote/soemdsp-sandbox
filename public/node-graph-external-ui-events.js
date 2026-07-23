@@ -446,6 +446,52 @@ function triggerNodeGraphImpulseButton(nodeId) {
   return true;
 }
 
+function nodeGraphBugButtonInteractionState(target, nodeId) {
+  const states = target.bugButtonStates instanceof Map ? target.bugButtonStates : new Map();
+  target.bugButtonStates = states;
+  const state = states.get(nodeId) || {
+    down: 0,
+    downPulseSamples: 0,
+    hover: 0,
+    upPulseSamples: 0,
+    x: 0,
+    y: 0,
+  };
+  states.set(nodeId, state);
+  return state;
+}
+
+function setNodeGraphBugButtonInteraction(nodeId, update = {}) {
+  if (!nodeId) {
+    return false;
+  }
+  const normalized = {
+    down: update.down === undefined ? undefined : (update.down ? 1 : 0),
+    downPulse: Boolean(update.downPulse),
+    hover: update.hover === undefined ? undefined : (update.hover ? 1 : 0),
+    upPulse: Boolean(update.upPulse),
+    x: Number.isFinite(Number(update.x)) ? Math.max(-1, Math.min(1, Number(update.x))) : undefined,
+    y: Number.isFinite(Number(update.y)) ? Math.max(-1, Math.min(1, Number(update.y))) : undefined,
+  };
+  if (nodeGraphMvp.live.runtime) {
+    const state = nodeGraphBugButtonInteractionState(nodeGraphMvp.live.runtime, nodeId);
+    if (normalized.down !== undefined) state.down = normalized.down;
+    if (normalized.hover !== undefined) state.hover = normalized.hover;
+    if (normalized.x !== undefined) state.x = normalized.x;
+    if (normalized.y !== undefined) state.y = normalized.y;
+    if (normalized.downPulse) state.downPulseSamples += 1;
+    if (normalized.upPulse) state.upPulseSamples += 1;
+  }
+  if (nodeGraphMvp.live.usesWorklet && nodeGraphMvp.live.node?.port) {
+    nodeGraphMvp.live.node.port.postMessage({
+      nodeId,
+      type: "bugButtonInteraction",
+      ...normalized,
+    });
+  }
+  return true;
+}
+
 function nodeGraphExternalMessageOriginAllowed(event) {
   if (!event || !event.origin) {
     return true;

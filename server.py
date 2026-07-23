@@ -18,7 +18,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 ROOT = Path(__file__).resolve().parent
 PUBLIC = ROOT / "public"
-BUILD_NUMBER = "20260723s"
+BUILD_NUMBER = "20260723am"
 VERSION_FILE = ROOT / "VERSION"
 SANDBOX_VERSION = VERSION_FILE.read_text(encoding="utf-8").strip() if VERSION_FILE.exists() else "0.0.0"
 DEFAULT_PRESET = PUBLIC / "presets" / "default.json"
@@ -460,6 +460,8 @@ class SandboxServer(BaseHTTPRequestHandler):
         modules = []
         if NATIVE_MODULES.exists():
             for source_path in sorted(NATIVE_MODULES.glob("*/*.cpp")):
+                if source_path.parent.name == "combined":
+                    continue
                 entry = self.native_module_entry_from_source(source_path)
                 if entry:
                     modules.append(entry)

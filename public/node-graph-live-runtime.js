@@ -1856,7 +1856,7 @@ async function stopNodeGraphLiveAudio() {
 // then register.js calls registerProcessor last, once everything above it
 // has finished defining/registering.
 const nodeGraphLiveWorkletSourceFiles = [
-  "./public/node-live-audio-worklet-core.js?v=cleanup-20260722",
+  "./public/node-live-audio-worklet-core.js?v=bug-button-interaction-20260723",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
   "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
@@ -1918,8 +1918,8 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/pluckEnvelope/pluck-envelope-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
   "./public/modules/vactrolEnvelopeSeries/vactrol-envelope-series-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
   "./public/modules/impulseButton/impulse-button-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/bugButton/bug-button-worklet-evaluator.js?v=bug-button-20260723",
-  "./public/modules/xyPad/xy-pad-worklet-evaluator.js?v=xy-pad-20260723",
+  "./public/modules/bugButton/bug-button-worklet-evaluator.js?v=solid-module-shell-2-20260723",
+  "./public/modules/xyPad/xy-pad-worklet-evaluator.js?v=xy-pad-ghost-input-20260723",
   "./public/modules/flowerChildEnvelopeFollower/flower-child-envelope-follower-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
   "./public/modules/spiral/spiral-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
   "./public/modules/fractalSpiral/fractal-spiral-worklet-evaluator.js?v=gainbiasmix-fix-20260722",

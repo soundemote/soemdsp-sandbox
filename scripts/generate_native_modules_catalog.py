@@ -56,10 +56,13 @@ def main() -> None:
     modules = []
     if NATIVE_MODULES.exists():
         for source_path in sorted(NATIVE_MODULES.glob("*/*.cpp")):
+            if source_path.parent.name == "combined":
+                continue
             entry = native_module_entry_from_source(source_path)
             if entry:
                 modules.append(entry)
-    OUTPUT.write_text(json.dumps({"ok": True, "modules": modules}, indent=2) + "\n", encoding="utf-8")
+    payload = json.dumps({"ok": True, "modules": modules}, indent=2) + "\n"
+    OUTPUT.write_text(payload, encoding="utf-8", newline="\n")
     print(f"Wrote {len(modules)} module entries to {OUTPUT}")
 
 

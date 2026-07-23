@@ -316,6 +316,7 @@ function createNodeGraphLiveRuntime(plan) {
   const triangleStates = new Map();
   const vactrolEnvelopeStates = new Map();
   const impulseButtonStates = new Map();
+  const bugButtonStates = new Map();
   const visualControlState = createNodeGraphVisualControlState();
   for (const node of plan.nodes || []) {
     if (nodeGraphModuleIsRealtimeOscillatorType(node.type)) {
@@ -667,6 +668,7 @@ function createNodeGraphLiveRuntime(plan) {
     triangleStates,
     vactrolEnvelopeStates,
     impulseButtonStates,
+    bugButtonStates,
     visualSinks: (plan.visualSinks || []).map((sink) => ({
       ...sink,
       bufferedInputs: [...(sink.bufferedInputs || [])],
@@ -936,6 +938,9 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   }
   if (!runtime.impulseButtonStates) {
     runtime.impulseButtonStates = new Map();
+  }
+  if (!runtime.bugButtonStates) {
+    runtime.bugButtonStates = new Map();
   }
   resetNodeGraphRuntimeVisualControls(runtime);
   for (const node of plan.nodes || []) {
@@ -1590,6 +1595,11 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   for (const id of [...runtime.impulseButtonStates.keys()]) {
     if (!nodeIds.has(id)) {
       runtime.impulseButtonStates.delete(id);
+    }
+  }
+  for (const id of [...runtime.bugButtonStates.keys()]) {
+    if (!nodeIds.has(id)) {
+      runtime.bugButtonStates.delete(id);
     }
   }
   for (const key of [...runtime.smoothers.keys()]) {

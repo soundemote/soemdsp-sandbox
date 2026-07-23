@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>soemdsp-sandbox</title>
-  <link rel="stylesheet" href="./public/styles.css?v=blocksize-under-construction-20260722">
+  <link rel="stylesheet" href="./public/styles.css?v=slider-hover-target-20260723">
   <link rel="stylesheet" href="./public/modules/stepGrid/step-grid.css?v=stepgrid-own-folder-20260715">
 </head>
 <body class="debug-collapsed node-boot-loading">
@@ -51,28 +51,6 @@
         class="node-ear-protection-fault-close"
         type="button"
         onclick="globalThis.nodeGraphResetEarProtectionFault?.()">Close</button>
-    </div>
-  </div>
-  <div
-    id="nodeModuleDiagnosticsFault"
-    class="node-module-diagnostics-fault"
-    role="alert"
-    aria-live="assertive"
-    hidden>
-    <div class="node-module-diagnostics-fault-panel">
-      <span id="nodeModuleDiagnosticsFaultKicker" class="node-module-diagnostics-fault-kicker">Module Diagnostics</span>
-      <strong id="nodeModuleDiagnosticsFaultTitle">A module isn't working correctly</strong>
-      <ul id="nodeModuleDiagnosticsFaultList" class="node-module-diagnostics-fault-list"></ul>
-      <span id="nodeModuleDiagnosticsFaultExplain" class="node-module-diagnostics-fault-explain">
-        This is informational only -- audio keeps playing. It flags native modules that
-        failed to load, threw an error while running, or a wired node stuck producing no
-        signal, so a silent failure doesn't look like nothing is wrong.
-      </span>
-      <button
-        id="nodeModuleDiagnosticsFaultClose"
-        class="node-module-diagnostics-fault-close"
-        type="button"
-        onclick="globalThis.nodeGraphResetModuleDiagnosticsFault?.()">Close</button>
     </div>
   </div>
   <div
@@ -1458,20 +1436,6 @@
               <output id="nodeUiDevFloatingWindowHeaderHeightValue" for="nodeUiDevFloatingWindowHeaderHeight">30px</output>
             </div>
           </label>
-          <label class="node-ui-dev-control node-ui-dev-dot-control">
-            <span>slider drag dot size</span>
-            <div class="node-ui-dev-control-row">
-              <input
-                id="nodeUiDevSliderDotSize"
-                type="range"
-                min="0"
-                max="28"
-                step="1"
-                value="4">
-              <output id="nodeUiDevSliderDotSizeValue" for="nodeUiDevSliderDotSize">4px</output>
-              <span id="nodeUiDevSliderDotPreview" class="node-ui-dev-dot-preview" aria-hidden="true"></span>
-            </div>
-          </label>
           <label class="node-ui-dev-control">
             <span>module title font</span>
             <div class="node-ui-dev-control-row select">
@@ -2575,7 +2539,20 @@
           <button id="nodeRenderButton" type="button">Render Sample</button>
         </div>
         <div class="node-patch-audio-player-row">
-          <audio id="audioPlayer" controls preload="metadata"></audio>
+          <!-- Hidden playback engine: everything that used to feed the native
+               player (rendered WAV blob, ear-protection clearing) still does.
+               The visible player below is the custom phosphor transport
+               inspired by the Music Player module. -->
+          <audio id="audioPlayer" preload="metadata"></audio>
+          <div class="node-rendered-player empty" id="nodeRenderedPlayer" aria-label="Rendered sample player">
+            <button id="nodeRenderedPlayerPlay" type="button" aria-label="Play rendered sample" aria-pressed="false" disabled>▶</button>
+            <div class="node-rendered-player-wave" id="nodeRenderedPlayerWave" title="Click or drag to seek">
+              <canvas id="nodeRenderedPlayerCanvas" aria-hidden="true"></canvas>
+              <div class="node-rendered-player-playhead" id="nodeRenderedPlayerPlayhead" aria-hidden="true"></div>
+              <span class="node-rendered-player-empty-hint" aria-hidden="true">Render Sample to load audio</span>
+            </div>
+            <span class="node-rendered-player-time" id="nodeRenderedPlayerTime">0:00 / 0:00</span>
+          </div>
         </div>
         <p id="nodeOutputSummary" class="node-output-summary">Render Sample creates preview audio here.</p>
         <section class="node-clap-host-strip" aria-label="CLAP host connection">
@@ -3342,16 +3319,17 @@
   <script src="./public/node-graph-papoulis-filter.js?v=phosphillator-papoulis-2"></script>
   <script src="./public/node-graph-phosphor-draw-sample.js?v=phosphor-draw-sample-1"></script>
   <script src="./public/node-graph-color-standards.js?v=color-standards-1"></script>
-  <script src="./public/node-graph-chromeless-module-registry.js?v=stepgrid-variable-steps-20260715"></script>
-  <script src="./public/modules/led/led-register.js?v=department-reorg-20260719"></script>
-  <script src="./public/modules/bugButton/bug-button-register.js?v=bug-button-20260723"></script>
+  <script src="./public/node-graph-chromeless-module-registry.js?v=solid-module-shell-2-20260723"></script>
+  <script src="./public/modules/led/led-register.js?v=solid-module-shell-2-20260723"></script>
+  <script src="./public/modules/bugButton/bug-button-register.js?v=solid-module-shell-2-20260723"></script>
+  <script src="./public/modules/xyPad/xy-pad-register.js?v=solid-module-shell-2-20260723"></script>
   <script src="./public/modules/stepGrid/step-grid-register.js?v=stepgrid-variable-steps-20260715"></script>
   <script src="./public/modules/groupInput/group-input-register.js?v=chromeless-portals-1"></script>
   <script src="./public/modules/groupOutput/group-output-register.js?v=chromeless-portals-1"></script>
-  <script src="./public/node-graph-module-definitions.js?v=nuke-scriptbox-20260719"></script>
+  <script src="./public/node-graph-module-definitions.js?v=xy-pad-ghost-input-20260723"></script>
   <script src="./public/node-graph-data-bus.js?v=data-plane-merge-20260711"></script>
-  <script src="./public/node-graph-module-store.js?v=category-moves-20260722"></script>
-  <script src="./public/node-graph-module-sizing.js?v=display-height-type-20260719"></script>
+  <script src="./public/node-graph-module-store.js?v=space-digital-time-order-20260723"></script>
+  <script src="./public/node-graph-module-sizing.js?v=solid-module-shell-2-20260723"></script>
   <script src="./public/node-graph-metadata-kinds.js?v=0051"></script>
   <script src="./public/node-graph-parameter-metadata.js?v=nuke-scriptbox-20260719"></script>
   <script src="./public/node-graph-metadata-defaults.js?v=decimal-template-1"></script>
@@ -3388,7 +3366,7 @@
   <script src="./public/node-graph-context-menu.js?v=nuke-scriptbox-20260719"></script>
   <script src="./public/node-graph-module-actions.js?v=nuke-scriptbox-20260719"></script>
   <script src="./public/node-graph-code-screen.js?v=workspace-script-shrink-20260719"></script>
-  <script src="./public/node-graph-module-scopes.js?v=scope-stutter-fix-20260723"></script>
+  <script src="./public/node-graph-module-scopes.js?v=xy-pad-ghost-input-20260723"></script>
   <script src="./public/modules/oscilloscopeBank/oscilloscope-bank-display.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/videoscope/videoscope-display.js?v=videoscope-20260713"></script>
   <script src="./public/modules/spectrogram/spectrogram-display.js?v=spectrogram-20260720"></script>
@@ -3396,20 +3374,20 @@
   <script src="./public/node-graph-shader-script.js?v=unified-window-pos-1"></script>
   <script src="./public/node-graph-canvas-script.js?v=unified-window-pos-1"></script>
   <script src="./public/node-graph-module-factories.js?v=stepgrid-variable-steps-20260715"></script>
-  <script src="./public/modules/led/led-ui.js?v=stepgrid-variable-steps-20260715"></script>
-  <script src="./public/modules/bugButton/bug-button-ui.js?v=bug-button-20260723"></script>
-  <script src="./public/modules/xyPad/xy-pad-ui.js?v=xy-pad-20260723"></script>
+  <script src="./public/modules/led/led-ui.js?v=solid-module-shell-2-20260723"></script>
+  <script src="./public/modules/bugButton/bug-button-ui.js?v=solid-module-shell-2-20260723"></script>
+  <script src="./public/modules/xyPad/xy-pad-ui.js?v=solid-module-shell-2-20260723"></script>
   <script src="./public/modules/stepGrid/step-grid-ui.js?v=stepgrid-variable-steps-20260715"></script>
   <script src="./public/modules/groupInput/group-input-ui.js?v=chromeless-portals-1"></script>
   <script src="./public/modules/groupOutput/group-output-ui.js?v=chromeless-portals-1"></script>
   <script src="./public/node-graph-module-header-rendering.js?v=0032"></script>
-  <script src="./public/node-graph-module-rendering.js?v=display-height-type-20260719"></script>
+  <script src="./public/node-graph-module-rendering.js?v=solid-module-shell-2-20260723"></script>
   <script src="./public/node-graph-history.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-visual-utils.js?v=text-light-registry-1780800000000"></script>
   <script src="./public/node-graph-patch-clone.js?v=nuke-scriptbox-20260719"></script>
   <script src="./public/node-graph-slider-metadata.js?v=smoothing-mode-switch-20260703"></script>
   <script src="./public/node-graph-slider-values.js?v=finer-modifier-tier-20260709"></script>
-  <script src="./public/node-graph-slider-dragging.js?v=pointer-capture-fix-20260722"></script>
+  <script src="./public/node-graph-slider-dragging.js?v=slider-hover-target-20260723"></script>
   <script src="./public/node-graph-node-accessors.js?v=smoothing-time-20260701"></script>
   <script src="./public/node-graph-selection.js?v=code-box-auto-ports-20260719"></script>
   <script src="./public/node-graph-port-geometry.js?v=pitch-quantizer-01v-oct-20260701"></script>
@@ -3420,12 +3398,14 @@
   <script src="./public/node-graph-metadata-editor.js?v=blocksize-under-construction-20260722"></script>
   <script src="./public/node-graph-render-settings.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-ear-protection.js?v=ear-protection-reset-1"></script>
-  <script src="./public/node-graph-module-diagnostics.js?v=module-diagnostics-2-20260703"></script>
-  <script src="./public/node-graph-rendered-audio.js?v=ear-protection-reset-1"></script>
+  <script src="./public/node-graph-debug-console.js?v=debug-error-label-20260723"></script>
+  <script src="./public/node-graph-module-diagnostics.js?v=diagnostics-debug-log-20260723"></script>
+  <script src="./public/node-graph-rendered-audio.js?v=custom-player-20260723"></script>
+  <script src="./public/node-graph-rendered-player.js?v=custom-player-20260723"></script>
   <script src="./public/node-graph-rendered-visual-output.js?v=beta-polish-1"></script>
   <script src="./public/node-graph-rendered-output-canvases.js?v=beta-polish-1"></script>
   <script src="./public/node-graph-execution-wires.js?v=external-graph-inputs-1780816800000"></script>
-  <script src="./public/node-graph-execution-plan.js?v=wall-delay-generic-source-fallback-20260718"></script>
+  <script src="./public/node-graph-execution-plan.js?v=xy-pad-ghost-input-20260723"></script>
   <script src="./public/node-graph-execution-summary.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-wire-actions.js?v=wire-connect-1"></script>
   <script src="./public/node-graph-trace-router.js?v=no-self-burst-1780321400000"></script>
@@ -3452,9 +3432,9 @@
   <script src="./public/node-graph-live-control-rendering.js?v=external-live-output-notify-20260720"></script>
   <script src="./public/node-graph-default-patch.js?v=nuke-scriptbox-20260719"></script>
   <script src="./public/node-graph-state.js?v=code-box-auto-ports-20260719"></script>
-  <script src="./public/node-graph-external-ui-events.js?v=external-play-stop-control-20260720"></script>
-  <script src="./public/node-graph-patch-core.js?v=nuke-scriptbox-20260719"></script>
-  <script src="./public/node-graph-live-plan-runtime.js?v=wall-delay-two-ear-20260718"></script>
+  <script src="./public/node-graph-external-ui-events.js?v=bug-button-interaction-20260723"></script>
+  <script src="./public/node-graph-patch-core.js?v=bug-visual-inputs-20260723"></script>
+  <script src="./public/node-graph-live-plan-runtime.js?v=bug-button-interaction-20260723"></script>
   <script src="./public/node-graph-live-parameter-runtime.js?v=skip-unmodulated-20260702"></script>
   <script src="./public/node-graph-oscillator-runtime.js?v=0147"></script>
   <script src="./public/node-graph-gpu-additive-backend.js?v=external-graph-inputs-1780816800000"></script>
@@ -3575,8 +3555,8 @@
   <script src="./public/modules/gain/gain-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/sinc/sinc-live-evaluator.js?v=sinc-20260723"></script>
   <script src="./public/modules/led/led-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/bugButton/bug-button-live-evaluator.js?v=bug-button-20260723"></script>
-  <script src="./public/modules/xyPad/xy-pad-live-evaluator.js?v=xy-pad-20260723"></script>
+  <script src="./public/modules/bugButton/bug-button-live-evaluator.js?v=solid-module-shell-2-20260723"></script>
+  <script src="./public/modules/xyPad/xy-pad-live-evaluator.js?v=xy-pad-ghost-input-20260723"></script>
   <script src="./public/modules/bias/bias-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/softClipper/soft-clipper-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/rotate3dTo2d/rotate-3d-to-2d-live-evaluator.js?v=per-module-dispatch-20260711"></script>
@@ -3603,11 +3583,11 @@
   <script src="./public/modules/graph/graph-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/polyBlep/poly-blep-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/node-graph-pulse-explosion-display.js?v=1"></script>
-  <script src="./public/node-graph-live-runtime.js?v=cleanup-20260722"></script>
+  <script src="./public/node-graph-live-runtime.js?v=xy-pad-ghost-input-20260723"></script>
   <script src="./public/node-graph-wire-controller-bootstrap.js?v=wire-break-trigger-0129"></script>
   <script src="./public/node-graph-workspace-event-bindings.js?v=cleanup-20260722"></script>
   <script src="./public/node-graph-render-live-event-bindings.js?v=beta-polish-1"></script>
-  <script src="./public/node-graph-header-event-bindings.js?v=code-box-auto-ports-20260719"></script>
+  <script src="./public/node-graph-header-event-bindings.js?v=diagnostics-debug-log-20260723"></script>
   <script src="./public/node-graph-help-event-bindings.js?v=remove-workspace-view-0002"></script>
   <script src="./public/node-graph-scene-menu-event-bindings.js?v=nuke-scriptbox-20260719"></script>
   <script src="./public/node-graph-uidev-event-bindings.js?v=module-browser-entry-height-20260719"></script>
@@ -3617,6 +3597,5 @@
   <script src="./public/node-graph-bootstrap.js?v=autostart-race-fix-20260702"></script>
   <script src="./public/app-event-bindings.js?v=app-event-bindings-refactor-1780361400000"></script>
   <script src="./public/app.js?v=loading-steps-1"></script>
-  <script src="./public/node-graph-debug-console.js?v=planwatch-20260722"></script>
 </body>
 </html>

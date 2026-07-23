@@ -86,6 +86,25 @@ const nodeGraphModuleScopeState = {
   },
   versionSerial: 0,
 };
+const nodeGraphModuleScopeSnapshotListeners = new Set();
+
+function addNodeGraphModuleScopeSnapshotListener(listener) {
+  if (typeof listener !== "function") {
+    return () => {};
+  }
+  nodeGraphModuleScopeSnapshotListeners.add(listener);
+  return () => nodeGraphModuleScopeSnapshotListeners.delete(listener);
+}
+
+function notifyNodeGraphModuleScopeSnapshotListeners() {
+  for (const listener of nodeGraphModuleScopeSnapshotListeners) {
+    try {
+      listener();
+    } catch (error) {
+      console.error("module scope snapshot listener failed", error);
+    }
+  }
+}
 const nodeGraphModuleScopeSettingsStorageKey = "soemdsp-sandbox.moduleScopeSettings.v1";
 const nodeGraphModuleScopeMaxBackingStoreSize = 4096;
 const nodeGraphTraceDisplayMaxZoomSeconds = 2;
@@ -1715,6 +1734,20 @@ function nodeGraphModuleScopeConnectedSourceBuffer(nodeId, port = "In") {
   return nodeGraphModuleScopeState.buffers.get(`${connection.sourceNode}:${connection.sourcePort}`) ||
     nodeGraphModuleScopeState.buffers.get(connection.sourceNode) ||
     null;
+}
+
+function nodeGraphModuleScopeLatestOutputValue(nodeId, port, fallback = null) {
+  const buffer = nodeGraphModuleScopeState.buffers.get(`${nodeId}:${port}`);
+  if (!buffer?.length) {
+    return fallback;
+  }
+  for (let index = buffer.length - 1; index >= 0; index -= 1) {
+    const value = Number(buffer[index]);
+    if (Number.isFinite(value)) {
+      return value;
+    }
+  }
+  return fallback;
 }
 
 function nodeGraphModuleScopeStableSeed(text) {
@@ -5450,6 +5483,7 @@ function pushNodeGraphLiveModuleScopeSnapshot(values, options = {}) {
     };
     pushNodeGraphLiveModuleScopeSamples(entry[0], entry[1], metadata);
   }
+  notifyNodeGraphModuleScopeSnapshotListeners();
   scheduleNodeGraphModuleScopeDraw();
 }
 

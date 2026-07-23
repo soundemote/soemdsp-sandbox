@@ -290,113 +290,6 @@ body.node-ear-protection-tripped .node-ear-protection-fault {
   color: rgba(243, 241, 236, 0.86);
 }
 
-.node-module-diagnostics-fault {
-  position: fixed;
-  inset: 0;
-  z-index: 99998;
-  display: none;
-  place-items: center;
-  pointer-events: auto;
-  background:
-    radial-gradient(circle at 50% 48%, rgba(240, 197, 111, 0.1), transparent 34%),
-    rgba(0, 0, 0, 0.42);
-}
-
-body.node-module-diagnostics-tripped .node-module-diagnostics-fault {
-  display: grid;
-}
-
-.node-module-diagnostics-fault-panel {
-  min-inline-size: min(520px, calc(100vw - 32px));
-  max-inline-size: min(680px, calc(100vw - 32px));
-  max-height: min(70vh, 560px);
-  overflow: auto;
-  padding: 18px 22px;
-  border: 1px solid rgba(240, 197, 111, 0.42);
-  border-radius: 6px;
-  background:
-    linear-gradient(90deg, rgba(240, 197, 111, 0.08), rgba(127, 199, 217, 0.06)),
-    rgba(5, 7, 9, 0.92);
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.86),
-    0 0 32px rgba(240, 197, 111, 0.2),
-    inset 0 0 24px rgba(240, 197, 111, 0.05);
-  color: var(--text);
-  font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
-  text-align: center;
-  pointer-events: auto;
-  user-select: text;
-}
-
-.node-module-diagnostics-fault-panel > * {
-  display: block;
-  user-select: text;
-}
-
-.node-module-diagnostics-fault-kicker,
-.node-module-diagnostics-fault-explain {
-  color: rgba(243, 241, 236, 0.74);
-  font-size: 0.78rem;
-}
-
-.node-module-diagnostics-fault-panel strong {
-  margin-block: 5px 7px;
-  color: rgba(240, 197, 111, 0.96);
-  font-size: 1.14rem;
-  font-weight: 700;
-  letter-spacing: 0;
-}
-
-.node-module-diagnostics-fault-list {
-  display: grid;
-  gap: 6px;
-  margin: 9px 0 0;
-  padding: 0;
-  list-style: none;
-  text-align: left;
-}
-
-.node-module-diagnostics-fault-entry {
-  padding: 8px 10px;
-  border: 1px solid rgba(240, 197, 111, 0.28);
-  border-radius: 5px;
-  background: rgba(240, 197, 111, 0.06);
-  color: rgba(243, 241, 236, 0.9);
-  font-size: 0.82rem;
-  line-height: 1.4;
-}
-
-.node-module-diagnostics-fault-entry-ok {
-  border-color: rgba(127, 217, 160, 0.32);
-  background: rgba(127, 217, 160, 0.06);
-}
-
-.node-module-diagnostics-fault-close {
-  width: min(220px, 100%);
-  margin: 14px auto 0;
-  padding: 8px 14px;
-  border: 1px solid rgba(127, 199, 217, 0.36);
-  border-radius: 6px;
-  background: rgba(17, 20, 24, 0.82);
-  color: rgba(243, 241, 236, 0.92);
-  font: 700 0.82rem/1 "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
-  pointer-events: auto;
-  user-select: none;
-}
-
-.node-module-diagnostics-fault-close:hover,
-.node-module-diagnostics-fault-close:focus-visible {
-  border-color: rgba(127, 199, 217, 0.68);
-  background: rgba(24, 31, 36, 0.92);
-  outline: 0;
-}
-
-.node-module-diagnostics-fault-explain {
-  max-inline-size: 58em;
-  margin: 9px auto 0;
-  line-height: 1.45;
-}
-
 .node-missing-sample-assets {
   position: fixed;
   inset: 0;
@@ -696,24 +589,6 @@ button:disabled {
 body.node-hide-mouse-while-dragging,
 body.node-hide-mouse-while-dragging * {
   cursor: none !important;
-}
-
-body.node-slider-dragging.node-hide-mouse-while-dragging::after {
-  content: "";
-  position: fixed;
-  z-index: 2147483647;
-  left: var(--node-slider-cursor-x, -100px);
-  top: var(--node-slider-cursor-y, -100px);
-  inline-size: var(--node-slider-dot-size, 4px);
-  block-size: var(--node-slider-dot-size, 4px);
-  border: 1px solid rgba(255, 255, 255, 0.82);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.84);
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.62),
-    0 0 8px rgba(127, 199, 217, 0.32);
-  pointer-events: none;
-  transform: translate(-50%, -50%);
 }
 
 .panel-close-button {
@@ -3096,7 +2971,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-build-number-readout span {
   max-width: 100%;
   overflow: hidden;
-  text-overflow: ellipsis;
+  text-overflow: clip;
 }
 
 .node-world-position-readout span,
@@ -4289,7 +4164,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-port-idle-stroke: #f3f1ec;
   --node-port-hover-fill: #f3f1ec;
   --node-port-hover-stroke: #f3f1ec;
-  --node-dot-cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 13 13'%3E%3Ccircle cx='6.5' cy='6.5' r='2.5' fill='%23ffffff'/%3E%3Ccircle cx='6.5' cy='6.5' r='3.5' fill='none' stroke='%23000000' stroke-opacity='.72'/%3E%3Ccircle cx='6.5' cy='6.5' r='5.5' fill='none' stroke='%237fc7d9' stroke-opacity='.62'/%3E%3C/svg%3E") 6 6, crosshair;
+  --node-dot-cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 13 13'%3E%3Cpath d='M2.5 6.5h8M6.5 2.5v8' fill='none' stroke='%23ffffff' stroke-width='1' stroke-linecap='square'/%3E%3C/svg%3E") 6 6, crosshair;
   --node-move-cursor: move;
   --node-hover-glow-size-ratio: 0.5;
   --node-hover-glow-size: calc(var(--node-port-diameter) * var(--node-hover-glow-size-ratio));
@@ -8939,26 +8814,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   font-size: 0.76rem;
 }
 
-.node-ui-dev-dot-control .node-ui-dev-control-row {
-  grid-template-columns: minmax(0, 1fr) 54px minmax(24px, max-content);
-}
-
 .node-ui-dev-bypass-icon-control .node-ui-dev-control-row,
 .node-ui-dev-symbol-size-control .node-ui-dev-control-row {
   grid-template-columns: minmax(0, 1fr) 54px minmax(28px, max-content);
-}
-
-.node-ui-dev-dot-preview {
-  display: inline-block;
-  justify-self: center;
-  inline-size: var(--node-slider-dot-size, 4px);
-  block-size: var(--node-slider-dot-size, 4px);
-  border: 1px solid rgba(255, 255, 255, 0.82);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.84);
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.62),
-    0 0 8px rgba(127, 199, 217, 0.32);
 }
 
 .node-ui-dev-symbol-preview {
@@ -10098,11 +9956,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   transform: translateY(-50%);
 }
 
-/* Bug Button -- same chromeless 1gu-tile tier as LED, but the whole face is
-   a real <button>: click fires a one-sample spike out of Spike (right edge,
-   conventional output side). */
+/* Bug Button -- a compact solid module with a custom pointer surface. */
 .dsp-node.bug-button-layout {
-  display: block;
   width: calc((var(--node-grid-width) * var(--node-grid-width-units, 1)) - (var(--node-module-grid-inset) * 2));
   min-width: calc((var(--node-grid-width) * var(--node-grid-width-units, 1)) - (var(--node-module-grid-inset) * 2));
   height: calc((var(--node-grid-height) * var(--node-grid-height-units, 1)) - (var(--node-module-grid-inset) * 2));
@@ -10114,56 +9969,217 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   box-shadow: none;
 }
 
+.dsp-node.solid-module-layout {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.node-solid-module-shell {
+  display: grid;
+  grid-template-columns:
+    minmax(28px, min(34%, calc(var(--node-grid-width) * 2)))
+    minmax(0, 1fr)
+    minmax(28px, min(34%, calc(var(--node-grid-width) * 2)));
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.node-solid-module-shell > .node-io-column {
+  align-content: stretch;
+  gap: 0;
+  padding: 0;
+}
+
+.node-solid-module-shell > .node-io-column .node-io-row {
+  min-height: 0;
+  border-bottom: 1px solid rgba(127, 199, 217, 0.1);
+}
+
+.node-solid-module-shell > .node-io-column .node-io-label {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.68rem;
+}
+
+.node-solid-module-shell > .node-io-column .node-io-row:last-child {
+  border-bottom: 0;
+}
+
+.node-solid-module-shell > .node-io-column.labels-hidden .node-io-label {
+  display: none;
+}
+
+.node-solid-module-custom-ui {
+  grid-column: 2;
+  min-width: 0;
+  min-height: 0;
+}
+
 .node-bug-button-face {
   position: relative;
   box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   width: 100%;
   height: 100%;
-  padding: 0;
-  border: 0;
-  border-radius: inherit;
-  cursor: pointer;
+  border-radius: 0;
   background:
     radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.82) 0 42%, rgba(0, 0, 0, 0.28) 70%, transparent 100%),
     rgba(3, 7, 10, 0.84);
 }
 
-.node-bug-button-face:hover {
-  filter: brightness(1.25);
+.node-bug-button-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid rgba(127, 199, 217, 0.18);
+  color: inherit;
+  cursor: pointer;
+  background: transparent;
 }
 
-.node-bug-button-face:active .node-bug-button-emoji {
-  transform: scale(0.82);
+.node-bug-button-face.pressed {
+  --node-bug-button-pressed-scale: 0.82;
 }
 
 .node-bug-button-emoji {
-  /* Scale with the tile so a resized module keeps a proportionate bug. */
+  position: absolute;
+  left: calc(50% + (var(--node-bug-button-x, 0) * 50%));
+  top: calc(50% - (var(--node-bug-button-y, 0) * 50%));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1em;
   font-size: calc(min(
-    (var(--node-grid-width) * var(--node-grid-width-units, 1)),
+    (var(--node-grid-width) * var(--node-grid-width-units, 1) * 0.58),
     (var(--node-grid-height) * var(--node-grid-height-units, 1))
-  ) * 0.55);
+  ) * 0.52 * var(--node-bug-button-size, 1));
   line-height: 1;
   pointer-events: none;
+  transform: translate(-50%, -50%) scale(var(--node-bug-button-pressed-scale, 1));
   transition: transform 80ms ease-out;
 }
 
-.node-bug-button-face.spiking .node-bug-button-emoji {
-  animation: node-bug-button-spike 180ms ease-out;
+.node-bug-button-emoji.editing {
+  pointer-events: auto;
+  cursor: text;
+  outline: 1px solid rgba(127, 199, 217, 0.8);
+  background: rgba(0, 0, 0, 0.45);
+  user-select: text;
+  -webkit-user-select: text;
 }
 
-@keyframes node-bug-button-spike {
-  0% { transform: scale(1.35); filter: brightness(1.8); }
-  100% { transform: scale(1); filter: none; }
+/* Rendered-sample transport player -- custom phosphor player replacing the
+   native <audio controls> row, inspired by the Music Player module: glowing
+   waveform seek surface, playhead, monospace time readout. The <audio>
+   element itself is the hidden playback engine. */
+.node-patch-audio-player-row #audioPlayer {
+  display: none;
 }
 
-.node-bug-button-face .node-port.output {
+.node-rendered-player {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid rgba(127, 199, 217, 0.22);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(57, 230, 163, 0.05), transparent 70%),
+    rgba(5, 9, 12, 0.92);
+}
+
+.node-rendered-player button {
+  flex: 0 0 auto;
+  width: 44px;
+  border: 1px solid rgba(57, 230, 163, 0.4);
+  border-radius: 6px;
+  background: rgba(9, 16, 14, 0.9);
+  color: rgba(57, 230, 163, 0.95);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.node-rendered-player button:hover:not(:disabled) {
+  background: rgba(20, 38, 30, 0.95);
+  box-shadow: 0 0 8px rgba(57, 230, 163, 0.3);
+}
+
+.node-rendered-player button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.node-rendered-player.playing button {
+  box-shadow: 0 0 10px rgba(57, 230, 163, 0.35);
+}
+
+.node-rendered-player-wave {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 120px;
+  height: 44px;
+  border-radius: 5px;
+  overflow: hidden;
+  border: 1px solid rgba(127, 199, 217, 0.16);
+  background: rgba(2, 5, 7, 0.9);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.node-rendered-player-wave canvas {
   position: absolute;
-  right: calc(var(--node-port-diameter) * -0.5);
-  top: 50%;
-  transform: translateY(-50%);
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.node-rendered-player-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background: rgba(127, 199, 217, 0.95);
+  box-shadow: 0 0 6px rgba(127, 199, 217, 0.8);
+  pointer-events: none;
+}
+
+.node-rendered-player.empty .node-rendered-player-playhead {
+  display: none;
+}
+
+.node-rendered-player-empty-hint {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  color: rgba(127, 199, 217, 0.45);
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.node-rendered-player.empty .node-rendered-player-empty-hint {
+  display: flex;
+}
+
+.node-rendered-player-time {
+  flex: 0 0 auto;
+  align-self: center;
+  min-width: 92px;
+  text-align: right;
+  color: rgba(127, 199, 217, 0.92);
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 /* XY Pad -- interactive pad body above the generic quantize/phase sliders
@@ -10171,9 +10187,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
    The module article is a GRID column (not flex), so the pad row must be
    granted the leftover height explicitly: header / pad / io / parameters.
    minmax(0, 1fr) lets the pad shrink cleanly on short modules too. */
-.dsp-node[data-node-type="xyPad"] {
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
-}
 .node-xy-pad {
   box-sizing: border-box;
   padding: 4px 6px 2px;
@@ -10182,7 +10195,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
      overflow it -- an earlier square-aspect canvas ran under the io section,
      dimming the pad's lower edge and stealing its clicks. The custom UI
      stays strictly inside its own section. */
-  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
   min-height: 56px;
   overflow: hidden;
   display: flex;
@@ -10199,12 +10213,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   background:
     radial-gradient(circle at 50% 45%, rgba(127, 199, 217, 0.06), transparent 70%),
     rgba(3, 7, 10, 0.9);
-  cursor: crosshair;
+  cursor: var(--node-dot-cursor);
   touch-action: none;
-}
-
-.node-xy-pad.held .node-xy-pad-canvas {
-  border-color: rgba(57, 230, 163, 0.55);
 }
 
 /* x/y/gate are pad-driven internals -- their parameter rows exist (so the
@@ -12297,6 +12307,10 @@ input.node-header-title:focus {
   overflow: hidden;
 }
 
+.node-slider-readout:not([data-control="number"]) {
+  cursor: var(--node-dot-cursor);
+}
+
 .node-slider-readout:hover,
 .node-slider-readout:focus,
 .node-slider-readout:focus-visible,
@@ -12393,8 +12407,15 @@ input.node-header-title:focus {
 .node-slider-readout.value-hovering,
 .node-slider-readout.value-dragging {
   border-color: transparent;
-  box-shadow: none;
   outline: none;
+}
+
+.node-slider-readout:not([data-control="number"]):hover {
+  box-shadow: inset 0 0 7px rgba(127, 199, 217, 0.16);
+}
+
+.node-slider-readout.value-dragging {
+  box-shadow: inset 0 0 9px rgba(127, 199, 217, 0.28);
 }
 
 .node-slider-readout.has-ghost-slider.value-hovering::after,
@@ -17333,10 +17354,9 @@ body.keyboard-debug-hidden #toggleDebugButton {
   display: none;
 }
 
-/* Check All Modules runs the same Module Diagnostics sanity pass this
-   session's native-module-load failures kept surfacing informally --
-   worth a deliberate, easy-to-reach trigger, but only while debug mode
-   is actually on (same master switch as the rest of this block). */
+/* Check All Modules writes native-module self-test results into the debug log.
+   Keep it available only while debug mode is on, matching the rest of this
+   developer-facing block. */
 body.keyboard-debug-hidden #nodeCheckAllModulesButton {
   display: none;
 }

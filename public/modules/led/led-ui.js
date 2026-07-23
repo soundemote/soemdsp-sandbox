@@ -8,7 +8,6 @@ function createNodeGraphLedFace(node, type) {
   face.dataset.node = node;
   face.dataset.nodeType = type;
   face.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} LED`);
-  face.append(createNodeGraphPort(node, type, "In", "input"));
   return face;
 }
 

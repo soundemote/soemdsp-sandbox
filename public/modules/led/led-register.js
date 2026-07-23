@@ -6,6 +6,8 @@
 registerNodeGraphChromelessModule("led", {
   label: "LED",
   compactTile: true,
+  solidModule: true,
+  solidPortLabels: false,
   definition: {
     bufferedInputs: ["In"],
     displayType: "dot",

@@ -23,11 +23,11 @@ nodeGraphLiveModuleEvaluators.xyPad = ({ runtime, node, nodeId, frame, frames, f
   states.set(nodeId, state);
   const pulseSamples = Math.max(0, Number(state.pulseSamples) || 0);
   state.pulseSamples = Math.max(0, pulseSamples - 1);
-  // X In / Y In are CV offsets: added to the pad position, clamped inside
+  // X / Y are CV offsets: added to the pad position, clamped inside
   // the quantizer, so external signals can sweep or wobble the pad point.
   return {
-    X: nodeGraphXyPadEvaluatorQuantize(read("x", 0.5) + mixInput(nodeId, "X In"), read("xQuantize", 0), read("xPhase", 0)),
-    Y: nodeGraphXyPadEvaluatorQuantize(read("y", 0.5) + mixInput(nodeId, "Y In"), read("yQuantize", 0), read("yPhase", 0)),
+    X: nodeGraphXyPadEvaluatorQuantize(read("x", 0.5) + mixInput(nodeId, "X"), read("xQuantize", 0), read("xPhase", 0)),
+    Y: nodeGraphXyPadEvaluatorQuantize(read("y", 0.5) + mixInput(nodeId, "Y"), read("yQuantize", 0), read("yPhase", 0)),
     Gate: read("gate", 0) > 0.5 ? 1 : 0,
     Spike: pulseSamples > 0 ? 1 : 0,
   };

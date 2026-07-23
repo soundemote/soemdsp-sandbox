@@ -518,6 +518,20 @@ function appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, ou
   article.append(ioSection);
 }
 
+function createNodeGraphSolidModuleShell(node, type, customBody, registration, inputPorts, outputPorts) {
+  const shell = document.createElement("div");
+  shell.className = "node-solid-module-shell";
+  const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input") || document.createElement("div");
+  const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output") || document.createElement("div");
+  if (registration?.solidPortLabels === false) {
+    inputColumn.classList.add("labels-hidden");
+    outputColumn.classList.add("labels-hidden");
+  }
+  customBody.classList.add("node-solid-module-custom-ui");
+  shell.append(inputColumn, customBody, outputColumn);
+  return shell;
+}
+
 // Third UI tier alongside "generic" (knob/slider rows) and "generic + custom"
 // (e.g. audioPlayer's waveform bolted onto the standard header/IO shell):
 // fully custom, no shell at all. No header, no title, no drag handle, no
@@ -543,6 +557,7 @@ function createNodeGraphModuleElement(type, node) {
   article.className = nodeGraphModuleLayoutClassNames(type, definition, layout);
   article.dataset.node = node;
   article.dataset.nodeType = type;
+  article.classList.toggle("solid-module-layout", nodeGraphChromelessModuleUsesSolidShell(type));
   article.dataset.portSignature = `${inputPorts.join(",")}=>${outputPorts.join(",")}`;
   article.dataset.gridWidthGu = String(widthGu);
   article.dataset.gridHeightGu = String(heightGu);
@@ -566,7 +581,11 @@ function createNodeGraphModuleElement(type, node) {
     : null;
   if (chromelessRegistration) {
     const chromelessBody = chromelessRegistration.createBody(node, type);
-    article.append(chromelessBody);
+    article.append(
+      nodeGraphChromelessModuleUsesSolidShell(type)
+        ? createNodeGraphSolidModuleShell(node, type, chromelessBody, chromelessRegistration, inputPorts, outputPorts)
+        : chromelessBody,
+    );
     chromelessRegistration.afterMount?.(article, chromelessBody, node, type);
   } else {
     article.append(createNodeGraphModuleHeader(type, node, definition));
@@ -823,7 +842,13 @@ function createNodeGraphModuleElement(type, node) {
     article.append(stateBadge);
   }
 
-  if (definition.parameters?.length && definition.layout !== "sliderWidget" && layout !== "knobWidget" && definition.layout !== "buttonWidget" && !nodeGraphChromelessModuleLayouts.has(layout)) {
+  if (
+    definition.parameters?.length &&
+    definition.layout !== "sliderWidget" &&
+    layout !== "knobWidget" &&
+    definition.layout !== "buttonWidget" &&
+    (!nodeGraphChromelessModuleLayouts.has(layout) || nodeGraphChromelessModuleUsesSolidShell(type))
+  ) {
     const body = document.createElement("div");
     body.className = "dsp-node-body";
     const graphInputSection = createNodeGraphInputSection(node, type);

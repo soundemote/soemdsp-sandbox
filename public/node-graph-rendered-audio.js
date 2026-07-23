@@ -9,6 +9,9 @@ function clearNodeGraphRenderedAudioElement() {
     URL.revokeObjectURL(nodeGraphMvp.renderedAudioUrl);
     nodeGraphMvp.renderedAudioUrl = "";
   }
+  if (typeof syncNodeGraphRenderedPlayerWave === "function") {
+    syncNodeGraphRenderedPlayerWave();
+  }
 }
 
 function syncNodeGraphRenderedAudioElement() {
@@ -30,6 +33,9 @@ function syncNodeGraphRenderedAudioElement() {
   audio.load();
   labelPrimaryAudio("rendered-sample.wav", true);
   labelPrimaryAudioTitle("Rendered sample ready", true);
+  if (typeof syncNodeGraphRenderedPlayerWave === "function") {
+    syncNodeGraphRenderedPlayerWave();
+  }
 }
 
 function resetNodeGraphRenderedPlaybackCursor(redraw = true) {

@@ -177,6 +177,11 @@ function validateNodeGraphPatch(patch) {
     if (type === "customDisplay") {
       normalizedNode.customDisplay = normalizeNodeGraphCustomDisplay(node.customDisplay);
     }
+    if (type === "bugButton") {
+      normalizedNode.bugButton = {
+        glyph: normalizeNodeGraphBugButtonGlyph(node.bugButton?.glyph),
+      };
+    }
     const normalizedPortScripts = normalizeNodeGraphPortScripts(type, node.portScripts);
     if (normalizedPortScripts) {
       normalizedNode.portScripts = normalizedPortScripts;
@@ -568,6 +573,9 @@ function applyNodeGraphPatchToDom() {
       }
       input.value = String(value);
       syncNodeSliderReadout(input);
+    }
+    for (const visual of element.querySelectorAll("[data-parameter-visual]")) {
+      visual.syncFromParameters?.();
     }
     if (typeof syncNodeGraphModulePortLabels === "function") {
       syncNodeGraphModulePortLabels(element, patchNode);

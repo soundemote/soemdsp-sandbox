@@ -714,8 +714,13 @@ function nodeGraphCompiledScopeCaptureNodeIds(graph, reachableNodes) {
     .filter((node) =>
       reachableNodes.has(node.id) &&
       !bypassedNodes.has(node.id) &&
-      nodeGraphModuleDisplayRendererForNode(node) !== "legacy" &&
-      nodeGraphPatchNodeDisplayVisibleInPlan(node, { bypassedNodes })
+      (
+        nodeGraphChromelessModuleUsesSolidShell(node.type) ||
+        (
+          nodeGraphModuleDisplayRendererForNode(node) !== "legacy" &&
+          nodeGraphPatchNodeDisplayVisibleInPlan(node, { bypassedNodes })
+        )
+      )
     )
     .map((node) => node.id);
 }

@@ -923,7 +923,7 @@
       "libUrl": "",
       "wasm": "native_modules/wall_delay/wall_delay.wasm",
       "wasmUrl": "native_modules/wall_delay/wall_delay.wasm",
-      "wasmAvailable": false
+      "wasmAvailable": true
     },
     {
       "name": "yellowjacket_filter",

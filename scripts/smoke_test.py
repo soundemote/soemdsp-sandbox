@@ -104,6 +104,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-color-standards.js",
     "./public/node-graph-chromeless-module-registry.js",
     "./public/modules/led/led-register.js",
+    "./public/modules/bugButton/bug-button-register.js",
+    "./public/modules/xyPad/xy-pad-register.js",
     "./public/modules/stepGrid/step-grid-register.js",
     "./public/node-graph-module-definitions.js",
     "./public/node-graph-data-bus.js",
@@ -153,6 +155,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-canvas-script.js",
     "./public/node-graph-module-factories.js",
     "./public/modules/led/led-ui.js",
+    "./public/modules/bugButton/bug-button-ui.js",
+    "./public/modules/xyPad/xy-pad-ui.js",
     "./public/modules/groupInput/group-input-ui.js",
     "./public/modules/groupOutput/group-output-ui.js",
     "./public/node-graph-module-header-rendering.js",
@@ -174,8 +178,10 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-metadata-editor.js",
     "./public/node-graph-render-settings.js",
     "./public/node-graph-ear-protection.js",
+    "./public/node-graph-debug-console.js",
     "./public/node-graph-module-diagnostics.js",
     "./public/node-graph-rendered-audio.js",
+    "./public/node-graph-rendered-player.js",
     "./public/node-graph-rendered-visual-output.js",
     "./public/node-graph-rendered-output-canvases.js",
     "./public/node-graph-execution-wires.js",
@@ -258,7 +264,6 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-antisaw.js",
     "./public/app-event-bindings.js",
     "./public/app.js",
-    "./public/node-graph-debug-console.js",
     "./native_modules/logistic_map/logistic_map-live-evaluator.js",
     "./public/modules/turingMachine/turing-machine-live-evaluator.js",
     "./public/modules/oscilloscopeBank/oscilloscope-bank-display.js",
@@ -349,6 +354,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/pitchModWheel/pitch-mod-wheel-live-evaluator.js",
     "./public/modules/gain/gain-live-evaluator.js",
     "./public/modules/led/led-live-evaluator.js",
+    "./public/modules/bugButton/bug-button-live-evaluator.js",
+    "./public/modules/xyPad/xy-pad-live-evaluator.js",
     "./public/modules/bias/bias-live-evaluator.js",
     "./public/modules/softClipper/soft-clipper-live-evaluator.js",
     "./public/modules/rotate3dTo2d/rotate-3d-to-2d-live-evaluator.js",
@@ -446,6 +453,8 @@ WORKLET_BLOB_SOURCE_FILES = (
     "modules/pluckEnvelope/pluck-envelope-worklet-evaluator.js",
     "modules/vactrolEnvelopeSeries/vactrol-envelope-series-worklet-evaluator.js",
     "modules/impulseButton/impulse-button-worklet-evaluator.js",
+    "modules/bugButton/bug-button-worklet-evaluator.js",
+    "modules/xyPad/xy-pad-worklet-evaluator.js",
     "modules/flowerChildEnvelopeFollower/flower-child-envelope-follower-worklet-evaluator.js",
     "modules/spiral/spiral-worklet-evaluator.js",
     "modules/fractalSpiral/fractal-spiral-worklet-evaluator.js",
@@ -1244,7 +1253,19 @@ def require_shell_contract(html: str) -> None:
         parser,
         "audioPlayer",
         "audio",
-        {"controls": "", "preload": "metadata"},
+        {"preload": "metadata"},
+    )
+    require_shell_element(
+        parser,
+        "nodeRenderedPlayer",
+        "div",
+        {"aria-label": "Rendered sample player"},
+    )
+    require_shell_element(
+        parser,
+        "nodeRenderedPlayerPlay",
+        "button",
+        {"type": "button", "aria-label": "Play rendered sample", "aria-pressed": "false"},
     )
     require_shell_element(
         parser,
@@ -3731,6 +3752,7 @@ def require_chromeless_module_registry_contract() -> None:
         "function nodeGraphChromelessModuleDefinitionEntries()",
         "function nodeGraphChromelessModuleLabelEntries()",
         "function nodeGraphChromelessModuleCatalogEntries()",
+        "function nodeGraphChromelessModuleUsesSolidShell(type)",
         "const nodeGraphChromelessModuleLayouts = Object.freeze({",
     ]:
         require(snippet in registry_source, f"chromeless module registry missing {snippet}")
@@ -3747,7 +3769,7 @@ def require_chromeless_module_registry_contract() -> None:
         require(match is not None, f"{register_path} does not call registerNodeGraphChromelessModule")
         discovered_types.add(match.group(1))
 
-    expected_types = {"groupInput", "groupOutput", "led", "stepGrid"}
+    expected_types = {"bugButton", "groupInput", "groupOutput", "led", "stepGrid", "xyPad"}
     require(
         discovered_types == expected_types,
         f"chromeless module registrations were {sorted(discovered_types)!r}, expected {sorted(expected_types)!r}",
@@ -3823,6 +3845,13 @@ def require_chromeless_module_registry_contract() -> None:
         "nodeGraphChromelessModuleRegistrations.get(layout)" in rendering_source,
         "node-graph-module-rendering.js should dispatch chromeless modules generically via the registry",
     )
+    for snippet in [
+        "function createNodeGraphSolidModuleShell(",
+        "nodeGraphChromelessModuleUsesSolidShell(type)",
+        '"node-solid-module-shell"',
+        '"node-solid-module-custom-ui"',
+    ]:
+        require(snippet in rendering_source, f"solid module renderer contract missing {snippet}")
     for stale_type in expected_types:
         require(
             f'layout === "{stale_type}"' not in rendering_source,
@@ -3836,6 +3865,170 @@ def require_chromeless_module_registry_contract() -> None:
     require(
         "nodeGraphChromelessModuleLayouts.has(nodeGraphModuleDefinitions[type]?.layout)" in sizing_source,
         "nodeGraphModuleGridHeightUnitsForUi should use the chromeless registry, not a hardcoded per-type check",
+    )
+    require(
+        store_source.index('{ id: "controller"') < store_source.index('{ id: "gametrigger"')
+        < store_source.index('{ id: "portal"'),
+        "Game Trigger should immediately follow Controller in the module browser",
+    )
+    require(
+        store_source.index('{ id: "sample"') < store_source.index('{ id: "grains"')
+        < store_source.index('{ id: "media"'),
+        "Sample and Grains should immediately precede Media in the module browser",
+    )
+    require(
+        store_source.index('{ id: "space"') < store_source.index('{ id: "digital"')
+        < store_source.index('{ id: "time"') < store_source.index('{ id: "modulator"')
+        < store_source.index('{ id: "oscillator"'),
+        "Space, Digital, Time, Modulator, and Oscillator should keep their requested browser order",
+    )
+    videoscope_catalog = store_source[
+        store_source.index("  videoscope: {"):store_source.index("\n  },", store_source.index("  videoscope: {"))
+    ]
+    require(
+        'category: "rgb"' in videoscope_catalog,
+        "Videoscope should live in the RGB module browser category",
+    )
+
+
+def require_bug_button_interaction_contract() -> None:
+    script_sources = read_public_script_sources()
+    register_source = script_sources["./public/modules/bugButton/bug-button-register.js"]
+    ui_source = script_sources["./public/modules/bugButton/bug-button-ui.js"]
+    evaluator_source = script_sources["./public/modules/bugButton/bug-button-live-evaluator.js"]
+    external_events_source = script_sources["./public/node-graph-external-ui-events.js"]
+    sizing_source = script_sources["./public/node-graph-module-sizing.js"]
+    patch_source = script_sources["./public/node-graph-patch-core.js"]
+    worklet_source = read_assembled_worklet_source()
+
+    for snippet in [
+        'defaultWidthGu: 4',
+        'displayHeightGu: 4',
+        'customDisplayArea: true',
+        'solidModule: true',
+        'Size: "S"',
+        'Opacity: "O"',
+        'inputs: ["Size", "X", "Y", "Opacity"]',
+        'outputs: ["Mouse Up", "Mouse Down", "Dn/Up", "Mouse Hover", "X", "Y"]',
+        'digitalOutputs: ["Mouse Up", "Mouse Down", "Dn/Up", "Mouse Hover"]',
+        'key: "size"',
+        'label: "Character Size"',
+        'max: "2"',
+        'key: "xPosition"',
+        'key: "yPosition"',
+        'key: "opacity"',
+        '"Mouse Up": "\\u2B06"',
+        '"Mouse Down": "\\u2B07"',
+        '"Dn/Up": "\\u2B1C"',
+        '"Mouse Hover": "\\u{1F47B}"',
+    ]:
+        require(snippet in register_source, f"Bug Button definition missing {snippet}")
+    for snippet in [
+        "function nodeGraphBugButtonPointerPosition(control, event)",
+        "function commitNodeGraphBugButtonGlyph(nodeId, value)",
+        "function syncNodeGraphBugButtonVisual(face)",
+        'face.dataset.parameterVisual = "true"',
+        'glyph.style.setProperty("--node-bug-button-size"',
+        'glyph.style.setProperty("--node-bug-button-x"',
+        'glyph.style.setProperty("--node-bug-button-y"',
+        'setNodeGraphBugButtonInteraction(node, { ...position, ...extra })',
+        '{ down: 1, downPulse: true, hover: 1 }',
+        '{ down: 0, upPulse: true }',
+        'glyph.contentEditable = "plaintext-only"',
+    ]:
+        require(snippet in ui_source, f"Bug Button UI missing {snippet}")
+    require(
+        'element.querySelectorAll("[data-parameter-visual]")' in patch_source
+        and "visual.syncFromParameters?.()" in patch_source,
+        "custom parameter visuals should resync through normal patch DOM application",
+    )
+    require(
+        'type: "bugButtonInteraction"' in external_events_source
+        and "function setNodeGraphBugButtonInteraction(nodeId, update = {})" in external_events_source,
+        "Bug Button UI events should use one explicit live/worklet bridge",
+    )
+    for source, label in [
+        (evaluator_source, "browser evaluator"),
+        (worklet_source, "AudioWorklet evaluator"),
+    ]:
+        for output in ["Mouse Down", "Mouse Up", "Dn/Up", "Mouse Hover", "X", "Y"]:
+            require(f'"{output}"' in source or f"{output}:" in source, f"Bug Button {label} missing {output}")
+        for snippet in ["__VisualSize:", "__VisualX:", "__VisualY:", "__VisualOpacity:"]:
+            require(snippet in source, f"Bug Button {label} missing captured visual value {snippet}")
+    require(
+        'mixInput(nodeId, "Size")' in evaluator_source
+        and 'mixInput(nodeId, "X")' in evaluator_source
+        and 'mixInput(nodeId, "Y")' in evaluator_source
+        and 'mixInput(nodeId, "Opacity")' in evaluator_source,
+        "Bug Button browser evaluator should treat visual modulation as real signal inputs",
+    )
+    require(
+        "createNodeGraphBugButtonInputRail" not in ui_source
+        and "node-bug-button-output-row" not in ui_source,
+        "Bug Button should use the shared solid module rails, not private fake rails",
+    )
+    require(
+        "nodeGraphChromelessModuleHasCustomDisplayArea(type)" in sizing_source
+        and "nodeGraphModuleSizingCapabilities(type).displayHeight" in sizing_source,
+        "Bug Button custom display height should use the shared sizing capability",
+    )
+    require(
+        'if (type === "bugButton")' in patch_source
+        and "normalizeNodeGraphBugButtonGlyph(node.bugButton?.glyph)" in patch_source,
+        "Bug Button glyph should survive patch normalization",
+    )
+    require(
+        'message.type === "bugButtonInteraction"' in worklet_source
+        and "this.bugButtonStates = new Map()" in worklet_source,
+        "Bug Button AudioWorklet state/message support missing",
+    )
+
+
+def require_xy_pad_interaction_contract() -> None:
+    script_sources = read_public_script_sources()
+    ui_source = script_sources["./public/modules/xyPad/xy-pad-ui.js"]
+    register_source = script_sources["./public/modules/xyPad/xy-pad-register.js"]
+    definitions_source = script_sources["./public/node-graph-module-definitions.js"]
+    store_source = script_sources["./public/node-graph-module-store.js"]
+    execution_plan_source = script_sources["./public/node-graph-execution-plan.js"]
+    scope_source = script_sources["./public/node-graph-module-scopes.js"]
+    for snippet in [
+        "function nodeGraphXyPadAbsolutePointerMode(event)",
+        "function nodeGraphXyPadDragMultiplier(event)",
+        "nodeGraphNumericDragMultiplier(event)",
+        "function nodeGraphXyPadReanchorDrag(pad, drag, event)",
+        "drag.startX + ((event.clientX - drag.startClientX)",
+        "drag.startY - ((event.clientY - drag.startClientY)",
+        "if (drag.absolute)",
+        'ctx.arc(px + (1.5 * dpr), py + (1.5 * dpr), 7 * dpr',
+        'ctx.strokeStyle = "rgba(127, 199, 217, 0.24)"',
+        'ctx.fillStyle = "rgba(177, 132, 255, 0.38)"',
+        "function nodeGraphXyPadInputConnected(pad, port)",
+        'addNodeGraphModuleScopeSnapshotListener(() =>',
+    ]:
+        require(snippet in ui_source, f"XY Pad relative-drag contract missing {snippet}")
+    require(
+        'solidModule: true' in register_source
+        and 'inputs: ["X", "Y"]' in register_source
+        and '"X In": "X"' in register_source
+        and '"Y In": "Y"' in register_source,
+        "XY Pad should expose concise X/Y input labels while preserving old patch aliases",
+    )
+    require(
+        "nodeGraphChromelessModuleUsesSolidShell(node.type)" in execution_plan_source
+        and "function nodeGraphModuleScopeLatestOutputValue(nodeId, port, fallback = null)" in scope_source
+        and "function addNodeGraphModuleScopeSnapshotListener(listener)" in scope_source,
+        "XY Pad ghost position should use captured live output values",
+    )
+    require(
+        "registerNodeGraphChromelessModuleUi(" in ui_source
+        and 'xyPad: {' not in definitions_source
+        and 'xyPad: {' not in store_source,
+        "XY Pad should be fully self-registered instead of duplicated in shared module tables",
+    )
+    require(
+        'Boolean(event?.altKey) && !(event?.shiftKey && (event.ctrlKey || event.metaKey))' in ui_source,
+        "XY Pad should use absolute pointer positioning only under the app-wide Alt modifier",
     )
 
 
@@ -6840,12 +7033,6 @@ def require_node_graph_mvp_contract() -> None:
         "Close this dialog to clear the trip and continue working.",
         "nodeEarProtectionFaultClose",
         "globalThis.nodeGraphResetEarProtectionFault?.()",
-        "nodeModuleDiagnosticsFault",
-        "Module Diagnostics",
-        "A module isn't working correctly",
-        "nodeModuleDiagnosticsFaultList",
-        "nodeModuleDiagnosticsFaultClose",
-        "globalThis.nodeGraphResetModuleDiagnosticsFault?.()",
         "nodeCheckAllModulesButton",
         "Check All",
         "Close",
@@ -9184,7 +9371,11 @@ def require_node_graph_mvp_contract() -> None:
         "function nodeGraphModuleGridHeightUnits(type)",
         'nodeGraphModuleDefinitions[type]?.layout === "knobWidget"',
         "return 4;",
-        "return Math.ceil(nodeGraphModuleRequiredHeightUnitsForUi(type, ui));",
+        "const requiredGu = nodeGraphModuleRequiredHeightUnitsForUi(type, ui);",
+        "let heightGu = Math.ceil(requiredGu);",
+        "if ((heightGu - requiredGu) * nodeGraphGrid.heightPx < 2) {",
+        "heightGu += 1;",
+        "return heightGu;",
         "function createNodeGraphKnobWidgetBody(node, type)",
         "node-knob-widget-body",
         "node-knob-widget-control",
@@ -9196,7 +9387,7 @@ def require_node_graph_mvp_contract() -> None:
         "node-slider-widget-body",
         "node-slider-widget-row",
         "node-slider-widget-io-section",
-        "if (definition.parameters?.length && definition.layout !== \"sliderWidget\" && layout !== \"knobWidget\" && definition.layout !== \"buttonWidget\" && !nodeGraphChromelessModuleLayouts.has(layout))",
+        "(!nodeGraphChromelessModuleLayouts.has(layout) || nodeGraphChromelessModuleUsesSolidShell(type))",
         "node-header-actions",
         "node-header-title-row",
         "node-header-title",
@@ -9563,9 +9754,9 @@ def require_node_graph_mvp_contract() -> None:
         "function nodeGraphModuleDiagnosticsIsTripped()",
         "function nodeGraphRecordModuleFault(details = {})",
         "function nodeGraphModuleDiagnosticsFaultDetail(details = {})",
+        "function nodeGraphReportModuleDiagnosticsError(fault)",
+        'globalThis.SE.ERROR(message, "module-diagnostics")',
         "function nodeGraphResetModuleDiagnosticsFault()",
-        "function closeNodeGraphModuleDiagnosticsFaultUi()",
-        "function bindNodeGraphModuleDiagnosticsFaultUi()",
         "function nodeGraphRecordNativeModuleFault(message = {})",
         "function nodeGraphTrackNodeSilenceWindow(nodeId, isBad, reason = \"\")",
         "function nodeGraphClearAllTrackedModuleSilence()",
@@ -9573,8 +9764,9 @@ def require_node_graph_mvp_contract() -> None:
         "async function nodeGraphRunJerobeamModuleSelfTest(entry, manifestEntry)",
         "async function nodeGraphRunGenericModuleLoadCheck(entry)",
         "function nodeGraphShowModuleSelfTestReport(report)",
+        "module self-test complete",
+        'globalThis.SE.ERROR(text, "module-self-test")',
         "async function runNodeGraphModuleSelfTest()",
-        "nodeModuleDiagnosticsFaultDelegatedClose",
         "setNodeGraphAudioStats();",
         "audioStats.dataset.renderClips = String(clipCount)",
         "audioStats.dataset.renderProtectionMutes = String(protectionMuteCount)",
@@ -15060,15 +15252,16 @@ def require_node_graph_mvp_contract() -> None:
     context_menu_source = script_sources["./public/node-graph-context-menu.js"]
 
     text_box_height_contracts = {
-        "capability helper defines Text Box as the only top-level module-height owner": (
+        "capability helper defines explicit module-height owners": (
             sizing_source,
             (
                 "function nodeGraphModuleSizingCapabilities(type)",
-                "moduleHeight = nodeGraphNodeTypeHasTextBoxLayout(normalizedType)",
+                "const moduleHeight = nodeGraphNodeTypeHasTextBoxLayout(normalizedType)",
                 '? "textBox"',
                 ': normalizedType === "canvas"',
                 '? "canvasScript"',
-                "displayHeight = nodeGraphModuleTypeHasHideableOscilloscope(normalizedType)",
+                "const displayHeight =",
+                "nodeGraphModuleTypeHasHideableOscilloscope(normalizedType)",
                 "keyboardHeight: Boolean(moduleHeight || displayHeight)",
             ),
         ),
@@ -15128,7 +15321,7 @@ def require_node_graph_mvp_contract() -> None:
         "patch normalization should not keep obsolete generic module height branches",
     )
     require(
-        all(snippet in sizing_source for snippet in text_box_height_contracts["capability helper defines Text Box as the only top-level module-height owner"][1]),
+        all(snippet in sizing_source for snippet in text_box_height_contracts["capability helper defines explicit module-height owners"][1]),
         "module sizing capabilities should declare width, module height, display height, and keyboard height support",
     )
     require(
@@ -15367,12 +15560,16 @@ def require_node_graph_mvp_contract() -> None:
 
     require(
         "body.node-hide-mouse-while-dragging,\nbody.node-hide-mouse-while-dragging * {\n  cursor: none !important;\n}" in style_source
-        and "body.node-slider-dragging.node-hide-mouse-while-dragging::after" in style_source
+        and "body.node-slider-dragging.node-hide-mouse-while-dragging::after" not in style_source
+        and "updateNodeSliderDotCursor" not in script_sources["./public/node-graph-slider-dragging.js"]
+        and '.node-slider-readout:not([data-control="number"]) {\n  cursor: var(--node-dot-cursor);' in style_source
+        and '.node-slider-readout:not([data-control="number"]):hover {\n  box-shadow: inset' in style_source
+        and ".node-slider-readout.value-dragging {\n  box-shadow: inset" in style_source
         and style_source.count("cursor: none !important;") == 1
         and style_source.count("cursor: ew-resize;") == 1
         and "style.cursor" not in shader_script_source
         and "cursor:" not in color_widget_source,
-        "sandbox cursor policy should only hide the cursor through the drag setting and explicit resize grips",
+        "slider cursor policy should use hover feedback without a synthetic drag dot",
     )
 
     require(
@@ -15588,8 +15785,10 @@ def require_node_graph_mvp_contract() -> None:
         "slider fill slide element should not draw a stroke highlight",
     )
     require(
-        ".node-slider-readout.value-hovering,\n.node-slider-readout.value-dragging {\n  border-color: transparent;\n  box-shadow: none;\n  outline: none;" in style_source,
-        "slider hovering/dragging should not change readout stroke highlight",
+        ".node-slider-readout.value-hovering,\n.node-slider-readout.value-dragging {\n  border-color: transparent;\n  outline: none;" in style_source
+        and '.node-slider-readout:not([data-control="number"]):hover {\n  box-shadow: inset' in style_source
+        and ".node-slider-readout.value-dragging {\n  box-shadow: inset" in style_source,
+        "slider hover/drag should use an inner glow without a stroke highlight",
     )
     require(
         ".node-slider-readout.choices-divided.value-hovering .node-choice-debug-cell-fill,\n.node-slider-readout.choices-divided.value-dragging .node-choice-debug-cell-fill {\n  fill: rgb(var(--node-slider-fill-rgb) / var(--node-slider-fill-alpha));\n}" in style_source,
@@ -15651,7 +15850,9 @@ def require_node_graph_mvp_contract() -> None:
         and "effectiveUi.slidersHidden" in script_sources["./public/node-graph-module-sizing.js"]
         and "4 + nodeGraphModuleVisibleSliderRowCountForUi(type, ui) * 1.25" not in script_sources["./public/node-graph-module-sizing.js"]
         and "const requiredGridUnits = nodeGraphModuleRequiredHeightUnitsForUi(type, ui);" not in script_sources["./public/node-graph-module-sizing.js"]
-        and "return Math.ceil(nodeGraphModuleRequiredHeightUnitsForUi(type, ui));" in script_sources["./public/node-graph-module-sizing.js"],
+        and "const requiredGu = nodeGraphModuleRequiredHeightUnitsForUi(type, ui);" in script_sources["./public/node-graph-module-sizing.js"]
+        and "let heightGu = Math.ceil(requiredGu);" in script_sources["./public/node-graph-module-sizing.js"]
+        and "if ((heightGu - requiredGu) * nodeGraphGrid.heightPx < 2) {" in script_sources["./public/node-graph-module-sizing.js"],
         "module height should come from visible widget totals rather than a rough fallback",
     )
     require(
@@ -15778,13 +15979,6 @@ def require_node_graph_mvp_contract() -> None:
         ".node-ear-protection-fault",
         "body.node-ear-protection-tripped .node-ear-protection-fault",
         ".node-ear-protection-fault-close",
-        "body.node-module-diagnostics-tripped",
-        ".node-module-diagnostics-fault",
-        "body.node-module-diagnostics-tripped .node-module-diagnostics-fault",
-        ".node-module-diagnostics-fault-close",
-        ".node-module-diagnostics-fault-list",
-        ".node-module-diagnostics-fault-entry",
-        ".node-module-diagnostics-fault-entry-ok",
         "pointer-events: auto",
         "user-select: text",
         ".node-speaker-protection-body",
@@ -17568,7 +17762,10 @@ def require_native_module_contract(base_url: str) -> None:
     live_runtime_source = (PUBLIC / "node-graph-live-runtime.js").read_text(encoding="utf-8")
     worklet_source = read_assembled_worklet_source()
     native_build_source = (ROOT / "scripts" / "build_native_modules.ps1").read_text(encoding="utf-8")
-    native_sources = sorted((ROOT / "native_modules").glob("*/*.cpp"))
+    native_sources = [
+        source_path for source_path in sorted((ROOT / "native_modules").glob("*/*.cpp"))
+        if source_path.parent.name != "combined"
+    ]
     require(native_sources, "native modules folder should contain C++ sources")
 
     require(
@@ -17917,10 +18114,9 @@ def require_native_module_contract(base_url: str) -> None:
         entry = next((item for item in modules if item.get("targetType") == target_type), None)
         require(entry is not None, f"native modules API should include {module_name}")
         require(entry.get("name") == module_name, f"native modules API name should match {module_name}")
-        expected_wasm_available = module_name != "wall_delay"
         require(
-            entry.get("wasmAvailable") is expected_wasm_available,
-            f"native modules API should mark {module_name} wasm available as {expected_wasm_available}",
+            entry.get("wasmAvailable") is True,
+            f"native modules API should mark {module_name} wasm available",
         )
         require("tooltips" not in entry, f"native modules API should not expose comment-parsed tooltips for {module_name}")
 
@@ -17937,8 +18133,6 @@ def require_native_module_contract(base_url: str) -> None:
     require_content_type(soft_clipper_wasm_response, "application/wasm", "native Soft Clipper wasm")
     require(soft_clipper_wasm_response.body.startswith(b"\0asm"), "served native Soft Clipper wasm magic bytes missing")
     for source_path in native_sources:
-        if source_path.parent.name == "wall_delay":
-            continue
         wasm_path = source_path.with_suffix(".wasm")
         wasm_url = f"/{wasm_path.relative_to(ROOT).as_posix()}"
         wasm_response = request(f"{base_url}{wasm_url}")
@@ -18012,6 +18206,8 @@ def run_valid_manifest_smoke(port: int, manifest: Path) -> None:
         run_step("follow/free seek contract", require_follow_free_seek_contract)
         run_step("node graph MVP contract", require_node_graph_mvp_contract)
         run_step("chromeless module registry contract", require_chromeless_module_registry_contract)
+        run_step("bug button interaction contract", require_bug_button_interaction_contract)
+        run_step("XY pad interaction contract", require_xy_pad_interaction_contract)
         run_step("README scheduler contract", require_readme_scheduler_contract)
         run_step("soemdsp WireMeta traits", require_soemdsp_wire_meta_traits)
         run_step(

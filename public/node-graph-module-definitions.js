@@ -110,7 +110,6 @@ const nodeGraphNodeLabels = Object.freeze({
   vactrolEnvelopeSeries: "VTL5C",
   vactrolEnvelopeCustom: "Vactrol",
   impulseButton: "Impulse Button",
-  xyPad: "XY Pad",
   sandboxVisuals: "Screen Visuals",
   screenSpaceShader: "Screen Space Shader",
   bloomGlow: "Bloom & Glow",
@@ -3064,25 +3063,6 @@ const nodeGraphModuleDefinitions = Object.freeze({
       {
         defaultValue: "1", key: "amplitude", label: "Amplitude", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any",
       },
-    ],
-  },
-  // XY Pad: standard-chrome module with a custom interactive pad body (see
-  // public/modules/xyPad/xy-pad-ui.js, bolted in the same way audioPlayer's
-  // waveform widget is). x/y/gate are pad-driven internal parameters (their
-  // rows are hidden in CSS but still exist, so parameter sync, smoothing,
-  // persistence, and modulation stay on the normal path); the four visible
-  // sliders are the quantize/phase controls.
-  xyPad: {
-    inputs: ["X In", "Y In"],
-    outputs: ["X", "Y", "Gate", "Spike"],
-    parameters: [
-      { defaultValue: "0.5", key: "x", label: "X", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
-      { defaultValue: "0.5", key: "y", label: "Y", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
-      { defaultValue: "0", key: "gate", label: "Gate", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
-      { defaultValue: "0", key: "xQuantize", label: "X Quantize", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
-      { defaultValue: "0", key: "yQuantize", label: "Y Quantize", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
-      { defaultValue: "0", key: "xPhase", label: "X Phase", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
-      { defaultValue: "0", key: "yPhase", label: "Y Phase", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
     ],
   },
   flowerChildEnvelopeFollower: {

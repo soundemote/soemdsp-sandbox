@@ -61,9 +61,6 @@ function syncNodeUiDevSettingsHeaderControls() {
   const paddingValue = document.getElementById("nodeUiDevSettingsHeaderPaddingValue");
   const floatingWindowHeaderHeightInput = document.getElementById("nodeUiDevFloatingWindowHeaderHeight");
   const floatingWindowHeaderHeightValue = document.getElementById("nodeUiDevFloatingWindowHeaderHeightValue");
-  const dotSizeInput = document.getElementById("nodeUiDevSliderDotSize");
-  const dotSizeValue = document.getElementById("nodeUiDevSliderDotSizeValue");
-  const dotPreview = document.getElementById("nodeUiDevSliderDotPreview");
   const moduleTitleFontInput = document.getElementById("nodeUiDevModuleTitleFont");
   const moduleTitleFontValue = document.getElementById("nodeUiDevModuleTitleFontValue");
   const moduleTitleHeightInput = document.getElementById("nodeUiDevModuleTitleHeight");
@@ -163,9 +160,6 @@ function syncNodeUiDevSettingsHeaderControls() {
     !paddingValue ||
     !floatingWindowHeaderHeightInput ||
     !floatingWindowHeaderHeightValue ||
-    !dotSizeInput ||
-    !dotSizeValue ||
-    !dotPreview ||
     !moduleTitleFontInput ||
     !moduleTitleFontValue ||
     !moduleTitleHeightInput ||
@@ -267,7 +261,6 @@ function syncNodeUiDevSettingsHeaderControls() {
     20,
     Math.min(48, Number(floatingWindowHeaderHeightInput.value) || 30),
   );
-  const dotSizePx = Math.max(0, Math.min(28, Number(dotSizeInput.value) || 0));
   const moduleTitleFont = normalizeNodeUiDevControlValue(
     nodeUiDevSettingControls.find((definition) => definition.key === "moduleTitleFont"),
     moduleTitleFontInput.value,
@@ -369,7 +362,6 @@ function syncNodeUiDevSettingsHeaderControls() {
   document
     .getElementById("nodeGraphWorkspace")
     ?.style.setProperty("--node-workspace-bg", workspaceBackgroundColor);
-  document.body.style.setProperty("--node-slider-dot-size", `${dotSizePx}px`);
   document.body.style.setProperty(
     "--node-module-category-row-height",
     `${moduleBrowserEntryHeightPx}px`,
@@ -488,7 +480,6 @@ function syncNodeUiDevSettingsHeaderControls() {
   topRatioValue.textContent = `${topPercent}%`;
   paddingValue.textContent = `${paddingPx}px`;
   floatingWindowHeaderHeightValue.textContent = `${floatingWindowHeaderHeightPx}px`;
-  dotSizeValue.textContent = `${dotSizePx}px`;
   moduleTitleFontValue.textContent = nodeUiDevSelectLabel(
     nodeUiDevSettingControls.find((definition) => definition.key === "moduleTitleFont"),
     moduleTitleFont,
@@ -522,7 +513,6 @@ function syncNodeUiDevSettingsHeaderControls() {
   bypassOffBackgroundColorValue.textContent = bypassOffBackgroundColor;
   moveSymbolSizeValue.textContent = `${moveSymbolSizePercent}%`;
   closeIconSizeValue.textContent = `${closeIconSizePercent}%`;
-  dotPreview.style.setProperty("--node-slider-dot-size", `${dotSizePx}px`);
   bypassIconPreview.style.setProperty(
     "--node-ui-dev-symbol-preview-size",
     String(bypassIconSizePercent / 100),

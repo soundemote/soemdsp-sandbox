@@ -44,7 +44,7 @@
     WARN: { tag: "WARN", color: "#ffcf6b", err: false },
     FAIL: { tag: "FAIL", color: "#ff6b6b", err: true },
     SMOOTH: { tag: "SMTH", color: "#b184ff", err: false },
-    ERROR: { tag: "ERR!", color: "#ff5555", err: true },
+    ERROR: { tag: "ERR", color: "#ff5555", err: true },
   };
 
   function push(level, msg, loc) {
@@ -64,6 +64,7 @@
     INFO: (msg) => push("INFO", msg, callerLoc()),
     WARN: (cond, msg) => { if (!cond) push("WARN", msg, callerLoc()); return cond; },
     CHECK: (cond, msg) => { if (!cond) { push("FAIL", msg || "CHECK failed", callerLoc()); try { console.assert(false, msg); } catch (_) {} } return cond; },
+    ERROR: (msg, loc = callerLoc()) => push("ERROR", msg || "ERROR", loc),
     FAIL: (msg) => push("FAIL", msg || "FAIL", callerLoc()),
     STOP: (msg) => push("FAIL", msg || "DEBUG BREAK", callerLoc()),
     WITHINSIZE: (value, container, msg) => {
@@ -249,7 +250,7 @@
     p.id = "seDebugPanel";
     p.innerHTML = `
       <div class="se-head" data-se-drag>
-        <button class="se-bug" data-se-fake-err type="button" title="Click: generate a fake ERR! entry (tests the log pipeline end to end)" aria-label="Generate a fake error">🐞</button>
+        <button class="se-bug" data-se-fake-err type="button" title="Click: generate a fake ERR entry (tests the log pipeline end to end)" aria-label="Generate a fake error">🐞</button>
         <span class="se-title">Debug Log</span>
         <button class="se-tool" data-se-watch aria-pressed="false">○ smoothing</button>
         <button class="se-tool" data-se-pause>Pause</button>
@@ -268,10 +269,10 @@
     els.watchBtn = p.querySelector("[data-se-watch]");
 
     p.querySelector("[data-se-close]").addEventListener("click", () => showPanel(false));
-    // 🐞 is a first-class button: clicking it generates a fake ERR! entry,
+    // 🐞 is a first-class button: clicking it generates a fake ERR entry,
     // exercising the full push -> render -> badge pipeline on demand.
     p.querySelector("[data-se-fake-err]").addEventListener("click", () => {
-      push("ERROR", "ladybug", "debug-console:🐞");
+      push("ERROR", "ladybug", "debug-console");
     });
     p.querySelector("[data-se-clear]").addEventListener("click", clearLog);
     p.querySelector("[data-se-copy]").addEventListener("click", copyLog);

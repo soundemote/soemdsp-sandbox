@@ -89,7 +89,7 @@ function nodeGraphPatchNodeLayout(node) {
 // controls, same height contribution -- but the area can't be hidden
 // (hiding the module's own control surface would make it useless).
 function nodeGraphModuleTypeHasCustomDisplayArea(type) {
-  return type === "xyPad";
+  return nodeGraphChromelessModuleHasCustomDisplayArea(type);
 }
 
 function nodeGraphModuleTypeHasHideableOscilloscope(type) {
@@ -252,6 +252,10 @@ function nodeGraphPatchNodeCanvasScriptGridUnits(node) {
 }
 
 function nodeGraphDefaultModuleGridWidthUnits(type) {
+  const declaredWidthGu = Number(nodeGraphModuleDefinitions[type]?.defaultWidthGu);
+  if (Number.isFinite(declaredWidthGu)) {
+    return Math.max(1, Math.round(declaredWidthGu));
+  }
   if (nodeGraphChromelessModuleIsCompactTile(type)) {
     return 1;
   }
@@ -604,7 +608,14 @@ function nodeGraphModuleGridHeightUnitsForUi(type, ui = {}) {
   // keyboard shortcut), rather than being pinned at 1 regardless of that
   // setting.
   if (nodeGraphChromelessModuleLayouts.has(nodeGraphModuleDefinitions[type]?.layout)) {
-    if (nodeGraphModuleTypeHasHideableOscilloscope(type)) {
+    if (nodeGraphChromelessModuleUsesSolidShell(type)) {
+      const displayGu = nodeGraphModuleConfiguredDisplayHeightUnits(type, ui);
+      const sliderGu = nodeGraphModuleVisibleSliderRowCountForUi(type, ui) > 0
+        ? nodeGraphModuleSliderBodyHeightGu(type)
+        : 0;
+      return Math.ceil(displayGu + sliderGu + nodeGraphModuleLayout.moduleGridInsetGu * 2);
+    }
+    if (nodeGraphModuleSizingCapabilities(type).displayHeight) {
       return nodeGraphModuleConfiguredDisplayHeightUnits(type, ui);
     }
     return 1;
@@ -612,7 +623,16 @@ function nodeGraphModuleGridHeightUnitsForUi(type, ui = {}) {
   if (nodeGraphModuleDefinitions[type]?.layout === "knobWidget") {
     return 4;
   }
-  return Math.ceil(nodeGraphModuleRequiredHeightUnitsForUi(type, ui));
+  const requiredGu = nodeGraphModuleRequiredHeightUnitsForUi(type, ui);
+  let heightGu = Math.ceil(requiredGu);
+  // Bottom-clearance rule: if rounding up to whole grid units leaves less
+  // than 2px of slack under the last section (e.g. the module bottom lines
+  // up exactly with the bottom of a slider row), that reads as cramped --
+  // add one more grid unit so the content always breathes at the base.
+  if ((heightGu - requiredGu) * nodeGraphGrid.heightPx < 2) {
+    heightGu += 1;
+  }
+  return heightGu;
 }
 
 function nodeGraphPatchNodeGridHeightUnits(node) {
