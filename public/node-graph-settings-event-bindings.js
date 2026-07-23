@@ -1,3 +1,32 @@
+// Require a double-click to enter typing mode on a field (single click / drag
+// just focuses/selects, never edits). Matches the drag-number controls' behavior
+// so header text boxes aren't accidentally edited. Re-locks on blur/Enter/Escape.
+function applyNodeGraphDoubleClickToEdit(field) {
+  if (!field || field.dataset.dblclickEditBound === "true") {
+    return;
+  }
+  field.dataset.dblclickEditBound = "true";
+  field.readOnly = true;
+  field.addEventListener("pointerdown", (event) => {
+    if (field.readOnly) {
+      event.preventDefault();
+    }
+  });
+  field.addEventListener("dblclick", () => {
+    field.readOnly = false;
+    field.focus();
+    try { field.select(); } catch (_) {}
+  });
+  field.addEventListener("blur", () => {
+    field.readOnly = true;
+  });
+  field.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === "Escape") {
+      field.blur();
+    }
+  });
+}
+
 function bindNodeGraphSettingsFormEvents() {
   document
     .getElementById("nodePatchScriptFileInput")
@@ -10,6 +39,7 @@ function bindNodeGraphSettingsFormEvents() {
     field.addEventListener("change", commitNodeGraphSettingsHistory);
   }
   for (const field of document.querySelectorAll("[data-patch-header-info-field]")) {
+    applyNodeGraphDoubleClickToEdit(field);
     field.addEventListener("input", handleNodeGraphHeaderInfoInput);
     field.addEventListener("change", commitNodeGraphSettingsHistory);
   }

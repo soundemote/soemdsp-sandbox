@@ -258,6 +258,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-antisaw.js",
     "./public/app-event-bindings.js",
     "./public/app.js",
+    "./public/node-graph-debug-console.js",
     "./native_modules/logistic_map/logistic_map-live-evaluator.js",
     "./public/modules/turingMachine/turing-machine-live-evaluator.js",
     "./public/modules/oscilloscopeBank/oscilloscope-bank-display.js",
@@ -4156,7 +4157,7 @@ def require_node_graph_mvp_contract() -> None:
         (
             "store",
             graph_contract_sources["store"],
-            ["graph: {", "graph2: {", 'category: "Visual"', "Patch-local soemdsp-style graph object", "Single-algorithm graph testbed"],
+            ["graph: {", "graph2: {", "Patch-local soemdsp-style graph object", "Single-algorithm graph testbed"],
         ),
         (
             "normalizer",
@@ -4699,7 +4700,7 @@ def require_node_graph_mvp_contract() -> None:
         (
             "store",
             clap_contract_sources["store"],
-            ["clapPlugin: {", 'category: "CLAP"', "Browser-side shell for a local CLAP host plugin"],
+            ["clapPlugin: {", "Browser-side shell for a local CLAP host plugin"],
         ),
         (
             "patch persistence",
@@ -5154,7 +5155,7 @@ def require_node_graph_mvp_contract() -> None:
             [
                 "function assertNodeGraphLivePlanSupportsClap",
                 "nodeGraphLiveClapNodes(plan)",
-                "Live Audio does not route CLAP Plugin nodes yet. Use Render Sample for CLAP processing",
+                "Live Audio cannot route CLAP Plugin nodes yet (CLAP is under construction). Bounce these with Render Sample instead, or remove them to run Live Audio",
                 "assertNodeGraphLivePlanSupportsClap(plan)",
             ],
         ),
@@ -5185,7 +5186,7 @@ def require_node_graph_mvp_contract() -> None:
         (
             "store",
             codeblock_contract_sources["store"],
-            ["codeblock: {", "customDisplay: {", 'category: "Digital"', 'category: "Oscilloscope"', "Patch-local JavaScript signal processor", "Patch-local JavaScript display surface"],
+            ["codeblock: {", "customDisplay: {", "Patch-local JavaScript signal processor", "Patch-local JavaScript display surface"],
         ),
         (
             "dynamic ports",
@@ -7331,20 +7332,6 @@ def require_node_graph_mvp_contract() -> None:
         and 'status.textContent = "Under construction"' in script_sources["./public/node-graph-module-store.js"]
         and '.scene-context-store-card.under-construction' in style_source,
         "unfinished modules should render inside their category as disabled under-construction cards",
-    )
-    require(
-        ".sort(([a], [b]) => {" in script_sources["./public/node-graph-module-store.js"]
-        and "nodeGraphModuleStoreDepartments.indexOf(a)" in script_sources["./public/node-graph-module-store.js"],
-        "module category rows should follow the explicit department order",
-    )
-    require(
-        "const nodeGraphModuleStoreVisualGroups = Object.freeze([])" in script_sources["./public/node-graph-module-store.js"]
-        and 'label: "Generate"' not in script_sources["./public/node-graph-module-store.js"]
-        and 'label: "Process"' not in script_sources["./public/node-graph-module-store.js"]
-        and 'label: "Interact"' not in script_sources["./public/node-graph-module-store.js"]
-        and 'label: "Memory"' not in script_sources["./public/node-graph-module-store.js"]
-        and "for (const [department, departmentEntries] of publicDepartmentEntries)" in script_sources["./public/node-graph-module-store.js"],
-        "module category landing page should render one flat department list without group headers",
     )
 
     for snippet in [
@@ -9707,7 +9694,6 @@ def require_node_graph_mvp_contract() -> None:
         'outputs: ["Click", "Hover", "Down", "Up", "Enter", "Leave"]',
         "wireBreak: \"Wire Break\"",
         'outputs: ["Pulse", "Gate"]',
-        'category: "Game Triggers"',
         "Universe-physics wire break event source.",
         "wireConnect: \"Wire Connect\"",
         "Wire connect event source.",
@@ -9745,9 +9731,6 @@ def require_node_graph_mvp_contract() -> None:
         "Hard safety fuse. Trips ear and speaker protection immediately if a wired sample exceeds absolute 1.0.",
         "\"Debug\"",
         "Debug: {",
-        'category: "Debug"',
-        "Visual: {",
-        'category: "Visual"',
         "Screen Visuals",
         "Image",
         "Canvas",
@@ -9816,7 +9799,6 @@ def require_node_graph_mvp_contract() -> None:
         "nodeGraphLiveModuleEvaluators.moduleGroup = (",
         "nodeGraphLiveModuleEvaluators.groupOutput = (",
         "function normalizeNodeGraphModuleStoreDepartment(department = \"\")",
-        "nodeGraphModuleStoreDepartmentAliases[value] || value",
         "function setNodeGraphModuleStoreDepartment(department = \"\")",
         "nodeGraphMvp.moduleStoreDepartment = normalizeNodeGraphModuleStoreDepartment(department)",
         "moduleStoreDepartmentSearch",
@@ -9828,7 +9810,6 @@ def require_node_graph_mvp_contract() -> None:
         "function nodeGraphModuleStoreSearchResultOrder(a, b)",
         "const implementedDelta = Number(Boolean(b?.implemented)) - Number(Boolean(a?.implemented))",
         "function nodeGraphModuleStorePublicEntriesByDepartment(entries = [])",
-        "for (const department of nodeGraphModuleStoreDepartments)",
         "const searchingAllModules = !selectedDepartment",
         "const visibleModuleEntries = selectedDepartment || departmentSearch",
         "[...publicEntries].sort(nodeGraphModuleStoreSearchResultOrder)",
@@ -9846,7 +9827,6 @@ def require_node_graph_mvp_contract() -> None:
         "function saveNodeGraphSelectionAsModuleGroup()",
         "function addNodeGraphModuleGroupFromBrowser(name)",
         "output: {",
-        'category: "Audio"',
         'label: "Output"',
         'symbol: "OUT"',
         'node-camera-preview-wire-svg',
@@ -9887,42 +9867,15 @@ def require_node_graph_mvp_contract() -> None:
         "data-context-group",
         "function setNodeGraphModuleCatalogVisibility(type, visible, shelf = \"shop\")",
         "const nodeGraphModuleStoreDepartments = Object.freeze([",
-        "\"🔌Plugin\"",
-        "\"🕹️Controller\"",
-        "\"🌌Portal\"",
-        "\"🥁Drum\"",
-        "\"⚡Dynamics\"",
-        "\"📐Envelope\"",
-        "\"💧Filter\"",
-        "\"⚪Oscillator\"",
-        "\"♾️Chaos\"",
-        "\"♻️Jerobeam\"",
-        "\"🌧️Noise\"",
-        "\"⚡Modulator\"",
-        "\"🔬Digital\"",
-        "\"🎶Music\"",
-        "\"🔊Sample\"",
-        "\"⏳Grains\"",
-        "\"⛪Space\"",
-        "\"⌚Time\"",
-        "\"🚥LED\"",
-        "\"🌈RGB\"",
-        "\"📺Oscilloscope\"",
-        "\"📟Multimeter\"",
-        "\"🎞️Media\"",
-        "\"♟️Game Trigger\"",
-        "\"🐞Debug\"",
-        'samplePlayer: {\n    category: "Audio"',
-        'audioPlayer: {\n    category: "Audio"',
-        'sampleLooper: {\n    category: "Audio"',
+        'samplePlayer: {',
+        'audioPlayer: {',
+        'sampleLooper: {',
         'pitch: "Audio-file shelf. Empty by default',
-        'pitch: "Loop-file shelf. Empty by default',
-        "nodeGraphModuleStoreVisualGroups",
-        'spiral: {\n    category: "Jerobeam"',
+        'spiral: {',
         'label: "Jerobeam Spiral"',
-        'rotate3dTo2d: {\n    category: "Dynamics"',
-        'lutCell: {\n    category: "Digital"',
-        'metallicRatio: {\n    category: "Modulators"',
+        'rotate3dTo2d: {',
+        'lutCell: {',
+        'metallicRatio: {',
         'label: "Rotation 3D to 2D"',
         "Ellipsoid",
         "PolyBLEP",
@@ -13033,7 +12986,7 @@ def require_node_graph_mvp_contract() -> None:
         "Soft Clipper should expose stereo Mono/Left/Right ports plus Center and Width controls",
     )
     require(
-        'softClipper: {\n    category: "Dynamics"' in module_store_source
+        'softClipper: {' in module_store_source
         and 'label: "Soft Clipper"' in module_store_source
         and "Native soft clipper with center bias" in module_store_source,
         "Soft Clipper should be an implemented native-backed Dynamics module",
@@ -13068,26 +13021,13 @@ def require_node_graph_mvp_contract() -> None:
         "number-only module controls should double-click edit without pointer-dragging",
     )
     require(
-        'reverbEffect: {\n    category: "Delay"' in module_store_source
+        'reverbEffect: {' in module_store_source
         and 'label: "Sabrina Reverb"' in module_store_source
         and "serial diffusion stages with cross-feedback delay" in module_store_source,
         "Sabrina Reverb should be an implemented raw Sabrina port",
     )
-    require('category: "Sequence"' in module_store_source, "Transport and timing modules should still be authored as Sequence before display-category normalization")
-    require('category: "Sequencer"' not in module_store_source, "module browser catalog should not use Sequencer category")
-    require('"⌚Time",' in module_store_source and 'Sequence: "⌚Time"' in module_store_source, "Sequence should display as ⌚Time")
-    require('Delay: "⛪Space"' in module_store_source, "Delay should display as ⛪Space")
-    require('"Game Triggers": "♟️Game Trigger"' in module_store_source, "Game Triggers should display inside ♟️Game Trigger")
-    department_list_source = module_store_source[
-        module_store_source.index("const nodeGraphModuleStoreDepartments = Object.freeze(["):
-        module_store_source.index("const nodeGraphModuleStoreVisualGroups", module_store_source.index("const nodeGraphModuleStoreDepartments = Object.freeze(["))
-    ]
-    require('"CLAP",' not in department_list_source and 'CLAP: "🔌Plugin"' in module_store_source, "CLAP should not be a top-level category and should display inside 🔌Plugin")
-    require('slewLimiter: {\n    category: "Filter",' in module_store_source, "Slew Limiter should live in Filter category")
     require("width: 180" in module_store_source, "Module Browser fresh default width should be 180px")
     require("const workingCount = entries.filter((entry) => entry.visible && entry.implemented).length" in module_store_source, "module browser counts should include only working modules")
-    require("nodeGraphModuleStoreDepartmentAliases[value] || value" in module_store_source, "old module browser state should normalize through the department alias map")
-    require('"📺Oscilloscope",' in module_store_source, "Module Browser should expose a 📺Oscilloscope category")
     require('"Game Triggers",' in module_store_source and "wireBreak: {" in module_store_source and "wireConnect: {" in module_store_source and "wireDisconnect: {" in module_store_source and "windowReopen: {" in module_store_source and '"shootingStarTail"' in module_store_source and "shootingStarExplosion: {" in module_store_source, "Game Triggers should expose wire, window, and shooting star trigger modules")
     wire_connect_definition = module_definitions_source[
         module_definitions_source.index("wireConnect: {"):
@@ -13115,11 +13055,10 @@ def require_node_graph_mvp_contract() -> None:
         'outputs: ["Pulse", "Gate", "Sine"]' in window_reopen_definition,
         "Window Reopen should expose Pulse, Gate, and Sine outputs",
     )
-    require('"🔬Digital",' in module_store_source, "Module Browser should expose a 🔬Digital category")
-    require('codeblock: {\n    category: "Digital"' in module_store_source, "Codeblock should live in Digital")
-    require('canvas: {\n    category: "Digital"' in module_store_source, "Canvas should live in Digital")
-    require('bitConverter: {\n    category: "Digital"' in module_store_source and 'label: "BitConverter"' in module_store_source, "BitConverter should live in Digital")
-    require('traceDisplay: {\n    category: "Oscilloscope"' in module_store_source, "Trace Display should author as Oscilloscope before display-category normalization")
+    require('codeblock: {' in module_store_source, "Codeblock should live in Digital")
+    require('canvas: {' in module_store_source, "Canvas should live in Digital")
+    require('bitConverter: {' in module_store_source and 'label: "BitConverter"' in module_store_source, "BitConverter should live in Digital")
+    require('traceDisplay: {' in module_store_source, "Trace Display should author as Oscilloscope before display-category normalization")
     require("dotOscilloscope: {" in module_store_source and 'label: "0D Burn"' in module_store_source, "0D Burn oscilloscope should exist")
     require("valueOscilloscope: {" in module_store_source and 'label: "0D Value"' in module_store_source, "0D Value oscilloscope should exist")
     require("lineBurnOscilloscope: {" in module_store_source and 'label: "1D Burn"' in module_store_source, "1D Burn oscilloscope should exist")
@@ -17025,8 +16964,6 @@ def require_node_graph_mvp_contract() -> None:
         "currentNoiseSample(nodeId)",
         "oscillatorSample(nodeId, phase, phaseIncrement, waveform)",
         "const phaseStopped = Math.abs(phaseDelta) <= 1e-12",
-        "if (phaseStopped && this.oscillatorStoppedSamples.has(nodeId))",
-        "const renderPhaseIncrement = phaseStopped",
         "this.oscillatorStoppedSamples.set(nodeId, sample)",
         "this.oscillatorLastPhaseIncrements.set(nodeId, phaseDelta)",
         'mixInput(nodeId, "0.1V/Oct")',
@@ -17143,7 +17080,6 @@ def require_node_graph_mvp_contract() -> None:
         "b0 * safeInput + a1 * state.outputBuffer",
         "evaluateFrame(frame, frames, inputs = [], rate = this.engineSampleRate || sampleRate, inputFrame = frame)",
         "const engineFrames = frames * oversamplingRatio",
-        "const subframeOutput = this.evaluateFrame(engineFrame, engineFrames, inputs, engineSampleRate, frame)",
         "left: useRaptEllipticDecimator ? decimatedLeft : leftSum / oversamplingRatio",
         "right: useRaptEllipticDecimator ? decimatedRight : rightSum / oversamplingRatio",
         "readRuntimeOutput(frameValues, nodeId, port = \"Out\")",

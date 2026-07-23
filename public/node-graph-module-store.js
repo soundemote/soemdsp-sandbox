@@ -151,9 +151,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["sinc", "sin(x)/x", "impulse", "oscillator"],
   },
   osc: {
-    category: "oscillator",
+    category: "modulator",
     description: "Multi-waveform oscillator (saw, ramp, square, triangle, sine, noise) with 0.1V/Oct and increment CV inputs.",
-    label: "Osc",
+    label: "LFO",
     notes: ["multi-waveform", "cv input"],
   },
   aliasSine: {
@@ -722,7 +722,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["phase locked loop", "A-196", "vco", "frequency tracking"],
   },
   helmholtzPitch: {
-    category: "time",
+    category: "multimeter",
     description: "Monophonic pitch detector using the McLeod Pitch Method (normalized square difference function with parabolic interpolation). Outputs detected frequency and a fidelity score; rejects noisy/non-periodic frames.",
     label: "Pitch Detector",
     notes: ["pitch tracking", "pitch detector", "mcleod", "autocorrelation", "frequency follower"],
@@ -792,12 +792,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["visual sink", "chroma wash", "moving color"],
   },
   image: {
-    category: "digital",
+    category: "rgb",
     description: "Patch-local image asset node. Route it into Screen Visuals Trace Image to texture phosphor trace dots.",
     notes: ["load image", "save image", "trace texture"],
   },
   canvas: {
-    category: "digital",
+    category: "rgb",
     description: "Layered RGBA compositor for images, scopes, shader passes, transforms, and future game-engine surfaces.",
     notes: ["layer compositor", "RGBA output", "shader script"],
   },
@@ -814,7 +814,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["1D waveform", "display testbed", "input trace"],
   },
   dotOscilloscope: {
-    category: "multimeter",
+    category: "oscilloscope",
     description: "Placeholder for a clock-like oscilloscope that draws one efficient brightness dot from the current buffered value.",
     label: "0D Burn",
     notes: ["clock display", "single dot", "latest value"],
@@ -838,7 +838,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["fft", "spectrum", "frequency waterfall", "spectral display"],
   },
   valueOscilloscope: {
-    category: "multimeter",
+    category: "oscilloscope",
     description: "Single-value oscilloscope that draws the latest input as one horizontal line across the display.",
     label: "0D Value",
     notes: ["value display", "horizontal line", "latest value"],

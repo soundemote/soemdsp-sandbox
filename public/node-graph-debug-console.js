@@ -88,6 +88,11 @@
     clear: clearLog,
     entries: () => entries.slice(),
     smoothingWatch: (on) => setSmoothingWatch(on),
+    devMode: (on) => {
+      try { localStorage.setItem("seDebug", on ? "1" : "0"); } catch (_) {}
+      if (on) { injectStyles(); buildButton(); buildPanel(); showPanel(true); }
+      else if (els.panel) { els.panel.remove(); els.btn && els.btn.remove(); els.panel = null; els.btn = null; }
+    },
   };
   window.SE = SE;
   window.__seDebugConsole = SE;
@@ -126,7 +131,12 @@
     origPost = port.postMessage.bind(port);
     port.postMessage = (msg, ...rest) => {
       try {
-        if (smoothingWatch && msg && msg.type === "setParams") summarizeSetParams(msg);
+        if (smoothingWatch && msg) {
+          if (msg.type === "setParams") summarizeSetParams(msg);
+          else if (msg.type === "setPlan") {
+            push("SMOOTH", "⚠ PLAN rebuild sent — every smoother is reset to its target (instant snap). If these flood while you drag, that is why smoothing is not heard.", "live-plan");
+          }
+        }
       } catch (_) {}
       return origPost(msg, ...rest);
     };
@@ -333,8 +343,20 @@
     if (open) { rebuild(); }
   }
 
+  // Dev gate: only show the panel/button in a dev context (localhost, file://,
+  // ?debug in the URL, or SE.devMode(true)). A public deploy hides it entirely;
+  // the window.SE logging API and error capture stay active regardless.
+  function seDevEnabled() {
+    try {
+      const host = location.hostname || "";
+      if (/^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])$/.test(host) || location.protocol === "file:") return true;
+      if (/(^|[?&])debug(=1|=true)?(&|$)/.test(location.search)) return true;
+      return localStorage.getItem("seDebug") === "1";
+    } catch (_) { return false; }
+  }
   function init() {
     try {
+      if (!seDevEnabled()) { return; }
       injectStyles();
       buildButton();
       buildPanel();

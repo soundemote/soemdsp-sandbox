@@ -1020,15 +1020,6 @@ function queueNodeGraphLivePatchCommand(command, nodeId = "") {
 
 function handleNodeGraphLiveWorkletMessage(event) {
   const message = event.data || {};
-  if (message.blockSizeSmoothingSamples != null) {
-    nodeGraphMvp.live.blockSizeSmoothingSamples = Math.max(0, Math.round(Number(message.blockSizeSmoothingSamples)) || 0);
-    const statusEl = document.getElementById("metadataSmoothingModeStatus");
-    const group = document.getElementById("metadataSmoothingModeGroup");
-    if (statusEl && group && group.dataset.mode === "blockSize" && typeof nodeGraphSmoothingModeStatusText === "function") {
-      const sInput = document.getElementById("metadataSmoothingSecondsValue");
-      statusEl.textContent = nodeGraphSmoothingModeStatusText("blockSize", sInput ? Number(sInput.value) : 0);
-    }
-  }
   if (message.type === "meter") {
     if (message.sessionId !== nodeGraphMvp.live.sessionId || !nodeGraphMvp.live.node) {
       return;
@@ -1819,7 +1810,7 @@ async function stopNodeGraphLiveAudio() {
 // then register.js calls registerProcessor last, once everything above it
 // has finished defining/registering.
 const nodeGraphLiveWorkletSourceFiles = [
-  "./public/node-live-audio-worklet-core.js?v=blocksize-clock-20260722",
+  "./public/node-live-audio-worklet-core.js?v=cleanup-20260722",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
   "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=gainbiasmix-fix-20260722",

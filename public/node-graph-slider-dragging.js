@@ -512,11 +512,12 @@ function beginNodeSliderDrag(event) {
   syncNodeSliderHiddenMouseClass();
   nodeGraphWireInteractions?.clearHover?.();
   updateNodeSliderDotCursor(event);
-  if (event.pointerId !== undefined) {
-    surface.setPointerCapture(event.pointerId);
-  }
   if (nodeGraphMvp.sliderDragging.wantsPointerLock) {
+    // Pointer lock captures the pointer globally — setPointerCapture would throw
+    // InvalidStateError alongside it, so use one or the other.
     requestNodeSliderPointerLock(surface);
+  } else if (event.pointerId !== undefined) {
+    try { surface.setPointerCapture(event.pointerId); } catch (_) {}
   }
   event.preventDefault();
   event.stopPropagation();

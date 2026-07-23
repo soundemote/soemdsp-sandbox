@@ -89,10 +89,7 @@ function bindNodeGraphWorkspaceInteractionEvents() {
   document.addEventListener("pointercancel", endNodeGraphNodeDrag);
   document.addEventListener("pointermove", dragNodeGraphModulePlacement);
   document.addEventListener("pointerdown", completeNodeGraphModulePlacement, true);
-  document.addEventListener("pointermove", dragNodeSlider);
   document.addEventListener("pointermove", dragNodeGraphScopeNumber);
-  document.addEventListener("pointerup", endNodeSliderDrag);
-  document.addEventListener("pointercancel", endNodeSliderDrag);
   document.addEventListener("pointerup", endNodeGraphScopeNumberDrag);
   document.addEventListener("pointercancel", endNodeGraphScopeNumberDrag);
   document.addEventListener("pointermove", dragNodeGraphWorkspaceResize);

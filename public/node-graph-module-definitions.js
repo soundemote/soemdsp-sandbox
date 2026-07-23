@@ -8,7 +8,7 @@ const nodeGraphNodeLabels = Object.freeze({
   moduleGroup: "Module Group",
   nextPatch: "Next Patch",
   previousPatch: "Previous Patch",
-  osc: "Osc",
+  osc: "LFO",
   polyBlep: "PolyBLEP",
   blit: "BLIT",
   archimedes: "Archimedes",

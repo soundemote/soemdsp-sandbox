@@ -202,6 +202,12 @@ function handleNodeGraphKeydown(event) {
     }
     return;
   }
+  // While typing in a text field (module search, name boxes, code editor),
+  // bare-key shortcuts must not fire -- e.g. "d" toggling debug while you search
+  // for "led". Modifier combos (Ctrl+Z, etc.) and Space (above) still work.
+  if (nodeGraphEventTargetIsEditable(event.target) && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    return;
+  }
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z" && !event.shiftKey) {
     event.preventDefault();
     undoNodeGraphPatch();
