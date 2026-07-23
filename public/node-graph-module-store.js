@@ -15,8 +15,6 @@ let nodeGraphNativeModuleCatalogLoadStarted = false;
 
 const nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([
   "canvas",
-  "graph",
-  "graph2",
   "humanFilter",
   "shootingStarTail",
 ]));
@@ -514,7 +512,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["midi note input", "frequency output", "pitch conversion"],
   },
   buttonEvents: {
-    category: "controller",
+    category: "gametrigger",
     description: "External page button event source. Emits short pulses for explicit click, hover, down, up, enter, and leave events sent into sandbox.",
     label: "Button Events",
     notes: ["external UI", "button triggers", "music page bridge"],
@@ -556,13 +554,13 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["game trigger", "shooting star", "website bridge", "power scaled pulse", "low/high range"],
   },
   nextPatch: {
-    category: "controller",
+    category: "gametrigger",
     description: "Patch command receiver. A trigger edge loads the next saved patch through the main UI patch explorer path.",
     label: "Next Patch",
     notes: ["patch navigation", "trigger input", "music player"],
   },
   previousPatch: {
-    category: "controller",
+    category: "gametrigger",
     description: "Patch command receiver. A trigger edge loads the previous saved patch through the main UI patch explorer path.",
     label: "Previous Patch",
     notes: ["patch navigation", "trigger input", "music player"],

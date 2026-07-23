@@ -92,7 +92,7 @@ registerNodeGraphChromelessModule("bugButton", {
     ],
   },
   catalog: {
-    category: "controller",
+    category: "gametrigger",
     description: "Resizable character button with down/up spikes, held and hover gates, and bipolar pointer X/Y outputs.",
     notes: ["editable glyph", "pointer gates", "down/up spikes", "bipolar X/Y"],
   },
