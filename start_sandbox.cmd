@@ -11,6 +11,15 @@ cd /d "%REPO%"
 echo === Soemdsp Sandbox ===
 echo.
 
+:: Warn if any native module source is newer than the combined wasm the
+:: live worklet actually runs -- otherwise an edited .cpp silently keeps
+:: running old native code until scripts\build_native_modules.ps1 is rerun.
+powershell -NoProfile -Command ^
+  "$w = Get-Item 'native_modules\combined\soemdsp_combined.wasm' -ErrorAction SilentlyContinue;" ^
+  "$c = Get-ChildItem 'native_modules\*\*.cpp' | Sort-Object LastWriteTime -Descending | Select-Object -First 1;" ^
+  "if (-not $w) { Write-Host 'WARNING: combined native wasm missing -- run scripts\build_native_modules.ps1' -ForegroundColor Yellow }" ^
+  "elseif ($c -and $c.LastWriteTime -gt $w.LastWriteTime) { Write-Host ('WARNING: ' + $c.Name + ' is newer than the combined native wasm -- run scripts\build_native_modules.ps1 or native modules run STALE code') -ForegroundColor Yellow }"
+
 :: Kill any existing python processes on port 8765
 echo [1/3] Stopping existing server...
 for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":8765.*LISTENING" 2^>nul') do (
