@@ -289,11 +289,12 @@ function updateNodeSliderDotCursor(event) {
 }
 
 // During pointer-lock drags the OS cursor is hidden and frozen, so the dot is
-// the only cursor the user sees. Pin it to the slider's HANDLE position (it
-// tracks the value as it changes) instead of wherever the pointer happened to
-// be at drag start -- a dot sitting off the handle reads as a stuck cursor.
-// Uses geometry cached at drag start (surfaceRect/laneInset/width/visualScale)
-// so this never forces a layout read mid-drag.
+// the only cursor the user sees. Move it WITH the handle, RELATIVE to where
+// the pointer grabbed: the dot keeps its grab-time offset from the handle
+// center and rides along as the value changes -- no jump to the handle at
+// drag start, but no stuck-in-place dot either. Uses geometry cached at drag
+// start (surfaceRect/laneInset/width/visualScale/dotOffset) so this never
+// forces a layout read mid-drag.
 function updateNodeSliderDotCursorToHandle(drag) {
   if (!drag?.surfaceRect) {
     return;
@@ -303,8 +304,9 @@ function updateNodeSliderDotCursorToHandle(drag) {
     nodeSliderTravelFromValue(drag.slider, Number(drag.slider.value)),
   );
   const scale = Number(drag.visualScale) || 1;
-  const x = drag.surfaceRect.left + ((drag.laneInset || 0) + travel * drag.width) * scale;
-  const y = drag.surfaceRect.top + drag.surfaceRect.height / 2;
+  const handleX = drag.surfaceRect.left + ((drag.laneInset || 0) + travel * drag.width) * scale;
+  const x = handleX + (Number(drag.dotOffsetX) || 0);
+  const y = Number.isFinite(drag.dotY) ? drag.dotY : drag.surfaceRect.top + drag.surfaceRect.height / 2;
   document.body.style.setProperty("--node-slider-cursor-x", `${x}px`);
   document.body.style.setProperty("--node-slider-cursor-y", `${y}px`);
 }
@@ -558,16 +560,24 @@ function beginNodeSliderDrag(event) {
     pointerLocked: false,
     wantsPointerLock: nodeGraphMvp.hideMouseWhileDragging !== false && !jumpToPointerOnClick,
   };
+  {
+    // Cache the grab-time offset between the pointer and the handle center,
+    // so the locked-drag dot rides along with the handle RELATIVE to where
+    // the user grabbed instead of jumping onto the handle (see
+    // updateNodeSliderDotCursorToHandle).
+    const drag = nodeGraphMvp.sliderDragging;
+    const grabTravel = normalizeNodeSliderTravel(slider, startTravel);
+    const handleX = surfaceRect.left + ((drag.laneInset || 0) + grabTravel * drag.width) * (Number(drag.visualScale) || 1);
+    drag.dotOffsetX = event.clientX - handleX;
+    drag.dotY = event.clientY;
+  }
   surface.classList.add("value-dragging");
   document.body.classList.add("node-slider-dragging");
   syncNodeSliderHiddenMouseClass();
   nodeGraphWireInteractions?.clearHover?.();
-  if (nodeGraphMvp.sliderDragging.wantsPointerLock) {
-    // Dot snaps to the handle immediately (see updateNodeSliderDotCursorToHandle).
-    updateNodeSliderDotCursorToHandle(nodeGraphMvp.sliderDragging);
-  } else {
-    updateNodeSliderDotCursor(event);
-  }
+  // Dot starts exactly under the pointer (no jump); during a locked drag it
+  // then moves with the handle, keeping this initial offset.
+  updateNodeSliderDotCursor(event);
   if (nodeGraphMvp.sliderDragging.wantsPointerLock) {
     // Pointer lock captures the pointer globally — setPointerCapture would throw
     // InvalidStateError alongside it, so use one or the other.
