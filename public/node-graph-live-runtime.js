@@ -120,48 +120,84 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
   );
 }
 
-// Loads every native module's wasm and hands it to the worklet. Modules the
-// current patch actually references are fetched concurrently and sent as
-// soon as each arrives -- fetch is network I/O, not CPU, so this costs
-// nothing extra, and it means whatever the patch needs is ready in roughly
-// one fetch's worth of time instead of waiting behind however many other
-// modules happen to sort earlier in the (alphabetical) catalog. Everything
-// else stays on the original one-at-a-time path: the worklet compiles
-// WebAssembly on a single JS thread regardless of send order, so racing
-// dozens of irrelevant modules in at once wouldn't load them any faster --
-// it would just pack their compiles into one uninterrupted burst on the
-// audio thread while live audio may already be running.
+// Hands native-module wasm to the worklet. Preferred: the single combined
+// binary (all modules, one shared memory). Fallback: lazy per-module sends
+// of only what the patch uses. Both exist because of Chrome's per-process
+// cap on wasm memories -- details inline below.
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm";
+
 async function sendNodeGraphLiveNativeModules(liveNode, plan = null) {
   if (!liveNode?.port) {
     return;
   }
+  if (!liveNode.nodeGraphSentNativeModules) {
+    liveNode.nodeGraphSentNativeModules = new Set();
+  }
+  const sent = liveNode.nodeGraphSentNativeModules;
   const catalog = await fetchNodeGraphLiveNativeModuleCatalog();
   const nativeModules = Array.isArray(catalog?.modules) ? catalog.modules : [];
-  const activeTargetTypes = nodeGraphLiveActivePatchNativeTargetTypes(plan);
-  const priorityEntries = [];
-  const deferredEntries = [];
-  for (const entry of nativeModules) {
-    if (!entry?.wasmAvailable) {
-      continue;
-    }
+  const eligibleEntries = nativeModules.filter((entry) =>
     // video-poc entries (e.g. video_synth_raster) have their own standalone
     // demo page that fetches and instantiates their wasm directly -- they
     // were never wired into the worklet's nativeModuleStatus dispatch, so
-    // preloading them here only produces a false-positive "unsupported
+    // sending them here only produces a false-positive "unsupported
     // native module" diagnostic.
-    if (entry.kind === "video-poc") {
+    entry?.wasmAvailable && entry.kind !== "video-poc",
+  );
+  // Preferred path: ONE combined .wasm carrying every module, sharing ONE
+  // linear memory (built by scripts/build_native_modules.ps1). Chrome caps
+  // the number of wasm memories per process (~100); 77 standalone instances
+  // in the worklet sat at that cap and instantiation OOM'd. The combined
+  // instance uses a single memory, so every module can be native at once.
+  // On instantiate failure the worklet posts an error status named
+  // "combined", which the retry handler below un-marks for the next plan
+  // update.
+  if (!liveNode.nodeGraphCombinedUnavailable && !sent.has("combined")) {
+    const combinedBytes = await fetchNodeGraphLiveNativeModuleBytes({
+      wasmUrl: nodeGraphLiveCombinedNativeModuleUrl,
+    });
+    if (combinedBytes instanceof ArrayBuffer) {
+      sent.add("combined");
+      const transferableBytes = combinedBytes.slice(0);
+      liveNode.port.postMessage(
+        {
+          type: "setNativeModuleWasm",
+          name: "combined",
+          targetType: "",
+          modules: eligibleEntries.map((entry) => ({
+            name: String(entry.name || ""),
+            targetType: String(entry.targetType || ""),
+          })),
+          bytes: transferableBytes,
+        },
+        [transferableBytes],
+      );
+      return;
+    }
+    // Combined binary not built/served (e.g. older checkout) -- remember
+    // per worklet and fall back to lazy per-module sends below.
+    liveNode.nodeGraphCombinedUnavailable = true;
+  }
+  if (sent.has("combined")) {
+    return;
+  }
+  // Fallback path: send only the modules the current patch references,
+  // re-invoked on each full plan update (sent-set makes this idempotent).
+  // Never bulk-send the whole catalog -- that is what hit the wasm-memory
+  // cap in the first place.
+  const activeTargetTypes = nodeGraphLiveActivePatchNativeTargetTypes(plan);
+  const neededEntries = [];
+  for (const entry of eligibleEntries) {
+    const key = String(entry.name || entry.targetType || "");
+    if (sent.has(key)) {
       continue;
     }
     if (nodeGraphLiveNativeModuleIsUsedByPatch(entry, activeTargetTypes)) {
-      priorityEntries.push(entry);
-    } else {
-      deferredEntries.push(entry);
+      sent.add(key);
+      neededEntries.push(entry);
     }
   }
-  await Promise.all(priorityEntries.map((entry) => sendNodeGraphLiveNativeModule(liveNode, entry)));
-  for (const entry of deferredEntries) {
-    await sendNodeGraphLiveNativeModule(liveNode, entry);
-  }
+  await Promise.all(neededEntries.map((entry) => sendNodeGraphLiveNativeModule(liveNode, entry)));
 }
 
 async function refreshNodeGraphLiveMicrophonePermissionState() {
@@ -1081,6 +1117,13 @@ function handleNodeGraphLiveWorkletMessage(event) {
       if (typeof nodeGraphRecordNativeModuleFault === "function") {
         nodeGraphRecordNativeModuleFault(message);
       }
+      // Un-mark the module in the lazy-send dedupe set so the next full
+      // plan update retries it -- without this, one transient instantiate
+      // failure (e.g. a momentary wasm-memory squeeze) would pin the module
+      // to its JS fallback until page reload.
+      if (message.status === "error" && message.name) {
+        nodeGraphMvp.live.node?.nodeGraphSentNativeModules?.delete(String(message.name));
+      }
     }
   } else if (message.type === "patchCommand") {
     if (message.sessionId !== nodeGraphMvp.live.sessionId || !nodeGraphMvp.live.node) {
@@ -1372,6 +1415,9 @@ async function sendNodeGraphLivePlan() {
             type: "setPlan",
           });
         }
+        // Lazily send wasm for any native module type this plan introduced
+        // (no-op for already-sent modules; see sendNodeGraphLiveNativeModules).
+        sendNodeGraphLiveNativeModules(nodeGraphMvp.live.node, plan);
         nodeGraphStartGpuAdditiveProducer(plan, audio);
       }
     } else if (nodeGraphMvp.live.runtime) {

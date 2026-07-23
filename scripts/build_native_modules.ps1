@@ -102,6 +102,15 @@ foreach ($module in $modules) {
     $clangArgs += "-Wl,--export=$export"
   }
   $clangArgs += "-Wl,--export-memory"
+  # Declare a bounded maximum for each module's linear memory. No module
+  # calls memory.grow (all state is static; -nostdlib, no malloc), so a
+  # bound changes nothing at runtime -- but an UNbounded wasm memory makes
+  # V8 reserve the full 4GB growth range of virtual address space, and
+  # Chrome caps the per-process total of such reservations (~100 memories).
+  # With ~77 modules live in the audio worklet at once, unbounded memories
+  # sat right at that cap and instantiation OOM'd. 768 pages (48MB) covers
+  # the largest module (ping_pong_delay, 752 initial pages).
+  $clangArgs += "-Wl,--max-memory=50331648"
   $clangArgs += "-o"
   $clangArgs += "$root\native_modules\$($module.Name)\$($module.Name).wasm"
   $clangArgs += "$root\native_modules\$($module.Name)\$($module.Name).cpp"
@@ -113,3 +122,74 @@ foreach ($module in $modules) {
 }
 
 Write-Output "Built $($modules.Count) native modules."
+
+# ---------------------------------------------------------------------------
+# Combined build: link every module into ONE .wasm sharing ONE linear memory.
+#
+# Why: each standalone .wasm instantiated in the audio worklet gets its own
+# WebAssembly memory, and Chrome/V8 caps the per-process number of wasm
+# memories (~100, via per-memory virtual address space reservations). The
+# full catalog live at once sat at that cap and instantiation OOM'd. One
+# combined instance uses exactly one memory, so the cap is out of the
+# picture entirely. The per-module .wasm files above are still built and
+# shipped -- the "Check All Modules" self-test and any standalone demo pages
+# use them -- but the live worklet loads only the combined binary.
+#
+# Every module keeps its own statics (separate translation units), and all
+# exports are prefix-namespaced (soemdsp_<module>_*), so linking them
+# together changes nothing about their behavior. Verified: all objects link
+# with zero duplicate-symbol errors and all 525 exports resolve.
+$wasmLd = Join-Path (Split-Path -Parent $clang) "wasm-ld.exe"
+if (!(Test-Path -LiteralPath $wasmLd)) {
+  throw "wasm-ld not found at $wasmLd"
+}
+$combinedDir = "$root\native_modules\combined"
+$objDir = "$combinedDir\obj"
+New-Item -ItemType Directory -Force -Path $objDir | Out-Null
+
+$objFiles = @()
+foreach ($module in $modules) {
+  $compileArgs = @("--target=wasm32", "-O3", "-nostdlib", "-fno-exceptions", "-fno-rtti")
+  if ($module.Simd) {
+    $compileArgs += "-msimd128"
+  }
+  $obj = "$objDir\$($module.Name).o"
+  $compileArgs += @("-c", "$root\native_modules\$($module.Name)\$($module.Name).cpp", "-o", $obj)
+  & $clang @compileArgs
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: compile failed for $($module.Name)"
+  }
+  $objFiles += $obj
+}
+# Freestanding memset/memcpy/etc. -- the one-step per-module clang link
+# resolves these via the driver, but a direct wasm-ld link of many objects
+# does not, so shim.cpp provides them once for the combined binary.
+$shimObj = "$objDir\zz_shim.o"
+& $clang @("--target=wasm32", "-O3", "-nostdlib", "-fno-builtin", "-fno-exceptions", "-fno-rtti", "-c", "$combinedDir\shim.cpp", "-o", $shimObj)
+if ($LASTEXITCODE -ne 0) {
+  throw "Combined build: compile failed for shim.cpp"
+}
+$objFiles += $shimObj
+
+# All exports via a response file (the flat argument list would exceed
+# command-line length limits with 500+ --export flags).
+$responseFile = "$objDir\exports.rsp"
+$responseLines = foreach ($module in $modules) {
+  foreach ($export in $module.Exports) { "--export=$export" }
+}
+Set-Content -LiteralPath $responseFile -Value $responseLines -Encoding ascii
+
+# 128MB max: the combined static pools (delay lines, reverb, wavetables)
+# total ~101MB of initial memory; a bounded max keeps V8's reservation small.
+$ldArgs = @(
+  "--no-entry",
+  "--export-memory",
+  "--max-memory=134217728",
+  "@$responseFile",
+  "-o", "$combinedDir\soemdsp_combined.wasm"
+) + $objFiles
+& $wasmLd @ldArgs
+if ($LASTEXITCODE -ne 0) {
+  throw "Combined build: wasm-ld link failed"
+}
+Write-Output "Built combined native module: native_modules\combined\soemdsp_combined.wasm"

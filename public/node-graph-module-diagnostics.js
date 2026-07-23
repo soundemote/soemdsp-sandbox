@@ -354,8 +354,14 @@ async function nodeGraphRunGenericModuleLoadCheck(entry) {
       return { ok: false, reason: `wasm fetch failed (HTTP ${response.status})` };
     }
     const bytes = await response.arrayBuffer();
-    await WebAssembly.instantiate(bytes, {});
-    return { ok: true, reason: "wasm fetched and instantiated successfully" };
+    // compile (not instantiate): validates the fetch + binary without
+    // allocating a wasm linear memory. Chrome caps the number of wasm
+    // memories per process, and instantiating all ~77 catalog modules here
+    // on top of the live worklet's own instances blew that budget -- the
+    // self-test itself caused "Out of memory: Cannot allocate Wasm memory"
+    // for every module late in the alphabet.
+    await WebAssembly.compile(bytes);
+    return { ok: true, reason: "wasm fetched and compiled successfully" };
   } catch (error) {
     return { ok: false, reason: String(error?.message || error || "unknown error") };
   }

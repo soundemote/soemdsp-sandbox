@@ -8,3 +8,5 @@ sandbox-preview.png
 public/presets/useruisettings.json
 public/presets/useruisettings.js
 tools/webui-clap-host/presets/
+native_modules/combined/obj/
+backups/native_cpp_stage.tgz
