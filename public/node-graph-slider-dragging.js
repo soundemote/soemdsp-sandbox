@@ -288,6 +288,27 @@ function updateNodeSliderDotCursor(event) {
   document.body.style.setProperty("--node-slider-cursor-y", `${event.clientY}px`);
 }
 
+// During pointer-lock drags the OS cursor is hidden and frozen, so the dot is
+// the only cursor the user sees. Pin it to the slider's HANDLE position (it
+// tracks the value as it changes) instead of wherever the pointer happened to
+// be at drag start -- a dot sitting off the handle reads as a stuck cursor.
+// Uses geometry cached at drag start (surfaceRect/laneInset/width/visualScale)
+// so this never forces a layout read mid-drag.
+function updateNodeSliderDotCursorToHandle(drag) {
+  if (!drag?.surfaceRect) {
+    return;
+  }
+  const travel = normalizeNodeSliderTravel(
+    drag.slider,
+    nodeSliderTravelFromValue(drag.slider, Number(drag.slider.value)),
+  );
+  const scale = Number(drag.visualScale) || 1;
+  const x = drag.surfaceRect.left + ((drag.laneInset || 0) + travel * drag.width) * scale;
+  const y = drag.surfaceRect.top + drag.surfaceRect.height / 2;
+  document.body.style.setProperty("--node-slider-cursor-x", `${x}px`);
+  document.body.style.setProperty("--node-slider-cursor-y", `${y}px`);
+}
+
 function syncNodeSliderHiddenMouseClass() {
   document.body.classList.toggle(
     "node-hide-mouse-while-dragging",
@@ -531,6 +552,7 @@ function beginNodeSliderDrag(event) {
     fineScale: nodeSliderFineTuneScale(event),
     visualScale: nodeSliderElementVisualScale(surface),
     width: lane.travelWidth,
+    laneInset: lane.inset,
     lockAccumX: 0,
     lockAccumY: 0,
     pointerLocked: false,
@@ -540,7 +562,12 @@ function beginNodeSliderDrag(event) {
   document.body.classList.add("node-slider-dragging");
   syncNodeSliderHiddenMouseClass();
   nodeGraphWireInteractions?.clearHover?.();
-  updateNodeSliderDotCursor(event);
+  if (nodeGraphMvp.sliderDragging.wantsPointerLock) {
+    // Dot snaps to the handle immediately (see updateNodeSliderDotCursorToHandle).
+    updateNodeSliderDotCursorToHandle(nodeGraphMvp.sliderDragging);
+  } else {
+    updateNodeSliderDotCursor(event);
+  }
   if (nodeGraphMvp.sliderDragging.wantsPointerLock) {
     // Pointer lock captures the pointer globally — setPointerCapture would throw
     // InvalidStateError alongside it, so use one or the other.
@@ -651,7 +678,9 @@ function dragNodeSlider(event) {
       reanchorNodeSliderDragAtPointer(drag, event);
     }
   }
-  if (!locked) {
+  if (locked) {
+    updateNodeSliderDotCursorToHandle(drag);
+  } else {
     updateNodeSliderDotCursor(event);
   }
   event.preventDefault();

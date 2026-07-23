@@ -95,6 +95,27 @@ function beginNodeSliderReadoutEdit(readout) {
       commitNodeSliderReadoutEdit(input);
     }
   });
+  // Single-click anywhere outside the input commits and closes the edit.
+  // Blur alone doesn't cover this: workspace pointerdown handlers call
+  // preventDefault (pan/marquee/slider-drag), which suppresses the focus
+  // change so the input never blurs. Capture-phase document listener sees
+  // the pointerdown regardless; it self-removes once the edit is over.
+  const closeOnOutsidePointerDown = (event) => {
+    if (
+      !document.contains(input) ||
+      input.dataset.editCommitted === "true" ||
+      input.dataset.editCanceled === "true"
+    ) {
+      document.removeEventListener("pointerdown", closeOnOutsidePointerDown, true);
+      return;
+    }
+    if (event.target === input) {
+      return;
+    }
+    document.removeEventListener("pointerdown", closeOnOutsidePointerDown, true);
+    commitNodeSliderReadoutEdit(input);
+  };
+  document.addEventListener("pointerdown", closeOnOutsidePointerDown, true);
   readout.replaceWith(input);
   input.focus();
   input.select();

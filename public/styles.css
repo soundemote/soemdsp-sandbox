@@ -3073,17 +3073,30 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-build-number-readout {
   flex: 1.2 1 0;
-  gap: 0;
-  padding: 0;
+  /* Two stacked lines (version / build), matching the X-Y and W-H readouts.
+     The old single-line 1.35-2rem layout needed ~280px for
+     "v0.3.0phosphor · B20260723s" in a ~178px slot, so both ends clipped
+     under the neighboring buttons. */
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 4px;
+  min-width: 0;
+  overflow: hidden;
   background: rgba(7, 11, 14, 0.94);
   color: rgba(127, 199, 217, 0.98);
   font-family: Consolas, "Courier New", monospace;
-  font-size: clamp(1.35rem, calc(var(--node-toolbar-row-height) * 0.56), 2rem);
+  font-size: clamp(0.85rem, calc(var(--node-toolbar-row-height) * 0.28), 1.1rem);
   font-weight: 900;
   letter-spacing: 0;
   text-transform: uppercase;
   user-select: text;
   -webkit-user-select: text;
+}
+
+.node-build-number-readout span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .node-world-position-readout span,

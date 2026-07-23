@@ -193,7 +193,7 @@
     const s = document.createElement("style");
     s.id = "seDebugStyles";
     s.textContent = `
-      #seDebugButton{width:34px;height:34px;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
+      #seDebugButton{width:40px;height:auto;align-self:stretch;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
         font-size:17px;line-height:1;border:1px solid #c0392b;border-radius:7px;cursor:pointer;
         background:linear-gradient(#e74c3c,#c0392b);color:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);position:relative;padding:0;}
       #seDebugButton:hover{filter:brightness(1.12);}
