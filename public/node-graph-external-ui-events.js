@@ -739,7 +739,7 @@ window.addEventListener("message", (event) => {
         enabled,
         speed,
       },
-      event.origin,
+      "*",
     );
   } else if (message.type === "soundemote:request-current-patch") {
     let projectData = null;
@@ -756,7 +756,7 @@ window.addEventListener("message", (event) => {
         requestId: message.requestId || null,
         projectData,
       },
-      event.origin,
+      "*",
     );
   } else if (message.type === "soundemote:render-sample") {
     if (!nodeGraphExternalMessageOriginAllowed(event)) {
@@ -768,12 +768,12 @@ window.addEventListener("message", (event) => {
         const url = nodeGraphMvp?.renderedAudioUrl || "";
         event.source?.postMessage(
           { type: "soundemote:rendered-sample", url },
-          event.origin,
+          "*",
         );
       }).catch(() => {
         event.source?.postMessage(
           { type: "soundemote:rendered-sample", url: "" },
-          event.origin,
+          "*",
         );
       });
     }
