@@ -497,6 +497,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Value Slider",
     notes: ["bias output", "resizable widget", "manual control"],
   },
+  xyPad: {
+    category: "controller",
+    description: "Interactive XY pad controller. Drag for continuous X and Y outputs (0 to 1); pressing fires a one-sample Spike and holds the Gate output high until release. X/Y Quantize snap movement to a grid that fades in over the pad as the amount rises, and X/Y Phase shift where that grid starts.",
+    label: "XY Pad",
+    notes: ["XY controller", "spike + gate", "quantize grid"],
+  },
   impulseButton: {
     category: "controller",
     description: "Click to fire a single-sample impulse at the amplitude set by the adjacent slider (0 to 1). A manual, on-demand trigger for auditioning envelopes and other transient-driven modules.",

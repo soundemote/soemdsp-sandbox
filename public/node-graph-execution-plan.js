@@ -621,6 +621,7 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
       type === "macroKnob" ||
       type === "impulseButton" ||
       type === "bugButton" ||
+      type === "xyPad" ||
       type === "macroControls" ||
       type === "midiOut" ||
       type === "noiseGenerator" ||

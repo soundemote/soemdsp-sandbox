@@ -790,6 +790,9 @@ function createNodeGraphModuleElement(type, node) {
     if ((type === "samplePlayer" || type === "sampleLooper" || type === "audioPlayer") && typeof createNodeGraphSampleModuleBody === "function") {
       article.append(createNodeGraphSampleModuleBody(node));
     }
+    if (type === "xyPad" && typeof createNodeGraphXyPadBody === "function") {
+      article.append(createNodeGraphXyPadBody(node, type));
+    }
     if (scopeSection) {
       registerNodeGraphModuleScopeSlot(article, { nodeId: node, type, scopeElement: scopeSection });
     }

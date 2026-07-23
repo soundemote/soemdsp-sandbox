@@ -10166,6 +10166,38 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   transform: translateY(-50%);
 }
 
+/* XY Pad -- interactive pad body above the generic quantize/phase sliders
+   (standard chrome, custom widget: same tier as audioPlayer's waveform). */
+.node-xy-pad {
+  box-sizing: border-box;
+  padding: 4px 6px 2px;
+}
+
+.node-xy-pad-canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 4px;
+  border: 1px solid rgba(127, 199, 217, 0.28);
+  background:
+    radial-gradient(circle at 50% 45%, rgba(127, 199, 217, 0.06), transparent 70%),
+    rgba(3, 7, 10, 0.9);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.node-xy-pad.held .node-xy-pad-canvas {
+  border-color: rgba(57, 230, 163, 0.55);
+}
+
+/* x/y/gate are pad-driven internals -- their parameter rows exist (so the
+   normal parameter sync/persistence path drives the DSP) but stay hidden. */
+.dsp-node[data-node-type="xyPad"] .node-parameter-row[data-param="x"],
+.dsp-node[data-node-type="xyPad"] .node-parameter-row[data-param="y"],
+.dsp-node[data-node-type="xyPad"] .node-parameter-row[data-param="gate"] {
+  display: none;
+}
+
 /* Group Input / Group Output -- same chromeless 1gu-tile tier as LED
    (.dsp-node.led-layout above), just wired to a single input or output
    port instead of a light. Ports sit on the conventional edge (inputs
