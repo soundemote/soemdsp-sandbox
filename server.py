@@ -1217,7 +1217,7 @@ class SandboxServer(BaseHTTPRequestHandler):
         body = (
             path.read_text(encoding="utf-8")
             .replace("{{BUILD_NUMBER}}", BUILD_NUMBER)
-            .replace("{{SANDBOX_VERSION}}", SANDBOX_VERSION)
+            .replace("{{SANDBOX_VERSION}}", (VERSION_FILE.read_text(encoding="utf-8").strip() if VERSION_FILE.exists() else SANDBOX_VERSION))
             .encode("utf-8")
         )
         self.send_response(200)

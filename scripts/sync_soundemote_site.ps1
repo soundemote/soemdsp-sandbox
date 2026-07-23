@@ -33,7 +33,20 @@ if (!(Test-Path -LiteralPath $dst)) {
 Write-Host "Syncing $root -> $dst"
 
 # --- top-level files ---
-Copy-Item -LiteralPath (Join-Path $srcPublic "index.html") -Destination (Join-Path $dst "index.html") -Force
+# index.html: fill the {{SANDBOX_VERSION}}/{{BUILD_NUMBER}} placeholders that
+# server.py substitutes at runtime. The vendored site copy is served statically
+# (no server.py), so without this it would show the literal placeholder text.
+$versionFile = Join-Path $root "VERSION"
+$sandboxVersion = if (Test-Path -LiteralPath $versionFile) { (Get-Content -LiteralPath $versionFile -Raw).Trim() } else { "0.0.0" }
+$serverText = Get-Content -LiteralPath (Join-Path $root "server.py") -Raw
+$buildNumber = if ($serverText -match 'BUILD_NUMBER\s*=\s*"([^"]*)"') { $Matches[1] } else { "" }
+# Read index.html as UTF-8 explicitly. Get-Content -Raw in PS 5.1 reads with the
+# ANSI codepage for BOM-less files, which mangles multibyte chars (middot, emoji)
+# and produced double-encoded output when re-written as UTF-8. Read raw UTF-8 bytes.
+$indexRaw = [System.IO.File]::ReadAllText((Join-Path $srcPublic "index.html"), [System.Text.Encoding]::UTF8)
+$indexHtml = $indexRaw.Replace("{{SANDBOX_VERSION}}", $sandboxVersion).Replace("{{BUILD_NUMBER}}", $buildNumber)
+[System.IO.File]::WriteAllText((Join-Path $dst "index.html"), $indexHtml, (New-Object System.Text.UTF8Encoding($false)))
+Write-Host "  index.html (v$sandboxVersion, build $buildNumber -- placeholders filled)"
 Copy-Item -LiteralPath (Join-Path $srcPublic "native-modules-catalog.json") -Destination (Join-Path $dst "native-modules-catalog.json") -Force
 
 # --- native_modules/: mirror only *.wasm, matching the existing vendored pattern ---
