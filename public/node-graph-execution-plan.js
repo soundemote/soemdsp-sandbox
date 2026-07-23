@@ -620,6 +620,7 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
       type === "ellipsoid" ||
       type === "macroKnob" ||
       type === "impulseButton" ||
+      type === "bugButton" ||
       type === "macroControls" ||
       type === "midiOut" ||
       type === "noiseGenerator" ||

@@ -1918,6 +1918,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/pluckEnvelope/pluck-envelope-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
   "./public/modules/vactrolEnvelopeSeries/vactrol-envelope-series-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
   "./public/modules/impulseButton/impulse-button-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
+  "./public/modules/bugButton/bug-button-worklet-evaluator.js?v=bug-button-20260723",
   "./public/modules/flowerChildEnvelopeFollower/flower-child-envelope-follower-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
   "./public/modules/spiral/spiral-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
   "./public/modules/fractalSpiral/fractal-spiral-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
