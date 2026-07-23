@@ -83,14 +83,24 @@ function nodeGraphPatchNodeLayout(node) {
   return fallback;
 }
 
+// Types whose CUSTOM UI occupies the display area instead of an
+// oscilloscope (e.g. xyPad's interactive pad). They participate in the
+// display-height sizing system exactly like a scope -- same resize
+// controls, same height contribution -- but the area can't be hidden
+// (hiding the module's own control surface would make it useless).
+function nodeGraphModuleTypeHasCustomDisplayArea(type) {
+  return type === "xyPad";
+}
+
 function nodeGraphModuleTypeHasHideableOscilloscope(type) {
   const layout = nodeGraphModuleDefinitions[type]?.layout;
   if (nodeGraphChromelessModuleIsCompactTile(type)) {
     return false;
   }
-  // xyPad never renders a scope section (its pad is the display), so don't
-  // offer a show/hide oscilloscope toggle for it either.
-  if (type === "xyPad") {
+  // Custom-display-area types never render a scope section, so there is no
+  // oscilloscope to show/hide (their display HEIGHT still resizes -- see
+  // nodeGraphModuleSizingCapabilities).
+  if (nodeGraphModuleTypeHasCustomDisplayArea(type)) {
     return false;
   }
   return Boolean(nodeGraphModuleDefinitions[type]) && ![
@@ -119,6 +129,17 @@ function nodeGraphPatchNodeHasHideableOscilloscope(node) {
   return nodeGraphModuleTypeHasHideableOscilloscope(patchNode?.type);
 }
 
+// Resizable display AREA (oscilloscope OR custom UI) -- the gate for
+// display-height resize actions, as opposed to the show/hide toggle above
+// which only applies to actual oscilloscopes.
+function nodeGraphPatchNodeHasResizableDisplayArea(node) {
+  const patchNode = typeof node === "string" ? nodeGraphPatchNode(node) : node;
+  return (
+    nodeGraphPatchNodeHasHideableOscilloscope(patchNode) ||
+    nodeGraphModuleTypeHasCustomDisplayArea(patchNode?.type)
+  );
+}
+
 function nodeGraphModuleSizingCapabilities(type) {
   const normalizedType = String(type || "").trim();
   const definition = nodeGraphModuleDefinitions[normalizedType];
@@ -127,7 +148,11 @@ function nodeGraphModuleSizingCapabilities(type) {
     : normalizedType === "canvas"
       ? "canvasScript"
       : false;
-  const displayHeight = nodeGraphModuleTypeHasHideableOscilloscope(normalizedType);
+  // Display-height resizing works for any type with a display AREA --
+  // whether an oscilloscope fills it or the module's own custom UI does.
+  const displayHeight =
+    nodeGraphModuleTypeHasHideableOscilloscope(normalizedType) ||
+    nodeGraphModuleTypeHasCustomDisplayArea(normalizedType);
   return Object.freeze({
     width: Boolean(definition),
     moduleHeight,
@@ -137,6 +162,11 @@ function nodeGraphModuleSizingCapabilities(type) {
 }
 
 function nodeGraphModuleDisplayVisibleForUi(type, ui = {}) {
+  // A custom display area is always "visible" -- it's the module's own
+  // control surface, exempt from the oscilloscope show/hide flags.
+  if (nodeGraphModuleTypeHasCustomDisplayArea(type)) {
+    return true;
+  }
   if (!nodeGraphModuleTypeHasHideableOscilloscope(type)) {
     return false;
   }
@@ -172,7 +202,10 @@ function normalizeNodeGraphModuleDisplayHeightOffsetUnits(typeOrOffsetGu, offset
 }
 
 function nodeGraphModuleConfiguredDisplayHeightUnits(type, ui = {}) {
-  if (!nodeGraphModuleTypeHasHideableOscilloscope(type)) {
+  if (
+    !nodeGraphModuleTypeHasHideableOscilloscope(type) &&
+    !nodeGraphModuleTypeHasCustomDisplayArea(type)
+  ) {
     return 0;
   }
   const normalizedUi = normalizeNodeGraphPatchNodeUi(ui, type);

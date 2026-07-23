@@ -863,13 +863,15 @@ function adjustNodeGraphModuleWidthFromContext(delta) {
 
 function adjustNodeGraphModuleDisplayHeightFromContext(delta) {
   const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
-  if (!sourceNode || !nodeGraphPatchNodeHasHideableOscilloscope(sourceNode)) {
+  // Resize applies to any display AREA -- oscilloscope or custom UI (e.g.
+  // xyPad's pad); the show/hide toggle below stays oscilloscope-only.
+  if (!sourceNode || !nodeGraphPatchNodeHasResizableDisplayArea(sourceNode)) {
     return;
   }
 
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   const targetNode = patch.nodes.find((node) => node.id === sourceNode.id);
-  if (!targetNode || !nodeGraphPatchNodeHasHideableOscilloscope(targetNode)) {
+  if (!targetNode || !nodeGraphPatchNodeHasResizableDisplayArea(targetNode)) {
     return;
   }
   const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui, targetNode.type);
