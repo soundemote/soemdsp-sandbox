@@ -19,15 +19,17 @@
   const buildBase = NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators;
   NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators = function buildLiveModuleEvaluatorsWithXyPad() {
     const evaluators = buildBase.call(this);
-    evaluators.xyPad = (node, nodeId, frame, frames, frameValues) => {
+    evaluators.xyPad = (node, nodeId, frame, frames, frameValues, mixInput) => {
       const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
       const state = this.impulseButtonStates.get(nodeId) || this.createImpulseButtonState();
       this.impulseButtonStates.set(nodeId, state);
       const pulseSamples = Math.max(0, Number(state.pulseSamples) || 0);
       state.pulseSamples = Math.max(0, pulseSamples - 1);
+      // X In / Y In are CV offsets: added to the pad position, clamped
+      // inside the quantizer.
       return {
-        X: quantize(read("x", 0.5), read("xQuantize", 0), read("xPhase", 0)),
-        Y: quantize(read("y", 0.5), read("yQuantize", 0), read("yPhase", 0)),
+        X: quantize(read("x", 0.5) + mixInput(nodeId, "X In"), read("xQuantize", 0), read("xPhase", 0)),
+        Y: quantize(read("y", 0.5) + mixInput(nodeId, "Y In"), read("yQuantize", 0), read("yPhase", 0)),
         Gate: read("gate", 0) > 0.5 ? 1 : 0,
         Spike: pulseSamples > 0 ? 1 : 0,
       };

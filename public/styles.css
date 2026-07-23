@@ -10171,12 +10171,23 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-xy-pad {
   box-sizing: border-box;
   padding: 4px 6px 2px;
+  /* The module article is a fixed-grid-height flex column; the pad takes
+     the space left over after the scope/io/parameter sections and MUST NOT
+     overflow it -- an earlier square-aspect canvas ran under the io section,
+     dimming the pad's lower edge and stealing its clicks. The custom UI
+     stays strictly inside its own section. */
+  flex: 1 1 auto;
+  min-height: 56px;
+  overflow: hidden;
+  display: flex;
 }
 
 .node-xy-pad-canvas {
   display: block;
+  flex: 1 1 auto;
   width: 100%;
-  aspect-ratio: 1 / 1;
+  height: 100%;
+  min-height: 0;
   border-radius: 4px;
   border: 1px solid rgba(127, 199, 217, 0.28);
   background:

@@ -3073,6 +3073,7 @@ const nodeGraphModuleDefinitions = Object.freeze({
   // persistence, and modulation stay on the normal path); the four visible
   // sliders are the quantize/phase controls.
   xyPad: {
+    inputs: ["X In", "Y In"],
     outputs: ["X", "Y", "Gate", "Spike"],
     parameters: [
       { defaultValue: "0.5", key: "x", label: "X", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
@@ -3707,6 +3708,7 @@ function nodeGraphModuleProducesOutputWithoutSignalInput(type) {
     "groupOutput",
     "keyboardController",
     "led",
+    "xyPad",
     "linearEnvelope",
     "lorenzAttractor",
     "logisticMap",
