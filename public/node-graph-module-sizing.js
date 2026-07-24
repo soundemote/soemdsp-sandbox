@@ -84,11 +84,19 @@ function nodeGraphPatchNodeLayout(node) {
 }
 
 // Types whose CUSTOM UI occupies the display area instead of an
-// oscilloscope (e.g. xyPad's interactive pad). They participate in the
-// display-height sizing system exactly like a scope -- same resize
-// controls, same height contribution -- but the area can't be hidden
-// (hiding the module's own control surface would make it useless).
+// oscilloscope (e.g. xyPad's interactive pad, graph2's dot editor). They
+// participate in the display-height sizing system exactly like a scope --
+// same resize controls, same height contribution -- but the area can't be
+// hidden (hiding the module's own control surface would make it useless).
+// graph2 isn't registered in the chromeless-module registry (it still has a
+// normal header/title bar, unlike XY Pad/Bug Button), so it's called out
+// here directly rather than through nodeGraphChromelessModuleHasCustomDisplayArea
+// -- this is what gives it the same standard Width/Height controls as
+// every other custom-display module instead of neither one.
 function nodeGraphModuleTypeHasCustomDisplayArea(type) {
+  if (nodeGraphModuleDefinitions[type]?.layout === "graph") {
+    return true;
+  }
   return nodeGraphChromelessModuleHasCustomDisplayArea(type);
 }
 

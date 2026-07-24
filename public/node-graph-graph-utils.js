@@ -954,6 +954,30 @@ function addNodeGraphGraphNodeFromDisplayEvent(event) {
   setNodeGraphGraphSelectedNodeIndex(nodeId, targetNode.graph, addition.selectedIndex);
   syncNodeGraphGraphDisplaysForNode(nodeId, targetNode);
   syncNodeGraphGraphControls(targetNode.graph, addition.selectedIndex);
+  // Clicking empty space adds a node under the pointer, but the mouse button
+  // is still down at this point (this all runs from the pointerdown
+  // handler) -- without picking up the drag here, moving the pointer while
+  // still held down did nothing, so a "click and drag out a new dot" gesture
+  // silently just dropped a fixed point instead of letting you place it.
+  // Start dragging the freshly added node immediately so the same pointer
+  // gesture that created it can also position it.
+  const newSvg = display.querySelector(".node-module-graph-svg");
+  const newHit = newSvg?.querySelector(
+    `.node-module-graph-node-hit[data-graph-node-index="${addition.selectedIndex}"]`,
+  );
+  nodeGraphMvp.graphNodeDragging = {
+    display,
+    graph: targetNode.graph,
+    index: addition.selectedIndex,
+    nodeId,
+    svg: newSvg,
+  };
+  display?.classList.add("dragging");
+  try {
+    newHit?.setPointerCapture?.(event.pointerId);
+  } catch (_error) {
+    // Ignore -- the drag still tracks via drag.* state on subsequent moves.
+  }
   event.preventDefault();
   event.stopPropagation();
 }

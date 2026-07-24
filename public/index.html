@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>soemdsp-sandbox</title>
-  <link rel="stylesheet" href="./public/styles.css?v=graph-solid-shell-20260724">
+  <link rel="stylesheet" href="./public/styles.css?v=settings-actions-row-20260724">
   <link rel="stylesheet" href="./public/modules/stepGrid/step-grid.css?v=stepgrid-own-folder-20260715">
 </head>
 <body class="debug-collapsed node-boot-loading">
@@ -1874,15 +1874,17 @@
           <span>Copy</span>
           <kbd>Ctrl+C</kbd>
         </button>
-        <button id="nodeSceneCopyModuleSettings" type="button" role="menuitem" hidden>
-          <span>Copy Settings</span>
-        </button>
-        <button id="nodeScenePasteModuleSettings" type="button" role="menuitem" hidden>
-          <span>Paste Settings</span>
-        </button>
-        <button id="nodeSceneSetModuleSettingsAsDefault" type="button" role="menuitem" hidden>
-          <span>Set as Default</span>
-        </button>
+        <div id="nodeSceneModuleSettingsActionGroup" class="scene-context-button-group scene-context-button-group-3" role="group" aria-label="Module settings actions" hidden>
+          <button id="nodeSceneCopyModuleSettings" type="button" role="menuitem" hidden>
+            <span>Copy Settings</span>
+          </button>
+          <button id="nodeScenePasteModuleSettings" type="button" role="menuitem" hidden>
+            <span>Paste Settings</span>
+          </button>
+          <button id="nodeSceneSetModuleSettingsAsDefault" type="button" role="menuitem" hidden>
+            <span>Set as Default</span>
+          </button>
+        </div>
         <div id="nodeSceneWindowControls" class="scene-context-text-box-controls scene-context-window-controls">
           <div>
             <div class="scene-context-history-controls" role="group" aria-label="Patch history">
@@ -3295,14 +3297,14 @@
   <script src="./public/node-graph-module-definitions.js?v=retire-graph-type-20260724"></script>
   <script src="./public/node-graph-data-bus.js?v=data-plane-merge-20260711"></script>
   <script src="./public/node-graph-module-store.js?v=search-all-categories-20260724"></script>
-  <script src="./public/node-graph-module-sizing.js?v=solid-module-shell-2-20260723"></script>
+  <script src="./public/node-graph-module-sizing.js?v=graph-height-control-20260724"></script>
   <script src="./public/node-graph-metadata-kinds.js?v=0051"></script>
   <script src="./public/node-graph-parameter-metadata.js?v=nuke-scriptbox-20260719"></script>
   <script src="./public/node-graph-metadata-defaults.js?v=decimal-template-1"></script>
   <script src="./public/node-graph-text-box-utils.js?v=text-box-size-1000-1"></script>
   <script src="./public/node-graph-port-script.js?v=nuke-scriptbox-20260719"></script>
   <script src="./public/node-graph-image-utils.js?v=pre-formula-restore-1"></script>
-  <script src="./public/node-graph-graph-utils.js?v=retire-graph-type-20260724b"></script>
+  <script src="./public/node-graph-graph-utils.js?v=fix-add-dot-drag-20260724"></script>
   <script src="./public/node-graph-samples.js?v=file-grid-resources-1"></script>
   <script src="./public/node-graph-phosphor-waveform.js?v=phosphor-waveform-display-4"></script>
   <script src="./public/node-graph-phosphillator.js?v=phosphillator-playback-1"></script>
@@ -3328,7 +3330,7 @@
   <script src="./public/node-graph-clap-host.js?v=0051"></script>
   <script src="./public/node-graph-marquee-selection.js?v=title-blur-on-marquee-20260707"></script>
   <script src="./public/node-graph-node-dragging.js?v=grid-based-drag-threshold-20260719"></script>
-  <script src="./public/node-graph-context-menu.js?v=retire-graph-type-20260724"></script>
+  <script src="./public/node-graph-context-menu.js?v=settings-actions-row-20260724"></script>
   <script src="./public/node-graph-module-actions.js?v=bug-button-settings-edit-20260723"></script>
   <script src="./public/node-graph-code-screen.js?v=workspace-script-shrink-20260719"></script>
   <script src="./public/node-graph-module-scopes.js?v=xy-pad-ghost-input-20260723"></script>

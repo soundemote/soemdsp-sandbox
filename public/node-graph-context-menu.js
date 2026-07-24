@@ -844,6 +844,7 @@ function configureNodeSceneContextMenu(mode) {
   const sceneMenu = document.getElementById("nodeSceneContextMenu");
   const moduleActionsWindow = document.getElementById("nodeModuleActionsWindow");
   const copyButton = document.getElementById("nodeSceneCopyModule");
+  const moduleSettingsActionGroup = document.getElementById("nodeSceneModuleSettingsActionGroup");
   const copySettingsButton = document.getElementById("nodeSceneCopyModuleSettings");
   const pasteSettingsButton = document.getElementById("nodeScenePasteModuleSettings");
   const setDefaultButton = document.getElementById("nodeSceneSetModuleSettingsAsDefault");
@@ -1033,6 +1034,9 @@ function configureNodeSceneContextMenu(mode) {
     setNodeGraphModuleActionControlsHidden(false);
   }
   copyButton.hidden = !moduleMode;
+  if (moduleSettingsActionGroup) {
+    moduleSettingsActionGroup.hidden = !moduleMode || multiModuleMode;
+  }
   if (copySettingsButton) {
     copySettingsButton.hidden = !moduleMode || multiModuleMode;
   }
