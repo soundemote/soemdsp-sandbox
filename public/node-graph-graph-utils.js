@@ -751,44 +751,62 @@ function nodeGraphGraphMoveNode(graphValue, index, point) {
   };
 }
 
+// Small helper so graph-drag tracing goes through the app's own in-app debug
+// console (window.SE, see node-graph-debug-console.js -- the red bug button
+// panel) instead of a separate ad hoc logging channel. No-ops harmlessly if
+// SE isn't present (e.g. debug console script missing) or dev mode is off;
+// SE.INFO entries only show up in the panel once it/dev mode is opened.
+function nodeGraphGraphDebugTrace(msg, data) {
+  if (typeof window === "undefined" || !window.SE?.INFO) {
+    return;
+  }
+  window.SE.INFO(data === undefined ? msg : `${msg} ${nodeGraphGraphDebugStringify(data)}`);
+}
+
+function nodeGraphGraphDebugStringify(value) {
+  try {
+    return JSON.stringify(value, (key, v) => {
+      if (v instanceof Element) {
+        return `<${v.tagName.toLowerCase()}${v.className ? `.${String(v.className).replace(/\s+/g, ".")}` : ""}>`;
+      }
+      return v;
+    });
+  } catch (_error) {
+    return String(value);
+  }
+}
+
 function beginNodeGraphGraphNodeDrag(event) {
-  console.log("[graph-debug] beginNodeGraphGraphNodeDrag: pointerdown", {
-    target: event.target,
-    targetClass: event.target?.className,
-    button: event.button,
-  });
+  nodeGraphGraphDebugTrace("graph pointerdown", { target: event.target?.className, button: event.button });
   if (event.button !== undefined && event.button !== 0) {
-    console.log("[graph-debug] beginNodeGraphGraphNodeDrag: ignored, non-primary button", event.button);
+    nodeGraphGraphDebugTrace("graph pointerdown ignored, non-primary button", event.button);
     return;
   }
   const cursor = event.target?.closest?.("[data-graph-cursor]");
   if (cursor) {
-    console.log("[graph-debug] beginNodeGraphGraphNodeDrag: hit cursor line, starting cursor drag instead");
+    nodeGraphGraphDebugTrace("graph pointerdown hit cursor line, starting cursor drag");
     beginNodeGraphGraphCursorDrag(event, cursor);
     return;
   }
   const circle = nodeGraphGraphNodeCircleFromEventTarget(event.target);
   if (!circle) {
-    console.log("[graph-debug] beginNodeGraphGraphNodeDrag: no node hit, routing to addNodeGraphGraphNodeFromDisplayEvent");
+    nodeGraphGraphDebugTrace("graph pointerdown hit empty space, routing to add-node");
     addNodeGraphGraphNodeFromDisplayEvent(event);
     return;
   }
-  console.log("[graph-debug] beginNodeGraphGraphNodeDrag: hit existing node circle", circle);
+  nodeGraphGraphDebugTrace("graph pointerdown hit existing node circle");
   const display = nodeGraphGraphDisplayFromEventTarget(circle);
   const nodeId = nodeGraphGraphNodeIdFromDisplay(display);
   const patchNode = nodeGraphPatchNode(nodeId);
   if (!patchNode || !nodeGraphModuleIsGraphType(patchNode.type)) {
-    console.log("[graph-debug] beginNodeGraphGraphNodeDrag: bailing, patchNode/type check failed", {
-      nodeId,
-      patchNode,
-    });
+    nodeGraphGraphDebugTrace("graph pointerdown bailing, patchNode/type check failed", { nodeId, type: patchNode?.type });
     return;
   }
   const graph = nodeGraphGraphForNode(patchNode);
   const index = nodeGraphGraphNodeIndexFromValue(graph, circle.dataset.graphNodeIndex);
   // Alt+click removes the node under the pointer instead of dragging it.
   if (event.altKey) {
-    console.log("[graph-debug] beginNodeGraphGraphNodeDrag: alt+click, removing node", index);
+    nodeGraphGraphDebugTrace("graph alt+click removing node", index);
     display?.focus?.({ preventScroll: true });
     removeNodeGraphGraphNodeAtIndex(nodeId, index);
     event.preventDefault();
@@ -805,11 +823,7 @@ function beginNodeGraphGraphNodeDrag(event) {
     nodeId,
     svg,
   };
-  console.log("[graph-debug] beginNodeGraphGraphNodeDrag: started dragging existing node", {
-    nodeId,
-    index,
-    graph,
-  });
+  nodeGraphGraphDebugTrace("graph started dragging existing node", { nodeId, index });
   display?.classList.add("dragging");
   circle.setPointerCapture?.(event.pointerId);
   event.preventDefault();
@@ -865,38 +879,31 @@ function beginNodeGraphGraphCursorDrag(event, cursorElement) {
 function addNodeGraphGraphNodeFromDisplayEvent(event) {
   const svg = event.target?.closest?.(".node-module-graph-svg");
   if (!svg) {
-    console.log("[graph-debug] addNodeGraphGraphNodeFromDisplayEvent: bailing, click target isn't inside a graph svg", event.target);
+    nodeGraphGraphDebugTrace("add-node bailing, click target isn't inside a graph svg", event.target?.className);
     return;
   }
   const display = nodeGraphGraphDisplayFromEventTarget(event.target);
   const nodeId = nodeGraphGraphNodeIdFromDisplay(display);
   const patchNode = nodeGraphPatchNode(nodeId);
   if (!display || !patchNode || !nodeGraphModuleIsGraphType(patchNode.type)) {
-    console.log("[graph-debug] addNodeGraphGraphNodeFromDisplayEvent: bailing, display/patchNode/type check failed", {
-      display,
-      nodeId,
-      patchNode,
-    });
+    nodeGraphGraphDebugTrace("add-node bailing, display/patchNode/type check failed", { nodeId, type: patchNode?.type });
     return;
   }
   display?.focus?.({ preventScroll: true });
   const point = nodeGraphGraphSvgToGraphPoint(svg, event.clientX, event.clientY);
-  console.log("[graph-debug] addNodeGraphGraphNodeFromDisplayEvent: computed graph point", point);
+  nodeGraphGraphDebugTrace("add-node computed graph point", point);
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   const targetNode = patch.nodes.find((node) => node.id === nodeId);
   if (!targetNode || !nodeGraphModuleIsGraphType(targetNode.type)) {
-    console.log("[graph-debug] addNodeGraphGraphNodeFromDisplayEvent: bailing, targetNode/type check failed", {
-      nodeId,
-      targetNode,
-    });
+    nodeGraphGraphDebugTrace("add-node bailing, targetNode/type check failed", { nodeId });
     return;
   }
   const addition = addNodeGraphGraphNodeData(targetNode.graph, point);
   if (!addition.added) {
-    console.log("[graph-debug] addNodeGraphGraphNodeFromDisplayEvent: addNodeGraphGraphNodeData refused to add (32-node cap?)", addition);
+    nodeGraphGraphDebugTrace("add-node refused (32-node cap?)", addition);
     return;
   }
-  console.log("[graph-debug] addNodeGraphGraphNodeFromDisplayEvent: node added", addition);
+  nodeGraphGraphDebugTrace("add-node added", { selectedIndex: addition.selectedIndex, selectedX: addition.selectedX });
   targetNode.graph = nodeGraphGraphEndpointYLockEnabledForNode(targetNode)
     ? nodeGraphGraphWithLockedEndpointY(addition.graph, addition.selectedIndex)
     : addition.graph;
@@ -922,16 +929,15 @@ function addNodeGraphGraphNodeFromDisplayEvent(event) {
     nodeId,
     svg: newSvg,
   };
-  console.log("[graph-debug] addNodeGraphGraphNodeFromDisplayEvent: picked up drag on freshly added node", {
-    newSvg,
-    newHit,
-    dragState: nodeGraphMvp.graphNodeDragging,
+  nodeGraphGraphDebugTrace("add-node picked up drag on freshly added node", {
+    foundNewHit: Boolean(newHit),
+    index: addition.selectedIndex,
   });
   display?.classList.add("dragging");
   try {
     newHit?.setPointerCapture?.(event.pointerId);
   } catch (_error) {
-    console.log("[graph-debug] addNodeGraphGraphNodeFromDisplayEvent: setPointerCapture on new node threw", _error);
+    nodeGraphGraphDebugTrace("add-node setPointerCapture on new node threw", String(_error));
     // Ignore -- the drag still tracks via drag.* state on subsequent moves.
   }
   event.preventDefault();
@@ -976,13 +982,7 @@ function dragNodeGraphGraphNode(event) {
   }
   const smoothingMode = nodeGraphGraphSmoothingModeForNode(nodeGraphPatchNode(drag.nodeId));
   const point = nodeGraphGraphSvgToGraphPoint(drag.svg, event.clientX, event.clientY);
-  console.log("[graph-debug] dragNodeGraphGraphNode: pointermove", {
-    mode: drag.mode,
-    index: drag.index,
-    point,
-    clientX: event.clientX,
-    clientY: event.clientY,
-  });
+  nodeGraphGraphDebugTrace("graph pointermove", { mode: drag.mode, index: drag.index, point });
   if (drag.mode === "cursor") {
     drag.graph = normalizeNodeGraphGraph({
       ...drag.graph,
@@ -1003,10 +1003,7 @@ function dragNodeGraphGraphNode(event) {
     ? nodeGraphGraphWithLockedEndpointY(moved.graph, moved.index)
     : moved.graph;
   drag.index = moved.index;
-  console.log("[graph-debug] dragNodeGraphGraphNode: moved node", {
-    newIndex: drag.index,
-    nodes: drag.graph.nodes,
-  });
+  nodeGraphGraphDebugTrace("graph node moved", { newIndex: drag.index, nodeCount: drag.graph.nodes.length });
   setNodeGraphGraphSelectedNodeIndex(drag.nodeId, drag.graph, drag.index);
   renderNodeGraphGraphDisplay(drag.display, drag.graph, drag.index, { smoothingMode });
   drag.svg = drag.display.querySelector(".node-module-graph-svg");
@@ -1021,14 +1018,10 @@ function dragNodeGraphGraphNode(event) {
 function endNodeGraphGraphNodeDrag(event) {
   const drag = nodeGraphMvp.graphNodeDragging;
   if (!drag) {
-    console.log("[graph-debug] endNodeGraphGraphNodeDrag: fired with no active drag, ignoring");
+    nodeGraphGraphDebugTrace("graph pointerup fired with no active drag, ignoring");
     return;
   }
-  console.log("[graph-debug] endNodeGraphGraphNodeDrag: pointerup, committing", {
-    nodeId: drag.nodeId,
-    index: drag.index,
-    mode: drag.mode,
-  });
+  nodeGraphGraphDebugTrace("graph pointerup, committing", { nodeId: drag.nodeId, index: drag.index, mode: drag.mode });
   drag.display?.classList.remove("dragging");
   nodeGraphMvp.graphNodeDragging = null;
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
