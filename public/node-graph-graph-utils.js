@@ -702,6 +702,19 @@ function renderNodeGraphGraphDisplay(element, graphValue, selectedIndex = null, 
     y1: cursorPoint.y.toFixed(3),
     y2: cursorPoint.y.toFixed(3),
   }));
+  // Live playhead -- distinct from the cursor line above (which is only the
+  // manually-dragged probe, see nodeGraphGraphSvgToGraphPoint / cursorX).
+  // Starts hidden (no "live" class); syncNodeGraphGraphLivePlayheads()
+  // repositions and reveals it in place (no full re-render) whenever the
+  // worklet posts a fresh "__GraphPhase" scope sample, so Rate/Phase (or an
+  // Input-mode CV signal) actually show something moving during playback.
+  svg.append(createNodeGraphGraphSvgElement("line", {
+    class: "node-module-graph-playhead",
+    x1: cursor.x.toFixed(3),
+    x2: cursor.x.toFixed(3),
+    y1: "8",
+    y2: "92",
+  }));
   if (smoothingMode === "meander") {
     svg.append(createNodeGraphGraphSvgElement("path", {
       class: "node-module-graph-control-line",
@@ -772,9 +785,10 @@ function renderNodeGraphGraphDisplay(element, graphValue, selectedIndex = null, 
 }
 
 function nodeGraphGraphSmoothingModeForNode(patchNode) {
-  return patchNode?.type === "graph2"
-    ? normalizeNodeGraphGraph2SmoothingMode(patchNode?.params?.smoothingMode)
-    : "legacy";
+  // The "graph" type (per-point curve shape/contour) has been retired --
+  // graph2 (one global smoothing mode) is the only graph type left, so this
+  // always resolves to the global-smoothing branch now.
+  return normalizeNodeGraphGraph2SmoothingMode(patchNode?.params?.smoothingMode);
 }
 
 function syncNodeGraphGraphElement(moduleElement, patchNode) {
@@ -971,6 +985,39 @@ function cycleNodeGraphGraphShapeFromDisplayEvent(event, shapeBadge) {
   return true;
 }
 
+// renderNodeGraphGraphDisplay() fully replaces the display's children every
+// frame (element.replaceChildren()), which destroys whichever circle/line
+// currently holds pointer capture from the pointerdown that started this
+// drag. Per the Pointer Events spec, capture is silently released the
+// instant its element leaves the DOM -- so after the FIRST pointermove of
+// any graph drag, capture was gone: later moves still updated drag.* state
+// correctly (this listener reads event.clientX/Y, not event.target), but
+// the browser was free to route real hit-testing to whatever now sits under
+// the pointer instead of the (rebuilt) hit target. Fast pointer motion could
+// land on a neighboring node, the workspace pan/marquee layer, or another
+// module's controls, which is what made dragging a graph dot feel like it
+// "disappeared" mid-move. Re-acquiring capture on the freshly rendered
+// element after every rebuild keeps the pointer bound to this drag for its
+// whole lifetime, matching what a single, never-destroyed drag handle would
+// have done.
+function reacquireNodeGraphGraphPointerCaptureAfterRender(drag, event) {
+  if (!drag?.svg || event?.pointerId === undefined) {
+    return;
+  }
+  const selector = drag.mode === "cursor"
+    ? "[data-graph-cursor]"
+    : drag.mode === "contour"
+      ? `.node-module-graph-contour-handle[data-graph-contour-index="${drag.index}"]`
+      : `.node-module-graph-node-hit[data-graph-node-index="${drag.index}"]`;
+  const target = drag.svg.querySelector(selector);
+  try {
+    target?.setPointerCapture?.(event.pointerId);
+  } catch (_error) {
+    // Ignore -- worst case capture stays released for this frame and the
+    // next pointermove will try again.
+  }
+}
+
 function dragNodeGraphGraphNode(event) {
   const drag = nodeGraphMvp.graphNodeDragging;
   if (!drag?.svg || !drag?.display) {
@@ -985,6 +1032,7 @@ function dragNodeGraphGraphNode(event) {
     });
     renderNodeGraphGraphDisplay(drag.display, drag.graph, null, { smoothingMode });
     drag.svg = drag.display.querySelector(".node-module-graph-svg");
+    reacquireNodeGraphGraphPointerCaptureAfterRender(drag, event);
     if (nodeGraphModuleActionTargetNodeId() === drag.nodeId) {
       syncNodeGraphGraphControls(drag.graph);
     }
@@ -1003,6 +1051,7 @@ function dragNodeGraphGraphNode(event) {
     setNodeGraphGraphSelectedNodeIndex(drag.nodeId, drag.graph, drag.index);
     renderNodeGraphGraphDisplay(drag.display, drag.graph, drag.index, { smoothingMode });
     drag.svg = drag.display.querySelector(".node-module-graph-svg");
+    reacquireNodeGraphGraphPointerCaptureAfterRender(drag, event);
     if (nodeGraphModuleActionTargetNodeId() === drag.nodeId) {
       syncNodeGraphGraphControls(drag.graph, drag.index);
     }
@@ -1024,6 +1073,7 @@ function dragNodeGraphGraphNode(event) {
   setNodeGraphGraphSelectedNodeIndex(drag.nodeId, drag.graph, drag.index);
   renderNodeGraphGraphDisplay(drag.display, drag.graph, drag.index, { smoothingMode });
   drag.svg = drag.display.querySelector(".node-module-graph-svg");
+  reacquireNodeGraphGraphPointerCaptureAfterRender(drag, event);
   if (nodeGraphModuleActionTargetNodeId() === drag.nodeId) {
     syncNodeGraphGraphControls(drag.graph, drag.index);
   }
@@ -1244,3 +1294,39 @@ function nudgeFocusedNodeGraphGraphNode(event) {
   }
   return true;
 }
+
+// Repositions each graph/graph2 module's live-playhead line in place --
+// deliberately NOT a full renderNodeGraphGraphDisplay() re-render, which
+// would tear down and rebuild the whole SVG every time the worklet posts a
+// scope snapshot (many times a second, for every visible graph module).
+// That churn is exactly what made dragging a dot unreliable (see the
+// pointer-capture comment on dragNodeGraphGraphNode above); a live update
+// running at the same cadence needs to avoid the same trap by touching only
+// the one <line> element's position.
+function syncNodeGraphGraphLivePlayheads() {
+  const liveAudioRunning = Boolean(nodeGraphMvp?.live?.node);
+  for (const display of document.querySelectorAll(".node-module-graph-display")) {
+    const line = display.querySelector(".node-module-graph-playhead");
+    if (!line) {
+      continue;
+    }
+    const nodeId = nodeGraphGraphNodeIdFromDisplay(display);
+    const patchNode = nodeId ? nodeGraphPatchNode(nodeId) : null;
+    const liveX = liveAudioRunning && patchNode && nodeGraphModuleIsGraphType(patchNode.type)
+      ? nodeGraphModuleScopeLatestOutputValue(nodeId, "__GraphPhase", null)
+      : null;
+    if (liveX === null || !Number.isFinite(liveX)) {
+      // No live sample yet, or live audio isn't running -- e.g. audio
+      // stopped after a stale sample was captured. Hide rather than leave a
+      // frozen line that would misleadingly still read as "live".
+      line.classList.remove("live");
+      continue;
+    }
+    const point = nodeGraphGraphPointToSvg(liveX, 0);
+    line.setAttribute("x1", point.x.toFixed(3));
+    line.setAttribute("x2", point.x.toFixed(3));
+    line.classList.add("live");
+  }
+}
+
+addNodeGraphModuleScopeSnapshotListener(syncNodeGraphGraphLivePlayheads);

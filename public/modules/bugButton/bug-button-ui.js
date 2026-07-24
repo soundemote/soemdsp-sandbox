@@ -11,20 +11,6 @@ function nodeGraphBugButtonPointerPosition(control, event) {
   };
 }
 
-function commitNodeGraphBugButtonGlyph(nodeId, value) {
-  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-  const targetNode = patch.nodes.find((node) => node.id === nodeId);
-  if (!targetNode) {
-    return;
-  }
-  const glyph = normalizeNodeGraphBugButtonGlyph(value);
-  if (glyph === normalizeNodeGraphBugButtonGlyph(targetNode.bugButton?.glyph)) {
-    return;
-  }
-  targetNode.bugButton = { glyph };
-  commitNodeGraphPatch(patch, { status: "bug button character changed" });
-}
-
 function syncNodeGraphBugButtonVisual(face) {
   const node = face?.dataset.node;
   const glyph = face?.querySelector(".node-bug-button-emoji");
@@ -63,12 +49,11 @@ function createNodeGraphBugButtonFace(node, type) {
   control.type = "button";
   control.className = "node-bug-button-control";
   control.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} interaction button`);
-  control.title = "Pointer button: down/up spikes, held/hover gates, bipolar X/Y. Double-click the character to edit it.";
+  control.title = "Pointer button: down/up spikes, held/hover gates, bipolar X/Y. Edit the character in module settings.";
 
   const glyph = document.createElement("span");
   glyph.className = "node-bug-button-emoji";
   glyph.textContent = normalizeNodeGraphBugButtonGlyph(patchNode?.bugButton?.glyph);
-  glyph.title = "Double-click to edit this character";
   control.append(glyph);
   face.append(control);
   face.addEventListener("input", () => syncNodeGraphBugButtonVisual(face));
@@ -76,7 +61,6 @@ function createNodeGraphBugButtonFace(node, type) {
   requestAnimationFrame(face.syncFromParameters);
 
   let pressed = false;
-  let editing = false;
   let pendingMove = null;
   let moveFrame = 0;
 
@@ -97,33 +81,18 @@ function createNodeGraphBugButtonFace(node, type) {
       }
     });
   };
-  const finishGlyphEdit = (commit) => {
-    if (!editing) {
-      return;
-    }
-    editing = false;
-    glyph.contentEditable = "false";
-    glyph.classList.remove("editing");
-    const nextGlyph = commit
-      ? normalizeNodeGraphBugButtonGlyph(glyph.textContent)
-      : normalizeNodeGraphBugButtonGlyph(nodeGraphPatchNode(node)?.bugButton?.glyph);
-    glyph.textContent = nextGlyph;
-    if (commit) {
-      commitNodeGraphBugButtonGlyph(node, nextGlyph);
-    }
-  };
 
   control.addEventListener("pointerenter", (event) => {
-    if (!editing) sendPosition(event, { hover: 1 });
+    sendPosition(event, { hover: 1 });
   });
   control.addEventListener("pointerleave", (event) => {
-    if (!editing && !pressed) sendPosition(event, { hover: 0 });
+    if (!pressed) sendPosition(event, { hover: 0 });
   });
   control.addEventListener("pointermove", (event) => {
-    if (!editing) queuePosition(event);
+    queuePosition(event);
   });
   control.addEventListener("pointerdown", (event) => {
-    if (editing || event.button !== 0) {
+    if (event.button !== 0) {
       return;
     }
     event.preventDefault();
@@ -154,29 +123,6 @@ function createNodeGraphBugButtonFace(node, type) {
     face.classList.remove("pressed");
     sendPosition(event, { down: 0, hover: 0 });
   });
-  control.addEventListener("dblclick", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    editing = true;
-    glyph.contentEditable = "plaintext-only";
-    glyph.classList.add("editing");
-    glyph.focus();
-    const selection = window.getSelection();
-    const range = document.createRange();
-    range.selectNodeContents(glyph);
-    selection?.removeAllRanges();
-    selection?.addRange(range);
-  });
-  glyph.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      finishGlyphEdit(true);
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      finishGlyphEdit(false);
-    }
-  });
-  glyph.addEventListener("blur", () => finishGlyphEdit(true));
 
   return face;
 }

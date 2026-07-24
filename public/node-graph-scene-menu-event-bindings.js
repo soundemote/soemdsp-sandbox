@@ -104,8 +104,6 @@ function bindNodeGraphSceneMenuEvents() {
   if (typeof syncNodeGraphGlobalSmoothingControl === "function") {
     syncNodeGraphGlobalSmoothingControl({ force: true });
   }
-  bindNodeGraphSceneElementEvent("nodeSceneAddToGroup", "click", saveNodeGraphSelectionAsModuleGroup);
-  bindNodeGraphSceneElementEvent("nodeSceneAddToUi", "click", addNodeGraphModuleToUiFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneWidthDecrease", "click", () => adjustNodeGraphModuleWidthFromContext(-1));
   bindNodeGraphSceneElementEvent("nodeSceneWidthIncrease", "click", () => adjustNodeGraphModuleWidthFromContext(1));
   bindNodeGraphSceneElementEvent("nodeSceneDisplayHeightDecrease", "click", () => adjustNodeGraphModuleDisplayHeightFromContext(-1));
@@ -160,6 +158,7 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeSceneCanvasScript", "click", openNodeGraphCanvasScriptFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneLedColor", "input", () => setNodeGraphLedColorFromContext({ record: false }));
   bindNodeGraphSceneElementEvent("nodeSceneLedColor", "change", () => setNodeGraphLedColorFromContext({ record: true }));
+  bindNodeGraphSceneElementEvent("nodeSceneBugButtonGlyph", "input", () => setNodeGraphBugButtonGlyphFromContext());
   bindNodeGraphSceneElementEvent("nodeSceneTextBoxSingleLine", "click", () => setNodeGraphTextBoxModeFromContext("singleLine"));
   bindNodeGraphSceneElementEvent("nodeSceneTextBoxMultiline", "click", () => setNodeGraphTextBoxModeFromContext("multiline"));
   bindNodeGraphSceneElementEvent("nodeSceneTextBoxTextInput", "input", () => setNodeGraphTextBoxTextFromContext({ record: false }));

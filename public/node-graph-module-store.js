@@ -426,16 +426,11 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Patch-local JavaScript display surface. Define inputs and draw custom visuals inside the module face.",
     notes: ["custom draw", "JavaScript display", "visual sink"],
   },
-  graph: {
-    category: "controller",
-    description: "Patch-local soemdsp-style graph object with curve nodes and a vertical cursor position.",
-    notes: ["curve display", "cursor line", "graph nodes"],
-  },
   graph2: {
     category: "controller",
-    description: "Single-algorithm graph testbed for comparing linear, smooth, and meandering point interpolation.",
-    label: "Graph 2",
-    notes: ["global smoothing", "curve laboratory", "graph nodes"],
+    description: "Patch-local graph object with curve nodes, a global smoothing mode, and a vertical cursor position.",
+    label: "Graph",
+    notes: ["global smoothing", "curve display", "cursor line", "graph nodes"],
   },
   gain: {
     category: "dynamics",
@@ -1423,7 +1418,7 @@ function listenToNodeGraphModuleStoreDemo(entry) {
 
 function watchNodeGraphModuleStoreDemo(entry) {
   withNodeGraphModuleStoreDemoPatch(entry, () => {
-    setNodeGraphViewMode("ui");
+    setNodeGraphViewMode("modular");
   });
 }
 

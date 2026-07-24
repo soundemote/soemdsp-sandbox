@@ -660,23 +660,27 @@ function createNodeGraphModuleElement(type, node) {
     ioSection.append(document.createElement("div"));
     appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, outputPorts);
   } else if (definition.layout === "graph") {
+    // Same side-by-side arrangement as the solid-shell modules (XY Pad,
+    // Bug Button): inputs left, the interactive dot editor center, outputs
+    // right, via the shared createNodeGraphSolidModuleShell helper -- rather
+    // than the old stacked "display on top, IO strip below" layout. Graph
+    // keeps its normal header/title bar (it isn't chromeless-registered, so
+    // createNodeGraphModuleHeader above still ran), so the shell is pinned
+    // to rows 2-3 of the standard 4-row .dsp-node grid (header / scope /
+    // io / params) via .node-graph-solid-shell in styles.css, instead of
+    // adopting the "solid-module-layout" 2-row grid those headerless
+    // modules use.
     const graphSection = document.createElement("div");
     graphSection.className = "node-module-graph-display";
     graphSection.dataset.graphNode = node;
     graphSection.tabIndex = 0;
     graphSection.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} graph display`);
-    article.append(graphSection);
     renderNodeGraphGraphDisplay(graphSection, nodeGraphGraphForNode(patchNode), null, {
       smoothingMode: nodeGraphGraphSmoothingModeForNode(patchNode),
     });
-
-    const ioSection = document.createElement("div");
-    ioSection.className = "dsp-node-io-section";
-    const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input");
-    const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output");
-    ioSection.append(inputColumn || document.createElement("div"));
-    ioSection.append(outputColumn || document.createElement("div"));
-    appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, outputPorts);
+    const graphShell = createNodeGraphSolidModuleShell(node, type, graphSection, null, inputPorts, outputPorts);
+    graphShell.classList.add("node-graph-solid-shell");
+    article.append(graphShell);
   } else if (definition.layout === "sliderWidget") {
     article.append(createNodeGraphSliderWidgetBody(node, type));
 

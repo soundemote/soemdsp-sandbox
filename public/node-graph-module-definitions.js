@@ -2,8 +2,13 @@ const nodeGraphNodeLabels = Object.freeze({
   audioInput: "Input",
   codeblock: "Codeblock",
   customDisplay: "Custom Display",
-  graph: "Graph",
-  graph2: "Graph 2",
+  // "graph" (per-point curve shape/contour) was retired in favor of this
+  // module -- both worked the same in practice, and this is the one that
+  // was working well, so it keeps the plain "Graph" label now that it's
+  // the only survivor (see nodeGraphRetiredNodeTypes in
+  // node-graph-patch-core.js). Its internal type stays "graph2" so
+  // existing saved patches referencing that type keep loading unchanged.
+  graph2: "Graph",
   animatedTextBox: "Animated Text Box",
   moduleGroup: "Module Group",
   nextPatch: "Next Patch",
@@ -235,19 +240,6 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { key: "customDisplayIn1", label: "In1", port: "In1" },
     ],
     visualSink: true,
-  },
-  graph: {
-    inputs: ["In"],
-    layout: "graph",
-    outputs: ["Out"],
-    parameters: [
-      { choices: ["Input", "LFO"], defaultValue: "0", displayChoices: true, divideChoicesVisibly: true, key: "mode", label: "Mode", linearSmoothing: false, max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "1" },
-      { choices: ["Off", "On"], defaultValue: "0", displayChoices: true, divideChoicesVisibly: true, key: "lockEndpointY", label: "Lock Ends", linearSmoothing: false, max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "1" },
-      { defaultValue: "1", key: "rate", kind: "frequency", label: "Rate", max: "40", maxDigits: 5, mid: "1", min: "0", step: "any", unit: "Hz" },
-      { defaultValue: "0", key: "phase", kind: "phase", label: "Phase", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "0.01", unit: "cycle", wraparound: true },
-      { defaultValue: "0", key: "outputMin", label: "Out Min", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
-      { defaultValue: "1", key: "outputMax", label: "Out Max", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
-    ],
   },
   graph2: {
     inputs: ["In"],

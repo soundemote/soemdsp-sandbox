@@ -376,15 +376,6 @@ function toggleNodeGraphModularOnlyView() {
   setNodeGraphViewMode(modularOnlyActive ? "modular" : "modular-only");
 }
 
-// Named so the Full UI button can share the exact same behavior as every
-// other view-mode toggle (M/V/etc) -- clicking it while already in UI view
-// should turn UI view off (back to the modular workspace), not just
-// re-apply "ui" mode as a no-op.
-function toggleNodeGraphFullUiView() {
-  const uiActive = !document.getElementById("nodeUiView")?.hidden;
-  setNodeGraphViewMode(uiActive ? "modular" : "ui");
-}
-
 // Named so both the Command Center button click and the "V" hotkey
 // (node-graph-keyboard-shortcuts.js) can share the exact same behavior --
 // "View Buttons" toggles module-button visibility, but if we're
@@ -2899,21 +2890,19 @@ function setNodeGraphViewMode(mode) {
   const settingsMode = mode === "settings";
   const scriptMode = mode === "script";
   const codeMode = mode === "code";
-  const uiMode = mode === "ui";
   const mappingMode = mode === "mapping";
   const modularOnlyMode = mode === "modular-only";
-  const modularMode = modularOnlyMode || (!settingsMode && !scriptMode && !codeMode && !uiMode && !mappingMode);
+  const modularMode = modularOnlyMode || (!settingsMode && !scriptMode && !codeMode && !mappingMode);
   const workspaceMode = modularMode;
   const wiringPanel = document.getElementById("nodeWiringPanel");
   wiringPanel?.classList.toggle("modular-only-view", modularOnlyMode);
   document.getElementById("nodeGraphWorkspace").hidden = !workspaceMode;
-  document.getElementById("nodeModularOnlyBackButton").textContent = uiMode ? "×" : "←";
+  document.getElementById("nodeModularOnlyBackButton").textContent = "←";
   document
     .getElementById("nodeModularOnlyBackButton")
-    .setAttribute("aria-label", uiMode ? "Close UI view" : "Return to full modular view");
+    .setAttribute("aria-label", "Return to full modular view");
   document.getElementById("nodeScriptView").hidden = !scriptMode;
   document.getElementById("nodeCodeScreenView").hidden = !codeMode;
-  document.getElementById("nodeUiView").hidden = !uiMode;
   document.getElementById("nodeMappingView").hidden = !mappingMode;
   document.getElementById("nodeSettingsView").hidden = !settingsMode;
   renderNodeGraphKeyboardControllerModules();
@@ -2924,21 +2913,17 @@ function setNodeGraphViewMode(mode) {
   document.getElementById("nodeSceneToggleModularOnlyView")?.classList.toggle("active", modularOnlyMode);
   document.getElementById("nodeMappingViewButton")?.classList.toggle("active", mappingMode);
   document.getElementById("nodeCodeScreenViewButton").classList.toggle("active", codeMode);
-  document.getElementById("nodeUiViewButton")?.classList.toggle("active", uiMode);
   document.getElementById("nodeSettingsScriptViewButton").classList.toggle("active", scriptMode);
   document.getElementById("nodeSettingsViewButton").setAttribute("aria-pressed", String(settingsMode));
   document.getElementById("nodeModularOnlyViewButton").setAttribute("aria-pressed", String(modularOnlyMode));
   document.getElementById("nodeSceneToggleModularOnlyView")?.setAttribute("aria-pressed", String(modularOnlyMode));
   document.getElementById("nodeMappingViewButton")?.setAttribute("aria-pressed", String(mappingMode));
   document.getElementById("nodeCodeScreenViewButton").setAttribute("aria-pressed", String(codeMode));
-  document.getElementById("nodeUiViewButton")?.setAttribute("aria-pressed", String(uiMode));
   document.getElementById("nodeSettingsScriptViewButton").setAttribute("aria-pressed", String(scriptMode));
   if (scriptMode) {
     syncNodeGraphScriptView();
   } else if (codeMode) {
     renderNodeGraphCodeScreen();
-  } else if (uiMode) {
-    renderNodeGraphUiView();
   } else if (settingsMode) {
     syncNodeGraphSettingsView();
     scheduleNodeSettingsHeaderTextFit();

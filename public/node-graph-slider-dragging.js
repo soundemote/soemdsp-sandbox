@@ -156,11 +156,27 @@ function updateNodeSliderCurrentValue(slider, rawValue) {
     record: true,
     status: "parameter changed",
   });
+  syncNodeGraphParameterVisualsForNodeElement(slider.closest?.(".dsp-node"));
   if (nodeGraphMvp.metadataEditorTarget === slider.id) {
     fillNodeMetadataPopover(slider);
   }
   markNodeGraphRenderPending();
   scheduleNodeGraphLiveParameterSync();
+}
+
+// Refresh parameter-driven module visuals (bug button glyph, XY pad grid/puck,
+// and any future solid-module custom UI) for one node's DOM element. This is
+// the single shared contract: any custom-UI body that reflects parameter values
+// sets data-parameter-visual="true" and a syncFromParameters() method, and
+// every parameter-change path (typed readout edit, slider drag flush, patch
+// re-render) funnels through here so the visuals never lag behind the sliders.
+function syncNodeGraphParameterVisualsForNodeElement(nodeElement) {
+  if (!nodeElement) {
+    return;
+  }
+  for (const visual of nodeElement.querySelectorAll("[data-parameter-visual]")) {
+    visual.syncFromParameters?.();
+  }
 }
 
 let nodeSliderDragAutosaveTimer = 0;
@@ -681,11 +697,23 @@ function scheduleNodeSliderReadoutUpdate(slider, normalized) {
 function flushNodeSliderReadoutUpdates() {
   const pending = nodeGraphMvp?._pendingReadoutUpdates;
   if (!pending?.size) return;
+  const touchedNodes = new Set();
   for (const [slider, normalized] of pending) {
     slider.value = String(normalized);
     syncNodeSliderReadout(slider);
+    const nodeElement = slider.closest?.(".dsp-node");
+    if (nodeElement) {
+      touchedNodes.add(nodeElement);
+    }
   }
   pending.clear();
+  // Keep parameter-driven visuals (bug button glyph, XY pad grid/puck, etc.)
+  // tracking the slider live during a drag. Slider drags don't dispatch "input"
+  // events and the deferred-UI path skips visual sync, so without this the
+  // visual only catches up on the next full re-render (e.g. resizing the module).
+  for (const nodeElement of touchedNodes) {
+    syncNodeGraphParameterVisualsForNodeElement(nodeElement);
+  }
   if (nodeGraphMvp._needsHeaderSync && typeof syncNodeGraphCurrentSavedPatchHeader === "function") {
     nodeGraphMvp._needsHeaderSync = false;
     syncNodeGraphCurrentSavedPatchHeader();

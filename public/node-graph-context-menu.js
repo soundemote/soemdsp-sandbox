@@ -621,7 +621,6 @@ const nodeGraphModuleActionControlIds = [
   "nodeScenePasteModuleSettings",
   "nodeSceneSetModuleSettingsAsDefault",
   "nodeSceneSelectedModule",
-  "nodeSceneAddToGroup",
   "nodeSceneAddToUi",
   "nodeSceneWireTypeControl",
   "nodeSceneAliasControl",
@@ -641,6 +640,7 @@ const nodeGraphModuleActionControlIds = [
   "nodeSceneImageControls",
   "nodeSceneCanvasControls",
   "nodeSceneLedControls",
+  "nodeSceneBugButtonControls",
   "nodeSceneTextBoxControls",
   "nodeSceneTextBoxHorizontalAlignControls",
   "nodeSceneTextBoxVerticalAlignControls",
@@ -849,8 +849,6 @@ function configureNodeSceneContextMenu(mode) {
   const setDefaultButton = document.getElementById("nodeSceneSetModuleSettingsAsDefault");
   const moduleActionsWindowButton = document.getElementById("nodeSceneOpenModuleActions");
   const metaparametersWindowButton = document.getElementById("nodeSceneOpenMetaparameters");
-  const addToGroupButton = document.getElementById("nodeSceneAddToGroup");
-  const addToUiButton = document.getElementById("nodeSceneAddToUi");
   const deleteButton = document.getElementById("nodeSceneDeleteModule");
   const closeButton = document.getElementById(actionMode ? "nodeModuleActionsClose" : "nodeSceneCloseMenu");
   const selectedModule = document.getElementById("nodeSceneSelectedModule");
@@ -914,6 +912,8 @@ function configureNodeSceneContextMenu(mode) {
   const canvasScript = document.getElementById("nodeSceneCanvasScript");
   const ledControls = document.getElementById("nodeSceneLedControls");
   const ledColor = document.getElementById("nodeSceneLedColor");
+  const bugButtonControls = document.getElementById("nodeSceneBugButtonControls");
+  const bugButtonGlyph = document.getElementById("nodeSceneBugButtonGlyph");
   const textBoxControls = document.getElementById("nodeSceneTextBoxControls");
   const textBoxSingleLine = document.getElementById("nodeSceneTextBoxSingleLine");
   const textBoxMultiline = document.getElementById("nodeSceneTextBoxMultiline");
@@ -1042,11 +1042,7 @@ function configureNodeSceneContextMenu(mode) {
   if (setDefaultButton) {
     setDefaultButton.hidden = !moduleMode || multiModuleMode;
   }
-  addToGroupButton.hidden = !moduleMode;
   const targetIsGraphType = nodeGraphModuleIsGraphType(targetNode?.type);
-  if (addToUiButton) {
-    addToUiButton.hidden = !(moduleMode && targetIsGraphType);
-  }
   deleteButton.hidden = !(moduleMode || wireMode);
   selectedModule.hidden = !(moduleMode || wireMode);
   if (homeModules) {
@@ -1077,6 +1073,7 @@ function configureNodeSceneContextMenu(mode) {
   imageControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "image");
   canvasControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "canvas");
   ledControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "led");
+  bugButtonControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "bugButton");
   textBoxControls.hidden = !(moduleMode && !multiModuleMode && targetSupportsTextBoxHeight);
   textBoxHorizontalAlignControls.hidden = !(moduleMode && !multiModuleMode && targetSupportsTextBoxHeight);
   textBoxVerticalAlignControls.hidden = !(moduleMode && !multiModuleMode && targetSupportsTextBoxHeight);
@@ -1134,19 +1131,6 @@ function configureNodeSceneContextMenu(mode) {
       setDefaultButton.title = targetNode
         ? `Save these settings as the default for new ${targetNode.type} modules.`
         : "Select a module to set its default settings.";
-    }
-    addToGroupButton.disabled = true;
-    addToGroupButton.setAttribute("aria-disabled", "true");
-    addToGroupButton.title = "Add to group under construction. Module grouping is under construction.";
-    if (addToUiButton) {
-      const canAddToUi = targetIsGraphType;
-      const uiItems = normalizeNodeGraphPatchUiItems(nodeGraphMvp.patch.uiItems);
-      const alreadyAddedToUi = canAddToUi && uiItems.some((item) => item.sourceNodeId === targetNode.id);
-      addToUiButton.disabled = !canAddToUi;
-      addToUiButton.querySelector("span").textContent = alreadyAddedToUi ? "Open UI Graph" : "Add Graph UI";
-      addToUiButton.title = alreadyAddedToUi
-        ? "Open this graph's UI editor."
-        : "Add this graph as a large editor in the UI view.";
     }
     deleteButton.disabled = !canDelete;
     deleteButton.title = canDelete
@@ -1279,6 +1263,15 @@ function configureNodeSceneContextMenu(mode) {
       ledColor.disabled = true;
       ledColor.value = nodeGraphLedDefaultColor;
     }
+    if (targetNode?.type === "bugButton") {
+      bugButtonGlyph.disabled = false;
+      if (document.activeElement !== bugButtonGlyph) {
+        bugButtonGlyph.value = normalizeNodeGraphBugButtonGlyph(targetNode.bugButton?.glyph);
+      }
+    } else {
+      bugButtonGlyph.disabled = true;
+      bugButtonGlyph.value = "";
+    }
     textBoxSingleLine.setAttribute("aria-pressed", textBoxMode === "singleLine" ? "true" : "false");
     textBoxMultiline.setAttribute("aria-pressed", textBoxMode === "multiline" ? "true" : "false");
     textBoxSingleLine.title = nodeGraphTooltipText("actions.textBoxSingleLine");
@@ -1324,8 +1317,11 @@ function configureNodeSceneContextMenu(mode) {
       graphNextNode.disabled = false;
       graphNodeX.disabled = false;
       graphNodeY.disabled = false;
-      graphNodeContour.disabled = targetNode.type === "graph2";
-      graphNodeShape.disabled = targetNode.type === "graph2";
+      // Per-point curve shape/contour editing belonged to the retired "graph"
+      // type; graph2 (the only graph type left) always uses one global
+      // smoothing mode, so these controls stay permanently disabled/hidden.
+      graphNodeContour.disabled = true;
+      graphNodeShape.disabled = true;
       graphCursorX.title = "Move the vertical graph cursor.";
       graphNodeIndex.title = "Choose the graph node to edit.";
       graphPreviousNode.title = "Select the previous graph node.";
@@ -1379,11 +1375,6 @@ function configureNodeSceneContextMenu(mode) {
       : nodeGraphTooltipText("actions.deleteWireMissing");
     copyButton.disabled = true;
     copyButton.title = nodeGraphTooltipText("actions.copyUnavailableWire");
-    addToGroupButton.disabled = true;
-    if (addToUiButton) {
-      addToUiButton.disabled = true;
-      addToUiButton.querySelector("span").textContent = "";
-    }
     resetNodeGraphModuleSettingsSizeRow(widthControls, widthDecrease, widthIncrease, widthValue);
     resetNodeGraphModuleSettingsSizeRow(textBoxTextSizeControls, textBoxTextSizeDecrease, textBoxTextSizeIncrease, textBoxTextSizeValue);
     resetNodeGraphModuleSettingsSizeRow(textBoxHeightControls, textBoxHeightDecrease, textBoxHeightIncrease, textBoxHeightValue);
@@ -1422,6 +1413,8 @@ function configureNodeSceneContextMenu(mode) {
     canvasScript.disabled = true;
     ledColor.disabled = true;
     ledColor.value = nodeGraphLedDefaultColor;
+    bugButtonGlyph.disabled = true;
+    bugButtonGlyph.value = "";
   } else {
     selectedModule.querySelector("span").textContent = "selected";
     selectedModule.querySelector("strong").textContent = "none";
@@ -1431,11 +1424,6 @@ function configureNodeSceneContextMenu(mode) {
     }
     copyButton.disabled = true;
     copyButton.title = nodeGraphTooltipText("actions.copyUnavailableModule");
-    addToGroupButton.disabled = true;
-    if (addToUiButton) {
-      addToUiButton.disabled = true;
-      addToUiButton.querySelector("span").textContent = "";
-    }
     deleteButton.disabled = true;
     deleteButton.title = nodeGraphTooltipText("actions.deleteTitle");
     resetNodeGraphModuleSettingsSizeRow(widthControls, widthDecrease, widthIncrease, widthValue);
@@ -1476,6 +1464,8 @@ function configureNodeSceneContextMenu(mode) {
     canvasScript.disabled = true;
     ledColor.disabled = true;
     ledColor.value = nodeGraphLedDefaultColor;
+    bugButtonGlyph.disabled = true;
+    bugButtonGlyph.value = "";
   }
   if (actionMode) {
     syncNodeModuleActionsWindowHeightLimit();

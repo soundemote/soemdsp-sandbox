@@ -6544,243 +6544,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   }
 }
 
-.node-ui-view {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 10px;
-  height: min(78dvh, 820px);
-  min-height: 420px;
-  margin-top: 16px;
-  padding: 12px;
-  border: 1px solid rgba(127, 199, 217, 0.16);
-  border-radius: 8px;
-  background:
-    linear-gradient(rgba(127, 199, 217, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(127, 199, 217, 0.04) 1px, transparent 1px),
-    #050708;
-  background-size: 24px 24px;
-}
+/* Patch Control Surface / WYSIWYG UI-item editor removed (see node-graph-ui-view.js). */
 
-.node-ui-view[hidden] {
-  display: none;
-}
-
-.node-ui-view-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-width: 0;
-}
-
-.node-ui-view-heading > div {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.node-ui-view-heading span:first-child {
-  color: rgba(127, 199, 217, 0.84);
-  font-size: 0.72rem;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.node-ui-view-heading strong {
-  color: rgba(243, 241, 236, 0.86);
-  font-size: clamp(1.1rem, 2.2vw, 1.8rem);
-}
-
-.node-ui-view-stage {
-  position: relative;
-  min-height: 0;
-  overflow: auto;
-}
-
-.node-ui-view-empty {
-  display: grid;
-  place-items: center;
-  min-height: 180px;
-  color: rgba(198, 230, 224, 0.58);
-  font-family: "Cascadia Mono", "Cascadia Code", Consolas, monospace;
-  font-size: 0.82rem;
-}
-
-.node-ui-item {
-  position: absolute;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 6px;
-  padding: 8px;
-  border: 1px solid rgba(127, 199, 217, 0.22);
-  border-radius: 6px;
-  background: rgba(5, 9, 12, 0.86);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.025) inset;
-}
-
-.node-ui-item.dragging,
-.node-ui-item.resizing {
-  border-color: rgba(226, 168, 109, 0.62);
-  box-shadow:
-    0 0 0 1px rgba(226, 168, 109, 0.12) inset,
-    0 0 18px rgba(226, 168, 109, 0.12);
-}
-
-.node-ui-item-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  min-width: 0;
-  user-select: none;
-}
-
-.node-ui-item-header strong {
-  overflow: hidden;
-  color: rgba(243, 241, 236, 0.86);
-  font-family: "Cascadia Mono", "Cascadia Code", Consolas, monospace;
-  font-size: 0.86rem;
-  text-overflow: clip;
-  white-space: nowrap;
-}
-
-.node-ui-item-header span {
-  flex: 0 0 auto;
-  color: rgba(127, 199, 217, 0.62);
-  font-size: 0.66rem;
-  text-transform: uppercase;
-}
-
-.node-ui-item-body {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
-  gap: 6px;
-  min-height: 0;
-}
-
-.node-ui-item-resize {
-  position: absolute;
-  right: 4px;
-  bottom: 4px;
-  width: 18px;
-  height: 18px;
-  min-width: 0;
-  padding: 0;
-  border: 1px solid rgba(127, 199, 217, 0.22);
-  border-radius: 3px;
-  background:
-    linear-gradient(135deg, transparent 0 42%, rgba(127, 199, 217, 0.32) 42% 52%, transparent 52%),
-    rgba(3, 8, 10, 0.86);
-  color: transparent;
-}
-
-.node-ui-item-resize:hover,
-.node-ui-item-resize:focus-visible {
-  border-color: rgba(226, 168, 109, 0.6);
-  background:
-    linear-gradient(135deg, transparent 0 42%, rgba(226, 168, 109, 0.52) 42% 52%, transparent 52%),
-    rgba(8, 10, 10, 0.94);
-}
-
-.node-ui-graph-display {
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-}
-
-.node-ui-graph-toolbar {
-  display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
-  gap: 4px;
-  min-width: 0;
-}
-
-.node-ui-graph-toolbar button {
-  min-width: 0;
-  min-height: 24px;
-  padding: 0 5px;
-  overflow: hidden;
-  border: 1px solid rgba(127, 199, 217, 0.18);
-  border-radius: 4px;
-  background: rgba(3, 8, 10, 0.66);
-  color: rgba(198, 230, 224, 0.74);
-  font-family: "Cascadia Mono", "Cascadia Code", Consolas, monospace;
-  font-size: 0.62rem;
-  text-overflow: clip;
-  white-space: nowrap;
-}
-
-.node-ui-graph-toolbar button:not(:disabled):hover,
-.node-ui-graph-toolbar button:not(:disabled):focus-visible {
-  border-color: rgba(226, 168, 109, 0.48);
-  background: rgba(26, 18, 10, 0.72);
-  color: rgba(255, 236, 181, 0.9);
-}
-
-.node-ui-graph-toolbar button:disabled {
-  opacity: 0.38;
-}
-
-.node-ui-graph-inspector {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 0.62fr)) minmax(0, 1.2fr);
-  gap: 5px;
-  min-width: 0;
-}
-
-.node-ui-graph-inspector label {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  color: rgba(127, 199, 217, 0.62);
-  font-family: "Cascadia Mono", "Cascadia Code", Consolas, monospace;
-  font-size: 0.62rem;
-  text-transform: uppercase;
-}
-
-.node-ui-graph-inspector input,
-.node-ui-graph-inspector select {
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  min-height: 24px;
-  border: 1px solid rgba(127, 199, 217, 0.18);
-  border-radius: 4px;
-  background: rgba(0, 2, 4, 0.72);
-  color: rgba(243, 241, 236, 0.84);
-  font-family: "Cascadia Mono", "Cascadia Code", Consolas, monospace;
-  font-size: 0.68rem;
-}
-
-.node-ui-graph-inspector input {
-  padding: 0 5px;
-}
-
-.node-ui-graph-inspector select {
-  padding: 0 4px;
-}
-
-.node-ui-graph-status {
-  overflow: hidden;
-  color: rgba(127, 199, 217, 0.68);
-  font-family: "Cascadia Mono", "Cascadia Code", Consolas, monospace;
-  font-size: 0.68rem;
-  text-overflow: clip;
-  white-space: nowrap;
-}
-
-.node-ui-item-placeholder {
-  display: grid;
-  grid-row: 1 / -1;
-  place-items: center;
-  height: 100%;
-  min-height: 42px;
-  color: rgba(198, 230, 224, 0.52);
-  font-family: "Cascadia Mono", "Cascadia Code", Consolas, monospace;
-  font-size: 0.74rem;
-}
 
 .node-mapping-view {
   display: grid;
@@ -9977,9 +9742,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-solid-module-shell {
   display: grid;
   grid-template-columns:
-    minmax(28px, min(34%, calc(var(--node-grid-width) * 2)))
+    minmax(0, max-content)
     minmax(0, 1fr)
-    minmax(28px, min(34%, calc(var(--node-grid-width) * 2)));
+    minmax(0, max-content);
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -9999,7 +9764,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-solid-module-shell > .node-io-column .node-io-label {
   max-width: 100%;
   overflow: hidden;
-  font-size: 0.68rem;
 }
 
 .node-solid-module-shell > .node-io-column .node-io-row:last-child {
@@ -10032,11 +9796,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  height: 100%;
   min-width: 0;
   min-height: 0;
   padding: 0;
   border: 0;
-  border-right: 1px solid rgba(127, 199, 217, 0.18);
   color: inherit;
   cursor: pointer;
   background: transparent;
@@ -10849,6 +10614,18 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 /* Step Grid's CSS lives in public/modules/stepGrid/step-grid.css now,
    loaded via its own <link> tag -- not here. */
 
+/* Graph / Graph 2 now use the same side-by-side shell as XY Pad and Bug
+   Button (createNodeGraphSolidModuleShell): inputs left, dot editor center,
+   outputs right. Graph still keeps its normal header/title bar though (it
+   isn't chromeless-registered), so instead of adopting the headerless
+   modules' 2-row ".solid-module-layout" grid, this pins the shell to rows
+   2-3 of the standard 4-row .dsp-node grid (header / scope / io / params)
+   -- the space display+IO used to occupy separately, now shared by the
+   shell as one taller area. */
+.node-graph-solid-shell {
+  grid-row: 2 / 4;
+}
+
 .node-module-graph-display {
   position: relative;
   box-sizing: border-box;
@@ -10909,6 +10686,22 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   stroke: rgba(255, 236, 181, 0.22);
   stroke-dasharray: 2.2 2.8;
   stroke-width: 0.7;
+}
+
+/* Live playhead -- the running Rate/Phase (LFO) or Input-mode CV position,
+   distinct from .node-module-graph-cursor (the manually-dragged probe).
+   Hidden until syncNodeGraphGraphLivePlayheads() confirms a live sample and
+   adds .live; pointer-events stays none, it's read-only. */
+.node-module-graph-playhead {
+  stroke: rgba(92, 232, 212, 0.9);
+  stroke-width: 1.1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.node-module-graph-playhead.live {
+  opacity: 1;
 }
 
 .node-module-graph-curve {
@@ -12390,13 +12183,6 @@ input.node-header-title:focus {
   opacity: 1;
 }
 
-.node-slider-readout.value-hovering::before {
-  border-color: transparent;
-  box-shadow: none;
-  outline: none;
-  background: rgb(var(--node-slider-fill-rgb) / var(--node-slider-fill-alpha));
-}
-
 .node-slider-readout.value-dragging::before {
   border-color: transparent;
   box-shadow: none;
@@ -12404,21 +12190,11 @@ input.node-header-title:focus {
   background: rgb(var(--node-slider-fill-rgb) / var(--node-slider-fill-alpha));
 }
 
-.node-slider-readout.value-hovering,
 .node-slider-readout.value-dragging {
   border-color: transparent;
   outline: none;
 }
 
-.node-slider-readout:not([data-control="number"]):hover {
-  box-shadow: inset 0 0 7px rgba(127, 199, 217, 0.16);
-}
-
-.node-slider-readout.value-dragging {
-  box-shadow: inset 0 0 9px rgba(127, 199, 217, 0.28);
-}
-
-.node-slider-readout.has-ghost-slider.value-hovering::after,
 .node-slider-readout.has-ghost-slider.value-dragging::after {
   background: rgba(177, 132, 255, 0.38);
 }
@@ -12484,7 +12260,6 @@ input.node-header-title:focus {
   stroke-linejoin: miter;
 }
 
-.node-slider-readout.choices-divided.value-hovering .node-choice-debug-cell-fill,
 .node-slider-readout.choices-divided.value-dragging .node-choice-debug-cell-fill {
   fill: rgb(var(--node-slider-fill-rgb) / var(--node-slider-fill-alpha));
 }
@@ -12566,10 +12341,7 @@ input.node-header-title:focus {
   text-align: right;
 }
 
-.node-slider-readout:hover .node-slider-readout-unit,
-.node-slider-readout:focus-within .node-slider-readout-unit,
-.node-slider-readout.value-hovering .node-slider-readout-unit,
-.node-slider-readout.value-dragging .node-slider-readout-unit {
+.node-slider-readout:focus-within .node-slider-readout-unit {
   color: color-mix(in srgb, var(--node-slider-unit-color, #7fc7d9) 58%, rgba(160, 167, 176, 0.5));
 }
 
@@ -12772,10 +12544,6 @@ input.node-header-title:focus {
   align-self: center;
   justify-self: center;
   text-align: center;
-}
-
-.node-slider-readout.value-dragging {
-  color: rgba(255, 219, 176, 0.98);
 }
 
 .node-parameter-metadata-popover {
@@ -15618,11 +15386,38 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   min-height: 1em;
 }
 
-.scene-context-text-box-text-control textarea {
+.scene-context-text-box-text-control textarea,
+.scene-context-text-box-text-control input {
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
   resize: vertical;
+  border: 1px solid rgba(127, 199, 217, 0.24);
+  border-radius: 4px;
+  background: rgba(2, 4, 7, 0.72);
+  color: rgba(243, 241, 236, 0.9);
+  font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+  font-size: 0.72rem;
+  line-height: 1.25;
+}
+
+.scene-context-text-box-text-control input {
+  resize: none;
+}
+
+/* Bug button character editor -- just a text box, no box-in-box chrome. */
+.scene-context-bug-button-control {
+  display: grid;
+}
+
+.scene-context-bug-button-control[hidden] {
+  display: none;
+}
+
+.scene-context-bug-button-control input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
   border: 1px solid rgba(127, 199, 217, 0.24);
   border-radius: 4px;
   background: rgba(2, 4, 7, 0.72);

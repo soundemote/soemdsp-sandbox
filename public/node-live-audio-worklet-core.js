@@ -2357,7 +2357,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       if (node?.type === "clock" && !this.clockStates.has(id)) {
         this.clockStates.set(id, this.createClockState());
       }
-      if ((node?.type === "graph" || node?.type === "graph2") && !this.graphLfoStates.has(id)) {
+      if (node?.type === "graph2" && !this.graphLfoStates.has(id)) {
         this.graphLfoStates.set(id, this.createGraphLfoState());
       }
       if (node?.type === "clockDivider" && !this.clockDividerStates.has(id)) {
@@ -3460,7 +3460,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   }
 
   graphEndpointYLockEnabledForNode(node) {
-    return (node?.type === "graph" || node?.type === "graph2") && Number(node?.params?.lockEndpointY) >= 0.5;
+    return node?.type === "graph2" && Number(node?.params?.lockEndpointY) >= 0.5;
   }
 
   graphWithLockedEndpointY(graphValue) {
@@ -3634,7 +3634,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   }
 
   graphSmoothingModeForNode(node) {
-    return node?.type === "graph2" ? this.normalizeGraph2SmoothingMode(node?.params?.smoothingMode) : "legacy";
+    return this.normalizeGraph2SmoothingMode(node?.params?.smoothingMode);
   }
 
   graphSegmentValue(graph, x, index, smoothingMode = "legacy") {
@@ -7521,8 +7521,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
         this.polyBlepOscillatorWorkletEvaluate(node, nodeId, frame, frames, frameValues, mixInput, safeRate),
       blit: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) =>
         this.polyBlepOscillatorWorkletEvaluate(node, nodeId, frame, frames, frameValues, mixInput, safeRate),
-      graph: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame, graphInputValue, graphOutputValue) =>
-        graphOutputValue(node, nodeId),
       graph2: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame, graphInputValue, graphOutputValue) =>
         graphOutputValue(node, nodeId),
       additiveOsc: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame, graphInputValue) =>
@@ -7913,7 +7911,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     const graphInputValue = (nodeId, graphInput, x, fallback) => {
       const connection = (this.graphInputConnections.get(this.graphInputKey(nodeId, graphInput)) || [])[0];
       const source = connection ? this.nodes.get(connection.sourceNode) : null;
-      if (!source || (source.type !== "graph" && source.type !== "graph2")) {
+      if (!source || source.type !== "graph2") {
         return fallback;
       }
       return this.graphValueAt(this.graphForNode(source), this.clampValue(Number(x) || 0, 0, 1), this.graphSmoothingModeForNode(source));

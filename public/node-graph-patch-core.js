@@ -37,7 +37,12 @@ function normalizeNodeGraphPatchParameter(type, key, value, metadata = null) {
     : clampNodeSliderValue(candidate, min, max);
 }
 
-const nodeGraphRetiredNodeTypes = new Set(["formulaVisual", "moduleHome", "moduleShop", "scriptBox"]);
+// "graph" (per-point curve shape/contour) is retired in favor of "graph2"
+// (one global smoothing mode for the whole curve) -- both modules produced
+// effectively the same result in practice, and graph2's approach was the
+// one working well. Old patches with a "graph" node just drop it, same as
+// any other retired type below, rather than crashing on load.
+const nodeGraphRetiredNodeTypes = new Set(["formulaVisual", "graph", "moduleHome", "moduleShop", "scriptBox"]);
 
 function validateNodeGraphPatch(patch) {
   if (!patch || typeof patch !== "object") {
@@ -574,8 +579,12 @@ function applyNodeGraphPatchToDom() {
       input.value = String(value);
       syncNodeSliderReadout(input);
     }
-    for (const visual of element.querySelectorAll("[data-parameter-visual]")) {
-      visual.syncFromParameters?.();
+    if (typeof syncNodeGraphParameterVisualsForNodeElement === "function") {
+      syncNodeGraphParameterVisualsForNodeElement(element);
+    } else {
+      for (const visual of element.querySelectorAll("[data-parameter-visual]")) {
+        visual.syncFromParameters?.();
+      }
     }
     if (typeof syncNodeGraphModulePortLabels === "function") {
       syncNodeGraphModulePortLabels(element, patchNode);

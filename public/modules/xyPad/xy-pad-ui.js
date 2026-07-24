@@ -137,10 +137,10 @@ function drawNodeGraphXyPad(pad) {
     ctx.fillStyle = "rgba(177, 132, 255, 0.38)";
     ctx.fill();
   }
-  // A faint offset ring gives the puck separation without turning clicks
+  // A faint concentric ring gives the puck separation without turning clicks
   // into a bright focus/pressed outline.
   ctx.beginPath();
-  ctx.arc(px + (1.5 * dpr), py + (1.5 * dpr), 7 * dpr, 0, Math.PI * 2);
+  ctx.arc(px, py, 7 * dpr, 0, Math.PI * 2);
   ctx.strokeStyle = "rgba(127, 199, 217, 0.24)";
   ctx.lineWidth = dpr;
   ctx.stroke();
@@ -225,6 +225,11 @@ function createNodeGraphXyPadBody(node, type) {
   pad.className = "node-xy-pad";
   pad.dataset.node = node;
   pad.dataset.nodeType = type;
+  // Shared solid-module contract (same as bug button): parameter-driven visuals
+  // set data-parameter-visual + syncFromParameters so every parameter-change
+  // path (typed readout edit, slider drag flush, patch re-render) redraws the
+  // grid/puck in realtime without a module-specific listener.
+  pad.dataset.parameterVisual = "true";
   const canvas = document.createElement("canvas");
   canvas.className = "node-xy-pad-canvas";
   canvas.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} XY pad`);
@@ -294,8 +299,12 @@ function createNodeGraphXyPadBody(node, type) {
   canvas.addEventListener("lostpointercapture", release);
 
   // Redraw when any of the module's own sliders change (quantize/phase grid,
-  // or x/y edited from a readout or modulation UI).
-  pad.redrawFromSliders = () => drawNodeGraphXyPad(pad);
+  // or x/y edited from a readout or modulation UI). syncFromParameters is the
+  // shared solid-module hook the generic refresh paths call (see
+  // syncNodeGraphParameterVisualsForNodeElement); redrawFromSliders is kept as
+  // an alias for any legacy callers.
+  pad.syncFromParameters = () => drawNodeGraphXyPad(pad);
+  pad.redrawFromSliders = pad.syncFromParameters;
   if (nodeGraphXyPadResizeObserver) {
     nodeGraphXyPadResizeObserver.observe(canvas);
   }
@@ -304,21 +313,9 @@ function createNodeGraphXyPadBody(node, type) {
   return pad;
 }
 
-// Keep the pad display in sync with slider edits made outside the pad
-// (quantize/phase changes, typed x/y values). Event delegation so it works
-// for every xyPad node without per-node listeners.
-document.addEventListener("input", (event) => {
-  const slider = event.target;
-  if (!slider?.dataset?.param) {
-    return;
-  }
-  const article = slider.closest?.('.dsp-node[data-node-type="xyPad"]');
-  const pad = article?.querySelector(".node-xy-pad");
-  if (pad) {
-    drawNodeGraphXyPad(pad);
-  }
-}, true);
-
+// The connected-input ghost puck follows a live signal, so redraw those pads on
+// every module-scope snapshot. Parameter-driven redraws (grid, puck, typed x/y)
+// go through the shared syncFromParameters contract, not this listener.
 addNodeGraphModuleScopeSnapshotListener(() => {
   for (const pad of document.querySelectorAll(".node-xy-pad")) {
     if (nodeGraphXyPadInputConnected(pad, "X") || nodeGraphXyPadInputConnected(pad, "Y")) {

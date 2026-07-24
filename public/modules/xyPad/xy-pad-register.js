@@ -10,6 +10,10 @@ registerNodeGraphChromelessModule("xyPad", {
     },
     inputs: ["X", "Y"],
     outputs: ["X", "Y", "Gate", "Spike"],
+    outputLabels: {
+      Gate: "G",
+      Spike: "P",
+    },
     parameters: [
       { defaultValue: "0.5", key: "x", label: "X", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0.5", key: "y", label: "Y", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },

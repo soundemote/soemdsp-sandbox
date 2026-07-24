@@ -772,45 +772,6 @@ async function setNodeGraphModuleSettingsAsDefaultFromButton(event) {
   setNodeInteractionHelp(`Default settings saved for ${sourceNode.type}.`);
 }
 
-function addNodeGraphModuleToUiFromContext() {
-  const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
-  if (!sourceNode) {
-    return;
-  }
-
-  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-  const uiItems = normalizeNodeGraphPatchUiItems(patch.uiItems);
-  if (uiItems.some((item) => item.sourceNodeId === sourceNode.id)) {
-    closeNodeSceneContextMenu();
-    setNodeGraphViewMode("ui");
-    return;
-  }
-  const nextIndex = uiItems.length + 1;
-  const idBase = `ui-${sourceNode.id}`.replace(/[^a-z0-9_-]/gi, "-").slice(0, 58) || "ui-module";
-  let id = idBase;
-  let suffix = 2;
-  const existingIds = new Set(uiItems.map((item) => item.id));
-  while (existingIds.has(id)) {
-    id = `${idBase}-${suffix}`;
-    suffix += 1;
-  }
-  const type = nodeGraphUiItemTypeForNode(sourceNode);
-  uiItems.push({
-    h: type === "graphEditor" ? 260 : 44,
-    id,
-    label: nodeGraphPatchNodeTitle(sourceNode),
-    sourceNodeId: sourceNode.id,
-    type,
-    w: type === "graphEditor" ? 460 : 132,
-    x: 24 + ((nextIndex - 1) % 4) * 156,
-    y: 24 + Math.floor((nextIndex - 1) / 4) * (type === "graphEditor" ? 284 : 68),
-  });
-  patch.uiItems = uiItems;
-  commitNodeGraphPatch(patch, { status: "module added to ui view" });
-  closeNodeSceneContextMenu();
-  setNodeGraphViewMode("ui");
-}
-
 function deleteNodeGraphSelectionFromContext() {
   if (!nodeGraphMvp.selected && nodeGraphModuleActionTargetNodeId()) {
     setNodeGraphSelection({ type: "node", id: nodeGraphModuleActionTargetNodeId() });
@@ -1773,6 +1734,38 @@ function setNodeGraphLedColorFromContext({ record = true } = {}) {
   scheduleNodeGraphModuleScopeDraw();
   if (document.activeElement === input) {
     input.focus();
+  }
+}
+
+function setNodeGraphBugButtonGlyphFromContext({ record = true } = {}) {
+  const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
+  if (!sourceNode || sourceNode.type !== "bugButton") {
+    return;
+  }
+  const input = document.getElementById("nodeSceneBugButtonGlyph");
+  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+  const targetNode = patch.nodes.find((node) => node.id === sourceNode.id);
+  if (!targetNode) {
+    return;
+  }
+  const glyph = normalizeNodeGraphBugButtonGlyph(input?.value);
+  if (glyph === normalizeNodeGraphBugButtonGlyph(targetNode.bugButton?.glyph)) {
+    return;
+  }
+  targetNode.bugButton = { glyph };
+  const selectionStart = input?.selectionStart;
+  const selectionEnd = input?.selectionEnd;
+  commitNodeGraphPatch(patch, {
+    record,
+    status: "bug button character changed",
+  });
+  if (input && document.getElementById("nodeSceneBugButtonGlyph") === input) {
+    input.focus();
+    try {
+      if (Number.isInteger(selectionStart) && Number.isInteger(selectionEnd)) {
+        input.setSelectionRange(selectionStart, selectionEnd);
+      }
+    } catch (_) {}
   }
 }
 
