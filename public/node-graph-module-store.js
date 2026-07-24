@@ -1649,8 +1649,11 @@ function renderNodeGraphModuleStoreCatalog() {
     nodeGraphMvp.moduleStoreDepartment = selectedDepartment;
   }
   const departmentSearch = nodeGraphMvp.moduleStoreDepartmentSearch || "";
-  const searchingAllModules = !selectedDepartment &&
-    Boolean(nodeGraphNormalizeModuleDepartmentSearch(departmentSearch));
+  const hasDepartmentSearchText = Boolean(nodeGraphNormalizeModuleDepartmentSearch(departmentSearch));
+  // Typing a search query always searches every module across every category,
+  // even while a specific category tab is selected -- previously search text
+  // was silently restricted to whatever category tab happened to be open.
+  const searchingAllModules = hasDepartmentSearchText;
   const departmentSearchField = document.getElementById("nodeModuleDepartmentSearch");
   if (departmentSearchField && departmentSearchField.value !== departmentSearch) {
     departmentSearchField.value = departmentSearch;
@@ -1669,7 +1672,10 @@ function renderNodeGraphModuleStoreCatalog() {
   const matchingEntries = entries.filter((item) => nodeGraphModuleStoreEntryMatchesSearch(item, departmentSearch));
   const publicEntries = matchingEntries.filter((entry) =>
     entry.visible &&
-    (!selectedDepartment || entry.category === selectedDepartment)
+    // Once there's search text, match against every category -- only fall
+    // back to restricting by the selected category tab when the search box
+    // is empty (plain category browsing).
+    (!selectedDepartment || hasDepartmentSearchText || entry.category === selectedDepartment)
   );
   const visibleModuleEntries = selectedDepartment || departmentSearch
     ? [...publicEntries].sort(nodeGraphModuleStoreSearchResultOrder)
