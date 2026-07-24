@@ -64,7 +64,11 @@ async function bindNodeGraphMvpEvents() {
   await bindNodeGraphMvpEventGroup("scene-menu", bindNodeGraphSceneMenuEvents);
   await bindNodeGraphMvpEventGroup("header", bindNodeGraphHeaderControlEvents);
   await bindNodeGraphMvpEventGroup("render-live", bindNodeGraphRenderLiveControlEvents);
-  await bindNodeGraphMvpEventGroup("ui-view", bindNodeGraphUiViewEvents);
+  // "ui-view" (bindNodeGraphUiViewEvents) bound the now-removed Patch Control
+  // Surface / WYSIWYG UI-item editor -- node-graph-ui-view.js was emptied out
+  // when that feature was retired (see its header comment), but this call
+  // site was never cleaned up, so every startup threw an uncaught
+  // ReferenceError here before this fix.
   await bindNodeGraphMvpEventGroup("ui-dev", bindNodeGraphUiDevSettingsEvents);
   await bindNodeGraphMvpEventGroup("settings", bindNodeGraphSettingsFormEvents);
   await bindNodeGraphMvpEventGroup("sliders", bindNodeGraphSliderDragEvents);
