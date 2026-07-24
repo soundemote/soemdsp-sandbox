@@ -30,6 +30,7 @@ function bindNodeGraphSceneMenuEvents() {
   document.addEventListener("pointerup", endNodeGraphModuleShopViewResize);
   document.addEventListener("pointercancel", endNodeGraphModuleShopViewResize);
   bindNodeGraphSceneElementEvent("nodeGraphWorkspace", "pointerdown", beginNodeGraphGraphNodeDrag, true);
+  bindNodeGraphSceneElementEvent("nodeGraphWorkspace", "dblclick", handleNodeGraphGraphNodeDoubleClick, true);
   document.addEventListener("pointermove", dragNodeGraphGraphNode);
   document.addEventListener("pointerup", endNodeGraphGraphNodeDrag);
   document.addEventListener("pointercancel", endNodeGraphGraphNodeDrag);
@@ -72,7 +73,6 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeCodeBoxTitle", "change", applyNodeGraphCodeBoxWindowTitle);
   bindNodeGraphSceneElementEvent("nodeCodeBoxInputs", "input", scheduleNodeGraphCodeBoxWindowPortsApply);
   bindNodeGraphSceneElementEvent("nodeCodeBoxOutputs", "input", scheduleNodeGraphCodeBoxWindowPortsApply);
-  bindNodeGraphSceneElementEvent("nodeCodeBoxInputs", "change", applyNodeGraphCodeBoxWindowPorts);
   bindNodeGraphSceneElementEvent("nodeCodeBoxOutputs", "change", applyNodeGraphCodeBoxWindowPorts);
   bindNodeGraphSceneElementEvent("nodeCodeBoxSource", "input", handleNodeGraphCodeBoxWindowSourceInput);
   bindNodeGraphSceneElementEvent("nodeCodeBoxSource", "scroll", updateNodeGraphCodeBoxWindowEditorChrome);
