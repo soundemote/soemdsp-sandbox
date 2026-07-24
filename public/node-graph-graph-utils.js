@@ -989,11 +989,20 @@ function dragNodeGraphGraphNode(event) {
       cursorX: point.x,
     });
     renderNodeGraphGraphDisplay(drag.display, drag.graph, null, { smoothingMode });
-    drag.svg = drag.display.querySelector(".node-module-graph-svg");
-    reacquireNodeGraphGraphPointerCaptureAfterRender(drag, event);
+    // syncNodeGraphGraphControls (below) can ALSO re-render this same
+    // display a second time this tick, via syncNodeGraphGraphElement --
+    // whenever the module actions panel is open for this node. Caching
+    // drag.svg/reacquiring capture BEFORE that second render meant every
+    // pointermove after the first measured a now-detached SVG (a detached
+    // element's getBoundingClientRect() is all zeros), so the graph point
+    // silently collapsed to {x:0, y:0} forever -- the node would jump to
+    // the first move's position and then simply stop responding to the
+    // mouse. Re-querying AFTER both possible renders fixes this.
     if (nodeGraphModuleActionTargetNodeId() === drag.nodeId) {
       syncNodeGraphGraphControls(drag.graph);
     }
+    drag.svg = drag.display.querySelector(".node-module-graph-svg");
+    reacquireNodeGraphGraphPointerCaptureAfterRender(drag, event);
     event.preventDefault();
     event.stopPropagation();
     return;
@@ -1006,11 +1015,14 @@ function dragNodeGraphGraphNode(event) {
   nodeGraphGraphDebugTrace("graph node moved", { newIndex: drag.index, nodeCount: drag.graph.nodes.length });
   setNodeGraphGraphSelectedNodeIndex(drag.nodeId, drag.graph, drag.index);
   renderNodeGraphGraphDisplay(drag.display, drag.graph, drag.index, { smoothingMode });
-  drag.svg = drag.display.querySelector(".node-module-graph-svg");
-  reacquireNodeGraphGraphPointerCaptureAfterRender(drag, event);
+  // See the matching comment in the cursor-drag branch above: sync AFTER
+  // the possible second render syncNodeGraphGraphControls triggers, then
+  // requery/reacquire once against whichever render actually happened last.
   if (nodeGraphModuleActionTargetNodeId() === drag.nodeId) {
     syncNodeGraphGraphControls(drag.graph, drag.index);
   }
+  drag.svg = drag.display.querySelector(".node-module-graph-svg");
+  reacquireNodeGraphGraphPointerCaptureAfterRender(drag, event);
   event.preventDefault();
   event.stopPropagation();
 }
