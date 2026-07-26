@@ -291,7 +291,9 @@ NodeLiveAudioProcessor.prototype.polyBlepOscillatorWorkletEvaluate = function po
     1,
   );
   const pitchedFrequency = frequency * (2 ** (pitchInput / 0.1));
-  const phaseIncrement = (pitchedFrequency / safeRate) + incrementInput;
+  const fHz = this.readFInputHz(mixInput, nodeId);
+  const effectiveFrequency = this.resolveFrequencyHz(pitchedFrequency, fHz);
+  const phaseIncrement = (effectiveFrequency / safeRate) + incrementInput;
   const level = this.readEffectiveParameter(node, "level", 1, frame, frames, frameValues);
   let nativeVector = null;
   if (node?.type === "polyBlep") {

@@ -45,6 +45,12 @@ function nodeGraphAdditiveOscLiveEvaluator({ runtime, node, nodeId, frame, frame
     ), -1, 1)
     : referenceVoltage;
   const pitchedFrequency = Math.max(0, frequency * (2 ** ((pitchInput - referenceVoltage) / 0.1)));
+  const fHz = typeof nodeGraphReadFInputHz === "function"
+    ? nodeGraphReadFInputHz(mixInput, hasInput, nodeId)
+    : null;
+  const effectiveFrequency = typeof nodeGraphResolveFrequencyHz === "function"
+    ? nodeGraphResolveFrequencyHz(pitchedFrequency, fHz)
+    : pitchedFrequency;
   const incrementInput = nodeGraphSafeFilterNumber(
     mixInput(nodeId, "Increment"),
     runtime,
@@ -52,13 +58,13 @@ function nodeGraphAdditiveOscLiveEvaluator({ runtime, node, nodeId, frame, frame
     null,
     "additive osc increment input",
   );
-  const phaseIncrement = (pitchedFrequency / sampleRate) + incrementInput;
+  const phaseIncrement = (effectiveFrequency / sampleRate) + incrementInput;
   const additiveSample = nodeGraphAdditiveOscillatorSample(
     runtime,
     nodeId,
     phase + phaseOffset,
     {
-      frequency: pitchedFrequency,
+      frequency: effectiveFrequency,
       dampingFilterFrequency: readNodeGraphLiveEffectiveParam(runtime, node, "dampingFilterFrequency", 20000, frame, frames, frameValues),
       dampingGraphValueAt: (x) => graphInputValue(nodeId, "Damping Graph", x, 1),
       harmonics: readNodeGraphLiveEffectiveParam(runtime, node, "harmonics", 32, frame, frames, frameValues),

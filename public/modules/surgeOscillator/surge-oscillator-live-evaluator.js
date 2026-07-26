@@ -14,8 +14,14 @@ nodeGraphLiveModuleEvaluators.surgeOscillator = ({ runtime, node, nodeId, frame,
     "hard sync oscillator 0.1v input",
   ), -10, 10);
   const frequencyHz = Math.max(0, baseFrequency * (2 ** (pitchInput / 0.1)));
+  const fHz = typeof nodeGraphReadFInputHz === "function"
+    ? nodeGraphReadFInputHz(mixInput, hasInput, nodeId)
+    : null;
+  const effectiveFrequency = typeof nodeGraphResolveFrequencyHz === "function"
+    ? nodeGraphResolveFrequencyHz(frequencyHz, fHz)
+    : frequencyHz;
   return nodeGraphSurgeOscillatorSample(state, {
-    frequencyHz,
+    frequencyHz: effectiveFrequency,
     sampleRate,
     syncIn: mixInput(nodeId, "Sync"),
     hasExternalSync: hasInput(nodeId, "Sync"),

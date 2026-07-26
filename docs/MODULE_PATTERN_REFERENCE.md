@@ -176,6 +176,29 @@ const phaseCv = hasInput(nodeId, "Phase") ? mixInput(nodeId, "Phase") : 0;
 const phase = wrap01(phaseKnob + phaseCv);
 ```
 
+### Universal linear frequency jack `f`
+
+Most oscillators expose a left-side jack named **`f`**: absolute Hz in
+`[0, Speed Limit]`. Speed Limit is a header control next to Speed (default
+**20000**). When `f` is wired it **overrides** the module’s usual
+frequency/0.1V/Oct path; when unwired, each module keeps its own pitch
+universe.
+
+Helpers (public/node-graph-module-controls.js + worklet methods):
+
+```js
+// Offline
+const fHz = nodeGraphReadFInputHz(mixInput, hasInput, nodeId); // null if unwired
+const hz = nodeGraphResolveFrequencyHz(moduleSpecificBaseHz, fHz);
+
+// Worklet
+const hz = this.resolveFrequencyHz(moduleSpecificBaseHz, this.readFInputHz(mixInput, nodeId));
+```
+
+Optional `controls[]` on a definition expands into `inputs`/`parameters` via
+`nodeGraphModuleDefinition(type)` — use for new modules; old modules keep
+listing `inputs`/`parameters` directly.
+
 ## Parameter definition shape
 
 All numeric fields are stored as STRINGS (e.g. `"1"`, `"0"`, `"440"`).

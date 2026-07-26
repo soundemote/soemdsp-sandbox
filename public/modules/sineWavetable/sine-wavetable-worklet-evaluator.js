@@ -84,6 +84,7 @@ NodeLiveAudioProcessor.prototype.sineWavetableWorkletEvaluate = function sineWav
     1,
   );
   const pitchedFrequency = Math.max(0, (baseFrequency + freqInput) * (2 ** (pitchInput / 0.1)));
+  const effectiveFrequency = this.resolveFrequencyHz(pitchedFrequency, this.readFInputHz(mixInput, nodeId));
   const amplitude = Math.max(0, this.readEffectiveParameter(
     node,
     "amp",
@@ -108,7 +109,7 @@ NodeLiveAudioProcessor.prototype.sineWavetableWorkletEvaluate = function sineWav
         this.nativeSineWavetable.soemdsp_sine_wavetable_sample(
           nativeState.nativeHandle,
           phaseOffset,
-          pitchedFrequency,
+          effectiveFrequency,
           amplitude,
           safeRate,
         );
@@ -131,8 +132,8 @@ NodeLiveAudioProcessor.prototype.sineWavetableWorkletEvaluate = function sineWav
   }
   if (!this.nativeSineWavetableReady) {
     const phase = this.phases.get(nodeId) || 0;
-    const phaseIncrement = pitchedFrequency / safeRate;
-    value = nodeLiveSineCosWavetableSample(phase + phaseOffset, pitchedFrequency, amplitude, safeRate);
+    const phaseIncrement = effectiveFrequency / safeRate;
+    value = nodeLiveSineCosWavetableSample(phase + phaseOffset, effectiveFrequency, amplitude, safeRate);
     this.phases.set(
       nodeId,
       this.wrapValue(phase + Math.PI * 2 * phaseIncrement, 0, Math.PI * 2),

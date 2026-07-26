@@ -268,6 +268,51 @@ function createNodeGraphHeaderSpeedPlaceholder() {
   return field;
 }
 
+// Full-scale ceiling (Hz) for the universal oscillator `f` input: 0..speedLimit.
+function createNodeGraphHeaderSpeedLimitField() {
+  const field = document.createElement("label");
+  field.className = "node-header-timing-field node-header-scope-field";
+  field.setAttribute("aria-label", "Speed limit for oscillator f input in Hertz");
+  field.dataset.headerNumberDrag = "true";
+  field.title = "Max Hz for the universal oscillator f input (linear 0…limit).";
+
+  const caption = document.createElement("span");
+  caption.className = "node-header-timing-caption";
+  caption.textContent = "Speed Limit";
+  field.append(caption);
+
+  const input = document.createElement("input");
+  input.className = "node-header-timing-input";
+  input.dataset.speedLimit = "true";
+  input.inputMode = "decimal";
+  input.min = "1";
+  input.max = "192000";
+  input.step = "any";
+  input.type = "number";
+  input.value = String(
+    typeof nodeGraphLiveSpeedLimitHz === "function"
+      ? nodeGraphLiveSpeedLimitHz()
+      : (nodeGraphMvp?.live?.speedLimit ?? 20000),
+  );
+  input.setAttribute("aria-label", "Speed limit Hertz for f input");
+  input.addEventListener("keydown", (event) => event.stopPropagation());
+  input.addEventListener("pointerdown", (event) => event.stopPropagation());
+  const commit = () => {
+    if (typeof setNodeGraphLiveSpeedLimit === "function") {
+      setNodeGraphLiveSpeedLimit(input.value);
+    }
+    input.value = String(
+      typeof nodeGraphLiveSpeedLimitHz === "function"
+        ? nodeGraphLiveSpeedLimitHz()
+        : 20000,
+    );
+  };
+  input.addEventListener("change", commit);
+  input.addEventListener("blur", commit);
+  field.append(input);
+  return field;
+}
+
 function createNodeGraphHeaderScopeInput(id, label, value, options = {}) {
   const field = document.createElement("label");
   field.className = "node-header-timing-field node-header-scope-field";
@@ -408,6 +453,7 @@ function createNodeGraphHeaderTimingWidgets() {
       },
     ),
     createNodeGraphHeaderSpeedPlaceholder(),
+    createNodeGraphHeaderSpeedLimitField(),
     createNodeGraphHeaderRenderRangeInput("node-header-render-start-input", "Start", nodeGraphMvp.renderStartSeconds ?? 0, { ariaLabel: "Render start time in seconds", min: 0, max: 3599, tooltip: "Sets the Render Sample start point (seconds)" }),
     createNodeGraphHeaderRenderRangeInput("node-header-render-end-input", "End", nodeGraphMvp.renderEndSeconds ?? (nodeGraphMvp.seconds ?? 2), { ariaLabel: "Render end time in seconds", min: 0.05, max: 3600, tooltip: "Sets the Render Sample end point (seconds)" }),
   );

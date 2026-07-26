@@ -92,6 +92,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.hostSampleRate = sampleRate;
     this.oversamplingRatio = 1;
     this.speedMultiplier = 1;
+    this.speedLimit = 20000;
     this.raptEllipticDecimatorLeft = this.createRaptEllipticDecimatorState();
     this.raptEllipticDecimatorRight = this.createRaptEllipticDecimatorState();
     this.raptEllipticDecimatorRatio = 1;
@@ -492,6 +493,10 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       this.setSpeed(message.speed);
       return;
     }
+    if (message.type === "setSpeedLimit") {
+      this.setSpeedLimit(message.speedLimit);
+      return;
+    }
   }
 
   setInputWireBreakTrigger(nodeId, port) {
@@ -502,6 +507,38 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   setSpeed(speed) {
     const value = Number(speed);
     this.speedMultiplier = Number.isFinite(value) ? Math.max(0, value) : 1;
+  }
+
+  setSpeedLimit(limit) {
+    const value = Number(limit);
+    this.speedLimit = Number.isFinite(value) && value > 0 ? value : 20000;
+  }
+
+  speedLimitHz() {
+    const value = Number(this.speedLimit);
+    return Number.isFinite(value) && value > 0 ? value : 20000;
+  }
+
+  // Universal linear frequency jack `f`: absolute Hz in [0, speedLimit].
+  // Returns null when unwired so each oscillator can keep its own pitch path.
+  readFInputHz(mixInput, nodeId, port = "f") {
+    if (!this.inputConnections.has(this.inputKey(nodeId, port))) {
+      return null;
+    }
+    const raw = Number(mixInput(nodeId, port));
+    const limit = this.speedLimitHz();
+    if (!Number.isFinite(raw)) {
+      return 0;
+    }
+    return Math.max(0, Math.min(limit, raw));
+  }
+
+  resolveFrequencyHz(baseHz, fHzOrNull) {
+    if (fHzOrNull != null && Number.isFinite(Number(fHzOrNull))) {
+      return Math.max(0, Number(fHzOrNull));
+    }
+    const base = Number(baseHz);
+    return Number.isFinite(base) ? Math.max(0, base) : 0;
   }
 
   effectiveSampleRate() {
@@ -6131,8 +6168,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
           10,
         );
         const frequencyHz = Math.max(0, baseFrequency * (2 ** (pitchInput / 0.1)));
+        const effectiveFrequency = this.resolveFrequencyHz(frequencyHz, this.readFInputHz(mixInput, nodeId));
         return this.surgeOscillatorSample(state, {
-          frequencyHz,
+          frequencyHz: effectiveFrequency,
           sampleRate: safeRate,
           syncIn: mixInput(nodeId, "Sync"),
           hasExternalSync: hasInput(nodeId, "Sync"),
@@ -6154,6 +6192,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
           ? this.clampValue(this.safeFilterNumber(mixInput(nodeId, "0.1V/Oct"), null), -1, 1)
           : referenceVoltage;
         const pitchedFrequency = Math.max(0, baseFrequency * (2 ** ((pitchInput - referenceVoltage) / 0.1)));
+        const effectiveFrequency = this.resolveFrequencyHz(pitchedFrequency, this.readFInputHz(mixInput, nodeId));
         // Phase / Amplitude jacks: Phase adds to the Phase knob (cycles);
         // Amplitude multiplies the Amplitude knob when wired.
         const phaseKnob = read("phase", 0);
@@ -6166,7 +6205,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
           ? levelKnob * this.safeFilterNumber(mixInput(nodeId, "Amplitude"), null)
           : levelKnob;
         return this.dsfOscillatorSample(state, {
-          frequencyHz: pitchedFrequency,
+          frequencyHz: effectiveFrequency,
           sampleRate: safeRate,
           waveform: read("waveform", 1),
           morph: read("morph", 1),
@@ -6193,8 +6232,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
           ? this.clampValue(this.safeFilterNumber(mixInput(nodeId, "0.1V/Oct"), null), -1, 1)
           : referenceVoltage;
         const pitchedFrequency = Math.max(0, baseFrequency * (2 ** ((pitchInput - referenceVoltage) / 0.1)));
+        const effectiveFrequency = this.resolveFrequencyHz(pitchedFrequency, this.readFInputHz(mixInput, nodeId));
         return this.robinSupersawSample(state, {
-          frequencyHz: pitchedFrequency,
+          frequencyHz: effectiveFrequency,
           sampleRate: safeRate,
           detuneCents: read("detuneCents", 30),
           voices: read("voices", 7),
@@ -6218,8 +6258,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
           ? this.clampValue(this.safeFilterNumber(mixInput(nodeId, "0.1V/Oct"), null), -1, 1)
           : referenceVoltage;
         const pitchedFrequency = Math.max(0, baseFrequency * (2 ** ((pitchInput - referenceVoltage) / 0.1)));
+        const effectiveFrequency = this.resolveFrequencyHz(pitchedFrequency, this.readFInputHz(mixInput, nodeId));
         return this.hypersawSample(state, {
-          frequencyHz: pitchedFrequency,
+          frequencyHz: effectiveFrequency,
           sampleRate: safeRate,
           phaseOffset: read("phase", 0),
           numVoices: read("voices", 8),
@@ -6481,9 +6522,13 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       aliasSine: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.aliasSineStates.get(nodeId) || this.createAliasSineState();
         this.aliasSineStates.set(nodeId, state);
+        // When universal `f` is wired (absolute Hz), convert to cycles/sample.
+        const fHz = this.readFInputHz(mixInput, nodeId);
+        const normFromKnob = this.readEffectiveParameter(node, "normFreq", 0.1, frame, frames, frameValues);
+        const normFreq = fHz != null ? fHz / Math.max(1, safeRate) : normFromKnob;
         return this.aliasSineSample(
           state,
-          this.readEffectiveParameter(node, "normFreq", 0.1, frame, frames, frameValues),
+          normFreq,
           this.readEffectiveParameter(node, "level", 1, frame, frames, frameValues),
           safeRate,
         );

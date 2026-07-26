@@ -48,6 +48,12 @@ nodeGraphLiveModuleEvaluators.sineWavetable = ({ runtime, node, nodeId, frame, f
     ), -1, 1)
     : referenceVoltage;
   const pitchedFrequency = Math.max(0, (baseFrequency + freqInput) * (2 ** ((pitchInput - referenceVoltage) / 0.1)));
+  const fHz = typeof nodeGraphReadFInputHz === "function"
+    ? nodeGraphReadFInputHz(mixInput, hasInput, nodeId)
+    : null;
+  const effectiveFrequency = typeof nodeGraphResolveFrequencyHz === "function"
+    ? nodeGraphResolveFrequencyHz(pitchedFrequency, fHz)
+    : pitchedFrequency;
   const amplitude = Math.max(0, readNodeGraphLiveEffectiveParam(
     runtime,
     node,
@@ -57,8 +63,8 @@ nodeGraphLiveModuleEvaluators.sineWavetable = ({ runtime, node, nodeId, frame, f
     frames,
     frameValues,
   ) + ampInput);
-  const phaseIncrement = pitchedFrequency / sampleRate;
-  const value = nodeGraphSineCosWavetableSample(phase + phaseOffset, pitchedFrequency, amplitude, sampleRate);
+  const phaseIncrement = effectiveFrequency / sampleRate;
+  const value = nodeGraphSineCosWavetableSample(phase + phaseOffset, effectiveFrequency, amplitude, sampleRate);
   runtime.phases.set(
     nodeId,
     wrapNodeSliderValue(phase + Math.PI * 2 * phaseIncrement, 0, Math.PI * 2),

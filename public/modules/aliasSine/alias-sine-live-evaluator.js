@@ -21,12 +21,20 @@ function nodeGraphAliasSineSample(state, normFreq, level, runtime = null, nodeId
 // Registers the offline/render-time dispatch handler for aliasSine into
 // nodeGraphLiveModuleEvaluators (declared in node-graph-live-frame-evaluator.js).
 // Follows the same extraction pattern as pulseExplosion's live evaluator.
-nodeGraphLiveModuleEvaluators.aliasSine = ({ runtime, node, nodeId, frame, frames, frameValues }) => {
+nodeGraphLiveModuleEvaluators.aliasSine = ({ runtime, node, nodeId, frame, frames, frameValues, mixInput, hasInput, sampleRate }) => {
   const state = runtime.aliasSineStates.get(nodeId) || createNodeGraphAliasSineState();
   runtime.aliasSineStates.set(nodeId, state);
+  // normFreq is cycles/sample. When universal `f` is wired (absolute Hz),
+  // convert via f / sampleRate; otherwise keep the Norm Freq knob.
+  const fHz = typeof nodeGraphReadFInputHz === "function"
+    ? nodeGraphReadFInputHz(mixInput, hasInput, nodeId)
+    : null;
+  const normFromKnob = readNodeGraphLiveEffectiveParam(runtime, node, "normFreq", 0.1, frame, frames, frameValues);
+  const safeRate = Math.max(1, Number(sampleRate) || 44100);
+  const normFreq = fHz != null ? fHz / safeRate : normFromKnob;
   return nodeGraphAliasSineSample(
     state,
-    readNodeGraphLiveEffectiveParam(runtime, node, "normFreq", 0.1, frame, frames, frameValues),
+    normFreq,
     readNodeGraphLiveEffectiveParam(runtime, node, "level", 1, frame, frames, frameValues),
     runtime,
     nodeId,

@@ -296,10 +296,12 @@ const nodeGraphModuleDefinitions = Object.freeze({
     displaySignals: [
       { key: "Wave Out", kind: "scalar" },
     ],
-    inputs: ["Reset", "0.1V/Oct", "Increment"],
+    // f = universal linear frequency jack (absolute Hz 0..Speed Limit).
+    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
     inputLabels: {
       "0.1V/Oct": "0.1V",
       Increment: "Inc.",
+      f: "f",
     },
     outputAliases: {
       Out: "Wave Out",
@@ -373,10 +375,11 @@ const nodeGraphModuleDefinitions = Object.freeze({
     displaySignals: [
       { key: "Wave Out", kind: "scalar" },
     ],
-    inputs: ["Reset", "0.1V/Oct", "Increment"],
+    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
     inputLabels: {
       "0.1V/Oct": "0.1V",
       Increment: "Inc.",
+      f: "f",
     },
     outputAliases: {
       Out: "Wave Out",
@@ -444,10 +447,11 @@ const nodeGraphModuleDefinitions = Object.freeze({
     displaySignals: [
       { key: "Wave Out", kind: "scalar" },
     ],
-    inputs: ["Reset", "0.1V/Oct", "Increment"],
+    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
     inputLabels: {
       "0.1V/Oct": "0.1V",
       Increment: "Inc.",
+      f: "f",
     },
     outputAliases: {
       Out: "Wave Out",
@@ -508,7 +512,7 @@ const nodeGraphModuleDefinitions = Object.freeze({
   },
   sineWavetable: {
     displayType: "trace",
-    inputs: ["0.1V/Oct", "Freq", "Amplitude"],
+    inputs: ["0.1V/Oct", "Freq", "Amplitude", "f"],
     inputAliases: {
       "0.1V": "0.1V/Oct",
       "0.1v": "0.1V/Oct",
@@ -517,6 +521,7 @@ const nodeGraphModuleDefinitions = Object.freeze({
     },
     inputLabels: {
       "0.1V/Oct": "0.1V",
+      f: "f",
     },
     outputAliases: {
       Cos: "cos",
@@ -609,7 +614,8 @@ const nodeGraphModuleDefinitions = Object.freeze({
     ],
   },
   aliasSine: {
-    inputs: [],
+    inputs: ["f"],
+    inputLabels: { f: "f" },
     outputs: ["Out"],
     parameters: [
       { defaultValue: "0.1", key: "normFreq", label: "Norm Freq", max: "1.5", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
@@ -618,10 +624,11 @@ const nodeGraphModuleDefinitions = Object.freeze({
   },
   additiveOsc: {
     graphInputs: ["Damping Graph", "Phase Graph"],
-    inputs: ["Reset", "0.1V/Oct", "Increment"],
+    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
     inputLabels: {
       "0.1V/Oct": "0.1V",
       Increment: "Inc.",
+      f: "f",
     },
     outputs: ["Out"],
     parameters: [
@@ -671,10 +678,11 @@ const nodeGraphModuleDefinitions = Object.freeze({
   },
   gpuAdditiveOsc: {
     graphInputs: ["Damping Graph", "Phase Graph"],
-    inputs: ["Reset", "0.1V/Oct", "Increment"],
+    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
     inputLabels: {
       "0.1V/Oct": "0.1V",
       Increment: "Inc.",
+      f: "f",
     },
     outputs: ["Out"],
     parameters: [
@@ -1257,7 +1265,8 @@ const nodeGraphModuleDefinitions = Object.freeze({
     ],
   },
   surgeOscillator: {
-    inputs: ["0.1V/Oct", "Sync"],
+    inputs: ["0.1V/Oct", "Sync", "f"],
+    inputLabels: { "0.1V/Oct": "0.1V", f: "f" },
     outputs: ["Out", "Saw", "Square", "Tri", "Sine", "Synced", "Internal Sync"],
     parameters: [
       {
@@ -1287,11 +1296,12 @@ const nodeGraphModuleDefinitions = Object.freeze({
     // First attempt only put phase/level in parameters[] — user looking at
     // the left IO column correctly saw only 0.1V. See MODULE_PATTERN_REFERENCE
     // "Three control surfaces".
-    inputs: ["0.1V/Oct", "Phase", "Amplitude"],
+    inputs: ["0.1V/Oct", "Phase", "Amplitude", "f"],
     inputLabels: {
       "0.1V/Oct": "0.1V",
       Phase: "Phase",
       Amplitude: "Amp",
+      f: "f",
     },
     outputs: ["Out"],
     parameters: [
@@ -1338,7 +1348,8 @@ const nodeGraphModuleDefinitions = Object.freeze({
     ],
   },
   robinSupersaw: {
-    inputs: ["0.1V/Oct"],
+    inputs: ["0.1V/Oct", "f"],
+    inputLabels: { "0.1V/Oct": "0.1V", f: "f" },
     outputs: ["Mono", "Left", "Right"],
     parameters: [
       // "Frequency" is the pitch heard at the sandbox-wide "Pitch
@@ -1362,7 +1373,8 @@ const nodeGraphModuleDefinitions = Object.freeze({
     displaySignals: [
       { key: "Left", kind: "scalar" },
     ],
-    inputs: ["Reset", "0.1V/Oct"],
+    inputs: ["Reset", "0.1V/Oct", "f"],
+    inputLabels: { "0.1V/Oct": "0.1V", f: "f" },
     outputs: ["Left", "Right"],
     dataOutputs: ["Phases", "Amplitudes", "Pans"],
     parameters: [
@@ -3591,9 +3603,9 @@ const nodeGraphModuleDefinitions = Object.freeze({
   },
   sinc: {
     displayType: "trace",
-    inputs: ["0.1V/Oct", "Freq", "Phase"],
+    inputs: ["0.1V/Oct", "Freq", "Phase", "f"],
     inputAliases: { "0.1V": "0.1V/Oct", freq: "Freq", phase: "Phase" },
-    inputLabels: { "0.1V/Oct": "0.1V" },
+    inputLabels: { "0.1V/Oct": "0.1V", f: "f" },
     outputs: ["Out"],
     parameters: [
       {

@@ -153,6 +153,22 @@ function renderNodeGraphSpeedReadout() {
       input.value = text;
     }
   }
+  renderNodeGraphSpeedLimitReadout();
+}
+
+function renderNodeGraphSpeedLimitReadout() {
+  const limit = typeof nodeGraphLiveSpeedLimitHz === "function"
+    ? nodeGraphLiveSpeedLimitHz()
+    : Math.max(1, Number(nodeGraphMvp?.live?.speedLimit) || 20000);
+  const text = String(limit);
+  for (const input of document.querySelectorAll("[data-speed-limit]")) {
+    if (document.activeElement === input) {
+      continue;
+    }
+    if (input.value !== text) {
+      input.value = text;
+    }
+  }
 }
 
 // Shared wiring for the 🔊 sliders (live input, live output, rendered player).

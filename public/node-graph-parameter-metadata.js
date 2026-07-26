@@ -38,7 +38,10 @@ function normalizeNodeGraphMetadataSmoothingMode(value) {
 
 function nodeGraphDefaultParamsForType(type) {
   const params = {};
-  for (const parameter of nodeGraphModuleDefinitions[type]?.parameters || []) {
+  const definition = typeof nodeGraphModuleDefinition === "function"
+    ? nodeGraphModuleDefinition(type)
+    : nodeGraphModuleDefinitions[type];
+  for (const parameter of definition?.parameters || []) {
     const value = Number(parameter.defaultValue);
     params[parameter.key] = Number.isFinite(value) ? value : 0;
   }
@@ -46,7 +49,9 @@ function nodeGraphDefaultParamsForType(type) {
 }
 
 function nodeGraphModuleOutputPorts(type) {
-  const definition = nodeGraphModuleDefinitions[type];
+  const definition = typeof nodeGraphModuleDefinition === "function"
+    ? nodeGraphModuleDefinition(type)
+    : nodeGraphModuleDefinitions[type];
   if (!definition) {
     return [];
   }
@@ -59,7 +64,9 @@ function nodeGraphModuleOutputPorts(type) {
 
 function nodeGraphPatchNodeParameterDefinitions(node) {
   const patchNode = typeof node === "string" ? nodeGraphPatchNode(node) : node;
-  const definition = nodeGraphModuleDefinitions[patchNode?.type];
+  const definition = typeof nodeGraphModuleDefinition === "function"
+    ? nodeGraphModuleDefinition(patchNode?.type)
+    : nodeGraphModuleDefinitions[patchNode?.type];
   if (!definition) {
     return [];
   }
@@ -319,7 +326,9 @@ function nodeGraphPatchNodeInputPorts(node) {
   if (patchNode?.type === "screenSpaceShader") {
     return normalizeNodeGraphScreenSpaceShader(patchNode.screenSpaceShader).inputs;
   }
-  const definition = nodeGraphModuleDefinitions[patchNode?.type];
+  const definition = typeof nodeGraphModuleDefinition === "function"
+    ? nodeGraphModuleDefinition(patchNode?.type)
+    : nodeGraphModuleDefinitions[patchNode?.type];
   return [
     ...(definition?.inputs || []),
     ...(definition?.dataInputs || []),

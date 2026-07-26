@@ -33,6 +33,12 @@ nodeGraphLiveModuleEvaluators.dsfOscillator = ({
     ), -1, 1)
     : referenceVoltage;
   const pitchedFrequency = Math.max(0, baseFrequency * (2 ** ((pitchInput - referenceVoltage) / 0.1)));
+  const fHz = typeof nodeGraphReadFInputHz === "function"
+    ? nodeGraphReadFInputHz(mixInput, hasInput, nodeId)
+    : null;
+  const effectiveFrequency = typeof nodeGraphResolveFrequencyHz === "function"
+    ? nodeGraphResolveFrequencyHz(pitchedFrequency, fHz)
+    : pitchedFrequency;
 
   const phaseKnob = read("phase", 0);
   const phaseCv = hasInput(nodeId, "Phase")
@@ -58,7 +64,7 @@ nodeGraphLiveModuleEvaluators.dsfOscillator = ({
     : levelKnob;
 
   return nodeGraphDsfOscillatorSample(state, {
-    frequencyHz: pitchedFrequency,
+    frequencyHz: effectiveFrequency,
     sampleRate,
     waveform: read("waveform", 1),
     morph: read("morph", 1),
