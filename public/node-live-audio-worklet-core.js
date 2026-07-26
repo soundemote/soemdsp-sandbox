@@ -7759,8 +7759,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
         const pitchInput = this.inputConnections.has(this.inputKey(nodeId, "0.1V/Oct"))
           ? this.clampValue(this.safeFilterNumber(mixInput(nodeId, "0.1V/Oct"), null), -1, 1)
           : referenceVoltage;
+        const pitched = Math.max(0, baseFreq * (2 ** ((pitchInput - referenceVoltage) / 0.1)));
         return this.sincSample(state, {
-          freq: Math.max(0, baseFreq * (2 ** ((pitchInput - referenceVoltage) / 0.1))),
+          freq: this.resolveFrequencyHz(pitched, this.readFInputHz(mixInput, nodeId)),
           phase: read("phase", 0),
           lobes: read("lobes", 4),
           bandLimit: read("bandLimit", 1),
