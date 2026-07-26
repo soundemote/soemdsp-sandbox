@@ -18,13 +18,31 @@ function setNodeGraphLiveProcessorError(message = "AudioWorklet processor error"
   renderNodeGraphLiveControls(Boolean(nodeGraphMvp.live.node));
 }
 
-function setNodeGraphLiveOutputMuted(muted) {
+function normalizeNodeGraphVolume(value, fallback = 1) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    return fallback;
+  }
+  // Deliberately capped at unity: the volume controls can only ever make the
+  // output quieter than the patch already is, never louder.
+  return Math.max(0, Math.min(1, number));
+}
+
+// The ONE thing allowed to decide what outputGain.gain should be. Mute is a
+// state flag rather than a hardcoded 0/1 pair, because unmuting used to snap
+// straight back to 1 -- which would blow past the user's volume setting every
+// time the safety path, a plan restart, or gpu priming released the mute.
+function nodeGraphLiveOutputTargetGain() {
+  return nodeGraphMvp.live.outputMuted ? 0 : normalizeNodeGraphVolume(nodeGraphMvp.live.outputVolume);
+}
+
+function applyNodeGraphLiveOutputGain() {
   const outputGain = nodeGraphMvp.live.outputGain;
   const context = nodeGraphMvp.live.context;
   if (!outputGain?.gain) {
     return;
   }
-  const value = muted ? 0 : 1;
+  const value = nodeGraphLiveOutputTargetGain();
   const time = context?.currentTime || 0;
   try {
     outputGain.gain.cancelScheduledValues(time);
@@ -32,6 +50,37 @@ function setNodeGraphLiveOutputMuted(muted) {
   } catch (_error) {
     outputGain.gain.value = value;
   }
+}
+
+function setNodeGraphLiveOutputMuted(muted) {
+  nodeGraphMvp.live.outputMuted = Boolean(muted);
+  applyNodeGraphLiveOutputGain();
+}
+
+function setNodeGraphLiveOutputVolume(value) {
+  nodeGraphMvp.live.outputVolume = normalizeNodeGraphVolume(value);
+  applyNodeGraphLiveOutputGain();
+  return nodeGraphMvp.live.outputVolume;
+}
+
+// Input level rides its own gain node between the mic stream and the engine
+// (see startNodeGraphLiveInputSource). The node only exists while input is
+// live; the number is kept on nodeGraphMvp.live either way, so the slider
+// still means something before the mic is armed.
+function setNodeGraphLiveInputVolume(value) {
+  nodeGraphMvp.live.inputVolume = normalizeNodeGraphVolume(value);
+  const gainNode = nodeGraphMvp.live.inputVolumeGain;
+  const context = nodeGraphMvp.live.context;
+  if (gainNode?.gain) {
+    const time = context?.currentTime || 0;
+    try {
+      gainNode.gain.cancelScheduledValues(time);
+      gainNode.gain.setValueAtTime(nodeGraphMvp.live.inputVolume, time);
+    } catch (_error) {
+      gainNode.gain.value = nodeGraphMvp.live.inputVolume;
+    }
+  }
+  return nodeGraphMvp.live.inputVolume;
 }
 
 let nodeGraphLiveNativeModuleCatalogPromise = null;
@@ -502,6 +551,12 @@ function setNodeGraphLiveSpeed(speed) {
   }
   nodeGraphMvp.live.speedMultiplier = clamped;
   sendNodeGraphLiveSpeed();
+  // Every pause/play path funnels through here (transport button, spacebar,
+  // external host messages), so refresh the header Speed readout and the
+  // play/pause glyph from one place rather than at each call site.
+  if (typeof renderNodeGraphLiveControls === "function") {
+    renderNodeGraphLiveControls();
+  }
   if (typeof nodeGraphExternalNotifyLiveOutputChanged === "function") {
     nodeGraphExternalNotifyLiveOutputChanged();
   }
@@ -677,8 +732,7 @@ function nodeGraphStopGpuAdditiveProducer() {
 }
 
 function nodeGraphGpuAdditiveNodeParam(node, key, fallback) {
-  const value = Number(node?.params?.[key]);
-  return Number.isFinite(value) ? value : fallback;
+  return nodeGraphNodeParamNumber(node, key, fallback);
 }
 
 function nodeGraphGpuAdditiveNodeVersion(node, sampleRate) {
@@ -1337,10 +1391,17 @@ function nodeGraphLivePlanShapeSignature(plan = {}) {
 
 function nodeGraphLiveConnectionUpdatePayload(plan = {}, audio = {}) {
   const pitchReference = normalizeNodeGraphPatchAudio(nodeGraphMvp.patch.audio);
+  const graphData = {};
+  for (const node of plan.nodes || []) {
+    if (node.type === "graph2" && node.graph) {
+      graphData[node.id] = node.graph;
+    }
+  }
   return {
     connections: Array.isArray(plan.connections) ? plan.connections : [],
     engineSampleRate: audio.clampedEngineSampleRate,
     graphConnections: Array.isArray(plan.graphConnections) ? plan.graphConnections : [],
+    graphData: Object.keys(graphData).length > 0 ? graphData : undefined,
     modulations: Array.isArray(plan.modulations) ? plan.modulations : [],
     outputNode: plan.outputNode || "output",
     oversamplingRatio: audio.oversamplingRatio,
@@ -1803,6 +1864,8 @@ async function stopNodeGraphLiveAudio() {
   nodeGraphMvp.live.context = null;
   nodeGraphMvp.live.meterGain = null;
   nodeGraphMvp.live.outputGain = null;
+  nodeGraphMvp.live.outputMuted = false;
+  nodeGraphMvp.live.inputVolumeGain = null;
   nodeGraphMvp.live.activeNodeIds = new Set();
   nodeGraphMvp.live.lastEvidence = null;
   nodeGraphMvp.live.lastParameterUpdateTime = 0;
@@ -1917,7 +1980,6 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/linearEnvelope/linear-envelope-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
   "./public/modules/pluckEnvelope/pluck-envelope-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
   "./public/modules/vactrolEnvelopeSeries/vactrol-envelope-series-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/impulseButton/impulse-button-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
   "./public/modules/bugButton/bug-button-worklet-evaluator.js?v=solid-module-shell-2-20260723",
   "./public/modules/xyPad/xy-pad-worklet-evaluator.js?v=xy-pad-ghost-input-20260723",
   "./public/modules/flowerChildEnvelopeFollower/flower-child-envelope-follower-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
@@ -1943,7 +2005,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/radar/radar-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
   "./public/modules/audioPlayer/audio-player-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
   "./public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/sinc/sinc-worklet-evaluator.js?v=sinc-20260723",
+  "./public/modules/sinc/sinc-worklet-evaluator.js?v=sinc-20260725",
   "./public/modules/videoscope/videoscope-worklet-evaluator.js?v=videoscope-20260713",
   "./public/modules/spectrogram/spectrogram-worklet-evaluator.js?v=spectrogram-20260720",
   "./public/node-live-audio-worklet-register.js?v=blob-loader-20260711",
@@ -2011,13 +2073,21 @@ function createNodeGraphLiveScriptProcessorNode(context, plan) {
 function stopNodeGraphLiveInputSource() {
   const source = nodeGraphMvp.live.inputSource;
   const stream = nodeGraphMvp.live.inputStream;
+  const inputVolumeGain = nodeGraphMvp.live.inputVolumeGain;
   nodeGraphMvp.live.inputSource = null;
   nodeGraphMvp.live.inputStream = null;
+  // The level itself (live.inputVolume) survives -- only the node goes.
+  nodeGraphMvp.live.inputVolumeGain = null;
   cleanupNodeGraphMockInputStream();
   try {
     source?.disconnect();
   } catch (_error) {
     // Already disconnected input sources are harmless.
+  }
+  try {
+    inputVolumeGain?.disconnect();
+  } catch (_error) {
+    // Already disconnected gain nodes are harmless.
   }
   for (const track of stream?.getTracks?.() || []) {
     track.stop();
@@ -2069,7 +2139,14 @@ async function startNodeGraphLiveInputSource() {
       stream = await requestNodeGraphLiveInputStream("");
     }
     const source = context.createMediaStreamSource(stream);
-    source.connect(liveNode);
+    // Input volume rides a gain node between the mic and the engine rather
+    // than a constraint on the stream, so changing it is sample-accurate and
+    // never re-prompts for permission.
+    const inputVolumeGain = context.createGain();
+    inputVolumeGain.gain.value = normalizeNodeGraphVolume(nodeGraphMvp.live.inputVolume);
+    source.connect(inputVolumeGain);
+    inputVolumeGain.connect(liveNode);
+    nodeGraphMvp.live.inputVolumeGain = inputVolumeGain;
     nodeGraphMvp.live.inputStream = stream;
     nodeGraphMvp.live.inputSource = source;
     nodeGraphMvp.live.inputPermissionStatus = "granted";
@@ -2147,7 +2224,9 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
       return;
     }
     const outputGain = context.createGain();
-    outputGain.gain.value = 1;
+    // Start at whatever the volume slider currently says, not at unity -- a
+    // fresh engine must not come up louder than the level you set before it.
+    outputGain.gain.value = normalizeNodeGraphVolume(nodeGraphMvp.live.outputVolume);
     let liveNode = null;
     let usesWorklet = false;
     try {

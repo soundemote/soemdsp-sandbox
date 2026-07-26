@@ -129,6 +129,9 @@ function nodeGraphBuildLiveParameterNodes(activeNodeIds = null) {
       if (node.type === "phosphillator" && Array.isArray(node.drawnPath?.points)) {
         runtimeNode.drawnPath = { points: node.drawnPath.points };
       }
+      if (node.type === "graph2" && node.graph) {
+        runtimeNode.graph = node.graph;
+      }
       return runtimeNode;
     });
 }
@@ -193,6 +196,9 @@ function nodeGraphBuildLiveParameterNodesForPatch(patch, activeNodeIds = null) {
       }
       if (node.type === "phosphillator" && Array.isArray(node.drawnPath?.points)) {
         runtimeNode.drawnPath = { points: node.drawnPath.points };
+      }
+      if (node.type === "graph2" && node.graph) {
+        runtimeNode.graph = node.graph;
       }
       return runtimeNode;
     });
@@ -533,9 +539,6 @@ function createNodeGraphLiveRuntime(plan) {
     }
     if (node.type === "vactrolEnvelopeSeries" || node.type === "vactrolEnvelopeCustom") {
       vactrolEnvelopeStates.set(node.id, createNodeGraphVactrolEnvelopeState());
-    }
-    if (node.type === "impulseButton") {
-      impulseButtonStates.set(node.id, createNodeGraphImpulseButtonState());
     }
     if (node.type === "moduleGroup" && node.moduleGroup?.sourcePatch) {
       try {
@@ -1168,9 +1171,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     }
     if ((node.type === "vactrolEnvelopeSeries" || node.type === "vactrolEnvelopeCustom") && !runtime.vactrolEnvelopeStates.has(node.id)) {
       runtime.vactrolEnvelopeStates.set(node.id, createNodeGraphVactrolEnvelopeState());
-    }
-    if (node.type === "impulseButton" && !runtime.impulseButtonStates.has(node.id)) {
-      runtime.impulseButtonStates.set(node.id, createNodeGraphImpulseButtonState());
     }
     if (node.type === "moduleGroup" && node.moduleGroup?.sourcePatch && !runtime.moduleGroupRuntimes.has(node.id)) {
       try {

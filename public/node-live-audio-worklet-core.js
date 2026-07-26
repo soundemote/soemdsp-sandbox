@@ -32,7 +32,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
     this.liveModuleEvaluators = this.buildLiveModuleEvaluators();
-    this.liveModuleEvaluators.bipolarKnob = this.liveModuleEvaluators.macroKnob;
     this.liveModuleEvaluators.previousPatch = this.liveModuleEvaluators.nextPatch;
     // vactrolEnvelopeSeries and vactrolEnvelopeCustom share one implementation
     // (see the isSeries branch inside it) -- the offline/render evaluator
@@ -2178,6 +2177,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.nodes = new Map(nodes.map((node) => [node.id, {
       id: node.id,
       codeblock: this.normalizeCodeblock(node.codeblock),
+      graph: node.graph || null,
       moduleGroup: node.moduleGroup || null,
       moduleGroupPlan: node.moduleGroupPlan || null,
       paramMeta: node.paramMeta || {},
@@ -2446,9 +2446,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       }
       if ((node?.type === "vactrolEnvelopeSeries" || node?.type === "vactrolEnvelopeCustom") && !this.vactrolEnvelopeStates.has(id)) {
         this.vactrolEnvelopeStates.set(id, this.createVactrolEnvelopeState());
-      }
-      if (node?.type === "impulseButton" && !this.impulseButtonStates.has(id)) {
-        this.impulseButtonStates.set(id, this.createImpulseButtonState());
       }
       if (node?.type === "bugButton" && !this.bugButtonStates.has(id)) {
         this.bugButtonStates.set(id, this.createBugButtonState());
@@ -3062,6 +3059,15 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.inputConnections = this.buildInputConnectionMap(plan?.connections, ids);
     this.graphInputConnections = this.buildGraphInputConnectionMap(plan?.graphConnections, ids);
     this.modulationConnections = this.buildModulationConnectionMap(plan?.modulations, ids);
+    const graphData = message.graphData || plan?.graphData;
+    if (graphData) {
+      for (const [nodeId, graph] of Object.entries(graphData)) {
+        const node = this.nodes.get(nodeId);
+        if (node) {
+          node.graph = graph;
+        }
+      }
+    }
   }
 
   setParams(nodes, message = {}) {
@@ -6640,14 +6646,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
           safeRate,
         );
       },
-      impulseButton: (node, nodeId) => {
-        const state = this.impulseButtonStates.get(nodeId) || this.createImpulseButtonState();
-        this.impulseButtonStates.set(nodeId, state);
-        const pulseSamples = Math.max(0, Number(state.pulseSamples) || 0);
-        const amplitude = Math.max(0, Math.min(1, Number(state.amplitude ?? 1)));
-        state.pulseSamples = Math.max(0, pulseSamples - 1);
-        return { Pulse: pulseSamples > 0 ? amplitude : 0 };
-      },
       flowerChildEnvelopeFollower: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.flowerChildEnvelopeFollowerStates.get(nodeId) ||
           this.createFlowerChildEnvelopeFollowerState();
@@ -7243,6 +7241,19 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
           "Bipolar to Full Scale": Math.round(((bipolar + 1) / 2) * maxValue),
         };
       },
+      // Gain and Bias in one: scale, then offset. Mirror of the gainBias
+      // branch in modules/gainBias/gain-bias-live-evaluator.js -- sibling
+      // execution lanes, identical output for identical input.
+      gainBias: (node, nodeId, frame, frames, frameValues, mixInput) => {
+        const gainBiasAmount = this.readEffectiveParameter(node, "amount", 1, frame, frames, frameValues);
+        const gainBiasOffset = this.readEffectiveParameter(node, "offset", 0, frame, frames, frameValues);
+        const gainBiasMono = mixInput(nodeId);
+        return {
+          Out: gainBiasMono * gainBiasAmount + gainBiasOffset,
+          Left: (mixInput(nodeId, "Left") + gainBiasMono) * gainBiasAmount + gainBiasOffset,
+          Right: (mixInput(nodeId, "Right") + gainBiasMono) * gainBiasAmount + gainBiasOffset,
+        };
+      },
       bias: (node, nodeId, frame, frames, frameValues, mixInput) => {
         const biasOffset = this.readEffectiveParameter(node, "offset", 0, frame, frames, frameValues);
         const biasMono = mixInput(nodeId);
@@ -7290,10 +7301,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       valueSlider: (node, nodeId, frame, frames, frameValues) => {
         const offset = this.readEffectiveParameter(node, "offset", 0, frame, frames, frameValues);
         return { Bias: offset, Out: offset, offset };
-      },
-      macroKnob: (node, nodeId, frame, frames, frameValues) => {
-        const knobValue = this.readEffectiveParameter(node, "value", 0, frame, frames, frameValues);
-        return { Out: knobValue, value: knobValue };
       },
       sandboxVisuals: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const screenShake = this.smoothVisualControl(
@@ -7600,9 +7607,17 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
         const state = this.sincStates.get(nodeId) || this.createSincState();
         this.sincStates.set(nodeId, state);
         const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        const baseFreq = Math.max(0, read("freq", 100));
+        const referenceMidiNote = Number.isFinite(this.pitchReferenceMidiNote) ? this.pitchReferenceMidiNote : 48;
+        const referenceVoltage = referenceMidiNote / 120;
+        const pitchInput = this.inputConnections.has(this.inputKey(nodeId, "0.1V/Oct"))
+          ? this.clampValue(this.safeFilterNumber(mixInput(nodeId, "0.1V/Oct"), null), -1, 1)
+          : referenceVoltage;
         return this.sincSample(state, {
-          freq: read("freq", 100),
+          freq: Math.max(0, baseFreq * (2 ** ((pitchInput - referenceVoltage) / 0.1))),
           phase: read("phase", 0),
+          lobes: read("lobes", 4),
+          bandLimit: read("bandLimit", 1),
         }, nodeId);
       },
     };
@@ -7885,22 +7900,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
         : 0;
     };
     const graphSampleX = (node, nodeId) => {
-      const mode = Math.round(this.readEffectiveParameter(node, "mode", 0, frame, frames, frameValues));
-      if (mode <= 0) {
-        return mixInput(nodeId);
-      }
-      const rateValue = Math.max(0, this.readEffectiveParameter(node, "rate", 1, frame, frames, frameValues));
-      const phaseValue = this.readEffectiveParameter(node, "phase", 0, frame, frames, frameValues);
-      const state = this.graphLfoStates.get(nodeId) || this.createGraphLfoState();
-      this.graphLfoStates.set(nodeId, state);
-      const resetValue = 0;
-      const currentFrame = Number(inputFrame) || 0;
-      if (state.lastReset <= 0 && resetValue > 0) {
-        state.resetFrame = currentFrame;
-      }
-      state.lastReset = resetValue;
-      const resetFrame = Number.isFinite(state.resetFrame) ? state.resetFrame : 0;
-      return this.wrapValue(((currentFrame - resetFrame) / safeRate) * rateValue + phaseValue, 0, 1);
+      return this.wrapValue(this.readEffectiveParameter(node, "phase", 0, frame, frames, frameValues), 0, 1);
     };
     const graphOutputValue = (node, nodeId) => {
       const normalizedValue = this.graphValueAt(this.graphForNode(node), graphSampleX(node, nodeId), this.graphSmoothingModeForNode(node));
