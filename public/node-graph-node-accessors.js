@@ -2,11 +2,6 @@ function nodeGraphLabel(node, port) {
   return `${nodeGraphNodeDisplayName(node)}.${port}`;
 }
 
-function nodeGraphReadNumber(id) {
-  const value = Number(document.getElementById(id).value);
-  return Number.isFinite(value) ? value : 0;
-}
-
 function nodeGraphNodeSelector(node) {
   return `.dsp-node[data-node="${CSS.escape(node)}"]`;
 }

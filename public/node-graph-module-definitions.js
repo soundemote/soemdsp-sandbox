@@ -72,11 +72,10 @@ const nodeGraphNodeLabels = Object.freeze({
   fractalBrownianNoise: "Fractal Brownian Noise",
   clapPlugin: "CLAP Plugin",
   gain: "Gain",
+  gainBias: "Gain Bias",
   bias: "Bias",
   softClipper: "Soft Clipper",
   rotate3dTo2d: "Rotation 3D to 2D",
-  macroKnob: "Macro Knob",
-  bipolarKnob: "Bipolar Knob",
   valueSlider: "Value Slider",
   passiveFilter: "Passive Filter",
   cookbookFilter: "Multi Stage Filter",
@@ -114,7 +113,6 @@ const nodeGraphNodeLabels = Object.freeze({
   pluckEnvelope: "Pluck Envelope",
   vactrolEnvelopeSeries: "VTL5C",
   vactrolEnvelopeCustom: "Vactrol",
-  impulseButton: "Impulse Button",
   sandboxVisuals: "Screen Visuals",
   screenSpaceShader: "Screen Space Shader",
   bloomGlow: "Bloom & Glow",
@@ -129,7 +127,7 @@ const nodeGraphNodeLabels = Object.freeze({
   videoscope: "Videoscope",
   valueOscilloscope: "0D Value",
   numberReadout: "Number Readout",
-  lineBurnOscilloscope: "1D Burn",
+  lineBurnOscilloscope: "1D Burn Dot",
   scope2d: "2D Burn",
   scope2dTrace: "2D Trace",
   speakerProtection: "Speaker Protection",
@@ -247,10 +245,13 @@ const nodeGraphModuleDefinitions = Object.freeze({
     outputs: ["Out"],
     parameters: [
       { choices: ["Input", "LFO"], defaultValue: "0", displayChoices: true, divideChoicesVisibly: true, key: "mode", label: "Mode", linearSmoothing: false, max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "1" },
-      { choices: ["Linear", "Smooth", "Meander", "Quadratic Through", "Cubic Through"], defaultValue: "1", displayChoices: true, divideChoicesVisibly: true, key: "smoothingMode", label: "Smoothing", linearSmoothing: false, max: "4", mid: "2", min: "0", nonlinearSlider: false, step: "1" },
+      { choices: ["Linear", "Smooth", "Bezier", "Quadratic Through", "Cubic Through", "Catmull Rom"], defaultValue: "1", displayChoices: true, divideChoicesVisibly: true, key: "smoothingMode", label: "Smoothing", linearSmoothing: false, max: "5", mid: "2", min: "0", nonlinearSlider: false, step: "1" },
       { choices: ["Off", "On"], defaultValue: "0", displayChoices: true, divideChoicesVisibly: true, key: "lockEndpointY", label: "Lock Ends", linearSmoothing: false, max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "1" },
+      { defaultValue: "1", key: "tension", label: "Tension", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "0.01" },
       { defaultValue: "1", key: "rate", kind: "frequency", label: "Rate", max: "40", maxDigits: 5, mid: "1", min: "0", step: "any", unit: "Hz" },
       { defaultValue: "0", key: "phase", kind: "phase", label: "Phase", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "0.01", unit: "cycle", wraparound: true },
+      { defaultValue: "0", key: "inputMin", label: "In Min", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
+      { defaultValue: "1", key: "inputMax", label: "In Max", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
       { defaultValue: "0", key: "outputMin", label: "Out Min", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
       { defaultValue: "1", key: "outputMax", label: "Out Max", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
     ],
@@ -261,7 +262,13 @@ const nodeGraphModuleDefinitions = Object.freeze({
     parameters: [],
   },
   osc: {
-    displayType: "trace",
+    displayType: "lineBurn",
+    displayModes: [
+      { key: "lineBurn", renderer: "lineBurn", source: { value: "Wave Out" } },
+    ],
+    displaySignals: [
+      { key: "Wave Out", kind: "scalar" },
+    ],
     inputs: ["Reset", "0.1V/Oct", "Increment"],
     inputLabels: {
       "0.1V/Oct": "0.1V",
@@ -1723,6 +1730,9 @@ const nodeGraphModuleDefinitions = Object.freeze({
     ],
   },
   randomClock: {
+    // Trigger-rate module: the dot display reads far better than a trace
+    // for something that is mostly flat with an occasional pulse.
+    displayType: "dot",
     inputs: ["Reset"],
     outputs: ["Trigger", "Gate"],
     parameters: [
@@ -1736,6 +1746,9 @@ const nodeGraphModuleDefinitions = Object.freeze({
     ],
   },
   clockDivider: {
+    // Trigger-rate module: the dot display reads far better than a trace
+    // for something that is mostly flat with an occasional pulse.
+    displayType: "dot",
     inputs: ["Clock", "Reset"],
     outputs: ["Out"],
     parameters: [
@@ -1746,6 +1759,9 @@ const nodeGraphModuleDefinitions = Object.freeze({
     ],
   },
   delayedTrigger: {
+    // Trigger-rate module: the dot display reads far better than a trace
+    // for something that is mostly flat with an occasional pulse.
+    displayType: "dot",
     inputs: ["Trigger", "Reset"],
     outputs: ["Out"],
     parameters: [
@@ -1809,6 +1825,9 @@ const nodeGraphModuleDefinitions = Object.freeze({
     ],
   },
   triggerCounter: {
+    // Trigger-rate module: the dot display reads far better than a trace
+    // for something that is mostly flat with an occasional pulse.
+    displayType: "dot",
     inputs: ["Trigger", "Reset"],
     outputs: ["Count", "Pulse"],
     parameters: [
@@ -1866,6 +1885,9 @@ const nodeGraphModuleDefinitions = Object.freeze({
   // stepGrid registers its own definition from public/modules/stepGrid/
   // step-grid-register.js -- see node-graph-chromeless-module-registry.js.
   triggerDivider: {
+    // Trigger-rate module: the dot display reads far better than a trace
+    // for something that is mostly flat with an occasional pulse.
+    displayType: "dot",
     inputs: ["Trigger", "Reset"],
     outputs: ["Out"],
     parameters: [
@@ -1937,6 +1959,36 @@ const nodeGraphModuleDefinitions = Object.freeze({
         max: "3",
         mid: "1",
         min: "0",
+        nonlinearSlider: false,
+        step: "any",
+      },
+    ],
+  },
+  gainBias: {
+    inputAliases: { Mono: "In" },
+    inputLabels: { In: "Mono" },
+    inputs: ["In", "Left", "Right"],
+    outputAliases: { Mono: "Out" },
+    outputLabels: { Out: "Mono" },
+    outputs: ["Out", "Left", "Right"],
+    parameters: [
+      {
+        defaultValue: "1",
+        key: "amount",
+        label: "Amplitude",
+        max: "3",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+      },
+      {
+        defaultValue: "0",
+        key: "offset",
+        label: "Offset",
+        max: "1",
+        mid: "0",
+        min: "-1",
         nonlinearSlider: false,
         step: "any",
       },
@@ -2016,38 +2068,6 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { defaultValue: "0", key: "rotateX", kind: "phase", label: "Rotate X", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "0.01", unit: "cycle", wraparound: true },
       { defaultValue: "0", key: "rotateY", kind: "phase", label: "Rotate Y", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "0.01", unit: "cycle", wraparound: true },
       { defaultValue: "0", key: "rotateZ", kind: "phase", label: "Rotate Z", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "0.01", unit: "cycle", wraparound: true },
-    ],
-  },
-  macroKnob: {
-    layout: "knobWidget",
-    outputs: [],
-    parameters: [
-      {
-        defaultValue: "0",
-        key: "value",
-        label: "Value",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        nonlinearSlider: false,
-        step: "any",
-      },
-    ],
-  },
-  bipolarKnob: {
-    layout: "knobWidget",
-    outputs: [],
-    parameters: [
-      {
-        defaultValue: "0",
-        key: "value",
-        label: "Value",
-        max: "1",
-        mid: "0",
-        min: "-1",
-        nonlinearSlider: false,
-        step: "any",
-      },
     ],
   },
   valueSlider: {
@@ -3048,15 +3068,6 @@ const nodeGraphModuleDefinitions = Object.freeze({
       },
     ],
   },
-  impulseButton: {
-    layout: "buttonWidget",
-    outputs: ["Pulse"],
-    parameters: [
-      {
-        defaultValue: "1", key: "amplitude", label: "Amplitude", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any",
-      },
-    ],
-  },
   flowerChildEnvelopeFollower: {
     inputs: ["In"],
     outputs: ["Out"],
@@ -3332,6 +3343,7 @@ const nodeGraphModuleDefinitions = Object.freeze({
         step: "1",
       },
       { key: "columns", label: "Columns", defaultValue: "200", min: "16", mid: "200", max: "512", step: "1" },
+      { key: "brightness", label: "Brightness", defaultValue: "1", min: "0.1", mid: "1", max: "2", step: "0.01", maxDigits: 4 },
     ],
     visualInputs: [
       { key: "videoscopeA", label: "A", port: "A" },
@@ -3540,6 +3552,29 @@ const nodeGraphModuleDefinitions = Object.freeze({
         step: "any",
         unit: "Hz",
       },
+      {
+        defaultValue: "4",
+        key: "lobes",
+        kind: "count",
+        label: "Lobes",
+        max: "16",
+        min: "1",
+        step: "1",
+      },
+      {
+        choices: ["Ideal", "Band Limit"],
+        defaultValue: "1",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "bandLimit",
+        label: "Kernel",
+        linearSmoothing: false,
+        max: "1",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+      },
     ],
   },
   // Chromeless / fully-custom-UI modules (stepGrid, led, ...) register
@@ -3575,9 +3610,14 @@ const nodeGraphModuleLayout = Object.freeze({
   fitCushionGu: 2 / 28,
   headerHeightGu: 76 / 28,
   headerTitleRowHeightGu: 22 / 28,
-  ioPaddingYGu: 4 / 28,
+  /* The io section renders with `padding: var(--node-io-section-padding-block) 0`
+     and that var is 0 (styles.css) -- the old 4px here was phantom height. */
+  ioPaddingYGu: 0,
   ioRowGapGu: 1 / 28,
-  ioRowHeightGu: 16 / 28,
+  /* .node-io-row is `font-size: 0.84rem; line-height: 1` with no padding, so a
+     row is exactly 13.44px tall. The old 16px over-reported every io section by
+     ~2.5px per port, which pushed many modules a whole grid unit too tall. */
+  ioRowHeightGu: 13.44 / 28,
   ioSectionMinHeightGu: 24 / 28,
   moduleGridInsetGu: 6 / 28,
   moduleScopeHeightGu: 2,
@@ -3688,7 +3728,6 @@ function nodeGraphModuleProducesOutputWithoutSignalInput(type) {
     "chuaAttractor",
     "lutCell",
     "ellipsoid",
-    "macroKnob",
     "macroControls",
     "midiNotePitch",
     "midiOut",
@@ -3697,7 +3736,6 @@ function nodeGraphModuleProducesOutputWithoutSignalInput(type) {
     "osc",
     "phosphillator",
     "pitchModWheel",
-    "bipolarKnob",
     "additiveOsc",
     "gpuAdditiveOsc",
     "helmholtzPitch",

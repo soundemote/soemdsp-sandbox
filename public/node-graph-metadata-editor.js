@@ -19,6 +19,20 @@ function positionNodeMetadataPopover(popover, x, y, remember = false) {
   if (!popover) {
     return;
   }
+  // Right-clicking another slider while this popover is already open and
+  // already at its saved spot changes nothing on screen -- glow instead of
+  // looking like a dead click. Shared with every other floating window; see
+  // positionNodeGraphFloatingWindowWithAttention.
+  if (typeof positionNodeGraphFloatingWindowWithAttention === "function") {
+    positionNodeGraphFloatingWindowWithAttention(popover, () => {
+      applyNodeMetadataPopoverPosition(popover, x, y, remember);
+    });
+    return;
+  }
+  applyNodeMetadataPopoverPosition(popover, x, y, remember);
+}
+
+function applyNodeMetadataPopoverPosition(popover, x, y, remember = false) {
   popover.hidden = false;
   const rect = popover?.getBoundingClientRect?.();
   const { left, top } = nodeGraphFloatingWindowPosition(popover, x, y, {
@@ -2049,12 +2063,7 @@ async function pasteNodeMetadataScriptSource() {
 }
 
 function downloadNodeMetadataScriptSource(filename, source) {
-  const link = document.createElement("a");
-  const blob = new Blob([source], { type: "text/plain;charset=utf-8" });
-  link.href = URL.createObjectURL(blob);
-  link.download = filename;
-  link.click();
-  window.setTimeout(() => URL.revokeObjectURL(link.href), 0);
+  nodeGraphDownloadTextFile(filename, source);
 }
 
 async function exportNodeMetadataScriptToDesktop() {

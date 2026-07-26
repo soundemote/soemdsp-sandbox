@@ -169,6 +169,19 @@ function initializeNodeGraphRenderedPlayer() {
       els.audio.pause();
     }
   });
+  // Playback level for the rendered sample only -- this is the hidden <audio>
+  // element's own volume, entirely separate from the live engine's master
+  // (nodeLiveOutputVolume), so muting a render never silences the patch.
+  if (typeof bindNodeGraphVolumeSlider === "function") {
+    bindNodeGraphVolumeSlider(
+      "nodeRenderedPlayerVolume",
+      "nodeRenderedPlayerVolumeValue",
+      (value) => {
+        els.audio.volume = value;
+      },
+      Number.isFinite(els.audio.volume) ? els.audio.volume : 1,
+    );
+  }
   let seeking = false;
   els.wave?.addEventListener("pointerdown", (event) => {
     if (event.button > 0) return;

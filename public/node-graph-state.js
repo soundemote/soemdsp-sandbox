@@ -51,7 +51,12 @@ var nodeGraphMvp = {
   wireDragging: null,
   monitors: [],
   pan: { x: 0, y: 0 },
-  gridVisible: false,
+  // Header MIDI live toggle (see toggleNodeGraphMidiInput). Off by default --
+  // turning it on is what triggers the browser's Web MIDI permission prompt.
+  midiInputEnabled: false,
+  // Grid on by default -- a fresh profile, and anything reset by Clear
+  // Startup, should come up showing the workspace grid.
+  gridVisible: true,
   macroControls: new Array(10).fill(0),
   macroKnobArcThickness: 7,
   macroKnobArcGapBrightness: 0,
@@ -60,9 +65,10 @@ var nodeGraphMvp = {
   macroKnobLabelPosition: "top",
   macroKnobValuePosition: "bottom",
   sliderLayout: "text-inside",
-  sliderAmountVisible: false,
+  // Amount fill on by default, and restored by Clear Startup (see
+  // clearNodeUserStartupRuntimeState).
+  sliderAmountVisible: true,
   sliderPositionVisible: true,
-  hideMouseWhileDragging: true,
   midiKeyboardSignal: null,
   midiKeyboardAccess: null,
   midiKeyboardHeldKeysLowBitmask: 0,
@@ -92,6 +98,12 @@ var nodeGraphMvp = {
     micStatus: "off",
     inputStreamFactory: null,
     inputSource: null,
+    // User-facing input level (0..1) and the gain node that applies it. The
+    // node is rebuilt with the input stream; the number outlives it, so
+    // re-arming the mic keeps the level you set. See
+    // setNodeGraphLiveInputVolume.
+    inputVolume: 1,
+    inputVolumeGain: null,
     inputStatus: "off",
     inputStream: null,
     lastEvidence: null,
@@ -102,6 +114,11 @@ var nodeGraphMvp = {
     node: null,
     outputEnabled: false,
     outputGain: null,
+    // Master live level (0..1) and whether the safety/mute path currently
+    // holds output at zero. Both feed nodeGraphLiveOutputTargetGain, which is
+    // the only thing allowed to write outputGain.gain.
+    outputMuted: false,
+    outputVolume: 1,
     speedMultiplier: 1,
     planEvidence: null,
     activeNodeIds: new Set(),
@@ -140,6 +157,10 @@ var nodeGraphMvp = {
   moduleCatalogVisibility: defaultNodeGraphModuleCatalogVisibility(),
   workspaceWindowStates: {},
   keyboardDebugInfoVisible: false,
+  // Tips rendered in-flow next to the CPU/RAM/GPU guide rather than in the
+  // floating tips window. WHERE the tips are, not whether they are shown -
+  // that stays the Hide/Show Tooltips toggle in both modes.
+  tooltipEmbedded: false,
   modularOnlyControlsVisible: false,
   moduleButtonsVisible: false,
   moduleDefaultOverrides: {},
@@ -162,6 +183,11 @@ var nodeGraphMvp = {
   traceSettings: normalizeNodeGraphTraceDisplaySettings(),
   scopeBloomEnabled: false,
   moduleStoreDepartment: "",
+  // The last category the user actually CLICKED, as opposed to whatever page
+  // the browser happens to be showing (a search shows results across every
+  // category). Re-opening the browser returns here -- see
+  // openNodeGraphModuleShop.
+  moduleStoreDepartmentAnchor: "",
   moduleStoreDepartmentSearch: "",
   sampleBuffers: new Map(),
   sampleLoadErrors: new Map(),
@@ -183,7 +209,6 @@ var nodeGraphMvp = {
     badvalMonitor: 0,
     bandpass: 0,
     bias: 1,
-    bipolarKnob: 0,
     bloomGlow: 0,
     chromaColor: 0,
     buttonEvents: 0,
@@ -229,7 +254,6 @@ var nodeGraphMvp = {
     logisticMap: 0,
     lorenzAttractor: 0,
     lowpass: 0,
-    macroKnob: 0,
     midiNotePitch: 0,
     midiOut: 0,
     nextPatch: 0,
@@ -254,7 +278,6 @@ var nodeGraphMvp = {
     valueSlider: 0,
     vactrolEnvelopeSeries: 0,
     vactrolEnvelopeCustom: 0,
-    impulseButton: 0,
   },
   patch: cloneNodeGraphPatch(nodeGraphDefaultPatch),
   patchDirtyState: "untouched",

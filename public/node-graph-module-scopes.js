@@ -1630,9 +1630,9 @@ function nodeGraphModuleScopeNodeForSlot(slot) {
     .find((node) => node.id === slot?.nodeId) || null;
 }
 
+// Name kept as-is: scripts/smoke_test.py asserts it exists.
 function nodeGraphModuleScopeNodeParam(node, key, fallback) {
-  const value = Number(node?.params?.[key]);
-  return Number.isFinite(value) ? value : fallback;
+  return nodeGraphNodeParamNumber(node, key, fallback);
 }
 
 function nodeGraphModuleScopeAdvanceFixedFrameClock(state, now, fps) {
@@ -1851,7 +1851,7 @@ function nodeGraphModuleScopeOfflineSourceFrequency(nodeId, nodeMap = nodeGraphM
   if (node.type === "clock") {
     return Math.max(0, nodeGraphModuleScopeNodeParam(node, "rate", 0));
   }
-  if (node.type === "gain" || node.type === "bias") {
+  if (node.type === "gain" || node.type === "bias" || node.type === "gainBias") {
     return Math.max(
       0,
       ...nodeGraphModuleScopeConnectionsTo(node.id, "In")
@@ -1990,25 +1990,33 @@ function nodeGraphModuleScopeOfflineSignalSample(context, nodeId, localTime, sam
   if (node.type === "bias") {
     return input + nodeGraphModuleScopeNodeParam(node, "offset", 0);
   }
+  if (node.type === "gainBias") {
+    return input * nodeGraphModuleScopeNodeParam(node, "amount", 1) +
+      nodeGraphModuleScopeNodeParam(node, "offset", 0);
+  }
   return 0;
 }
 
+// Matches LFO/basic_oscillator waveform indices:
+// 0 Saw, 1 Ramp, 2 Square, 3 Triangle, 4 Sine, 5 Noise.
 function nodeGraphModuleScopeOfflineOscillatorSample(waveform, phaseCycle) {
   const cycle = wrapNodeSliderValue(phaseCycle, 0, 1);
   switch (Math.round(Number(waveform) || 0)) {
-    case 1:
+    case 1: // Ramp
+      return -1 + cycle * 2;
+    case 2: // Square
       return cycle < 0.5 ? 1 : -1;
-    case 2:
-      return cycle < 0.5 ? (cycle * 4 - 1) : (3 - cycle * 4);
-    case 3:
+    case 3: // Triangle
+      return 1 - 4 * Math.abs(cycle - 0.5);
+    case 4: // Sine
       return Math.sin(cycle * Math.PI * 2);
-    case 4:
+    case 5: // Noise (deterministic-ish hash of phase for offline scope)
       return Math.tanh(
         Math.sin((cycle * 17.13 + 0.17) * Math.PI * 2) * 0.62 +
         Math.sin((cycle * 37.71 + 0.41) * Math.PI * 2) * 0.38 +
         Math.sin((cycle * 73.19 + 0.73) * Math.PI * 2) * 0.24,
       );
-    case 0:
+    case 0: // Saw
     default:
       return 1 - cycle * 2;
   }
@@ -2682,7 +2690,7 @@ function nodeGraphTraceDisplaySettingsEditingTraceDefaults() {
   return nodeGraphModuleDisplaySettingsSchemaForNode(node) === "trace" && node?.type !== "output";
 }
 
-const nodeGraphDisplayModeRenderers = Object.freeze(["trace", "clock", "dot", "value", "lineBurn", "hypersawBurn", "oscilloscopeBankBurn", "videoscopeBurn", "spectrogramBurn", "transportBpm", "scope2d", "scope2dTrace", "numberReadout", "customDisplay", "spectrum"]);
+const nodeGraphDisplayModeRenderers = Object.freeze(["trace", "clock", "dot", "value", "lineBurn", "hypersawBurn", "oscilloscopeBankBurn", "videoscopeBurn", "spectrogramBurn", "transportBpm", "scope2d", "scope2dTrace", "numberReadout", "customDisplay", "spectrum", "ledLamp"]);
 const nodeGraphDisplayModeSignalKinds = Object.freeze(["scalar", "xy", "buffer"]);
 
 function nodeGraphDisplayModeSettingsSchemaForRenderer(renderer) {
@@ -2712,7 +2720,10 @@ function nodeGraphModuleOutputPortsForType(type) {
 
 function nodeGraphModuleDefaultScalarDisplayPort(type) {
   const outputs = nodeGraphModuleOutputPortsForType(type);
+  // Prefer the selected-waveform port used by LFO/PolyBLEP/BLIT (Wave Out)
+  // before falling back to a fixed shape port like Saw.
   return outputs.find((port) => port === "Out") ||
+    outputs.find((port) => port === "Wave Out") ||
     outputs.find((port) => port === "Mono") ||
     outputs.find((port) => port === "Wave") ||
     outputs[0] ||
@@ -8482,6 +8493,11 @@ function nodeGraphOscilloscopeLatestSample(buffer, fallback = 0) {
   return fallback;
 }
 
+// The beam fragment shader converts its uSize uniform into a core radius via
+// `radius = max(uSize * 0.34, 0.0001)`. Callers that want a specific on-screen
+// radius have to divide by this; keep the two in step.
+const NODE_GRAPH_BEAM_SIZE_TO_RADIUS = 0.34;
+
 function drawNodeGraphOscilloscopeBeam(renderer, item, pixelRatio, x1, y1, x2, y2, options = {}) {
   const { canvas, gl } = renderer;
   const clipRect = nodeGraphModuleScopeClippedPixelRect(
@@ -8546,7 +8562,21 @@ function drawNodeGraphDotOscilloscopeItem(renderer, item, pixelRatio) {
   const centerX = square.left + square.width * 0.5;
   const centerY = square.top + square.height * 0.5;
   const dotSpace = Math.min(square.width, square.height);
-  const innerThickness = Math.max(0, dotSpace * clampNodeSliderValue(settings.dot1Size, 0, 1));
+  // The beam shader turns uSize into a core RADIUS of uSize * 0.34 (see the
+  // beam fragment shader: `radius = max(uSize * 0.34, 0.0001)`), so passing
+  // the square's side straight through as the thickness lit a disc only about
+  // 0.68 of the side across -- Dot size 1 visibly failed to fill the display.
+  //
+  // Size 1 = the INSCRIBED circle: radius on the half-side, so the disc is
+  // exactly as wide as the display and just touches all four edges. Going
+  // further (out to the half-diagonal, which would light the corners too)
+  // only buys those corners at the cost of the scissor slicing flat chords
+  // off the disc, which reads as harsh clipping rather than a bigger dot.
+  const halfSide = dotSpace * 0.5;
+  const innerThickness = Math.max(
+    0,
+    (clampNodeSliderValue(settings.dot1Size, 0, 1) * halfSide) / NODE_GRAPH_BEAM_SIZE_TO_RADIUS,
+  );
   const dotHalfLength = 0.01;
   if (settings.dot1Enabled !== false && settings.dot1Brightness > 0 && innerThickness > 0) {
     drawNodeGraphOscilloscopeBeam(renderer, item, pixelRatio, centerX - dotHalfLength, centerY, centerX + dotHalfLength, centerY, {
@@ -10538,6 +10568,7 @@ const nodeGraphModuleScopeCustomRenderers = {
   // public/modules/oscilloscopeBank/oscilloscope-bank-display.js
   // videoscopeBurn self-registers from
   // public/modules/videoscope/videoscope-display.js
+  // ledLamp self-registers from public/modules/led/led-display.js
 };
 
 function drawNodeGraphModuleScopeTypedItem(renderer, item, pixelRatio) {

@@ -41,15 +41,37 @@ function evaluateNodeGraphPlanFrame(runtime, sampleRate, frame, frames) {
   };
   const hasInput = (nodeId, port) => runtime.inputConnections.has(`${nodeId}.${port}`);
 
+  // Map a raw control input from [inputMin, inputMax] into the graph's unit
+  // domain [0, 1]. Equal endpoints fall back to 0 so a zero-width range does
+  // not produce NaN; the result is not clamped so wrap/phase can still loop.
+  const graphMapInputToUnit = (raw, inputMin, inputMax) => {
+    const min = Number(inputMin);
+    const max = Number(inputMax);
+    const lo = Number.isFinite(min) ? min : 0;
+    const hi = Number.isFinite(max) ? max : 1;
+    const span = hi - lo;
+    if (Math.abs(span) < 1e-12) {
+      return 0;
+    }
+    return ((Number(raw) || 0) - lo) / span;
+  };
   const graphSampleX = (node, nodeId) => {
     const mode = Math.round(readNodeGraphLiveEffectiveParam(runtime, node, "mode", 0, frame, frames, frameValues));
+    const phase = readNodeGraphLiveEffectiveParam(runtime, node, "phase", 0, frame, frames, frameValues);
+    // Phase is always a pure time/position offset: the curve shape is unchanged
+    // and we simply start reading at phase (wraps through the same loop).
     if (mode <= 0) {
-      return mixInput(nodeId);
+      const inputMin = readNodeGraphLiveEffectiveParam(runtime, node, "inputMin", 0, frame, frames, frameValues);
+      const inputMax = readNodeGraphLiveEffectiveParam(runtime, node, "inputMax", 1, frame, frames, frameValues);
+      return wrapNodeSliderValue(
+        graphMapInputToUnit(mixInput(nodeId), inputMin, inputMax) + phase,
+        0,
+        1,
+      );
     }
     const safeRate = Math.max(1, Number(sampleRate) || nodeGraphMvp.sampleRate || 44100);
     const absoluteFrame = Number.isFinite(runtime.absoluteFrame) ? runtime.absoluteFrame : frame;
     const rate = Math.max(0, readNodeGraphLiveEffectiveParam(runtime, node, "rate", 1, frame, frames, frameValues));
-    const phase = readNodeGraphLiveEffectiveParam(runtime, node, "phase", 0, frame, frames, frameValues);
     const state = runtime.graphLfoStates.get(nodeId) || createNodeGraphGraphLfoState();
     runtime.graphLfoStates.set(nodeId, state);
     const resetValue = 0;
@@ -61,14 +83,22 @@ function evaluateNodeGraphPlanFrame(runtime, sampleRate, frame, frames) {
     return wrapNodeSliderValue(((absoluteFrame - resetFrame) / safeRate) * rate + phase, 0, 1);
   };
   const graphOutputValue = (node, nodeId) => {
+    const sampleX = graphSampleX(node, nodeId);
+    const nodeTension = Number(node?.params?.tension) ?? 1;
     const normalizedValue = nodeGraphGraphValueAt(
       nodeGraphGraphForNode(node),
-      graphSampleX(node, nodeId),
+      sampleX,
       nodeGraphGraphSmoothingModeForNode(node),
+      nodeTension,
     );
     const outputMin = readNodeGraphLiveEffectiveParam(runtime, node, "outputMin", 0, frame, frames, frameValues);
     const outputMax = readNodeGraphLiveEffectiveParam(runtime, node, "outputMax", 1, frame, frames, frameValues);
-    return outputMin + normalizedValue * (outputMax - outputMin);
+    return {
+      Out: outputMin + normalizedValue * (outputMax - outputMin),
+      // Live playhead on the graph editor reads this port (see
+      // syncNodeGraphGraphLivePlayheads) so Rate/Phase show motion.
+      __GraphPhase: sampleX,
+    };
   };
   const graphInputValue = (nodeId, graphInput, x, fallback) => {
     const connection = (runtime.graphInputConnections?.get(nodeGraphGraphInputKey(nodeId, graphInput)) || [])[0];
@@ -80,6 +110,7 @@ function evaluateNodeGraphPlanFrame(runtime, sampleRate, frame, frames) {
       nodeGraphGraphForNode(source),
       clampNodeSliderValue(Number(x) || 0, 0, 1),
       nodeGraphGraphSmoothingModeForNode(source),
+      Number(source?.params?.tension) ?? 1,
     );
   };
 

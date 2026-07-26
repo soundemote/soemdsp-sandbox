@@ -86,6 +86,38 @@ function nodeGraphClampUnit(value) {
   return Math.max(0, Math.min(1, value));
 }
 
+// Shared device-pixel sizing for the module display canvases (filter curve,
+// pulse curve, phosphillator draw, phosphor waveform). All four had an
+// identical copy of this block: measure the section in CSS pixels, scale by
+// devicePixelRatio, resize the backing store only when it actually changed
+// (assigning canvas.width/height clears the canvas, so an unconditional
+// assignment would wipe the frame every draw).
+//
+// Returns both coordinate systems because the callers differ: most draw in
+// CSS pixels with a setTransform(pixelRatio, ...), while the phosphor
+// waveform draws in raw device pixels so it can snap lines to real pixels.
+// Returns null when there is nothing to draw into.
+function nodeGraphSizeDisplayCanvas(section, canvas) {
+  if (!section || !canvas) {
+    return null;
+  }
+  const rect = section.getBoundingClientRect();
+  const pixelRatio = window.devicePixelRatio || 1;
+  const zoom = Math.max(0.01, Number(nodeGraphMvp?.zoom) || 1);
+  const cssWidth = Math.max(1, Number(section.clientWidth || section.offsetWidth || 0) || rect.width / zoom);
+  const cssHeight = Math.max(1, Number(section.clientHeight || section.offsetHeight || 0) || rect.height / zoom);
+  const width = Math.max(1, Math.round(cssWidth * pixelRatio));
+  const height = Math.max(1, Math.round(cssHeight * pixelRatio));
+  if (canvas.width !== width) {
+    canvas.width = width;
+  }
+  if (canvas.height !== height) {
+    canvas.height = height;
+  }
+  const context = canvas.getContext("2d");
+  return context ? { context, cssHeight, cssWidth, height, pixelRatio, width } : null;
+}
+
 function nodeGraphHslToHex(background = {}) {
   const h = ((Number(background.h) || 0) % 360 + 360) % 360;
   const s = nodeGraphClampUnit((Number(background.s) || 0) / 100);

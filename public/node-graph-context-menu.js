@@ -43,21 +43,9 @@ const nodeModuleActionsWindowDefaultSize = Object.freeze({
   maxHeight: 820,
 });
 
-function pulseNodeGraphFloatingWindowAttention(element) {
-  if (!element) {
-    return false;
-  }
-  if (typeof triggerNodeGraphWindowReopenEvent === "function") {
-    triggerNodeGraphWindowReopenEvent(element.id || element.dataset?.windowKey || "floating-window");
-  }
-  element.classList.remove("node-floating-window-attention");
-  void element.offsetWidth;
-  element.classList.add("node-floating-window-attention");
-  window.setTimeout(() => {
-    element.classList.remove("node-floating-window-attention");
-  }, 1050);
-  return true;
-}
+// pulseNodeGraphFloatingWindowAttention moved to node-graph-floating-windows.js
+// -- it is used by six different windows, so it belongs with the rest of the
+// shared floating-window subsystem rather than in the context menu.
 
 function normalizeNodeSceneContextWindowSize(size = {}) {
   const normalized = normalizeNodeGraphFloatingWindowSize(size, nodeSceneContextWindowDefaultSize);
@@ -396,6 +384,18 @@ function positionNodeSceneContextMenuAtSavedOr(menu, x, y) {
 }
 
 function positionNodeModuleActionsWindowAtSavedOr(menu, x, y) {
+  // Glow when re-opening changes nothing on screen -- shared behaviour, see
+  // positionNodeGraphFloatingWindowWithAttention.
+  if (typeof positionNodeGraphFloatingWindowWithAttention === "function") {
+    positionNodeGraphFloatingWindowWithAttention(menu, () => {
+      applyNodeModuleActionsWindowSavedOrPosition(menu, x, y);
+    });
+    return;
+  }
+  applyNodeModuleActionsWindowSavedOrPosition(menu, x, y);
+}
+
+function applyNodeModuleActionsWindowSavedOrPosition(menu, x, y) {
   const sharedInspectorState = typeof normalizeNodeGraphSharedInspectorWindowState === "function"
     ? normalizeNodeGraphSharedInspectorWindowState(nodeGraphMvp.sharedInspectorWindowState, nodeGraphMvp.workspaceWindowStates)
     : (nodeGraphMvp.sharedInspectorWindowState || {});
@@ -413,6 +413,16 @@ function positionNodeModuleActionsWindowAtSavedOr(menu, x, y) {
 }
 
 function positionNodeScopeContextMenuAtSavedOr(menu, x, y) {
+  if (typeof positionNodeGraphFloatingWindowWithAttention === "function") {
+    positionNodeGraphFloatingWindowWithAttention(menu, () => {
+      applyNodeScopeContextMenuSavedOrPosition(menu, x, y);
+    });
+    return;
+  }
+  applyNodeScopeContextMenuSavedOrPosition(menu, x, y);
+}
+
+function applyNodeScopeContextMenuSavedOrPosition(menu, x, y) {
   const savedPosition = nodeGraphMvp.scopeContextWindowPosition;
   const hasSavedPosition =
     Number.isFinite(Number(savedPosition?.left)) &&
@@ -429,6 +439,16 @@ function positionNodeScopeContextMenuAtSavedOr(menu, x, y) {
 }
 
 function positionNodeGlobalScopeMenuAtSavedOr(menu, x, y) {
+  if (typeof positionNodeGraphFloatingWindowWithAttention === "function") {
+    positionNodeGraphFloatingWindowWithAttention(menu, () => {
+      applyNodeGlobalScopeMenuSavedOrPosition(menu, x, y);
+    });
+    return;
+  }
+  applyNodeGlobalScopeMenuSavedOrPosition(menu, x, y);
+}
+
+function applyNodeGlobalScopeMenuSavedOrPosition(menu, x, y) {
   const workspaceState = nodeGraphMvp.workspaceWindowStates?.oscilloscopeSettings;
   const savedPosition = workspaceState?.position || nodeGraphMvp.globalScopeWindowPosition;
   const hasSavedPosition =
@@ -624,6 +644,7 @@ const nodeGraphModuleActionControlIds = [
   "nodeSceneAddToUi",
   "nodeSceneWireTypeControl",
   "nodeSceneAliasControl",
+  "nodeSceneAddToGroup",
   "nodeSceneWidthControls",
   "nodeSceneTextBoxTextSizeControls",
   "nodeSceneTextBoxHeightControls",
@@ -857,6 +878,7 @@ function configureNodeSceneContextMenu(mode) {
   const wireTypeButtons = [...wireTypeControl.querySelectorAll("[data-wire-type]")];
   const aliasControl = document.getElementById("nodeSceneAliasControl");
   const aliasInput = document.getElementById("nodeSceneAliasInput");
+  const addToGroupButton = document.getElementById("nodeSceneAddToGroup");
   const widthControls = document.getElementById("nodeSceneWidthControls");
   const widthDecrease = document.getElementById("nodeSceneWidthDecrease");
   const widthIncrease = document.getElementById("nodeSceneWidthIncrease");
@@ -980,6 +1002,7 @@ function configureNodeSceneContextMenu(mode) {
     : nodeGraphModuleSizingCapabilities("");
   const targetSupportsWidth = targetSizingCapabilities.width;
   const targetSupportsTextBoxHeight = targetSizingCapabilities.moduleHeight === "textBox";
+  const targetSupportsModuleHeight = ["custom", "textBox"].includes(targetSizingCapabilities.moduleHeight);
   const targetSupportsDisplayHeight = targetSizingCapabilities.displayHeight;
   const targetNodeDisabled = targetNode
     ? targetNode.id === "output"
@@ -1034,6 +1057,17 @@ function configureNodeSceneContextMenu(mode) {
     setNodeGraphModuleActionControlsHidden(false);
   }
   copyButton.hidden = !moduleMode;
+  if (addToGroupButton) {
+    // Grouping selected modules isn't built yet (see
+    // saveNodeGraphSelectionAsModuleGroup's early return in
+    // node-graph-module-actions.js) -- the button is shown alongside the
+    // other Module Settings actions, matching where it'll live once the
+    // feature ships, but stays permanently disabled with an explanatory
+    // tooltip rather than being hidden entirely.
+    addToGroupButton.hidden = !moduleMode;
+    addToGroupButton.disabled = true;
+    addToGroupButton.title = "Add to group under construction. Module grouping is under construction.";
+  }
   if (moduleSettingsActionGroup) {
     moduleSettingsActionGroup.hidden = !moduleMode || multiModuleMode;
   }
@@ -1178,18 +1212,21 @@ function configureNodeSceneContextMenu(mode) {
       decreaseTitle: nodeGraphTooltipText("actions.textBoxTextSizeDecrease"),
       increaseTitle: nodeGraphTooltipText("actions.textBoxTextSizeIncrease"),
     });
-    const textBoxHeightGu = targetSupportsTextBoxHeight ? nodeGraphPatchNodeGridHeightUnits(targetNode) : 0;
+    const moduleHeightGu = targetSupportsModuleHeight ? nodeGraphPatchNodeGridHeightUnits(targetNode) : 0;
+    const moduleHeightLimits = targetSupportsTextBoxHeight
+      ? nodeGraphTextBoxHeightLimits
+      : nodeGraphModuleHeightLimitsForType(targetNode?.type);
     configureNodeGraphModuleSettingsSizeRow({
       controls: textBoxHeightControls,
       decreaseButton: textBoxHeightDecrease,
       increaseButton: textBoxHeightIncrease,
       valueElement: textBoxHeightValue,
-      hidden: !(moduleMode && !multiModuleMode && targetSupportsTextBoxHeight),
-      value: `${textBoxHeightGu} gu`,
-      decreaseDisabled: !targetNode || !targetSupportsTextBoxHeight || textBoxHeightGu <= nodeGraphTextBoxHeightLimits.minGu,
-      increaseDisabled: !targetNode || !targetSupportsTextBoxHeight || textBoxHeightGu >= nodeGraphTextBoxHeightLimits.maxGu,
-      decreaseTitle: nodeGraphTooltipText("actions.textBoxHeightDecrease"),
-      increaseTitle: nodeGraphTooltipText("actions.textBoxHeightIncrease"),
+      hidden: !(moduleMode && !multiModuleMode && targetSupportsModuleHeight),
+      value: `${moduleHeightGu} gu`,
+      decreaseDisabled: !targetNode || !targetSupportsModuleHeight || moduleHeightGu <= moduleHeightLimits.minGu,
+      increaseDisabled: !targetNode || !targetSupportsModuleHeight || moduleHeightGu >= moduleHeightLimits.maxGu,
+      decreaseTitle: "Decrease this module's height.",
+      increaseTitle: "Increase this module's height.",
     });
     toggleModuleEnabledButton.disabled = !targetNode;
     toggleModuleEnabledButton.querySelector("span").textContent = targetNodeDisabled ? "Enable module" : "Disable module";
@@ -1509,6 +1546,12 @@ function openNodeScopeContextMenu(event) {
   nodeGraphMvp.sceneContextTargetNode = null;
   nodeGraphMvp.sceneContextTargetWire = null;
   nodeGraphMvp.scopeContextTargetNode = nodeId;
+  // LED owns its display outright (colour ramp, blur, corner shape) and has
+  // no trace/dot settings to show, so it gets its own window instead of the
+  // shared trace-display one.
+  if (typeof openNodeGraphLedSettings === "function" && openNodeGraphLedSettings(nodeId, event)) {
+    return true;
+  }
   if (typeof openNodeGraphTraceDisplaySettings === "function" && openNodeGraphTraceDisplaySettings(nodeId, event)) {
     return true;
   }
@@ -1543,7 +1586,7 @@ const nodeGraphWorkspaceInteractiveDialogSelector =
   "input, textarea, select, option, [contenteditable='true'], " +
   "#nodeSceneContextMenu, #nodeParameterMetadataPopover, #nodeGlobalScopeMenu, " +
   "#nodeModuleActionsWindow, #nodeCodeBoxWindow, #nodeShaderScriptDialog, #nodeCanvasScriptDialog, #nodeSavedPatchesWindow, " +
-  "#nodePhosphorWaveformSettingsWindow";
+  "#nodePhosphorWaveformSettingsWindow, #nodeLedSettingsWindow";
 const nodeGraphWorkspaceOccupiedElementSelector =
   ".node-wire-hit-path, .node-wire-path, .dsp-node, .node-port, .node-param-port, .node-slider-readout";
 
@@ -1646,17 +1689,32 @@ function openNodeSceneContextMenu(event) {
   nodeGraphMvp.sceneContextTargetNode = null;
   nodeGraphMvp.sceneContextTargetWire = null;
   clearNodeGraphSelection();
-  // Right-click on empty canvas always opens/repositions Command Center --
-  // it used to divert to opening the Module Browser instead when Command
-  // Center was already open, which was surprising (a second right-click
-  // should reposition the menu you already have, not switch to a
-  // different window). That change dropped the attention-pulse glow that
-  // used to accompany right-click along with it -- restored here so every
-  // right-click (open or reposition) glows the window, not just a
-  // conditional "already open" case.
+  // Right-click on empty canvas opens the Module Browser at the pointer --
+  // adding a module is what you want the instant you right-click empty
+  // canvas, and the browser already spawns whatever you pick at
+  // nodeGraphMvp.sceneContextPoint. Command Center moved to the toolbar's
+  // rocket button and the "C" hotkey (openNodeGraphCommandCenter below).
+  // openNodeGraphModuleShop pulses the attention glow itself when the
+  // window is already open, so a second right-click still glows.
+  openNodeGraphModuleShop(nodeGraphMvp.sceneContextPoint, { x: event.clientX, y: event.clientY });
+}
+
+// Command Center's one open path, shared by the toolbar rocket button and
+// the "C" hotkey (node-graph-keyboard-shortcuts.js). Always opens or
+// repositions -- never closes -- and glows either way, which is exactly the
+// behaviour right-click used to have before it was handed to the Module
+// Browser above.
+function openNodeGraphCommandCenter(x, y) {
   const commandCenter = document.getElementById("nodeSceneContextMenu");
+  if (!commandCenter) {
+    return;
+  }
+  const anchorX = Number.isFinite(Number(x)) ? Number(x) : window.innerWidth / 2;
+  const anchorY = Number.isFinite(Number(y)) ? Number(y) : window.innerHeight / 2;
+  nodeGraphMvp.sceneContextTargetNode = null;
+  nodeGraphMvp.sceneContextTargetWire = null;
   configureNodeSceneContextMenu("home");
-  positionNodeSceneContextMenuAtCurrentSavedOrInitial(commandCenter, event.clientX, event.clientY);
+  positionNodeSceneContextMenuAtCurrentSavedOrInitial(commandCenter, anchorX, anchorY);
   pulseNodeGraphFloatingWindowAttention(commandCenter);
   if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
     rememberNodeGraphWorkspaceWindowState(

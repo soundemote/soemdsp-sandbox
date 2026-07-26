@@ -230,7 +230,6 @@ NodeLiveAudioProcessor.prototype.setNestedPlan = function setNestedPlan(plan) {
     if (node?.type === "triggerCounter") this.triggerCounterStates.set(id, this.createTriggerCounterState());
     if (node?.type === "triggerDivider") this.triggerDividerStates.set(id, this.createTriggerDividerState());
     if (node?.type === "vactrolEnvelopeSeries" || node?.type === "vactrolEnvelopeCustom") this.vactrolEnvelopeStates.set(id, this.createVactrolEnvelopeState());
-    if (node?.type === "impulseButton") this.impulseButtonStates.set(id, this.createImpulseButtonState());
     if (node?.type === "polyBlep") this.polyBlepStates.set(id, this.createPolyBlepState());
     if (node?.type === "blit") this.blitStates.set(id, this.createBlitState());
     if (node?.type === "archimedes") this.archimedesStates.set(id, this.createArchimedesState());

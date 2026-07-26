@@ -1,3 +1,12 @@
+// Reuses the same in-app debug console channel as the graph-drag tracing
+// (see node-graph-graph-utils.js) so slider-drag diagnostics show up in the
+// same debug panel. No-ops harmlessly if SE/dev mode isn't present.
+function nodeGraphSliderDebugTrace(msg, data) {
+  if (typeof nodeGraphGraphDebugTrace === "function") {
+    nodeGraphGraphDebugTrace(msg, data);
+  }
+}
+
 function syncNodeGraphPatchMetadataFromSlider(slider, options = {}) {
   const node = slider?.closest(".dsp-node")?.dataset.node;
   const key = slider?.dataset.param;
@@ -25,6 +34,22 @@ function syncNodeGraphPatchMetadataFromSlider(slider, options = {}) {
       patchNode.paramMeta[key],
     ),
   };
+  const graphPhaseChanged = (
+    key === "phase" &&
+    nodeGraphModuleIsGraphType(patchNode.type) &&
+    typeof nodeGraphGraphWithPhaseCursor === "function"
+  );
+  const graphTensionChanged = (
+    key === "tension" &&
+    nodeGraphModuleIsGraphType(patchNode.type)
+  );
+  if (graphPhaseChanged) {
+    patchNode.graph = nodeGraphGraphWithPhaseCursor(patchNode);
+    syncNodeGraphGraphDisplaysForNode(node, patchNode);
+  }
+  if (graphTensionChanged) {
+    syncNodeGraphGraphDisplaysForNode(node, patchNode);
+  }
   syncNodeGraphScriptView(options.status || "metadata synced", true);
   renderNodeGraphExecutionPlanDebug();
   syncNodeGraphFilterCurveDisplays();
@@ -69,6 +94,15 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
       patchNode.paramMeta[key],
     ),
   };
+  const graphPhaseChanged = (
+    key === "phase" &&
+    nodeGraphModuleIsGraphType(patchNode.type) &&
+    typeof nodeGraphGraphWithPhaseCursor === "function"
+  );
+  if (graphPhaseChanged) {
+    patchNode.graph = nodeGraphGraphWithPhaseCursor(patchNode);
+    syncNodeGraphGraphDisplaysForNode(node, patchNode);
+  }
   if (
     nodeGraphModuleIsGraphType(patchNode.type) &&
     typeof nodeGraphGraphEndpointYLockEnabledForNode === "function" &&
@@ -93,6 +127,15 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
     saveNodeGraphWorkingPatchToUserSettings();
   }
   if (options.deferUi) {
+    // Graph curve shape depends on tension/smoothing -- keep the SVG in sync
+    // while dragging even when the rest of the deferred UI is skipped.
+    if (
+      nodeGraphModuleIsGraphType(patchNode.type) &&
+      (key === "tension" || key === "smoothingMode") &&
+      typeof syncNodeGraphGraphDisplaysForNode === "function"
+    ) {
+      syncNodeGraphGraphDisplaysForNode(node, patchNode);
+    }
     return;
   }
   // transport's "BPM" param mirrors the patch-wide tempo, not an independent
@@ -117,7 +160,11 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
   renderNodeGraphExecutionPlanDebug();
   syncNodeGraphGhostSliders();
   syncNodeGraphFilterCurveDisplays();
-  if (nodeGraphModuleIsGraphType(patchNode.type) && typeof syncNodeGraphGraphDisplaysForNode === "function") {
+  if (
+    !graphPhaseChanged &&
+    nodeGraphModuleIsGraphType(patchNode.type) &&
+    typeof syncNodeGraphGraphDisplaysForNode === "function"
+  ) {
     syncNodeGraphGraphDisplaysForNode(node, patchNode);
   }
   if (options.record) {
@@ -241,16 +288,25 @@ function setNodeSliderValue(slider, value, options = {}) {
     delete slider.dataset.unboundedValue;
   }
   const normalized = normalizeNodeSliderValue(slider, value);
+  // The input value is authoritative for patch/audio sync. Only its painted
+  // readout is frame-batched, so dragging never depends on a scope draw loop.
+  slider.value = String(normalized);
   // Frame-gate during drags: if already pending rAF update, skip redundant patch work.
   // The flush will apply the latest value — object-spreads mid-frame are wasted.
   const alreadyPending = isDrag && nodeGraphMvp?._pendingReadoutUpdates?.has(slider);
   if (isDrag) {
     scheduleNodeSliderReadoutUpdate(slider, normalized);
   } else {
-    slider.value = String(normalized);
     syncNodeSliderReadout(slider);
   }
-  if (!alreadyPending) {
+  // Tension/smoothing on graph modules must refresh the curve every pointer
+  // move (not once per rAF), otherwise the shape only jumps on mouse-up /
+  // next-frame flush. Other params keep the cheaper once-per-frame path.
+  const graphCurveLiveParam = isDrag && (
+    slider?.dataset?.param === "tension" ||
+    slider?.dataset?.param === "smoothingMode"
+  );
+  if (!alreadyPending || graphCurveLiveParam) {
     syncNodeGraphPatchParameterFromSlider(slider, {
       interaction: options.interaction,
       deferAutosave: isDrag,
@@ -265,7 +321,7 @@ function setNodeSliderValue(slider, value, options = {}) {
     syncNodeGraphGhostSliders();
     markNodeGraphRenderPending();
   }
-  if (!alreadyPending) {
+  if (!alreadyPending || graphCurveLiveParam) {
     scheduleNodeGraphLiveParameterSync();
   }
 }
@@ -296,58 +352,43 @@ function setNodeChoiceSliderFromPointer(slider, surface, clientX, options = {}) 
   return true;
 }
 
-function syncNodeSliderHiddenMouseClass() {
-  document.body.classList.toggle(
-    "node-hide-mouse-while-dragging",
-    Boolean(nodeGraphMvp.sliderDragging) && nodeGraphMvp.hideMouseWhileDragging !== false,
-  );
-}
-
+// Pointer Lock ("hide mouse while dragging") was removed app-wide -- the
+// browser's own "press Esc to show your cursor" permission chrome could
+// swallow the mouseup/steal focus mid-drag, which was breaking slider
+// dragging outright. Dragging now always uses the plain absolute-position
+// path below (see dragNodeSlider), with screen-edge wraparound
+// (wrapNodeSliderDragAtScreenEdge) standing in for "infinite drag".
 function clearNodeSliderDragCursorState() {
-  document.body.classList.remove("node-hide-mouse-while-dragging");
   document.body.classList.remove("node-slider-dragging");
 }
 
-// ── Pointer Lock: infinite drag with the cursor held in place ──────────────
-// While a slider is dragged we lock the pointer so it never hits a screen edge;
-// movementX/Y drives the value and the OS cursor is hidden (the app's dot, set
-// at drag start, stays put). Falls back to absolute-position dragging if lock
-// is unavailable or the user has hide-mouse turned off.
-function requestNodeSliderPointerLock(surface) {
-  if (!surface || typeof surface.requestPointerLock !== "function") {
-    return;
-  }
-  try {
-    const result = surface.requestPointerLock({ unadjustedMovement: true });
-    if (result && typeof result.catch === "function") {
-      result.catch(() => {
-        try { surface.requestPointerLock(); } catch (_) {}
-      });
-    }
-  } catch (_) {
-    try { surface.requestPointerLock(); } catch (__) {}
-  }
-}
-
-function handleNodeSliderPointerLockChange() {
+// Safety net: nodeGraphMvp.sliderDragging is a single global re-entrancy
+// flag (see the early-return at the top of beginNodeSliderDrag) that is
+// ONLY ever cleared by endNodeSliderDrag, which only runs from a
+// pointerup/pointercancel/mouseup event. If one of those events is ever
+// missed -- e.g. the OS/browser steals the mouseup while showing its
+// pointer-lock permission/notification chrome, or the window loses focus
+// mid-drag for any other reason -- this flag stays stuck true forever,
+// which silently disables dragging on EVERY slider in the app, not just
+// the one that was mid-drag. Force-clearing on blur/tab-hide turns that
+// unrecoverable, session-wide failure into, at worst, one cancelled drag.
+function forceEndNodeSliderDrag(reason) {
   const drag = nodeGraphMvp.sliderDragging;
   if (!drag) {
     return;
   }
-  const wasLocked = Boolean(drag.pointerLocked);
-  drag.pointerLocked = document.pointerLockElement === drag.surface;
-  if (!wasLocked && drag.pointerLocked) {
-    // Lock just engaged: anchor here so we don't snap back to the pre-lock value.
-    drag.startTravel = nodeSliderTravelFromValue(drag.slider, Number(drag.slider.value));
-    drag.lockAccumX = 0;
-    drag.lockAccumY = 0;
-  } else if (wasLocked && !drag.pointerLocked) {
-    // Lock lost (e.g. Esc): re-anchor to the visible cursor on the next move.
-    drag.reanchorPending = true;
-  }
+  nodeGraphSliderDebugTrace("slider drag force-ended", { reason, sliderId: drag.slider?.id || null });
+  endNodeSliderDrag({ pointerId: drag.pointerId ?? undefined });
+}
+if (typeof window !== "undefined") {
+  window.addEventListener("blur", () => forceEndNodeSliderDrag("window blur"));
 }
 if (typeof document !== "undefined") {
-  document.addEventListener("pointerlockchange", handleNodeSliderPointerLockChange);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      forceEndNodeSliderDrag("tab hidden");
+    }
+  });
 }
 
 function nodeSliderValueFromPointer(slider, surface, clientX) {
@@ -377,6 +418,114 @@ function nodeSliderKeyboardStep(slider, event) {
   const max = Number(slider?.max);
   const range = Number.isFinite(max - min) && max > min ? max - min : 1;
   return range * (event.shiftKey ? 0.1 : 0.01) * (event.ctrlKey || event.metaKey ? 0.1 : 1);
+}
+
+// ── Plain <input type="range"/"number"> modifier parity ──────────────────
+//
+// Module sliders are a custom widget (a .node-slider-readout surface driving a
+// hidden input, see beginNodeSliderDrag above) -- none of that machinery can
+// be pointed at a bare native input. What CAN be shared is the modifier
+// vocabulary, so native inputs elsewhere in the app (waveform display options,
+// etc.) behave the way the module sliders taught the user to expect:
+//
+//   ctrl/cmd + click   reset to default
+//   shift              coarse   (10x step)
+//   ctrl/cmd           fine     (0.1x step)
+//   shift + ctrl/cmd   coarse and fine combined, i.e. 1x
+//
+// The step maths is nodeSliderKeyboardStep -- literally the same function the
+// module sliders use for arrow keys -- so the two can never drift apart.
+// Drag-with-modifiers is deliberately NOT reimplemented here: the browser owns
+// pointer tracking for a native range, and shadowing it would mean rebuilding
+// the whole drag path for a cosmetic gain. Wheel and arrow keys cover the same
+// ground on these controls.
+function bindNodeGraphNativeSliderModifiers(input, defaultValue) {
+  if (!input || input.dataset.nativeSliderModifiersBound === "true") {
+    return;
+  }
+  input.dataset.nativeSliderModifiersBound = "true";
+  const fallback = Number(defaultValue);
+  if (Number.isFinite(fallback)) {
+    input.dataset.default = String(fallback);
+  }
+  // nodeSliderKeyboardStep reads dataset.step, not the attribute.
+  const declaredStep = Number(input.step);
+  if (Number.isFinite(declaredStep) && declaredStep > 0) {
+    input.dataset.step = String(declaredStep);
+  }
+  if (input.type === "range") {
+    // A range input SNAPS any assigned value onto its step grid, which would
+    // silently swallow every fine (ctrl) nudge -- 200 + 0.1 on a step="1" hue
+    // slider lands straight back on 200. The nominal step now lives in
+    // dataset.step (read above), so the attribute can go fully continuous.
+    input.step = "any";
+  }
+
+  const clamp = (value) => {
+    const min = Number(input.min);
+    const max = Number(input.max);
+    let next = value;
+    if (Number.isFinite(min)) next = Math.max(min, next);
+    if (Number.isFinite(max)) next = Math.min(max, next);
+    return next;
+  };
+  // Both events: "input" drives the live-preview handlers (hue, brightness),
+  // "change" drives the commit-on-change handlers (time window, line width).
+  const emit = (value) => {
+    input.value = String(value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  };
+  const nudge = (event, direction) => {
+    const step = nodeSliderKeyboardStep(input, event);
+    const current = Number(input.value);
+    if (!Number.isFinite(current) || !Number.isFinite(step)) {
+      return;
+    }
+    // Round to the step grid so repeated fine nudges do not accumulate float
+    // dust into values like 0.30000000000000004.
+    const next = clamp(current + step * direction);
+    emit(Number(next.toFixed(6)));
+  };
+
+  input.addEventListener("pointerdown", (event) => {
+    if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) {
+      return;
+    }
+    if (!Number.isFinite(Number(input.dataset.default))) {
+      return;
+    }
+    emit(clamp(Number(input.dataset.default)));
+    // Stop the native range from also jumping to wherever the pointer landed.
+    event.preventDefault();
+    event.stopPropagation();
+  });
+
+  input.addEventListener("wheel", (event) => {
+    // No hover/focus guard needed: a wheel event is only delivered to the
+    // element under the pointer in the first place.
+    const delta = event.deltaY || event.deltaX;
+    if (!delta) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    nudge(event, delta < 0 ? 1 : -1);
+  }, { passive: false });
+
+  input.addEventListener("keydown", (event) => {
+    const direction = event.key === "ArrowUp" || event.key === "ArrowRight"
+      ? 1
+      : event.key === "ArrowDown" || event.key === "ArrowLeft"
+        ? -1
+        : 0;
+    if (!direction) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    nudge(event, direction);
+  });
 }
 
 function stepNodeSliderFromKeyboard(event) {
@@ -458,6 +607,17 @@ function setNodeSliderValueAtPointer(slider, surface, event, options = {}) {
 
 function beginNodeSliderDrag(event) {
   if (nodeGraphMvp.sliderDragging || event.button > 0) {
+    // If sliderDragging is already set, EVERY slider ignores pointerdown
+    // until it clears -- if the drag that set it never reaches
+    // endNodeSliderDrag (e.g. its pointerup/mouseup got swallowed
+    // somewhere), this single stuck flag silently breaks dragging on every
+    // slider in the app, not just the one being dragged. Tracing this
+    // specific branch is what would surface that: if this fires repeatedly
+    // for different sliders in a row, sliderDragging is stuck.
+    nodeGraphSliderDebugTrace("slider pointerdown ignored, drag already active", {
+      button: event.button,
+      hasSliderDragging: Boolean(nodeGraphMvp.sliderDragging),
+    });
     return;
   }
   if (typeof nodeGraphNumericModifierReserved === "function" && nodeGraphNumericModifierReserved(event)) {
@@ -477,14 +637,10 @@ function beginNodeSliderDrag(event) {
   }
 
   // Double-click -> type-in edit, detected MANUALLY from pointerdown timing
-  // instead of relying on the native "dblclick" event. The first click of a
-  // double-click starts a drag that engages Pointer Lock (see
-  // requestNodeSliderPointerLock below); the lock enter/exit around that
-  // click makes Chrome swallow the native dblclick, which is how
-  // double-click-to-type silently broke when pointer-lock dragging landed.
-  // pointerdown always fires, so this path can't be suppressed. The old
-  // `event.detail > 1` early-return is folded in here: either signal routes
-  // to the editor instead of a second drag.
+  // instead of relying on the native "dblclick" event -- pointerdown always
+  // fires, so this path can't be suppressed. The old `event.detail > 1`
+  // early-return is folded in here: either signal routes to the editor
+  // instead of a second drag.
   const lastDown = nodeGraphMvp.sliderLastPointerDown;
   const now = performance.now();
   const isDoubleClick =
@@ -535,20 +691,11 @@ function beginNodeSliderDrag(event) {
     fineScale: nodeSliderFineTuneScale(event),
     visualScale: nodeSliderElementVisualScale(surface),
     width: lane.travelWidth,
-    lockAccumX: 0,
-    lockAccumY: 0,
-    pointerLocked: false,
-    wantsPointerLock: nodeGraphMvp.hideMouseWhileDragging !== false && !jumpToPointerOnClick,
   };
   surface.classList.add("value-dragging");
   document.body.classList.add("node-slider-dragging");
-  syncNodeSliderHiddenMouseClass();
   nodeGraphWireInteractions?.clearHover?.();
-  if (nodeGraphMvp.sliderDragging.wantsPointerLock) {
-    // Pointer lock captures the pointer globally — setPointerCapture would throw
-    // InvalidStateError alongside it, so use one or the other.
-    requestNodeSliderPointerLock(surface);
-  } else if (event.pointerId !== undefined) {
+  if (event.pointerId !== undefined) {
     try { surface.setPointerCapture(event.pointerId); } catch (_) {}
   }
   event.preventDefault();
@@ -565,8 +712,7 @@ function dragNodeSlider(event) {
   }
 
   // Pointer events already cover the mouse; ignore the duplicate mousemove
-  // (and the same event re-dispatched by a second document listener) so
-  // pointer-lock movement deltas are never double-counted.
+  // (and the same event re-dispatched by a second document listener).
   if (event.type === "mousemove" && typeof drag.pointerId === "number") {
     return;
   }
@@ -575,35 +721,14 @@ function dragNodeSlider(event) {
   }
   drag._lastMoveEvent = event;
 
-  const locked = Boolean(drag.pointerLocked) && document.pointerLockElement === drag.surface;
-
-  // Lock just lost (e.g. Esc): re-anchor to the visible cursor so the
-  // absolute-move fallback does not jump.
-  if (!locked && drag.reanchorPending) {
-    reanchorNodeSliderDragAtPointer(drag, event);
-    drag.reanchorPending = false;
-  }
-
-  let horizontalDelta;
-  let verticalDelta;
-  if (locked) {
-    // Infinite drag: accumulate raw pointer movement. The OS cursor stays put
-    // and the dot (set at drag start) stays in place.
-    drag.lockAccumX = (drag.lockAccumX || 0) + (event.movementX || 0);
-    drag.lockAccumY = (drag.lockAccumY || 0) + (event.movementY || 0);
-    horizontalDelta = drag.lockAccumX;
-    verticalDelta = -drag.lockAccumY;
-  } else {
-    horizontalDelta = event.clientX - drag.startX;
-    verticalDelta = drag.startY - event.clientY;
-  }
+  const horizontalDelta = event.clientX - drag.startX;
+  const verticalDelta = drag.startY - event.clientY;
   if (Math.abs(horizontalDelta) > 1 || Math.abs(verticalDelta) > 1) {
     drag.moved = true;
   }
 
-  // ALT+click: jump slider to pointer position (needs an absolute cursor, so
-  // only when not pointer-locked).
-  if (!locked && event.altKey && !(event.shiftKey && (event.ctrlKey || event.metaKey))) {
+  // ALT+click: jump slider to pointer position.
+  if (event.altKey && !(event.shiftKey && (event.ctrlKey || event.metaKey))) {
     if (setNodeSliderValueAtPointer(drag.slider, drag.surface, event, { interaction: "drag" })) {
       reanchorNodeSliderDragAtPointer(drag, event);
     }
@@ -617,18 +742,10 @@ function dragNodeSlider(event) {
   if (currentFineScale !== drag.fineScale) {
     drag.startTravel = nodeSliderTravelFromValue(drag.slider, Number(drag.slider.value));
     drag.fineScale = currentFineScale;
-    if (locked) {
-      drag.lockAccumX = 0;
-      drag.lockAccumY = 0;
-      horizontalDelta = 0;
-      verticalDelta = 0;
-    }
   }
 
-  // Wrap pointer at screen edges for infinite drag when not pointer-locked.
-  if (!locked) {
-    wrapNodeSliderDragAtScreenEdge(drag, event);
-  }
+  // Wrap pointer at screen edges to approximate infinite drag.
+  wrapNodeSliderDragAtScreenEdge(drag, event);
 
   const visualTravelWidth = Math.max(1, drag.width * (Number(drag.visualScale) || 1));
   const travelDelta = ((horizontalDelta + verticalDelta) / visualTravelWidth) * drag.fineScale;
@@ -641,17 +758,9 @@ function dragNodeSlider(event) {
     ),
     { interaction: "drag" },
   );
-  // Re-anchor at travel boundaries to prevent value stagnation. In locked mode
-  // reset the accumulator too, so reversing direction responds immediately
-  // instead of first unwinding a huge accumulated delta (dead zone).
+  // Re-anchor at travel boundaries to prevent value stagnation.
   if (nextTravel <= 0 || nextTravel >= 1) {
-    if (locked) {
-      drag.startTravel = nodeSliderTravelFromValue(drag.slider, Number(drag.slider.value));
-      drag.lockAccumX = 0;
-      drag.lockAccumY = 0;
-    } else {
-      reanchorNodeSliderDragAtPointer(drag, event);
-    }
+    reanchorNodeSliderDragAtPointer(drag, event);
   }
   event.preventDefault();
 }
@@ -665,9 +774,6 @@ function endNodeSliderDrag(event) {
     return;
   }
 
-  if (drag.wantsPointerLock && document.pointerLockElement) {
-    try { document.exitPointerLock?.(); } catch (_) {}
-  }
   drag.surface.classList.remove("value-dragging");
   clearNodeSliderDragCursorState();
   if (event.pointerId !== undefined && drag.surface.hasPointerCapture?.(event.pointerId)) {
@@ -680,18 +786,25 @@ function endNodeSliderDrag(event) {
     drag.slider,
     drag.resetToDefaultOnClick && !drag.moved ? "parameter reset to default" : "parameter changed",
   );
+  nodeGraphSliderDebugTrace("slider drag ended", { sliderId: drag.slider?.id || null, moved: drag.moved });
   nodeGraphMvp.sliderDragging = null;
 }
 
 // ── Deferred readout display (decouples value from display, C++ ParameterPrototype pattern) ──
 // Moving the slider calls scheduleNodeSliderReadoutUpdate() which queues the display update.
-// The display is flushed in the scope draw rAF AFTER all layout reads, avoiding forced reflow.
+// The queue owns its animation frame so it also works without a visible scope.
 
 function scheduleNodeSliderReadoutUpdate(slider, normalized) {
   if (!nodeGraphMvp._pendingReadoutUpdates) {
     nodeGraphMvp._pendingReadoutUpdates = new Map();
   }
   nodeGraphMvp._pendingReadoutUpdates.set(slider, normalized);
+  if (!nodeGraphMvp._pendingReadoutFrame) {
+    nodeGraphMvp._pendingReadoutFrame = window.requestAnimationFrame(() => {
+      nodeGraphMvp._pendingReadoutFrame = 0;
+      flushNodeSliderReadoutUpdates();
+    });
+  }
 }
 
 function flushNodeSliderReadoutUpdates() {

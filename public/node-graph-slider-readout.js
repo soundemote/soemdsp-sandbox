@@ -372,7 +372,12 @@ function syncNodeSliderReadout(slider) {
   } else {
     const travel = Math.max(0, Math.min(1, position / 100));
     const range = nodeSliderHandleRangeFromTravel(slider, readout, travel);
-    readout.style.setProperty("--amount-end", `${range.center}px`);
+    // Amount fill ends at the handle's RIGHT edge, not its centre. The handle
+    // centre stops half a handle short of the track end even at full travel,
+    // so a centre-anchored fill never reached the right edge -- and because
+    // the handle itself is translucent you saw the fill edge through it as a
+    // second, offset edge. range.end lines the fill up with the handle edge.
+    readout.style.setProperty("--amount-end", `${range.end}px`);
     readout.style.setProperty(
       "--value-start",
       `${range.start}px`,

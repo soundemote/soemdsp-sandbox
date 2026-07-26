@@ -10,3 +10,8 @@ public/presets/useruisettings.js
 tools/webui-clap-host/presets/
 native_modules/combined/obj/
 backups/native_cpp_stage.tgz
+
+# Local staging / crash leftovers (never commit)
+_to_delete/
+/nul
+/ziPyGNnI

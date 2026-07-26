@@ -4,7 +4,7 @@
 // keyed by node.sample.id) and draws a min/max-per-pixel envelope with a
 // green-phosphor glow (layered shadowBlur passes, matching this project's
 // scope-green aesthetic), plus a live playhead and the Start/End loop-region
-// markers already present on the module. Zoom (wheel) and pan (drag) operate
+// markers already present on the module. Zoom (Shift+wheel) and pan (drag) operate
 // on a per-node view window in sample frames, independent of the shared
 // WebGL scope compositor used by every other module's display.
 
@@ -42,6 +42,17 @@ const nodeGraphPhosphorWaveformDefaultSettings = Object.freeze({
   lineBrightness: 1,
   backgroundHue: 140,
   backgroundBrightness: 1,
+  // Panel shape/inset. cornerShape only has a visible effect once
+  // cornerRadius > 0. edgeSpacing is a 0..1 ratio of the largest inset that
+  // still leaves the panel visible, so 1 collapses it to nothing.
+  // cornerRadius is a PERCENTAGE of the largest radius the panel can take
+  // (half its shorter side), not a pixel count -- 100 is therefore fully
+  // round whatever size the module is, and the value means the same thing to
+  // both corner shapes so switching between them shows the curve difference
+  // rather than a size difference.
+  cornerShape: "square",
+  cornerRadius: 0,
+  edgeSpacing: 0.05,
 });
 
 function normalizeNodeGraphPhosphorWaveformSettings(settings = {}) {
@@ -52,6 +63,8 @@ function normalizeNodeGraphPhosphorWaveformSettings(settings = {}) {
   const lineBrightness = Number(source.lineBrightness);
   const backgroundHue = Number(source.backgroundHue);
   const backgroundBrightness = Number(source.backgroundBrightness);
+  const cornerRadius = Number(source.cornerRadius);
+  const edgeSpacing = Number(source.edgeSpacing);
   return {
     scrollMode: source.scrollMode === "snap" ? "snap" : "smooth",
     timeWindowSeconds: Number.isFinite(timeWindowSeconds) && timeWindowSeconds > 0
@@ -73,6 +86,13 @@ function normalizeNodeGraphPhosphorWaveformSettings(settings = {}) {
     backgroundBrightness: Number.isFinite(backgroundBrightness)
       ? Math.max(0, Math.min(2, backgroundBrightness))
       : nodeGraphPhosphorWaveformDefaultSettings.backgroundBrightness,
+    cornerShape: source.cornerShape === "squircle" ? "squircle" : "square",
+    cornerRadius: Number.isFinite(cornerRadius)
+      ? Math.max(0, Math.min(100, cornerRadius))
+      : nodeGraphPhosphorWaveformDefaultSettings.cornerRadius,
+    edgeSpacing: Number.isFinite(edgeSpacing)
+      ? Math.max(0, Math.min(1, edgeSpacing))
+      : nodeGraphPhosphorWaveformDefaultSettings.edgeSpacing,
   };
 }
 
@@ -86,7 +106,7 @@ function nodeGraphPhosphorWaveformScrollLineRatio(settings) {
     ?? nodeGraphPhosphorWaveformScrollLinePositionRatios.mid;
 }
 
-// Auto-scroll pauses for a moment after the user manually wheel-zooms or
+// Auto-scroll pauses for a moment after the user manually Shift+wheel-zooms or
 // drags the display, so it doesn't immediately yank the view back out from
 // under their hands -- refreshed on every zoom/pan call, so a held drag
 // keeps postponing it continuously.
@@ -108,12 +128,33 @@ function nodeGraphPhosphorWaveformMarkInteraction(nodeId) {
 // metadata/module-actions/trace-display-settings use to auto-close each
 // other -- opening this must never close anything else, and nothing else
 // should close it either.
+// The 📂 + path box in this window is the very same widget the Music Player
+// carries on its face -- built by createNodeGraphSamplePathLoader so there is
+// one implementation of "load a sample into this node", not two that drift.
+// Rebuilt only when the window switches to a different node (its listeners
+// close over the node id), so re-rendering on every settings change does not
+// wipe out a path you are halfway through typing.
+function renderNodeGraphPhosphorWaveformSampleLoader(nodeId) {
+  const slot = document.getElementById("nodePhosphorWaveformSampleLoaderSlot");
+  if (!slot || typeof createNodeGraphSamplePathLoader !== "function") {
+    return;
+  }
+  if (slot.dataset.node === nodeId && slot.firstElementChild) {
+    return;
+  }
+  slot.dataset.node = nodeId;
+  slot.textContent = "";
+  const loader = createNodeGraphSamplePathLoader(nodeId, { instance: "waveform-settings" });
+  slot.append(loader.fileInput, loader.pathShell);
+}
+
 function renderNodeGraphPhosphorWaveformSettingsWindow() {
   const nodeId = nodeGraphMvp.phosphorWaveformSettingsTargetNode;
   const win = document.getElementById("nodePhosphorWaveformSettingsWindow");
   if (!win || !nodeId) {
     return;
   }
+  renderNodeGraphPhosphorWaveformSampleLoader(nodeId);
   const settings = nodeGraphPhosphorWaveformSettingsForNode(nodeId);
   const setValueUnlessFocused = (id, value) => {
     const el = document.getElementById(id);
@@ -127,6 +168,8 @@ function renderNodeGraphPhosphorWaveformSettingsWindow() {
   setValueUnlessFocused("nodePhosphorWaveformLineBrightnessInput", settings.lineBrightness);
   setValueUnlessFocused("nodePhosphorWaveformBackgroundHueInput", settings.backgroundHue);
   setValueUnlessFocused("nodePhosphorWaveformBackgroundBrightnessInput", settings.backgroundBrightness);
+  setValueUnlessFocused("nodePhosphorWaveformCornerRadiusInput", settings.cornerRadius);
+  setValueUnlessFocused("nodePhosphorWaveformEdgeSpacingInput", settings.edgeSpacing);
   const setPressed = (id, active) => {
     const el = document.getElementById(id);
     if (!el) {
@@ -140,6 +183,8 @@ function renderNodeGraphPhosphorWaveformSettingsWindow() {
   setPressed("nodePhosphorWaveformPositionLeftButton", settings.scrollLinePosition === "left");
   setPressed("nodePhosphorWaveformPositionMidButton", settings.scrollLinePosition === "mid");
   setPressed("nodePhosphorWaveformPositionRightButton", settings.scrollLinePosition === "right");
+  setPressed("nodePhosphorWaveformCornerSquareButton", settings.cornerShape === "square");
+  setPressed("nodePhosphorWaveformCornerSquircleButton", settings.cornerShape === "squircle");
 }
 
 function positionNodeGraphPhosphorWaveformSettingsAt(x, y) {
@@ -148,6 +193,16 @@ function positionNodeGraphPhosphorWaveformSettingsAt(x, y) {
     return;
   }
   win.hidden = false;
+  // Shared app-wide policy: spawn at the pointer the FIRST time only, then
+  // restore wherever the user left it. See
+  // openNodeGraphFloatingWindowAtPosition in node-graph-ui-settings-persistence.js.
+  if (typeof openNodeGraphFloatingWindowAtPosition === "function") {
+    openNodeGraphFloatingWindowAtPosition("phosphorWaveformSettings", win, () => {
+      const { left, top } = nodeGraphFloatingWindowPosition(win, x, y);
+      setNodeGraphFloatingWindowViewportPosition(win, left, top);
+    });
+    return;
+  }
   const { left, top } = nodeGraphFloatingWindowPosition(win, x, y);
   setNodeGraphFloatingWindowViewportPosition(win, left, top);
 }
@@ -168,6 +223,9 @@ function openNodeGraphPhosphorWaveformSettings(nodeId, event) {
 function closeNodeGraphPhosphorWaveformSettings() {
   const win = document.getElementById("nodePhosphorWaveformSettingsWindow");
   if (win) {
+    if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
+      rememberNodeGraphWorkspaceWindowState("phosphorWaveformSettings", win, { open: false }, { status: false });
+    }
     win.hidden = true;
   }
   nodeGraphMvp.phosphorWaveformSettingsTargetNode = null;
@@ -229,6 +287,67 @@ function handleNodeGraphPhosphorWaveformBackgroundBrightnessChange(event) {
   updateNodeGraphPhosphorWaveformSettings({ backgroundBrightness: Number(event.target.value) });
 }
 
+function setNodeGraphPhosphorWaveformCornerShape(shape) {
+  updateNodeGraphPhosphorWaveformSettings({ cornerShape: shape === "squircle" ? "squircle" : "square" });
+}
+
+function handleNodeGraphPhosphorWaveformCornerRadiusChange(event) {
+  updateNodeGraphPhosphorWaveformSettings({ cornerRadius: Number(event.target.value) });
+}
+
+function handleNodeGraphPhosphorWaveformEdgeSpacingChange(event) {
+  updateNodeGraphPhosphorWaveformSettings({ edgeSpacing: Number(event.target.value) });
+}
+
+// Panel shape/inset are pure CSS, but the inset has to be resolved against the
+// live cell size (so "1" really does collapse the panel whatever the module
+// height is) and quantized to whole pixels (so the black gap and the panel
+// edge both land on a device pixel and stay razor sharp -- a fractional inset
+// would give a soft, half-lit edge). Called from the draw path, which already
+// runs per section per frame and has the measured size to hand.
+function applyNodeGraphPhosphorWaveformPanelShape(section, settings, cellWidth, cellHeight) {
+  // cellWidth/cellHeight MUST be the section's own padding-box size, i.e. the
+  // whole grid cell, which the inset does not change: the inset is padding
+  // inside this element, so section.clientWidth stays put while the canvas
+  // inside it shrinks. Feeding the canvas's (inset-dependent) size in here
+  // instead is a feedback loop -- bigger inset shrinks the measurement, which
+  // shrinks maxInset, which shrinks the inset again -- and that oscillation is
+  // what made the module jitter while dragging Edge Spacing. No back-adding of
+  // the applied inset is needed (or correct) any more; the input is stable, so
+  // the result depends only on the setting.
+  const outerWidth = cellWidth;
+  const outerHeight = cellHeight;
+  const maxInset = Math.max(0, Math.floor(Math.min(outerWidth, outerHeight) / 2));
+  const inset = Math.round(settings.edgeSpacing * maxInset);
+  // Largest meaningful radius is half the panel's shorter side: at 100% a
+  // square panel is a circle and a wide one is a pill/stadium.
+  const panelWidth = Math.max(0, outerWidth - inset * 2);
+  const panelHeight = Math.max(0, outerHeight - inset * 2);
+  const maxRadius = Math.max(0, Math.min(panelWidth, panelHeight) / 2);
+  const radius = Math.round((settings.cornerRadius / 100) * maxRadius);
+  const shape = settings.cornerShape === "squircle" ? "squircle" : "round";
+  // The panel outline follows BG Hue so the frame and the field it encloses
+  // stay the same colour family. Saturation/lightness/alpha are the values
+  // the old hardcoded rgba(90, 255, 150, 0.16) worked out to, so at the
+  // default hue (140) this is visually unchanged.
+  const borderColor = `hsl(${Math.round(settings.backgroundHue)} 100% 68% / 0.16)`;
+  const next = `${inset}|${radius}|${shape}|${borderColor}`;
+  if (section.dataset.panelShape === next) {
+    return;
+  }
+  section.dataset.panelShape = next;
+  section.style.setProperty("--phosphor-waveform-inset", `${inset}px`);
+  section.style.setProperty("--phosphor-waveform-radius", `${radius}px`);
+  section.style.setProperty("--phosphor-waveform-border-color", borderColor);
+  // corner-shape is a progressive enhancement: where it is unsupported the
+  // declaration is dropped and the panel is a normal rounded rect.
+  section.style.setProperty("--phosphor-waveform-corner-shape", shape);
+}
+
+// Bound to BOTH the drag handle and the whole title bar. Safe to bind on the
+// heading because beginNodeGraphFloatingWindowDrag defers to
+// nodeGraphDialogDragTargetIsInteractive, which whitelists
+// .scene-context-drag-handle and excludes the close button.
 function beginNodeGraphPhosphorWaveformSettingsDrag(event) {
   const win = document.getElementById("nodePhosphorWaveformSettingsWindow");
   if (!win || win.hidden) {
@@ -237,12 +356,77 @@ function beginNodeGraphPhosphorWaveformSettingsDrag(event) {
   beginNodeGraphFloatingWindowDrag(event, win, "phosphorWaveformSettingsDragging");
 }
 
+// Gives every numeric control in the waveform display options window the same
+// modifier vocabulary as the module sliders -- ctrl/cmd+click resets to
+// default, shift/ctrl scale the step. See bindNodeGraphNativeSliderModifiers
+// in node-graph-slider-dragging.js; defaults come from the one settings
+// object, so they cannot drift from what normalize* actually falls back to.
+const nodeGraphPhosphorWaveformSettingInputs = Object.freeze([
+  ["nodePhosphorWaveformTimeWindowInput", "timeWindowSeconds"],
+  ["nodePhosphorWaveformLineWidthInput", "scrollLineWidth"],
+  ["nodePhosphorWaveformHueInput", "hue"],
+  ["nodePhosphorWaveformLineBrightnessInput", "lineBrightness"],
+  ["nodePhosphorWaveformBackgroundHueInput", "backgroundHue"],
+  ["nodePhosphorWaveformBackgroundBrightnessInput", "backgroundBrightness"],
+  ["nodePhosphorWaveformCornerRadiusInput", "cornerRadius"],
+  ["nodePhosphorWaveformEdgeSpacingInput", "edgeSpacing"],
+]);
+
+function bindNodeGraphPhosphorWaveformSettingModifiers() {
+  if (typeof bindNodeGraphNativeSliderModifiers !== "function") {
+    return;
+  }
+  for (const [id, key] of nodeGraphPhosphorWaveformSettingInputs) {
+    bindNodeGraphNativeSliderModifiers(
+      document.getElementById(id),
+      nodeGraphPhosphorWaveformDefaultSettings[key],
+    );
+  }
+}
+
+// Time Window is read-only until double-clicked, same gesture as the render
+// range Start/End fields and the Music Player path box.
+function bindNodeGraphPhosphorWaveformTimeWindowEditing() {
+  const input = document.getElementById("nodePhosphorWaveformTimeWindowInput");
+  if (!input || input.dataset.dblClickBound === "true") {
+    return;
+  }
+  input.dataset.dblClickBound = "true";
+  input.readOnly = true;
+  input.addEventListener("dblclick", () => {
+    input.readOnly = false;
+    input.classList.add("editing");
+    input.focus();
+    input.select();
+  });
+  input.addEventListener("blur", () => {
+    input.readOnly = true;
+    input.classList.remove("editing");
+  });
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === "Escape") {
+      input.blur();
+    }
+  });
+}
+
 function dragNodeGraphPhosphorWaveformSettings(event) {
   dragNodeGraphFloatingWindow(event, "phosphorWaveformSettingsDragging", document.getElementById("nodePhosphorWaveformSettingsWindow"));
 }
 
 function endNodeGraphPhosphorWaveformSettingsDrag(event) {
-  endNodeGraphFloatingWindowDrag(event, "phosphorWaveformSettingsDragging");
+  endNodeGraphFloatingWindowDrag(event, "phosphorWaveformSettingsDragging", () => {
+    // Record where the user parked it so the next open restores it instead of
+    // jumping back to the pointer.
+    if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
+      rememberNodeGraphWorkspaceWindowState(
+        "phosphorWaveformSettings",
+        document.getElementById("nodePhosphorWaveformSettingsWindow"),
+        { open: true },
+        { status: false },
+      );
+    }
+  });
 }
 
 function nodeGraphPhosphorWaveformViewState(nodeId, frames) {
@@ -345,10 +529,23 @@ function nodeGraphPhosphorWaveformResetZoom(section) {
 
 function bindNodeGraphPhosphorWaveformInteractions(section, canvas) {
   canvas.style.touchAction = "none";
+  // Plain wheel is left alone so it bubbles to the workspace zoom handler --
+  // the Music Player must not be a dead zone you cannot zoom the canvas over,
+  // which is what swallowing every wheel event here used to make it. Waveform
+  // zoom moves to Shift+wheel. (Shift is the safe modifier: Ctrl+wheel is
+  // browser page zoom.) Browsers translate Shift+wheel into horizontal scroll
+  // on most platforms, so the delta can arrive on deltaX instead of deltaY.
   canvas.addEventListener("wheel", (event) => {
+    if (!event.shiftKey) {
+      return;
+    }
+    const delta = event.deltaY || event.deltaX;
+    if (!delta) {
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
-    const factor = event.deltaY > 0 ? 1.25 : 0.8;
+    const factor = delta > 0 ? 1.25 : 0.8;
     nodeGraphPhosphorWaveformZoomAt(section, canvas, event.clientX, factor);
   }, { passive: false });
 
@@ -548,10 +745,15 @@ function nodeGraphPhosphorWaveformLineColor(settings, lightness, alpha) {
 }
 
 function nodeGraphPhosphorWaveformBackgroundColor(settings) {
-  // Base lightness needs to be high enough that hue is actually visible --
-  // the original 2%-at-default-brightness was so close to black that
-  // rotating hue produced no perceptible change at all.
-  const scaledLightness = Math.max(0, Math.min(40, 8 * settings.backgroundBrightness));
+  // Brightness 0..2 maps onto 0..100% lightness so the top of the slider is
+  // actually white. The curve is exponential rather than linear because the
+  // useful range is all down at the dark end: a linear ramp to white would
+  // make every setting past the first few percent unusably bright. The
+  // exponent is picked so the default (1) still lands at ~8.8%, which is
+  // where the old `8 * brightness` mapping put it -- high enough that
+  // rotating BG Hue produces a visible change.
+  const normalized = Math.max(0, Math.min(1, settings.backgroundBrightness / 2));
+  const scaledLightness = Math.max(0, Math.min(100, 100 * (normalized ** 3.5)));
   return `hsl(${settings.backgroundHue}, 70%, ${scaledLightness}%)`;
 }
 
@@ -572,35 +774,41 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   if (!node || !canvas) {
     return;
   }
-  const rect = section.getBoundingClientRect();
-  const pixelRatio = window.devicePixelRatio || 1;
-  const zoom = Math.max(0.01, Number(nodeGraphMvp?.zoom) || 1);
-  const cssWidth = Math.max(1, Number(section.clientWidth || section.offsetWidth || 0) || rect.width / zoom);
-  const cssHeight = Math.max(1, Number(section.clientHeight || section.offsetHeight || 0) || rect.height / zoom);
-  const canvasWidth = Math.max(1, Math.round(cssWidth * pixelRatio));
-  const canvasHeight = Math.max(1, Math.round(cssHeight * pixelRatio));
-  if (canvas.width !== canvasWidth) {
-    canvas.width = canvasWidth;
-  }
-  if (canvas.height !== canvasHeight) {
-    canvas.height = canvasHeight;
-  }
-  const context = canvas.getContext("2d");
-  if (!context) {
+  const settings = nodeGraphPhosphorWaveformSettingsForNode(nodeId);
+  // Shape FIRST, measure second, both in this one frame. The inset is padding
+  // on the section, so writing it changes the canvas's box; measuring before
+  // writing would size the backing store from the PREVIOUS inset and leave the
+  // bitmap stretched over the new box for a frame -- which is the jitter you
+  // see while dragging Edge Spacing, since every drag frame lands mid-change.
+  // The shape input is the section's own padding box (the whole grid cell),
+  // which the inset does not affect -- see the function's comment. Reading the
+  // canvas box right after the write forces a synchronous layout on purpose:
+  // that is what makes the two agree within the frame.
+  applyNodeGraphPhosphorWaveformPanelShape(
+    section,
+    settings,
+    Math.max(1, section.clientWidth),
+    Math.max(1, section.clientHeight),
+  );
+  // Measure the CANVAS, not the section: the section is the full cell, the
+  // canvas is what actually displays the bitmap, so its box is what the
+  // backing store has to match or the browser scales the difference away
+  // (that is what made the waveform and its "No sample loaded" text grow and
+  // shrink with Edge Spacing).
+  const metrics = nodeGraphSizeDisplayCanvas(canvas, canvas);
+  if (!metrics) {
     return;
   }
+  const { context, cssHeight, cssWidth, height, pixelRatio, width } = metrics;
   // Draw entirely in device-pixel space (no CSS-pixel transform) so every
   // coordinate can be snapped to a real physical pixel — a fractional
   // devicePixelRatio (1.25x/1.5x are common on Windows) would otherwise put
   // "half pixel" offsets at non-integer physical positions, forcing the
   // renderer to antialias/blur lines that should be crisp.
   context.setTransform(1, 0, 0, 1, 0, 0);
-  const width = canvasWidth;
-  const height = canvasHeight;
   const snap = (value) => Math.round(value);
   const crisp = (value) => Math.round(value) + 0.5;
 
-  const settings = nodeGraphPhosphorWaveformSettingsForNode(nodeId);
   context.clearRect(0, 0, width, height);
   context.fillStyle = nodeGraphPhosphorWaveformBackgroundColor(settings);
   context.fillRect(0, 0, width, height);
@@ -752,8 +960,4 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   context.fillStyle = nodeGraphPhosphorWaveformLineColor(settings, 85, 0.7);
   context.font = `600 ${Math.round(10 * pixelRatio)}px system-ui, sans-serif`;
   context.fillText(`${(zoomRatio * 100).toFixed(zoomRatio < 0.1 ? 1 : 0)}%`, snap(6 * pixelRatio), snap(13 * pixelRatio));
-}
-
-function drawNodeGraphPhosphorWaveformDisplays() {
-  document.querySelectorAll(".node-phosphor-waveform-display").forEach(drawNodeGraphPhosphorWaveformDisplay);
 }

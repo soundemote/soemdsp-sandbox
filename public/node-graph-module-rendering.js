@@ -1,13 +1,3 @@
-const NODE_GRAPH_KNOB_WIDGET_DRAG_DISTANCE_PX = 174;
-const NODE_GRAPH_KNOB_WIDGET_MAX_SIZE_PX = 58;
-const nodeGraphKnobWidgetResizeObserver = typeof ResizeObserver === "function"
-  ? new ResizeObserver((entries) => {
-    for (const entry of entries) {
-      syncNodeGraphKnobWidgetSize(entry.target);
-    }
-  })
-  : null;
-
 function ensureNodeGraphDragHandle(node) {
   const actions = node.querySelector(".node-header-actions");
   if (!actions || actions.querySelector(".node-drag-handle")) {
@@ -41,148 +31,6 @@ function handleNodeGraphIoRowWireClick(event) {
   nodeGraphWireInteractions.handlePortClick(event);
 }
 
-function nodeGraphKnobWidgetInputForControl(control) {
-  const node = control?.closest?.(".dsp-node");
-  const key = control?.dataset?.param || "value";
-  return node?.querySelector?.(`.node-knob-widget-input[data-param="${CSS.escape(key)}"]`) || null;
-}
-
-function syncNodeGraphKnobWidgetSize(control) {
-  if (!control) {
-    return;
-  }
-  const size = Math.max(
-    8,
-    Math.min(
-      NODE_GRAPH_KNOB_WIDGET_MAX_SIZE_PX,
-      control.clientWidth || NODE_GRAPH_KNOB_WIDGET_MAX_SIZE_PX,
-      control.clientHeight || NODE_GRAPH_KNOB_WIDGET_MAX_SIZE_PX,
-    ),
-  );
-  control.style.setProperty("--knob-widget-slot-size", `${size}px`);
-}
-
-function observeNodeGraphKnobWidgetSize(control) {
-  syncNodeGraphKnobWidgetSize(control);
-  nodeGraphKnobWidgetResizeObserver?.observe(control);
-  requestAnimationFrame(() => syncNodeGraphKnobWidgetSize(control));
-}
-
-function nodeGraphKnobWidgetDragSpeed(event) {
-  return NODE_GRAPH_KNOB_WIDGET_DRAG_DISTANCE_PX *
-    (event.shiftKey ? 3 : 1) *
-    (event.ctrlKey || event.metaKey ? 10 : 1);
-}
-
-function syncNodeGraphKnobWidgetControl(control) {
-  const input = nodeGraphKnobWidgetInputForControl(control);
-  const node = control?.closest?.(".dsp-node");
-  const parameter = nodeGraphPatchNodeParameterDefinitions(nodeGraphPatchNode(node?.dataset?.node))
-    .find((candidate) => candidate.key === (control?.dataset?.param || "value"));
-  if (!input || !parameter) {
-    return;
-  }
-  const value = normalizeNodeSliderValue(input, Number(input.value));
-  const min = Number(input.min);
-  const max = Number(input.max);
-  const range = max - min;
-  const normalized = Number.isFinite(range) && range > 0
-    ? clampNodeSliderValue((value - min) / range, 0, 1)
-    : 0;
-  control.style.setProperty("--knob-widget-value", String(normalized));
-  control.style.setProperty("--knob-widget-angle", `${-132 + normalized * 264}deg`);
-  control.setAttribute("aria-valuenow", String(value));
-  const readout = control.closest(".node-knob-widget-body")?.querySelector("[data-knob-widget-value]");
-  if (readout) {
-    readout.textContent = formatNodeSliderNumber(value, {
-      kind: input.dataset.kind,
-      maxDigits: input.dataset.maxDigits,
-      reserveSignSpace: true,
-      showSign: nodeSliderShouldShowSign(input),
-    });
-  }
-}
-
-function setNodeGraphKnobWidgetValue(control, value, options = {}) {
-  const input = nodeGraphKnobWidgetInputForControl(control);
-  if (!input) {
-    return;
-  }
-  input.value = String(normalizeNodeSliderValue(input, value));
-  syncNodeGraphKnobWidgetControl(control);
-  syncNodeGraphPatchParameterFromSlider(input, {
-    deferUi: !options.record,
-    record: options.record,
-    status: options.status || "knob changed",
-  });
-  syncNodeGraphGhostSliders();
-  markNodeGraphRenderPending();
-  scheduleNodeGraphLiveParameterSync();
-  if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
-    scheduleNodeGraphModuleScopeDraw();
-  }
-}
-
-function beginNodeGraphKnobWidgetDrag(event) {
-  if (!event.target?.closest?.(".node-knob-widget-face")) {
-    return;
-  }
-  const control = event.currentTarget;
-  const input = nodeGraphKnobWidgetInputForControl(control);
-  if (!input) {
-    return;
-  }
-  event.preventDefault();
-  event.stopPropagation();
-  control.setPointerCapture?.(event.pointerId);
-  control.dataset.knobDragStartX = String(event.clientX);
-  control.dataset.knobDragStartY = String(event.clientY);
-  control.dataset.knobDragStartValue = String(Number(input.value) || 0);
-  control.classList.add("value-dragging");
-}
-
-function dragNodeGraphKnobWidget(event) {
-  const control = event.currentTarget;
-  if (!control.classList.contains("value-dragging")) {
-    return;
-  }
-  const input = nodeGraphKnobWidgetInputForControl(control);
-  if (!input) {
-    return;
-  }
-  event.preventDefault();
-  event.stopPropagation();
-  const min = Number(input.min);
-  const max = Number(input.max);
-  const range = Number.isFinite(max - min) && max > min ? max - min : 1;
-  const startX = Number(control.dataset.knobDragStartX) || event.clientX;
-  const startY = Number(control.dataset.knobDragStartY) || event.clientY;
-  const startValue = Number(control.dataset.knobDragStartValue) || 0;
-  const speed = nodeGraphKnobWidgetDragSpeed(event);
-  const delta = ((startY - event.clientY) + (event.clientX - startX)) / speed;
-  setNodeGraphKnobWidgetValue(control, startValue + delta * range);
-}
-
-function endNodeGraphKnobWidgetDrag(event) {
-  const control = event.currentTarget;
-  if (!control.classList.contains("value-dragging")) {
-    return;
-  }
-  control.classList.remove("value-dragging");
-  control.releasePointerCapture?.(event.pointerId);
-  delete control.dataset.knobDragStartX;
-  delete control.dataset.knobDragStartY;
-  delete control.dataset.knobDragStartValue;
-  const input = nodeGraphKnobWidgetInputForControl(control);
-  if (input) {
-    syncNodeGraphPatchParameterFromSlider(input, {
-      record: true,
-      status: "knob changed",
-    });
-    scheduleNodeGraphLiveParameterSync();
-  }
-}
-
 function attachNodeGraphNodeEvents(node) {
   ensureNodeGraphDragHandle(node);
   node.querySelector(".node-drag-handle")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
@@ -192,7 +40,6 @@ function attachNodeGraphNodeEvents(node) {
   node.querySelector(".node-header-title-row")?.addEventListener("dblclick", openNodeModuleActionMenu);
   node.querySelector(".node-header-title-row")?.addEventListener("contextmenu", openNodeModuleActionMenu);
   node.querySelector(".node-led-face")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
-  node.querySelector(".node-knob-widget-body")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
   // Group Input/Output are chromeless (no .node-header-title-row to grab
   // or double-click, see public/modules/groupInput|groupOutput/*-ui.js) --
   // wire their own face to the exact same drag/settings behavior the
@@ -207,6 +54,12 @@ function attachNodeGraphNodeEvents(node) {
   node.querySelectorAll(".dsp-node-io-section")
     .forEach((section) => section.addEventListener("pointerdown", beginNodeGraphNodeDrag));
   node.querySelectorAll(".node-parameter-row")
+    .forEach((row) => row.addEventListener("pointerdown", beginNodeGraphNodeDrag));
+  // The Music Player / sample modules have no spare chrome to grab -- the body
+  // is wall-to-wall controls -- so the phase readout doubles as a drag handle.
+  // The copy button inside it is unaffected: beginNodeGraphNodeDrag bails on
+  // any `button` target before it looks for a handle.
+  node.querySelectorAll(".node-sample-phase-readout")
     .forEach((row) => row.addEventListener("pointerdown", beginNodeGraphNodeDrag));
   node.querySelector(".node-bypass-button")?.addEventListener("click", toggleNodeGraphModuleBypass);
   node.querySelector(".node-display-settings-button")?.addEventListener("click", openNodeModuleDisplaySettings);
@@ -246,15 +99,6 @@ function attachNodeGraphNodeEvents(node) {
       }
       scheduleNodeGraphLiveParameterSync();
     });
-  }
-  for (const control of node.querySelectorAll("[data-knob-widget-control]")) {
-    observeNodeGraphKnobWidgetSize(control);
-    syncNodeGraphKnobWidgetControl(control);
-    control.addEventListener("pointerdown", beginNodeGraphKnobWidgetDrag);
-    control.addEventListener("pointermove", dragNodeGraphKnobWidget);
-    control.addEventListener("pointerup", endNodeGraphKnobWidgetDrag);
-    control.addEventListener("pointercancel", endNodeGraphKnobWidgetDrag);
-    control.addEventListener("lostpointercapture", endNodeGraphKnobWidgetDrag);
   }
   node.querySelector(".node-module-shop-open-button")?.addEventListener("click", (event) => {
     event.preventDefault();
@@ -480,13 +324,11 @@ function nodeGraphModuleLayoutClassNames(type, definition, layout) {
     classes.push("audio-player-layout");
   }
   const layoutClasses = {
-    buttonWidget: "button-widget-layout",
     clapPlugin: "clap-plugin-layout",
     filterCurve: "filter-curve-layout",
     graph: "graph-node-layout",
     image: "image-node-layout",
     keyboardController: "keyboard-controller-layout",
-    knobWidget: "knob-widget-layout",
     macroControls: "macro-controls-layout",
     patchCommand: "patch-command-layout",
     phosphillatorDraw: "phosphillator-draw-layout",
@@ -565,9 +407,6 @@ function createNodeGraphModuleElement(type, node) {
   article.style.setProperty("--node-grid-height-units", String(heightGu));
   article.style.setProperty("--node-module-display-height-units", String(nodeGraphPatchNodeDisplayCssHeightUnits(patchNode)));
   article.style.setProperty("--node-module-interface-controls-height-units", String(nodeGraphPatchNodeInterfaceControlsHeightUnits(patchNode)));
-  if (layout === "knobWidget" && widthGu <= 1 && heightGu <= 1) {
-    article.classList.add("knob-widget-compact");
-  }
   const patchNodeUi = nodeGraphEffectivePatchNodeUi(patchNode.ui);
   article.classList.toggle("buttons-hidden", patchNodeUi.buttonsHidden);
   article.classList.toggle("io-hidden", patchNodeUi.ioHidden);
@@ -601,8 +440,6 @@ function createNodeGraphModuleElement(type, node) {
   if (chromelessRegistration) {
     // Body (and any afterMount setup) already appended above -- chromeless
     // modules carry their own inline ports, no separate IO section.
-  } else if (layout === "knobWidget") {
-    article.append(createNodeGraphKnobWidgetBody(node, type));
   } else if (layout === "textBox") {
     article.append(createNodeGraphTextBoxBody(node));
   } else if (layout === "image") {
@@ -686,15 +523,6 @@ function createNodeGraphModuleElement(type, node) {
 
     const ioSection = document.createElement("div");
     ioSection.className = "dsp-node-io-section node-slider-widget-io-section";
-    ioSection.append(document.createElement("div"));
-    const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output");
-    ioSection.append(outputColumn || document.createElement("div"));
-    appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, outputPorts);
-  } else if (definition.layout === "buttonWidget") {
-    article.append(createNodeGraphButtonWidgetBody(node, type));
-
-    const ioSection = document.createElement("div");
-    ioSection.className = "dsp-node-io-section node-button-widget-io-section";
     ioSection.append(document.createElement("div"));
     const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output");
     ioSection.append(outputColumn || document.createElement("div"));
@@ -849,8 +677,6 @@ function createNodeGraphModuleElement(type, node) {
   if (
     definition.parameters?.length &&
     definition.layout !== "sliderWidget" &&
-    layout !== "knobWidget" &&
-    definition.layout !== "buttonWidget" &&
     (!nodeGraphChromelessModuleLayouts.has(layout) || nodeGraphChromelessModuleUsesSolidShell(type))
   ) {
     const body = document.createElement("div");

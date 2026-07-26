@@ -280,23 +280,11 @@ function drawNodeGraphPhosphillatorDrawDisplay(section) {
   if (!node || !canvas) {
     return;
   }
-  const rect = section.getBoundingClientRect();
-  const pixelRatio = window.devicePixelRatio || 1;
-  const zoom = Math.max(0.01, Number(nodeGraphMvp?.zoom) || 1);
-  const width = Math.max(1, Number(section.clientWidth || section.offsetWidth || 0) || rect.width / zoom);
-  const height = Math.max(1, Number(section.clientHeight || section.offsetHeight || 0) || rect.height / zoom);
-  const canvasWidth = Math.max(1, Math.round(width * pixelRatio));
-  const canvasHeight = Math.max(1, Math.round(height * pixelRatio));
-  if (canvas.width !== canvasWidth) {
-    canvas.width = canvasWidth;
-  }
-  if (canvas.height !== canvasHeight) {
-    canvas.height = canvasHeight;
-  }
-  const context = canvas.getContext("2d");
-  if (!context) {
+  const metrics = nodeGraphSizeDisplayCanvas(section, canvas);
+  if (!metrics) {
     return;
   }
+  const { context, cssHeight: height, cssWidth: width, pixelRatio } = metrics;
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   context.clearRect(0, 0, width, height);
   context.fillStyle = "#020a06";

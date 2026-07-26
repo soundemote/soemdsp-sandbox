@@ -83,7 +83,12 @@ function fitNodeLiveToggleText() {
     return;
   }
 
-  const spans = document.querySelectorAll(".node-live-toggle-palette .node-live-toggle span");
+  // Render Sample's two lines are fitted alongside the Input/Output/MIDI
+  // toggles so all four buttons in that row share one type size and one
+  // setting (UI Dev "live toggle text size").
+  const spans = document.querySelectorAll(
+    ".node-live-toggle-palette .node-live-toggle span, #nodeRenderButton span",
+  );
   for (const span of spans) {
     span.style.fontSize = "1px";
   }

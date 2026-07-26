@@ -4,7 +4,9 @@ function nodeGraphModuleBodyRowCount(type) {
 }
 
 function nodeGraphModuleVisibleBodyRowCount(type) {
-  return nodeGraphModuleBodyRowCount(type);
+  return (nodeGraphModuleDefinitions[type]?.parameters || [])
+    .filter((parameter) => parameter?.hidden !== true)
+    .length;
 }
 
 function nodeGraphModuleVisibleSliderRowCountForUi(type, ui = {}) {
@@ -20,21 +22,22 @@ function nodeGraphModuleTypeHasHideableSliders(type) {
   if (!definition?.parameters?.length) {
     return false;
   }
-  return !["knobWidget", "led", "sliderWidget"].includes(definition.layout);
+  return !["led", "sliderWidget"].includes(definition.layout);
 }
 
 const nodeGraphModuleWidthLimits = Object.freeze({
-  maxGu: 18,
+  maxGu: 60,
   minGu: 4,
 });
 
 const nodeGraphModuleHeightLimits = Object.freeze({
-  maxGu: 24,
+  maxGu: 60,
   minGu: 1,
 });
 
+// App-wide policy: module and display dimensions max out at 60gu.
 const nodeGraphModuleDisplayHeightLimits = Object.freeze({
-  maxGu: 48,
+  maxGu: 60,
   minGu: 1,
   stepGu: 1,
 });
@@ -43,33 +46,15 @@ function nodeGraphModuleWidthLimitsForType(type) {
   if (nodeGraphChromelessModuleIsCompactTile(type)) {
     return { ...nodeGraphModuleWidthLimits, minGu: 1 };
   }
-  if (nodeGraphModuleDefinitions[type]?.layout === "knobWidget") {
-    return { ...nodeGraphModuleWidthLimits, minGu: 1 };
-  }
-  if (nodeGraphModuleDefinitions[type]?.layout === "keyboardController") {
-    // No GU cap -- key count is user-configurable (see
-    // nodeGraphMidiKeyboardKeyCount in node-graph-view-controls.js) and a
-    // wide key range needs room to not cramp the keys.
-    return { maxGu: 9999, minGu: 1 };
-  }
   return nodeGraphModuleWidthLimits;
 }
 
 function nodeGraphModuleHeightLimitsForType(type) {
-  if (type === "audioPlayer") {
-    return { ...nodeGraphModuleHeightLimits, maxGu: nodeGraphModuleHeightLimits.maxGu + 1 };
-  }
-  if (nodeGraphModuleDefinitions[type]?.layout === "knobWidget") {
-    return { ...nodeGraphModuleHeightLimits, minGu: 1 };
-  }
-  if (nodeGraphModuleDefinitions[type]?.layout === "keyboardController") {
-    return { maxGu: 9999, minGu: 1 };
-  }
   return nodeGraphModuleHeightLimits;
 }
 
 const nodeGraphTextBoxHeightLimits = Object.freeze({
-  maxGu: 24,
+  maxGu: 60,
   minGu: 1,
 });
 
@@ -117,7 +102,6 @@ function nodeGraphModuleTypeHasHideableOscilloscope(type) {
     "graph",
     "image",
     "keyboardController",
-    "knobWidget",
     "macroControls",
     "pitchModWheel",
     "screenSpaceShader",
@@ -151,16 +135,20 @@ function nodeGraphPatchNodeHasResizableDisplayArea(node) {
 function nodeGraphModuleSizingCapabilities(type) {
   const normalizedType = String(type || "").trim();
   const definition = nodeGraphModuleDefinitions[normalizedType];
+  const layout = definition?.layout;
   const moduleHeight = nodeGraphNodeTypeHasTextBoxLayout(normalizedType)
     ? "textBox"
     : normalizedType === "canvas"
       ? "canvasScript"
+      : normalizedType === "xyPad" || ["graph", "keyboardController", "macroControls"].includes(layout)
+        ? "custom"
       : false;
   // Display-height resizing works for any type with a display AREA --
   // whether an oscilloscope fills it or the module's own custom UI does.
-  const displayHeight =
+  const displayHeight = !moduleHeight && (
     nodeGraphModuleTypeHasHideableOscilloscope(normalizedType) ||
-    nodeGraphModuleTypeHasCustomDisplayArea(normalizedType);
+    nodeGraphModuleTypeHasCustomDisplayArea(normalizedType)
+  );
   return Object.freeze({
     width: Boolean(definition),
     moduleHeight,
@@ -274,9 +262,6 @@ function nodeGraphDefaultModuleGridWidthUnits(type) {
     // grows/shrinks within (see createNodeGraphStepGridBody).
     return 11;
   }
-  if (nodeGraphModuleDefinitions[type]?.layout === "knobWidget") {
-    return 4;
-  }
   if (nodeGraphModuleDefinitions[type]?.layout === "sliderWidget") {
     return 6;
   }
@@ -325,8 +310,17 @@ function normalizeNodeGraphModuleHeightUnits(type, heightGu, ui = {}) {
   const minimum = Math.max(limits.minGu, Math.ceil(fallback));
   const value = Math.round(Number(heightGu));
   return Number.isFinite(value)
-    ? Math.max(minimum, value)
+    ? Math.max(minimum, Math.min(limits.maxGu, value))
     : fallback;
+}
+
+function nodeGraphModuleHeightWithBottomClearance(requiredGu) {
+  const required = Math.max(0, Number(requiredGu) || 0);
+  let heightGu = Math.ceil(required);
+  if ((heightGu - required) * nodeGraphGrid.heightPx < 3) {
+    heightGu += 1;
+  }
+  return heightGu;
 }
 
 function normalizeNodeGraphTextBoxHeightUnits(heightGu) {
@@ -439,13 +433,20 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "interfaceControls", heightGu: nodeGraphModuleInterfaceControlsHeightGu(type, ui), visible: interfaceControlsVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
+      // Music Player's waveform row is `minmax(scope, 1fr)` (styles.css), so it
+      // swallows every spare pixel and the slider stack always ended up flush
+      // with the module's bottom edge no matter how tall the module was. The
+      // matching cushion row in the phosphor-waveform grid template is what the
+      // clearance actually lands in; this keeps the height math aware of it.
+      { id: "cushion", heightGu: 1, visible: type === "audioPlayer" },
+      // The waveform panel sits inside a 2px margin plus a 1px black ring on
+      // each side (.node-phosphor-waveform-display), so its grid row is 6px
+      // taller than the canvas the scope-height setting asks for.
+      { id: "waveformInset", heightGu: 6 / 28, visible: type === "audioPlayer" },
     ];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "led") {
     return [{ id: "face", heightGu: 1, visible: true }];
-  }
-  if (nodeGraphModuleDefinitions[type]?.layout === "knobWidget") {
-    return [{ id: "face", heightGu: 4, visible: true }];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "textBox") {
     return [
@@ -598,6 +599,19 @@ function nodeGraphModuleGridHeightUnits(type) {
   return nodeGraphModuleGridHeightUnitsForUi(type);
 }
 
+function nodeGraphSolidModuleGridHeightUnits(type, ui = {}, { compact = false } = {}) {
+  const displayGu = nodeGraphModuleConfiguredDisplayHeightUnits(type, ui);
+  const sliderGu = nodeGraphModuleVisibleSliderRowCountForUi(type, ui) > 0
+    ? nodeGraphModuleSliderBodyHeightGu(type)
+    : 0;
+  if (compact && sliderGu <= 0) {
+    return displayGu;
+  }
+  return nodeGraphModuleHeightWithBottomClearance(
+    displayGu + sliderGu + nodeGraphModuleLayout.moduleGridInsetGu * 2,
+  );
+}
+
 function nodeGraphModuleGridHeightUnitsForUi(type, ui = {}) {
   // Chromeless layouts (see nodeGraphChromelessModuleLayouts in
   // node-graph-module-rendering.js) have no header, no display, no IO
@@ -616,31 +630,27 @@ function nodeGraphModuleGridHeightUnitsForUi(type, ui = {}) {
   // keyboard shortcut), rather than being pinned at 1 regardless of that
   // setting.
   if (nodeGraphChromelessModuleLayouts.has(nodeGraphModuleDefinitions[type]?.layout)) {
+    // Compact tiles are one seamless face. Most have no parameter rows, but
+    // solid-shell tiles may place ordinary sliders below that face; route
+    // those through the same solid-module height contract as larger modules.
+    if (nodeGraphChromelessModuleIsCompactTile(type)) {
+      if (nodeGraphChromelessModuleUsesSolidShell(type)) {
+        return nodeGraphSolidModuleGridHeightUnits(type, ui, { compact: true });
+      }
+      return nodeGraphModuleSizingCapabilities(type).displayHeight
+        ? nodeGraphModuleConfiguredDisplayHeightUnits(type, ui)
+        : 1;
+    }
     if (nodeGraphChromelessModuleUsesSolidShell(type)) {
-      const displayGu = nodeGraphModuleConfiguredDisplayHeightUnits(type, ui);
-      const sliderGu = nodeGraphModuleVisibleSliderRowCountForUi(type, ui) > 0
-        ? nodeGraphModuleSliderBodyHeightGu(type)
-        : 0;
-      return Math.ceil(displayGu + sliderGu + nodeGraphModuleLayout.moduleGridInsetGu * 2);
+      return nodeGraphSolidModuleGridHeightUnits(type, ui);
     }
     if (nodeGraphModuleSizingCapabilities(type).displayHeight) {
       return nodeGraphModuleConfiguredDisplayHeightUnits(type, ui);
     }
     return 1;
   }
-  if (nodeGraphModuleDefinitions[type]?.layout === "knobWidget") {
-    return 4;
-  }
   const requiredGu = nodeGraphModuleRequiredHeightUnitsForUi(type, ui);
-  let heightGu = Math.ceil(requiredGu);
-  // Bottom-clearance rule: if rounding up to whole grid units leaves less
-  // than 2px of slack under the last section (e.g. the module bottom lines
-  // up exactly with the bottom of a slider row), that reads as cramped --
-  // add one more grid unit so the content always breathes at the base.
-  if ((heightGu - requiredGu) * nodeGraphGrid.heightPx < 2) {
-    heightGu += 1;
-  }
-  return heightGu;
+  return nodeGraphModuleHeightWithBottomClearance(requiredGu);
 }
 
 function nodeGraphPatchNodeGridHeightUnits(node) {
@@ -648,8 +658,12 @@ function nodeGraphPatchNodeGridHeightUnits(node) {
   if (scriptGrid?.heightGu) {
     return normalizeNodeGraphModuleHeightUnits(node?.type, scriptGrid.heightGu);
   }
-  if (nodeGraphNodeTypeHasTextBoxLayout(node?.type) && Number.isFinite(Number(node.heightGu))) {
+  const moduleHeightCapability = nodeGraphModuleSizingCapabilities(node?.type).moduleHeight;
+  if (moduleHeightCapability === "textBox" && Number.isFinite(Number(node.heightGu))) {
     return normalizeNodeGraphTextBoxHeightUnits(node.heightGu);
+  }
+  if (moduleHeightCapability === "custom" && Number.isFinite(Number(node.heightGu))) {
+    return normalizeNodeGraphModuleHeightUnits(node?.type, node.heightGu, node.ui);
   }
   const autoHeightGu = nodeGraphModuleGridHeightUnitsForUi(node?.type, node?.ui);
   return normalizeNodeGraphModuleHeightUnits(node?.type, autoHeightGu, node?.ui);

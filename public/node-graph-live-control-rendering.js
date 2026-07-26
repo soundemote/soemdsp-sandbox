@@ -139,9 +139,87 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) 
     tp.textContent = playing ? "⏸" : "▶";
     tp.setAttribute("aria-label", playing ? "Pause" : "Play");
   }
+  renderNodeGraphSpeedReadout();
+}
+
+// The header "Speed" field mirrors the engine's speed multiplier, so pausing
+// (transport pause button or spacebar -- both route through
+// setNodeGraphLiveSpeed) visibly reads 0 instead of staying at 1.0.
+function renderNodeGraphSpeedReadout() {
+  const speed = Math.max(0, Number(nodeGraphMvp.live.speedMultiplier ?? 1));
+  const text = speed.toFixed(1);
+  for (const input of document.querySelectorAll("[data-speed-readout]")) {
+    if (input.value !== text) {
+      input.value = text;
+    }
+  }
+}
+
+// Shared wiring for the 🔊 sliders (live input, live output, rendered player).
+// All three are 0..1 with a percent readout; `apply` is the only part that
+// differs. Returns nothing -- the slider owns no state, it just pushes into
+// whatever gain/volume the caller names, so a level set elsewhere can be
+// pushed back into the slider with syncNodeGraphVolumeSlider.
+function bindNodeGraphVolumeSlider(sliderId, readoutId, apply, initialValue = 1) {
+  const slider = document.getElementById(sliderId);
+  if (!slider || slider.dataset.volumeBound === "true") {
+    return;
+  }
+  slider.dataset.volumeBound = "true";
+  const readout = document.getElementById(readoutId);
+  const render = (value) => {
+    if (readout) {
+      readout.textContent = `${Math.round(value * 100)}%`;
+    }
+  };
+  const handle = () => {
+    const value = Math.max(0, Math.min(1, Number(slider.value) || 0));
+    apply(value);
+    render(value);
+  };
+  slider.addEventListener("input", handle);
+  slider.addEventListener("change", handle);
+  slider.value = String(initialValue);
+  render(initialValue);
+}
+
+function syncNodeGraphVolumeSlider(sliderId, readoutId, value) {
+  const slider = document.getElementById(sliderId);
+  const readout = document.getElementById(readoutId);
+  const level = Math.max(0, Math.min(1, Number(value) || 0));
+  if (slider && document.activeElement !== slider) {
+    slider.value = String(level);
+  }
+  if (readout) {
+    readout.textContent = `${Math.round(level * 100)}%`;
+  }
+}
+
+function bindNodeGraphLiveVolumeControls() {
+  bindNodeGraphVolumeSlider(
+    "nodeLiveOutputVolume",
+    "nodeLiveOutputVolumeValue",
+    (value) => {
+      if (typeof setNodeGraphLiveOutputVolume === "function") {
+        setNodeGraphLiveOutputVolume(value);
+      }
+    },
+    nodeGraphMvp?.live?.outputVolume ?? 1,
+  );
+  bindNodeGraphVolumeSlider(
+    "nodeLiveInputVolume",
+    "nodeLiveInputVolumeValue",
+    (value) => {
+      if (typeof setNodeGraphLiveInputVolume === "function") {
+        setNodeGraphLiveInputVolume(value);
+      }
+    },
+    nodeGraphMvp?.live?.inputVolume ?? 1,
+  );
 }
 
 function bindNodeGraphTransportButtons() {
+  bindNodeGraphLiveVolumeControls();
   const play = document.getElementById("nodeTransportPlay");
   const stop = document.getElementById("nodeTransportStop");
   const prev = document.getElementById("nodeTransportPrev");

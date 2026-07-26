@@ -146,8 +146,10 @@ function nodeInteractionMouseHint(element) {
     return nodeGraphTooltipText("view.gridHelp");
   }
   if (element.id === "nodeTooltipToggleButton") {
-    const windowOpen = !document.getElementById("nodeTooltipWindow")?.hidden;
-    return nodeGraphTooltipText(windowOpen ? "view.tipsHide" : "view.tipsShow");
+    return nodeGraphTooltipText(nodeGraphTooltipsShown() ? "view.tipsHide" : "view.tipsShow");
+  }
+  if (element.id === "nodeTooltipEmbedToggleButton") {
+    return nodeGraphTooltipText(nodeGraphMvp.tooltipEmbedded ? "view.tipsFloat" : "view.tipsEmbed");
   }
   if (element.id === "nodeSliderAmountToggleButton") {
     return nodeGraphTooltipText(nodeGraphMvp.sliderAmountVisible ? "view.sliderAmountHide" : "view.sliderAmountShow");
@@ -176,6 +178,63 @@ function nodeInteractionMouseHint(element) {
   return nodeGraphTooltipText("common.interact");
 }
 
+// The embedded tip lives in the page flow, so its box must never change size
+// -- a taller tip would push everything below it down, and the interface would
+// twitch every time the pointer crossed a control. The box is pinned in CSS
+// (.node-interaction-help.is-embedded) and the text is shrunk to fit it here.
+//
+// Binary search rather than a step-down loop: 9 iterations settle to well
+// under a tenth of a pixel, and each probe is one layout read on an element
+// that is already being laid out. The floor stops a pathologically long tip
+// from becoming unreadable -- past that it simply clips, which is the lesser
+// evil compared to reflowing the app.
+const nodeInteractionHelpMinFontPx = 8;
+
+function fitNodeInteractionHelpText(help) {
+  if (!help || !help.classList.contains("is-embedded")) {
+    if (help) {
+      help.style.removeProperty("font-size");
+    }
+    return;
+  }
+  help.style.removeProperty("font-size");
+  if (!help.textContent) {
+    return;
+  }
+  const available = help.clientHeight;
+  if (available <= 0) {
+    return;
+  }
+  const natural = Number.parseFloat(window.getComputedStyle(help).fontSize) || 12;
+  // The box centres its text (align-items: center). scrollHeight only counts
+  // content spilling past the BOTTOM edge, so with centring it stays equal to
+  // clientHeight while the first line is already clipped off the top -- the
+  // overflow is split between both edges. Measure with the content top-
+  // aligned so all of the overflow lands below and scrollHeight sees it.
+  const previousAlign = help.style.alignItems;
+  help.style.alignItems = "flex-start";
+  const overflows = () => help.scrollHeight > help.clientHeight;
+  if (overflows()) {
+    let low = nodeInteractionHelpMinFontPx;
+    let high = natural;
+    for (let i = 0; i < 9; i += 1) {
+      const mid = (low + high) * 0.5;
+      help.style.fontSize = `${mid}px`;
+      if (overflows()) {
+        high = mid;
+      } else {
+        low = mid;
+      }
+    }
+    help.style.fontSize = `${low.toFixed(2)}px`;
+  }
+  if (previousAlign) {
+    help.style.alignItems = previousAlign;
+  } else {
+    help.style.removeProperty("align-items");
+  }
+}
+
 function setNodeInteractionHelp(text = "") {
   const help = document.getElementById("nodeInteractionHelp");
   if (help) {
@@ -184,6 +243,7 @@ function setNodeInteractionHelp(text = "") {
       return;
     }
     help.textContent = composedText;
+    fitNodeInteractionHelpText(help);
   }
 }
 

@@ -34,7 +34,7 @@ const nodeUiDevFontFamilyOptions = Object.freeze([
 const nodeUiDevSettingControls = Object.freeze([
   { defaultValue: true, exposeDefault: true, id: "nodeUiDevMouseLightEnabled", key: "mouseLightEnabled", type: "boolean" },
   { defaultValue: false, id: "nodeUiDevShowOriginMarker", key: "showOriginMarker", type: "boolean" },
-  { defaultValue: true, exposeDefault: true, id: "nodeUiDevModularShaderEnabled", key: "modularShaderEnabled", type: "boolean" },
+  { defaultValue: false, exposeDefault: true, id: "nodeUiDevModularShaderEnabled", key: "modularShaderEnabled", type: "boolean" },
   { defaultValue: false, exposeDefault: true, id: "nodeUiDevScopeBloomEnabled", key: "scopeBloomEnabled", type: "boolean" },
   { defaultValue: 100, id: "nodeUiDevSettingsHeaderTextSize", key: "settingsHeaderTextSize", max: 100, min: 0, type: "number" },
   { defaultValue: 50, id: "nodeUiDevButtonTextSize", key: "uiDevButtonTextSize", max: 100, min: 0, type: "number" },
@@ -79,6 +79,17 @@ const nodeUiDevSettingControls = Object.freeze([
   { defaultValue: "#7fc7d9", exposeDefault: true, id: "nodeUiDevSliderUnitColor", key: "sliderUnitColor", type: "color" },
   { defaultValue: "#7fc7d9", exposeDefault: true, id: "nodeUiDevSliderFillHoverColor", key: "sliderFillHoverColor", type: "color" },
   { defaultValue: 28, exposeDefault: true, id: "nodeUiDevSliderFillHoverAlpha", key: "sliderFillHoverAlpha", max: 100, min: 0, type: "number" },
+  // Amount fill (the "how far along" band) and position fill (the handle /
+  // value indicator) each get full HSLA so they can be told apart by eye.
+  // UI-Dev-only (no exposeDefault): tuned once, not something end users touch.
+  { defaultValue: 200, id: "nodeUiDevSliderAmountFillHue", key: "sliderAmountFillHue", max: 360, min: 0, type: "number" },
+  { defaultValue: 31, id: "nodeUiDevSliderAmountFillSaturation", key: "sliderAmountFillSaturation", max: 100, min: 0, type: "number" },
+  { defaultValue: 15, id: "nodeUiDevSliderAmountFillLightness", key: "sliderAmountFillLightness", max: 100, min: 0, type: "number" },
+  { defaultValue: 100, id: "nodeUiDevSliderAmountFillAlpha", key: "sliderAmountFillAlpha", max: 100, min: 0, type: "number" },
+  { defaultValue: 203, id: "nodeUiDevSliderPositionFillHue", key: "sliderPositionFillHue", max: 360, min: 0, type: "number" },
+  { defaultValue: 55, id: "nodeUiDevSliderPositionFillSaturation", key: "sliderPositionFillSaturation", max: 100, min: 0, type: "number" },
+  { defaultValue: 57, id: "nodeUiDevSliderPositionFillLightness", key: "sliderPositionFillLightness", max: 100, min: 0, type: "number" },
+  { defaultValue: 37, id: "nodeUiDevSliderPositionFillAlpha", key: "sliderPositionFillAlpha", max: 100, min: 0, type: "number" },
   { defaultValue: 50, exposeDefault: true, id: "nodeUiDevNodeGlowSize", key: "nodeGlowSize", max: 200, min: 0, type: "number" },
   { defaultValue: 36, exposeDefault: true, id: "nodeUiDevWirePatchPointSize", key: "wirePatchPointSize", max: 200, min: 0, type: "number" },
   { defaultValue: 19, exposeDefault: true, id: "nodeUiDevWireThickness", key: "wireThickness", max: 100, min: 0, type: "number" },
@@ -155,6 +166,19 @@ const nodeUiDevSettingSections = Object.freeze([
       "nodeUiDevWirePatchPointSize",
       "nodeUiDevWireThickness",
       "nodeUiDevTraceWireThickness",
+    ],
+  },
+  {
+    title: "slider fill colors",
+    ids: [
+      "nodeUiDevSliderAmountFillHue",
+      "nodeUiDevSliderAmountFillSaturation",
+      "nodeUiDevSliderAmountFillLightness",
+      "nodeUiDevSliderAmountFillAlpha",
+      "nodeUiDevSliderPositionFillHue",
+      "nodeUiDevSliderPositionFillSaturation",
+      "nodeUiDevSliderPositionFillLightness",
+      "nodeUiDevSliderPositionFillAlpha",
     ],
   },
   {

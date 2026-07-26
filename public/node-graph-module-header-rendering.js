@@ -196,7 +196,13 @@ function createNodeGraphHeaderAudioInput(key, label, options = {}) {
   input.inputMode = "decimal";
   input.min = String(options.min ?? 0.01);
   input.max = String(options.max ?? 20000);
-  input.step = String(options.step ?? 1);
+  // "any", not a numeric step. Pitch reference frequency is continuous --
+  // normalizeNodeGraphPatchAudio only clamps it to 0.01..20000. With a step
+  // of 1 and a min of 0.01 the browser considers the valid values to be
+  // 0.01, 1.01, 2.01 ... so typing 100 (the default!) failed validation and
+  // popped the useless native "Please enter a valid value" bubble. The
+  // spinner is hidden anyway, so step had no other purpose here.
+  input.step = String(options.step ?? "any");
   input.type = "number";
   input.readOnly = true;
   input.value = String(nodeGraphPatchAudioValue(key));
@@ -249,6 +255,10 @@ function createNodeGraphHeaderSpeedPlaceholder() {
   input.step = "0.1";
   input.type = "number";
   input.value = "1.0";
+  // Tagged so renderNodeGraphSpeedReadout can keep it in step with the
+  // engine's speed multiplier (0 while paused). Still read-only/under
+  // construction as an *input* -- it only reports, it does not set speed.
+  input.dataset.speedReadout = "true";
   input.setAttribute("aria-label", "Speed placeholder, under construction");
   input.dataset.tooltipKey = "timing.speedUnderConstruction";
   input.addEventListener("keydown", (event) => event.stopPropagation());
@@ -354,7 +364,11 @@ function createNodeGraphHeaderRenderRangeInput(className, label, defaultValue, o
   input.inputMode = "decimal";
   input.min = String(options.min ?? 0);
   input.max = String(options.max ?? 3600);
-  input.step = "0.05";
+  // Same reasoning as the audio input above: render start/end are arbitrary
+  // seconds (min 0.05 on End, so a 0.05 step grid would reject 1.33), and
+  // these became double-click-to-type fields, so a step mismatch here would
+  // be user-visible too.
+  input.step = "any";
   input.type = "number";
   input.value = formatNodeSliderCompactNumber(defaultValue);
   input.setAttribute("aria-label", options.ariaLabel || label);
@@ -421,7 +435,6 @@ function createNodeGraphCommandCenterTimingWidgets() {
       tooltipKey: "timing.pitchReferenceHz",
       min: 0.01,
       max: 20000,
-      step: 1,
     }),
   );
 
@@ -466,6 +479,13 @@ function moveNodeGraphRenderRangeToDurationControl() {
     if (field && field.parentElement !== dur) {
       dur.appendChild(field);
     }
+  }
+  // These fields can be (re)created after the one-shot load-time binding in
+  // node-graph-render-settings.js has already run, so re-run it here -- it is
+  // idempotent (guarded by field.dataset.dblClickBound) and this is the only
+  // point every render-range field is guaranteed to exist and be mounted.
+  if (typeof bindNodeGraphRenderRangeDoubleClick === "function") {
+    bindNodeGraphRenderRangeDoubleClick();
   }
 }
 

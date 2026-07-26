@@ -18,9 +18,19 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 ROOT = Path(__file__).resolve().parent
 PUBLIC = ROOT / "public"
-BUILD_NUMBER = "20260723am"
+BUILD_NUMBER = "20260726bb"
 VERSION_FILE = ROOT / "VERSION"
 SANDBOX_VERSION = VERSION_FILE.read_text(encoding="utf-8").strip() if VERSION_FILE.exists() else "0.0.0"
+
+# "debug" (default) vs "release". Purely a labeling/UI signal -- it does not
+# gate any behavior server-side -- consumed client-side to color the debug
+# console's bug button (red for a debug build, neutral for a release build;
+# see node-graph-debug-console.js). Override with the SOEMDSP_BUILD_MODE env
+# var or --release on the command line. Anything other than exactly
+# "release" is treated as "debug" so an unrecognized/misconfigured value
+# fails toward the more-alarming, more-honest label rather than silently
+# looking like a vetted release build.
+BUILD_MODE = "release" if os.environ.get("SOEMDSP_BUILD_MODE", "").strip().lower() == "release" else "debug"
 DEFAULT_PRESET = PUBLIC / "presets" / "default.json"
 DEFAULT_UI_SETTINGS = PUBLIC / "presets" / "useruisettings.json"
 DEFAULT_UI_SETTINGS_SCRIPT = PUBLIC / "presets" / "useruisettings.js"
@@ -1220,6 +1230,7 @@ class SandboxServer(BaseHTTPRequestHandler):
             path.read_text(encoding="utf-8")
             .replace("{{BUILD_NUMBER}}", BUILD_NUMBER)
             .replace("{{SANDBOX_VERSION}}", (VERSION_FILE.read_text(encoding="utf-8").strip() if VERSION_FILE.exists() else SANDBOX_VERSION))
+            .replace("{{BUILD_MODE}}", BUILD_MODE)
             .encode("utf-8")
         )
         self.send_response(200)
@@ -1329,14 +1340,28 @@ class SandboxServer(BaseHTTPRequestHandler):
 
 
 def main() -> None:
+    global BUILD_MODE
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", default=int(os.environ.get("PORT", 8765)), type=int)
     parser.add_argument("--manifest", default=str(DEFAULT_MANIFEST))
+    parser.add_argument(
+        "--release",
+        action="store_true",
+        help="Serve as a release build (SOEMDSP_BUILD_MODE=release): the debug "
+        "console's bug button renders neutral instead of red. Debug tools "
+        "themselves are unaffected -- this is a label only.",
+    )
     args = parser.parse_args()
+
+    if args.release:
+        BUILD_MODE = "release"
 
     SandboxServer.manifest_path = Path(args.manifest).resolve()
     SandboxServer.artifact_root = SandboxServer.manifest_path.parent.resolve()
+
+    print(f"build mode: {BUILD_MODE}")
 
     server = ThreadingHTTPServer((args.host, args.port), SandboxServer)
     print(f"soemdsp-sandbox serving http://{args.host}:{args.port}")

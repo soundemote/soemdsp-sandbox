@@ -8,9 +8,18 @@ registerNodeGraphChromelessModule("led", {
   compactTile: true,
   solidModule: true,
   solidPortLabels: false,
+  // The lit face IS the module's display area. Declaring it as a custom
+  // display area is what gives LED the displayHeight sizing capability
+  // (nodeGraphModuleSizingCapabilities), so the height arrows / keyboard
+  // shortcut grow it in whole grid units the same way width already grew.
+  customDisplayArea: true,
   definition: {
     bufferedInputs: ["In"],
-    displayType: "dot",
+    // Not the shared "dot" (0D Burn) renderer any more: LED draws its own
+    // lamp face from public/modules/led/led-display.js, which paints the
+    // element in CSS so the squircle/rounding controls can shape it.
+    displayType: "ledLamp",
+    displayHeightGu: 1,
     inputs: ["In"],
     outputs: ["Out"],
     parameters: [],
@@ -20,8 +29,8 @@ registerNodeGraphChromelessModule("led", {
     visualSink: true,
   },
   catalog: {
-    category: "LED",
-    description: "One-grid-unit signal light. Patch any gate or control signal into In and use it as a compact in-world indicator.",
-    notes: ["1 GU tile", "input light", "visual indicator"],
+    category: "object",
+    description: "Signal light. Patch any gate or control signal into In and use it as an in-world indicator -- one grid unit by default, resizable in both directions, with its own color/blur/rounding/brightness settings.",
+    notes: ["resizable tile", "input light", "visual indicator"],
   },
 });

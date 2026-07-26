@@ -28,15 +28,6 @@ function syncNodeGraphRenderSecondsFromInput(options = {}) {
   return seconds;
 }
 
-function syncNodeGraphRenderTimeDisplays() {
-  const start = nodeGraphMvp.renderStartSeconds ?? 0;
-  const end = nodeGraphMvp.renderEndSeconds ?? nodeGraphMvp.seconds ?? 2;
-  const startEl = document.getElementById("nodeRenderStartDisplay");
-  const endEl = document.getElementById("nodeRenderEndDisplay");
-  if (startEl) startEl.textContent = formatNodeSliderCompactNumber(start);
-  if (endEl) endEl.textContent = formatNodeSliderCompactNumber(end);
-}
-
 function syncNodeGraphRenderRangeFromInputs() {
   if (nodeGraphMvp.renderStartSeconds == null) nodeGraphMvp.renderStartSeconds = 0;
   if (nodeGraphMvp.renderEndSeconds == null) nodeGraphMvp.renderEndSeconds = nodeGraphMvp.seconds ?? 2;

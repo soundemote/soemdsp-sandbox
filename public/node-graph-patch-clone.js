@@ -131,11 +131,65 @@ function normalizeNodeGraphGraphConnections(graphConnections = []) {
 const nodeGraphLedDefaultColor = "#ff0000";
 const nodeGraphLedCenterColor = "#ffffff";
 
+// Everything the LED options window edits. The lamp is described by a HUE
+// rather than a color, because the face's actual color is a function of the
+// live input level: 0 is black, 0.5 is this hue at full saturation, 1 is
+// white (see nodeGraphLedEmittedRgb in public/modules/led/led-settings.js).
+//
+// rounding/cornerShape are the same pair the Music Player's waveform panel
+// uses: rounding is a PERCENTAGE of the largest radius the face can take
+// (half its shorter side), so 100 is fully round at any module size, and it
+// means the same thing to both corner shapes.
+const nodeGraphLedDefaultSettings = Object.freeze({
+  blur: 0.35,
+  brightness: 1,
+  cornerShape: "squircle",
+  hue: 0,
+  rounding: 100,
+});
+
+// A legacy node.led.color hex becomes the equivalent hue, so patches saved
+// before the hue-based model keep the lamp color their author picked.
+function nodeGraphLedHueFromHexColor(hex) {
+  const match = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || "").trim());
+  if (!match) {
+    return null;
+  }
+  const [r, g, b] = match.slice(1).map((part) => Number.parseInt(part, 16) / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const span = max - min;
+  if (span <= 0) {
+    return null;
+  }
+  const hue = max === r
+    ? ((g - b) / span + (g < b ? 6 : 0))
+    : max === g
+      ? (b - r) / span + 2
+      : (r - g) / span + 4;
+  return ((hue * 60) % 360 + 360) % 360;
+}
+
 function normalizeNodeGraphLedLayout(layout = {}) {
   const source = layout && typeof layout === "object" ? layout : {};
+  const defaults = nodeGraphLedDefaultSettings;
+  const color = normalizeNodeGraphModuleScopeDotCoreColor(source.color ?? nodeGraphLedDefaultColor, nodeGraphLedDefaultColor);
+  const rawHue = Number(source.hue);
+  const hue = Number.isFinite(rawHue)
+    ? ((rawHue % 360) + 360) % 360
+    : (nodeGraphLedHueFromHexColor(color) ?? defaults.hue);
+  const clamp = (value, min, max, fallback) => {
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
+  };
   return {
-    color: normalizeNodeGraphModuleScopeDotCoreColor(source.color ?? nodeGraphLedDefaultColor, nodeGraphLedDefaultColor),
+    blur: clamp(source.blur, 0, 1, defaults.blur),
+    brightness: clamp(source.brightness, 0, 2, defaults.brightness),
+    color,
+    cornerShape: source.cornerShape === "square" ? "square" : "squircle",
+    hue,
     kind: "led",
+    rounding: clamp(source.rounding, 0, 100, defaults.rounding),
   };
 }
 
@@ -291,8 +345,8 @@ function cloneNodeGraphPatch(patch) {
         ...(nodeGraphModuleIsGraphType(node.type)
           ? {
             graph: nodeGraphGraphEndpointYLockEnabledForNode(node)
-              ? nodeGraphGraphWithLockedEndpointY(node.graph)
-              : normalizeNodeGraphGraph(node.graph),
+              ? nodeGraphGraphWithLockedEndpointY(nodeGraphGraphWithPhaseCursor(node))
+              : nodeGraphGraphWithPhaseCursor(node),
           }
           : {}),
         ...(node.type === "codeblock"

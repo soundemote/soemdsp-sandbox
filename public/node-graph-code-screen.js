@@ -3509,11 +3509,6 @@ function renderNodeGraphCodeScreen() {
   }
 }
 
-function openNodeGraphCodeScreenLanding() {
-  nodeGraphMvp.codeScreenSection = "codeblocks";
-  setNodeGraphViewMode("code");
-}
-
 function setNodeGraphCodeScreenSection(sectionId) {
   if (!nodeGraphCodeScreenSections.some((section) => section.id === sectionId)) {
     return;

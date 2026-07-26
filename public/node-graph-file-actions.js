@@ -1268,12 +1268,9 @@ function setNodeGraphSavedPatchesWindowVisible(visible) {
   button?.setAttribute("aria-pressed", String(visible));
   if (visible) {
     applyNodeGraphSavedPatchesWindowSize(nodeGraphMvp.workspaceWindowStates?.patchExplorer?.size);
-    if (
-      typeof positionNodeGraphWorkspaceWindowFromState !== "function" ||
-      !positionNodeGraphWorkspaceWindowFromState("patchExplorer", panel)
-    ) {
+    openNodeGraphFloatingWindowAtPosition("patchExplorer", panel, () => {
       positionNodeGraphSavedPatchesWindowNearButton();
-    }
+    });
     syncNodeGraphSavedPatchGridColumns();
     renderNodeGraphDemoPatchList();
   }

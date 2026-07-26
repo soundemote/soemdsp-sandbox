@@ -74,6 +74,9 @@ async function initNodeGraphMvp() {
     applyNodeGraphWorkspaceWindowStates();
   }
   renderNodeGraphStandaloneMidiKeyboardToggle();
+  if (typeof applyNodeGraphTooltipEmbed === "function") {
+    applyNodeGraphTooltipEmbed();
+  }
   renderNodeGraphTooltipWindowToggle();
   loadNodeMetadataKindTemplates();
   refreshNodeGraphLiveInputDevices();

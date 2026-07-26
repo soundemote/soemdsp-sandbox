@@ -43,71 +43,43 @@ NodeLiveAudioProcessor.prototype.oscillatorSample = function oscillatorSample(no
   return this.oscillatorSampleJs(nodeId, phase, phaseIncrement, waveform);
 };
 
+// Naive LFO waveshapes matching native_modules/basic_oscillator (no
+// polyBLEP / anti-aliasing). Discontinuities and triangle corners are raw.
 NodeLiveAudioProcessor.prototype.oscillatorSampleJs = function oscillatorSampleJs(nodeId, phase, phaseIncrement, waveform) {
   const phaseDelta = Number(phaseIncrement) || 0;
   const phaseStopped = Math.abs(phaseDelta) <= 1e-12;
+  if (phaseStopped && this.oscillatorStoppedSamples.has(nodeId)) {
+    return this.oscillatorStoppedSamples.get(nodeId) || 0;
+  }
   const phaseCycle = this.wrapValue(phase / (Math.PI * 2), 0, 1);
 
-  // At 0 Hz the oscillator is a DC value controlled by phase — no aliasing,
-  // no polyBlep correction needed. Compute the raw waveform value directly.
-  if (phaseStopped) {
-    let sample;
-    switch (Math.round(Number(waveform) || 0)) {
-      case 1: // Ramp
-        sample = -1 + phaseCycle * 2;
-        break;
-      case 2: // Square
-        sample = phaseCycle < 0.5 ? 1 : -1;
-        break;
-      case 3: { // Triangle — use cached running state
-        sample = this.triangleStates.get(nodeId) || 0;
-        break;
-      }
-      case 4: // Sine
-        sample = Math.sin(phase);
-        break;
-      case 5: // Noise
-        sample = this.currentNoiseSample(nodeId);
-        break;
-      case 0: // Saw
-      default:
-        sample = 1 - phaseCycle * 2;
-        break;
-    }
-    this.oscillatorStoppedSamples.set(nodeId, sample);
-    return sample;
-  }
-
-  // Non-zero frequency: apply polyBlep anti-aliasing
-  this.oscillatorStoppedSamples.delete(nodeId);
-  this.oscillatorLastPhaseIncrements.set(nodeId, phaseDelta);
-  const renderPhaseIncrement = phaseDelta;
   let sample = 0;
   switch (Math.round(Number(waveform) || 0)) {
-    case 1:
-      sample = -1 + phaseCycle * 2 - this.polyBlep(phaseCycle, renderPhaseIncrement);
+    case 1: // Ramp
+      sample = -1 + phaseCycle * 2;
       break;
-    case 2:
-      sample = this.polyBlepSquare(phaseCycle, renderPhaseIncrement);
+    case 2: // Square
+      sample = phaseCycle < 0.5 ? 1 : -1;
       break;
-    case 3:
-      {
-        const triangle = this.triangleStates.get(nodeId) || 0;
-        const nextTriangle = (triangle + this.polyBlepSquare(phaseCycle, renderPhaseIncrement) * phaseDelta * 4) * 0.995;
-        this.triangleStates.set(nodeId, this.clampValue(nextTriangle, -1, 1));
-        sample = this.clampValue(nextTriangle, -1, 1);
-        break;
-      }
-    case 4:
+    case 3: // Triangle
+      sample = 1 - 4 * Math.abs(phaseCycle - 0.5);
+      break;
+    case 4: // Sine
       sample = Math.sin(phase);
       break;
-    case 5:
-      sample = this.nextNoiseSample(nodeId);
+    case 5: // Noise
+      sample = phaseStopped ? this.currentNoiseSample(nodeId) : this.nextNoiseSample(nodeId);
       break;
-    case 0:
+    case 0: // Saw
     default:
-      sample = 1 - phaseCycle * 2 + this.polyBlep(phaseCycle, renderPhaseIncrement);
+      sample = 1 - phaseCycle * 2;
       break;
+  }
+
+  if (phaseStopped) {
+    this.oscillatorStoppedSamples.set(nodeId, sample);
+  } else {
+    this.oscillatorStoppedSamples.delete(nodeId);
   }
   return sample;
 };

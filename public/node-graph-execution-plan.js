@@ -403,7 +403,7 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
   const outputNode = "output";
   const reachableNodes = new Set();
   const bypassedNodes = new Set(graph.bypassedNodes || []);
-  const passthroughTypes = new Set(["badvalMonitor", "bias", "chaoticPhaseLockingFilter", "cookbookFilter", "flowerChildFilter", "gain", "humanFilter", "ladderFilter", "papoulisFilter", "passiveFilter", "pll", "resonatorFilter", "reverbEffect", "rsmetFilter", "sampleHold", "slewLimiter", "softClipper", "speakerProtection", "superloveFilter", "tb303Filter", "wallDelay", "yellowjacketFilter"]);
+  const passthroughTypes = new Set(["badvalMonitor", "bias", "chaoticPhaseLockingFilter", "cookbookFilter", "flowerChildFilter", "gain", "gainBias", "humanFilter", "ladderFilter", "papoulisFilter", "passiveFilter", "pll", "resonatorFilter", "reverbEffect", "rsmetFilter", "sampleHold", "slewLimiter", "softClipper", "speakerProtection", "superloveFilter", "tb303Filter", "wallDelay", "yellowjacketFilter"]);
 
   function markReachable(nodeId) {
     if (reachableNodes.has(nodeId) || !graph.nodeMap.has(nodeId)) {
@@ -633,15 +633,12 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
       type === "surgeOscillator" ||
       type === "dsfOscillator" ||
       type === "ellipsoid" ||
-      type === "macroKnob" ||
-      type === "impulseButton" ||
       type === "bugButton" ||
       type === "xyPad" ||
       type === "macroControls" ||
       type === "midiOut" ||
       type === "noiseGenerator" ||
       type === "pitchModWheel" ||
-      type === "bipolarKnob" ||
       type === "additiveOsc" ||
       type === "gpuAdditiveOsc" ||
       type === "randomWalk" ||
@@ -730,6 +727,9 @@ function nodeGraphCompiledScopeCaptureNodeIds(graph, reachableNodes) {
       reachableNodes.has(node.id) &&
       !bypassedNodes.has(node.id) &&
       (
+        // Graph editor playhead reads "__GraphPhase" from scope buffers -- always
+        // capture graph modules even when they have no separate oscilloscope face.
+        nodeGraphModuleIsGraphType(node.type) ||
         nodeGraphChromelessModuleUsesSolidShell(node.type) ||
         (
           nodeGraphModuleDisplayRendererForNode(node) !== "legacy" &&

@@ -257,7 +257,9 @@ const nodeGraphShaderScriptState = {
   dialogMode: "global",
   dialogDrag: null,
   editorFontSizePx: nodeGraphShaderScriptEditorFontSizeLimits.defaultPx,
-  enabled: true,
+  // Off by default: the screen shader is an opt-in visual effect, and a fresh
+  // profile (or one just reset by Clear Startup) should come up without it.
+  enabled: false,
   fragmentSource: nodeGraphShaderScriptDefaultFragmentSource.trim(),
   gl: null,
   lastError: "",
@@ -298,6 +300,10 @@ function loadNodeGraphShaderScriptState() {
       parsed.editorFontSizePx,
     );
     nodeGraphShaderScriptState.syntaxColors = normalizeNodeGraphShaderScriptSyntaxColors(parsed.syntaxColors);
+    // saveNodeGraphShaderScriptState() has always written `enabled`, but this
+    // loader never read it back -- so the toggle silently reverted to the
+    // hardcoded default on every reload. Absent key => off.
+    nodeGraphShaderScriptState.enabled = parsed.enabled === true;
     if (storedFragmentSource && !shouldUseStoredFragment) {
       saveNodeGraphShaderScriptState();
     }
@@ -305,7 +311,7 @@ function loadNodeGraphShaderScriptState() {
     nodeGraphShaderScriptState.fragmentSource = nodeGraphShaderScriptDefaultFragmentSource.trim();
     nodeGraphShaderScriptState.editorFontSizePx = nodeGraphShaderScriptEditorFontSizeLimits.defaultPx;
     nodeGraphShaderScriptState.syntaxColors = { ...nodeGraphShaderScriptDefaultSyntaxColors };
-    nodeGraphShaderScriptState.enabled = true;
+    nodeGraphShaderScriptState.enabled = false;
   }
 }
 
@@ -1083,12 +1089,7 @@ async function pasteNodeGraphShaderScriptSource() {
 }
 
 function downloadNodeGraphShaderScriptSource(filename, source) {
-  const link = document.createElement("a");
-  const blob = new Blob([source], { type: "text/plain;charset=utf-8" });
-  link.href = URL.createObjectURL(blob);
-  link.download = filename;
-  link.click();
-  window.setTimeout(() => URL.revokeObjectURL(link.href), 0);
+  nodeGraphDownloadTextFile(filename, source);
 }
 
 async function exportNodeGraphShaderScriptToDesktop() {

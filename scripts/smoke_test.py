@@ -4,6 +4,7 @@ import argparse
 from functools import cache
 from html.parser import HTMLParser
 import json
+import os
 import re
 import socket
 import subprocess
@@ -126,7 +127,6 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-resources.js",
     "./public/node-graph-text-box-rendering.js",
     "./public/node-graph-patch-normalizers.js",
-    "./public/node-graph-ui-view.js",
     "./public/node-graph-audio-derivation.js",
     "./public/node-graph-grid-utils.js",
     "./public/node-graph-patch-runtime.js",
@@ -155,6 +155,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-canvas-script.js",
     "./public/node-graph-module-factories.js",
     "./public/modules/led/led-ui.js",
+    "./public/modules/led/led-settings.js",
+    "./public/modules/led/led-display.js",
     "./public/modules/bugButton/bug-button-ui.js",
     "./public/modules/xyPad/xy-pad-ui.js",
     "./public/modules/groupInput/group-input-ui.js",
@@ -246,6 +248,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-stdlib/node-graph-visual-control-helpers.js",
     "./public/node-graph-stdlib/node-graph-seeded-rng-helpers.js",
     "./public/node-graph-stdlib/node-graph-shared-dsp-helpers.js",
+    "./public/node-graph-stdlib/node-graph-shared-app-helpers.js",
+    "./public/node-graph-stdlib/node-graph-sinc-kernel.js",
     "./public/node-graph-live-frame-evaluator.js",
     "./public/node-graph-surge-oscillator.js",
     "./public/node-graph-live-runtime.js",
@@ -321,7 +325,6 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/linearEnvelope/linear-envelope-live-evaluator.js",
     "./public/modules/pluckEnvelope/pluck-envelope-live-evaluator.js",
     "./public/modules/vactrolEnvelope/vactrol-envelope-live-evaluator.js",
-    "./public/modules/impulseButton/impulse-button-live-evaluator.js",
     "./public/modules/flowerChildEnvelopeFollower/flower-child-envelope-follower-live-evaluator.js",
     "./public/modules/spiral/spiral-live-evaluator.js",
     "./public/modules/fractalSpiral/fractal-spiral-live-evaluator.js",
@@ -356,11 +359,11 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/led/led-live-evaluator.js",
     "./public/modules/bugButton/bug-button-live-evaluator.js",
     "./public/modules/xyPad/xy-pad-live-evaluator.js",
+    "./public/modules/gainBias/gain-bias-live-evaluator.js",
     "./public/modules/bias/bias-live-evaluator.js",
     "./public/modules/softClipper/soft-clipper-live-evaluator.js",
     "./public/modules/rotate3dTo2d/rotate-3d-to-2d-live-evaluator.js",
     "./public/modules/valueSlider/value-slider-live-evaluator.js",
-    "./public/modules/knob/knob-live-evaluator.js",
     "./public/modules/sandboxVisuals/sandbox-visuals-live-evaluator.js",
     "./public/modules/screenSpaceShader/screen-space-shader-live-evaluator.js",
     "./public/modules/bloomGlow/bloom-glow-live-evaluator.js",
@@ -452,7 +455,6 @@ WORKLET_BLOB_SOURCE_FILES = (
     "modules/linearEnvelope/linear-envelope-worklet-evaluator.js",
     "modules/pluckEnvelope/pluck-envelope-worklet-evaluator.js",
     "modules/vactrolEnvelopeSeries/vactrol-envelope-series-worklet-evaluator.js",
-    "modules/impulseButton/impulse-button-worklet-evaluator.js",
     "modules/bugButton/bug-button-worklet-evaluator.js",
     "modules/xyPad/xy-pad-worklet-evaluator.js",
     "modules/flowerChildEnvelopeFollower/flower-child-envelope-follower-worklet-evaluator.js",
@@ -2640,11 +2642,19 @@ def require_root_shell(base_url: str) -> None:
     build_number = build_number_match.group(1) if build_number_match else ""
     version_file = ROOT / "VERSION"
     sandbox_version = version_file.read_text(encoding="utf-8").strip() if version_file.exists() else "0.0.0"
+    # Mirrors server.py's BUILD_MODE derivation exactly. start_server() below
+    # spawns server.py as a bare subprocess (no --release, no env= override),
+    # so it inherits this process's environment the same way server.py's own
+    # `os.environ.get("SOEMDSP_BUILD_MODE", ...)` read would -- matching that
+    # here is what keeps this expected-bytes computation in sync with what
+    # the server under test actually serves.
+    build_mode = "release" if os.environ.get("SOEMDSP_BUILD_MODE", "").strip().lower() == "release" else "debug"
     expected = (
         (PUBLIC / "index.html")
         .read_text(encoding="utf-8")
         .replace("{{BUILD_NUMBER}}", build_number)
         .replace("{{SANDBOX_VERSION}}", sandbox_version)
+        .replace("{{BUILD_MODE}}", build_mode)
         .encode("utf-8")
     )
     expected_size = str(len(expected))
@@ -3867,6 +3877,13 @@ def require_chromeless_module_registry_contract() -> None:
         "nodeGraphModuleGridHeightUnitsForUi should use the chromeless registry, not a hardcoded per-type check",
     )
     require(
+        "function nodeGraphSolidModuleGridHeightUnits(type, ui = {}, { compact = false } = {})" in sizing_source
+        and "return nodeGraphSolidModuleGridHeightUnits(type, ui, { compact: true });" in sizing_source
+        and "return nodeGraphSolidModuleGridHeightUnits(type, ui);" in sizing_source
+        and ":not(.solid-module-layout)" in (PUBLIC / "styles.css").read_text(encoding="utf-8"),
+        "solid custom modules should share height accounting and stay outside generic hidden-button grid rewrites",
+    )
+    require(
         store_source.index('{ id: "controller"') < store_source.index('{ id: "gametrigger"')
         < store_source.index('{ id: "portal"'),
         "Game Trigger should immediately follow Controller in the module browser",
@@ -3878,9 +3895,9 @@ def require_chromeless_module_registry_contract() -> None:
     )
     require(
         store_source.index('{ id: "space"') < store_source.index('{ id: "digital"')
-        < store_source.index('{ id: "time"') < store_source.index('{ id: "modulator"')
+        < store_source.index('{ id: "clock"') < store_source.index('{ id: "modulator"')
         < store_source.index('{ id: "oscillator"'),
-        "Space, Digital, Time, Modulator, and Oscillator should keep their requested browser order",
+        "Space, Digital, Clock, Modulator, and Oscillator should keep their requested browser order",
     )
     videoscope_catalog = store_source[
         store_source.index("  videoscope: {"):store_source.index("\n  },", store_source.index("  videoscope: {"))
@@ -3899,6 +3916,7 @@ def require_bug_button_interaction_contract() -> None:
     external_events_source = script_sources["./public/node-graph-external-ui-events.js"]
     sizing_source = script_sources["./public/node-graph-module-sizing.js"]
     patch_source = script_sources["./public/node-graph-patch-core.js"]
+    module_actions_source = script_sources["./public/node-graph-module-actions.js"]
     worklet_source = read_assembled_worklet_source()
 
     for snippet in [
@@ -3908,24 +3926,29 @@ def require_bug_button_interaction_contract() -> None:
         'solidModule: true',
         'Size: "S"',
         'Opacity: "O"',
-        'inputs: ["Size", "X", "Y", "Opacity"]',
+        'inputs: ["X", "Y", "Size", "Opacity"]',
         'outputs: ["Mouse Up", "Mouse Down", "Dn/Up", "Mouse Hover", "X", "Y"]',
         'digitalOutputs: ["Mouse Up", "Mouse Down", "Dn/Up", "Mouse Hover"]',
         'key: "size"',
-        'label: "Character Size"',
+        'label: "Size"',
         'max: "2"',
         'key: "xPosition"',
         'key: "yPosition"',
         'key: "opacity"',
         '"Mouse Up": "\\u2B06"',
         '"Mouse Down": "\\u2B07"',
-        '"Dn/Up": "\\u2B1C"',
-        '"Mouse Hover": "\\u{1F47B}"',
+        '"Dn/Up": "G"',
+        '"Mouse Hover": "H"',
     ]:
         require(snippet in register_source, f"Bug Button definition missing {snippet}")
     for snippet in [
         "function nodeGraphBugButtonPointerPosition(control, event)",
-        "function commitNodeGraphBugButtonGlyph(nodeId, value)",
+        # Glyph editing moved out of the module face into a Module
+        # Settings text input (see node-graph-context-menu.js's
+        # nodeSceneBugButtonGlyph and setNodeGraphBugButtonGlyphFromContext
+        # in node-graph-module-actions.js) -- the module face just
+        # renders the current glyph now.
+        "glyph.textContent = normalizeNodeGraphBugButtonGlyph(patchNode?.bugButton?.glyph)",
         "function syncNodeGraphBugButtonVisual(face)",
         'face.dataset.parameterVisual = "true"',
         'glyph.style.setProperty("--node-bug-button-size"',
@@ -3934,9 +3957,13 @@ def require_bug_button_interaction_contract() -> None:
         'setNodeGraphBugButtonInteraction(node, { ...position, ...extra })',
         '{ down: 1, downPulse: true, hover: 1 }',
         '{ down: 0, upPulse: true }',
-        'glyph.contentEditable = "plaintext-only"',
     ]:
         require(snippet in ui_source, f"Bug Button UI missing {snippet}")
+    require(
+        "function setNodeGraphBugButtonGlyphFromContext({ record = true } = {})" in module_actions_source
+        and "normalizeNodeGraphBugButtonGlyph(input?.value)" in module_actions_source,
+        "Bug Button glyph editing should go through the Module Settings text input",
+    )
     require(
         'element.querySelectorAll("[data-parameter-visual]")' in patch_source
         and "visual.syncFromParameters?.()" in patch_source,
@@ -4000,7 +4027,7 @@ def require_xy_pad_interaction_contract() -> None:
         "drag.startX + ((event.clientX - drag.startClientX)",
         "drag.startY - ((event.clientY - drag.startClientY)",
         "if (drag.absolute)",
-        'ctx.arc(px + (1.5 * dpr), py + (1.5 * dpr), 7 * dpr',
+        "ctx.arc(px, py, 7 * dpr, 0, Math.PI * 2)",
         'ctx.strokeStyle = "rgba(127, 199, 217, 0.24)"',
         'ctx.fillStyle = "rgba(177, 132, 255, 0.38)"',
         "function nodeGraphXyPadInputConnected(pad, port)",
@@ -4309,7 +4336,6 @@ def require_node_graph_mvp_contract() -> None:
         "patch normalizers": script_sources["./public/node-graph-patch-normalizers.js"],
         "clone": script_sources["./public/node-graph-patch-clone.js"],
         "actions": script_sources["./public/node-graph-module-actions.js"],
-        "ui view": script_sources["./public/node-graph-ui-view.js"],
         "rendering": script_sources["./public/node-graph-module-rendering.js"],
         "menu events": script_sources["./public/node-graph-scene-menu-event-bindings.js"],
         "event bindings": script_sources["./public/node-graph-event-bindings.js"],
@@ -4327,15 +4353,17 @@ def require_node_graph_mvp_contract() -> None:
             "definitions",
             graph_contract_sources["definitions"],
             [
-                'graph: "Graph"',
-                'graph2: "Graph 2"',
-                "graph: {",
+                # "graph" (per-point curve shape/contour) was retired in favor
+                # of "graph2" (see nodeGraphRetiredNodeTypes in
+                # node-graph-patch-core.js); graph2 now carries the plain
+                # "Graph" label since it's the only survivor.
+                'graph2: "Graph"',
                 "graph2: {",
                 'inputs: ["In"]',
                 'layout: "graph"',
                 'outputs: ["Out"]',
                 'choices: ["Input", "LFO"]',
-                'choices: ["Linear", "Smooth", "Meander", "Quadratic Through", "Cubic Through"]',
+                'choices: ["Linear", "Smooth", "Bezier", "Quadratic Through", "Cubic Through", "Catmull Rom"]',
                 'choices: ["Off", "On"]',
                 'key: "mode"',
                 'key: "smoothingMode"',
@@ -4343,6 +4371,8 @@ def require_node_graph_mvp_contract() -> None:
                 'label: "Lock Ends"',
                 'key: "rate"',
                 'key: "phase"',
+                'key: "inputMin"',
+                'key: "inputMax"',
                 'key: "outputMin"',
                 'key: "outputMax"',
             ],
@@ -4350,7 +4380,10 @@ def require_node_graph_mvp_contract() -> None:
         (
             "store",
             graph_contract_sources["store"],
-            ["graph: {", "graph2: {", "Patch-local soemdsp-style graph object", "Single-algorithm graph testbed"],
+            [
+                "graph2: {",
+                "Patch-local graph object with curve nodes, a global smoothing mode, input/output range mapping, and LFO or CV-driven readout.",
+            ],
         ),
         (
             "normalizer",
@@ -4376,69 +4409,64 @@ def require_node_graph_mvp_contract() -> None:
                 "function normalizeNodeGraphGraph(value = {})",
                 "function nodeGraphGraphEndpointYLockEnabledForNode(patchNode)",
                 "function nodeGraphGraphWithLockedEndpointY(graphValue, selectedIndex = 0)",
+                "function nodeGraphGraphWithPhaseCursor(patchNode, graphValue = patchNode?.graph)",
+                "function syncNodeGraphGraphPhaseParameterFromCursor(patchNode, graphValue = patchNode?.graph)",
+                "function syncNodeGraphGraphPhaseSliderForNode(nodeId, phase)",
                 "function nodeGraphGraphForNode(patchNode, selectedIndex = 0)",
-                "function nodeGraphGraphNextShape",
-                "function nodeGraphGraphContourShape",
-                "function nodeGraphGraphValueAt(graphValue, xValue, smoothingMode = \"legacy\")",
+                "function nodeGraphGraphValueAt(graphValue, xValue, smoothingMode)",
                 "function addNodeGraphGraphNodeData",
                 "function duplicateNodeGraphGraphNodeData",
-                "function cycleNodeGraphGraphShapeData",
                 "graph.nodes.length >= 32",
-                "function nodeGraphGraphCurvePath(graphValue, sampleCount = 96, smoothingMode = \"legacy\")",
+                "function nodeGraphGraphCurvePath(graphValue, sampleCount = 96, smoothingMode)",
                 "function renderNodeGraphGraphDisplay(element, graphValue, selectedIndex = null, options = {})",
                 "const cursorValue = nodeGraphGraphValueAt(graph, graph.cursorX, smoothingMode)",
                 "function syncNodeGraphGraphElement(moduleElement, patchNode)",
                 "const graph = nodeGraphGraphForNode(patchNode)",
                 "function nodeGraphGraphSvgPlotRect(svg)",
-                'preserveAspectRatio: "xMidYMid meet"',
+                'preserveAspectRatio: "none"',
                 "function nodeGraphGraphSvgToGraphPoint",
                 "const rect = nodeGraphGraphSvgPlotRect(svg)",
+                "function nodeGraphGraphScreenRoundRadii(element, radius)",
+                'createNodeGraphGraphSvgElement("ellipse"',
+                "rx: nodeRadii.rx.toFixed(3)",
+                "ry: nodeRadii.ry.toFixed(3)",
                 "function nodeGraphGraphConstrainedNodePoint",
                 "function beginNodeGraphGraphNodeDrag",
+                "function handleNodeGraphGraphNodeContextMenu",
                 "function dragNodeGraphGraphNode",
                 "function endNodeGraphGraphNodeDrag",
                 "function beginNodeGraphGraphCursorDrag",
-                "function nodeGraphGraphContourHandlePoint",
-                "function nodeGraphGraphContourFromPoint",
                 "function nodeGraphGraphSelectionState",
                 "function nodeGraphGraphSelectedNodeIndex",
                 "function setNodeGraphGraphSelectedNodeIndex",
-                "function beginNodeGraphGraphContourDrag",
                 "function addNodeGraphGraphNodeFromDisplayEvent",
-                "function cycleNodeGraphGraphShapeFromDisplayEvent",
+                "removeNodeGraphGraphNodeAtIndex(nodeId, index)",
                 "function removeFocusedNodeGraphGraphNode",
                 "function addFocusedNodeGraphGraphNode",
                 "function duplicateFocusedNodeGraphGraphNode",
-                "function cycleFocusedNodeGraphGraphShape",
                 "function selectFocusedNodeGraphGraphNodeOffset",
                 "function nudgeFocusedNodeGraphGraphNode",
                 "display?.focus?.({ preventScroll: true })",
                 "data-graph-node-index",
-                "data-graph-contour-index",
-                "data-graph-shape-index",
                 "data-selected",
                 "node-module-graph-node-hit",
-                "node-module-graph-contour-handle",
                 "node-module-graph-shape-badge",
                 "node-module-graph-grid-line",
                 "node-module-graph-cursor-hit",
                 "node-module-graph-cursor-value-guide",
                 'data-graph-cursor',
                 'mode: "cursor"',
-                "mode: \"contour\"",
                 "[0.25, 0.5, 0.75].forEach",
                 'gridValue === 0.5 ? " major" : ""',
                 "graph node added",
                 "addition.added",
                 "graph cursor moved",
-                "graph curve shape changed",
+                "syncNodeGraphGraphPhaseSliderForNode(drag.nodeId, drag.graph.cursorX)",
+                "syncNodeGraphGraphPhaseParameterFromCursor(targetNode)",
                 "graph node duplicated",
                 "graph node nudged",
-                "nodeGraphGraphWithLockedEndpointY(drag.graph, drag.index)",
+                "nodeGraphGraphWithLockedEndpointY(drag.graph, drag.index ?? 0)",
                 "event.altKey ? 0.001 : event.shiftKey ? 0.05 : 0.01",
-                "nodeGraphGraphRationalCurve(p, contour)",
-                "nodeGraphGraphExponentialCurve(p, contour)",
-                'shape === "rational" || shape === "exponential" ? shape : "rational"',
                 "function nodeGraphGraphSmoothCurve(position)",
                 "const nodeGraphGraph2SmoothingModes",
                 "function normalizeNodeGraphGraph2SmoothingMode(value)",
@@ -4455,12 +4483,6 @@ def require_node_graph_mvp_contract() -> None:
                 'normalizedMode === "cubic"',
                 'class: "node-module-graph-control-line"',
                 "return p * p * (3 - 2 * p)",
-                "smoothingMode !== \"legacy\"",
-                'right.shape === "hold"',
-                "? (p >= 1 ? 1 : 0)",
-                'right.shape === "smooth"',
-                "nodeGraphGraphSmoothCurve(p)",
-                "shape: nodeGraphGraphContourShape(current.shape)",
                 "cursorX: normalizeNodeGraphGraphNumber",
                 ".sort((left, right) => left.x - right.x)",
             ],
@@ -4477,10 +4499,12 @@ def require_node_graph_mvp_contract() -> None:
                 "node.graph = normalizeNodeGraphGraph(opts.graph)",
                 "if (nodeGraphModuleIsGraphType(type))",
                 "normalizedNode.graph = nodeGraphGraphEndpointYLockEnabledForNode(normalizedNode)",
-                "nodeGraphGraphWithLockedEndpointY(node.graph)",
+                "const phaseLinkedGraph = nodeGraphGraphWithPhaseCursor(normalizedNode, node.graph)",
+                "nodeGraphGraphWithLockedEndpointY(phaseLinkedGraph)",
                 "nodeGraphModuleIsGraphType(node.type)",
                 "graph: nodeGraphGraphEndpointYLockEnabledForNode(node)",
-                "nodeGraphGraphWithLockedEndpointY(node.graph)",
+                "nodeGraphGraphWithLockedEndpointY(nodeGraphGraphWithPhaseCursor(node))",
+                ": nodeGraphGraphWithPhaseCursor(node),",
                 "graph: sourceNode.graph",
             ],
         ),
@@ -4519,6 +4543,7 @@ def require_node_graph_mvp_contract() -> None:
                 "minmax(var(--node-io-section-min-height), auto)",
                 ".node-module-graph-display",
                 ".node-module-graph-display:focus-visible",
+                "vector-effect: non-scaling-stroke",
                 ".node-module-graph-grid-line",
                 ".node-module-graph-grid-line.major",
                 ".node-module-graph-cursor",
@@ -4564,8 +4589,14 @@ def require_node_graph_mvp_contract() -> None:
                 'data-graph-preset="triangle"',
                 'data-graph-preset="envelope"',
                 'data-graph-preset="steps"',
-                '<option value="smooth">smooth</option>',
-                '<option value="hold">hold</option>',
+                # Per-point curve shape/contour selection was retired
+                # along with the old "graph" module type -- graph2 (the
+                # only graph type left) uses a global smoothing mode
+                # instead, so this select now stays hidden with a single
+                # inert "rational" option left in place for old saved
+                # per-node shape values to round-trip through harmlessly.
+                '<option value="rational">rational</option>',
+                'id="nodeSceneGraphNodeShape" hidden',
                 "nodeSceneGraphRangeControls",
                 'data-graph-range-min="-1"',
                 'data-graph-range-max="0"',
@@ -4615,84 +4646,6 @@ def require_node_graph_mvp_contract() -> None:
                 "const hasFallback = Number.isFinite(Number(fallback))",
                 "dataset?.graphNodeField",
                 "selectedX",
-            ],
-        ),
-        (
-            "ui view",
-            "\n".join([
-                graph_contract_sources["index"],
-                graph_contract_sources["ui view"],
-                graph_contract_sources["actions"],
-                graph_contract_sources["context menu"],
-                graph_contract_sources["header events"],
-                graph_contract_sources["event bindings"],
-                graph_contract_sources["patch normalizers"],
-                graph_contract_sources["state"],
-                graph_contract_sources["style"],
-            ]),
-            [
-                "nodeUiView",
-                "nodeUiViewStage",
-                "function nodeGraphUiItemTypeForNode",
-                "nodeGraphModuleIsGraphType(node?.type) ? \"graphEditor\" : \"moduleControl\"",
-                "const nodeGraphPatchUiItemSizeLimits = Object.freeze",
-                "function clampNodeGraphUiItemSize(size = {})",
-                "function beginNodeGraphUiItemDrag",
-                "function beginNodeGraphUiItemResize",
-                "function dragNodeGraphUiItem",
-                "function endNodeGraphUiItemDrag",
-                "function bindNodeGraphUiViewEvents",
-                "function createNodeGraphUiGraphToolbar",
-                "function createNodeGraphUiGraphStatus",
-                "function createNodeGraphUiGraphInspector",
-                "const usesGlobalSmoothing = sourceNode?.type === \"graph2\"",
-                "Graph 2 uses one global smoothing mode.",
-                'shapeLabel.textContent = "smoothing"',
-                "mode.value = normalizeNodeGraphGraph2SmoothingMode(sourceNode?.params?.smoothingMode)",
-                "function nodeGraphUiItemHeightGu",
-                "function resizeNodeGraphUiItemHeightGu",
-                "function runNodeGraphUiGraphAction",
-                "function updateNodeGraphUiGraphSelectedPoint",
-                "function renderNodeGraphUiView",
-                "uiItemDragging: null",
-                "graphEditor",
-                "node-ui-graph-display",
-                "node-ui-graph-toolbar",
-                "node-ui-graph-inspector",
-                "node-ui-graph-status",
-                "point ${selectedIndex + 1}/${graph.nodes.length}",
-                "height gu",
-                "ui graph height changed",
-                "ui graph point changed",
-                "runNodeGraphUiGraphAction(button, entry.action)",
-                "selectFocusedNodeGraphGraphNodeOffset(-1)",
-                "addFocusedNodeGraphGraphNode",
-                "duplicateFocusedNodeGraphGraphNode",
-                "removeFocusedNodeGraphGraphNode",
-                "cycleFocusedNodeGraphGraphShape",
-                "disabled: usesGlobalSmoothing",
-                "updateNodeGraphUiGraphSelectedPoint(sourceNode",
-                "targetNode.type !== \"graph2\" && Object.hasOwn(updates, \"shape\")",
-                "nodeGraphGraphShapes",
-                "H-",
-                "H+",
-                "display.addEventListener(\"pointerdown\", beginNodeGraphGraphNodeDrag, true)",
-                "header.addEventListener(\"pointerdown\", beginNodeGraphUiItemDrag)",
-                "resize.addEventListener(\"pointerdown\", beginNodeGraphUiItemResize)",
-                "bindNodeGraphUiViewEvents()",
-                "Add a Graph module to UI from its action menu.",
-                "Add Graph UI",
-                "setNodeGraphViewMode(\"ui\")",
-                ".node-ui-view",
-                ".node-ui-item",
-                ".node-ui-item-resize",
-                ".node-ui-item.dragging",
-                ".node-ui-graph-toolbar",
-                ".node-ui-graph-toolbar button",
-                ".node-ui-graph-inspector",
-                ".node-ui-graph-inspector input",
-                ".node-ui-graph-inspector select",
-                ".node-ui-graph-status",
             ],
         ),
         (
@@ -4759,13 +4712,11 @@ def require_node_graph_mvp_contract() -> None:
                 "removeFocusedNodeGraphGraphNode()",
                 "addFocusedNodeGraphGraphNode()",
                 "duplicateFocusedNodeGraphGraphNode()",
-                "cycleFocusedNodeGraphGraphShape()",
                 "selectFocusedNodeGraphGraphNodeOffset(-1)",
                 "selectFocusedNodeGraphGraphNodeOffset(1)",
                 "nudgeFocusedNodeGraphGraphNode(event)",
                 'event.key.toLowerCase() === "a"',
                 'event.key.toLowerCase() === "d"',
-                'event.key.toLowerCase() === "s"',
                 'event.key === "["',
                 'event.key === "]"',
                 "event.preventDefault()",
@@ -7038,21 +6989,16 @@ def require_node_graph_mvp_contract() -> None:
         "Close",
         'aria-pressed="false">Show Evidence</button>',
         "nodeParameterMetadataPopover",
-        "module-browser-entry-height-20260719",
+        "slider-fill-defaults-20260725",
         "nodeMissingSampleAssetsDialog",
         "Patch Assets Required",
         "Missing Samples",
         "nodeMissingSampleAssetsList",
         "nodeMissingSampleAssetsClose",
         "dismissNodeGraphMissingSampleAssetsDialog()",
-        "file-grid-resources-1",
+        "sample-body-layout-20260725",
         "share-link-1",
-        "ui-window-resize-limits-2",
-        "ui-window-resize-limits-2",
-        "ui-window-resize-limits-2",
         "node-patch-audio-player-row",
-        "ui-window-resize-limits-2",
-        "ui-window-resize-limits-2",
         "metadataMinValue",
         "metadataMidLabel",
         "metadataMidValue",
@@ -7759,7 +7705,7 @@ def require_node_graph_mvp_contract() -> None:
                 "Load music file",
                 "node-sample-path-loader",
                 "node-sample-path-input",
-                "Load Path",
+                "Load music from path",
                 "pathInput.value.trim()",
                 'setNodeGraphSampleStatus(nodeId, isMusicPlayer ? "choose music file" : "choose sample file")',
                 "input.click()",
@@ -8039,7 +7985,9 @@ def require_node_graph_mvp_contract() -> None:
         "nodeGraphApplyTooltip(marker, \"workspace.origin\")",
         "World origin: X 0, Y 0",
         'nodeGraphRetiredNodeTypes.has(node?.type)',
-        'const nodeGraphRetiredNodeTypes = new Set(["formulaVisual", "moduleHome", "moduleShop", "scriptBox"])',
+        '"bipolarKnob"',
+        '"impulseButton"',
+        '"macroKnob"',
         "timing: {",
         "tempoBpm: 120",
         "timeSignatureDenominator: 4",
@@ -8109,12 +8057,6 @@ def require_node_graph_mvp_contract() -> None:
         'key: "rotateX"',
         'key: "rotateY"',
         'key: "rotateZ"',
-        "macroKnob: \"Macro Knob\"",
-        "bipolarKnob: \"Bipolar Knob\"",
-        "macroKnob: {",
-        'layout: "knobWidget"',
-        'key: "value"',
-        "bipolarKnob: {",
         "valueSlider: \"Value Slider\"",
         "valueSlider: {",
         'layout: "sliderWidget"',
@@ -9301,7 +9243,14 @@ def require_node_graph_mvp_contract() -> None:
         "const slidersHidden = effectiveTargetNodeUi.slidersHidden",
         "nodeGraphPatchNodeHasHideableOscilloscope",
         "nodeGraphModuleTypeHasHideableSliders",
-        "ui.buttonsHidden = !ui.buttonsHidden",
+        "const buttonsWereHidden = nodeGraphEffectivePatchNodeUi(sourceNode.ui).buttonsHidden",
+        "buttonsWereHidden && nodeGraphMvp.moduleButtonsVisible === false",
+        "nodeGraphMvp.moduleButtonsVisible = true",
+        "ui.buttonsHidden = !buttonsWereHidden",
+        "const displayWasHidden = nodeGraphEffectivePatchNodeUi(sourceNode.ui).oscilloscopeHidden",
+        "displayWasHidden && nodeGraphMvp.moduleOscilloscopesVisible === false",
+        "nodeGraphMvp.moduleOscilloscopesVisible = true",
+        "ui.oscilloscopeHidden = !displayWasHidden",
         "ui.slidersHidden = !ui.slidersHidden",
         "targetNode.alias = alias",
         "delete targetNode.alias",
@@ -9318,16 +9267,15 @@ def require_node_graph_mvp_contract() -> None:
         "function nodeGraphModuleBodyRowCount(type)",
         "return definition?.parameters?.length || 0",
         "function nodeGraphModuleVisibleBodyRowCount(type)",
-        "return nodeGraphModuleBodyRowCount(type)",
+        ".filter((parameter) => parameter?.hidden !== true)",
         "function nodeGraphModuleTypeHasHideableSliders(type)",
         "function nodeGraphModuleGridWidthUnits(type)",
         "const nodeGraphModuleWidthLimits",
+        "maxGu: 60",
         "function normalizeNodeGraphModuleWidthUnits(type, widthGu)",
         "function nodeGraphModuleHeightLimitsForType(type)",
-        'if (type === "audioPlayer")',
-        "maxGu: nodeGraphModuleHeightLimits.maxGu + 1",
         "const minimum = Math.max(limits.minGu, Math.ceil(fallback));",
-        "Math.max(minimum, value)",
+        "Math.max(minimum, Math.min(limits.maxGu, value))",
         "function normalizeNodeGraphTextBoxHeightUnits(heightGu)",
         "function nodeGraphPatchNodeGridWidthUnits(node)",
         "function nodeGraphPatchNodeGridHeightUnits(node)",
@@ -9356,7 +9304,7 @@ def require_node_graph_mvp_contract() -> None:
         "const autoHeightGu = nodeGraphModuleGridHeightUnitsForUi(node?.type, node?.ui)",
         "const nodeGraphModuleLayout",
         "bodyRowGapGu: 1 / 28",
-        "ioPaddingYGu: 4 / 28",
+        "ioPaddingYGu: 0",
         "ioRowGapGu: 1 / 28",
         "ioSectionMinHeightGu: 24 / 28",
         "moduleScopeHeightGu: 2",
@@ -9369,19 +9317,9 @@ def require_node_graph_mvp_contract() -> None:
         "function nodeGraphModuleInterfaceControlsHeightGu(type, ui = {})",
         "function nodeGraphModuleRequiredHeightUnits(type)",
         "function nodeGraphModuleGridHeightUnits(type)",
-        'nodeGraphModuleDefinitions[type]?.layout === "knobWidget"',
-        "return 4;",
         "const requiredGu = nodeGraphModuleRequiredHeightUnitsForUi(type, ui);",
-        "let heightGu = Math.ceil(requiredGu);",
-        "if ((heightGu - requiredGu) * nodeGraphGrid.heightPx < 2) {",
-        "heightGu += 1;",
-        "return heightGu;",
-        "function createNodeGraphKnobWidgetBody(node, type)",
-        "node-knob-widget-body",
-        "node-knob-widget-control",
-        "node-knob-widget-output",
-        "function setNodeGraphKnobWidgetValue(control, value, options = {})",
-        "syncNodeGraphGhostSliders();",
+        "function nodeGraphModuleHeightWithBottomClearance(requiredGu)",
+        "if ((heightGu - required) * nodeGraphGrid.heightPx < 3) {",
         "function createNodeGraphSliderWidgetBody(node, type)",
         "slider-widget-layout",
         "node-slider-widget-body",
@@ -9435,6 +9373,7 @@ def require_node_graph_mvp_contract() -> None:
         "slider.dataset.unboundedMin = metadata.unboundedMin ? \"true\" : \"false\"",
         "slider.dataset.unboundedValue",
         "delete slider.dataset.unboundedValue",
+        "function applyNodeGraphInputUnboundedValue(input, value)",
         "applyNodeGraphInputUnboundedValue(input, value)",
         "function normalizedNodeSliderMid(slider)",
         "function nodeSliderSkewExponent(slider)",
@@ -9876,8 +9815,6 @@ def require_node_graph_mvp_contract() -> None:
         "\"canvas\"",
         "\"visualOscilloscope\"",
         "\"sandboxVisuals\"",
-        "\"macroKnob\"",
-        "\"bipolarKnob\"",
         "\"valueSlider\"",
         "\"midiOut\"",
         "\"midiNotePitch\"",
@@ -10002,7 +9939,7 @@ def require_node_graph_mvp_contract() -> None:
         "function nodeGraphModuleStoreSearchResultOrder(a, b)",
         "const implementedDelta = Number(Boolean(b?.implemented)) - Number(Boolean(a?.implemented))",
         "function nodeGraphModuleStorePublicEntriesByDepartment(entries = [])",
-        "const searchingAllModules = !selectedDepartment",
+        "const searchingAllModules = hasDepartmentSearchText",
         "const visibleModuleEntries = selectedDepartment || departmentSearch",
         "[...publicEntries].sort(nodeGraphModuleStoreSearchResultOrder)",
         "shopView.classList.toggle(\"department-selected\", Boolean(selectedDepartment))",
@@ -10044,7 +9981,7 @@ def require_node_graph_mvp_contract() -> None:
         "return true;",
         "const homeEntries = entries.filter((entry) => entry.implemented && entry.homeVisible)",
         "const publicEntries = matchingEntries.filter((entry) =>",
-        "(!selectedDepartment || entry.category === selectedDepartment)",
+        "(!selectedDepartment || hasDepartmentSearchText || entry.category === selectedDepartment)",
         "function listenToNodeGraphModuleStoreDemo(entry)",
         "function watchNodeGraphModuleStoreDemo(entry)",
         "function editNodeGraphModuleStoreDemo(entry)",
@@ -10081,8 +10018,6 @@ def require_node_graph_mvp_contract() -> None:
         "Linear Envelope",
         "Pluck Envelope",
         "Parabol",
-        "Macro Knob",
-        "Bipolar Knob",
         "Value Slider",
         "MIDI Keyboard",
         "Sample Player",
@@ -10170,8 +10105,6 @@ def require_node_graph_mvp_contract() -> None:
         "const nextTravel = drag.startTravel + travelDelta",
         "nodeSliderValueFromRelativeTravel(drag.slider, nextTravel)",
         "reanchorNodeSliderDragAtPointer(drag, event)",
-        "function syncNodeSliderHiddenMouseClass()",
-        "nodeGraphMvp.hideMouseWhileDragging !== false",
         'document.body.classList.add("node-slider-dragging")',
         'document.body.classList.remove("node-slider-dragging")',
         'addEventListener("pointerdown", beginNodeSliderDrag, true)',
@@ -10199,7 +10132,7 @@ def require_node_graph_mvp_contract() -> None:
         "function nodeGraphModuleOutputPorts(type)",
         "function nodeGraphParameterOutputPort(typeOrNode, port)",
         "function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch)",
-        "const passthroughTypes = new Set([\"badvalMonitor\", \"bias\", \"chaoticPhaseLockingFilter\", \"cookbookFilter\", \"flowerChildFilter\", \"gain\", \"humanFilter\", \"ladderFilter\", \"papoulisFilter\", \"passiveFilter\", \"pll\", \"resonatorFilter\", \"reverbEffect\", \"rsmetFilter\", \"sampleHold\", \"slewLimiter\", \"softClipper\", \"speakerProtection\", \"superloveFilter\", \"tb303Filter\", \"wallDelay\", \"yellowjacketFilter\"])",
+        "const passthroughTypes = new Set([\"badvalMonitor\", \"bias\", \"chaoticPhaseLockingFilter\", \"cookbookFilter\", \"flowerChildFilter\", \"gain\", \"gainBias\", \"humanFilter\", \"ladderFilter\", \"papoulisFilter\", \"passiveFilter\", \"pll\", \"resonatorFilter\", \"reverbEffect\", \"rsmetFilter\", \"sampleHold\", \"slewLimiter\", \"softClipper\", \"speakerProtection\", \"superloveFilter\", \"tb303Filter\", \"wallDelay\", \"yellowjacketFilter\"])",
         "nodeGraphModuleDefinitions[node?.type]?.visualSink",
         "function nodeGraphVisualSinkActiveInPlan(node, options = {})",
         "return true;",
@@ -10238,15 +10171,11 @@ def require_node_graph_mvp_contract() -> None:
         '"chromaColor"',
         '"keyboardController"',
         '"led"',
-        '"macroKnob"',
-        '"bipolarKnob"',
         '"midiNotePitch"',
         '"midiOut"',
         '"rgbaHsla"',
         '"sandboxVisuals"',
         'type === "keyboardController"',
-        'type === "macroKnob"',
-        'type === "bipolarKnob"',
         "function compileValidatedNodeGraphExecutionPlan(patch = nodeGraphMvp.patch)",
         "function nodeGraphBuildDependencyMap(patch = nodeGraphMvp.patch)",
         "const bypassedNodes = nodeGraphRuntimeBypassedNodeIds(patch)",
@@ -10555,8 +10484,6 @@ def require_node_graph_mvp_contract() -> None:
         'hasInput(nodeId, "Pitch")',
         "nodeGraphLiveModuleEvaluators.valueSlider = (",
         "return { Bias: offset, Out: offset, offset };",
-        "nodeGraphLiveModuleEvaluators.macroKnob = (",
-        "return { Out: knobValue, value: knobValue };",
         "nodeGraphLiveModuleEvaluators.stepSequencer = (",
         "nodeGraphLiveModuleEvaluators.triggerCounter = (",
         "nodeGraphLiveModuleEvaluators.triggerDivider = (",
@@ -10706,7 +10633,7 @@ def require_node_graph_mvp_contract() -> None:
         "node.querySelectorAll(\".dsp-node-io-section\")",
         "node.querySelectorAll(\".node-parameter-row\")",
         "node.querySelector(\".node-bypass-button\")?.addEventListener(\"click\", toggleNodeGraphModuleBypass)",
-        '".node-drag-handle, .node-execution-order-badge, .node-header-title-row, .node-led-face, .node-group-input-face, .node-group-output-face, .node-knob-widget-body, .dsp-node-io-section, .node-parameter-row"',
+        '".node-drag-handle, .node-execution-order-badge, .node-header-title-row, .node-led-face, .node-group-input-face, .node-group-output-face, .node-knob-widget-body, .dsp-node-io-section, .node-parameter-row, .node-sample-phase-readout"',
         "node.querySelector(\".node-action-button\")?.addEventListener(\"click\", openNodeModuleActionMenu)",
         "handle.setPointerCapture(event.pointerId)",
         "handle.classList.add(\"dragging\")",
@@ -11414,16 +11341,14 @@ def require_node_graph_mvp_contract() -> None:
         "function positionNodeGraphVisibilityMenuNearButton",
         "rect.right - menuRect.width",
         "applyNodeGraphVisibilityMenuSize(nodeGraphMvp.workspaceWindowStates?.visibilityMenu?.size)",
-        'positionNodeGraphWorkspaceWindowFromState("visibilityMenu", menu)',
+        'openNodeGraphFloatingWindowAtPosition("visibilityMenu", menu',
         "function nodeGraphVisibilityMenuMinimumSize",
-        'typeof nodeModuleActionsWindowDefaultSize !== "undefined"',
-        "Number(nodeModuleActionsWindowDefaultSize.minWidth)",
-        ": 24",
+        "const readableWindowMinWidth = 180",
         'rootStyle.getPropertyValue("--node-floating-window-header-height")',
         'rootStyle.getPropertyValue("--node-floating-window-button-height")',
         'querySelectorAll?.(".node-visibility-menu-list button").length',
         "sharedHeaderHeight + (buttonCount * sharedButtonHeight)",
-        "width: Math.ceil(sharedWindowMinWidth)",
+        "width: readableWindowMinWidth",
         "function nodeGraphVisibilityMenuSizeFromElement",
         'menu.style.removeProperty("height")',
         "startClientX: event.clientX",
@@ -11679,7 +11604,6 @@ def require_node_graph_mvp_contract() -> None:
         "moduleScopeBackgroundColor",
         "sliderAmountVisible",
         "sliderPositionVisible",
-        "hideMouseWhileDragging",
         "nodeGlobalScopeMenu",
         "nodeGlobalScopeDragHandle",
         "nodeGlobalScopeCloseMenu",
@@ -11749,7 +11673,7 @@ def require_node_graph_mvp_contract() -> None:
         "\"useruisettings.json\"",
         "let nodeLiveToggleTextResizeObserver = null",
         "function fitNodeLiveToggleText()",
-        "document.querySelectorAll(\".node-live-toggle-palette .node-live-toggle span\")",
+        "\".node-live-toggle-palette .node-live-toggle span, #nodeRenderButton span\"",
         "function scheduleNodeLiveToggleTextFit()",
         "function installNodeLiveToggleTextFitObserver()",
         "function organizeNodeUiDevSections()",
@@ -11880,11 +11804,13 @@ def require_node_graph_mvp_contract() -> None:
         '"additive osc increment input"',
         "readNodeGraphRuntimePortOutput(",
         "modulation.sourcePort",
-        "nodeGraphLiveModuleEvaluators.graph = nodeGraphGraphTypeLiveEvaluator",
+        "nodeGraphLiveModuleEvaluators.graph2 = nodeGraphGraphTypeLiveEvaluator",
         "const graphSampleX = (node, nodeId) => {",
         'readNodeGraphLiveEffectiveParam(runtime, node, "mode", 0',
         'readNodeGraphLiveEffectiveParam(runtime, node, "rate", 1',
         'readNodeGraphLiveEffectiveParam(runtime, node, "phase", 0',
+        'readNodeGraphLiveEffectiveParam(runtime, node, "inputMin", 0',
+        'readNodeGraphLiveEffectiveParam(runtime, node, "inputMax", 1',
         "createNodeGraphGraphLfoState()",
         "runtime.graphLfoStates.get(nodeId)",
         "const resetValue = 0",
@@ -11894,7 +11820,8 @@ def require_node_graph_mvp_contract() -> None:
         "nodeGraphGraphSmoothingModeForNode(node)",
         'readNodeGraphLiveEffectiveParam(runtime, node, "outputMin", 0',
         'readNodeGraphLiveEffectiveParam(runtime, node, "outputMax", 1',
-        "return outputMin + normalizedValue * (outputMax - outputMin)",
+        "Out: outputMin + normalizedValue * (outputMax - outputMin)",
+        "__GraphPhase: sampleX",
         "graphConnections: (patch.graphConnections || []).map((connection) =>",
         "graphInputConnections",
         "return graphOutputValue(node, nodeId)",
@@ -13253,7 +13180,7 @@ def require_node_graph_mvp_contract() -> None:
     require('traceDisplay: {' in module_store_source, "Trace Display should author as Oscilloscope before display-category normalization")
     require("dotOscilloscope: {" in module_store_source and 'label: "0D Burn"' in module_store_source, "0D Burn oscilloscope should exist")
     require("valueOscilloscope: {" in module_store_source and 'label: "0D Value"' in module_store_source, "0D Value oscilloscope should exist")
-    require("lineBurnOscilloscope: {" in module_store_source and 'label: "1D Burn"' in module_store_source, "1D Burn oscilloscope should exist")
+    require("lineBurnOscilloscope: {" in module_store_source and 'label: "1D Burn Dot"' in module_store_source, "1D Burn Dot oscilloscope should exist")
     require("scope2d: {" in module_store_source and 'label: "2D Burn"' in module_store_source, "2D Burn oscilloscope should exist")
     require("scope2dTrace: {" in module_store_source and 'label: "2D Trace"' in module_store_source, "2D Trace oscilloscope should exist")
     require("dotOscilloscope: {" in module_store_source and "oscilloscopeBank: {" in module_store_source and "valueOscilloscope: {" in module_store_source and "numberReadout: {" in module_store_source and "lineBurnOscilloscope: {" in module_store_source and "scope2d: {" in module_store_source and "scope2dTrace: {" in module_store_source, "Oscilloscope modules should be listed together")
@@ -14132,7 +14059,7 @@ def require_node_graph_mvp_contract() -> None:
         and "NODE_SHADER_SCENE_EXPOSURE" in shader_script_source
         and "NODE_SHADER_BLOOM_AMOUNT" in shader_script_source
         and "NODE_SHADER_GLOW_AMOUNT" in shader_script_source
-        and "enabled: true," in shader_script_source
+        and "warmGlassAmount: 1.0," in shader_script_source
         and "softLight(screenBloom)" in shader_script_source
         and ".node-graph-workspace.shader-enabled .node-wire-path:not(.inactive-wire)" in style_source
         and ".node-graph-workspace.shader-enabled .node-module-scope-window" in style_source
@@ -14559,7 +14486,7 @@ def require_node_graph_mvp_contract() -> None:
         and "dot1Enabled: true" in node_graph_source
         and "dot1Size: normalizeNodeGraphTraceDisplayNumber(" in node_graph_source
         and "gl.uniform1f(renderer.beamBlurLocation, clampNodeSliderValue(Number(options.blur) || 0, 0, 1))" in node_graph_source
-        and "const innerThickness = Math.max(0, dotSpace * clampNodeSliderValue(settings.dot1Size, 0, 1))" in node_graph_source
+        and "(clampNodeSliderValue(settings.dot1Size, 0, 1) * halfSide) / NODE_GRAPH_BEAM_SIZE_TO_RADIUS," in node_graph_source
         and "settings.dot1Enabled !== false && settings.dot1Brightness > 0 && innerThickness > 0" in node_graph_source
         and "const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({" in node_graph_source
         and "const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({" in node_graph_source
@@ -14731,7 +14658,11 @@ def require_node_graph_mvp_contract() -> None:
         'visualInputs: [\n      { key: "led", label: "In", port: "In" },\n    ]',
         "visualSink: true",
         '"led"',
-        "One-grid-unit signal light",
+        "customDisplayArea: true",
+        'displayType: "ledLamp"',
+        "nodeGraphModuleScopeCustomRenderers.ledLamp = drawNodeGraphLedLampItem",
+        "function nodeGraphLedEmittedRgb(hue, level, brightness = 1)",
+        "function openNodeGraphLedSettings(nodeId, event)",
         "function createNodeGraphLedFace(node, type)",
         "face.className = \"node-led-face\"",
         "face.append(createNodeGraphPort(node, type, \"In\", \"input\"))",
@@ -15125,11 +15056,11 @@ def require_node_graph_mvp_contract() -> None:
         and "nodeUiDevChoiceSlideColor" not in index_source
         and "--node-choice-slide-color" not in style_source
         and "--node-choice-slide-edge-brightness" not in style_source
-        and "--node-slider-fill-rgb: 127 199 217;" in style_source
-        and "--node-slider-fill-alpha: 0.14;" in style_source
-        and "background: rgb(var(--node-slider-fill-rgb) / var(--node-slider-fill-alpha));" in style_source
-        and "fill: rgb(var(--node-slider-fill-rgb) / var(--node-slider-fill-alpha));" in style_source
-        and ".node-slider-readout.choices-divided.value-hovering .node-choice-debug-cell-fill" in style_source,
+        and "--node-slider-fill-rgb" not in style_source
+        and "--node-slider-fill-alpha" not in style_source
+        and ".node-choice-debug-square,\n.node-choice-debug-cell {" in style_source
+        and "fill: var(--node-slider-position-color);" in style_source
+        and ".node-slider-readout.choices-divided.value-dragging .node-choice-debug-cell-fill" in style_source,
         "choice slider slide element should inherit normal slider styling controls",
     )
     require(
@@ -15237,13 +15168,11 @@ def require_node_graph_mvp_contract() -> None:
         "metadata script preview should not style a fake more/less row",
     )
     require(
-        "adjustNodeGraphModuleHeightFromContext" not in script_sources["./public/node-graph-module-actions.js"]
-        and "adjustNodeGraphModuleHeightFromContext" not in script_sources["./public/node-graph-scene-menu-event-bindings.js"]
-        and "heightOffsetGu" not in script_sources["./public/node-graph-module-sizing.js"]
+        "heightOffsetGu" not in script_sources["./public/node-graph-module-sizing.js"]
         and "heightOffsetGu" not in script_sources["./public/node-graph-patch-core.js"]
         and "heightOffsetGu" not in script_sources["./public/node-graph-keyboard-shortcuts.js"]
-        and "text box height invalid" not in script_sources["./public/node-graph-patch-core.js"],
-        "manual module height resizing should be removed; module height should come from visible content widgets",
+        and "function adjustNodeGraphModuleHeightFromContext(delta)" in script_sources["./public/node-graph-module-actions.js"],
+        "explicit sizing capabilities should replace obsolete height offsets",
     )
     sizing_source = script_sources["./public/node-graph-module-sizing.js"]
     patch_core_source = script_sources["./public/node-graph-patch-core.js"]
@@ -15265,14 +15194,14 @@ def require_node_graph_mvp_contract() -> None:
                 "keyboardHeight: Boolean(moduleHeight || displayHeight)",
             ),
         ),
-        "patch normalization preserves heightGu only for height-capable Text Box nodes": (
+        "patch normalization preserves heightGu for explicit module-height owners": (
             patch_core_source,
             (
                 "const sizingCapabilities = nodeGraphModuleSizingCapabilities(type);",
                 'const hasCustomWidth = sizingCapabilities.width && Object.hasOwn(node, "widthGu");',
-                'const hasCustomModuleHeight = sizingCapabilities.moduleHeight === "textBox" && Object.hasOwn(node, "heightGu");',
-                "const heightGu = hasCustomModuleHeight ? normalizeNodeGraphTextBoxHeightUnits(node.heightGu) : null;",
-                "normalizeNodeGraphTextBoxHeightUnits(node.heightGu)",
+                'const hasCustomModuleHeight = ["custom", "textBox"].includes(sizingCapabilities.moduleHeight)',
+                'sizingCapabilities.moduleHeight === "textBox"',
+                "normalizeNodeGraphModuleHeightUnits(type, node.heightGu, node.ui)",
                 '...(hasCustomModuleHeight ? { heightGu } : {}),',
             ),
         ),
@@ -15280,19 +15209,20 @@ def require_node_graph_mvp_contract() -> None:
             sizing_source,
             (
                 "function nodeGraphPatchNodeGridHeightUnits(node)",
-                "if (nodeGraphNodeTypeHasTextBoxLayout(node?.type) && Number.isFinite(Number(node.heightGu))) {",
+                'if (moduleHeightCapability === "textBox" && Number.isFinite(Number(node.heightGu))) {',
                 "return normalizeNodeGraphTextBoxHeightUnits(node.heightGu);",
+                'if (moduleHeightCapability === "custom" && Number.isFinite(Number(node.heightGu))) {',
                 "const autoHeightGu = nodeGraphModuleGridHeightUnitsForUi(node?.type, node?.ui);",
             ),
         ),
-        "Module Settings Text Box height buttons use the same capability gate as keyboard resizing": (
+        "Module Settings height buttons use the same capability gate as keyboard resizing": (
             module_actions_source + "\n" + context_menu_source,
             (
-                "function adjustNodeGraphTextBoxHeightFromContext(delta)",
-                'nodeGraphModuleSizingCapabilities(sourceNode.type).moduleHeight !== "textBox"',
-                'nodeGraphModuleSizingCapabilities(targetNode.type).moduleHeight !== "textBox"',
+                "function adjustNodeGraphModuleHeightFromContext(delta)",
+                "const sourceCapability = nodeGraphModuleSizingCapabilities(sourceNode?.type).moduleHeight;",
+                "const targetCapability = nodeGraphModuleSizingCapabilities(targetNode?.type).moduleHeight;",
                 "controls: textBoxHeightControls,",
-                "hidden: !(moduleMode && !multiModuleMode && targetSupportsTextBoxHeight),",
+                "hidden: !(moduleMode && !multiModuleMode && targetSupportsModuleHeight),",
             ),
         ),
         "Shift+Up/Down routes through capability-based height resizing": (
@@ -15302,6 +15232,8 @@ def require_node_graph_mvp_contract() -> None:
                 "const capabilities = nodeGraphModuleSizingCapabilities(patchNode?.type);",
                 'if (capabilities.moduleHeight === "textBox") {',
                 "return resizeNodeGraphTextBoxModuleHeightOnGrid(patchNode, delta);",
+                'if (capabilities.moduleHeight === "custom") {',
+                "return resizeNodeGraphCustomModuleHeightOnGrid(patchNode, delta);",
                 "if (capabilities.displayHeight) {",
                 "return resizeNodeGraphDisplayModuleHeightOnGrid(patchNode, delta);",
                 'ArrowDown: ["height", 1]',
@@ -15315,10 +15247,9 @@ def require_node_graph_mvp_contract() -> None:
             f"Text Box height sizing contract failed: {label}",
         )
     require(
-        "normalizeNodeGraphModuleHeightUnits(type, node.heightGu)" not in patch_core_source
-        and "module height invalid" not in patch_core_source
-        and "Text Box heightGu invalid" in patch_core_source,
-        "patch normalization should not keep obsolete generic module height branches",
+        "heightGu invalid" in patch_core_source
+        and '["custom", "textBox"].includes(sizingCapabilities.moduleHeight)' in patch_core_source,
+        "patch normalization should retain height only for explicit module-height owners",
     )
     require(
         all(snippet in sizing_source for snippet in text_box_height_contracts["capability helper defines explicit module-height owners"][1]),
@@ -15329,14 +15260,14 @@ def require_node_graph_mvp_contract() -> None:
         and "nodeSceneTextBoxHeightLabel" in index_source
         and "nodeSceneTextBoxHeightDecrease" in index_source
         and "nodeSceneTextBoxHeightIncrease" in index_source
-        and "function adjustNodeGraphTextBoxHeightFromContext(delta)" in module_actions_source
+        and "function adjustNodeGraphModuleHeightFromContext(delta)" in module_actions_source
         and 'bindNodeGraphSceneElementEvent("nodeSceneTextBoxHeightDecrease", "click", () =>' in script_sources["./public/node-graph-scene-menu-event-bindings.js"]
         and 'bindNodeGraphSceneElementEvent("nodeSceneTextBoxHeightIncrease", "click", () =>' in script_sources["./public/node-graph-scene-menu-event-bindings.js"]
-        and "adjustNodeGraphTextBoxHeightFromContext(-1));" in script_sources["./public/node-graph-scene-menu-event-bindings.js"]
-        and "adjustNodeGraphTextBoxHeightFromContext(1));" in script_sources["./public/node-graph-scene-menu-event-bindings.js"]
+        and "adjustNodeGraphModuleHeightFromContext(-1));" in script_sources["./public/node-graph-scene-menu-event-bindings.js"]
+        and "adjustNodeGraphModuleHeightFromContext(1));" in script_sources["./public/node-graph-scene-menu-event-bindings.js"]
         and 'const targetSupportsTextBoxHeight = targetSizingCapabilities.moduleHeight === "textBox";' in context_menu_source
-        and "hidden: !(moduleMode && !multiModuleMode && targetSupportsTextBoxHeight)," in context_menu_source
-        and all(snippet in patch_core_source for snippet in text_box_height_contracts["patch normalization preserves heightGu only for height-capable Text Box nodes"][1])
+        and "hidden: !(moduleMode && !multiModuleMode && targetSupportsModuleHeight)," in context_menu_source
+        and all(snippet in patch_core_source for snippet in text_box_height_contracts["patch normalization preserves heightGu for explicit module-height owners"][1])
         and all(snippet in sizing_source for snippet in text_box_height_contracts["render sizing reads Text Box heightGu before falling back to content height"][1]),
         "Text Box should keep a dedicated GU height control and preserve heightGu through patch normalization",
     )
@@ -15346,6 +15277,11 @@ def require_node_graph_mvp_contract() -> None:
         and "nodeGraphTextBoxHeightLimits.maxGu" in sizing_source
         and 'return normalizeNodeGraphModuleHeightUnits("textBox", heightGu);' not in sizing_source,
         "Text Box explicit height should use Text Box limits instead of being clamped to automatic content height",
+    )
+    require(
+        sizing_source.count("maxGu: 60") >= 4
+        and "maxGu: nodeGraphModuleHeightLimits.maxGu + 1" not in sizing_source,
+        "module width, module height, display height, and Text Box height should share the 60 GU ceiling",
     )
     require(
         index_source.index('id="nodeSceneAliasControl"') < index_source.index('id="nodeSceneAddToGroup"')
@@ -15387,20 +15323,6 @@ def require_node_graph_mvp_contract() -> None:
         and "value: `${displayHeightGu} gu`," in script_sources["./public/node-graph-context-menu.js"]
         and "nodeSceneDisplayHeightLabel" in index_source,
         "module actions should adjust display height without restoring arbitrary module height controls",
-    )
-    ui_view_source = script_sources["./public/node-graph-ui-view.js"]
-    patch_normalizers_source = script_sources["./public/node-graph-patch-normalizers.js"]
-    require(
-        "Math.max(180, Math.min(720" not in ui_view_source
-        and "Math.max(120, Math.min(420" not in ui_view_source
-        and "clampNodeGraphUiItemSize({" in ui_view_source,
-        "UI item live resize should use named limits instead of stricter hardcoded drag clamps",
-    )
-    require(
-        "const nodeGraphPatchUiItemSizeLimits = Object.freeze" in patch_normalizers_source
-        and "const nodeGraphUiItemSizeLimits = Object.freeze" not in ui_view_source
-        and "nodeGraphPatchUiItemSizeLimits" in ui_view_source,
-        "UI item resize limits should live in patch normalizers and be reused by live dragging",
     )
     workspace_view_source = script_sources["./public/node-graph-workspace-view.js"]
     require(
@@ -15521,6 +15443,20 @@ def require_node_graph_mvp_contract() -> None:
                 f"floating window drag should not clamp the whole window inside the viewport in {path}",
             )
 
+    floating_window_source = script_sources["./public/node-graph-floating-windows.js"]
+    workspace_window_source = script_sources["./public/node-graph-ui-settings-persistence.js"]
+    require(
+        'const nodeGraphFloatingWindowSurfaceClass = "node-floating-window-surface"' in floating_window_source
+        and "function markNodeGraphFloatingWindowSurface(element)" in floating_window_source
+        and "function syncNodeGraphRegisteredFloatingWindowSurfaces()" in floating_window_source
+        and "Object.values(nodeGraphWorkspaceWindowElements)" in floating_window_source
+        and 'markNodeGraphFloatingWindowSurface(element);' in workspace_window_source
+        and '"phosphorWaveformSettings"' in workspace_window_source
+        and '"ledSettings"' in workspace_window_source
+        and "syncNodeGraphRegisteredFloatingWindowSurfaces();" in view_controls_source,
+        "all registered floating windows should share modular-only visibility policy",
+    )
+
     require(
         "scopeElement.classList.add(\"view-dragging\");\n  closeNodeScopeContextMenu();" not in node_graph_source,
         "oscilloscope context menu should not close when clicking or dragging outside it",
@@ -15559,17 +15495,24 @@ def require_node_graph_mvp_contract() -> None:
     )
 
     require(
-        "body.node-hide-mouse-while-dragging,\nbody.node-hide-mouse-while-dragging * {\n  cursor: none !important;\n}" in style_source
-        and "body.node-slider-dragging.node-hide-mouse-while-dragging::after" not in style_source
+        # Pointer Lock ("hide mouse while dragging") was removed app-wide --
+        # the browser's own "press Esc to show your cursor" permission
+        # chrome could swallow the mouseup and get slider dragging
+        # permanently stuck, so dragging now always uses the plain visible-
+        # cursor absolute-position path with screen-edge wraparound (see
+        # node-graph-slider-dragging.js) instead of hiding the OS cursor.
+        "requestPointerLock" not in node_graph_source
+        and "pointerLockElement" not in node_graph_source
+        and "hideMouseWhileDragging" not in node_graph_source
+        and "node-hide-mouse-while-dragging" not in node_graph_source
+        and "node-hide-mouse-while-dragging" not in style_source
         and "updateNodeSliderDotCursor" not in script_sources["./public/node-graph-slider-dragging.js"]
         and '.node-slider-readout:not([data-control="number"]) {\n  cursor: var(--node-dot-cursor);' in style_source
-        and '.node-slider-readout:not([data-control="number"]):hover {\n  box-shadow: inset' in style_source
-        and ".node-slider-readout.value-dragging {\n  box-shadow: inset" in style_source
-        and style_source.count("cursor: none !important;") == 1
-        and style_source.count("cursor: ew-resize;") == 1
+        and ".node-slider-readout.value-dragging {\n  border-color: transparent;\n  outline: none;" in style_source
+        and style_source.count("cursor: ew-resize;") == 2
         and "style.cursor" not in shader_script_source
         and "cursor:" not in color_widget_source,
-        "slider cursor policy should use hover feedback without a synthetic drag dot",
+        "slider dragging should always use the visible dot cursor, never a hidden/pointer-locked one",
     )
 
     require(
@@ -15753,13 +15696,25 @@ def require_node_graph_mvp_contract() -> None:
         "parameter readout border should disappear when not hovered",
     )
     require(
-        ".knob-widget-layout .node-knob-widget-control" in style_source
-        and ".node-knob-widget-body" in style_source
-        and ".node-knob-widget-face::after" in style_source
-        and ".knob-widget-layout .dsp-node-header" in style_source
-        and ".knob-widget-layout .node-header-actions" in style_source
-        and ".knob-widget-layout .node-knob-widget-output" in style_source,
-        "compact external knob widget style contract should be present",
+        "knob-widget-layout" not in style_source
+        and "node-knob-widget" not in style_source
+        and ".node-macro-knob" in style_source,
+        "retired standalone knob styling should be removed without disturbing Macro Controls",
+    )
+    require(
+        ".node-graph-controls {\n  --node-public-control-height: 2.8rem;\n  display: flex;" in style_source
+        and "height: var(--node-public-control-height);" in style_source
+        and "max-height: var(--node-public-control-height);" in style_source
+        and "grid-template-columns: 2.55rem repeat(2, 1.35rem) repeat(2, 2.55rem);" in style_source
+        and "grid-template-rows: minmax(0, 1fr);" in style_source
+        and index_source.index('id="nodeLiveInputButton"') < index_source.index('id="nodeLiveInputVolume"')
+        and index_source.index('id="nodeLiveInputVolume"') < index_source.index('id="nodeLiveOutputVolume"')
+        and index_source.index('id="nodeLiveOutputVolume"') < index_source.index('id="nodeLiveOutputButton"')
+        and index_source.index('id="nodeLiveOutputButton"') < index_source.index('id="nodeLiveMidiButton"')
+        and "writing-mode: vertical-lr;" in style_source
+        and ".node-patch-audio-player-row {\n  display: inline-grid;\n  grid-template-rows: minmax(0, 1fr);" in style_source
+        and ".node-render-duration-control + .node-patch-audio-player-row" not in style_source,
+        "public controls should share one compact height, use vertical level lanes, and avoid media-player gap compensation",
     )
     require(
         "node-knob-widget-move" not in node_graph_source
@@ -15771,13 +15726,15 @@ def require_node_graph_mvp_contract() -> None:
         "parameter readout button states should not inherit global button hover strokes",
     )
     require(
-        ".node-slider-readout.value-hovering::before {\n  border-color: transparent;\n  box-shadow: none;\n  outline: none;" in style_source
-        and ".node-slider-readout.value-dragging::before {\n  border-color: transparent;\n  box-shadow: none;\n  outline: none;" in style_source,
+        # A separate "value-hovering" state (and its own ::before rule) was
+        # removed -- resting/hover/focus/active all share the plain
+        # .node-slider-readout:hover,:focus,:focus-visible,:active reset
+        # above, and only actual dragging gets its own ::before rule now.
+        ".node-slider-readout.value-dragging::before {\n  border-color: transparent;\n  box-shadow: none;\n  outline: none;" in style_source,
         "slider hover/drag fill should not change stroke highlight",
     )
     require(
-        ".node-slider-readout.value-hovering::before {\n  border-color: transparent;\n  box-shadow: none;\n  outline: none;\n  background: rgb(var(--node-slider-fill-rgb) / var(--node-slider-fill-alpha));\n}" in style_source
-        and ".node-slider-readout.value-dragging::before {\n  border-color: transparent;\n  box-shadow: none;\n  outline: none;\n  background: rgb(var(--node-slider-fill-rgb) / var(--node-slider-fill-alpha));\n}" in style_source,
+        ".node-slider-readout.value-dragging::before {\n  border-color: transparent;\n  box-shadow: none;\n  outline: none;\n  background: var(--node-slider-position-color);\n}" in style_source,
         "slider hover/drag fill should keep the resting fill color",
     )
     require(
@@ -15785,14 +15742,34 @@ def require_node_graph_mvp_contract() -> None:
         "slider fill slide element should not draw a stroke highlight",
     )
     require(
-        ".node-slider-readout.value-hovering,\n.node-slider-readout.value-dragging {\n  border-color: transparent;\n  outline: none;" in style_source
-        and '.node-slider-readout:not([data-control="number"]):hover {\n  box-shadow: inset' in style_source
-        and ".node-slider-readout.value-dragging {\n  box-shadow: inset" in style_source,
-        "slider hover/drag should use an inner glow without a stroke highlight",
+        # The inner-glow-on-hover/drag treatment was dropped entirely --
+        # dragging now only clears the border/outline (no box-shadow at
+        # all), and hover gets no special treatment beyond the shared
+        # :hover,:focus,:focus-visible,:active reset above.
+        ".node-slider-readout.value-dragging {\n  border-color: transparent;\n  outline: none;" in style_source
+        and "box-shadow: inset" not in style_source[
+            style_source.index(".node-slider-readout:not([data-control=\"number\"]) {"):
+            style_source.index(".node-slider-readout.has-ghost-slider.value-dragging::after {")
+        ],
+        "slider hover/drag should not use an inner glow or a stroke highlight",
     )
     require(
-        ".node-slider-readout.choices-divided.value-hovering .node-choice-debug-cell-fill,\n.node-slider-readout.choices-divided.value-dragging .node-choice-debug-cell-fill {\n  fill: rgb(var(--node-slider-fill-rgb) / var(--node-slider-fill-alpha));\n}" in style_source,
+        ".node-slider-readout.choices-divided.value-dragging .node-choice-debug-cell-fill {\n  fill: var(--node-slider-position-color);\n}" in style_source,
         "choice slider hover/drag fill should keep the resting fill color",
+    )
+    slider_dragging_source = script_sources["./public/node-graph-slider-dragging.js"]
+    slider_setter_source = slider_dragging_source[
+        slider_dragging_source.index("function setNodeSliderValue("):
+        slider_dragging_source.index("function nodeSliderSegmentValueFromPointer(")
+    ]
+    require(
+        "slider.value = String(normalized);" in slider_setter_source
+        and slider_setter_source.index("slider.value = String(normalized);")
+        < slider_setter_source.index("scheduleNodeSliderReadoutUpdate(slider, normalized);")
+        and "nodeGraphMvp._pendingReadoutFrame = window.requestAnimationFrame(() => {" in slider_dragging_source
+        and "nodeGraphMvp._pendingReadoutFrame = 0;" in slider_dragging_source
+        and "flushNodeSliderReadoutUpdates();" in slider_dragging_source,
+        "slider drags should update their authoritative value immediately and own their readout frame",
     )
     require(
         "#nodeSnapGridViewButton.active {\n  border-color: transparent;" in style_source
@@ -15811,7 +15788,7 @@ def require_node_graph_mvp_contract() -> None:
         and ".node-graph-workspace.module-oscilloscopes-hidden .dsp-node.filter-curve-layout,\n.dsp-node.filter-curve-layout.oscilloscope-hidden" in style_source
         and "grid-template-rows:\n    var(--node-header-height)\n    minmax(var(--node-io-section-min-height), auto)\n    auto;" in style_source
         and ".node-graph-workspace.module-oscilloscopes-hidden\n  .dsp-node:not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout) {\n  --node-module-scope-height: 0px;" in style_source
-        and ".node-graph-workspace.module-oscilloscopes-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.filter-curve-layout):not(.slider-widget-layout):not(.knob-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout)" in style_source
+        and ".node-graph-workspace.module-oscilloscopes-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.filter-curve-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.phosphillator-draw-layout)" in style_source
         and "grid-template-rows:\n    var(--node-header-height)\n    minmax(var(--node-io-section-min-height), auto)\n    auto;" in style_source,
         "hiding displays globally should collapse only hideable display rows and keep normal modules on a no-display IO/body grid",
     )
@@ -15851,8 +15828,9 @@ def require_node_graph_mvp_contract() -> None:
         and "4 + nodeGraphModuleVisibleSliderRowCountForUi(type, ui) * 1.25" not in script_sources["./public/node-graph-module-sizing.js"]
         and "const requiredGridUnits = nodeGraphModuleRequiredHeightUnitsForUi(type, ui);" not in script_sources["./public/node-graph-module-sizing.js"]
         and "const requiredGu = nodeGraphModuleRequiredHeightUnitsForUi(type, ui);" in script_sources["./public/node-graph-module-sizing.js"]
-        and "let heightGu = Math.ceil(requiredGu);" in script_sources["./public/node-graph-module-sizing.js"]
-        and "if ((heightGu - requiredGu) * nodeGraphGrid.heightPx < 2) {" in script_sources["./public/node-graph-module-sizing.js"],
+        and "function nodeGraphModuleHeightWithBottomClearance(requiredGu)" in script_sources["./public/node-graph-module-sizing.js"]
+        and "if ((heightGu - required) * nodeGraphGrid.heightPx < 3) {" in script_sources["./public/node-graph-module-sizing.js"]
+        and "return nodeGraphModuleHeightWithBottomClearance(requiredGu);" in script_sources["./public/node-graph-module-sizing.js"],
         "module height should come from visible widget totals rather than a rough fallback",
     )
     require(
@@ -15869,13 +15847,22 @@ def require_node_graph_mvp_contract() -> None:
         "control surface visibility should exist globally and per module with height-aware hiding",
     )
     require(
-        'nodeGraphRetiredNodeTypes = new Set(["formulaVisual", "moduleHome", "moduleShop", "scriptBox"])' in script_sources["./public/node-graph-patch-core.js"]
+        all(name in script_sources["./public/node-graph-patch-core.js"] for name in (
+            '"bipolarKnob"',
+            '"formulaVisual"',
+            '"graph"',
+            '"impulseButton"',
+            '"macroKnob"',
+        ))
         and "formulaVisual" not in script_sources["./public/node-graph-module-definitions.js"]
+        and "macroKnob" not in script_sources["./public/node-graph-module-definitions.js"]
+        and "bipolarKnob" not in script_sources["./public/node-graph-module-definitions.js"]
+        and "impulseButton" not in script_sources["./public/node-graph-module-definitions.js"]
         and "formulaVisual" not in script_sources["./public/node-graph-module-store.js"]
         and "formulaVisual" not in script_sources["./public/node-graph-module-factories.js"]
         and "formulaVisual" not in script_sources["./public/node-graph-live-frame-evaluator.js"]
         and "formulaVisual" not in worklet_source,
-        "formula visual should be retired while stale saved nodes are scrubbed",
+        "retired visual and knob/button modules should be scrubbed from stale patches",
     )
     require(
         "const modulations = Array.isArray(patch.modulations) ? patch.modulations.map((modulation) => {" not in script_sources["./public/node-graph-patch-core.js"]
@@ -15934,14 +15921,19 @@ def require_node_graph_mvp_contract() -> None:
         ]
         and "color: var(--node-module-primary-text-color);" in style_source[
             style_source.index(".node-header-title {"):
-            style_source.index(".dsp-node-io-section")
+            style_source.index("input.node-header-title {")
         ],
         "text box text and module title should share the halfway brightness token",
     )
     require(
+        # There is no separate hover/drag override for the unit color
+        # anymore -- the resting rule and the :focus-within rule both
+        # resolve to the same dim color, so hovering or dragging a
+        # slider never brightens its unit label.
         "color-mix(in srgb, var(--node-slider-unit-color, #7fc7d9) 58%" in style_source
-        and ".node-slider-readout:hover .node-slider-readout-unit" in style_source
-        and ".node-slider-readout.value-dragging .node-slider-readout-unit" in style_source,
+        and ".node-slider-readout:focus-within .node-slider-readout-unit" in style_source
+        and ".node-slider-readout:hover .node-slider-readout-unit" not in style_source
+        and ".node-slider-readout.value-dragging .node-slider-readout-unit" not in style_source,
         "slider unit readout should stay dim on hover and drag",
     )
     square_scope_style = style_source[
@@ -16311,14 +16303,14 @@ def require_node_graph_mvp_contract() -> None:
         ".dsp-node-body",
         "align-content: start;",
         "grid-auto-rows: var(--node-body-row-height)",
-        ".node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.knob-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.clap-plugin-layout)",
+        ".node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.clap-plugin-layout)",
         "grid-template-rows:\n    var(--node-header-height)\n    var(--node-module-scope-height)\n    minmax(var(--node-io-section-min-height), auto)\n    auto\n    auto;",
         ".dsp-node.sample-module-layout.oscilloscope-hidden",
         "--node-module-scope-height: 0px",
         ".dsp-node.sample-module-layout,\n.dsp-node.sample-module-layout.oscilloscope-hidden",
         "grid-template-rows:\n    var(--node-header-height)\n    var(--node-module-scope-height)\n    var(--node-module-interface-controls-height)\n    minmax(var(--node-io-section-min-height), auto)\n    auto;",
         "align-content: start;",
-        ".node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.knob-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.clap-plugin-layout)::after",
+        ".node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.clap-plugin-layout):not(.solid-module-layout)::after",
         "grid-auto-rows: var(--node-body-row-height)",
         "gap: var(--node-body-row-gap)",
         ".dsp-node-io-section",
@@ -16497,11 +16489,10 @@ def require_node_graph_mvp_contract() -> None:
         ".node-wiring-panel.modular-only-view .node-modular-only-back-button",
         ".node-wiring-panel.modular-only-view",
         ":not(.node-view-toolbar)",
-        ":not(.node-saved-patches-window)",
-        ":not(.node-module-shop-view)",
+        ":not(.node-floating-window-surface)",
         ".node-wiring-panel.modular-only-view > .node-view-toolbar",
         "display: contents",
-        ".node-wiring-panel.modular-only-view > .node-view-toolbar > :not(.node-saved-patches-window)",
+        ".node-wiring-panel.modular-only-view > .node-view-toolbar > :not(.node-floating-window-surface)",
         "place-items: center",
         "min-height: 100dvh",
         "max-height: calc(100dvh - (var(--node-modular-only-inset) * 2))",
@@ -16519,6 +16510,13 @@ def require_node_graph_mvp_contract() -> None:
         ".node-render-duration-control input",
         ".node-output-summary",
         ".node-live-controls",
+        "body.keyboard-debug-hidden .node-debug-only",
+        ".node-wiring-panel:not(.modular-only-view):not(.camera-view-visible):has(> #nodeGraphWorkspace:not([hidden]))",
+        "height: 100dvh",
+        "> #nodeGraphWorkspace:not([hidden])",
+        "flex: 1 1 auto",
+        "> .node-graph-controls",
+        "flex: 0 0 auto",
         ".node-visual-output",
         ".node-visual-output-heading",
         ".node-visual-output-meta",
@@ -16667,7 +16665,9 @@ def require_node_graph_mvp_contract() -> None:
         ".node-visibility-menu",
         "position: fixed",
         "width: min(196px, calc(100vw - 28px))",
-        "min-width: var(--node-module-actions-min-width, 24px)",
+        "min-width: min(180px, calc(100vw - 28px))",
+        "grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr)",
+        ".node-visibility-menu-row .scene-context-window-button-label",
         "grid-template-columns:\n    var(--node-floating-window-header-height)\n    minmax(0, 1fr)\n    var(--node-floating-window-header-height)",
         "min-height: var(--node-floating-window-header-height)",
         ".node-visibility-menu .scene-context-heading",
@@ -17263,9 +17263,6 @@ def require_node_graph_mvp_contract() -> None:
         "x: this.clampValue(this.visualControls.x, -1, 1)",
         "valueSlider: (node, nodeId, frame, frames, frameValues) => {",
         "return { Bias: offset, Out: offset, offset };",
-        "macroKnob: (node, nodeId, frame, frames, frameValues) => {",
-        "this.liveModuleEvaluators.bipolarKnob = this.liveModuleEvaluators.macroKnob;",
-        "return { Out: knobValue, value: knobValue };",
         'type: "visualControls"',
         "visualSinkCount: Array.isArray(plan?.visualSinks) ? plan.visualSinks.length : 0",
         "speakerOutputActive: Boolean(plan?.speakerOutputActive)",
@@ -17389,6 +17386,8 @@ def require_node_graph_mvp_contract() -> None:
         'this.readEffectiveParameter(node, "mode", 0',
         'this.readEffectiveParameter(node, "rate", 1',
         'this.readEffectiveParameter(node, "phase", 0',
+        'this.readEffectiveParameter(node, "inputMin", 0',
+        'this.readEffectiveParameter(node, "inputMax", 1',
         "this.graphLfoStates.get(nodeId)",
         "const resetValue = 0",
         "state.resetFrame = currentFrame",
@@ -17398,7 +17397,8 @@ def require_node_graph_mvp_contract() -> None:
         "this.graphSmoothingModeForNode(node)",
         'this.readEffectiveParameter(node, "outputMin", 0',
         'this.readEffectiveParameter(node, "outputMax", 1',
-        "return outputMin + normalizedValue * (outputMax - outputMin)",
+        "Out: outputMin + normalizedValue * (outputMax - outputMin)",
+        "__GraphPhase: sampleX",
         "graphOutputValue(node, nodeId),",
         'this.readEffectiveParameter(node, "frequency", 1000',
         "readEffectiveParameter(node, key, fallback, frame, frames, frameValues)",

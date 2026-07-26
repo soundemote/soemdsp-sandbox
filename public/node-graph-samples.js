@@ -404,7 +404,25 @@ function renderNodeGraphMissingSampleAssetsDialog(patch = nodeGraphMvp.patch) {
 function nodeGraphSampleNameForNode(nodeId) {
   const node = nodeGraphPatchNode(nodeId);
   const sample = nodeGraphPatchSampleById(node?.sample?.id);
-  return sample?.name || "No sample";
+  if (sample?.name) {
+    return sample.name;
+  }
+  // The Music Player's waveform display already draws its own "No sample
+  // loaded" placeholder, so a second empty-state line here is pure wasted
+  // height. Blank => the row hides itself (see applyNodeGraphSampleTextRow).
+  // Other sample modules have no waveform, so they keep the wording.
+  return node?.type === "audioPlayer" ? "" : "No sample";
+}
+
+// Sets a sample text row's content and collapses the row entirely when the
+// text is empty, so a blank placeholder does not reserve vertical space.
+function applyNodeGraphSampleTextRow(element, text) {
+  if (!element) {
+    return;
+  }
+  const value = String(text ?? "");
+  element.textContent = value;
+  element.hidden = value === "";
 }
 
 function nodeGraphSampleLoadErrorMessage(error, fileName = "audio") {
@@ -497,10 +515,7 @@ async function copyNodeGraphSamplePhaseForNode(nodeId) {
 }
 
 function setNodeGraphSampleStatus(nodeId, message) {
-  const statusElement = nodeGraphSampleStatusElementForNode(nodeId);
-  if (statusElement) {
-    statusElement.textContent = message;
-  }
+  applyNodeGraphSampleTextRow(nodeGraphSampleStatusElementForNode(nodeId), message);
   return message;
 }
 
@@ -548,10 +563,7 @@ function syncNodeGraphAudioPlayerRuntimeStatus(message = {}) {
 }
 
 function syncNodeGraphSampleDisplayForNode(nodeId) {
-  const nameElement = nodeGraphSampleNameElementForNode(nodeId);
-  if (nameElement) {
-    nameElement.textContent = nodeGraphSampleNameForNode(nodeId);
-  }
+  applyNodeGraphSampleTextRow(nodeGraphSampleNameElementForNode(nodeId), nodeGraphSampleNameForNode(nodeId));
   const phaseElement = nodeGraphSamplePhaseElementForNode(nodeId);
   if (phaseElement) {
     phaseElement.textContent = nodeGraphSamplePhaseForNode(nodeId).toFixed(4);
@@ -670,9 +682,13 @@ function nodeGraphSampleStatusForNode(nodeId) {
   if (!sample?.id) {
     const asset = nodeGraphRequiredAssetsForPatch(nodeGraphMvp.patch)
       .find((candidate) => candidate.id === normalizeNodeGraphSampleId(node?.sample?.id));
-    return asset
-      ? `missing sample: ${asset.sourcePath || asset.sourceName || asset.name || asset.id}`
-      : "no audio loaded";
+    if (asset) {
+      return `missing sample: ${asset.sourcePath || asset.sourceName || asset.name || asset.id}`;
+    }
+    // Same reasoning as nodeGraphSampleNameForNode: the waveform placeholder
+    // already says it. A genuinely missing (referenced but absent) sample is
+    // still reported above, because nothing else surfaces that.
+    return node?.type === "audioPlayer" ? "" : "no audio loaded";
   }
   const cached = nodeGraphMvp.sampleBuffers?.get?.(sample.id);
   const frames = cached?.frames || sample.frames || 0;
@@ -910,47 +926,17 @@ async function loadNodeGraphSampleDataUrlForNode(nodeId, dataUrl, name = "Sample
   scheduleNodeGraphLivePlanSync("plan");
 }
 
-function createNodeGraphSampleModuleBody(nodeOrId) {
-  const nodeId = typeof nodeOrId === "string" ? nodeOrId : nodeOrId?.id;
+// The 📂-button-plus-path-box loader, built once here so every place that
+// offers "load a sample into this node" is the same widget with the same
+// gestures (double-click the box to type, Enter loads, empty box + button
+// opens the file picker). Used by the module body below and by the Waveform
+// display options window (node-graph-phosphor-waveform.js).
+// `instance` namespaces the hidden file input's id so a second copy of the
+// loader for the same node cannot collide with the module's own.
+function createNodeGraphSamplePathLoader(nodeId, { instance = "" } = {}) {
   const patchNode = nodeGraphPatchNode(nodeId);
   const isMusicPlayer = patchNode?.type === "audioPlayer";
-  const body = document.createElement("div");
-  body.className = "node-module-interface-controls node-sample-module-body";
-  const name = document.createElement("div");
-  name.className = "node-sample-name";
-  name.dataset.sampleNameForNode = nodeId;
-  name.textContent = nodeGraphSampleNameForNode(nodeId);
-  const status = document.createElement("div");
-  status.className = "node-sample-status";
-  status.dataset.sampleStatusForNode = nodeId;
-  status.textContent = nodeGraphSampleStatusForNode(nodeId);
-  const phase = document.createElement("div");
-  phase.className = "node-sample-phase-readout";
-  const phaseValue = document.createElement("strong");
-  phaseValue.dataset.samplePhaseForNode = nodeId;
-  phaseValue.textContent = nodeGraphSamplePhaseForNode(nodeId).toFixed(4);
-  const copyPhaseButton = document.createElement("button");
-  copyPhaseButton.className = "node-sample-copy-phase-button";
-  copyPhaseButton.type = "button";
-  copyPhaseButton.textContent = "📋";
-  copyPhaseButton.setAttribute("aria-label", "Copy the current phase as a full precision number");
-  copyPhaseButton.title = "Copy the current phase as a full precision number";
-  protectNodeGraphSampleControl(copyPhaseButton);
-  copyPhaseButton.addEventListener("click", () => {
-    copyNodeGraphSamplePhaseForNode(nodeId).catch((error) => {
-      const message = String(error?.message || error || "copy phase failed");
-      setNodeInteractionHelp(message);
-      setNodeGraphSampleStatus(nodeId, message);
-    });
-  });
-  phase.append(phaseValue, copyPhaseButton);
-  const inputId = `node-sample-file-input-${normalizeNodeGraphSampleId(nodeId)}`;
-  const picker = document.createElement("label");
-  picker.className = "node-sample-load-button node-sample-file-picker";
-  picker.htmlFor = inputId;
-  protectNodeGraphSampleControl(picker);
-  const pickerText = document.createElement("span");
-  pickerText.textContent = "Load Sample";
+  const inputId = `node-sample-file-input-${normalizeNodeGraphSampleId(nodeId)}${instance ? `-${instance}` : ""}`;
   const input = document.createElement("input");
   input.id = inputId;
   input.className = "node-sample-file-input";
@@ -975,6 +961,7 @@ function createNodeGraphSampleModuleBody(nodeOrId) {
       setNodeInteractionHelp(`Sample load failed: ${message}`);
     });
   });
+
   const pathShell = document.createElement("div");
   pathShell.className = "node-sample-path-loader";
   protectNodeGraphSampleControl(pathShell);
@@ -983,11 +970,27 @@ function createNodeGraphSampleModuleBody(nodeOrId) {
   pathInput.type = "text";
   pathInput.placeholder = "C:\\path\\music.mp3";
   pathInput.spellcheck = false;
+  // Read-only until double-clicked, same gesture as the render range Start/End
+  // fields -- a single stray click on a module should never put you in a text
+  // field you did not mean to edit.
+  pathInput.readOnly = true;
+  pathInput.title = "Double-click to type a path";
+  pathInput.addEventListener("dblclick", () => {
+    pathInput.readOnly = false;
+    pathInput.classList.add("editing");
+    pathInput.focus();
+    pathInput.select();
+  });
+  pathInput.addEventListener("blur", () => {
+    pathInput.readOnly = true;
+    pathInput.classList.remove("editing");
+  });
   protectNodeGraphSampleControl(pathInput);
   const pathButton = document.createElement("button");
   pathButton.className = "node-sample-path-button";
   pathButton.type = "button";
-  pathButton.textContent = "Load Path";
+  pathButton.textContent = "📂";
+  pathButton.setAttribute("aria-label", isMusicPlayer ? "Load music from path" : "Load sample from path");
   pathButton.title = isMusicPlayer
     ? "Load a path, or choose a music file when the path box is empty"
     : "Load a path, or choose a sample file when the path box is empty";
@@ -1006,12 +1009,64 @@ function createNodeGraphSampleModuleBody(nodeOrId) {
     });
   });
   pathInput.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      pathInput.blur();
+      return;
+    }
     if (event.key === "Enter") {
       event.preventDefault();
       pathButton.click();
+      pathInput.blur();
     }
   });
-  pathShell.append(pathInput, pathButton);
+  pathShell.append(pathButton, pathInput);
+  return { fileInput: input, pathButton, pathInput, pathShell };
+}
+
+function createNodeGraphSampleModuleBody(nodeOrId) {
+  const nodeId = typeof nodeOrId === "string" ? nodeOrId : nodeOrId?.id;
+  const patchNode = nodeGraphPatchNode(nodeId);
+  const isMusicPlayer = patchNode?.type === "audioPlayer";
+  const body = document.createElement("div");
+  body.className = "node-module-interface-controls node-sample-module-body";
+  const name = document.createElement("div");
+  name.className = "node-sample-name";
+  name.dataset.sampleNameForNode = nodeId;
+  applyNodeGraphSampleTextRow(name, nodeGraphSampleNameForNode(nodeId));
+  const status = document.createElement("div");
+  status.className = "node-sample-status";
+  status.dataset.sampleStatusForNode = nodeId;
+  applyNodeGraphSampleTextRow(status, nodeGraphSampleStatusForNode(nodeId));
+  const phase = document.createElement("div");
+  phase.className = "node-sample-phase-readout";
+  const phaseValue = document.createElement("strong");
+  phaseValue.dataset.samplePhaseForNode = nodeId;
+  phaseValue.textContent = nodeGraphSamplePhaseForNode(nodeId).toFixed(4);
+  const copyPhaseButton = document.createElement("button");
+  copyPhaseButton.className = "node-sample-copy-phase-button";
+  copyPhaseButton.type = "button";
+  copyPhaseButton.textContent = "📋";
+  copyPhaseButton.setAttribute("aria-label", "Copy the current phase as a full precision number");
+  copyPhaseButton.title = "Copy the current phase as a full precision number";
+  protectNodeGraphSampleControl(copyPhaseButton);
+  copyPhaseButton.addEventListener("click", () => {
+    copyNodeGraphSamplePhaseForNode(nodeId).catch((error) => {
+      const message = String(error?.message || error || "copy phase failed");
+      setNodeInteractionHelp(message);
+      setNodeGraphSampleStatus(nodeId, message);
+    });
+  });
+  // Icon buttons sit on the LEFT of the thing they act on, matching the
+  // folder button on the path row below.
+  phase.append(copyPhaseButton, phaseValue);
+  const { fileInput: input, pathShell } = createNodeGraphSamplePathLoader(nodeId);
+  const inputId = input.id;
+  const picker = document.createElement("label");
+  picker.className = "node-sample-load-button node-sample-file-picker";
+  picker.htmlFor = inputId;
+  protectNodeGraphSampleControl(picker);
+  const pickerText = document.createElement("span");
+  pickerText.textContent = "Load Sample";
   picker.append(pickerText);
   body.append(name, status);
   if (!isMusicPlayer) {

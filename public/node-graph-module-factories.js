@@ -25,6 +25,23 @@ function nodeGraphPatchNodePortDisplayLabel(node, type, port, io) {
   return alias || nodeGraphPortDisplayLabel(type, port, io);
 }
 
+function applyNodeGraphInputUnboundedValue(input, value) {
+  const number = Number(value);
+  const min = Number(input?.min);
+  const max = Number(input?.max);
+  const unboundedMin = input?.dataset?.unboundedMin === "true";
+  const unboundedMax = input?.dataset?.unboundedMax === "true";
+  if (
+    Number.isFinite(number) &&
+    ((unboundedMin && Number.isFinite(min) && number < min) ||
+      (unboundedMax && Number.isFinite(max) && number > max))
+  ) {
+    input.dataset.unboundedValue = String(number);
+  } else if (input) {
+    delete input.dataset.unboundedValue;
+  }
+}
+
 function createNodeGraphIoColumn(node, type, ports, io) {
   if (!ports?.length) {
     return null;
@@ -229,32 +246,6 @@ function createNodeGraphSliderWidgetBody(node, type) {
   return body;
 }
 
-function createNodeGraphButtonWidgetBody(node, type) {
-  const definition = nodeGraphModuleDefinitions[type];
-  const body = document.createElement("div");
-  body.className = "node-button-widget-body";
-
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "node-button-widget-trigger";
-  button.textContent = "TRIGGER";
-  button.setAttribute("aria-label", `${nodeGraphNodeLabels[type] || "Button"} trigger`);
-  button.addEventListener("click", () => {
-    triggerNodeGraphImpulseButton(node);
-    button.classList.remove("pulsing");
-    void button.offsetWidth;
-    button.classList.add("pulsing");
-  });
-  body.append(button);
-
-  for (const parameter of definition?.parameters || []) {
-    const row = createNodeGraphParameter(node, type, parameter);
-    row.classList.add("node-button-widget-row");
-    body.append(row);
-  }
-  return body;
-}
-
 // Step Grid's UI (createNodeGraphStepGridBody, toggleNodeGraphStepGridStep)
 // lives in public/modules/stepGrid/step-grid-ui.js, alongside its DSP
 // evaluator files, not here -- see that file for the fully-custom /
@@ -271,99 +262,6 @@ function createNodeGraphPatchCommandBody(node) {
   const status = document.createElement("span");
   status.textContent = "trigger input";
   body.append(label, status);
-  return body;
-}
-
-function nodeGraphKnobWidgetValueAngle(value, parameter) {
-  const min = Number(parameter?.min);
-  const max = Number(parameter?.max);
-  const range = max - min;
-  const normalized = Number.isFinite(range) && range > 0
-    ? clampNodeSliderValue((Number(value) - min) / range, 0, 1)
-    : 0;
-  return -132 + normalized * 264;
-}
-
-function applyNodeGraphInputUnboundedValue(input, value) {
-  const number = Number(value);
-  const min = Number(input?.min);
-  const max = Number(input?.max);
-  const unboundedMin = input?.dataset?.unboundedMin === "true";
-  const unboundedMax = input?.dataset?.unboundedMax === "true";
-  if (
-    Number.isFinite(number) &&
-    ((unboundedMin && Number.isFinite(min) && number < min) ||
-      (unboundedMax && Number.isFinite(max) && number > max))
-  ) {
-    input.dataset.unboundedValue = String(number);
-  } else if (input) {
-    delete input.dataset.unboundedValue;
-  }
-}
-
-function createNodeGraphKnobWidgetBody(node, type) {
-  const definition = nodeGraphModuleDefinitions[type];
-  const parameter = definition?.parameters?.[0];
-  const patchNode = nodeGraphPatchNode(node);
-  const value = patchNode?.params?.[parameter?.key] ?? parameter?.defaultValue ?? "0";
-  const body = document.createElement("div");
-  body.className = "node-knob-widget-body";
-  body.dataset.node = node;
-
-  const control = document.createElement("button");
-  control.className = "node-knob-widget-control";
-  control.type = "button";
-  control.dataset.knobWidgetControl = "true";
-  control.dataset.param = parameter?.key || "value";
-  control.setAttribute("role", "slider");
-  control.setAttribute("aria-label", `${nodeGraphNodeLabels[type]} ${parameter?.label || "Value"}`);
-  control.setAttribute("aria-valuemin", parameter?.min ?? "0");
-  control.setAttribute("aria-valuemax", parameter?.max ?? "1");
-  control.setAttribute("aria-valuenow", String(value));
-  control.style.setProperty("--knob-widget-angle", `${nodeGraphKnobWidgetValueAngle(value, parameter)}deg`);
-
-  const knobSlot = document.createElement("span");
-  knobSlot.className = "node-knob-widget-slot";
-  const face = document.createElement("span");
-  face.className = "node-knob-widget-face";
-  const readout = document.createElement("span");
-  readout.className = "node-knob-widget-value";
-  readout.dataset.knobWidgetValue = "true";
-  readout.textContent = formatNodeSliderNumber(value);
-  knobSlot.append(face);
-  control.append(knobSlot);
-
-  const input = document.createElement("input");
-  input.className = "node-knob-widget-input";
-  input.type = "range";
-  const metadata = parameter ? nodeGraphParameterDefinitionMetadata(parameter) : null;
-  input.dataset.param = parameter?.key || "value";
-  input.dataset.step = metadata?.step > 0 ? String(metadata.step) : "any";
-  input.dataset.mid = String(metadata?.mid ?? parameter?.mid ?? "0");
-  input.dataset.default = String(metadata?.def ?? parameter?.defaultValue ?? "0");
-  input.dataset.kind = metadata?.kind ?? parameter?.kind ?? "";
-  input.dataset.unit = metadata?.unit ?? parameter?.unit ?? "";
-  input.dataset.tooltip = metadata?.tooltip ?? parameter?.tooltip ?? "";
-  input.displayTransform = typeof parameter?.displayTransform === "function" ? parameter.displayTransform : null;
-  input.dataset.linearSmoothing = metadata?.linearSmoothing ? "true" : "false";
-  input.dataset.sliderCurve = normalizeNodeSliderCurve(metadata?.sliderCurve, metadata?.nonlinearSlider);
-  input.dataset.curveAmount = String(normalizeNodeSliderCurveAmount(metadata?.curveAmount));
-  input.dataset.nonlinearSlider = metadata?.nonlinearSlider ? "true" : "false";
-  input.dataset.unboundedMax = metadata?.unboundedMax ? "true" : "false";
-  input.dataset.unboundedMin = metadata?.unboundedMin ? "true" : "false";
-  input.min = String(metadata?.min ?? parameter?.min ?? "0");
-  input.max = String(metadata?.max ?? parameter?.max ?? "1");
-  input.step = metadata?.step > 0 ? String(metadata.step) : "any";
-  input.value = String(value);
-  applyNodeGraphInputUnboundedValue(input, value);
-
-  const outputKey = parameter?.key || "value";
-  const output = createNodeGraphPort(node, type, outputKey, "output");
-  output.classList.add("node-knob-widget-output");
-  output.dataset.param = outputKey;
-  output.dataset.alias = `${nodeGraphNodeDisplayName(node)} knob value`;
-
-  body.append(control, readout, input, output);
   return body;
 }
 

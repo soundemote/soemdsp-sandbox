@@ -15,9 +15,9 @@ registerNodeGraphChromelessModule("xyPad", {
       Spike: "P",
     },
     parameters: [
-      { defaultValue: "0.5", key: "x", label: "X", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
-      { defaultValue: "0.5", key: "y", label: "Y", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
-      { defaultValue: "0", key: "gate", label: "Gate", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
+      { defaultValue: "0.5", hidden: true, key: "x", label: "X", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
+      { defaultValue: "0.5", hidden: true, key: "y", label: "Y", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
+      { defaultValue: "0", hidden: true, key: "gate", label: "Gate", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0", key: "xQuantize", label: "X Quantize", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0", key: "yQuantize", label: "Y Quantize", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0", key: "xPhase", label: "X Phase", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },

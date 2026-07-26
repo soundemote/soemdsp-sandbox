@@ -17,5 +17,9 @@ document.getElementById("nodeCopyRuntimeSketchButton").addEventListener("click",
     .getElementById("nodeLiveInputDeviceSelect")
     .addEventListener("change", handleNodeGraphLiveInputDeviceChange);
   document.getElementById("nodeLiveOutputButton").addEventListener("click", toggleNodeGraphLiveOutput);
+  document.getElementById("nodeLiveMidiButton")?.addEventListener("click", () => {
+    toggleNodeGraphMidiInput();
+  });
+  renderNodeGraphMidiToggleButton();
   renderNodeGraphBadValueMonitorEvidence();
 }

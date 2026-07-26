@@ -34,7 +34,7 @@ function renderNodeGraphVisibilityMenuButton() {
     nodeGraphMvp.moduleInterfaceControlsVisible === false ? 1 : 0,
     nodeGraphMvp.moduleOscilloscopesVisible === false ? 1 : 0,
     nodeGraphMvp.moduleSlidersVisible === false ? 1 : 0,
-    document.getElementById("nodeTooltipWindow")?.hidden === false ? 0 : 1,
+    nodeGraphTooltipsShown() ? 0 : 1,
     nodeGraphMvp.sliderAmountVisible ? 0 : 1,
     nodeGraphMvp.sliderPositionVisible ? 0 : 1,
   ].reduce((total, value) => total + value, 0);
@@ -633,12 +633,9 @@ function setNodeGraphVisibilityMenuOpen(open) {
     menu.hidden = !open;
     if (open) {
       applyNodeGraphVisibilityMenuSize(nodeGraphMvp.workspaceWindowStates?.visibilityMenu?.size);
-      if (
-        typeof positionNodeGraphWorkspaceWindowFromState !== "function" ||
-        !positionNodeGraphWorkspaceWindowFromState("visibilityMenu", menu)
-      ) {
+      openNodeGraphFloatingWindowAtPosition("visibilityMenu", menu, () => {
         positionNodeGraphVisibilityMenuNearButton(menu);
-      }
+      });
     }
   }
   if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
@@ -681,10 +678,7 @@ function positionNodeGraphVisibilityMenu(menu, x, y) {
 }
 
 function nodeGraphVisibilityMenuMinimumSize(menu = document.getElementById("nodeVisibilityMenu")) {
-  const sharedWindowMinWidth = typeof nodeModuleActionsWindowDefaultSize !== "undefined" &&
-    Number.isFinite(Number(nodeModuleActionsWindowDefaultSize?.minWidth))
-    ? Number(nodeModuleActionsWindowDefaultSize.minWidth)
-    : 24;
+  const readableWindowMinWidth = 180;
   const rootStyle = window.getComputedStyle(document.documentElement);
   const sharedHeaderHeight = Number.parseFloat(
     rootStyle.getPropertyValue("--node-floating-window-header-height"),
@@ -694,7 +688,7 @@ function nodeGraphVisibilityMenuMinimumSize(menu = document.getElementById("node
   ) || 30;
   const buttonCount = menu?.querySelectorAll?.(".node-visibility-menu-list button").length || 7;
   return {
-    width: Math.ceil(sharedWindowMinWidth),
+    width: readableWindowMinWidth,
     height: Math.ceil(sharedHeaderHeight + (buttonCount * sharedButtonHeight)),
   };
 }
@@ -826,6 +820,7 @@ function nodeGraphStartupViewModeFromUrl() {
 
 function resetNodeGraphStartupView() {
   nodeGraphMvp.moduleStoreDepartment = "";
+  nodeGraphMvp.moduleStoreDepartmentAnchor = "";
   nodeGraphMvp.sceneContextPoint = null;
   setNodeGraphViewMode(nodeGraphStartupViewModeFromUrl());
 }
@@ -1149,19 +1144,99 @@ function endNodeGraphTooltipWindowDrag(event) {
   });
 }
 
+// ── Tips: SHOWN is one question, WHERE is another ─────────────────────────
+// Two independent toggles sharing one row in the visibility menu.
+//
+//   Hide/Show Tooltips - are the tips displayed at all
+//   Embed Tips         - floating window, or in-flow band beside the
+//                        CPU/RAM/GPU guide
+//
+// Shown-ness has no state variable of its own; it is read off whichever host
+// is currently in use, so there is nothing to keep in sync and no way for the
+// button label to disagree with what is on screen.
+function nodeGraphTooltipsShown() {
+  if (nodeGraphMvp.tooltipEmbedded === true) {
+    return document.getElementById("nodeInteractionHelpEmbedSlot")?.hidden === false;
+  }
+  return document.getElementById("nodeTooltipWindow")?.hidden === false;
+}
+
 function renderNodeGraphTooltipWindowToggle() {
   const button = document.getElementById("nodeTooltipToggleButton");
-  const win = document.getElementById("nodeTooltipWindow");
-  const visible = Boolean(win && !win.hidden);
+  const visible = nodeGraphTooltipsShown();
   if (button) {
     const label = button.querySelector(".scene-context-window-button-label");
     if (label) {
-      label.textContent = visible ? "Hide Tips" : "Show Tips";
+      label.textContent = visible ? "Hide Tooltips" : "Show Tooltips";
     }
     button.setAttribute("aria-pressed", visible ? "true" : "false");
     button.removeAttribute("title");
   }
+  const embedButton = document.getElementById("nodeTooltipEmbedToggleButton");
+  if (embedButton) {
+    const embedded = nodeGraphMvp.tooltipEmbedded === true;
+    const label = embedButton.querySelector(".scene-context-window-button-label");
+    if (label) {
+      label.textContent = embedded ? "Float Tips" : "Embed Tips";
+    }
+    embedButton.setAttribute("aria-pressed", embedded ? "true" : "false");
+    embedButton.removeAttribute("title");
+  }
   renderNodeGraphVisibilityMenuButton();
+}
+
+// Physically relocates #nodeInteractionHelp between the floating window and
+// the in-flow slot, carrying its shown-ness across so flipping the mode never
+// silently hides the tips you were reading.
+function applyNodeGraphTooltipEmbed({ shown } = {}) {
+  const help = document.getElementById("nodeInteractionHelp");
+  const slot = document.getElementById("nodeInteractionHelpEmbedSlot");
+  const win = document.getElementById("nodeTooltipWindow");
+  if (!help || !slot || !win) {
+    return;
+  }
+  const embedded = nodeGraphMvp.tooltipEmbedded === true;
+  const wantShown = shown === undefined ? nodeGraphTooltipsShown() : Boolean(shown);
+  help.classList.toggle("is-embedded", embedded);
+  if (embedded) {
+    if (help.parentElement !== slot) {
+      slot.append(help);
+    }
+    // The window is empty in this mode - there is nothing left in it to show.
+    win.hidden = true;
+    slot.hidden = !wantShown;
+  } else {
+    if (help.parentElement !== win) {
+      // Before the resize handle, so the handle stays the last child and keeps
+      // its corner placement.
+      win.insertBefore(help, document.getElementById("nodeTooltipWindowResizeHandle"));
+    }
+    slot.hidden = true;
+    if (wantShown && win.hidden) {
+      openNodeGraphTooltipWindow();
+      return;
+    }
+    if (!wantShown) {
+      win.hidden = true;
+    }
+  }
+  // Switching between the floating window and the embedded band changes which
+  // box the text has to fit, so re-fit whatever tip is already showing.
+  if (typeof fitNodeInteractionHelpText === "function") {
+    fitNodeInteractionHelpText(help);
+  }
+  renderNodeGraphTooltipWindowToggle();
+}
+
+function toggleNodeGraphTooltipEmbed() {
+  const wasShown = nodeGraphTooltipsShown();
+  nodeGraphMvp.tooltipEmbedded = !(nodeGraphMvp.tooltipEmbedded === true);
+  applyNodeGraphTooltipEmbed({ shown: wasShown });
+  setNodeInteractionHelp(
+    nodeGraphMvp.tooltipEmbedded
+      ? "Tips embedded beside the resource meters."
+      : "Tips floating in their own window.",
+  );
 }
 
 function closeNodeGraphTooltipWindow() {
@@ -1183,13 +1258,7 @@ function closeNodeGraphTooltipWindow() {
   renderNodeGraphTooltipWindowToggle();
 }
 
-function toggleNodeGraphTooltipWindow() {
-  const win = document.getElementById("nodeTooltipWindow");
-  const currentlyVisible = Boolean(win && !win.hidden);
-  if (currentlyVisible) {
-    closeNodeGraphTooltipWindow();
-    return;
-  }
+function openNodeGraphTooltipWindow() {
   const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 900;
   const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 700;
   positionNodeGraphTooltipWindowAtSavedOr(
@@ -1197,6 +1266,25 @@ function toggleNodeGraphTooltipWindow() {
     Math.max(12, viewportHeight - 220),
   );
   renderNodeGraphTooltipWindowToggle();
+}
+
+// Bound to both the menu button and the T key. In embedded mode there is no
+// window to open, so this shows/hides the in-flow slot instead - same button,
+// same meaning, different host.
+function toggleNodeGraphTooltipWindow() {
+  if (nodeGraphMvp.tooltipEmbedded === true) {
+    const slot = document.getElementById("nodeInteractionHelpEmbedSlot");
+    if (slot) {
+      slot.hidden = !slot.hidden;
+    }
+    renderNodeGraphTooltipWindowToggle();
+    return;
+  }
+  if (document.getElementById("nodeTooltipWindow")?.hidden === false) {
+    closeNodeGraphTooltipWindow();
+    return;
+  }
+  openNodeGraphTooltipWindow();
 }
 
 function renderNodeGraphVideoViewToggle() {
@@ -1612,13 +1700,12 @@ const nodeGraphMidiKeyboardMinKeyCount = 8;
 // 39 bits), each independently within the 53-bit safe-integer ceiling.
 const nodeGraphMidiKeyboardMaxKeyCount = 88;
 const nodeGraphMidiKeyboardHeldKeysLowBitCount = 49;
-const nodeGraphMidiKeyboardWhitePitchClasses = Object.freeze([0, 2, 4, 5, 7, 9, 11]);
 const nodeGraphMidiKeyboardBlackPitchClasses = Object.freeze(new Set([1, 3, 6, 8, 10]));
 const nodeGraphMidiKeyboardSampleRate = 44100;
 
 // User-configurable key count (shared/global, same mirroring pattern as
 // midiKeyboardOctave -- every rendered .node-midi-keyboard-module surface
-// shows the same span). Anchor note (nodeGraphMidiKeyboardStartMidi, C1)
+// shows the same span). Anchor note (nodeGraphMidiKeyboardStartMidi, C0)
 // stays fixed; only how many keys are visible from there changes.
 function nodeGraphMidiKeyboardKeyCount(value = nodeGraphMvp.midiKeyboardKeyCount) {
   const count = Math.round(Number(value));
@@ -2112,10 +2199,15 @@ function endNodeGraphPerformanceWheelDrag(event) {
   }
 }
 
+// Octave numbering follows the Roland convention: MIDI 0 = C-2, so middle C
+// (MIDI 60) is C3 and the keyboard's anchor key (MIDI 24) is C0. This is the
+// single source of every note name in the app -- the keyboard key caps, the
+// signal readout, the MIDI status line and the key-map grid all call it -- so
+// changing the -2 here shifts the whole scheme consistently.
 function nodeGraphMidiKeyboardPitchLabel(midi) {
   const rounded = Math.round(Number(midi) || 0);
   const note = nodeGraphMidiKeyboardNoteNames[((rounded % 12) + 12) % 12];
-  return `${note}${Math.floor(rounded / 12) - 1}`;
+  return `${note}${Math.floor(rounded / 12) - 2}`;
 }
 
 function nodeGraphMidiKeyboardOctaveOffset(value = nodeGraphMvp.midiKeyboardOctave) {
@@ -2429,6 +2521,89 @@ function retuneNodeGraphMidiKeyboardSignal(signal) {
   };
 }
 
+// Click-drag scrubbing for the keyboard's stepper readouts (octave transpose
+// and key count). The -/+ buttons still work; this just makes the number
+// between them draggable like a slider, which is far quicker than clicking +
+// twenty times to get from 25 keys to 61.
+//
+// Horizontal drag is the primary axis, with upward drag also counting as
+// "increase" so either gesture feels right. Steps are emitted one at a time
+// from an accumulator, so the value tracks the pointer exactly instead of
+// jumping, and every step goes through the same change*() function the
+// buttons use -- no duplicated clamping, persistence, or re-render logic.
+const nodeGraphMidiKeyboardScrubPixelsPerStep = 8;
+
+function bindNodeGraphMidiKeyboardScrubControl(element, applyDelta) {
+  if (!element || element.dataset.midiKeyboardScrubBound === "true") {
+    return;
+  }
+  element.dataset.midiKeyboardScrubBound = "true";
+  element.classList.add("scrubbable");
+  element.style.touchAction = "none";
+  let pointerId = null;
+  let originX = 0;
+  let originY = 0;
+  let emitted = 0;
+  let moved = false;
+  element.addEventListener("pointerdown", (event) => {
+    if (event.button !== undefined && event.button !== 0) {
+      return;
+    }
+    pointerId = event.pointerId;
+    originX = event.clientX;
+    originY = event.clientY;
+    emitted = 0;
+    moved = false;
+    element.setPointerCapture?.(pointerId);
+    element.classList.add("scrubbing");
+    event.preventDefault();
+    event.stopPropagation();
+  });
+  element.addEventListener("pointermove", (event) => {
+    if (pointerId === null || event.pointerId !== pointerId) {
+      return;
+    }
+    const travel = (event.clientX - originX) + (originY - event.clientY);
+    const target = Math.trunc(travel / nodeGraphMidiKeyboardScrubPixelsPerStep);
+    const steps = target - emitted;
+    if (steps) {
+      moved = true;
+      emitted = target;
+      const direction = steps > 0 ? 1 : -1;
+      for (let index = 0; index < Math.abs(steps); index += 1) {
+        applyDelta(direction);
+      }
+    }
+    event.preventDefault();
+    event.stopPropagation();
+  });
+  const endScrub = (event) => {
+    if (pointerId === null || event.pointerId !== pointerId) {
+      return;
+    }
+    element.releasePointerCapture?.(pointerId);
+    pointerId = null;
+    element.classList.remove("scrubbing");
+    // A press with no movement is a plain click on the number -- swallow it
+    // so it does not fall through to the module underneath.
+    if (moved) {
+      event.preventDefault();
+    }
+    event.stopPropagation();
+  };
+  element.addEventListener("pointerup", endScrub);
+  element.addEventListener("pointercancel", endScrub);
+}
+
+function bindNodeGraphMidiKeyboardScrubControls() {
+  document.querySelectorAll("[data-midi-keyboard-octave-value]").forEach((element) => {
+    bindNodeGraphMidiKeyboardScrubControl(element, changeNodeGraphMidiKeyboardOctave);
+  });
+  document.querySelectorAll("[data-midi-keyboard-key-count-value]").forEach((element) => {
+    bindNodeGraphMidiKeyboardScrubControl(element, changeNodeGraphMidiKeyboardKeyCount);
+  });
+}
+
 function changeNodeGraphMidiKeyboardOctave(delta) {
   nodeGraphMvp.midiKeyboardOctave = nodeGraphMidiKeyboardOctaveOffset(nodeGraphMvp.midiKeyboardOctave + delta);
   nodeGraphMvp.midiKeyboardPointerHeldSignal = retuneNodeGraphMidiKeyboardSignal(nodeGraphMvp.midiKeyboardPointerHeldSignal);
@@ -2566,11 +2741,7 @@ function renderNodeGraphMidiKeyboardInputControls() {
     select.value = inputs.some((input) => input.id === selected) ? selected : "";
   });
   renderNodeGraphMidiKeyboardModeControl();
-}
-
-function updateNodeGraphMidiKeyboardStatus(text) {
-  nodeGraphMvp.midiKeyboardStatus = text;
-  renderNodeGraphMidiKeyboardInputControls();
+  renderNodeGraphMidiToggleButton();
 }
 
 function refreshNodeGraphMidiKeyboardInputs() {
@@ -2588,6 +2759,67 @@ function refreshNodeGraphMidiKeyboardInputs() {
   }
   nodeGraphMvp.midiKeyboardStatus = inputs.length ? `${inputs.length} midi input${inputs.length === 1 ? "" : "s"}` : "midi ready: no inputs";
   renderNodeGraphMidiKeyboardInputControls();
+}
+
+// Header "MIDI" live toggle (next to Input/Output). On => request Web MIDI
+// access and attach the note handler; off => detach every input's handler so
+// nothing is received, while keeping the granted access object around so
+// turning it back on does not re-prompt the browser.
+function disableNodeGraphMidiKeyboardInput() {
+  const access = nodeGraphMvp.midiKeyboardAccess;
+  if (access) {
+    access.onstatechange = null;
+    for (const input of access.inputs?.values?.() || []) {
+      input.onmidimessage = null;
+    }
+  }
+  nodeGraphMvp.midiKeyboardHeldNotes?.clear?.();
+  nodeGraphMvp.midiKeyboardStatus = "midi off";
+  renderNodeGraphMidiKeyboardInputControls();
+  renderNodeGraphMidiToggleButton();
+}
+
+async function toggleNodeGraphMidiInput() {
+  if (nodeGraphMvp.midiInputEnabled) {
+    nodeGraphMvp.midiInputEnabled = false;
+    disableNodeGraphMidiKeyboardInput();
+    setNodeInteractionHelp("MIDI input off.");
+    return;
+  }
+  nodeGraphMvp.midiInputEnabled = true;
+  renderNodeGraphMidiToggleButton();
+  await enableNodeGraphMidiKeyboardInput();
+  // enable* leaves midiKeyboardAccess null when the browser has no Web MIDI
+  // or the user denied the permission prompt -- do not leave the button
+  // claiming MIDI is on in that case.
+  if (!nodeGraphMvp.midiKeyboardAccess) {
+    nodeGraphMvp.midiInputEnabled = false;
+  }
+  renderNodeGraphMidiToggleButton();
+  setNodeInteractionHelp(
+    nodeGraphMvp.midiInputEnabled
+      ? `MIDI input on -- ${nodeGraphMvp.midiKeyboardStatus || "ready"}.`
+      : `MIDI input unavailable: ${nodeGraphMvp.midiKeyboardStatus || "blocked"}.`,
+  );
+}
+
+function renderNodeGraphMidiToggleButton() {
+  const button = document.getElementById("nodeLiveMidiButton");
+  if (!button) {
+    return;
+  }
+  const on = Boolean(nodeGraphMvp.midiInputEnabled);
+  button.classList.toggle("active", on);
+  button.setAttribute("aria-pressed", on ? "true" : "false");
+  button.replaceChildren();
+  for (const text of ["MIDI", on ? "(On)" : "(Off)"]) {
+    const line = document.createElement("span");
+    line.textContent = text;
+    button.append(line);
+  }
+  button.title = on
+    ? `MIDI input on -- ${nodeGraphMvp.midiKeyboardStatus || "ready"}. Click to stop receiving MIDI.`
+    : "MIDI input off. Click to request Web MIDI access and receive notes from a connected controller.";
 }
 
 async function enableNodeGraphMidiKeyboardInput() {
@@ -2735,6 +2967,7 @@ function bindNodeGraphKeyboardControllerModuleEvents() {
   // createNodeGraphKeyboardControllerBody) and re-renders every surface
   // to the current key count -- cheap enough to always run here rather
   // than tracking "is this a first mount" separately.
+  bindNodeGraphMidiKeyboardScrubControls();
   renderNodeGraphMidiKeyboardKeys();
   renderNodeGraphMidiKeyboardKeyCountControl();
   renderNodeGraphMidiKeyboardSignal(null);
@@ -2884,6 +3117,9 @@ function renderNodeGraphMappingView() {
 }
 
 function setNodeGraphViewMode(mode) {
+  if (typeof syncNodeGraphRegisteredFloatingWindowSurfaces === "function") {
+    syncNodeGraphRegisteredFloatingWindowSurfaces();
+  }
   if (mode !== "script") {
     flushNodeGraphScriptCommit();
   }

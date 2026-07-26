@@ -30,6 +30,7 @@ function bindNodeGraphSceneMenuEvents() {
   document.addEventListener("pointerup", endNodeGraphModuleShopViewResize);
   document.addEventListener("pointercancel", endNodeGraphModuleShopViewResize);
   bindNodeGraphSceneElementEvent("nodeGraphWorkspace", "pointerdown", beginNodeGraphGraphNodeDrag, true);
+  bindNodeGraphSceneElementEvent("nodeGraphWorkspace", "contextmenu", handleNodeGraphGraphNodeContextMenu, true);
   bindNodeGraphSceneElementEvent("nodeGraphWorkspace", "dblclick", handleNodeGraphGraphNodeDoubleClick, true);
   document.addEventListener("pointermove", dragNodeGraphGraphNode);
   document.addEventListener("pointerup", endNodeGraphGraphNodeDrag);
@@ -50,6 +51,13 @@ function bindNodeGraphSceneMenuEvents() {
       button.addEventListener("click", () => setSelectedNodeGraphWireType(button.dataset.wireType));
     });
   bindNodeGraphSceneElementEvent("nodeSceneCopyModule", "click", copyNodeGraphModuleFromContext);
+  // Wired but disabled -- module grouping itself is under construction (see
+  // saveNodeGraphSelectionAsModuleGroup's early return in
+  // node-graph-module-actions.js and configureNodeSceneContextMenu's
+  // addToGroupButton.disabled = true in node-graph-context-menu.js). The
+  // button exists now so the rest of the UI plumbing (menu placement,
+  // disabled/tooltip state) is in place ahead of building the feature out.
+  bindNodeGraphSceneElementEvent("nodeSceneAddToGroup", "click", saveNodeGraphSelectionAsModuleGroup);
   bindNodeGraphSceneElementEvent("nodeSceneCopyModuleSettings", "click", copyNodeGraphModuleSettingsFromContext);
   bindNodeGraphSceneElementEvent("nodeScenePasteModuleSettings", "click", pasteNodeGraphModuleSettingsFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneSetModuleSettingsAsDefault", "click", setNodeGraphModuleSettingsAsDefaultFromButton);
@@ -139,9 +147,9 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeSceneTextBoxTextSizeIncrease", "click", () =>
     adjustNodeGraphTextBoxTextSizeFromContext(nodeGraphTextBoxTextSizeLimits.stepPercent));
   bindNodeGraphSceneElementEvent("nodeSceneTextBoxHeightDecrease", "click", () =>
-    adjustNodeGraphTextBoxHeightFromContext(-1));
+    adjustNodeGraphModuleHeightFromContext(-1));
   bindNodeGraphSceneElementEvent("nodeSceneTextBoxHeightIncrease", "click", () =>
-    adjustNodeGraphTextBoxHeightFromContext(1));
+    adjustNodeGraphModuleHeightFromContext(1));
   bindNodeGraphSceneElementEvent("nodeSceneAliasInput", "input", () => setNodeGraphModuleAliasFromContext({ record: false }));
   bindNodeGraphSceneElementEvent("nodeSceneAliasInput", "change", () => setNodeGraphModuleAliasFromContext({ record: true }));
   bindNodeGraphSceneElementEvent("nodeSceneToggleButtons", "click", toggleNodeGraphModuleButtonsFromContext);

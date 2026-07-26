@@ -61,6 +61,29 @@ function applyNodeGraphFloatingWindowSizeVars(element, cssPrefix, defaults = {},
   }
 }
 
+const nodeGraphFloatingWindowSurfaceClass = "node-floating-window-surface";
+
+function markNodeGraphFloatingWindowSurface(element) {
+  if (!element) {
+    return null;
+  }
+  element.classList.add(nodeGraphFloatingWindowSurfaceClass);
+  return element;
+}
+
+function syncNodeGraphRegisteredFloatingWindowSurfaces() {
+  if (typeof nodeGraphWorkspaceWindowElements === "undefined") {
+    return 0;
+  }
+  let count = 0;
+  for (const elementId of Object.values(nodeGraphWorkspaceWindowElements)) {
+    if (markNodeGraphFloatingWindowSurface(document.getElementById(elementId))) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
 function nodeGraphFloatingWindowElementPosition(element) {
   if (!element) {
     return { left: 0, top: 0 };
@@ -214,6 +237,61 @@ function bindNodeGraphFloatingWindowLockHandles(root = document) {
 
 function applyNodeGraphFloatingWindowLockedState(element, locked) {
   setNodeGraphFloatingWindowLocked(element, locked, { persist: false });
+}
+
+// The "I'm over here" glow. Used whenever a window is asked to open but does
+// not move to meet the pointer -- either because it was already open, or
+// because it restored to its remembered position (see
+// openNodeGraphFloatingWindowAtPosition). Without it, re-opening a window
+// that is parked off in a corner looks like nothing happened at all.
+function pulseNodeGraphFloatingWindowAttention(element) {
+  if (!element) {
+    return false;
+  }
+  if (typeof triggerNodeGraphWindowReopenEvent === "function") {
+    triggerNodeGraphWindowReopenEvent(element.id || element.dataset?.windowKey || "floating-window");
+  }
+  element.classList.remove("node-floating-window-attention");
+  // Force a reflow so re-adding the class restarts the animation instead of
+  // being coalesced into a no-op.
+  void element.offsetWidth;
+  element.classList.add("node-floating-window-attention");
+  window.setTimeout(() => {
+    element.classList.remove("node-floating-window-attention");
+  }, 1050);
+  return true;
+}
+
+// The one place that decides whether re-opening a window needs the glow.
+//
+// Re-triggering a window that is already open and already parked where it
+// wants to be produces no visible change at all, so it reads as a dead click.
+// Wrap the positioning work in this and it compares where the window was to
+// where it ended up, pulsing only when it did NOT move. A window that was
+// closed is skipped on purpose -- appearing is its own feedback.
+//
+// Deliberately measures the element rather than trusting the caller's notion
+// of "restored vs spawned": every window computes its position differently
+// (saved state, near a button, at the pointer, shared-inspector geometry),
+// but they all end up moving the same element, so this works for all of them.
+function positionNodeGraphFloatingWindowWithAttention(element, applyPosition) {
+  if (!element || typeof applyPosition !== "function") {
+    return false;
+  }
+  const wasOpen = !element.hidden;
+  const before = wasOpen ? nodeGraphFloatingWindowElementPosition(element) : null;
+  applyPosition(element);
+  if (!before) {
+    return false;
+  }
+  const after = nodeGraphFloatingWindowElementPosition(element);
+  // 1px of slack: sub-pixel rounding between CSS and getBoundingClientRect
+  // should not count as movement.
+  const stayedPut = Math.abs(after.left - before.left) <= 1 && Math.abs(after.top - before.top) <= 1;
+  if (stayedPut) {
+    pulseNodeGraphFloatingWindowAttention(element);
+  }
+  return stayedPut;
 }
 
 function moveNodeGraphFloatingWindowElement(element, left, top) {

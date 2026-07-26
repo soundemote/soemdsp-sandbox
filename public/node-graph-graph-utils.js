@@ -1,5 +1,5 @@
 const nodeGraphGraphShapes = Object.freeze(["linear", "smooth", "rational", "exponential", "hold"]);
-const nodeGraphGraph2SmoothingModes = Object.freeze(["linear", "smooth", "meander", "quadratic", "cubic"]);
+const nodeGraphGraph2SmoothingModes = Object.freeze(["linear", "smooth", "bezier", "quadratic", "cubic", "catmullRom"]);
 
 const nodeGraphDefaultGraphData = Object.freeze({
   cursorX: 0.5,
@@ -322,7 +322,7 @@ function nodeGraphGraphBezierPointAt(nodes, position = 0) {
   return points[0];
 }
 
-function nodeGraphGraphBezierValueAt(graph, xValue) {
+function nodeGraphGraphBezierValueAt(graph, xValue, tension = 1) {
   const x = normalizeNodeGraphGraphNumber(xValue, 0, -Infinity, Infinity);
   if (graph.nodes.length < 2) {
     return graph.nodes[0]?.y ?? 0;
@@ -346,7 +346,14 @@ function nodeGraphGraphBezierValueAt(graph, xValue) {
       high = t;
     }
   }
-  return point.y;
+  const bezierValue = point.y;
+  if (tension >= 1) return normalizeNodeGraphGraphNumber(bezierValue, 0, -Infinity, Infinity);
+  const xRange = graph.nodes[graph.nodes.length - 1].x - graph.nodes[0].x;
+  if (Math.abs(xRange) < 0.000001) return graph.nodes[0].y;
+  const t = (x - graph.nodes[0].x) / xRange;
+  const linear = graph.nodes[0].y + (graph.nodes[graph.nodes.length - 1].y - graph.nodes[0].y) * t;
+  if (tension <= 0) return normalizeNodeGraphGraphNumber(linear, 0, -Infinity, Infinity);
+  return normalizeNodeGraphGraphNumber(linear + tension * (bezierValue - linear), 0, -Infinity, Infinity);
 }
 
 function nodeGraphGraphInterpolationWindowStart(nodes, x, degree) {
@@ -397,6 +404,65 @@ function nodeGraphGraphLagrangeValueAt(graph, xValue, degree = 3) {
   return value;
 }
 
+function nodeGraphGraphCatmullRomY(n0, n1, n2, n3, t) {
+  // Full Catmull-Rom: 4-point stencil, t in [0,1], passes through all points with overshoot
+  // Uses Hermite basis with natural endpoint tangents
+  const t2 = t * t;
+  const t3 = t2 * t;
+  const h00 = 2 * t3 - 3 * t2 + 1;
+  const h01 = -2 * t3 + 3 * t2;
+  const h10 = t3 - 2 * t2 + t;
+  const h11 = t3 - t2;
+  return h00 * n1 + 0.5 * h10 * (n2 - n0) + h01 * n2 + 0.5 * h11 * (n3 - n1);
+}
+
+function nodeGraphGraphCatmullRomValueAt(graph, xValue, tension = 1) {
+  const x = normalizeNodeGraphGraphNumber(xValue, 0, -Infinity, Infinity);
+  const nodes = graph.nodes;
+  if (nodes.length < 2) {
+    return nodes[0]?.y ?? 0;
+  }
+  for (const node of nodes) {
+    if (Math.abs(x - node.x) < 0.000001) {
+      return node.y;
+    }
+  }
+  if (x <= nodes[0].x) {
+    return nodes[0].y;
+  }
+  if (x >= nodes[nodes.length - 1].x) {
+    return nodes[nodes.length - 1].y;
+  }
+  // Compute full Catmull-Rom value
+  let crValue = 0;
+  for (let index = 0; index < nodes.length - 1; index += 1) {
+    if (x <= nodes[index + 1].x) {
+      const left = nodes[index];
+      const right = nodes[index + 1];
+      const dx = right.x - left.x;
+      if (Math.abs(dx) < 0.000001) {
+        crValue = 0.5 * (left.y + right.y);
+        break;
+      }
+      const t = (x - left.x) / dx;
+      const n0 = index <= 0 ? (2 * nodes[0].y - nodes[1].y) : nodes[index - 1].y;
+      const n1 = left.y;
+      const n2 = right.y;
+      const n3 = index >= nodes.length - 2 ? (2 * nodes[nodes.length - 1].y - nodes[nodes.length - 2].y) : nodes[index + 2].y;
+      crValue = normalizeNodeGraphGraphNumber(nodeGraphGraphCatmullRomY(n0, n1, n2, n3, t), 0, -Infinity, Infinity);
+      break;
+    }
+  }
+  // Blend with linear base: tension=0 = straight line, tension=1 = full CR
+  if (tension >= 1) return crValue;
+  const xRange = nodes[nodes.length - 1].x - nodes[0].x;
+  if (Math.abs(xRange) < 0.000001) return nodes[0].y;
+  const t = (x - nodes[0].x) / xRange;
+  const linear = nodes[0].y + (nodes[nodes.length - 1].y - nodes[0].y) * t;
+  if (tension <= 0) return normalizeNodeGraphGraphNumber(linear, 0, -Infinity, Infinity);
+  return normalizeNodeGraphGraphNumber(linear + tension * (crValue - linear), 0, -Infinity, Infinity);
+}
+
 function nodeGraphGraphControlPolygonPath(graphValue) {
   const graph = normalizeNodeGraphGraph(graphValue);
   return graph.nodes
@@ -412,7 +478,7 @@ function nodeGraphGraphModeCurve(position, mode, index = 0) {
   if (normalizedMode === "linear") {
     return normalizeNodeGraphGraphNumber(position, 0, 0, 1);
   }
-  if (normalizedMode === "meander") {
+  if (normalizedMode === "bezier") {
     return nodeGraphGraphMeanderCurve(position, index);
   }
   return nodeGraphGraphSmoothCurve(position);
@@ -430,15 +496,15 @@ function nodeGraphGraphSegmentValue(graph, x, index, smoothingMode) {
   return left.y + (right.y - left.y) * shaped;
 }
 
-function nodeGraphGraphValueAt(graphValue, xValue, smoothingMode) {
+function nodeGraphGraphValueAt(graphValue, xValue, smoothingMode, tension = 1) {
   const graph = normalizeNodeGraphGraph(graphValue);
   const x = normalizeNodeGraphGraphNumber(xValue, 0, -Infinity, Infinity);
   if (!graph.nodes.length) {
     return 0;
   }
   const normalizedMode = normalizeNodeGraphGraph2SmoothingMode(smoothingMode);
-  if (normalizedMode === "meander") {
-    return normalizeNodeGraphGraphNumber(nodeGraphGraphBezierValueAt(graph, x), 0, -Infinity, Infinity);
+  if (normalizedMode === "bezier") {
+    return nodeGraphGraphBezierValueAt(graph, x, tension);
   }
   if (x < graph.nodes[0].x) {
     return graph.nodes[0].y;
@@ -451,6 +517,9 @@ function nodeGraphGraphValueAt(graphValue, xValue, smoothingMode) {
   }
   if (normalizedMode === "cubic") {
     return normalizeNodeGraphGraphNumber(nodeGraphGraphLagrangeValueAt(graph, x, 3), 0, -Infinity, Infinity);
+  }
+  if (normalizedMode === "catmullRom") {
+    return nodeGraphGraphCatmullRomValueAt(graph, x, tension);
   }
   for (let index = 0; index < graph.nodes.length - 1; index += 1) {
     if (x <= graph.nodes[index + 1].x) {
@@ -467,13 +536,13 @@ function nodeGraphGraphPointToSvg(x, y) {
   };
 }
 
-function nodeGraphGraphCurvePath(graphValue, sampleCount = 96, smoothingMode) {
+function nodeGraphGraphCurvePath(graphValue, sampleCount = 96, smoothingMode, tension = 1) {
   const graph = normalizeNodeGraphGraph(graphValue);
   const count = Math.max(2, Math.round(Number(sampleCount) || 96));
   const commands = [];
   for (let index = 0; index < count; index += 1) {
     const x = index / (count - 1);
-    const y = nodeGraphGraphValueAt(graph, x, smoothingMode);
+    const y = nodeGraphGraphValueAt(graph, x, smoothingMode, tension);
     const point = nodeGraphGraphPointToSvg(x, y);
     commands.push(`${index === 0 ? "M" : "L"} ${point.x.toFixed(3)} ${point.y.toFixed(3)}`);
   }
@@ -638,15 +707,13 @@ function renderNodeGraphGraphDisplay(element, graphValue, selectedIndex = null, 
     y1: "8",
     y2: "92",
   }));
-  if (smoothingMode === "meander") {
-    svg.append(createNodeGraphGraphSvgElement("path", {
-      class: "node-module-graph-control-line",
-      d: nodeGraphGraphControlPolygonPath(graph),
-    }));
-  }
+  svg.append(createNodeGraphGraphSvgElement("path", {
+    class: "node-module-graph-control-line",
+    d: nodeGraphGraphControlPolygonPath(graph),
+  }));
   svg.append(createNodeGraphGraphSvgElement("path", {
     class: "node-module-graph-curve",
-    d: nodeGraphGraphCurvePath(graph, 96, smoothingMode),
+    d: nodeGraphGraphCurvePath(graph, 96, smoothingMode, options.tension ?? 1),
   }));
   // graph2's global smoothing-mode badge (top-left). The retired "graph"
   // type used to show a per-point shape badge + draggable contour handle on
@@ -698,7 +765,7 @@ function syncNodeGraphGraphElement(moduleElement, patchNode) {
     moduleElement?.querySelector?.(".node-module-graph-display"),
     graph,
     nodeGraphGraphSelectedNodeIndex(patchNode?.id || "", graph, 0),
-    { smoothingMode: nodeGraphGraphSmoothingModeForNode(patchNode) },
+    { smoothingMode: nodeGraphGraphSmoothingModeForNode(patchNode), tension: Number(patchNode?.params?.tension) ?? 1 },
   );
 }
 
@@ -719,6 +786,7 @@ function syncNodeGraphGraphDisplaysForNode(nodeId, patchNode) {
       if (nodeGraphGraphNodeIdFromDisplay(display) === id) {
         renderNodeGraphGraphDisplay(display, graph, selectedIndex, {
           smoothingMode: nodeGraphGraphSmoothingModeForNode(patchNode),
+          tension: Number(patchNode?.params?.tension) ?? 1,
         });
       }
     });
@@ -1069,6 +1137,7 @@ function dragNodeGraphGraphNode(event) {
     drag.svg = liveDisplay.querySelector(".node-module-graph-svg") || drag.svg;
   }
   const smoothingMode = nodeGraphGraphSmoothingModeForNode(nodeGraphPatchNode(drag.nodeId));
+  const tension = Number(nodeGraphPatchNode(drag.nodeId)?.params?.tension) ?? 1;
   const point = nodeGraphGraphSvgToGraphPoint(drag.svg, event.clientX, event.clientY);
   nodeGraphGraphDebugTrace("graph pointermove", { mode: drag.mode, index: drag.index, point });
   if (drag.mode === "cursor") {
@@ -1077,7 +1146,7 @@ function dragNodeGraphGraphNode(event) {
       cursorX: point.x,
     });
     syncNodeGraphGraphPhaseSliderForNode(drag.nodeId, drag.graph.cursorX);
-    renderNodeGraphGraphDisplay(drag.display, drag.graph, null, { smoothingMode });
+    renderNodeGraphGraphDisplay(drag.display, drag.graph, null, { smoothingMode, tension });
     // syncNodeGraphGraphControls (below) can ALSO re-render this same
     // display a second time this tick, via syncNodeGraphGraphElement --
     // whenever the module actions panel is open for this node. Caching
@@ -1103,7 +1172,7 @@ function dragNodeGraphGraphNode(event) {
   drag.index = moved.index;
   nodeGraphGraphDebugTrace("graph node moved", { newIndex: drag.index, nodeCount: drag.graph.nodes.length });
   setNodeGraphGraphSelectedNodeIndex(drag.nodeId, drag.graph, drag.index);
-  renderNodeGraphGraphDisplay(drag.display, drag.graph, drag.index, { smoothingMode });
+  renderNodeGraphGraphDisplay(drag.display, drag.graph, drag.index, { smoothingMode, tension });
   // See the matching comment in the cursor-drag branch above: sync AFTER
   // the possible second render syncNodeGraphGraphControls triggers, then
   // requery/reacquire once against whichever render actually happened last.

@@ -80,6 +80,28 @@ function resizeNodeGraphTextBoxModuleHeightOnGrid(patchNode, delta) {
   return true;
 }
 
+function resizeNodeGraphCustomModuleHeightOnGrid(patchNode, delta) {
+  if (nodeGraphModuleSizingCapabilities(patchNode?.type).moduleHeight !== "custom") {
+    return false;
+  }
+  const currentHeightGu = nodeGraphPatchNodeGridHeightUnits(patchNode);
+  const nextHeightGu = normalizeNodeGraphModuleHeightUnits(
+    patchNode.type,
+    currentHeightGu + delta,
+    patchNode.ui,
+  );
+  if (nextHeightGu === currentHeightGu) {
+    return false;
+  }
+  const defaultHeightGu = nodeGraphModuleGridHeightUnitsForUi(patchNode.type, patchNode.ui);
+  if (nextHeightGu === defaultHeightGu) {
+    delete patchNode.heightGu;
+  } else {
+    patchNode.heightGu = nextHeightGu;
+  }
+  return true;
+}
+
 function resizeNodeGraphDisplayModuleHeightOnGrid(patchNode, delta) {
   if (!nodeGraphModuleSizingCapabilities(patchNode?.type).displayHeight) {
     return false;
@@ -101,6 +123,9 @@ function resizeNodeGraphHeightAdjustableModuleOnGrid(patchNode, delta) {
   const capabilities = nodeGraphModuleSizingCapabilities(patchNode?.type);
   if (capabilities.moduleHeight === "textBox") {
     return resizeNodeGraphTextBoxModuleHeightOnGrid(patchNode, delta);
+  }
+  if (capabilities.moduleHeight === "custom") {
+    return resizeNodeGraphCustomModuleHeightOnGrid(patchNode, delta);
   }
   if (capabilities.displayHeight) {
     return resizeNodeGraphDisplayModuleHeightOnGrid(patchNode, delta);
@@ -253,6 +278,13 @@ function handleNodeGraphKeydown(event) {
   if (event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey && event.key.toLowerCase() === "a") {
     event.preventDefault();
     openNodeGraphModuleShop(null);
+    return;
+  }
+  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "c") {
+    event.preventDefault();
+    if (typeof openNodeGraphCommandCenter === "function") {
+      openNodeGraphCommandCenter();
+    }
     return;
   }
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "m") {

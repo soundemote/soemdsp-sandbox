@@ -33,12 +33,14 @@
     "gridHide": "hide modular view grid",
     "gridHelp": "click to show or hide the modular grid",
     "snapGrid": "click: snap modular view pan, zoom, and edges to the grid | Shift-click: toggle grid-snapped movement while middle-dragging the view",
-    "tipsShow": "open the tips window",
-    "tipsHide": "close the tips window",
+    "tipsShow": "show the tips",
+    "tipsHide": "hide the tips",
     "sliderAmountShow": "show slider amount fill",
     "sliderAmountHide": "hide slider amount fill",
     "sliderPositionShow": "show slider position marker",
-    "sliderPositionHide": "hide slider position marker"
+    "sliderPositionHide": "hide slider position marker",
+    "tipsEmbed": "move the tips in-flow, beside the resource meters",
+    "tipsFloat": "move the tips back into their own floating window"
   },
   "history": {
     "undo": "undo patch edit",

@@ -1,6 +1,7 @@
+// Thin wrapper over the stdlib helper -- kept because this short name is used
+// throughout the live/render evaluator lane.
 function readNodeGraphLiveParam(node, key, fallback = 0) {
-  const value = Number(node?.params?.[key]);
-  return Number.isFinite(value) ? value : fallback;
+  return nodeGraphNodeParamNumber(node, key, fallback);
 }
 
 function readNodeGraphLiveSmoothedParam(runtime, node, key, fallback, frame, frames) {

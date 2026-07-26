@@ -42,7 +42,16 @@ function normalizeNodeGraphPatchParameter(type, key, value, metadata = null) {
 // effectively the same result in practice, and graph2's approach was the
 // one working well. Old patches with a "graph" node just drop it, same as
 // any other retired type below, rather than crashing on load.
-const nodeGraphRetiredNodeTypes = new Set(["formulaVisual", "graph", "moduleHome", "moduleShop", "scriptBox"]);
+const nodeGraphRetiredNodeTypes = new Set([
+  "bipolarKnob",
+  "formulaVisual",
+  "graph",
+  "impulseButton",
+  "macroKnob",
+  "moduleHome",
+  "moduleShop",
+  "scriptBox",
+]);
 
 function validateNodeGraphPatch(patch) {
   if (!patch || typeof patch !== "object") {
@@ -105,10 +114,15 @@ function validateNodeGraphPatch(patch) {
     if (hasCustomWidth && !Number.isFinite(Number(node.widthGu))) {
       throw new Error(`node ${id} widthGu invalid`);
     }
-    const hasCustomModuleHeight = sizingCapabilities.moduleHeight === "textBox" && Object.hasOwn(node, "heightGu");
-    const heightGu = hasCustomModuleHeight ? normalizeNodeGraphTextBoxHeightUnits(node.heightGu) : null;
+    const hasCustomModuleHeight = ["custom", "textBox"].includes(sizingCapabilities.moduleHeight)
+      && Object.hasOwn(node, "heightGu");
+    const heightGu = hasCustomModuleHeight
+      ? sizingCapabilities.moduleHeight === "textBox"
+        ? normalizeNodeGraphTextBoxHeightUnits(node.heightGu)
+        : normalizeNodeGraphModuleHeightUnits(type, node.heightGu, node.ui)
+      : null;
     if (hasCustomModuleHeight && !Number.isFinite(Number(node.heightGu))) {
-      throw new Error(`node ${id} Text Box heightGu invalid`);
+      throw new Error(`node ${id} heightGu invalid`);
     }
     const params = {};
     const paramMeta = {};
@@ -172,9 +186,10 @@ function validateNodeGraphPatch(patch) {
       normalizedNode.led = normalizeNodeGraphLedLayout(node.led);
     }
     if (nodeGraphModuleIsGraphType(type)) {
+      const phaseLinkedGraph = nodeGraphGraphWithPhaseCursor(normalizedNode, node.graph);
       normalizedNode.graph = nodeGraphGraphEndpointYLockEnabledForNode(normalizedNode)
-        ? nodeGraphGraphWithLockedEndpointY(node.graph)
-        : normalizeNodeGraphGraph(node.graph);
+        ? nodeGraphGraphWithLockedEndpointY(phaseLinkedGraph)
+        : phaseLinkedGraph;
     }
     if (type === "codeblock") {
       normalizedNode.codeblock = normalizeNodeGraphCodeblock(node.codeblock);

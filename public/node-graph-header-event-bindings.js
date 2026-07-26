@@ -63,6 +63,46 @@ function bindNodeGraphHeaderControlEvents() {
   document
     .getElementById("nodePhosphorWaveformSettingsDragHandle")
     ?.addEventListener("pointerdown", beginNodeGraphPhosphorWaveformSettingsDrag);
+  document
+    .getElementById("nodePhosphorWaveformSettingsHeading")
+    ?.addEventListener("pointerdown", beginNodeGraphPhosphorWaveformSettingsDrag);
+  if (typeof bindNodeGraphPhosphorWaveformTimeWindowEditing === "function") {
+    bindNodeGraphPhosphorWaveformTimeWindowEditing();
+  }
+  if (typeof bindNodeGraphPhosphorWaveformSettingModifiers === "function") {
+    bindNodeGraphPhosphorWaveformSettingModifiers();
+  }
+  document.getElementById("nodeLedSettingsClose")?.addEventListener("click", closeNodeGraphLedSettings);
+  document
+    .getElementById("nodeLedSettingsDragHandle")
+    ?.addEventListener("pointerdown", beginNodeGraphLedSettingsDrag);
+  document
+    .getElementById("nodeLedSettingsHeading")
+    ?.addEventListener("pointerdown", beginNodeGraphLedSettingsDrag);
+  if (typeof bindNodeGraphLedSettingModifiers === "function") {
+    bindNodeGraphLedSettingModifiers();
+  }
+  document.addEventListener("pointermove", dragNodeGraphLedSettings);
+  document.addEventListener("pointerup", endNodeGraphLedSettingsDrag);
+  document.addEventListener("pointercancel", endNodeGraphLedSettingsDrag);
+  document
+    .getElementById("nodeLedHueInput")
+    ?.addEventListener("input", handleNodeGraphLedHueChange);
+  document
+    .getElementById("nodeLedBrightnessInput")
+    ?.addEventListener("input", handleNodeGraphLedBrightnessChange);
+  document
+    .getElementById("nodeLedBlurInput")
+    ?.addEventListener("input", handleNodeGraphLedBlurChange);
+  document
+    .getElementById("nodeLedRoundingInput")
+    ?.addEventListener("input", handleNodeGraphLedRoundingChange);
+  document
+    .getElementById("nodeLedCornerSquareButton")
+    ?.addEventListener("click", () => setNodeGraphLedCornerShape("square"));
+  document
+    .getElementById("nodeLedCornerSquircleButton")
+    ?.addEventListener("click", () => setNodeGraphLedCornerShape("squircle"));
   document.addEventListener("pointermove", dragNodeGraphPhosphorWaveformSettings);
   document.addEventListener("pointerup", endNodeGraphPhosphorWaveformSettingsDrag);
   document.addEventListener("pointercancel", endNodeGraphPhosphorWaveformSettingsDrag);
@@ -99,6 +139,18 @@ function bindNodeGraphHeaderControlEvents() {
   document
     .getElementById("nodePhosphorWaveformBackgroundBrightnessInput")
     ?.addEventListener("input", handleNodeGraphPhosphorWaveformBackgroundBrightnessChange);
+  document
+    .getElementById("nodePhosphorWaveformCornerSquareButton")
+    ?.addEventListener("click", () => setNodeGraphPhosphorWaveformCornerShape("square"));
+  document
+    .getElementById("nodePhosphorWaveformCornerSquircleButton")
+    ?.addEventListener("click", () => setNodeGraphPhosphorWaveformCornerShape("squircle"));
+  document
+    .getElementById("nodePhosphorWaveformCornerRadiusInput")
+    ?.addEventListener("input", handleNodeGraphPhosphorWaveformCornerRadiusChange);
+  document
+    .getElementById("nodePhosphorWaveformEdgeSpacingInput")
+    ?.addEventListener("input", handleNodeGraphPhosphorWaveformEdgeSpacingChange);
   document.getElementById("nodeGridToggleButton").addEventListener("click", toggleNodeGraphGridVisibility);
   document.getElementById("nodeVideoViewButton")?.addEventListener("click", toggleNodeGraphVideoView);
   document.getElementById("nodeMappingViewButton")?.addEventListener("click", () => setNodeGraphViewMode("mapping"));
@@ -209,6 +261,15 @@ function bindNodeGraphHeaderControlEvents() {
   document
     .getElementById("nodeUserUiSettingsClearStartup")
     .addEventListener("click", handleClearNodeUserStartupStateClick);
+  // Shortcut from the user-facing panel to the full UI Dev panel, where every
+  // setting lives (including the ones not exposed here).
+  document
+    .getElementById("nodeUserUiSettingsOpenUiDev")
+    ?.addEventListener("click", () => {
+      if (typeof setNodeUiDevHelperVisible === "function") {
+        setNodeUiDevHelperVisible(true);
+      }
+    });
   document.getElementById("nodeUserUiSettingsClose").addEventListener("click", () => setNodeUserUiSettingsVisible(false));
   document
     .getElementById("nodeUserUiSettingsDragHandle")
@@ -219,6 +280,7 @@ function bindNodeGraphHeaderControlEvents() {
   document.getElementById("nodeSliderAmountToggleButton").addEventListener("click", toggleNodeGraphSliderAmount);
   document.getElementById("nodeSliderPositionToggleButton").addEventListener("click", toggleNodeGraphSliderPosition);
   document.getElementById("nodeKeyboardDebugToggleButton").addEventListener("click", toggleNodeGraphKeyboardDebugVisibility);
+  document.getElementById("nodeTooltipEmbedToggleButton")?.addEventListener("click", toggleNodeGraphTooltipEmbed);
   document
     .getElementById("nodeZoomOutButton")
     .addEventListener("click", (event) => zoomNodeGraphBy(-1, event));
@@ -260,6 +322,15 @@ function bindNodeGraphHeaderControlEvents() {
       } else {
         openNodeGraphModuleShop(null);
       }
+    });
+  document
+    .getElementById("nodeCommandCenterButton")
+    ?.addEventListener("click", (event) => {
+      // Anchor the first-ever spawn under the button rather than at the
+      // pointer -- every later open restores the remembered position, same
+      // as every other floating window.
+      const rect = event.currentTarget.getBoundingClientRect();
+      openNodeGraphCommandCenter(rect.left, rect.bottom);
     });
   document
     .getElementById("nodeGraphEmptyModuleButton")

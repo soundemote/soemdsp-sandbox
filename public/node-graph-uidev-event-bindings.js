@@ -183,6 +183,7 @@ async function bindNodeGraphUiDevSettingsEvents() {
     colorInput.addEventListener("input", syncNodeUiDevSettingsHeaderControls);
     colorInput.addEventListener("change", syncNodeUiDevSettingsHeaderControls);
   }
+  bindNodeUiDevSliderFillColorControls();
   installNodeUiDevExposeControls();
   organizeNodeUiDevSections();
   renderNodeUiDevHelperViewControls();

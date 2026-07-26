@@ -5,6 +5,22 @@
 // connection -- see public/modules/videoscope/videoscope-worklet-evaluator.js
 // for the producing side. Dot/Line modes draw the native column min/max
 // envelope; XY mode draws A-vs-B point pairs.
+//
+// Brightness: strokes are drawn with globalCompositeOperation "lighter"
+// (additive), so overlapping columns build up like phosphor. Without a
+// brightness control every stroke was full-intensity, so a transient that
+// redraws many overlapping strokes within a single frame saturated every
+// channel straight to 255 (white) almost immediately. The "brightness" node
+// param (same 0.1-2 range/shape as the spectrogram module's control) scales
+// each stroke color's peak intensity before the additive blend, the same
+// multiplicative approach spectrogram-display.js uses -- not globalAlpha,
+// since canvas silently ignores globalAlpha assignments outside 0-1 and
+// values above 1 need to keep working here.
+
+function nodeGraphVideoscopeScaleColor(r, g, b, brightness) {
+  const scale = (channel) => Math.max(0, Math.min(255, Math.round(channel * brightness)));
+  return `rgb(${scale(r)}, ${scale(g)}, ${scale(b)})`;
+}
 
 function drawNodeGraphVideoscopeItem(renderer, item, pixelRatio) {
   const nodeId = item?.slot?.nodeId;
@@ -27,15 +43,16 @@ function drawNodeGraphVideoscopeItem(renderer, item, pixelRatio) {
 
   const node = nodeGraphPatchNode(nodeId);
   const mode = Math.round(Number(node?.params?.mode) || 0);
+  const brightness = Math.max(0.1, Math.min(2, Number(node?.params?.brightness) || 1));
 
   if (mode === 2) {
-    drawNodeGraphVideoscopeXy(ctx, canvas, nodeId);
+    drawNodeGraphVideoscopeXy(ctx, canvas, nodeId, brightness);
     return;
   }
-  drawNodeGraphVideoscopeTrace(ctx, canvas, nodeId, mode === 0);
+  drawNodeGraphVideoscopeTrace(ctx, canvas, nodeId, mode === 0, brightness);
 }
 
-function drawNodeGraphVideoscopeTrace(ctx, canvas, nodeId, dotMode) {
+function drawNodeGraphVideoscopeTrace(ctx, canvas, nodeId, dotMode, brightness) {
   const colMinA = nodeGraphDataBus.get(nodeGraphDataBusKey(nodeId, "ColMinA"));
   const colMaxA = nodeGraphDataBus.get(nodeGraphDataBusKey(nodeId, "ColMaxA"));
   const colMinB = nodeGraphDataBus.get(nodeGraphDataBusKey(nodeId, "ColMinB"));
@@ -68,12 +85,12 @@ function drawNodeGraphVideoscopeTrace(ctx, canvas, nodeId, dotMode) {
       ctx.stroke();
     }
   };
-  drawChannel(colMinA, colMaxA, "rgb(80, 220, 120)");
-  drawChannel(colMinB, colMaxB, "rgb(90, 160, 255)");
+  drawChannel(colMinA, colMaxA, nodeGraphVideoscopeScaleColor(80, 220, 120, brightness));
+  drawChannel(colMinB, colMaxB, nodeGraphVideoscopeScaleColor(90, 160, 255, brightness));
   ctx.globalCompositeOperation = "source-over";
 }
 
-function drawNodeGraphVideoscopeXy(ctx, canvas, nodeId) {
+function drawNodeGraphVideoscopeXy(ctx, canvas, nodeId, brightness) {
   const xyA = nodeGraphDataBus.get(nodeGraphDataBusKey(nodeId, "XyA"));
   const xyB = nodeGraphDataBus.get(nodeGraphDataBusKey(nodeId, "XyB"));
   if (!xyA?.length || !xyB?.length) {
@@ -86,7 +103,7 @@ function drawNodeGraphVideoscopeXy(ctx, canvas, nodeId) {
   const count = Math.min(xyA.length, xyB.length);
 
   ctx.globalCompositeOperation = "lighter";
-  ctx.strokeStyle = "rgb(120, 230, 160)";
+  ctx.strokeStyle = nodeGraphVideoscopeScaleColor(120, 230, 160, brightness);
   ctx.lineWidth = Math.max(1, canvas.width / 400);
   ctx.beginPath();
   for (let i = 0; i < count; i += 1) {

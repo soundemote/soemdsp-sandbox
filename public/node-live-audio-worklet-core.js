@@ -268,6 +268,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.scopeCaptureNodeIds = [];
     this.scopeCounter = 0;
     this.scopeSampleStride = 1;
+    // Continuous engine-sample counter for free-running graph LFO phase
+    // (Rate mode). Advanced once per evaluateFrame call.
+    this.absoluteFrame = 0;
     this.slewLimiterStates = new Map();
     this.smoothers = new Map();
     this.spiralStates = new Map();
@@ -3519,10 +3522,10 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
 
   normalizeGraph2SmoothingMode(value) {
     if (Number.isFinite(Number(value))) {
-      return ["linear", "smooth", "meander", "quadratic", "cubic"][Math.max(0, Math.min(4, Math.round(Number(value))))];
+      return ["linear", "smooth", "bezier", "quadratic", "cubic", "catmullRom"][Math.max(0, Math.min(5, Math.round(Number(value))))];
     }
     const mode = String(value || "").trim().toLowerCase();
-    return ["linear", "smooth", "meander", "quadratic", "cubic"].includes(mode) ? mode : "smooth";
+    return ["linear", "smooth", "bezier", "quadratic", "cubic", "catmullRom"].includes(mode) ? mode : "smooth";
   }
 
   graphMeanderCurve(position, index = 0) {
@@ -3537,7 +3540,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     if (normalizedMode === "linear") {
       return this.normalizeGraphNumber(position, 0, 0, 1);
     }
-    if (normalizedMode === "meander") {
+    if (normalizedMode === "bezier") {
       return this.graphMeanderCurve(position, index);
     }
     return this.graphSmoothCurve(position);
@@ -3564,7 +3567,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return points[0];
   }
 
-  graphBezierValueAt(graph, xValue) {
+  graphBezierValueAt(graph, xValue, tension = 1) {
     const x = this.normalizeGraphNumber(xValue, 0, -Infinity, Infinity);
     if (graph.nodes.length < 2) {
       return graph.nodes[0]?.y ?? 0;
@@ -3588,7 +3591,14 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
         high = t;
       }
     }
-    return point.y;
+    const bezierValue = point.y;
+    if (tension >= 1) return this.safeFilterNumber(bezierValue, null);
+    const xRange = graph.nodes[graph.nodes.length - 1].x - graph.nodes[0].x;
+    if (Math.abs(xRange) < 0.000001) return graph.nodes[0].y;
+    const t = (x - graph.nodes[0].x) / xRange;
+    const linear = graph.nodes[0].y + (graph.nodes[graph.nodes.length - 1].y - graph.nodes[0].y) * t;
+    if (tension <= 0) return this.safeFilterNumber(linear, null);
+    return this.safeFilterNumber(linear + tension * (bezierValue - linear), null);
   }
 
   graphInterpolationWindowStart(nodes, x, degree) {
@@ -3639,6 +3649,63 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return value;
   }
 
+  graphCatmullRomY(n0, n1, n2, n3, t) {
+    const t2 = t * t;
+    const t3 = t2 * t;
+    const h00 = 2 * t3 - 3 * t2 + 1;
+    const h01 = -2 * t3 + 3 * t2;
+    const h10 = t3 - 2 * t2 + t;
+    const h11 = t3 - t2;
+    return h00 * n1 + 0.5 * h10 * (n2 - n0) + h01 * n2 + 0.5 * h11 * (n3 - n1);
+  }
+
+  graphCatmullRomValueAt(graph, xValue, tension = 1) {
+    const x = this.normalizeGraphNumber(xValue, 0, -Infinity, Infinity);
+    const nodes = graph.nodes;
+    if (nodes.length < 2) {
+      return nodes[0]?.y ?? 0;
+    }
+    for (const node of nodes) {
+      if (Math.abs(x - node.x) < 0.000001) {
+        return node.y;
+      }
+    }
+    if (x <= nodes[0].x) {
+      return nodes[0].y;
+    }
+    if (x >= nodes[nodes.length - 1].x) {
+      return nodes[nodes.length - 1].y;
+    }
+    // Compute full Catmull-Rom value
+    let crValue = 0;
+    for (let index = 0; index < nodes.length - 1; index += 1) {
+      if (x <= nodes[index + 1].x) {
+        const left = nodes[index];
+        const right = nodes[index + 1];
+        const dx = right.x - left.x;
+        if (Math.abs(dx) < 0.000001) {
+          crValue = 0.5 * (left.y + right.y);
+          break;
+        }
+        const t = (x - left.x) / dx;
+        const n0 = index <= 0 ? (2 * nodes[0].y - nodes[1].y) : nodes[index - 1].y;
+        const n1 = left.y;
+        const n2 = right.y;
+        const n3 = index >= nodes.length - 2 ? (2 * nodes[nodes.length - 1].y - nodes[nodes.length - 2].y) : nodes[index + 2].y;
+        crValue = this.safeFilterNumber(this.graphCatmullRomY(n0, n1, n2, n3, t), null);
+        break;
+      }
+    }
+    // Blend with linear base: tension=0 = straight line, tension=1 = full CR
+    if (tension >= 1) return crValue;
+    const xRange = nodes[nodes.length - 1].x - nodes[0].x;
+    if (Math.abs(xRange) < 0.000001) return nodes[0].y;
+    const t = (x - nodes[0].x) / xRange;
+    const linear = nodes[0].y + (nodes[nodes.length - 1].y - nodes[0].y) * t;
+    if (tension <= 0) return this.safeFilterNumber(linear, null);
+    return this.safeFilterNumber(linear + tension * (crValue - linear), null);
+  }
+
   graphSmoothingModeForNode(node) {
     return this.normalizeGraph2SmoothingMode(node?.params?.smoothingMode);
   }
@@ -3668,15 +3735,15 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return left.y + (right.y - left.y) * shaped;
   }
 
-  graphValueAt(graphValue, xValue, smoothingMode = "legacy") {
+  graphValueAt(graphValue, xValue, smoothingMode = "legacy", tension = 1) {
     const graph = this.normalizeGraph(graphValue);
     const x = this.normalizeGraphNumber(xValue, 0, -Infinity, Infinity);
     if (!graph.nodes.length) {
       return 0;
     }
     const normalizedMode = this.normalizeGraph2SmoothingMode(smoothingMode);
-    if (normalizedMode === "meander") {
-      return this.safeFilterNumber(this.graphBezierValueAt(graph, x), null);
+    if (normalizedMode === "bezier") {
+      return this.graphBezierValueAt(graph, x, tension);
     }
     if (x < graph.nodes[0].x) {
       return graph.nodes[0].y;
@@ -3689,6 +3756,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
     if (normalizedMode === "cubic") {
       return this.safeFilterNumber(this.graphLagrangeValueAt(graph, x, 3), null);
+    }
+    if (normalizedMode === "catmullRom") {
+      return this.graphCatmullRomValueAt(graph, x, tension);
     }
     for (let index = 0; index < graph.nodes.length - 1; index += 1) {
       if (x <= graph.nodes[index + 1].x) {
@@ -7873,6 +7943,8 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
 
   evaluateFrame(frame, frames, inputs = [], rate = this.engineSampleRate || sampleRate, inputFrame = frame) {
     const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
+    // Advance free-running sample clock used by graph LFO Rate mode.
+    this.absoluteFrame = (Number(this.absoluteFrame) || 0) + 1;
     const frameValues = new Map();
     const mixInput = (nodeId, port = "In") => {
       const base = (
@@ -7899,14 +7971,57 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
         ? Math.max(0, Number(sourceNode.params?.rate) || 0)
         : 0;
     };
+    // Map a raw control input from [inputMin, inputMax] into the graph's unit
+    // domain [0, 1]. Equal endpoints fall back to 0 so a zero-width range does
+    // not produce NaN; result is not clamped so wrap/phase can still loop.
+    const graphMapInputToUnit = (raw, inputMin, inputMax) => {
+      const min = Number(inputMin);
+      const max = Number(inputMax);
+      const lo = Number.isFinite(min) ? min : 0;
+      const hi = Number.isFinite(max) ? max : 1;
+      const span = hi - lo;
+      if (Math.abs(span) < 1e-12) {
+        return 0;
+      }
+      return ((Number(raw) || 0) - lo) / span;
+    };
     const graphSampleX = (node, nodeId) => {
-      return this.wrapValue(this.readEffectiveParameter(node, "phase", 0, frame, frames, frameValues), 0, 1);
+      const mode = Math.round(this.readEffectiveParameter(node, "mode", 0, frame, frames, frameValues));
+      const phaseValue = this.readEffectiveParameter(node, "phase", 0, frame, frames, frameValues);
+      // Phase is always a pure time/position offset: same loop, just starts
+      // reading at phase instead of 0.
+      if (mode <= 0) {
+        const inputMin = this.readEffectiveParameter(node, "inputMin", 0, frame, frames, frameValues);
+        const inputMax = this.readEffectiveParameter(node, "inputMax", 1, frame, frames, frameValues);
+        return this.wrapValue(
+          graphMapInputToUnit(mixInput(nodeId), inputMin, inputMax) + phaseValue,
+          0,
+          1,
+        );
+      }
+      const rateValue = Math.max(0, this.readEffectiveParameter(node, "rate", 1, frame, frames, frameValues));
+      const state = this.graphLfoStates.get(nodeId) || this.createGraphLfoState();
+      this.graphLfoStates.set(nodeId, state);
+      const resetValue = 0;
+      const currentFrame = Number(this.absoluteFrame) || 0;
+      if (state.lastReset <= 0 && resetValue > 0) {
+        state.resetFrame = currentFrame;
+      }
+      state.lastReset = resetValue;
+      const resetFrame = Number.isFinite(state.resetFrame) ? state.resetFrame : 0;
+      return this.wrapValue(((currentFrame - resetFrame) / safeRate) * rateValue + phaseValue, 0, 1);
     };
     const graphOutputValue = (node, nodeId) => {
-      const normalizedValue = this.graphValueAt(this.graphForNode(node), graphSampleX(node, nodeId), this.graphSmoothingModeForNode(node));
+      const sampleX = graphSampleX(node, nodeId);
+      const nodeTension = Number(node?.params?.tension) ?? 1;
+      const normalizedValue = this.graphValueAt(this.graphForNode(node), sampleX, this.graphSmoothingModeForNode(node), nodeTension);
       const outputMin = this.readEffectiveParameter(node, "outputMin", 0, frame, frames, frameValues);
       const outputMax = this.readEffectiveParameter(node, "outputMax", 1, frame, frames, frameValues);
-      return outputMin + normalizedValue * (outputMax - outputMin);
+      return {
+        Out: outputMin + normalizedValue * (outputMax - outputMin),
+        // Live playhead on the graph editor reads this port.
+        __GraphPhase: sampleX,
+      };
     };
     const graphInputValue = (nodeId, graphInput, x, fallback) => {
       const connection = (this.graphInputConnections.get(this.graphInputKey(nodeId, graphInput)) || [])[0];
@@ -7914,7 +8029,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       if (!source || source.type !== "graph2") {
         return fallback;
       }
-      return this.graphValueAt(this.graphForNode(source), this.clampValue(Number(x) || 0, 0, 1), this.graphSmoothingModeForNode(source));
+      return this.graphValueAt(this.graphForNode(source), this.clampValue(Number(x) || 0, 0, 1), this.graphSmoothingModeForNode(source), Number(source?.params?.tension) ?? 1);
     };
 
     for (const nodeId of this.order) {

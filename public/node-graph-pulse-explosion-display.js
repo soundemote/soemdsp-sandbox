@@ -35,23 +35,11 @@ function drawNodeGraphPulseCurveDisplay(section) {
   if (!node || !canvas) {
     return;
   }
-  const rect = section.getBoundingClientRect();
-  const pixelRatio = window.devicePixelRatio || 1;
-  const zoom = Math.max(0.01, Number(nodeGraphMvp?.zoom) || 1);
-  const width = Math.max(1, Number(section.clientWidth || section.offsetWidth || 0) || rect.width / zoom);
-  const height = Math.max(1, Number(section.clientHeight || section.offsetHeight || 0) || rect.height / zoom);
-  const canvasWidth = Math.max(1, Math.round(width * pixelRatio));
-  const canvasHeight = Math.max(1, Math.round(height * pixelRatio));
-  if (canvas.width !== canvasWidth) {
-    canvas.width = canvasWidth;
-  }
-  if (canvas.height !== canvasHeight) {
-    canvas.height = canvasHeight;
-  }
-  const context = canvas.getContext("2d");
-  if (!context) {
+  const metrics = nodeGraphSizeDisplayCanvas(section, canvas);
+  if (!metrics) {
     return;
   }
+  const { context, cssHeight: height, cssWidth: width, pixelRatio } = metrics;
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
 
   const params = nodeGraphPulseCurveNodeParams(node);
@@ -123,8 +111,4 @@ function drawNodeGraphPulseCurveDisplay(section) {
   context.fillStyle = "rgba(229, 238, 242, 0.74)";
   context.font = "600 10px system-ui, sans-serif";
   context.fillText(`${schedule.pulses.length} pulses${params.seed ? ` · seed ${params.seed}` : ""}`, 8, 14);
-}
-
-function drawNodeGraphPulseCurveDisplays() {
-  document.querySelectorAll(".node-pulse-curve-display").forEach(drawNodeGraphPulseCurveDisplay);
 }

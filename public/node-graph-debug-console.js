@@ -88,6 +88,7 @@
     close: () => showPanel(false),
     clear: clearLog,
     entries: () => entries.slice(),
+    buildMode: () => seBuildMode(),
     smoothingWatch: (on) => setSmoothingWatch(on),
     devMode: (on) => {
       try { localStorage.setItem("seDebug", on ? "1" : "0"); } catch (_) {}
@@ -199,6 +200,8 @@
         background:linear-gradient(#e74c3c,#c0392b);color:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);position:relative;padding:0;}
       #seDebugButton:hover{filter:brightness(1.12);}
       #seDebugButton[aria-pressed="true"]{outline:2px solid #fff3;}
+      /* Release build: same button, neutral instead of alarm-red -- see seBuildMode(). */
+      #seDebugButton.se-release-build{border-color:#3a4250;background:linear-gradient(#4a5262,#343b48);}
       #seDebugButton .se-badge{position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;padding:0 3px;border-radius:9px;
         background:#000;color:#ff6b6b;font:700 10px/16px ui-monospace,monospace;text-align:center;display:none;border:1px solid #ff6b6b;}
       #seDebugPanel{position:fixed;z-index:2147483646;right:14px;bottom:14px;width:640px;height:380px;min-width:340px;min-height:200px;
@@ -227,12 +230,29 @@
     document.head.appendChild(s);
   }
 
+  // server.py stamps {{BUILD_MODE}} ("debug" or "release", see BUILD_MODE
+  // there) onto #nodeBuildNumberReadout's data-build-mode-value attribute.
+  // Anything other than exactly "release" reads as "debug" -- a missing
+  // attribute (older cached HTML, a template that didn't get the
+  // replacement, etc.) fails toward the more-alarming red button rather
+  // than silently looking like a vetted release build.
+  function seBuildMode() {
+    try {
+      const value = document.getElementById("nodeBuildNumberReadout")?.dataset?.buildModeValue;
+      return value === "release" ? "release" : "debug";
+    } catch (_) {
+      return "debug";
+    }
+  }
+
   function buildButton() {
     if (document.getElementById("seDebugButton")) return;
     const btn = document.createElement("button");
     btn.id = "seDebugButton";
     btn.type = "button";
-    btn.title = "Debug log (soemdsp::debug)";
+    const mode = seBuildMode();
+    btn.classList.toggle("se-release-build", mode === "release");
+    btn.title = mode === "release" ? "Debug log (release build)" : "Debug log (soemdsp::debug)";
     btn.setAttribute("aria-label", "Open debug log");
     btn.setAttribute("aria-pressed", "false");
     btn.innerHTML = `🐞<span class="se-badge" data-se-badge>0</span>`;
@@ -371,7 +391,7 @@
       injectStyles();
       buildButton();
       buildPanel();
-      SE.INFO(`debug console ready — build ${(document.querySelector("[data-build-number-value]")?.textContent || "?")}`);
+      SE.INFO(`debug console ready — build ${(document.querySelector("[data-build-number-value]")?.textContent || "?")} (${seBuildMode()})`);
     } catch (err) {
       try { console.error("[se-debug] init failed", err); } catch (_) {}
     }

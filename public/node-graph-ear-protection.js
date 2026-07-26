@@ -119,10 +119,41 @@ function nodeGraphResetEarProtectionFault() {
   }
 }
 
+function nodeGraphEarProtectionFaultVisible() {
+  const fault = document.getElementById("nodeEarProtectionFault");
+  return Boolean(fault) && !fault.hidden;
+}
+
+// Escape / Space / Enter all dismiss the trip dialog: it is a full-attention
+// alert with exactly one action, so whichever key you reach for should take
+// it. Bound in CAPTURE so it runs before the global shortcut handler and can
+// stop the event there -- Space is otherwise the always-on audio transport
+// panic key (node-graph-keyboard-shortcuts.js), which would try to start audio
+// on the very keypress that is meant to clear the safety latch.
+function handleNodeGraphEarProtectionFaultKeydown(event) {
+  if (!nodeGraphEarProtectionFaultVisible()) {
+    return;
+  }
+  const isCloseKey = event.key === "Escape" ||
+    event.key === "Enter" ||
+    event.key === " " ||
+    event.code === "Space";
+  if (!isCloseKey || event.ctrlKey || event.metaKey || event.altKey) {
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  nodeGraphResetEarProtectionFault();
+}
+
 function bindNodeGraphEarProtectionFaultUi() {
   document
     .getElementById("nodeEarProtectionFaultClose")
     ?.addEventListener("click", nodeGraphResetEarProtectionFault);
+  if (document.documentElement.dataset.nodeEarProtectionFaultKeyClose !== "true") {
+    document.documentElement.dataset.nodeEarProtectionFaultKeyClose = "true";
+    document.addEventListener("keydown", handleNodeGraphEarProtectionFaultKeydown, true);
+  }
   if (document.documentElement.dataset.nodeEarProtectionFaultDelegatedClose === "true") {
     return;
   }

@@ -19,7 +19,70 @@ function syncNodeUiDevNodeColorControls() {
   }
 }
 
+// Slider fill colors (amount band + position/handle indicator) as full HSLA.
+// Deliberately NOT folded into syncNodeUiDevSettingsHeaderControls below --
+// that function bails early if any one of its ~80 hardcoded inputs is missing,
+// so anything added to it inherits that fragility. This reads its own controls
+// by definition key and writes two CSS custom properties, nothing else.
+const nodeUiDevSliderFillColorTargets = Object.freeze([
+  { property: "--node-slider-amount-color", prefix: "nodeUiDevSliderAmountFill", fallback: [200, 31, 15, 100] },
+  { property: "--node-slider-position-color", prefix: "nodeUiDevSliderPositionFill", fallback: [203, 55, 57, 37] },
+]);
+
+function nodeUiDevSliderFillChannel(id, fallback, max) {
+  const input = document.getElementById(id);
+  const value = Number(input?.value);
+  return Number.isFinite(value) ? Math.max(0, Math.min(max, value)) : fallback;
+}
+
+function syncNodeUiDevSliderFillColorControls() {
+  const workspace = document.getElementById("nodeGraphWorkspace");
+  if (!workspace) {
+    return;
+  }
+  for (const target of nodeUiDevSliderFillColorTargets) {
+    const [hueFallback, satFallback, lightFallback, alphaFallback] = target.fallback;
+    const hue = nodeUiDevSliderFillChannel(`${target.prefix}Hue`, hueFallback, 360);
+    const saturation = nodeUiDevSliderFillChannel(`${target.prefix}Saturation`, satFallback, 100);
+    const lightness = nodeUiDevSliderFillChannel(`${target.prefix}Lightness`, lightFallback, 100);
+    const alpha = nodeUiDevSliderFillChannel(`${target.prefix}Alpha`, alphaFallback, 100);
+    workspace.style.setProperty(
+      target.property,
+      `hsl(${hue} ${saturation}% ${lightness}% / ${alpha / 100})`,
+    );
+    for (const [suffix, text] of [
+      ["Hue", `${hue}deg`],
+      ["Saturation", `${saturation}%`],
+      ["Lightness", `${lightness}%`],
+      ["Alpha", `${alpha}%`],
+    ]) {
+      const output = document.getElementById(`${target.prefix}${suffix}Value`);
+      if (output) {
+        output.textContent = text;
+      }
+    }
+  }
+}
+
+function bindNodeUiDevSliderFillColorControls() {
+  for (const target of nodeUiDevSliderFillColorTargets) {
+    for (const suffix of ["Hue", "Saturation", "Lightness", "Alpha"]) {
+      const input = document.getElementById(`${target.prefix}${suffix}`);
+      if (!input || input.dataset.sliderFillColorBound === "true") {
+        continue;
+      }
+      input.dataset.sliderFillColorBound = "true";
+      input.addEventListener("input", syncNodeUiDevSliderFillColorControls);
+      input.addEventListener("change", syncNodeUiDevSliderFillColorControls);
+    }
+  }
+  syncNodeUiDevSliderFillColorControls();
+}
+
 function syncNodeUiDevSettingsHeaderControls() {
+  // Runs before the early-return guard below so the slider fill colors apply
+  // even if some unrelated control is absent from the DOM.
+  syncNodeUiDevSliderFillColorControls();
   const settingsView = document.getElementById("nodeSettingsView");
   const mouseLightEnabledInput = document.getElementById("nodeUiDevMouseLightEnabled");
   const showOriginMarkerInput = document.getElementById("nodeUiDevShowOriginMarker");

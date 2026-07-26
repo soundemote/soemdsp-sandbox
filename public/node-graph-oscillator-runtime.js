@@ -142,54 +142,43 @@ function nodeGraphPolyBlepSquareDirectional(phaseCycle, phaseIncrement) {
   return value;
 }
 
+// Naive LFO waveshapes matching native_modules/basic_oscillator (no
+// polyBLEP / anti-aliasing). Discontinuities and triangle corners are raw.
+// PolyBLEP helpers above remain for other modules (e.g. surge).
 function nodeGraphOscillatorWaveformSample(runtime, nodeId, phase, phaseIncrement, waveform) {
   const phaseDelta = Number(phaseIncrement) || 0;
   const phaseStopped = Math.abs(phaseDelta) <= 1e-12;
   runtime.oscillatorStoppedSamples ||= new Map();
-  runtime.oscillatorLastPhaseIncrements ||= new Map();
   if (phaseStopped && runtime.oscillatorStoppedSamples.has(nodeId)) {
     return runtime.oscillatorStoppedSamples.get(nodeId) || 0;
   }
-  const renderPhaseIncrement = phaseStopped
-    ? Number(runtime.oscillatorLastPhaseIncrements.get(nodeId)) || 0
-    : phaseDelta;
   const phaseCycle = wrapNodeSliderValue(phase / (Math.PI * 2), 0, 1);
   let sample = 0;
   switch (Math.round(Number(waveform) || 0)) {
-    case 1:
-      sample = -1 + phaseCycle * 2 - nodeGraphPolyBlepDirectional(phaseCycle, renderPhaseIncrement);
+    case 1: // Ramp
+      sample = -1 + phaseCycle * 2;
       break;
-    case 2:
-      sample = nodeGraphPolyBlepSquareDirectional(phaseCycle, renderPhaseIncrement);
+    case 2: // Square
+      sample = phaseCycle < 0.5 ? 1 : -1;
       break;
-    case 3:
-      {
-        const triangle = runtime.triangleStates?.get(nodeId) || 0;
-        if (phaseStopped) {
-          sample = triangle;
-          break;
-        }
-        const nextTriangle = (triangle + nodeGraphPolyBlepSquare(phaseCycle, renderPhaseIncrement) * phaseDelta * 4) * 0.995;
-        runtime.triangleStates?.set(nodeId, clampNodeSliderValue(nextTriangle, -1, 1));
-        sample = clampNodeSliderValue(nextTriangle, -1, 1);
-        break;
-      }
-    case 4:
+    case 3: // Triangle
+      sample = 1 - 4 * Math.abs(phaseCycle - 0.5);
+      break;
+    case 4: // Sine
       sample = Math.sin(phase);
       break;
-    case 5:
+    case 5: // Noise
       sample = phaseStopped ? currentNodeGraphNoiseSample(runtime, nodeId) : nextNodeGraphNoiseSample(runtime, nodeId);
       break;
-    case 0:
+    case 0: // Saw
     default:
-      sample = 1 - phaseCycle * 2 + nodeGraphPolyBlepDirectional(phaseCycle, renderPhaseIncrement);
+      sample = 1 - phaseCycle * 2;
       break;
   }
   if (phaseStopped) {
     runtime.oscillatorStoppedSamples.set(nodeId, sample);
   } else {
     runtime.oscillatorStoppedSamples.delete(nodeId);
-    runtime.oscillatorLastPhaseIncrements.set(nodeId, phaseDelta);
   }
   return sample;
 }
