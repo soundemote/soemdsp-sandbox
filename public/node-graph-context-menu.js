@@ -1351,6 +1351,9 @@ function configureNodeSceneContextMenu(mode) {
       textBoxTextScriptStatus.textContent = "";
     }
     if (targetIsGraphType) {
+      const usesPerNodeShapes = typeof nodeGraphGraphUsesPerNodeShapes === "function"
+        ? nodeGraphGraphUsesPerNodeShapes(targetNode.type)
+        : targetNode.type === "graphCopy";
       syncNodeGraphGraphControls(nodeGraphGraphForNode(targetNode));
       graphCursorX.disabled = false;
       graphNodeIndex.disabled = false;
@@ -1358,11 +1361,14 @@ function configureNodeSceneContextMenu(mode) {
       graphNextNode.disabled = false;
       graphNodeX.disabled = false;
       graphNodeY.disabled = false;
-      // Per-point curve shape/contour editing belonged to the retired "graph"
-      // type; graph2 (the only graph type left) always uses one global
-      // smoothing mode, so these controls stay permanently disabled/hidden.
-      graphNodeContour.disabled = true;
-      graphNodeShape.disabled = true;
+      // Graph (graph2): global curve through points -- no per-node shape UI.
+      // Graph_Copy: enable per-node contour + shape (list + single-node fields).
+      graphNodeContour.disabled = !usesPerNodeShapes;
+      graphNodeShape.disabled = !usesPerNodeShapes;
+      const contourLabel = document.getElementById("nodeSceneGraphNodeContourLabel");
+      const shapeLabel = document.getElementById("nodeSceneGraphNodeShapeLabel");
+      if (contourLabel) contourLabel.hidden = !usesPerNodeShapes;
+      if (shapeLabel) shapeLabel.hidden = !usesPerNodeShapes;
       graphCursorX.title = "Move the vertical graph cursor.";
       graphNodeIndex.title = "Choose the graph node to edit.";
       graphPreviousNode.title = "Select the previous graph node.";

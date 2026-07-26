@@ -247,6 +247,7 @@ var nodeGraphMvp = {
     humanFilter: 0,
     pulseExplosion: 0,
     graph2: 0,
+    graphCopy: 0,
     highpass: 0,
     image: 0,
     ladderFilter: 0,

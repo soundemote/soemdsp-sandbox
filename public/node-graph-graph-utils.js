@@ -283,7 +283,42 @@ function nodeGraphGraphSmoothCurve(position) {
   return p * p * (3 - 2 * p);
 }
 
+// Graph_Copy (and any future per-segment module) uses per-node shape/contour.
+// Graph (graph2) fits a single global smoothing mode through the points.
+function nodeGraphGraphUsesPerNodeShapes(type) {
+  return type === "graphCopy";
+}
+
+function nodeGraphGraphUsesGlobalSmoothing(type) {
+  return nodeGraphModuleIsGraphType(type) && !nodeGraphGraphUsesPerNodeShapes(type);
+}
+
+function nodeGraphGraphRationalCurve(position, contour = 0) {
+  const p = normalizeNodeGraphGraphNumber(position, 0, 0, 1);
+  const c = normalizeNodeGraphGraphNumber(contour, 0, -0.999, 0.999);
+  if (Math.abs(c) < 0.000001) {
+    return p;
+  }
+  return c < 0
+    ? (p * (1 + c)) / (1 + c * p)
+    : p / (1 - c + c * p);
+}
+
+function nodeGraphGraphExponentialCurve(position, contour = 0) {
+  const p = normalizeNodeGraphGraphNumber(position, 0, 0, 1);
+  const c = normalizeNodeGraphGraphNumber(0.5 * (contour + 1), 0.5, 0.001, 0.999);
+  const a = 2 * Math.log((1 - c) / c);
+  if (!Number.isFinite(a) || Math.abs(a) < 0.000001) {
+    return p;
+  }
+  const denominator = 1 - Math.exp(a);
+  return Math.abs(denominator) < 0.000001 ? p : (1 - Math.exp(p * a)) / denominator;
+}
+
 function normalizeNodeGraphGraph2SmoothingMode(value) {
+  if (value === "legacy") {
+    return "legacy";
+  }
   if (Number.isFinite(Number(value))) {
     return nodeGraphGraph2SmoothingModes[Math.max(0, Math.min(
       nodeGraphGraph2SmoothingModes.length - 1,
@@ -484,6 +519,24 @@ function nodeGraphGraphModeCurve(position, mode, index = 0) {
   return nodeGraphGraphSmoothCurve(position);
 }
 
+function nodeGraphGraphLegacySegmentShape(p, right) {
+  const contour = normalizeNodeGraphGraphNumber(right?.c, 0, -0.999, 0.999);
+  const shape = normalizeNodeGraphGraphShape(right?.shape);
+  if (shape === "exponential") {
+    return nodeGraphGraphExponentialCurve(p, contour);
+  }
+  if (shape === "hold") {
+    return p >= 1 ? 1 : 0;
+  }
+  if (shape === "smooth") {
+    return nodeGraphGraphSmoothCurve(p);
+  }
+  if (shape === "linear") {
+    return p;
+  }
+  return nodeGraphGraphRationalCurve(p, contour);
+}
+
 function nodeGraphGraphSegmentValue(graph, x, index, smoothingMode) {
   const left = graph.nodes[index];
   const right = graph.nodes[index + 1];
@@ -492,6 +545,9 @@ function nodeGraphGraphSegmentValue(graph, x, index, smoothingMode) {
     return 0.5 * (left.y + right.y);
   }
   const p = normalizeNodeGraphGraphNumber((x - left.x) / dx, 0, 0, 1);
+  if (smoothingMode === "legacy") {
+    return left.y + (right.y - left.y) * nodeGraphGraphLegacySegmentShape(p, right);
+  }
   const shaped = nodeGraphGraphModeCurve(p, smoothingMode, index);
   return left.y + (right.y - left.y) * shaped;
 }
@@ -503,6 +559,20 @@ function nodeGraphGraphValueAt(graphValue, xValue, smoothingMode, tension = 1) {
     return 0;
   }
   const normalizedMode = normalizeNodeGraphGraph2SmoothingMode(smoothingMode);
+  if (normalizedMode === "legacy") {
+    if (x < graph.nodes[0].x) {
+      return graph.nodes[0].y;
+    }
+    if (x > graph.nodes[graph.nodes.length - 1].x) {
+      return graph.nodes[graph.nodes.length - 1].y;
+    }
+    for (let index = 0; index < graph.nodes.length - 1; index += 1) {
+      if (x <= graph.nodes[index + 1].x) {
+        return normalizeNodeGraphGraphNumber(nodeGraphGraphSegmentValue(graph, x, index, "legacy"), 0, -Infinity, Infinity);
+      }
+    }
+    return graph.nodes[graph.nodes.length - 1].y;
+  }
   if (normalizedMode === "bezier") {
     return nodeGraphGraphBezierValueAt(graph, x, tension);
   }
@@ -658,20 +728,7 @@ function renderNodeGraphGraphDisplay(element, graphValue, selectedIndex = null, 
     preserveAspectRatio: "none",
     viewBox: "0 0 100 100",
   });
-  svg.append(createNodeGraphGraphSvgElement("rect", {
-    class: "node-module-graph-frame",
-    height: "84",
-    width: "84",
-    x: "8",
-    y: "8",
-  }));
-  svg.append(createNodeGraphGraphSvgElement("line", {
-    class: "node-module-graph-axis",
-    x1: "8",
-    x2: "92",
-    y1: "50",
-    y2: "50",
-  }));
+  // No decorative frame/axis grid — just the data (control polygon + curve).
   svg.append(createNodeGraphGraphSvgElement("line", {
     class: "node-module-graph-cursor",
     x1: cursor.x.toFixed(3),
@@ -707,6 +764,8 @@ function renderNodeGraphGraphDisplay(element, graphValue, selectedIndex = null, 
     y1: "8",
     y2: "92",
   }));
+  // Dotted linear control polygon (the straight-line path through points) —
+  // kept in every smoothing mode so you can see the underlying polyline.
   svg.append(createNodeGraphGraphSvgElement("path", {
     class: "node-module-graph-control-line",
     d: nodeGraphGraphControlPolygonPath(graph),
@@ -715,16 +774,13 @@ function renderNodeGraphGraphDisplay(element, graphValue, selectedIndex = null, 
     class: "node-module-graph-curve",
     d: nodeGraphGraphCurvePath(graph, 96, smoothingMode, options.tension ?? 1),
   }));
-  // graph2's global smoothing-mode badge (top-left). The retired "graph"
-  // type used to show a per-point shape badge + draggable contour handle on
-  // every segment instead -- gone now that every graph module uses one
-  // smoothing mode for its whole curve.
+  // Badge: global mode for Graph, "seg" for Graph_Copy per-node shapes.
   const modeLabel = createNodeGraphGraphSvgElement("text", {
     class: "node-module-graph-shape-badge",
     x: "10",
     y: "14",
   });
-  modeLabel.textContent = smoothingMode.slice(0, 3);
+  modeLabel.textContent = smoothingMode === "legacy" ? "seg" : smoothingMode.slice(0, 3);
   svg.append(modeLabel);
   const hitRadii = nodeGraphGraphScreenRoundRadii(element, 5.4);
   const nodeRadii = nodeGraphGraphScreenRoundRadii(element, 1.5);
@@ -753,9 +809,9 @@ function renderNodeGraphGraphDisplay(element, graphValue, selectedIndex = null, 
 }
 
 function nodeGraphGraphSmoothingModeForNode(patchNode) {
-  // The "graph" type (per-point curve shape/contour) has been retired --
-  // graph2 (one global smoothing mode) is the only graph type left, so this
-  // always resolves to the global-smoothing branch now.
+  if (nodeGraphGraphUsesPerNodeShapes(patchNode?.type)) {
+    return "legacy";
+  }
   return normalizeNodeGraphGraph2SmoothingMode(patchNode?.params?.smoothingMode);
 }
 

@@ -201,7 +201,7 @@ NodeLiveAudioProcessor.prototype.setNestedPlan = function setNestedPlan(plan) {
     if (node?.type === "humanFilter") this.humanFilterStates.set(id, this.createStereoFilterState(() => this.createHumanFilterState()));
     if (node?.type === "tb303Filter") this.tb303FilterStates.set(id, this.createStereoFilterState(() => this.createTb303FilterState()));
     if (node?.type === "clock") this.clockStates.set(id, this.createClockState());
-    if (node?.type === "graph" || node?.type === "graph2") this.graphLfoStates.set(id, this.createGraphLfoState());
+    if (node?.type === "graph" || node?.type === "graph2" || node?.type === "graphCopy") this.graphLfoStates.set(id, this.createGraphLfoState());
     if (node?.type === "clockDivider") this.clockDividerStates.set(id, this.createTriggerDividerState());
     if (node?.type === "delayedTrigger") this.delayedTriggerStates.set(id, this.createDelayedTriggerState());
     if (node?.type === "delayEffect") this.delayEffectStates.set(id, this.createStereoDelayEffectState());

@@ -1046,17 +1046,21 @@ function renderNodeGraphGraphNodeList(graph, selectedIndex = selectedNodeGraphGr
     return;
   }
   const graphData = normalizeNodeGraphGraph(graph);
-  const usesGlobalSmoothing = Boolean(options.usesGlobalSmoothing);
+  // Graph (graph2): points only -- no per-node shape/mode columns.
+  // Graph_Copy: x/y plus curve contour + shape per segment.
+  const usesPerNodeShapes = Boolean(options.usesPerNodeShapes);
   const activeIndex = selectedNodeGraphGraphIndex(graphData, selectedIndex);
   list.replaceChildren();
   const header = document.createElement("div");
   header.className = "scene-context-graph-node-row scene-context-graph-node-row-header";
-  for (const label of ["node", "x", "y", usesGlobalSmoothing ? "global" : "curve", usesGlobalSmoothing ? "mode" : "shape"]) {
+  const labels = usesPerNodeShapes ? ["node", "x", "y", "curve", "shape"] : ["node", "x", "y"];
+  for (const label of labels) {
     const span = document.createElement("span");
     span.textContent = label;
     header.append(span);
   }
   list.append(header);
+  list.dataset.graphListMode = usesPerNodeShapes ? "per-node" : "points";
   graphData.nodes.forEach((node, index) => {
     const row = document.createElement("div");
     row.className = "scene-context-graph-node-row";
@@ -1071,12 +1075,13 @@ function renderNodeGraphGraphNodeList(graph, selectedIndex = selectedNodeGraphGr
     row.append(label);
     row.append(createNodeGraphGraphRowNumberInput(index, "x", node.x));
     row.append(createNodeGraphGraphRowNumberInput(index, "y", node.y));
-    row.append(createNodeGraphGraphRowNumberInput(index, "c", node.c, {
-      disabled: usesGlobalSmoothing,
-      min: -0.999,
-      max: 0.999,
-    }));
-    row.append(createNodeGraphGraphRowShapeSelect(index, node.shape, { disabled: usesGlobalSmoothing }));
+    if (usesPerNodeShapes) {
+      row.append(createNodeGraphGraphRowNumberInput(index, "c", node.c, {
+        min: -0.999,
+        max: 0.999,
+      }));
+      row.append(createNodeGraphGraphRowShapeSelect(index, node.shape));
+    }
     list.append(row);
   });
 }
@@ -1086,7 +1091,7 @@ function syncNodeGraphGraphControls(graph, selectedIndex = selectedNodeGraphGrap
   const index = selectedNodeGraphGraphIndex(graphData, selectedIndex);
   const nodeId = nodeGraphModuleActionTargetNodeId();
   const graphNodeType = nodeGraphPatchNode(nodeId)?.type || "";
-  const usesGlobalSmoothing = graphNodeType === "graph2";
+  const usesPerNodeShapes = nodeGraphGraphUsesPerNodeShapes(graphNodeType);
   if (nodeGraphModuleIsGraphType(nodeGraphPatchNode(nodeId)?.type)) {
     setNodeGraphGraphSelectedNodeIndex(nodeId, graphData, index);
     syncNodeGraphGraphElement(nodeGraphNodeElement(nodeId), {
@@ -1097,7 +1102,7 @@ function syncNodeGraphGraphControls(graph, selectedIndex = selectedNodeGraphGrap
   }
   const node = graphData.nodes[index] || graphData.nodes.at(-1);
   populateNodeGraphGraphNodeIndexSelect(graphData, index);
-  renderNodeGraphGraphNodeList(graphData, index, { usesGlobalSmoothing });
+  renderNodeGraphGraphNodeList(graphData, index, { usesPerNodeShapes });
   const cursorInput = document.getElementById("nodeSceneGraphCursorX");
   const xInput = document.getElementById("nodeSceneGraphNodeX");
   const yInput = document.getElementById("nodeSceneGraphNodeY");
@@ -1115,15 +1120,21 @@ function syncNodeGraphGraphControls(graph, selectedIndex = selectedNodeGraphGrap
   if (yInput) {
     yInput.value = node.y.toFixed(3);
   }
+  const contourLabel = document.getElementById("nodeSceneGraphNodeContourLabel");
+  const shapeLabel = document.getElementById("nodeSceneGraphNodeShapeLabel");
   if (contourInput) {
     contourInput.value = node.c.toFixed(3);
+    contourInput.disabled = !usesPerNodeShapes;
   }
   if (shapeInput) {
     shapeInput.value = normalizeNodeGraphGraphShape(node.shape);
-    shapeInput.disabled = usesGlobalSmoothing;
+    shapeInput.disabled = !usesPerNodeShapes;
   }
-  if (contourInput) {
-    contourInput.disabled = usesGlobalSmoothing;
+  if (contourLabel) {
+    contourLabel.hidden = !usesPerNodeShapes;
+  }
+  if (shapeLabel) {
+    shapeLabel.hidden = !usesPerNodeShapes;
   }
   if (previousButton) {
     previousButton.disabled = index <= 0;
@@ -1184,15 +1195,61 @@ function setNodeGraphGraphNodeFromContext({ record = true } = {}) {
   const graph = normalizeNodeGraphGraph(targetNode.graph);
   const selectedIndex = selectedNodeGraphGraphIndex(graph);
   const node = graph.nodes[selectedIndex];
-  const usesGlobalSmoothing = targetNode.type === "graph2";
+  const usesPerNodeShapes = nodeGraphGraphUsesPerNodeShapes(targetNode.type);
+  const parseGraphNumberField = (raw, fallback) => {
+    const text = String(raw ?? "").trim();
+    if (text === "" || text === "-" || text === "." || text === "-." || !Number.isFinite(Number(text))) {
+      return fallback;
+    }
+    return text;
+  };
+  const nextX = parseGraphNumberField(document.getElementById("nodeSceneGraphNodeX")?.value, node.x);
+  const nextY = parseGraphNumberField(document.getElementById("nodeSceneGraphNodeY")?.value, node.y);
+  const nextC = usesPerNodeShapes
+    ? parseGraphNumberField(document.getElementById("nodeSceneGraphNodeContour")?.value, node.c)
+    : node.c;
   graph.nodes[selectedIndex] = normalizeNodeGraphGraphNode({
-    c: usesGlobalSmoothing ? node.c : document.getElementById("nodeSceneGraphNodeContour")?.value ?? node.c,
-    shape: usesGlobalSmoothing ? node.shape : document.getElementById("nodeSceneGraphNodeShape")?.value ?? node.shape,
-    x: document.getElementById("nodeSceneGraphNodeX")?.value ?? node.x,
-    y: document.getElementById("nodeSceneGraphNodeY")?.value ?? node.y,
+    c: nextC,
+    shape: usesPerNodeShapes ? document.getElementById("nodeSceneGraphNodeShape")?.value ?? node.shape : node.shape,
+    x: nextX,
+    y: nextY,
   }, selectedIndex);
   targetNode.graph = graph;
-  commitNodeGraphGraphEdit(patch, targetNode, "graph node changed", { record, selectedIndex });
+  if (!record) {
+    const liveNode = nodeGraphMvp?.patch?.nodes?.find?.((candidate) => candidate.id === targetNode.id);
+    if (liveNode) {
+      liveNode.graph = nodeGraphGraphEndpointYLockEnabledForNode(liveNode)
+        ? nodeGraphGraphWithLockedEndpointY(graph, selectedIndex)
+        : normalizeNodeGraphGraph(graph);
+      syncNodeGraphGraphDisplaysForNode(targetNode.id, liveNode);
+      // Update list row values in place without destroying focused single-field inputs.
+      const list = document.getElementById("nodeSceneGraphNodeList");
+      const row = list?.querySelector?.(`[data-graph-node-row="${selectedIndex}"]`);
+      if (row) {
+        const xField = row.querySelector('[data-graph-node-field="x"]');
+        const yField = row.querySelector('[data-graph-node-field="y"]');
+        const cField = row.querySelector('[data-graph-node-field="c"]');
+        const shapeField = row.querySelector('[data-graph-node-field="shape"]');
+        const edited = liveNode.graph.nodes[selectedIndex];
+        if (xField && document.activeElement !== xField) xField.value = Number(edited.x).toFixed(3);
+        if (yField && document.activeElement !== yField) yField.value = Number(edited.y).toFixed(3);
+        if (cField && document.activeElement !== cField) cField.value = Number(edited.c).toFixed(3);
+        if (shapeField && document.activeElement !== shapeField) {
+          shapeField.value = normalizeNodeGraphGraphShape(edited.shape);
+        }
+      }
+    }
+    if (typeof scheduleNodeGraphLivePlanSync === "function") {
+      scheduleNodeGraphLivePlanSync();
+    }
+    if (typeof setNodeGraphPatchDirtyState === "function") {
+      setNodeGraphPatchDirtyState("edited");
+    } else {
+      nodeGraphMvp.patchDirtyState = "edited";
+    }
+    return;
+  }
+  commitNodeGraphGraphEdit(patch, targetNode, "graph node changed", { record: true, selectedIndex });
 }
 
 function selectNodeGraphGraphNodeFromContext() {
@@ -1224,9 +1281,20 @@ function setNodeGraphGraphNodeListValueFromContext(event, { record = true } = {}
   if (!targetNode) {
     return;
   }
-  if (targetNode.type === "graph2" && (field === "c" || field === "shape")) {
-    syncNodeGraphGraphControls(nodeGraphGraphForNode(targetNode));
+  // Graph (graph2) has no per-node shape/contour -- ignore those fields.
+  if (!nodeGraphGraphUsesPerNodeShapes(targetNode.type) && (field === "c" || field === "shape")) {
     return;
+  }
+  // While typing, intermediate values like "" or "0." are not finite yet.
+  // Keep focus and wait for a complete number; shape selects always apply.
+  if (field !== "shape") {
+    const raw = String(event.target.value ?? "").trim();
+    if (raw === "" || raw === "-" || raw === "." || raw === "-." || raw.endsWith("e") || raw.endsWith("E") || raw.endsWith("-")) {
+      return;
+    }
+    if (!Number.isFinite(Number(raw))) {
+      return;
+    }
   }
   const graph = normalizeNodeGraphGraph(targetNode.graph);
   const selectedIndex = nodeGraphGraphNodeIndexFromValue(graph, rowIndex);
@@ -1236,7 +1304,41 @@ function setNodeGraphGraphNodeListValueFromContext(event, { record = true } = {}
     [field]: event.target.value,
   }, selectedIndex);
   targetNode.graph = graph;
-  commitNodeGraphGraphEdit(patch, targetNode, "graph node changed", { record, selectedIndex });
+
+  if (!record) {
+    // Live typing path: update curve + worklet graph WITHOUT rebuilding the
+    // node list (which would steal focus from the input being edited).
+    const liveNode = nodeGraphMvp?.patch?.nodes?.find?.((candidate) => candidate.id === targetNode.id);
+    if (liveNode) {
+      liveNode.graph = nodeGraphGraphEndpointYLockEnabledForNode(liveNode)
+        ? nodeGraphGraphWithLockedEndpointY(graph, selectedIndex)
+        : normalizeNodeGraphGraph(graph);
+      syncNodeGraphGraphDisplaysForNode(targetNode.id, liveNode);
+    }
+    const xInput = document.getElementById("nodeSceneGraphNodeX");
+    const yInput = document.getElementById("nodeSceneGraphNodeY");
+    const contourInput = document.getElementById("nodeSceneGraphNodeContour");
+    const shapeInput = document.getElementById("nodeSceneGraphNodeShape");
+    const edited = graph.nodes[selectedIndex];
+    if (selectedNodeGraphGraphIndex(graph) === selectedIndex && edited) {
+      if (xInput && field === "x") xInput.value = Number(edited.x).toFixed(3);
+      if (yInput && field === "y") yInput.value = Number(edited.y).toFixed(3);
+      if (contourInput && field === "c") contourInput.value = Number(edited.c).toFixed(3);
+      if (shapeInput && field === "shape") shapeInput.value = normalizeNodeGraphGraphShape(edited.shape);
+    }
+    if (typeof scheduleNodeGraphLivePlanSync === "function") {
+      scheduleNodeGraphLivePlanSync();
+    }
+    if (typeof setNodeGraphPatchDirtyState === "function") {
+      setNodeGraphPatchDirtyState("edited");
+    } else {
+      nodeGraphMvp.patchDirtyState = "edited";
+    }
+    return;
+  }
+
+  // Blur/change: commit to history and full-sync controls.
+  commitNodeGraphGraphEdit(patch, targetNode, "graph node changed", { record: true, selectedIndex });
 }
 
 function handleNodeGraphGraphNodeListClick(event) {

@@ -117,6 +117,12 @@ function createNodeGraphIoProxySection(node, inputPorts = [], outputPorts = []) 
   return proxy;
 }
 
+// Tiny jack on the LEFT of a parameter slider row. This is NOT a module
+// `inputs[]` port — it does not appear in the left IO column. Wires here are
+// graph modulations into the parameter, applied inside
+// readNodeGraphLiveEffectiveParam / readEffectiveParameter. For a full
+// left-column CV jack, list the name in definition.inputs and mixInput() it
+// in the evaluator (see dsfOscillator Phase/Amplitude).
 function createNodeParameterModulationPort(node, type, parameter) {
   const button = document.createElement("button");
   button.className = "node-param-port modulation-input";

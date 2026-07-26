@@ -26,19 +26,22 @@ NodeLiveAudioProcessor.prototype.dsfOscillatorSampleJs = function dsfOscillatorS
     const safeFrequency = Number(options.frequencyHz) > 1 ? Number(options.frequencyHz) : 1;
     const dt = this.clampValue((Number(options.frequencyHz) || 0) / sampleRate, -0.5, 0.5);
     const waveform = Math.round(Number(options.waveform) || 0);
+    const phaseOffset = this.wrapValue(Number(options.phase) || 0, 0, 1);
     const level = Number(options.level) || 0;
 
     let sample;
     if (waveform === 0) {
       state.t = this.wrapValue(state.t + dt, 0, 1);
-      sample = Math.sin(state.t * Math.PI * 2);
+      // Phase is a pure time offset on the free-running cycle.
+      sample = Math.sin(this.wrapValue(state.t + phaseOffset, 0, 1) * Math.PI * 2);
     } else {
       const nyquist = sampleRate * 0.5;
       const nMax = Math.max(1, Math.floor(nyquist / safeFrequency));
       state.t = this.wrapValue(state.t + dt * 0.9999, 0, 1);
+      const renderT = this.wrapValue(state.t + phaseOffset, 0, 1);
 
       const retention = this.dsfAdaptiveRetention(dt);
-      const rawSaw = this.dsfPureSawEngMorphed(state.t, nMax, options.morph);
+      const rawSaw = this.dsfPureSawEngMorphed(renderT, nMax, options.morph);
       state.sawAcc = state.sawAcc * retention + rawSaw * dt;
 
       if (waveform === 1) {
@@ -49,13 +52,13 @@ NodeLiveAudioProcessor.prototype.dsfOscillatorSampleJs = function dsfOscillatorS
         // sounding "triangle-like" when it inherited PWM's variable duty
         // cycle; simplified back to always crossfading two cleanly-
         // shaped waveforms instead.
-        const rawBlendSquare = rawSaw - this.dsfPureSawEngMorphed(this.wrapValue(state.t - 0.5, 0, 1), nMax, options.morph);
+        const rawBlendSquare = rawSaw - this.dsfPureSawEngMorphed(this.wrapValue(renderT - 0.5, 0, 1), nMax, options.morph);
         state.blendSqAcc = state.blendSqAcc * retention + rawBlendSquare * dt;
         const blend = this.clampValue(Number(options.blend) ?? 0.5, 0, 1);
         sample = state.sawAcc * (1 - blend) + state.blendSqAcc * blend;
       } else {
         const pw = this.clampValue(Number(options.pulseWidth) ?? 0.5, 0.01, 0.99);
-        const rawShiftedSaw = this.dsfPureSawEngMorphed(this.wrapValue(state.t - pw, 0, 1), nMax, options.morph);
+        const rawShiftedSaw = this.dsfPureSawEngMorphed(this.wrapValue(renderT - pw, 0, 1), nMax, options.morph);
         const rawSquare = rawSaw - rawShiftedSaw;
         state.sqAcc = state.sqAcc * retention + rawSquare * dt;
 
@@ -96,6 +99,7 @@ NodeLiveAudioProcessor.prototype.dsfOscillatorSample = function dsfOscillatorSam
           const morph = Number(options.morph) || 0;
           const pulseWidth = Number(options.pulseWidth) ?? 0.5;
           const blend = Number(options.blend) ?? 0.5;
+          const phase = Number(options.phase) || 0;
           const level = Number(options.level) || 0;
           this.nativeDsfOscillator.soemdsp_dsf_oscillator_sample(
             state.nativeHandle,
@@ -105,6 +109,7 @@ NodeLiveAudioProcessor.prototype.dsfOscillatorSample = function dsfOscillatorSam
             morph,
             pulseWidth,
             blend,
+            phase,
             level,
           );
           return {

@@ -111,6 +111,71 @@ gain: {
 }
 ```
 
+## Three control surfaces (do not confuse these)
+
+Modules expose **three different ways** to receive control. They look similar
+in conversation ("add a phase input") but they are **not the same field** in
+the definition and they **do not render the same place** on the module face.
+
+| What you put in the definition | Where it appears on the module | How wires work | Typical use |
+| --- | --- | --- | --- |
+| `inputs: ["0.1V/Oct", "Phase"]` | **Left IO column** — full-height labeled jacks next to signal ports | Signal / CV wires into `mixInput(nodeId, "Phase")` | Pitch CV, audio in, dedicated CV jacks the user expects to *see* as ports |
+| `parameters: [{ key: "phase", ... }]` | **Slider row** in the body (knob/slider + readout) | Always has a **tiny** modulation port on the left of that row (`io: "modulation"`) and a slider-output port on the right | User-facing knobs: Frequency, Phase, Amplitude, Waveform |
+| Modulation into a parameter (automatic once the param exists) | Small mod jack on that parameter row, **not** in the left IO column | Graph `modulations` targeting `destinationParam` | Fine CV into an existing knob without adding a second left-side jack |
+
+### What went wrong (DSF oscillator case study)
+
+Request: *"add 0.1V like PolyBLEP, plus phase and amplitude."*
+
+PolyBLEP definition:
+
+```js
+inputs: ["Reset", "0.1V/Oct", "Increment"],  // left-side jacks only
+parameters: [
+  { key: "waveform", ... },
+  { key: "frequency", ... },
+  { key: "phase", ... },   // slider — NOT in inputs[]
+  { key: "level", label: "Amplitude", ... },  // slider — NOT in inputs[]
+],
+```
+
+First attempt matched that pattern literally:
+
+- Put `0.1V/Oct` in `inputs` → **new left jack** (visible as a new port).
+- Put `phase` in `parameters` → **new slider** (easy to miss among existing knobs).
+- Renamed `level` → `Amplitude` → **same slider**, new label only.
+
+User report: *"I only see the 0.1V input."* That was accurate for the **left
+IO column**. Phase/Amplitude did not fail to render — they were never added
+as `inputs[]` jacks. Nothing was "missing" from the renderer.
+
+**Rule of thumb for agents and humans:**
+
+1. If the user says they want something that **shows up like 0.1V** (a named
+   jack in the left column), it must be listed in **`inputs`**.
+2. If they want a **knob**, it must be listed in **`parameters`**.
+3. If they want **both** a knob and a full CV jack (common for Phase/Level),
+   put it in **both**: a parameter for the knob, and an `inputs` entry wired
+   in the evaluator (add / multiply / replace — document which).
+4. Do **not** treat "add X input" as ambiguous: ask or default to the surface
+   that matches the reference module's *visible* affordance the user named.
+
+### Evaluator wiring patterns
+
+```js
+// Left-side signal input (definition.inputs)
+const audio = mixInput(nodeId, "In");
+
+// Knob only (definition.parameters) — modulation already applied by
+// readNodeGraphLiveEffectiveParam / readEffectiveParameter
+const phase = read("phase", 0);
+
+// Knob + optional dedicated CV jack (inputs + parameters)
+const phaseKnob = read("phase", 0);
+const phaseCv = hasInput(nodeId, "Phase") ? mixInput(nodeId, "Phase") : 0;
+const phase = wrap01(phaseKnob + phaseCv);
+```
+
 ## Parameter definition shape
 
 All numeric fields are stored as STRINGS (e.g. `"1"`, `"0"`, `"440"`).

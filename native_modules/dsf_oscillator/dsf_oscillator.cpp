@@ -226,6 +226,8 @@ extern "C" void soemdsp_dsf_oscillator_reset(int handle) {
 // Nyquist-safe harmonic count.
 // pulseWidth: 0..1 -- Square/Trimorph's duty cycle (0.5 = symmetric).
 // blend: 0..1 -- Saw/Square crossfade amount for the SquSaw waveform.
+// phase: 0..1 cycles -- pure time offset on the free-running phase.
+// level: amplitude gain.
 extern "C" void soemdsp_dsf_oscillator_sample(
   int handle,
   double frequencyHz,
@@ -234,6 +236,7 @@ extern "C" void soemdsp_dsf_oscillator_sample(
   double morph,
   double pulseWidth,
   double blend,
+  double phase,
   double level
 ) {
   if (handle < 1 || handle > kMaxInstances) return;
@@ -242,19 +245,21 @@ extern "C" void soemdsp_dsf_oscillator_sample(
   const double safeSampleRate = sampleRate > 1.0 ? sampleRate : 48000.0;
   const double safeFrequency = frequencyHz > 1.0 ? frequencyHz : 1.0;
   const double dt = clampD(frequencyHz / safeSampleRate, -0.5, 0.5);
+  const double phaseOffset = wrap01(phase);
 
   double sample;
   if (waveform == 0) {
     s.t = wrap01(s.t + dt);
-    sample = sinApprox(s.t * kPi * 2.0);
+    sample = sinApprox(wrap01(s.t + phaseOffset) * kPi * 2.0);
   } else {
     const double nyquist = safeSampleRate * 0.5;
     int nMax = static_cast<int>(nyquist / safeFrequency);
     if (nMax < 1) nMax = 1;
     s.t = wrap01(s.t + dt * 0.9999);
+    const double renderT = wrap01(s.t + phaseOffset);
 
     const double retention = adaptiveRetention(dt);
-    const double rawSaw = pureSawEngMorphed(s.t, nMax, morph);
+    const double rawSaw = pureSawEngMorphed(renderT, nMax, morph);
     s.sawAcc = s.sawAcc * retention + rawSaw * dt;
 
     if (waveform == 1) {
@@ -265,13 +270,13 @@ extern "C" void soemdsp_dsf_oscillator_sample(
       // to the very first Saw/Square crossfade this module had, which
       // just mixed two cleanly-shaped waveforms rather than inheriting
       // PWM's variable-duty shape.
-      const double rawBlendSquare = rawSaw - pureSawEngMorphed(wrap01(s.t - 0.5), nMax, morph);
+      const double rawBlendSquare = rawSaw - pureSawEngMorphed(wrap01(renderT - 0.5), nMax, morph);
       s.blendSqAcc = s.blendSqAcc * retention + rawBlendSquare * dt;
       const double b = clampD(blend, 0.0, 1.0);
       sample = s.sawAcc * (1.0 - b) + s.blendSqAcc * b;
     } else {
       const double pw = clampD(pulseWidth, 0.01, 0.99);
-      const double rawShiftedSaw = pureSawEngMorphed(wrap01(s.t - pw), nMax, morph);
+      const double rawShiftedSaw = pureSawEngMorphed(wrap01(renderT - pw), nMax, morph);
       const double rawSquare = rawSaw - rawShiftedSaw;
       s.sqAcc = s.sqAcc * retention + rawSquare * dt;
 
@@ -315,5 +320,5 @@ extern "C" double soemdsp_dsf_oscillator_out(int handle) {
 }
 
 extern "C" int soemdsp_dsf_oscillator_version() {
-  return 10;
+  return 11;
 }

@@ -22,6 +22,13 @@ Use the existing modules as the template: `osc`, `noise`, `gain`, and `bias`.
    `outputs`. A processor usually has `inputs` and `outputs`. The `output`
    module is special and should not be used as a template for ordinary modules.
 
+   **Critical:** `inputs` and `parameters` are different UI surfaces. Left-side
+   jacks (like PolyBLEP's `0.1V/Oct`) only appear from `inputs: [...]`. Knobs
+   only appear from `parameters: [...]`. Every parameter also gets a tiny
+   modulation port on its slider row automatically — that is **not** the same
+   as listing the name in `inputs`. See "Three control surfaces" in
+   `docs/MODULE_PATTERN_REFERENCE.md` (including the DSF case study).
+
 2. Add a user-visible label in `public/node-graph-module-definitions.js`.
 
    Main anchor: `nodeGraphNodeLabels`.

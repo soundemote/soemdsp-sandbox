@@ -10885,6 +10885,11 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   align-items: center;
 }
 
+/* Graph (graph2): points-only list — node, x, y */
+.scene-context-graph-node-list[data-graph-list-mode="points"] .scene-context-graph-node-row {
+  grid-template-columns: minmax(28px, 0.45fr) repeat(2, minmax(0, 1fr));
+}
+
 .scene-context-graph-node-row-header {
   color: rgba(198, 230, 224, 0.56);
   font-size: 0.66rem;
@@ -15454,7 +15459,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 
 .scene-context-graph-node-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
   gap: 6px;
 }
 

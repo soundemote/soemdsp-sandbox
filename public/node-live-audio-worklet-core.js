@@ -2360,7 +2360,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       if (node?.type === "clock" && !this.clockStates.has(id)) {
         this.clockStates.set(id, this.createClockState());
       }
-      if (node?.type === "graph2" && !this.graphLfoStates.has(id)) {
+      if ((node?.type === "graph2" || node?.type === "graphCopy") && !this.graphLfoStates.has(id)) {
         this.graphLfoStates.set(id, this.createGraphLfoState());
       }
       if (node?.type === "clockDivider" && !this.clockDividerStates.has(id)) {
@@ -3469,7 +3469,8 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   }
 
   graphEndpointYLockEnabledForNode(node) {
-    return node?.type === "graph2" && Number(node?.params?.lockEndpointY) >= 0.5;
+    return (node?.type === "graph2" || node?.type === "graphCopy") &&
+      Number(node?.params?.lockEndpointY) >= 0.5;
   }
 
   graphWithLockedEndpointY(graphValue) {
@@ -3521,6 +3522,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   }
 
   normalizeGraph2SmoothingMode(value) {
+    if (value === "legacy") {
+      return "legacy";
+    }
     if (Number.isFinite(Number(value))) {
       return ["linear", "smooth", "bezier", "quadratic", "cubic", "catmullRom"][Math.max(0, Math.min(5, Math.round(Number(value))))];
     }
@@ -3707,6 +3711,10 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   }
 
   graphSmoothingModeForNode(node) {
+    // Graph_Copy uses per-node segment shapes; Graph uses a global mode.
+    if (node?.type === "graphCopy") {
+      return "legacy";
+    }
     return this.normalizeGraph2SmoothingMode(node?.params?.smoothingMode);
   }
 
@@ -6137,14 +6145,35 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
         const state = this.dsfOscillatorStates.get(nodeId) || this.createDsfOscillatorState();
         this.dsfOscillatorStates.set(nodeId, state);
         const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        // Same 0.1V/Oct + pitch-reference convention as PolyBLEP / RobinSupersaw.
+        const baseFrequency = Math.max(0, read("frequency", 100));
+        const referenceMidiNote = Number.isFinite(this.pitchReferenceMidiNote) ? this.pitchReferenceMidiNote : 48;
+        const referenceVoltage = referenceMidiNote / 120;
+        const hasPitchInput = this.inputConnections.has(this.inputKey(nodeId, "0.1V/Oct"));
+        const pitchInput = hasPitchInput
+          ? this.clampValue(this.safeFilterNumber(mixInput(nodeId, "0.1V/Oct"), null), -1, 1)
+          : referenceVoltage;
+        const pitchedFrequency = Math.max(0, baseFrequency * (2 ** ((pitchInput - referenceVoltage) / 0.1)));
+        // Phase / Amplitude jacks: Phase adds to the Phase knob (cycles);
+        // Amplitude multiplies the Amplitude knob when wired.
+        const phaseKnob = read("phase", 0);
+        const phaseCv = this.inputConnections.has(this.inputKey(nodeId, "Phase"))
+          ? this.safeFilterNumber(mixInput(nodeId, "Phase"), null)
+          : 0;
+        const phase = this.wrapValue(phaseKnob + phaseCv, 0, 1);
+        const levelKnob = read("level", 1);
+        const level = this.inputConnections.has(this.inputKey(nodeId, "Amplitude"))
+          ? levelKnob * this.safeFilterNumber(mixInput(nodeId, "Amplitude"), null)
+          : levelKnob;
         return this.dsfOscillatorSample(state, {
-          frequencyHz: Math.max(0, read("frequency", 100)),
+          frequencyHz: pitchedFrequency,
           sampleRate: safeRate,
           waveform: read("waveform", 1),
           morph: read("morph", 1),
           pulseWidth: read("pulseWidth", 0.5),
           blend: read("blend", 0.5),
-          level: read("level", 1),
+          phase,
+          level,
         });
       },
       robinSupersaw: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
@@ -7600,6 +7629,8 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
         this.polyBlepOscillatorWorkletEvaluate(node, nodeId, frame, frames, frameValues, mixInput, safeRate),
       graph2: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame, graphInputValue, graphOutputValue) =>
         graphOutputValue(node, nodeId),
+      graphCopy: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame, graphInputValue, graphOutputValue) =>
+        graphOutputValue(node, nodeId),
       additiveOsc: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame, graphInputValue) =>
         this.additiveOscWorkletEvaluate(node, nodeId, frame, frames, frameValues, mixInput, safeRate, graphInputValue),
       gpuAdditiveOsc: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame, graphInputValue) =>
@@ -8026,7 +8057,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     const graphInputValue = (nodeId, graphInput, x, fallback) => {
       const connection = (this.graphInputConnections.get(this.graphInputKey(nodeId, graphInput)) || [])[0];
       const source = connection ? this.nodes.get(connection.sourceNode) : null;
-      if (!source || source.type !== "graph2") {
+      if (!source || (source.type !== "graph2" && source.type !== "graphCopy")) {
         return fallback;
       }
       return this.graphValueAt(this.graphForNode(source), this.clampValue(Number(x) || 0, 0, 1), this.graphSmoothingModeForNode(source), Number(source?.params?.tension) ?? 1);

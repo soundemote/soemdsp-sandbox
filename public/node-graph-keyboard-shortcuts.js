@@ -367,7 +367,9 @@ function handleNodeGraphKeydown(event) {
       return;
     }
   }
-  if (event.key !== "Delete" && event.key !== "Backspace") {
+  // Delete only -- Backspace is not a module-delete hotkey (it steals typing
+  // focus and was never an approved shortcut).
+  if (event.key !== "Delete") {
     return;
   }
   // Don't delete modules while the user is typing in a text field.

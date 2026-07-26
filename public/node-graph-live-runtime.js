@@ -1393,7 +1393,7 @@ function nodeGraphLiveConnectionUpdatePayload(plan = {}, audio = {}) {
   const pitchReference = normalizeNodeGraphPatchAudio(nodeGraphMvp.patch.audio);
   const graphData = {};
   for (const node of plan.nodes || []) {
-    if (node.type === "graph2" && node.graph) {
+    if (nodeGraphModuleIsGraphType(node.type) && node.graph) {
       graphData[node.id] = node.graph;
     }
   }

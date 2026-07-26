@@ -58,37 +58,40 @@ function nodeGraphDsfWrap01(x) {
 
 // options: { frequencyHz, sampleRate, waveform (0=Sine,1=Saw,2=Square PWM,
 //            3=Trimorph,4=SquSaw), morph (Harmonics, 0-1),
-//            pulseWidth (0-1), blend (0-1), level }
+//            pulseWidth (0-1), blend (0-1), phase (cycles, 0-1), level }
 function nodeGraphDsfOscillatorSample(state, options = {}) {
   const sampleRate = Number(options.sampleRate) > 1 ? Number(options.sampleRate) : 48000;
   const safeFrequency = Number(options.frequencyHz) > 1 ? Number(options.frequencyHz) : 1;
   const dt = clampNodeSliderValue((Number(options.frequencyHz) || 0) / sampleRate, -0.5, 0.5);
   const waveform = Math.round(Number(options.waveform) || 0);
+  const phaseOffset = nodeGraphDsfWrap01(Number(options.phase) || 0);
   const level = Number(options.level) || 0;
 
   let sample;
   if (waveform === 0) {
     state.t = nodeGraphDsfWrap01(state.t + dt);
-    sample = Math.sin(state.t * Math.PI * 2);
+    // Phase is a pure time offset on the free-running cycle.
+    sample = Math.sin(nodeGraphDsfWrap01(state.t + phaseOffset) * Math.PI * 2);
   } else {
     const nyquist = sampleRate * 0.5;
     const nMax = Math.max(1, Math.floor(nyquist / safeFrequency));
     state.t = nodeGraphDsfWrap01(state.t + dt * 0.9999);
+    const renderT = nodeGraphDsfWrap01(state.t + phaseOffset);
 
     const retention = nodeGraphDsfAdaptiveRetention(dt);
-    const rawSaw = nodeGraphDsfPureSawEngMorphed(state.t, nMax, options.morph);
+    const rawSaw = nodeGraphDsfPureSawEngMorphed(renderT, nMax, options.morph);
     state.sawAcc = state.sawAcc * retention + rawSaw * dt;
 
     if (waveform === 1) {
       sample = state.sawAcc;
     } else if (waveform === 4) {
-      const rawBlendSquare = rawSaw - nodeGraphDsfPureSawEngMorphed(nodeGraphDsfWrap01(state.t - 0.5), nMax, options.morph);
+      const rawBlendSquare = rawSaw - nodeGraphDsfPureSawEngMorphed(nodeGraphDsfWrap01(renderT - 0.5), nMax, options.morph);
       state.blendSqAcc = state.blendSqAcc * retention + rawBlendSquare * dt;
       const blend = clampNodeSliderValue(Number(options.blend) ?? 0.5, 0, 1);
       sample = state.sawAcc * (1 - blend) + state.blendSqAcc * blend;
     } else {
       const pw = clampNodeSliderValue(Number(options.pulseWidth) ?? 0.5, 0.01, 0.99);
-      const rawShiftedSaw = nodeGraphDsfPureSawEngMorphed(nodeGraphDsfWrap01(state.t - pw), nMax, options.morph);
+      const rawShiftedSaw = nodeGraphDsfPureSawEngMorphed(nodeGraphDsfWrap01(renderT - pw), nMax, options.morph);
       const rawSquare = rawSaw - rawShiftedSaw;
       state.sqAcc = state.sqAcc * retention + rawSquare * dt;
 

@@ -289,9 +289,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   dsfOscillator: {
     category: "oscillator",
-    description: "The DSF starter kit: Sine, a bandlimited Saw built from pureSawEng (Walter H. Hackett, Extended DSF Oscillators.cxx), a PWM Square derived from two phase-offset Saws, Trimorph (a second leaky integration on the Square), and SquSaw (a Saw crossfaded with a fixed 50%-duty square, landing on a saw-to-triangle-like character). Alias-free by construction: the maximum harmonic count is always Nyquist/frequency. The Harmonics knob (0-1) crossfades from a single harmonic (an exact sine) at 0 up to that Nyquist-safe maximum at 1 -- currently displayed as a raw 0.000-1.000 fraction rather than an actual harmonic count. Native C++/WASM.",
+    description: "The DSF starter kit: Sine, a bandlimited Saw built from pureSawEng (Walter H. Hackett, Extended DSF Oscillators.cxx), a PWM Square derived from two phase-offset Saws, Trimorph (a second leaky integration on the Square), and SquSaw (a Saw crossfaded with a fixed 50%-duty square, landing on a saw-to-triangle-like character). Alias-free by construction: the maximum harmonic count is always Nyquist/frequency. CV jacks: 0.1V/Oct (pitch), Phase (adds to Phase knob), Amplitude (scales Amplitude knob). Native C++/WASM.",
     label: "DSF Oscillator",
-    notes: ["oscillator", "dsf", "discrete summation formula", "anti-aliasing", "native"],
+    notes: ["oscillator", "dsf", "discrete summation formula", "anti-aliasing", "0.1V/Oct", "phase CV", "amplitude CV", "native"],
   },
   robinSupersaw: {
     category: "oscillator",
@@ -434,9 +434,15 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   graph2: {
     category: "controller",
-    description: "Patch-local graph object with curve nodes, a global smoothing mode, input/output range mapping, and LFO or CV-driven readout.",
+    description: "Patch-local graph object: fit a global smoothing mode through control points. Input range mapping and LFO or CV-driven readout.",
     label: "Graph",
-    notes: ["global smoothing", "curve display", "cursor line", "graph nodes", "input range", "LFO rate"],
+    notes: ["global smoothing", "curve through points", "cursor line", "graph nodes", "input range", "LFO rate"],
+  },
+  graphCopy: {
+    category: "controller",
+    description: "Same as Graph, but each segment has its own shape and contour (per-node curve style).",
+    label: "Graph_Copy",
+    notes: ["per-node shapes", "curve display", "cursor line", "graph nodes", "input range", "LFO rate"],
   },
   gain: {
     category: "dynamics",

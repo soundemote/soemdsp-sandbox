@@ -129,7 +129,7 @@ function nodeGraphBuildLiveParameterNodes(activeNodeIds = null) {
       if (node.type === "phosphillator" && Array.isArray(node.drawnPath?.points)) {
         runtimeNode.drawnPath = { points: node.drawnPath.points };
       }
-      if (node.type === "graph2" && node.graph) {
+      if (nodeGraphModuleIsGraphType(node.type) && node.graph) {
         runtimeNode.graph = node.graph;
       }
       return runtimeNode;
@@ -197,7 +197,7 @@ function nodeGraphBuildLiveParameterNodesForPatch(patch, activeNodeIds = null) {
       if (node.type === "phosphillator" && Array.isArray(node.drawnPath?.points)) {
         runtimeNode.drawnPath = { points: node.drawnPath.points };
       }
-      if (node.type === "graph2" && node.graph) {
+      if (nodeGraphModuleIsGraphType(node.type) && node.graph) {
         runtimeNode.graph = node.graph;
       }
       return runtimeNode;
