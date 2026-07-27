@@ -13254,8 +13254,10 @@ def require_node_graph_mvp_contract() -> None:
     )
     require(
         "canvas._nodeGraphNumberReadoutText === text" in node_graph_source
-        and "canvas._nodeGraphNumberReadoutColor === settings.color" in node_graph_source
-        and "canvas._nodeGraphNumberReadoutBrightness === settings.brightness" in node_graph_source,
+        and "canvas._nodeGraphNumberReadoutColor !== settings.color" in node_graph_source
+        and "canvas._nodeGraphNumberReadoutBrightness !== settings.brightness" in node_graph_source
+        and "canvas._nodeGraphNumberReadoutPaintAt" in node_graph_source
+        and "nodeGraphNumberReadoutSafeDecimals" in node_graph_source,
         "Number Readout should redraw only when the formatted value or its style changes, not per sample",
     )
     require(
@@ -13587,6 +13589,27 @@ def require_node_graph_mvp_contract() -> None:
         and "assignNodeGraphTypedDisplaySettingsToNode(workingNode, displayType, settings);" in node_graph_source
         and "saveNodeGraphWorkingPatchToUserSettings({ immediateFile: persistMode === \"immediate\" });" in node_graph_source,
         "Display Settings live edits should force typed settings into the patch and working patch for refresh persistence",
+    )
+    require(
+        'if (displayType === "numberReadout") {\n    node.traceDisplaySettings = normalizeNodeGraphNumberReadoutSettings(settings);'
+        in node_graph_source
+        or (
+            'displayType === "numberReadout"' in node_graph_source
+            and "normalizeNodeGraphNumberReadoutSettings(settings)" in node_graph_source[
+                node_graph_source.index("function assignNodeGraphTypedDisplaySettingsToNode")
+                : node_graph_source.index("function assignNodeGraphTypedDisplaySettingsEverywhere")
+            ]
+        ),
+        "Number Readout Display Settings must assign via normalizeNodeGraphNumberReadoutSettings (not Trace)",
+    )
+    require(
+        'if (displayType === "numberReadout") {\n    return { traceDisplaySettings: normalizeNodeGraphNumberReadoutSettings(migrate(node.traceDisplaySettings, false)) };'
+        in node_graph_source
+        or (
+            'displayType === "numberReadout"' in script_sources["./public/node-graph-patch-clone.js"]
+            and "normalizeNodeGraphNumberReadoutSettings" in script_sources["./public/node-graph-patch-clone.js"]
+        ),
+        "Number Readout settings must clone/normalize as numberReadout schema, not drop or Trace-expand",
     )
     require(
         "typeof readNodeGraphTraceDisplaySettingsForm === \"function\"" not in script_sources["./public/node-graph-ui-settings-persistence.js"]

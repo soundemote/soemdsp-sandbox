@@ -295,6 +295,9 @@ function cloneNodeGraphTypedDisplaySettings(node) {
   if (displayType === "scope2dTrace") {
     return { traceDisplaySettings: normalizeNodeGraphScope2dTraceSettings(migrate(node.traceDisplaySettings, false)) };
   }
+  if (displayType === "numberReadout") {
+    return { traceDisplaySettings: normalizeNodeGraphNumberReadoutSettings(migrate(node.traceDisplaySettings, false)) };
+  }
   if (displayType === "trace" && Object.hasOwn(node, "traceDisplaySettings")) {
     return { traceDisplaySettings: normalizeNodeGraphTraceDisplaySettings(migrate(node.traceDisplaySettings, isOutput)) };
   }

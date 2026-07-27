@@ -4702,6 +4702,12 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     node.traceDisplaySettings = normalizeNodeGraphScope2dTraceSettings(settings);
     return node.traceDisplaySettings;
   }
+  // Must not fall through to Trace normalize: that drops decimals and expands
+  // a full Trace schema onto the multimeter (can thrash draw/history/persist).
+  if (displayType === "numberReadout") {
+    node.traceDisplaySettings = normalizeNodeGraphNumberReadoutSettings(settings);
+    return node.traceDisplaySettings;
+  }
   node.traceDisplaySettings = normalizeNodeGraphTraceDisplaySettings(settings);
   return node.traceDisplaySettings;
 }
@@ -8793,12 +8799,27 @@ function syncNodeGraphNumberReadoutCanvas(canvas, screenElement, pixelRatio) {
   return true;
 }
 
+function nodeGraphNumberReadoutSafeDecimals(decimals) {
+  // toFixed(NaN) throws RangeError and can take down the rAF draw loop.
+  const n = Math.round(Number(decimals));
+  if (!Number.isFinite(n)) {
+    return 2;
+  }
+  return Math.max(0, Math.min(8, n));
+}
+
 function nodeGraphNumberReadoutFormatValue(sample, decimals) {
   const value = Number(sample);
   if (!Number.isFinite(value)) {
     return "--";
   }
-  const fixed = value.toFixed(clampNodeSliderValue(Math.round(Number(decimals) || 0), 0, 8));
+  const places = nodeGraphNumberReadoutSafeDecimals(decimals);
+  let fixed;
+  try {
+    fixed = value.toFixed(places);
+  } catch {
+    fixed = value.toFixed(2);
+  }
   // Reserve a sign column so the text width (and its centered position)
   // stays constant as the value crosses zero — otherwise the "-" appearing
   // and disappearing shifts the whole readout horizontally every time.
@@ -8846,19 +8867,26 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const unit = nodeGraphNumberReadoutUnitForSlot(slot);
   // No input: DSEG all-off ("!") placeholders — ghost segment plate, not "--" mono.
   // https://github.com/keshikan/DSEG#usage
-  const decimals = clampNodeSliderValue(Math.round(Number(settings.decimals) || 0), 0, 8);
+  const decimals = nodeGraphNumberReadoutSafeDecimals(settings.decimals);
   const valueText = hasSample
     ? nodeGraphNumberReadoutFormatValue(nodeGraphOscilloscopeLatestSample(item.buffer, 0), decimals)
     : (decimals > 0 ? ` !.${"!".repeat(decimals)}` : " !");
   const text = unit ? `${valueText} ${unit}` : valueText;
-  if (
-    canvas._nodeGraphNumberReadoutText === text &&
-    canvas._nodeGraphNumberReadoutColor === settings.color &&
-    canvas._nodeGraphNumberReadoutBrightness === settings.brightness &&
-    canvas._nodeGraphNumberReadoutFontReady === nodeGraphNumberReadoutDsegReady &&
-    canvas._nodeGraphNumberReadoutWidth === canvas.width &&
-    canvas._nodeGraphNumberReadoutHeight === canvas.height
-  ) {
+  const styleChanged =
+    canvas._nodeGraphNumberReadoutColor !== settings.color ||
+    canvas._nodeGraphNumberReadoutBrightness !== settings.brightness ||
+    canvas._nodeGraphNumberReadoutFontReady !== nodeGraphNumberReadoutDsegReady ||
+    canvas._nodeGraphNumberReadoutWidth !== canvas.width ||
+    canvas._nodeGraphNumberReadoutHeight !== canvas.height;
+  if (canvas._nodeGraphNumberReadoutText === text && !styleChanged) {
+    return;
+  }
+  // Live audio at high decimals can change every sample. Cap digit paints so
+  // fillText (DSEG is heavier than mono) cannot stall the whole rAF loop.
+  // Style / size / font-ready changes always paint immediately.
+  const now = performance.now?.() || Date.now();
+  const lastPaint = Number(canvas._nodeGraphNumberReadoutPaintAt) || 0;
+  if (!styleChanged && lastPaint > 0 && now - lastPaint < 33) {
     return;
   }
   canvas._nodeGraphNumberReadoutText = text;
@@ -8867,6 +8895,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   canvas._nodeGraphNumberReadoutFontReady = nodeGraphNumberReadoutDsegReady;
   canvas._nodeGraphNumberReadoutWidth = canvas.width;
   canvas._nodeGraphNumberReadoutHeight = canvas.height;
+  canvas._nodeGraphNumberReadoutPaintAt = now;
   context.clearRect(0, 0, canvas.width, canvas.height);
   const screenRect = item?.screenRect || rect;
   const left = (Number(rect.left) - Number(screenRect.left)) * pixelRatio;
@@ -8874,7 +8903,8 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const width = Math.max(1, Number(rect.width) || 1) * pixelRatio;
   const height = Math.max(1, Number(rect.height) || 1) * pixelRatio;
   const rgb = nodeGraphScopeRgbFloatsToCanvasRgb(nodeGraphScopeHexColorToRgb(settings.color));
-  const alpha = Math.max(0.15, clampNodeSliderValue(settings.brightness, 0, 2) / 2);
+  const bright = Number(settings.brightness);
+  const alpha = Math.max(0.15, (Number.isFinite(bright) ? Math.max(0, Math.min(2, bright)) : 0.92) / 2);
 
   context.save();
   // Dark LCD cavity so Classic ghost segments read as an unlit plate.
@@ -8886,7 +8916,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     : '"Consolas", "Courier New", monospace';
   const hasUnit = Boolean(unit);
   const labelHeight = hasUnit ? height * 0.22 : 0;
-  const digitAreaHeight = height - labelHeight;
+  const digitAreaHeight = Math.max(1, height - labelHeight);
   const widthChars = nodeGraphNumberReadoutDsegWidthChars(valueText);
   const digitFontSize = Math.max(
     1,
