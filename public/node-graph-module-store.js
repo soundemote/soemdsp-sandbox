@@ -838,9 +838,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   numberReadout: {
     category: "multimeter",
-    description: "Digital readout that draws the latest input value as formatted text. Redraws only when the displayed value changes.",
+    description: "Phosphor digital readout (DSEG7 Classic seven-segment) of the latest input value. Redraws only when the displayed value or style changes.",
     label: "Number Readout",
-    notes: ["numeric display", "digital readout", "text display", "latest value"],
+    notes: ["numeric display", "digital readout", "DSEG7 Classic", "seven-segment", "phosphor", "latest value"],
   },
   lineBurnOscilloscope: {
     category: "oscilloscope",

@@ -4,13 +4,11 @@
 // nodeGraphPatchTimingValue("tempoBpm") -- already synchronously available on
 // the main thread, so no worklet -> main-thread data relay is needed at all.
 //
-// Phosphor/LCD look: the numeric value is set in DSEG7 Classic (public/fonts/
-// DSEG7-Classic, SIL OFL 1.1 -- see that folder's LICENSE.txt), a seven-
-// segment digit font whose "Classic" cut draws faint unlit ghost segments
-// behind the lit ones, which is what actually reads as an LCD/LED panel
-// rather than plain bold text. DSEG7 has no proper glyph for letters like
-// "M", so the "BPM" unit label is drawn separately in plain monospace below
-// the digits -- the standard digital-clock layout (big digits, small unit).
+// Phosphor/LCD look: digits use DSEG7 Classic from keshikan/DSEG
+// (https://github.com/keshikan/DSEG, SIL OFL 1.1 — public/fonts/DSEG7-Classic).
+// Classic cut draws faint unlit ghost segments behind lit ones (LCD/LED plate,
+// not plain bold). DSEG has no proper letter glyphs for "BPM", so the unit is
+// monospace below the digits — standard digital-clock layout.
 
 // The font itself is registered via CSS (@font-face "DSEG7 Classic" in
 // public/styles.css) so any DOM text can use it too -- here we just need to

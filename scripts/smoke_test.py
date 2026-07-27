@@ -13259,6 +13259,14 @@ def require_node_graph_mvp_contract() -> None:
         "Number Readout should redraw only when the formatted value or its style changes, not per sample",
     )
     require(
+        'document.fonts.load(\'700 40px "DSEG7 Classic"\')' in node_graph_source
+        and '"DSEG7 Classic", "Consolas", monospace' in node_graph_source
+        and "nodeGraphNumberReadoutDsegWidthChars" in node_graph_source
+        and "https://github.com/keshikan/DSEG" in node_graph_source
+        and 'context.fillStyle = "#020608"' in node_graph_source,
+        "Number Readout should use DSEG7 Classic (keshikan/DSEG) phosphor digits with a dark LCD cavity",
+    )
+    require(
         "numberReadout: drawNodeGraphNumberReadoutItem," in node_graph_source,
         "Number Readout should have its own renderer dispatch entry",
     )

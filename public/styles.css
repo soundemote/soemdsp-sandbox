@@ -1,9 +1,9 @@
-/* DSEG7 Classic (keshikan, SIL OFL 1.1 -- see public/fonts/DSEG7-Classic/LICENSE.txt).
-   A seven-segment LCD/LED digit font: the Classic cut keeps faint "ghost"
-   unlit segments visible behind the lit ones, which is what gives it that
-   phosphor/LCD-panel look instead of reading as plain bold text. Digits and
-   a handful of symbols only -- pair with a system monospace fallback for
-   anything else. */
+/* DSEG7 Classic — keshikan/DSEG (https://github.com/keshikan/DSEG), SIL OFL 1.1
+   (see public/fonts/DSEG7-Classic/LICENSE.txt).
+   Seven-segment LCD/LED digit font. The Classic cut keeps faint "ghost"
+   unlit segments behind the lit ones (phosphor/LCD panel, not plain bold).
+   Usage notes from upstream: period is zero-width; "!" is all-off; colon and
+   space share advance width. Pair with monospace for non-digit unit labels. */
 @font-face {
   font-family: "DSEG7 Classic";
   src: url("./fonts/DSEG7-Classic/DSEG7Classic-Bold.woff2") format("woff2"),

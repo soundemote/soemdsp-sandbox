@@ -8748,11 +8748,22 @@ function drawNodeGraphValueOscilloscopeItem(renderer, item, pixelRatio) {
 }
 
 // Number Readout owns a dedicated canvas/state, separate from the burn
-// renderers' shared retained canvas. It draws the latest formatted value as
-// text and redraws only when the formatted string (or its style) changes —
-// deliberately not per-sample — so it stays cheap regardless of sample rate.
-// A future sample-bin/decay burn extension can layer on top of this same
-// canvas without needing to touch the 1D/2D burn compositor.
+// renderers' shared retained canvas. Phosphor LCD digits use DSEG7 Classic
+// (https://github.com/keshikan/DSEG — SIL OFL 1.1, public/fonts/DSEG7-Classic).
+// Digits redraw only when the formatted string (or style / font readiness)
+// changes — deliberately not per-sample — so it stays cheap at any rate.
+// Unit labels (e.g. Hz) stay in monospace: DSEG is segment digits/symbols.
+// A future sample-bin/decay burn extension can layer on this same canvas.
+//
+// Canvas fillText falls back until the @font-face is ready — load once and
+// flip ready so the next draw uses the real 7-seg face instead of Consolas.
+let nodeGraphNumberReadoutDsegReady = false;
+document.fonts.load('700 40px "DSEG7 Classic"').then(() => {
+  nodeGraphNumberReadoutDsegReady = document.fonts.check('700 40px "DSEG7 Classic"');
+}).catch(() => {
+  // Monospace stack below if the font fails to load.
+});
+
 function nodeGraphNumberReadoutCanvasForSlot(slot) {
   const screenElement = slot?.scopeElement;
   if (!screenElement) {
@@ -8791,7 +8802,14 @@ function nodeGraphNumberReadoutFormatValue(sample, decimals) {
   // Reserve a sign column so the text width (and its centered position)
   // stays constant as the value crosses zero — otherwise the "-" appearing
   // and disappearing shifts the whole readout horizontally every time.
+  // DSEG: space and colon share advance width (keshikan/DSEG usage notes).
   return fixed.startsWith("-") ? fixed : ` ${fixed}`;
+}
+
+// DSEG period has zero advance width — size digits from width-bearing glyphs only.
+// https://github.com/keshikan/DSEG#usage
+function nodeGraphNumberReadoutDsegWidthChars(text) {
+  return Math.max(1, String(text || "").replace(/\./g, "").length);
 }
 
 function nodeGraphNumberReadoutUnitForSlot(slot) {
@@ -8826,14 +8844,18 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const settings = nodeGraphNumberReadoutSettingsForNode(node);
   const hasSample = item?.buffer?.length > 0 && !item.buffer?.nodeGraphScopeXy;
   const unit = nodeGraphNumberReadoutUnitForSlot(slot);
+  // No input: DSEG all-off ("!") placeholders — ghost segment plate, not "--" mono.
+  // https://github.com/keshikan/DSEG#usage
+  const decimals = clampNodeSliderValue(Math.round(Number(settings.decimals) || 0), 0, 8);
   const valueText = hasSample
-    ? nodeGraphNumberReadoutFormatValue(nodeGraphOscilloscopeLatestSample(item.buffer, 0), settings.decimals)
-    : "--";
+    ? nodeGraphNumberReadoutFormatValue(nodeGraphOscilloscopeLatestSample(item.buffer, 0), decimals)
+    : (decimals > 0 ? ` !.${"!".repeat(decimals)}` : " !");
   const text = unit ? `${valueText} ${unit}` : valueText;
   if (
     canvas._nodeGraphNumberReadoutText === text &&
     canvas._nodeGraphNumberReadoutColor === settings.color &&
     canvas._nodeGraphNumberReadoutBrightness === settings.brightness &&
+    canvas._nodeGraphNumberReadoutFontReady === nodeGraphNumberReadoutDsegReady &&
     canvas._nodeGraphNumberReadoutWidth === canvas.width &&
     canvas._nodeGraphNumberReadoutHeight === canvas.height
   ) {
@@ -8842,6 +8864,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   canvas._nodeGraphNumberReadoutText = text;
   canvas._nodeGraphNumberReadoutColor = settings.color;
   canvas._nodeGraphNumberReadoutBrightness = settings.brightness;
+  canvas._nodeGraphNumberReadoutFontReady = nodeGraphNumberReadoutDsegReady;
   canvas._nodeGraphNumberReadoutWidth = canvas.width;
   canvas._nodeGraphNumberReadoutHeight = canvas.height;
   context.clearRect(0, 0, canvas.width, canvas.height);
@@ -8850,16 +8873,39 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const top = (Number(rect.top) - Number(screenRect.top)) * pixelRatio;
   const width = Math.max(1, Number(rect.width) || 1) * pixelRatio;
   const height = Math.max(1, Number(rect.height) || 1) * pixelRatio;
-  const charCount = Math.max(1, text.length);
-  const fontSize = Math.max(1, Math.min(height * 0.72, (width / charCount) * 1.7));
   const rgb = nodeGraphScopeRgbFloatsToCanvasRgb(nodeGraphScopeHexColorToRgb(settings.color));
-  const alpha = clampNodeSliderValue(settings.brightness, 0, 2) / 2;
+  const alpha = Math.max(0.15, clampNodeSliderValue(settings.brightness, 0, 2) / 2);
+
   context.save();
-  context.font = `${fontSize}px "Consolas", "Courier New", monospace`;
+  // Dark LCD cavity so Classic ghost segments read as an unlit plate.
+  context.fillStyle = "#020608";
+  context.fillRect(left, top, width, height);
+
+  const digitFontFamily = nodeGraphNumberReadoutDsegReady
+    ? '"DSEG7 Classic", "Consolas", monospace'
+    : '"Consolas", "Courier New", monospace';
+  const hasUnit = Boolean(unit);
+  const labelHeight = hasUnit ? height * 0.22 : 0;
+  const digitAreaHeight = height - labelHeight;
+  const widthChars = nodeGraphNumberReadoutDsegWidthChars(valueText);
+  const digitFontSize = Math.max(
+    1,
+    Math.min(digitAreaHeight * 0.82, (width / widthChars) * 1.55),
+  );
+
+  context.font = `700 ${digitFontSize}px ${digitFontFamily}`;
   context.textAlign = "center";
   context.textBaseline = "middle";
-  context.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${Math.max(0.15, alpha).toFixed(4)})`;
-  context.fillText(text, left + width * 0.5, top + height * 0.5, width);
+  context.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha.toFixed(4)})`;
+  context.fillText(valueText, left + width * 0.5, top + digitAreaHeight * 0.5, width);
+
+  if (hasUnit) {
+    // Unit outside DSEG (no proper letter glyphs for "Hz" etc.) — same layout as transport BPM.
+    const labelFontSize = Math.max(1, Math.min(labelHeight * 0.7, width * 0.14));
+    context.font = `${labelFontSize}px "Consolas", "Courier New", monospace`;
+    context.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${(alpha * 0.55).toFixed(4)})`;
+    context.fillText(unit, left + width * 0.5, top + digitAreaHeight + labelHeight * 0.5, width);
+  }
   context.restore();
 }
 
