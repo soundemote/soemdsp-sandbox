@@ -336,9 +336,10 @@ function nodeGraphGraphMeanderCurve(position, index = 0) {
   return normalizeNodeGraphGraphNumber(p + wobble, p, 0, 1);
 }
 
-function nodeGraphGraphBezierPointAt(nodes, position = 0) {
+// de Casteljau on an explicit control polygon (x,y).
+function nodeGraphGraphBezierPointAt(controls, position = 0) {
   const t = normalizeNodeGraphGraphNumber(position, 0, 0, 1);
-  let points = nodes.map((node) => ({
+  let points = controls.map((node) => ({
     x: normalizeNodeGraphGraphNumber(node.x, 0),
     y: normalizeNodeGraphGraphNumber(node.y, 0),
   }));
@@ -357,38 +358,91 @@ function nodeGraphGraphBezierPointAt(nodes, position = 0) {
   return points[0];
 }
 
-function nodeGraphGraphBezierValueAt(graph, xValue, tension = 1) {
+// Guide-point curve: ALWAYS starts at first node and ends at last node.
+// Interior nodes are GUIDES (the curve approaches them, does not have to
+// pass through them — no hard corners at interior dots).
+//
+// Tension 0 → pure start→end line (guides ignored).
+// Tension mid → soft meander, guides pull gently.
+// Tension 1 → strong pull toward the guide polygon (still C∞ Bezier, no kinks).
+// Scale can exceed 1 so "tight" can sit closer to the guides than textbook
+// Bezier-of-the-dots (which many people still find too gradual).
+function nodeGraphGraphGuideBezierControls(nodes, tension = 1) {
+  const count = nodes.length;
+  if (count < 2) {
+    return nodes.map((node) => ({ x: node.x, y: node.y }));
+  }
+  const u = normalizeNodeGraphGraphNumber(tension, 1, 0, 1);
+  if (u <= 1e-6) {
+    return [
+      { x: nodes[0].x, y: nodes[0].y },
+      { x: nodes[count - 1].x, y: nodes[count - 1].y },
+    ];
+  }
+  // 0 → nearly ignore guides; 1 → past full guide offset (tighter than plain Bezier).
+  const pull = 0.08 + 1.42 * (u ** 0.6);
+  const first = nodes[0];
+  const last = nodes[count - 1];
+  return nodes.map((node, index) => {
+    if (index === 0 || index === count - 1) {
+      return { x: node.x, y: node.y };
+    }
+    const s = index / (count - 1);
+    const chordX = first.x + (last.x - first.x) * s;
+    const chordY = first.y + (last.y - first.y) * s;
+    return {
+      x: chordX + (node.x - chordX) * pull,
+      y: chordY + (node.y - chordY) * pull,
+    };
+  });
+}
+
+function nodeGraphGraphGuideBezierValueAt(graph, xValue, tension = 1) {
   const x = normalizeNodeGraphGraphNumber(xValue, 0, -Infinity, Infinity);
-  if (graph.nodes.length < 2) {
-    return graph.nodes[0]?.y ?? 0;
+  const nodes = graph.nodes;
+  if (nodes.length < 2) {
+    return nodes[0]?.y ?? 0;
   }
-  if (x <= graph.nodes[0].x) {
-    return graph.nodes[0].y;
+  if (x <= nodes[0].x) {
+    return nodes[0].y;
   }
-  const last = graph.nodes[graph.nodes.length - 1];
+  const last = nodes[nodes.length - 1];
   if (x >= last.x) {
     return last.y;
   }
-  let low = 0;
-  let high = 1;
-  let point = nodeGraphGraphBezierPointAt(graph.nodes, x);
-  for (let iteration = 0; iteration < 28; iteration += 1) {
-    const t = (low + high) * 0.5;
-    point = nodeGraphGraphBezierPointAt(graph.nodes, t);
-    if (point.x < x) {
-      low = t;
-    } else {
-      high = t;
+  const controls = nodeGraphGraphGuideBezierControls(nodes, tension);
+  // Dense sample in t, then invert x→y. More reliable than binary search when
+  // x(t) is not strictly monotonic (common with aggressive interior guides).
+  const samples = 96;
+  let prev = nodeGraphGraphBezierPointAt(controls, 0);
+  for (let index = 1; index <= samples; index += 1) {
+    const point = nodeGraphGraphBezierPointAt(controls, index / samples);
+    const minX = Math.min(prev.x, point.x);
+    const maxX = Math.max(prev.x, point.x);
+    if (x >= minX && x <= maxX) {
+      const dx = point.x - prev.x;
+      const a = Math.abs(dx) < 1e-12 ? 0 : (x - prev.x) / dx;
+      return normalizeNodeGraphGraphNumber(prev.y + (point.y - prev.y) * a, 0, -Infinity, Infinity);
+    }
+    prev = point;
+  }
+  // Fallback: nearest sample in x.
+  let bestY = nodes[0].y;
+  let bestDist = Infinity;
+  for (let index = 0; index <= samples; index += 1) {
+    const point = nodeGraphGraphBezierPointAt(controls, index / samples);
+    const dist = Math.abs(point.x - x);
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestY = point.y;
     }
   }
-  const bezierValue = point.y;
-  if (tension >= 1) return normalizeNodeGraphGraphNumber(bezierValue, 0, -Infinity, Infinity);
-  const xRange = graph.nodes[graph.nodes.length - 1].x - graph.nodes[0].x;
-  if (Math.abs(xRange) < 0.000001) return graph.nodes[0].y;
-  const t = (x - graph.nodes[0].x) / xRange;
-  const linear = graph.nodes[0].y + (graph.nodes[graph.nodes.length - 1].y - graph.nodes[0].y) * t;
-  if (tension <= 0) return normalizeNodeGraphGraphNumber(linear, 0, -Infinity, Infinity);
-  return normalizeNodeGraphGraphNumber(linear + tension * (bezierValue - linear), 0, -Infinity, Infinity);
+  return normalizeNodeGraphGraphNumber(bestY, 0, -Infinity, Infinity);
+}
+
+// Back-compat names used around the codebase.
+function nodeGraphGraphBezierValueAt(graph, xValue, tension = 1) {
+  return nodeGraphGraphGuideBezierValueAt(graph, xValue, tension);
 }
 
 function nodeGraphGraphInterpolationWindowStart(nodes, x, degree) {
@@ -439,19 +493,48 @@ function nodeGraphGraphLagrangeValueAt(graph, xValue, degree = 3) {
   return value;
 }
 
-function nodeGraphGraphCatmullRomY(n0, n1, n2, n3, t) {
-  // Full Catmull-Rom: 4-point stencil, t in [0,1], passes through all points with overshoot
-  // Uses Hermite basis with natural endpoint tangents
-  const t2 = t * t;
-  const t3 = t2 * t;
-  const h00 = 2 * t3 - 3 * t2 + 1;
-  const h01 = -2 * t3 + 3 * t2;
-  const h10 = t3 - 2 * t2 + t;
-  const h11 = t3 - t2;
-  return h00 * n1 + 0.5 * h10 * (n2 - n0) + h01 * n2 + 0.5 * h11 * (n3 - n1);
+// Piecewise-linear through all control points (the dotted control polygon).
+function nodeGraphGraphPolylineValueAt(graph, xValue) {
+  const x = normalizeNodeGraphGraphNumber(xValue, 0, -Infinity, Infinity);
+  const nodes = graph.nodes;
+  if (!nodes.length) {
+    return 0;
+  }
+  if (nodes.length < 2 || x <= nodes[0].x) {
+    return nodes[0].y;
+  }
+  if (x >= nodes[nodes.length - 1].x) {
+    return nodes[nodes.length - 1].y;
+  }
+  for (let index = 0; index < nodes.length - 1; index += 1) {
+    if (x <= nodes[index + 1].x) {
+      const left = nodes[index];
+      const right = nodes[index + 1];
+      const dx = right.x - left.x;
+      if (Math.abs(dx) < 0.000001) {
+        return 0.5 * (left.y + right.y);
+      }
+      const t = (x - left.x) / dx;
+      return left.y + (right.y - left.y) * t;
+    }
+  }
+  return nodes[nodes.length - 1].y;
 }
 
-function nodeGraphGraphCatmullRomValueAt(graph, xValue, tension = 1) {
+// Cubic Hermite in segment parameter t ∈ [0,1].
+function nodeGraphGraphHermiteY(y1, y2, m1, m2, t) {
+  const t2 = t * t;
+  const t3 = t2 * t;
+  return (2 * t3 - 3 * t2 + 1) * y1
+    + (t3 - 2 * t2 + t) * m1
+    + (-2 * t3 + 3 * t2) * y2
+    + (t3 - t2) * m2;
+}
+
+// Cardinal / Catmull-Rom family that PASSES THROUGH every point.
+// Tangent scale s: 0.5 = classic Catmull-Rom; smaller = tighter (hugs chords);
+// larger = looser (more overshoot). Endpoints use reflected ghosts.
+function nodeGraphGraphCardinalValueAt(graph, xValue, tension = 1) {
   const x = normalizeNodeGraphGraphNumber(xValue, 0, -Infinity, Infinity);
   const nodes = graph.nodes;
   if (nodes.length < 2) {
@@ -468,34 +551,64 @@ function nodeGraphGraphCatmullRomValueAt(graph, xValue, tension = 1) {
   if (x >= nodes[nodes.length - 1].x) {
     return nodes[nodes.length - 1].y;
   }
-  // Compute full Catmull-Rom value
-  let crValue = 0;
-  for (let index = 0; index < nodes.length - 1; index += 1) {
-    if (x <= nodes[index + 1].x) {
-      const left = nodes[index];
-      const right = nodes[index + 1];
-      const dx = right.x - left.x;
-      if (Math.abs(dx) < 0.000001) {
-        crValue = 0.5 * (left.y + right.y);
-        break;
-      }
-      const t = (x - left.x) / dx;
-      const n0 = index <= 0 ? (2 * nodes[0].y - nodes[1].y) : nodes[index - 1].y;
-      const n1 = left.y;
-      const n2 = right.y;
-      const n3 = index >= nodes.length - 2 ? (2 * nodes[nodes.length - 1].y - nodes[nodes.length - 2].y) : nodes[index + 2].y;
-      crValue = normalizeNodeGraphGraphNumber(nodeGraphGraphCatmullRomY(n0, n1, n2, n3, t), 0, -Infinity, Infinity);
-      break;
-    }
+
+  // tension 0 → exact polyline (corners). tension 1 → loose through-points
+  // (slightly looser than textbook CR). Mid-range uses small tangent scale so
+  // you can get "almost linear but rounded" — which the old Bezier blend
+  // never could (global Bezier does not interpolate interior points, and
+  // tension blended against first→last line only).
+  const u = normalizeNodeGraphGraphNumber(tension, 1, 0, 1);
+  if (u <= 1e-6) {
+    return nodeGraphGraphPolylineValueAt(graph, x);
   }
-  // Blend with linear base: tension=0 = straight line, tension=1 = full CR
-  if (tension >= 1) return crValue;
-  const xRange = nodes[nodes.length - 1].x - nodes[0].x;
-  if (Math.abs(xRange) < 0.000001) return nodes[0].y;
-  const t = (x - nodes[0].x) / xRange;
-  const linear = nodes[0].y + (nodes[nodes.length - 1].y - nodes[0].y) * t;
-  if (tension <= 0) return normalizeNodeGraphGraphNumber(linear, 0, -Infinity, Infinity);
-  return normalizeNodeGraphGraphNumber(linear + tension * (crValue - linear), 0, -Infinity, Infinity);
+  // Power bias puts more of the dial in the "tight" region; s=0.5 is CR.
+  const s = 0.5 * (0.12 + 1.55 * (u ** 0.55));
+
+  const yAt = (i) => {
+    if (i < 0) {
+      return 2 * nodes[0].y - nodes[1].y;
+    }
+    if (i >= nodes.length) {
+      return 2 * nodes[nodes.length - 1].y - nodes[nodes.length - 2].y;
+    }
+    return nodes[i].y;
+  };
+  const xAt = (i) => {
+    if (i < 0) {
+      return 2 * nodes[0].x - nodes[1].x;
+    }
+    if (i >= nodes.length) {
+      return 2 * nodes[nodes.length - 1].x - nodes[nodes.length - 2].x;
+    }
+    return nodes[i].x;
+  };
+
+  for (let index = 0; index < nodes.length - 1; index += 1) {
+    if (x > nodes[index + 1].x) {
+      continue;
+    }
+    const x1 = nodes[index].x;
+    const x2 = nodes[index + 1].x;
+    const y1 = nodes[index].y;
+    const y2 = nodes[index + 1].y;
+    const dx = x2 - x1;
+    if (Math.abs(dx) < 0.000001) {
+      return 0.5 * (y1 + y2);
+    }
+    const t = (x - x1) / dx;
+    // Tangents in y-per-segment-t so non-uniform x spacing stays well-behaved.
+    const dxIn = xAt(index + 1) - xAt(index - 1);
+    const dxOut = xAt(index + 2) - xAt(index);
+    const m1 = Math.abs(dxIn) < 1e-9 ? 0 : s * (yAt(index + 1) - yAt(index - 1)) / dxIn * dx;
+    const m2 = Math.abs(dxOut) < 1e-9 ? 0 : s * (yAt(index + 2) - yAt(index)) / dxOut * dx;
+    return normalizeNodeGraphGraphNumber(nodeGraphGraphHermiteY(y1, y2, m1, m2, t), 0, -Infinity, Infinity);
+  }
+  return nodes[nodes.length - 1].y;
+}
+
+// Back-compat name: Catmull-Rom is the s=0.5 member of the Cardinal family.
+function nodeGraphGraphCatmullRomValueAt(graph, xValue, tension = 1) {
+  return nodeGraphGraphCardinalValueAt(graph, xValue, tension);
 }
 
 function nodeGraphGraphControlPolygonPath(graphValue) {
@@ -573,8 +686,14 @@ function nodeGraphGraphValueAt(graphValue, xValue, smoothingMode, tension = 1) {
     }
     return graph.nodes[graph.nodes.length - 1].y;
   }
-  if (normalizedMode === "bezier") {
-    return nodeGraphGraphBezierValueAt(graph, x, tension);
+  // Smooth / Bezier / Catmull Rom: guide-point curve (start+end on-curve only;
+  // interior dots are handles). Tension 0 = line, 1 = tight to guides, always smooth.
+  if (
+    normalizedMode === "bezier" ||
+    normalizedMode === "smooth" ||
+    normalizedMode === "catmullRom"
+  ) {
+    return nodeGraphGraphGuideBezierValueAt(graph, x, tension);
   }
   if (x < graph.nodes[0].x) {
     return graph.nodes[0].y;
@@ -582,14 +701,12 @@ function nodeGraphGraphValueAt(graphValue, xValue, smoothingMode, tension = 1) {
   if (x > graph.nodes[graph.nodes.length - 1].x) {
     return graph.nodes[graph.nodes.length - 1].y;
   }
+  // Quadratic / Cubic: still true interpolating Lagrange (through all points).
   if (normalizedMode === "quadratic") {
     return normalizeNodeGraphGraphNumber(nodeGraphGraphLagrangeValueAt(graph, x, 2), 0, -Infinity, Infinity);
   }
   if (normalizedMode === "cubic") {
     return normalizeNodeGraphGraphNumber(nodeGraphGraphLagrangeValueAt(graph, x, 3), 0, -Infinity, Infinity);
-  }
-  if (normalizedMode === "catmullRom") {
-    return nodeGraphGraphCatmullRomValueAt(graph, x, tension);
   }
   for (let index = 0; index < graph.nodes.length - 1; index += 1) {
     if (x <= graph.nodes[index + 1].x) {
@@ -774,14 +891,7 @@ function renderNodeGraphGraphDisplay(element, graphValue, selectedIndex = null, 
     class: "node-module-graph-curve",
     d: nodeGraphGraphCurvePath(graph, 96, smoothingMode, options.tension ?? 1),
   }));
-  // Badge: global mode for Graph, "seg" for Graph_Copy per-node shapes.
-  const modeLabel = createNodeGraphGraphSvgElement("text", {
-    class: "node-module-graph-shape-badge",
-    x: "10",
-    y: "14",
-  });
-  modeLabel.textContent = smoothingMode === "legacy" ? "seg" : smoothingMode.slice(0, 3);
-  svg.append(modeLabel);
+  // Minimal face: no mode badge ("bez"/etc.) — only curve + dots.
   const hitRadii = nodeGraphGraphScreenRoundRadii(element, 5.4);
   const nodeRadii = nodeGraphGraphScreenRoundRadii(element, 1.5);
   graph.nodes.forEach((node, index) => {

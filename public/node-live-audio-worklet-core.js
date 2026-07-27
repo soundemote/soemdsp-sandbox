@@ -3587,9 +3587,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return this.graphSmoothCurve(position);
   }
 
-  graphBezierPointAt(nodes, position = 0) {
+  graphBezierPointAt(controls, position = 0) {
     const t = this.normalizeGraphNumber(position, 0, 0, 1);
-    let points = nodes.map((node) => ({
+    let points = controls.map((node) => ({
       x: this.normalizeGraphNumber(node.x, 0),
       y: this.normalizeGraphNumber(node.y, 0),
     }));
@@ -3608,38 +3608,116 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return points[0];
   }
 
-  graphBezierValueAt(graph, xValue, tension = 1) {
+  // Guide-point Bezier: start+end on-curve only; interior nodes are handles.
+  // Tension 0 = line, 1 = tight pull toward guides (no hard corners).
+  // Mirrors offline nodeGraphGraphGuideBezierValueAt.
+  graphGuideBezierControls(nodes, tension = 1) {
+    const count = nodes.length;
+    if (count < 2) {
+      return nodes.map((node) => ({ x: node.x, y: node.y }));
+    }
+    const u = this.normalizeGraphNumber(tension, 1, 0, 1);
+    if (u <= 1e-6) {
+      return [
+        { x: nodes[0].x, y: nodes[0].y },
+        { x: nodes[count - 1].x, y: nodes[count - 1].y },
+      ];
+    }
+    const pull = 0.08 + 1.42 * (u ** 0.6);
+    const first = nodes[0];
+    const last = nodes[count - 1];
+    return nodes.map((node, index) => {
+      if (index === 0 || index === count - 1) {
+        return { x: node.x, y: node.y };
+      }
+      const s = index / (count - 1);
+      const chordX = first.x + (last.x - first.x) * s;
+      const chordY = first.y + (last.y - first.y) * s;
+      return {
+        x: chordX + (node.x - chordX) * pull,
+        y: chordY + (node.y - chordY) * pull,
+      };
+    });
+  }
+
+  graphGuideBezierValueAt(graph, xValue, tension = 1) {
     const x = this.normalizeGraphNumber(xValue, 0, -Infinity, Infinity);
-    if (graph.nodes.length < 2) {
-      return graph.nodes[0]?.y ?? 0;
+    const nodes = graph.nodes;
+    if (nodes.length < 2) {
+      return nodes[0]?.y ?? 0;
     }
-    if (x <= graph.nodes[0].x) {
-      return graph.nodes[0].y;
+    if (x <= nodes[0].x) {
+      return nodes[0].y;
     }
-    const last = graph.nodes[graph.nodes.length - 1];
+    const last = nodes[nodes.length - 1];
     if (x >= last.x) {
       return last.y;
     }
-    let low = 0;
-    let high = 1;
-    let point = this.graphBezierPointAt(graph.nodes, x);
-    for (let iteration = 0; iteration < 28; iteration += 1) {
-      const t = (low + high) * 0.5;
-      point = this.graphBezierPointAt(graph.nodes, t);
-      if (point.x < x) {
-        low = t;
-      } else {
-        high = t;
+    const controls = this.graphGuideBezierControls(nodes, tension);
+    const samples = 96;
+    let prev = this.graphBezierPointAt(controls, 0);
+    for (let index = 1; index <= samples; index += 1) {
+      const point = this.graphBezierPointAt(controls, index / samples);
+      const minX = Math.min(prev.x, point.x);
+      const maxX = Math.max(prev.x, point.x);
+      if (x >= minX && x <= maxX) {
+        const dx = point.x - prev.x;
+        const a = Math.abs(dx) < 1e-12 ? 0 : (x - prev.x) / dx;
+        return this.safeFilterNumber(prev.y + (point.y - prev.y) * a, null);
+      }
+      prev = point;
+    }
+    let bestY = nodes[0].y;
+    let bestDist = Infinity;
+    for (let index = 0; index <= samples; index += 1) {
+      const point = this.graphBezierPointAt(controls, index / samples);
+      const dist = Math.abs(point.x - x);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestY = point.y;
       }
     }
-    const bezierValue = point.y;
-    if (tension >= 1) return this.safeFilterNumber(bezierValue, null);
-    const xRange = graph.nodes[graph.nodes.length - 1].x - graph.nodes[0].x;
-    if (Math.abs(xRange) < 0.000001) return graph.nodes[0].y;
-    const t = (x - graph.nodes[0].x) / xRange;
-    const linear = graph.nodes[0].y + (graph.nodes[graph.nodes.length - 1].y - graph.nodes[0].y) * t;
-    if (tension <= 0) return this.safeFilterNumber(linear, null);
-    return this.safeFilterNumber(linear + tension * (bezierValue - linear), null);
+    return this.safeFilterNumber(bestY, null);
+  }
+
+  graphBezierValueAt(graph, xValue, tension = 1) {
+    return this.graphGuideBezierValueAt(graph, xValue, tension);
+  }
+
+  graphPolylineValueAt(graph, xValue) {
+    const x = this.normalizeGraphNumber(xValue, 0, -Infinity, Infinity);
+    const nodes = graph.nodes;
+    if (!nodes.length) {
+      return 0;
+    }
+    if (nodes.length < 2 || x <= nodes[0].x) {
+      return nodes[0].y;
+    }
+    if (x >= nodes[nodes.length - 1].x) {
+      return nodes[nodes.length - 1].y;
+    }
+    for (let index = 0; index < nodes.length - 1; index += 1) {
+      if (x <= nodes[index + 1].x) {
+        const left = nodes[index];
+        const right = nodes[index + 1];
+        const dx = right.x - left.x;
+        if (Math.abs(dx) < 0.000001) {
+          return 0.5 * (left.y + right.y);
+        }
+        const t = (x - left.x) / dx;
+        return left.y + (right.y - left.y) * t;
+      }
+    }
+    return nodes[nodes.length - 1].y;
+  }
+
+  graphHermiteY(y1, y2, m1, m2, t) {
+    const t2 = t * t;
+    const t3 = t2 * t;
+    return (2 * t3 - 3 * t2 + 1) * y1
+      + (t3 - 2 * t2 + t) * m1
+      + (-2 * t3 + 3 * t2) * y2
+      + (t3 - t2) * m2;
   }
 
   graphInterpolationWindowStart(nodes, x, degree) {
@@ -3690,17 +3768,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return value;
   }
 
-  graphCatmullRomY(n0, n1, n2, n3, t) {
-    const t2 = t * t;
-    const t3 = t2 * t;
-    const h00 = 2 * t3 - 3 * t2 + 1;
-    const h01 = -2 * t3 + 3 * t2;
-    const h10 = t3 - 2 * t2 + t;
-    const h11 = t3 - t2;
-    return h00 * n1 + 0.5 * h10 * (n2 - n0) + h01 * n2 + 0.5 * h11 * (n3 - n1);
-  }
-
-  graphCatmullRomValueAt(graph, xValue, tension = 1) {
+  // Cardinal through-points: tension 0 = polyline, mid = tight rounded, 1 = loose.
+  // Matches offline nodeGraphGraphCardinalValueAt (see graph-utils).
+  graphCardinalValueAt(graph, xValue, tension = 1) {
     const x = this.normalizeGraphNumber(xValue, 0, -Infinity, Infinity);
     const nodes = graph.nodes;
     if (nodes.length < 2) {
@@ -3717,34 +3787,53 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     if (x >= nodes[nodes.length - 1].x) {
       return nodes[nodes.length - 1].y;
     }
-    // Compute full Catmull-Rom value
-    let crValue = 0;
-    for (let index = 0; index < nodes.length - 1; index += 1) {
-      if (x <= nodes[index + 1].x) {
-        const left = nodes[index];
-        const right = nodes[index + 1];
-        const dx = right.x - left.x;
-        if (Math.abs(dx) < 0.000001) {
-          crValue = 0.5 * (left.y + right.y);
-          break;
-        }
-        const t = (x - left.x) / dx;
-        const n0 = index <= 0 ? (2 * nodes[0].y - nodes[1].y) : nodes[index - 1].y;
-        const n1 = left.y;
-        const n2 = right.y;
-        const n3 = index >= nodes.length - 2 ? (2 * nodes[nodes.length - 1].y - nodes[nodes.length - 2].y) : nodes[index + 2].y;
-        crValue = this.safeFilterNumber(this.graphCatmullRomY(n0, n1, n2, n3, t), null);
-        break;
-      }
+    const u = this.normalizeGraphNumber(tension, 1, 0, 1);
+    if (u <= 1e-6) {
+      return this.graphPolylineValueAt(graph, x);
     }
-    // Blend with linear base: tension=0 = straight line, tension=1 = full CR
-    if (tension >= 1) return crValue;
-    const xRange = nodes[nodes.length - 1].x - nodes[0].x;
-    if (Math.abs(xRange) < 0.000001) return nodes[0].y;
-    const t = (x - nodes[0].x) / xRange;
-    const linear = nodes[0].y + (nodes[nodes.length - 1].y - nodes[0].y) * t;
-    if (tension <= 0) return this.safeFilterNumber(linear, null);
-    return this.safeFilterNumber(linear + tension * (crValue - linear), null);
+    const s = 0.5 * (0.12 + 1.55 * (u ** 0.55));
+    const yAt = (i) => {
+      if (i < 0) {
+        return 2 * nodes[0].y - nodes[1].y;
+      }
+      if (i >= nodes.length) {
+        return 2 * nodes[nodes.length - 1].y - nodes[nodes.length - 2].y;
+      }
+      return nodes[i].y;
+    };
+    const xAt = (i) => {
+      if (i < 0) {
+        return 2 * nodes[0].x - nodes[1].x;
+      }
+      if (i >= nodes.length) {
+        return 2 * nodes[nodes.length - 1].x - nodes[nodes.length - 2].x;
+      }
+      return nodes[i].x;
+    };
+    for (let index = 0; index < nodes.length - 1; index += 1) {
+      if (x > nodes[index + 1].x) {
+        continue;
+      }
+      const x1 = nodes[index].x;
+      const x2 = nodes[index + 1].x;
+      const y1 = nodes[index].y;
+      const y2 = nodes[index + 1].y;
+      const dx = x2 - x1;
+      if (Math.abs(dx) < 0.000001) {
+        return 0.5 * (y1 + y2);
+      }
+      const t = (x - x1) / dx;
+      const dxIn = xAt(index + 1) - xAt(index - 1);
+      const dxOut = xAt(index + 2) - xAt(index);
+      const m1 = Math.abs(dxIn) < 1e-9 ? 0 : s * (yAt(index + 1) - yAt(index - 1)) / dxIn * dx;
+      const m2 = Math.abs(dxOut) < 1e-9 ? 0 : s * (yAt(index + 2) - yAt(index)) / dxOut * dx;
+      return this.safeFilterNumber(this.graphHermiteY(y1, y2, m1, m2, t), null);
+    }
+    return nodes[nodes.length - 1].y;
+  }
+
+  graphCatmullRomValueAt(graph, xValue, tension = 1) {
+    return this.graphCardinalValueAt(graph, xValue, tension);
   }
 
   graphSmoothingModeForNode(node) {
@@ -3787,8 +3876,12 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       return 0;
     }
     const normalizedMode = this.normalizeGraph2SmoothingMode(smoothingMode);
-    if (normalizedMode === "bezier") {
-      return this.graphBezierValueAt(graph, x, tension);
+    if (
+      normalizedMode === "bezier" ||
+      normalizedMode === "smooth" ||
+      normalizedMode === "catmullRom"
+    ) {
+      return this.graphGuideBezierValueAt(graph, x, tension);
     }
     if (x < graph.nodes[0].x) {
       return graph.nodes[0].y;
@@ -3801,9 +3894,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
     if (normalizedMode === "cubic") {
       return this.safeFilterNumber(this.graphLagrangeValueAt(graph, x, 3), null);
-    }
-    if (normalizedMode === "catmullRom") {
-      return this.graphCatmullRomValueAt(graph, x, tension);
     }
     for (let index = 0; index < graph.nodes.length - 1; index += 1) {
       if (x <= graph.nodes[index + 1].x) {

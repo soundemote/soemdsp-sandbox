@@ -10791,19 +10791,15 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   transition: opacity 100ms ease;
 }
 
+/* Hover: all dots faint; selected/dragged stay full alpha. No extra ring/stroke. */
 .node-module-graph-display:hover .node-module-graph-node:not(.selected) {
   opacity: 0.35;
 }
 
+.node-module-graph-node.selected,
 .node-module-graph-display:hover .node-module-graph-node.selected,
 .node-module-graph-display.dragging .node-module-graph-node {
   opacity: 1;
-}
-
-.node-module-graph-node.selected {
-  fill: rgba(255, 241, 169, 1);
-  stroke: rgba(92, 232, 212, 0.95);
-  stroke-width: 1;
 }
 
 .node-module-graph-node-hit {
@@ -10812,15 +10808,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   stroke-width: 0;
   pointer-events: all;
   touch-action: none;
-}
-
-.node-module-graph-node-hit.selected {
-  stroke: rgba(255, 241, 169, 0.22);
-  stroke-width: 0.8;
-}
-
-.node-module-graph-display.dragging .node-module-graph-node {
-  fill: rgba(255, 247, 198, 1);
 }
 
 .dsp-node-graph-input-section {

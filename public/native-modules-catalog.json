@@ -51,7 +51,7 @@
     },
     {
       "name": "basic_oscillator",
-      "label": "Basic Oscillator",
+      "label": "LFO",
       "targetType": "osc",
       "kind": "oscillator",
       "source": "native_modules/basic_oscillator/basic_oscillator.cpp",
