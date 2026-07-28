@@ -8862,22 +8862,25 @@ function syncNodeGraphNumberReadoutCanvas(canvas, screenElement, pixelRatio) {
   if (!canvas || !screenElement) {
     return false;
   }
+  // Same contract as syncNodeGraphModuleScopeLocalFallbackCanvas (transport BPM):
+  // buffer = getBoundingClientRect() * backing pixelRatio. Under workspace zoom the
+  // rect is already screen-sized; CSS width/height:100% fills the face and rides
+  // the zoom transform. Do NOT set style.width from the rect — that is layout-
+  // space vs screen-space and breaks zoom (transport never does this).
   const rect = screenElement.getBoundingClientRect();
-  const cssW = Math.max(1, rect.width);
-  const cssH = Math.max(1, rect.height);
-  const dpr = Math.max(1, Number(pixelRatio) || 1);
-  // Integer buffer sized from CSS box * dpr — same ratio as the face so CSS
-  // width/height:100% cannot non-uniformly stretch the bitmap.
-  const width = Math.max(1, Math.round(cssW * dpr));
-  const height = Math.max(1, Math.round(cssH * dpr));
+  const width = Math.max(1, Math.round(rect.width * Math.max(0.25, Number(pixelRatio) || 1)));
+  const height = Math.max(1, Math.round(rect.height * Math.max(0.25, Number(pixelRatio) || 1)));
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
     canvas.height = height;
-    // Drop phosphor residual when the face resizes.
+    // Drop phosphor residual when the face resizes (including zoom changes).
     canvas._numberReadoutPhosphor = null;
   }
-  canvas.style.width = `${cssW}px`;
-  canvas.style.height = `${cssH}px`;
+  // Clear any previous zoom-breaking inline size so CSS 100%/100% owns layout.
+  if (canvas.style.width || canvas.style.height) {
+    canvas.style.width = "";
+    canvas.style.height = "";
+  }
   return true;
 }
 
@@ -9151,11 +9154,12 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     return;
   }
 
-  const screenRect = item?.screenRect || rect;
-  const left = (Number(rect.left) - Number(screenRect.left)) * pixelRatio;
-  const top = (Number(rect.top) - Number(screenRect.top)) * pixelRatio;
-  const width = Math.max(1, Number(rect.width) || 1) * pixelRatio;
-  const height = Math.max(1, Number(rect.height) || 1) * pixelRatio;
+  // Draw in full canvas buffer pixels (like transport BPM). Canvas is sized
+  // from the face's getBoundingClientRect * pixelRatio, so it tracks zoom.
+  const left = 0;
+  const top = 0;
+  const width = canvas.width;
+  const height = canvas.height;
   const rgb = nodeGraphScopeRgbFloatsToCanvasRgb(nodeGraphScopeHexColorToRgb(settings.color));
   const bg = normalizeNodeGraphTraceDisplayColor(settings.background, "#020608");
   const bright = Number(settings.brightness);

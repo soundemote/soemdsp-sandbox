@@ -10431,7 +10431,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-graph-workspace.pixelated-canvas-zoom .node-filter-curve-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-phosphor-waveform-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-phosphillator-draw-canvas,
-.node-graph-workspace.pixelated-canvas-zoom .node-module-scope-local-fallback-canvas {
+.node-graph-workspace.pixelated-canvas-zoom .node-module-scope-local-fallback-canvas,
+.node-graph-workspace.pixelated-canvas-zoom .node-number-readout-canvas {
   image-rendering: pixelated;
 }
 
