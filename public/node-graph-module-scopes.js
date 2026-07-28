@@ -10494,14 +10494,17 @@ function decayNodeGraphScope2dBurn(renderer, settings) {
 function nodeGraphScope2dBurnLayers(settings, dotSpace) {
   const layers = [];
   if (settings?.dot1Enabled !== false) {
+    // radius: size 1 → half of min side → diameter fills the face (PhosphorLight/scope2d contract).
+    const size01 = clampNodeSliderValue(settings.dot1Size, 0, 1);
     layers.push({
       blur: clampNodeSliderValue(settings.lineThickness, 0, 1),
       brightness: Math.max(0, Number(settings.dot1Brightness) || 0),
       color: nodeGraphScopeHexColorToRgb(settings.dot1Color),
-      radius: dotSpace * clampNodeSliderValue(settings.dot1Size, 0, 1) * 0.5,
+      radius: Math.max(0.35, (Number(dotSpace) || 1) * size01 * 0.5),
     });
   }
-  return layers.filter((layer) => layer.radius > 0.25 && layer.brightness > 0);
+  // Allow very fine beams; only drop when brightness is zero.
+  return layers.filter((layer) => layer.brightness > 0 && layer.radius > 0);
 }
 
 function appendNodeGraphScope2dBurnSegment(vertices, from, to) {
@@ -10614,7 +10617,13 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
   }
   const canvas = nodeGraphScope2dBurnCanvasForSlot(item?.slot);
   const screenElement = item?.screenElement || item?.slot?.scopeElement;
-  const sync = syncNodeGraphScope2dBurnCanvas(canvas, screenElement, pixelRatio);
+  const density = Number(settings?.pixelDensity);
+  const sync = syncNodeGraphScope2dBurnCanvas(
+    canvas,
+    screenElement,
+    pixelRatio,
+    Number.isFinite(density) ? density : 1,
+  );
   if (!sync.synced || !canvas) {
     return false;
   }
@@ -10666,14 +10675,16 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
   const paused = nodeGraphModuleScopePaused();
   if (!paused && layer) {
     // Same gain shape as classic RGB beam layer (beauty preserved in deposit).
+    // Mild size compensation so large dots don't hard-clip to white.
+    const size01 = clampNodeSliderValue(settings?.dot1Size, 0, 1);
     const beamBrightness = Math.max(
       0,
-      layer.brightness * (0.012 + burn * 0.052),
+      layer.brightness * (0.012 + burn * 0.052) * (1.12 - size01 * 0.45),
     );
     nodeGraphPhosphorEnergyGlStepBeams(energyGl, {
       decay,
       pathPoints: points,
-      radius: Math.max(0.5, layer.radius),
+      radius: Math.max(0.35, layer.radius),
       brightness: beamBrightness,
       blur: clampNodeSliderValue(layer.blur, 0, 1),
     });
@@ -10694,7 +10705,8 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
   if (nodeGraphPhosphorEnergyGlPresent(energyGl, 1, { exposure })) {
     context.save();
     context.globalCompositeOperation = "lighter";
-    context.imageSmoothingEnabled = true;
+    // Smooth when density ≥ 1 (supersample AA); nearest when intentionally chunky.
+    context.imageSmoothingEnabled = (sync.density || 1) >= 0.999;
     context.drawImage(energyGl.canvas, 0, 0, width, height);
     context.restore();
   }
@@ -10704,7 +10716,13 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
 function drawNodeGraphScope2dRetainedBurn(item, pixelRatio, square, buffer, settings) {
   const canvas = nodeGraphScope2dBurnCanvasForSlot(item?.slot);
   const screenElement = item?.screenElement || item?.slot?.scopeElement;
-  const sync = syncNodeGraphScope2dBurnCanvas(canvas, screenElement, pixelRatio);
+  const density = Number(settings?.pixelDensity);
+  const sync = syncNodeGraphScope2dBurnCanvas(
+    canvas,
+    screenElement,
+    pixelRatio,
+    Number.isFinite(density) ? density : 1,
+  );
   if (!sync.synced) {
     return;
   }
@@ -10718,9 +10736,22 @@ function drawNodeGraphScope2dRetainedBurn(item, pixelRatio, square, buffer, sett
   }
   // Frame cursor lives on the face canvas (energy path + bridge helpers).
   const count = Math.min(buffer?.x?.length || 0, buffer?.y?.length || 0);
-  const drawStartIndex = nodeGraphScope2dDrawStartIndex(canvas, buffer, count);
+  // Incremental start, then clamp to newest window so high-speed Lorenz never
+  // queues unbounded work when the UI lags (prettyscope-efficient rule).
+  const rawStart = nodeGraphScope2dDrawStartIndex(canvas, buffer, count);
+  const drawStartIndex = nodeGraphScope2dClampDrawStartIndex(
+    rawStart,
+    count,
+    nodeGraphScope2dMaxSamplesPerFrame(canvas),
+  );
+  // interpolate: false — each sample pair is ONE soft GPU beam segment
+  // (prettyscope/woscope). Pixel-step interpolation exploded segment count
+  // on long jumps / high frequency and dropped FPS to ~0.
   let pathPoints = drawStartIndex < count
-    ? buildNodeGraphScope2dPathPoints(canvasSquare, buffer, drawStartIndex, { interpolate: true, settings })
+    ? buildNodeGraphScope2dPathPoints(canvasSquare, buffer, drawStartIndex, {
+      interpolate: false,
+      settings,
+    })
     : [];
   pathPoints = bridgeNodeGraphScope2dAdjacentFramePath(
     canvas,
@@ -10742,7 +10773,13 @@ function drawNodeGraphRetainedBurnPath(item, pixelRatio, pathPoints, settings, o
   // Legacy RGB retained burn (fallback if energy GL unavailable).
   const canvas = nodeGraphScope2dBurnCanvasForSlot(item?.slot);
   const screenElement = item?.screenElement || item?.slot?.scopeElement;
-  const sync = syncNodeGraphScope2dBurnCanvas(canvas, screenElement, pixelRatio);
+  const density = Number(settings?.pixelDensity);
+  const sync = syncNodeGraphScope2dBurnCanvas(
+    canvas,
+    screenElement,
+    pixelRatio,
+    Number.isFinite(density) ? density : 1,
+  );
   if (!sync.synced) {
     return;
   }
@@ -11364,11 +11401,38 @@ function bridgeNodeGraphScope2dAdjacentFramePath(canvas, pathPoints, maxDistance
   if (!previousPoint || !firstPoint || nodeGraphScope2dPointDistance(previousPoint, firstPoint) > maxDistancePx) {
     return pathPoints;
   }
-  const bridgePoints = [previousPoint];
-  appendNodeGraphScope2dInterpolatedPoint(bridgePoints, firstPoint, spacingPx);
-  return bridgePoints.length > 1
-    ? [...bridgePoints, ...pathPoints]
-    : pathPoints;
+  // One bridge vertex only — soft GPU beam segments already fill the gap
+  // (prettyscope/woscope style). Dense CPU interpolation here multiplies
+  // segment count and tanks FPS at high speed without improving softness.
+  void spacingPx;
+  return [previousPoint, ...pathPoints];
+}
+
+/**
+ * Hard cap samples drawn per visual frame for retained 2D burn.
+ * Prettyscope draws one beam quad per consecutive sample pair; cost is O(N).
+ * When Lorenz runs faster than the UI, never replay the backlog — always take
+ * the newest N samples so FPS stays stable (classic efficient-scope rule).
+ */
+function nodeGraphScope2dMaxSamplesPerFrame(canvas) {
+  // ~2k segments is plenty of density on a face; GPU handles it easily.
+  // Scale a bit with buffer size so dense faces can use more, still bounded.
+  const area = Math.max(1, (canvas?.width || 1) * (canvas?.height || 1));
+  return Math.max(512, Math.min(3072, Math.floor(Math.sqrt(area) * 4)));
+}
+
+/**
+ * If more samples arrived than we can afford this frame, skip the middle and
+ * start from the newest window so we never fall into a catch-up death spiral.
+ */
+function nodeGraphScope2dClampDrawStartIndex(startIndex, count, maxSamples) {
+  const safeCount = Math.max(0, Math.floor(Number(count) || 0));
+  const safeStart = Math.max(0, Math.min(safeCount, Math.floor(Number(startIndex) || 0)));
+  const cap = Math.max(64, Math.floor(Number(maxSamples) || 2048));
+  if (safeCount - safeStart <= cap) {
+    return safeStart;
+  }
+  return Math.max(0, safeCount - cap);
 }
 
 function nodeGraphScope2dCanvasSettingsSignature(settings) {

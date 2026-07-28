@@ -13895,7 +13895,9 @@ def require_node_graph_mvp_contract() -> None:
         and "clientWidth || screenElement.offsetWidth" in node_graph_source
         and "function nodeGraphScope2dBurnCanvasSquare(canvas)" in scope2d_helper_source
         and "const canvasSquare = nodeGraphScope2dBurnCanvasSquare(canvas);" in scope2d_burn_source
-        and "buildNodeGraphScope2dPathPoints(canvasSquare, buffer, drawStartIndex, { interpolate: true, settings })" in scope2d_burn_source
+        and "interpolate: false" in scope2d_burn_source
+        and "nodeGraphScope2dClampDrawStartIndex" in scope2d_burn_source
+        and "nodeGraphScope2dMaxSamplesPerFrame" in scope2d_burn_source
         and "pathPoints = bridgeNodeGraphScope2dAdjacentFramePath(" in scope2d_burn_source
         and "nodeGraphScope2dInterpolationSpacingPx(settings, Math.min(canvasSquare.width, canvasSquare.height))" in scope2d_burn_source
         and "drawNodeGraphRetainedBurnPath(item, pixelRatio, pathPoints, settings" in scope2d_burn_source
