@@ -18,7 +18,7 @@ const nodeGraphPhosphorLightSettingsDefaults = Object.freeze({
   scale: 1,
   // Beam radius (softness), not a hard stroke width.
   lineThickness: 0.14,
-  // 1 = full layout×dpr grid; lower = chunkier fixed grid (cheaper burn).
+  // 0 = 1px grid, 1 = layout×dpr, 2 = 2× supersample (cheap AA when CSS scales down).
   pixelDensity: 1,
 });
 
@@ -35,6 +35,11 @@ function normalizeNodeGraphPhosphorLightSettings(settings = {}) {
     if (!Number.isFinite(n)) return fallback;
     return Math.max(0, n);
   };
+  const clampDensity = (value, fallback) => {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.max(0, Math.min(2, n));
+  };
   const color = typeof normalizeNodeGraphTraceDisplayColor === "function"
     ? normalizeNodeGraphTraceDisplayColor
     : (value, fallback) => {
@@ -49,8 +54,7 @@ function normalizeNodeGraphPhosphorLightSettings(settings = {}) {
     decay: clamp01(source.decay, defaults.decay),
     scale: clampPos(source.scale, defaults.scale),
     lineThickness: clamp01(source.lineThickness ?? source.dot1Size, defaults.lineThickness),
-    // Keep a floor so the face never collapses to a 1×1 stamp.
-    pixelDensity: Math.max(0.05, clamp01(source.pixelDensity, defaults.pixelDensity)),
+    pixelDensity: clampDensity(source.pixelDensity, defaults.pixelDensity),
   };
 }
 
@@ -77,21 +81,21 @@ function nodeGraphPhosphorLightFaceCanvas(slot) {
 }
 
 /**
- * pixelDensity 0.05–1 scales the fixed layout grid (not workspace zoom).
- * 1 = full clientWidth×dpr; 0.25 = quarter linear resolution (16× fewer pixels).
+ * pixelDensity 0–2 scales the fixed layout grid (not workspace zoom).
+ * 0 → 1×1 floor, 1 → full clientWidth×dpr, 2 → 2× supersample (AA when shown).
  */
 function nodeGraphPhosphorLightApplyPixelDensity(size, pixelDensity) {
   if (!size) {
     return null;
   }
-  const density = Math.max(0.05, Math.min(1, Number(pixelDensity) || 1));
+  const density = Math.max(0, Math.min(2, Number(pixelDensity) || 1));
   const width = Math.max(1, Math.round(size.width * density));
   const height = Math.max(1, Math.round(size.height * density));
   return {
     ...size,
     density,
     height,
-    pixelRatio: (Number(size.pixelRatio) || 1) * density,
+    pixelRatio: (Number(size.pixelRatio) || 1) * Math.max(density, 1e-6),
     width,
   };
 }
@@ -136,7 +140,7 @@ function syncNodeGraphPhosphorLightFaceCanvas(canvas, screenElement, pixelRatio,
     // Keep _phosphorLightLastSample so we only deposit new buffer samples
     // after a true face resize (re-stamping the whole tail would flash).
   }
-  // Always nearest-neighbor when density is reduced; otherwise leave CSS zoom rule.
+  // Below 1: chunky upscale. At/above 1: let the browser smooth (2× = AA).
   if (density < 0.999) {
     canvas.style.imageRendering = "pixelated";
   } else if (canvas.style.imageRendering) {
@@ -183,9 +187,9 @@ function nodeGraphPhosphorLightMapSample(square, x, y, scale) {
 }
 
 /**
- * Deposit only new samples since last frame as a soft beam path.
- * Uses a baked true-gaussian kernel texture (fixed pixel grid → fixed radius
- * cache). Intensity ~ 1/speed (dwell): slow motion burns brighter.
+ * Deposit only new samples since last frame as continuous soft beam segments
+ * (same continuity idea as scope2d / Lorenz gaussian ribbons). Peak brightness
+ * is mild-dwell modulated; geometry is continuous — never sparse elongated dots.
  */
 function nodeGraphPhosphorLightDepositBeam(maskCtx, buffer, square, settings, lastIndex) {
   const count = Math.min(buffer?.x?.length || 0, buffer?.y?.length || 0);
@@ -212,14 +216,15 @@ function nodeGraphPhosphorLightDepositBeam(maskCtx, buffer, square, settings, la
   }
 
   const brightness = Math.max(0.05, Math.min(2, Number(settings.brightness) || 0.9));
-  // Base hit intensity; dwell scales up, fast motion dims (beam spends less time).
-  const baseHit = Math.max(0.04, Math.min(0.55, 0.08 + brightness * 0.22));
-  // Spacing for dwell estimate: match gaussian segment step (~0.4σ, σ≈r/2.6).
-  const stepPx = Math.max(0.65, radius / 2.6 * 0.42);
+  // Peak along centerline (like scope2d uBrightness) — continuous segment draw
+  // owns geometry; do not thin long spans by splitting total energy.
+  const basePeak = Math.max(0.06, Math.min(0.85, 0.12 + brightness * 0.28));
+  const sigma = radius / 2.6;
+  const continuityPx = Math.max(0.5, sigma * 0.3);
 
   let start = Math.max(0, Math.floor(Number(lastIndex) || 0));
   if (start >= count) start = 0; // buffer wrapped / reset
-  // First frame or large rewind: stamp a short tail so something appears.
+  // First frame or large rewind: draw a short tail so something appears.
   if (start === 0 && count > 1) {
     start = Math.max(0, count - Math.min(count, 512));
   }
@@ -235,20 +240,23 @@ function nodeGraphPhosphorLightDepositBeam(maskCtx, buffer, square, settings, la
       continue;
     }
     if (!prev) {
-      stampDot(maskCtx, cur.x, cur.y, radius, baseHit);
+      stampDot(maskCtx, cur.x, cur.y, radius, basePeak);
       prev = cur;
       continue;
     }
     const dx = cur.x - prev.x;
     const dy = cur.y - prev.y;
     const dist = Math.hypot(dx, dy);
-    // Dwell: slow segments deposit more energy per pixel (CRT beam model).
-    const dwell = dist < 1e-4 ? 2.2 : Math.min(2.2, Math.max(0.25, stepPx / dist));
-    const hit = baseHit * dwell;
-    if (stampSeg && dist > stepPx * 0.5) {
-      stampSeg(maskCtx, prev.x, prev.y, cur.x, cur.y, radius, hit);
+    // Mild dwell: slow motion a bit brighter — never collapse long segments.
+    const dwell = dist < 1e-4
+      ? 1.35
+      : Math.min(1.45, Math.max(0.55, continuityPx / Math.max(dist, continuityPx * 0.25)));
+    const peak = basePeak * dwell;
+    if (stampSeg) {
+      // Always segment-draw consecutive samples (Lorenz draws every segment).
+      stampSeg(maskCtx, prev.x, prev.y, cur.x, cur.y, radius, peak);
     } else {
-      stampDot(maskCtx, cur.x, cur.y, radius, hit);
+      stampDot(maskCtx, cur.x, cur.y, radius, peak);
     }
     prev = cur;
   }

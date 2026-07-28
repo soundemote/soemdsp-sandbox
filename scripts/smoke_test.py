@@ -13799,10 +13799,19 @@ def require_node_graph_mvp_contract() -> None:
         and "Math.exp(-(dx * dx + dy * dy) * inv2s2)" in script_sources.get(
             "./public/node-graph-phosphor-gaussian-drawer.js", ""
         )
+        and "MAX_STAMPS_PER_SEGMENT" in script_sources.get(
+            "./public/node-graph-phosphor-gaussian-drawer.js", ""
+        )
+        and "peak * 0.52" in script_sources.get(
+            "./public/node-graph-phosphor-gaussian-drawer.js", ""
+        )
         and "nodeGraphPhosphorGaussianStamp" in script_sources.get(
             "./public/modules/phosphorLight/phosphor-light-display.js", ""
         )
         and "createRadialGradient" not in script_sources.get(
+            "./public/modules/phosphorLight/phosphor-light-display.js", ""
+        )
+        and "Math.max(0, Math.min(2, Number(pixelDensity)" in script_sources.get(
             "./public/modules/phosphorLight/phosphor-light-display.js", ""
         ),
         "legacy visual source modules should use typed scope renderers; PhosphorLight is the energy-LUT XY testbed",

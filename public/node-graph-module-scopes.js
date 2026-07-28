@@ -4485,7 +4485,7 @@ function nodeGraphTraceDisplaySensitiveControlField(key) {
 const nodeGraphTraceDisplaySensitiveControlExponent = 3;
 
 function nodeGraphTraceDisplaySensitiveControlMax(key) {
-  return ["dot1Brightness", "secondaryBrightness"].includes(key) ? 2 : 1;
+  return ["dot1Brightness", "secondaryBrightness", "pixelDensity"].includes(key) ? 2 : 1;
 }
 
 function nodeGraphTraceDisplaySizeToControlValue(value, max = 1) {
@@ -4533,6 +4533,10 @@ function nodeGraphTraceDisplayClampBrightness(value) {
   return clampNodeSliderValue(Number(value) || 0, 0, 2);
 }
 
+function nodeGraphTraceDisplayClampPixelDensity(value) {
+  return clampNodeSliderValue(Number(value) || 0, 0, 2);
+}
+
 // Clamp rules shared by every display-settings form type, keyed by field name.
 // Each entry owns exactly one field's rule — adding/changing a rule for one
 // display type cannot silently change behavior for another.
@@ -4551,6 +4555,7 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   innerShadow: nodeGraphTraceDisplayClampUnit,
   lineLength: nodeGraphTraceDisplayClampUnit,
   lineThickness: nodeGraphTraceDisplayClampNonNegative,
+  pixelDensity: nodeGraphTraceDisplayClampPixelDensity,
   scale: nodeGraphTraceDisplayClampNonNegative,
   secondaryBrightness: nodeGraphTraceDisplayClampBrightness,
   secondaryLineThickness: nodeGraphTraceDisplayClampNonNegative,
