@@ -2392,8 +2392,12 @@ const nodeGraphScope2dSettingsDefaults = Object.freeze({
   dot1Brightness: 0.92,
   dot1Color: "#75ebff",
   dot1Enabled: true,
+  // 0–1 of face min side: 1 = diameter fills the square (same as PhosphorLight).
   dot1Size: 0.08,
-  lineThickness: 0.2,
+  // Gaussian softness (blur), independent of geometric size.
+  lineThickness: 0.35,
+  // 0 = 1px floor, 1 = layout×dpr, 4 = 4× supersample AA (fixes zoom pixeliness).
+  pixelDensity: 1,
   scale: 1,
 });
 
@@ -2607,6 +2611,13 @@ function normalizeNodeGraphScope2dSettings(settings = {}) {
       0,
       1,
     ),
+    pixelDensity: normalizeNodeGraphTraceDisplayNumber(
+      source.pixelDensity,
+      defaults.pixelDensity,
+      0,
+      4,
+    ),
+    scale: normalizeNodeGraphTraceDisplayNumber(source.scale, defaults.scale, 0, Infinity),
   };
 }
 
@@ -3588,7 +3599,9 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "burn",
       "decay",
       "scale",
+      "pixelDensity",
       "dot1Size",
+      "lineThickness",
       "dot1Brightness",
     ]),
     colors: Object.freeze(["dot1Color"]),
@@ -10071,27 +10084,36 @@ function nodeGraphScope2dBurnCanvasForSlot(slot) {
   return canvas;
 }
 
-function syncNodeGraphScope2dBurnCanvas(canvas, screenElement, pixelRatio) {
+function syncNodeGraphScope2dBurnCanvas(canvas, screenElement, pixelRatio, pixelDensity = 1) {
   if (!canvas || !screenElement) {
     return { resized: false, synced: false };
   }
-  // Layout pixel grid — not screen-space getBoundingClientRect. Zoom must not
-  // reallocate burn FBOs (that was the FPS cliff on Lorenz and friends).
+  // Layout pixel grid × density — not screen-space getBoundingClientRect.
+  // Workspace zoom must not reallocate burn FBOs (that was the FPS cliff).
+  // pixelDensity 2–4 supersamples so zoomed-in views stay soft, not blocky.
   const size = nodeGraphModuleScopeFaceBackingSize(screenElement, pixelRatio);
   if (!size) {
     return { resized: false, synced: false };
   }
-  const { width, height } = size;
+  const density = Math.max(0, Math.min(4, Number(pixelDensity) || 1));
+  const width = Math.max(1, Math.round(size.width * density));
+  const height = Math.max(1, Math.round(size.height * density));
   const resized = canvas.width !== width || canvas.height !== height;
   if (resized) {
     canvas.width = width;
     canvas.height = height;
   }
+  // Below 1: intentional chunk. At/above 1: smooth CSS scale (AA when density > 1).
+  if (density < 0.999) {
+    canvas.style.imageRendering = "pixelated";
+  } else if (canvas.style.imageRendering) {
+    canvas.style.imageRendering = "";
+  }
   if (canvas.style.width || canvas.style.height) {
     canvas.style.width = "";
     canvas.style.height = "";
   }
-  return { resized, synced: true };
+  return { resized, synced: true, density };
 }
 
 function nodeGraphScope2dBurnTextureFormats(gl) {
