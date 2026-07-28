@@ -11055,7 +11055,7 @@ function nodeGraphScope2dTracePointFromSamples(square, x, y, settings) {
   if (sampleX === null || sampleY === null) {
     return null;
   }
-  const scale = Math.max(0, Number(settings?.scale) || 0);
+  const scale = Math.max(0, Number(settings?.scale) || 1);
   return {
     x: square.left + square.width * 0.5 + sampleX * scale * square.width * 0.5,
     y: square.top + square.height * 0.5 - sampleY * scale * square.height * 0.5,
@@ -11354,15 +11354,13 @@ function drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas, op
   context.restore();
 }
 
-// The Output module shows its Left/Right channels as two separate colored
-// traces: Left uses the trace display's primary/dot1 fields, Right uses its
-// own dedicated secondary* fields (secondaryColor/secondarySize/etc.) so
-// each channel's visibility and color use the standard trace settings
-// toggles/color pickers instead of being hardcoded. Red/blue below are only
-// the fallback defaults when the user hasn't set color/secondaryColor
-// themselves.
-const nodeGraphOutputTraceLeftColor = "#ff4d4d";
-const nodeGraphOutputTraceRightColor = "#4d8dff";
+// Output stereo color model (see TraceStroke.drawStereoRedBlueGreen):
+//   Left-only  → red   (255, 0, 0)
+//   Right-only → blue  (0, 0, 255)
+//   Both meet  → green (0, 255, 0)
+// Size/blur/brightness still come from primary vs secondary trace settings.
+const nodeGraphOutputTraceLeftColor = "#ff0000";
+const nodeGraphOutputTraceRightColor = "#0000ff";
 
 function nodeGraphOutputStereoTraceBuffers(nodeId) {
   const id = String(nodeId || "");
@@ -11409,22 +11407,43 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
     const rightBuffer = prepareNodeGraphTraceDisplayBuffer(stereoBuffers.right, settings);
     const leftPoints = buildNodeGraphTraceDisplayCanvasPoints(leftBuffer, canvas, slot);
     const rightPoints = buildNodeGraphTraceDisplayCanvasPoints(rightBuffer, canvas, slot);
-    const rawTraceSettings = nodeGraphModuleScopeNodeForSlot(slot)?.traceDisplaySettings || {};
-    const leftLayer = nodeGraphTraceDisplayPrimaryLayer(
-      settings,
-      rawTraceSettings.color ?? rawTraceSettings.dot1Color ?? nodeGraphOutputTraceLeftColor,
-    );
+    const leftLayer = nodeGraphTraceDisplayPrimaryLayer(settings, nodeGraphOutputTraceLeftColor);
     const rightLayer = {
-      enabled: settings.secondaryEnabled,
+      enabled: settings.secondaryEnabled !== false,
       size: settings.secondarySize,
       brightness: settings.secondaryBrightness,
       blur: settings.secondaryLineThickness,
-      color: rawTraceSettings.secondaryColor ?? nodeGraphOutputTraceRightColor,
+      color: nodeGraphOutputTraceRightColor,
     };
     context.clearRect(0, 0, canvas.width, canvas.height);
-    drawNodeGraphTraceDisplayCanvasLayer(context, rightPoints, rightLayer, canvas, { glow: false });
-    drawNodeGraphTraceDisplayCanvasLayer(context, leftPoints, leftLayer, canvas, { glow: false });
-    recordNodeGraphModuleScopeRenderMetrics(leftPoints.length + rightPoints.length, leftPoints.length + rightPoints.length);
+    const face = Math.min(canvas.width, canvas.height);
+    let painted = 0;
+    if (typeof TraceStroke !== "undefined" && TraceStroke.drawStereoRedBlueGreen) {
+      // Red + blue masks; overlap becomes green (not magenta).
+      painted = TraceStroke.drawStereoRedBlueGreen(
+        context,
+        leftLayer.enabled === false ? [] : leftPoints,
+        rightLayer.enabled === false ? [] : rightPoints,
+        {
+          size: leftLayer.size,
+          blur: leftLayer.blur,
+          brightness: leftLayer.brightness,
+          faceMinSide: face,
+        },
+        {
+          size: rightLayer.size,
+          blur: rightLayer.blur,
+          brightness: rightLayer.brightness,
+          faceMinSide: face,
+        },
+      );
+    } else {
+      // Fallback: layered RGB (overlap will look magenta, not green).
+      drawNodeGraphTraceDisplayCanvasLayer(context, rightPoints, rightLayer, canvas, { glow: false });
+      drawNodeGraphTraceDisplayCanvasLayer(context, leftPoints, leftLayer, canvas, { glow: false });
+      painted = leftPoints.length + rightPoints.length;
+    }
+    recordNodeGraphModuleScopeRenderMetrics(painted, painted);
     rememberNodeGraphTraceDisplaySignature(slot, item, buffer, settings);
     return true;
   }

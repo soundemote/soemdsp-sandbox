@@ -221,11 +221,101 @@
     return auto;
   }
 
+  /**
+   * Output stereo: Left / Right as mono masks, then recolor so
+   *   left-only  → red
+   *   right-only → blue
+   *   both (meet) → green
+   *
+   * Formula per pixel (L,R in 0..1 luminance):
+   *   m = min(L, R)
+   *   rgb = (L - m, m, R - m)
+   * So full L+R → pure green, not additive magenta.
+   */
+  function drawStereoRedBlueGreen(destCtx, leftPoints, rightPoints, leftOptions = {}, rightOptions = {}) {
+    if (!destCtx?.canvas) {
+      return 0;
+    }
+    const canvas = destCtx.canvas;
+    const w = Math.max(1, canvas.width);
+    const h = Math.max(1, canvas.height);
+    const face = Math.min(w, h);
+
+    if (!canvas._traceStereoScratchL) {
+      canvas._traceStereoScratchL = document.createElement("canvas");
+      canvas._traceStereoScratchR = document.createElement("canvas");
+    }
+    const leftCanvas = canvas._traceStereoScratchL;
+    const rightCanvas = canvas._traceStereoScratchR;
+    if (leftCanvas.width !== w || leftCanvas.height !== h) {
+      leftCanvas.width = w;
+      leftCanvas.height = h;
+    }
+    if (rightCanvas.width !== w || rightCanvas.height !== h) {
+      rightCanvas.width = w;
+      rightCanvas.height = h;
+    }
+    const leftCtx = leftCanvas.getContext("2d", { willReadFrequently: true });
+    const rightCtx = rightCanvas.getContext("2d", { willReadFrequently: true });
+    if (!leftCtx || !rightCtx) {
+      return 0;
+    }
+
+    leftCtx.setTransform(1, 0, 0, 1, 0, 0);
+    rightCtx.setTransform(1, 0, 0, 1, 0, 0);
+    leftCtx.clearRect(0, 0, w, h);
+    rightCtx.clearRect(0, 0, w, h);
+    leftCtx.fillStyle = "#000";
+    rightCtx.fillStyle = "#000";
+    leftCtx.fillRect(0, 0, w, h);
+    rightCtx.fillRect(0, 0, w, h);
+
+    // White mono energy stamps — color is applied only in the combine step.
+    const leftCount = draw(leftCtx, leftPoints, {
+      ...leftOptions,
+      color: "#ffffff",
+      rgb: [255, 255, 255],
+      faceMinSide: face,
+      composite: "lighter",
+    });
+    const rightCount = draw(rightCtx, rightPoints, {
+      ...rightOptions,
+      color: "#ffffff",
+      rgb: [255, 255, 255],
+      faceMinSide: face,
+      composite: "lighter",
+    });
+
+    const leftData = leftCtx.getImageData(0, 0, w, h);
+    const rightData = rightCtx.getImageData(0, 0, w, h);
+    const out = destCtx.createImageData(w, h);
+    const ld = leftData.data;
+    const rd = rightData.data;
+    const od = out.data;
+    for (let i = 0; i < od.length; i += 4) {
+      // Luminance from white stamp (any channel; take max for soft skirts).
+      const L = Math.max(ld[i], ld[i + 1], ld[i + 2]) / 255;
+      const Rch = Math.max(rd[i], rd[i + 1], rd[i + 2]) / 255;
+      const m = L < Rch ? L : Rch;
+      od[i] = Math.round((L - m) * 255);
+      od[i + 1] = Math.round(m * 255);
+      od[i + 2] = Math.round((Rch - m) * 255);
+      od[i + 3] = Math.round(Math.min(1, Math.max(L, Rch)) * 255);
+    }
+    destCtx.save();
+    destCtx.setTransform(1, 0, 0, 1, 0, 0);
+    destCtx.globalCompositeOperation = "source-over";
+    destCtx.putImageData(out, 0, 0);
+    destCtx.restore();
+    return leftCount + rightCount;
+  }
+
   global.TraceStroke = {
     clamp01,
     normalizeBlur,
     diameterPx,
     draw,
+    drawStereoRedBlueGreen,
     budgetPoints,
     pointBudget,
   };
