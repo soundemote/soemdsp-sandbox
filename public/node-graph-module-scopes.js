@@ -2394,6 +2394,8 @@ const nodeGraphScope2dSettingsDefaults = Object.freeze({
   dot1Enabled: true,
   // 0–1 of face min side: 1 = diameter fills the square (same as PhosphorLight).
   dot1Size: 0.08,
+  // Soft stamp budget (ceiling). Under load, dots spread evenly (skips), not head-only.
+  dotBudget: 2048,
   // Gaussian softness (blur), independent of geometric size.
   lineThickness: 0.35,
   // 0 = 1px floor, 1 = layout×dpr, 4 = 4× supersample AA (fixes zoom pixeliness).
@@ -2605,6 +2607,12 @@ function normalizeNodeGraphScope2dSettings(settings = {}) {
     dot1Color: normalizeNodeGraphTraceDisplayColor(source.dot1Color ?? source.color, defaults.dot1Color),
     dot1Enabled: true,
     dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
+    dotBudget: Math.max(
+      64,
+      Math.min(8192, Math.round(
+        Number(source.dotBudget ?? defaults.dotBudget) || defaults.dotBudget,
+      )),
+    ),
     lineThickness: normalizeNodeGraphTraceDisplayNumber(
       source.lineThickness ?? source.dot1Blur,
       defaults.lineThickness,
@@ -3516,6 +3524,7 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
   ["burn", "Burn"],
   ["decay", "Decay"],
   ["pixelDensity", "Pixel density"],
+  ["dotBudget", "Dot budget"],
   ["padding", "Amp"],
   ["cycles", "Cycles"],
   ["decimals", "Decimals"],
@@ -3600,6 +3609,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "decay",
       "scale",
       "pixelDensity",
+      "dotBudget",
       "dot1Size",
       "lineThickness",
       "dot1Brightness",

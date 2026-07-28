@@ -601,13 +601,14 @@
   }
 
   /**
-   * Dots-only with dwell fill + soft budget cap.
+   * Dots-only with dwell fill + beautiful budget failure.
    *
-   * Always place stamps at ideal spacing (enough for disks to fuse) — never
-   * stretch spacing just to burn the whole budget. Short/smooth paths may use
-   * far fewer than maxDots. If the path still needs more stamps than maxDots,
-   * stop when the budget is exhausted (prefer newest motion so the beam head
-   * stays solid; HF can leave older trail sparse — that's OK).
+   * Under budget: stamp only at ideal spacing (enough for fused soft lines);
+   * may use far fewer than maxDots — never pad.
+   *
+   * Over budget: do NOT solid-line the head and drop the rest. Widen spacing
+   * evenly across the whole path so the full signal shape stays visible as
+   * disconnected dots (skips). Fail beautifully instead of truncating.
    *
    * Format: center.x, center.y, corner (6 verts per stamp).
    */
@@ -615,12 +616,11 @@
     const points = Array.isArray(pathPoints) ? pathPoints : [];
     const radius = Math.max(0.5, Number(options.radius) || 2);
     const blur = Math.max(0, Math.min(1, Number(options.blur) || 0.35));
-    const maxDots = Math.max(64, Math.floor(Number(options.maxDots) || 2048));
-    // Match DOT_FRAG sigma; step well under kernel so disks fuse.
+    const maxDots = Math.max(16, Math.floor(Number(options.maxDots) || 2048));
     const sigma = Math.max(0.55, radius * (0.34 + blur * 0.66));
-    const step = Math.max(0.25, Math.min(sigma * 0.32, radius * 0.28));
+    // Ideal spacing fuses disks into a continuous soft line.
+    const idealStep = Math.max(0.25, Math.min(sigma * 0.32, radius * 0.28));
 
-    // Flatten into continuous pieces (null breaks the stroke).
     const pieces = [];
     let piece = [];
     for (let i = 0; i < points.length; i += 1) {
@@ -641,40 +641,60 @@
       return [];
     }
 
-    // Newest-first so if we hit maxDots mid-path the live beam head is solid.
-    const ordered = pieces.slice().reverse().map((pts) => pts.slice().reverse());
+    let totalLen = 0;
+    let singlePoints = 0;
+    for (let p = 0; p < pieces.length; p += 1) {
+      const pts = pieces[p];
+      if (pts.length === 1) {
+        singlePoints += 1;
+        continue;
+      }
+      for (let i = 1; i < pts.length; i += 1) {
+        totalLen += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+      }
+    }
+    const idealCount = Math.max(
+      1,
+      singlePoints + Math.ceil(totalLen / idealStep) + pieces.length,
+    );
+    // Under budget: only spend what smooth lines need.
+    // Over budget: even economy across the full path (skips, not head-only lines).
+    const overBudget = idealCount > maxDots;
+    const step = overBudget
+      ? Math.max(idealStep, totalLen / Math.max(1, maxDots - Math.max(1, pieces.length)))
+      : idealStep;
+    const stampCap = overBudget ? maxDots : idealCount;
 
     const stamps = [];
     const pushStamp = (x, y) => {
-      if (stamps.length / 2 >= maxDots) {
+      if (stamps.length / 2 >= stampCap) {
         return false;
       }
       stamps.push(x, y);
       return true;
     };
 
-    outer: for (let p = 0; p < ordered.length; p += 1) {
-      const pts = ordered[p];
+    // Oldest→newest so even sparse coverage maps the whole shape.
+    outer: for (let p = 0; p < pieces.length; p += 1) {
+      const pts = pieces[p];
       if (pts.length === 1) {
         if (!pushStamp(pts[0].x, pts[0].y)) {
           break;
         }
         continue;
       }
-      // Walk segments newest→oldest; stamp along each at fixed ideal `step` only.
-      for (let i = 0; i < pts.length - 1; i += 1) {
-        const a = pts[i];
-        const b = pts[i + 1];
-        if (i === 0 && !pushStamp(a.x, a.y)) {
-          break outer;
-        }
+      if (!pushStamp(pts[0].x, pts[0].y)) {
+        break;
+      }
+      for (let i = 1; i < pts.length; i += 1) {
+        const a = pts[i - 1];
+        const b = pts[i];
         const dx = b.x - a.x;
         const dy = b.y - a.y;
         const dist = Math.hypot(dx, dy);
         if (dist < 1e-4) {
           continue;
         }
-        // Only as many stamps as needed for this segment — never pad to budget.
         const n = Math.max(1, Math.ceil(dist / step));
         for (let s = 1; s <= n; s += 1) {
           const t = s / n;
@@ -685,7 +705,6 @@
       }
     }
 
-    // Expand stamps → GPU quads (center + corner).
     const vertices = [];
     const corners = [0, 1, 2, 1, 3, 2];
     const stampCount = Math.floor(stamps.length / 2);

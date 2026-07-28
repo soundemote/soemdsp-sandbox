@@ -152,6 +152,7 @@
     "burn": "display trail amount | 0 clears the trail | 1 keeps the longest trail",
     "decay": "display trail fade speed | 0 fades slowly | 1 fades quickly",
     "pixelDensity": "PhosphorLight fixed pixel grid density | 0 = 1px floor | 1 = full layout×dpr | 4 = 4× supersample AA",
+    "dotBudget": "Max soft stamps per frame | under budget uses only enough for smooth lines | over budget spreads dots evenly with skips so the whole signal stays visible",
     "skipSamples": "samples skipped after a vertical discontinuity | use 0, 1, or 2",
     "padding": "Trace Display vertical padding per side | 0 uses the full display height",
     "bipolarBrightness": "0D Burn brightness mode | Off: only 0..1 lights up | On: -1 and +1 are equally bright",
