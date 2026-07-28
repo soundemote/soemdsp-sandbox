@@ -10532,16 +10532,17 @@ function decayNodeGraphScope2dBurn(renderer, settings) {
 function nodeGraphScope2dBurnLayers(settings, dotSpace) {
   const layers = [];
   if (settings?.dot1Enabled !== false) {
-    // radius: size 1 → half of min side → diameter fills the face (PhosphorLight/scope2d contract).
+    // Size 0–1 of face min side: diameter = size * minSide (radius = half).
+    // Blur 0–1: hard-ish core → soft wide skirt (shader), not geometric size.
     const size01 = clampNodeSliderValue(settings.dot1Size, 0, 1);
+    const side = Math.max(1, Number(dotSpace) || 1);
     layers.push({
       blur: clampNodeSliderValue(settings.lineThickness, 0, 1),
       brightness: Math.max(0, Number(settings.dot1Brightness) || 0),
       color: nodeGraphScopeHexColorToRgb(settings.dot1Color),
-      radius: Math.max(0.35, (Number(dotSpace) || 1) * size01 * 0.5),
+      radius: Math.max(0.5, side * size01 * 0.5),
     });
   }
-  // Allow very fine beams; only drop when brightness is zero.
   return layers.filter((layer) => layer.brightness > 0 && layer.radius > 0);
 }
 
