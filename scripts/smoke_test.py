@@ -13283,6 +13283,7 @@ def require_node_graph_mvp_contract() -> None:
         and "nodeGraphNumberReadoutDrawInnerShadow" in node_graph_source
         and "plate: true" in node_graph_source
         and "measureText(\"8\")" in node_graph_source
+        and "nodeGraphNumberReadoutComputeLayout" in node_graph_source
         and "https://github.com/keshikan/DSEG" in node_graph_source
         and 'globalCompositeOperation = "destination-out"' in node_graph_source[
             node_graph_source.index("function drawNodeGraphNumberReadoutItem")

@@ -8863,14 +8863,21 @@ function syncNodeGraphNumberReadoutCanvas(canvas, screenElement, pixelRatio) {
     return false;
   }
   const rect = screenElement.getBoundingClientRect();
-  const width = Math.max(1, Math.round(rect.width * pixelRatio));
-  const height = Math.max(1, Math.round(rect.height * pixelRatio));
+  const cssW = Math.max(1, rect.width);
+  const cssH = Math.max(1, rect.height);
+  const dpr = Math.max(1, Number(pixelRatio) || 1);
+  // Integer buffer sized from CSS box * dpr — same ratio as the face so CSS
+  // width/height:100% cannot non-uniformly stretch the bitmap.
+  const width = Math.max(1, Math.round(cssW * dpr));
+  const height = Math.max(1, Math.round(cssH * dpr));
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
     canvas.height = height;
     // Drop phosphor residual when the face resizes.
     canvas._numberReadoutPhosphor = null;
   }
+  canvas.style.width = `${cssW}px`;
+  canvas.style.height = `${cssH}px`;
   return true;
 }
 
@@ -8954,14 +8961,47 @@ function nodeGraphNumberReadoutSettingsSignature(settings) {
   ].join("|");
 }
 
-// Draw DSEG (or fallback) on a fixed cell grid so ghost plate and lit value
-// share the same pen positions. Period is zero-width between cells.
+/**
+ * Natural (unskewed) DSEG layout for the face.
+ * Height-first em size from the font; uniform shrink only if the block would
+ * overflow the face width. Never non-uniform scale to fill the module.
+ */
+function nodeGraphNumberReadoutComputeLayout(context, valueText, fontFamily, faceW, faceH, hasUnit) {
+  const labelH = hasUnit ? Math.max(0, faceH * 0.18) : 0;
+  const digitAreaH = Math.max(1, faceH - labelH);
+  // Designed em height — original DSEG proportions, not stretched to width.
+  let fontSize = Math.max(1, digitAreaH * 0.78);
+  context.font = `700 ${fontSize}px ${fontFamily}`;
+  let cellW = Math.max(1, context.measureText("8").width);
+  const cells = nodeGraphNumberReadoutDsegWidthChars(valueText);
+  let totalW = cells * cellW;
+  const maxW = Math.max(1, faceW * 0.94);
+  if (totalW > maxW) {
+    const scale = maxW / totalW;
+    fontSize = Math.max(1, fontSize * scale);
+    context.font = `700 ${fontSize}px ${fontFamily}`;
+    cellW = Math.max(1, context.measureText("8").width);
+    totalW = cells * cellW;
+  }
+  return {
+    cellW,
+    cells,
+    digitAreaH,
+    fontSize,
+    labelH,
+    totalW,
+  };
+}
+
+// Draw DSEG on a fixed cell grid (cell = natural advance of "8" at fontSize).
+// Ghost plate and lit value share the same pen positions. No X/Y stretch.
 function nodeGraphNumberReadoutDrawDigits(context, {
   text,
   centerX,
   centerY,
   fontFamily,
   fontSize,
+  cellW: cellWIn,
   rgb,
   alpha,
   glow = 0,
@@ -8969,10 +9009,12 @@ function nodeGraphNumberReadoutDrawDigits(context, {
 }) {
   const raw = String(text || "");
   context.save();
+  // Identity geometry in canvas pixels — never scaleX ≠ scaleY for glyphs.
+  context.setTransform(1, 0, 0, 1, 0, 0);
   context.font = `700 ${fontSize}px ${fontFamily}`;
   context.textAlign = "center";
   context.textBaseline = "middle";
-  const cellW = Math.max(1, context.measureText("8").width);
+  const cellW = Math.max(1, Number(cellWIn) || context.measureText("8").width);
   let cellCount = 0;
   for (let i = 0; i < raw.length; i += 1) {
     if (raw[i] !== ".") {
@@ -9007,7 +9049,7 @@ function nodeGraphNumberReadoutDrawDigits(context, {
     }
     let glyph = ch;
     if (plate) {
-      // Unlit LCD grid: every full cell is all-on "8". Blank sign column too.
+      // Unlit LCD grid: every full cell is all-on "8".
       glyph = "8";
     } else if (ch === " ") {
       // Lit path: leave sign column empty (still advance a full cell).
@@ -9122,13 +9164,20 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     ? '"DSEG7 Classic", "Consolas", monospace'
     : '"Consolas", "Courier New", monospace';
   const hasUnit = Boolean(unit);
-  const labelHeight = hasUnit ? height * 0.22 : 0;
-  const digitAreaHeight = Math.max(1, height - labelHeight);
-  const widthChars = nodeGraphNumberReadoutDsegWidthChars(valueText);
-  const digitFontSize = Math.max(
-    1,
-    Math.min(digitAreaHeight * 0.82, (width / widthChars) * 1.05),
+  // Natural DSEG metrics — face only letterboxes; never skews glyphs to fill it.
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  const layout = nodeGraphNumberReadoutComputeLayout(
+    context,
+    valueText,
+    digitFontFamily,
+    width,
+    height,
+    hasUnit,
   );
+  const digitFontSize = layout.fontSize;
+  const cellW = layout.cellW;
+  const labelHeight = layout.labelH;
+  const digitAreaHeight = layout.digitAreaH;
   const digitX = left + width * 0.5;
   const digitY = top + digitAreaHeight * 0.5;
 
@@ -9136,6 +9185,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const phosphor = nodeGraphNumberReadoutPhosphorCanvas(canvas);
   const phosphorCtx = phosphor?.getContext?.("2d");
   if (phosphor && phosphorCtx) {
+    phosphorCtx.setTransform(1, 0, 0, 1, 0, 0);
     if (decay > 0.001) {
       // Same fade family as 1D burn trails: higher decay → faster erase;
       // higher burn slightly holds residual longer.
@@ -9158,6 +9208,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
       centerY: digitY,
       fontFamily: digitFontFamily,
       fontSize: digitFontSize,
+      cellW,
       rgb,
       alpha: deposit,
       glow: 0,
@@ -9169,11 +9220,12 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   // ── Present ──
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.save();
-  // LCD cavity background (user-selectable).
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  // LCD cavity background (user-selectable). Fills the face; digits stay natural.
   context.fillStyle = bg;
   context.fillRect(left, top, width, height);
 
-  // Unlit segment plate — same fixed cell grid as lit digits (no string-width drift).
+  // Unlit segment plate — same fixed cell grid as lit digits.
   if (ghost > 0.001) {
     nodeGraphNumberReadoutDrawDigits(context, {
       text: valueText,
@@ -9181,6 +9233,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
       centerY: digitY,
       fontFamily: digitFontFamily,
       fontSize: digitFontSize,
+      cellW,
       rgb,
       alpha: Math.max(0.04, ghost * (nodeGraphNumberReadoutDsegReady ? 0.38 : 0.28)),
       glow: 0,
@@ -9188,10 +9241,11 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     });
   }
 
-  // Phosphor lit digits (with residual trails).
+  // Phosphor lit digits (1:1 blit — no scale).
   if (phosphor) {
     context.save();
     context.globalCompositeOperation = "lighter";
+    context.imageSmoothingEnabled = false;
     context.drawImage(phosphor, 0, 0);
     context.restore();
   }
@@ -9204,6 +9258,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
       centerY: digitY,
       fontFamily: digitFontFamily,
       fontSize: digitFontSize,
+      cellW,
       rgb,
       alpha: alpha * (0.35 + innerGlow * 0.65),
       glow: innerGlow,
@@ -9212,12 +9267,12 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   }
 
   if (hasUnit) {
-    const labelFontSize = Math.max(1, Math.min(labelHeight * 0.7, width * 0.14));
+    const labelFontSize = Math.max(1, Math.min(labelHeight * 0.7, width * 0.14, digitFontSize * 0.35));
     context.font = `${labelFontSize}px "Consolas", "Courier New", monospace`;
     context.textAlign = "center";
     context.textBaseline = "middle";
     context.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${(alpha * 0.55).toFixed(4)})`;
-    context.fillText(unit, left + width * 0.5, top + digitAreaHeight + labelHeight * 0.5, width);
+    context.fillText(unit, left + width * 0.5, top + digitAreaHeight + labelHeight * 0.5);
   }
 
   nodeGraphNumberReadoutDrawInnerShadow(context, left, top, width, height, innerShadow);
