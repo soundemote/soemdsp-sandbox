@@ -40,24 +40,26 @@
   }
 
   /**
-   * Soft-edge profile: t in 0..1 from center (0) to outer edge (1).
-   * blur 0 → hard disc (1 until edge). blur 1 → smooth cosine falloff.
-   * Returns relative opacity weight at radius fraction t.
+   * Radial intensity at distance fraction t from centerline (0 center → 1 edge).
+   *
+   * Curve: raised cosine (half Hann) after a hardness knee —
+   *   t <= knee:  1
+   *   t in (knee, 1]:  0.5 + 0.5·cos(π·u)  with u = (t-knee)/(1-knee)
+   *   → falls 1→0 with continuous first derivative (no step/ring).
+   *
+   * blur 0 → knee≈1 (hard brick). blur 1 → knee≈0 (soft from center).
    */
   function edgeProfile(t, blur01) {
     const soft = clamp01(blur01, 0);
     const x = clamp01(t, 0);
     if (soft < 0.02) {
-      return x < 1 ? 1 : 0;
+      return x < 0.999 ? 1 : 0;
     }
-    // Hardness residual: how late the falloff starts (1 = hard edge, 0 = soft from center).
-    const hard = 1 - soft;
-    const knee = hard * 0.72; // stay bright until near edge when hard
+    const knee = (1 - soft) * 0.85;
     if (x <= knee) {
       return 1;
     }
-    const u = (x - knee) / Math.max(1e-6, 1 - knee); // 0..1 over soft band
-    // Smoothstep-ish cosine: continuous derivative, no ring.
+    const u = (x - knee) / Math.max(1e-6, 1 - knee);
     return 0.5 + 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, u)));
   }
 
@@ -167,25 +169,28 @@
       return visible.length;
     }
 
-    // Soft edge: 3 concentric passes, all widths ≤ lineWidth (no expansion).
-    // Outer shell first (wide, dim), then mid, then core — alpha diffs ≈ profile.
-    const passes = 3;
-    let prevProfile = 0;
+    // Soft edge: concentric strokes, all widths ≤ lineWidth (no expansion).
+    // With additive "lighter", intensity at radius fraction t is the sum of
+    // alphas of every stroke whose widthFrac >= t. Invert the profile so the
+    // visible falloff actually matches edgeProfile() instead of fudging shells.
+    //
+    //   I(t_k) = Σ_{j: w_j >= t_k} a_j  =  peak * edgeProfile(t_k)
+    //   → a_k = I(t_k) - I(t_{k+1})   with t sorted outer→inner (1 → 0)
+    const passes = 4;
+    // Outer → inner radius fractions (must be strictly decreasing).
+    const radii = [];
     for (let i = 0; i < passes; i += 1) {
-      // Radius fraction of this shell (outer → inner): 1, ~0.66, ~0.33
-      const tOuter = 1 - i / passes;
-      const tInner = 1 - (i + 1) / passes;
-      // Shell weight ≈ average profile across the band (center-weighted).
-      const pMid = edgeProfile((tOuter + tInner) * 0.5, blur);
-      const shell = Math.max(0, pMid - prevProfile * 0.15);
-      prevProfile = pMid;
-      const widthFrac = Math.max(0.28, tOuter); // stay within full size
-      const w = Math.max(1, lineWidth * widthFrac);
-      // Mild alpha: keep soft as a cherry, not a fog bank.
-      const a = peakAlpha * (0.22 + 0.78 * shell) * (0.55 + 0.45 * (1 - blur * 0.35));
-      if (a < 0.01) {
+      radii.push(1 - i / passes); // 1, 0.75, 0.5, 0.25
+    }
+    // Sample profile just inside each shell outer edge.
+    const I = radii.map((t) => peakAlpha * edgeProfile(Math.min(0.999, t * 0.98), blur));
+    for (let i = 0; i < passes; i += 1) {
+      const nextI = i + 1 < passes ? I[i + 1] : 0;
+      const a = Math.max(0, I[i] - nextI);
+      if (a < 0.008) {
         continue;
       }
+      const w = Math.max(1, lineWidth * radii[i]);
       const color = `rgba(${r}, ${g}, ${b}, ${Math.min(1, a)})`;
       context.lineWidth = w;
       context.strokeStyle = color;
