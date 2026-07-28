@@ -2398,7 +2398,7 @@ const nodeGraphScope2dSettingsDefaults = Object.freeze({
   dotBudget: 2048,
   // Signed stamp blur: -1 tighter soft core, 0 painterly core+skirt, +1 full soft bleed.
   lineThickness: 0.35,
-  // 0 = 1px floor, 1 = layout×dpr, 4 = 4× supersample AA (fixes zoom pixeliness).
+  // 0 = lo-fi floor (~1/16 layout, never 1×1), 1 = layout×dpr, 4 = 4× AA.
   pixelDensity: 1,
   scale: 1,
 });
@@ -10151,6 +10151,21 @@ function nodeGraphScope2dBurnCanvasForSlot(slot) {
   return canvas;
 }
 
+/**
+ * Resolve face pixel density 0–4 to an effective scale.
+ * 0 must NOT collapse the buffer to 1×1 (that reads as "max chunk" jump).
+ * Floor keeps a usable lo-fi grid (~1/16 layout); 1 = full layout×dpr; 4 = AA.
+ */
+function nodeGraphScope2dResolvePixelDensity(pixelDensity, layoutWidth = 1, layoutHeight = 1) {
+  const raw = Number(pixelDensity);
+  const density = Number.isFinite(raw) ? Math.max(0, Math.min(4, raw)) : 1;
+  const minSide = Math.max(1, Math.min(layoutWidth, layoutHeight));
+  // ~1/16 of layout, but never below 8px short side (or the full face if tinier).
+  const minDensity = Math.min(1, Math.max(8, Math.min(minSide, 16)) / minSide);
+  const effective = density < minDensity ? minDensity : density;
+  return { density, effective, minDensity };
+}
+
 function syncNodeGraphScope2dBurnCanvas(canvas, screenElement, pixelRatio, pixelDensity = 1) {
   if (!canvas || !screenElement) {
     return { resized: false, synced: false };
@@ -10162,7 +10177,8 @@ function syncNodeGraphScope2dBurnCanvas(canvas, screenElement, pixelRatio, pixel
   if (!size) {
     return { resized: false, synced: false };
   }
-  const density = Math.max(0, Math.min(4, Number(pixelDensity) || 1));
+  const resolved = nodeGraphScope2dResolvePixelDensity(pixelDensity, size.width, size.height);
+  const density = resolved.effective;
   const width = Math.max(1, Math.round(size.width * density));
   const height = Math.max(1, Math.round(size.height * density));
   const resized = canvas.width !== width || canvas.height !== height;
@@ -10180,7 +10196,7 @@ function syncNodeGraphScope2dBurnCanvas(canvas, screenElement, pixelRatio, pixel
     canvas.style.width = "";
     canvas.style.height = "";
   }
-  return { resized, synced: true, density };
+  return { resized, synced: true, density, userDensity: resolved.density };
 }
 
 function nodeGraphScope2dBurnTextureFormats(gl) {

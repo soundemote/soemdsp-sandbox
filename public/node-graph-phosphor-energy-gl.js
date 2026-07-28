@@ -216,8 +216,8 @@
     }
   `;
 
-  // Soft phosphor dabs — NEVER a solid hard disc. Always smooth radial falloff.
-  //   blur -1 → tight bright core + light skirt (harder, still soft edge)
+  // Soft phosphor dabs with a real hard end:
+  //   blur -1 → hard disc + ~1px AA (crisp edge, almost no skirt)
   //   blur  0 → painterly core + soft outer skirt (shadowBlur spirit)
   //   blur +1 → full soft wide gaussian (airbrush / bleed when hits stack)
   // Size (uRadius) = geometric footprint. aCorner: 0=BL,1=BR,2=TL,3=TR.
@@ -234,8 +234,8 @@
     void main() {
       float blur = clamp(uBlur, -1.0, 1.0);
       float softAmt = (blur + 1.0) * 0.5;
-      // Extra pad so long skirts are never clipped by the quad.
-      float pad = max(uRadius * mix(3.2, 6.5, softAmt), 3.0);
+      // Hard end: tight pad (disc + AA). Soft end: wide pad for long skirts.
+      float pad = max(uRadius * mix(1.2, 6.5, softAmt) + mix(1.5, 0.0, softAmt), 2.0);
       vec2 cornerOffset = vec2(
         (aCorner == 0.0 || aCorner == 2.0) ? -1.0 : 1.0,
         (aCorner < 2.0) ? -1.0 : 1.0
@@ -264,23 +264,33 @@
       float soft = (b + 1.0) * 0.5;
       float R = max(vRadius, 0.5);
       float r2 = dot(vOffset, vOffset);
+      float r = sqrt(r2);
 
-      // Triple smooth gaussians — wide outer halo so dwell can light the
-      // far field before the core looks like a hard disc. No smoothstep discs.
-      float coreW = max(R * mix(0.22, 0.55, soft), 0.55);
-      float midW = max(R * mix(0.70, 1.35, soft), coreW * 1.4);
-      float skirtW = max(R * mix(1.35, 2.85, soft), midW * 1.35);
+      // --- Hard disc (blur -1): flat core, crisp edge, ~1px AA only ---
+      // AA width scales slightly with size so tiny dots don't disappear.
+      float aa = max(0.75, min(1.75, R * 0.08));
+      float hard = 1.0 - smoothstep(R - aa, R + aa * 0.35, r);
+
+      // --- Soft stack (blur +1): triple gaussians, wide bleed skirts ---
+      float coreW = max(R * mix(0.28, 0.55, soft), 0.55);
+      float midW = max(R * mix(0.55, 1.35, soft), coreW * 1.25);
+      float skirtW = max(R * mix(0.85, 2.85, soft), midW * 1.25);
       float core = exp(-r2 / (2.0 * coreW * coreW));
       float mid = exp(-r2 / (2.0 * midW * midW));
       float skirt = exp(-r2 / (2.0 * skirtW * skirtW));
-      float coreAmt = mix(0.55, 0.14, soft);
-      float midAmt = mix(0.38, 0.42, soft);
-      float skirtAmt = mix(0.32, 0.90, soft);
-      // Modest peak so many soft hits build light without an instant white disc.
-      float peak = mix(0.55, 0.38, soft);
-      float profile = core * coreAmt + mid * midAmt + skirt * skirtAmt;
-      float peakNow = coreAmt + midAmt + skirtAmt;
-      profile = profile * (peak / max(peakNow, 0.001));
+      float coreAmt = mix(0.70, 0.14, soft);
+      float midAmt = mix(0.22, 0.42, soft);
+      float skirtAmt = mix(0.08, 0.90, soft);
+      float softPeak = mix(0.72, 0.38, soft);
+      float softProfile = core * coreAmt + mid * midAmt + skirt * skirtAmt;
+      float softNow = coreAmt + midAmt + skirtAmt;
+      softProfile = softProfile * (softPeak / max(softNow, 0.001));
+
+      // Morph hard disc → soft airbrush. At -1 almost pure hard; at +1 pure soft.
+      // Use soft^1.35 so mid blur stays painterly but -1 stays crisp.
+      float softMix = pow(soft, 1.35);
+      float hardPeak = 0.85;
+      float profile = mix(hard * hardPeak, softProfile, softMix);
 
       float e = max(profile, 0.0) * uBrightness;
       gl_FragColor = vec4(e, e, e, e);
@@ -1237,8 +1247,9 @@
     const bleedOpt = Number(options.bleed);
     const bleed = Number.isFinite(bleedOpt)
       ? Math.max(0, Math.min(1, bleedOpt))
-      // Soft end seeps more; hard end still bleeds a little so dwell never plates.
-      : 0.06 + softAmt * 0.14;
+      // Hard end (blur -1): almost no seep so edges stay crisp.
+      // Soft end: real phosphor charge diffusion for dwell halos.
+      : softAmt * softAmt * 0.18;
     let depositVertices = vertices;
     if (dotsMode) {
       if (!Array.isArray(depositVertices) || depositVertices.length < 3) {

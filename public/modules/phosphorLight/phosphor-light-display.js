@@ -88,13 +88,17 @@ function nodeGraphPhosphorLightFaceCanvas(slot) {
 
 /**
  * pixelDensity 0–4 scales the fixed layout grid (not workspace zoom).
- * 0 → 1×1 floor, 1 → full clientWidth×dpr, 4 → 4× supersample (AA when shown).
+ * 0 → lo-fi floor (~1/16 layout, never 1×1 collapse), 1 → full layout×dpr, 4 → AA.
  */
 function nodeGraphPhosphorLightApplyPixelDensity(size, pixelDensity) {
   if (!size) {
     return null;
   }
-  const density = Math.max(0, Math.min(4, Number(pixelDensity) || 1));
+  const raw = Number(pixelDensity);
+  const userDensity = Number.isFinite(raw) ? Math.max(0, Math.min(4, raw)) : 1;
+  const minSide = Math.max(1, Math.min(size.width, size.height));
+  const minDensity = Math.min(1, Math.max(8, Math.min(minSide, 16)) / minSide);
+  const density = userDensity < minDensity ? minDensity : userDensity;
   const width = Math.max(1, Math.round(size.width * density));
   const height = Math.max(1, Math.round(size.height * density));
   return {
@@ -102,6 +106,7 @@ function nodeGraphPhosphorLightApplyPixelDensity(size, pixelDensity) {
     density,
     height,
     pixelRatio: (Number(size.pixelRatio) || 1) * Math.max(density, 1e-6),
+    userDensity,
     width,
   };
 }
