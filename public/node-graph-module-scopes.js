@@ -8853,17 +8853,29 @@ function nodeGraphPhosphorEnergyEnsureCanvas(host, key, width, height) {
   return canvas;
 }
 
+/**
+ * Per-frame energy erase amount in 0–1 (destination-out alpha).
+ * Decay alone drives fade rate. Burn is deposit gain only — do not cancel fade
+ * with burn or small decay values become invisible under continuous re-deposit.
+ */
+function nodeGraphPhosphorEnergyFadeAmount(decay) {
+  const d = clampNodeSliderValue(Number(decay) || 0, 0, 1);
+  if (d <= 0.001) {
+    return 0;
+  }
+  // At ~60fps: decay 0.3 → ~0.07/frame (~half-life ~0.15s);
+  // decay 1 → ~0.4/frame (dies in a few frames). Quadratic helps low-end feel.
+  return clampNodeSliderValue(0.025 + d * 0.14 + d * d * 0.28, 0.025, 0.55);
+}
+
 function nodeGraphPhosphorEnergyFade(context, width, height, burn, decay) {
   if (!context || !(width > 0) || !(height > 0)) {
     return;
   }
-  const b = clampNodeSliderValue(Number(burn) || 0, 0, 1);
-  const d = clampNodeSliderValue(Number(decay) || 0, 0, 1);
-  if (d <= 0.001) {
+  const fadeAlpha = nodeGraphPhosphorEnergyFadeAmount(decay);
+  if (fadeAlpha <= 0) {
     return;
   }
-  // Same fade family as 1D burn trails.
-  const fadeAlpha = clampNodeSliderValue(0.012 + d * 0.3 - b * 0.006, 0.002, 0.34);
   context.save();
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.globalCompositeOperation = "destination-out";
@@ -8876,7 +8888,8 @@ function nodeGraphPhosphorEnergyFade(context, width, height, burn, decay) {
 function nodeGraphPhosphorEnergySoftnessPx(sizePx, burn = 0.5) {
   const size = Math.max(1, Number(sizePx) || 1);
   const b = clampNodeSliderValue(Number(burn) || 0, 0, 1);
-  return Math.max(0.75, size * (0.06 + b * 0.18));
+  // Always a bit of blur so residual never stamps harsh 1-bit edges.
+  return Math.max(1.25, size * (0.1 + b * 0.22));
 }
 
 /**
@@ -8899,17 +8912,12 @@ function nodeGraphPhosphorBuildGradientStops(peakRgb, backgroundHex = "#000000")
   const bg_ = parseInt(bg.slice(3, 5), 16) || 0;
   const bb = parseInt(bg.slice(5, 7), 16) || 0;
   const mix = (a, b, t) => Math.round(a + (b - a) * t);
+  // No hot-white clip — residual stays in the phosphor hue, not harsh RGB white.
   return Object.freeze([
     Object.freeze({ t: 0, r: br, g: bg_, b: bb }),
-    Object.freeze({ t: 0.12, r: mix(br, pr, 0.2), g: mix(bg_, pg, 0.2), b: mix(bb, pb, 0.2) }),
-    Object.freeze({ t: 0.45, r: mix(br, pr, 0.72), g: mix(bg_, pg, 0.72), b: mix(bb, pb, 0.72) }),
-    Object.freeze({ t: 0.82, r: pr, g: pg, b: pb }),
-    Object.freeze({
-      t: 1,
-      r: mix(pr, 255, 0.55),
-      g: mix(pg, 255, 0.55),
-      b: mix(pb, 255, 0.55),
-    }),
+    Object.freeze({ t: 0.18, r: mix(br, pr, 0.28), g: mix(bg_, pg, 0.28), b: mix(bb, pb, 0.28) }),
+    Object.freeze({ t: 0.55, r: mix(br, pr, 0.7), g: mix(bg_, pg, 0.7), b: mix(bb, pb, 0.7) }),
+    Object.freeze({ t: 1, r: pr, g: pg, b: pb }),
   ]);
 }
 
@@ -8968,8 +8976,10 @@ function nodeGraphPhosphorMapEnergyToColorCanvas(energyCanvas, colorCanvas, stop
   const d = out.data;
   const gradient = stops || nodeGraphPhosphorBuildGradientStops([120, 255, 170]);
   for (let i = 0; i < s.length; i += 4) {
-    const energy = Math.max(s[i], s[i + 1], s[i + 2]) / 255;
-    if (energy < 0.004) {
+    // Mild gamma so mid-energy soft edges stay soft instead of posterizing bright.
+    const raw = Math.max(s[i], s[i + 1], s[i + 2]) / 255;
+    const energy = Math.pow(raw, 1.15);
+    if (energy < 0.006) {
       d[i] = 0;
       d[i + 1] = 0;
       d[i + 2] = 0;
@@ -8980,7 +8990,7 @@ function nodeGraphPhosphorMapEnergyToColorCanvas(energyCanvas, colorCanvas, stop
     d[i] = c.r;
     d[i + 1] = c.g;
     d[i + 2] = c.b;
-    d[i + 3] = Math.min(255, Math.round(energy * 255));
+    d[i + 3] = Math.min(255, Math.round(energy * 230));
   }
   cctx.putImageData(out, 0, 0);
   return true;
@@ -9365,35 +9375,55 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const digitX = left + width * 0.5;
   const digitY = top + digitAreaHeight * 0.5;
 
-  // ── 0–1 energy phosphor: soft white deposit → gradient colormap ──
+  // ── 0–1 energy phosphor ─────────────────────────────────────────────
+  // Residual trails only: fade every frame; soft-deposit on value change.
+  // Continuous full-frame re-deposit was maxing luma to white and hiding decay.
+  // Live reading is the hard digit pass below — not the energy buffer.
   const energy = nodeGraphNumberReadoutEnergyCanvas(canvas);
   const energyCtx = energy?.getContext?.("2d");
   const softnessPx = nodeGraphPhosphorEnergySoftnessPx(digitFontSize, burn);
-  if (energy && energyCtx) {
+  const energyActive = burn > 0.001 || decay > 0.001;
+  if (energy && energyCtx && energyActive) {
     energyCtx.setTransform(1, 0, 0, 1, 0, 0);
     if (decay > 0.001) {
       nodeGraphPhosphorEnergyFade(energyCtx, energy.width, energy.height, burn, decay);
     } else if (textChanged || styleChanged) {
+      // No decay: no residual trail — clear old energy when the face changes.
       energyCtx.clearRect(0, 0, energy.width, energy.height);
     }
-    // Soft energy deposit (white luma). Color comes only at present-time gradient.
-    const deposit = Math.max(0.18, 0.32 + burn * 0.68) * alpha;
-    energyCtx.save();
-    energyCtx.globalCompositeOperation = "lighter";
-    nodeGraphNumberReadoutDrawDigits(energyCtx, {
-      text: valueText,
-      centerX: digitX,
-      centerY: digitY,
-      fontFamily: digitFontFamily,
-      fontSize: digitFontSize,
-      cellW,
-      rgb: [255, 255, 255],
-      alpha: deposit,
-      softBlurPx: softnessPx,
-      energy: true,
-      plate: false,
-    });
-    energyCtx.restore();
+    // Soft pulse when the displayed string changes (or first paint after resize).
+    // Not every frame: that re-lit to white and cancelled decay.
+    const shouldDeposit = textChanged || styleChanged || !canvas._numberReadoutEnergyPrimed;
+    if (shouldDeposit) {
+      // Burn = residual ink from a change. Cap so fade stays visible.
+      // Rapid live samples (new text every frame) use a lighter pulse.
+      const rapid = textChanged && lastPaint > 0 && now - lastPaint < 40;
+      const deposit = clampNodeSliderValue(
+        (rapid ? 0.05 + burn * 0.14 : 0.1 + burn * 0.32) * alpha,
+        0.04,
+        rapid ? 0.22 : 0.42,
+      );
+      energyCtx.save();
+      energyCtx.globalCompositeOperation = "lighter";
+      nodeGraphNumberReadoutDrawDigits(energyCtx, {
+        text: valueText,
+        centerX: digitX,
+        centerY: digitY,
+        fontFamily: digitFontFamily,
+        fontSize: digitFontSize,
+        cellW,
+        rgb: [255, 255, 255],
+        alpha: deposit,
+        softBlurPx: softnessPx,
+        energy: true,
+        plate: false,
+      });
+      energyCtx.restore();
+      canvas._numberReadoutEnergyPrimed = true;
+    }
+  } else if (energy && energyCtx && !energyActive) {
+    energyCtx.clearRect(0, 0, energy.width, energy.height);
+    canvas._numberReadoutEnergyPrimed = false;
   }
 
   // ── Present ──
@@ -9420,13 +9450,14 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     });
   }
 
-  // Energy → gradient RGB, then lighter composite (soft trails + soft body).
+  // Energy residual → gradient (soft trails of previous values only).
   const colorCanvas = nodeGraphNumberReadoutEnergyColorCanvas(canvas);
-  if (energy && colorCanvas) {
+  if (energy && colorCanvas && energyActive) {
     const stops = nodeGraphPhosphorBuildGradientStops(rgb, bg);
     if (nodeGraphPhosphorMapEnergyToColorCanvas(energy, colorCanvas, stops)) {
       context.save();
       context.globalCompositeOperation = "lighter";
+      context.globalAlpha = 0.75;
       context.imageSmoothingEnabled = true;
       context.drawImage(colorCanvas, 0, 0);
       context.restore();
