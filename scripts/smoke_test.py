@@ -13787,7 +13787,17 @@ def require_node_graph_mvp_contract() -> None:
         and "nodeGraphPhosphorLightApplyPixelDensity" in script_sources.get(
             "./public/modules/phosphorLight/phosphor-light-display.js", ""
         )
+        and "dot1Size: 0.08" in script_sources.get(
+            "./public/modules/phosphorLight/phosphor-light-display.js", ""
+        )
+        and "size * t * 0.5" in script_sources.get(
+            "./public/modules/phosphorLight/phosphor-light-display.js", ""
+        )
         and '"pixelDensity"' in node_graph_source[
+            node_graph_source.index("phosphorLight: Object.freeze({")
+            : node_graph_source.index("function nodeGraphTraceDisplayActiveControlsForType")
+        ]
+        and '"dot1Size"' in node_graph_source[
             node_graph_source.index("phosphorLight: Object.freeze({")
             : node_graph_source.index("function nodeGraphTraceDisplayActiveControlsForType")
         ]

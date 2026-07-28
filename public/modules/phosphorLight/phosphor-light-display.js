@@ -13,8 +13,10 @@ const nodeGraphPhosphorLightSettingsDefaults = Object.freeze({
   color: "#75ebff",
   decay: 0.18,
   scale: 1,
-  // Beam radius (softness) + blur mix for sigma (scope2d lineThickness role).
-  lineThickness: 0.14,
+  // 0–1 fraction of face min side: 1 = diameter fills the square (same as scope2d).
+  dot1Size: 0.08,
+  // Softness of the gaussian profile (blur), not geometric size.
+  lineThickness: 0.35,
   // 0 = 1px grid, 1 = layout×dpr, 2 = 2× supersample.
   pixelDensity: 1,
 });
@@ -50,7 +52,14 @@ function normalizeNodeGraphPhosphorLightSettings(settings = {}) {
     color: color(source.color ?? source.dot1Color, defaults.color),
     decay: clamp01(source.decay, defaults.decay),
     scale: clampPos(source.scale, defaults.scale),
-    lineThickness: clamp01(source.lineThickness ?? source.dot1Size, defaults.lineThickness),
+    // Prefer explicit size; only fall back to legacy thickness-as-size if size missing.
+    dot1Size: clamp01(
+      source.dot1Size !== undefined && source.dot1Size !== null
+        ? source.dot1Size
+        : defaults.dot1Size,
+      defaults.dot1Size,
+    ),
+    lineThickness: clamp01(source.lineThickness ?? source.dot1Blur, defaults.lineThickness),
     pixelDensity: clampDensity(source.pixelDensity, defaults.pixelDensity),
   };
 }
@@ -208,13 +217,16 @@ function nodeGraphPhosphorLightBuildPathPoints(buffer, square, settings, lastInd
   return { points, nextIndex: count };
 }
 
-function nodeGraphPhosphorLightBeamRadius(sizePx, thickness01) {
-  if (typeof nodeGraphPhosphorGaussianRadiusFromThickness === "function") {
-    return nodeGraphPhosphorGaussianRadiusFromThickness(sizePx, thickness01);
-  }
+/**
+ * Beam radius in buffer pixels from 0–1 dot size.
+ * Same contract as scope2d / Lorenz: radius = minSide * size * 0.5
+ * so size 1 = diameter spans the entire face square.
+ */
+function nodeGraphPhosphorLightBeamRadius(sizePx, dotSize01) {
   const size = Math.max(1, Number(sizePx) || 1);
-  const t = Math.max(0, Math.min(1, Number(thickness01) || 0));
-  return Math.max(1.25, size * (0.006 + t * 0.028));
+  const t = Math.max(0, Math.min(1, Number(dotSize01) || 0));
+  // Floor so a true 0 still leaves a hair of energy if desired; UI 0 is near-invisible.
+  return Math.max(0.35, size * t * 0.5);
 }
 
 function drawNodeGraphPhosphorLightItem(renderer, item, pixelRatio) {
@@ -254,14 +266,17 @@ function drawNodeGraphPhosphorLightItem(renderer, item, pixelRatio) {
   const burn = Math.max(0, Math.min(1, Number(settings.burn) || 0));
   const decay = Math.max(0, Math.min(1, Number(settings.decay) || 0));
   const brightness = Math.max(0.05, Math.min(2, Number(settings.brightness) || 0.9));
-  const size = Math.min(width, height);
-  const radius = nodeGraphPhosphorLightBeamRadius(size, settings.lineThickness);
-  // Blur 0–1 widens sigma (scope2d beamBlur); thickness already sets radius.
+  // Face square min side — dot size 1 spans this diameter (full screen).
+  const size = Math.min(square.width, square.height);
+  const radius = nodeGraphPhosphorLightBeamRadius(size, settings.dot1Size);
+  // Blur 0–1 widens gaussian sigma (scope2d lineThickness / beam blur role).
   const blur = Math.max(0, Math.min(1, Number(settings.lineThickness) || 0));
   // Peak energy per beam — same order as scope2d burn brightness * burn gain.
+  // Slightly reduce peak as radius grows so a full-screen blob doesn't clip to white instantly.
+  const sizeNorm = Math.max(0, Math.min(1, Number(settings.dot1Size) || 0));
   const beamBrightness = Math.max(
     0,
-    brightness * (0.014 + burn * 0.055),
+    brightness * (0.014 + burn * 0.055) * (1.15 - sizeNorm * 0.55),
   );
 
   const path = nodeGraphPhosphorLightBuildPathPoints(

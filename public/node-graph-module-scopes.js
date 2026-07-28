@@ -3627,6 +3627,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "decay",
       "scale",
       "pixelDensity",
+      "dot1Size",
       "lineThickness",
       "dot1Brightness",
     ]),
