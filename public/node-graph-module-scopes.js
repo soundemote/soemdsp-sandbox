@@ -3532,8 +3532,8 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
   ["innerGlow", "Inner glow"],
   ["innerShadow", "Inner shadow"],
 
-  ["dot1Size", "Dot size"],
-  ["lineThickness", "Dot blur"],
+  ["dot1Size", "Size"],
+  ["lineThickness", "Blur"],
   ["dot1Brightness", "Dot light"],
   ["secondarySize", "Secondary size"],
   ["secondaryLineThickness", "Secondary blur"],
