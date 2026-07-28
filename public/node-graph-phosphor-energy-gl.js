@@ -119,6 +119,7 @@
   // HDR present: never clamp energy before the film curve. Clamping to 1 first
   // turns slow burn into a flat plateau with a hard pixel edge at the isosurface.
   // Soft film (1-exp) compresses bright cores and leaves dim skirts glowing.
+  // Low-end lift keeps tiny residual energy visible so low burn is dim, not dead.
   const PRESENT_FRAG = `
     precision highp float;
     varying vec2 vUv;
@@ -128,17 +129,16 @@
     uniform float uExposure;
     void main() {
       float raw = max(texture2D(uEnergy, vUv).r, 0.0);
+      // Lift sub-threshold residual so 8-bit/near-zero energy still glows dimly
+      // (avoids a hard "off" band when burn is low under decay).
+      float lifted = raw + 0.045 * pow(raw, 0.42);
       float e;
       if (uExposure > 0.001) {
-        // Soft film on full HDR energy (no early clamp). Mild lift on lows so
-        // far skirts stay visible without crushing into a hard threshold.
-        float lifted = raw + 0.018 * sqrt(raw);
-        e = 1.0 - exp(-lifted * uExposure * 0.72);
-        e = pow(clamp(e, 0.0, 1.0), 0.90);
+        e = 1.0 - exp(-lifted * uExposure * 0.68);
+        e = pow(clamp(e, 0.0, 1.0), 0.92);
       } else {
-        // Soft compress when no exposure: still no hard clamp plateau.
-        e = raw / (1.0 + raw);
-        e = pow(clamp(e, 0.0, 1.0), 0.85);
+        e = lifted / (1.0 + lifted);
+        e = pow(clamp(e, 0.0, 1.0), 0.88);
       }
       vec3 c = texture2D(uLut, vec2(clamp(e, 0.0, 1.0), 0.5)).rgb;
       float a = clamp(e * uTrailGain, 0.0, 1.0);
@@ -406,7 +406,9 @@
     if (d <= 0.001) {
       return 0;
     }
-    return Math.max(0.025, Math.min(0.55, 0.025 + d * 0.14 + d * d * 0.28));
+    // Gentler floor than 0.025 — a high minimum erase made low burn deposits
+    // quantize to zero (dead band ~0.04) instead of a dim continuous trail.
+    return Math.max(0.006, Math.min(0.55, 0.006 + d * 0.11 + d * d * 0.32));
   }
 
   function buildStops(peakRgb, backgroundHex) {

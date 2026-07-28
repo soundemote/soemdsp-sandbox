@@ -9052,9 +9052,32 @@ function nodeGraphPhosphorEnergyFadeAmount(decay) {
   if (d <= 0.001) {
     return 0;
   }
-  // At ~60fps: decay 0.3 → ~0.07/frame (~half-life ~0.15s);
-  // decay 1 → ~0.4/frame (dies in a few frames). Quadratic helps low-end feel.
-  return clampNodeSliderValue(0.025 + d * 0.14 + d * d * 0.28, 0.025, 0.55);
+  // Gentler floor so low burn can still accumulate a dim continuous trail
+  // (old 0.025 min erase created a dead band near burn ~0.04).
+  // At ~60fps: decay 0.3 → ~0.07/frame; decay 1 → dies in a few frames.
+  return clampNodeSliderValue(0.006 + d * 0.11 + d * d * 0.32, 0.006, 0.55);
+}
+
+/**
+ * Smooth mono-energy deposit gain from burn × brightness × size.
+ * Monotonic, no dead zone: low burn is dim, high burn is hot — not off/on.
+ */
+function nodeGraphScope2dEnergyBurnDepositGain(burn, brightness, size01) {
+  const b = clampNodeSliderValue(Number(burn) || 0, 0, 1);
+  const br = Math.max(0, Number(brightness) || 0);
+  const s = clampNodeSliderValue(Number(size01) || 0, 0, 1);
+  // Slight low-end lift (pow < 1) so scrubbing 0.02→0.08 feels continuous.
+  // Floor keeps a faint tip at burn 0; span covers strong dwell at burn 1.
+  const burnShape = Math.pow(b, 0.78);
+  const sizeFactor = 1.12 - s * 0.42;
+  return Math.max(0, br * (0.022 + burnShape * 0.10) * sizeFactor);
+}
+
+/** Soft present exposure — mostly stable so burn doesn't double-attenuate. */
+function nodeGraphScope2dEnergyBurnExposure(burn) {
+  const b = clampNodeSliderValue(Number(burn) || 0, 0, 1);
+  // Base exposure keeps low residual visible; burn only gently opens the film.
+  return 1.85 + b * 2.1;
 }
 
 function nodeGraphPhosphorEnergyFade(context, width, height, burn, decay) {
@@ -10511,7 +10534,7 @@ function nodeGraphScope2dBurnDecayValues(settings) {
   return {
     decayFast: decay > 0 ? 1 - decay * 0.38 : 1,
     decaySlow: decay > 0 ? 1 - decay * 0.1 : 1,
-    exposure: 1.35 + burn * 3.5,
+    exposure: nodeGraphScope2dEnergyBurnExposure(burn),
     floor: decay > 0 ? decay * 0.0035 : 0,
   };
 }
@@ -10720,12 +10743,12 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
 
   const paused = nodeGraphModuleScopePaused();
   if (!paused && layer) {
-    // Soft circular hits on NEW motion only. Peak kept low so a slow dwell
-    // builds a soft halo (HDR energy + bleed) instead of an instant white disc.
+    // Soft circular hits on NEW motion only. Burn gain is smooth (no dead band).
     const size01 = clampNodeSliderValue(settings?.dot1Size, 0, 1);
-    const beamBrightness = Math.max(
-      0,
-      layer.brightness * (0.016 + burn * 0.055) * (1.1 - size01 * 0.4),
+    const beamBrightness = nodeGraphScope2dEnergyBurnDepositGain(
+      burn,
+      layer.brightness,
+      size01,
     );
     nodeGraphPhosphorEnergyGlStepBeams(energyGl, {
       decay,
@@ -10753,8 +10776,8 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
     canvas._nodeGraphScope2dLastDrawnPoint = lastPoint;
   }
 
-  // Soft film exposure before LUT — matches classic scope2d composite spirit.
-  const exposure = 1.35 + burn * 3.5;
+  // Soft film exposure — stable base so low burn stays dim, not blank.
+  const exposure = nodeGraphScope2dEnergyBurnExposure(burn);
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.clearRect(0, 0, width, height);
   if (nodeGraphPhosphorEnergyGlPresent(energyGl, 1, { exposure })) {

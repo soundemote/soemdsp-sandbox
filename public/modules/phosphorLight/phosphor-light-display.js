@@ -271,12 +271,12 @@ function drawNodeGraphPhosphorLightItem(renderer, item, pixelRatio) {
   const radius = nodeGraphPhosphorLightBeamRadius(size, settings.dot1Size);
   // Blur 0–1 widens gaussian sigma (scope2d lineThickness / beam blur role).
   const blur = Math.max(0, Math.min(1, Number(settings.lineThickness) || 0));
-  // Peak energy per beam — same order as scope2d burn brightness * burn gain.
-  // Slightly reduce peak as radius grows so a full-screen blob doesn't clip to white instantly.
+  // Smooth burn gain (same family as scope2d energy) — low burn dim, not dead.
   const sizeNorm = Math.max(0, Math.min(1, Number(settings.dot1Size) || 0));
+  const burnShape = Math.pow(burn, 0.78);
   const beamBrightness = Math.max(
     0,
-    brightness * (0.014 + burn * 0.055) * (1.15 - sizeNorm * 0.55),
+    brightness * (0.022 + burnShape * 0.10) * (1.15 - sizeNorm * 0.55),
   );
 
   const path = nodeGraphPhosphorLightBuildPathPoints(
