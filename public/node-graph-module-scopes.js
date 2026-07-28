@@ -8910,12 +8910,14 @@ function drawNodeGraphValueOscilloscopeTrail(item, pixelRatio, geometry, setting
     return;
   }
   const screenRect = item?.screenRect;
-  if (!screenRect) {
+  if (!screenRect || !(screenRect.width > 0) || !(screenRect.height > 0)) {
     return;
   }
+  // Map workspace/screen face coords → buffer pixels. Multiplying by dpr alone
+  // is wrong under zoom (screen rect grows, buffer stays layout×dpr).
   const toCanvas = (x, y) => ({
-    x: (x - screenRect.left) * pixelRatio,
-    y: (y - screenRect.top) * pixelRatio,
+    x: ((x - screenRect.left) / screenRect.width) * canvas.width,
+    y: ((y - screenRect.top) / screenRect.height) * canvas.height,
   });
   const samples = nodeGraphValueOscilloscopeTrailSamples(item?.buffer);
   if (!samples.length) {
@@ -8928,7 +8930,7 @@ function drawNodeGraphValueOscilloscopeTrail(item, pixelRatio, geometry, setting
       start: toCanvas(geometry.x1, y),
     };
   });
-  const lineBase = Math.max(1, Math.min(geometry.squareWidth, geometry.squareHeight)) * pixelRatio;
+  const lineBase = Math.max(1, Math.min(canvas.width, canvas.height));
   const innerThickness = Math.max(0, lineBase * clampNodeSliderValue(settings.dot1Size, 0, 1));
   const capThickness = Math.max(0, lineBase * clampNodeSliderValue(settings.capSize, 0, 1));
   const trailIntensity = (0.04 + burn * 0.22) / Math.max(1, Math.sqrt(sampleLines.length));
@@ -11064,17 +11066,14 @@ function nodeGraphScope2dSampleIsFinite(x, y) {
   return nodeGraphScope2dFiniteSample(x) !== null && nodeGraphScope2dFiniteSample(y) !== null;
 }
 
-function nodeGraphScope2dTraceCanvasSquare(item, pixelRatio, square) {
-  const screenRect = item?.screenRect;
-  if (!screenRect || !square) {
-    return null;
-  }
-  return {
-    left: (square.left - screenRect.left) * pixelRatio,
-    top: (square.top - screenRect.top) * pixelRatio,
-    width: square.width * pixelRatio,
-    height: square.height * pixelRatio,
-  };
+/**
+ * Map a face-local canvas into a centered square in **buffer pixels**.
+ * Do NOT use workspace/screen rects here — those scale with zoom while the
+ * local-fallback canvas buffer is layout×dpr (fixed under zoom). Mixing the
+ * two made 2D Trace walk outside the face and clip into the walls.
+ */
+function nodeGraphScope2dTraceCanvasSquare(canvas) {
+  return nodeGraphScope2dBurnCanvasSquare(canvas);
 }
 
 function nodeGraphScope2dBurnCanvasSquare(canvas) {
@@ -11119,8 +11118,7 @@ function nodeGraphScope2dTraceSegmentIsContinuous(previousPoint, point, maxSegme
   return distance <= Math.max(1, Number(maxSegmentPixels) || 1);
 }
 
-function buildNodeGraphScope2dTraceCanvasPoints(item, pixelRatio, square, buffer, settings) {
-  const canvasSquare = nodeGraphScope2dTraceCanvasSquare(item, pixelRatio, square);
+function buildNodeGraphScope2dTraceCanvasPoints(canvasSquare, buffer, settings) {
   const count = Math.min(buffer?.x?.length || 0, buffer?.y?.length || 0);
   if (!canvasSquare || count <= 0) {
     return [];
@@ -11209,9 +11207,8 @@ function drawNodeGraphScope2dTraceLayer(context, points, dotSpace, settings) {
 }
 
 function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
-  const rect = item?.scopeRect;
   const buffer = item?.buffer;
-  if (!rect || !buffer?.nodeGraphScopeXy || !buffer.x?.length || !buffer.y?.length) {
+  if (!buffer?.nodeGraphScopeXy || !buffer.x?.length || !buffer.y?.length) {
     return;
   }
   renderNodeGraphModuleScopeAnalyzer(item.slot, buffer);
@@ -11227,13 +11224,16 @@ function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
   if (canvas.dataset.scope2dRenderer !== "sample-history-trace-1") {
     canvas.dataset.scope2dRenderer = "sample-history-trace-1";
   }
-  const square = nodeGraphModuleScopeCenteredSquareRect(rect);
+  // Buffer-local square (layout×dpr). Never use item.scopeRect/screenRect —
+  // those are workspace screen coords and grow with zoom, so the stroke would
+  // walk out of the face and clip into the module chrome.
+  const canvasSquare = nodeGraphScope2dTraceCanvasSquare(canvas);
   const settings = nodeGraphScope2dTraceSettingsForNode(nodeGraphModuleScopeNodeForSlot(item.slot));
-  const points = buildNodeGraphScope2dTraceCanvasPoints(item, pixelRatio, square, buffer, settings);
+  const points = buildNodeGraphScope2dTraceCanvasPoints(canvasSquare, buffer, settings);
+  context.clearRect(0, 0, canvas.width, canvas.height);
   if (!points.some(Boolean)) {
     return;
   }
-  context.clearRect(0, 0, canvas.width, canvas.height);
   const dotSpace = Math.min(canvas.width, canvas.height);
   drawNodeGraphScope2dTraceLayer(context, points, dotSpace, settings);
 }
