@@ -4,12 +4,10 @@
 // soundemote.io/phosphor — not a port of either:
 //
 //   • Beam deposits light energy (0–1), not colored RGB strokes
-//   • Soft Gaussian intensity only (no hard core stroke + separate tip)
+//   • Soft true-gaussian kernel texture stamps (node-graph-phosphor-gaussian-drawer)
+//   • Fixed face pixel grid → fixed radius → kernels stay cached under zoom
 //   • Screen: energy *= keep (decay) + newHits * intensity (burn)
 //   • Present: energy → color via LUT
-//
-// The old stroke-with-shadowBlur + hard tip looked like “thick line under
-// a main dot.” Real scopes are one soft beam whose dwell builds brightness.
 
 const nodeGraphPhosphorLightSettingsDefaults = Object.freeze({
   background: "#020608",
@@ -150,26 +148,10 @@ function nodeGraphPhosphorLightMapSample(square, x, y, scale) {
   };
 }
 
-/** Soft Gaussian stamp — one beam kernel, no hard stroke/core. */
-function nodeGraphPhosphorLightStamp(ctx, x, y, radius, intensity) {
-  const r = Math.max(0.75, radius);
-  const a = Math.max(0, Math.min(1, intensity));
-  if (a < 0.002) return;
-  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-  // Approximate gaussian: bright center, soft falloff to 0 (woscope/PrettyScope spirit).
-  g.addColorStop(0, `rgba(255,255,255,${a.toFixed(4)})`);
-  g.addColorStop(0.35, `rgba(255,255,255,${(a * 0.45).toFixed(4)})`);
-  g.addColorStop(0.7, `rgba(255,255,255,${(a * 0.12).toFixed(4)})`);
-  g.addColorStop(1, "rgba(255,255,255,0)");
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fill();
-}
-
 /**
  * Deposit only new samples since last frame as a soft beam path.
- * Intensity ~ 1/speed (dwell): slow motion burns brighter — soundemote phosphor model.
+ * Uses a baked true-gaussian kernel texture (fixed pixel grid → fixed radius
+ * cache). Intensity ~ 1/speed (dwell): slow motion burns brighter.
  */
 function nodeGraphPhosphorLightDepositBeam(maskCtx, buffer, square, settings, lastIndex) {
   const count = Math.min(buffer?.x?.length || 0, buffer?.y?.length || 0);
@@ -182,13 +164,24 @@ function nodeGraphPhosphorLightDepositBeam(maskCtx, buffer, square, settings, la
   maskCtx.globalCompositeOperation = "lighter";
 
   const size = Math.min(w, h);
-  const radius = Math.max(
-    1.25,
-    size * (0.006 + Math.max(0, Math.min(1, settings.lineThickness)) * 0.028),
-  );
+  const radius = typeof nodeGraphPhosphorGaussianRadiusFromThickness === "function"
+    ? nodeGraphPhosphorGaussianRadiusFromThickness(size, settings.lineThickness)
+    : Math.max(1.25, size * (0.006 + Math.max(0, Math.min(1, settings.lineThickness)) * 0.028));
+  const stampDot = typeof nodeGraphPhosphorGaussianStamp === "function"
+    ? nodeGraphPhosphorGaussianStamp
+    : null;
+  const stampSeg = typeof nodeGraphPhosphorGaussianSegment === "function"
+    ? nodeGraphPhosphorGaussianSegment
+    : null;
+  if (!stampDot) {
+    return count;
+  }
+
   const brightness = Math.max(0.05, Math.min(2, Number(settings.brightness) || 0.9));
   // Base hit intensity; dwell scales up, fast motion dims (beam spends less time).
   const baseHit = Math.max(0.04, Math.min(0.55, 0.08 + brightness * 0.22));
+  // Spacing for dwell estimate: match gaussian segment step (~0.4σ, σ≈r/2.6).
+  const stepPx = Math.max(0.65, radius / 2.6 * 0.42);
 
   let start = Math.max(0, Math.floor(Number(lastIndex) || 0));
   if (start >= count) start = 0; // buffer wrapped / reset
@@ -201,7 +194,6 @@ function nodeGraphPhosphorLightDepositBeam(maskCtx, buffer, square, settings, la
     ? nodeGraphPhosphorLightMapSample(square, buffer.x[start - 1], buffer.y[start - 1], settings.scale)
     : null;
 
-  const stepPx = Math.max(0.85, radius * 0.35);
   for (let i = start; i < count; i += 1) {
     const cur = nodeGraphPhosphorLightMapSample(square, buffer.x[i], buffer.y[i], settings.scale);
     if (!cur) {
@@ -209,7 +201,7 @@ function nodeGraphPhosphorLightDepositBeam(maskCtx, buffer, square, settings, la
       continue;
     }
     if (!prev) {
-      nodeGraphPhosphorLightStamp(maskCtx, cur.x, cur.y, radius, baseHit);
+      stampDot(maskCtx, cur.x, cur.y, radius, baseHit);
       prev = cur;
       continue;
     }
@@ -219,20 +211,10 @@ function nodeGraphPhosphorLightDepositBeam(maskCtx, buffer, square, settings, la
     // Dwell: slow segments deposit more energy per pixel (CRT beam model).
     const dwell = dist < 1e-4 ? 2.2 : Math.min(2.2, Math.max(0.25, stepPx / dist));
     const hit = baseHit * dwell;
-    if (dist <= stepPx) {
-      nodeGraphPhosphorLightStamp(maskCtx, cur.x, cur.y, radius, hit);
+    if (stampSeg && dist > stepPx * 0.5) {
+      stampSeg(maskCtx, prev.x, prev.y, cur.x, cur.y, radius, hit);
     } else {
-      const segs = Math.min(48, Math.ceil(dist / stepPx));
-      for (let s = 1; s <= segs; s += 1) {
-        const t = s / segs;
-        nodeGraphPhosphorLightStamp(
-          maskCtx,
-          prev.x + dx * t,
-          prev.y + dy * t,
-          radius,
-          hit / segs * 1.15,
-        );
-      }
+      stampDot(maskCtx, cur.x, cur.y, radius, hit);
     }
     prev = cur;
   }

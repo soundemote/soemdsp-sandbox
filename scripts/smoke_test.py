@@ -152,6 +152,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-module-actions.js",
     "./public/node-graph-code-screen.js",
     "./public/node-graph-phosphor-energy-gl.js",
+    "./public/node-graph-phosphor-gaussian-drawer.js",
     "./public/node-graph-module-scopes.js",
     "./public/modules/phosphorLight/phosphor-light-display.js",
     "./public/node-graph-shader-script.js",
@@ -13776,6 +13777,21 @@ def require_node_graph_mvp_contract() -> None:
             "./public/modules/phosphorLight/phosphor-light-display.js", ""
         )
         and "Fixed layout pixel grid" in script_sources.get(
+            "./public/modules/phosphorLight/phosphor-light-display.js", ""
+        )
+        and "nodeGraphPhosphorGaussianStamp" in script_sources.get(
+            "./public/node-graph-phosphor-gaussian-drawer.js", ""
+        )
+        and "nodeGraphPhosphorGaussianSegment" in script_sources.get(
+            "./public/node-graph-phosphor-gaussian-drawer.js", ""
+        )
+        and "Math.exp(-(dx * dx + dy * dy) * inv2s2)" in script_sources.get(
+            "./public/node-graph-phosphor-gaussian-drawer.js", ""
+        )
+        and "nodeGraphPhosphorGaussianStamp" in script_sources.get(
+            "./public/modules/phosphorLight/phosphor-light-display.js", ""
+        )
+        and "createRadialGradient" not in script_sources.get(
             "./public/modules/phosphorLight/phosphor-light-display.js", ""
         ),
         "legacy visual source modules should use typed scope renderers; PhosphorLight is the energy-LUT XY testbed",
