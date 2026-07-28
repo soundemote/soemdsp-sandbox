@@ -13284,6 +13284,9 @@ def require_node_graph_mvp_contract() -> None:
         and "nodeGraphPhosphorEnergyGlEnsure" in script_sources.get("./public/node-graph-phosphor-energy-gl.js", "")
         and "nodeGraphPhosphorEnergyGlStep" in script_sources.get("./public/node-graph-phosphor-energy-gl.js", "")
         and "nodeGraphPhosphorEnergyGlPresent" in script_sources.get("./public/node-graph-phosphor-energy-gl.js", "")
+        and "nodeGraphPhosphorEnergyGlResize" in script_sources.get("./public/node-graph-phosphor-energy-gl.js", "")
+        and "function resizeRenderer(renderer, width, height)" in script_sources.get("./public/node-graph-phosphor-energy-gl.js", "")
+        and "function copySurface(renderer, sourceSurface, targetSurface, width, height)" in script_sources.get("./public/node-graph-phosphor-energy-gl.js", "")
         and "nodeGraphNumberReadoutEnergyGl" in node_graph_source
         and "nodeGraphNumberReadoutDrawInnerShadow" in node_graph_source
         and "plate: true" in node_graph_source
@@ -13760,6 +13763,12 @@ def require_node_graph_mvp_contract() -> None:
         and 'slot?.type === "spiral" || slot?.type === "ellipsoid" || slot?.type === "lorenzAttractor"' not in node_graph_source
         and 'displayType: "phosphorLight"' in module_definitions_source
         and "nodeGraphModuleScopeCustomRenderers.phosphorLight = drawNodeGraphPhosphorLightItem" in script_sources.get(
+            "./public/modules/phosphorLight/phosphor-light-display.js", ""
+        )
+        and "nodeGraphPhosphorEnergyGlDestroy" not in script_sources.get(
+            "./public/modules/phosphorLight/phosphor-light-display.js", ""
+        )
+        and "resizes + copies like scope2d burn" in script_sources.get(
             "./public/modules/phosphorLight/phosphor-light-display.js", ""
         ),
         "legacy visual source modules should use typed scope renderers; PhosphorLight is the energy-LUT XY testbed",

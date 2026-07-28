@@ -9085,12 +9085,9 @@ function syncNodeGraphNumberReadoutCanvas(canvas, screenElement, pixelRatio) {
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
     canvas.height = height;
-    // Drop energy residual when the face resizes (including zoom changes).
+    // Soft deposit mask is one-frame only. Energy residual survives zoom via
+    // nodeGraphPhosphorEnergyGlEnsure resize+copy (same as scope2d / Lorenz).
     canvas._numberReadoutEnergyMask = null;
-    if (canvas._phosphorEnergyGl && typeof nodeGraphPhosphorEnergyGlDestroy === "function") {
-      nodeGraphPhosphorEnergyGlDestroy(canvas._phosphorEnergyGl);
-      canvas._phosphorEnergyGl = null;
-    }
   }
   // Clear any previous zoom-breaking inline size so CSS 100%/100% owns layout.
   if (canvas.style.width || canvas.style.height) {

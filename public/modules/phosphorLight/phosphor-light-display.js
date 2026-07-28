@@ -82,12 +82,12 @@ function syncNodeGraphPhosphorLightFaceCanvas(canvas, screenElement, pixelRatio)
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
     canvas.height = height;
+    // One-frame deposit mask only — safe to drop. Energy residual is kept:
+    // nodeGraphPhosphorEnergyGlEnsure resizes + copies like scope2d burn
+    // (Lorenz), so zoom must not destroy the energy FBO.
     canvas._phosphorLightMask = null;
-    canvas._phosphorLightLastSample = 0;
-    if (canvas._phosphorEnergyGl && typeof nodeGraphPhosphorEnergyGlDestroy === "function") {
-      nodeGraphPhosphorEnergyGlDestroy(canvas._phosphorEnergyGl);
-      canvas._phosphorEnergyGl = null;
-    }
+    // Keep _phosphorLightLastSample so we only deposit new buffer samples
+    // after resize (re-stamping the whole tail would flash the beam).
   }
   if (canvas.style.width || canvas.style.height) {
     canvas.style.width = "";

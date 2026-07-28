@@ -1,13 +1,14 @@
 // Shared WebGL 0–1 energy phosphor (long-term path for LCD + scope burn).
 //
-// Architecture:
+// Architecture (same retention model as scope2d burn / Lorenz, monochrome):
 //   energy (R)  ──fade──►  energy'  ──+ soft mask * burn──►  energy''
-//   present: color = LUT(energy)   (1D gradient texture)
+//   present: color = LUT(energy)   (1D gradient / black→white→peak)
+//   resize:  reallocate FBOs + copy residual (do NOT clear on zoom)
 //
 // Deposit masks are rasterized on a small 2D canvas (soft glyphs / beams),
 // then uploaded once per deposit — no per-frame getImageData colormap.
 //
-// Consumers (Number Readout first; scopes migrate later):
+// Consumers (Number Readout + PhosphorLight; other scopes migrate later):
 //   const glr = nodeGraphPhosphorEnergyGlEnsure(host, w, h);
 //   nodeGraphPhosphorEnergyGlSetLutFromPeak(glr, rgbBytes, bgHex);
 //   nodeGraphPhosphorEnergyGlStep(glr, { decay, burn, maskCanvas, depositGain });
@@ -93,6 +94,16 @@
       vec3 c = texture2D(uLut, vec2(e, 0.5)).rgb;
       float a = clamp(e * uTrailGain, 0.0, 1.0);
       gl_FragColor = vec4(c * a, a);
+    }
+  `;
+
+  // Full-screen blit used on resize (same idea as scope2d burn copy-on-resize).
+  const COPY_FRAG = `
+    precision mediump float;
+    varying vec2 vUv;
+    uniform sampler2D uTexture;
+    void main() {
+      gl_FragColor = texture2D(uTexture, vUv);
     }
   `;
 
@@ -244,7 +255,8 @@
 
     const stepProgram = linkProgram(gl, VERT, STEP_FRAG);
     const presentProgram = linkProgram(gl, VERT, PRESENT_FRAG);
-    if (!stepProgram || !presentProgram) {
+    const copyProgram = linkProgram(gl, VERT, COPY_FRAG);
+    if (!stepProgram || !presentProgram || !copyProgram) {
       return null;
     }
 
@@ -300,6 +312,11 @@
       uLut: gl.getUniformLocation(presentProgram, "uLut"),
       uTrailGain: gl.getUniformLocation(presentProgram, "uTrailGain"),
     };
+    const copy = {
+      program: copyProgram,
+      aPos: gl.getAttribLocation(copyProgram, "aPos"),
+      uTexture: gl.getUniformLocation(copyProgram, "uTexture"),
+    };
 
     return {
       canvas,
@@ -313,6 +330,7 @@
       maskTexture,
       step,
       present,
+      copy,
       lutSignature: "",
       alive: true,
     };
@@ -340,7 +358,94 @@
     if (renderer.present?.program) {
       gl.deleteProgram(renderer.present.program);
     }
+    if (renderer.copy?.program) {
+      gl.deleteProgram(renderer.copy.program);
+    }
     renderer.alive = false;
+  }
+
+  /**
+   * Blit source energy surface into target (UV 0–1 → stretch/shrink to new size).
+   * Mirrors copyNodeGraphScope2dBurnSurface so zoom keeps phosphor trails.
+   */
+  function copySurface(renderer, sourceSurface, targetSurface, width, height) {
+    const gl = renderer?.gl;
+    if (!gl || !sourceSurface?.texture || !targetSurface?.framebuffer || !renderer.copy?.program) {
+      return false;
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, targetSurface.framebuffer);
+    gl.viewport(0, 0, Math.max(1, width), Math.max(1, height));
+    gl.disable(gl.BLEND);
+    gl.useProgram(renderer.copy.program);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, sourceSurface.texture);
+    gl.uniform1i(renderer.copy.uTexture, 0);
+    drawFullScreen(renderer, renderer.copy);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    return true;
+  }
+
+  /**
+   * Reallocate ping-pong energy surfaces at a new size, copying prior energy.
+   * Same contract as resizeNodeGraphScope2dBurnRenderer (Lorenz/Chua scopes).
+   */
+  function resizeRenderer(renderer, width, height) {
+    if (!renderer?.alive || !renderer.gl) {
+      return false;
+    }
+    const w = Math.max(1, Math.min(MAX_DIM, Math.round(width) || 1));
+    const h = Math.max(1, Math.min(MAX_DIM, Math.round(height) || 1));
+    if (renderer.width === w && renderer.height === h && renderer.read && renderer.write) {
+      return true;
+    }
+    const gl = renderer.gl;
+    const previousRead = renderer.read;
+    const previousWrite = renderer.write;
+    const nextRead = createSurface(gl, w, h);
+    const nextWrite = createSurface(gl, w, h);
+    if (!nextRead || !nextWrite) {
+      destroySurface(gl, nextRead);
+      destroySurface(gl, nextWrite);
+      return false;
+    }
+
+    const copiedRead = copySurface(renderer, previousRead, nextRead, w, h);
+    const copiedWrite = copySurface(renderer, previousWrite, nextWrite, w, h);
+
+    // Surfaces that failed to copy start black (no residual).
+    for (const surface of [
+      copiedRead ? null : nextRead,
+      copiedWrite ? null : nextWrite,
+    ]) {
+      if (!surface) {
+        continue;
+      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, surface.framebuffer);
+      gl.viewport(0, 0, w, h);
+      gl.clearColor(0, 0, 0, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+    }
+
+    // Resize mask storage (deposit is one-frame; content need not be preserved).
+    if (renderer.maskTexture) {
+      gl.bindTexture(gl.TEXTURE_2D, renderer.maskTexture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+    }
+
+    if (renderer.canvas) {
+      renderer.canvas.width = w;
+      renderer.canvas.height = h;
+    }
+
+    destroySurface(gl, previousRead);
+    destroySurface(gl, previousWrite);
+    renderer.read = nextRead;
+    renderer.write = nextWrite;
+    renderer.width = w;
+    renderer.height = h;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    return true;
   }
 
   function drawFullScreen(renderer, programLoc) {
@@ -360,6 +465,8 @@
   /**
    * Ensure a renderer on host[key] matching width/height.
    * host is typically the 2D face canvas element.
+   * On size change: resize + copy residual energy (like scope2d burn / Lorenz).
+   * Do not destroy-on-zoom — that is what cleared PhosphorLight trails.
    */
   function ensure(host, width, height, key = "_phosphorEnergyGl") {
     if (!host) {
@@ -371,8 +478,13 @@
     if (renderer && renderer.alive && renderer.width === w && renderer.height === h) {
       return renderer;
     }
-    if (renderer) {
+    if (renderer && renderer.alive) {
+      if (resizeRenderer(renderer, w, h)) {
+        host[key] = renderer;
+        return renderer;
+      }
       destroyRenderer(renderer);
+      host[key] = null;
     }
     renderer = createRenderer(w, h);
     host[key] = renderer;
@@ -484,6 +596,7 @@
 
   global.nodeGraphPhosphorEnergyGlEnsure = ensure;
   global.nodeGraphPhosphorEnergyGlDestroy = destroyRenderer;
+  global.nodeGraphPhosphorEnergyGlResize = resizeRenderer;
   global.nodeGraphPhosphorEnergyGlSetLutFromPeak = setLutFromPeak;
   global.nodeGraphPhosphorEnergyGlStep = stepEnergy;
   global.nodeGraphPhosphorEnergyGlPresent = present;
