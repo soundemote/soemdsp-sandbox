@@ -13881,8 +13881,9 @@ def require_node_graph_mvp_contract() -> None:
         and "copyNodeGraphScope2dBurnSurface(renderer, previousReadSurface, nextReadSurface, safeWidth, safeHeight)" in scope2d_resize_source
         and "renderer.lastPoint = null;" in scope2d_resize_source
         and "renderer.lastFrame = NaN;" not in scope2d_resize_source
-        and "renderer._nodeGraphScope2dLastDrawnFrame = endFrame;" in scope2d_burn_source
         and "canvas._nodeGraphScope2dLastDrawnFrame = endFrame;" in scope2d_burn_source
+        and "function drawNodeGraphScope2dEnergyBurnPath" in scope2d_burn_source
+        and "nodeGraphPhosphorEnergyGlStepBeams" in scope2d_burn_source
         and "function nodeGraphScope2dStrokeSpace(canvas)" in node_graph_source
         and "return Math.min(canvas?.width || 0, canvas?.height || 0);" in node_graph_source
         and "function nodeGraphScope2dPointBudget()" not in scope2d_helper_source
@@ -13941,7 +13942,7 @@ def require_node_graph_mvp_contract() -> None:
         and "function nodeGraphScope2dAgeIntensity" not in node_graph_source
         and "centerX - radius" not in scope2d_source
         and "centerX + radius" not in scope2d_source,
-        "2D Burn should draw a retained WebGL interpolated trail from source audio-frame slices, independent of point budget",
+        "2D Burn should draw a retained soft-beam trail (mono energy + LUT preferred) from source audio-frame slices, independent of point budget",
     )
     require(
         "function nodeGraphModuleScopeSlotIsDrawable(slot)" in node_graph_source

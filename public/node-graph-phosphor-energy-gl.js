@@ -100,10 +100,18 @@
     uniform sampler2D uEnergy;
     uniform sampler2D uLut;
     uniform float uTrailGain;
+    // uExposure > 0: soft film curve (1 - exp(-e * exposure)) like classic scope2d
+    // composite — keeps ultra-soft peaks without hard clipping. 0 = simple gamma.
+    uniform float uExposure;
     void main() {
       float e = texture2D(uEnergy, vUv).r;
-      // Mild gamma keeps soft edges from posterizing.
-      e = pow(clamp(e, 0.0, 1.0), 1.12);
+      if (uExposure > 0.001) {
+        e = 1.0 - exp(-max(e, 0.0) * uExposure);
+        e = pow(clamp(e, 0.0, 1.0), 0.72);
+      } else {
+        // Mild gamma keeps soft edges from posterizing.
+        e = pow(clamp(e, 0.0, 1.0), 1.12);
+      }
       vec3 c = texture2D(uLut, vec2(e, 0.5)).rgb;
       float a = clamp(e * uTrailGain, 0.0, 1.0);
       gl_FragColor = vec4(c * a, a);
@@ -358,6 +366,7 @@
       uEnergy: gl.getUniformLocation(presentProgram, "uEnergy"),
       uLut: gl.getUniformLocation(presentProgram, "uLut"),
       uTrailGain: gl.getUniformLocation(presentProgram, "uTrailGain"),
+      uExposure: gl.getUniformLocation(presentProgram, "uExposure"),
     };
     const copy = {
       program: copyProgram,
@@ -857,8 +866,11 @@
     return true;
   }
 
-  /** Present energy×LUT into shared canvas (premultiplied RGBA), sized to this scope. */
-  function present(renderer, trailGain = 0.85) {
+  /**
+   * Present energy×LUT into shared canvas (premultiplied RGBA), sized to this scope.
+   * options.exposure: optional soft film curve before LUT (scope2d / Lorenz beauty).
+   */
+  function present(renderer, trailGain = 0.85, options = {}) {
     if (!isRendererLive(renderer)) {
       return false;
     }
@@ -892,6 +904,11 @@
     gl.uniform1i(renderer.present.uLut, 1);
 
     gl.uniform1f(renderer.present.uTrailGain, Math.max(0, Math.min(2, Number(trailGain) || 0.85)));
+    const exposure = Number(options?.exposure);
+    gl.uniform1f(
+      renderer.present.uExposure,
+      Number.isFinite(exposure) && exposure > 0 ? exposure : 0,
+    );
     drawFullScreen(renderer, renderer.present);
     gl.bindTexture(gl.TEXTURE_2D, null);
     return true;

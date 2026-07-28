@@ -10006,7 +10006,9 @@ function nodeGraphScope2dStrokeSpace(canvas) {
   return Math.min(canvas?.width || 0, canvas?.height || 0);
 }
 
-const nodeGraphScope2dBurnRendererVersion = "webgl-retained-burn-screen-space-1";
+// Energy mono + LUT present (shared phosphor device). Soft GPU segment beams
+// unchanged — only storage/composite moved off RGB burn.
+const nodeGraphScope2dBurnRendererVersion = "energy-mono-lut-soft-beam-1";
 
 // Explicit, deterministic teardown of a burn-renderer's GL resources
 // (buffers, programs, framebuffers, textures) instead of waiting on GC.
@@ -10576,6 +10578,107 @@ function compositeNodeGraphScope2dBurn(renderer, settings, options = {}) {
   renderer.readSurface = nextRead;
 }
 
+/**
+ * Beautiful soft-beam retained burn on mono energy + gradient LUT.
+ * Same continuous gaussian segment ribbons as classic scope2d; storage is
+ * scalar energy (shared phosphor device), color only at present via LUT.
+ * Returns true if handled (caller should not run legacy RGB WebGL burn).
+ */
+function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settings, options = {}) {
+  if (typeof nodeGraphPhosphorEnergyGlEnsure !== "function"
+    || typeof nodeGraphPhosphorEnergyGlStepBeams !== "function"
+    || typeof nodeGraphPhosphorEnergyGlPresent !== "function") {
+    return false;
+  }
+  const canvas = nodeGraphScope2dBurnCanvasForSlot(item?.slot);
+  const screenElement = item?.screenElement || item?.slot?.scopeElement;
+  const sync = syncNodeGraphScope2dBurnCanvas(canvas, screenElement, pixelRatio);
+  if (!sync.synced || !canvas) {
+    return false;
+  }
+  // Face must be 2D — dispose any leftover RGB WebGL burn on this canvas once.
+  if (nodeGraphModuleScopeState.scope2dBurnRenderers?.get?.(canvas)) {
+    disposeNodeGraphScope2dBurnRendererForCanvas(canvas);
+  }
+  const context = canvas.getContext("2d");
+  if (!context) {
+    // Canvas already has a lost/foreign WebGL context — recreate the face.
+    disposeNodeGraphScope2dBurnRendererForCanvas(canvas);
+    canvas.remove();
+    return false;
+  }
+
+  const width = canvas.width;
+  const height = canvas.height;
+  const points = Array.isArray(pathPoints) ? pathPoints : [];
+  const endFrame = Number(options.endFrame);
+  if (Number.isFinite(endFrame)) {
+    canvas._nodeGraphScope2dLastDrawnFrame = endFrame;
+    canvas._nodeGraphOneDimensionalBurnLastDrawnFrame = endFrame;
+    canvas._phosphorScope2dLastFrame = endFrame;
+  }
+
+  const energyGl = nodeGraphPhosphorEnergyGlEnsure(canvas, width, height, "_phosphorEnergyGl");
+  if (!energyGl) {
+    return false;
+  }
+
+  const burn = clampNodeSliderValue(Number(settings?.burn) || 0, 0, 1);
+  const decay = clampNodeSliderValue(Number(settings?.decay) || 0, 0, 1);
+  const dotSpace = nodeGraphScope2dStrokeSpace(canvas);
+  const layers = nodeGraphScope2dBurnLayers(settings, dotSpace);
+  const layer = layers[0] || null;
+  const peakRgb = typeof nodeGraphScopeRgbFloatsToCanvasRgb === "function"
+    && typeof nodeGraphScopeHexColorToRgb === "function"
+    ? nodeGraphScopeRgbFloatsToCanvasRgb(
+      nodeGraphScopeHexColorToRgb(settings?.dot1Color || settings?.color || "#75ebff"),
+    )
+    : [117, 235, 255];
+  // Dark zero-energy stop; face CSS/background shows around the trail
+  // (local-fallback uses mix-blend-mode: screen over the module face).
+  const bgHex = "#000000";
+  if (typeof nodeGraphPhosphorEnergyGlSetLutFromPeak === "function") {
+    nodeGraphPhosphorEnergyGlSetLutFromPeak(energyGl, peakRgb, bgHex);
+  }
+
+  const paused = nodeGraphModuleScopePaused();
+  if (!paused && layer) {
+    // Same gain shape as classic RGB beam layer (beauty preserved in deposit).
+    const beamBrightness = Math.max(
+      0,
+      layer.brightness * (0.012 + burn * 0.052),
+    );
+    nodeGraphPhosphorEnergyGlStepBeams(energyGl, {
+      decay,
+      pathPoints: points,
+      radius: Math.max(0.5, layer.radius),
+      brightness: beamBrightness,
+      blur: clampNodeSliderValue(layer.blur, 0, 1),
+    });
+  } else if (!paused && typeof nodeGraphPhosphorEnergyGlStep === "function") {
+    // Fade-only when no drawable layer.
+    nodeGraphPhosphorEnergyGlStep(energyGl, { decay, depositGain: 0 });
+  }
+
+  const lastPoint = lastNodeGraphScope2dPathPoint(points);
+  if (lastPoint) {
+    canvas._nodeGraphScope2dLastDrawnPoint = lastPoint;
+  }
+
+  // Soft film exposure before LUT — matches classic scope2d composite spirit.
+  const exposure = 1.35 + burn * 3.5;
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.clearRect(0, 0, width, height);
+  if (nodeGraphPhosphorEnergyGlPresent(energyGl, 1, { exposure })) {
+    context.save();
+    context.globalCompositeOperation = "lighter";
+    context.imageSmoothingEnabled = true;
+    context.drawImage(energyGl.canvas, 0, 0, width, height);
+    context.restore();
+  }
+  return true;
+}
+
 function drawNodeGraphScope2dRetainedBurn(item, pixelRatio, square, buffer, settings) {
   const canvas = nodeGraphScope2dBurnCanvasForSlot(item?.slot);
   const screenElement = item?.screenElement || item?.slot?.scopeElement;
@@ -10583,11 +10686,6 @@ function drawNodeGraphScope2dRetainedBurn(item, pixelRatio, square, buffer, sett
   if (!sync.synced) {
     return;
   }
-  const renderer = nodeGraphScope2dBurnRendererForCanvas(canvas);
-  if (!renderer) {
-    return;
-  }
-  resizeNodeGraphScope2dBurnRenderer(renderer, canvas.width, canvas.height);
   const canvasSquare = nodeGraphScope2dBurnCanvasSquare(canvas);
   if (!canvasSquare) {
     return;
@@ -10596,8 +10694,9 @@ function drawNodeGraphScope2dRetainedBurn(item, pixelRatio, square, buffer, sett
     drawNodeGraphRetainedBurnPath(item, pixelRatio, [], settings);
     return;
   }
+  // Frame cursor lives on the face canvas (energy path + bridge helpers).
   const count = Math.min(buffer?.x?.length || 0, buffer?.y?.length || 0);
-  const drawStartIndex = nodeGraphScope2dDrawStartIndex(renderer, buffer, count);
+  const drawStartIndex = nodeGraphScope2dDrawStartIndex(canvas, buffer, count);
   let pathPoints = drawStartIndex < count
     ? buildNodeGraphScope2dPathPoints(canvasSquare, buffer, drawStartIndex, { interpolate: true, settings })
     : [];
@@ -10613,6 +10712,12 @@ function drawNodeGraphScope2dRetainedBurn(item, pixelRatio, square, buffer, sett
 }
 
 function drawNodeGraphRetainedBurnPath(item, pixelRatio, pathPoints, settings, options = {}) {
+  // Preferred: mono energy + LUT, ultra-soft GPU beams (same geometry as before).
+  if (drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settings, options)) {
+    return;
+  }
+
+  // Legacy RGB retained burn (fallback if energy GL unavailable).
   const canvas = nodeGraphScope2dBurnCanvasForSlot(item?.slot);
   const screenElement = item?.screenElement || item?.slot?.scopeElement;
   const sync = syncNodeGraphScope2dBurnCanvas(canvas, screenElement, pixelRatio);
