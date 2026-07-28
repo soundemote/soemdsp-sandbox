@@ -5464,12 +5464,22 @@ function nodeGraphModuleScopeCapturedScope2dBuffer(slot, options = {}) {
     : 0;
   const historySeconds = Number(options.historySeconds);
   const minWindowFrames = nodeGraphScope2dSourceFrameCount(sampleRate, fps, validLength);
+  // Burn scopes need real path history so a 1Hz circle can be solid, not one
+  // visual-frame arc of sparse dots. Default ~1s of samples (capped by buffer).
+  const defaultBurnHistorySeconds = 1;
   const frames = Number.isFinite(historySeconds)
     ? Math.min(
       validLength,
       Math.max(1, Math.ceil(Math.max(0, historySeconds) * sampleRate)),
     )
-    : Math.min(validLength, Math.max(minWindowFrames, newSinceLastDraw));
+    : Math.min(
+      validLength,
+      Math.max(
+        minWindowFrames,
+        newSinceLastDraw,
+        Math.ceil(sampleRate * defaultBurnHistorySeconds),
+      ),
+    );
   const start = Math.max(0, length - frames);
   const startFrame = Math.max(0, absoluteFrame - frames);
   const x = new Float32Array(frames);
@@ -10674,13 +10684,16 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
 
   const paused = nodeGraphModuleScopePaused();
   if (!paused && layer) {
-    // Dots-only soft deposits (no inter-sample joins) — evaluate phosphor look
-    // without the beaded segment-ribbon rhythm. Softness from radius + blur.
+    // Dots-only soft deposits. Full-window redraw uses lower gain so a 1Hz
+    // circle can be re-stamped every frame without clipping to white.
     const size01 = clampNodeSliderValue(settings?.dot1Size, 0, 1);
+    const fullWindow = options.fullWindowDots === true;
+    const baseGain = fullWindow
+      ? (0.006 + burn * 0.02)
+      : (0.018 + burn * 0.06);
     const beamBrightness = Math.max(
       0,
-      // Slightly hotter than segments: each sample is one impact, not a ribbon.
-      layer.brightness * (0.018 + burn * 0.06) * (1.12 - size01 * 0.45),
+      layer.brightness * baseGain * (1.12 - size01 * 0.45),
     );
     nodeGraphPhosphorEnergyGlStepBeams(energyGl, {
       decay,
@@ -10689,7 +10702,7 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       brightness: beamBrightness,
       blur: clampNodeSliderValue(layer.blur, 0, 1),
       mode: "dots",
-      // Fixed stamp budget: slow/LF fills densely; fast/HF spaces out but stays smooth enough.
+      // Fixed stamp budget along the whole path (even subsample + dwell fill).
       maxDots: nodeGraphScope2dMaxSamplesPerFrame(canvas),
     });
   } else if (!paused && typeof nodeGraphPhosphorEnergyGlStep === "function") {
@@ -10738,33 +10751,23 @@ function drawNodeGraphScope2dRetainedBurn(item, pixelRatio, square, buffer, sett
     drawNodeGraphRetainedBurnPath(item, pixelRatio, [], settings);
     return;
   }
-  // Frame cursor lives on the face canvas (energy path + bridge helpers).
+  // Face cursor bookkeeping for pause/bridge helpers.
   const count = Math.min(buffer?.x?.length || 0, buffer?.y?.length || 0);
-  // Incremental start, then clamp to newest window so high-speed Lorenz never
-  // queues unbounded work when the UI lags (prettyscope-efficient rule).
-  const rawStart = nodeGraphScope2dDrawStartIndex(canvas, buffer, count);
-  const drawStartIndex = nodeGraphScope2dClampDrawStartIndex(
-    rawStart,
-    count,
-    nodeGraphScope2dMaxSamplesPerFrame(canvas),
-  );
-  // interpolate: false — each sample pair is ONE soft GPU beam segment
-  // (prettyscope/woscope). Pixel-step interpolation exploded segment count
-  // on long jumps / high frequency and dropped FPS to ~0.
-  let pathPoints = drawStartIndex < count
-    ? buildNodeGraphScope2dPathPoints(canvasSquare, buffer, drawStartIndex, {
-      interpolate: false,
-      settings,
-    })
-    : [];
-  pathPoints = bridgeNodeGraphScope2dAdjacentFramePath(
-    canvas,
-    pathPoints,
-    nodeGraphScope2dTraceMaxSegmentPixels(canvasSquare),
-    nodeGraphScope2dInterpolationSpacingPx(settings, Math.min(canvasSquare.width, canvasSquare.height)),
+  const budget = nodeGraphScope2dMaxSamplesPerFrame(canvas);
+  // Dots burn: even coverage of the FULL capture window every frame so a 1Hz
+  // circle is a closed smooth path (not the newest short arc of sparse hits).
+  // Stamp budget + dwell spacing keep cost fixed; HF just gets coarser spacing.
+  let pathPoints = buildNodeGraphScope2dEvenPathPoints(
+    canvasSquare,
+    buffer,
+    budget,
+    settings,
   );
   drawNodeGraphRetainedBurnPath(item, pixelRatio, pathPoints, settings, {
     endFrame: Number(buffer.nodeGraphScopeAbsoluteFrame),
+    // Full-window redraw: dimmer stamps so decay+redeposit reaches equilibrium
+    // instead of blowing the trail to white.
+    fullWindowDots: true,
   });
 }
 
@@ -11413,21 +11416,82 @@ function bridgeNodeGraphScope2dAdjacentFramePath(canvas, pathPoints, maxDistance
 }
 
 /**
- * Hard cap samples drawn per visual frame for retained 2D burn.
- * Prettyscope draws one beam quad per consecutive sample pair; cost is O(N).
- * When Lorenz runs faster than the UI, never replay the backlog — always take
- * the newest N samples so FPS stays stable (classic efficient-scope rule).
+ * Hard cap path control points / stamps per visual frame for retained 2D burn.
+ * Cost stays O(budget); quality for slow orbits comes from even coverage of the
+ * full history window, not from densifying one short arc of newest samples.
  */
 function nodeGraphScope2dMaxSamplesPerFrame(canvas) {
-  // ~2k segments is plenty of density on a face; GPU handles it easily.
-  // Scale a bit with buffer size so dense faces can use more, still bounded.
   const area = Math.max(1, (canvas?.width || 1) * (canvas?.height || 1));
-  return Math.max(512, Math.min(3072, Math.floor(Math.sqrt(area) * 4)));
+  return Math.max(768, Math.min(4096, Math.floor(Math.sqrt(area) * 6)));
+}
+
+/**
+ * Evenly pick up to maxPoints indices across [0, count) so a 1Hz circle
+ * (or any slow closed path) is represented around the whole orbit — not only
+ * the newest consecutive slice (which is a short dotted arc).
+ */
+function nodeGraphScope2dEvenSampleIndices(count, maxPoints) {
+  const safeCount = Math.max(0, Math.floor(Number(count) || 0));
+  if (safeCount <= 0) {
+    return [];
+  }
+  const cap = Math.max(2, Math.floor(Number(maxPoints) || 2));
+  if (safeCount <= cap) {
+    const all = new Array(safeCount);
+    for (let i = 0; i < safeCount; i += 1) {
+      all[i] = i;
+    }
+    return all;
+  }
+  const indices = new Array(cap);
+  const last = safeCount - 1;
+  for (let i = 0; i < cap; i += 1) {
+    indices[i] = Math.min(last, Math.round((i * last) / (cap - 1)));
+  }
+  return indices;
+}
+
+/**
+ * Build path points by even subsample of the whole capture window (dots burn).
+ */
+function buildNodeGraphScope2dEvenPathPoints(square, buffer, maxPoints, settings) {
+  const count = Math.min(buffer?.x?.length || 0, buffer?.y?.length || 0);
+  if (!count || !square) {
+    return [];
+  }
+  const indices = nodeGraphScope2dEvenSampleIndices(count, maxPoints);
+  const pathPoints = [];
+  let previous = null;
+  for (let i = 0; i < indices.length; i += 1) {
+    const index = indices[i];
+    if (!nodeGraphScope2dSampleIsFinite(buffer.x[index], buffer.y[index])) {
+      breakNodeGraphScope2dPath(pathPoints);
+      previous = null;
+      continue;
+    }
+    const point = nodeGraphScope2dPointFromSamples(
+      square,
+      buffer.x[index],
+      buffer.y[index],
+      settings,
+    );
+    if (!point) {
+      breakNodeGraphScope2dPath(pathPoints);
+      previous = null;
+      continue;
+    }
+    // Close small index gaps only (even subsample should already be ordered).
+    pathPoints.push(point);
+    previous = point;
+  }
+  void previous;
+  return pathPoints;
 }
 
 /**
  * If more samples arrived than we can afford this frame, skip the middle and
  * start from the newest window so we never fall into a catch-up death spiral.
+ * (Used by segment / incremental modes.)
  */
 function nodeGraphScope2dClampDrawStartIndex(startIndex, count, maxSamples) {
   const safeCount = Math.max(0, Math.floor(Number(count) || 0));

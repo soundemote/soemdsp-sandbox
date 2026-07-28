@@ -615,9 +615,10 @@
     const radius = Math.max(0.5, Number(options.radius) || 2);
     const blur = Math.max(0, Math.min(1, Number(options.blur) || 0.35));
     const maxDots = Math.max(64, Math.floor(Number(options.maxDots) || 2048));
-    // Match DOT_FRAG sigma so fill spacing agrees with the soft kernel.
+    // Match DOT_FRAG sigma; step stays well under the kernel so disks fuse.
+    // Cap step by radius so a 1Hz circle never opens visible gaps.
     const sigma = Math.max(0.55, radius * (0.34 + blur * 0.66));
-    const idealStep = Math.max(0.35, sigma * 0.42);
+    const idealStep = Math.max(0.25, Math.min(sigma * 0.32, radius * 0.28));
 
     // Flatten into continuous pieces (null breaks the stroke).
     const pieces = [];
