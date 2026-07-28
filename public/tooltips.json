@@ -135,6 +135,7 @@
     "dot1Color": "global display dot color",
     "dot1Preview": "preview image for the global display dot",
     "background": "background color for display windows",
+    "backgroundColor": "face plate / background color (2D Trace, PhosphorLight, Number Readout)",
     "localCycles": "number of waveform cycles shown in the selected module display",
     "localSync": "sync the selected module display to the incoming waveform period",
     "localFrequencyReset": "reset oscillator display tracing on frequency cycles",

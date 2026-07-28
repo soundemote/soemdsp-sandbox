@@ -2404,6 +2404,8 @@ const nodeGraphScope2dSettingsDefaults = Object.freeze({
 });
 
 const nodeGraphScope2dTraceSettingsDefaults = Object.freeze({
+  // Same family as PhosphorLight / Number Readout face plate.
+  background: "#020608",
   dot1Brightness: 0.92,
   dot1Color: "#75ebff",
   dot1Enabled: true,
@@ -2631,6 +2633,10 @@ function normalizeNodeGraphScope2dTraceSettings(settings = {}) {
   const source = settings && typeof settings === "object" ? settings : {};
   const defaults = nodeGraphScope2dTraceSettingsDefaults;
   return {
+    background: normalizeNodeGraphTraceDisplayColor(
+      source.background ?? source.backgroundColor,
+      defaults.background,
+    ),
     dot1Brightness: normalizeNodeGraphTraceDisplayNumber(
       source.dot1Brightness ?? source.brightness,
       defaults.dot1Brightness,
@@ -3621,7 +3627,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "lineThickness",
       "dot1Brightness",
     ]),
-    colors: Object.freeze(["dot1Color"]),
+    colors: Object.freeze(["dot1Color", "backgroundColor"]),
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
@@ -11230,7 +11236,15 @@ function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
   const canvasSquare = nodeGraphScope2dTraceCanvasSquare(canvas);
   const settings = nodeGraphScope2dTraceSettingsForNode(nodeGraphModuleScopeNodeForSlot(item.slot));
   const points = buildNodeGraphScope2dTraceCanvasPoints(canvasSquare, buffer, settings);
-  context.clearRect(0, 0, canvas.width, canvas.height);
+  const bg = settings.background || nodeGraphScope2dTraceSettingsDefaults.background || "#020608";
+  // Match phosphor faces: solid plate under the trace + CSS var for the window.
+  if (screenElement?.style) {
+    screenElement.style.setProperty("--node-scope-background", bg);
+  }
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.globalCompositeOperation = "source-over";
+  context.fillStyle = bg;
+  context.fillRect(0, 0, canvas.width, canvas.height);
   if (!points.some(Boolean)) {
     return;
   }
