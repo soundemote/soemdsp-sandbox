@@ -10689,6 +10689,8 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       brightness: beamBrightness,
       blur: clampNodeSliderValue(layer.blur, 0, 1),
       mode: "dots",
+      // Fixed stamp budget: slow/LF fills densely; fast/HF spaces out but stays smooth enough.
+      maxDots: nodeGraphScope2dMaxSamplesPerFrame(canvas),
     });
   } else if (!paused && typeof nodeGraphPhosphorEnergyGlStep === "function") {
     // Fade-only when no drawable layer.

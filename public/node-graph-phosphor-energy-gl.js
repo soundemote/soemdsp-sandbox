@@ -601,20 +601,112 @@
   }
 
   /**
-   * Dots-only: true circular soft hits. Format: center.x, center.y, corner
-   * (6 verts per sample). No segment joins — continuity is pure spatial overlap.
+   * Dots-only with dwell fill + fixed stamp budget (prettyscope-efficient).
+   *
+   * Continuity = soft circular hits overlapping along motion (not beam joins).
+   * Ideal spacing ~0.42σ so disks fuse. If the path is long (high frequency /
+   * high speed), spacing grows so we never exceed maxDots — HF can look
+   * sparser; LF / slow motion stays dense and smooth.
+   *
+   * Format: center.x, center.y, corner (6 verts per stamp).
    */
-  function buildDotVertices(pathPoints) {
+  function buildDotVertices(pathPoints, options = {}) {
     const points = Array.isArray(pathPoints) ? pathPoints : [];
-    const vertices = [];
-    const corners = [0, 1, 2, 1, 3, 2];
+    const radius = Math.max(0.5, Number(options.radius) || 2);
+    const blur = Math.max(0, Math.min(1, Number(options.blur) || 0.35));
+    const maxDots = Math.max(64, Math.floor(Number(options.maxDots) || 2048));
+    // Match DOT_FRAG sigma so fill spacing agrees with the soft kernel.
+    const sigma = Math.max(0.55, radius * (0.34 + blur * 0.66));
+    const idealStep = Math.max(0.35, sigma * 0.42);
+
+    // Flatten into continuous pieces (null breaks the stroke).
+    const pieces = [];
+    let piece = [];
     for (let i = 0; i < points.length; i += 1) {
-      const point = points[i];
-      if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+      const p = points[i];
+      if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) {
+        if (piece.length) {
+          pieces.push(piece);
+          piece = [];
+        }
         continue;
       }
+      piece.push(p);
+    }
+    if (piece.length) {
+      pieces.push(piece);
+    }
+    if (!pieces.length) {
+      return [];
+    }
+
+    // Path length of consecutive pairs (for adaptive spacing).
+    let totalLen = 0;
+    let pairCount = 0;
+    for (let p = 0; p < pieces.length; p += 1) {
+      const pts = pieces[p];
+      for (let i = 1; i < pts.length; i += 1) {
+        totalLen += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+        pairCount += 1;
+      }
+      // Isolated single points still need one stamp.
+      if (pts.length === 1) {
+        pairCount += 1;
+      }
+    }
+    // Ideal stamp count ≈ path / idealStep (+ endpoints).
+    const idealCount = Math.max(pairCount, Math.ceil(totalLen / idealStep) + pieces.length);
+    const step = idealCount > maxDots
+      ? Math.max(idealStep, totalLen / Math.max(1, maxDots - pieces.length))
+      : idealStep;
+
+    const stamps = [];
+    const pushStamp = (x, y) => {
+      if (stamps.length >= maxDots) {
+        return false;
+      }
+      stamps.push(x, y);
+      return true;
+    };
+
+    for (let p = 0; p < pieces.length && stamps.length < maxDots; p += 1) {
+      const pts = pieces[p];
+      if (pts.length === 1) {
+        pushStamp(pts[0].x, pts[0].y);
+        continue;
+      }
+      // Always hit the first sample of the piece.
+      if (!pushStamp(pts[0].x, pts[0].y)) {
+        break;
+      }
+      for (let i = 1; i < pts.length && stamps.length < maxDots; i += 1) {
+        const a = pts[i - 1];
+        const b = pts[i];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 1e-4) {
+          // Stationary: one extra hit for dwell brightness (optional skip if same).
+          continue;
+        }
+        // Multi-hit along motion — denser when slow (short dist), coarser when fast.
+        const n = Math.max(1, Math.ceil(dist / step));
+        for (let s = 1; s <= n && stamps.length < maxDots; s += 1) {
+          const t = s / n;
+          pushStamp(a.x + dx * t, a.y + dy * t);
+        }
+      }
+    }
+
+    // Expand stamps → GPU quads (center + corner).
+    const vertices = [];
+    const corners = [0, 1, 2, 1, 3, 2];
+    const stampCount = Math.floor(stamps.length / 2);
+    for (let i = 0; i < stampCount; i += 1) {
+      const x = stamps[i * 2];
+      const y = stamps[i * 2 + 1];
       for (let c = 0; c < corners.length; c += 1) {
-        vertices.push(point.x, point.y, corners[c]);
+        vertices.push(x, y, corners[c]);
       }
     }
     return vertices;
@@ -976,10 +1068,15 @@
       mode = "segments",
     } = options;
     const dotsMode = String(mode || "segments").toLowerCase() === "dots";
+    const maxDots = Math.max(64, Math.floor(Number(options.maxDots) || 2048));
     let depositVertices = vertices;
     if (dotsMode) {
       if (!Array.isArray(depositVertices) || depositVertices.length < 3) {
-        depositVertices = buildDotVertices(pathPoints);
+        depositVertices = buildDotVertices(pathPoints, {
+          radius,
+          blur,
+          maxDots,
+        });
       }
     } else if (!Array.isArray(depositVertices) || depositVertices.length < 5) {
       depositVertices = buildBeamVertices(pathPoints);
