@@ -76,18 +76,39 @@ function nodeGraphPhosphorLightFaceCanvas(slot) {
 
 function syncNodeGraphPhosphorLightFaceCanvas(canvas, screenElement, pixelRatio) {
   if (!canvas || !screenElement) return false;
-  const rect = screenElement.getBoundingClientRect();
-  const width = Math.max(1, Math.round(rect.width * Math.max(0.25, Number(pixelRatio) || 1)));
-  const height = Math.max(1, Math.round(rect.height * Math.max(0.25, Number(pixelRatio) || 1)));
+  // Fixed layout pixel grid (same as nodeGraphSizeDisplayCanvas / scope2d burn):
+  // clientWidth × dpr. Zoom must not grow energy FBOs — CSS scales the bitmap
+  // and .pixelated-canvas-zoom keeps it blocky instead of bilinear mush.
+  const size = typeof nodeGraphModuleScopeFaceBackingSize === "function"
+    ? nodeGraphModuleScopeFaceBackingSize(screenElement, pixelRatio)
+    : null;
+  let width;
+  let height;
+  if (size) {
+    width = size.width;
+    height = size.height;
+  } else {
+    // Fallback if scopes helper not loaded yet: still avoid screen-space rect.
+    const zoom = Math.max(0.01, Number(window.nodeGraphMvp?.zoom) || 1);
+    const rect = screenElement.getBoundingClientRect();
+    const cssW = Math.max(1, screenElement.clientWidth || screenElement.offsetWidth || rect.width / zoom);
+    const cssH = Math.max(1, screenElement.clientHeight || screenElement.offsetHeight || rect.height / zoom);
+    const dpr = Math.min(
+      Math.max(0.25, Number(pixelRatio) || 1),
+      Number(window.devicePixelRatio) || 1,
+    );
+    width = Math.max(1, Math.round(cssW * dpr));
+    height = Math.max(1, Math.round(cssH * dpr));
+  }
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
     canvas.height = height;
-    // One-frame deposit mask only — safe to drop. Energy residual is kept:
-    // nodeGraphPhosphorEnergyGlEnsure resizes + copies like scope2d burn
-    // (Lorenz), so zoom must not destroy the energy FBO.
+    // One-frame deposit mask only — safe to drop. Energy residual is kept on
+    // real face resizes via energy-gl resize+copy (not on workspace zoom,
+    // which no longer changes the buffer size).
     canvas._phosphorLightMask = null;
     // Keep _phosphorLightLastSample so we only deposit new buffer samples
-    // after resize (re-stamping the whole tail would flash the beam).
+    // after a true face resize (re-stamping the whole tail would flash).
   }
   if (canvas.style.width || canvas.style.height) {
     canvas.style.width = "";

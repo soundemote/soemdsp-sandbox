@@ -5862,6 +5862,65 @@ function nodeGraphModuleScopeBackingPixelRatio(rect, requestedPixelRatio = windo
   );
 }
 
+/**
+ * Fixed pixel-grid backing for face-local scopes (scope2d burn / Lorenz,
+ * PhosphorLight, Number Readout, local fallback canvases).
+ *
+ * Uses layout CSS size (clientWidth/offsetWidth) × devicePixelRatio — the same
+ * contract as nodeGraphSizeDisplayCanvas (filter curve, phosphor waveform).
+ * Workspace zoom must NOT grow the buffer: getBoundingClientRect is screen-
+ * space and balloons with zoom, killing FPS on burn/energy FBOs. CSS width/
+ * height 100% scales the fixed bitmap; .pixelated-canvas-zoom keeps it crisp
+ * (blocky) when zoomed in instead of bilinear mush.
+ */
+function nodeGraphModuleScopeFaceBackingSize(screenElement, requestedPixelRatio = window.devicePixelRatio || 1) {
+  if (!screenElement) {
+    return null;
+  }
+  const rect = typeof screenElement.getBoundingClientRect === "function"
+    ? screenElement.getBoundingClientRect()
+    : { width: 0, height: 0 };
+  const zoom = Math.max(
+    0.01,
+    Number(
+      typeof nodeGraphZoom === "function"
+        ? nodeGraphZoom()
+        : (nodeGraphMvp && nodeGraphMvp.zoom),
+    ) || 1,
+  );
+  // Layout (pre-transform) CSS pixels — stable under workspace zoom.
+  const cssWidth = Math.max(
+    1,
+    Number(screenElement.clientWidth || screenElement.offsetWidth || 0)
+      || (Number(rect.width) || 1) / zoom,
+  );
+  const cssHeight = Math.max(
+    1,
+    Number(screenElement.clientHeight || screenElement.offsetHeight || 0)
+      || (Number(rect.height) || 1) / zoom,
+  );
+  // Face buffers use devicePixelRatio only (capped by max store vs layout size).
+  // Do not inherit a workspace-rect-derived ratio that shrank for the whole
+  // graph, and never scale by workspace zoom.
+  const requested = Math.max(
+    0.25,
+    Number(window.devicePixelRatio)
+      || Number(requestedPixelRatio)
+      || 1,
+  );
+  const pixelRatio = nodeGraphModuleScopeBackingPixelRatio(
+    { width: cssWidth, height: cssHeight },
+    requested,
+  );
+  return {
+    cssHeight,
+    cssWidth,
+    height: Math.max(1, Math.round(cssHeight * pixelRatio)),
+    pixelRatio,
+    width: Math.max(1, Math.round(cssWidth * pixelRatio)),
+  };
+}
+
 function syncNodeGraphModuleScopeCanvas() {
   const canvas = nodeGraphModuleScopeCanvas();
   const lightCanvas = nodeGraphModuleScopeLightCanvas();
@@ -8150,9 +8209,11 @@ function syncNodeGraphModuleScopeLocalFallbackCanvas(canvas, screenElement, pixe
   if (!canvas || !screenElement) {
     return false;
   }
-  const rect = screenElement.getBoundingClientRect();
-  const width = Math.max(1, Math.round(rect.width * pixelRatio));
-  const height = Math.max(1, Math.round(rect.height * pixelRatio));
+  const size = nodeGraphModuleScopeFaceBackingSize(screenElement, pixelRatio);
+  if (!size) {
+    return false;
+  }
+  const { width, height } = size;
   if (canvas.width !== width || canvas.height !== height) {
     const previousWidth = canvas.width;
     const previousHeight = canvas.height;
@@ -8173,6 +8234,10 @@ function syncNodeGraphModuleScopeLocalFallbackCanvas(canvas, screenElement, pixe
       context.imageSmoothingEnabled = false;
       context.drawImage(previousCanvas, 0, 0, previousWidth, previousHeight, 0, 0, width, height);
     }
+  }
+  if (canvas.style.width || canvas.style.height) {
+    canvas.style.width = "";
+    canvas.style.height = "";
   }
   return true;
 }
@@ -9074,22 +9139,22 @@ function syncNodeGraphNumberReadoutCanvas(canvas, screenElement, pixelRatio) {
   if (!canvas || !screenElement) {
     return false;
   }
-  // Same contract as syncNodeGraphModuleScopeLocalFallbackCanvas (transport BPM):
-  // buffer = getBoundingClientRect() * backing pixelRatio. Under workspace zoom the
-  // rect is already screen-sized; CSS width/height:100% fills the face and rides
-  // the zoom transform. Do NOT set style.width from the rect — that is layout-
-  // space vs screen-space and breaks zoom (transport never does this).
-  const rect = screenElement.getBoundingClientRect();
-  const width = Math.max(1, Math.round(rect.width * Math.max(0.25, Number(pixelRatio) || 1)));
-  const height = Math.max(1, Math.round(rect.height * Math.max(0.25, Number(pixelRatio) || 1)));
+  // Fixed layout pixel grid (clientWidth × dpr). Do NOT use getBoundingClientRect
+  // — that is screen-space and grows with workspace zoom (FPS death on energy
+  // FBOs). CSS width/height:100% rides the zoom transform; pixelated-canvas-zoom
+  // keeps the grid crisp. Never set style.width from a screen rect.
+  const size = nodeGraphModuleScopeFaceBackingSize(screenElement, pixelRatio);
+  if (!size) {
+    return false;
+  }
+  const { width, height } = size;
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
     canvas.height = height;
-    // Soft deposit mask is one-frame only. Energy residual survives zoom via
-    // nodeGraphPhosphorEnergyGlEnsure resize+copy (same as scope2d / Lorenz).
+    // Soft deposit mask is one-frame only. Energy residual survives real face
+    // resizes via nodeGraphPhosphorEnergyGlEnsure resize+copy.
     canvas._numberReadoutEnergyMask = null;
   }
-  // Clear any previous zoom-breaking inline size so CSS 100%/100% owns layout.
   if (canvas.style.width || canvas.style.height) {
     canvas.style.width = "";
     canvas.style.height = "";
@@ -9387,8 +9452,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     return;
   }
 
-  // Draw in full canvas buffer pixels (like transport BPM). Canvas is sized
-  // from the face's getBoundingClientRect * pixelRatio, so it tracks zoom.
+  // Draw in full canvas buffer pixels (layout face × dpr — fixed under zoom).
   const left = 0;
   const top = 0;
   const width = canvas.width;
@@ -9984,14 +10048,21 @@ function syncNodeGraphScope2dBurnCanvas(canvas, screenElement, pixelRatio) {
   if (!canvas || !screenElement) {
     return { resized: false, synced: false };
   }
-  const rect = screenElement.getBoundingClientRect();
-  const backingPixelRatio = nodeGraphModuleScopeBackingPixelRatio(rect, pixelRatio);
-  const width = Math.max(1, Math.round(Math.max(1, rect.width) * backingPixelRatio));
-  const height = Math.max(1, Math.round(Math.max(1, rect.height) * backingPixelRatio));
+  // Layout pixel grid — not screen-space getBoundingClientRect. Zoom must not
+  // reallocate burn FBOs (that was the FPS cliff on Lorenz and friends).
+  const size = nodeGraphModuleScopeFaceBackingSize(screenElement, pixelRatio);
+  if (!size) {
+    return { resized: false, synced: false };
+  }
+  const { width, height } = size;
   const resized = canvas.width !== width || canvas.height !== height;
   if (resized) {
     canvas.width = width;
     canvas.height = height;
+  }
+  if (canvas.style.width || canvas.style.height) {
+    canvas.style.width = "";
+    canvas.style.height = "";
   }
   return { resized, synced: true };
 }

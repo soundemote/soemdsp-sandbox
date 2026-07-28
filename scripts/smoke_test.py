@@ -13259,6 +13259,10 @@ def require_node_graph_mvp_contract() -> None:
         "function nodeGraphNumberReadoutCanvasForSlot(slot)" in node_graph_source
         and '.node-number-readout-canvas' in node_graph_source
         and "function syncNodeGraphNumberReadoutCanvas(canvas, screenElement, pixelRatio)" in node_graph_source
+        and "nodeGraphModuleScopeFaceBackingSize(screenElement, pixelRatio)" in node_graph_source[
+            node_graph_source.index("function syncNodeGraphNumberReadoutCanvas"):
+            node_graph_source.index("function nodeGraphNumberReadoutEnergyMaskCanvas")
+        ]
         and "nodeGraphScope2dBurnCanvasForSlot" not in node_graph_source[
             node_graph_source.index("function nodeGraphNumberReadoutCanvasForSlot"):
             node_graph_source.index("function drawNodeGraphNumberReadoutItem")
@@ -13768,7 +13772,10 @@ def require_node_graph_mvp_contract() -> None:
         and "nodeGraphPhosphorEnergyGlDestroy" not in script_sources.get(
             "./public/modules/phosphorLight/phosphor-light-display.js", ""
         )
-        and "resizes + copies like scope2d burn" in script_sources.get(
+        and "nodeGraphModuleScopeFaceBackingSize" in script_sources.get(
+            "./public/modules/phosphorLight/phosphor-light-display.js", ""
+        )
+        and "Fixed layout pixel grid" in script_sources.get(
             "./public/modules/phosphorLight/phosphor-light-display.js", ""
         ),
         "legacy visual source modules should use typed scope renderers; PhosphorLight is the energy-LUT XY testbed",
@@ -13829,8 +13836,9 @@ def require_node_graph_mvp_contract() -> None:
         and "function nodeGraphScope2dApplyPointBudget" not in scope2d_helper_source
         and "const budgetedPathPoints = nodeGraphScope2dApplyPointBudget(pathPoints)" not in scope2d_helper_source
         and "function drawNodeGraphScope2dRetainedBurn(item, pixelRatio, square, buffer, settings)" in scope2d_burn_source
-        and "const backingPixelRatio = nodeGraphModuleScopeBackingPixelRatio(rect, pixelRatio);" in node_graph_source
-        and "Math.round(Math.max(1, rect.width) * backingPixelRatio)" in node_graph_source
+        and "function nodeGraphModuleScopeFaceBackingSize(screenElement, requestedPixelRatio = window.devicePixelRatio || 1)" in node_graph_source
+        and "nodeGraphModuleScopeFaceBackingSize(screenElement, pixelRatio)" in node_graph_source
+        and "clientWidth || screenElement.offsetWidth" in node_graph_source
         and "function nodeGraphScope2dBurnCanvasSquare(canvas)" in scope2d_helper_source
         and "const canvasSquare = nodeGraphScope2dBurnCanvasSquare(canvas);" in scope2d_burn_source
         and "buildNodeGraphScope2dPathPoints(canvasSquare, buffer, drawStartIndex, { interpolate: true, settings })" in scope2d_burn_source
