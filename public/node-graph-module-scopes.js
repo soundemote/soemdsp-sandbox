@@ -5464,9 +5464,9 @@ function nodeGraphModuleScopeCapturedScope2dBuffer(slot, options = {}) {
     : 0;
   const historySeconds = Number(options.historySeconds);
   const minWindowFrames = nodeGraphScope2dSourceFrameCount(sampleRate, fps, validLength);
-  // Burn scopes need real path history so a 1Hz circle can be solid, not one
-  // visual-frame arc of sparse dots. Default ~1s of samples (capped by buffer).
-  const defaultBurnHistorySeconds = 1;
+  // Capture only what we need to deposit this frame (new samples + a small
+  // pad). The energy FBO holds the trail via decay — re-capturing ~1s and
+  // re-stamping it every frame painted a lagging "second path" behind the beam.
   const frames = Number.isFinite(historySeconds)
     ? Math.min(
       validLength,
@@ -5474,11 +5474,7 @@ function nodeGraphModuleScopeCapturedScope2dBuffer(slot, options = {}) {
     )
     : Math.min(
       validLength,
-      Math.max(
-        minWindowFrames,
-        newSinceLastDraw,
-        Math.ceil(sampleRate * defaultBurnHistorySeconds),
-      ),
+      Math.max(minWindowFrames, newSinceLastDraw, 1),
     );
   const start = Math.max(0, length - frames);
   const startFrame = Math.max(0, absoluteFrame - frames);
@@ -10684,16 +10680,12 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
 
   const paused = nodeGraphModuleScopePaused();
   if (!paused && layer) {
-    // Dots-only soft deposits. Full-window redraw uses lower gain so a 1Hz
-    // circle can be re-stamped every frame without clipping to white.
+    // Dots-only: soft circular hits on NEW motion only. Trail = phosphor decay
+    // (not re-painting the whole history, which looked like a lagging second tail).
     const size01 = clampNodeSliderValue(settings?.dot1Size, 0, 1);
-    const fullWindow = options.fullWindowDots === true;
-    const baseGain = fullWindow
-      ? (0.006 + burn * 0.02)
-      : (0.018 + burn * 0.06);
     const beamBrightness = Math.max(
       0,
-      layer.brightness * baseGain * (1.12 - size01 * 0.45),
+      layer.brightness * (0.018 + burn * 0.06) * (1.12 - size01 * 0.45),
     );
     nodeGraphPhosphorEnergyGlStepBeams(energyGl, {
       decay,
@@ -10702,7 +10694,7 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       brightness: beamBrightness,
       blur: clampNodeSliderValue(layer.blur, 0, 1),
       mode: "dots",
-      // Fixed stamp budget along the whole path (even subsample + dwell fill).
+      // Ceiling only — ideal spacing uses as few stamps as needed.
       maxDots: nodeGraphScope2dMaxSamplesPerFrame(canvas),
     });
   } else if (!paused && typeof nodeGraphPhosphorEnergyGlStep === "function") {
@@ -10751,23 +10743,29 @@ function drawNodeGraphScope2dRetainedBurn(item, pixelRatio, square, buffer, sett
     drawNodeGraphRetainedBurnPath(item, pixelRatio, [], settings);
     return;
   }
-  // Face cursor bookkeeping for pause/bridge helpers.
+  // Deposit only samples since last draw (+ bridge). Phosphor residual is the
+  // lagging trail — do not re-stamp the full history every frame.
   const count = Math.min(buffer?.x?.length || 0, buffer?.y?.length || 0);
   const budget = nodeGraphScope2dMaxSamplesPerFrame(canvas);
-  // Dots burn: even coverage of the FULL capture window every frame so a 1Hz
-  // circle is a closed smooth path (not the newest short arc of sparse hits).
-  // Stamp budget + dwell spacing keep cost fixed; HF just gets coarser spacing.
-  let pathPoints = buildNodeGraphScope2dEvenPathPoints(
-    canvasSquare,
-    buffer,
-    budget,
-    settings,
+  const rawStart = nodeGraphScope2dDrawStartIndex(canvas, buffer, count);
+  const drawStartIndex = nodeGraphScope2dClampDrawStartIndex(rawStart, count, budget);
+  let pathPoints = drawStartIndex < count
+    ? buildNodeGraphScope2dPathPoints(canvasSquare, buffer, drawStartIndex, {
+      interpolate: false,
+      settings,
+    })
+    : [];
+  pathPoints = bridgeNodeGraphScope2dAdjacentFramePath(
+    canvas,
+    pathPoints,
+    nodeGraphScope2dTraceMaxSegmentPixels(canvasSquare),
+    nodeGraphScope2dInterpolationSpacingPx(
+      settings,
+      Math.min(canvasSquare.width, canvasSquare.height),
+    ),
   );
   drawNodeGraphRetainedBurnPath(item, pixelRatio, pathPoints, settings, {
     endFrame: Number(buffer.nodeGraphScopeAbsoluteFrame),
-    // Full-window redraw: dimmer stamps so decay+redeposit reaches equilibrium
-    // instead of blowing the trail to white.
-    fullWindowDots: true,
   });
 }
 
