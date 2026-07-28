@@ -120,15 +120,15 @@ const nodeGraphNodeLabels = Object.freeze({
   canvas: "Canvas",
   visualOscilloscope: "Display",
   traceDisplay: "1D Trace",
-  dotOscilloscope: "0D Burn",
+  dotOscilloscope: "Phosphor Dot",
   oscilloscopeBank: "Oscilloscope Bank",
   videoscope: "Videoscope",
   valueOscilloscope: "0D Value",
   numberReadout: "Number Readout",
   lineBurnOscilloscope: "1D Burn Dot",
-  scope2d: "2D Burn",
+  scope2d: "2D Phosphor",
   scope2dTrace: "2D Trace",
-  phosphorLight: "PhosphorLight",
+  phosphorLight: "2D Phosphor",
   speakerProtection: "Speaker Protection",
   badvalMonitor: "BADVAL Monitor",
   textBox: "Text Box",
@@ -741,7 +741,7 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { key: "X/Y", kind: "xy" },
     ],
     displayModes: [
-      { key: "xyBurn", label: "X/Y Burn", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
+      { key: "xyBurn", label: "X/Y Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
       { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "X", y: "Y" } },
     ],
     defaultDisplayMode: "xyBurn",
@@ -777,7 +777,7 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { key: "X/Y", kind: "xy" },
     ],
     displayModes: [
-      { key: "xyBurn", label: "X/Y Burn", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
+      { key: "xyBurn", label: "X/Y Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
       { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "X", y: "Y" } },
     ],
     defaultDisplayMode: "xyBurn",
@@ -807,7 +807,7 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { key: "X/Y", kind: "xy" },
     ],
     displayModes: [
-      { key: "xyBurn", label: "X/Y Burn", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
+      { key: "xyBurn", label: "X/Y Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
       { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "X", y: "Y" } },
     ],
     defaultDisplayMode: "xyBurn",
@@ -833,7 +833,7 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { key: "X/Y", kind: "xy" },
     ],
     displayModes: [
-      { key: "xyBurn", label: "X/Y Burn", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
+      { key: "xyBurn", label: "X/Y Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
       { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "X", y: "Y" } },
     ],
     defaultDisplayMode: "xyBurn",
@@ -856,7 +856,7 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { key: "X/Y", kind: "xy" },
     ],
     displayModes: [
-      { key: "xyBurn", label: "X/Y Burn", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
+      { key: "xyBurn", label: "X/Y Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
       { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "X", y: "Y" } },
     ],
     defaultDisplayMode: "xyBurn",
@@ -929,7 +929,7 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { key: "X/Y", kind: "xy" },
     ],
     displayModes: [
-      { key: "xyBurn", label: "X/Y Burn", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
+      { key: "xyBurn", label: "X/Y Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
       { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "X", y: "Y" } },
     ],
     defaultDisplayMode: "xyBurn",
@@ -952,7 +952,7 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { key: "X/Y", kind: "xy" },
     ],
     displayModes: [
-      { key: "xyBurn", label: "X/Y Burn", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
+      { key: "xyBurn", label: "X/Y Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
       { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "X", y: "Y" } },
     ],
     defaultDisplayMode: "xyBurn",
@@ -983,7 +983,7 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { key: "X/Y", kind: "xy" },
     ],
     displayModes: [
-      { key: "xyBurn", label: "X/Y Burn", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
+      { key: "xyBurn", label: "X/Y Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
       { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "X", y: "Y" } },
     ],
     defaultDisplayMode: "xyBurn",
@@ -1006,7 +1006,7 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { key: "X/Y", kind: "xy" },
     ],
     displayModes: [
-      { key: "xyBurn", label: "X/Y Burn", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
+      { key: "xyBurn", label: "X/Y Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
       { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "X", y: "Y" } },
     ],
     defaultDisplayMode: "xyBurn",
@@ -1041,7 +1041,7 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { key: "X/Y", kind: "xy" },
     ],
     displayModes: [
-      { key: "xyBurn", label: "X/Y Burn", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
+      { key: "xyBurn", label: "X/Y Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
       { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "X", y: "Y" } },
     ],
     defaultDisplayMode: "xyBurn",
@@ -1073,7 +1073,7 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { key: "X/Y", kind: "xy" },
     ],
     displayModes: [
-      { key: "xyBurn", label: "X/Y Burn", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
+      { key: "xyBurn", label: "X/Y Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
       { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "X", y: "Y" } },
     ],
     defaultDisplayMode: "xyBurn",
@@ -1109,7 +1109,7 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { key: "X/Y", kind: "xy" },
     ],
     displayModes: [
-      { key: "xyBurn", label: "X/Y Burn", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
+      { key: "xyBurn", label: "X/Y Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
       { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "X", y: "Y" } },
     ],
     defaultDisplayMode: "xyBurn",
@@ -1134,7 +1134,7 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { key: "X/Y", kind: "xy" },
     ],
     displayModes: [
-      { key: "xyBurn", label: "X/Y Burn", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
+      { key: "xyBurn", label: "X/Y Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
       { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "X", y: "Y" } },
     ],
     defaultDisplayMode: "xyBurn",
@@ -1166,7 +1166,7 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { key: "X/Y", kind: "xy" },
     ],
     displayModes: [
-      { key: "xyBurn", label: "X/Y Burn", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
+      { key: "xyBurn", label: "X/Y Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
       { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "X", y: "Y" } },
     ],
     defaultDisplayMode: "xyBurn",
@@ -1209,7 +1209,7 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { key: "X/Y", kind: "xy" },
     ],
     displayModes: [
-      { key: "xyBurn", label: "X/Y Burn", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
+      { key: "xyBurn", label: "X/Y Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
       { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "X", y: "Y" } },
     ],
     defaultDisplayMode: "xyBurn",
@@ -1621,7 +1621,7 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { key: "X/Y", kind: "xy" },
     ],
     displayModes: [
-      { key: "xyBurn", label: "X/Y Burn", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "Out X Raw", y: "Out Y Raw" } },
+      { key: "xyBurn", label: "X/Y Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "Out X Raw", y: "Out Y Raw" } },
       { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "Out X Raw", y: "Out Y Raw" } },
       { key: "xTrace", label: "X Trace", renderer: "trace", settingsSchema: "trace", source: { value: "Out X Raw" } },
       { key: "yTrace", label: "Y Trace", renderer: "trace", settingsSchema: "trace", source: { value: "Out Y Raw" } },
@@ -2705,7 +2705,7 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { key: "vcoTrace", label: "VCO Trace", renderer: "trace", settingsSchema: "trace", source: { value: "VCO Out" } },
       { key: "pcTrace", label: "PC Trace", renderer: "trace", settingsSchema: "trace", source: { value: "PC Out" } },
       { key: "lpfTrace", label: "LPF Trace", renderer: "trace", settingsSchema: "trace", source: { value: "LPF Out" } },
-      { key: "vcoPcBurn", label: "VCO/PC Burn", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "VCO Out", y: "PC Out" } },
+      { key: "vcoPcBurn", label: "VCO/PC Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "VCO Out", y: "PC Out" } },
     ],
     defaultDisplayMode: "vcoTrace",
     inputs: ["Signal In", "VCO CV In"],

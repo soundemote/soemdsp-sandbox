@@ -2324,7 +2324,10 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
   lineThickness: 0.2,
   padding: 0,
   skipDiscontinuities: false,
+  // off | left | right | mono — Output stereo chooses which channel triggers the shared window.
+  // Non-output single traces treat any non-off as "sync on" for that buffer.
   sourceSync: false,
+  syncChannel: "off",
   zoomSeconds: 0.05,
 });
 
@@ -2350,12 +2353,16 @@ function nodeGraphTraceDisplayRenderPointBudget() {
 }
 
 const nodeGraphZeroDBurnSettingsDefaults = Object.freeze({
+  background: "#020608",
   bipolarBrightness: false,
+  burn: 0.55,
+  decay: 0.22,
   dot1Brightness: 0.92,
   dot1Color: "#75ebff",
   dot1Enabled: true,
-  dot1Size: 0.08,
-  lineThickness: 0.2,
+  dot1Size: 0.35,
+  // Blur 0 hard … 1 soft (same as 2D Phosphor stamps).
+  lineThickness: 0.25,
 });
 
 const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
@@ -2481,7 +2488,13 @@ function normalizeNodeGraphZeroDBurnSettings(settings = {}) {
   const source = settings && typeof settings === "object" ? settings : {};
   const defaults = nodeGraphZeroDBurnSettingsDefaults;
   return {
+    background: normalizeNodeGraphTraceDisplayColor(
+      source.background ?? source.backgroundColor,
+      defaults.background,
+    ),
     bipolarBrightness: source.bipolarBrightness === true,
+    burn: normalizeNodeGraphTraceDisplayNumber(source.burn, defaults.burn, 0, 1),
+    decay: normalizeNodeGraphTraceDisplayNumber(source.decay, defaults.decay, 0, 1),
     dot1Brightness: normalizeNodeGraphTraceDisplayNumber(
       source.dot1Brightness ?? source.brightness,
       defaults.dot1Brightness,
@@ -2491,11 +2504,8 @@ function normalizeNodeGraphZeroDBurnSettings(settings = {}) {
     dot1Color: normalizeNodeGraphTraceDisplayColor(source.dot1Color ?? source.color, defaults.dot1Color),
     dot1Enabled: true,
     dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
-    lineThickness: normalizeNodeGraphTraceDisplayNumber(
-      source.lineThickness ?? source.dot1Blur,
-      defaults.lineThickness,
-      0,
-      1,
+    lineThickness: nodeGraphTraceDisplayClampStampBlur(
+      source.lineThickness ?? source.dot1Blur ?? defaults.lineThickness,
     ),
   };
 }
@@ -2544,6 +2554,20 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
     padding: normalizeNodeGraphTraceDisplayNumber(source.padding, defaults.padding, -Infinity, Infinity),
     skipDiscontinuities: source.skipDiscontinuities !== false,
     sourceSync: source.sourceSync !== false,
+    syncChannel: (function normalizeSyncChannel() {
+      const raw = String(source.syncChannel || "").toLowerCase().trim();
+      if (raw === "left" || raw === "right" || raw === "mono" || raw === "off") {
+        return raw;
+      }
+      // Legacy boolean: true → mono (single-channel trigger), false → off.
+      if (source.sourceSync === false || source.sourceSync === 0 || source.sourceSync === "false") {
+        return "off";
+      }
+      if (source.sourceSync === true || source.sourceSync === 1 || source.sourceSync === "true") {
+        return "mono";
+      }
+      return defaults.syncChannel || "off";
+    })(),
     zoomSeconds: normalizeNodeGraphTraceDisplayZoomSeconds(zoomSeconds, defaults.zoomSeconds),
   };
 }
@@ -3548,7 +3572,7 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
   fields: nodeGraphTraceDisplaySettingFields.map(([key]) => key),
   colors: ["dot1Color", "secondaryColor", "backgroundColor"],
   toggles: ["sourceSync", "bipolarBrightness", "secondaryEnabled", "capEnabled"],
-  choices: [],
+  choices: ["syncChannel"],
 });
 
 const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
@@ -3563,16 +3587,19 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "secondaryBrightness",
     ]),
     colors: Object.freeze(["dot1Color", "secondaryColor"]),
+    // sourceSync kept for legacy single-channel; Output uses syncChannel choice.
     toggles: Object.freeze(["sourceSync", "skipDiscontinuities", "secondaryEnabled"]),
-    choices: Object.freeze([]),
+    choices: Object.freeze(["syncChannel"]),
   }),
   dot: Object.freeze({
     fields: Object.freeze([
+      "burn",
+      "decay",
       "dot1Size",
       "lineThickness",
       "dot1Brightness",
     ]),
-    colors: Object.freeze(["dot1Color"]),
+    colors: Object.freeze(["dot1Color", "backgroundColor"]),
     toggles: Object.freeze(["bipolarBrightness"]),
     choices: Object.freeze([]),
   }),
@@ -3788,9 +3815,18 @@ function nodeGraphTraceDisplaySettingsElement() {
       </div>
       <div class="metadata-section-title node-trace-display-trace-title">Trace</div>
       <div class="metadata-field-section node-trace-display-trace-section">
-        <label class="metadata-checkbox-label node-trace-display-sync-row">
+        <label class="metadata-checkbox-label node-trace-display-sync-row" data-trace-display-sync-legacy>
           <input id="nodeTraceDisplaySourceSync" type="checkbox" data-trace-display-toggle="sourceSync">
           Sync
+        </label>
+        <label class="node-trace-display-line-burn-row node-trace-display-sync-channel-row" data-trace-display-sync-channel-row hidden>
+          <span>Sync</span>
+          <select id="nodeTraceDisplaySyncChannel" data-trace-display-choice="syncChannel" aria-label="Sync channel">
+            <option value="off">Off</option>
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+            <option value="mono">Mono</option>
+          </select>
         </label>
         <label class="node-trace-display-line-burn-row">
           <span>Burn</span>
@@ -4067,6 +4103,7 @@ function applyNodeGraphTraceDisplaySettingsTooltips(popover) {
     secondaryEnabled: "traceDisplaySettings.secondaryEnabled",
     capEnabled: "traceDisplaySettings.capEnabled",
     sourceSync: "traceDisplaySettings.sourceSync",
+    syncChannel: "traceDisplaySettings.syncChannel",
   };
   for (const [field, key] of Object.entries(toggleKeys)) {
     popover.querySelector(`[data-trace-display-toggle="${field}"]`)?.setAttribute("data-tooltip-key", key);
@@ -4193,8 +4230,12 @@ function setNodeGraphTraceDisplaySettingsFormType(node = null) {
             : formType === "numberReadout"
               ? "Readout"
               : formType === "phosphorLight"
-                ? "PhosphorLight"
-                : "Trace";
+                ? "2D Phosphor"
+                : formType === "scope2d"
+                  ? "2D Phosphor"
+                  : formType === "dot"
+                    ? "Phosphor Dot"
+                    : "Trace";
   }
   setNodeGraphTraceDisplaySectionVisible(popover, "value", nodeGraphTraceDisplaySectionHasActiveControls("value", formType));
   setNodeGraphTraceDisplaySectionVisible(popover, "dot1", nodeGraphTraceDisplaySectionHasActiveControls("dot1", formType));
@@ -4233,6 +4274,15 @@ function setNodeGraphTraceDisplaySettingsFormType(node = null) {
   const secondaryColorInput = popover.querySelector("#nodeTraceDisplaySecondaryColor");
   if (secondaryColorInput) {
     secondaryColorInput.setAttribute("aria-label", isOutputNode ? "Right color" : "Secondary color");
+  }
+  // Output: Sync Left / Right / Mono select. Other traces: simple Sync checkbox.
+  const syncLegacy = popover.querySelector("[data-trace-display-sync-legacy]");
+  const syncChannelRow = popover.querySelector("[data-trace-display-sync-channel-row]");
+  if (syncLegacy) {
+    syncLegacy.hidden = Boolean(isOutputNode);
+  }
+  if (syncChannelRow) {
+    syncChannelRow.hidden = !isOutputNode;
   }
 }
 
@@ -4442,6 +4492,14 @@ function readNodeGraphTraceDisplaySettingsForm() {
       next[key] = input.value;
     }
   }
+  // Output: choice is source of truth. Non-output: checkbox maps to off/mono.
+  if (next.syncChannel) {
+    next.sourceSync = next.syncChannel !== "off";
+  } else if (next.sourceSync === true) {
+    next.syncChannel = "mono";
+  } else if (next.sourceSync === false) {
+    next.syncChannel = "off";
+  }
   return normalizeNodeGraphDisplaySettingsForFormType(next, formType);
 }
 
@@ -4454,6 +4512,9 @@ function nodeGraphDisplaySettingsFormValue(settings, key) {
   }
   if (key === "backgroundColor") {
     return settings.backgroundColor ?? settings.background;
+  }
+  if (key === "syncChannel") {
+    return nodeGraphTraceDisplaySyncChannel(settings);
   }
   return settings[key];
 }
@@ -4628,17 +4689,21 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
 // from the shared table above. Isolated per formType so a new override can't
 // leak into unrelated display types.
 const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
+  // Phosphor Dot: same blur continuum as 2D Phosphor stamps.
   dot: Object.freeze({
-    lineThickness: nodeGraphTraceDisplayClampUnit,
+    lineThickness: nodeGraphTraceDisplayClampStampBlur,
   }),
-  // Soft phosphor dots: blur 0 hard … 1 full soft.
+  // Soft phosphor stamps: blur 0 hard … 1 full soft.
   scope2d: Object.freeze({
+    lineThickness: nodeGraphTraceDisplayClampStampBlur,
+  }),
+  phosphorLight: Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
   }),
   scope2dTrace: Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
   }),
-  // 1D Trace Display blur 0 hard … 1 soft skirt (same UX as burn stamps, no persistence).
+  // 1D Trace / Output: blur 0 hard … 1 soft skirt (instant, no persistence).
   trace: Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
     secondaryLineThickness: nodeGraphTraceDisplayClampStampBlur,
@@ -6537,22 +6602,86 @@ function nodeGraphTraceDisplayStabilizedSyncStart(lock, buffer, syncBuffer, cycl
   return reacquired;
 }
 
-function nodeGraphTraceDisplayBufferView(buffer, slot) {
+/**
+ * Resolve sync mode: "off" | "left" | "right" | "mono".
+ * Legacy sourceSync true → mono; false → off.
+ */
+function nodeGraphTraceDisplaySyncChannel(settings) {
+  const raw = String(settings?.syncChannel || "").toLowerCase().trim();
+  if (raw === "left" || raw === "right" || raw === "mono" || raw === "off") {
+    return raw;
+  }
+  if (settings?.sourceSync === false) {
+    return "off";
+  }
+  if (settings?.sourceSync) {
+    return "mono";
+  }
+  return "off";
+}
+
+/** Average L/R into a lightweight buffer for mono cycle detection. */
+function nodeGraphTraceDisplayMonoSyncBuffer(leftBuffer, rightBuffer) {
+  if (!leftBuffer?.length || !rightBuffer?.length) {
+    return leftBuffer || rightBuffer || null;
+  }
+  const n = Math.min(leftBuffer.length, rightBuffer.length);
+  let mono = leftBuffer._traceMonoSyncScratch;
+  if (!mono || !(mono instanceof Float32Array) || mono.length < n) {
+    mono = new Float32Array(n);
+    leftBuffer._traceMonoSyncScratch = mono;
+  }
+  for (let i = 0; i < n; i += 1) {
+    const a = Number(leftBuffer[i]);
+    const b = Number(rightBuffer[i]);
+    mono[i] = ((Number.isFinite(a) ? a : 0) + (Number.isFinite(b) ? b : 0)) * 0.5;
+  }
+  // Attach the same metadata cycle/view helpers expect on captured buffers.
+  const head = {
+    length: n,
+    nodeGraphScopeTotalSampleCount: leftBuffer.nodeGraphScopeTotalSampleCount
+      ?? rightBuffer.nodeGraphScopeTotalSampleCount,
+    nodeGraphScopeRecentSampleCount: leftBuffer.nodeGraphScopeRecentSampleCount
+      ?? rightBuffer.nodeGraphScopeRecentSampleCount,
+  };
+  // Proxy numeric index access onto the Float32Array.
+  return new Proxy(head, {
+    get(target, prop) {
+      if (prop === "length") {
+        return n;
+      }
+      if (typeof prop === "string" && /^[0-9]+$/.test(prop)) {
+        return mono[Number(prop)];
+      }
+      if (prop in target) {
+        return target[prop];
+      }
+      return mono[prop];
+    },
+  });
+}
+
+function nodeGraphTraceDisplayBufferView(buffer, slot, options = {}) {
   const settings = nodeGraphTraceDisplaySettingsForSlot(slot);
   const zoomEditActive = Boolean(nodeGraphMvp?.traceDisplayZoomEditActive);
-  const syncBuffer = nodeGraphModuleScopeSyncBuffer(buffer);
+  const syncChannel = options.syncChannel || nodeGraphTraceDisplaySyncChannel(settings);
+  const forceOff = options.forceSyncOff === true || syncChannel === "off";
+  const syncSourceBuffer = options.syncBuffer || buffer;
+  const syncBuffer = nodeGraphModuleScopeSyncBuffer(syncSourceBuffer);
   const availableSamples = nodeGraphScopeAvailableSampleCount(buffer);
-  const validEnd = buffer.length;
+  const validEnd = buffer?.length || 0;
   const validStart = availableSamples > 0
     ? Math.max(0, validEnd - Math.min(validEnd, availableSamples))
     : 0;
   const validSamples = Math.max(0, validEnd - validStart);
   const visibleSamples = Math.min(validSamples, nodeGraphTraceDisplayVisibleSamples(buffer, settings));
   let start = Math.max(validStart, validEnd - visibleSamples);
-  const syncEligible = settings.sourceSync && !zoomEditActive && visibleSamples < validSamples;
-  const estimatedCycle = syncEligible ? nodeGraphModuleScopeEstimatedCycle(syncBuffer || buffer) : null;
+  const syncEligible = !forceOff && !zoomEditActive && visibleSamples < validSamples;
+  const estimatedCycle = syncEligible
+    ? nodeGraphModuleScopeEstimatedCycle(syncBuffer || syncSourceBuffer)
+    : null;
   if (syncEligible && estimatedCycle) {
-    const lockKey = String(slot?.nodeId || "");
+    const lockKey = `${String(slot?.nodeId || "")}:${syncChannel}`;
     let lock = nodeGraphModuleScopeState.traceDisplaySyncLocks.get(lockKey);
     if (!lock) {
       lock = {};
@@ -6560,7 +6689,7 @@ function nodeGraphTraceDisplayBufferView(buffer, slot) {
     }
     const triggeredStart = nodeGraphTraceDisplayStabilizedSyncStart(
       lock,
-      buffer,
+      syncSourceBuffer,
       syncBuffer,
       estimatedCycle,
       visibleSamples,
@@ -6571,11 +6700,52 @@ function nodeGraphTraceDisplayBufferView(buffer, slot) {
       start = triggeredStart;
     }
   }
+  if (Number.isFinite(options.forceStart)) {
+    start = Math.max(validStart, Math.min(validEnd - visibleSamples, Math.floor(options.forceStart)));
+  }
   return {
     end: Math.min(validEnd, start + visibleSamples),
     gain: 1,
     offset: 0,
     start,
+  };
+}
+
+/**
+ * Shared window for Output L/R so both channels stay time-aligned.
+ * syncChannel: off (each freeruns) | left | right | mono.
+ */
+function nodeGraphTraceDisplayStereoBufferViews(leftBuffer, rightBuffer, slot) {
+  const settings = nodeGraphTraceDisplaySettingsForSlot(slot);
+  const syncChannel = nodeGraphTraceDisplaySyncChannel(settings);
+  if (syncChannel === "off" || !leftBuffer?.length || !rightBuffer?.length) {
+    return {
+      left: nodeGraphTraceDisplayBufferView(leftBuffer, slot, { forceSyncOff: true }),
+      right: nodeGraphTraceDisplayBufferView(rightBuffer, slot, { forceSyncOff: true }),
+      syncChannel: "off",
+    };
+  }
+  let syncBuffer = leftBuffer;
+  if (syncChannel === "right") {
+    syncBuffer = rightBuffer;
+  } else if (syncChannel === "mono") {
+    syncBuffer = nodeGraphTraceDisplayMonoSyncBuffer(leftBuffer, rightBuffer) || leftBuffer;
+  }
+  // Trigger window from the chosen source, then force both channels to that start.
+  const master = nodeGraphTraceDisplayBufferView(syncBuffer, slot, {
+    syncBuffer,
+    syncChannel: "mono",
+  });
+  return {
+    left: nodeGraphTraceDisplayBufferView(leftBuffer, slot, {
+      forceStart: master.start,
+      forceSyncOff: true,
+    }),
+    right: nodeGraphTraceDisplayBufferView(rightBuffer, slot, {
+      forceStart: master.start,
+      forceSyncOff: true,
+    }),
+    syncChannel,
   };
 }
 
@@ -8822,50 +8992,108 @@ function drawNodeGraphOscilloscopeBeam(renderer, item, pixelRatio, x1, y1, x2, y
 }
 
 function drawNodeGraphDotOscilloscopeItem(renderer, item, pixelRatio) {
+  // Phosphor Dot: one efficient soft stamp on the mono energy drawer.
+  // Brightness is pre-averaged over the latest capture window (sub-frame /
+  // multi-sample intensity), not a single sample snap.
   const buffer = item?.buffer;
-  const rect = item?.scopeRect;
-  if (!buffer || !rect) {
+  if (!buffer) {
     return;
   }
   renderNodeGraphModuleScopeAnalyzer(item.slot, buffer);
   const settings = nodeGraphZeroDBurnSettingsForNode(nodeGraphModuleScopeNodeForSlot(item.slot));
-  clearNodeGraphModuleScopeLocalFallback(item.slot);
-  const brightness = clampNodeSliderValue(
+  const canvas = nodeGraphModuleScopeLocalFallbackCanvas(item?.slot);
+  const screenElement = item?.screenElement || item?.slot?.scopeElement;
+  if (!canvas || !syncNodeGraphModuleScopeLocalFallbackCanvas(canvas, screenElement, pixelRatio)) {
+    return;
+  }
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return;
+  }
+  const brightness01 = clampNodeSliderValue(
     Number(settings.bipolarBrightness ? buffer.nodeGraphScopeBipolarLightTarget : buffer.nodeGraphScopeLightTarget) || 0,
     0,
     1,
   );
-  if (brightness <= 0.002) {
+  const bg = settings.background || "#020608";
+  if (screenElement?.style) {
+    screenElement.style.setProperty("--node-scope-background", bg);
+  }
+  const width = canvas.width;
+  const height = canvas.height;
+  const minSide = Math.max(1, Math.min(width, height));
+  const size01 = clampNodeSliderValue(settings.dot1Size, 0, 1);
+  const radius = Math.max(0.5, minSide * size01 * 0.5);
+  const blur = nodeGraphTraceDisplayClampStampBlur(settings.lineThickness);
+  const burn = clampNodeSliderValue(Number(settings.burn) || 0, 0, 1);
+  const decay = clampNodeSliderValue(Number(settings.decay) || 0, 0, 1);
+  const peakRgb = typeof nodeGraphScopeRgbFloatsToCanvasRgb === "function"
+    && typeof nodeGraphScopeHexColorToRgb === "function"
+    ? nodeGraphScopeRgbFloatsToCanvasRgb(nodeGraphScopeHexColorToRgb(settings.dot1Color || "#75ebff"))
+    : [117, 235, 255];
+
+  // Prefer shared energy phosphor path (same stamps as 2D Phosphor).
+  const energyGl = typeof nodeGraphPhosphorEnergyGlEnsure === "function"
+    ? nodeGraphPhosphorEnergyGlEnsure(canvas, width, height, "_phosphorEnergyGl")
+    : null;
+  if (energyGl && typeof nodeGraphPhosphorEnergyGlStepBeams === "function") {
+    if (typeof nodeGraphPhosphorEnergyGlSetLutFromPeak === "function") {
+      nodeGraphPhosphorEnergyGlSetLutFromPeak(energyGl, peakRgb, bg);
+    }
+    const deposit = brightness01 > 0.001 && settings.dot1Brightness > 0
+      ? (typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.depositGain
+        ? PhosphorDrawer.depositGain(burn, settings.dot1Brightness * brightness01, size01)
+        : settings.dot1Brightness * brightness01 * (0.02 + burn * 0.08))
+      : 0;
+    const cx = width * 0.5;
+    const cy = height * 0.5;
+    if (!nodeGraphModuleScopePaused()) {
+      nodeGraphPhosphorEnergyGlStepBeams(energyGl, {
+        decay,
+        pathPoints: deposit > 1e-8 ? [{ x: cx, y: cy }] : [],
+        radius,
+        brightness: deposit,
+        blur,
+        mode: "dots",
+        maxDots: 8,
+      });
+    } else if (typeof nodeGraphPhosphorEnergyGlStep === "function") {
+      nodeGraphPhosphorEnergyGlStep(energyGl, { decay, depositGain: 0, bleed: 0 });
+    }
+    const exposure = typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.exposure
+      ? PhosphorDrawer.exposure(burn)
+      : 1.85 + burn * 2.1;
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.globalCompositeOperation = "source-over";
+    context.fillStyle = bg;
+    context.fillRect(0, 0, width, height);
+    if (typeof nodeGraphPhosphorEnergyGlPresent === "function"
+      && nodeGraphPhosphorEnergyGlPresent(energyGl, 1, { exposure })) {
+      context.save();
+      context.globalCompositeOperation = "lighter";
+      context.imageSmoothingEnabled = true;
+      context.drawImage(energyGl.canvas, 0, 0, width, height);
+      context.restore();
+    }
+    recordNodeGraphModuleScopeRenderMetrics(1, 1);
     return;
   }
-  const square = nodeGraphModuleScopeCenteredSquareRect(rect);
-  const centerX = square.left + square.width * 0.5;
-  const centerY = square.top + square.height * 0.5;
-  const dotSpace = Math.min(square.width, square.height);
-  // The beam shader turns uSize into a core RADIUS of uSize * 0.34 (see the
-  // beam fragment shader: `radius = max(uSize * 0.34, 0.0001)`), so passing
-  // the square's side straight through as the thickness lit a disc only about
-  // 0.68 of the side across -- Dot size 1 visibly failed to fill the display.
-  //
-  // Size 1 = the INSCRIBED circle: radius on the half-side, so the disc is
-  // exactly as wide as the display and just touches all four edges. Going
-  // further (out to the half-diagonal, which would light the corners too)
-  // only buys those corners at the cost of the scissor slicing flat chords
-  // off the disc, which reads as harsh clipping rather than a bigger dot.
-  const halfSide = dotSpace * 0.5;
-  const innerThickness = Math.max(
-    0,
-    (clampNodeSliderValue(settings.dot1Size, 0, 1) * halfSide) / NODE_GRAPH_BEAM_SIZE_TO_RADIUS,
-  );
-  const dotHalfLength = 0.01;
-  if (settings.dot1Enabled !== false && settings.dot1Brightness > 0 && innerThickness > 0) {
-    drawNodeGraphOscilloscopeBeam(renderer, item, pixelRatio, centerX - dotHalfLength, centerY, centerX + dotHalfLength, centerY, {
-      blur: settings.lineThickness,
-      color: nodeGraphScopeHexColorToRgb(settings.dot1Color),
-      intensity: brightness * settings.dot1Brightness,
-      thicknessPx: innerThickness,
+
+  // Fallback: instant TraceStroke disc (no persistence).
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.globalCompositeOperation = "source-over";
+  context.fillStyle = bg;
+  context.fillRect(0, 0, width, height);
+  if (brightness01 > 0.001 && typeof TraceStroke !== "undefined" && TraceStroke.draw) {
+    TraceStroke.draw(context, [{ x: width * 0.5, y: height * 0.5 }], {
+      size: size01,
+      blur,
+      brightness: settings.dot1Brightness * brightness01,
+      color: settings.dot1Color,
+      faceMinSide: minSide,
     });
   }
+  recordNodeGraphModuleScopeRenderMetrics(1, 1);
 }
 
 function drawNodeGraphValueOscilloscopeCanvasLine(context, points, color, brightness, thickness, blur) {
@@ -11252,8 +11480,8 @@ function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
   drawNodeGraphScope2dTraceLayer(context, points, dotSpace, settings);
 }
 
-function buildNodeGraphTraceDisplaySamples(buffer, slot, pointCount, progressFn, samplesPerPoint) {
-  const view = nodeGraphTraceDisplayBufferView(buffer, slot);
+function buildNodeGraphTraceDisplaySamples(buffer, slot, pointCount, progressFn, samplesPerPoint, viewOverride = null) {
+  const view = viewOverride || nodeGraphTraceDisplayBufferView(buffer, slot);
   if (!view || view.end <= view.start) {
     return null;
   }
@@ -11285,11 +11513,11 @@ function buildNodeGraphTraceDisplaySamples(buffer, slot, pointCount, progressFn,
   return samples;
 }
 
-function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot) {
+function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot, viewOverride = null) {
   if (!buffer?.length || !canvas?.width || !canvas?.height) {
     return [];
   }
-  const view = nodeGraphTraceDisplayBufferView(buffer, slot);
+  const view = viewOverride || nodeGraphTraceDisplayBufferView(buffer, slot);
   const halfHeight = canvas.height * nodeGraphModuleScopeTraceHalfHeightRatio(slot, buffer, { height: canvas.height });
   if (!view || view.end <= view.start) {
     const sample = nodeGraphModuleScopeInterpolatedSample(buffer, Math.max(0, buffer.length - 1));
@@ -11311,7 +11539,14 @@ function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot) {
   const midY = canvas.height * 0.5;
   const samplesPerPoint = visibleSamples / Math.max(1, pointCount - 1);
   const progressFn = (index, count) => count <= 1 ? 0 : index / (count - 1);
-  const samples = buildNodeGraphTraceDisplaySamples(buffer, slot, pointCount, progressFn, samplesPerPoint);
+  const samples = buildNodeGraphTraceDisplaySamples(
+    buffer,
+    slot,
+    pointCount,
+    progressFn,
+    samplesPerPoint,
+    view,
+  );
   if (!samples) {
     return [];
   }
@@ -11419,8 +11654,9 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
   if (stereoBuffers) {
     const leftBuffer = prepareNodeGraphTraceDisplayBuffer(stereoBuffers.left, settings);
     const rightBuffer = prepareNodeGraphTraceDisplayBuffer(stereoBuffers.right, settings);
-    const leftPoints = buildNodeGraphTraceDisplayCanvasPoints(leftBuffer, canvas, slot);
-    const rightPoints = buildNodeGraphTraceDisplayCanvasPoints(rightBuffer, canvas, slot);
+    const views = nodeGraphTraceDisplayStereoBufferViews(leftBuffer, rightBuffer, slot);
+    const leftPoints = buildNodeGraphTraceDisplayCanvasPoints(leftBuffer, canvas, slot, views.left);
+    const rightPoints = buildNodeGraphTraceDisplayCanvasPoints(rightBuffer, canvas, slot, views.right);
     const leftLayer = nodeGraphTraceDisplayPrimaryLayer(settings, nodeGraphOutputTraceLeftColor);
     const rightLayer = {
       enabled: settings.secondaryEnabled !== false,

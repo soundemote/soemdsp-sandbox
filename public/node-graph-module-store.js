@@ -808,9 +808,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   dotOscilloscope: {
     category: "oscilloscope",
-    description: "Placeholder for a clock-like oscilloscope that draws one efficient brightness dot from the current buffered value.",
-    label: "0D Burn",
-    notes: ["clock display", "single dot", "latest value"],
+    description: "Efficient single-dot phosphor: one soft stamp on the mono energy drawer. Intensity is averaged over the latest capture window (sub-frame brightness), not a single sample snap.",
+    label: "Phosphor Dot",
+    notes: ["phosphor", "single dot", "sub-frame brightness", "energy drawer"],
   },
   oscilloscopeBank: {
     category: "oscilloscope",
@@ -861,19 +861,21 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   scope2d: {
     category: "oscilloscope",
-    description: "First-pass 2D scope display for inspecting the latest X/Y signal point.",
-    label: "2D Burn",
-    notes: ["xy display", "2D scope", "latest point"],
+    description: "XY phosphor scope (mono energy + gradient LUT). Soft/hard stamps, burn, decay, and dwell bleed — the path Lorenz and other attractors use.",
+    label: "2D Phosphor",
+    notes: ["xy phosphor", "energy drawer", "burn", "decay", "2D scope"],
   },
   phosphorLight: {
     category: "oscilloscope",
-    description: "XY phosphor scope on the canonical mono energy + gradient LUT drawer (same path as 2D Burn / Lorenz).",
-    label: "PhosphorLight",
-    notes: ["xy scope", "energy phosphor", "gradient LUT", "canonical drawer"],
+    // Hidden legacy testbed — same energy path as scope2d / 2D Phosphor.
+    hidden: true,
+    description: "Legacy alias of 2D Phosphor (mono energy drawer). Prefer the 2D Phosphor module for new patches.",
+    label: "2D Phosphor",
+    notes: ["legacy", "xy phosphor", "energy drawer"],
   },
   scope2dTrace: {
     category: "oscilloscope",
-    description: "Sample-history X/Y oscilloscope for inspecting deterministic 2D traces without pixel burn decay.",
+    description: "Sample-history X/Y oscilloscope for inspecting deterministic 2D traces (instant RGB stroke, no phosphor persistence).",
     label: "2D Trace",
     notes: ["xy trace", "sample history", "2D oscilloscope"],
   },
@@ -1096,7 +1098,8 @@ function nodeGraphModuleStoreEntries() {
         !nodeGraphModuleStoreUnderConstructionTypes.has(type);
       const developerVisible = nodeGraphModuleIsStoreVisible(type, "developer");
       const developerOnly = nodeGraphModuleStoreCatalog[type]?.developerOnly === true;
-      const publicVisible = !developerOnly;
+      const catalogHidden = nodeGraphModuleStoreCatalog[type]?.hidden === true;
+      const publicVisible = !developerOnly && !catalogHidden;
       return {
         ...(nodeGraphModuleStoreCatalog[type] || {}),
         category: normalizeNodeGraphModuleStoreDepartment(nodeGraphModuleStoreCatalog[type]?.category || ""),
@@ -1104,8 +1107,8 @@ function nodeGraphModuleStoreEntries() {
         demoPatch: nodeGraphModuleStoreDemoPatchAvailable(type),
         demoListen: nodeGraphModuleStoreDemoListenAvailable(type),
         developerOnly,
-        developerVisible,
-        homeVisible: nodeGraphModuleIsStoreVisible(type, "home") && implemented,
+        developerVisible: developerVisible && !catalogHidden,
+        homeVisible: nodeGraphModuleIsStoreVisible(type, "home") && implemented && !catalogHidden,
         implemented,
         label: nodeGraphModuleStoreCatalog[type]?.label || nodeGraphNodeLabels[type] || type,
         nativeAvailable: nativeModules.some((entry) => entry.wasmAvailable),

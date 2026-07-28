@@ -238,6 +238,11 @@ function nodeGraphPhosphorLightBeamRadius(sizePx, dotSize01) {
 }
 
 function drawNodeGraphPhosphorLightItem(renderer, item, pixelRatio) {
+  // Legacy alias of 2D Phosphor (scope2d energy path). Old patches keep
+  // working; new work should use the scope2d / "2D Phosphor" module.
+  if (typeof drawNodeGraphScope2dItem === "function") {
+    return drawNodeGraphScope2dItem(renderer, item, pixelRatio);
+  }
   const slot = item?.slot;
   const buffer = item?.buffer;
   if (!slot || !buffer?.nodeGraphScopeXy || !buffer.x?.length || !buffer.y?.length) {
