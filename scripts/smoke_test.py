@@ -13203,10 +13203,13 @@ def require_node_graph_mvp_contract() -> None:
         and "brightness: 0.92," in number_readout_defaults_source
         and "color: \"#75ebff\"," in number_readout_defaults_source
         and "decimals: 2," in number_readout_defaults_source
+        and "burn: 0.42," in number_readout_defaults_source
+        and "decay: 0.28," in number_readout_defaults_source
+        and "ghost: 0.22," in number_readout_defaults_source
+        and "innerGlow: 0.35," in number_readout_defaults_source
+        and "innerShadow: 0.4," in number_readout_defaults_source
         and "zoomSeconds" not in number_readout_defaults_source
         and "cycles" not in number_readout_defaults_source
-        and "burn" not in number_readout_defaults_source
-        and "decay" not in number_readout_defaults_source
         and "capSize" not in number_readout_defaults_source
         and "capLength" not in number_readout_defaults_source
         and "lineThickness" not in number_readout_defaults_source
@@ -13214,21 +13217,26 @@ def require_node_graph_mvp_contract() -> None:
         and "sourceSync" not in number_readout_defaults_source
         and "skipDiscontinuities" not in number_readout_defaults_source
         and "function normalizeNodeGraphNumberReadoutSettings(settings = {})" in number_readout_normalize_source
+        and "burn: normalizeNodeGraphTraceDisplayNumber(source.burn" in number_readout_normalize_source
+        and "decay: normalizeNodeGraphTraceDisplayNumber(source.decay" in number_readout_normalize_source
+        and "ghost: normalizeNodeGraphTraceDisplayNumber(source.ghost" in number_readout_normalize_source
+        and "innerGlow: normalizeNodeGraphTraceDisplayNumber(source.innerGlow" in number_readout_normalize_source
+        and "innerShadow: normalizeNodeGraphTraceDisplayNumber(source.innerShadow" in number_readout_normalize_source
         and "zoomSeconds" not in number_readout_normalize_source
         and "cycles" not in number_readout_normalize_source
-        and "burn" not in number_readout_normalize_source
-        and "decay" not in number_readout_normalize_source
         and "capSize" not in number_readout_normalize_source
         and "capLength" not in number_readout_normalize_source
         and "lineThickness" not in number_readout_normalize_source
         and "scale" not in number_readout_normalize_source
         and "sourceSync" not in number_readout_normalize_source
         and "skipDiscontinuities" not in number_readout_normalize_source,
-        "Number Readout settings must not inherit Trace, Dot, Caps, Burn, Zoom, Sync, or 2D fields",
+        "Number Readout settings own burn/decay/LCD plate/chrome and must not inherit Trace/Dot/Zoom/Sync fields",
     )
     require(
-        'numberReadout: Object.freeze({\n    fields: Object.freeze(["decimals", "dot1Brightness"]),\n    colors: Object.freeze(["dot1Color"]),\n    toggles: Object.freeze([]),' in node_graph_source,
-        "Number Readout active display-settings controls should be limited to decimals, brightness, and color",
+        '"decimals",\n      "burn",\n      "decay",\n      "ghost",\n      "innerGlow",\n      "innerShadow",\n      "dot1Brightness",'
+        in node_graph_source
+        and 'numberReadout: Object.freeze({' in node_graph_source,
+        "Number Readout display-settings controls should expose decimals, burn, decay, LCD plate, glow, shadow, brightness, color",
     )
     require(
         '} else if (slot?.type === "numberReadout") {\n    // Number Readout must only ever show real captured input' in node_graph_source
@@ -13253,20 +13261,30 @@ def require_node_graph_mvp_contract() -> None:
         "Number Readout should own a dedicated canvas, not the shared 1D/2D burn retained canvas",
     )
     require(
-        "canvas._nodeGraphNumberReadoutText === text" in node_graph_source
-        and "canvas._nodeGraphNumberReadoutColor !== settings.color" in node_graph_source
-        and "canvas._nodeGraphNumberReadoutBrightness !== settings.brightness" in node_graph_source
+        "canvas._nodeGraphNumberReadoutText !== text" in node_graph_source
+        and "canvas._nodeGraphNumberReadoutSettingsSig" in node_graph_source
         and "canvas._nodeGraphNumberReadoutPaintAt" in node_graph_source
-        and "nodeGraphNumberReadoutSafeDecimals" in node_graph_source,
-        "Number Readout should redraw only when the formatted value or its style changes, not per sample",
+        and "nodeGraphNumberReadoutSafeDecimals" in node_graph_source
+        and "needsContinuous" in node_graph_source[
+            node_graph_source.index("function drawNodeGraphNumberReadoutItem")
+            : node_graph_source.index("function nodeGraphCustomDisplayCanvasForSlot")
+        ],
+        "Number Readout should skip idle frames unless burn/decay need continuous phosphor updates",
     )
     require(
         'document.fonts.load(\'700 40px "DSEG7 Classic"\')' in node_graph_source
         and '"DSEG7 Classic", "Consolas", monospace' in node_graph_source
         and "nodeGraphNumberReadoutDsegWidthChars" in node_graph_source
+        and "nodeGraphNumberReadoutGhostPlateText" in node_graph_source
+        and "nodeGraphNumberReadoutPhosphorCanvas" in node_graph_source
+        and "nodeGraphNumberReadoutDrawInnerShadow" in node_graph_source
         and "https://github.com/keshikan/DSEG" in node_graph_source
-        and 'context.fillStyle = "#020608"' in node_graph_source,
-        "Number Readout should use DSEG7 Classic (keshikan/DSEG) phosphor digits with a dark LCD cavity",
+        and 'context.fillStyle = "#020608"' in node_graph_source
+        and 'globalCompositeOperation = "destination-out"' in node_graph_source[
+            node_graph_source.index("function drawNodeGraphNumberReadoutItem")
+            : node_graph_source.index("function nodeGraphCustomDisplayCanvasForSlot")
+        ],
+        "Number Readout should use DSEG7 Classic with phosphor burn buffer, LCD plate, and cavity",
     )
     require(
         "numberReadout: drawNodeGraphNumberReadoutItem," in node_graph_source,

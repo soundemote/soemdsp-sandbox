@@ -2372,13 +2372,17 @@ const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
   lineThickness: 0.2,
 });
 
-// numberReadout owns a fully independent schema: only decimals, color, and
-// brightness. It deliberately does not carry any Trace/Dot/Caps/Burn/Zoom/
-// Sync/2D field so those renderers' settings can never leak into it.
+// numberReadout owns a fully independent schema (not Trace/Dot/2D). Includes
+// its own phosphor burn/decay plus LCD plate (ghost 8s) and bezel chrome.
 const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   brightness: 0.92,
+  burn: 0.42,
   color: "#75ebff",
+  decay: 0.28,
   decimals: 2,
+  ghost: 0.22,
+  innerGlow: 0.35,
+  innerShadow: 0.4,
 });
 
 const nodeGraphScope2dSettingsDefaults = Object.freeze({
@@ -2567,8 +2571,13 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}) {
       0,
       2,
     ),
+    burn: normalizeNodeGraphTraceDisplayNumber(source.burn, defaults.burn, 0, 1),
     color: normalizeNodeGraphTraceDisplayColor(source.color ?? source.dot1Color, defaults.color),
+    decay: normalizeNodeGraphTraceDisplayNumber(source.decay, defaults.decay, 0, 1),
     decimals: normalizeNodeGraphTraceDisplayNumber(source.decimals, defaults.decimals, 0, 8, true),
+    ghost: normalizeNodeGraphTraceDisplayNumber(source.ghost, defaults.ghost, 0, 1),
+    innerGlow: normalizeNodeGraphTraceDisplayNumber(source.innerGlow, defaults.innerGlow, 0, 1),
+    innerShadow: normalizeNodeGraphTraceDisplayNumber(source.innerShadow, defaults.innerShadow, 0, 1),
   };
 }
 
@@ -3493,6 +3502,9 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
   ["padding", "Amp"],
   ["cycles", "Cycles"],
   ["decimals", "Decimals"],
+  ["ghost", "LCD plate"],
+  ["innerGlow", "Inner glow"],
+  ["innerShadow", "Inner shadow"],
 
   ["dot1Size", "Dot size"],
   ["lineThickness", "Dot blur"],
@@ -3590,7 +3602,15 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze([]),
   }),
   numberReadout: Object.freeze({
-    fields: Object.freeze(["decimals", "dot1Brightness"]),
+    fields: Object.freeze([
+      "decimals",
+      "burn",
+      "decay",
+      "ghost",
+      "innerGlow",
+      "innerShadow",
+      "dot1Brightness",
+    ]),
     colors: Object.freeze(["dot1Color"]),
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
@@ -3625,7 +3645,18 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
     choices: Object.freeze([]),
   }),
   trace: Object.freeze({
-    fields: Object.freeze(["burn", "decay", "zoomSeconds", "historySeconds", "scale", "padding", "decimals"]),
+    fields: Object.freeze([
+      "burn",
+      "decay",
+      "zoomSeconds",
+      "historySeconds",
+      "scale",
+      "padding",
+      "decimals",
+      "ghost",
+      "innerGlow",
+      "innerShadow",
+    ]),
     colors: Object.freeze([]),
     toggles: Object.freeze(["sourceSync", "skipDiscontinuities"]),
     choices: Object.freeze([]),
@@ -3769,6 +3800,30 @@ function nodeGraphTraceDisplaySettingsElement() {
             <button type="button" data-trace-display-step-target="decimals" data-trace-display-step-direction="-1">-</button>
             <input id="nodeTraceDisplayDecimals" type="text" inputmode="decimal" data-trace-display-field="decimals">
             <button type="button" data-trace-display-step-target="decimals" data-trace-display-step-direction="1">+</button>
+          </span>
+        </label>
+        <label class="node-trace-display-trace-thickness-row">
+          <span>LCD plate</span>
+          <span class="metadata-stepper-control">
+            <button type="button" data-trace-display-step-target="ghost" data-trace-display-step-direction="-1">-</button>
+            <input id="nodeTraceDisplayGhost" type="text" inputmode="decimal" data-trace-display-field="ghost">
+            <button type="button" data-trace-display-step-target="ghost" data-trace-display-step-direction="1">+</button>
+          </span>
+        </label>
+        <label class="node-trace-display-trace-thickness-row">
+          <span>Inner glow</span>
+          <span class="metadata-stepper-control">
+            <button type="button" data-trace-display-step-target="innerGlow" data-trace-display-step-direction="-1">-</button>
+            <input id="nodeTraceDisplayInnerGlow" type="text" inputmode="decimal" data-trace-display-field="innerGlow">
+            <button type="button" data-trace-display-step-target="innerGlow" data-trace-display-step-direction="1">+</button>
+          </span>
+        </label>
+        <label class="node-trace-display-trace-thickness-row">
+          <span>Inner shadow</span>
+          <span class="metadata-stepper-control">
+            <button type="button" data-trace-display-step-target="innerShadow" data-trace-display-step-direction="-1">-</button>
+            <input id="nodeTraceDisplayInnerShadow" type="text" inputmode="decimal" data-trace-display-field="innerShadow">
+            <button type="button" data-trace-display-step-target="innerShadow" data-trace-display-step-direction="1">+</button>
           </span>
         </label>
         <label class="node-trace-display-dot2-thickness-row">
@@ -4424,13 +4479,16 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   decimals: (value) => Math.max(0, Math.min(8, Math.round(Number(value) || 0))),
   dot1Brightness: nodeGraphTraceDisplayClampBrightness,
   dot1Size: nodeGraphTraceDisplayClampUnit,
-  secondaryBrightness: nodeGraphTraceDisplayClampBrightness,
-  secondaryLineThickness: nodeGraphTraceDisplayClampNonNegative,
-  secondarySize: nodeGraphTraceDisplayClampUnit,
+  ghost: nodeGraphTraceDisplayClampUnit,
   historySeconds: nodeGraphTraceDisplayClampNonNegative,
+  innerGlow: nodeGraphTraceDisplayClampUnit,
+  innerShadow: nodeGraphTraceDisplayClampUnit,
   lineLength: nodeGraphTraceDisplayClampUnit,
   lineThickness: nodeGraphTraceDisplayClampNonNegative,
   scale: nodeGraphTraceDisplayClampNonNegative,
+  secondaryBrightness: nodeGraphTraceDisplayClampBrightness,
+  secondaryLineThickness: nodeGraphTraceDisplayClampNonNegative,
+  secondarySize: nodeGraphTraceDisplayClampUnit,
   zoomSeconds: nodeGraphTraceDisplayClampNonNegative,
 });
 
@@ -8753,16 +8811,16 @@ function drawNodeGraphValueOscilloscopeItem(renderer, item, pixelRatio) {
   }
 }
 
-// Number Readout owns a dedicated canvas/state, separate from the burn
-// renderers' shared retained canvas. Phosphor LCD digits use DSEG7 Classic
+// Number Readout owns a dedicated canvas (not the shared 1D/2D WebGL burn
+// compositor). Phosphor LCD digits use DSEG7 Classic
 // (https://github.com/keshikan/DSEG — SIL OFL 1.1, public/fonts/DSEG7-Classic).
-// Digits redraw only when the formatted string (or style / font readiness)
-// changes — deliberately not per-sample — so it stays cheap at any rate.
-// Unit labels (e.g. Hz) stay in monospace: DSEG is segment digits/symbols.
-// A future sample-bin/decay burn extension can layer on this same canvas.
 //
-// Canvas fillText falls back until the @font-face is ready — load once and
-// flip ready so the next draw uses the real 7-seg face instead of Consolas.
+// Layers:
+//   1) offscreen phosphor buffer — lit digits with burn deposit + decay fade
+//   2) display — dark cavity, LCD plate ("8" ghost segments), phosphor blit,
+//      unit label, inner glow, inner shadow
+//
+// Unit labels stay monospace (DSEG has no proper letter glyphs).
 let nodeGraphNumberReadoutDsegReady = false;
 document.fonts.load('700 40px "DSEG7 Classic"').then(() => {
   nodeGraphNumberReadoutDsegReady = document.fonts.check('700 40px "DSEG7 Classic"');
@@ -8795,8 +8853,24 @@ function syncNodeGraphNumberReadoutCanvas(canvas, screenElement, pixelRatio) {
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
     canvas.height = height;
+    // Drop phosphor residual when the face resizes.
+    canvas._numberReadoutPhosphor = null;
   }
   return true;
+}
+
+function nodeGraphNumberReadoutPhosphorCanvas(canvas) {
+  if (!canvas?.width || !canvas?.height) {
+    return null;
+  }
+  let phosphor = canvas._numberReadoutPhosphor;
+  if (!phosphor || phosphor.width !== canvas.width || phosphor.height !== canvas.height) {
+    phosphor = document.createElement("canvas");
+    phosphor.width = canvas.width;
+    phosphor.height = canvas.height;
+    canvas._numberReadoutPhosphor = phosphor;
+  }
+  return phosphor;
 }
 
 function nodeGraphNumberReadoutSafeDecimals(decimals) {
@@ -8820,17 +8894,21 @@ function nodeGraphNumberReadoutFormatValue(sample, decimals) {
   } catch {
     fixed = value.toFixed(2);
   }
-  // Reserve a sign column so the text width (and its centered position)
-  // stays constant as the value crosses zero — otherwise the "-" appearing
-  // and disappearing shifts the whole readout horizontally every time.
-  // DSEG: space and colon share advance width (keshikan/DSEG usage notes).
+  // Reserve a sign column so width stays stable across zero (DSEG space =
+  // colon advance — keshikan/DSEG usage notes).
   return fixed.startsWith("-") ? fixed : ` ${fixed}`;
 }
 
-// DSEG period has zero advance width — size digits from width-bearing glyphs only.
+// DSEG period has zero advance width — size from width-bearing glyphs only.
 // https://github.com/keshikan/DSEG#usage
 function nodeGraphNumberReadoutDsegWidthChars(text) {
   return Math.max(1, String(text || "").replace(/\./g, "").length);
+}
+
+// Always-visible unlit LCD segments: map every digit cell to all-on "8"
+// (period kept for alignment — zero advance in DSEG).
+function nodeGraphNumberReadoutGhostPlateText(valueText) {
+  return String(valueText || "").replace(/[^.]/g, "8");
 }
 
 function nodeGraphNumberReadoutUnitForSlot(slot) {
@@ -8843,6 +8921,85 @@ function nodeGraphNumberReadoutUnitForSlot(slot) {
   return sourceNode?.type === "helmholtzPitch" && connection.sourcePort === "Frequency"
     ? "Hz"
     : "";
+}
+
+function nodeGraphNumberReadoutSettingsSignature(settings) {
+  return [
+    settings.brightness,
+    settings.burn,
+    settings.color,
+    settings.decay,
+    settings.decimals,
+    settings.ghost,
+    settings.innerGlow,
+    settings.innerShadow,
+  ].join("|");
+}
+
+function nodeGraphNumberReadoutDrawDigits(context, {
+  text,
+  x,
+  y,
+  maxWidth,
+  fontFamily,
+  fontSize,
+  rgb,
+  alpha,
+  glow = 0,
+}) {
+  context.save();
+  context.font = `700 ${fontSize}px ${fontFamily}`;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  if (glow > 0.001) {
+    context.shadowColor = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${(alpha * 0.95).toFixed(4)})`;
+    context.shadowBlur = Math.max(1, fontSize * (0.08 + glow * 0.55));
+  } else {
+    context.shadowBlur = 0;
+  }
+  context.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha.toFixed(4)})`;
+  context.fillText(text, x, y, maxWidth);
+  // Second pass without blur keeps segment cores crisp under the glow halo.
+  if (glow > 0.001) {
+    context.shadowBlur = 0;
+    context.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${Math.min(1, alpha * 1.05).toFixed(4)})`;
+    context.fillText(text, x, y, maxWidth);
+  }
+  context.restore();
+}
+
+function nodeGraphNumberReadoutDrawInnerShadow(context, left, top, width, height, amount) {
+  if (!(amount > 0.001) || width < 2 || height < 2) {
+    return;
+  }
+  const depth = Math.max(2, Math.min(width, height) * (0.06 + amount * 0.18));
+  const edge = Math.max(0.12, Math.min(0.85, amount * 0.72));
+  context.save();
+  // Top + left (darker lip), bottom + right (softer).
+  let grad = context.createLinearGradient(left, top, left, top + depth);
+  grad.addColorStop(0, `rgba(0, 0, 0, ${edge.toFixed(4)})`);
+  grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+  context.fillStyle = grad;
+  context.fillRect(left, top, width, depth);
+
+  grad = context.createLinearGradient(left, top, left + depth, top);
+  grad.addColorStop(0, `rgba(0, 0, 0, ${(edge * 0.9).toFixed(4)})`);
+  grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+  context.fillStyle = grad;
+  context.fillRect(left, top, depth, height);
+
+  grad = context.createLinearGradient(left, top + height, left, top + height - depth);
+  grad.addColorStop(0, `rgba(0, 0, 0, ${(edge * 0.55).toFixed(4)})`);
+  grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+  context.fillStyle = grad;
+  context.fillRect(left, top + height - depth, width, depth);
+
+  grad = context.createLinearGradient(left + width, top, left + width - depth, top);
+  grad.addColorStop(0, `rgba(0, 0, 0, ${(edge * 0.5).toFixed(4)})`);
+  grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+  context.fillStyle = grad;
+  context.fillRect(left + width - depth, top, depth, height);
+  context.restore();
 }
 
 function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
@@ -8865,38 +9022,37 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const settings = nodeGraphNumberReadoutSettingsForNode(node);
   const hasSample = item?.buffer?.length > 0 && !item.buffer?.nodeGraphScopeXy;
   const unit = nodeGraphNumberReadoutUnitForSlot(slot);
-  // No input: DSEG all-off ("!") placeholders — ghost segment plate, not "--" mono.
-  // https://github.com/keshikan/DSEG#usage
   const decimals = nodeGraphNumberReadoutSafeDecimals(settings.decimals);
+  // No input: DSEG all-off ("!") placeholders.
+  // https://github.com/keshikan/DSEG#usage
   const valueText = hasSample
     ? nodeGraphNumberReadoutFormatValue(nodeGraphOscilloscopeLatestSample(item.buffer, 0), decimals)
     : (decimals > 0 ? ` !.${"!".repeat(decimals)}` : " !");
   const text = unit ? `${valueText} ${unit}` : valueText;
+  const burn = clampNodeSliderValue(Number(settings.burn) || 0, 0, 1);
+  const decay = clampNodeSliderValue(Number(settings.decay) || 0, 0, 1);
+  const ghost = clampNodeSliderValue(Number(settings.ghost) || 0, 0, 1);
+  const innerGlow = clampNodeSliderValue(Number(settings.innerGlow) || 0, 0, 1);
+  const innerShadow = clampNodeSliderValue(Number(settings.innerShadow) || 0, 0, 1);
+  const settingsSig = nodeGraphNumberReadoutSettingsSignature(settings);
   const styleChanged =
-    canvas._nodeGraphNumberReadoutColor !== settings.color ||
-    canvas._nodeGraphNumberReadoutBrightness !== settings.brightness ||
+    canvas._nodeGraphNumberReadoutSettingsSig !== settingsSig ||
     canvas._nodeGraphNumberReadoutFontReady !== nodeGraphNumberReadoutDsegReady ||
     canvas._nodeGraphNumberReadoutWidth !== canvas.width ||
     canvas._nodeGraphNumberReadoutHeight !== canvas.height;
-  if (canvas._nodeGraphNumberReadoutText === text && !styleChanged) {
+  const textChanged = canvas._nodeGraphNumberReadoutText !== text;
+  // Burn/decay need every frame (fade residual). Static LCD can skip when idle.
+  const needsContinuous = burn > 0.001 || decay > 0.001;
+  if (!textChanged && !styleChanged && !needsContinuous) {
     return;
   }
-  // Live audio at high decimals can change every sample. Cap digit paints so
-  // fillText (DSEG is heavier than mono) cannot stall the whole rAF loop.
-  // Style / size / font-ready changes always paint immediately.
   const now = performance.now?.() || Date.now();
   const lastPaint = Number(canvas._nodeGraphNumberReadoutPaintAt) || 0;
-  if (!styleChanged && lastPaint > 0 && now - lastPaint < 33) {
+  // Soft-cap digit deposit rate when only the live sample is thrashing text.
+  if (textChanged && !styleChanged && !needsContinuous && lastPaint > 0 && now - lastPaint < 33) {
     return;
   }
-  canvas._nodeGraphNumberReadoutText = text;
-  canvas._nodeGraphNumberReadoutColor = settings.color;
-  canvas._nodeGraphNumberReadoutBrightness = settings.brightness;
-  canvas._nodeGraphNumberReadoutFontReady = nodeGraphNumberReadoutDsegReady;
-  canvas._nodeGraphNumberReadoutWidth = canvas.width;
-  canvas._nodeGraphNumberReadoutHeight = canvas.height;
-  canvas._nodeGraphNumberReadoutPaintAt = now;
-  context.clearRect(0, 0, canvas.width, canvas.height);
+
   const screenRect = item?.screenRect || rect;
   const left = (Number(rect.left) - Number(screenRect.left)) * pixelRatio;
   const top = (Number(rect.top) - Number(screenRect.top)) * pixelRatio;
@@ -8905,12 +9061,6 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const rgb = nodeGraphScopeRgbFloatsToCanvasRgb(nodeGraphScopeHexColorToRgb(settings.color));
   const bright = Number(settings.brightness);
   const alpha = Math.max(0.15, (Number.isFinite(bright) ? Math.max(0, Math.min(2, bright)) : 0.92) / 2);
-
-  context.save();
-  // Dark LCD cavity so Classic ghost segments read as an unlit plate.
-  context.fillStyle = "#020608";
-  context.fillRect(left, top, width, height);
-
   const digitFontFamily = nodeGraphNumberReadoutDsegReady
     ? '"DSEG7 Classic", "Consolas", monospace'
     : '"Consolas", "Courier New", monospace';
@@ -8922,21 +9072,124 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     1,
     Math.min(digitAreaHeight * 0.82, (width / widthChars) * 1.55),
   );
+  const digitX = left + width * 0.5;
+  const digitY = top + digitAreaHeight * 0.5;
 
-  context.font = `700 ${digitFontSize}px ${digitFontFamily}`;
-  context.textAlign = "center";
-  context.textBaseline = "middle";
-  context.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha.toFixed(4)})`;
-  context.fillText(valueText, left + width * 0.5, top + digitAreaHeight * 0.5, width);
+  // ── Phosphor buffer: decay residual, then deposit current digits ──
+  const phosphor = nodeGraphNumberReadoutPhosphorCanvas(canvas);
+  const phosphorCtx = phosphor?.getContext?.("2d");
+  if (phosphor && phosphorCtx) {
+    if (styleChanged && (textChanged || canvas._nodeGraphNumberReadoutWidth !== canvas.width)) {
+      // Hard clear residual only on geometry change (resize handled above too).
+    }
+    if (decay > 0.001) {
+      // Same fade family as 1D burn trails: higher decay → faster erase;
+      // higher burn slightly holds residual longer.
+      const fadeAlpha = clampNodeSliderValue(0.012 + decay * 0.3 - burn * 0.006, 0.002, 0.34);
+      phosphorCtx.save();
+      phosphorCtx.globalCompositeOperation = "destination-out";
+      phosphorCtx.fillStyle = `rgba(0, 0, 0, ${fadeAlpha.toFixed(4)})`;
+      phosphorCtx.fillRect(0, 0, phosphor.width, phosphor.height);
+      phosphorCtx.restore();
+    } else if (textChanged || styleChanged) {
+      phosphorCtx.clearRect(0, 0, phosphor.width, phosphor.height);
+    }
+    // Deposit: always draw current digits so the face stays lit against decay.
+    // Burn scales how hard the new ink lands (and how trails build when values change).
+    const deposit = Math.max(0.2, 0.35 + burn * 0.65) * alpha;
+    phosphorCtx.save();
+    phosphorCtx.globalCompositeOperation = "lighter";
+    nodeGraphNumberReadoutDrawDigits(phosphorCtx, {
+      text: valueText,
+      x: digitX,
+      y: digitY,
+      maxWidth: width,
+      fontFamily: digitFontFamily,
+      fontSize: digitFontSize,
+      rgb,
+      alpha: deposit,
+      glow: 0,
+    });
+    phosphorCtx.restore();
+  }
+
+  // ── Present ──
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.save();
+  // Dark LCD cavity.
+  context.fillStyle = "#020608";
+  context.fillRect(left, top, width, height);
+
+  // Unlit segment plate ("8" under each cell) — the always-visible LCD grid.
+  if (ghost > 0.001 && nodeGraphNumberReadoutDsegReady) {
+    const plate = nodeGraphNumberReadoutGhostPlateText(valueText);
+    nodeGraphNumberReadoutDrawDigits(context, {
+      text: plate,
+      x: digitX,
+      y: digitY,
+      maxWidth: width,
+      fontFamily: digitFontFamily,
+      fontSize: digitFontSize,
+      rgb,
+      alpha: Math.max(0.04, ghost * 0.38),
+      glow: 0,
+    });
+  } else if (ghost > 0.001) {
+    // Fallback mono plate when DSEG not ready.
+    nodeGraphNumberReadoutDrawDigits(context, {
+      text: nodeGraphNumberReadoutGhostPlateText(valueText),
+      x: digitX,
+      y: digitY,
+      maxWidth: width,
+      fontFamily: digitFontFamily,
+      fontSize: digitFontSize,
+      rgb,
+      alpha: Math.max(0.04, ghost * 0.28),
+      glow: 0,
+    });
+  }
+
+  // Phosphor lit digits (with residual trails).
+  if (phosphor) {
+    context.save();
+    context.globalCompositeOperation = "lighter";
+    context.drawImage(phosphor, 0, 0);
+    context.restore();
+  }
+
+  // Inner glow pass on the sharp current value (halo only, not residual).
+  if (innerGlow > 0.001) {
+    nodeGraphNumberReadoutDrawDigits(context, {
+      text: valueText,
+      x: digitX,
+      y: digitY,
+      maxWidth: width,
+      fontFamily: digitFontFamily,
+      fontSize: digitFontSize,
+      rgb,
+      alpha: alpha * (0.35 + innerGlow * 0.65),
+      glow: innerGlow,
+    });
+  }
 
   if (hasUnit) {
-    // Unit outside DSEG (no proper letter glyphs for "Hz" etc.) — same layout as transport BPM.
     const labelFontSize = Math.max(1, Math.min(labelHeight * 0.7, width * 0.14));
     context.font = `${labelFontSize}px "Consolas", "Courier New", monospace`;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
     context.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${(alpha * 0.55).toFixed(4)})`;
     context.fillText(unit, left + width * 0.5, top + digitAreaHeight + labelHeight * 0.5, width);
   }
+
+  nodeGraphNumberReadoutDrawInnerShadow(context, left, top, width, height, innerShadow);
   context.restore();
+
+  canvas._nodeGraphNumberReadoutText = text;
+  canvas._nodeGraphNumberReadoutSettingsSig = settingsSig;
+  canvas._nodeGraphNumberReadoutFontReady = nodeGraphNumberReadoutDsegReady;
+  canvas._nodeGraphNumberReadoutWidth = canvas.width;
+  canvas._nodeGraphNumberReadoutHeight = canvas.height;
+  canvas._nodeGraphNumberReadoutPaintAt = now;
 }
 
 function nodeGraphCustomDisplayCanvasForSlot(slot) {
