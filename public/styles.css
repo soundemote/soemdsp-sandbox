@@ -10304,12 +10304,13 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   pointer-events: none;
 }
 
-.node-number-readout-canvas {
+.node-number-readout-canvas,
+.node-phosphor-light-canvas {
   position: absolute;
   inset: 0;
   z-index: 2;
   display: block;
-  /* JS sets exact CSS px to match buffer/dpr so the face cannot skew glyphs. */
+  /* JS sets buffer from face rect × dpr; CSS 100% rides workspace zoom. */
   width: 100%;
   height: 100%;
   pointer-events: none;
@@ -10432,7 +10433,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-graph-workspace.pixelated-canvas-zoom .node-phosphor-waveform-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-phosphillator-draw-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-module-scope-local-fallback-canvas,
-.node-graph-workspace.pixelated-canvas-zoom .node-number-readout-canvas {
+.node-graph-workspace.pixelated-canvas-zoom .node-number-readout-canvas,
+.node-graph-workspace.pixelated-canvas-zoom .node-phosphor-light-canvas {
   image-rendering: pixelated;
 }
 

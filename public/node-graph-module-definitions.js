@@ -128,6 +128,7 @@ const nodeGraphNodeLabels = Object.freeze({
   lineBurnOscilloscope: "1D Burn Dot",
   scope2d: "2D Burn",
   scope2dTrace: "2D Trace",
+  phosphorLight: "PhosphorLight",
   speakerProtection: "Speaker Protection",
   badvalMonitor: "BADVAL Monitor",
   textBox: "Text Box",
@@ -3540,6 +3541,22 @@ const nodeGraphModuleDefinitions = Object.freeze({
     visualInputs: [
       { key: "scope2dX", label: "X", port: "X" },
       { key: "scope2dY", label: "Y", port: "Y" },
+    ],
+    visualSink: true,
+  },
+  // Testbed XY scope on the shared 0–1 energy + LUT phosphor path.
+  // Plan: replace legacy RGB burn scopes once this feels right.
+  phosphorLight: {
+    bufferedInputs: ["X", "Y"],
+    displayHeightGu: 5,
+    displayType: "phosphorLight",
+    inputs: ["X", "Y"],
+    layout: "traceDisplay",
+    outputs: [],
+    parameters: [],
+    visualInputs: [
+      { key: "phosphorLightX", label: "X", port: "X" },
+      { key: "phosphorLightY", label: "Y", port: "Y" },
     ],
     visualSink: true,
   },

@@ -153,6 +153,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-code-screen.js",
     "./public/node-graph-phosphor-energy-gl.js",
     "./public/node-graph-module-scopes.js",
+    "./public/modules/phosphorLight/phosphor-light-display.js",
     "./public/node-graph-shader-script.js",
     "./public/node-graph-canvas-script.js",
     "./public/node-graph-module-factories.js",
@@ -13749,12 +13750,19 @@ def require_node_graph_mvp_contract() -> None:
         and 'lorenzAttractor: {\n    displayType: "scope2d"' in module_definitions_source
         and 'visualOscilloscope: {\n    bufferedInputs: ["In", "X", "Y"],\n    displayType: "scope2dTrace"' in module_definitions_source
         and 'renderer === "scope2dTrace"' in node_graph_source
-        and 'renderer === "scope2d")' in node_graph_source
+        and (
+            'renderer === "scope2d")' in node_graph_source
+            or 'renderer === "scope2d" || renderer === "phosphorLight"' in node_graph_source
+        )
         and "buffer = nodeGraphModuleScopeCapturedScope2dBuffer(slot, {" in node_graph_source
         and "function nodeGraphModuleScopeCapturedOutputPairXyBuffer" not in node_graph_source
         and "function nodeGraphModuleScopeCapturedVisualOscilloscopeXyBuffer" not in node_graph_source
-        and 'slot?.type === "spiral" || slot?.type === "ellipsoid" || slot?.type === "lorenzAttractor"' not in node_graph_source,
-        "legacy visual source modules should use typed scope renderers instead of old special display branches",
+        and 'slot?.type === "spiral" || slot?.type === "ellipsoid" || slot?.type === "lorenzAttractor"' not in node_graph_source
+        and 'displayType: "phosphorLight"' in module_definitions_source
+        and "nodeGraphModuleScopeCustomRenderers.phosphorLight = drawNodeGraphPhosphorLightItem" in script_sources.get(
+            "./public/modules/phosphorLight/phosphor-light-display.js", ""
+        ),
+        "legacy visual source modules should use typed scope renderers; PhosphorLight is the energy-LUT XY testbed",
     )
     scope2d_start = node_graph_source.index("function drawNodeGraphScope2dItem")
     scope2d_end = node_graph_source.index("function drawNodeGraphModuleScopes", scope2d_start)

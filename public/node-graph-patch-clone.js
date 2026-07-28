@@ -298,6 +298,12 @@ function cloneNodeGraphTypedDisplaySettings(node) {
   if (displayType === "numberReadout") {
     return { traceDisplaySettings: normalizeNodeGraphNumberReadoutSettings(migrate(node.traceDisplaySettings, false)) };
   }
+  if (displayType === "phosphorLight") {
+    const normalize = typeof normalizeNodeGraphPhosphorLightSettings === "function"
+      ? normalizeNodeGraphPhosphorLightSettings
+      : (value) => value || {};
+    return { traceDisplaySettings: normalize(migrate(node.traceDisplaySettings, false)) };
+  }
   if (displayType === "trace" && Object.hasOwn(node, "traceDisplaySettings")) {
     return { traceDisplaySettings: normalizeNodeGraphTraceDisplaySettings(migrate(node.traceDisplaySettings, isOutput)) };
   }

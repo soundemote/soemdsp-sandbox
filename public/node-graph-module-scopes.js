@@ -1190,7 +1190,7 @@ function nodeGraphModuleScopeHasModelDisplay() {
       nodeGraphModuleScopeIsOscillatorType(slot.type) ||
       (["traceDisplay", "dotOscilloscope", "valueOscilloscope", "lineBurnOscilloscope"].includes(slot.type) &&
         nodeGraphModuleScopeConnectionsTo(slot.nodeId, "In").length > 0) ||
-      (["scope2d", "scope2dTrace"].includes(renderer) && (
+      (["scope2d", "scope2dTrace", "phosphorLight"].includes(renderer) && (
         (outputs.includes("X") && outputs.includes("Y")) ||
         (
           nodeGraphModuleScopeConnectionsTo(slot.nodeId, "X").length > 0 &&
@@ -2267,7 +2267,7 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
     return null;
   }
   const renderer = nodeGraphModuleDisplayRendererForSlot(slot);
-  if (["scope2d", "scope2dTrace"].includes(renderer)) {
+  if (["scope2d", "scope2dTrace", "phosphorLight"].includes(renderer)) {
     const source = nodeGraphModuleScopeSlotUsesWiredInputs(slot)
       ? null
       : nodeGraphModuleDisplaySourceForSlot(slot);
@@ -2704,7 +2704,7 @@ function nodeGraphTraceDisplaySettingsEditingTraceDefaults() {
   return nodeGraphModuleDisplaySettingsSchemaForNode(node) === "trace" && node?.type !== "output";
 }
 
-const nodeGraphDisplayModeRenderers = Object.freeze(["trace", "clock", "dot", "value", "lineBurn", "hypersawBurn", "oscilloscopeBankBurn", "videoscopeBurn", "spectrogramBurn", "transportBpm", "scope2d", "scope2dTrace", "numberReadout", "customDisplay", "spectrum", "ledLamp"]);
+const nodeGraphDisplayModeRenderers = Object.freeze(["trace", "clock", "dot", "value", "lineBurn", "hypersawBurn", "oscilloscopeBankBurn", "videoscopeBurn", "spectrogramBurn", "transportBpm", "scope2d", "scope2dTrace", "phosphorLight", "numberReadout", "customDisplay", "spectrum", "ledLamp"]);
 const nodeGraphDisplayModeSignalKinds = Object.freeze(["scalar", "xy", "buffer"]);
 
 function nodeGraphDisplayModeSettingsSchemaForRenderer(renderer) {
@@ -2902,7 +2902,7 @@ function nodeGraphModuleDisplayTypeForSlot(slot) {
 }
 
 function nodeGraphModuleScopeSlotUsesWiredInputs(slot) {
-  return ["traceDisplay", "dotOscilloscope", "valueOscilloscope", "lineBurnOscilloscope", "scope2d", "scope2dTrace", "visualOscilloscope", "numberReadout"].includes(slot?.type);
+  return ["traceDisplay", "dotOscilloscope", "valueOscilloscope", "lineBurnOscilloscope", "scope2d", "scope2dTrace", "phosphorLight", "visualOscilloscope", "numberReadout"].includes(slot?.type);
 }
 
 function nodeGraphModuleDisplaySourceForSlot(slot) {
@@ -2974,7 +2974,7 @@ if (typeof window !== "undefined") {
 }
 
 function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
-  return ["trace", "dot", "value", "lineBurn", "scope2d", "scope2dTrace"].includes(displayType);
+  return ["trace", "dot", "value", "lineBurn", "scope2d", "scope2dTrace", "phosphorLight", "numberReadout"].includes(displayType);
 }
 
 function nodeGraphNodeHasLocalDisplaySettings(node) {
@@ -3449,7 +3449,7 @@ function nodeGraphModuleScopeDisplayBuffer(slot, capturedBuffer = null) {
       historySeconds: settings.historySeconds,
       ...(source ? { xPort: source.x, yPort: source.y } : {}),
     }) || capturedBuffer;
-  } else if (renderer === "scope2d") {
+  } else if (renderer === "scope2d" || renderer === "phosphorLight") {
     const source = nodeGraphModuleScopeSlotUsesWiredInputs(slot)
       ? null
       : nodeGraphModuleDisplaySourceForSlot(slot);
@@ -3614,6 +3614,18 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "ghost",
       "innerGlow",
       "innerShadow",
+      "dot1Brightness",
+    ]),
+    colors: Object.freeze(["dot1Color", "backgroundColor"]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
+  phosphorLight: Object.freeze({
+    fields: Object.freeze([
+      "burn",
+      "decay",
+      "scale",
+      "lineThickness",
       "dot1Brightness",
     ]),
     colors: Object.freeze(["dot1Color", "backgroundColor"]),
@@ -4133,7 +4145,9 @@ function setNodeGraphTraceDisplaySettingsFormType(node = null) {
             ? "Trace"
             : formType === "numberReadout"
               ? "Readout"
-              : "Trace";
+              : formType === "phosphorLight"
+                ? "PhosphorLight"
+                : "Trace";
   }
   setNodeGraphTraceDisplaySectionVisible(popover, "value", nodeGraphTraceDisplaySectionHasActiveControls("value", formType));
   setNodeGraphTraceDisplaySectionVisible(popover, "dot1", nodeGraphTraceDisplaySectionHasActiveControls("dot1", formType));
@@ -4206,6 +4220,15 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
   if (type === "numberReadout") {
     return normalizeNodeGraphNumberReadoutSettings(nodeGraphNumberReadoutSettingsDefaults);
   }
+  if (type === "phosphorLight") {
+    const normalize = typeof normalizeNodeGraphPhosphorLightSettings === "function"
+      ? normalizeNodeGraphPhosphorLightSettings
+      : (value) => value || {};
+    const defaults = typeof nodeGraphPhosphorLightSettingsDefaults !== "undefined"
+      ? nodeGraphPhosphorLightSettingsDefaults
+      : {};
+    return normalize(defaults);
+  }
   return normalizeNodeGraphTraceDisplaySettings(nodeGraphTraceDisplaySettingsDefaults);
 }
 
@@ -4231,6 +4254,12 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
   }
   if (type === "numberReadout") {
     return normalizeNodeGraphNumberReadoutSettings(settings);
+  }
+  if (type === "phosphorLight") {
+    const normalize = typeof normalizeNodeGraphPhosphorLightSettings === "function"
+      ? normalizeNodeGraphPhosphorLightSettings
+      : (value) => value || {};
+    return normalize(settings);
   }
   return normalizeNodeGraphTraceDisplaySettings(settings);
 }
@@ -4297,6 +4326,12 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
   }
   if (settingsSchema === "scope2dTrace") {
     return normalizeNodeGraphScope2dTraceSettings(node.traceDisplaySettings);
+  }
+  if (settingsSchema === "phosphorLight") {
+    const normalize = typeof normalizeNodeGraphPhosphorLightSettings === "function"
+      ? normalizeNodeGraphPhosphorLightSettings
+      : (value) => value || {};
+    return normalize(node.traceDisplaySettings);
   }
   if (settingsSchema === "numberReadout") {
     return normalizeNodeGraphNumberReadoutSettings(node.traceDisplaySettings);
@@ -4779,6 +4814,13 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
   // a full Trace schema onto the multimeter (can thrash draw/history/persist).
   if (displayType === "numberReadout") {
     node.traceDisplaySettings = normalizeNodeGraphNumberReadoutSettings(settings);
+    return node.traceDisplaySettings;
+  }
+  if (displayType === "phosphorLight") {
+    const normalize = typeof normalizeNodeGraphPhosphorLightSettings === "function"
+      ? normalizeNodeGraphPhosphorLightSettings
+      : (value) => value || {};
+    node.traceDisplaySettings = normalize(settings);
     return node.traceDisplaySettings;
   }
   node.traceDisplaySettings = normalizeNodeGraphTraceDisplaySettings(settings);
@@ -5346,7 +5388,7 @@ function nodeGraphScopeContiguousSampleCount(buffer) {
 }
 
 function nodeGraphModuleScopeCapturedScope2dBuffer(slot, options = {}) {
-  if (!["scope2d", "scope2dTrace"].includes(nodeGraphModuleDisplayRendererForSlot(slot))) {
+  if (!["scope2d", "scope2dTrace", "phosphorLight"].includes(nodeGraphModuleDisplayRendererForSlot(slot))) {
     return null;
   }
   const xPort = String(options.xPort || "X").trim() || "X";

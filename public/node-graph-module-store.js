@@ -865,6 +865,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "2D Burn",
     notes: ["xy display", "2D scope", "latest point"],
   },
+  phosphorLight: {
+    category: "oscilloscope",
+    description: "XY phosphor scope on the new 0–1 energy + gradient LUT path (testbed for replacing legacy burn scopes).",
+    label: "PhosphorLight",
+    notes: ["xy scope", "energy phosphor", "gradient LUT", "testbed"],
+  },
   scope2dTrace: {
     category: "oscilloscope",
     description: "Sample-history X/Y oscilloscope for inspecting deterministic 2D traces without pixel burn decay.",
