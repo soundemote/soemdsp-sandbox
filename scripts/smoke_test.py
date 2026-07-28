@@ -13203,6 +13203,7 @@ def require_node_graph_mvp_contract() -> None:
         and "brightness: 0.92," in number_readout_defaults_source
         and "color: \"#75ebff\"," in number_readout_defaults_source
         and "decimals: 2," in number_readout_defaults_source
+        and "background: \"#020608\"," in number_readout_defaults_source
         and "burn: 0.42," in number_readout_defaults_source
         and "decay: 0.28," in number_readout_defaults_source
         and "ghost: 0.22," in number_readout_defaults_source
@@ -13217,6 +13218,7 @@ def require_node_graph_mvp_contract() -> None:
         and "sourceSync" not in number_readout_defaults_source
         and "skipDiscontinuities" not in number_readout_defaults_source
         and "function normalizeNodeGraphNumberReadoutSettings(settings = {})" in number_readout_normalize_source
+        and "background: normalizeNodeGraphTraceDisplayColor(" in number_readout_normalize_source
         and "burn: normalizeNodeGraphTraceDisplayNumber(source.burn" in number_readout_normalize_source
         and "decay: normalizeNodeGraphTraceDisplayNumber(source.decay" in number_readout_normalize_source
         and "ghost: normalizeNodeGraphTraceDisplayNumber(source.ghost" in number_readout_normalize_source
@@ -13235,8 +13237,9 @@ def require_node_graph_mvp_contract() -> None:
     require(
         '"decimals",\n      "burn",\n      "decay",\n      "ghost",\n      "innerGlow",\n      "innerShadow",\n      "dot1Brightness",'
         in node_graph_source
+        and 'colors: Object.freeze(["dot1Color", "backgroundColor"])' in node_graph_source
         and 'numberReadout: Object.freeze({' in node_graph_source,
-        "Number Readout display-settings controls should expose decimals, burn, decay, LCD plate, glow, shadow, brightness, color",
+        "Number Readout display-settings should expose decimals, burn, decay, LCD plate, glow, shadow, brightness, digit color, background",
     )
     require(
         '} else if (slot?.type === "numberReadout") {\n    // Number Readout must only ever show real captured input' in node_graph_source
@@ -13278,13 +13281,14 @@ def require_node_graph_mvp_contract() -> None:
         and "nodeGraphNumberReadoutGhostPlateText" in node_graph_source
         and "nodeGraphNumberReadoutPhosphorCanvas" in node_graph_source
         and "nodeGraphNumberReadoutDrawInnerShadow" in node_graph_source
+        and "plate: true" in node_graph_source
+        and "measureText(\"8\")" in node_graph_source
         and "https://github.com/keshikan/DSEG" in node_graph_source
-        and 'context.fillStyle = "#020608"' in node_graph_source
         and 'globalCompositeOperation = "destination-out"' in node_graph_source[
             node_graph_source.index("function drawNodeGraphNumberReadoutItem")
             : node_graph_source.index("function nodeGraphCustomDisplayCanvasForSlot")
         ],
-        "Number Readout should use DSEG7 Classic with phosphor burn buffer, LCD plate, and cavity",
+        "Number Readout should use DSEG7 Classic with fixed-cell LCD plate, phosphor burn, and background color",
     )
     require(
         "numberReadout: drawNodeGraphNumberReadoutItem," in node_graph_source,

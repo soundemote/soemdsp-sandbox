@@ -2375,6 +2375,7 @@ const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
 // numberReadout owns a fully independent schema (not Trace/Dot/2D). Includes
 // its own phosphor burn/decay plus LCD plate (ghost 8s) and bezel chrome.
 const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
+  background: "#020608",
   brightness: 0.92,
   burn: 0.42,
   color: "#75ebff",
@@ -2565,6 +2566,10 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}) {
   const source = settings && typeof settings === "object" ? settings : {};
   const defaults = nodeGraphNumberReadoutSettingsDefaults;
   return {
+    background: normalizeNodeGraphTraceDisplayColor(
+      source.background ?? source.backgroundColor,
+      defaults.background,
+    ),
     brightness: normalizeNodeGraphTraceDisplayNumber(
       source.brightness ?? source.dot1Brightness,
       defaults.brightness,
@@ -3519,7 +3524,7 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
 
 const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
   fields: nodeGraphTraceDisplaySettingFields.map(([key]) => key),
-  colors: ["dot1Color", "secondaryColor"],
+  colors: ["dot1Color", "secondaryColor", "backgroundColor"],
   toggles: ["sourceSync", "bipolarBrightness", "secondaryEnabled", "capEnabled"],
   choices: [],
 });
@@ -3611,7 +3616,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "innerShadow",
       "dot1Brightness",
     ]),
-    colors: Object.freeze(["dot1Color"]),
+    colors: Object.freeze(["dot1Color", "backgroundColor"]),
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
@@ -3634,7 +3639,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
   }),
   dot1: Object.freeze({
     fields: Object.freeze(["dot1Size", "lineThickness", "dot1Brightness"]),
-    colors: Object.freeze(["dot1Color"]),
+    colors: Object.freeze(["dot1Color", "backgroundColor"]),
     toggles: Object.freeze(["bipolarBrightness"]),
     choices: Object.freeze([]),
   }),
@@ -3885,6 +3890,10 @@ function nodeGraphTraceDisplaySettingsElement() {
         <label>
           <span>Color</span>
           <input id="nodeTraceDisplayColor" type="color" data-trace-display-color="dot1Color" aria-label="Dot color">
+        </label>
+        <label>
+          <span>Background</span>
+          <input id="nodeTraceDisplayBackgroundColor" type="color" data-trace-display-color="backgroundColor" aria-label="Background color">
         </label>
       </div>
       <div class="metadata-section-title node-trace-display-secondary-title">
@@ -4334,6 +4343,9 @@ function readNodeGraphTraceDisplaySettingsForm() {
       if (key === "dot1Color") {
         next.color = input.value;
       }
+      if (key === "backgroundColor") {
+        next.background = input.value;
+      }
     }
   }
   for (const key of activeToggles) {
@@ -4357,6 +4369,9 @@ function nodeGraphDisplaySettingsFormValue(settings, key) {
   }
   if (key === "dot1Color") {
     return settings.dot1Color ?? settings.color;
+  }
+  if (key === "backgroundColor") {
+    return settings.backgroundColor ?? settings.background;
   }
   return settings[key];
 }
@@ -8899,16 +8914,18 @@ function nodeGraphNumberReadoutFormatValue(sample, decimals) {
   return fixed.startsWith("-") ? fixed : ` ${fixed}`;
 }
 
-// DSEG period has zero advance width — size from width-bearing glyphs only.
+// DSEG period has zero advance; every other character is one equal LCD cell
+// (width of "8"). Fixed cells keep lit digits and ghost plate locked together.
 // https://github.com/keshikan/DSEG#usage
 function nodeGraphNumberReadoutDsegWidthChars(text) {
   return Math.max(1, String(text || "").replace(/\./g, "").length);
 }
 
-// Always-visible unlit LCD segments: map every digit cell to all-on "8"
-// (period kept for alignment — zero advance in DSEG).
+// Ghost plate: full-width cells only. Digits / all-off "!" → all-on "8".
+// Spaces stay blank cells (drawn as "!" under the plate path). Do NOT map
+// space→"8" — space is narrower than a digit in DSEG and shifts the plate.
 function nodeGraphNumberReadoutGhostPlateText(valueText) {
-  return String(valueText || "").replace(/[^.]/g, "8");
+  return String(valueText || "").replace(/[0-9!]/g, "8");
 }
 
 function nodeGraphNumberReadoutUnitForSlot(slot) {
@@ -8925,6 +8942,7 @@ function nodeGraphNumberReadoutUnitForSlot(slot) {
 
 function nodeGraphNumberReadoutSettingsSignature(settings) {
   return [
+    settings.background,
     settings.brightness,
     settings.burn,
     settings.color,
@@ -8936,34 +8954,72 @@ function nodeGraphNumberReadoutSettingsSignature(settings) {
   ].join("|");
 }
 
+// Draw DSEG (or fallback) on a fixed cell grid so ghost plate and lit value
+// share the same pen positions. Period is zero-width between cells.
 function nodeGraphNumberReadoutDrawDigits(context, {
   text,
-  x,
-  y,
-  maxWidth,
+  centerX,
+  centerY,
   fontFamily,
   fontSize,
   rgb,
   alpha,
   glow = 0,
+  plate = false,
 }) {
+  const raw = String(text || "");
   context.save();
   context.font = `700 ${fontSize}px ${fontFamily}`;
   context.textAlign = "center";
   context.textBaseline = "middle";
-  if (glow > 0.001) {
-    context.shadowColor = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${(alpha * 0.95).toFixed(4)})`;
-    context.shadowBlur = Math.max(1, fontSize * (0.08 + glow * 0.55));
-  } else {
-    context.shadowBlur = 0;
+  const cellW = Math.max(1, context.measureText("8").width);
+  let cellCount = 0;
+  for (let i = 0; i < raw.length; i += 1) {
+    if (raw[i] !== ".") {
+      cellCount += 1;
+    }
   }
-  context.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha.toFixed(4)})`;
-  context.fillText(text, x, y, maxWidth);
-  // Second pass without blur keeps segment cores crisp under the glow halo.
-  if (glow > 0.001) {
-    context.shadowBlur = 0;
-    context.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${Math.min(1, alpha * 1.05).toFixed(4)})`;
-    context.fillText(text, x, y, maxWidth);
+  cellCount = Math.max(1, cellCount);
+  let penX = centerX - (cellCount * cellW) * 0.5 + cellW * 0.5;
+
+  const drawGlyph = (glyph, x) => {
+    if (glow > 0.001) {
+      context.shadowColor = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${(alpha * 0.95).toFixed(4)})`;
+      context.shadowBlur = Math.max(1, fontSize * (0.08 + glow * 0.55));
+    } else {
+      context.shadowBlur = 0;
+    }
+    context.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha.toFixed(4)})`;
+    context.fillText(glyph, x, centerY);
+    if (glow > 0.001) {
+      context.shadowBlur = 0;
+      context.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${Math.min(1, alpha * 1.05).toFixed(4)})`;
+      context.fillText(glyph, x, centerY);
+    }
+  };
+
+  for (let i = 0; i < raw.length; i += 1) {
+    const ch = raw[i];
+    if (ch === ".") {
+      // Zero advance — sit at the boundary between the previous and next cell.
+      drawGlyph(".", penX - cellW * 0.5);
+      continue;
+    }
+    let glyph = ch;
+    if (plate) {
+      // Unlit LCD grid: every full cell is all-on "8". Blank sign column too.
+      glyph = "8";
+    } else if (ch === " ") {
+      // Lit path: leave sign column empty (still advance a full cell).
+      penX += cellW;
+      continue;
+    } else if (ch === "!") {
+      // All-off placeholder cell — skip draw, keep spacing.
+      penX += cellW;
+      continue;
+    }
+    drawGlyph(glyph, penX);
+    penX += cellW;
   }
   context.restore();
 }
@@ -9059,6 +9115,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const width = Math.max(1, Number(rect.width) || 1) * pixelRatio;
   const height = Math.max(1, Number(rect.height) || 1) * pixelRatio;
   const rgb = nodeGraphScopeRgbFloatsToCanvasRgb(nodeGraphScopeHexColorToRgb(settings.color));
+  const bg = normalizeNodeGraphTraceDisplayColor(settings.background, "#020608");
   const bright = Number(settings.brightness);
   const alpha = Math.max(0.15, (Number.isFinite(bright) ? Math.max(0, Math.min(2, bright)) : 0.92) / 2);
   const digitFontFamily = nodeGraphNumberReadoutDsegReady
@@ -9070,7 +9127,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const widthChars = nodeGraphNumberReadoutDsegWidthChars(valueText);
   const digitFontSize = Math.max(
     1,
-    Math.min(digitAreaHeight * 0.82, (width / widthChars) * 1.55),
+    Math.min(digitAreaHeight * 0.82, (width / widthChars) * 1.05),
   );
   const digitX = left + width * 0.5;
   const digitY = top + digitAreaHeight * 0.5;
@@ -9079,9 +9136,6 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const phosphor = nodeGraphNumberReadoutPhosphorCanvas(canvas);
   const phosphorCtx = phosphor?.getContext?.("2d");
   if (phosphor && phosphorCtx) {
-    if (styleChanged && (textChanged || canvas._nodeGraphNumberReadoutWidth !== canvas.width)) {
-      // Hard clear residual only on geometry change (resize handled above too).
-    }
     if (decay > 0.001) {
       // Same fade family as 1D burn trails: higher decay → faster erase;
       // higher burn slightly holds residual longer.
@@ -9095,20 +9149,19 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
       phosphorCtx.clearRect(0, 0, phosphor.width, phosphor.height);
     }
     // Deposit: always draw current digits so the face stays lit against decay.
-    // Burn scales how hard the new ink lands (and how trails build when values change).
     const deposit = Math.max(0.2, 0.35 + burn * 0.65) * alpha;
     phosphorCtx.save();
     phosphorCtx.globalCompositeOperation = "lighter";
     nodeGraphNumberReadoutDrawDigits(phosphorCtx, {
       text: valueText,
-      x: digitX,
-      y: digitY,
-      maxWidth: width,
+      centerX: digitX,
+      centerY: digitY,
       fontFamily: digitFontFamily,
       fontSize: digitFontSize,
       rgb,
       alpha: deposit,
       glow: 0,
+      plate: false,
     });
     phosphorCtx.restore();
   }
@@ -9116,36 +9169,22 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   // ── Present ──
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.save();
-  // Dark LCD cavity.
-  context.fillStyle = "#020608";
+  // LCD cavity background (user-selectable).
+  context.fillStyle = bg;
   context.fillRect(left, top, width, height);
 
-  // Unlit segment plate ("8" under each cell) — the always-visible LCD grid.
-  if (ghost > 0.001 && nodeGraphNumberReadoutDsegReady) {
-    const plate = nodeGraphNumberReadoutGhostPlateText(valueText);
+  // Unlit segment plate — same fixed cell grid as lit digits (no string-width drift).
+  if (ghost > 0.001) {
     nodeGraphNumberReadoutDrawDigits(context, {
-      text: plate,
-      x: digitX,
-      y: digitY,
-      maxWidth: width,
+      text: valueText,
+      centerX: digitX,
+      centerY: digitY,
       fontFamily: digitFontFamily,
       fontSize: digitFontSize,
       rgb,
-      alpha: Math.max(0.04, ghost * 0.38),
+      alpha: Math.max(0.04, ghost * (nodeGraphNumberReadoutDsegReady ? 0.38 : 0.28)),
       glow: 0,
-    });
-  } else if (ghost > 0.001) {
-    // Fallback mono plate when DSEG not ready.
-    nodeGraphNumberReadoutDrawDigits(context, {
-      text: nodeGraphNumberReadoutGhostPlateText(valueText),
-      x: digitX,
-      y: digitY,
-      maxWidth: width,
-      fontFamily: digitFontFamily,
-      fontSize: digitFontSize,
-      rgb,
-      alpha: Math.max(0.04, ghost * 0.28),
-      glow: 0,
+      plate: true,
     });
   }
 
@@ -9161,14 +9200,14 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   if (innerGlow > 0.001) {
     nodeGraphNumberReadoutDrawDigits(context, {
       text: valueText,
-      x: digitX,
-      y: digitY,
-      maxWidth: width,
+      centerX: digitX,
+      centerY: digitY,
       fontFamily: digitFontFamily,
       fontSize: digitFontSize,
       rgb,
       alpha: alpha * (0.35 + innerGlow * 0.65),
       glow: innerGlow,
+      plate: false,
     });
   }
 
