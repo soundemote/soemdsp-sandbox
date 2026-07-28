@@ -151,6 +151,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-context-menu.js",
     "./public/node-graph-module-actions.js",
     "./public/node-graph-code-screen.js",
+    "./public/node-graph-phosphor-energy-gl.js",
     "./public/node-graph-module-scopes.js",
     "./public/node-graph-shader-script.js",
     "./public/node-graph-canvas-script.js",
@@ -13279,17 +13280,17 @@ def require_node_graph_mvp_contract() -> None:
         and '"DSEG7 Classic", "Consolas", monospace' in node_graph_source
         and "nodeGraphNumberReadoutDsegWidthChars" in node_graph_source
         and "nodeGraphNumberReadoutGhostPlateText" in node_graph_source
-        and "nodeGraphPhosphorEnergyFade" in node_graph_source
-        and "nodeGraphPhosphorMapEnergyToColorCanvas" in node_graph_source
-        and "nodeGraphPhosphorBuildGradientStops" in node_graph_source
-        and "nodeGraphNumberReadoutEnergyCanvas" in node_graph_source
+        and "nodeGraphPhosphorEnergyGlEnsure" in script_sources.get("./public/node-graph-phosphor-energy-gl.js", "")
+        and "nodeGraphPhosphorEnergyGlStep" in script_sources.get("./public/node-graph-phosphor-energy-gl.js", "")
+        and "nodeGraphPhosphorEnergyGlPresent" in script_sources.get("./public/node-graph-phosphor-energy-gl.js", "")
+        and "nodeGraphNumberReadoutEnergyGl" in node_graph_source
         and "nodeGraphNumberReadoutDrawInnerShadow" in node_graph_source
         and "plate: true" in node_graph_source
         and "energy: true" in node_graph_source
         and "measureText(\"8\")" in node_graph_source
         and "nodeGraphNumberReadoutComputeLayout" in node_graph_source
         and "https://github.com/keshikan/DSEG" in node_graph_source,
-        "Number Readout should use 0-1 energy phosphor + gradient map with hard LCD plate/live digits",
+        "Number Readout should use WebGL 0-1 energy phosphor + LUT with hard LCD plate/live digits",
     )
     require(
         "numberReadout: drawNodeGraphNumberReadoutItem," in node_graph_source,

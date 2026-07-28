@@ -9044,8 +9044,11 @@ function syncNodeGraphNumberReadoutCanvas(canvas, screenElement, pixelRatio) {
     canvas.width = width;
     canvas.height = height;
     // Drop energy residual when the face resizes (including zoom changes).
-    canvas._numberReadoutEnergy = null;
-    canvas._numberReadoutEnergyColor = null;
+    canvas._numberReadoutEnergyMask = null;
+    if (canvas._phosphorEnergyGl && typeof nodeGraphPhosphorEnergyGlDestroy === "function") {
+      nodeGraphPhosphorEnergyGlDestroy(canvas._phosphorEnergyGl);
+      canvas._phosphorEnergyGl = null;
+    }
   }
   // Clear any previous zoom-breaking inline size so CSS 100%/100% owns layout.
   if (canvas.style.width || canvas.style.height) {
@@ -9055,22 +9058,23 @@ function syncNodeGraphNumberReadoutCanvas(canvas, screenElement, pixelRatio) {
   return true;
 }
 
-function nodeGraphNumberReadoutEnergyCanvas(canvas) {
+function nodeGraphNumberReadoutEnergyMaskCanvas(canvas) {
   return nodeGraphPhosphorEnergyEnsureCanvas(
     canvas,
-    "_numberReadoutEnergy",
+    "_numberReadoutEnergyMask",
     canvas?.width || 0,
     canvas?.height || 0,
   );
 }
 
-function nodeGraphNumberReadoutEnergyColorCanvas(canvas) {
-  return nodeGraphPhosphorEnergyEnsureCanvas(
-    canvas,
-    "_numberReadoutEnergyColor",
-    canvas?.width || 0,
-    canvas?.height || 0,
-  );
+function nodeGraphNumberReadoutEnergyGl(canvas) {
+  if (!canvas?.width || !canvas?.height) {
+    return null;
+  }
+  if (typeof nodeGraphPhosphorEnergyGlEnsure !== "function") {
+    return null;
+  }
+  return nodeGraphPhosphorEnergyGlEnsure(canvas, canvas.width, canvas.height, "_phosphorEnergyGl");
 }
 
 function nodeGraphNumberReadoutSafeDecimals(decimals) {
@@ -9375,54 +9379,61 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const digitX = left + width * 0.5;
   const digitY = top + digitAreaHeight * 0.5;
 
-  // ── 0–1 energy phosphor ─────────────────────────────────────────────
-  // Residual trails only: fade every frame; soft-deposit on value change.
-  // Continuous full-frame re-deposit was maxing luma to white and hiding decay.
-  // Live reading is the hard digit pass below — not the energy buffer.
-  const energy = nodeGraphNumberReadoutEnergyCanvas(canvas);
-  const energyCtx = energy?.getContext?.("2d");
-  const softnessPx = nodeGraphPhosphorEnergySoftnessPx(digitFontSize, burn);
+  // ── 0–1 energy phosphor (WebGL: R texture + 1D LUT — no CPU ImageData) ──
+  // Fade every frame; soft-deposit mask only on value change. Live reading is
+  // hard DSEG on top. GPU path scales with fill-rate, not JS per-pixel loops.
+  const softnessPx = typeof nodeGraphPhosphorEnergyGlSoftnessPx === "function"
+    ? nodeGraphPhosphorEnergyGlSoftnessPx(digitFontSize, burn)
+    : nodeGraphPhosphorEnergySoftnessPx(digitFontSize, burn);
   const energyActive = burn > 0.001 || decay > 0.001;
-  if (energy && energyCtx && energyActive) {
-    energyCtx.setTransform(1, 0, 0, 1, 0, 0);
-    if (decay > 0.001) {
-      nodeGraphPhosphorEnergyFade(energyCtx, energy.width, energy.height, burn, decay);
-    } else if (textChanged || styleChanged) {
-      // No decay: no residual trail — clear old energy when the face changes.
-      energyCtx.clearRect(0, 0, energy.width, energy.height);
+  const energyGl = energyActive ? nodeGraphNumberReadoutEnergyGl(canvas) : null;
+  let maskCanvas = null;
+  let depositGain = 0;
+  const shouldDeposit = energyActive
+    && (textChanged || styleChanged || !canvas._numberReadoutEnergyPrimed);
+  if (shouldDeposit) {
+    maskCanvas = nodeGraphNumberReadoutEnergyMaskCanvas(canvas);
+    if (maskCanvas) {
+      const mctx = maskCanvas.getContext("2d");
+      if (mctx) {
+        mctx.setTransform(1, 0, 0, 1, 0, 0);
+        mctx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+        const rapid = textChanged && lastPaint > 0 && now - lastPaint < 40;
+        mctx.save();
+        mctx.globalCompositeOperation = "lighter";
+        nodeGraphNumberReadoutDrawDigits(mctx, {
+          text: valueText,
+          centerX: digitX,
+          centerY: digitY,
+          fontFamily: digitFontFamily,
+          fontSize: digitFontSize,
+          cellW,
+          rgb: [255, 255, 255],
+          alpha: 1,
+          softBlurPx: softnessPx,
+          energy: true,
+          plate: false,
+        });
+        mctx.restore();
+        depositGain = clampNodeSliderValue(
+          (rapid ? 0.05 + burn * 0.14 : 0.1 + burn * 0.32) * alpha,
+          0.04,
+          rapid ? 0.22 : 0.42,
+        );
+      }
     }
-    // Soft pulse when the displayed string changes (or first paint after resize).
-    // Not every frame: that re-lit to white and cancelled decay.
-    const shouldDeposit = textChanged || styleChanged || !canvas._numberReadoutEnergyPrimed;
-    if (shouldDeposit) {
-      // Burn = residual ink from a change. Cap so fade stays visible.
-      // Rapid live samples (new text every frame) use a lighter pulse.
-      const rapid = textChanged && lastPaint > 0 && now - lastPaint < 40;
-      const deposit = clampNodeSliderValue(
-        (rapid ? 0.05 + burn * 0.14 : 0.1 + burn * 0.32) * alpha,
-        0.04,
-        rapid ? 0.22 : 0.42,
-      );
-      energyCtx.save();
-      energyCtx.globalCompositeOperation = "lighter";
-      nodeGraphNumberReadoutDrawDigits(energyCtx, {
-        text: valueText,
-        centerX: digitX,
-        centerY: digitY,
-        fontFamily: digitFontFamily,
-        fontSize: digitFontSize,
-        cellW,
-        rgb: [255, 255, 255],
-        alpha: deposit,
-        softBlurPx: softnessPx,
-        energy: true,
-        plate: false,
-      });
-      energyCtx.restore();
-      canvas._numberReadoutEnergyPrimed = true;
+    canvas._numberReadoutEnergyPrimed = true;
+  }
+  if (energyGl && typeof nodeGraphPhosphorEnergyGlStep === "function") {
+    if (typeof nodeGraphPhosphorEnergyGlSetLutFromPeak === "function") {
+      nodeGraphPhosphorEnergyGlSetLutFromPeak(energyGl, rgb, bg);
     }
-  } else if (energy && energyCtx && !energyActive) {
-    energyCtx.clearRect(0, 0, energy.width, energy.height);
+    nodeGraphPhosphorEnergyGlStep(energyGl, {
+      decay: decay > 0.001 ? decay : 0,
+      depositGain: maskCanvas && depositGain > 0 ? depositGain : 0,
+      maskCanvas: maskCanvas && depositGain > 0 ? maskCanvas : null,
+    });
+  } else if (!energyActive) {
     canvas._numberReadoutEnergyPrimed = false;
   }
 
@@ -9450,18 +9461,14 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     });
   }
 
-  // Energy residual → gradient (soft trails of previous values only).
-  const colorCanvas = nodeGraphNumberReadoutEnergyColorCanvas(canvas);
-  if (energy && colorCanvas && energyActive) {
-    const stops = nodeGraphPhosphorBuildGradientStops(rgb, bg);
-    if (nodeGraphPhosphorMapEnergyToColorCanvas(energy, colorCanvas, stops)) {
-      context.save();
-      context.globalCompositeOperation = "lighter";
-      context.globalAlpha = 0.75;
-      context.imageSmoothingEnabled = true;
-      context.drawImage(colorCanvas, 0, 0);
-      context.restore();
-    }
+  // GPU energy × LUT → soft residual trails (drawImage of WebGL canvas).
+  if (energyGl && energyActive && typeof nodeGraphPhosphorEnergyGlPresent === "function") {
+    nodeGraphPhosphorEnergyGlPresent(energyGl, 0.8);
+    context.save();
+    context.globalCompositeOperation = "lighter";
+    context.imageSmoothingEnabled = true;
+    context.drawImage(energyGl.canvas, 0, 0, width, height);
+    context.restore();
   }
 
   // Hard live value on top (crisp segments; optional cosmetic inner glow).
