@@ -107,7 +107,9 @@ function notifyNodeGraphModuleScopeSnapshotListeners() {
 }
 const nodeGraphModuleScopeSettingsStorageKey = "soemdsp-sandbox.moduleScopeSettings.v1";
 const nodeGraphModuleScopeMaxBackingStoreSize = 4096;
-const nodeGraphTraceDisplayMaxZoomSeconds = 2;
+// 1D Trace history window (UI label "History (s)"). 10s covers slow LFO /
+// envelope inspection without absurd live-buffer growth at 48k.
+const nodeGraphTraceDisplayMaxZoomSeconds = 10;
 const nodeGraphModuleScopeDefaultSettings = Object.freeze({
   blinkLightShape: "circle",
   brightness: 1,
@@ -2280,6 +2282,12 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
       nodeGraphModuleScopeConnectedSourceBuffer(nodeId, "In") ||
       null;
   }
+  // Multi-mode Display (visualOscilloscope): mono modes feed from In.
+  if (slot?.type === "visualOscilloscope" && (renderer === "trace" || renderer === "dot")) {
+    return nodeGraphModuleScopeState.buffers.get(`${nodeId}:In`) ||
+      nodeGraphModuleScopeConnectedSourceBuffer(nodeId, "In") ||
+      null;
+  }
   if (slot?.type === "customDisplay") {
     const displayScript = normalizeNodeGraphCustomDisplay(nodeGraphModuleScopeNodeForSlot(slot)?.customDisplay);
     const primaryPort = displayScript.inputs[0] || "In1";
@@ -2311,17 +2319,27 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
 // displayType/renderer "trace"), so the field exists here for all of them,
 // but a non-Output trace node's draw path never reads it.
 const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
+  // Face plate under the stroke (same family as 2D Trace / Phosphor).
+  background: "#020608",
   brightness: 0.92,
-  color: "#75ebff",
+  color: "#ff0000",
   dot1Enabled: true,
   dot1Size: 0.08,
-  secondaryBrightness: 0.18,
-  secondaryColor: "#184fff",
+  // Output stereo: combine | lighter | screen | source-over | multiply | difference | exclusion | xor
+  stereoBlend: "combine",
+  // Meet always auto from Left/Right (complement + soft screen lift).
+  meetColor: "auto",
+  secondaryBrightness: 0.92,
+  secondaryColor: "#0000ff",
   secondaryEnabled: true,
-  secondarySize: 0.24,
-  secondaryLineThickness: 0.48,
+  secondarySize: 0.08,
+  secondaryLineThickness: 0,
   cycles: 2,
-  lineThickness: 0.2,
+  // Trace blur unused (hard stroke only); kept for schema compat / phosphor forms.
+  lineThickness: 0,
+  // Vector stroke into a density-scaled face buffer (lo-fi look when < 1).
+  // Not a phosphor energy grid — still one polyline; density only sets buffer size.
+  pixelDensity: 1,
   padding: 0,
   skipDiscontinuities: false,
   // off | left | right | mono — Output stereo chooses which channel triggers the shared window.
@@ -2332,6 +2350,7 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
 });
 
 const nodeGraphLineBurnSettingsDefaults = Object.freeze({
+  background: "#020608",
   burn: 0.3,
   cycles: 2,
   decay: 0.3,
@@ -2341,6 +2360,8 @@ const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   dot1Enabled: true,
   dot1Size: 0.07,
   lineThickness: 0.2,
+  // 0 = 1×1 pixel … 1 layout×dpr … 4 AA (same as 2D Phosphor / Trace).
+  pixelDensity: 1,
   zoomSeconds: 2,
 });
 
@@ -2363,9 +2384,12 @@ const nodeGraphZeroDBurnSettingsDefaults = Object.freeze({
   dot1Size: 0.35,
   // Blur 0 hard … 1 soft (same as 2D Phosphor stamps).
   lineThickness: 0.25,
+  // 0 = 1×1 pixel … 1 layout×dpr … 4 AA.
+  pixelDensity: 1,
 });
 
 const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
+  background: "#020608",
   brightness: 0.92,
   burn: 0,
   capEnabled: true,
@@ -2377,6 +2401,8 @@ const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
   dot1Size: 0.08,
   lineLength: 0.88,
   lineThickness: 0.2,
+  // 0 = 1×1 pixel … 1 layout×dpr … 4 AA.
+  pixelDensity: 1,
 });
 
 // numberReadout owns a fully independent schema (not Trace/Dot/2D). Includes
@@ -2394,6 +2420,8 @@ const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
 });
 
 const nodeGraphScope2dSettingsDefaults = Object.freeze({
+  // Face plate (every scope has a background; default black family).
+  background: "#020608",
   burn: 0.82,
   decay: 0.12,
   dot1Brightness: 0.92,
@@ -2405,7 +2433,7 @@ const nodeGraphScope2dSettingsDefaults = Object.freeze({
   dotBudget: 2048,
   // Stamp blur 0–1: 0 hard disc, 1 full soft bleed.
   lineThickness: 0.35,
-  // 0 = lo-fi floor (~1/16 layout, never 1×1), 1 = layout×dpr, 4 = 4× AA.
+  // 0 = single pixel, 1 = layout×dpr, 4 = 4× AA.
   pixelDensity: 1,
   scale: 1,
 });
@@ -2419,6 +2447,8 @@ const nodeGraphScope2dTraceSettingsDefaults = Object.freeze({
   dot1Size: 0.08,
   historySeconds: 0.05,
   lineThickness: 0.2,
+  // Vector stroke; density scales face buffer for lo-fi/chunky look (default 1).
+  pixelDensity: 1,
   scale: 1,
 });
 
@@ -2461,6 +2491,10 @@ function normalizeNodeGraphLineBurnSettings(settings = {}) {
   const legacyWindowMs = source.windowMs === undefined ? undefined : Number(source.windowMs) / 1000;
   const zoomSeconds = source.zoomSeconds ?? source.windowSeconds ?? legacyWindowMs;
   return {
+    background: normalizeNodeGraphTraceDisplayColor(
+      source.background ?? source.backgroundColor,
+      defaults.background,
+    ),
     burn: normalizeNodeGraphTraceDisplayNumber(source.burn, defaults.burn, 0, 1),
     cycles: normalizeNodeGraphTraceDisplayNumber(source.cycles, defaults.cycles, 1, 64, true),
     decay: normalizeNodeGraphTraceDisplayNumber(source.decay, defaults.decay, 0, 1),
@@ -2479,6 +2513,12 @@ function normalizeNodeGraphLineBurnSettings(settings = {}) {
     dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
     lineThickness: nodeGraphTraceDisplayClampStampBlur(
       source.lineThickness ?? defaults.lineThickness,
+    ),
+    pixelDensity: normalizeNodeGraphTraceDisplayNumber(
+      source.pixelDensity,
+      defaults.pixelDensity,
+      0,
+      4,
     ),
     zoomSeconds: normalizeNodeGraphTraceDisplayZoomSeconds(zoomSeconds, defaults.zoomSeconds),
   };
@@ -2507,6 +2547,12 @@ function normalizeNodeGraphZeroDBurnSettings(settings = {}) {
     lineThickness: nodeGraphTraceDisplayClampStampBlur(
       source.lineThickness ?? source.dot1Blur ?? defaults.lineThickness,
     ),
+    pixelDensity: normalizeNodeGraphTraceDisplayNumber(
+      source.pixelDensity,
+      defaults.pixelDensity,
+      0,
+      4,
+    ),
   };
 }
 
@@ -2516,6 +2562,10 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
   const legacyWindowMs = source.windowMs === undefined ? undefined : Number(source.windowMs) / 1000;
   const zoomSeconds = source.zoomSeconds ?? source.windowSeconds ?? legacyWindowMs;
   return {
+    background: normalizeNodeGraphTraceDisplayColor(
+      source.background ?? source.backgroundColor,
+      defaults.background,
+    ),
     brightness: normalizeNodeGraphTraceDisplayNumber(
       source.brightness ?? source.dot1Brightness,
       defaults.brightness,
@@ -2544,16 +2594,28 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
       0,
       1,
     ),
-    secondaryLineThickness: nodeGraphTraceDisplayClampStampBlur(
-      source.secondaryLineThickness ?? defaults.secondaryLineThickness,
-    ),
+    secondaryLineThickness: 0,
     cycles: normalizeNodeGraphTraceDisplayNumber(source.cycles, defaults.cycles, -Infinity, Infinity),
-    lineThickness: nodeGraphTraceDisplayClampStampBlur(
-      source.lineThickness ?? defaults.lineThickness,
+    // Trace is hard-stroke only (blur not meaningful for Canvas paths).
+    lineThickness: 0,
+    pixelDensity: normalizeNodeGraphTraceDisplayNumber(
+      source.pixelDensity,
+      defaults.pixelDensity,
+      0,
+      4,
     ),
     padding: normalizeNodeGraphTraceDisplayNumber(source.padding, defaults.padding, -Infinity, Infinity),
     skipDiscontinuities: source.skipDiscontinuities !== false,
     sourceSync: source.sourceSync !== false,
+    stereoBlend: (function () {
+      const raw = String(source.stereoBlend || defaults.stereoBlend || "combine").toLowerCase().trim();
+      const ok = typeof TraceStroke !== "undefined" && Array.isArray(TraceStroke.STEREO_BLEND_MODES)
+        ? TraceStroke.STEREO_BLEND_MODES
+        : ["combine", "lighter", "screen", "source-over", "multiply", "difference", "exclusion", "xor"];
+      return ok.includes(raw) ? raw : "combine";
+    })(),
+    // Always auto — derived from Left/Right via meetColorFromPair (no manual meet).
+    meetColor: "auto",
     syncChannel: (function normalizeSyncChannel() {
       const raw = String(source.syncChannel || "").toLowerCase().trim();
       if (raw === "left" || raw === "right" || raw === "mono" || raw === "off") {
@@ -2576,6 +2638,10 @@ function normalizeNodeGraphValueOscilloscopeSettings(settings = {}) {
   const source = settings && typeof settings === "object" ? settings : {};
   const defaults = nodeGraphValueOscilloscopeSettingsDefaults;
   return {
+    background: normalizeNodeGraphTraceDisplayColor(
+      source.background ?? source.backgroundColor,
+      defaults.background,
+    ),
     brightness: normalizeNodeGraphTraceDisplayNumber(
       source.brightness ?? source.dot1Brightness,
       defaults.brightness,
@@ -2592,6 +2658,12 @@ function normalizeNodeGraphValueOscilloscopeSettings(settings = {}) {
     dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
     lineLength: normalizeNodeGraphTraceDisplayNumber(source.lineLength, defaults.lineLength, 0, 1),
     lineThickness: normalizeNodeGraphTraceDisplayNumber(source.lineThickness, defaults.lineThickness, 0, 1),
+    pixelDensity: normalizeNodeGraphTraceDisplayNumber(
+      source.pixelDensity,
+      defaults.pixelDensity,
+      0,
+      4,
+    ),
   };
 }
 
@@ -2623,6 +2695,10 @@ function normalizeNodeGraphScope2dSettings(settings = {}) {
   const source = settings && typeof settings === "object" ? settings : {};
   const defaults = nodeGraphScope2dSettingsDefaults;
   return {
+    background: normalizeNodeGraphTraceDisplayColor(
+      source.background ?? source.backgroundColor,
+      defaults.background,
+    ),
     burn: normalizeNodeGraphTraceDisplayNumber(source.burn, defaults.burn, 0, 1),
     decay: normalizeNodeGraphTraceDisplayNumber(source.decay, defaults.decay, 0, 1),
     dot1Brightness: normalizeNodeGraphTraceDisplayNumber(
@@ -2676,6 +2752,12 @@ function normalizeNodeGraphScope2dTraceSettings(settings = {}) {
     ),
     lineThickness: nodeGraphTraceDisplayClampStampBlur(
       source.lineThickness ?? source.dot1Blur ?? defaults.lineThickness,
+    ),
+    pixelDensity: normalizeNodeGraphTraceDisplayNumber(
+      source.pixelDensity,
+      defaults.pixelDensity,
+      0,
+      4,
     ),
     scale: normalizeNodeGraphTraceDisplayNumber(source.scale, defaults.scale, 0, Infinity),
   };
@@ -3040,11 +3122,13 @@ function nodeGraphTraceDisplaySettingsForSlot(slot) {
   // meant those fields silently never reflected what was actually saved
   // on the node (only color worked, since the draw path reads color
   // straight off the node as a separate override).
-  if (
-    nodeGraphModuleDisplaySettingsSchemaForSlot(slot) === "trace" &&
-    nodeGraphModuleScopeNodeForSlot(slot)?.type !== "output"
-  ) {
-    return nodeGraphGlobalTraceSettings();
+  // Multi-mode Display (visualOscilloscope) also keeps per-node Trace settings
+  // when Mode = 1D Trace.
+  if (nodeGraphModuleDisplaySettingsSchemaForSlot(slot) === "trace") {
+    const nodeType = nodeGraphModuleScopeNodeForSlot(slot)?.type;
+    if (nodeType !== "output" && nodeType !== "visualOscilloscope") {
+      return nodeGraphGlobalTraceSettings();
+    }
   }
   return nodeGraphTraceDisplaySettingsForNode(nodeGraphModuleScopeNodeForSlot(slot));
 }
@@ -3543,7 +3627,7 @@ const nodeGraphTraceDisplaySettingsWindowSize = Object.freeze({
 });
 
 const nodeGraphTraceDisplaySettingFields = Object.freeze([
-  ["zoomSeconds", "Zoom (s)"],
+  ["zoomSeconds", "History (s)"],
   ["historySeconds", "History (s)"],
   ["scale", "Scale"],
   ["burn", "Burn"],
@@ -3572,29 +3656,31 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
   fields: nodeGraphTraceDisplaySettingFields.map(([key]) => key),
   colors: ["dot1Color", "secondaryColor", "backgroundColor"],
   toggles: ["sourceSync", "bipolarBrightness", "secondaryEnabled", "capEnabled"],
-  choices: ["syncChannel"],
+  choices: ["syncChannel", "stereoBlend"],
 });
 
 const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
+  // TRACE = VECTOR stroke into an optional lo-fi face buffer (density).
+  // Density only sizes the canvas; it is not phosphor energy stamps / strip-chart.
   trace: Object.freeze({
     fields: Object.freeze([
       "zoomSeconds",
+      "pixelDensity",
       "dot1Size",
-      "lineThickness",
       "dot1Brightness",
       "secondarySize",
-      "secondaryLineThickness",
       "secondaryBrightness",
     ]),
-    colors: Object.freeze(["dot1Color", "secondaryColor"]),
+    colors: Object.freeze(["dot1Color", "secondaryColor", "backgroundColor"]),
     // sourceSync kept for legacy single-channel; Output uses syncChannel choice.
     toggles: Object.freeze(["sourceSync", "skipDiscontinuities", "secondaryEnabled"]),
-    choices: Object.freeze(["syncChannel"]),
+    choices: Object.freeze(["syncChannel", "stereoBlend"]),
   }),
   dot: Object.freeze({
     fields: Object.freeze([
       "burn",
       "decay",
+      "pixelDensity",
       "dot1Size",
       "lineThickness",
       "dot1Brightness",
@@ -3608,11 +3694,12 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "burn",
       "decay",
       "cycles",
+      "pixelDensity",
       "dot1Size",
       "lineThickness",
       "dot1Brightness",
     ]),
-    colors: Object.freeze(["dot1Color"]),
+    colors: Object.freeze(["dot1Color", "backgroundColor"]),
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
@@ -3621,13 +3708,14 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "lineLength",
       "burn",
       "decay",
+      "pixelDensity",
       "dot1Size",
       "lineThickness",
       "dot1Brightness",
       "capSize",
       "capLength",
     ]),
-    colors: Object.freeze(["dot1Color"]),
+    colors: Object.freeze(["dot1Color", "backgroundColor"]),
     toggles: Object.freeze(["capEnabled"]),
     choices: Object.freeze([]),
   }),
@@ -3642,16 +3730,17 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "lineThickness",
       "dot1Brightness",
     ]),
-    colors: Object.freeze(["dot1Color"]),
+    colors: Object.freeze(["dot1Color", "backgroundColor"]),
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
+  // 2D Trace = VECTOR path; density = face buffer lo-fi/AA only.
   scope2dTrace: Object.freeze({
     fields: Object.freeze([
       "historySeconds",
       "scale",
+      "pixelDensity",
       "dot1Size",
-      "lineThickness",
       "dot1Brightness",
     ]),
     colors: Object.freeze(["dot1Color", "backgroundColor"]),
@@ -3672,12 +3761,14 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
+  // Same controls as scope2d — kept so any leftover formType="phosphorLight" still works.
   phosphorLight: Object.freeze({
     fields: Object.freeze([
       "burn",
       "decay",
       "scale",
       "pixelDensity",
+      "dotBudget",
       "dot1Size",
       "lineThickness",
       "dot1Brightness",
@@ -3705,7 +3796,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
   }),
   dot1: Object.freeze({
     fields: Object.freeze(["dot1Size", "lineThickness", "dot1Brightness"]),
-    colors: Object.freeze(["dot1Color", "backgroundColor"]),
+    colors: Object.freeze(["dot1Color"]),
     toggles: Object.freeze(["bipolarBrightness"]),
     choices: Object.freeze([]),
   }),
@@ -3730,7 +3821,8 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "innerGlow",
       "innerShadow",
     ]),
-    colors: Object.freeze([]),
+    // Face plate lives with Trace (not Left/Dot channel color).
+    colors: Object.freeze(["backgroundColor"]),
     toggles: Object.freeze(["sourceSync", "skipDiscontinuities"]),
     choices: Object.freeze([]),
   }),
@@ -3828,6 +3920,20 @@ function nodeGraphTraceDisplaySettingsElement() {
             <option value="mono">Mono</option>
           </select>
         </label>
+        <label class="node-trace-display-line-burn-row node-trace-display-stereo-blend-row" data-trace-display-stereo-blend-row hidden>
+          <span>Blend</span>
+          <select id="nodeTraceDisplayStereoBlend" data-trace-display-choice="stereoBlend" aria-label="Stereo blend mode">
+            <option value="combine">Combine (meet)</option>
+            <option value="lighter">Add (lighter)</option>
+            <option value="screen">Screen</option>
+            <option value="source-over">Over</option>
+            <option value="multiply">Multiply</option>
+            <option value="difference">Difference</option>
+            <option value="exclusion">Exclusion</option>
+            <option value="xor">Xor</option>
+          </select>
+        </label>
+
         <label class="node-trace-display-line-burn-row">
           <span>Burn</span>
           <span class="metadata-stepper-control">
@@ -3877,7 +3983,7 @@ function nodeGraphTraceDisplaySettingsElement() {
           </span>
         </label>
         <label class="node-trace-display-trace-thickness-row">
-          <span>Zoom (s)</span>
+          <span>History (s)</span>
           <span class="metadata-stepper-control">
             <button type="button" data-trace-display-step-target="zoomSeconds" data-trace-display-step-direction="-1">-</button>
             <input id="nodeTraceDisplayZoomSeconds" type="text" inputmode="decimal" data-trace-display-field="zoomSeconds">
@@ -3936,6 +4042,15 @@ function nodeGraphTraceDisplaySettingsElement() {
           <input id="nodeTraceDisplaySkipDiscontinuities" type="checkbox" data-trace-display-toggle="skipDiscontinuities">
           Skip discontinuities
         </label>
+        <div class="node-trace-display-color-widget-row" data-trace-display-control-row data-trace-display-color-row="backgroundColor">
+          <span>Background</span>
+          <div
+            class="node-trace-display-color-widget-host"
+            data-trace-display-color-widget="backgroundColor"
+            role="group"
+            aria-label="Background color"></div>
+          <input id="nodeTraceDisplayBackgroundColor" type="hidden" data-trace-display-color="backgroundColor" value="#020608">
+        </div>
       </div>
       <div class="metadata-section-title node-trace-display-value-title">Line</div>
       <div class="metadata-field-section node-trace-display-value-section">
@@ -3980,14 +4095,15 @@ function nodeGraphTraceDisplaySettingsElement() {
             <button type="button" data-trace-display-step-target="dot1Size" data-trace-display-step-direction="1">+</button>
           </span>
         </label>
-        <label>
+        <div class="node-trace-display-color-widget-row" data-trace-display-control-row data-trace-display-color-row="dot1Color">
           <span>Color</span>
-          <input id="nodeTraceDisplayColor" type="color" data-trace-display-color="dot1Color" aria-label="Dot color">
-        </label>
-        <label>
-          <span>Background</span>
-          <input id="nodeTraceDisplayBackgroundColor" type="color" data-trace-display-color="backgroundColor" aria-label="Background color">
-        </label>
+          <div
+            class="node-trace-display-color-widget-host"
+            data-trace-display-color-widget="dot1Color"
+            role="group"
+            aria-label="Dot color"></div>
+          <input id="nodeTraceDisplayColor" type="hidden" data-trace-display-color="dot1Color" value="#ff0000">
+        </div>
       </div>
       <div class="metadata-section-title node-trace-display-secondary-title">
         <span id="nodeTraceDisplaySecondaryTitleLabel">Secondary</span>
@@ -4022,10 +4138,15 @@ function nodeGraphTraceDisplaySettingsElement() {
             <button type="button" data-trace-display-step-target="secondarySize" data-trace-display-step-direction="1">+</button>
           </span>
         </label>
-        <label>
+        <div class="node-trace-display-color-widget-row" data-trace-display-control-row data-trace-display-color-row="secondaryColor">
           <span>Color</span>
-          <input id="nodeTraceDisplaySecondaryColor" type="color" data-trace-display-color="secondaryColor" aria-label="Secondary color">
-        </label>
+          <div
+            class="node-trace-display-color-widget-host"
+            data-trace-display-color-widget="secondaryColor"
+            role="group"
+            aria-label="Secondary color"></div>
+          <input id="nodeTraceDisplaySecondaryColor" type="hidden" data-trace-display-color="secondaryColor" value="#0000ff">
+        </div>
       </div>
       <div class="metadata-section-title node-trace-display-caps-title">Caps</div>
       <div class="metadata-field-section node-trace-display-caps-section">
@@ -4094,9 +4215,11 @@ function applyNodeGraphTraceDisplaySettingsTooltips(popover) {
   const colorKeys = {
     dot1Color: "traceDisplaySettings.color",
     secondaryColor: "traceDisplaySettings.secondaryColor",
+    backgroundColor: "traceDisplaySettings.background",
   };
   for (const [field, key] of Object.entries(colorKeys)) {
     popover.querySelector(`[data-trace-display-color="${field}"]`)?.setAttribute("data-tooltip-key", key);
+    popover.querySelector(`[data-trace-display-color-widget="${field}"]`)?.setAttribute("data-tooltip-key", key);
   }
   const toggleKeys = {
     bipolarBrightness: "traceDisplaySettings.bipolarBrightness",
@@ -4108,6 +4231,8 @@ function applyNodeGraphTraceDisplaySettingsTooltips(popover) {
   for (const [field, key] of Object.entries(toggleKeys)) {
     popover.querySelector(`[data-trace-display-toggle="${field}"]`)?.setAttribute("data-tooltip-key", key);
   }
+  popover.querySelector('[data-trace-display-choice="stereoBlend"]')
+    ?.setAttribute("data-tooltip-key", "traceDisplaySettings.stereoBlend");
   const keyedControls = {
     nodeTraceDisplaySettingsDefaults: "traceDisplaySettings.defaults",
   };
@@ -4204,7 +4329,11 @@ function setNodeGraphTraceDisplaySettingsFormType(node = null) {
     );
   }
   for (const color of nodeGraphTraceDisplaySettingControlKeys.colors) {
-    setControlHidden(`[data-trace-display-color="${color}"]`, !activeColors.has(color));
+    // Color rows are divs (not labels) so the native picker never steals clicks.
+    setControlHidden(
+      `[data-trace-display-color-row="${color}"], [data-trace-display-color="${color}"], [data-trace-display-color-widget="${color}"]`,
+      !activeColors.has(color),
+    );
   }
   for (const toggle of nodeGraphTraceDisplaySettingControlKeys.toggles) {
     setControlHidden(`[data-trace-display-toggle="${toggle}"]`, !activeToggles.has(toggle));
@@ -4263,17 +4392,17 @@ function setNodeGraphTraceDisplaySettingsFormType(node = null) {
   if (secondaryTitleLabel) {
     secondaryTitleLabel.textContent = isOutputNode ? "Right" : "Secondary";
   }
-  const dot1ColorInput = popover.querySelector("#nodeTraceDisplayColor");
-  if (dot1ColorInput) {
-    dot1ColorInput.setAttribute("aria-label", isOutputNode ? "Left color" : "Dot color");
+  const leftColorHost = popover.querySelector(`[data-trace-display-color-widget="dot1Color"]`);
+  if (leftColorHost) {
+    leftColorHost.setAttribute("aria-label", isOutputNode ? "Left color" : "Dot color");
   }
   const secondaryEnabledInput = popover.querySelector("#nodeTraceDisplaySecondaryEnabled");
   if (secondaryEnabledInput) {
     secondaryEnabledInput.setAttribute("aria-label", isOutputNode ? "Right on" : "Secondary on");
   }
-  const secondaryColorInput = popover.querySelector("#nodeTraceDisplaySecondaryColor");
-  if (secondaryColorInput) {
-    secondaryColorInput.setAttribute("aria-label", isOutputNode ? "Right color" : "Secondary color");
+  const rightColorHost = popover.querySelector(`[data-trace-display-color-widget="secondaryColor"]`);
+  if (rightColorHost) {
+    rightColorHost.setAttribute("aria-label", isOutputNode ? "Right color" : "Secondary color");
   }
   // Output: Sync Left / Right / Mono select. Other traces: simple Sync checkbox.
   const syncLegacy = popover.querySelector("[data-trace-display-sync-legacy]");
@@ -4284,6 +4413,16 @@ function setNodeGraphTraceDisplaySettingsFormType(node = null) {
   if (syncChannelRow) {
     syncChannelRow.hidden = !isOutputNode;
   }
+  // Output-only stereo blend modes (meet is always auto from Left/Right).
+  const stereoBlendRow = popover.querySelector("[data-trace-display-stereo-blend-row]");
+  if (stereoBlendRow) {
+    stereoBlendRow.hidden = !isOutputNode;
+  }
+  if (!isOutputNode) {
+    setControlHidden(`[data-trace-display-choice="stereoBlend"]`, true);
+  }
+  // Rebuild scan-friendly color widgets for currently visible color fields.
+  syncNodeGraphTraceDisplayColorWidgets(popover);
 }
 
 function nodeGraphTraceDisplaySettingsFormType() {
@@ -4317,14 +4456,9 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
   if (type === "numberReadout") {
     return normalizeNodeGraphNumberReadoutSettings(nodeGraphNumberReadoutSettingsDefaults);
   }
+  // phosphorLight form type is an alias of scope2d (legacy module).
   if (type === "phosphorLight") {
-    const normalize = typeof normalizeNodeGraphPhosphorLightSettings === "function"
-      ? normalizeNodeGraphPhosphorLightSettings
-      : (value) => value || {};
-    const defaults = typeof nodeGraphPhosphorLightSettingsDefaults !== "undefined"
-      ? nodeGraphPhosphorLightSettingsDefaults
-      : {};
-    return normalize(defaults);
+    return normalizeNodeGraphScope2dSettings(nodeGraphScope2dSettingsDefaults);
   }
   return normalizeNodeGraphTraceDisplaySettings(nodeGraphTraceDisplaySettingsDefaults);
 }
@@ -4353,10 +4487,7 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
     return normalizeNodeGraphNumberReadoutSettings(settings);
   }
   if (type === "phosphorLight") {
-    const normalize = typeof normalizeNodeGraphPhosphorLightSettings === "function"
-      ? normalizeNodeGraphPhosphorLightSettings
-      : (value) => value || {};
-    return normalize(settings);
+    return normalizeNodeGraphScope2dSettings(settings);
   }
   return normalizeNodeGraphTraceDisplaySettings(settings);
 }
@@ -4433,10 +4564,12 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
   if (settingsSchema === "numberReadout") {
     return normalizeNodeGraphNumberReadoutSettings(node.traceDisplaySettings);
   }
-  // Reaching here with schema "trace" only happens for Output (plain Trace
-  // nodes are already caught by the editingTraceDefaults() check above) --
-  // its own per-node settings, not the shared global bucket.
-  if (settingsSchema === "trace" && node?.type === "output") {
+  // Per-node Trace schema: Output stereo + multi-mode Display (monoTrace).
+  // Plain Trace modules use the shared global bucket (editingTraceDefaults).
+  if (
+    settingsSchema === "trace" &&
+    (node?.type === "output" || node?.type === "visualOscilloscope")
+  ) {
     return nodeGraphTraceDisplaySettingsForNode(node);
   }
   return nodeGraphGlobalTraceSettings();
@@ -4480,6 +4613,8 @@ function readNodeGraphTraceDisplaySettingsForm() {
       }
     }
   }
+  // Meet always derived from Left/Right (no manual override / Auto checkbox).
+  next.meetColor = "auto";
   for (const key of activeToggles) {
     const input = document.querySelector(`[data-trace-display-toggle="${key}"]`);
     if (input) {
@@ -4552,6 +4687,9 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
       input.value = nodeGraphDisplaySettingsFormValue(normalized, key);
     }
   }
+  syncNodeGraphTraceDisplayColorWidgets(
+    document.getElementById("nodeTraceDisplaySettingsPopover"),
+  );
 }
 
 function nodeGraphTraceDisplayStepperQuantum(input) {
@@ -4631,6 +4769,15 @@ function nodeGraphTraceDisplayClampNonNegative(value) {
   return Math.max(0, Number(value) || 0);
 }
 
+/** History / zoom window: 0 … nodeGraphTraceDisplayMaxZoomSeconds (10 s). */
+function nodeGraphTraceDisplayClampHistorySeconds(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return 0;
+  }
+  return clampNodeSliderValue(n, 0, nodeGraphTraceDisplayMaxZoomSeconds);
+}
+
 function nodeGraphTraceDisplayClampBrightness(value) {
   return clampNodeSliderValue(Number(value) || 0, 0, 2);
 }
@@ -4672,7 +4819,7 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   dot1Brightness: nodeGraphTraceDisplayClampBrightness,
   dot1Size: nodeGraphTraceDisplayClampUnit,
   ghost: nodeGraphTraceDisplayClampUnit,
-  historySeconds: nodeGraphTraceDisplayClampNonNegative,
+  historySeconds: nodeGraphTraceDisplayClampHistorySeconds,
   innerGlow: nodeGraphTraceDisplayClampUnit,
   innerShadow: nodeGraphTraceDisplayClampUnit,
   lineLength: nodeGraphTraceDisplayClampUnit,
@@ -4682,7 +4829,7 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   secondaryBrightness: nodeGraphTraceDisplayClampBrightness,
   secondaryLineThickness: nodeGraphTraceDisplayClampNonNegative,
   secondarySize: nodeGraphTraceDisplayClampUnit,
-  zoomSeconds: nodeGraphTraceDisplayClampNonNegative,
+  zoomSeconds: nodeGraphTraceDisplayClampHistorySeconds,
 });
 
 // Per-formType overrides, only for the (formType, field) pairs that diverge
@@ -4970,10 +5117,8 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     return node.traceDisplaySettings;
   }
   if (displayType === "phosphorLight") {
-    const normalize = typeof normalizeNodeGraphPhosphorLightSettings === "function"
-      ? normalizeNodeGraphPhosphorLightSettings
-      : (value) => value || {};
-    node.traceDisplaySettings = normalize(settings);
+    // Legacy alias — same schema as 2D Phosphor.
+    node.traceDisplaySettings = normalizeNodeGraphScope2dSettings(settings);
     return node.traceDisplaySettings;
   }
   node.traceDisplaySettings = normalizeNodeGraphTraceDisplaySettings(settings);
@@ -5094,6 +5239,287 @@ function persistNodeGraphTraceDisplaySettingsSoon(persistMode = "debounce") {
   }, 350);
 }
 
+// --- Trace display color widgets (scan hue/sat/bright without native picker) ---
+const nodeGraphTraceDisplayColorWidgetState = {
+  load: null,
+  widgets: new Map(), // field -> SoundColorWidget
+  syncing: false,
+};
+
+/** Resolve color-widget.js next to this scopes script (never document-relative ./public/…). */
+function nodeGraphTraceDisplayColorWidgetModuleUrl() {
+  // Prefer global boot from index.html <script type="module"> if already ready.
+  if (typeof window !== "undefined" && typeof window.mountColorWidget === "function") {
+    return null;
+  }
+  const script = document.querySelector('script[src*="node-graph-module-scopes.js"]');
+  if (script?.src) {
+    return new URL("color-widget.js?v=trace-display-3", script.src).href;
+  }
+  // Fallbacks: site root /public/, then document-relative public/
+  try {
+    return new URL("/public/color-widget.js?v=trace-display-3", window.location.origin).href;
+  } catch {
+    return new URL("public/color-widget.js?v=trace-display-3", window.location.href).href;
+  }
+}
+
+function loadNodeGraphTraceDisplayColorWidgetModule() {
+  if (typeof window !== "undefined" && typeof window.mountColorWidget === "function") {
+    return Promise.resolve({
+      mountColorWidget: window.mountColorWidget,
+      SoundColorWidget: window.SoundColorWidget,
+      hslToHex: window.hslToHex,
+    });
+  }
+  // Boot script may still be in flight — wait briefly for color-widget-ready.
+  if (typeof window !== "undefined" && !nodeGraphTraceDisplayColorWidgetState.load) {
+    const waitForBoot = new Promise((resolve, reject) => {
+      if (typeof window.mountColorWidget === "function") {
+        resolve({
+          mountColorWidget: window.mountColorWidget,
+          SoundColorWidget: window.SoundColorWidget,
+          hslToHex: window.hslToHex,
+        });
+        return;
+      }
+      const onReady = () => {
+        window.removeEventListener("color-widget-ready", onReady);
+        if (typeof window.mountColorWidget === "function") {
+          resolve({
+            mountColorWidget: window.mountColorWidget,
+            SoundColorWidget: window.SoundColorWidget,
+            hslToHex: window.hslToHex,
+          });
+        } else {
+          reject(new Error("color-widget-ready fired without mountColorWidget"));
+        }
+      };
+      window.addEventListener("color-widget-ready", onReady, { once: true });
+      // If boot never arrives, fall through to dynamic import after a short wait.
+      window.setTimeout(() => {
+        window.removeEventListener("color-widget-ready", onReady);
+        if (typeof window.mountColorWidget === "function") {
+          resolve({
+            mountColorWidget: window.mountColorWidget,
+            SoundColorWidget: window.SoundColorWidget,
+            hslToHex: window.hslToHex,
+          });
+          return;
+        }
+        const url = nodeGraphTraceDisplayColorWidgetModuleUrl();
+        if (!url) {
+          reject(new Error("color-widget module URL unresolved"));
+          return;
+        }
+        import(/* webpackIgnore: true */ url)
+          .then((mod) => {
+            if (mod.mountColorWidget) {
+              window.mountColorWidget = mod.mountColorWidget;
+            }
+            if (mod.SoundColorWidget) {
+              window.SoundColorWidget = mod.SoundColorWidget;
+            }
+            if (mod.hslToHex) {
+              window.hslToHex = mod.hslToHex;
+            }
+            resolve(mod);
+          })
+          .catch((err) => {
+            const detail = err?.stack || err?.message || String(err);
+            console.warn("[trace-display] color-widget import failed", url, detail);
+            reject(err);
+          });
+      }, 400);
+    });
+    nodeGraphTraceDisplayColorWidgetState.load = waitForBoot.catch((err) => {
+      nodeGraphTraceDisplayColorWidgetState.load = null;
+      throw err;
+    });
+  }
+  return nodeGraphTraceDisplayColorWidgetState.load
+    || Promise.reject(new Error("color-widget load unavailable"));
+}
+
+function nodeGraphTraceDisplayNormalizeHexColor(value, fallback = "#ffffff") {
+  const color = String(value || "").trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(color)) {
+    return color.toLowerCase();
+  }
+  if (/^#[0-9a-fA-F]{3}$/.test(color)) {
+    const [, r, g, b] = color.toLowerCase();
+    return `#${r}${r}${g}${g}${b}${b}`;
+  }
+  return fallback;
+}
+
+function nodeGraphTraceDisplayHexToHsl(hexToken = "#ffffff") {
+  const hex = nodeGraphTraceDisplayNormalizeHexColor(hexToken);
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const lightness = (max + min) / 2;
+  let hue = 0;
+  let saturation = 0;
+  if (max !== min) {
+    const delta = max - min;
+    saturation = lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+    if (max === r) {
+      hue = (g - b) / delta + (g < b ? 6 : 0);
+    } else if (max === g) {
+      hue = (b - r) / delta + 2;
+    } else {
+      hue = (r - g) / delta + 4;
+    }
+    hue /= 6;
+  }
+  return {
+    a: 1,
+    h: Math.round(hue * 359),
+    l: Math.round(lightness * 100),
+    s: Math.round(saturation * 100),
+  };
+}
+
+function destroyNodeGraphTraceDisplayColorWidgets() {
+  for (const widget of nodeGraphTraceDisplayColorWidgetState.widgets.values()) {
+    try {
+      widget?.destroy?.();
+    } catch {
+      // ignore
+    }
+  }
+  nodeGraphTraceDisplayColorWidgetState.widgets.clear();
+}
+
+function nodeGraphTraceDisplayColorWidgetLabel(field) {
+  if (field === "secondaryColor") {
+    return "Right";
+  }
+  if (field === "backgroundColor") {
+    return "Bg";
+  }
+  if (field === "dot1Color") {
+    const isOutput = nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type === "output";
+    return isOutput ? "Left" : "Color";
+  }
+  return "Color";
+}
+
+function syncNodeGraphTraceDisplayColorWidgets(popover = document.getElementById("nodeTraceDisplaySettingsPopover")) {
+  if (!popover || popover.hidden) {
+    return;
+  }
+  const formType = nodeGraphTraceDisplaySettingsFormType();
+  const activeColors = nodeGraphTraceDisplayActiveControlSet("colors", formType);
+  // Drop widgets for inactive fields.
+  for (const [field, widget] of [...nodeGraphTraceDisplayColorWidgetState.widgets.entries()]) {
+    if (!activeColors.has(field)) {
+      try {
+        widget?.destroy?.();
+      } catch {
+        // ignore
+      }
+      nodeGraphTraceDisplayColorWidgetState.widgets.delete(field);
+      const host = popover.querySelector(`[data-trace-display-color-widget="${field}"]`);
+      if (host) {
+        host.replaceChildren();
+      }
+    }
+  }
+  loadNodeGraphTraceDisplayColorWidgetModule().then((module) => {
+    const livePopover = document.getElementById("nodeTraceDisplaySettingsPopover");
+    if (!livePopover || livePopover.hidden) {
+      return;
+    }
+    const mount = module?.mountColorWidget || window.mountColorWidget;
+    if (typeof mount !== "function") {
+      console.warn("[trace-display] color-widget module missing mountColorWidget");
+      return;
+    }
+    const liveType = nodeGraphTraceDisplaySettingsFormType();
+    const liveColors = nodeGraphTraceDisplayActiveControlSet("colors", liveType);
+    for (const field of liveColors) {
+      const host = livePopover.querySelector(`[data-trace-display-color-widget="${field}"]`);
+      const input = livePopover.querySelector(`[data-trace-display-color="${field}"]`);
+      if (!host || !input) {
+        continue;
+      }
+      // Host row may still be hidden by section visibility.
+      const row = host.closest("[data-trace-display-color-row], [data-trace-display-control-row], label");
+      if (row?.hidden || host.closest("[hidden]")) {
+        const existing = nodeGraphTraceDisplayColorWidgetState.widgets.get(field);
+        if (existing) {
+          try {
+            existing.destroy?.();
+          } catch {
+            // ignore
+          }
+          nodeGraphTraceDisplayColorWidgetState.widgets.delete(field);
+          host.replaceChildren();
+        }
+        continue;
+      }
+      const hex = nodeGraphTraceDisplayNormalizeHexColor(input.value, "#ffffff");
+      const hsl = nodeGraphTraceDisplayHexToHsl(hex);
+      const label = nodeGraphTraceDisplayColorWidgetLabel(field);
+      let widget = nodeGraphTraceDisplayColorWidgetState.widgets.get(field);
+      if (!widget) {
+        try {
+          host.replaceChildren();
+          widget = mount(host, {
+            label,
+            ...hsl,
+            onChange: (color) => {
+              if (nodeGraphTraceDisplayColorWidgetState.syncing) {
+                return;
+              }
+              const nextHex = nodeGraphTraceDisplayNormalizeHexColor(color?.hex, hex);
+              const colorInput = document.querySelector(`[data-trace-display-color="${field}"]`);
+              if (colorInput) {
+                colorInput.value = nextHex;
+              }
+              // Live paint while dragging strips.
+              applyNodeGraphTraceDisplaySettingsForm({ persist: "none", record: false });
+            },
+          });
+          nodeGraphTraceDisplayColorWidgetState.widgets.set(field, widget);
+          requestAnimationFrame(() => {
+            try {
+              widget?.fitFittedText?.();
+              widget?.render?.();
+            } catch {
+              // ignore
+            }
+          });
+        } catch (mountErr) {
+          console.warn(
+            "[trace-display] color-widget mount failed",
+            field,
+            mountErr?.message || String(mountErr),
+          );
+        }
+      } else {
+        nodeGraphTraceDisplayColorWidgetState.syncing = true;
+        try {
+          widget.label = label;
+          widget.setColor(hsl, false);
+        } finally {
+          nodeGraphTraceDisplayColorWidgetState.syncing = false;
+        }
+      }
+    }
+  }).catch((err) => {
+    console.warn(
+      "[trace-display] color-widget failed to load",
+      err?.message || String(err),
+      err?.stack || "",
+    );
+  });
+}
+
 function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
   const settings = readNodeGraphTraceDisplaySettingsForm();
   const commit = Boolean(options.record || options.commit);
@@ -5163,6 +5589,7 @@ function finishCloseNodeGraphTraceDisplaySettings() {
   if (popover) {
     popover.hidden = true;
   }
+  destroyNodeGraphTraceDisplayColorWidgets();
   rememberNodeGraphTraceDisplaySettingsWindowState({ open: false }, { status: false });
   nodeGraphMvp.traceDisplaySettingsTargetNode = null;
   scheduleNodeGraphModuleScopeDraw();
@@ -5324,6 +5751,8 @@ function openNodeGraphGlobalTraceSettings(event = {}) {
     : (nodeGraphMvp.sharedInspectorWindowState || {});
   applyNodeGraphTraceDisplaySettingsWindowSize(sharedInspectorState.size);
   popover.hidden = false;
+  // Widgets skip mount while popover is hidden — refresh after unhide.
+  syncNodeGraphTraceDisplayColorWidgets(popover);
   const position = nodeGraphTraceDisplaySettingsOpenPosition(popover, sharedInspectorState, replacementRect, event);
   popover.style.position = "fixed";
   if (typeof setNodeGraphFloatingWindowViewportPosition === "function") {
@@ -5474,6 +5903,8 @@ function openNodeGraphTraceDisplaySettings(nodeId, event = {}) {
     : (nodeGraphMvp.sharedInspectorWindowState || {});
   applyNodeGraphTraceDisplaySettingsWindowSize(sharedInspectorState.size);
   popover.hidden = false;
+  // Widgets skip mount while popover is hidden — refresh after unhide.
+  syncNodeGraphTraceDisplayColorWidgets(popover);
   const position = nodeGraphTraceDisplaySettingsOpenPosition(popover, sharedInspectorState, replacementRect, event);
   popover.style.position = "fixed";
   if (typeof setNodeGraphFloatingWindowViewportPosition === "function") {
@@ -6528,26 +6959,44 @@ function nodeGraphTraceDisplayVisibleSamples(buffer, settings) {
   return Math.max(0, Math.min(buffer.length, Math.round(requestedSamples)));
 }
 
-// Re-anchoring the trigger from scratch every frame (nearest zero-crossing to
-// the buffer tail) looks fine for a perfectly stable tone, but for anything
-// less clean -- noise, FM, a slowly evolving waveform -- the "nearest
-// crossing" can land on a different cycle each frame, reading as constant
-// jitter instead of a locked trace. This holds the previous lock's absolute
-// phase and only re-searches when the lock is actually lost (period drifted
-// too far, the window size changed, or the predicted position fell out of
-// range). The buffer is a fixed-capacity scrolling window (old samples are
-// shifted out as new ones arrive, so a fixed index does NOT mean a fixed
-// point in time) -- nodeGraphScopeTotalSampleCount is the only thing that
-// tracks how far the window has actually scrolled since the last lock, so
-// the predicted anchor is shifted by exactly that amount, then folded back
-// into range by whole periods (which preserves phase).
-//
-// `lock` is the caller's per-DISPLAY-node entry in
-// nodeGraphModuleScopeState.traceDisplaySyncLocks, not a property on
-// `buffer` -- `buffer` is the shared captured-signal object for whichever
-// source node this display watches, so two scopes watching the same source
-// (each with their own zoom/cycles) would otherwise stomp each other's lock
-// every frame instead of each holding a stable trigger.
+/**
+ * Snap the visible sample window so freerun scroll advances in whole pixels.
+ *
+ * Without this: each frame the window end tracks the latest sample (start += N),
+ * and x is remapped as 0..width across the window. When history is long,
+ * samples-per-pixel (spp) is >> 1, so a 1-sample advance is a fraction of a
+ * pixel — the waveform crawls with subpixel shimmer. Short history (spp≈1)
+ * or low pixel density (few columns) already hides it.
+ *
+ * Snapping start to floor(start / spp) * spp keeps the stroke locked to the
+ * pixel grid until enough samples arrive for a full 1px step.
+ */
+function nodeGraphTraceDisplayPixelLockedView(view, canvasWidthPx) {
+  if (!view || !Number.isFinite(Number(view.start)) || !Number.isFinite(Number(view.end))) {
+    return view;
+  }
+  const visible = Number(view.end) - Number(view.start);
+  if (!(visible > 0) || !Number.isFinite(visible)) {
+    return view;
+  }
+  const width = Math.max(1, Math.floor(Number(canvasWidthPx) || 1));
+  const spp = visible / width;
+  if (!(spp > 1e-9) || !Number.isFinite(spp)) {
+    return view;
+  }
+  const snappedStart = Math.floor(Number(view.start) / spp) * spp;
+  if (!Number.isFinite(snappedStart)) {
+    return view;
+  }
+  return {
+    ...view,
+    start: snappedStart,
+    end: snappedStart + visible,
+  };
+}
+
+// TRACE = VECTOR (polylines). Strip-chart pixel-scroll removed — that model is phosphor/waterfall only.
+
 function nodeGraphTraceDisplayStabilizedSyncStart(lock, buffer, syncBuffer, cycleEstimate, visibleSamples, validStart, validEnd) {
   const periodSamples = Number(cycleEstimate?.periodSamples) || 0;
   if (!(periodSamples > 0)) {
@@ -7025,6 +7474,8 @@ function nodeGraphTraceDisplayDrawSignature(slot, item, buffer, settings) {
   return [
     Number(buffer?.nodeGraphScopeVersion) || 0,
     nodeGraphScopeAvailableSampleCount(buffer),
+    // Strip chart advances on absolute sample count, not just retained length.
+    Math.floor(Number(buffer?.nodeGraphScopeTotalSampleCount) || 0),
     Math.round(Number(item?.scopeRect?.left) || 0),
     Math.round(Number(item?.scopeRect?.top) || 0),
     Math.round(Number(item?.scopeRect?.width) || 0),
@@ -7040,7 +7491,13 @@ function nodeGraphTraceDisplayDrawSignature(slot, item, buffer, settings) {
     settings.secondaryLineThickness,
     settings.secondaryBrightness,
     settings.secondaryColor,
+    settings.stereoBlend || "combine",
+    settings.meetColor || "auto",
+    // Keep 0 density as 0 (Number(0) || 1 would wrongly snap to 1).
+    Number.isFinite(Number(settings.pixelDensity)) ? Number(settings.pixelDensity) : 1,
+    settings.background || settings.backgroundColor || "",
     settings.sourceSync === false ? 0 : 1,
+    settings.syncChannel || "off",
   ].join("|");
 }
 
@@ -8469,7 +8926,15 @@ function nodeGraphModuleScopeLocalFallbackCanvas(slot) {
   return canvas;
 }
 
-function syncNodeGraphModuleScopeLocalFallbackCanvas(canvas, screenElement, pixelRatio) {
+/**
+ * Size a local face canvas to layout×dpr × pixelDensity.
+ *
+ * TRACE: still a vector polyline into this buffer; density only sets how coarse
+ * the backing store is (0 = chunky lo-fi, 1 = full face, 4 = supersample).
+ * PHOSPHOR: same knob on energy grids — different product, same sizing helper.
+ * Never use density as an excuse for strip-chart / column-paint Trace models.
+ */
+function syncNodeGraphModuleScopeLocalFallbackCanvas(canvas, screenElement, pixelRatio, pixelDensity = 1) {
   if (!canvas || !screenElement) {
     return false;
   }
@@ -8477,7 +8942,14 @@ function syncNodeGraphModuleScopeLocalFallbackCanvas(canvas, screenElement, pixe
   if (!size) {
     return false;
   }
-  const { width, height } = size;
+  const resolved = typeof nodeGraphScope2dResolvePixelDensity === "function"
+    ? nodeGraphScope2dResolvePixelDensity(pixelDensity, size.width, size.height)
+    : { density: 1, effective: 1 };
+  // 0 is valid (1×1 pixel). Never use `|| 1` — that snaps density 0 up to full res.
+  const densityRaw = Number(resolved.effective);
+  const density = Number.isFinite(densityRaw) ? Math.max(0, densityRaw) : 1;
+  const width = Math.max(1, Math.round(size.width * density));
+  const height = Math.max(1, Math.round(size.height * density));
   if (canvas.width !== width || canvas.height !== height) {
     const previousWidth = canvas.width;
     const previousHeight = canvas.height;
@@ -8498,6 +8970,12 @@ function syncNodeGraphModuleScopeLocalFallbackCanvas(canvas, screenElement, pixe
       context.imageSmoothingEnabled = false;
       context.drawImage(previousCanvas, 0, 0, previousWidth, previousHeight, 0, 0, width, height);
     }
+  }
+  // Below 1: intentional chunky CSS upscale. At/above 1: smooth scale (AA when density > 1).
+  if (density < 0.999) {
+    canvas.style.imageRendering = "pixelated";
+  } else if (canvas.style.imageRendering) {
+    canvas.style.imageRendering = "";
   }
   if (canvas.style.width || canvas.style.height) {
     canvas.style.width = "";
@@ -9003,7 +9481,12 @@ function drawNodeGraphDotOscilloscopeItem(renderer, item, pixelRatio) {
   const settings = nodeGraphZeroDBurnSettingsForNode(nodeGraphModuleScopeNodeForSlot(item.slot));
   const canvas = nodeGraphModuleScopeLocalFallbackCanvas(item?.slot);
   const screenElement = item?.screenElement || item?.slot?.scopeElement;
-  if (!canvas || !syncNodeGraphModuleScopeLocalFallbackCanvas(canvas, screenElement, pixelRatio)) {
+  if (!canvas || !syncNodeGraphModuleScopeLocalFallbackCanvas(
+    canvas,
+    screenElement,
+    pixelRatio,
+    settings.pixelDensity,
+  )) {
     return;
   }
   const context = canvas.getContext("2d");
@@ -9015,10 +9498,8 @@ function drawNodeGraphDotOscilloscopeItem(renderer, item, pixelRatio) {
     0,
     1,
   );
-  const bg = settings.background || "#020608";
-  if (screenElement?.style) {
-    screenElement.style.setProperty("--node-scope-background", bg);
-  }
+  const bg = nodeGraphFacePlateBackground(settings);
+  nodeGraphFacePlateApplyCss(screenElement, bg);
   const width = canvas.width;
   const height = canvas.height;
   const minSide = Math.max(1, Math.min(width, height));
@@ -9063,10 +9544,7 @@ function drawNodeGraphDotOscilloscopeItem(renderer, item, pixelRatio) {
     const exposure = typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.exposure
       ? PhosphorDrawer.exposure(burn)
       : 1.85 + burn * 2.1;
-    context.setTransform(1, 0, 0, 1, 0, 0);
-    context.globalCompositeOperation = "source-over";
-    context.fillStyle = bg;
-    context.fillRect(0, 0, width, height);
+    nodeGraphFacePlateFillCanvas(context, canvas, bg);
     if (typeof nodeGraphPhosphorEnergyGlPresent === "function"
       && nodeGraphPhosphorEnergyGlPresent(energyGl, 1, { exposure })) {
       context.save();
@@ -9080,10 +9558,7 @@ function drawNodeGraphDotOscilloscopeItem(renderer, item, pixelRatio) {
   }
 
   // Fallback: instant TraceStroke disc (no persistence).
-  context.setTransform(1, 0, 0, 1, 0, 0);
-  context.globalCompositeOperation = "source-over";
-  context.fillStyle = bg;
-  context.fillRect(0, 0, width, height);
+  nodeGraphFacePlateFillCanvas(context, canvas, bg);
   if (brightness01 > 0.001 && typeof TraceStroke !== "undefined" && TraceStroke.draw) {
     TraceStroke.draw(context, [{ x: width * 0.5, y: height * 0.5 }], {
       size: size01,
@@ -9131,14 +9606,23 @@ function nodeGraphValueOscilloscopeTrailSamples(buffer) {
 function drawNodeGraphValueOscilloscopeTrail(item, pixelRatio, geometry, settings) {
   const canvas = nodeGraphModuleScopeLocalFallbackCanvas(item?.slot);
   const screenElement = item?.screenElement || item?.slot?.scopeElement;
-  if (!canvas || !syncNodeGraphModuleScopeLocalFallbackCanvas(canvas, screenElement, pixelRatio)) {
+  if (!canvas || !syncNodeGraphModuleScopeLocalFallbackCanvas(
+    canvas,
+    screenElement,
+    pixelRatio,
+    settings?.pixelDensity,
+  )) {
     return;
   }
   const context = canvas.getContext("2d");
   if (!context) {
     return;
   }
+  const bg = nodeGraphFacePlateBackground(settings);
+  nodeGraphFacePlateApplyCss(screenElement, bg);
   nodeGraphOneDimensionalBurnFadeTrail(context, canvas, settings);
+  // Ensure plate under fade holes / first frames.
+  nodeGraphFacePlateFillUnder(context, canvas, bg);
   const burn = clampNodeSliderValue(Number(settings?.burn) || 0, 0, 1);
   if (burn <= 0 || !geometry) {
     return;
@@ -9805,7 +10289,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const width = canvas.width;
   const height = canvas.height;
   const rgb = nodeGraphScopeRgbFloatsToCanvasRgb(nodeGraphScopeHexColorToRgb(settings.color));
-  const bg = normalizeNodeGraphTraceDisplayColor(settings.background, "#020608");
+  const bg = nodeGraphFacePlateBackground(settings);
   const bright = Number(settings.brightness);
   const alpha = Math.max(0.15, (Number.isFinite(bright) ? Math.max(0, Math.min(2, bright)) : 0.92) / 2);
   const digitFontFamily = nodeGraphNumberReadoutDsegReady
@@ -10395,17 +10879,72 @@ function nodeGraphScope2dBurnCanvasForSlot(slot) {
 
 /**
  * Resolve face pixel density 0–4 to an effective scale.
- * 0 must NOT collapse the buffer to 1×1 (that reads as "max chunk" jump).
- * Floor keeps a usable lo-fi grid (~1/16 layout); 1 = full layout×dpr; 4 = AA.
+ * Full range: 0 → single pixel (1×1), 1 → layout×dpr, 4 → supersample AA.
+ * (No lo-fi floor — user wants the whole dial.)
  */
 function nodeGraphScope2dResolvePixelDensity(pixelDensity, layoutWidth = 1, layoutHeight = 1) {
   const raw = Number(pixelDensity);
   const density = Number.isFinite(raw) ? Math.max(0, Math.min(4, raw)) : 1;
-  const minSide = Math.max(1, Math.min(layoutWidth, layoutHeight));
-  // ~1/16 of layout, but never below 8px short side (or the full face if tinier).
-  const minDensity = Math.min(1, Math.max(8, Math.min(minSide, 16)) / minSide);
-  const effective = density < minDensity ? minDensity : density;
-  return { density, effective, minDensity };
+  // effective === density; canvas size uses max(1, round(layout * density)).
+  return { density, effective: density, minDensity: 0 };
+}
+
+/** Default black-family plate for every scope face. */
+const nodeGraphFacePlateDefaultBackground = "#020608";
+
+/** Resolve face plate color from any display settings object. */
+function nodeGraphFacePlateBackground(settings, fallback = nodeGraphFacePlateDefaultBackground) {
+  return normalizeNodeGraphTraceDisplayColor(
+    settings?.background ?? settings?.backgroundColor,
+    fallback,
+  );
+}
+
+/**
+ * Pixel density 0–4 from settings. Preserves 0 (never `|| 1`).
+ * 0 → 1×1 buffer; 1 → layout×dpr; 4 → supersample.
+ */
+function nodeGraphFacePlateDensity(settings, fallback = 1) {
+  const n = Number(settings?.pixelDensity);
+  if (!Number.isFinite(n)) {
+    const fb = Number(fallback);
+    return Number.isFinite(fb) ? Math.max(0, Math.min(4, fb)) : 1;
+  }
+  return Math.max(0, Math.min(4, n));
+}
+
+function nodeGraphFacePlateApplyCss(screenElement, bg) {
+  if (screenElement?.style) {
+    screenElement.style.setProperty(
+      "--node-scope-background",
+      bg || nodeGraphFacePlateDefaultBackground,
+    );
+  }
+}
+
+function nodeGraphFacePlateFillCanvas(context, canvas, bg) {
+  if (!context || !canvas) {
+    return;
+  }
+  context.save();
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.globalCompositeOperation = "source-over";
+  context.fillStyle = bg || nodeGraphFacePlateDefaultBackground;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.restore();
+}
+
+/** Paint plate under existing pixels (e.g. after putImageData / transparent energy). */
+function nodeGraphFacePlateFillUnder(context, canvas, bg) {
+  if (!context || !canvas) {
+    return;
+  }
+  context.save();
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.globalCompositeOperation = "destination-over";
+  context.fillStyle = bg || nodeGraphFacePlateDefaultBackground;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.restore();
 }
 
 function syncNodeGraphScope2dBurnCanvas(canvas, screenElement, pixelRatio, pixelDensity = 1) {
@@ -10944,12 +11483,11 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
   }
   const canvas = nodeGraphScope2dBurnCanvasForSlot(item?.slot);
   const screenElement = item?.screenElement || item?.slot?.scopeElement;
-  const density = Number(settings?.pixelDensity);
   const sync = syncNodeGraphScope2dBurnCanvas(
     canvas,
     screenElement,
     pixelRatio,
-    Number.isFinite(density) ? density : 1,
+    nodeGraphFacePlateDensity(settings),
   );
   if (!sync.synced || !canvas) {
     return false;
@@ -10992,9 +11530,9 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       nodeGraphScopeHexColorToRgb(settings?.dot1Color || settings?.color || "#75ebff"),
     )
     : [117, 235, 255];
-  // Dark zero-energy stop; face CSS/background shows around the trail
-  // (local-fallback uses mix-blend-mode: screen over the module face).
-  const bgHex = "#000000";
+  // Zero-energy LUT stop = face plate color (every scope has a background).
+  const bgHex = nodeGraphFacePlateBackground(settings);
+  nodeGraphFacePlateApplyCss(screenElement, bgHex);
   if (typeof nodeGraphPhosphorEnergyGlSetLutFromPeak === "function") {
     nodeGraphPhosphorEnergyGlSetLutFromPeak(energyGl, peakRgb, bgHex);
   }
@@ -11037,12 +11575,13 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
   // Soft film exposure — stable base so low burn stays dim, not blank.
   const exposure = nodeGraphScope2dEnergyBurnExposure(burn);
   context.setTransform(1, 0, 0, 1, 0, 0);
-  context.clearRect(0, 0, width, height);
+  nodeGraphFacePlateFillCanvas(context, canvas, bgHex);
   if (nodeGraphPhosphorEnergyGlPresent(energyGl, 1, { exposure })) {
     context.save();
     context.globalCompositeOperation = "lighter";
     // Smooth when density ≥ 1 (supersample AA); nearest when intentionally chunky.
-    context.imageSmoothingEnabled = (sync.density || 1) >= 0.999;
+    const dens = Number(sync.density);
+    context.imageSmoothingEnabled = Number.isFinite(dens) ? dens >= 0.999 : true;
     context.drawImage(energyGl.canvas, 0, 0, width, height);
     context.restore();
   }
@@ -11052,12 +11591,11 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
 function drawNodeGraphScope2dRetainedBurn(item, pixelRatio, square, buffer, settings) {
   const canvas = nodeGraphScope2dBurnCanvasForSlot(item?.slot);
   const screenElement = item?.screenElement || item?.slot?.scopeElement;
-  const density = Number(settings?.pixelDensity);
   const sync = syncNodeGraphScope2dBurnCanvas(
     canvas,
     screenElement,
     pixelRatio,
-    Number.isFinite(density) ? density : 1,
+    nodeGraphFacePlateDensity(settings),
   );
   if (!sync.synced) {
     return;
@@ -11105,12 +11643,11 @@ function drawNodeGraphRetainedBurnPath(item, pixelRatio, pathPoints, settings, o
   // Legacy RGB retained burn only if energy GL unavailable.
   const canvas = nodeGraphScope2dBurnCanvasForSlot(item?.slot);
   const screenElement = item?.screenElement || item?.slot?.scopeElement;
-  const density = Number(settings?.pixelDensity);
   const sync = syncNodeGraphScope2dBurnCanvas(
     canvas,
     screenElement,
     pixelRatio,
-    Number.isFinite(density) ? density : 1,
+    nodeGraphFacePlateDensity(settings),
   );
   if (!sync.synced) {
     return;
@@ -11405,14 +11942,15 @@ function drawNodeGraphScope2dTraceLayer(context, points, dotSpace, settings) {
   if (settings.dot1Enabled === false) {
     return;
   }
-  // Instant core+skirt stroke (no burn/bleed). Blur 0 hard … 1 soft skirt.
+  // VECTOR polyline (same philosophy as 1D Trace — not energy stamps).
   if (typeof TraceStroke !== "undefined" && TraceStroke.draw) {
     const count = TraceStroke.draw(context, points, {
       size: settings.dot1Size,
-      blur: settings.lineThickness,
+      blur: 0,
       brightness: settings.dot1Brightness,
       color: settings.dot1Color,
       faceMinSide: Math.max(1, Number(dotSpace) || 1),
+      composite: "source-over",
     });
     if (count > 0) {
       recordNodeGraphModuleScopeRenderMetrics(count, count);
@@ -11424,7 +11962,6 @@ function drawNodeGraphScope2dTraceLayer(context, points, dotSpace, settings) {
   if (size <= 0 || brightness <= 0) {
     return;
   }
-  const blur = clampNodeSliderValue(settings.lineThickness, 0, 1);
   const rgb = nodeGraphScopeRgbFloatsToCanvasRgb(nodeGraphScopeHexColorToRgb(settings.dot1Color));
   const radius = Math.max(0.5, Math.max(1, Number(dotSpace) || 1) * size * 0.5);
   context.save();
@@ -11433,7 +11970,7 @@ function drawNodeGraphScope2dTraceLayer(context, points, dotSpace, settings) {
   context.lineJoin = "round";
   context.lineWidth = radius * 2;
   context.strokeStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${Math.min(1, brightness)})`;
-  context.shadowBlur = blur > 0.02 ? radius * blur * 2 : 0;
+  context.shadowBlur = 0;
   context.beginPath();
   drawNodeGraphScopeCanvasSmoothPath(context, points);
   context.stroke();
@@ -11448,12 +11985,28 @@ function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
   renderNodeGraphModuleScopeAnalyzer(item.slot, buffer);
   const canvas = nodeGraphModuleScopeLocalFallbackCanvas(item?.slot);
   const screenElement = item?.screenElement || item?.slot?.scopeElement;
-  if (!canvas || !syncNodeGraphModuleScopeLocalFallbackCanvas(canvas, screenElement, pixelRatio)) {
+  const settings = nodeGraphScope2dTraceSettingsForNode(nodeGraphModuleScopeNodeForSlot(item.slot));
+  // VECTOR polyline; density scales face buffer for lo-fi/AA (default 1).
+  const density = nodeGraphFacePlateDensity(settings, 1);
+  if (!canvas || !syncNodeGraphModuleScopeLocalFallbackCanvas(
+    canvas,
+    screenElement,
+    pixelRatio,
+    density,
+  )) {
     return;
+  }
+  canvas.classList.add("node-module-scope-vector-trace");
+  if (density >= 0.999) {
+    canvas.style.imageRendering = "auto";
   }
   const context = canvas.getContext("2d");
   if (!context) {
     return;
+  }
+  context.imageSmoothingEnabled = density >= 0.999;
+  if ("imageSmoothingQuality" in context && density >= 0.999) {
+    context.imageSmoothingQuality = "high";
   }
   if (canvas.dataset.scope2dRenderer !== "sample-history-trace-1") {
     canvas.dataset.scope2dRenderer = "sample-history-trace-1";
@@ -11462,17 +12015,10 @@ function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
   // those are workspace screen coords and grow with zoom, so the stroke would
   // walk out of the face and clip into the module chrome.
   const canvasSquare = nodeGraphScope2dTraceCanvasSquare(canvas);
-  const settings = nodeGraphScope2dTraceSettingsForNode(nodeGraphModuleScopeNodeForSlot(item.slot));
   const points = buildNodeGraphScope2dTraceCanvasPoints(canvasSquare, buffer, settings);
-  const bg = settings.background || nodeGraphScope2dTraceSettingsDefaults.background || "#020608";
-  // Match phosphor faces: solid plate under the trace + CSS var for the window.
-  if (screenElement?.style) {
-    screenElement.style.setProperty("--node-scope-background", bg);
-  }
-  context.setTransform(1, 0, 0, 1, 0, 0);
-  context.globalCompositeOperation = "source-over";
-  context.fillStyle = bg;
-  context.fillRect(0, 0, canvas.width, canvas.height);
+  const bg = nodeGraphFacePlateBackground(settings, nodeGraphScope2dTraceSettingsDefaults.background);
+  nodeGraphFacePlateApplyCss(screenElement, bg);
+  nodeGraphFacePlateFillCanvas(context, canvas, bg);
   if (!points.some(Boolean)) {
     return;
   }
@@ -11517,6 +12063,8 @@ function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot, viewOverri
   if (!buffer?.length || !canvas?.width || !canvas?.height) {
     return [];
   }
+  const width = Math.max(1, canvas.width);
+  // VECTOR: continuous sample window → continuous face coords (no pixel lock / column snap).
   const view = viewOverride || nodeGraphTraceDisplayBufferView(buffer, slot);
   const halfHeight = canvas.height * nodeGraphModuleScopeTraceHalfHeightRatio(slot, buffer, { height: canvas.height });
   if (!view || view.end <= view.start) {
@@ -11531,11 +12079,11 @@ function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot, viewOverri
     }];
   }
   const visibleSamples = Math.max(1, view.end - view.start);
-  const width = Math.max(1, canvas.width);
+  // Control-point budget is sample/CPU limited — NOT min(canvas.width) (that is a pixel paradigm).
   const budget = typeof TraceStroke !== "undefined" && TraceStroke.pointBudget
     ? TraceStroke.pointBudget(canvas.width, canvas.height, nodeGraphTraceDisplayRenderPointBudget())
-    : Math.max(2, Math.min(width, nodeGraphTraceDisplayRenderPointBudget()));
-  const pointCount = Math.max(2, Math.min(width, Math.ceil(visibleSamples), budget));
+    : Math.max(256, Math.min(4096, nodeGraphTraceDisplayRenderPointBudget()));
+  const pointCount = Math.max(2, Math.min(visibleSamples, budget));
   const midY = canvas.height * 0.5;
   const samplesPerPoint = visibleSamples / Math.max(1, pointCount - 1);
   const progressFn = (index, count) => count <= 1 ? 0 : index / (count - 1);
@@ -11557,7 +12105,11 @@ function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot, viewOverri
         points.push(null);
       }
     } else {
-      points.push({ x: s.progress * width, y: midY - s.value * halfHeight });
+      // Continuous face coordinates — GPU/canvas antialiases the stroke.
+      points.push({
+        x: s.progress * width,
+        y: midY - s.value * halfHeight,
+      });
     }
   }
   return points;
@@ -11572,13 +12124,14 @@ function drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas, op
   }
   const face = Math.min(canvas.width, canvas.height);
   if (typeof TraceStroke !== "undefined" && TraceStroke.draw) {
-    // Instant core+skirt (no burn). options.glow false → hard core only.
+    // VECTOR polyline: opaque source-over (not additive pixel glow).
     TraceStroke.draw(context, points, {
       size: layer.size,
-      blur: options.glow === false ? 0 : layer.blur,
+      blur: 0,
       brightness: layer.brightness,
       color: layer.color,
       faceMinSide: face,
+      composite: "source-over",
     });
     return;
   }
@@ -11587,30 +12140,26 @@ function drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas, op
   if (size <= 0 || brightness <= 0) {
     return;
   }
-  const blur = clampNodeSliderValue(layer.blur, 0, 1);
   const rgb = nodeGraphScopeRgbFloatsToCanvasRgb(nodeGraphScopeHexColorToRgb(layer.color));
+  const gain = Math.min(1, brightness);
   const lineWidth = Math.max(1, face * size);
   context.save();
-  context.globalCompositeOperation = "lighter";
+  context.globalCompositeOperation = "source-over";
+  context.imageSmoothingEnabled = true;
   context.lineCap = "round";
   context.lineJoin = "round";
   context.lineWidth = lineWidth;
-  context.strokeStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${Math.min(1, brightness)})`;
-  context.shadowBlur = (options.glow !== false && blur > 0.02) ? lineWidth * blur * 1.5 : 0;
+  context.strokeStyle = `rgb(${Math.round(rgb[0] * gain)}, ${Math.round(rgb[1] * gain)}, ${Math.round(rgb[2] * gain)})`;
+  context.shadowBlur = 0;
   context.beginPath();
   drawNodeGraphScopeCanvasSmoothPath(context, points);
   context.stroke();
   context.restore();
 }
 
-// Output stereo color model (see TraceStroke.drawStereoRedBlueGreen):
-//   Left-only  → red   (255, 0, 0)
-//   Right-only → blue  (0, 0, 255)
-//   Both meet  → green (0, 255, 0)
-// Size/blur/brightness still come from primary vs secondary trace settings.
-const nodeGraphOutputTraceLeftColor = "#ff0000";
-const nodeGraphOutputTraceRightColor = "#0000ff";
-
+// Output stereo: any Left/Right colors + blend modes.
+// Combine equation (default): m=min(L,R); pixel=(L-m)·C_L+(R-m)·C_R+m·C_meet
+// C_meet defaults to max(0,1−C_L−C_R) so classic red+blue→green still holds.
 function nodeGraphOutputStereoTraceBuffers(nodeId) {
   const id = String(nodeId || "");
   if (!id) {
@@ -11629,7 +12178,8 @@ function nodeGraphTraceDisplayPrimaryLayer(settings, color) {
     enabled: settings.dot1Enabled,
     size: settings.dot1Size,
     brightness: settings.brightness,
-    blur: settings.lineThickness,
+    // Trace is hard-stroke only — soft skirts don't fit line ribbons.
+    blur: 0,
     color,
   };
 }
@@ -11641,15 +12191,37 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
   if (!slot || !buffer?.length || !screenElement) {
     return false;
   }
+  const settings = nodeGraphTraceDisplaySettingsForSlot(slot);
   const canvas = nodeGraphModuleScopeLocalFallbackCanvas(slot);
-  if (!canvas || !syncNodeGraphModuleScopeLocalFallbackCanvas(canvas, screenElement, pixelRatio)) {
+  // VECTOR polyline into density-scaled face buffer (default 1 = current look).
+  const density = nodeGraphFacePlateDensity(settings, 1);
+  if (!canvas || !syncNodeGraphModuleScopeLocalFallbackCanvas(
+    canvas,
+    screenElement,
+    pixelRatio,
+    density,
+  )) {
     return false;
+  }
+  // Vector class: normal blend (not screen). Density < 1 keeps pixelated CSS from sync.
+  canvas.classList.add("node-module-scope-vector-trace");
+  if (density >= 0.999) {
+    canvas.style.imageRendering = "auto";
   }
   const context = canvas.getContext("2d");
   if (!context) {
     return false;
   }
-  const settings = nodeGraphTraceDisplaySettingsForSlot(slot);
+  // At lo-fi density, keep nearest-neighbor presentation; at ≥1, smooth AA.
+  context.imageSmoothingEnabled = density >= 0.999;
+  if ("imageSmoothingQuality" in context && density >= 0.999) {
+    context.imageSmoothingQuality = "high";
+  }
+  const bg = nodeGraphFacePlateBackground(settings);
+  nodeGraphFacePlateApplyCss(screenElement, bg);
+  const fillTraceBackground = () => nodeGraphFacePlateFillCanvas(context, canvas, bg);
+  // putImageData (combine) replaces pixels — paint plate *under* with destination-over after.
+  const paintBackgroundUnder = () => nodeGraphFacePlateFillUnder(context, canvas, bg);
   const stereoBuffers = slot?.type === "output" ? nodeGraphOutputStereoTraceBuffers(slot.nodeId) : null;
   if (stereoBuffers) {
     const leftBuffer = prepareNodeGraphTraceDisplayBuffer(stereoBuffers.left, settings);
@@ -11657,50 +12229,89 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
     const views = nodeGraphTraceDisplayStereoBufferViews(leftBuffer, rightBuffer, slot);
     const leftPoints = buildNodeGraphTraceDisplayCanvasPoints(leftBuffer, canvas, slot, views.left);
     const rightPoints = buildNodeGraphTraceDisplayCanvasPoints(rightBuffer, canvas, slot, views.right);
-    const leftLayer = nodeGraphTraceDisplayPrimaryLayer(settings, nodeGraphOutputTraceLeftColor);
+    const leftColor = settings.color || settings.dot1Color || "#ff0000";
+    const rightColor = settings.secondaryColor || "#0000ff";
+    const leftLayer = nodeGraphTraceDisplayPrimaryLayer(settings, leftColor);
     const rightLayer = {
       enabled: settings.secondaryEnabled !== false,
       size: settings.secondarySize,
       brightness: settings.secondaryBrightness,
-      blur: settings.secondaryLineThickness,
-      color: nodeGraphOutputTraceRightColor,
+      blur: 0,
+      color: rightColor,
     };
     context.clearRect(0, 0, canvas.width, canvas.height);
     const face = Math.min(canvas.width, canvas.height);
     let painted = 0;
-    if (typeof TraceStroke !== "undefined" && TraceStroke.drawStereoRedBlueGreen) {
-      // Red + blue masks; overlap becomes green (not magenta).
+    const blend = settings.stereoBlend || "combine";
+    if (blend !== "combine") {
+      // Canvas composites: plate first, then strokes.
+      fillTraceBackground();
+    }
+    if (typeof TraceStroke !== "undefined" && TraceStroke.drawStereo) {
+      painted = TraceStroke.drawStereo(
+        context,
+        leftLayer.enabled === false ? [] : leftPoints,
+        rightLayer.enabled === false ? [] : rightPoints,
+        {
+          size: leftLayer.size,
+          blur: 0,
+          brightness: leftLayer.brightness,
+          color: leftColor,
+          faceMinSide: face,
+        },
+        {
+          size: rightLayer.size,
+          blur: 0,
+          brightness: rightLayer.brightness,
+          color: rightColor,
+          faceMinSide: face,
+        },
+        {
+          blend,
+          leftColor,
+          rightColor,
+          meetColor: "auto",
+        },
+      );
+    } else if (typeof TraceStroke !== "undefined" && TraceStroke.drawStereoRedBlueGreen) {
       painted = TraceStroke.drawStereoRedBlueGreen(
         context,
         leftLayer.enabled === false ? [] : leftPoints,
         rightLayer.enabled === false ? [] : rightPoints,
         {
           size: leftLayer.size,
-          blur: leftLayer.blur,
+          blur: 0,
           brightness: leftLayer.brightness,
           faceMinSide: face,
         },
         {
           size: rightLayer.size,
-          blur: rightLayer.blur,
+          blur: 0,
           brightness: rightLayer.brightness,
           faceMinSide: face,
         },
       );
     } else {
-      // Fallback: layered RGB (overlap will look magenta, not green).
+      fillTraceBackground();
+      // Fallback: layered RGB (overlap may look like additive mix, not meet).
       drawNodeGraphTraceDisplayCanvasLayer(context, rightPoints, rightLayer, canvas, { glow: false });
       drawNodeGraphTraceDisplayCanvasLayer(context, leftPoints, leftLayer, canvas, { glow: false });
       painted = leftPoints.length + rightPoints.length;
+    }
+    // Combine putImageData leaves transparent holes — plate goes underneath.
+    if (blend === "combine") {
+      paintBackgroundUnder();
     }
     recordNodeGraphModuleScopeRenderMetrics(painted, painted);
     rememberNodeGraphTraceDisplaySignature(slot, item, buffer, settings);
     return true;
   }
-  const points = buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot);
-  context.clearRect(0, 0, canvas.width, canvas.height);
+  // Mono 1D Trace = VECTOR polyline (not a pixel strip / energy grid).
+  const prepared = prepareNodeGraphTraceDisplayBuffer(buffer, settings);
+  fillTraceBackground();
+  const points = buildNodeGraphTraceDisplayCanvasPoints(prepared || buffer, canvas, slot);
   const layer = nodeGraphTraceDisplayPrimaryLayer(settings, settings.color);
-  drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas);
+  drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas, { glow: false });
   recordNodeGraphModuleScopeRenderMetrics(points.length, points.length);
   rememberNodeGraphTraceDisplaySignature(slot, item, buffer, settings);
   return true;
@@ -11898,6 +12509,7 @@ function nodeGraphScope2dClampDrawStartIndex(startIndex, count, maxSamples) {
 function nodeGraphScope2dCanvasSettingsSignature(settings) {
   const safeSettings = normalizeNodeGraphScope2dSettings(settings);
   return [
+    safeSettings.background,
     safeSettings.burn,
     safeSettings.decay,
     safeSettings.dot1Enabled ? 1 : 0,
@@ -11905,6 +12517,7 @@ function nodeGraphScope2dCanvasSettingsSignature(settings) {
     safeSettings.dot1Brightness,
     safeSettings.dot1Color,
     safeSettings.lineThickness,
+    Number.isFinite(Number(safeSettings.pixelDensity)) ? Number(safeSettings.pixelDensity) : 1,
   ].join("|");
 }
 

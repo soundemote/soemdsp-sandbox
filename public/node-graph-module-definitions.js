@@ -3310,9 +3310,42 @@ const nodeGraphModuleDefinitions = Object.freeze({
   },
   // led registers its own definition from public/modules/led/led-register.js
   // -- see node-graph-chromeless-module-registry.js.
+  // Multi-mode Display sink: flip face family without swapping modules.
+  // Default remains 2D Trace (X/Y). Mono modes use In; XY modes use X/Y.
   visualOscilloscope: {
     bufferedInputs: ["In", "X", "Y"],
     displayType: "scope2dTrace",
+    defaultDisplayMode: "xyTrace",
+    displayModes: [
+      {
+        key: "xyTrace",
+        label: "2D Trace",
+        renderer: "scope2dTrace",
+        settingsSchema: "scope2dTrace",
+        source: { x: "X", y: "Y" },
+      },
+      {
+        key: "xyBurn",
+        label: "2D Phosphor",
+        renderer: "scope2d",
+        settingsSchema: "scope2d",
+        source: { x: "X", y: "Y" },
+      },
+      {
+        key: "monoTrace",
+        label: "1D Trace",
+        renderer: "trace",
+        settingsSchema: "trace",
+        source: { value: "In" },
+      },
+      {
+        key: "monoDot",
+        label: "Phosphor Dot",
+        renderer: "dot",
+        settingsSchema: "dot",
+        source: { value: "In" },
+      },
+    ],
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "X", "Y"],
@@ -3544,19 +3577,19 @@ const nodeGraphModuleDefinitions = Object.freeze({
     ],
     visualSink: true,
   },
-  // Testbed XY scope on the shared 0–1 energy + LUT phosphor path.
-  // Plan: replace legacy RGB burn scopes once this feels right.
+  // Legacy alias of scope2d (2D Phosphor). Hidden from shop; patches migrate
+  // to type "scope2d" on load. Kept so mid-session / odd loaders still resolve.
   phosphorLight: {
     bufferedInputs: ["X", "Y"],
     displayHeightGu: 5,
-    displayType: "phosphorLight",
+    displayType: "scope2d",
     inputs: ["X", "Y"],
     layout: "traceDisplay",
     outputs: [],
     parameters: [],
     visualInputs: [
-      { key: "phosphorLightX", label: "X", port: "X" },
-      { key: "phosphorLightY", label: "Y", port: "Y" },
+      { key: "scope2dX", label: "X", port: "X" },
+      { key: "scope2dY", label: "Y", port: "Y" },
     ],
     visualSink: true,
   },

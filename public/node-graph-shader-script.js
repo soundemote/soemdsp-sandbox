@@ -8,7 +8,18 @@ const nodeGraphShaderScriptEditorFontSizeLimits = Object.freeze({
   stepPx: 0.75,
 });
 const nodeGraphShaderScriptUtilityCameraPadding = 18;
-const nodeGraphShaderScriptColorWidgetModuleUrl = "./public/color-widget.js?v=shader-token-color-widget-1";
+// Prefer window global from color-widget-boot.js; else import next to this script.
+const nodeGraphShaderScriptColorWidgetModuleUrl = (function resolveColorWidgetUrl() {
+  const script = document.querySelector('script[src*="node-graph-shader-script.js"]');
+  if (script?.src) {
+    return new URL("color-widget.js?v=trace-display-3", script.src).href;
+  }
+  try {
+    return new URL("/public/color-widget.js?v=trace-display-3", window.location.origin).href;
+  } catch {
+    return "./public/color-widget.js?v=trace-display-3";
+  }
+})();
 const nodeGraphShaderScriptBlendModes = Object.freeze(["laser", "led", "light", "paint", "solid", "heatmap"]);
 const nodeGraphShaderScriptBlendModePatternSource = nodeGraphShaderScriptBlendModes
   .map((mode) => mode.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
@@ -774,7 +785,28 @@ function nodeGraphShaderScriptHexToHsl(hexToken = "#ffffff") {
 }
 
 function loadNodeGraphShaderScriptColorWidgetModule() {
-  nodeGraphShaderScriptState.colorWidgetLoad ||= import(nodeGraphShaderScriptColorWidgetModuleUrl);
+  if (typeof window !== "undefined" && typeof window.mountColorWidget === "function") {
+    return Promise.resolve({
+      mountColorWidget: window.mountColorWidget,
+      SoundColorWidget: window.SoundColorWidget,
+      hslToHex: window.hslToHex,
+    });
+  }
+  if (!nodeGraphShaderScriptState.colorWidgetLoad) {
+    nodeGraphShaderScriptState.colorWidgetLoad = import(nodeGraphShaderScriptColorWidgetModuleUrl)
+      .then((mod) => {
+        if (typeof window !== "undefined" && mod?.mountColorWidget) {
+          window.mountColorWidget = mod.mountColorWidget;
+          window.SoundColorWidget = mod.SoundColorWidget;
+          window.hslToHex = mod.hslToHex;
+        }
+        return mod;
+      })
+      .catch((err) => {
+        nodeGraphShaderScriptState.colorWidgetLoad = null;
+        throw err;
+      });
+  }
   return nodeGraphShaderScriptState.colorWidgetLoad;
 }
 

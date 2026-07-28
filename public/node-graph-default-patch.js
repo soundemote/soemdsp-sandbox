@@ -11,15 +11,17 @@ function nodeGraphModuleDefaultOverrideForType(type) {
 }
 
 function createNodeGraphPatchNode(type, options = {}) {
-  const override = nodeGraphModuleDefaultOverrideForType(type);
+  // phosphorLight is a retired alias of scope2d (2D Phosphor).
+  const resolvedType = type === "phosphorLight" ? "scope2d" : type;
+  const override = nodeGraphModuleDefaultOverrideForType(resolvedType);
   const opts = override ? { ...override, ...options } : options;
   const node = {
     gx: Number.isFinite(Number(opts.gx)) ? Number(opts.gx) : 0,
     gy: Number.isFinite(Number(opts.gy)) ? Number(opts.gy) : 0,
-    id: String(opts.id || type),
-    paramMeta: nodeGraphDefaultParamMetaForType(type),
-    params: nodeGraphDefaultParamsForType(type),
-    type,
+    id: String(opts.id || resolvedType),
+    paramMeta: nodeGraphDefaultParamMetaForType(resolvedType),
+    params: nodeGraphDefaultParamsForType(resolvedType),
+    type: resolvedType,
   };
   const paramsOverride = opts.params && typeof opts.params === "object" ? opts.params : null;
   if (paramsOverride) {
@@ -42,47 +44,47 @@ function createNodeGraphPatchNode(type, options = {}) {
     }
   }
   if (Object.hasOwn(opts, "widthGu")) {
-    node.widthGu = normalizeNodeGraphModuleWidthUnits(type, opts.widthGu);
+    node.widthGu = normalizeNodeGraphModuleWidthUnits(resolvedType, opts.widthGu);
   }
   const alias = normalizeNodeGraphPatchNodeAlias(opts.alias);
   if (alias) {
     node.alias = alias;
   }
-  const ui = nodeGraphModuleDefinitions[type]?.layout === "textBox" && !Object.hasOwn(opts, "ui")
+  const ui = nodeGraphModuleDefinitions[resolvedType]?.layout === "textBox" && !Object.hasOwn(opts, "ui")
     ? { buttonsHidden: true }
-    : normalizeNodeGraphPatchNodeUi(opts.ui, type);
+    : normalizeNodeGraphPatchNodeUi(opts.ui, resolvedType);
   if (ui.buttonsHidden || ui.titleHidden) {
     node.ui = ui;
   }
-  if (nodeGraphModuleDefinitions[type]?.layout === "textBox") {
+  if (nodeGraphModuleDefinitions[resolvedType]?.layout === "textBox") {
     node.layout = normalizeNodeGraphTextBoxLayout(opts.layout);
-  } else if (nodeGraphModuleDefinitions[type]?.layout === "image") {
+  } else if (nodeGraphModuleDefinitions[resolvedType]?.layout === "image") {
     node.layout = normalizeNodeGraphImageLayout(opts.layout);
-  } else if (nodeGraphModuleDefinitions[type]?.layout === "led") {
+  } else if (nodeGraphModuleDefinitions[resolvedType]?.layout === "led") {
     node.led = normalizeNodeGraphLedLayout(opts.led);
   }
-  if (nodeGraphModuleIsGraphType(type)) {
+  if (nodeGraphModuleIsGraphType(resolvedType)) {
     node.graph = normalizeNodeGraphGraph(opts.graph);
   }
-  if (type === "codeblock") {
+  if (resolvedType === "codeblock") {
     node.codeblock = normalizeNodeGraphCodeblock(opts.codeblock);
   }
-  if (type === "customDisplay") {
+  if (resolvedType === "customDisplay") {
     node.customDisplay = normalizeNodeGraphCustomDisplay(opts.customDisplay);
   }
-  if (type === "canvas") {
+  if (resolvedType === "canvas") {
     node.canvasScript = normalizeNodeGraphCanvasScript(opts.canvasScript);
   }
-  if (type === "screenSpaceShader") {
+  if (resolvedType === "screenSpaceShader") {
     node.screenSpaceShader = normalizeNodeGraphScreenSpaceShader(opts.screenSpaceShader);
   }
   if (Object.hasOwn(opts, "scopeShader")) {
     node.scopeShader = normalizeNodeGraphScopeShader(opts.scopeShader);
   }
-  if (type === "moduleGroup") {
+  if (resolvedType === "moduleGroup") {
     node.moduleGroup = normalizeNodeGraphModuleGroup(options.moduleGroup);
   }
-  if (type === "clapPlugin") {
+  if (resolvedType === "clapPlugin") {
     node.clap = normalizeNodeGraphClapPluginBinding(options.clap);
   }
   return node;

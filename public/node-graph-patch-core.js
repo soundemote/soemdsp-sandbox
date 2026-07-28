@@ -53,6 +53,36 @@ const nodeGraphRetiredNodeTypes = new Set([
   "scriptBox",
 ]);
 
+/**
+ * Legacy phosphorLight → scope2d (2D Phosphor).
+ * Ports stay X/Y; settings map color/brightness → dot1Color/dot1Brightness.
+ */
+function migrateNodeGraphPhosphorLightToScope2d(node) {
+  if (!node || String(node.type || "").trim() !== "phosphorLight") {
+    return node;
+  }
+  const src = node.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
+    ? node.traceDisplaySettings
+    : {};
+  const migratedSettings = {
+    ...src,
+    background: src.background ?? src.backgroundColor,
+    burn: src.burn,
+    decay: src.decay,
+    scale: src.scale,
+    dot1Size: src.dot1Size,
+    lineThickness: src.lineThickness ?? src.dot1Blur,
+    pixelDensity: src.pixelDensity,
+    dot1Color: src.dot1Color ?? src.color,
+    dot1Brightness: src.dot1Brightness ?? src.brightness,
+  };
+  return {
+    ...node,
+    type: "scope2d",
+    traceDisplaySettings: migratedSettings,
+  };
+}
+
 function validateNodeGraphPatch(patch) {
   if (!patch || typeof patch !== "object") {
     throw new Error("patch must be an object");
@@ -88,7 +118,10 @@ function validateNodeGraphPatch(patch) {
       .filter(Boolean),
   );
   const ids = new Set();
-  const nodes = patch.nodes.filter((node) => !retiredNodeTypes.has(String(node.type || "").trim())).map((node) => {
+  const nodes = patch.nodes
+    .filter((node) => !retiredNodeTypes.has(String(node.type || "").trim()))
+    .map((rawNode) => migrateNodeGraphPhosphorLightToScope2d(rawNode))
+    .map((node) => {
     const id = String(node.id || "").trim();
     const type = String(node.type || "").trim();
     if (!id) {

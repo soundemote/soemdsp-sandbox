@@ -10300,8 +10300,20 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: block;
   width: 100%;
   height: 100%;
+  /* Default phosphor/local faces: screen blend over plate. */
   mix-blend-mode: screen;
   pointer-events: none;
+}
+
+/*
+ * VECTOR Trace faces: continuous polylines into a face buffer.
+ * - normal blend (opaque strokes)
+ * - density < 1: sync sets image-rendering:pixelated for chunky lo-fi
+ * - density ≥ 1: auto (smooth); workspace pixelated-zoom still excluded so
+ *   density-1 keeps the current non-shimmer look under graph zoom
+ */
+.node-module-scope-local-fallback-canvas.node-module-scope-vector-trace {
+  mix-blend-mode: normal;
 }
 
 .node-number-readout-canvas,
@@ -10435,7 +10447,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-graph-workspace.pixelated-canvas-zoom .node-filter-curve-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-phosphor-waveform-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-phosphillator-draw-canvas,
-.node-graph-workspace.pixelated-canvas-zoom .node-module-scope-local-fallback-canvas,
+.node-graph-workspace.pixelated-canvas-zoom .node-module-scope-local-fallback-canvas:not(.node-module-scope-vector-trace),
 .node-graph-workspace.pixelated-canvas-zoom .node-number-readout-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-phosphor-light-canvas {
   image-rendering: pixelated;
@@ -13031,6 +13043,116 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   gap: 0;
   grid-template-columns: minmax(52px, 0.34fr) minmax(0, 1fr);
   padding: 0;
+}
+
+/*
+ * Inline SoundColorWidget for Trace display colors.
+ * Must NOT wrap a native type=color in a <label> — that opens the OS picker
+ * and parks it top-left when the input has no geometry.
+ * Host needs a real width/height: the widget sizes via container queries.
+ */
+.node-trace-display-settings-popover .node-trace-display-color-widget-row {
+  display: grid;
+  grid-template-columns: minmax(52px, 0.34fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0;
+  min-height: 104px;
+  padding: 0;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-row > span:first-child {
+  align-self: center;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 4px 0 0;
+  text-overflow: clip;
+  white-space: nowrap;
+  color: var(--muted, rgba(243, 240, 230, 0.72));
+  font-size: 0.72rem;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-row > input[type="hidden"] {
+  display: none;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-host {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 104px;
+  min-height: 104px;
+  /* Match shader-token color widget theme so strips are readable. */
+  --color-widget-accent: rgba(127, 199, 217, 0.86);
+  --color-widget-bg: rgba(0, 5, 7, 0.42);
+  --color-widget-border: rgba(127, 199, 217, 0.2);
+  --color-widget-control-border: rgba(127, 199, 217, 0.22);
+  --color-widget-hex-bg: rgba(0, 5, 7, 0.68);
+  --color-widget-hex-ink: rgba(236, 251, 246, 0.9);
+  --color-widget-label-ink: rgba(156, 164, 166, 0.78);
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-host.scw-mount {
+  display: grid;
+  height: 104px;
+  min-height: 104px;
+  place-items: stretch;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-root {
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+}
+
+/*
+ * Global `button { min-height: 38px; padding; background: panel }` would
+ * crush container-query strips and paint over hue/bright gradients.
+ */
+.node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  box-sizing: border-box;
+  min-height: 0 !important;
+  height: 100% !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1px solid var(--color-widget-control-border, rgba(127, 199, 217, 0.22)) !important;
+  border-radius: 4px !important;
+  color: transparent !important;
+  box-shadow: none !important;
+  cursor: ew-resize;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control:hover {
+  border-color: var(--color-widget-accent, rgba(127, 199, 217, 0.86)) !important;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-hue {
+  background: linear-gradient(
+    90deg,
+    hsl(0 100% 50%),
+    hsl(60 100% 50%),
+    hsl(120 100% 50%),
+    hsl(180 100% 50%),
+    hsl(240 100% 50%),
+    hsl(300 100% 50%),
+    hsl(360 100% 50%)
+  ) !important;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-brightness {
+  background: linear-gradient(90deg, #000, #fff) !important;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-controls {
+  min-height: 28px;
+  height: 100%;
+  align-self: stretch;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-hex {
+  min-height: 22px;
 }
 
 .node-trace-display-settings-popover .metadata-section-title {

@@ -244,8 +244,15 @@ function normalizeNodeGraphClapPluginBinding(clap = {}) {
   return binding;
 }
 
+// When true, titles become "1D Trace 2" from id suffix. When false (default),
+// every instance uses the plain label ("1D Trace") — cosmetic only; ids stay unique.
+const nodeGraphModuleTitleAppendIdSuffix = false;
+
 function nodeGraphDefaultNodeTitle(type, id) {
   const label = nodeGraphNodeLabels[type] || String(type || "");
+  if (!nodeGraphModuleTitleAppendIdSuffix) {
+    return label;
+  }
   const idText = String(id || "").trim();
   const suffix = idText.split("-").at(-1) || "";
   if (id === type || idText.toLowerCase() === label.toLowerCase() || suffix.toLowerCase() === label.toLowerCase()) {
@@ -289,20 +296,23 @@ function cloneNodeGraphTypedDisplaySettings(node) {
   if (displayType === "value") {
     return { traceDisplaySettings: normalizeNodeGraphValueOscilloscopeSettings(migrate(node.traceDisplaySettings, false)) };
   }
-  if (displayType === "scope2d") {
-    return { traceDisplaySettings: normalizeNodeGraphScope2dSettings(migrate(node.traceDisplaySettings, false)) };
+  if (displayType === "scope2d" || displayType === "phosphorLight") {
+    // phosphorLight is a legacy alias of scope2d; always store scope2d schema.
+    const raw = migrate(node.traceDisplaySettings, false) || {};
+    const mapped = {
+      ...raw,
+      background: raw.background ?? raw.backgroundColor,
+      dot1Color: raw.dot1Color ?? raw.color,
+      dot1Brightness: raw.dot1Brightness ?? raw.brightness,
+      lineThickness: raw.lineThickness ?? raw.dot1Blur,
+    };
+    return { traceDisplaySettings: normalizeNodeGraphScope2dSettings(mapped) };
   }
   if (displayType === "scope2dTrace") {
     return { traceDisplaySettings: normalizeNodeGraphScope2dTraceSettings(migrate(node.traceDisplaySettings, false)) };
   }
   if (displayType === "numberReadout") {
     return { traceDisplaySettings: normalizeNodeGraphNumberReadoutSettings(migrate(node.traceDisplaySettings, false)) };
-  }
-  if (displayType === "phosphorLight") {
-    const normalize = typeof normalizeNodeGraphPhosphorLightSettings === "function"
-      ? normalizeNodeGraphPhosphorLightSettings
-      : (value) => value || {};
-    return { traceDisplaySettings: normalize(migrate(node.traceDisplaySettings, false)) };
   }
   if (displayType === "trace" && Object.hasOwn(node, "traceDisplaySettings")) {
     return { traceDisplaySettings: normalizeNodeGraphTraceDisplaySettings(migrate(node.traceDisplaySettings, isOutput)) };
@@ -332,7 +342,10 @@ function cloneNodeGraphPatch(patch) {
       tracePoints: normalizeNodeGraphTracePoints(modulation.tracePoints),
     })),
     monitors: normalizeNodeGraphPatchMonitors(patch.monitors, patch),
-    nodes: (patch.nodes || []).map((node) => {
+    nodes: (patch.nodes || []).map((rawNode) => {
+      const node = typeof migrateNodeGraphPhosphorLightToScope2d === "function"
+        ? migrateNodeGraphPhosphorLightToScope2d(rawNode)
+        : rawNode;
       const ui = nodeGraphModuleDefinitions[node.type]?.layout === "textBox" && !Object.hasOwn(node, "ui")
         ? { buttonsHidden: true }
         : normalizeNodeGraphPatchNodeUi(node.ui, node.type);

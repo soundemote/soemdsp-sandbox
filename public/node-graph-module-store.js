@@ -16,6 +16,7 @@ let nodeGraphNativeModuleCatalogLoadStarted = false;
 const nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([
   "canvas",
   "humanFilter",
+  "oscilloscopeBank",
   "shootingStarTail",
 ]));
 
@@ -798,8 +799,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   // -- see node-graph-chromeless-module-registry.js.
   visualOscilloscope: {
     category: "oscilloscope",
-    description: "Square in-world display tile. Patch any signal into In and use it as a dedicated visual display.",
-    notes: ["square display", "signal display", "visual sink"],
+    description: "Multi-mode Display sink. Modes: 2D Trace / 2D Phosphor (X/Y), 1D Trace / Phosphor Dot (Mono). Same face settings as the dedicated modules.",
+    label: "Display",
+    notes: ["multi-mode", "2D Trace", "2D Phosphor", "1D Trace", "Phosphor Dot", "visual sink"],
   },
   traceDisplay: {
     category: "oscilloscope",
@@ -814,9 +816,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   oscilloscopeBank: {
     category: "oscilloscope",
-    description: "A phase-vs-amplitude scope for any voice-bank source (Hypersaw today). Wire Phases/Amplitudes/Pans from a compatible node -- x is phase (0..1), y is amplitude (bipolar stem), color is pan (red = left, green = center, blue = right). Additive blending so overlapping voices brighten instead of overpainting; phosphor persistence so you see where each line has been, not just where it is now.",
+    description: "Work in progress. Phase-vs-amplitude scope for voice-bank sources (Hypersaw today). Wire Phases/Amplitudes/Pans — not polished with the core face stack yet.",
     label: "Oscilloscope Bank",
-    notes: ["voice bank scope", "phase vs amplitude", "pan color", "additive blend", "phosphor burn"],
+    notes: ["work in progress", "voice bank scope", "phase vs amplitude", "under construction"],
   },
   videoscope: {
     category: "rgb",
@@ -867,11 +869,11 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   phosphorLight: {
     category: "oscilloscope",
-    // Hidden legacy testbed — same energy path as scope2d / 2D Phosphor.
+    // Hidden + load-migrated to scope2d. Do not re-enable in shop.
     hidden: true,
-    description: "Legacy alias of 2D Phosphor (mono energy drawer). Prefer the 2D Phosphor module for new patches.",
-    label: "2D Phosphor",
-    notes: ["legacy", "xy phosphor", "energy drawer"],
+    description: "Retired. Opens as 2D Phosphor (scope2d). Use the 2D Phosphor module for new patches.",
+    label: "2D Phosphor (legacy)",
+    notes: ["legacy", "migrates to scope2d", "hidden"],
   },
   scope2dTrace: {
     category: "oscilloscope",
