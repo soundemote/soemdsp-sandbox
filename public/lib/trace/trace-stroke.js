@@ -1,8 +1,9 @@
 // Instant (non-phosphor) trace stroke helpers.
 //
 // Not burn: no energy FBO, no decay, no bleed. Clear + redraw each frame.
-// Blur UX matches burn stamps: 0 = hard edge, 1 = soft outer skirt.
-// Size is 0–1 of face min side (diameter).
+// Softness is Canvas shadowBlur (ch4os soft-brush style): one solid stroke
+// with a continuous outer falloff — not a dual core+skirt pass (that ringed).
+// Blur 0 = hard, 1 = very soft. Size is 0–1 of face min side (diameter).
 
 (function initTraceStroke(global) {
   function clamp01(value, fallback = 0) {
@@ -80,10 +81,23 @@
   }
 
   /**
-   * Hard-core + soft-skirt instant stroke (no persistence).
-   * options: { size, blur, brightness, color, faceMinSide, rgb }
-   * color: #rrggbb; or pass rgb: [r,g,b] 0–255
+   * Continuous soft stroke via Canvas shadowBlur (ch4os paint soft-brush style).
+   * One solid path + matching soft outer falloff — no dual core/skirt pass
+   * (that read as a hard ring between blur and non-blur).
+   *
+   * blur 0 → hard (shadowBlur 0), blur 1 → very soft wide falloff.
+   * options: { size, blur, brightness, color, faceMinSide, rgb, composite }
    */
+  function softnessBlurPx(diameter, blur01) {
+    const soft = clamp01(blur01, 0);
+    if (soft < 0.01) {
+      return 0;
+    }
+    // Map like ch4os hardness→blur: size * (1-hardness) * k, with blur = 1-hardness.
+    // Slightly stronger than paint (×1.15) so scope traces read soft at mid blur.
+    return Math.max(0, diameter * soft * 1.15);
+  }
+
   function draw(context, points, options = {}) {
     if (!context || !Array.isArray(points) || !points.length) {
       return 0;
@@ -111,11 +125,10 @@
     }
     const [r, g, b] = rgb;
     const diameter = diameterPx(face, size01);
-    const coreWidth = Math.max(1, diameter);
-    // Soft skirt only grows with blur — hard end stays a clean stroke.
-    const skirtWidth = coreWidth * (1 + blur * 2.8);
-    const coreAlpha = Math.min(1, brightness);
-    const skirtAlpha = Math.min(1, brightness * (0.12 + blur * 0.38));
+    const lineWidth = Math.max(1, diameter);
+    const alpha = Math.min(1, brightness);
+    const color = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    const shadowPx = softnessBlurPx(lineWidth, blur);
 
     const visible = points.filter((p) => p && Number.isFinite(p.x) && Number.isFinite(p.y));
     if (!visible.length) {
@@ -126,37 +139,29 @@
     context.globalCompositeOperation = options.composite || "lighter";
     context.lineCap = "round";
     context.lineJoin = "round";
-    context.shadowBlur = 0;
-    context.shadowColor = "transparent";
+    context.lineWidth = lineWidth;
+    context.strokeStyle = color;
+    context.fillStyle = color;
+    // Solid shape + soft shadow falloff (same continuous soft brush as ch4os).
+    if (shadowPx > 0) {
+      context.shadowColor = color;
+      context.shadowBlur = shadowPx;
+    } else {
+      context.shadowBlur = 0;
+      context.shadowColor = "transparent";
+    }
 
     if (visible.length === 1) {
       const p = visible[0];
-      if (blur > 0.02 && skirtAlpha > 0.01) {
-        context.beginPath();
-        context.fillStyle = `rgba(${r}, ${g}, ${b}, ${skirtAlpha})`;
-        context.arc(p.x, p.y, skirtWidth * 0.5, 0, Math.PI * 2);
-        context.fill();
-      }
       context.beginPath();
-      context.fillStyle = `rgba(${r}, ${g}, ${b}, ${coreAlpha})`;
-      context.arc(p.x, p.y, coreWidth * 0.5, 0, Math.PI * 2);
+      context.arc(p.x, p.y, lineWidth * 0.5, 0, Math.PI * 2);
       context.fill();
-      context.restore();
-      return 1;
-    }
-
-    // Soft outer skirt (skip when nearly hard — cheaper + cleaner).
-    if (blur > 0.02 && skirtAlpha > 0.01 && skirtWidth > coreWidth + 0.25) {
-      context.lineWidth = skirtWidth;
-      context.strokeStyle = `rgba(${r}, ${g}, ${b}, ${skirtAlpha})`;
+    } else {
       strokePath(context, points);
     }
 
-    // Hard-ish core
-    context.lineWidth = coreWidth;
-    context.strokeStyle = `rgba(${r}, ${g}, ${b}, ${coreAlpha})`;
-    strokePath(context, points);
-
+    context.shadowBlur = 0;
+    context.shadowColor = "transparent";
     context.restore();
     return visible.length;
   }
