@@ -100,19 +100,18 @@
     uniform sampler2D uEnergy;
     uniform sampler2D uLut;
     uniform float uTrailGain;
-    // uExposure > 0: soft film curve (1 - exp(-e * exposure)) like classic scope2d
-    // composite — keeps ultra-soft peaks without hard clipping. 0 = simple gamma.
+    // uExposure > 0: soft film curve. Lift lows first so soft skirts stay visible
+    // (8-bit energy + harsh gamma was killing bleed into hard pixel edges).
     uniform float uExposure;
     void main() {
-      float e = texture2D(uEnergy, vUv).r;
+      float e = max(texture2D(uEnergy, vUv).r, 0.0);
+      // Lift soft energy so skirts accumulate visibly before film response.
+      e = pow(clamp(e, 0.0, 1.0), 0.62);
       if (uExposure > 0.001) {
-        e = 1.0 - exp(-max(e, 0.0) * uExposure);
-        e = pow(clamp(e, 0.0, 1.0), 0.72);
-      } else {
-        // Mild gamma keeps soft edges from posterizing.
-        e = pow(clamp(e, 0.0, 1.0), 1.12);
+        e = 1.0 - exp(-e * uExposure * 0.78);
+        e = pow(clamp(e, 0.0, 1.0), 0.88);
       }
-      vec3 c = texture2D(uLut, vec2(e, 0.5)).rgb;
+      vec3 c = texture2D(uLut, vec2(clamp(e, 0.0, 1.0), 0.5)).rgb;
       float a = clamp(e * uTrailGain, 0.0, 1.0);
       gl_FragColor = vec4(c * a, a);
     }
@@ -836,7 +835,7 @@
     const pathPoints = options.pathPoints;
     const vertices = Array.isArray(options.vertices)
       ? options.vertices
-      : buildDotVertices(pathPoints);
+      : buildDotVertices(pathPoints, options);
     // 3 floats per vertex.
     const vertexCount = Math.floor(vertices.length / 3);
     if (vertexCount <= 0) {
@@ -847,7 +846,8 @@
     if (brightness < 1e-6) {
       return 0;
     }
-    const blur = Math.max(0, Math.min(1, Number(options.blur) || 0));
+    // Signed: -1 hard … 0 shadowBlur … +1 full soft gaussian.
+    const blur = Math.max(-1, Math.min(1, Number(options.blur) || 0));
     const { gl } = renderer;
 
     if (renderer.segmentScratch.length < vertices.length) {

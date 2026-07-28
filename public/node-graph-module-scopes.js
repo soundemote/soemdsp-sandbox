@@ -2396,8 +2396,8 @@ const nodeGraphScope2dSettingsDefaults = Object.freeze({
   dot1Size: 0.08,
   // Soft stamp budget (ceiling). Under load, dots spread evenly (skips), not head-only.
   dotBudget: 2048,
-  // Signed stamp blur: -1 hard disc, 0 shadowBlur core+skirt, +1 full soft gaussian.
-  lineThickness: 0,
+  // Signed stamp blur: -1 tighter soft core, 0 painterly core+skirt, +1 full soft bleed.
+  lineThickness: 0.35,
   // 0 = 1px floor, 1 = layout×dpr, 4 = 4× supersample AA (fixes zoom pixeliness).
   pixelDensity: 1,
   scale: 1,
@@ -10543,7 +10543,8 @@ function nodeGraphScope2dBurnLayers(settings, dotSpace) {
     const size01 = clampNodeSliderValue(settings.dot1Size, 0, 1);
     const side = Math.max(1, Number(dotSpace) || 1);
     layers.push({
-      blur: clampNodeSliderValue(settings.lineThickness, 0, 1),
+      // Signed: -1 hard disc, 0 painterly core+skirt, +1 full soft gaussian.
+      blur: clampNodeSliderValue(settings.lineThickness, -1, 1),
       brightness: Math.max(0, Number(settings.dot1Brightness) || 0),
       color: nodeGraphScopeHexColorToRgb(settings.dot1Color),
       radius: Math.max(0.5, side * size01 * 0.5),
@@ -10731,7 +10732,7 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       pathPoints: points,
       radius: Math.max(0.35, layer.radius),
       brightness: beamBrightness,
-      blur: clampNodeSliderValue(layer.blur, 0, 1),
+      blur: clampNodeSliderValue(layer.blur, -1, 1),
       mode: "dots",
       // User / face ceiling. Under load: even skips across full path (not head-only).
       maxDots: Math.max(
