@@ -112,7 +112,10 @@
   `;
 
   // Continuous gaussian beam ribbon — same geometry as scope2d / Lorenz, mono energy.
+  // Shared uniforms must use the same precision in VS + FS or link fails
+  // ("Precisions of uniform 'uRadius' differ between VERTEX and FRAGMENT shaders").
   const BEAM_VERT = `
+    precision mediump float;
     attribute vec2 aStart;
     attribute vec2 aEnd;
     attribute float aCorner;
