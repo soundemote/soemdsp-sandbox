@@ -2532,14 +2532,13 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
       0,
       1,
     ),
-    secondaryLineThickness: normalizeNodeGraphTraceDisplayNumber(
-      source.secondaryLineThickness,
-      defaults.secondaryLineThickness,
-      0,
-      1,
+    secondaryLineThickness: nodeGraphTraceDisplayClampStampBlur(
+      source.secondaryLineThickness ?? defaults.secondaryLineThickness,
     ),
     cycles: normalizeNodeGraphTraceDisplayNumber(source.cycles, defaults.cycles, -Infinity, Infinity),
-    lineThickness: normalizeNodeGraphTraceDisplayNumber(source.lineThickness, defaults.lineThickness, 0, 1),
+    lineThickness: nodeGraphTraceDisplayClampStampBlur(
+      source.lineThickness ?? defaults.lineThickness,
+    ),
     padding: normalizeNodeGraphTraceDisplayNumber(source.padding, defaults.padding, -Infinity, Infinity),
     skipDiscontinuities: source.skipDiscontinuities !== false,
     sourceSync: source.sourceSync !== false,
@@ -2645,11 +2644,8 @@ function normalizeNodeGraphScope2dTraceSettings(settings = {}) {
       source.historySeconds ?? source.history,
       defaults.historySeconds,
     ),
-    lineThickness: normalizeNodeGraphTraceDisplayNumber(
-      source.lineThickness ?? source.dot1Blur,
-      defaults.lineThickness,
-      0,
-      1,
+    lineThickness: nodeGraphTraceDisplayClampStampBlur(
+      source.lineThickness ?? source.dot1Blur ?? defaults.lineThickness,
     ),
     scale: normalizeNodeGraphTraceDisplayNumber(source.scale, defaults.scale, 0, Infinity),
   };
@@ -4634,7 +4630,12 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
   }),
   scope2dTrace: Object.freeze({
-    lineThickness: nodeGraphTraceDisplayClampUnit,
+    lineThickness: nodeGraphTraceDisplayClampStampBlur,
+  }),
+  // 1D Trace Display blur 0 hard … 1 soft skirt (same UX as burn stamps, no persistence).
+  trace: Object.freeze({
+    lineThickness: nodeGraphTraceDisplayClampStampBlur,
+    secondaryLineThickness: nodeGraphTraceDisplayClampStampBlur,
   }),
 });
 
@@ -11124,25 +11125,43 @@ function buildNodeGraphScope2dTraceCanvasPoints(item, pixelRatio, square, buffer
   if (!canvasSquare || count <= 0) {
     return [];
   }
+  // Control-point budget only — canvas stroke fills segments (no densify loop).
+  const budget = typeof TraceStroke !== "undefined" && TraceStroke.pointBudget
+    ? TraceStroke.pointBudget(canvasSquare.width, canvasSquare.height)
+    : Math.max(256, Math.min(4096, Math.floor(Math.sqrt(canvasSquare.width * canvasSquare.height) * 8)));
+  const indices = typeof nodeGraphScope2dEvenSampleIndices === "function"
+    ? nodeGraphScope2dEvenSampleIndices(count, budget)
+    : null;
   const points = [];
   const maxSegmentPixels = nodeGraphScope2dTraceMaxSegmentPixels(canvasSquare);
-  const spacingPx = nodeGraphScope2dContinuitySpacingPx(
-    settings,
-    Math.min(canvasSquare.width, canvasSquare.height),
-  );
   let previousPoint = null;
-  for (let index = 0; index < count; index += 1) {
-    const point = nodeGraphScope2dTracePointFromSamples(canvasSquare, buffer.x[index], buffer.y[index], settings);
+  const visit = (index) => {
+    const point = nodeGraphScope2dTracePointFromSamples(
+      canvasSquare,
+      buffer.x[index],
+      buffer.y[index],
+      settings,
+    );
     if (!point) {
       breakNodeGraphScope2dPath(points);
       previousPoint = null;
-      continue;
+      return;
     }
     if (!nodeGraphScope2dTraceSegmentIsContinuous(previousPoint, point, maxSegmentPixels)) {
       breakNodeGraphScope2dPath(points);
       previousPoint = null;
     }
-    previousPoint = appendNodeGraphScope2dSegment(points, previousPoint, point, spacingPx);
+    points.push(point);
+    previousPoint = point;
+  };
+  if (indices && indices.length) {
+    for (let i = 0; i < indices.length; i += 1) {
+      visit(indices[i]);
+    }
+  } else {
+    for (let index = 0; index < count; index += 1) {
+      visit(index);
+    }
   }
   return points;
 }
@@ -11151,35 +11170,41 @@ function drawNodeGraphScope2dTraceLayer(context, points, dotSpace, settings) {
   if (!context || !Array.isArray(points) || !points.length) {
     return;
   }
-  const enabled = settings.dot1Enabled !== false;
+  if (settings.dot1Enabled === false) {
+    return;
+  }
+  // Instant core+skirt stroke (no burn/bleed). Blur 0 hard … 1 soft skirt.
+  if (typeof TraceStroke !== "undefined" && TraceStroke.draw) {
+    const count = TraceStroke.draw(context, points, {
+      size: settings.dot1Size,
+      blur: settings.lineThickness,
+      brightness: settings.dot1Brightness,
+      color: settings.dot1Color,
+      faceMinSide: Math.max(1, Number(dotSpace) || 1),
+    });
+    if (count > 0) {
+      recordNodeGraphModuleScopeRenderMetrics(count, count);
+    }
+    return;
+  }
   const size = clampNodeSliderValue(settings.dot1Size, 0, 1);
   const brightness = Math.max(0, Number(settings.dot1Brightness) || 0);
-  if (!enabled || size <= 0 || brightness <= 0) {
+  if (size <= 0 || brightness <= 0) {
     return;
   }
   const blur = clampNodeSliderValue(settings.lineThickness, 0, 1);
   const rgb = nodeGraphScopeRgbFloatsToCanvasRgb(nodeGraphScopeHexColorToRgb(settings.dot1Color));
-  const alpha = Math.min(1, brightness);
-  const radius = Math.max(0.5, dotSpace * size * 0.5);
+  const radius = Math.max(0.5, Math.max(1, Number(dotSpace) || 1) * size * 0.5);
   context.save();
   context.globalCompositeOperation = "lighter";
   context.lineCap = "round";
   context.lineJoin = "round";
   context.lineWidth = radius * 2;
-  context.strokeStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`;
-  context.shadowColor = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${Math.min(1, alpha * 0.9)})`;
-  context.shadowBlur = radius * (0.35 + blur * 2.2);
-  const visiblePoints = points.filter(Boolean);
-  if (visiblePoints.length === 1) {
-    drawNodeGraphModuleScopeLightShape(context, "circle", visiblePoints[0].x, visiblePoints[0].y, radius);
-    context.fillStyle = context.strokeStyle;
-    context.fill();
-  } else {
-    context.beginPath();
-    drawNodeGraphScopeCanvasSmoothPath(context, points);
-    context.stroke();
-  }
-  recordNodeGraphModuleScopeRenderMetrics(visiblePoints.length, visiblePoints.length);
+  context.strokeStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${Math.min(1, brightness)})`;
+  context.shadowBlur = blur > 0.02 ? radius * blur * 2 : 0;
+  context.beginPath();
+  drawNodeGraphScopeCanvasSmoothPath(context, points);
+  context.stroke();
   context.restore();
 }
 
@@ -11265,7 +11290,10 @@ function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot) {
   }
   const visibleSamples = Math.max(1, view.end - view.start);
   const width = Math.max(1, canvas.width);
-  const pointCount = Math.max(2, Math.min(width, Math.ceil(visibleSamples)));
+  const budget = typeof TraceStroke !== "undefined" && TraceStroke.pointBudget
+    ? TraceStroke.pointBudget(canvas.width, canvas.height, nodeGraphTraceDisplayRenderPointBudget())
+    : Math.max(2, Math.min(width, nodeGraphTraceDisplayRenderPointBudget()));
+  const pointCount = Math.max(2, Math.min(width, Math.ceil(visibleSamples), budget));
   const midY = canvas.height * 0.5;
   const samplesPerPoint = visibleSamples / Math.max(1, pointCount - 1);
   const progressFn = (index, count) => count <= 1 ? 0 : index / (count - 1);
@@ -11287,29 +11315,39 @@ function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot) {
 }
 
 function drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas, options = {}) {
-  if (!context || !Array.isArray(points) || points.length < 2 || !canvas) {
+  if (!context || !Array.isArray(points) || points.length < 1 || !canvas) {
     return;
   }
-  const enabled = layer.enabled !== false;
+  if (layer.enabled === false) {
+    return;
+  }
+  const face = Math.min(canvas.width, canvas.height);
+  if (typeof TraceStroke !== "undefined" && TraceStroke.draw) {
+    // Instant core+skirt (no burn). options.glow false → hard core only.
+    TraceStroke.draw(context, points, {
+      size: layer.size,
+      blur: options.glow === false ? 0 : layer.blur,
+      brightness: layer.brightness,
+      color: layer.color,
+      faceMinSide: face,
+    });
+    return;
+  }
   const size = clampNodeSliderValue(layer.size, 0, 1);
   const brightness = Math.max(0, Number(layer.brightness) || 0);
-  if (!enabled || size <= 0 || brightness <= 0) {
+  if (size <= 0 || brightness <= 0) {
     return;
   }
-  const glow = options.glow !== false;
   const blur = clampNodeSliderValue(layer.blur, 0, 1);
   const rgb = nodeGraphScopeRgbFloatsToCanvasRgb(nodeGraphScopeHexColorToRgb(layer.color));
-  const lineWidth = Math.max(1, Math.min(canvas.width, canvas.height) * size);
+  const lineWidth = Math.max(1, face * size);
   context.save();
   context.globalCompositeOperation = "lighter";
   context.lineCap = "round";
   context.lineJoin = "round";
   context.lineWidth = lineWidth;
   context.strokeStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${Math.min(1, brightness)})`;
-  if (glow) {
-    context.shadowColor = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${Math.min(1, brightness)})`;
-    context.shadowBlur = lineWidth * blur * 1.5;
-  }
+  context.shadowBlur = (options.glow !== false && blur > 0.02) ? lineWidth * blur * 1.5 : 0;
   context.beginPath();
   drawNodeGraphScopeCanvasSmoothPath(context, points);
   context.stroke();
