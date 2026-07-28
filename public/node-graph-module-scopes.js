@@ -3504,6 +3504,7 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
   ["scale", "Scale"],
   ["burn", "Burn"],
   ["decay", "Decay"],
+  ["pixelDensity", "Pixel density"],
   ["padding", "Amp"],
   ["cycles", "Cycles"],
   ["decimals", "Decimals"],
@@ -3625,6 +3626,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "burn",
       "decay",
       "scale",
+      "pixelDensity",
       "lineThickness",
       "dot1Brightness",
     ]),
@@ -3668,6 +3670,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "zoomSeconds",
       "historySeconds",
       "scale",
+      "pixelDensity",
       "padding",
       "decimals",
       "ghost",
@@ -3793,6 +3796,14 @@ function nodeGraphTraceDisplaySettingsElement() {
             <button type="button" data-trace-display-step-target="scale" data-trace-display-step-direction="-1">-</button>
             <input id="nodeTraceDisplayScale" type="text" inputmode="decimal" data-trace-display-field="scale">
             <button type="button" data-trace-display-step-target="scale" data-trace-display-step-direction="1">+</button>
+          </span>
+        </label>
+        <label class="node-trace-display-trace-thickness-row">
+          <span>Pixel density</span>
+          <span class="metadata-stepper-control">
+            <button type="button" data-trace-display-step-target="pixelDensity" data-trace-display-step-direction="-1">-</button>
+            <input id="nodeTraceDisplayPixelDensity" type="text" inputmode="decimal" data-trace-display-field="pixelDensity">
+            <button type="button" data-trace-display-step-target="pixelDensity" data-trace-display-step-direction="1">+</button>
           </span>
         </label>
         <label class="node-trace-display-trace-thickness-row">
@@ -3995,6 +4006,7 @@ function applyNodeGraphTraceDisplaySettingsTooltips(popover) {
     secondaryLineThickness: "traceDisplaySettings.secondaryLineThickness",
     burn: "traceDisplaySettings.burn",
     decay: "traceDisplaySettings.decay",
+    pixelDensity: "traceDisplaySettings.pixelDensity",
     zoomSeconds: "traceDisplaySettings.zoomSeconds",
     skipDiscontinuities: "traceDisplaySettings.skipDiscontinuities",
     padding: "traceDisplaySettings.padding",
@@ -4453,6 +4465,9 @@ function nodeGraphTraceDisplayStepperQuantum(input) {
   if (["cycles", "decimals"].includes(input.dataset?.traceDisplayField)) {
     return 1;
   }
+  if (input.dataset?.traceDisplayField === "pixelDensity") {
+    return 0.05;
+  }
   return 0.1;
 }
 
@@ -4463,6 +4478,7 @@ function nodeGraphTraceDisplaySizeControlField(key) {
 function nodeGraphTraceDisplaySensitiveControlField(key) {
   return nodeGraphTraceDisplaySizeControlField(key) ||
     key === "historySeconds" ||
+    key === "pixelDensity" ||
     ["dot1Brightness", "secondaryBrightness"].includes(key);
 }
 

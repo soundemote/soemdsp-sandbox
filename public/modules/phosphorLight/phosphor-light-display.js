@@ -18,6 +18,8 @@ const nodeGraphPhosphorLightSettingsDefaults = Object.freeze({
   scale: 1,
   // Beam radius (softness), not a hard stroke width.
   lineThickness: 0.14,
+  // 1 = full layout×dpr grid; lower = chunkier fixed grid (cheaper burn).
+  pixelDensity: 1,
 });
 
 function normalizeNodeGraphPhosphorLightSettings(settings = {}) {
@@ -47,6 +49,8 @@ function normalizeNodeGraphPhosphorLightSettings(settings = {}) {
     decay: clamp01(source.decay, defaults.decay),
     scale: clampPos(source.scale, defaults.scale),
     lineThickness: clamp01(source.lineThickness ?? source.dot1Size, defaults.lineThickness),
+    // Keep a floor so the face never collapses to a 1×1 stamp.
+    pixelDensity: Math.max(0.05, clamp01(source.pixelDensity, defaults.pixelDensity)),
   };
 }
 
@@ -72,19 +76,37 @@ function nodeGraphPhosphorLightFaceCanvas(slot) {
   return canvas;
 }
 
-function syncNodeGraphPhosphorLightFaceCanvas(canvas, screenElement, pixelRatio) {
+/**
+ * pixelDensity 0.05–1 scales the fixed layout grid (not workspace zoom).
+ * 1 = full clientWidth×dpr; 0.25 = quarter linear resolution (16× fewer pixels).
+ */
+function nodeGraphPhosphorLightApplyPixelDensity(size, pixelDensity) {
+  if (!size) {
+    return null;
+  }
+  const density = Math.max(0.05, Math.min(1, Number(pixelDensity) || 1));
+  const width = Math.max(1, Math.round(size.width * density));
+  const height = Math.max(1, Math.round(size.height * density));
+  return {
+    ...size,
+    density,
+    height,
+    pixelRatio: (Number(size.pixelRatio) || 1) * density,
+    width,
+  };
+}
+
+function syncNodeGraphPhosphorLightFaceCanvas(canvas, screenElement, pixelRatio, pixelDensity = 1) {
   if (!canvas || !screenElement) return false;
   // Fixed layout pixel grid (same as nodeGraphSizeDisplayCanvas / scope2d burn):
-  // clientWidth × dpr. Zoom must not grow energy FBOs — CSS scales the bitmap
-  // and .pixelated-canvas-zoom keeps it blocky instead of bilinear mush.
-  const size = typeof nodeGraphModuleScopeFaceBackingSize === "function"
+  // clientWidth × dpr × pixelDensity. Zoom must not grow energy FBOs — CSS
+  // scales the bitmap; lower density intentionally looks blocky.
+  const fullSize = typeof nodeGraphModuleScopeFaceBackingSize === "function"
     ? nodeGraphModuleScopeFaceBackingSize(screenElement, pixelRatio)
     : null;
-  let width;
-  let height;
-  if (size) {
-    width = size.width;
-    height = size.height;
+  let sized;
+  if (fullSize) {
+    sized = nodeGraphPhosphorLightApplyPixelDensity(fullSize, pixelDensity);
   } else {
     // Fallback if scopes helper not loaded yet: still avoid screen-space rect.
     const zoom = Math.max(0.01, Number(window.nodeGraphMvp?.zoom) || 1);
@@ -95,9 +117,15 @@ function syncNodeGraphPhosphorLightFaceCanvas(canvas, screenElement, pixelRatio)
       Math.max(0.25, Number(pixelRatio) || 1),
       Number(window.devicePixelRatio) || 1,
     );
-    width = Math.max(1, Math.round(cssW * dpr));
-    height = Math.max(1, Math.round(cssH * dpr));
+    sized = nodeGraphPhosphorLightApplyPixelDensity(
+      { width: Math.max(1, Math.round(cssW * dpr)), height: Math.max(1, Math.round(cssH * dpr)), pixelRatio: dpr },
+      pixelDensity,
+    );
   }
+  if (!sized) {
+    return false;
+  }
+  const { width, height, density } = sized;
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
     canvas.height = height;
@@ -107,6 +135,12 @@ function syncNodeGraphPhosphorLightFaceCanvas(canvas, screenElement, pixelRatio)
     canvas._phosphorLightMask = null;
     // Keep _phosphorLightLastSample so we only deposit new buffer samples
     // after a true face resize (re-stamping the whole tail would flash).
+  }
+  // Always nearest-neighbor when density is reduced; otherwise leave CSS zoom rule.
+  if (density < 0.999) {
+    canvas.style.imageRendering = "pixelated";
+  } else if (canvas.style.imageRendering) {
+    canvas.style.imageRendering = "";
   }
   if (canvas.style.width || canvas.style.height) {
     canvas.style.width = "";
@@ -231,17 +265,22 @@ function drawNodeGraphPhosphorLightItem(renderer, item, pixelRatio) {
     renderNodeGraphModuleScopeAnalyzer(slot, buffer);
   }
   const screenElement = item?.screenElement || slot?.scopeElement;
+  const node = typeof nodeGraphModuleScopeNodeForSlot === "function"
+    ? nodeGraphModuleScopeNodeForSlot(slot)
+    : null;
+  const settings = nodeGraphPhosphorLightSettingsForNode(node);
   const canvas = nodeGraphPhosphorLightFaceCanvas(slot);
-  if (!canvas || !syncNodeGraphPhosphorLightFaceCanvas(canvas, screenElement, pixelRatio)) {
+  if (!canvas || !syncNodeGraphPhosphorLightFaceCanvas(
+    canvas,
+    screenElement,
+    pixelRatio,
+    settings.pixelDensity,
+  )) {
     return;
   }
   const context = canvas.getContext("2d");
   if (!context) return;
 
-  const node = typeof nodeGraphModuleScopeNodeForSlot === "function"
-    ? nodeGraphModuleScopeNodeForSlot(slot)
-    : null;
-  const settings = nodeGraphPhosphorLightSettingsForNode(node);
   const width = canvas.width;
   const height = canvas.height;
   const square = nodeGraphPhosphorLightSquare(width, height);

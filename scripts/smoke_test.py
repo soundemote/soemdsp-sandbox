@@ -13779,6 +13779,17 @@ def require_node_graph_mvp_contract() -> None:
         and "Fixed layout pixel grid" in script_sources.get(
             "./public/modules/phosphorLight/phosphor-light-display.js", ""
         )
+        and "pixelDensity" in script_sources.get(
+            "./public/modules/phosphorLight/phosphor-light-display.js", ""
+        )
+        and "nodeGraphPhosphorLightApplyPixelDensity" in script_sources.get(
+            "./public/modules/phosphorLight/phosphor-light-display.js", ""
+        )
+        and '"pixelDensity"' in node_graph_source[
+            node_graph_source.index("phosphorLight: Object.freeze({")
+            : node_graph_source.index("function nodeGraphTraceDisplayActiveControlsForType")
+        ]
+        and 'data-trace-display-field="pixelDensity"' in node_graph_source
         and "nodeGraphPhosphorGaussianStamp" in script_sources.get(
             "./public/node-graph-phosphor-gaussian-drawer.js", ""
         )
