@@ -838,14 +838,16 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   numberReadout: {
     category: "multimeter",
-    description: "Phosphor LCD readout (DSEG7 Classic): burn/decay trails, LCD plate ghost segments, inner glow/shadow. Shows the latest input value.",
+    description: "Phosphor LCD readout (DSEG7 Classic): 0–1 energy burn + gradient colormap, soft trails, hard plate/live digits. Shows the latest input value.",
     label: "Number Readout",
     notes: [
       "numeric display",
       "digital readout",
       "DSEG7 Classic",
       "seven-segment",
-      "phosphor burn",
+      "energy phosphor",
+      "gradient map",
+      "burn",
       "decay",
       "LCD plate",
       "latest value",

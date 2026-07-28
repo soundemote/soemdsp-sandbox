@@ -8826,16 +8826,176 @@ function drawNodeGraphValueOscilloscopeItem(renderer, item, pixelRatio) {
   }
 }
 
-// Number Readout owns a dedicated canvas (not the shared 1D/2D WebGL burn
-// compositor). Phosphor LCD digits use DSEG7 Classic
-// (https://github.com/keshikan/DSEG — SIL OFL 1.1, public/fonts/DSEG7-Classic).
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared 0–1 energy phosphor (foundation for LCD + scope burn surfaces)
+//
+// Burn light as a single energy channel (grayscale canvas), then map 0–1 → RGB
+// with a gradient at present time. Soft edges are trivial (blur the deposit);
+// color is a cheap colormap, not RGB trails.
+//
+// Energy buffer: R=G=B = energy*255 (luma). Decay uses destination-out.
+// Deposit uses soft white ink (shadowBlur). Present samples luma → gradient.
+//
+// Number Readout is the first consumer; other burn paths can migrate later.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function nodeGraphPhosphorEnergyEnsureCanvas(host, key, width, height) {
+  if (!host || !(width > 0) || !(height > 0)) {
+    return null;
+  }
+  let canvas = host[key];
+  if (!canvas || canvas.width !== width || canvas.height !== height) {
+    canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    host[key] = canvas;
+  }
+  return canvas;
+}
+
+function nodeGraphPhosphorEnergyFade(context, width, height, burn, decay) {
+  if (!context || !(width > 0) || !(height > 0)) {
+    return;
+  }
+  const b = clampNodeSliderValue(Number(burn) || 0, 0, 1);
+  const d = clampNodeSliderValue(Number(decay) || 0, 0, 1);
+  if (d <= 0.001) {
+    return;
+  }
+  // Same fade family as 1D burn trails.
+  const fadeAlpha = clampNodeSliderValue(0.012 + d * 0.3 - b * 0.006, 0.002, 0.34);
+  context.save();
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.globalCompositeOperation = "destination-out";
+  context.fillStyle = `rgba(0, 0, 0, ${fadeAlpha.toFixed(4)})`;
+  context.fillRect(0, 0, width, height);
+  context.restore();
+}
+
+/** Softness in buffer px for energy deposits (scales with face/font + burn). */
+function nodeGraphPhosphorEnergySoftnessPx(sizePx, burn = 0.5) {
+  const size = Math.max(1, Number(sizePx) || 1);
+  const b = clampNodeSliderValue(Number(burn) || 0, 0, 1);
+  return Math.max(0.75, size * (0.06 + b * 0.18));
+}
+
+/**
+ * Build a 0–1 → RGB gradient for phosphor presentation.
+ * peakRgb: 0–255 triple (or 0–1 floats — both accepted).
+ * Stops: floor → dim body → peak → hot shoulder.
+ */
+function nodeGraphPhosphorBuildGradientStops(peakRgb, backgroundHex = "#000000") {
+  const peak = Array.isArray(peakRgb) ? peakRgb : [120, 255, 170];
+  const toByte = (v) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return 0;
+    return n <= 1 ? Math.round(clampNodeSliderValue(n, 0, 1) * 255) : Math.round(clampNodeSliderValue(n, 0, 255));
+  };
+  const pr = toByte(peak[0]);
+  const pg = toByte(peak[1]);
+  const pb = toByte(peak[2]);
+  const bg = normalizeNodeGraphTraceDisplayColor(backgroundHex, "#000000");
+  const br = parseInt(bg.slice(1, 3), 16) || 0;
+  const bg_ = parseInt(bg.slice(3, 5), 16) || 0;
+  const bb = parseInt(bg.slice(5, 7), 16) || 0;
+  const mix = (a, b, t) => Math.round(a + (b - a) * t);
+  return Object.freeze([
+    Object.freeze({ t: 0, r: br, g: bg_, b: bb }),
+    Object.freeze({ t: 0.12, r: mix(br, pr, 0.2), g: mix(bg_, pg, 0.2), b: mix(bb, pb, 0.2) }),
+    Object.freeze({ t: 0.45, r: mix(br, pr, 0.72), g: mix(bg_, pg, 0.72), b: mix(bb, pb, 0.72) }),
+    Object.freeze({ t: 0.82, r: pr, g: pg, b: pb }),
+    Object.freeze({
+      t: 1,
+      r: mix(pr, 255, 0.55),
+      g: mix(pg, 255, 0.55),
+      b: mix(pb, 255, 0.55),
+    }),
+  ]);
+}
+
+function nodeGraphPhosphorSampleGradient(energy01, stops) {
+  const e = clampNodeSliderValue(Number(energy01) || 0, 0, 1);
+  const list = Array.isArray(stops) && stops.length ? stops : nodeGraphPhosphorBuildGradientStops([120, 255, 170]);
+  if (e <= list[0].t) {
+    return list[0];
+  }
+  const last = list[list.length - 1];
+  if (e >= last.t) {
+    return last;
+  }
+  for (let i = 1; i < list.length; i += 1) {
+    const a = list[i - 1];
+    const b = list[i];
+    if (e <= b.t) {
+      const span = Math.max(1e-6, b.t - a.t);
+      const u = (e - a.t) / span;
+      return {
+        r: Math.round(a.r + (b.r - a.r) * u),
+        g: Math.round(a.g + (b.g - a.g) * u),
+        b: Math.round(a.b + (b.b - a.b) * u),
+      };
+    }
+  }
+  return last;
+}
+
+/**
+ * Map grayscale energy canvas → colored RGBA into colorCanvas (same size).
+ * Energy luma is max(R,G,B)/255. Output alpha tracks energy for lighter blit.
+ */
+function nodeGraphPhosphorMapEnergyToColorCanvas(energyCanvas, colorCanvas, stops) {
+  if (!energyCanvas || !colorCanvas) {
+    return false;
+  }
+  const w = energyCanvas.width;
+  const h = energyCanvas.height;
+  if (colorCanvas.width !== w || colorCanvas.height !== h) {
+    colorCanvas.width = w;
+    colorCanvas.height = h;
+  }
+  const ectx = energyCanvas.getContext("2d", { willReadFrequently: true });
+  const cctx = colorCanvas.getContext("2d");
+  if (!ectx || !cctx) {
+    return false;
+  }
+  const src = ectx.getImageData(0, 0, w, h);
+  let out = colorCanvas._phosphorMappedImageData;
+  if (!out || out.width !== w || out.height !== h) {
+    out = cctx.createImageData(w, h);
+    colorCanvas._phosphorMappedImageData = out;
+  }
+  const s = src.data;
+  const d = out.data;
+  const gradient = stops || nodeGraphPhosphorBuildGradientStops([120, 255, 170]);
+  for (let i = 0; i < s.length; i += 4) {
+    const energy = Math.max(s[i], s[i + 1], s[i + 2]) / 255;
+    if (energy < 0.004) {
+      d[i] = 0;
+      d[i + 1] = 0;
+      d[i + 2] = 0;
+      d[i + 3] = 0;
+      continue;
+    }
+    const c = nodeGraphPhosphorSampleGradient(energy, gradient);
+    d[i] = c.r;
+    d[i + 1] = c.g;
+    d[i + 2] = c.b;
+    d[i + 3] = Math.min(255, Math.round(energy * 255));
+  }
+  cctx.putImageData(out, 0, 0);
+  return true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Number Readout — energy phosphor + hard LCD plate / live digits
+// DSEG7 Classic: https://github.com/keshikan/DSEG (SIL OFL 1.1)
 //
 // Layers:
-//   1) offscreen phosphor buffer — lit digits with burn deposit + decay fade
-//   2) display — dark cavity, LCD plate ("8" ghost segments), phosphor blit,
-//      unit label, inner glow, inner shadow
-//
-// Unit labels stay monospace (DSEG has no proper letter glyphs).
+//   1) energy buffer — soft white deposits, burn/decay (0–1 luma)
+//   2) gradient map of energy → phosphor color
+//   3) hard LCD plate + hard current value (artist-correct segments)
+//   4) unit, inner glow, inner shadow
+// ─────────────────────────────────────────────────────────────────────────────
 let nodeGraphNumberReadoutDsegReady = false;
 document.fonts.load('700 40px "DSEG7 Classic"').then(() => {
   nodeGraphNumberReadoutDsegReady = document.fonts.check('700 40px "DSEG7 Classic"');
@@ -8873,8 +9033,9 @@ function syncNodeGraphNumberReadoutCanvas(canvas, screenElement, pixelRatio) {
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
     canvas.height = height;
-    // Drop phosphor residual when the face resizes (including zoom changes).
-    canvas._numberReadoutPhosphor = null;
+    // Drop energy residual when the face resizes (including zoom changes).
+    canvas._numberReadoutEnergy = null;
+    canvas._numberReadoutEnergyColor = null;
   }
   // Clear any previous zoom-breaking inline size so CSS 100%/100% owns layout.
   if (canvas.style.width || canvas.style.height) {
@@ -8884,18 +9045,22 @@ function syncNodeGraphNumberReadoutCanvas(canvas, screenElement, pixelRatio) {
   return true;
 }
 
-function nodeGraphNumberReadoutPhosphorCanvas(canvas) {
-  if (!canvas?.width || !canvas?.height) {
-    return null;
-  }
-  let phosphor = canvas._numberReadoutPhosphor;
-  if (!phosphor || phosphor.width !== canvas.width || phosphor.height !== canvas.height) {
-    phosphor = document.createElement("canvas");
-    phosphor.width = canvas.width;
-    phosphor.height = canvas.height;
-    canvas._numberReadoutPhosphor = phosphor;
-  }
-  return phosphor;
+function nodeGraphNumberReadoutEnergyCanvas(canvas) {
+  return nodeGraphPhosphorEnergyEnsureCanvas(
+    canvas,
+    "_numberReadoutEnergy",
+    canvas?.width || 0,
+    canvas?.height || 0,
+  );
+}
+
+function nodeGraphNumberReadoutEnergyColorCanvas(canvas) {
+  return nodeGraphPhosphorEnergyEnsureCanvas(
+    canvas,
+    "_numberReadoutEnergyColor",
+    canvas?.width || 0,
+    canvas?.height || 0,
+  );
 }
 
 function nodeGraphNumberReadoutSafeDecimals(decimals) {
@@ -8998,6 +9163,7 @@ function nodeGraphNumberReadoutComputeLayout(context, valueText, fontFamily, fac
 
 // Draw DSEG on a fixed cell grid (cell = natural advance of "8" at fontSize).
 // Ghost plate and lit value share the same pen positions. No X/Y stretch.
+// softBlurPx: when set, deposits a soft energy/glow edge (for 0–1 phosphor).
 function nodeGraphNumberReadoutDrawDigits(context, {
   text,
   centerX,
@@ -9008,9 +9174,13 @@ function nodeGraphNumberReadoutDrawDigits(context, {
   rgb,
   alpha,
   glow = 0,
+  softBlurPx = 0,
   plate = false,
+  // energy: force white ink (luma) for the 0–1 energy buffer
+  energy = false,
 }) {
   const raw = String(text || "");
+  const ink = energy ? [255, 255, 255] : rgb;
   context.save();
   // Identity geometry in canvas pixels — never scaleX ≠ scaleY for glyphs.
   context.setTransform(1, 0, 0, 1, 0, 0);
@@ -9026,19 +9196,29 @@ function nodeGraphNumberReadoutDrawDigits(context, {
   }
   cellCount = Math.max(1, cellCount);
   let penX = centerX - (cellCount * cellW) * 0.5 + cellW * 0.5;
+  const blurPx = Math.max(
+    0,
+    Number(softBlurPx) || (glow > 0.001 ? fontSize * (0.08 + glow * 0.55) : 0),
+  );
 
   const drawGlyph = (glyph, x) => {
-    if (glow > 0.001) {
-      context.shadowColor = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${(alpha * 0.95).toFixed(4)})`;
-      context.shadowBlur = Math.max(1, fontSize * (0.08 + glow * 0.55));
+    if (blurPx > 0.001) {
+      context.shadowColor = `rgba(${ink[0]}, ${ink[1]}, ${ink[2]}, ${(alpha * 0.95).toFixed(4)})`;
+      context.shadowBlur = blurPx;
     } else {
       context.shadowBlur = 0;
     }
-    context.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha.toFixed(4)})`;
+    context.fillStyle = `rgba(${ink[0]}, ${ink[1]}, ${ink[2]}, ${alpha.toFixed(4)})`;
     context.fillText(glyph, x, centerY);
-    if (glow > 0.001) {
+    // Crisp core under soft deposit (still white when energy=true).
+    if (blurPx > 0.001 && !energy) {
       context.shadowBlur = 0;
-      context.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${Math.min(1, alpha * 1.05).toFixed(4)})`;
+      context.fillStyle = `rgba(${ink[0]}, ${ink[1]}, ${ink[2]}, ${Math.min(1, alpha * 1.05).toFixed(4)})`;
+      context.fillText(glyph, x, centerY);
+    } else if (blurPx > 0.001 && energy) {
+      // Soft energy: second lighter core without killing the soft edge.
+      context.shadowBlur = blurPx * 0.35;
+      context.fillStyle = `rgba(255, 255, 255, ${Math.min(1, alpha).toFixed(4)})`;
       context.fillText(glyph, x, centerY);
     }
   };
@@ -9185,40 +9365,35 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const digitX = left + width * 0.5;
   const digitY = top + digitAreaHeight * 0.5;
 
-  // ── Phosphor buffer: decay residual, then deposit current digits ──
-  const phosphor = nodeGraphNumberReadoutPhosphorCanvas(canvas);
-  const phosphorCtx = phosphor?.getContext?.("2d");
-  if (phosphor && phosphorCtx) {
-    phosphorCtx.setTransform(1, 0, 0, 1, 0, 0);
+  // ── 0–1 energy phosphor: soft white deposit → gradient colormap ──
+  const energy = nodeGraphNumberReadoutEnergyCanvas(canvas);
+  const energyCtx = energy?.getContext?.("2d");
+  const softnessPx = nodeGraphPhosphorEnergySoftnessPx(digitFontSize, burn);
+  if (energy && energyCtx) {
+    energyCtx.setTransform(1, 0, 0, 1, 0, 0);
     if (decay > 0.001) {
-      // Same fade family as 1D burn trails: higher decay → faster erase;
-      // higher burn slightly holds residual longer.
-      const fadeAlpha = clampNodeSliderValue(0.012 + decay * 0.3 - burn * 0.006, 0.002, 0.34);
-      phosphorCtx.save();
-      phosphorCtx.globalCompositeOperation = "destination-out";
-      phosphorCtx.fillStyle = `rgba(0, 0, 0, ${fadeAlpha.toFixed(4)})`;
-      phosphorCtx.fillRect(0, 0, phosphor.width, phosphor.height);
-      phosphorCtx.restore();
+      nodeGraphPhosphorEnergyFade(energyCtx, energy.width, energy.height, burn, decay);
     } else if (textChanged || styleChanged) {
-      phosphorCtx.clearRect(0, 0, phosphor.width, phosphor.height);
+      energyCtx.clearRect(0, 0, energy.width, energy.height);
     }
-    // Deposit: always draw current digits so the face stays lit against decay.
-    const deposit = Math.max(0.2, 0.35 + burn * 0.65) * alpha;
-    phosphorCtx.save();
-    phosphorCtx.globalCompositeOperation = "lighter";
-    nodeGraphNumberReadoutDrawDigits(phosphorCtx, {
+    // Soft energy deposit (white luma). Color comes only at present-time gradient.
+    const deposit = Math.max(0.18, 0.32 + burn * 0.68) * alpha;
+    energyCtx.save();
+    energyCtx.globalCompositeOperation = "lighter";
+    nodeGraphNumberReadoutDrawDigits(energyCtx, {
       text: valueText,
       centerX: digitX,
       centerY: digitY,
       fontFamily: digitFontFamily,
       fontSize: digitFontSize,
       cellW,
-      rgb,
+      rgb: [255, 255, 255],
       alpha: deposit,
-      glow: 0,
+      softBlurPx: softnessPx,
+      energy: true,
       plate: false,
     });
-    phosphorCtx.restore();
+    energyCtx.restore();
   }
 
   // ── Present ──
@@ -9229,7 +9404,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   context.fillStyle = bg;
   context.fillRect(left, top, width, height);
 
-  // Unlit segment plate — same fixed cell grid as lit digits.
+  // Hard unlit segment plate (artist grid — not energy-blurred).
   if (ghost > 0.001) {
     nodeGraphNumberReadoutDrawDigits(context, {
       text: valueText,
@@ -9240,35 +9415,38 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
       cellW,
       rgb,
       alpha: Math.max(0.04, ghost * (nodeGraphNumberReadoutDsegReady ? 0.38 : 0.28)),
-      glow: 0,
+      softBlurPx: 0,
       plate: true,
     });
   }
 
-  // Phosphor lit digits (1:1 blit — no scale).
-  if (phosphor) {
-    context.save();
-    context.globalCompositeOperation = "lighter";
-    context.imageSmoothingEnabled = false;
-    context.drawImage(phosphor, 0, 0);
-    context.restore();
+  // Energy → gradient RGB, then lighter composite (soft trails + soft body).
+  const colorCanvas = nodeGraphNumberReadoutEnergyColorCanvas(canvas);
+  if (energy && colorCanvas) {
+    const stops = nodeGraphPhosphorBuildGradientStops(rgb, bg);
+    if (nodeGraphPhosphorMapEnergyToColorCanvas(energy, colorCanvas, stops)) {
+      context.save();
+      context.globalCompositeOperation = "lighter";
+      context.imageSmoothingEnabled = true;
+      context.drawImage(colorCanvas, 0, 0);
+      context.restore();
+    }
   }
 
-  // Inner glow pass on the sharp current value (halo only, not residual).
-  if (innerGlow > 0.001) {
-    nodeGraphNumberReadoutDrawDigits(context, {
-      text: valueText,
-      centerX: digitX,
-      centerY: digitY,
-      fontFamily: digitFontFamily,
-      fontSize: digitFontSize,
-      cellW,
-      rgb,
-      alpha: alpha * (0.35 + innerGlow * 0.65),
-      glow: innerGlow,
-      plate: false,
-    });
-  }
+  // Hard live value on top (crisp segments; optional cosmetic inner glow).
+  nodeGraphNumberReadoutDrawDigits(context, {
+    text: valueText,
+    centerX: digitX,
+    centerY: digitY,
+    fontFamily: digitFontFamily,
+    fontSize: digitFontSize,
+    cellW,
+    rgb,
+    alpha,
+    softBlurPx: 0,
+    glow: innerGlow,
+    plate: false,
+  });
 
   if (hasUnit) {
     const labelFontSize = Math.max(1, Math.min(labelHeight * 0.7, width * 0.14, digitFontSize * 0.35));
