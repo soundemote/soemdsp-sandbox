@@ -157,7 +157,7 @@
     "padding": "Trace Display vertical padding per side | 0 uses the full display height",
     "bipolarBrightness": "0D Burn brightness mode | Off: only 0..1 lights up | On: -1 and +1 are equally bright",
     "dot1Size": "soft-stamp diameter as a 0..1 fraction of the face min side | 0 is tiny | 1 fills the face",
-    "lineThickness": "stamp hardness | 0 = harder center with tighter skirt | 1 = softer core and wide light skirt that bleeds when hits stack",
+    "lineThickness": "stamp blur | 0 = harder (tight bright core, light skirt) | 1 = softer (wide light skirt that bleeds outward when hits stack)",
     "brightness": "dot or 1D Trace brightness | values above 1 are allowed",
     "color": "dot or 1D Trace color",
     "secondarySize": "secondary signal size as a 0..1 fraction of the display square (Output's Right channel)",

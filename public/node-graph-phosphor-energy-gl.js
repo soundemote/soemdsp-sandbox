@@ -189,8 +189,8 @@
   `;
 
   // True circular soft impacts: hard-ish core + soft light skirt.
-  // Size (uRadius) = geometric footprint. Blur 0 = harder core / tighter skirt;
-  // blur 1 = softer core / wide skirt so hits bleed outward when they stack.
+  // Size (uRadius) = geometric footprint.
+  // Blur 0 = HARDER (tight core, light skirt). Blur 1 = SOFTER (wide skirt / bleed).
   // aCorner: 0=BL, 1=BR, 2=TL, 3=TR — two triangles 0,1,2 + 1,3,2.
   const DOT_VERT = `
     precision mediump float;
@@ -205,7 +205,7 @@
     void main() {
       float blur = clamp(uBlur, 0.0, 1.0);
       // Soft end needs a wide pad so the skirt isn't clipped to a square.
-      float pad = max(uRadius * mix(2.4, 3.8, blur), 2.0);
+      float pad = max(uRadius * mix(2.2, 4.0, blur), 2.0);
       vec2 cornerOffset = vec2(
         (aCorner == 0.0 || aCorner == 2.0) ? -1.0 : 1.0,
         (aCorner < 2.0) ? -1.0 : 1.0
@@ -229,22 +229,22 @@
     varying float vRadius;
     varying float vBlur;
     void main() {
-      float blur = clamp(vBlur, 0.0, 1.0);
+      // 0 = hard, 1 = soft (do not invert — dwell spacing must match this).
+      float soft = clamp(vBlur, 0.0, 1.0);
       float R = max(vRadius, 0.5);
       float r = length(vOffset);
-      // Core: tighter when hard (blur→0), still a smooth gaussian (no pixel edge).
-      float coreW = max(R * mix(0.18, 0.42, blur), 0.4);
+      // Core: narrow + bright when hard; still gaussian (no 1-bit pixel edge).
+      float coreW = max(R * mix(0.12, 0.40, soft), 0.35);
       float core = exp(-(r * r) / (2.0 * coreW * coreW));
-      // Skirt: wide soft lobe — accumulates outward when many hits land nearby.
-      float skirtW = max(R * mix(0.55, 1.45, blur), coreW * 1.35);
+      // Skirt: light when hard, wide/heavy when soft — stack bleeds outward.
+      float skirtW = max(R * mix(0.42, 1.55, soft), coreW * 1.4);
       float skirt = exp(-(r * r) / (2.0 * skirtW * skirtW));
-      // Hard end: bright core + light skirt. Soft end: core still present, skirt dominates.
-      float coreAmt = mix(0.78, 0.32, blur);
-      float skirtAmt = mix(0.28, 0.88, blur);
+      float coreAmt = mix(0.92, 0.30, soft);
+      float skirtAmt = mix(0.14, 0.90, soft);
       float profile = core * coreAmt + skirt * skirtAmt;
-      // Smooth outer roll-off (smoothstep) so the support edge never looks hard.
-      float outer = mix(R * 1.05, R * 1.65, blur);
-      float inner = outer * mix(0.72, 0.55, blur);
+      // Hard: sharp-ish outer cut. Soft: long smoothstep roll-off.
+      float outer = R * mix(0.95, 1.75, soft);
+      float inner = outer * mix(0.88, 0.50, soft);
       profile *= 1.0 - smoothstep(inner, outer, r);
       float e = max(profile, 0.0) * uBrightness;
       gl_FragColor = vec4(e, e, e, e);
@@ -639,9 +639,9 @@
     const radius = Math.max(0.5, Number(options.radius) || 2);
     const blur = Math.max(0, Math.min(1, Number(options.blur) || 0.35));
     const maxDots = Math.max(16, Math.floor(Number(options.maxDots) || 2048));
-    // Fuse spacing from soft skirt width (core+skirt shader), not a single sigma.
-    const skirtW = Math.max(radius * (0.55 + blur * 0.9), 0.75);
-    const idealStep = Math.max(0.25, Math.min(skirtW * 0.38, radius * 0.32));
+    // Spacing tracks SIZE only — blur must not thin/thicken the stamp path
+    // (that made low blur look "softer" via denser packing).
+    const idealStep = Math.max(0.25, radius * 0.30);
 
     const pieces = [];
     let piece = [];
