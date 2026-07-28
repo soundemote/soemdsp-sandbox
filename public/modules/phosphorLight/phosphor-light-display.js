@@ -4,7 +4,7 @@
 //   • Deposits monochrome energy 0–1 (not RGB burn)
 //   • Fade + additive beams on fixed face pixel grid
 //   • Present: energy → color via 1D gradient LUT
-//   • pixelDensity 0–2 scales the layout grid (2× = supersample AA)
+//   • pixelDensity 0–4 scales the layout grid (4× = heavy supersample AA)
 
 const nodeGraphPhosphorLightSettingsDefaults = Object.freeze({
   background: "#020608",
@@ -17,7 +17,7 @@ const nodeGraphPhosphorLightSettingsDefaults = Object.freeze({
   dot1Size: 0.08,
   // Softness of the gaussian profile (blur), not geometric size.
   lineThickness: 0.35,
-  // 0 = 1px grid, 1 = layout×dpr, 2 = 2× supersample.
+  // 0 = 1px grid, 1 = layout×dpr, 4 = 4× supersample AA.
   pixelDensity: 1,
 });
 
@@ -37,7 +37,7 @@ function normalizeNodeGraphPhosphorLightSettings(settings = {}) {
   const clampDensity = (value, fallback) => {
     const n = Number(value);
     if (!Number.isFinite(n)) return fallback;
-    return Math.max(0, Math.min(2, n));
+    return Math.max(0, Math.min(4, n));
   };
   const color = typeof normalizeNodeGraphTraceDisplayColor === "function"
     ? normalizeNodeGraphTraceDisplayColor
@@ -87,14 +87,14 @@ function nodeGraphPhosphorLightFaceCanvas(slot) {
 }
 
 /**
- * pixelDensity 0–2 scales the fixed layout grid (not workspace zoom).
- * 0 → 1×1 floor, 1 → full clientWidth×dpr, 2 → 2× supersample (AA when shown).
+ * pixelDensity 0–4 scales the fixed layout grid (not workspace zoom).
+ * 0 → 1×1 floor, 1 → full clientWidth×dpr, 4 → 4× supersample (AA when shown).
  */
 function nodeGraphPhosphorLightApplyPixelDensity(size, pixelDensity) {
   if (!size) {
     return null;
   }
-  const density = Math.max(0, Math.min(2, Number(pixelDensity) || 1));
+  const density = Math.max(0, Math.min(4, Number(pixelDensity) || 1));
   const width = Math.max(1, Math.round(size.width * density));
   const height = Math.max(1, Math.round(size.height * density));
   return {
@@ -317,12 +317,14 @@ function drawNodeGraphPhosphorLightItem(renderer, item, pixelRatio) {
   context.fillRect(0, 0, width, height);
 
   if (energyGl && typeof nodeGraphPhosphorEnergyGlPresent === "function") {
-    nodeGraphPhosphorEnergyGlPresent(energyGl, 1);
-    context.save();
-    context.globalCompositeOperation = "lighter";
-    context.imageSmoothingEnabled = true;
-    context.drawImage(energyGl.canvas, 0, 0, width, height);
-    context.restore();
+    // present() returns false when trail is idle/dark — skip the blit.
+    if (nodeGraphPhosphorEnergyGlPresent(energyGl, 1)) {
+      context.save();
+      context.globalCompositeOperation = "lighter";
+      context.imageSmoothingEnabled = true;
+      context.drawImage(energyGl.canvas, 0, 0, width, height);
+      context.restore();
+    }
   }
 }
 

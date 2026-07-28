@@ -20,7 +20,16 @@
 //   destCtx.drawImage(glr.canvas, 0, 0);
 
 (function initNodeGraphPhosphorEnergyGl(global) {
-  const MAX_DIM = 2048;
+  // Allow density 4× on large faces (matches scope max backing store).
+  const MAX_DIM = 4096;
+
+  /**
+   * One shared WebGL context for every energy phosphor face.
+   * Creating a context per scope blew past browser limits ("Too many active
+   * WebGL contexts") once PhosphorLight / readouts multiply. Programs +
+   * geometry buffers live here; each scope only owns FBOs + LUT + mask.
+   */
+  let sharedDevice = null;
 
   function compileShader(gl, type, source) {
     const shader = gl.createShader(type);
@@ -112,15 +121,15 @@
   `;
 
   // Continuous gaussian beam ribbon — same geometry as scope2d / Lorenz, mono energy.
-  // Shared uniforms must use the same precision in VS + FS or link fails
-  // ("Precisions of uniform 'uRadius' differ between VERTEX and FRAGMENT shaders").
+  // Explicit mediump on every shared uniform so VS/FS precision always matches
+  // (some drivers ignore default precision for uniforms and fail the link).
   const BEAM_VERT = `
     precision mediump float;
     attribute vec2 aStart;
     attribute vec2 aEnd;
     attribute float aCorner;
-    uniform vec2 uCanvasSize;
-    uniform float uRadius;
+    uniform mediump vec2 uCanvasSize;
+    uniform mediump float uRadius;
     varying vec2 vStart;
     varying vec2 vEnd;
     varying vec2 vPosition;
@@ -148,9 +157,9 @@
 
   const BEAM_FRAG = `
     precision mediump float;
-    uniform float uBrightness;
-    uniform float uBlur;
-    uniform float uRadius;
+    uniform mediump float uBrightness;
+    uniform mediump float uBlur;
+    uniform mediump float uRadius;
     varying vec2 vStart;
     varying vec2 vEnd;
     varying vec2 vPosition;
@@ -294,12 +303,14 @@
     gl.bindTexture(gl.TEXTURE_2D, null);
   }
 
-  function createRenderer(width, height) {
-    const w = Math.max(1, Math.min(MAX_DIM, Math.round(width) || 1));
-    const h = Math.max(1, Math.min(MAX_DIM, Math.round(height) || 1));
+  function getSharedDevice() {
+    if (sharedDevice?.gl && !sharedDevice.gl.isContextLost()) {
+      return sharedDevice;
+    }
+    sharedDevice = null;
     const canvas = document.createElement("canvas");
-    canvas.width = w;
-    canvas.height = h;
+    canvas.width = 1;
+    canvas.height = 1;
     const gl = canvas.getContext("webgl", {
       alpha: true,
       antialias: false,
@@ -321,47 +332,17 @@
     const presentProgram = linkProgram(gl, VERT, PRESENT_FRAG);
     const copyProgram = linkProgram(gl, VERT, COPY_FRAG);
     const beamProgram = linkProgram(gl, BEAM_VERT, BEAM_FRAG);
-    if (!stepProgram || !presentProgram || !copyProgram || !beamProgram) {
+    // Beams optional: mask/fade/present still work if beam link fails.
+    if (!stepProgram || !presentProgram || !copyProgram) {
+      console.warn("[phosphor-energy-gl] core programs failed to link");
       return null;
+    }
+    if (!beamProgram) {
+      console.warn("[phosphor-energy-gl] beam program failed; XY beams disabled");
     }
 
     const quad = createQuad(gl);
     const beamBuffer = gl.createBuffer();
-    const surfaceA = createSurface(gl, w, h);
-    const surfaceB = createSurface(gl, w, h);
-    if (!surfaceA || !surfaceB) {
-      return null;
-    }
-
-    const lutTexture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, lutTexture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-
-    const maskTexture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, maskTexture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-    gl.bindTexture(gl.TEXTURE_2D, null);
-
-    // Clear energy to 0.
-    gl.bindFramebuffer(gl.FRAMEBUFFER, surfaceA.framebuffer);
-    gl.viewport(0, 0, w, h);
-    gl.clearColor(0, 0, 0, 1);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, surfaceB.framebuffer);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-
-    const defaultStops = buildStops([117, 235, 255], "#020608");
-    uploadLut(gl, lutTexture, defaultStops);
-
     const step = {
       program: stepProgram,
       aPos: gl.getAttribLocation(stepProgram, "aPos"),
@@ -383,35 +364,113 @@
       aPos: gl.getAttribLocation(copyProgram, "aPos"),
       uTexture: gl.getUniformLocation(copyProgram, "uTexture"),
     };
-    const beam = {
-      program: beamProgram,
-      aStart: gl.getAttribLocation(beamProgram, "aStart"),
-      aEnd: gl.getAttribLocation(beamProgram, "aEnd"),
-      aCorner: gl.getAttribLocation(beamProgram, "aCorner"),
-      uCanvasSize: gl.getUniformLocation(beamProgram, "uCanvasSize"),
-      uRadius: gl.getUniformLocation(beamProgram, "uRadius"),
-      uBrightness: gl.getUniformLocation(beamProgram, "uBrightness"),
-      uBlur: gl.getUniformLocation(beamProgram, "uBlur"),
-    };
+    let beam = null;
+    if (beamProgram) {
+      beam = {
+        program: beamProgram,
+        aStart: gl.getAttribLocation(beamProgram, "aStart"),
+        aEnd: gl.getAttribLocation(beamProgram, "aEnd"),
+        aCorner: gl.getAttribLocation(beamProgram, "aCorner"),
+        uCanvasSize: gl.getUniformLocation(beamProgram, "uCanvasSize"),
+        uRadius: gl.getUniformLocation(beamProgram, "uRadius"),
+        uBrightness: gl.getUniformLocation(beamProgram, "uBrightness"),
+        uBlur: gl.getUniformLocation(beamProgram, "uBlur"),
+      };
+    }
 
-    return {
+    canvas.addEventListener("webglcontextlost", (event) => {
+      event.preventDefault();
+      sharedDevice = null;
+    }, false);
+
+    sharedDevice = {
       canvas,
       gl,
-      width: w,
-      height: h,
       quad,
       beamBuffer,
       segmentScratch: new Float32Array(0),
-      read: surfaceA,
-      write: surfaceB,
-      lutTexture,
-      maskTexture,
       step,
       present,
       copy,
       beam,
+    };
+    return sharedDevice;
+  }
+
+  /** Per-scope energy state (FBOs only) on the shared device. */
+  function createRenderer(width, height) {
+    const device = getSharedDevice();
+    if (!device) {
+      return null;
+    }
+    const w = Math.max(1, Math.min(MAX_DIM, Math.round(width) || 1));
+    const h = Math.max(1, Math.min(MAX_DIM, Math.round(height) || 1));
+    const { gl } = device;
+
+    const surfaceA = createSurface(gl, w, h);
+    const surfaceB = createSurface(gl, w, h);
+    if (!surfaceA || !surfaceB) {
+      destroySurface(gl, surfaceA);
+      destroySurface(gl, surfaceB);
+      return null;
+    }
+
+    const lutTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, lutTexture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+    const maskTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, maskTexture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, surfaceA.framebuffer);
+    gl.viewport(0, 0, w, h);
+    gl.clearColor(0, 0, 0, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, surfaceB.framebuffer);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+    const defaultStops = buildStops([117, 235, 255], "#020608");
+    uploadLut(gl, lutTexture, defaultStops);
+
+    return {
+      // Shared present target (resized per present call).
+      canvas: device.canvas,
+      gl,
+      device,
+      width: w,
+      height: h,
+      quad: device.quad,
+      beamBuffer: device.beamBuffer,
+      get segmentScratch() {
+        return device.segmentScratch;
+      },
+      set segmentScratch(value) {
+        device.segmentScratch = value;
+      },
+      read: surfaceA,
+      write: surfaceB,
+      lutTexture,
+      maskTexture,
+      step: device.step,
+      present: device.present,
+      copy: device.copy,
+      beam: device.beam,
       lutSignature: "",
       alive: true,
+      // Skip full-screen present when nothing changed (idle dark trail).
+      energyActive: false,
+      quietFrames: 0,
     };
   }
 
@@ -420,6 +479,7 @@
       return;
     }
     const { gl } = renderer;
+    // Only free per-scope resources — shared device programs stay alive.
     destroySurface(gl, renderer.read);
     destroySurface(gl, renderer.write);
     if (renderer.lutTexture) {
@@ -428,24 +488,10 @@
     if (renderer.maskTexture) {
       gl.deleteTexture(renderer.maskTexture);
     }
-    if (renderer.quad) {
-      gl.deleteBuffer(renderer.quad);
-    }
-    if (renderer.beamBuffer) {
-      gl.deleteBuffer(renderer.beamBuffer);
-    }
-    if (renderer.step?.program) {
-      gl.deleteProgram(renderer.step.program);
-    }
-    if (renderer.present?.program) {
-      gl.deleteProgram(renderer.present.program);
-    }
-    if (renderer.copy?.program) {
-      gl.deleteProgram(renderer.copy.program);
-    }
-    if (renderer.beam?.program) {
-      gl.deleteProgram(renderer.beam.program);
-    }
+    renderer.read = null;
+    renderer.write = null;
+    renderer.lutTexture = null;
+    renderer.maskTexture = null;
     renderer.alive = false;
   }
 
@@ -491,7 +537,7 @@
    * Same continuous beams as Lorenz — monochrome energy only.
    */
   function depositBeamSegments(renderer, options = {}) {
-    if (!renderer?.alive || !renderer.beam?.program) {
+    if (!isRendererLive(renderer) || !renderer.beam?.program) {
       return 0;
     }
     const pathPoints = options.pathPoints;
@@ -612,10 +658,7 @@
       gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
-    if (renderer.canvas) {
-      renderer.canvas.width = w;
-      renderer.canvas.height = h;
-    }
+    // Shared present canvas is resized in present(), not here.
 
     destroySurface(gl, previousRead);
     destroySurface(gl, previousWrite);
@@ -623,6 +666,7 @@
     renderer.write = nextWrite;
     renderer.width = w;
     renderer.height = h;
+    renderer.energyActive = true;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     return true;
   }
@@ -633,6 +677,16 @@
     gl.enableVertexAttribArray(programLoc.aPos);
     gl.vertexAttribPointer(programLoc.aPos, 2, gl.FLOAT, false, 0, 0);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
+  }
+
+  function isRendererLive(renderer) {
+    return Boolean(
+      renderer?.alive
+      && renderer.gl
+      && !renderer.gl.isContextLost()
+      && renderer.read
+      && renderer.write,
+    );
   }
 
   function swap(renderer) {
@@ -654,6 +708,11 @@
     const w = Math.max(1, Math.min(MAX_DIM, Math.round(width) || 1));
     const h = Math.max(1, Math.min(MAX_DIM, Math.round(height) || 1));
     let renderer = host[key];
+    if (renderer && renderer.gl?.isContextLost?.()) {
+      renderer.alive = false;
+      host[key] = null;
+      renderer = null;
+    }
     if (renderer && renderer.alive && renderer.width === w && renderer.height === h) {
       return renderer;
     }
@@ -671,7 +730,7 @@
   }
 
   function setLutFromPeak(renderer, peakRgb, backgroundHex) {
-    if (!renderer?.alive) {
+    if (!isRendererLive(renderer)) {
       return;
     }
     const sig = `${Array.isArray(peakRgb) ? peakRgb.join(",") : peakRgb}|${backgroundHex || ""}`;
@@ -689,7 +748,7 @@
    * Prefer stepBeams for XY scopes (GPU ribbons, no mask upload).
    */
   function stepEnergy(renderer, options = {}) {
-    if (!renderer?.alive) {
+    if (!isRendererLive(renderer)) {
       return false;
     }
     const {
@@ -701,6 +760,11 @@
     const fade = fadeAmount(decay);
     const keep = Math.max(0, 1 - fade);
     const useMask = maskCanvas && depositGain > 0.0001 ? 1 : 0;
+
+    // No decay and no deposit: skip the full-screen pass entirely.
+    if (keep >= 0.9999 && !useMask) {
+      return true;
+    }
 
     if (useMask) {
       gl.bindTexture(gl.TEXTURE_2D, renderer.maskTexture);
@@ -714,6 +778,8 @@
       }
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
       gl.bindTexture(gl.TEXTURE_2D, null);
+      renderer.energyActive = true;
+      renderer.quietFrames = 0;
     }
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, renderer.write.framebuffer);
@@ -738,6 +804,13 @@
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.bindTexture(gl.TEXTURE_2D, null);
+    if (fade > 0) {
+      renderer.quietFrames = (renderer.quietFrames || 0) + 1;
+      // After long quiet fade, trail is effectively black — stop presenting.
+      if (renderer.quietFrames > 180) {
+        renderer.energyActive = false;
+      }
+    }
     return true;
   }
 
@@ -746,7 +819,7 @@
    * (Lorenz geometry → energy FBO → LUT present later).
    */
   function stepBeams(renderer, options = {}) {
-    if (!renderer?.alive) {
+    if (!isRendererLive(renderer)) {
       return false;
     }
     const {
@@ -757,26 +830,54 @@
       brightness = 0,
       blur = 0.35,
     } = options;
-    // Fade residual only (no 2D mask upload).
+    const hasPath = (Array.isArray(vertices) && vertices.length >= 10)
+      || (Array.isArray(pathPoints) && pathPoints.length >= 2);
+    const willDeposit = hasPath && brightness > 1e-6 && renderer.beam?.program;
+
+    // Fully quiet trail and nothing new: skip fade + deposit + present upstream.
+    if (!willDeposit && renderer.energyActive === false) {
+      return true;
+    }
+
+    // Fade residual only when needed (no 2D mask upload).
     stepEnergy(renderer, { decay, depositGain: 0, maskCanvas: null });
-    depositBeamSegments(renderer, {
-      pathPoints,
-      vertices,
-      radius,
-      brightness,
-      blur,
-    });
+    if (willDeposit) {
+      const count = depositBeamSegments(renderer, {
+        pathPoints,
+        vertices,
+        radius,
+        brightness,
+        blur,
+      });
+      if (count > 0) {
+        renderer.energyActive = true;
+        renderer.quietFrames = 0;
+      }
+    }
     return true;
   }
 
-  /** Present energy×LUT into renderer.canvas (premultiplied RGBA). */
+  /** Present energy×LUT into shared canvas (premultiplied RGBA), sized to this scope. */
   function present(renderer, trailGain = 0.85) {
-    if (!renderer?.alive) {
+    if (!isRendererLive(renderer)) {
       return false;
     }
-    const { gl } = renderer;
+    // Idle dark: skip present GPU pass (caller still draws solid background).
+    if (renderer.energyActive === false) {
+      return false;
+    }
+    const { gl, canvas } = renderer;
+    const w = renderer.width;
+    const h = renderer.height;
+    // Shared canvas is the present target — resize only when needed.
+    if (canvas.width !== w) {
+      canvas.width = w;
+    }
+    if (canvas.height !== h) {
+      canvas.height = h;
+    }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, renderer.width, renderer.height);
+    gl.viewport(0, 0, w, h);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.disable(gl.BLEND);

@@ -4486,7 +4486,10 @@ function nodeGraphTraceDisplaySensitiveControlField(key) {
 const nodeGraphTraceDisplaySensitiveControlExponent = 3;
 
 function nodeGraphTraceDisplaySensitiveControlMax(key) {
-  return ["dot1Brightness", "secondaryBrightness", "pixelDensity"].includes(key) ? 2 : 1;
+  if (key === "pixelDensity") {
+    return 4;
+  }
+  return ["dot1Brightness", "secondaryBrightness"].includes(key) ? 2 : 1;
 }
 
 function nodeGraphTraceDisplaySizeToControlValue(value, max = 1) {
@@ -4535,7 +4538,7 @@ function nodeGraphTraceDisplayClampBrightness(value) {
 }
 
 function nodeGraphTraceDisplayClampPixelDensity(value) {
-  return clampNodeSliderValue(Number(value) || 0, 0, 2);
+  return clampNodeSliderValue(Number(value) || 0, 0, 4);
 }
 
 // Clamp rules shared by every display-settings form type, keyed by field name.

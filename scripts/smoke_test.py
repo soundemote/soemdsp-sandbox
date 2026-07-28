@@ -13292,6 +13292,8 @@ def require_node_graph_mvp_contract() -> None:
         and "nodeGraphPhosphorEnergyGlResize" in script_sources.get("./public/node-graph-phosphor-energy-gl.js", "")
         and "nodeGraphPhosphorEnergyGlStepBeams" in script_sources.get("./public/node-graph-phosphor-energy-gl.js", "")
         and "function depositBeamSegments" in script_sources.get("./public/node-graph-phosphor-energy-gl.js", "")
+        and "function getSharedDevice()" in script_sources.get("./public/node-graph-phosphor-energy-gl.js", "")
+        and "const MAX_DIM = 4096" in script_sources.get("./public/node-graph-phosphor-energy-gl.js", "")
         and "function resizeRenderer(renderer, width, height)" in script_sources.get("./public/node-graph-phosphor-energy-gl.js", "")
         and "function copySurface(renderer, sourceSurface, targetSurface, width, height)" in script_sources.get("./public/node-graph-phosphor-energy-gl.js", "")
         and "nodeGraphNumberReadoutEnergyGl" in node_graph_source
@@ -13826,7 +13828,7 @@ def require_node_graph_mvp_contract() -> None:
         and "nodeGraphPhosphorLightMaskCanvas" not in script_sources.get(
             "./public/modules/phosphorLight/phosphor-light-display.js", ""
         )
-        and "Math.max(0, Math.min(2, Number(pixelDensity)" in script_sources.get(
+        and "Math.max(0, Math.min(4, Number(pixelDensity)" in script_sources.get(
             "./public/modules/phosphorLight/phosphor-light-display.js", ""
         ),
         "legacy visual source modules should use typed scope renderers; PhosphorLight is the energy-LUT XY testbed",
