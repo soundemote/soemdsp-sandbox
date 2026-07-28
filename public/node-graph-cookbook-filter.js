@@ -413,9 +413,30 @@ function createNodeGraphFilterCurveDisplay(nodeId, type) {
 }
 
 function drawNodeGraphFilterCurveDisplay(section) {
+  try {
+    drawNodeGraphFilterCurveDisplayInner(section);
+  } catch (error) {
+    console.warn("[filter-curve] draw failed", error);
+  }
+}
+
+function drawNodeGraphFilterCurveDisplayInner(section) {
   const node = nodeGraphPatchNode(section?.dataset?.node || "");
   const canvas = section?.querySelector?.(".node-filter-curve-canvas");
   if (!node || !canvas) {
+    return;
+  }
+  // Snapshot live params first (cheap). Bail before layout work if unchanged.
+  const view = nodeGraphFilterCurveView(node);
+  const signature = JSON.stringify(view);
+  const cssW = Math.max(1, Number(section.clientWidth || section.offsetWidth) || 1);
+  const cssH = Math.max(1, Number(section.clientHeight || section.offsetHeight) || 1);
+  if (
+    section._filterCurveSignature === signature
+    && section._filterCurveCssW === cssW
+    && section._filterCurveCssH === cssH
+    && !section._filterCurveForceDraw
+  ) {
     return;
   }
   const metrics = nodeGraphSizeDisplayCanvas(section, canvas);
@@ -429,17 +450,9 @@ function drawNodeGraphFilterCurveDisplay(section) {
   const maxFreq = Math.max(minFreq * 2, Math.min(20000, sampleRate * 0.5));
   const minDb = -48;
   const maxDb = 18;
-  // Snapshot live params once per frame (slider + ghost modulation).
-  const view = nodeGraphFilterCurveView(node);
-  const signature = JSON.stringify(view);
-  // Skip redundant paints when nothing moved (keeps continuous rAF cheap).
-  if (section._filterCurveSignature === signature
-    && canvas.width === metrics.width
-    && canvas.height === metrics.height
-    && !section._filterCurveForceDraw) {
-    return;
-  }
   section._filterCurveSignature = signature;
+  section._filterCurveCssW = cssW;
+  section._filterCurveCssH = cssH;
   section._filterCurveForceDraw = false;
   context.clearRect(0, 0, width, height);
   context.fillStyle = "rgba(2, 6, 9, 0.88)";

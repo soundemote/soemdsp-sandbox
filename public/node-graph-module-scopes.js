@@ -11799,12 +11799,10 @@ function drawNodeGraphModuleScopes() {
   const workspaceRect = workspace.getBoundingClientRect();
   const prePixelRatio = nodeGraphModuleScopeBackingPixelRatio(workspaceRect);
   flushNodeSliderReadoutUpdates();
-  // Keep filter-curve faces (Papoulis, multi-stage, ladder, …) animating with
-  // live/modulated cutoffs while the main scope loop is running.
-  if (typeof scheduleNodeGraphFilterCurveDraw === "function"
-    && document.querySelector?.(".node-filter-curve-display")) {
-    scheduleNodeGraphFilterCurveDraw();
-  }
+  // Do NOT schedule filter-curve redraws from the scope loop. That forced
+  // getBoundingClientRect on every filter every frame, layout-thrashed the
+  // main thread, and made module dragging feel dead. Filter faces update from
+  // slider flush / param sync only (still live while you drag cutoffs).
   if (nodeGraphModuleScopeTracesOff()) {
     if (!nodeGraphModuleScopeState.scopeTracesOffActive) {
       clearNodeGraphModuleScopeCanvas();

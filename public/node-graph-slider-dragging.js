@@ -136,11 +136,9 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
     ) {
       syncNodeGraphGraphDisplaysForNode(node, patchNode);
     }
-    // Filter curve faces (Papoulis, cookbook, ladder, …) must track cutoff
-    // live mid-drag — same contract as graph tension, not wait for mouse-up.
-    if (typeof scheduleNodeGraphFilterCurveDraw === "function") {
-      scheduleNodeGraphFilterCurveDraw();
-    }
+    // Filter curve faces track cutoff live mid-drag via the readout flush
+    // (and parameter-visual sync). Do not schedule a full multi-face redraw
+    // here on every pointer sample — that was thrashing layout.
     return;
   }
   // transport's "BPM" param mirrors the patch-wide tempo, not an independent

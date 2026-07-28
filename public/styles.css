@@ -10334,6 +10334,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   border-top: 1px solid rgba(128, 224, 224, 0.16);
   border-bottom: 1px solid rgba(128, 224, 224, 0.16);
   background: #020609;
+  /* Display-only face — must not steal pointer from module drag / knobs. */
+  pointer-events: none;
 }
 
 .node-filter-curve-canvas {
