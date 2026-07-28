@@ -188,10 +188,12 @@
     }
   `;
 
-  // True circular soft impacts: hard-ish core + soft light skirt.
-  // Size (uRadius) = geometric footprint.
-  // Blur 0 = HARDER (tight core, light skirt). Blur 1 = SOFTER (wide skirt / bleed).
-  // aCorner: 0=BL, 1=BR, 2=TL, 3=TR — two triangles 0,1,2 + 1,3,2.
+  // Circular soft impacts with a ch4os-style hardness continuum (signed blur):
+  //   blur -1 → hard disc (tiny feather)
+  //   blur  0 → painterly "shadowBlur" stamp: solid core + soft outer falloff
+  //   blur +1 → full soft gaussian (whole dab soft — the brush ch4os rejected
+  //              for painting, but useful as airbrush / phosphor bleed)
+  // Size (uRadius) = geometric footprint. aCorner: 0=BL,1=BR,2=TL,3=TR.
   const DOT_VERT = `
     precision mediump float;
     attribute vec2 aCenter;
@@ -203,9 +205,10 @@
     varying float vRadius;
     varying float vBlur;
     void main() {
-      float blur = clamp(uBlur, 0.0, 1.0);
-      // Soft end needs a wide pad so the skirt isn't clipped to a square.
-      float pad = max(uRadius * mix(2.2, 4.0, blur), 2.0);
+      float blur = clamp(uBlur, -1.0, 1.0);
+      // Full-soft needs the widest pad; hard end can be tighter.
+      float softAmt = clamp(blur, 0.0, 1.0);
+      float pad = max(uRadius * mix(2.15, 4.2, softAmt), 2.0);
       vec2 cornerOffset = vec2(
         (aCorner == 0.0 || aCorner == 2.0) ? -1.0 : 1.0,
         (aCorner < 2.0) ? -1.0 : 1.0
@@ -229,23 +232,39 @@
     varying float vRadius;
     varying float vBlur;
     void main() {
-      // 0 = hard, 1 = soft (do not invert — dwell spacing must match this).
-      float soft = clamp(vBlur, 0.0, 1.0);
+      float b = clamp(vBlur, -1.0, 1.0);
       float R = max(vRadius, 0.5);
       float r = length(vOffset);
-      // Core: narrow + bright when hard; still gaussian (no 1-bit pixel edge).
-      float coreW = max(R * mix(0.12, 0.40, soft), 0.35);
-      float core = exp(-(r * r) / (2.0 * coreW * coreW));
-      // Skirt: light when hard, wide/heavy when soft — stack bleeds outward.
-      float skirtW = max(R * mix(0.42, 1.55, soft), coreW * 1.4);
-      float skirt = exp(-(r * r) / (2.0 * skirtW * skirtW));
-      float coreAmt = mix(0.92, 0.30, soft);
-      float skirtAmt = mix(0.14, 0.90, soft);
-      float profile = core * coreAmt + skirt * skirtAmt;
-      // Hard: sharp-ish outer cut. Soft: long smoothstep roll-off.
-      float outer = R * mix(0.95, 1.75, soft);
-      float inner = outer * mix(0.88, 0.50, soft);
-      profile *= 1.0 - smoothstep(inner, outer, r);
+      float coreR = R * 0.5;
+
+      // --- Hard disc (blur → -1): almost solid, tiny smooth feather ---
+      float hardDisc = 1.0 - smoothstep(coreR * 0.90, coreR * 1.05, r);
+
+      // --- shadowBlur style (blur → 0): solid core + soft outer skirt ---
+      // Mimics Canvas: opaque round body + same-color soft falloff outside.
+      float disc = 1.0 - smoothstep(coreR * 0.82, coreR * 1.0, r);
+      float shadowW = max(R * 0.72, coreR * 1.2);
+      float shadow = exp(-(r * r) / (2.0 * shadowW * shadowW));
+      // Core stays bright; skirt only where disc has fallen off (painterly brush).
+      float shadowStyle = max(disc, shadow * (1.0 - disc) * 0.85);
+
+      // --- Full soft gaussian (blur → +1): whole dab soft, no hard core ---
+      // Same family as ctx.filter blur / airbrush (ch4os rejected for paint).
+      float softW = max(R * 0.70, 0.55);
+      float fullSoft = exp(-(r * r) / (2.0 * softW * softW));
+      float softEdge = 1.0 - smoothstep(R * 1.15, R * 1.85, r);
+      fullSoft *= softEdge;
+
+      // Morph: -1 hard disc ↔ 0 shadowBlur ↔ +1 full soft gaussian
+      float profile;
+      if (b <= 0.0) {
+        // b=-1 → hardDisc, b=0 → shadowStyle
+        profile = mix(shadowStyle, hardDisc, -b);
+      } else {
+        // b=0 → shadowStyle, b=1 → fullSoft
+        profile = mix(shadowStyle, fullSoft, b);
+      }
+
       float e = max(profile, 0.0) * uBrightness;
       gl_FragColor = vec4(e, e, e, e);
     }
@@ -637,10 +656,9 @@
   function buildDotVertices(pathPoints, options = {}) {
     const points = Array.isArray(pathPoints) ? pathPoints : [];
     const radius = Math.max(0.5, Number(options.radius) || 2);
-    const blur = Math.max(0, Math.min(1, Number(options.blur) || 0.35));
+    // Signed blur (-1..1); spacing still follows size only.
+    const blur = Math.max(-1, Math.min(1, Number(options.blur) || 0));
     const maxDots = Math.max(16, Math.floor(Number(options.maxDots) || 2048));
-    // Spacing tracks SIZE only — blur must not thin/thicken the stamp path
-    // (that made low blur look "softer" via denser packing).
     const idealStep = Math.max(0.25, radius * 0.30);
 
     const pieces = [];

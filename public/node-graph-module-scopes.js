@@ -2396,8 +2396,8 @@ const nodeGraphScope2dSettingsDefaults = Object.freeze({
   dot1Size: 0.08,
   // Soft stamp budget (ceiling). Under load, dots spread evenly (skips), not head-only.
   dotBudget: 2048,
-  // Gaussian softness (blur), independent of geometric size.
-  lineThickness: 0.35,
+  // Signed stamp blur: -1 hard disc, 0 shadowBlur core+skirt, +1 full soft gaussian.
+  lineThickness: 0,
   // 0 = 1px floor, 1 = layout×dpr, 4 = 4× supersample AA (fixes zoom pixeliness).
   pixelDensity: 1,
   scale: 1,
@@ -2616,7 +2616,7 @@ function normalizeNodeGraphScope2dSettings(settings = {}) {
     lineThickness: normalizeNodeGraphTraceDisplayNumber(
       source.lineThickness ?? source.dot1Blur,
       defaults.lineThickness,
-      0,
+      -1,
       1,
     ),
     pixelDensity: normalizeNodeGraphTraceDisplayNumber(
@@ -4577,6 +4577,11 @@ function nodeGraphTraceDisplayClampPixelDensity(value) {
   return clampNodeSliderValue(Number(value) || 0, 0, 4);
 }
 
+// Signed stamp blur for soft phosphor dots (-1 hard … 0 shadowBlur … +1 full soft).
+function nodeGraphTraceDisplayClampStampBlur(value) {
+  return clampNodeSliderValue(Number(value) || 0, -1, 1);
+}
+
 function nodeGraphTraceDisplayClampDotBudget(value) {
   const n = Math.round(Number(value) || 0);
   if (!Number.isFinite(n)) {
@@ -4619,8 +4624,9 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
   dot: Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampUnit,
   }),
+  // Soft phosphor dots: signed blur (-1 hard … 0 shadowBlur … +1 full soft).
   scope2d: Object.freeze({
-    lineThickness: nodeGraphTraceDisplayClampUnit,
+    lineThickness: nodeGraphTraceDisplayClampStampBlur,
   }),
   scope2dTrace: Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampUnit,
