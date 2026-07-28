@@ -642,28 +642,38 @@
     }
 
     let totalLen = 0;
-    let singlePoints = 0;
+    let pairCount = 0;
     for (let p = 0; p < pieces.length; p += 1) {
       const pts = pieces[p];
       if (pts.length === 1) {
-        singlePoints += 1;
         continue;
       }
       for (let i = 1; i < pts.length; i += 1) {
         totalLen += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+        pairCount += 1;
       }
     }
-    const idealCount = Math.max(
-      1,
-      singlePoints + Math.ceil(totalLen / idealStep) + pieces.length,
-    );
-    // Under budget: only spend what smooth lines need.
-    // Over budget: even economy across the full path (skips, not head-only lines).
-    const overBudget = idealCount > maxDots;
+    // Estimate stamps if we used ideal spacing. Many tiny pairs need ~1 stamp
+    // each (ceil), so length/step alone under-counts — that false ceiling used
+    // to stop mid-path and made low-frequency look disconnected.
+    let idealCount = pieces.length;
+    for (let p = 0; p < pieces.length; p += 1) {
+      const pts = pieces[p];
+      for (let i = 1; i < pts.length; i += 1) {
+        const dist = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+        idealCount += dist < 1e-4 ? 0 : Math.max(1, Math.ceil(dist / idealStep));
+      }
+    }
+    idealCount = Math.max(1, idealCount);
+    // Under budget: ideal step, place only what the path needs (no pad, no early stop).
+    // Over budget: widen step evenly across the FULL path so HF fails as skips,
+    // not a solid head with the rest missing.
+    const overBudget = idealCount > maxDots && totalLen > 1e-4;
     const step = overBudget
       ? Math.max(idealStep, totalLen / Math.max(1, maxDots - Math.max(1, pieces.length)))
       : idealStep;
-    const stampCap = overBudget ? maxDots : idealCount;
+    // Hard ceiling is always maxDots only — never a short idealCount cap.
+    const stampCap = maxDots;
 
     const stamps = [];
     const pushStamp = (x, y) => {
@@ -704,6 +714,7 @@
         }
       }
     }
+    void pairCount;
 
     const vertices = [];
     const corners = [0, 1, 2, 1, 3, 2];
