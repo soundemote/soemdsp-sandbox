@@ -639,9 +639,9 @@
     const radius = Math.max(0.5, Number(options.radius) || 2);
     const blur = Math.max(0, Math.min(1, Number(options.blur) || 0.35));
     const maxDots = Math.max(16, Math.floor(Number(options.maxDots) || 2048));
-    const sigma = Math.max(0.55, radius * (0.34 + blur * 0.66));
-    // Ideal spacing fuses disks into a continuous soft line.
-    const idealStep = Math.max(0.25, Math.min(sigma * 0.32, radius * 0.28));
+    // Fuse spacing from soft skirt width (core+skirt shader), not a single sigma.
+    const skirtW = Math.max(radius * (0.55 + blur * 0.9), 0.75);
+    const idealStep = Math.max(0.25, Math.min(skirtW * 0.38, radius * 0.32));
 
     const pieces = [];
     let piece = [];
