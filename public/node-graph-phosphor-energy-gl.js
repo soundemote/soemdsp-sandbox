@@ -1,18 +1,22 @@
-// Shared WebGL 0–1 energy phosphor (long-term path for LCD + scope burn).
+// Shared WebGL 0–1 energy phosphor (efficient screen model).
 //
-// Architecture (same retention model as scope2d burn / Lorenz, monochrome):
-//   energy (R)  ──fade──►  energy'  ──+ soft mask * burn──►  energy''
+// Architecture (Lorenz-style retention, monochrome energy + gradient present):
+//   energy  ──fade──►  energy'
+//   energy' ──+ GPU gaussian segment beams (additive)──►  energy''
 //   present: color = LUT(energy)   (1D gradient / black→white→peak)
 //   resize:  reallocate FBOs + copy residual (do NOT clear on zoom)
 //
-// Deposit masks are rasterized on a small 2D canvas (soft glyphs / beams),
-// then uploaded once per deposit — no per-frame getImageData colormap.
+// Beams match scope2d / Lorenz: one ribbon quad per sample pair with
+// distance-to-segment gaussian in the fragment shader — not RGB burn and
+// not dense 2D stamp loops. Optional 2D mask deposit remains for LCD glyphs
+// (Number Readout).
 //
-// Consumers (Number Readout + PhosphorLight; other scopes migrate later):
+// Consumers:
 //   const glr = nodeGraphPhosphorEnergyGlEnsure(host, w, h);
 //   nodeGraphPhosphorEnergyGlSetLutFromPeak(glr, rgbBytes, bgHex);
-//   nodeGraphPhosphorEnergyGlStep(glr, { decay, burn, maskCanvas, depositGain });
-//   nodeGraphPhosphorEnergyGlPresent(glr); // draws into glr.canvas
+//   nodeGraphPhosphorEnergyGlStepBeams(glr, { decay, pathPoints, radius, brightness, blur });
+//   // or mask path: nodeGraphPhosphorEnergyGlStep(glr, { decay, maskCanvas, depositGain });
+//   nodeGraphPhosphorEnergyGlPresent(glr);
 //   destCtx.drawImage(glr.canvas, 0, 0);
 
 (function initNodeGraphPhosphorEnergyGl(global) {
@@ -104,6 +108,63 @@
     uniform sampler2D uTexture;
     void main() {
       gl_FragColor = texture2D(uTexture, vUv);
+    }
+  `;
+
+  // Continuous gaussian beam ribbon — same geometry as scope2d / Lorenz, mono energy.
+  const BEAM_VERT = `
+    attribute vec2 aStart;
+    attribute vec2 aEnd;
+    attribute float aCorner;
+    uniform vec2 uCanvasSize;
+    uniform float uRadius;
+    varying vec2 vStart;
+    varying vec2 vEnd;
+    varying vec2 vPosition;
+    void main() {
+      vec2 segment = aEnd - aStart;
+      float segmentLength = max(length(segment), 0.0001);
+      vec2 tangent = segment / segmentLength;
+      vec2 normal = vec2(-tangent.y, tangent.x);
+      float side = (aCorner == 0.0 || aCorner == 2.0) ? 1.0 : -1.0;
+      float endpointMix = aCorner < 2.0 ? 0.0 : 1.0;
+      float cap = aCorner < 2.0 ? -1.0 : 1.0;
+      float padding = max(uRadius * 3.45, 2.0);
+      vec2 endpoint = mix(aStart, aEnd, endpointMix);
+      vec2 position = endpoint + normal * side * padding + tangent * cap * padding;
+      vStart = aStart;
+      vEnd = aEnd;
+      vPosition = position;
+      vec2 clip = vec2(
+        (position.x / uCanvasSize.x) * 2.0 - 1.0,
+        1.0 - (position.y / uCanvasSize.y) * 2.0
+      );
+      gl_Position = vec4(clip, 0.0, 1.0);
+    }
+  `;
+
+  const BEAM_FRAG = `
+    precision mediump float;
+    uniform float uBrightness;
+    uniform float uBlur;
+    uniform float uRadius;
+    varying vec2 vStart;
+    varying vec2 vEnd;
+    varying vec2 vPosition;
+    void main() {
+      vec2 segment = vEnd - vStart;
+      float blur = clamp(uBlur, 0.0, 1.0);
+      float sigma = max(uRadius * mix(0.34, 1.0, blur), 0.55);
+      float segmentLengthSquared = dot(segment, segment);
+      float t = segmentLengthSquared > 0.000001
+        ? clamp(dot(vPosition - vStart, segment) / segmentLengthSquared, 0.0, 1.0)
+        : 0.0;
+      vec2 closest = vStart + segment * t;
+      float distanceToBeam = length(vPosition - closest);
+      float profile = exp(-(distanceToBeam * distanceToBeam) / (2.0 * sigma * sigma));
+      float e = profile * uBrightness;
+      // Monochrome energy (R=G=B); additive blend accumulates trail.
+      gl_FragColor = vec4(e, e, e, e);
     }
   `;
 
@@ -256,11 +317,13 @@
     const stepProgram = linkProgram(gl, VERT, STEP_FRAG);
     const presentProgram = linkProgram(gl, VERT, PRESENT_FRAG);
     const copyProgram = linkProgram(gl, VERT, COPY_FRAG);
-    if (!stepProgram || !presentProgram || !copyProgram) {
+    const beamProgram = linkProgram(gl, BEAM_VERT, BEAM_FRAG);
+    if (!stepProgram || !presentProgram || !copyProgram || !beamProgram) {
       return null;
     }
 
     const quad = createQuad(gl);
+    const beamBuffer = gl.createBuffer();
     const surfaceA = createSurface(gl, w, h);
     const surfaceB = createSurface(gl, w, h);
     if (!surfaceA || !surfaceB) {
@@ -317,6 +380,16 @@
       aPos: gl.getAttribLocation(copyProgram, "aPos"),
       uTexture: gl.getUniformLocation(copyProgram, "uTexture"),
     };
+    const beam = {
+      program: beamProgram,
+      aStart: gl.getAttribLocation(beamProgram, "aStart"),
+      aEnd: gl.getAttribLocation(beamProgram, "aEnd"),
+      aCorner: gl.getAttribLocation(beamProgram, "aCorner"),
+      uCanvasSize: gl.getUniformLocation(beamProgram, "uCanvasSize"),
+      uRadius: gl.getUniformLocation(beamProgram, "uRadius"),
+      uBrightness: gl.getUniformLocation(beamProgram, "uBrightness"),
+      uBlur: gl.getUniformLocation(beamProgram, "uBlur"),
+    };
 
     return {
       canvas,
@@ -324,6 +397,8 @@
       width: w,
       height: h,
       quad,
+      beamBuffer,
+      segmentScratch: new Float32Array(0),
       read: surfaceA,
       write: surfaceB,
       lutTexture,
@@ -331,6 +406,7 @@
       step,
       present,
       copy,
+      beam,
       lutSignature: "",
       alive: true,
     };
@@ -352,6 +428,9 @@
     if (renderer.quad) {
       gl.deleteBuffer(renderer.quad);
     }
+    if (renderer.beamBuffer) {
+      gl.deleteBuffer(renderer.beamBuffer);
+    }
     if (renderer.step?.program) {
       gl.deleteProgram(renderer.step.program);
     }
@@ -361,7 +440,104 @@
     if (renderer.copy?.program) {
       gl.deleteProgram(renderer.copy.program);
     }
+    if (renderer.beam?.program) {
+      gl.deleteProgram(renderer.beam.program);
+    }
     renderer.alive = false;
+  }
+
+  /** Append one ribbon quad (6 verts × 5 floats) like scope2d burn. */
+  function appendBeamSegment(vertices, from, to) {
+    if (!from || !to) {
+      return;
+    }
+    let dx = to.x - from.x;
+    let dy = to.y - from.y;
+    let distance = Math.sqrt(dx * dx + dy * dy);
+    if (!Number.isFinite(distance)) {
+      return;
+    }
+    const endX = distance < 0.01 ? from.x + 0.01 : to.x;
+    const endY = distance < 0.01 ? from.y : to.y;
+    const corners = [0, 1, 2, 1, 3, 2];
+    for (let i = 0; i < corners.length; i += 1) {
+      vertices.push(from.x, from.y, endX, endY, corners[i]);
+    }
+  }
+
+  function buildBeamVertices(pathPoints) {
+    const points = Array.isArray(pathPoints) ? pathPoints : [];
+    const vertices = [];
+    let previous = null;
+    for (let i = 0; i < points.length; i += 1) {
+      const point = points[i];
+      if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+        previous = null;
+        continue;
+      }
+      if (previous) {
+        appendBeamSegment(vertices, previous, point);
+      }
+      previous = point;
+    }
+    return vertices;
+  }
+
+  /**
+   * Additive gaussian segment ribbons into current energy (read surface).
+   * Same continuous beams as Lorenz — monochrome energy only.
+   */
+  function depositBeamSegments(renderer, options = {}) {
+    if (!renderer?.alive || !renderer.beam?.program) {
+      return 0;
+    }
+    const pathPoints = options.pathPoints;
+    const vertices = Array.isArray(options.vertices)
+      ? options.vertices
+      : buildBeamVertices(pathPoints);
+    const vertexCount = Math.floor(vertices.length / 5);
+    if (vertexCount <= 0) {
+      return 0;
+    }
+    const radius = Math.max(0.5, Number(options.radius) || 2);
+    const brightness = Math.max(0, Number(options.brightness) || 0);
+    if (brightness < 1e-6) {
+      return 0;
+    }
+    const blur = Math.max(0, Math.min(1, Number(options.blur) || 0));
+    const { gl } = renderer;
+
+    if (renderer.segmentScratch.length < vertices.length) {
+      renderer.segmentScratch = new Float32Array(vertices.length);
+    }
+    renderer.segmentScratch.set(vertices);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, renderer.read.framebuffer);
+    gl.viewport(0, 0, renderer.width, renderer.height);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    gl.useProgram(renderer.beam.program);
+    gl.bindBuffer(gl.ARRAY_BUFFER, renderer.beamBuffer);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      renderer.segmentScratch.subarray(0, vertices.length),
+      gl.STREAM_DRAW,
+    );
+    const stride = 5 * 4;
+    gl.enableVertexAttribArray(renderer.beam.aStart);
+    gl.vertexAttribPointer(renderer.beam.aStart, 2, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(renderer.beam.aEnd);
+    gl.vertexAttribPointer(renderer.beam.aEnd, 2, gl.FLOAT, false, stride, 2 * 4);
+    gl.enableVertexAttribArray(renderer.beam.aCorner);
+    gl.vertexAttribPointer(renderer.beam.aCorner, 1, gl.FLOAT, false, stride, 4 * 4);
+    gl.uniform2f(renderer.beam.uCanvasSize, renderer.width, renderer.height);
+    gl.uniform1f(renderer.beam.uRadius, radius);
+    gl.uniform1f(renderer.beam.uBrightness, brightness);
+    gl.uniform1f(renderer.beam.uBlur, blur);
+    gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
+    gl.disable(gl.BLEND);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    return vertexCount;
   }
 
   /**
@@ -507,6 +683,7 @@
   /**
    * One simulation step: fade residual, optionally add soft mask deposit.
    * maskCanvas: same size preferred; uploaded as RGBA.
+   * Prefer stepBeams for XY scopes (GPU ribbons, no mask upload).
    */
   function stepEnergy(renderer, options = {}) {
     if (!renderer?.alive) {
@@ -561,6 +738,34 @@
     return true;
   }
 
+  /**
+   * Efficient scope frame: fade mono energy, then additive GPU beam segments
+   * (Lorenz geometry → energy FBO → LUT present later).
+   */
+  function stepBeams(renderer, options = {}) {
+    if (!renderer?.alive) {
+      return false;
+    }
+    const {
+      decay = 0,
+      pathPoints = null,
+      vertices = null,
+      radius = 2,
+      brightness = 0,
+      blur = 0.35,
+    } = options;
+    // Fade residual only (no 2D mask upload).
+    stepEnergy(renderer, { decay, depositGain: 0, maskCanvas: null });
+    depositBeamSegments(renderer, {
+      pathPoints,
+      vertices,
+      radius,
+      brightness,
+      blur,
+    });
+    return true;
+  }
+
   /** Present energy×LUT into renderer.canvas (premultiplied RGBA). */
   function present(renderer, trailGain = 0.85) {
     if (!renderer?.alive) {
@@ -599,6 +804,9 @@
   global.nodeGraphPhosphorEnergyGlResize = resizeRenderer;
   global.nodeGraphPhosphorEnergyGlSetLutFromPeak = setLutFromPeak;
   global.nodeGraphPhosphorEnergyGlStep = stepEnergy;
+  global.nodeGraphPhosphorEnergyGlStepBeams = stepBeams;
+  global.nodeGraphPhosphorEnergyGlDepositBeams = depositBeamSegments;
+  global.nodeGraphPhosphorEnergyGlBuildBeamVertices = buildBeamVertices;
   global.nodeGraphPhosphorEnergyGlPresent = present;
   global.nodeGraphPhosphorEnergyGlFadeAmount = fadeAmount;
   global.nodeGraphPhosphorEnergyGlSoftnessPx = softnessPx;

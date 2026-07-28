@@ -13290,6 +13290,8 @@ def require_node_graph_mvp_contract() -> None:
         and "nodeGraphPhosphorEnergyGlStep" in script_sources.get("./public/node-graph-phosphor-energy-gl.js", "")
         and "nodeGraphPhosphorEnergyGlPresent" in script_sources.get("./public/node-graph-phosphor-energy-gl.js", "")
         and "nodeGraphPhosphorEnergyGlResize" in script_sources.get("./public/node-graph-phosphor-energy-gl.js", "")
+        and "nodeGraphPhosphorEnergyGlStepBeams" in script_sources.get("./public/node-graph-phosphor-energy-gl.js", "")
+        and "function depositBeamSegments" in script_sources.get("./public/node-graph-phosphor-energy-gl.js", "")
         and "function resizeRenderer(renderer, width, height)" in script_sources.get("./public/node-graph-phosphor-energy-gl.js", "")
         and "function copySurface(renderer, sourceSurface, targetSurface, width, height)" in script_sources.get("./public/node-graph-phosphor-energy-gl.js", "")
         and "nodeGraphNumberReadoutEnergyGl" in node_graph_source
@@ -13805,10 +13807,13 @@ def require_node_graph_mvp_contract() -> None:
         and "peak * 0.52" in script_sources.get(
             "./public/node-graph-phosphor-gaussian-drawer.js", ""
         )
-        and "nodeGraphPhosphorGaussianStamp" in script_sources.get(
+        and "nodeGraphPhosphorEnergyGlStepBeams" in script_sources.get(
             "./public/modules/phosphorLight/phosphor-light-display.js", ""
         )
         and "createRadialGradient" not in script_sources.get(
+            "./public/modules/phosphorLight/phosphor-light-display.js", ""
+        )
+        and "nodeGraphPhosphorLightMaskCanvas" not in script_sources.get(
             "./public/modules/phosphorLight/phosphor-light-display.js", ""
         )
         and "Math.max(0, Math.min(2, Number(pixelDensity)" in script_sources.get(

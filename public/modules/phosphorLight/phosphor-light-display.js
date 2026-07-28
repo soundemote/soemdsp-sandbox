@@ -1,13 +1,10 @@
-// PhosphorLight — XY scope testbed for energy+LUT phosphor.
+// PhosphorLight — XY scope testbed for the efficient mono energy screen model.
 //
-// Inspired by woscope (https://m1el.github.io/woscope-how/) and
-// soundemote.io/phosphor — not a port of either:
-//
-//   • Beam deposits light energy (0–1), not colored RGB strokes
-//   • Soft true-gaussian kernel texture stamps (node-graph-phosphor-gaussian-drawer)
-//   • Fixed face pixel grid → fixed radius → kernels stay cached under zoom
-//   • Screen: energy *= keep (decay) + newHits * intensity (burn)
-//   • Present: energy → color via LUT
+//   • GPU gaussian segment beams (same continuous ribbons as Lorenz / scope2d)
+//   • Deposits monochrome energy 0–1 (not RGB burn)
+//   • Fade + additive beams on fixed face pixel grid
+//   • Present: energy → color via 1D gradient LUT
+//   • pixelDensity 0–2 scales the layout grid (2× = supersample AA)
 
 const nodeGraphPhosphorLightSettingsDefaults = Object.freeze({
   background: "#020608",
@@ -16,9 +13,9 @@ const nodeGraphPhosphorLightSettingsDefaults = Object.freeze({
   color: "#75ebff",
   decay: 0.18,
   scale: 1,
-  // Beam radius (softness), not a hard stroke width.
+  // Beam radius (softness) + blur mix for sigma (scope2d lineThickness role).
   lineThickness: 0.14,
-  // 0 = 1px grid, 1 = layout×dpr, 2 = 2× supersample (cheap AA when CSS scales down).
+  // 0 = 1px grid, 1 = layout×dpr, 2 = 2× supersample.
   pixelDensity: 1,
 });
 
@@ -102,9 +99,7 @@ function nodeGraphPhosphorLightApplyPixelDensity(size, pixelDensity) {
 
 function syncNodeGraphPhosphorLightFaceCanvas(canvas, screenElement, pixelRatio, pixelDensity = 1) {
   if (!canvas || !screenElement) return false;
-  // Fixed layout pixel grid (same as nodeGraphSizeDisplayCanvas / scope2d burn):
-  // clientWidth × dpr × pixelDensity. Zoom must not grow energy FBOs — CSS
-  // scales the bitmap; lower density intentionally looks blocky.
+  // Fixed layout pixel grid: clientWidth × dpr × pixelDensity.
   const fullSize = typeof nodeGraphModuleScopeFaceBackingSize === "function"
     ? nodeGraphModuleScopeFaceBackingSize(screenElement, pixelRatio)
     : null;
@@ -112,7 +107,6 @@ function syncNodeGraphPhosphorLightFaceCanvas(canvas, screenElement, pixelRatio,
   if (fullSize) {
     sized = nodeGraphPhosphorLightApplyPixelDensity(fullSize, pixelDensity);
   } else {
-    // Fallback if scopes helper not loaded yet: still avoid screen-space rect.
     const zoom = Math.max(0.01, Number(window.nodeGraphMvp?.zoom) || 1);
     const rect = screenElement.getBoundingClientRect();
     const cssW = Math.max(1, screenElement.clientWidth || screenElement.offsetWidth || rect.width / zoom);
@@ -133,14 +127,9 @@ function syncNodeGraphPhosphorLightFaceCanvas(canvas, screenElement, pixelRatio,
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
     canvas.height = height;
-    // One-frame deposit mask only — safe to drop. Energy residual is kept on
-    // real face resizes via energy-gl resize+copy (not on workspace zoom,
-    // which no longer changes the buffer size).
-    canvas._phosphorLightMask = null;
-    // Keep _phosphorLightLastSample so we only deposit new buffer samples
-    // after a true face resize (re-stamping the whole tail would flash).
+    // Keep sample index so we only deposit new buffer samples after a true
+    // face resize (energy-gl resize+copy preserves residual).
   }
-  // Below 1: chunky upscale. At/above 1: let the browser smooth (2× = AA).
   if (density < 0.999) {
     canvas.style.imageRendering = "pixelated";
   } else if (canvas.style.imageRendering) {
@@ -151,18 +140,6 @@ function syncNodeGraphPhosphorLightFaceCanvas(canvas, screenElement, pixelRatio,
     canvas.style.height = "";
   }
   return true;
-}
-
-function nodeGraphPhosphorLightMaskCanvas(face) {
-  if (!face?.width || !face?.height) return null;
-  let mask = face._phosphorLightMask;
-  if (!mask || mask.width !== face.width || mask.height !== face.height) {
-    mask = document.createElement("canvas");
-    mask.width = face.width;
-    mask.height = face.height;
-    face._phosphorLightMask = mask;
-  }
-  return mask;
 }
 
 function nodeGraphPhosphorLightSquare(width, height) {
@@ -187,80 +164,57 @@ function nodeGraphPhosphorLightMapSample(square, x, y, scale) {
 }
 
 /**
- * Deposit only new samples since last frame as continuous soft beam segments
- * (same continuity idea as scope2d / Lorenz gaussian ribbons). Peak brightness
- * is mild-dwell modulated; geometry is continuous — never sparse elongated dots.
+ * Build path points for new samples since lastIndex (GPU beam deposit).
+ * Returns { points, nextIndex }.
  */
-function nodeGraphPhosphorLightDepositBeam(maskCtx, buffer, square, settings, lastIndex) {
+function nodeGraphPhosphorLightBuildPathPoints(buffer, square, settings, lastIndex) {
   const count = Math.min(buffer?.x?.length || 0, buffer?.y?.length || 0);
-  if (!count || !maskCtx) return count;
-
-  const w = maskCtx.canvas.width;
-  const h = maskCtx.canvas.height;
-  maskCtx.setTransform(1, 0, 0, 1, 0, 0);
-  maskCtx.clearRect(0, 0, w, h);
-  maskCtx.globalCompositeOperation = "lighter";
-
-  const size = Math.min(w, h);
-  const radius = typeof nodeGraphPhosphorGaussianRadiusFromThickness === "function"
-    ? nodeGraphPhosphorGaussianRadiusFromThickness(size, settings.lineThickness)
-    : Math.max(1.25, size * (0.006 + Math.max(0, Math.min(1, settings.lineThickness)) * 0.028));
-  const stampDot = typeof nodeGraphPhosphorGaussianStamp === "function"
-    ? nodeGraphPhosphorGaussianStamp
-    : null;
-  const stampSeg = typeof nodeGraphPhosphorGaussianSegment === "function"
-    ? nodeGraphPhosphorGaussianSegment
-    : null;
-  if (!stampDot) {
-    return count;
+  if (!count) {
+    return { points: [], nextIndex: 0 };
   }
 
-  const brightness = Math.max(0.05, Math.min(2, Number(settings.brightness) || 0.9));
-  // Peak along centerline (like scope2d uBrightness) — continuous segment draw
-  // owns geometry; do not thin long spans by splitting total energy.
-  const basePeak = Math.max(0.06, Math.min(0.85, 0.12 + brightness * 0.28));
-  const sigma = radius / 2.6;
-  const continuityPx = Math.max(0.5, sigma * 0.3);
-
   let start = Math.max(0, Math.floor(Number(lastIndex) || 0));
-  if (start >= count) start = 0; // buffer wrapped / reset
-  // First frame or large rewind: draw a short tail so something appears.
+  if (start >= count) start = 0;
+  // First frame / wrap: short tail so something appears without redrawing forever.
   if (start === 0 && count > 1) {
     start = Math.max(0, count - Math.min(count, 512));
   }
 
-  let prev = start > 0
-    ? nodeGraphPhosphorLightMapSample(square, buffer.x[start - 1], buffer.y[start - 1], settings.scale)
-    : null;
+  const points = [];
+  // Bridge from previous sample so the first new segment is continuous.
+  if (start > 0) {
+    const bridge = nodeGraphPhosphorLightMapSample(
+      square,
+      buffer.x[start - 1],
+      buffer.y[start - 1],
+      settings.scale,
+    );
+    if (bridge) {
+      points.push(bridge);
+    }
+  }
 
   for (let i = start; i < count; i += 1) {
     const cur = nodeGraphPhosphorLightMapSample(square, buffer.x[i], buffer.y[i], settings.scale);
     if (!cur) {
-      prev = null;
+      // Break continuity on bad samples (null point ends a stroke).
+      if (points.length && points[points.length - 1] !== null) {
+        points.push(null);
+      }
       continue;
     }
-    if (!prev) {
-      stampDot(maskCtx, cur.x, cur.y, radius, basePeak);
-      prev = cur;
-      continue;
-    }
-    const dx = cur.x - prev.x;
-    const dy = cur.y - prev.y;
-    const dist = Math.hypot(dx, dy);
-    // Mild dwell: slow motion a bit brighter — never collapse long segments.
-    const dwell = dist < 1e-4
-      ? 1.35
-      : Math.min(1.45, Math.max(0.55, continuityPx / Math.max(dist, continuityPx * 0.25)));
-    const peak = basePeak * dwell;
-    if (stampSeg) {
-      // Always segment-draw consecutive samples (Lorenz draws every segment).
-      stampSeg(maskCtx, prev.x, prev.y, cur.x, cur.y, radius, peak);
-    } else {
-      stampDot(maskCtx, cur.x, cur.y, radius, peak);
-    }
-    prev = cur;
+    points.push(cur);
   }
-  return count;
+  return { points, nextIndex: count };
+}
+
+function nodeGraphPhosphorLightBeamRadius(sizePx, thickness01) {
+  if (typeof nodeGraphPhosphorGaussianRadiusFromThickness === "function") {
+    return nodeGraphPhosphorGaussianRadiusFromThickness(sizePx, thickness01);
+  }
+  const size = Math.max(1, Number(sizePx) || 1);
+  const t = Math.max(0, Math.min(1, Number(thickness01) || 0));
+  return Math.max(1.25, size * (0.006 + t * 0.028));
 }
 
 function drawNodeGraphPhosphorLightItem(renderer, item, pixelRatio) {
@@ -300,39 +254,48 @@ function drawNodeGraphPhosphorLightItem(renderer, item, pixelRatio) {
   const burn = Math.max(0, Math.min(1, Number(settings.burn) || 0));
   const decay = Math.max(0, Math.min(1, Number(settings.decay) || 0));
   const brightness = Math.max(0.05, Math.min(2, Number(settings.brightness) || 0.9));
+  const size = Math.min(width, height);
+  const radius = nodeGraphPhosphorLightBeamRadius(size, settings.lineThickness);
+  // Blur 0–1 widens sigma (scope2d beamBlur); thickness already sets radius.
+  const blur = Math.max(0, Math.min(1, Number(settings.lineThickness) || 0));
+  // Peak energy per beam — same order as scope2d burn brightness * burn gain.
+  const beamBrightness = Math.max(
+    0,
+    brightness * (0.014 + burn * 0.055),
+  );
 
-  // Soft beam hits only (new samples since last frame).
-  const mask = nodeGraphPhosphorLightMaskCanvas(canvas);
-  const mctx = mask?.getContext?.("2d");
-  const nextIndex = mctx
-    ? nodeGraphPhosphorLightDepositBeam(
-      mctx,
-      buffer,
-      square,
-      settings,
-      canvas._phosphorLightLastSample || 0,
-    )
-    : Math.min(buffer.x.length, buffer.y.length);
-  canvas._phosphorLightLastSample = nextIndex;
+  const path = nodeGraphPhosphorLightBuildPathPoints(
+    buffer,
+    square,
+    settings,
+    canvas._phosphorLightLastSample || 0,
+  );
+  canvas._phosphorLightLastSample = path.nextIndex;
 
   const energyGl = typeof nodeGraphPhosphorEnergyGlEnsure === "function"
     ? nodeGraphPhosphorEnergyGlEnsure(canvas, width, height, "_phosphorEnergyGl")
     : null;
 
-  if (energyGl && typeof nodeGraphPhosphorEnergyGlStep === "function") {
+  if (energyGl) {
     if (typeof nodeGraphPhosphorEnergyGlSetLutFromPeak === "function") {
       nodeGraphPhosphorEnergyGlSetLutFromPeak(energyGl, rgb, bg);
     }
-    // burn = how hard each soft hit writes; continuous path, not a tip layer.
-    const depositGain = Math.max(0.02, Math.min(0.35, (0.04 + burn * 0.18) * brightness));
-    nodeGraphPhosphorEnergyGlStep(energyGl, {
-      decay,
-      depositGain: mask ? depositGain : 0,
-      maskCanvas: mask,
-    });
+    // Efficient screen model: fade mono energy + GPU segment ribbons (no 2D stamps).
+    if (typeof nodeGraphPhosphorEnergyGlStepBeams === "function") {
+      nodeGraphPhosphorEnergyGlStepBeams(energyGl, {
+        decay,
+        pathPoints: path.points,
+        radius,
+        brightness: beamBrightness,
+        blur,
+      });
+    } else if (typeof nodeGraphPhosphorEnergyGlStep === "function") {
+      // Fade-only fallback if beams unavailable.
+      nodeGraphPhosphorEnergyGlStep(energyGl, { decay, depositGain: 0 });
+    }
   }
 
-  // Present: background + energy×LUT only. No hard tip / hard stroke overlay.
+  // Present: solid background + energy×LUT.
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.clearRect(0, 0, width, height);
   context.fillStyle = bg;
