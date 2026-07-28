@@ -1,9 +1,10 @@
 // Instant (non-phosphor) trace stroke helpers.
 //
 // Not burn: no energy FBO, no decay, no bleed. Clear + redraw each frame.
-// Softness is Canvas shadowBlur (ch4os soft-brush style): one solid stroke
-// with a continuous outer falloff — not a dual core+skirt pass (that ringed).
-// Blur 0 = hard, 1 = very soft. Size is 0–1 of face min side (diameter).
+// Softness is a cheap radial profile *inside* the existing line width
+// (concentric passes) — never expands the footprint / shadowBlur skirt
+// (that got clipped and read as inner glow). Blur 0 = single hard stroke
+// (looks great alone); blur 1 = mild edge softening. Size = 0–1 face diameter.
 
 (function initTraceStroke(global) {
   function clamp01(value, fallback = 0) {
@@ -36,6 +37,28 @@
     const side = Math.max(1, Number(faceMinSide) || 1);
     const t = clamp01(size01, 0.08);
     return Math.max(1, side * t);
+  }
+
+  /**
+   * Soft-edge profile: t in 0..1 from center (0) to outer edge (1).
+   * blur 0 → hard disc (1 until edge). blur 1 → smooth cosine falloff.
+   * Returns relative opacity weight at radius fraction t.
+   */
+  function edgeProfile(t, blur01) {
+    const soft = clamp01(blur01, 0);
+    const x = clamp01(t, 0);
+    if (soft < 0.02) {
+      return x < 1 ? 1 : 0;
+    }
+    // Hardness residual: how late the falloff starts (1 = hard edge, 0 = soft from center).
+    const hard = 1 - soft;
+    const knee = hard * 0.72; // stay bright until near edge when hard
+    if (x <= knee) {
+      return 1;
+    }
+    const u = (x - knee) / Math.max(1e-6, 1 - knee); // 0..1 over soft band
+    // Smoothstep-ish cosine: continuous derivative, no ring.
+    return 0.5 + 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, u)));
   }
 
   /**
@@ -81,23 +104,11 @@
   }
 
   /**
-   * Continuous soft stroke via Canvas shadowBlur (ch4os paint soft-brush style).
-   * One solid path + matching soft outer falloff — no dual core/skirt pass
-   * (that read as a hard ring between blur and non-blur).
-   *
-   * blur 0 → hard (shadowBlur 0), blur 1 → very soft wide falloff.
+   * Efficient soft-edge stroke *inside* size (no footprint expansion).
+   * blur 0 → one solid stroke (the good hard look).
+   * blur > 0 → a few concentric passes approximating edgeProfile() falloff.
    * options: { size, blur, brightness, color, faceMinSide, rgb, composite }
    */
-  function softnessBlurPx(diameter, blur01) {
-    const soft = clamp01(blur01, 0);
-    if (soft < 0.01) {
-      return 0;
-    }
-    // Map like ch4os hardness→blur: size * (1-hardness) * k, with blur = 1-hardness.
-    // Slightly stronger than paint (×1.15) so scope traces read soft at mid blur.
-    return Math.max(0, diameter * soft * 1.15);
-  }
-
   function draw(context, points, options = {}) {
     if (!context || !Array.isArray(points) || !points.length) {
       return 0;
@@ -124,11 +135,8 @@
       }
     }
     const [r, g, b] = rgb;
-    const diameter = diameterPx(face, size01);
-    const lineWidth = Math.max(1, diameter);
-    const alpha = Math.min(1, brightness);
-    const color = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-    const shadowPx = softnessBlurPx(lineWidth, blur);
+    const lineWidth = Math.max(1, diameterPx(face, size01));
+    const peakAlpha = Math.min(1, brightness);
 
     const visible = points.filter((p) => p && Number.isFinite(p.x) && Number.isFinite(p.y));
     if (!visible.length) {
@@ -139,29 +147,58 @@
     context.globalCompositeOperation = options.composite || "lighter";
     context.lineCap = "round";
     context.lineJoin = "round";
-    context.lineWidth = lineWidth;
-    context.strokeStyle = color;
-    context.fillStyle = color;
-    // Solid shape + soft shadow falloff (same continuous soft brush as ch4os).
-    if (shadowPx > 0) {
-      context.shadowColor = color;
-      context.shadowBlur = shadowPx;
-    } else {
-      context.shadowBlur = 0;
-      context.shadowColor = "transparent";
-    }
-
-    if (visible.length === 1) {
-      const p = visible[0];
-      context.beginPath();
-      context.arc(p.x, p.y, lineWidth * 0.5, 0, Math.PI * 2);
-      context.fill();
-    } else {
-      strokePath(context, points);
-    }
-
     context.shadowBlur = 0;
     context.shadowColor = "transparent";
+
+    // Hard (or nearly): one stroke — the look that already works.
+    if (blur < 0.04) {
+      const color = `rgba(${r}, ${g}, ${b}, ${peakAlpha})`;
+      context.lineWidth = lineWidth;
+      context.strokeStyle = color;
+      context.fillStyle = color;
+      if (visible.length === 1) {
+        context.beginPath();
+        context.arc(visible[0].x, visible[0].y, lineWidth * 0.5, 0, Math.PI * 2);
+        context.fill();
+      } else {
+        strokePath(context, points);
+      }
+      context.restore();
+      return visible.length;
+    }
+
+    // Soft edge: 3 concentric passes, all widths ≤ lineWidth (no expansion).
+    // Outer shell first (wide, dim), then mid, then core — alpha diffs ≈ profile.
+    const passes = 3;
+    let prevProfile = 0;
+    for (let i = 0; i < passes; i += 1) {
+      // Radius fraction of this shell (outer → inner): 1, ~0.66, ~0.33
+      const tOuter = 1 - i / passes;
+      const tInner = 1 - (i + 1) / passes;
+      // Shell weight ≈ average profile across the band (center-weighted).
+      const pMid = edgeProfile((tOuter + tInner) * 0.5, blur);
+      const shell = Math.max(0, pMid - prevProfile * 0.15);
+      prevProfile = pMid;
+      const widthFrac = Math.max(0.28, tOuter); // stay within full size
+      const w = Math.max(1, lineWidth * widthFrac);
+      // Mild alpha: keep soft as a cherry, not a fog bank.
+      const a = peakAlpha * (0.22 + 0.78 * shell) * (0.55 + 0.45 * (1 - blur * 0.35));
+      if (a < 0.01) {
+        continue;
+      }
+      const color = `rgba(${r}, ${g}, ${b}, ${Math.min(1, a)})`;
+      context.lineWidth = w;
+      context.strokeStyle = color;
+      context.fillStyle = color;
+      if (visible.length === 1) {
+        context.beginPath();
+        context.arc(visible[0].x, visible[0].y, w * 0.5, 0, Math.PI * 2);
+        context.fill();
+      } else {
+        strokePath(context, points);
+      }
+    }
+
     context.restore();
     return visible.length;
   }
@@ -319,6 +356,7 @@
     clamp01,
     normalizeBlur,
     diameterPx,
+    edgeProfile,
     draw,
     drawStereoRedBlueGreen,
     budgetPoints,
