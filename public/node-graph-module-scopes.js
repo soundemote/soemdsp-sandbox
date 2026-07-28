@@ -10674,12 +10674,13 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
 
   const paused = nodeGraphModuleScopePaused();
   if (!paused && layer) {
-    // Same gain shape as classic RGB beam layer (beauty preserved in deposit).
-    // Mild size compensation so large dots don't hard-clip to white.
+    // Dots-only soft deposits (no inter-sample joins) — evaluate phosphor look
+    // without the beaded segment-ribbon rhythm. Softness from radius + blur.
     const size01 = clampNodeSliderValue(settings?.dot1Size, 0, 1);
     const beamBrightness = Math.max(
       0,
-      layer.brightness * (0.012 + burn * 0.052) * (1.12 - size01 * 0.45),
+      // Slightly hotter than segments: each sample is one impact, not a ribbon.
+      layer.brightness * (0.018 + burn * 0.06) * (1.12 - size01 * 0.45),
     );
     nodeGraphPhosphorEnergyGlStepBeams(energyGl, {
       decay,
@@ -10687,6 +10688,7 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       radius: Math.max(0.35, layer.radius),
       brightness: beamBrightness,
       blur: clampNodeSliderValue(layer.blur, 0, 1),
+      mode: "dots",
     });
   } else if (!paused && typeof nodeGraphPhosphorEnergyGlStep === "function") {
     // Fade-only when no drawable layer.

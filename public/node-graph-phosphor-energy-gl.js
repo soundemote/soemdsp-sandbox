@@ -542,6 +542,25 @@
   }
 
   /**
+   * Dots-only: one soft gaussian impact per sample (no inter-sample joins).
+   * Uses a tiny degenerate beam segment so the existing soft fragment profile
+   * becomes a round deposit — avoids the beaded "connected segment" look.
+   */
+  function buildDotVertices(pathPoints) {
+    const points = Array.isArray(pathPoints) ? pathPoints : [];
+    const vertices = [];
+    for (let i = 0; i < points.length; i += 1) {
+      const point = points[i];
+      if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+        continue;
+      }
+      // Non-zero length required by segment geometry; 0.01px is sub-pixel.
+      appendBeamSegment(vertices, point, { x: point.x + 0.01, y: point.y });
+    }
+    return vertices;
+  }
+
+  /**
    * Additive gaussian segment ribbons into current energy (read surface).
    * Same continuous beams as Lorenz — monochrome energy only.
    */
@@ -826,6 +845,7 @@
   /**
    * Efficient scope frame: fade mono energy, then additive GPU beam segments
    * (Lorenz geometry → energy FBO → LUT present later).
+   * options.mode: "segments" (default) | "dots" — dots = one soft impact per sample.
    */
   function stepBeams(renderer, options = {}) {
     if (!isRendererLive(renderer)) {
@@ -838,9 +858,16 @@
       radius = 2,
       brightness = 0,
       blur = 0.35,
+      mode = "segments",
     } = options;
-    const hasPath = (Array.isArray(vertices) && vertices.length >= 10)
-      || (Array.isArray(pathPoints) && pathPoints.length >= 2);
+    const dotsMode = String(mode || "segments").toLowerCase() === "dots";
+    let depositVertices = vertices;
+    if (!Array.isArray(depositVertices) || depositVertices.length < 5) {
+      depositVertices = dotsMode
+        ? buildDotVertices(pathPoints)
+        : buildBeamVertices(pathPoints);
+    }
+    const hasPath = Array.isArray(depositVertices) && depositVertices.length >= 5;
     const willDeposit = hasPath && brightness > 1e-6 && renderer.beam?.program;
 
     // Fully quiet trail and nothing new: skip fade + deposit + present upstream.
@@ -852,8 +879,7 @@
     stepEnergy(renderer, { decay, depositGain: 0, maskCanvas: null });
     if (willDeposit) {
       const count = depositBeamSegments(renderer, {
-        pathPoints,
-        vertices,
+        vertices: depositVertices,
         radius,
         brightness,
         blur,
@@ -928,6 +954,7 @@
   global.nodeGraphPhosphorEnergyGlStepBeams = stepBeams;
   global.nodeGraphPhosphorEnergyGlDepositBeams = depositBeamSegments;
   global.nodeGraphPhosphorEnergyGlBuildBeamVertices = buildBeamVertices;
+  global.nodeGraphPhosphorEnergyGlBuildDotVertices = buildDotVertices;
   global.nodeGraphPhosphorEnergyGlPresent = present;
   global.nodeGraphPhosphorEnergyGlFadeAmount = fadeAmount;
   global.nodeGraphPhosphorEnergyGlSoftnessPx = softnessPx;
