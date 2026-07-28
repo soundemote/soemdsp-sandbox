@@ -601,12 +601,13 @@
   }
 
   /**
-   * Dots-only with dwell fill + fixed stamp budget (prettyscope-efficient).
+   * Dots-only with dwell fill + soft budget cap.
    *
-   * Continuity = soft circular hits overlapping along motion (not beam joins).
-   * Ideal spacing ~0.42σ so disks fuse. If the path is long (high frequency /
-   * high speed), spacing grows so we never exceed maxDots — HF can look
-   * sparser; LF / slow motion stays dense and smooth.
+   * Always place stamps at ideal spacing (enough for disks to fuse) — never
+   * stretch spacing just to burn the whole budget. Short/smooth paths may use
+   * far fewer than maxDots. If the path still needs more stamps than maxDots,
+   * stop when the budget is exhausted (prefer newest motion so the beam head
+   * stays solid; HF can leave older trail sparse — that's OK).
    *
    * Format: center.x, center.y, corner (6 verts per stamp).
    */
@@ -615,10 +616,9 @@
     const radius = Math.max(0.5, Number(options.radius) || 2);
     const blur = Math.max(0, Math.min(1, Number(options.blur) || 0.35));
     const maxDots = Math.max(64, Math.floor(Number(options.maxDots) || 2048));
-    // Match DOT_FRAG sigma; step stays well under the kernel so disks fuse.
-    // Cap step by radius so a 1Hz circle never opens visible gaps.
+    // Match DOT_FRAG sigma; step well under kernel so disks fuse.
     const sigma = Math.max(0.55, radius * (0.34 + blur * 0.66));
-    const idealStep = Math.max(0.25, Math.min(sigma * 0.32, radius * 0.28));
+    const step = Math.max(0.25, Math.min(sigma * 0.32, radius * 0.28));
 
     // Flatten into continuous pieces (null breaks the stroke).
     const pieces = [];
@@ -641,60 +641,46 @@
       return [];
     }
 
-    // Path length of consecutive pairs (for adaptive spacing).
-    let totalLen = 0;
-    let pairCount = 0;
-    for (let p = 0; p < pieces.length; p += 1) {
-      const pts = pieces[p];
-      for (let i = 1; i < pts.length; i += 1) {
-        totalLen += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
-        pairCount += 1;
-      }
-      // Isolated single points still need one stamp.
-      if (pts.length === 1) {
-        pairCount += 1;
-      }
-    }
-    // Ideal stamp count ≈ path / idealStep (+ endpoints).
-    const idealCount = Math.max(pairCount, Math.ceil(totalLen / idealStep) + pieces.length);
-    const step = idealCount > maxDots
-      ? Math.max(idealStep, totalLen / Math.max(1, maxDots - pieces.length))
-      : idealStep;
+    // Newest-first so if we hit maxDots mid-path the live beam head is solid.
+    const ordered = pieces.slice().reverse().map((pts) => pts.slice().reverse());
 
     const stamps = [];
     const pushStamp = (x, y) => {
-      if (stamps.length >= maxDots) {
+      if (stamps.length / 2 >= maxDots) {
         return false;
       }
       stamps.push(x, y);
       return true;
     };
 
-    for (let p = 0; p < pieces.length && stamps.length < maxDots; p += 1) {
-      const pts = pieces[p];
+    outer: for (let p = 0; p < ordered.length; p += 1) {
+      const pts = ordered[p];
       if (pts.length === 1) {
-        pushStamp(pts[0].x, pts[0].y);
+        if (!pushStamp(pts[0].x, pts[0].y)) {
+          break;
+        }
         continue;
       }
-      // Always hit the first sample of the piece.
-      if (!pushStamp(pts[0].x, pts[0].y)) {
-        break;
-      }
-      for (let i = 1; i < pts.length && stamps.length < maxDots; i += 1) {
-        const a = pts[i - 1];
-        const b = pts[i];
+      // Walk segments newest→oldest; stamp along each at fixed ideal `step` only.
+      for (let i = 0; i < pts.length - 1; i += 1) {
+        const a = pts[i];
+        const b = pts[i + 1];
+        if (i === 0 && !pushStamp(a.x, a.y)) {
+          break outer;
+        }
         const dx = b.x - a.x;
         const dy = b.y - a.y;
         const dist = Math.hypot(dx, dy);
         if (dist < 1e-4) {
-          // Stationary: one extra hit for dwell brightness (optional skip if same).
           continue;
         }
-        // Multi-hit along motion — denser when slow (short dist), coarser when fast.
+        // Only as many stamps as needed for this segment — never pad to budget.
         const n = Math.max(1, Math.ceil(dist / step));
-        for (let s = 1; s <= n && stamps.length < maxDots; s += 1) {
+        for (let s = 1; s <= n; s += 1) {
           const t = s / n;
-          pushStamp(a.x + dx * t, a.y + dy * t);
+          if (!pushStamp(a.x + dx * t, a.y + dy * t)) {
+            break outer;
+          }
         }
       }
     }

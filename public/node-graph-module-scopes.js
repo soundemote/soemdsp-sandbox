@@ -11426,9 +11426,9 @@ function nodeGraphScope2dMaxSamplesPerFrame(canvas) {
 }
 
 /**
- * Evenly pick up to maxPoints indices across [0, count) so a 1Hz circle
- * (or any slow closed path) is represented around the whole orbit — not only
- * the newest consecutive slice (which is a short dotted arc).
+ * Evenly pick up to maxPoints indices across [0, count) for path geometry.
+ * This is a control-point cap for the polyline — stamp count is decided later
+ * by ideal spacing (may be far below maxPoints).
  */
 function nodeGraphScope2dEvenSampleIndices(count, maxPoints) {
   const safeCount = Math.max(0, Math.floor(Number(count) || 0));
@@ -11452,21 +11452,27 @@ function nodeGraphScope2dEvenSampleIndices(count, maxPoints) {
 }
 
 /**
- * Build path points by even subsample of the whole capture window (dots burn).
+ * Build path polyline from the capture window. Prefer enough control points to
+ * follow the curve; do NOT force maxPoints when fewer samples exist.
+ * Stamp budget is applied separately (ideal spacing, stop when empty).
  */
 function buildNodeGraphScope2dEvenPathPoints(square, buffer, maxPoints, settings) {
   const count = Math.min(buffer?.x?.length || 0, buffer?.y?.length || 0);
   if (!count || !square) {
     return [];
   }
-  const indices = nodeGraphScope2dEvenSampleIndices(count, maxPoints);
+  // Control points: use all samples if modest; otherwise even-subsample.
+  // Cap control verts so we don't iterate 44k points — stamps are budgeted later.
+  const controlCap = Math.min(
+    count,
+    Math.max(256, Math.min(Math.floor(Number(maxPoints) || 2048) * 2, 8192)),
+  );
+  const indices = nodeGraphScope2dEvenSampleIndices(count, controlCap);
   const pathPoints = [];
-  let previous = null;
   for (let i = 0; i < indices.length; i += 1) {
     const index = indices[i];
     if (!nodeGraphScope2dSampleIsFinite(buffer.x[index], buffer.y[index])) {
       breakNodeGraphScope2dPath(pathPoints);
-      previous = null;
       continue;
     }
     const point = nodeGraphScope2dPointFromSamples(
@@ -11477,14 +11483,10 @@ function buildNodeGraphScope2dEvenPathPoints(square, buffer, maxPoints, settings
     );
     if (!point) {
       breakNodeGraphScope2dPath(pathPoints);
-      previous = null;
       continue;
     }
-    // Close small index gaps only (even subsample should already be ordered).
     pathPoints.push(point);
-    previous = point;
   }
-  void previous;
   return pathPoints;
 }
 
