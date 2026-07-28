@@ -72,44 +72,73 @@
     }
   `;
 
-  // Fade previous energy and optionally add a soft deposit mask in one pass.
+  // Fade previous energy, optional soft neighborhood bleed, optional mask deposit.
+  // Bleed is what makes a slow dwell "grow outward" instead of a hard saturated disc:
+  // each frame a little energy seeps into neighbors (CRT phosphor charge diffusion).
   const STEP_FRAG = `
-    precision mediump float;
+    precision highp float;
     varying vec2 vUv;
     uniform sampler2D uEnergy;
     uniform sampler2D uMask;
     uniform float uKeep;
     uniform float uGain;
     uniform float uUseMask;
+    uniform vec2 uTexel;
+    uniform float uBleed;
     void main() {
-      float e = texture2D(uEnergy, vUv).r * uKeep;
+      float e0 = texture2D(uEnergy, vUv).r;
+      float bleed = clamp(uBleed, 0.0, 1.0);
+      float e = e0;
+      if (bleed > 0.0001) {
+        // 3×3 gaussian-ish blur; mix with center so cores seep outward slowly.
+        vec2 t = max(uTexel, vec2(1e-5));
+        float e1 = texture2D(uEnergy, vUv + vec2( t.x, 0.0)).r;
+        float e2 = texture2D(uEnergy, vUv + vec2(-t.x, 0.0)).r;
+        float e3 = texture2D(uEnergy, vUv + vec2(0.0,  t.y)).r;
+        float e4 = texture2D(uEnergy, vUv + vec2(0.0, -t.y)).r;
+        float e5 = texture2D(uEnergy, vUv + vec2( t.x,  t.y)).r;
+        float e6 = texture2D(uEnergy, vUv + vec2(-t.x,  t.y)).r;
+        float e7 = texture2D(uEnergy, vUv + vec2( t.x, -t.y)).r;
+        float e8 = texture2D(uEnergy, vUv + vec2(-t.x, -t.y)).r;
+        float blur = (e0 * 4.0 + (e1 + e2 + e3 + e4) * 2.0 + (e5 + e6 + e7 + e8)) / 16.0;
+        e = mix(e0, blur, bleed);
+      }
+      e *= uKeep;
       if (uUseMask > 0.5) {
         vec4 m = texture2D(uMask, vUv);
         float ink = max(m.r, max(m.g, m.b)) * m.a;
         // Soft masks often store premultiplied-ish white; prefer luma * alpha.
         ink = max(ink, max(m.r, max(m.g, m.b)));
-        e = min(1.0, e + ink * uGain);
+        // No hard 1.0 clamp — HDR energy keeps soft skirts after long dwell.
+        e = e + ink * uGain;
       }
       gl_FragColor = vec4(e, e, e, 1.0);
     }
   `;
 
+  // HDR present: never clamp energy before the film curve. Clamping to 1 first
+  // turns slow burn into a flat plateau with a hard pixel edge at the isosurface.
+  // Soft film (1-exp) compresses bright cores and leaves dim skirts glowing.
   const PRESENT_FRAG = `
-    precision mediump float;
+    precision highp float;
     varying vec2 vUv;
     uniform sampler2D uEnergy;
     uniform sampler2D uLut;
     uniform float uTrailGain;
-    // uExposure > 0: soft film curve. Lift lows first so soft skirts stay visible
-    // (8-bit energy + harsh gamma was killing bleed into hard pixel edges).
     uniform float uExposure;
     void main() {
-      float e = max(texture2D(uEnergy, vUv).r, 0.0);
-      // Lift soft energy so skirts accumulate visibly before film response.
-      e = pow(clamp(e, 0.0, 1.0), 0.62);
+      float raw = max(texture2D(uEnergy, vUv).r, 0.0);
+      float e;
       if (uExposure > 0.001) {
-        e = 1.0 - exp(-e * uExposure * 0.78);
-        e = pow(clamp(e, 0.0, 1.0), 0.88);
+        // Soft film on full HDR energy (no early clamp). Mild lift on lows so
+        // far skirts stay visible without crushing into a hard threshold.
+        float lifted = raw + 0.018 * sqrt(raw);
+        e = 1.0 - exp(-lifted * uExposure * 0.72);
+        e = pow(clamp(e, 0.0, 1.0), 0.90);
+      } else {
+        // Soft compress when no exposure: still no hard clamp plateau.
+        e = raw / (1.0 + raw);
+        e = pow(clamp(e, 0.0, 1.0), 0.85);
       }
       vec3 c = texture2D(uLut, vec2(clamp(e, 0.0, 1.0), 0.5)).rgb;
       float a = clamp(e * uTrailGain, 0.0, 1.0);
@@ -187,27 +216,26 @@
     }
   `;
 
-  // Circular soft impacts with a ch4os-style hardness continuum (signed blur):
-  //   blur -1 → hard disc (tiny feather)
-  //   blur  0 → painterly "shadowBlur" stamp: solid core + soft outer falloff
-  //   blur +1 → full soft gaussian (whole dab soft — the brush ch4os rejected
-  //              for painting, but useful as airbrush / phosphor bleed)
+  // Soft phosphor dabs — NEVER a solid hard disc. Always smooth radial falloff.
+  //   blur -1 → tight bright core + light skirt (harder, still soft edge)
+  //   blur  0 → painterly core + soft outer skirt (shadowBlur spirit)
+  //   blur +1 → full soft wide gaussian (airbrush / bleed when hits stack)
   // Size (uRadius) = geometric footprint. aCorner: 0=BL,1=BR,2=TL,3=TR.
   const DOT_VERT = `
-    precision mediump float;
+    precision highp float;
     attribute vec2 aCenter;
     attribute float aCorner;
-    uniform mediump vec2 uCanvasSize;
-    uniform mediump float uRadius;
-    uniform mediump float uBlur;
+    uniform vec2 uCanvasSize;
+    uniform float uRadius;
+    uniform float uBlur;
     varying vec2 vOffset;
     varying float vRadius;
     varying float vBlur;
     void main() {
       float blur = clamp(uBlur, -1.0, 1.0);
-      // Full-soft needs the widest pad; hard end can be tighter.
-      float softAmt = clamp(blur, 0.0, 1.0);
-      float pad = max(uRadius * mix(2.15, 4.2, softAmt), 2.0);
+      float softAmt = (blur + 1.0) * 0.5;
+      // Extra pad so long skirts are never clipped by the quad.
+      float pad = max(uRadius * mix(3.2, 6.5, softAmt), 3.0);
       vec2 cornerOffset = vec2(
         (aCorner == 0.0 || aCorner == 2.0) ? -1.0 : 1.0,
         (aCorner < 2.0) ? -1.0 : 1.0
@@ -225,70 +253,122 @@
   `;
 
   const DOT_FRAG = `
-    precision mediump float;
-    uniform mediump float uBrightness;
+    precision highp float;
+    uniform float uBrightness;
     varying vec2 vOffset;
     varying float vRadius;
     varying float vBlur;
     void main() {
       float b = clamp(vBlur, -1.0, 1.0);
+      // soft 0 at hard end (-1), 1 at full soft (+1)
+      float soft = (b + 1.0) * 0.5;
       float R = max(vRadius, 0.5);
-      float r = length(vOffset);
-      float coreR = R * 0.5;
+      float r2 = dot(vOffset, vOffset);
 
-      // --- Hard disc (blur → -1): almost solid, tiny smooth feather ---
-      float hardDisc = 1.0 - smoothstep(coreR * 0.90, coreR * 1.05, r);
-
-      // --- shadowBlur style (blur → 0): solid core + soft outer skirt ---
-      // Mimics Canvas: opaque round body + same-color soft falloff outside.
-      float disc = 1.0 - smoothstep(coreR * 0.82, coreR * 1.0, r);
-      float shadowW = max(R * 0.72, coreR * 1.2);
-      float shadow = exp(-(r * r) / (2.0 * shadowW * shadowW));
-      // Core stays bright; skirt only where disc has fallen off (painterly brush).
-      float shadowStyle = max(disc, shadow * (1.0 - disc) * 0.85);
-
-      // --- Full soft gaussian (blur → +1): whole dab soft, no hard core ---
-      // Same family as ctx.filter blur / airbrush (ch4os rejected for paint).
-      float softW = max(R * 0.70, 0.55);
-      float fullSoft = exp(-(r * r) / (2.0 * softW * softW));
-      float softEdge = 1.0 - smoothstep(R * 1.15, R * 1.85, r);
-      fullSoft *= softEdge;
-
-      // Morph: -1 hard disc ↔ 0 shadowBlur ↔ +1 full soft gaussian
-      float profile;
-      if (b <= 0.0) {
-        // b=-1 → hardDisc, b=0 → shadowStyle
-        profile = mix(shadowStyle, hardDisc, -b);
-      } else {
-        // b=0 → shadowStyle, b=1 → fullSoft
-        profile = mix(shadowStyle, fullSoft, b);
-      }
+      // Triple smooth gaussians — wide outer halo so dwell can light the
+      // far field before the core looks like a hard disc. No smoothstep discs.
+      float coreW = max(R * mix(0.22, 0.55, soft), 0.55);
+      float midW = max(R * mix(0.70, 1.35, soft), coreW * 1.4);
+      float skirtW = max(R * mix(1.35, 2.85, soft), midW * 1.35);
+      float core = exp(-r2 / (2.0 * coreW * coreW));
+      float mid = exp(-r2 / (2.0 * midW * midW));
+      float skirt = exp(-r2 / (2.0 * skirtW * skirtW));
+      float coreAmt = mix(0.55, 0.14, soft);
+      float midAmt = mix(0.38, 0.42, soft);
+      float skirtAmt = mix(0.32, 0.90, soft);
+      // Modest peak so many soft hits build light without an instant white disc.
+      float peak = mix(0.55, 0.38, soft);
+      float profile = core * coreAmt + mid * midAmt + skirt * skirtAmt;
+      float peakNow = coreAmt + midAmt + skirtAmt;
+      profile = profile * (peak / max(peakNow, 0.001));
 
       float e = max(profile, 0.0) * uBrightness;
       gl_FragColor = vec4(e, e, e, e);
     }
   `;
 
+  function energyTextureFormats(gl) {
+    if (!gl) {
+      return [];
+    }
+    if (!gl._phosphorEnergyTextureFormats) {
+      const halfFloat = gl.getExtension("OES_texture_half_float");
+      const halfFloatLinear = gl.getExtension("OES_texture_half_float_linear");
+      const colorBufferHalfFloat = gl.getExtension("EXT_color_buffer_half_float")
+        || gl.getExtension("WEBGL_color_buffer_float");
+      const floatTex = gl.getExtension("OES_texture_float");
+      const floatLinear = gl.getExtension("OES_texture_float_linear");
+      const formats = [];
+      // HDR energy is critical: 8-bit clamps cores to 1 and kills soft skirts.
+      if (halfFloat && colorBufferHalfFloat) {
+        formats.push({
+          filter: halfFloatLinear ? gl.LINEAR : gl.NEAREST,
+          type: halfFloat.HALF_FLOAT_OES,
+          label: "rgba16f",
+        });
+      }
+      if (floatTex && colorBufferHalfFloat) {
+        formats.push({
+          filter: floatLinear ? gl.LINEAR : gl.NEAREST,
+          type: gl.FLOAT,
+          label: "rgba32f",
+        });
+      }
+      formats.push({
+        filter: gl.LINEAR,
+        type: gl.UNSIGNED_BYTE,
+        label: "rgba8",
+      });
+      gl._phosphorEnergyTextureFormats = formats;
+    }
+    return gl._phosphorEnergyTextureFormats;
+  }
+
   function createSurface(gl, w, h) {
-    const texture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-    const framebuffer = gl.createFramebuffer();
-    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
-    const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.bindTexture(gl.TEXTURE_2D, null);
-    if (!ok) {
+    const width = Math.max(1, w);
+    const height = Math.max(1, h);
+    for (const format of energyTextureFormats(gl)) {
+      const texture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, format.filter || gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, format.filter || gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA,
+        width,
+        height,
+        0,
+        gl.RGBA,
+        format.type || gl.UNSIGNED_BYTE,
+        null,
+      );
+      const framebuffer = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+      const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      if (ok) {
+        if (!gl._phosphorEnergyFormatLogged) {
+          gl._phosphorEnergyFormatLogged = true;
+          console.info("[phosphor-energy-gl] energy surface format:", format.label || "rgba8");
+        }
+        return {
+          texture,
+          framebuffer,
+          width,
+          height,
+          type: format.type || gl.UNSIGNED_BYTE,
+          label: format.label || "rgba8",
+        };
+      }
       gl.deleteFramebuffer(framebuffer);
       gl.deleteTexture(texture);
-      return null;
     }
-    return { texture, framebuffer, width: w, height: h };
+    return null;
   }
 
   function destroySurface(gl, surface) {
@@ -444,6 +524,8 @@
       uKeep: gl.getUniformLocation(stepProgram, "uKeep"),
       uGain: gl.getUniformLocation(stepProgram, "uGain"),
       uUseMask: gl.getUniformLocation(stepProgram, "uUseMask"),
+      uTexel: gl.getUniformLocation(stepProgram, "uTexel"),
+      uBleed: gl.getUniformLocation(stepProgram, "uBleed"),
     };
     const present = {
       program: presentProgram,
@@ -1035,9 +1117,12 @@
   }
 
   /**
-   * One simulation step: fade residual, optionally add soft mask deposit.
+   * One simulation step: fade residual, soft neighborhood bleed, optional mask.
    * maskCanvas: same size preferred; uploaded as RGBA.
    * Prefer stepBeams for XY scopes (GPU ribbons, no mask upload).
+   *
+   * options.bleed: 0–1 per-frame energy diffusion (default soft phosphor seep).
+   * Even with decay=0, bleed still runs so long dwell expands outward.
    */
   function stepEnergy(renderer, options = {}) {
     if (!isRendererLive(renderer)) {
@@ -1052,9 +1137,19 @@
     const fade = fadeAmount(decay);
     const keep = Math.max(0, 1 - fade);
     const useMask = maskCanvas && depositGain > 0.0001 ? 1 : 0;
+    // Default bleed: gentle CRT-like charge diffusion. Soft enough to not mush
+    // the beam, strong enough that a slow burn grows a soft halo over time.
+    const bleedOpt = Number(options.bleed);
+    const bleed = Number.isFinite(bleedOpt)
+      ? Math.max(0, Math.min(1, bleedOpt))
+      : 0.12;
 
-    // No decay and no deposit: skip the full-screen pass entirely.
-    if (keep >= 0.9999 && !useMask) {
+    // Skip only when truly idle: no fade, no bleed, no mask, nothing active.
+    if (keep >= 0.9999 && bleed < 0.0001 && !useMask) {
+      return true;
+    }
+    // No residual and nothing depositing — skip empty full-screen passes.
+    if (!useMask && renderer.energyActive === false && keep >= 0.9999) {
       return true;
     }
 
@@ -1090,16 +1185,25 @@
     gl.uniform1f(renderer.step.uKeep, keep);
     gl.uniform1f(renderer.step.uGain, useMask ? Math.max(0, Math.min(1.5, depositGain)) : 0);
     gl.uniform1f(renderer.step.uUseMask, useMask);
+    const tw = Math.max(1, renderer.width);
+    const th = Math.max(1, renderer.height);
+    if (renderer.step.uTexel) {
+      gl.uniform2f(renderer.step.uTexel, 1 / tw, 1 / th);
+    }
+    if (renderer.step.uBleed) {
+      gl.uniform1f(renderer.step.uBleed, bleed);
+    }
 
     drawFullScreen(renderer, renderer.step);
     swap(renderer);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.bindTexture(gl.TEXTURE_2D, null);
+    // Only count quiet toward sleep when energy is actually decaying. Bleed alone
+    // must not kill residual — a long dwell with decay=0 should keep glowing.
     if (fade > 0) {
       renderer.quietFrames = (renderer.quietFrames || 0) + 1;
-      // After long quiet fade, trail is effectively black — stop presenting.
-      if (renderer.quietFrames > 180) {
+      if (renderer.quietFrames > 240) {
         renderer.energyActive = false;
       }
     }
@@ -1126,6 +1230,13 @@
     } = options;
     const dotsMode = String(mode || "segments").toLowerCase() === "dots";
     const maxDots = Math.max(64, Math.floor(Number(options.maxDots) || 2048));
+    // Soft amount 0..1 from signed blur — wider bleed when user asks for soft.
+    const softAmt = (Math.max(-1, Math.min(1, Number(blur) || 0)) + 1) * 0.5;
+    const bleedOpt = Number(options.bleed);
+    const bleed = Number.isFinite(bleedOpt)
+      ? Math.max(0, Math.min(1, bleedOpt))
+      // Soft end seeps more; hard end still bleeds a little so dwell never plates.
+      : 0.06 + softAmt * 0.14;
     let depositVertices = vertices;
     if (dotsMode) {
       if (!Array.isArray(depositVertices) || depositVertices.length < 3) {
@@ -1148,8 +1259,13 @@
       return true;
     }
 
-    // Fade residual only when needed (no 2D mask upload).
-    stepEnergy(renderer, { decay, depositGain: 0, maskCanvas: null });
+    // Fade + neighborhood bleed (even when decay is 0 — bleed is the slow halo).
+    stepEnergy(renderer, {
+      decay,
+      depositGain: 0,
+      maskCanvas: null,
+      bleed: willDeposit || renderer.energyActive ? bleed : 0,
+    });
     if (willDeposit) {
       const count = dotsMode
         ? depositDots(renderer, {

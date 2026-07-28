@@ -10720,12 +10720,12 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
 
   const paused = nodeGraphModuleScopePaused();
   if (!paused && layer) {
-    // Dots-only: soft circular hits on NEW motion only. Trail = phosphor decay
-    // (not re-painting the whole history, which looked like a lagging second tail).
+    // Soft circular hits on NEW motion only. Peak kept low so a slow dwell
+    // builds a soft halo (HDR energy + bleed) instead of an instant white disc.
     const size01 = clampNodeSliderValue(settings?.dot1Size, 0, 1);
     const beamBrightness = Math.max(
       0,
-      layer.brightness * (0.018 + burn * 0.06) * (1.12 - size01 * 0.45),
+      layer.brightness * (0.016 + burn * 0.055) * (1.1 - size01 * 0.4),
     );
     nodeGraphPhosphorEnergyGlStepBeams(energyGl, {
       decay,
@@ -10744,8 +10744,8 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       ),
     });
   } else if (!paused && typeof nodeGraphPhosphorEnergyGlStep === "function") {
-    // Fade-only when no drawable layer.
-    nodeGraphPhosphorEnergyGlStep(energyGl, { decay, depositGain: 0 });
+    // Fade + bleed when no drawable layer (trail still softens outward).
+    nodeGraphPhosphorEnergyGlStep(energyGl, { decay, depositGain: 0, bleed: 0.1 });
   }
 
   const lastPoint = lastNodeGraphScope2dPathPoint(points);
