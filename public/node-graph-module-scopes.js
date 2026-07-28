@@ -3695,6 +3695,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "historySeconds",
       "scale",
       "pixelDensity",
+      "dotBudget",
       "padding",
       "decimals",
       "ghost",
@@ -3828,6 +3829,14 @@ function nodeGraphTraceDisplaySettingsElement() {
             <button type="button" data-trace-display-step-target="pixelDensity" data-trace-display-step-direction="-1">-</button>
             <input id="nodeTraceDisplayPixelDensity" type="text" inputmode="decimal" data-trace-display-field="pixelDensity">
             <button type="button" data-trace-display-step-target="pixelDensity" data-trace-display-step-direction="1">+</button>
+          </span>
+        </label>
+        <label class="node-trace-display-trace-thickness-row">
+          <span>Dot budget</span>
+          <span class="metadata-stepper-control">
+            <button type="button" data-trace-display-step-target="dotBudget" data-trace-display-step-direction="-1">-</button>
+            <input id="nodeTraceDisplayDotBudget" type="text" inputmode="numeric" data-trace-display-field="dotBudget">
+            <button type="button" data-trace-display-step-target="dotBudget" data-trace-display-step-direction="1">+</button>
           </span>
         </label>
         <label class="node-trace-display-trace-thickness-row">
@@ -4031,6 +4040,7 @@ function applyNodeGraphTraceDisplaySettingsTooltips(popover) {
     burn: "traceDisplaySettings.burn",
     decay: "traceDisplaySettings.decay",
     pixelDensity: "traceDisplaySettings.pixelDensity",
+    dotBudget: "traceDisplaySettings.dotBudget",
     zoomSeconds: "traceDisplaySettings.zoomSeconds",
     skipDiscontinuities: "traceDisplaySettings.skipDiscontinuities",
     padding: "traceDisplaySettings.padding",
@@ -4489,6 +4499,9 @@ function nodeGraphTraceDisplayStepperQuantum(input) {
   if (["cycles", "decimals"].includes(input.dataset?.traceDisplayField)) {
     return 1;
   }
+  if (input.dataset?.traceDisplayField === "dotBudget") {
+    return 64;
+  }
   if (input.dataset?.traceDisplayField === "pixelDensity") {
     return 0.05;
   }
@@ -4564,6 +4577,14 @@ function nodeGraphTraceDisplayClampPixelDensity(value) {
   return clampNodeSliderValue(Number(value) || 0, 0, 4);
 }
 
+function nodeGraphTraceDisplayClampDotBudget(value) {
+  const n = Math.round(Number(value) || 0);
+  if (!Number.isFinite(n)) {
+    return 2048;
+  }
+  return Math.max(64, Math.min(8192, n));
+}
+
 // Clamp rules shared by every display-settings form type, keyed by field name.
 // Each entry owns exactly one field's rule — adding/changing a rule for one
 // display type cannot silently change behavior for another.
@@ -4573,6 +4594,7 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   capSize: nodeGraphTraceDisplayClampUnit,
   cycles: (value) => Math.max(1, Math.min(64, Math.round(Number(value) || 0))),
   decay: nodeGraphTraceDisplayClampUnit,
+  dotBudget: nodeGraphTraceDisplayClampDotBudget,
   decimals: (value) => Math.max(0, Math.min(8, Math.round(Number(value) || 0))),
   dot1Brightness: nodeGraphTraceDisplayClampBrightness,
   dot1Size: nodeGraphTraceDisplayClampUnit,
@@ -10704,8 +10726,14 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       brightness: beamBrightness,
       blur: clampNodeSliderValue(layer.blur, 0, 1),
       mode: "dots",
-      // Ceiling only — ideal spacing uses as few stamps as needed.
-      maxDots: nodeGraphScope2dMaxSamplesPerFrame(canvas),
+      // User / face ceiling. Under load: even skips across full path (not head-only).
+      maxDots: Math.max(
+        64,
+        Math.min(
+          8192,
+          Math.round(Number(settings?.dotBudget) || nodeGraphScope2dMaxSamplesPerFrame(canvas)),
+        ),
+      ),
     });
   } else if (!paused && typeof nodeGraphPhosphorEnergyGlStep === "function") {
     // Fade-only when no drawable layer.
