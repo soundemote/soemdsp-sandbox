@@ -188,6 +188,47 @@
     }
   `;
 
+  // True circular soft impacts (not degenerate beam sausages).
+  // aCorner: 0=BL, 1=BR, 2=TL, 3=TR — two triangles 0,1,2 + 1,3,2.
+  const DOT_VERT = `
+    precision mediump float;
+    attribute vec2 aCenter;
+    attribute float aCorner;
+    uniform mediump vec2 uCanvasSize;
+    uniform mediump float uRadius;
+    varying vec2 vOffset;
+    void main() {
+      vec2 cornerOffset = vec2(
+        (aCorner == 0.0 || aCorner == 2.0) ? -1.0 : 1.0,
+        (aCorner < 2.0) ? -1.0 : 1.0
+      );
+      float pad = max(uRadius * 3.0, 2.0);
+      vec2 position = aCenter + cornerOffset * pad;
+      vOffset = position - aCenter;
+      vec2 clip = vec2(
+        (position.x / uCanvasSize.x) * 2.0 - 1.0,
+        1.0 - (position.y / uCanvasSize.y) * 2.0
+      );
+      gl_Position = vec4(clip, 0.0, 1.0);
+    }
+  `;
+
+  const DOT_FRAG = `
+    precision mediump float;
+    uniform mediump float uBrightness;
+    uniform mediump float uBlur;
+    uniform mediump float uRadius;
+    varying vec2 vOffset;
+    void main() {
+      float blur = clamp(uBlur, 0.0, 1.0);
+      float sigma = max(uRadius * mix(0.34, 1.0, blur), 0.55);
+      float r2 = dot(vOffset, vOffset);
+      float profile = exp(-r2 / (2.0 * sigma * sigma));
+      float e = profile * uBrightness;
+      gl_FragColor = vec4(e, e, e, e);
+    }
+  `;
+
   function createSurface(gl, w, h) {
     const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -340,13 +381,17 @@
     const presentProgram = linkProgram(gl, VERT, PRESENT_FRAG);
     const copyProgram = linkProgram(gl, VERT, COPY_FRAG);
     const beamProgram = linkProgram(gl, BEAM_VERT, BEAM_FRAG);
-    // Beams optional: mask/fade/present still work if beam link fails.
+    const dotProgram = linkProgram(gl, DOT_VERT, DOT_FRAG);
+    // Beams/dots optional: mask/fade/present still work if those link fails.
     if (!stepProgram || !presentProgram || !copyProgram) {
       console.warn("[phosphor-energy-gl] core programs failed to link");
       return null;
     }
     if (!beamProgram) {
-      console.warn("[phosphor-energy-gl] beam program failed; XY beams disabled");
+      console.warn("[phosphor-energy-gl] beam program failed; XY segments disabled");
+    }
+    if (!dotProgram) {
+      console.warn("[phosphor-energy-gl] dot program failed; XY dots disabled");
     }
 
     const quad = createQuad(gl);
@@ -386,6 +431,18 @@
         uBlur: gl.getUniformLocation(beamProgram, "uBlur"),
       };
     }
+    let dot = null;
+    if (dotProgram) {
+      dot = {
+        program: dotProgram,
+        aCenter: gl.getAttribLocation(dotProgram, "aCenter"),
+        aCorner: gl.getAttribLocation(dotProgram, "aCorner"),
+        uCanvasSize: gl.getUniformLocation(dotProgram, "uCanvasSize"),
+        uRadius: gl.getUniformLocation(dotProgram, "uRadius"),
+        uBrightness: gl.getUniformLocation(dotProgram, "uBrightness"),
+        uBlur: gl.getUniformLocation(dotProgram, "uBlur"),
+      };
+    }
 
     canvas.addEventListener("webglcontextlost", (event) => {
       event.preventDefault();
@@ -402,6 +459,7 @@
       present,
       copy,
       beam,
+      dot,
     };
     return sharedDevice;
   }
@@ -475,6 +533,7 @@
       present: device.present,
       copy: device.copy,
       beam: device.beam,
+      dot: device.dot,
       lutSignature: "",
       alive: true,
       // Skip full-screen present when nothing changed (idle dark trail).
@@ -542,20 +601,21 @@
   }
 
   /**
-   * Dots-only: one soft gaussian impact per sample (no inter-sample joins).
-   * Uses a tiny degenerate beam segment so the existing soft fragment profile
-   * becomes a round deposit — avoids the beaded "connected segment" look.
+   * Dots-only: true circular soft hits. Format: center.x, center.y, corner
+   * (6 verts per sample). No segment joins — continuity is pure spatial overlap.
    */
   function buildDotVertices(pathPoints) {
     const points = Array.isArray(pathPoints) ? pathPoints : [];
     const vertices = [];
+    const corners = [0, 1, 2, 1, 3, 2];
     for (let i = 0; i < points.length; i += 1) {
       const point = points[i];
       if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
         continue;
       }
-      // Non-zero length required by segment geometry; 0.01px is sub-pixel.
-      appendBeamSegment(vertices, point, { x: point.x + 0.01, y: point.y });
+      for (let c = 0; c < corners.length; c += 1) {
+        vertices.push(point.x, point.y, corners[c]);
+      }
     }
     return vertices;
   }
@@ -611,6 +671,61 @@
     gl.uniform1f(renderer.beam.uRadius, radius);
     gl.uniform1f(renderer.beam.uBrightness, brightness);
     gl.uniform1f(renderer.beam.uBlur, blur);
+    gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
+    gl.disable(gl.BLEND);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    return vertexCount;
+  }
+
+  /**
+   * Additive true-circular soft dots into energy (read surface).
+   */
+  function depositDots(renderer, options = {}) {
+    if (!isRendererLive(renderer) || !renderer.dot?.program) {
+      return 0;
+    }
+    const pathPoints = options.pathPoints;
+    const vertices = Array.isArray(options.vertices)
+      ? options.vertices
+      : buildDotVertices(pathPoints);
+    // 3 floats per vertex.
+    const vertexCount = Math.floor(vertices.length / 3);
+    if (vertexCount <= 0) {
+      return 0;
+    }
+    const radius = Math.max(0.5, Number(options.radius) || 2);
+    const brightness = Math.max(0, Number(options.brightness) || 0);
+    if (brightness < 1e-6) {
+      return 0;
+    }
+    const blur = Math.max(0, Math.min(1, Number(options.blur) || 0));
+    const { gl } = renderer;
+
+    if (renderer.segmentScratch.length < vertices.length) {
+      renderer.segmentScratch = new Float32Array(vertices.length);
+    }
+    renderer.segmentScratch.set(vertices);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, renderer.read.framebuffer);
+    gl.viewport(0, 0, renderer.width, renderer.height);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    gl.useProgram(renderer.dot.program);
+    gl.bindBuffer(gl.ARRAY_BUFFER, renderer.beamBuffer);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      renderer.segmentScratch.subarray(0, vertices.length),
+      gl.STREAM_DRAW,
+    );
+    const stride = 3 * 4;
+    gl.enableVertexAttribArray(renderer.dot.aCenter);
+    gl.vertexAttribPointer(renderer.dot.aCenter, 2, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(renderer.dot.aCorner);
+    gl.vertexAttribPointer(renderer.dot.aCorner, 1, gl.FLOAT, false, stride, 2 * 4);
+    gl.uniform2f(renderer.dot.uCanvasSize, renderer.width, renderer.height);
+    gl.uniform1f(renderer.dot.uRadius, radius);
+    gl.uniform1f(renderer.dot.uBrightness, brightness);
+    gl.uniform1f(renderer.dot.uBlur, blur);
     gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
     gl.disable(gl.BLEND);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -862,13 +977,17 @@
     } = options;
     const dotsMode = String(mode || "segments").toLowerCase() === "dots";
     let depositVertices = vertices;
-    if (!Array.isArray(depositVertices) || depositVertices.length < 5) {
-      depositVertices = dotsMode
-        ? buildDotVertices(pathPoints)
-        : buildBeamVertices(pathPoints);
+    if (dotsMode) {
+      if (!Array.isArray(depositVertices) || depositVertices.length < 3) {
+        depositVertices = buildDotVertices(pathPoints);
+      }
+    } else if (!Array.isArray(depositVertices) || depositVertices.length < 5) {
+      depositVertices = buildBeamVertices(pathPoints);
     }
-    const hasPath = Array.isArray(depositVertices) && depositVertices.length >= 5;
-    const willDeposit = hasPath && brightness > 1e-6 && renderer.beam?.program;
+    const hasPath = Array.isArray(depositVertices)
+      && depositVertices.length >= (dotsMode ? 3 : 5);
+    const canDraw = dotsMode ? renderer.dot?.program : renderer.beam?.program;
+    const willDeposit = hasPath && brightness > 1e-6 && canDraw;
 
     // Fully quiet trail and nothing new: skip fade + deposit + present upstream.
     if (!willDeposit && renderer.energyActive === false) {
@@ -878,12 +997,19 @@
     // Fade residual only when needed (no 2D mask upload).
     stepEnergy(renderer, { decay, depositGain: 0, maskCanvas: null });
     if (willDeposit) {
-      const count = depositBeamSegments(renderer, {
-        vertices: depositVertices,
-        radius,
-        brightness,
-        blur,
-      });
+      const count = dotsMode
+        ? depositDots(renderer, {
+          vertices: depositVertices,
+          radius,
+          brightness,
+          blur,
+        })
+        : depositBeamSegments(renderer, {
+          vertices: depositVertices,
+          radius,
+          brightness,
+          blur,
+        });
       if (count > 0) {
         renderer.energyActive = true;
         renderer.quietFrames = 0;
