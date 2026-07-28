@@ -254,51 +254,130 @@ function nodeGraphLadderFilterMagnitudeAt(params, frequency, sampleRate) {
   return Math.hypot(sum.re, sum.im) * coeff.g;
 }
 
-function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate) {
+/**
+ * Live display value for a filter param: prefer the slider's current value
+ * (tracks mid-drag before patch commit), then apply parameter-source ghost
+ * modulation so modulated cutoffs animate on the curve face.
+ */
+function nodeGraphFilterCurveLiveParam(node, key, fallback = 0) {
+  const nodeId = node?.id || "";
+  const metadata = typeof nodeGraphReadPatchParameterMetadata === "function"
+    ? nodeGraphReadPatchParameterMetadata(node, key)
+    : (node?.paramMeta?.[key] || {});
+  let base = Number(fallback) || 0;
+  const slider = typeof nodeGraphSliderForParameter === "function"
+    ? nodeGraphSliderForParameter(nodeId, key)
+    : null;
+  if (slider) {
+    const fromSlider = Number(slider.dataset.unboundedValue ?? slider.value);
+    if (Number.isFinite(fromSlider)) {
+      base = fromSlider;
+    }
+  } else {
+    const fromPatch = Number(node?.params?.[key]);
+    if (Number.isFinite(fromPatch)) {
+      base = fromPatch;
+    }
+  }
+  // Ghost signal is base + param-source mods in normalized space.
+  if (typeof nodeGraphParameterGhostSignal === "function"
+    && typeof nodeGraphNormalizedSignalToParameterValue === "function") {
+    const ghost = nodeGraphParameterGhostSignal(nodeId, key);
+    if (ghost !== null && Number.isFinite(ghost)) {
+      return nodeGraphNormalizedSignalToParameterValue(ghost, metadata);
+    }
+  }
+  if (typeof nodeGraphApplyParameterBounds === "function") {
+    return nodeGraphApplyParameterBounds(base, metadata);
+  }
+  return base;
+}
+
+function nodeGraphFilterCurveView(node) {
+  if (!node) {
+    return null;
+  }
   if (node.type === "passiveFilter") {
-    const mode = Math.round(Number(node.params?.mode) || 0);
+    return {
+      type: node.type,
+      mode: Math.round(nodeGraphFilterCurveLiveParam(node, "mode", 0)),
+      lowFrequency: nodeGraphFilterCurveLiveParam(node, "lowFrequency", 200),
+      highFrequency: nodeGraphFilterCurveLiveParam(node, "highFrequency", 1000),
+    };
+  }
+  if (node.type === "ladderFilter") {
+    return {
+      type: node.type,
+      frequency: nodeGraphFilterCurveLiveParam(node, "frequency", 1000),
+      mode: nodeGraphFilterCurveLiveParam(node, "mode", 1),
+      resonance: nodeGraphFilterCurveLiveParam(node, "resonance", 0),
+      stages: nodeGraphFilterCurveLiveParam(node, "stages", 4),
+    };
+  }
+  if (node.type === "papoulisFilter") {
+    return {
+      type: node.type,
+      cutoff: nodeGraphFilterCurveLiveParam(node, "cutoff", 1000),
+    };
+  }
+  // cookbook / multi-stage family
+  return {
+    type: node.type,
+    mode: nodeGraphFilterCurveLiveParam(node, "mode", 0),
+    frequency: nodeGraphFilterCurveLiveParam(node, "frequency", 1000),
+    q: nodeGraphFilterCurveLiveParam(node, "q", 1),
+    gain: nodeGraphFilterCurveLiveParam(node, "gain", 0),
+    stages: nodeGraphFilterCurveLiveParam(node, "stages", 1),
+  };
+}
+
+function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null) {
+  const v = view || nodeGraphFilterCurveView(node) || {};
+  if (node.type === "passiveFilter") {
+    const mode = Math.round(Number(v.mode) || 0);
     if (mode === 1) {
-      return nodeGraphBandpassMagnitudeAt(node.params?.lowFrequency, node.params?.highFrequency, frequency, sampleRate);
+      return nodeGraphBandpassMagnitudeAt(v.lowFrequency, v.highFrequency, frequency, sampleRate);
     }
     if (mode === 2) {
-      return nodeGraphOnePoleHighpassMagnitudeAt(node.params?.lowFrequency, frequency, sampleRate);
+      return nodeGraphOnePoleHighpassMagnitudeAt(v.lowFrequency, frequency, sampleRate);
     }
-    return nodeGraphOnePoleLowpassMagnitudeAt(node.params?.highFrequency, frequency, sampleRate);
+    return nodeGraphOnePoleLowpassMagnitudeAt(v.highFrequency, frequency, sampleRate);
   }
   if (node.type === "ladderFilter") {
     return nodeGraphLadderFilterMagnitudeAt({
-      frequency: Number(node.params?.frequency) || 1000,
-      mode: Number(node.params?.mode) || 1,
-      resonance: Number(node.params?.resonance) || 0,
-      stages: Number(node.params?.stages) || 4,
+      frequency: Number(v.frequency) || 1000,
+      mode: Number(v.mode) || 1,
+      resonance: Number(v.resonance) || 0,
+      stages: Number(v.stages) || 4,
     }, frequency, sampleRate);
   }
   if (node.type === "papoulisFilter") {
-    return nodeGraphPapoulisFilterMagnitudeAt(Number(node.params?.cutoff) || 1000, frequency, sampleRate);
+    return nodeGraphPapoulisFilterMagnitudeAt(Number(v.cutoff) || 1000, frequency, sampleRate);
   }
-  const mode = Number(node.params?.mode) || 0;
-  const cutoff = Number(node.params?.frequency) || 1000;
-  const q = Number(node.params?.q) || 1;
-  const gain = Number(node.params?.gain) || 0;
-  const stages = nodeGraphCookbookFilterStageCount(node.params?.stages);
+  const mode = Number(v.mode) || 0;
+  const cutoff = Number(v.frequency) || 1000;
+  const q = Number(v.q) || 1;
+  const gain = Number(v.gain) || 0;
+  const stages = nodeGraphCookbookFilterStageCount(v.stages);
   const coeff = nodeGraphCookbookFilterCoefficients(mode, cutoff, q, gain, sampleRate);
   return nodeGraphCookbookFilterMagnitudeAt(coeff, frequency, sampleRate, stages);
 }
 
-function nodeGraphFilterCurveCutoffFrequencies(node) {
+function nodeGraphFilterCurveCutoffFrequencies(node, view = null) {
+  const v = view || nodeGraphFilterCurveView(node) || {};
   if (node.type === "passiveFilter") {
-    const mode = Math.round(Number(node.params?.mode) || 0);
+    const mode = Math.round(Number(v.mode) || 0);
     if (mode === 2) {
-      return [Number(node.params?.lowFrequency) || 0].filter((v) => Number.isFinite(v) && v >= 0);
+      return [Number(v.lowFrequency) || 0].filter((x) => Number.isFinite(x) && x >= 0);
     }
-    return [node.params?.lowFrequency, node.params?.highFrequency]
+    return [v.lowFrequency, v.highFrequency]
       .map((value) => Number(value) || 0)
       .filter((value) => Number.isFinite(value) && value >= 0);
   }
   if (node.type === "papoulisFilter") {
-    return [Number(node.params?.cutoff) || 0].filter((value) => Number.isFinite(value) && value >= 0);
+    return [Number(v.cutoff) || 0].filter((value) => Number.isFinite(value) && value >= 0);
   }
-  return [Number(node.params?.frequency) || 0].filter((value) => Number.isFinite(value) && value >= 0);
+  return [Number(v.frequency) || 0].filter((value) => Number.isFinite(value) && value >= 0);
 }
 
 function nodeGraphFilterCurveLabel(node) {
@@ -320,6 +399,12 @@ function createNodeGraphFilterCurveDisplay(nodeId, type) {
   section.className = "node-filter-curve-display";
   section.dataset.node = nodeId;
   section.dataset.nodeType = type;
+  // Hook into the shared parameter-visual contract so mid-drag flush redraws
+  // the curve every frame (same path as bug button / XY pad).
+  section.dataset.parameterVisual = "true";
+  section.syncFromParameters = () => {
+    drawNodeGraphFilterCurveDisplay(section);
+  };
   const canvas = document.createElement("canvas");
   canvas.className = "node-filter-curve-canvas";
   section.append(canvas);
@@ -344,6 +429,18 @@ function drawNodeGraphFilterCurveDisplay(section) {
   const maxFreq = Math.max(minFreq * 2, Math.min(20000, sampleRate * 0.5));
   const minDb = -48;
   const maxDb = 18;
+  // Snapshot live params once per frame (slider + ghost modulation).
+  const view = nodeGraphFilterCurveView(node);
+  const signature = JSON.stringify(view);
+  // Skip redundant paints when nothing moved (keeps continuous rAF cheap).
+  if (section._filterCurveSignature === signature
+    && canvas.width === metrics.width
+    && canvas.height === metrics.height
+    && !section._filterCurveForceDraw) {
+    return;
+  }
+  section._filterCurveSignature = signature;
+  section._filterCurveForceDraw = false;
   context.clearRect(0, 0, width, height);
   context.fillStyle = "rgba(2, 6, 9, 0.88)";
   context.fillRect(0, 0, width, height);
@@ -363,7 +460,7 @@ function drawNodeGraphFilterCurveDisplay(section) {
   const cutoffInset = cutoffLineWidth * 0.5;
   const cutoffDrawableWidth = Math.max(1, width - cutoffLineWidth);
   context.lineWidth = cutoffLineWidth;
-  for (const frequency of nodeGraphFilterCurveCutoffFrequencies(node)) {
+  for (const frequency of nodeGraphFilterCurveCutoffFrequencies(node, view)) {
     const cutoffRatio = (Math.log10(clampNodeSliderValue(frequency, minFreq, maxFreq)) - logMin) / logRange;
     const cutoffX = cutoffInset + cutoffRatio * cutoffDrawableWidth;
     context.beginPath();
@@ -377,7 +474,7 @@ function drawNodeGraphFilterCurveDisplay(section) {
   for (let x = 0; x < width; x += 1) {
     const progress = width <= 1 ? 0 : x / (width - 1);
     const hz = 10 ** (logMin + progress * logRange);
-    const magnitude = nodeGraphFilterCurveResponseAt(node, hz, sampleRate);
+    const magnitude = nodeGraphFilterCurveResponseAt(node, hz, sampleRate, view);
     const db = clampNodeSliderValue(20 * Math.log10(Math.max(1e-6, magnitude)), minDb, maxDb);
     const y = (1 - ((db - minDb) / (maxDb - minDb))) * height;
     if (x === 0) {

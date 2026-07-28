@@ -136,6 +136,11 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
     ) {
       syncNodeGraphGraphDisplaysForNode(node, patchNode);
     }
+    // Filter curve faces (Papoulis, cookbook, ladder, …) must track cutoff
+    // live mid-drag — same contract as graph tension, not wait for mouse-up.
+    if (typeof scheduleNodeGraphFilterCurveDraw === "function") {
+      scheduleNodeGraphFilterCurveDraw();
+    }
     return;
   }
   // transport's "BPM" param mirrors the patch-wide tempo, not an independent
@@ -820,12 +825,17 @@ function flushNodeSliderReadoutUpdates() {
     }
   }
   pending.clear();
-  // Keep parameter-driven visuals (bug button glyph, XY pad grid/puck, etc.)
-  // tracking the slider live during a drag. Slider drags don't dispatch "input"
-  // events and the deferred-UI path skips visual sync, so without this the
-  // visual only catches up on the next full re-render (e.g. resizing the module).
+  // Keep parameter-driven visuals (bug button glyph, XY pad grid/puck, filter
+  // curves, etc.) tracking the slider live during a drag. Slider drags don't
+  // dispatch "input" events and the deferred-UI path skips visual sync, so
+  // without this the visual only catches up on mouse-up / re-render.
   for (const nodeElement of touchedNodes) {
     syncNodeGraphParameterVisualsForNodeElement(nodeElement);
+  }
+  // Any param change can feed a filter curve (own cutoff or a modulator source
+  // that ghosts into another node's cutoff) — coalesce one redraw for all faces.
+  if (typeof scheduleNodeGraphFilterCurveDraw === "function") {
+    scheduleNodeGraphFilterCurveDraw();
   }
   if (nodeGraphMvp._needsHeaderSync && typeof syncNodeGraphCurrentSavedPatchHeader === "function") {
     nodeGraphMvp._needsHeaderSync = false;

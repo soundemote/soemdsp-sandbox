@@ -11780,6 +11780,12 @@ function drawNodeGraphModuleScopes() {
   const workspaceRect = workspace.getBoundingClientRect();
   const prePixelRatio = nodeGraphModuleScopeBackingPixelRatio(workspaceRect);
   flushNodeSliderReadoutUpdates();
+  // Keep filter-curve faces (Papoulis, multi-stage, ladder, …) animating with
+  // live/modulated cutoffs while the main scope loop is running.
+  if (typeof scheduleNodeGraphFilterCurveDraw === "function"
+    && document.querySelector?.(".node-filter-curve-display")) {
+    scheduleNodeGraphFilterCurveDraw();
+  }
   if (nodeGraphModuleScopeTracesOff()) {
     if (!nodeGraphModuleScopeState.scopeTracesOffActive) {
       clearNodeGraphModuleScopeCanvas();
