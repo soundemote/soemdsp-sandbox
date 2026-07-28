@@ -59,7 +59,10 @@ function normalizeNodeGraphPhosphorLightSettings(settings = {}) {
         : defaults.dot1Size,
       defaults.dot1Size,
     ),
-    lineThickness: clamp01(source.lineThickness ?? source.dot1Blur, defaults.lineThickness),
+    // Blur 0 hard … 1 soft (migrate legacy signed -1..1).
+    lineThickness: (typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.normalizeBlur
+      ? PhosphorDrawer.normalizeBlur(source.lineThickness ?? source.dot1Blur, defaults.lineThickness)
+      : clamp01(source.lineThickness ?? source.dot1Blur, defaults.lineThickness)),
     pixelDensity: clampDensity(source.pixelDensity, defaults.pixelDensity),
   };
 }
@@ -274,8 +277,10 @@ function drawNodeGraphPhosphorLightItem(renderer, item, pixelRatio) {
   // Face square min side — dot size 1 spans this diameter (full screen).
   const size = Math.min(square.width, square.height);
   const radius = nodeGraphPhosphorLightBeamRadius(size, settings.dot1Size);
-  // Blur 0–1 widens gaussian sigma (scope2d lineThickness / beam blur role).
-  const blur = Math.max(0, Math.min(1, Number(settings.lineThickness) || 0));
+  // Blur 0 hard … 1 full soft (canonical phosphor drawer UX).
+  const blur = typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.normalizeBlur
+    ? PhosphorDrawer.normalizeBlur(settings.lineThickness, 0.35)
+    : Math.max(0, Math.min(1, Number(settings.lineThickness) || 0));
   // Smooth burn gain (same family as scope2d energy) — low burn dim, not dead.
   const sizeNorm = Math.max(0, Math.min(1, Number(settings.dot1Size) || 0));
   const burnShape = Math.pow(burn, 0.78);

@@ -2396,7 +2396,7 @@ const nodeGraphScope2dSettingsDefaults = Object.freeze({
   dot1Size: 0.08,
   // Soft stamp budget (ceiling). Under load, dots spread evenly (skips), not head-only.
   dotBudget: 2048,
-  // Signed stamp blur: -1 tighter soft core, 0 painterly core+skirt, +1 full soft bleed.
+  // Stamp blur 0–1: 0 hard disc, 1 full soft bleed.
   lineThickness: 0.35,
   // 0 = lo-fi floor (~1/16 layout, never 1×1), 1 = layout×dpr, 4 = 4× AA.
   pixelDensity: 1,
@@ -2468,7 +2468,9 @@ function normalizeNodeGraphLineBurnSettings(settings = {}) {
     // way this file already handles the Dot 2 removal.
     dot1Enabled: true,
     dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
-    lineThickness: normalizeNodeGraphTraceDisplayNumber(source.lineThickness, defaults.lineThickness, 0, 1),
+    lineThickness: nodeGraphTraceDisplayClampStampBlur(
+      source.lineThickness ?? defaults.lineThickness,
+    ),
     zoomSeconds: normalizeNodeGraphTraceDisplayZoomSeconds(zoomSeconds, defaults.zoomSeconds),
   };
 }
@@ -2613,11 +2615,8 @@ function normalizeNodeGraphScope2dSettings(settings = {}) {
         Number(source.dotBudget ?? defaults.dotBudget) || defaults.dotBudget,
       )),
     ),
-    lineThickness: normalizeNodeGraphTraceDisplayNumber(
-      source.lineThickness ?? source.dot1Blur,
-      defaults.lineThickness,
-      -1,
-      1,
+    lineThickness: nodeGraphTraceDisplayClampStampBlur(
+      source.lineThickness ?? source.dot1Blur ?? defaults.lineThickness,
     ),
     pixelDensity: normalizeNodeGraphTraceDisplayNumber(
       source.pixelDensity,
@@ -4577,9 +4576,15 @@ function nodeGraphTraceDisplayClampPixelDensity(value) {
   return clampNodeSliderValue(Number(value) || 0, 0, 4);
 }
 
-// Signed stamp blur for soft phosphor dots (-1 hard … 0 shadowBlur … +1 full soft).
+// Stamp blur 0–1 (hard→soft). Migrates legacy signed -1..1 patch values.
 function nodeGraphTraceDisplayClampStampBlur(value) {
-  return clampNodeSliderValue(Number(value) || 0, -1, 1);
+  if (typeof PhosphorDrawer !== "undefined" && PhosphorDrawer?.normalizeBlur) {
+    return PhosphorDrawer.normalizeBlur(value, 0.35);
+  }
+  let v = Number(value);
+  if (!Number.isFinite(v)) return 0.35;
+  if (v < 0) v = (Math.max(-1, v) + 1) * 0.5;
+  return clampNodeSliderValue(v, 0, 1);
 }
 
 function nodeGraphTraceDisplayClampDotBudget(value) {
@@ -4624,7 +4629,7 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
   dot: Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampUnit,
   }),
-  // Soft phosphor dots: signed blur (-1 hard … 0 shadowBlur … +1 full soft).
+  // Soft phosphor dots: blur 0 hard … 1 full soft.
   scope2d: Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
   }),
@@ -10582,8 +10587,8 @@ function nodeGraphScope2dBurnLayers(settings, dotSpace) {
     const size01 = clampNodeSliderValue(settings.dot1Size, 0, 1);
     const side = Math.max(1, Number(dotSpace) || 1);
     layers.push({
-      // Signed: -1 hard disc, 0 painterly core+skirt, +1 full soft gaussian.
-      blur: clampNodeSliderValue(settings.lineThickness, -1, 1),
+      // Blur 0 hard disc … 1 full soft gaussian.
+      blur: nodeGraphTraceDisplayClampStampBlur(settings.lineThickness),
       brightness: Math.max(0, Number(settings.dot1Brightness) || 0),
       color: nodeGraphScopeHexColorToRgb(settings.dot1Color),
       radius: Math.max(0.5, side * size01 * 0.5),
@@ -10771,7 +10776,7 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       pathPoints: points,
       radius: Math.max(0.35, layer.radius),
       brightness: beamBrightness,
-      blur: clampNodeSliderValue(layer.blur, -1, 1),
+      blur: nodeGraphTraceDisplayClampStampBlur(layer.blur),
       mode: "dots",
       // User / face ceiling. Under load: even skips across full path (not head-only).
       maxDots: Math.max(
@@ -10855,12 +10860,12 @@ function drawNodeGraphScope2dRetainedBurn(item, pixelRatio, square, buffer, sett
 }
 
 function drawNodeGraphRetainedBurnPath(item, pixelRatio, pathPoints, settings, options = {}) {
-  // Preferred: mono energy + LUT, ultra-soft GPU beams (same geometry as before).
+  // Canonical: mono energy + LUT phosphor drawer (the one burn path).
   if (drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settings, options)) {
     return;
   }
 
-  // Legacy RGB retained burn (fallback if energy GL unavailable).
+  // Legacy RGB retained burn only if energy GL unavailable.
   const canvas = nodeGraphScope2dBurnCanvasForSlot(item?.slot);
   const screenElement = item?.screenElement || item?.slot?.scopeElement;
   const density = Number(settings?.pixelDensity);
@@ -10956,53 +10961,48 @@ function drawNodeGraphLineBurnOscilloscopeItem(renderer, item, pixelRatio) {
 }
 
 // Draws one vertical line per Hypersaw voice, at x = that voice's current
-// phase (0..1) mapped straight across the canvas width. Deliberately a
-// fresh, self-contained 2D-canvas renderer -- no WebGL burn pipeline, no
-// dot1/dot2 settings (those belong to lineBurn's oscilloscope-trace
-// concept, which doesn't apply here: this is a snapshot of N voice
-// positions, not a swept time-domain signal). Phosphor persistence is
-// done the simple way: paint a translucent black rect over the previous
-// frame instead of clearing it, so old lines fade rather than vanish.
-// Voice phase snapshots come from nodeGraphModuleScopeState.hypersawVoicePhases,
-// populated by the frame evaluator's and worklet's "hypersaw" dispatch.
+// phase (0..1) across the face. Canonical mono energy phosphor drawer
+// (same soft/hard stamps as 2D Burn / Lorenz).
 function drawNodeGraphHypersawBurnItem(renderer, item, pixelRatio) {
+  // Vertical voice stems on the canonical mono energy phosphor drawer.
   const nodeId = item?.slot?.nodeId;
   if (!nodeId) {
     return;
   }
-  const canvas = nodeGraphModuleScopeLocalFallbackCanvas(item?.slot);
+  const canvas = nodeGraphScope2dBurnCanvasForSlot(item?.slot);
   const screenElement = item?.screenElement || item?.slot?.scopeElement;
-  if (!canvas || !syncNodeGraphModuleScopeLocalFallbackCanvas(canvas, screenElement, pixelRatio)) {
+  const sync = syncNodeGraphScope2dBurnCanvas(canvas, screenElement, pixelRatio, 1);
+  if (!sync.synced || !canvas) {
     return;
   }
-  const ctx = canvas.getContext("2d");
-  if (!ctx) {
-    return;
-  }
-  ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Reads its own just-published Phases output directly off the data bus
-  // (see node-graph-data-bus.js) -- this is Hypersaw looking at its own
-  // data, not a wired input, so it bypasses readNodeGraphDataInput's wire
-  // lookup and addresses the bus by its own node id.
-  const phases = nodeGraphDataBus.get(nodeGraphDataBusKey(String(nodeId), "Phases"));
-  if (!Array.isArray(phases) || !phases.length) {
-    return;
-  }
-  ctx.strokeStyle = "#3de0ff";
-  ctx.lineWidth = Math.max(1, canvas.width / 160);
-  for (const phase of phases) {
-    const p = Number(phase);
-    if (!Number.isFinite(p)) {
-      continue;
+  const phases = typeof nodeGraphDataBus !== "undefined"
+    ? nodeGraphDataBus.get(nodeGraphDataBusKey(String(nodeId), "Phases"))
+    : null;
+  const pathPoints = [];
+  if (Array.isArray(phases) && phases.length && typeof PhosphorDrawer !== "undefined") {
+    const spacing = Math.max(1.5, canvas.height / 48);
+    for (const phase of phases) {
+      const p = Number(phase);
+      if (!Number.isFinite(p)) continue;
+      const x = clampNodeSliderValue(p, 0, 1) * canvas.width;
+      PhosphorDrawer.appendSegment(pathPoints, x, 0, x, canvas.height, spacing);
     }
-    const x = clampNodeSliderValue(p, 0, 1) * canvas.width;
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, canvas.height);
-    ctx.stroke();
   }
+  const minSide = Math.max(1, Math.min(canvas.width, canvas.height));
+  const settings = {
+    burn: 0.55,
+    decay: 0.22,
+    dot1Brightness: 0.95,
+    dot1Color: "#3de0ff",
+    dot1Enabled: true,
+    dot1Size: Math.max(0.012, Math.min(0.06, 5 / minSide)),
+    lineThickness: 0.25,
+    pixelDensity: 1,
+    dotBudget: 4096,
+  };
+  drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settings, {
+    endFrame: Number(item?.buffer?.nodeGraphScopeAbsoluteFrame),
+  });
 }
 
 // Oscilloscope Bank -- a standalone, reusable "phase x amplitude" scope for

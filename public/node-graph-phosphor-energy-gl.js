@@ -1,23 +1,18 @@
-// Shared WebGL 0–1 energy phosphor (efficient screen model).
+// Shared WebGL mono energy phosphor (canonical burn backend).
+// Prefer public/lib/phosphor/phosphor-drawer.js for the high-level face API.
 //
-// Architecture (Lorenz-style retention, monochrome energy + gradient present):
-//   energy  ──fade──►  energy'
-//   energy' ──+ GPU gaussian segment beams (additive)──►  energy''
-//   present: color = LUT(energy)   (1D gradient / black→white→peak)
+// Architecture:
+//   energy  ──fade + optional bleed──►  energy'
+//   energy' ──+ GPU soft/hard dots (additive)──►  energy''
+//   present: color = LUT(energy) with HDR film curve
 //   resize:  reallocate FBOs + copy residual (do NOT clear on zoom)
 //
-// Beams match scope2d / Lorenz: one ribbon quad per sample pair with
-// distance-to-segment gaussian in the fragment shader — not RGB burn and
-// not dense 2D stamp loops. Optional 2D mask deposit remains for LCD glyphs
-// (Number Readout).
+// Blur UX: 0 = hard disc (~1px AA), 1 = full soft gaussian bleed.
+// Optional 2D mask deposit remains for LCD glyphs (Number Readout).
 //
 // Consumers:
-//   const glr = nodeGraphPhosphorEnergyGlEnsure(host, w, h);
-//   nodeGraphPhosphorEnergyGlSetLutFromPeak(glr, rgbBytes, bgHex);
-//   nodeGraphPhosphorEnergyGlStepBeams(glr, { decay, pathPoints, radius, brightness, blur });
-//   // or mask path: nodeGraphPhosphorEnergyGlStep(glr, { decay, maskCanvas, depositGain });
-//   nodeGraphPhosphorEnergyGlPresent(glr);
-//   destCtx.drawImage(glr.canvas, 0, 0);
+//   PhosphorDrawer.ensure / stepDots / presentTo
+//   or low-level nodeGraphPhosphorEnergyGl* exports below.
 
 (function initNodeGraphPhosphorEnergyGl(global) {
   // Allow density 4× on large faces (matches scope max backing store).
@@ -216,10 +211,10 @@
     }
   `;
 
-  // Soft phosphor dabs with a real hard end:
-  //   blur -1 → hard disc + ~1px AA (crisp edge, almost no skirt)
-  //   blur  0 → painterly core + soft outer skirt (shadowBlur spirit)
-  //   blur +1 → full soft wide gaussian (airbrush / bleed when hits stack)
+  // Soft phosphor dabs — blur is 0..1 UX (hard → soft):
+  //   blur 0 → hard disc + ~1px AA (crisp edge, almost no skirt)
+  //   blur ~0.35 → painterly core + light outer skirt
+  //   blur 1 → full soft wide gaussian (airbrush / bleed when hits stack)
   // Size (uRadius) = geometric footprint. aCorner: 0=BL,1=BR,2=TL,3=TR.
   const DOT_VERT = `
     precision highp float;
@@ -232,8 +227,7 @@
     varying float vRadius;
     varying float vBlur;
     void main() {
-      float blur = clamp(uBlur, -1.0, 1.0);
-      float softAmt = (blur + 1.0) * 0.5;
+      float softAmt = clamp(uBlur, 0.0, 1.0);
       // Hard end: tight pad (disc + AA). Soft end: wide pad for long skirts.
       float pad = max(uRadius * mix(1.2, 6.5, softAmt) + mix(1.5, 0.0, softAmt), 2.0);
       vec2 cornerOffset = vec2(
@@ -243,7 +237,7 @@
       vec2 position = aCenter + cornerOffset * pad;
       vOffset = position - aCenter;
       vRadius = max(uRadius, 0.5);
-      vBlur = blur;
+      vBlur = softAmt;
       vec2 clip = vec2(
         (position.x / uCanvasSize.x) * 2.0 - 1.0,
         1.0 - (position.y / uCanvasSize.y) * 2.0
@@ -259,19 +253,17 @@
     varying float vRadius;
     varying float vBlur;
     void main() {
-      float b = clamp(vBlur, -1.0, 1.0);
-      // soft 0 at hard end (-1), 1 at full soft (+1)
-      float soft = (b + 1.0) * 0.5;
+      // soft 0 = hard disc, 1 = full soft gaussian
+      float soft = clamp(vBlur, 0.0, 1.0);
       float R = max(vRadius, 0.5);
       float r2 = dot(vOffset, vOffset);
       float r = sqrt(r2);
 
-      // --- Hard disc (blur -1): flat core, crisp edge, ~1px AA only ---
-      // AA width scales slightly with size so tiny dots don't disappear.
+      // --- Hard disc (blur 0): flat core, crisp edge, ~1px AA only ---
       float aa = max(0.75, min(1.75, R * 0.08));
       float hard = 1.0 - smoothstep(R - aa, R + aa * 0.35, r);
 
-      // --- Soft stack (blur +1): triple gaussians, wide bleed skirts ---
+      // --- Soft stack (blur 1): triple gaussians, wide bleed skirts ---
       float coreW = max(R * mix(0.28, 0.55, soft), 0.55);
       float midW = max(R * mix(0.55, 1.35, soft), coreW * 1.25);
       float skirtW = max(R * mix(0.85, 2.85, soft), midW * 1.25);
@@ -286,8 +278,7 @@
       float softNow = coreAmt + midAmt + skirtAmt;
       softProfile = softProfile * (softPeak / max(softNow, 0.001));
 
-      // Morph hard disc → soft airbrush. At -1 almost pure hard; at +1 pure soft.
-      // Use soft^1.35 so mid blur stays painterly but -1 stays crisp.
+      // Morph hard disc → soft airbrush. soft^1.35 keeps mid painterly, 0 crisp.
       float softMix = pow(soft, 1.35);
       float hardPeak = 0.85;
       float profile = mix(hard * hardPeak, softProfile, softMix);
@@ -749,8 +740,8 @@
   function buildDotVertices(pathPoints, options = {}) {
     const points = Array.isArray(pathPoints) ? pathPoints : [];
     const radius = Math.max(0.5, Number(options.radius) || 2);
-    // Signed blur (-1..1); spacing still follows size only.
-    const blur = Math.max(-1, Math.min(1, Number(options.blur) || 0));
+    // Blur 0..1; spacing still follows size only.
+    const blur = Math.max(0, Math.min(1, Number(options.blur) || 0));
     const maxDots = Math.max(16, Math.floor(Number(options.maxDots) || 2048));
     const idealStep = Math.max(0.25, radius * 0.30);
 
@@ -940,8 +931,8 @@
     if (brightness < 1e-6) {
       return 0;
     }
-    // Signed: -1 hard … 0 shadowBlur … +1 full soft gaussian.
-    const blur = Math.max(-1, Math.min(1, Number(options.blur) || 0));
+    // Blur 0 hard … 1 full soft gaussian.
+    const blur = Math.max(0, Math.min(1, Number(options.blur) || 0));
     const { gl } = renderer;
 
     if (renderer.segmentScratch.length < vertices.length) {
@@ -1242,13 +1233,13 @@
     } = options;
     const dotsMode = String(mode || "segments").toLowerCase() === "dots";
     const maxDots = Math.max(64, Math.floor(Number(options.maxDots) || 2048));
-    // Soft amount 0..1 from signed blur — wider bleed when user asks for soft.
-    const softAmt = (Math.max(-1, Math.min(1, Number(blur) || 0)) + 1) * 0.5;
+    // Blur 0..1 — wider bleed when user asks for soft.
+    const softAmt = Math.max(0, Math.min(1, Number(blur) || 0));
     const bleedOpt = Number(options.bleed);
     const bleed = Number.isFinite(bleedOpt)
       ? Math.max(0, Math.min(1, bleedOpt))
-      // Hard end (blur -1): almost no seep so edges stay crisp.
-      // Soft end: real phosphor charge diffusion for dwell halos.
+      // Hard end (blur 0): almost no seep so edges stay crisp.
+      // Soft end: real phosphor charge diffusion for dwell hals.
       : softAmt * softAmt * 0.18;
     let depositVertices = vertices;
     if (dotsMode) {
@@ -1366,6 +1357,23 @@
   global.nodeGraphPhosphorEnergyGlBuildDotVertices = buildDotVertices;
   global.nodeGraphPhosphorEnergyGlPresent = present;
   global.nodeGraphPhosphorEnergyGlFadeAmount = fadeAmount;
+
+  /** Normalize stamp blur to 0..1 (hard→soft). Migrates legacy signed -1..1. */
+  function normalizeBlur(value, fallback = 0.35) {
+    let v = Number(value);
+    if (!Number.isFinite(v)) {
+      v = Number(fallback);
+    }
+    if (!Number.isFinite(v)) {
+      return 0.35;
+    }
+    // Legacy signed range used before 0–1 UX.
+    if (v < 0) {
+      v = (Math.max(-1, v) + 1) * 0.5;
+    }
+    return Math.max(0, Math.min(1, v));
+  }
+  global.nodeGraphPhosphorEnergyGlNormalizeBlur = normalizeBlur;
   global.nodeGraphPhosphorEnergyGlSoftnessPx = softnessPx;
   global.nodeGraphPhosphorEnergyGlBuildStops = buildStops;
   global.nodeGraphPhosphorEnergyGlMaxDim = MAX_DIM;
