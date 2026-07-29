@@ -208,6 +208,7 @@
         mode = "same-pass",
         pathClass = "node-wire-path",
         pathData: explicitPathData = null,
+        skipHitPath = false,
         to,
         wireColors = null,
         wireType = "cable",
@@ -216,18 +217,21 @@
       const isTrace = normalizedWireType === nodeGraphWireTypes.trace;
       const pathData = explicitPathData || (isTrace ? tracePath(from, to) : path(from, to));
       const stroke = createGradient(svg, gradientId, from, to, gradientClass, wireColors);
-      const hitPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      hitPath.setAttribute("class", "node-wire-hit-path");
-      hitPath.dataset.alias = alias;
-      hitPath.dataset.connectionIndex = String(index);
-      hitPath.dataset.connectionKind = kind;
-      hitPath.dataset.interactionMode = mode;
-      if (Array.isArray(options.tracePoints)) {
-        hitPath.dataset.tracePoints = nodeGraphTraceWaypointAttribute(options.tracePoints);
+      // Hit paths are interactive overhead — skip while pan/zoom gesturing.
+      if (!skipHitPath) {
+        const hitPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        hitPath.setAttribute("class", "node-wire-hit-path");
+        hitPath.dataset.alias = alias;
+        hitPath.dataset.connectionIndex = String(index);
+        hitPath.dataset.connectionKind = kind;
+        hitPath.dataset.interactionMode = mode;
+        if (Array.isArray(options.tracePoints)) {
+          hitPath.dataset.tracePoints = nodeGraphTraceWaypointAttribute(options.tracePoints);
+        }
+        hitPath.setAttribute("d", pathData);
+        hitPath.addEventListener("click", (event) => deps.selectWire(event, index, kind));
+        svg.append(hitPath);
       }
-      hitPath.setAttribute("d", pathData);
-      hitPath.addEventListener("click", (event) => deps.selectWire(event, index, kind));
-      svg.append(hitPath);
 
       const renderedPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
       renderedPath.setAttribute(

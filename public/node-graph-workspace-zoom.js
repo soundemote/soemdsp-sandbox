@@ -1,39 +1,51 @@
-function applyNodeGraphZoom() {
+function applyNodeGraphZoom(options = {}) {
   const workspace = document.getElementById("nodeGraphWorkspace");
   if (!workspace) {
     return;
   }
-  workspace.style.setProperty("--node-graph-zoom", String(nodeGraphZoom()));
-  workspace.dataset.zoom = nodeGraphZoom().toFixed(2);
-  // Only show raw/blocky pixels on custom canvases once genuinely zoomed
-  // in far enough that smoothing would just be mush -- keep normal
-  // (near-1:1 or zoomed-out) views smooth like everything else.
-  workspace.classList.toggle("pixelated-canvas-zoom", nodeGraphZoom() >= 2.5);
-  applyNodeGraphWorkspaceView();
-  updateNodeGraphGridHeatmap();
-  if (typeof syncNodeGraphSliderReadouts === "function") {
-    syncNodeGraphSliderReadouts();
+  // Light path every call: CSS zoom + chrome. Heavy work (wires/scopes) is
+  // rAF-coalesced during gestures — see node-graph-viewport-perf.js.
+  if (typeof applyNodeGraphViewportCssLight === "function") {
+    // World readout depends on pan/zoom; keep it live. Bulk slider flushes
+    // are deferred with scopes until settle (not done here).
+    applyNodeGraphViewportCssLight({ zoom: true, pan: false, readouts: true });
+  } else {
+    workspace.style.setProperty("--node-graph-zoom", String(nodeGraphZoom()));
+    workspace.dataset.zoom = nodeGraphZoom().toFixed(2);
+    workspace.classList.toggle("pixelated-canvas-zoom", nodeGraphZoom() >= 2.5);
   }
-  const zoomOutButton = document.getElementById("nodeZoomOutButton");
-  const zoomResetButton = document.getElementById("nodeZoomResetButton");
-  const zoomInButton = document.getElementById("nodeZoomInButton");
-  if (zoomOutButton) {
-    zoomOutButton.disabled = nodeGraphZoom() <= nodeGraphZoomLimits.min + 0.001;
-  }
-  if (zoomResetButton) {
-    const zoomLabel = nodeGraphZoomLabel();
-    if (zoomResetButton.dataset.editingZoom !== "true") {
-      zoomResetButton.textContent = zoomLabel;
+  // Workspace size CSS only when not mid-wheel (avoids layout thrash).
+  if (options.layout !== false && typeof applyNodeGraphWorkspaceView === "function") {
+    if (!options.gesture || options.forceLayout) {
+      applyNodeGraphWorkspaceView();
     }
-    zoomResetButton.setAttribute("aria-label", `Current zoom ${zoomLabel}. Reset graph zoom to 1:1`);
-    zoomResetButton.removeAttribute("title");
   }
-  if (zoomInButton) {
-    zoomInButton.disabled = nodeGraphZoom() >= nodeGraphZoomLimits.max - 0.001;
+  if (options.immediate) {
+    if (typeof flushNodeGraphViewportImmediate === "function") {
+      flushNodeGraphViewportImmediate({ zoom: true, pan: true, persist: options.persist !== false });
+    } else {
+      updateNodeGraphGridHeatmap();
+      drawNodeGraphWires();
+      if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
+        scheduleNodeGraphModuleScopeDraw();
+      }
+    }
+    return;
   }
-  drawNodeGraphWires();
-  if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
-    scheduleNodeGraphModuleScopeDraw();
+  if (options.skipHeavy) {
+    return;
+  }
+  // Gesture path: coalesce heavy chrome to rAF + settle full fidelity.
+  if (options.gesture !== false && typeof markNodeGraphViewportGesture === "function") {
+    markNodeGraphViewportGesture(options.gestureKind || "zoom");
+  } else if (typeof flushNodeGraphViewportImmediate === "function") {
+    flushNodeGraphViewportImmediate({ zoom: true, pan: true, persist: options.persist !== false });
+  } else {
+    updateNodeGraphGridHeatmap();
+    drawNodeGraphWires();
+    if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
+      scheduleNodeGraphModuleScopeDraw();
+    }
   }
 }
 
@@ -72,11 +84,10 @@ function setNodeGraphZoom(nextZoom, anchor = null) {
     x: Number(nextPan.x) || 0,
     y: Number(nextPan.y) || 0,
   };
-  applyNodeGraphZoom();
-  applyNodeGraphPan();
-  if (typeof saveNodeGraphWorkspaceViewToUserSettings === "function") {
-    saveNodeGraphWorkspaceViewToUserSettings({ status: false });
-  }
+  // One light CSS pass for zoom+pan (pan via skipHeavy), then single coalesced heavy chrome.
+  applyNodeGraphZoom({ gestureKind: "wheel", layout: false });
+  applyNodeGraphPan({ gesture: true, skipHeavy: true });
+  // Persist is scheduled by viewport settle (not every wheel tick).
 }
 
 function clampNodeGraphZoom(value) {
@@ -150,8 +161,8 @@ function nodeGraphAutoFrame(options = {}) {
   const centerY = (top + bottom) / 2;
   nodeGraphMvp.zoom = zoom;
   syncNodeGraphPatchViewZoom(zoom);
-  applyNodeGraphZoom();
-  setNodeGraphPan(-centerX * zoom, -centerY * zoom, { persist: false });
+  applyNodeGraphZoom({ immediate: true, forceLayout: true, persist: false });
+  setNodeGraphPan(-centerX * zoom, -centerY * zoom, { persist: false, immediate: true });
   return true;
 }
 
@@ -214,9 +225,11 @@ function resetNodeGraphZoomToOne() {
     x: snapNodeGraphPanValueToGrid(oldPan.x, nodeGraphGridWidth(), 1),
     y: snapNodeGraphPanValueToGrid(oldPan.y, nodeGraphGridHeight(), 1),
   };
-  applyNodeGraphZoom();
-  applyNodeGraphPan();
-  if (typeof saveNodeGraphWorkspaceViewToUserSettings === "function") {
+  applyNodeGraphZoom({ immediate: true, forceLayout: true });
+  applyNodeGraphPan({ immediate: true });
+  if (typeof scheduleNodeGraphWorkspaceViewPersist === "function") {
+    scheduleNodeGraphWorkspaceViewPersist();
+  } else if (typeof saveNodeGraphWorkspaceViewToUserSettings === "function") {
     saveNodeGraphWorkspaceViewToUserSettings({ status: false });
   }
 }
@@ -305,6 +318,9 @@ function handleNodeGraphWorkspaceWheel(event) {
   }
   event.preventDefault();
   event.stopPropagation();
+  if (typeof markNodeGraphViewportGesture === "function") {
+    markNodeGraphViewportGesture("wheel");
+  }
   zoomNodeGraphAt(
     nodeGraphWheelZoomSteps(event),
     event.clientX,
@@ -360,6 +376,11 @@ function endNodeGraphSmoothZoomDrag(event) {
   }
   workspace?.classList.remove("smooth-zooming");
   nodeGraphMvp.smoothZoomDragging = null;
+  if (typeof scheduleNodeGraphViewportSettle === "function") {
+    scheduleNodeGraphViewportSettle();
+  } else if (typeof flushNodeGraphViewportImmediate === "function") {
+    flushNodeGraphViewportImmediate();
+  }
   event.preventDefault();
   event.stopPropagation();
 }

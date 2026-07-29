@@ -1,21 +1,62 @@
-function applyNodeGraphPan() {
+function applyNodeGraphPan(options = {}) {
   const workspace = document.getElementById("nodeGraphWorkspace");
   if (!workspace) {
     return;
   }
-  const pan = nodeGraphMvp.pan || { x: 0, y: 0 };
-  const originOffset = nodeGraphRenderedOriginOffset(pan, workspace);
-  workspace.style.setProperty("--node-graph-pan-x", `${originOffset.x}px`);
-  workspace.style.setProperty("--node-graph-pan-y", `${originOffset.y}px`);
-  workspace.dataset.panX = String(pan.x);
-  workspace.dataset.panY = String(pan.y);
-  syncNodeGraphOriginMarker();
-  syncNodeGraphWorldPositionReadout();
-  syncNodeGraphModularViewSizeReadout();
-  updateNodeGraphGridHeatmap();
-  drawNodeGraphWires();
-  if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
-    scheduleNodeGraphModuleScopeDraw();
+  // Light CSS pan every sample; heavy chrome coalesced during gestures.
+  if (typeof applyNodeGraphViewportCssLight === "function") {
+    applyNodeGraphViewportCssLight({ zoom: false, pan: true, zoomButtons: false });
+  } else {
+    const pan = nodeGraphMvp.pan || { x: 0, y: 0 };
+    const originOffset = nodeGraphRenderedOriginOffset(pan, workspace);
+    workspace.style.setProperty("--node-graph-pan-x", `${originOffset.x}px`);
+    workspace.style.setProperty("--node-graph-pan-y", `${originOffset.y}px`);
+    workspace.dataset.panX = String(pan.x);
+    workspace.dataset.panY = String(pan.y);
+    syncNodeGraphOriginMarker();
+    syncNodeGraphWorldPositionReadout();
+  }
+  if (options.immediate) {
+    if (typeof flushNodeGraphViewportImmediate === "function") {
+      flushNodeGraphViewportImmediate({ zoom: true, pan: true, persist: options.persist !== false });
+    } else {
+      updateNodeGraphGridHeatmap();
+      drawNodeGraphWires();
+      if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
+        scheduleNodeGraphModuleScopeDraw();
+      }
+    }
+    syncNodeGraphWorkspaceResizeHandlePosition();
+    return;
+  }
+  if (options.skipHeavy) {
+    // Caller already scheduled heavy chrome (e.g. setNodeGraphZoom).
+    syncNodeGraphWorkspaceResizeHandlePosition();
+    return;
+  }
+  if (options.gesture) {
+    if (typeof markNodeGraphViewportGesture === "function") {
+      markNodeGraphViewportGesture(options.gestureKind || "pan");
+    } else {
+      updateNodeGraphGridHeatmap();
+      drawNodeGraphWires();
+      if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
+        scheduleNodeGraphModuleScopeDraw();
+      }
+    }
+  } else if (typeof flushNodeGraphViewportImmediate === "function") {
+    // Programmatic pan (recenter, snap, load): full chrome, no gesture hold.
+    flushNodeGraphViewportImmediate({
+      zoom: false,
+      pan: true,
+      persist: options.persist !== false,
+    });
+  } else {
+    updateNodeGraphGridHeatmap();
+    drawNodeGraphWires();
+    if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
+      scheduleNodeGraphModuleScopeDraw();
+    }
   }
   syncNodeGraphWorkspaceResizeHandlePosition();
 }
@@ -153,9 +194,20 @@ function setNodeGraphPan(x, y, options = {}) {
     x: Number.isFinite(Number(x)) ? Number(x) : 0,
     y: Number.isFinite(Number(y)) ? Number(y) : 0,
   };
-  applyNodeGraphPan();
-  if (options.persist !== false && typeof saveNodeGraphWorkspaceViewToUserSettings === "function") {
-    saveNodeGraphWorkspaceViewToUserSettings({ status: false });
+  // Gesture lite path only when explicitly requested (workspace pan drag).
+  // Programmatic pan (recenter, load, snap) flushes full chrome immediately.
+  const isGesture = options.gesture === true && options.immediate !== true;
+  applyNodeGraphPan({
+    gesture: isGesture,
+    immediate: options.immediate === true || !isGesture,
+    skipHeavy: options.skipHeavy === true,
+  });
+  if (options.persist !== false) {
+    if (typeof scheduleNodeGraphWorkspaceViewPersist === "function") {
+      scheduleNodeGraphWorkspaceViewPersist();
+    } else if (typeof saveNodeGraphWorkspaceViewToUserSettings === "function") {
+      saveNodeGraphWorkspaceViewToUserSettings({ status: false });
+    }
   }
 }
 
@@ -442,7 +494,7 @@ function alignNodeGraphViewToGridWithOptions(options = {}) {
   if (typeof syncNodeGraphPatchViewZoom === "function") {
     syncNodeGraphPatchViewZoom(nextZoom);
   }
-  applyNodeGraphZoom();
+  applyNodeGraphZoom({ immediate: true, forceLayout: true, persist: false });
   if (options.snapWorkspaceEdges) {
     snapNodeGraphWorkspaceEdgesToGrid(nextZoom);
   }
@@ -465,8 +517,10 @@ function alignNodeGraphViewToGridWithOptions(options = {}) {
     x: snapPan(unsnappedPan.x, nodeGraphGridWidth()),
     y: snapPan(unsnappedPan.y, nodeGraphGridHeight()),
   };
-  applyNodeGraphPan();
-  if (typeof saveNodeGraphWorkspaceViewToUserSettings === "function") {
+  applyNodeGraphPan({ immediate: true, persist: false });
+  if (typeof scheduleNodeGraphWorkspaceViewPersist === "function") {
+    scheduleNodeGraphWorkspaceViewPersist();
+  } else if (typeof saveNodeGraphWorkspaceViewToUserSettings === "function") {
     saveNodeGraphWorkspaceViewToUserSettings({ status: false });
   }
   setNodeInteractionHelp(options.snapWorkspaceEdges
@@ -645,6 +699,9 @@ function beginNodeGraphWorkspacePanFrom(pointerId, clientX, clientY) {
     startPanY: pan.y,
   };
   workspace?.classList.add("panning");
+  if (typeof markNodeGraphViewportGesture === "function") {
+    markNodeGraphViewportGesture("pan");
+  }
   if (workspace?.hasPointerCapture && !workspace.hasPointerCapture(pointerId)) {
     workspace.setPointerCapture(pointerId);
   }
@@ -774,6 +831,8 @@ function endNodeGraphWorkspacePinchZoom(event) {
     if (touchPoints.size === 1) {
       const [survivor] = touchPoints.values();
       beginNodeGraphWorkspacePanFrom(survivor.pointerId, survivor.clientX, survivor.clientY);
+    } else if (typeof scheduleNodeGraphViewportSettle === "function") {
+      scheduleNodeGraphViewportSettle();
     }
     event.preventDefault();
     event.stopPropagation();
@@ -840,6 +899,8 @@ function dragNodeGraphWorkspacePan(event) {
     nodeGraphMvp.snapGridWhilePanning
       ? snapNodeGraphPanValueToGrid(nextY, nodeGraphGridHeight(), nodeGraphZoom(), { halfGrid: true })
       : nextY,
+    // Persist on settle only — not every pointermove sample.
+    { gesture: true, persist: false },
   );
   event.preventDefault();
   event.stopPropagation();
@@ -857,7 +918,11 @@ function endNodeGraphWorkspacePan(event) {
   }
   workspace?.classList.remove("panning");
   nodeGraphMvp.workspacePanning = null;
-  drawNodeGraphWires();
+  if (typeof scheduleNodeGraphViewportSettle === "function") {
+    scheduleNodeGraphViewportSettle();
+  } else {
+    drawNodeGraphWires();
+  }
   event.preventDefault();
   event.stopPropagation();
 }

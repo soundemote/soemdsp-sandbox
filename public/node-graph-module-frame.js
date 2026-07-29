@@ -249,8 +249,20 @@ function updateAllNodeGraphModuleFrames(options = {}) {
   }
 }
 
+let nodeGraphModuleFramePendingNodes = null;
+
 function scheduleNodeGraphModuleFramesUpdate(options = {}) {
   const force = Boolean(options.force);
+  const onlyNode = options.nodeElement || null;
+  if (onlyNode) {
+    if (!nodeGraphModuleFramePendingNodes) {
+      nodeGraphModuleFramePendingNodes = new Set();
+    }
+    nodeGraphModuleFramePendingNodes.add(onlyNode);
+  } else {
+    // Full update requested — clear partial set so we refresh everything.
+    nodeGraphModuleFramePendingNodes = null;
+  }
   if (force) {
     // Drop any coalesced non-force frame so the forced pass always runs.
     if (nodeGraphModuleFrameRaf) {
@@ -262,6 +274,19 @@ function scheduleNodeGraphModuleFramesUpdate(options = {}) {
   }
   nodeGraphModuleFrameRaf = window.requestAnimationFrame(() => {
     nodeGraphModuleFrameRaf = 0;
+    const pending = nodeGraphModuleFramePendingNodes;
+    nodeGraphModuleFramePendingNodes = null;
+    if (pending?.size) {
+      for (const node of pending) {
+        if (force) {
+          delete node.dataset?.moduleFrameFp;
+        }
+        if (node?.isConnected) {
+          updateNodeGraphModuleFrame(node);
+        }
+      }
+      return;
+    }
     updateAllNodeGraphModuleFrames({ force });
   });
 }
@@ -285,8 +310,28 @@ function nodeGraphModuleFrameObserve(nodeElement) {
     return;
   }
   if (!nodeGraphModuleFrameObserver) {
-    nodeGraphModuleFrameObserver = new ResizeObserver(() => {
-      scheduleNodeGraphModuleFramesUpdate({ force: true });
+    nodeGraphModuleFrameObserver = new ResizeObserver((entries) => {
+      // Only rebuild frames for modules that actually resized — not the whole graph.
+      const nodes = new Set();
+      for (const entry of entries) {
+        const target = entry?.target;
+        if (!(target instanceof Element)) {
+          continue;
+        }
+        const node = target.classList.contains("dsp-node")
+          ? target
+          : target.closest?.(".dsp-node");
+        if (node) {
+          nodes.add(node);
+        }
+      }
+      if (!nodes.size) {
+        scheduleNodeGraphModuleFramesUpdate({ force: true });
+        return;
+      }
+      for (const node of nodes) {
+        scheduleNodeGraphModuleFramesUpdate({ force: true, nodeElement: node });
+      }
     });
   }
   try {

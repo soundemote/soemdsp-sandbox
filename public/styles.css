@@ -4253,6 +4253,15 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: inline-flex;
 }
 
+/* During pan/zoom: light CSS + lite wires; full chrome resumes on settle. */
+.node-graph-workspace.viewport-gesturing {
+  cursor: grab;
+}
+.node-graph-workspace.viewport-gesturing.panning,
+.node-graph-workspace.viewport-gesturing.smooth-zooming {
+  cursor: grabbing;
+}
+
 .node-graph-workspace.panning {
 }
 

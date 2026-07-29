@@ -554,6 +554,7 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
   const bleed = blur * blur * (0.04 + blur * 0.14);
 
   if (liveDeposit && deposit > 1e-8) {
+    face._xyPadPresentedIdle = false;
     // Prefer continuous beam segments so Papoulis-smoothed Out paths stay
     // curved; dots mode re-stamps sparse UI elbows as hard corners.
     const mode = options.mode === "dots" ? "dots" : "segments";
@@ -606,14 +607,21 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
     }
   }
   // Idle hold: do not step (no extra fade) — residual freezes until next drag.
+  // Still present once so a cleared 2d canvas can show the frozen residual;
+  // skip redundant present GPU work when energy is already idle-dark.
+  if (!liveDeposit && face.energyActive === false && face._xyPadPresentedIdle) {
+    return true;
+  }
 
   const exposure = drawer?.exposure
     ? drawer.exposure(burn)
     : 1.85 + burn * 2.1;
   if (typeof nodeGraphPhosphorEnergyGlPresent === "function") {
     if (!nodeGraphPhosphorEnergyGlPresent(face, 1, { exposure })) {
+      face._xyPadPresentedIdle = true;
       return false;
     }
+    face._xyPadPresentedIdle = !liveDeposit;
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
     ctx.imageSmoothingEnabled = true;
@@ -622,13 +630,15 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
     return true;
   }
   if (drawer?.presentTo) {
-    return drawer.presentTo(face, ctx, {
+    const ok = drawer.presentTo(face, ctx, {
       exposure,
       width,
       height,
       smooth: true,
       composite: "lighter",
     });
+    face._xyPadPresentedIdle = !liveDeposit;
+    return ok;
   }
   return false;
 }

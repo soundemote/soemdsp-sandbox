@@ -193,6 +193,7 @@ function nodeGraphDrawSignalWire(svg, connection, index, context) {
       mode === "state-read" ? "state-read" : "",
       isInactive ? "inactive-wire" : "",
     ),
+    skipHitPath: Boolean(context.skipHitPath),
     to,
     wireType: connection.wireType,
     wireColors: [
@@ -201,7 +202,9 @@ function nodeGraphDrawSignalWire(svg, connection, index, context) {
     ],
     ...nodeGraphManualTracePathOptions(connection, from, to),
   });
-  markNodeGraphWireEndpointsConnected(connection);
+  if (!context.skipHitPath) {
+    markNodeGraphWireEndpointsConnected(connection);
+  }
 }
 
 function nodeGraphDrawModulationWire(svg, modulation, index, context) {
@@ -237,6 +240,7 @@ function nodeGraphDrawModulationWire(svg, modulation, index, context) {
       "node-modulation-wire-path",
       isInactive ? "inactive-wire" : "",
     ),
+    skipHitPath: Boolean(context.skipHitPath),
     to,
     wireType: modulation.wireType,
     wireColors: [
@@ -245,7 +249,9 @@ function nodeGraphDrawModulationWire(svg, modulation, index, context) {
     ],
     ...nodeGraphManualTracePathOptions(modulation, from, to),
   });
-  markNodeGraphWireEndpointsConnected(modulation, "modulation");
+  if (!context.skipHitPath) {
+    markNodeGraphWireEndpointsConnected(modulation, "modulation");
+  }
 }
 
 function nodeGraphDrawGraphWire(svg, connection, index, context) {
@@ -281,6 +287,7 @@ function nodeGraphDrawGraphWire(svg, connection, index, context) {
       "node-modulation-wire-path",
       isInactive ? "inactive-wire" : "",
     ),
+    skipHitPath: Boolean(context.skipHitPath),
     to,
     wireType: connection.wireType,
     wireColors: [
@@ -289,7 +296,9 @@ function nodeGraphDrawGraphWire(svg, connection, index, context) {
     ],
     ...nodeGraphManualTracePathOptions(connection, from, to),
   });
-  markNodeGraphWireEndpointsConnected(connection, "graph");
+  if (!context.skipHitPath) {
+    markNodeGraphWireEndpointsConnected(connection, "graph");
+  }
 }
 
 function nodeGraphDrawTemporaryWire(svg, options) {
@@ -326,14 +335,35 @@ function nodeGraphResetConnectedWireClasses(workspace) {
   }
 }
 
-function drawNodeGraphWires() {
+function drawNodeGraphWires(options = {}) {
   const workspace = nodeGraphZoomSurface();
   const svg = document.getElementById("nodeWireSvg");
   if (!workspace || !svg) {
     return;
   }
-  updateNodeGraphGridHeatmap();
-  const plan = compileNodeGraphExecutionPlan();
+  const lite = Boolean(options.lite);
+  const skipScopes = options.skipScopes === true || lite;
+  const skipSelection = options.skipSelection === true || lite;
+  // Heatmap is cheap CSS; still update so glow tracks pan/zoom.
+  if (options.skipHeatmap !== true && typeof updateNodeGraphGridHeatmap === "function") {
+    updateNodeGraphGridHeatmap();
+  }
+  // Lite (gesture) path reuses a plan cache; full draws always recompile so
+  // wire/feedback state stays correct after patch edits of the same size.
+  let plan = null;
+  if (lite && typeof nodeGraphViewportCompileWirePlan === "function") {
+    plan = nodeGraphViewportCompileWirePlan();
+  } else {
+    if (typeof invalidateNodeGraphViewportWirePlanCache === "function") {
+      invalidateNodeGraphViewportWirePlanCache();
+    }
+    plan = typeof compileNodeGraphExecutionPlan === "function"
+      ? compileNodeGraphExecutionPlan()
+      : null;
+  }
+  if (!plan) {
+    return;
+  }
   const feedbackSets = nodeGraphFeedbackIdentitySets(plan);
   const activeNodeIds = nodeGraphActiveNodeIds(plan);
 
@@ -343,9 +373,11 @@ function drawNodeGraphWires() {
   const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
   svg.append(defs);
 
-  nodeGraphResetConnectedWireClasses(workspace);
+  if (!lite) {
+    nodeGraphResetConnectedWireClasses(workspace);
+  }
 
-  const context = { activeNodeIds, feedbackSets, plan };
+  const context = { activeNodeIds, feedbackSets, plan, skipHitPath: lite };
   for (const [index, connection] of nodeGraphMvp.connections.entries()) {
     nodeGraphDrawSignalWire(svg, connection, index, context);
   }
@@ -358,7 +390,9 @@ function drawNodeGraphWires() {
     nodeGraphDrawGraphWire(svg, graphConnection, index, context);
   }
 
-  syncNodeGraphMonitorIndicators();
+  if (!lite && typeof syncNodeGraphMonitorIndicators === "function") {
+    syncNodeGraphMonitorIndicators();
+  }
 
   if (nodeGraphMvp.portConnectionMode) {
     const mode = nodeGraphMvp.portConnectionMode;
@@ -388,8 +422,12 @@ function drawNodeGraphWires() {
     });
   }
 
-  renderNodeGraphSelection();
-  scheduleNodeGraphModuleScopeDraw();
+  if (!skipSelection && typeof renderNodeGraphSelection === "function") {
+    renderNodeGraphSelection();
+  }
+  if (!skipScopes && typeof scheduleNodeGraphModuleScopeDraw === "function") {
+    scheduleNodeGraphModuleScopeDraw();
+  }
 }
 
 function scheduleNodeGraphWireRedrawAfterLayout() {
