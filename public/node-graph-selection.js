@@ -326,6 +326,7 @@ function renderNodeGraphSelection() {
   for (const node of document.querySelectorAll(".dsp-node")) {
     node.classList.toggle("selected", selectedNodeIds.has(node.dataset.node));
   }
+  // Frame stroke color follows .selected via CSS; no path rebuild needed.
 
   for (const path of document.querySelectorAll(".node-wire-path")) {
     path.classList.toggle(

@@ -642,6 +642,20 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
       ? Boolean(source.wraparound)
       : fallback.wraparound,
   };
+  // XY pad mouse/phase targets are instant UI only (audio path owns Papoulis).
+  if (
+    type === "xyPad"
+    && (
+      (typeof nodeGraphXyPadDspIsUnsmoothedParamKey === "function"
+        && nodeGraphXyPadDspIsUnsmoothedParamKey(key))
+      || ["x", "y", "xPhase", "yPhase"].includes(String(key || ""))
+    )
+  ) {
+    normalized.linearSmoothing = false;
+    normalized.smoothingMode = "off";
+    normalized.smoothingSeconds = 0;
+    normalized.smoothingType = "onePole";
+  }
   if (type === "clapPlugin") {
     const clapParamId = Number(source.clapParamId);
     const clapParamIndex = Number(source.clapParamIndex);

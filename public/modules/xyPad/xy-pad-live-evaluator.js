@@ -1,21 +1,5 @@
-// Offline/render-time xyPad evaluator — same shared-smoother contract as worklet.
-
-function nodeGraphXyPadEvaluatorQuantize(value, quantize) {
-  const q = Math.max(0, Math.min(1, Number(quantize) || 0));
-  const divisions = q <= 0 ? 1 : 1 + Math.max(1, Math.round(q * 16));
-  const v = Number(value);
-  const unit = Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.5;
-  if (divisions <= 1) {
-    return unit;
-  }
-  const step = 1 / divisions;
-  return Math.max(0, Math.min(1, Math.round(unit / step) * step));
-}
-
-function nodeGraphXyPadUnitToBipolar(unit) {
-  const u = Number(unit);
-  return Number.isFinite(u) ? u * 2 - 1 : 0;
-}
+// Offline/render-time xyPad evaluator.
+// Same path as live outs / phosphor: bipolar(Phase)+CV → lattice (Papoulis dry offline).
 
 nodeGraphLiveModuleEvaluators.xyPad = ({ runtime, node, nodeId, frame, frames, frameValues, mixInput }) => {
   const read = (key, fallback) =>
@@ -27,20 +11,33 @@ nodeGraphLiveModuleEvaluators.xyPad = ({ runtime, node, nodeId, frame, frames, f
   const pulseSamples = Math.max(0, Number(state.pulseSamples) || 0);
   state.pulseSamples = Math.max(0, pulseSamples - 1);
 
-  let unitX = read("x", read("xPhase", 0.5));
-  let unitY = read("y", read("yPhase", 0.5));
-  const mode = Math.max(0, Math.min(2, Math.round(Number(read("quantizeInput", 0)) || 0)));
-  if (mode === 1) {
-    unitX = nodeGraphXyPadEvaluatorQuantize(unitX, read("xQuantize", 0));
-    unitY = nodeGraphXyPadEvaluatorQuantize(unitY, read("yQuantize", 0));
-  } else {
-    unitX = Math.max(0, Math.min(1, Number(unitX) || 0.5));
-    unitY = Math.max(0, Math.min(1, Number(unitY) || 0.5));
-  }
+  const rawMouseX = Number(read("x", read("xPhase", 0.5)));
+  const rawMouseY = Number(read("y", read("yPhase", 0.5)));
+  // Do not use `n || 0.5` — that maps legitimate edge 0 to center.
+  const mouseX = Math.max(0, Math.min(1, Number.isFinite(rawMouseX) ? rawMouseX : 0.5));
+  const mouseY = Math.max(0, Math.min(1, Number.isFinite(rawMouseY) ? rawMouseY : 0.5));
+  const sigX = nodeGraphXyPadDspUnitToBipolar(mouseX) + (Number(mixInput(nodeId, "X")) || 0);
+  const sigY = nodeGraphXyPadDspUnitToBipolar(mouseY) + (Number(mixInput(nodeId, "Y")) || 0);
+
+  // Offline has no papoulis_filter.wasm — treat Papoulis as dry (lattice still applies).
+  const cutoff = 0;
+  const order = Math.max(0, Math.min(1, Math.round(Number(read("filterOrder", 0)) || 0)));
+  const qX = read("xQuantize", 0);
+  const qY = read("yQuantize", 0);
 
   return {
-    X: nodeGraphXyPadUnitToBipolar(unitX) + (Number(mixInput(nodeId, "X")) || 0),
-    Y: nodeGraphXyPadUnitToBipolar(unitY) + (Number(mixInput(nodeId, "Y")) || 0),
+    X: nodeGraphXyPadDspProcessAxis(sigX, {
+      cutoff,
+      order,
+      quantizeAmt: qX,
+      filterSample: null,
+    }),
+    Y: nodeGraphXyPadDspProcessAxis(sigY, {
+      cutoff,
+      order,
+      quantizeAmt: qY,
+      filterSample: null,
+    }),
     Gate: read("gate", 0) > 0.5 ? 1 : 0,
     Spike: pulseSamples > 0 ? (Number(state.amplitude) || 1) : 0,
   };

@@ -57,15 +57,51 @@
       );
     }
 
+    /**
+     * Tuck wire ends under the jack so round linecaps don’t paint a ring in the
+     * module-frame gap at the inlet/outlet edge.
+     */
+    function insetWireEndpoint(point, role, amount) {
+      if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+        return point;
+      }
+      const pad = Math.max(0, Number(amount) || 0);
+      if (pad <= 0) {
+        return point;
+      }
+      // "from" = source (output, wire leaves rightward); "to" = destination (input).
+      if (role === "from") {
+        return { x: point.x + pad, y: point.y };
+      }
+      if (role === "to") {
+        return { x: point.x - pad, y: point.y };
+      }
+      return point;
+    }
+
+    function wireEndpointInsetPx() {
+      const style = typeof getComputedStyle === "function"
+        ? getComputedStyle(document.documentElement)
+        : null;
+      const thickness = Number.parseFloat(style?.getPropertyValue("--node-wire-thickness") || "") || 3;
+      return Math.max(2, thickness * 0.55);
+    }
+
     function path(from, to) {
-      const horizontalDistance = Math.abs(to.x - from.x);
-      const verticalDistance = Math.abs(to.y - from.y);
+      const pad = wireEndpointInsetPx();
+      const a = insetWireEndpoint(from, "from", pad);
+      const b = insetWireEndpoint(to, "to", pad);
+      const horizontalDistance = Math.abs(b.x - a.x);
+      const verticalDistance = Math.abs(b.y - a.y);
       const span = Math.min(96, horizontalDistance * 0.48 + verticalDistance * 0.12);
-      return `M ${from.x} ${from.y} C ${from.x + span} ${from.y}, ${to.x - span} ${to.y}, ${to.x} ${to.y}`;
+      return `M ${a.x} ${a.y} C ${a.x + span} ${a.y}, ${b.x - span} ${b.y}, ${b.x} ${b.y}`;
     }
 
     function straightPath(from, to) {
-      return `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
+      const pad = wireEndpointInsetPx();
+      const a = insetWireEndpoint(from, "from", pad);
+      const b = insetWireEndpoint(to, "to", pad);
+      return `M ${a.x} ${a.y} L ${b.x} ${b.y}`;
     }
 
     // Currently unreachable from any live call site (nodeGraphManualTracePathOptions

@@ -212,26 +212,42 @@ function syncNodeGraphVolumeSlider(sliderId, readoutId, value) {
 }
 
 function bindNodeGraphLiveVolumeControls() {
+  // Toolbar 🔊 controls mirror module params (Output.volume, Input.level).
+  const initialOut = typeof getNodeGraphOutputModuleVolume === "function"
+    ? getNodeGraphOutputModuleVolume()
+    : (nodeGraphMvp?.live?.outputVolume ?? 1);
+  const initialIn = typeof getNodeGraphAudioInputModuleLevel === "function"
+    ? getNodeGraphAudioInputModuleLevel()
+    : (nodeGraphMvp?.live?.inputVolume ?? 1);
   bindNodeGraphVolumeSlider(
     "nodeLiveOutputVolume",
     "nodeLiveOutputVolumeValue",
     (value) => {
-      if (typeof setNodeGraphLiveOutputVolume === "function") {
+      if (typeof setNodeGraphOutputModuleVolume === "function") {
+        setNodeGraphOutputModuleVolume(value, { fromToolbar: true, interaction: "drag" });
+      } else if (typeof setNodeGraphLiveOutputVolume === "function") {
         setNodeGraphLiveOutputVolume(value);
       }
     },
-    nodeGraphMvp?.live?.outputVolume ?? 1,
+    initialOut,
   );
   bindNodeGraphVolumeSlider(
     "nodeLiveInputVolume",
     "nodeLiveInputVolumeValue",
     (value) => {
-      if (typeof setNodeGraphLiveInputVolume === "function") {
+      if (typeof setNodeGraphAudioInputModuleLevel === "function") {
+        setNodeGraphAudioInputModuleLevel(value, { fromToolbar: true, interaction: "drag" });
+      } else if (typeof setNodeGraphLiveInputVolume === "function") {
         setNodeGraphLiveInputVolume(value);
       }
     },
-    nodeGraphMvp?.live?.inputVolume ?? 1,
+    initialIn,
   );
+  if (typeof syncNodeGraphLiveVolumeMirrorsFromModules === "function") {
+    syncNodeGraphLiveVolumeMirrorsFromModules();
+  } else if (typeof syncNodeGraphLiveOutputVolumeFromOutputModule === "function") {
+    syncNodeGraphLiveOutputVolumeFromOutputModule();
+  }
 }
 
 function bindNodeGraphTransportButtons() {

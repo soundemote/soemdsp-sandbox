@@ -1361,8 +1361,7 @@ function configureNodeSceneContextMenu(mode) {
       graphNextNode.disabled = false;
       graphNodeX.disabled = false;
       graphNodeY.disabled = false;
-      // Graph (graph2): global curve through points -- no per-node shape UI.
-      // Graph_Copy: enable per-node contour + shape (list + single-node fields).
+      // Graph / Graph_Copy: per-point shape + contour (point-to-point segments).
       graphNodeContour.disabled = !usesPerNodeShapes;
       graphNodeShape.disabled = !usesPerNodeShapes;
       const contourLabel = document.getElementById("nodeSceneGraphNodeContourLabel");

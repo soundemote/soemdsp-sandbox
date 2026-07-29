@@ -28,12 +28,11 @@ function normalizeNodeGraphVolume(value, fallback = 1) {
   return Math.max(0, Math.min(1, number));
 }
 
-// The ONE thing allowed to decide what outputGain.gain should be. Mute is a
-// state flag rather than a hardcoded 0/1 pair, because unmuting used to snap
-// straight back to 1 -- which would blow past the user's volume setting every
-// time the safety path, a plan restart, or gpu priming released the mute.
+// Host Web Audio gain is MUTE ONLY. Loudness is the Output module's `volume`
+// param (applied inside the graph). Toolbar 🔊 is a mirror of that param —
+// not a second volume stage (would double-attenuate).
 function nodeGraphLiveOutputTargetGain() {
-  return nodeGraphMvp.live.outputMuted ? 0 : normalizeNodeGraphVolume(nodeGraphMvp.live.outputVolume);
+  return nodeGraphMvp.live.outputMuted ? 0 : 1;
 }
 
 function applyNodeGraphLiveOutputGain() {
@@ -57,30 +56,220 @@ function setNodeGraphLiveOutputMuted(muted) {
   applyNodeGraphLiveOutputGain();
 }
 
-function setNodeGraphLiveOutputVolume(value) {
-  nodeGraphMvp.live.outputVolume = normalizeNodeGraphVolume(value);
-  applyNodeGraphLiveOutputGain();
-  return nodeGraphMvp.live.outputVolume;
-}
+// ── Module level mirrors (toolbar 🔊 ↔ Input/Output module params) ────────
+// Loudness lives in the graph (audioInput.level, output.volume). Host gain is
+// mute-only for output and unity for input so we never double-apply.
 
-// Input level rides its own gain node between the mic stream and the engine
-// (see startNodeGraphLiveInputSource). The node only exists while input is
-// live; the number is kept on nodeGraphMvp.live either way, so the slider
-// still means something before the mic is armed.
-function setNodeGraphLiveInputVolume(value) {
-  nodeGraphMvp.live.inputVolume = normalizeNodeGraphVolume(value);
-  const gainNode = nodeGraphMvp.live.inputVolumeGain;
-  const context = nodeGraphMvp.live.context;
-  if (gainNode?.gain) {
-    const time = context?.currentTime || 0;
-    try {
-      gainNode.gain.cancelScheduledValues(time);
-      gainNode.gain.setValueAtTime(nodeGraphMvp.live.inputVolume, time);
-    } catch (_error) {
-      gainNode.gain.value = nodeGraphMvp.live.inputVolume;
+function nodeGraphPatchModuleNodeByType(type, fallbackId = "") {
+  const nodes = nodeGraphMvp?.patch?.nodes;
+  if (!Array.isArray(nodes)) {
+    return null;
+  }
+  const found = nodes.find((node) => node?.type === type);
+  if (found) {
+    return found;
+  }
+  if (fallbackId && typeof nodeGraphPatchNode === "function") {
+    const byId = nodeGraphPatchNode(fallbackId);
+    if (byId?.type === type) {
+      return byId;
     }
   }
-  return nodeGraphMvp.live.inputVolume;
+  return null;
+}
+
+function nodeGraphModuleParamSlider(node, paramKey) {
+  if (!node?.id || !paramKey) {
+    return null;
+  }
+  const esc = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(node.id) : node.id;
+  return document.getElementById(`node-${node.id}-${paramKey}`)
+    || document.querySelector(`.dsp-node[data-node="${esc}"] input[data-param="${paramKey}"]`)
+    || null;
+}
+
+function nodeGraphReadModuleParamLevel(node, paramKey, fallback) {
+  if (!node) {
+    return normalizeNodeGraphVolume(fallback, 1);
+  }
+  const slider = nodeGraphModuleParamSlider(node, paramKey);
+  if (slider) {
+    const fromDom = Number(slider.value);
+    if (Number.isFinite(fromDom)) {
+      return normalizeNodeGraphVolume(fromDom);
+    }
+  }
+  const fromParams = Number(node.params?.[paramKey]);
+  if (Number.isFinite(fromParams)) {
+    return normalizeNodeGraphVolume(fromParams);
+  }
+  return normalizeNodeGraphVolume(fallback, 1);
+}
+
+/**
+ * Write a 0..1 level onto a module param + its slider, keep a toolbar mirror.
+ * lockKey: e.g. "_outputVolumeMirrorLock" — blocks recursive toolbar sync.
+ */
+function nodeGraphWriteModuleParamLevel(node, paramKey, value, options = {}) {
+  const level = normalizeNodeGraphVolume(value);
+  const lockKey = options.lockKey || "";
+  if (node && !options.fromModuleSlider) {
+    node.params = { ...(node.params || {}), [paramKey]: level };
+    const slider = nodeGraphModuleParamSlider(node, paramKey);
+    if (slider && typeof setNodeSliderValue === "function") {
+      if (lockKey) {
+        nodeGraphMvp[lockKey] = true;
+      }
+      try {
+        setNodeSliderValue(slider, level, {
+          interaction: options.interaction || "drag",
+        });
+      } finally {
+        if (lockKey) {
+          nodeGraphMvp[lockKey] = false;
+        }
+      }
+    } else {
+      if (slider) {
+        slider.value = String(level);
+        if (typeof syncNodeSliderReadout === "function") {
+          syncNodeSliderReadout(slider);
+        }
+      }
+      if (typeof scheduleNodeGraphLiveParameterSync === "function") {
+        scheduleNodeGraphLiveParameterSync();
+      }
+    }
+  }
+  return level;
+}
+
+function nodeGraphOutputModuleNode() {
+  return nodeGraphPatchModuleNodeByType("output", "output");
+}
+
+function nodeGraphAudioInputModuleNode() {
+  // Prefer the first Input module in the patch (usually the live mic path).
+  return nodeGraphPatchModuleNodeByType("audioInput", "audioInput");
+}
+
+/** Canonical live out level = Output module volume (0..1). */
+function getNodeGraphOutputModuleVolume() {
+  return nodeGraphReadModuleParamLevel(
+    nodeGraphOutputModuleNode(),
+    "volume",
+    nodeGraphMvp?.live?.outputVolume ?? 0.1,
+  );
+}
+
+/** Canonical live in level = Input module Amplitude / level (0..1). */
+function getNodeGraphAudioInputModuleLevel() {
+  return nodeGraphReadModuleParamLevel(
+    nodeGraphAudioInputModuleNode(),
+    "level",
+    nodeGraphMvp?.live?.inputVolume ?? 1,
+  );
+}
+
+function setNodeGraphOutputModuleVolume(value, options = {}) {
+  const level = nodeGraphWriteModuleParamLevel(
+    nodeGraphOutputModuleNode(),
+    "volume",
+    value,
+    { ...options, lockKey: "_outputVolumeMirrorLock" },
+  );
+  if (nodeGraphMvp?.live) {
+    nodeGraphMvp.live.outputVolume = level;
+  }
+  if (!options.fromToolbar && typeof syncNodeGraphVolumeSlider === "function") {
+    syncNodeGraphVolumeSlider("nodeLiveOutputVolume", "nodeLiveOutputVolumeValue", level);
+  }
+  return level;
+}
+
+function setNodeGraphAudioInputModuleLevel(value, options = {}) {
+  const level = nodeGraphWriteModuleParamLevel(
+    nodeGraphAudioInputModuleNode(),
+    "level",
+    value,
+    { ...options, lockKey: "_inputVolumeMirrorLock" },
+  );
+  if (nodeGraphMvp?.live) {
+    nodeGraphMvp.live.inputVolume = level;
+  }
+  // Host mic gain is unity — level is applied on the audioInput module only.
+  applyNodeGraphLiveInputHostGain();
+  if (!options.fromToolbar && typeof syncNodeGraphVolumeSlider === "function") {
+    syncNodeGraphVolumeSlider("nodeLiveInputVolume", "nodeLiveInputVolumeValue", level);
+  }
+  return level;
+}
+
+/** Toolbar / API: set volume = Output module volume (mirrored). */
+function setNodeGraphLiveOutputVolume(value) {
+  return setNodeGraphOutputModuleVolume(value, { fromToolbar: true, interaction: "drag" });
+}
+
+/** Toolbar / API: set level = Input module Amplitude (mirrored). */
+function setNodeGraphLiveInputVolume(value) {
+  return setNodeGraphAudioInputModuleLevel(value, { fromToolbar: true, interaction: "drag" });
+}
+
+/** Pull toolbar 🔊 from the Output module (after patch load / module drag). */
+function syncNodeGraphLiveOutputVolumeFromOutputModule() {
+  if (nodeGraphMvp?._outputVolumeMirrorLock) {
+    return getNodeGraphOutputModuleVolume();
+  }
+  const level = getNodeGraphOutputModuleVolume();
+  if (nodeGraphMvp?.live) {
+    nodeGraphMvp.live.outputVolume = level;
+  }
+  if (typeof syncNodeGraphVolumeSlider === "function") {
+    syncNodeGraphVolumeSlider("nodeLiveOutputVolume", "nodeLiveOutputVolumeValue", level);
+  }
+  applyNodeGraphLiveOutputGain();
+  return level;
+}
+
+/** Pull toolbar 🔊 from the Input module Amplitude (after patch load / drag). */
+function syncNodeGraphLiveInputVolumeFromInputModule() {
+  if (nodeGraphMvp?._inputVolumeMirrorLock) {
+    return getNodeGraphAudioInputModuleLevel();
+  }
+  const level = getNodeGraphAudioInputModuleLevel();
+  if (nodeGraphMvp?.live) {
+    nodeGraphMvp.live.inputVolume = level;
+  }
+  if (typeof syncNodeGraphVolumeSlider === "function") {
+    syncNodeGraphVolumeSlider("nodeLiveInputVolume", "nodeLiveInputVolumeValue", level);
+  }
+  applyNodeGraphLiveInputHostGain();
+  return level;
+}
+
+function syncNodeGraphLiveVolumeMirrorsFromModules() {
+  syncNodeGraphLiveOutputVolumeFromOutputModule();
+  syncNodeGraphLiveInputVolumeFromInputModule();
+}
+
+/**
+ * Mic host gain is always unity. Attenuation is audioInput.level in the graph
+ * (same rule as output: one place for loudness). Node still exists so the
+ * stream can be rewired without re-prompting for permission.
+ */
+function applyNodeGraphLiveInputHostGain() {
+  const gainNode = nodeGraphMvp?.live?.inputVolumeGain;
+  const context = nodeGraphMvp?.live?.context;
+  if (!gainNode?.gain) {
+    return;
+  }
+  const time = context?.currentTime || 0;
+  try {
+    gainNode.gain.cancelScheduledValues(time);
+    gainNode.gain.setValueAtTime(1, time);
+  } catch (_error) {
+    gainNode.gain.value = 1;
+  }
 }
 
 let nodeGraphLiveNativeModuleCatalogPromise = null;
@@ -1979,10 +2168,10 @@ async function stopNodeGraphLiveAudio() {
 // then register.js calls registerProcessor last, once everything above it
 // has finished defining/registering.
 const nodeGraphLiveWorkletSourceFiles = [
-  "./public/node-graph-parameter-smoother-filters.js?v=papoulis-param-native-1",
-  "./public/node-live-audio-worklet-core.js?v=smoother-clean-1",
+  "./public/node-graph-parameter-smoother-filters.js?v=xy-pad-native-1",
+  "./public/node-live-audio-worklet-core.js?v=graph-shape-clean-1",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=smoother-active-set-1",
+  "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=xy-pad-dsp-path-1",
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/sineWavetable/sine-wavetable-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/additiveOsc/additive-osc-worklet-evaluator.js?v=native-strip-1",
@@ -2014,7 +2203,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/chordSequencer/chord-sequencer-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/lutCell/lut-cell-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/passiveFilter/passive-filter-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/papoulisFilter/papoulis-filter-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/papoulisFilter/papoulis-filter-worklet-evaluator.js?v=xy-pad-native-1",
   "./public/modules/phosphillator/phosphillator-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/cookbookFilter/cookbook-filter-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/ladderFilter/ladder-filter-worklet-evaluator.js?v=native-strip-1",
@@ -2043,7 +2232,8 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/pluckEnvelope/pluck-envelope-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/vactrolEnvelopeSeries/vactrol-envelope-series-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/bugButton/bug-button-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/xyPad/xy-pad-worklet-evaluator.js?v=xy-pad-clean-1",
+  "./public/modules/xyPad/xy-pad-dsp.js?v=xy-pad-phosphor-out-1",
+  "./public/modules/xyPad/xy-pad-worklet-evaluator.js?v=xy-pad-phosphor-out-1",
   "./public/modules/flowerChildEnvelopeFollower/flower-child-envelope-follower-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/spiral/spiral-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/fractalSpiral/fractal-spiral-worklet-evaluator.js?v=native-strip-1",
@@ -2201,11 +2391,13 @@ async function startNodeGraphLiveInputSource() {
       stream = await requestNodeGraphLiveInputStream("");
     }
     const source = context.createMediaStreamSource(stream);
-    // Input volume rides a gain node between the mic and the engine rather
-    // than a constraint on the stream, so changing it is sample-accurate and
-    // never re-prompts for permission.
+    // Host gain is unity; Input module Amplitude (level) scales inside the graph.
+    // Keep a gain node so the stream can be rewired without re-prompting.
+    if (typeof syncNodeGraphLiveInputVolumeFromInputModule === "function") {
+      syncNodeGraphLiveInputVolumeFromInputModule();
+    }
     const inputVolumeGain = context.createGain();
-    inputVolumeGain.gain.value = normalizeNodeGraphVolume(nodeGraphMvp.live.inputVolume);
+    inputVolumeGain.gain.value = 1;
     source.connect(inputVolumeGain);
     inputVolumeGain.connect(liveNode);
     nodeGraphMvp.live.inputVolumeGain = inputVolumeGain;
@@ -2286,9 +2478,12 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
       return;
     }
     const outputGain = context.createGain();
-    // Start at whatever the volume slider currently says, not at unity -- a
-    // fresh engine must not come up louder than the level you set before it.
-    outputGain.gain.value = normalizeNodeGraphVolume(nodeGraphMvp.live.outputVolume);
+    // Host gain is mute-only; loudness is Output.volume inside the graph.
+    // Sync cache from the module before start so UI mirrors stay honest.
+    if (typeof syncNodeGraphLiveOutputVolumeFromOutputModule === "function") {
+      syncNodeGraphLiveOutputVolumeFromOutputModule();
+    }
+    outputGain.gain.value = nodeGraphLiveOutputTargetGain();
     let liveNode = null;
     let usesWorklet = false;
     try {

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>soemdsp-sandbox</title>
-  <link rel="stylesheet" href="./public/styles.css?v=xy-pad-release-zoom-1">
+  <link rel="stylesheet" href="./public/styles.css?v=port-crescent-stroke-1">
   <link rel="stylesheet" href="./public/modules/stepGrid/step-grid.css?v=stepgrid-own-folder-20260715">
 </head>
 <body class="debug-collapsed node-boot-loading">
@@ -2298,8 +2298,7 @@
                 inputmode="decimal"
                 autocomplete="off">
             </label>
-            <!-- Contour/shape are for Graph_Copy (per-node segments). Graph
-                 (graph2) hides them and only shows x/y in the node list. -->
+            <!-- Contour/shape: outgoing segment style for each control point. -->
             <label id="nodeSceneGraphNodeContourLabel" hidden>
               <span>curve</span>
               <input
@@ -2316,9 +2315,9 @@
               <span>shape</span>
               <select id="nodeSceneGraphNodeShape">
                 <option value="linear">linear</option>
-                <option value="smooth">smooth</option>
                 <option value="rational">rational</option>
                 <option value="exponential">exponential</option>
+                <option value="log">log</option>
                 <option value="hold">hold</option>
               </select>
             </label>
@@ -2715,7 +2714,7 @@
             <span>Input</span>
             <span>(Off)</span>
           </button>
-          <label class="node-volume-control node-live-input-volume" title="Live input level">
+          <label class="node-volume-control node-live-input-volume" title="Input module amplitude (mirrored)">
             <span aria-hidden="true">🔊</span>
             <input
               id="nodeLiveInputVolume"
@@ -2724,10 +2723,10 @@
               max="1"
               step="0.01"
               value="1"
-              aria-label="Live input volume">
+              aria-label="Input module amplitude">
             <output id="nodeLiveInputVolumeValue" for="nodeLiveInputVolume">100%</output>
           </label>
-          <label class="node-volume-control node-live-output-volume" title="Live output level">
+          <label class="node-volume-control node-live-output-volume" title="Output module volume (mirrored)">
             <span aria-hidden="true">🔊</span>
             <input
               id="nodeLiveOutputVolume"
@@ -2736,7 +2735,7 @@
               max="1"
               step="0.01"
               value="1"
-              aria-label="Live output volume">
+              aria-label="Output module volume">
             <output id="nodeLiveOutputVolumeValue" for="nodeLiveOutputVolume">100%</output>
           </label>
           <button
@@ -3569,7 +3568,7 @@
   <script src="./public/waveform-interactions.js?v=waveform-interactions-refactor-1780375200000"></script>
   <script src="./public/manifest-view.js?v=manifest-view-refactor-1780360800000"></script>
   <script src="./public/manifest-loader.js?v=manifest-loader-refactor-1780389600000"></script>
-  <script src="./public/node-graph-wires.js?v=solid-shell-layout-1"></script>
+  <script src="./public/node-graph-wires.js?v=port-wire-no-ring-1"></script>
   <script src="./public/node-graph-floating-windows.js?v=popup-stack-1"></script>
   <script src="./public/node-graph-file-actions.js?v=window-open-policy-20260725"></script>
   <script src="./public/node-graph-default-buttons.js?v=patch-save-refresh-1"></script>
@@ -3580,25 +3579,26 @@
   <script src="./public/node-graph-chromeless-module-registry.js?v=solid-module-shell-2-20260723"></script>
   <script src="./public/modules/led/led-register.js?v=led-settings-20260725"></script>
   <script src="./public/modules/bugButton/bug-button-register.js?v=bug-button-io-order-20260724"></script>
-  <script src="./public/modules/xyPad/xy-pad-register.js?v=xy-pad-clean-1"></script>
+  <script src="./public/modules/xyPad/xy-pad-dsp.js?v=xy-pad-phosphor-out-1"></script>
+  <script src="./public/modules/xyPad/xy-pad-register.js?v=xy-pad-smoothing-label-1"></script>
   <script src="./public/modules/numberReadout/number-readout-register.js?v=number-readout-solid-1"></script>
   <script src="./public/modules/rayBouncer/ray-bouncer-register.js?v=ray-bouncer-solid-1"></script>
   <script src="./public/modules/stepGrid/step-grid-register.js?v=stepgrid-variable-steps-20260715"></script>
   <script src="./public/modules/groupInput/group-input-register.js?v=chromeless-portals-1"></script>
   <script src="./public/modules/groupOutput/group-output-register.js?v=chromeless-portals-1"></script>
-  <script src="./public/node-graph-module-definitions.js?v=music-player-phase-offset-1"></script>
+  <script src="./public/node-graph-module-definitions.js?v=graph-ptp-shapes-1"></script>
   <script src="./public/node-graph-module-controls.js?v=f-input-speed-limit-20260726"></script>
   <script src="./public/node-graph-data-bus.js?v=data-plane-merge-20260711"></script>
-  <script src="./public/node-graph-module-store.js?v=walldelay-uc-1"></script>
+  <script src="./public/node-graph-module-store.js?v=graph-ptp-shapes-1"></script>
   <script src="./public/node-graph-module-sizing.js?v=solid-shell-layout-1"></script>
   <script src="./public/node-graph-metadata-kinds.js?v=0051"></script>
-  <script src="./public/node-graph-parameter-smoother-filters.js?v=papoulis-param-native-1"></script>
-  <script src="./public/node-graph-parameter-metadata.js?v=papoulis-smoother-1"></script>
+  <script src="./public/node-graph-parameter-smoother-filters.js?v=xy-pad-native-1"></script>
+  <script src="./public/node-graph-parameter-metadata.js?v=xy-pad-native-1"></script>
   <script src="./public/node-graph-metadata-defaults.js?v=decimal-template-1"></script>
   <script src="./public/node-graph-text-box-utils.js?v=text-box-size-1000-1"></script>
   <script src="./public/node-graph-port-script.js?v=nuke-scriptbox-20260719"></script>
   <script src="./public/node-graph-image-utils.js?v=pre-formula-restore-1"></script>
-  <script src="./public/node-graph-graph-utils.js?v=graph-phase-link-20260726"></script>
+  <script src="./public/node-graph-graph-utils.js?v=graph-shape-clean-1"></script>
   <script src="./public/node-graph-samples.js?v=music-player-phase-persist-1"></script>
   <script src="./public/node-graph-phosphor-waveform.js?v=music-player-label-pad-px-1"></script>
   <script src="./public/node-graph-phosphillator.js?v=mouse-smooth-1"></script>
@@ -3624,8 +3624,8 @@
   <script src="./public/node-graph-clap-host.js?v=0051"></script>
   <script src="./public/node-graph-marquee-selection.js?v=title-blur-on-marquee-20260707"></script>
   <script src="./public/node-graph-node-dragging.js?v=solid-shell-layout-1"></script>
-  <script src="./public/node-graph-context-menu.js?v=xy-pad-display-1"></script>
-  <script src="./public/node-graph-module-actions.js?v=graph-phase-link-20260726"></script>
+  <script src="./public/node-graph-context-menu.js?v=graph-ptp-shapes-1"></script>
+  <script src="./public/node-graph-module-actions.js?v=graph-ptp-shapes-1"></script>
   <script src="./public/node-graph-code-screen.js?v=cleanup-20260725"></script>
   <script src="./public/node-graph-phosphor-energy-gl.js?v=energy-gradlut-1"></script>
   <script src="./public/lib/phosphor/phosphor-drawer.js?v=drawer-gradlut-1"></script>
@@ -3633,7 +3633,7 @@
   <script src="./public/node-graph-phosphor-gaussian-drawer.js?v=gaussian-beam-continuous-1"></script>
   <script type="module" src="./public/color-widget-boot.js?v=spectrogram-colorfix-1"></script>
   <script src="./public/modules/spectrogram/spectrogram-gradient-editor.js?v=shared-grad-1"></script>
-  <script src="./public/node-graph-module-scopes.js?v=phosphor-grad-1"></script>
+  <script src="./public/node-graph-module-scopes.js?v=trace-amp-scale-1"></script>
   <script src="./public/modules/phosphorLight/phosphor-light-display.js?v=alias-only-1"></script>
   <script src="./public/modules/oscilloscopeBank/oscilloscope-bank-display.js?v=energy-drawer-1"></script>
   <script src="./public/modules/videoscope/videoscope-display.js?v=energy-drawer-1"></script>
@@ -3646,7 +3646,7 @@
   <script src="./public/modules/led/led-settings.js?v=led-settings-20260725"></script>
   <script src="./public/modules/led/led-display.js?v=led-settings-20260725"></script>
   <script src="./public/modules/bugButton/bug-button-ui.js?v=bug-button-settings-edit-20260723"></script>
-  <script src="./public/modules/xyPad/xy-pad-ui.js?v=xy-pad-drag-perf-1"></script>
+  <script src="./public/modules/xyPad/xy-pad-ui.js?v=xy-pad-display-1"></script>
   <script src="./public/modules/numberReadout/number-readout-ui.js?v=number-readout-solid-1"></script>
   <script src="./public/modules/rayBouncer/ray-bouncer-ui.js?v=ray-bouncer-solid-1"></script>
   <script src="./public/modules/stepGrid/step-grid-ui.js?v=stepgrid-variable-steps-20260715"></script>
@@ -3654,12 +3654,13 @@
   <script src="./public/modules/groupOutput/group-output-ui.js?v=chromeless-portals-1"></script>
   <script src="./public/node-graph-module-header-rendering.js?v=step-any-20260725"></script>
   <script src="./public/node-graph-module-rendering.js?v=solid-shell-layout-1"></script>
+  <script src="./public/node-graph-module-frame.js?v=module-frame-settle-1"></script>
   <script src="./public/node-graph-history.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-visual-utils.js?v=shared-canvas-sizing-20260725"></script>
   <script src="./public/node-graph-patch-clone.js?v=music-player-phase-persist-1"></script>
   <script src="./public/node-graph-slider-metadata.js?v=papoulis-smoother-1"></script>
   <script src="./public/node-graph-slider-values.js?v=smoother-clean-1"></script>
-  <script src="./public/node-graph-slider-dragging.js?v=filter-drag-fix-1"></script>
+  <script src="./public/node-graph-slider-dragging.js?v=io-vol-mirror-1"></script>
   <script src="./public/node-graph-node-accessors.js?v=cleanup-20260725-smoothing-time-20260701"></script>
   <script src="./public/node-graph-selection.js?v=code-box-auto-ports-20260719"></script>
   <script src="./public/node-graph-port-geometry.js?v=pitch-quantizer-01v-oct-20260701"></script>
@@ -3677,7 +3678,7 @@
   <script src="./public/node-graph-rendered-visual-output.js?v=beta-polish-1"></script>
   <script src="./public/node-graph-rendered-output-canvases.js?v=beta-polish-1"></script>
   <script src="./public/node-graph-execution-wires.js?v=external-graph-inputs-1780816800000"></script>
-  <script src="./public/node-graph-execution-plan.js?v=solid-input-reachable-20260724"></script>
+  <script src="./public/node-graph-execution-plan.js?v=xy-pad-always-reachable-1"></script>
   <script src="./public/node-graph-execution-summary.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-wire-actions.js?v=wire-connect-1"></script>
   <script src="./public/node-graph-trace-router.js?v=no-self-burst-1780321400000"></script>
@@ -3701,12 +3702,12 @@
   <script src="./public/node-graph-live-meter-controls.js?v=audio-overrun-meter-2"></script>
   <script src="./public/node-graph-live-input-status.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-live-evidence.js?v=live-plan-preserve-20260634"></script>
-  <script src="./public/node-graph-live-control-rendering.js?v=speed-readout-20260725"></script>
+  <script src="./public/node-graph-live-control-rendering.js?v=io-vol-mirror-1"></script>
   <script src="./public/node-graph-default-patch.js?v=phosphor-migrate-1"></script>
   <script src="./public/node-graph-state.js?v=grid-default-on-20260725"></script>
   <script src="./public/node-graph-external-ui-events.js?v=xy-pad-impulse-1"></script>
-  <script src="./public/node-graph-patch-core.js?v=solid-shell-layout-1"></script>
-  <script src="./public/node-graph-live-plan-runtime.js?v=smoother-active-set-1"></script>
+  <script src="./public/node-graph-patch-core.js?v=io-vol-mirror-1"></script>
+  <script src="./public/node-graph-live-plan-runtime.js?v=xy-pad-dsp-path-1"></script>
   <script src="./public/node-graph-live-parameter-runtime.js?v=smoother-active-set-1"></script>
   <script src="./public/node-graph-oscillator-runtime.js?v=0147"></script>
   <script src="./public/node-graph-gpu-additive-backend.js?v=external-graph-inputs-1780816800000"></script>
@@ -3831,7 +3832,7 @@
   <script src="./public/modules/sinc/sinc-live-evaluator.js?v=sinc-bandlimit-20260725"></script>
   <script src="./public/modules/led/led-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/bugButton/bug-button-live-evaluator.js?v=solid-module-shell-2-20260723"></script>
-  <script src="./public/modules/xyPad/xy-pad-live-evaluator.js?v=xy-pad-clean-1"></script>
+  <script src="./public/modules/xyPad/xy-pad-live-evaluator.js?v=xy-pad-drag-1"></script>
   <script src="./public/modules/gainBias/gain-bias-live-evaluator.js?v=gain-bias-20260725"></script>
   <script src="./public/modules/bias/bias-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/softClipper/soft-clipper-live-evaluator.js?v=per-module-dispatch-20260711"></script>
@@ -3858,7 +3859,7 @@
   <script src="./public/modules/graph/graph-live-evaluator.js?v=retire-graph-type-20260724"></script>
   <script src="./public/modules/polyBlep/poly-blep-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/node-graph-pulse-explosion-display.js?v=shared-canvas-sizing-20260725"></script>
-  <script src="./public/node-graph-live-runtime.js?v=papoulis-smoother-1"></script>
+  <script src="./public/node-graph-live-runtime.js?v=io-vol-mirror-1"></script>
   <script src="./public/node-graph-wire-controller-bootstrap.js?v=wire-break-trigger-0129"></script>
   <script src="./public/node-graph-workspace-event-bindings.js?v=cleanup-20260722"></script>
   <script src="./public/node-graph-render-live-event-bindings.js?v=midi-toggle-20260725"></script>

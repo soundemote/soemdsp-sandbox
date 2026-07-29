@@ -677,6 +677,15 @@ function applyNodeGraphPatchToDom() {
   if (typeof scheduleNodeGraphWireRedrawAfterLayout === "function") {
     scheduleNodeGraphWireRedrawAfterLayout();
   }
+  if (typeof syncNodeGraphModuleFramesAfterDom === "function") {
+    syncNodeGraphModuleFramesAfterDom();
+  }
+  // Bottom 🔊 mirrors Output.volume + Input.level after every full DOM rebuild.
+  if (typeof syncNodeGraphLiveVolumeMirrorsFromModules === "function") {
+    syncNodeGraphLiveVolumeMirrorsFromModules();
+  } else if (typeof syncNodeGraphLiveOutputVolumeFromOutputModule === "function") {
+    syncNodeGraphLiveOutputVolumeFromOutputModule();
+  }
 }
 
 function commitNodeGraphPatch(patch, options = {}) {

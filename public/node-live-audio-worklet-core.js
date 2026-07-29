@@ -98,6 +98,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.raptEllipticDecimatorRatio = 1;
     this.passiveFilterStates = new Map();
     this.papoulisFilterStates = new Map();
+    this.xyPadFilterStates = new Map();
     this.phosphillatorPlaybackStates = new Map();
     this.phosphillatorDecodedPathCache = new Map();
     this.clockDividerStates = new Map();
@@ -2782,6 +2783,16 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
         this.papoulisFilterStates.delete(id);
       }
     }
+    if (this.xyPadFilterStates instanceof Map) {
+      for (const id of [...this.xyPadFilterStates.keys()]) {
+        if (!ids.has(id)) {
+          const pair = this.xyPadFilterStates.get(id);
+          this.destroyPapoulisFilterNativeState?.(pair?.x);
+          this.destroyPapoulisFilterNativeState?.(pair?.y);
+          this.xyPadFilterStates.delete(id);
+        }
+      }
+    }
     for (const id of [...this.phosphillatorPlaybackStates.keys()]) {
       if (!ids.has(id)) {
         this.destroyPhosphillatorNativeState(this.phosphillatorPlaybackStates.get(id));
@@ -3593,13 +3604,34 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
 
   graphExponentialCurve(position, contour = 0) {
     const p = this.normalizeGraphNumber(position, 0, 0, 1);
-    const c = this.normalizeGraphNumber(0.5 * (contour + 1), 0.5, 0.001, 0.999);
-    const a = 2 * Math.log((1 - c) / c);
-    if (!Number.isFinite(a) || Math.abs(a) < 0.000001) {
+    const t = this.normalizeGraphNumber(contour, 0, -0.999, 0.999);
+    const mag = 1.2 + 6.8 * Math.abs(t);
+    const k = t < 0 ? -mag : mag;
+    if (Math.abs(k) < 0.05) {
       return p;
     }
-    const denominator = 1 - Math.exp(a);
-    return Math.abs(denominator) < 0.000001 ? p : (1 - Math.exp(p * a)) / denominator;
+    const denom = Math.exp(k) - 1;
+    if (Math.abs(denom) < 1e-9) {
+      return p;
+    }
+    return (Math.exp(k * p) - 1) / denom;
+  }
+
+  graphLogarithmicCurve(position, contour = 0) {
+    const p = this.normalizeGraphNumber(position, 0, 0, 1);
+    const t = this.normalizeGraphNumber(contour, 0, -0.999, 0.999);
+    const b = Math.exp(1.2 + 5.5 * Math.abs(t));
+    if (!Number.isFinite(b) || b <= 1.000001) {
+      return p;
+    }
+    const denom = Math.log(b);
+    if (!Number.isFinite(denom) || Math.abs(denom) < 1e-9) {
+      return p;
+    }
+    if (t < 0) {
+      return 1 - Math.log(1 + (1 - p) * (b - 1)) / denom;
+    }
+    return Math.log(1 + p * (b - 1)) / denom;
   }
 
   graphSmoothCurve(position) {
@@ -3886,8 +3918,12 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   }
 
   graphSmoothingModeForNode(node) {
-    // Graph_Copy uses per-node segment shapes; Graph uses a global mode.
-    if (node?.type === "graphCopy") {
+    // Graph / Graph_Copy: point-to-point segment shapes (legacy path).
+    if (
+      node?.type === "graph2"
+      || node?.type === "graphCopy"
+      || node?.type === "graph"
+    ) {
       return "legacy";
     }
     return this.normalizeGraph2SmoothingMode(node?.params?.smoothingMode);
@@ -3906,15 +3942,21 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       return left.y + (right.y - left.y) * shaped;
     }
     const contour = this.normalizeGraphNumber(right.c, 0, -0.999, 0.999);
-    const shaped = right.shape === "exponential"
-      ? this.graphExponentialCurve(p, contour)
-      : right.shape === "hold"
-        ? (p >= 1 ? 1 : 0)
-      : right.shape === "smooth"
-        ? this.graphSmoothCurve(p)
-      : right.shape === "linear"
-        ? p
-        : this.graphRationalCurve(p, contour);
+    const shape = String(right.shape || "rational");
+    let shaped = p;
+    if (shape === "exponential") {
+      shaped = this.graphExponentialCurve(p, contour);
+    } else if (shape === "log" || shape === "logarithmic") {
+      shaped = this.graphLogarithmicCurve(p, contour);
+    } else if (shape === "hold") {
+      shaped = p >= 1 ? 1 : 0;
+    } else if (shape === "smooth") {
+      shaped = this.graphSmoothCurve(p);
+    } else if (shape === "linear") {
+      shaped = p;
+    } else {
+      shaped = this.graphRationalCurve(p, contour);
+    }
     return left.y + (right.y - left.y) * shaped;
   }
 
@@ -5072,8 +5114,8 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   }
 
   /**
-   * Point the shared param-smoother Papoulis type at papoulis_filter.wasm so
-   * XY pad / any papoulis-smoothed param chases on native audio-thread code.
+   * Point the shared param-smoother Papoulis type at papoulis_filter.wasm
+   * (for any parameter still using smoothingType: "papoulis").
    */
   bindPapoulisParameterSmootherNativeHost() {
     if (typeof nodeGraphSetPapoulisParameterSmootherNativeHost !== "function") {

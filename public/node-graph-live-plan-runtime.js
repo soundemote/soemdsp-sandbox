@@ -283,6 +283,7 @@ function createNodeGraphLiveRuntime(plan) {
   const graphLfoStates = new Map();
   const passiveFilterStates = new Map();
   const papoulisFilterStates = new Map();
+  const xyPadFilterStates = new Map();
   const phosphillatorPlaybackStates = new Map();
   const clockStates = new Map();
   const codeblockFunctions = new Map();
@@ -603,6 +604,7 @@ function createNodeGraphLiveRuntime(plan) {
     badNumberCount: 0,
     passiveFilterStates,
     papoulisFilterStates,
+    xyPadFilterStates,
     phosphillatorPlaybackStates,
     clockDividerStates,
     clockStates,
@@ -1429,6 +1431,13 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   for (const id of [...runtime.papoulisFilterStates.keys()]) {
     if (!nodeIds.has(id)) {
       runtime.papoulisFilterStates.delete(id);
+    }
+  }
+  if (runtime.xyPadFilterStates instanceof Map) {
+    for (const id of [...runtime.xyPadFilterStates.keys()]) {
+      if (!nodeIds.has(id)) {
+        runtime.xyPadFilterStates.delete(id);
+      }
     }
   }
   for (const id of [...runtime.phosphillatorPlaybackStates.keys()]) {

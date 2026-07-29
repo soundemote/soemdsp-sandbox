@@ -2379,6 +2379,8 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
   // Not a phosphor energy grid — still one polyline; density only sets buffer size.
   pixelDensity: 1,
   padding: 0,
+  // Amplitude zoom for quieter signals (1 = full-scale ±1 fills the face).
+  scale: 1,
   skipDiscontinuities: false,
   // off | left | right | mono — Output stereo chooses which channel triggers the shared window.
   // Non-output single traces treat any non-off as "sync on" for that buffer.
@@ -2394,6 +2396,8 @@ const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   background: "#000000",
   burn: 0.3,
   decay: 0.3,
+  // Amplitude zoom (Y).
+  scale: 1,
   dot1Brightness: 2,
   dot1Color: "#75ebff",
   dot1Enabled: true,
@@ -2443,6 +2447,8 @@ const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
   lineThickness: 0.2,
   // 0 = 1×1 pixel … 1 layout×dpr … 4 AA.
   pixelDensity: 1,
+  // Amplitude zoom (Y).
+  scale: 1,
 });
 
 // numberReadout: independent schema. Residual is previous-digit ghosts only.
@@ -2783,20 +2789,22 @@ const nodeGraphScope2dSettingsDefaults = Object.freeze({
   scale: 1,
 });
 
-// XY Pad phosphor residual face (interactive pad; not a scope slot).
-// Same control family as 2D Phosphor / scope2d energy burn.
+// XY Pad = built-in phosphor of Out X/Y + cheap UI overlay (puck/grid).
+// No "scale" — that would zoom the beam relative to unit Phase/puck and
+// desync the control surface from the trail. Beam size is stamp size only;
+// puck has its own size.
 const nodeGraphXyPadDisplaySettingsDefaults = Object.freeze({
   background: "#000000",
   burn: 0.82,
   // Trail residual fade while depositing (higher = faster decay).
   decay: 0.35,
-  // Phosphor stamp / puck brightness 0..1.
+  // Phosphor beam brightness 0..1.
   dot1Brightness: 0.78,
-  // Peak = last gradient stop (puck overlay still uses this).
+  // Peak = last gradient stop (UI overlay tints from this).
   dot1Color: "#7fc7d9",
-  // Beam diameter as fraction of face min side (same as scope2d stamps).
+  // Phosphor beam diameter as fraction of face min side (scope stamp size).
   dot1Size: 0.07,
-  // Soft-stamp budget ceiling (dots mode).
+  // Soft-stamp budget ceiling.
   dotBudget: 2048,
   // Default ON: always spend dense packing up to Dot budget (hard solid trails).
   fullDotEconomy: true,
@@ -2808,10 +2816,10 @@ const nodeGraphXyPadDisplaySettingsDefaults = Object.freeze({
   ]),
   // Stamp blur 0–1: 0 hard disc, 1 full soft bleed.
   lineThickness: 0.42,
-  // 0 = single pixel, 1 = layout×dpr, 4 = 4× AA.
+  // 0 = single pixel, 1 = layout×dpr, 4 = 4× AA (phosphor face only).
   pixelDensity: 1,
-  // Multiplies beam size (path stays full-face; pad is a control surface).
-  scale: 1,
+  // UI puck radius as fraction of face min side (vector overlay, not energy).
+  puckSize: 0.045,
 });
 
 function normalizeNodeGraphXyPadDisplaySettings(settings = {}) {
@@ -2852,7 +2860,15 @@ function normalizeNodeGraphXyPadDisplaySettings(settings = {}) {
       0,
       4,
     ),
-    scale: normalizeNodeGraphTraceDisplayNumber(source.scale, defaults.scale, 0, Infinity),
+    // Ignore legacy scale for layout; keep puckSize (migrate old scale→puck if missing).
+    puckSize: normalizeNodeGraphTraceDisplayNumber(
+      source.puckSize ?? (Number.isFinite(Number(source.scale)) && Number(source.scale) > 0
+        ? defaults.puckSize * Math.min(2, Number(source.scale))
+        : defaults.puckSize),
+      defaults.puckSize,
+      0.005,
+      0.25,
+    ),
   };
 }
 
@@ -2972,6 +2988,7 @@ function normalizeNodeGraphLineBurnSettings(settings = {}) {
       0,
       4,
     ),
+    scale: normalizeNodeGraphTraceDisplayNumber(source.scale, defaults.scale, 0.01, 100),
     sweepSeconds: normalizeNodeGraphLineBurnSweepSeconds(source, defaults),
   };
 }
@@ -3058,6 +3075,8 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
       4,
     ),
     padding: normalizeNodeGraphTraceDisplayNumber(source.padding, defaults.padding, -Infinity, Infinity),
+    // Amplitude zoom: multiplies samples before face mapping (1 = full-scale).
+    scale: normalizeNodeGraphTraceDisplayNumber(source.scale, defaults.scale ?? 1, 0.01, 100),
     skipDiscontinuities: source.skipDiscontinuities !== false,
     sourceSync: source.sourceSync !== false,
     stereoBlend: (function () {
@@ -3117,6 +3136,7 @@ function normalizeNodeGraphValueOscilloscopeSettings(settings = {}) {
       0,
       4,
     ),
+    scale: normalizeNodeGraphTraceDisplayNumber(source.scale, defaults.scale, 0.01, 100),
   };
 }
 
@@ -4100,6 +4120,7 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
   ["innerShadow", "Inner shadow"],
 
   ["dot1Size", "Size"],
+  ["puckSize", "Puck size"],
   ["lineThickness", "Blur"],
   ["dot1Brightness", "Dot light"],
   ["secondarySize", "Secondary size"],
@@ -4117,7 +4138,7 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
   // setNodeGraphTraceDisplaySettingsFormType only show/hides keys from these
   // lists — anything missing leaks onto every module (e.g. Output saw
   // Window / Overlap / Freq scale because those choices were unregistered).
-  toggles: ["sourceSync", "skipDiscontinuities", "bipolarBrightness", "secondaryEnabled", "capEnabled"],
+  toggles: ["sourceSync", "skipDiscontinuities", "bipolarBrightness", "secondaryEnabled", "capEnabled", "fullDotEconomy"],
   choices: ["syncChannel", "stereoBlend", "window", "overlap", "freqOverlap", "freqScale"],
 });
 
@@ -4127,6 +4148,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   trace: Object.freeze({
     fields: Object.freeze([
       "zoomSeconds",
+      "scale",
       "pixelDensity",
       "dot1Size",
       "dot1Brightness",
@@ -4157,6 +4179,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     // Free-run phasor; optional Reset jack; set Sweep (s) to match your period.
     fields: Object.freeze([
       "sweepSeconds",
+      "scale",
       "burn",
       "decay",
       "pixelDensity",
@@ -4171,6 +4194,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   value: Object.freeze({
     fields: Object.freeze([
       "lineLength",
+      "scale",
       "burn",
       "decay",
       "pixelDensity",
@@ -4225,17 +4249,17 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
-  // XY Pad phosphor face — full 2D Phosphor control set (energy burn ribbons).
+  // XY Pad: phosphor of Out X/Y + UI puck. No scale (would desync puck/trail).
   xyPad: Object.freeze({
     fields: Object.freeze([
       "burn",
       "decay",
-      "scale",
       "pixelDensity",
       "dotBudget",
       "dot1Size",
       "lineThickness",
       "dot1Brightness",
+      "puckSize",
     ]),
     colors: Object.freeze([]),
     toggles: Object.freeze(["fullDotEconomy"]),
@@ -4285,7 +4309,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
     choices: Object.freeze([]),
   }),
   dot1: Object.freeze({
-    fields: Object.freeze(["dot1Size", "lineThickness", "dot1Brightness"]),
+    fields: Object.freeze(["dot1Size", "lineThickness", "dot1Brightness", "puckSize"]),
     colors: Object.freeze(["dot1Color"]),
     toggles: Object.freeze(["bipolarBrightness"]),
     choices: Object.freeze([]),
@@ -4385,7 +4409,12 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     id: "nodeTraceDisplayFftSize",
     title: "Analysis window length (samples). Steps 128…16384. Time hop = N / time-overlap. Freq overlap zero-pads the FFT.",
   }),
-  scale: Object.freeze({ label: "Scale", inputmode: "decimal", id: "nodeTraceDisplayScale" }),
+  scale: Object.freeze({
+    label: "Scale",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayScale",
+    title: "Amplitude zoom (1 = full-scale ±1 fills the face). Raise to enlarge quieter signals.",
+  }),
   pixelDensity: Object.freeze({ label: "Pixel density", inputmode: "decimal", id: "nodeTraceDisplayPixelDensity" }),
   dotBudget: Object.freeze({ label: "Dot budget", inputmode: "numeric", id: "nodeTraceDisplayDotBudget" }),
   zoomSeconds: Object.freeze({ label: "History (s)", inputmode: "decimal", id: "nodeTraceDisplayZoomSeconds" }),
@@ -4400,6 +4429,12 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
   dot1Brightness: Object.freeze({ label: "Brightness", inputmode: "decimal", id: "nodeTraceDisplayBrightness" }),
   lineThickness: Object.freeze({ label: "Blur", inputmode: "decimal", id: "nodeTraceDisplayLineThickness" }),
   dot1Size: Object.freeze({ label: "Size", inputmode: "decimal", id: "nodeTraceDisplayDot1Size" }),
+  puckSize: Object.freeze({
+    label: "Puck size",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayPuckSize",
+    title: "UI puck radius (vector overlay). Does not scale the phosphor trail or Phase mapping.",
+  }),
   secondaryBrightness: Object.freeze({ label: "Brightness", inputmode: "decimal", id: "nodeTraceDisplaySecondaryBrightness" }),
   secondaryLineThickness: Object.freeze({ label: "Blur", inputmode: "decimal", id: "nodeTraceDisplaySecondaryLineThickness" }),
   secondarySize: Object.freeze({ label: "Size", inputmode: "decimal", id: "nodeTraceDisplaySecondarySize" }),
@@ -4724,8 +4759,8 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
           ${enabledToggle}
         </div>`);
     } else if (section === "dot1") {
-      // XY Pad: outer schema title is already "Phosphor"; stamp controls are the beam.
-      const dotTitle = type === "xyPad" ? "Stamp" : titleText;
+      // XY Pad: beam stamp + puck size (outer title is already "Phosphor").
+      const dotTitle = type === "xyPad" ? "Beam & puck" : titleText;
       parts.push(`
         <div class="metadata-section-title node-trace-display-dot1-title">
           <span id="nodeTraceDisplayDot1TitleLabel">${nodeGraphDisplaySettingsEscapeHtml(dotTitle)}</span>
@@ -4886,6 +4921,7 @@ function applyNodeGraphTraceDisplaySettingsTooltips(popover) {
   const fieldKeys = {
     dot1Brightness: "traceDisplaySettings.brightness",
     dot1Size: "traceDisplaySettings.dot1Size",
+    puckSize: "traceDisplaySettings.puckSize",
     secondaryBrightness: "traceDisplaySettings.secondaryBrightness",
     secondarySize: "traceDisplaySettings.secondarySize",
     secondaryLineThickness: "traceDisplaySettings.secondaryLineThickness",
@@ -5540,6 +5576,7 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   lineLength: nodeGraphTraceDisplayClampUnit,
   lineThickness: nodeGraphTraceDisplayClampNonNegative,
   pixelDensity: nodeGraphTraceDisplayClampPixelDensity,
+  puckSize: (value) => clampNodeSliderValue(Number(value) || 0, 0.005, 0.25),
   scale: nodeGraphTraceDisplayClampNonNegative,
   secondaryBrightness: nodeGraphTraceDisplayClampBrightness,
   secondaryLineThickness: nodeGraphTraceDisplayClampNonNegative,
@@ -8086,9 +8123,13 @@ function nodeGraphTraceDisplayBufferView(buffer, slot, options = {}) {
   if (Number.isFinite(options.forceStart)) {
     start = Math.max(validStart, Math.min(validEnd - visibleSamples, Math.floor(options.forceStart)));
   }
+  const ampScale = Number(settings?.scale);
   return {
     end: Math.min(validEnd, start + visibleSamples),
-    gain: 1,
+    // Amplitude zoom for Output / Trace drawers (1 = full-scale face).
+    gain: Number.isFinite(ampScale) && ampScale > 0
+      ? clampNodeSliderValue(ampScale, 0.01, 100)
+      : 1,
     offset: 0,
     start,
   };
@@ -8418,6 +8459,7 @@ function nodeGraphTraceDisplayDrawSignature(slot, item, buffer, settings) {
     Math.round((Number(item?.visibleProgressRange?.[1]) || 0) * 10000),
     settings.zoomSeconds,
     settings.padding,
+    Number(settings.scale) || 1,
     settings.skipDiscontinuities ? 1 : 0,
     settings.lineThickness,
     settings.brightness,
@@ -10572,8 +10614,10 @@ function drawNodeGraphValueOscilloscopeTrail(item, pixelRatio, geometry, setting
   if (!samples.length) {
     return;
   }
+  const amp = nodeGraphDisplaySettingsAmplitudeScale(settings);
   const sampleLines = samples.map((sample) => {
-    const y = geometry.squareTop + geometry.squareHeight * 0.5 - sample * geometry.squareHeight * 0.44;
+    const v = clampNodeSliderValue(sample * amp, -1, 1);
+    const y = geometry.squareTop + geometry.squareHeight * 0.5 - v * geometry.squareHeight * 0.44;
     return {
       end: toCanvas(geometry.x2, y),
       start: toCanvas(geometry.x1, y),
@@ -10599,7 +10643,8 @@ function drawNodeGraphValueOscilloscopeTrail(item, pixelRatio, geometry, setting
     return;
   }
   for (const sample of samples) {
-    const y = geometry.squareTop + geometry.squareHeight * 0.5 - sample * geometry.squareHeight * 0.44;
+    const v = clampNodeSliderValue(sample * amp, -1, 1);
+    const y = geometry.squareTop + geometry.squareHeight * 0.5 - v * geometry.squareHeight * 0.44;
     for (const capX of [geometry.x1, geometry.x2]) {
       const capStart = toCanvas(capX, y - geometry.capLength);
       const capEnd = toCanvas(capX, y + geometry.capLength);
@@ -10625,7 +10670,12 @@ function drawNodeGraphValueOscilloscopeItem(renderer, item, pixelRatio) {
   renderNodeGraphModuleScopeAnalyzer(item.slot, item.buffer);
   const node = nodeGraphModuleScopeNodeForSlot(item.slot);
   const settings = nodeGraphTraceDisplaySettingsForNode(node);
-  const value = clampNodeSliderValue(nodeGraphOscilloscopeLatestSample(item?.buffer, 0), -1, 1);
+  const amp = nodeGraphDisplaySettingsAmplitudeScale(settings);
+  const value = clampNodeSliderValue(
+    nodeGraphOscilloscopeLatestSample(item?.buffer, 0) * amp,
+    -1,
+    1,
+  );
   const lineLength = clampNodeSliderValue(settings.lineLength, 0, 1);
   const square = nodeGraphModuleScopeCenteredSquareRect(rect);
   const displayLeft = Number(rect.left) || 0;
@@ -11594,9 +11644,15 @@ function drawNodeGraphCustomDisplayItem(renderer, item, pixelRatio) {
   }
 }
 
-function nodeGraphOneDimensionalBurnSampleToY(sample, height) {
+function nodeGraphDisplaySettingsAmplitudeScale(settings) {
+  const s = Number(settings?.scale);
+  return Number.isFinite(s) && s > 0 ? clampNodeSliderValue(s, 0.01, 100) : 1;
+}
+
+function nodeGraphOneDimensionalBurnSampleToY(sample, height, settings = null) {
   const h = Math.max(1, Number(height) || 1);
-  return h * 0.5 - clampNodeSliderValue(Number(sample) || 0, -1, 1) * h * 0.44;
+  const amp = nodeGraphDisplaySettingsAmplitudeScale(settings);
+  return h * 0.5 - clampNodeSliderValue((Number(sample) || 0) * amp, -1, 1) * h * 0.44;
 }
 
 function nodeGraphOneDimensionalBurnFadeTrail(context, canvas, settings) {
@@ -11803,7 +11859,7 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
     // Draw at current phasor, then advance — so changing Sweep keeps X.
     points.push({
       x: phasor * width,
-      y: nodeGraphOneDimensionalBurnSampleToY(buffer[start + index], height),
+      y: nodeGraphOneDimensionalBurnSampleToY(buffer[start + index], height, settings),
     });
     hadPoint = true;
 

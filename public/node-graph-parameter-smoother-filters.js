@@ -106,40 +106,12 @@ nodeGraphRegisterParameterSmootherFilter("onePole", {
   },
 });
 
-// ── papoulis (Optimum-L order-3 lowpass) ─────────────────────────────────
-// Same bilinear prototype as node-graph-papoulis-filter.js / native module:
-//   D(s) = (s + 0.6203) * (s^2 + 0.6904s + 0.9308)
-// Used as a parameter chase filter: cutoffHz = 1 / smoothingSeconds.
-
-function nodeGraphPapoulisSmootherDesign(cutoffHz, sampleRate) {
-  const rate = Math.max(1, Number(sampleRate) || 44100);
-  const safeCutoff = Math.max(0.01, Math.min(rate * 0.49, Number(cutoffHz) || 0));
-  const wc = 2 * Math.PI * safeCutoff;
-  const k = 2 * rate;
-  const p = 0.6203 * wc;
-  const poleA0 = k + p;
-  const a1s = 0.6904 * wc;
-  const a0s = 0.9308 * wc * wc;
-  const biquadA0 = k * k + a1s * k + a0s;
-  return {
-    cutoffHz: safeCutoff,
-    sampleRate: rate,
-    poleB0: p / poleA0,
-    poleB1: p / poleA0,
-    poleA1: (p - k) / poleA0,
-    biquadB0: a0s / biquadA0,
-    biquadB1: (2 * a0s) / biquadA0,
-    biquadB2: a0s / biquadA0,
-    biquadA1: (2 * a0s - 2 * k * k) / biquadA0,
-    biquadA2: (k * k - a1s * k + a0s) / biquadA0,
-  };
-}
+// ── papoulis (parameter chase) ───────────────────────────────────────────
+// Native papoulis_filter.wasm only. No JS filter reimplementation.
+// Host is bound by the AudioWorklet when wasm is ready. Without host: dry.
 
 /**
- * Optional native host for worklet audio-thread Papoulis chase.
  * Shape: { ready, create(), sample(handle, input, cutoffHz, rate), snap?(handle, value), destroy(handle) }
- * Set by the AudioWorklet processor when papoulis_filter.wasm is loaded.
- * Offline main-thread smoothing keeps the pure-JS path below.
  */
 let nodeGraphPapoulisParameterSmootherNativeHost = null;
 
@@ -170,27 +142,14 @@ nodeGraphRegisterParameterSmootherFilter("papoulis", {
   createState(initial = 0) {
     const v = Number(initial) || 0;
     return {
-      poleX1: v,
-      poleY1: v,
-      biquadX1: v,
-      biquadX2: v,
-      biquadY1: v,
-      biquadY2: v,
       outputBuffer: v,
-      coeffs: null,
-      cutoffHz: NaN,
-      sampleRate: NaN,
-      // WASM instance handle when host is attached (worklet).
       nativeHandle: 0,
     };
   },
   process(state, input, frequency, rate) {
-    // Map the same “frequency = 1/seconds” used by one-pole onto cutoff Hz.
     const cutoffHz = Math.max(0, Number(frequency) || 0);
     const sampleRate = Math.max(1, Number(rate) || 44100);
     const x = Number.isFinite(Number(input)) ? Number(input) : (state.outputBuffer || 0);
-
-    // Prefer native papoulis_filter.wasm on the audio thread when available.
     const host = nodeGraphPapoulisParameterSmootherNativeHost;
     if (host?.ready && host.create && host.sample) {
       try {
@@ -201,46 +160,16 @@ nodeGraphRegisterParameterSmootherFilter("papoulis", {
           const out = Number(host.sample(state.nativeHandle, x, cutoffHz, sampleRate));
           if (Number.isFinite(out)) {
             state.outputBuffer = out;
-            // Keep JS delay mirrors coherent for snap/fallback transitions.
-            state.poleX1 = x;
-            state.poleY1 = out;
-            state.biquadX1 = out;
-            state.biquadX2 = out;
-            state.biquadY1 = out;
-            state.biquadY2 = out;
             return out;
           }
         }
       } catch (_error) {
         nodeGraphDestroyPapoulisParameterSmootherNativeState(state);
-        // Fall through to JS.
       }
     }
-
-    if (
-      !state.coeffs
-      || state.cutoffHz !== cutoffHz
-      || state.sampleRate !== sampleRate
-    ) {
-      state.coeffs = nodeGraphPapoulisSmootherDesign(cutoffHz, sampleRate);
-      state.cutoffHz = cutoffHz;
-      state.sampleRate = sampleRate;
-    }
-    const c = state.coeffs;
-    const poleOut = c.poleB0 * x + c.poleB1 * state.poleX1 - c.poleA1 * state.poleY1;
-    state.poleX1 = x;
-    state.poleY1 = poleOut;
-    const biquadOut = c.biquadB0 * poleOut
-      + c.biquadB1 * state.biquadX1
-      + c.biquadB2 * state.biquadX2
-      - c.biquadA1 * state.biquadY1
-      - c.biquadA2 * state.biquadY2;
-    state.biquadX2 = state.biquadX1;
-    state.biquadX1 = poleOut;
-    state.biquadY2 = state.biquadY1;
-    state.biquadY1 = biquadOut;
-    state.outputBuffer = biquadOut;
-    return biquadOut;
+    // No native host / failure: dry (no JS Papoulis).
+    state.outputBuffer = x;
+    return x;
   },
   snap(state, target) {
     const v = Number(target) || 0;
@@ -248,7 +177,6 @@ nodeGraphRegisterParameterSmootherFilter("papoulis", {
     if (state.nativeHandle && host?.snap) {
       try {
         host.snap(state.nativeHandle, v);
-        // Legacy host.snap may destroy the instance when snap export is missing.
         if (!host.hasSnapExport) {
           state.nativeHandle = 0;
         }
@@ -258,12 +186,6 @@ nodeGraphRegisterParameterSmootherFilter("papoulis", {
     } else if (state.nativeHandle) {
       nodeGraphDestroyPapoulisParameterSmootherNativeState(state);
     }
-    state.poleX1 = v;
-    state.poleY1 = v;
-    state.biquadX1 = v;
-    state.biquadX2 = v;
-    state.biquadY1 = v;
-    state.biquadY2 = v;
     state.outputBuffer = v;
   },
   destroy(state) {

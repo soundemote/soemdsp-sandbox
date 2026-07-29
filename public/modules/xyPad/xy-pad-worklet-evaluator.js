@@ -1,29 +1,27 @@
 // Realtime worklet evaluator for xyPad.
-// UI writes x/y targets; shared param smoother chases once.
-// Quantize Input mode 1 snaps after that chase on X/Y outs only.
+// Phase/mouse params are instant UI targets (mirrored with X/Y Phase).
+// Out X/Y (and phosphor) use the same path (see xy-pad-dsp.js):
+//   sig = bipolar(Phase) + Input CV
+//   → Filter Order: Papoulis ↔ lattice (native Papoulis only)
+//   → Out
 (() => {
-  const quantizeUnit = (value, quantizeAmount) => {
-    const q = Math.max(0, Math.min(1, Number(quantizeAmount) || 0));
-    const divisions = q <= 0 ? 1 : 1 + Math.max(1, Math.round(q * 16));
-    const v = Number(value);
-    const unit = Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.5;
-    if (divisions <= 1) {
-      return unit;
-    }
-    const step = 1 / divisions;
-    return Math.max(0, Math.min(1, Math.round(unit / step) * step));
-  };
-  const unitToBipolar = (unit) => {
-    const u = Number(unit);
-    return Number.isFinite(u) ? u * 2 - 1 : 0;
-  };
-  const quantizeMode = (raw) => Math.max(0, Math.min(2, Math.round(Number(raw) || 0)));
-
   const buildBase = NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators;
   NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators = function buildLiveModuleEvaluatorsWithXyPad() {
     const evaluators = buildBase.call(this);
-    evaluators.xyPad = (node, nodeId, frame, frames, frameValues, mixInput) => {
+    evaluators.xyPad = (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
       const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+      if (!(this.xyPadFilterStates instanceof Map)) {
+        this.xyPadFilterStates = new Map();
+      }
+      let pair = this.xyPadFilterStates.get(nodeId);
+      if (!pair) {
+        const create = typeof this.createPapoulisFilterState === "function"
+          ? () => this.createPapoulisFilterState()
+          : () => ({ nativeHandle: 0 });
+        pair = { x: create(), y: create() };
+        this.xyPadFilterStates.set(nodeId, pair);
+      }
+
       const states = this.impulseButtonStates instanceof Map
         ? this.impulseButtonStates
         : new Map();
@@ -37,19 +35,41 @@
       const pulseSamples = Math.max(0, Number(state.pulseSamples) || 0);
       state.pulseSamples = Math.max(0, pulseSamples - 1);
 
-      let unitX = read("x", read("xPhase", 0.5));
-      let unitY = read("y", read("yPhase", 0.5));
-      if (quantizeMode(read("quantizeInput", 0)) === 1) {
-        unitX = quantizeUnit(unitX, read("xQuantize", 0));
-        unitY = quantizeUnit(unitY, read("yQuantize", 0));
-      } else {
-        unitX = Math.max(0, Math.min(1, Number(unitX) || 0.5));
-        unitY = Math.max(0, Math.min(1, Number(unitY) || 0.5));
-      }
+      const rawMouseX = Number(read("x", read("xPhase", 0.5)));
+      const rawMouseY = Number(read("y", read("yPhase", 0.5)));
+      // Do not use `n || 0.5` — that maps legitimate edge 0 to center.
+      const mouseX = Math.max(0, Math.min(1, Number.isFinite(rawMouseX) ? rawMouseX : 0.5));
+      const mouseY = Math.max(0, Math.min(1, Number.isFinite(rawMouseY) ? rawMouseY : 0.5));
+      const sigX = nodeGraphXyPadDspUnitToBipolar(mouseX) + (Number(mixInput(nodeId, "X")) || 0);
+      const sigY = nodeGraphXyPadDspUnitToBipolar(mouseY) + (Number(mixInput(nodeId, "Y")) || 0);
+
+      const cutoff = nodeGraphXyPadDspPapoulisCutoffHz(read("papoulis", 0.35));
+      const order = Math.max(0, Math.min(1, Math.round(Number(read("filterOrder", 0)) || 0)));
+      const qX = read("xQuantize", 0);
+      const qY = read("yQuantize", 0);
+      const rate = Number(safeRate) || sampleRate;
+      // Native papoulis_filter.wasm only — no JS Papoulis.
+      const canFilter = cutoff > 0
+        && this.nativePapoulisFilterReady
+        && typeof this.papoulisFilterSample === "function";
 
       return {
-        X: unitToBipolar(unitX) + (Number(mixInput(nodeId, "X")) || 0),
-        Y: unitToBipolar(unitY) + (Number(mixInput(nodeId, "Y")) || 0),
+        X: nodeGraphXyPadDspProcessAxis(sigX, {
+          cutoff,
+          order,
+          quantizeAmt: qX,
+          filterSample: canFilter
+            ? (s) => this.papoulisFilterSample(pair.x, s, cutoff, rate)
+            : null,
+        }),
+        Y: nodeGraphXyPadDspProcessAxis(sigY, {
+          cutoff,
+          order,
+          quantizeAmt: qY,
+          filterSample: canFilter
+            ? (s) => this.papoulisFilterSample(pair.y, s, cutoff, rate)
+            : null,
+        }),
         Gate: read("gate", 0) > 0.5 ? 1 : 0,
         Spike: pulseSamples > 0 ? (Number(state.amplitude) || 1) : 0,
       };

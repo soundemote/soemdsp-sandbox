@@ -481,15 +481,15 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   graph2: {
     category: "controller",
-    description: "Patch-local graph object: fit a global smoothing mode through control points. Input range mapping and LFO or CV-driven readout.",
+    description: "Point-to-point graph: each control point’s outgoing segment has a shape (linear / rational / exponential / log / hold) and contour. LFO or CV-driven readout with range mapping.",
     label: "Graph",
-    notes: ["global smoothing", "curve through points", "cursor line", "graph nodes", "input range", "LFO rate"],
+    notes: ["per-point shape", "contour", "lin · rational · expo · log · hold", "LFO rate"],
   },
   graphCopy: {
     category: "controller",
-    description: "Same as Graph, but each segment has its own shape and contour (per-node curve style).",
+    description: "Same point-to-point Graph (per-segment shape and contour).",
     label: "Graph_Copy",
-    notes: ["per-node shapes", "curve display", "cursor line", "graph nodes", "input range", "LFO rate"],
+    notes: ["per-point shape", "contour", "lin · rational · expo · log · hold", "LFO rate"],
   },
   gain: {
     category: "dynamics",

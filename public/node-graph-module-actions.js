@@ -1046,8 +1046,7 @@ function renderNodeGraphGraphNodeList(graph, selectedIndex = selectedNodeGraphGr
     return;
   }
   const graphData = normalizeNodeGraphGraph(graph);
-  // Graph (graph2): points only -- no per-node shape/mode columns.
-  // Graph_Copy: x/y plus curve contour + shape per segment.
+  // Graph / Graph_Copy: x/y plus curve contour + shape per segment.
   const usesPerNodeShapes = Boolean(options.usesPerNodeShapes);
   const activeIndex = selectedNodeGraphGraphIndex(graphData, selectedIndex);
   list.replaceChildren();
@@ -1281,7 +1280,6 @@ function setNodeGraphGraphNodeListValueFromContext(event, { record = true } = {}
   if (!targetNode) {
     return;
   }
-  // Graph (graph2) has no per-node shape/contour -- ignore those fields.
   if (!nodeGraphGraphUsesPerNodeShapes(targetNode.type) && (field === "c" || field === "shape")) {
     return;
   }

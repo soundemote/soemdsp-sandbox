@@ -13,36 +13,20 @@ const nodeGraphXyPadResizeObserver = typeof ResizeObserver === "function"
   : null;
 
 function nodeGraphXyPadDivisions(quantize) {
-  const q = Math.max(0, Math.min(1, Number(quantize) || 0));
-  // 0 -> 1 division (free, no grid); (0..1] -> 2..17 divisions.
-  return q <= 0 ? 1 : 1 + Math.max(1, Math.round(q * 16));
+  return typeof nodeGraphXyPadDspDivisions === "function"
+    ? nodeGraphXyPadDspDivisions(quantize)
+    : (Math.max(0, Math.min(1, Number(quantize) || 0)) <= 0
+      ? 1
+      : 1 + Math.max(1, Math.round(Math.max(0, Math.min(1, Number(quantize) || 0)) * 16)));
 }
 
-// Same snap math as the live/worklet evaluators — one source of truth for
-// puck position, grid, trail, and outputs. Phase is not a grid offset;
-// pad x/y and the Phase sliders share the same 0..1 position values.
+// Lattice snap for puck/grid only (audio uses the same math in xy-pad-dsp.js).
 function nodeGraphXyPadQuantizeValue(value, quantize) {
-  const divisions = nodeGraphXyPadDivisions(quantize);
-  const v = Math.max(0, Math.min(1, Number(value) || 0));
-  if (divisions <= 1) {
-    return v;
-  }
-  const step = 1 / divisions;
-  return Math.max(0, Math.min(1, Math.round(v / step) * step));
+  return typeof nodeGraphXyPadDspQuantizeUnit === "function"
+    ? nodeGraphXyPadDspQuantizeUnit(value, quantize)
+    : Math.max(0, Math.min(1, Number(value) || 0));
 }
 
-/**
- * Quantize Input modes (targets written by UI; Papoulis only in audio smoother):
- *  0 Off          — free targets → shared Papoulis
- *  1 After smooth — free targets → Papoulis → lattice on X/Y outs
- *  2 Then smooth  — lattice targets → shared Papoulis (glide between cells)
- */
-function nodeGraphXyPadQuantizeInputMode(pad) {
-  const m = Math.round(Number(nodeGraphXyPadParam(pad, "quantizeInput", 0)) || 0);
-  return Math.max(0, Math.min(2, m));
-}
-
-/** Snap unit coords with the pad's X/Y Quantize amounts. */
 function nodeGraphXyPadSnapUnit(pad, unitX, unitY) {
   return {
     x: nodeGraphXyPadQuantizeValue(unitX, nodeGraphXyPadParam(pad, "xQuantize", 0)),
@@ -50,79 +34,19 @@ function nodeGraphXyPadSnapUnit(pad, unitX, unitY) {
   };
 }
 
-/**
- * Unit targets only (no main-thread Papoulis). Mode 2 snaps before write;
- * modes 0/1 write free (mode 1 snaps after smooth on the audio outs).
- */
-function nodeGraphXyPadResolveInputPath(pad, rawX, rawY) {
-  const clampedX = Math.max(0, Math.min(1, Number(rawX) || 0));
-  const clampedY = Math.max(0, Math.min(1, Number(rawY) || 0));
-  if (nodeGraphXyPadQuantizeInputMode(pad) === 2) {
-    return nodeGraphXyPadSnapUnit(pad, clampedX, clampedY);
-  }
-  return { x: clampedX, y: clampedY };
-}
-
-/**
- * Mouse Smooth amount 0..1 → internal smoothingSeconds (sample count).
- * Same cutoff map as the old host mouse filter (60 Hz light → 2 Hz heavy),
- * but applied only via the shared audio param smoother.
- */
-function nodeGraphXyPadSmoothingSamplesFromAmount(amount, sampleRate) {
-  const a = Math.max(0, Math.min(1, Number(amount) || 0));
-  if (a <= 1e-4) {
-    return 0;
-  }
-  const rate = Math.max(1, Number(sampleRate) || 44100);
-  const logMin = Math.log(2);
-  const logMax = Math.log(60);
-  const cutoffHz = Math.exp(logMax + a * (logMin - logMax));
-  return Math.max(1, Math.round(rate / Math.max(0.5, cutoffHz)));
-}
-
-/**
- * Push Papoulis smoothingSeconds for x/y/phase from Mouse Smooth amount so
- * audio uses one shared chase filter (not a second main-thread Papoulis).
- */
-function nodeGraphXyPadSyncSharedSmoothingMeta(pad) {
-  const nodeId = String(pad?.dataset?.node || "");
-  if (!nodeId || typeof nodeGraphPatchNode !== "function") {
-    return;
-  }
-  const node = nodeGraphPatchNode(nodeId);
-  if (!node) {
-    return;
-  }
-  const amount = nodeGraphXyPadParam(pad, "mouseSmoothing", 0.35);
-  const samples = nodeGraphXyPadSmoothingSamplesFromAmount(
-    amount,
-    nodeGraphMvp?.sampleRate || 44100,
-  );
-  // Mouse Smooth is not the dragged axis — skip full meta rewrite on every move.
-  if (pad._xyPadSmoothSamples === samples) {
-    return;
-  }
-  pad._xyPadSmoothSamples = samples;
-  node.paramMeta = node.paramMeta && typeof node.paramMeta === "object" ? node.paramMeta : {};
-  for (const key of ["x", "y", "xPhase", "yPhase"]) {
-    const prev = node.paramMeta[key] && typeof node.paramMeta[key] === "object"
-      ? node.paramMeta[key]
-      : {};
-    node.paramMeta[key] = {
-      ...prev,
-      linearSmoothing: true,
-      smoothingMode: "internal",
-      smoothingSeconds: samples,
-      smoothingType: "papoulis",
-    };
-  }
-}
-
 function nodeGraphXyPadSlider(pad, key) {
   return document.getElementById(`node-${pad.dataset.node}-${key}`);
 }
 
 function nodeGraphXyPadParam(pad, key, fallback) {
+  // Prefer live drag position for x/y so the puck still tracks when hidden
+  // range inputs lag or are missing mid-interaction.
+  if ((key === "x" || key === "y") && pad?._xyPadPos) {
+    const live = Number(pad._xyPadPos[key]);
+    if (Number.isFinite(live)) {
+      return live;
+    }
+  }
   const value = Number(nodeGraphXyPadSlider(pad, key)?.value);
   return Number.isFinite(value) ? value : fallback;
 }
@@ -155,8 +79,12 @@ function nodeGraphXyPadRememberAxes(pad, axes = nodeGraphXyPadReadAxes(pad)) {
  * whole app when dragging the pad.
  */
 function nodeGraphXyPadWritePosition(pad, x, y, options = {}) {
-  const clampedX = Math.max(0, Math.min(1, Number(x) || 0));
-  const clampedY = Math.max(0, Math.min(1, Number(y) || 0));
+  // Use Number.isFinite — `Number(x) || 0` turns legitimate 0 into 0 incorrectly
+  // only when NaN; keep clamp explicit so left/bottom edges stay reachable.
+  const nx = Number(x);
+  const ny = Number(y);
+  const clampedX = Math.max(0, Math.min(1, Number.isFinite(nx) ? nx : 0));
+  const clampedY = Math.max(0, Math.min(1, Number.isFinite(ny) ? ny : 0));
   const interaction = options.interaction || "drag";
   const isDrag = interaction === "drag";
   const pairs = [
@@ -165,6 +93,8 @@ function nodeGraphXyPadWritePosition(pad, x, y, options = {}) {
     ["xPhase", clampedX],
     ["yPhase", clampedY],
   ];
+  // Authoritative UI position (draw reads this first).
+  pad._xyPadPos = { x: clampedX, y: clampedY };
   pad._xyPadMirroring = true;
   try {
     for (const [key, value] of pairs) {
@@ -291,10 +221,8 @@ function nodeGraphXyPadReconcileMirroredAxes(pad) {
   // Phase sliders are the visible twins — when only they move, push into x/y.
   // When pad/position moves (or both / neither), position wins.
   const phaseIsSource = (xPhaseChanged && !xPosChanged) || (yPhaseChanged && !yPosChanged);
-  // Phase / pad writes: re-snap targets only in "Then smooth" (mode 2).
   if (phaseIsSource) {
-    const path = nodeGraphXyPadResolveInputPath(pad, cur.xPhase, cur.yPhase);
-    nodeGraphXyPadWritePosition(pad, path.x, path.y, { interaction: "drag" });
+    nodeGraphXyPadWritePosition(pad, cur.xPhase, cur.yPhase, { interaction: "drag" });
     return;
   }
   if (
@@ -303,8 +231,7 @@ function nodeGraphXyPadReconcileMirroredAxes(pad) {
     || xPosChanged
     || yPosChanged
   ) {
-    const path = nodeGraphXyPadResolveInputPath(pad, cur.x, cur.y);
-    nodeGraphXyPadWritePosition(pad, path.x, path.y, { interaction: "drag" });
+    nodeGraphXyPadWritePosition(pad, cur.x, cur.y, { interaction: "drag" });
     return;
   }
   nodeGraphXyPadRememberAxes(pad, cur);
@@ -317,13 +244,184 @@ function nodeGraphXyPadInputConnected(pad, port) {
   ));
 }
 
+/**
+ * Sum CV into a pad input port (same mix as worklet mixInput for that port).
+ * Samples the latest live buffer from each wired source.
+ */
+function nodeGraphXyPadMixCv(nodeId, port) {
+  const id = String(nodeId || "");
+  const portName = String(port || "");
+  if (!id || !portName) {
+    return 0;
+  }
+  let sum = 0;
+  for (const connection of (nodeGraphMvp?.patch?.connections || [])) {
+    if (connection.destinationNode !== id || connection.destinationPort !== portName) {
+      continue;
+    }
+    let sample = Number.NaN;
+    if (typeof nodeGraphModuleScopeLatestOutputValue === "function") {
+      sample = Number(nodeGraphModuleScopeLatestOutputValue(
+        connection.sourceNode,
+        connection.sourcePort,
+        Number.NaN,
+      ));
+    }
+    if (!Number.isFinite(sample) && nodeGraphModuleScopeState?.buffers) {
+      const buf = nodeGraphModuleScopeState.buffers.get(
+        `${connection.sourceNode}:${connection.sourcePort}`,
+      ) || nodeGraphModuleScopeState.buffers.get(connection.sourceNode);
+      if (buf?.length) {
+        for (let i = buf.length - 1; i >= 0; i -= 1) {
+          const n = Number(buf[i]);
+          if (Number.isFinite(n)) {
+            sample = n;
+            break;
+          }
+        }
+      }
+    }
+    if (Number.isFinite(sample)) {
+      sum += sample;
+    }
+  }
+  return sum;
+}
+
+/**
+ * Latest Out X/Y in unit space, or null if scope has not captured the pad yet.
+ * Live outs already include Phase+CV → Smoothing (Papoulis) ↔ lattice.
+ */
+function nodeGraphXyPadLatestOutUnit(pad) {
+  const nodeId = String(pad?.dataset?.node || "");
+  if (!nodeId || typeof nodeGraphModuleScopeLatestOutputValue !== "function") {
+    return null;
+  }
+  const ox = Number(nodeGraphModuleScopeLatestOutputValue(nodeId, "X", Number.NaN));
+  const oy = Number(nodeGraphModuleScopeLatestOutputValue(nodeId, "Y", Number.NaN));
+  if (!Number.isFinite(ox) || !Number.isFinite(oy)) {
+    return null;
+  }
+  return {
+    x: nodeGraphXyPadNormalizeGhostUnit(ox, 0.5),
+    y: nodeGraphXyPadNormalizeGhostUnit(oy, 0.5),
+    fromOut: true,
+  };
+}
+
+/**
+ * New Out X/Y samples since the last phosphor deposit, as canvas-space points.
+ * Prefers dense live scope history so Papoulis curves are not re-polygonized
+ * into UI-frame elbows (last→current only).
+ */
+function nodeGraphXyPadPhosphorOutPathPoints(pad, width, height) {
+  const nodeId = String(pad?.dataset?.node || "");
+  const buffers = nodeGraphModuleScopeState?.buffers;
+  if (!nodeId || !buffers) {
+    return null;
+  }
+  const xBuf = buffers.get(`${nodeId}:X`);
+  const yBuf = buffers.get(`${nodeId}:Y`);
+  const len = Math.min(xBuf?.length || 0, yBuf?.length || 0);
+  if (len < 1) {
+    return null;
+  }
+  const xTotal = Math.max(0, Math.floor(Number(xBuf.nodeGraphScopeTotalSampleCount) || len));
+  const yTotal = Math.max(0, Math.floor(Number(yBuf.nodeGraphScopeTotalSampleCount) || len));
+  const absoluteFrame = Math.min(xTotal, yTotal);
+  if (absoluteFrame < 1) {
+    return null;
+  }
+  let lastFrame = Number(pad._xyPadPhosLastAbsFrame);
+  if (!Number.isFinite(lastFrame) || lastFrame < 0) {
+    lastFrame = Math.max(0, absoluteFrame - 1);
+  }
+  const newCount = Math.max(0, absoluteFrame - lastFrame);
+  // Cap deposit density per UI frame (scope captures ~12kHz).
+  const take = Math.min(len, Math.max(2, Math.min(newCount || 1, 512)));
+  const start = len - take;
+  const points = [];
+  let prevX = Number.NaN;
+  let prevY = Number.NaN;
+  for (let i = start; i < len; i += 1) {
+    const ox = Number(xBuf[i]);
+    const oy = Number(yBuf[i]);
+    if (!Number.isFinite(ox) || !Number.isFinite(oy)) {
+      continue;
+    }
+    const ux = nodeGraphXyPadNormalizeGhostUnit(ox, 0.5);
+    const uy = nodeGraphXyPadNormalizeGhostUnit(oy, 0.5);
+    const x = ux * width;
+    const y = (1 - uy) * height;
+    if (Number.isFinite(prevX) && Math.hypot(x - prevX, y - prevY) < 0.15) {
+      continue;
+    }
+    points.push({ x, y });
+    prevX = x;
+    prevY = y;
+  }
+  pad._xyPadPhosLastAbsFrame = absoluteFrame;
+  if (!points.length) {
+    return null;
+  }
+  return {
+    points,
+    tip: points[points.length - 1],
+    fromOut: true,
+  };
+}
+
+/**
+ * Phosphor / Out target in unit space (0..1).
+ *
+ * Same path as audio outs:
+ *   sig = bipolar(Phase X/Y) + X/Y Input CV
+ *   → Smoothing (Papoulis) ↔ lattice by Filter Order
+ *   → Out X/Y  (and phosphor deposit)
+ *
+ * Prefer live Out samples (includes native Papoulis). Dry lattice-only fallback
+ * only when the pad is not in the live schedule / audio is stopped.
+ */
+function nodeGraphXyPadPhosphorTargetUnit(pad) {
+  const live = nodeGraphXyPadLatestOutUnit(pad);
+  if (live) {
+    return live;
+  }
+
+  const nodeId = String(pad?.dataset?.node || "");
+  const phaseX = nodeGraphXyPadParam(pad, "x", 0.5);
+  const phaseY = nodeGraphXyPadParam(pad, "y", 0.5);
+  const sigX = (typeof nodeGraphXyPadDspUnitToBipolar === "function"
+    ? nodeGraphXyPadDspUnitToBipolar(phaseX)
+    : phaseX * 2 - 1) + nodeGraphXyPadMixCv(nodeId, "X");
+  const sigY = (typeof nodeGraphXyPadDspUnitToBipolar === "function"
+    ? nodeGraphXyPadDspUnitToBipolar(phaseY)
+    : phaseY * 2 - 1) + nodeGraphXyPadMixCv(nodeId, "Y");
+  const order = Math.max(0, Math.min(1, Math.round(nodeGraphXyPadParam(pad, "filterOrder", 0)) || 0));
+  const qX = nodeGraphXyPadParam(pad, "xQuantize", 0);
+  const qY = nodeGraphXyPadParam(pad, "yQuantize", 0);
+  // Native Papoulis only lives in the worklet — dry preview is lattice side only.
+  const process = typeof nodeGraphXyPadDspProcessAxis === "function"
+    ? nodeGraphXyPadDspProcessAxis
+    : (sig, opts) => {
+      const q = Number(opts?.quantizeAmt) || 0;
+      if (q <= 0 || typeof nodeGraphXyPadDspQuantizeBipolar !== "function") {
+        return sig;
+      }
+      return nodeGraphXyPadDspQuantizeBipolar(sig, q);
+    };
+  const outX = process(sigX, { cutoff: 0, order, quantizeAmt: qX, filterSample: null });
+  const outY = process(sigY, { cutoff: 0, order, quantizeAmt: qY, filterSample: null });
+  return {
+    x: nodeGraphXyPadNormalizeGhostUnit(outX, phaseX),
+    y: nodeGraphXyPadNormalizeGhostUnit(outY, phaseY),
+    fromOut: false,
+  };
+}
+
 // Shared mono-energy phosphor (same device as 2D Phosphor / scope2d burn).
 // Host canvas is the pad face; residual lives in the WebGL energy FBO.
 const nodeGraphXyPadPhosphorKey = "_xyPadPhosphorEnergyGl";
-
-function nodeGraphXyPadTrailNodeId(pad) {
-  return String(pad?.dataset?.node || "").trim();
-}
 
 function nodeGraphXyPadPeakRgbBytes(hex) {
   if (
@@ -391,28 +489,34 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
         dot1Color: options.phosphorColor || "#7fc7d9",
       }, options.phosphorColor || "#7fc7d9")
       : null);
-  let lutOk = false;
-  if (gradientStops) {
-    if (drawer?.setLutStops) {
-      lutOk = drawer.setLutStops(face, gradientStops);
-    } else if (typeof nodeGraphPhosphorEnergyGlSetLutFromStops === "function") {
-      lutOk = Boolean(nodeGraphPhosphorEnergyGlSetLutFromStops(face, gradientStops));
-    } else if (typeof nodeGraphPhosphorApplyGradientLut === "function") {
-      lutOk = nodeGraphPhosphorApplyGradientLut(face, {
-        gradientStops,
-        background: bgHex,
-        dot1Color: options.phosphorColor,
-      }, options.phosphorColor || "#7fc7d9");
+  // Rebuild LUT only when stops / peak color change (hot path while dragging).
+  const lutKey = gradientStops
+    ? `stops:${gradientStops.map((s) => `${s.t}|${s.color}`).join(";")}`
+    : `peak:${options.phosphorColor || "#7fc7d9"}|${bgHex}`;
+  if (face._xyPadLutKey !== lutKey) {
+    let lutOk = false;
+    if (gradientStops) {
+      if (drawer?.setLutStops) {
+        lutOk = drawer.setLutStops(face, gradientStops);
+      } else if (typeof nodeGraphPhosphorEnergyGlSetLutFromStops === "function") {
+        lutOk = Boolean(nodeGraphPhosphorEnergyGlSetLutFromStops(face, gradientStops));
+      } else if (typeof nodeGraphPhosphorApplyGradientLut === "function") {
+        lutOk = nodeGraphPhosphorApplyGradientLut(face, {
+          gradientStops,
+          background: bgHex,
+          dot1Color: options.phosphorColor,
+        }, options.phosphorColor || "#7fc7d9");
+      }
     }
-  }
-  if (!lutOk) {
-    // Legacy peak ramp if gradient helpers are unavailable.
-    const peakRgb = nodeGraphXyPadPeakRgbBytes(options.phosphorColor || "#7fc7d9");
-    if (drawer?.setLut) {
-      drawer.setLut(face, peakRgb, bgHex);
-    } else if (typeof nodeGraphPhosphorEnergyGlSetLutFromPeak === "function") {
-      nodeGraphPhosphorEnergyGlSetLutFromPeak(face, peakRgb, bgHex);
+    if (!lutOk) {
+      const peakRgb = nodeGraphXyPadPeakRgbBytes(options.phosphorColor || "#7fc7d9");
+      if (drawer?.setLut) {
+        drawer.setLut(face, peakRgb, bgHex);
+      } else if (typeof nodeGraphPhosphorEnergyGlSetLutFromPeak === "function") {
+        nodeGraphPhosphorEnergyGlSetLutFromPeak(face, peakRgb, bgHex);
+      }
     }
+    face._xyPadLutKey = lutKey;
   }
 
   const decay = Math.max(0, Math.min(1, Number(options.decay) || 0.12));
@@ -450,8 +554,9 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
   const bleed = blur * blur * (0.04 + blur * 0.14);
 
   if (liveDeposit && deposit > 1e-8) {
-    // Hard discs need dots mode (true hard profile). Segments also support
-    // hard/soft morph now, but pad trails are stamp economy driven.
+    // Prefer continuous beam segments so Papoulis-smoothed Out paths stay
+    // curved; dots mode re-stamps sparse UI elbows as hard corners.
+    const mode = options.mode === "dots" ? "dots" : "segments";
     if (typeof nodeGraphPhosphorEnergyGlStepBeams === "function") {
       nodeGraphPhosphorEnergyGlStepBeams(face, {
         decay,
@@ -459,7 +564,30 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
         radius,
         brightness: deposit,
         blur,
-        mode: "dots",
+        mode,
+        maxDots,
+        fullDotEconomy,
+        bleed,
+      });
+    } else if (mode === "dots" && drawer?.stepDots) {
+      drawer.stepDots(face, {
+        decay,
+        pathPoints,
+        radius,
+        brightness: deposit,
+        blur,
+        maxDots,
+        burn,
+        fullDotEconomy,
+      });
+    } else if (drawer?.stepBeams) {
+      drawer.stepBeams(face, {
+        decay,
+        pathPoints,
+        radius,
+        brightness: deposit,
+        blur,
+        mode,
         maxDots,
         fullDotEconomy,
         bleed,
@@ -571,27 +699,105 @@ function drawNodeGraphXyPad(pad, options = {}) {
   const phosphorHex = gradientStops?.[gradientStops.length - 1]?.color
     || display.dot1Color
     || "#7fc7d9";
+  // Face = phosphor of Out X/Y (same idea as wiring Out → scope2d) + vector UI.
   const brightness = Math.max(0, Number(display.dot1Brightness) || 0.78);
   const decayUx = Math.max(0, Math.min(1, Number(display.decay) || 0.35));
   const burn = Math.max(0, Math.min(1, Number(display.burn) || 0.82));
-  const size01 = Math.max(0, Math.min(1, Number(display.dot1Size) || 0.07));
+  // Phosphor beam stamp size (unit face); not multiplied by a global scale.
+  const beamSize01 = Math.max(0.005, Math.min(1, Number(display.dot1Size) || 0.07));
   const blur = typeof nodeGraphTraceDisplayClampStampBlur === "function"
     ? nodeGraphTraceDisplayClampStampBlur(display.lineThickness)
     : Math.max(0, Math.min(1, Number(display.lineThickness) || 0.42));
-  const scale = Math.max(0, Number(display.scale) || 1);
-  const sizeScaled = Math.max(0.005, Math.min(1, size01 * Math.max(0.05, scale)));
+  const puckSize01 = Math.max(0.005, Math.min(0.25, Number(display.puckSize) || 0.045));
   const dotBudget = Math.max(
     64,
     Math.min(8192, Math.round(Number(display.dotBudget) || 2048)),
   );
-  // Default ON when unset (matches normalize defaults).
   const fullDotEconomy = display.fullDotEconomy !== false;
-  // Always paint an opaque phosphor plate (display background color).
+  const minSide = Math.max(1, Math.min(width, height));
+
+  // Positions first (no canvas writes) so a static frame can skip entirely.
+  // UI puck = Phase / mouse (unit 0..1, same space as Out after bipolar map).
+  const targetX = Math.max(0, Math.min(1, nodeGraphXyPadParam(pad, "x", 0.5)));
+  const targetY = Math.max(0, Math.min(1, nodeGraphXyPadParam(pad, "y", 0.5)));
+  const puck = nodeGraphXyPadSnapUnit(pad, targetX, targetY);
+  const px = puck.x * width;
+  const py = (1 - puck.y) * height;
+  // Phosphor deposits from Out path (Phase+CV → Smoothing ↔ lattice).
+  const outPath = nodeGraphXyPadPhosphorOutPathPoints(pad, width, height);
+  const phosphor = outPath
+    ? {
+      x: outPath.tip.x / Math.max(1, width),
+      y: 1 - (outPath.tip.y / Math.max(1, height)),
+      fromOut: true,
+    }
+    : nodeGraphXyPadPhosphorTargetUnit(pad);
+  const trailX = outPath
+    ? outPath.tip.x
+    : Math.max(0, Math.min(1, phosphor.x)) * width;
+  const trailY = outPath
+    ? outPath.tip.y
+    : (1 - Math.max(0, Math.min(1, phosphor.y))) * height;
+  const ghostConnected = nodeGraphXyPadInputConnected(pad, "X")
+    || nodeGraphXyPadInputConnected(pad, "Y");
+  const dragging = Boolean(options.dragging || pad._xyPadDragging);
+  if (!dragging && !options.force) {
+    const fp = `${width}x${height}:${Math.round(px)},${Math.round(py)},${Math.round(trailX)},${Math.round(trailY)},${ghostConnected ? 1 : 0},${phosphor.fromOut ? 1 : 0}:${outPath?.points?.length || 0}:${beamSize01.toFixed(3)}:${puckSize01.toFixed(3)}`;
+    if (pad._xyPadLastDrawFp === fp) {
+      return;
+    }
+    pad._xyPadLastDrawFp = fp;
+  } else {
+    pad._xyPadLastDrawFp = null;
+  }
+
+  // ── Phosphor screen (energy residual of Out X/Y) ─────────────────────
   ctx.fillStyle = bgHex;
   ctx.fillRect(0, 0, width, height);
 
-  // Dim quantize grid — one axis at a time so X and Y stay independent.
-  // Lattice is fixed (phase sliders mirror pad position, not grid offset).
+  let pathPoints = null;
+  let liveDeposit = false;
+  if (outPath?.points?.length) {
+    const last = pad._xyPadTrailLast;
+    pathPoints = last && Number.isFinite(last.x) && Number.isFinite(last.y)
+      ? [last, ...outPath.points]
+      : outPath.points;
+    pad._xyPadTrailLast = outPath.tip;
+    liveDeposit = true;
+  } else {
+    const trailPoint = { x: trailX, y: trailY };
+    const last = pad._xyPadTrailLast;
+    const moved = !last
+      || !Number.isFinite(last.x)
+      || !Number.isFinite(last.y)
+      || Math.hypot(trailX - last.x, trailY - last.y) > 0.35;
+    if (moved) {
+      pathPoints = last && Number.isFinite(last.x)
+        ? [last, trailPoint]
+        : [trailPoint];
+      pad._xyPadTrailLast = trailPoint;
+      liveDeposit = true;
+    }
+  }
+  nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, {
+    liveDeposit,
+    pathPoints,
+    phosphorColor: phosphorHex,
+    background: bgHex,
+    gradientStops,
+    decay: decayUx,
+    brightness,
+    burn,
+    blur,
+    size01: beamSize01,
+    maxDots: dotBudget,
+    fullDotEconomy,
+    dpr,
+    mode: "segments",
+  });
+
+  // ── Cheap vector UI overlay (not part of the energy residual) ────────
+  // Quantize grid (controller chrome).
   const drawGrid = (quantKey, vertical) => {
     const divisions = nodeGraphXyPadDivisions(nodeGraphXyPadParam(pad, quantKey, 0));
     if (divisions <= 1) {
@@ -619,90 +825,44 @@ function drawNodeGraphXyPad(pad, options = {}) {
   drawGrid("xQuantize", true);
   drawGrid("yQuantize", false);
 
-  // Prefer live X/Y outs (shared audio chase + quantize + CV) over raw targets.
-  const targetX = Math.max(0, Math.min(1, nodeGraphXyPadParam(pad, "x", 0.5)));
-  const targetY = Math.max(0, Math.min(1, nodeGraphXyPadParam(pad, "y", 0.5)));
-  const nodeId = String(pad.dataset.node || "");
-  let x = targetX;
-  let y = targetY;
-  if (typeof nodeGraphModuleScopeLatestOutputValue === "function" && nodeId) {
-    const ox = Number(nodeGraphModuleScopeLatestOutputValue(nodeId, "X", Number.NaN));
-    const oy = Number(nodeGraphModuleScopeLatestOutputValue(nodeId, "Y", Number.NaN));
-    if (Number.isFinite(ox)) {
-      x = nodeGraphXyPadNormalizeGhostUnit(ox, targetX);
-    }
-    if (Number.isFinite(oy)) {
-      y = nodeGraphXyPadNormalizeGhostUnit(oy, targetY);
-    }
-  }
-  const px = x * width;
-  const py = (1 - y) * height;
-
-  const dragging = Boolean(options.dragging || pad._xyPadDragging);
-  const ghostConnected = nodeGraphXyPadInputConnected(pad, "X")
-    || nodeGraphXyPadInputConnected(pad, "Y");
-  const liveTrail = dragging || ghostConnected;
-  const trailPoint = { x: px, y: py };
-  let pathPoints = null;
-  if (liveTrail) {
-    const last = pad._xyPadTrailLast;
-    if (
-      last
-      && Number.isFinite(last.x)
-      && Number.isFinite(last.y)
-      && Math.hypot(px - last.x, py - last.y) < Math.max(width, height) * 0.55
-    ) {
-      pathPoints = [last, trailPoint];
-    } else {
-      pathPoints = [trailPoint];
-    }
-    pad._xyPadTrailLast = trailPoint;
-  } else {
-    pad._xyPadTrailLast = null;
-  }
-  nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, {
-    liveDeposit: liveTrail,
-    pathPoints,
-    phosphorColor: phosphorHex,
-    background: bgHex,
-    gradientStops,
-    decay: decayUx,
-    brightness,
-    burn,
-    blur,
-    size01: sizeScaled,
-    maxDots: dotBudget,
-    fullDotEconomy,
-    dpr,
-  });
-
   if (ghostConnected) {
-    // Phantom at CV-modulated out (same stream as puck; no link line).
+    // Out tip when CV is patched (same unit space as phosphor tip).
+    const ghostR = Math.max(2, puckSize01 * minSide * 0.55);
     ctx.beginPath();
-    ctx.arc(px, py, 5 * dpr, 0, Math.PI * 2);
+    ctx.arc(trailX, trailY, ghostR, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(177, 132, 255, 0.48)";
     ctx.fill();
   }
 
+  // Phase puck: solid vector disc (re-drawn each paint — trivial vs phosphor).
+  const puckR = Math.max(2.5, puckSize01 * minSide);
   ctx.beginPath();
-  ctx.arc(px, py, 7 * dpr, 0, Math.PI * 2);
+  ctx.arc(px, py, puckR * 1.15, 0, Math.PI * 2);
   ctx.strokeStyle = nodeGraphXyPadRgba(phosphorHex, 0.22);
-  ctx.lineWidth = dpr;
+  ctx.lineWidth = Math.max(1, dpr);
   ctx.stroke();
   ctx.beginPath();
-  ctx.arc(px, py, 5.5 * dpr, 0, Math.PI * 2);
+  ctx.arc(px, py, puckR, 0, Math.PI * 2);
   ctx.fillStyle = nodeGraphXyPadRgba(phosphorHex, 0.55 + brightness * 0.4);
   ctx.fill();
   ctx.strokeStyle = nodeGraphXyPadRgba(phosphorHex, 0.12);
-  ctx.lineWidth = dpr * 0.75;
+  ctx.lineWidth = Math.max(1, dpr * 0.75);
   ctx.beginPath();
   ctx.moveTo(px, 0); ctx.lineTo(px, height);
   ctx.moveTo(0, py); ctx.lineTo(width, py);
   ctx.stroke();
 }
 
+/**
+ * Absolute (click-to-place / follow cursor) is the default XY pad mode.
+ * Hold Shift for relative drag (with app-wide fine/coarse multipliers).
+ * Alt alone is NOT absolute here — that used to force Alt for any placement
+ * and made the pad feel immovable for normal mouse use.
+ */
 function nodeGraphXyPadAbsolutePointerMode(event) {
-  return Boolean(event?.altKey) && !(event?.shiftKey && (event.ctrlKey || event.metaKey));
+  // Relative only while Shift is held (fine drag). Otherwise absolute.
+  // Keep Alt out of the absolute gate so plain click/drag always places the puck.
+  return !Boolean(event?.shiftKey);
 }
 
 function nodeGraphXyPadDragMultiplier(event) {
@@ -714,8 +874,9 @@ function nodeGraphXyPadDragMultiplier(event) {
 function nodeGraphXyPadReanchorDrag(pad, drag, event) {
   drag.startClientX = event.clientX;
   drag.startClientY = event.clientY;
-  drag.startX = nodeGraphXyPadParam(pad, "x", 0.5);
-  drag.startY = nodeGraphXyPadParam(pad, "y", 0.5);
+  const pos = pad?._xyPadPos;
+  drag.startX = Number.isFinite(pos?.x) ? pos.x : nodeGraphXyPadParam(pad, "x", 0.5);
+  drag.startY = Number.isFinite(pos?.y) ? pos.y : nodeGraphXyPadParam(pad, "y", 0.5);
 }
 
 function nodeGraphXyPadDisplaySettings(pad) {
@@ -746,7 +907,7 @@ function nodeGraphXyPadDisplaySettings(pad) {
     ],
     lineThickness: 0.42,
     pixelDensity: 1,
-    scale: 1,
+    puckSize: 0.045,
   };
 }
 
@@ -784,11 +945,13 @@ function nodeGraphXyPadResetCanvas(nodeId) {
       continue;
     }
     pad._xyPadTrailLast = null;
+    pad._xyPadLastDrawFp = null;
+    pad._xyPadPhosLastAbsFrame = null;
     const canvas = pad.querySelector(".node-xy-pad-canvas");
     if (canvas) {
       nodeGraphXyPadDestroyPhosphor(canvas);
     }
-    drawNodeGraphXyPad(pad);
+    drawNodeGraphXyPad(pad, { force: true });
   }
 }
 
@@ -800,7 +963,12 @@ function nodeGraphXyPadRedrawAll() {
 
 function nodeGraphXyPadApplyPointer(pad, event, drag, options = {}) {
   const canvas = pad.querySelector(".node-xy-pad-canvas");
+  if (!canvas || !drag) {
+    return;
+  }
   const rect = canvas.getBoundingClientRect();
+  const width = Math.max(1, rect.width);
+  const height = Math.max(1, rect.height);
   const absolute = nodeGraphXyPadAbsolutePointerMode(event);
   const multiplier = nodeGraphXyPadDragMultiplier(event);
 
@@ -812,12 +980,13 @@ function nodeGraphXyPadApplyPointer(pad, event, drag, options = {}) {
 
   // Client rect includes workspace CSS zoom — ratio still correct for 0..1.
   const rawX = absolute
-    ? (event.clientX - rect.left) / Math.max(1, rect.width)
-    : drag.startX + ((event.clientX - drag.startClientX) / Math.max(1, rect.width)) * multiplier;
+    ? (event.clientX - rect.left) / width
+    : drag.startX + ((event.clientX - drag.startClientX) / width) * multiplier;
   const rawY = absolute
-    ? 1 - ((event.clientY - rect.top) / Math.max(1, rect.height))
-    : drag.startY - ((event.clientY - drag.startClientY) / Math.max(1, rect.height)) * multiplier;
-  const { x, y } = nodeGraphXyPadResolveInputPath(pad, rawX, rawY);
+    ? 1 - ((event.clientY - rect.top) / height)
+    : drag.startY - ((event.clientY - drag.startClientY) / height) * multiplier;
+  const x = Math.max(0, Math.min(1, Number.isFinite(rawX) ? rawX : 0));
+  const y = Math.max(0, Math.min(1, Number.isFinite(rawY) ? rawY : 0));
   drag.lastX = x;
   drag.lastY = y;
   nodeGraphXyPadWritePosition(pad, x, y, {
@@ -828,11 +997,7 @@ function nodeGraphXyPadApplyPointer(pad, event, drag, options = {}) {
   nodeGraphXyPadScheduleDraw(pad, { dragging: true });
 }
 
-/**
- * Finish a pad drag without re-sampling the pointer and without re-writing
- * coordinates that were already applied on the last move (that re-write was
- * an extra “step” after release when param smoothers / live sync re-targeted).
- */
+/** Finish drag: commit history without re-sampling the pointer. */
 function nodeGraphXyPadCommitDrag(pad, drag) {
   const hasApplied = Number.isFinite(drag?.lastX) && Number.isFinite(drag?.lastY);
   if (!hasApplied) {
@@ -875,13 +1040,15 @@ function nodeGraphXyPadSetGate(pad, high) {
   }
 }
 
-/** Map bipolar CV (-1..+1) into pad unit space (0..1) for ghost display. */
+/** Map bipolar CV/out (−1…+1) into pad unit space (0…1) for phosphor/ghost. */
 function nodeGraphXyPadNormalizeGhostUnit(value, fallbackUnit = 0.5) {
+  if (typeof nodeGraphXyPadDspBipolarToUnit === "function" && Number.isFinite(Number(value))) {
+    return nodeGraphXyPadDspBipolarToUnit(value);
+  }
   const n = Number(value);
   if (!Number.isFinite(n)) {
     return Math.max(0, Math.min(1, Number(fallbackUnit) || 0.5));
   }
-  // Pad outputs are bipolar: center 0 → unit 0.5, edges ±1 → 0/1.
   return Math.max(0, Math.min(1, (n + 1) * 0.5));
 }
 
@@ -894,46 +1061,20 @@ function createNodeGraphXyPadBody(node, type) {
   const canvas = document.createElement("canvas");
   canvas.className = "node-xy-pad-canvas";
   canvas.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} XY pad`);
+  // Ensure the face is a hit target even if a parent toggles pointer-events.
+  canvas.style.touchAction = "none";
+  canvas.style.pointerEvents = "auto";
   pad.append(canvas);
 
   let drag = null;
-  canvas.addEventListener("pointerdown", (event) => {
-    if (event.button > 0) {
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    pad._xyPadDragging = true;
-    // Start a new beam stroke so tails do not bridge long gaps.
-    pad._xyPadTrailLast = null;
-    const startX = nodeGraphXyPadParam(pad, "x", 0.5);
-    const startY = nodeGraphXyPadParam(pad, "y", 0.5);
-    drag = {
-      pointerId: event.pointerId,
-      startClientX: event.clientX,
-      startClientY: event.clientY,
-      startX,
-      startY,
-      absolute: nodeGraphXyPadAbsolutePointerMode(event),
-      multiplier: nodeGraphXyPadDragMultiplier(event),
-      moved: false,
-      resetToDefault: (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey,
-    };
-    // Refresh Papoulis time constant once at drag start (not every move).
-    pad._xyPadSmoothSamples = undefined;
-    nodeGraphXyPadSyncSharedSmoothingMeta(pad);
-    try { canvas.setPointerCapture(event.pointerId); } catch (_) {}
-    if (typeof triggerNodeGraphImpulseButton === "function") {
-      triggerNodeGraphImpulseButton(node);
-    }
-    nodeGraphXyPadSetGate(pad, true);
-    if (drag.absolute) {
-      nodeGraphXyPadApplyPointer(pad, event, drag);
-    } else {
-      nodeGraphXyPadScheduleDraw(pad, { dragging: true });
-    }
-  });
-  canvas.addEventListener("pointermove", (event) => {
+
+  const detachWindowDrag = () => {
+    window.removeEventListener("pointermove", onWindowPointerMove, true);
+    window.removeEventListener("pointerup", onWindowPointerUp, true);
+    window.removeEventListener("pointercancel", onWindowPointerUp, true);
+  };
+
+  const onWindowPointerMove = (event) => {
     if (!drag || event.pointerId !== drag.pointerId) {
       return;
     }
@@ -942,8 +1083,9 @@ function createNodeGraphXyPadBody(node, type) {
       drag.moved = true;
     }
     nodeGraphXyPadApplyPointer(pad, event, drag);
-  });
-  const release = (event) => {
+  };
+
+  const onWindowPointerUp = (event) => {
     if (!drag || (event.pointerId !== undefined && event.pointerId !== drag.pointerId)) {
       return;
     }
@@ -951,6 +1093,14 @@ function createNodeGraphXyPadBody(node, type) {
     // first must run (second sees drag === null).
     const completedDrag = drag;
     drag = null;
+    detachWindowDrag();
+    try {
+      if (canvas.hasPointerCapture?.(completedDrag.pointerId)) {
+        canvas.releasePointerCapture(completedDrag.pointerId);
+      }
+    } catch (_) {
+      // Best-effort.
+    }
     // Keep _xyPadDragging true through finalize so syncFromParameters cannot
     // reconcile/mirror and nudge axes mid-commit.
     try {
@@ -974,13 +1124,64 @@ function createNodeGraphXyPadBody(node, type) {
       pad._xyPadDragging = false;
     }
   };
-  canvas.addEventListener("pointerup", release);
-  // lostpointercapture can fire after pointerup already cleared drag — ignore
-  // the second event (guarded by drag === null above).
-  canvas.addEventListener("lostpointercapture", release);
-  // Swallow a trailing pointermove that some browsers emit on release after
-  // capture ends (would otherwise be ignored once drag is null — keep guard).
-  canvas.addEventListener("pointercancel", release);
+
+  canvas.addEventListener("pointerdown", (event) => {
+    if (event.button > 0) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    // Drop any stale window listeners from a previous incomplete drag.
+    detachWindowDrag();
+    pad._xyPadDragging = true;
+    // Start a new beam stroke so tails do not bridge long gaps.
+    pad._xyPadTrailLast = null;
+    const startX = Number.isFinite(pad._xyPadPos?.x)
+      ? pad._xyPadPos.x
+      : nodeGraphXyPadParam(pad, "x", 0.5);
+    const startY = Number.isFinite(pad._xyPadPos?.y)
+      ? pad._xyPadPos.y
+      : nodeGraphXyPadParam(pad, "y", 0.5);
+    drag = {
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startX,
+      startY,
+      absolute: nodeGraphXyPadAbsolutePointerMode(event),
+      multiplier: nodeGraphXyPadDragMultiplier(event),
+      moved: false,
+      resetToDefault: (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey,
+    };
+    try { canvas.setPointerCapture(event.pointerId); } catch (_) {}
+    // Window listeners survive lostpointercapture (module re-layout, focus
+    // thrash, etc.) so the puck keeps tracking until button-up.
+    window.addEventListener("pointermove", onWindowPointerMove, true);
+    window.addEventListener("pointerup", onWindowPointerUp, true);
+    window.addEventListener("pointercancel", onWindowPointerUp, true);
+    if (typeof triggerNodeGraphImpulseButton === "function") {
+      triggerNodeGraphImpulseButton(node);
+    }
+    nodeGraphXyPadSetGate(pad, true);
+    // Always sample on down: absolute places under cursor; relative is a no-op.
+    nodeGraphXyPadApplyPointer(pad, event, drag);
+  });
+  // Canvas-local move/up still work when capture holds; window handlers above
+  // cover the case where capture is lost mid-drag.
+  canvas.addEventListener("pointermove", onWindowPointerMove);
+  canvas.addEventListener("pointerup", onWindowPointerUp);
+  canvas.addEventListener("pointercancel", onWindowPointerUp);
+  // Do not end the drag on lostpointercapture while the button is still down —
+  // window listeners keep driving the puck until pointerup.
+  canvas.addEventListener("lostpointercapture", (event) => {
+    if (!drag || event.pointerId !== drag.pointerId) {
+      return;
+    }
+    if (event.buttons & 1) {
+      return;
+    }
+    onWindowPointerUp(event);
+  });
   // Right-click face → phosphor Display Settings (color / background / reset).
   // Capture phase so shell/document handlers cannot win first.
   const openPadSettings = (event) => {
@@ -1013,24 +1214,11 @@ function createNodeGraphXyPadBody(node, type) {
   pad.addEventListener("contextmenu", openPadSettings, true);
 
   pad.syncFromParameters = () => {
-    // Phase sliders ↔ pad x/y stay value-mirrored; then repaint.
-    // While the pointer is driving the pad, applyPointer already steps phosphor
-    // once per event — skip here so we do not double-deposit / double-decay.
+    // Phase sliders ↔ pad x/y stay value-mirrored; then repaint puck.
+    // While dragging, applyPointer already schedules a paint.
     nodeGraphXyPadReconcileMirroredAxes(pad);
-    nodeGraphXyPadSyncSharedSmoothingMeta(pad);
     if (pad._xyPadDragging) {
       return;
-    }
-    // "Then smooth": re-snap targets when lattice / mode changes idle.
-    if (nodeGraphXyPadQuantizeInputMode(pad) === 2) {
-      const cur = nodeGraphXyPadReadAxes(pad);
-      const snapped = nodeGraphXyPadSnapUnit(pad, cur.x, cur.y);
-      if (
-        Math.abs(snapped.x - cur.x) > 1e-9
-        || Math.abs(snapped.y - cur.y) > 1e-9
-      ) {
-        nodeGraphXyPadWritePosition(pad, snapped.x, snapped.y, { interaction: "drag" });
-      }
     }
     drawNodeGraphXyPad(pad);
   };
@@ -1046,13 +1234,11 @@ function createNodeGraphXyPadBody(node, type) {
   return pad;
 }
 
-// Ghost + phosphor residual track live CV; only redraw when inputs are patched
-// (parameter changes go through syncFromParameters).
+// Phosphor follows Out X/Y (Phase+CV → filter order). Redraw on every scope
+// snapshot so Papoulis glide / CV motion paint even while the mouse is held still.
 addNodeGraphModuleScopeSnapshotListener(() => {
   for (const pad of document.querySelectorAll(".node-xy-pad")) {
-    if (nodeGraphXyPadInputConnected(pad, "X") || nodeGraphXyPadInputConnected(pad, "Y")) {
-      drawNodeGraphXyPad(pad);
-    }
+    nodeGraphXyPadScheduleDraw(pad);
   }
 });
 

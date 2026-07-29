@@ -441,18 +441,14 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
     if (nodeGraphVisualSinkActiveInPlan(node, { bypassedNodes })) {
       markReachable(node.id);
     }
-    // Solid-shell interactive modules (bug button, XY pad, ...) evaluate for
-    // their on-screen face, not only for downstream audio: a wired input
-    // (e.g. XY Pad X/Y -> Bug Button X/Y) has to reach the evaluator so the
-    // captured __Visual* / ghost scope ports drive the face even when the
-    // module's own outputs go nowhere. Marking it reachable also pulls its
-    // upstream sources (the XY pad itself) into the schedule.
+    // Solid-shell interactive modules (bug button, XY pad, ...) always evaluate
+    // for their on-screen face — not only when wired into the speaker path.
+    // XY Pad needs this so Phase+CV still runs through audio-rate Smoothing
+    // (Papoulis) and scope capture feeds the phosphor even when Out X/Y are
+    // unconnected. Marking reachable also pulls any CV sources upstream.
     if (
       !bypassedNodes.has(node.id) &&
-      nodeGraphChromelessModuleUsesSolidShell(node.type) &&
-      nodeGraphPatchNodeInputPorts(node).some((port) =>
-        (graph.inputConnections.get(nodeGraphInputKey(node.id, port)) || []).length > 0
-      )
+      nodeGraphChromelessModuleUsesSolidShell(node.type)
     ) {
       markReachable(node.id);
     }

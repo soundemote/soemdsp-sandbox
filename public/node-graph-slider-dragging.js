@@ -327,6 +327,25 @@ function setNodeSliderValue(slider, value, options = {}) {
   if (!alreadyPending || graphCurveLiveParam) {
     scheduleNodeGraphLiveParameterSync();
   }
+  // Module levels ↔ bottom toolbar 🔊 mirrors.
+  const nodeType = slider.closest?.(".dsp-node")?.dataset?.nodeType;
+  const param = slider?.dataset?.param;
+  if (
+    !nodeGraphMvp?._outputVolumeMirrorLock
+    && param === "volume"
+    && nodeType === "output"
+    && typeof syncNodeGraphLiveOutputVolumeFromOutputModule === "function"
+  ) {
+    syncNodeGraphLiveOutputVolumeFromOutputModule();
+  }
+  if (
+    !nodeGraphMvp?._inputVolumeMirrorLock
+    && param === "level"
+    && nodeType === "audioInput"
+    && typeof syncNodeGraphLiveInputVolumeFromInputModule === "function"
+  ) {
+    syncNodeGraphLiveInputVolumeFromInputModule();
+  }
 }
 
 function nodeSliderSegmentValueFromPointer(slider, surface, clientX) {

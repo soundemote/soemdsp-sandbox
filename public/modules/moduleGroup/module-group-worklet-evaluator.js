@@ -53,6 +53,7 @@ NodeLiveAudioProcessor.prototype.createNestedRuntime = function createNestedRunt
   runtime.oversamplingRatio = this.oversamplingRatio;
   runtime.passiveFilterStates = new Map();
   runtime.papoulisFilterStates = new Map();
+  runtime.xyPadFilterStates = new Map();
   runtime.phosphillatorPlaybackStates = new Map();
   runtime.clockDividerStates = new Map();
   runtime.clockStates = new Map();

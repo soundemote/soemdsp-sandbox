@@ -106,6 +106,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-chromeless-module-registry.js",
     "./public/modules/led/led-register.js",
     "./public/modules/bugButton/bug-button-register.js",
+    "./public/modules/xyPad/xy-pad-dsp.js",
     "./public/modules/xyPad/xy-pad-register.js",
     "./public/modules/stepGrid/step-grid-register.js",
     "./public/node-graph-module-definitions.js",
@@ -167,6 +168,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/groupOutput/group-output-ui.js",
     "./public/node-graph-module-header-rendering.js",
     "./public/node-graph-module-rendering.js",
+    "./public/node-graph-module-frame.js",
     "./public/node-graph-history.js",
     "./public/node-graph-visual-utils.js",
     "./public/node-graph-patch-clone.js",
@@ -362,6 +364,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/gain/gain-live-evaluator.js",
     "./public/modules/led/led-live-evaluator.js",
     "./public/modules/bugButton/bug-button-live-evaluator.js",
+    "./public/modules/xyPad/xy-pad-dsp.js",
     "./public/modules/xyPad/xy-pad-live-evaluator.js",
     "./public/modules/gainBias/gain-bias-live-evaluator.js",
     "./public/modules/bias/bias-live-evaluator.js",
@@ -460,6 +463,7 @@ WORKLET_BLOB_SOURCE_FILES = (
     "modules/pluckEnvelope/pluck-envelope-worklet-evaluator.js",
     "modules/vactrolEnvelopeSeries/vactrol-envelope-series-worklet-evaluator.js",
     "modules/bugButton/bug-button-worklet-evaluator.js",
+    "modules/xyPad/xy-pad-dsp.js",
     "modules/xyPad/xy-pad-worklet-evaluator.js",
     "modules/flowerChildEnvelopeFollower/flower-child-envelope-follower-worklet-evaluator.js",
     "modules/spiral/spiral-worklet-evaluator.js",
@@ -4015,6 +4019,30 @@ def require_bug_button_interaction_contract() -> None:
     )
 
 
+def require_module_frame_port_gap_contract() -> None:
+    script_sources = read_public_script_sources()
+    frame = script_sources["./public/node-graph-module-frame.js"]
+    styles = (PUBLIC / "styles.css").read_text(encoding="utf-8")
+    patch_core = script_sources["./public/node-graph-patch-core.js"]
+    for snippet in [
+        "function updateNodeGraphModuleFrame(nodeElement)",
+        "function nodeGraphModuleFrameBuildPath",
+        "function syncNodeGraphModuleFramesAfterDom",
+        "node-module-frame-path",
+    ]:
+        require(snippet in frame, f"module frame missing {snippet}")
+    require(
+        "syncNodeGraphModuleFramesAfterDom" in patch_core,
+        "patch DOM sync should refresh module frames",
+    )
+    require(
+        ".node-module-frame" in styles
+        and "outline: none" in styles
+        and "node-module-frame-path" in styles,
+        "module CSS should use SVG frame without box outline over ports",
+    )
+
+
 def require_xy_pad_interaction_contract() -> None:
     script_sources = read_public_script_sources()
     ui_source = script_sources["./public/modules/xyPad/xy-pad-ui.js"]
@@ -4030,26 +4058,36 @@ def require_xy_pad_interaction_contract() -> None:
         "function nodeGraphXyPadReanchorDrag(pad, drag, event)",
         "drag.startX + ((event.clientX - drag.startClientX)",
         "drag.startY - ((event.clientY - drag.startClientY)",
-        "if (drag.absolute)",
+        "nodeGraphXyPadApplyPointer(pad, event, drag)",
+        "pad._xyPadPos",
         "ctx.arc(px, py, 7 * dpr, 0, Math.PI * 2)",
-        'ctx.strokeStyle = "rgba(127, 199, 217, 0.24)"',
-        'ctx.fillStyle = "rgba(177, 132, 255, 0.38)"',
+        "nodeGraphXyPadSnapUnit(pad, targetX, targetY)",
+        "nodeGraphModuleScopeLatestOutputValue(nodeId, \"X\"",
+        'ctx.fillStyle = "rgba(177, 132, 255, 0.48)"',
         "function nodeGraphXyPadInputConnected(pad, port)",
         'addNodeGraphModuleScopeSnapshotListener(() =>',
+        "liveDeposit,",
+        "pad._xyPadLastDrawFp",
+        "nodeGraphXyPadScheduleDraw(pad)",
     ]:
         require(snippet in ui_source, f"XY Pad relative-drag contract missing {snippet}")
     require(
         'solidModule: true' in register_source
         and 'inputs: ["X", "Y"]' in register_source
         and '"X In": "X"' in register_source
-        and '"Y In": "Y"' in register_source,
-        "XY Pad should expose concise X/Y input labels while preserving old patch aliases",
+        and '"Y In": "Y"' in register_source
+        and 'linearSmoothing: false' in register_source
+        and 'key: "papoulis"' in register_source
+        and 'key: "filterOrder"' in register_source
+        and 'label: "Smoothing"' in register_source
+        and 'label: "Filter Order"' in register_source,
+        "XY Pad should expose X/Y inputs, unsmoothed params, Smoothing + Filter Order",
     )
     require(
         "nodeGraphChromelessModuleUsesSolidShell(node.type)" in execution_plan_source
         and "function nodeGraphModuleScopeLatestOutputValue(nodeId, port, fallback = null)" in scope_source
         and "function addNodeGraphModuleScopeSnapshotListener(listener)" in scope_source,
-        "XY Pad ghost position should use captured live output values",
+        "XY Pad phosphor trail should use captured live output values",
     )
     require(
         "registerNodeGraphChromelessModuleUi(" in ui_source
@@ -4058,8 +4096,10 @@ def require_xy_pad_interaction_contract() -> None:
         "XY Pad should be fully self-registered instead of duplicated in shared module tables",
     )
     require(
-        'Boolean(event?.altKey) && !(event?.shiftKey && (event.ctrlKey || event.metaKey))' in ui_source,
-        "XY Pad should use absolute pointer positioning only under the app-wide Alt modifier",
+        "function nodeGraphXyPadAbsolutePointerMode(event)" in ui_source
+        and "return !Boolean(event?.shiftKey)" in ui_source
+        and "window.addEventListener(\"pointermove\", onWindowPointerMove, true)" in ui_source,
+        "XY Pad should place the puck under the cursor by default (Shift = relative) with window-level drag tracking",
     )
 
 
@@ -18367,6 +18407,7 @@ def run_valid_manifest_smoke(port: int, manifest: Path) -> None:
         run_step("node graph MVP contract", require_node_graph_mvp_contract)
         run_step("chromeless module registry contract", require_chromeless_module_registry_contract)
         run_step("bug button interaction contract", require_bug_button_interaction_contract)
+        run_step("module frame port-gap contract", require_module_frame_port_gap_contract)
         run_step("XY pad interaction contract", require_xy_pad_interaction_contract)
         run_step("README scheduler contract", require_readme_scheduler_contract)
         run_step("soemdsp WireMeta traits", require_soemdsp_wire_meta_traits)

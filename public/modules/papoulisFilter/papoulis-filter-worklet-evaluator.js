@@ -1,20 +1,10 @@
+// Native papoulis_filter.wasm only — no JS filter path.
 NodeLiveAudioProcessor.prototype.createPapoulisFilterState = function createPapoulisFilterState() {
-    return {
-      poleX1: 0,
-      poleY1: 0,
-      biquadX1: 0,
-      biquadX2: 0,
-      biquadY1: 0,
-      biquadY2: 0,
-      coeffs: null,
-      cutoffHz: NaN,
-      sampleRate: NaN,
-      nativeHandle: 0,
-    };
+    return { nativeHandle: 0 };
   };
 
 NodeLiveAudioProcessor.prototype.papoulisFilterSample = function papoulisFilterSample(state, input, cutoffHz, rate) {
-    if (this.nativePapoulisFilterReady) {
+    if (this.nativePapoulisFilterReady && this.nativePapoulisFilter) {
       try {
         if (!state.nativeHandle) {
           state.nativeHandle = this.nativePapoulisFilter.soemdsp_papoulis_filter_create();
@@ -41,6 +31,7 @@ NodeLiveAudioProcessor.prototype.papoulisFilterSample = function papoulisFilterS
         });
       }
     }
+    // Dry when wasm is unavailable (no JS reimplementation).
     return this.safeFilterNumber(input, state) ?? 0;
   };
 

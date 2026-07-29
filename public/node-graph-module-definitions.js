@@ -2,8 +2,8 @@ const nodeGraphNodeLabels = Object.freeze({
   audioInput: "Input",
   codeblock: "Codeblock",
   customDisplay: "Custom Display",
-  // graph2: global "best curve through points" (no per-node shapes).
-  // graphCopy: same I/O/LFO wiring, but per-node shape/contour segments.
+  // graph2: point-to-point segments (shape + contour per control point).
+  // graphCopy: same as graph2 (kept as an alias-style twin).
   // (The old "graph" type was retired -- see nodeGraphRetiredNodeTypes.)
   graph2: "Graph",
   graphCopy: "Graph_Copy",
@@ -257,10 +257,8 @@ const nodeGraphModuleDefinitions = Object.freeze({
     outputs: ["Out"],
     parameters: [
       { choices: ["Input", "LFO"], defaultValue: "0", displayChoices: true, divideChoicesVisibly: true, key: "mode", label: "Mode", linearSmoothing: false, max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "1" },
-      // Quadratic/Cubic = Lagrange through the points (old "… Through" labels).
-      { choices: ["Linear", "Smooth", "Bezier", "Quadratic", "Cubic", "Catmull Rom"], defaultValue: "1", displayChoices: true, divideChoicesVisibly: true, key: "smoothingMode", label: "Smoothing", linearSmoothing: false, max: "5", mid: "2", min: "0", nonlinearSlider: false, step: "1" },
       { choices: ["Off", "On"], defaultValue: "0", displayChoices: true, divideChoicesVisibly: true, key: "lockEndpointY", label: "Lock Ends", linearSmoothing: false, max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "1" },
-      { defaultValue: "1", key: "tension", label: "Tension", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "0.01" },
+      // Segment shape/contour live on each control point (scene panel + face).
       { defaultValue: "1", key: "rate", kind: "frequency", label: "Rate", max: "40", maxDigits: 5, mid: "1", min: "0", step: "any", unit: "Hz" },
       { defaultValue: "0", key: "phase", kind: "phase", label: "Phase", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "0.01", unit: "cycle", wraparound: true },
       { defaultValue: "0", key: "inputMin", label: "In Min", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
@@ -269,8 +267,7 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { defaultValue: "1", key: "outputMax", label: "Out Max", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
     ],
   },
-  // Same wiring as graph2; evaluation uses per-node shape/contour instead of
-  // a single global smoothing mode (see nodeGraphGraphUsesPerNodeShapes).
+  // Same point-to-point segment model as graph2.
   graphCopy: {
     inputs: ["In"],
     layout: "graph",

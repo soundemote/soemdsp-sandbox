@@ -1,4 +1,18 @@
-const nodeGraphGraphShapes = Object.freeze(["linear", "smooth", "rational", "exponential", "hold"]);
+// Per-segment curve styles (point-to-point Graph / Graph_Copy).
+//   linear      — straight; contour ignored
+//   rational    — contour bends the chord (0 = straight)
+//   exponential — always curved; contour sets amount / direction
+//   log         — always curved (complement family); contour sets amount
+//   hold        — step until next point; contour ignored
+// "smooth" still normalizes for old data (maps to smoothstep, no contour).
+const nodeGraphGraphShapes = Object.freeze([
+  "linear",
+  "rational",
+  "exponential",
+  "log",
+  "hold",
+]);
+// Legacy global “through all points” modes (not exposed on Graph anymore).
 const nodeGraphGraph2SmoothingModes = Object.freeze(["linear", "smooth", "bezier", "quadratic", "cubic", "catmullRom"]);
 
 const nodeGraphDefaultGraphData = Object.freeze({
@@ -177,7 +191,14 @@ function parseNodeGraphGraphClipboard(text) {
 }
 
 function normalizeNodeGraphGraphShape(value) {
-  const shape = String(value || "").trim();
+  const shape = String(value || "").trim().toLowerCase();
+  if (shape === "logarithmic") {
+    return "log";
+  }
+  // Old "smooth" (S-curve) still evaluates; not offered in the UI list.
+  if (shape === "smooth") {
+    return "smooth";
+  }
   return nodeGraphGraphShapes.includes(shape) ? shape : "rational";
 }
 
@@ -283,10 +304,10 @@ function nodeGraphGraphSmoothCurve(position) {
   return p * p * (3 - 2 * p);
 }
 
-// Graph_Copy (and any future per-segment module) uses per-node shape/contour.
-// Graph (graph2) fits a single global smoothing mode through the points.
+// Point-to-point graphs: each control point owns the outgoing segment’s
+// shape + contour (lin / smooth / rational / expo / log / hold).
 function nodeGraphGraphUsesPerNodeShapes(type) {
-  return type === "graphCopy";
+  return type === "graph2" || type === "graphCopy" || type === "graph";
 }
 
 function nodeGraphGraphUsesGlobalSmoothing(type) {
@@ -304,15 +325,46 @@ function nodeGraphGraphRationalCurve(position, contour = 0) {
     : p / (1 - c + c * p);
 }
 
+/**
+ * Exponential ease: (e^{k p} − 1) / (e^k − 1).
+ * Contour 0 → clear mid curve (not a line). Positive = stronger bow; negative flips.
+ */
 function nodeGraphGraphExponentialCurve(position, contour = 0) {
   const p = normalizeNodeGraphGraphNumber(position, 0, 0, 1);
-  const c = normalizeNodeGraphGraphNumber(0.5 * (contour + 1), 0.5, 0.001, 0.999);
-  const a = 2 * Math.log((1 - c) / c);
-  if (!Number.isFinite(a) || Math.abs(a) < 0.000001) {
+  const t = normalizeNodeGraphGraphNumber(contour, 0, -0.999, 0.999);
+  // |k| from ~1.2 (mild, always visible) to ~8 (hard).
+  const mag = 1.2 + 6.8 * Math.abs(t);
+  const k = t < 0 ? -mag : mag;
+  if (Math.abs(k) < 0.05) {
     return p;
   }
-  const denominator = 1 - Math.exp(a);
-  return Math.abs(denominator) < 0.000001 ? p : (1 - Math.exp(p * a)) / denominator;
+  const ek = Math.exp(k);
+  const denom = ek - 1;
+  if (Math.abs(denom) < 1e-9) {
+    return p;
+  }
+  return (Math.exp(k * p) - 1) / denom;
+}
+
+/**
+ * Log ease: log(1 + p (b − 1)) / log(b) — complement family to exponential.
+ * Contour 0 → clear mid curve. Sign flips which way it bows.
+ */
+function nodeGraphGraphLogarithmicCurve(position, contour = 0) {
+  const p = normalizeNodeGraphGraphNumber(position, 0, 0, 1);
+  const t = normalizeNodeGraphGraphNumber(contour, 0, -0.999, 0.999);
+  // b > 1 always; larger |t| → stronger log bend.
+  const b = Math.exp(1.2 + 5.5 * Math.abs(t));
+  if (!Number.isFinite(b) || b <= 1.000001) {
+    return p;
+  }
+  const denom = Math.log(b);
+  if (!Number.isFinite(denom) || Math.abs(denom) < 1e-9) {
+    return p;
+  }
+  const y = Math.log(1 + p * (b - 1)) / denom;
+  // Negative contour mirrors the ease (log-down vs log-up).
+  return t < 0 ? 1 - Math.log(1 + (1 - p) * (b - 1)) / denom : y;
 }
 
 function normalizeNodeGraphGraph2SmoothingMode(value) {
@@ -637,6 +689,9 @@ function nodeGraphGraphLegacySegmentShape(p, right) {
   const shape = normalizeNodeGraphGraphShape(right?.shape);
   if (shape === "exponential") {
     return nodeGraphGraphExponentialCurve(p, contour);
+  }
+  if (shape === "log" || shape === "logarithmic") {
+    return nodeGraphGraphLogarithmicCurve(p, contour);
   }
   if (shape === "hold") {
     return p >= 1 ? 1 : 0;
