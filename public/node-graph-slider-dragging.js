@@ -849,6 +849,12 @@ function flushNodeSliderReadoutUpdates() {
   for (const nodeElement of touchedNodes) {
     syncNodeGraphParameterVisualsForNodeElement(nodeElement);
   }
+  // Metaparameter→metaparameter ghosts: source/dest values are live on the
+  // inputs, but drag uses deferUi and skips the full sync path — refresh
+  // ghosts once per frame here so the ghost handle tracks while dragging.
+  if (typeof syncNodeGraphGhostSliders === "function") {
+    syncNodeGraphGhostSliders();
+  }
   // Any param change can feed a filter curve (own cutoff or a modulator source
   // that ghosts into another node's cutoff) — coalesce one redraw for all faces.
   if (typeof scheduleNodeGraphFilterCurveDraw === "function") {
