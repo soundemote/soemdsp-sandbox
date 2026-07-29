@@ -6,20 +6,43 @@
 //   → Out (and the same sample feeds the phosphor drawer)
 // Papoulis is native wasm only (no JS filter).
 
-function nodeGraphXyPadDspDivisions(quantize) {
+/**
+ * Center-based quantize level from the 0..1 amount.
+ *   0  → off (free continuous position)
+ *   1  → center only (always snap to 0.5)
+ *   2+ → half-steps from center to each edge = level−1
+ *        so 0.5 is always a lattice point (e.g. 2 → 0 / 0.5 / 1)
+ */
+function nodeGraphXyPadDspQuantizeLevels(quantize) {
   const q = Math.max(0, Math.min(1, Number(quantize) || 0));
-  return q <= 0 ? 1 : 1 + Math.max(1, Math.round(q * 16));
+  if (q <= 0) {
+    return 0;
+  }
+  return Math.max(1, Math.round(q * 16));
+}
+
+/** @deprecated alias — returns center-based levels (0 = off). */
+function nodeGraphXyPadDspDivisions(quantize) {
+  return nodeGraphXyPadDspQuantizeLevels(quantize);
 }
 
 function nodeGraphXyPadDspQuantizeUnit(value, quantize) {
-  const divisions = nodeGraphXyPadDspDivisions(quantize);
+  const levels = nodeGraphXyPadDspQuantizeLevels(quantize);
   const v = Number(value);
   const unit = Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.5;
-  if (divisions <= 1) {
+  if (levels <= 0) {
     return unit;
   }
-  const step = 1 / divisions;
-  return Math.max(0, Math.min(1, Math.round(unit / step) * step));
+  // Level 1: single center line / snap target.
+  if (levels === 1) {
+    return 0.5;
+  }
+  // Grow outward from center: k ∈ [−half, +half], unit = 0.5 + k * (0.5 / half).
+  const halfSteps = levels - 1;
+  const step = 0.5 / halfSteps;
+  const k = Math.round((unit - 0.5) / step);
+  const clampedK = Math.max(-halfSteps, Math.min(halfSteps, k));
+  return 0.5 + clampedK * step;
 }
 
 function nodeGraphXyPadDspUnitToBipolar(unit) {

@@ -92,6 +92,7 @@ registerNodeGraphChromelessModule("xyPad", {
         min: "0",
         nonlinearSlider: false,
         step: "any",
+        tooltip: "Center-based lattice: off at 0; first step snaps to center only; higher values grow steps outward so 0.5 is always available.",
       },
       {
         defaultValue: "0",
@@ -103,6 +104,7 @@ registerNodeGraphChromelessModule("xyPad", {
         min: "0",
         nonlinearSlider: false,
         step: "any",
+        tooltip: "Center-based lattice: off at 0; first step snaps to center only; higher values grow steps outward so 0.5 is always available.",
       },
       {
         defaultValue: "0.5",

@@ -1,8 +1,8 @@
 // XY Pad's custom body -- solid-module center face (inputs left / pad /
 // outputs right) with quantize + phase sliders below. Hidden x/y/gate drive
 // the worklet; visible X/Y Phase sliders are value-mirrors of pad x/y (same
-// control, two surfaces). Quantize only coarsens the lattice (no separate
-// phase offset — phase IS position).
+// control, two surfaces). Quantize is a center-based lattice (level 1 =
+// center only; denser levels grow outward so 0.5 is always a snap target).
 
 const nodeGraphXyPadResizeObserver = typeof ResizeObserver === "function"
   ? new ResizeObserver((entries) => {
@@ -12,12 +12,16 @@ const nodeGraphXyPadResizeObserver = typeof ResizeObserver === "function"
   })
   : null;
 
+/** Center-based quantize levels (0 = off, 1 = center only, 2+ grow outward). */
 function nodeGraphXyPadDivisions(quantize) {
-  return typeof nodeGraphXyPadDspDivisions === "function"
-    ? nodeGraphXyPadDspDivisions(quantize)
-    : (Math.max(0, Math.min(1, Number(quantize) || 0)) <= 0
-      ? 1
-      : 1 + Math.max(1, Math.round(Math.max(0, Math.min(1, Number(quantize) || 0)) * 16)));
+  if (typeof nodeGraphXyPadDspQuantizeLevels === "function") {
+    return nodeGraphXyPadDspQuantizeLevels(quantize);
+  }
+  if (typeof nodeGraphXyPadDspDivisions === "function") {
+    return nodeGraphXyPadDspDivisions(quantize);
+  }
+  const q = Math.max(0, Math.min(1, Number(quantize) || 0));
+  return q <= 0 ? 0 : Math.max(1, Math.round(q * 16));
 }
 
 // Lattice snap for puck/grid only (audio uses the same math in xy-pad-dsp.js).
@@ -752,7 +756,9 @@ function drawNodeGraphXyPad(pad, options = {}) {
     || nodeGraphXyPadInputConnected(pad, "Y");
   const dragging = Boolean(options.dragging || pad._xyPadDragging);
   if (!dragging && !options.force) {
-    const fp = `${width}x${height}:${Math.round(px)},${Math.round(py)},${Math.round(trailX)},${Math.round(trailY)},${ghostConnected ? 1 : 0},${phosphor.fromOut ? 1 : 0}:${outPath?.points?.length || 0}:${beamSize01.toFixed(3)}:${puckSize01.toFixed(3)}`;
+    const qX = nodeGraphXyPadParam(pad, "xQuantize", 0);
+    const qY = nodeGraphXyPadParam(pad, "yQuantize", 0);
+    const fp = `${width}x${height}:${Math.round(px)},${Math.round(py)},${Math.round(trailX)},${Math.round(trailY)},${ghostConnected ? 1 : 0},${phosphor.fromOut ? 1 : 0}:${outPath?.points?.length || 0}:${beamSize01.toFixed(3)}:${puckSize01.toFixed(3)}:q${Number(qX).toFixed(3)},${Number(qY).toFixed(3)}`;
     if (pad._xyPadLastDrawFp === fp) {
       return;
     }
@@ -807,19 +813,19 @@ function drawNodeGraphXyPad(pad, options = {}) {
   });
 
   // ── Cheap vector UI overlay (not part of the energy residual) ────────
-  // Quantize grid (controller chrome).
+  // Center-based quantize grid: level 1 = center only; higher levels grow out.
   const drawGrid = (quantKey, vertical) => {
-    const divisions = nodeGraphXyPadDivisions(nodeGraphXyPadParam(pad, quantKey, 0));
-    if (divisions <= 1) {
+    const levels = nodeGraphXyPadDivisions(nodeGraphXyPadParam(pad, quantKey, 0));
+    if (levels <= 0) {
       return;
     }
-    const step = 1 / divisions;
     const strength = Math.max(0, Math.min(1, nodeGraphXyPadParam(pad, quantKey, 0)));
-    ctx.strokeStyle = `rgba(127, 199, 217, ${0.10 + strength * 0.16})`;
-    ctx.lineWidth = Math.max(1, dpr * 0.75);
-    ctx.beginPath();
-    for (let i = 0; i <= divisions; i += 1) {
-      const t = i * step;
+    const strokeLine = (t, emphasize = false) => {
+      ctx.strokeStyle = `rgba(127, 199, 217, ${
+        emphasize ? 0.18 + strength * 0.22 : 0.10 + strength * 0.16
+      })`;
+      ctx.lineWidth = Math.max(1, dpr * (emphasize ? 1 : 0.75));
+      ctx.beginPath();
       if (vertical) {
         const x = Math.round(t * width) + 0.5;
         ctx.moveTo(x, 0);
@@ -829,8 +835,17 @@ function drawNodeGraphXyPad(pad, options = {}) {
         ctx.moveTo(0, y);
         ctx.lineTo(width, y);
       }
+      ctx.stroke();
+    };
+    if (levels === 1) {
+      strokeLine(0.5, true);
+      return;
     }
-    ctx.stroke();
+    const halfSteps = levels - 1;
+    const step = 0.5 / halfSteps;
+    for (let k = -halfSteps; k <= halfSteps; k += 1) {
+      strokeLine(0.5 + k * step, k === 0);
+    }
   };
   drawGrid("xQuantize", true);
   drawGrid("yQuantize", false);
