@@ -19,14 +19,6 @@ NodeLiveAudioProcessor.prototype.pulseExplosionRaisedCosineEase = function pulse
     return 1 - (0.5 + 0.5 * Math.sin((p - 0.5) * Math.PI));
   };
 
-NodeLiveAudioProcessor.prototype.pulseExplosionDensity = function pulseExplosionDensity(t, startTime, centerTime, endTime, skew) {
-    if (t <= startTime || t >= endTime) return 0;
-    const ease = t < centerTime
-      ? this.pulseExplosionRaisedCosineEase(t, centerTime, startTime)
-      : this.pulseExplosionRaisedCosineEase(t, centerTime, endTime);
-    return Math.max(0, Math.min(1, this.pulseExplosionRationalCurve(ease, skew)));
-  };
-
 NodeLiveAudioProcessor.prototype.pulseExplosionMulberry32 = function pulseExplosionMulberry32(seed) {
     let a = seed >>> 0;
     return function pulseExplosionNext() {
@@ -49,72 +41,6 @@ NodeLiveAudioProcessor.prototype.pulseExplosionSeedHash = function pulseExplosio
     x = Math.imul(x, 0x846ca68b) >>> 0;
     x ^= x >>> 16;
     return (x >>> 0) || 0x9e3779b9;
-  };
-
-NodeLiveAudioProcessor.prototype.pulseExplosionRandomFn = function pulseExplosionRandomFn(seed) {
-    const seedNumber = Number(seed) || 0;
-    if (seedNumber === 0) {
-      return Math.random;
-    }
-    return this.pulseExplosionMulberry32(this.pulseExplosionSeedHash(seedNumber));
-  };
-
-NodeLiveAudioProcessor.prototype.pulseExplosionSampleJs = function pulseExplosionSampleJs(state, trigger, params, rate) {
-    const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
-    const safeStart = Math.max(0, this.safeFilterNumber(params.startTime, state));
-    let safeEnd = this.safeFilterNumber(params.endTime, state);
-    if (safeEnd <= safeStart) safeEnd = safeStart + 0.001;
-    let safeCenter = this.clampValue(this.safeFilterNumber(params.centerTime, state), safeStart, safeEnd);
-    if (safeCenter <= safeStart) safeCenter = safeStart + 1e-6;
-    if (safeCenter >= safeEnd) safeCenter = safeEnd - 1e-6;
-    const skew = -0.99 + 1.98 * this.clampValue(this.safeFilterNumber(params.timeSpread, state), 0, 1);
-    const safeCount = Math.max(1, Math.min(128, Math.round(Number(params.numberOfPulses) || 1)));
-    const lo = Math.min(Number(params.lowAmplitude) || 0, Number(params.highAmplitude) || 0);
-    const hi = Math.max(Number(params.lowAmplitude) || 0, Number(params.highAmplitude) || 0);
-
-    const high = this.safeFilterNumber(trigger, state) > 0.5;
-    if (high && !state.wasHigh) {
-      state.nextPulseIndex = 0;
-      state.elapsed = 0;
-      state.exploding = true;
-
-      const random = this.pulseExplosionRandomFn(params.seed);
-      const pulses = [];
-      for (let i = 0; i < safeCount; i++) {
-        let chosenTime = safeCenter;
-        for (let attempt = 0; attempt < 200; attempt++) {
-          const candidate = safeStart + (safeEnd - safeStart) * random();
-          const roll = random();
-          const density = this.pulseExplosionDensity(candidate, safeStart, safeCenter, safeEnd, skew);
-          if (roll < density) {
-            chosenTime = candidate;
-            break;
-          }
-        }
-        pulses.push({ time: chosenTime, amplitude: lo + (hi - lo) * random() });
-      }
-      pulses.sort((a, b) => a.time - b.time);
-      state.pulses = pulses;
-    }
-    state.wasHigh = high;
-
-    let output = 0;
-    if (state.exploding) {
-      if (state.nextPulseIndex < state.pulses.length && state.elapsed >= state.pulses[state.nextPulseIndex].time) {
-        output = state.pulses[state.nextPulseIndex].amplitude;
-        state.nextPulseIndex++;
-      }
-      state.elapsed += 1 / safeRate;
-      if (state.nextPulseIndex >= state.pulses.length && state.elapsed > safeEnd) {
-        state.exploding = false;
-      }
-    }
-
-    const curve = this.pulseExplosionDensity(state.elapsed, safeStart, safeCenter, safeEnd, skew);
-    return {
-      Out: this.safeFilterNumber(output, state),
-      Curve: this.safeFilterNumber(curve, state),
-    };
   };
 
 NodeLiveAudioProcessor.prototype.pulseExplosionSample = function pulseExplosionSample(state, trigger, params, rate = sampleRate) {
@@ -157,6 +83,6 @@ NodeLiveAudioProcessor.prototype.pulseExplosionSample = function pulseExplosionS
         });
       }
     }
-    return this.pulseExplosionSampleJs(state, trigger, params, rate);
+    return { Out: 0, Curve: 0 };
   };
 

@@ -6,63 +6,6 @@ NodeLiveAudioProcessor.prototype.createComparatorState = function createComparat
     };
   };
 
-NodeLiveAudioProcessor.prototype.comparatorSampleJs = function comparatorSampleJs(state, signalIn, params, rate) {
-    const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
-    const changeAmount = this.safeFilterNumber(params.changeAmount, state);
-    const pulseTime = Math.max(0, this.safeFilterNumber(params.pulseTime, state));
-    const triggerLevel = this.safeFilterNumber(params.triggerLevel, state);
-    const pulseLevel = this.safeFilterNumber(params.pulseLevel, state);
-    const raw = this.safeFilterNumber(signalIn, state);
-
-    const high = raw > changeAmount;
-    const risingEdge = high && !state.wasHigh;
-    const fallingEdge = !high && state.wasHigh;
-    state.wasHigh = high;
-
-    if (high) {
-      state.lastHighValue = raw;
-    } else {
-      state.lastLowValue = raw;
-    }
-
-    const unchanged = state.hasPrev && raw === state.prevRaw;
-    state.prevRaw = raw;
-    state.hasPrev = true;
-
-    let upSpike = 0;
-    if (risingEdge) {
-      upSpike = triggerLevel;
-      state.upPulseSamples = Math.max(1, Math.round(pulseTime * safeRate));
-    }
-    let downSpike = 0;
-    if (fallingEdge) {
-      downSpike = triggerLevel;
-      state.downPulseSamples = Math.max(1, Math.round(pulseTime * safeRate));
-    }
-
-    const upPlateau = state.upPulseSamples > 0 ? pulseLevel : 0;
-    const downPlateau = state.downPulseSamples > 0 ? pulseLevel : 0;
-    state.upPulseSamples = Math.max(0, state.upPulseSamples - 1);
-    state.downPulseSamples = Math.max(0, state.downPulseSamples - 1);
-
-    const gate = high ? triggerLevel : 0;
-    const invGate = high ? 0 : triggerLevel;
-    const hold = unchanged ? triggerLevel : 0;
-    const up = upSpike + upPlateau;
-    const down = downSpike + downPlateau;
-
-    return {
-      Gate: this.safeFilterNumber(gate, state),
-      "Inv Gate": this.safeFilterNumber(invGate, state),
-      Hold: this.safeFilterNumber(hold, state),
-      "Up Trig": this.safeFilterNumber(up, state),
-      "Down Trig": this.safeFilterNumber(down, state),
-      "UpDn Trig": this.safeFilterNumber(up + down, state),
-      "Last High": this.safeFilterNumber(state.lastHighValue, state),
-      "Last Low": this.safeFilterNumber(state.lastLowValue, state),
-    };
-  };
-
 NodeLiveAudioProcessor.prototype.comparatorSample = function comparatorSample(state, signalIn, params, rate = sampleRate) {
     if (this.nativeComparatorReady) {
       try {
@@ -112,5 +55,5 @@ NodeLiveAudioProcessor.prototype.comparatorSample = function comparatorSample(st
         });
       }
     }
-    return this.comparatorSampleJs(state, signalIn, params, rate);
+    return { Gate: 0, "Inv Gate": 0, Hold: 0, "Up Trig": 0, "Down Trig": 0, "UpDn Trig": 0, "Last High": 0, "Last Low": 0 };
   };

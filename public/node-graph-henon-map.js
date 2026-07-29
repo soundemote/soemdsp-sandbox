@@ -1,49 +1,62 @@
+// Offline / main-thread glue for henon_map.wasm — no pure-JS DSP mirror.
+// Silent (0,0) until wasm finishes loading. Live path uses worklet native only.
+
+const nodeGraphHenonMapWasm = { promise: null, exports: null, failed: false };
+
+function nodeGraphHenonMapLoadWasm() {
+  if (nodeGraphHenonMapWasm.promise || typeof fetch !== "function" || typeof WebAssembly === "undefined") {
+    return;
+  }
+  nodeGraphHenonMapWasm.promise = fetch("/native_modules/henon_map/henon_map.wasm")
+    .then((response) => response.arrayBuffer())
+    .then((bytes) => WebAssembly.instantiate(bytes, {}))
+    .then((result) => {
+      nodeGraphHenonMapWasm.exports = result.instance.exports;
+    })
+    .catch(() => {
+      nodeGraphHenonMapWasm.failed = true;
+    });
+}
+
 function createNodeGraphHenonMapState() {
-  return { hasStarted: false, phase: 0, x: 0, y: 0 };
+  return { nativeHandle: 0 };
 }
 
-function resetNodeGraphHenonMapState(state, seedX, seedY) {
-  state.x = Math.max(-1, Math.min(1, Number(seedX) || 0));
-  state.y = Math.max(-1, Math.min(1, Number(seedY) || 0));
-  state.phase = 0;
-  state.hasStarted = true;
+function destroyNodeGraphHenonMapNativeState(state) {
+  const wasm = nodeGraphHenonMapWasm.exports;
+  if (state?.nativeHandle && wasm?.soemdsp_henon_map_destroy) {
+    wasm.soemdsp_henon_map_destroy(state.nativeHandle);
+    state.nativeHandle = 0;
+  }
 }
 
-// Discrete 2D chaotic map (x, y) = (1 - a*x^2 + y, b*x), stepped forward by a
-// clocked Rate (Hz) like Logistic Map. Mirrors native_modules/henon_map
-// exactly; offline/JS path only, the realtime worklet prefers native WASM.
 function nodeGraphHenonMapSample(options = {}) {
+  nodeGraphHenonMapLoadWasm();
+  const wasm = nodeGraphHenonMapWasm.exports;
+  if (!wasm?.soemdsp_henon_map_create || !wasm?.soemdsp_henon_map_sample) {
+    return { x: 0, y: 0 };
+  }
   const state = options.state || createNodeGraphHenonMapState();
-  const resetActive = Number(options.reset) > 0;
-  const sampleRateValue = Math.max(1, Number(options.sampleRate) || 44100);
-  const rate = Math.max(0, Number(options.rate) || 0);
-  const a = Math.max(0, Math.min(2, Number(options.a) || 0));
-  const b = Math.max(-1, Math.min(1, Number(options.b) || 0));
-  const seedX = Number(options.seedX) || 0;
-  const seedY = Number(options.seedY) || 0;
-
-  if (resetActive || !state.hasStarted) {
-    resetNodeGraphHenonMapState(state, seedX, seedY);
+  if (!state.nativeHandle) {
+    state.nativeHandle = wasm.soemdsp_henon_map_create();
   }
-
-  if (!resetActive && rate > 0) {
-    state.phase += rate / sampleRateValue;
-    let iterations = 0;
-    while (state.phase >= 1 && iterations < 4096) {
-      state.phase -= 1;
-      const nextX = 1 - a * state.x * state.x + state.y;
-      const nextY = b * state.x;
-      state.x = Math.max(-4, Math.min(4, nextX));
-      state.y = Math.max(-4, Math.min(4, nextY));
-      iterations += 1;
-    }
-    if (state.phase >= 1) {
-      state.phase = 0;
-    }
+  if (!state.nativeHandle) {
+    return { x: 0, y: 0 };
   }
-
+  wasm.soemdsp_henon_map_sample(
+    state.nativeHandle,
+    Number(options.reset) > 0 ? 1 : 0,
+    Math.max(0, Number(options.rate) || 0),
+    Math.max(0, Math.min(2, Number(options.a) || 0)),
+    Math.max(-1, Math.min(1, Number(options.b) || 0)),
+    Number(options.seedX) || 0,
+    Number(options.seedY) || 0,
+    Math.max(1, Number(options.sampleRate) || 44100),
+  );
+  const x = wasm.soemdsp_henon_map_x(state.nativeHandle);
+  const y = wasm.soemdsp_henon_map_y(state.nativeHandle);
   return {
-    x: Math.max(-1, Math.min(1, state.x / 1.5)),
-    y: Math.max(-1, Math.min(1, state.y / 0.45)),
+    x: Number.isFinite(x) ? x : 0,
+    y: Number.isFinite(y) ? y : 0,
   };
 }

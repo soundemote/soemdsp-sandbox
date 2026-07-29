@@ -1519,27 +1519,134 @@ function configureNodeSceneContextMenu(mode) {
   }
 }
 
-function openNodeModuleActionMenu(event) {
+/**
+ * Shared: open Module Settings for a .dsp-node from any right-click/dblclick
+ * on that module (header, body, ports, parameter inputs, …).
+ * Never opens the Module Browser.
+ * @returns {boolean} true if handled
+ */
+function openNodeGraphModuleSettingsFromContextEvent(event, nodeElement = null) {
   ensureNodeGraphModuleActionsWindowBody();
-  const button = event.currentTarget;
-  const node = button.closest(".dsp-node");
-  if (!node) {
-    return;
+  const node = nodeElement
+    || event?.currentTarget?.closest?.(".dsp-node")
+    || event?.target?.closest?.(".dsp-node");
+  const nodeId = String(node?.dataset?.node || "").trim();
+  if (!node || !nodeId || !nodeGraphPatchNode(nodeId)) {
+    return false;
   }
-
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  event?.stopImmediatePropagation?.();
+  // Make this module the sole selection so Module Settings has a clear target
+  // even if a multi-selection was active under the pointer.
+  if (typeof setNodeGraphSelection === "function") {
+    setNodeGraphSelection({ type: "node", id: nodeId });
+  }
   nodeGraphMvp.sceneContextPoint = null;
-  closeNodeScopeContextMenu();
-  nodeGraphMvp.sceneContextTargetNode = node.dataset.node;
-  nodeGraphMvp.lastModuleActionTargetNode = node.dataset.node;
+  if (typeof closeNodeScopeContextMenu === "function") {
+    closeNodeScopeContextMenu();
+  }
+  nodeGraphMvp.sceneContextTargetNode = nodeId;
+  nodeGraphMvp.lastModuleActionTargetNode = nodeId;
   nodeGraphMvp.sceneContextTargetWire = null;
   configureNodeSceneContextMenu("module");
-  showNodeModuleActionsWindow(button.getBoundingClientRect());
+  nodeGraphMvp.sharedInspectorActive = "moduleActions";
+  const menu = document.getElementById("nodeModuleActionsWindow");
+  if (!menu) {
+    return false;
+  }
+  const clientX = Number(event?.clientX);
+  const clientY = Number(event?.clientY);
+  const x = Number.isFinite(clientX)
+    ? clientX
+    : (node.getBoundingClientRect?.().right ?? window.innerWidth * 0.5);
+  const y = Number.isFinite(clientY)
+    ? clientY
+    : (node.getBoundingClientRect?.().top ?? window.innerHeight * 0.25);
+  // Always re-position and force-unhide (do not early-return if already open —
+  // that left solid modules like XY Pad looking like right-click did nothing).
+  if (typeof positionNodeModuleActionsWindowAtSavedOr === "function") {
+    positionNodeModuleActionsWindowAtSavedOr(menu, x, y);
+  } else if (typeof positionNodeSceneContextMenu === "function") {
+    positionNodeSceneContextMenu(menu, x, y, true);
+  }
+  menu.hidden = false;
+  if (typeof syncNodeModuleActionsWindowHeightLimit === "function") {
+    syncNodeModuleActionsWindowHeightLimit();
+  }
+  if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
+    rememberNodeGraphWorkspaceWindowState(
+      "moduleActions",
+      menu,
+      { open: true },
+      { status: false },
+    );
+  }
+  return true;
+}
+
+function openNodeModuleActionMenu(event) {
+  // Module shell binds contextmenu on the whole .dsp-node, which runs before
+  // the document-level scene menu. Specialized display faces must claim the
+  // event here (and stopPropagation) or Module Settings always wins.
+  if (typeof openNodePhosphorWaveformContextMenu === "function" && openNodePhosphorWaveformContextMenu(event)) {
+    return;
+  }
+  if (typeof openNodeXyPadContextMenu === "function" && openNodeXyPadContextMenu(event)) {
+    return;
+  }
+  if (typeof openNodeScopeContextMenu === "function" && openNodeScopeContextMenu(event)) {
+    return;
+  }
+  openNodeGraphModuleSettingsFromContextEvent(event);
+}
+
+/**
+ * XY Pad solid face: right-click opens Module Settings (no header display gear).
+ * Matches LED / number-readout face behaviour: the phosphor plate is the settings hit target.
+ */
+function openNodeXyPadContextMenu(event) {
+  const target = event?.target;
+  if (!(target instanceof Element)) {
+    return false;
+  }
+  // Only claim when the hit is on the pad face (not parameter rows under the shell).
+  const face = target.closest?.(".node-xy-pad, .node-xy-pad-canvas");
+  if (!face) {
+    // Solid custom-ui wrapper (padding around the canvas) still counts.
+    const solidFace = target.closest?.(".node-solid-module-custom-ui");
+    const solidNode = solidFace?.closest?.(".dsp-node");
+    if (!solidFace || solidNode?.dataset?.nodeType !== "xyPad") {
+      return false;
+    }
+  }
+  const nodeEl = (face || target).closest?.(".dsp-node");
+  const nodeId = String(nodeEl?.dataset?.node || face?.dataset?.node || "").trim();
+  const patchNode = nodeId ? nodeGraphPatchNode(nodeId) : null;
+  if (!patchNode || patchNode.type !== "xyPad") {
+    return false;
+  }
   event.preventDefault();
   event.stopPropagation();
+  event.stopImmediatePropagation?.();
+  // Prefer phosphor Display Settings (color / background / reset canvas).
+  if (typeof openNodeGraphTraceDisplaySettings === "function") {
+    if (typeof setNodeGraphSelection === "function") {
+      setNodeGraphSelection({ type: "node", id: nodeId });
+    }
+    nodeGraphMvp.sceneContextTargetNode = nodeId;
+    nodeGraphMvp.lastModuleActionTargetNode = nodeId;
+    if (openNodeGraphTraceDisplaySettings(nodeId, event)) {
+      return true;
+    }
+  }
+  return openNodeGraphModuleSettingsFromContextEvent(event, nodeEl);
 }
 
 function openNodeScopeContextMenu(event) {
-  const contextScope = event.target.closest?.(".node-module-scope-window, .node-led-face");
+  const contextScope = event.target.closest?.(
+    ".node-module-scope-window, .node-led-face, .node-number-readout-face, .node-ray-bouncer-face",
+  );
   const nodeId = contextScope?.dataset?.node || "";
   if (!nodeId || !nodeGraphPatchNode(nodeId)) {
     return false;
@@ -1588,11 +1695,18 @@ function openNodePhosphorWaveformContextMenu(event) {
   return true;
 }
 
-const nodeGraphWorkspaceInteractiveDialogSelector =
-  "input, textarea, select, option, [contenteditable='true'], " +
+// Floating app chrome (not module body). Bare input/textarea are NOT listed
+// here — those appear on modules, and right-click on a module must open
+// Module Settings, never the Module Browser.
+const nodeGraphWorkspaceFloatingUiSelector =
   "#nodeSceneContextMenu, #nodeParameterMetadataPopover, #nodeGlobalScopeMenu, " +
   "#nodeModuleActionsWindow, #nodeCodeBoxWindow, #nodeShaderScriptDialog, #nodeCanvasScriptDialog, #nodeSavedPatchesWindow, " +
-  "#nodePhosphorWaveformSettingsWindow, #nodeLedSettingsWindow";
+  "#nodePhosphorWaveformSettingsWindow, #nodeLedSettingsWindow, #nodeModuleShopView, " +
+  "#nodeTraceDisplaySettingsPopover";
+// Legacy alias: includes form fields for empty-canvas / marquee checks only.
+const nodeGraphWorkspaceInteractiveDialogSelector =
+  "input, textarea, select, option, [contenteditable='true'], " +
+  nodeGraphWorkspaceFloatingUiSelector;
 const nodeGraphWorkspaceOccupiedElementSelector =
   ".node-wire-hit-path, .node-wire-path, .dsp-node, .node-port, .node-param-port, .node-slider-readout";
 
@@ -1618,16 +1732,28 @@ function openNodeSceneContextMenu(event) {
     event.stopPropagation();
     return;
   }
-  if (event.target.closest?.(nodeGraphWorkspaceInteractiveDialogSelector)) {
+  // Floating UI outside modules: leave alone (native / their own handlers).
+  // Module-owned inputs/selects must NOT bail here — they open Module Settings.
+  const onModule = event.target.closest?.(".dsp-node");
+  if (!onModule && event.target.closest?.(nodeGraphWorkspaceFloatingUiSelector)) {
     return;
   }
+  if (!onModule && event.target.closest?.("input, textarea, select, option, [contenteditable='true']")) {
+    // Editable chrome outside modules (rare) — don't hijack.
+    return;
+  }
+
+  // Specialized faces first (display settings, LED, phosphor waveform, XY pad, …).
   if (openNodeScopeContextMenu(event)) {
     return;
   }
   if (openNodePhosphorWaveformContextMenu(event)) {
     return;
   }
-  const contextMenuClientPoint = rememberNodeGraphContextMenuClientPoint(event);
+  if (typeof openNodeXyPadContextMenu === "function" && openNodeXyPadContextMenu(event)) {
+    return;
+  }
+  rememberNodeGraphContextMenuClientPoint(event);
 
   closeNodeScopeContextMenu();
   const contextWire = event.target.closest?.(".node-wire-hit-path, .node-wire-path");
@@ -1660,32 +1786,9 @@ function openNodeSceneContextMenu(event) {
     return;
   }
 
-  const contextNode = event.target.closest(".dsp-node");
-  if (contextNode) {
-    event.preventDefault();
-    event.stopPropagation();
-    nodeGraphMvp.sceneContextPoint = null;
-    nodeGraphMvp.sceneContextTargetNode = contextNode.dataset.node;
-    nodeGraphMvp.lastModuleActionTargetNode = contextNode.dataset.node;
-    nodeGraphMvp.sceneContextTargetWire = null;
-    configureNodeSceneContextMenu("module");
-    nodeGraphMvp.sharedInspectorActive = "moduleActions";
-    positionNodeModuleActionsWindowAtSavedOr(
-      document.getElementById("nodeModuleActionsWindow"),
-      event.clientX,
-      event.clientY,
-    );
-    if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
-      rememberNodeGraphWorkspaceWindowState(
-        "moduleActions",
-        document.getElementById("nodeModuleActionsWindow"),
-        { open: true },
-        { status: false },
-      );
-    }
-    return;
-  }
-  if (event.target.closest(".node-port, .node-param-port, .node-slider-readout")) {
+  // Anywhere on a module (ports, inputs, body, header) → Module Settings.
+  // Never Module Browser. Shared with title dblclick / gear action button.
+  if (openNodeGraphModuleSettingsFromContextEvent(event, onModule)) {
     return;
   }
 

@@ -216,7 +216,7 @@ NodeLiveAudioProcessor.prototype.additiveOscillatorSample = function additiveOsc
       });
     }
   }
-  return this.additiveOscillatorSampleJs(phase, params, rate);
+  return 0;
 };
 
 NodeLiveAudioProcessor.prototype.additiveOscWorkletEvaluate = function additiveOscWorkletEvaluate(node, nodeId, frame, frames, frameValues, mixInput, safeRate, graphInputValue) {
@@ -280,47 +280,3 @@ NodeLiveAudioProcessor.prototype.additiveOscWorkletEvaluate = function additiveO
   return value;
 };
 
-NodeLiveAudioProcessor.prototype.additiveOscillatorSampleJs = function additiveOscillatorSampleJs(phase, params = {}, rate = this.engineSampleRate || sampleRate) {
-  const safeRate = Math.max(1, Number(rate) || this.engineSampleRate || sampleRate || 44100);
-  const frequency = Math.max(0, Number(params.frequency) || 0);
-  const maxHarmonics = Math.max(
-    1,
-    Math.min(nodeLiveAdditiveHardMaxHarmonics, Math.round(Number(params.harmonics) || 32)),
-  );
-  const waveform = Math.round(Number(params.waveform) || 0);
-  const modA = this.clampValue(Number(params.modA) || 0, 0, 1);
-  const harmonicPhaseAdd = this.clampValue(Number(params.harmonicPhaseAdd) || 0, 0, 1);
-  const harmonicPhaseMultiply = this.clampValue(Number(params.harmonicPhaseMultiply) || 0, 0, 4);
-  const level = this.clampValue(Number(params.level) || 0, 0, 1);
-  const dampingFilterFrequency = this.additiveFilterFrequencyValue(params.dampingFilterFrequency, safeRate);
-  const dampingGraphValueAt = typeof params.dampingGraphValueAt === "function"
-    ? params.dampingGraphValueAt
-    : () => 1;
-  const phaseGraphValueAt = typeof params.phaseGraphValueAt === "function"
-    ? params.phaseGraphValueAt
-    : () => 0;
-  const harmonicLimit = Math.max(1, Math.min(maxHarmonics, Math.floor(Math.min(20000, safeRate * 0.45) / Math.max(1, frequency))));
-  let total = 0;
-  let norm = 0;
-  for (let harmonic = 1; harmonic <= harmonicLimit; harmonic += 1) {
-    const partial = this.additiveWaveformHarmonic(waveform, harmonic, modA);
-    const dampingX = this.clampValue((frequency * harmonic) / dampingFilterFrequency, 0, 1);
-    const amplitude = (Number(partial.amplitude) || 0) *
-      this.clampValue(Number(dampingGraphValueAt(dampingX)) || 0, 0, 1);
-    if (amplitude === 0) {
-      continue;
-    }
-    const harmonicRatio = harmonicLimit > 1
-      ? (harmonic - 1) / (harmonicLimit - 1)
-      : 0;
-    const phaseCurve = this.clampValue(Number(phaseGraphValueAt(harmonicRatio)) || 0, 0, 1);
-    const phaseMultiplier = 1 + phaseCurve * harmonicPhaseMultiply;
-    const phaseOffset = (Number(partial.phase) || 0) + phaseCurve * harmonicPhaseAdd;
-    total += Math.sin((phase * harmonic * phaseMultiplier) + phaseOffset * Math.PI * 2) * amplitude;
-    norm += Math.abs(amplitude);
-  }
-  if (norm <= 0) {
-    return 0;
-  }
-  return this.clampValue((total / Math.max(1, norm * 0.72)) * level, -1, 1);
-};

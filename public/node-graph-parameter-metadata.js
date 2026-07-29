@@ -36,6 +36,22 @@ function normalizeNodeGraphMetadataSmoothingMode(value) {
   return nodeGraphMetadataSmoothingModes.includes(value) ? value : "global";
 }
 
+// Smoothing TYPE = filter kernel (onePole default, papoulis = Optimum-L order-3).
+// Distinct from smoothing SOURCE (global/internal/off — the time constant).
+const nodeGraphMetadataSmoothingTypes = Object.freeze(
+  typeof nodeGraphParameterSmootherFilterTypes !== "undefined"
+    ? nodeGraphParameterSmootherFilterTypes
+    : ["onePole", "papoulis"],
+);
+
+function normalizeNodeGraphMetadataSmoothingType(value) {
+  if (typeof normalizeNodeGraphParameterSmootherFilterType === "function") {
+    return normalizeNodeGraphParameterSmootherFilterType(value);
+  }
+  const key = String(value || "").trim();
+  return nodeGraphMetadataSmoothingTypes.includes(key) ? key : "onePole";
+}
+
 function nodeGraphDefaultParamsForType(type) {
   const params = {};
   const definition = typeof nodeGraphModuleDefinition === "function"
@@ -455,6 +471,7 @@ function nodeGraphParameterDefinitionMetadata(parameter) {
     showSign: Boolean(parameter.showSign),
     smoothingMode: normalizeNodeGraphMetadataSmoothingMode(parameter.smoothingMode),
     smoothingSeconds: normalizeNodeGraphMetadataSmoothingSeconds(parameter.smoothingSeconds),
+    smoothingType: normalizeNodeGraphMetadataSmoothingType(parameter.smoothingType),
     step: Number.isFinite(step) && step > 0 ? step : 0,
     tooltip: String(parameter.tooltip || "").slice(0, 240),
     unboundedMax: Boolean(parameter.unboundedMax),
@@ -518,6 +535,7 @@ function nodeGraphClapPatchParameterFallbackMetadata(key, metadata = {}) {
     showSign: Boolean(source.showSign),
     smoothingMode: normalizeNodeGraphMetadataSmoothingMode(source.smoothingMode),
     smoothingSeconds: normalizeNodeGraphMetadataSmoothingSeconds(source.smoothingSeconds),
+    smoothingType: normalizeNodeGraphMetadataSmoothingType(source.smoothingType),
     step: Number.isFinite(Number(source.step)) && Number(source.step) > 0 ? Number(source.step) : 0,
     tooltip: String(source.tooltip || "").slice(0, 240),
     unboundedMax: Boolean(source.unboundedMax),
@@ -607,6 +625,9 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
     ),
     smoothingSeconds: normalizeNodeGraphMetadataSmoothingSeconds(
       Object.hasOwn(source, "smoothingSeconds") ? source.smoothingSeconds : fallback.smoothingSeconds,
+    ),
+    smoothingType: normalizeNodeGraphMetadataSmoothingType(
+      Object.hasOwn(source, "smoothingType") ? source.smoothingType : fallback.smoothingType,
     ),
     step: Number.isFinite(step) && step > 0 ? step : 0,
     tooltip: String(Object.hasOwn(source, "tooltip") ? source.tooltip ?? "" : fallback.tooltip || "").slice(0, 240),

@@ -128,11 +128,20 @@ function bindNodeGraphHeaderControlEvents() {
     .getElementById("nodePhosphorWaveformLineWidthInput")
     ?.addEventListener("change", handleNodeGraphPhosphorWaveformLineWidthChange);
   document
+    .getElementById("nodePhosphorWaveformTraceWidthInput")
+    ?.addEventListener("change", handleNodeGraphPhosphorWaveformTraceWidthChange);
+  document
+    .getElementById("nodePhosphorWaveformTraceWidthInput")
+    ?.addEventListener("input", handleNodeGraphPhosphorWaveformTraceWidthChange);
+  document
     .getElementById("nodePhosphorWaveformHueInput")
     ?.addEventListener("input", handleNodeGraphPhosphorWaveformHueChange);
   document
     .getElementById("nodePhosphorWaveformLineBrightnessInput")
     ?.addEventListener("input", handleNodeGraphPhosphorWaveformLineBrightnessChange);
+  document
+    .getElementById("nodePhosphorWaveformGridBrightnessInput")
+    ?.addEventListener("input", handleNodeGraphPhosphorWaveformGridBrightnessChange);
   document
     .getElementById("nodePhosphorWaveformBackgroundHueInput")
     ?.addEventListener("input", handleNodeGraphPhosphorWaveformBackgroundHueChange);
@@ -151,6 +160,9 @@ function bindNodeGraphHeaderControlEvents() {
   document
     .getElementById("nodePhosphorWaveformEdgeSpacingInput")
     ?.addEventListener("input", handleNodeGraphPhosphorWaveformEdgeSpacingChange);
+  document
+    .getElementById("nodePhosphorWaveformLabelInsetInput")
+    ?.addEventListener("input", handleNodeGraphPhosphorWaveformLabelInsetChange);
   document.getElementById("nodeGridToggleButton").addEventListener("click", toggleNodeGraphGridVisibility);
   document.getElementById("nodeVideoViewButton")?.addEventListener("click", toggleNodeGraphVideoView);
   document.getElementById("nodeMappingViewButton")?.addEventListener("click", () => setNodeGraphViewMode("mapping"));

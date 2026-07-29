@@ -455,7 +455,80 @@ function nodeGraphSamplePhaseElementForNode(nodeId) {
 
 function nodeGraphSamplePhaseForNode(nodeId) {
   const phase = Number(nodeGraphMvp.sampleRuntimeStatus?.get?.(nodeId)?.phase);
-  return Number.isFinite(phase) ? Math.max(0, Math.min(1, phase)) : 0;
+  if (Number.isFinite(phase)) {
+    return Math.max(0, Math.min(1, phase));
+  }
+  // Fall back to patch-remembered playhead before the engine has reported.
+  const saved = Number(nodeGraphPatchNode(nodeId)?.samplePhase);
+  return Number.isFinite(saved) ? Math.max(0, Math.min(1, saved)) : 0;
+}
+
+// Debounced write of Music Player playhead into the working patch so a page
+// refresh restores the same position. Throttled to avoid autosave thrash.
+const nodeGraphAudioPlayerPhasePersistTimers = new Map();
+const nodeGraphAudioPlayerPhasePersistMs = 400;
+
+function flushNodeGraphAudioPlayerSamplePhase(nodeId) {
+  nodeGraphAudioPlayerPhasePersistTimers.delete(nodeId);
+  const live = nodeGraphPatchNode(nodeId);
+  if (!live || live.type !== "audioPlayer") {
+    return;
+  }
+  const statusPhase = Number(nodeGraphMvp.sampleRuntimeStatus?.get?.(nodeId)?.phase);
+  if (Number.isFinite(statusPhase)) {
+    live.samplePhase = Math.max(0, Math.min(1, statusPhase));
+  }
+  if (typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
+    saveNodeGraphWorkingPatchToUserSettings({ immediateFile: true });
+  }
+}
+
+function flushAllNodeGraphAudioPlayerSamplePhases() {
+  for (const node of nodeGraphMvp.patch?.nodes || []) {
+    if (node?.type === "audioPlayer") {
+      const statusPhase = Number(nodeGraphMvp.sampleRuntimeStatus?.get?.(node.id)?.phase);
+      if (Number.isFinite(statusPhase)) {
+        node.samplePhase = Math.max(0, Math.min(1, statusPhase));
+      }
+    }
+  }
+  for (const timer of nodeGraphAudioPlayerPhasePersistTimers.values()) {
+    window.clearTimeout(timer);
+  }
+  nodeGraphAudioPlayerPhasePersistTimers.clear();
+  if (typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
+    saveNodeGraphWorkingPatchToUserSettings({ immediateFile: true });
+  }
+}
+
+function rememberNodeGraphAudioPlayerSamplePhase(nodeId, phase) {
+  const node = nodeGraphPatchNode(nodeId);
+  if (!node || node.type !== "audioPlayer") {
+    return;
+  }
+  const clamped = Math.max(0, Math.min(1, Number(phase) || 0));
+  const previous = Number(node.samplePhase);
+  if (Number.isFinite(previous) && Math.abs(previous - clamped) < 1e-5) {
+    return;
+  }
+  node.samplePhase = clamped;
+  if (nodeGraphAudioPlayerPhasePersistTimers.has(nodeId)) {
+    return;
+  }
+  const timer = window.setTimeout(() => {
+    flushNodeGraphAudioPlayerSamplePhase(nodeId);
+  }, nodeGraphAudioPlayerPhasePersistMs);
+  nodeGraphAudioPlayerPhasePersistTimers.set(nodeId, timer);
+}
+
+// Best-effort flush so a refresh mid-debounce still keeps the last playhead.
+if (typeof window !== "undefined" && !window.__nodeGraphAudioPlayerPhaseUnloadBound) {
+  window.__nodeGraphAudioPlayerPhaseUnloadBound = true;
+  window.addEventListener("pagehide", () => {
+    if (typeof flushAllNodeGraphAudioPlayerSamplePhases === "function") {
+      flushAllNodeGraphAudioPlayerSamplePhases();
+    }
+  });
 }
 
 function nodeGraphSampleNodeHasSpeakerRoute(nodeId, patch = nodeGraphMvp.patch) {
@@ -556,6 +629,15 @@ function syncNodeGraphAudioPlayerRuntimeStatus(message = {}) {
   }
   if (primaryNodeId && !nodeGraphMvp.sampleRuntimeStatus?.has?.(primaryNodeId)) {
     nodeGraphMvp.sampleRuntimeStatus?.set?.(primaryNodeId, { peak, phase, reason, samples });
+  }
+  // Persist playhead on the active Music Player(s) for refresh restore.
+  if (primaryNodeId && activeIds.has(primaryNodeId)) {
+    rememberNodeGraphAudioPlayerSamplePhase(primaryNodeId, phase);
+  }
+  for (const nodeId of nodeIds) {
+    if (activeIds.has(nodeId) && nodeId !== primaryNodeId) {
+      rememberNodeGraphAudioPlayerSamplePhase(nodeId, phase);
+    }
   }
   for (const nodeId of new Set([...nodeIds, primaryNodeId].filter(Boolean))) {
     syncNodeGraphSampleDisplayForNode(nodeId);
@@ -888,6 +970,10 @@ async function loadNodeGraphSampleDataUrlForNode(nodeId, dataUrl, name = "Sample
   if (node) {
     node.sample = { id };
     node.params = { ...(node.params || {}), sample: samples.length };
+    // New sample → playhead starts at the beginning.
+    if (node.type === "audioPlayer") {
+      node.samplePhase = 0;
+    }
   }
   nodeGraphMvp.sampleBuffers?.set?.(id, {
     channelData: decoded.channelData,

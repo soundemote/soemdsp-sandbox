@@ -37,6 +37,6 @@ NodeLiveAudioProcessor.prototype.resonatorFilterSample = function resonatorFilte
         });
       }
     }
-    return this.resonatorFilterSampleJs(state, input, params, rate);
+    return this.safeFilterNumber(input, state) ?? 0;
   };
 

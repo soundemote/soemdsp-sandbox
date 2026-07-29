@@ -1,59 +1,64 @@
+// Offline / main-thread glue for chua_attractor.wasm — no pure-JS DSP mirror.
+// Silent (0,0,0) until wasm finishes loading.
+
+const nodeGraphChuaAttractorWasm = { promise: null, exports: null, failed: false };
+
+function nodeGraphChuaAttractorLoadWasm() {
+  if (nodeGraphChuaAttractorWasm.promise || typeof fetch !== "function" || typeof WebAssembly === "undefined") {
+    return;
+  }
+  nodeGraphChuaAttractorWasm.promise = fetch("/native_modules/chua_attractor/chua_attractor.wasm")
+    .then((response) => response.arrayBuffer())
+    .then((bytes) => WebAssembly.instantiate(bytes, {}))
+    .then((result) => {
+      nodeGraphChuaAttractorWasm.exports = result.instance.exports;
+    })
+    .catch(() => {
+      nodeGraphChuaAttractorWasm.failed = true;
+    });
+}
+
 function createNodeGraphChuaAttractorState() {
-  return { resetWasHigh: false, x: 0.1, y: 0, z: 0 };
+  return { nativeHandle: 0 };
 }
 
-function resetNodeGraphChuaAttractorState(state) {
-  state.x = 0.1;
-  state.y = 0;
-  state.z = 0;
+function destroyNodeGraphChuaAttractorNativeState(state) {
+  const wasm = nodeGraphChuaAttractorWasm.exports;
+  if (state?.nativeHandle && wasm?.soemdsp_chua_attractor_destroy) {
+    wasm.soemdsp_chua_attractor_destroy(state.nativeHandle);
+    state.nativeHandle = 0;
+  }
 }
 
-function nodeGraphChuaDiode(x, m0, m1) {
-  return m1 * x + 0.5 * (m0 - m1) * (Math.abs(x + 1) - Math.abs(x - 1));
-}
-
-// Chua's Circuit double-scroll attractor. Mirrors
-// native_modules/chua_attractor exactly (same diode nonlinearity, same fixed-
-// substep Euler integration); offline/JS path only, the realtime worklet
-// prefers native WASM.
 function nodeGraphChuaAttractorSample(options = {}) {
+  nodeGraphChuaAttractorLoadWasm();
+  const wasm = nodeGraphChuaAttractorWasm.exports;
+  if (!wasm?.soemdsp_chua_attractor_create || !wasm?.soemdsp_chua_attractor_sample) {
+    return { x: 0, y: 0, z: 0 };
+  }
   const state = options.state || createNodeGraphChuaAttractorState();
-  const resetHigh = Number(options.reset) > 0.5;
-  if (resetHigh && !state.resetWasHigh) {
-    resetNodeGraphChuaAttractorState(state);
+  if (!state.nativeHandle) {
+    state.nativeHandle = wasm.soemdsp_chua_attractor_create();
   }
-  state.resetWasHigh = resetHigh;
-
-  const sampleRateValue = Math.max(1, Number(options.sampleRate) || 44100);
-  const speed = Math.max(0, Number(options.speed) || 0);
-  const alpha = Number(options.alpha) || 0;
-  const beta = Number(options.beta) || 0;
-  const m0 = Number(options.m0) || 0;
-  const m1 = Number(options.m1) || 0;
-  const dt = (0.6 * speed) / sampleRateValue;
-  const steps = Math.max(1, Math.ceil(dt / 0.0004));
-  const stepDt = steps > 0 ? dt / steps : 0;
-
-  for (let i = 0; i < steps; i += 1) {
-    const fx = nodeGraphChuaDiode(state.x, m0, m1);
-    const dx = alpha * (state.y - state.x - fx);
-    const dy = state.x - state.y + state.z;
-    const dz = -beta * state.y;
-    state.x += dx * stepDt;
-    state.y += dy * stepDt;
-    state.z += dz * stepDt;
-    if (!Number.isFinite(state.x) || !Number.isFinite(state.y) || !Number.isFinite(state.z)) {
-      resetNodeGraphChuaAttractorState(state);
-      break;
-    }
+  if (!state.nativeHandle) {
+    return { x: 0, y: 0, z: 0 };
   }
-  state.x = Math.max(-20, Math.min(20, state.x));
-  state.y = Math.max(-20, Math.min(20, state.y));
-  state.z = Math.max(-20, Math.min(20, state.z));
-
+  wasm.soemdsp_chua_attractor_sample(
+    state.nativeHandle,
+    Number(options.reset) > 0.5 ? 1 : 0,
+    Math.max(0, Number(options.speed) || 0),
+    Number(options.alpha) || 0,
+    Number(options.beta) || 0,
+    Number(options.m0) || 0,
+    Number(options.m1) || 0,
+    Math.max(1, Number(options.sampleRate) || 44100),
+  );
+  const x = wasm.soemdsp_chua_attractor_x(state.nativeHandle);
+  const y = wasm.soemdsp_chua_attractor_y(state.nativeHandle);
+  const z = wasm.soemdsp_chua_attractor_z(state.nativeHandle);
   return {
-    x: Math.max(-1, Math.min(1, state.x / 2.0)),
-    y: Math.max(-1, Math.min(1, state.y / 0.5)),
-    z: Math.max(-1, Math.min(1, state.z / 3.5)),
+    x: Number.isFinite(x) ? x : 0,
+    y: Number.isFinite(y) ? y : 0,
+    z: Number.isFinite(z) ? z : 0,
   };
 }

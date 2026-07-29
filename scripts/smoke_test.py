@@ -11405,7 +11405,9 @@ def require_node_graph_mvp_contract() -> None:
         'getElementById("nodeSceneCopyModule")',
         'getElementById(actionMode ? "nodeModuleActionsClose" : "nodeSceneCloseMenu")',
         'event.target.closest(".dsp-node")',
-        'event.target.closest(".node-port, .node-param-port, .node-slider-readout")',
+        "function openNodeGraphModuleSettingsFromContextEvent(event, nodeElement = null)",
+        "Anywhere on a module (ports, inputs, body, header) → Module Settings.",
+        "nodeGraphWorkspaceFloatingUiSelector",
         'for (const port of node.querySelectorAll(".node-port"))',
         'for (const row of node.querySelectorAll(".node-io-row"))',
         'for (const port of node.querySelectorAll(".node-param-port.modulation-input"))',
@@ -13181,7 +13183,25 @@ def require_node_graph_mvp_contract() -> None:
     require("scope2dTrace: {" in module_store_source and 'label: "2D Trace"' in module_store_source, "2D Trace oscilloscope should exist")
     require("dotOscilloscope: {" in module_store_source and "oscilloscopeBank: {" in module_store_source and "valueOscilloscope: {" in module_store_source and "numberReadout: {" in module_store_source and "lineBurnOscilloscope: {" in module_store_source and "scope2d: {" in module_store_source and "scope2dTrace: {" in module_store_source, "Oscilloscope modules should be listed together")
     require("oscilloscopeBank: {" in module_store_source and 'label: "Oscilloscope Bank"' in module_store_source, "Oscilloscope Bank should exist")
-    require('nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([\n  "canvas",\n  "humanFilter",\n  "shootingStarTail",\n]));' in module_store_source, "Canvas, Human Filter, and shooting star tail should be under construction in the store set")
+    require(
+        "nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([" in module_store_source
+        and '"canvas"' in module_store_source
+        and '"humanFilter"' in module_store_source
+        and '"oscilloscopeBank"' in module_store_source
+        and '"shootingStarTail"' in module_store_source
+        and '"wallDelay"' in module_store_source
+        and "function nodeGraphModuleTypeIsUnderConstruction(type)" in module_store_source
+        and "function nodeGraphNativeModuleRefIsUnderConstruction(ref = {})" in module_store_source
+        and "function nodeGraphNativeModuleNameToType(name)" in module_store_source,
+        "Under-construction set should include canvas/humanFilter/oscilloscopeBank/shootingStarTail/wallDelay plus helpers for diagnostics silence",
+    )
+    require(
+        "function nodeGraphModuleDiagnosticsIsUnderConstruction(details = {})" in script_sources["./public/node-graph-module-diagnostics.js"]
+        and "if (nodeGraphModuleDiagnosticsIsUnderConstruction(details))" in script_sources["./public/node-graph-module-diagnostics.js"]
+        and "nodeGraphNativeModuleRefIsUnderConstruction(entry)" in script_sources["./public/node-graph-live-runtime.js"]
+        and "nodeGraphNativeModuleRefIsUnderConstruction(message)" in script_sources["./public/node-graph-live-runtime.js"],
+        "Under-construction modules must not load native stubs or report module-diagnostics errors",
+    )
     for oscilloscope_type in ["dotOscilloscope", "valueOscilloscope", "numberReadout", "lineBurnOscilloscope", "scope2d", "scope2dTrace"]:
         require(f"{oscilloscope_type}: {{" in module_definitions_source, f"{oscilloscope_type} should have a spawnable module definition")
     require('displayType: "dot"' in module_definitions_source, "0D Burn oscilloscope should declare dot display type")
@@ -14635,6 +14655,9 @@ def require_node_graph_mvp_contract() -> None:
         and "function nodeGraphTraceDisplayControlToSizeValue(value, max = 1)" in node_graph_source
         and "return Math.pow(control, nodeGraphTraceDisplaySensitiveControlExponent) * max;" in node_graph_source
         and "if (!nodeGraphTraceDisplaySensitiveControlField(key))" in node_graph_source
+        # historySeconds is linear seconds (0–5 spectrogram); must NOT use the 0–1
+        # sensitive fader or History + snaps 2→1 and cannot go above 1.
+        and 'key === "historySeconds" ||' not in node_graph_source
         and "adjustNodeGraphTraceDisplaySettingByControlDelta(drag.key, startValue, controlDelta)" in node_graph_source
         and "adjustNodeGraphTraceDisplaySettingByControlDelta(key, baseValue, direction * quantum)" in node_graph_source
         and "for (const key of activeColors)" in node_graph_source
@@ -14659,7 +14682,12 @@ def require_node_graph_mvp_contract() -> None:
         and "function nodeGraphTraceDisplayActiveControlSet(kind, type = nodeGraphTraceDisplaySettingsFormType())" in node_graph_source
         and "for (const key of activeFields)" in node_graph_source
         and "for (const key of activeToggles)" in node_graph_source
-        and "for (const field of nodeGraphTraceDisplaySettingControlKeys.fields)" in node_graph_source
+        and "function mountNodeGraphDisplaySettingsBody(popover, formType, node = null)" in node_graph_source
+        and "function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null)" in node_graph_source
+        and 'data-display-settings-body' in node_graph_source
+        and "Schema-exclusive body" in node_graph_source
+        and '"window", "overlap", "freqScale"' in node_graph_source
+        and 'choices: Object.freeze(["window", "overlap", "freqScale"])' in node_graph_source
         and "setControlHidden(" in node_graph_source,
         "Display settings should use an active-control registry for each display type",
     )

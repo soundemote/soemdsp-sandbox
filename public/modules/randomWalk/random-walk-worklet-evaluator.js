@@ -10,12 +10,6 @@
 // shared with other modules' filter paths. nextSeededBipolar/
 // resetSeededState/seededKey/stableSeed stay in core.js too: shared
 // seeded-PRNG infrastructure backing multiple unrelated modules.
-NodeLiveAudioProcessor.prototype.rationalCurve = function rationalCurve(value, skew) {
-  const t = this.clampValue(Number(value) || 0, 0, 1);
-  const safeSkew = this.clampValue(Number(skew) || 0, -0.999, 0.999);
-  return ((1 + safeSkew) * t) / (1 - safeSkew + 2 * safeSkew * t);
-};
-
 NodeLiveAudioProcessor.prototype.randomWalkSample = function randomWalkSample(state, params, rate = sampleRate, nodeId = "") {
   if (
     this.nativeRandomWalkReady &&
@@ -54,36 +48,7 @@ NodeLiveAudioProcessor.prototype.randomWalkSample = function randomWalkSample(st
       });
     }
   }
-  return this.randomWalkSampleJs(state, params, rate, nodeId);
-};
-
-NodeLiveAudioProcessor.prototype.randomWalkSampleJs = function randomWalkSampleJs(state, params, rate = sampleRate, nodeId = "") {
-  this.resetSeededState(state, nodeId, params.seed, "randomWalk");
-  const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
-  const method = Math.max(0, Math.min(3, Math.round(this.safeFilterNumber(params.method, null))));
-  const frequency = Math.max(0, this.safeFilterNumber(params.frequency, null));
-  const jitter = Math.max(0, this.safeFilterNumber(params.jitter, null));
-  const level = this.safeFilterNumber(params.level, null);
-  const noise = this.nextSeededBipolar(state);
-  const increment = this.clampValue(frequency / safeRate, 0, 1);
-  const jitterInc = this.clampValue(jitter / safeRate, 0, 1);
-  const stepSize = this.clampValue(increment + this.rationalCurve(jitterInc, 0.99), 0, 1);
-  const averageIncrement = (jitterInc + increment) * 0.5;
-  const whiteNoiseMix = averageIncrement >= 0.9
-    ? this.rationalCurve((averageIncrement - 0.9) / 0.1, -0.7)
-    : 0;
-  const randomMix = 1 - whiteNoiseMix;
-
-  if (method === 0) {
-    return this.safeFilterNumber(noise * level, null);
-  }
-  if (method === 1) {
-    return this.onePoleLowpassSample(state.lowpass, noise, frequency, safeRate) * level;
-  }
-  const step = method === 3 ? (noise > 0 ? stepSize : -stepSize) : noise * stepSize;
-  state.out = this.clampValue(state.out + step, -1, 1);
-  const mixed = state.out * randomMix + noise * whiteNoiseMix;
-  return this.safeFilterNumber(this.onePoleLowpassSample(state.lowpass, mixed, frequency, safeRate) * level, null);
+  return 0;
 };
 
 NodeLiveAudioProcessor.prototype.createRandomWalkState = function createRandomWalkState() {

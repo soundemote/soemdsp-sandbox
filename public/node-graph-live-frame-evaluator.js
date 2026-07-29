@@ -19,6 +19,10 @@ function nodeGraphSafeFilterNumber(value, runtime, nodeId, state, source) {
 const nodeGraphLiveModuleEvaluators = {};
 
 function evaluateNodeGraphPlanFrame(runtime, sampleRate, frame, frames) {
+  // soemdsp SmootherManager::run — dirty chases only, once per sample.
+  if (typeof nodeGraphRunActiveParameterSmoothers === "function") {
+    nodeGraphRunActiveParameterSmoothers(runtime, frames);
+  }
   const frameValues = new Map();
   const mixInput = (nodeId, port = "In") => {
     const base = (runtime.inputConnections.get(`${nodeId}.${port}`) || []).reduce(

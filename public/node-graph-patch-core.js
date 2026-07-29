@@ -264,6 +264,13 @@ function validateNodeGraphPatch(patch) {
     if (type === "audioPlayer" && Object.hasOwn(node, "phosphorWaveformSettings")) {
       normalizedNode.phosphorWaveformSettings = normalizeNodeGraphPhosphorWaveformSettings(node.phosphorWaveformSettings);
     }
+    // Remembered playhead (0..1) so Music Player restores position after refresh.
+    if (type === "audioPlayer" && Object.hasOwn(node, "samplePhase")) {
+      const samplePhase = Number(node.samplePhase);
+      if (Number.isFinite(samplePhase)) {
+        normalizedNode.samplePhase = Math.max(0, Math.min(1, samplePhase));
+      }
+    }
     if (type === "phosphillator") {
       const drawnPath = normalizeNodeGraphPhosphillatorDrawnPath(node.drawnPath);
       if (drawnPath) {
@@ -550,7 +557,11 @@ function applyNodeGraphPatchToDom() {
     }
     element.style.setProperty("--node-grid-width-units", String(nodeGraphPatchNodeGridWidthUnits(patchNode)));
     element.style.setProperty("--node-grid-height-units", String(nodeGraphPatchNodeGridHeightUnits(patchNode)));
-    element.style.setProperty("--node-module-display-height-units", String(nodeGraphPatchNodeDisplayHeightUnits(patchNode)));
+    if (typeof nodeGraphApplyModuleShellHeightCssVars === "function") {
+      nodeGraphApplyModuleShellHeightCssVars(element, patchNode);
+    } else {
+      element.style.setProperty("--node-module-display-height-units", String(nodeGraphPatchNodeDisplayHeightUnits(patchNode)));
+    }
     element.style.setProperty("--node-module-interface-controls-height-units", String(nodeGraphPatchNodeInterfaceControlsHeightUnits(patchNode)));
     const point = nodeGraphGridToPixel(patchNode);
     positionNodeGraphNode(element, point, { clamp: false, snap: false });

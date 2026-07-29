@@ -136,13 +136,17 @@ function nodeGraphModuleSizingCapabilities(type) {
   const normalizedType = String(type || "").trim();
   const definition = nodeGraphModuleDefinitions[normalizedType];
   const layout = definition?.layout;
+  // Solid-shell chromeless modules (XY Pad, Number Readout, Ray Bouncer, …)
+  // size from content (display + side IO + sliders), not a freehand heightGu.
+  // Marking them "custom" previously locked a stale node.heightGu and fought
+  // display-height / slider changes.
   const moduleHeight = nodeGraphNodeTypeHasTextBoxLayout(normalizedType)
     ? "textBox"
     : normalizedType === "canvas"
       ? "canvasScript"
-      : normalizedType === "xyPad" || ["graph", "keyboardController", "macroControls"].includes(layout)
-        ? "custom"
-      : false;
+      : (nodeGraphChromelessModuleUsesSolidShell?.(normalizedType)
+        ? false
+        : (["graph", "keyboardController", "macroControls"].includes(layout) ? "custom" : false));
   // Display-height resizing works for any type with a display AREA --
   // whether an oscilloscope fills it or the module's own custom UI does.
   const displayHeight = !moduleHeight && (
@@ -367,6 +371,49 @@ function nodeGraphModuleIoSectionHeightGu(type) {
     nodeGraphModuleLayout.ioSectionMinHeightGu,
     rowHeight + gapHeight + nodeGraphModuleLayout.ioPaddingYGu,
   );
+}
+
+/**
+ * Solid-module side columns: each jack row is fixed to --node-port-area-size
+ * (one grid gu), not the compact text-row height used by stacked headered IO.
+ * Height math MUST match that CSS or short shells clip ports and hitboxes drift.
+ */
+function nodeGraphSolidModulePortBandGu() {
+  return 1;
+}
+
+function nodeGraphSolidModuleIoColumnHeightGu(type) {
+  const rows = Math.max(0, nodeGraphModuleIoRowCount(type));
+  if (rows <= 0) {
+    return 0;
+  }
+  // Minimum packed height of the denser side column (no free space-evenly gap).
+  return rows * nodeGraphSolidModulePortBandGu();
+}
+
+/** Shell face height in gu: grow with display Height control and denser IO. */
+function nodeGraphSolidModuleShellHeightGu(type, ui = {}) {
+  const displayGu = nodeGraphModuleConfiguredDisplayHeightUnits(type, ui);
+  const ioGu = nodeGraphSolidModuleIoColumnHeightGu(type);
+  return Math.max(1, displayGu, ioGu);
+}
+
+/** Keep solid shell CSS vars in sync with height math (create + resize paths). */
+function nodeGraphApplyModuleShellHeightCssVars(element, patchNode) {
+  if (!element || !patchNode) {
+    return;
+  }
+  const displayGu = typeof nodeGraphPatchNodeDisplayHeightUnits === "function"
+    ? nodeGraphPatchNodeDisplayHeightUnits(patchNode)
+    : nodeGraphModuleDisplayHeightUnits(patchNode.type, patchNode.ui);
+  element.style.setProperty("--node-module-display-height-units", String(displayGu));
+  const shellGu = (
+    typeof nodeGraphChromelessModuleUsesSolidShell === "function"
+    && nodeGraphChromelessModuleUsesSolidShell(patchNode.type)
+  )
+    ? nodeGraphSolidModuleShellHeightGu(patchNode.type, patchNode.ui)
+    : displayGu;
+  element.style.setProperty("--node-module-shell-height-units", String(shellGu));
 }
 
 function nodeGraphModuleHiddenIoSectionHeightGu(type) {
@@ -600,15 +647,16 @@ function nodeGraphModuleGridHeightUnits(type) {
 }
 
 function nodeGraphSolidModuleGridHeightUnits(type, ui = {}, { compact = false } = {}) {
-  const displayGu = nodeGraphModuleConfiguredDisplayHeightUnits(type, ui);
+  // Shared solid contract: shell = max(display area, denser 1gu-band IO column).
+  const shellGu = nodeGraphSolidModuleShellHeightGu(type, ui);
   const sliderGu = nodeGraphModuleVisibleSliderRowCountForUi(type, ui) > 0
     ? nodeGraphModuleSliderBodyHeightGu(type)
     : 0;
   if (compact && sliderGu <= 0) {
-    return displayGu;
+    return shellGu;
   }
   return nodeGraphModuleHeightWithBottomClearance(
-    displayGu + sliderGu + nodeGraphModuleLayout.moduleGridInsetGu * 2,
+    shellGu + sliderGu + nodeGraphModuleLayout.moduleGridInsetGu * 2,
   );
 }
 

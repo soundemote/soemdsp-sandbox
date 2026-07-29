@@ -2872,9 +2872,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   -webkit-user-select: text;
 }
 
-.node-wiring-panel.modular-only-view .node-modular-view-size-readout {
-  display: none;
-}
+/* Keep W/H canvas size visible in modular-only view (was hidden). */
 
 .node-history-controls a {
   color: inherit;
@@ -9532,6 +9530,10 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-port,
 .node-io-row,
 .node-param-port,
+/* Solid shell must be on the whitelist: .dsp-node is pointer-events:none. */
+.node-solid-module-shell,
+.node-solid-module-custom-ui,
+.node-xy-pad,
 .dsp-node button,
 .dsp-node input,
 .dsp-node select,
@@ -9800,9 +9802,35 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .dsp-node.solid-module-layout {
   display: grid;
+  /* Shell (IO + face) fills remaining height; param rows size to content. */
   grid-template-rows: minmax(0, 1fr) auto;
 }
 
+.node-parameter-row-hidden,
+.node-parameter-row[hidden] {
+  display: none !important;
+}
+
+/* Number Readout solid face — LCD plate fills the shell center cell. */
+.dsp-node.number-readout-layout .node-number-readout-face,
+.dsp-node.number-readout-layout .node-module-scope-window {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+/* Ray Bouncer solid face — phosphor scope fills the shell center cell. */
+.dsp-node.ray-bouncer-layout .node-ray-bouncer-face,
+.dsp-node.ray-bouncer-layout .node-module-scope-window {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+/* Shared solid-shell contract (chromeless + graph solid faces):
+   - shell height = max(display, denser 1gu IO column) via --node-module-shell-height-units
+   - columns stretch full shell height; jacks space-evenly in fixed 1gu bands
+   - gaps between jacks hit the shell (module drag); jack neighborhood wires */
 .node-solid-module-shell {
   display: grid;
   grid-template-columns:
@@ -9810,18 +9838,36 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
     minmax(0, 1fr)
     minmax(0, max-content);
   min-width: 0;
-  min-height: 0;
+  min-height: calc(
+    var(--node-grid-height) * var(
+      --node-module-shell-height-units,
+      var(--node-module-display-height-units, 2)
+    )
+  );
+  height: 100%;
   overflow: hidden;
+  /* Always receive empty-gap clicks (graph + chromeless solid). */
+  pointer-events: auto;
 }
 
 .node-solid-module-shell > .node-io-column {
-  align-content: stretch;
+  align-self: stretch;
+  align-content: space-evenly;
+  justify-content: center;
   gap: 0;
   padding: 0;
+  min-height: 0;
+  /* Gaps between jacks fall through to the shell (module drag/select). */
+  pointer-events: none;
 }
 
 .node-solid-module-shell > .node-io-column .node-io-row {
-  min-height: 0;
+  /* One local 1gu band around the jack — not 1/N of the face height. */
+  box-sizing: border-box;
+  height: var(--node-port-area-size);
+  min-height: var(--node-port-area-size);
+  max-height: var(--node-port-area-size);
+  pointer-events: auto;
   border-bottom: 1px solid rgba(127, 199, 217, 0.1);
 }
 
@@ -9842,6 +9888,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   grid-column: 2;
   min-width: 0;
   min-height: 0;
+  height: 100%;
+  pointer-events: auto;
 }
 
 .node-bug-button-face {
@@ -10029,19 +10077,37 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
    The module article is a GRID column (not flex), so the pad row must be
    granted the leftover height explicitly: header / pad / io / parameters.
    minmax(0, 1fr) lets the pad shrink cleanly on short modules too. */
+/* Display Settings: reset residual plate on XY Pad. */
+.node-xy-pad-reset-canvas-button {
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px 10px;
+  border: 1px solid rgba(127, 199, 217, 0.35);
+  border-radius: 4px;
+  color: rgba(220, 240, 245, 0.92);
+  background: rgba(8, 16, 22, 0.9);
+  font: inherit;
+  cursor: pointer;
+}
+
+.node-xy-pad-reset-canvas-button:hover {
+  border-color: rgba(127, 199, 217, 0.55);
+  background: rgba(16, 28, 36, 0.95);
+}
+
+/* XY Pad face fills the solid shell center cell (shared solid contract). */
 .node-xy-pad {
   box-sizing: border-box;
-  padding: 4px 6px 2px;
-  /* The module article is a fixed-grid-height flex column; the pad takes
-     the space left over after the scope/io/parameter sections and MUST NOT
-     overflow it -- an earlier square-aspect canvas ran under the io section,
-     dimming the pad's lower edge and stealing its clicks. The custom UI
-     stays strictly inside its own section. */
+  /* No outer padding — padding used to create a dead ring that started
+     module-drag instead of pad drag (hitbox felt "shifted"). */
+  padding: 0;
   width: 100%;
   height: 100%;
-  min-height: 56px;
+  min-height: 0;
   overflow: hidden;
   display: flex;
+  background: #000;
 }
 
 .node-xy-pad-canvas {
@@ -10050,11 +10116,10 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   width: 100%;
   height: 100%;
   min-height: 0;
-  border-radius: 4px;
-  border: 1px solid rgba(127, 199, 217, 0.28);
-  background:
-    radial-gradient(circle at 50% 45%, rgba(127, 199, 217, 0.06), transparent 70%),
-    rgba(3, 7, 10, 0.9);
+  border-radius: 0;
+  border: 0;
+  /* Opaque phosphor plate only — drawn face is pure black + residual. */
+  background: #000;
   cursor: var(--node-dot-cursor);
   touch-action: none;
 }
@@ -10293,6 +10358,11 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   pointer-events: none;
 }
 
+/*
+ * Face canvases (phosphor + vector) paint an opaque plate + content.
+ * MUST be normal blend: screen turns black/near-black into "see-through",
+ * so module chrome (teal/green strokes) bled through as a green tint.
+ */
 .node-module-scope-local-fallback-canvas {
   position: absolute;
   inset: 0;
@@ -10300,17 +10370,16 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: block;
   width: 100%;
   height: 100%;
-  /* Default phosphor/local faces: screen blend over plate. */
-  mix-blend-mode: screen;
+  mix-blend-mode: normal;
   pointer-events: none;
 }
 
 /*
  * VECTOR Trace faces: continuous polylines into a face buffer.
  * - normal blend (opaque strokes)
- * - density < 1: sync sets image-rendering:pixelated for chunky lo-fi
- * - density ≥ 1: auto (smooth); workspace pixelated-zoom still excluded so
- *   density-1 keeps the current non-shimmer look under graph zoom
+ * - density < 1: always pixelated (chunky lo-fi buffer)
+ * - density ≥ 1: default smooth; .pixelated-canvas-zoom (workspace zoom ≥ 2.5)
+ *   switches to crisp nearest-neighbor so zoom-in stays sharp, not mushy
  */
 .node-module-scope-local-fallback-canvas.node-module-scope-vector-trace {
   mix-blend-mode: normal;
@@ -10447,10 +10516,22 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-graph-workspace.pixelated-canvas-zoom .node-filter-curve-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-phosphor-waveform-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-phosphillator-draw-canvas,
-.node-graph-workspace.pixelated-canvas-zoom .node-module-scope-local-fallback-canvas:not(.node-module-scope-vector-trace),
+.node-graph-workspace.pixelated-canvas-zoom .node-xy-pad-canvas,
+.node-graph-workspace.pixelated-canvas-zoom .node-module-scope-local-fallback-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-number-readout-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-phosphor-light-canvas {
   image-rendering: pixelated;
+}
+
+/*
+ * TEMP vanilla sharpness test: nearest-neighbor CSS scaling (was `auto`,
+ * which bilinear-filters when the workspace / face is scaled and looked
+ * soft/blurry). Revert to `auto` if hop-column dropouts return.
+ */
+.node-module-scope-local-fallback-canvas.node-spectrogram-canvas,
+.node-graph-workspace.pixelated-canvas-zoom .node-module-scope-local-fallback-canvas.node-spectrogram-canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
 .node-slider-widget-body {

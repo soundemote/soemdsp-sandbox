@@ -180,27 +180,6 @@ NodeLiveAudioProcessor.prototype.piSpigotNoiseSample = function piSpigotNoiseSam
       });
     }
   }
-  return this.piSpigotNoiseSampleJs(state, seedLeft, seedRight, color, smoothing, level);
+  return { "Left Out": 0, "Right Out": 0 };
 };
 
-NodeLiveAudioProcessor.prototype.piSpigotNoiseChannelSampleJs = function piSpigotNoiseChannelSampleJs(channel, seedFraction, color, smoothing, level) {
-  // Fallback range is the small BBP-computed cache (see
-  // fillPiSpigotNoiseCacheJs), not the full 1-second buffer the native
-  // path reads from -- the normalized seed still spreads across it.
-  const fallbackStart = this.clampValue(Math.round(seedFraction * 256), 0, 256);
-  if (!channel.cache || channel.cacheStart !== fallbackStart) {
-    this.fillPiSpigotNoiseCacheJs(channel, fallbackStart);
-    this.resetPiSpigotColorFilters(channel);
-  }
-  const white = channel.cache[channel.readIndex];
-  channel.readIndex = (channel.readIndex + 1) % channel.cache.length;
-  const colored = this.applyPiSpigotColor(channel, white, color);
-  return this.applyPiSpigotSmoothing(channel, colored, smoothing) * level;
-};
-
-NodeLiveAudioProcessor.prototype.piSpigotNoiseSampleJs = function piSpigotNoiseSampleJs(state, seedLeft, seedRight, color, smoothing, level) {
-  return {
-    "Left Out": this.piSpigotNoiseChannelSampleJs(state.left, seedLeft, color, smoothing, level),
-    "Right Out": this.piSpigotNoiseChannelSampleJs(state.right, seedRight, color, smoothing, level),
-  };
-};

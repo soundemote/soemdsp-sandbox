@@ -18,6 +18,11 @@ function stopPropagation(event) {
 }
 
 function handleNodeGraphIoRowMonitorPointerDown(event) {
+  // Only when the pointer is in the jack neighborhood — empty solid-module
+  // edge space must stay free for module drag/select.
+  if (!nodeGraphIoRowPointerInPortHitbox(event)) {
+    return;
+  }
   if (event.target.closest(".node-port")) {
     return;
   }
@@ -25,10 +30,54 @@ function handleNodeGraphIoRowMonitorPointerDown(event) {
 }
 
 function handleNodeGraphIoRowWireClick(event) {
+  if (!nodeGraphIoRowPointerInPortHitbox(event)) {
+    return;
+  }
   if (event.target.closest(".node-port")) {
     return;
   }
   nodeGraphWireInteractions.handlePortClick(event);
+}
+
+/** True when the event is inside the geometric jack hitbox for this io-row. */
+function nodeGraphIoRowPointerInPortHitbox(event) {
+  const row = event.currentTarget instanceof Element
+    ? event.currentTarget
+    : event.target?.closest?.(".node-io-row");
+  if (!row?.classList?.contains("node-io-row")) {
+    return false;
+  }
+  const helpers = typeof nodeGraphWireInteractions !== "undefined"
+    ? nodeGraphWireInteractions?.helpers
+    : null;
+  if (!helpers?.endpointFromElement || !helpers?.pointInEndpointHitbox) {
+    return Boolean(event.target?.closest?.(".node-port"));
+  }
+  const endpoint = helpers.endpointFromElement(row);
+  if (!endpoint) {
+    return false;
+  }
+  return helpers.pointInEndpointHitbox(endpoint, event.clientX, event.clientY, row);
+}
+
+/**
+ * Shared solid-shell interaction contract (XY Pad, Number Readout, Ray Bouncer,
+ * LED, Graph solid face, …):
+ * - center face + shell gaps → select / drag / Module Settings
+ * - jack neighborhood only → wire (geometric hitbox; see node-graph-wires.js)
+ * Custom faces (pad canvas, bug button) stopPropagation for their own gestures.
+ */
+function attachNodeGraphSolidModuleShellEvents(node) {
+  node.querySelectorAll(".node-solid-module-custom-ui").forEach((face) => {
+    face.addEventListener("pointerdown", beginNodeGraphNodeDrag);
+    face.addEventListener("dblclick", openNodeModuleActionMenu);
+    face.addEventListener("contextmenu", openNodeModuleActionMenu);
+  });
+  node.querySelectorAll(".node-solid-module-shell").forEach((shell) => {
+    shell.addEventListener("pointerdown", beginNodeGraphNodeDrag);
+    shell.addEventListener("dblclick", openNodeModuleActionMenu);
+    shell.addEventListener("contextmenu", openNodeModuleActionMenu);
+  });
 }
 
 function attachNodeGraphNodeEvents(node) {
@@ -38,6 +87,10 @@ function attachNodeGraphNodeEvents(node) {
   node.querySelector(".node-execution-order-badge")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
   node.querySelector(".node-header-title-row")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
   node.querySelector(".node-header-title-row")?.addEventListener("dblclick", openNodeModuleActionMenu);
+  // Right-click anywhere on the module shell opens Module Settings (shared
+  // path with document contextmenu). Slider readouts / display faces stop
+  // propagation for their own settings first.
+  node.addEventListener("contextmenu", openNodeModuleActionMenu);
   node.querySelector(".node-header-title-row")?.addEventListener("contextmenu", openNodeModuleActionMenu);
   node.querySelector(".node-led-face")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
   // Group Input/Output are chromeless (no .node-header-title-row to grab
@@ -51,6 +104,7 @@ function attachNodeGraphNodeEvents(node) {
   node.querySelector(".node-group-input-face")?.addEventListener("dblclick", openNodeModuleActionMenu);
   node.querySelector(".node-group-output-face")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
   node.querySelector(".node-group-output-face")?.addEventListener("dblclick", openNodeModuleActionMenu);
+  attachNodeGraphSolidModuleShellEvents(node);
   node.querySelectorAll(".dsp-node-io-section")
     .forEach((section) => section.addEventListener("pointerdown", beginNodeGraphNodeDrag));
   node.querySelectorAll(".node-parameter-row")
@@ -140,6 +194,15 @@ function openNodeModuleDisplaySettings(event) {
   event.preventDefault();
   event.stopPropagation();
   const nodeId = event.currentTarget?.dataset?.node;
+  // Schema-exclusive display windows: bespoke modules own their own floating
+  // settings (not the shared Trace/scope form). Order matches context-menu
+  // specialized-face routing (LED, Music Player phosphor waveform, …).
+  if (nodeId && typeof openNodeGraphLedSettings === "function" && openNodeGraphLedSettings(nodeId, event)) {
+    return;
+  }
+  if (nodeId && typeof openNodeGraphPhosphorWaveformSettings === "function" && openNodeGraphPhosphorWaveformSettings(nodeId, event)) {
+    return;
+  }
   if (nodeId && typeof openNodeGraphTraceDisplaySettings === "function" && openNodeGraphTraceDisplaySettings(nodeId, event)) {
     return;
   }
@@ -405,7 +468,12 @@ function createNodeGraphModuleElement(type, node) {
   article.dataset.gridHeightGu = String(heightGu);
   article.style.setProperty("--node-grid-width-units", String(widthGu));
   article.style.setProperty("--node-grid-height-units", String(heightGu));
-  article.style.setProperty("--node-module-display-height-units", String(nodeGraphPatchNodeDisplayCssHeightUnits(patchNode)));
+  if (typeof nodeGraphApplyModuleShellHeightCssVars === "function") {
+    nodeGraphApplyModuleShellHeightCssVars(article, patchNode);
+  } else {
+    article.style.setProperty("--node-module-display-height-units", String(nodeGraphPatchNodeDisplayCssHeightUnits(patchNode)));
+    article.style.setProperty("--node-module-shell-height-units", String(nodeGraphPatchNodeDisplayCssHeightUnits(patchNode)));
+  }
   article.style.setProperty("--node-module-interface-controls-height-units", String(nodeGraphPatchNodeInterfaceControlsHeightUnits(patchNode)));
   const patchNodeUi = nodeGraphEffectivePatchNodeUi(patchNode.ui);
   article.classList.toggle("buttons-hidden", patchNodeUi.buttonsHidden);
@@ -634,16 +702,14 @@ function createNodeGraphModuleElement(type, node) {
     appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, outputPorts);
   } else {
     let scopeSection = null;
-    // xyPad's interactive pad IS its display -- no oscilloscope section.
-    if (!patchNodeUi.oscilloscopeHidden && type !== "xyPad") {
+    // Chromeless solid modules (xyPad, …) build their face via createBody above —
+    // never fall through to a second stacked pad/scope layout here.
+    if (!patchNodeUi.oscilloscopeHidden) {
       scopeSection = createNodeGraphModuleScopeSection(node, type);
       article.append(scopeSection);
     }
     if ((type === "samplePlayer" || type === "sampleLooper" || type === "audioPlayer") && typeof createNodeGraphSampleModuleBody === "function") {
       article.append(createNodeGraphSampleModuleBody(node));
-    }
-    if (type === "xyPad" && typeof createNodeGraphXyPadBody === "function") {
-      article.append(createNodeGraphXyPadBody(node, type));
     }
     if (scopeSection) {
       registerNodeGraphModuleScopeSlot(article, { nodeId: node, type, scopeElement: scopeSection });

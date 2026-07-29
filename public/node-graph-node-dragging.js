@@ -43,13 +43,17 @@ function beginNodeGraphNodeDrag(event) {
   }
   if (
     event.target.closest?.(
-      ".node-port, .node-param-port, button:not(.node-drag-handle), input:not(.node-header-title-input), textarea, select, option, [contenteditable='true']",
+      // Jacks / controls block drag (wire handlers own jacks). .node-io-row is
+      // intentionally NOT listed: solid-module rows are a 1gu band around each
+      // jack; geometric miss (see endpointHitboxClientRect) falls through to
+      // shell/face drag without stopping here.
+      ".node-port, .node-param-port, button:not(.node-drag-handle), input:not(.node-header-title-input), textarea, select, option, [contenteditable='true'], .node-xy-pad-canvas",
     )
   ) {
     return;
   }
   const handle = event.currentTarget.closest(
-    ".node-drag-handle, .node-execution-order-badge, .node-header-title-row, .node-led-face, .node-group-input-face, .node-group-output-face, .node-knob-widget-body, .dsp-node-io-section, .node-parameter-row, .node-sample-phase-readout",
+    ".node-drag-handle, .node-execution-order-badge, .node-header-title-row, .node-led-face, .node-group-input-face, .node-group-output-face, .node-solid-module-shell, .node-solid-module-custom-ui, .node-knob-widget-body, .dsp-node-io-section, .node-parameter-row, .node-sample-phase-readout",
   );
   if (!handle) {
     return;

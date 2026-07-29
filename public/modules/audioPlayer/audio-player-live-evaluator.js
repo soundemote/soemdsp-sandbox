@@ -57,7 +57,13 @@ function nodeGraphAudioPlayerSample(runtime, node, nodeId, readInput, readParam,
   const span = Math.max(0.000001, endPhase - startPhase);
   const rangeKey = `${startPhase}:${endPhase}`;
   if (state.sampleId !== sampleId) {
-    state.phase = startPhase;
+    // Cold start / first bind: restore patch-remembered phase. Sample swap: reset.
+    const restored = Number(node?.samplePhase);
+    if (!state.sampleId && Number.isFinite(restored)) {
+      state.phase = clampNodeSliderValue(restored, startPhase, endPhase);
+    } else {
+      state.phase = startPhase;
+    }
     state.completed = false;
     state.sampleId = sampleId;
   } else if (state.rangeKey !== rangeKey) {
@@ -96,18 +102,19 @@ function nodeGraphAudioPlayerSample(runtime, node, nodeId, readInput, readParam,
   const speed = readParam("speed", 1) + speedInput;
   const sampleRateRatio = (Number(sample.sampleRate) || sampleRate || 44100) / Math.max(1, sampleRate || 44100);
   const increment = (speed * sampleRateRatio) / frames;
-  const phase = phaseConnected
+  const basePhase = phaseConnected
     ? clampNodeSliderValue(readInput("Phase"), 0, 1)
     : clampNodeSliderValue(state.phase, 0, 1);
-  const boundedPhase = phase < startPhase || phase > endPhase
-    ? startPhase
-    : phase;
+  // Relative offset (−1…+1 wrap; ±1 ≡ 0). Scrub without jumping transport phase.
+  const phaseOffsetCycles = ((Number(readParam("phaseOffset", 0)) % 1) + 1) % 1;
+  const phaseWithOffset = basePhase + phaseOffsetCycles;
+  const boundedPhase = startPhase + wrapNodeSliderValue((phaseWithOffset - startPhase) / span, 0, 1) * span;
   const frameIndex = boundedPhase * (frames - 1);
   const stereo = nodeGraphSampleStereoAt(sample, frameIndex);
   const level = readParam("level", 1);
   let done = 0;
   if (!phaseConnected && state.playing) {
-    const nextPhase = boundedPhase + increment;
+    const nextPhase = basePhase + increment;
     if (transportLooping) {
       const normalizedNext = (nextPhase - startPhase) / span;
       done = normalizedNext < 0 || normalizedNext >= 1 ? 1 : 0;
@@ -127,8 +134,8 @@ function nodeGraphAudioPlayerSample(runtime, node, nodeId, readInput, readParam,
     }
   } else if (!phaseConnected && (transportReset || transportStopped)) {
     state.phase = startPhase;
-  } else {
-    state.phase = boundedPhase;
+  } else if (phaseConnected) {
+    state.phase = clampNodeSliderValue(readInput("Phase"), 0, 1);
   }
   const outputActive = state.playing;
   return {

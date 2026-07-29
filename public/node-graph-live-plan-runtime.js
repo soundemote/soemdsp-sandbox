@@ -72,6 +72,33 @@ function nodeGraphBuildLivePlanForPatch(patch) {
   return plan;
 }
 
+/**
+ * Spectrogram analysis knobs live in display settings. Inject into worklet
+ * params (fftSize, window, overlap, freqOverlap, freqScale, historySeconds).
+ */
+function nodeGraphInjectSpectrogramWorkletParams(node, params) {
+  if (!node || node.type !== "spectrogram" || !params || typeof params !== "object") {
+    return;
+  }
+  if (typeof normalizeNodeGraphSpectrogramSettings === "function") {
+    const safe = normalizeNodeGraphSpectrogramSettings(node.traceDisplaySettings || {}, node);
+    params.fftSize = safe.fftSize;
+    params.window = safe.window;
+    params.overlap = safe.overlap;
+    params.freqOverlap = safe.freqOverlap;
+    params.freqScale = safe.freqScale;
+    params.historySeconds = safe.historySeconds;
+    return;
+  }
+  const rawFft = node.traceDisplaySettings?.fftSize ?? node.params?.fftSize ?? 1024;
+  params.fftSize = Number.isFinite(Number(rawFft)) ? Number(rawFft) : 1024;
+  params.window = Number(node.traceDisplaySettings?.window ?? node.params?.window ?? 1) || 1;
+  params.overlap = Number(node.traceDisplaySettings?.overlap ?? node.params?.overlap ?? 2) || 2;
+  params.freqOverlap = Number(node.traceDisplaySettings?.freqOverlap ?? node.params?.freqOverlap ?? 0) || 0;
+  params.freqScale = Number(node.traceDisplaySettings?.freqScale ?? node.params?.freqScale ?? 1) || 1;
+  params.historySeconds = Number(node.traceDisplaySettings?.historySeconds ?? node.params?.historySeconds ?? 2) || 2;
+}
+
 function nodeGraphBuildLiveParameterNodes(activeNodeIds = null) {
   const activeIds = activeNodeIds instanceof Set ? activeNodeIds : null;
   return nodeGraphMvp.patch.nodes
@@ -87,6 +114,7 @@ function nodeGraphBuildLiveParameterNodes(activeNodeIds = null) {
           : nodeGraphParameterFallback(node.type, parameter.key);
         paramMeta[parameter.key] = nodeGraphReadPatchParameterMetadata(node, parameter.key);
       }
+      nodeGraphInjectSpectrogramWorkletParams(node, params);
       if (node.type === "clapPlugin") {
         for (const [key, metadata] of Object.entries(node.paramMeta || {})) {
           if (Object.hasOwn(paramMeta, key)) {
@@ -125,6 +153,9 @@ function nodeGraphBuildLiveParameterNodes(activeNodeIds = null) {
       }
       if (node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer") {
         runtimeNode.sample = { id: normalizeNodeGraphSampleId(node.sample?.id) };
+      }
+      if (node.type === "audioPlayer" && Number.isFinite(Number(node.samplePhase))) {
+        runtimeNode.samplePhase = Math.max(0, Math.min(1, Number(node.samplePhase)));
       }
       if (node.type === "phosphillator" && Array.isArray(node.drawnPath?.points)) {
         runtimeNode.drawnPath = { points: node.drawnPath.points };
@@ -155,6 +186,7 @@ function nodeGraphBuildLiveParameterNodesForPatch(patch, activeNodeIds = null) {
           node.paramMeta?.[parameter.key],
         ) || nodeGraphParameterDefinitionMetadata(parameter);
       }
+      nodeGraphInjectSpectrogramWorkletParams(node, params);
       if (node.type === "clapPlugin") {
         for (const [key, metadata] of Object.entries(node.paramMeta || {})) {
           if (Object.hasOwn(paramMeta, key)) {
@@ -193,6 +225,9 @@ function nodeGraphBuildLiveParameterNodesForPatch(patch, activeNodeIds = null) {
       }
       if (node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer") {
         runtimeNode.sample = { id: normalizeNodeGraphSampleId(node.sample?.id) };
+      }
+      if (node.type === "audioPlayer" && Number.isFinite(Number(node.samplePhase))) {
+        runtimeNode.samplePhase = Math.max(0, Math.min(1, Number(node.samplePhase)));
       }
       if (node.type === "phosphillator" && Array.isArray(node.drawnPath?.points)) {
         runtimeNode.drawnPath = { points: node.drawnPath.points };
@@ -275,6 +310,7 @@ function createNodeGraphLiveRuntime(plan) {
   const linearEnvelopeStates = new Map();
   const logisticMapStates = new Map();
   const henonMapStates = new Map();
+  const rayBouncerStates = new Map();
   const chuaAttractorStates = new Map();
   const wirdoSpiralStates = new Map();
   const blubbStates = new Map();
@@ -317,6 +353,8 @@ function createNodeGraphLiveRuntime(plan) {
   const fractalSpiralStates = new Map();
   const logSpiralStates = new Map();
   const smoothers = new Map();
+  const activeSmoothers = [];
+  const activeSmootherKeys = new Set();
   const triggerCounterStates = new Map();
   const triggerDividerStates = new Map();
   const triangleStates = new Map();
@@ -350,6 +388,9 @@ function createNodeGraphLiveRuntime(plan) {
     }
     if (node.type === "henonMap") {
       henonMapStates.set(node.id, createNodeGraphHenonMapState());
+    }
+    if (node.type === "rayBouncer") {
+      rayBouncerStates.set(node.id, createNodeGraphRayBouncerState());
     }
     if (node.type === "chuaAttractor") {
       chuaAttractorStates.set(node.id, createNodeGraphChuaAttractorState());
@@ -591,6 +632,7 @@ function createNodeGraphLiveRuntime(plan) {
     linearEnvelopeStates,
     logisticMapStates,
     henonMapStates,
+    rayBouncerStates,
     chuaAttractorStates,
     wirdoSpiralStates,
     blubbStates,
@@ -661,6 +703,8 @@ function createNodeGraphLiveRuntime(plan) {
     scopeCaptureNodeIds: [...(plan.scopeCaptureNodeIds || [])],
     slewLimiterStates,
     smoothers,
+    activeSmoothers,
+    activeSmootherKeys,
     spiralStates,
     fractalSpiralStates,
     logSpiralStates,
@@ -794,6 +838,9 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   }
   if (!runtime.henonMapStates) {
     runtime.henonMapStates = new Map();
+  }
+  if (!runtime.rayBouncerStates) {
+    runtime.rayBouncerStates = new Map();
   }
   if (!runtime.chuaAttractorStates) {
     runtime.chuaAttractorStates = new Map();
@@ -979,6 +1026,9 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     }
     if (node.type === "henonMap" && !runtime.henonMapStates.has(node.id)) {
       runtime.henonMapStates.set(node.id, createNodeGraphHenonMapState());
+    }
+    if (node.type === "rayBouncer" && !runtime.rayBouncerStates.has(node.id)) {
+      runtime.rayBouncerStates.set(node.id, createNodeGraphRayBouncerState());
     }
     if (node.type === "chuaAttractor" && !runtime.chuaAttractorStates.has(node.id)) {
       runtime.chuaAttractorStates.set(node.id, createNodeGraphChuaAttractorState());
@@ -1187,9 +1237,14 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
           smootherKey,
           createNodeGraphParameterSmoother(value, metadata),
         );
-      } else {
-        updateNodeGraphParameterSmoother(runtime.smoothers.get(smootherKey), value, metadata);
       }
+      updateNodeGraphParameterSmoother(
+        runtime.smoothers.get(smootherKey),
+        value,
+        metadata,
+        runtime,
+        smootherKey,
+      );
     }
   }
   for (const id of [...runtime.phases.keys()]) {
@@ -1269,6 +1324,11 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   for (const id of [...runtime.henonMapStates.keys()]) {
     if (!nodeIds.has(id)) {
       runtime.henonMapStates.delete(id);
+    }
+  }
+  for (const id of [...runtime.rayBouncerStates.keys()]) {
+    if (!nodeIds.has(id)) {
+      runtime.rayBouncerStates.delete(id);
     }
   }
   for (const id of [...runtime.chuaAttractorStates.keys()]) {
@@ -1605,6 +1665,10 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   for (const key of [...runtime.smoothers.keys()]) {
     const [nodeId, parameter] = key.split(".");
     if (!nodeIds.has(nodeId) || !runtime.nodes.get(nodeId)?.params || !(parameter in runtime.nodes.get(nodeId).params)) {
+      const dead = runtime.smoothers.get(key);
+      if (typeof nodeGraphDeactivateParameterSmoother === "function") {
+        nodeGraphDeactivateParameterSmoother(runtime, key, dead);
+      }
       runtime.smoothers.delete(key);
     }
   }
@@ -1645,9 +1709,14 @@ function updateNodeGraphLiveRuntimeParameters(runtime, nodes) {
           smootherKey,
           createNodeGraphParameterSmoother(value, metadata),
         );
-      } else {
-        updateNodeGraphParameterSmoother(runtime.smoothers.get(smootherKey), value, metadata);
       }
+      updateNodeGraphParameterSmoother(
+        runtime.smoothers.get(smootherKey),
+        value,
+        metadata,
+        runtime,
+        smootherKey,
+      );
     }
   }
 }

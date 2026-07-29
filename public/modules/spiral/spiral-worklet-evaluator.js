@@ -157,53 +157,6 @@ NodeLiveAudioProcessor.prototype.jerobeamSpiralSample = function jerobeamSpiralS
         });
       }
     }
-    return this.jerobeamSpiralSampleJs(options);
-  };
-
-NodeLiveAudioProcessor.prototype.jerobeamSpiralSampleJs = function jerobeamSpiralSampleJs(options) {
-    const tau = Math.PI * 2;
-    const piOver2 = Math.PI / 2;
-    const state = options.state;
-    const dense = Math.max(Math.abs(options.density), 1e-6);
-    const div = Math.max(options.size, 0.1);
-    const logDense = Math.log(dense);
-    const zDarkness = Math.pow(Math.pow(options.zAmount, 2) * 5 + 1, state.zHistory || 0);
-    const mainPhasor = this.spiralNextPhasor(state, "phase", options.frequency * zDarkness, 0, options.sampleRate);
-    const fphasEnds = this.spiralTrisaw(mainPhasor, options.sharp);
-    const fphasMids = options.sharpCurveMult * (Math.asin((Math.asin(fphasEnds * 2 - 1) / Math.PI + 0.5) * 2 - 1) / Math.PI + 0.5);
-    const lophas = options.sharpCurve * fphasMids + (1 - options.sharpCurve) * fphasEnds;
-    const morph = this.spiralNextPhasor(state, "morph", options.morphSpeed, options.morph, options.sampleRate, true) + 0.5;
-    let morph2 = morph + 1;
-    if (morph2 > 1.5) {
-      morph2 -= 2;
-    }
-    const fmodLophas = this.spiralFmod(lophas - 0.5, 1);
-    let phas = this.spiralFmod(fmodLophas * Math.exp(morph * logDense) / 4 + 0.375, 1);
-    const phas2 = this.spiralFmod(fmodLophas * Math.exp(morph2 * logDense) / 4 + 0.375, 1);
-    phas += this.spiralNextPhasor(state, "position", options.positionSpeed, options.position, options.sampleRate);
-    const wave1 = this.spiralShape(lophas, phas, dense, div, morph);
-    const wave2 = this.spiralShape(lophas, phas2, dense, div, morph2);
-    const switchAmount = Math.sin(Math.PI * morph) / 2 + 0.5;
-    let waveX = wave1.x * switchAmount + wave2.x * (1 - switchAmount);
-    let waveY = wave1.y * switchAmount + wave2.y * (1 - switchAmount);
-    let waveZ = wave1.z * switchAmount + wave2.z * (1 - switchAmount);
-    let volumeCorrection = 1 / (1 + div + div * div);
-    const halfZDepth = options.zDepth / 2;
-    volumeCorrection = volumeCorrection + halfZDepth - volumeCorrection * halfZDepth;
-    waveX *= volumeCorrection;
-    waveY *= volumeCorrection;
-    waveZ *= volumeCorrection;
-    waveY += 0.25;
-    waveZ += 0.36;
-    const rotated = this.spiralRotate(
-      waveX,
-      waveY,
-      waveZ,
-      -tau * this.spiralNextPhasor(state, "rotX", options.rotXSpeed, options.rotX, options.sampleRate),
-      tau * this.spiralNextPhasor(state, "rotY", options.rotYSpeed, options.rotY, options.sampleRate) - piOver2,
-    );
-    const stereo = this.spiralRender(rotated.x, rotated.y, rotated.z, options.zDepth);
-    state.zHistory = rotated.z;
-    return { ...stereo, x: rotated.x, y: rotated.y, z: rotated.z };
+    return { x: 0, y: 0, z: 0 };
   };
 

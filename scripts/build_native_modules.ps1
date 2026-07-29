@@ -43,6 +43,7 @@ $modules = @(
   @{ Name = "dsf_oscillator"; Simd = $false; Exports = @("soemdsp_dsf_oscillator_create", "soemdsp_dsf_oscillator_destroy", "soemdsp_dsf_oscillator_reset", "soemdsp_dsf_oscillator_sample", "soemdsp_dsf_oscillator_out", "soemdsp_dsf_oscillator_version") }
   @{ Name = "robin_supersaw"; Simd = $false; Exports = @("soemdsp_robin_supersaw_create", "soemdsp_robin_supersaw_destroy", "soemdsp_robin_supersaw_reset", "soemdsp_robin_supersaw_sample", "soemdsp_robin_supersaw_left", "soemdsp_robin_supersaw_right", "soemdsp_robin_supersaw_mono", "soemdsp_robin_supersaw_version") }
   @{ Name = "henon_map"; Simd = $false; Exports = @("soemdsp_henon_map_create", "soemdsp_henon_map_destroy", "soemdsp_henon_map_sample", "soemdsp_henon_map_x", "soemdsp_henon_map_y", "soemdsp_henon_map_version") }
+  @{ Name = "ray_bouncer"; Simd = $false; Exports = @("soemdsp_ray_bouncer_create", "soemdsp_ray_bouncer_destroy", "soemdsp_ray_bouncer_sample", "soemdsp_ray_bouncer_x", "soemdsp_ray_bouncer_y", "soemdsp_ray_bouncer_version") }
   @{ Name = "chua_attractor"; Simd = $false; Exports = @("soemdsp_chua_attractor_create", "soemdsp_chua_attractor_destroy", "soemdsp_chua_attractor_sample", "soemdsp_chua_attractor_x", "soemdsp_chua_attractor_y", "soemdsp_chua_attractor_z", "soemdsp_chua_attractor_version") }
   @{ Name = "jerobeam_wirdo_spiral"; Simd = $false; Exports = @("soemdsp_jbwirdo_create", "soemdsp_jbwirdo_destroy", "soemdsp_jbwirdo_reset", "soemdsp_jbwirdo_sample", "soemdsp_jbwirdo_x", "soemdsp_jbwirdo_y", "soemdsp_jbwirdo_version") }
   @{ Name = "jerobeam_blubb"; Simd = $false; Exports = @("soemdsp_jbblubb_create", "soemdsp_jbblubb_destroy", "soemdsp_jbblubb_reset", "soemdsp_jbblubb_sample", "soemdsp_jbblubb_x", "soemdsp_jbblubb_y", "soemdsp_jbblubb_version") }
@@ -88,7 +89,7 @@ $modules = @(
   @{ Name = "clock"; Simd = $false; Exports = @("soemdsp_clock_create", "soemdsp_clock_destroy", "soemdsp_clock_sample", "soemdsp_clock_analog_out", "soemdsp_clock_pulse", "soemdsp_clock_version") }
   @{ Name = "random_clock"; Simd = $false; Exports = @("soemdsp_random_clock_create", "soemdsp_random_clock_destroy", "soemdsp_random_clock_sample", "soemdsp_random_clock_gate", "soemdsp_random_clock_version") },
   @{ Name = "ping_pong_delay"; Simd = $false; Exports = @("soemdsp_ping_pong_delay_create", "soemdsp_ping_pong_delay_destroy", "soemdsp_ping_pong_delay_sample", "soemdsp_ping_pong_delay_right", "soemdsp_ping_pong_delay_version") },
-  @{ Name = "papoulis_filter"; Simd = $false; Exports = @("soemdsp_papoulis_filter_create", "soemdsp_papoulis_filter_destroy", "soemdsp_papoulis_filter_sample", "soemdsp_papoulis_filter_version") },
+  @{ Name = "papoulis_filter"; Simd = $false; Exports = @("soemdsp_papoulis_filter_create", "soemdsp_papoulis_filter_destroy", "soemdsp_papoulis_filter_sample", "soemdsp_papoulis_filter_snap", "soemdsp_papoulis_filter_version") },
   @{ Name = "phosphillator"; Simd = $false; Exports = @("soemdsp_phosphillator_create", "soemdsp_phosphillator_destroy", "soemdsp_phosphillator_path_x_ptr", "soemdsp_phosphillator_path_y_ptr", "soemdsp_phosphillator_max_path_points", "soemdsp_phosphillator_set_path", "soemdsp_phosphillator_clear_path", "soemdsp_phosphillator_sample", "soemdsp_phosphillator_y", "soemdsp_phosphillator_version") }
 )
 

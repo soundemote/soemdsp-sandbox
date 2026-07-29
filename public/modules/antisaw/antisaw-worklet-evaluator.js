@@ -16,36 +16,6 @@ NodeLiveAudioProcessor.prototype.createAntisawState = function createAntisawStat
 // the wasm module hasn't loaded yet or fails. Same math/parameter
 // meaning; JS's % is equivalent to the .cpp's hand-rolled dsp_fmod for
 // the positive-only operands this module ever uses.
-NodeLiveAudioProcessor.prototype.antisawSampleJs = function antisawSampleJs(state, params, rate = sampleRate) {
-  const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
-  const nyquist = safeRate * 0.5;
-  const twoPi = Math.PI * 2;
-  const f0 = Math.max(0, this.safeFilterNumber(params.fundamental, null));
-  const N = this.clampValue(Math.round(this.safeFilterNumber(params.reflections, null)), 1, 256);
-  const tilt = this.clampValue(this.safeFilterNumber(params.tilt, null), -1, 1);
-  const level = this.safeFilterNumber(params.level, null);
-
-  let out = 0;
-  for (let n = 1; n <= N; n++) {
-    const raw = n * f0;
-    if (raw > nyquist) {
-      let folded = raw % safeRate;
-      if (folded > nyquist) folded = safeRate - folded;
-
-      const idx = n - 1;
-      state.phase[idx] = (state.phase[idx] + twoPi * folded / safeRate) % twoPi;
-
-      const nNorm = N > 1 ? (n - 1) / (N - 1) : 0.5;
-      const bias = nNorm * 2 - 1;
-      const weight = (1 / n) * (1 + tilt * bias);
-
-      out += Math.sin(state.phase[idx]) * weight;
-    }
-  }
-
-  return this.clampValue(out * level, -1, 1);
-};
-
 NodeLiveAudioProcessor.prototype.antisawSample = function antisawSample(state, params, rate = sampleRate) {
   if (
     this.nativeAntisawReady &&
@@ -78,5 +48,5 @@ NodeLiveAudioProcessor.prototype.antisawSample = function antisawSample(state, p
       });
     }
   }
-  return this.antisawSampleJs(state, params, rate);
+  return 0;
 };

@@ -99,10 +99,13 @@ NodeLiveAudioProcessor.prototype.createNestedRuntime = function createNestedRunt
   runtime.scopeCounter = 0;
   runtime.slewLimiterStates = new Map();
   runtime.smoothers = new Map();
+  runtime.activeSmoothers = [];
+  runtime.activeSmootherKeys = new Set();
   runtime.spiralStates = new Map();
   runtime.lorenzAttractorStates = new Map();
   runtime.logisticMapStates = new Map();
   runtime.henonMapStates = new Map();
+  runtime.rayBouncerStates = new Map();
   runtime.chuaAttractorStates = new Map();
   runtime.wirdoSpiralStates = new Map();
   runtime.blubbStates = new Map();
@@ -168,6 +171,7 @@ NodeLiveAudioProcessor.prototype.setNestedPlan = function setNestedPlan(plan) {
     if (node?.type === "lorenzAttractor") this.lorenzAttractorStates.set(id, this.createLorenzAttractorState());
     if (node?.type === "logisticMap") this.logisticMapStates.set(id, this.createLogisticMapState());
     if (node?.type === "henonMap") this.henonMapStates.set(id, this.createHenonMapState());
+    if (node?.type === "rayBouncer") this.rayBouncerStates.set(id, this.createRayBouncerState());
     if (node?.type === "chuaAttractor") this.chuaAttractorStates.set(id, this.createChuaAttractorState());
     if (node?.type === "wirdoSpiral") this.wirdoSpiralStates.set(id, this.createWirdoSpiralState());
     if (node?.type === "blubb") this.blubbStates.set(id, this.createBlubbState());
@@ -237,7 +241,12 @@ NodeLiveAudioProcessor.prototype.setNestedPlan = function setNestedPlan(plan) {
       this.moduleGroupRuntimes.set(id, this.createNestedRuntime(node.moduleGroupPlan));
     }
     for (const [key, value] of Object.entries(node?.params || {})) {
-      this.smoothers.set(this.parameterKey(id, key), this.createSmoother(value, node.paramMeta?.[key]));
+      const smootherKey = this.parameterKey(id, key);
+      const metadata = node.paramMeta?.[key];
+      if (!this.smoothers.has(smootherKey)) {
+        this.smoothers.set(smootherKey, this.createSmoother(value, metadata));
+      }
+      this.updateSmoother(this.smoothers.get(smootherKey), value, metadata, smootherKey);
     }
   }
 };

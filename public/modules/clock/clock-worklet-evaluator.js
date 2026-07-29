@@ -18,29 +18,6 @@ NodeLiveAudioProcessor.prototype.clockAnalogWhipSample = function clockAnalogWhi
     return (body + sheen) * snapEnvelope * level;
   };
 
-NodeLiveAudioProcessor.prototype.clockSampleJs = function clockSampleJs(state, reset, phaseOffset, rate, duty, level, rateHz = sampleRate) {
-    const safeReset = this.safeFilterNumber(reset, null);
-    const safePhaseOffset = this.wrapValue(this.safeFilterNumber(phaseOffset, null), 0, 1);
-    const safeRate = Math.max(0, this.safeFilterNumber(rate, null));
-    const safeDuty = this.clampValue(this.safeFilterNumber(duty, null), 0, 1);
-    const safeLevel = this.safeFilterNumber(level, null);
-    const resetActive = safeReset > 0;
-    const rawPhase = resetActive ? 0 : this.wrapValue(Number(state.phase) || 0, 0, 1);
-    const phase = this.wrapValue(rawPhase + safePhaseOffset, 0, 1);
-    const digital = phase < safeDuty ? safeLevel : 0;
-    const analog = this.clockAnalogWhipSample(phase, safeLevel);
-    const nextRawPhase = this.wrapValue(rawPhase + safeRate / Math.max(1, rateHz), 0, 1);
-    const pulse = safeRate > 0 && !resetActive && (!state.hasStarted || nextRawPhase < rawPhase) ? safeLevel : 0;
-    state.hasStarted = !resetActive;
-    state.phase = resetActive ? 0 : nextRawPhase;
-    return {
-      "Analog Out": analog,
-      "Digital Out": digital,
-      Out: digital,
-      Pulse: pulse,
-    };
-  };
-
 NodeLiveAudioProcessor.prototype.clockSample = function clockSample(state, reset, phaseOffset, rate, duty, level, rateHz = sampleRate) {
     if (this.nativeClockReady) {
       try {
@@ -81,6 +58,6 @@ NodeLiveAudioProcessor.prototype.clockSample = function clockSample(state, reset
         });
       }
     }
-    return this.clockSampleJs(state, reset, phaseOffset, rate, duty, level, rateHz);
+    return { "Analog Out": 0, "Digital Out": 0, Out: 0, Pulse: 0 };
   };
 

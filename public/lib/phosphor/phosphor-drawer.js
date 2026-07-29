@@ -81,6 +81,14 @@
     return true;
   }
 
+  /** Multi-stop LUT from shared gradient editor format [{t,color}]. */
+  function setLutStops(face, stops) {
+    if (!face || typeof global.nodeGraphPhosphorEnergyGlSetLutFromStops !== "function") {
+      return false;
+    }
+    return Boolean(global.nodeGraphPhosphorEnergyGlSetLutFromStops(face, stops));
+  }
+
   /**
    * One frame: fade + optional bleed + soft/hard dots along pathPoints.
    * options.burn is optional convenience for deposit gain when brightness is raw.
@@ -112,6 +120,9 @@
       mode: "dots",
       maxDots: Math.max(64, Math.min(8192, Math.round(Number(options.maxDots) || 2048))),
       bleed: options.bleed,
+      fullEconomy: options.fullEconomy === true
+        || options.fullDotEconomy === true
+        || options.useFullDotEconomy === true,
     });
   }
 
@@ -214,6 +225,7 @@
     radiusFromSize,
     ensure,
     setLut,
+    setLutStops,
     stepDots,
     stepFade,
     presentTo,

@@ -227,6 +227,7 @@ var nodeGraphMvp = {
     chordMemory: 0,
     chuaAttractor: 0,
     henonMap: 0,
+    rayBouncer: 0,
     turingMachine: 0,
     pitchQuantizer: 0,
     surgeOscillator: 0,

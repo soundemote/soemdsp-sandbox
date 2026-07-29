@@ -2,48 +2,6 @@ NodeLiveAudioProcessor.prototype.createChordSequencerState = function createChor
     return { clockWasHigh: false, resetWasHigh: false, stepIndex: 0, nativeHandle: 0 };
   };
 
-NodeLiveAudioProcessor.prototype.chordSequencerRotateLeft12 = function chordSequencerRotateLeft12(mask, amount) {
-    const n = ((amount % 12) + 12) % 12;
-    if (n === 0) return mask & 0xFFF;
-    return ((mask << n) | (mask >> (12 - n))) & 0xFFF;
-  };
-
-NodeLiveAudioProcessor.prototype.chordSequencerSampleJs = function chordSequencerSampleJs(state, options = {}) {
-    const progressions = [
-      [[0, 0], [7, 0], [9, 1], [5, 0]],
-      [[0, 0], [5, 0], [7, 0], [0, 0]],
-      [[2, 1], [7, 0], [0, 0], [0, 0]],
-      [[9, 1], [5, 0], [0, 0], [7, 0]],
-      [[0, 0], [9, 1], [5, 0], [7, 0]],
-      [[0, 0], [9, 1], [2, 1], [7, 0]],
-    ];
-    const majorTriadMask = 0x91;
-    const minorTriadMask = 0x89;
-    const clockHigh = Number(options.clock) > 0;
-    const resetHigh = Number(options.reset) > 0;
-    const progressionIndex = Math.max(0, Math.min(progressions.length - 1, Math.round(Number(options.progression) || 0)));
-    const level = Number(options.level) || 0;
-
-    if (resetHigh && !state.resetWasHigh) {
-      state.stepIndex = 0;
-    }
-    state.resetWasHigh = resetHigh;
-
-    if (clockHigh && !state.clockWasHigh) {
-      state.stepIndex = (state.stepIndex + 1) % progressions[progressionIndex].length;
-    }
-    state.clockWasHigh = clockHigh;
-
-    const [root, quality] = progressions[progressionIndex][state.stepIndex];
-    const baseMask = quality === 0 ? majorTriadMask : minorTriadMask;
-
-    return {
-      Scale: this.chordSequencerRotateLeft12(baseMask, root),
-      Root: (60 + root) / 120,
-      Gate: (clockHigh ? 1 : 0) * level,
-    };
-  };
-
 NodeLiveAudioProcessor.prototype.chordSequencerSample = function chordSequencerSample(state, options = {}) {
     if (
       this.nativeChordSequencerReady &&
@@ -85,6 +43,6 @@ NodeLiveAudioProcessor.prototype.chordSequencerSample = function chordSequencerS
         });
       }
     }
-    return this.chordSequencerSampleJs(state, options);
+    return { Scale: 0, Root: 0, Gate: 0 };
   };
 

@@ -82,15 +82,45 @@ function syncNodeGraphModularViewSizeReadout(size = null) {
   const workspace = document.getElementById("nodeGraphWorkspace");
   const view = size && typeof size === "object"
     ? size
-    : normalizeNodeGraphPatchView(nodeGraphMvp.patch?.view);
-  const widthSource = Number.isFinite(Number(view.widthGu))
-    ? view.widthGu
-    : workspace?.dataset?.widthGu;
-  const heightSource = Number.isFinite(Number(view.heightGu))
-    ? view.heightGu
-    : workspace?.dataset?.heightGu;
-  const widthGu = Math.max(0, Math.round(Number(widthSource) || 0));
-  const heightGu = Math.max(0, Math.round(Number(heightSource) || 0));
+    : (typeof normalizeNodeGraphPatchView === "function"
+      ? normalizeNodeGraphPatchView(nodeGraphMvp.patch?.view)
+      : (nodeGraphMvp.patch?.view || {}));
+  // Prefer an explicit positive size from the caller / patch view / dataset.
+  // widthGu/heightGu of 0 means “auto / fill viewport” — not a real readout
+  // value — so fall through to a live measurement of the modular canvas.
+  const pickGu = (...candidates) => {
+    for (const candidate of candidates) {
+      const n = Math.round(Number(candidate));
+      if (Number.isFinite(n) && n > 0) {
+        return n;
+      }
+    }
+    return 0;
+  };
+  let widthGu = pickGu(
+    size?.widthGu,
+    view?.widthGu,
+    workspace?.dataset?.widthGu,
+  );
+  let heightGu = pickGu(
+    size?.heightGu,
+    view?.heightGu,
+    workspace?.dataset?.heightGu,
+  );
+  if (!(widthGu > 0) || !(heightGu > 0)) {
+    // Measured grid units of the visible modular canvas (auto-sized views).
+    const measured = typeof nodeGraphWorkspaceCurrentGridSize === "function"
+      ? nodeGraphWorkspaceCurrentGridSize()
+      : null;
+    if (!(widthGu > 0)) {
+      widthGu = pickGu(measured?.widthGu);
+    }
+    if (!(heightGu > 0)) {
+      heightGu = pickGu(measured?.heightGu);
+    }
+  }
+  widthGu = Math.max(0, widthGu);
+  heightGu = Math.max(0, heightGu);
   readout.replaceChildren(
     Object.assign(document.createElement("span"), { textContent: `W ${widthGu}` }),
     Object.assign(document.createElement("span"), { textContent: `H ${heightGu}` }),
@@ -99,6 +129,10 @@ function syncNodeGraphModularViewSizeReadout(size = null) {
     "aria-label",
     `Modular view size width ${widthGu} grid units, height ${heightGu} grid units.`,
   );
+  if (workspace) {
+    if (widthGu > 0) workspace.dataset.widthGu = String(widthGu);
+    if (heightGu > 0) workspace.dataset.heightGu = String(heightGu);
+  }
 }
 
 function recenterNodeGraphViewAtWorldOrigin(event) {

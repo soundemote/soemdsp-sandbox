@@ -399,6 +399,9 @@ function cloneNodeGraphPatch(patch) {
         ...(node.type === "audioPlayer" && Object.hasOwn(node, "phosphorWaveformSettings")
           ? { phosphorWaveformSettings: normalizeNodeGraphPhosphorWaveformSettings(node.phosphorWaveformSettings) }
           : {}),
+        ...(node.type === "audioPlayer" && Number.isFinite(Number(node.samplePhase))
+          ? { samplePhase: Math.max(0, Math.min(1, Number(node.samplePhase))) }
+          : {}),
         paramMeta: normalizeNodeGraphParamMetaForNode(node.type, node.paramMeta),
         ...(Object.keys(normalizeNodeGraphPatchPortMeta(node.portMeta)).length
           ? { portMeta: normalizeNodeGraphPatchPortMeta(node.portMeta) }

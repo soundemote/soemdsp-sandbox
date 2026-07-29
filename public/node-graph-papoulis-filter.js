@@ -71,6 +71,97 @@ function papoulisLowpass3Process(state, coeffs, input) {
   return biquadOut;
 }
 
+function papoulisLowpass3Snap(state, value) {
+  const v = Number(value) || 0;
+  state.poleX1 = v;
+  state.poleY1 = v;
+  state.biquadX1 = v;
+  state.biquadX2 = v;
+  state.biquadY1 = v;
+  state.biquadY2 = v;
+}
+
+// ── Shared mouse-path smoother (PrettyScope / Phosphillator pattern) ──────
+// Papoulis chase on pointer samples with a 0..1 amount control:
+//   0 = almost raw (high cutoff), 1 = heavy smooth (low cutoff).
+// Nominal sample rate is pointer-event rate (~120 Hz), not audio rate.
+
+const nodeGraphMouseSmoothCaptureRateHz = 120;
+const nodeGraphMouseSmoothMinCutoffHz = 2;
+const nodeGraphMouseSmoothMaxCutoffHz = 60;
+
+function nodeGraphMouseSmoothCutoffHz(amount) {
+  const a = Math.max(0, Math.min(1, Number(amount) || 0));
+  const logMin = Math.log(nodeGraphMouseSmoothMinCutoffHz);
+  const logMax = Math.log(nodeGraphMouseSmoothMaxCutoffHz);
+  return Math.exp(logMax + a * (logMin - logMax));
+}
+
+function createNodeGraphMouseSmoothState(initialX = 0, initialY = 0) {
+  const x = Number(initialX) || 0;
+  const y = Number(initialY) || 0;
+  const stateX = createPapoulisLowpass3State();
+  const stateY = createPapoulisLowpass3State();
+  papoulisLowpass3Snap(stateX, x);
+  papoulisLowpass3Snap(stateY, y);
+  return {
+    amount: NaN,
+    coeffs: null,
+    stateX,
+    stateY,
+    x,
+    y,
+  };
+}
+
+/** (Re)design coeffs for amount and seed filters at (x, y). */
+function nodeGraphMouseSmoothBegin(state, amount, x, y) {
+  if (!state) {
+    return createNodeGraphMouseSmoothState(x, y);
+  }
+  const ax = Number.isFinite(Number(x)) ? Number(x) : (state.x || 0);
+  const ay = Number.isFinite(Number(y)) ? Number(y) : (state.y || 0);
+  const a = Math.max(0, Math.min(1, Number(amount) || 0));
+  state.amount = a;
+  state.coeffs = a <= 1e-4
+    ? null
+    : designPapoulisLowpass3(nodeGraphMouseSmoothCutoffHz(a), nodeGraphMouseSmoothCaptureRateHz);
+  papoulisLowpass3Snap(state.stateX, ax);
+  papoulisLowpass3Snap(state.stateY, ay);
+  state.x = ax;
+  state.y = ay;
+  return state;
+}
+
+/**
+ * Filter one pointer sample. amount 0 → passthrough.
+ * If amount changes mid-gesture, coeffs are redesigned (state carries over).
+ */
+function nodeGraphMouseSmoothPoint(state, x, y, amount) {
+  const ax = Number(x) || 0;
+  const ay = Number(y) || 0;
+  const a = Math.max(0, Math.min(1, Number(amount) || 0));
+  if (!state || a <= 1e-4) {
+    if (state) {
+      state.x = ax;
+      state.y = ay;
+      state.amount = a;
+      state.coeffs = null;
+    }
+    return { x: ax, y: ay };
+  }
+  if (state.amount !== a || !state.coeffs) {
+    state.amount = a;
+    state.coeffs = designPapoulisLowpass3(
+      nodeGraphMouseSmoothCutoffHz(a),
+      nodeGraphMouseSmoothCaptureRateHz,
+    );
+  }
+  state.x = papoulisLowpass3Process(state.stateX, state.coeffs, ax);
+  state.y = papoulisLowpass3Process(state.stateY, state.coeffs, ay);
+  return { x: state.x, y: state.y };
+}
+
 // Module-facing API for the standalone Papoulis Filter node — mirrors the
 // createNodeGraphXState()/nodeGraphXSample() naming convention used by
 // passiveFilter/cookbookFilter/ladderFilter so it plugs into the same

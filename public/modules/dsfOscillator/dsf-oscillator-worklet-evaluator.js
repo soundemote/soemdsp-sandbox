@@ -21,67 +21,6 @@ NodeLiveAudioProcessor.prototype.dsfAdaptiveRetention = function dsfAdaptiveRete
     return Math.exp(-0.23026 * dt);
   };
 
-NodeLiveAudioProcessor.prototype.dsfOscillatorSampleJs = function dsfOscillatorSampleJs(state, options = {}) {
-    const sampleRate = Number(options.sampleRate) > 1 ? Number(options.sampleRate) : 48000;
-    const safeFrequency = Number(options.frequencyHz) > 1 ? Number(options.frequencyHz) : 1;
-    const dt = this.clampValue((Number(options.frequencyHz) || 0) / sampleRate, -0.5, 0.5);
-    const waveform = Math.round(Number(options.waveform) || 0);
-    const phaseOffset = this.wrapValue(Number(options.phase) || 0, 0, 1);
-    const level = Number(options.level) || 0;
-
-    let sample;
-    if (waveform === 0) {
-      state.t = this.wrapValue(state.t + dt, 0, 1);
-      // Phase is a pure time offset on the free-running cycle.
-      sample = Math.sin(this.wrapValue(state.t + phaseOffset, 0, 1) * Math.PI * 2);
-    } else {
-      const nyquist = sampleRate * 0.5;
-      const nMax = Math.max(1, Math.floor(nyquist / safeFrequency));
-      state.t = this.wrapValue(state.t + dt * 0.9999, 0, 1);
-      const renderT = this.wrapValue(state.t + phaseOffset, 0, 1);
-
-      const retention = this.dsfAdaptiveRetention(dt);
-      const rawSaw = this.dsfPureSawEngMorphed(renderT, nMax, options.morph);
-      state.sawAcc = state.sawAcc * retention + rawSaw * dt;
-
-      if (waveform === 1) {
-        sample = state.sawAcc;
-      } else if (waveform === 4) {
-        // SquSaw: crossfades Saw with a plain, fixed 50%-duty Square,
-        // decoupled from the PWM slider on purpose -- reported live as
-        // sounding "triangle-like" when it inherited PWM's variable duty
-        // cycle; simplified back to always crossfading two cleanly-
-        // shaped waveforms instead.
-        const rawBlendSquare = rawSaw - this.dsfPureSawEngMorphed(this.wrapValue(renderT - 0.5, 0, 1), nMax, options.morph);
-        state.blendSqAcc = state.blendSqAcc * retention + rawBlendSquare * dt;
-        const blend = this.clampValue(Number(options.blend) ?? 0.5, 0, 1);
-        sample = state.sawAcc * (1 - blend) + state.blendSqAcc * blend;
-      } else {
-        const pw = this.clampValue(Number(options.pulseWidth) ?? 0.5, 0.01, 0.99);
-        const rawShiftedSaw = this.dsfPureSawEngMorphed(this.wrapValue(renderT - pw, 0, 1), nMax, options.morph);
-        const rawSquare = rawSaw - rawShiftedSaw;
-        state.sqAcc = state.sqAcc * retention + rawSquare * dt;
-
-        if (waveform === 2) {
-          sample = state.sqAcc;
-        } else {
-          state.triAcc = state.triAcc * retention + state.sqAcc * dt * 4;
-          // Compensate for the fundamental's own amplitude shrinking
-          // toward 0 as pulseWidth approaches 0 or 1 -- reported live as
-          // Trimorph going quiet toward silence at extreme PWM.
-          const compensation = 1 / this.clampValue(Math.abs(Math.sin(Math.PI * pw)), 0.05, 1);
-          const compensatedTri = state.triAcc * compensation;
-          state.triPeak = Math.max(1, state.triPeak * 0.999 + Math.abs(compensatedTri) * 0.001);
-          sample = compensatedTri / state.triPeak;
-        }
-      }
-    }
-
-    if (!Number.isFinite(sample)) sample = 0;
-    const out = this.clampValue(sample, -1.5, 1.5) * level;
-    return { Out: out };
-  };
-
 NodeLiveAudioProcessor.prototype.dsfOscillatorSample = function dsfOscillatorSample(state, options = {}) {
     if (
       this.nativeDsfOscillatorReady &&
@@ -126,6 +65,6 @@ NodeLiveAudioProcessor.prototype.dsfOscillatorSample = function dsfOscillatorSam
         });
       }
     }
-    return this.dsfOscillatorSampleJs(state, options);
+    return { Out: 0 };
   };
 

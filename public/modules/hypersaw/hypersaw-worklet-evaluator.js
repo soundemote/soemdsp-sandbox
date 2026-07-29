@@ -78,44 +78,6 @@ NodeLiveAudioProcessor.prototype.hypersawAdvanceVoices = function hypersawAdvanc
     return { sawSamples, numVoices, voicePans };
   };
 
-NodeLiveAudioProcessor.prototype.hypersawSampleJs = function hypersawSampleJs(state, options = {}) {
-    const level = Number(options.level) || 0;
-    const { sawSamples, numVoices } = this.hypersawAdvanceVoices(state, options);
-
-    let leftSum = 0, rightSum = 0;
-    let leftCount = 0, rightCount = 0;
-
-    for (let i = 0; i < numVoices; i++) {
-      const sawSample = sawSamples[i];
-      const isCenter = i === 0 || (i === 1 && numVoices % 2 === 0);
-      if (isCenter) {
-        leftSum += sawSample;
-        rightSum += sawSample;
-        leftCount++;
-        rightCount++;
-      } else if (i % 2 === 0) {
-        leftSum += sawSample;
-        leftCount++;
-      } else {
-        rightSum += sawSample;
-        rightCount++;
-      }
-    }
-
-    let left = leftCount > 0 ? leftSum / leftCount : 0;
-    let right = rightCount > 0 ? rightSum / rightCount : 0;
-    if (!Number.isFinite(left)) left = 0;
-    if (!Number.isFinite(right)) right = 0;
-
-    return {
-      Left: this.clampValue(left, -1.5, 1.5) * level,
-      Right: this.clampValue(right, -1.5, 1.5) * level,
-      Phases: state.lastVoicePhases,
-      Amplitudes: state.lastVoiceAmplitudes,
-      Pans: state.lastVoicePans,
-    };
-  };
-
 NodeLiveAudioProcessor.prototype.hypersawSample = function hypersawSample(state, options = {}) {
     if (
       this.nativeHypersawReady &&
@@ -170,6 +132,6 @@ NodeLiveAudioProcessor.prototype.hypersawSample = function hypersawSample(state,
         });
       }
     }
-    return this.hypersawSampleJs(state, options);
+    return { Left: 0, Right: 0, Phases: 0, Amplitudes: 0, Pans: 0 };
   };
 

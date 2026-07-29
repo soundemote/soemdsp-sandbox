@@ -8,6 +8,7 @@
 
 const nodeGraphPhosphillatorCaptureStates = new Map();
 const nodeGraphPhosphillatorResampledPointCount = 256;
+const nodeGraphPhosphillatorDrawIntensity = 24;
 
 function normalizeNodeGraphPhosphillatorDrawnPath(drawnPath) {
   const rawPoints = Array.isArray(drawnPath?.points) ? drawnPath.points : [];
@@ -16,24 +17,13 @@ function normalizeNodeGraphPhosphillatorDrawnPath(drawnPath) {
     .slice(0, nodeGraphPhosphillatorResampledPointCount);
   return points.length >= 3 ? { points } : null;
 }
-const nodeGraphPhosphillatorCaptureRateHz = 120; // nominal pointermove rate for the live smoothing filter
-const nodeGraphPhosphillatorMinCutoffHz = 2;
-const nodeGraphPhosphillatorMaxCutoffHz = 60;
-const nodeGraphPhosphillatorDrawIntensity = 24;
 
-function nodeGraphPhosphillatorSmoothingCutoffHz(smoothingAmount) {
-  const amount = clampNodeSliderValue(Number(smoothingAmount) || 0, 0, 1);
-  // amount 0 -> barely smoothed (high cutoff), amount 1 -> heavily smoothed (low cutoff).
-  const logMin = Math.log(nodeGraphPhosphillatorMinCutoffHz);
-  const logMax = Math.log(nodeGraphPhosphillatorMaxCutoffHz);
-  return Math.exp(logMax + amount * (logMin - logMax));
-}
-
+// Mouse smooth uses the shared PrettyScope helper (node-graph-papoulis-filter.js).
 function createNodeGraphPhosphillatorCaptureState() {
   return {
-    filterCoeffs: null,
-    filterStateX: createPapoulisLowpass3State(),
-    filterStateY: createPapoulisLowpass3State(),
+    mouseSmooth: typeof createNodeGraphMouseSmoothState === "function"
+      ? createNodeGraphMouseSmoothState(0, 0)
+      : null,
     points: [],
   };
 }
@@ -50,10 +40,9 @@ function nodeGraphPhosphillatorPointerToNormalized(canvas, clientX, clientY) {
 
 function nodeGraphPhosphillatorBeginCapture(nodeId, smoothingAmount) {
   const state = createNodeGraphPhosphillatorCaptureState();
-  state.filterCoeffs = designPapoulisLowpass3(
-    nodeGraphPhosphillatorSmoothingCutoffHz(smoothingAmount),
-    nodeGraphPhosphillatorCaptureRateHz,
-  );
+  state.smoothingAmount = clampNodeSliderValue(Number(smoothingAmount) || 0, 0, 1);
+  // First real point primes the filter (seed on first add).
+  state.primed = false;
   nodeGraphPhosphillatorCaptureStates.set(nodeId, state);
   return state;
 }
@@ -63,9 +52,28 @@ function nodeGraphPhosphillatorAddCapturePoint(nodeId, x, y) {
   if (!state) {
     return;
   }
-  const smoothedX = papoulisLowpass3Process(state.filterStateX, state.filterCoeffs, x);
-  const smoothedY = papoulisLowpass3Process(state.filterStateY, state.filterCoeffs, y);
-  state.points.push({ x: clampNodeSliderValue(smoothedX, -1, 1), y: clampNodeSliderValue(smoothedY, -1, 1) });
+  const rawX = Number(x) || 0;
+  const rawY = Number(y) || 0;
+  let smoothedX = rawX;
+  let smoothedY = rawY;
+  if (typeof nodeGraphMouseSmoothPoint === "function" && state.mouseSmooth) {
+    if (!state.primed && typeof nodeGraphMouseSmoothBegin === "function") {
+      nodeGraphMouseSmoothBegin(state.mouseSmooth, state.smoothingAmount ?? 0.5, rawX, rawY);
+      state.primed = true;
+    }
+    const smoothed = nodeGraphMouseSmoothPoint(
+      state.mouseSmooth,
+      rawX,
+      rawY,
+      state.smoothingAmount ?? 0.5,
+    );
+    smoothedX = smoothed.x;
+    smoothedY = smoothed.y;
+  }
+  state.points.push({
+    x: clampNodeSliderValue(smoothedX, -1, 1),
+    y: clampNodeSliderValue(smoothedY, -1, 1),
+  });
 }
 
 // Catmull-Rom evaluation for one axis at parameter t in [0,1], given the

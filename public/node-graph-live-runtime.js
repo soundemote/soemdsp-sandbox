@@ -185,14 +185,26 @@ async function sendNodeGraphLiveNativeModules(liveNode, plan = null) {
   const sent = liveNode.nodeGraphSentNativeModules;
   const catalog = await fetchNodeGraphLiveNativeModuleCatalog();
   const nativeModules = Array.isArray(catalog?.modules) ? catalog.modules : [];
-  const eligibleEntries = nativeModules.filter((entry) =>
+  const eligibleEntries = nativeModules.filter((entry) => {
     // video-poc entries (e.g. video_synth_raster) have their own standalone
     // demo page that fetches and instantiates their wasm directly -- they
     // were never wired into the worklet's nativeModuleStatus dispatch, so
     // sending them here only produces a false-positive "unsupported
     // native module" diagnostic.
-    entry?.wasmAvailable && entry.kind !== "video-poc",
-  );
+    if (!entry?.wasmAvailable || entry.kind === "video-poc") {
+      return false;
+    }
+    // Under-construction modules (see nodeGraphModuleStoreUnderConstructionTypes)
+    // may ship placeholder native shells (wall_delay version stub). Skip them
+    // so the worklet never posts "unsupported native module" for expected UC.
+    if (
+      typeof nodeGraphNativeModuleRefIsUnderConstruction === "function" &&
+      nodeGraphNativeModuleRefIsUnderConstruction(entry)
+    ) {
+      return false;
+    }
+    return true;
+  });
   // Preferred path: ONE combined .wasm carrying every module, sharing ONE
   // linear memory (built by scripts/build_native_modules.ps1). Chrome caps
   // the number of wasm memories per process (~100); 77 standalone instances
@@ -560,6 +572,24 @@ function setNodeGraphLiveSpeed(speed) {
   if (typeof nodeGraphExternalNotifyLiveOutputChanged === "function") {
     nodeGraphExternalNotifyLiveOutputChanged();
   }
+  // Speed 0 = simulation pause: stop phosphor energy steps immediately so
+  // trails do not keep decaying on the main-thread draw loop.
+  if (clamped <= 0 && typeof absorbNodeGraphModuleScopePhosphorDrawCursors === "function") {
+    if (typeof nodeGraphModuleScopeState === "object" && nodeGraphModuleScopeState) {
+      if (nodeGraphModuleScopeState.drawFrame) {
+        window.cancelAnimationFrame(nodeGraphModuleScopeState.drawFrame);
+        nodeGraphModuleScopeState.drawFrame = 0;
+        nodeGraphModuleScopeState.drawFrameRequestedAt = 0;
+      }
+      if (nodeGraphModuleScopeState.drawFrameWatchdog) {
+        window.clearTimeout(nodeGraphModuleScopeState.drawFrameWatchdog);
+        nodeGraphModuleScopeState.drawFrameWatchdog = 0;
+      }
+    }
+    absorbNodeGraphModuleScopePhosphorDrawCursors();
+  } else if (clamped > 0 && typeof scheduleNodeGraphModuleScopeDraw === "function") {
+    scheduleNodeGraphModuleScopeDraw();
+  }
 }
 
 function sendNodeGraphLiveSpeed() {
@@ -703,7 +733,7 @@ function renderNodeGraphLiveScriptBlock(event) {
       y: Number(runtime.visualControls?.y) || 0,
     };
   }
-  finishNodeGraphParameterSmoothing(runtime.smoothers);
+  finishNodeGraphParameterSmoothing(runtime.smoothers, runtime);
   runtime.meterCounter += frames;
   if (runtime.meterCounter >= sampleRate / 10) {
     setNodeGraphLiveInputMeter(
@@ -1180,12 +1210,18 @@ function handleNodeGraphLiveWorkletMessage(event) {
   } else if (message.type === "nativeModuleStatus") {
     setNodeGraphLiveEvidence("native-module", message);
     if (message.status && message.status !== "ready") {
-      setNodeGraphLivePlanStatus(
-        `${message.name || "native module"} ${message.status}`,
-        "warn",
-      );
-      if (typeof nodeGraphRecordNativeModuleFault === "function") {
-        nodeGraphRecordNativeModuleFault(message);
+      const underConstruction = typeof nodeGraphNativeModuleRefIsUnderConstruction === "function"
+        && nodeGraphNativeModuleRefIsUnderConstruction(message);
+      // UC modules: keep evidence for debugging, but no plan-status warn and
+      // no SE.ERROR (nodeGraphRecordModuleFault also no-ops for UC).
+      if (!underConstruction) {
+        setNodeGraphLivePlanStatus(
+          `${message.name || "native module"} ${message.status}`,
+          "warn",
+        );
+        if (typeof nodeGraphRecordNativeModuleFault === "function") {
+          nodeGraphRecordNativeModuleFault(message);
+        }
       }
       // Un-mark the module in the lazy-send dedupe set so the next full
       // plan update retries it -- without this, one transient instantiate
@@ -1896,11 +1932,17 @@ async function stopNodeGraphLiveAudio() {
   nodeGraphMvp.live.syncMode = "";
   nodeGraphMvp.live.usesWorklet = false;
   nodeGraphStopGpuAdditiveProducer();
+  // Full simulation restart on live output off: wipe scope history, phosphor
+  // residual, and display state so the next start is a clean cold boot (not
+  // a resume of trails / attractors mid-orbit).
   if (typeof clearNodeGraphModuleScopeBuffers === "function") {
     clearNodeGraphModuleScopeBuffers({
-      preserveBuffers: true,
-      preserveDisplay: true,
+      preserveBuffers: false,
+      preserveDisplay: false,
     });
+  }
+  if (typeof nodeGraphPhosphorWaveformViewStates !== "undefined" && nodeGraphPhosphorWaveformViewStates?.clear) {
+    nodeGraphPhosphorWaveformViewStates.clear();
   }
   nodeGraphClearVisualControls();
 
@@ -1937,95 +1979,97 @@ async function stopNodeGraphLiveAudio() {
 // then register.js calls registerProcessor last, once everything above it
 // has finished defining/registering.
 const nodeGraphLiveWorkletSourceFiles = [
-  "./public/node-live-audio-worklet-core.js?v=retire-graph-type-20260724",
-  "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/sineWavetable/sine-wavetable-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/additiveOsc/additive-osc-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/polyBlep/poly-blep-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/noiseGenerator/noise-generator-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/randomWalk/random-walk-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/piSpigotNoise/pi-spigot-noise-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/bradley2a/bradley-2a-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/antisaw/antisaw-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/fractalBrownianNoise/fractal-brownian-noise-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/logisticMap/logistic-map-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/turingMachine/turing-machine-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/henonMap/henon-map-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/chuaAttractor/chua-attractor-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/chordMemory/chord-memory-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/pitchQuantizer/pitch-quantizer-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/wirdoSpiral/wirdo-spiral-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/blubb/blubb-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/mushroom/mushroom-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/boing/boing-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/torus/torus-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/keplerBouwkamp/kepler-bouwkamp-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/nyquistShannon/nyquist-shannon-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/surgeOscillator/surge-oscillator-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/dsfOscillator/dsf-oscillator-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/robinSupersaw/robin-supersaw-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/hypersaw/hypersaw-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/chordSequencer/chord-sequencer-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/lutCell/lut-cell-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/passiveFilter/passive-filter-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/papoulisFilter/papoulis-filter-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/phosphillator/phosphillator-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/cookbookFilter/cookbook-filter-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/ladderFilter/ladder-filter-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/flowerChildFilter/flower-child-filter-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/rsmetFilter/rsmet-filter-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/yellowjacketFilter/yellowjacket-filter-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/superloveFilter/superlove-filter-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/chaoticPhaseLockingFilter/chaotic-phase-locking-filter-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/resonatorFilter/resonator-filter-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/humanFilter/human-filter-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/pulseExplosion/pulse-explosion-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/comparator/comparator-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/minMax/min-max-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/aliasSine/alias-sine-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/tb303Filter/tb303-filter-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/delayEffect/delay-effect-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/pingPongDelay/ping-pong-delay-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/wallDelay/wall-delay-worklet-evaluator.js?v=wall-delay-nudge-helper-20260718",
-  "./public/modules/reverbEffect/reverb-effect-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/pll/pll-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/helmholtzPitch/helmholtz-pitch-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/slewLimiter/slew-limiter-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/sampleHold/sample-hold-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/expAdsr/exp-adsr-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/linearEnvelope/linear-envelope-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/pluckEnvelope/pluck-envelope-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/vactrolEnvelopeSeries/vactrol-envelope-series-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/bugButton/bug-button-worklet-evaluator.js?v=solid-module-shell-2-20260723",
-  "./public/modules/xyPad/xy-pad-worklet-evaluator.js?v=xy-pad-ghost-input-20260723",
-  "./public/modules/flowerChildEnvelopeFollower/flower-child-envelope-follower-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/spiral/spiral-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/fractalSpiral/fractal-spiral-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/logSpiral/log-spiral-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/lorenzAttractor/lorenz-attractor-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/clock/clock-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/transport/transport-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/randomClock/random-clock-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/triggerDivider/trigger-divider-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/delayedTrigger/delayed-trigger-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/triggerCounter/trigger-counter-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/stepSequencer/step-sequencer-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/stepGrid/step-grid-worklet-evaluator.js?v=stepgrid-20260714",
-  "./public/modules/nextPatch/next-patch-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/softClipper/soft-clipper-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/rgbaHsla/rgba-hsla-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/screenSpaceShader/screen-space-shader-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/metallicRatio/metallic-ratio-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/speakerProtection/speaker-protection-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/badvalMonitor/badval-monitor-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/radar/radar-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/audioPlayer/audio-player-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js?v=gainbiasmix-fix-20260722",
-  "./public/modules/sinc/sinc-worklet-evaluator.js?v=sinc-20260725",
-  "./public/modules/videoscope/videoscope-worklet-evaluator.js?v=videoscope-20260713",
-  "./public/modules/spectrogram/spectrogram-worklet-evaluator.js?v=spectrogram-20260720",
+  "./public/node-graph-parameter-smoother-filters.js?v=papoulis-param-native-1",
+  "./public/node-live-audio-worklet-core.js?v=smoother-clean-1",
+  "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=smoother-active-set-1",
+  "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/sineWavetable/sine-wavetable-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/additiveOsc/additive-osc-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/polyBlep/poly-blep-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/noiseGenerator/noise-generator-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/randomWalk/random-walk-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/piSpigotNoise/pi-spigot-noise-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/bradley2a/bradley-2a-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/antisaw/antisaw-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/fractalBrownianNoise/fractal-brownian-noise-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/logisticMap/logistic-map-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/turingMachine/turing-machine-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/henonMap/henon-map-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/rayBouncer/ray-bouncer-worklet-evaluator.js?v=ray-bouncer-native-only-1",
+  "./public/modules/chuaAttractor/chua-attractor-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/chordMemory/chord-memory-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/pitchQuantizer/pitch-quantizer-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/wirdoSpiral/wirdo-spiral-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/blubb/blubb-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/mushroom/mushroom-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/boing/boing-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/torus/torus-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/keplerBouwkamp/kepler-bouwkamp-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/nyquistShannon/nyquist-shannon-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/surgeOscillator/surge-oscillator-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/dsfOscillator/dsf-oscillator-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/robinSupersaw/robin-supersaw-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/hypersaw/hypersaw-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/chordSequencer/chord-sequencer-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/lutCell/lut-cell-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/passiveFilter/passive-filter-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/papoulisFilter/papoulis-filter-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/phosphillator/phosphillator-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/cookbookFilter/cookbook-filter-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/ladderFilter/ladder-filter-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/flowerChildFilter/flower-child-filter-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/rsmetFilter/rsmet-filter-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/yellowjacketFilter/yellowjacket-filter-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/superloveFilter/superlove-filter-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/chaoticPhaseLockingFilter/chaotic-phase-locking-filter-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/resonatorFilter/resonator-filter-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/humanFilter/human-filter-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/pulseExplosion/pulse-explosion-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/comparator/comparator-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/minMax/min-max-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/aliasSine/alias-sine-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/tb303Filter/tb303-filter-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/delayEffect/delay-effect-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/pingPongDelay/ping-pong-delay-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/wallDelay/wall-delay-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/reverbEffect/reverb-effect-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/pll/pll-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/helmholtzPitch/helmholtz-pitch-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/slewLimiter/slew-limiter-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/sampleHold/sample-hold-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/expAdsr/exp-adsr-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/linearEnvelope/linear-envelope-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/pluckEnvelope/pluck-envelope-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/vactrolEnvelopeSeries/vactrol-envelope-series-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/bugButton/bug-button-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/xyPad/xy-pad-worklet-evaluator.js?v=xy-pad-clean-1",
+  "./public/modules/flowerChildEnvelopeFollower/flower-child-envelope-follower-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/spiral/spiral-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/fractalSpiral/fractal-spiral-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/logSpiral/log-spiral-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/lorenzAttractor/lorenz-attractor-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/clock/clock-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/transport/transport-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/randomClock/random-clock-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/triggerDivider/trigger-divider-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/delayedTrigger/delayed-trigger-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/triggerCounter/trigger-counter-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/stepSequencer/step-sequencer-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/stepGrid/step-grid-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/nextPatch/next-patch-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/softClipper/soft-clipper-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/rgbaHsla/rgba-hsla-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/screenSpaceShader/screen-space-shader-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/metallicRatio/metallic-ratio-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/speakerProtection/speaker-protection-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/badvalMonitor/badval-monitor-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/radar/radar-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/audioPlayer/audio-player-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/sinc/sinc-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/videoscope/videoscope-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/spectrogram/spectrogram-worklet-evaluator.js?v=native-strip-1",
   "./public/node-live-audio-worklet-register.js?v=blob-loader-20260711",
 ];
 

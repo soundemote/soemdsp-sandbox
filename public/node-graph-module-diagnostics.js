@@ -53,7 +53,26 @@ function nodeGraphReportModuleDiagnosticsError(fault) {
   }
 }
 
+function nodeGraphModuleDiagnosticsIsUnderConstruction(details = {}) {
+  if (typeof nodeGraphNativeModuleRefIsUnderConstruction === "function") {
+    return nodeGraphNativeModuleRefIsUnderConstruction(details);
+  }
+  if (typeof nodeGraphModuleTypeIsUnderConstruction === "function") {
+    const type = String(details.moduleType || details.targetType || "").trim();
+    if (type && nodeGraphModuleTypeIsUnderConstruction(type)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function nodeGraphRecordModuleFault(details = {}) {
+  // Under-construction modules (store UC set) are allowed incomplete engines.
+  // Recording them as SE.ERROR just noise-bombs the debug log on every live
+  // start — e.g. wall_delay's deliberate "unsupported native module" stub.
+  if (nodeGraphModuleDiagnosticsIsUnderConstruction(details)) {
+    return false;
+  }
   const key = nodeGraphModuleFaultKey(details);
   const state = nodeGraphModuleDiagnosticsState();
   const existing = state.faults.find((fault) => fault.key === key);

@@ -13,28 +13,6 @@ NodeLiveAudioProcessor.prototype.advanceLutCellSelfClock = function advanceLutCe
     return state.selfClockValue || 0;
   };
 
-NodeLiveAudioProcessor.prototype.lutCellSampleJs = function lutCellSampleJs(state, options = {}) {
-    const b = Number(options.b) > 0 ? 1 : 0;
-    const c = Number(options.c) > 0 ? 1 : 0;
-    const d = Number(options.d) > 0 ? 1 : 0;
-    const a = Number(options.a) > 0 ? 1 : 0;
-    const clockHigh = Number(options.clock) > 0;
-    const table = Math.max(0, Math.min(0xFFFF, Math.round(Number(options.truthTable) || 0)));
-
-    const index = a | (b << 1) | (c << 2) | (d << 3);
-    const combinational = (table >> index) & 1;
-
-    if (clockHigh && !state.clockWasHigh) {
-      state.registeredOut = combinational;
-    }
-    state.clockWasHigh = clockHigh;
-
-    return {
-      Out: combinational,
-      Q: state.registeredOut,
-    };
-  };
-
 NodeLiveAudioProcessor.prototype.lutCellSample = function lutCellSample(state, options = {}) {
     const effectiveClockHigh = options.hasClockInput
       ? Number(options.clock) > 0
@@ -87,6 +65,6 @@ NodeLiveAudioProcessor.prototype.lutCellSample = function lutCellSample(state, o
         });
       }
     }
-    return this.lutCellSampleJs(state, effectiveOptions);
+    return { Out: 0, Q: 0 };
   };
 

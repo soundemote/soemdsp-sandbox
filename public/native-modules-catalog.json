@@ -674,6 +674,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "ray_bouncer",
+      "label": "Ray Bouncer",
+      "targetType": "rayBouncer",
+      "kind": "chaos",
+      "source": "native_modules/ray_bouncer/ray_bouncer.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/ray_bouncer/ray_bouncer.cpp",
+      "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Generators/RayBouncer.h",
+      "wasm": "native_modules/ray_bouncer/ray_bouncer.wasm",
+      "wasmUrl": "native_modules/ray_bouncer/ray_bouncer.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "resonator_filter",
       "label": "Resonator Filter",
       "targetType": "resonatorFilter",

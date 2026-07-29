@@ -32,6 +32,6 @@ NodeLiveAudioProcessor.prototype.yellowjacketFilterSample = function yellowjacke
         });
       }
     }
-    return this.yellowjacketFilterSampleJs(state, input, params, rate);
+    return this.safeFilterNumber(input, state) ?? 0;
   };
 

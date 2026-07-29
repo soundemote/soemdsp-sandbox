@@ -336,6 +336,10 @@ function openNodeGraphFloatingWindowAtPosition(key, element, spawnAtPointer) {
       spawnAtPointer(element);
     }
   });
+  // Newest opened popup is always frontmost among floating windows.
+  if (typeof raiseNodeGraphFloatingWindow === "function") {
+    raiseNodeGraphFloatingWindow(element);
+  }
   if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
     rememberNodeGraphWorkspaceWindowState(key, element, { open: true }, { status: false });
   }
@@ -399,6 +403,9 @@ function applyNodeGraphWorkspaceWindowStateToElement(key) {
     initNodeGraphStandaloneMidiKeyboard();
   }
   element.hidden = !state.open;
+  if (state.open && typeof raiseNodeGraphFloatingWindow === "function") {
+    raiseNodeGraphFloatingWindow(element);
+  }
   if (key === "standaloneMidiKeyboard" && typeof applyNodeGraphStandaloneMidiKeyboardDockSize === "function") {
     applyNodeGraphStandaloneMidiKeyboardDockSize(state.size);
   }

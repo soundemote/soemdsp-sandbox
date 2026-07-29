@@ -63,12 +63,76 @@ function applyNodeGraphFloatingWindowSizeVars(element, cssPrefix, defaults = {},
 
 const nodeGraphFloatingWindowSurfaceClass = "node-floating-window-surface";
 
+// Floating windows start with various CSS z-index values. Interaction raises
+// them onto a shared monotonic stack so the latest-used popup paints on top.
+const nodeGraphFloatingWindowStackBase = 10000;
+let nodeGraphFloatingWindowStackTop = nodeGraphFloatingWindowStackBase;
+
 function markNodeGraphFloatingWindowSurface(element) {
   if (!element) {
     return null;
   }
   element.classList.add(nodeGraphFloatingWindowSurfaceClass);
   return element;
+}
+
+/**
+ * Bring a floating popup to the front of all other popups.
+ * Newest interacted (or newly opened) window wins.
+ */
+function raiseNodeGraphFloatingWindow(element) {
+  if (!element || element.hidden) {
+    return false;
+  }
+  markNodeGraphFloatingWindowSurface(element);
+  const current = Number.parseInt(String(element.style.zIndex || ""), 10);
+  if (Number.isFinite(current) && current >= nodeGraphFloatingWindowStackTop) {
+    return true;
+  }
+  nodeGraphFloatingWindowStackTop += 1;
+  element.style.zIndex = String(nodeGraphFloatingWindowStackTop);
+  element.dataset.floatingWindowStack = String(nodeGraphFloatingWindowStackTop);
+  return true;
+}
+
+/** Resolve the floating window surface under an event target (if any). */
+function nodeGraphFloatingWindowSurfaceFromTarget(target) {
+  if (!(target instanceof Element)) {
+    return null;
+  }
+  const direct = target.closest(`.${nodeGraphFloatingWindowSurfaceClass}`);
+  if (direct && !direct.hidden) {
+    return direct;
+  }
+  // Registered workspace windows may not be marked yet (first open).
+  if (typeof nodeGraphWorkspaceWindowElements !== "undefined") {
+    for (const elementId of Object.values(nodeGraphWorkspaceWindowElements)) {
+      const element = document.getElementById(elementId);
+      if (element && !element.hidden && element.contains(target)) {
+        return markNodeGraphFloatingWindowSurface(element);
+      }
+    }
+  }
+  return null;
+}
+
+function bindNodeGraphFloatingWindowStacking() {
+  if (typeof document === "undefined") {
+    return;
+  }
+  if (document.documentElement.dataset.floatingWindowStackBound === "true") {
+    return;
+  }
+  document.documentElement.dataset.floatingWindowStackBound = "true";
+  const raiseFromEvent = (event) => {
+    const surface = nodeGraphFloatingWindowSurfaceFromTarget(event.target);
+    if (surface) {
+      raiseNodeGraphFloatingWindow(surface);
+    }
+  };
+  // Capture phase so we raise before drag handlers stop propagation.
+  document.addEventListener("pointerdown", raiseFromEvent, true);
+  document.addEventListener("focusin", raiseFromEvent, true);
 }
 
 function syncNodeGraphRegisteredFloatingWindowSurfaces() {
@@ -81,6 +145,7 @@ function syncNodeGraphRegisteredFloatingWindowSurfaces() {
       count += 1;
     }
   }
+  bindNodeGraphFloatingWindowStacking();
   return count;
 }
 
@@ -248,6 +313,7 @@ function pulseNodeGraphFloatingWindowAttention(element) {
   if (!element) {
     return false;
   }
+  raiseNodeGraphFloatingWindow(element);
   if (typeof triggerNodeGraphWindowReopenEvent === "function") {
     triggerNodeGraphWindowReopenEvent(element.id || element.dataset?.windowKey || "floating-window");
   }
@@ -281,6 +347,8 @@ function positionNodeGraphFloatingWindowWithAttention(element, applyPosition) {
   const wasOpen = !element.hidden;
   const before = wasOpen ? nodeGraphFloatingWindowElementPosition(element) : null;
   applyPosition(element);
+  // Opening or repositioning always claims the front of the stack.
+  raiseNodeGraphFloatingWindow(element);
   if (!before) {
     return false;
   }
@@ -320,6 +388,7 @@ function beginNodeGraphFloatingWindowDrag(event, element, stateKey) {
   ) {
     return null;
   }
+  raiseNodeGraphFloatingWindow(element);
   bindNodeGraphFloatingWindowLockHandle(event.currentTarget);
   const current = nodeGraphFloatingWindowElementPosition(element);
   const drag = {
@@ -395,6 +464,7 @@ function beginNodeGraphFloatingWindowResize(event, element, stateKey) {
   if (event.button > 0 || !element || element.hidden || !stateKey) {
     return null;
   }
+  raiseNodeGraphFloatingWindow(element);
   const rect = element.getBoundingClientRect();
   const drag = {
     handle: event.currentTarget,
@@ -754,4 +824,14 @@ function handleNodeGraphFloatingWindowKeyboardRelease(event) {
     stopNodeGraphFloatingWindowKeyboardLoop();
   }
   return false;
+}
+
+// Install popup stacking as soon as this module loads (and again after DOM
+// is ready if the script ran early).
+if (typeof document !== "undefined") {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bindNodeGraphFloatingWindowStacking, { once: true });
+  } else {
+    bindNodeGraphFloatingWindowStacking();
+  }
 }

@@ -38,51 +38,6 @@ NodeLiveAudioProcessor.prototype.pingPongDelaySeconds = function pingPongDelaySe
     return syncedSeconds + offsetSeconds;
   };
 
-NodeLiveAudioProcessor.prototype.pingPongDelaySampleJs = function pingPongDelaySampleJs(state, input, params, rateHz = sampleRate) {
-    const safeRate = Math.max(1, Number(rateHz) || 44100);
-    const maxDelaySeconds = 8;
-    const requiredSize = Math.max(2, Math.ceil(safeRate * maxDelaySeconds) + 2);
-    if (!state.bufferL || state.bufferSize !== requiredSize) {
-      state.bufferL = new Float32Array(requiredSize);
-      state.bufferR = new Float32Array(requiredSize);
-      state.bufferSize = requiredSize;
-      state.position = 0;
-      state.wetL = 0;
-      state.wetR = 0;
-    }
-    const dry = this.safeFilterNumber(input, null);
-    const feedback = this.clampValue(this.safeFilterNumber(params.feedback, null), 0, 0.95);
-    const mix = this.clampValue(this.safeFilterNumber(params.mix, null), 0, 1);
-    const level = this.clampValue(this.safeFilterNumber(params.level, null), 0, 2);
-
-    // The computed time is what gets bounded to fit the (necessarily finite)
-    // delay buffer -- timeNumerator/timeDenominator/offsetMs themselves are
-    // read as-is above, in pingPongDelaySeconds, with no clamp.
-    const rawSeconds = this.pingPongDelaySeconds(params);
-    const safeSeconds = Number.isFinite(rawSeconds) ? Math.max(0, rawSeconds) : 0;
-    const delaySamples = this.clampValue(safeSeconds * safeRate, 1, state.bufferSize - 2);
-
-    state.position = (state.position + 1) % state.bufferSize;
-    const readPosition = (state.position + state.bufferSize - delaySamples) % state.bufferSize;
-    const readL = this.delayInterpolateLinear(state.bufferL, readPosition);
-    const readR = this.delayInterpolateLinear(state.bufferR, readPosition);
-
-    // Classic ping-pong topology: the input only ever enters the left line;
-    // the right line is driven purely by the left line's own feedback, so a
-    // single input bounces left -> right -> left -> right as it decays.
-    const writeL = dry + readR * feedback;
-    const writeR = readL * feedback;
-    state.bufferL[state.position] = this.clampValue(writeL, -8, 8);
-    state.bufferR[state.position] = this.clampValue(writeR, -8, 8);
-    state.wetL = readL;
-    state.wetR = readR;
-
-    return {
-      Left: (dry * (1 - mix) + state.wetL * mix) * level,
-      Right: (dry * (1 - mix) + state.wetR * mix) * level,
-    };
-  };
-
 NodeLiveAudioProcessor.prototype.pingPongDelaySample = function pingPongDelaySample(state, input, params, rateHz = sampleRate) {
     if (this.nativePingPongDelayReady) {
       try {
@@ -120,6 +75,6 @@ NodeLiveAudioProcessor.prototype.pingPongDelaySample = function pingPongDelaySam
         });
       }
     }
-    return this.pingPongDelaySampleJs(state, input, params, rateHz);
+    return { Left: 0, Right: 0 };
   };
 

@@ -49,24 +49,6 @@ NodeLiveAudioProcessor.prototype.phosphillatorLoopSample = function phosphillato
     };
   };
 
-NodeLiveAudioProcessor.prototype.phosphillatorPlaybackSampleJs = function phosphillatorPlaybackSampleJs(state, node, nodeId, cvInput, frequency, phaseOffset, reset, rate) {
-    const resetActive = Number(reset) > 0.5;
-    if (resetActive && !state.lastReset) {
-      state.phase = 0;
-    }
-    state.lastReset = resetActive;
-    const pitchedFrequency = Math.max(0, Number(frequency) * (2 ** ((Number(cvInput) || 0) / 0.1)));
-    const safeRate = Math.max(1, Number(rate) || 1);
-    state.phase = (((state.phase + pitchedFrequency / safeRate) % 1) + 1) % 1;
-    const decoded = this.phosphillatorDecodedPath(nodeId, node);
-    if (!decoded) {
-      return { X: 0, Y: 0 };
-    }
-    const effectivePhase = (((state.phase + (Number(phaseOffset) || 0)) % 1) + 1) % 1;
-    const point = this.phosphillatorLoopSample(decoded, effectivePhase);
-    return { X: point.x, Y: point.y };
-  };
-
 // Unlike every other native-first wrapper in this codebase, this one has to
 // push a variable-length array into wasm linear memory (the drawn path)
 // before it can call the native sample function -- so the "native path
@@ -87,7 +69,7 @@ NodeLiveAudioProcessor.prototype.phosphillatorPlaybackSample = function phosphil
             const maxPoints = this.nativePhosphillator.soemdsp_phosphillator_max_path_points();
             if (decoded.count > maxPoints) {
               state.nativePathTooLong = true;
-              return this.phosphillatorPlaybackSampleJs(state, node, nodeId, cvInput, frequency, phaseOffset, reset, rate);
+              return { X: 0, Y: 0 };
             }
             const xPtr = this.nativePhosphillator.soemdsp_phosphillator_path_x_ptr(state.nativeHandle);
             const yPtr = this.nativePhosphillator.soemdsp_phosphillator_path_y_ptr(state.nativeHandle);
@@ -120,6 +102,6 @@ NodeLiveAudioProcessor.prototype.phosphillatorPlaybackSample = function phosphil
         });
       }
     }
-    return this.phosphillatorPlaybackSampleJs(state, node, nodeId, cvInput, frequency, phaseOffset, reset, rate);
+    return { X: 0, Y: 0 };
   };
 

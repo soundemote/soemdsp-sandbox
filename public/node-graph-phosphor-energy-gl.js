@@ -196,16 +196,29 @@
     varying vec2 vPosition;
     void main() {
       vec2 segment = vEnd - vStart;
-      float blur = clamp(uBlur, 0.0, 1.0);
-      float sigma = max(uRadius * mix(0.34, 1.0, blur), 0.55);
+      float soft = clamp(uBlur, 0.0, 1.0);
+      float R = max(uRadius, 0.5);
       float segmentLengthSquared = dot(segment, segment);
       float t = segmentLengthSquared > 0.000001
         ? clamp(dot(vPosition - vStart, segment) / segmentLengthSquared, 0.0, 1.0)
         : 0.0;
       vec2 closest = vStart + segment * t;
-      float distanceToBeam = length(vPosition - closest);
-      float profile = exp(-(distanceToBeam * distanceToBeam) / (2.0 * sigma * sigma));
-      float e = profile * uBrightness;
+      float d = length(vPosition - closest);
+
+      // Hard ribbon (blur 0): flat capsule core + ~1px AA — true hard edge.
+      float aa = max(0.65, min(1.6, R * 0.08));
+      float hard = 1.0 - smoothstep(R - aa, R + aa * 0.35, d);
+
+      // Soft ribbon (blur 1): wide gaussian energy skirt.
+      float sigma = max(R * mix(0.34, 1.15, soft), 0.45);
+      float softProfile = exp(-(d * d) / (2.0 * sigma * sigma));
+      // Morph hard capsule → soft beam. soft^1.4 keeps mid range painterly.
+      float softMix = pow(soft, 1.4);
+      float hardPeak = 0.88;
+      float softPeak = mix(0.78, 0.42, soft);
+      float profile = mix(hard * hardPeak, softProfile * softPeak, softMix);
+
+      float e = max(profile, 0.0) * uBrightness;
       // Monochrome energy (R=G=B); additive blend accumulates trail.
       gl_FragColor = vec4(e, e, e, e);
     }
@@ -253,34 +266,35 @@
     varying float vRadius;
     varying float vBlur;
     void main() {
-      // soft 0 = hard disc, 1 = full soft gaussian
+      // soft 0 = hard disc (flat + AA), 1 = full soft multi-skirt airbrush
       float soft = clamp(vBlur, 0.0, 1.0);
       float R = max(vRadius, 0.5);
       float r2 = dot(vOffset, vOffset);
       float r = sqrt(r2);
 
       // --- Hard disc (blur 0): flat core, crisp edge, ~1px AA only ---
-      float aa = max(0.75, min(1.75, R * 0.08));
-      float hard = 1.0 - smoothstep(R - aa, R + aa * 0.35, r);
+      // Tighter AA than before so Size large + Blur 0 still reads as a disc.
+      float aa = max(0.55, min(1.25, R * 0.06));
+      float hard = 1.0 - smoothstep(R - aa, R + aa * 0.25, r);
 
       // --- Soft stack (blur 1): triple gaussians, wide bleed skirts ---
-      float coreW = max(R * mix(0.28, 0.55, soft), 0.55);
-      float midW = max(R * mix(0.55, 1.35, soft), coreW * 1.25);
-      float skirtW = max(R * mix(0.85, 2.85, soft), midW * 1.25);
+      float coreW = max(R * mix(0.30, 0.58, soft), 0.5);
+      float midW = max(R * mix(0.55, 1.45, soft), coreW * 1.2);
+      float skirtW = max(R * mix(0.9, 3.2, soft), midW * 1.2);
       float core = exp(-r2 / (2.0 * coreW * coreW));
       float mid = exp(-r2 / (2.0 * midW * midW));
       float skirt = exp(-r2 / (2.0 * skirtW * skirtW));
-      float coreAmt = mix(0.70, 0.14, soft);
-      float midAmt = mix(0.22, 0.42, soft);
-      float skirtAmt = mix(0.08, 0.90, soft);
-      float softPeak = mix(0.72, 0.38, soft);
+      float coreAmt = mix(0.72, 0.12, soft);
+      float midAmt = mix(0.20, 0.40, soft);
+      float skirtAmt = mix(0.06, 0.95, soft);
+      float softPeak = mix(0.78, 0.36, soft);
       float softProfile = core * coreAmt + mid * midAmt + skirt * skirtAmt;
       float softNow = coreAmt + midAmt + skirtAmt;
       softProfile = softProfile * (softPeak / max(softNow, 0.001));
 
-      // Morph hard disc → soft airbrush. soft^1.35 keeps mid painterly, 0 crisp.
-      float softMix = pow(soft, 1.35);
-      float hardPeak = 0.85;
+      // Morph hard → soft. pow keeps mid painterly; 0 = pure hard, 1 = pure soft.
+      float softMix = pow(soft, 1.45);
+      float hardPeak = 0.92;
       float profile = mix(hard * hardPeak, softProfile, softMix);
 
       float e = max(profile, 0.0) * uBrightness;
@@ -728,8 +742,11 @@
   /**
    * Dots-only with dwell fill + beautiful budget failure.
    *
-   * Under budget: stamp only at ideal spacing (enough for fused soft lines);
-   * may use far fewer than maxDots — never pad.
+   * Under budget (thrifty): stamp only at ideal spacing (enough for fused soft
+   * lines); may use far fewer than maxDots — never pad.
+   *
+   * fullEconomy: always spend dense packing up to maxDots so hard trails read
+   * solid (no thrifty under-use of the budget).
    *
    * Over budget: do NOT solid-line the head and drop the rest. Widen spacing
    * evenly across the whole path so the full signal shape stays visible as
@@ -740,10 +757,17 @@
   function buildDotVertices(pathPoints, options = {}) {
     const points = Array.isArray(pathPoints) ? pathPoints : [];
     const radius = Math.max(0.5, Number(options.radius) || 2);
-    // Blur 0..1; spacing still follows size only.
+    // Blur 0..1; denser packing at hard end so discs fuse without soft skirts.
     const blur = Math.max(0, Math.min(1, Number(options.blur) || 0));
     const maxDots = Math.max(16, Math.floor(Number(options.maxDots) || 2048));
-    const idealStep = Math.max(0.25, radius * 0.30);
+    const fullEconomy = options.fullEconomy === true
+      || options.fullDotEconomy === true
+      || options.useFullDotEconomy === true;
+    // Hard (blur 0): pack ~every 0.35–0.5 px or radius*0.12 so discs tile solid.
+    // Soft: wider step is fine (skirts fuse). Full economy always takes the dense path.
+    const thriftyStep = Math.max(0.35, radius * (0.18 + blur * 0.18));
+    const denseStep = Math.max(0.28, Math.min(radius * 0.12, 1.1));
+    const idealStep = fullEconomy ? denseStep : thriftyStep;
 
     const pieces = [];
     let piece = [];
@@ -789,13 +813,18 @@
       }
     }
     idealCount = Math.max(1, idealCount);
-    // Under budget: ideal step, place only what the path needs (no pad, no early stop).
-    // Over budget: widen step evenly across the FULL path so HF fails as skips,
-    // not a solid head with the rest missing.
-    const overBudget = idealCount > maxDots && totalLen > 1e-4;
-    const step = overBudget
-      ? Math.max(idealStep, totalLen / Math.max(1, maxDots - Math.max(1, pieces.length)))
-      : idealStep;
+    // Full economy: pack toward the full maxDots budget along the path
+    // (solid hard trails). Floor step so a 1px twitch cannot dump 2k stamps.
+    // Over budget: widen evenly across the FULL path (beautiful skips).
+    let step = idealStep;
+    if (fullEconomy && totalLen > 1e-4) {
+      const budgetStep = totalLen / Math.max(1, maxDots - Math.max(1, pieces.length));
+      // Dense floor (~0.28px / radius*0.12); spend budget when path is longer.
+      step = Math.max(0.28, Math.min(denseStep, budgetStep));
+    }
+    if (idealCount > maxDots && totalLen > 1e-4) {
+      step = Math.max(step, totalLen / Math.max(1, maxDots - Math.max(1, pieces.length)));
+    }
     // Hard ceiling is always maxDots only — never a short idealCount cap.
     const stampCap = maxDots;
 
@@ -1106,6 +1135,60 @@
     return renderer;
   }
 
+  /**
+   * Upload a multi-stop energy→color LUT.
+   * Accepts either:
+   *   [{ t, r, g, b }]  byte channels, or
+   *   [{ t, color: "#rrggbb" }] hex stops (shared gradient editor format).
+   */
+  function setLutFromStops(renderer, stopsIn) {
+    if (!isRendererLive(renderer)) {
+      return false;
+    }
+    const raw = Array.isArray(stopsIn) ? stopsIn : [];
+    const stops = [];
+    for (let i = 0; i < raw.length; i += 1) {
+      const s = raw[i];
+      if (!s) continue;
+      const t = Math.max(0, Math.min(1, Number(s.t)));
+      if (Number.isFinite(Number(s.r)) && Number.isFinite(Number(s.g)) && Number.isFinite(Number(s.b))) {
+        const toByte = (v) => {
+          const n = Number(v);
+          if (!Number.isFinite(n)) return 0;
+          return n <= 1
+            ? Math.round(Math.max(0, Math.min(1, n)) * 255)
+            : Math.round(Math.max(0, Math.min(255, n)));
+        };
+        stops.push({ t, r: toByte(s.r), g: toByte(s.g), b: toByte(s.b) });
+        continue;
+      }
+      const hex = String(s.color || s.hex || "").trim();
+      const m = hex.match(/^#?([0-9a-fA-F]{6})$/);
+      if (m) {
+        const n = Number.parseInt(m[1], 16);
+        stops.push({
+          t: Number.isFinite(t) ? t : (raw.length <= 1 ? 0 : i / (raw.length - 1)),
+          r: (n >> 16) & 255,
+          g: (n >> 8) & 255,
+          b: n & 255,
+        });
+      }
+    }
+    if (stops.length < 2) {
+      return false;
+    }
+    stops.sort((a, b) => a.t - b.t);
+    stops[0].t = 0;
+    stops[stops.length - 1].t = 1;
+    const sig = stops.map((s) => `${s.t.toFixed(4)}:${s.r},${s.g},${s.b}`).join("|");
+    if (renderer.lutSignature === sig) {
+      return true;
+    }
+    uploadLut(renderer.gl, renderer.lutTexture, stops);
+    renderer.lutSignature = sig;
+    return true;
+  }
+
   function setLutFromPeak(renderer, peakRgb, backgroundHex) {
     if (!isRendererLive(renderer)) {
       return;
@@ -1248,6 +1331,9 @@
           radius,
           blur,
           maxDots,
+          fullEconomy: options.fullEconomy === true
+            || options.fullDotEconomy === true
+            || options.useFullDotEconomy === true,
         });
       }
     } else if (!Array.isArray(depositVertices) || depositVertices.length < 5) {
@@ -1350,6 +1436,7 @@
   global.nodeGraphPhosphorEnergyGlDestroy = destroyRenderer;
   global.nodeGraphPhosphorEnergyGlResize = resizeRenderer;
   global.nodeGraphPhosphorEnergyGlSetLutFromPeak = setLutFromPeak;
+  global.nodeGraphPhosphorEnergyGlSetLutFromStops = setLutFromStops;
   global.nodeGraphPhosphorEnergyGlStep = stepEnergy;
   global.nodeGraphPhosphorEnergyGlStepBeams = stepBeams;
   global.nodeGraphPhosphorEnergyGlDepositBeams = depositBeamSegments;

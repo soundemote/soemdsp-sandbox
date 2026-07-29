@@ -5,11 +5,12 @@ function readNodeGraphLiveParam(node, key, fallback = 0) {
 }
 
 function readNodeGraphLiveSmoothedParam(runtime, node, key, fallback, frame, frames) {
-  const smoother = runtime.smoothers.get(nodeGraphParameterKey(node?.id, key));
+  const smootherKey = nodeGraphParameterKey(node?.id, key);
+  const smoother = runtime.smoothers.get(smootherKey);
   if (!smoother) {
     return readNodeGraphLiveParam(node, key, fallback);
   }
-  return readNodeGraphSmoothedParameter(smoother, frame, frames);
+  return readNodeGraphSmoothedParameter(smoother, frame, frames, runtime, smootherKey);
 }
 
 function nodeGraphApplyParameterBounds(value, metadata = {}) {

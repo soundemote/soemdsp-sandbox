@@ -1,63 +1,66 @@
-function createNodeGraphLorenzAttractorState() {
-  return {
-    resetWasHigh: false,
-    x: 0.1,
-    y: 0,
-    z: 0,
-  };
+// Offline / main-thread glue for lorenz_attractor.wasm — no pure-JS DSP mirror.
+// Silent (0,0,0) until wasm finishes loading. Live path uses worklet native only.
+
+const nodeGraphLorenzAttractorWasm = { promise: null, exports: null, failed: false };
+
+function nodeGraphLorenzAttractorLoadWasm() {
+  if (nodeGraphLorenzAttractorWasm.promise || typeof fetch !== "function" || typeof WebAssembly === "undefined") {
+    return;
+  }
+  nodeGraphLorenzAttractorWasm.promise = fetch("/native_modules/lorenz_attractor/lorenz_attractor.wasm")
+    .then((response) => response.arrayBuffer())
+    .then((bytes) => WebAssembly.instantiate(bytes, {}))
+    .then((result) => {
+      nodeGraphLorenzAttractorWasm.exports = result.instance.exports;
+    })
+    .catch(() => {
+      nodeGraphLorenzAttractorWasm.failed = true;
+    });
 }
 
-function resetNodeGraphLorenzAttractorState(state) {
-  state.x = 0.1;
-  state.y = 0;
-  state.z = 0;
+function createNodeGraphLorenzAttractorState() {
+  return { nativeHandle: 0 };
+}
+
+function destroyNodeGraphLorenzAttractorNativeState(state) {
+  const wasm = nodeGraphLorenzAttractorWasm.exports;
+  if (state?.nativeHandle && wasm?.soemdsp_lorenz_attractor_destroy) {
+    wasm.soemdsp_lorenz_attractor_destroy(state.nativeHandle);
+    state.nativeHandle = 0;
+  }
 }
 
 function nodeGraphLorenzAttractorSample(options = {}) {
+  nodeGraphLorenzAttractorLoadWasm();
+  const wasm = nodeGraphLorenzAttractorWasm.exports;
+  if (!wasm?.soemdsp_lorenz_attractor_create || !wasm?.soemdsp_lorenz_attractor_sample) {
+    return { x: 0, y: 0, z: 0 };
+  }
   const state = options.state || createNodeGraphLorenzAttractorState();
-  const resetHigh = Number(options.reset) > 0.5;
-  if (resetHigh && !state.resetWasHigh) {
-    resetNodeGraphLorenzAttractorState(state);
+  if (!state.nativeHandle) {
+    state.nativeHandle = wasm.soemdsp_lorenz_attractor_create();
   }
-  state.resetWasHigh = resetHigh;
-
-  const sampleRate = Math.max(1, Number(options.sampleRate) || 44100);
-  const speed = Math.max(0, Number(options.speed) || 0);
-  const sigma = Math.max(0, Number(options.sigma) || 10);
-  const rho = Number.isFinite(Number(options.rho)) ? Number(options.rho) : 28;
-  const beta = Math.max(0, Number(options.beta) || 8 / 3);
-  const dt = (0.75 * speed) / sampleRate;
-  const steps = Math.max(1, Math.ceil(dt / 0.0007));
-  const stepDt = steps > 0 ? dt / steps : 0;
-
-  for (let index = 0; index < steps; index += 1) {
-    const dx = sigma * (state.y - state.x);
-    const dy = state.x * (rho - state.z) - state.y;
-    const dz = state.x * state.y - beta * state.z;
-    state.x += dx * stepDt;
-    state.y += dy * stepDt;
-    state.z += dz * stepDt;
-    if (!Number.isFinite(state.x) || !Number.isFinite(state.y) || !Number.isFinite(state.z)) {
-      resetNodeGraphLorenzAttractorState(state);
-      break;
-    }
+  if (!state.nativeHandle) {
+    return { x: 0, y: 0, z: 0 };
   }
-
-  const rotate = (Number(options.rotate) || 0) * Math.PI * 2;
-  const cosRotate = Math.cos(rotate);
-  const sinRotate = Math.sin(rotate);
-  const normalizedX = state.x / 24;
-  const normalizedY = state.y / 32;
-  const normalizedZ = (state.z - 25) / 30;
-  const depth = Math.max(0, Math.min(1, Number(options.zDepth) || 0));
-  const depthScale = 1 + normalizedZ * depth * 0.35;
-  const scale = Math.max(0, Number(options.scale) || 1) * depthScale;
-  const x = (normalizedX * cosRotate - normalizedY * sinRotate) * scale;
-  const y = (normalizedX * sinRotate + normalizedY * cosRotate) * scale;
-  const z = normalizedZ * scale;
+  wasm.soemdsp_lorenz_attractor_sample(
+    state.nativeHandle,
+    Number(options.reset) || 0,
+    Math.max(0, Number(options.speed) || 0),
+    Math.max(0, Number(options.sigma) || 10),
+    Number.isFinite(Number(options.rho)) ? Number(options.rho) : 28,
+    Math.max(0, Number(options.beta) || 8 / 3),
+    Number(options.rotate) || 0,
+    Math.max(0, Number(options.scale) || 1),
+    Math.max(0, Math.min(1, Number(options.zDepth) || 0)),
+    Math.max(1, Number(options.sampleRate) || 44100),
+  );
+  const x = wasm.soemdsp_lorenz_attractor_x(state.nativeHandle);
+  const y = wasm.soemdsp_lorenz_attractor_y(state.nativeHandle);
+  const z = wasm.soemdsp_lorenz_attractor_z(state.nativeHandle);
   return {
-    x: Math.max(-1, Math.min(1, x)),
-    y: Math.max(-1, Math.min(1, y)),
-    z: Math.max(-1, Math.min(1, z)),
+    x: Number.isFinite(x) ? x : 0,
+    y: Number.isFinite(y) ? y : 0,
+    z: Number.isFinite(z) ? z : 0,
   };
 }

@@ -1,17 +1,20 @@
-// Offline/render-time dispatch handler for xyPad, self-registering into
-// nodeGraphLiveModuleEvaluators (see node-graph-live-frame-evaluator.js).
-// X/Y/Gate come from the module's own parameters (driven by the pad UI);
-// Spike shares the nodeId-keyed impulse pulse map with impulseButton.
+// Offline/render-time xyPad evaluator — same shared-smoother contract as worklet.
 
-function nodeGraphXyPadEvaluatorQuantize(value, quantize, phase) {
+function nodeGraphXyPadEvaluatorQuantize(value, quantize) {
   const q = Math.max(0, Math.min(1, Number(quantize) || 0));
   const divisions = q <= 0 ? 1 : 1 + Math.max(1, Math.round(q * 16));
+  const v = Number(value);
+  const unit = Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.5;
   if (divisions <= 1) {
-    return Math.max(0, Math.min(1, value));
+    return unit;
   }
   const step = 1 / divisions;
-  const offset = Math.max(0, Math.min(1, Number(phase) || 0)) * step;
-  return Math.max(0, Math.min(1, Math.round((value - offset) / step) * step + offset));
+  return Math.max(0, Math.min(1, Math.round(unit / step) * step));
+}
+
+function nodeGraphXyPadUnitToBipolar(unit) {
+  const u = Number(unit);
+  return Number.isFinite(u) ? u * 2 - 1 : 0;
 }
 
 nodeGraphLiveModuleEvaluators.xyPad = ({ runtime, node, nodeId, frame, frames, frameValues, mixInput }) => {
@@ -23,12 +26,22 @@ nodeGraphLiveModuleEvaluators.xyPad = ({ runtime, node, nodeId, frame, frames, f
   states.set(nodeId, state);
   const pulseSamples = Math.max(0, Number(state.pulseSamples) || 0);
   state.pulseSamples = Math.max(0, pulseSamples - 1);
-  // X / Y are CV offsets: added to the pad position, clamped inside
-  // the quantizer, so external signals can sweep or wobble the pad point.
+
+  let unitX = read("x", read("xPhase", 0.5));
+  let unitY = read("y", read("yPhase", 0.5));
+  const mode = Math.max(0, Math.min(2, Math.round(Number(read("quantizeInput", 0)) || 0)));
+  if (mode === 1) {
+    unitX = nodeGraphXyPadEvaluatorQuantize(unitX, read("xQuantize", 0));
+    unitY = nodeGraphXyPadEvaluatorQuantize(unitY, read("yQuantize", 0));
+  } else {
+    unitX = Math.max(0, Math.min(1, Number(unitX) || 0.5));
+    unitY = Math.max(0, Math.min(1, Number(unitY) || 0.5));
+  }
+
   return {
-    X: nodeGraphXyPadEvaluatorQuantize(read("x", 0.5) + mixInput(nodeId, "X"), read("xQuantize", 0), read("xPhase", 0)),
-    Y: nodeGraphXyPadEvaluatorQuantize(read("y", 0.5) + mixInput(nodeId, "Y"), read("yQuantize", 0), read("yPhase", 0)),
+    X: nodeGraphXyPadUnitToBipolar(unitX) + (Number(mixInput(nodeId, "X")) || 0),
+    Y: nodeGraphXyPadUnitToBipolar(unitY) + (Number(mixInput(nodeId, "Y")) || 0),
     Gate: read("gate", 0) > 0.5 ? 1 : 0,
-    Spike: pulseSamples > 0 ? 1 : 0,
+    Spike: pulseSamples > 0 ? (Number(state.amplitude) || 1) : 0,
   };
 };

@@ -315,6 +315,7 @@ const nodeMetadataScriptSupportedKeys = new Set([
   "showSign",
   "smoothingMode",
   "smoothingSeconds",
+  "smoothingType",
   "step",
   "tooltip",
   "unit",
@@ -727,6 +728,7 @@ function formatNodeMetadataScript(slider, metadata = nodeSliderMetadata(slider))
     `param.${key}.linearSmoothing = ${nodeMetadataScriptValue(metadata.linearSmoothing, "linearSmoothing")};`,
     `param.${key}.smoothingMode = ${nodeMetadataScriptValue(metadata.smoothingMode, "smoothingMode")};`,
     `param.${key}.smoothingSeconds = ${nodeMetadataScriptValue(metadata.smoothingSeconds, "smoothingSeconds")};`,
+    `param.${key}.smoothingType = ${nodeMetadataScriptValue(metadata.smoothingType, "smoothingType")};`,
     `param.${key}.nonlinearSlider = ${nodeMetadataScriptValue(metadata.nonlinearSlider, "nonlinearSlider")};`,
     `param.${key}.showSign = ${nodeMetadataScriptValue(metadata.showSign, "showSign")};`,
     `param.${key}.wraparound = ${nodeMetadataScriptValue(metadata.wraparound, "wraparound")};`,
@@ -1242,6 +1244,9 @@ function parseNodeMetadataScriptValue(rawValue, key, current) {
   if (key === "smoothingMode") {
     return normalizeNodeGraphMetadataSmoothingMode(value.replace(/^["']|["']$/g, ""));
   }
+  if (key === "smoothingType") {
+    return normalizeNodeGraphMetadataSmoothingType(value.replace(/^["']|["']$/g, ""));
+  }
   return parseNodeMetadataNumber(value, current[key]);
 }
 
@@ -1345,6 +1350,7 @@ function writeNodeMetadataEditorValues(metadata) {
       ? formatNodeSliderCompactNumber(nodeGraphMetadataSmoothingSamplesToSeconds(metadata.smoothingSeconds))
       : "";
   syncMetadataSmoothingModeButtons(metadata);
+  syncMetadataSmoothingTypeButtons(metadata);
   document.getElementById("metadataSliderCurveValue").value = normalizeNodeSliderCurve(metadata.sliderCurve, metadata.nonlinearSlider);
   document.getElementById("metadataCurveSensitivityValue").value = formatNodeSliderCompactNumber(metadata.curveAmount);
   document.getElementById("metadataShowSignValue").checked = metadata.showSign;
@@ -1645,7 +1651,48 @@ function syncMetadataSmoothingModeButtons(metadata = {}) {
   }
 }
 
+function nodeGraphSmoothingTypeStatusText(type) {
+  switch (normalizeNodeGraphMetadataSmoothingType(type)) {
+    case "papoulis":
+      return "Π Papoulis — 3rd-order Optimum-L lowpass (monotonic, steeper than one-pole).";
+    case "onePole":
+    default:
+      return "1P One-pole — classic exponential parameter chase.";
+  }
+}
+
+function syncMetadataSmoothingTypeButtons(metadata = {}) {
+  const group = document.getElementById("metadataSmoothingTypeGroup");
+  if (!group) {
+    return;
+  }
+  const type = normalizeNodeGraphMetadataSmoothingType(metadata.smoothingType);
+  group.dataset.type = type;
+  for (const button of group.querySelectorAll("[data-smoothing-type]")) {
+    button.setAttribute("aria-pressed", button.dataset.smoothingType === type ? "true" : "false");
+  }
+  const status = document.getElementById("metadataSmoothingTypeStatus");
+  if (status) {
+    status.textContent = nodeGraphSmoothingTypeStatusText(type);
+  }
+}
+
 function clickNodeMetadataSmoothingModeButton(event) {
+  const typeButton = event.target.closest("[data-smoothing-type]");
+  if (typeButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    const typeGroup = document.getElementById("metadataSmoothingTypeGroup");
+    if (!typeGroup) {
+      return;
+    }
+    typeGroup.dataset.type = normalizeNodeGraphMetadataSmoothingType(typeButton.dataset.smoothingType);
+    syncMetadataSmoothingTypeButtons({ smoothingType: typeGroup.dataset.type });
+    setNodeMetadataFieldsDirty(true);
+    applyNodeMetadataEditor({ keepDirty: true });
+    syncNodeMetadataScriptFromFields({ force: true });
+    return;
+  }
   const button = event.target.closest("[data-smoothing-mode]");
   if (!button) {
     return;
@@ -1973,6 +2020,9 @@ function readNodeMetadataEditorValues(slider) {
     smoothingMode: normalizeNodeGraphMetadataSmoothingMode(
       document.getElementById("metadataSmoothingModeGroup")?.dataset.mode,
     ),
+    smoothingType: normalizeNodeGraphMetadataSmoothingType(
+      document.getElementById("metadataSmoothingTypeGroup")?.dataset.type,
+    ),
     smoothingSeconds,
     sliderCurve: normalizeNodeSliderCurve(document.getElementById("metadataSliderCurveValue").value),
     step: Math.max(0, parseNodeMetadataNumber(stepInput, current.step)),
@@ -1994,6 +2044,7 @@ function applyNodeMetadataEditor(options = {}) {
     status: "metadata synced",
   });
   syncMetadataSmoothingModeButtons(nextMetadata);
+  syncMetadataSmoothingTypeButtons(nextMetadata);
   markNodeGraphRenderPending();
   if (!options.keepDirty) {
     setNodeMetadataFieldsDirty(false);

@@ -33,6 +33,6 @@ NodeLiveAudioProcessor.prototype.superloveFilterSample = function superloveFilte
         });
       }
     }
-    return this.superloveFilterSampleJs(state, input, params, rate);
+    return this.safeFilterNumber(input, state) ?? 0;
   };
 

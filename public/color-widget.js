@@ -149,15 +149,16 @@ const css = `
   }
 
   .scw-hue {
+    /* Hex stops — more reliable than space-separated hsl() in some hosts */
     background: linear-gradient(
       90deg,
-      hsl(0 100% 50%),
-      hsl(60 100% 50%),
-      hsl(120 100% 50%),
-      hsl(180 100% 50%),
-      hsl(240 100% 50%),
-      hsl(300 100% 50%),
-      hsl(360 100% 50%)
+      #ff0000 0%,
+      #ffff00 17%,
+      #00ff00 33%,
+      #00ffff 50%,
+      #0000ff 67%,
+      #ff00ff 83%,
+      #ff0000 100%
     );
   }
 
@@ -346,7 +347,12 @@ function hslToRgb(color) {
 }
 
 function colorCss(color) {
-  return `hsl(${color.h} ${color.s}% ${color.l}% / ${color.a})`;
+  // Classic comma HSL — space-separated / alpha form fails to paint in some hosts.
+  const a = Number.isFinite(Number(color.a)) ? Number(color.a) : 1;
+  if (a >= 0.999) {
+    return `hsl(${color.h}, ${color.s}%, ${color.l}%)`;
+  }
+  return `hsla(${color.h}, ${color.s}%, ${color.l}%, ${a})`;
 }
 
 function enrichedColor(color) {
@@ -443,8 +449,12 @@ export class SoundColorWidget {
     this.root.querySelector(".scw-brightness").setAttribute("aria-label", `${this.label} brightness`);
     this.root.querySelector(".scw-saturation").setAttribute("aria-label", `${this.label} saturation`);
     this.root.querySelector(".scw-alpha").setAttribute("aria-label", `${this.label} alpha`);
-    this.root.querySelector(".scw-saturation").style.background = `linear-gradient(90deg, hsl(${this.color.h} 0% ${this.color.l}%), hsl(${this.color.h} 100% ${this.color.l}%))`;
-    this.root.querySelector(".scw-alpha").style.setProperty("--alpha-gradient", `linear-gradient(90deg, hsl(${this.color.h} ${this.color.s}% ${this.color.l}% / 0), ${colorCss(this.color)})`);
+    this.root.querySelector(".scw-saturation").style.background =
+      `linear-gradient(90deg, hsl(${this.color.h}, 0%, ${this.color.l}%), hsl(${this.color.h}, 100%, ${this.color.l}%))`;
+    this.root.querySelector(".scw-alpha").style.setProperty(
+      "--alpha-gradient",
+      `linear-gradient(90deg, hsla(${this.color.h}, ${this.color.s}%, ${this.color.l}%, 0), ${colorCss(this.color)})`,
+    );
     const hexButton = this.root.querySelector(".scw-hex");
     hexButton.querySelector(".scw-hex-glyph").textContent = "";
     hexButton.dataset.hex = hex;

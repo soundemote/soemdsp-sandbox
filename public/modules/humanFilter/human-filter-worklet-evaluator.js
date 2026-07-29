@@ -37,6 +37,6 @@ NodeLiveAudioProcessor.prototype.humanFilterSample = function humanFilterSample(
         });
       }
     }
-    return this.humanFilterSampleJs(state, input, params, rate);
+    return this.safeFilterNumber(input, state) ?? 0;
   };
 

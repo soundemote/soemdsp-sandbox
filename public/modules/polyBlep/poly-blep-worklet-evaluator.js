@@ -40,50 +40,11 @@ NodeLiveAudioProcessor.prototype.oscillatorSample = function oscillatorSample(no
       });
     }
   }
-  return this.oscillatorSampleJs(nodeId, phase, phaseIncrement, waveform);
+  return 0;
 };
 
 // Naive LFO waveshapes matching native_modules/basic_oscillator (no
 // polyBLEP / anti-aliasing). Discontinuities and triangle corners are raw.
-NodeLiveAudioProcessor.prototype.oscillatorSampleJs = function oscillatorSampleJs(nodeId, phase, phaseIncrement, waveform) {
-  const phaseDelta = Number(phaseIncrement) || 0;
-  const phaseStopped = Math.abs(phaseDelta) <= 1e-12;
-  if (phaseStopped && this.oscillatorStoppedSamples.has(nodeId)) {
-    return this.oscillatorStoppedSamples.get(nodeId) || 0;
-  }
-  const phaseCycle = this.wrapValue(phase / (Math.PI * 2), 0, 1);
-
-  let sample = 0;
-  switch (Math.round(Number(waveform) || 0)) {
-    case 1: // Ramp
-      sample = -1 + phaseCycle * 2;
-      break;
-    case 2: // Square
-      sample = phaseCycle < 0.5 ? 1 : -1;
-      break;
-    case 3: // Triangle
-      sample = 1 - 4 * Math.abs(phaseCycle - 0.5);
-      break;
-    case 4: // Sine
-      sample = Math.sin(phase);
-      break;
-    case 5: // Noise
-      sample = phaseStopped ? this.currentNoiseSample(nodeId) : this.nextNoiseSample(nodeId);
-      break;
-    case 0: // Saw
-    default:
-      sample = 1 - phaseCycle * 2;
-      break;
-  }
-
-  if (phaseStopped) {
-    this.oscillatorStoppedSamples.set(nodeId, sample);
-  } else {
-    this.oscillatorStoppedSamples.delete(nodeId);
-  }
-  return sample;
-};
-
 NodeLiveAudioProcessor.prototype.polyBlepNativeVectorSample = function polyBlepNativeVectorSample(state, phase, phaseIncrement, waveform, level, resetEdge) {
   if (!this.nativePolyBlepReady) {
     return null;

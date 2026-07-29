@@ -11,69 +11,6 @@ NodeLiveAudioProcessor.prototype.createSurgeOscillatorState = function createSur
     };
   };
 
-NodeLiveAudioProcessor.prototype.surgeOscillatorWaveformSampleJs = function surgeOscillatorWaveformSampleJs(state, phaseCycle, phaseIncrement, waveform) {
-    switch (waveform) {
-      case 1:
-        return this.polyBlepSquare(phaseCycle, phaseIncrement);
-      case 2: {
-        const next = this.clampValue(
-          (state.triangleIntegrator + this.polyBlepSquare(phaseCycle, phaseIncrement) * phaseIncrement * 4) * 0.995,
-          -1,
-          1,
-        );
-        state.triangleIntegrator = next;
-        return next;
-      }
-      case 3:
-        return Math.sin(phaseCycle * Math.PI * 2);
-      default:
-        return -1 + phaseCycle * 2 - this.polyBlep(phaseCycle, phaseIncrement);
-    }
-  };
-
-NodeLiveAudioProcessor.prototype.surgeOscillatorSampleJs = function surgeOscillatorSampleJs(state, options = {}) {
-    const sampleRate = Number(options.sampleRate) > 1 ? Number(options.sampleRate) : 48000;
-    const increment = this.clampValue((Number(options.frequencyHz) || 0) / sampleRate, -0.5, 0.5);
-    const level = Number(options.level) || 0;
-
-    state.phase = this.wrapValue(state.phase + increment, 0, 1);
-    state.syncedThisSample = false;
-
-    const masterIncrement = this.clampValue((Number(options.syncFrequencyHz) || 0) / sampleRate, -0.5, 0.5);
-    state.masterPhase = this.wrapValue(state.masterPhase + masterIncrement, 0, 1);
-    state.internalSyncOut = Math.sin(state.masterPhase * Math.PI * 2);
-
-    const effectiveSyncIn = options.hasExternalSync ? (Number(options.syncIn) || 0) : state.internalSyncOut;
-
-    if (state.hasPrevSyncIn && state.prevSyncIn <= 0 && effectiveSyncIn > 0) {
-      const denom = effectiveSyncIn - state.prevSyncIn;
-      const frac = denom > 1e-9 ? this.clampValue(-state.prevSyncIn / denom, 0, 1) : 0;
-      state.phase = this.wrapValue((1 - frac) * increment, 0, 1);
-      state.syncedThisSample = true;
-    }
-    state.prevSyncIn = effectiveSyncIn;
-    state.hasPrevSyncIn = true;
-
-    const phaseCycle = state.phase;
-    const saw = this.surgeOscillatorWaveformSampleJs(state, phaseCycle, increment, 0) * level;
-    const square = this.surgeOscillatorWaveformSampleJs(state, phaseCycle, increment, 1) * level;
-    const tri = this.surgeOscillatorWaveformSampleJs(state, phaseCycle, increment, 2) * level;
-    const sine = this.surgeOscillatorWaveformSampleJs(state, phaseCycle, increment, 3) * level;
-
-    const waveform = Math.max(0, Math.min(3, Math.round(Number(options.waveform) || 0)));
-    const out = [saw, square, tri, sine][waveform];
-
-    return {
-      Out: out,
-      Saw: saw,
-      Square: square,
-      Tri: tri,
-      Sine: sine,
-      Synced: state.syncedThisSample ? 1 : 0,
-      "Internal Sync": state.internalSyncOut,
-    };
-  };
-
 NodeLiveAudioProcessor.prototype.surgeOscillatorSample = function surgeOscillatorSample(state, options = {}) {
     if (
       this.nativeSurgeOscillatorReady &&
@@ -122,6 +59,6 @@ NodeLiveAudioProcessor.prototype.surgeOscillatorSample = function surgeOscillato
         });
       }
     }
-    return this.surgeOscillatorSampleJs(state, options);
+    return { Out: 0, Saw: 0, Square: 0, Tri: 0, Sine: 0, Synced: 0, 1: 0, "Internal Sync": 0 };
   };
 

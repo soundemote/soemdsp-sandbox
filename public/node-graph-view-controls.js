@@ -97,7 +97,11 @@ function syncNodeGraphVisibleModuleGridHeights() {
     const heightGu = nodeGraphPatchNodeGridHeightUnits(patchNode);
     element.dataset.gridHeightGu = String(heightGu);
     element.style.setProperty("--node-grid-height-units", String(heightGu));
-    element.style.setProperty("--node-module-display-height-units", String(nodeGraphPatchNodeDisplayHeightUnits(patchNode)));
+    if (typeof nodeGraphApplyModuleShellHeightCssVars === "function") {
+      nodeGraphApplyModuleShellHeightCssVars(element, patchNode);
+    } else {
+      element.style.setProperty("--node-module-display-height-units", String(nodeGraphPatchNodeDisplayHeightUnits(patchNode)));
+    }
     element.style.setProperty("--node-module-interface-controls-height-units", String(nodeGraphPatchNodeInterfaceControlsHeightUnits(patchNode)));
   }
 }

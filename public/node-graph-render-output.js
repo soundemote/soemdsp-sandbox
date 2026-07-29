@@ -542,7 +542,7 @@ function nodeGraphPrepareClapRenderProcessPayload(
         );
       }
     }
-    finishNodeGraphParameterSmoothing(runtime.smoothers);
+    finishNodeGraphParameterSmoothing(runtime.smoothers, runtime);
   }
 
   return {
@@ -922,7 +922,7 @@ async function renderNodeGraphAudio() {
       engineLeftSamples[frame] = left;
       engineRightSamples[frame] = right;
     }
-    finishNodeGraphParameterSmoothing(runtime.smoothers);
+    finishNodeGraphParameterSmoothing(runtime.smoothers, runtime);
   }
   finishNodeGraphRenderedScopeCapture(scopeCapture);
   protectionMuteCount += Number(runtime.speakerProtectionMuteCount) || 0;

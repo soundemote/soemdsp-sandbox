@@ -2,28 +2,6 @@ NodeLiveAudioProcessor.prototype.createMinMaxState = function createMinMaxState(
     return { nativeHandle: 0 };
   };
 
-NodeLiveAudioProcessor.prototype.minMaxSampleJs = function minMaxSampleJs(state, values, connectedMask) {
-    let have = false;
-    let lo = 0;
-    let hi = 0;
-    for (let i = 0; i < 4; i++) {
-      if (!(connectedMask & (1 << i))) continue;
-      const v = this.safeFilterNumber(values[i], state);
-      if (!have) {
-        lo = v;
-        hi = v;
-        have = true;
-      } else {
-        lo = Math.min(lo, v);
-        hi = Math.max(hi, v);
-      }
-    }
-    return {
-      Max: this.safeFilterNumber(have ? hi : 0, state),
-      Min: this.safeFilterNumber(have ? lo : 0, state),
-    };
-  };
-
 NodeLiveAudioProcessor.prototype.minMaxSample = function minMaxSample(state, values, connectedMask) {
     if (this.nativeMinMaxReady) {
       try {
@@ -55,5 +33,5 @@ NodeLiveAudioProcessor.prototype.minMaxSample = function minMaxSample(state, val
         });
       }
     }
-    return this.minMaxSampleJs(state, values, connectedMask);
+    return { Max: 0, Min: 0 };
   };

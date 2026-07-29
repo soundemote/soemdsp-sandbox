@@ -599,6 +599,13 @@ function createNodeGraphKeyboardControllerBody(node = null) {
 function createNodeGraphParameter(node, type, parameter) {
   const row = document.createElement("div");
   row.className = "node-parameter-row";
+  // Hidden params still exist in the DOM (pad UI / worklet read by id) but
+  // must not consume vertical layout — otherwise solid modules (XY Pad)
+  // under-count height vs real content and clip the face.
+  if (parameter?.hidden === true) {
+    row.hidden = true;
+    row.classList.add("node-parameter-row-hidden");
+  }
   row.dataset.param = parameter.key;
   const constraint = normalizeNodeGraphResourceConstraint(parameter.constraint);
   if (constraint) {

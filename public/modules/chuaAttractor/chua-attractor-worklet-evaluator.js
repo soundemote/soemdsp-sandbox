@@ -2,54 +2,6 @@ NodeLiveAudioProcessor.prototype.createChuaAttractorState = function createChuaA
     return { resetWasHigh: false, x: 0.1, y: 0, z: 0, nativeHandle: 0 };
   };
 
-NodeLiveAudioProcessor.prototype.resetChuaAttractorState = function resetChuaAttractorState(state) {
-    state.x = 0.1;
-    state.y = 0;
-    state.z = 0;
-  };
-
-NodeLiveAudioProcessor.prototype.chuaDiode = function chuaDiode(x, m0, m1) {
-    return m1 * x + 0.5 * (m0 - m1) * (Math.abs(x + 1) - Math.abs(x - 1));
-  };
-
-NodeLiveAudioProcessor.prototype.chuaAttractorSampleJs = function chuaAttractorSampleJs(state, options = {}) {
-    const resetHigh = Number(options.reset) > 0.5;
-    if (resetHigh && !state.resetWasHigh) {
-      this.resetChuaAttractorState(state);
-    }
-    state.resetWasHigh = resetHigh;
-    const sampleRateValue = Math.max(1, Number(options.sampleRate) || sampleRate || 44100);
-    const speed = Math.max(0, Number(options.speed) || 0);
-    const alpha = Number(options.alpha) || 0;
-    const beta = Number(options.beta) || 0;
-    const m0 = Number(options.m0) || 0;
-    const m1 = Number(options.m1) || 0;
-    const dt = (0.6 * speed) / sampleRateValue;
-    const steps = Math.max(1, Math.ceil(dt / 0.0004));
-    const stepDt = steps > 0 ? dt / steps : 0;
-    for (let i = 0; i < steps; i += 1) {
-      const fx = this.chuaDiode(state.x, m0, m1);
-      const dx = alpha * (state.y - state.x - fx);
-      const dy = state.x - state.y + state.z;
-      const dz = -beta * state.y;
-      state.x += dx * stepDt;
-      state.y += dy * stepDt;
-      state.z += dz * stepDt;
-      if (!Number.isFinite(state.x) || !Number.isFinite(state.y) || !Number.isFinite(state.z)) {
-        this.resetChuaAttractorState(state);
-        break;
-      }
-    }
-    state.x = this.clampValue(state.x, -20, 20);
-    state.y = this.clampValue(state.y, -20, 20);
-    state.z = this.clampValue(state.z, -20, 20);
-    return {
-      x: this.clampValue(state.x / 2.0, -1, 1),
-      y: this.clampValue(state.y / 0.5, -1, 1),
-      z: this.clampValue(state.z / 3.5, -1, 1),
-    };
-  };
-
 NodeLiveAudioProcessor.prototype.chuaAttractorSample = function chuaAttractorSample(state, options = {}) {
     if (
       this.nativeChuaAttractorReady &&
@@ -94,6 +46,6 @@ NodeLiveAudioProcessor.prototype.chuaAttractorSample = function chuaAttractorSam
         });
       }
     }
-    return this.chuaAttractorSampleJs(state, options);
+    return { x: 0, y: 0, z: 0 };
   };
 

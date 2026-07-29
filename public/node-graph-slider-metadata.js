@@ -379,6 +379,9 @@ function nodeSliderMetadata(slider) {
     showSign: nodeSliderShouldShowSign(slider),
     smoothingMode: nodeSliderSmoothingMode(slider),
     smoothingSeconds: nodeSliderSmoothingSeconds(slider),
+    smoothingType: typeof normalizeNodeGraphMetadataSmoothingType === "function"
+      ? normalizeNodeGraphMetadataSmoothingType(slider.dataset.smoothingType)
+      : "onePole",
     wraparound: nodeSliderShouldWraparound(slider),
     unit: slider.dataset.unit ?? "",
     kind: slider.dataset.kind || "decimal",
@@ -412,6 +415,7 @@ function formatNodeSliderMetadataTooltip(slider) {
     `display choices ${metadata.displayChoices}`,
     `divide choices visibly ${metadata.divideChoicesVisibly}`,
     `linear smoothing ${metadata.linearSmoothing}`,
+    `smoothing type ${metadata.smoothingType || "onePole"}`,
     `show sign ${metadata.showSign}`,
     `wraparound ${metadata.wraparound}`,
   ];

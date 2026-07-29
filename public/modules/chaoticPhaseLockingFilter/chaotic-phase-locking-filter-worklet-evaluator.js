@@ -32,6 +32,6 @@ NodeLiveAudioProcessor.prototype.chaoticPhaseLockingFilterSample = function chao
         });
       }
     }
-    return this.chaoticPhaseLockingFilterSampleJs(state, input, params, rate);
+    return this.safeFilterNumber(input, state) ?? 0;
   };
 

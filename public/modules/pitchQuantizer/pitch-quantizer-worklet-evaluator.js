@@ -8,39 +8,6 @@ NodeLiveAudioProcessor.prototype.pitchQuantizerMaskFromChoice = function pitchQu
     return masks[index];
   };
 
-NodeLiveAudioProcessor.prototype.pitchQuantizerSampleJs = function pitchQuantizerSampleJs(state, options = {}) {
-    const pitch = Number(options.pitch) || 0;
-    const mask = options.hasScaleInput
-      ? Math.round(Number(options.scaleInput) || 0) & 0xFFF
-      : this.pitchQuantizerMaskFromChoice(options.scaleChoice);
-    if (mask === 0) {
-      return state.hasOutput ? state.lastOutput : pitch;
-    }
-    const semitoneFloat = pitch * 120;
-    const rounded = Math.round(semitoneFloat);
-    let bestSemitone = rounded;
-    let bestDistance = Infinity;
-    let found = false;
-    for (let radius = 0; radius <= 12 && !found; radius += 1) {
-      const signs = radius === 0 ? [0] : [-1, 1];
-      for (const sign of signs) {
-        const candidate = rounded + sign * radius;
-        const pitchClass = ((candidate % 12) + 12) % 12;
-        if (!((mask >> pitchClass) & 1)) continue;
-        const distance = Math.abs(candidate - semitoneFloat);
-        if (!found || distance < bestDistance) {
-          found = true;
-          bestDistance = distance;
-          bestSemitone = candidate;
-        }
-      }
-    }
-    const output = found ? bestSemitone / 120 : pitch;
-    state.hasOutput = true;
-    state.lastOutput = output;
-    return output;
-  };
-
 NodeLiveAudioProcessor.prototype.pitchQuantizerSample = function pitchQuantizerSample(state, options = {}) {
     const pitch = Number(options.pitch) || 0;
     const mask = options.hasScaleInput
@@ -76,6 +43,6 @@ NodeLiveAudioProcessor.prototype.pitchQuantizerSample = function pitchQuantizerS
         });
       }
     }
-    return this.pitchQuantizerSampleJs(state, options);
+    return 0;
   };
 

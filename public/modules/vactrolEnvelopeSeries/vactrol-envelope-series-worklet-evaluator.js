@@ -30,15 +30,6 @@ NodeLiveAudioProcessor.prototype.createVactrolEnvelopeState = function createVac
     };
   };
 
-NodeLiveAudioProcessor.prototype.vactrolEnvelopeCoefficient = function vactrolEnvelopeCoefficient(seconds, rate = sampleRate) {
-    const time = Number(seconds);
-    if (!Number.isFinite(time) || time <= 0) {
-      return 1;
-    }
-    const samples = Math.max(1, time * Math.max(1, rate || sampleRate || 44100));
-    return 1 - Math.exp(-1 / samples);
-  };
-
 NodeLiveAudioProcessor.prototype.vactrolEnvelopeSample = function vactrolEnvelopeSample(state, light, params, rate = sampleRate) {
     const safeRate = Math.max(1, rate || sampleRate || 44100);
     if (this.nativeVactrolEnvelopeReady) {
@@ -72,25 +63,6 @@ NodeLiveAudioProcessor.prototype.vactrolEnvelopeSample = function vactrolEnvelop
         });
       }
     }
-    return this.vactrolEnvelopeSampleJs(state, light, params, safeRate);
-  };
-
-NodeLiveAudioProcessor.prototype.vactrolEnvelopeSampleJs = function vactrolEnvelopeSampleJs(state, light, params, rate = sampleRate) {
-    const safeLight = this.safeFilterNumber(light, null);
-    const attack = Math.max(0, this.safeFilterNumber(params.attack, null));
-    const release = Math.max(0, this.safeFilterNumber(params.release, null));
-    const curve = Math.max(0.001, this.safeFilterNumber(params.curve, null));
-    const sensitivity = Math.max(0, this.safeFilterNumber(params.sensitivity, null));
-    const lightOffset = this.clampValue(this.safeFilterNumber(params.lightOffset, null), 0, 1);
-    const darkCurrent = this.clampValue(this.safeFilterNumber(params.darkCurrent, null), 0, 1);
-    const safeRate = Math.max(1, rate || sampleRate || 44100);
-    const target = this.clampValue(safeLight * sensitivity + lightOffset, 0, 1);
-    const coefficient = target > state.raw
-      ? this.vactrolEnvelopeCoefficient(attack, safeRate)
-      : this.vactrolEnvelopeCoefficient(release, safeRate);
-    state.raw += (target - state.raw) * coefficient;
-    const shaped = Math.pow(this.clampValue(state.raw, 0, 1), curve);
-    state.out = this.clampValue(darkCurrent + shaped * (1 - darkCurrent), 0, 1);
-    return this.safeFilterNumber(state.out, null);
+    return 0;
   };
 

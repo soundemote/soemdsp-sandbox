@@ -228,56 +228,89 @@
     }
 
     function endpointHitboxClientRect(endpoint, hitboxElement = null) {
-      const element = hitboxElement?.classList?.contains("node-io-row")
+      // Geometry is always centered on the jack.
+      // - Solid shells: jack-local pad only (row is a full 1gu band; expanding
+      //   to the whole row stole module drag and felt like shifting hitboxes).
+      // - Headered stacked IO: if the row is already a tight band, use it;
+      //   tall stretched rows keep only the local jack neighborhood.
+      const row = hitboxElement?.classList?.contains("node-io-row")
         ? hitboxElement
-        : elementForEndpoint(endpoint);
-      if (!element) {
+        : hitboxElement?.closest?.(".node-io-row") || null;
+      const solidShell = Boolean(row?.closest?.(".node-solid-module-shell"));
+      const jack = row?.querySelector?.(".node-port")
+        || (hitboxElement?.classList?.contains("node-port") ? hitboxElement : null)
+        || elementForEndpoint(endpoint);
+      if (!jack && !row) {
         return null;
       }
-      const rect = element.getBoundingClientRect();
-      if (rect.width <= 0 || rect.height <= 0) {
+      const visual = jack || row;
+      const jackRect = (jack || row).getBoundingClientRect();
+      if (jackRect.width <= 0 || jackRect.height <= 0) {
         return null;
       }
-      const box = {
-        bottom: rect.bottom,
-        height: rect.height,
-        left: rect.left,
-        right: rect.right,
-        top: rect.top,
-        width: rect.width,
-      };
-      const style = getComputedStyle(element);
+      const style = getComputedStyle(visual);
       const portDiameter =
         Number.parseFloat(style.getPropertyValue("--node-port-diameter")) ||
-        Math.max(rect.width, rect.height);
-      const patchPointRatio =
-        Number.parseFloat(style.getPropertyValue("--node-wire-patch-point-size-ratio")) ||
-        0;
-      const explicitPatchPointSize =
-        Number.parseFloat(style.getPropertyValue("--node-wire-patch-point-size")) ||
-        0;
-      const patchPointSize = explicitPatchPointSize || portDiameter * patchPointRatio;
-      if (!element.classList.contains("connected-port") || patchPointSize <= 0) {
-        return box;
-      }
+        Math.max(jackRect.width, jackRect.height);
+      const portArea =
+        Number.parseFloat(style.getPropertyValue("--node-port-area-size")) ||
+        portDiameter / 0.57;
+      // Local surrounding pad around the jack.
+      const padX = Math.max(portDiameter * 0.65, 8);
+      const padY = Math.max(portArea * 0.42, portDiameter * 0.55, 8);
       const center = typeof nodeGraphElementPatchPointClientCenter === "function"
-        ? nodeGraphElementPatchPointClientCenter(element, endpoint.io)
+        ? nodeGraphElementPatchPointClientCenter(jack || row, endpoint?.io)
         : {
-          x: endpoint.io === "output" ? rect.right : rect.left,
-          y: rect.top + rect.height * 0.5,
+          x: endpoint?.io === "output"
+            ? jackRect.right
+            : (endpoint?.io === "input" ? jackRect.left : jackRect.left + jackRect.width * 0.5),
+          y: jackRect.top + jackRect.height * 0.5,
         };
-      const radius = patchPointSize * 0.5;
-      const left = Math.min(box.left, center.x - radius);
-      const right = Math.max(box.right, center.x + radius);
-      const top = Math.min(box.top, center.y - radius);
-      const bottom = Math.max(box.bottom, center.y + radius);
+
+      let left = center.x - padX;
+      let right = center.x + padX;
+      let top = center.y - padY;
+      let bottom = center.y + padY;
+
+      // Always cover the jack box itself.
+      left = Math.min(left, jackRect.left);
+      right = Math.max(right, jackRect.right);
+      top = Math.min(top, jackRect.top);
+      bottom = Math.max(bottom, jackRect.bottom);
+
+      if (solidShell) {
+        // Reach a short way toward the label so the name is still wirable,
+        // but leave most of the row free for module select/drag.
+        const labelReach = Math.max(portArea * 0.9, 18);
+        if (endpoint?.io === "input") {
+          right = Math.max(right, center.x + labelReach);
+        } else if (endpoint?.io === "output") {
+          left = Math.min(left, center.x - labelReach);
+        }
+        // Vertical: stay inside the 1gu port band so space-evenly gaps stay drag.
+        if (row) {
+          const rowRect = row.getBoundingClientRect();
+          top = Math.max(top, rowRect.top);
+          bottom = Math.min(bottom, rowRect.bottom);
+        }
+      } else if (row) {
+        const rowRect = row.getBoundingClientRect();
+        const maxBand = portArea * 1.35;
+        if (rowRect.height > 0 && rowRect.height <= maxBand) {
+          left = Math.min(left, rowRect.left);
+          right = Math.max(right, rowRect.right);
+          top = Math.min(top, rowRect.top);
+          bottom = Math.max(bottom, rowRect.bottom);
+        }
+      }
+
       return {
         bottom,
-        height: bottom - top,
+        height: Math.max(0, bottom - top),
         left,
         right,
         top,
-        width: right - left,
+        width: Math.max(0, right - left),
       };
     }
 
@@ -697,6 +730,11 @@
       if (!endpoint) {
         return;
       }
+      // Only start a wire when the pointer is actually near the jack —
+      // otherwise solid-module edge rows must not steal module select/drag.
+      if (!helpers.pointInEndpointHitbox(endpoint, event.clientX, event.clientY, hitboxElement)) {
+        return;
+      }
       const from = helpers.endpointPoint(endpoint, hitboxElement);
       if (!from) {
         return;
@@ -774,7 +812,22 @@
       }
       const directTarget = target.closest?.(".node-port, .node-io-row, .node-param-port.modulation-input, .node-param-port.graph-input");
       if (directTarget) {
-        setHoveredPatchPoint(directTarget);
+        const endpoint = helpers.endpointFromElement(
+          directTarget.classList?.contains("node-io-row")
+            ? directTarget
+            : (directTarget.closest?.(".node-io-row") || directTarget),
+        );
+        const hitbox = directTarget.closest?.(".node-io-row") || directTarget;
+        if (
+          endpoint &&
+          helpers.pointInEndpointHitbox(endpoint, event.clientX, event.clientY, hitbox)
+        ) {
+          setHoveredPatchPoint(directTarget);
+          return;
+        }
+        // Over a stretched/empty part of an io-row but outside the jack —
+        // do not highlight.
+        setHoveredPatchPoint(null);
         return;
       }
       setHoveredPatchPoint(
@@ -785,6 +838,8 @@
     return {
       cancelPortConnectionMode,
       clearHover,
+      // Exposed for solid-module empty-edge drag vs jack hitbox checks.
+      helpers,
       handlePatchPointHover,
       handlePortClick,
       handlePortPointerDown,

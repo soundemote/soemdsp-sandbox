@@ -15,7 +15,9 @@ namespace {
 
 using namespace soemdsp_maths;
 
-static const int kMaxInstances = 32;
+// Param smoothers + signal Papoulis Filter nodes share this pool.
+// 256 keeps headroom for multi-pad / multi-param Papoulis chase.
+static const int kMaxInstances = 256;
 
 struct PapoulisFilterState {
   bool active;
@@ -51,6 +53,20 @@ extern "C" int soemdsp_papoulis_filter_create() {
 extern "C" void soemdsp_papoulis_filter_destroy(int handle) {
   if (handle < 1 || handle > kMaxInstances) return;
   gPool[handle - 1].active = false;
+}
+
+/** Snap all delay state to value (param-smoother settle / instant jump). */
+extern "C" void soemdsp_papoulis_filter_snap(int handle, double value) {
+  if (handle < 1 || handle > kMaxInstances) return;
+  PapoulisFilterState& s = gPool[handle - 1];
+  if (!s.active) return;
+  const double v = safe(value);
+  s.poleX1 = v;
+  s.poleY1 = v;
+  s.biquadX1 = v;
+  s.biquadX2 = v;
+  s.biquadY1 = v;
+  s.biquadY2 = v;
 }
 
 extern "C" double soemdsp_papoulis_filter_sample(

@@ -13,12 +13,57 @@ let nodeGraphNativeModuleEntries = Object.freeze([]);
 let nodeGraphNativeModuleEntriesByTarget = Object.freeze({});
 let nodeGraphNativeModuleCatalogLoadStarted = false;
 
+// Module types that appear in the Module Browser as disabled
+// "under construction" cards (not spawnable from the shop). Also the
+// single source of truth for suppressing expected native-engine noise:
+// placeholder native shells (e.g. wall_delay) must not spam
+// module-diagnostics when Live Audio loads the combined wasm.
+//
+// When you mark a module UC here, diagnostics + native wasm send both
+// consult nodeGraphModuleTypeIsUnderConstruction / 
+// nodeGraphNativeModuleRefIsUnderConstruction automatically.
 const nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([
   "canvas",
   "humanFilter",
   "oscilloscopeBank",
   "shootingStarTail",
+  // Geometric room delay / "wall verb" — JS prototype only; native is a
+  // version stub that the worklet does not wire (unsupported native module).
+  "wallDelay",
 ]));
+
+function nodeGraphModuleTypeIsUnderConstruction(type) {
+  return nodeGraphModuleStoreUnderConstructionTypes.has(String(type || "").trim());
+}
+
+/** native catalog name (snake_case) → module type (camelCase). */
+function nodeGraphNativeModuleNameToType(name) {
+  const raw = String(name || "").trim();
+  if (!raw) {
+    return "";
+  }
+  // wall_delay → wallDelay, human_filter → humanFilter
+  return raw.replace(/_([a-z0-9])/g, (_, ch) => String(ch).toUpperCase());
+}
+
+/**
+ * True when a native-module status/fault refers to an under-construction
+ * module type (by targetType, moduleType, or snake_case native name).
+ */
+function nodeGraphNativeModuleRefIsUnderConstruction(ref = {}) {
+  const targetType = String(
+    ref?.targetType || ref?.moduleType || ref?.type || "",
+  ).trim();
+  if (targetType && nodeGraphModuleTypeIsUnderConstruction(targetType)) {
+    return true;
+  }
+  const name = String(ref?.name || ref?.moduleName || "").trim();
+  if (!name) {
+    return false;
+  }
+  const fromName = nodeGraphNativeModuleNameToType(name);
+  return Boolean(fromName && nodeGraphModuleTypeIsUnderConstruction(fromName));
+}
 
 const nodeGraphModuleGroupStorageKey = "soemdsp-sandbox.moduleGroups.v1";
 const nodeGraphModuleCatalogVisibilityStorageKey = "soemdsp-sandbox.moduleCatalogVisibility.v2";
@@ -390,6 +435,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Henon Map",
     notes: ["chaos", "discrete map", "2D attractor"],
   },
+  // rayBouncer: chromeless catalog (public/modules/rayBouncer/*-register.js).
   chuaAttractor: {
     category: "chaos",
     description: "Chua's Circuit double-scroll attractor: a classic chaotic circuit with a different lobe/scroll character than Lorenz.",
@@ -699,9 +745,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   wallDelay: {
     category: "space",
-    description: "Geometric delay from a superellipsoid room (Squircle/Random/Fractal, meters-scaled Width/Height/Roundness): Rays x Bounces delay taps per ear (Ear Distance in cm), each hop's distance and specular/scattered direction computed from the real room surface. Reflectivity blends mirror-like bounces against rough scattering, and drives a shared Sabrina-style diffusion cascade.",
+    description: "Under construction. Geometric room delay / wall verb from a superellipsoid (Rays × Bounces taps per ear). JS prototype only for now — native engine is a placeholder stub.",
     label: "Wall Delay",
-    notes: ["wall geometry", "binaural", "superellipsoid", "ray bounces"],
+    notes: ["under construction", "wall geometry", "binaural", "wall verb"],
   },
   reverbEffect: {
     category: "space",
@@ -828,7 +874,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   spectrogram: {
     category: "oscilloscope",
-    description: "Spectrogram SG-1 style scrolling spectrogram. Overlapping FFT windows with exponential moving-average smoothing per frequency bin, logarithmic frequency scaling, and a classic cool-to-hot color ramp (black → blue → cyan → yellow → white). Five controls: FFT Size, Overlap, Smoothing, Brightness, and output Bin count.",
+    description: "Regular STFT spectrogram. Module: Brightness, Min/Max Thresh. Display: History, FFT size, Window, Overlap, Freq Scale, Smooth, gradient presets.",
     label: "Spectrogram",
     notes: ["fft", "spectrum", "frequency waterfall", "spectral display"],
   },
@@ -857,9 +903,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   lineBurnOscilloscope: {
     category: "oscilloscope",
-    description: "First-pass line-burn oscilloscope style with a heavier trace pass, ready for dedicated burn tuning.",
+    description: "Heart-monitor phosphor: pen takes Sweep (s) to cross left→right. Rising-edge Reset (≥0.5) snaps back to the left. Burn, decay, pixel density.",
     label: "1D Burn Dot",
-    notes: ["burn display", "line trace", "testbed"],
+    notes: ["heart monitor", "phosphor sweep", "reset", "burn", "decay"],
   },
   scope2d: {
     category: "oscilloscope",

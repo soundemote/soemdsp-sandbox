@@ -173,7 +173,10 @@ function createNodeGraphParameterSmoother(initialValue, metadata = {}) {
   const value = Number(initialValue);
   const safeValue = Number.isFinite(value) ? value : 0;
   const signal = normalizeNodeGraphSmootherSignal(safeValue, metadata);
-  return {
+  const smoothingType = typeof normalizeNodeGraphMetadataSmoothingType === "function"
+    ? normalizeNodeGraphMetadataSmoothingType(metadata.smoothingType)
+    : "onePole";
+  const smoother = {
     current: safeValue,
     linearSmoothing: metadata.linearSmoothing !== false,
     max: Number.isFinite(Number(metadata.max)) ? Number(metadata.max) : 1,
@@ -181,45 +184,106 @@ function createNodeGraphParameterSmoother(initialValue, metadata = {}) {
     min: Number.isFinite(Number(metadata.min)) ? Number(metadata.min) : 0,
     smoothingMode: nodeGraphSmoothingModeNormalize(metadata.smoothingMode),
     smoothingSeconds: nodeGraphParameterSmoothingSecondsFromMetadata(metadata),
+    smoothingType,
     outputBuffer: signal,
     targetSignal: signal,
     target: safeValue,
-    lastFrame: -1,
     lastValue: safeValue,
     wraparound: Boolean(metadata.wraparound),
+    filterState: null,
+    filterStateType: null,
   };
+  if (typeof nodeGraphEnsureParameterSmootherFilterState === "function") {
+    nodeGraphEnsureParameterSmootherFilterState(smoother, smoothingType);
+  }
+  return smoother;
 }
 
-function updateNodeGraphParameterSmoother(smoother, targetValue, metadata = {}) {
-  const value = Number(targetValue);
-  smoother.target = Number.isFinite(value) ? value : smoother.target;
-  smoother.linearSmoothing = metadata.linearSmoothing !== false;
-  smoother.max = Number.isFinite(Number(metadata.max)) ? Number(metadata.max) : smoother.max;
-  smoother.metadata = metadata;
-  smoother.min = Number.isFinite(Number(metadata.min)) ? Number(metadata.min) : smoother.min;
-  smoother.smoothingMode = nodeGraphSmoothingModeNormalize(metadata.smoothingMode);
-  smoother.smoothingSeconds = nodeGraphParameterSmoothingSecondsFromMetadata(metadata);
-  smoother.targetSignal = normalizeNodeGraphSmootherSignal(smoother.target, metadata);
-  smoother.wraparound = Boolean(metadata.wraparound);
-  if (!smoother.linearSmoothing) {
-    smoother.current = smoother.target;
-    smoother.outputBuffer = smoother.targetSignal;
-    smoother.lastValue = smoother.target;
+/**
+ * Offline / script-processor path: soemdsp SmootherManager-style dirty list.
+ * runtime.activeSmoothers + runtime.activeSmootherKeys hold only moving chases.
+ */
+function nodeGraphEnsureRuntimeActiveSmootherLists(runtime) {
+  if (!runtime) {
+    return;
+  }
+  if (!Array.isArray(runtime.activeSmoothers)) {
+    runtime.activeSmoothers = [];
+  }
+  if (!(runtime.activeSmootherKeys instanceof Set)) {
+    runtime.activeSmootherKeys = new Set();
   }
 }
 
-function readNodeGraphSmoothedParameter(smoother, frame, frames) {
-  if (!smoother || !smoother.linearSmoothing) {
-    return smoother?.target ?? 0;
+function nodeGraphSettleParameterSmoother(smoother, { snapFilter = true } = {}) {
+  if (!smoother) {
+    return;
   }
-  if (smoother.lastFrame === frame) {
-    return smoother.lastValue;
+  smoother.current = smoother.target;
+  smoother.outputBuffer = smoother.targetSignal;
+  smoother.lastValue = smoother.target;
+  if (snapFilter && typeof nodeGraphParameterSmootherFilterSnap === "function") {
+    nodeGraphParameterSmootherFilterSnap(smoother, smoother.targetSignal);
+  }
+}
+
+function nodeGraphClearParameterSmootherActiveMembership(runtime, smoother) {
+  if (!smoother) {
+    return;
+  }
+  const key = smoother._activeKey;
+  if (key && runtime?.activeSmootherKeys) {
+    runtime.activeSmootherKeys.delete(key);
+  }
+  smoother._activeKey = null;
+  smoother._activeDrop = false;
+}
+
+function nodeGraphActivateParameterSmoother(runtime, key, smoother) {
+  if (!runtime || !smoother || !key || !smoother.linearSmoothing) {
+    return false;
   }
   if (!nodeGraphSmootherNeedsWork(smoother)) {
-    smoother.current = smoother.target;
-    smoother.lastFrame = frame;
-    smoother.lastValue = smoother.target;
-    return smoother.target;
+    return false;
+  }
+  nodeGraphEnsureRuntimeActiveSmootherLists(runtime);
+  if (runtime.activeSmootherKeys.has(key)) {
+    return true;
+  }
+  runtime.activeSmootherKeys.add(key);
+  smoother._activeKey = key;
+  smoother._activeDrop = false;
+  runtime.activeSmoothers.push(smoother);
+  return true;
+}
+
+function nodeGraphDeactivateParameterSmoother(runtime, key, smoother) {
+  if (!runtime || !key) {
+    return;
+  }
+  nodeGraphEnsureRuntimeActiveSmootherLists(runtime);
+  if (!runtime.activeSmootherKeys.has(key)) {
+    if (smoother) {
+      smoother._activeKey = null;
+    }
+    return;
+  }
+  runtime.activeSmootherKeys.delete(key);
+  if (smoother) {
+    smoother._activeKey = null;
+    smoother._activeDrop = true;
+  }
+}
+
+/** One sample step. Returns true if still chasing. */
+function nodeGraphStepParameterSmootherOneSample(smoother, frames) {
+  if (!smoother?.linearSmoothing) {
+    nodeGraphSettleParameterSmoother(smoother, { snapFilter: false });
+    return false;
+  }
+  if (!nodeGraphSmootherNeedsWork(smoother)) {
+    nodeGraphSettleParameterSmoother(smoother);
+    return false;
   }
   const smoothingSeconds = clampNodeGraphAutoSmoothingSeconds(nodeGraphResolveSmoothingSecondsForMode(
     smoother.smoothingMode,
@@ -229,26 +293,123 @@ function readNodeGraphSmoothedParameter(smoother, frame, frames) {
     nodeGraphMvp?.live?.autoSmoothingSeconds,
   ));
   if (smoothingSeconds <= 0) {
-    smoother.current = smoother.target;
-    smoother.outputBuffer = smoother.targetSignal;
-    smoother.lastFrame = frame;
-    smoother.lastValue = smoother.target;
-    return smoother.target;
+    nodeGraphSettleParameterSmoother(smoother);
+    return false;
   }
-  const signal = nodeGraphOnePoleParameterLowpassSample(
-    smoother,
-    smoother.targetSignal,
-    nodeGraphSmoothingFrequencyFromSeconds(smoothingSeconds),
-    nodeGraphMvp?.sampleRate || 44100,
-  );
+  const cutoff = nodeGraphSmoothingFrequencyFromSeconds(smoothingSeconds);
+  const rate = nodeGraphMvp?.sampleRate || 44100;
+  const signal = typeof nodeGraphParameterSmootherFilterSample === "function"
+    ? nodeGraphParameterSmootherFilterSample(smoother, smoother.targetSignal, cutoff, rate)
+    : nodeGraphOnePoleParameterLowpassSample(smoother, smoother.targetSignal, cutoff, rate);
   const value = denormalizeNodeGraphSmootherSignal(signal, smoother.metadata);
   smoother.current = value;
-  smoother.lastFrame = frame;
   smoother.lastValue = value;
-  return value;
+  return nodeGraphSmootherNeedsWork(smoother);
 }
 
-function finishNodeGraphParameterSmoothing(smoothers) {
+/** soemdsp SmootherManager::run + clean for offline runtime. */
+function nodeGraphRunActiveParameterSmoothers(runtime, frames) {
+  if (!runtime) {
+    return;
+  }
+  nodeGraphEnsureRuntimeActiveSmootherLists(runtime);
+  const list = runtime.activeSmoothers;
+  if (!list.length) {
+    return;
+  }
+  let write = 0;
+  for (let i = 0; i < list.length; i += 1) {
+    const smoother = list[i];
+    if (!smoother || smoother._activeDrop) {
+      nodeGraphClearParameterSmootherActiveMembership(runtime, smoother);
+      continue;
+    }
+    if (nodeGraphStepParameterSmootherOneSample(smoother, frames)) {
+      list[write] = smoother;
+      write += 1;
+    } else {
+      nodeGraphClearParameterSmootherActiveMembership(runtime, smoother);
+    }
+  }
+  list.length = write;
+}
+
+function updateNodeGraphParameterSmoother(smoother, targetValue, metadata = {}, runtime = null, smootherKey = null) {
+  const value = Number(targetValue);
+  smoother.target = Number.isFinite(value) ? value : smoother.target;
+  smoother.linearSmoothing = metadata.linearSmoothing !== false;
+  smoother.max = Number.isFinite(Number(metadata.max)) ? Number(metadata.max) : smoother.max;
+  smoother.metadata = metadata;
+  smoother.min = Number.isFinite(Number(metadata.min)) ? Number(metadata.min) : smoother.min;
+  smoother.smoothingMode = nodeGraphSmoothingModeNormalize(metadata.smoothingMode);
+  smoother.smoothingSeconds = nodeGraphParameterSmoothingSecondsFromMetadata(metadata);
+  const nextType = typeof normalizeNodeGraphMetadataSmoothingType === "function"
+    ? normalizeNodeGraphMetadataSmoothingType(metadata.smoothingType)
+    : "onePole";
+  if (smoother.smoothingType !== nextType) {
+    smoother.smoothingType = nextType;
+    smoother.filterState = null;
+    smoother.filterStateType = null;
+  } else {
+    smoother.smoothingType = nextType;
+  }
+  smoother.targetSignal = normalizeNodeGraphSmootherSignal(smoother.target, metadata);
+  smoother.wraparound = Boolean(metadata.wraparound);
+  const key = smootherKey || smoother._activeKey || null;
+  if (!smoother.linearSmoothing || !nodeGraphSmootherNeedsWork(smoother)) {
+    nodeGraphSettleParameterSmoother(smoother);
+    if (runtime && key) {
+      nodeGraphDeactivateParameterSmoother(runtime, key, smoother);
+    }
+    return;
+  }
+  if (runtime && key) {
+    nodeGraphActivateParameterSmoother(runtime, key, smoother);
+  }
+}
+
+/**
+ * Readers only — active list advances once per sample before evaluate.
+ * Falls back to a single step if dirty but not on the list (safety).
+ */
+function readNodeGraphSmoothedParameter(smoother, frame, frames, runtime = null, smootherKey = null) {
+  if (!smoother || !smoother.linearSmoothing) {
+    return smoother?.target ?? 0;
+  }
+  const key = smootherKey || smoother._activeKey || null;
+  if (
+    runtime
+    && key
+    && nodeGraphSmootherNeedsWork(smoother)
+    && !runtime.activeSmootherKeys?.has(key)
+  ) {
+    nodeGraphActivateParameterSmoother(runtime, key, smoother);
+    nodeGraphStepParameterSmootherOneSample(smoother, frames);
+    if (!nodeGraphSmootherNeedsWork(smoother)) {
+      nodeGraphDeactivateParameterSmoother(runtime, key, smoother);
+    }
+  }
+  return Number.isFinite(smoother.lastValue) ? smoother.lastValue : smoother.target;
+}
+
+function finishNodeGraphParameterSmoothing(smoothers, runtime = null) {
+  if (runtime) {
+    nodeGraphEnsureRuntimeActiveSmootherLists(runtime);
+    const list = runtime.activeSmoothers;
+    let write = 0;
+    for (let i = 0; i < list.length; i += 1) {
+      const smoother = list[i];
+      if (!smoother || smoother._activeDrop) {
+        nodeGraphClearParameterSmootherActiveMembership(runtime, smoother);
+        continue;
+      }
+      smoother.current = smoother.lastValue ?? smoother.current;
+      list[write] = smoother;
+      write += 1;
+    }
+    list.length = write;
+    return;
+  }
   for (const smoother of smoothers.values()) {
     if (!smoother.linearSmoothing) {
       smoother.current = smoother.wraparound
@@ -257,7 +418,6 @@ function finishNodeGraphParameterSmoothing(smoothers) {
       continue;
     }
     smoother.current = smoother.lastValue ?? smoother.current;
-    smoother.lastFrame = -1;
   }
 }
 
@@ -505,6 +665,9 @@ function setNodeSliderMetadata(slider, metadata) {
   slider.dataset.divideChoicesVisibly = metadata.divideChoicesVisibly ? "true" : "false";
   slider.dataset.linearSmoothing = metadata.linearSmoothing ? "true" : "false";
   slider.dataset.smoothingMode = nodeGraphSmoothingModeNormalize(metadata.smoothingMode);
+  slider.dataset.smoothingType = typeof normalizeNodeGraphMetadataSmoothingType === "function"
+    ? normalizeNodeGraphMetadataSmoothingType(metadata.smoothingType)
+    : "onePole";
   slider.dataset.smoothingSeconds = Number.isFinite(Number(metadata.smoothingSeconds)) && Number(metadata.smoothingSeconds) >= 0
     ? String(metadata.smoothingSeconds)
     : "";

@@ -55,47 +55,6 @@ NodeLiveAudioProcessor.prototype.robinSupersawGetSamplePhasor = function robinSu
     return p;
   };
 
-NodeLiveAudioProcessor.prototype.robinSupersawSumVoiceBank = function robinSupersawSumVoiceBank(bank, numVoices, safeFrequency, sampleRate, spreadCents) {
-    let sum = 0;
-    for (let i = 0; i < numVoices; i++) {
-      let centsOffset = 0;
-      if (numVoices > 1) {
-        const t = i / (numVoices - 1);
-        centsOffset = (t - 0.5) * spreadCents;
-      }
-      const ratio = Math.pow(2, centsOffset / 1200);
-      const voiceFreq = safeFrequency * ratio;
-      const meanCycleLength = sampleRate / Math.max(1, voiceFreq);
-      const voice = bank[i];
-      const dist = this.robinSupersawCalcCycleDistribution(meanCycleLength);
-      voice.lenMid = dist.lenMid;
-      voice.probShort = dist.probShort;
-      voice.probMid = dist.probMid;
-      sum += 2 * this.robinSupersawGetSamplePhasor(voice) - 1;  // WF::saw(phasor)
-    }
-    return sum / numVoices;
-  };
-
-NodeLiveAudioProcessor.prototype.robinSupersawSampleJs = function robinSupersawSampleJs(state, options = {}) {
-    const sampleRate = Number(options.sampleRate) > 1 ? Number(options.sampleRate) : 48000;
-    const safeFrequency = Number(options.frequencyHz) > 1 ? Number(options.frequencyHz) : 1;
-    const numVoices = this.clampValue(Math.round(Number(options.voices) || 1), 1, 9);
-    const spreadCents = this.clampValue(Number(options.detuneCents) || 0, 0, 100);
-    const level = Number(options.level) || 0;
-
-    let left = this.robinSupersawSumVoiceBank(state.left, numVoices, safeFrequency, sampleRate, spreadCents);
-    let right = this.robinSupersawSumVoiceBank(state.right, numVoices, safeFrequency, sampleRate, spreadCents);
-    if (!Number.isFinite(left)) left = 0;
-    if (!Number.isFinite(right)) right = 0;
-
-    const outLeft = this.clampValue(left, -1.5, 1.5) * level;
-    const outRight = this.clampValue(right, -1.5, 1.5) * level;
-    // Arithmetic average, not a raw sum -- matches this sandbox's own
-    // Output module convention, so mono doesn't come out twice as loud.
-    const outMono = (outLeft + outRight) * 0.5;
-    return { Mono: outMono, Left: outLeft, Right: outRight };
-  };
-
 NodeLiveAudioProcessor.prototype.robinSupersawSample = function robinSupersawSample(state, options = {}) {
     if (
       this.nativeRobinSupersawReady &&
@@ -136,6 +95,6 @@ NodeLiveAudioProcessor.prototype.robinSupersawSample = function robinSupersawSam
         });
       }
     }
-    return this.robinSupersawSampleJs(state, options);
+    return { Mono: 0, Left: 0, Right: 0 };
   };
 

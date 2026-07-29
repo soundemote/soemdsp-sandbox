@@ -426,13 +426,17 @@ function triggerNodeGraphImpulseButton(nodeId) {
   const patchNode = nodeGraphPatchNode(nodeId);
   const rawAmplitude = Number(patchNode?.params?.amplitude);
   const amplitude = Number.isFinite(rawAmplitude) ? Math.max(0, Math.min(1, rawAmplitude)) : 1;
+  // Short audible click (~20 ms) — matches worklet gameTriggerPulseSamples.
+  const pulseSamples = typeof nodeGraphGameTriggerPulseSamples === "function"
+    ? nodeGraphGameTriggerPulseSamples(nodeGraphMvp?.sampleRate || 44100)
+    : Math.max(1, Math.round((nodeGraphMvp?.sampleRate || 44100) * 0.02));
   if (nodeGraphMvp.live.runtime) {
     const states = nodeGraphMvp.live.runtime.impulseButtonStates instanceof Map
       ? nodeGraphMvp.live.runtime.impulseButtonStates
       : new Map();
     nodeGraphMvp.live.runtime.impulseButtonStates = states;
     const state = states.get(nodeId) || { amplitude: 1, pulseSamples: 0 };
-    state.pulseSamples = Math.max(0, Number(state.pulseSamples) || 0) + 1;
+    state.pulseSamples = Math.max(0, Number(state.pulseSamples) || 0) + pulseSamples;
     state.amplitude = amplitude;
     states.set(nodeId, state);
   }

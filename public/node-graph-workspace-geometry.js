@@ -36,8 +36,18 @@ function applyNodeGraphWorkspaceView() {
   } else {
     workspace.parentElement?.style.removeProperty("--node-workspace-view-width");
   }
-  workspace.dataset.widthGu = String(visibleView.widthGu);
-  workspace.dataset.heightGu = String(visibleView.heightGu);
+  // Persist measured size when view is auto (0×0 fill); otherwise store patch view.
+  if (visibleView.widthGu > 0 && visibleView.heightGu > 0) {
+    workspace.dataset.widthGu = String(visibleView.widthGu);
+    workspace.dataset.heightGu = String(visibleView.heightGu);
+  } else if (typeof nodeGraphWorkspaceCurrentGridSize === "function") {
+    const measured = nodeGraphWorkspaceCurrentGridSize();
+    workspace.dataset.widthGu = String(measured.widthGu);
+    workspace.dataset.heightGu = String(measured.heightGu);
+  } else {
+    workspace.dataset.widthGu = String(visibleView.widthGu);
+    workspace.dataset.heightGu = String(visibleView.heightGu);
+  }
   if (typeof syncNodeGraphModularViewSizeReadout === "function") {
     syncNodeGraphModularViewSizeReadout();
   }

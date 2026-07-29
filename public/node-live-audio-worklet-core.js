@@ -224,6 +224,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.gainBiasMixStates = new Map();
     this.sincStates = new Map();
     this.henonMapStates = new Map();
+    this.rayBouncerStates = new Map();
     this.chuaAttractorStates = new Map();
     this.wirdoSpiralStates = new Map();
     this.blubbStates = new Map();
@@ -274,6 +275,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.absoluteFrame = 0;
     this.slewLimiterStates = new Map();
     this.smoothers = new Map();
+    // Dirty list (soemdsp SmootherManager::toSmooth_): only moving chases run.
+    this.activeSmoothers = [];
+    this.activeSmootherKeys = new Set();
     this.spiralStates = new Map();
     this.fractalSpiralStates = new Map();
     this.logSpiralStates = new Map();
@@ -545,10 +549,21 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return (this.engineSampleRate || sampleRate || 44100) * Math.max(0, this.speedMultiplier ?? 1);
   }
 
+  createImpulseButtonState() {
+    return {
+      amplitude: 1,
+      pulseSamples: 0,
+    };
+  }
+
   setImpulseButtonTrigger(nodeId, amplitude) {
     if (!nodeId) return;
     const state = this.impulseButtonStates.get(nodeId) || this.createImpulseButtonState();
-    state.pulseSamples = Math.max(0, Number(state.pulseSamples) || 0) + 1;
+    // Short audible click (~20 ms), same family as other UI trigger pulses.
+    const pulse = typeof this.gameTriggerPulseSamples === "function"
+      ? this.gameTriggerPulseSamples()
+      : Math.max(1, Math.round((this.engineSampleRate || sampleRate || 44100) * 0.02));
+    state.pulseSamples = Math.max(0, Number(state.pulseSamples) || 0) + pulse;
     const normalized = Number(amplitude);
     state.amplitude = Number.isFinite(normalized) ? Math.max(0, Math.min(1, normalized)) : 1;
     this.impulseButtonStates.set(nodeId, state);
@@ -1159,11 +1174,14 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
         for (const state of this.papoulisFilterStates.values()) {
           this.destroyPapoulisFilterNativeState(state);
         }
+        // Param smoothers also hold native Papoulis handles — release before swap.
+        this.destroyAllPapoulisParameterSmootherNativeStates();
         this.nativePapoulisFilter = exports;
         this.nativePapoulisFilterReady = Boolean(
           this.nativePapoulisFilter?.soemdsp_papoulis_filter_create &&
           this.nativePapoulisFilter?.soemdsp_papoulis_filter_sample,
         );
+        this.bindPapoulisParameterSmootherNativeHost();
         this.port.postMessage({
           type: "nativeModuleStatus",
           name: "papoulis_filter",
@@ -1267,6 +1285,24 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
           type: "nativeModuleStatus",
           name: "henon_map",
           status: this.nativeHenonMapReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "ray_bouncer" || targetType === "rayBouncer") {
+        for (const state of this.rayBouncerStates.values()) {
+          this.destroyRayBouncerNativeState(state);
+        }
+        this.nativeRayBouncer = exports;
+        this.nativeRayBouncerReady = Boolean(
+          this.nativeRayBouncer?.soemdsp_ray_bouncer_create &&
+          this.nativeRayBouncer?.soemdsp_ray_bouncer_sample &&
+          this.nativeRayBouncer?.soemdsp_ray_bouncer_x &&
+          this.nativeRayBouncer?.soemdsp_ray_bouncer_y,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "ray_bouncer",
+          status: this.nativeRayBouncerReady ? "ready" : "missing exports",
         });
         return;
       }
@@ -2024,6 +2060,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.gainBiasMixStates = new Map();
     this.sincStates = new Map();
     this.henonMapStates = new Map();
+    this.rayBouncerStates = new Map();
     this.chuaAttractorStates = new Map();
     this.wirdoSpiralStates = new Map();
     this.blubbStates = new Map();
@@ -2086,7 +2123,10 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.slewLimiterStates = new Map();
     this.scopeBuffers = new Map();
     this.scopeCounter = 0;
+    this.destroyAllPapoulisParameterSmootherNativeStates?.();
     this.smoothers = new Map();
+    this.activeSmoothers = [];
+    this.activeSmootherKeys = new Set();
     this.spiralStates = new Map();
     this.fractalSpiralStates = new Map();
     this.logSpiralStates = new Map();
@@ -2285,6 +2325,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       }
       if (node?.type === "henonMap" && !this.henonMapStates.has(id)) {
         this.henonMapStates.set(id, this.createHenonMapState());
+      }
+      if (node?.type === "rayBouncer" && !this.rayBouncerStates.has(id)) {
+        this.rayBouncerStates.set(id, this.createRayBouncerState());
       }
       if (node?.type === "chuaAttractor" && !this.chuaAttractorStates.has(id)) {
         this.chuaAttractorStates.set(id, this.createChuaAttractorState());
@@ -2507,9 +2550,8 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
         const metadata = node.paramMeta?.[key];
         if (!this.smoothers.has(smootherKey)) {
           this.smoothers.set(smootherKey, this.createSmoother(value, metadata));
-        } else {
-          this.updateSmoother(this.smoothers.get(smootherKey), value, metadata);
         }
+        this.updateSmoother(this.smoothers.get(smootherKey), value, metadata, smootherKey);
       }
     }
 
@@ -2606,6 +2648,12 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       if (!ids.has(id)) {
         this.destroyHenonMapNativeState(this.henonMapStates.get(id));
         this.henonMapStates.delete(id);
+      }
+    }
+    for (const id of [...this.rayBouncerStates.keys()]) {
+      if (!ids.has(id)) {
+        this.destroyRayBouncerNativeState(this.rayBouncerStates.get(id));
+        this.rayBouncerStates.delete(id);
       }
     }
     for (const id of [...this.chuaAttractorStates.keys()]) {
@@ -3046,6 +3094,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     for (const key of [...this.smoothers.keys()]) {
       const [nodeId, parameter] = key.split(".");
       if (!ids.has(nodeId) || !(parameter in (this.nodes.get(nodeId)?.params || {}))) {
+        const dead = this.smoothers.get(key);
+        this.deactivateSmoother(key, dead);
+        this.destroyPapoulisParameterSmootherNativeState(dead);
         this.smoothers.delete(key);
       }
     }
@@ -3131,9 +3182,8 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
         const metadata = current.paramMeta?.[key];
         if (!this.smoothers.has(smootherKey)) {
           this.smoothers.set(smootherKey, this.createSmoother(value, metadata));
-        } else {
-          this.updateSmoother(this.smoothers.get(smootherKey), value, metadata);
         }
+        this.updateSmoother(this.smoothers.get(smootherKey), value, metadata, smootherKey);
       }
     }
     this.port.postMessage({
@@ -3297,7 +3347,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     event.speed = Number.isFinite(normalizedSpeed) ? normalizedSpeed : null;
     this.shootingStarExplosionEvent = event;
   }
-
 
   nativeShootingStarExplosionPower(speed, lowRange = 0, highRange = 1) {
     const low = Number(lowRange) || 0;
@@ -3912,7 +3961,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return !Number.isFinite(number) || Math.abs(number) > 1;
   }
 
-
   badValueReason(value) {
     const number = Number(value);
     if (Number.isNaN(number)) {
@@ -4245,6 +4293,14 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return nodeSmoothingModeNormalize(metadata?.smoothingMode);
   }
 
+  smoothingTypeFromMetadata(metadata = {}) {
+    if (typeof normalizeNodeGraphParameterSmootherFilterType === "function") {
+      return normalizeNodeGraphParameterSmootherFilterType(metadata?.smoothingType);
+    }
+    const key = String(metadata?.smoothingType || "").trim();
+    return key === "papoulis" ? "papoulis" : "onePole";
+  }
+
   // Resolves a parameter's effective smoothing window in seconds (0 means
   // "snap instantly") from its smoothingMode:
   //   internal        -- this parameter's own smoothingSeconds sample count
@@ -4278,7 +4334,8 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     const value = Number(initialValue);
     const safeValue = Number.isFinite(value) ? value : 0;
     const signal = this.parameterValueToNormalizedSignal(safeValue, metadata);
-    return {
+    const smoothingType = this.smoothingTypeFromMetadata(metadata);
+    const smoother = {
       current: safeValue,
       linearSmoothing: metadata?.linearSmoothing !== false,
       max: Number.isFinite(Number(metadata?.max)) ? Number(metadata.max) : 1,
@@ -4286,13 +4343,19 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       min: Number.isFinite(Number(metadata?.min)) ? Number(metadata.min) : 0,
       smoothingMode: this.smoothingModeFromMetadata(metadata),
       smoothingSeconds: this.smoothingSecondsFromMetadata(metadata),
+      smoothingType,
       outputBuffer: signal,
       targetSignal: signal,
       target: safeValue,
-      lastFrame: -1,
       lastValue: safeValue,
       wraparound: Boolean(metadata?.wraparound),
+      filterState: null,
+      filterStateType: null,
     };
+    if (typeof nodeGraphEnsureParameterSmootherFilterState === "function") {
+      nodeGraphEnsureParameterSmootherFilterState(smoother, smoothingType);
+    }
+    return smoother;
   }
 
   clampAutoSmoothingSeconds(seconds) {
@@ -4316,49 +4379,82 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
   }
 
-  // Mirrors soemdsp::filter::SmootherBase::needsSmoothing() -- once a
-  // parameter has settled within epsilon of its target (no live modulation
-  // moving it), skip the one-pole recompute entirely rather than running it
-  // every sample forever for a value that isn't changing.
+  // soemdsp SmootherBase::needsSmoothing — skip settled params.
   smootherNeedsWork(smoother) {
     return Math.abs((smoother.outputBuffer ?? 0) - (smoother.targetSignal ?? 0)) > 1e-7;
   }
 
-  updateSmoother(smoother, targetValue, metadata = {}) {
-    const value = Number(targetValue);
-    smoother.target = Number.isFinite(value) ? value : smoother.target;
-    smoother.linearSmoothing = metadata?.linearSmoothing !== false;
-    smoother.max = Number.isFinite(Number(metadata?.max)) ? Number(metadata.max) : smoother.max;
-    smoother.metadata = metadata;
-    smoother.min = Number.isFinite(Number(metadata?.min)) ? Number(metadata.min) : smoother.min;
-    smoother.smoothingMode = this.smoothingModeFromMetadata(metadata);
-    smoother.smoothingSeconds = this.smoothingSecondsFromMetadata(metadata);
-    smoother.targetSignal = this.parameterValueToNormalizedSignal(smoother.target, metadata);
-    smoother.wraparound = Boolean(metadata?.wraparound);
-    if (!smoother.linearSmoothing) {
-      smoother.current = smoother.target;
-      smoother.outputBuffer = smoother.targetSignal;
-      smoother.lastValue = smoother.target;
+  /** Snap chase state to target (value + optional filter state). */
+  settleSmoother(smoother, { snapFilter = true } = {}) {
+    if (!smoother) {
+      return;
+    }
+    smoother.current = smoother.target;
+    smoother.outputBuffer = smoother.targetSignal;
+    smoother.lastValue = smoother.target;
+    if (snapFilter && typeof nodeGraphParameterSmootherFilterSnap === "function") {
+      nodeGraphParameterSmootherFilterSnap(smoother, smoother.targetSignal);
     }
   }
 
-  readSmoothedParameter(node, key, fallback, frame, frames) {
-    const smoother = this.smoothers.get(this.parameterKey(node?.id, key));
+  /** Drop a marked-or-settled entry from the dirty-list key set. */
+  clearSmootherActiveMembership(smoother) {
     if (!smoother) {
-      const value = Number(node?.params?.[key]);
-      return Number.isFinite(value) ? value : fallback;
+      return;
     }
-    if (!smoother.linearSmoothing) {
-      return smoother.target;
+    const key = smoother._activeKey;
+    if (key) {
+      this.activeSmootherKeys.delete(key);
     }
-    if (smoother.lastFrame === frame) {
-      return smoother.lastValue;
+    smoother._activeKey = null;
+    smoother._activeDrop = false;
+  }
+
+  /**
+   * soemdsp SmootherManager::addForSmoothing — only moving chases are hot.
+   * Cost ∝ active count, not all params.
+   */
+  activateSmoother(key, smoother) {
+    if (!smoother || !key) {
+      return false;
+    }
+    if (!smoother.linearSmoothing || !this.smootherNeedsWork(smoother)) {
+      return false;
+    }
+    if (this.activeSmootherKeys.has(key)) {
+      return true;
+    }
+    this.activeSmootherKeys.add(key);
+    smoother._activeKey = key;
+    smoother._activeDrop = false;
+    this.activeSmoothers.push(smoother);
+    return true;
+  }
+
+  deactivateSmoother(key, smoother) {
+    if (!key || !this.activeSmootherKeys.has(key)) {
+      if (smoother) {
+        smoother._activeKey = null;
+      }
+      return;
+    }
+    this.activeSmootherKeys.delete(key);
+    if (smoother) {
+      smoother._activeKey = null;
+      // Compact in runActiveSmoothers / finishSmoothing.
+      smoother._activeDrop = true;
+    }
+  }
+
+  /** One sample of chase. Returns true if still moving (stay on dirty list). */
+  stepSmootherOneSample(smoother, frames) {
+    if (!smoother?.linearSmoothing) {
+      this.settleSmoother(smoother, { snapFilter: false });
+      return false;
     }
     if (!this.smootherNeedsWork(smoother)) {
-      smoother.current = smoother.target;
-      smoother.lastFrame = frame;
-      smoother.lastValue = smoother.target;
-      return smoother.target;
+      this.settleSmoother(smoother);
+      return false;
     }
     const smoothingSeconds = this.clampAutoSmoothingSeconds(this.resolveSmoothingSecondsForMode(
       smoother.smoothingMode,
@@ -4367,35 +4463,120 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       sampleRate,
     ));
     if (smoothingSeconds <= 0) {
-      smoother.current = smoother.target;
-      smoother.outputBuffer = smoother.targetSignal;
-      smoother.lastFrame = frame;
-      smoother.lastValue = smoother.target;
-      return smoother.target;
+      this.settleSmoother(smoother);
+      return false;
     }
-    const signal = this.onePoleLowpassSample(
-      smoother,
-      smoother.targetSignal,
-      this.smoothingFrequencyFromSeconds(smoothingSeconds),
-      sampleRate,
-    );
+    const cutoff = this.smoothingFrequencyFromSeconds(smoothingSeconds);
+    const signal = typeof nodeGraphParameterSmootherFilterSample === "function"
+      ? nodeGraphParameterSmootherFilterSample(smoother, smoother.targetSignal, cutoff, sampleRate)
+      : this.onePoleLowpassSample(smoother, smoother.targetSignal, cutoff, sampleRate);
     const value = this.normalizedSignalToParameterValue(signal, smoother.metadata);
     smoother.current = value;
-    smoother.lastFrame = frame;
     smoother.lastValue = value;
-    return value;
+    return this.smootherNeedsWork(smoother);
+  }
+
+  /**
+   * soemdsp SmootherManager::run + clean — advance dirty chases once per
+   * engine sample, then drop settled ones.
+   */
+  runActiveSmoothers(frames) {
+    const list = this.activeSmoothers;
+    if (!list.length) {
+      return;
+    }
+    let write = 0;
+    for (let i = 0; i < list.length; i += 1) {
+      const smoother = list[i];
+      if (!smoother || smoother._activeDrop) {
+        this.clearSmootherActiveMembership(smoother);
+        continue;
+      }
+      if (this.stepSmootherOneSample(smoother, frames)) {
+        list[write] = smoother;
+        write += 1;
+      } else {
+        this.clearSmootherActiveMembership(smoother);
+      }
+    }
+    list.length = write;
+  }
+
+  updateSmoother(smoother, targetValue, metadata = {}, smootherKey = null) {
+    const value = Number(targetValue);
+    smoother.target = Number.isFinite(value) ? value : smoother.target;
+    smoother.linearSmoothing = metadata?.linearSmoothing !== false;
+    smoother.max = Number.isFinite(Number(metadata?.max)) ? Number(metadata.max) : smoother.max;
+    smoother.metadata = metadata;
+    smoother.min = Number.isFinite(Number(metadata?.min)) ? Number(metadata.min) : smoother.min;
+    smoother.smoothingMode = this.smoothingModeFromMetadata(metadata);
+    smoother.smoothingSeconds = this.smoothingSecondsFromMetadata(metadata);
+    const nextType = this.smoothingTypeFromMetadata(metadata);
+    if (smoother.smoothingType !== nextType) {
+      if (smoother.filterState?.nativeHandle) {
+        this.destroyPapoulisParameterSmootherNativeState(smoother);
+      }
+      smoother.smoothingType = nextType;
+      smoother.filterState = null;
+      smoother.filterStateType = null;
+    } else {
+      smoother.smoothingType = nextType;
+    }
+    smoother.targetSignal = this.parameterValueToNormalizedSignal(smoother.target, metadata);
+    smoother.wraparound = Boolean(metadata?.wraparound);
+    const key = smootherKey || smoother._activeKey || null;
+    if (!smoother.linearSmoothing || !this.smootherNeedsWork(smoother)) {
+      this.settleSmoother(smoother);
+      if (key) {
+        this.deactivateSmoother(key, smoother);
+      }
+      return;
+    }
+    if (key) {
+      this.activateSmoother(key, smoother);
+    }
+  }
+
+  /**
+   * Readers only — active set advances once per engine sample in evaluateFrame.
+   * lastValue is the shared out_.
+   */
+  readSmoothedParameter(node, key, fallback, frame, frames) {
+    const smootherKey = this.parameterKey(node?.id, key);
+    const smoother = this.smoothers.get(smootherKey);
+    if (!smoother) {
+      const value = Number(node?.params?.[key]);
+      return Number.isFinite(value) ? value : fallback;
+    }
+    if (!smoother.linearSmoothing) {
+      return smoother.target;
+    }
+    // Safety: target moved but not yet on the dirty list — lazy one-shot step.
+    if (this.smootherNeedsWork(smoother) && !this.activeSmootherKeys.has(smootherKey)) {
+      this.activateSmoother(smootherKey, smoother);
+      this.stepSmootherOneSample(smoother, frames);
+      if (!this.smootherNeedsWork(smoother)) {
+        this.deactivateSmoother(smootherKey, smoother);
+      }
+    }
+    return Number.isFinite(smoother.lastValue) ? smoother.lastValue : smoother.target;
   }
 
   finishSmoothing() {
-    for (const smoother of this.smoothers.values()) {
-      if (!smoother.linearSmoothing) {
-        smoother.current = smoother.wraparound
-          ? this.wrapValue(smoother.target, smoother.min, smoother.max)
-          : smoother.target;
-        continue;
+    const list = this.activeSmoothers;
+    if (list.length) {
+      let write = 0;
+      for (let i = 0; i < list.length; i += 1) {
+        const smoother = list[i];
+        if (!smoother || smoother._activeDrop) {
+          this.clearSmootherActiveMembership(smoother);
+          continue;
+        }
+        smoother.current = smoother.lastValue ?? smoother.current;
+        list[write] = smoother;
+        write += 1;
       }
-      smoother.current = smoother.lastValue ?? smoother.current;
-      smoother.lastFrame = -1;
+      list.length = write;
     }
     for (const runtime of this.moduleGroupRuntimes?.values?.() || []) {
       runtime.finishSmoothing();
@@ -4587,7 +4768,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return value;
   }
 
-
   // JS fallback mirroring native_modules/archimedes/archimedes.cpp's
   // symplectic Euler sine/cosine engine, kept in plain floating point here
   // (the native module runs the same recurrence in 16.16 fixed point) --
@@ -4634,49 +4814,8 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
         });
       }
     }
-    return this.archimedesSampleJs(options);
+    return 0;
   }
-
-  archimedesSampleJs(options = {}) {
-    const state = options.state || this.createArchimedesState();
-    const resetHigh = Number(options.reset) > 0.5;
-    if (resetHigh && !state.resetWasHigh) {
-      this.resetArchimedesState(state);
-    }
-    state.resetWasHigh = resetHigh;
-    const dtShift = this.clampValue(Math.round(Number(options.profile) || 12), 4, 24);
-    const dtFloat = 1 / (2 ** dtShift);
-    const freqHz = Math.max(0, Number(options.frequency) || 0);
-    const phaseInc = freqHz <= 0 ? 0 : Math.PI * 2 * freqHz * dtFloat;
-    const ditherBits = Math.max(0, Number(options.dither) || 0);
-    const ditherAmount = ditherBits / 65536;
-    const dither = ditherAmount > 0 ? (Math.random() - 0.5) * ditherAmount : 0;
-    state.x -= state.y * phaseInc + dither;
-    state.y += state.x * phaseInc;
-    const sign = state.x < 0 ? 1 : 0;
-    state.zeroCrossings += sign ^ state.lastSign;
-    state.totalSteps += 1;
-    state.lastSign = sign;
-    // Same broadband-noise-then-one-pole-split idea as the native module,
-    // just driven by Math.random() instead of re-reading a dither PRNG.
-    const noiseRaw = Math.random() * 2 - 1;
-    state.noiseLow += 0.01 * (noiseRaw - state.noiseLow);
-    let pi = 0;
-    if (state.zeroCrossings > 0 && freqHz > 0) {
-      const avgStepsPerHalfCycle = state.totalSteps / state.zeroCrossings;
-      pi = avgStepsPerHalfCycle * dtFloat * freqHz * Math.PI;
-    }
-    return {
-      sine: this.clampValue(state.x, -4, 4),
-      cosine: this.clampValue(state.y, -4, 4),
-      pi,
-      noiseBelow: state.noiseLow,
-      noiseAbove: noiseRaw - state.noiseLow,
-    };
-  }
-
-
-
 
   createHighpassState() {
     return {
@@ -4690,8 +4829,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       outputBuffer: 0,
     };
   }
-
-
 
   // Bundles three independent per-channel filter states (mono/left/right) under
   // one map entry, so a stereo signal gets three genuinely independent native
@@ -4712,15 +4849,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
   }
 
-
-
-
-
-
-
-
-
-
   createOscResetState() {
     return {
       lastReset: 0,
@@ -4734,17 +4862,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     };
   }
 
-
-
-
-
-
-
-
-
-
-
-
   createSamplePlaybackState() {
     return {
       lastReset: 0,
@@ -4754,14 +4871,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       sampleId: "",
     };
   }
-
-
-
-
-
-
-
-
 
   createArchimedesState() {
     return {
@@ -4783,7 +4892,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     state.totalSteps = 0;
     state.zeroCrossings = 0;
   }
-
 
   createNoiseGeneratorChannelState() {
     return { brown: 0, gaussianSpare: null, pink: [0, 0, 0, 0, 0, 0, 0], seed: 0, seedKey: "" };
@@ -4962,6 +5070,72 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       state.nativeHandle = 0;
     }
   }
+
+  /**
+   * Point the shared param-smoother Papoulis type at papoulis_filter.wasm so
+   * XY pad / any papoulis-smoothed param chases on native audio-thread code.
+   */
+  bindPapoulisParameterSmootherNativeHost() {
+    if (typeof nodeGraphSetPapoulisParameterSmootherNativeHost !== "function") {
+      return;
+    }
+    if (!this.nativePapoulisFilterReady || !this.nativePapoulisFilter) {
+      nodeGraphSetPapoulisParameterSmootherNativeHost(null);
+      return;
+    }
+    const native = this.nativePapoulisFilter;
+    const hasSnapExport = typeof native.soemdsp_papoulis_filter_snap === "function";
+    nodeGraphSetPapoulisParameterSmootherNativeHost({
+      ready: true,
+      hasSnapExport,
+      create() {
+        return native.soemdsp_papoulis_filter_create() || 0;
+      },
+      sample(handle, input, cutoffHz, rate) {
+        return native.soemdsp_papoulis_filter_sample(handle, input, cutoffHz, rate);
+      },
+      snap(handle, value) {
+        if (hasSnapExport) {
+          native.soemdsp_papoulis_filter_snap(handle, value);
+          return;
+        }
+        // Legacy wasm without snap: destroy so next sample recreates.
+        if (handle && native.soemdsp_papoulis_filter_destroy) {
+          native.soemdsp_papoulis_filter_destroy(handle);
+        }
+      },
+      destroy(handle) {
+        if (handle && native.soemdsp_papoulis_filter_destroy) {
+          native.soemdsp_papoulis_filter_destroy(handle);
+        }
+      },
+    });
+  }
+
+  destroyPapoulisParameterSmootherNativeState(smoother) {
+    const state = smoother?.filterState;
+    if (!state?.nativeHandle) {
+      return;
+    }
+    if (typeof nodeGraphDestroyPapoulisParameterSmootherNativeState === "function") {
+      nodeGraphDestroyPapoulisParameterSmootherNativeState(state);
+      return;
+    }
+    if (this.nativePapoulisFilter?.soemdsp_papoulis_filter_destroy) {
+      try {
+        this.nativePapoulisFilter.soemdsp_papoulis_filter_destroy(state.nativeHandle);
+      } catch (_error) {
+        // Best-effort.
+      }
+    }
+    state.nativeHandle = 0;
+  }
+
+  destroyAllPapoulisParameterSmootherNativeStates() {
+    for (const smoother of this.smoothers.values()) {
+      this.destroyPapoulisParameterSmootherNativeState(smoother);
+    }
+  }
   destroyPhosphillatorNativeState(state) {
     if (state.nativeHandle && this.nativePhosphillator?.soemdsp_phosphillator_destroy) {
       this.nativePhosphillator.soemdsp_phosphillator_destroy(state.nativeHandle);
@@ -4984,7 +5158,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
   }
 
-
   destroyPassiveFilterNativeState(state) {
     if (state?.nativeHandle && this.nativePassiveFilter?.soemdsp_passive_filter_destroy) {
       this.nativePassiveFilter.soemdsp_passive_filter_destroy(state.nativeHandle);
@@ -4992,14 +5165,10 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
   }
 
-
-
   // Papoulis (Optimum-L) order-3 lowpass. Normalized (cutoff = 1 rad/s) prototype:
   //   D(s) = (s + 0.6203) * (s^2 + 0.6904s + 0.9308)
   // Each factor is unity-DC-gain individually, frequency-scaled to cutoff, and
   // bilinear-transformed to digital per stage (1-pole cascaded with a biquad).
-
-
 
   // Phosphillator playback: decodes the drawn closed loop (packed as
   // Phosphor Draw Sample doubles — see node-graph-phosphor-draw-sample.js
@@ -5007,11 +5176,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   // same 0.1V/Oct convention as osc. Duplicated here rather than shared
   // with the main-thread files because the worklet runs in an isolated
   // global scope with no access to them.
-
-
-
-
-
 
   safeFilterNumber(value, state) {
     const number = Number(value);
@@ -5030,7 +5194,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
     return 0;
   }
-
 
   visualControlIntensity(value, nodeId, source = "visual control") {
     const number = Number(value);
@@ -5062,7 +5225,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return this.clampValue(number, -1, 1);
   }
 
-
   smoothVisualControl(key, target, rate = sampleRate, seconds = 0.045, min = 0, max = 1) {
     const safeTarget = this.clampValue(Number(target) || 0, min, max);
     const previous = Number(this.visualControlStates.get(key));
@@ -5076,7 +5238,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.visualControls[key] = cleaned;
     return cleaned;
   }
-
 
   postVisualControls() {
     this.port.postMessage({
@@ -5130,9 +5291,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     };
   }
 
-
-
-
   onePoleHighpassSample(state, input, frequency, rate = sampleRate) {
     const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
     const safeInput = this.safeFilterNumber(input, state);
@@ -5160,29 +5318,11 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return state.outputBuffer;
   }
 
-
-
-
-
-
-
-
-
-
   // Exact soemdsp::curve::Rational::get(p), p already normalized to [0,1].
 
   // Exact soemdsp::utility::Graph::getValue for the 3-node shape this
   // filter uses -- see native_modules/flower_child_filter/
   // flower_child_filter.cpp's header comment for the full derivation.
-
-
-
-
-
-
-
-
-
 
   // Shared helpers for the RSMET/Yellowjacket/SuperLove/ChaoticPhaseLocking/
   // Resonator/Human filter family below.
@@ -5280,282 +5420,13 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
 
   // --- RSMET Filter ---
 
-
-
-
   // --- Yellowjacket Filter ---
-
-  yellowjacketFilterSampleJs(state, input, params, rate) {
-    const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
-    const freqNorm = this.clampValue(this.safeFilterNumber(params.frequency, state), 0, 1);
-    const reso = this.clampValue(this.safeFilterNumber(params.resonance, state), 0, 1);
-    const chaos = this.clampValue(this.safeFilterNumber(params.chaos, state), 0, 1);
-
-    let maxPitch, resDropPoint;
-    if (safeRate <= 44100) { maxPitch = 87.7; resDropPoint = 0.77; }
-    else if (safeRate <= 88200) { maxPitch = 96.0; resDropPoint = 0.82; }
-    else if (safeRate <= 132300) { maxPitch = 96.0; resDropPoint = 0.83; }
-    else if (safeRate <= 176400) { maxPitch = 96.0; resDropPoint = 0.86; }
-    else if (safeRate <= 220500) { maxPitch = 96.0; resDropPoint = 0.89; }
-    else if (safeRate <= 264600) { maxPitch = 96.0; resDropPoint = 0.90; }
-    else { maxPitch = 96.0; resDropPoint = 0.95; }
-
-    const pitch = -156 + (96 - -156) * freqNorm;
-    const frequencyHz = this.analogPitchToFreq(Math.min(pitch, maxPitch));
-    const cutoffHz = frequencyHz * (4.56415 + (0.972007 - 4.56415) * chaos);
-
-    const resGraph = [{x:0,y:reso,skew:0,shape:0},{x:resDropPoint,y:reso,skew:0,shape:0},{x:1,y:0.2,skew:0.57,shape:1}];
-    const newResNormalized = this.analogEvalGraph(resGraph, freqNorm);
-    const ellipseCGraph = [{x:0,y:7.6024,skew:0,shape:0},{x:1,y:0.00001,skew:0.99,shape:2}];
-    const feedbackGainGraph = [{x:0,y:20.0,skew:0,shape:0},{x:1,y:-0.0429102,skew:0.99,shape:2}];
-    const ellipseC = this.analogEvalGraph(ellipseCGraph, newResNormalized);
-    const feedbackGain = this.analogEvalGraph(feedbackGainGraph, newResNormalized);
-
-    const a = this.analogLadderCoefficient(cutoffHz, safeRate);
-
-    const safeInput = this.safeFilterNumber(input, state);
-    let inputSignal = Math.max(-7, Math.min(7, safeInput * 4));
-    inputSignal = state.oscSelfMod + 1.04025 * inputSignal + state.lastOutValue;
-
-    state.phase += (frequencyHz * 1.9400625 * inputSignal) / safeRate;
-    state.phase -= Math.floor(state.phase);
-
-    let oscValue = this.analogWaveEllipseFull(state.phase, 0.0, -0.71286768918541499, 0.70129855105756955, ellipseC);
-    oscValue *= 0.635417;
-
-    let y0 = oscValue;
-    y0 = y0 / (1 + y0 * y0);
-    state.filterY1 = y0 + a * (y0 - state.filterY1);
-    inputSignal = state.filterY1;
-
-    state.oscSelfMod = inputSignal * 20.0;
-
-    const out = 1.3892758936011171 * oscValue;
-    state.lastOutValue = out * 0.5 * feedbackGain;
-
-    return this.safeFilterNumber(out, state);
-  }
-
 
   // --- SuperLove Filter ---
 
-  superloveFilterSampleJs(state, input, params, rate) {
-    const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
-    const freqNorm = this.clampValue(this.safeFilterNumber(params.frequency, state), 0, 1);
-    const reso = this.clampValue(this.safeFilterNumber(params.resonance, state), 0, 1);
-    const chaos = this.clampValue(this.safeFilterNumber(params.chaos, state), 0, 1);
-    const mode = Math.max(0, Math.min(3, Math.round(Number(params.mode) || 0)));
-    const safeInput = this.safeFilterNumber(input, state);
-
-    if (mode <= 1) {
-      const resGraph = [{x:0,y:0,skew:0,shape:0},{x:1,y:-2.7175,skew:-0.85,shape:2}];
-      const noiseGraph = [{x:0,y:0.00,skew:0,shape:0},{x:0.75,y:0.05,skew:-0.7,shape:2},{x:1,y:0.10,skew:0.6,shape:2}];
-      const cutoffHz = Math.max(0, Math.min(0.5 * safeRate, this.analogPitchToFreq(-12 + (135 - -12) * freqNorm)));
-      const mod = this.analogEvalGraph(resGraph, reso);
-      const noiseAmp = this.analogEvalGraph(noiseGraph, chaos);
-      const shape = chaos;
-
-      state.feedbackSignal = mod * state.feedbackSignal + safeInput;
-      const pm = (Math.random() * 2 - 1) * noiseAmp;
-      const oscValue = -this.analogWaveTrisaw(state.feedbackSignal + 0.25725 + pm, shape);
-
-      const a = this.analogLadderCoefficient(cutoffHz, safeRate);
-      const stages = mode === 0 ? 3 : 4;
-      state.feedbackSignal = this.analogLadderTapStep(state.filterY, oscValue, a, 1, stages);
-
-      const dcCutoff = mode === 0 ? 10.0 : 5.0;
-      const dcStages = mode === 0 ? 3 : 1;
-      const dcA = this.analogLadderCoefficient(dcCutoff, safeRate);
-      const dcOut = this.analogLadderTapStep(state.dcY, state.feedbackSignal, dcA, 2, dcStages);
-
-      return this.safeFilterNumber(dcOut * 1.02, state);
-    } else if (mode === 2) {
-      const resGraph = [{x:0,y:-0.2,skew:0,shape:0},{x:1,y:1.3,skew:-0.85,shape:2}];
-      const mod = this.analogEvalGraph(resGraph, reso);
-      const shape = 1 - chaos;
-
-      state.feedbackSignal = mod * state.feedbackSignal + safeInput;
-      const oscValue = -this.analogWaveTrisaw(state.feedbackSignal + 0.75, shape);
-
-      const lpA = this.analogLadderCoefficient(safeRate * 0.5, safeRate);
-      let fb = this.analogLadderTapStep(state.filterY, oscValue * 0.1, lpA, 1, 1);
-
-      const cutoffHz = Math.max(0, Math.min(0.5 * safeRate, this.analogPitchToFreq(-12 + (135 - -12) * freqNorm)));
-      const hpA = this.analogLadderCoefficient(cutoffHz, safeRate);
-      fb = this.analogLadderTapStep(state.dcY, fb, hpA, 2, 1);
-      fb *= 10;
-
-      state.feedbackSignal = fb;
-      return this.safeFilterNumber(-fb * 0.31, state);
-    } else {
-      const resGraph = [{x:0,y:-0.2,skew:0,shape:0},{x:1,y:1.3,skew:-0.85,shape:2}];
-      const mod = this.analogEvalGraph(resGraph, reso);
-      const shape = 1 - chaos;
-
-      state.feedbackSignal = mod * state.feedbackSignal + safeInput;
-      const oscValue = -this.analogWaveTrisaw(state.feedbackSignal + 0.75, shape);
-
-      const cutoffHz = Math.max(0, Math.min(0.5 * safeRate, this.analogPitchToFreq(-12 + (135 - -12) * freqNorm)));
-      const a = this.analogLadderCoefficient(cutoffHz, safeRate);
-      let fb = this.analogLadderTapStep(state.filterY, oscValue * 0.1, a, 3, 1);
-      fb *= 10;
-
-      state.feedbackSignal = fb;
-      return this.safeFilterNumber(fb, state);
-    }
-  }
-
-
   // --- Chaotic Phase Locking Filter ---
 
-  chaoticPhaseLockingFilterSampleJs(state, input, params, rate) {
-    const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
-    const freqNorm = this.clampValue(this.safeFilterNumber(params.frequency, state), 0, 1);
-    const reso = this.clampValue(this.safeFilterNumber(params.resonance, state), 0, 1);
-    const chaos = this.clampValue(this.safeFilterNumber(params.chaos, state), 0, 1);
-
-    const cutoffHz = Math.max(0, Math.min(0.5 * safeRate, this.analogPitchToFreq(-12 + (135 - -12) * freqNorm)));
-    const resGraph = [{x:0,y:0.1,skew:0,shape:0},{x:1,y:20.0,skew:-0.85,shape:2}];
-    const mod = this.analogEvalGraph(resGraph, reso);
-    const shape = 1 - chaos;
-
-    const safeInput = this.safeFilterNumber(input, state);
-    state.feedbackSignal = mod * state.feedbackSignal + (-safeInput);
-    const oscValue = this.analogWaveEllipse(state.feedbackSignal, shape);
-
-    const a = this.analogLadderCoefficient(cutoffHz, safeRate);
-    state.feedbackSignal = this.analogLadderTapStep(state.filterY, oscValue, a, 1, 2);
-
-    const dcA = this.analogLadderCoefficient(5.0, safeRate);
-    const dcOut = this.analogLadderTapStep(state.dcY, state.feedbackSignal, dcA, 2, 1);
-
-    return this.safeFilterNumber(-dcOut, state);
-  }
-
-
   // --- Resonator Filter ---
-
-  resonatorFilterSampleJs(state, input, params, rate) {
-    const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
-    const freqNorm = this.clampValue(this.safeFilterNumber(params.frequency, state), 0, 1);
-    const reso = this.clampValue(this.safeFilterNumber(params.resonance, state), 0, 1);
-    const chaos = this.clampValue(this.safeFilterNumber(params.chaos, state), 0, 1);
-    const mode = Math.max(0, Math.min(2, Math.round(Number(params.mode) || 0)));
-    const safeInput = this.safeFilterNumber(input, state);
-
-    if (mode === 0 || mode === 1) {
-      const triangle = mode === 1;
-      const inputAmplitude = triangle ? 3.0 : 2.0;
-
-      let maxFreqNorm, resDropPoint;
-      if (safeRate <= 44100) { maxFreqNorm = 0.855; resDropPoint = 0.74; }
-      else if (safeRate <= 88200) { maxFreqNorm = 0.9; resDropPoint = 0.75; }
-      else if (safeRate <= 132300) { maxFreqNorm = 0.9; resDropPoint = 0.82; }
-      else if (safeRate <= 176400) { maxFreqNorm = 0.9; resDropPoint = 0.88; }
-      else if (safeRate <= 220500) { maxFreqNorm = 0.9; resDropPoint = 0.92; }
-      else { maxFreqNorm = 0.955; resDropPoint = 0.92; }
-
-      const freqNormInUse = Math.min(freqNorm, maxFreqNorm);
-      const frequencyHz = this.analogPitchToFreq(-72.96 + (69.76 - -72.96) * freqNormInUse);
-      const cutoffHz = frequencyHz * (0.248387 + (0.0927813 - 0.248387) * this.flowerChildFilterCurveShape(freqNormInUse, -0.36));
-      const osc2Ratio = 0.015625 + (1.58 - 0.015625) * freqNormInUse;
-      const osc1Ratio = osc2Ratio - 0.015625;
-
-      const resGraph = [{x:0,y:reso,skew:0,shape:0},{x:resDropPoint,y:reso,skew:0,shape:0},{x:1,y:0.15,skew:0.557,shape:1}];
-      const newResNorm = this.analogEvalGraph(resGraph, freqNorm);
-      const freqModAmt = 10.0 + (484.43 - 10.0) * newResNorm;
-      const phaseModAmt = 0.256 + (0.166 - 0.256) * chaos;
-
-      let inputSignal = inputAmplitude * safeInput;
-      inputSignal = state.osc2Value + state.osc1SelfMod + inputSignal;
-
-      const freq1 = frequencyHz * osc1Ratio * freqModAmt * 0.1 * inputSignal;
-      const clampedFreq1 = Math.max(-safeRate * 0.5, Math.min(safeRate * 0.5, freq1));
-      state.phase1 += clampedFreq1 / safeRate;
-      state.phase1 -= Math.floor(state.phase1);
-      const phaseOffset1 = inputSignal * phaseModAmt;
-      let unipolar1 = state.phase1 + phaseOffset1;
-      unipolar1 -= Math.floor(unipolar1);
-      state.osc1Value = this.analogWaveEllipse(unipolar1, 0.00749) * 0.5;
-
-      const a = this.analogLadderCoefficient(cutoffHz, safeRate);
-      inputSignal = this.analogLadderTapStep(state.filterY, state.osc1Value, a, 1, 1);
-
-      state.osc1SelfMod = inputSignal;
-      state.osc2SelfMod = state.osc2Value;
-
-      const fm2 = freqModAmt * 4.53126 * inputSignal + state.osc2SelfMod * 3.0;
-      const freq2 = frequencyHz * osc2Ratio * fm2;
-      const clampedFreq2 = Math.max(-safeRate * 0.5, Math.min(safeRate * 0.5, freq2));
-      state.phase2 += clampedFreq2 / safeRate;
-      state.phase2 -= Math.floor(state.phase2);
-
-      let out;
-      if (!triangle) {
-        out = Math.sin(state.phase2 * 2 * Math.PI);
-        state.osc2Value = out * 10.0;
-      } else {
-        const ellipseCGraph = [{x:0,y:0.3,skew:0,shape:0},{x:1,y:1.0,skew:-0.99,shape:2}];
-        const ellipseC = this.analogEvalGraph(ellipseCGraph, freqNormInUse);
-        out = this.analogWaveEllipse(state.phase2, ellipseC);
-        state.osc2Value = out * 10.0;
-      }
-
-      const dcA = this.analogLadderCoefficient(5.0, safeRate);
-      const dcOut = this.analogLadderTapStep(state.dcY, -out, dcA, 2, 1);
-      return this.safeFilterNumber(dcOut * (triangle ? 10.0 : 4.6), state);
-    } else {
-      const inputAmplitude = 2.0;
-      const frequencyHz = this.analogPitchToFreq(-50 + (108 - -50) * freqNorm);
-      const cutoffHz = frequencyHz * 8.87718;
-
-      const mod21Graph = [{x:0,y:-0.00105655,skew:0,shape:0},{x:1,y:-2.52898,skew:-0.99,shape:2}];
-      const fmpm12Graph = [{x:0,y:0.0,skew:0,shape:0},{x:1,y:0.012216,skew:0.54,shape:2}];
-
-      let breakpoint2, cap3;
-      if (safeRate <= 44100) { breakpoint2 = 0.578595; cap3 = 0.432749; }
-      else if (safeRate <= 88200) { breakpoint2 = 0.692308; cap3 = 0.502924; }
-      else if (safeRate <= 132300) { breakpoint2 = 0.749164; cap3 = 0.561404; }
-      else { breakpoint2 = 0.776273; cap3 = 0.54386; }
-      const cappedTarget = Math.min(reso, cap3);
-      const resGraph = [{x:0,y:0,skew:0,shape:0},{x:0.0434783,y:reso,skew:0,shape:0},{x:breakpoint2,y:reso,skew:0,shape:0},{x:1,y:cappedTarget,skew:0.195211,shape:1}];
-      const resSample = this.analogEvalGraph(resGraph, freqNorm);
-      let mod21 = this.analogEvalGraph(mod21Graph, resSample);
-      if (mod21 < -1.53) mod21 = -1.53;
-      const fmpm12 = this.analogEvalGraph(fmpm12Graph, chaos);
-
-      let inputSignal = (-safeInput) * inputAmplitude + state.sawFeedback * -8.07896613446314289533 + state.osc2Value + state.osc1SelfMod * 20.0;
-
-      const freq1 = frequencyHz * mod21 * inputSignal;
-      state.phase1 += freq1 / safeRate;
-      state.phase1 -= Math.floor(state.phase1);
-      state.osc1Value = Math.sin(state.phase1 * 2 * Math.PI);
-      const scaleX = 2 / 0.00873698;
-      state.osc1Value = (0.00873698 / 2) * Math.tanh(scaleX * state.osc1Value);
-
-      const a = this.analogLadderCoefficient(cutoffHz, safeRate);
-      inputSignal = this.analogLadderTapStep(state.filterY, state.osc1Value, a, 1, 1);
-
-      state.osc1SelfMod = inputSignal;
-      state.osc2SelfMod = state.osc2Value;
-
-      const modv = inputSignal * -140.010789331 + state.osc2SelfMod * -1.05208;
-      const fm = Math.cos((Math.PI / 2) * fmpm12) * modv;
-      const pm = Math.sin((Math.PI / 2) * fmpm12) * modv;
-      state.phase2 += (frequencyHz * (-0.425 + fm)) / safeRate;
-      state.phase2 -= Math.floor(state.phase2);
-      let unipolar2 = state.phase2 + pm;
-      unipolar2 -= Math.floor(unipolar2);
-      state.osc2Value = Math.sin(unipolar2 * 2 * Math.PI);
-
-      state.sawFeedback = inputSignal + state.osc2Value;
-
-      const dcA = this.analogLadderCoefficient(5.0, safeRate);
-      const dcOut = this.analogLadderTapStep(state.dcY, -state.osc2Value * 0.1, dcA, 2, 1);
-      return this.safeFilterNumber(dcOut * 80.0, state);
-    }
-  }
-
 
   // --- Human Filter ---
 
@@ -5563,96 +5434,10 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return Math.pow(10, db / 20);
   }
 
-  humanFilterSampleJs(state, input, params, rate) {
-    const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
-    const freqNorm = this.clampValue(this.safeFilterNumber(params.frequency, state), 0, 1);
-    const reso = this.clampValue(this.safeFilterNumber(params.resonance, state), 0, 1);
-    const chaos = this.clampValue(this.safeFilterNumber(params.chaos, state), 0, 1);
-    const mode = Math.max(0, Math.min(2, Math.round(Number(params.mode) || 0)));
-
-    let maxPitch, resDropPoint, chaosMax;
-    if (safeRate <= 44100) { maxPitch = 115.57; resDropPoint = 0.78; chaosMax = 0.64; }
-    else if (safeRate <= 88200) { maxPitch = 128.7; resDropPoint = 0.78; chaosMax = 1.0; }
-    else if (safeRate <= 132300) { maxPitch = 137.0; resDropPoint = 0.83; chaosMax = 0.856; }
-    else if (safeRate <= 176400) { maxPitch = 137.0; resDropPoint = 0.91; chaosMax = 1.0; }
-    else if (safeRate <= 220500) { maxPitch = 137.0; resDropPoint = 1.0; chaosMax = 1.0; }
-    else { maxPitch = 137.0; resDropPoint = 0.78; chaosMax = 1.0; }
-
-    const pitch = -0.38 + (137.0 - -0.38) * freqNorm;
-    const frequencyHz = this.analogPitchToFreq(Math.min(pitch, maxPitch));
-
-    const mod11Graph = [{x:0.0,y:2.92396,skew:0,shape:0},{x:1.0,y:-1.7544,skew:0.785442,shape:1}];
-    let mod11;
-    if (resDropPoint !== 1.0) {
-      const resVfreqGraph = [{x:0.0,y:reso,skew:0,shape:0},{x:resDropPoint,y:reso,skew:0,shape:0},{x:1.0,y:0.2,skew:0.57,shape:1}];
-      const newResNormalized = this.analogEvalGraph(resVfreqGraph, freqNorm);
-      mod11 = this.analogEvalGraph(mod11Graph, newResNormalized);
-    } else {
-      mod11 = this.analogEvalGraph(mod11Graph, reso);
-    }
-
-    const gainDb = Math.min(chaos, chaosMax) * 14.9;
-
-    const centerHz = 1000.0;
-    const Q = 1.0;
-    const A = this.humanFilterDbToAmp(gainDb);
-    const w = Math.max(1e-9, Math.min(Math.PI * 0.98, 2 * Math.PI * centerHz / safeRate));
-    const r = 1 / (Q * A);
-    const g = Math.tan(0.5 * w);
-    const c = g + r;
-    const sCoef = 1 / (1 + g * c);
-    const aB = A * A * r;
-
-    const safeInput = this.safeFilterNumber(input, state);
-    const clampedInput = this.clampValue(safeInput, -2, 2);
-    const svfIn = state.osc2Value + state.osc1ModSelf + clampedInput + state.lastOutValue;
-    const yH = (svfIn - c * state.fbZ1 - state.fbZ2) * sCoef;
-    const yB = state.fbZ1 + g * yH;
-    const yL = state.fbZ2 + g * yB;
-    state.fbZ1 = 2 * yB - state.fbZ1;
-    state.fbZ2 = 2 * yL - state.fbZ2;
-    const inputSignal = yH + aB * yB + yL;
-
-    const fm1 = -2.2784975504539248 * inputSignal;
-    state.phase1 += (frequencyHz * fm1) / safeRate;
-    state.phase1 -= Math.floor(state.phase1);
-    state.osc1Value = Math.sin(state.phase1 * 2 * Math.PI) * 0.177898;
-
-    state.osc1ModSelf = state.osc1Value * mod11;
-    state.osc2ModSelf = state.osc2Value * -0.395833;
-
-    const fm2 = 0.0333333 + 2.7429968062 * state.osc1Value + state.osc2ModSelf;
-    state.phase2 += (frequencyHz * fm2) / safeRate;
-    state.phase2 -= Math.floor(state.phase2);
-    state.osc2Value = Math.sin(state.phase2 * 2 * Math.PI) * 0.71597;
-
-    state.lastOutValue = (state.osc1Value + state.osc2Value) * 0.1443178;
-
-    const dcA = this.analogLadderCoefficient(5.0, safeRate);
-    let out;
-    if (mode === 0) out = this.analogLadderTapStep(state.dcY, state.osc1Value, dcA, 2, 1) * 2.0;
-    else if (mode === 1) out = this.analogLadderTapStep(state.dcY, state.osc1Value + state.osc2Value, dcA, 2, 1);
-    else out = this.analogLadderTapStep(state.dcY, state.osc2Value, dcA, 2, 1);
-
-    return this.safeFilterNumber(out, state);
-  }
-
-
   // --- Pulse Explosion ---
-
-
-
 
   // Deterministic 32-bit mulberry32 PRNG so a non-zero seed reproduces the
   // same pulse schedule every time (seed 0 keeps the free-running behavior).
-
-
-
-
-
-
-
-
 
   normalizePatchTiming(timing = {}) {
     const source = timing && typeof timing === "object" ? timing : {};
@@ -5662,14 +5447,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       timeSignatureNumerator: Math.max(1, Math.round(Number(source.timeSignatureNumerator) || 4)),
     };
   }
-
-
-
-
-
-
-
-
 
   delayInterpolateLinear(buffer, where) {
     const length = buffer.length;
@@ -5682,9 +5459,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return buffer[before] * (1 - mix) + buffer[after] * mix;
   }
 
-
-
-
   // X/Y as a fraction of a whole note. Both are free metaparameters -- never
   // clamped or rejected here, only floored for this one computation:
   // - Negative numerator or denominator behaves like 0.
@@ -5694,35 +5468,11 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   //   a denominator of 1, i.e. "X/0" reads as "X whole notes", rather than
   //   dividing by zero.
 
-
-
-
-
-
-
-
-
-
-
-
   // DspBinding for Sabrina Reverb: resolves clamped native params, checks
   // whether they've actually changed since the last apply (paramKey dirty
   // check), and only then syncs them into native DSP memory via
   // soemdsp_sabrina_reverb_set_params. Pure extraction -- same clamps, same
   // key construction, same condition, same call args as before.
-
-
-
-
-
-
-
-
-
-
-
-
-
 
   seededKey(nodeId, seed, salt) {
     return `${nodeId}.${salt}.${Math.max(0, Math.round(Number(seed) || 0))}`;
@@ -5754,9 +5504,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return this.nextSeededUnipolar(state) * 2 - 1;
   }
 
-
-
-
   hashBipolar(index, seed) {
     let value = (Math.trunc(index) ^ Math.trunc(seed)) >>> 0;
     value = Math.imul(value ^ (value >>> 16), 2246822507) >>> 0;
@@ -5764,15 +5511,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     value = (value ^ (value >>> 16)) >>> 0;
     return (value / 0xffffffff) * 2 - 1;
   }
-
-
-
-
-
-
-
-
-
 
   destroyVactrolEnvelopeNativeState(state) {
     if (state?.nativeHandle && this.nativeVactrolEnvelope?.soemdsp_vactrol_envelope_destroy) {
@@ -5809,34 +5547,13 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
   }
 
-
-
-
-
-
-
-
   // Self-affine Weierstrass-style fractal spiral -- see
   // public/node-graph-fractal-spiral.js for the full derivation. Mirrors
   // that file exactly.
 
-
-
-
   // Pure logarithmic (equiangular) spiral -- see
   // public/node-graph-log-spiral.js for the full derivation. Mirrors that
   // file exactly.
-
-
-
-
-
-
-
-
-
-
-
 
   destroyHenonMapNativeState(state) {
     if (state?.nativeHandle && this.nativeHenonMap?.soemdsp_henon_map_destroy) {
@@ -5845,20 +5562,12 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
   }
 
-
-
-
   destroyWirdoSpiralNativeState(state) {
     if (state?.nativeHandle && this.nativeWirdoSpiral?.soemdsp_jbwirdo_destroy) {
       this.nativeWirdoSpiral.soemdsp_jbwirdo_destroy(state.nativeHandle);
       state.nativeHandle = 0;
     }
   }
-
-
-
-
-
 
   destroyBlubbNativeState(state) {
     if (state?.nativeHandle && this.nativeBlubb?.soemdsp_jbblubb_destroy) {
@@ -5867,20 +5576,12 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
   }
 
-
-
-
-
   destroyMushroomNativeState(state) {
     if (state?.nativeHandle && this.nativeMushroom?.soemdsp_jbmushroom_destroy) {
       this.nativeMushroom.soemdsp_jbmushroom_destroy(state.nativeHandle);
       state.nativeHandle = 0;
     }
   }
-
-
-
-
 
   destroyBoingNativeState(state) {
     if (state?.nativeHandle && this.nativeBoing?.soemdsp_jbboing_destroy) {
@@ -5889,27 +5590,12 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
   }
 
-
-
-
-
-
-
-
-
   destroyTorusNativeState(state) {
     if (state?.nativeHandle && this.nativeTorus?.soemdsp_jbtorus_destroy) {
       this.nativeTorus.soemdsp_jbtorus_destroy(state.nativeHandle);
       state.nativeHandle = 0;
     }
   }
-
-
-
-
-
-
-
 
   destroyKeplerBouwkampNativeState(state) {
     if (state?.nativeHandle && this.nativeKeplerBouwkamp?.soemdsp_jbkepler_destroy) {
@@ -5918,20 +5604,12 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
   }
 
-
-
-
-
   destroyNyquistShannonNativeState(state) {
     if (state?.nativeHandle && this.nativeNyquistShannon?.soemdsp_jbnyquist_destroy) {
       this.nativeNyquistShannon.soemdsp_jbnyquist_destroy(state.nativeHandle);
       state.nativeHandle = 0;
     }
   }
-
-
-
-
 
   destroyRadarNativeState(state) {
     if (state?.nativeHandle && this.nativeRadar?.soemdsp_jbradar_destroy) {
@@ -5940,27 +5618,12 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
   }
 
-
-
-
-
-
-
-
-
   destroyChuaAttractorNativeState(state) {
     if (state?.nativeHandle && this.nativeChuaAttractor?.soemdsp_chua_attractor_destroy) {
       this.nativeChuaAttractor.soemdsp_chua_attractor_destroy(state.nativeHandle);
       state.nativeHandle = 0;
     }
   }
-
-
-
-
-
-
-
 
   // Registry of per-module-type dispatch handlers, proving the pattern for
   // logisticMap/turingMachine before the other ~28 worklet-dispatched types
@@ -6016,6 +5679,33 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
         return {
           X: henon.x * henonLevel,
           Y: henon.y * henonLevel,
+        };
+      },
+      rayBouncer: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+        const state = this.rayBouncerStates.get(nodeId) || this.createRayBouncerState();
+        this.rayBouncerStates.set(nodeId, state);
+        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        const bounce = this.rayBouncerSample(state, {
+          aspect: read("aspect", 1.5),
+          bend: read("bend", 0),
+          centerX: read("centerX", 0),
+          centerY: read("centerY", 0),
+          frequency: read("frequency", 8),
+          launchAngle: read("launchAngle", 30),
+          maxDistance: read("maxDistance", 0),
+          reset: mixInput(nodeId, "Reset"),
+          rotate: read("rotate", 0),
+          sampleRate: safeRate,
+          size: read("size", 1),
+          startX: read("startX", 0),
+          startY: read("startY", 0),
+          xToY: read("xToY", 0),
+          yToX: read("yToX", 0),
+        });
+        const level = read("level", 1);
+        return {
+          X: bounce.x * level,
+          Y: bounce.y * level,
         };
       },
       chuaAttractor: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
@@ -7860,7 +7550,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     };
   }
 
-
   destroyPitchQuantizerNativeState(state) {
     if (state?.nativeHandle && this.nativePitchQuantizer?.soemdsp_pitch_quantizer_destroy) {
       this.nativePitchQuantizer.soemdsp_pitch_quantizer_destroy(state.nativeHandle);
@@ -7868,20 +7557,12 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
   }
 
-
-
-
-
   destroyChordSequencerNativeState(state) {
     if (state?.nativeHandle && this.nativeChordSequencer?.soemdsp_chord_sequencer_destroy) {
       this.nativeChordSequencer.soemdsp_chord_sequencer_destroy(state.nativeHandle);
       state.nativeHandle = 0;
     }
   }
-
-
-
-
 
   destroyLutCellNativeState(state) {
     if (state?.nativeHandle && this.nativeLutCell?.soemdsp_lut_cell_destroy) {
@@ -7897,19 +7578,12 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   // in this JS orchestration layer -- the native module itself stays a
   // faithful, purely reactive LUT+FF with no self-driving of its own.
 
-
-
-
   destroySurgeOscillatorNativeState(state) {
     if (state?.nativeHandle && this.nativeSurgeOscillator?.soemdsp_surge_oscillator_destroy) {
       this.nativeSurgeOscillator.soemdsp_surge_oscillator_destroy(state.nativeHandle);
       state.nativeHandle = 0;
     }
   }
-
-
-
-
 
   destroyDsfOscillatorNativeState(state) {
     if (state?.nativeHandle && this.nativeDsfOscillator?.soemdsp_dsf_oscillator_destroy) {
@@ -8033,7 +7707,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   // with an adaptive peak-follower since that second stage doesn't stay
   // bounded on its own across the full frequency range.
 
-
   // RobinSupersaw -- see native_modules/robin_supersaw/robin_supersaw.cpp
   // for the full derivation (Robin Schmidt's pitch dithering,
   // RobinSchmidt/RS-MET). This worklet's JS fallback is fully self-
@@ -8044,7 +7717,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   // path wasn't active, producing total silence with no visible console
   // error -- the same pitfall DSF Oscillator's fallback already avoids by
   // inlining its own copy instead of sharing one.
-
 
   destroyRobinSupersawNativeState(state) {
     if (state?.nativeHandle && this.nativeRobinSupersaw?.soemdsp_robin_supersaw_destroy) {
@@ -8059,9 +7731,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
 
   // rsPitchDitherOsc<T>::getSamplePhasor() + updateSampleCount(), transcribed.
 
-
-
-
   // Hypersaw -- see native_modules/hypersaw/hypersaw.cpp for the full
   // derivation (a proof-of-concept port of soundemote's own
   // HypersawUnit/HypersawMaster, docs/reference/Hypersaw.hpp). Fully
@@ -8069,10 +7738,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   // as RobinSupersaw above -- never calls the shared
   // public/node-graph-hypersaw.js globals, which this worklet's isolated
   // scope never loads.
-
-
-
-
 
   destroyHypersawNativeState(state) {
     if (state?.nativeHandle && this.nativeHypersaw?.soemdsp_hypersaw_destroy) {
@@ -8097,21 +7762,12 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   // internal state) without duplicating -- and thereby double-stepping --
   // the phase math.
 
-
-
-
-
-
-
-
-
-
-
-
   evaluateFrame(frame, frames, inputs = [], rate = this.engineSampleRate || sampleRate, inputFrame = frame) {
     const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
     // Advance free-running sample clock used by graph LFO Rate mode.
     this.absoluteFrame = (Number(this.absoluteFrame) || 0) + 1;
+    // soemdsp SmootherManager::run — one step for dirty chases only, before DSP.
+    this.runActiveSmoothers(frames);
     const frameValues = new Map();
     const mixInput = (nodeId, port = "In") => {
       const base = (

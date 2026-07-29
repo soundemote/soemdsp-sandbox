@@ -629,6 +629,7 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
       type === "lorenzAttractor" ||
       type === "logisticMap" ||
       type === "henonMap" ||
+      type === "rayBouncer" ||
       type === "chuaAttractor" ||
       type === "surgeOscillator" ||
       type === "dsfOscillator" ||
