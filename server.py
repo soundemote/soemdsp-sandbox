@@ -18,18 +18,20 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 ROOT = Path(__file__).resolve().parent
 PUBLIC = ROOT / "public"
-BUILD_NUMBER = "20260729ghostlive1"
+# Human-readable ship label (date + short codename). Prefer dotted dates over
+# opaque timestamps so the toolbar readout stays demystified for users.
+BUILD_NUMBER = "2026.7.29.Ghostlive"
 VERSION_FILE = ROOT / "VERSION"
 SANDBOX_VERSION = VERSION_FILE.read_text(encoding="utf-8").strip() if VERSION_FILE.exists() else "0.0.0"
 
 # "debug" (default) vs "release". Purely a labeling/UI signal -- it does not
 # gate any behavior server-side -- consumed client-side to color the debug
 # console's bug button (red for a debug build, neutral for a release build;
-# see node-graph-debug-console.js). Override with the SOEMDSP_BUILD_MODE env
-# var or --release on the command line. Anything other than exactly
-# "release" is treated as "debug" so an unrecognized/misconfigured value
-# fails toward the more-alarming, more-honest label rather than silently
-# looking like a vetted release build.
+# the button stays visible either way — see node-graph-debug-console.js).
+# Override with the SOEMDSP_BUILD_MODE env var or --release on the command
+# line. Anything other than exactly "release" is treated as "debug" so an
+# unrecognized/misconfigured value fails toward the more-alarming, more-honest
+# label rather than silently looking like a vetted release build.
 BUILD_MODE = "release" if os.environ.get("SOEMDSP_BUILD_MODE", "").strip().lower() == "release" else "debug"
 DEFAULT_PRESET = PUBLIC / "presets" / "default.json"
 DEFAULT_UI_SETTINGS = PUBLIC / "presets" / "useruisettings.json"

@@ -191,10 +191,10 @@
           <span
             id="nodeBuildNumberReadout"
             class="node-build-number-readout"
-            aria-label="Version v{{SANDBOX_VERSION}}, build B{{BUILD_NUMBER}}"
-            title="Version v{{SANDBOX_VERSION}} · build B{{BUILD_NUMBER}}"
+            aria-label="Version v{{SANDBOX_VERSION}}, build {{BUILD_NUMBER}}"
+            title="Version v{{SANDBOX_VERSION}} · build {{BUILD_NUMBER}}"
             data-build-mode-value="{{BUILD_MODE}}">
-            <span data-sandbox-version>v{{SANDBOX_VERSION}}</span><span data-build-number-value>B{{BUILD_NUMBER}}</span>
+            <span data-sandbox-version>v{{SANDBOX_VERSION}}</span><span data-build-number-value>{{BUILD_NUMBER}}</span>
           </span>
           <button id="nodeVisibilityMenuButton" type="button" aria-pressed="false" aria-haspopup="menu">Visibility</button>
         </div>
@@ -3672,7 +3672,7 @@
   <script src="./public/node-graph-metadata-editor.js?v=papoulis-smoother-1"></script>
   <script src="./public/node-graph-render-settings.js?v=cleanup-20260725-slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-ear-protection.js?v=ear-protection-reset-1"></script>
-  <script src="./public/node-graph-debug-console.js?v=debug-error-label-20260723"></script>
+  <script src="./public/node-graph-debug-console.js?v=debug-always-visible-1"></script>
   <script src="./public/node-graph-module-diagnostics.js?v=uc-silence-1"></script>
   <script src="./public/node-graph-rendered-audio.js?v=custom-player-20260723"></script>
   <script src="./public/node-graph-rendered-player.js?v=custom-player-20260723"></script>

@@ -1,5 +1,6 @@
-// In-app debug console for the sandbox. Adds a red 🐞 button next to Download
-// that opens a log panel. Mirrors the C++ soemdsp::debug API from sehelper.hpp
+// In-app debug console for the sandbox. Adds a 🐞 button next to Download that
+// opens a log panel. Red in debug builds, neutral in release (never hidden).
+// Mirrors the C++ soemdsp::debug API from sehelper.hpp
 // (LOG / WARN / CHECK / FAIL / STOP / BADVAL / WITHINRANGE / WITHINSIZE) as
 // window.SE, captures uncaught errors + console.warn/error, and can watch the
 // live-audio parameter stream to show what smoothing the engine actually gets.
@@ -374,16 +375,18 @@
     if (open) { rebuild(); }
   }
 
-  // Dev gate: only show the panel/button in a dev context (localhost, file://,
-  // ?debug in the URL, or SE.devMode(true)). A public deploy hides it entirely;
-  // the window.SE logging API and error capture stay active regardless.
+  // Always show the 🐞 button (localhost, release site, iframe deploy). Release
+  // builds only change color (neutral via .se-release-build) — never hide the
+  // button. SE.devMode(false) can still tear the UI down on demand; logging
+  // and error capture stay active regardless.
   function seDevEnabled() {
     try {
-      const host = location.hostname || "";
-      if (/^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])$/.test(host) || location.protocol === "file:") return true;
-      if (/(^|[?&])debug(=1|=true)?(&|$)/.test(location.search)) return true;
-      return localStorage.getItem("seDebug") === "1";
-    } catch (_) { return false; }
+      // Explicit opt-out only (not the default on public/release pages).
+      if (localStorage.getItem("seDebug") === "0") return false;
+      return true;
+    } catch (_) {
+      return true;
+    }
   }
   function init() {
     try {
