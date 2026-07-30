@@ -70,13 +70,10 @@ const nodeGraphModuleScopeState = {
   slots: new Map(),
   traceDisplayDrawCache: new Map(),
   traceDisplayScratch: new Map(),
-  // Per-DISPLAY-node trigger-lock cache for the "Sync" trace setting, keyed
-  // by the display's own node id -- NOT the shared captured-signal buffer.
-  // Multiple scopes watching the same source share one buffer object; the
-  // lock used to be cached as properties on that shared buffer, so with 2+
-  // scopes (each with its own zoom/cycles) each frame's draw clobbered the
-  // others' lock, forcing a full re-acquire almost every frame -- worse the
-  // more scopes shared a source. See nodeGraphTraceDisplayStabilizedSyncStart.
+  // Per-DISPLAY-node auto-trigger lock for Trace/Output Sync (phase EMA,
+  // miss timeout). Keyed by the display's own node id — NOT the shared
+  // captured-signal buffer — so multiple scopes on one source keep independent
+  // locks. See nodeGraphTraceDisplayStabilizedSyncStart.
   traceDisplaySyncLocks: new Map(),
   traceImageTexture: {
     dataUrl: "",
@@ -612,7 +609,7 @@ function renderNodeGraphSceneScopeControls(nodeId = nodeGraphScopeControlTargetN
   if (syncButton) {
     syncButton.textContent = setting.sync ? "sync" : "free";
     syncButton.setAttribute("aria-pressed", String(setting.sync));
-    syncButton.title = "Scope rising-edge sync";
+    syncButton.title = "Scope auto-trigger sync (rising edge + freerun when unlocked)";
   }
   const oscillatorTraceModeButton = document.getElementById("nodeSceneScopeOscillatorTraceMode");
   if (oscillatorTraceModeButton) {
@@ -7681,9 +7678,17 @@ function nodeGraphModuleScopeRenderer(canvas) {
 }
 
 function nodeGraphModuleScopeThreshold(buffer, start = 0, end = buffer.length) {
+  const range = nodeGraphModuleScopeSampleRange(buffer, start, end);
+  return range ? range.mid : null;
+}
+
+/** Min/max/mid/span over a buffer slice. Null when empty or DC (no edge material). */
+function nodeGraphModuleScopeSampleRange(buffer, start = 0, end = buffer?.length || 0) {
   let min = Infinity;
   let max = -Infinity;
-  for (let index = Math.max(0, start); index < Math.min(buffer.length, end); index += 1) {
+  const first = Math.max(0, Math.floor(start));
+  const limit = Math.min(buffer?.length || 0, Math.ceil(end));
+  for (let index = first; index < limit; index += 1) {
     const value = Number(buffer[index]) || 0;
     min = Math.min(min, value);
     max = Math.max(max, value);
@@ -7691,23 +7696,61 @@ function nodeGraphModuleScopeThreshold(buffer, start = 0, end = buffer.length) {
   if (!Number.isFinite(min) || !Number.isFinite(max) || max - min < 1e-5) {
     return null;
   }
-  return (min + max) * 0.5;
+  return {
+    max,
+    mid: (min + max) * 0.5,
+    min,
+    span: max - min,
+  };
 }
 
-function nodeGraphModuleScopeRisingCrossings(buffer, threshold, start = 1, end = buffer.length) {
+/**
+ * Rising-edge crossings. Optional hysteresis (oscilloscope-style) suppresses
+ * chatter around the level: arm below level−hyst, fire above level+hyst.
+ */
+function nodeGraphModuleScopeRisingCrossings(buffer, threshold, start = 1, end = buffer.length, options = {}) {
   const crossings = [];
   const first = Math.max(1, Math.floor(start));
-  const limit = Math.min(buffer.length, Math.ceil(end));
+  const limit = Math.min(buffer?.length || 0, Math.ceil(end));
+  const level = Number(threshold);
+  if (!Number.isFinite(level) || limit <= first) {
+    return crossings;
+  }
+  const hyst = Math.max(0, Number(options.hysteresis) || 0);
+  if (hyst <= 0) {
+    for (let index = first; index < limit; index += 1) {
+      const previous = Number(buffer[index - 1]) || 0;
+      const current = Number(buffer[index]) || 0;
+      if (previous <= level && current > level) {
+        const delta = current - previous;
+        const fraction = Math.abs(delta) > 1e-12
+          ? clampNodeSliderValue((level - previous) / delta, 0, 1)
+          : 0;
+        crossings.push((index - 1) + fraction);
+      }
+    }
+    return crossings;
+  }
+  const low = level - hyst;
+  const high = level + hyst;
+  let armed = (Number(buffer[first - 1]) || 0) < low;
   for (let index = first; index < limit; index += 1) {
     const previous = Number(buffer[index - 1]) || 0;
     const current = Number(buffer[index]) || 0;
-    if (previous <= threshold && current > threshold) {
-      const delta = current - previous;
-      const fraction = Math.abs(delta) > 1e-12
-        ? clampNodeSliderValue((threshold - previous) / delta, 0, 1)
-        : 0;
-      crossings.push((index - 1) + fraction);
+    if (current < low) {
+      armed = true;
+      continue;
     }
+    if (!armed || current <= high || previous > high) {
+      continue;
+    }
+    // Fire on rising through the high threshold while armed.
+    const delta = current - previous;
+    const fraction = Math.abs(delta) > 1e-12
+      ? clampNodeSliderValue((high - previous) / delta, 0, 1)
+      : 0;
+    crossings.push((index - 1) + fraction);
+    armed = false;
   }
   return crossings;
 }
@@ -7776,72 +7819,123 @@ function nodeGraphModuleScopeSyncBuffer(buffer) {
     : buffer;
 }
 
-function nodeGraphModuleScopeEstimatedCycle(buffer) {
-  const syncBuffer = nodeGraphModuleScopeSyncBuffer(buffer);
-  const hintedPeriodSamples = Number(buffer?.nodeGraphScopePeriodSamples);
-  if (syncBuffer?.length && Number.isFinite(hintedPeriodSamples) && hintedPeriodSamples > 0) {
-    const searchStart = Math.max(0, syncBuffer.length - Math.min(syncBuffer.length, 8192));
-    return {
-      periodSamples: hintedPeriodSamples,
-      threshold: nodeGraphModuleScopeThreshold(syncBuffer, searchStart, syncBuffer.length),
-    };
+/**
+ * Collect oscilloscope-style rising triggers in a buffer slice.
+ * Light low-pass + hysteresis; falls back to raw hysteresis edges.
+ * Returns { edges, periodSamples, threshold, span } — edges may be empty.
+ */
+function nodeGraphModuleScopeCollectSyncTriggers(syncBuffer, searchStart, searchEnd, periodHint = 0, thresholdHint = null) {
+  const empty = { edges: [], periodSamples: null, span: 0, threshold: null };
+  if (!syncBuffer?.length) {
+    return empty;
   }
-  const searchStart = Math.max(0, syncBuffer.length - Math.min(syncBuffer.length, 8192));
-  const threshold = nodeGraphModuleScopeThreshold(syncBuffer, searchStart, syncBuffer.length);
-  if (threshold === null) {
-    return null;
+  const first = Math.max(0, Math.floor(searchStart));
+  const limit = Math.min(syncBuffer.length, Math.ceil(searchEnd));
+  if (limit - first < 4) {
+    return empty;
   }
-  const crossings = nodeGraphModuleScopeRisingCrossings(syncBuffer, threshold, searchStart + 1, syncBuffer.length);
-  const rawPeriodSamples = nodeGraphModuleScopeMedianPeriod(crossings);
-  if (!rawPeriodSamples) {
-    return null;
+  const range = nodeGraphModuleScopeSampleRange(syncBuffer, first, limit);
+  if (!range) {
+    return empty;
   }
-  const syncTrace = nodeGraphModuleScopeLowpassSyncTrace(syncBuffer, searchStart, syncBuffer.length, rawPeriodSamples);
-  const syncCrossings = nodeGraphModuleScopeTraceRisingCrossings(syncTrace?.trace, 1, syncTrace?.trace?.length || 0, searchStart);
-  const periodSamples = nodeGraphModuleScopeMedianPeriod(syncCrossings) || rawPeriodSamples;
-  return { periodSamples, threshold };
+  const threshold = Number.isFinite(Number(thresholdHint)) ? Number(thresholdHint) : range.mid;
+  const hyst = Math.max(range.span * 0.04, 1e-4);
+  const periodSeed = Number(periodHint) > 0 ? Number(periodHint) : 0;
+  // Prefer filtered zero-crossings (AC path) — less noise than raw level snaps.
+  const syncTrace = nodeGraphModuleScopeLowpassSyncTrace(
+    syncBuffer,
+    first,
+    limit,
+    periodSeed > 0 ? periodSeed : 0,
+  );
+  let edges = [];
+  if (syncTrace?.trace?.length > 2) {
+    // Filtered trace is centered near 0; use hysteresis around 0.
+    const acHyst = Math.max(1e-4, range.span * 0.03);
+    edges = nodeGraphModuleScopeRisingCrossings(
+      syncTrace.trace,
+      0,
+      1,
+      syncTrace.trace.length,
+      { hysteresis: acHyst },
+    ).map((crossing) => crossing + (syncTrace.start || 0));
+  }
+  if (!edges.length) {
+    edges = nodeGraphModuleScopeRisingCrossings(
+      syncBuffer,
+      threshold,
+      first + 1,
+      limit,
+      { hysteresis: hyst },
+    );
+  }
+  const measuredPeriod = nodeGraphModuleScopeMedianPeriod(edges);
+  const periodSamples = measuredPeriod
+    || (periodSeed > 0 ? periodSeed : null);
+  return {
+    edges,
+    periodSamples,
+    span: range.span,
+    threshold,
+  };
 }
 
-function nodeGraphModuleScopeTriggeredStart(syncBuffer, cycleEstimate, visibleSamples) {
-  const periodSamples = Number(cycleEstimate?.periodSamples) || 0;
-  if (!syncBuffer?.length || !Number.isFinite(periodSamples) || periodSamples <= 0) {
+function nodeGraphModuleScopeEstimatedCycle(buffer) {
+  const syncBuffer = nodeGraphModuleScopeSyncBuffer(buffer);
+  if (!syncBuffer?.length) {
     return null;
   }
+  const searchStart = Math.max(0, syncBuffer.length - Math.min(syncBuffer.length, 8192));
+  const searchEnd = syncBuffer.length;
+  const hintedPeriodSamples = Number(buffer?.nodeGraphScopePeriodSamples);
+  const triggers = nodeGraphModuleScopeCollectSyncTriggers(
+    syncBuffer,
+    searchStart,
+    searchEnd,
+    Number.isFinite(hintedPeriodSamples) && hintedPeriodSamples > 0 ? hintedPeriodSamples : 0,
+    null,
+  );
+  if (Number.isFinite(hintedPeriodSamples) && hintedPeriodSamples > 0) {
+    return {
+      periodSamples: hintedPeriodSamples,
+      threshold: triggers.threshold ?? nodeGraphModuleScopeThreshold(syncBuffer, searchStart, searchEnd),
+    };
+  }
+  if (!triggers.periodSamples || triggers.threshold === null) {
+    return null;
+  }
+  return {
+    periodSamples: triggers.periodSamples,
+    threshold: triggers.threshold,
+  };
+}
+
+/** Most recent rising edge that still fits [start, start+visible] inside the buffer. */
+function nodeGraphModuleScopeTriggeredStart(syncBuffer, cycleEstimate, visibleSamples) {
+  const periodSamples = Number(cycleEstimate?.periodSamples) || 0;
+  if (!syncBuffer?.length || !(visibleSamples > 0)) {
+    return null;
+  }
+  const periodForSearch = periodSamples > 0 ? periodSamples : Math.max(32, visibleSamples * 0.25);
   const searchSpan = Math.min(
     syncBuffer.length,
-    Math.max(visibleSamples + periodSamples * 6, 1024),
+    Math.max(visibleSamples + periodForSearch * 6, 1024),
   );
   const searchStart = Math.max(1, syncBuffer.length - Math.ceil(searchSpan));
   const searchEnd = syncBuffer.length;
-  const syncTrace = nodeGraphModuleScopeLowpassSyncTrace(
+  const triggers = nodeGraphModuleScopeCollectSyncTriggers(
     syncBuffer,
     searchStart,
     searchEnd,
     periodSamples,
+    cycleEstimate?.threshold,
   );
-  let crossings = nodeGraphModuleScopeTraceRisingCrossings(
-    syncTrace?.trace,
-    1,
-    syncTrace?.trace?.length || 0,
-    syncTrace?.start || 0,
-  );
-  if (!crossings.length && cycleEstimate.threshold !== null) {
-    crossings = nodeGraphModuleScopeRisingCrossings(
-      syncBuffer,
-      cycleEstimate.threshold,
-      searchStart,
-      searchEnd,
-    );
-  }
-  for (let index = crossings.length - 1; index >= 0; index -= 1) {
-    const crossing = crossings[index];
-    const start = crossing;
-    const end = start + visibleSamples;
+  for (let index = triggers.edges.length - 1; index >= 0; index -= 1) {
+    const start = triggers.edges[index];
     if (
-      Number.isFinite(start) &&
-      start >= 0 &&
-      end <= syncBuffer.length &&
-      crossing < syncBuffer.length - 1
+      Number.isFinite(start)
+      && start >= 0
+      && start + visibleSamples <= syncBuffer.length
     ) {
       return start;
     }
@@ -7849,56 +7943,60 @@ function nodeGraphModuleScopeTriggeredStart(syncBuffer, cycleEstimate, visibleSa
   return null;
 }
 
-function nodeGraphTraceDisplaySyncedStart(syncBuffer, cycleEstimate, visibleSamples, validStart, validEnd) {
+/**
+ * Pick a trigger index for the visible window.
+ * Prefer phase continuity with `phaseHint`, else the most recent valid edge
+ * (true scope re-trigger — not “nearest freerun end”).
+ */
+function nodeGraphTraceDisplaySyncedStart(syncBuffer, cycleEstimate, visibleSamples, validStart, validEnd, phaseHint = null) {
   const periodSamples = Number(cycleEstimate?.periodSamples) || 0;
-  if (
-    !syncBuffer?.length ||
-    !Number.isFinite(periodSamples) ||
-    periodSamples <= 0 ||
-    !(visibleSamples > 0)
-  ) {
+  if (!syncBuffer?.length || !(visibleSamples > 0)) {
     return null;
   }
-  const defaultStart = Math.max(validStart, validEnd - visibleSamples);
+  const periodForSearch = periodSamples > 0 ? periodSamples : Math.max(32, visibleSamples * 0.25);
   const searchSpan = Math.min(
     syncBuffer.length,
-    Math.max(visibleSamples + periodSamples * 8, 1024),
+    Math.max(visibleSamples + periodForSearch * 8, 1024),
   );
-  const searchStart = Math.max(1, defaultStart - Math.ceil(searchSpan * 0.5));
   const searchEnd = Math.min(syncBuffer.length, validEnd);
+  const searchStart = Math.max(1, searchEnd - Math.ceil(searchSpan));
   if (searchEnd <= searchStart + 1) {
     return null;
   }
-  const syncTrace = nodeGraphModuleScopeLowpassSyncTrace(syncBuffer, searchStart, searchEnd, periodSamples);
-  let crossings = nodeGraphModuleScopeTraceRisingCrossings(
-    syncTrace?.trace,
-    1,
-    syncTrace?.trace?.length || 0,
-    syncTrace?.start || 0,
+  const triggers = nodeGraphModuleScopeCollectSyncTriggers(
+    syncBuffer,
+    searchStart,
+    searchEnd,
+    periodSamples,
+    cycleEstimate?.threshold,
   );
-  if (!crossings.length && cycleEstimate.threshold !== null) {
-    crossings = nodeGraphModuleScopeRisingCrossings(
-      syncBuffer,
-      cycleEstimate.threshold,
-      searchStart,
-      searchEnd,
-    );
-  }
-  let bestStart = null;
-  let bestDistance = Infinity;
-  for (const crossing of crossings) {
-    const start = crossing;
-    const end = start + visibleSamples;
-    if (start < validStart || end > validEnd) {
-      continue;
-    }
-    const distance = Math.abs(start - defaultStart);
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      bestStart = start;
+  const period = triggers.periodSamples || periodSamples;
+  const valid = [];
+  for (const edge of triggers.edges) {
+    if (edge >= validStart && edge + visibleSamples <= validEnd) {
+      valid.push(edge);
     }
   }
-  return bestStart;
+  if (!valid.length) {
+    return null;
+  }
+  if (Number.isFinite(phaseHint) && period > 1) {
+    const phaseHits = [];
+    for (const edge of valid) {
+      let d = Math.abs(edge - phaseHint);
+      const mod = ((d % period) + period) % period;
+      d = Math.min(mod, period - mod);
+      if (d <= period * 0.28) {
+        phaseHits.push(edge);
+      }
+    }
+    if (phaseHits.length) {
+      // Most recent among phase-compatible edges (stable lock without freezing).
+      return Math.max(...phaseHits);
+    }
+  }
+  // Auto / unlocked: most recent edge that still fills the window.
+  return Math.max(...valid);
 }
 
 function nodeGraphModuleScopeVisibleSamples(buffer, settings, cycleEstimate) {
@@ -7968,58 +8066,122 @@ function nodeGraphTraceDisplayPixelLockedView(view, canvasWidthPx) {
 
 // TRACE = VECTOR (polylines). Strip-chart pixel-scroll removed — that model is phosphor/waterfall only.
 
+/**
+ * Oscilloscope-style auto-trigger for Trace / Output displays.
+ *
+ * Real scopes re-trigger each sweep (not open-loop predict forever). We:
+ *  1) Find hysteresis rising edges every frame
+ *  2) Prefer an edge phase-compatible with the previous lock (anti-jitter)
+ *  3) Else take the most recent edge that still fills the window
+ *  4) Brief phase-hold if edges are missing this frame
+ *  5) Auto freerun (return null) after a short timeout so the display never freezes
+ *
+ * `lock` is per-display-node (see traceDisplaySyncLocks) so multiple scopes
+ * watching one source do not clobber each other.
+ */
 function nodeGraphTraceDisplayStabilizedSyncStart(lock, buffer, syncBuffer, cycleEstimate, visibleSamples, validStart, validEnd) {
-  const periodSamples = Number(cycleEstimate?.periodSamples) || 0;
-  if (!(periodSamples > 0)) {
+  if (!(visibleSamples > 0) || validEnd <= validStart) {
     return null;
   }
-  const prevStart = Number(lock.lastSyncStart);
-  const prevPeriod = Number(lock.lastSyncPeriod);
-  const prevVisibleSamples = Number(lock.lastSyncVisibleSamples);
+  const source = syncBuffer || buffer;
+  if (!source?.length) {
+    return null;
+  }
+  const periodHint = Number(cycleEstimate?.periodSamples) || 0;
+  const totalSampleCount = Number(buffer?.nodeGraphScopeTotalSampleCount);
   const prevTotalSampleCount = Number(lock.lastSyncTotalSampleCount);
-  const totalSampleCount = Number(buffer.nodeGraphScopeTotalSampleCount);
   const elapsed = Number.isFinite(prevTotalSampleCount) && Number.isFinite(totalSampleCount)
-    ? totalSampleCount - prevTotalSampleCount
-    : NaN;
-  const periodDrift = Number.isFinite(prevPeriod) && prevPeriod > 0
-    ? Math.abs(periodSamples - prevPeriod) / prevPeriod
-    : Infinity;
-  if (
-    Number.isFinite(prevStart) &&
-    Number.isFinite(elapsed) &&
-    elapsed >= 0 &&
-    prevVisibleSamples === visibleSamples &&
-    periodDrift < 0.15
-  ) {
+    ? Math.max(0, totalSampleCount - prevTotalSampleCount)
+    : 0;
+  const sampleRate = nodeGraphScopeSampleRate(buffer || source);
+
+  // Smooth period so holdoff / phase windows stay stable across frames.
+  if (periodHint > 0) {
+    const prevPeriod = Number(lock.periodEma);
+    lock.periodEma = Number.isFinite(prevPeriod) && prevPeriod > 0
+      ? prevPeriod * 0.82 + periodHint * 0.18
+      : periodHint;
+  }
+  const period = Number(lock.periodEma) > 0
+    ? Number(lock.periodEma)
+    : (periodHint > 0 ? periodHint : 0);
+
+  const prevStart = Number(lock.lastSyncStart);
+  let phaseHint = null;
+  if (Number.isFinite(prevStart) && elapsed >= 0) {
+    // Buffer shifts left as new samples arrive at the end (copyWithin model).
     let predicted = prevStart - elapsed;
-    if (predicted < validStart) {
-      predicted += Math.ceil((validStart - predicted) / periodSamples) * periodSamples;
-    }
-    if (predicted + visibleSamples > validEnd) {
-      predicted -= Math.ceil((predicted + visibleSamples - validEnd) / periodSamples) * periodSamples;
-    }
-    if (predicted >= validStart && predicted + visibleSamples <= validEnd) {
-      lock.lastSyncStart = predicted;
-      lock.lastSyncPeriod = periodSamples;
-      lock.lastSyncVisibleSamples = visibleSamples;
-      lock.lastSyncTotalSampleCount = totalSampleCount;
-      return predicted;
+    if (period > 1) {
+      const maxStart = validEnd - visibleSamples;
+      if (maxStart >= validStart) {
+        while (predicted < validStart) {
+          predicted += period;
+        }
+        while (predicted > maxStart) {
+          predicted -= period;
+        }
+        if (predicted >= validStart && predicted + visibleSamples <= validEnd) {
+          phaseHint = predicted;
+        }
+      }
+    } else if (predicted >= validStart && predicted + visibleSamples <= validEnd) {
+      phaseHint = predicted;
     }
   }
+
+  const estimate = {
+    periodSamples: period || periodHint,
+    threshold: cycleEstimate?.threshold,
+  };
   const reacquired = nodeGraphTraceDisplaySyncedStart(
-    syncBuffer || buffer,
-    cycleEstimate,
+    source,
+    estimate,
     visibleSamples,
     validStart,
     validEnd,
+    phaseHint,
   );
   if (reacquired !== null) {
     lock.lastSyncStart = reacquired;
-    lock.lastSyncPeriod = periodSamples;
+    lock.lastSyncPeriod = period || periodHint;
     lock.lastSyncVisibleSamples = visibleSamples;
     lock.lastSyncTotalSampleCount = totalSampleCount;
+    lock.missedSamples = 0;
+    lock.haveLock = true;
+    if (!(Number(lock.periodEma) > 0) && periodHint > 0) {
+      lock.periodEma = periodHint;
+    }
+    return reacquired;
   }
-  return reacquired;
+
+  // No edge this frame — hold phase briefly (Normal-mode stickiness), then
+  // Auto freerun so aperiodic / quiet signals never freeze the face.
+  const step = Math.max(1, elapsed || Math.round(Math.max(8, sampleRate / 120)));
+  lock.missedSamples = (Number(lock.missedSamples) || 0) + step;
+  const autoTimeout = Math.max(
+    visibleSamples,
+    period > 0 ? period * 2.5 : 0,
+    Math.round(sampleRate * 0.08),
+  );
+  if (
+    lock.haveLock
+    && phaseHint !== null
+    && lock.missedSamples < autoTimeout
+  ) {
+    lock.lastSyncStart = phaseHint;
+    lock.lastSyncPeriod = period || periodHint;
+    lock.lastSyncVisibleSamples = visibleSamples;
+    lock.lastSyncTotalSampleCount = totalSampleCount;
+    return phaseHint;
+  }
+
+  // Lost lock — freerun (caller uses latest window). Ready to re-arm next edge.
+  lock.haveLock = false;
+  lock.missedSamples = 0;
+  if (Number.isFinite(totalSampleCount)) {
+    lock.lastSyncTotalSampleCount = totalSampleCount;
+  }
+  return null;
 }
 
 /**
@@ -8193,22 +8355,11 @@ function nodeGraphModuleScopeBufferView(buffer, slot) {
   const defaultStart = Math.max(0, buffer.length - visibleSamples);
   let start = defaultStart;
   if (settings.sync && cycleEstimate && visibleSamples < buffer.length) {
+    // Oscilloscope auto-trigger: lock when an edge fits; otherwise freerun
+    // (keep defaultStart) so quiet / aperiodic signals never freeze.
     const triggeredStart = nodeGraphModuleScopeTriggeredStart(syncBuffer, cycleEstimate, visibleSamples);
     if (triggeredStart !== null) {
       start = triggeredStart;
-    } else {
-      const searchStart = Math.max(1, defaultStart - Math.round(cycleEstimate.periodSamples * 2));
-      const searchEnd = Math.min(buffer.length, defaultStart + Math.round(cycleEstimate.periodSamples * 2));
-      const fallbackCrossings = nodeGraphModuleScopeRisingCrossings(
-        syncBuffer,
-        cycleEstimate.threshold,
-        searchStart,
-        searchEnd,
-      );
-      if (fallbackCrossings.length) {
-        start = fallbackCrossings.reduce((best, crossing) =>
-          Math.abs(crossing - defaultStart) < Math.abs(best - defaultStart) ? crossing : best);
-      }
     }
   }
   const rawPanCycles = Number(settings.pan) || 0;
