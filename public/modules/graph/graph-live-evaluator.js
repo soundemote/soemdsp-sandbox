@@ -1,5 +1,5 @@
 // Registers the offline/render-time dispatch handler for graph modules
-// (graph2 = Graph, graphCopy = Graph_Copy) into nodeGraphLiveModuleEvaluators.
+// (graph2 = Smooth Graph, graphCopy = Step Graph) into nodeGraphLiveModuleEvaluators.
 // graphOutputValue is a per-frame local closure in the evaluator's outer
 // scope, threaded through the dispatch call's context bundle since a
 // registry function built once can't close over it directly.

@@ -59,7 +59,18 @@ function evaluateNodeGraphPlanFrame(runtime, sampleRate, frame, frames) {
     }
     return ((Number(raw) || 0) - lo) / span;
   };
+  // LFO / Phasor: connected In is an extra phase offset (via In Min/Max).
+  // Unconnected In contributes 0 so ranges like [-1, 1] do not invent bias.
+  const graphInputPhaseOffset = (node, nodeId) => {
+    if (!hasInput(nodeId, "In")) {
+      return 0;
+    }
+    const inputMin = readNodeGraphLiveEffectiveParam(runtime, node, "inputMin", 0, frame, frames, frameValues);
+    const inputMax = readNodeGraphLiveEffectiveParam(runtime, node, "inputMax", 1, frame, frames, frameValues);
+    return graphMapInputToUnit(mixInput(nodeId), inputMin, inputMax);
+  };
   const graphSampleX = (node, nodeId) => {
+    // mode: 0 Input | 1 LFO (wall-clock t*rate) | 2 Phasor (accumulate rate/sr)
     const mode = Math.round(readNodeGraphLiveEffectiveParam(runtime, node, "mode", 0, frame, frames, frameValues));
     const phase = readNodeGraphLiveEffectiveParam(runtime, node, "phase", 0, frame, frames, frameValues);
     // Phase is always a pure time/position offset: the curve shape is unchanged
@@ -74,17 +85,36 @@ function evaluateNodeGraphPlanFrame(runtime, sampleRate, frame, frames) {
       );
     }
     const safeRate = Math.max(1, Number(sampleRate) || nodeGraphMvp.sampleRate || 44100);
-    const absoluteFrame = Number.isFinite(runtime.absoluteFrame) ? runtime.absoluteFrame : frame;
     const rate = Math.max(0, readNodeGraphLiveEffectiveParam(runtime, node, "rate", 1, frame, frames, frameValues));
     const state = runtime.graphLfoStates.get(nodeId) || createNodeGraphGraphLfoState();
     runtime.graphLfoStates.set(nodeId, state);
+    const inputOffset = graphInputPhaseOffset(node, nodeId);
+    // Phasor: free-running accumulator. Changing Rate only changes how fast
+    // we advance from the current position — no wall-clock recompute jump.
+    if (mode >= 2) {
+      let phasor = Number(state.phase);
+      if (!Number.isFinite(phasor)) {
+        phasor = 0;
+      }
+      phasor += rate / safeRate;
+      phasor -= Math.floor(phasor);
+      state.phase = phasor;
+      return wrapNodeSliderValue(phasor + phase + inputOffset, 0, 1);
+    }
+    // LFO: wall-clock phase from absolute frame (rate change can jump position).
+    // Connected In adds the same kind of phase offset as the Phase param.
+    const absoluteFrame = Number.isFinite(runtime.absoluteFrame) ? runtime.absoluteFrame : frame;
     const resetValue = 0;
     if (state.lastReset <= 0 && resetValue > 0) {
       state.resetFrame = absoluteFrame;
     }
     state.lastReset = resetValue;
     const resetFrame = Number.isFinite(state.resetFrame) ? state.resetFrame : 0;
-    return wrapNodeSliderValue(((absoluteFrame - resetFrame) / safeRate) * rate + phase, 0, 1);
+    return wrapNodeSliderValue(
+      ((absoluteFrame - resetFrame) / safeRate) * rate + phase + inputOffset,
+      0,
+      1,
+    );
   };
   const graphOutputValue = (node, nodeId) => {
     const sampleX = graphSampleX(node, nodeId);

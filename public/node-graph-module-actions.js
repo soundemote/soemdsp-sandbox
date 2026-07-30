@@ -1046,7 +1046,7 @@ function renderNodeGraphGraphNodeList(graph, selectedIndex = selectedNodeGraphGr
     return;
   }
   const graphData = normalizeNodeGraphGraph(graph);
-  // Graph / Graph_Copy: x/y plus curve contour + shape per segment.
+  // Step Graph only: x/y plus curve contour + shape. Smooth Graph: x/y only.
   const usesPerNodeShapes = Boolean(options.usesPerNodeShapes);
   const activeIndex = selectedNodeGraphGraphIndex(graphData, selectedIndex);
   list.replaceChildren();
@@ -1085,19 +1085,32 @@ function renderNodeGraphGraphNodeList(graph, selectedIndex = selectedNodeGraphGr
   });
 }
 
-function syncNodeGraphGraphControls(graph, selectedIndex = selectedNodeGraphGraphIndex(graph)) {
+function syncNodeGraphGraphControls(graph, selectedIndex = selectedNodeGraphGraphIndex(graph), options = {}) {
   const graphData = normalizeNodeGraphGraph(graph);
   const index = selectedNodeGraphGraphIndex(graphData, selectedIndex);
-  const nodeId = nodeGraphModuleActionTargetNodeId();
-  const graphNodeType = nodeGraphPatchNode(nodeId)?.type || "";
+  // Prefer an explicit node id (drag / caller). Falling back to the module
+  // actions target is fine for panel edits, but must never paint face A with
+  // graph data meant for face B.
+  const nodeId = String(options.nodeId || nodeGraphModuleActionTargetNodeId() || "").trim();
+  const patchNode = nodeGraphPatchNode(nodeId);
+  const graphNodeType = patchNode?.type || "";
   const usesPerNodeShapes = nodeGraphGraphUsesPerNodeShapes(graphNodeType);
-  if (nodeGraphModuleIsGraphType(nodeGraphPatchNode(nodeId)?.type)) {
+  const paintFace = options.face !== false;
+  if (nodeGraphModuleIsGraphType(graphNodeType)) {
     setNodeGraphGraphSelectedNodeIndex(nodeId, graphData, index);
-    syncNodeGraphGraphElement(nodeGraphNodeElement(nodeId), {
-      ...nodeGraphPatchNode(nodeId),
-      graph: graphData,
-      id: nodeId,
-    });
+    if (paintFace) {
+      // Only ever paint the workspace face for this exact node id.
+      const moduleElement = typeof nodeGraphGraphLiveDisplayForNodeId === "function"
+        ? nodeGraphGraphLiveDisplayForNodeId(nodeId)?.closest?.(".dsp-node")
+        : nodeGraphNodeElement(nodeId);
+      if (moduleElement) {
+        syncNodeGraphGraphElement(moduleElement, {
+          ...patchNode,
+          graph: graphData,
+          id: nodeId,
+        });
+      }
+    }
   }
   const node = graphData.nodes[index] || graphData.nodes.at(-1);
   populateNodeGraphGraphNodeIndexSelect(graphData, index);

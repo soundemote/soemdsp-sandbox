@@ -534,7 +534,7 @@ function nodeGraphFloatingWindowKeyboardTargets() {
       elementId: "nodeSceneContextMenu",
       workspaceKey: "commandCenter",
       applySize: typeof applyNodeSceneContextWindowSize === "function" ? applyNodeSceneContextWindowSize : null,
-      sizeAxes: { width: true, height: false },
+      sizeAxes: { width: true, height: true },
     },
     {
       draggingKey: "moduleActionDragging",

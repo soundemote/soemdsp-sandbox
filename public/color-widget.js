@@ -584,7 +584,11 @@ export class SoundColorWidget {
   }
 
   dragDelta(event) {
-    const delta = event.clientX - this.drag.startX + (this.drag.startY - event.clientY);
+    // App-wide diagonal policy: right + up increase (see nodeGraphPointerDragScreenDelta).
+    const axes = typeof nodeGraphPointerDragScreenDelta === "function"
+      ? nodeGraphPointerDragScreenDelta(this.drag.startX, this.drag.startY, event.clientX, event.clientY)
+      : { combined: (event.clientX - this.drag.startX) + (this.drag.startY - event.clientY) };
+    const delta = axes.combined;
     return this.drag.fine ? delta / 10 : delta;
   }
 

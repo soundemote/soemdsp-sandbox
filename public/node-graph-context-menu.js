@@ -30,17 +30,22 @@ function clearNodeSceneContextMenuDragState() {
 
 const nodeSceneContextWindowDefaultSize = Object.freeze({
   width: 185,
+  height: 520,
   minWidth: 24,
-  maxWidth: 430,
+  // Match module-browser max so the unified floating window can keep one size
+  // when switching Command Center ↔ Modules without clamping narrower.
+  maxWidth: 980,
+  minHeight: 160,
+  maxHeight: 900,
 });
 
 const nodeModuleActionsWindowDefaultSize = Object.freeze({
   width: 185,
   height: 620,
   minWidth: 24,
-  maxWidth: 360,
+  maxWidth: 980,
   minHeight: 120,
-  maxHeight: 820,
+  maxHeight: 900,
 });
 
 // pulseNodeGraphFloatingWindowAttention moved to node-graph-floating-windows.js
@@ -48,8 +53,7 @@ const nodeModuleActionsWindowDefaultSize = Object.freeze({
 // shared floating-window subsystem rather than in the context menu.
 
 function normalizeNodeSceneContextWindowSize(size = {}) {
-  const normalized = normalizeNodeGraphFloatingWindowSize(size, nodeSceneContextWindowDefaultSize);
-  return { width: normalized.width };
+  return normalizeNodeGraphFloatingWindowSize(size, nodeSceneContextWindowDefaultSize);
 }
 
 function normalizeNodeModuleActionsWindowSize(size = {}) {
@@ -70,6 +74,42 @@ function syncNodeModuleActionsWindowHeightLimit() {
   return effectiveHeight;
 }
 
+/**
+ * When the unified seat locks a floating panel with inline width/height,
+ * CSS vars alone no longer drive layout. Keep inline box + shared seat size
+ * in lockstep so corner-resize actually moves the window again.
+ */
+function syncNodeGraphFloatingWindowInlineBox(element, size = {}) {
+  if (!element) {
+    return;
+  }
+  const width = Math.round(Number(size.width));
+  const height = Math.round(Number(size.height));
+  const hasInlineBox = Boolean(
+    element.style.width
+    || element.style.height
+    || element.style.maxWidth === "none"
+    || element.style.maxHeight === "none",
+  );
+  // Once seated/unified, always write the box. Cold open (no inline size yet)
+  // keeps using CSS vars only.
+  if (!hasInlineBox) {
+    return;
+  }
+  if (width > 40) {
+    element.style.width = `${width}px`;
+  }
+  if (height > 40) {
+    element.style.height = `${height}px`;
+  }
+  element.style.boxSizing = "border-box";
+  element.style.maxWidth = "none";
+  element.style.maxHeight = "none";
+  if (width > 40 && height > 40 && nodeGraphMvp) {
+    nodeGraphMvp.unifiedWindowSize = { width, height };
+  }
+}
+
 function applyNodeSceneContextWindowSize(size = nodeGraphMvp.sceneContextWindowSize) {
   const menu = document.getElementById("nodeSceneContextMenu");
   const normalized = normalizeNodeSceneContextWindowSize(size || nodeSceneContextWindowDefaultSize);
@@ -78,6 +118,7 @@ function applyNodeSceneContextWindowSize(size = nodeGraphMvp.sceneContextWindowS
     return normalized;
   }
   applyNodeGraphFloatingWindowSizeVars(menu, "node-scene-context", nodeSceneContextWindowDefaultSize, normalized);
+  syncNodeGraphFloatingWindowInlineBox(menu, normalized);
   return normalized;
 }
 
@@ -90,6 +131,7 @@ function applyNodeModuleActionsWindowSize(size = nodeGraphMvp.moduleActionWindow
   }
   applyNodeGraphFloatingWindowSizeVars(menu, "node-module-actions", nodeModuleActionsWindowDefaultSize, normalized);
   syncNodeModuleActionsWindowHeightLimit();
+  syncNodeGraphFloatingWindowInlineBox(menu, normalized);
   return normalized;
 }
 
@@ -572,11 +614,16 @@ function beginNodeSceneContextWindowResize(event) {
 }
 
 function dragNodeSceneContextWindowResize(event) {
-  dragNodeGraphFloatingWindowResize(event, "sceneContextResizing", applyNodeSceneContextWindowSize, { height: false });
+  dragNodeGraphFloatingWindowResize(event, "sceneContextResizing", applyNodeSceneContextWindowSize, { height: true });
 }
 
 function endNodeSceneContextWindowResize(event) {
-  endNodeGraphFloatingWindowResize(event, "sceneContextResizing", saveNodeSceneContextWindowSizeToUserSettings);
+  endNodeGraphFloatingWindowResize(event, "sceneContextResizing", () => {
+    saveNodeSceneContextWindowSizeToUserSettings();
+    if (typeof rememberNodeGraphUnifiedWindowSizeFromElement === "function") {
+      rememberNodeGraphUnifiedWindowSizeFromElement(document.getElementById("nodeSceneContextMenu"));
+    }
+  });
 }
 
 function beginNodeScopeContextMenuDrag(event) {
@@ -637,9 +684,8 @@ function nodeGraphContextTargetSliderReadout(nodeId = nodeGraphModuleActionTarge
 
 const nodeGraphModuleActionControlIds = [
   "nodeSceneCopyModule",
-  "nodeSceneCopyModuleSettings",
-  "nodeScenePasteModuleSettings",
-  "nodeSceneSetModuleSettingsAsDefault",
+  // Move whole groups (not individual buttons) so row layout stays intact.
+  "nodeSceneModuleSettingsActionGroup",
   "nodeSceneSelectedModule",
   "nodeSceneAddToUi",
   "nodeSceneWireTypeControl",
@@ -653,11 +699,8 @@ const nodeGraphModuleActionControlIds = [
   "nodeSceneGraphControls",
   "nodeSceneDisplayHeightControls",
   "nodeSceneToggleOscilloscope",
-  "nodeSceneToggleTitle",
-  "nodeSceneToggleButtons",
+  "nodeSceneModuleVisibilityActionGroup",
   "nodeSceneToggleInterfaceControls",
-  "nodeSceneToggleIo",
-  "nodeSceneToggleSliders",
   "nodeSceneImageControls",
   "nodeSceneCanvasControls",
   "nodeSceneLedControls",
@@ -699,6 +742,9 @@ function showNodeModuleActionsWindow(anchorRect = null) {
   }
   if (!menu.hidden) {
     pulseNodeGraphFloatingWindowAttention(menu);
+    if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
+      noteNodeGraphUnifiedWindowOpened("moduleActions", menu);
+    }
     return;
   }
   const metadataRect = typeof prepareNodeMetadataPopoverForInspectorReplacement === "function"
@@ -714,6 +760,7 @@ function showNodeModuleActionsWindow(anchorRect = null) {
     return;
   }
   const replacementRect = metadataRect || displayRect;
+  const pending = nodeGraphMvp._unifiedWindowPendingPosition;
   const rect = anchorRect || {
     right: window.innerWidth * 0.5,
     top: window.innerHeight * 0.25,
@@ -722,12 +769,16 @@ function showNodeModuleActionsWindow(anchorRect = null) {
   nodeGraphMvp.sharedInspectorActive = "moduleActions";
   positionNodeModuleActionsWindowAtSavedOr(
     menu,
-    Number.isFinite(Number(replacementRect?.left))
+    Number.isFinite(Number(pending?.left))
+      ? pending.left
+      : Number.isFinite(Number(replacementRect?.left))
       ? replacementRect.left
       : Number.isFinite(Number(rect.right))
       ? rect.right + 8
       : window.innerWidth * 0.5,
-    Number.isFinite(Number(replacementRect?.top))
+    Number.isFinite(Number(pending?.top))
+      ? pending.top
+      : Number.isFinite(Number(replacementRect?.top))
       ? replacementRect.top
       : Number.isFinite(Number(rect.top))
       ? rect.top
@@ -737,6 +788,9 @@ function showNodeModuleActionsWindow(anchorRect = null) {
   syncNodeModuleActionsWindowHeightLimit();
   if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
     rememberNodeGraphWorkspaceWindowState("moduleActions", menu, { open: true }, { status: false });
+  }
+  if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
+    noteNodeGraphUnifiedWindowOpened("moduleActions", menu);
   }
 }
 
@@ -750,28 +804,20 @@ function openNodeGraphModuleActionsFromContextWindow() {
   showNodeModuleActionsWindow(anchor?.getBoundingClientRect?.());
 }
 
+// Nav / Command Center entry for Parameter Settings: always blank.
+// Filling the form is only via right-click on a slider readout.
 function openNodeGraphMetaparametersFromContextWindow() {
-  const readout = nodeGraphContextTargetSliderReadout();
-  const anchor = document.getElementById("nodeSceneOpenMetaparameters") || readout;
+  const anchor = document.getElementById("nodeSceneOpenMetaparameters");
   const rect = anchor?.getBoundingClientRect?.() || {
     right: window.innerWidth * 0.5,
     top: window.innerHeight * 0.25,
   };
-  if (!readout) {
-    openBlankNodeMetadataPopover({
-      clientX: rect.right + 8,
-      clientY: rect.top,
-      preventDefault() {},
-      stopPropagation() {},
-    });
-    return;
-  }
-  openNodeMetadataPopover({
+  openBlankNodeMetadataPopover({
     clientX: rect.right + 8,
     clientY: rect.top,
     preventDefault() {},
     stopPropagation() {},
-  }, readout);
+  });
 }
 
 function setNodeSceneContextHeader(label, detail = "") {
@@ -866,6 +912,7 @@ function configureNodeSceneContextMenu(mode) {
   const moduleActionsWindow = document.getElementById("nodeModuleActionsWindow");
   const copyButton = document.getElementById("nodeSceneCopyModule");
   const moduleSettingsActionGroup = document.getElementById("nodeSceneModuleSettingsActionGroup");
+  const moduleVisibilityActionGroup = document.getElementById("nodeSceneModuleVisibilityActionGroup");
   const copySettingsButton = document.getElementById("nodeSceneCopyModuleSettings");
   const pasteSettingsButton = document.getElementById("nodeScenePasteModuleSettings");
   const setDefaultButton = document.getElementById("nodeSceneSetModuleSettingsAsDefault");
@@ -1079,6 +1126,9 @@ function configureNodeSceneContextMenu(mode) {
   }
   if (setDefaultButton) {
     setDefaultButton.hidden = !moduleMode || multiModuleMode;
+  }
+  if (moduleVisibilityActionGroup) {
+    moduleVisibilityActionGroup.hidden = !moduleMode || multiModuleMode;
   }
   const targetIsGraphType = nodeGraphModuleIsGraphType(targetNode?.type);
   deleteButton.hidden = !(moduleMode || wireMode);
@@ -1361,7 +1411,7 @@ function configureNodeSceneContextMenu(mode) {
       graphNextNode.disabled = false;
       graphNodeX.disabled = false;
       graphNodeY.disabled = false;
-      // Graph / Graph_Copy: per-point shape + contour (point-to-point segments).
+      // Step Graph only: per-segment curve/shape. Smooth Graph is one global curve.
       graphNodeContour.disabled = !usesPerNodeShapes;
       graphNodeShape.disabled = !usesPerNodeShapes;
       const contourLabel = document.getElementById("nodeSceneGraphNodeContourLabel");
@@ -1581,6 +1631,9 @@ function openNodeGraphModuleSettingsFromContextEvent(event, nodeElement = null) 
       { status: false },
     );
   }
+  if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
+    noteNodeGraphUnifiedWindowOpened("moduleActions", menu);
+  }
   return true;
 }
 
@@ -1595,6 +1648,11 @@ function openNodeModuleActionMenu(event) {
     return;
   }
   if (typeof openNodeScopeContextMenu === "function" && openNodeScopeContextMenu(event)) {
+    return;
+  }
+  // Parameter rows / readouts → Parameter Settings in the unified window.
+  if (typeof openNodeGraphParameterSettingsFromContextEvent === "function"
+    && openNodeGraphParameterSettingsFromContextEvent(event)) {
     return;
   }
   openNodeGraphModuleSettingsFromContextEvent(event);
@@ -1752,6 +1810,11 @@ function openNodeSceneContextMenu(event) {
   if (typeof openNodeXyPadContextMenu === "function" && openNodeXyPadContextMenu(event)) {
     return;
   }
+  // Parameter rows / readouts → Parameter Settings (unified window page).
+  if (typeof openNodeGraphParameterSettingsFromContextEvent === "function"
+    && openNodeGraphParameterSettingsFromContextEvent(event, onModule)) {
+    return;
+  }
   rememberNodeGraphContextMenuClientPoint(event);
 
   closeNodeScopeContextMenu();
@@ -1773,13 +1836,20 @@ function openNodeSceneContextMenu(event) {
         event.clientX,
         event.clientY,
       );
+      const wireMenu = document.getElementById("nodeModuleActionsWindow");
+      if (wireMenu) {
+        wireMenu.hidden = false;
+      }
       if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
         rememberNodeGraphWorkspaceWindowState(
           "moduleActions",
-          document.getElementById("nodeModuleActionsWindow"),
+          wireMenu,
           { open: true },
           { status: false },
         );
+      }
+      if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
+        noteNodeGraphUnifiedWindowOpened("moduleActions", wireMenu);
       }
     }
     return;
@@ -1797,21 +1867,23 @@ function openNodeSceneContextMenu(event) {
   nodeGraphMvp.sceneContextTargetNode = null;
   nodeGraphMvp.sceneContextTargetWire = null;
   clearNodeGraphSelection();
-  // Right-click on empty canvas opens the Module Browser at the pointer --
-  // adding a module is what you want the instant you right-click empty
-  // canvas, and the browser already spawns whatever you pick at
-  // nodeGraphMvp.sceneContextPoint. Command Center moved to the toolbar's
-  // rocket button and the "C" hotkey (openNodeGraphCommandCenter below).
-  // openNodeGraphModuleShop pulses the attention glow itself when the
-  // window is already open, so a second right-click still glows.
+  // Right-click empty canvas opens (or refocuses) the Module Browser at the
+  // pointer so new modules spawn where you clicked. Contextual right-clicks
+  // (module / parameter / display) switch the unified window to that page.
+  if (typeof openNodeGraphUnifiedWindowPage === "function") {
+    openNodeGraphUnifiedWindowPage("moduleBrowser", {
+      point: nodeGraphMvp.sceneContextPoint,
+      windowPoint: { x: event.clientX, y: event.clientY },
+    });
+    return;
+  }
   openNodeGraphModuleShop(nodeGraphMvp.sceneContextPoint, { x: event.clientX, y: event.clientY });
 }
 
-// Command Center's one open path, shared by the toolbar rocket button and
-// the "C" hotkey (node-graph-keyboard-shortcuts.js). Always opens or
-// repositions -- never closes -- and glows either way, which is exactly the
-// behaviour right-click used to have before it was handed to the Module
-// Browser above.
+// Command Center open path (toolbar rocket / "C" hotkey / unified switcher).
+// When the unified switcher is driving (_unifiedWindowSwitching), we only
+// prepare content and unhide — seat is applied once by openNodeGraphUnifiedWindowPage.
+// Independent opens restore the saved seat or spawn at the given anchor.
 function openNodeGraphCommandCenter(x, y) {
   const commandCenter = document.getElementById("nodeSceneContextMenu");
   if (!commandCenter) {
@@ -1822,8 +1894,44 @@ function openNodeGraphCommandCenter(x, y) {
   nodeGraphMvp.sceneContextTargetNode = null;
   nodeGraphMvp.sceneContextTargetWire = null;
   configureNodeSceneContextMenu("home");
-  positionNodeSceneContextMenuAtCurrentSavedOrInitial(commandCenter, anchorX, anchorY);
-  pulseNodeGraphFloatingWindowAttention(commandCenter);
+
+  const pending = nodeGraphMvp._unifiedWindowPendingPosition;
+  const hasPending = pending
+    && Number.isFinite(Number(pending.left))
+    && Number.isFinite(Number(pending.top));
+  const unifiedDriving = Boolean(nodeGraphMvp._unifiedWindowSwitching);
+
+  if (unifiedDriving && hasPending) {
+    // Shared seat will be applied once by openNodeGraphUnifiedWindowPage.
+    commandCenter.hidden = false;
+    if (typeof markNodeGraphFloatingWindowSurface === "function") {
+      markNodeGraphFloatingWindowSurface(commandCenter);
+    }
+  } else if (hasPending) {
+    // Direct pending handoff without clamp (viewport coords as-is).
+    commandCenter.hidden = false;
+    if (typeof applyNodeSceneContextWindowSize === "function") {
+      applyNodeSceneContextWindowSize(
+        nodeGraphMvp.unifiedWindowSize || nodeGraphMvp.sceneContextWindowSize,
+      );
+    }
+    if (typeof setNodeGraphFloatingWindowViewportPosition === "function") {
+      setNodeGraphFloatingWindowViewportPosition(commandCenter, pending.left, pending.top);
+    } else {
+      commandCenter.style.left = `${Math.round(pending.left)}px`;
+      commandCenter.style.top = `${Math.round(pending.top)}px`;
+    }
+    if (!unifiedDriving) {
+      pulseNodeGraphFloatingWindowAttention(commandCenter);
+    }
+  } else {
+    // Cold open: restore saved seat or spawn at the anchor.
+    positionNodeSceneContextMenuAtCurrentSavedOrInitial(commandCenter, anchorX, anchorY);
+    if (!unifiedDriving) {
+      pulseNodeGraphFloatingWindowAttention(commandCenter);
+    }
+  }
+
   if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
     rememberNodeGraphWorkspaceWindowState(
       "commandCenter",
@@ -1831,5 +1939,11 @@ function openNodeGraphCommandCenter(x, y) {
       { open: true },
       { capturePosition: false, status: false },
     );
+  }
+  if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
+    noteNodeGraphUnifiedWindowOpened("commandCenter", commandCenter);
+  }
+  if (typeof syncNodeGraphUnifiedWindowNavBars === "function") {
+    syncNodeGraphUnifiedWindowNavBars();
   }
 }

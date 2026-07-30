@@ -572,10 +572,17 @@ function setNodeGraphFloatingWindowViewportPosition(element, left, top) {
   if (!element) {
     return { left: 0, top: 0 };
   }
+  // Always pin to the viewport — never leave relative/static windows that
+  // expand document flow (module browser regressed into the wiring panel).
+  const style = element.style;
+  if (style.position !== "fixed") {
+    style.position = "fixed";
+  }
+  style.margin = style.margin || "0";
   const css = nodeGraphFloatingWindowCssPositionFromViewport(left, top);
-  element.style.left = `${css.left}px`;
-  element.style.top = `${css.top}px`;
-  element.style.right = "auto";
+  style.left = `${css.left}px`;
+  style.top = `${css.top}px`;
+  style.right = "auto";
   return {
     left: Math.round(Number(left) || 0),
     top: Math.round(Number(top) || 0),
@@ -631,15 +638,34 @@ function setNodeGraphVisibilityMenuOpen(open) {
   if (menu) {
     if (open && !menu.hidden) {
       pulseNodeGraphFloatingWindowAttention(menu);
+      if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
+        noteNodeGraphUnifiedWindowOpened("visibilityMenu", menu);
+      }
       renderNodeGraphVisibilityMenuButton();
       return;
     }
     menu.hidden = !open;
     if (open) {
       applyNodeGraphVisibilityMenuSize(nodeGraphMvp.workspaceWindowStates?.visibilityMenu?.size);
-      openNodeGraphFloatingWindowAtPosition("visibilityMenu", menu, () => {
-        positionNodeGraphVisibilityMenuNearButton(menu);
-      });
+      const pending = nodeGraphMvp._unifiedWindowPendingPosition;
+      if (pending && Number.isFinite(Number(pending.left)) && Number.isFinite(Number(pending.top))) {
+        if (typeof setNodeGraphFloatingWindowViewportPosition === "function") {
+          setNodeGraphFloatingWindowViewportPosition(menu, pending.left, pending.top);
+        } else {
+          menu.style.left = `${Math.round(pending.left)}px`;
+          menu.style.top = `${Math.round(pending.top)}px`;
+        }
+        if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
+          rememberNodeGraphWorkspaceWindowState("visibilityMenu", menu, { open: true }, { status: false });
+        }
+      } else {
+        openNodeGraphFloatingWindowAtPosition("visibilityMenu", menu, () => {
+          positionNodeGraphVisibilityMenuNearButton(menu);
+        });
+      }
+      if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
+        noteNodeGraphUnifiedWindowOpened("visibilityMenu", menu);
+      }
     }
   }
   if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
@@ -1576,9 +1602,11 @@ function dragNodeGraphMacroControl(event) {
     return;
   }
   event.preventDefault();
-  const horizontalDelta = event.clientX - drag.startX;
-  const verticalDelta = drag.startY - event.clientY;
-  if (Math.abs(horizontalDelta) > 1 || Math.abs(verticalDelta) > 1) {
+  if (
+    typeof nodeGraphPointerDragExceededMoveThreshold === "function"
+      ? nodeGraphPointerDragExceededMoveThreshold(drag.startX, drag.startY, event.clientX, event.clientY, 1)
+      : (Math.abs(event.clientX - drag.startX) > 1 || Math.abs(drag.startY - event.clientY) > 1)
+  ) {
     drag.moved = true;
   }
   if (event.altKey && !(event.shiftKey && (event.ctrlKey || event.metaKey))) {
@@ -1601,7 +1629,9 @@ function dragNodeGraphMacroControl(event) {
     drag.fineScale = currentFineScale;
     return;
   }
-  const delta = ((horizontalDelta + verticalDelta) / 240) * drag.fineScale;
+  const delta = typeof nodeGraphPointerDragTravelDelta === "function"
+    ? nodeGraphPointerDragTravelDelta(drag.startX, drag.startY, event.clientX, event.clientY, 240, drag.fineScale)
+    : (((event.clientX - drag.startX) + (drag.startY - event.clientY)) / 240) * drag.fineScale;
   setNodeGraphMacroControl(drag.index, drag.startValue + delta);
 }
 

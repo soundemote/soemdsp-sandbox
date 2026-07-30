@@ -64,9 +64,21 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeSceneToggleModularOnlyView", "click", toggleNodeGraphModularOnlyView);
   bindNodeGraphSceneElementEvent("nodeSceneToggleModularOnlyControls", "click", toggleNodeGraphViewButtonsVisibility);
   bindNodeGraphSceneElementEvent("nodeSceneOpenModuleBrowser", "click", () => {
+    if (typeof openNodeGraphUnifiedWindowPage === "function") {
+      openNodeGraphUnifiedWindowPage("moduleBrowser", {
+        point: nodeGraphMvp.sceneContextPoint,
+      });
+      return;
+    }
     openNodeGraphModuleShop(nodeGraphMvp.sceneContextPoint);
   });
-  bindNodeGraphSceneElementEvent("nodeSceneOpenModuleActions", "click", openNodeGraphModuleActionsFromContextWindow);
+  bindNodeGraphSceneElementEvent("nodeSceneOpenModuleActions", "click", () => {
+    if (typeof openNodeGraphUnifiedWindowPage === "function") {
+      openNodeGraphUnifiedWindowPage("moduleActions");
+      return;
+    }
+    openNodeGraphModuleActionsFromContextWindow();
+  });
   bindNodeGraphSceneElementEvent("nodeModuleActionsClose", "click", closeNodeModuleActionsWindow);
   bindNodeGraphSceneElementEvent("nodeModuleActionsWindowHeading", "pointerdown", beginNodeModuleActionsWindowDrag);
   bindNodeGraphSceneElementEvent("nodeModuleActionsDragHandle", "pointerdown", beginNodeModuleActionsWindowDrag);
@@ -87,18 +99,31 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeSceneUndoButton", "click", undoNodeGraphPatch);
   bindNodeGraphSceneElementEvent("nodeSceneRedoButton", "click", redoNodeGraphPatch);
   bindNodeGraphSceneElementEvent("nodeSceneOpenSavedPatches", "click", () => {
+    if (typeof openNodeGraphUnifiedWindowPage === "function") {
+      openNodeGraphUnifiedWindowPage("patchExplorer");
+      return;
+    }
     setNodeGraphSavedPatchesWindowVisible(true);
   });
   bindNodeGraphSceneElementEvent("nodeSceneToggleStandaloneMidiKeyboard", "click", toggleNodeGraphStandaloneMidiKeyboard);
   bindNodeGraphSceneElementEvent("nodeSceneCopyPatch", "click", copyNodeGraphScriptToClipboard);
   bindNodeGraphSceneElementEvent("nodeScenePastePatch", "click", pasteNodeGraphScriptFromClipboard);
   bindNodeGraphSceneElementEvent("nodeSceneOpenUiSettings", "click", () => {
+    if (typeof openNodeGraphUnifiedWindowPage === "function") {
+      openNodeGraphUnifiedWindowPage("uiSettings");
+      return;
+    }
     setNodeUserUiSettingsVisible(true);
   });
+  // Screen Shader is WIP — leave as a standalone open, not unified pages.
   bindNodeGraphSceneElementEvent("nodeSceneOpenPostProcessing", "click", () => {
     openNodeGraphGlobalShaderScript();
   });
   bindNodeGraphSceneElementEvent("nodeSceneOpenVisibility", "click", () => {
+    if (typeof openNodeGraphUnifiedWindowPage === "function") {
+      openNodeGraphUnifiedWindowPage("visibilityMenu");
+      return;
+    }
     setNodeGraphVisibilityMenuOpen(true);
   });
   bindNodeGraphSceneElementEvent("nodeSceneGlobalSmoothingSeconds", "change", handleNodeGraphGlobalSmoothingSecondsChange);

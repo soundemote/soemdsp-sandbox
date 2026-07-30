@@ -2657,18 +2657,29 @@ def require_root_shell(base_url: str) -> None:
     # here is what keeps this expected-bytes computation in sync with what
     # the server under test actually serves.
     build_mode = "release" if os.environ.get("SOEMDSP_BUILD_MODE", "").strip().lower() == "release" else "debug"
+    # BUILD_TOKEN is rolled per server process — extract from the live shell
+    # instead of guessing, then verify the rest of the template matches.
+    root_probe = request(f"{base_url}/")
+    require(root_probe.status == 200, "/ shell did not return 200")
+    token_match = re.search(
+        rb'data-build-token-value>([A-Z0-9]{4})</span>',
+        root_probe.body,
+    )
+    require(token_match is not None, "/ shell missing BUILD_TOKEN span")
+    build_token = token_match.group(1).decode("ascii")
     expected = (
         (PUBLIC / "index.html")
         .read_text(encoding="utf-8")
         .replace("{{BUILD_NUMBER}}", build_number)
         .replace("{{SANDBOX_VERSION}}", sandbox_version)
         .replace("{{BUILD_MODE}}", build_mode)
+        .replace("{{BUILD_TOKEN}}", build_token)
         .encode("utf-8")
     )
     expected_size = str(len(expected))
     root_response: Response | None = None
     for path in ["/", "/public/index.html"]:
-        response = request(f"{base_url}{path}")
+        response = request(f"{base_url}{path}") if path != "/" else root_probe
         require(response.status == 200, f"{path} shell did not return 200")
         require_no_store(response, f"{path} shell")
         require_content_type(response, "text/html", f"{path} shell")

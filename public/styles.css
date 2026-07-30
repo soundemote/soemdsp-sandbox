@@ -2828,31 +2828,38 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 .node-build-number-readout {
-  flex: 1.2 1 0;
-  /* Two stacked lines (version / build), matching the X-Y and W-H readouts.
-     The old single-line 1.35-2rem layout needed ~280px for
-     "v0.3.0phosphor · B20260723s" in a ~178px slot, so both ends clipped
-     under the neighboring buttons. */
+  flex: 1.15 1 0;
+  /* Three stacked lines: version / build label / per-process stamp.
+     Override the shared toolbar-button padding so the text can stay large. */
   flex-direction: column;
-  gap: 2px;
-  padding: 0 4px;
+  gap: 0;
+  padding: 0 2px !important;
   min-width: 0;
   overflow: hidden;
   background: rgba(7, 11, 14, 0.94);
   color: rgba(127, 199, 217, 0.98);
   font-family: Consolas, "Courier New", monospace;
-  font-size: clamp(0.85rem, calc(var(--node-toolbar-row-height) * 0.28), 1.1rem);
+  font-size: clamp(0.88rem, calc(var(--node-toolbar-row-height) * 0.30), 1.12rem) !important;
   font-weight: 900;
   letter-spacing: 0;
+  line-height: 1.05 !important;
   text-transform: uppercase;
   user-select: text;
   -webkit-user-select: text;
 }
 
+.node-build-number-readout [data-build-token-value] {
+  color: rgba(226, 168, 109, 0.95);
+  letter-spacing: 0.08em;
+}
+
 .node-build-number-readout span {
+  display: block;
   max-width: 100%;
   overflow: hidden;
   text-overflow: clip;
+  line-height: 1.05;
+  white-space: nowrap;
 }
 
 .node-world-position-readout span,
@@ -3080,8 +3087,10 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   top: 54px;
   right: 10px;
   z-index: 80;
-  display: grid;
-  grid-template-rows: var(--node-floating-window-header-height) auto;
+  /* Flex column so heading + unified nav + list stack without a phantom gap
+     (the old 2-row grid left an empty band when the nav host was inserted). */
+  display: flex;
+  flex-direction: column;
   box-sizing: border-box;
   width: min(196px, calc(100vw - 28px));
   min-width: min(180px, calc(100vw - 28px));
@@ -3096,10 +3105,11 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 .node-visibility-menu[hidden] {
-  display: none;
+  display: none !important;
 }
 
 .node-visibility-menu-heading {
+  flex: 0 0 auto;
   margin: 0;
 }
 
@@ -3114,10 +3124,16 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-visibility-menu-list {
   display: grid;
   grid-auto-rows: auto;
+  flex: 1 1 auto;
   gap: 0;
   min-width: 0;
   min-height: 0;
-  overflow: visible;
+  overflow: auto;
+}
+
+.node-visibility-menu > .scene-context-resize-handle,
+.node-visibility-menu > .node-visibility-menu-resize-handle {
+  flex: 0 0 auto;
 }
 
 .node-visibility-menu-list button {
@@ -7487,7 +7503,13 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: none;
 }
 
+/* Always fixed: must never participate in #nodeWiringPanel flow layout
+   (that pushed the modular workspace down and blocked its resize handle). */
 .node-module-shop-view {
+  position: fixed;
+  top: 72px;
+  left: 12px;
+  z-index: 10050;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 0;
@@ -7512,8 +7534,10 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #111418;
-  position: relative;
-  z-index: 82;
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.42),
+    inset 0 0 0 1px rgba(226, 168, 109, 0.08);
+  pointer-events: auto;
 }
 
 .node-module-shop-view *,
@@ -7571,7 +7595,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-module-shop-column {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   align-content: stretch;
   gap: 0;
   width: 100%;
@@ -7579,6 +7603,107 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   min-height: 0;
   overflow: hidden;
   padding: 0;
+}
+
+/* Unified floating-window page nav: fixed square emoji buttons, no wrap.
+   Must beat page-local `button { font-size / min-height / padding }` rules on
+   Command Center + Module Settings so every page looks the same. */
+.node-unified-window-nav-host {
+  display: block;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  min-width: 0;
+  width: 100%;
+  padding: 3px 4px 2px;
+  border-bottom: 1px solid rgba(127, 199, 217, 0.14);
+  background: rgba(3, 5, 7, 0.92);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.node-unified-window-nav-host[hidden] {
+  display: none !important;
+}
+
+.node-unified-window-nav {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 2px;
+  min-width: max-content;
+  width: max-content;
+}
+
+.node-unified-window-nav-button,
+#nodeSceneContextMenu .node-unified-window-nav-button,
+#nodeModuleActionsWindow .node-unified-window-nav-button,
+.node-module-actions-window .node-unified-window-nav-button,
+.node-visibility-menu .node-unified-window-nav-button,
+.node-parameter-metadata-popover .node-unified-window-nav-button,
+.node-trace-display-settings-popover .node-unified-window-nav-button {
+  --node-unified-nav-size: 30px;
+  box-sizing: border-box;
+  flex: 0 0 var(--node-unified-nav-size) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0 !important;
+  width: var(--node-unified-nav-size) !important;
+  height: var(--node-unified-nav-size) !important;
+  min-width: var(--node-unified-nav-size) !important;
+  min-height: var(--node-unified-nav-size) !important;
+  max-width: var(--node-unified-nav-size) !important;
+  max-height: var(--node-unified-nav-size) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1px solid rgba(127, 199, 217, 0.22) !important;
+  border-radius: 4px !important;
+  background: rgb(16, 22, 26) !important;
+  color: rgba(243, 241, 236, 0.95) !important;
+  font-size: 1.2rem !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  text-align: center !important;
+  text-overflow: clip !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  cursor: pointer;
+  touch-action: manipulation;
+  aspect-ratio: 1 / 1;
+}
+
+.node-unified-window-nav-button:hover,
+.node-unified-window-nav-button:focus-visible,
+#nodeSceneContextMenu .node-unified-window-nav-button:hover,
+#nodeSceneContextMenu .node-unified-window-nav-button:focus-visible,
+#nodeModuleActionsWindow .node-unified-window-nav-button:hover,
+#nodeModuleActionsWindow .node-unified-window-nav-button:focus-visible {
+  border-color: rgba(226, 168, 109, 0.55) !important;
+  background: rgb(22, 32, 38) !important;
+  outline: none;
+}
+
+.node-unified-window-nav-button.active,
+.node-unified-window-nav-button[aria-current="page"],
+#nodeSceneContextMenu .node-unified-window-nav-button.active,
+#nodeSceneContextMenu .node-unified-window-nav-button[aria-current="page"],
+#nodeModuleActionsWindow .node-unified-window-nav-button.active,
+#nodeModuleActionsWindow .node-unified-window-nav-button[aria-current="page"] {
+  border-color: rgba(127, 199, 217, 0.62) !important;
+  background: rgba(28, 48, 56, 0.96) !important;
+  box-shadow: inset 0 0 0 1px rgba(127, 199, 217, 0.18);
+}
+
+#nodeModuleActionsWindow .node-unified-window-nav-host,
+#nodeParameterMetadataPopover .node-unified-window-nav-host,
+#nodeTraceDisplaySettingsPopover .node-unified-window-nav-host,
+#nodeSavedPatchesWindow .node-unified-window-nav-host,
+#nodeVisibilityMenu .node-unified-window-nav-host,
+#nodeSceneContextMenu .node-unified-window-nav-host,
+#nodeUserUiSettingsPanel .node-unified-window-nav-host {
+  flex: 0 0 auto;
+  grid-row: auto;
 }
 
 .node-module-shop-controls {
@@ -10814,6 +10939,14 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   border-top: 1px solid rgba(128, 224, 224, 0.16);
   border-bottom: 1px solid rgba(128, 224, 224, 0.16);
   background: #020609;
+  /* Keep the default arrow on the graph face (no grab/hand/move from the
+     solid-shell drag chrome or workspace pan cursors). */
+  cursor: default;
+}
+
+.node-module-graph-display,
+.node-module-graph-display * {
+  cursor: default !important;
 }
 
 .node-module-graph-display:focus-visible {
@@ -10847,9 +10980,24 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   stroke-width: 0.6;
 }
 
+/* Step Graph: vertical guides for each step boundary (count from Steps param). */
+.node-module-graph-step-line {
+  stroke: rgba(127, 199, 217, 0.22);
+  stroke-width: 0.7;
+  pointer-events: none;
+}
+
+/* Phase probe: dim like node chrome; full only when the hit target is hot. */
 .node-module-graph-cursor {
-  stroke: rgba(255, 236, 181, 0.68);
+  stroke: rgba(255, 236, 181, 0.92);
   stroke-width: 0.9;
+  opacity: 0.42;
+  pointer-events: none;
+  transition: opacity 80ms ease;
+}
+
+.node-module-graph-cursor.is-phase-hot {
+  opacity: 1;
 }
 
 .node-module-graph-cursor-hit {
@@ -10863,21 +11011,32 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   stroke: rgba(255, 236, 181, 0.22);
   stroke-dasharray: 2.2 2.8;
   stroke-width: 0.7;
+  opacity: 0.42;
+  pointer-events: none;
+  transition: opacity 80ms ease;
 }
 
-/* Live playhead -- the running Rate/Phase (LFO) or Input-mode CV position,
-   distinct from .node-module-graph-cursor (the manually-dragged probe).
-   Hidden until syncNodeGraphGraphLivePlayheads() confirms a live sample and
-   adds .live; pointer-events stays none, it's read-only. */
-.node-module-graph-playhead {
-  stroke: rgba(92, 232, 212, 0.9);
-  stroke-width: 1.1;
+.node-module-graph-cursor-value-guide.is-phase-hot {
+  opacity: 1;
+}
+
+/* Final-phase ghost -- mirrors .node-module-graph-cursor (cream phase probe)
+   but tracks the engine's actual sample X (__GraphPhase: Rate LFO, Phase, and
+   Input-mode CV). Purple like the XY pad ghost puck so it stays readable over
+   the teal curve. Hidden until syncNodeGraphGraphLivePlayheads() has a live
+   sample and adds .live; pointer-events none (read-only). */
+.node-module-graph-playhead,
+.node-module-graph-phase-ghost {
+  stroke: rgba(177, 132, 255, 0.78);
+  stroke-width: 0.9;
+  stroke-dasharray: 2.4 2.6;
   pointer-events: none;
   opacity: 0;
   transition: opacity 120ms ease;
 }
 
-.node-module-graph-playhead.live {
+.node-module-graph-playhead.live,
+.node-module-graph-phase-ghost.live {
   opacity: 1;
 }
 
@@ -10898,19 +11057,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   stroke-width: 0.7;
 }
 
-.node-module-graph-contour-handle {
-  fill: none;
-  stroke: rgba(255, 236, 181, 0.72);
-  stroke-width: 0.9;
-  pointer-events: all;
-  touch-action: none;
-}
-
-.node-module-graph-contour-handle.selected {
-  stroke: rgba(255, 241, 169, 0.96);
-  stroke-width: 1.4;
-}
-
 .node-module-graph-shape-badge {
   fill: rgba(210, 231, 224, 0.58);
   font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
@@ -10925,26 +11071,41 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   fill: rgba(255, 241, 169, 0.96);
 }
 
+/*
+ * Graph face chrome policy (minimal eye strain):
+ *  • idle: only phase line, curve, dotted control polygon
+ *  • hover a node or its contour ring: show THAT pair only, both dim
+ *  • no “selected = bright” state on the face
+ */
 .node-module-graph-node {
-  fill: rgba(246, 246, 218, 0.94);
-  stroke: rgba(7, 10, 13, 0.9);
+  fill: rgba(246, 246, 218, 0.72);
+  stroke: rgba(7, 10, 13, 0.75);
   stroke-width: 0.7;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 100ms ease;
+  transition: opacity 80ms ease;
 }
 
-/* Hover: all dots faint; selected/dragged stay full alpha. No extra ring/stroke. */
-.node-module-graph-display:hover .node-module-graph-node:not(.selected) {
-  opacity: 0.35;
+.node-module-graph-node.is-hot {
+  opacity: 0.42;
 }
 
-.node-module-graph-node.selected,
-.node-module-graph-display:hover .node-module-graph-node.selected,
-.node-module-graph-display.dragging .node-module-graph-node {
-  opacity: 1;
+/* Step Graph: empty-circle curvature ring (paired with its filled node). */
+.node-module-graph-contour-handle {
+  fill: none;
+  stroke: rgba(255, 236, 181, 0.7);
+  stroke-width: 0.95;
+  pointer-events: all;
+  touch-action: none;
+  opacity: 0;
+  transition: opacity 80ms ease;
 }
 
+.node-module-graph-contour-handle.is-hot {
+  opacity: 0.48;
+}
+
+/* Invisible hit targets always receive pointer events so hover can resolve. */
 .node-module-graph-node-hit {
   fill: transparent;
   stroke: transparent;
@@ -12848,6 +13009,68 @@ input.node-header-title:focus {
   gap: 0;
 }
 
+.metadata-popover-grid[hidden],
+.node-trace-display-settings-grid[hidden] {
+  display: none !important;
+}
+
+/* Empty inspector pages sit BELOW the unified nav (heading → nav → empty).
+   Compact — do not invent a giant centered void under a tall shared seat. */
+.node-unified-inspector-empty {
+  display: block;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 14px 12px 16px;
+  color: rgba(243, 241, 236, 0.55);
+  font: 0.78rem/1.35 var(--mono, "Cascadia Mono", Consolas, monospace);
+  text-align: center;
+  letter-spacing: 0.01em;
+}
+
+.node-unified-inspector-empty[hidden] {
+  display: none !important;
+}
+
+/* Parameter / Display popovers: heading + nav fixed, body scrolls. */
+.node-parameter-metadata-popover,
+.node-trace-display-settings-popover {
+  display: flex !important;
+  flex-direction: column;
+  align-content: stretch;
+  justify-items: stretch;
+  grid-template-columns: unset;
+  grid-auto-rows: unset;
+}
+
+.node-parameter-metadata-popover > .metadata-popover-heading,
+.node-parameter-metadata-popover > .scene-context-heading,
+.node-trace-display-settings-popover > .scene-context-heading,
+.node-trace-display-settings-popover > .node-trace-display-settings-heading,
+.node-parameter-metadata-popover > .node-unified-window-nav-host,
+.node-trace-display-settings-popover > .node-unified-window-nav-host {
+  flex: 0 0 auto;
+}
+
+.node-parameter-metadata-popover > .metadata-popover-grid,
+.node-trace-display-settings-popover > .metadata-popover-grid,
+.node-trace-display-settings-popover > .node-trace-display-settings-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.node-parameter-metadata-popover > .node-unified-inspector-empty,
+.node-trace-display-settings-popover > .node-unified-inspector-empty {
+  flex: 0 0 auto;
+}
+
+.node-parameter-metadata-popover[hidden],
+.node-trace-display-settings-popover[hidden] {
+  display: none !important;
+}
+
 .metadata-popover-grid label {
   display: grid;
   grid-template-columns: minmax(78px, 0.42fr) minmax(0, 1fr);
@@ -13943,13 +14166,35 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 }
 
 #nodeSceneContextMenu {
+  display: flex;
+  flex-direction: column;
   width: min(var(--node-scene-context-width, 215px), calc(100vw - 28px));
   min-width: var(--node-scene-context-min-width, var(--node-module-actions-min-width, 24px));
   max-width: min(var(--node-scene-context-max-width, 430px), calc(100vw - 28px));
-  min-height: 0;
+  height: var(--node-scene-context-height, auto);
+  min-height: var(--node-scene-context-min-height, 160px);
+  max-height: min(var(--node-scene-context-max-height, 900px), calc(100vh - 28px));
   gap: 0;
   overflow: hidden;
   padding: 0;
+  box-sizing: border-box;
+}
+
+/* Stretchable body: scroll the command list while the header + nav + resize stay put. */
+#nodeSceneContextMenu > .scene-context-heading,
+#nodeSceneContextMenu > .node-unified-window-nav-host,
+#nodeSceneContextMenu > .scene-context-resize-handle {
+  flex: 0 0 auto;
+}
+
+#nodeSceneContextMenu > :not(.scene-context-heading):not(.scene-context-resize-handle):not(.node-unified-window-nav-host) {
+  flex: 0 0 auto;
+}
+
+#nodeSceneContextMenu > #nodeSceneWindowControls {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
 }
 
 #nodeSceneContextMenu .scene-context-heading {
@@ -13971,7 +14216,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 }
 
 #nodeSceneContextMenu :is(
-  button:not(.scene-context-drag-handle):not(.panel-close-button):not(.scene-context-resize-handle),
+  button:not(.scene-context-drag-handle):not(.panel-close-button):not(.scene-context-resize-handle):not(.node-unified-window-nav-button),
   .scene-context-window-button,
   .scene-context-module-browser-button,
   .scene-context-home-module-button
@@ -13980,7 +14225,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 }
 
 #nodeSceneContextMenu :is(
-  button:not(.scene-context-drag-handle):not(.panel-close-button):not(.scene-context-resize-handle),
+  button:not(.scene-context-drag-handle):not(.panel-close-button):not(.scene-context-resize-handle):not(.node-unified-window-nav-button),
   .scene-context-window-button,
   .scene-context-module-browser-button,
   .scene-context-home-module-button
@@ -13988,8 +14233,13 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   background: rgb(22, 32, 38);
 }
 
-.node-scene-context-menu[hidden] {
-  display: none;
+/* ID rules set display:flex on #nodeSceneContextMenu — that beats the bare
+   [hidden] class selector and left Command Center painted after hide=true,
+   so Modules opened "beside" it. Match or exceed that specificity. */
+.node-scene-context-menu[hidden],
+#nodeSceneContextMenu[hidden],
+#nodeModuleActionsWindow[hidden] {
+  display: none !important;
 }
 
 .node-module-actions-window {
@@ -14012,6 +14262,16 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   contain: layout paint;
   user-select: none;
   -webkit-user-select: none;
+}
+
+.node-module-actions-window > .scene-context-heading,
+.node-module-actions-window > .node-unified-window-nav-host {
+  flex: 0 0 auto;
+}
+
+.node-module-actions-window > .node-module-actions-window-body {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .node-module-actions-window *,
@@ -14095,7 +14355,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   font-size: 1rem;
 }
 
-.node-module-actions-window button:not(.scene-context-drag-handle):not(.panel-close-button):not(.scene-context-resize-handle) {
+.node-module-actions-window button:not(.scene-context-drag-handle):not(.panel-close-button):not(.scene-context-resize-handle):not(.node-unified-window-nav-button) {
   min-width: 0;
   min-height: var(--node-floating-window-button-height);
   padding: 0;
@@ -14505,7 +14765,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   text-align: center;
 }
 
-#nodeSceneContextMenu button:not(.scene-context-drag-handle):not(.panel-close-button),
+#nodeSceneContextMenu button:not(.scene-context-drag-handle):not(.panel-close-button):not(.node-unified-window-nav-button):not(.scene-context-resize-handle),
 #nodeSceneContextMenu .scene-context-window-button {
   margin: 0;
   padding-block: 0;
@@ -14534,16 +14794,31 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   border-inline-end: 1px solid var(--node-scene-context-menu-divider, rgba(243, 241, 236, 0.14));
 }
 
-/* Copy Settings / Paste Settings / Set as Default on one row (see
-   nodeSceneModuleSettingsActionGroup in index.html) -- same shared row
-   pattern as the 2-button .scene-context-button-group above, but for 3. */
+/* Copy Settings / Paste Settings / Set as Default on one row. */
 .scene-context-button-group-3 button {
   flex: 1 1 33.333%;
   padding-inline: 4px;
-  font-size: 0.92em;
+  font-size: 0.88em;
+  white-space: normal;
+  line-height: 1.15;
+  text-wrap: balance;
 }
 
 .scene-context-button-group-3 button:not(:last-child) {
+  border-inline-end: 1px solid var(--node-scene-context-menu-divider, rgba(243, 241, 236, 0.14));
+}
+
+/* Hide title / buttons / in-out / sliders on one row. */
+.scene-context-button-group-4 button {
+  flex: 1 1 25%;
+  padding-inline: 3px;
+  font-size: 0.82em;
+  white-space: normal;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+.scene-context-button-group-4 button:not(:last-child) {
   border-inline-end: 1px solid var(--node-scene-context-menu-divider, rgba(243, 241, 236, 0.14));
 }
 
@@ -15030,7 +15305,8 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 }
 
 .scene-context-history-controls .scene-context-window-button {
-  grid-template-columns: minmax(0, 1fr);
+  /* Label + hotkey (Undo Ctrl+Z / Redo Ctrl+Shift+Z). */
+  grid-template-columns: minmax(0, 1fr) auto;
   border: 0;
   border-radius: 0;
 }
@@ -15040,9 +15316,18 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 }
 
 .scene-context-history-controls .scene-context-window-button-label {
-  justify-items: center;
-  padding-inline: 0;
-  text-align: center;
+  justify-items: start;
+  padding-inline: 6px 2px;
+  text-align: left;
+}
+
+.scene-context-history-controls .scene-context-window-button kbd {
+  align-self: center;
+  padding-right: 6px;
+  font-size: 0.55rem;
+  line-height: 1;
+  white-space: nowrap;
+  opacity: 0.78;
 }
 
 .scene-context-modular-view-controls {
@@ -16511,13 +16796,17 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
  *
  * Technique: radial-gradient circle centered on the flat edge; only the arc
  * that lies inside the half-disk is painted (the diameter is not stroked).
+ *
+ * Inlet arc stroke matches the module frame path (same color mix + 1px width)
+ * so the crescent reads as continuous chrome, not a different jack accent.
  */
 .node-port {
   position: relative;
   z-index: 2;
   --node-port-stroke-mask-color: color-mix(in srgb, var(--node-port-idle-fill) 42%, transparent);
   --node-port-crescent-fill: var(--node-port-stroke-mask-color);
-  --node-port-crescent-stroke: color-mix(in srgb, var(--node-port-idle-stroke) 34%, transparent);
+  --node-port-crescent-stroke: color-mix(in srgb, var(--node-module-stroke) 16%, transparent);
+  --node-port-crescent-stroke-width: 1px;
   --node-port-crescent-at: left center;
   display: block;
   box-sizing: border-box;
@@ -16536,8 +16825,8 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   border-color: transparent;
   background: radial-gradient(
     circle farthest-side at var(--node-port-crescent-at),
-    var(--node-port-crescent-fill) calc(100% - 1px),
-    var(--node-port-crescent-stroke) calc(100% - 1px),
+    var(--node-port-crescent-fill) calc(100% - var(--node-port-crescent-stroke-width, 1px)),
+    var(--node-port-crescent-stroke) calc(100% - var(--node-port-crescent-stroke-width, 1px)),
     var(--node-port-crescent-stroke) 100%
   );
   box-shadow: none;
@@ -16580,6 +16869,9 @@ body.node-slider-dragging .node-param-port {
   --node-patch-point-x: 0%;
   --node-port-hover-color: var(--node-input-fill);
   --node-port-crescent-at: left center;
+  /* Same stroke as .node-module-frame-path (color + 1px). */
+  --node-port-crescent-stroke: color-mix(in srgb, var(--node-module-stroke) 16%, transparent);
+  --node-port-crescent-stroke-width: 1px;
   /* Flat outer edge on the left; curved inner arc on the right. */
   border-radius: 0 999px 999px 0;
 }
@@ -16593,7 +16885,8 @@ body.node-slider-dragging .node-param-port {
   z-index: 2;
   --node-port-stroke-mask-color: color-mix(in srgb, var(--node-port-idle-fill) 42%, transparent);
   --node-port-crescent-fill: var(--node-port-stroke-mask-color);
-  --node-port-crescent-stroke: color-mix(in srgb, var(--node-port-idle-stroke) 34%, transparent);
+  --node-port-crescent-stroke: color-mix(in srgb, var(--node-module-stroke) 16%, transparent);
+  --node-port-crescent-stroke-width: 1px;
   --node-port-crescent-at: left center;
   grid-column: 1;
   grid-row: 1;
@@ -16629,8 +16922,8 @@ body.node-slider-dragging .node-param-port {
   border: 0;
   background: radial-gradient(
     circle farthest-side at var(--node-port-crescent-at),
-    var(--node-port-crescent-fill) calc(100% - 1px),
-    var(--node-port-crescent-stroke) calc(100% - 1px),
+    var(--node-port-crescent-fill) calc(100% - var(--node-port-crescent-stroke-width, 1px)),
+    var(--node-port-crescent-stroke) calc(100% - var(--node-port-crescent-stroke-width, 1px)),
     var(--node-port-crescent-stroke) 100%
   );
   box-shadow: none;
@@ -16642,6 +16935,8 @@ body.node-slider-dragging .node-param-port {
   --node-param-hover-color: var(--node-mod-input-fill);
   --node-param-hover-stroke: var(--node-mod-input-stroke);
   --node-port-crescent-at: left center;
+  --node-port-crescent-stroke: color-mix(in srgb, var(--node-module-stroke) 16%, transparent);
+  --node-port-crescent-stroke-width: 1px;
 }
 
 .node-param-port.graph-input {
@@ -16649,6 +16944,8 @@ body.node-slider-dragging .node-param-port {
   --node-param-hover-color: var(--node-mod-input-fill);
   --node-param-hover-stroke: var(--node-mod-input-stroke);
   --node-port-crescent-at: left center;
+  --node-port-crescent-stroke: color-mix(in srgb, var(--node-module-stroke) 16%, transparent);
+  --node-port-crescent-stroke-width: 1px;
 }
 
 .node-param-port.modulation-input::before,
@@ -16726,7 +17023,9 @@ body.node-slider-dragging .node-param-port {
   --node-patch-point-x: 0%;
   --node-port-stroke-mask-color: color-mix(in srgb, var(--node-input-fill) 15%, transparent);
   --node-port-crescent-fill: var(--node-port-stroke-mask-color);
-  --node-port-crescent-stroke: color-mix(in srgb, var(--node-input-stroke) 56%, transparent);
+  /* Keep inlet arc matched to module frame (not input accent color). */
+  --node-port-crescent-stroke: color-mix(in srgb, var(--node-module-stroke) 16%, transparent);
+  --node-port-crescent-stroke-width: 1px;
   border-color: transparent;
 }
 
@@ -16735,7 +17034,8 @@ body.node-slider-dragging .node-param-port {
   --node-patch-point-x: 0%;
   --node-port-stroke-mask-color: color-mix(in srgb, var(--node-mod-input-fill) 15%, transparent);
   --node-port-crescent-fill: var(--node-port-stroke-mask-color);
-  --node-port-crescent-stroke: color-mix(in srgb, var(--node-mod-input-stroke) 62%, transparent);
+  --node-port-crescent-stroke: color-mix(in srgb, var(--node-module-stroke) 16%, transparent);
+  --node-port-crescent-stroke-width: 1px;
   border-color: transparent;
   background: transparent;
 }
@@ -16745,9 +17045,25 @@ body.node-slider-dragging .node-param-port {
   --node-patch-point-x: 0%;
   --node-port-stroke-mask-color: color-mix(in srgb, var(--node-mod-input-fill) 15%, transparent);
   --node-port-crescent-fill: var(--node-port-stroke-mask-color);
-  --node-port-crescent-stroke: color-mix(in srgb, var(--node-mod-input-stroke) 62%, transparent);
+  --node-port-crescent-stroke: color-mix(in srgb, var(--node-module-stroke) 16%, transparent);
+  --node-port-crescent-stroke-width: 1px;
   border-color: transparent;
   background: transparent;
+}
+
+/* Selected / dragging module: inlet arcs follow the same frame stroke state. */
+.dsp-node.selected .node-port.input,
+.dsp-node.selected .node-param-port.modulation-input,
+.dsp-node.selected .node-param-port.graph-input {
+  --node-port-crescent-stroke: var(--node-module-selected-stroke);
+  --node-port-crescent-stroke-width: 1.5px;
+}
+
+.dsp-node.dragging .node-port.input,
+.dsp-node.dragging .node-param-port.modulation-input,
+.dsp-node.dragging .node-param-port.graph-input {
+  --node-port-crescent-stroke: color-mix(in srgb, var(--node-module-drag-stroke) 62%, transparent);
+  --node-port-crescent-stroke-width: 1px;
 }
 
 .node-port.connected-port,
@@ -16764,8 +17080,8 @@ body.node-slider-dragging .node-param-port {
   /* Keep crescent stroke via inherited --node-port-crescent-* vars. */
   background: radial-gradient(
     circle farthest-side at var(--node-port-crescent-at),
-    var(--node-port-crescent-fill) calc(100% - 1px),
-    var(--node-port-crescent-stroke) calc(100% - 1px),
+    var(--node-port-crescent-fill) calc(100% - var(--node-port-crescent-stroke-width, 1px)),
+    var(--node-port-crescent-stroke) calc(100% - var(--node-port-crescent-stroke-width, 1px)),
     var(--node-port-crescent-stroke) 100%
   );
 }

@@ -1757,6 +1757,73 @@ async function sendNodeGraphLivePlan() {
   }
 }
 
+/**
+ * Push graph control-point data into the live engine without a full plan rebuild.
+ * Call while dragging graph dots so Out tracks the curve in realtime; pointer-up
+ * still commits history via commitNodeGraphPatch.
+ */
+function sendNodeGraphLiveGraphData(graphDataByNodeId = {}) {
+  const entries = Object.entries(graphDataByNodeId || {}).filter(
+    ([nodeId, graph]) => nodeId && graph && typeof graph === "object",
+  );
+  if (!entries.length) {
+    return false;
+  }
+  const graphData = Object.fromEntries(
+    entries.map(([nodeId, graph]) => [
+      nodeId,
+      typeof normalizeNodeGraphGraph === "function" ? normalizeNodeGraphGraph(graph) : graph,
+    ]),
+  );
+  // Keep the main-thread patch + offline runtime in lockstep with the face.
+  for (const [nodeId, graph] of Object.entries(graphData)) {
+    const patchNode = nodeGraphMvp.patch?.nodes?.find((node) => node.id === nodeId);
+    if (patchNode && typeof nodeGraphModuleIsGraphType === "function" && nodeGraphModuleIsGraphType(patchNode.type)) {
+      patchNode.graph = graph;
+    }
+    const runtimeNode = nodeGraphMvp.live?.runtime?.nodes?.get?.(nodeId);
+    if (runtimeNode) {
+      runtimeNode.graph = graph;
+    }
+  }
+  if (nodeGraphMvp.live?.usesWorklet && nodeGraphMvp.live?.node?.port) {
+    nodeGraphMvp.live.node.port.postMessage({
+      graphData,
+      sessionId: nodeGraphMvp.live.sessionId,
+      type: "setGraphData",
+    });
+    return true;
+  }
+  return Boolean(nodeGraphMvp.live?.runtime);
+}
+
+/** rAF-coalesce graph-data pushes during pointer moves (one post per frame). */
+function scheduleNodeGraphLiveGraphData(nodeId, graph) {
+  const id = String(nodeId || "").trim();
+  if (!id || !graph) {
+    return;
+  }
+  if (!(nodeGraphMvp._pendingLiveGraphData instanceof Map)) {
+    nodeGraphMvp._pendingLiveGraphData = new Map();
+  }
+  nodeGraphMvp._pendingLiveGraphData.set(
+    id,
+    typeof normalizeNodeGraphGraph === "function" ? normalizeNodeGraphGraph(graph) : graph,
+  );
+  if (nodeGraphMvp._pendingLiveGraphDataFrame) {
+    return;
+  }
+  nodeGraphMvp._pendingLiveGraphDataFrame = window.requestAnimationFrame(() => {
+    nodeGraphMvp._pendingLiveGraphDataFrame = 0;
+    const pending = nodeGraphMvp._pendingLiveGraphData;
+    nodeGraphMvp._pendingLiveGraphData = null;
+    if (!pending?.size) {
+      return;
+    }
+    sendNodeGraphLiveGraphData(Object.fromEntries(pending));
+  });
+}
+
 function sendNodeGraphLiveParameterUpdate() {
   if (!nodeGraphMvp.live.node && !nodeGraphMvp.live.context) {
     return;
@@ -2020,16 +2087,23 @@ function dragNodeGraphGlobalSmoothingSeconds(event) {
   ) {
     return;
   }
-  const horizontalDelta = event.clientX - drag.startX;
-  const verticalDelta = drag.startY - event.clientY;
-  if (Math.abs(horizontalDelta) > 1 || Math.abs(verticalDelta) > 1) {
+  if (
+    typeof nodeGraphPointerDragExceededMoveThreshold === "function"
+      ? nodeGraphPointerDragExceededMoveThreshold(drag.startX, drag.startY, event.clientX, event.clientY, 1)
+      : (Math.abs(event.clientX - drag.startX) > 1 || Math.abs(drag.startY - event.clientY) > 1)
+  ) {
     drag.moved = true;
   }
   if (drag.resetToDefaultOnClick && !drag.moved) {
     event.preventDefault();
     return;
   }
-  setNodeGraphGlobalSmoothingSeconds(drag.startValue + (horizontalDelta + verticalDelta) * drag.step);
+  const axes = typeof nodeGraphPointerDragScreenDelta === "function"
+    ? nodeGraphPointerDragScreenDelta(drag.startX, drag.startY, event.clientX, event.clientY)
+    : {
+      combined: (event.clientX - drag.startX) + (drag.startY - event.clientY),
+    };
+  setNodeGraphGlobalSmoothingSeconds(drag.startValue + axes.combined * drag.step);
   event.preventDefault();
 }
 
@@ -2169,7 +2243,7 @@ async function stopNodeGraphLiveAudio() {
 // has finished defining/registering.
 const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-graph-parameter-smoother-filters.js?v=xy-pad-native-1",
-  "./public/node-live-audio-worklet-core.js?v=graph-shape-clean-1",
+  "./public/node-live-audio-worklet-core.js?v=curve-catmull-name-1",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=xy-pad-dsp-path-1",
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=native-strip-1",

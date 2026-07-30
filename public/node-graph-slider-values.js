@@ -63,6 +63,56 @@ function nodeGraphNumericDragMultiplier(event) {
   return 1;
 }
 
+/**
+ * App-wide pointer drag axes (screen space).
+ *
+ * Policy: no separate “horizontal only” / “vertical only” value change for
+ * 1D controls. Right and up both increase; left and down both decrease:
+ *   horizontal = clientX - startX
+ *   vertical   = startY - clientY   (up is positive)
+ *   combined   = horizontal + vertical
+ *
+ * Same formula as slider drag, global smoothing drag, color widgets, etc.
+ * Prefer this helper over hand-rolled dx/dy so the policy stays one place.
+ *
+ * @returns {{ horizontal: number, vertical: number, combined: number }}
+ */
+function nodeGraphPointerDragScreenDelta(startClientX, startClientY, clientX, clientY) {
+  const startX = Number(startClientX);
+  const startY = Number(startClientY);
+  const x = Number(clientX);
+  const y = Number(clientY);
+  const horizontal = (Number.isFinite(x) && Number.isFinite(startX) ? x - startX : 0);
+  // Invert Y so upward mouse motion is positive (matches value increase).
+  const vertical = (Number.isFinite(startY) && Number.isFinite(y) ? startY - y : 0);
+  return {
+    horizontal,
+    vertical,
+    combined: horizontal + vertical,
+  };
+}
+
+/**
+ * 1D travel delta in unit space (0..1 span) from the diagonal drag policy.
+ * `travelWidthPx` is the pixel distance that maps to a full 0→1 sweep
+ * (slider lane width, graph plot width, etc.).
+ */
+function nodeGraphPointerDragTravelDelta(startClientX, startClientY, clientX, clientY, travelWidthPx, fineScale = 1) {
+  const width = Math.max(1, Number(travelWidthPx) || 1);
+  const scale = Number.isFinite(Number(fineScale)) ? Number(fineScale) : 1;
+  const { combined } = nodeGraphPointerDragScreenDelta(startClientX, startClientY, clientX, clientY);
+  return (combined / width) * scale;
+}
+
+/**
+ * True when the diagonal drag has moved past a small click threshold.
+ */
+function nodeGraphPointerDragExceededMoveThreshold(startClientX, startClientY, clientX, clientY, thresholdPx = 1) {
+  const { horizontal, vertical } = nodeGraphPointerDragScreenDelta(startClientX, startClientY, clientX, clientY);
+  const limit = Math.max(0, Number(thresholdPx) || 0);
+  return Math.abs(horizontal) > limit || Math.abs(vertical) > limit;
+}
+
 function clampNodeSliderValue(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }

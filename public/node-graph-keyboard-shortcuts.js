@@ -277,12 +277,18 @@ function handleNodeGraphKeydown(event) {
   }
   if (event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey && event.key.toLowerCase() === "a") {
     event.preventDefault();
-    openNodeGraphModuleShop(null);
+    if (typeof openNodeGraphUnifiedWindowPage === "function") {
+      openNodeGraphUnifiedWindowPage("moduleBrowser");
+    } else {
+      openNodeGraphModuleShop(null);
+    }
     return;
   }
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "c") {
     event.preventDefault();
-    if (typeof openNodeGraphCommandCenter === "function") {
+    if (typeof openNodeGraphUnifiedWindowPage === "function") {
+      openNodeGraphUnifiedWindowPage("commandCenter");
+    } else if (typeof openNodeGraphCommandCenter === "function") {
       openNodeGraphCommandCenter();
     }
     return;

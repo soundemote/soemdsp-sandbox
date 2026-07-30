@@ -1358,6 +1358,54 @@ function writeNodeMetadataEditorValues(metadata) {
   syncNodeMetadataMidVisibility();
 }
 
+/**
+ * Place empty-state copy BELOW the unified nav toolbar (heading → nav → empty).
+ * Never insert as heading's next sibling when a nav host already exists.
+ */
+function placeNodeGraphUnifiedInspectorEmpty(popover, empty) {
+  if (!popover || !empty) {
+    return;
+  }
+  const nav = popover.querySelector(":scope > .node-unified-window-nav-host");
+  const heading = popover.querySelector(
+    ":scope > .metadata-popover-heading, :scope > .scene-context-heading, :scope > .node-trace-display-settings-heading",
+  );
+  const grid = popover.querySelector(
+    ":scope > .metadata-popover-grid, :scope > .node-trace-display-settings-grid",
+  );
+  if (nav) {
+    nav.after(empty);
+  } else if (grid) {
+    popover.insertBefore(empty, grid);
+  } else if (heading) {
+    heading.after(empty);
+  } else {
+    popover.append(empty);
+  }
+}
+
+/** Show/hide the parameter form vs the “right-click a slider” empty state. */
+function setNodeMetadataPopoverBlankState(blank = true, message = "Right-click on a slider") {
+  const popover = document.getElementById("nodeParameterMetadataPopover");
+  if (!popover) {
+    return;
+  }
+  const grid = popover.querySelector(".metadata-popover-grid");
+  let empty = popover.querySelector(":scope > .node-unified-inspector-empty");
+  if (!empty) {
+    empty = document.createElement("div");
+    empty.className = "node-unified-inspector-empty";
+    empty.setAttribute("role", "status");
+  }
+  empty.textContent = message;
+  placeNodeGraphUnifiedInspectorEmpty(popover, empty);
+  empty.hidden = !blank;
+  if (grid) {
+    grid.hidden = Boolean(blank);
+  }
+  popover.dataset.inspectorBlank = blank ? "true" : "false";
+}
+
 function fillNodeMetadataPopover(slider) {
   populateNodeMetadataKindChoices();
   const metadata = nodeSliderMetadata(slider);
@@ -1373,7 +1421,8 @@ function fillNodeMetadataPopover(slider) {
   setNodeMetadataScriptDirty(false, "script ready", false);
   setNodeMetadataAdvancedScriptVisible(false);
   setNodeMetadataFieldsDirty(false);
-  document.getElementById("metadataRestoreDefaultButton").classList.remove("armed");
+  document.getElementById("metadataRestoreDefaultButton")?.classList.remove("armed");
+  setNodeMetadataPopoverBlankState(false);
 }
 
 function openNodeMetadataPopover(event, readout) {
@@ -1409,46 +1458,85 @@ function openNodeMetadataPopover(event, readout) {
     Number.isFinite(Number(savedPosition?.top));
   applyNodeMetadataPopoverSize(sharedInspectorState.size);
   const popover = document.getElementById("nodeParameterMetadataPopover");
-  positionNodeMetadataPopover(
-    popover,
-    hasSavedPosition
-      ? savedPosition.left
-      : nodeMetadataReplacementX(displayRect || moduleActionsRect, popover, event.clientX),
-    hasSavedPosition
-      ? savedPosition.top
-      : (displayRect?.top ?? moduleActionsRect?.top ?? event.clientY),
-  );
+  // Unified switcher seats after return — skip independent placement.
+  if (nodeGraphMvp._unifiedWindowSwitching) {
+    popover.hidden = false;
+    if (typeof markNodeGraphFloatingWindowSurface === "function") {
+      markNodeGraphFloatingWindowSurface(popover);
+    }
+  } else {
+    positionNodeMetadataPopover(
+      popover,
+      hasSavedPosition
+        ? savedPosition.left
+        : nodeMetadataReplacementX(displayRect || moduleActionsRect, popover, event.clientX),
+      hasSavedPosition
+        ? savedPosition.top
+        : (displayRect?.top ?? moduleActionsRect?.top ?? event.clientY),
+    );
+  }
   if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
     rememberNodeGraphWorkspaceWindowState("metaparameters", popover, { open: true }, { status: false });
   }
+  if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
+    noteNodeGraphUnifiedWindowOpened("metaparameters", popover);
+  }
 }
 
+/**
+ * Parameter Settings never auto-bind from module selection — only right-click
+ * on a slider fills the form. Selection changes only clear to the blank state
+ * when nothing is selected or the open parameter no longer belongs to the selection.
+ */
 function syncOpenNodeMetadataPopoverToModule(nodeId) {
   const popover = document.getElementById("nodeParameterMetadataPopover");
   if (!popover || popover.hidden || nodeGraphMvp.sharedInspectorActive !== "metaparameters") {
     return false;
   }
-  const readout = typeof nodeGraphContextTargetSliderReadout === "function"
-    ? nodeGraphContextTargetSliderReadout(nodeId)
-    : null;
-  const slider = readout?.dataset?.sliderTarget
-    ? document.getElementById(readout.dataset.sliderTarget)
-    : null;
-  if (!slider) {
-    return false;
-  }
-  if (nodeGraphMvp.metadataEditorTarget === slider.id) {
+  const selectedNode = String(nodeId || "").trim();
+  const targetId = String(nodeGraphMvp.metadataEditorTarget || "").trim();
+  if (!targetId) {
+    // Already blank — keep blank even when a module is selected.
     return true;
   }
+  const slider = document.getElementById(targetId);
+  const targetModuleId = String(slider?.closest?.(".dsp-node")?.dataset?.node || "").trim();
+  if (selectedNode && targetModuleId && selectedNode === targetModuleId) {
+    return true;
+  }
+  // Unselected, multi-select, or different module: clear to empty state.
   if (nodeGraphMvp.metadataEditorTarget && !confirmNodeMetadataScriptDiscard()) {
     return false;
   }
-  nodeGraphMvp.metadataEditorTarget = slider.id;
-  fillNodeMetadataPopover(slider);
-  if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
-    rememberNodeGraphWorkspaceWindowState("metaparameters", popover, { open: true }, { status: false });
-  }
+  showBlankNodeMetadataPopoverContent();
   return true;
+}
+
+/** Content-only blank fill (no positioning). Used by open + selection sync. */
+function showBlankNodeMetadataPopoverContent() {
+  nodeGraphMvp.metadataEditorTarget = null;
+  nodeGraphMvp.sharedInspectorActive = "metaparameters";
+  const title = document.getElementById("metadataPopoverTitle");
+  const subtitle = document.getElementById("metadataPopoverSubtitle");
+  const scriptTarget = document.getElementById("metadataScriptTarget");
+  if (title) {
+    title.textContent = "PARAMETER";
+  }
+  if (subtitle) {
+    subtitle.textContent = "Settings";
+  }
+  if (scriptTarget) {
+    scriptTarget.textContent = "No parameter selected";
+  }
+  setMetadataScriptSourceText("");
+  if (typeof updateNodeMetadataScriptPreview === "function") {
+    updateNodeMetadataScriptPreview("");
+  }
+  if (typeof updateNodeMetadataScriptEffective === "function") {
+    updateNodeMetadataScriptEffective("");
+  }
+  setNodeMetadataScriptDirty(false, "no parameter selected", false, "Right-click on a slider");
+  setNodeMetadataPopoverBlankState(true, "Right-click on a slider");
 }
 
 function openBlankNodeMetadataPopover(event = {}) {
@@ -1467,15 +1555,7 @@ function openBlankNodeMetadataPopover(event = {}) {
   const moduleActionsRect = typeof prepareNodeModuleActionsWindowForInspectorReplacement === "function"
     ? prepareNodeModuleActionsWindowForInspectorReplacement()
     : null;
-  nodeGraphMvp.metadataEditorTarget = null;
-  nodeGraphMvp.sharedInspectorActive = "metaparameters";
-  document.getElementById("metadataPopoverTitle").textContent = "PARAMETER";
-  document.getElementById("metadataPopoverSubtitle").textContent = "Settings";
-  document.getElementById("metadataScriptTarget").textContent = "No parameter selected";
-  setMetadataScriptSourceText("");
-  updateNodeMetadataScriptPreview("");
-  updateNodeMetadataScriptEffective("");
-  setNodeMetadataScriptDirty(false, "no parameter selected", false, "Right-click a slider readout or choose a module with parameters.");
+  showBlankNodeMetadataPopoverContent();
   const sharedInspectorState = typeof normalizeNodeGraphSharedInspectorWindowState === "function"
     ? normalizeNodeGraphSharedInspectorWindowState(nodeGraphMvp.sharedInspectorWindowState, nodeGraphMvp.workspaceWindowStates)
     : (nodeGraphMvp.sharedInspectorWindowState || {});
@@ -1485,17 +1565,27 @@ function openBlankNodeMetadataPopover(event = {}) {
     Number.isFinite(Number(savedPosition?.top));
   applyNodeMetadataPopoverSize(sharedInspectorState.size);
   const popover = document.getElementById("nodeParameterMetadataPopover");
-  positionNodeMetadataPopover(
-    popover,
-    hasSavedPosition
-      ? savedPosition.left
-      : nodeMetadataReplacementX(displayRect || moduleActionsRect, popover, event.clientX ?? window.innerWidth * 0.5),
-    hasSavedPosition
-      ? savedPosition.top
-      : (displayRect?.top ?? moduleActionsRect?.top ?? event.clientY ?? window.innerHeight * 0.25),
-  );
+  if (nodeGraphMvp._unifiedWindowSwitching) {
+    popover.hidden = false;
+    if (typeof markNodeGraphFloatingWindowSurface === "function") {
+      markNodeGraphFloatingWindowSurface(popover);
+    }
+  } else {
+    positionNodeMetadataPopover(
+      popover,
+      hasSavedPosition
+        ? savedPosition.left
+        : nodeMetadataReplacementX(displayRect || moduleActionsRect, popover, event.clientX ?? window.innerWidth * 0.5),
+      hasSavedPosition
+        ? savedPosition.top
+        : (displayRect?.top ?? moduleActionsRect?.top ?? event.clientY ?? window.innerHeight * 0.25),
+    );
+  }
   if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
     rememberNodeGraphWorkspaceWindowState("metaparameters", popover, { open: true }, { status: false });
+  }
+  if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
+    noteNodeGraphUnifiedWindowOpened("metaparameters", popover);
   }
 }
 

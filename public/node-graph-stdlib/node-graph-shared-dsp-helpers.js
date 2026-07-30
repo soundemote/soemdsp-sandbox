@@ -97,6 +97,9 @@ function nodeGraphFlowerChildFilterCurveShape(v, tension) {
 function createNodeGraphGraphLfoState() {
   return {
     lastReset: 0,
+    // Free-running phasor position in cycles [0, 1). Advanced by rate/sr each
+    // sample in Phasor mode so Rate changes only alter slope, not position.
+    phase: 0,
     resetFrame: 0,
   };
 }

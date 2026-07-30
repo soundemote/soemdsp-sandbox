@@ -990,9 +990,16 @@ function dragNodeGraphShaderScriptNumberToken(event) {
   if (drag.pointerId !== null && event.pointerId !== undefined && drag.pointerId !== event.pointerId) {
     return;
   }
-  const distance = (event.clientX - drag.startX) - (event.clientY - drag.startY);
+  const axes = typeof nodeGraphPointerDragScreenDelta === "function"
+    ? nodeGraphPointerDragScreenDelta(drag.startX, drag.startY, event.clientX, event.clientY)
+    : { combined: (event.clientX - drag.startX) + (drag.startY - event.clientY) };
+  const distance = axes.combined;
   const steps = Math.round(distance / 8);
-  drag.changed = drag.changed || Math.abs(event.clientX - drag.startX) >= 3 || Math.abs(event.clientY - drag.startY) >= 3;
+  drag.changed = drag.changed || (
+    typeof nodeGraphPointerDragExceededMoveThreshold === "function"
+      ? nodeGraphPointerDragExceededMoveThreshold(drag.startX, drag.startY, event.clientX, event.clientY, 3)
+      : (Math.abs(event.clientX - drag.startX) >= 3 || Math.abs(event.clientY - drag.startY) >= 3)
+  );
   if (steps !== drag.lastSteps) {
     drag.lastSteps = steps;
     replaceNodeGraphShaderScriptNumberDragToken(drag.baseValue + steps * drag.step);

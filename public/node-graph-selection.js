@@ -126,21 +126,28 @@ function syncNodeGraphModuleActionTargetFromSelection() {
 
 function syncNodeGraphSharedInspectorTargetFromSelection() {
   const selectedNode = nodeGraphSingleSelectedNodeId();
-  if (!selectedNode || !nodeGraphPatchNode(selectedNode)) {
-    return;
+  const hasNode = Boolean(selectedNode && nodeGraphPatchNode(selectedNode));
+
+  // Display Settings: follow a single selected module when it has a display;
+  // otherwise stay open but blank ("Right-click on a display").
+  if (nodeGraphMvp.sharedInspectorActive === "traceDisplaySettings") {
+    const popover = document.getElementById("nodeTraceDisplaySettingsPopover");
+    if (popover && !popover.hidden) {
+      if (hasNode && typeof syncOpenNodeGraphTraceDisplaySettingsToNode === "function") {
+        syncOpenNodeGraphTraceDisplaySettingsToNode(selectedNode);
+      } else if (typeof showBlankNodeGraphTraceDisplaySettingsContent === "function") {
+        showBlankNodeGraphTraceDisplaySettingsContent();
+      }
+    }
   }
-  if (
-    nodeGraphMvp.sharedInspectorActive === "traceDisplaySettings" &&
-    typeof syncOpenNodeGraphTraceDisplaySettingsToNode === "function"
-  ) {
-    syncOpenNodeGraphTraceDisplaySettingsToNode(selectedNode);
-    return;
-  }
-  if (
-    nodeGraphMvp.sharedInspectorActive === "metaparameters" &&
-    typeof syncOpenNodeMetadataPopoverToModule === "function"
-  ) {
-    syncOpenNodeMetadataPopoverToModule(selectedNode);
+
+  // Parameter Settings: never auto-fill from module selection. Right-click on a
+  // slider is the only way to populate. Selection only clears back to blank.
+  if (nodeGraphMvp.sharedInspectorActive === "metaparameters") {
+    const popover = document.getElementById("nodeParameterMetadataPopover");
+    if (popover && !popover.hidden && typeof syncOpenNodeMetadataPopoverToModule === "function") {
+      syncOpenNodeMetadataPopoverToModule(hasNode ? selectedNode : "");
+    }
   }
 }
 

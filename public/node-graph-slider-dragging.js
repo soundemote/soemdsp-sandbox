@@ -39,15 +39,15 @@ function syncNodeGraphPatchMetadataFromSlider(slider, options = {}) {
     nodeGraphModuleIsGraphType(patchNode.type) &&
     typeof nodeGraphGraphWithPhaseCursor === "function"
   );
-  const graphTensionChanged = (
-    key === "tension" &&
+  const graphFaceChanged = (
+    (key === "tension" || key === "smoothingMode" || key === "steps") &&
     nodeGraphModuleIsGraphType(patchNode.type)
   );
   if (graphPhaseChanged) {
     patchNode.graph = nodeGraphGraphWithPhaseCursor(patchNode);
     syncNodeGraphGraphDisplaysForNode(node, patchNode);
   }
-  if (graphTensionChanged) {
+  if (graphFaceChanged) {
     syncNodeGraphGraphDisplaysForNode(node, patchNode);
   }
   syncNodeGraphScriptView(options.status || "metadata synced", true);
@@ -127,11 +127,11 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
     saveNodeGraphWorkingPatchToUserSettings();
   }
   if (options.deferUi) {
-    // Graph curve shape depends on tension/smoothing -- keep the SVG in sync
+    // Graph face depends on tension/smoothing/steps -- keep the SVG in sync
     // while dragging even when the rest of the deferred UI is skipped.
     if (
       nodeGraphModuleIsGraphType(patchNode.type) &&
-      (key === "tension" || key === "smoothingMode") &&
+      (key === "tension" || key === "smoothingMode" || key === "steps") &&
       typeof syncNodeGraphGraphDisplaysForNode === "function"
     ) {
       syncNodeGraphGraphDisplaysForNode(node, patchNode);
@@ -302,12 +302,14 @@ function setNodeSliderValue(slider, value, options = {}) {
   } else {
     syncNodeSliderReadout(slider);
   }
-  // Tension/smoothing on graph modules must refresh the curve every pointer
-  // move (not once per rAF), otherwise the shape only jumps on mouse-up /
-  // next-frame flush. Other params keep the cheaper once-per-frame path.
+  // Tension/smoothing/steps on graph modules must refresh the face every
+  // pointer move (not once per rAF), otherwise the curve / step grid only
+  // jumps on mouse-up / next-frame flush. Other params keep the cheaper
+  // once-per-frame path.
   const graphCurveLiveParam = isDrag && (
     slider?.dataset?.param === "tension" ||
-    slider?.dataset?.param === "smoothingMode"
+    slider?.dataset?.param === "smoothingMode" ||
+    slider?.dataset?.param === "steps"
   );
   if (!alreadyPending || graphCurveLiveParam) {
     syncNodeGraphPatchParameterFromSlider(slider, {
@@ -743,9 +745,11 @@ function dragNodeSlider(event) {
   }
   drag._lastMoveEvent = event;
 
-  const horizontalDelta = event.clientX - drag.startX;
-  const verticalDelta = drag.startY - event.clientY;
-  if (Math.abs(horizontalDelta) > 1 || Math.abs(verticalDelta) > 1) {
+  if (
+    typeof nodeGraphPointerDragExceededMoveThreshold === "function"
+      ? nodeGraphPointerDragExceededMoveThreshold(drag.startX, drag.startY, event.clientX, event.clientY, 1)
+      : (Math.abs(event.clientX - drag.startX) > 1 || Math.abs(drag.startY - event.clientY) > 1)
+  ) {
     drag.moved = true;
   }
 
@@ -770,7 +774,10 @@ function dragNodeSlider(event) {
   wrapNodeSliderDragAtScreenEdge(drag, event);
 
   const visualTravelWidth = Math.max(1, drag.width * (Number(drag.visualScale) || 1));
-  const travelDelta = ((horizontalDelta + verticalDelta) / visualTravelWidth) * drag.fineScale;
+  // App-wide diagonal policy: right + up increase (see nodeGraphPointerDragTravelDelta).
+  const travelDelta = typeof nodeGraphPointerDragTravelDelta === "function"
+    ? nodeGraphPointerDragTravelDelta(drag.startX, drag.startY, event.clientX, event.clientY, visualTravelWidth, drag.fineScale)
+    : (((event.clientX - drag.startX) + (drag.startY - event.clientY)) / visualTravelWidth) * drag.fineScale;
   const nextTravel = drag.startTravel + travelDelta;
   setNodeSliderValue(
     drag.slider,

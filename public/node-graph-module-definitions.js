@@ -5,8 +5,8 @@ const nodeGraphNodeLabels = Object.freeze({
   // graph2: point-to-point segments (shape + contour per control point).
   // graphCopy: same as graph2 (kept as an alias-style twin).
   // (The old "graph" type was retired -- see nodeGraphRetiredNodeTypes.)
-  graph2: "Graph",
-  graphCopy: "Graph_Copy",
+  graph2: "Smooth Graph",
+  graphCopy: "Step Graph",
   animatedTextBox: "Animated Text Box",
   moduleGroup: "Module Group",
   nextPatch: "Next Patch",
@@ -256,9 +256,35 @@ const nodeGraphModuleDefinitions = Object.freeze({
     layout: "graph",
     outputs: ["Out"],
     parameters: [
-      { choices: ["Input", "LFO"], defaultValue: "0", displayChoices: true, divideChoicesVisibly: true, key: "mode", label: "Mode", linearSmoothing: false, max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "1" },
+      // 0 Input | 1 LFO (wall-clock) | 2 Phasor (accumulates so rate changes don't jump)
+      { choices: ["Input", "LFO", "Phasor"], defaultValue: "0", displayChoices: true, divideChoicesVisibly: true, key: "mode", label: "Mode", linearSmoothing: false, max: "2", mid: "1", min: "0", nonlinearSlider: false, step: "1" },
+      // One global curve through the dots (not per-node shape/contour).
+      // Catmull = guide-tension curve + Tension param (default).
+      {
+        choices: ["Linear", "Catmull", "Quadratic", "Cubic"],
+        defaultValue: "1",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "smoothingMode",
+        label: "Curve",
+        linearSmoothing: false,
+        max: "3",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+      },
+      {
+        defaultValue: "1",
+        key: "tension",
+        label: "Tension",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        nonlinearSlider: false,
+        step: "0.01",
+      },
       { choices: ["Off", "On"], defaultValue: "0", displayChoices: true, divideChoicesVisibly: true, key: "lockEndpointY", label: "Lock Ends", linearSmoothing: false, max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "1" },
-      // Segment shape/contour live on each control point (scene panel + face).
       { defaultValue: "1", key: "rate", kind: "frequency", label: "Rate", max: "40", maxDigits: 5, mid: "1", min: "0", step: "any", unit: "Hz" },
       { defaultValue: "0", key: "phase", kind: "phase", label: "Phase", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "0.01", unit: "cycle", wraparound: true },
       { defaultValue: "0", key: "inputMin", label: "In Min", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
@@ -267,14 +293,25 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { defaultValue: "1", key: "outputMax", label: "Out Max", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
     ],
   },
-  // Same point-to-point segment model as graph2.
+  // Same point-to-point segment model as graph2, plus step-count grid.
   graphCopy: {
     inputs: ["In"],
     layout: "graph",
     outputs: ["Out"],
     parameters: [
-      { choices: ["Input", "LFO"], defaultValue: "0", displayChoices: true, divideChoicesVisibly: true, key: "mode", label: "Mode", linearSmoothing: false, max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "1" },
+      { choices: ["Input", "LFO", "Phasor"], defaultValue: "0", displayChoices: true, divideChoicesVisibly: true, key: "mode", label: "Mode", linearSmoothing: false, max: "2", mid: "1", min: "0", nonlinearSlider: false, step: "1" },
       { choices: ["Off", "On"], defaultValue: "0", displayChoices: true, divideChoicesVisibly: true, key: "lockEndpointY", label: "Lock Ends", linearSmoothing: false, max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "1" },
+      {
+        defaultValue: "8",
+        key: "steps",
+        label: "Steps",
+        max: "64",
+        maxDigits: 2,
+        mid: "8",
+        min: "1",
+        nonlinearSlider: false,
+        step: "1",
+      },
       { defaultValue: "1", key: "rate", kind: "frequency", label: "Rate", max: "40", maxDigits: 5, mid: "1", min: "0", step: "any", unit: "Hz" },
       { defaultValue: "0", key: "phase", kind: "phase", label: "Phase", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "0.01", unit: "cycle", wraparound: true },
       { defaultValue: "0", key: "inputMin", label: "In Min", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },

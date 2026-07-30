@@ -1268,11 +1268,24 @@ function setNodeGraphSavedPatchesWindowVisible(visible) {
   button?.setAttribute("aria-pressed", String(visible));
   if (visible) {
     applyNodeGraphSavedPatchesWindowSize(nodeGraphMvp.workspaceWindowStates?.patchExplorer?.size);
-    openNodeGraphFloatingWindowAtPosition("patchExplorer", panel, () => {
-      positionNodeGraphSavedPatchesWindowNearButton();
-    });
+    const pending = nodeGraphMvp._unifiedWindowPendingPosition;
+    if (pending && Number.isFinite(Number(pending.left)) && Number.isFinite(Number(pending.top))) {
+      if (typeof setNodeGraphFloatingWindowViewportPosition === "function") {
+        setNodeGraphFloatingWindowViewportPosition(panel, pending.left, pending.top);
+      } else {
+        panel.style.left = `${Math.round(pending.left)}px`;
+        panel.style.top = `${Math.round(pending.top)}px`;
+      }
+    } else {
+      openNodeGraphFloatingWindowAtPosition("patchExplorer", panel, () => {
+        positionNodeGraphSavedPatchesWindowNearButton();
+      });
+    }
     syncNodeGraphSavedPatchGridColumns();
     renderNodeGraphDemoPatchList();
+    if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
+      noteNodeGraphUnifiedWindowOpened("patchExplorer", panel);
+    }
   }
   if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
     rememberNodeGraphWorkspaceWindowState("patchExplorer", panel, { open: visible }, { status: false });

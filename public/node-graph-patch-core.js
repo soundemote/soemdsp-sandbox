@@ -166,9 +166,26 @@ function validateNodeGraphPatch(patch) {
         node.paramMeta?.[parameter.key],
       );
       paramMeta[parameter.key] = metadata;
-      const value = Object.hasOwn(node.params || {}, parameter.key)
+      let value = Object.hasOwn(node.params || {}, parameter.key)
         ? node.params[parameter.key]
         : parameter.defaultValue;
+      // Smooth Graph Curve: collapse old 6-choice layout (Linear/Smooth/Bezier/
+      // Quadratic/Cubic/Catmull) where Smooth/Bezier/Catmull were one path.
+      // Detect old layout via saved max≥5 or orphan indices 4–5.
+      if (type === "graph2" && parameter.key === "smoothingMode") {
+        const sourceMax = Number(node.paramMeta?.[parameter.key]?.max);
+        const n = Math.round(Number(value));
+        const looksLegacySix = (Number.isFinite(sourceMax) && sourceMax >= 5)
+          || n === 4
+          || n === 5;
+        if (looksLegacySix && typeof nodeGraphGraph2SmoothingModeFourIndexFromLegacy === "function") {
+          value = nodeGraphGraph2SmoothingModeFourIndexFromLegacy(value);
+        } else if (looksLegacySix) {
+          // Fallback if graph-utils not loaded yet (plan/worklet paths).
+          const six = [0, 1, 1, 2, 3, 1];
+          value = Number.isFinite(n) && n >= 0 && n < six.length ? six[n] : 1;
+        }
+      }
       params[parameter.key] = normalizeNodeGraphPatchParameter(
         type,
         parameter.key,

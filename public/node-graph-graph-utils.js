@@ -1,19 +1,38 @@
-// Per-segment curve styles (point-to-point Graph / Graph_Copy).
+// Per-segment curve styles (Step Graph / legacy point-to-point).
 //   linear      — straight; contour ignored
 //   rational    — contour bends the chord (0 = straight)
 //   exponential — always curved; contour sets amount / direction
 //   log         — always curved (complement family); contour sets amount
+//   smoothstep  — hermite S-curve (p²(3−2p)); contour ignored
 //   hold        — step until next point; contour ignored
-// "smooth" still normalizes for old data (maps to smoothstep, no contour).
+// Legacy "smooth" still normalizes → smoothstep.
+//
+// Step Graph (graphCopy) vs Smooth Graph (graph2):
+//   Smooth: one global curve through free dots (smoothingMode + tension params).
+//   Step:   points = step boundaries; empty circle = bar height (left+right Y)
+//           or Shift+drag = contour. Normal node drag snaps X; Ctrl = free point.
 const nodeGraphGraphShapes = Object.freeze([
   "linear",
   "rational",
   "exponential",
   "log",
+  "smoothstep",
   "hold",
 ]);
-// Legacy global “through all points” modes (not exposed on Graph anymore).
-const nodeGraphGraph2SmoothingModes = Object.freeze(["linear", "smooth", "bezier", "quadratic", "cubic", "catmullRom"]);
+// Smooth Graph global curve modes (canonical keys).
+// "catmull" = guide-tension curve through the free dots (start/end on-curve;
+// interior points pull the path; tension scales the pull).
+// Legacy labels smooth / bezier / catmullRom all map → "catmull".
+const nodeGraphGraph2SmoothingModes = Object.freeze(["linear", "catmull", "quadratic", "cubic"]);
+// Pre-collapse Curve param indices: Linear, Smooth, Bezier, Quadratic, Cubic, Catmull.
+const nodeGraphGraph2SmoothingModeLegacySix = Object.freeze([
+  "linear",
+  "catmull",
+  "catmull",
+  "quadratic",
+  "cubic",
+  "catmull",
+]);
 
 const nodeGraphDefaultGraphData = Object.freeze({
   cursorX: 0.5,
@@ -44,11 +63,11 @@ const nodeGraphGraphPresets = Object.freeze({
   sine: Object.freeze({
     cursorX: 0,
     nodes: Object.freeze([
-      Object.freeze({ c: 0, shape: "smooth", x: 0, y: 0.5 }),
-      Object.freeze({ c: 0, shape: "smooth", x: 0.25, y: 1 }),
-      Object.freeze({ c: 0, shape: "smooth", x: 0.5, y: 0.5 }),
-      Object.freeze({ c: 0, shape: "smooth", x: 0.75, y: 0 }),
-      Object.freeze({ c: 0, shape: "smooth", x: 1, y: 0.5 }),
+      Object.freeze({ c: 0, shape: "smoothstep", x: 0, y: 0.5 }),
+      Object.freeze({ c: 0, shape: "smoothstep", x: 0.25, y: 1 }),
+      Object.freeze({ c: 0, shape: "smoothstep", x: 0.5, y: 0.5 }),
+      Object.freeze({ c: 0, shape: "smoothstep", x: 0.75, y: 0 }),
+      Object.freeze({ c: 0, shape: "smoothstep", x: 1, y: 0.5 }),
     ]),
   }),
   steps: Object.freeze({
@@ -115,10 +134,15 @@ function addNodeGraphGraphNodeData(graphValue, pointValue = {}) {
   const y = Number.isFinite(Number(source.y))
     ? normalizeNodeGraphGraphNumber(source.y, 0)
     : normalizeNodeGraphGraphNumber(nodeGraphGraphValueAt(graph, x), 0);
-  graph.cursorX = x;
+  // Do NOT move cursorX/phase when placing a control point — only the phase
+  // scrub gesture should change the cream phase line.
+  // Prefer caller shape; default hold for step-bar workflows (caller can pass).
+  const shape = source.shape != null
+    ? normalizeNodeGraphGraphShape(source.shape)
+    : "rational";
   graph.nodes.push({
     c: 0,
-    shape: "rational",
+    shape,
     x,
     y,
   });
@@ -195,9 +219,9 @@ function normalizeNodeGraphGraphShape(value) {
   if (shape === "logarithmic") {
     return "log";
   }
-  // Old "smooth" (S-curve) still evaluates; not offered in the UI list.
-  if (shape === "smooth") {
-    return "smooth";
+  // Old "smooth" name → smoothstep (same hermite S-curve).
+  if (shape === "smooth" || shape === "smoothstep") {
+    return "smoothstep";
   }
   return nodeGraphGraphShapes.includes(shape) ? shape : "rational";
 }
@@ -304,14 +328,14 @@ function nodeGraphGraphSmoothCurve(position) {
   return p * p * (3 - 2 * p);
 }
 
-// Point-to-point graphs: each control point owns the outgoing segment’s
-// shape + contour (lin / smooth / rational / expo / log / hold).
+// Step Graph (and legacy "graph"): per-segment hold/shape/contour.
+// Smooth Graph (graph2): one global curve through dots — no per-node UI.
 function nodeGraphGraphUsesPerNodeShapes(type) {
-  return type === "graph2" || type === "graphCopy" || type === "graph";
+  return type === "graphCopy" || type === "graph";
 }
 
 function nodeGraphGraphUsesGlobalSmoothing(type) {
-  return nodeGraphModuleIsGraphType(type) && !nodeGraphGraphUsesPerNodeShapes(type);
+  return type === "graph2" || (nodeGraphModuleIsGraphType(type) && !nodeGraphGraphUsesPerNodeShapes(type));
 }
 
 function nodeGraphGraphRationalCurve(position, contour = 0) {
@@ -371,14 +395,48 @@ function normalizeNodeGraphGraph2SmoothingMode(value) {
   if (value === "legacy") {
     return "legacy";
   }
+  const raw = String(value ?? "").trim().toLowerCase();
+  // Old Curve labels that all used the same guide-tension path.
+  if (raw === "smooth" || raw === "bezier" || raw === "catmullrom" || raw === "catmull") {
+    return "catmull";
+  }
+  if (nodeGraphGraph2SmoothingModes.includes(raw)) {
+    return raw;
+  }
   if (Number.isFinite(Number(value))) {
+    const n = Math.round(Number(value));
+    // Orphan high indices from the old 6-choice Curve param.
+    if (n === 4) {
+      return "cubic";
+    }
+    if (n === 5) {
+      return "catmull";
+    }
     return nodeGraphGraph2SmoothingModes[Math.max(0, Math.min(
       nodeGraphGraph2SmoothingModes.length - 1,
-      Math.round(Number(value)),
+      n,
     ))];
   }
-  const mode = String(value || "").trim().toLowerCase();
-  return nodeGraphGraph2SmoothingModes.includes(mode) ? mode : "smooth";
+  return "catmull";
+}
+
+/** Map old 6-choice Curve index → current 4-choice index (Linear/Catmull/Quadratic/Cubic). */
+function nodeGraphGraph2SmoothingModeFourIndexFromLegacy(value) {
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (raw === "smooth" || raw === "bezier" || raw === "catmullrom" || raw === "catmull") {
+    return 1;
+  }
+  if (nodeGraphGraph2SmoothingModes.includes(raw)) {
+    return nodeGraphGraph2SmoothingModes.indexOf(raw);
+  }
+  if (Number.isFinite(Number(value))) {
+    const n = Math.round(Number(value));
+    if (n >= 0 && n < nodeGraphGraph2SmoothingModeLegacySix.length) {
+      const legacyMode = nodeGraphGraph2SmoothingModeLegacySix[n];
+      return Math.max(0, nodeGraphGraph2SmoothingModes.indexOf(legacyMode));
+    }
+  }
+  return 1;
 }
 
 function nodeGraphGraphMeanderCurve(position, index = 0) {
@@ -673,14 +731,143 @@ function nodeGraphGraphControlPolygonPath(graphValue) {
     .join(" ");
 }
 
+function nodeGraphGraphIsStepGraphType(type) {
+  return String(type || "").trim() === "graphCopy";
+}
+
+/** Step Graph only: empty-circle handles that edit per-segment curvature (`c`). */
+function nodeGraphGraphShowsContourHandles(patchNode) {
+  return nodeGraphGraphIsStepGraphType(patchNode?.type);
+}
+
+/**
+ * Step bar for the empty-circle at rightIndex is the segment [left, right]
+ * (indices rightIndex-1 and rightIndex). Those two boundaries define the bar.
+ */
+function nodeGraphGraphStepBarIndicesForSegment(graph, rightIndex) {
+  const i = nodeGraphGraphNodeIndexFromValue(graph, rightIndex);
+  if (i <= 0) {
+    return [0];
+  }
+  return [i - 1, i];
+}
+
+/**
+ * Raise/lower the step bar for segment ending at rightIndex by a relative Y delta.
+ * Moves left + right boundary Y from their drag-start heights (no vertical quantize).
+ * X positions are unchanged. Forces hold on the right node so the plateau stays flat.
+ */
+function nodeGraphGraphApplyStepBarHeightDelta(graphValue, rightIndex, startLeftY, startRightY, deltaY) {
+  const graph = normalizeNodeGraphGraph(graphValue);
+  const i = nodeGraphGraphNodeIndexFromValue(graph, rightIndex);
+  if (i <= 0) {
+    return graph;
+  }
+  const leftY = normalizeNodeGraphGraphNumber(Number(startLeftY) + Number(deltaY), 0);
+  const rightY = normalizeNodeGraphGraphNumber(Number(startRightY) + Number(deltaY), 0);
+  const nodes = graph.nodes.map((node, nodeIndex) => {
+    if (nodeIndex === i - 1) {
+      return normalizeNodeGraphGraphNode({ ...node, y: leftY }, nodeIndex);
+    }
+    if (nodeIndex === i) {
+      return normalizeNodeGraphGraphNode({ ...node, y: rightY, shape: "hold" }, nodeIndex);
+    }
+    return node;
+  });
+  return normalizeNodeGraphGraph({ ...graph, nodes });
+}
+
+/**
+ * Absolute set of both bar endpoints to the same Y (e.g. double-click place).
+ */
+function nodeGraphGraphApplyStepBarHeight(graphValue, rightIndex, yValue) {
+  const graph = normalizeNodeGraphGraph(graphValue);
+  const y = normalizeNodeGraphGraphNumber(yValue, 0);
+  const i = nodeGraphGraphNodeIndexFromValue(graph, rightIndex);
+  if (i <= 0) {
+    // No left neighbor — just set this node.
+    const nodes = graph.nodes.map((node, nodeIndex) => (
+      nodeIndex === i
+        ? normalizeNodeGraphGraphNode({ ...node, y }, nodeIndex)
+        : node
+    ));
+    return normalizeNodeGraphGraph({ ...graph, nodes });
+  }
+  const nodes = graph.nodes.map((node, nodeIndex) => {
+    if (nodeIndex === i - 1) {
+      return normalizeNodeGraphGraphNode({ ...node, y }, nodeIndex);
+    }
+    if (nodeIndex === i) {
+      return normalizeNodeGraphGraphNode({ ...node, y, shape: "hold" }, nodeIndex);
+    }
+    return node;
+  });
+  return normalizeNodeGraphGraph({ ...graph, nodes });
+}
+
+/**
+ * Contour is stored on the RIGHT node of a segment (outgoing from left → right).
+ * Handle sits at the segment mid-x on the actual curve so it tracks the bow.
+ */
+function nodeGraphGraphContourHandlePoint(graph, rightIndex, smoothingMode = "legacy") {
+  const left = graph.nodes[rightIndex - 1];
+  const right = graph.nodes[rightIndex];
+  if (!left || !right) {
+    return null;
+  }
+  const x = left.x + (right.x - left.x) * 0.5;
+  const y = nodeGraphGraphSegmentValue(graph, x, rightIndex - 1, smoothingMode);
+  return nodeGraphGraphPointToSvg(x, y);
+}
+
+function nodeGraphGraphSegmentChordMidpoint(graph, rightIndex) {
+  const left = graph.nodes[rightIndex - 1];
+  const right = graph.nodes[rightIndex];
+  if (!left || !right) {
+    return null;
+  }
+  return {
+    x: left.x + (right.x - left.x) * 0.5,
+    y: left.y + (right.y - left.y) * 0.5,
+  };
+}
+
+/**
+ * Map a graph-space pointer position to contour in [-0.999, 0.999].
+ * Vertical offset from the chord midpoint drives amount; sign follows segment slope.
+ */
+function nodeGraphGraphContourFromPoint(graph, rightIndex, point) {
+  const midpoint = nodeGraphGraphSegmentChordMidpoint(graph, rightIndex);
+  const left = graph.nodes[rightIndex - 1];
+  const right = graph.nodes[rightIndex];
+  if (!midpoint || !left || !right) {
+    return 0;
+  }
+  const direction = right.y >= left.y ? 1 : -1;
+  const range = Math.max(0.08, Math.abs(right.y - left.y) * 0.85 + 0.08);
+  return normalizeNodeGraphGraphNumber(
+    ((Number(point.y) - midpoint.y) / range) * direction * 1.8,
+    0,
+    -0.999,
+    0.999,
+  );
+}
+
+/** Dragging contour forces a shape that actually uses contour (hold ignores it). */
+function nodeGraphGraphContourEditableShape(value) {
+  const shape = normalizeNodeGraphGraphShape(value);
+  if (shape === "rational" || shape === "exponential" || shape === "log") {
+    return shape;
+  }
+  return "rational";
+}
+
 function nodeGraphGraphModeCurve(position, mode, index = 0) {
   const normalizedMode = normalizeNodeGraphGraph2SmoothingMode(mode);
   if (normalizedMode === "linear") {
     return normalizeNodeGraphGraphNumber(position, 0, 0, 1);
   }
-  if (normalizedMode === "bezier") {
-    return nodeGraphGraphMeanderCurve(position, index);
-  }
+  // Segment fallback (non-guide modes): smoothstep ease between neighbors.
   return nodeGraphGraphSmoothCurve(position);
 }
 
@@ -696,7 +883,7 @@ function nodeGraphGraphLegacySegmentShape(p, right) {
   if (shape === "hold") {
     return p >= 1 ? 1 : 0;
   }
-  if (shape === "smooth") {
+  if (shape === "smoothstep" || shape === "smooth") {
     return nodeGraphGraphSmoothCurve(p);
   }
   if (shape === "linear") {
@@ -741,13 +928,9 @@ function nodeGraphGraphValueAt(graphValue, xValue, smoothingMode, tension = 1) {
     }
     return graph.nodes[graph.nodes.length - 1].y;
   }
-  // Smooth / Bezier / Catmull Rom: guide-point curve (start+end on-curve only;
-  // interior dots are handles). Tension 0 = line, 1 = tight to guides, always smooth.
-  if (
-    normalizedMode === "bezier" ||
-    normalizedMode === "smooth" ||
-    normalizedMode === "catmullRom"
-  ) {
+  // Catmull: guide-tension curve (start+end on-curve; interior dots pull the path).
+  // Tension 0 = line, 1 = tight to guides. (Old smooth/bezier aliases → catmull.)
+  if (normalizedMode === "catmull") {
     return nodeGraphGraphGuideBezierValueAt(graph, x, tension);
   }
   if (x < graph.nodes[0].x) {
@@ -880,17 +1063,111 @@ function setNodeGraphGraphSelectedNodeIndex(nodeId, graph, index) {
   return selectedIndex;
 }
 
+/** @returns {number} Step count 1..64, or 0 when no step grid should draw. */
+function normalizeNodeGraphStepCount(value) {
+  const raw = Math.round(Number(value));
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return 0;
+  }
+  return Math.max(1, Math.min(64, raw));
+}
+
+function nodeGraphGraphStepCountForNode(patchNode) {
+  // Step grid is Step Graph (graphCopy) only.
+  if (String(patchNode?.type || "").trim() !== "graphCopy") {
+    return 0;
+  }
+  const raw = Math.round(Number(patchNode?.params?.steps));
+  // Default 8 when unset / invalid (matches parameter defaultValue).
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return 8;
+  }
+  return Math.max(1, Math.min(64, raw));
+}
+
+/**
+ * Snap an x position (0..1) onto the Step Graph vertical grid.
+ * steps=1 → only 0 or 1 (whichever is closer).
+ * steps=n → i/n for i = 0..n (same lines as the face grid).
+ */
+function nodeGraphGraphSnapXToStepGrid(x, stepCount) {
+  const steps = normalizeNodeGraphStepCount(stepCount);
+  if (steps <= 0) {
+    return normalizeNodeGraphGraphNumber(x, 0);
+  }
+  const value = normalizeNodeGraphGraphNumber(x, 0);
+  if (steps === 1) {
+    return value < 0.5 ? 0 : 1;
+  }
+  const unit = 1 / steps;
+  return normalizeNodeGraphGraphNumber(Math.round(value / unit) * unit, 0);
+}
+
+/** Shift = fine (0.1×). On Step Graph, Ctrl is free-point (not fine). */
+function nodeGraphGraphPointDragMultiplier(event) {
+  return event?.shiftKey ? 0.1 : 1;
+}
+
+/**
+ * Pixel → unit scale for graph face drags. Same ref for X and Y so left/right
+ * and up/down have equal weight (app-wide: no axis-favoring differentiation).
+ */
+function nodeGraphGraphDragUnitPerPixel(svg) {
+  const rect = nodeGraphGraphSvgPlotRect(svg);
+  if (!rect) {
+    return 1 / 200;
+  }
+  // Usable plot is the inner 84% of the viewBox mapping; use average side so
+  // both axes share one scale (matches 1D travel width spirit of sliders).
+  const span = Math.max(1, (rect.width + rect.height) * 0.5 * 0.84);
+  return 1 / span;
+}
+
 function renderNodeGraphGraphDisplay(element, graphValue, selectedIndex = null, options = {}) {
   if (!element) {
     return;
   }
   const graph = normalizeNodeGraphGraph(graphValue);
-  const smoothingMode = normalizeNodeGraphGraph2SmoothingMode(options.smoothingMode);
-  const nodeId = element.dataset.graphNode || "";
-  const activeIndex = selectedIndex === null
-    ? nodeGraphGraphSelectedNodeIndex(nodeId, graph, 0)
-    : nodeGraphGraphNodeIndexFromValue(graph, selectedIndex);
-  const cursorValue = nodeGraphGraphValueAt(graph, graph.cursorX, smoothingMode);
+  // Prefer the owning module's type for curve mode. Point-to-point graphs
+  // (Smooth Graph / Step Graph) must use "legacy" segment shapes. Falling
+  // through to the default global catmull guide curve makes hold/step
+  // curves look like a flat line through the endpoints (often y=0 → y=0).
+  const nodeId = String(
+    element.dataset.graphNode
+    || element.closest?.(".dsp-node")?.dataset?.node
+    || "",
+  ).trim();
+  if (nodeId && element.dataset.graphNode !== nodeId) {
+    element.dataset.graphNode = nodeId;
+  }
+  const ownerNode = nodeId && typeof nodeGraphPatchNode === "function"
+    ? nodeGraphPatchNode(nodeId)
+    : null;
+  let smoothingMode = options.smoothingMode;
+  let stepCount = options.stepCount;
+  let tension = options.tension;
+  if (ownerNode && typeof nodeGraphModuleIsGraphType === "function" && nodeGraphModuleIsGraphType(ownerNode.type)) {
+    if (typeof nodeGraphGraphUsesPerNodeShapes === "function" && nodeGraphGraphUsesPerNodeShapes(ownerNode.type)) {
+      smoothingMode = "legacy";
+    } else if (smoothingMode == null || smoothingMode === "") {
+      smoothingMode = nodeGraphGraphSmoothingModeForNode(ownerNode);
+    }
+    if (stepCount == null) {
+      stepCount = nodeGraphGraphStepCountForNode(ownerNode);
+    }
+    if (tension == null) {
+      tension = Number(ownerNode.params?.tension) ?? 1;
+    }
+  }
+  smoothingMode = normalizeNodeGraphGraph2SmoothingMode(smoothingMode);
+  stepCount = normalizeNodeGraphStepCount(stepCount);
+  tension = Number.isFinite(Number(tension)) ? Number(tension) : 1;
+  // Selection is tracked for the module panel only — face chrome never lights
+  // a “selected” node (hover/drag index is handled separately via .is-hot).
+  if (nodeId && selectedIndex !== null && selectedIndex !== undefined) {
+    setNodeGraphGraphSelectedNodeIndex(nodeId, graph, selectedIndex);
+  }
+  const cursorValue = nodeGraphGraphValueAt(graph, graph.cursorX, smoothingMode, tension);
   const cursor = nodeGraphGraphPointToSvg(graph.cursorX, 0);
   const cursorPoint = nodeGraphGraphPointToSvg(graph.cursorX, cursorValue);
   element.replaceChildren();
@@ -900,7 +1177,24 @@ function renderNodeGraphGraphDisplay(element, graphValue, selectedIndex = null, 
     preserveAspectRatio: "none",
     viewBox: "0 0 100 100",
   });
-  // No decorative frame/axis grid — just the data (control polygon + curve).
+  // Step Graph: vertical guides at each step boundary (0..steps inclusive).
+  if (stepCount > 0) {
+    const stepGroup = createNodeGraphGraphSvgElement("g", {
+      class: "node-module-graph-step-grid",
+      "aria-hidden": "true",
+    });
+    for (let step = 0; step <= stepCount; step += 1) {
+      const x = nodeGraphGraphPointToSvg(step / stepCount, 0).x;
+      stepGroup.append(createNodeGraphGraphSvgElement("line", {
+        class: "node-module-graph-step-line",
+        x1: x.toFixed(3),
+        x2: x.toFixed(3),
+        y1: "8",
+        y2: "92",
+      }));
+    }
+    svg.append(stepGroup);
+  }
   svg.append(createNodeGraphGraphSvgElement("line", {
     class: "node-module-graph-cursor",
     x1: cursor.x.toFixed(3),
@@ -923,14 +1217,13 @@ function renderNodeGraphGraphDisplay(element, graphValue, selectedIndex = null, 
     y1: cursorPoint.y.toFixed(3),
     y2: cursorPoint.y.toFixed(3),
   }));
-  // Live playhead -- distinct from the cursor line above (which is only the
-  // manually-dragged probe, see nodeGraphGraphSvgToGraphPoint / cursorX).
-  // Starts hidden (no "live" class); syncNodeGraphGraphLivePlayheads()
-  // repositions and reveals it in place (no full re-render) whenever the
-  // worklet posts a fresh "__GraphPhase" scope sample, so Rate/Phase (or an
-  // Input-mode CV signal) actually show something moving during playback.
+  // Final-phase ghost -- mirrors the cream phase/cursor line but tracks the
+  // engine's actual sample X (__GraphPhase: Rate LFO advance, Phase knob, and
+  // Input-mode CV). Same idea as the XY pad's purple ghost puck (final Out tip
+  // after modulation). Starts hidden; syncNodeGraphGraphLivePlayheads() moves
+  // and reveals it without a full re-render on each scope snapshot.
   svg.append(createNodeGraphGraphSvgElement("line", {
-    class: "node-module-graph-playhead",
+    class: "node-module-graph-playhead node-module-graph-phase-ghost",
     x1: cursor.x.toFixed(3),
     x2: cursor.x.toFixed(3),
     y1: "8",
@@ -944,39 +1237,251 @@ function renderNodeGraphGraphDisplay(element, graphValue, selectedIndex = null, 
   }));
   svg.append(createNodeGraphGraphSvgElement("path", {
     class: "node-module-graph-curve",
-    d: nodeGraphGraphCurvePath(graph, 96, smoothingMode, options.tension ?? 1),
+    d: nodeGraphGraphCurvePath(graph, 96, smoothingMode, tension),
   }));
-  // Minimal face: no mode badge ("bez"/etc.) — only curve + dots.
+  // Face dots/rings stay invisible until a specific index is hot (hover or drag).
+  // No selected styling — panel selection does not lighten face chrome.
   const hitRadii = nodeGraphGraphScreenRoundRadii(element, 5.4);
   const nodeRadii = nodeGraphGraphScreenRoundRadii(element, 1.5);
+  const contourRadii = nodeGraphGraphScreenRoundRadii(element, 2.4);
+  const showContourHandles = nodeGraphGraphShowsContourHandles(ownerNode);
+  if (showContourHandles) {
+    for (let index = 1; index < graph.nodes.length; index += 1) {
+      const point = nodeGraphGraphContourHandlePoint(graph, index, smoothingMode);
+      if (!point) {
+        continue;
+      }
+      svg.append(createNodeGraphGraphSvgElement("ellipse", {
+        class: "node-module-graph-contour-handle",
+        cx: point.x.toFixed(3),
+        cy: point.y.toFixed(3),
+        "data-graph-contour-index": String(index),
+        rx: contourRadii.rx.toFixed(3),
+        ry: contourRadii.ry.toFixed(3),
+      }));
+    }
+  }
   graph.nodes.forEach((node, index) => {
     const point = nodeGraphGraphPointToSvg(node.x, node.y);
     svg.append(createNodeGraphGraphSvgElement("ellipse", {
-      class: `node-module-graph-node-hit${index === activeIndex ? " selected" : ""}`,
+      class: "node-module-graph-node-hit",
       cx: point.x.toFixed(3),
       cy: point.y.toFixed(3),
       "data-graph-node-index": String(index),
-      "data-selected": index === activeIndex ? "true" : "false",
       rx: hitRadii.rx.toFixed(3),
       ry: hitRadii.ry.toFixed(3),
     }));
     svg.append(createNodeGraphGraphSvgElement("ellipse", {
-      class: `node-module-graph-node${index === activeIndex ? " selected" : ""}`,
+      class: "node-module-graph-node",
       cx: point.x.toFixed(3),
       cy: point.y.toFixed(3),
       "data-graph-node-index": String(index),
-      "data-selected": index === activeIndex ? "true" : "false",
       rx: nodeRadii.rx.toFixed(3),
       ry: nodeRadii.ry.toFixed(3),
     }));
   });
   element.append(svg);
+  bindNodeGraphGraphFaceHover(element);
+  // Preserve hot chrome across re-renders (drag frames, live updates).
+  const drag = nodeGraphMvp?.graphNodeDragging;
+  const dragOnFace = drag && (drag.display === element || drag.nodeId === nodeId);
+  if (dragOnFace && drag.mode === "cursor") {
+    clearNodeGraphGraphHotMarks(element);
+    setNodeGraphGraphPhaseHot(element, true);
+  } else if (dragOnFace && drag.mode === "stepBar" && Number.isFinite(Number(drag.index))) {
+    setNodeGraphGraphPhaseHot(element, false);
+    setNodeGraphGraphStepBarHot(element, drag.graph || graph, Number(drag.index));
+  } else if (dragOnFace && Number.isFinite(Number(drag.index))) {
+    setNodeGraphGraphPhaseHot(element, false);
+    setNodeGraphGraphHotIndex(element, Number(drag.index));
+  } else if (Number.isFinite(Number(element.dataset.hotIndex))) {
+    setNodeGraphGraphPhaseHot(element, element.dataset.phaseHot === "true");
+    setNodeGraphGraphHotIndex(element, Number(element.dataset.hotIndex));
+  } else {
+    clearNodeGraphGraphHotMarks(element);
+    setNodeGraphGraphPhaseHot(element, element.dataset.phaseHot === "true");
+  }
+}
+
+/** Clear per-node hot marks (nodes / contour rings). Phase line is separate. */
+function clearNodeGraphGraphHotMarks(display) {
+  if (!display) {
+    return;
+  }
+  display.querySelectorAll(".is-hot").forEach((el) => el.classList.remove("is-hot"));
+  display.dataset.hotIndex = "";
+}
+
+/** Phase probe: dim by default; full only when the phase hit is interactive-hot. */
+function setNodeGraphGraphPhaseHot(display, hot) {
+  if (!display) {
+    return;
+  }
+  const on = Boolean(hot);
+  display.dataset.phaseHot = on ? "true" : "false";
+  display.querySelectorAll(".node-module-graph-cursor, .node-module-graph-cursor-value-guide").forEach((el) => {
+    el.classList.toggle("is-phase-hot", on);
+  });
+}
+
+function clearNodeGraphGraphPhaseHot(display) {
+  setNodeGraphGraphPhaseHot(display, false);
+}
+
+/** Dim-highlight both boundaries of the step bar for segment ending at rightIndex. */
+function setNodeGraphGraphStepBarHot(display, graph, rightIndex) {
+  if (!display) {
+    return;
+  }
+  const bar = nodeGraphGraphStepBarIndicesForSegment(graph, rightIndex);
+  clearNodeGraphGraphHotMarks(display);
+  display.dataset.hotIndex = String(nodeGraphGraphNodeIndexFromValue(graph, rightIndex));
+  for (const barIndex of bar) {
+    const key = String(barIndex);
+    display.querySelectorAll(`[data-graph-node-index="${CSS.escape(key)}"]`).forEach((el) => {
+      el.classList.add("is-hot");
+    });
+  }
+  // Also light the empty-circle handle for this segment.
+  display.querySelectorAll(
+    `[data-graph-contour-index="${CSS.escape(String(nodeGraphGraphNodeIndexFromValue(graph, rightIndex)))}"]`,
+  ).forEach((el) => {
+    el.classList.add("is-hot");
+  });
+}
+
+/**
+ * Show only the dim filled node + its empty contour ring for one index.
+ * No bright “selected” state — same dim whether idle-hover or drag.
+ */
+function setNodeGraphGraphHotIndex(display, index) {
+  if (!display) {
+    return;
+  }
+  const i = Math.round(Number(index));
+  if (!Number.isFinite(i) || i < 0) {
+    clearNodeGraphGraphHotMarks(display);
+    return;
+  }
+  const key = String(i);
+  if (
+    display.dataset.hotIndex === key
+    && display.querySelector(`.node-module-graph-node.is-hot[data-graph-node-index="${CSS.escape(key)}"]`)
+  ) {
+    // Already marked (avoid thrashing classList on every pointermove).
+    return;
+  }
+  clearNodeGraphGraphHotMarks(display);
+  display.dataset.hotIndex = key;
+  display.querySelectorAll(`[data-graph-node-index="${CSS.escape(key)}"]`).forEach((el) => {
+    el.classList.add("is-hot");
+  });
+  display.querySelectorAll(`[data-graph-contour-index="${CSS.escape(key)}"]`).forEach((el) => {
+    el.classList.add("is-hot");
+  });
+}
+
+function nodeGraphGraphHotIndexFromEventTarget(target) {
+  if (!(target instanceof Element)) {
+    return null;
+  }
+  const contour = target.closest?.("[data-graph-contour-index]");
+  if (contour) {
+    const index = Number(contour.dataset.graphContourIndex);
+    return Number.isFinite(index) ? index : null;
+  }
+  const node = target.closest?.("[data-graph-node-index]");
+  if (node) {
+    const index = Number(node.dataset.graphNodeIndex);
+    return Number.isFinite(index) ? index : null;
+  }
+  return null;
+}
+
+function nodeGraphGraphPhaseHitFromEventTarget(target) {
+  return target instanceof Element
+    ? target.closest?.("[data-graph-cursor], .node-module-graph-cursor-hit")
+    : null;
+}
+
+/**
+ * Hover policy:
+ *  • phase line stays dim unless pointer is on the phase hit (or scrubbing it)
+ *  • only the node under the pointer (and its contour ring) is dim-visible
+ */
+function bindNodeGraphGraphFaceHover(display) {
+  if (!display || display.dataset.graphHoverBound === "true") {
+    return;
+  }
+  display.dataset.graphHoverBound = "true";
+  display.addEventListener("pointermove", (event) => {
+    const drag = nodeGraphMvp?.graphNodeDragging;
+    const onThisFace = drag && (drag.display === display || drag.nodeId === display.dataset.graphNode);
+    if (onThisFace) {
+      if (drag.mode === "cursor") {
+        clearNodeGraphGraphHotMarks(display);
+        setNodeGraphGraphPhaseHot(display, true);
+        return;
+      }
+      setNodeGraphGraphPhaseHot(display, false);
+      if (Number.isFinite(Number(drag.index))) {
+        setNodeGraphGraphHotIndex(display, drag.index);
+      }
+      return;
+    }
+    const onPhase = Boolean(nodeGraphGraphPhaseHitFromEventTarget(event.target));
+    setNodeGraphGraphPhaseHot(display, onPhase);
+    if (onPhase) {
+      clearNodeGraphGraphHotMarks(display);
+      return;
+    }
+    const contour = event.target?.closest?.("[data-graph-contour-index]");
+    if (contour) {
+      const rightIndex = Number(contour.dataset.graphContourIndex);
+      const nodeId = nodeGraphGraphNodeIdFromDisplay(display);
+      const patchNode = nodeId ? nodeGraphPatchNode(nodeId) : null;
+      const graph = patchNode ? nodeGraphGraphForNode(patchNode) : null;
+      if (graph && Number.isFinite(rightIndex) && rightIndex > 0) {
+        setNodeGraphGraphStepBarHot(display, graph, rightIndex);
+        return;
+      }
+    }
+    const index = nodeGraphGraphHotIndexFromEventTarget(event.target);
+    if (index == null) {
+      clearNodeGraphGraphHotMarks(display);
+      return;
+    }
+    setNodeGraphGraphHotIndex(display, index);
+  });
+  display.addEventListener("pointerleave", () => {
+    const drag = nodeGraphMvp?.graphNodeDragging;
+    if (drag && (drag.display === display || drag.nodeId === display.dataset.graphNode)) {
+      if (drag.mode === "cursor") {
+        clearNodeGraphGraphHotMarks(display);
+        setNodeGraphGraphPhaseHot(display, true);
+        return;
+      }
+      setNodeGraphGraphPhaseHot(display, false);
+      if (drag.mode === "stepBar" && Number.isFinite(Number(drag.index))) {
+        setNodeGraphGraphStepBarHot(display, drag.graph, drag.index);
+        return;
+      }
+      if (Number.isFinite(Number(drag.index))) {
+        setNodeGraphGraphHotIndex(display, drag.index);
+      }
+      return;
+    }
+    clearNodeGraphGraphHotMarks(display);
+    clearNodeGraphGraphPhaseHot(display);
+  });
 }
 
 function nodeGraphGraphSmoothingModeForNode(patchNode) {
+  // Step Graph / legacy graph: per-segment hold/shape path.
   if (nodeGraphGraphUsesPerNodeShapes(patchNode?.type)) {
     return "legacy";
   }
+  // Smooth Graph: one global smoothing algorithm through the dots.
   return normalizeNodeGraphGraph2SmoothingMode(patchNode?.params?.smoothingMode);
 }
 
@@ -986,12 +1491,26 @@ function syncNodeGraphGraphElement(moduleElement, patchNode) {
     moduleElement?.querySelector?.(".node-module-graph-display"),
     graph,
     nodeGraphGraphSelectedNodeIndex(patchNode?.id || "", graph, 0),
-    { smoothingMode: nodeGraphGraphSmoothingModeForNode(patchNode), tension: Number(patchNode?.params?.tension) ?? 1 },
+    {
+      smoothingMode: nodeGraphGraphSmoothingModeForNode(patchNode),
+      stepCount: nodeGraphGraphStepCountForNode(patchNode),
+      tension: Number(patchNode?.params?.tension) ?? 1,
+    },
   );
 }
 
 function nodeGraphGraphNodeIdFromDisplay(display) {
-  return display?.closest?.(".dsp-node")?.dataset?.node || display?.dataset?.graphNode || "";
+  if (!display) {
+    return "";
+  }
+  const fromParent = String(display.closest?.(".dsp-node")?.dataset?.node || "").trim();
+  const fromDataset = String(display.dataset?.graphNode || "").trim();
+  // Keep dataset aligned with the live parent so multi-display queries never
+  // mismatch after a DOM rebuild.
+  if (fromParent && fromDataset !== fromParent) {
+    display.dataset.graphNode = fromParent;
+  }
+  return fromParent || fromDataset;
 }
 
 function syncNodeGraphGraphDisplaysForNode(nodeId, patchNode) {
@@ -999,16 +1518,36 @@ function syncNodeGraphGraphDisplaysForNode(nodeId, patchNode) {
   if (!id) {
     return;
   }
-  const graph = nodeGraphGraphForNode(patchNode);
+  // Never paint another module's face while a different graph is mid-drag.
+  // That was one path that made Step Graph flicker to a flat 0→0 guide line
+  // while Smooth Graph control points were being moved.
+  const activeDrag = nodeGraphMvp?.graphNodeDragging;
+  if (activeDrag?.nodeId && activeDrag.nodeId !== id) {
+    return;
+  }
+  const owner = patchNode && String(patchNode.id || "").trim() === id
+    ? patchNode
+    : (typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : patchNode);
+  const graph = nodeGraphGraphForNode(owner);
   const selectedIndex = nodeGraphGraphSelectedNodeIndex(id, graph, 0);
+  const renderOptions = {
+    smoothingMode: nodeGraphGraphSmoothingModeForNode(owner),
+    stepCount: nodeGraphGraphStepCountForNode(owner),
+    tension: Number(owner?.params?.tension) ?? 1,
+  };
+  // Prefer the live module under #nodeGraphNodes (not camera clones / stale copies).
+  const primary = typeof nodeGraphGraphLiveDisplayForNodeId === "function"
+    ? nodeGraphGraphLiveDisplayForNodeId(id)
+    : null;
+  if (primary) {
+    renderNodeGraphGraphDisplay(primary, graph, selectedIndex, renderOptions);
+    return;
+  }
   document
     .querySelectorAll(".node-module-graph-display")
     .forEach((display) => {
       if (nodeGraphGraphNodeIdFromDisplay(display) === id) {
-        renderNodeGraphGraphDisplay(display, graph, selectedIndex, {
-          smoothingMode: nodeGraphGraphSmoothingModeForNode(patchNode),
-          tension: Number(patchNode?.params?.tension) ?? 1,
-        });
+        renderNodeGraphGraphDisplay(display, graph, selectedIndex, renderOptions);
       }
     });
 }
@@ -1028,11 +1567,26 @@ function nodeGraphGraphDisplayFromEventTarget(target) {
 // setPointerCapture throws InvalidStateError. Re-resolving by id sidesteps
 // that regardless of why the earlier reference went stale.
 function nodeGraphGraphLiveDisplayForNodeId(nodeId) {
-  return nodeGraphNodeElement(nodeId)?.querySelector(".node-module-graph-display") || null;
+  const id = String(nodeId || "").trim();
+  if (!id) {
+    return null;
+  }
+  // Scope to the real workspace tree so camera/minimap clones with the same
+  // data-node id cannot steal re-resolve during a drag.
+  const workspaceRoot = document.getElementById("nodeGraphNodes")
+    || document.getElementById("nodeGraphWorkspace");
+  const scope = workspaceRoot || document;
+  const article = scope.querySelector?.(`.dsp-node[data-node="${CSS.escape(id)}"]`)
+    || (typeof nodeGraphNodeElement === "function" ? nodeGraphNodeElement(id) : null);
+  return article?.querySelector?.(".node-module-graph-display") || null;
 }
 
 function nodeGraphGraphNodeCircleFromEventTarget(target) {
   return target?.closest?.(".node-module-graph-node, .node-module-graph-node-hit") || null;
+}
+
+function nodeGraphGraphContourHandleFromEventTarget(target) {
+  return target?.closest?.(".node-module-graph-contour-handle") || null;
 }
 
 // Clamps a single node's target position without touching order: the first
@@ -1114,57 +1668,129 @@ function nodeGraphGraphDebugStringify(value) {
 }
 
 function beginNodeGraphGraphNodeDrag(event) {
-  nodeGraphGraphDebugTrace("graph pointerdown", { target: event.target?.className, button: event.button });
+  nodeGraphGraphDebugTrace("graph pointerdown", {
+    target: event.target?.className,
+    button: event.button,
+    detail: event.detail,
+  });
   if (event.button !== undefined && event.button !== 0) {
     nodeGraphGraphDebugTrace("graph pointerdown ignored, non-primary button", event.button);
     return;
   }
-  const cursor = event.target?.closest?.("[data-graph-cursor]");
-  if (cursor) {
-    nodeGraphGraphDebugTrace("graph pointerdown hit cursor line, starting cursor drag");
-    beginNodeGraphGraphCursorDrag(event, cursor);
+  // Only graph module faces handle these gestures.
+  const display = nodeGraphGraphDisplayFromEventTarget(event.target);
+  if (!display) {
     return;
   }
+  // Contour handles first (Step Graph empty circles) — not add/remove targets.
+  const contourHandle = nodeGraphGraphContourHandleFromEventTarget(event.target);
+  if (contourHandle) {
+    if (Number(event.detail) >= 2) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    beginNodeGraphGraphContourDrag(event, contourHandle);
+    return;
+  }
+
+  // Multi-click (2+): perform add/remove here. Relying on the synthetic
+  // `dblclick` event is fragile — preventDefault on the first pointerdown and
+  // a no-move commit (which re-renders the SVG) both prevent dblclick from
+  // firing, or make the second click miss the original hit target.
+  if (Number(event.detail) >= 2) {
+    event.preventDefault();
+    event.stopPropagation();
+    // Cancel any drag started on the first click of this multi-click.
+    if (nodeGraphMvp.graphNodeDragging) {
+      nodeGraphMvp.graphNodeDragging.display?.classList.remove("dragging");
+      nodeGraphMvp.graphNodeDragging = null;
+    }
+    const multiCircle = nodeGraphGraphNodeCircleFromEventTarget(event.target);
+    if (multiCircle) {
+      const nodeId = nodeGraphGraphNodeIdFromDisplay(display);
+      const patchNode = nodeGraphPatchNode(nodeId);
+      if (patchNode && nodeGraphModuleIsGraphType(patchNode.type)) {
+        const graph = nodeGraphGraphForNode(patchNode);
+        const index = nodeGraphGraphNodeIndexFromValue(graph, multiCircle.dataset.graphNodeIndex);
+        nodeGraphGraphDebugTrace("graph multi-click on point, removing", { nodeId, index });
+        removeNodeGraphGraphNodeAtIndex(nodeId, index);
+      }
+      return;
+    }
+    nodeGraphGraphDebugTrace("graph multi-click on empty face, adding point");
+    addNodeGraphGraphNodeFromDisplayEvent(event, { startDrag: false });
+    return;
+  }
+
+  // Gestures (phase policy matches XY pad):
+  //   • drag empty face / cursor → relative phase scrub (must actually drag)
+  //   • alt+click / alt-drag empty face → absolute jump playhead to pointer
+  //   • click-drag control point → move that point
+  //   • Step Graph: drag empty-circle contour handle → per-node curvature
+  //   • double-click empty → add point
+  //   • double-click point → remove point
   const circle = nodeGraphGraphNodeCircleFromEventTarget(event.target);
-  if (!circle) {
-    nodeGraphGraphDebugTrace("graph pointerdown hit empty space, routing to add-node");
-    addNodeGraphGraphNodeFromDisplayEvent(event);
-    return;
-  }
-  nodeGraphGraphDebugTrace("graph pointerdown hit existing node circle");
-  const display = nodeGraphGraphDisplayFromEventTarget(circle);
-  const nodeId = nodeGraphGraphNodeIdFromDisplay(display);
-  const patchNode = nodeGraphPatchNode(nodeId);
-  if (!patchNode || !nodeGraphModuleIsGraphType(patchNode.type)) {
-    nodeGraphGraphDebugTrace("graph pointerdown bailing, patchNode/type check failed", { nodeId, type: patchNode?.type });
-    return;
-  }
-  const graph = nodeGraphGraphForNode(patchNode);
-  const index = nodeGraphGraphNodeIndexFromValue(graph, circle.dataset.graphNodeIndex);
-  // Alt+click removes the node under the pointer instead of dragging it.
-  if (event.altKey) {
-    nodeGraphGraphDebugTrace("graph alt+click removing node", index);
+  if (circle) {
+    // Alt on a control point still jumps the playhead (same as empty face).
+    // Point removal is double-click only.
+    if (event.altKey) {
+      nodeGraphGraphDebugTrace("graph alt+click on point, absolute phase jump");
+      beginNodeGraphGraphCursorDrag(event, event.target, { absolute: true });
+      return;
+    }
+    const nodeId = nodeGraphGraphNodeIdFromDisplay(display);
+    const patchNode = nodeGraphPatchNode(nodeId);
+    if (!patchNode || !nodeGraphModuleIsGraphType(patchNode.type)) {
+      nodeGraphGraphDebugTrace("graph pointerdown bailing, patchNode/type check failed", {
+        nodeId,
+        type: patchNode?.type,
+      });
+      return;
+    }
+    const graph = nodeGraphGraphForNode(patchNode);
+    const index = nodeGraphGraphNodeIndexFromValue(graph, circle.dataset.graphNodeIndex);
+    const svg = circle.closest(".node-module-graph-svg");
+    const startNode = graph.nodes[index] || { x: 0, y: 0 };
     display?.focus?.({ preventScroll: true });
-    removeNodeGraphGraphNodeAtIndex(nodeId, index);
+    setNodeGraphGraphSelectedNodeIndex(nodeId, graph, index);
+    nodeGraphMvp.graphNodeDragging = {
+      display,
+      graph,
+      index,
+      nodeId,
+      pointerId: event.pointerId ?? null,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startNodeX: Number(startNode.x) || 0,
+      startNodeY: Number(startNode.y) || 0,
+      // Incremental drag anchors (updated every move) so clamping never builds
+      // pointer "debt" — reverse motion off a limit moves the point immediately.
+      lastClientX: event.clientX,
+      lastClientY: event.clientY,
+      lastNodeX: Number(startNode.x) || 0,
+      lastNodeY: Number(startNode.y) || 0,
+      fineActive: false,
+      moved: false,
+      svg,
+    };
+    nodeGraphGraphDebugTrace("graph started dragging existing node", { nodeId, index });
+    display?.classList.add("dragging");
+    setNodeGraphGraphHotIndex(display, index);
+    circle.setPointerCapture?.(event.pointerId);
     event.preventDefault();
     event.stopPropagation();
     return;
   }
-  const svg = circle.closest(".node-module-graph-svg");
-  display?.focus?.({ preventScroll: true });
-  setNodeGraphGraphSelectedNodeIndex(nodeId, graph, index);
-  nodeGraphMvp.graphNodeDragging = {
-    display,
-    graph,
-    index,
-    nodeId,
-    svg,
-  };
-  nodeGraphGraphDebugTrace("graph started dragging existing node", { nodeId, index });
-  display?.classList.add("dragging");
-  circle.setPointerCapture?.(event.pointerId);
-  event.preventDefault();
-  event.stopPropagation();
+
+  // Empty face / cursor line: relative phase drag, or alt = absolute jump.
+  const absolutePhase = Boolean(event.altKey);
+  nodeGraphGraphDebugTrace(
+    absolutePhase
+      ? "graph pointerdown empty face, absolute phase jump (alt)"
+      : "graph pointerdown empty face, relative phase drag",
+  );
+  beginNodeGraphGraphCursorDrag(event, event.target, { absolute: absolutePhase });
 }
 
 function handleNodeGraphGraphNodeContextMenu(event) {
@@ -1186,63 +1812,118 @@ function handleNodeGraphGraphNodeContextMenu(event) {
   event.stopImmediatePropagation();
 }
 
-// Double-click remains as a keyboard/mouse accessibility alternative.
+// Double-click empty face → add point. Double-click a control point → remove.
+// Always claim the event on the graph face so the solid-shell handler cannot
+// steal it and open Module Settings.
 function handleNodeGraphGraphNodeDoubleClick(event) {
-  const circle = nodeGraphGraphNodeCircleFromEventTarget(event.target);
-  if (!circle) {
+  const display = nodeGraphGraphDisplayFromEventTarget(event.target);
+  if (!display) {
     return;
   }
-  const display = nodeGraphGraphDisplayFromEventTarget(circle);
+  // Claim before any early return so shell dblclick never opens settings.
+  event.preventDefault();
+  event.stopPropagation();
   const nodeId = nodeGraphGraphNodeIdFromDisplay(display);
   const patchNode = nodeGraphPatchNode(nodeId);
   if (!patchNode || !nodeGraphModuleIsGraphType(patchNode.type)) {
     return;
   }
-  const graph = nodeGraphGraphForNode(patchNode);
-  const index = nodeGraphGraphNodeIndexFromValue(graph, circle.dataset.graphNodeIndex);
   display?.focus?.({ preventScroll: true });
-  if (removeNodeGraphGraphNodeAtIndex(nodeId, index)) {
-    event.preventDefault();
-    event.stopPropagation();
+  const circle = nodeGraphGraphNodeCircleFromEventTarget(event.target);
+  if (circle) {
+    const graph = nodeGraphGraphForNode(patchNode);
+    const index = nodeGraphGraphNodeIndexFromValue(graph, circle.dataset.graphNodeIndex);
+    nodeGraphGraphDebugTrace("graph dblclick on point, removing", { nodeId, index });
+    removeNodeGraphGraphNodeAtIndex(nodeId, index);
+    return;
   }
+  nodeGraphGraphDebugTrace("graph dblclick on empty face, adding point");
+  addNodeGraphGraphNodeFromDisplayEvent(event, { startDrag: false });
 }
 
-function beginNodeGraphGraphCursorDrag(event, cursorElement) {
-  const display = nodeGraphGraphDisplayFromEventTarget(cursorElement);
+/**
+ * Phase / playhead scrub on the graph face.
+ * - relative (default): pointerdown does not move the playhead; only drag deltas do
+ *   (same “must actually drag” policy as the XY pad’s relative mode).
+ * - absolute (alt): jump playhead to the pointer X immediately.
+ * @param {PointerEvent} event
+ * @param {Element} [sourceElement]
+ * @param {{ absolute?: boolean }} [options]
+ */
+function beginNodeGraphGraphCursorDrag(event, sourceElement, options = {}) {
+  const display = nodeGraphGraphDisplayFromEventTarget(sourceElement || event.target);
   const nodeId = nodeGraphGraphNodeIdFromDisplay(display);
   const patchNode = nodeGraphPatchNode(nodeId);
-  if (!patchNode || !nodeGraphModuleIsGraphType(patchNode.type)) {
+  if (!display || !patchNode || !nodeGraphModuleIsGraphType(patchNode.type)) {
     return;
   }
-  const svg = cursorElement.closest(".node-module-graph-svg");
+  const svg = display.querySelector(".node-module-graph-svg")
+    || sourceElement?.closest?.(".node-module-graph-svg")
+    || null;
+  if (!svg) {
+    return;
+  }
   const graph = nodeGraphGraphForNode(patchNode);
+  const absolute = options.absolute === true || Boolean(event.altKey);
   display?.focus?.({ preventScroll: true });
+  const startCursorX = Number(graph.cursorX) || 0;
   nodeGraphMvp.graphNodeDragging = {
+    absolute,
     display,
     graph,
+    lastClientX: event.clientX,
+    lastClientY: event.clientY,
+    lastCursorX: startCursorX,
     mode: "cursor",
+    moved: false,
     nodeId,
+    pointerId: event.pointerId ?? null,
+    startClientX: event.clientX,
+    startClientY: event.clientY,
+    startCursorX,
     svg,
   };
   display?.classList.add("dragging");
-  cursorElement.setPointerCapture?.(event.pointerId);
-  dragNodeGraphGraphNode(event);
+  clearNodeGraphGraphHotMarks(display);
+  setNodeGraphGraphPhaseHot(display, true);
+  // Prefer the cursor hit line for capture; fall back to the svg so empty-face
+  // phase scrub still keeps the pointer bound while the display re-renders.
+  const captureTarget = display.querySelector("[data-graph-cursor]") || svg || display;
+  try {
+    captureTarget.setPointerCapture?.(event.pointerId);
+  } catch (_error) {
+    // Drag still tracks via document-level pointermove.
+  }
+  // Absolute (alt): place under the pointer now. Relative: wait for a real drag.
+  if (absolute) {
+    dragNodeGraphGraphNode(event);
+  }
   event.preventDefault();
   event.stopPropagation();
 }
 
-function addNodeGraphGraphNodeFromDisplayEvent(event) {
-  const svg = event.target?.closest?.(".node-module-graph-svg");
+/**
+ * Add a control point under the pointer.
+ * @param {Event} event
+ * @param {{ startDrag?: boolean }} [options] When startDrag is true (legacy
+ *   click-to-add path), continue into a point drag on the new node. Double-click
+ *   add uses startDrag: false so the point drops where you clicked.
+ * @returns {boolean}
+ */
+function addNodeGraphGraphNodeFromDisplayEvent(event, options = {}) {
+  const startDrag = options.startDrag === true;
+  const svg = event.target?.closest?.(".node-module-graph-svg")
+    || nodeGraphGraphDisplayFromEventTarget(event.target)?.querySelector?.(".node-module-graph-svg");
   if (!svg) {
     nodeGraphGraphDebugTrace("add-node bailing, click target isn't inside a graph svg", event.target?.className);
-    return;
+    return false;
   }
-  const display = nodeGraphGraphDisplayFromEventTarget(event.target);
+  const display = nodeGraphGraphDisplayFromEventTarget(event.target) || svg.closest?.(".node-module-graph-display");
   const nodeId = nodeGraphGraphNodeIdFromDisplay(display);
   const patchNode = nodeGraphPatchNode(nodeId);
   if (!display || !patchNode || !nodeGraphModuleIsGraphType(patchNode.type)) {
     nodeGraphGraphDebugTrace("add-node bailing, display/patchNode/type check failed", { nodeId, type: patchNode?.type });
-    return;
+    return false;
   }
   display?.focus?.({ preventScroll: true });
   const point = nodeGraphGraphSvgToGraphPoint(svg, event.clientX, event.clientY);
@@ -1251,35 +1932,47 @@ function addNodeGraphGraphNodeFromDisplayEvent(event) {
   const targetNode = patch.nodes.find((node) => node.id === nodeId);
   if (!targetNode || !nodeGraphModuleIsGraphType(targetNode.type)) {
     nodeGraphGraphDebugTrace("add-node bailing, targetNode/type check failed", { nodeId });
-    return;
+    return false;
   }
-  const addition = addNodeGraphGraphNodeData(targetNode.graph, point);
+  // Step Graph: snap new boundaries to the step grid and use hold segments.
+  const stepCount = nodeGraphGraphStepCountForNode(targetNode);
+  const isStep = nodeGraphGraphIsStepGraphType(targetNode.type);
+  const placePoint = isStep
+    ? {
+      x: stepCount > 0 ? nodeGraphGraphSnapXToStepGrid(point.x, stepCount) : point.x,
+      y: point.y,
+      shape: "hold",
+    }
+    : point;
+  const addition = addNodeGraphGraphNodeData(targetNode.graph, placePoint);
   if (!addition.added) {
     nodeGraphGraphDebugTrace("add-node refused (32-node cap?)", addition);
-    return;
+    return false;
+  }
+  // New step boundary: apply bar height so the new plateau matches the click Y.
+  let nextGraph = addition.graph;
+  if (isStep) {
+    nextGraph = nodeGraphGraphApplyStepBarHeight(addition.graph, addition.selectedIndex, placePoint.y);
   }
   nodeGraphGraphDebugTrace("add-node added", { selectedIndex: addition.selectedIndex, selectedX: addition.selectedX });
   targetNode.graph = nodeGraphGraphEndpointYLockEnabledForNode(targetNode)
-    ? nodeGraphGraphWithLockedEndpointY(addition.graph, addition.selectedIndex)
-    : addition.graph;
-  syncNodeGraphGraphPhaseParameterFromCursor(targetNode);
+    ? nodeGraphGraphWithLockedEndpointY(nextGraph, addition.selectedIndex)
+    : nextGraph;
+  // Keep params.phase / cream phase line where they were; adding a point is
+  // not a phase scrub.
   commitNodeGraphPatch(patch, { status: "graph node added" });
   setNodeGraphGraphSelectedNodeIndex(nodeId, targetNode.graph, addition.selectedIndex);
   syncNodeGraphGraphDisplaysForNode(nodeId, targetNode);
-  syncNodeGraphGraphControls(targetNode.graph, addition.selectedIndex);
-  // Clicking empty space adds a node under the pointer, but the mouse button
-  // is still down at this point (this all runs from the pointerdown
-  // handler) -- without picking up the drag here, moving the pointer while
-  // still held down did nothing, so a "click and drag out a new dot" gesture
-  // silently just dropped a fixed point instead of letting you place it.
-  // Start dragging the freshly added node immediately so the same pointer
-  // gesture that created it can also position it.
-  // `display` was captured from the pointerdown target before the
-  // commitNodeGraphPatch()/sync calls above ran, and those can recreate this
-  // node's DOM subtree (see nodeGraphGraphLiveDisplayForNodeId's comment) --
-  // re-resolve the live display by node id rather than trusting that
-  // reference, so the drag we're about to start doesn't get handed an
-  // already-detached display/svg.
+  syncNodeGraphGraphControls(targetNode.graph, addition.selectedIndex, { nodeId });
+
+  if (!startDrag) {
+    event.preventDefault();
+    event.stopPropagation();
+    return true;
+  }
+
+  // Optional: pick up drag on the new point (legacy single-click add path).
+  // commit/sync can rebuild the DOM — re-resolve the live display by node id.
   const liveDisplay = nodeGraphGraphLiveDisplayForNodeId(nodeId) || display;
   const newSvg = liveDisplay.querySelector(".node-module-graph-svg");
   const newHit = newSvg?.querySelector(
@@ -1301,10 +1994,10 @@ function addNodeGraphGraphNodeFromDisplayEvent(event) {
     newHit?.setPointerCapture?.(event.pointerId);
   } catch (_error) {
     nodeGraphGraphDebugTrace("add-node setPointerCapture on new node threw", String(_error));
-    // Ignore -- the drag still tracks via drag.* state on subsequent moves.
   }
   event.preventDefault();
   event.stopPropagation();
+  return true;
 }
 
 // renderNodeGraphGraphDisplay() fully replaces the display's children every
@@ -1328,8 +2021,10 @@ function reacquireNodeGraphGraphPointerCaptureAfterRender(drag, event) {
   }
   const selector = drag.mode === "cursor"
     ? "[data-graph-cursor]"
-    : `.node-module-graph-node-hit[data-graph-node-index="${drag.index}"]`;
-  const target = drag.svg.querySelector(selector);
+    : (drag.mode === "contour" || drag.mode === "stepBar")
+      ? `.node-module-graph-contour-handle[data-graph-contour-index="${drag.index}"]`
+      : `.node-module-graph-node-hit[data-graph-node-index="${drag.index}"]`;
+  const target = drag.svg.querySelector(selector) || (drag.mode === "cursor" ? drag.svg : null);
   try {
     target?.setPointerCapture?.(event.pointerId);
   } catch (_error) {
@@ -1338,18 +2033,77 @@ function reacquireNodeGraphGraphPointerCaptureAfterRender(drag, event) {
   }
 }
 
+/**
+ * Step Graph empty-circle handle:
+ *  • normal drag = raise/lower the step bar (left + right boundary Y, relative)
+ *  • Shift drag = per-segment contour / curve bend
+ */
+function beginNodeGraphGraphContourDrag(event, contourHandle) {
+  const display = nodeGraphGraphDisplayFromEventTarget(contourHandle || event.target);
+  const nodeId = nodeGraphGraphNodeIdFromDisplay(display);
+  const patchNode = nodeGraphPatchNode(nodeId);
+  if (!display || !patchNode || !nodeGraphGraphShowsContourHandles(patchNode)) {
+    return;
+  }
+  const svg = contourHandle?.closest?.(".node-module-graph-svg")
+    || display.querySelector(".node-module-graph-svg");
+  if (!svg) {
+    return;
+  }
+  const graph = nodeGraphGraphForNode(patchNode);
+  const index = nodeGraphGraphNodeIndexFromValue(graph, contourHandle?.dataset?.graphContourIndex);
+  if (index <= 0) {
+    return;
+  }
+  display?.focus?.({ preventScroll: true });
+  setNodeGraphGraphSelectedNodeIndex(nodeId, graph, index);
+  const left = graph.nodes[index - 1] || { y: 0 };
+  const right = graph.nodes[index] || { c: 0, shape: "hold", y: 0 };
+  const pointer = nodeGraphGraphSvgToGraphPoint(svg, event.clientX, event.clientY);
+  // Shift = contour curve; otherwise step-bar height.
+  const contourMode = Boolean(event.shiftKey);
+  nodeGraphMvp.graphNodeDragging = {
+    barStartLeftY: Number(left.y) || 0,
+    barStartPointerY: Number(pointer.y) || 0,
+    barStartRightY: Number(right.y) || 0,
+    display,
+    graph,
+    index,
+    lastClientX: event.clientX,
+    lastClientY: event.clientY,
+    lastContour: Number(right.c) || 0,
+    mode: contourMode ? "contour" : "stepBar",
+    moved: false,
+    nodeId,
+    pointerId: event.pointerId ?? null,
+    startClientX: event.clientX,
+    startClientY: event.clientY,
+    svg,
+  };
+  display?.classList.add("dragging");
+  if (contourMode) {
+    setNodeGraphGraphHotIndex(display, index);
+  } else {
+    setNodeGraphGraphStepBarHot(display, graph, index);
+  }
+  try {
+    contourHandle?.setPointerCapture?.(event.pointerId);
+  } catch (_error) {
+    // Synthetic pointer events may not own capture.
+  }
+  event.preventDefault();
+  event.stopPropagation();
+}
+
 function dragNodeGraphGraphNode(event) {
   const drag = nodeGraphMvp.graphNodeDragging;
   if (!drag?.svg || !drag?.display) {
     return;
   }
-  // Defense in depth alongside the reacquire-after-render logic below: if
-  // drag.display was already detached BEFORE this move even ran (e.g. the
-  // node's DOM subtree got recreated the instant the drag started -- see
-  // nodeGraphGraphLiveDisplayForNodeId's comment), re-resolve it from the
-  // live document by node id instead of computing a point off a detached
-  // element (whose getBoundingClientRect() is permanently zero).
-  if (!drag.display.isConnected) {
+  // Always re-pin to the live workspace face for this node id. Prevents a
+  // stale/wrong display reference (detached node, camera clone, or another
+  // graph module) from receiving drag paints meant for the active module.
+  {
     const liveDisplay = nodeGraphGraphLiveDisplayForNodeId(drag.nodeId);
     if (!liveDisplay) {
       return;
@@ -1357,28 +2111,93 @@ function dragNodeGraphGraphNode(event) {
     drag.display = liveDisplay;
     drag.svg = liveDisplay.querySelector(".node-module-graph-svg") || drag.svg;
   }
-  const smoothingMode = nodeGraphGraphSmoothingModeForNode(nodeGraphPatchNode(drag.nodeId));
-  const tension = Number(nodeGraphPatchNode(drag.nodeId)?.params?.tension) ?? 1;
-  const point = nodeGraphGraphSvgToGraphPoint(drag.svg, event.clientX, event.clientY);
-  nodeGraphGraphDebugTrace("graph pointermove", { mode: drag.mode, index: drag.index, point });
+  if (!drag.svg) {
+    return;
+  }
+  const dragPatchNode = nodeGraphPatchNode(drag.nodeId);
+  const smoothingMode = nodeGraphGraphSmoothingModeForNode(dragPatchNode);
+  const tension = Number(dragPatchNode?.params?.tension) ?? 1;
+  const stepCount = nodeGraphGraphStepCountForNode(dragPatchNode);
+  const screenDelta = typeof nodeGraphPointerDragScreenDelta === "function"
+    ? nodeGraphPointerDragScreenDelta(
+      Number(drag.lastClientX ?? drag.startClientX) || event.clientX,
+      Number(drag.lastClientY ?? drag.startClientY) || event.clientY,
+      event.clientX,
+      event.clientY,
+    )
+    : {
+      horizontal: event.clientX - (Number(drag.lastClientX ?? drag.startClientX) || event.clientX),
+      vertical: (Number(drag.lastClientY ?? drag.startClientY) || event.clientY) - event.clientY,
+      combined: 0,
+    };
+  if (!Number.isFinite(screenDelta.combined)) {
+    screenDelta.combined = screenDelta.horizontal + screenDelta.vertical;
+  }
+  if (
+    typeof nodeGraphPointerDragExceededMoveThreshold === "function"
+      ? nodeGraphPointerDragExceededMoveThreshold(drag.startClientX, drag.startClientY, event.clientX, event.clientY, 1)
+      : (Math.abs(event.clientX - drag.startClientX) > 1 || Math.abs(event.clientY - drag.startClientY) > 1)
+  ) {
+    drag.moved = true;
+  }
+  // Alt held mid-drag switches to absolute jump-to-pointer (like XY pad absolute).
+  if (event.altKey) {
+    drag.absolute = true;
+  }
+  nodeGraphGraphDebugTrace("graph pointermove", {
+    mode: drag.mode,
+    index: drag.index,
+    absolute: drag.absolute,
+    moved: drag.moved,
+    screenDelta,
+  });
   if (drag.mode === "cursor") {
+    // Relative: ignore until the pointer actually moves (plain click keeps phase).
+    if (!drag.absolute && !drag.moved) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    let nextCursorX;
+    if (drag.absolute) {
+      // Alt: jump phase to pointer X on the plot (absolute placement).
+      nextCursorX = nodeGraphGraphSvgToGraphPoint(drag.svg, event.clientX, event.clientY).x;
+    } else {
+      // Relative phase uses the same diagonal 1D policy as sliders: right+up
+      // increases, left+down decreases (not horizontal-only).
+      if (!Number.isFinite(Number(drag.lastClientX))) {
+        drag.lastClientX = Number(drag.startClientX) || event.clientX;
+        drag.lastClientY = Number(drag.startClientY) || event.clientY;
+        drag.lastCursorX = Number.isFinite(Number(drag.startCursorX))
+          ? Number(drag.startCursorX)
+          : (Number(drag.graph?.cursorX) || 0);
+      }
+      const unitPerPx = nodeGraphGraphDragUnitPerPixel(drag.svg);
+      const mult = nodeGraphGraphPointDragMultiplier(event);
+      const lastCursorX = Number.isFinite(Number(drag.lastCursorX))
+        ? Number(drag.lastCursorX)
+        : (Number(drag.graph?.cursorX) || 0);
+      const frameDelta = typeof nodeGraphPointerDragScreenDelta === "function"
+        ? nodeGraphPointerDragScreenDelta(drag.lastClientX, drag.lastClientY, event.clientX, event.clientY)
+        : screenDelta;
+      nextCursorX = lastCursorX + frameDelta.combined * unitPerPx * mult;
+    }
+    nextCursorX = Math.max(0, Math.min(1, Number.isFinite(nextCursorX) ? nextCursorX : 0));
     drag.graph = normalizeNodeGraphGraph({
       ...drag.graph,
-      cursorX: point.x,
+      cursorX: nextCursorX,
     });
+    // Frame-to-frame anchors: no drag debt at 0/1 phase limits.
+    drag.lastClientX = event.clientX;
+    drag.lastClientY = event.clientY;
+    drag.lastCursorX = nextCursorX;
     syncNodeGraphGraphPhaseSliderForNode(drag.nodeId, drag.graph.cursorX);
-    renderNodeGraphGraphDisplay(drag.display, drag.graph, null, { smoothingMode, tension });
-    // syncNodeGraphGraphControls (below) can ALSO re-render this same
-    // display a second time this tick, via syncNodeGraphGraphElement --
-    // whenever the module actions panel is open for this node. Caching
-    // drag.svg/reacquiring capture BEFORE that second render meant every
-    // pointermove after the first measured a now-detached SVG (a detached
-    // element's getBoundingClientRect() is all zeros), so the graph point
-    // silently collapsed to {x:0, y:0} forever -- the node would jump to
-    // the first move's position and then simply stop responding to the
-    // mouse. Re-querying AFTER both possible renders fixes this.
+    renderNodeGraphGraphDisplay(drag.display, drag.graph, null, { smoothingMode, stepCount, tension });
+    // Panel fields only — face is owned by this drag loop. A second face
+    // paint via syncNodeGraphGraphControls used nodeGraphNodeElement() which
+    // can hit the wrong module and flatten another graph's curve mid-drag.
     if (nodeGraphModuleActionTargetNodeId() === drag.nodeId) {
-      syncNodeGraphGraphControls(drag.graph);
+      syncNodeGraphGraphControls(drag.graph, undefined, { nodeId: drag.nodeId, face: false });
     }
     drag.svg = drag.display.querySelector(".node-module-graph-svg");
     reacquireNodeGraphGraphPointerCaptureAfterRender(drag, event);
@@ -1386,19 +2205,167 @@ function dragNodeGraphGraphNode(event) {
     event.stopPropagation();
     return;
   }
-  const moved = nodeGraphGraphMoveNode(drag.graph, drag.index, point);
-  drag.graph = nodeGraphGraphEndpointYLockEnabledForNode(nodeGraphPatchNode(drag.nodeId))
+
+  // Step Graph empty-circle: step-bar height (relative Y on left+right ends).
+  if (drag.mode === "stepBar") {
+    if (
+      typeof nodeGraphPointerDragExceededMoveThreshold === "function"
+        ? nodeGraphPointerDragExceededMoveThreshold(drag.startClientX, drag.startClientY, event.clientX, event.clientY, 1)
+        : (Math.abs(event.clientX - drag.startClientX) > 1 || Math.abs(event.clientY - drag.startClientY) > 1)
+    ) {
+      drag.moved = true;
+    }
+    const pointer = nodeGraphGraphSvgToGraphPoint(drag.svg, event.clientX, event.clientY);
+    const startPointerY = Number.isFinite(Number(drag.barStartPointerY))
+      ? Number(drag.barStartPointerY)
+      : pointer.y;
+    const deltaY = pointer.y - startPointerY;
+    drag.graph = nodeGraphGraphApplyStepBarHeightDelta(
+      drag.graph,
+      drag.index,
+      drag.barStartLeftY,
+      drag.barStartRightY,
+      deltaY,
+    );
+    drag.lastClientX = event.clientX;
+    drag.lastClientY = event.clientY;
+    setNodeGraphGraphSelectedNodeIndex(drag.nodeId, drag.graph, drag.index);
+    renderNodeGraphGraphDisplay(drag.display, drag.graph, drag.index, { smoothingMode, stepCount, tension });
+    if (drag.display) {
+      setNodeGraphGraphStepBarHot(drag.display, drag.graph, drag.index);
+    }
+    if (typeof scheduleNodeGraphLiveGraphData === "function") {
+      scheduleNodeGraphLiveGraphData(drag.nodeId, drag.graph);
+    }
+    if (nodeGraphModuleActionTargetNodeId() === drag.nodeId) {
+      syncNodeGraphGraphControls(drag.graph, drag.index, { nodeId: drag.nodeId, face: false });
+    }
+    drag.svg = drag.display.querySelector(".node-module-graph-svg");
+    reacquireNodeGraphGraphPointerCaptureAfterRender(drag, event);
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+
+  // Step Graph empty-circle + Shift: per-segment curvature (`c`).
+  if (drag.mode === "contour") {
+    if (
+      typeof nodeGraphPointerDragExceededMoveThreshold === "function"
+        ? nodeGraphPointerDragExceededMoveThreshold(drag.startClientX, drag.startClientY, event.clientX, event.clientY, 1)
+        : (Math.abs(event.clientX - drag.startClientX) > 1 || Math.abs(event.clientY - drag.startClientY) > 1)
+    ) {
+      drag.moved = true;
+    }
+    const point = nodeGraphGraphSvgToGraphPoint(drag.svg, event.clientX, event.clientY);
+    const nodes = [...(drag.graph.nodes || [])];
+    const current = nodes[drag.index] || normalizeNodeGraphGraphNode({}, drag.index);
+    nodes[drag.index] = normalizeNodeGraphGraphNode({
+      ...current,
+      c: nodeGraphGraphContourFromPoint(drag.graph, drag.index, point),
+      shape: nodeGraphGraphContourEditableShape(current.shape),
+    }, drag.index);
+    drag.graph = normalizeNodeGraphGraph({ ...drag.graph, nodes });
+    drag.lastClientX = event.clientX;
+    drag.lastClientY = event.clientY;
+    drag.lastContour = Number(drag.graph.nodes[drag.index]?.c) || 0;
+    setNodeGraphGraphSelectedNodeIndex(drag.nodeId, drag.graph, drag.index);
+    renderNodeGraphGraphDisplay(drag.display, drag.graph, drag.index, { smoothingMode, stepCount, tension });
+    if (typeof scheduleNodeGraphLiveGraphData === "function") {
+      scheduleNodeGraphLiveGraphData(drag.nodeId, drag.graph);
+    }
+    if (nodeGraphModuleActionTargetNodeId() === drag.nodeId) {
+      syncNodeGraphGraphControls(drag.graph, drag.index, { nodeId: drag.nodeId, face: false });
+    }
+    drag.svg = drag.display.querySelector(".node-module-graph-svg");
+    reacquireNodeGraphGraphPointerCaptureAfterRender(drag, event);
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+
+  // Filled control-point drag.
+  // Smooth Graph: free delta motion (Shift = fine).
+  // Step Graph:
+  //   • normal = snap X to step grid, free Y (single boundary)
+  //   • Ctrl/Cmd = free single-point (no snap)
+  const currentNode = drag.graph?.nodes?.[drag.index] || { x: 0, y: 0 };
+  if (!Number.isFinite(Number(drag.lastClientX)) || !Number.isFinite(Number(drag.lastClientY))) {
+    drag.lastClientX = Number(drag.startClientX) || event.clientX;
+    drag.lastClientY = Number(drag.startClientY) || event.clientY;
+    drag.lastNodeX = Number(currentNode.x) || 0;
+    drag.lastNodeY = Number(currentNode.y) || 0;
+  }
+  const fine = Boolean(event.shiftKey);
+  const isStepGraph = nodeGraphGraphIsStepGraphType(dragPatchNode?.type);
+  const freePoint = Boolean(event.ctrlKey || event.metaKey);
+  const stepSnapMode = isStepGraph && !freePoint;
+  if (
+    fine !== Boolean(drag.fineActive)
+    || stepSnapMode !== Boolean(drag.stepSnapActive)
+    || freePoint !== Boolean(drag.stepFreeActive)
+  ) {
+    drag.lastClientX = event.clientX;
+    drag.lastClientY = event.clientY;
+    drag.lastNodeX = Number(currentNode.x) || 0;
+    drag.lastNodeY = Number(currentNode.y) || 0;
+    drag.fineActive = fine;
+    drag.stepSnapActive = stepSnapMode;
+    drag.stepFreeActive = freePoint;
+  }
+
+  let moved;
+  if (isStepGraph && (stepSnapMode || freePoint)) {
+    // Absolute under pointer; snap X only in normal (non-Ctrl) step mode.
+    // Y is never quantized — free height for a single boundary if needed.
+    const absolute = nodeGraphGraphSvgToGraphPoint(drag.svg, event.clientX, event.clientY);
+    let x = absolute.x;
+    if (stepSnapMode && stepCount > 0) {
+      x = nodeGraphGraphSnapXToStepGrid(x, stepCount);
+    }
+    moved = nodeGraphGraphMoveNode(drag.graph, drag.index, { x, y: absolute.y });
+  } else {
+    // Smooth Graph: delta free drag with optional Shift-fine.
+    const mult = nodeGraphGraphPointDragMultiplier(event);
+    const unitPerPx = nodeGraphGraphDragUnitPerPixel(drag.svg);
+    const frameDelta = typeof nodeGraphPointerDragScreenDelta === "function"
+      ? nodeGraphPointerDragScreenDelta(drag.lastClientX, drag.lastClientY, event.clientX, event.clientY)
+      : screenDelta;
+    const lastNodeX = Number.isFinite(Number(drag.lastNodeX))
+      ? Number(drag.lastNodeX)
+      : (Number(currentNode.x) || 0);
+    const lastNodeY = Number.isFinite(Number(drag.lastNodeY))
+      ? Number(drag.lastNodeY)
+      : (Number(currentNode.y) || 0);
+    moved = nodeGraphGraphMoveNode(drag.graph, drag.index, {
+      x: lastNodeX + frameDelta.horizontal * unitPerPx * mult,
+      y: lastNodeY + frameDelta.vertical * unitPerPx * mult,
+    });
+  }
+
+  drag.graph = nodeGraphGraphEndpointYLockEnabledForNode(dragPatchNode)
     ? nodeGraphGraphWithLockedEndpointY(moved.graph, moved.index)
     : moved.graph;
   drag.index = moved.index;
-  nodeGraphGraphDebugTrace("graph node moved", { newIndex: drag.index, nodeCount: drag.graph.nodes.length });
+  const resultNode = drag.graph?.nodes?.[drag.index] || currentNode;
+  drag.lastClientX = event.clientX;
+  drag.lastClientY = event.clientY;
+  drag.lastNodeX = Number(resultNode.x) || 0;
+  drag.lastNodeY = Number(resultNode.y) || 0;
+  nodeGraphGraphDebugTrace("graph node moved", {
+    newIndex: drag.index,
+    nodeCount: drag.graph.nodes.length,
+    fine,
+    stepSnapMode,
+    freePoint,
+    stepCount,
+  });
   setNodeGraphGraphSelectedNodeIndex(drag.nodeId, drag.graph, drag.index);
-  renderNodeGraphGraphDisplay(drag.display, drag.graph, drag.index, { smoothingMode, tension });
-  // See the matching comment in the cursor-drag branch above: sync AFTER
-  // the possible second render syncNodeGraphGraphControls triggers, then
-  // requery/reacquire once against whichever render actually happened last.
+  renderNodeGraphGraphDisplay(drag.display, drag.graph, drag.index, { smoothingMode, stepCount, tension });
+  if (typeof scheduleNodeGraphLiveGraphData === "function") {
+    scheduleNodeGraphLiveGraphData(drag.nodeId, drag.graph);
+  }
   if (nodeGraphModuleActionTargetNodeId() === drag.nodeId) {
-    syncNodeGraphGraphControls(drag.graph, drag.index);
+    syncNodeGraphGraphControls(drag.graph, drag.index, { nodeId: drag.nodeId, face: false });
   }
   drag.svg = drag.display.querySelector(".node-module-graph-svg");
   reacquireNodeGraphGraphPointerCaptureAfterRender(drag, event);
@@ -1416,9 +2383,36 @@ function endNodeGraphGraphNodeDrag(event) {
     // floods the debug console and buries the traces that matter.
     return;
   }
-  nodeGraphGraphDebugTrace("graph pointerup, committing", { nodeId: drag.nodeId, index: drag.index, mode: drag.mode });
+  nodeGraphGraphDebugTrace("graph pointerup", {
+    nodeId: drag.nodeId,
+    index: drag.index,
+    mode: drag.mode,
+    absolute: drag.absolute,
+    moved: drag.moved,
+  });
   drag.display?.classList.remove("dragging");
   nodeGraphMvp.graphNodeDragging = null;
+  // After drag ends, re-evaluate hover from the release target (or clear).
+  if (drag.display) {
+    const onPhase = Boolean(nodeGraphGraphPhaseHitFromEventTarget(event.target));
+    setNodeGraphGraphPhaseHot(drag.display, onPhase);
+    const hot = onPhase ? null : nodeGraphGraphHotIndexFromEventTarget(event.target);
+    if (hot == null) {
+      clearNodeGraphGraphHotMarks(drag.display);
+    } else {
+      setNodeGraphGraphHotIndex(drag.display, hot);
+    }
+  }
+
+  // Click with no movement: do not commit. A no-op commit re-renders the SVG
+  // and destroys hit targets under the pointer, which breaks double-click
+  // remove (second click misses the original point / never sees detail>=2).
+  if (!drag.moved && !(drag.mode === "cursor" && drag.absolute)) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   const targetNode = patch.nodes.find((node) => node.id === drag.nodeId);
   if (nodeGraphModuleIsGraphType(targetNode?.type)) {
@@ -1428,21 +2422,27 @@ function endNodeGraphGraphNodeDrag(event) {
     if (drag.mode === "cursor") {
       syncNodeGraphGraphPhaseParameterFromCursor(targetNode);
     }
-    const status = drag.mode === "cursor" ? "graph cursor moved" : "graph node moved";
+    const status = drag.mode === "cursor"
+      ? (drag.absolute ? "graph cursor jumped" : "graph cursor moved")
+      : drag.mode === "stepBar"
+        ? "graph step moved"
+        : drag.mode === "contour"
+          ? "graph curve changed"
+          : "graph node moved";
     commitNodeGraphPatch(patch, { status });
     const selectedIndex = nodeGraphGraphSelectedNodeIndex(drag.nodeId, targetNode.graph, drag.index ?? 0);
     setNodeGraphGraphSelectedNodeIndex(drag.nodeId, targetNode.graph, selectedIndex);
     syncNodeGraphGraphDisplaysForNode(drag.nodeId, targetNode);
-    syncNodeGraphGraphControls(targetNode.graph, selectedIndex);
+    syncNodeGraphGraphControls(targetNode.graph, selectedIndex, { nodeId: drag.nodeId });
   }
   event.preventDefault();
   event.stopPropagation();
 }
 
-// Shared removal path for keyboard delete and direct pointer gestures --
-// takes an explicit index (rather than assuming "whatever's selected") so
-// alt+click/double-click can remove whichever node is actually under the
-// pointer, even if it isn't the currently selected one.
+// Shared removal path for keyboard delete and pointer gestures -- takes an
+// explicit index (rather than assuming "whatever's selected") so alt+click /
+// double-click can remove whichever node is under the pointer, even if it
+// isn't the currently selected one.
 function removeNodeGraphGraphNodeAtIndex(nodeId, index) {
   const sourceNode = nodeGraphPatchNode(nodeId);
   if (!sourceNode || !nodeGraphModuleIsGraphType(sourceNode.type)) {
@@ -1507,19 +2507,36 @@ function addFocusedNodeGraphGraphNode() {
   if (!targetNode || !nodeGraphModuleIsGraphType(targetNode.type)) {
     return false;
   }
-  const addition = addNodeGraphGraphNodeData(targetNode.graph);
+  const isStep = nodeGraphGraphIsStepGraphType(targetNode.type);
+  const stepCount = nodeGraphGraphStepCountForNode(targetNode);
+  const place = isStep
+    ? {
+      x: stepCount > 0
+        ? nodeGraphGraphSnapXToStepGrid(Number(targetNode.graph?.cursorX) || 0.5, stepCount)
+        : (Number(targetNode.graph?.cursorX) || 0.5),
+      shape: "hold",
+    }
+    : {};
+  const addition = addNodeGraphGraphNodeData(targetNode.graph, place);
   if (!addition.added) {
     return false;
   }
+  let nextGraph = addition.graph;
+  if (isStep) {
+    nextGraph = nodeGraphGraphApplyStepBarHeight(
+      addition.graph,
+      addition.selectedIndex,
+      addition.graph.nodes[addition.selectedIndex]?.y,
+    );
+  }
   targetNode.graph = nodeGraphGraphEndpointYLockEnabledForNode(targetNode)
-    ? nodeGraphGraphWithLockedEndpointY(addition.graph, addition.selectedIndex)
-    : addition.graph;
-  syncNodeGraphGraphPhaseParameterFromCursor(targetNode);
+    ? nodeGraphGraphWithLockedEndpointY(nextGraph, addition.selectedIndex)
+    : nextGraph;
   commitNodeGraphPatch(patch, { status: "graph node added" });
   setNodeGraphGraphSelectedNodeIndex(nodeId, targetNode.graph, addition.selectedIndex);
   syncNodeGraphGraphDisplaysForNode(nodeId, targetNode);
   if (nodeGraphModuleActionTargetNodeId() === nodeId) {
-    syncNodeGraphGraphControls(targetNode.graph, addition.selectedIndex);
+    syncNodeGraphGraphControls(targetNode.graph, addition.selectedIndex, { nodeId });
   }
   display.focus?.({ preventScroll: true });
   return true;
@@ -1620,18 +2637,18 @@ function nudgeFocusedNodeGraphGraphNode(event) {
   return true;
 }
 
-// Repositions each graph/graph2 module's live-playhead line in place --
+// Repositions each graph module's purple final-phase ghost in place --
 // deliberately NOT a full renderNodeGraphGraphDisplay() re-render, which
 // would tear down and rebuild the whole SVG every time the worklet posts a
 // scope snapshot (many times a second, for every visible graph module).
 // That churn is exactly what made dragging a dot unreliable (see the
 // pointer-capture comment on dragNodeGraphGraphNode above); a live update
 // running at the same cadence needs to avoid the same trap by touching only
-// the one <line> element's position.
+// the ghost <line> element's position.
 function syncNodeGraphGraphLivePlayheads() {
   const liveAudioRunning = Boolean(nodeGraphMvp?.live?.node);
   for (const display of document.querySelectorAll(".node-module-graph-display")) {
-    const line = display.querySelector(".node-module-graph-playhead");
+    const line = display.querySelector(".node-module-graph-phase-ghost, .node-module-graph-playhead");
     if (!line) {
       continue;
     }
@@ -1643,11 +2660,12 @@ function syncNodeGraphGraphLivePlayheads() {
     if (liveX === null || !Number.isFinite(liveX)) {
       // No live sample yet, or live audio isn't running -- e.g. audio
       // stopped after a stale sample was captured. Hide rather than leave a
-      // frozen line that would misleadingly still read as "live".
+      // frozen ghost that would misleadingly still read as "final phase".
       line.classList.remove("live");
       continue;
     }
-    const point = nodeGraphGraphPointToSvg(liveX, 0);
+    const clampedX = Math.max(0, Math.min(1, Number(liveX)));
+    const point = nodeGraphGraphPointToSvg(clampedX, 0);
     line.setAttribute("x1", point.x.toFixed(3));
     line.setAttribute("x2", point.x.toFixed(3));
     line.classList.add("live");

@@ -70,12 +70,24 @@ function nodeGraphIoRowPointerInPortHitbox(event) {
 function attachNodeGraphSolidModuleShellEvents(node) {
   node.querySelectorAll(".node-solid-module-custom-ui").forEach((face) => {
     face.addEventListener("pointerdown", beginNodeGraphNodeDrag);
-    face.addEventListener("dblclick", openNodeModuleActionMenu);
+    // Graph face owns double-click (add/remove points). Do not open Module
+    // Settings from a dblclick that started on the graph editor.
+    face.addEventListener("dblclick", (event) => {
+      if (event.target?.closest?.(".node-module-graph-display")) {
+        return;
+      }
+      openNodeModuleActionMenu(event);
+    });
     face.addEventListener("contextmenu", openNodeModuleActionMenu);
   });
   node.querySelectorAll(".node-solid-module-shell").forEach((shell) => {
     shell.addEventListener("pointerdown", beginNodeGraphNodeDrag);
-    shell.addEventListener("dblclick", openNodeModuleActionMenu);
+    shell.addEventListener("dblclick", (event) => {
+      if (event.target?.closest?.(".node-module-graph-display")) {
+        return;
+      }
+      openNodeModuleActionMenu(event);
+    });
     shell.addEventListener("contextmenu", openNodeModuleActionMenu);
   });
 }
@@ -582,6 +594,10 @@ function createNodeGraphModuleElement(type, node) {
     graphSection.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} graph display`);
     renderNodeGraphGraphDisplay(graphSection, nodeGraphGraphForNode(patchNode), null, {
       smoothingMode: nodeGraphGraphSmoothingModeForNode(patchNode),
+      stepCount: typeof nodeGraphGraphStepCountForNode === "function"
+        ? nodeGraphGraphStepCountForNode(patchNode)
+        : 0,
+      tension: Number(patchNode?.params?.tension) ?? 1,
     });
     const graphShell = createNodeGraphSolidModuleShell(node, type, graphSection, null, inputPorts, outputPorts);
     graphShell.classList.add("node-graph-solid-shell");

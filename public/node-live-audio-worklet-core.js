@@ -438,6 +438,10 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       this.setParams(message.nodes, message);
       return;
     }
+    if (message.type === "setGraphData") {
+      this.setGraphData(message.graphData);
+      return;
+    }
     if (message.type === "gpuAdditiveChunk") {
       this.pushGpuAdditiveChunk(message);
       return;
@@ -3163,11 +3167,23 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.modulationConnections = this.buildModulationConnectionMap(plan?.modulations, ids);
     const graphData = message.graphData || plan?.graphData;
     if (graphData) {
-      for (const [nodeId, graph] of Object.entries(graphData)) {
-        const node = this.nodes.get(nodeId);
-        if (node) {
-          node.graph = graph;
-        }
+      this.setGraphData(graphData);
+    }
+  }
+
+  /**
+   * Lightweight graph-curve update (control points / cursorX) without rebuilding
+   * connections or parameter smoothers. Used while dragging graph dots so the
+   * audible shape tracks the face in realtime.
+   */
+  setGraphData(graphData) {
+    if (!graphData || typeof graphData !== "object") {
+      return;
+    }
+    for (const [nodeId, graph] of Object.entries(graphData)) {
+      const node = this.nodes.get(nodeId);
+      if (node) {
+        node.graph = graph;
       }
     }
   }
@@ -3528,10 +3544,23 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   }
 
   normalizeGraphShape(value) {
-    const shape = String(value || "").trim();
-    return shape === "linear" || shape === "smooth" || shape === "exponential" || shape === "rational" || shape === "hold"
-      ? shape
-      : "rational";
+    const shape = String(value || "").trim().toLowerCase();
+    if (shape === "logarithmic") {
+      return "log";
+    }
+    if (shape === "smooth" || shape === "smoothstep") {
+      return "smoothstep";
+    }
+    if (
+      shape === "linear" ||
+      shape === "exponential" ||
+      shape === "rational" ||
+      shape === "log" ||
+      shape === "hold"
+    ) {
+      return shape;
+    }
+    return "rational";
   }
 
   normalizeGraphNode(value = {}, index = 0) {
@@ -3643,27 +3672,32 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     if (value === "legacy") {
       return "legacy";
     }
-    if (Number.isFinite(Number(value))) {
-      return ["linear", "smooth", "bezier", "quadratic", "cubic", "catmullRom"][Math.max(0, Math.min(5, Math.round(Number(value))))];
+    const modes = ["linear", "catmull", "quadratic", "cubic"];
+    const raw = String(value ?? "").trim().toLowerCase();
+    // Old Curve labels that all used the same guide-tension path.
+    if (raw === "smooth" || raw === "bezier" || raw === "catmullrom" || raw === "catmull") {
+      return "catmull";
     }
-    const mode = String(value || "").trim().toLowerCase();
-    return ["linear", "smooth", "bezier", "quadratic", "cubic", "catmullRom"].includes(mode) ? mode : "smooth";
-  }
-
-  graphMeanderCurve(position, index = 0) {
-    const p = this.graphSmoothCurve(position);
-    const wobblePhase = (index * 0.371) % 1;
-    const wobble = Math.sin(Math.PI * p) * Math.sin((p * 1.5 + wobblePhase) * Math.PI * 2) * 0.075;
-    return this.normalizeGraphNumber(p + wobble, p, 0, 1);
+    if (modes.includes(raw)) {
+      return raw;
+    }
+    if (Number.isFinite(Number(value))) {
+      const n = Math.round(Number(value));
+      if (n === 4) {
+        return "cubic";
+      }
+      if (n === 5) {
+        return "catmull";
+      }
+      return modes[Math.max(0, Math.min(modes.length - 1, n))];
+    }
+    return "catmull";
   }
 
   graphModeCurve(position, mode, index = 0) {
     const normalizedMode = this.normalizeGraph2SmoothingMode(mode);
     if (normalizedMode === "linear") {
       return this.normalizeGraphNumber(position, 0, 0, 1);
-    }
-    if (normalizedMode === "bezier") {
-      return this.graphMeanderCurve(position, index);
     }
     return this.graphSmoothCurve(position);
   }
@@ -3918,14 +3952,11 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   }
 
   graphSmoothingModeForNode(node) {
-    // Graph / Graph_Copy: point-to-point segment shapes (legacy path).
-    if (
-      node?.type === "graph2"
-      || node?.type === "graphCopy"
-      || node?.type === "graph"
-    ) {
+    // Step Graph / legacy graph: per-segment hold/shape path.
+    if (node?.type === "graphCopy" || node?.type === "graph") {
       return "legacy";
     }
+    // Smooth Graph (graph2): one global smoothing algorithm through the dots.
     return this.normalizeGraph2SmoothingMode(node?.params?.smoothingMode);
   }
 
@@ -3942,7 +3973,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       return left.y + (right.y - left.y) * shaped;
     }
     const contour = this.normalizeGraphNumber(right.c, 0, -0.999, 0.999);
-    const shape = String(right.shape || "rational");
+    const shape = this.normalizeGraphShape(right.shape || "rational");
     let shaped = p;
     if (shape === "exponential") {
       shaped = this.graphExponentialCurve(p, contour);
@@ -3950,7 +3981,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       shaped = this.graphLogarithmicCurve(p, contour);
     } else if (shape === "hold") {
       shaped = p >= 1 ? 1 : 0;
-    } else if (shape === "smooth") {
+    } else if (shape === "smoothstep" || shape === "smooth") {
       shaped = this.graphSmoothCurve(p);
     } else if (shape === "linear") {
       shaped = p;
@@ -3967,11 +3998,8 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       return 0;
     }
     const normalizedMode = this.normalizeGraph2SmoothingMode(smoothingMode);
-    if (
-      normalizedMode === "bezier" ||
-      normalizedMode === "smooth" ||
-      normalizedMode === "catmullRom"
-    ) {
+    // Catmull = guide-tension curve (old smooth/bezier aliases map here).
+    if (normalizedMode === "catmull") {
       return this.graphGuideBezierValueAt(graph, x, tension);
     }
     if (x < graph.nodes[0].x) {
@@ -4900,6 +4928,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   createGraphLfoState() {
     return {
       lastReset: 0,
+      // Free-running phasor position in cycles [0, 1). Advanced by rate/sr
+      // each sample in Phasor mode so Rate changes only alter slope.
+      phase: 0,
       resetFrame: 0,
     };
   }
@@ -7850,7 +7881,18 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       }
       return ((Number(raw) || 0) - lo) / span;
     };
+    // In LFO / Phasor modes, a connected In acts as an extra phase offset
+    // (mapped through In Min/Max). Unconnected In contributes 0.
+    const graphInputPhaseOffset = (node, nodeId) => {
+      if (!hasInput(nodeId, "In")) {
+        return 0;
+      }
+      const inputMin = this.readEffectiveParameter(node, "inputMin", 0, frame, frames, frameValues);
+      const inputMax = this.readEffectiveParameter(node, "inputMax", 1, frame, frames, frameValues);
+      return graphMapInputToUnit(mixInput(nodeId), inputMin, inputMax);
+    };
     const graphSampleX = (node, nodeId) => {
+      // mode: 0 Input | 1 LFO (wall-clock t*rate) | 2 Phasor (accumulate rate/sr)
       const mode = Math.round(this.readEffectiveParameter(node, "mode", 0, frame, frames, frameValues));
       const phaseValue = this.readEffectiveParameter(node, "phase", 0, frame, frames, frameValues);
       // Phase is always a pure time/position offset: same loop, just starts
@@ -7867,6 +7909,21 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       const rateValue = Math.max(0, this.readEffectiveParameter(node, "rate", 1, frame, frames, frameValues));
       const state = this.graphLfoStates.get(nodeId) || this.createGraphLfoState();
       this.graphLfoStates.set(nodeId, state);
+      const inputOffset = graphInputPhaseOffset(node, nodeId);
+      // Phasor: free-running accumulator. Rate changes only affect how fast we
+      // advance from the current position — no wall-clock recompute jump.
+      if (mode >= 2) {
+        let phasor = Number(state.phase);
+        if (!Number.isFinite(phasor)) {
+          phasor = 0;
+        }
+        phasor += rateValue / safeRate;
+        phasor -= Math.floor(phasor);
+        state.phase = phasor;
+        return this.wrapValue(phasor + phaseValue + inputOffset, 0, 1);
+      }
+      // LFO: wall-clock phase from absolute frame (rate change can jump).
+      // Connected In adds the same kind of phase offset as the Phase param.
       const resetValue = 0;
       const currentFrame = Number(this.absoluteFrame) || 0;
       if (state.lastReset <= 0 && resetValue > 0) {
@@ -7874,7 +7931,11 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       }
       state.lastReset = resetValue;
       const resetFrame = Number.isFinite(state.resetFrame) ? state.resetFrame : 0;
-      return this.wrapValue(((currentFrame - resetFrame) / safeRate) * rateValue + phaseValue, 0, 1);
+      return this.wrapValue(
+        ((currentFrame - resetFrame) / safeRate) * rateValue + phaseValue + inputOffset,
+        0,
+        1,
+      );
     };
     const graphOutputValue = (node, nodeId) => {
       const sampleX = graphSampleX(node, nodeId);

@@ -47,7 +47,9 @@ function beginNodeGraphNodeDrag(event) {
       // intentionally NOT listed: solid-module rows are a 1gu band around each
       // jack; geometric miss (see endpointHitboxClientRect) falls through to
       // shell/face drag without stopping here.
-      ".node-port, .node-param-port, button:not(.node-drag-handle), input:not(.node-header-title-input), textarea, select, option, [contenteditable='true'], .node-xy-pad-canvas",
+      // Graph face owns its own pointer gestures (points / phase) — never start
+      // a module move from inside .node-module-graph-display.
+      ".node-port, .node-param-port, button:not(.node-drag-handle), input:not(.node-header-title-input), textarea, select, option, [contenteditable='true'], .node-xy-pad-canvas, .node-module-graph-display",
     )
   ) {
     return;

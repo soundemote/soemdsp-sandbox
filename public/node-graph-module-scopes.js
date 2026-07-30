@@ -919,11 +919,12 @@ function dragNodeGraphScopeNumber(event) {
   ) {
     return;
   }
-  const horizontalDelta = event.clientX - drag.startX;
-  const verticalDelta = drag.startY - event.clientY;
+  const axes = typeof nodeGraphPointerDragScreenDelta === "function"
+    ? nodeGraphPointerDragScreenDelta(drag.startX, drag.startY, event.clientX, event.clientY)
+    : { combined: (event.clientX - drag.startX) + (drag.startY - event.clientY) };
   setNodeGraphScopeNumberInputValue(
     drag.input,
-    drag.startValue + (horizontalDelta + verticalDelta) * drag.scale,
+    drag.startValue + axes.combined * drag.scale,
   );
   event.preventDefault();
 }
@@ -4990,6 +4991,61 @@ function setNodeGraphTraceDisplaySettingsHeader(title = "DISPLAY", subtitle = "S
   }
 }
 
+/** Show/hide the display form vs the “right-click a display” empty state. */
+function setNodeGraphTraceDisplaySettingsBlankState(blank = true, message = "Right-click on a display") {
+  const popover = nodeGraphTraceDisplaySettingsElement();
+  if (!popover) {
+    return;
+  }
+  const grid = popover.querySelector(".node-trace-display-settings-grid, .metadata-popover-grid");
+  let empty = popover.querySelector(":scope > .node-unified-inspector-empty");
+  if (!empty) {
+    empty = document.createElement("div");
+    empty.className = "node-unified-inspector-empty";
+    empty.setAttribute("role", "status");
+  }
+  empty.textContent = message;
+  // Prefer shared placer from metadata editor when available.
+  if (typeof placeNodeGraphUnifiedInspectorEmpty === "function") {
+    placeNodeGraphUnifiedInspectorEmpty(popover, empty);
+  } else {
+    const nav = popover.querySelector(":scope > .node-unified-window-nav-host");
+    if (nav) {
+      nav.after(empty);
+    } else if (grid) {
+      popover.insertBefore(empty, grid);
+    } else {
+      popover.append(empty);
+    }
+  }
+  empty.hidden = !blank;
+  if (grid) {
+    grid.hidden = Boolean(blank);
+  }
+  popover.dataset.inspectorBlank = blank ? "true" : "false";
+}
+
+/** Content-only blank fill for Display Settings (nav / deselection). */
+function showBlankNodeGraphTraceDisplaySettingsContent() {
+  const popover = nodeGraphTraceDisplaySettingsElement();
+  bindNodeGraphTraceDisplaySettingsEvents(popover);
+  commitOpenNodeGraphTraceDisplaySettings();
+  nodeGraphMvp.traceDisplaySettingsTargetNode = null;
+  nodeGraphMvp.sharedInspectorActive = "traceDisplaySettings";
+  setNodeGraphTraceDisplaySettingsHeader("DISPLAY", "Settings", "");
+  // Clear body so we don't keep editing a previous module under the empty state.
+  const body = popover.querySelector("[data-display-settings-body]");
+  if (body) {
+    body.replaceChildren();
+  }
+  popover.dataset.displaySettingsBodyType = "";
+  popover.dataset.displaySettingsTargetNode = "";
+  popover.dataset.displaySettingsType = "";
+  setNodeGraphTraceDisplayModeSelectorVisible(popover, false);
+  destroyNodeGraphTraceDisplayColorWidgets();
+  setNodeGraphTraceDisplaySettingsBlankState(true, "Right-click on a display");
+}
+
 function nodeGraphTraceDisplaySettingsTargetLabel(node) {
   if (!node) {
     return "";
@@ -5813,12 +5869,13 @@ function dragNodeGraphTraceDisplayField(event) {
   ) {
     return;
   }
-  const horizontalDelta = event.clientX - drag.startX;
-  const verticalDelta = drag.startY - event.clientY;
+  const axes = typeof nodeGraphPointerDragScreenDelta === "function"
+    ? nodeGraphPointerDragScreenDelta(drag.startX, drag.startY, event.clientX, event.clientY)
+    : { combined: (event.clientX - drag.startX) + (drag.startY - event.clientY) };
   const startValue = Number.isFinite(drag.startValue)
     ? drag.startValue
     : nodeGraphDisplaySettingsDefaultValue(drag.key);
-  const controlDelta = ((horizontalDelta + verticalDelta) / 8) * drag.quantum * drag.multiplier;
+  const controlDelta = (axes.combined / 8) * drag.quantum * drag.multiplier;
   const rawValue = adjustNodeGraphTraceDisplaySettingByControlDelta(drag.key, startValue, controlDelta);
   const nextValue = normalizeNodeGraphTraceDisplaySettingValueForKey(drag.key, rawValue);
   drag.input.value = formatNodeGraphTraceDisplaySetting(nextValue);
@@ -6551,19 +6608,18 @@ function restoreNodeGraphTraceDisplaySettingsWindowFromState(state = {}) {
     setNodeGraphTraceDisplaySettingsHeader("DISPLAY", "Settings", "Global");
     setNodeGraphTraceDisplaySettingsFormType(null);
     writeNodeGraphTraceDisplaySettingsForm(nodeGraphGlobalTraceSettings());
+    setNodeGraphTraceDisplaySettingsBlankState(false);
     return;
   }
   if (!nodeGraphNodeCanOpenDisplaySettings(node)) {
-    setNodeGraphTraceDisplaySettingsHeader("DISPLAY", "Settings", "No module");
-    nodeGraphMvp.traceDisplaySettingsTargetNode = null;
-    setNodeGraphTraceDisplaySettingsFormType(null);
-    writeNodeGraphTraceDisplaySettingsForm(nodeGraphDisplaySettingsDefaultsForFormType());
+    showBlankNodeGraphTraceDisplaySettingsContent();
     return;
   }
   nodeGraphMvp.traceDisplaySettingsTargetNode = node.id;
   setNodeGraphTraceDisplaySettingsHeader("DISPLAY", "Settings", nodeGraphTraceDisplaySettingsTargetLabel(node));
   setNodeGraphTraceDisplaySettingsFormType(node);
   writeNodeGraphTraceDisplaySettingsForm(nodeGraphTraceDisplayCurrentSettingsForFormType());
+  setNodeGraphTraceDisplaySettingsBlankState(false);
 }
 
 function syncOpenNodeGraphTraceDisplaySettingsToNode(nodeId) {
@@ -6578,9 +6634,18 @@ function syncOpenNodeGraphTraceDisplaySettingsToNode(nodeId) {
   }
   const node = nodeGraphPatchNode(nodeId);
   if (!nodeGraphNodeCanOpenDisplaySettings(node)) {
-    return false;
+    // No module / no display face: empty page stays open.
+    showBlankNodeGraphTraceDisplaySettingsContent();
+    rememberNodeGraphTraceDisplaySettingsWindowState(
+      { open: true, targetNode: "" },
+      { capturePosition: false, status: false },
+    );
+    return true;
   }
-  if (nodeGraphMvp.traceDisplaySettingsTargetNode === node.id) {
+  if (
+    nodeGraphMvp.traceDisplaySettingsTargetNode === node.id
+    && popover.dataset.inspectorBlank !== "true"
+  ) {
     return true;
   }
   commitOpenNodeGraphTraceDisplaySettings();
@@ -6764,9 +6829,13 @@ function openNodeGraphTraceDisplaySettings(nodeId, event = {}) {
     !existingPopover.hidden &&
     nodeGraphMvp.sharedInspectorActive === "traceDisplaySettings" &&
     nodeGraphMvp.traceDisplaySettingsTargetNode === node.id
+    && existingPopover.dataset.inspectorBlank !== "true"
   ) {
     if (typeof pulseNodeGraphFloatingWindowAttention === "function") {
       pulseNodeGraphFloatingWindowAttention(existingPopover);
+    }
+    if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
+      noteNodeGraphUnifiedWindowOpened("traceDisplaySettings", existingPopover);
     }
     return true;
   }
@@ -6792,6 +6861,7 @@ function openNodeGraphTraceDisplaySettings(nodeId, event = {}) {
   );
   setNodeGraphTraceDisplaySettingsFormType(node);
   writeNodeGraphTraceDisplaySettingsForm(nodeGraphTraceDisplayCurrentSettingsForFormType());
+  setNodeGraphTraceDisplaySettingsBlankState(false);
   const sharedInspectorState = typeof normalizeNodeGraphSharedInspectorWindowState === "function"
     ? normalizeNodeGraphSharedInspectorWindowState(nodeGraphMvp.sharedInspectorWindowState, nodeGraphMvp.workspaceWindowStates)
     : (nodeGraphMvp.sharedInspectorWindowState || {});
@@ -6799,26 +6869,89 @@ function openNodeGraphTraceDisplaySettings(nodeId, event = {}) {
   popover.hidden = false;
   // Widgets skip mount while popover is hidden — refresh after unhide.
   syncNodeGraphTraceDisplayColorWidgets(popover);
-  const position = nodeGraphTraceDisplaySettingsOpenPosition(popover, sharedInspectorState, replacementRect, event);
-  popover.style.position = "fixed";
-  if (typeof setNodeGraphFloatingWindowViewportPosition === "function") {
-    setNodeGraphFloatingWindowViewportPosition(popover, position.left, position.top);
+  const unifiedDriving = Boolean(nodeGraphMvp._unifiedWindowSwitching);
+  if (!unifiedDriving) {
+    const position = nodeGraphTraceDisplaySettingsOpenPosition(popover, sharedInspectorState, replacementRect, event);
+    popover.style.position = "fixed";
+    if (typeof setNodeGraphFloatingWindowViewportPosition === "function") {
+      setNodeGraphFloatingWindowViewportPosition(popover, position.left, position.top);
+    } else {
+      popover.style.left = `${position.left}px`;
+      popover.style.top = `${position.top}px`;
+      popover.style.right = "auto";
+    }
+    rememberNodeGraphTraceDisplaySettingsWindowState(
+      { open: true, position, targetNode: node.id },
+      { status: false },
+    );
   } else {
-    popover.style.left = `${position.left}px`;
-    popover.style.top = `${position.top}px`;
-    popover.style.right = "auto";
-  }
-  if (typeof markNodeGraphFloatingWindowSurface === "function") {
-    markNodeGraphFloatingWindowSurface(popover);
+    if (typeof markNodeGraphFloatingWindowSurface === "function") {
+      markNodeGraphFloatingWindowSurface(popover);
+    }
+    rememberNodeGraphTraceDisplaySettingsWindowState(
+      { open: true, targetNode: node.id },
+      { capturePosition: false, status: false },
+    );
   }
   if (typeof raiseNodeGraphFloatingWindow === "function") {
     raiseNodeGraphFloatingWindow(popover);
   }
-  rememberNodeGraphTraceDisplaySettingsWindowState(
-    { open: true, position, targetNode: node.id },
-    { status: false },
-  );
+  if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
+    noteNodeGraphUnifiedWindowOpened("traceDisplaySettings", popover);
+  }
   scheduleNodeGraphModuleScopeDraw();
+  return true;
+}
+
+/** Open Display Settings as an empty page (nav with no eligible selection). */
+function openBlankNodeGraphTraceDisplaySettings(event = {}) {
+  const metadataRect = typeof prepareNodeMetadataPopoverForInspectorReplacement === "function"
+    ? prepareNodeMetadataPopoverForInspectorReplacement()
+    : null;
+  if (metadataRect === false) {
+    return false;
+  }
+  const moduleActionsRect = typeof prepareNodeModuleActionsWindowForInspectorReplacement === "function"
+    ? prepareNodeModuleActionsWindowForInspectorReplacement()
+    : null;
+  const replacementRect = metadataRect || moduleActionsRect;
+  const popover = nodeGraphTraceDisplaySettingsElement();
+  showBlankNodeGraphTraceDisplaySettingsContent();
+  const sharedInspectorState = typeof normalizeNodeGraphSharedInspectorWindowState === "function"
+    ? normalizeNodeGraphSharedInspectorWindowState(nodeGraphMvp.sharedInspectorWindowState, nodeGraphMvp.workspaceWindowStates)
+    : (nodeGraphMvp.sharedInspectorWindowState || {});
+  applyNodeGraphTraceDisplaySettingsWindowSize(sharedInspectorState.size);
+  popover.hidden = false;
+  const unifiedDriving = Boolean(nodeGraphMvp._unifiedWindowSwitching);
+  if (!unifiedDriving) {
+    const position = nodeGraphTraceDisplaySettingsOpenPosition(popover, sharedInspectorState, replacementRect, event);
+    popover.style.position = "fixed";
+    if (typeof setNodeGraphFloatingWindowViewportPosition === "function") {
+      setNodeGraphFloatingWindowViewportPosition(popover, position.left, position.top);
+    } else {
+      popover.style.left = `${position.left}px`;
+      popover.style.top = `${position.top}px`;
+      popover.style.right = "auto";
+    }
+    rememberNodeGraphTraceDisplaySettingsWindowState(
+      { open: true, position, targetNode: "" },
+      { status: false },
+    );
+  } else {
+    if (typeof markNodeGraphFloatingWindowSurface === "function") {
+      markNodeGraphFloatingWindowSurface(popover);
+    }
+    rememberNodeGraphTraceDisplaySettingsWindowState(
+      { open: true, targetNode: "" },
+      { capturePosition: false, status: false },
+    );
+  }
+  if (typeof raiseNodeGraphFloatingWindow === "function") {
+    raiseNodeGraphFloatingWindow(popover);
+  }
+  if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
+    noteNodeGraphUnifiedWindowOpened("traceDisplaySettings", popover);
+  }
   return true;
 }
 

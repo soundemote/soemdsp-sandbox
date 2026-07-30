@@ -28,21 +28,35 @@ function toggleNodeUiDevHelper() {
 function setNodeUserUiSettingsVisible(visible) {
   const panel = document.getElementById("nodeUserUiSettingsPanel");
   const button = document.getElementById("nodeUserUiSettingsButton");
-  if (!panel || !button) {
+  if (!panel) {
     return;
   }
   if (visible && !panel.hidden) {
     pulseNodeGraphFloatingWindowAttention(panel);
+    if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
+      noteNodeGraphUnifiedWindowOpened("uiSettings", panel);
+    }
     return;
   }
   panel.hidden = !visible;
-  button.classList.toggle("active", visible);
-  button.setAttribute("aria-pressed", String(visible));
+  button?.classList.toggle("active", visible);
+  button?.setAttribute("aria-pressed", String(visible));
   if (visible) {
-    if (typeof positionNodeGraphWorkspaceWindowFromState === "function") {
+    const pending = nodeGraphMvp._unifiedWindowPendingPosition;
+    if (pending && Number.isFinite(Number(pending.left)) && Number.isFinite(Number(pending.top))) {
+      if (typeof setNodeGraphFloatingWindowViewportPosition === "function") {
+        setNodeGraphFloatingWindowViewportPosition(panel, pending.left, pending.top);
+      } else {
+        panel.style.left = `${Math.round(pending.left)}px`;
+        panel.style.top = `${Math.round(pending.top)}px`;
+      }
+    } else if (typeof positionNodeGraphWorkspaceWindowFromState === "function") {
       positionNodeGraphWorkspaceWindowFromState("uiSettings", panel);
     }
     renderNodeUserUiSettingsControls();
+    if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
+      noteNodeGraphUnifiedWindowOpened("uiSettings", panel);
+    }
   }
   if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
     rememberNodeGraphWorkspaceWindowState("uiSettings", panel, { open: visible }, { status: false });

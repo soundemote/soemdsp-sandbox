@@ -327,10 +327,16 @@ function bindNodeGraphHeaderControlEvents() {
     .getElementById("nodeModuleShopButton")
     ?.addEventListener("click", () => {
       const shopVisible =
-        !document.getElementById("nodeModuleShopView").hidden;
+        !document.getElementById("nodeModuleShopView")?.hidden;
       nodeGraphMvp.sceneContextPoint = null;
       if (shopVisible) {
-        closeNodeGraphModuleShop();
+        if (typeof closeNodeGraphUnifiedWindowPage === "function") {
+          closeNodeGraphUnifiedWindowPage("moduleBrowser");
+        } else {
+          closeNodeGraphModuleShop();
+        }
+      } else if (typeof openNodeGraphUnifiedWindowPage === "function") {
+        openNodeGraphUnifiedWindowPage("moduleBrowser");
       } else {
         openNodeGraphModuleShop(null);
       }
@@ -340,13 +346,26 @@ function bindNodeGraphHeaderControlEvents() {
     ?.addEventListener("click", (event) => {
       // Anchor the first-ever spawn under the button rather than at the
       // pointer -- every later open restores the remembered position, same
-      // as every other floating window.
+      // as every other floating window. Unified open closes Modules / etc.
       const rect = event.currentTarget.getBoundingClientRect();
-      openNodeGraphCommandCenter(rect.left, rect.bottom);
+      if (typeof openNodeGraphUnifiedWindowPage === "function") {
+        openNodeGraphUnifiedWindowPage("commandCenter", {
+          x: rect.left,
+          y: rect.bottom,
+        });
+      } else {
+        openNodeGraphCommandCenter(rect.left, rect.bottom);
+      }
     });
   document
     .getElementById("nodeGraphEmptyModuleButton")
-    .addEventListener("click", () => openNodeGraphModuleShop(null));
+    .addEventListener("click", () => {
+      if (typeof openNodeGraphUnifiedWindowPage === "function") {
+        openNodeGraphUnifiedWindowPage("moduleBrowser");
+      } else {
+        openNodeGraphModuleShop(null);
+      }
+    });
   document
     .getElementById("nodeModularOnlyViewButton")
     .addEventListener("click", () => setNodeGraphViewMode("modular-only"));

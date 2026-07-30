@@ -150,6 +150,13 @@ var nodeGraphMvp = {
   metadataScriptDirty: false,
   sharedInspectorActive: "",
   sharedInspectorWindowState: {},
+  // Unified floating window: one active page at a time (command center,
+  // modules, patch explorer, module/display/parameter settings).
+  unifiedWindowPage: "",
+  unifiedWindowPosition: null,
+  unifiedWindowSize: null,
+  _unifiedWindowSwitching: false,
+  _unifiedWindowPendingPosition: null,
   moduleActionDragging: null,
   moduleActionResizing: null,
   moduleActionWindowSize: null,

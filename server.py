@@ -7,6 +7,7 @@ import json
 import mimetypes
 import os
 import re
+import secrets
 import subprocess
 import tempfile
 from datetime import datetime, timezone
@@ -23,6 +24,10 @@ PUBLIC = ROOT / "public"
 BUILD_NUMBER = "2026.7.29.Ghostlive"
 VERSION_FILE = ROOT / "VERSION"
 SANDBOX_VERSION = VERSION_FILE.read_text(encoding="utf-8").strip() if VERSION_FILE.exists() else "0.0.0"
+# Per-process build token: four chars from A–Z / 0–9, rolled when the server
+# starts (one stamp per run / "build" of the sandbox process).
+_BUILD_TOKEN_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+BUILD_TOKEN = "".join(secrets.choice(_BUILD_TOKEN_ALPHABET) for _ in range(4))
 
 # "debug" (default) vs "release". Purely a labeling/UI signal -- it does not
 # gate any behavior server-side -- consumed client-side to color the debug
@@ -1233,6 +1238,7 @@ class SandboxServer(BaseHTTPRequestHandler):
             .replace("{{BUILD_NUMBER}}", BUILD_NUMBER)
             .replace("{{SANDBOX_VERSION}}", (VERSION_FILE.read_text(encoding="utf-8").strip() if VERSION_FILE.exists() else SANDBOX_VERSION))
             .replace("{{BUILD_MODE}}", BUILD_MODE)
+            .replace("{{BUILD_TOKEN}}", BUILD_TOKEN)
             .encode("utf-8")
         )
         self.send_response(200)

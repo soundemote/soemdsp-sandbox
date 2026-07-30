@@ -481,15 +481,15 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   graph2: {
     category: "controller",
-    description: "Point-to-point graph: each control point’s outgoing segment has a shape (linear / rational / exponential / log / hold) and contour. LFO or CV-driven readout with range mapping.",
-    label: "Graph",
-    notes: ["per-point shape", "contour", "lin · rational · expo · log · hold", "LFO rate"],
+    description: "Point-to-point graph: each control point’s outgoing segment has a shape (linear / rational / exponential / log / hold) and contour. Input, LFO, or Phasor-driven readout with range mapping.",
+    label: "Smooth Graph",
+    notes: ["per-point shape", "contour", "Input · LFO · Phasor", "rate without jumps in Phasor"],
   },
   graphCopy: {
     category: "controller",
-    description: "Same point-to-point Graph (per-segment shape and contour).",
-    label: "Graph_Copy",
-    notes: ["per-point shape", "contour", "lin · rational · expo · log · hold", "LFO rate"],
+    description: "Point-to-point graph with a step grid: set how many steps and use vertical grid lines as placement guides. Input, LFO, or Phasor timing.",
+    label: "Step Graph",
+    notes: ["step grid", "per-point shape", "Input · LFO · Phasor", "rate without jumps in Phasor"],
   },
   gain: {
     category: "dynamics",
@@ -1338,6 +1338,10 @@ function applyNodeGraphModuleShopWindowSize(size = {}) {
       panel.style.setProperty("--node-module-shop-width", `${normalized.width}px`);
       panel.style.setProperty("--node-module-shop-height", `${normalized.height}px`);
     }
+    // Same inline-box lock as Command Center after unified seating.
+    if (typeof syncNodeGraphFloatingWindowInlineBox === "function") {
+      syncNodeGraphFloatingWindowInlineBox(panel, normalized);
+    }
   }
   requestAnimationFrame(updateNodeGraphModuleStoreScrollAffordance);
   return normalized;
@@ -1888,7 +1892,12 @@ function dragNodeGraphModuleShopViewResize(event) {
 }
 
 function endNodeGraphModuleShopViewResize(event) {
-  endNodeGraphFloatingWindowResize(event, "moduleShopResizing", saveNodeGraphModuleShopWindowSizeToUserSettings);
+  endNodeGraphFloatingWindowResize(event, "moduleShopResizing", () => {
+    saveNodeGraphModuleShopWindowSizeToUserSettings();
+    if (typeof rememberNodeGraphUnifiedWindowSizeFromElement === "function") {
+      rememberNodeGraphUnifiedWindowSizeFromElement(document.getElementById("nodeModuleShopView"));
+    }
+  });
 }
 
 // Opening the browser is always a fresh start to type into: the search box is
@@ -1923,37 +1932,123 @@ function focusNodeGraphModuleShopSearch() {
   });
 }
 
+function ensureNodeGraphModuleShopIsFloating(panel = document.getElementById("nodeModuleShopView")) {
+  if (!panel) {
+    return null;
+  }
+  // Must be fixed so it never expands #nodeWiringPanel / blocks workspace resize.
+  panel.style.position = "fixed";
+  panel.style.margin = "0";
+  panel.style.right = "auto";
+  if (typeof markNodeGraphFloatingWindowSurface === "function") {
+    markNodeGraphFloatingWindowSurface(panel);
+  }
+  return panel;
+}
+
 function openNodeGraphModuleShop(point = null, windowPoint = null) {
-  const panel = document.getElementById("nodeModuleShopView");
-  if (panel && !panel.hidden) {
+  const panel = ensureNodeGraphModuleShopIsFloating(document.getElementById("nodeModuleShopView"));
+  if (!panel) {
+    return;
+  }
+
+  const unifiedDriving = Boolean(nodeGraphMvp._unifiedWindowSwitching);
+
+  // Already open: refresh content. Seat/displacement is the unified switcher's job
+  // when navigating; independent re-open still notes for sibling close.
+  if (!panel.hidden && !unifiedDriving) {
     resetNodeGraphModuleShopSearch();
     renderNodeGraphModuleStoreCatalog();
     pulseNodeGraphFloatingWindowAttention(panel);
     focusNodeGraphModuleShopSearch();
+    if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
+      noteNodeGraphUnifiedWindowOpened("moduleBrowser", panel);
+    }
+    if (typeof syncNodeGraphUnifiedWindowNavBars === "function") {
+      syncNodeGraphUnifiedWindowNavBars();
+    }
     return;
   }
+
   resetNodeGraphModuleShopSearch();
   nodeGraphMvp.sceneContextPoint = point;
   nodeGraphMvp.sceneContextTargetNode = null;
   nodeGraphMvp.sceneContextTargetWire = null;
-  // The module browser is a floating window, independent of the main view
-  // mode (modular / modular-only / settings / etc.) — opening or closing it
-  // must never change which main view is active.
-  if (panel) {
-    panel.hidden = false;
-  }
+  // Floating window — never changes the main view mode.
+  panel.hidden = false;
   document.getElementById("nodeModuleShopButton")?.classList.toggle("active", true);
   document.getElementById("nodeModuleShopButton")?.setAttribute("aria-pressed", "true");
   renderNodeGraphModuleStoreCatalog();
-  if (typeof applyNodeGraphModuleShopWindowSize === "function") {
-    applyNodeGraphModuleShopWindowSize(nodeGraphMvp.workspaceWindowStates?.moduleBrowser?.size);
+
+  const seat = nodeGraphMvp._unifiedWindowPendingPosition
+    || (!unifiedDriving ? nodeGraphMvp.unifiedWindowPosition : null)
+    || null;
+  const hasSeat = seat
+    && Number.isFinite(Number(seat.left))
+    && Number.isFinite(Number(seat.top));
+
+  if (unifiedDriving && hasSeat) {
+    // Shared seat applied once by openNodeGraphUnifiedWindowPage after return.
+    // Do not restore this browser's own saved offset (that spawned a second window).
+    if (typeof markNodeGraphFloatingWindowSurface === "function") {
+      markNodeGraphFloatingWindowSurface(panel);
+    }
+    if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
+      rememberNodeGraphWorkspaceWindowState(
+        "moduleBrowser",
+        panel,
+        { open: true },
+        { capturePosition: false, status: false },
+      );
+    }
+  } else if (hasSeat) {
+    if (typeof seatNodeGraphUnifiedWindow === "function") {
+      seatNodeGraphUnifiedWindow(panel, "moduleBrowser", {
+        left: Number(seat.left),
+        top: Number(seat.top),
+        ...(nodeGraphMvp.unifiedWindowSize || {}),
+      });
+    } else {
+      positionNodeGraphModuleShopView(Number(seat.left), Number(seat.top));
+      if (nodeGraphMvp.unifiedWindowSize && typeof applyNodeGraphModuleShopWindowSize === "function") {
+        applyNodeGraphModuleShopWindowSize(nodeGraphMvp.unifiedWindowSize);
+      }
+    }
+    if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
+      rememberNodeGraphWorkspaceWindowState(
+        "moduleBrowser",
+        panel,
+        {
+          open: true,
+          position: { left: Number(seat.left), top: Number(seat.top) },
+          ...(nodeGraphMvp.unifiedWindowSize ? { size: nodeGraphMvp.unifiedWindowSize } : {}),
+        },
+        { status: false },
+      );
+    }
+  } else {
+    // Cold open: restore this browser's own seat, or spawn near the pointer.
+    if (typeof applyNodeGraphModuleShopWindowSize === "function") {
+      applyNodeGraphModuleShopWindowSize(
+        nodeGraphMvp.unifiedWindowSize
+        || nodeGraphMvp.workspaceWindowStates?.moduleBrowser?.size,
+      );
+    }
+    openNodeGraphFloatingWindowAtPosition("moduleBrowser", panel, () => {
+      positionNodeGraphModuleShopViewNearPoint(windowPoint || point);
+    });
+    if (typeof rememberNodeGraphUnifiedWindowSizeFromElement === "function") {
+      rememberNodeGraphUnifiedWindowSizeFromElement(panel);
+    }
   }
-  // Spawn at the pointer once, restore thereafter -- shared policy, see
-  // openNodeGraphFloatingWindowAtPosition.
-  openNodeGraphFloatingWindowAtPosition("moduleBrowser", panel, () => {
-    positionNodeGraphModuleShopViewNearPoint(windowPoint || point);
-  });
+
   focusNodeGraphModuleShopSearch();
+  if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
+    noteNodeGraphUnifiedWindowOpened("moduleBrowser", panel);
+  }
+  if (typeof syncNodeGraphUnifiedWindowNavBars === "function") {
+    syncNodeGraphUnifiedWindowNavBars();
+  }
 }
 
 function closeNodeGraphModuleShop() {
