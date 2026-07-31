@@ -226,9 +226,12 @@ function createNodeGraphParameterSmoother(initialValue, metadata = {}) {
   const smoothingType = typeof normalizeNodeGraphMetadataSmoothingType === "function"
     ? normalizeNodeGraphMetadataSmoothingType(metadata.smoothingType)
     : "onePole";
+  const usesFilter = typeof nodeGraphParameterSmootherUsesFilter === "function"
+    ? nodeGraphParameterSmootherUsesFilter(smoothingType)
+    : (smoothingType !== "linear" && metadata.linearSmoothing !== false);
   const smoother = {
     current: safeValue,
-    linearSmoothing: metadata.linearSmoothing !== false,
+    linearSmoothing: usesFilter,
     max: Number.isFinite(Number(metadata.max)) ? Number(metadata.max) : 1,
     metadata,
     min: Number.isFinite(Number(metadata.min)) ? Number(metadata.min) : 0,
@@ -387,7 +390,6 @@ function nodeGraphRunActiveParameterSmoothers(runtime, frames) {
 function updateNodeGraphParameterSmoother(smoother, targetValue, metadata = {}, runtime = null, smootherKey = null) {
   const value = Number(targetValue);
   smoother.target = Number.isFinite(value) ? value : smoother.target;
-  smoother.linearSmoothing = metadata.linearSmoothing !== false;
   smoother.max = Number.isFinite(Number(metadata.max)) ? Number(metadata.max) : smoother.max;
   smoother.metadata = metadata;
   smoother.min = Number.isFinite(Number(metadata.min)) ? Number(metadata.min) : smoother.min;
@@ -403,6 +405,9 @@ function updateNodeGraphParameterSmoother(smoother, targetValue, metadata = {}, 
   } else {
     smoother.smoothingType = nextType;
   }
+  smoother.linearSmoothing = typeof nodeGraphParameterSmootherUsesFilter === "function"
+    ? nodeGraphParameterSmootherUsesFilter(nextType)
+    : (nextType !== "linear" && metadata.linearSmoothing !== false);
   smoother.targetSignal = normalizeNodeGraphSmootherSignal(smoother.target, metadata);
   smoother.wraparound = Boolean(metadata.wraparound);
   const key = smootherKey || smoother._activeKey || null;
@@ -713,11 +718,15 @@ function setNodeSliderMetadata(slider, metadata) {
   slider.dataset.choices = formatNodeMetadataChoices(metadata.choices || []);
   slider.dataset.displayChoices = metadata.displayChoices ? "true" : "false";
   slider.dataset.divideChoicesVisibly = metadata.divideChoicesVisibly ? "true" : "false";
-  slider.dataset.linearSmoothing = metadata.linearSmoothing ? "true" : "false";
-  slider.dataset.smoothingMode = nodeGraphSmoothingModeNormalize(metadata.smoothingMode);
-  slider.dataset.smoothingType = typeof normalizeNodeGraphMetadataSmoothingType === "function"
+  const smoothingType = typeof normalizeNodeGraphMetadataSmoothingType === "function"
     ? normalizeNodeGraphMetadataSmoothingType(metadata.smoothingType)
     : "onePole";
+  const linearSmoothing = typeof nodeGraphMetadataLinearSmoothingFromType === "function"
+    ? nodeGraphMetadataLinearSmoothingFromType(smoothingType)
+    : (metadata.linearSmoothing !== false && smoothingType !== "linear");
+  slider.dataset.linearSmoothing = linearSmoothing ? "true" : "false";
+  slider.dataset.smoothingMode = nodeGraphSmoothingModeNormalize(metadata.smoothingMode);
+  slider.dataset.smoothingType = smoothingType;
   slider.dataset.smoothingSeconds = Number.isFinite(Number(metadata.smoothingSeconds)) && Number(metadata.smoothingSeconds) >= 0
     ? String(metadata.smoothingSeconds)
     : "";
@@ -725,6 +734,7 @@ function setNodeSliderMetadata(slider, metadata) {
   slider.dataset.curveAmount = String(normalizeNodeSliderCurveAmount(metadata.curveAmount));
   slider.dataset.nonlinearSlider = slider.dataset.sliderCurve === "linear" ? "false" : "true";
   slider.dataset.showSign = metadata.showSign ? "true" : "false";
+  slider.dataset.bipolar = metadata.bipolar ? "true" : "false";
   slider.dataset.unboundedMax = metadata.unboundedMax ? "true" : "false";
   slider.dataset.unboundedMin = metadata.unboundedMin ? "true" : "false";
   slider.dataset.wraparound = metadata.wraparound ? "true" : "false";

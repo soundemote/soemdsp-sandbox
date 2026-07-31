@@ -239,17 +239,34 @@ function createNodeGraphModuleScopeSection(node, type) {
 
 // createNodeGraphLedFace moved to public/modules/led/led-ui.js.
 
+/**
+ * LayoutB face for Value Slider (XY Pad contract): large readout in the shell
+ * center. The Bias parameter row lives under the shell like every other LayoutB
+ * module — not inside the face.
+ */
+function createNodeGraphValueSliderFace(node, type) {
+  const face = document.createElement("div");
+  face.className = "node-value-slider-face";
+  face.dataset.node = node;
+  face.dataset.nodeType = type;
+  face.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} value display`);
+
+  const label = document.createElement("div");
+  label.className = "node-value-slider-face-label";
+  label.textContent = nodeGraphNodeLabels?.[type] || "Value";
+
+  const readout = document.createElement("div");
+  readout.className = "node-value-slider-face-readout";
+  readout.dataset.valueSliderFaceReadout = "true";
+  readout.textContent = "0";
+
+  face.append(label, readout);
+  return face;
+}
+
+/** @deprecated old face that stuffed the slider into the shell — use createNodeGraphValueSliderFace */
 function createNodeGraphSliderWidgetBody(node, type) {
-  const definition = nodeGraphModuleDefinitions[type];
-  const body = document.createElement("div");
-  body.className = "node-slider-widget-body";
-  const parameter = definition?.parameters?.[0];
-  if (parameter) {
-    const row = createNodeGraphParameter(node, type, parameter);
-    row.classList.add("node-slider-widget-row");
-    body.append(row);
-  }
-  return body;
+  return createNodeGraphValueSliderFace(node, type);
 }
 
 // Step Grid's UI (createNodeGraphStepGridBody, toggleNodeGraphStepGridStep)

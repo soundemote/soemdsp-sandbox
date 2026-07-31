@@ -36,12 +36,16 @@ function normalizeNodeGraphMetadataSmoothingMode(value) {
   return nodeGraphMetadataSmoothingModes.includes(value) ? value : "global";
 }
 
-// Smoothing TYPE = filter kernel (onePole default, papoulis = Optimum-L order-3).
+// Smoothing TYPE = filter kernel:
+//   linear   — instant (L); replaces old linearSmoothing=false
+//   onePole  — classic exponential chase (1P)
+//   twoPole  — cascaded one-poles (2P); between 1P and Papoulis
+//   papoulis — Optimum-L order-3 (Π)
 // Distinct from smoothing SOURCE (global/internal/off — the time constant).
 const nodeGraphMetadataSmoothingTypes = Object.freeze(
   typeof nodeGraphParameterSmootherFilterTypes !== "undefined"
     ? nodeGraphParameterSmootherFilterTypes
-    : ["onePole", "papoulis"],
+    : ["linear", "onePole", "twoPole", "papoulis"],
 );
 
 function normalizeNodeGraphMetadataSmoothingType(value) {
@@ -49,7 +53,21 @@ function normalizeNodeGraphMetadataSmoothingType(value) {
     return normalizeNodeGraphParameterSmootherFilterType(value);
   }
   const key = String(value || "").trim();
+  if (key === "L" || key === "l" || key === "none" || key === "off" || key === "instant") {
+    return "linear";
+  }
+  if (key === "2P" || key === "2p" || key === "twoPole" || key === "two-pole" || key === "2pole") {
+    return "twoPole";
+  }
+  if (key === "1P" || key === "1p") {
+    return "onePole";
+  }
   return nodeGraphMetadataSmoothingTypes.includes(key) ? key : "onePole";
+}
+
+/** linearSmoothing flag kept for older scripts; derived from smoothingType. */
+function nodeGraphMetadataLinearSmoothingFromType(smoothingType) {
+  return normalizeNodeGraphMetadataSmoothingType(smoothingType) !== "linear";
 }
 
 function nodeGraphDefaultParamsForType(type) {
@@ -447,6 +465,12 @@ function nodeGraphParameterDefinitionMetadata(parameter) {
   const safeMid = clampNodeSliderValue(Number.isFinite(mid) ? mid : (safeMin + safeMax) / 2, safeMin, safeMax);
   const kind = nodeGraphInferParameterMetadataKind(parameter);
   const midInsideRange = safeMid > safeMin && safeMid < safeMax;
+  let smoothingType = "onePole";
+  if (Object.hasOwn(parameter, "smoothingType") && parameter.smoothingType != null && String(parameter.smoothingType).trim() !== "") {
+    smoothingType = normalizeNodeGraphMetadataSmoothingType(parameter.smoothingType);
+  } else if (parameter.linearSmoothing === false) {
+    smoothingType = "linear";
+  }
   return {
     choices: normalizeNodeGraphMetadataChoices(parameter.choices || []),
     control: String(parameter.control || "").trim() === "number" ? "number" : "",
@@ -457,7 +481,10 @@ function nodeGraphParameterDefinitionMetadata(parameter) {
       ? Boolean(parameter.divideChoicesVisibly)
       : Boolean(parameter.choices?.length),
     kind,
-    linearSmoothing: parameter.linearSmoothing !== false,
+    bipolar: Object.hasOwn(parameter, "bipolar")
+      ? Boolean(parameter.bipolar)
+      : (safeMin < 0 && safeMax > 0 && Math.abs(safeMid) <= Number.EPSILON),
+    linearSmoothing: nodeGraphMetadataLinearSmoothingFromType(smoothingType),
     max: safeMax,
     maxDigits: normalizeNodeGraphMetadataMaxDigits(parameter.maxDigits, kind),
     mid: safeMid,
@@ -471,7 +498,7 @@ function nodeGraphParameterDefinitionMetadata(parameter) {
     showSign: Boolean(parameter.showSign),
     smoothingMode: normalizeNodeGraphMetadataSmoothingMode(parameter.smoothingMode),
     smoothingSeconds: normalizeNodeGraphMetadataSmoothingSeconds(parameter.smoothingSeconds),
-    smoothingType: normalizeNodeGraphMetadataSmoothingType(parameter.smoothingType),
+    smoothingType,
     step: Number.isFinite(step) && step > 0 ? step : 0,
     tooltip: String(parameter.tooltip || "").slice(0, 240),
     unboundedMax: Boolean(parameter.unboundedMax),
@@ -518,6 +545,12 @@ function nodeGraphClapPatchParameterFallbackMetadata(key, metadata = {}) {
     ? Number(source.max)
     : min + 1;
   const def = Number.isFinite(Number(source.def)) ? Number(source.def) : min;
+  let smoothingType = "onePole";
+  if (Object.hasOwn(source, "smoothingType") && source.smoothingType != null && String(source.smoothingType).trim() !== "") {
+    smoothingType = normalizeNodeGraphMetadataSmoothingType(source.smoothingType);
+  } else if (source.linearSmoothing === false) {
+    smoothingType = "linear";
+  }
   return {
     choices: Array.isArray(source.choices) ? source.choices : [],
     curveAmount: normalizeNodeSliderCurveAmount(source.curveAmount),
@@ -525,7 +558,8 @@ function nodeGraphClapPatchParameterFallbackMetadata(key, metadata = {}) {
     displayChoices: Boolean(source.displayChoices),
     divideChoicesVisibly: Boolean(source.divideChoicesVisibly),
     kind: normalizeNodeMetadataKind(source.kind || "decimal"),
-    linearSmoothing: Object.hasOwn(source, "linearSmoothing") ? Boolean(source.linearSmoothing) : true,
+    bipolar: Boolean(source.bipolar),
+    linearSmoothing: nodeGraphMetadataLinearSmoothingFromType(smoothingType),
     max,
     maxDigits: normalizeNodeGraphMetadataMaxDigits(source.maxDigits, source.kind || "decimal"),
     mid: Number.isFinite(Number(source.mid)) ? Number(source.mid) : (min + max) / 2,
@@ -535,7 +569,7 @@ function nodeGraphClapPatchParameterFallbackMetadata(key, metadata = {}) {
     showSign: Boolean(source.showSign),
     smoothingMode: normalizeNodeGraphMetadataSmoothingMode(source.smoothingMode),
     smoothingSeconds: normalizeNodeGraphMetadataSmoothingSeconds(source.smoothingSeconds),
-    smoothingType: normalizeNodeGraphMetadataSmoothingType(source.smoothingType),
+    smoothingType,
     step: Number.isFinite(Number(source.step)) && Number(source.step) > 0 ? Number(source.step) : 0,
     tooltip: String(source.tooltip || "").slice(0, 240),
     unboundedMax: Boolean(source.unboundedMax),
@@ -602,9 +636,9 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
       ? Boolean(source.divideChoicesVisibly)
       : Boolean(fallback.divideChoicesVisibly || (choices.length && fallback.displayChoices)),
     kind,
-    linearSmoothing: Object.hasOwn(source, "linearSmoothing")
-      ? Boolean(source.linearSmoothing)
-      : fallback.linearSmoothing,
+    bipolar: Object.hasOwn(source, "bipolar")
+      ? Boolean(source.bipolar)
+      : Boolean(fallback.bipolar),
     max,
     maxDigits: normalizeNodeGraphMetadataMaxDigits(
       Object.hasOwn(source, "maxDigits") ? source.maxDigits : fallback.maxDigits,
@@ -626,9 +660,19 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
     smoothingSeconds: normalizeNodeGraphMetadataSmoothingSeconds(
       Object.hasOwn(source, "smoothingSeconds") ? source.smoothingSeconds : fallback.smoothingSeconds,
     ),
-    smoothingType: normalizeNodeGraphMetadataSmoothingType(
-      Object.hasOwn(source, "smoothingType") ? source.smoothingType : fallback.smoothingType,
-    ),
+    smoothingType: (() => {
+      if (Object.hasOwn(source, "smoothingType") && source.smoothingType != null && String(source.smoothingType).trim() !== "") {
+        return normalizeNodeGraphMetadataSmoothingType(source.smoothingType);
+      }
+      // Migrate legacy linearSmoothing=false → type linear.
+      if (Object.hasOwn(source, "linearSmoothing") && source.linearSmoothing === false) {
+        return "linear";
+      }
+      if (Object.hasOwn(source, "linearSmoothing") && source.linearSmoothing === true) {
+        return normalizeNodeGraphMetadataSmoothingType(fallback.smoothingType || "onePole");
+      }
+      return normalizeNodeGraphMetadataSmoothingType(fallback.smoothingType || "onePole");
+    })(),
     step: Number.isFinite(step) && step > 0 ? step : 0,
     tooltip: String(Object.hasOwn(source, "tooltip") ? source.tooltip ?? "" : fallback.tooltip || "").slice(0, 240),
     unboundedMax: Object.hasOwn(source, "unboundedMax")
@@ -642,6 +686,7 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
       ? Boolean(source.wraparound)
       : fallback.wraparound,
   };
+  normalized.linearSmoothing = nodeGraphMetadataLinearSmoothingFromType(normalized.smoothingType);
   // XY pad mouse/phase targets are instant UI only (audio path owns Papoulis).
   if (
     type === "xyPad"
@@ -651,10 +696,10 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
       || ["x", "y", "xPhase", "yPhase"].includes(String(key || ""))
     )
   ) {
+    normalized.smoothingType = "linear";
     normalized.linearSmoothing = false;
     normalized.smoothingMode = "off";
     normalized.smoothingSeconds = 0;
-    normalized.smoothingType = "onePole";
   }
   if (type === "clapPlugin") {
     const clapParamId = Number(source.clapParamId);

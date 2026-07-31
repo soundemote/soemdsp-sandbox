@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>soemdsp-sandbox</title>
-  <link rel="stylesheet" href="./public/styles.css?v=module-settings-rows-1">
+  <link rel="stylesheet" href="./public/styles.css?v=layout-b-xypad-restore-1">
   <link rel="stylesheet" href="./public/modules/stepGrid/step-grid.css?v=stepgrid-own-folder-20260715">
 </head>
 <body class="debug-collapsed node-boot-loading">
@@ -2310,8 +2310,8 @@
               <input
                 id="nodeSceneGraphNodeContour"
                 type="number"
-                min="-0.999"
-                max="0.999"
+                min="-1"
+                max="1"
                 step="0.001"
                 inputmode="decimal"
                 autocomplete="off"
@@ -2324,6 +2324,7 @@
                 <option value="rational">rational</option>
                 <option value="exponential">exponential</option>
                 <option value="log">log</option>
+                <option value="smoothstep">smoothstep</option>
                 <option value="hold">hold</option>
               </select>
             </label>
@@ -3013,10 +3014,22 @@
             <div id="metadataSmoothingTypeGroup" class="metadata-smoothing-mode-group" role="group" aria-label="Smoothing filter type">
               <button
                 type="button"
+                data-smoothing-type="linear"
+                class="metadata-smoothing-mode-button"
+                data-tooltip-key="parameterSettings.smoothingTypeLinear"
+                aria-label="Linear (no smoothing)">L</button>
+              <button
+                type="button"
                 data-smoothing-type="onePole"
                 class="metadata-smoothing-mode-button"
                 data-tooltip-key="parameterSettings.smoothingTypeOnePole"
                 aria-label="One-pole smoothing">1P</button>
+              <button
+                type="button"
+                data-smoothing-type="twoPole"
+                class="metadata-smoothing-mode-button"
+                data-tooltip-key="parameterSettings.smoothingTypeTwoPole"
+                aria-label="Two-pole smoothing">2P</button>
               <button
                 type="button"
                 data-smoothing-type="papoulis"
@@ -3036,9 +3049,9 @@
           </label>
           <div class="metadata-section-title">Toggles</div>
           <div class="metadata-toggle-section" aria-label="Metaparameter toggles">
-            <label class="metadata-checkbox-label" data-tooltip-key="parameterSettings.linearSmoothing">
-              <input id="metadataLinearSmoothingValue" type="checkbox">
-              Linear smoothing
+            <label class="metadata-checkbox-label" data-tooltip-key="parameterSettings.bipolar">
+              <input id="metadataBipolarValue" type="checkbox">
+              Bipolar fill
             </label>
             <label class="metadata-checkbox-label" data-tooltip-key="parameterSettings.showSign">
               <input id="metadataShowSignValue" type="checkbox">
@@ -3585,7 +3598,8 @@
   <script src="./public/node-graph-papoulis-filter.js?v=mouse-smooth-1"></script>
   <script src="./public/node-graph-phosphor-draw-sample.js?v=phosphor-draw-sample-1"></script>
   <script src="./public/node-graph-color-standards.js?v=color-standards-1"></script>
-  <script src="./public/node-graph-chromeless-module-registry.js?v=solid-module-shell-2-20260723"></script>
+  <script src="./public/node-graph-chromeless-module-registry.js?v=layout-ab-clean-1"></script>
+  <script src="./public/node-graph-module-chrome.js?v=layout-ab-clean-1"></script>
   <script src="./public/modules/led/led-register.js?v=led-settings-20260725"></script>
   <script src="./public/modules/bugButton/bug-button-register.js?v=bug-button-io-order-20260724"></script>
   <script src="./public/modules/xyPad/xy-pad-dsp.js?v=xy-pad-center-q-1"></script>
@@ -3595,19 +3609,19 @@
   <script src="./public/modules/stepGrid/step-grid-register.js?v=stepgrid-variable-steps-20260715"></script>
   <script src="./public/modules/groupInput/group-input-register.js?v=chromeless-portals-1"></script>
   <script src="./public/modules/groupOutput/group-output-register.js?v=chromeless-portals-1"></script>
-  <script src="./public/node-graph-module-definitions.js?v=curve-catmull-name-1"></script>
+  <script src="./public/node-graph-module-definitions.js?v=layout-b-io-35-1"></script>
   <script src="./public/node-graph-module-controls.js?v=f-input-speed-limit-20260726"></script>
   <script src="./public/node-graph-data-bus.js?v=data-plane-merge-20260711"></script>
-  <script src="./public/node-graph-module-store.js?v=cc-resize-inline-1"></script>
-  <script src="./public/node-graph-module-sizing.js?v=solid-shell-layout-1"></script>
+  <script src="./public/node-graph-module-store.js?v=bipolar-smooth-1"></script>
+  <script src="./public/node-graph-module-sizing.js?v=layout-b-bottom-1"></script>
   <script src="./public/node-graph-metadata-kinds.js?v=0051"></script>
-  <script src="./public/node-graph-parameter-smoother-filters.js?v=xy-pad-native-1"></script>
-  <script src="./public/node-graph-parameter-metadata.js?v=xy-pad-native-1"></script>
+  <script src="./public/node-graph-parameter-smoother-filters.js?v=two-pole-smooth-1"></script>
+  <script src="./public/node-graph-parameter-metadata.js?v=two-pole-smooth-1"></script>
   <script src="./public/node-graph-metadata-defaults.js?v=decimal-template-1"></script>
   <script src="./public/node-graph-text-box-utils.js?v=text-box-size-1000-1"></script>
   <script src="./public/node-graph-port-script.js?v=nuke-scriptbox-20260719"></script>
   <script src="./public/node-graph-image-utils.js?v=pre-formula-restore-1"></script>
-  <script src="./public/node-graph-graph-utils.js?v=curve-catmull-name-1"></script>
+  <script src="./public/node-graph-graph-utils.js?v=contour-square-blend-1"></script>
   <script src="./public/node-graph-samples.js?v=music-player-phase-persist-1"></script>
   <script src="./public/node-graph-phosphor-waveform.js?v=music-player-label-pad-px-1"></script>
   <script src="./public/node-graph-phosphillator.js?v=mouse-smooth-1"></script>
@@ -3634,8 +3648,8 @@
   <script src="./public/node-graph-clap-host.js?v=0051"></script>
   <script src="./public/node-graph-marquee-selection.js?v=title-blur-on-marquee-20260707"></script>
   <script src="./public/node-graph-node-dragging.js?v=solid-shell-layout-1"></script>
-  <script src="./public/node-graph-context-menu.js?v=module-settings-rows-1"></script>
-  <script src="./public/node-graph-module-actions.js?v=curve-catmull-name-1"></script>
+  <script src="./public/node-graph-context-menu.js?v=step-global-shape-1"></script>
+  <script src="./public/node-graph-module-actions.js?v=contour-full-1"></script>
   <script src="./public/node-graph-code-screen.js?v=cleanup-20260725"></script>
   <script src="./public/node-graph-phosphor-energy-gl.js?v=energy-gradlut-1"></script>
   <script src="./public/lib/phosphor/phosphor-drawer.js?v=drawer-gradlut-1"></script>
@@ -3651,7 +3665,7 @@
   <script src="./public/modules/transport/transport-display.js?v=transport-bpm-20260714"></script>
   <script src="./public/node-graph-shader-script.js?v=color-widget-url-1"></script>
   <script src="./public/node-graph-canvas-script.js?v=unified-window-pos-1"></script>
-  <script src="./public/node-graph-module-factories.js?v=hidden-param-layout-1"></script>
+  <script src="./public/node-graph-module-factories.js?v=layout-b-xypad-1"></script>
   <script src="./public/modules/led/led-ui.js?v=solid-module-shell-2-20260723"></script>
   <script src="./public/modules/led/led-settings.js?v=led-settings-20260725"></script>
   <script src="./public/modules/led/led-display.js?v=led-settings-20260725"></script>
@@ -3663,22 +3677,22 @@
   <script src="./public/modules/groupInput/group-input-ui.js?v=chromeless-portals-1"></script>
   <script src="./public/modules/groupOutput/group-output-ui.js?v=chromeless-portals-1"></script>
   <script src="./public/node-graph-module-header-rendering.js?v=step-any-20260725"></script>
-  <script src="./public/node-graph-module-rendering.js?v=graph-cross-paint-fix-1"></script>
+  <script src="./public/node-graph-module-rendering.js?v=layout-b-io-1gu-1"></script>
   <script src="./public/node-graph-module-frame.js?v=viewport-perf-1"></script>
   <script src="./public/node-graph-history.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-visual-utils.js?v=shared-canvas-sizing-20260725"></script>
   <script src="./public/node-graph-patch-clone.js?v=music-player-phase-persist-1"></script>
   <script src="./public/node-graph-slider-metadata.js?v=papoulis-smoother-1"></script>
-  <script src="./public/node-graph-slider-values.js?v=smoother-clean-1"></script>
-  <script src="./public/node-graph-slider-dragging.js?v=ghost-live-1"></script>
+  <script src="./public/node-graph-slider-values.js?v=bipolar-smooth-1"></script>
+  <script src="./public/node-graph-slider-dragging.js?v=step-global-shape-1"></script>
   <script src="./public/node-graph-node-accessors.js?v=cleanup-20260725-smoothing-time-20260701"></script>
   <script src="./public/node-graph-selection.js?v=inspector-blank-1"></script>
   <script src="./public/node-graph-port-geometry.js?v=pitch-quantizer-01v-oct-20260701"></script>
-  <script src="./public/node-graph-slider-readout.js?v=amount-fill-edge-20260725"></script>
+  <script src="./public/node-graph-slider-readout.js?v=layout-b-xypad-1"></script>
   <script src="./public/node-graph-slider-readout-controls.js?v=bug-button-settings-edit-20260723"></script>
   <script src="./public/node-graph-ghost-sliders.js?v=unbounded-speed-1"></script>
   <script src="./public/node-code-settings-editor.js?v=code-settings-shell-1"></script>
-  <script src="./public/node-graph-metadata-editor.js?v=unified-nav-layout-2"></script>
+  <script src="./public/node-graph-metadata-editor.js?v=two-pole-smooth-1"></script>
   <script src="./public/node-graph-render-settings.js?v=cleanup-20260725-slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-ear-protection.js?v=ear-protection-reset-1"></script>
   <script src="./public/node-graph-debug-console.js?v=debug-always-visible-1"></script>
@@ -3688,7 +3702,7 @@
   <script src="./public/node-graph-rendered-visual-output.js?v=beta-polish-1"></script>
   <script src="./public/node-graph-rendered-output-canvases.js?v=beta-polish-1"></script>
   <script src="./public/node-graph-execution-wires.js?v=external-graph-inputs-1780816800000"></script>
-  <script src="./public/node-graph-execution-plan.js?v=xy-pad-always-reachable-1"></script>
+  <script src="./public/node-graph-execution-plan.js?v=layout-ab-clean-1"></script>
   <script src="./public/node-graph-execution-summary.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-wire-actions.js?v=wire-connect-1"></script>
   <script src="./public/node-graph-trace-router.js?v=no-self-burst-1780321400000"></script>
@@ -3755,7 +3769,7 @@
   <script src="./public/node-graph-stdlib/node-graph-shared-dsp-helpers.js?v=stdlib-batch3-20260715"></script>
   <script src="./public/node-graph-stdlib/node-graph-shared-app-helpers.js?v=stdlib-app-helpers-20260725"></script>
   <script src="./public/node-graph-stdlib/node-graph-sinc-kernel.js?v=sinc-bandlimit-20260725"></script>
-  <script src="./public/node-graph-live-frame-evaluator.js?v=graph-input-phase-offset-1"></script>
+  <script src="./public/node-graph-live-frame-evaluator.js?v=step-global-shape-1"></script>
   <script src="./native_modules/logistic_map/logistic_map-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/turingMachine/turing-machine-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/henonMap/henon-map-live-evaluator.js?v=per-module-dispatch-20260711"></script>

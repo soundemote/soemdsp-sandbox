@@ -4123,6 +4123,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-port-radius: calc(var(--node-port-diameter) * 0.5);
   --node-port-area-radius: calc(var(--node-port-area-size) * 0.5);
   --node-port-column-width: var(--node-port-area-radius);
+  /* Empty grid row under LayoutB param stack (see .solid-module-layout). */
+  --node-layout-b-bottom-cushion: var(--node-grid-height);
   /* Legacy smoke contract token: --node-wire-patch-point-size: 36%. */
   --node-wire-patch-point-size-ratio: 0.36;
   --node-wire-patch-point-size: calc(var(--node-port-diameter) * var(--node-wire-patch-point-size-ratio));
@@ -9699,7 +9701,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .dsp-node.selected .node-module-frame-path {
   stroke: var(--node-module-selected-stroke);
-  stroke-width: 1.5px;
+  stroke-width: 1px;
 }
 
 .dsp-node-header,
@@ -9711,7 +9713,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 /* Solid shell must be on the whitelist: .dsp-node is pointer-events:none. */
 .node-solid-module-shell,
 .node-solid-module-custom-ui,
+.node-value-slider-face,
 .node-xy-pad,
+.dsp-node-body,
 .dsp-node button,
 .dsp-node input,
 .dsp-node select,
@@ -9792,8 +9796,24 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
     auto;
 }
 
+/* Smooth Graph / Step Graph (layout: graph): I/O section is always 26px. */
 .dsp-node.graph-node-layout {
-  grid-template-rows: var(--node-header-height) minmax(0, 1fr) minmax(var(--node-io-section-min-height), auto);
+  --node-io-section-min-height: 26px;
+  --node-port-area-size: 26px;
+  grid-template-rows: var(--node-header-height) minmax(0, 1fr) minmax(26px, 26px);
+}
+
+.dsp-node.graph-node-layout .node-solid-module-shell > .node-io-column .node-io-row {
+  height: 26px;
+  min-height: 26px;
+  max-height: 26px;
+}
+
+.dsp-node.graph-node-layout .dsp-node-io-section,
+.dsp-node.graph-node-layout.io-hidden .dsp-node-io-section {
+  min-height: 26px;
+  height: 26px;
+  max-height: 26px;
 }
 
 .dsp-node.filter-curve-layout {
@@ -9804,8 +9824,56 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
     auto;
 }
 
-.dsp-node.slider-widget-layout {
-  grid-template-rows: var(--node-header-height) minmax(0, 1fr) minmax(var(--node-io-section-min-height), auto);
+/* Value Slider — LayoutB like XY Pad: shell (ports | face | ports) + sliders under. */
+.dsp-node.slider-widget-layout.solid-module-layout {
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.dsp-node.slider-widget-layout .node-value-slider-shell {
+  min-height: calc(
+    var(--node-grid-height) * var(
+      --node-module-shell-height-units,
+      var(--node-module-display-height-units, 3)
+    )
+  );
+}
+
+.node-value-slider-face {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: stretch;
+  justify-items: center;
+  gap: calc(var(--node-grid-size) * 0.12);
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: calc(var(--node-grid-size) * 0.22) calc(var(--node-grid-size) * 0.28);
+  border-top: 1px solid rgba(128, 224, 224, 0.16);
+  border-bottom: 1px solid rgba(128, 224, 224, 0.16);
+  background: #020609;
+  pointer-events: auto;
+}
+
+.node-value-slider-face-label {
+  color: rgba(217, 236, 240, 0.62);
+  font: 700 0.62rem/1 var(--node-mono-font);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.node-value-slider-face-readout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 0;
+  color: rgba(243, 241, 236, 0.94);
+  font: 700 clamp(1.1rem, calc(var(--node-grid-size) * 0.95), 2rem) / 1 var(--node-mono-font);
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 12px rgba(127, 199, 217, 0.28);
 }
 
 .dsp-node.patch-command-layout {
@@ -9968,10 +10036,36 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   box-shadow: none;
 }
 
-.dsp-node.solid-module-layout {
+/* Headerless LayoutB (XY Pad, Value Slider, …): shell + params + bottom cushion.
+   Class name solid-module-layout is legacy; chrome-layout-b is also set.
+   Third row is empty clearance (height math: nodeGraphLayoutBBottomCushionGu). */
+.dsp-node.solid-module-layout,
+.dsp-node.chrome-layout-b.solid-module-layout {
   display: grid;
-  /* Shell (IO + face) fills remaining height; param rows size to content. */
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows:
+    minmax(0, 1fr)
+    auto
+    var(--node-layout-b-bottom-cushion, var(--node-grid-height));
+}
+
+.dsp-node.solid-module-layout > .dsp-node-body,
+.dsp-node.chrome-layout-b.solid-module-layout > .dsp-node-body {
+  grid-row: 2;
+  align-self: start;
+}
+
+.dsp-node.solid-module-layout > .node-solid-module-shell,
+.dsp-node.chrome-layout-b.solid-module-layout > .node-solid-module-shell {
+  grid-row: 1;
+  align-self: stretch;
+  /* Keep shell face height from --node-module-shell-height-units (do not zero it). */
+  height: 100%;
+  min-height: calc(
+    var(--node-grid-height) * var(
+      --node-module-shell-height-units,
+      var(--node-module-display-height-units, 2)
+    )
+  );
 }
 
 .node-parameter-row-hidden,
@@ -9995,11 +10089,11 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   min-height: 0;
 }
 
-/* Shared solid-shell contract (chromeless + graph solid faces):
-   - shell height = max(display, denser 1gu IO column) via --node-module-shell-height-units
-   - columns stretch full shell height; jacks space-evenly in fixed 1gu bands
-   - gaps between jacks hit the shell (module drag); jack neighborhood wires */
-.node-solid-module-shell {
+/* LayoutB / solid shell — restored to pre–Layout B XY Pad contract, plus:
+   (1) equal 1fr jack bands so dividers sit mid-gap (X|Y),
+   (2) bottom cushion on .solid-module-layout (slider clearance). */
+.node-solid-module-shell,
+.node-module-chrome-layout-b-shell {
   display: grid;
   grid-template-columns:
     minmax(0, max-content)
@@ -10014,13 +10108,16 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   );
   height: 100%;
   overflow: hidden;
-  /* Always receive empty-gap clicks (graph + chromeless solid). */
   pointer-events: auto;
 }
 
-.node-solid-module-shell > .node-io-column {
+.node-solid-module-shell > .node-io-column,
+.node-module-chrome-layout-b-shell > .node-io-column {
+  display: grid;
+  /* Equal vertical share per jack → border-bottom is mid between jacks. */
+  grid-auto-rows: 1fr;
   align-self: stretch;
-  align-content: space-evenly;
+  align-content: stretch;
   justify-content: center;
   gap: 0;
   padding: 0;
@@ -10029,26 +10126,39 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   pointer-events: none;
 }
 
-.node-solid-module-shell > .node-io-column .node-io-row {
-  /* One local 1gu band around the jack — not 1/N of the face height. */
-  box-sizing: border-box;
-  height: var(--node-port-area-size);
-  min-height: var(--node-port-area-size);
-  max-height: var(--node-port-area-size);
-  pointer-events: auto;
-  border-bottom: 1px solid rgba(127, 199, 217, 0.1);
+/* Empty side (e.g. Value Slider has no inputs) still reserves one gu. */
+.node-solid-module-shell > .node-io-column.node-layout-b-io-empty,
+.node-module-chrome-layout-b-shell > .node-io-column.node-layout-b-io-empty {
+  width: var(--node-grid-width);
+  min-width: var(--node-grid-width);
 }
 
-.node-solid-module-shell > .node-io-column .node-io-label {
+.node-solid-module-shell > .node-io-column .node-io-row,
+.node-module-chrome-layout-b-shell > .node-io-column .node-io-row {
+  /* One band per jack (min 1gu); stretch taller when shell > N×1gu. */
+  box-sizing: border-box;
+  height: auto;
+  min-height: var(--node-port-area-size);
+  max-height: none;
+  pointer-events: auto;
+  border-bottom: 1px solid rgba(127, 199, 217, 0.1);
+  /* Port/label layout comes from shared .node-io-row (padding + absolute jack). */
+}
+
+.node-solid-module-shell > .node-io-column .node-io-label,
+.node-module-chrome-layout-b-shell > .node-io-column .node-io-label {
+  /* Pre–Layout B solid: only clip long names; type inherits .node-io-row (0.84rem). */
   max-width: 100%;
   overflow: hidden;
 }
 
-.node-solid-module-shell > .node-io-column .node-io-row:last-child {
+.node-solid-module-shell > .node-io-column .node-io-row:last-child,
+.node-module-chrome-layout-b-shell > .node-io-column .node-io-row:last-child {
   border-bottom: 0;
 }
 
-.node-solid-module-shell > .node-io-column.labels-hidden .node-io-label {
+.node-solid-module-shell > .node-io-column.labels-hidden .node-io-label,
+.node-module-chrome-layout-b-shell > .node-io-column.labels-hidden .node-io-label {
   display: none;
 }
 
@@ -10702,27 +10812,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   image-rendering: crisp-edges;
 }
 
-.node-slider-widget-body {
-  box-sizing: border-box;
-  display: grid;
-  min-width: 0;
-  min-height: 0;
-  padding: calc(var(--node-grid-size) * 0.18) 0 calc(var(--node-grid-size) * 0.08);
-}
 
-.node-slider-widget-row {
-  height: 100%;
-  min-height: 0;
-  padding: 0;
-}
-
-.node-slider-widget-row .node-parameter-control,
-.node-slider-widget-row .node-slider-readout,
-.node-slider-widget-row .node-slider-readout-input {
-  height: 100%;
-  min-height: 0;
-  max-height: none;
-}
 
 .node-module-shop-body {
   box-sizing: border-box;
@@ -10898,21 +10988,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   font: 700 0.62rem/1 var(--node-mono-font);
 }
 
-.node-slider-widget-row .node-slider-readout {
-  border: 1px solid rgba(127, 199, 217, 0.2);
-  border-radius: 5px;
-  background:
-    linear-gradient(
-      90deg,
-      rgba(61, 224, 255, 0.2) var(--amount-start, 0px) var(--amount-end, 0px),
-      transparent var(--amount-end, 0px)
-    ),
-    rgba(2, 5, 8, 0.82);
-}
 
-.node-slider-widget-io-section {
-  border-top: 1px solid rgba(128, 224, 224, 0.1);
-}
 
 /* Step Grid's CSS lives in public/modules/stepGrid/step-grid.css now,
    loaded via its own <link> tag -- not here. */
@@ -12502,13 +12578,19 @@ input.node-header-title:focus {
   position: absolute;
   z-index: 0;
   inset-block: 0;
-  left: 0;
+  /* Unipolar: 0 → amount-end. Bipolar: amount-start (mid) → amount-end. */
+  left: var(--amount-start, 0px);
   right: calc(100% - var(--amount-end, 0px));
   border: 0;
   border-radius: 0;
   background: var(--node-slider-amount-color);
   pointer-events: none;
   visibility: hidden;
+}
+
+/* Bipolar: slightly brighter mid-centered fill so ± ranges read clearly. */
+.node-slider-readout.is-bipolar .node-slider-amount-fill {
+  background: color-mix(in srgb, var(--node-slider-amount-color) 88%, rgba(127, 199, 217, 0.55));
 }
 
 .node-graph-workspace.show-slider-amount .node-slider-amount-fill {
@@ -17051,20 +17133,8 @@ body.node-slider-dragging .node-param-port {
   background: transparent;
 }
 
-/* Selected / dragging module: inlet arcs follow the same frame stroke state. */
-.dsp-node.selected .node-port.input,
-.dsp-node.selected .node-param-port.modulation-input,
-.dsp-node.selected .node-param-port.graph-input {
-  --node-port-crescent-stroke: var(--node-module-selected-stroke);
-  --node-port-crescent-stroke-width: 1.5px;
-}
-
-.dsp-node.dragging .node-port.input,
-.dsp-node.dragging .node-param-port.modulation-input,
-.dsp-node.dragging .node-param-port.graph-input {
-  --node-port-crescent-stroke: color-mix(in srgb, var(--node-module-drag-stroke) 62%, transparent);
-  --node-port-crescent-stroke-width: 1px;
-}
+/* Selected/dragging module: do not restyle inlet arcs (match outlets — frame
+   selection is enough; jacks keep idle/connected stroke only). */
 
 .node-port.connected-port,
 .node-param-port.connected-port {

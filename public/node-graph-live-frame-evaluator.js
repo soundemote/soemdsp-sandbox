@@ -119,11 +119,15 @@ function evaluateNodeGraphPlanFrame(runtime, sampleRate, frame, frames) {
   const graphOutputValue = (node, nodeId) => {
     const sampleX = graphSampleX(node, nodeId);
     const nodeTension = Number(node?.params?.tension) ?? 1;
+    const segmentOptions = typeof nodeGraphGraphSegmentOptionsForNode === "function"
+      ? nodeGraphGraphSegmentOptionsForNode(node)
+      : {};
     const normalizedValue = nodeGraphGraphValueAt(
       nodeGraphGraphForNode(node),
       sampleX,
       nodeGraphGraphSmoothingModeForNode(node),
       nodeTension,
+      segmentOptions,
     );
     const outputMin = readNodeGraphLiveEffectiveParam(runtime, node, "outputMin", 0, frame, frames, frameValues);
     const outputMax = readNodeGraphLiveEffectiveParam(runtime, node, "outputMax", 1, frame, frames, frameValues);
@@ -140,11 +144,15 @@ function evaluateNodeGraphPlanFrame(runtime, sampleRate, frame, frames) {
     if (!source || !nodeGraphModuleIsGraphType(source.type)) {
       return fallback;
     }
+    const segmentOptions = typeof nodeGraphGraphSegmentOptionsForNode === "function"
+      ? nodeGraphGraphSegmentOptionsForNode(source)
+      : {};
     return nodeGraphGraphValueAt(
       nodeGraphGraphForNode(source),
       clampNodeSliderValue(Number(x) || 0, 0, 1),
       nodeGraphGraphSmoothingModeForNode(source),
       Number(source?.params?.tension) ?? 1,
+      segmentOptions,
     );
   };
 

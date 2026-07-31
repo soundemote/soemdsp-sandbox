@@ -3569,7 +3569,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       ? { c: 0, shape: "linear", x: 0, y: 0 }
       : { c: 0, shape: "rational", x: 1, y: 1 };
     return {
-      c: this.normalizeGraphNumber(source.c, fallback.c, -0.999, 0.999),
+      c: this.normalizeGraphNumber(source.c, fallback.c, -1, 1),
       shape: this.normalizeGraphShape(source.shape ?? fallback.shape),
       x: this.normalizeGraphNumber(source.x, fallback.x),
       y: this.normalizeGraphNumber(source.y, fallback.y),
@@ -3620,47 +3620,85 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       : this.normalizeGraph(node?.graph);
   }
 
+  /**
+   * |contour| = 1 → perfect step. Matches continuous rational as |c|→1:
+   * +1 jump to right immediately; −1 hold left until end.
+   */
+  graphHardStepShape(position, contourSign) {
+    const p = this.normalizeGraphNumber(position, 0, 0, 1);
+    if (contourSign >= 0) {
+      return p <= 0 ? 0 : 1;
+    }
+    return p >= 1 ? 1 : 0;
+  }
+
+  /**
+   * Blend continuous → shared hard square by |contour| so rational/exp/log
+   * all hit full square at the same |c| (and same Curve Offset).
+   */
+  graphBlendContourTowardHardStep(position, contour, continuousValue) {
+    const p = this.normalizeGraphNumber(position, 0, 0, 1);
+    const c = this.normalizeGraphNumber(contour, 0, -1, 1);
+    const a = Math.abs(c);
+    if (a < 1e-9) {
+      return continuousValue;
+    }
+    if (a >= 1 - 1e-12) {
+      return this.graphHardStepShape(p, c);
+    }
+    const hard = this.graphHardStepShape(p, c);
+    const cont = Number.isFinite(continuousValue) ? continuousValue : p;
+    return cont * (1 - a) + hard * a;
+  }
+
   graphRationalCurve(position, contour = 0) {
     const p = this.normalizeGraphNumber(position, 0, 0, 1);
-    const c = this.normalizeGraphNumber(contour, 0, -0.999, 0.999);
-    if (Math.abs(c) < 0.000001) {
-      return p;
+    const c = this.normalizeGraphNumber(contour, 0, -1, 1);
+    let continuous = p;
+    if (Math.abs(c) >= 0.000001) {
+      const cSafe = Math.max(-0.999999, Math.min(0.999999, c));
+      continuous = cSafe < 0
+        ? (p * (1 + cSafe)) / (1 + cSafe * p)
+        : p / (1 - cSafe + cSafe * p);
     }
-    return c < 0
-      ? (p * (1 + c)) / (1 + c * p)
-      : p / (1 - c + c * p);
+    return this.graphBlendContourTowardHardStep(p, c, continuous);
   }
 
   graphExponentialCurve(position, contour = 0) {
     const p = this.normalizeGraphNumber(position, 0, 0, 1);
-    const t = this.normalizeGraphNumber(contour, 0, -0.999, 0.999);
-    const mag = 1.2 + 6.8 * Math.abs(t);
-    const k = t < 0 ? -mag : mag;
-    if (Math.abs(k) < 0.05) {
-      return p;
+    const t = this.normalizeGraphNumber(contour, 0, -1, 1);
+    let continuous = p;
+    if (Math.abs(t) >= 0.000001) {
+      const a = Math.min(0.999999, Math.abs(t));
+      const mag = 1.2 + 6.8 * (a / (1 - a * 0.85));
+      const k = t < 0 ? -mag : mag;
+      if (Math.abs(k) >= 0.05) {
+        const denom = Math.exp(k) - 1;
+        if (Math.abs(denom) >= 1e-9) {
+          continuous = (Math.exp(k * p) - 1) / denom;
+        }
+      }
     }
-    const denom = Math.exp(k) - 1;
-    if (Math.abs(denom) < 1e-9) {
-      return p;
-    }
-    return (Math.exp(k * p) - 1) / denom;
+    return this.graphBlendContourTowardHardStep(p, t, continuous);
   }
 
   graphLogarithmicCurve(position, contour = 0) {
     const p = this.normalizeGraphNumber(position, 0, 0, 1);
-    const t = this.normalizeGraphNumber(contour, 0, -0.999, 0.999);
-    const b = Math.exp(1.2 + 5.5 * Math.abs(t));
-    if (!Number.isFinite(b) || b <= 1.000001) {
-      return p;
+    const t = this.normalizeGraphNumber(contour, 0, -1, 1);
+    let continuous = p;
+    if (Math.abs(t) >= 0.000001) {
+      const a = Math.min(0.999999, Math.abs(t));
+      const b = Math.exp(1.2 + 5.5 * (a / (1 - a * 0.85)));
+      if (Number.isFinite(b) && b > 1.000001) {
+        const denom = Math.log(b);
+        if (Number.isFinite(denom) && Math.abs(denom) >= 1e-9) {
+          continuous = t < 0
+            ? 1 - Math.log(1 + (1 - p) * (b - 1)) / denom
+            : Math.log(1 + p * (b - 1)) / denom;
+        }
+      }
     }
-    const denom = Math.log(b);
-    if (!Number.isFinite(denom) || Math.abs(denom) < 1e-9) {
-      return p;
-    }
-    if (t < 0) {
-      return 1 - Math.log(1 + (1 - p) * (b - 1)) / denom;
-    }
-    return Math.log(1 + p * (b - 1)) / denom;
+    return this.graphBlendContourTowardHardStep(p, t, continuous);
   }
 
   graphSmoothCurve(position) {
@@ -3952,7 +3990,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   }
 
   graphSmoothingModeForNode(node) {
-    // Step Graph / legacy graph: per-segment hold/shape path.
+    // Step Graph / legacy graph: segment evaluation path.
     if (node?.type === "graphCopy" || node?.type === "graph") {
       return "legacy";
     }
@@ -3960,7 +3998,31 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return this.normalizeGraph2SmoothingMode(node?.params?.smoothingMode);
   }
 
-  graphSegmentValue(graph, x, index, smoothingMode = "legacy") {
+  graphSegmentShapeFromParam(value) {
+    const shapes = ["linear", "rational", "exponential", "log", "smoothstep", "hold"];
+    if (Number.isFinite(Number(value)) && String(value).trim() !== "") {
+      return shapes[Math.max(0, Math.min(shapes.length - 1, Math.round(Number(value))))];
+    }
+    return this.normalizeGraphShape(value);
+  }
+
+  /** Step Graph: global shape + curveOffset; per-node c still applied. */
+  graphSegmentOptionsForNode(node) {
+    if (node?.type !== "graphCopy" && node?.type !== "graph") {
+      return {};
+    }
+    const params = node?.params || {};
+    return {
+      curveOffset: this.normalizeGraphNumber(params.curveOffset, 0, -1, 1),
+      segmentShape: this.graphSegmentShapeFromParam(
+        params.segmentShape != null && params.segmentShape !== ""
+          ? params.segmentShape
+          : "linear",
+      ),
+    };
+  }
+
+  graphSegmentValue(graph, x, index, smoothingMode = "legacy", segmentOptions = {}) {
     const left = graph.nodes[index];
     const right = graph.nodes[index + 1];
     const dx = right.x - left.x;
@@ -3972,8 +4034,12 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       const shaped = this.graphModeCurve(p, smoothingMode, index);
       return left.y + (right.y - left.y) * shaped;
     }
-    const contour = this.normalizeGraphNumber(right.c, 0, -0.999, 0.999);
-    const shape = this.normalizeGraphShape(right.shape || "rational");
+    const offset = this.normalizeGraphNumber(segmentOptions.curveOffset, 0, -1, 1);
+    // Per-node c + global offset; ±1 = hard step for rational / exp / log.
+    const contour = this.normalizeGraphNumber((Number(right.c) || 0) + offset, 0, -1, 1);
+    const shape = segmentOptions.segmentShape != null && segmentOptions.segmentShape !== ""
+      ? this.normalizeGraphShape(segmentOptions.segmentShape)
+      : this.normalizeGraphShape(right.shape || "rational");
     let shaped = p;
     if (shape === "exponential") {
       shaped = this.graphExponentialCurve(p, contour);
@@ -3991,7 +4057,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return left.y + (right.y - left.y) * shaped;
   }
 
-  graphValueAt(graphValue, xValue, smoothingMode = "legacy", tension = 1) {
+  graphValueAt(graphValue, xValue, smoothingMode = "legacy", tension = 1, segmentOptions = {}) {
     const graph = this.normalizeGraph(graphValue);
     const x = this.normalizeGraphNumber(xValue, 0, -Infinity, Infinity);
     if (!graph.nodes.length) {
@@ -4016,7 +4082,10 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
     for (let index = 0; index < graph.nodes.length - 1; index += 1) {
       if (x <= graph.nodes[index + 1].x) {
-        return this.safeFilterNumber(this.graphSegmentValue(graph, x, index, smoothingMode), null);
+        return this.safeFilterNumber(
+          this.graphSegmentValue(graph, x, index, smoothingMode, segmentOptions),
+          null,
+        );
       }
     }
     return graph.nodes[graph.nodes.length - 1].y;
@@ -4364,11 +4433,25 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   }
 
   smoothingTypeFromMetadata(metadata = {}) {
-    if (typeof normalizeNodeGraphParameterSmootherFilterType === "function") {
-      return normalizeNodeGraphParameterSmootherFilterType(metadata?.smoothingType);
+    const raw = metadata?.smoothingType;
+    if (raw != null && String(raw).trim() !== "") {
+      if (typeof normalizeNodeGraphParameterSmootherFilterType === "function") {
+        return normalizeNodeGraphParameterSmootherFilterType(raw);
+      }
+      const key = String(raw).trim();
+      if (key === "linear" || key === "L" || key === "l") {
+        return "linear";
+      }
+      if (key === "twoPole" || key === "2P" || key === "2p" || key === "two-pole" || key === "2pole") {
+        return "twoPole";
+      }
+      return key === "papoulis" ? "papoulis" : "onePole";
     }
-    const key = String(metadata?.smoothingType || "").trim();
-    return key === "papoulis" ? "papoulis" : "onePole";
+    // Legacy: linearSmoothing=false → type linear (instant).
+    if (metadata?.linearSmoothing === false) {
+      return "linear";
+    }
+    return "onePole";
   }
 
   // Resolves a parameter's effective smoothing window in seconds (0 means
@@ -4405,9 +4488,12 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     const safeValue = Number.isFinite(value) ? value : 0;
     const signal = this.parameterValueToNormalizedSignal(safeValue, metadata);
     const smoothingType = this.smoothingTypeFromMetadata(metadata);
+    const usesFilter = typeof nodeGraphParameterSmootherUsesFilter === "function"
+      ? nodeGraphParameterSmootherUsesFilter(smoothingType)
+      : (smoothingType !== "linear" && metadata?.linearSmoothing !== false);
     const smoother = {
       current: safeValue,
-      linearSmoothing: metadata?.linearSmoothing !== false,
+      linearSmoothing: usesFilter,
       max: Number.isFinite(Number(metadata?.max)) ? Number(metadata.max) : 1,
       metadata,
       min: Number.isFinite(Number(metadata?.min)) ? Number(metadata.min) : 0,
@@ -4575,7 +4661,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   updateSmoother(smoother, targetValue, metadata = {}, smootherKey = null) {
     const value = Number(targetValue);
     smoother.target = Number.isFinite(value) ? value : smoother.target;
-    smoother.linearSmoothing = metadata?.linearSmoothing !== false;
     smoother.max = Number.isFinite(Number(metadata?.max)) ? Number(metadata.max) : smoother.max;
     smoother.metadata = metadata;
     smoother.min = Number.isFinite(Number(metadata?.min)) ? Number(metadata.min) : smoother.min;
@@ -4592,6 +4677,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     } else {
       smoother.smoothingType = nextType;
     }
+    smoother.linearSmoothing = typeof nodeGraphParameterSmootherUsesFilter === "function"
+      ? nodeGraphParameterSmootherUsesFilter(nextType)
+      : (nextType !== "linear" && metadata?.linearSmoothing !== false);
     smoother.targetSignal = this.parameterValueToNormalizedSignal(smoother.target, metadata);
     smoother.wraparound = Boolean(metadata?.wraparound);
     const key = smootherKey || smoother._activeKey || null;
@@ -7940,7 +8028,13 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     const graphOutputValue = (node, nodeId) => {
       const sampleX = graphSampleX(node, nodeId);
       const nodeTension = Number(node?.params?.tension) ?? 1;
-      const normalizedValue = this.graphValueAt(this.graphForNode(node), sampleX, this.graphSmoothingModeForNode(node), nodeTension);
+      const normalizedValue = this.graphValueAt(
+        this.graphForNode(node),
+        sampleX,
+        this.graphSmoothingModeForNode(node),
+        nodeTension,
+        this.graphSegmentOptionsForNode(node),
+      );
       const outputMin = this.readEffectiveParameter(node, "outputMin", 0, frame, frames, frameValues);
       const outputMax = this.readEffectiveParameter(node, "outputMax", 1, frame, frames, frameValues);
       return {
@@ -7955,7 +8049,13 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       if (!source || (source.type !== "graph2" && source.type !== "graphCopy")) {
         return fallback;
       }
-      return this.graphValueAt(this.graphForNode(source), this.clampValue(Number(x) || 0, 0, 1), this.graphSmoothingModeForNode(source), Number(source?.params?.tension) ?? 1);
+      return this.graphValueAt(
+        this.graphForNode(source),
+        this.clampValue(Number(x) || 0, 0, 1),
+        this.graphSmoothingModeForNode(source),
+        Number(source?.params?.tension) ?? 1,
+        this.graphSegmentOptionsForNode(source),
+      );
     };
 
     for (const nodeId of this.order) {

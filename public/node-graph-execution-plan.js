@@ -441,13 +441,13 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
     if (nodeGraphVisualSinkActiveInPlan(node, { bypassedNodes })) {
       markReachable(node.id);
     }
-    // Solid-shell interactive modules (bug button, XY pad, ...) always evaluate
-    // for their on-screen face — not only when wired into the speaker path.
-    // XY Pad needs this so Phase+CV still runs through audio-rate Smoothing
-    // (Papoulis) and scope capture feeds the phosphor even when Out X/Y are
-    // unconnected. Marking reachable also pulls any CV sources upstream.
+    // Interactive LayoutB chromeless faces (bug button, XY pad, …) always
+    // evaluate for their on-screen UI — not only when wired into the speaker
+    // path. XY Pad needs this so Phase+CV still runs through smoothing and
+    // phosphor even when Out X/Y are unconnected.
     if (
       !bypassedNodes.has(node.id) &&
+      typeof nodeGraphChromelessModuleUsesSolidShell === "function" &&
       nodeGraphChromelessModuleUsesSolidShell(node.type)
     ) {
       markReachable(node.id);
@@ -727,7 +727,8 @@ function nodeGraphCompiledScopeCaptureNodeIds(graph, reachableNodes) {
         // Graph editor playhead reads "__GraphPhase" from scope buffers -- always
         // capture graph modules even when they have no separate oscilloscope face.
         nodeGraphModuleIsGraphType(node.type) ||
-        nodeGraphChromelessModuleUsesSolidShell(node.type) ||
+        (typeof nodeGraphChromelessModuleUsesSolidShell === "function"
+          && nodeGraphChromelessModuleUsesSolidShell(node.type)) ||
         (
           nodeGraphModuleDisplayRendererForNode(node) !== "legacy" &&
           nodeGraphPatchNodeDisplayVisibleInPlan(node, { bypassedNodes })

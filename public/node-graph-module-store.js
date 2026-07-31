@@ -487,9 +487,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   graphCopy: {
     category: "controller",
-    description: "Point-to-point graph with a step grid: set how many steps and use vertical grid lines as placement guides. Input, LFO, or Phasor timing.",
+    description: "Point-to-point graph with optional step grid (Steps 0 = free X / no quantize). Global Shape + Curve Offset; per-node curve. Input, LFO, or Phasor timing.",
     label: "Step Graph",
-    notes: ["step grid", "per-point shape", "Input · LFO · Phasor", "rate without jumps in Phasor"],
+    notes: ["step grid (0 = free)", "global shape", "per-node curve", "Input · LFO · Phasor"],
   },
   gain: {
     category: "dynamics",
@@ -539,9 +539,20 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   valueSlider: {
     category: "controller",
-    description: "Resizable bias-output slider for manual control in the modular view and UI view.",
+    description: "Resizable bias-output slider for manual control in the modular view and UI view. Search keywords: slider, knob, macro, fader, pot.",
     label: "Value Slider",
-    notes: ["bias output", "resizable widget", "manual control"],
+    notes: [
+      "bias output",
+      "resizable widget",
+      "manual control",
+      "slider",
+      "knob",
+      "macro",
+      "fader",
+      "pot",
+      "potentiometer",
+      "value",
+    ],
   },
   midiOut: {
     category: "controller",
@@ -617,7 +628,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "controller",
     description: "Reads the ten macro knobs under the modular view and emits M1 through M10 as live 0..1 control signals.",
     label: "Macro Controls",
-    notes: ["macro row", "manual control", "ten outputs"],
+    notes: ["macro row", "manual control", "ten outputs", "knob", "slider", "macro", "pot"],
   },
   pitchModWheel: {
     category: "controller",
@@ -1235,7 +1246,12 @@ function nodeGraphModuleStoreEntryMatchesSearch(entry, query) {
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
-  return haystack.includes(needle);
+  // All whitespace-separated tokens must appear (order-independent).
+  const tokens = needle.split(/\s+/).filter(Boolean);
+  if (!tokens.length) {
+    return true;
+  }
+  return tokens.every((token) => haystack.includes(token));
 }
 
 function nodeGraphModuleStoreDepartmentMatchesSearch(department, entries, query) {

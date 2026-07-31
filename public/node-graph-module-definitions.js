@@ -252,6 +252,9 @@ const nodeGraphModuleDefinitions = Object.freeze({
     visualSink: true,
   },
   graph2: {
+    chrome: NodeGraphModuleChromeLayout.LayoutB,
+    // Default face height (was hardcoded 4×moduleScopeHeightGu = 8). Min is 1gu app-wide.
+    displayHeightGu: 8,
     inputs: ["In"],
     layout: "graph",
     outputs: ["Out"],
@@ -293,22 +296,50 @@ const nodeGraphModuleDefinitions = Object.freeze({
       { defaultValue: "1", key: "outputMax", label: "Out Max", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
     ],
   },
-  // Same point-to-point segment model as graph2, plus step-count grid.
+  // Point-to-point segments + step grid. Shape is global; per-node curve (`c`)
+  // is still individual, with curveOffset added as a global bias.
   graphCopy: {
+    chrome: NodeGraphModuleChromeLayout.LayoutB,
+    displayHeightGu: 8,
     inputs: ["In"],
     layout: "graph",
     outputs: ["Out"],
     parameters: [
       { choices: ["Input", "LFO", "Phasor"], defaultValue: "0", displayChoices: true, divideChoicesVisibly: true, key: "mode", label: "Mode", linearSmoothing: false, max: "2", mid: "1", min: "0", nonlinearSlider: false, step: "1" },
+      {
+        choices: ["Linear", "Rational", "Exponential", "Log", "Smoothstep", "Hold"],
+        defaultValue: "0",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "segmentShape",
+        label: "Shape",
+        linearSmoothing: false,
+        max: "5",
+        mid: "0",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+      },
+      {
+        defaultValue: "0",
+        key: "curveOffset",
+        label: "Curve Offset",
+        max: "1",
+        mid: "0",
+        min: "-1",
+        nonlinearSlider: false,
+        step: "0.01",
+      },
       { choices: ["Off", "On"], defaultValue: "0", displayChoices: true, divideChoicesVisibly: true, key: "lockEndpointY", label: "Lock Ends", linearSmoothing: false, max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "1" },
       {
+        // 0 = no step grid / free X (no auto quantize). 1..64 = vertical grid + snap.
         defaultValue: "8",
         key: "steps",
         label: "Steps",
         max: "64",
         maxDigits: 2,
         mid: "8",
-        min: "1",
+        min: "0",
         nonlinearSlider: false,
         step: "1",
       },
@@ -2188,13 +2219,20 @@ const nodeGraphModuleDefinitions = Object.freeze({
     ],
   },
   valueSlider: {
+    chrome: NodeGraphModuleChromeLayout.LayoutB,
+    // LayoutB face height (ports beside); value slider sits under the face.
+    displayHeightGu: 3,
     layout: "sliderWidget",
     outputs: ["Bias"],
+    outputLabels: {
+      Bias: "→",
+    },
     parameters: [
       {
+        bipolar: true,
         defaultValue: "0",
         key: "offset",
-        label: "Bias",
+        label: "→",
         max: "1",
         mid: "0",
         min: "-1",

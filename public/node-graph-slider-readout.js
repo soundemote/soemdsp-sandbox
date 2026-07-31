@@ -294,7 +294,36 @@ function syncNodeGraphSliderReadouts() {
   }
 }
 
+/** LayoutB Value Slider face mirrors the Bias param. */
+function syncNodeGraphValueSliderFaceFromSlider(slider) {
+  if (!slider || slider.dataset.param !== "offset") {
+    return;
+  }
+  const module = slider.closest?.(".dsp-node");
+  if (!module || module.dataset.nodeType !== "valueSlider") {
+    return;
+  }
+  const faceReadout = module.querySelector("[data-value-slider-face-readout]");
+  if (!faceReadout) {
+    return;
+  }
+  const displayValue = Number.isFinite(Number(slider.dataset.unboundedValue))
+    ? Number(slider.dataset.unboundedValue)
+    : Number(slider.value);
+  faceReadout.textContent = typeof formatNodeSliderNumber === "function"
+    ? formatNodeSliderNumber(displayValue, {
+      kind: slider.dataset.kind,
+      maxDigits: slider.dataset.maxDigits,
+      reserveSignSpace: true,
+      showSign: typeof nodeSliderShouldShowSign === "function"
+        ? nodeSliderShouldShowSign(slider)
+        : true,
+    }).trim()
+    : String(displayValue);
+}
+
 function syncNodeSliderReadout(slider) {
+  syncNodeGraphValueSliderFaceFromSlider(slider);
   const readout = slider.closest("label")?.querySelector(".node-slider-readout");
   if (!readout) {
     return;
@@ -363,9 +392,11 @@ function syncNodeSliderReadout(slider) {
   readout.classList.toggle("reserves-sign-column", usesNumericReadout || usesChoices);
   readout.removeAttribute("title");
   if (dividesChoices) {
+    readout.style.removeProperty("--amount-start");
     readout.style.removeProperty("--amount-end");
     readout.style.removeProperty("--value-start");
     readout.style.removeProperty("--value-end");
+    readout.classList.remove("is-bipolar");
     readout.style.setProperty("--choice-divider-background", "none");
     syncNodeSliderChoiceDebugSquares(readout, choices, true, Number(slider.value));
     syncNodeSliderPortalHandle(readout, slider, position, false);
@@ -377,7 +408,25 @@ function syncNodeSliderReadout(slider) {
     // so a centre-anchored fill never reached the right edge -- and because
     // the handle itself is translucent you saw the fill edge through it as a
     // second, offset edge. range.end lines the fill up with the handle edge.
-    readout.style.setProperty("--amount-end", `${range.end}px`);
+    const bipolar = slider.dataset.bipolar === "true";
+    readout.classList.toggle("is-bipolar", bipolar);
+    if (bipolar) {
+      // Fill spans from the MID value's track position to the current value
+      // (centered on mid — typically 0 for bipolar ranges).
+      const midValue = Number(slider.dataset.mid);
+      const midTravel = nodeSliderTravelFromValue(
+        slider,
+        Number.isFinite(midValue) ? midValue : 0,
+      );
+      const midRange = nodeSliderHandleRangeFromTravel(slider, readout, midTravel);
+      const fillLeft = Math.min(midRange.center, range.center);
+      const fillRight = Math.max(midRange.center, range.center);
+      readout.style.setProperty("--amount-start", `${fillLeft}px`);
+      readout.style.setProperty("--amount-end", `${fillRight}px`);
+    } else {
+      readout.style.setProperty("--amount-start", "0px");
+      readout.style.setProperty("--amount-end", `${range.end}px`);
+    }
     readout.style.setProperty(
       "--value-start",
       `${range.start}px`,

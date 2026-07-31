@@ -373,6 +373,7 @@ function nodeSliderMetadata(slider) {
     def,
     displayChoices: nodeSliderShouldDisplayChoices(slider),
     divideChoicesVisibly: nodeSliderShouldDivideChoicesVisibly(slider),
+    bipolar: slider.dataset.bipolar === "true",
     linearSmoothing: nodeSliderShouldUseLinearSmoothing(slider),
     nonlinearSlider: nodeSliderShouldUseNonlinearSlider(slider),
     sliderCurve: nodeSliderCurve(slider),

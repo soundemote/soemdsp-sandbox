@@ -1046,20 +1046,24 @@ function renderNodeGraphGraphNodeList(graph, selectedIndex = selectedNodeGraphGr
     return;
   }
   const graphData = normalizeNodeGraphGraph(graph);
-  // Step Graph only: x/y plus curve contour + shape. Smooth Graph: x/y only.
-  const usesPerNodeShapes = Boolean(options.usesPerNodeShapes);
+  // Step Graph: x/y + per-node curve. Shape is a module param (not per node).
+  // Smooth Graph: x/y only.
+  const usesPerNodeContour = Boolean(options.usesPerNodeContour);
+  const usesPerNodeShapeSelect = Boolean(options.usesPerNodeShapeSelect);
   const activeIndex = selectedNodeGraphGraphIndex(graphData, selectedIndex);
   list.replaceChildren();
   const header = document.createElement("div");
   header.className = "scene-context-graph-node-row scene-context-graph-node-row-header";
-  const labels = usesPerNodeShapes ? ["node", "x", "y", "curve", "shape"] : ["node", "x", "y"];
+  const labels = usesPerNodeContour
+    ? (usesPerNodeShapeSelect ? ["node", "x", "y", "curve", "shape"] : ["node", "x", "y", "curve"])
+    : ["node", "x", "y"];
   for (const label of labels) {
     const span = document.createElement("span");
     span.textContent = label;
     header.append(span);
   }
   list.append(header);
-  list.dataset.graphListMode = usesPerNodeShapes ? "per-node" : "points";
+  list.dataset.graphListMode = usesPerNodeContour ? "per-node" : "points";
   graphData.nodes.forEach((node, index) => {
     const row = document.createElement("div");
     row.className = "scene-context-graph-node-row";
@@ -1074,12 +1078,14 @@ function renderNodeGraphGraphNodeList(graph, selectedIndex = selectedNodeGraphGr
     row.append(label);
     row.append(createNodeGraphGraphRowNumberInput(index, "x", node.x));
     row.append(createNodeGraphGraphRowNumberInput(index, "y", node.y));
-    if (usesPerNodeShapes) {
+    if (usesPerNodeContour) {
       row.append(createNodeGraphGraphRowNumberInput(index, "c", node.c, {
-        min: -0.999,
-        max: 0.999,
+        min: -1,
+        max: 1,
       }));
-      row.append(createNodeGraphGraphRowShapeSelect(index, node.shape));
+      if (usesPerNodeShapeSelect) {
+        row.append(createNodeGraphGraphRowShapeSelect(index, node.shape));
+      }
     }
     list.append(row);
   });
@@ -1094,7 +1100,12 @@ function syncNodeGraphGraphControls(graph, selectedIndex = selectedNodeGraphGrap
   const nodeId = String(options.nodeId || nodeGraphModuleActionTargetNodeId() || "").trim();
   const patchNode = nodeGraphPatchNode(nodeId);
   const graphNodeType = patchNode?.type || "";
-  const usesPerNodeShapes = nodeGraphGraphUsesPerNodeShapes(graphNodeType);
+  const usesPerNodeContour = typeof nodeGraphGraphUsesPerNodeContour === "function"
+    ? nodeGraphGraphUsesPerNodeContour(graphNodeType)
+    : nodeGraphGraphUsesPerNodeShapes(graphNodeType);
+  const usesPerNodeShapeSelect = typeof nodeGraphGraphUsesPerNodeShapeSelect === "function"
+    ? nodeGraphGraphUsesPerNodeShapeSelect(graphNodeType)
+    : false;
   const paintFace = options.face !== false;
   if (nodeGraphModuleIsGraphType(graphNodeType)) {
     setNodeGraphGraphSelectedNodeIndex(nodeId, graphData, index);
@@ -1114,7 +1125,7 @@ function syncNodeGraphGraphControls(graph, selectedIndex = selectedNodeGraphGrap
   }
   const node = graphData.nodes[index] || graphData.nodes.at(-1);
   populateNodeGraphGraphNodeIndexSelect(graphData, index);
-  renderNodeGraphGraphNodeList(graphData, index, { usesPerNodeShapes });
+  renderNodeGraphGraphNodeList(graphData, index, { usesPerNodeContour, usesPerNodeShapeSelect });
   const cursorInput = document.getElementById("nodeSceneGraphCursorX");
   const xInput = document.getElementById("nodeSceneGraphNodeX");
   const yInput = document.getElementById("nodeSceneGraphNodeY");
@@ -1136,17 +1147,17 @@ function syncNodeGraphGraphControls(graph, selectedIndex = selectedNodeGraphGrap
   const shapeLabel = document.getElementById("nodeSceneGraphNodeShapeLabel");
   if (contourInput) {
     contourInput.value = node.c.toFixed(3);
-    contourInput.disabled = !usesPerNodeShapes;
+    contourInput.disabled = !usesPerNodeContour;
   }
   if (shapeInput) {
     shapeInput.value = normalizeNodeGraphGraphShape(node.shape);
-    shapeInput.disabled = !usesPerNodeShapes;
+    shapeInput.disabled = !usesPerNodeShapeSelect;
   }
   if (contourLabel) {
-    contourLabel.hidden = !usesPerNodeShapes;
+    contourLabel.hidden = !usesPerNodeContour;
   }
   if (shapeLabel) {
-    shapeLabel.hidden = !usesPerNodeShapes;
+    shapeLabel.hidden = !usesPerNodeShapeSelect;
   }
   if (previousButton) {
     previousButton.disabled = index <= 0;
@@ -1207,7 +1218,12 @@ function setNodeGraphGraphNodeFromContext({ record = true } = {}) {
   const graph = normalizeNodeGraphGraph(targetNode.graph);
   const selectedIndex = selectedNodeGraphGraphIndex(graph);
   const node = graph.nodes[selectedIndex];
-  const usesPerNodeShapes = nodeGraphGraphUsesPerNodeShapes(targetNode.type);
+  const usesPerNodeContour = typeof nodeGraphGraphUsesPerNodeContour === "function"
+    ? nodeGraphGraphUsesPerNodeContour(targetNode.type)
+    : nodeGraphGraphUsesPerNodeShapes(targetNode.type);
+  const usesPerNodeShapeSelect = typeof nodeGraphGraphUsesPerNodeShapeSelect === "function"
+    ? nodeGraphGraphUsesPerNodeShapeSelect(targetNode.type)
+    : false;
   const parseGraphNumberField = (raw, fallback) => {
     const text = String(raw ?? "").trim();
     if (text === "" || text === "-" || text === "." || text === "-." || !Number.isFinite(Number(text))) {
@@ -1217,12 +1233,14 @@ function setNodeGraphGraphNodeFromContext({ record = true } = {}) {
   };
   const nextX = parseGraphNumberField(document.getElementById("nodeSceneGraphNodeX")?.value, node.x);
   const nextY = parseGraphNumberField(document.getElementById("nodeSceneGraphNodeY")?.value, node.y);
-  const nextC = usesPerNodeShapes
+  const nextC = usesPerNodeContour
     ? parseGraphNumberField(document.getElementById("nodeSceneGraphNodeContour")?.value, node.c)
     : node.c;
   graph.nodes[selectedIndex] = normalizeNodeGraphGraphNode({
     c: nextC,
-    shape: usesPerNodeShapes ? document.getElementById("nodeSceneGraphNodeShape")?.value ?? node.shape : node.shape,
+    shape: usesPerNodeShapeSelect
+      ? document.getElementById("nodeSceneGraphNodeShape")?.value ?? node.shape
+      : node.shape,
     x: nextX,
     y: nextY,
   }, selectedIndex);
@@ -1293,7 +1311,16 @@ function setNodeGraphGraphNodeListValueFromContext(event, { record = true } = {}
   if (!targetNode) {
     return;
   }
-  if (!nodeGraphGraphUsesPerNodeShapes(targetNode.type) && (field === "c" || field === "shape")) {
+  const usesPerNodeContour = typeof nodeGraphGraphUsesPerNodeContour === "function"
+    ? nodeGraphGraphUsesPerNodeContour(targetNode.type)
+    : nodeGraphGraphUsesPerNodeShapes(targetNode.type);
+  const usesPerNodeShapeSelect = typeof nodeGraphGraphUsesPerNodeShapeSelect === "function"
+    ? nodeGraphGraphUsesPerNodeShapeSelect(targetNode.type)
+    : false;
+  if (field === "c" && !usesPerNodeContour) {
+    return;
+  }
+  if (field === "shape" && !usesPerNodeShapeSelect) {
     return;
   }
   // While typing, intermediate values like "" or "0." are not finite yet.

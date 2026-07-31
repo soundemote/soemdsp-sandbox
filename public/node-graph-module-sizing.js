@@ -22,7 +22,8 @@ function nodeGraphModuleTypeHasHideableSliders(type) {
   if (!definition?.parameters?.length) {
     return false;
   }
-  return !["led", "sliderWidget"].includes(definition.layout);
+  // LayoutB modules (incl. valueSlider) keep ordinary param rows under the face.
+  return definition.layout !== "led";
 }
 
 const nodeGraphModuleWidthLimits = Object.freeze({
@@ -35,7 +36,8 @@ const nodeGraphModuleHeightLimits = Object.freeze({
   minGu: 1,
 });
 
-// App-wide policy: module and display dimensions max out at 60gu.
+// App-wide display-area policy: every resizable display is 1…60 gu.
+// Modules must not invent their own min display height.
 const nodeGraphModuleDisplayHeightLimits = Object.freeze({
   maxGu: 60,
   minGu: 1,
@@ -79,10 +81,13 @@ function nodeGraphPatchNodeLayout(node) {
 // -- this is what gives it the same standard Width/Height controls as
 // every other custom-display module instead of neither one.
 function nodeGraphModuleTypeHasCustomDisplayArea(type) {
-  if (nodeGraphModuleDefinitions[type]?.layout === "graph") {
+  // Face-owned display area (not the same as LayoutA/B port chrome).
+  if (typeof nodeGraphChromelessModuleHasCustomDisplayArea === "function"
+    && nodeGraphChromelessModuleHasCustomDisplayArea(type)) {
     return true;
   }
-  return nodeGraphChromelessModuleHasCustomDisplayArea(type);
+  const layout = nodeGraphModuleDefinitions[type]?.layout;
+  return layout === "graph" || layout === "sliderWidget";
 }
 
 function nodeGraphModuleTypeHasHideableOscilloscope(type) {
@@ -136,19 +141,23 @@ function nodeGraphModuleSizingCapabilities(type) {
   const normalizedType = String(type || "").trim();
   const definition = nodeGraphModuleDefinitions[normalizedType];
   const layout = definition?.layout;
-  // Solid-shell chromeless modules (XY Pad, Number Readout, Ray Bouncer, …)
-  // size from content (display + side IO + sliders), not a freehand heightGu.
-  // Marking them "custom" previously locked a stale node.heightGu and fought
-  // display-height / slider changes.
+  // LayoutB chromeless modules size from content (shell + sliders), not freehand heightGu.
+  // Graph uses shared display-height (min 1gu), not a custom moduleHeight floor.
   const moduleHeight = nodeGraphNodeTypeHasTextBoxLayout(normalizedType)
     ? "textBox"
     : normalizedType === "canvas"
       ? "canvasScript"
-      : (nodeGraphChromelessModuleUsesSolidShell?.(normalizedType)
-        ? false
-        : (["graph", "keyboardController", "macroControls"].includes(layout) ? "custom" : false));
+      : (
+        (typeof nodeGraphModuleUsesLayoutB === "function" && nodeGraphModuleUsesLayoutB(normalizedType)
+          && typeof nodeGraphChromelessModuleLayouts !== "undefined"
+          && nodeGraphChromelessModuleLayouts.has(layout))
+          ? false
+          : (["keyboardController", "macroControls"].includes(layout) ? "custom" : false)
+      );
   // Display-height resizing works for any type with a display AREA --
-  // whether an oscilloscope fills it or the module's own custom UI does.
+  // whether an oscilloscope fills it or the module's own custom UI does
+  // (graph faces, XY pad, etc.). Min height is always
+  // nodeGraphModuleDisplayHeightLimits.minGu (1).
   const displayHeight = !moduleHeight && (
     nodeGraphModuleTypeHasHideableOscilloscope(normalizedType) ||
     nodeGraphModuleTypeHasCustomDisplayArea(normalizedType)
@@ -210,8 +219,8 @@ function nodeGraphModuleConfiguredDisplayHeightUnits(type, ui = {}) {
   }
   const normalizedUi = normalizeNodeGraphPatchNodeUi(ui, type);
   const defaultHeightGu = nodeGraphModuleDefaultDisplayHeightUnits(type);
-  return Math.max(
-    1,
+  // Single clamp path: min 1gu / max 60gu for every display type.
+  return normalizeNodeGraphModuleDisplayHeightUnits(
     defaultHeightGu + normalizedUi.displayHeightOffsetGu,
   );
 }
@@ -363,7 +372,19 @@ function nodeGraphModuleTypeHasIoPorts(type) {
   return Boolean((definition?.inputs?.length || 0) || (definition?.outputs?.length || 0));
 }
 
+/** Fixed I/O strip height for graph layout (Smooth/Step Graph). App policy: 26px. */
+const nodeGraphGraphLayoutIoSectionHeightPx = 26;
+
+function nodeGraphGraphLayoutIoSectionHeightGu() {
+  const gridH = typeof nodeGraphGridHeight === "function" ? nodeGraphGridHeight() : 28;
+  return nodeGraphGraphLayoutIoSectionHeightPx / Math.max(1, Number(gridH) || 28);
+}
+
 function nodeGraphModuleIoSectionHeightGu(type) {
+  // Smooth / Step Graph: always 26px — no growth with port count, no exceptions.
+  if (nodeGraphModuleDefinitions[type]?.layout === "graph") {
+    return nodeGraphGraphLayoutIoSectionHeightGu();
+  }
   const rows = nodeGraphModuleIoRowCount(type);
   const rowHeight = rows * nodeGraphModuleLayout.ioRowHeightGu;
   const gapHeight = Math.max(0, rows - 1) * nodeGraphModuleLayout.ioRowGapGu;
@@ -374,31 +395,43 @@ function nodeGraphModuleIoSectionHeightGu(type) {
 }
 
 /**
- * Solid-module side columns: each jack row is fixed to --node-port-area-size
- * (one grid gu), not the compact text-row height used by stacked headered IO.
+ * LayoutB side columns: each jack row is fixed to --node-port-area-size
+ * (one grid gu), not the compact text-row height used by LayoutA IO.
  * Height math MUST match that CSS or short shells clip ports and hitboxes drift.
+ * Graph layout: 26px jack bands (see .dsp-node.graph-node-layout).
  */
-function nodeGraphSolidModulePortBandGu() {
+function nodeGraphLayoutBPortBandGu(type = null) {
+  if (type && nodeGraphModuleDefinitions[type]?.layout === "graph") {
+    return nodeGraphGraphLayoutIoSectionHeightGu();
+  }
   return 1;
 }
 
-function nodeGraphSolidModuleIoColumnHeightGu(type) {
+/** @deprecated use nodeGraphLayoutBPortBandGu */
+const nodeGraphSolidModulePortBandGu = nodeGraphLayoutBPortBandGu;
+
+function nodeGraphLayoutBIoColumnHeightGu(type) {
   const rows = Math.max(0, nodeGraphModuleIoRowCount(type));
   if (rows <= 0) {
     return 0;
   }
-  // Minimum packed height of the denser side column (no free space-evenly gap).
-  return rows * nodeGraphSolidModulePortBandGu();
+  return rows * nodeGraphLayoutBPortBandGu(type);
 }
 
-/** Shell face height in gu: grow with display Height control and denser IO. */
-function nodeGraphSolidModuleShellHeightGu(type, ui = {}) {
+/** @deprecated use nodeGraphLayoutBIoColumnHeightGu */
+const nodeGraphSolidModuleIoColumnHeightGu = nodeGraphLayoutBIoColumnHeightGu;
+
+/** LayoutB shell height in gu: max(display Height, denser IO column). */
+function nodeGraphLayoutBShellHeightGu(type, ui = {}) {
   const displayGu = nodeGraphModuleConfiguredDisplayHeightUnits(type, ui);
-  const ioGu = nodeGraphSolidModuleIoColumnHeightGu(type);
+  const ioGu = nodeGraphLayoutBIoColumnHeightGu(type);
   return Math.max(1, displayGu, ioGu);
 }
 
-/** Keep solid shell CSS vars in sync with height math (create + resize paths). */
+/** @deprecated use nodeGraphLayoutBShellHeightGu */
+const nodeGraphSolidModuleShellHeightGu = nodeGraphLayoutBShellHeightGu;
+
+/** Keep LayoutB shell CSS vars in sync with height math (create + resize paths). */
 function nodeGraphApplyModuleShellHeightCssVars(element, patchNode) {
   if (!element || !patchNode) {
     return;
@@ -408,16 +441,22 @@ function nodeGraphApplyModuleShellHeightCssVars(element, patchNode) {
     : nodeGraphModuleDisplayHeightUnits(patchNode.type, patchNode.ui);
   element.style.setProperty("--node-module-display-height-units", String(displayGu));
   const shellGu = (
-    typeof nodeGraphChromelessModuleUsesSolidShell === "function"
-    && nodeGraphChromelessModuleUsesSolidShell(patchNode.type)
+    typeof nodeGraphModuleUsesLayoutB === "function"
+    && nodeGraphModuleUsesLayoutB(patchNode.type)
   )
-    ? nodeGraphSolidModuleShellHeightGu(patchNode.type, patchNode.ui)
+    ? nodeGraphLayoutBShellHeightGu(patchNode.type, patchNode.ui)
     : displayGu;
   element.style.setProperty("--node-module-shell-height-units", String(shellGu));
 }
 
 function nodeGraphModuleHiddenIoSectionHeightGu(type) {
-  return nodeGraphModuleTypeHasIoPorts(type) ? nodeGraphModuleLayout.ioSectionMinHeightGu : 0;
+  if (!nodeGraphModuleTypeHasIoPorts(type)) {
+    return 0;
+  }
+  if (nodeGraphModuleDefinitions[type]?.layout === "graph") {
+    return nodeGraphGraphLayoutIoSectionHeightGu();
+  }
+  return nodeGraphModuleLayout.ioSectionMinHeightGu;
 }
 
 function nodeGraphModuleTypeHasInterfaceControls(type) {
@@ -538,7 +577,8 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
   if (nodeGraphModuleDefinitions[type]?.layout === "graph") {
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
-      { id: "graph", heightGu: nodeGraphModuleLayout.moduleScopeHeightGu * 4, visible: true },
+      // Shared display-height control (min 1gu) — was fixed at 4×scope (~8gu+).
+      { id: "graph", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: true },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
       { id: "fit", heightGu: nodeGraphModuleLayout.fitCushionGu, visible: true },
@@ -546,11 +586,16 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
     ];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "sliderWidget") {
+    // LayoutB headerless (XY Pad contract): shell + sliders + bottom cushion.
+    const paramRows = slidersVisible ? nodeGraphModuleVisibleBodyRowCount(type) : 0;
     return [
-      { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
-      { id: "slider", heightGu: nodeGraphModuleLayout.moduleScopeHeightGu, visible: true },
-      { id: "io", heightGu: ioHeightGu, visible: ioVisible },
-      { id: "fit", heightGu: nodeGraphModuleLayout.fitCushionGu, visible: true },
+      { id: "shell", heightGu: nodeGraphLayoutBShellHeightGu(type, ui), visible: true },
+      {
+        id: "params",
+        heightGu: paramRows * nodeGraphModuleLayout.sliderRowHeightGu,
+        visible: paramRows > 0,
+      },
+      { id: "bottomCushion", heightGu: nodeGraphLayoutBBottomCushionGu, visible: true },
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: true },
     ];
   }
@@ -578,7 +623,7 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
   if (nodeGraphModuleDefinitions[type]?.layout === "filterCurve") {
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
-      { id: "curve", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui) * 1.5, visible: displayVisible },
+      { id: "curve", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
       { id: "fit", heightGu: nodeGraphModuleLayout.fitCushionGu, visible: true },
@@ -588,7 +633,7 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
   if (nodeGraphModuleDefinitions[type]?.layout === "wallRoomDisplay") {
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
-      { id: "room", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui) * 1.5, visible: displayVisible },
+      { id: "room", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
       { id: "fit", heightGu: nodeGraphModuleLayout.fitCushionGu, visible: true },
@@ -598,7 +643,7 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
   if (nodeGraphModuleDefinitions[type]?.layout === "pulseCurve") {
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
-      { id: "curve", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui) * 1.5, visible: displayVisible },
+      { id: "curve", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
       { id: "fit", heightGu: nodeGraphModuleLayout.fitCushionGu, visible: true },
@@ -646,56 +691,59 @@ function nodeGraphModuleGridHeightUnits(type) {
   return nodeGraphModuleGridHeightUnitsForUi(type);
 }
 
-function nodeGraphSolidModuleGridHeightUnits(type, ui = {}, { compact = false } = {}) {
-  // Shared solid contract: shell = max(display area, denser 1gu-band IO column).
-  const shellGu = nodeGraphSolidModuleShellHeightGu(type, ui);
-  const sliderGu = nodeGraphModuleVisibleSliderRowCountForUi(type, ui) > 0
-    ? nodeGraphModuleSliderBodyHeightGu(type)
+/**
+ * LayoutB bottom clearance under the last slider (must match CSS
+ * --node-layout-b-bottom-cushion / solid-module-layout third grid row).
+ * Without a dedicated track, spare height only grows the shell 1fr and
+ * sliders sit flush on the module edge.
+ */
+const nodeGraphLayoutBBottomCushionGu = 1;
+
+/** LayoutB module height (XY Pad contract): shell + sliders + bottom cushion + inset. */
+function nodeGraphLayoutBGridHeightUnits(type, ui = {}, { compact = false } = {}) {
+  const shellGu = nodeGraphLayoutBShellHeightGu(type, ui);
+  // Match rendered param stack: CSS --node-body-row-gap is 0.
+  const rows = nodeGraphModuleVisibleSliderRowCountForUi(type, ui);
+  const sliderGu = rows > 0
+    ? rows * nodeGraphModuleLayout.sliderRowHeightGu
     : 0;
   if (compact && sliderGu <= 0) {
     return shellGu;
   }
   return nodeGraphModuleHeightWithBottomClearance(
-    shellGu + sliderGu + nodeGraphModuleLayout.moduleGridInsetGu * 2,
+    shellGu
+      + sliderGu
+      + nodeGraphLayoutBBottomCushionGu
+      + nodeGraphModuleLayout.moduleGridInsetGu * 2,
   );
 }
 
+/** @deprecated use nodeGraphLayoutBGridHeightUnits */
+const nodeGraphSolidModuleGridHeightUnits = nodeGraphLayoutBGridHeightUnits;
+
 function nodeGraphModuleGridHeightUnitsForUi(type, ui = {}) {
-  // Chromeless layouts (see nodeGraphChromelessModuleLayouts in
-  // node-graph-module-rendering.js) have no header, no display, no IO
-  // section, and no generic param rows -- the widget-list calc below
-  // assumes at least some of those exist, which inflates the required
-  // height even though nothing extra is actually rendered. Most chromeless
-  // modules are sized by their own dedicated CSS rule
-  // (.dsp-node.<layout>-layout) at exactly 1gu tall, same as led always
-  // was; this generalizes led's existing shortcut so a future 100%
-  // custom-UI module gets it automatically just by joining that set.
-  // A chromeless module that opts into the hideable-oscilloscope capability
-  // (see nodeGraphModuleTypeHasHideableOscilloscope) is a whole-body display
-  // instead -- e.g. stepGrid, where more grid units means more room per
-  // square -- so it reuses the same configured-display-height mechanism
-  // every other display-capable module already exposes (context menu /
-  // keyboard shortcut), rather than being pinned at 1 regardless of that
-  // setting.
+  // Chromeless layouts have no generic header/IO strip math. Compact tiles are
+  // usually 1gu; LayoutB chromeless uses the shared shell+sliders contract.
   if (nodeGraphChromelessModuleLayouts.has(nodeGraphModuleDefinitions[type]?.layout)) {
-    // Compact tiles are one seamless face. Most have no parameter rows, but
-    // solid-shell tiles may place ordinary sliders below that face; route
-    // those through the same solid-module height contract as larger modules.
     if (nodeGraphChromelessModuleIsCompactTile(type)) {
-      if (nodeGraphChromelessModuleUsesSolidShell(type)) {
-        return nodeGraphSolidModuleGridHeightUnits(type, ui, { compact: true });
+      if (typeof nodeGraphModuleUsesLayoutB === "function" && nodeGraphModuleUsesLayoutB(type)) {
+        return nodeGraphLayoutBGridHeightUnits(type, ui, { compact: true });
       }
       return nodeGraphModuleSizingCapabilities(type).displayHeight
         ? nodeGraphModuleConfiguredDisplayHeightUnits(type, ui)
         : 1;
     }
-    if (nodeGraphChromelessModuleUsesSolidShell(type)) {
-      return nodeGraphSolidModuleGridHeightUnits(type, ui);
+    if (typeof nodeGraphModuleUsesLayoutB === "function" && nodeGraphModuleUsesLayoutB(type)) {
+      return nodeGraphLayoutBGridHeightUnits(type, ui);
     }
     if (nodeGraphModuleSizingCapabilities(type).displayHeight) {
       return nodeGraphModuleConfiguredDisplayHeightUnits(type, ui);
     }
     return 1;
+  }
+  // Headerless LayoutB (valueSlider, etc.) — same height contract as XY Pad.
+  if (typeof nodeGraphModuleIsHeaderlessLayoutB === "function" && nodeGraphModuleIsHeaderlessLayoutB(type)) {
+    return nodeGraphLayoutBGridHeightUnits(type, ui);
   }
   const requiredGu = nodeGraphModuleRequiredHeightUnitsForUi(type, ui);
   return nodeGraphModuleHeightWithBottomClearance(requiredGu);

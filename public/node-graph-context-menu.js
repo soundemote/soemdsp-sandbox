@@ -1401,9 +1401,12 @@ function configureNodeSceneContextMenu(mode) {
       textBoxTextScriptStatus.textContent = "";
     }
     if (targetIsGraphType) {
-      const usesPerNodeShapes = typeof nodeGraphGraphUsesPerNodeShapes === "function"
-        ? nodeGraphGraphUsesPerNodeShapes(targetNode.type)
+      const usesPerNodeContour = typeof nodeGraphGraphUsesPerNodeContour === "function"
+        ? nodeGraphGraphUsesPerNodeContour(targetNode.type)
         : targetNode.type === "graphCopy";
+      const usesPerNodeShapeSelect = typeof nodeGraphGraphUsesPerNodeShapeSelect === "function"
+        ? nodeGraphGraphUsesPerNodeShapeSelect(targetNode.type)
+        : false;
       syncNodeGraphGraphControls(nodeGraphGraphForNode(targetNode));
       graphCursorX.disabled = false;
       graphNodeIndex.disabled = false;
@@ -1411,21 +1414,21 @@ function configureNodeSceneContextMenu(mode) {
       graphNextNode.disabled = false;
       graphNodeX.disabled = false;
       graphNodeY.disabled = false;
-      // Step Graph only: per-segment curve/shape. Smooth Graph is one global curve.
-      graphNodeContour.disabled = !usesPerNodeShapes;
-      graphNodeShape.disabled = !usesPerNodeShapes;
+      // Step Graph: per-node curve; Shape is a module parameter.
+      graphNodeContour.disabled = !usesPerNodeContour;
+      graphNodeShape.disabled = !usesPerNodeShapeSelect;
       const contourLabel = document.getElementById("nodeSceneGraphNodeContourLabel");
       const shapeLabel = document.getElementById("nodeSceneGraphNodeShapeLabel");
-      if (contourLabel) contourLabel.hidden = !usesPerNodeShapes;
-      if (shapeLabel) shapeLabel.hidden = !usesPerNodeShapes;
+      if (contourLabel) contourLabel.hidden = !usesPerNodeContour;
+      if (shapeLabel) shapeLabel.hidden = !usesPerNodeShapeSelect;
       graphCursorX.title = "Move the vertical graph cursor.";
       graphNodeIndex.title = "Choose the graph node to edit.";
       graphPreviousNode.title = "Select the previous graph node.";
       graphNextNode.title = "Select the next graph node.";
       graphNodeX.title = "Set the selected node's x position.";
       graphNodeY.title = "Set the selected node's y value.";
-      graphNodeContour.title = "Bend the selected node's outgoing segment.";
-      graphNodeShape.title = "Choose the selected node's outgoing curve shape.";
+      graphNodeContour.title = "Bend the selected node's outgoing segment (plus global Curve Offset).";
+      graphNodeShape.title = "Shape is a Step Graph module parameter (global).";
     } else {
       graphCursorX.value = "";
       graphNodeIndex.replaceChildren();

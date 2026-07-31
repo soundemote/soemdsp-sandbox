@@ -4,14 +4,36 @@
 // Smoothing TYPE chooses the filter that chases the target over that time.
 //
 // Register new types with nodeGraphRegisterParameterSmootherFilter(...).
-// Only onePole + papoulis ship today — this is a plug-in point, not a catalog
-// of every DSP filter in the sandbox.
+// Types: linear (instant), onePole (1P), twoPole (2P), papoulis (Π / Optimum-L).
+// linear replaces the old linearSmoothing=false checkbox.
 
-const nodeGraphParameterSmootherFilterTypes = Object.freeze(["onePole", "papoulis"]);
+const nodeGraphParameterSmootherFilterTypes = Object.freeze([
+  "linear",
+  "onePole",
+  "twoPole",
+  "papoulis",
+]);
 
 function normalizeNodeGraphParameterSmootherFilterType(value) {
   const key = String(value || "").trim();
+  if (key === "L" || key === "l" || key === "none" || key === "off" || key === "instant") {
+    return "linear";
+  }
+  if (key === "2P" || key === "2p" || key === "twoPole" || key === "two-pole" || key === "2pole") {
+    return "twoPole";
+  }
+  if (key === "1P" || key === "1p") {
+    return "onePole";
+  }
   return nodeGraphParameterSmootherFilterTypes.includes(key) ? key : "onePole";
+}
+
+/** True when the parameter should glide (not snap). Derived from smoothing type. */
+function nodeGraphParameterSmootherUsesFilter(typeOrMetadata) {
+  const type = typeof typeOrMetadata === "object" && typeOrMetadata
+    ? normalizeNodeGraphParameterSmootherFilterType(typeOrMetadata.smoothingType)
+    : normalizeNodeGraphParameterSmootherFilterType(typeOrMetadata);
+  return type !== "linear";
 }
 
 // Legacy alias used in some metadata paths.
@@ -83,6 +105,36 @@ function nodeGraphParameterSmootherFilterSnap(smoother, targetSignal) {
   smoother.outputBuffer = target;
 }
 
+// ── linear (instant; no filter — was linearSmoothing=false) ──────────────
+
+nodeGraphRegisterParameterSmootherFilter("linear", {
+  createState(initial = 0) {
+    return { outputBuffer: Number(initial) || 0 };
+  },
+  process(state, input) {
+    const x = Number.isFinite(Number(input)) ? Number(input) : (state.outputBuffer || 0);
+    state.outputBuffer = x;
+    return x;
+  },
+  snap(state, target) {
+    state.outputBuffer = Number(target) || 0;
+  },
+});
+
+/** Shared one-pole step used by 1P and cascaded 2P. */
+function nodeGraphParameterSmootherOnePoleStep(stateKey, state, input, frequency, rate) {
+  const safeRate = Math.max(1, Number(rate) || 44100);
+  const prev = Number(state[stateKey]) || 0;
+  const safeInput = Number.isFinite(Number(input)) ? Number(input) : prev;
+  const frequencyValue = Math.max(0, Number.isFinite(Number(frequency)) ? Number(frequency) : 0);
+  const w = Math.min((Math.PI * 2) / safeRate, 0.000142475857) * frequencyValue;
+  const a1 = Math.exp(-w);
+  const b0 = 1 - a1;
+  const out = b0 * safeInput + a1 * prev;
+  state[stateKey] = out;
+  return out;
+}
+
 // ── one-pole (default, matches historical parameter smoothing) ───────────
 
 nodeGraphRegisterParameterSmootherFilter("onePole", {
@@ -92,17 +144,34 @@ nodeGraphRegisterParameterSmootherFilter("onePole", {
   process(state, input, frequency, rate) {
     // Same coefficient path as nodeGraphOnePoleParameterLowpassSample /
     // worklet onePoleLowpassSample (edit-smoothing time → “frequency”).
-    const safeRate = Math.max(1, Number(rate) || 44100);
-    const safeInput = Number.isFinite(Number(input)) ? Number(input) : (state.outputBuffer || 0);
-    const frequencyValue = Math.max(0, Number.isFinite(Number(frequency)) ? Number(frequency) : 0);
-    const w = Math.min((Math.PI * 2) / safeRate, 0.000142475857) * frequencyValue;
-    const a1 = Math.exp(-w);
-    const b0 = 1 - a1;
-    state.outputBuffer = b0 * safeInput + a1 * (Number(state.outputBuffer) || 0);
-    return state.outputBuffer;
+    const out = nodeGraphParameterSmootherOnePoleStep("outputBuffer", state, input, frequency, rate);
+    return out;
   },
   snap(state, target) {
     state.outputBuffer = target;
+  },
+});
+
+// ── two-pole: cascaded one-poles (2× same coeff) ──────────────────────────
+// Between 1P cost/feel and 3rd-order Papoulis: steeper settle, modest CPU.
+
+nodeGraphRegisterParameterSmootherFilter("twoPole", {
+  createState(initial = 0) {
+    const v = Number(initial) || 0;
+    return {
+      stage1: v,
+      outputBuffer: v,
+    };
+  },
+  process(state, input, frequency, rate) {
+    const s1 = nodeGraphParameterSmootherOnePoleStep("stage1", state, input, frequency, rate);
+    const out = nodeGraphParameterSmootherOnePoleStep("outputBuffer", state, s1, frequency, rate);
+    return out;
+  },
+  snap(state, target) {
+    const v = Number(target) || 0;
+    state.stage1 = v;
+    state.outputBuffer = v;
   },
 });
 

@@ -435,11 +435,23 @@ function appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, ou
   article.append(ioSection);
 }
 
-function createNodeGraphSolidModuleShell(node, type, customBody, registration, inputPorts, outputPorts) {
+/** Empty LayoutB IO column — still occupies the standard 1gu band. */
+function createNodeGraphLayoutBIoColumnPlaceholder(io) {
+  const column = document.createElement("div");
+  column.className = `node-io-column ${io} node-layout-b-io-empty`;
+  column.setAttribute("aria-hidden", "true");
+  return column;
+}
+
+/** LayoutB shell: ports beside the face (in | face | out). Fixed 1gu IO each side. */
+function createNodeGraphLayoutBShell(node, type, customBody, registration, inputPorts, outputPorts) {
   const shell = document.createElement("div");
-  shell.className = "node-solid-module-shell";
-  const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input") || document.createElement("div");
-  const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output") || document.createElement("div");
+  // node-solid-module-shell: legacy class name still used by CSS / hit-testing.
+  shell.className = "node-solid-module-shell node-module-chrome-layout-b-shell";
+  const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input")
+    || createNodeGraphLayoutBIoColumnPlaceholder("input");
+  const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output")
+    || createNodeGraphLayoutBIoColumnPlaceholder("output");
   if (registration?.solidPortLabels === false) {
     inputColumn.classList.add("labels-hidden");
     outputColumn.classList.add("labels-hidden");
@@ -447,6 +459,25 @@ function createNodeGraphSolidModuleShell(node, type, customBody, registration, i
   customBody.classList.add("node-solid-module-custom-ui");
   shell.append(inputColumn, customBody, outputColumn);
   return shell;
+}
+
+/** LayoutA I/O strip: ports under the face. */
+function createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts, options = {}) {
+  const ioSection = document.createElement("div");
+  ioSection.className = options.className || "dsp-node-io-section";
+  const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input");
+  const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output");
+  if (options.inputsOnly) {
+    ioSection.append(inputColumn || document.createElement("div"));
+    ioSection.append(document.createElement("div"));
+  } else if (options.outputsOnly) {
+    ioSection.append(document.createElement("div"));
+    ioSection.append(outputColumn || document.createElement("div"));
+  } else {
+    ioSection.append(inputColumn || document.createElement("div"));
+    ioSection.append(outputColumn || document.createElement("div"));
+  }
+  return ioSection;
 }
 
 // Third UI tier alongside "generic" (knob/slider rows) and "generic + custom"
@@ -474,7 +505,20 @@ function createNodeGraphModuleElement(type, node) {
   article.className = nodeGraphModuleLayoutClassNames(type, definition, layout);
   article.dataset.node = node;
   article.dataset.nodeType = type;
-  article.classList.toggle("solid-module-layout", nodeGraphChromelessModuleUsesSolidShell(type));
+  const chrome = typeof nodeGraphModuleChrome === "function"
+    ? nodeGraphModuleChrome(type)
+    : {
+      layout: NodeGraphModuleChromeLayout?.LayoutA || "LayoutA",
+      portsBeside: false,
+      headerless: false,
+      cssLayoutClass: "chrome-layout-a",
+    };
+  article.dataset.chromeLayout = chrome.layout;
+  article.classList.toggle("chrome-layout-a", Boolean(chrome.portsUnder ?? !chrome.portsBeside));
+  article.classList.toggle("chrome-layout-b", Boolean(chrome.portsBeside));
+  // Headerless LayoutB (XY Pad contract): 2-row grid shell + params.
+  // Legacy class name solid-module-layout kept for existing CSS.
+  article.classList.toggle("solid-module-layout", Boolean(chrome.headerless));
   article.dataset.portSignature = `${inputPorts.join(",")}=>${outputPorts.join(",")}`;
   article.dataset.gridWidthGu = String(widthGu);
   article.dataset.gridHeightGu = String(heightGu);
@@ -500,12 +544,15 @@ function createNodeGraphModuleElement(type, node) {
     : null;
   if (chromelessRegistration) {
     const chromelessBody = chromelessRegistration.createBody(node, type);
+    // LayoutB → ports beside; otherwise chromeless face owns its own ports.
     article.append(
-      nodeGraphChromelessModuleUsesSolidShell(type)
-        ? createNodeGraphSolidModuleShell(node, type, chromelessBody, chromelessRegistration, inputPorts, outputPorts)
+      chrome.portsBeside
+        ? createNodeGraphLayoutBShell(node, type, chromelessBody, chromelessRegistration, inputPorts, outputPorts)
         : chromelessBody,
     );
     chromelessRegistration.afterMount?.(article, chromelessBody, node, type);
+  } else if (chrome.headerless) {
+    // Headerless LayoutB (e.g. valueSlider): face + side ports, sliders under.
   } else {
     article.append(createNodeGraphModuleHeader(type, node, definition));
   }
@@ -524,69 +571,61 @@ function createNodeGraphModuleElement(type, node) {
     article.append(createNodeGraphTextBoxBody(node));
   } else if (layout === "image") {
     article.append(createNodeGraphImageBody(node));
-    const ioSection = document.createElement("div");
-    ioSection.className = "dsp-node-io-section";
-    ioSection.append(document.createElement("div"));
-    const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output");
-    ioSection.append(outputColumn || document.createElement("div"));
-    appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, outputPorts);
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts, { outputsOnly: true }),
+      node,
+      inputPorts,
+      outputPorts,
+    );
   } else if (layout === "screenSpaceShader") {
     article.append(createNodeGraphScreenSpaceShaderBody(node));
-    const ioSection = document.createElement("div");
-    ioSection.className = "dsp-node-io-section";
-    const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input");
-    ioSection.append(inputColumn || document.createElement("div"));
-    ioSection.append(document.createElement("div"));
-    appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, outputPorts);
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts, { inputsOnly: true }),
+      node,
+      inputPorts,
+      outputPorts,
+    );
   } else if (definition.layout === "canvas") {
     const canvasBody = createNodeGraphCanvasBody(node);
     if (layout === "visualScope") {
       canvasBody.classList.add("node-module-square-scope-window");
     }
     article.append(canvasBody);
-    const ioSection = document.createElement("div");
-    ioSection.className = "dsp-node-io-section";
-    const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input");
-    const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output");
-    ioSection.append(inputColumn || document.createElement("div"));
-    ioSection.append(outputColumn || document.createElement("div"));
-    appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, outputPorts);
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
   } else if (layout === "visualScope") {
     const scopeSection = createNodeGraphModuleScopeSection(node, type);
     scopeSection.classList.add("node-module-square-scope-window");
     article.append(scopeSection);
     registerNodeGraphModuleScopeSlot(article, { nodeId: node, type, scopeElement: scopeSection });
-
-    const ioSection = document.createElement("div");
-    ioSection.className = "dsp-node-io-section";
-    const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input");
-    const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output");
-    ioSection.append(inputColumn || document.createElement("div"));
-    ioSection.append(outputColumn || document.createElement("div"));
-    appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, outputPorts);
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
   } else if (layout === "traceDisplay") {
     const scopeSection = createNodeGraphModuleScopeSection(node, type);
     scopeSection.classList.add("node-module-trace-display-window");
     article.append(scopeSection);
     registerNodeGraphModuleScopeSlot(article, { nodeId: node, type, scopeElement: scopeSection });
-
-    const ioSection = document.createElement("div");
-    ioSection.className = "dsp-node-io-section";
-    const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input");
-    ioSection.append(inputColumn || document.createElement("div"));
-    ioSection.append(document.createElement("div"));
-    appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, outputPorts);
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts, { inputsOnly: true }),
+      node,
+      inputPorts,
+      outputPorts,
+    );
   } else if (definition.layout === "graph") {
-    // Same side-by-side arrangement as the solid-shell modules (XY Pad,
-    // Bug Button): inputs left, the interactive dot editor center, outputs
-    // right, via the shared createNodeGraphSolidModuleShell helper -- rather
-    // than the old stacked "display on top, IO strip below" layout. Graph
-    // keeps its normal header/title bar (it isn't chromeless-registered, so
-    // createNodeGraphModuleHeader above still ran), so the shell is pinned
-    // to rows 2-3 of the standard 4-row .dsp-node grid (header / scope /
-    // io / params) via .node-graph-solid-shell in styles.css, instead of
-    // adopting the "solid-module-layout" 2-row grid those headerless
-    // modules use.
+    // LayoutB: ports beside graph face.
     const graphSection = document.createElement("div");
     graphSection.className = "node-module-graph-display";
     graphSection.dataset.graphNode = node;
@@ -599,18 +638,17 @@ function createNodeGraphModuleElement(type, node) {
         : 0,
       tension: Number(patchNode?.params?.tension) ?? 1,
     });
-    const graphShell = createNodeGraphSolidModuleShell(node, type, graphSection, null, inputPorts, outputPorts);
+    const graphShell = createNodeGraphLayoutBShell(node, type, graphSection, null, inputPorts, outputPorts);
     graphShell.classList.add("node-graph-solid-shell");
     article.append(graphShell);
   } else if (definition.layout === "sliderWidget") {
-    article.append(createNodeGraphSliderWidgetBody(node, type));
-
-    const ioSection = document.createElement("div");
-    ioSection.className = "dsp-node-io-section node-slider-widget-io-section";
-    ioSection.append(document.createElement("div"));
-    const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output");
-    ioSection.append(outputColumn || document.createElement("div"));
-    appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, outputPorts);
+    // LayoutB (XY Pad contract): slim I/O beside a large face; Bias slider under.
+    const face = typeof createNodeGraphValueSliderFace === "function"
+      ? createNodeGraphValueSliderFace(node, type)
+      : createNodeGraphSliderWidgetBody(node, type);
+    const shell = createNodeGraphLayoutBShell(node, type, face, null, inputPorts, outputPorts);
+    shell.classList.add("node-value-slider-shell");
+    article.append(shell);
   } else if (definition.layout === "keyboardController" || definition.layout === "macroControls" || definition.layout === "pitchModWheel") {
     if (definition.layout === "keyboardController") {
       article.append(createNodeGraphKeyboardControllerBody(node));
@@ -619,76 +657,73 @@ function createNodeGraphModuleElement(type, node) {
     } else {
       article.append(createNodeGraphPitchModWheelBody(node));
     }
-    const ioSection = document.createElement("div");
-    ioSection.className = "dsp-node-io-section";
-    const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input");
-    const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output");
-    ioSection.append(inputColumn || document.createElement("div"));
-    ioSection.append(outputColumn || document.createElement("div"));
-    appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, outputPorts);
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
   } else if (definition.layout === "patchCommand") {
     article.append(createNodeGraphPatchCommandBody(node));
-    const ioSection = document.createElement("div");
-    ioSection.className = "dsp-node-io-section";
-    const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input");
-    ioSection.append(inputColumn || document.createElement("div"));
-    ioSection.append(document.createElement("div"));
-    appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, outputPorts);
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts, { inputsOnly: true }),
+      node,
+      inputPorts,
+      outputPorts,
+    );
   } else if (layout === "speakerProtection") {
     article.append(createNodeGraphSpeakerProtectionBody(node));
-    const ioSection = document.createElement("div");
-    ioSection.className = "dsp-node-io-section";
-    const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input");
-    const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output");
-    ioSection.append(inputColumn || document.createElement("div"));
-    ioSection.append(outputColumn || document.createElement("div"));
-    appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, outputPorts);
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
   } else if (definition.layout === "clapPlugin") {
     if (typeof createNodeGraphClapPluginBody === "function") {
       article.append(createNodeGraphClapPluginBody(node));
     }
-
-    const ioSection = document.createElement("div");
-    ioSection.className = "dsp-node-io-section";
-    const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input");
-    const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output");
-    ioSection.append(inputColumn || document.createElement("div"));
-    ioSection.append(outputColumn || document.createElement("div"));
-    appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, outputPorts);
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
   } else if (definition.layout === "filterCurve") {
     if (!patchNodeUi.oscilloscopeHidden) {
       article.append(createNodeGraphFilterCurveDisplay(node, type));
     }
-
-    const ioSection = document.createElement("div");
-    ioSection.className = "dsp-node-io-section";
-    const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input");
-    const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output");
-    ioSection.append(inputColumn || document.createElement("div"));
-    ioSection.append(outputColumn || document.createElement("div"));
-    appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, outputPorts);
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
   } else if (definition.layout === "wallRoomDisplay") {
     if (!patchNodeUi.oscilloscopeHidden && typeof createNodeGraphWallRoomDisplay === "function") {
       article.append(createNodeGraphWallRoomDisplay(node, type));
     }
-
-    const ioSection = document.createElement("div");
-    ioSection.className = "dsp-node-io-section";
-    const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input");
-    const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output");
-    ioSection.append(inputColumn || document.createElement("div"));
-    ioSection.append(outputColumn || document.createElement("div"));
-    appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, outputPorts);
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
   } else if (definition.layout === "phosphillatorDraw") {
     article.append(createNodeGraphPhosphillatorDrawDisplay(node, type));
-
-    const ioSection = document.createElement("div");
-    ioSection.className = "dsp-node-io-section";
-    const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input");
-    const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output");
-    ioSection.append(inputColumn || document.createElement("div"));
-    ioSection.append(outputColumn || document.createElement("div"));
-    appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, outputPorts);
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
   } else if (definition.layout === "phosphorWaveform") {
     if (typeof createNodeGraphSampleModuleBody === "function") {
       article.append(createNodeGraphSampleModuleBody(node));
@@ -696,30 +731,27 @@ function createNodeGraphModuleElement(type, node) {
     if (!patchNodeUi.oscilloscopeHidden) {
       article.append(createNodeGraphPhosphorWaveformDisplay(node, type));
     }
-
-    const ioSection = document.createElement("div");
-    ioSection.className = "dsp-node-io-section";
-    const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input");
-    const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output");
-    ioSection.append(inputColumn || document.createElement("div"));
-    ioSection.append(outputColumn || document.createElement("div"));
-    appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, outputPorts);
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
   } else if (definition.layout === "pulseCurve") {
     if (!patchNodeUi.oscilloscopeHidden) {
       article.append(createNodeGraphPulseCurveDisplay(node, type));
     }
-
-    const ioSection = document.createElement("div");
-    ioSection.className = "dsp-node-io-section";
-    const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input");
-    const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output");
-    ioSection.append(inputColumn || document.createElement("div"));
-    ioSection.append(outputColumn || document.createElement("div"));
-    appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, outputPorts);
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
   } else {
     let scopeSection = null;
-    // Chromeless solid modules (xyPad, …) build their face via createBody above —
-    // never fall through to a second stacked pad/scope layout here.
+    // Chromeless LayoutB modules already mounted above — don't add a second face.
     if (!patchNodeUi.oscilloscopeHidden) {
       scopeSection = createNodeGraphModuleScopeSection(node, type);
       article.append(scopeSection);
@@ -730,22 +762,13 @@ function createNodeGraphModuleElement(type, node) {
     if (scopeSection) {
       registerNodeGraphModuleScopeSlot(article, { nodeId: node, type, scopeElement: scopeSection });
     }
-
-    const ioSection = document.createElement("div");
-    ioSection.className = "dsp-node-io-section";
-    const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input");
-    const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output");
-    if (inputColumn) {
-      ioSection.append(inputColumn);
-    } else {
-      ioSection.append(document.createElement("div"));
-    }
-    if (outputColumn) {
-      ioSection.append(outputColumn);
-    } else {
-      ioSection.append(document.createElement("div"));
-    }
-    appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, outputPorts);
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
   }
 
   if (type === "audioInput") {
@@ -758,8 +781,7 @@ function createNodeGraphModuleElement(type, node) {
 
   if (
     definition.parameters?.length &&
-    definition.layout !== "sliderWidget" &&
-    (!nodeGraphChromelessModuleLayouts.has(layout) || nodeGraphChromelessModuleUsesSolidShell(type))
+    (!nodeGraphChromelessModuleLayouts.has(layout) || chrome.portsBeside)
   ) {
     const body = document.createElement("div");
     body.className = "dsp-node-body";

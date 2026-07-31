@@ -46,7 +46,17 @@ const nodeGraphChromelessModuleLayouts = Object.freeze({
 function nodeGraphChromelessModuleDefinitionEntries() {
   const entries = {};
   for (const [type, config] of nodeGraphChromelessModuleRegistrations) {
-    entries[type] = { layout: type, ...config.definition };
+    // solidModule registration → definition.chrome LayoutB (chrome.js is the
+    // only port-placement authority; no runtime solidModule migration).
+    const layoutB = typeof NodeGraphModuleChromeLayout !== "undefined"
+      ? NodeGraphModuleChromeLayout.LayoutB
+      : "LayoutB";
+    const chromeDefault = config.solidModule ? { chrome: layoutB } : null;
+    entries[type] = {
+      layout: type,
+      ...chromeDefault,
+      ...config.definition,
+    };
   }
   return entries;
 }
@@ -81,9 +91,9 @@ function nodeGraphChromelessModuleHasCustomDisplayArea(type) {
   return Boolean(nodeGraphChromelessModuleRegistrations.get(type)?.customDisplayArea);
 }
 
-// Solid custom modules keep the app's normal signal/parameter language while
-// replacing only the center surface: inputs at left, custom UI in the middle,
-// outputs at right, and ordinary parameter sliders below.
+// True when this chromeless type registered solidModule (LayoutB shell DOM).
+// Prefer nodeGraphModuleUsesLayoutB() for port placement; this flag remains
+// for registration-time checks (e.g. always-evaluate interactive faces).
 function nodeGraphChromelessModuleUsesSolidShell(type) {
   return Boolean(nodeGraphChromelessModuleRegistrations.get(type)?.solidModule);
 }

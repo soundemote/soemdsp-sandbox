@@ -2242,8 +2242,8 @@ async function stopNodeGraphLiveAudio() {
 // then register.js calls registerProcessor last, once everything above it
 // has finished defining/registering.
 const nodeGraphLiveWorkletSourceFiles = [
-  "./public/node-graph-parameter-smoother-filters.js?v=xy-pad-native-1",
-  "./public/node-live-audio-worklet-core.js?v=curve-catmull-name-1",
+  "./public/node-graph-parameter-smoother-filters.js?v=two-pole-smooth-1",
+  "./public/node-live-audio-worklet-core.js?v=contour-square-blend-1",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=xy-pad-dsp-path-1",
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=native-strip-1",

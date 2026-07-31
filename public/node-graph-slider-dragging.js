@@ -40,7 +40,13 @@ function syncNodeGraphPatchMetadataFromSlider(slider, options = {}) {
     typeof nodeGraphGraphWithPhaseCursor === "function"
   );
   const graphFaceChanged = (
-    (key === "tension" || key === "smoothingMode" || key === "steps") &&
+    (
+      key === "tension"
+      || key === "smoothingMode"
+      || key === "steps"
+      || key === "segmentShape"
+      || key === "curveOffset"
+    ) &&
     nodeGraphModuleIsGraphType(patchNode.type)
   );
   if (graphPhaseChanged) {
@@ -131,7 +137,13 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
     // while dragging even when the rest of the deferred UI is skipped.
     if (
       nodeGraphModuleIsGraphType(patchNode.type) &&
-      (key === "tension" || key === "smoothingMode" || key === "steps") &&
+      (
+        key === "tension"
+        || key === "smoothingMode"
+        || key === "steps"
+        || key === "segmentShape"
+        || key === "curveOffset"
+      ) &&
       typeof syncNodeGraphGraphDisplaysForNode === "function"
     ) {
       syncNodeGraphGraphDisplaysForNode(node, patchNode);
@@ -309,7 +321,9 @@ function setNodeSliderValue(slider, value, options = {}) {
   const graphCurveLiveParam = isDrag && (
     slider?.dataset?.param === "tension" ||
     slider?.dataset?.param === "smoothingMode" ||
-    slider?.dataset?.param === "steps"
+    slider?.dataset?.param === "steps" ||
+    slider?.dataset?.param === "segmentShape" ||
+    slider?.dataset?.param === "curveOffset"
   );
   if (!alreadyPending || graphCurveLiveParam) {
     syncNodeGraphPatchParameterFromSlider(slider, {

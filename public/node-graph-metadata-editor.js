@@ -305,6 +305,7 @@ const nodeMetadataScriptSupportedKeys = new Set([
   "displayChoices",
   "divideChoicesVisibly",
   "kind",
+  "bipolar",
   "linearSmoothing",
   "max",
   "maxDigits",
@@ -323,6 +324,7 @@ const nodeMetadataScriptSupportedKeys = new Set([
 ]);
 
 const nodeMetadataScriptBooleanKeys = new Set([
+  "bipolar",
   "displayChoices",
   "divideChoicesVisibly",
   "linearSmoothing",
@@ -725,6 +727,7 @@ function formatNodeMetadataScript(slider, metadata = nodeSliderMetadata(slider))
     `param.${key}.choices = ${nodeMetadataScriptValue(metadata.choices, "choices")};`,
     `param.${key}.displayChoices = ${nodeMetadataScriptValue(metadata.displayChoices, "displayChoices")};`,
     `param.${key}.divideChoicesVisibly = ${nodeMetadataScriptValue(metadata.divideChoicesVisibly, "divideChoicesVisibly")};`,
+    `param.${key}.bipolar = ${nodeMetadataScriptValue(Boolean(metadata.bipolar), "bipolar")};`,
     `param.${key}.linearSmoothing = ${nodeMetadataScriptValue(metadata.linearSmoothing, "linearSmoothing")};`,
     `param.${key}.smoothingMode = ${nodeMetadataScriptValue(metadata.smoothingMode, "smoothingMode")};`,
     `param.${key}.smoothingSeconds = ${nodeMetadataScriptValue(metadata.smoothingSeconds, "smoothingSeconds")};`,
@@ -1214,7 +1217,7 @@ function parseNodeMetadataScriptValue(rawValue, key, current) {
   if (key === "choices") {
     return parseNodeMetadataScriptChoices(value);
   }
-  if (["displayChoices", "divideChoicesVisibly", "linearSmoothing", "nonlinearSlider", "showSign", "wraparound"].includes(key)) {
+  if (["bipolar", "displayChoices", "divideChoicesVisibly", "linearSmoothing", "nonlinearSlider", "showSign", "wraparound"].includes(key)) {
     return parseNodeMetadataScriptBoolean(value, current[key]);
   }
   if (key === "kind") {
@@ -1343,7 +1346,10 @@ function writeNodeMetadataEditorValues(metadata) {
     formatNodeMetadataChoices(metadata.choices);
   document.getElementById("metadataDisplayChoicesValue").checked = metadata.displayChoices;
   document.getElementById("metadataDivideChoicesValue").checked = metadata.divideChoicesVisibly;
-  document.getElementById("metadataLinearSmoothingValue").checked = metadata.linearSmoothing;
+  const bipolarCheckbox = document.getElementById("metadataBipolarValue");
+  if (bipolarCheckbox) {
+    bipolarCheckbox.checked = Boolean(metadata.bipolar);
+  }
   document.getElementById("metadataNonlinearSliderValue").checked = metadata.nonlinearSlider;
   document.getElementById("metadataSmoothingSecondsValue").value =
     Number.isFinite(Number(metadata.smoothingSeconds))
@@ -1743,6 +1749,10 @@ function syncMetadataSmoothingModeButtons(metadata = {}) {
 
 function nodeGraphSmoothingTypeStatusText(type) {
   switch (normalizeNodeGraphMetadataSmoothingType(type)) {
+    case "linear":
+      return "L Linear — no filter; value snaps instantly.";
+    case "twoPole":
+      return "2P Two-pole — cascaded one-poles; between 1P cost and Papoulis steepness.";
     case "papoulis":
       return "Π Papoulis — 3rd-order Optimum-L lowpass (monotonic, steeper than one-pole).";
     case "onePole":
@@ -2086,6 +2096,9 @@ function readNodeMetadataEditorValues(slider) {
   const smoothingSeconds = smoothingSecondsInput === ""
     ? 0
     : nodeGraphMetadataSmoothingSecondsToSamples(parseNodeMetadataNumber(smoothingSecondsInput, smoothingSecondsFallback));
+  const smoothingType = normalizeNodeGraphMetadataSmoothingType(
+    document.getElementById("metadataSmoothingTypeGroup")?.dataset.type,
+  );
   return {
     alias: normalizeNodeGraphPatchMetadataAlias(document.getElementById("metadataAliasValue").value),
     tooltip: String(document.getElementById("metadataTooltipValue").value || "").trim().slice(0, 240),
@@ -2103,16 +2116,17 @@ function readNodeMetadataEditorValues(slider) {
     mid: parseNodeMetadataNumber(sanitizeMetadataNumberInput("metadataMidValue"), current.mid),
     min,
     choices: parseNodeMetadataChoices(document.getElementById("metadataChoicesValue").value),
+    bipolar: Boolean(document.getElementById("metadataBipolarValue")?.checked),
     displayChoices: document.getElementById("metadataDisplayChoicesValue").checked,
     divideChoicesVisibly: document.getElementById("metadataDivideChoicesValue").checked,
-    linearSmoothing: document.getElementById("metadataLinearSmoothingValue").checked,
+    linearSmoothing: typeof nodeGraphMetadataLinearSmoothingFromType === "function"
+      ? nodeGraphMetadataLinearSmoothingFromType(smoothingType)
+      : smoothingType !== "linear",
     nonlinearSlider: document.getElementById("metadataSliderCurveValue").value !== "linear",
     smoothingMode: normalizeNodeGraphMetadataSmoothingMode(
       document.getElementById("metadataSmoothingModeGroup")?.dataset.mode,
     ),
-    smoothingType: normalizeNodeGraphMetadataSmoothingType(
-      document.getElementById("metadataSmoothingTypeGroup")?.dataset.type,
-    ),
+    smoothingType,
     smoothingSeconds,
     sliderCurve: normalizeNodeSliderCurve(document.getElementById("metadataSliderCurveValue").value),
     step: Math.max(0, parseNodeMetadataNumber(stepInput, current.step)),
@@ -2254,8 +2268,16 @@ function setNodeMetadataDefaultsFromKind() {
   document.getElementById("metadataChoicesValue").value = formatNodeMetadataChoices(choices);
   document.getElementById("metadataDisplayChoicesValue").checked = Boolean(template.displayChoices);
   document.getElementById("metadataDivideChoicesValue").checked = Boolean(template.divideChoicesVisibly);
-  document.getElementById("metadataLinearSmoothingValue").checked = template.linearSmoothing !== false;
+  const bipolarCheckbox = document.getElementById("metadataBipolarValue");
+  if (bipolarCheckbox) {
+    bipolarCheckbox.checked = Boolean(template.bipolar);
+  }
   document.getElementById("metadataNonlinearSliderValue").checked = Boolean(template.nonlinearSlider);
+  // Smoothing type buttons: migrate linearSmoothing=false → L.
+  const restoreType = template.linearSmoothing === false
+    ? "linear"
+    : normalizeNodeGraphMetadataSmoothingType(template.smoothingType || "onePole");
+  syncMetadataSmoothingTypeButtons({ smoothingType: restoreType });
   document.getElementById("metadataSmoothingSecondsValue").value =
     Number.isFinite(Number(template.smoothingSeconds)) ? formatNodeSliderCompactNumber(template.smoothingSeconds) : "";
   document.getElementById("metadataSliderCurveValue").value = normalizeNodeSliderCurve(template.sliderCurve, template.nonlinearSlider);
