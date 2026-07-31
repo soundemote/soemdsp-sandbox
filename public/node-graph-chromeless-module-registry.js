@@ -45,17 +45,28 @@ const nodeGraphChromelessModuleLayouts = Object.freeze({
 
 function nodeGraphChromelessModuleDefinitionEntries() {
   const entries = {};
+  const layoutA = typeof NodeGraphModuleChromeLayout !== "undefined"
+    ? NodeGraphModuleChromeLayout.LayoutA
+    : "LayoutA";
+  const layoutB = typeof NodeGraphModuleChromeLayout !== "undefined"
+    ? NodeGraphModuleChromeLayout.LayoutB
+    : "LayoutB";
   for (const [type, config] of nodeGraphChromelessModuleRegistrations) {
-    // solidModule registration → definition.chrome LayoutB (chrome.js is the
-    // only port-placement authority; no runtime solidModule migration).
-    const layoutB = typeof NodeGraphModuleChromeLayout !== "undefined"
-      ? NodeGraphModuleChromeLayout.LayoutB
-      : "LayoutB";
-    const chromeDefault = config.solidModule ? { chrome: layoutB } : null;
+    // Custom UI modules always declare chrome explicitly:
+    //   solidModule (ports beside face) → LayoutB
+    //   otherwise (ports under / compact tile) → LayoutA
+    // definition.chrome may still override when intentional.
+    const fromDef = config.definition && typeof config.definition === "object"
+      ? config.definition
+      : {};
+    const chrome = typeof normalizeNodeGraphModuleChromeLayout === "function"
+      ? (normalizeNodeGraphModuleChromeLayout(fromDef.chrome)
+        || (config.solidModule ? layoutB : layoutA))
+      : (fromDef.chrome || (config.solidModule ? layoutB : layoutA));
     entries[type] = {
       layout: type,
-      ...chromeDefault,
-      ...config.definition,
+      ...fromDef,
+      chrome,
     };
   }
   return entries;

@@ -58,8 +58,10 @@
     }
 
     /**
-     * Tuck wire ends under the jack so round linecaps don’t paint a ring in the
-     * module-frame gap at the inlet/outlet edge.
+     * Tuck wire ends under the half-jack so the path meets the fill and does
+     * not stop short (which leaves a dark frame/gap stroke between wire + jack).
+     * Output flat is on the right → pull endpoint left into the crescent.
+     * Input flat is on the left → pull endpoint right into the crescent.
      */
     function insetWireEndpoint(point, role, amount) {
       if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
@@ -69,12 +71,12 @@
       if (pad <= 0) {
         return point;
       }
-      // "from" = source (output, wire leaves rightward); "to" = destination (input).
+      // "from" = source (output); "to" = destination (input).
       if (role === "from") {
-        return { x: point.x + pad, y: point.y };
+        return { x: point.x - pad, y: point.y };
       }
       if (role === "to") {
-        return { x: point.x - pad, y: point.y };
+        return { x: point.x + pad, y: point.y };
       }
       return point;
     }
@@ -212,9 +214,12 @@
         to,
         wireColors = null,
         wireType = "cable",
+        pixelWire = false,
       } = options;
       const normalizedWireType = normalizeNodeGraphWireType(wireType);
       const isTrace = normalizedWireType === nodeGraphWireTypes.trace;
+      const isPixel = pixelWire === true
+        || (typeof normalizeNodeGraphWirePixel === "function" && normalizeNodeGraphWirePixel(pixelWire));
       const pathData = explicitPathData || (isTrace ? tracePath(from, to) : path(from, to));
       const stroke = createGradient(svg, gradientId, from, to, gradientClass, wireColors);
       // Hit paths are interactive overhead — skip while pan/zoom gesturing.
@@ -225,6 +230,9 @@
         hitPath.dataset.connectionIndex = String(index);
         hitPath.dataset.connectionKind = kind;
         hitPath.dataset.interactionMode = mode;
+        if (isPixel) {
+          hitPath.dataset.pixelWire = "true";
+        }
         if (Array.isArray(options.tracePoints)) {
           hitPath.dataset.tracePoints = nodeGraphTraceWaypointAttribute(options.tracePoints);
         }
@@ -236,12 +244,15 @@
       const renderedPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
       renderedPath.setAttribute(
         "class",
-        `${pathClass}${isTrace ? " trace-wire" : ""}`,
+        `${pathClass}${isTrace ? " trace-wire" : ""}${isPixel ? " pixel-wire" : ""}`,
       );
       renderedPath.dataset.alias = alias;
       renderedPath.dataset.connectionIndex = String(index);
       renderedPath.dataset.connectionKind = kind;
       renderedPath.dataset.interactionMode = mode;
+      if (isPixel) {
+        renderedPath.dataset.pixelWire = "true";
+      }
       if (Array.isArray(options.tracePoints)) {
         renderedPath.dataset.tracePoints = nodeGraphTraceWaypointAttribute(options.tracePoints);
       }

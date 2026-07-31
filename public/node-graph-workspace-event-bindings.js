@@ -110,12 +110,8 @@ function bindNodeGraphWorkspaceInteractionEvents() {
   document.addEventListener("pointercancel", clearNodeGraphOutsideMarqueePointer, true);
   document.addEventListener("click", handleNodeGraphDocumentClick);
   window.addEventListener("resize", handleNodeGraphWindowResize);
-  document.addEventListener("pointermove", dragNodeMetadataPopover);
-  document.addEventListener("pointerup", endNodeMetadataPopoverDrag);
-  document.addEventListener("pointercancel", endNodeMetadataPopoverDrag);
-  document.addEventListener("pointermove", dragNodeSceneContextMenu);
-  document.addEventListener("pointerup", endNodeSceneContextMenuDrag);
-  document.addEventListener("pointercancel", endNodeSceneContextMenuDrag);
+  // Floating window drag/resize for registry windows (command center, metadata,
+  // etc.): nodeGraphFloatingWindowRegistryPointerBridge in floating-windows.js
 }
 
 function bindNodeGraphConstraintOverlayToggles() {

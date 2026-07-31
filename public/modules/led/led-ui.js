@@ -4,9 +4,10 @@
 
 function createNodeGraphLedFace(node, type) {
   const face = document.createElement("div");
-  face.className = "node-led-face";
+  face.className = "node-led-face node-light-source";
   face.dataset.node = node;
   face.dataset.nodeType = type;
+  face.dataset.lightSource = "screen";
   face.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} LED`);
   return face;
 }

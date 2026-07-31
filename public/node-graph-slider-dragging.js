@@ -566,10 +566,48 @@ function bindNodeGraphNativeSliderModifiers(input, defaultValue) {
   });
 }
 
+/** True if `el` is a surface that drives a range slider via data-slider-target. */
+function nodeSliderIsDragSurface(el) {
+  return Boolean(
+    el?.classList?.contains("node-slider-readout")
+    || el?.classList?.contains("node-value-slider-face"),
+  );
+}
+
+/**
+ * Resolve the drag surface for a pointer/keyboard event.
+ * Value Slider face mirrors Bias `.node-slider-readout` (same modifiers + path).
+ */
+function nodeSliderDragSurfaceFromEvent(event) {
+  if (nodeSliderIsDragSurface(event?.currentTarget)) {
+    return event.currentTarget;
+  }
+  return event?.target?.closest?.(".node-slider-readout, .node-value-slider-face") || null;
+}
+
+/** Type-in edit for a surface (face → linked Bias readout so we never replace the face DOM). */
+function beginNodeSliderSurfaceEdit(surface) {
+  if (!surface || typeof beginNodeSliderReadoutEdit !== "function") {
+    return;
+  }
+  if (surface.classList.contains("node-value-slider-face")) {
+    const sliderId = String(surface.dataset.sliderTarget || "").trim();
+    if (!sliderId) {
+      return;
+    }
+    const linked = document.querySelector(
+      `.node-slider-readout[data-slider-target="${CSS.escape(sliderId)}"]`,
+    );
+    if (linked) {
+      beginNodeSliderReadoutEdit(linked);
+    }
+    return;
+  }
+  beginNodeSliderReadoutEdit(surface);
+}
+
 function stepNodeSliderFromKeyboard(event) {
-  const surface = event.currentTarget?.classList?.contains("node-slider-readout")
-    ? event.currentTarget
-    : event.target?.closest?.(".node-slider-readout");
+  const surface = nodeSliderDragSurfaceFromEvent(event);
   const slider = document.getElementById(surface?.dataset?.sliderTarget || "");
   if (!surface || !slider) {
     return false;
@@ -667,9 +705,7 @@ function beginNodeSliderDrag(event) {
     return;
   }
 
-  const surface = event.currentTarget?.classList?.contains("node-slider-readout")
-    ? event.currentTarget
-    : event.target?.closest?.(".node-slider-readout");
+  const surface = nodeSliderDragSurfaceFromEvent(event);
   if (!surface) {
     return;
   }
@@ -678,7 +714,7 @@ function beginNodeSliderDrag(event) {
   // instead of relying on the native "dblclick" event -- pointerdown always
   // fires, so this path can't be suppressed. The old `event.detail > 1`
   // early-return is folded in here: either signal routes to the editor
-  // instead of a second drag.
+  // instead of a second drag. Face surfaces edit the linked Bias readout.
   const lastDown = nodeGraphMvp.sliderLastPointerDown;
   const now = performance.now();
   const isDoubleClick =
@@ -693,9 +729,7 @@ function beginNodeSliderDrag(event) {
     nodeGraphMvp.sliderLastPointerDown = null;
     event.preventDefault();
     event.stopPropagation();
-    if (typeof beginNodeSliderReadoutEdit === "function") {
-      beginNodeSliderReadoutEdit(surface);
-    }
+    beginNodeSliderSurfaceEdit(surface);
     return;
   }
   const slider = document.getElementById(surface.dataset.sliderTarget);

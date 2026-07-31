@@ -70,10 +70,10 @@ function nodeGraphIoRowPointerInPortHitbox(event) {
 function attachNodeGraphSolidModuleShellEvents(node) {
   node.querySelectorAll(".node-solid-module-custom-ui").forEach((face) => {
     face.addEventListener("pointerdown", beginNodeGraphNodeDrag);
-    // Graph face owns double-click (add/remove points). Do not open Module
-    // Settings from a dblclick that started on the graph editor.
+    // Graph face owns double-click (add/remove points). Value Slider face owns
+    // double-click type-in (Bias). Do not open Module Settings from those.
     face.addEventListener("dblclick", (event) => {
-      if (event.target?.closest?.(".node-module-graph-display")) {
+      if (event.target?.closest?.(".node-module-graph-display, .node-value-slider-face")) {
         return;
       }
       openNodeModuleActionMenu(event);
@@ -83,7 +83,7 @@ function attachNodeGraphSolidModuleShellEvents(node) {
   node.querySelectorAll(".node-solid-module-shell").forEach((shell) => {
     shell.addEventListener("pointerdown", beginNodeGraphNodeDrag);
     shell.addEventListener("dblclick", (event) => {
-      if (event.target?.closest?.(".node-module-graph-display")) {
+      if (event.target?.closest?.(".node-module-graph-display, .node-value-slider-face")) {
         return;
       }
       openNodeModuleActionMenu(event);
@@ -411,6 +411,7 @@ function nodeGraphModuleLayoutClassNames(type, definition, layout) {
     pitchModWheel: "pitch-mod-wheel-layout",
     screenSpaceShader: "screen-space-shader-layout",
     sliderWidget: "slider-widget-layout",
+    badvalMonitor: "badval-monitor-layout",
     speakerProtection: "speaker-protection-layout",
     textBox: "text-box-layout",
     traceDisplay: "trace-display-layout",
@@ -516,7 +517,7 @@ function createNodeGraphModuleElement(type, node) {
   article.dataset.chromeLayout = chrome.layout;
   article.classList.toggle("chrome-layout-a", Boolean(chrome.portsUnder ?? !chrome.portsBeside));
   article.classList.toggle("chrome-layout-b", Boolean(chrome.portsBeside));
-  // Headerless LayoutB (XY Pad contract): 2-row grid shell + params.
+  // Headerless LayoutB (XY Pad contract): shell + params + 1gu bottom clearance.
   // Legacy class name solid-module-layout kept for existing CSS.
   article.classList.toggle("solid-module-layout", Boolean(chrome.headerless));
   article.dataset.portSignature = `${inputPorts.join(",")}=>${outputPorts.join(",")}`;
@@ -531,7 +532,7 @@ function createNodeGraphModuleElement(type, node) {
     article.style.setProperty("--node-module-shell-height-units", String(nodeGraphPatchNodeDisplayCssHeightUnits(patchNode)));
   }
   article.style.setProperty("--node-module-interface-controls-height-units", String(nodeGraphPatchNodeInterfaceControlsHeightUnits(patchNode)));
-  const patchNodeUi = nodeGraphEffectivePatchNodeUi(patchNode.ui);
+  const patchNodeUi = nodeGraphEffectivePatchNodeUi(patchNode.ui, type);
   article.classList.toggle("buttons-hidden", patchNodeUi.buttonsHidden);
   article.classList.toggle("io-hidden", patchNodeUi.ioHidden);
   article.classList.toggle("interface-controls-hidden", patchNodeUi.interfaceControlsHidden);
@@ -543,6 +544,10 @@ function createNodeGraphModuleElement(type, node) {
     ? nodeGraphChromelessModuleRegistrations.get(layout)
     : null;
   if (chromelessRegistration) {
+    // Optional title bar on headerless LayoutB chromeless modules (Show title).
+    if (chrome.headerless && !patchNodeUi.titleHidden) {
+      article.append(createNodeGraphModuleHeader(type, node, definition));
+    }
     const chromelessBody = chromelessRegistration.createBody(node, type);
     // LayoutB → ports beside; otherwise chromeless face owns its own ports.
     article.append(
@@ -552,7 +557,10 @@ function createNodeGraphModuleElement(type, node) {
     );
     chromelessRegistration.afterMount?.(article, chromelessBody, node, type);
   } else if (chrome.headerless) {
-    // Headerless LayoutB (e.g. valueSlider): face + side ports, sliders under.
+    // Headerless LayoutB (e.g. valueSlider): optional title + face + side ports.
+    if (!patchNodeUi.titleHidden) {
+      article.append(createNodeGraphModuleHeader(type, node, definition));
+    }
   } else {
     article.append(createNodeGraphModuleHeader(type, node, definition));
   }
@@ -675,6 +683,17 @@ function createNodeGraphModuleElement(type, node) {
     );
   } else if (layout === "speakerProtection") {
     article.append(createNodeGraphSpeakerProtectionBody(node));
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
+  } else if (layout === "badvalMonitor") {
+    if (typeof createNodeGraphBadvalMonitorBody === "function") {
+      article.append(createNodeGraphBadvalMonitorBody(node));
+    }
     appendNodeGraphModuleIoSection(
       article,
       createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),

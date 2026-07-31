@@ -640,6 +640,9 @@ function copyNodeGraphModule(sourceNode) {
     ...(sourceNode.type === "image"
       ? { layout: normalizeNodeGraphImageLayout(sourceNode.layout) }
       : {}),
+    ...(sourceNode.type === "valueSlider" && typeof normalizeNodeGraphValueSliderFace === "function"
+      ? { valueSliderFace: normalizeNodeGraphValueSliderFace(sourceNode.valueSliderFace) }
+      : {}),
     ...(sourceNode.type === "led"
       ? { led: normalizeNodeGraphLedLayout(sourceNode.led) }
       : {}),
@@ -685,6 +688,7 @@ const nodeGraphModuleSettingsFields = Object.freeze([
   "graph",
   "codeblock",
   "customDisplay",
+  "valueSliderFace",
   "canvasScript",
   "screenSpaceShader",
   "scopeShader",
@@ -2020,6 +2024,12 @@ function toggleNodeGraphModuleOscilloscopeFromContext() {
 
 function applyNodeGraphPatchNodeUi(targetNode, ui) {
   const normalizedUi = normalizeNodeGraphPatchNodeUi(ui, targetNode?.type);
+  // Headerless LayoutB defaults to titleHidden=true. An explicit title show
+  // (titleHidden:false) must persist even when every other flag is off.
+  const headerlessLayoutB = targetNode?.type
+    && typeof nodeGraphModuleIsHeaderlessLayoutB === "function"
+    && nodeGraphModuleIsHeaderlessLayoutB(targetNode.type);
+  const titleExplicitlyShown = headerlessLayoutB && !normalizedUi.titleHidden;
   if (
     normalizedUi.buttonsHidden ||
     normalizedUi.ioHidden ||
@@ -2027,7 +2037,8 @@ function applyNodeGraphPatchNodeUi(targetNode, ui) {
     normalizedUi.titleHidden ||
     normalizedUi.oscilloscopeHidden ||
     normalizedUi.slidersHidden ||
-    normalizedUi.displayHeightOffsetGu
+    normalizedUi.displayHeightOffsetGu ||
+    titleExplicitlyShown
   ) {
     targetNode.ui = normalizedUi;
   } else {

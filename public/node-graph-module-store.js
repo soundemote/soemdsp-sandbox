@@ -940,8 +940,8 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   badvalMonitor: {
     category: "debug",
-    description: "Circuit sentinel. Watches for invalid values before they spread through the machine.",
-    notes: ["NaN guard", "infinity guard", "debug safety"],
+    description: "Circuit sentinel. Watches for invalid values (NaN, inf, explode, denormal) and shows a warning on its face when they hit the In jack.",
+    notes: ["NaN guard", "infinity guard", "warning face", "debug safety"],
   },
   speakerProtection: {
     category: "debug",

@@ -143,6 +143,18 @@ const css = `
     width: 100%;
   }
 
+  /* channels:"bw" — brightness only (black / white). */
+  .scw-control[hidden],
+  .scw-root[data-channels="bw"] .scw-hue,
+  .scw-root[data-channels="bw"] .scw-saturation,
+  .scw-root[data-channels="bw"] .scw-alpha {
+    display: none !important;
+  }
+
+  .scw-root[data-channels="bw"] .scw-controls {
+    grid-template-columns: 1fr;
+  }
+
   .scw-control:focus-visible {
     outline: 1px solid var(--color-widget-accent);
     outline-offset: -1px;
@@ -373,7 +385,12 @@ export class SoundColorWidget {
     this.host = host;
     this.host.classList.add("scw-mount");
     this.label = options.label || "Color";
-    this.color = normalizeColor(options.color || options);
+    // channels: "full" (default H/S/L/A) | "bw" (luma only — black/white)
+    this.channels = options.channels === "bw" || options.mono === true ? "bw" : "full";
+    const rawColor = normalizeColor(options.color || options);
+    this.color = this.channels === "bw"
+      ? { h: 0, s: 0, l: rawColor.l, a: rawColor.a ?? 1 }
+      : rawColor;
     this.drag = null;
     this.dragElement = null;
     this.toastTimer = null;
@@ -415,7 +432,12 @@ export class SoundColorWidget {
   }
 
   setColor(nextColor, emitChange = true) {
-    this.color = normalizeColor({ ...this.color, ...nextColor });
+    let next = normalizeColor({ ...this.color, ...nextColor });
+    if (this.channels === "bw") {
+      // Luma only — discard hue/saturation (no RGB channel editing).
+      next = { h: 0, s: 0, l: next.l, a: next.a ?? 1 };
+    }
+    this.color = next;
     this.render();
     if (emitChange) {
       const detail = this.getColor();
@@ -443,18 +465,35 @@ export class SoundColorWidget {
       `;
       this.root = this.host.querySelector(".scw-root");
     }
+    this.root.dataset.channels = this.channels;
+    this.host.dataset.channels = this.channels;
+    const hueEl = this.root.querySelector(".scw-hue");
+    const satEl = this.root.querySelector(".scw-saturation");
+    const alphaEl = this.root.querySelector(".scw-alpha");
+    const brightEl = this.root.querySelector(".scw-brightness");
+    const bw = this.channels === "bw";
+    if (hueEl) hueEl.hidden = bw;
+    if (satEl) satEl.hidden = bw;
+    if (alphaEl) alphaEl.hidden = bw;
     const hex = hslToHex(this.color);
     this.root.querySelector(".scw-label-glyph").textContent = this.label;
-    this.root.querySelector(".scw-hue").setAttribute("aria-label", `${this.label} hue`);
-    this.root.querySelector(".scw-brightness").setAttribute("aria-label", `${this.label} brightness`);
-    this.root.querySelector(".scw-saturation").setAttribute("aria-label", `${this.label} saturation`);
-    this.root.querySelector(".scw-alpha").setAttribute("aria-label", `${this.label} alpha`);
-    this.root.querySelector(".scw-saturation").style.background =
-      `linear-gradient(90deg, hsl(${this.color.h}, 0%, ${this.color.l}%), hsl(${this.color.h}, 100%, ${this.color.l}%))`;
-    this.root.querySelector(".scw-alpha").style.setProperty(
-      "--alpha-gradient",
-      `linear-gradient(90deg, hsla(${this.color.h}, ${this.color.s}%, ${this.color.l}%, 0), ${colorCss(this.color)})`,
-    );
+    if (hueEl) hueEl.setAttribute("aria-label", `${this.label} hue`);
+    if (brightEl) {
+      brightEl.setAttribute("aria-label", bw ? `${this.label} black / white` : `${this.label} brightness`);
+      brightEl.style.background = "linear-gradient(90deg, #000000, #ffffff)";
+    }
+    if (satEl) {
+      satEl.setAttribute("aria-label", `${this.label} saturation`);
+      satEl.style.background =
+        `linear-gradient(90deg, hsl(${this.color.h}, 0%, ${this.color.l}%), hsl(${this.color.h}, 100%, ${this.color.l}%))`;
+    }
+    if (alphaEl) {
+      alphaEl.setAttribute("aria-label", `${this.label} alpha`);
+      alphaEl.style.setProperty(
+        "--alpha-gradient",
+        `linear-gradient(90deg, hsla(${this.color.h}, ${this.color.s}%, ${this.color.l}%, 0), ${colorCss(this.color)})`,
+      );
+    }
     const hexButton = this.root.querySelector(".scw-hex");
     hexButton.querySelector(".scw-hex-glyph").textContent = "";
     hexButton.dataset.hex = hex;

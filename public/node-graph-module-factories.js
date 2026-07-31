@@ -217,9 +217,11 @@ function createNodeGraphInputSection(node, type) {
 
 function createNodeGraphModuleScopeSection(node, type) {
   const section = document.createElement("div");
-  section.className = "node-module-scope-window";
+  section.className = "node-module-scope-window node-light-source";
   section.dataset.node = node;
   section.dataset.nodeType = type;
+  // Layer A app dimmer: all screen displays produce light (modular view shader punches here).
+  section.dataset.lightSource = "screen";
   section.dataset.tooltipKey = "module.scopeWindow";
   section.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} scope`);
   if (typeof nodeGraphApplyTooltip === "function") {
@@ -239,34 +241,14 @@ function createNodeGraphModuleScopeSection(node, type) {
 
 // createNodeGraphLedFace moved to public/modules/led/led-ui.js.
 
-/**
- * LayoutB face for Value Slider (XY Pad contract): large readout in the shell
- * center. The Bias parameter row lives under the shell like every other LayoutB
- * module — not inside the face.
- */
-function createNodeGraphValueSliderFace(node, type) {
-  const face = document.createElement("div");
-  face.className = "node-value-slider-face";
-  face.dataset.node = node;
-  face.dataset.nodeType = type;
-  face.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} value display`);
+// createNodeGraphValueSliderFace is defined in
+// public/modules/valueSlider/value-slider-face.js (loaded after this file).
 
-  const label = document.createElement("div");
-  label.className = "node-value-slider-face-label";
-  label.textContent = nodeGraphNodeLabels?.[type] || "Value";
-
-  const readout = document.createElement("div");
-  readout.className = "node-value-slider-face-readout";
-  readout.dataset.valueSliderFaceReadout = "true";
-  readout.textContent = "0";
-
-  face.append(label, readout);
-  return face;
-}
-
-/** @deprecated old face that stuffed the slider into the shell — use createNodeGraphValueSliderFace */
+/** @deprecated use createNodeGraphValueSliderFace */
 function createNodeGraphSliderWidgetBody(node, type) {
-  return createNodeGraphValueSliderFace(node, type);
+  return typeof createNodeGraphValueSliderFace === "function"
+    ? createNodeGraphValueSliderFace(node, type)
+    : document.createElement("div");
 }
 
 // Step Grid's UI (createNodeGraphStepGridBody, toggleNodeGraphStepGridStep)

@@ -1079,9 +1079,10 @@ function nodeGraphXyPadNormalizeGhostUnit(value, fallbackUnit = 0.5) {
 
 function createNodeGraphXyPadBody(node, type) {
   const pad = document.createElement("div");
-  pad.className = "node-xy-pad";
+  pad.className = "node-xy-pad node-light-source";
   pad.dataset.node = node;
   pad.dataset.nodeType = type;
+  pad.dataset.lightSource = "screen";
   pad.dataset.parameterVisual = "true";
   const canvas = document.createElement("canvas");
   canvas.className = "node-xy-pad-canvas";

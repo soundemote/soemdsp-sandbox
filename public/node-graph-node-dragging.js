@@ -49,7 +49,8 @@ function beginNodeGraphNodeDrag(event) {
       // shell/face drag without stopping here.
       // Graph face owns its own pointer gestures (points / phase) — never start
       // a module move from inside .node-module-graph-display.
-      ".node-port, .node-param-port, button:not(.node-drag-handle), input:not(.node-header-title-input), textarea, select, option, [contenteditable='true'], .node-xy-pad-canvas, .node-module-graph-display",
+      // Value Slider face is a Bias drag surface (same as .node-slider-readout).
+      ".node-port, .node-param-port, button:not(.node-drag-handle), input:not(.node-header-title-input), textarea, select, option, [contenteditable='true'], .node-xy-pad-canvas, .node-module-graph-display, .node-value-slider-face",
     )
   ) {
     return;
@@ -218,5 +219,7 @@ function endNodeGraphNodeDrag(event) {
       patchNode.gy = gridPoint.gy;
     }
   }
-  commitNodeGraphPatch(patch, { status: "layout snapped" });
+  // layoutEdit: persist gx/gy + history without rebuilding every module/slider/face
+  // (full applyNodeGraphPatchToDom was causing knob/face jitter on every move).
+  commitNodeGraphPatch(patch, { status: "layout snapped", layoutEdit: true });
 }

@@ -55,46 +55,38 @@ NodeLiveAudioProcessor.prototype.robinSupersawGetSamplePhasor = function robinSu
     return p;
   };
 
+// Native-only RobinSupersaw (no silent zero / JS sample fallback).
 NodeLiveAudioProcessor.prototype.robinSupersawSample = function robinSupersawSample(state, options = {}) {
     if (
-      this.nativeRobinSupersawReady &&
-      this.nativeRobinSupersaw?.soemdsp_robin_supersaw_create &&
-      this.nativeRobinSupersaw?.soemdsp_robin_supersaw_sample
+      !this.nativeRobinSupersawReady
+      || !this.nativeRobinSupersaw?.soemdsp_robin_supersaw_create
+      || !this.nativeRobinSupersaw?.soemdsp_robin_supersaw_sample
     ) {
-      try {
-        if (!state.nativeHandle) {
-          state.nativeHandle = this.nativeRobinSupersaw.soemdsp_robin_supersaw_create();
-        }
-        if (state.nativeHandle) {
-          const sampleRate = Number(options.sampleRate) > 1 ? Number(options.sampleRate) : 48000;
-          const frequencyHz = Number(options.frequencyHz) || 0;
-          const detuneCents = Number(options.detuneCents) || 0;
-          const voices = Math.round(Number(options.voices) || 1);
-          const level = Number(options.level) || 0;
-          this.nativeRobinSupersaw.soemdsp_robin_supersaw_sample(
-            state.nativeHandle,
-            frequencyHz,
-            sampleRate,
-            detuneCents,
-            voices,
-            level,
-          );
-          return {
-            Mono: Number(this.nativeRobinSupersaw.soemdsp_robin_supersaw_mono(state.nativeHandle)) || 0,
-            Left: Number(this.nativeRobinSupersaw.soemdsp_robin_supersaw_left(state.nativeHandle)) || 0,
-            Right: Number(this.nativeRobinSupersaw.soemdsp_robin_supersaw_right(state.nativeHandle)) || 0,
-          };
-        }
-      } catch (error) {
-        this.nativeRobinSupersawReady = false;
-        this.port.postMessage({
-          type: "nativeModuleStatus",
-          name: "robin_supersaw",
-          status: "disabled",
-          message: String(error?.message || error || "native RobinSupersaw failed"),
-        });
-      }
+      throw new Error("native RobinSupersaw not ready");
     }
-    return { Mono: 0, Left: 0, Right: 0 };
+    if (!state.nativeHandle) {
+      state.nativeHandle = this.nativeRobinSupersaw.soemdsp_robin_supersaw_create();
+    }
+    if (!state.nativeHandle) {
+      throw new Error("native RobinSupersaw failed to create instance");
+    }
+    const sampleRate = Number(options.sampleRate) > 1 ? Number(options.sampleRate) : 48000;
+    const frequencyHz = Number(options.frequencyHz) || 0;
+    const detuneCents = Number(options.detuneCents) || 0;
+    const voices = Math.round(Number(options.voices) || 1);
+    const level = Number(options.level) || 0;
+    this.nativeRobinSupersaw.soemdsp_robin_supersaw_sample(
+      state.nativeHandle,
+      frequencyHz,
+      sampleRate,
+      detuneCents,
+      voices,
+      level,
+    );
+    return {
+      Mono: Number(this.nativeRobinSupersaw.soemdsp_robin_supersaw_mono(state.nativeHandle)) || 0,
+      Left: Number(this.nativeRobinSupersaw.soemdsp_robin_supersaw_left(state.nativeHandle)) || 0,
+      Right: Number(this.nativeRobinSupersaw.soemdsp_robin_supersaw_right(state.nativeHandle)) || 0,
+    };
   };
 

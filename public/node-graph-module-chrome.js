@@ -6,6 +6,12 @@
 // Face content (graph, scope, knobs, …) is still definition.layout.
 // This file only answers: LayoutA or LayoutB?
 //
+// LayoutA display policy (sizing lives in node-graph-module-sizing.js):
+//   - Display row height is --node-module-display-height-units (1…60gu).
+//   - definition.customDisplayArea / layout faces (e.g. badvalMonitor) use the
+//     same height control as oscilloscopes, but the face cannot be hidden.
+//   - definition.slidersAlwaysHidden keeps param rows off (status modules).
+//
 // Authority: definition.chrome (default LayoutA).
 // Call nodeGraphModuleChromeLayoutForType() / nodeGraphModuleChrome().
 
@@ -67,7 +73,8 @@ function normalizeNodeGraphModuleChromeLayout(value) {
 
 /**
  * Resolve LayoutA vs LayoutB for a module type.
- * Only definition.chrome — default LayoutA. No face-layout migrations.
+ * Only definition.chrome — every sealed definition must set chrome (see
+ * finalizeNodeGraphModuleDefinitionsChrome). Missing → LayoutA.
  */
 function nodeGraphModuleChromeLayoutForType(type) {
   const normalizedType = String(type || "").trim();
@@ -81,6 +88,30 @@ function nodeGraphModuleChromeLayoutForType(type) {
     || NodeGraphModuleChromeLayout.LayoutA;
 }
 
+/**
+ * Seal every module definition with an explicit chrome: LayoutA | LayoutB.
+ * Call once when building nodeGraphModuleDefinitions so no type relies on an
+ * implicit default at read time (inventory / debugging stays honest).
+ *
+ * Face content (scope, graph, filter curve, chromeless body, …) is still
+ * definition.layout / customDisplayArea — chrome only places ports under
+ * (A) or beside (B) that face.
+ *
+ * @param {Record<string, object>} entries
+ * @returns {Readonly<Record<string, object>>}
+ */
+function finalizeNodeGraphModuleDefinitionsChrome(entries = {}) {
+  const source = entries && typeof entries === "object" ? entries : {};
+  const out = {};
+  for (const type of Object.keys(source)) {
+    const def = source[type] && typeof source[type] === "object" ? source[type] : {};
+    const chrome = normalizeNodeGraphModuleChromeLayout(def.chrome)
+      || NodeGraphModuleChromeLayout.LayoutA;
+    out[type] = Object.freeze({ ...def, chrome });
+  }
+  return Object.freeze(out);
+}
+
 function nodeGraphModuleUsesLayoutA(type) {
   return nodeGraphModuleChromeLayoutIsA(nodeGraphModuleChromeLayoutForType(type));
 }
@@ -90,9 +121,11 @@ function nodeGraphModuleUsesLayoutB(type) {
 }
 
 /**
- * Headerless LayoutB modules use the XY Pad grid: shell row + params row
- * (class solid-module-layout / chrome-layout-b). Graph is LayoutB *with* a
- * header — different CSS.
+ * Headerless LayoutB modules use the XY Pad grid: optional title + shell +
+ * params (class solid-module-layout / chrome-layout-b). Default title is
+ * hidden; "Show title" mounts a normal header. I/O hide only removes port
+ * labels and expands the face toward the jacks (ports stay).
+ * Graph is LayoutB *with* a permanent header — different CSS.
  */
 function nodeGraphModuleIsHeaderlessLayoutB(type) {
   if (!nodeGraphModuleUsesLayoutB(type)) {

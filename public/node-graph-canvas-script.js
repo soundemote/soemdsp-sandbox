@@ -14,8 +14,8 @@ function nodeGraphCanvasScriptSource() {
 }
 
 function nodeGraphCanvasScriptDialogCanDragTarget(target) {
-  return Boolean(target?.closest?.(".node-canvas-script-heading")) &&
-    !target?.closest?.("button, textarea, input, select, option");
+  return Boolean(target?.closest?.(".scene-context-heading, .scene-context-drag-handle")) &&
+    !target?.closest?.(".panel-close-button, textarea, input, select, option");
 }
 
 function positionNodeGraphCanvasScriptDialog(left, top) {

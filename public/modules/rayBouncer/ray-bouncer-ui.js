@@ -10,9 +10,10 @@ function createNodeGraphRayBouncerBody(node, type) {
     return section;
   }
   const face = document.createElement("div");
-  face.className = "node-module-scope-window node-ray-bouncer-face";
+  face.className = "node-module-scope-window node-ray-bouncer-face node-light-source";
   face.dataset.node = node;
   face.dataset.nodeType = type;
+  face.dataset.lightSource = "screen";
   face.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} ray bouncer`);
   return face;
 }

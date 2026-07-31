@@ -697,9 +697,26 @@ function setNodeSliderMetadata(slider, metadata) {
   const control = slider.closest(".node-parameter-control");
   const alias = normalizeNodeGraphPatchMetadataAlias(metadata.alias);
   slider.dataset.alias = alias;
+  // Display name: custom alias wins, else factory default (e.g. "→"), else prior label.
+  const nextLabel = alias
+    || control?.dataset?.defaultParamLabel
+    || control?.dataset?.paramLabel
+    || "";
   if (control) {
-    control.dataset.paramLabel = alias || control.dataset.defaultParamLabel || control.dataset.paramLabel || "";
-    control.setAttribute("aria-label", control.dataset.paramLabel || slider.dataset.param || slider.id);
+    control.dataset.paramLabel = nextLabel;
+    control.setAttribute("aria-label", nextLabel || slider.dataset.param || slider.id);
+  }
+  // Readout keeps its own data-param-label (set at create time). It used to
+  // stay stuck on the factory label ("→") after alias edits because
+  // syncNodeSliderReadout preferred readout.dataset.paramLabel over the control.
+  const readout = control?.querySelector?.(".node-slider-readout")
+    || slider.closest?.("label")?.querySelector?.(".node-slider-readout");
+  if (readout && nextLabel) {
+    readout.dataset.paramLabel = nextLabel;
+    readout.setAttribute(
+      "aria-label",
+      `${nextLabel} current value`,
+    );
   }
   slider.min = String(metadata.min);
   slider.max = String(metadata.max);

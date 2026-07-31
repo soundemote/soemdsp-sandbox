@@ -221,20 +221,6 @@ function nodeGraphModuleScopeExplicitShaderSourceForSlot(slot) {
   if (!node) {
     return "";
   }
-  try {
-    const liveState = typeof nodeGraphShaderScriptState !== "undefined" ? nodeGraphShaderScriptState : null;
-    const dialog = typeof nodeGraphShaderScriptDialog === "function" ? nodeGraphShaderScriptDialog() : null;
-    if (
-      liveState?.dialogMode === "scope" &&
-      liveState.scopeTargetNodeId === node.id &&
-      dialog &&
-      !dialog.hidden
-    ) {
-      return document.getElementById("nodeShaderScriptSource")?.value || "";
-    }
-  } catch {
-    // Scope rendering should survive if the editor is unavailable.
-  }
   return Object.hasOwn(node, "scopeShader")
     ? normalizeNodeGraphScopeShader(node.scopeShader).source
     : "";
@@ -2451,6 +2437,8 @@ const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
 
 // numberReadout: independent schema. Residual is previous-digit ghosts only.
 // "decay" UI = how long the last number's ghost remains (0 = off, 1 = long).
+// Digit color shares 2D phosphor: multi-stop gradient as energy→color LUT.
+// background = LCD back plate color (separate widget; not gradient floor).
 const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   background: "#000000",
   brightness: 0.92,
@@ -2458,6 +2446,12 @@ const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   decay: 0.45,
   decimals: 2,
   ghost: 0.22,
+  gradientStops: Object.freeze([
+    Object.freeze({ t: 0, color: "#000000" }),
+    Object.freeze({ t: 0.18, color: "#0a2a33" }),
+    Object.freeze({ t: 0.55, color: "#3a9aab" }),
+    Object.freeze({ t: 1, color: "#75ebff" }),
+  ]),
   innerGlow: 0.35,
   innerShadow: 0.4,
 });
@@ -2529,18 +2523,21 @@ function nodeGraphSpectrogramFftSizeFromNode(node) {
 }
 
 /**
- * Shared gradient stop normalize (spectrogram + all phosphor faces).
- * Prefer the shared editor helpers when loaded; fall back to local parse.
+ * Shared gradient stop normalize — delegates to NodeGraphGradientSelector
+ * (single stop model / channels / defaults). Local parse only if the selector
+ * script is not loaded yet.
  */
-function normalizeNodeGraphSharedGradientStops(raw, fallbackStops = null) {
+function normalizeNodeGraphSharedGradientStops(raw, fallbackStops = null, options = {}) {
+  if (typeof NodeGraphGradientSelector !== "undefined"
+    && typeof NodeGraphGradientSelector.normalizeStops === "function") {
+    return NodeGraphGradientSelector.normalizeStops(raw, {
+      channels: options.channels || "color",
+      fallbackStops,
+      defaultStops: options.defaultStops,
+    });
+  }
   if (typeof normalizeSharedGradientStops === "function") {
     const normalized = normalizeSharedGradientStops(raw);
-    if (Array.isArray(normalized) && normalized.length >= 2) {
-      return normalized.map((s) => ({ t: s.t, color: s.color }));
-    }
-  }
-  if (typeof spectrogramNormalizeGradientStops === "function") {
-    const normalized = spectrogramNormalizeGradientStops(raw);
     if (Array.isArray(normalized) && normalized.length >= 2) {
       return normalized.map((s) => ({ t: s.t, color: s.color }));
     }
@@ -2655,16 +2652,25 @@ function nodeGraphPhosphorApplyGradientLut(faceOrEnergyGl, settings, peakFallbac
   return false;
 }
 
-/** Form types that use the shared gradient editor for color (not single swatches). */
+/**
+ * Form types that use the gradient selector for color.
+ * Authority: NodeGraphGradientSelector.displayProfiles (single registry).
+ */
 function nodeGraphDisplaySettingsFormTypeUsesGradient(type) {
-  return [
+  if (typeof NodeGraphGradientSelector !== "undefined"
+    && typeof NodeGraphGradientSelector.usesDisplayGradient === "function") {
+    return NodeGraphGradientSelector.usesDisplayGradient(type);
+  }
+  // Until the selector script loads — keep a minimal local mirror.
+  return Boolean(type && [
     "spectrogramBurn",
     "scope2d",
     "phosphorLight",
     "xyPad",
     "dot",
     "lineBurn",
-  ].includes(type);
+    "numberReadout",
+  ].includes(type));
 }
 
 function normalizeNodeGraphSpectrogramSettings(settings = {}, node = null) {
@@ -3138,25 +3144,77 @@ function normalizeNodeGraphValueOscilloscopeSettings(settings = {}) {
   };
 }
 
+/**
+ * Sample multi-stop gradient at energy t ∈ [0,1] → canvas RGB bytes.
+ * Same energy→color model as the phosphor LUT (underlying light amount × color ramp).
+ */
+function nodeGraphSampleGradientStopsRgb(stops, energyT, peakFallback = "#75ebff") {
+  const list = Array.isArray(stops) && stops.length >= 2
+    ? stops
+    : nodeGraphPhosphorDefaultGradientStops(peakFallback);
+  const t = Math.max(0, Math.min(1, Number(energyT) || 0));
+  const hexToRgb = (hex, fb = "#808080") => {
+    const color = normalizeNodeGraphTraceDisplayColor(hex, fb);
+    const match = /^#?([0-9a-f]{6})$/i.exec(String(color).trim());
+    if (!match) {
+      return [128, 128, 128];
+    }
+    const n = Number.parseInt(match[1], 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  };
+  const first = list[0];
+  const last = list[list.length - 1];
+  if (t <= (Number(first.t) || 0)) {
+    return hexToRgb(first.color, peakFallback);
+  }
+  if (t >= (Number(last.t) || 1)) {
+    return hexToRgb(last.color, peakFallback);
+  }
+  for (let i = 1; i < list.length; i += 1) {
+    const a = list[i - 1];
+    const b = list[i];
+    const at = Number(a.t) || 0;
+    const bt = Number(b.t) || 1;
+    if (t <= bt) {
+      const u = (t - at) / Math.max(1e-6, bt - at);
+      const ar = hexToRgb(a.color, peakFallback);
+      const br = hexToRgb(b.color, peakFallback);
+      return [
+        Math.round(ar[0] + (br[0] - ar[0]) * u),
+        Math.round(ar[1] + (br[1] - ar[1]) * u),
+        Math.round(ar[2] + (br[2] - ar[2]) * u),
+      ];
+    }
+  }
+  return hexToRgb(last.color, peakFallback);
+}
+
 function normalizeNodeGraphNumberReadoutSettings(settings = {}) {
   const source = settings && typeof settings === "object" ? settings : {};
   const defaults = nodeGraphNumberReadoutSettingsDefaults;
+  // Digit energy→color LUT (shared phosphor multi-stop path).
+  const gradientStops = nodeGraphPhosphorGradientStopsFromSettings(source, defaults.color);
+  const peak = gradientStops[gradientStops.length - 1]?.color || defaults.color;
+  // LCD back plate is independent of gradient floor (own color widget).
+  const background = normalizeNodeGraphTraceDisplayColor(
+    source.background ?? source.backgroundColor,
+    defaults.background,
+  );
   return {
-    background: normalizeNodeGraphTraceDisplayColor(
-      source.background ?? source.backgroundColor,
-      defaults.background,
-    ),
+    background,
     brightness: normalizeNodeGraphTraceDisplayNumber(
       source.brightness ?? source.dot1Brightness,
       defaults.brightness,
       0,
       2,
     ),
-    color: normalizeNodeGraphTraceDisplayColor(source.color ?? source.dot1Color, defaults.color),
+    // Digits = gradient peak (full light); unlit segments sample lower energy.
+    color: peak,
     // Ghost hold of previous number (0 = none, 1 = long). Not phosphor "burn".
     decay: normalizeNodeGraphTraceDisplayNumber(source.decay, defaults.decay, 0, 1),
     decimals: normalizeNodeGraphTraceDisplayNumber(source.decimals, defaults.decimals, 0, 8, true),
     ghost: normalizeNodeGraphTraceDisplayNumber(source.ghost, defaults.ghost, 0, 1),
+    gradientStops,
     innerGlow: normalizeNodeGraphTraceDisplayNumber(source.innerGlow, defaults.innerGlow, 0, 1),
     innerShadow: normalizeNodeGraphTraceDisplayNumber(source.innerShadow, defaults.innerShadow, 0, 1),
   };
@@ -4235,6 +4293,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze([]),
   }),
   numberReadout: Object.freeze({
+    // Decimals first (above decay); digit color = shared phosphor gradient (energy→color);
+    // backgroundColor = independent LCD back plate (not gradient floor).
     fields: Object.freeze([
       "decimals",
       "decay",
@@ -4243,7 +4303,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "innerShadow",
       "dot1Brightness",
     ]),
-    colors: Object.freeze(["dot1Color", "backgroundColor"]),
+    colors: Object.freeze(["backgroundColor"]),
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
@@ -4319,8 +4379,10 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
     choices: Object.freeze([]),
   }),
   trace: Object.freeze({
+    // decimals before decay so Number Readout shows Decimals first in this section.
     fields: Object.freeze([
       "burn",
+      "decimals",
       "decay",
       "zoomSeconds",
       "historySeconds",
@@ -4328,7 +4390,6 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "pixelDensity",
       "dotBudget",
       "padding",
-      "decimals",
       "ghost",
       "innerGlow",
       "innerShadow",
@@ -4630,12 +4691,25 @@ function nodeGraphDisplaySettingsBuildChoiceRowHtml(key) {
     </label>`;
 }
 
-function nodeGraphDisplaySettingsBuildColorRowHtml(key) {
-  const meta = nodeGraphDisplaySettingsColorMeta[key] || {
+function nodeGraphDisplaySettingsColorRowMeta(key, formType = null) {
+  const base = nodeGraphDisplaySettingsColorMeta[key] || {
     label: key,
     aria: key,
     defaultValue: "#ffffff",
   };
+  // Number Readout: background is the LCD back plate, not the energy gradient floor.
+  if (key === "backgroundColor" && formType === "numberReadout") {
+    return {
+      ...base,
+      label: "LCD plate",
+      aria: "LCD back plate color",
+    };
+  }
+  return base;
+}
+
+function nodeGraphDisplaySettingsBuildColorRowHtml(key, formType = null) {
+  const meta = nodeGraphDisplaySettingsColorRowMeta(key, formType);
   const idAttr = meta.id ? ` id="${nodeGraphDisplaySettingsEscapeHtml(meta.id)}"` : "";
   return `
     <div class="node-trace-display-color-widget-row" data-trace-display-control-row data-trace-display-color-row="${key}">
@@ -4692,13 +4766,15 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
         continue;
       }
       parts.push(`<div class="metadata-section-title node-trace-display-gradient-title">Gradient</div>`);
+      // Single host for NodeGraphGradientSelector (all faces share this control).
       parts.push(`
         <div class="metadata-field-section node-trace-display-gradient-section">
           <div
-            id="nodeTraceDisplaySharedGradientHost"
-            class="node-spectrogram-gradient-host node-shared-gradient-host"
-            data-spectrogram-gradient-host
-            data-shared-gradient-host></div>
+            id="nodeTraceDisplayGradientSelectorHost"
+            class="node-gradient-selector-host node-shared-gradient-host node-spectrogram-gradient-host"
+            data-gradient-selector-host
+            data-shared-gradient-host
+            data-spectrogram-gradient-host></div>
         </div>`);
       continue;
     }
@@ -4782,7 +4858,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
       rows.push(nodeGraphDisplaySettingsBuildStepperRowHtml(key));
     }
     for (const key of colorKeys) {
-      rows.push(nodeGraphDisplaySettingsBuildColorRowHtml(key));
+      rows.push(nodeGraphDisplaySettingsBuildColorRowHtml(key, type));
     }
     parts.push(`<div class="metadata-field-section node-trace-display-${section}-section">${rows.join("")}</div>`);
   }
@@ -4803,9 +4879,14 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
   if (typeof destroyNodeGraphTraceDisplayColorWidgets === "function") {
     destroyNodeGraphTraceDisplayColorWidgets();
   }
-  if (nodeGraphMvp?.spectrogramGradientEditor?.destroy) {
+  if (typeof NodeGraphGradientSelector !== "undefined"
+    && typeof NodeGraphGradientSelector.clearActive === "function") {
+    NodeGraphGradientSelector.clearActive();
+  } else if (nodeGraphMvp?.spectrogramGradientEditor?.destroy) {
     nodeGraphMvp.spectrogramGradientEditor.destroy();
     nodeGraphMvp.spectrogramGradientEditor = null;
+    nodeGraphMvp.sharedGradientEditor = null;
+    nodeGraphMvp.gradientSelector = null;
   }
   host.innerHTML = buildNodeGraphDisplaySettingsBodyHtml(type, node);
   // XY Pad: action row for clearing the phosphor residual buffer.
@@ -4867,7 +4948,7 @@ function nodeGraphTraceDisplaySettingsElement() {
   popover.setAttribute("aria-label", "Trace Display drawing settings");
   // Shell only: schema body is mounted per open (schema-exclusive controls).
   popover.innerHTML = `
-    <div class="scene-context-heading node-trace-display-settings-heading">
+    <div class="scene-context-heading">
       <button
         id="nodeTraceDisplaySettingsDragHandle"
         class="scene-context-drag-handle node-drag-handle"
@@ -4901,7 +4982,7 @@ function nodeGraphTraceDisplaySettingsElement() {
     </div>
     <div
       id="nodeTraceDisplaySettingsCornerDrag"
-      class="metadata-popover-corner-drag"
+      class="scene-context-resize-handle"
       aria-label="Resize Trace Display drawing settings"
       role="button"
       tabindex="0"></div>`;
@@ -5339,10 +5420,13 @@ function readNodeGraphTraceDisplaySettingsForm() {
       next[key] = input.value;
     }
   }
-  // Shared gradient stops (spectrogram + all phosphor energy faces).
+  // Shared gradient stops — always from the single active selector instance.
   if (nodeGraphDisplaySettingsFormTypeUsesGradient(formType)) {
-    const editor = nodeGraphMvp?.spectrogramGradientEditor
-      || nodeGraphMvp?.sharedGradientEditor;
+    const editor = typeof NodeGraphGradientSelector !== "undefined"
+      ? NodeGraphGradientSelector.getActive?.()
+      : (nodeGraphMvp?.gradientSelector
+        || nodeGraphMvp?.spectrogramGradientEditor
+        || nodeGraphMvp?.sharedGradientEditor);
     if (editor && typeof editor.getStops === "function") {
       next.gradientStops = editor.getStops();
     }
@@ -5409,8 +5493,11 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
     }
   }
   if (nodeGraphDisplaySettingsFormTypeUsesGradient(formType)) {
-    const editor = nodeGraphMvp?.spectrogramGradientEditor
-      || nodeGraphMvp?.sharedGradientEditor;
+    const editor = typeof NodeGraphGradientSelector !== "undefined"
+      ? NodeGraphGradientSelector.getActive?.()
+      : (nodeGraphMvp?.gradientSelector
+        || nodeGraphMvp?.spectrogramGradientEditor
+        || nodeGraphMvp?.sharedGradientEditor);
     if (editor && typeof editor.setStops === "function" && normalized.gradientStops) {
       editor.setStops(normalized.gradientStops);
     }
@@ -5420,61 +5507,24 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
   );
 }
 
-/** Shared multi-stop gradient editor (spectrogram + phosphor energy faces). */
+/**
+ * Mount / hide the gradient selector in display settings.
+ * Implementation lives entirely in NodeGraphGradientSelector (single truth).
+ */
 function syncNodeGraphSharedGradientEditor(popover, visible) {
-  const host = popover?.querySelector?.("[data-shared-gradient-host], [data-spectrogram-gradient-host]")
-    || document.getElementById("nodeTraceDisplaySharedGradientHost")
-    || document.getElementById("nodeTraceDisplaySpectrogramGradientHost");
-  if (!host) {
-    return;
+  if (typeof NodeGraphGradientSelector !== "undefined"
+    && typeof NodeGraphGradientSelector.syncDisplaySettings === "function") {
+    return NodeGraphGradientSelector.syncDisplaySettings(popover, visible);
   }
-  if (!visible) {
-    if (nodeGraphMvp?.spectrogramGradientEditor?.destroy) {
-      nodeGraphMvp.spectrogramGradientEditor.destroy();
-      nodeGraphMvp.spectrogramGradientEditor = null;
-    }
-    nodeGraphMvp.sharedGradientEditor = null;
-    return;
+  // Selector script missing — no second UI implementation here.
+  const host = popover?.querySelector?.("[data-gradient-selector-host]");
+  if (host && !visible) {
+    host.replaceChildren();
   }
-  const mount = typeof mountSharedGradientEditor === "function"
-    ? mountSharedGradientEditor
-    : (typeof mountPhosphorGradientEditor === "function"
-      ? mountPhosphorGradientEditor
-      : (typeof mountSpectrogramGradientEditor === "function"
-        ? mountSpectrogramGradientEditor
-        : null));
-  if (typeof mount !== "function") {
-    host.textContent = "Gradient editor failed to load.";
-    return;
-  }
-  const formType = nodeGraphTraceDisplaySettingsFormType();
-  const settings = nodeGraphTraceDisplayCurrentSettingsForFormType(formType);
-  const stops = settings?.gradientStops
-    || nodeGraphPhosphorGradientStopsFromSettings(settings || {});
-  // Reuse mounted editor when still open on the same host.
-  if (nodeGraphMvp?.spectrogramGradientEditor?.setStops && host.dataset.sgeMounted === "1") {
-    nodeGraphMvp.spectrogramGradientEditor.setStops(stops);
-    return;
-  }
-  if (nodeGraphMvp?.spectrogramGradientEditor?.destroy) {
-    nodeGraphMvp.spectrogramGradientEditor.destroy();
-  }
-  host.dataset.sgeMounted = "1";
-  const editor = mount(host, {
-    stops,
-    hint: formType === "spectrogramBurn"
-      ? "Select a stop · presets fill stops + hex list · live audition on the spectrogram"
-      : "Select a stop · presets fill stops + hex list · live audition on the phosphor face",
-    onChange() {
-      // Live gradient audition on the open face.
-      applyNodeGraphTraceDisplaySettingsForm({ persist: "debounce", record: false });
-    },
-  });
-  nodeGraphMvp.spectrogramGradientEditor = editor;
-  nodeGraphMvp.sharedGradientEditor = editor;
+  return null;
 }
 
-/** @deprecated alias — use syncNodeGraphSharedGradientEditor */
+/** @deprecated alias — use syncNodeGraphSharedGradientEditor / NodeGraphGradientSelector */
 function syncNodeGraphSpectrogramGradientEditor(popover, visible) {
   return syncNodeGraphSharedGradientEditor(popover, visible);
 }
@@ -6323,6 +6373,10 @@ function nodeGraphTraceDisplayColorWidgetLabel(field) {
     return "Right";
   }
   if (field === "backgroundColor") {
+    // Compact strip label inside SoundColorWidget.
+    if (nodeGraphTraceDisplaySettingsFormType() === "numberReadout") {
+      return "Plate";
+    }
     return "Bg";
   }
   if (field === "dot1Color") {
@@ -6794,15 +6848,31 @@ function bindNodeGraphTraceDisplaySettingsEvents(popover) {
   popover.addEventListener("pointerdown", beginNodeGraphTraceDisplayFieldDrag, true);
   document.getElementById("nodeTraceDisplaySettingsDefaults")?.addEventListener("click", setNodeGraphTraceDisplaySettingsDefaults);
   document.getElementById("nodeTraceDisplaySettingsClose")?.addEventListener("click", closeNodeGraphTraceDisplaySettings);
-  document.getElementById("nodeTraceDisplaySettingsDragHandle")?.addEventListener("pointerdown", beginNodeGraphTraceDisplaySettingsDrag);
-  document.querySelector("#nodeTraceDisplaySettingsPopover .node-trace-display-settings-heading")?.addEventListener("pointerdown", beginNodeGraphTraceDisplaySettingsDrag);
-  document.getElementById("nodeTraceDisplaySettingsCornerDrag")?.addEventListener("pointerdown", beginNodeGraphTraceDisplaySettingsResize);
+  document.getElementById("nodeTraceDisplaySettingsDragHandle")?.addEventListener("pointerdown", (event) => {
+    if (typeof beginNodeGraphRegisteredFloatingWindowDrag === "function") {
+      beginNodeGraphRegisteredFloatingWindowDrag(event, "traceDisplaySettings");
+      return;
+    }
+    beginNodeGraphTraceDisplaySettingsDrag(event);
+  });
+  document.querySelector("#nodeTraceDisplaySettingsPopover .scene-context-heading")?.addEventListener("pointerdown", (event) => {
+    if (typeof beginNodeGraphRegisteredFloatingWindowDrag === "function") {
+      beginNodeGraphRegisteredFloatingWindowDrag(event, "traceDisplaySettings");
+      return;
+    }
+    beginNodeGraphTraceDisplaySettingsDrag(event);
+  });
+  document.getElementById("nodeTraceDisplaySettingsCornerDrag")?.addEventListener("pointerdown", (event) => {
+    if (typeof beginNodeGraphRegisteredFloatingWindowResize === "function") {
+      beginNodeGraphRegisteredFloatingWindowResize(event, "traceDisplaySettings");
+      return;
+    }
+    beginNodeGraphTraceDisplaySettingsResize(event);
+  });
   document.addEventListener("pointermove", dragNodeGraphTraceDisplayField, true);
   document.addEventListener("pointerup", endNodeGraphTraceDisplayFieldDrag, true);
   document.addEventListener("pointercancel", endNodeGraphTraceDisplayFieldDrag, true);
-  document.addEventListener("pointermove", dragNodeGraphTraceDisplaySettings);
-  document.addEventListener("pointerup", endNodeGraphTraceDisplaySettingsDrag);
-  document.addEventListener("pointercancel", endNodeGraphTraceDisplaySettingsDrag);
+  // Window drag/resize: registry pointer bridge
   // Click outside the field (including outside the window) ends text edit.
   document.addEventListener("pointerdown", handleNodeGraphTraceDisplayFieldEditPointerDown, true);
 }
@@ -11331,6 +11401,9 @@ function nodeGraphNumberReadoutUnitForSlot(slot) {
 }
 
 function nodeGraphNumberReadoutSettingsSignature(settings) {
+  const stopsSig = Array.isArray(settings.gradientStops)
+    ? settings.gradientStops.map((s) => `${s.t}:${s.color}`).join(",")
+    : "";
   return [
     settings.background,
     settings.brightness,
@@ -11340,6 +11413,7 @@ function nodeGraphNumberReadoutSettingsSignature(settings) {
     settings.ghost,
     settings.innerGlow,
     settings.innerShadow,
+    stopsSig,
   ].join("|");
 }
 
@@ -11617,10 +11691,24 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const top = 0;
   const width = canvas.width;
   const height = canvas.height;
-  const rgb = nodeGraphScopeRgbFloatsToCanvasRgb(nodeGraphScopeHexColorToRgb(settings.color));
+  // Color from multi-stop gradient × light amount (same model as 2D phosphor LUT).
+  // Live digits = full energy (t≈1); unlit plate = low energy from ghost slider.
+  const gradientStops = settings.gradientStops;
+  const peakHex = settings.color || "#75ebff";
+  const rgb = nodeGraphSampleGradientStopsRgb(gradientStops, 1, peakHex);
+  // Plate light amount ≈ ghost (0–1); clamp so unlit segments stay visible when ghost > 0.
+  const plateEnergy = ghost > 0.001 ? Math.max(0.04, Math.min(0.55, ghost * 0.85)) : 0;
+  const plateRgb = plateEnergy > 0
+    ? nodeGraphSampleGradientStopsRgb(gradientStops, plateEnergy, peakHex)
+    : rgb;
   const bg = nodeGraphFacePlateBackground(settings);
   const bright = Number(settings.brightness);
   const alpha = Math.max(0.15, (Number.isFinite(bright) ? Math.max(0, Math.min(2, bright)) : 0.92) / 2);
+  // Room-light: LCD strength from brightness (kept modest for practical bloom).
+  if (canvas?.parentElement?.dataset) {
+    const b01 = Math.max(0, Math.min(1, (Number.isFinite(bright) ? bright : 0.92) / 2));
+    canvas.parentElement.dataset.lightStrength = (0.32 + 0.38 * b01).toFixed(3);
+  }
   const digitFontFamily = nodeGraphNumberReadoutDsegReady
     ? '"DSEG7 Classic", "Consolas", monospace'
     : '"Consolas", "Courier New", monospace';
@@ -11698,9 +11786,8 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     canvas._numberReadoutLastTextChangeAt = now;
   }
   if (energyGl && typeof nodeGraphPhosphorEnergyGlStep === "function") {
-    if (typeof nodeGraphPhosphorEnergyGlSetLutFromPeak === "function") {
-      nodeGraphPhosphorEnergyGlSetLutFromPeak(energyGl, rgb, bg);
-    }
+    // Full multi-stop energy→color LUT (not peak-only greyscale ramp).
+    nodeGraphPhosphorApplyGradientLut(energyGl, settings, peakHex);
     if (!frozen) {
       // UI decay high = long ghost → low energy fade. UI 0 = no residual system.
       // Map hold [0,1] → fade [~0.55, ~0.012] (gentle curve so mid feels useful).
@@ -11725,6 +11812,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   context.fillStyle = bg;
   context.fillRect(left, top, width, height);
 
+  // Unlit LCD plate: low light amount → gradient color at plateEnergy (not peak×alpha grey).
   if (ghost > 0.001) {
     nodeGraphNumberReadoutDrawDigits(context, {
       text: valueText,
@@ -11733,8 +11821,8 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
       fontFamily: digitFontFamily,
       fontSize: digitFontSize,
       cellW,
-      rgb,
-      alpha: Math.max(0.04, ghost * (nodeGraphNumberReadoutDsegReady ? 0.38 : 0.28)),
+      rgb: plateRgb,
+      alpha: Math.max(0.12, ghost * (nodeGraphNumberReadoutDsegReady ? 0.72 : 0.55)),
       softBlurPx: 0,
       plate: true,
     });

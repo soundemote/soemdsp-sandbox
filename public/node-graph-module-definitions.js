@@ -202,12 +202,22 @@ function nodeGraphParameterSiblingValue(slider, key) {
 //                        row (readEffectiveParam already applies modulation)
 //   outputs: [...]     → right IO-column jacks
 //
+// Chrome (port placement) is separate from face content:
+//   chrome: LayoutA | LayoutB  — ports under vs beside the face
+//   layout / customDisplayArea — what fills the face (scope, graph, BADVAL, …)
+// finalizeNodeGraphModuleDefinitionsChrome seals every entry with explicit chrome
+// (default LayoutA) so no type is left "unassigned".
+//
 // Trap: "add a phase input" often means a left-side CV jack → must list it in
 // `inputs`. Putting it only under `parameters` creates a knob, not a left
 // jack. PolyBLEP: 0.1V/Oct is an input; Phase/Amplitude are parameters only.
 // DSF: uses both (knob + dedicated Phase/Amplitude jacks). Full write-up:
 // docs/MODULE_PATTERN_REFERENCE.md § "Three control surfaces".
-const nodeGraphModuleDefinitions = Object.freeze({
+const nodeGraphModuleDefinitions = (
+  typeof finalizeNodeGraphModuleDefinitionsChrome === "function"
+    ? finalizeNodeGraphModuleDefinitionsChrome
+    : Object.freeze
+)({
   audioInput: {
     outputs: ["Left", "Right"],
     parameters: [
@@ -3646,10 +3656,17 @@ const nodeGraphModuleDefinitions = Object.freeze({
     visualSink: true,
   },
   badvalMonitor: {
+    // LayoutA + custom display face (resizable warning panel, ports under).
+    chrome: NodeGraphModuleChromeLayout.LayoutA,
+    customDisplayArea: true,
+    displayHeightGu: 3,
     inputs: ["In"],
-    outputs: ["Out"],
+    layout: "badvalMonitor",
     monitorSink: true,
+    outputs: ["Out"],
+    // LayoutA status face: no param rows (even if parameters are added later).
     parameters: [],
+    slidersAlwaysHidden: true,
   },
   speakerProtection: {
     inputAliases: { Mono: "In" },
@@ -3747,7 +3764,8 @@ const nodeGraphModuleDefinitions = Object.freeze({
   },
   // Chromeless / fully-custom-UI modules (stepGrid, led, ...) register
   // their own definition instead of it being hardcoded here -- see
-  // node-graph-chromeless-module-registry.js.
+  // node-graph-chromeless-module-registry.js. Each entry is sealed with
+  // explicit chrome (LayoutB if solidModule, else LayoutA).
   ...nodeGraphChromelessModuleDefinitionEntries(),
 });
 

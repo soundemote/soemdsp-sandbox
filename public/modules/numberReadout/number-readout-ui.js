@@ -4,9 +4,10 @@
 
 function createNodeGraphNumberReadoutBody(node, type) {
   const face = document.createElement("div");
-  face.className = "node-module-scope-window node-number-readout-face";
+  face.className = "node-module-scope-window node-number-readout-face node-light-source";
   face.dataset.node = node;
   face.dataset.nodeType = type;
+  face.dataset.lightSource = "screen";
   face.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} number readout`);
   return face;
 }

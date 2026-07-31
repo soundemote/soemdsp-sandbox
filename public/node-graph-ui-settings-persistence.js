@@ -1251,12 +1251,8 @@ function clearNodeUserStartupRuntimeState() {
   // the user had it on it got baked straight back into the cleared startup.
   // persist:false because the localStorage key was just deleted and we do not
   // want to immediately write it back.
-  if (typeof setNodeGraphShaderScriptEnabled === "function") {
-    setNodeGraphShaderScriptEnabled(false, { persist: false });
-  }
-  const modularShaderInput = document.getElementById("nodeUiDevModularShaderEnabled");
-  if (modularShaderInput) {
-    modularShaderInput.checked = false;
+  if (typeof setNodeGraphRoomDim === "function") {
+    setNodeGraphRoomDim(0, { persist: false });
   }
   if (typeof renderNodeGraphModuleVisibilityToggles === "function") {
     renderNodeGraphModuleVisibilityToggles();

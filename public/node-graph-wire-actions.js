@@ -14,6 +14,68 @@ function nodeGraphWireTypePatchValue(value) {
   return wireType === nodeGraphWireTypes.cable ? undefined : wireType;
 }
 
+/** Manual pixel-wire flag (right-click wire panel). Off by default; never auto. */
+function normalizeNodeGraphWirePixel(value) {
+  return value === true || value === 1 || value === "1" || value === "true";
+}
+
+/** Persist only when true (omit from patch when false). */
+function nodeGraphWirePixelPatchValue(value) {
+  return normalizeNodeGraphWirePixel(value) ? true : undefined;
+}
+
+/** Shared optional fields for connections / modulations / graph wires. */
+function nodeGraphWireOptionalPatchFields(wireOrOptions = {}) {
+  const fields = {};
+  const wireType = nodeGraphWireTypePatchValue(wireOrOptions.wireType);
+  if (wireType) {
+    fields.wireType = wireType;
+  }
+  if (nodeGraphWirePixelPatchValue(wireOrOptions.pixelWire ?? wireOrOptions.pixel)) {
+    fields.pixelWire = true;
+  }
+  const tracePoints = typeof normalizeNodeGraphTracePoints === "function"
+    ? normalizeNodeGraphTracePoints(wireOrOptions.tracePoints)
+    : [];
+  if (tracePoints.length) {
+    fields.tracePoints = tracePoints;
+  }
+  return fields;
+}
+
+function setSelectedNodeGraphWirePixel(enabled) {
+  const selection = nodeGraphMvp.selected;
+  const selectedWire = nodeGraphWireFromSelection(selection);
+  if (!selectedWire) {
+    return false;
+  }
+
+  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+  const collection = selectedWire.kind === "graph"
+    ? patch.graphConnections
+    : selectedWire.kind === "modulation"
+      ? patch.modulations
+      : patch.connections;
+  const wire = collection[selectedWire.index];
+  if (!wire) {
+    return false;
+  }
+
+  const next = Boolean(enabled);
+  if (next) {
+    wire.pixelWire = true;
+  } else {
+    delete wire.pixelWire;
+  }
+  commitNodeGraphPatch(patch, {
+    status: next ? "wire set to pixel" : "wire set to vector",
+    wireEdit: true,
+  });
+  setNodeGraphSelection(selection);
+  configureNodeSceneContextMenu("wire");
+  return true;
+}
+
 function nodeGraphConnectionOptionsWithSelfTrace(sourceNode, destinationNode, options = {}) {
   if (sourceNode !== destinationNode || options.wireType || options.tracePoints?.length) {
     return options;
@@ -115,14 +177,7 @@ function connectNodeGraphGraphInput(sourceNode, sourcePort, destinationNode, des
 
   const effectiveOptions = nodeGraphConnectionOptionsWithSelfTrace(sourceNode, destinationNode, options);
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-  const nextWireData = {
-    ...(nodeGraphWireTypePatchValue(effectiveOptions.wireType)
-      ? { wireType: nodeGraphWireTypePatchValue(effectiveOptions.wireType) }
-      : {}),
-    ...(effectiveOptions.tracePoints?.length
-      ? { tracePoints: normalizeNodeGraphTracePoints(effectiveOptions.tracePoints) }
-      : {}),
-  };
+  const nextWireData = nodeGraphWireOptionalPatchFields(effectiveOptions);
   if (duplicateIndex >= 0) {
     patch.graphConnections[duplicateIndex] = {
       ...patch.graphConnections[duplicateIndex],
@@ -230,14 +285,7 @@ function connectNodeGraphPorts(sourceNode, sourcePort, destinationNode, destinat
 
   const effectiveOptions = nodeGraphConnectionOptionsWithSelfTrace(sourceNode, destinationNode, options);
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-  const nextWireData = {
-    ...(nodeGraphWireTypePatchValue(effectiveOptions.wireType)
-      ? { wireType: nodeGraphWireTypePatchValue(effectiveOptions.wireType) }
-      : {}),
-    ...(effectiveOptions.tracePoints?.length
-      ? { tracePoints: normalizeNodeGraphTracePoints(effectiveOptions.tracePoints) }
-      : {}),
-  };
+  const nextWireData = nodeGraphWireOptionalPatchFields(effectiveOptions);
   if (duplicateIndex >= 0) {
     patch.connections[duplicateIndex] = {
       ...patch.connections[duplicateIndex],
@@ -291,14 +339,7 @@ function connectNodeGraphModulation(sourceNode, sourcePort, destinationNode, des
 
   const effectiveOptions = nodeGraphConnectionOptionsWithSelfTrace(sourceNode, destinationNode, options);
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-  const nextWireData = {
-    ...(nodeGraphWireTypePatchValue(effectiveOptions.wireType)
-      ? { wireType: nodeGraphWireTypePatchValue(effectiveOptions.wireType) }
-      : {}),
-    ...(effectiveOptions.tracePoints?.length
-      ? { tracePoints: normalizeNodeGraphTracePoints(effectiveOptions.tracePoints) }
-      : {}),
-  };
+  const nextWireData = nodeGraphWireOptionalPatchFields(effectiveOptions);
   if (duplicateIndex >= 0) {
     patch.modulations[duplicateIndex] = {
       ...patch.modulations[duplicateIndex],

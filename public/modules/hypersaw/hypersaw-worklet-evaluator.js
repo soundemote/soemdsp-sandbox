@@ -78,60 +78,48 @@ NodeLiveAudioProcessor.prototype.hypersawAdvanceVoices = function hypersawAdvanc
     return { sawSamples, numVoices, voicePans };
   };
 
+// Native-only Hypersaw (no silent zero / JS sample fallback).
 NodeLiveAudioProcessor.prototype.hypersawSample = function hypersawSample(state, options = {}) {
     if (
-      this.nativeHypersawReady &&
-      this.nativeHypersaw?.soemdsp_hypersaw_create &&
-      this.nativeHypersaw?.soemdsp_hypersaw_sample
+      !this.nativeHypersawReady
+      || !this.nativeHypersaw?.soemdsp_hypersaw_create
+      || !this.nativeHypersaw?.soemdsp_hypersaw_sample
     ) {
-      try {
-        if (!state.nativeHandle) {
-          state.nativeHandle = this.nativeHypersaw.soemdsp_hypersaw_create();
-        }
-        if (state.nativeHandle) {
-          const sampleRate = Number(options.sampleRate) > 1 ? Number(options.sampleRate) : 48000;
-          const frequencyHz = Number(options.frequencyHz) || 0;
-          const phaseOffset = Number(options.phaseOffset) || 0;
-          const numVoices = Math.round(Number(options.numVoices) || 1);
-          const spread = Number(options.spread) || 0;
-          const randomAmount = Number(options.randomAmount) || 0;
-          const driftAmount = Number(options.driftAmount) || 0;
-          const level = Number(options.level) || 0;
-          this.nativeHypersaw.soemdsp_hypersaw_sample(
-            state.nativeHandle,
-            frequencyHz,
-            sampleRate,
-            phaseOffset,
-            numVoices,
-            spread,
-            randomAmount,
-            driftAmount,
-            level,
-          );
-          // Native owns the real audio-critical voice state opaquely (no
-          // access from JS). Advance this JS-side shadow bank purely so
-          // the phosphor-burn display has phase data to draw -- visually
-          // representative of the dispersion in effect, though not
-          // sample-exact with native's own internal RNG stream.
-          this.hypersawAdvanceVoices(state, options);
-          return {
-            Left: Number(this.nativeHypersaw.soemdsp_hypersaw_left(state.nativeHandle)) || 0,
-            Right: Number(this.nativeHypersaw.soemdsp_hypersaw_right(state.nativeHandle)) || 0,
-            Phases: state.lastVoicePhases,
-            Amplitudes: state.lastVoiceAmplitudes,
-            Pans: state.lastVoicePans,
-          };
-        }
-      } catch (error) {
-        this.nativeHypersawReady = false;
-        this.port.postMessage({
-          type: "nativeModuleStatus",
-          name: "hypersaw",
-          status: "disabled",
-          message: String(error?.message || error || "native Hypersaw failed"),
-        });
-      }
+      throw new Error("native Hypersaw not ready");
     }
-    return { Left: 0, Right: 0, Phases: 0, Amplitudes: 0, Pans: 0 };
+    if (!state.nativeHandle) {
+      state.nativeHandle = this.nativeHypersaw.soemdsp_hypersaw_create();
+    }
+    if (!state.nativeHandle) {
+      throw new Error("native Hypersaw failed to create instance");
+    }
+    const sampleRate = Number(options.sampleRate) > 1 ? Number(options.sampleRate) : 48000;
+    const frequencyHz = Number(options.frequencyHz) || 0;
+    const phaseOffset = Number(options.phaseOffset) || 0;
+    const numVoices = Math.round(Number(options.numVoices) || 1);
+    const spread = Number(options.spread) || 0;
+    const randomAmount = Number(options.randomAmount) || 0;
+    const driftAmount = Number(options.driftAmount) || 0;
+    const level = Number(options.level) || 0;
+    this.nativeHypersaw.soemdsp_hypersaw_sample(
+      state.nativeHandle,
+      frequencyHz,
+      sampleRate,
+      phaseOffset,
+      numVoices,
+      spread,
+      randomAmount,
+      driftAmount,
+      level,
+    );
+    // Shadow bank for phosphor display only (not an audio fallback).
+    this.hypersawAdvanceVoices(state, options);
+    return {
+      Left: Number(this.nativeHypersaw.soemdsp_hypersaw_left(state.nativeHandle)) || 0,
+      Right: Number(this.nativeHypersaw.soemdsp_hypersaw_right(state.nativeHandle)) || 0,
+      Phases: state.lastVoicePhases,
+      Amplitudes: state.lastVoiceAmplitudes,
+      Pans: state.lastVoicePans,
+    };
   };
 

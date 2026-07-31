@@ -118,8 +118,9 @@ function nodeGraphModuleFrameCollectGaps(nodeElement, width, height, nodeRect) {
     return { left, right };
   }
   const scaleY = height / nodeRect.height;
-  // Tiny pad so frame meets the crescent without covering the arc stroke.
-  const pad = 0.75;
+  // Clear the jack diameter (+ a little) so the frame stroke never crosses
+  // the wire→inlet join (a dark hairline between wire end and half-jack).
+  const pad = 1.5;
   const ports = nodeElement.querySelectorAll(
     ".node-port.input, .node-port.output, .node-param-port.modulation-input, .node-param-port.graph-input, .node-param-port.parameter-output, .node-io-proxy-port.input, .node-io-proxy-port.output",
   );

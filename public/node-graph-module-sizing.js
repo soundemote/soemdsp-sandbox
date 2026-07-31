@@ -10,16 +10,24 @@ function nodeGraphModuleVisibleBodyRowCount(type) {
 }
 
 function nodeGraphModuleVisibleSliderRowCountForUi(type, ui = {}) {
-  const effectiveUi = nodeGraphEffectivePatchNodeUi(ui);
+  const effectiveUi = nodeGraphEffectivePatchNodeUi(ui, type);
   if (!nodeGraphModuleTypeHasHideableSliders(type) || effectiveUi.slidersHidden) {
     return 0;
   }
   return nodeGraphModuleVisibleBodyRowCount(type);
 }
 
+/** Definition flag: module never shows param rows (LayoutA status faces, etc.). */
+function nodeGraphModuleTypeSlidersAlwaysHidden(type) {
+  return Boolean(nodeGraphModuleDefinitions[type]?.slidersAlwaysHidden);
+}
+
 function nodeGraphModuleTypeHasHideableSliders(type) {
   const definition = nodeGraphModuleDefinitions[type];
   if (!definition?.parameters?.length) {
+    return false;
+  }
+  if (nodeGraphModuleTypeSlidersAlwaysHidden(type)) {
     return false;
   }
   // LayoutB modules (incl. valueSlider) keep ordinary param rows under the face.
@@ -82,12 +90,20 @@ function nodeGraphPatchNodeLayout(node) {
 // every other custom-display module instead of neither one.
 function nodeGraphModuleTypeHasCustomDisplayArea(type) {
   // Face-owned display area (not the same as LayoutA/B port chrome).
+  // Participates in the same display-height resize policy as scopes (1…60gu).
   if (typeof nodeGraphChromelessModuleHasCustomDisplayArea === "function"
     && nodeGraphChromelessModuleHasCustomDisplayArea(type)) {
     return true;
   }
-  const layout = nodeGraphModuleDefinitions[type]?.layout;
-  return layout === "graph" || layout === "sliderWidget";
+  const definition = nodeGraphModuleDefinitions[type];
+  if (definition?.customDisplayArea) {
+    return true;
+  }
+  const layout = definition?.layout;
+  // LayoutA status faces (BADVAL, …) and LayoutB faces that own the display row.
+  return layout === "graph"
+    || layout === "sliderWidget"
+    || layout === "badvalMonitor";
 }
 
 function nodeGraphModuleTypeHasHideableOscilloscope(type) {
@@ -110,6 +126,8 @@ function nodeGraphModuleTypeHasHideableOscilloscope(type) {
     "macroControls",
     "pitchModWheel",
     "screenSpaceShader",
+    // badvalMonitor is customDisplayArea (height via display-height policy), not a hideable scope.
+    "badvalMonitor",
     "sliderWidget",
     "speakerProtection",
     "textBox",
@@ -182,7 +200,7 @@ function nodeGraphModuleDisplayVisibleForUi(type, ui = {}) {
   if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp?.moduleOscilloscopesVisible === false) {
     return false;
   }
-  return !nodeGraphEffectivePatchNodeUi(ui).oscilloscopeHidden;
+  return !nodeGraphEffectivePatchNodeUi(ui, type).oscilloscopeHidden;
 }
 
 function normalizeNodeGraphModuleDisplayHeightUnits(heightGu) {
@@ -327,10 +345,19 @@ function normalizeNodeGraphModuleHeightUnits(type, heightGu, ui = {}) {
     : fallback;
 }
 
-function nodeGraphModuleHeightWithBottomClearance(requiredGu) {
-  const required = Math.max(0, Number(requiredGu) || 0);
+/**
+ * Shared LayoutA + LayoutB bottom clearance (one mechanism):
+ *   heightGu = ceil(contentGu)
+ *   if leftover &lt; 2px → heightGu += 1
+ * CSS places that leftover under the last content via a trailing
+ * minmax(2px, 1fr) track (see --node-module-bottom-gap-track).
+ */
+function nodeGraphModuleHeightWithBottomClearance(contentGu) {
+  const required = Math.max(0, Number(contentGu) || 0);
   let heightGu = Math.ceil(required);
-  if ((heightGu - required) * nodeGraphGrid.heightPx < 3) {
+  const gridPx = Math.max(1, Number(nodeGraphGrid?.heightPx) || 28);
+  const slackPx = (heightGu - required) * gridPx;
+  if (slackPx < 2) {
     heightGu += 1;
   }
   return heightGu;
@@ -464,7 +491,7 @@ function nodeGraphModuleTypeHasInterfaceControls(type) {
 }
 
 function nodeGraphModuleInterfaceControlsVisibleForUi(type, ui = {}) {
-  return nodeGraphModuleTypeHasInterfaceControls(type) && !nodeGraphEffectivePatchNodeUi(ui).interfaceControlsHidden;
+  return nodeGraphModuleTypeHasInterfaceControls(type) && !nodeGraphEffectivePatchNodeUi(ui, type).interfaceControlsHidden;
 }
 
 function nodeGraphModuleInterfaceControlsHeightGu(type, ui = {}) {
@@ -489,8 +516,18 @@ function nodeGraphModuleRequiredHeightUnits(type) {
   return nodeGraphModuleRequiredHeightUnitsForUi(type);
 }
 
-function nodeGraphModuleHeaderHeightUnits(ui = {}) {
-  const normalizedUi = nodeGraphEffectivePatchNodeUi(ui);
+function nodeGraphModuleHeaderHeightUnits(ui = {}, type = "") {
+  const normalizedUi = nodeGraphEffectivePatchNodeUi(ui, type);
+  // Headerless LayoutB (Value Slider, …) omits the header entirely when the
+  // title is hidden — do not reserve the LayoutA "buttons-only" strip.
+  if (
+    type
+    && typeof nodeGraphModuleIsHeaderlessLayoutB === "function"
+    && nodeGraphModuleIsHeaderlessLayoutB(type)
+    && normalizedUi.titleHidden
+  ) {
+    return 0;
+  }
   if (normalizedUi.buttonsHidden && normalizedUi.titleHidden) {
     return 0;
   }
@@ -504,7 +541,7 @@ function nodeGraphModuleHeaderHeightUnits(ui = {}) {
 }
 
 function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
-  const normalizedUi = nodeGraphEffectivePatchNodeUi(ui);
+  const normalizedUi = nodeGraphEffectivePatchNodeUi(ui, type);
   const slidersVisible = nodeGraphModuleTypeHasHideableSliders(type) && !normalizedUi.slidersHidden;
   const displayVisible = nodeGraphModuleDisplayVisibleForUi(type, ui);
   const interfaceControlsVisible = nodeGraphModuleInterfaceControlsVisibleForUi(type, ui);
@@ -545,7 +582,6 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
       { id: "image", heightGu: nodeGraphModuleLayout.moduleScopeHeightGu, visible: true },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
-      { id: "fit", heightGu: nodeGraphModuleLayout.fitCushionGu, visible: true },
     ];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "canvas") {
@@ -553,7 +589,6 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
       { id: "canvas", heightGu: nodeGraphModuleDefaultDisplayHeightUnits(type), visible: true },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
-      { id: "fit", heightGu: nodeGraphModuleLayout.fitCushionGu, visible: true },
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: true },
     ];
   }
@@ -562,7 +597,6 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
       { id: "screen", heightGu: nodeGraphDefaultModuleGridWidthUnits(type), visible: true },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
-      { id: "fit", heightGu: nodeGraphModuleLayout.fitCushionGu, visible: true },
     ];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "traceDisplay") {
@@ -581,21 +615,21 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "graph", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: true },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
-      { id: "fit", heightGu: nodeGraphModuleLayout.fitCushionGu, visible: true },
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: true },
     ];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "sliderWidget") {
-    // LayoutB headerless (XY Pad contract): shell + sliders + bottom cushion.
+    // LayoutB headerless: optional title + shell + sliders (+ clearance outside).
     const paramRows = slidersVisible ? nodeGraphModuleVisibleBodyRowCount(type) : 0;
+    const headerGu = nodeGraphModuleHeaderHeightUnits(ui, type);
     return [
+      { id: "header", heightGu: headerGu, visible: headerGu > 0 },
       { id: "shell", heightGu: nodeGraphLayoutBShellHeightGu(type, ui), visible: true },
       {
         id: "params",
         heightGu: paramRows * nodeGraphModuleLayout.sliderRowHeightGu,
         visible: paramRows > 0,
       },
-      { id: "bottomCushion", heightGu: nodeGraphLayoutBBottomCushionGu, visible: true },
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: true },
     ];
   }
@@ -620,13 +654,24 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
     ];
   }
+  // LayoutA custom display faces (BADVAL warning panel, …): same row stack as
+  // a normal scope module — header / display / IO / params / inset — so Height
+  // resize follows LayoutA display-height policy.
+  if (nodeGraphModuleDefinitions[type]?.layout === "badvalMonitor") {
+    return [
+      { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
+      { id: "face", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: true },
+      { id: "io", heightGu: ioHeightGu, visible: ioVisible },
+      { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
+      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: true },
+    ];
+  }
   if (nodeGraphModuleDefinitions[type]?.layout === "filterCurve") {
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
       { id: "curve", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
-      { id: "fit", heightGu: nodeGraphModuleLayout.fitCushionGu, visible: true },
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: true },
     ];
   }
@@ -636,7 +681,6 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "room", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
-      { id: "fit", heightGu: nodeGraphModuleLayout.fitCushionGu, visible: true },
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: true },
     ];
   }
@@ -646,7 +690,6 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "curve", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
-      { id: "fit", heightGu: nodeGraphModuleLayout.fitCushionGu, visible: true },
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: true },
     ];
   }
@@ -666,7 +709,6 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
       { id: "clapBody", heightGu: 18, visible: true },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
-      { id: "fit", heightGu: nodeGraphModuleLayout.fitCushionGu, visible: true },
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: true },
     ];
   }
@@ -676,7 +718,6 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
     { id: "interfaceControls", heightGu: nodeGraphModuleInterfaceControlsHeightGu(type, ui), visible: interfaceControlsVisible },
     { id: "io", heightGu: ioHeightGu, visible: ioVisible },
     { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
-    { id: "fit", heightGu: nodeGraphModuleLayout.fitCushionGu, visible: true },
     { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: true },
   ];
 }
@@ -692,29 +733,32 @@ function nodeGraphModuleGridHeightUnits(type) {
 }
 
 /**
- * LayoutB bottom clearance under the last slider (must match CSS
- * --node-layout-b-bottom-cushion / solid-module-layout third grid row).
- * Without a dedicated track, spare height only grows the shell 1fr and
- * sliders sit flush on the module edge.
+ * Content height only (no clearance). LayoutB: optional title + shell + sliders + inset.
+ * Clearance is always applied via nodeGraphModuleHeightWithBottomClearance.
  */
-const nodeGraphLayoutBBottomCushionGu = 1;
-
-/** LayoutB module height (XY Pad contract): shell + sliders + bottom cushion + inset. */
-function nodeGraphLayoutBGridHeightUnits(type, ui = {}, { compact = false } = {}) {
+function nodeGraphLayoutBContentHeightGu(type, ui = {}, { compact = false } = {}) {
   const shellGu = nodeGraphLayoutBShellHeightGu(type, ui);
-  // Match rendered param stack: CSS --node-body-row-gap is 0.
   const rows = nodeGraphModuleVisibleSliderRowCountForUi(type, ui);
   const sliderGu = rows > 0
     ? rows * nodeGraphModuleLayout.sliderRowHeightGu
     : 0;
+  // Headerless LayoutB may still show a title bar when titleHidden is false.
+  const headerGu = (
+    typeof nodeGraphModuleIsHeaderlessLayoutB === "function"
+    && nodeGraphModuleIsHeaderlessLayoutB(type)
+  )
+    ? nodeGraphModuleHeaderHeightUnits(ui, type)
+    : 0;
   if (compact && sliderGu <= 0) {
-    return shellGu;
+    return headerGu + shellGu;
   }
+  return headerGu + shellGu + sliderGu + nodeGraphModuleLayout.moduleGridInsetGu * 2;
+}
+
+/** LayoutB total height: shared content → shared bottom-clearance rule. */
+function nodeGraphLayoutBGridHeightUnits(type, ui = {}, { compact = false } = {}) {
   return nodeGraphModuleHeightWithBottomClearance(
-    shellGu
-      + sliderGu
-      + nodeGraphLayoutBBottomCushionGu
-      + nodeGraphModuleLayout.moduleGridInsetGu * 2,
+    nodeGraphLayoutBContentHeightGu(type, ui, { compact }),
   );
 }
 
@@ -741,12 +785,13 @@ function nodeGraphModuleGridHeightUnitsForUi(type, ui = {}) {
     }
     return 1;
   }
-  // Headerless LayoutB (valueSlider, etc.) — same height contract as XY Pad.
+  // Headerless LayoutB (valueSlider, etc.).
   if (typeof nodeGraphModuleIsHeaderlessLayoutB === "function" && nodeGraphModuleIsHeaderlessLayoutB(type)) {
     return nodeGraphLayoutBGridHeightUnits(type, ui);
   }
-  const requiredGu = nodeGraphModuleRequiredHeightUnitsForUi(type, ui);
-  return nodeGraphModuleHeightWithBottomClearance(requiredGu);
+  // LayoutA + headered modules: content widgets only, then same clearance rule.
+  const contentGu = nodeGraphModuleRequiredHeightUnitsForUi(type, ui);
+  return nodeGraphModuleHeightWithBottomClearance(contentGu);
 }
 
 function nodeGraphPatchNodeGridHeightUnits(node) {

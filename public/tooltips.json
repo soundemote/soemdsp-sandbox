@@ -242,6 +242,7 @@
       "cable": "draw this selected wire with the current curvy cable style",
       "trace": "draw this selected wire as a crisp up/down/left/right circuit trace"
     },
+    "wirePixel": "Pixel wire (manual). Marks this cable for a future raster beam renderer — off by default, never auto.",
     "copyExecutionJson": "click to copy the full compiled execution JSON",
     "copyRuntimeSketch": "click to copy the caller-owned C++ runtime sketch",
     "widthDecrease": "decrease this module width by one grid unit",

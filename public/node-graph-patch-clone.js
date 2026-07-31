@@ -48,6 +48,18 @@ function normalizeNodeGraphPatchPortMeta(portMeta = {}) {
 
 function normalizeNodeGraphPatchNodeUi(ui = {}, type = "") {
   const source = ui && typeof ui === "object" ? ui : {};
+  const alwaysHideSliders = type
+    && typeof nodeGraphModuleTypeSlidersAlwaysHidden === "function"
+    && nodeGraphModuleTypeSlidersAlwaysHidden(type);
+  // Headerless LayoutB (Value Slider, XY Pad, …) ships without a title bar.
+  // Default titleHidden=true so the face stays compact until the user chooses
+  // "Show title". Explicit titleHidden:false persists a visible title.
+  const headerlessLayoutB = type
+    && typeof nodeGraphModuleIsHeaderlessLayoutB === "function"
+    && nodeGraphModuleIsHeaderlessLayoutB(type);
+  const titleHidden = Object.prototype.hasOwnProperty.call(source, "titleHidden")
+    ? Boolean(source.titleHidden)
+    : Boolean(headerlessLayoutB);
   return {
     buttonsHidden: Boolean(source.buttonsHidden),
     displayHeightOffsetGu: type
@@ -58,8 +70,9 @@ function normalizeNodeGraphPatchNodeUi(ui = {}, type = "") {
     interfaceControlsHidden: Boolean(source.interfaceControlsHidden),
     movementLocked: Boolean(source.movementLocked),
     oscilloscopeHidden: Boolean(source.oscilloscopeHidden),
-    slidersHidden: Boolean(source.slidersHidden),
-    titleHidden: Boolean(source.titleHidden),
+    // LayoutA policy: definition.slidersAlwaysHidden forces param rows off.
+    slidersHidden: alwaysHideSliders || Boolean(source.slidersHidden),
+    titleHidden,
   };
 }
 
@@ -74,8 +87,11 @@ function normalizeNodeGraphPatchNodeDisplayModeKey(type, value = "") {
   return modes.some((mode) => mode.key === key) ? key : "";
 }
 
-function nodeGraphEffectivePatchNodeUi(ui = {}) {
-  const normalizedUi = normalizeNodeGraphPatchNodeUi(ui);
+function nodeGraphEffectivePatchNodeUi(ui = {}, type = "") {
+  const normalizedUi = normalizeNodeGraphPatchNodeUi(ui, type);
+  const alwaysHideSliders = type
+    && typeof nodeGraphModuleTypeSlidersAlwaysHidden === "function"
+    && nodeGraphModuleTypeSlidersAlwaysHidden(type);
   return {
     ...normalizedUi,
     buttonsHidden: !nodeGraphPatchNodeSectionVisible(
@@ -90,7 +106,7 @@ function nodeGraphEffectivePatchNodeUi(ui = {}) {
       normalizedUi.interfaceControlsHidden,
       typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp.moduleInterfaceControlsVisible : true,
     ),
-    slidersHidden: !nodeGraphPatchNodeSectionVisible(
+    slidersHidden: alwaysHideSliders || !nodeGraphPatchNodeSectionVisible(
       normalizedUi.slidersHidden,
       typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp.moduleSlidersVisible : true,
     ),
@@ -114,12 +130,16 @@ function normalizeNodeGraphGraphConnections(graphConnections = []) {
     destinationNode: String(connection.destinationNode || "").trim(),
     sourceNode: String(connection.sourceNode || "").trim(),
     sourcePort: String(connection.sourcePort || "").trim(),
-    ...(nodeGraphWireTypePatchValue(connection.wireType)
-      ? { wireType: nodeGraphWireTypePatchValue(connection.wireType) }
-      : {}),
-    ...(normalizeNodeGraphTracePoints(connection.tracePoints).length
-      ? { tracePoints: normalizeNodeGraphTracePoints(connection.tracePoints) }
-      : {}),
+    ...(typeof nodeGraphWireOptionalPatchFields === "function"
+      ? nodeGraphWireOptionalPatchFields(connection)
+      : {
+        ...(nodeGraphWireTypePatchValue(connection.wireType)
+          ? { wireType: nodeGraphWireTypePatchValue(connection.wireType) }
+          : {}),
+        ...(normalizeNodeGraphTracePoints(connection.tracePoints).length
+          ? { tracePoints: normalizeNodeGraphTracePoints(connection.tracePoints) }
+          : {}),
+      }),
   })).filter((connection) =>
     connection.sourceNode &&
     connection.sourcePort &&

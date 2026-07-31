@@ -38,11 +38,8 @@ async function bindNodeGraphUiDevSettingsEvents() {
     .getElementById("nodeUiDevShowOriginMarker")
     .addEventListener("change", syncNodeUiDevSettingsHeaderControls);
   document
-    .getElementById("nodeUiDevModularShaderEnabled")
-    .addEventListener("change", syncNodeUiDevSettingsHeaderControls);
-  document
     .getElementById("nodeUiDevScopeBloomEnabled")
-    .addEventListener("change", syncNodeUiDevSettingsHeaderControls);
+    ?.addEventListener("change", syncNodeUiDevSettingsHeaderControls);
   document
     .getElementById("nodeUiDevModuleLightSpread")
     .addEventListener("input", syncNodeUiDevSettingsHeaderControls);

@@ -320,6 +320,15 @@ function nodeGraphFilterCurveView(node) {
       cutoff: nodeGraphFilterCurveLiveParam(node, "cutoff", 1000),
     };
   }
+  if (node.type === "tb303Filter") {
+    return {
+      type: node.type,
+      mode: nodeGraphFilterCurveLiveParam(node, "mode", 4),
+      cutoff: nodeGraphFilterCurveLiveParam(node, "cutoff", 1000),
+      resonance: nodeGraphFilterCurveLiveParam(node, "resonance", 0),
+      drive: nodeGraphFilterCurveLiveParam(node, "drive", 0),
+    };
+  }
   // cookbook / multi-stage family
   return {
     type: node.type,
@@ -354,6 +363,18 @@ function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null
   if (node.type === "papoulisFilter") {
     return nodeGraphPapoulisFilterMagnitudeAt(Number(v.cutoff) || 1000, frequency, sampleRate);
   }
+  if (node.type === "tb303Filter") {
+    if (typeof nodeGraphTb303FilterMagnitudeAt === "function") {
+      const mag = nodeGraphTb303FilterMagnitudeAt({
+        cutoff: Number(v.cutoff) || 1000,
+        drive: Number(v.drive) || 0,
+        mode: Number(v.mode) || 4,
+        resonance: Number(v.resonance) || 0,
+      }, frequency, sampleRate);
+      return Number.isFinite(mag) && mag > 0 ? mag : 1e-6;
+    }
+    return 1;
+  }
   const mode = Number(v.mode) || 0;
   const cutoff = Number(v.frequency) || 1000;
   const q = Number(v.q) || 1;
@@ -374,8 +395,8 @@ function nodeGraphFilterCurveCutoffFrequencies(node, view = null) {
       .map((value) => Number(value) || 0)
       .filter((value) => Number.isFinite(value) && value >= 0);
   }
-  if (node.type === "papoulisFilter") {
-    return [Number(v.cutoff) || 0].filter((value) => Number.isFinite(value) && value >= 0);
+  if (node.type === "papoulisFilter" || node.type === "tb303Filter") {
+    return [Number(v.cutoff) || 0].filter((value) => Number.isFinite(value) && value > 0);
   }
   return [Number(v.frequency) || 0].filter((value) => Number.isFinite(value) && value >= 0);
 }
@@ -390,6 +411,10 @@ function nodeGraphFilterCurveLabel(node) {
   }
   if (node.type === "papoulisFilter") {
     return "Papoulis LP";
+  }
+  if (node.type === "tb303Filter") {
+    const modes = typeof nodeGraphTb303FilterModes !== "undefined" ? nodeGraphTb303FilterModes : null;
+    return modes?.[Math.round(Number(node.params?.mode) || 4)] || "TB-303";
   }
   return nodeGraphCookbookFilterModes[Math.round(Number(node.params?.mode) || 0)] || "Filter";
 }
@@ -416,7 +441,11 @@ function drawNodeGraphFilterCurveDisplay(section) {
   try {
     drawNodeGraphFilterCurveDisplayInner(section);
   } catch (error) {
-    console.warn("[filter-curve] draw failed", error);
+    // SE console often prints Error as {} — include message/stack text.
+    const detail = error && typeof error === "object"
+      ? (error.message || error.name || String(error))
+      : String(error);
+    console.warn("[filter-curve] draw failed", detail, error);
   }
 }
 
@@ -484,19 +513,29 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
   context.strokeStyle = "rgba(61, 224, 255, 0.95)";
   context.lineWidth = 1.5;
   context.beginPath();
+  let started = false;
   for (let x = 0; x < width; x += 1) {
     const progress = width <= 1 ? 0 : x / (width - 1);
     const hz = 10 ** (logMin + progress * logRange);
-    const magnitude = nodeGraphFilterCurveResponseAt(node, hz, sampleRate, view);
+    let magnitude = nodeGraphFilterCurveResponseAt(node, hz, sampleRate, view);
+    if (!Number.isFinite(magnitude) || magnitude <= 0) {
+      magnitude = 1e-6;
+    }
     const db = clampNodeSliderValue(20 * Math.log10(Math.max(1e-6, magnitude)), minDb, maxDb);
     const y = (1 - ((db - minDb) / (maxDb - minDb))) * height;
-    if (x === 0) {
+    if (!Number.isFinite(y)) {
+      continue;
+    }
+    if (!started) {
       context.moveTo(x, y);
+      started = true;
     } else {
       context.lineTo(x, y);
     }
   }
-  context.stroke();
+  if (started) {
+    context.stroke();
+  }
   context.fillStyle = "rgba(229, 238, 242, 0.74)";
   context.font = "600 10px system-ui, sans-serif";
   context.fillText(nodeGraphFilterCurveLabel(node), 8, 14);

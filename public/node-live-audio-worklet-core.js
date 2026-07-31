@@ -3376,40 +3376,22 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   }
 
   nativeShootingStarExplosionPower(speed, lowRange = 0, highRange = 1) {
+    if (
+      !this.nativeShootingStarExplosionReady
+      || !this.nativeShootingStarExplosion?.soemdsp_shooting_star_explosion_power
+    ) {
+      throw new Error("native Shooting Star Explosion not ready");
+    }
     const low = Number(lowRange) || 0;
     const high = Number(highRange) || 0;
-    const lo = Math.min(low, high);
-    const hi = Math.max(low, high);
-    const fallback = () => {
-      // speed is expected 0-1 (the site's trigger intensity), interpolated
-      // linearly into [lowRange, highRange] to get the actual pulse amplitude.
-      // No speed data (not finite) keeps the pulse at max amplitude.
-      if (!Number.isFinite(speed)) return hi;
-      const normalizedSpeed = Math.max(0, Math.min(1, speed));
-      return lo + normalizedSpeed * (hi - lo);
-    };
-    if (!this.nativeShootingStarExplosionReady || !this.nativeShootingStarExplosion?.soemdsp_shooting_star_explosion_power) {
-      return fallback();
-    }
-    try {
-      return this.safeFilterNumber(
-        this.nativeShootingStarExplosion.soemdsp_shooting_star_explosion_power(
-          Number.isFinite(speed) ? speed : -1,
-          low,
-          high,
-        ),
-        null,
-      );
-    } catch (error) {
-      this.nativeShootingStarExplosionReady = false;
-      this.port.postMessage({
-        type: "nativeModuleStatus",
-        name: "shooting_star_explosion",
-        status: "disabled",
-        message: String(error?.message || error || "native Shooting Star Explosion failed"),
-      });
-      return fallback();
-    }
+    return this.safeFilterNumber(
+      this.nativeShootingStarExplosion.soemdsp_shooting_star_explosion_power(
+        Number.isFinite(speed) ? speed : -1,
+        low,
+        high,
+      ),
+      null,
+    );
   }
 
   shootingStarExplosionEventSample(lowRange = 0, highRange = 1) {
@@ -4926,53 +4908,41 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return value;
   }
 
-  // JS fallback mirroring native_modules/archimedes/archimedes.cpp's
-  // symplectic Euler sine/cosine engine, kept in plain floating point here
-  // (the native module runs the same recurrence in 16.16 fixed point) --
-  // fidelity of the fallback is "same math", not "bit-identical output".
+  // Native-only Archimedes (no JS symplectic-Euler sample fallback).
   archimedesSample(options = {}) {
+    if (
+      !this.nativeArchimedesReady
+      || !this.nativeArchimedes?.soemdsp_archimedes_create
+      || !this.nativeArchimedes?.soemdsp_archimedes_step
+    ) {
+      throw new Error("native Archimedes Oscillator not ready");
+    }
     const state = options.state || this.createArchimedesState();
     const dtShift = this.clampValue(Math.round(Number(options.profile) || 12), 4, 24);
     const freqHz = Math.max(0, Math.round(Number(options.frequency) || 0));
     const ditherBits = Math.max(0, Math.round(Number(options.dither) || 0));
-    if (
-      this.nativeArchimedesReady &&
-      this.nativeArchimedes?.soemdsp_archimedes_create &&
-      this.nativeArchimedes?.soemdsp_archimedes_step
-    ) {
-      try {
-        if (!state.nativeHandle) {
-          state.nativeHandle = this.nativeArchimedes.soemdsp_archimedes_create();
-        }
-        if (state.nativeHandle) {
-          const resetHigh = Number(options.reset) > 0.5;
-          if (resetHigh && !state.resetWasHigh) {
-            this.nativeArchimedes.soemdsp_archimedes_reset(state.nativeHandle);
-            this.nativeArchimedes.soemdsp_archimedes_reset_counters(state.nativeHandle);
-          }
-          state.resetWasHigh = resetHigh;
-          this.nativeArchimedes.soemdsp_archimedes_set_profile(state.nativeHandle, dtShift);
-          this.nativeArchimedes.soemdsp_archimedes_set_frequency(state.nativeHandle, freqHz);
-          this.nativeArchimedes.soemdsp_archimedes_step(state.nativeHandle, ditherBits);
-          return {
-            sine: this.safeFilterNumber(this.nativeArchimedes.soemdsp_archimedes_sine(state.nativeHandle), 0),
-            cosine: this.safeFilterNumber(this.nativeArchimedes.soemdsp_archimedes_cosine(state.nativeHandle), 0),
-            pi: this.safeFilterNumber(this.nativeArchimedes.soemdsp_archimedes_extract_pi(state.nativeHandle), 0),
-            noiseBelow: this.safeFilterNumber(this.nativeArchimedes.soemdsp_archimedes_noise_below?.(state.nativeHandle), 0),
-            noiseAbove: this.safeFilterNumber(this.nativeArchimedes.soemdsp_archimedes_noise_above?.(state.nativeHandle), 0),
-          };
-        }
-      } catch (error) {
-        this.nativeArchimedesReady = false;
-        this.port.postMessage({
-          type: "nativeModuleStatus",
-          name: "archimedes",
-          status: "disabled",
-          message: String(error?.message || error || "native Archimedes Oscillator failed"),
-        });
-      }
+    if (!state.nativeHandle) {
+      state.nativeHandle = this.nativeArchimedes.soemdsp_archimedes_create();
     }
-    return 0;
+    if (!state.nativeHandle) {
+      throw new Error("native Archimedes Oscillator failed to create instance");
+    }
+    const resetHigh = Number(options.reset) > 0.5;
+    if (resetHigh && !state.resetWasHigh) {
+      this.nativeArchimedes.soemdsp_archimedes_reset(state.nativeHandle);
+      this.nativeArchimedes.soemdsp_archimedes_reset_counters(state.nativeHandle);
+    }
+    state.resetWasHigh = resetHigh;
+    this.nativeArchimedes.soemdsp_archimedes_set_profile(state.nativeHandle, dtShift);
+    this.nativeArchimedes.soemdsp_archimedes_set_frequency(state.nativeHandle, freqHz);
+    this.nativeArchimedes.soemdsp_archimedes_step(state.nativeHandle, ditherBits);
+    return {
+      sine: this.safeFilterNumber(this.nativeArchimedes.soemdsp_archimedes_sine(state.nativeHandle), 0),
+      cosine: this.safeFilterNumber(this.nativeArchimedes.soemdsp_archimedes_cosine(state.nativeHandle), 0),
+      pi: this.safeFilterNumber(this.nativeArchimedes.soemdsp_archimedes_extract_pi(state.nativeHandle), 0),
+      noiseBelow: this.safeFilterNumber(this.nativeArchimedes.soemdsp_archimedes_noise_below?.(state.nativeHandle), 0),
+      noiseAbove: this.safeFilterNumber(this.nativeArchimedes.soemdsp_archimedes_noise_above?.(state.nativeHandle), 0),
+    };
   }
 
   createHighpassState() {
@@ -7868,16 +7838,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   // with an adaptive peak-follower since that second stage doesn't stay
   // bounded on its own across the full frequency range.
 
-  // RobinSupersaw -- see native_modules/robin_supersaw/robin_supersaw.cpp
-  // for the full derivation (Robin Schmidt's pitch dithering,
-  // RobinSchmidt/RS-MET). This worklet's JS fallback is fully self-
-  // contained (not calling the shared public/node-graph-robin-supersaw.js
-  // globals) -- the AudioWorkletProcessor runs in its own isolated global
-  // scope that never loads that file. Calling those globals here silently
-  // threw a ReferenceError inside the audio thread whenever the native
-  // path wasn't active, producing total silence with no visible console
-  // error -- the same pitfall DSF Oscillator's fallback already avoids by
-  // inlining its own copy instead of sharing one.
+  // RobinSupersaw — native-only (see robin-supersaw-worklet-evaluator.js).
 
   destroyRobinSupersawNativeState(state) {
     if (state?.nativeHandle && this.nativeRobinSupersaw?.soemdsp_robin_supersaw_destroy) {
@@ -7892,13 +7853,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
 
   // rsPitchDitherOsc<T>::getSamplePhasor() + updateSampleCount(), transcribed.
 
-  // Hypersaw -- see native_modules/hypersaw/hypersaw.cpp for the full
-  // derivation (a proof-of-concept port of soundemote's own
-  // HypersawUnit/HypersawMaster, docs/reference/Hypersaw.hpp). Fully
-  // self-contained JS fallback for the same isolated-worklet-scope reason
-  // as RobinSupersaw above -- never calls the shared
-  // public/node-graph-hypersaw.js globals, which this worklet's isolated
-  // scope never loads.
+  // Hypersaw — native-only (see hypersaw-worklet-evaluator.js).
 
   destroyHypersawNativeState(state) {
     if (state?.nativeHandle && this.nativeHypersaw?.soemdsp_hypersaw_destroy) {
@@ -7913,15 +7868,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       state.nativeHandle = 0;
     }
   }
-
-  // Advances each voice's phase accumulator + drift/dispersion exactly
-  // once per sample() call and returns the per-voice sawtooth samples
-  // plus the post-dispersion renderPhase array (used to drive the
-  // phosphor-burn display). Factored out of hypersawSampleJs so the
-  // native-audio path below can call it too (advancing this JS shadow
-  // state purely for the display, in parallel with native's own opaque
-  // internal state) without duplicating -- and thereby double-stepping --
-  // the phase math.
 
   evaluateFrame(frame, frames, inputs = [], rate = this.engineSampleRate || sampleRate, inputFrame = frame) {
     const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);

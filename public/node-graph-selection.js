@@ -26,18 +26,146 @@ function sendNodeGraphEnvironmentCommand(command) {
   );
 }
 
+/** True when the event is inside a floating inspector / dialog (not the graph). */
+function nodeGraphEventTargetIsFloatingWindow(target) {
+  if (!(target instanceof Element) && !(target instanceof Node)) {
+    return false;
+  }
+  const el = target instanceof Element ? target : target.parentElement;
+  if (!el) {
+    return false;
+  }
+  if (el.closest(".node-floating-window-surface")) {
+    return true;
+  }
+  if (typeof nodeGraphFloatingWindowSurfaceFromTarget === "function") {
+    if (nodeGraphFloatingWindowSurfaceFromTarget(el)) {
+      return true;
+    }
+  }
+  // Registry + workspace window map cover command center, display settings, etc.
+  // Do not require !hidden for contains() — a half-open transition should still count.
+  if (typeof nodeGraphFloatingWindowRegistry === "function") {
+    for (const entry of nodeGraphFloatingWindowRegistry()) {
+      const element = document.getElementById(entry.elementId);
+      if (element?.contains(el)) {
+        return true;
+      }
+    }
+  }
+  if (typeof nodeGraphWorkspaceWindowElements === "object" && nodeGraphWorkspaceWindowElements) {
+    for (const elementId of Object.values(nodeGraphWorkspaceWindowElements)) {
+      const element = document.getElementById(elementId);
+      if (element?.contains(el)) {
+        return true;
+      }
+    }
+  }
+  // Known dialogs / inspectors (id or class), including ones not yet in the map.
+  if (el.closest([
+    "#nodeCanvasScriptDialog",
+    "#nodeScopeContextMenu",
+    "#nodeSceneContextMenu",
+    "#nodeModuleActionsWindow",
+    "#nodeParameterMetadataPopover",
+    "#nodeTraceDisplaySettingsPopover",
+    "#nodeGlobalScopeMenu",
+    "#nodeVisibilityMenu",
+    "#nodeSavedPatchesWindow",
+    "#nodeModuleShopView",
+    "#nodeUserUiSettingsPanel",
+    "#nodeUiDevHelper",
+    "#nodePhosphorWaveformSettingsWindow",
+    "#nodeLedSettingsWindow",
+    "#nodeCodeBoxWindow",
+    "#nodeStandaloneMidiKeyboardDock",
+    "#nodeTooltipWindow",
+    ".node-canvas-script-dialog",
+    ".node-scene-context-menu",
+    ".node-parameter-metadata-popover",
+    ".node-trace-display-settings-popover",
+    ".node-visibility-menu",
+    ".node-saved-patches-window",
+    ".node-module-shop-view",
+    ".node-user-ui-settings-panel",
+    ".node-ui-dev-helper",
+    ".node-phosphor-waveform-settings-window",
+    ".node-led-settings-window",
+  ].join(", "))) {
+    return true;
+  }
+  return false;
+}
+
+/** Form / toolbar chrome that must never deselect a module. */
+function nodeGraphEventTargetIsAppChrome(target) {
+  if (!(target instanceof Element) && !(target instanceof Node)) {
+    return false;
+  }
+  const el = target instanceof Element ? target : target.parentElement;
+  if (!el) {
+    return false;
+  }
+  return Boolean(el.closest([
+    "button",
+    "input",
+    "select",
+    "textarea",
+    "label",
+    "option",
+    "summary",
+    "a",
+    "[role='dialog']",
+    "[role='menu']",
+    "[role='listbox']",
+    "[role='toolbar']",
+    "[role='tablist']",
+    "[contenteditable='true']",
+    ".node-view-toolbar",
+    ".panel",
+    ".panel-heading",
+    ".node-gradient-selector",
+    "[data-gradient-selector-host]",
+    "[data-shared-gradient-host]",
+    "[data-spectrogram-gradient-host]",
+    ".scw-root",
+    ".sound-color-widget",
+    "#seDebugPanel",
+    "#seDebugButton",
+    ".node-history-controls",
+    ".node-patch-timing-controls",
+  ].join(", ")));
+}
+
 function handleNodeGraphDocumentClick(event) {
   if (completeNodeGraphModulePlacement(event)) {
     return;
   }
-  const target = event.target;
-  if (
-    !(target instanceof Element) ||
-    target.closest("#nodeGraphWorkspace, #nodeSceneContextMenu, #nodeModuleActionsWindow, #nodeCodeBoxWindow, #nodeScopeContextMenu, #nodeGlobalScopeMenu, #nodeParameterMetadataPopover")
-  ) {
+  const raw = event.target;
+  const target = raw instanceof Element
+    ? raw
+    : (raw instanceof Node ? raw.parentElement : null);
+  if (!target) {
     return;
   }
-  sendNodeGraphEnvironmentCommand("clear-selection");
+
+  // Floating inspectors / settings (display, module settings, gradient hosts, …)
+  // must never clear module selection — blanking display settings follows that.
+  if (nodeGraphEventTargetIsFloatingWindow(target) || nodeGraphEventTargetIsAppChrome(target)) {
+    return;
+  }
+
+  // Module / wire hits manage selection themselves.
+  if (target.closest(".dsp-node, .node-wire-path, .node-wire-hit-path, .node-port, .node-param-port, .node-io-row")) {
+    return;
+  }
+
+  // Only empty modular canvas background deselects.
+  if (target.closest("#nodeGraphWorkspace, #nodeGraphZoomSurface, #nodeGraphWireLayer")) {
+    sendNodeGraphEnvironmentCommand("clear-selection");
+  }
+  // Clicks outside the modular workspace (toolbars already filtered above) do
+  // not clear selection — editing UI must keep the module pinned.
 }
 
 function nodeGraphSelectedNodeIds(selection = nodeGraphMvp.selected) {
@@ -128,26 +256,24 @@ function syncNodeGraphSharedInspectorTargetFromSelection() {
   const selectedNode = nodeGraphSingleSelectedNodeId();
   const hasNode = Boolean(selectedNode && nodeGraphPatchNode(selectedNode));
 
-  // Display Settings: follow a single selected module when it has a display;
-  // otherwise stay open but blank ("Right-click on a display").
+  // Display Settings: when the user selects a (single) module, follow it.
+  // When selection is cleared, KEEP the pinned target so gradient / color
+  // edits in the open window are not wiped mid-interaction.
   if (nodeGraphMvp.sharedInspectorActive === "traceDisplaySettings") {
     const popover = document.getElementById("nodeTraceDisplaySettingsPopover");
     if (popover && !popover.hidden) {
       if (hasNode && typeof syncOpenNodeGraphTraceDisplaySettingsToNode === "function") {
         syncOpenNodeGraphTraceDisplaySettingsToNode(selectedNode);
-      } else if (typeof showBlankNodeGraphTraceDisplaySettingsContent === "function") {
-        showBlankNodeGraphTraceDisplaySettingsContent();
       }
+      // else: leave current traceDisplaySettingsTargetNode / form as-is
     }
   }
 
   // Parameter Settings: never auto-fill from module selection. Right-click on a
-  // slider is the only way to populate. Selection only clears back to blank.
+  // slider is the only way to populate. Do not blank the open form when
+  // selection clears — only explicit close / open-blank does that.
   if (nodeGraphMvp.sharedInspectorActive === "metaparameters") {
-    const popover = document.getElementById("nodeParameterMetadataPopover");
-    if (popover && !popover.hidden && typeof syncOpenNodeMetadataPopoverToModule === "function") {
-      syncOpenNodeMetadataPopoverToModule(hasNode ? selectedNode : "");
-    }
+    // no-op on selection change (pinned slider target is independent)
   }
 }
 

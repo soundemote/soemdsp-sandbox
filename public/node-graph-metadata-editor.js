@@ -210,7 +210,7 @@ function beginNodeMetadataPopoverDrag(event) {
     beginNodeMetadataPopoverResize(event);
     return;
   }
-  const headingTarget = event.currentTarget?.classList?.contains("metadata-popover-heading") ||
+  const headingTarget = event.currentTarget?.classList?.contains("scene-context-heading") ||
     event.currentTarget?.id === "metadataPopoverDragHandle";
   if (!headingTarget && !nodeMetadataPopoverEmptyDragTarget(event)) {
     return;
@@ -221,7 +221,7 @@ function beginNodeMetadataPopoverDrag(event) {
     return;
   }
 
-  const heading = document.querySelector("#nodeParameterMetadataPopover .metadata-popover-heading");
+  const heading = document.querySelector("#nodeParameterMetadataPopover .scene-context-heading");
   const drag = beginNodeGraphFloatingWindowDrag(event, popover, "metadataDragging");
   if (drag) {
     drag.heading = heading;
@@ -1373,9 +1373,7 @@ function placeNodeGraphUnifiedInspectorEmpty(popover, empty) {
     return;
   }
   const nav = popover.querySelector(":scope > .node-unified-window-nav-host");
-  const heading = popover.querySelector(
-    ":scope > .metadata-popover-heading, :scope > .scene-context-heading, :scope > .node-trace-display-settings-heading",
-  );
+  const heading = popover.querySelector(":scope > .scene-context-heading");
   const grid = popover.querySelector(
     ":scope > .metadata-popover-grid, :scope > .node-trace-display-settings-grid",
   );
@@ -1867,27 +1865,44 @@ function bindNodeGraphMetadataPopoverEvents() {
     closeDiscard.dataset.metadataCloseDiscardBound = "true";
     closeDiscard.addEventListener("click", discardAndCloseNodeMetadataPopover);
   }
+  const beginMetaDrag = (event) => {
+    if (typeof beginNodeGraphRegisteredFloatingWindowDrag === "function") {
+      // Empty-body drag still allowed via beginNodeMetadataPopoverDrag for non-heading targets.
+      if (event.currentTarget?.classList?.contains("scene-context-heading")
+        || event.currentTarget?.id === "metadataPopoverDragHandle"
+        || event.currentTarget?.classList?.contains("scene-context-drag-handle")) {
+        beginNodeGraphRegisteredFloatingWindowDrag(event, "metaparameters");
+        return;
+      }
+    }
+    beginNodeMetadataPopoverDrag(event);
+  };
+  const beginMetaResize = (event) => {
+    if (typeof beginNodeGraphRegisteredFloatingWindowResize === "function") {
+      beginNodeGraphRegisteredFloatingWindowResize(event, "metaparameters");
+      return;
+    }
+    beginNodeMetadataPopoverResize(event);
+  };
   const dragHandle = document.getElementById("metadataPopoverDragHandle");
   if (dragHandle && dragHandle.dataset.metadataDragBound !== "true") {
     dragHandle.dataset.metadataDragBound = "true";
-    dragHandle.addEventListener("pointerdown", beginNodeMetadataPopoverDrag);
+    dragHandle.addEventListener("pointerdown", beginMetaDrag);
   }
   const cornerDrag = document.getElementById("metadataPopoverCornerDrag");
   if (cornerDrag && cornerDrag.dataset.metadataCornerDragBound !== "true") {
     cornerDrag.dataset.metadataCornerDragBound = "true";
-    cornerDrag.addEventListener("pointerdown", beginNodeMetadataPopoverResize);
+    cornerDrag.addEventListener("pointerdown", beginMetaResize);
   }
-  const dragHeading = document.querySelector("#nodeParameterMetadataPopover .metadata-popover-heading");
+  const dragHeading = document.querySelector("#nodeParameterMetadataPopover .scene-context-heading");
   if (dragHeading && dragHeading.dataset.metadataDragHeadingBound !== "true") {
     dragHeading.dataset.metadataDragHeadingBound = "true";
-    dragHeading.addEventListener("pointerdown", beginNodeMetadataPopoverDrag);
+    dragHeading.addEventListener("pointerdown", beginMetaDrag);
   }
   if (popover && popover.dataset.metadataEmptyDragBound !== "true") {
     popover.dataset.metadataEmptyDragBound = "true";
     popover.addEventListener("pointerdown", beginNodeMetadataPopoverDrag);
-    document.addEventListener("pointermove", dragNodeMetadataPopoverResize);
-    document.addEventListener("pointerup", endNodeMetadataPopoverResize);
-    document.addEventListener("pointercancel", endNodeMetadataPopoverResize);
+    // Move/resize end: registry pointer bridge (empty-body drag still uses metadataDragging key)
   }
   const defaultButton = document.getElementById("metadataRestoreDefaultButton");
   if (defaultButton && defaultButton.dataset.metadataDefaultBound !== "true") {

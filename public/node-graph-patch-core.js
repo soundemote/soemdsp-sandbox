@@ -252,6 +252,14 @@ function validateNodeGraphPatch(patch) {
         glyph: normalizeNodeGraphBugButtonGlyph(node.bugButton?.glyph),
       };
     }
+    if (type === "valueSlider" && typeof normalizeNodeGraphValueSliderFace === "function") {
+      const face = normalizeNodeGraphValueSliderFace(node.valueSliderFace);
+      if (typeof nodeGraphValueSliderFaceIsNonDefault === "function"
+        ? nodeGraphValueSliderFaceIsNonDefault(face)
+        : (face.mid?.dataUrl || face.bottom?.dataUrl || face.top?.dataUrl || face.rotateLikeKnob)) {
+        normalizedNode.valueSliderFace = face;
+      }
+    }
     const normalizedPortScripts = normalizeNodeGraphPortScripts(type, node.portScripts);
     if (normalizedPortScripts) {
       normalizedNode.portScripts = normalizedPortScripts;
@@ -362,12 +370,16 @@ function validateNodeGraphPatch(patch) {
       destinationPort,
       sourceNode,
       sourcePort,
-      ...(nodeGraphWireTypePatchValue(connection.wireType)
-        ? { wireType: nodeGraphWireTypePatchValue(connection.wireType) }
-        : {}),
-      ...(normalizeNodeGraphTracePoints(connection.tracePoints).length
-        ? { tracePoints: normalizeNodeGraphTracePoints(connection.tracePoints) }
-        : {}),
+      ...(typeof nodeGraphWireOptionalPatchFields === "function"
+        ? nodeGraphWireOptionalPatchFields(connection)
+        : {
+          ...(nodeGraphWireTypePatchValue(connection.wireType)
+            ? { wireType: nodeGraphWireTypePatchValue(connection.wireType) }
+            : {}),
+          ...(normalizeNodeGraphTracePoints(connection.tracePoints).length
+            ? { tracePoints: normalizeNodeGraphTracePoints(connection.tracePoints) }
+            : {}),
+        }),
     }];
   });
 
@@ -407,12 +419,16 @@ function validateNodeGraphPatch(patch) {
         destinationParam,
         sourceNode,
         sourcePort,
-        ...(nodeGraphWireTypePatchValue(modulation.wireType)
-          ? { wireType: nodeGraphWireTypePatchValue(modulation.wireType) }
-          : {}),
-        ...(normalizeNodeGraphTracePoints(modulation.tracePoints).length
-          ? { tracePoints: normalizeNodeGraphTracePoints(modulation.tracePoints) }
-          : {}),
+        ...(typeof nodeGraphWireOptionalPatchFields === "function"
+          ? nodeGraphWireOptionalPatchFields(modulation)
+          : {
+            ...(nodeGraphWireTypePatchValue(modulation.wireType)
+              ? { wireType: nodeGraphWireTypePatchValue(modulation.wireType) }
+              : {}),
+            ...(normalizeNodeGraphTracePoints(modulation.tracePoints).length
+              ? { tracePoints: normalizeNodeGraphTracePoints(modulation.tracePoints) }
+              : {}),
+          }),
       }];
     });
 
@@ -449,12 +465,16 @@ function validateNodeGraphPatch(patch) {
       destinationNode,
       sourceNode,
       sourcePort,
-      ...(nodeGraphWireTypePatchValue(connection.wireType)
-        ? { wireType: nodeGraphWireTypePatchValue(connection.wireType) }
-        : {}),
-      ...(normalizeNodeGraphTracePoints(connection.tracePoints).length
-        ? { tracePoints: normalizeNodeGraphTracePoints(connection.tracePoints) }
-        : {}),
+      ...(typeof nodeGraphWireOptionalPatchFields === "function"
+        ? nodeGraphWireOptionalPatchFields(connection)
+        : {
+          ...(nodeGraphWireTypePatchValue(connection.wireType)
+            ? { wireType: nodeGraphWireTypePatchValue(connection.wireType) }
+            : {}),
+          ...(normalizeNodeGraphTracePoints(connection.tracePoints).length
+            ? { tracePoints: normalizeNodeGraphTracePoints(connection.tracePoints) }
+            : {}),
+        }),
     }];
   }) : [];
 
@@ -555,8 +575,13 @@ function applyNodeGraphPatchToDom() {
       (port) => !(nodeGraphModuleDefinitions[patchNode.type]?.parameters || []).some((parameter) => parameter.key === port),
     );
     const portSignature = `${nodeGraphPatchNodeInputPorts(patchNode).join(",")}=>${outputPorts.join(",")}=>${nodeGraphModuleGraphInputs(patchNode.type).join(",")}`;
-    const patchNodeUi = nodeGraphEffectivePatchNodeUi(patchNode.ui);
-    const structuralUiSignature = patchNodeUi.oscilloscopeHidden ? "scope-hidden" : "scope-visible";
+    const patchNodeUi = nodeGraphEffectivePatchNodeUi(patchNode.ui, patchNode.type);
+    // Headerless LayoutB mounts/unmounts the title bar with titleHidden — rebuild
+    // when that changes (scope-hidden already forces a rebuild for LayoutA displays).
+    const structuralUiSignature = [
+      patchNodeUi.oscilloscopeHidden ? "scope-hidden" : "scope-visible",
+      patchNodeUi.titleHidden ? "title-hidden" : "title-visible",
+    ].join("|");
     if (
       element &&
       (
@@ -705,14 +730,48 @@ function applyNodeGraphPatchToDom() {
   }
 }
 
+/**
+ * Layout-only path after module drag: positions are already on the DOM.
+ * Avoid full applyNodeGraphPatchToDom (re-syncs every slider / face / knob),
+ * live plan rebuild, and render-pending — none of those depend on gx/gy.
+ */
+function applyNodeGraphLayoutPositionsToDom(patch = nodeGraphMvp.patch) {
+  for (const patchNode of patch?.nodes || []) {
+    const element = typeof nodeGraphNodeElement === "function"
+      ? nodeGraphNodeElement(patchNode.id)
+      : null;
+    if (!element) {
+      continue;
+    }
+    const point = typeof nodeGraphGridToPixel === "function"
+      ? nodeGraphGridToPixel(patchNode)
+      : null;
+    if (point && typeof positionNodeGraphNode === "function") {
+      positionNodeGraphNode(element, point, { clamp: false, snap: false });
+    }
+    element.dataset.gridX = String(patchNode.gx);
+    element.dataset.gridY = String(patchNode.gy);
+  }
+  if (typeof updateNodeGraphGridHeatmap === "function") {
+    updateNodeGraphGridHeatmap();
+  }
+  if (typeof scheduleNodeGraphWireRedrawAfterLayout === "function") {
+    scheduleNodeGraphWireRedrawAfterLayout();
+  }
+}
+
 function commitNodeGraphPatch(patch, options = {}) {
   const isWireEdit = Boolean(options.wireEdit);
+  // layoutEdit: module move / snap only — skip DOM rebuild + audio plan + render pending.
+  const isLayoutEdit = Boolean(options.layoutEdit);
   nodeGraphMvp.patch = cloneNodeGraphPatch(validateNodeGraphPatch(patch));
   if (typeof preserveNodeGraphEditorZoomOnPatch === "function") {
     preserveNodeGraphEditorZoomOnPatch(nodeGraphMvp.patch);
   }
   syncNodeGraphRuntimeFromPatch();
-  if (!isWireEdit) {
+  if (isLayoutEdit) {
+    applyNodeGraphLayoutPositionsToDom(nodeGraphMvp.patch);
+  } else if (!isWireEdit) {
     applyNodeGraphPatchToDom();
     if (typeof applyNodeGraphZoom === "function") {
       applyNodeGraphZoom();
@@ -720,7 +779,8 @@ function commitNodeGraphPatch(patch, options = {}) {
     syncNodeGraphMonitorIndicators();
     pruneNodeGraphSelectionAfterPatch();
   }
-  if (options.markPending !== false) {
+  // Positions do not change offline render output; keep existing render sample.
+  if (options.markPending !== false && !isLayoutEdit) {
     markNodeGraphRenderPending();
   }
   if (typeof scheduleNodeGraphWireRedrawAfterLayout === "function") {
@@ -731,26 +791,34 @@ function commitNodeGraphPatch(patch, options = {}) {
   } else if (options.autosaveWorkingPatch !== false) {
     nodeGraphMvp.patchDirtyState = "edited";
   }
-  scheduleNodeGraphLivePlanSync();
+  // Audio graph topology/params are unchanged by gx/gy — no plan push.
+  if (!isLayoutEdit) {
+    scheduleNodeGraphLivePlanSync();
+  }
 
   const runDeferredUiPanels = () => {
-    renderNodePalette();
-    renderNodeGraphConnectionList();
-    syncNodeGraphGhostSliders();
-    syncNodeGraphFilterCurveDisplays();
-    renderNodeGraphVisualSettings();
-    syncNodeGraphSettingsView();
-    if (typeof renderNodeGraphMissingSampleAssetsDialog === "function") {
-      renderNodeGraphMissingSampleAssetsDialog(nodeGraphMvp.patch);
+    if (!isLayoutEdit) {
+      renderNodePalette();
+      renderNodeGraphConnectionList();
+      syncNodeGraphGhostSliders();
+      syncNodeGraphFilterCurveDisplays();
+      renderNodeGraphVisualSettings();
+      syncNodeGraphSettingsView();
+      if (typeof renderNodeGraphMissingSampleAssetsDialog === "function") {
+        renderNodeGraphMissingSampleAssetsDialog(nodeGraphMvp.patch);
+      }
+      if (typeof renderNodeGraphCodeScreen === "function" && !document.getElementById("nodeCodeScreenView")?.hidden) {
+        renderNodeGraphCodeScreen();
+      }
+      const scriptStatus = nodeGraphPatchScriptStatus(
+        options.status || "script synced",
+        options.ok ?? true,
+      );
+      syncNodeGraphScriptView(scriptStatus.message, scriptStatus.ok);
+    } else if (typeof syncNodeGraphCurrentSavedPatchHeader === "function") {
+      // Light header dirty-state only — no full script panel rewrite.
+      syncNodeGraphCurrentSavedPatchHeader();
     }
-    if (typeof renderNodeGraphCodeScreen === "function" && !document.getElementById("nodeCodeScreenView")?.hidden) {
-      renderNodeGraphCodeScreen();
-    }
-    const scriptStatus = nodeGraphPatchScriptStatus(
-      options.status || "script synced",
-      options.ok ?? true,
-    );
-    syncNodeGraphScriptView(scriptStatus.message, scriptStatus.ok);
     if (options.record !== false) {
       recordNodeGraphHistory();
     } else {
@@ -758,12 +826,12 @@ function commitNodeGraphPatch(patch, options = {}) {
     }
     if (options.autosaveWorkingPatch !== false && typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
       saveNodeGraphWorkingPatchToUserSettings();
-    } else if (typeof syncNodeGraphCurrentSavedPatchHeader === "function") {
+    } else if (typeof syncNodeGraphCurrentSavedPatchHeader === "function" && !isLayoutEdit) {
       syncNodeGraphCurrentSavedPatchHeader();
     }
   };
 
-  if (isWireEdit) {
+  if (isWireEdit || isLayoutEdit) {
     window.requestAnimationFrame(() => {
       window.setTimeout(runDeferredUiPanels, 0);
     });

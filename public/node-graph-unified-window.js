@@ -710,9 +710,7 @@ function ensureNodeGraphUnifiedWindowNavHost(element, options = {}) {
   if (host) {
     // Keep host immediately under the title chrome so empty states / body
     // content never sit above the emoji toolbar.
-    const heading = element.querySelector(
-      ":scope > .scene-context-heading, :scope > .node-module-shop-heading, :scope > .metadata-popover-heading, :scope > .node-saved-patches-heading, :scope > .node-user-ui-settings-heading, :scope > .node-visibility-menu-heading, :scope > .node-trace-display-settings-heading",
-    );
+    const heading = element.querySelector(":scope > .scene-context-heading");
     if (heading && host.previousElementSibling !== heading && heading.parentElement === host.parentElement) {
       heading.after(host);
     }
@@ -738,9 +736,7 @@ function ensureNodeGraphUnifiedWindowNavHost(element, options = {}) {
       return host;
     }
   }
-  const heading = element.querySelector(
-    ":scope > .scene-context-heading, :scope > .node-module-shop-heading, :scope > .metadata-popover-heading, :scope > .node-saved-patches-heading, :scope > .node-user-ui-settings-heading, :scope > .node-visibility-menu-heading, :scope > .node-trace-display-settings-heading",
-  );
+  const heading = element.querySelector(":scope > .scene-context-heading");
   if (heading) {
     // Prefer after heading, but skip past any empty-state that was inserted early.
     heading.after(host);

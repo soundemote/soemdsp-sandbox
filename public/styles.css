@@ -1124,7 +1124,7 @@ html.soemdsp-hide-ui .status-strip {
   display: none;
 }
 
-.node-wiring-panel.modular-only-view > :not(.node-graph-workspace):not(.node-view-toolbar):not(.node-floating-window-surface):not(.node-shader-script-dialog) {
+.node-wiring-panel.modular-only-view > :not(.node-graph-workspace):not(.node-view-toolbar):not(.node-floating-window-surface) {
   display: none;
 }
 
@@ -1180,31 +1180,6 @@ html.soemdsp-hide-ui .status-strip {
 
 .node-video-view-panel[hidden] {
   display: none;
-}
-
-.node-video-view-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  min-width: 0;
-}
-
-.node-video-view-heading > div {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.node-video-view-heading span:first-child {
-  color: var(--muted);
-  font: 700 0.72rem/1 "Cascadia Mono", Consolas, monospace;
-  text-transform: uppercase;
-}
-
-.node-video-view-heading strong {
-  color: var(--text);
-  font: 800 0.94rem/1 "Cascadia Mono", Consolas, monospace;
 }
 
 .node-camera-resolution-controls {
@@ -2920,13 +2895,51 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   min-inline-size: 0;
 }
 
-#nodeShaderScriptButton {
-  flex: 0.95 1 0;
-  flex-direction: column;
-  gap: 2px;
-  min-inline-size: 0;
-  white-space: normal;
-  font-size: clamp(0.86rem, calc(var(--node-toolbar-row-height) * 0.31), 1.16rem);
+/* Room dimmer: fill the gap between Speed Limit strip and Download. */
+#nodeRoomDimmerButton,
+.node-room-dimmer-button {
+  --room-dim: 0;
+  position: relative;
+  flex: 1 1 0;
+  min-inline-size: 2.5rem;
+  max-inline-size: none;
+  padding-inline: 0.35rem;
+  font-size: clamp(1.05rem, calc(var(--node-toolbar-row-height) * 0.42), 1.35rem);
+  line-height: 1;
+  overflow: hidden;
+  touch-action: none;
+  cursor: ns-resize;
+  isolation: isolate;
+}
+
+#nodeRoomDimmerButton .node-room-dimmer-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--room-dim) * 100%);
+  background:
+    linear-gradient(180deg, rgba(255, 210, 90, 0.08), rgba(255, 200, 80, 0.42));
+  pointer-events: none;
+  z-index: 0;
+  transition: height 40ms linear;
+}
+
+#nodeRoomDimmerButton.room-dimmer-dragging .node-room-dimmer-fill {
+  transition: none;
+}
+
+#nodeRoomDimmerButton .node-modular-view-icon {
+  position: relative;
+  z-index: 1;
+}
+
+#nodeRoomDimmerButton[aria-pressed="true"],
+.node-room-dimmer-button[aria-pressed="true"] {
+  border-color: rgba(255, 220, 120, 0.55);
+  background:
+    linear-gradient(180deg, rgba(255, 220, 120, 0.12), rgba(32, 37, 42, var(--node-toolbar-button-bg-alpha)));
+  box-shadow: 0 0 12px rgba(255, 210, 100, 0.22);
 }
 
 #nodeDonateFiveButton,
@@ -3108,17 +3121,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: none !important;
 }
 
-.node-visibility-menu-heading {
-  flex: 0 0 auto;
-  margin: 0;
-}
-
 .node-visibility-menu .scene-context-heading {
-  margin: 0;
-}
-
-.node-visibility-menu .scene-context-title {
-  block-size: var(--node-floating-window-header-height);
+  flex: 0 0 auto;
 }
 
 .node-visibility-menu-list {
@@ -3131,8 +3135,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   overflow: auto;
 }
 
-.node-visibility-menu > .scene-context-resize-handle,
-.node-visibility-menu > .node-visibility-menu-resize-handle {
+.node-visibility-menu > .scene-context-resize-handle {
   flex: 0 0 auto;
 }
 
@@ -3207,15 +3210,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-visibility-menu-list button:hover,
 .node-visibility-menu-list button:focus-visible {
   background: rgb(22, 32, 38);
-}
-
-.node-visibility-menu-resize-handle {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  z-index: 4;
-  margin: 0;
-  cursor: ew-resize;
 }
 
 .node-view-toolbar button:not(:disabled):not(.active):hover,
@@ -4123,8 +4117,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-port-radius: calc(var(--node-port-diameter) * 0.5);
   --node-port-area-radius: calc(var(--node-port-area-size) * 0.5);
   --node-port-column-width: var(--node-port-area-radius);
-  /* Empty grid row under LayoutB param stack (see .solid-module-layout). */
-  --node-layout-b-bottom-cushion: var(--node-grid-height);
+  /* Shared LayoutA+B: leftover height under last content (≥2px, or +1gu from JS). */
+  --node-module-bottom-gap-track: minmax(2px, 1fr);
   /* Legacy smoke contract token: --node-wire-patch-point-size: 36%. */
   --node-wire-patch-point-size-ratio: 0.36;
   --node-wire-patch-point-size: calc(var(--node-port-diameter) * var(--node-wire-patch-point-size-ratio));
@@ -4147,7 +4141,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
      UI Dev -> "slider fill colors" (syncNodeUiDevSliderFillColorControls
      writes these). Defaults are #21333A for position and a darker sibling
      for amount, so the two read as distinct without a hue change. */
-  --node-slider-position-color: hsl(203 55% 57% / 0.37);
+  /* Position thumb: soft alpha is fine only when amount fill stops at the
+     handle's LEFT edge (no stacked fill under the thumb). */
+  --node-slider-position-color: hsl(203 55% 57% / 0.42);
   --node-slider-amount-color: hsl(200 31% 15% / 1);
   --node-choice-divider-height: 35px;
   --node-module-fill: #171a1f;
@@ -4383,36 +4379,10 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   margin-top: 16px;
 }
 
-.node-script-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+.node-script-view > .scene-context-heading-static {
   margin-bottom: 10px;
-  padding: 10px;
   border: 1px solid rgba(127, 199, 217, 0.16);
   border-radius: 6px;
-  background: rgba(9, 13, 16, 0.82);
-}
-
-.node-script-heading div {
-  display: grid;
-  gap: 3px;
-}
-
-.node-script-heading span {
-  color: rgba(127, 199, 217, 0.76);
-  font-size: 0.66rem;
-  text-transform: uppercase;
-}
-
-.node-script-heading strong {
-  color: rgba(243, 241, 236, 0.94);
-  font-size: 1rem;
-}
-
-.node-script-heading small {
-  color: rgba(174, 180, 187, 0.72);
 }
 
 .node-code-screen-view {
@@ -4454,7 +4424,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 .node-code-screen-brand span,
-.node-code-screen-heading span,
 .node-code-screen-editor-heading span,
 .node-code-screen-helper-card span,
 .node-code-screen-registry-card-heading span,
@@ -4466,7 +4435,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 .node-code-screen-brand strong,
-.node-code-screen-heading strong,
 .node-code-screen-editor-heading strong {
   color: rgba(243, 241, 236, 0.94);
   font-size: 1rem;
@@ -4828,27 +4796,22 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   overflow: hidden;
 }
 
-.node-code-screen-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px;
+.node-code-screen-main > .scene-context-heading-static {
+  padding-inline: 12px;
   border-bottom: 1px solid rgba(127, 199, 217, 0.16);
 }
 
-.node-code-screen-heading > div,
-.node-code-screen-editor-heading > div {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-
-.node-code-screen-heading .pill {
+.node-code-screen-main > .scene-context-heading-static .scene-context-heading-meta {
   max-width: min(440px, 48%);
   overflow: hidden;
   text-overflow: clip;
   white-space: nowrap;
+}
+
+.node-code-screen-editor-heading > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
 }
 
 .node-code-screen-body {
@@ -6537,12 +6500,13 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .node-code-screen-heading {
-    align-items: start;
-    flex-direction: column;
+  .node-code-screen-main > .scene-context-heading-static {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .node-code-screen-heading .pill {
+  .node-code-screen-main > .scene-context-heading-static .scene-context-heading-meta {
+    grid-column: 1;
+    justify-self: start;
     max-width: 100%;
   }
 }
@@ -6567,30 +6531,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: none;
 }
 
-.node-mapping-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-width: 0;
-}
-
-.node-mapping-heading > div {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.node-mapping-heading span:first-child {
-  color: rgba(226, 168, 109, 0.86);
-  font-size: 0.72rem;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.node-mapping-heading strong {
-  color: var(--text);
-  font-size: clamp(1.1rem, 2.2vw, 1.8rem);
+.node-mapping-view > .scene-context-heading-static {
+  border: 0;
+  background: transparent;
 }
 
 .node-mapping-grid-shell {
@@ -6750,11 +6693,15 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: none;
 }
 
-.metadata-popover-heading,
-.scene-context-heading,
-.node-saved-patches-heading,
-.node-module-shop-heading,
-.node-user-ui-settings-heading {
+/*
+ * Single window / page title chrome.
+ * Floating windows: move + title + close
+ *   .scene-context-heading > .scene-context-drag-handle | .scene-context-title | .panel-close-button
+ * Static page headers (no move/close):
+ *   .scene-context-heading.scene-context-heading-static > .scene-context-title [| .scene-context-heading-meta]
+ * Do not invent per-window *-heading classes for this chrome.
+ */
+.scene-context-heading {
   display: grid;
   grid-template-columns:
     var(--node-floating-window-header-height)
@@ -6765,34 +6712,44 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   height: var(--node-floating-window-header-height);
   min-height: var(--node-floating-window-header-height);
   max-height: var(--node-floating-window-header-height);
+  margin: 0;
   overflow: hidden;
   border-bottom: 1px solid rgba(127, 199, 217, 0.16);
   background: rgb(3, 5, 7);
   user-select: none;
   touch-action: none;
-  /* Keep the title bar (move + close + title) pinned while the body scrolls */
+  /* Keep the title bar pinned while the body scrolls */
   position: sticky;
   top: 0;
   z-index: 6;
 }
 
-.metadata-popover-heading.dragging,
-.scene-context-heading.dragging,
-.node-saved-patches-heading.dragging,
-.node-module-shop-heading.dragging,
-.node-user-ui-settings-heading.dragging {
+/* Full-page / embedded headers: no move or close cells. */
+.scene-context-heading.scene-context-heading-static {
+  grid-template-columns: minmax(0, 1fr) auto;
+  height: auto;
+  min-height: var(--node-floating-window-header-height);
+  max-height: none;
+  padding-inline: 10px;
+  position: relative;
+  top: auto;
+  touch-action: auto;
+}
+
+.scene-context-heading.scene-context-heading-static:not(:has(.scene-context-heading-meta)) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.scene-context-heading.dragging {
   filter: brightness(1.08);
 }
 
-.metadata-popover-title-group,
-.scene-context-title,
-.node-saved-patches-heading > div,
-.node-module-shop-heading > div:first-of-type,
-.node-user-ui-settings-heading > div {
+.scene-context-title {
   display: grid;
   align-content: center;
   justify-items: center;
   box-sizing: border-box;
+  grid-column: 2;
   block-size: var(--node-floating-window-header-height);
   min-block-size: 0;
   max-block-size: var(--node-floating-window-header-height);
@@ -6802,16 +6759,25 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   text-align: center;
 }
 
-.metadata-popover-heading #metadataPopoverTitle,
-.metadata-popover-heading #metadataPopoverSubtitle,
+.scene-context-heading.scene-context-heading-static .scene-context-title {
+  grid-column: 1;
+  justify-items: start;
+  block-size: auto;
+  max-block-size: none;
+  min-height: var(--node-floating-window-header-height);
+  padding-block: 6px;
+  text-align: left;
+}
+
+.scene-context-heading-meta {
+  align-self: center;
+  justify-self: end;
+  grid-column: 2;
+  min-width: 0;
+}
+
 .scene-context-title > span,
-.scene-context-title > small,
-.node-saved-patches-heading > div > span,
-.node-saved-patches-heading > div > small,
-.node-module-shop-heading > div:first-of-type > span,
-.node-module-shop-heading > div:first-of-type > strong,
-.node-user-ui-settings-heading > div > span,
-.node-user-ui-settings-heading > div > small {
+.scene-context-title > small {
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
@@ -6819,11 +6785,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   white-space: nowrap;
 }
 
-.metadata-popover-heading #metadataPopoverTitle,
-.scene-context-title > span,
-.node-saved-patches-heading > div > span,
-.node-module-shop-heading > div:first-of-type > span,
-.node-user-ui-settings-heading > div > span {
+.scene-context-title > span {
   color: var(--accent);
   font-family: var(--mono);
   font-size: var(--node-floating-window-title-size, 0.82rem);
@@ -6831,11 +6793,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   line-height: 1.08;
 }
 
-.metadata-popover-heading #metadataPopoverSubtitle,
-.scene-context-title > small,
-.node-saved-patches-heading > div > small,
-.node-module-shop-heading > div:first-of-type > strong,
-.node-user-ui-settings-heading > div > small {
+.scene-context-title > small {
   color: var(--muted);
   font-family: var(--font);
   font-size: var(--node-floating-window-subtitle-size, 0.68rem);
@@ -6844,14 +6802,11 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   text-transform: none;
 }
 
-.metadata-popover-heading .metadata-popover-drag-handle,
-.scene-context-drag-handle,
-.node-saved-patches-drag-handle,
-.node-module-shop-drag-handle,
-.node-user-ui-settings-drag-handle {
+.scene-context-drag-handle {
   display: grid;
   place-items: center;
   box-sizing: border-box;
+  grid-column: 1;
   inline-size: var(--node-floating-window-header-height);
   min-inline-size: var(--node-floating-window-header-height);
   max-inline-size: var(--node-floating-window-header-height);
@@ -6872,44 +6827,20 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   user-select: none;
 }
 
-.metadata-popover-heading .metadata-popover-drag-handle:active,
-.metadata-popover-heading .metadata-popover-drag-handle.dragging,
-.metadata-popover-heading.dragging .metadata-popover-drag-handle,
 .scene-context-drag-handle.dragging,
-.scene-context-heading.dragging .scene-context-drag-handle,
-.node-saved-patches-drag-handle.dragging,
-.node-saved-patches-heading.dragging .node-saved-patches-drag-handle,
-.node-module-shop-drag-handle.dragging,
-.node-module-shop-heading.dragging .node-module-shop-drag-handle,
-.node-user-ui-settings-drag-handle.dragging,
-.node-user-ui-settings-heading.dragging .node-user-ui-settings-drag-handle {
+.scene-context-heading.dragging .scene-context-drag-handle {
   color: var(--accent-2);
 }
 
-.metadata-popover-heading .metadata-popover-drag-handle.floating-window-locked,
-.scene-context-drag-handle.floating-window-locked,
-.node-visibility-menu-drag-handle.floating-window-locked,
-.node-saved-patches-drag-handle.floating-window-locked,
-.node-module-shop-drag-handle.floating-window-locked,
-.node-ui-dev-drag-handle.floating-window-locked,
-.node-user-ui-settings-drag-handle.floating-window-locked {
+.scene-context-drag-handle.floating-window-locked {
   color: var(--warning, #f3b75f);
 }
 
-.floating-window-locked .scene-context-resize-handle,
-.floating-window-locked .metadata-popover-resize-handle,
-.floating-window-locked .node-saved-patches-resize-handle,
-.floating-window-locked .node-module-shop-resize-handle,
-.floating-window-locked .node-visibility-menu-resize-handle {
-  opacity: 0;
-  pointer-events: none;
-}
 
-.metadata-popover-heading .panel-close-button,
-.scene-context-heading > .panel-close-button,
-.node-user-ui-settings-heading > .panel-close-button,
-.node-saved-patches-heading > .panel-close-button,
-.node-module-shop-heading .panel-close-button {
+
+.scene-context-heading > .panel-close-button {
+  grid-column: 3;
+  z-index: 3;
   inline-size: var(--node-floating-window-header-height);
   min-inline-size: var(--node-floating-window-header-height);
   max-inline-size: var(--node-floating-window-header-height);
@@ -6927,20 +6858,48 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   text-align: center;
 }
 
-.node-saved-patches-heading {
-  grid-template-columns:
-    var(--node-floating-window-header-height)
-    minmax(0, 1fr)
-    var(--node-floating-window-header-height);
-  min-height: var(--node-floating-window-header-height);
+/*
+ * Single floating-window corner resize grip.
+ * Position: absolute bottom-right on the window surface.
+ */
+.scene-context-resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  box-sizing: border-box;
+  inline-size: 18px;
+  block-size: 18px;
+  min-inline-size: 18px;
+  min-block-size: 18px;
+  max-inline-size: 18px;
+  max-block-size: 18px;
   margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 4px 0 6px 0;
+  background:
+    linear-gradient(135deg, transparent 0 48%, rgba(127, 199, 217, 0.36) 50% 56%, transparent 58%),
+    linear-gradient(135deg, transparent 0 64%, rgba(127, 199, 217, 0.58) 66% 72%, transparent 74%),
+    rgba(7, 10, 13, 0.72);
+  touch-action: none;
+  user-select: none;
+  cursor: se-resize;
 }
 
-.node-saved-patches-heading > .panel-close-button,
-.node-saved-patches-heading > .node-saved-patches-drag-handle {
-  inline-size: var(--node-floating-window-header-height);
-  min-inline-size: var(--node-floating-window-header-height);
-  max-inline-size: var(--node-floating-window-header-height);
+.scene-context-resize-handle:hover,
+.scene-context-resize-handle:focus-visible,
+.scene-context-resize-handle.dragging {
+  background:
+    linear-gradient(135deg, transparent 0 48%, rgba(226, 168, 109, 0.56) 50% 56%, transparent 58%),
+    linear-gradient(135deg, transparent 0 64%, rgba(226, 168, 109, 0.8) 66% 72%, transparent 74%),
+    rgba(7, 10, 13, 0.88);
+  outline: none;
+}
+
+.floating-window-locked .scene-context-resize-handle {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .node-saved-patches-clipboard-row {
@@ -7017,49 +6976,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-saved-patches-step-controls button:focus-visible {
   background: rgba(127, 199, 217, 0.16);
   color: var(--text);
-}
-
-.node-saved-patches-resize-handle {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  z-index: 2;
-  width: 22px;
-  height: 22px;
-  min-width: 22px;
-  min-height: 22px;
-  padding: 0;
-  border: 0;
-  border-radius: 6px 0 7px;
-  background: transparent;
-  touch-action: none;
-}
-
-.node-saved-patches-resize-handle::before,
-.node-saved-patches-resize-handle::after {
-  content: "";
-  position: absolute;
-  right: 5px;
-  bottom: 5px;
-  border-right: 2px solid rgba(127, 199, 217, 0.54);
-  border-bottom: 2px solid rgba(127, 199, 217, 0.54);
-}
-
-.node-saved-patches-resize-handle::before {
-  width: 13px;
-  height: 13px;
-}
-
-.node-saved-patches-resize-handle::after {
-  width: 7px;
-  height: 7px;
-}
-
-.node-saved-patches-resize-handle:hover::before,
-.node-saved-patches-resize-handle:hover::after,
-.node-saved-patches-resize-handle.dragging::before,
-.node-saved-patches-resize-handle.dragging::after {
-  border-color: rgba(226, 168, 109, 0.86);
 }
 
 .node-saved-patches-actions {
@@ -7552,32 +7468,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: none;
 }
 
-.node-module-shop-heading {
-  position: relative;
-  grid-template-columns:
-    var(--node-floating-window-header-height)
-    minmax(0, 1fr)
-    var(--node-floating-window-header-height);
-  gap: 0;
-  min-width: 0;
-  margin: 0;
-}
-
-.node-module-shop-heading .node-module-shop-drag-handle {
-  position: static;
-  grid-column: 1;
-  inline-size: auto;
-}
-
-.node-module-shop-heading > div:first-of-type {
-  grid-column: 2;
-}
-
-.node-module-shop-heading .panel-close-button {
-  grid-column: 3;
-  z-index: 3;
-}
-
 .node-module-shop-section-title span {
   color: rgba(226, 168, 109, 0.86);
   font-size: 0.72rem;
@@ -7608,12 +7498,13 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 /* Unified floating-window page nav: fixed square emoji buttons, no wrap.
-   Must beat page-local `button { font-size / min-height / padding }` rules on
-   Command Center + Module Settings so every page looks the same. */
+   One class set — no per-window ID stacks. Chrome elements are not buttons
+   here; body button rules must not restyle these. */
 .node-unified-window-nav-host {
   display: block;
   box-sizing: border-box;
   flex: 0 0 auto;
+  grid-row: auto;
   min-width: 0;
   width: 100%;
   padding: 3px 4px 2px;
@@ -7636,76 +7527,51 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   width: max-content;
 }
 
-.node-unified-window-nav-button,
-#nodeSceneContextMenu .node-unified-window-nav-button,
-#nodeModuleActionsWindow .node-unified-window-nav-button,
-.node-module-actions-window .node-unified-window-nav-button,
-.node-visibility-menu .node-unified-window-nav-button,
-.node-parameter-metadata-popover .node-unified-window-nav-button,
-.node-trace-display-settings-popover .node-unified-window-nav-button {
+.node-unified-window-nav-button {
   --node-unified-nav-size: 30px;
   box-sizing: border-box;
-  flex: 0 0 var(--node-unified-nav-size) !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 0 !important;
-  width: var(--node-unified-nav-size) !important;
-  height: var(--node-unified-nav-size) !important;
-  min-width: var(--node-unified-nav-size) !important;
-  min-height: var(--node-unified-nav-size) !important;
-  max-width: var(--node-unified-nav-size) !important;
-  max-height: var(--node-unified-nav-size) !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: 1px solid rgba(127, 199, 217, 0.22) !important;
-  border-radius: 4px !important;
-  background: rgb(16, 22, 26) !important;
-  color: rgba(243, 241, 236, 0.95) !important;
-  font-size: 1.2rem !important;
-  font-weight: 400 !important;
-  line-height: 1 !important;
-  letter-spacing: 0 !important;
-  text-align: center !important;
-  text-overflow: clip !important;
-  white-space: nowrap !important;
-  overflow: hidden !important;
+  flex: 0 0 var(--node-unified-nav-size);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  width: var(--node-unified-nav-size);
+  height: var(--node-unified-nav-size);
+  min-width: var(--node-unified-nav-size);
+  min-height: var(--node-unified-nav-size);
+  max-width: var(--node-unified-nav-size);
+  max-height: var(--node-unified-nav-size);
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgba(127, 199, 217, 0.22);
+  border-radius: 4px;
+  background: rgb(16, 22, 26);
+  color: rgba(243, 241, 236, 0.95);
+  font-size: 1.2rem;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0;
+  text-align: center;
+  text-overflow: clip;
+  white-space: nowrap;
+  overflow: hidden;
   cursor: pointer;
   touch-action: manipulation;
   aspect-ratio: 1 / 1;
 }
 
 .node-unified-window-nav-button:hover,
-.node-unified-window-nav-button:focus-visible,
-#nodeSceneContextMenu .node-unified-window-nav-button:hover,
-#nodeSceneContextMenu .node-unified-window-nav-button:focus-visible,
-#nodeModuleActionsWindow .node-unified-window-nav-button:hover,
-#nodeModuleActionsWindow .node-unified-window-nav-button:focus-visible {
-  border-color: rgba(226, 168, 109, 0.55) !important;
-  background: rgb(22, 32, 38) !important;
+.node-unified-window-nav-button:focus-visible {
+  border-color: rgba(226, 168, 109, 0.55);
+  background: rgb(22, 32, 38);
   outline: none;
 }
 
 .node-unified-window-nav-button.active,
-.node-unified-window-nav-button[aria-current="page"],
-#nodeSceneContextMenu .node-unified-window-nav-button.active,
-#nodeSceneContextMenu .node-unified-window-nav-button[aria-current="page"],
-#nodeModuleActionsWindow .node-unified-window-nav-button.active,
-#nodeModuleActionsWindow .node-unified-window-nav-button[aria-current="page"] {
-  border-color: rgba(127, 199, 217, 0.62) !important;
-  background: rgba(28, 48, 56, 0.96) !important;
+.node-unified-window-nav-button[aria-current="page"] {
+  border-color: rgba(127, 199, 217, 0.62);
+  background: rgba(28, 48, 56, 0.96);
   box-shadow: inset 0 0 0 1px rgba(127, 199, 217, 0.18);
-}
-
-#nodeModuleActionsWindow .node-unified-window-nav-host,
-#nodeParameterMetadataPopover .node-unified-window-nav-host,
-#nodeTraceDisplaySettingsPopover .node-unified-window-nav-host,
-#nodeSavedPatchesWindow .node-unified-window-nav-host,
-#nodeVisibilityMenu .node-unified-window-nav-host,
-#nodeSceneContextMenu .node-unified-window-nav-host,
-#nodeUserUiSettingsPanel .node-unified-window-nav-host {
-  flex: 0 0 auto;
-  grid-row: auto;
 }
 
 .node-module-shop-controls {
@@ -7901,24 +7767,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-module-shop-view .scene-context-store-card {
   min-height: 0;
-}
-
-.node-module-shop-heading .node-module-department-back-button {
-  position: static;
-  display: grid;
-  place-items: center;
-  inline-size: var(--node-floating-window-header-height);
-  min-inline-size: var(--node-floating-window-header-height);
-  max-inline-size: var(--node-floating-window-header-height);
-  block-size: 100%;
-  min-block-size: 0;
-  align-self: stretch;
-  justify-self: stretch;
-  border-radius: 0;
-}
-
-.node-module-shop-heading .panel-close-button {
-  justify-self: stretch;
 }
 
 .scene-context-store-department-list {
@@ -8158,34 +8006,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   font: 0.62rem/1 var(--mono);
   text-align: center;
   text-transform: uppercase;
-}
-
-.node-module-shop-resize-handle {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  z-index: 4;
-  width: 18px;
-  min-width: 18px;
-  height: 18px;
-  min-height: 18px;
-  padding: 0;
-  border: 0;
-  border-radius: 4px 0 6px 0;
-  background:
-    linear-gradient(135deg, transparent 0 48%, rgba(127, 199, 217, 0.36) 50% 56%, transparent 58%),
-    linear-gradient(135deg, transparent 0 64%, rgba(127, 199, 217, 0.58) 66% 72%, transparent 74%),
-    rgba(7, 10, 13, 0.72);
-  touch-action: none;
-}
-
-.node-module-shop-resize-handle.dragging,
-.node-module-shop-resize-handle:hover,
-.node-module-shop-resize-handle:focus-visible {
-  background:
-    linear-gradient(135deg, transparent 0 48%, rgba(226, 168, 109, 0.5) 50% 56%, transparent 58%),
-    linear-gradient(135deg, transparent 0 64%, rgba(226, 168, 109, 0.78) 66% 72%, transparent 74%),
-    rgba(12, 9, 5, 0.82);
 }
 
 @media (max-width: 620px) {
@@ -8528,45 +8348,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: none;
 }
 
-.node-ui-dev-helper-heading {
-  display: grid;
-  grid-template-columns: minmax(2.75rem, 12%) minmax(0, 1fr) max-content;
-  align-items: stretch;
-  min-height: 46px;
-  border-bottom: 1px solid rgba(127, 199, 217, 0.18);
-  background: rgba(3, 5, 7, 0.62);
-  touch-action: none;
-}
-
-.node-ui-dev-helper-heading > div {
-  display: grid;
-  align-content: center;
-  gap: 2px;
-  padding: 8px 12px;
-  min-width: 0;
-}
-
-.node-ui-dev-drag-handle {
-  font-size: calc(var(--node-move-symbol-size-ratio, 0.6) * 1.72rem);
-}
-
-.node-ui-dev-drag-handle.dragging,
-.node-ui-dev-helper-heading.dragging .node-ui-dev-drag-handle {
-  color: var(--accent-2);
-}
-
-.node-ui-dev-helper-heading > div > span {
-  color: var(--accent);
-  font-family: var(--mono);
-  font-size: 0.92rem;
-  letter-spacing: 0.02em;
-}
-
-.node-ui-dev-helper-heading > div > small {
-  color: var(--muted);
-  font-size: 0.72rem;
-}
-
+/* UIDEV uses the shared .scene-context-heading title bar. */
 .node-ui-dev-helper-body {
   display: grid;
   gap: 7px;
@@ -8950,7 +8732,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   outline-offset: 4px;
 }
 
-.node-wiring-panel.settings-header-layout-debug .node-ui-dev-helper-heading {
+.node-wiring-panel.settings-header-layout-debug .node-ui-dev-helper > .scene-context-heading {
   background:
     linear-gradient(rgba(255, 156, 64, 0.18), rgba(255, 156, 64, 0.18)),
     rgba(3, 5, 7, 0.62);
@@ -8989,7 +8771,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   outline-offset: 4px;
 }
 
-.node-wiring-panel.settings-header-layout-debug .metadata-popover-heading,
 .node-wiring-panel.settings-header-layout-debug .scene-context-heading {
   background:
     linear-gradient(rgba(127, 199, 217, 0.12), rgba(127, 199, 217, 0.12)),
@@ -9385,85 +9166,20 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: none;
 }
 
-.node-modular-shader-canvas {
+/* Room dimmer veil — black screenspace pass; punches clear over light faces. */
+.node-room-dimmer-canvas {
   position: absolute;
   inset: 0;
   z-index: 0;
   display: none;
   width: 100%;
   height: 100%;
-  mix-blend-mode: normal;
-  transform: translate(var(--node-visual-shake-x), var(--node-visual-shake-y));
   pointer-events: none;
 }
 
-.node-graph-workspace.shader-enabled .node-modular-shader-canvas {
+.node-graph-workspace.room-dimmer-on .node-room-dimmer-canvas {
   display: block;
-}
-
-.node-graph-workspace.shader-enabled {
-  --node-module-fill: #080b0e;
-  --node-module-primary-text-color: rgba(248, 252, 255, 0.9);
-  --node-module-stroke: rgba(127, 199, 217, 0.52);
-  --node-slider-label-color: rgba(229, 245, 250, 0.88);
-  --node-slider-value-color: #ffffff;
-  --node-slider-unit-color: rgba(127, 229, 255, 0.9);
-  --node-text-light-color-rgb: 229 252 255;
-  --node-text-light-level: 0.46;
-  background:
-    radial-gradient(circle at 50% 36%, rgba(19, 46, 54, 0.20), transparent 48%),
-    linear-gradient(180deg, rgba(2, 6, 8, 0.70), rgba(0, 0, 0, 0.86));
-}
-
-.node-graph-workspace.shader-enabled .dsp-node {
-  background:
-    linear-gradient(180deg, rgba(10, 14, 17, 0.76), rgba(3, 5, 7, 0.82));
-  box-shadow:
-    0 10px 24px rgba(0, 0, 0, 0.52),
-    0 0 0 1px rgba(7, 10, 13, 0.72);
-}
-
-.node-graph-workspace.shader-enabled .dsp-node-header,
-.node-graph-workspace.shader-enabled .node-header-title-row,
-.node-graph-workspace.shader-enabled .dsp-node-body,
-.node-graph-workspace.shader-enabled .dsp-node-io-section {
-  background-color: rgba(3, 6, 8, 0.38);
-}
-
-.node-graph-workspace.shader-enabled :where(
-  .dsp-node,
-  .dsp-node label,
-  .node-header-title-row,
-  .node-slider-readout-label,
-  .node-slider-readout-value,
-  .node-slider-readout-unit,
-  .node-io-row,
-  .node-port-label
-) {
-  color: rgba(246, 253, 255, 0.92);
-  text-shadow:
-    0 0 5px rgba(180, 238, 255, 0.34),
-    0 0 14px rgba(127, 229, 255, 0.18);
-}
-
-.node-graph-workspace.shader-enabled .node-module-scope-window,
-.node-graph-workspace.shader-enabled .node-led-face {
-  box-shadow:
-    0 0 10px rgba(127, 229, 255, 0.16),
-    0 0 26px rgba(42, 206, 226, 0.12),
-    0 0 54px rgba(226, 168, 109, 0.055);
-}
-
-.node-graph-workspace.shader-enabled .node-wire-path:not(.inactive-wire) {
-  filter:
-    drop-shadow(0 0 3px rgba(127, 229, 255, 0.38))
-    drop-shadow(0 0 9px rgba(84, 205, 224, 0.20));
-}
-
-.node-graph-workspace.shader-enabled .node-modulation-wire-path:not(.inactive-wire) {
-  filter:
-    drop-shadow(0 0 3px rgba(186, 145, 255, 0.38))
-    drop-shadow(0 0 9px rgba(152, 114, 255, 0.20));
+  z-index: 6;
 }
 
 .node-wire-svg {
@@ -9646,12 +9362,14 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   left: var(--node-x);
   top: var(--node-y);
   display: grid;
+  /* LayoutA content rows + shared bottom gap track (same as LayoutB solid). */
   grid-template-rows:
     var(--node-header-height)
     var(--node-module-scope-height)
     minmax(var(--node-io-section-min-height), auto)
-    auto;
-  align-content: start;
+    auto
+    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
+  align-content: stretch;
   gap: 0;
   width: calc((var(--node-grid-width) * var(--node-grid-width-units, 7)) - (var(--node-module-grid-inset) * 2));
   min-width: calc((var(--node-grid-width) * var(--node-grid-width-units, 7)) - (var(--node-module-grid-inset) * 2));
@@ -9781,11 +9499,19 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 .dsp-node.image-node-layout {
-  grid-template-rows: var(--node-header-height) minmax(0, 1fr) minmax(var(--node-io-section-min-height), auto);
+  grid-template-rows:
+    var(--node-header-height)
+    minmax(0, 1fr)
+    minmax(var(--node-io-section-min-height), auto)
+    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
 }
 
 .dsp-node.visual-scope-layout {
-  grid-template-rows: var(--node-header-height) minmax(0, 1fr) minmax(var(--node-io-section-min-height), auto);
+  grid-template-rows:
+    var(--node-header-height)
+    minmax(0, 1fr)
+    minmax(var(--node-io-section-min-height), auto)
+    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
 }
 
 .dsp-node.trace-display-layout {
@@ -9793,14 +9519,19 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
     var(--node-header-height)
     var(--node-module-scope-height)
     minmax(var(--node-io-section-min-height), auto)
-    auto;
+    auto
+    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
 }
 
 /* Smooth Graph / Step Graph (layout: graph): I/O section is always 26px. */
 .dsp-node.graph-node-layout {
   --node-io-section-min-height: 26px;
   --node-port-area-size: 26px;
-  grid-template-rows: var(--node-header-height) minmax(0, 1fr) minmax(26px, 26px);
+  grid-template-rows:
+    var(--node-header-height)
+    minmax(0, 1fr)
+    minmax(26px, 26px)
+    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
 }
 
 .dsp-node.graph-node-layout .node-solid-module-shell > .node-io-column .node-io-row {
@@ -9821,13 +9552,11 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
     var(--node-header-height)
     calc(var(--node-module-scope-height) * 1.5)
     minmax(var(--node-io-section-min-height), auto)
-    auto;
+    auto
+    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
 }
 
-/* Value Slider — LayoutB like XY Pad: shell (ports | face | ports) + sliders under. */
-.dsp-node.slider-widget-layout.solid-module-layout {
-  grid-template-rows: minmax(0, 1fr) auto;
-}
+/* Value Slider uses solid-module-layout rows (shell + params + shared bottom gap). */
 
 .dsp-node.slider-widget-layout .node-value-slider-shell {
   min-height: calc(
@@ -9839,32 +9568,98 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 .node-value-slider-face {
+  position: relative;
   box-sizing: border-box;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  align-content: stretch;
-  justify-items: center;
-  gap: calc(var(--node-grid-size) * 0.12);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   height: 100%;
   min-width: 0;
   min-height: 0;
-  padding: calc(var(--node-grid-size) * 0.22) calc(var(--node-grid-size) * 0.28);
-  border-top: 1px solid rgba(128, 224, 224, 0.16);
-  border-bottom: 1px solid rgba(128, 224, 224, 0.16);
+  padding: calc(var(--node-grid-size) * 0.18);
+  border: none;
   background: #020609;
   pointer-events: auto;
+  overflow: hidden;
+  /* Same drag affordance as Bias .node-slider-readout */
+  touch-action: none;
+  cursor: var(--node-dot-cursor);
+  user-select: none;
+  outline: none;
+}
+
+/* Empty face: title top-center, optional readout below. */
+.node-value-slider-face:not(.has-image) {
+  justify-content: flex-start;
+  padding-top: calc(var(--node-grid-size) * 0.28);
+}
+
+.node-value-slider-face.value-dragging {
+  cursor: var(--node-dot-cursor);
+}
+
+/* Three image layers: bottom (static) → mid plate (optional rotate) → top (static). */
+.node-value-slider-face-layer {
+  position: absolute;
+  inset: 6%;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+  pointer-events: none;
+}
+
+.node-value-slider-face-bottom {
+  z-index: 0;
+}
+
+.node-value-slider-face-plate {
+  z-index: 1;
+  transform-origin: 50% 50%;
+  transition: transform 40ms linear;
+}
+
+.node-value-slider-face-top {
+  z-index: 2;
+}
+
+.node-value-slider-face-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
 }
 
 .node-value-slider-face-label {
-  color: rgba(217, 236, 240, 0.62);
-  font: 700 0.62rem/1 var(--node-mono-font);
-  letter-spacing: 0.04em;
+  position: relative;
+  z-index: 3;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 100%;
+  margin: 0;
+  padding: 0 4px;
+  color: rgba(217, 236, 240, 0.72);
+  font: 700 0.62rem/1.15 var(--node-mono-font);
+  letter-spacing: 0.06em;
+  text-align: center;
   text-transform: uppercase;
+  pointer-events: none;
+}
+
+.node-value-slider-face.has-image .node-value-slider-face-label {
+  display: none;
 }
 
 .node-value-slider-face-readout {
-  display: flex;
+  position: relative;
+  z-index: 3;
+  display: none;
+  flex: 1 1 auto;
   align-items: center;
   justify-content: center;
   width: 100%;
@@ -9873,11 +9668,115 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   font: 700 clamp(1.1rem, calc(var(--node-grid-size) * 0.95), 2rem) / 1 var(--node-mono-font);
   letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 0 12px rgba(127, 199, 217, 0.28);
+  text-align: center;
+  text-shadow:
+    0 0 12px rgba(127, 199, 217, 0.28),
+    0 1px 2px rgba(0, 0, 0, 0.85);
+  pointer-events: none;
+}
+
+/* Only show when face has .show-readout (Module Settings “show numeric readout”). */
+.node-value-slider-face.show-readout .node-value-slider-face-readout:not([hidden]) {
+  display: flex;
+}
+
+.node-value-slider-face-readout[hidden],
+.node-value-slider-face:not(.show-readout) .node-value-slider-face-readout {
+  display: none !important;
+}
+
+.node-value-slider-face.has-image .node-value-slider-face-readout {
+  position: absolute;
+  inset: 0;
+  flex: none;
+  text-shadow:
+    0 0 8px rgba(0, 0, 0, 0.9),
+    0 1px 3px rgba(0, 0, 0, 0.95);
+}
+
+/* Module settings: vertical layer stack TOP → MID → LOW */
+.node-value-slider-face-controls .node-value-slider-face-layer-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.node-value-slider-face-controls .node-value-slider-face-layer-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 0 10px;
+  border-bottom: 1px solid rgba(128, 224, 224, 0.12);
+}
+
+.node-value-slider-face-controls .node-value-slider-face-layer-row:last-of-type {
+  border-bottom: 0;
+  padding-bottom: 4px;
+}
+
+.node-value-slider-face-controls .node-value-slider-face-layer-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.node-value-slider-face-controls .node-value-slider-face-layer-row strong {
+  margin: 0;
+  color: var(--text);
+  font: 700 0.74rem/1 var(--node-mono-font);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.node-value-slider-face-controls .node-value-slider-face-filename {
+  margin: 0;
+  min-height: 1.2em;
+  color: var(--muted);
+  font: 600 0.72rem/1.3 var(--node-mono-font);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.node-value-slider-face-controls .node-value-slider-face-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.node-value-slider-face-controls .node-value-slider-face-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.node-value-slider-face-controls .node-value-slider-face-rotate-inline {
+  margin-left: 2px;
+  padding: 2px 6px;
+  border: 1px solid rgba(127, 199, 217, 0.2);
+  border-radius: 4px;
+  background: rgba(8, 14, 18, 0.55);
+  color: rgba(220, 234, 238, 0.88);
+  font: 600 0.68rem/1 var(--node-mono-font);
+  text-transform: lowercase;
+}
+
+.node-value-slider-face-controls .node-value-slider-face-rotate-inline input {
+  margin: 0;
 }
 
 .dsp-node.patch-command-layout {
-  grid-template-rows: var(--node-header-height) minmax(0, 1fr) minmax(var(--node-io-section-min-height), auto);
+  grid-template-rows:
+    var(--node-header-height)
+    minmax(0, 1fr)
+    minmax(var(--node-io-section-min-height), auto)
+    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
 }
 
 /* Without this override, .node-clap-plugin-body lands in the generic
@@ -9889,7 +9788,11 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
    the node's full (now much taller, see nodeGraphModuleHeightWidgetUnits'
    clapPlugin case) height budget instead of a fixed small slice of it. */
 .dsp-node.clap-plugin-layout {
-  grid-template-rows: var(--node-header-height) minmax(0, 1fr) minmax(var(--node-io-section-min-height), auto);
+  grid-template-rows:
+    var(--node-header-height)
+    minmax(0, 1fr)
+    minmax(var(--node-io-section-min-height), auto)
+    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
 }
 
 .node-patch-command-body {
@@ -9921,6 +9824,26 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .dsp-node.speaker-protection-layout,
 .dsp-node.screen-space-shader-layout {
   grid-template-rows: var(--node-header-height) minmax(0, 1fr) minmax(var(--node-io-section-min-height), auto);
+}
+
+/* LayoutA BADVAL face: same display-height row as default LayoutA scopes
+   (--node-module-scope-height ← --node-module-display-height-units). */
+.dsp-node.badval-monitor-layout {
+  grid-template-rows:
+    var(--node-header-height)
+    var(--node-module-scope-height)
+    minmax(var(--node-io-section-min-height), auto)
+    auto
+    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
+}
+
+.dsp-node.badval-monitor-layout > .node-badval-monitor-body {
+  grid-row: 2;
+  align-self: stretch;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  pointer-events: auto;
 }
 
 .dsp-node.led-layout {
@@ -10036,30 +9959,43 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   box-shadow: none;
 }
 
-/* Headerless LayoutB (XY Pad, Value Slider, …): shell + params + bottom cushion.
-   Class name solid-module-layout is legacy; chrome-layout-b is also set.
-   Third row is empty clearance (height math: nodeGraphLayoutBBottomCushionGu). */
+/* Headerless LayoutB (XY Pad, Value Slider, …): optional title + shell + params +
+   shared bottom gap. Title uses --node-header-height (0 when no title / title-hidden).
+   Same clearance rule + same trailing track as LayoutA (.dsp-node). */
 .dsp-node.solid-module-layout,
 .dsp-node.chrome-layout-b.solid-module-layout {
   display: grid;
   grid-template-rows:
-    minmax(0, 1fr)
+    var(--node-header-height)
+    minmax(
+      calc(
+        var(--node-grid-height) * var(
+          --node-module-shell-height-units,
+          var(--node-module-display-height-units, 2)
+        )
+      ),
+      auto
+    )
     auto
-    var(--node-layout-b-bottom-cushion, var(--node-grid-height));
+    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
+}
+
+.dsp-node.solid-module-layout > .dsp-node-header,
+.dsp-node.chrome-layout-b.solid-module-layout > .dsp-node-header {
+  grid-row: 1;
 }
 
 .dsp-node.solid-module-layout > .dsp-node-body,
 .dsp-node.chrome-layout-b.solid-module-layout > .dsp-node-body {
-  grid-row: 2;
+  grid-row: 3;
   align-self: start;
 }
 
 .dsp-node.solid-module-layout > .node-solid-module-shell,
 .dsp-node.chrome-layout-b.solid-module-layout > .node-solid-module-shell {
-  grid-row: 1;
+  grid-row: 2;
   align-self: stretch;
-  /* Keep shell face height from --node-module-shell-height-units (do not zero it). */
-  height: 100%;
+  height: auto;
   min-height: calc(
     var(--node-grid-height) * var(
       --node-module-shell-height-units,
@@ -10089,9 +10025,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   min-height: 0;
 }
 
-/* LayoutB / solid shell — restored to pre–Layout B XY Pad contract, plus:
-   (1) equal 1fr jack bands so dividers sit mid-gap (X|Y),
-   (2) bottom cushion on .solid-module-layout (slider clearance). */
+/* LayoutB / solid shell — ports beside face + equal 1fr jack bands.
+   Bottom gap: shared --node-module-bottom-gap-track (same as LayoutA). */
 .node-solid-module-shell,
 .node-module-chrome-layout-b-shell {
   display: grid;
@@ -10160,6 +10095,50 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-solid-module-shell > .node-io-column.labels-hidden .node-io-label,
 .node-module-chrome-layout-b-shell > .node-io-column.labels-hidden .node-io-label {
   display: none;
+}
+
+/*
+ * LayoutB hide in/out: only hide port labels. Jacks stay; side columns shrink
+ * to the jack band so the face expands into the space labels used to occupy.
+ * (LayoutA still swaps to the slim proxy strip under the face.)
+ */
+.dsp-node.chrome-layout-b.io-hidden .node-solid-module-shell > .node-io-column .node-io-label,
+.dsp-node.chrome-layout-b.io-hidden .node-module-chrome-layout-b-shell > .node-io-column .node-io-label {
+  display: none;
+}
+
+.dsp-node.chrome-layout-b.io-hidden .node-solid-module-shell > .node-io-column,
+.dsp-node.chrome-layout-b.io-hidden .node-module-chrome-layout-b-shell > .node-io-column,
+.dsp-node.chrome-layout-b .node-solid-module-shell > .node-io-column.labels-hidden,
+.dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell > .node-io-column.labels-hidden {
+  width: var(--node-signal-port-width);
+  min-width: var(--node-signal-port-width);
+  max-width: var(--node-signal-port-width);
+}
+
+.dsp-node.chrome-layout-b.io-hidden .node-solid-module-shell > .node-io-column .node-io-row.input,
+.dsp-node.chrome-layout-b.io-hidden .node-module-chrome-layout-b-shell > .node-io-column .node-io-row.input,
+.dsp-node.chrome-layout-b .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row.input,
+.dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell > .node-io-column.labels-hidden .node-io-row.input {
+  padding-left: var(--node-signal-port-width);
+  padding-right: 0;
+}
+
+.dsp-node.chrome-layout-b.io-hidden .node-solid-module-shell > .node-io-column .node-io-row.output,
+.dsp-node.chrome-layout-b.io-hidden .node-module-chrome-layout-b-shell > .node-io-column .node-io-row.output,
+.dsp-node.chrome-layout-b .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row.output,
+.dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell > .node-io-column.labels-hidden .node-io-row.output {
+  padding-right: var(--node-signal-port-width);
+  padding-left: 0;
+}
+
+/* Empty LayoutB side (no ports): collapse fully when I/O labels are hidden. */
+.dsp-node.chrome-layout-b.io-hidden .node-solid-module-shell > .node-io-column.node-layout-b-io-empty,
+.dsp-node.chrome-layout-b.io-hidden .node-module-chrome-layout-b-shell > .node-io-column.node-layout-b-io-empty {
+  width: 0;
+  min-width: 0;
+  max-width: 0;
+  overflow: hidden;
 }
 
 .node-solid-module-custom-ui {
@@ -10486,7 +10465,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
     var(--node-module-scope-height)
     minmax(var(--node-io-section-min-height), auto)
     auto
-    auto;
+    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
 }
 
 .node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.clap-plugin-layout):not(.solid-module-layout)::after,
@@ -10904,6 +10883,86 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   background:
     linear-gradient(180deg, rgba(112, 214, 169, 0.3), rgba(7, 17, 12, 0.74)),
     rgba(1, 6, 5, 0.96);
+}
+
+/* BADVAL Monitor LayoutA face — fills the display-height row. */
+.node-badval-monitor-body {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 4px;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  padding: 8px 10px;
+  border-top: 1px solid rgba(128, 224, 224, 0.16);
+  border-bottom: 1px solid rgba(128, 224, 224, 0.16);
+  background:
+    linear-gradient(180deg, rgba(12, 18, 22, 0.88), rgba(2, 4, 6, 0.96)),
+    #020609;
+  color: rgba(230, 242, 246, 0.88);
+  text-align: center;
+  overflow: hidden;
+}
+
+.node-badval-monitor-body strong {
+  color: rgba(160, 190, 200, 0.9);
+  font: 800 0.95rem/1.1 var(--node-mono-font);
+  letter-spacing: 0.06em;
+}
+
+.node-badval-monitor-body.is-clear strong {
+  color: rgba(104, 255, 176, 0.94);
+  text-shadow: 0 0 12px rgba(80, 220, 140, 0.35);
+}
+
+.node-badval-monitor-body.is-bad {
+  border-color: rgba(255, 90, 70, 0.55);
+  background:
+    linear-gradient(180deg, rgba(64, 12, 10, 0.55), rgba(18, 2, 2, 0.96)),
+    #1a0404;
+  animation: node-badval-monitor-pulse 0.9s ease-in-out infinite alternate;
+}
+
+.node-badval-monitor-body.is-bad strong {
+  color: rgba(255, 110, 96, 0.98);
+  text-shadow: 0 0 14px rgba(255, 60, 40, 0.55);
+}
+
+.node-badval-monitor-body span {
+  color: rgba(210, 230, 236, 0.72);
+  font: 700 0.68rem/1.15 var(--node-mono-font);
+}
+
+.node-badval-monitor-body.is-bad [data-badval-reason] {
+  color: rgba(255, 200, 180, 0.96);
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+}
+
+.node-badval-monitor-hint {
+  margin-top: 2px;
+  color: rgba(160, 180, 190, 0.45) !important;
+  font-size: 0.55rem !important;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+}
+
+@keyframes node-badval-monitor-pulse {
+  from {
+    box-shadow: inset 0 0 0 0 rgba(255, 60, 40, 0);
+  }
+  to {
+    box-shadow: inset 0 0 18px 0 rgba(255, 50, 30, 0.28);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .node-badval-monitor-body.is-bad {
+    animation: none;
+  }
 }
 
 .node-speaker-protection-body {
@@ -11943,8 +12002,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
     var(--node-module-scope-height)
     var(--node-module-interface-controls-height)
     minmax(var(--node-io-section-min-height), auto)
-    auto;
-  align-content: start;
+    auto
+    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
+  align-content: stretch;
 }
 
 .sample-module-layout .node-module-scope-window {
@@ -12011,6 +12071,15 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   overflow: hidden;
   padding: 0;
   visibility: hidden;
+}
+
+/* Headerless LayoutB: no title chrome → zero header track (must win over
+   generic .title-hidden header-height rules that still reserve button space). */
+.dsp-node.solid-module-layout:not(:has(> .dsp-node-header)),
+.dsp-node.chrome-layout-b.solid-module-layout:not(:has(> .dsp-node-header)),
+.dsp-node.solid-module-layout.title-hidden,
+.dsp-node.chrome-layout-b.solid-module-layout.title-hidden {
+  --node-header-height: 0px;
 }
 
 .node-graph-workspace.module-sliders-hidden .dsp-node-body,
@@ -12233,7 +12302,11 @@ input.node-header-title:focus {
   pointer-events: none;
 }
 
-.node-io-row:hover,
+/* LayoutA stacked IO: hovering the compact row lights the jack.
+   LayoutB solid rows are tall equal bands — bare :hover must NOT light jacks
+   (empty gap is for module select/drag). Jack glow uses .patch-point-hover from
+   the geometric hitbox only, or direct .node-port:hover. */
+.dsp-node-io-section .node-io-row:hover,
 .node-io-row.patch-point-hover {
   cursor: var(--node-dot-cursor);
   color: color-mix(in srgb, var(--text) 88%, var(--accent));
@@ -12336,12 +12409,6 @@ input.node-header-title:focus {
 
 .node-drag-handle {
   font-size: clamp(1rem, calc(var(--node-header-height) * var(--node-move-symbol-size-ratio, 0.6) * 0.47), 2rem);
-  cursor: var(--node-move-cursor);
-}
-
-.node-ui-dev-drag-handle,
-.node-user-ui-settings-drag-handle {
-  font-size: calc(var(--node-move-symbol-size-ratio, 0.6) * 1.72rem);
   cursor: var(--node-move-cursor);
 }
 
@@ -13037,51 +13104,18 @@ input.node-header-title:focus {
   display: none;
 }
 
-.metadata-popover-heading,
 .metadata-popover-actions {
   grid-column: 1 / -1;
-}
-
-.metadata-popover-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
 
-.metadata-popover-heading button,
 .metadata-popover-grid button {
   min-height: 30px;
   padding: 0;
   font-size: 0.72rem;
-}
-
-.metadata-popover-corner-drag {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  z-index: 4;
-  inline-size: 18px;
-  block-size: 18px;
-  min-inline-size: 18px;
-  min-block-size: 18px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 4px 0 6px 0;
-  background:
-    linear-gradient(135deg, transparent 0 48%, rgba(127, 199, 217, 0.36) 50% 56%, transparent 58%),
-    linear-gradient(135deg, transparent 0 64%, rgba(127, 199, 217, 0.58) 66% 72%, transparent 74%),
-    rgba(7, 10, 13, 0.72);
-  touch-action: none;
-  user-select: none;
-}
-
-.metadata-popover-corner-drag.dragging {
-  background:
-    linear-gradient(135deg, transparent 0 48%, rgba(226, 168, 109, 0.56) 50% 56%, transparent 58%),
-    linear-gradient(135deg, transparent 0 64%, rgba(226, 168, 109, 0.8) 66% 72%, transparent 74%),
-    rgba(7, 10, 13, 0.88);
 }
 
 .metadata-popover-grid {
@@ -13126,10 +13160,8 @@ input.node-header-title:focus {
   grid-auto-rows: unset;
 }
 
-.node-parameter-metadata-popover > .metadata-popover-heading,
 .node-parameter-metadata-popover > .scene-context-heading,
 .node-trace-display-settings-popover > .scene-context-heading,
-.node-trace-display-settings-popover > .node-trace-display-settings-heading,
 .node-parameter-metadata-popover > .node-unified-window-nav-host,
 .node-trace-display-settings-popover > .node-unified-window-nav-host {
   flex: 0 0 auto;
@@ -14297,7 +14329,18 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   background: rgb(7, 10, 13);
 }
 
-#nodeSceneContextMenu :is(
+/*
+ * Floating-window content buttons (not title chrome / nav / resize).
+ * Chrome is classed (.scene-context-drag-handle, .panel-close-button,
+ * .scene-context-resize-handle, .node-unified-window-nav-button) and left alone.
+ */
+:is(
+  .node-scene-context-menu,
+  .node-module-actions-window,
+  .node-visibility-menu,
+  .node-parameter-metadata-popover,
+  .node-user-ui-settings-panel
+) :is(
   button:not(.scene-context-drag-handle):not(.panel-close-button):not(.scene-context-resize-handle):not(.node-unified-window-nav-button),
   .scene-context-window-button,
   .scene-context-module-browser-button,
@@ -14306,7 +14349,13 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   background: rgb(16, 22, 26);
 }
 
-#nodeSceneContextMenu :is(
+:is(
+  .node-scene-context-menu,
+  .node-module-actions-window,
+  .node-visibility-menu,
+  .node-parameter-metadata-popover,
+  .node-user-ui-settings-panel
+) :is(
   button:not(.scene-context-drag-handle):not(.panel-close-button):not(.scene-context-resize-handle):not(.node-unified-window-nav-button),
   .scene-context-window-button,
   .scene-context-module-browser-button,
@@ -14398,43 +14447,9 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   margin-block: 0;
 }
 
-.node-module-actions-window .scene-context-heading {
+/* Title chrome: shared .scene-context-heading only — no page-local overrides. */
+.node-module-actions-window > .scene-context-heading {
   flex: 0 0 auto;
-  margin: 0;
-  background: rgb(3, 5, 7);
-}
-
-.node-module-actions-window .scene-context-title {
-  justify-items: center;
-  padding-inline: 2px;
-  min-width: 0;
-  overflow: hidden;
-  text-align: center;
-}
-
-.node-module-actions-window .scene-context-title > span {
-  font-size: 0.82rem;
-  line-height: 1.08;
-}
-
-.node-module-actions-window .scene-context-title > small {
-  font-size: 0.68rem;
-  line-height: 1.08;
-}
-
-.node-module-actions-window .scene-context-drag-handle,
-.node-module-actions-window .panel-close-button {
-  inline-size: var(--node-floating-window-header-height);
-  min-inline-size: var(--node-floating-window-header-height);
-  max-inline-size: var(--node-floating-window-header-height);
-  block-size: var(--node-floating-window-header-height);
-  min-height: 0;
-  overflow: hidden;
-  font-size: calc(var(--node-move-symbol-size-ratio, 0.6) * 1.44rem);
-}
-
-.node-module-actions-window .panel-close-button span {
-  font-size: 1rem;
 }
 
 .node-module-actions-window button:not(.scene-context-drag-handle):not(.panel-close-button):not(.scene-context-resize-handle):not(.node-unified-window-nav-button) {
@@ -14448,6 +14463,8 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   text-overflow: clip;
   white-space: nowrap;
 }
+
+/* Content action density only — colors come from the shared floating rule above. */
 
 .node-module-actions-window .scene-context-selected-module {
   display: grid;
@@ -14561,98 +14578,6 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   text-align: center;
   text-overflow: clip;
   white-space: normal;
-}
-
-.node-module-actions-window .scene-context-resize-handle {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  margin: 0;
-}
-
-.node-scene-context-menu .scene-context-resize-handle,
-.node-visibility-menu .scene-context-resize-handle {
-  position: sticky;
-  right: 0;
-  bottom: 0;
-  justify-self: end;
-  align-self: end;
-  width: 18px;
-  min-width: 18px;
-  height: 18px;
-  min-height: 18px;
-  margin-top: -18px;
-  padding: 0;
-  border: 0;
-  border-radius: 4px 0 6px 0;
-  background:
-    linear-gradient(135deg, transparent 0 48%, rgba(127, 199, 217, 0.36) 50% 56%, transparent 58%),
-    linear-gradient(135deg, transparent 0 64%, rgba(127, 199, 217, 0.58) 66% 72%, transparent 74%),
-    rgba(7, 10, 13, 0.72);
-  touch-action: none;
-}
-
-#nodeSceneContextMenu .scene-context-resize-handle {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  z-index: 4;
-  margin: 0;
-}
-
-.node-scene-context-menu .scene-context-resize-handle:hover,
-.node-scene-context-menu .scene-context-resize-handle.dragging,
-.node-visibility-menu .scene-context-resize-handle:hover,
-.node-visibility-menu .scene-context-resize-handle.dragging {
-  background:
-    linear-gradient(135deg, transparent 0 48%, rgba(226, 168, 109, 0.56) 50% 56%, transparent 58%),
-    linear-gradient(135deg, transparent 0 64%, rgba(226, 168, 109, 0.8) 66% 72%, transparent 74%),
-    rgba(7, 10, 13, 0.88);
-}
-
-.node-scene-context-menu .scene-context-resize-handle,
-.node-visibility-menu .scene-context-resize-handle,
-.node-saved-patches-resize-handle,
-.node-module-shop-resize-handle,
-.metadata-popover-corner-drag {
-  box-sizing: border-box;
-  inline-size: 18px;
-  block-size: 18px;
-  min-inline-size: 18px;
-  min-block-size: 18px;
-  max-inline-size: 18px;
-  max-block-size: 18px;
-  padding: 0;
-  border: 0;
-  border-radius: 4px 0 6px 0;
-  background:
-    linear-gradient(135deg, transparent 0 48%, rgba(127, 199, 217, 0.36) 50% 56%, transparent 58%),
-    linear-gradient(135deg, transparent 0 64%, rgba(127, 199, 217, 0.58) 66% 72%, transparent 74%),
-    rgba(7, 10, 13, 0.72);
-  touch-action: none;
-}
-
-.node-saved-patches-resize-handle::before,
-.node-saved-patches-resize-handle::after {
-  display: none;
-}
-
-.node-scene-context-menu .scene-context-resize-handle:hover,
-.node-scene-context-menu .scene-context-resize-handle.dragging,
-.node-visibility-menu .scene-context-resize-handle:hover,
-.node-visibility-menu .scene-context-resize-handle.dragging,
-.node-saved-patches-resize-handle:hover,
-.node-saved-patches-resize-handle.dragging,
-.node-module-shop-resize-handle:hover,
-.node-module-shop-resize-handle.dragging,
-.node-module-shop-resize-handle:focus-visible,
-.metadata-popover-corner-drag:hover,
-.metadata-popover-corner-drag.dragging,
-.metadata-popover-corner-drag:focus-visible {
-  background:
-    linear-gradient(135deg, transparent 0 48%, rgba(226, 168, 109, 0.56) 50% 56%, transparent 58%),
-    linear-gradient(135deg, transparent 0 64%, rgba(226, 168, 109, 0.8) 66% 72%, transparent 74%),
-    rgba(7, 10, 13, 0.88);
 }
 
 .scene-context-store-list {
@@ -14833,25 +14758,14 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   gap: 4px;
 }
 
-.node-scene-context-menu button:not(.scene-context-drag-handle):not(.panel-close-button):not(.scene-context-resize-handle) {
+.node-scene-context-menu button:not(.scene-context-drag-handle):not(.panel-close-button):not(.scene-context-resize-handle):not(.node-unified-window-nav-button) {
   min-height: 32px;
+  margin: 0;
   justify-content: flex-start;
   padding: 0 10px;
+  border-radius: 0;
   font-size: 0.78rem;
   text-align: left;
-}
-
-.node-scene-context-menu .panel-close-button {
-  justify-content: center;
-  padding: 0;
-  text-align: center;
-}
-
-#nodeSceneContextMenu button:not(.scene-context-drag-handle):not(.panel-close-button):not(.node-unified-window-nav-button):not(.scene-context-resize-handle),
-#nodeSceneContextMenu .scene-context-window-button {
-  margin: 0;
-  padding-block: 0;
-  border-radius: 0;
 }
 
 .node-scene-context-menu button[hidden] {
@@ -15046,9 +14960,20 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   display: none;
 }
 
+.scene-context-wire-type-control > .scene-context-wire-pixel-label {
+  margin-top: 2px;
+  opacity: 0.9;
+}
+
 .scene-context-wire-type-control > div {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+}
+
+.scene-context-wire-type-control > .scene-context-wire-pixel-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0;
 }
 
@@ -16164,688 +16089,6 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   font-size: 0.68rem;
 }
 
-.node-shader-script-dialog {
-  position: fixed;
-  z-index: 75;
-  inset: auto 18px 18px auto;
-  width: min(960px, calc(100vw - 36px));
-  max-height: min(720px, calc(100vh - 36px));
-  color: var(--text);
-}
-
-.node-canvas-script-dialog {
-  position: fixed;
-  z-index: 76;
-  inset: auto 18px 18px auto;
-  width: min(860px, calc(100vw - 36px));
-  max-height: min(680px, calc(100vh - 36px));
-  color: var(--text);
-}
-
-.node-canvas-script-dialog[hidden] {
-  display: none;
-}
-
-.node-canvas-script-panel {
-  display: grid;
-  grid-template-rows: auto minmax(260px, 1fr) auto;
-  gap: 10px;
-  min-height: 430px;
-  padding: 12px;
-  border: 1px solid rgba(127, 199, 217, 0.28);
-  border-radius: 8px;
-  background:
-    linear-gradient(145deg, rgba(9, 18, 22, 0.96), rgba(2, 4, 7, 0.97)),
-    rgba(2, 4, 7, 0.96);
-  box-shadow:
-    0 18px 54px rgba(0, 0, 0, 0.48),
-    0 0 34px rgba(76, 220, 224, 0.1);
-}
-
-.node-canvas-script-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  user-select: none;
-}
-
-.node-canvas-script-heading > div {
-  display: grid;
-  gap: 2px;
-}
-
-.node-canvas-script-heading span {
-  color: rgba(127, 199, 217, 0.72);
-  font-family: Consolas, "Courier New", monospace;
-  font-size: 0.64rem;
-  line-height: 1;
-  text-transform: uppercase;
-}
-
-.node-canvas-script-heading strong {
-  color: rgba(190, 211, 209, 0.74);
-  font-size: 1rem;
-  font-weight: 700;
-  line-height: 1.1;
-}
-
-.node-canvas-script-body {
-  display: grid;
-  grid-template-columns: minmax(160px, 220px) minmax(0, 1fr);
-  gap: 10px;
-  min-height: 260px;
-}
-
-.node-canvas-script-preview {
-  position: relative;
-  display: grid;
-  min-height: 240px;
-  place-items: center;
-  overflow: hidden;
-  border: 1px solid rgba(127, 199, 217, 0.16);
-  border-radius: 6px;
-  background: var(--node-canvas-face-background, #000000);
-}
-
-.node-canvas-script-preview-layers {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-}
-
-.node-canvas-script-preview-layer {
-  position: absolute;
-  display: grid;
-  left: var(--node-canvas-layer-x, 50%);
-  top: var(--node-canvas-layer-y, 50%);
-  width: 42%;
-  height: 34%;
-  opacity: var(--node-canvas-layer-opacity, 1);
-  place-items: center;
-  border: 1px solid rgba(243, 241, 236, 0.16);
-  border-radius: 4px;
-  color: rgba(243, 241, 236, 0.72);
-  font-family: "Cascadia Mono", Consolas, monospace;
-  font-weight: 800;
-  transform:
-    translate(-50%, -50%)
-    rotate(var(--node-canvas-layer-rotation, 0deg))
-    scale(var(--node-canvas-layer-scale, 1));
-  transform-origin: center;
-  background:
-    linear-gradient(135deg, hsl(var(--node-canvas-layer-hue, 190) 76% 58% / 0.24), hsl(calc(var(--node-canvas-layer-hue, 190) + 34) 72% 40% / 0.12));
-  box-shadow: 0 0 18px hsl(var(--node-canvas-layer-hue, 190) 80% 60% / 0.16);
-}
-
-.node-canvas-script-preview strong {
-  position: relative;
-  z-index: 1;
-  padding: 5px 8px;
-  border: 1px solid rgba(127, 199, 217, 0.18);
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.72);
-  color: rgba(216, 247, 255, 0.82);
-  font-family: "Cascadia Mono", Consolas, monospace;
-  font-size: 0.68rem;
-}
-
-#nodeCanvasScriptSource {
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  min-height: 260px;
-  resize: none;
-  border: 1px solid rgba(127, 199, 217, 0.22);
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.72);
-  color: rgba(216, 247, 255, 0.9);
-  font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
-  font-size: 0.84rem;
-  line-height: 1.42;
-  padding: 10px;
-}
-
-.node-canvas-script-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.node-shader-script-dialog[hidden] {
-  display: none;
-}
-
-.node-shader-script-panel {
-  display: grid;
-  grid-template-rows: auto minmax(240px, 1fr) auto;
-  gap: 10px;
-  min-height: 420px;
-  padding: 12px;
-  border: 1px solid rgba(127, 199, 217, 0.28);
-  border-radius: 8px;
-  background:
-    linear-gradient(145deg, rgba(9, 18, 22, 0.96), rgba(2, 4, 7, 0.97)),
-    rgba(2, 4, 7, 0.96);
-  box-shadow:
-    0 18px 54px rgba(0, 0, 0, 0.48),
-    0 0 34px rgba(76, 220, 224, 0.1);
-}
-
-.node-shader-script-heading {
-  display: grid;
-  grid-template-columns: minmax(120px, 1fr) minmax(0, auto) minmax(34px, 1fr);
-  align-items: center;
-  gap: 12px;
-}
-
-.node-shader-script-heading > div:first-child {
-  display: grid;
-  gap: 2px;
-  justify-self: start;
-}
-
-.node-shader-script-heading span {
-  color: rgba(127, 199, 217, 0.72);
-  font-family: Consolas, "Courier New", monospace;
-  font-size: 0.64rem;
-  line-height: 1;
-  text-transform: uppercase;
-}
-
-.node-shader-script-heading strong {
-  color: rgba(190, 211, 209, 0.74);
-  font-size: 1rem;
-  font-weight: 700;
-  line-height: 1.1;
-}
-
-.node-shader-script-size-controls {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-self: center;
-  min-width: 0;
-}
-
-.node-shader-script-size-controls button,
-.node-shader-script-quick-actions button {
-  display: grid;
-  min-width: 38px;
-  height: 34px;
-  padding: 0 9px;
-  place-items: center;
-  border: 1px solid rgba(127, 199, 217, 0.18);
-  border-radius: 6px;
-  background:
-    linear-gradient(180deg, rgba(13, 24, 28, 0.88), rgba(4, 10, 12, 0.94));
-  color: rgba(190, 211, 209, 0.74);
-  font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
-  font-size: 1.36rem;
-  font-weight: 800;
-  line-height: 1;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
-}
-
-.node-shader-script-quick-actions {
-  display: inline-flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 5px;
-  min-width: 0;
-}
-
-.node-shader-script-live-toggle-group {
-  display: inline-flex;
-  align-items: stretch;
-  overflow: hidden;
-  border: 1px solid rgba(127, 199, 217, 0.24);
-  border-radius: 7px;
-  background: rgba(1, 8, 10, 0.86);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
-}
-
-.node-shader-script-quick-actions button {
-  height: 30px;
-  min-width: 0;
-  padding-inline: 8px;
-  font-size: 0.68rem;
-}
-
-.node-shader-script-live-toggle-group button {
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.node-shader-script-live-toggle-group button + button {
-  border-left: 1px solid rgba(127, 199, 217, 0.18);
-}
-
-#nodeShaderScriptApply[aria-pressed="true"] {
-  background:
-    linear-gradient(180deg, rgba(41, 127, 82, 0.96), rgba(18, 83, 51, 0.98));
-  color: rgba(233, 255, 240, 0.96);
-  text-shadow: 0 0 8px rgba(84, 255, 155, 0.24);
-}
-
-#nodeShaderScriptEnable[aria-pressed="true"] {
-  background:
-    linear-gradient(180deg, rgba(158, 54, 50, 0.96), rgba(94, 27, 32, 0.98));
-  color: rgba(255, 235, 232, 0.96);
-  text-shadow: 0 0 8px rgba(255, 96, 82, 0.24);
-}
-
-.node-shader-script-size-controls button:hover {
-  border-color: rgba(127, 199, 217, 0.34);
-  color: rgba(226, 238, 234, 0.9);
-}
-
-.node-shader-script-size-controls button:disabled {
-  color: rgba(127, 199, 217, 0.26);
-}
-
-#nodeShaderScriptSyntaxColorsButton {
-  font-size: 0.68rem;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.node-shader-script-heading > .panel-close-button {
-  justify-self: end;
-}
-
-.node-shader-script-body {
-  display: grid;
-  grid-template-columns: minmax(140px, 190px) minmax(0, 1fr);
-  gap: 6px;
-  min-height: 240px;
-}
-
-.node-shader-script-body:has(.node-shader-script-preview-panel[hidden]) {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.node-shader-script-editor {
-  position: relative;
-  box-sizing: border-box;
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  min-height: 240px;
-  border: 1px solid rgba(127, 199, 217, 0.22);
-  border-radius: 6px;
-  background:
-    linear-gradient(180deg, rgba(1, 8, 10, 0.88), rgba(0, 0, 0, 0.92));
-  overflow: hidden;
-}
-
-.node-shader-script-preview-panel {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-
-.node-shader-script-preview-panel[hidden] {
-  display: none;
-}
-
-.node-shader-script-camera-viewport {
-  position: relative;
-  width: 100%;
-  min-height: 240px;
-  overflow: hidden;
-  border-radius: 4px;
-  background: transparent;
-}
-
-.node-shader-script-preview-panel p {
-  margin: 0;
-  color: rgba(156, 164, 166, 0.74);
-  font-size: 0.68rem;
-  line-height: 1.3;
-}
-
-.node-shader-script-preview-panel p:empty {
-  display: none;
-}
-
-.node-shader-script-video-input-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 30px;
-  padding: 0 2px;
-}
-
-.node-shader-script-video-input-bar[hidden] {
-  display: none;
-}
-
-.node-shader-script-video-input-bar > span {
-  color: rgba(156, 164, 166, 0.76);
-  font-family: Consolas, "Courier New", monospace;
-  font-size: 0.58rem;
-  line-height: 1;
-  text-transform: uppercase;
-}
-
-.node-shader-script-video-input-choices {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.node-shader-script-video-input-choices button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 26px;
-  min-width: 30px;
-  padding: 0 9px;
-  border: 1px solid rgba(127, 199, 217, 0.16);
-  border-radius: 5px;
-  background: rgba(7, 18, 22, 0.58);
-  color: rgba(190, 211, 209, 0.72);
-  font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
-  font-size: 0.72rem;
-  line-height: 1;
-}
-
-.node-shader-script-video-input-index {
-  color: rgba(143, 255, 240, 0.72);
-  font-size: 0.66rem;
-}
-
-.node-shader-script-video-input-label {
-  color: rgba(226, 238, 234, 0.82);
-  font-size: 0.82rem;
-}
-
-.node-shader-script-video-input-choices button:hover {
-  border-color: rgba(127, 199, 217, 0.32);
-  color: rgba(226, 238, 234, 0.9);
-}
-
-.node-shader-script-video-input-choices button[aria-pressed="true"] {
-  border-color: rgba(102, 224, 163, 0.28);
-  background: rgba(13, 37, 30, 0.72);
-  color: rgba(143, 255, 240, 0.82);
-}
-
-.node-shader-script-highlight,
-.node-shader-script-dialog textarea {
-  box-sizing: border-box;
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  min-height: 240px;
-  margin: 0;
-  padding: 10px;
-  border: 0;
-  background: transparent;
-  font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
-  font-size: var(--node-shader-script-font-size, 0.72rem);
-  line-height: 1.35;
-  tab-size: 2;
-  white-space: pre;
-}
-
-.node-shader-script-highlight {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  color: rgba(232, 255, 246, 0.92);
-  pointer-events: none;
-}
-
-.node-shader-token-link {
-  border-bottom: 1px dotted currentColor;
-  text-decoration: none;
-  text-underline-offset: 0.16em;
-}
-
-.node-shader-token-property {
-  color: var(--node-shader-token-property, #7fc7d9);
-}
-
-.node-shader-token-assignment {
-  color: var(--node-shader-token-assignment, #d6a35f);
-}
-
-.node-shader-token-color {
-  text-shadow: 0 0 6px color-mix(in srgb, currentColor 36%, transparent);
-}
-
-.node-shader-token-number {
-  color: var(--node-shader-token-number, #a9cda6);
-}
-
-.node-shader-token-mode {
-  color: var(--node-shader-token-mode, #d3a070);
-}
-
-.node-shader-token-comment {
-  color: var(--node-shader-token-comment, #9ca4a6);
-}
-
-.node-shader-script-dialog textarea {
-  position: relative;
-  display: block;
-  resize: none;
-  color: rgba(232, 255, 246, 0.92);
-  caret-color: rgba(255, 255, 255, 0.98);
-  -webkit-text-fill-color: transparent;
-}
-
-.node-shader-script-dialog textarea:focus {
-  outline: 0;
-}
-
-:where(
-  input[type="text"],
-  input[type="search"],
-  input[type="url"],
-  input[type="email"],
-  input[type="password"],
-  input[type="number"],
-  textarea,
-  .metadata-script-panel textarea,
-  .node-shader-script-dialog textarea,
-  #nodeCanvasScriptSource,
-  .node-script-view textarea,
-  .node-code-screen-source-label textarea,
-  .node-code-screen-registry textarea,
-  .node-code-screen-json-preview textarea
-):not(.node-text-box-input) {
-  --node-editor-caret-color: rgba(255, 255, 255, 0.98);
-  animation: nodeTextCaretBlink 2s steps(1, end) infinite;
-}
-
-.node-shader-script-editor:focus-within {
-  border-color: rgba(127, 199, 217, 0.58);
-  box-shadow: 0 0 0 1px rgba(127, 199, 217, 0.12);
-}
-
-.node-shader-script-token-widget {
-  position: absolute;
-  z-index: 4;
-  display: grid;
-  gap: 6px;
-  min-width: 170px;
-  padding: 8px;
-  border: 1px solid rgba(127, 199, 217, 0.32);
-  border-radius: 6px;
-  background:
-    linear-gradient(180deg, rgba(17, 28, 32, 0.98), rgba(3, 10, 12, 0.98));
-  box-shadow:
-    0 12px 34px rgba(0, 0, 0, 0.55),
-    0 0 18px rgba(76, 220, 224, 0.08);
-}
-
-.node-shader-script-token-widget[hidden],
-.node-shader-script-token-widget-section[hidden] {
-  display: none;
-}
-
-.node-shader-script-token-widget-section {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 6px;
-}
-
-.node-shader-script-token-widget-section:has(.node-shader-script-color-widget-host) {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.node-shader-script-color-widget-host {
-  width: 220px;
-  height: 104px;
-  --color-widget-accent: rgba(127, 199, 217, 0.86);
-  --color-widget-bg: rgba(0, 5, 7, 0.42);
-  --color-widget-border: rgba(127, 199, 217, 0.2);
-  --color-widget-control-border: rgba(127, 199, 217, 0.22);
-  --color-widget-hex-bg: rgba(0, 5, 7, 0.68);
-  --color-widget-hex-ink: rgba(236, 251, 246, 0.9);
-  --color-widget-label-ink: rgba(156, 164, 166, 0.78);
-}
-
-.node-shader-script-token-widget-section.mode-options {
-  grid-template-columns: auto repeat(5, minmax(0, auto));
-}
-
-.node-shader-script-token-widget-section span {
-  color: rgba(156, 164, 166, 0.78);
-  font-family: Consolas, "Courier New", monospace;
-  font-size: 0.58rem;
-  text-transform: uppercase;
-}
-
-.node-shader-script-token-widget-section input {
-  min-width: 0;
-  height: 28px;
-  border: 1px solid rgba(127, 199, 217, 0.22);
-  border-radius: 4px;
-  background: rgba(0, 5, 7, 0.92);
-  color: rgba(236, 251, 246, 0.94);
-  font: inherit;
-}
-
-.node-shader-script-token-widget-section button {
-  min-width: 28px;
-  height: 28px;
-  padding: 0 7px;
-  border: 1px solid rgba(127, 199, 217, 0.18);
-  border-radius: 4px;
-  background: rgba(7, 18, 22, 0.82);
-  color: rgba(190, 211, 209, 0.76);
-  font: inherit;
-}
-
-@media (max-width: 760px) {
-  .node-shader-script-body {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.node-shader-script-syntax-colors-panel {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  padding: 8px;
-  border: 1px solid rgba(127, 199, 217, 0.2);
-  border-radius: 6px;
-  background:
-    linear-gradient(180deg, rgba(8, 18, 21, 0.92), rgba(2, 7, 9, 0.96));
-}
-
-.node-shader-script-syntax-colors-panel[hidden] {
-  display: none;
-}
-
-.node-shader-script-syntax-colors-heading {
-  display: flex;
-  grid-column: 1 / -1;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.node-shader-script-syntax-colors-heading span,
-.node-shader-script-syntax-colors-panel label span {
-  color: rgba(156, 164, 166, 0.76);
-  font-family: Consolas, "Courier New", monospace;
-  font-size: 0.58rem;
-  line-height: 1;
-  text-transform: uppercase;
-}
-
-.node-shader-script-syntax-colors-panel label {
-  display: grid;
-  gap: 4px;
-}
-
-.node-shader-script-syntax-colors-panel input[type="color"] {
-  width: 100%;
-  height: 30px;
-  padding: 2px;
-  border: 1px solid rgba(127, 199, 217, 0.22);
-  border-radius: 4px;
-  background: rgba(0, 5, 7, 0.92);
-}
-
-.node-shader-script-syntax-colors-panel button {
-  min-height: 26px;
-  border: 1px solid rgba(127, 199, 217, 0.16);
-  border-radius: 4px;
-  background: rgba(7, 18, 22, 0.82);
-  color: rgba(190, 211, 209, 0.76);
-  font: inherit;
-}
-
-.node-shader-script-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.node-shader-script-actions #nodeShaderScriptStatus {
-  flex: 1 1 220px;
-  min-width: 0;
-  user-select: text;
-}
-
-.node-shader-script-actions button {
-  min-height: 30px;
-  border: 1px solid rgba(127, 199, 217, 0.16);
-  border-radius: 5px;
-  background: rgba(7, 18, 22, 0.72);
-  color: rgba(190, 211, 209, 0.74);
-  font: inherit;
-}
-
-.node-shader-script-actions button:hover {
-  border-color: rgba(127, 199, 217, 0.32);
-  background: rgba(13, 34, 39, 0.76);
-  color: rgba(226, 238, 234, 0.9);
-}
-
-.node-shader-script-actions button[aria-pressed="true"] {
-  border-color: rgba(102, 224, 163, 0.24);
-  background: rgba(13, 37, 30, 0.84);
-  color: rgba(143, 255, 240, 0.76);
-}
 
 .node-scene-context-menu button kbd {
   margin-left: auto;
@@ -17105,8 +16348,9 @@ body.node-slider-dragging .node-param-port {
   --node-patch-point-x: 0%;
   --node-port-stroke-mask-color: color-mix(in srgb, var(--node-input-fill) 15%, transparent);
   --node-port-crescent-fill: var(--node-port-stroke-mask-color);
-  /* Keep inlet arc matched to module frame (not input accent color). */
-  --node-port-crescent-stroke: color-mix(in srgb, var(--node-module-stroke) 16%, transparent);
+  /* Connected inlet: match fill arc to input (no dark frame hairline on the
+     flat join where the wire meets the half-jack). */
+  --node-port-crescent-stroke: color-mix(in srgb, var(--node-input-stroke) 42%, transparent);
   --node-port-crescent-stroke-width: 1px;
   border-color: transparent;
 }
@@ -17247,7 +16491,9 @@ body.node-slider-dragging .node-param-port {
 
 .node-port:not(.node-param-port):hover,
 .node-port:not(.node-param-port).patch-point-hover,
-.node-io-row:hover .node-port:not(.node-param-port),
+/* LayoutA only: row :hover implies jack (compact rows). Solid LayoutB uses
+   .patch-point-hover from jack-local hitbox — not row :hover on tall 1fr bands. */
+.dsp-node-io-section .node-io-row:hover .node-port:not(.node-param-port),
 .node-io-row.patch-point-hover .node-port:not(.node-param-port) {
   --node-port-stroke-mask-color: color-mix(in srgb, var(--node-port-hover-color, var(--node-port-hover-fill)) 16%, transparent);
   --node-port-crescent-fill: var(--node-port-stroke-mask-color);

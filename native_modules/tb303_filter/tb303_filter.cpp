@@ -104,6 +104,17 @@ static void update_hp(TeeBeeState& s, double rate) {
   s.lastRate = rate;
 }
 
+// Ladder soft-clip (same family as JS ladder / tb303 live path). Prevents
+// high resonance + drive from exploding the state and then staying silent.
+static inline double soft_clip(double x) {
+  return x / (1.0 + x * x);
+}
+
+static void reset_state(TeeBeeState& s) {
+  s.y1 = s.y2 = s.y3 = s.y4 = 0.0;
+  s.hpX = s.hpY = 0.0;
+}
+
 static void set_mode(TeeBeeState& s, int m) {
   s.lastMode = m;
   switch (m) {
@@ -190,10 +201,10 @@ extern "C" double soemdsp_tb303_filter_sample(
   const double a1         = r * a1_fullRes + (1.0 - r) * a1_noRes;
   const double b0         = 1.0 + a1;
 
-  // feedback gain k
+  // feedback gain k — capped so soft-clip can hold self-osc without blow-up
   const double gsq_d = clamp(1.0 + a1*a1 + 2.0*a1*cosWc, 1e-12, 1e30);
   const double gsq   = (b0 * b0) / gsq_d;
-  const double k     = r / clamp(gsq * gsq, 1e-24, 1e30);
+  const double k     = mind(3.5, r / clamp(gsq * gsq, 1e-24, 1e30));
 
   // feedback highpass on k*y4
   const double fbIn = k * s.y4;
@@ -201,15 +212,34 @@ extern "C" double soemdsp_tb303_filter_sample(
   s.hpX = fbIn;
   s.hpY = fbHp;
 
-  // ladder stages
-  const double y0  = safe(0.125 * driveFactor * safe(input) - fbHp);
+  // Soft-clip at ladder entry (high res + drive stability).
+  const double y0  = soft_clip(0.125 * driveFactor * safe(input) - fbHp);
   const double ny1 = safe(y0  + a1 * (y0  - s.y1));
   const double ny2 = safe(ny1 + a1 * (ny1 - s.y2));
   const double ny3 = safe(ny2 + a1 * (ny2 - s.y3));
   const double ny4 = safe(ny3 + a1 * (ny3 - s.y4));
+
+  // If stages still blew up, hard-reset so the filter does not stay silent
+  // after a resonance/drive explosion (NaN/Inf or absurd finite magnitudes).
+  const bool stageBad =
+    (ny1 != ny1) || (ny2 != ny2) || (ny3 != ny3) || (ny4 != ny4) || (y0 != y0)
+    || (s.hpY != s.hpY)
+    || dsp_fabs(ny1) > 1.0e8 || dsp_fabs(ny2) > 1.0e8
+    || dsp_fabs(ny3) > 1.0e8 || dsp_fabs(ny4) > 1.0e8
+    || dsp_fabs(y0) > 1.0e8 || dsp_fabs(s.hpY) > 1.0e8;
+  if (stageBad) {
+    reset_state(s);
+    return 0.0;
+  }
+
   s.y1 = ny1; s.y2 = ny2; s.y3 = ny3; s.y4 = ny4;
 
-  return safe(8.0 * (s.c0*y0 + s.c1*ny1 + s.c2*ny2 + s.c3*ny3 + s.c4*ny4));
+  const double out = 8.0 * (s.c0*y0 + s.c1*ny1 + s.c2*ny2 + s.c3*ny3 + s.c4*ny4);
+  if ((out != out) || dsp_fabs(out) > 1.0e8) {
+    reset_state(s);
+    return 0.0;
+  }
+  return clamp(out, -32.0, 32.0);
 }
 
 extern "C" int soemdsp_tb303_filter_version() {

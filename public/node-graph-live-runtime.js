@@ -1044,6 +1044,9 @@ function nodeGraphSetLivePlanRunningStatus(plan) {
     "good",
   );
   renderNodeGraphLiveControls(true);
+  if (typeof refreshNodeGraphBadvalMonitorBodies === "function") {
+    refreshNodeGraphBadvalMonitorBodies();
+  }
 }
 
 function nodeGraphClearGpuAdditivePrime() {
@@ -2231,6 +2234,9 @@ async function stopNodeGraphLiveAudio() {
   setNodeGraphLiveScheduleStatus("schedule stopped");
   clearNodeGraphLiveStatusTitle();
   renderNodeGraphLiveControls(false);
+  if (typeof refreshNodeGraphBadvalMonitorBodies === "function") {
+    refreshNodeGraphBadvalMonitorBodies();
+  }
 }
 
 // Ordered source files assembled into one Blob and loaded via a single
@@ -2243,13 +2249,13 @@ async function stopNodeGraphLiveAudio() {
 // has finished defining/registering.
 const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-graph-parameter-smoother-filters.js?v=two-pole-smooth-1",
-  "./public/node-live-audio-worklet-core.js?v=contour-square-blend-1",
+  "./public/node-live-audio-worklet-core.js?v=native-no-fallback-1",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=xy-pad-dsp-path-1",
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/sineWavetable/sine-wavetable-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/additiveOsc/additive-osc-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/polyBlep/poly-blep-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/polyBlep/poly-blep-worklet-evaluator.js?v=native-no-fallback-1",
   "./public/modules/noiseGenerator/noise-generator-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/randomWalk/random-walk-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/piSpigotNoise/pi-spigot-noise-worklet-evaluator.js?v=native-strip-1",
@@ -2272,8 +2278,8 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/nyquistShannon/nyquist-shannon-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/surgeOscillator/surge-oscillator-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/dsfOscillator/dsf-oscillator-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/robinSupersaw/robin-supersaw-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/hypersaw/hypersaw-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/robinSupersaw/robin-supersaw-worklet-evaluator.js?v=native-no-fallback-1",
+  "./public/modules/hypersaw/hypersaw-worklet-evaluator.js?v=native-no-fallback-1",
   "./public/modules/chordSequencer/chord-sequencer-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/lutCell/lut-cell-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/passiveFilter/passive-filter-worklet-evaluator.js?v=native-strip-1",
@@ -2292,7 +2298,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/comparator/comparator-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/minMax/min-max-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/aliasSine/alias-sine-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/tb303Filter/tb303-filter-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/tb303Filter/tb303-filter-worklet-evaluator.js?v=native-no-fallback-1",
   "./public/modules/delayEffect/delay-effect-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/pingPongDelay/ping-pong-delay-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/wallDelay/wall-delay-worklet-evaluator.js?v=native-strip-1",
@@ -2314,7 +2320,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/logSpiral/log-spiral-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/lorenzAttractor/lorenz-attractor-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/clock/clock-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/transport/transport-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/transport/transport-worklet-evaluator.js?v=native-no-fallback-1",
   "./public/modules/randomClock/random-clock-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/triggerDivider/trigger-divider-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/delayedTrigger/delayed-trigger-worklet-evaluator.js?v=native-strip-1",
@@ -2322,10 +2328,10 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/stepSequencer/step-sequencer-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/stepGrid/step-grid-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/nextPatch/next-patch-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/softClipper/soft-clipper-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/softClipper/soft-clipper-worklet-evaluator.js?v=native-no-fallback-1",
   "./public/modules/rgbaHsla/rgba-hsla-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/screenSpaceShader/screen-space-shader-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/metallicRatio/metallic-ratio-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/metallicRatio/metallic-ratio-worklet-evaluator.js?v=native-no-fallback-1",
   "./public/modules/speakerProtection/speaker-protection-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/badvalMonitor/badval-monitor-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/radar/radar-worklet-evaluator.js?v=native-strip-1",
@@ -2522,6 +2528,10 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     setNodeGraphLiveStatus("starting", "warn");
     renderNodeGraphLiveControls(false);
     stopNodeGraphRenderedPlayback();
+    // Fresh session: reset BADVAL Monitor faces to CLEAR.
+    if (typeof clearNodeGraphBadvalModuleStates === "function") {
+      clearNodeGraphBadvalModuleStates();
+    }
     if (nodeGraphMvp.live.node || nodeGraphMvp.live.context) {
       await stopNodeGraphLiveAudio();
       if (nodeGraphLiveOutputStartCancelled(outputSerial)) {

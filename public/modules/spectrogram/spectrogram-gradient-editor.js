@@ -1,18 +1,33 @@
 /**
- * Shared multi-stop gradient editor (spectrogram + all phosphor faces).
- * - Equal-width rectangular stop swatches (no circle-in-square)
- * - No chrome strokes on swatches
- * - Selecting a stop mounts SoundColorWidget for quick editing
- * - Preset chips update stops + hex list
+ * ═══════════════════════════════════════════════════════════════════════════
+ * NodeGraphGradientSelector — SINGLE SOURCE OF TRUTH
+ * ═══════════════════════════════════════════════════════════════════════════
  *
- * API:
- *   mountSharedGradientEditor(host, { stops, onChange, hint })
- *   mountSpectrogramGradientEditor(...)  — alias
- *   mountPhosphorGradientEditor(...)     — alias
- * Stop: { t: 0..1, color: "#rrggbb" }
+ * This file owns gradient UI/UX for the whole app:
+ *   layout · control scheme · stop model · presets · color widget modes ·
+ *   display-settings profiles (which faces use the selector + B/W vs color)
+ *
+ * Call ONLY through `NodeGraphGradientSelector` (or thin wrappers that
+ * delegate to it). Do not reimplement bar/stops/presets elsewhere.
+ *
+ * Public API (on window / globalThis):
+ *   NodeGraphGradientSelector.mount(host, options)
+ *   NodeGraphGradientSelector.normalizeStops(raw, options?)
+ *   NodeGraphGradientSelector.defaultStops(kind)
+ *   NodeGraphGradientSelector.usesDisplayGradient(formType)
+ *   NodeGraphGradientSelector.profileForDisplay(formType)
+ *   NodeGraphGradientSelector.syncDisplaySettings(popover, visible)
+ *   NodeGraphGradientSelector.setActive(editor) / clearActive() / getActive()
+ *
+ * Stop model: { t: 0..1, color: "#rrggbb" }
+ * Channels:   "color" (full H/S/L) | "bw" (luma / black–white only)
+ *
+ * Legacy aliases (deprecated — keep for old call sites):
+ *   mountSharedGradientEditor / mountSpectrogramGradientEditor /
+ *   mountPhosphorGradientEditor / normalizeSharedGradientStops / …
  */
-(function spectrogramGradientEditorModule(global) {
-  const STYLE_ID = "spectrogram-gradient-editor-styles";
+(function nodeGraphGradientSelectorModule(global) {
+  const STYLE_ID = "node-gradient-selector-styles";
 
   const DEFAULT_STOPS = Object.freeze([
     { t: 0, color: "#000000" },
@@ -29,6 +44,30 @@
     { t: 0.18, color: "#0a2a33" },
     { t: 0.55, color: "#3a9aab" },
     { t: 1, color: "#75ebff" },
+  ]);
+
+  // Black/white channel presets only (no hue/RGB ramps).
+  const PRESETS_BW = Object.freeze([
+    {
+      id: "bw-basic",
+      label: "B/W",
+      colors: ["#000000", "#ffffff"],
+    },
+    {
+      id: "grayscale",
+      label: "Gray",
+      colors: ["#000000", "#404040", "#a0a0a0", "#ffffff"],
+    },
+    {
+      id: "soft",
+      label: "Soft",
+      colors: ["#000000", "#1a1a1a", "#666666", "#e0e0e0", "#ffffff"],
+    },
+    {
+      id: "lcd",
+      label: "LCD",
+      colors: ["#0a0a0a", "#2a2a2a", "#c8c8c8", "#f5f5f5"],
+    },
   ]);
 
   const PRESETS = Object.freeze([
@@ -255,6 +294,15 @@
       .sge-color-widget-host .scw-brightness {
         background: linear-gradient(90deg, #000000, #ffffff) !important;
       }
+      /* B/W channel mode: single brightness slider (Number Readout). */
+      .sge-color-widget-host[data-channels="bw"] .scw-root,
+      .sge-color-widget-host .scw-root[data-channels="bw"] {
+        grid-template-rows: 18px 48px 28px !important;
+      }
+      .sge-color-widget-host[data-channels="bw"] .scw-controls,
+      .sge-color-widget-host .scw-root[data-channels="bw"] .scw-controls {
+        grid-template-columns: minmax(0, 1fr) !important;
+      }
       .sge-color-widget-host .scw-hex {
         border: none !important;
         box-shadow: none !important;
@@ -439,18 +487,42 @@
     return lut;
   }
 
+  function hexToLumaGray(hex) {
+    const h = normalizeHex(hex, "#808080");
+    const r = parseInt(h.slice(1, 3), 16);
+    const g = parseInt(h.slice(3, 5), 16);
+    const b = parseInt(h.slice(5, 7), 16);
+    // Rec. 709 luma → equal RGB channels (black / white only).
+    const y = Math.max(0, Math.min(255, Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b)));
+    const xx = y.toString(16).padStart(2, "0");
+    return `#${xx}${xx}${xx}`;
+  }
+
+  function forceStopsGrayscale(stops) {
+    return normalizeStops(stops).map((stop) => ({
+      t: stop.t,
+      color: hexToLumaGray(stop.color),
+    }));
+  }
+
   function mountSharedGradientEditor(host, options = {}) {
     if (!host) return null;
     ensureStyles();
     host.replaceChildren();
     host.classList.add("sge-host");
 
-    let stops = normalizeStops(options.stops);
+    // mono / channels:"bw" → black/white stops only (optional; LCD uses color×luma now).
+    const mono = options.mono === true || options.channels === "bw";
+    host.dataset.channels = mono ? "bw" : "full";
+    let stops = mono ? forceStopsGrayscale(options.stops) : normalizeStops(options.stops);
     let activeIndex = 0;
     let activePresetId = "";
     let colorWidget = null;
+    const presetList = mono ? PRESETS_BW : PRESETS;
     const hintText = options.hint
-      || "Select a stop to edit · presets fill stops + hex list · live audition on the face";
+      || (mono
+        ? "Black / white gradient · select a stop · brightness only"
+        : "Select a stop to edit · presets fill stops + hex list · live audition on the face");
 
     const root = document.createElement("div");
     root.className = "sge-root";
@@ -514,9 +586,12 @@
     const mountActiveColorWidget = () => {
       destroyColorWidget();
       if (!colorHost) return;
+      colorHost.dataset.channels = mono ? "bw" : "full";
       const stop = stops[activeIndex];
       if (!stop) return;
-      const hsl = hexToHsl(stop.color);
+      const hsl = mono
+        ? { h: 0, s: 0, l: hexToHsl(stop.color).l, a: 1 }
+        : hexToHsl(stop.color);
       const mount = typeof global.mountColorWidget === "function"
         ? global.mountColorWidget
         : (typeof window !== "undefined" ? window.mountColorWidget : null);
@@ -543,10 +618,15 @@
         return;
       }
       colorWidget = mount(colorHost, {
-        label: "Stop",
+        label: mono ? "Level" : "Stop",
+        channels: mono ? "bw" : "full",
+        mono,
         ...hsl,
         onChange: (color) => {
-          const nextHex = normalizeHex(color?.hex, stops[activeIndex].color);
+          let nextHex = normalizeHex(color?.hex, stops[activeIndex].color);
+          if (mono) {
+            nextHex = hexToLumaGray(nextHex);
+          }
           stops[activeIndex].color = nextHex;
           activePresetId = "";
           renderBar();
@@ -559,7 +639,7 @@
 
     const renderPresets = () => {
       presetsRow.replaceChildren();
-      for (const preset of PRESETS) {
+      for (const preset of presetList) {
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "sge-preset";
@@ -567,7 +647,9 @@
         btn.textContent = preset.label;
         btn.title = preset.colors.join(", ");
         btn.addEventListener("click", () => {
-          stops = colorsToStops(preset.colors);
+          stops = mono
+            ? forceStopsGrayscale(colorsToStops(preset.colors))
+            : colorsToStops(preset.colors);
           activeIndex = 0;
           activePresetId = preset.id;
           renderBar();
@@ -703,7 +785,7 @@
     listArea.addEventListener("change", () => {
       const parsed = parseHexList(listArea.value);
       if (!parsed) return;
-      stops = parsed;
+      stops = mono ? forceStopsGrayscale(parsed) : parsed;
       activeIndex = 0;
       activePresetId = "";
       renderBar();
@@ -727,14 +809,14 @@
         host.replaceChildren();
       },
       setStops(next) {
-        stops = normalizeStops(next);
+        stops = mono ? forceStopsGrayscale(next) : normalizeStops(next);
         activeIndex = 0;
         activePresetId = "";
         renderBar();
         renderControls();
       },
       getStops() {
-        return normalizeStops(stops);
+        return mono ? forceStopsGrayscale(stops) : normalizeStops(stops);
       },
     };
   }
@@ -792,13 +874,257 @@
     return rgb;
   }
 
-  // Shared + legacy spectrogram aliases.
-  global.mountSharedGradientEditor = mountSharedGradientEditor;
-  global.mountPhosphorGradientEditor = mountSharedGradientEditor;
-  global.mountSpectrogramGradientEditor = mountSharedGradientEditor;
-  global.normalizeSharedGradientStops = normalizeStops;
-  global.spectrogramNormalizeGradientStops = normalizeStops;
-  global.phosphorNormalizeGradientStops = normalizeStops;
+  /**
+   * Display-settings profiles: every form type that shows the gradient
+   * selector must register here. Adding a face = one entry; UI comes free.
+   */
+  const DISPLAY_PROFILES = Object.freeze({
+    spectrogramBurn: Object.freeze({
+      channels: "color",
+      defaultStops: "spectrogram",
+      hint: "Select a stop · presets · live audition on the spectrogram",
+    }),
+    scope2d: Object.freeze({
+      channels: "color",
+      defaultStops: "phosphor",
+      hint: "Select a stop · presets · live audition on the phosphor face",
+    }),
+    phosphorLight: Object.freeze({
+      channels: "color",
+      defaultStops: "phosphor",
+      hint: "Select a stop · presets · live audition on the phosphor face",
+    }),
+    xyPad: Object.freeze({
+      channels: "color",
+      defaultStops: "phosphor",
+      hint: "Select a stop · presets · live audition on the XY pad trail",
+    }),
+    dot: Object.freeze({
+      channels: "color",
+      defaultStops: "phosphor",
+      hint: "Select a stop · presets · live audition on the phosphor face",
+    }),
+    lineBurn: Object.freeze({
+      channels: "color",
+      defaultStops: "phosphor",
+      hint: "Select a stop · presets · live audition on the burn trail",
+    }),
+    // Same color×luma scheme as 2D phosphor: multi-stop color LUT maps
+    // underlying light amount (energy / segment intensity) → color.
+    numberReadout: Object.freeze({
+      channels: "color",
+      defaultStops: "phosphor",
+      hint: "Select a stop · presets · live audition on the LCD (energy → color)",
+    }),
+  });
+
+  const DEFAULT_BW_STOPS = Object.freeze([
+    Object.freeze({ t: 0, color: "#000000" }),
+    Object.freeze({ t: 0.35, color: "#404040" }),
+    Object.freeze({ t: 1, color: "#e8e8e8" }),
+  ]);
+
+  function defaultStopsForKind(kind) {
+    if (kind === "bw") {
+      return DEFAULT_BW_STOPS.map((s) => ({ t: s.t, color: s.color }));
+    }
+    if (kind === "spectrogram") {
+      return DEFAULT_STOPS.map((s) => ({ t: s.t, color: s.color }));
+    }
+    // phosphor / color energy faces (including numberReadout LCD)
+    return DEFAULT_PHOSPHOR_STOPS.map((s) => ({ t: s.t, color: s.color }));
+  }
+
+  function normalizeStopsWithOptions(raw, options = {}) {
+    const channels = options.channels === "bw" || options.mono === true ? "bw" : "color";
+    const fallback = Array.isArray(options.fallbackStops) && options.fallbackStops.length >= 2
+      ? options.fallbackStops.map((s) => ({ t: s.t, color: s.color }))
+      : defaultStopsForKind(channels === "bw" ? "bw" : (options.defaultStops || "phosphor"));
+    const list = Array.isArray(raw)
+      ? raw
+      : (raw && typeof raw === "object" && Array.isArray(raw.gradientStops)
+        ? raw.gradientStops
+        : (raw && typeof raw === "object" && Array.isArray(raw.gradient)
+          ? raw.gradient
+          : null));
+    let stops = normalizeStops(list && list.length ? list : fallback);
+    if (!Array.isArray(stops) || stops.length < 2) {
+      stops = fallback.map((s) => ({ t: s.t, color: s.color }));
+    }
+    if (channels === "bw") {
+      stops = forceStopsGrayscale(stops);
+    }
+    return stops;
+  }
+
+  function mvp() {
+    return typeof global.nodeGraphMvp !== "undefined" ? global.nodeGraphMvp : null;
+  }
+
+  function getActiveEditor() {
+    const m = mvp();
+    return m?.gradientSelector || m?.sharedGradientEditor || m?.spectrogramGradientEditor || null;
+  }
+
+  function setActiveEditor(editor) {
+    const m = mvp();
+    if (!m) {
+      return;
+    }
+    // Single live instance key; legacy names are mirrors only.
+    m.gradientSelector = editor;
+    m.sharedGradientEditor = editor;
+    m.spectrogramGradientEditor = editor;
+  }
+
+  function clearActiveEditor() {
+    const editor = getActiveEditor();
+    try {
+      editor?.destroy?.();
+    } catch (_) { /* ignore */ }
+    const m = mvp();
+    if (m) {
+      m.gradientSelector = null;
+      m.sharedGradientEditor = null;
+      m.spectrogramGradientEditor = null;
+    }
+  }
+
+  /**
+   * Mount or update the selector in a display-settings popover.
+   * Single path for every face that uses a gradient.
+   */
+  function syncDisplaySettings(popover, visible) {
+    const host = popover?.querySelector?.("[data-gradient-selector-host], [data-shared-gradient-host], [data-spectrogram-gradient-host]")
+      || document.getElementById("nodeTraceDisplayGradientSelectorHost")
+      || document.getElementById("nodeTraceDisplaySharedGradientHost")
+      || document.getElementById("nodeTraceDisplaySpectrogramGradientHost");
+    if (!host) {
+      return null;
+    }
+    if (!visible) {
+      clearActiveEditor();
+      host.dataset.sgeMounted = "0";
+      return null;
+    }
+    const formType = typeof global.nodeGraphTraceDisplaySettingsFormType === "function"
+      ? global.nodeGraphTraceDisplaySettingsFormType()
+      : "";
+    const profile = DISPLAY_PROFILES[formType] || null;
+    if (!profile) {
+      clearActiveEditor();
+      host.dataset.sgeMounted = "0";
+      return null;
+    }
+    const channels = profile.channels === "bw" ? "bw" : "color";
+    const settings = typeof global.nodeGraphTraceDisplayCurrentSettingsForFormType === "function"
+      ? global.nodeGraphTraceDisplayCurrentSettingsForFormType(formType)
+      : null;
+    let stops = settings?.gradientStops;
+    if (!stops || !Array.isArray(stops) || stops.length < 2) {
+      if (channels === "bw" && settings) {
+        const peak = settings.color || settings.dot1Color || "#e8e8e8";
+        const bg = settings.background || settings.backgroundColor || "#000000";
+        stops = normalizeStopsWithOptions(
+          [{ t: 0, color: bg }, { t: 1, color: peak }],
+          { channels: "bw", defaultStops: "bw" },
+        );
+      } else if (typeof global.nodeGraphPhosphorGradientStopsFromSettings === "function") {
+        stops = global.nodeGraphPhosphorGradientStopsFromSettings(settings || {});
+      } else {
+        stops = defaultStopsForKind(profile.defaultStops || "phosphor");
+      }
+    }
+    stops = normalizeStopsWithOptions(stops, {
+      channels,
+      defaultStops: profile.defaultStops,
+    });
+
+    const channelKey = channels === "bw" ? "bw" : "full";
+    const active = getActiveEditor();
+    if (
+      active?.setStops
+      && host.dataset.sgeMounted === "1"
+      && host.dataset.sgeChannels === channelKey
+    ) {
+      active.setStops(stops);
+      return active;
+    }
+    if (active?.destroy) {
+      try {
+        active.destroy();
+      } catch (_) { /* ignore */ }
+    }
+    host.dataset.sgeMounted = "1";
+    host.dataset.sgeChannels = channelKey;
+    const editor = mountSharedGradientEditor(host, {
+      stops,
+      mono: channels === "bw",
+      channels: channels === "bw" ? "bw" : "full",
+      hint: profile.hint,
+      onChange() {
+        if (typeof global.applyNodeGraphTraceDisplaySettingsForm === "function") {
+          global.applyNodeGraphTraceDisplaySettingsForm({ persist: "debounce", record: false });
+        }
+      },
+    });
+    setActiveEditor(editor);
+    return editor;
+  }
+
+  const NodeGraphGradientSelector = Object.freeze({
+    CHANNELS_COLOR: "color",
+    CHANNELS_BW: "bw",
+    HOST_SELECTOR: "[data-gradient-selector-host], [data-shared-gradient-host], [data-spectrogram-gradient-host]",
+    HOST_ATTR: "data-gradient-selector-host",
+    /** @readonly formType → profile (channels, hint, defaultStops) */
+    displayProfiles: DISPLAY_PROFILES,
+    usesDisplayGradient(formType) {
+      return Boolean(DISPLAY_PROFILES[formType]);
+    },
+    profileForDisplay(formType) {
+      return DISPLAY_PROFILES[formType] || null;
+    },
+    defaultStops(kind = "phosphor") {
+      return defaultStopsForKind(kind);
+    },
+    normalizeStops(raw, options = {}) {
+      return normalizeStopsWithOptions(raw, options);
+    },
+    mount(host, options = {}) {
+      const profile = options.profile && DISPLAY_PROFILES[options.profile]
+        ? DISPLAY_PROFILES[options.profile]
+        : null;
+      const channels = options.channels === "bw" || options.mono === true || profile?.channels === "bw"
+        ? "bw"
+        : "color";
+      return mountSharedGradientEditor(host, {
+        ...options,
+        mono: channels === "bw",
+        channels: channels === "bw" ? "bw" : "full",
+        hint: options.hint || profile?.hint,
+        stops: normalizeStopsWithOptions(
+          options.stops,
+          { channels, defaultStops: profile?.defaultStops || options.defaultStops },
+        ),
+      });
+    },
+    syncDisplaySettings,
+    getActive: getActiveEditor,
+    setActive: setActiveEditor,
+    clearActive: clearActiveEditor,
+  });
+
+  // ── Canonical export ─────────────────────────────────────────────────────
+  global.NodeGraphGradientSelector = NodeGraphGradientSelector;
+
+  // ── Legacy aliases (deprecated — all point at the same implementation) ───
+  global.mountSharedGradientEditor = (host, options) => NodeGraphGradientSelector.mount(host, options);
+  global.mountPhosphorGradientEditor = global.mountSharedGradientEditor;
+  global.mountSpectrogramGradientEditor = global.mountSharedGradientEditor;
+  global.normalizeSharedGradientStops = (raw) => NodeGraphGradientSelector.normalizeStops(raw);
+  global.spectrogramNormalizeGradientStops = global.normalizeSharedGradientStops;
+  global.phosphorNormalizeGradientStops = global.normalizeSharedGradientStops;
   global.buildSharedGradientLut = buildLutFromStops;
   global.spectrogramBuildGradientLut = buildLutFromStops;
   global.phosphorBuildGradientLut = buildLutFromStops;
@@ -810,4 +1136,5 @@
   global.SHARED_GRADIENT_PRESETS = PRESETS;
   global.SPECTROGRAM_GRADIENT_PRESETS = PRESETS;
   global.PHOSPHOR_GRADIENT_PRESETS = PRESETS;
+  global.NODE_GRAPH_GRADIENT_BW_DEFAULT_STOPS = DEFAULT_BW_STOPS;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -75,6 +75,12 @@ function applyNodeGraphLedFaceAppearance(face, settings, level) {
       ? `0 0 ${glowPx}px ${Math.round(glowPx * 0.35)}px rgba(${r}, ${g}, ${b}, ${glowAlpha})`
       : "none",
   );
+  // Room-light: modest live strength (dimmer bloom stays practical).
+  if (face?.dataset) {
+    const br = Math.max(0, Math.min(1, Number(settings.brightness) || 1));
+    const str = Math.max(0, Math.min(1, Math.max(0, Math.min(1, level)) * (0.4 + 0.45 * br)));
+    face.dataset.lightStrength = str.toFixed(3);
+  }
 }
 
 function drawNodeGraphLedLampItem(renderer, item, pixelRatio) {

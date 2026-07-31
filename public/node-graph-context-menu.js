@@ -702,6 +702,7 @@ const nodeGraphModuleActionControlIds = [
   "nodeSceneModuleVisibilityActionGroup",
   "nodeSceneToggleInterfaceControls",
   "nodeSceneImageControls",
+  "nodeSceneValueSliderFaceControls",
   "nodeSceneCanvasControls",
   "nodeSceneLedControls",
   "nodeSceneBugButtonControls",
@@ -923,6 +924,7 @@ function configureNodeSceneContextMenu(mode) {
   const selectedModule = document.getElementById("nodeSceneSelectedModule");
   const wireTypeControl = document.getElementById("nodeSceneWireTypeControl");
   const wireTypeButtons = [...wireTypeControl.querySelectorAll("[data-wire-type]")];
+  const wirePixelToggle = document.getElementById("nodeSceneWirePixelToggle");
   const aliasControl = document.getElementById("nodeSceneAliasControl");
   const aliasInput = document.getElementById("nodeSceneAliasInput");
   const addToGroupButton = document.getElementById("nodeSceneAddToGroup");
@@ -978,6 +980,7 @@ function configureNodeSceneContextMenu(mode) {
   const imageControls = document.getElementById("nodeSceneImageControls");
   const imageSave = document.getElementById("nodeSceneImageSave");
   const imageRefresh = document.getElementById("nodeSceneImageRefresh");
+  const valueSliderFaceControls = document.getElementById("nodeSceneValueSliderFaceControls");
   const canvasControls = document.getElementById("nodeSceneCanvasControls");
   const canvasScript = document.getElementById("nodeSceneCanvasScript");
   const ledControls = document.getElementById("nodeSceneLedControls");
@@ -1043,7 +1046,7 @@ function configureNodeSceneContextMenu(mode) {
     ? nodeGraphModuleWidthLimitsForType(targetNode.type)
     : nodeGraphModuleWidthLimits;
   const targetNodeUi = normalizeNodeGraphPatchNodeUi(targetNode?.ui, targetNode?.type);
-  const effectiveTargetNodeUi = nodeGraphEffectivePatchNodeUi(targetNode?.ui);
+  const effectiveTargetNodeUi = nodeGraphEffectivePatchNodeUi(targetNode?.ui, targetNode?.type);
   const targetSizingCapabilities = targetNode
     ? nodeGraphModuleSizingCapabilities(targetNode.type)
     : nodeGraphModuleSizingCapabilities("");
@@ -1159,6 +1162,9 @@ function configureNodeSceneContextMenu(mode) {
   toggleIoButton.hidden = !moduleMode || multiModuleMode;
   toggleTitleButton.hidden = !moduleMode || multiModuleMode;
   imageControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "image");
+  if (valueSliderFaceControls) {
+    valueSliderFaceControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "valueSlider");
+  }
   canvasControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "canvas");
   ledControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "led");
   bugButtonControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "bugButton");
@@ -1341,6 +1347,9 @@ function configureNodeSceneContextMenu(mode) {
       imageSave.title = imageLayout.dataUrl ? "Save this image node's current image." : "Load an image before saving.";
       imageRefresh.title = "Refresh image preview and trace texture.";
     }
+    if (targetNode?.type === "valueSlider" && typeof syncNodeGraphValueSliderFaceControls === "function") {
+      syncNodeGraphValueSliderFaceControls(targetNode);
+    }
     if (targetNode?.type === "canvas") {
       canvasScript.disabled = false;
       canvasScript.title = "Open this canvas module's layer and compositor script.";
@@ -1468,6 +1477,15 @@ function configureNodeSceneContextMenu(mode) {
       button.setAttribute("aria-pressed", button.dataset.wireType === selectedWireType ? "true" : "false");
       button.title = nodeGraphTooltipText(`actions.wireType.${button.dataset.wireType}`);
     }
+    if (wirePixelToggle) {
+      const pixelOn = typeof normalizeNodeGraphWirePixel === "function"
+        ? normalizeNodeGraphWirePixel(selectedWire?.wire?.pixelWire)
+        : Boolean(selectedWire?.wire?.pixelWire);
+      wirePixelToggle.disabled = !selectedWire;
+      wirePixelToggle.setAttribute("aria-pressed", pixelOn ? "true" : "false");
+      wirePixelToggle.title = nodeGraphTooltipText("actions.wirePixel")
+        || "Pixel wire (manual). Raster beam renderer later; flag is saved on the wire.";
+    }
     deleteButton.disabled = !canDelete;
     deleteButton.title = canDelete
       ? nodeGraphTooltipText("actions.deleteWire")
@@ -1520,6 +1538,10 @@ function configureNodeSceneContextMenu(mode) {
     for (const button of wireTypeButtons) {
       button.disabled = true;
       button.setAttribute("aria-pressed", "false");
+    }
+    if (wirePixelToggle) {
+      wirePixelToggle.disabled = true;
+      wirePixelToggle.setAttribute("aria-pressed", "false");
     }
     copyButton.disabled = true;
     copyButton.title = nodeGraphTooltipText("actions.copyUnavailableModule");
@@ -1650,6 +1672,9 @@ function openNodeModuleActionMenu(event) {
   if (typeof openNodeXyPadContextMenu === "function" && openNodeXyPadContextMenu(event)) {
     return;
   }
+  if (typeof openNodeValueSliderFaceContextMenu === "function" && openNodeValueSliderFaceContextMenu(event)) {
+    return;
+  }
   if (typeof openNodeScopeContextMenu === "function" && openNodeScopeContextMenu(event)) {
     return;
   }
@@ -1760,7 +1785,7 @@ function openNodePhosphorWaveformContextMenu(event) {
 // Module Settings, never the Module Browser.
 const nodeGraphWorkspaceFloatingUiSelector =
   "#nodeSceneContextMenu, #nodeParameterMetadataPopover, #nodeGlobalScopeMenu, " +
-  "#nodeModuleActionsWindow, #nodeCodeBoxWindow, #nodeShaderScriptDialog, #nodeCanvasScriptDialog, #nodeSavedPatchesWindow, " +
+  "#nodeModuleActionsWindow, #nodeCodeBoxWindow, #nodeCanvasScriptDialog, #nodeSavedPatchesWindow, " +
   "#nodePhosphorWaveformSettingsWindow, #nodeLedSettingsWindow, #nodeModuleShopView, " +
   "#nodeTraceDisplaySettingsPopover";
 // Legacy alias: includes form fields for empty-canvas / marquee checks only.

@@ -36,10 +36,21 @@ function nodeGraphPortElementForWireEndpoint(node, port, io) {
   if (!surface) {
     return null;
   }
+  // LayoutA io-hidden uses a slim proxy strip. LayoutB keeps real jacks visible
+  // (labels only hide) so wire endpoints stay on the actual ports.
   if ((io === "input" || io === "output") && nodeGraphNodeIoHidden(node)) {
-    const proxyPort = surface.querySelector(nodeGraphIoProxyPortSelector(node, io));
-    if (proxyPort) {
-      return proxyPort;
+    const nodeElement = typeof nodeGraphNodeElement === "function"
+      ? nodeGraphNodeElement(node)
+      : null;
+    const isLayoutB = Boolean(
+      nodeElement?.classList.contains("chrome-layout-b")
+      || nodeElement?.dataset?.chromeLayout === "LayoutB",
+    );
+    if (!isLayoutB) {
+      const proxyPort = surface.querySelector(nodeGraphIoProxyPortSelector(node, io));
+      if (proxyPort) {
+        return proxyPort;
+      }
     }
   }
   const canonicalPort = nodeGraphCanonicalPortForNode(node, port, io);

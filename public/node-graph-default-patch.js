@@ -87,6 +87,14 @@ function createNodeGraphPatchNode(type, options = {}) {
   if (resolvedType === "clapPlugin") {
     node.clap = normalizeNodeGraphClapPluginBinding(options.clap);
   }
+  if (resolvedType === "valueSlider" && typeof normalizeNodeGraphValueSliderFace === "function") {
+    const face = normalizeNodeGraphValueSliderFace(opts.valueSliderFace);
+    if (typeof nodeGraphValueSliderFaceIsNonDefault === "function"
+      ? nodeGraphValueSliderFaceIsNonDefault(face)
+      : (face.mid?.dataUrl || face.bottom?.dataUrl || face.top?.dataUrl || face.rotateLikeKnob)) {
+      node.valueSliderFace = face;
+    }
+  }
   return node;
 }
 

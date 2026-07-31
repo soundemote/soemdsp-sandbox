@@ -31,6 +31,8 @@ function nodeGraphBadValueMonitorSample(value, runtime, nodeId) {
       runtime.badNumberCount = (runtime.badNumberCount || 0) + 1;
       runtime.lastBadNumber = { nodeId, source: `badval monitor input ${reason}` };
     }
+    // Face update + global evidence list (force: true so face works without
+    // arming the bottom-panel BADVAL Monitor toggle).
     if (typeof nodeGraphRecordBadValueEvent === "function") {
       nodeGraphRecordBadValueEvent({
         engine: runtime?.engine || "runtime",
@@ -39,6 +41,8 @@ function nodeGraphBadValueMonitorSample(value, runtime, nodeId) {
         reason,
         source: "BADVAL Monitor input",
       });
+    } else if (typeof recordNodeGraphBadvalModuleHit === "function") {
+      recordNodeGraphBadvalModuleHit(nodeId, reason);
     }
   }
   return number;

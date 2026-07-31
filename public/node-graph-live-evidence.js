@@ -121,19 +121,31 @@ function nodeGraphRecordBadValueEvent(details = {}) {
     return;
   }
   const monitor = nodeGraphMvp.badValueMonitor;
-  monitor.serial = (monitor.serial || 0) + 1;
-  monitor.events = [
+  // Ensure map exists even when the global panel was never armed.
+  if (!monitor) {
+    nodeGraphMvp.badValueMonitor = { enabled: false, events: [], serial: 0 };
+  }
+  const store = nodeGraphMvp.badValueMonitor;
+  store.serial = (store.serial || 0) + 1;
+  const nodeId = String(details.nodeId || "");
+  const reason = String(details.reason || "bad");
+  const count = Math.max(1, Number(details.count) || 1);
+  store.events = [
     ...nodeGraphBadValueMonitorEvents(),
     {
-      count: Math.max(1, Number(details.count) || 1),
+      count,
       engine: String(details.engine || (nodeGraphMvp.live.usesWorklet ? "worklet" : "runtime")),
-      nodeId: String(details.nodeId || ""),
-      reason: String(details.reason || "bad"),
-      serial: monitor.serial,
+      nodeId,
+      reason,
+      serial: store.serial,
       source: String(details.source || "dsp"),
     },
   ].slice(-24);
   renderNodeGraphBadValueMonitorEvidence();
+  // Module face: light the BADVAL Monitor panel when that node tripped.
+  if (nodeId && typeof recordNodeGraphBadvalModuleHit === "function") {
+    recordNodeGraphBadvalModuleHit(nodeId, reason, { count });
+  }
 }
 
 function setNodeGraphLiveBlockedError(kind, error, options = {}) {
