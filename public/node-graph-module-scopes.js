@@ -1208,6 +1208,144 @@ function resetNodeGraphModuleScopeFrameClocks() {
   };
 }
 
+/**
+ * Resolve the LCD/plate color under a face canvas (CSS token, then solid bg).
+ * Used when simulation stops so screens return to a cold dark plate, not a
+ * frozen last frame.
+ */
+function nodeGraphModuleScopePlateBackgroundForElement(element) {
+  if (!element || typeof getComputedStyle !== "function") {
+    return nodeGraphFacePlateDefaultBackground;
+  }
+  const host = element.closest?.(
+    ".node-module-scope-window, .node-module-scope-window-surface, .node-xy-pad, .node-led-face, .dsp-node",
+  ) || element.parentElement || element;
+  try {
+    const style = getComputedStyle(host);
+    const token = String(style.getPropertyValue("--node-scope-background") || "").trim();
+    if (token) {
+      return token;
+    }
+    const bg = String(style.backgroundColor || "").trim();
+    if (bg && bg !== "transparent" && bg !== "rgba(0, 0, 0, 0)") {
+      return bg;
+    }
+  } catch (_error) {
+    // Best-effort; fall through to default plate.
+  }
+  return nodeGraphFacePlateDefaultBackground;
+}
+
+/**
+ * Wipe every module screen back to idle plate — same cold look as app start.
+ * Drops phosphor residual FBOs and paints face canvases solid plate color so
+ * stop feels like powering the simulation off (not freezing mid-trail).
+ */
+function wipeNodeGraphModuleScopeScreensToColdBoot() {
+  if (typeof document === "undefined") {
+    return;
+  }
+  // Off-screen spectrogram history bitmaps (if the display registered a wipe).
+  if (typeof clearNodeGraphSpectrogramHistory === "function") {
+    try {
+      clearNodeGraphSpectrogramHistory();
+    } catch (_error) {
+      // Best-effort.
+    }
+  }
+  // LEDs are CSS lamps (no canvas) — force unlit + no glow.
+  for (const face of document.querySelectorAll(".node-led-face")) {
+    const shell = face.closest(".dsp-node") || face;
+    shell.style?.setProperty?.("--node-led-face-color", "rgb(0, 0, 0)");
+    shell.style?.setProperty?.("--node-led-face-glow", "none");
+    if (face.dataset) {
+      face.dataset.lightStrength = "0";
+      delete face.dataset.ledAppearance;
+    }
+  }
+  // Room-light emitters go dark with the simulation.
+  for (const el of document.querySelectorAll("[data-light-strength], [data-light-source]")) {
+    if (el.dataset) {
+      el.dataset.lightStrength = "0";
+    }
+  }
+  const phosphorKeys = ["_phosphorEnergyGl", "_xyPadPhosphorEnergyGl"];
+  const canvases = new Set();
+  for (const canvas of document.querySelectorAll(
+    "canvas.node-module-scope-local-fallback-canvas, canvas.node-xy-pad-canvas, canvas.node-spectrogram-canvas",
+  )) {
+    if (canvas instanceof HTMLCanvasElement) {
+      canvases.add(canvas);
+    }
+  }
+  // Any other canvas still holding a phosphor energy face (chromeless modules).
+  for (const canvas of document.querySelectorAll("canvas")) {
+    if (!(canvas instanceof HTMLCanvasElement)) {
+      continue;
+    }
+    if (phosphorKeys.some((key) => canvas[key])) {
+      canvases.add(canvas);
+    }
+  }
+  if (typeof nodeGraphModuleScopePersistentCanvases !== "undefined" && nodeGraphModuleScopePersistentCanvases?.values) {
+    for (const canvas of nodeGraphModuleScopePersistentCanvases.values()) {
+      if (canvas instanceof HTMLCanvasElement) {
+        canvases.add(canvas);
+      }
+    }
+  }
+  for (const canvas of canvases) {
+    // Shared workspace overlays are cleared by clearNodeGraphModuleScopeCanvas().
+    if (
+      canvas.id === "nodeModuleScopeCanvas"
+      || canvas.classList?.contains("node-module-scope-light-canvas")
+      || canvas.classList?.contains("node-room-dimmer-canvas")
+    ) {
+      continue;
+    }
+    for (const key of phosphorKeys) {
+      const face = canvas[key];
+      if (face && typeof nodeGraphPhosphorEnergyGlDestroy === "function") {
+        try {
+          nodeGraphPhosphorEnergyGlDestroy(face);
+        } catch (_error) {
+          // Best-effort; a torn-down WebGL context is already dark.
+        }
+      }
+      canvas[key] = null;
+    }
+    if (canvas._numberReadoutLastValueText !== undefined) {
+      canvas._numberReadoutLastValueText = "";
+      canvas._numberReadoutLastTextChangeAt = 0;
+      canvas._nodeGraphNumberReadoutText = "";
+    }
+    if (canvas._numberReadoutResidualPresent) {
+      const rctx = canvas._numberReadoutResidualPresent.getContext?.("2d");
+      rctx?.clearRect(
+        0,
+        0,
+        canvas._numberReadoutResidualPresent.width,
+        canvas._numberReadoutResidualPresent.height,
+      );
+    }
+    const context = canvas.getContext?.("2d");
+    if (!context || !(canvas.width > 0) || !(canvas.height > 0)) {
+      continue;
+    }
+    const bg = nodeGraphModuleScopePlateBackgroundForElement(canvas);
+    if (typeof nodeGraphFacePlateFillCanvas === "function") {
+      nodeGraphFacePlateFillCanvas(context, canvas, bg);
+    } else {
+      context.save();
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.globalCompositeOperation = "source-over";
+      context.fillStyle = bg || "#000000";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.restore();
+    }
+  }
+}
+
 function clearNodeGraphModuleScopeBuffers(options = {}) {
   const preserveDisplay = options?.preserveDisplay === true;
   const preserveBuffers = options?.preserveBuffers === true;
@@ -1243,30 +1381,9 @@ function clearNodeGraphModuleScopeBuffers(options = {}) {
   if (!preserveDisplay) {
     setNodeGraphModuleScopesEnabled(false);
     clearNodeGraphModuleScopeCanvas();
-    // Drop per-face phosphor residual (2D phosphor / number readout ghosts) so
-    // the next live-output start is a cold simulation, not mid-trail.
-    if (typeof document !== "undefined" && typeof nodeGraphPhosphorEnergyGlDestroy === "function") {
-      for (const canvas of document.querySelectorAll("canvas")) {
-        const glFace = canvas._phosphorEnergyGl;
-        if (glFace) {
-          try {
-            nodeGraphPhosphorEnergyGlDestroy(glFace);
-          } catch (_error) {
-            // Best-effort; a torn-down WebGL context is already dark.
-          }
-          canvas._phosphorEnergyGl = null;
-        }
-        if (canvas._numberReadoutLastValueText !== undefined) {
-          canvas._numberReadoutLastValueText = "";
-          canvas._numberReadoutLastTextChangeAt = 0;
-          canvas._nodeGraphNumberReadoutText = "";
-        }
-        if (canvas._numberReadoutResidualPresent) {
-          const rctx = canvas._numberReadoutResidualPresent.getContext?.("2d");
-          rctx?.clearRect(0, 0, canvas._numberReadoutResidualPresent.width, canvas._numberReadoutResidualPresent.height);
-        }
-      }
-    }
+    // Full cold-boot wipe: energy residual + painted face pixels + CSS lamps.
+    // stopNodeGraphLiveAudio calls this so Stop turns the simulation off.
+    wipeNodeGraphModuleScopeScreensToColdBoot();
   }
 }
 

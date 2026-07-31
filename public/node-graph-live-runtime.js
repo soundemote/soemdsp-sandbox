@@ -715,11 +715,18 @@ async function setNodeGraphLiveOutputEnabled(enabled) {
   renderNodeGraphExecutionPlanDebug();
 
   if (!outputEnabled) {
-    if (nodeGraphMvp.live.node || nodeGraphMvp.live.context) {
-      await stopNodeGraphLiveAudio();
-    }
+    // Full stop (same as transport ⏹): tear down audio, wipe screens, clear
+    // transport pause so the next start is live — never "still paused".
+    await stopNodeGraphLiveAudio();
     renderNodeGraphExecutionPlanDebug();
     return;
+  }
+
+  // Starting output is never "resume paused" — clear transport pause so Play
+  // means live simulation until the user pauses again.
+  if ((nodeGraphMvp.live.speedMultiplier ?? 1) <= 0) {
+    const resume = Number(nodeGraphMvp.live.lastPlaySpeed);
+    nodeGraphMvp.live.speedMultiplier = Number.isFinite(resume) && resume > 0 ? resume : 1;
   }
 
   if (nodeGraphMvp.live.node || nodeGraphMvp.live.context) {
@@ -736,12 +743,22 @@ async function setNodeGraphLiveOutputEnabled(enabled) {
   }
 }
 
+/**
+ * Red Output button / bypass: if the engine is on (running or paused), always
+ * full stop. If off, start. Pause is transport-only until we have a timeline.
+ */
 function toggleNodeGraphLiveOutput() {
   if (nodeGraphEarProtectionIsTripped()) {
     nodeGraphTripEarProtection({ source: "live" });
     return;
   }
-  setNodeGraphLiveOutputEnabled(!nodeGraphMvp.live.outputEnabled);
+  const engineUp = Boolean(nodeGraphMvp.live.node || nodeGraphMvp.live.context);
+  const outputOn = Boolean(nodeGraphMvp.live.outputEnabled);
+  if (outputOn || engineUp) {
+    setNodeGraphLiveOutputEnabled(false);
+    return;
+  }
+  setNodeGraphLiveOutputEnabled(true);
 }
 
 function setNodeGraphLiveSpeed(speed) {
@@ -749,6 +766,9 @@ function setNodeGraphLiveSpeed(speed) {
   const clamped = Number.isFinite(value) ? Math.max(0, value) : 1;
   if (nodeGraphMvp.live.speedMultiplier === clamped) {
     return;
+  }
+  if (clamped > 0) {
+    nodeGraphMvp.live.lastPlaySpeed = clamped;
   }
   nodeGraphMvp.live.speedMultiplier = clamped;
   sendNodeGraphLiveSpeed();
@@ -2197,6 +2217,14 @@ async function stopNodeGraphLiveAudio() {
   nodeGraphMvp.live.sessionId += 1;
   nodeGraphMvp.live.syncMode = "";
   nodeGraphMvp.live.usesWorklet = false;
+  // Stop clears transport pause. Without a timeline, halt = cold engine, not
+  // "still paused" — next Output/Play starts live (speed 0 stuck forever).
+  // (Do not clear outputEnabled here — start path stops-then-restarts and
+  // still needs outputEnabled true after this teardown.)
+  if ((nodeGraphMvp.live.speedMultiplier ?? 1) <= 0) {
+    const resume = Number(nodeGraphMvp.live.lastPlaySpeed);
+    nodeGraphMvp.live.speedMultiplier = Number.isFinite(resume) && resume > 0 ? resume : 1;
+  }
   nodeGraphStopGpuAdditiveProducer();
   // Full simulation restart on live output off: wipe scope history, phosphor
   // residual, and display state so the next start is a clean cold boot (not

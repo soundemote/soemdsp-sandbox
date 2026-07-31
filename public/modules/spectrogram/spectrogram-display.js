@@ -544,4 +544,31 @@ function drawNodeGraphSpectrogramItem(renderer, item, pixelRatio) {
   spectrogramPresent(ctx, st, faceW, faceH, plateBg);
 }
 
+/** Drop waterfall history so engine stop returns faces to a cold empty plate. */
+function clearNodeGraphSpectrogramHistory() {
+  for (const st of spectrogramHistory.values()) {
+    try {
+      const ctx = st?.ctx;
+      if (ctx && st.canvas) {
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.globalCompositeOperation = "source-over";
+        ctx.fillStyle = "#000000";
+        ctx.fillRect(0, 0, st.canvas.width, st.canvas.height);
+        ctx.restore();
+      }
+      if (st?.pendingMags?.fill) {
+        st.pendingMags.fill(0);
+      }
+      st.pendingValid = false;
+      st.lastHop = 0;
+      st.scrollDebtSec = 0;
+    } catch (_error) {
+      // Best-effort per face.
+    }
+  }
+  spectrogramHistory.clear();
+  spectrogramLutRgbCache.clear();
+}
+
 nodeGraphModuleScopeCustomRenderers.spectrogramBurn = drawNodeGraphSpectrogramItem;

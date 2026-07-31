@@ -271,7 +271,12 @@ function bindNodeGraphTransportButtons() {
   }
   if (stop) {
     stop.addEventListener("click", () => {
-      if (typeof soemdspSandboxToggleLiveOutput === "function") {
+      // Always full stop (never toggle). Same path as red Output when on.
+      if (typeof setNodeGraphLiveOutputEnabled === "function") {
+        setNodeGraphLiveOutputEnabled(false);
+      } else if (typeof soemdspSandboxSetLiveOutput === "function") {
+        soemdspSandboxSetLiveOutput(false);
+      } else if (typeof soemdspSandboxToggleLiveOutput === "function") {
         const outputActive = nodeGraphLiveOutputIsActive(Boolean(nodeGraphMvp.live.node));
         if (outputActive) soemdspSandboxToggleLiveOutput();
       }

@@ -16400,15 +16400,21 @@ body.node-slider-dragging .node-param-port {
   );
 }
 
+/*
+ * Connected wire pip: full circle centered on the flat edge (same place as
+ * before — half over the inlet, half over the wire gap). Only the shape is
+ * a full disk; do not change half-jack inlets.
+ */
 .node-port.connected-port::after,
 .node-param-port.connected-port::after {
   content: "";
   position: absolute;
+  z-index: 4;
   top: 50%;
   left: var(--node-patch-point-x, 50%);
   width: var(--node-wire-patch-point-size);
-  aspect-ratio: 1 / 1;
-  border-radius: 999px;
+  height: var(--node-wire-patch-point-size);
+  border-radius: 50%;
   /* Solid jack fill only — no ring stroke (that sat in the module-frame gap). */
   background: var(--node-patch-point-color, var(--node-port-hover-fill));
   box-shadow: none;
