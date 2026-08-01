@@ -2231,7 +2231,9 @@ const nodeGraphModuleDefinitions = (
   valueSlider: {
     chrome: NodeGraphModuleChromeLayout.LayoutB,
     // LayoutB face height (ports beside); value slider sits under the face.
-    displayHeightGu: 3,
+    // Min footprint is 2×2 gu; default face is 2gu tall.
+    defaultWidthGu: 2,
+    displayHeightGu: 2,
     layout: "sliderWidget",
     outputs: ["Bias"],
     outputLabels: {

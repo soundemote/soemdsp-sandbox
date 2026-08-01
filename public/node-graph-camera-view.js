@@ -212,9 +212,23 @@ function createNodeGraphCameraWorldClone(source, wireSvg) {
   clone.querySelector("#nodeCameraOverlayLayer")?.remove();
   clone.querySelector("#nodeSelectionMarquee")?.remove();
   clone.querySelector("#nodeWireSvg, .node-wire-svg")?.remove();
+  clone.querySelector("#nodeWireEndpointSvg, .node-wire-endpoint-svg")?.remove();
   const zoomSurface = clone.querySelector("#nodeGraphZoomSurface, .node-graph-zoom-surface") || clone;
   if (wireSvg) {
     zoomSurface.prepend(wireSvg);
+  }
+  // Cap layer above modules (same order as live graph).
+  const endpointSvg = nodeGraphCameraCloneWireSvg(document.getElementById("nodeWireEndpointSvg"));
+  if (endpointSvg) {
+    endpointSvg.classList.add("node-wire-endpoint-svg");
+    const nodes = zoomSurface.querySelector(".node-graph-nodes");
+    if (nodes?.nextSibling) {
+      zoomSurface.insertBefore(endpointSvg, nodes.nextSibling);
+    } else if (nodes) {
+      nodes.after(endpointSvg);
+    } else {
+      zoomSurface.append(endpointSvg);
+    }
   }
   copyNodeGraphCameraWorldCanvases(source, clone);
   clone.querySelectorAll("[id]").forEach((element) => {

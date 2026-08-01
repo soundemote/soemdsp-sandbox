@@ -84,7 +84,7 @@ const nodeUiDevSettingControls = Object.freeze([
   { defaultValue: 200, id: "nodeUiDevSliderAmountFillHue", key: "sliderAmountFillHue", max: 360, min: 0, type: "number" },
   { defaultValue: 31, id: "nodeUiDevSliderAmountFillSaturation", key: "sliderAmountFillSaturation", max: 100, min: 0, type: "number" },
   { defaultValue: 15, id: "nodeUiDevSliderAmountFillLightness", key: "sliderAmountFillLightness", max: 100, min: 0, type: "number" },
-  { defaultValue: 100, id: "nodeUiDevSliderAmountFillAlpha", key: "sliderAmountFillAlpha", max: 100, min: 0, type: "number" },
+  { defaultValue: 55, id: "nodeUiDevSliderAmountFillAlpha", key: "sliderAmountFillAlpha", max: 100, min: 0, type: "number" },
   { defaultValue: 203, id: "nodeUiDevSliderPositionFillHue", key: "sliderPositionFillHue", max: 360, min: 0, type: "number" },
   { defaultValue: 55, id: "nodeUiDevSliderPositionFillSaturation", key: "sliderPositionFillSaturation", max: 100, min: 0, type: "number" },
   { defaultValue: 57, id: "nodeUiDevSliderPositionFillLightness", key: "sliderPositionFillLightness", max: 100, min: 0, type: "number" },

@@ -390,11 +390,18 @@ function positionNodeSceneContextMenuAtCurrentSavedOrInitial(menu, x, y) {
   const currentPosition = menu.hidden ? null : nodeSceneContextMenuCurrentPosition(menu);
   const workspaceState = nodeGraphMvp.workspaceWindowStates?.commandCenter;
   const savedPosition = workspaceState?.position;
-  const chosenPosition = savedPosition || currentPosition;
-  const hasChosenPosition =
-    Number.isFinite(Number(chosenPosition?.left)) &&
-    Number.isFinite(Number(chosenPosition?.top));
-  if (hasChosenPosition) {
+  const usableSaved = typeof nodeGraphFloatingWindowSavedPositionIsUsable === "function"
+    ? nodeGraphFloatingWindowSavedPositionIsUsable(savedPosition)
+    : (Number.isFinite(Number(savedPosition?.left))
+      && Number.isFinite(Number(savedPosition?.top))
+      && !(Number(savedPosition.left) === 0 && Number(savedPosition.top) === 0));
+  const usableCurrent = typeof nodeGraphFloatingWindowSavedPositionIsUsable === "function"
+    ? nodeGraphFloatingWindowSavedPositionIsUsable(currentPosition)
+    : (Number.isFinite(Number(currentPosition?.left))
+      && Number.isFinite(Number(currentPosition?.top))
+      && !(Number(currentPosition?.left) === 0 && Number(currentPosition?.top) === 0));
+  const chosenPosition = usableSaved ? savedPosition : (usableCurrent ? currentPosition : null);
+  if (chosenPosition) {
     menu.hidden = false;
     setNodeSceneContextMenuViewportPosition(menu, chosenPosition.left, chosenPosition.top);
     if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
@@ -414,9 +421,11 @@ function positionNodeSceneContextMenuAtCurrentSavedOrInitial(menu, x, y) {
 function positionNodeSceneContextMenuAtSavedOr(menu, x, y) {
   const workspaceState = nodeGraphMvp.workspaceWindowStates?.commandCenter;
   const savedPosition = workspaceState?.position;
-  const hasSavedPosition =
-    Number.isFinite(Number(savedPosition?.left)) &&
-    Number.isFinite(Number(savedPosition?.top));
+  const hasSavedPosition = typeof nodeGraphFloatingWindowSavedPositionIsUsable === "function"
+    ? nodeGraphFloatingWindowSavedPositionIsUsable(savedPosition)
+    : (Number.isFinite(Number(savedPosition?.left))
+      && Number.isFinite(Number(savedPosition?.top))
+      && !(Number(savedPosition.left) === 0 && Number(savedPosition.top) === 0));
   positionNodeSceneContextMenu(
     menu,
     hasSavedPosition ? savedPosition.left : x,
@@ -442,9 +451,10 @@ function applyNodeModuleActionsWindowSavedOrPosition(menu, x, y) {
     ? normalizeNodeGraphSharedInspectorWindowState(nodeGraphMvp.sharedInspectorWindowState, nodeGraphMvp.workspaceWindowStates)
     : (nodeGraphMvp.sharedInspectorWindowState || {});
   const savedPosition = sharedInspectorState.position || nodeGraphMvp.moduleActionWindowPosition;
-  const hasSavedPosition =
-    Number.isFinite(Number(savedPosition?.left)) &&
-    Number.isFinite(Number(savedPosition?.top));
+  const hasSavedPosition = typeof nodeGraphFloatingWindowSavedPositionIsUsable === "function"
+    ? nodeGraphFloatingWindowSavedPositionIsUsable(savedPosition)
+    : (Number.isFinite(Number(savedPosition?.left)) && Number.isFinite(Number(savedPosition?.top))
+      && !(Number(savedPosition.left) === 0 && Number(savedPosition.top) === 0));
   applyNodeModuleActionsWindowSize(sharedInspectorState.size);
   positionNodeSceneContextMenu(
     menu,
@@ -682,14 +692,45 @@ function nodeGraphContextTargetSliderReadout(nodeId = nodeGraphModuleActionTarge
   return nodeGraphContextTargetModuleElement(nodeId)?.querySelector(".node-slider-readout") || null;
 }
 
+/**
+ * Two-line label for compact Module Settings action buttons
+ * (shared — not per-module). Example: ("Copy", "Module") → stacked lines.
+ */
+function setNodeGraphSceneContextButtonLines(button, line1, line2 = "") {
+  if (!button) {
+    return;
+  }
+  let host = button.querySelector(":scope > .scene-context-button-lines");
+  if (!host) {
+    host = document.createElement("span");
+    host.className = "scene-context-button-lines";
+    host.append(document.createElement("span"), document.createElement("span"));
+    button.replaceChildren(host);
+  }
+  const parts = host.querySelectorAll(":scope > span");
+  if (parts[0]) {
+    parts[0].textContent = String(line1 || "");
+  }
+  if (parts[1]) {
+    const second = String(line2 || "");
+    parts[1].textContent = second;
+    parts[1].hidden = !second;
+  }
+  const full = [line1, line2].filter(Boolean).join(" ");
+  if (full) {
+    button.setAttribute("aria-label", full);
+  }
+}
+
+// Order in the Module Settings body: module title first (under nav), then
+// Copy Module / Copy Settings row, then alias / size / rest.
 const nodeGraphModuleActionControlIds = [
-  "nodeSceneCopyModule",
-  // Move whole groups (not individual buttons) so row layout stays intact.
-  "nodeSceneModuleSettingsActionGroup",
   "nodeSceneSelectedModule",
+  // Copy Module lives inside this group (left of Copy Settings).
+  "nodeSceneModuleSettingsActionGroup",
+  "nodeSceneAliasControl",
   "nodeSceneAddToUi",
   "nodeSceneWireTypeControl",
-  "nodeSceneAliasControl",
   "nodeSceneAddToGroup",
   "nodeSceneWidthControls",
   "nodeSceneTextBoxTextSizeControls",
@@ -721,7 +762,28 @@ function ensureNodeGraphModuleActionsWindowBody() {
   }
   for (const id of nodeGraphModuleActionControlIds) {
     const element = document.getElementById(id);
-    if (element && element.parentElement !== body) {
+    if (!element) {
+      continue;
+    }
+    // Keep Copy Module inside the shared settings action group when present.
+    if (id === "nodeSceneCopyModule") {
+      const group = document.getElementById("nodeSceneModuleSettingsActionGroup");
+      if (group && element.parentElement !== group) {
+        group.prepend(element);
+      }
+      continue;
+    }
+    if (element.parentElement !== body) {
+      body.append(element);
+    }
+  }
+  // DOM order matches control id list (title first under nav).
+  for (const id of nodeGraphModuleActionControlIds) {
+    if (id === "nodeSceneCopyModule") {
+      continue;
+    }
+    const element = document.getElementById(id);
+    if (element && element.parentElement === body) {
       body.append(element);
     }
   }
@@ -860,7 +922,9 @@ function setNodeModuleActionsWindowHeader(label, detail = "") {
 }
 
 function setNodeModuleSettingsWindowHeader(detail = "") {
-  setNodeModuleActionsWindowHeader("MODULE", detail || "Settings");
+  // Chrome title is just SETTINGS — module name lives under the nav bar
+  // (nodeSceneSelectedModule), matching Display Settings target placement.
+  setNodeModuleActionsWindowHeader("SETTINGS", detail || "");
 }
 
 function configureNodeGraphModuleSettingsSizeRow({
@@ -1072,7 +1136,7 @@ function configureNodeSceneContextMenu(mode) {
   const textBoxMode = textBoxLayout.textMode;
   if (actionMode) {
     if (moduleMode) {
-      setNodeModuleSettingsWindowHeader("Settings");
+      setNodeModuleSettingsWindowHeader("");
     } else {
       setNodeModuleActionsWindowHeader("WIRE ACTIONS", wireMode ? "selected wire" : "no wire selected");
     }
@@ -1106,7 +1170,10 @@ function configureNodeSceneContextMenu(mode) {
   if (actionMode) {
     setNodeGraphModuleActionControlsHidden(false);
   }
-  copyButton.hidden = !moduleMode;
+  if (copyButton) {
+    // Visible only in module mode (lives in the settings action group row).
+    copyButton.hidden = !moduleMode || multiModuleMode;
+  }
   if (addToGroupButton) {
     // Grouping selected modules isn't built yet (see
     // saveNodeGraphSelectionAsModuleGroup's early return in
@@ -1180,11 +1247,19 @@ function configureNodeSceneContextMenu(mode) {
   }
   if (moduleMode) {
     selectedModule.hidden = false;
-    selectedModule.querySelector("span").textContent = "module";
+    // Module title under the nav (no redundant "Module" label).
+    const selectedLabel = selectedModule.querySelector("span");
+    if (selectedLabel) {
+      selectedLabel.textContent = "";
+      selectedLabel.hidden = true;
+    }
+    // Module type name under Command Center (not the user alias — alias is its own field).
     selectedModule.querySelector("strong").textContent = multiModuleMode
       ? `${selectedNodeIds.size} modules`
       : targetNode
-        ? nodeGraphNodeDisplayName(targetNode.id)
+        ? (typeof nodeGraphModuleChromeTitle === "function"
+          ? nodeGraphModuleChromeTitle(targetNode)
+          : (nodeGraphNodeLabels?.[targetNode.type] || targetNode.type))
         : "none";
     aliasControl.hidden = multiModuleMode;
     aliasInput.disabled = !targetNode || multiModuleMode;
@@ -1193,22 +1268,30 @@ function configureNodeSceneContextMenu(mode) {
         ? normalizeNodeGraphPatchNodeAlias(targetNode.alias) || nodeGraphDefaultNodeTitle(targetNode.type, targetNode.id)
         : "";
     }
-    aliasInput.placeholder = targetNode && !multiModuleMode ? nodeGraphDefaultNodeTitle(targetNode.type, targetNode.id) : "module title alias";
+    aliasInput.placeholder = targetNode && !multiModuleMode
+      ? nodeGraphDefaultNodeTitle(targetNode.type, targetNode.id)
+      : "display alias";
     aliasInput.title = nodeGraphTooltipText("actions.moduleAlias");
-    copyButton.disabled = !canCopy || multiModuleMode;
-    copyButton.title = canCopy
-      ? nodeGraphTooltipText("actions.copyModule")
-      : targetNode
-        ? nodeGraphTooltipText("actions.copyUnavailableOutput")
-        : nodeGraphTooltipText("actions.copyUnavailableOneModule");
+    if (copyButton) {
+      setNodeGraphSceneContextButtonLines(copyButton, "Copy", "Module");
+      copyButton.hidden = multiModuleMode;
+      copyButton.disabled = !canCopy || multiModuleMode;
+      copyButton.title = canCopy
+        ? nodeGraphTooltipText("actions.copyModule")
+        : targetNode
+          ? nodeGraphTooltipText("actions.copyUnavailableOutput")
+          : nodeGraphTooltipText("actions.copyUnavailableOneModule");
+    }
     const settingsClipboard = nodeGraphMvp.moduleSettingsClipboard;
     if (copySettingsButton) {
+      setNodeGraphSceneContextButtonLines(copySettingsButton, "Copy", "Settings");
       copySettingsButton.disabled = !targetNode;
       copySettingsButton.title = targetNode
         ? "Copy this module's settings to paste onto another module of the same type."
         : "Select a module to copy its settings.";
     }
     if (pasteSettingsButton) {
+      setNodeGraphSceneContextButtonLines(pasteSettingsButton, "Paste", "Settings");
       const settingsMismatch = Boolean(targetNode) && Boolean(settingsClipboard) && settingsClipboard.type !== targetNode.type;
       pasteSettingsButton.disabled = !targetNode || !settingsClipboard;
       pasteSettingsButton.classList.toggle("settings-paste-mismatch", settingsMismatch);
@@ -1221,10 +1304,11 @@ function configureNodeSceneContextMenu(mode) {
             : "Paste the copied settings onto this module.";
     }
     if (setDefaultButton) {
+      setNodeGraphSceneContextButtonLines(setDefaultButton, "Save to", "Default");
       setDefaultButton.disabled = !targetNode;
       setDefaultButton.title = targetNode
         ? `Save these settings as the default for new ${targetNode.type} modules.`
-        : "Select a module to set its default settings.";
+        : "Select a module to save its default settings.";
     }
     deleteButton.disabled = !canDelete;
     deleteButton.title = canDelete
@@ -1251,7 +1335,11 @@ function configureNodeSceneContextMenu(mode) {
       valueElement: displayHeightValue,
       hidden: !(moduleMode && !multiModuleMode && targetSupportsDisplayHeight),
       value: `${displayHeightGu} gu`,
-      decreaseDisabled: !targetNode || !targetSupportsDisplayHeight || displayHeightGu <= nodeGraphModuleDisplayHeightLimits.minGu,
+      decreaseDisabled: !targetNode || !targetSupportsDisplayHeight || displayHeightGu <= (
+        typeof nodeGraphModuleDisplayHeightLimitsForType === "function"
+          ? nodeGraphModuleDisplayHeightLimitsForType(targetNode?.type).minGu
+          : nodeGraphModuleDisplayHeightLimits.minGu
+      ),
       increaseDisabled: !targetNode || !targetSupportsDisplayHeight || displayHeightGu >= nodeGraphModuleDisplayHeightLimits.maxGu,
       decreaseTitle: "Decrease this module's display height.",
       increaseTitle: "Increase this module's display height.",
@@ -1305,39 +1393,59 @@ function configureNodeSceneContextMenu(mode) {
         : "No third-party reference library for this module.";
     }
     toggleButtonsButton.disabled = !targetNode;
-    toggleButtonsButton.querySelector("span").textContent = buttonsHidden ? "Show buttons" : "Hide buttons";
+    setNodeGraphSceneContextButtonLines(
+      toggleButtonsButton,
+      buttonsHidden ? "Show" : "Hide",
+      "Buttons",
+    );
     toggleButtonsButton.setAttribute("aria-pressed", buttonsHidden ? "true" : "false");
     toggleButtonsButton.title = nodeGraphTooltipText(buttonsHidden ? "actions.showModuleButtons" : "actions.hideModuleButtons");
     toggleOscilloscopeButton.disabled = !targetNode || !targetSupportsDisplayHeight;
-    toggleOscilloscopeButton.querySelector("span").textContent = oscilloscopeHidden
-      ? `Show ${visualFaceLabel}`
-      : `Hide ${visualFaceLabel}`;
+    setNodeGraphSceneContextButtonLines(
+      toggleOscilloscopeButton,
+      oscilloscopeHidden ? "Show" : "Hide",
+      visualFaceLabel || "Display",
+    );
     toggleOscilloscopeButton.setAttribute("aria-pressed", oscilloscopeHidden ? "true" : "false");
     toggleOscilloscopeButton.title = oscilloscopeHidden
       ? `Show this module's built-in ${visualFaceLabel}.`
       : `Hide this module's built-in ${visualFaceLabel}.`;
     toggleInterfaceControlsButton.disabled = !targetNode || !nodeGraphModuleTypeHasInterfaceControls(targetNode.type);
-    toggleInterfaceControlsButton.querySelector("span").textContent = interfaceControlsHidden
-      ? "Show control surface"
-      : "Hide control surface";
+    setNodeGraphSceneContextButtonLines(
+      toggleInterfaceControlsButton,
+      interfaceControlsHidden ? "Show" : "Hide",
+      "Control surface",
+    );
     toggleInterfaceControlsButton.setAttribute("aria-pressed", interfaceControlsHidden ? "true" : "false");
     toggleInterfaceControlsButton.title = interfaceControlsHidden
       ? "Show this module's control surface."
       : "Hide this module's control surface.";
     toggleSlidersButton.disabled = !targetNode || !nodeGraphModuleTypeHasHideableSliders(targetNode.type);
-    toggleSlidersButton.querySelector("span").textContent = slidersHidden ? "Show sliders" : "Hide sliders";
+    setNodeGraphSceneContextButtonLines(
+      toggleSlidersButton,
+      slidersHidden ? "Show" : "Hide",
+      "Sliders",
+    );
     toggleSlidersButton.setAttribute("aria-pressed", slidersHidden ? "true" : "false");
     toggleSlidersButton.title = slidersHidden
       ? "Show this module's parameter sliders."
       : "Hide this module's parameter sliders.";
     toggleIoButton.disabled = !targetNode;
-    toggleIoButton.querySelector("span").textContent = ioHidden ? "Show in/out" : "Hide in/out";
+    setNodeGraphSceneContextButtonLines(
+      toggleIoButton,
+      ioHidden ? "Show" : "Hide",
+      "In/Out",
+    );
     toggleIoButton.setAttribute("aria-pressed", ioHidden ? "true" : "false");
     toggleIoButton.title = ioHidden
       ? "Show this module's input and output ports."
       : "Hide this module's input and output ports.";
     toggleTitleButton.disabled = !targetNode;
-    toggleTitleButton.querySelector("span").textContent = titleHidden ? "Show title" : "Hide title";
+    setNodeGraphSceneContextButtonLines(
+      toggleTitleButton,
+      titleHidden ? "Show" : "Hide",
+      "Title",
+    );
     toggleTitleButton.setAttribute("aria-pressed", titleHidden ? "true" : "false");
     toggleTitleButton.title = nodeGraphTooltipText(titleHidden ? "actions.showModuleTitle" : "actions.hideModuleTitle");
     if (targetNode?.type === "image") {
@@ -1467,9 +1575,13 @@ function configureNodeSceneContextMenu(mode) {
     textBoxAlignCenter.title = nodeGraphTooltipText("actions.textBoxAlignCenter");
     textBoxAlignRight.title = nodeGraphTooltipText("actions.textBoxAlignRight");
   } else if (wireMode) {
-    selectedModule.querySelector("span").textContent = selectedWire?.kind === "modulation"
-      ? "selected modulation"
-      : "selected wire";
+    const wireLabel = selectedModule.querySelector("span");
+    if (wireLabel) {
+      wireLabel.hidden = false;
+      wireLabel.textContent = selectedWire?.kind === "modulation"
+        ? "selected modulation"
+        : "selected wire";
+    }
     selectedModule.querySelector("strong").textContent = nodeGraphWireSelectionLabel(nodeGraphMvp.selected);
     const selectedWireType = normalizeNodeGraphWireType(selectedWire?.wire?.wireType);
     for (const button of wireTypeButtons) {
@@ -1744,12 +1856,7 @@ function openNodeScopeContextMenu(event) {
   nodeGraphMvp.sceneContextTargetNode = null;
   nodeGraphMvp.sceneContextTargetWire = null;
   nodeGraphMvp.scopeContextTargetNode = nodeId;
-  // LED owns its display outright (colour ramp, blur, corner shape) and has
-  // no trace/dot settings to show, so it gets its own window instead of the
-  // shared trace-display one.
-  if (typeof openNodeGraphLedSettings === "function" && openNodeGraphLedSettings(nodeId, event)) {
-    return true;
-  }
+  // LED and other faces share the display settings popover (ledLamp schema).
   if (typeof openNodeGraphTraceDisplaySettings === "function" && openNodeGraphTraceDisplaySettings(nodeId, event)) {
     return true;
   }
@@ -1786,7 +1893,7 @@ function openNodePhosphorWaveformContextMenu(event) {
 const nodeGraphWorkspaceFloatingUiSelector =
   "#nodeSceneContextMenu, #nodeParameterMetadataPopover, #nodeGlobalScopeMenu, " +
   "#nodeModuleActionsWindow, #nodeCodeBoxWindow, #nodeCanvasScriptDialog, #nodeSavedPatchesWindow, " +
-  "#nodePhosphorWaveformSettingsWindow, #nodeLedSettingsWindow, #nodeModuleShopView, " +
+  "#nodePhosphorWaveformSettingsWindow, #nodeModuleShopView, " +
   "#nodeTraceDisplaySettingsPopover";
 // Legacy alias: includes form fields for empty-canvas / marquee checks only.
 const nodeGraphWorkspaceInteractiveDialogSelector =

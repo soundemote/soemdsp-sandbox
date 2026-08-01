@@ -158,7 +158,22 @@ function saveNodeGraphWorkingPatchToUserSettings(options = {}) {
   ) {
     return false;
   }
-  nodeGraphMvp.workingPatch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+  // Prefer live graph; fall back to last known working patch if patch is empty
+  // mid-transition (should not happen, but never serialize "no modules" over a
+  // non-empty autosave by accident).
+  const live = nodeGraphMvp.patch;
+  const liveCount = Array.isArray(live?.nodes) ? live.nodes.length : 0;
+  const priorCount = Array.isArray(nodeGraphMvp.workingPatch?.nodes)
+    ? nodeGraphMvp.workingPatch.nodes.length
+    : 0;
+  if (liveCount === 0 && priorCount > 0 && options.allowEmpty !== true) {
+    console.warn(
+      "[soemdsp] Refusing to autosave empty patch over non-empty working patch",
+      `(had ${priorCount} modules)`,
+    );
+    return false;
+  }
+  nodeGraphMvp.workingPatch = cloneNodeGraphPatch(live);
   syncNodeGraphCurrentSavedPatchHeader();
   const text = serializeNodeUiDevSettings();
   const saved = saveNodeUiDevLocalDefaultSettings(text);
@@ -167,6 +182,23 @@ function saveNodeGraphWorkingPatchToUserSettings(options = {}) {
     return Promise.resolve(fileSave).then((fileSaved) => ({ local: saved, file: Boolean(fileSaved) }));
   }
   return saved;
+}
+
+/** Flush working-patch autosave on tab close / refresh (sync localStorage). */
+function flushNodeGraphWorkingPatchToUserSettingsOnUnload() {
+  try {
+    if (typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
+      saveNodeGraphWorkingPatchToUserSettings({ immediateFile: false });
+    }
+  } catch (error) {
+    console.warn("[soemdsp] Working-patch unload flush failed", error);
+  }
+}
+
+if (typeof window !== "undefined" && !window.__nodeGraphWorkingPatchUnloadBound) {
+  window.__nodeGraphWorkingPatchUnloadBound = true;
+  window.addEventListener("pagehide", flushNodeGraphWorkingPatchToUserSettingsOnUnload);
+  window.addEventListener("beforeunload", flushNodeGraphWorkingPatchToUserSettingsOnUnload);
 }
 
 function clearNodeGraphWorkingPatchFromUserSettings() {

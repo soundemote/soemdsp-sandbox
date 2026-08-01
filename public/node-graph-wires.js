@@ -57,42 +57,52 @@
       );
     }
 
+    /** Resolve a CSS length token on the zoom surface (handles calc()). */
+    function resolveCssLengthPx(cssVarName, fallbackPx) {
+      const workspace = document.getElementById("nodeGraphWorkspace");
+      const surface = typeof deps.zoomSurface === "function" ? deps.zoomSurface() : null;
+      const host = surface || workspace;
+      if (host && typeof document !== "undefined") {
+        const probe = document.createElement("div");
+        probe.style.cssText = "position:absolute;left:0;top:0;visibility:hidden;pointer-events:none;"
+          + `width:var(${cssVarName});height:0;`;
+        host.append(probe);
+        const size = probe.offsetWidth;
+        probe.remove();
+        if (Number.isFinite(size) && size > 0) {
+          return size;
+        }
+      }
+      return fallbackPx;
+    }
+
+    /** Radius of the contact plug in zoom-surface units (matches CSS token). */
+    function wireEndpointCapRadius() {
+      const size = resolveCssLengthPx("--node-wire-patch-point-size", 6);
+      return Math.max(1.5, size * 0.5);
+    }
+
     /**
-     * Tuck wire ends under the half-jack so the path meets the fill and does
-     * not stop short (which leaves a dark frame/gap stroke between wire + jack).
-     * Output flat is on the right → pull endpoint left into the crescent.
-     * Input flat is on the left → pull endpoint right into the crescent.
+     * Attach center = middle of the inlet/outlet flat edge (patch-point).
+     * Wire path and contact both use this point. Caps paint on a layer
+     * *above* modules so the plug is visible mid-jack (cable SVG stays under).
      */
-    function insetWireEndpoint(point, role, amount) {
-      if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
-        return point;
+    function wireEndpointCapCenter(attachPoint, _role) {
+      if (!attachPoint || !Number.isFinite(attachPoint.x) || !Number.isFinite(attachPoint.y)) {
+        return attachPoint;
       }
-      const pad = Math.max(0, Number(amount) || 0);
-      if (pad <= 0) {
-        return point;
-      }
-      // "from" = source (output); "to" = destination (input).
-      if (role === "from") {
-        return { x: point.x - pad, y: point.y };
-      }
-      if (role === "to") {
-        return { x: point.x + pad, y: point.y };
-      }
-      return point;
+      return { x: attachPoint.x, y: attachPoint.y };
     }
 
-    function wireEndpointInsetPx() {
-      const style = typeof getComputedStyle === "function"
-        ? getComputedStyle(document.documentElement)
-        : null;
-      const thickness = Number.parseFloat(style?.getPropertyValue("--node-wire-thickness") || "") || 3;
-      return Math.max(2, thickness * 0.55);
+    function endpointCapSvg() {
+      return document.getElementById("nodeWireEndpointSvg")
+        || document.getElementById("nodeWireSvg");
     }
 
+    /** Wire path ends at the contact centers (mid inlet / mid outlet). */
     function path(from, to) {
-      const pad = wireEndpointInsetPx();
-      const a = insetWireEndpoint(from, "from", pad);
-      const b = insetWireEndpoint(to, "to", pad);
+      const a = wireEndpointCapCenter(from, "from");
+      const b = wireEndpointCapCenter(to, "to");
       const horizontalDistance = Math.abs(b.x - a.x);
       const verticalDistance = Math.abs(b.y - a.y);
       const span = Math.min(96, horizontalDistance * 0.48 + verticalDistance * 0.12);
@@ -100,10 +110,41 @@
     }
 
     function straightPath(from, to) {
-      const pad = wireEndpointInsetPx();
-      const a = insetWireEndpoint(from, "from", pad);
-      const b = insetWireEndpoint(to, "to", pad);
+      const a = wireEndpointCapCenter(from, "from");
+      const b = wireEndpointCapCenter(to, "to");
       return `M ${a.x} ${a.y} L ${b.x} ${b.y}`;
+    }
+
+    /**
+     * Solid full-circle contact on the overlay above modules, centered on the
+     * mid-jack attach point. Fill is the endpoint port color (same as the
+     * gradient stop at that end) — no glow, no stub line.
+     */
+    function drawEndpointCap(_svg, attachPoint, role, paint, extraClass = "", options = {}) {
+      const target = endpointCapSvg();
+      const point = wireEndpointCapCenter(attachPoint, role);
+      if (!target || !point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+        return null;
+      }
+      const endColor = options.endColor || null;
+      // Prefer solid end color so the disc matches the gradient stop at 0%/100%.
+      // Fall back to stroke paint only if color is missing.
+      const fill = endColor || paint || null;
+      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      circle.setAttribute(
+        "class",
+        ["node-wire-endpoint-cap", extraClass].filter(Boolean).join(" "),
+      );
+      circle.setAttribute("cx", String(point.x));
+      circle.setAttribute("cy", String(point.y));
+      circle.setAttribute("r", String(wireEndpointCapRadius()));
+      if (fill) {
+        circle.setAttribute("fill", fill);
+        circle.style.fill = fill;
+      }
+      circle.setAttribute("pointer-events", "none");
+      target.append(circle);
+      return circle;
     }
 
     // Currently unreachable from any live call site (nodeGraphManualTracePathOptions
@@ -155,7 +196,20 @@
       return `rgb(${channel("r")} ${channel("g")} ${channel("b")})`;
     }
 
+    function ensureSvgDefs(svg) {
+      if (!svg) {
+        return null;
+      }
+      let defs = svg.querySelector("defs");
+      if (!defs) {
+        defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+        svg.prepend(defs);
+      }
+      return defs;
+    }
+
     function createGradient(svg, id, from, to, stopClass = "node-wire-gradient-stop", colors = null) {
+      const [fromColor, toColor] = colors || [null, null];
       const gradient = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
       gradient.id = id;
       gradient.setAttribute("gradientUnits", "userSpaceOnUse");
@@ -164,24 +218,31 @@
       gradient.setAttribute("x2", String(to.x));
       gradient.setAttribute("y2", String(to.y));
 
-      const [fromColor, toColor] = colors || [null, null];
       // Same color on both ends: skip the opacity dip entirely rather than
       // faking a transition that never actually changes color -- app-wide
       // policy, not specific to any one wire kind.
       const sameColor = Boolean(fromColor) && Boolean(toColor) && fromColor === toColor;
       const middleColor = !sameColor && fromColor && toColor ? mixWireColor(fromColor, toColor) : null;
-      // Legacy smoke contract strings: ["48%", "0.36", fromColor], ["52%", "0.36", toColor].
+      // End plateaus: solid port color near each jack (matches contact discs);
+      // phosphor dip + crossfade only in the middle of the cable.
+      const endPlateau = 0.14;
+      const p0 = "0%";
+      const pFrom = `${Math.round(endPlateau * 100)}%`;
+      const pTo = `${Math.round((1 - endPlateau) * 100)}%`;
+      const p1 = "100%";
       const stops = sameColor
         ? [
-            ["0%", "1", fromColor],
-            ["100%", "1", toColor],
+            [p0, "1", fromColor],
+            [p1, "1", toColor],
           ]
         : [
-            ["0%", "1", fromColor],
+            [p0, "1", fromColor],
+            [pFrom, "1", fromColor],
             ["48%", "0.36", fromColor],
             ["50%", "0.34", middleColor],
             ["52%", "0.36", toColor],
-            ["100%", "1", toColor],
+            [pTo, "1", toColor],
+            [p1, "1", toColor],
           ];
       for (const [offset, opacity, color] of stops) {
         const stop = document.createElementNS("http://www.w3.org/2000/svg", "stop");
@@ -195,7 +256,14 @@
         gradient.append(stop);
       }
 
-      svg.querySelector("defs")?.append(gradient);
+      // Visual stroke lives on the endpoint SVG — define the paint server there
+      // (clone onto the wire SVG too if different, for any under-layer use).
+      const capSvg = endpointCapSvg();
+      const primary = capSvg || svg;
+      ensureSvgDefs(primary)?.append(gradient);
+      if (svg && svg !== primary) {
+        ensureSvgDefs(svg)?.append(gradient.cloneNode(true));
+      }
       return `url(#${id})`;
     }
 
@@ -222,7 +290,7 @@
         || (typeof normalizeNodeGraphWirePixel === "function" && normalizeNodeGraphWirePixel(pixelWire));
       const pathData = explicitPathData || (isTrace ? tracePath(from, to) : path(from, to));
       const stroke = createGradient(svg, gradientId, from, to, gradientClass, wireColors);
-      // Hit paths are interactive overhead — skip while pan/zoom gesturing.
+      // Hit paths stay on the under-module wire SVG (interaction only).
       if (!skipHitPath) {
         const hitPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
         hitPath.setAttribute("class", "node-wire-hit-path");
@@ -241,6 +309,28 @@
         svg.append(hitPath);
       }
 
+      // Visual cable + discs share the endpoint SVG above modules.
+      // Paint order: discs first, then stroke on top. If the disc is drawn
+      // *over* the stroke, the circle's antialiased edge composites over the
+      // cable and samples show a third color only at the join — even when
+      // fill and stroke are the same RGB (art-program pixel check).
+      const capSvg = endpointCapSvg() || svg;
+      const [fromColor, toColor] = wireColors || [null, null];
+      const capClass = [
+        String(pathClass).includes("inactive-wire") ? "inactive-wire" : "",
+        kind === "modulation" || kind === "graph" ? "modulation" : "",
+      ].filter(Boolean).join(" ");
+      // Disc fill = port color at that end (matches gradient end plateaus).
+      // Stroke is painted after discs so the join has no AA fringe.
+      drawEndpointCap(svg, from, "from", stroke, capClass, {
+        endColor: fromColor,
+        gradientId,
+      });
+      drawEndpointCap(svg, to, "to", stroke, capClass, {
+        endColor: toColor,
+        gradientId,
+      });
+
       const renderedPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
       renderedPath.setAttribute(
         "class",
@@ -258,7 +348,8 @@
       }
       renderedPath.setAttribute("d", pathData);
       renderedPath.setAttribute("stroke", stroke);
-      svg.append(renderedPath);
+      renderedPath.style.stroke = stroke;
+      capSvg.append(renderedPath);
     }
 
     function elementForEndpoint(endpoint) {
@@ -551,6 +642,7 @@
     return {
       connectEndpoints,
       createGradient,
+      drawEndpointCap,
       drawPath,
       endpointFromElement,
       endpointPoint,
@@ -559,6 +651,7 @@
       patchPointTargetFromPoint,
       path,
       pointInEndpointHitbox,
+      wireEndpointCapCenter,
       straightPath,
       tracePath,
     };

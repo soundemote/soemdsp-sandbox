@@ -1,10 +1,7 @@
-// LED's own settings model + "LED options" floating window.
+// LED settings model + Command Center Display Settings panel.
 //
-// Mirrors the Music Player's waveform-display-options window
-// (node-graph-phosphor-waveform.js) deliberately: same per-node persistence
-// spot on the patch, same first-open-at-the-pointer-then-remember policy, and
-// the same independent-window rules (opening it must never close another
-// window, and nothing else closes it).
+// LED options live only in the shared Display Settings popover (same path as
+// Number Readout / scopes). There is no separate floating "LED options" window.
 //
 // Settings live on node.led, normalized by normalizeNodeGraphLedLayout in
 // node-graph-patch-clone.js -- that function is the single source of truth for
@@ -82,92 +79,250 @@ function nodeGraphLedSettingsForNode(nodeId) {
   return normalizeNodeGraphLedLayout(nodeGraphPatchNode(nodeId)?.led);
 }
 
-function renderNodeGraphLedSettingsWindow() {
-  const nodeId = nodeGraphMvp.ledSettingsTargetNode;
-  const win = document.getElementById("nodeLedSettingsWindow");
-  if (!win || !nodeId) {
+function nodeGraphLedSettingsTargetNodeId() {
+  return String(
+    nodeGraphMvp?.ledSettingsTargetNode
+    || nodeGraphMvp?.traceDisplaySettingsTargetNode
+    || document.getElementById("nodeTraceDisplaySettingsPopover")?.dataset?.displaySettingsTargetNode
+    || "",
+  );
+}
+
+/** LED range-slider control scheme (shared Display Settings body, not steppers). */
+function buildNodeGraphLedDisplaySettingsBodyHtml() {
+  // Shared .node-led-settings-row rules style this panel inside Display Settings.
+  return `
+    <div class="node-led-display-settings-panel" data-led-display-settings-panel>
+      <div class="node-led-settings-row" aria-label="Color ramp preview">
+        <span class="node-led-color-preview" data-led-color-preview aria-hidden="true"></span>
+      </div>
+      <label class="node-led-settings-row">
+        <span>Color</span>
+        <input type="range" min="0" max="360" step="1" data-led-field="hue" aria-label="LED hue">
+      </label>
+      <label class="node-led-settings-row">
+        <span>Brightness</span>
+        <input type="range" min="0" max="2" step="0.02" data-led-field="brightness" aria-label="LED brightness">
+      </label>
+      <label class="node-led-settings-row">
+        <span>Blur</span>
+        <input type="range" min="0" max="1" step="0.01" data-led-field="blur" aria-label="LED blur">
+      </label>
+      <label class="node-led-settings-row">
+        <span>Fill</span>
+        <input type="range" min="0" max="100" step="1" data-led-field="fillPercent" aria-label="LED fill of available space">
+        <span>%</span>
+      </label>
+      <div class="node-led-settings-row" role="group" aria-label="Corner shape">
+        <span>Corners</span>
+        <button type="button" data-led-corner="square" aria-pressed="false">Pill</button>
+        <button type="button" data-led-corner="squircle" aria-pressed="true">Squircle</button>
+      </div>
+      <label class="node-led-settings-row">
+        <span>Rounding</span>
+        <input type="range" min="0" max="100" step="1" data-led-field="rounding" aria-label="LED rounding">
+        <span>%</span>
+      </label>
+      <div class="node-led-settings-row node-led-image-row" data-led-image-row="bottom">
+        <span>Bottom image</span>
+        <button type="button" data-led-image-pick="bottom">Load</button>
+        <button type="button" data-led-image-clear="bottom">Clear</button>
+        <span class="node-led-image-filename" data-led-image-filename="bottom">none</span>
+        <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" data-led-image-file="bottom" hidden>
+      </div>
+      <div class="node-led-settings-row node-led-image-row" data-led-image-row="top">
+        <span>Top image</span>
+        <button type="button" data-led-image-pick="top">Load</button>
+        <button type="button" data-led-image-clear="top">Clear</button>
+        <span class="node-led-image-filename" data-led-image-filename="top">none</span>
+        <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" data-led-image-file="top" hidden>
+      </div>
+    </div>`;
+}
+
+function syncNodeGraphLedDisplaySettingsControls(root, settings) {
+  if (!root || !settings) {
     return;
   }
-  const settings = nodeGraphLedSettingsForNode(nodeId);
-  const setValueUnlessFocused = (id, value) => {
-    const el = document.getElementById(id);
+  const setRange = (key, value) => {
+    const el = root.querySelector?.(`[data-led-field="${key}"]`);
     if (el && document.activeElement !== el) {
       el.value = String(value);
     }
   };
-  setValueUnlessFocused("nodeLedHueInput", settings.hue);
-  setValueUnlessFocused("nodeLedBrightnessInput", settings.brightness);
-  setValueUnlessFocused("nodeLedBlurInput", settings.blur);
-  setValueUnlessFocused("nodeLedRoundingInput", settings.rounding);
-  const setPressed = (id, active) => {
-    const el = document.getElementById(id);
-    if (!el) {
-      return;
+  setRange("hue", settings.hue);
+  setRange("brightness", settings.brightness);
+  setRange("blur", settings.blur);
+  setRange("rounding", settings.rounding);
+  setRange("fillPercent", settings.fillPercent);
+  for (const button of root.querySelectorAll?.("[data-led-corner]") || []) {
+    const shape = button.getAttribute("data-led-corner");
+    const active = shape === settings.cornerShape;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  }
+  for (const layer of ["bottom", "top"]) {
+    const key = layer === "bottom" ? "bottomImage" : "topImage";
+    const name = settings[key]?.fileName || (settings[key]?.dataUrl ? "image" : "none");
+    const el = root.querySelector?.(`[data-led-image-filename="${layer}"]`);
+    if (el) {
+      el.textContent = name;
+      el.title = name;
     }
-    el.classList.toggle("active", active);
-    el.setAttribute("aria-pressed", String(active));
-  };
-  setPressed("nodeLedCornerSquareButton", settings.cornerShape === "square");
-  setPressed("nodeLedCornerSquircleButton", settings.cornerShape === "squircle");
-  // Live swatch: off / quarter / rated color / over-driven / white, painted
-  // with the exact same ramp the face is.
-  const preview = document.getElementById("nodeLedColorPreview");
-  if (preview) {
+  }
+  const preview = root.querySelector?.("[data-led-color-preview]");
+  if (preview && typeof nodeGraphLedEmittedColor === "function") {
     preview.style.background = `linear-gradient(90deg, ${[0, 0.25, 0.5, 0.75, 1]
       .map((level) => nodeGraphLedEmittedColor(settings.hue, level, settings.brightness))
       .join(", ")})`;
   }
 }
 
-function positionNodeGraphLedSettingsAt(x, y) {
-  const win = document.getElementById("nodeLedSettingsWindow");
-  if (!win) {
-    return;
+function nodeGraphLedPickImageLayer(host, layer) {
+  const input = host?.querySelector?.(`[data-led-image-file="${layer}"]`);
+  if (input) {
+    input.click();
   }
-  win.hidden = false;
-  // Shared app-wide policy: spawn at the pointer the FIRST time only, then
-  // restore wherever the user left it -- and glow if it did not move.
-  if (typeof openNodeGraphFloatingWindowAtPosition === "function") {
-    openNodeGraphFloatingWindowAtPosition("ledSettings", win, () => {
-      const { left, top } = nodeGraphFloatingWindowPosition(win, x, y);
-      setNodeGraphFloatingWindowViewportPosition(win, left, top);
-    });
-    return;
-  }
-  const { left, top } = nodeGraphFloatingWindowPosition(win, x, y);
-  setNodeGraphFloatingWindowViewportPosition(win, left, top);
 }
 
+function nodeGraphLedClearImageLayer(layer) {
+  const key = layer === "top" ? "topImage" : "bottomImage";
+  updateNodeGraphLedSettings({ [key]: { dataUrl: "", fileName: "" } });
+}
+
+function nodeGraphLedLoadImageLayerFromFile(layer, file) {
+  if (!file) {
+    return;
+  }
+  const type = String(file.type || "").toLowerCase();
+  const ok = /image\/(png|jpe?g|webp|gif|svg\+xml)/i.test(type)
+    || /\.(png|jpe?g|webp|gif|svg)$/i.test(file.name || "");
+  if (!ok) {
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp("Image type not supported (use PNG, JPEG, WebP, GIF, or SVG).");
+    }
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const dataUrl = String(reader.result || "");
+    if (!dataUrl.startsWith("data:image/") || dataUrl.length > 3_000_000) {
+      if (typeof setNodeInteractionHelp === "function") {
+        setNodeInteractionHelp("Image is too large or invalid.");
+      }
+      return;
+    }
+    const key = layer === "top" ? "topImage" : "bottomImage";
+    updateNodeGraphLedSettings({
+      [key]: {
+        dataUrl,
+        fileName: file.name || `${layer}-image`,
+      },
+    });
+  };
+  reader.readAsDataURL(file);
+}
+
+function bindNodeGraphLedDisplaySettingsBody(host) {
+  if (!host || host.dataset.ledSettingsBound === "true") {
+    return;
+  }
+  host.dataset.ledSettingsBound = "true";
+  host.addEventListener("input", (event) => {
+    const field = event.target?.closest?.("[data-led-field]")?.getAttribute?.("data-led-field");
+    if (!field) {
+      return;
+    }
+    updateNodeGraphLedSettings({ [field]: Number(event.target.value) });
+  });
+  host.addEventListener("change", (event) => {
+    const field = event.target?.closest?.("[data-led-field]")?.getAttribute?.("data-led-field");
+    if (field) {
+      updateNodeGraphLedSettings({ [field]: Number(event.target.value) });
+      return;
+    }
+    const fileInput = event.target?.closest?.("[data-led-image-file]");
+    if (fileInput && host.contains(fileInput)) {
+      const layer = fileInput.getAttribute("data-led-image-file");
+      const file = fileInput.files?.[0];
+      fileInput.value = "";
+      nodeGraphLedLoadImageLayerFromFile(layer, file);
+    }
+  });
+  host.addEventListener("click", (event) => {
+    const corner = event.target?.closest?.("[data-led-corner]");
+    if (corner && host.contains(corner)) {
+      event.preventDefault();
+      setNodeGraphLedCornerShape(corner.getAttribute("data-led-corner"));
+      return;
+    }
+    const pick = event.target?.closest?.("[data-led-image-pick]");
+    if (pick && host.contains(pick)) {
+      event.preventDefault();
+      nodeGraphLedPickImageLayer(host, pick.getAttribute("data-led-image-pick"));
+      return;
+    }
+    const clear = event.target?.closest?.("[data-led-image-clear]");
+    if (clear && host.contains(clear)) {
+      event.preventDefault();
+      nodeGraphLedClearImageLayer(clear.getAttribute("data-led-image-clear"));
+    }
+  });
+  // Ctrl/cmd-click reset + shift/ctrl step scaling (shared slider binder).
+  if (typeof bindNodeGraphNativeSliderModifiers === "function"
+    && typeof nodeGraphLedDefaultSettings === "object") {
+    for (const [key, fallback] of Object.entries({
+      hue: nodeGraphLedDefaultSettings.hue,
+      brightness: nodeGraphLedDefaultSettings.brightness,
+      blur: nodeGraphLedDefaultSettings.blur,
+      rounding: nodeGraphLedDefaultSettings.rounding,
+      fillPercent: nodeGraphLedDefaultSettings.fillPercent,
+    })) {
+      const input = host.querySelector(`[data-led-field="${key}"]`);
+      if (input) {
+        bindNodeGraphNativeSliderModifiers(input, fallback);
+      }
+    }
+  }
+}
+
+/** Sync LED controls in the Command Center Display Settings panel. */
+function renderNodeGraphLedSettingsWindow() {
+  const nodeId = nodeGraphLedSettingsTargetNodeId();
+  if (!nodeId) {
+    return;
+  }
+  const settings = nodeGraphLedSettingsForNode(nodeId);
+  const panel = document.querySelector(
+    "#nodeTraceDisplaySettingsPopover [data-led-display-settings-panel]",
+  );
+  if (panel) {
+    syncNodeGraphLedDisplaySettingsControls(panel, settings);
+  }
+}
+
+/** Open LED options via shared Display Settings (Command Center path). */
 function openNodeGraphLedSettings(nodeId, event) {
   const node = nodeGraphPatchNode(nodeId);
   if (!node || node.type !== "led") {
     return false;
   }
-  nodeGraphMvp.ledSettingsTargetNode = nodeId;
-  renderNodeGraphLedSettingsWindow();
-  positionNodeGraphLedSettingsAt(
-    Number.isFinite(Number(event?.clientX)) ? event.clientX : window.innerWidth / 2,
-    Number.isFinite(Number(event?.clientY)) ? event.clientY : window.innerHeight / 2,
-  );
-  return true;
+  if (typeof openNodeGraphTraceDisplaySettings === "function") {
+    return openNodeGraphTraceDisplaySettings(nodeId, event);
+  }
+  return false;
 }
 
 function closeNodeGraphLedSettings() {
-  const win = document.getElementById("nodeLedSettingsWindow");
-  if (win) {
-    if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
-      rememberNodeGraphWorkspaceWindowState("ledSettings", win, { open: false }, { status: false });
-    }
-    win.hidden = true;
-  }
   nodeGraphMvp.ledSettingsTargetNode = null;
 }
 
 function updateNodeGraphLedSettings(patch) {
-  const nodeId = nodeGraphMvp.ledSettingsTargetNode;
+  const nodeId = nodeGraphLedSettingsTargetNodeId();
   if (!nodeId) {
     return;
   }
+  nodeGraphMvp.ledSettingsTargetNode = nodeId;
   const clonedPatch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   const targetNode = clonedPatch.nodes.find((node) => node.id === nodeId);
   if (!targetNode) {
@@ -179,79 +334,17 @@ function updateNodeGraphLedSettings(patch) {
   });
   commitNodeGraphPatch(clonedPatch, { status: "led options changed" });
   renderNodeGraphLedSettingsWindow();
+  // Cosmetic face update — works with the audio engine off (no scope buffer).
+  if (typeof scheduleNodeGraphLedFaceRefresh === "function") {
+    scheduleNodeGraphLedFaceRefresh(nodeId);
+  } else if (typeof refreshNodeGraphLedFaceForNode === "function") {
+    refreshNodeGraphLedFaceForNode(nodeId);
+  }
   if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
     scheduleNodeGraphModuleScopeDraw();
   }
 }
 
-function handleNodeGraphLedHueChange(event) {
-  updateNodeGraphLedSettings({ hue: Number(event.target.value) });
-}
-
-function handleNodeGraphLedBrightnessChange(event) {
-  updateNodeGraphLedSettings({ brightness: Number(event.target.value) });
-}
-
-function handleNodeGraphLedBlurChange(event) {
-  updateNodeGraphLedSettings({ blur: Number(event.target.value) });
-}
-
-function handleNodeGraphLedRoundingChange(event) {
-  updateNodeGraphLedSettings({ rounding: Number(event.target.value) });
-}
-
 function setNodeGraphLedCornerShape(shape) {
   updateNodeGraphLedSettings({ cornerShape: shape === "squircle" ? "squircle" : "square" });
-}
-
-// Same modifier vocabulary as the module sliders (ctrl/cmd+click resets to
-// default, shift/ctrl scale the step) -- the shared binder from
-// node-graph-slider-dragging.js, not a reimplementation. Defaults come from
-// the one settings object so they cannot drift from what normalize* falls
-// back to.
-const nodeGraphLedSettingInputs = Object.freeze([
-  ["nodeLedHueInput", "hue"],
-  ["nodeLedBrightnessInput", "brightness"],
-  ["nodeLedBlurInput", "blur"],
-  ["nodeLedRoundingInput", "rounding"],
-]);
-
-function bindNodeGraphLedSettingModifiers() {
-  if (typeof bindNodeGraphNativeSliderModifiers !== "function") {
-    return;
-  }
-  for (const [id, key] of nodeGraphLedSettingInputs) {
-    bindNodeGraphNativeSliderModifiers(
-      document.getElementById(id),
-      nodeGraphLedDefaultSettings[key],
-    );
-  }
-}
-
-// Drag by the title bar, matching every other floating window.
-function beginNodeGraphLedSettingsDrag(event) {
-  const win = document.getElementById("nodeLedSettingsWindow");
-  if (!win || win.hidden) {
-    return;
-  }
-  beginNodeGraphFloatingWindowDrag(event, win, "ledSettingsDragging");
-}
-
-function dragNodeGraphLedSettings(event) {
-  dragNodeGraphFloatingWindow(event, "ledSettingsDragging", document.getElementById("nodeLedSettingsWindow"));
-}
-
-function endNodeGraphLedSettingsDrag(event) {
-  endNodeGraphFloatingWindowDrag(event, "ledSettingsDragging", () => {
-    // Record where the user parked it so the next open restores it instead of
-    // jumping back to the pointer.
-    if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
-      rememberNodeGraphWorkspaceWindowState(
-        "ledSettings",
-        document.getElementById("nodeLedSettingsWindow"),
-        { open: true },
-        { status: false },
-      );
-    }
-  });
 }

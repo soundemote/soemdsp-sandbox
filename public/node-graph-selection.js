@@ -76,7 +76,6 @@ function nodeGraphEventTargetIsFloatingWindow(target) {
     "#nodeUserUiSettingsPanel",
     "#nodeUiDevHelper",
     "#nodePhosphorWaveformSettingsWindow",
-    "#nodeLedSettingsWindow",
     "#nodeCodeBoxWindow",
     "#nodeStandaloneMidiKeyboardDock",
     "#nodeTooltipWindow",
@@ -90,7 +89,6 @@ function nodeGraphEventTargetIsFloatingWindow(target) {
     ".node-user-ui-settings-panel",
     ".node-ui-dev-helper",
     ".node-phosphor-waveform-settings-window",
-    ".node-led-settings-window",
   ].join(", "))) {
     return true;
   }
@@ -299,16 +297,21 @@ function toggleNodeGraphNodeSelection(id, additive = false) {
     return;
   }
   if (!additive) {
-    if (nodeGraphSelectedNodeIds().has(id)) {
-      setNodeGraphSelection(null);
-    } else {
-      setNodeGraphNodeSelection([id]);
-    }
+    // Always select — never toggle off on re-click. Empty canvas / marquee clear
+    // selection. Toggle-off made Shift+arrow resize flaky: click #1 selects,
+    // click #2 (or a second try) deselects, keys appear "broken".
+    setNodeGraphNodeSelection([id]);
     return;
   }
 
   const selectedNodeIds = nodeGraphSelectedNodeIds();
   if (selectedNodeIds.has(id)) {
+    // Multi-select remove only when other modules stay selected. Shift+click on
+    // the sole selected module (common before Shift+arrow resize) must not
+    // clear selection.
+    if (selectedNodeIds.size <= 1) {
+      return;
+    }
     selectedNodeIds.delete(id);
   } else {
     selectedNodeIds.add(id);

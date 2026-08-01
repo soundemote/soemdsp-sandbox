@@ -315,7 +315,18 @@ function drawNodeGraphPhosphillatorDrawDisplay(section) {
     return;
   }
 
-  drawNodeGraphPhosphorWaveformPlaceholder(context, width, height, "Draw a shape — dblclick to clear");
+  // Pass defaults — placeholder used to omit settings and hit lineBrightness of undefined.
+  const settings = typeof normalizeNodeGraphPhosphorWaveformSettings === "function"
+    ? normalizeNodeGraphPhosphorWaveformSettings({})
+    : undefined;
+  drawNodeGraphPhosphorWaveformPlaceholder(
+    context,
+    width,
+    height,
+    "Draw a shape — dblclick to clear",
+    1,
+    settings,
+  );
 }
 
 // Playback: turn the stored closed loop into X/Y CV. The drawn points decode

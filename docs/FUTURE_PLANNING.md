@@ -2,6 +2,16 @@
 
 This file collects project-shaping ideas that should survive day-to-day implementation without becoming immediate scope.
 
+## Lo-Fi Pitch Shift (component-first)
+
+Realtime pitch tools aimed at **abusable lo-fi character**, not transparent stretch. Build lowest modules first (buffer → varispeed → grains → grain pitch → optional spectral dirt), each useful alone, then compose.
+
+Primary note:
+
+```text
+docs/LOFI_PITCH_SHIFT_PLAN.md
+```
+
 ## WebUI CLAP Host
 
 The CLAP-hosting path should use a local native companion app, not browser-native plugin loading.

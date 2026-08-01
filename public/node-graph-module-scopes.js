@@ -1263,16 +1263,17 @@ function wipeNodeGraphModuleScopeScreensToColdBoot() {
       delete face.dataset.ledAppearance;
     }
   }
-  // Room-light emitters go dark with the simulation.
+  // Room-light emitters go dark with the simulation. Number Readout faces are
+  // restored to idle LCD strength in wipeNodeGraphNumberReadoutScreensToColdBoot.
   for (const el of document.querySelectorAll("[data-light-strength], [data-light-source]")) {
-    if (el.dataset) {
+    if (el.dataset && !el.classList?.contains("node-number-readout-face")) {
       el.dataset.lightStrength = "0";
     }
   }
   const phosphorKeys = ["_phosphorEnergyGl", "_xyPadPhosphorEnergyGl"];
   const canvases = new Set();
   for (const canvas of document.querySelectorAll(
-    "canvas.node-module-scope-local-fallback-canvas, canvas.node-xy-pad-canvas, canvas.node-spectrogram-canvas",
+    "canvas.node-module-scope-local-fallback-canvas, canvas.node-xy-pad-canvas, canvas.node-spectrogram-canvas, canvas.node-phosphor-waveform-canvas",
   )) {
     if (canvas instanceof HTMLCanvasElement) {
       canvases.add(canvas);
@@ -1281,6 +1282,9 @@ function wipeNodeGraphModuleScopeScreensToColdBoot() {
   // Any other canvas still holding a phosphor energy face (chromeless modules).
   for (const canvas of document.querySelectorAll("canvas")) {
     if (!(canvas instanceof HTMLCanvasElement)) {
+      continue;
+    }
+    if (canvas.classList?.contains("node-number-readout-canvas")) {
       continue;
     }
     if (phosphorKeys.some((key) => canvas[key])) {
@@ -1296,10 +1300,12 @@ function wipeNodeGraphModuleScopeScreensToColdBoot() {
   }
   for (const canvas of canvases) {
     // Shared workspace overlays are cleared by clearNodeGraphModuleScopeCanvas().
+    // Number Readout has its own idle-LCD wipe (do not solid-plate over it).
     if (
       canvas.id === "nodeModuleScopeCanvas"
       || canvas.classList?.contains("node-module-scope-light-canvas")
       || canvas.classList?.contains("node-room-dimmer-canvas")
+      || canvas.classList?.contains("node-number-readout-canvas")
     ) {
       continue;
     }
@@ -1344,6 +1350,8 @@ function wipeNodeGraphModuleScopeScreensToColdBoot() {
       context.restore();
     }
   }
+  // Last: idle LCD plate + unlit segments + dimmer strength (not a solid blank).
+  wipeNodeGraphNumberReadoutScreensToColdBoot();
 }
 
 function clearNodeGraphModuleScopeBuffers(options = {}) {
@@ -2562,7 +2570,9 @@ const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   color: "#75ebff",
   decay: 0.45,
   decimals: 2,
+  // Unlit DSEG segment strength (0 = off) and independent color (not gradient).
   ghost: 0.22,
+  ghostColor: "#1a4a55",
   gradientStops: Object.freeze([
     Object.freeze({ t: 0, color: "#000000" }),
     Object.freeze({ t: 0.18, color: "#0a2a33" }),
@@ -3325,12 +3335,16 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}) {
       0,
       2,
     ),
-    // Digits = gradient peak (full light); unlit segments sample lower energy.
+    // Digits = gradient peak (full light); unlit segments use ghostColor.
     color: peak,
     // Ghost hold of previous number (0 = none, 1 = long). Not phosphor "burn".
     decay: normalizeNodeGraphTraceDisplayNumber(source.decay, defaults.decay, 0, 1),
     decimals: normalizeNodeGraphTraceDisplayNumber(source.decimals, defaults.decimals, 0, 8, true),
     ghost: normalizeNodeGraphTraceDisplayNumber(source.ghost, defaults.ghost, 0, 1),
+    ghostColor: normalizeNodeGraphTraceDisplayColor(
+      source.ghostColor,
+      defaults.ghostColor,
+    ),
     gradientStops,
     innerGlow: normalizeNodeGraphTraceDisplayNumber(source.innerGlow, defaults.innerGlow, 0, 1),
     innerShadow: normalizeNodeGraphTraceDisplayNumber(source.innerShadow, defaults.innerShadow, 0, 1),
@@ -3747,7 +3761,7 @@ if (typeof window !== "undefined") {
 }
 
 function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
-  return ["trace", "dot", "value", "lineBurn", "scope2d", "scope2dTrace", "phosphorLight", "numberReadout", "xyPad"].includes(displayType);
+  return ["trace", "dot", "value", "lineBurn", "scope2d", "scope2dTrace", "phosphorLight", "numberReadout", "xyPad", "ledLamp"].includes(displayType);
 }
 
 function nodeGraphNodeHasLocalDisplaySettings(node) {
@@ -4288,7 +4302,9 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
   ["padding", "Amp"],
   ["cycles", "Cycles"],
   ["decimals", "Decimals"],
-  ["ghost", "LCD plate"],
+  ["ghost", "Ghost"],
+  ["hue", "Hue"],
+  ["rounding", "Rounding"],
   ["innerGlow", "Inner glow"],
   ["innerShadow", "Inner shadow"],
 
@@ -4305,14 +4321,18 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
 ]);
 
 const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
-  fields: nodeGraphTraceDisplaySettingFields.map(([key]) => key),
-  colors: ["dot1Color", "secondaryColor", "backgroundColor"],
+  fields: [
+    ...nodeGraphTraceDisplaySettingFields.map(([key]) => key),
+    "hue",
+    "rounding",
+  ],
+  colors: ["dot1Color", "secondaryColor", "backgroundColor", "ghostColor"],
   // Every control key that exists in the shared popover MUST be listed here.
   // setNodeGraphTraceDisplaySettingsFormType only show/hides keys from these
   // lists — anything missing leaks onto every module (e.g. Output saw
   // Window / Overlap / Freq scale because those choices were unregistered).
   toggles: ["sourceSync", "skipDiscontinuities", "bipolarBrightness", "secondaryEnabled", "capEnabled", "fullDotEconomy"],
-  choices: ["syncChannel", "stereoBlend", "window", "overlap", "freqOverlap", "freqScale"],
+  choices: ["syncChannel", "stereoBlend", "window", "overlap", "freqOverlap", "freqScale", "cornerShape"],
 });
 
 const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
@@ -4411,7 +4431,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   }),
   numberReadout: Object.freeze({
     // Decimals first (above decay); digit color = shared phosphor gradient (energy→color);
-    // backgroundColor = independent LCD back plate (not gradient floor).
+    // backgroundColor = LCD back plate; ghostColor = unlit segment ink.
     fields: Object.freeze([
       "decimals",
       "decay",
@@ -4420,9 +4440,21 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "innerShadow",
       "dot1Brightness",
     ]),
-    colors: Object.freeze(["backgroundColor"]),
+    colors: Object.freeze(["backgroundColor", "ghostColor"]),
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
+  }),
+  // LED lamp: same shared display inspector as other faces (not a separate window).
+  ledLamp: Object.freeze({
+    fields: Object.freeze([
+      "hue",
+      "dot1Brightness",
+      "lineThickness",
+      "rounding",
+    ]),
+    colors: Object.freeze([]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze(["cornerShape"]),
   }),
   // XY Pad: phosphor of Out X/Y + UI puck. No scale (would desync puck/trail).
   xyPad: Object.freeze({
@@ -4497,6 +4529,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
   }),
   trace: Object.freeze({
     // decimals before decay so Number Readout shows Decimals first in this section.
+    // hue/rounding/dot1Brightness/lineThickness also used by LED lamp form.
     fields: Object.freeze([
       "burn",
       "decimals",
@@ -4512,12 +4545,18 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "innerShadow",
       "fftSize",
       "sweepSeconds",
+      // LED lamp (formType ledLamp): hue → brightness → blur → rounding.
+      "hue",
+      "dot1Brightness",
+      "lineThickness",
+      "rounding",
     ]),
-    // Face plate lives with Trace (not Left/Dot channel color).
-    colors: Object.freeze(["backgroundColor"]),
+    // Face plate (+ number readout ghost ink) lives with Trace section.
+    colors: Object.freeze(["backgroundColor", "ghostColor"]),
     toggles: Object.freeze(["sourceSync", "skipDiscontinuities", "fullDotEconomy"]),
     // window/overlap/freqOverlap/freqScale = spectrogram; syncChannel/stereoBlend = Output.
-    choices: Object.freeze(["window", "overlap", "freqOverlap", "freqScale", "syncChannel", "stereoBlend"]),
+    // cornerShape = LED.
+    choices: Object.freeze(["window", "overlap", "freqOverlap", "freqScale", "syncChannel", "stereoBlend", "cornerShape"]),
   }),
   value: Object.freeze({
     fields: Object.freeze(["lineLength"]),
@@ -4597,7 +4636,24 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
   sweepSeconds: Object.freeze({ label: "Sweep (s)", inputmode: "decimal", id: "nodeTraceDisplaySweepSeconds" }),
   cycles: Object.freeze({ label: "Cycles", inputmode: "decimal", id: "nodeTraceDisplayCycles" }),
   decimals: Object.freeze({ label: "Decimals", inputmode: "decimal", id: "nodeTraceDisplayDecimals" }),
-  ghost: Object.freeze({ label: "LCD plate", inputmode: "decimal", id: "nodeTraceDisplayGhost" }),
+  ghost: Object.freeze({
+    label: "Ghost",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayGhost",
+    title: "Unlit LCD segment strength (0 = hidden, 1 = full ghost plate).",
+  }),
+  hue: Object.freeze({
+    label: "Hue",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayHue",
+    title: "LED lamp hue in degrees (0–360).",
+  }),
+  rounding: Object.freeze({
+    label: "Rounding",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayRounding",
+    title: "LED corner rounding percent (0 = square tile, 100 = full capsule/circle).",
+  }),
   innerGlow: Object.freeze({ label: "Inner glow", inputmode: "decimal", id: "nodeTraceDisplayInnerGlow" }),
   innerShadow: Object.freeze({ label: "Inner shadow", inputmode: "decimal", id: "nodeTraceDisplayInnerShadow" }),
   padding: Object.freeze({ label: "Amp", inputmode: "decimal", id: "nodeTraceDisplayPadding" }),
@@ -4638,6 +4694,12 @@ const nodeGraphDisplaySettingsColorMeta = Object.freeze({
     defaultValue: "#000000",
     id: "nodeTraceDisplayBackgroundColor",
   }),
+  ghostColor: Object.freeze({
+    label: "Ghost",
+    aria: "LCD ghost segment color",
+    defaultValue: "#1a4a55",
+    id: "nodeTraceDisplayGhostColor",
+  }),
   dot1Color: Object.freeze({
     label: "Color",
     aria: "Dot color",
@@ -4677,6 +4739,15 @@ const nodeGraphDisplaySettingsChoiceMeta = Object.freeze({
       Object.freeze({ value: "difference", label: "Difference" }),
       Object.freeze({ value: "exclusion", label: "Exclusion" }),
       Object.freeze({ value: "xor", label: "Xor" }),
+    ]),
+  }),
+  cornerShape: Object.freeze({
+    label: "Corners",
+    aria: "LED corner shape",
+    id: "nodeTraceDisplayCornerShape",
+    options: Object.freeze([
+      Object.freeze({ value: "square", label: "Square" }),
+      Object.freeze({ value: "squircle", label: "Squircle" }),
     ]),
   }),
   window: Object.freeze({
@@ -4739,6 +4810,7 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   phosphorLight: "2D Phosphor",
   dot: "Phosphor Dot",
   spectrogramBurn: "Spectrogram",
+  ledLamp: "LED",
 });
 
 const nodeGraphDisplaySettingsSectionOrder = Object.freeze([
@@ -4814,28 +4886,31 @@ function nodeGraphDisplaySettingsColorRowMeta(key, formType = null) {
     aria: key,
     defaultValue: "#ffffff",
   };
-  // Number Readout: background is the LCD back plate, not the energy gradient floor.
-  if (key === "backgroundColor" && formType === "numberReadout") {
+  // Number Readout: side labels omitted — SoundColorWidget already titles
+  // "Plate" / "Ghost" in large type; free the full row for the widget.
+  if (formType === "numberReadout" && (key === "backgroundColor" || key === "ghostColor")) {
     return {
       ...base,
-      label: "LCD plate",
-      aria: "LCD back plate color",
+      label: "",
+      aria: key === "ghostColor" ? "LCD ghost segment color" : "LCD back plate color",
+      sideLabel: false,
     };
   }
-  return base;
+  return { ...base, sideLabel: true };
 }
 
 function nodeGraphDisplaySettingsBuildColorRowHtml(key, formType = null) {
   const meta = nodeGraphDisplaySettingsColorRowMeta(key, formType);
   const idAttr = meta.id ? ` id="${nodeGraphDisplaySettingsEscapeHtml(meta.id)}"` : "";
+  const noSide = meta.sideLabel === false || !meta.label;
   return `
-    <div class="node-trace-display-color-widget-row" data-trace-display-control-row data-trace-display-color-row="${key}">
-      <span>${nodeGraphDisplaySettingsEscapeHtml(meta.label)}</span>
+    <div class="node-trace-display-color-widget-row${noSide ? " no-side-label" : ""}" data-trace-display-control-row data-trace-display-color-row="${key}">
+      <span>${nodeGraphDisplaySettingsEscapeHtml(meta.label || "")}</span>
       <div
         class="node-trace-display-color-widget-host"
         data-trace-display-color-widget="${key}"
         role="group"
-        aria-label="${nodeGraphDisplaySettingsEscapeHtml(meta.aria || meta.label)}"></div>
+        aria-label="${nodeGraphDisplaySettingsEscapeHtml(meta.aria || meta.label || key)}"></div>
       <input type="hidden" data-trace-display-color="${key}"${idAttr} value="${nodeGraphDisplaySettingsEscapeHtml(meta.defaultValue || "#ffffff")}">
     </div>`;
 }
@@ -4846,6 +4921,11 @@ function nodeGraphDisplaySettingsBuildColorRowHtml(key, formType = null) {
  */
 function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
   const type = formType || "trace";
+  // LED keeps its range-slider control scheme (preview + Color/Brightness/
+  // Blur/Corners/Rounding) — better than the generic stepper form.
+  if (type === "ledLamp" && typeof buildNodeGraphLedDisplaySettingsBodyHtml === "function") {
+    return buildNodeGraphLedDisplaySettingsBodyHtml();
+  }
   const activeFields = nodeGraphTraceDisplayActiveControlSet("fields", type);
   const activeColors = nodeGraphTraceDisplayActiveControlSet("colors", type);
   const activeToggles = nodeGraphTraceDisplayActiveControlSet("toggles", type);
@@ -5006,6 +5086,18 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
     nodeGraphMvp.gradientSelector = null;
   }
   host.innerHTML = buildNodeGraphDisplaySettingsBodyHtml(type, node);
+  // LED: bind range-slider panel (same control scheme as the old LED window).
+  if (type === "ledLamp") {
+    if (node?.id) {
+      nodeGraphMvp.ledSettingsTargetNode = String(node.id);
+    }
+    if (typeof bindNodeGraphLedDisplaySettingsBody === "function") {
+      bindNodeGraphLedDisplaySettingsBody(host);
+    }
+    if (typeof renderNodeGraphLedSettingsWindow === "function") {
+      renderNodeGraphLedSettingsWindow();
+    }
+  }
   // XY Pad: action row for clearing the phosphor residual buffer.
   if (type === "xyPad") {
     host.insertAdjacentHTML(
@@ -5144,6 +5236,7 @@ function applyNodeGraphTraceDisplaySettingsTooltips(popover) {
     dot1Color: "traceDisplaySettings.color",
     secondaryColor: "traceDisplaySettings.secondaryColor",
     backgroundColor: "traceDisplaySettings.background",
+    ghostColor: "traceDisplaySettings.ghostColor",
   };
   for (const [field, key] of Object.entries(colorKeys)) {
     popover.querySelector(`[data-trace-display-color="${field}"]`)?.setAttribute("data-tooltip-key", key);
@@ -5352,6 +5445,11 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
   if (type === "spectrogramBurn") {
     return normalizeNodeGraphSpectrogramSettings(nodeGraphSpectrogramSettingsDefaults);
   }
+  if (type === "ledLamp") {
+    return typeof normalizeNodeGraphLedLayout === "function"
+      ? normalizeNodeGraphLedLayout()
+      : { hue: 0, brightness: 1, blur: 0, rounding: 100, cornerShape: "squircle" };
+  }
   return normalizeNodeGraphTraceDisplaySettings(nodeGraphTraceDisplaySettingsDefaults);
 }
 
@@ -5387,6 +5485,20 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
   }
   if (type === "phosphorLight") {
     return normalizeNodeGraphScope2dSettings(settings);
+  }
+  if (type === "ledLamp") {
+    // Map shared form field names → LED model keys.
+    const raw = settings && typeof settings === "object" ? settings : {};
+    return typeof normalizeNodeGraphLedLayout === "function"
+      ? normalizeNodeGraphLedLayout({
+        ...raw,
+        brightness: raw.brightness ?? raw.dot1Brightness,
+        blur: raw.blur ?? raw.lineThickness,
+        hue: raw.hue,
+        rounding: raw.rounding,
+        cornerShape: raw.cornerShape,
+      })
+      : raw;
   }
   return normalizeNodeGraphTraceDisplaySettings(settings);
 }
@@ -5466,6 +5578,11 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
   if (settingsSchema === "xyPad") {
     return normalizeNodeGraphXyPadDisplaySettings(node.traceDisplaySettings);
   }
+  if (settingsSchema === "ledLamp") {
+    return typeof normalizeNodeGraphLedLayout === "function"
+      ? normalizeNodeGraphLedLayout(node.led)
+      : (node.led || {});
+  }
   if (settingsSchema === "spectrogramBurn") {
     const merged = { ...(node.traceDisplaySettings || {}) };
     if (merged.fftSize == null && node.params?.fftSize != null) {
@@ -5491,6 +5608,26 @@ function readNodeGraphTraceDisplaySettingsForm() {
     nodeGraphTraceDisplayCurrentSettingsForFormType(formType),
     formType,
   );
+  // LED uses its own range / corner controls (data-led-*), not the stepper form.
+  if (formType === "ledLamp") {
+    const panel = root?.querySelector?.("[data-led-display-settings-panel]") || root;
+    const next = { ...current };
+    for (const key of ["hue", "brightness", "blur", "rounding"]) {
+      const input = panel?.querySelector?.(`[data-led-field="${key}"]`);
+      if (input && document.activeElement === input) {
+        next[key] = Number(input.value);
+      } else if (input) {
+        next[key] = Number(input.value);
+      }
+    }
+    const activeCorner = panel?.querySelector?.("[data-led-corner].active, [data-led-corner][aria-pressed='true']");
+    if (activeCorner) {
+      next.cornerShape = activeCorner.getAttribute("data-led-corner") === "square"
+        ? "square"
+        : "squircle";
+    }
+    return normalizeNodeGraphDisplaySettingsForFormType(next, formType);
+  }
   const next = { ...current };
   const activeFields = nodeGraphTraceDisplayActiveControlSet("fields", formType);
   const activeColors = nodeGraphTraceDisplayActiveControlSet("colors", formType);
@@ -5520,6 +5657,9 @@ function readNodeGraphTraceDisplaySettingsForm() {
       }
       if (key === "backgroundColor") {
         next.background = input.value;
+      }
+      if (key === "ghostColor") {
+        next.ghostColor = input.value;
       }
     }
   }
@@ -5563,11 +5703,18 @@ function nodeGraphDisplaySettingsFormValue(settings, key) {
   if (key === "dot1Brightness") {
     return settings.dot1Brightness ?? settings.brightness;
   }
+  // LED blur reuses the Blur field key.
+  if (key === "lineThickness" && nodeGraphTraceDisplaySettingsFormType() === "ledLamp") {
+    return settings.blur ?? settings.lineThickness;
+  }
   if (key === "dot1Color") {
     return settings.dot1Color ?? settings.color;
   }
   if (key === "backgroundColor") {
     return settings.backgroundColor ?? settings.background;
+  }
+  if (key === "ghostColor") {
+    return settings.ghostColor;
   }
   if (key === "syncChannel") {
     return nodeGraphTraceDisplaySyncChannel(settings);
@@ -5579,6 +5726,14 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
   const formType = nodeGraphTraceDisplaySettingsFormType();
   const root = nodeGraphTraceDisplaySettingsRoot();
   const normalized = normalizeNodeGraphDisplaySettingsForFormType(settings, formType);
+  // LED uses dedicated range controls — not the generic stepper writers.
+  if (formType === "ledLamp") {
+    if (typeof syncNodeGraphLedDisplaySettingsControls === "function") {
+      const panel = root?.querySelector?.("[data-led-display-settings-panel]") || root;
+      syncNodeGraphLedDisplaySettingsControls(panel, normalized);
+    }
+    return;
+  }
   const activeFields = nodeGraphTraceDisplayActiveControlSet("fields", formType);
   const activeColors = nodeGraphTraceDisplayActiveControlSet("colors", formType);
   const activeToggles = nodeGraphTraceDisplayActiveControlSet("toggles", formType);
@@ -5824,6 +5979,17 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
       if (n <= 0) return 0.1;
       return clampNodeSliderValue(n, 0.1, 30);
     },
+  }),
+  // LED lamp: hue degrees, blur 0–1, rounding %, brightness 0–2.
+  ledLamp: Object.freeze({
+    hue: (value) => {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return 0;
+      return ((n % 360) + 360) % 360;
+    },
+    lineThickness: nodeGraphTraceDisplayClampUnit,
+    rounding: (value) => clampNodeSliderValue(Number(value) || 0, 0, 100),
+    dot1Brightness: (value) => clampNodeSliderValue(Number(value) || 0, 0, 2),
   }),
   // Phosphor Dot: same blur continuum as 2D Phosphor stamps.
   dot: Object.freeze({
@@ -6189,6 +6355,16 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     node.traceDisplaySettings = normalizeNodeGraphNumberReadoutSettings(settings);
     return node.traceDisplaySettings;
   }
+  if (displayType === "ledLamp") {
+    node.led = typeof normalizeNodeGraphLedLayout === "function"
+      ? normalizeNodeGraphLedLayout({
+        ...(settings || {}),
+        brightness: settings?.brightness ?? settings?.dot1Brightness,
+        blur: settings?.blur ?? settings?.lineThickness,
+      })
+      : (settings || {});
+    return node.led;
+  }
   if (displayType === "xyPad") {
     node.traceDisplaySettings = normalizeNodeGraphXyPadDisplaySettings(settings);
     return node.traceDisplaySettings;
@@ -6496,6 +6672,9 @@ function nodeGraphTraceDisplayColorWidgetLabel(field) {
     }
     return "Bg";
   }
+  if (field === "ghostColor") {
+    return "Ghost";
+  }
   if (field === "dot1Color") {
     const isOutput = nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type === "output";
     return isOutput ? "Left" : "Color";
@@ -6654,6 +6833,19 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
   if (typeof nodeGraphXyPadRedrawAll === "function") {
     nodeGraphXyPadRedrawAll();
   }
+  // LED face applies CSS vars immediately (rounding / pill / squircle).
+  // Cosmetic — works with the audio engine stopped.
+  if (!nodeGraphTraceDisplaySettingsEditingTraceDefaults()) {
+    const ledNodeId = nodeGraphTraceDisplaySettingsTargetNodeId();
+    const ledNode = ledNodeId ? nodeGraphPatchNode(ledNodeId) : null;
+    if (ledNode?.type === "led") {
+      if (typeof scheduleNodeGraphLedFaceRefresh === "function") {
+        scheduleNodeGraphLedFaceRefresh(ledNodeId);
+      } else if (typeof refreshNodeGraphLedFaceForNode === "function") {
+        refreshNodeGraphLedFaceForNode(ledNodeId);
+      }
+    }
+  }
   return settings;
 }
 
@@ -6735,9 +6927,13 @@ function prepareNodeGraphTraceDisplaySettingsForInspectorReplacement() {
 
 function nodeGraphTraceDisplaySettingsOpenPosition(popover, sharedInspectorState = {}, replacementRect = null, event = {}) {
   const savedPosition = sharedInspectorState?.position;
-  const hasSavedPosition =
-    Number.isFinite(Number(savedPosition?.left)) &&
-    Number.isFinite(Number(savedPosition?.top));
+  // Reject 0,0 false memory (same helper as Module Settings) so right-click
+  // Display Settings spawns at the pointer instead of the upper-left corner.
+  const hasSavedPosition = typeof nodeGraphFloatingWindowSavedPositionIsUsable === "function"
+    ? nodeGraphFloatingWindowSavedPositionIsUsable(savedPosition)
+    : (Number.isFinite(Number(savedPosition?.left))
+      && Number.isFinite(Number(savedPosition?.top))
+      && !(Number(savedPosition.left) === 0 && Number(savedPosition.top) === 0));
   const rect = popover?.getBoundingClientRect?.() || { width: 0, height: 0 };
   const replacementLeft = Number(replacementRect?.left);
   const replacementTop = Number(replacementRect?.top);
@@ -7004,9 +7200,8 @@ function openNodeGraphTraceDisplaySettings(nodeId, event = {}) {
   if (typeof nodeGraphNodeUsesPhosphorWaveformDisplay === "function" && nodeGraphNodeUsesPhosphorWaveformDisplay(node)) {
     return false;
   }
-  if (typeof openNodeGraphLedSettings === "function" && node?.type === "led") {
-    return false;
-  }
+  // LED uses the shared display inspector (formType ledLamp) — same popover
+  // as Number Readout / XY Pad / scopes.
   if (!nodeGraphNodeCanOpenDisplaySettings(node)) {
     return false;
   }
@@ -10774,6 +10969,19 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
         slotDebug.push(entry);
         renderNodeGraphModuleScopeAnalyzer(slot, null);
         clearNodeGraphModuleScopeLocalFallback(slot);
+        // Number Readout: keep an idle LCD plate when there is no live sample
+        // (stop / unwired) instead of leaving a wiped blank face.
+        if (slot?.type === "numberReadout" || nodeGraphModuleDisplayRendererForSlot(slot) === "numberReadout") {
+          const face = slot.scopeElement;
+          const numberCanvas = nodeGraphNumberReadoutCanvasForSlot(slot);
+          if (numberCanvas && face) {
+            paintNodeGraphNumberReadoutColdBoot(
+              numberCanvas,
+              face,
+              nodeGraphModuleScopeNodeForSlot(slot),
+            );
+          }
+        }
         return null;
       }
       const rect = slot.scopeElement.getBoundingClientRect();
@@ -11419,6 +11627,133 @@ function nodeGraphNumberReadoutCanvasForSlot(slot) {
   return canvas;
 }
 
+/** Force the next number-readout draw to repaint (after engine stop wipe). */
+function invalidateNodeGraphNumberReadoutPaintCache(canvas) {
+  if (!canvas) {
+    return;
+  }
+  canvas._numberReadoutLastValueText = "";
+  canvas._numberReadoutLastTextChangeAt = 0;
+  canvas._nodeGraphNumberReadoutText = null;
+  canvas._nodeGraphNumberReadoutSettingsSig = null;
+  canvas._nodeGraphNumberReadoutFontReady = null;
+  canvas._nodeGraphNumberReadoutWidth = -1;
+  canvas._nodeGraphNumberReadoutHeight = -1;
+  canvas._nodeGraphNumberReadoutPaintAt = 0;
+  canvas._numberReadoutEnergyMask = null;
+  for (const key of ["_phosphorEnergyGl"]) {
+    const face = canvas[key];
+    if (face && typeof nodeGraphPhosphorEnergyGlDestroy === "function") {
+      try {
+        nodeGraphPhosphorEnergyGlDestroy(face);
+      } catch (_error) {
+        // Best-effort.
+      }
+    }
+    canvas[key] = null;
+  }
+  if (canvas._numberReadoutResidualPresent) {
+    const rctx = canvas._numberReadoutResidualPresent.getContext?.("2d");
+    rctx?.clearRect(
+      0,
+      0,
+      canvas._numberReadoutResidualPresent.width || 0,
+      canvas._numberReadoutResidualPresent.height || 0,
+    );
+  }
+}
+
+/**
+ * Idle LCD after engine stop / before first live sample: plate + unlit segments.
+ * Restores room-light strength so the face is not stuck dark under the dimmer.
+ */
+function paintNodeGraphNumberReadoutColdBoot(canvas, screenElement, node = null) {
+  if (!canvas || !screenElement) {
+    return false;
+  }
+  // Drop residual energy + force next live draw to repaint fully.
+  invalidateNodeGraphNumberReadoutPaintCache(canvas);
+  const pixelRatio = Number(nodeGraphModuleScopeState?.backingPixelRatio)
+    || Math.max(1, window.devicePixelRatio || 1);
+  if (!syncNodeGraphNumberReadoutCanvas(canvas, screenElement, pixelRatio)) {
+    return false;
+  }
+  const context = canvas.getContext("2d");
+  if (!context || !(canvas.width > 0) || !(canvas.height > 0)) {
+    return false;
+  }
+  const settings = nodeGraphNumberReadoutSettingsForNode(node);
+  const decimals = nodeGraphNumberReadoutSafeDecimals(settings.decimals);
+  const valueText = decimals > 0 ? ` !.${"!".repeat(decimals)}` : " !";
+  const ghost = clampNodeSliderValue(Number(settings.ghost) || 0, 0, 1);
+  const innerShadow = clampNodeSliderValue(Number(settings.innerShadow) || 0, 0, 1);
+  const plateRgb = nodeGraphNumberReadoutGhostPlateRgb(settings);
+  const bg = nodeGraphFacePlateBackground(settings);
+  const bright = Number(settings.brightness);
+  const b01 = Math.max(0, Math.min(1, (Number.isFinite(bright) ? bright : 0.92) / 2));
+  if (screenElement.dataset) {
+    // Dimmer punch needs a non-zero strength or the face stays under the veil.
+    screenElement.dataset.lightStrength = (0.28 + 0.32 * b01).toFixed(3);
+  }
+  nodeGraphFacePlateApplyCss(screenElement, bg);
+  const width = canvas.width;
+  const height = canvas.height;
+  const digitFontFamily = nodeGraphNumberReadoutDsegReady
+    ? '"DSEG7 Classic", "Consolas", monospace'
+    : '"Consolas", "Courier New", monospace';
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  const layout = nodeGraphNumberReadoutComputeLayout(
+    context,
+    valueText,
+    digitFontFamily,
+    width,
+    height,
+    false,
+  );
+  context.clearRect(0, 0, width, height);
+  context.fillStyle = bg;
+  context.fillRect(0, 0, width, height);
+  if (ghost > 0.001) {
+    nodeGraphNumberReadoutDrawDigits(context, {
+      text: valueText,
+      centerX: width * 0.5,
+      centerY: layout.digitAreaH * 0.5,
+      fontFamily: digitFontFamily,
+      fontSize: layout.fontSize,
+      cellW: layout.cellW,
+      rgb: plateRgb,
+      alpha: Math.max(0.12, ghost * (nodeGraphNumberReadoutDsegReady ? 0.72 : 0.55)),
+      softBlurPx: 0,
+      plate: true,
+    });
+  }
+  nodeGraphNumberReadoutDrawInnerShadow(context, 0, 0, width, height, innerShadow);
+  // Keep cache dirty (invalidate already did) so live samples always redraw.
+  canvas._nodeGraphNumberReadoutText = null;
+  return true;
+}
+
+function wipeNodeGraphNumberReadoutScreensToColdBoot() {
+  if (typeof document === "undefined") {
+    return;
+  }
+  for (const face of document.querySelectorAll(".node-number-readout-face, .dsp-node.number-readout-layout .node-module-scope-window")) {
+    let canvas = face.querySelector?.(":scope > .node-number-readout-canvas")
+      || face.querySelector?.(".node-number-readout-canvas");
+    if (!canvas) {
+      canvas = document.createElement("canvas");
+      canvas.className = "node-number-readout-canvas";
+      canvas.setAttribute("aria-hidden", "true");
+      face.appendChild(canvas);
+    }
+    const nodeId = face.dataset?.node || face.closest?.(".dsp-node")?.dataset?.node || "";
+    const node = nodeId && typeof nodeGraphPatchNode === "function"
+      ? nodeGraphPatchNode(nodeId)
+      : null;
+    paintNodeGraphNumberReadoutColdBoot(canvas, face, node);
+  }
+}
+
 function syncNodeGraphNumberReadoutCanvas(canvas, screenElement, pixelRatio) {
   if (!canvas || !screenElement) {
     return false;
@@ -11528,10 +11863,32 @@ function nodeGraphNumberReadoutSettingsSignature(settings) {
     settings.decay,
     settings.decimals,
     settings.ghost,
+    settings.ghostColor,
     settings.innerGlow,
     settings.innerShadow,
     stopsSig,
   ].join("|");
+}
+
+/** Unlit LCD segment RGB from independent ghostColor (not gradient sample). */
+function nodeGraphNumberReadoutGhostPlateRgb(settings) {
+  const hex = settings?.ghostColor
+    || nodeGraphNumberReadoutSettingsDefaults.ghostColor
+    || "#1a4a55";
+  if (typeof nodeGraphSampleGradientStopsRgb === "function") {
+    // Reuse hex→rgb via a degenerate one-stop sample.
+    return nodeGraphSampleGradientStopsRgb(
+      [{ t: 0, color: hex }, { t: 1, color: hex }],
+      0,
+      hex,
+    );
+  }
+  const m = String(hex).match(/^#?([0-9a-f]{6})$/i);
+  if (m) {
+    const n = Number.parseInt(m[1], 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  return [26, 74, 85];
 }
 
 /**
@@ -11793,7 +12150,9 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     canvas._nodeGraphNumberReadoutFontReady !== nodeGraphNumberReadoutDsegReady ||
     canvas._nodeGraphNumberReadoutWidth !== canvas.width ||
     canvas._nodeGraphNumberReadoutHeight !== canvas.height;
-  const textChanged = canvas._nodeGraphNumberReadoutText !== text;
+  // null cache (engine-stop wipe) always forces a full present.
+  const textChanged = canvas._nodeGraphNumberReadoutText == null
+    || canvas._nodeGraphNumberReadoutText !== text;
   // Ghost residual only when decay > 0; static live digit is never energy-charged.
   const frozen = nodeGraphModuleScopePhosphorFrozen();
   const energyActive = decay > 0.001;
@@ -11808,16 +12167,11 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const top = 0;
   const width = canvas.width;
   const height = canvas.height;
-  // Color from multi-stop gradient × light amount (same model as 2D phosphor LUT).
-  // Live digits = full energy (t≈1); unlit plate = low energy from ghost slider.
+  // Live digits = gradient peak (full energy). Unlit segments = independent ghostColor.
   const gradientStops = settings.gradientStops;
   const peakHex = settings.color || "#75ebff";
   const rgb = nodeGraphSampleGradientStopsRgb(gradientStops, 1, peakHex);
-  // Plate light amount ≈ ghost (0–1); clamp so unlit segments stay visible when ghost > 0.
-  const plateEnergy = ghost > 0.001 ? Math.max(0.04, Math.min(0.55, ghost * 0.85)) : 0;
-  const plateRgb = plateEnergy > 0
-    ? nodeGraphSampleGradientStopsRgb(gradientStops, plateEnergy, peakHex)
-    : rgb;
+  const plateRgb = nodeGraphNumberReadoutGhostPlateRgb(settings);
   const bg = nodeGraphFacePlateBackground(settings);
   const bright = Number(settings.brightness);
   const alpha = Math.max(0.15, (Number.isFinite(bright) ? Math.max(0, Math.min(2, bright)) : 0.92) / 2);
@@ -11929,7 +12283,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   context.fillStyle = bg;
   context.fillRect(left, top, width, height);
 
-  // Unlit LCD plate: low light amount → gradient color at plateEnergy (not peak×alpha grey).
+  // Unlit LCD segments: ghostColor × ghost amount (independent of energy gradient).
   if (ghost > 0.001) {
     nodeGraphNumberReadoutDrawDigits(context, {
       text: valueText,

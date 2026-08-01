@@ -104,14 +104,14 @@ function attachNodeGraphNodeEvents(node) {
   // propagation for their own settings first.
   node.addEventListener("contextmenu", openNodeModuleActionMenu);
   node.querySelector(".node-header-title-row")?.addEventListener("contextmenu", openNodeModuleActionMenu);
-  node.querySelector(".node-led-face")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
+  // LED face is also .node-solid-module-custom-ui — drag is bound once via
+  // attachNodeGraphSolidModuleShellEvents (do not double-bind pointerdown).
   // Group Input/Output are chromeless (no .node-header-title-row to grab
   // or double-click, see public/modules/groupInput|groupOutput/*-ui.js) --
   // wire their own face to the exact same drag/settings behavior the
   // header row gives every other module. Safe against the single .node-port
   // each face contains: handlePortPointerDown (node-graph-wires.js)
-  // stopPropagation()s before this could also fire, same guarantee LED's
-  // face+port already relies on.
+  // stopPropagation()s before this could also fire.
   node.querySelector(".node-group-input-face")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
   node.querySelector(".node-group-input-face")?.addEventListener("dblclick", openNodeModuleActionMenu);
   node.querySelector(".node-group-output-face")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
@@ -206,12 +206,8 @@ function openNodeModuleDisplaySettings(event) {
   event.preventDefault();
   event.stopPropagation();
   const nodeId = event.currentTarget?.dataset?.node;
-  // Schema-exclusive display windows: bespoke modules own their own floating
-  // settings (not the shared Trace/scope form). Order matches context-menu
-  // specialized-face routing (LED, Music Player phosphor waveform, …).
-  if (nodeId && typeof openNodeGraphLedSettings === "function" && openNodeGraphLedSettings(nodeId, event)) {
-    return;
-  }
+  // Shared display inspector for most faces. Music Player phosphor still owns
+  // its own window; LED uses the shared form (ledLamp schema).
   if (nodeId && typeof openNodeGraphPhosphorWaveformSettings === "function" && openNodeGraphPhosphorWaveformSettings(nodeId, event)) {
     return;
   }
@@ -436,7 +432,7 @@ function appendNodeGraphModuleIoSection(article, ioSection, node, inputPorts, ou
   article.append(ioSection);
 }
 
-/** Empty LayoutB IO column — still occupies the standard 1gu band. */
+/** Empty LayoutB IO column — zero width (display expands). Kept for grid structure. */
 function createNodeGraphLayoutBIoColumnPlaceholder(io) {
   const column = document.createElement("div");
   column.className = `node-io-column ${io} node-layout-b-io-empty`;
@@ -444,22 +440,45 @@ function createNodeGraphLayoutBIoColumnPlaceholder(io) {
   return column;
 }
 
-/** LayoutB shell: ports beside the face (in | face | out). Fixed 1gu IO each side. */
+/** LayoutB shell: ports beside the face (in | face | out). Empty sides collapse. */
 function createNodeGraphLayoutBShell(node, type, customBody, registration, inputPorts, outputPorts) {
   const shell = document.createElement("div");
   // node-solid-module-shell: legacy class name still used by CSS / hit-testing.
   shell.className = "node-solid-module-shell node-module-chrome-layout-b-shell";
+  const hasInputs = Array.isArray(inputPorts) && inputPorts.length > 0;
+  const hasOutputs = Array.isArray(outputPorts) && outputPorts.length > 0;
   const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input")
     || createNodeGraphLayoutBIoColumnPlaceholder("input");
   const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output")
     || createNodeGraphLayoutBIoColumnPlaceholder("output");
-  if (registration?.solidPortLabels === false) {
-    inputColumn.classList.add("labels-hidden");
-    outputColumn.classList.add("labels-hidden");
-  }
+  // Layout B: no In/Out text chrome — jacks only; face expands into that space.
+  // (solidPortLabels:false was the old per-module opt-out; now it's the default.)
+  inputColumn.classList.add("labels-hidden");
+  outputColumn.classList.add("labels-hidden");
+  shell.classList.toggle("layout-b-no-inputs", !hasInputs);
+  shell.classList.toggle("layout-b-no-outputs", !hasOutputs);
   customBody.classList.add("node-solid-module-custom-ui");
   shell.append(inputColumn, customBody, outputColumn);
   return shell;
+}
+
+/** LayoutB: no param rows / sliders-hidden → shell fills; no empty bottom lip. */
+function syncNodeGraphLayoutBNoParamsClass(element, type, ui = null) {
+  if (!element?.classList) {
+    return;
+  }
+  if (!element.classList.contains("chrome-layout-b") && !element.classList.contains("solid-module-layout")) {
+    element.classList.remove("layout-b-no-params");
+    return;
+  }
+  const patchUi = ui || nodeGraphEffectivePatchNodeUi(
+    nodeGraphPatchNode(element.dataset?.node)?.ui,
+    type || element.dataset?.nodeType,
+  );
+  const rows = typeof nodeGraphModuleVisibleSliderRowCountForUi === "function"
+    ? nodeGraphModuleVisibleSliderRowCountForUi(type || element.dataset?.nodeType, patchUi)
+    : 0;
+  element.classList.toggle("layout-b-no-params", rows <= 0);
 }
 
 /** LayoutA I/O strip: ports under the face. */
@@ -539,12 +558,15 @@ function createNodeGraphModuleElement(type, node) {
   article.classList.toggle("oscilloscope-hidden", patchNodeUi.oscilloscopeHidden);
   article.classList.toggle("sliders-hidden", patchNodeUi.slidersHidden);
   article.classList.toggle("title-hidden", patchNodeUi.titleHidden);
+  if (typeof syncNodeGraphLayoutBNoParamsClass === "function") {
+    syncNodeGraphLayoutBNoParamsClass(article, type, patchNodeUi);
+  }
 
   const chromelessRegistration = nodeGraphChromelessModuleLayouts.has(layout)
     ? nodeGraphChromelessModuleRegistrations.get(layout)
     : null;
   if (chromelessRegistration) {
-    // Optional title bar on headerless LayoutB chromeless modules (Show title).
+    // Title bar on headerless LayoutB chromeless modules (default on).
     if (chrome.headerless && !patchNodeUi.titleHidden) {
       article.append(createNodeGraphModuleHeader(type, node, definition));
     }
@@ -557,7 +579,7 @@ function createNodeGraphModuleElement(type, node) {
     );
     chromelessRegistration.afterMount?.(article, chromelessBody, node, type);
   } else if (chrome.headerless) {
-    // Headerless LayoutB (e.g. valueSlider): optional title + face + side ports.
+    // Headerless LayoutB (e.g. valueSlider): title + face + side ports.
     if (!patchNodeUi.titleHidden) {
       article.append(createNodeGraphModuleHeader(type, node, definition));
     }

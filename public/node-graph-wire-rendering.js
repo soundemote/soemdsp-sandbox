@@ -178,6 +178,8 @@ function nodeGraphDrawSignalWire(svg, connection, index, context) {
     context.activeNodeIds,
     context.plan,
   );
+  const fromCap = nodeGraphWireHelpers.wireEndpointCapCenter?.(from, "from") || from;
+  const toCap = nodeGraphWireHelpers.wireEndpointCapCenter?.(to, "to") || to;
   nodeGraphWireHelpers.drawPath(svg, {
     alias: `${nodeGraphLabel(connection.sourceNode, connection.sourcePort)} -> ${nodeGraphLabel(
       connection.destinationNode,
@@ -202,7 +204,8 @@ function nodeGraphDrawSignalWire(svg, connection, index, context) {
       nodeGraphPortWireColor(connection.sourceNode, connection.sourcePort, "output"),
       nodeGraphPortWireColor(connection.destinationNode, connection.destinationPort, "input"),
     ],
-    ...nodeGraphManualTracePathOptions(connection, from, to),
+    // Trace polylines end on contact centers (same as cable path ends).
+    ...nodeGraphManualTracePathOptions(connection, fromCap, toCap),
   });
   if (!context.skipHitPath) {
     markNodeGraphWireEndpointsConnected(connection);
@@ -227,6 +230,8 @@ function nodeGraphDrawModulationWire(svg, modulation, index, context) {
     context.activeNodeIds,
     context.plan,
   );
+  const fromCap = nodeGraphWireHelpers.wireEndpointCapCenter?.(from, "from") || from;
+  const toCap = nodeGraphWireHelpers.wireEndpointCapCenter?.(to, "to") || to;
   nodeGraphWireHelpers.drawPath(svg, {
     alias: `${nodeGraphLabel(modulation.sourceNode, modulation.sourcePort)} -> ${nodeGraphNodeDisplayName(
       modulation.destinationNode,
@@ -251,7 +256,7 @@ function nodeGraphDrawModulationWire(svg, modulation, index, context) {
       nodeGraphPortWireColor(modulation.sourceNode, modulation.sourcePort, "output"),
       nodeGraphPortWireColor(modulation.destinationNode, modulation.destinationParam, "modulation"),
     ],
-    ...nodeGraphManualTracePathOptions(modulation, from, to),
+    ...nodeGraphManualTracePathOptions(modulation, fromCap, toCap),
   });
   if (!context.skipHitPath) {
     markNodeGraphWireEndpointsConnected(modulation, "modulation");
@@ -276,6 +281,8 @@ function nodeGraphDrawGraphWire(svg, connection, index, context) {
     context.activeNodeIds,
     context.plan,
   );
+  const fromCap = nodeGraphWireHelpers.wireEndpointCapCenter?.(from, "from") || from;
+  const toCap = nodeGraphWireHelpers.wireEndpointCapCenter?.(to, "to") || to;
   nodeGraphWireHelpers.drawPath(svg, {
     alias: `${nodeGraphLabel(connection.sourceNode, connection.sourcePort)} -> ${nodeGraphNodeDisplayName(
       connection.destinationNode,
@@ -300,7 +307,7 @@ function nodeGraphDrawGraphWire(svg, connection, index, context) {
       nodeGraphPortWireColor(connection.sourceNode, connection.sourcePort, "output"),
       nodeGraphPortWireColor(connection.destinationNode, connection.destinationGraphInput, "graph"),
     ],
-    ...nodeGraphManualTracePathOptions(connection, from, to),
+    ...nodeGraphManualTracePathOptions(connection, fromCap, toCap),
   });
   if (!context.skipHitPath) {
     markNodeGraphWireEndpointsConnected(connection, "graph");
@@ -309,7 +316,7 @@ function nodeGraphDrawGraphWire(svg, connection, index, context) {
 
 function nodeGraphDrawTemporaryWire(svg, options) {
   const { className, endpoint, from, gradientId, to, tracePoints = null } = options;
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  const fromColor = nodeGraphPortWireColor(endpoint.node, endpoint.port, endpoint.io);
   const stroke = nodeGraphWireHelpers.createGradient(
     svg,
     gradientId,
@@ -317,19 +324,33 @@ function nodeGraphDrawTemporaryWire(svg, options) {
     to,
     "node-wire-gradient-stop",
     [
-      nodeGraphPortWireColor(endpoint.node, endpoint.port, endpoint.io),
+      fromColor,
       "rgba(243, 241, 236, 0.44)",
     ],
   );
+  // Cap under stroke (same paint-order rule as permanent wires).
+  if (typeof nodeGraphWireHelpers.drawEndpointCap === "function") {
+    const role = endpoint?.io === "input" || endpoint?.io === "modulation" || endpoint?.io === "graph"
+      ? "to"
+      : "from";
+    nodeGraphWireHelpers.drawEndpointCap(svg, from, role, stroke, "temp", {
+      endColor: fromColor,
+      gradientId,
+    });
+  }
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
   path.setAttribute("class", className);
   path.setAttribute("stroke", stroke);
+  path.style.stroke = stroke;
   if (tracePoints) {
     path.dataset.tracePoints = nodeGraphTraceWaypointAttribute(tracePoints);
     path.setAttribute("d", nodeGraphTracePathFromPoints(from, tracePoints, to));
   } else {
     path.setAttribute("d", nodeGraphWireHelpers.path(from, to));
   }
-  svg.append(path);
+  // Visual on endpoint layer after the disc so AA doesn't fringe the join.
+  const capSvg = document.getElementById("nodeWireEndpointSvg") || svg;
+  capSvg.append(path);
 }
 
 function nodeGraphResetConnectedWireClasses(workspace) {
@@ -374,10 +395,17 @@ function drawNodeGraphWires(options = {}) {
   const activeNodeIds = nodeGraphActiveNodeIds(plan);
 
   const graphRect = nodeGraphGraphRect();
-  svg.setAttribute("viewBox", `0 0 ${graphRect.width} ${graphRect.height}`);
+  const viewBox = `0 0 ${graphRect.width} ${graphRect.height}`;
+  svg.setAttribute("viewBox", viewBox);
   svg.replaceChildren();
   const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
   svg.append(defs);
+  // Contact disks live above modules (separate SVG) so full circles show mid-jack.
+  const capSvg = document.getElementById("nodeWireEndpointSvg");
+  if (capSvg) {
+    capSvg.setAttribute("viewBox", viewBox);
+    capSvg.replaceChildren();
+  }
 
   if (!lite) {
     nodeGraphResetConnectedWireClasses(workspace);

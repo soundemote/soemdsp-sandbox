@@ -95,8 +95,30 @@ function ensureNodeGraphStartupModulesVisible() {
   if (!container || container.querySelector(".dsp-node")) {
     return;
   }
+  // If we already have a working patch with nodes but the DOM is empty, re-apply
+  // that patch — never replace with the default (and never autosave over it).
+  const working = nodeGraphMvp?.workingPatch;
+  const workingHasNodes = Array.isArray(working?.nodes) && working.nodes.length > 0;
+  const liveHasNodes = Array.isArray(nodeGraphMvp?.patch?.nodes) && nodeGraphMvp.patch.nodes.length > 0;
+  if (workingHasNodes || liveHasNodes) {
+    const source = workingHasNodes ? working : nodeGraphMvp.patch;
+    console.warn(
+      "[soemdsp] Startup: module DOM empty but patch has nodes — re-applying patch (not default).",
+      source.nodes.length,
+    );
+    commitNodeGraphPatch(cloneNodeGraphPatch(source), {
+      autosaveWorkingPatch: false,
+      markPending: false,
+      record: false,
+      status: "startup patch reapplied",
+    });
+    return;
+  }
   clearNodeGraphStartupPatchRecoveryStorage();
+  // Default only when there truly is no patch — never write that back as the
+  // working-patch autosave (would lock the user into the default on refresh).
   commitNodeGraphPatch(cloneNodeGraphPatch(nodeGraphDefaultPatch), {
+    autosaveWorkingPatch: false,
     markPending: false,
     record: false,
     status: "startup default restored",

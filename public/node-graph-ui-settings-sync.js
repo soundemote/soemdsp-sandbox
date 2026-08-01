@@ -25,7 +25,7 @@ function syncNodeUiDevNodeColorControls() {
 // so anything added to it inherits that fragility. This reads its own controls
 // by definition key and writes two CSS custom properties, nothing else.
 const nodeUiDevSliderFillColorTargets = Object.freeze([
-  { property: "--node-slider-amount-color", prefix: "nodeUiDevSliderAmountFill", fallback: [200, 31, 15, 100] },
+  { property: "--node-slider-amount-color", prefix: "nodeUiDevSliderAmountFill", fallback: [200, 31, 15, 55] },
   { property: "--node-slider-position-color", prefix: "nodeUiDevSliderPositionFill", fallback: [203, 55, 57, 37] },
 ]);
 

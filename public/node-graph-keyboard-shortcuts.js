@@ -3,6 +3,74 @@ function nodeGraphEventTargetIsEditable(target) {
     Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
 }
 
+/**
+ * True when keyboard shortcuts must yield to typing (text/search fields).
+ * Range / checkbox / button inputs do not count — Shift+arrows still resize.
+ */
+function nodeGraphEventTargetIsTextEditable(target) {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+  if (target.closest?.("[contenteditable='true']")) {
+    return true;
+  }
+  const field = target.closest?.("textarea, select, input");
+  if (!field) {
+    return false;
+  }
+  if (field.tagName === "TEXTAREA" || field.tagName === "SELECT") {
+    return true;
+  }
+  if (field.tagName !== "INPUT") {
+    return false;
+  }
+  if (field.readOnly || field.disabled) {
+    return false;
+  }
+  const type = String(field.type || "text").toLowerCase();
+  return [
+    "text",
+    "search",
+    "email",
+    "url",
+    "password",
+    "tel",
+    "number",
+  ].includes(type);
+}
+
+/**
+ * Blur a focused text field when the user clicks the modular area / modules /
+ * sliders / etc. Module drag and slider handlers call preventDefault on
+ * pointerdown, which otherwise leaves Search modules focused and steals
+ * Shift+arrow (and every other bare-key shortcut).
+ */
+function nodeGraphBlurActiveTextEditableIfOutside(eventTarget) {
+  const active = document.activeElement;
+  if (!(active instanceof HTMLElement) || !nodeGraphEventTargetIsTextEditable(active)) {
+    return false;
+  }
+  if (eventTarget instanceof Node) {
+    if (active === eventTarget || active.contains(eventTarget)) {
+      return false;
+    }
+    const label = eventTarget instanceof Element ? eventTarget.closest("label") : null;
+    if (label && (label.contains(active) || label.control === active)) {
+      return false;
+    }
+    // Moving into another text field — let the browser handle focus.
+    if (nodeGraphEventTargetIsTextEditable(eventTarget)) {
+      return false;
+    }
+  }
+  try {
+    active.blur();
+  } catch {
+    // ignore
+  }
+  return true;
+}
+
 function nudgeSelectedNodeGraphModulesOnGrid(axis, direction) {
   const selectedNodeIds = new Set([...nodeGraphSelectedNodeIds()].filter((id) =>
     nodeGraphMvp.activeNodes.has(id),
@@ -227,10 +295,11 @@ function handleNodeGraphKeydown(event) {
     }
     return;
   }
-  // While typing in a text field (module search, name boxes, code editor),
-  // bare-key shortcuts must not fire -- e.g. "d" toggling debug while you search
-  // for "led". Modifier combos (Ctrl+Z, etc.) and Space (above) still work.
-  if (nodeGraphEventTargetIsEditable(event.target) && !event.ctrlKey && !event.metaKey && !event.altKey) {
+  // While typing in a text/search field (module search, name boxes, code
+  // editor), bare-key shortcuts must not fire -- e.g. "d" toggling debug while
+  // you search for "led". Range/checkbox focus does not block shortcuts.
+  // Modifier combos (Ctrl+Z, etc.) and Space (above) still work.
+  if (nodeGraphEventTargetIsTextEditable(event.target) && !event.ctrlKey && !event.metaKey && !event.altKey) {
     return;
   }
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z" && !event.shiftKey) {
@@ -379,7 +448,7 @@ function handleNodeGraphKeydown(event) {
     return;
   }
   // Don't delete modules while the user is typing in a text field.
-  if (nodeGraphEventTargetIsEditable(event.target)) {
+  if (nodeGraphEventTargetIsTextEditable(event.target)) {
     return;
   }
 

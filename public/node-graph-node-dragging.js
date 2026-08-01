@@ -75,7 +75,10 @@ function beginNodeGraphNodeDrag(event) {
     return;
   }
 
-  const additiveSelection = event.ctrlKey || event.metaKey || event.shiftKey;
+  // Ctrl/Cmd multi-select only. Shift is reserved for keyboard resize/nudge
+  // (Shift+arrows) — treating Shift+click as additive made sole selection
+  // toggle off when the user held Shift and re-clicked before resizing.
+  const additiveSelection = event.ctrlKey || event.metaKey;
   const selectedNodeIds = nodeGraphSelectedNodeIds();
   const wasSelectedAtStart = selectedNodeIds.has(node.dataset.node);
   const point = nodeGraphClientPoint(event);
@@ -205,8 +208,13 @@ function endNodeGraphNodeDrag(event) {
     toggleNodeGraphNodeSelection(node.dataset.node, additiveSelection);
     return;
   }
+  // Micro-drag / move must leave modules selected so Shift+arrows work without
+  // a second click. Previously only additive drags updated selection — a
+  // slightly imperfect click moved the LED and left it unselected.
   if (additiveDragSelection) {
     setNodeGraphNodeSelection(pendingSelectionIds);
+  } else {
+    setNodeGraphNodeSelection(draggedNodes.map((dragged) => dragged.id));
   }
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   for (const dragged of draggedNodes) {

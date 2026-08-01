@@ -319,7 +319,12 @@ function renderNodeGraphValueSliderFace(faceOrNodeId, nodeIdOpt) {
   if (label) {
     label.hidden = !faceData.showLabel || hasAny;
     if (!hasAny) {
-      label.textContent = (nodeGraphNodeLabels?.valueSlider || "Value Slider").toUpperCase();
+      // Face caption = user alias (Module Settings ALIAS); fallback to type name.
+      const alias = typeof normalizeNodeGraphPatchNodeAlias === "function"
+        ? normalizeNodeGraphPatchNodeAlias(patchNode?.alias)
+        : String(patchNode?.alias || "").trim();
+      label.textContent = alias
+        || (nodeGraphNodeLabels?.valueSlider || "Value Slider");
     }
   }
   if (readout) {
@@ -682,18 +687,18 @@ function syncNodeGraphValueSliderFaceControls(targetNode) {
   const degrees = document.getElementById("nodeSceneValueSliderFaceRotationDegrees");
   const offset = document.getElementById("nodeSceneValueSliderFaceRotationOffset");
   const showReadout = document.getElementById("nodeSceneValueSliderFaceShowReadout");
-  const hasMid = Boolean(face.mid.dataUrl);
+  // Rotate is always interactive (preference can be set before a mid image loads).
   if (rotate && document.activeElement !== rotate) {
     rotate.checked = face.rotateLikeKnob;
-    rotate.disabled = !hasMid;
+    rotate.disabled = false;
   }
   if (degrees && document.activeElement !== degrees) {
     degrees.value = String(face.rotationDegrees);
-    degrees.disabled = !hasMid;
+    degrees.disabled = false;
   }
   if (offset && document.activeElement !== offset) {
     offset.value = String(face.rotationOffsetDegrees);
-    offset.disabled = !hasMid;
+    offset.disabled = false;
   }
   if (showReadout && document.activeElement !== showReadout) {
     showReadout.checked = face.showReadout;

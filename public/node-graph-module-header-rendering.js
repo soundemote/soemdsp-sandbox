@@ -546,25 +546,19 @@ function createNodeGraphModuleHeader(type, node, definition) {
   titleText.className = "node-header-title node-header-title-input";
   titleText.dataset.node = node;
   titleText.spellcheck = false;
-  titleText.value = nodeGraphPatchNodeTitle({ id: node, type });
+  // Always the module type name (not user alias). Alias lives under Command
+  // Center Module Settings and drives Value Slider face label / wire names.
+  titleText.value = typeof nodeGraphModuleChromeTitle === "function"
+    ? nodeGraphModuleChromeTitle({ id: node, type })
+    : (nodeGraphNodeLabels?.[type] || type);
+  titleText.readOnly = true;
+  titleText.tabIndex = -1;
+  titleText.setAttribute("aria-readonly", "true");
+  titleText.title = "Module type name (edit ALIAS under Module Settings)";
   // Single/double click on the title behave exactly like clicking anywhere
   // else in the header row (select/drag the module, or open the module
-  // settings menu on double-click) -- pointerdown isn't stopped, so it
-  // still bubbles to the row's own drag/select listener. What IS blocked
-  // is the input's native "mousedown focuses + places caret" behavior,
-  // which would otherwise start an edit on click #1. Editing only begins
-  // on a genuine triple-click, detected via the "click" event's `detail`
-  // (the browser's own consecutive-click counter).
+  // settings menu on double-click). Title is not an alias editor.
   titleText.addEventListener("pointerdown", (event) => event.preventDefault());
-  titleText.addEventListener("click", (event) => {
-    if (event.detail < 3) {
-      return;
-    }
-    event.stopPropagation();
-    titleText.focus();
-    titleText.select();
-  });
-  titleText.addEventListener("change", () => commitNodeGraphModuleTitleFromHeaderInput(node, titleText.value));
   titleRow.append(titleText);
   header.append(titleRow);
 

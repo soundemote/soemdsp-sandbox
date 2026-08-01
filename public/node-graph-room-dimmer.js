@@ -1,15 +1,17 @@
-// Room light — cheap HDR-like screenspace pass.
+// Room light — screenspace dim veil with rect light punches.
 //
-// 💡 drag = room dim. Screens/text = rect lights. Wires = continuous line segments
-// (segment SDF — not beads / not path bounding boxes).
+// 💡 drag = room dim. Screens/text = axis-aligned rect lights only.
+//
+// Policy: cables stay under the veil and dim with the room. Do not re-add
+// wire polyline punches, glow underlays, or a second "undimmed" wire layer.
+// Coarse path sampling cannot match the SVG cable; faking it is not acceptable.
 
 (() => {
   "use strict";
 
   const STORAGE_KEY = "soemdsp-sandbox.roomDimmer.v1";
   const MAX_RECTS = 40;
-  const MAX_SEGS = 48;
-  const SHADER_REV = 3;
+  const SHADER_REV = 4;
 
   const LIGHT_SELECTOR = [
     "[data-light-source]",
@@ -27,12 +29,6 @@
     ".dsp-node .node-port-label",
     ".dsp-node .node-io-row > span",
   ].join(", ");
-  const WIRE_PATH_SELECTOR = "#nodeWireSvg .node-wire-path:not(.temp):not(.inactive-wire)";
-  // Polyline approximation of each cable (connected segments = continuous glow).
-  const WIRE_POLY_POINTS = 6;
-  const WIRE_STRENGTH = 0.14;
-  // UV half-width of the lit cable (screen-independent-ish; scaled in shader by aspect).
-  const WIRE_HALF_UV = 0.0045;
 
   const VERT = `
 attribute vec2 aPos;
@@ -54,10 +50,6 @@ uniform int uRectCount;
 uniform vec4 uRect[${MAX_RECTS}];
 uniform float uRectStr[${MAX_RECTS}];
 
-uniform int uSegCount;
-uniform vec4 uSeg[${MAX_SEGS}]; // ax, ay, bx, by in uv
-uniform float uSegStr[${MAX_SEGS}];
-
 varying vec2 vUv;
 
 float rectSdf(vec2 p, vec4 r) {
@@ -65,14 +57,6 @@ float rectSdf(vec2 p, vec4 r) {
   vec2 h = max(r.zw * 0.5, vec2(1e-4));
   vec2 d = abs(p - c) - h;
   return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
-}
-
-// Distance to segment in aspect-corrected space so glow is round, not oval.
-float segDist(vec2 p, vec2 a, vec2 b, float aspect) {
-  vec2 pa = vec2((p.x - a.x) * aspect, p.y - a.y);
-  vec2 ba = vec2((b.x - a.x) * aspect, b.y - a.y);
-  float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-8), 0.0, 1.0);
-  return length(pa - ba * h);
 }
 
 void main() {
@@ -83,7 +67,7 @@ void main() {
   float core = 0.0;
   float bloom = 0.0;
 
-  // Screens + text (rects)
+  // Screens + text (rects) only — no wire polyline underlay.
   for (int i = 0; i < ${MAX_RECTS}; i++) {
     if (i >= uRectCount) break;
     float s = clamp(uRectStr[i], 0.0, 1.0);
@@ -95,21 +79,6 @@ void main() {
     float harsh = pow(s, 1.8);
     float fall = mix(70.0, 36.0, harsh);
     bloom = max(bloom, exp(-max(d, 0.0) * fall) * harsh * 0.28);
-  }
-
-  // Wires: continuous segment tubes (not beads).
-  float wireHalf = ${WIRE_HALF_UV.toFixed(5)};
-  for (int i = 0; i < ${MAX_SEGS}; i++) {
-    if (i >= uSegCount) break;
-    float s = clamp(uSegStr[i], 0.0, 1.0);
-    if (s < 0.008) continue;
-    vec4 g = uSeg[i];
-    float d = segDist(vUv, g.xy, g.zw, uAspect) - wireHalf;
-    // Soft body along the whole cable.
-    float body = 1.0 - smoothstep(0.0, wireHalf * 1.8, d);
-    core = max(core, body * s * 1.1);
-    float halo = exp(-max(d, 0.0) * 55.0) * s * 0.22;
-    bloom = max(bloom, halo);
   }
 
   bloom = min(bloom, 0.55);
@@ -251,15 +220,10 @@ void main() {
       uExposure: gl.getUniformLocation(prog, "uExposure"),
       uAspect: gl.getUniformLocation(prog, "uAspect"),
       uRectCount: gl.getUniformLocation(prog, "uRectCount"),
-      uSegCount: gl.getUniformLocation(prog, "uSegCount"),
       uRect: Array.from({ length: MAX_RECTS }, (_, i) =>
         gl.getUniformLocation(prog, `uRect[${i}]`)),
       uRectStr: Array.from({ length: MAX_RECTS }, (_, i) =>
         gl.getUniformLocation(prog, `uRectStr[${i}]`)),
-      uSeg: Array.from({ length: MAX_SEGS }, (_, i) =>
-        gl.getUniformLocation(prog, `uSeg[${i}]`)),
-      uSegStr: Array.from({ length: MAX_SEGS }, (_, i) =>
-        gl.getUniformLocation(prog, `uSegStr[${i}]`)),
     };
     return gl;
   }
@@ -335,60 +299,10 @@ void main() {
     }
   }
 
-  /**
-   * Continuous wire light: polyline of segments (SDF tubes), not discrete beads.
-   */
-  function collectWireSegments(wr, sx, sy, canvas) {
-    const segs = [];
-    const strengths = [];
-    const host = workspace();
-    if (!host) return { segs, strengths };
-
-    for (const path of host.querySelectorAll(WIRE_PATH_SELECTOR)) {
-      if (segs.length >= MAX_SEGS) break;
-      if (!path.getTotalLength || !path.getPointAtLength || !path.getScreenCTM) continue;
-      let len = 0;
-      try {
-        len = path.getTotalLength();
-      } catch {
-        continue;
-      }
-      if (!(len > 2)) continue;
-      const ctm = path.getScreenCTM();
-      if (!ctm) continue;
-
-      const n = Math.max(2, Math.min(WIRE_POLY_POINTS, Math.ceil(len / 40) + 1));
-      const pts = [];
-      for (let i = 0; i < n; i += 1) {
-        const t = i / (n - 1);
-        let pt;
-        try {
-          pt = path.getPointAtLength(len * t);
-        } catch {
-          pts.length = 0;
-          break;
-        }
-        const cx = ctm.a * pt.x + ctm.c * pt.y + ctm.e;
-        const cy = ctm.b * pt.x + ctm.d * pt.y + ctm.f;
-        pts.push(clientToUv(cx, cy, wr, sx, sy, canvas));
-      }
-      for (let i = 0; i < pts.length - 1; i += 1) {
-        if (segs.length >= MAX_SEGS) break;
-        const a = pts[i];
-        const b = pts[i + 1];
-        // Skip degenerate
-        if (Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) < 1e-5) continue;
-        segs.push([a[0], a[1], b[0], b[1]]);
-        strengths.push(WIRE_STRENGTH);
-      }
-    }
-    return { segs, strengths };
-  }
-
   function collectLights(canvas) {
     const host = workspace();
     if (!host || !canvas?.width || !canvas?.height) {
-      return { rects: [], rectStr: [], segs: [], segStr: [], exposure: 1 };
+      return { rects: [], rectStr: [], exposure: 1 };
     }
     const wr = host.getBoundingClientRect();
     const sx = canvas.width / Math.max(1, wr.width);
@@ -407,15 +321,12 @@ void main() {
       pushRectLight(el, "text", wr, sx, sy, canvas, seen, rects, rectStr, energyRef);
     }
 
-    const wires = collectWireSegments(wr, sx, sy, canvas);
     const e = Math.min(1, energyRef.v / 0.16);
     const exposure = 1 + e * 0.22;
 
     return {
       rects,
       rectStr,
-      segs: wires.segs,
-      segStr: wires.strengths,
       exposure,
     };
   }
@@ -451,7 +362,7 @@ void main() {
       return;
     }
 
-    const { rects, rectStr, segs, segStr, exposure } = collectLights(canvas);
+    const { rects, rectStr, exposure } = collectLights(canvas);
     const { locs } = state;
     const aspect = canvas.width / Math.max(1, canvas.height);
 
@@ -469,17 +380,11 @@ void main() {
     gl.uniform1f(locs.uExposure, exposure);
     gl.uniform1f(locs.uAspect, aspect);
     gl.uniform1i(locs.uRectCount, rects.length);
-    gl.uniform1i(locs.uSegCount, segs.length);
 
     for (let i = 0; i < MAX_RECTS; i += 1) {
       const r = rects[i] || [0, 0, 0, 0];
       if (locs.uRect[i]) gl.uniform4f(locs.uRect[i], r[0], r[1], r[2], r[3]);
       if (locs.uRectStr[i]) gl.uniform1f(locs.uRectStr[i], rectStr[i] || 0);
-    }
-    for (let i = 0; i < MAX_SEGS; i += 1) {
-      const s = segs[i] || [0, 0, 0, 0];
-      if (locs.uSeg[i]) gl.uniform4f(locs.uSeg[i], s[0], s[1], s[2], s[3]);
-      if (locs.uSegStr[i]) gl.uniform1f(locs.uSegStr[i], segStr[i] || 0);
     }
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);

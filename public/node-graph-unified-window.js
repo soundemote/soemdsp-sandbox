@@ -82,15 +82,17 @@ const nodeGraphUnifiedWindowPages = Object.freeze({
   }),
 });
 
+// Module / Display / Parameter settings sit right after Patch Explorer in the
+// shared header nav (Command Center floating chrome).
 const nodeGraphUnifiedWindowPageOrder = Object.freeze([
   "commandCenter",
   "moduleBrowser",
   "patchExplorer",
   "moduleActions",
-  "uiSettings",
-  "visibilityMenu",
   "traceDisplaySettings",
   "metaparameters",
+  "uiSettings",
+  "visibilityMenu",
 ]);
 
 function nodeGraphUnifiedWindowPageConfig(page = "") {

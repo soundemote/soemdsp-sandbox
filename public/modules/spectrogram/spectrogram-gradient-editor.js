@@ -531,7 +531,6 @@
         <div class="sge-bar" data-sge-bar></div>
       </div>
       <div class="sge-stops" data-sge-stops aria-label="Gradient stops"></div>
-      <div class="sge-section-label">Selected stop</div>
       <div class="sge-color-widget-host" data-sge-color-widget></div>
       <div class="sge-row">
         <span>Pos</span>

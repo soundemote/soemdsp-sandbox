@@ -121,10 +121,10 @@ function nodeGraphModuleUsesLayoutB(type) {
 }
 
 /**
- * Headerless LayoutB modules use the XY Pad grid: optional title + shell +
- * params (class solid-module-layout / chrome-layout-b). Default title is
- * hidden; "Show title" mounts a normal header. I/O hide only removes port
- * labels and expands the face toward the jacks (ports stay).
+ * Headerless LayoutB modules use the XY Pad grid: title + shell + params
+ * (class solid-module-layout / chrome-layout-b). Title is shown by default;
+ * "Hide title" removes the header. I/O hide only removes port labels and
+ * expands the face toward the jacks (ports stay).
  * Graph is LayoutB *with* a permanent header — different CSS.
  */
 function nodeGraphModuleIsHeaderlessLayoutB(type) {

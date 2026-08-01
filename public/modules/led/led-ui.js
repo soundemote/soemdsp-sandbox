@@ -3,13 +3,35 @@
 // public/modules/stepGrid/step-grid-ui.js both follow).
 
 function createNodeGraphLedFace(node, type) {
-  const face = document.createElement("div");
-  face.className = "node-led-face node-light-source";
-  face.dataset.node = node;
-  face.dataset.nodeType = type;
-  face.dataset.lightSource = "screen";
-  face.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} LED`);
-  return face;
+  // Stack: bottom decoration → lit lamp plate → top decoration.
+  // The root fills the LayoutB cell; the lamp is sized by fillPercent.
+  const root = document.createElement("div");
+  root.className = "node-led-face";
+  root.dataset.node = node;
+  root.dataset.nodeType = type;
+  root.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} LED`);
+
+  const bottom = document.createElement("img");
+  bottom.className = "node-led-image-layer node-led-image-bottom";
+  bottom.dataset.ledImage = "bottom";
+  bottom.alt = "";
+  bottom.draggable = false;
+  bottom.hidden = true;
+
+  const lamp = document.createElement("div");
+  lamp.className = "node-led-lamp node-light-source";
+  lamp.dataset.lightSource = "screen";
+  lamp.setAttribute("aria-hidden", "true");
+
+  const top = document.createElement("img");
+  top.className = "node-led-image-layer node-led-image-top";
+  top.dataset.ledImage = "top";
+  top.alt = "";
+  top.draggable = false;
+  top.hidden = true;
+
+  root.append(bottom, lamp, top);
+  return root;
 }
 
 registerNodeGraphChromelessModuleUi("led", {
@@ -19,11 +41,20 @@ registerNodeGraphChromelessModuleUi("led", {
   // LED-specific setup beyond "create the body" that the generic chromeless
   // rendering dispatch (node-graph-module-rendering.js) can't do for it.
   afterMount(article, body, node, type) {
+    // Scope slot must target the lit lamp plate (not the whole stack).
+    const lamp = body?.querySelector?.(".node-led-lamp") || body;
     registerNodeGraphModuleScopeSlot(article, {
       nodeId: node,
-      scopeElement: body,
+      scopeElement: lamp,
       type,
       viewDrag: false,
     });
+    // Apply rounding / corner shape / fill / images with engine on or off.
+    if (typeof scheduleNodeGraphLedFaceRefresh === "function") {
+      scheduleNodeGraphLedFaceRefresh(node);
+    } else if (typeof refreshNodeGraphLedFaceForNode === "function") {
+      refreshNodeGraphLedFaceForNode(node);
+      requestAnimationFrame(() => refreshNodeGraphLedFaceForNode(node));
+    }
   },
 });

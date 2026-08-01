@@ -58,40 +58,13 @@ function bindNodeGraphHeaderControlEvents() {
   if (typeof bindNodeGraphPhosphorWaveformTimeWindowEditing === "function") {
     bindNodeGraphPhosphorWaveformTimeWindowEditing();
   }
+  if (typeof bindNodeGraphPhosphorWaveformPxFields === "function") {
+    bindNodeGraphPhosphorWaveformPxFields();
+  }
   if (typeof bindNodeGraphPhosphorWaveformSettingModifiers === "function") {
     bindNodeGraphPhosphorWaveformSettingModifiers();
   }
-  document.getElementById("nodeLedSettingsClose")?.addEventListener("click", closeNodeGraphLedSettings);
-  document
-    .getElementById("nodeLedSettingsDragHandle")
-    ?.addEventListener("pointerdown", beginNodeGraphLedSettingsDrag);
-  document
-    .getElementById("nodeLedSettingsHeading")
-    ?.addEventListener("pointerdown", beginNodeGraphLedSettingsDrag);
-  if (typeof bindNodeGraphLedSettingModifiers === "function") {
-    bindNodeGraphLedSettingModifiers();
-  }
-  document.addEventListener("pointermove", dragNodeGraphLedSettings);
-  document.addEventListener("pointerup", endNodeGraphLedSettingsDrag);
-  document.addEventListener("pointercancel", endNodeGraphLedSettingsDrag);
-  document
-    .getElementById("nodeLedHueInput")
-    ?.addEventListener("input", handleNodeGraphLedHueChange);
-  document
-    .getElementById("nodeLedBrightnessInput")
-    ?.addEventListener("input", handleNodeGraphLedBrightnessChange);
-  document
-    .getElementById("nodeLedBlurInput")
-    ?.addEventListener("input", handleNodeGraphLedBlurChange);
-  document
-    .getElementById("nodeLedRoundingInput")
-    ?.addEventListener("input", handleNodeGraphLedRoundingChange);
-  document
-    .getElementById("nodeLedCornerSquareButton")
-    ?.addEventListener("click", () => setNodeGraphLedCornerShape("square"));
-  document
-    .getElementById("nodeLedCornerSquircleButton")
-    ?.addEventListener("click", () => setNodeGraphLedCornerShape("squircle"));
+  // LED options: Command Center Display Settings only (no standalone window).
   document.addEventListener("pointermove", dragNodeGraphPhosphorWaveformSettings);
   document.addEventListener("pointerup", endNodeGraphPhosphorWaveformSettingsDrag);
   document.addEventListener("pointercancel", endNodeGraphPhosphorWaveformSettingsDrag);

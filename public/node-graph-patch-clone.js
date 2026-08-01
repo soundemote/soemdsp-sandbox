@@ -51,15 +51,11 @@ function normalizeNodeGraphPatchNodeUi(ui = {}, type = "") {
   const alwaysHideSliders = type
     && typeof nodeGraphModuleTypeSlidersAlwaysHidden === "function"
     && nodeGraphModuleTypeSlidersAlwaysHidden(type);
-  // Headerless LayoutB (Value Slider, XY Pad, …) ships without a title bar.
-  // Default titleHidden=true so the face stays compact until the user chooses
-  // "Show title". Explicit titleHidden:false persists a visible title.
-  const headerlessLayoutB = type
-    && typeof nodeGraphModuleIsHeaderlessLayoutB === "function"
-    && nodeGraphModuleIsHeaderlessLayoutB(type);
+  // LayoutB (Value Slider, LED, XY Pad, …) shows a normal title bar by default.
+  // "Hide title" still sets titleHidden:true and persists.
   const titleHidden = Object.prototype.hasOwnProperty.call(source, "titleHidden")
     ? Boolean(source.titleHidden)
-    : Boolean(headerlessLayoutB);
+    : false;
   return {
     buttonsHidden: Boolean(source.buttonsHidden),
     displayHeightOffsetGu: type
@@ -164,9 +160,27 @@ const nodeGraphLedDefaultSettings = Object.freeze({
   blur: 0.35,
   brightness: 1,
   cornerShape: "squircle",
+  // 0% = inscribed square (never a stretched rectangle of the cell);
+  // 100% = lamp plate fills the available face area.
+  fillPercent: 0,
   hue: 0,
   rounding: 100,
+  // Decorative image layers (back → lamp → top). Same data-URL shape as value slider face.
+  bottomImage: Object.freeze({ dataUrl: "", fileName: "" }),
+  topImage: Object.freeze({ dataUrl: "", fileName: "" }),
 });
+
+function normalizeNodeGraphLedImageLayer(source = {}) {
+  const raw = source && typeof source === "object" ? source : {};
+  const dataUrl = String(raw.dataUrl || raw.src || "").trim();
+  const safeUrl = dataUrl.startsWith("data:image/") && dataUrl.length <= 3_000_000
+    ? dataUrl
+    : "";
+  return {
+    dataUrl: safeUrl,
+    fileName: String(raw.fileName || raw.name || "").trim().slice(0, 96),
+  };
+}
 
 // A legacy node.led.color hex becomes the equivalent hue, so patches saved
 // before the hue-based model keep the lamp color their author picked.
@@ -207,9 +221,12 @@ function normalizeNodeGraphLedLayout(layout = {}) {
     brightness: clamp(source.brightness, 0, 2, defaults.brightness),
     color,
     cornerShape: source.cornerShape === "square" ? "square" : "squircle",
+    fillPercent: clamp(source.fillPercent ?? source.fill, 0, 100, defaults.fillPercent),
     hue,
     kind: "led",
     rounding: clamp(source.rounding, 0, 100, defaults.rounding),
+    bottomImage: normalizeNodeGraphLedImageLayer(source.bottomImage || source.bottom),
+    topImage: normalizeNodeGraphLedImageLayer(source.topImage || source.top),
   };
 }
 
@@ -279,6 +296,32 @@ function nodeGraphDefaultNodeTitle(type, id) {
     return label;
   }
   return `${label} ${suffix}`;
+}
+
+/**
+ * Chrome header / Module Settings “selected” line: always the module’s type
+ * (or plugin/group binding name). User alias is separate — Value Slider face
+ * label, wire lists via nodeGraphPatchNodeTitle, Alias field under Command Center.
+ */
+function nodeGraphModuleChromeTitle(node) {
+  const patchNode = typeof node === "string"
+    ? (typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(node) : null)
+    : node;
+  if (!patchNode || typeof patchNode !== "object") {
+    const type = typeof nodeGraphNodeType === "function" ? nodeGraphNodeType(node) : "";
+    return nodeGraphNodeLabels?.[type] || String(node || type || "");
+  }
+  if (patchNode.type === "moduleGroup") {
+    return normalizeNodeGraphModuleGroup(patchNode.moduleGroup).name
+      || nodeGraphNodeLabels.moduleGroup
+      || "Module Group";
+  }
+  if (patchNode.type === "clapPlugin") {
+    return normalizeNodeGraphClapPluginBinding(patchNode.clap).name
+      || nodeGraphNodeLabels.clapPlugin
+      || "CLAP Plugin";
+  }
+  return nodeGraphDefaultNodeTitle(patchNode.type, patchNode.id);
 }
 
 function nodeGraphPatchNodeTitle(node) {

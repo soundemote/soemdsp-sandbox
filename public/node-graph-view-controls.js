@@ -136,6 +136,9 @@ function renderNodeGraphModuleVisibilityToggles() {
     element.classList.toggle("oscilloscope-hidden", effectiveUi.oscilloscopeHidden);
     element.classList.toggle("interface-controls-hidden", effectiveUi.interfaceControlsHidden);
     element.classList.toggle("sliders-hidden", effectiveUi.slidersHidden);
+    if (typeof syncNodeGraphLayoutBNoParamsClass === "function") {
+      syncNodeGraphLayoutBNoParamsClass(element, patchNode.type, effectiveUi);
+    }
   }
   if (buttonsButton) {
     buttonsButton.textContent = buttonsVisible ? "Hide Module Buttons" : "Show Module Buttons";

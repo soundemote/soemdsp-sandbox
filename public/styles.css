@@ -3595,8 +3595,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: none;
 }
 
-.node-phosphor-waveform-settings-window,
-.node-led-settings-window {
+.node-phosphor-waveform-settings-window {
   position: fixed;
   z-index: 60;
   display: flex;
@@ -3614,8 +3613,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
     inset 0 0 0 1px rgba(90, 255, 150, 0.08);
 }
 
-.node-phosphor-waveform-settings-window[hidden],
-.node-led-settings-window[hidden] {
+.node-phosphor-waveform-settings-window[hidden] {
   display: none;
 }
 
@@ -3659,16 +3657,21 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   flex: 0 0 auto;
 }
 
-/* Read-only until double-clicked (bindNodeGraphPhosphorWaveformTimeWindowEditing). */
-#nodePhosphorWaveformTimeWindowInput[readonly] {
+/* Read-only until double-clicked (time window + px fields). */
+#nodePhosphorWaveformTimeWindowInput[readonly],
+#nodePhosphorWaveformLineWidthInput[readonly],
+#nodePhosphorWaveformTraceWidthInput[readonly] {
   cursor: var(--node-dot-cursor);
   user-select: none;
   caret-color: transparent;
 }
 
-#nodePhosphorWaveformTimeWindowInput.editing {
+#nodePhosphorWaveformTimeWindowInput.editing,
+#nodePhosphorWaveformLineWidthInput.editing,
+#nodePhosphorWaveformTraceWidthInput.editing {
   border-color: rgba(127, 199, 217, 0.52);
   cursor: text;
+  caret-color: currentColor;
 }
 
 .node-phosphor-waveform-settings-row input[type="number"],
@@ -3681,6 +3684,35 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   color: inherit;
   font: inherit;
   text-align: right;
+  /* Kill browser focus chrome (thick white / OS outline on number fields). */
+  outline: none;
+  box-shadow: none;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.node-phosphor-waveform-settings-row input[type="number"]:focus,
+.node-phosphor-waveform-settings-row input[type="number"]:focus-visible,
+.node-led-settings-row input[type="number"]:focus,
+.node-led-settings-row input[type="number"]:focus-visible {
+  outline: none;
+  box-shadow: none;
+  border-color: rgba(127, 199, 217, 0.52);
+}
+
+.node-phosphor-waveform-settings-row input[type="number"]::-webkit-outer-spin-button,
+.node-phosphor-waveform-settings-row input[type="number"]::-webkit-inner-spin-button,
+.node-led-settings-row input[type="number"]::-webkit-outer-spin-button,
+.node-led-settings-row input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.node-phosphor-waveform-settings-row input[type="number"].value-dragging,
+.node-led-settings-row input[type="number"].value-dragging {
+  border-color: rgba(127, 199, 217, 0.42);
+  background: rgba(127, 199, 217, 0.08);
+  cursor: var(--node-dot-cursor);
 }
 
 .node-phosphor-waveform-settings-row button,
@@ -3716,6 +3748,187 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   flex: 1 1 auto;
   min-width: 0;
   accent-color: rgba(90, 255, 150, 0.85);
+}
+
+/*
+ * LED panel inside Command Center Display Settings.
+ * Only fight the shared inspector chrome (.metadata-popover-grid label grid,
+ * 0.62rem type, 30px buttons, * { min-width:0 }). Do not invent new type sizes
+ * or fixed label columns — original uses body Segoe UI + font:inherit.
+ */
+.node-trace-display-settings-popover[data-display-settings-type="ledLamp"] {
+  background:
+    linear-gradient(180deg, rgba(90, 255, 150, 0.05), transparent 48%),
+    #080a0c;
+  border-color: rgba(90, 255, 150, 0.28);
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.42),
+    inset 0 0 0 1px rgba(90, 255, 150, 0.08);
+}
+
+.node-trace-display-settings-popover[data-display-settings-type="ledLamp"] > .node-trace-display-settings-grid,
+.node-trace-display-settings-popover[data-display-settings-type="ledLamp"] > .metadata-popover-grid {
+  background: transparent;
+}
+
+/* Panel: body font stack (same as dedicated window / body). */
+.node-trace-display-settings-popover .node-led-display-settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background:
+    linear-gradient(180deg, rgba(90, 255, 150, 0.05), transparent 48%),
+    #080a0c;
+  color: var(--text, rgba(243, 241, 236, 0.92));
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 1rem;
+  font-weight: 400;
+  letter-spacing: normal;
+  line-height: normal;
+}
+
+/* Popover sets * { min-width:0 } — restore normal shrink rules for LED rows. */
+.node-trace-display-settings-popover .node-led-display-settings-panel,
+.node-trace-display-settings-popover .node-led-display-settings-panel * {
+  min-width: auto;
+  min-inline-size: auto;
+}
+
+/*
+ * Rows: copy .node-led-settings-row exactly. !important only where the
+ * metadata grid label rule would otherwise win (display/grid/font-size).
+ */
+.node-trace-display-settings-popover .node-led-display-settings-panel .node-led-settings-row,
+.node-trace-display-settings-popover .metadata-popover-grid .node-led-display-settings-panel label.node-led-settings-row {
+  display: flex !important;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  grid-template-columns: none !important;
+  grid-template-rows: none !important;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 3px 6px;
+  border: 0;
+  border-top: 1px solid rgba(226, 168, 109, 0.16);
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+}
+
+.node-trace-display-settings-popover .node-led-display-settings-panel .node-led-settings-row:first-child {
+  border-top: 0;
+}
+
+/* Labels + trailing %: same as original first-span / unit span. */
+.node-trace-display-settings-popover .node-led-display-settings-panel .node-led-settings-row > span:first-child,
+.node-trace-display-settings-popover .metadata-popover-grid .node-led-display-settings-panel label.node-led-settings-row > span:first-child {
+  flex: 1 1 auto;
+  width: auto;
+  max-width: none;
+  min-width: min-content !important;
+  overflow: visible;
+  padding: 0;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+/* Rounding % (last span after the range) — same size as Rounding text. */
+.node-trace-display-settings-popover .node-led-display-settings-panel .node-led-settings-row > span:not(:first-child) {
+  flex: 0 0 auto;
+  min-width: min-content !important;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  white-space: nowrap;
+}
+
+.node-trace-display-settings-popover .node-led-display-settings-panel input[type="range"],
+.node-trace-display-settings-popover .metadata-popover-grid .node-led-display-settings-panel input[type="range"] {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  margin: 0;
+  accent-color: rgba(90, 255, 150, 0.85);
+}
+
+/*
+ * Square / Squircle: content-sized only (padding 3px 8px, font:inherit).
+ * Defeat metadata button min-height:30px / padding:0 / font-size:0.72rem.
+ */
+.node-trace-display-settings-popover .node-led-display-settings-panel .node-led-settings-row > button,
+.node-trace-display-settings-popover .metadata-popover-grid .node-led-display-settings-panel .node-led-settings-row > button {
+  box-sizing: border-box;
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: none;
+  min-width: min-content !important;
+  min-height: 0 !important;
+  height: auto !important;
+  margin: 0;
+  padding: 3px 8px !important;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  font: inherit !important;
+  font-family: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  letter-spacing: inherit;
+  line-height: inherit;
+  white-space: nowrap;
+}
+
+.node-trace-display-settings-popover .node-led-display-settings-panel .node-led-settings-row > button.active,
+.node-trace-display-settings-popover .metadata-popover-grid .node-led-display-settings-panel .node-led-settings-row > button.active {
+  border-color: rgba(90, 255, 150, 0.62);
+  background: rgba(90, 255, 150, 0.16);
+  color: rgba(180, 255, 210, 0.95);
+}
+
+.node-trace-display-settings-popover .node-led-display-settings-panel .node-led-color-preview {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 14px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.node-trace-display-settings-popover[data-display-settings-type="ledLamp"] .node-trace-display-settings-target {
+  color: var(--muted);
+  border-bottom-color: rgba(90, 255, 150, 0.12);
+}
+
+.node-trace-display-settings-popover[data-display-settings-type="ledLamp"] .metadata-field-actions {
+  border-color: rgba(90, 255, 150, 0.18);
+  background: rgba(4, 8, 6, 0.55);
+}
+
+/* Defaults button keeps inspector chrome size — only LED row buttons use inherit. */
+.node-trace-display-settings-popover[data-display-settings-type="ledLamp"] .metadata-field-actions button {
+  color: rgba(210, 236, 218, 0.9);
 }
 
 .node-tooltip-window .scene-context-resize-handle {
@@ -4139,12 +4352,10 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-slider-unit-color: #7fc7d9;
   /* Amount band vs position/handle indicator, tunable as full HSLA from
      UI Dev -> "slider fill colors" (syncNodeUiDevSliderFillColorControls
-     writes these). Defaults are #21333A for position and a darker sibling
-     for amount, so the two read as distinct without a hue change. */
-  /* Position thumb: soft alpha is fine only when amount fill stops at the
-     handle's LEFT edge (no stacked fill under the thumb). */
+     writes these). Both use alpha: amount sits under label/value (z0),
+     position sits over text (z2) — opaque amount washed out the row. */
   --node-slider-position-color: hsl(203 55% 57% / 0.42);
-  --node-slider-amount-color: hsl(200 31% 15% / 1);
+  --node-slider-amount-color: hsl(200 31% 15% / 0.55);
   --node-choice-divider-height: 35px;
   --node-module-fill: #171a1f;
   --node-module-stroke: #f3f1ec;
@@ -7497,9 +7708,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   padding: 0;
 }
 
-/* Unified floating-window page nav: fixed square emoji buttons, no wrap.
-   One class set — no per-window ID stacks. Chrome elements are not buttons
-   here; body button rules must not restyle these. */
+/* Unified floating-window page nav: fixed square emoji buttons.
+   Wrap when the floating window is narrow (responsive width).
+   One class set — no per-window ID stacks. */
 .node-unified-window-nav-host {
   display: block;
   box-sizing: border-box;
@@ -7510,8 +7721,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   padding: 3px 4px 2px;
   border-bottom: 1px solid rgba(127, 199, 217, 0.14);
   background: rgba(3, 5, 7, 0.92);
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow-x: hidden;
+  overflow-y: visible;
 }
 
 .node-unified-window-nav-host[hidden] {
@@ -7520,11 +7731,11 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-unified-window-nav {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: 2px;
-  min-width: max-content;
-  width: max-content;
+  min-width: 0;
+  width: 100%;
 }
 
 .node-unified-window-nav-button {
@@ -9192,6 +9403,19 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   pointer-events: auto;
 }
 
+/* Contact discs + visual cable strokes above modules. Hit targets stay on
+   .node-wire-svg. Paint order in JS: disc then stroke so the join has no
+   antialias fringe (disc-over-stroke was sampling a third color at the edge). */
+.node-wire-endpoint-svg {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
 .node-wire-path {
   fill: none;
   stroke-linecap: round;
@@ -9206,12 +9430,11 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   shape-rendering: crispEdges;
 }
 
-.node-wire-gradient-stop {
-  stop-color: var(--accent);
-}
-
+/* stop-color comes from the wire path (port colors). No accent/mod fallback —
+   those could disagree with the endpoint disc at the jack. */
+.node-wire-gradient-stop,
 .node-modulation-wire-gradient-stop {
-  stop-color: rgba(177, 132, 255, 0.92);
+  /* intentional empty — color set inline on each <stop> */
 }
 
 .node-wire-path.selected {
@@ -9568,6 +9791,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 .node-value-slider-face {
+  /* Shared image box: layers + numeric readout must stay inside this inset. */
+  --value-slider-face-image-inset: 6%;
   position: relative;
   box-sizing: border-box;
   display: flex;
@@ -9594,6 +9819,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-value-slider-face:not(.has-image) {
   justify-content: flex-start;
   padding-top: calc(var(--node-grid-size) * 0.28);
+  gap: 2px;
 }
 
 .node-value-slider-face.value-dragging {
@@ -9603,11 +9829,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 /* Three image layers: bottom (static) → mid plate (optional rotate) → top (static). */
 .node-value-slider-face-layer {
   position: absolute;
-  inset: 6%;
+  inset: var(--value-slider-face-image-inset, 6%);
   display: grid;
   place-items: center;
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
   pointer-events: none;
 }
 
@@ -9641,13 +9868,24 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   box-sizing: border-box;
   flex: 0 0 auto;
   width: 100%;
+  max-width: 100%;
   margin: 0;
   padding: 0 4px;
+  overflow: hidden;
   color: rgba(217, 236, 240, 0.72);
-  font: 700 0.62rem/1.15 var(--node-mono-font);
-  letter-spacing: 0.06em;
+  /* Normal case (not ALL CAPS). Up to two rows inside the face; then ellipsis. */
+  font: 600 clamp(0.55rem, calc(var(--node-grid-size) * 0.38), 0.78rem) / 1.15 var(--node-mono-font);
+  letter-spacing: 0.02em;
   text-align: center;
-  text-transform: uppercase;
+  text-transform: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  max-height: calc(1.15em * 2);
   pointer-events: none;
 }
 
@@ -9659,16 +9897,25 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   position: relative;
   z-index: 3;
   display: none;
+  box-sizing: border-box;
   flex: 1 1 auto;
   align-items: center;
   justify-content: center;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: 0;
+  max-height: 100%;
+  padding: 0 2px;
+  overflow: hidden;
   color: rgba(243, 241, 236, 0.94);
-  font: 700 clamp(1.1rem, calc(var(--node-grid-size) * 0.95), 2rem) / 1 var(--node-mono-font);
+  /* Cap size so glyphs stay inside the face / image box on 2gu modules. */
+  font: 700 clamp(0.75rem, calc(var(--node-grid-size) * 0.62), 1.55rem) / 1.05 var(--node-mono-font);
   letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
   text-align: center;
+  text-overflow: clip;
+  white-space: nowrap;
   text-shadow:
     0 0 12px rgba(127, 199, 217, 0.28),
     0 1px 2px rgba(0, 0, 0, 0.85);
@@ -9685,10 +9932,13 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: none !important;
 }
 
+/* Same inset as image layers — value must not spill past the graphic box. */
 .node-value-slider-face.has-image .node-value-slider-face-readout {
   position: absolute;
-  inset: 0;
+  inset: var(--value-slider-face-image-inset, 6%);
   flex: none;
+  width: auto;
+  height: auto;
   text-shadow:
     0 0 8px rgba(0, 0, 0, 0.9),
     0 1px 3px rgba(0, 0, 0, 0.95);
@@ -9846,104 +10096,76 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   pointer-events: auto;
 }
 
+/*
+ * LED face paint only. Layout (In | face | Out, shell, height, ports) comes
+ * from shared LayoutB solid-module rules — no LED shell/column overrides.
+ */
 .dsp-node.led-layout {
-  /* Defaults for the properties drawNodeGraphLedLampItem
-     (public/modules/led/led-display.js) writes here every frame -- declared on
-     the shell so the plate, its outline and the lit face all describe the
-     same shape, and an unlit LED still renders sensibly before the first
-     scope frame lands. */
   --node-led-face-color: rgb(0, 0, 0);
-  --node-led-face-radius: 50%;
-  --node-led-face-corner-shape: squircle;
+  --node-led-face-radius: 0px;
+  --node-led-face-corner-shape: round;
   --node-led-face-glow: none;
-  display: block;
-  /* The face paints the whole tile now, so the shell must not clip the glow
-     the face casts past its own edge. */
-  overflow: visible;
-  width: calc((var(--node-grid-width) * var(--node-grid-width-units, 1)) - (var(--node-module-grid-inset) * 2));
-  min-width: calc((var(--node-grid-width) * var(--node-grid-width-units, 1)) - (var(--node-module-grid-inset) * 2));
-  height: calc((var(--node-grid-height) * var(--node-grid-height-units, 1)) - (var(--node-module-grid-inset) * 2));
-  min-height: calc((var(--node-grid-height) * var(--node-grid-height-units, 1)) - (var(--node-module-grid-inset) * 2));
-  border-radius: var(--node-led-face-radius);
-  corner-shape: var(--node-led-face-corner-shape);
-  background: transparent;
-  /* No outline-color override here: .dsp-node's base rule already sets a
-     sensible default, and re-declaring it at this specificity would win
-     the cascade over .dsp-node.selected (defined earlier in the file),
-     silently killing the selection highlight for this layout. */
-  box-shadow: none;
 }
 
-/* The lamp face. Every custom property below is written per node, per frame,
-   by drawNodeGraphLedLampItem (public/modules/led/led-display.js) -- the
-   colour from the live input level through the black -> hue -> white ramp, the
-   radius/corner-shape from the LED options window. The fallbacks are the
-   unlit, fully-round default so a face renders sensibly before the first
-   scope frame lands. */
-/* One row, so the lamp is the whole tile. The solid-module shell otherwise
-   auto-places the io columns into a second, implicit row -- and an implicit
-   row is not covered by `grid-row: 1 / -1` (that -1 is the end of the
-   EXPLICIT grid), so the face filled only the top band of the module. */
-.dsp-node.led-layout .node-solid-module-shell {
-  grid-template-rows: minmax(0, 1fr);
-  align-items: stretch;
-  padding: 0;
-  /* The lamp casts its glow past the tile edge; the shared shell clips. */
-  overflow: visible;
-}
-
-/* Specificity note: .node-solid-module-custom-ui { grid-column: 2 } is
-   declared later in this file, so a bare .node-led-face rule would lose the
-   cascade and the lamp would render as a strip between the port columns. */
+/*
+ * LED face stack (LayoutB center cell):
+ *   bottom image (decoration) → lit lamp plate (fill%) → top image (decoration)
+ * Flat lamp only — no decorative white-circle “highlight” stamp.
+ */
 .dsp-node.led-layout .node-led-face {
-  /* Spans every cell of .node-solid-module-shell instead of sitting in the
-     middle column like other solid modules' custom UI. The lamp IS the
-     module: the shell used to supply the visible dark tile and the face only
-     lit the strip between the port columns, which reads wrong the moment the
-     face has its own shape. Spanning puts the port columns ON TOP of the
-     lamp (see the z-index below) rather than beside it. */
-  grid-column: 1 / -1;
-  grid-row: 1 / -1;
   position: relative;
   box-sizing: border-box;
+  display: grid;
+  place-items: center;
   width: 100%;
   height: 100%;
-  border-radius: var(--node-led-face-radius);
-  corner-shape: var(--node-led-face-corner-shape);
-  background:
-    radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.16), transparent 62%),
-    /* The emitted colour has to be a LAYER, not the shorthand's final colour:
-       only the last item in a `background` list may be a bare colour, so
-       writing var(--node-led-face-color) in the middle silently invalidated
-       the whole declaration and the face rendered transparent. */
-    linear-gradient(var(--node-led-face-color), var(--node-led-face-color)),
-    /* Unlit, the lamp is still a physical object: a dark plastic lens, not a
-       hole in the workspace. */
-    rgba(4, 7, 10, 0.92);
-  box-shadow: var(--node-led-face-glow);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: transparent;
 }
 
-/* Ports sit above the lamp now that the face covers the whole tile -- and in
-   the SAME row as it. Auto-placement would otherwise push them into a second,
-   implicit row (the face spans all three columns of row 1), which shrank the
-   lamp by exactly one port row. */
-.dsp-node.led-layout .node-solid-module-shell > .node-io-column {
-  grid-row: 1;
-  align-content: center;
-}
-
-.dsp-node.led-layout .node-io-column,
-.dsp-node.led-layout .node-io-row,
-.dsp-node.led-layout .node-port {
+.dsp-node.led-layout .node-led-lamp {
   position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: var(--node-led-face-radius, 0);
+  corner-shape: var(--node-led-face-corner-shape, round);
+  background: var(--node-led-face-color, rgb(0, 0, 0));
+  box-shadow: var(--node-led-face-glow, none);
+  pointer-events: none;
+}
+
+.dsp-node.led-layout .node-led-image-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  pointer-events: none;
+  user-select: none;
+}
+
+.dsp-node.led-layout .node-led-image-top {
   z-index: 2;
 }
 
-.node-led-face .node-port.input {
-  position: absolute;
-  left: calc(var(--node-port-diameter) * -0.5);
-  top: 50%;
-  transform: translateY(-50%);
+.node-led-image-row {
+  flex-wrap: wrap;
+}
+
+.node-led-image-filename {
+  flex: 1 1 4em;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 0.72rem;
 }
 
 /* Bug Button -- a compact solid module with a custom pointer surface. */
@@ -9980,6 +10202,27 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
     var(--node-module-bottom-gap-track, minmax(2px, 1fr));
 }
 
+/*
+ * No sliders / params: no empty body track, no bottom lip. Shell (display)
+ * fills remaining height. minmax min must be 0 — using shell gu as min made
+ * the track taller than the module box (height subtracts grid inset) so the
+ * face spilled past the bottom edge (Number Readout, LED, …).
+ */
+.dsp-node.solid-module-layout.layout-b-no-params,
+.dsp-node.chrome-layout-b.solid-module-layout.layout-b-no-params,
+.dsp-node.chrome-layout-b.layout-b-no-params.solid-module-layout {
+  grid-template-rows:
+    var(--node-header-height)
+    minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.dsp-node.solid-module-layout.layout-b-no-params > .dsp-node-body,
+.dsp-node.chrome-layout-b.solid-module-layout.layout-b-no-params > .dsp-node-body,
+.dsp-node.chrome-layout-b.layout-b-no-params > .dsp-node-body {
+  display: none !important;
+}
+
 .dsp-node.solid-module-layout > .dsp-node-header,
 .dsp-node.chrome-layout-b.solid-module-layout > .dsp-node-header {
   grid-row: 1;
@@ -10002,6 +10245,20 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
       var(--node-module-display-height-units, 2)
     )
   );
+}
+
+.dsp-node.solid-module-layout.layout-b-no-params > .node-solid-module-shell,
+.dsp-node.chrome-layout-b.solid-module-layout.layout-b-no-params > .node-solid-module-shell {
+  /* Fill module interior exactly — never taller than the article box. */
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.dsp-node.number-readout-layout.layout-b-no-params > .node-solid-module-shell,
+.dsp-node.number-readout-layout .node-number-readout-face {
+  overflow: hidden;
 }
 
 .node-parameter-row-hidden,
@@ -10030,6 +10287,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-solid-module-shell,
 .node-module-chrome-layout-b-shell {
   display: grid;
+  /* Side columns size to chrome (←/→ are equal); empty side still collapses. */
   grid-template-columns:
     minmax(0, max-content)
     minmax(0, 1fr)
@@ -10053,19 +10311,27 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   grid-auto-rows: 1fr;
   align-self: stretch;
   align-content: stretch;
-  justify-content: center;
+  justify-content: stretch;
+  justify-items: stretch;
   gap: 0;
-  padding: 0;
+  /* Kill LayoutA column padding — solid shell jacks sit flush to the edge. */
+  padding: 0 !important;
   min-height: 0;
   /* Gaps between jacks fall through to the shell (module drag/select). */
   pointer-events: none;
 }
 
-/* Empty side (e.g. Value Slider has no inputs) still reserves one gu. */
+/* Empty side (no inputs or no outputs): collapse fully — display takes the space. */
 .node-solid-module-shell > .node-io-column.node-layout-b-io-empty,
 .node-module-chrome-layout-b-shell > .node-io-column.node-layout-b-io-empty {
-  width: var(--node-grid-width);
-  min-width: var(--node-grid-width);
+  width: 0;
+  min-width: 0;
+  max-width: 0;
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  pointer-events: none;
 }
 
 .node-solid-module-shell > .node-io-column .node-io-row,
@@ -10085,6 +10351,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   /* Pre–Layout B solid: only clip long names; type inherits .node-io-row (0.84rem). */
   max-width: 100%;
   overflow: hidden;
+  text-align: center;
 }
 
 .node-solid-module-shell > .node-io-column .node-io-row:last-child,
@@ -10107,45 +10374,100 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: none;
 }
 
+/*
+ * Layout B jack band (no labels) — match Layout A half-jacks:
+ *  - band width = half-jack width (radius of the port circle)
+ *  - flat edge flush with the module outer edge (absolute left/right: 0)
+ *  - no column padding (global .node-io-column padding would shove jacks out)
+ *  - shell clips to module bounds so the crescent never floats outside
+ */
 .dsp-node.chrome-layout-b.io-hidden .node-solid-module-shell > .node-io-column,
 .dsp-node.chrome-layout-b.io-hidden .node-module-chrome-layout-b-shell > .node-io-column,
 .dsp-node.chrome-layout-b .node-solid-module-shell > .node-io-column.labels-hidden,
-.dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell > .node-io-column.labels-hidden {
+.dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell > .node-io-column.labels-hidden,
+.dsp-node.solid-module-layout .node-solid-module-shell > .node-io-column.labels-hidden {
   width: var(--node-signal-port-width);
   min-width: var(--node-signal-port-width);
   max-width: var(--node-signal-port-width);
+  padding: 0 !important;
+  overflow: hidden;
+  justify-items: stretch;
 }
 
-.dsp-node.chrome-layout-b.io-hidden .node-solid-module-shell > .node-io-column .node-io-row.input,
-.dsp-node.chrome-layout-b.io-hidden .node-module-chrome-layout-b-shell > .node-io-column .node-io-row.input,
-.dsp-node.chrome-layout-b .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row.input,
-.dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell > .node-io-column.labels-hidden .node-io-row.input {
-  padding-left: var(--node-signal-port-width);
-  padding-right: 0;
-}
-
-.dsp-node.chrome-layout-b.io-hidden .node-solid-module-shell > .node-io-column .node-io-row.output,
-.dsp-node.chrome-layout-b.io-hidden .node-module-chrome-layout-b-shell > .node-io-column .node-io-row.output,
-.dsp-node.chrome-layout-b .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row.output,
-.dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell > .node-io-column.labels-hidden .node-io-row.output {
-  padding-right: var(--node-signal-port-width);
-  padding-left: 0;
-}
-
-/* Empty LayoutB side (no ports): collapse fully when I/O labels are hidden. */
-.dsp-node.chrome-layout-b.io-hidden .node-solid-module-shell > .node-io-column.node-layout-b-io-empty,
-.dsp-node.chrome-layout-b.io-hidden .node-module-chrome-layout-b-shell > .node-io-column.node-layout-b-io-empty {
-  width: 0;
-  min-width: 0;
-  max-width: 0;
+.dsp-node.chrome-layout-b.io-hidden .node-solid-module-shell > .node-io-column .node-io-row,
+.dsp-node.chrome-layout-b.io-hidden .node-module-chrome-layout-b-shell > .node-io-column .node-io-row,
+.dsp-node.chrome-layout-b .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row,
+.dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell > .node-io-column.labels-hidden .node-io-row,
+.dsp-node.solid-module-layout .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row {
+  position: relative;
+  width: 100%;
+  padding: 0 !important;
+  min-height: max(var(--node-port-area-size), var(--node-signal-port-height));
   overflow: hidden;
 }
 
+/* Absolute flush like Layout A — flat edge on the module perimeter. */
+.dsp-node.chrome-layout-b.io-hidden .node-solid-module-shell > .node-io-column .node-io-row .node-port,
+.dsp-node.chrome-layout-b.io-hidden .node-module-chrome-layout-b-shell > .node-io-column .node-io-row .node-port,
+.dsp-node.chrome-layout-b .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row .node-port,
+.dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell > .node-io-column.labels-hidden .node-io-row .node-port,
+.dsp-node.solid-module-layout .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row .node-port {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: var(--node-signal-port-width);
+  min-width: var(--node-signal-port-width);
+  height: var(--node-signal-port-height);
+  min-height: var(--node-signal-port-height);
+}
+
+.dsp-node.chrome-layout-b .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row.input .node-port,
+.dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell > .node-io-column.labels-hidden .node-io-row.input .node-port,
+.dsp-node.chrome-layout-b.io-hidden .node-solid-module-shell > .node-io-column .node-io-row.input .node-port,
+.dsp-node.chrome-layout-b.io-hidden .node-module-chrome-layout-b-shell > .node-io-column .node-io-row.input .node-port,
+.dsp-node.solid-module-layout .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row.input .node-port {
+  left: 0;
+  right: auto;
+}
+
+.dsp-node.chrome-layout-b .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row.output .node-port,
+.dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell > .node-io-column.labels-hidden .node-io-row.output .node-port,
+.dsp-node.chrome-layout-b.io-hidden .node-solid-module-shell > .node-io-column .node-io-row.output .node-port,
+.dsp-node.chrome-layout-b.io-hidden .node-module-chrome-layout-b-shell > .node-io-column .node-io-row.output .node-port,
+.dsp-node.solid-module-layout .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row.output .node-port {
+  right: 0;
+  left: auto;
+}
+
+/* Keep shell clipped to the module chrome so jacks stay flush, not outside. */
+.dsp-node.chrome-layout-b .node-solid-module-shell,
+.dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell,
+.dsp-node.solid-module-layout .node-solid-module-shell {
+  overflow: hidden;
+}
+
+.dsp-node.chrome-layout-b .node-solid-module-custom-ui,
+.dsp-node.solid-module-layout .node-solid-module-custom-ui {
+  overflow: hidden;
+}
+
+/* Empty LayoutB side already collapses always (see .node-layout-b-io-empty above). */
+
 .node-solid-module-custom-ui {
   grid-column: 2;
+  box-sizing: border-box;
   min-width: 0;
   min-height: 0;
-  height: 100%;
+  /*
+   * 1px air between the display face and the jack bands / shell edges.
+   * Height already shrank for vertical margins; width must match — otherwise
+   * width:100% + left/right margin overflows into the outlet column (LTR).
+   */
+  margin: 1px;
+  width: calc(100% - 2px);
+  max-width: calc(100% - 2px);
+  height: calc(100% - 2px);
+  max-height: calc(100% - 2px);
   pointer-events: auto;
 }
 
@@ -12140,17 +12462,16 @@ input.node-header-title {
   margin: 0;
   box-shadow: none;
   outline: none;
-  /* Editing only starts on triple-click (see
-     node-graph-module-header-rendering.js); a text-select cursor on
-     hover would falsely advertise "click to edit" the rest of the time,
-     so keep the same pointer cursor as the rest of the header row. */
+  /* Chrome title is the module type name (read-only). Alias is edited under
+     Module Settings; a text cursor would falsely advertise rename here. */
   cursor: default;
 }
 
 input.node-header-title:focus {
-  background: rgba(255, 255, 255, 0.06);
+  /* Read-only type name — no edit chrome. */
+  background: transparent;
   outline: none;
-  cursor: text;
+  cursor: default;
 }
 
 .dsp-node-io-section {
@@ -12655,9 +12976,10 @@ input.node-header-title:focus {
   visibility: hidden;
 }
 
-/* Bipolar: slightly brighter mid-centered fill so ± ranges read clearly. */
+/* Bipolar uses the same amount token so UI Dev alpha is preserved.
+   (color-mix with a solid used to force an opaque band over the text path.) */
 .node-slider-readout.is-bipolar .node-slider-amount-fill {
-  background: color-mix(in srgb, var(--node-slider-amount-color) 88%, rgba(127, 199, 217, 0.55));
+  background: var(--node-slider-amount-color);
 }
 
 .node-graph-workspace.show-slider-amount .node-slider-amount-fill {
@@ -13206,8 +13528,20 @@ input.node-header-title:focus {
   background: rgba(5, 9, 11, 0.62);
 }
 
+/* Metaparameter row: Save / Restore / Set Default (3-up). */
 .metadata-field-actions {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* Single action (Display Settings "Defaults") fills the full row width. */
+.metadata-field-actions:has(> :only-child) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.metadata-field-actions > :only-child {
+  width: 100%;
+  min-width: 0;
+  grid-column: 1 / -1;
 }
 
 .metadata-section-title {
@@ -13521,6 +13855,12 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   padding: 0;
 }
 
+/* Color widget already titles itself (Plate / Ghost / Stop) — give it full width. */
+.node-trace-display-settings-popover .node-trace-display-color-widget-row.no-side-label,
+.node-trace-display-settings-popover .node-trace-display-color-widget-row:has(> span:first-child:empty) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .node-trace-display-settings-popover .node-trace-display-color-widget-row > span:first-child {
   align-self: center;
   min-width: 0;
@@ -13530,6 +13870,12 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   white-space: nowrap;
   color: var(--muted, rgba(243, 240, 230, 0.72));
   font-size: 0.72rem;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-row.no-side-label > span:first-child,
+.node-trace-display-settings-popover .node-trace-display-color-widget-row > span:first-child:empty {
+  display: none;
+  padding: 0;
 }
 
 .node-trace-display-settings-popover .node-trace-display-color-widget-row > input[type="hidden"] {
@@ -14464,39 +14810,60 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   white-space: nowrap;
 }
 
+/* Two-line Module Settings action / visibility buttons (shared, all modules). */
+.node-module-actions-window .scene-context-button-group button,
+.node-module-actions-window .scene-context-two-line-button {
+  min-height: calc(var(--node-floating-window-button-height, 30px) + 12px);
+  padding: 3px 2px;
+  overflow: hidden;
+  font-size: 0.7rem;
+  font-weight: 650;
+  line-height: 1.1;
+  white-space: normal;
+  text-overflow: clip;
+}
+
 /* Content action density only — colors come from the shared floating rule above. */
 
+/* Module title under nav (Display Settings–style), not a “Module” label. */
 .node-module-actions-window .scene-context-selected-module {
   display: grid;
-  grid-template-columns: 0 minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
   gap: 0;
-  min-height: 28px;
+  min-height: 32px;
   min-width: 0;
-  padding: 0;
+  margin: 0;
+  padding: 6px 8px 4px;
   overflow: hidden;
   border-radius: 0;
   border-inline: 0;
 }
 
-.node-module-actions-window .scene-context-selected-module span,
+.node-module-actions-window .scene-context-selected-module span[hidden],
+.node-module-actions-window .scene-context-selected-module-label[hidden] {
+  display: none !important;
+}
+
 .node-module-actions-window .scene-context-alias-control span,
 .node-module-actions-window .scene-context-text-box-controls > span {
-  font-size: 0.54rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   text-align: center;
 }
 
 .node-module-actions-window .scene-context-selected-module strong {
-  grid-column: 2;
+  grid-column: 1;
   min-width: 0;
   overflow: hidden;
-  color: #cfdde5;
+  color: #e8f0f4;
   font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
-  font-size: 0.68rem;
+  font-size: 0.92rem;
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.15;
   text-align: center;
-  text-overflow: clip;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -14530,16 +14897,21 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 .node-module-actions-window .scene-context-alias-control > span {
   display: grid;
   place-items: center;
-  min-height: var(--node-floating-window-button-height);
+  min-height: calc(var(--node-floating-window-button-height) * 0.85);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #cfdde5;
 }
 
 .node-module-actions-window .scene-context-alias-control input {
   width: 100%;
   min-width: 0;
   max-width: 100%;
-  min-height: var(--node-floating-window-button-height);
-  padding: 0 2px;
-  font-size: 0.68rem;
+  min-height: calc(var(--node-floating-window-button-height) * 1.15);
+  padding: 0 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
   text-align: left;
   box-sizing: border-box;
 }
@@ -14549,13 +14921,14 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   -webkit-user-select: text;
 }
 
+/* Label [-][+] value  e.g. Width [-][+] 6 gu */
 .node-module-actions-window .scene-context-width-controls {
   --node-module-actions-grid-control-height: var(--node-floating-window-button-height);
   grid-template-columns:
     minmax(0, 1fr)
     var(--node-module-actions-grid-control-height)
-    minmax(3.4em, 0.95fr)
-    var(--node-module-actions-grid-control-height);
+    var(--node-module-actions-grid-control-height)
+    minmax(3.4em, 0.95fr);
   align-items: stretch;
 }
 
@@ -14573,11 +14946,19 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   height: var(--node-module-actions-grid-control-height);
   min-width: 0;
   padding: 0 2px;
-  font-size: 0.62rem;
+  font-size: 0.82rem;
+  font-weight: 600;
   overflow: hidden;
   text-align: center;
   text-overflow: clip;
   white-space: normal;
+}
+
+.node-module-actions-window .scene-context-width-controls .scene-context-gu-label {
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #cfdde5;
 }
 
 .scene-context-store-list {
@@ -14783,6 +15164,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 .scene-context-button-group button {
   flex: 1 1 50%;
   justify-content: center !important;
+  align-items: center !important;
   text-align: center !important;
 }
 
@@ -14790,32 +15172,67 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   border-inline-end: 1px solid var(--node-scene-context-menu-divider, rgba(243, 241, 236, 0.14));
 }
 
-/* Copy Settings / Paste Settings / Set as Default on one row. */
+/* Shared two-line labels: Copy/Module, Hide/Display, Save to/Default, … */
+.scene-context-button-lines {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  min-width: 0;
+  line-height: 1.12;
+  white-space: normal;
+  text-align: center;
+  pointer-events: none;
+}
+
+.scene-context-button-lines > span {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.scene-context-button-group button,
+.scene-context-two-line-button {
+  min-height: calc(var(--node-floating-window-button-height, 30px) + 10px);
+  padding-block: 4px;
+  padding-inline: 3px;
+  white-space: normal;
+  line-height: 1.12;
+}
+
+/* 3-up action row (legacy class still used if present). */
 .scene-context-button-group-3 button {
   flex: 1 1 33.333%;
-  padding-inline: 4px;
-  font-size: 0.88em;
-  white-space: normal;
-  line-height: 1.15;
-  text-wrap: balance;
+  font-size: 0.78rem;
 }
 
 .scene-context-button-group-3 button:not(:last-child) {
   border-inline-end: 1px solid var(--node-scene-context-menu-divider, rgba(243, 241, 236, 0.14));
 }
 
-/* Hide title / buttons / in-out / sliders on one row. */
+/* 4-up: Copy Module / Settings / Paste / Save to Default, and visibility toggles. */
 .scene-context-button-group-4 button {
   flex: 1 1 25%;
-  padding-inline: 3px;
-  font-size: 0.82em;
-  white-space: normal;
-  line-height: 1.15;
-  text-wrap: balance;
+  font-size: 0.72rem;
+  font-weight: 650;
 }
 
 .scene-context-button-group-4 button:not(:last-child) {
   border-inline-end: 1px solid var(--node-scene-context-menu-divider, rgba(243, 241, 236, 0.14));
+}
+
+/* Standalone two-line control (e.g. Hide Display above the visibility row). */
+.scene-context-two-line-button {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  align-items: center;
+  font-size: 0.78rem;
+  font-weight: 650;
 }
 
 .scene-context-selected-module {
@@ -15029,9 +15446,10 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   border-color: rgba(127, 199, 217, 0.52);
 }
 
+/* Shared GU stepper row: Label [-][+] value (all modules / Module Settings). */
 .scene-context-width-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(24px, 0.32fr) minmax(3.5em, 0.9fr) minmax(24px, 0.32fr);
+  grid-template-columns: minmax(0, 1fr) minmax(24px, 0.32fr) minmax(24px, 0.32fr) minmax(3.5em, 0.9fr);
   align-items: center;
   gap: 0;
 }
@@ -16057,6 +16475,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   text-align: center;
 }
 
+/* Joined [-][+] pair between label and value. */
 .scene-context-width-controls button:first-of-type {
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
@@ -16065,6 +16484,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 .scene-context-width-controls button:last-of-type {
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
+  border-left: 0;
 }
 
 .scene-context-width-controls span {
@@ -16087,6 +16507,11 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   padding: 0 4px;
   color: rgba(217, 229, 232, 0.9);
   font-size: 0.68rem;
+}
+
+.scene-context-width-controls .scene-context-gu-value {
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
 }
 
 
@@ -16314,34 +16739,21 @@ body.node-slider-dragging .node-param-port {
   border-color: transparent;
 }
 
+/* Connected parameter outlets use the same half-jack crescent as signal
+   outs / mod ins — not a rectangular “tab” gradient. */
 .node-param-port.parameter-output.connected-port {
   --node-patch-point-color: var(--node-param-output-fill);
   --node-patch-point-x: 100%;
   --node-port-stroke-mask-color: color-mix(in srgb, var(--node-param-output-fill) 15%, transparent);
   --node-port-crescent-fill: var(--node-port-stroke-mask-color);
-  --node-port-crescent-stroke: color-mix(in srgb, var(--node-param-output-stroke) 62%, transparent);
+  --node-port-crescent-stroke: color-mix(in srgb, var(--node-param-output-stroke) 56%, transparent);
+  --node-port-crescent-stroke-width: 1px;
   border-color: transparent;
   background: transparent;
 }
 
-.node-param-port.parameter-output.connected-port::before {
-  right: 0;
-  width: var(--node-port-area-size);
-  min-width: var(--node-port-area-size);
-  border: 0;
-  border-radius: 6px 0 0 6px;
-  /* Connected param out is a tab, not a half-disk — stroke the inner (left)
-     curve only via a left-side ring; keep the flat outer (right) open. */
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--node-param-output-fill) 8%, transparent),
-    color-mix(in srgb, var(--node-param-output-fill) 34%, transparent)
-  );
-  box-shadow:
-    inset 1px 0 0 0 color-mix(in srgb, var(--node-param-output-stroke) 50%, transparent),
-    0 0 var(--node-hover-glow-size) color-mix(in srgb, var(--node-param-output-fill) 18%, transparent);
-  transform: translateY(-50%);
-}
+/* Keep half-disk geometry from .parameter-output::before + shared
+   .node-param-port.connected-port::before radial paint (no tab override). */
 
 .node-port.input.connected-port {
   --node-patch-point-color: var(--node-input-fill);
@@ -16401,25 +16813,31 @@ body.node-slider-dragging .node-param-port {
 }
 
 /*
- * Connected wire pip: full circle centered on the flat edge (same place as
- * before — half over the inlet, half over the wire gap). Only the shape is
- * a full disk; do not change half-jack inlets.
+ * Connected contact disks live on #nodeWireEndpointSvg (above modules), not
+ * on the jack and not on the under-module cable SVG. Jack overflow:hidden
+ * used to clip ::after pips into half-disks; cable-layer caps were half-hidden
+ * by module paint. Never put full circles on .node-port again.
  */
 .node-port.connected-port::after,
 .node-param-port.connected-port::after {
-  content: "";
-  position: absolute;
-  z-index: 4;
-  top: 50%;
-  left: var(--node-patch-point-x, 50%);
-  width: var(--node-wire-patch-point-size);
-  height: var(--node-wire-patch-point-size);
-  border-radius: 50%;
-  /* Solid jack fill only — no ring stroke (that sat in the module-frame gap). */
-  background: var(--node-patch-point-color, var(--node-port-hover-fill));
-  box-shadow: none;
-  transform: translate(-50%, -50%);
+  content: none;
+}
+
+/* Wire-owned solid contact disc (endpoint SVG above modules).
+   No glow/shadow — selected cables keep their own path filters only. */
+.node-wire-endpoint-cap {
+  stroke: none;
+  filter: none !important;
+  box-shadow: none !important;
   pointer-events: none;
+}
+
+.node-wire-endpoint-cap.inactive-wire {
+  opacity: 0.32;
+}
+
+.node-wire-endpoint-cap.temp {
+  opacity: 0.9;
 }
 
 .node-port.monitored-port,

@@ -81,7 +81,10 @@ function normalizeNodeGraphPhosphorWaveformSettings(settings = {}) {
     timeWindowSeconds: Number.isFinite(timeWindowSeconds) && timeWindowSeconds > 0
       ? Math.max(0.05, Math.min(60, timeWindowSeconds))
       : nodeGraphPhosphorWaveformDefaultSettings.timeWindowSeconds,
-    scrollLinePosition: Object.hasOwn(nodeGraphPhosphorWaveformScrollLinePositionRatios, source.scrollLinePosition)
+    scrollLinePosition: Object.prototype.hasOwnProperty.call(
+      nodeGraphPhosphorWaveformScrollLinePositionRatios,
+      source.scrollLinePosition,
+    )
       ? source.scrollLinePosition
       : nodeGraphPhosphorWaveformDefaultSettings.scrollLinePosition,
     // 0 = hide playhead / scroll line; half-pixel steps up to 8.
@@ -403,7 +406,11 @@ function handleNodeGraphPhosphorWaveformLabelInsetChange(event) {
 // edge both land on a device pixel and stay razor sharp -- a fractional inset
 // would give a soft, half-lit edge). Called from the draw path, which already
 // runs per section per frame and has the measured size to hand.
-function applyNodeGraphPhosphorWaveformPanelShape(section, settings, cellWidth, cellHeight) {
+//
+// powered (default true): when false (audio engine / simulation off), kill the
+// phosphor-green frame so the plate reads as a cold black screen, not a lit
+// empty CRT.
+function applyNodeGraphPhosphorWaveformPanelShape(section, settings, cellWidth, cellHeight, powered = true) {
   // cellWidth/cellHeight MUST be the section's own padding-box size, i.e. the
   // whole grid cell, which the inset does not change: the inset is padding
   // inside this element, so section.clientWidth stays put while the canvas
@@ -427,9 +434,11 @@ function applyNodeGraphPhosphorWaveformPanelShape(section, settings, cellWidth, 
   // The panel outline follows BG Hue so the frame and the field it encloses
   // stay the same colour family. Saturation/lightness/alpha are the values
   // the old hardcoded rgba(90, 255, 150, 0.16) worked out to, so at the
-  // default hue (140) this is visually unchanged.
-  const borderColor = `hsl(${Math.round(settings.backgroundHue)} 100% 68% / 0.16)`;
-  const next = `${inset}|${radius}|${shape}|${borderColor}`;
+  // default hue (140) this is visually unchanged. Off = no frame (black plate).
+  const borderColor = powered
+    ? `hsl(${Math.round(settings.backgroundHue)} 100% 68% / 0.16)`
+    : "transparent";
+  const next = `${inset}|${radius}|${shape}|${borderColor}|${powered ? 1 : 0}`;
   if (section.dataset.panelShape === next) {
     return;
   }
@@ -488,26 +497,209 @@ function bindNodeGraphPhosphorWaveformSettingModifiers() {
 // Time Window is read-only until double-clicked, same gesture as the render
 // range Start/End fields and the Music Player path box.
 function bindNodeGraphPhosphorWaveformTimeWindowEditing() {
-  const input = document.getElementById("nodePhosphorWaveformTimeWindowInput");
-  if (!input || input.dataset.dblClickBound === "true") {
+  bindNodeGraphPhosphorWaveformNumberField("nodePhosphorWaveformTimeWindowInput", {
+    step: 0.05,
+    min: 0.05,
+    max: 60,
+    // Continuous-ish: ~8px per 0.05s step.
+    pixelsPerStep: 8,
+    onCommit: handleNodeGraphPhosphorWaveformTimeWindowChange,
+  });
+}
+
+/**
+ * Shared number field UX for the waveform options window:
+ *  - readonly + dot cursor until double-click (type mode)
+ *  - pointer drag steps the value (discrete jumps; default 0.5 for px fields)
+ *  - Enter/Escape or click outside ends type mode (no re-focus from a <label>)
+ *  - no thick OS focus ring (CSS)
+ */
+function bindNodeGraphPhosphorWaveformNumberField(inputId, options = {}) {
+  const input = document.getElementById(inputId);
+  if (!input || input.dataset.numberFieldBound === "true") {
     return;
   }
-  input.dataset.dblClickBound = "true";
+  input.dataset.numberFieldBound = "true";
   input.readOnly = true;
-  input.addEventListener("dblclick", () => {
+
+  const step = Number(options.step);
+  const min = Number(options.min);
+  const max = Number(options.max);
+  const pixelsPerStep = Math.max(4, Number(options.pixelsPerStep) || 12);
+  const onCommit = typeof options.onCommit === "function"
+    ? options.onCommit
+    : () => input.dispatchEvent(new Event("change", { bubbles: true }));
+
+  const clampStep = (value) => {
+    let n = Number(value);
+    if (!Number.isFinite(n)) {
+      return Number(input.value) || 0;
+    }
+    if (Number.isFinite(min)) {
+      n = Math.max(min, n);
+    }
+    if (Number.isFinite(max)) {
+      n = Math.min(max, n);
+    }
+    if (Number.isFinite(step) && step > 0) {
+      // Snap to step grid (half-pixel 0.5, etc.).
+      const origin = Number.isFinite(min) ? min : 0;
+      n = origin + Math.round((n - origin) / step) * step;
+      // Avoid 1.0000000002 style noise.
+      const decimals = String(step).includes(".")
+        ? String(step).split(".")[1].length
+        : 0;
+      if (decimals > 0) {
+        n = Number(n.toFixed(decimals));
+      }
+    }
+    return n;
+  };
+
+  const endEdit = () => {
+    input.readOnly = true;
+    input.classList.remove("editing");
+  };
+
+  const beginEdit = () => {
     input.readOnly = false;
     input.classList.add("editing");
     input.focus();
     input.select();
+  };
+
+  input.addEventListener("dblclick", (event) => {
+    beginEdit();
+    event.preventDefault();
+    event.stopPropagation();
   });
+
   input.addEventListener("blur", () => {
-    input.readOnly = true;
-    input.classList.remove("editing");
+    endEdit();
   });
+
   input.addEventListener("keydown", (event) => {
     if (event.key === "Enter" || event.key === "Escape") {
+      event.preventDefault();
       input.blur();
     }
+  });
+
+  // Click outside (including the row label next to the field) leaves type mode.
+  // Capture phase so we beat any accidental re-focus.
+  document.addEventListener("pointerdown", (event) => {
+    if (input.readOnly || !input.classList.contains("editing")) {
+      return;
+    }
+    if (event.target === input || input.contains(event.target)) {
+      return;
+    }
+    input.blur();
+  }, true);
+
+  let drag = null;
+
+  input.addEventListener("pointerdown", (event) => {
+    if (event.button > 0 || event.detail > 1) {
+      return;
+    }
+    // Typing mode: allow normal caret/select.
+    if (!input.readOnly) {
+      return;
+    }
+    if (typeof nodeGraphNumericModifierReserved === "function" && nodeGraphNumericModifierReserved(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    const mult = typeof nodeGraphNumericDragMultiplier === "function"
+      ? nodeGraphNumericDragMultiplier(event)
+      : 1;
+    const baseStep = Number.isFinite(step) && step > 0 ? step : 0.5;
+    drag = {
+      pointerId: event.pointerId ?? null,
+      startX: event.clientX,
+      startY: event.clientY,
+      startValue: Number(input.value) || 0,
+      // Discrete travel accumulator (screen px along app diagonal policy).
+      accum: 0,
+      lastCombined: 0,
+      // Value jump per discrete tick (0.5 px fields, etc.).
+      valueStep: baseStep * mult,
+      pixelsPerStep: pixelsPerStep / Math.max(0.25, Math.min(4, mult)),
+    };
+    input.classList.add("value-dragging");
+    input.setPointerCapture?.(event.pointerId);
+    event.preventDefault();
+    event.stopPropagation();
+  });
+
+  input.addEventListener("pointermove", (event) => {
+    if (!drag || (drag.pointerId !== null && event.pointerId !== undefined && drag.pointerId !== event.pointerId)) {
+      return;
+    }
+    const axes = typeof nodeGraphPointerDragScreenDelta === "function"
+      ? nodeGraphPointerDragScreenDelta(drag.startX, drag.startY, event.clientX, event.clientY)
+      : {
+        combined: (event.clientX - drag.startX) + (drag.startY - event.clientY),
+      };
+    // Incremental travel since last sample (not total from start) so each
+    // pixelsPerStep chunk fires one step — the “next click” feel.
+    const delta = axes.combined - drag.lastCombined;
+    drag.lastCombined = axes.combined;
+    drag.accum += delta;
+    const threshold = drag.pixelsPerStep;
+    while (drag.accum >= threshold) {
+      drag.accum -= threshold;
+      drag.startValue = clampStep(drag.startValue + drag.valueStep);
+      input.value = String(drag.startValue);
+      onCommit({ target: input });
+    }
+    while (drag.accum <= -threshold) {
+      drag.accum += threshold;
+      drag.startValue = clampStep(drag.startValue - drag.valueStep);
+      input.value = String(drag.startValue);
+      onCommit({ target: input });
+    }
+    event.preventDefault();
+  });
+
+  const endDrag = (event) => {
+    if (!drag || (drag.pointerId !== null && event.pointerId !== undefined && drag.pointerId !== event.pointerId)) {
+      return;
+    }
+    input.classList.remove("value-dragging");
+    if (event.pointerId !== undefined && input.hasPointerCapture?.(event.pointerId)) {
+      input.releasePointerCapture(event.pointerId);
+    }
+    drag = null;
+    event.preventDefault();
+  };
+
+  input.addEventListener("pointerup", endDrag);
+  input.addEventListener("pointercancel", endDrag);
+  input.addEventListener("lostpointercapture", () => {
+    input.classList.remove("value-dragging");
+    drag = null;
+  });
+}
+
+// Scroll Line / Trace thickness: 0.5 px jumps, drag + double-click type.
+function bindNodeGraphPhosphorWaveformPxFields() {
+  bindNodeGraphPhosphorWaveformNumberField("nodePhosphorWaveformLineWidthInput", {
+    step: 0.5,
+    min: 0,
+    max: 8,
+    // ~14 screen px of diagonal drag per 0.5 px value step (less twitchy).
+    pixelsPerStep: 14,
+    onCommit: handleNodeGraphPhosphorWaveformLineWidthChange,
+  });
+  bindNodeGraphPhosphorWaveformNumberField("nodePhosphorWaveformTraceWidthInput", {
+    step: 0.5,
+    min: 0.5,
+    max: 5,
+    pixelsPerStep: 14,
+    onCommit: handleNodeGraphPhosphorWaveformTraceWidthChange,
   });
 }
 
@@ -1047,9 +1239,35 @@ function nodeGraphPhosphorWaveformStrokeVectorPath(context, points) {
 // lightness -- settings.hue shifts the whole palette together, and
 // settings.lineBrightness scales every one of those base lightness values
 // by the same factor, preserving their relative contrast to each other.
+// Always normalize: phosphillator (and other callers) may omit settings.
+// Never read properties off a raw `settings` argument — it is often undefined.
 function nodeGraphPhosphorWaveformLineColor(settings, lightness, alpha) {
-  const scaledLightness = Math.max(0, Math.min(100, lightness * settings.lineBrightness));
-  return `hsla(${settings.hue}, 90%, ${scaledLightness}%, ${alpha})`;
+  const defaults = nodeGraphPhosphorWaveformDefaultSettings || {
+    hue: 140,
+    lineBrightness: 1,
+  };
+  let s = defaults;
+  try {
+    if (typeof normalizeNodeGraphPhosphorWaveformSettings === "function") {
+      s = normalizeNodeGraphPhosphorWaveformSettings(settings ?? {});
+    } else if (settings && typeof settings === "object") {
+      s = settings;
+    }
+  } catch {
+    s = defaults;
+  }
+  if (!s || typeof s !== "object") {
+    s = defaults;
+  }
+  const brightnessRaw = Number(s.lineBrightness);
+  const brightness = Number.isFinite(brightnessRaw)
+    ? brightnessRaw
+    : Number(defaults.lineBrightness) || 1;
+  const hueRaw = Number(s.hue);
+  const hue = Number.isFinite(hueRaw) ? hueRaw : Number(defaults.hue) || 140;
+  const light = Number(lightness);
+  const scaledLightness = Math.max(0, Math.min(100, (Number.isFinite(light) ? light : 0) * brightness));
+  return `hsla(${hue}, 90%, ${scaledLightness}%, ${Number(alpha) || 0})`;
 }
 
 function nodeGraphPhosphorWaveformBackgroundColor(settings) {
@@ -1060,14 +1278,19 @@ function nodeGraphPhosphorWaveformBackgroundColor(settings) {
   // exponent is picked so the default (1) still lands at ~8.8%, which is
   // where the old `8 * brightness` mapping put it -- high enough that
   // rotating BG Hue produces a visible change.
-  const normalized = Math.max(0, Math.min(1, settings.backgroundBrightness / 2));
+  const s = normalizeNodeGraphPhosphorWaveformSettings(settings);
+  const normalized = Math.max(0, Math.min(1, s.backgroundBrightness / 2));
   const scaledLightness = Math.max(0, Math.min(100, 100 * (normalized ** 3.5)));
-  return `hsl(${settings.backgroundHue}, 70%, ${scaledLightness}%)`;
+  return `hsl(${s.backgroundHue}, 70%, ${scaledLightness}%)`;
 }
 
-function drawNodeGraphPhosphorWaveformPlaceholder(context, width, height, message, pixelRatio, settings) {
+function drawNodeGraphPhosphorWaveformPlaceholder(context, width, height, message, pixelRatio = 1, settings) {
+  if (!context) {
+    return;
+  }
+  const dpr = Math.max(1, Number(pixelRatio) || 1);
   context.fillStyle = nodeGraphPhosphorWaveformLineColor(settings, 57, 0.55);
-  context.font = `600 ${Math.round(11 * pixelRatio)}px system-ui, sans-serif`;
+  context.font = `600 ${Math.round(11 * dpr)}px system-ui, sans-serif`;
   context.textAlign = "center";
   context.textBaseline = "middle";
   context.fillText(message, Math.round(width / 2), Math.round(height / 2));
@@ -1083,6 +1306,11 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
     return;
   }
   const settings = nodeGraphPhosphorWaveformSettingsForNode(nodeId);
+  // Simulation off → pure black plate + no green frame. Circuit = live output
+  // + audio node + open context (not transport pause).
+  const circuitRunning = typeof nodeGraphModuleScopeCircuitRunning === "function"
+    ? nodeGraphModuleScopeCircuitRunning()
+    : Boolean(nodeGraphMvp?.live?.outputEnabled && nodeGraphMvp?.live?.node);
   // Shape FIRST, measure second, both in this one frame. The inset is padding
   // on the section, so writing it changes the canvas's box; measuring before
   // writing would size the backing store from the PREVIOUS inset and leave the
@@ -1097,6 +1325,7 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
     settings,
     Math.max(1, section.clientWidth),
     Math.max(1, section.clientHeight),
+    circuitRunning,
   );
   // Measure the CANVAS, not the section: the section is the full cell, the
   // canvas is what actually displays the bitmap, so its box is what the
@@ -1118,8 +1347,15 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   const crisp = (value) => Math.round(value) + 0.5;
 
   context.clearRect(0, 0, width, height);
-  context.fillStyle = nodeGraphPhosphorWaveformBackgroundColor(settings);
+  // Powered: tinted field from BG Hue/Brightness. Off: pure black (not green).
+  context.fillStyle = circuitRunning
+    ? nodeGraphPhosphorWaveformBackgroundColor(settings)
+    : "#000000";
   context.fillRect(0, 0, width, height);
+
+  if (!circuitRunning) {
+    return;
+  }
 
   const entry = nodeGraphPhosphorWaveformSampleEntry(nodeId);
   if (!entry) {

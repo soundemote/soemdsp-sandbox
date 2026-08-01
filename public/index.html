@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>soemdsp-sandbox</title>
-  <link rel="stylesheet" href="./public/styles.css?v=wire-restore-pre-regression-1">
+  <link rel="stylesheet" href="./public/styles.css?v=window-spawn-label-wrap-1">
   <link rel="stylesheet" href="./public/modules/stepGrid/step-grid.css?v=stepgrid-own-folder-20260715">
 </head>
 <body class="debug-collapsed node-boot-loading">
@@ -398,16 +398,16 @@
           <button id="nodePhosphorWaveformPositionMidButton" type="button" data-scroll-position="mid" aria-pressed="true">Mid</button>
           <button id="nodePhosphorWaveformPositionRightButton" type="button" data-scroll-position="right" aria-pressed="false">Right</button>
         </div>
-        <label class="node-phosphor-waveform-settings-row">
+        <div class="node-phosphor-waveform-settings-row" role="group" aria-label="Scroll line thickness">
           <span>Scroll Line</span>
-          <input id="nodePhosphorWaveformLineWidthInput" type="number" inputmode="decimal" step="0.5" min="0" max="8" autocomplete="off" title="Playhead / scroll line thickness (0 = hidden)">
+          <input id="nodePhosphorWaveformLineWidthInput" type="number" inputmode="decimal" step="0.5" min="0" max="8" autocomplete="off" readonly title="Drag to adjust · double-click to type (0 = hidden)">
           <span>px</span>
-        </label>
-        <label class="node-phosphor-waveform-settings-row">
+        </div>
+        <div class="node-phosphor-waveform-settings-row" role="group" aria-label="Trace thickness">
           <span>Trace</span>
-          <input id="nodePhosphorWaveformTraceWidthInput" type="number" inputmode="decimal" step="0.5" min="0.5" max="5" autocomplete="off" title="Waveform thickness (0.5–5 CSS px, half-pixel steps; +0.5px soft skirt)">
+          <input id="nodePhosphorWaveformTraceWidthInput" type="number" inputmode="decimal" step="0.5" min="0.5" max="5" autocomplete="off" readonly title="Drag to adjust · double-click to type (0.5–5 CSS px)">
           <span>px</span>
-        </label>
+        </div>
         <label class="node-phosphor-waveform-settings-row">
           <span>Hue</span>
           <input id="nodePhosphorWaveformHueInput" type="range" min="0" max="360" step="1">
@@ -446,57 +446,6 @@
           <span>Label inset</span>
           <input id="nodePhosphorWaveformLabelInsetInput" type="range" min="0" max="48" step="1" title="How many pixels the zoom/speed labels sit away from the corner">
           <span>px</span>
-        </label>
-      </div>
-
-      <div
-        id="nodeLedSettingsWindow"
-        class="node-led-settings-window"
-        role="dialog"
-        aria-label="LED options"
-        hidden>
-        <div class="scene-context-heading" id="nodeLedSettingsHeading">
-          <button
-            id="nodeLedSettingsDragHandle"
-            class="scene-context-drag-handle"
-            type="button"
-            aria-label="Move LED options">&#x2725;</button>
-          <div class="scene-context-title">
-            <span>LED</span>
-            <small>options</small>
-          </div>
-          <button
-            id="nodeLedSettingsClose"
-            class="panel-close-button"
-            type="button"
-            aria-label="Close LED options">
-            <span aria-hidden="true">&times;</span>
-          </button>
-        </div>
-        <div class="node-led-settings-row" aria-label="Color ramp preview">
-          <span id="nodeLedColorPreview" class="node-led-color-preview" aria-hidden="true"></span>
-        </div>
-        <label class="node-led-settings-row">
-          <span>Color</span>
-          <input id="nodeLedHueInput" type="range" min="0" max="360" step="1">
-        </label>
-        <label class="node-led-settings-row">
-          <span>Brightness</span>
-          <input id="nodeLedBrightnessInput" type="range" min="0" max="2" step="0.02">
-        </label>
-        <label class="node-led-settings-row">
-          <span>Blur</span>
-          <input id="nodeLedBlurInput" type="range" min="0" max="1" step="0.01">
-        </label>
-        <div class="node-led-settings-row" role="group" aria-label="Corner shape">
-          <span>Corners</span>
-          <button id="nodeLedCornerSquareButton" type="button" data-corner-shape="square" aria-pressed="false">Square</button>
-          <button id="nodeLedCornerSquircleButton" type="button" data-corner-shape="squircle" aria-pressed="true">Squircle</button>
-        </div>
-        <label class="node-led-settings-row">
-          <span>Rounding</span>
-          <input id="nodeLedRoundingInput" type="range" min="0" max="100" step="1">
-          <span>%</span>
         </label>
       </div>
 
@@ -568,6 +517,12 @@
             aria-hidden="true"
             focusable="false"></svg>
           <div id="nodeGraphNodes" class="node-graph-nodes"></div>
+          <!-- Contact disks above modules so full circles sit mid-jack (wires stay under). -->
+          <svg
+            id="nodeWireEndpointSvg"
+            class="node-wire-endpoint-svg"
+            aria-hidden="true"
+            focusable="false"></svg>
           <div id="nodeCameraOverlayLayer" class="node-camera-overlay-layer" aria-hidden="true"></div>
           <div id="nodeSelectionMarquee" class="node-selection-marquee" hidden></div>
         </div>
@@ -1607,8 +1562,8 @@
                 min="0"
                 max="100"
                 step="1"
-                value="100">
-              <output id="nodeUiDevSliderAmountFillAlphaValue" for="nodeUiDevSliderAmountFillAlpha">100%</output>
+                value="55">
+              <output id="nodeUiDevSliderAmountFillAlphaValue" for="nodeUiDevSliderAmountFillAlpha">55%</output>
             </div>
           </label>
           <label class="node-ui-dev-control">
@@ -1992,19 +1947,18 @@
           </button>
         </div>
         <div id="nodeCommandCenterUnifiedNavHost" class="node-unified-window-nav-host" aria-label="Floating window pages"></div>
-        <button id="nodeSceneCopyModule" type="button" role="menuitem" hidden>
-          <span>Copy</span>
-          <kbd>Ctrl+C</kbd>
-        </button>
-        <div id="nodeSceneModuleSettingsActionGroup" class="scene-context-button-group scene-context-button-group-3" role="group" aria-label="Module settings actions" hidden>
+        <div id="nodeSceneModuleSettingsActionGroup" class="scene-context-button-group scene-context-button-group-4" role="group" aria-label="Module settings actions" hidden>
+          <button id="nodeSceneCopyModule" type="button" role="menuitem" hidden>
+            <span class="scene-context-button-lines"><span>Copy</span><span>Module</span></span>
+          </button>
           <button id="nodeSceneCopyModuleSettings" type="button" role="menuitem" hidden>
-            <span>Copy Settings</span>
+            <span class="scene-context-button-lines"><span>Copy</span><span>Settings</span></span>
           </button>
           <button id="nodeScenePasteModuleSettings" type="button" role="menuitem" hidden>
-            <span>Paste Settings</span>
+            <span class="scene-context-button-lines"><span>Paste</span><span>Settings</span></span>
           </button>
           <button id="nodeSceneSetModuleSettingsAsDefault" type="button" role="menuitem" hidden>
-            <span>Set as Default</span>
+            <span class="scene-context-button-lines"><span>Save to</span><span>Default</span></span>
           </button>
         </div>
         <div id="nodeSceneWindowControls" class="scene-context-text-box-controls scene-context-window-controls">
@@ -2071,17 +2025,17 @@
           </div>
         </div>
         <div id="nodeSceneSelectedModule" class="scene-context-selected-module" hidden>
-          <span>selected</span>
+          <span class="scene-context-selected-module-label" hidden></span>
           <strong>none</strong>
         </div>
         <label id="nodeSceneAliasControl" class="scene-context-alias-control" hidden>
-          <span>alias</span>
+          <span>ALIAS</span>
           <input
             id="nodeSceneAliasInput"
             type="text"
             autocomplete="off"
             spellcheck="false"
-            placeholder="module title alias">
+            placeholder="display alias (Value Slider label, wires)">
         </label>
         <button id="nodeSceneAddToGroup" type="button" role="menuitem" hidden disabled title="Add to group under construction. Module grouping is under construction.">
           <span>Add to group</span>
@@ -2106,20 +2060,20 @@
         <div id="nodeSceneWidthControls" class="scene-context-width-controls" hidden>
           <span id="nodeSceneWidthLabel" class="scene-context-gu-label">Width</span>
           <button id="nodeSceneWidthDecrease" type="button" aria-label="Decrease module width">-</button>
-          <span id="nodeSceneWidthValue" aria-live="polite">7 gu</span>
           <button id="nodeSceneWidthIncrease" type="button" aria-label="Increase module width">+</button>
+          <span id="nodeSceneWidthValue" class="scene-context-gu-value" aria-live="polite">7 gu</span>
         </div>
         <div id="nodeSceneTextBoxHeightControls" class="scene-context-width-controls" hidden>
           <span id="nodeSceneTextBoxHeightLabel" class="scene-context-gu-label">Height</span>
           <button id="nodeSceneTextBoxHeightDecrease" type="button" aria-label="Decrease module height">-</button>
-          <span id="nodeSceneTextBoxHeightValue" aria-live="polite">5 gu</span>
           <button id="nodeSceneTextBoxHeightIncrease" type="button" aria-label="Increase module height">+</button>
+          <span id="nodeSceneTextBoxHeightValue" class="scene-context-gu-value" aria-live="polite">5 gu</span>
         </div>
         <div id="nodeSceneTextBoxTextSizeControls" class="scene-context-width-controls" hidden>
           <span id="nodeSceneTextBoxTextSizeLabel" class="scene-context-gu-label">Text</span>
           <button id="nodeSceneTextBoxTextSizeDecrease" type="button" aria-label="Decrease text box text size">-</button>
-          <span id="nodeSceneTextBoxTextSizeValue" aria-live="polite">100%</span>
           <button id="nodeSceneTextBoxTextSizeIncrease" type="button" aria-label="Increase text box text size">+</button>
+          <span id="nodeSceneTextBoxTextSizeValue" class="scene-context-gu-value" aria-live="polite">100%</span>
         </div>
         <label id="nodeSceneTextBoxTextControls" class="scene-context-text-box-text-control" hidden>
           <span>text</span>
@@ -2284,24 +2238,24 @@
         <div id="nodeSceneDisplayHeightControls" class="scene-context-width-controls" hidden>
           <span id="nodeSceneDisplayHeightLabel" class="scene-context-gu-label">Height</span>
           <button id="nodeSceneDisplayHeightDecrease" type="button" aria-label="Decrease display height">-</button>
-          <span id="nodeSceneDisplayHeightValue" aria-live="polite">2 gu</span>
           <button id="nodeSceneDisplayHeightIncrease" type="button" aria-label="Increase display height">+</button>
+          <span id="nodeSceneDisplayHeightValue" class="scene-context-gu-value" aria-live="polite">2 gu</span>
         </div>
-        <button id="nodeSceneToggleOscilloscope" type="button" role="menuitem" hidden>
-          <span>Hide display</span>
+        <button id="nodeSceneToggleOscilloscope" class="scene-context-two-line-button" type="button" role="menuitem" hidden>
+          <span class="scene-context-button-lines"><span>Hide</span><span>Display</span></span>
         </button>
         <div id="nodeSceneModuleVisibilityActionGroup" class="scene-context-button-group scene-context-button-group-4" role="group" aria-label="Module visibility" hidden>
           <button id="nodeSceneToggleTitle" type="button" role="menuitem" hidden>
-            <span>Hide title</span>
+            <span class="scene-context-button-lines"><span>Hide</span><span>Title</span></span>
           </button>
           <button id="nodeSceneToggleButtons" type="button" role="menuitem" hidden>
-            <span>Hide buttons</span>
+            <span class="scene-context-button-lines"><span>Hide</span><span>Buttons</span></span>
           </button>
           <button id="nodeSceneToggleIo" type="button" role="menuitem" hidden>
-            <span>Hide in/out</span>
+            <span class="scene-context-button-lines"><span>Hide</span><span>In/Out</span></span>
           </button>
           <button id="nodeSceneToggleSliders" type="button" role="menuitem" hidden>
-            <span>Hide sliders</span>
+            <span class="scene-context-button-lines"><span>Hide</span><span>Sliders</span></span>
           </button>
         </div>
         <button id="nodeSceneToggleInterfaceControls" type="button" role="menuitem" hidden>
@@ -2449,8 +2403,8 @@
             aria-label="Move module actions"
             data-tooltip-key="metadata.sceneMove">&#x2725;</button>
           <div class="scene-context-title">
-            <span>MODULE</span>
-            <small>no module selected</small>
+            <span>SETTINGS</span>
+            <small></small>
           </div>
           <button
             id="nodeModuleActionsClose"
@@ -3559,18 +3513,18 @@
   <script src="./public/waveform-interactions.js?v=waveform-interactions-refactor-1780375200000"></script>
   <script src="./public/manifest-view.js?v=manifest-view-refactor-1780360800000"></script>
   <script src="./public/manifest-loader.js?v=manifest-loader-refactor-1780389600000"></script>
-  <script src="./public/node-graph-wires.js?v=wire-restore-pre-regression-1"></script>
+  <script src="./public/node-graph-wires.js?v=wire-gradient-restored-1"></script>
   <script src="./public/node-graph-floating-windows.js?v=core-reduction-1"></script>
   <script src="./public/node-graph-unified-window.js?v=core-reduction-1"></script>
-  <script src="./public/node-graph-file-actions.js?v=window-open-policy-20260725"></script>
+  <script src="./public/node-graph-file-actions.js?v=working-patch-survive-1"></script>
   <script src="./public/node-graph-default-buttons.js?v=patch-save-refresh-1"></script>
   <script src="./public/node-graph-cookbook-filter.js?v=tb303-stable-1"></script>
   <script src="./public/node-graph-papoulis-filter.js?v=mouse-smooth-1"></script>
   <script src="./public/node-graph-phosphor-draw-sample.js?v=phosphor-draw-sample-1"></script>
   <script src="./public/node-graph-color-standards.js?v=color-standards-1"></script>
   <script src="./public/node-graph-chromeless-module-registry.js?v=chrome-seal-all-1"></script>
-  <script src="./public/node-graph-module-chrome.js?v=layoutb-title-io-hide-1"></script>
-  <script src="./public/modules/led/led-register.js?v=led-settings-20260725"></script>
+  <script src="./public/node-graph-module-chrome.js?v=layoutb-title-on-1"></script>
+  <script src="./public/modules/led/led-register.js?v=layoutb-min-2x2-1"></script>
   <script src="./public/modules/bugButton/bug-button-register.js?v=bug-button-io-order-20260724"></script>
   <script src="./public/modules/xyPad/xy-pad-dsp.js?v=xy-pad-center-q-1"></script>
   <script src="./public/modules/xyPad/xy-pad-register.js?v=xy-pad-center-q-1"></script>
@@ -3579,11 +3533,11 @@
   <script src="./public/modules/stepGrid/step-grid-register.js?v=stepgrid-variable-steps-20260715"></script>
   <script src="./public/modules/groupInput/group-input-register.js?v=chromeless-portals-1"></script>
   <script src="./public/modules/groupOutput/group-output-register.js?v=chromeless-portals-1"></script>
-  <script src="./public/node-graph-module-definitions.js?v=chrome-seal-all-1"></script>
+  <script src="./public/node-graph-module-definitions.js?v=layoutb-min-2x2-1"></script>
   <script src="./public/node-graph-module-controls.js?v=f-input-speed-limit-20260726"></script>
   <script src="./public/node-graph-data-bus.js?v=data-plane-merge-20260711"></script>
   <script src="./public/node-graph-module-store.js?v=badval-face-1"></script>
-  <script src="./public/node-graph-module-sizing.js?v=layoutb-title-io-hide-1"></script>
+  <script src="./public/node-graph-module-sizing.js?v=layoutb-min-2x2-1"></script>
   <script src="./public/node-graph-metadata-kinds.js?v=0051"></script>
   <script src="./public/node-graph-parameter-smoother-filters.js?v=two-pole-smooth-1"></script>
   <script src="./public/node-graph-parameter-metadata.js?v=two-pole-smooth-1"></script>
@@ -3593,8 +3547,8 @@
   <script src="./public/node-graph-image-utils.js?v=pre-formula-restore-1"></script>
   <script src="./public/node-graph-graph-utils.js?v=contour-square-blend-1"></script>
   <script src="./public/node-graph-samples.js?v=music-player-phase-persist-1"></script>
-  <script src="./public/node-graph-phosphor-waveform.js?v=music-player-label-pad-px-1"></script>
-  <script src="./public/node-graph-phosphillator.js?v=mouse-smooth-1"></script>
+  <script src="./public/node-graph-phosphor-waveform.js?v=20260801-engine-off-black-2"></script>
+  <script src="./public/node-graph-phosphillator.js?v=linebrightness-safe-3"></script>
   <script src="./public/node-graph-embed-config.js?v=embed-config-20260701"></script>
   <script src="./public/node-graph-resources.js?v=embed-config-20260701"></script>
   <script src="./public/node-graph-text-box-rendering.js?v=data-plane-merge-20260709"></script>
@@ -3620,8 +3574,8 @@
   <script src="./public/node-graph-clap-host.js?v=0051"></script>
   <script src="./public/node-graph-marquee-selection.js?v=title-blur-on-marquee-20260707"></script>
   <script src="./public/node-graph-node-dragging.js?v=layout-edit-light-1"></script>
-  <script src="./public/node-graph-context-menu.js?v=badval-layouta-1"></script>
-  <script src="./public/node-graph-module-actions.js?v=layoutb-title-io-hide-1"></script>
+  <script src="./public/node-graph-context-menu.js?v=window-spawn-fix-1"></script>
+  <script src="./public/node-graph-module-actions.js?v=chrome-title-vs-alias-1"></script>
   <!-- node-graph-code-screen.js loaded by node-graph-code-screen-loader.js on demand -->
   <script src="./public/node-graph-phosphor-energy-gl.js?v=energy-gradlut-1"></script>
   <script src="./public/lib/phosphor/phosphor-drawer.js?v=drawer-gradlut-1"></script>
@@ -3629,18 +3583,18 @@
   <script src="./public/node-graph-phosphor-gaussian-drawer.js?v=gaussian-beam-continuous-1"></script>
   <script type="module" src="./public/color-widget-boot.js?v=bw-channels-1"></script>
   <script src="./public/modules/spectrogram/spectrogram-gradient-editor.js?v=gradient-selector-1"></script>
-  <script src="./public/node-graph-module-scopes.js?v=core-reduction-1"></script>
+  <script src="./public/node-graph-module-scopes.js?v=window-spawn-fix-1"></script>
   <script src="./public/modules/phosphorLight/phosphor-light-display.js?v=alias-only-1"></script>
   <script src="./public/modules/oscilloscopeBank/oscilloscope-bank-display.js?v=energy-drawer-1"></script>
   <script src="./public/modules/videoscope/videoscope-display.js?v=energy-drawer-1"></script>
   <script src="./public/modules/spectrogram/spectrogram-display.js?v=spectrogram-hist-overlap-1"></script>
   <script src="./public/modules/transport/transport-display.js?v=transport-bpm-20260714"></script>
-  <script src="./public/node-graph-room-dimmer.js?v=room-wire-segments-1"></script>
+  <script src="./public/node-graph-room-dimmer.js?v=room-no-wire-glow-1"></script>
   <script src="./public/node-graph-canvas-script.js?v=floating-chrome-unify-1"></script>
-  <script src="./public/node-graph-module-factories.js?v=value-slider-face-1"></script>
-  <script src="./public/modules/led/led-ui.js?v=solid-module-shell-2-20260723"></script>
-  <script src="./public/modules/led/led-settings.js?v=led-settings-20260725"></script>
-  <script src="./public/modules/led/led-display.js?v=led-settings-20260725"></script>
+  <script src="./public/node-graph-module-factories.js?v=layoutb-no-io-labels-1"></script>
+  <script src="./public/modules/led/led-ui.js?v=led-fill-images-1"></script>
+  <script src="./public/modules/led/led-settings.js?v=no-led-float-window-1"></script>
+  <script src="./public/modules/led/led-display.js?v=led-fill-images-1"></script>
   <script src="./public/modules/bugButton/bug-button-ui.js?v=bug-button-settings-edit-20260723"></script>
   <script src="./public/modules/xyPad/xy-pad-ui.js?v=xy-pad-center-q-1"></script>
   <script src="./public/modules/numberReadout/number-readout-ui.js?v=number-readout-solid-1"></script>
@@ -3648,20 +3602,20 @@
   <script src="./public/modules/stepGrid/step-grid-ui.js?v=stepgrid-variable-steps-20260715"></script>
   <script src="./public/modules/groupInput/group-input-ui.js?v=chromeless-portals-1"></script>
   <script src="./public/modules/groupOutput/group-output-ui.js?v=chromeless-portals-1"></script>
-  <script src="./public/node-graph-module-header-rendering.js?v=step-any-20260725"></script>
-  <script src="./public/node-graph-module-rendering.js?v=layoutb-title-io-hide-1"></script>
+  <script src="./public/node-graph-module-header-rendering.js?v=chrome-title-vs-alias-1"></script>
+  <script src="./public/node-graph-module-rendering.js?v=layoutb-title-on-1"></script>
   <script src="./public/node-graph-module-frame.js?v=viewport-perf-1"></script>
   <script src="./public/node-graph-history.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-visual-utils.js?v=shared-canvas-sizing-20260725"></script>
-  <script src="./public/node-graph-patch-clone.js?v=layoutb-title-io-hide-1"></script>
+  <script src="./public/node-graph-patch-clone.js?v=chrome-title-vs-alias-1"></script>
   <script src="./public/node-graph-slider-metadata.js?v=papoulis-smoother-1"></script>
   <script src="./public/node-graph-slider-values.js?v=param-alias-label-1"></script>
   <script src="./public/node-graph-slider-dragging.js?v=value-slider-face-drag-1"></script>
   <script src="./public/node-graph-node-accessors.js?v=cleanup-20260725-smoothing-time-20260701"></script>
-  <script src="./public/node-graph-selection.js?v=keep-selection-ui-2"></script>
+  <script src="./public/node-graph-selection.js?v=no-led-float-window-1"></script>
   <script src="./public/node-graph-port-geometry.js?v=wire-restore-pre-regression-1"></script>
   <script src="./public/node-graph-slider-readout.js?v=param-alias-label-1"></script>
-  <script src="./public/modules/valueSlider/value-slider-face.js?v=layout-edit-light-1"></script>
+  <script src="./public/modules/valueSlider/value-slider-face.js?v=chrome-title-vs-alias-1"></script>
   <script src="./public/node-graph-slider-readout-controls.js?v=bug-button-settings-edit-20260723"></script>
   <script src="./public/node-graph-ghost-sliders.js?v=unbounded-speed-1"></script>
   <script src="./public/node-code-settings-editor.js?v=code-settings-shell-1"></script>
@@ -3679,20 +3633,20 @@
   <script src="./public/node-graph-execution-summary.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-wire-actions.js?v=wire-connect-1"></script>
   <script src="./public/node-graph-trace-router.js?v=no-self-burst-1780321400000"></script>
-  <script src="./public/node-graph-wire-rendering.js?v=wire-restore-pre-regression-1"></script>
+  <script src="./public/node-graph-wire-rendering.js?v=wire-gradient-restored-1"></script>
   <script src="./public/node-graph-render-output.js?v=output-one-trip-1"></script>
   <script src="./public/node-graph-debug-copy.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-execution-debug-api.js?v=noise-generator-stereo-20260630"></script>
   <script src="./public/node-graph-execution-debug-view.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-tooltips.js?v=0040"></script>
   <script src="./public/node-graph-interaction-help.js?v=tooltip-fixed-box-b-20260725"></script>
-  <script src="./public/presets/useruisettings.js?v=slider-fill-defaults-20260725"></script>
-  <script src="./public/node-graph-ui-settings-definitions.js?v=slider-fill-defaults-20260725"></script>
+  <script src="./public/presets/useruisettings.js?v=no-led-float-window-1"></script>
+  <script src="./public/node-graph-ui-settings-definitions.js?v=amount-alpha-55-1"></script>
   <script src="./public/node-graph-ui-settings-utils.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-user-ui-settings-controls.js?v=knob-style-to-uidev-20260725"></script>
   <script src="./public/node-graph-ui-settings-panels.js?v=unified-window-pos-2"></script>
-  <script src="./public/node-graph-ui-settings-persistence.js?v=floating-windows-modular-view-20260725"></script>
-  <script src="./public/node-graph-ui-settings-sync.js?v=slider-fill-defaults-20260725"></script>
+  <script src="./public/node-graph-ui-settings-persistence.js?v=working-patch-survive-1"></script>
+  <script src="./public/node-graph-ui-settings-sync.js?v=amount-alpha-55-1"></script>
   <script src="./public/node-graph-keyboard-shortcuts.js?v=interaction-rewrite-20260724"></script>
   <script src="./public/node-graph-live-status-text.js?v=live-plan-preserve-20260634"></script>
   <script src="./public/node-graph-live-status-controls.js?v=slider-unit-color-1780307400000"></script>
@@ -3703,7 +3657,7 @@
   <script src="./public/node-graph-default-patch.js?v=value-slider-face-layers-1"></script>
   <script src="./public/node-graph-state.js?v=grid-default-on-20260725"></script>
   <script src="./public/node-graph-external-ui-events.js?v=xy-pad-impulse-1"></script>
-  <script src="./public/node-graph-patch-core.js?v=layoutb-title-io-hide-1"></script>
+  <script src="./public/node-graph-patch-core.js?v=chrome-title-vs-alias-1"></script>
   <script src="./public/node-graph-live-plan-runtime.js?v=xy-pad-dsp-path-1"></script>
   <script src="./public/node-graph-live-parameter-runtime.js?v=smoother-active-set-1"></script>
   <script src="./public/node-graph-oscillator-runtime.js?v=0147"></script>
@@ -3861,14 +3815,14 @@
   <script src="./public/node-graph-wire-controller-bootstrap.js?v=wire-break-trigger-0129"></script>
   <script src="./public/node-graph-workspace-event-bindings.js?v=core-reduction-1"></script>
   <script src="./public/node-graph-render-live-event-bindings.js?v=midi-toggle-20260725"></script>
-  <script src="./public/node-graph-header-event-bindings.js?v=core-reduction-1"></script>
+  <script src="./public/node-graph-header-event-bindings.js?v=no-led-float-window-1"></script>
   <script src="./public/node-graph-help-event-bindings.js?v=remove-workspace-view-0002"></script>
   <script src="./public/node-graph-scene-menu-event-bindings.js?v=core-reduction-1"></script>
   <script src="./public/node-graph-uidev-event-bindings.js?v=slider-fill-hsla-20260725"></script>
   <script src="./public/node-graph-settings-event-bindings.js?v=dblclick-header-fields-20260722"></script>
   <script src="./public/node-graph-slider-event-bindings.js?v=node-graph-slider-event-bindings-refactor-1780369200000"></script>
   <script src="./public/node-graph-event-bindings.js?v=remove-dead-uiview-bind-20260724"></script>
-  <script src="./public/node-graph-bootstrap.js?v=autostart-race-fix-20260702"></script>
+  <script src="./public/node-graph-bootstrap.js?v=working-patch-survive-1"></script>
   <script src="./public/app-event-bindings.js?v=app-event-bindings-refactor-1780361400000"></script>
   <script src="./public/app.js?v=loading-steps-1"></script>
 </body>

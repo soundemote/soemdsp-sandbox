@@ -675,7 +675,7 @@ function copyNodeGraphModuleFromContext() {
 }
 
 // The subset of a node's fields that count as "settings" for the Copy
-// Settings / Paste Settings / Set as Default actions -- everything about a
+// Settings / Paste Settings / Save to Default actions -- everything about a
 // module except its grid position/id/type. Deliberately excludes
 // `moduleGroup` (a full nested sub-patch) and `clap` (a plugin instance
 // binding) since those aren't meaningfully "default-able" per module type.
@@ -941,9 +941,33 @@ function setNodeGraphModuleAliasFromContext({ record = true } = {}) {
     return;
   }
   const input = document.getElementById("nodeSceneAliasInput");
+  // Capture before any commit — applyNodeGraphPatchToDom rebuilds modules and
+  // can blur the field mid-keystroke (Backspace was the usual repro).
+  const hadFocus = Boolean(input && document.activeElement === input);
   const selectionStart = input?.selectionStart ?? null;
   const selectionEnd = input?.selectionEnd ?? selectionStart;
   const alias = normalizeNodeGraphPatchNodeAlias(input?.value);
+
+  // Live typing (input event, record:false): mutate the live patch + soft-update
+  // alias consumers only. Do NOT rewrite the chrome header (stays type name).
+  // A full commit rebuilds every module DOM and was kicking the caret out of
+  // the alias field on each character / Backspace.
+  if (!record) {
+    if (alias) {
+      sourceNode.alias = alias;
+    } else {
+      delete sourceNode.alias;
+    }
+    if (nodeGraphMvp) {
+      nodeGraphMvp.patchDirtyState = "edited";
+    }
+    // Value Slider face label tracks alias live.
+    if (sourceNode.type === "valueSlider" && typeof renderNodeGraphValueSliderFace === "function") {
+      renderNodeGraphValueSliderFace(sourceNode.id);
+    }
+    return;
+  }
+
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   const targetNode = patch.nodes.find((node) => node.id === sourceNode.id);
   if (!targetNode) {
@@ -958,10 +982,16 @@ function setNodeGraphModuleAliasFromContext({ record = true } = {}) {
     record,
     status: alias ? "module alias changed" : "module alias cleared",
   });
-  if (document.activeElement === input) {
-    input.focus();
-    if (selectionStart !== null) {
-      input.setSelectionRange?.(selectionStart, selectionEnd);
+  // Restore after full rebuild (change/blur path). Use hadFocus — activeElement
+  // is often already body by the time we get here.
+  if (hadFocus && input?.isConnected) {
+    input.focus({ preventScroll: true });
+    if (selectionStart !== null && typeof input.setSelectionRange === "function") {
+      try {
+        input.setSelectionRange(selectionStart, selectionEnd ?? selectionStart);
+      } catch {
+        // setSelectionRange can throw on non-text inputs; alias is type=text.
+      }
     }
   }
 }
@@ -2024,12 +2054,8 @@ function toggleNodeGraphModuleOscilloscopeFromContext() {
 
 function applyNodeGraphPatchNodeUi(targetNode, ui) {
   const normalizedUi = normalizeNodeGraphPatchNodeUi(ui, targetNode?.type);
-  // Headerless LayoutB defaults to titleHidden=true. An explicit title show
-  // (titleHidden:false) must persist even when every other flag is off.
-  const headerlessLayoutB = targetNode?.type
-    && typeof nodeGraphModuleIsHeaderlessLayoutB === "function"
-    && nodeGraphModuleIsHeaderlessLayoutB(targetNode.type);
-  const titleExplicitlyShown = headerlessLayoutB && !normalizedUi.titleHidden;
+  // Persist ui only when a non-default flag is set. LayoutB titles default on
+  // (titleHidden:false); Hide title persists via titleHidden:true.
   if (
     normalizedUi.buttonsHidden ||
     normalizedUi.ioHidden ||
@@ -2037,8 +2063,7 @@ function applyNodeGraphPatchNodeUi(targetNode, ui) {
     normalizedUi.titleHidden ||
     normalizedUi.oscilloscopeHidden ||
     normalizedUi.slidersHidden ||
-    normalizedUi.displayHeightOffsetGu ||
-    titleExplicitlyShown
+    normalizedUi.displayHeightOffsetGu
   ) {
     targetNode.ui = normalizedUi;
   } else {

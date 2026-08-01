@@ -46,15 +46,20 @@ async function bindNodeGraphMvpEvents() {
       }
       event.preventDefault();
     }, true);
-    // When embedded in an iframe (e.g. the soundemote-site sandbox page),
-    // clicking a module selects it via mouse events (hit-testing, no focus
-    // needed) but keyboard shortcuts -- Delete included -- only ever reach
-    // whichever document currently holds focus. A click alone doesn't
-    // guarantee that's us, so explicitly claim window focus on interaction.
+    // Capture-phase: release text focus when the user works the patch.
+    // Module drag / slider handlers call preventDefault on pointerdown, which
+    // blocks the browser's normal "click outside blurs input" behavior — so
+    // "Search modules" stayed focused and ate Shift+arrows / Delete / hotkeys.
+    // Also claim window focus for iframe embeds (soundemote-site sandbox).
     document.addEventListener(
       "pointerdown",
       (event) => {
-        if (!nodeGraphEventTargetIsEditable(event.target)) {
+        if (typeof nodeGraphBlurActiveTextEditableIfOutside === "function") {
+          nodeGraphBlurActiveTextEditableIfOutside(event.target);
+        }
+        if (typeof nodeGraphEventTargetIsTextEditable === "function"
+          ? !nodeGraphEventTargetIsTextEditable(event.target)
+          : !nodeGraphEventTargetIsEditable(event.target)) {
           window.focus();
         }
       },

@@ -613,12 +613,16 @@ function applyNodeGraphPatchToDom() {
     element.dataset.structuralUiSignature = structuralUiSignature;
     const titleText = element.querySelector(".node-header-title");
     if (titleText) {
+      // Chrome bar always shows type/plugin name — never the user alias.
+      const chromeTitle = typeof nodeGraphModuleChromeTitle === "function"
+        ? nodeGraphModuleChromeTitle(patchNode)
+        : nodeGraphDefaultNodeTitle(patchNode.type, patchNode.id);
       if (titleText.tagName === "INPUT") {
         if (document.activeElement !== titleText) {
-          titleText.value = nodeGraphPatchNodeTitle(patchNode);
+          titleText.value = chromeTitle;
         }
       } else {
-        titleText.textContent = nodeGraphPatchNodeTitle(patchNode);
+        titleText.textContent = chromeTitle;
       }
     }
     element.classList.toggle("buttons-hidden", patchNodeUi.buttonsHidden);
@@ -628,6 +632,9 @@ function applyNodeGraphPatchToDom() {
     element.classList.toggle("oscilloscope-hidden", patchNodeUi.oscilloscopeHidden);
     element.classList.toggle("sliders-hidden", patchNodeUi.slidersHidden);
     element.classList.toggle("title-hidden", patchNodeUi.titleHidden);
+    if (typeof syncNodeGraphLayoutBNoParamsClass === "function") {
+      syncNodeGraphLayoutBNoParamsClass(element, patchNode.type, patchNodeUi);
+    }
     const dragHandle = element.querySelector(".node-drag-handle");
     if (dragHandle) {
       dragHandle.textContent = patchNodeUi.movementLocked ? "\uD83D\uDD12" : "\u2725";

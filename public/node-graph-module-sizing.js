@@ -36,6 +36,7 @@ function nodeGraphModuleTypeHasHideableSliders(type) {
 
 const nodeGraphModuleWidthLimits = Object.freeze({
   maxGu: 60,
+  // LayoutA / generic modules.
   minGu: 4,
 });
 
@@ -44,23 +45,36 @@ const nodeGraphModuleHeightLimits = Object.freeze({
   minGu: 1,
 });
 
-// App-wide display-area policy: every resizable display is 1…60 gu.
-// Modules must not invent their own min display height.
+// App-wide display-area policy: resizable display 1…60 gu (LayoutA scopes).
+// LayoutB solid shells use a 2gu floor (see displayHeightLimitsForType).
 const nodeGraphModuleDisplayHeightLimits = Object.freeze({
   maxGu: 60,
   minGu: 1,
   stepGu: 1,
 });
 
+/** LayoutB allowable minimum footprint: 2×2 gu (width × display/shell). */
+const nodeGraphLayoutBMinGu = 2;
+
 function nodeGraphModuleWidthLimitsForType(type) {
   if (nodeGraphChromelessModuleIsCompactTile(type)) {
     return { ...nodeGraphModuleWidthLimits, minGu: 1 };
+  }
+  if (typeof nodeGraphModuleUsesLayoutB === "function" && nodeGraphModuleUsesLayoutB(type)) {
+    return { ...nodeGraphModuleWidthLimits, minGu: nodeGraphLayoutBMinGu };
   }
   return nodeGraphModuleWidthLimits;
 }
 
 function nodeGraphModuleHeightLimitsForType(type) {
   return nodeGraphModuleHeightLimits;
+}
+
+function nodeGraphModuleDisplayHeightLimitsForType(type) {
+  if (type && typeof nodeGraphModuleUsesLayoutB === "function" && nodeGraphModuleUsesLayoutB(type)) {
+    return { ...nodeGraphModuleDisplayHeightLimits, minGu: nodeGraphLayoutBMinGu };
+  }
+  return nodeGraphModuleDisplayHeightLimits;
 }
 
 const nodeGraphTextBoxHeightLimits = Object.freeze({
@@ -174,8 +188,7 @@ function nodeGraphModuleSizingCapabilities(type) {
       );
   // Display-height resizing works for any type with a display AREA --
   // whether an oscilloscope fills it or the module's own custom UI does
-  // (graph faces, XY pad, etc.). Min height is always
-  // nodeGraphModuleDisplayHeightLimits.minGu (1).
+  // (graph faces, XY pad, etc.). LayoutB min face height is 2gu; others 1gu.
   const displayHeight = !moduleHeight && (
     nodeGraphModuleTypeHasHideableOscilloscope(normalizedType) ||
     nodeGraphModuleTypeHasCustomDisplayArea(normalizedType)
@@ -203,19 +216,21 @@ function nodeGraphModuleDisplayVisibleForUi(type, ui = {}) {
   return !nodeGraphEffectivePatchNodeUi(ui, type).oscilloscopeHidden;
 }
 
-function normalizeNodeGraphModuleDisplayHeightUnits(heightGu) {
+function normalizeNodeGraphModuleDisplayHeightUnits(heightGu, type = null) {
+  const limits = nodeGraphModuleDisplayHeightLimitsForType(type);
   const value = Math.round(Number(heightGu));
   return Number.isFinite(value)
     ? Math.max(
-      nodeGraphModuleDisplayHeightLimits.minGu,
-      Math.min(nodeGraphModuleDisplayHeightLimits.maxGu, value),
+      limits.minGu,
+      Math.min(limits.maxGu, value),
     )
-    : nodeGraphModuleLayout.moduleScopeHeightGu;
+    : Math.max(limits.minGu, nodeGraphModuleLayout.moduleScopeHeightGu);
 }
 
 function nodeGraphModuleDefaultDisplayHeightUnits(type) {
   return normalizeNodeGraphModuleDisplayHeightUnits(
     nodeGraphModuleDefinitions[type]?.displayHeightGu ?? nodeGraphModuleLayout.moduleScopeHeightGu,
+    type,
   );
 }
 
@@ -225,7 +240,7 @@ function normalizeNodeGraphModuleDisplayHeightOffsetUnits(typeOrOffsetGu, offset
   const offset = hasType ? offsetGu : typeOrOffsetGu;
   const defaultHeightGu = type ? nodeGraphModuleDefaultDisplayHeightUnits(type) : nodeGraphModuleLayout.moduleScopeHeightGu;
   const targetHeightGu = defaultHeightGu + Math.round(Number(offset) || 0);
-  return normalizeNodeGraphModuleDisplayHeightUnits(targetHeightGu) - defaultHeightGu;
+  return normalizeNodeGraphModuleDisplayHeightUnits(targetHeightGu, type) - defaultHeightGu;
 }
 
 function nodeGraphModuleConfiguredDisplayHeightUnits(type, ui = {}) {
@@ -237,9 +252,10 @@ function nodeGraphModuleConfiguredDisplayHeightUnits(type, ui = {}) {
   }
   const normalizedUi = normalizeNodeGraphPatchNodeUi(ui, type);
   const defaultHeightGu = nodeGraphModuleDefaultDisplayHeightUnits(type);
-  // Single clamp path: min 1gu / max 60gu for every display type.
+  // LayoutB: min 2gu face; LayoutA scopes: min 1gu.
   return normalizeNodeGraphModuleDisplayHeightUnits(
     defaultHeightGu + normalizedUi.displayHeightOffsetGu,
+    type,
   );
 }
 
@@ -448,11 +464,11 @@ function nodeGraphLayoutBIoColumnHeightGu(type) {
 /** @deprecated use nodeGraphLayoutBIoColumnHeightGu */
 const nodeGraphSolidModuleIoColumnHeightGu = nodeGraphLayoutBIoColumnHeightGu;
 
-/** LayoutB shell height in gu: max(display Height, denser IO column). */
+/** LayoutB shell height in gu: max(display Height, denser IO column, 2gu floor). */
 function nodeGraphLayoutBShellHeightGu(type, ui = {}) {
   const displayGu = nodeGraphModuleConfiguredDisplayHeightUnits(type, ui);
   const ioGu = nodeGraphLayoutBIoColumnHeightGu(type);
-  return Math.max(1, displayGu, ioGu);
+  return Math.max(nodeGraphLayoutBMinGu, displayGu, ioGu);
 }
 
 /** @deprecated use nodeGraphLayoutBShellHeightGu */
@@ -734,7 +750,7 @@ function nodeGraphModuleGridHeightUnits(type) {
 
 /**
  * Content height only (no clearance). LayoutB: optional title + shell + sliders + inset.
- * Clearance is always applied via nodeGraphModuleHeightWithBottomClearance.
+ * Clearance is applied via nodeGraphModuleHeightWithBottomClearance when params exist.
  */
 function nodeGraphLayoutBContentHeightGu(type, ui = {}, { compact = false } = {}) {
   const shellGu = nodeGraphLayoutBShellHeightGu(type, ui);
@@ -749,17 +765,25 @@ function nodeGraphLayoutBContentHeightGu(type, ui = {}, { compact = false } = {}
   )
     ? nodeGraphModuleHeaderHeightUnits(ui, type)
     : 0;
-  if (compact && sliderGu <= 0) {
+  // No slider band: content is shell only (no empty bottom lip / inset pad).
+  if (sliderGu <= 0) {
     return headerGu + shellGu;
+  }
+  if (compact) {
+    return headerGu + shellGu + sliderGu;
   }
   return headerGu + shellGu + sliderGu + nodeGraphModuleLayout.moduleGridInsetGu * 2;
 }
 
-/** LayoutB total height: shared content → shared bottom-clearance rule. */
+/** LayoutB total height: params → bottom-clearance lip; no params → exact shell. */
 function nodeGraphLayoutBGridHeightUnits(type, ui = {}, { compact = false } = {}) {
-  return nodeGraphModuleHeightWithBottomClearance(
-    nodeGraphLayoutBContentHeightGu(type, ui, { compact }),
-  );
+  const content = nodeGraphLayoutBContentHeightGu(type, ui, { compact });
+  const rows = nodeGraphModuleVisibleSliderRowCountForUi(type, ui);
+  // No sliders: do not add the shared bottom-gap gu — CSS gives shell 1fr instead.
+  if (rows <= 0) {
+    return Math.max(1, Math.ceil(content));
+  }
+  return nodeGraphModuleHeightWithBottomClearance(content);
 }
 
 /** @deprecated use nodeGraphLayoutBGridHeightUnits */

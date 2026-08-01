@@ -16,7 +16,6 @@ const nodeGraphWorkspaceWindowStateKeys = Object.freeze([
   "standaloneMidiKeyboard",
   "tooltipWindow",
   "phosphorWaveformSettings",
-  "ledSettings",
 ]);
 
 const nodeGraphWorkspaceWindowElements = Object.freeze({
@@ -34,7 +33,6 @@ const nodeGraphWorkspaceWindowElements = Object.freeze({
   standaloneMidiKeyboard: "nodeStandaloneMidiKeyboardDock",
   tooltipWindow: "nodeTooltipWindow",
   phosphorWaveformSettings: "nodePhosphorWaveformSettingsWindow",
-  ledSettings: "nodeLedSettingsWindow",
 });
 
 const nodeGraphSharedInspectorWindowKeys = Object.freeze([
@@ -73,12 +71,34 @@ function normalizeNodeGraphWorkspaceWindowPosition(position = {}) {
   };
 }
 
+/**
+ * True when a saved floating-window position is safe to restore.
+ * Rejects null/NaN and the common false memory of {0,0} (CSS default for an
+ * unpositioned fixed window captured before first real placement) — that is
+ * what made Module Settings / Display Settings jump to the upper-left on
+ * right-click after a bad remember.
+ */
+function nodeGraphFloatingWindowSavedPositionIsUsable(position = null) {
+  const left = Number(position?.left);
+  const top = Number(position?.top);
+  if (!Number.isFinite(left) || !Number.isFinite(top)) {
+    return false;
+  }
+  if (left === 0 && top === 0) {
+    return false;
+  }
+  return true;
+}
+
 function nodeGraphSharedInspectorGeometryFromStates(states = {}) {
   let position = null;
   let size = null;
   for (const key of nodeGraphSharedInspectorWindowKeys) {
     if (!position && states?.[key]?.position) {
-      position = normalizeNodeGraphWorkspaceWindowPosition(states[key].position);
+      const candidate = normalizeNodeGraphWorkspaceWindowPosition(states[key].position);
+      if (nodeGraphFloatingWindowSavedPositionIsUsable(candidate)) {
+        position = candidate;
+      }
     }
     if (!size && states?.[key]?.size) {
       const width = Number(states[key].size.width);
@@ -101,7 +121,12 @@ function nodeGraphSharedInspectorGeometryFromStates(states = {}) {
 function normalizeNodeGraphSharedInspectorWindowState(state = {}, fallbackStates = {}) {
   const source = state && typeof state === "object" ? state : {};
   const fallback = nodeGraphSharedInspectorGeometryFromStates(fallbackStates);
-  const position = normalizeNodeGraphWorkspaceWindowPosition(source.position) || fallback.position;
+  let position = normalizeNodeGraphWorkspaceWindowPosition(source.position) || fallback.position;
+  // Drop false 0,0 memory so inspectors re-spawn at the pointer.
+  if (position && typeof nodeGraphFloatingWindowSavedPositionIsUsable === "function"
+    && !nodeGraphFloatingWindowSavedPositionIsUsable(position)) {
+    position = null;
+  }
   const rawSize = source.size && typeof source.size === "object" ? source.size : fallback.size;
   const size = rawSize && typeof rawSize === "object"
     ? {
@@ -241,19 +266,28 @@ function nodeGraphWorkspaceWindowPositionFromElement(element) {
   const rect = element.getBoundingClientRect?.();
   const styleLeft = Number.parseFloat(element.style.left);
   const styleTop = Number.parseFloat(element.style.top);
+  let position = null;
   if (
     Number.isFinite(styleLeft) &&
     Number.isFinite(styleTop) &&
     typeof nodeGraphFloatingWindowViewportPositionFromCss === "function"
   ) {
-    return normalizeNodeGraphWorkspaceWindowPosition(
+    position = normalizeNodeGraphWorkspaceWindowPosition(
       nodeGraphFloatingWindowViewportPositionFromCss(styleLeft, styleTop),
     );
+  } else {
+    position = normalizeNodeGraphWorkspaceWindowPosition({
+      left: Number.isFinite(styleLeft) ? styleLeft : rect?.left,
+      top: Number.isFinite(styleTop) ? styleTop : rect?.top,
+    });
   }
-  return normalizeNodeGraphWorkspaceWindowPosition({
-    left: Number.isFinite(styleLeft) ? styleLeft : rect?.left,
-    top: Number.isFinite(styleTop) ? styleTop : rect?.top,
-  });
+  // Do not persist a false 0,0 memory (unpositioned fixed window).
+  if (typeof nodeGraphFloatingWindowSavedPositionIsUsable === "function"
+    ? !nodeGraphFloatingWindowSavedPositionIsUsable(position)
+    : !position) {
+    return null;
+  }
+  return position;
 }
 
 function rememberNodeGraphWorkspaceWindowState(key, element, patch = {}, options = {}) {
@@ -355,7 +389,12 @@ function positionNodeGraphWorkspaceWindowFromState(key, element) {
   const position = nodeGraphSharedInspectorWindowKeys.includes(key)
     ? sharedInspectorState.position
     : state?.position;
-  if (!element || !position) {
+  if (
+    !element
+    || !(typeof nodeGraphFloatingWindowSavedPositionIsUsable === "function"
+      ? nodeGraphFloatingWindowSavedPositionIsUsable(position)
+      : position)
+  ) {
     return false;
   }
   const wasHidden = element.hidden;
@@ -1088,13 +1127,10 @@ function sanitizeNodeUiDevWorkingPatchForStartup(patch) {
       nodes: patch.nodes.filter((node) => !(typeof nodeGraphRetiredNodeTypes !== "undefined" && nodeGraphRetiredNodeTypes.has(node?.type))),
     };
   }
-  if (
-    typeof nodeGraphMissingSampleAssets === "function" &&
-    typeof cloneNodeGraphPatch === "function" &&
-    nodeGraphMissingSampleAssets(patch).length
-  ) {
-    return cloneNodeGraphPatch(nodeGraphDefaultPatch);
-  }
+  // Do NOT replace the entire working patch when samples are missing.
+  // That used to run at settings-load time (often before the resource
+  // catalog was ready) and wipe modules → default empty-ish patch.
+  // Missing samples are handled later by the missing-sample dialog.
   return patch;
 }
 
@@ -1124,12 +1160,15 @@ function saveNodeUiDevLocalDefaultSettings(text) {
   try {
     window.localStorage.setItem(nodeUiDevDefaultSettingsStorageKey, text);
     return true;
-  } catch {
-    try {
-      window.localStorage.removeItem(nodeUiDevDefaultSettingsStorageKey);
-    } catch {
-      // If storage is blocked entirely, the server-side settings file remains the fallback.
-    }
+  } catch (error) {
+    // NEVER remove the previous key on failure. QuotaExceeded used to delete
+    // the last good startup blob, so the next refresh fell back to the bundled
+    // default (empty workingPatch) — intermittent "I lost all my modules".
+    console.warn(
+      "[soemdsp] Failed to write startup settings to localStorage; keeping previous save.",
+      error?.name || error,
+      typeof text === "string" ? `(payload ~${Math.round(text.length / 1024)} KB)` : "",
+    );
     return false;
   }
 }

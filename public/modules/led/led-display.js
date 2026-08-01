@@ -16,84 +16,186 @@
 // read before the first apply so the very first frame does not under-measure.
 const nodeGraphLedFaceDefaultInsetPx = 0;
 
-function nodeGraphLedFaceShapeSignature(settings, level, width, height) {
+function nodeGraphLedFaceShapeSignature(settings, level, cellW, cellH, lampW, lampH) {
   return [
     settings.hue,
     settings.brightness,
     settings.blur,
     settings.rounding,
     settings.cornerShape,
+    settings.fillPercent,
+    settings.bottomImage?.dataUrl?.length || 0,
+    settings.bottomImage?.fileName || "",
+    settings.topImage?.dataUrl?.length || 0,
+    settings.topImage?.fileName || "",
     Math.round(level * 512),
-    Math.round(width),
-    Math.round(height),
+    Math.round(cellW),
+    Math.round(cellH),
+    Math.round(lampW),
+    Math.round(lampH),
   ].join("|");
 }
 
+function nodeGraphLedApplyImageLayer(img, layer) {
+  if (!img) {
+    return;
+  }
+  const dataUrl = String(layer?.dataUrl || "").trim();
+  if (!dataUrl) {
+    img.removeAttribute("src");
+    img.hidden = true;
+    img.alt = "";
+    return;
+  }
+  if (img.getAttribute("src") !== dataUrl) {
+    img.src = dataUrl;
+  }
+  img.hidden = false;
+  img.alt = String(layer?.fileName || "").trim() || "LED decoration";
+}
+
 function applyNodeGraphLedFaceAppearance(face, settings, level) {
+  if (!face) {
+    return;
+  }
+  const root = face.classList?.contains("node-led-face")
+    ? face
+    : face.closest?.(".node-led-face") || face;
+  const lamp = root.querySelector?.(".node-led-lamp") || root;
   // offsetWidth/offsetHeight, NOT getBoundingClientRect: the workspace is
   // inside a zoom transform, so the client rect is in scaled pixels while
-  // border-radius is not. Sizing the radius from the rect made the lamp
-  // under-round at anything other than 100% zoom.
-  const width = face.offsetWidth;
-  const height = face.offsetHeight;
-  if (!(width > 0) || !(height > 0)) {
+  // border-radius is not.
+  const cellW = root.offsetWidth;
+  const cellH = root.offsetHeight;
+  if (!(cellW > 0) || !(cellH > 0)) {
     return;
   }
-  const signature = nodeGraphLedFaceShapeSignature(settings, level, width, height);
-  if (face.dataset.ledAppearance === signature) {
-    return;
-  }
-  face.dataset.ledAppearance = signature;
+  const drive = Math.max(0, Math.min(1, Number(level) || 0));
+  // fillPercent: 0 = inscribed square (no stretched rectangle), 100 = full cell.
+  const fill = Math.max(0, Math.min(100, Number(settings.fillPercent) || 0)) / 100;
+  const minSide = Math.min(cellW, cellH);
+  const lampW = Math.max(1, Math.round(minSide + (cellW - minSide) * fill));
+  const lampH = Math.max(1, Math.round(minSide + (cellH - minSide) * fill));
 
-  // Largest meaningful radius is half the face's shorter side: at 100% a
-  // square LED is a circle and a tall one is a capsule. Pixel-quantized so the
-  // edge stays crisp instead of shimmering as the module is resized.
-  const maxRadius = Math.max(0, Math.min(width, height) / 2);
-  const radius = Math.round((settings.rounding / 100) * maxRadius);
+  const signature = nodeGraphLedFaceShapeSignature(settings, drive, cellW, cellH, lampW, lampH);
+  if (root.dataset.ledAppearance === signature) {
+    return;
+  }
+  root.dataset.ledAppearance = signature;
+  root.dataset.ledLevel = String(drive);
+  lamp.dataset.ledLevel = String(drive);
+
+  // Largest meaningful radius is half the lamp's shorter side: at 100% a
+  // pill LED is a circle / capsule. Pixel-quantized so the edge stays crisp.
+  const maxRadius = Math.max(0, Math.min(lampW, lampH) / 2);
+  const radius = Math.round((Number(settings.rounding) || 0) / 100 * maxRadius);
+  // "square" in the model is the pill/round corner style (same as Music Player
+  // waveform); "squircle" uses CSS corner-shape: squircle when supported.
   const shape = settings.cornerShape === "squircle" ? "squircle" : "round";
 
-  const [r, g, b] = nodeGraphLedEmittedRgb(settings.hue, level, settings.brightness);
+  const [r, g, b] = nodeGraphLedEmittedRgb(settings.hue, drive, settings.brightness);
   // Blur is a glow that spreads outward from the lit face, scaled to the
   // module's own size so a big LED glows proportionally rather than wearing
   // the same few pixels of halo a 1gu tile does. It fades with the level, so
   // an unlit lamp casts no light at all.
-  const glowPx = Math.round(settings.blur * Math.min(width, height) * 0.9);
-  const glowAlpha = (Math.max(0, Math.min(1, level)) * 0.85).toFixed(3);
+  const glowPx = Math.round((Number(settings.blur) || 0) * Math.min(lampW, lampH) * 0.9);
+  const glowAlpha = (drive * 0.85).toFixed(3);
+  const glow = glowPx > 0 && Number(glowAlpha) > 0
+    ? `0 0 ${glowPx}px ${Math.round(glowPx * 0.35)}px rgba(${r}, ${g}, ${b}, ${glowAlpha})`
+    : "none";
+  const color = `rgb(${r}, ${g}, ${b})`;
 
-  // Written on the SHELL, not the face: the module's own plate is what would
-  // otherwise show as a square backdrop behind a rounded lamp. Both elements
-  // read the same properties, so the shell's outline and the lit face always
-  // describe the same shape. (Custom properties inherit, so setting them here
-  // reaches the face too.)
-  const shell = face.closest(".dsp-node") || face;
-  shell.style.setProperty("--node-led-face-color", `rgb(${r}, ${g}, ${b})`);
-  shell.style.setProperty("--node-led-face-radius", `${radius}px`);
-  shell.style.setProperty("--node-led-face-corner-shape", shape);
-  shell.style.setProperty(
-    "--node-led-face-glow",
-    glowPx > 0 && Number(glowAlpha) > 0
-      ? `0 0 ${glowPx}px ${Math.round(glowPx * 0.35)}px rgba(${r}, ${g}, ${b}, ${glowAlpha})`
-      : "none",
+  // Size / center the lamp plate within the cell.
+  lamp.style.width = `${lampW}px`;
+  lamp.style.height = `${lampH}px`;
+  lamp.style.setProperty("--node-led-face-color", color);
+  lamp.style.setProperty("--node-led-face-radius", `${radius}px`);
+  lamp.style.setProperty("--node-led-face-corner-shape", shape);
+  lamp.style.setProperty("--node-led-face-glow", glow);
+  lamp.style.borderRadius = `${radius}px`;
+  lamp.style.cornerShape = shape;
+  lamp.style.boxShadow = glow;
+  lamp.style.background = color;
+
+  // Decorative image layers (full cell).
+  nodeGraphLedApplyImageLayer(
+    root.querySelector?.('[data-led-image="bottom"]'),
+    settings.bottomImage,
   );
-  // Room-light: modest live strength (dimmer bloom stays practical).
-  if (face?.dataset) {
+  nodeGraphLedApplyImageLayer(
+    root.querySelector?.('[data-led-image="top"]'),
+    settings.topImage,
+  );
+
+  // Room-light: modest live strength on the lamp plate.
+  if (lamp.dataset) {
     const br = Math.max(0, Math.min(1, Number(settings.brightness) || 1));
-    const str = Math.max(0, Math.min(1, Math.max(0, Math.min(1, level)) * (0.4 + 0.45 * br)));
-    face.dataset.lightStrength = str.toFixed(3);
+    const str = Math.max(0, Math.min(1, drive * (0.4 + 0.45 * br)));
+    lamp.dataset.lightStrength = str.toFixed(3);
   }
 }
 
-function drawNodeGraphLedLampItem(renderer, item, pixelRatio) {
-  const face = item?.screenElement || item?.slot?.scopeElement;
-  const buffer = item?.buffer;
-  if (!face || !buffer) {
+/**
+ * Push current patch LED settings onto a node face immediately.
+ * Cosmetic only (radius / corner shape / hue / blur / fill / images) — does
+ * NOT require the audio engine or an analyzer buffer. Safe offline.
+ */
+function refreshNodeGraphLedFaceForNode(nodeId) {
+  const id = String(nodeId || "").trim();
+  if (!id) {
+    return false;
+  }
+  const article = typeof nodeGraphNodeElement === "function"
+    ? nodeGraphNodeElement(id)
+    : document.querySelector(`.dsp-node[data-node="${CSS.escape(id)}"]`);
+  const face = article?.querySelector?.(".node-led-face");
+  if (!face) {
+    return false;
+  }
+  const settings = typeof normalizeNodeGraphLedLayout === "function"
+    ? normalizeNodeGraphLedLayout(nodeGraphPatchNode(id)?.led)
+    : nodeGraphPatchNode(id)?.led;
+  if (!settings) {
+    return false;
+  }
+  delete face.dataset.ledAppearance;
+  // Engine off → no live drive; keep last level if any, else unlit (0).
+  const level = Number(face.dataset.ledLevel);
+  applyNodeGraphLedFaceAppearance(face, settings, Number.isFinite(level) ? level : 0);
+  // Layout may still be settling after a patch rebuild (offsetWidth 0).
+  return face.offsetWidth > 0 && face.offsetHeight > 0;
+}
+
+/** Schedule immediate + post-layout refreshes so engine-off edits always stick. */
+function scheduleNodeGraphLedFaceRefresh(nodeId) {
+  const id = String(nodeId || "").trim();
+  if (!id || typeof refreshNodeGraphLedFaceForNode !== "function") {
     return;
   }
-  renderNodeGraphModuleScopeAnalyzer(item.slot, buffer);
+  refreshNodeGraphLedFaceForNode(id);
+  requestAnimationFrame(() => {
+    refreshNodeGraphLedFaceForNode(id);
+    requestAnimationFrame(() => refreshNodeGraphLedFaceForNode(id));
+  });
+}
+
+function drawNodeGraphLedLampItem(renderer, item, pixelRatio) {
+  // Prefer the stack root so fill% sizes against the full cell.
+  const lampOrFace = item?.screenElement || item?.slot?.scopeElement;
+  const face = lampOrFace?.closest?.(".node-led-face") || lampOrFace;
+  if (!face) {
+    return;
+  }
+  const buffer = item?.buffer;
+  if (buffer) {
+    renderNodeGraphModuleScopeAnalyzer(item.slot, buffer);
+  }
   clearNodeGraphModuleScopeLocalFallback(item.slot);
   const node = nodeGraphModuleScopeNodeForSlot(item.slot);
   const settings = normalizeNodeGraphLedLayout(node?.led);
-  const level = clampNodeSliderValue(Number(buffer.nodeGraphScopeLightTarget) || 0, 0, 1);
+  const level = buffer
+    ? clampNodeSliderValue(Number(buffer.nodeGraphScopeLightTarget) || 0, 0, 1)
+    : Number(face.dataset.ledLevel) || 0;
   applyNodeGraphLedFaceAppearance(face, settings, level);
 }
 
