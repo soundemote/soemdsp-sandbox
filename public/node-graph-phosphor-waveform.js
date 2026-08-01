@@ -1071,9 +1071,12 @@ function scheduleNodeGraphPhosphorWaveformFrame(section) {
 
 function createNodeGraphPhosphorWaveformDisplay(nodeId, type) {
   const section = document.createElement("section");
-  section.className = "node-phosphor-waveform-display";
+  section.className = "node-phosphor-waveform-display node-light-source";
   section.dataset.node = nodeId;
   section.dataset.nodeType = type;
+  // Room dimmer rect punch (same contract as .node-module-scope-window).
+  section.dataset.lightSource = "screen";
+  section.dataset.lightStrength = "0.74";
   section.setAttribute("aria-label", `${nodeGraphNodeDisplayName?.(nodeId) || "Music Player"} phosphor waveform display`);
 
   const canvas = document.createElement("canvas");
@@ -1352,6 +1355,17 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
     ? nodeGraphPhosphorWaveformBackgroundColor(settings)
     : "#000000";
   context.fillRect(0, 0, width, height);
+
+  // Room dimmer: lit plate punches through the veil; cold boot is dark (0).
+  if (section.dataset) {
+    if (!circuitRunning) {
+      section.dataset.lightStrength = "0";
+    } else {
+      const bgB = Number(settings.backgroundBrightness);
+      const b01 = Math.max(0.15, Math.min(1, (Number.isFinite(bgB) ? bgB : 1) / 2));
+      section.dataset.lightStrength = (0.45 + 0.4 * b01).toFixed(3);
+    }
+  }
 
   if (!circuitRunning) {
     return;

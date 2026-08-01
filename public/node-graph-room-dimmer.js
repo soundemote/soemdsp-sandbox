@@ -21,6 +21,8 @@
     ".node-xy-pad",
     ".node-number-readout-face",
     ".node-ray-bouncer-face",
+    // Music Player face (not a module-scope window)
+    ".node-phosphor-waveform-display",
   ].join(", ");
   const TEXT_LIGHT_SELECTOR = [
     ".dsp-node .node-header-title-row",
@@ -247,11 +249,12 @@ void main() {
       if (Number.isFinite(n)) return clamp01(n);
     }
     if (kind === "text") return 0.16;
-    if (el.classList?.contains("node-led-face")) return 0.88;
+    if (el.classList?.contains("node-led-face") || el.classList?.contains("node-led-lamp")) return 0.88;
     if (el.classList?.contains("node-number-readout-face")) return 0.52;
     if (el.classList?.contains("node-xy-pad")) return 0.68;
     if (el.classList?.contains("node-ray-bouncer-face")) return 0.72;
     if (el.classList?.contains("node-module-scope-window")) return 0.7;
+    if (el.classList?.contains("node-phosphor-waveform-display")) return 0.74;
     return 0.65;
   }
 
@@ -268,12 +271,12 @@ void main() {
     if (!el || seen.has(el) || el.offsetParent === null) return;
     if (kind === "screen") {
       const parentLight = el.parentElement?.closest?.(
-        "[data-light-source], .node-light-source, .node-module-scope-window, .node-xy-pad",
+        "[data-light-source], .node-light-source, .node-module-scope-window, .node-xy-pad, .node-phosphor-waveform-display",
       );
       if (parentLight && parentLight !== el) return;
     }
     if (kind === "text" && el.closest?.(
-      "[data-light-source], .node-light-source, .node-module-scope-window, .node-led-face, .node-xy-pad",
+      "[data-light-source], .node-light-source, .node-module-scope-window, .node-led-face, .node-xy-pad, .node-phosphor-waveform-display",
     )) {
       return;
     }

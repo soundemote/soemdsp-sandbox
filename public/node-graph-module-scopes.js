@@ -14682,6 +14682,18 @@ function drawNodeGraphModuleScopeTypedItem(renderer, item, pixelRatio) {
   return false;
 }
 
+/** Room dimmer: mark a painted screen face as a light rect (punches the veil). */
+function nodeGraphModuleScopeMarkScreenLit(screenElement, strength = 0.72) {
+  if (!screenElement?.dataset) {
+    return;
+  }
+  const s = Math.max(0, Math.min(1, Number(strength) || 0));
+  screenElement.dataset.lightStrength = s.toFixed(3);
+  if (typeof setNodeGraphLightStrength === "function") {
+    setNodeGraphLightStrength(screenElement, s);
+  }
+}
+
 function drawNodeGraphModuleScopes() {
   const debug = setNodeGraphModuleScopeDebugPhase("enter", {
     drawAttempts: (Number(nodeGraphModuleScopeState.renderDebug?.drawAttempts) || 0) + 1,
@@ -14763,6 +14775,15 @@ function drawNodeGraphModuleScopes() {
   setNodeGraphModuleScopeDebugPhase("collect");
   const visibleItems = nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio);
   debug.visibleItems = visibleItems.length;
+  // Engine-stop wipe sets data-light-strength=0 on all screens. Only LED /
+  // Number Readout re-wrote it, so Output + other scopes stayed under the
+  // room veil forever. Re-mark every visible painted face each frame.
+  for (const item of visibleItems) {
+    const face = item?.screenElement || item?.slot?.scopeElement;
+    if (face) {
+      nodeGraphModuleScopeMarkScreenLit(face, 0.72);
+    }
+  }
   const firstVisibleSlot = visibleItems[0]?.slot;
   flushNodeSliderReadoutUpdates();
   if (!scopePaused && nodeGraphModuleScopeTraceDisplayFrameUnchanged(visibleItems)) {
