@@ -99,8 +99,10 @@ nodeGraphLiveModuleEvaluators.reverbEffect = ({ runtime, node, nodeId, frame, fr
   const state = runtime.reverbEffectStates.get(nodeId) || createNodeGraphSabrinaReverbState();
   runtime.reverbEffectStates.set(nodeId, state);
   const read = (key, fallback) => readNodeGraphLiveEffectiveParam(runtime, node, key, fallback, frame, frames, frameValues);
-  const leftInput = mixInput(nodeId, "Left");
-  const rightInput = hasInput(nodeId, "Right") ? mixInput(nodeId, "Right") : leftInput;
+  // Match worklet: mono In feeds both channels; Left/Right are true stereo.
+  const monoInput = mixInput(nodeId, "In");
+  const leftInput = mixInput(nodeId, "Left") + monoInput;
+  const rightInput = (hasInput(nodeId, "Right") ? mixInput(nodeId, "Right") : mixInput(nodeId, "Left")) + monoInput;
   return nodeGraphSabrinaReverbSample(
     state,
     leftInput,

@@ -3,42 +3,21 @@
 // soemdsp-native-target: comparator
 // soemdsp-native-kind: utility
 //
-// One question, answered six ways: "what does the signal do, and what is it
-// doing right now?" Every basic digital-logic primitive (level gate,
-// inverted gate, steady/hold detector, rising trigger, falling trigger) is
-// really the same comparison against the same threshold -- it's silly to
-// split that into separate modules when one shared state machine produces
-// all of them for free.
+// 1-sample history edge detector + a few free continuous views.
 //
-// The threshold itself is a parameter (changeAmount), not hardcoded: default
-// 0.5, this codebase's standard "is the double above 0" boolean convention,
-// chosen with enough margin that ordinary float noise near a true 0/1
-// boundary never flips the result -- but any 0..1 crossing point is valid
-// (e.g. 0 to fire on any positive signal, 1 to require full-scale).
+//   In  → compare against previous sample; also used for Sign / Thru
 //
-// Outputs:
-//   Gate      -- high for as long as the input is above changeAmount (continuous level).
-//   Inv Gate  -- high for as long as the input is at or below changeAmount (its complement).
-//   Hold      -- high whenever the input is unchanged from the previous
-//                sample (steady-state detector; false on any moving signal).
-//   Up        -- fires on every rising edge (changeAmount crossed upward): a
-//                1-sample spike at triggerLevel, then a pulseTime-length
-//                plateau at pulseLevel. The two overlap on the first sample
-//                (spike + plateau both active), which is the intentional
-//                "stepped waveform" shape -- a taller onset settling to a
-//                sustained level.
-//   Down      -- the same shape on every falling edge.
-//   Up/Dn     -- Up and Down summed onto one wire: fires on either
-//                direction's transition.
-//   Last High -- held signalIn value from the most recent sample where the
-//                input was above changeAmount (unchanged otherwise).
-//   Last Low  -- held signalIn value from the most recent sample where the
-//                input was at or below changeAmount (unchanged otherwise).
+//   Up     — 1-sample pulse (1.0) when the value rises  (in > prev)
+//   Down   — 1-sample pulse (1.0) when the value falls  (in < prev)
+//   Change — 1-sample pulse (1.0) when the value changes at all
+//   Steady — 1.0 while the value is unchanged (inverse of Change)
+//   Sign   — continuous gate: 1.0 when In > 0, else 0
+//   Thru   — passthrough of In
 //
-// Main _sample() call returns Gate; the other seven are read via accessor
-// functions after the call, following this codebase's established pattern
-// for native modules with more than one output (compare
-// soemdsp_pulse_explosion_curve, soemdsp_pll_vco_out, etc.).
+// First sample after create seeds history only (Up/Down/Change/Steady all 0).
+// Exact float equality counts as "no change".
+//
+// Main _sample() returns Change; other outputs via accessors.
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -50,18 +29,14 @@ static const int kMaxInstances = 64;
 
 struct ComparatorState {
   bool active;
-  bool wasHigh;
   bool hasPrev;
-  double prevRaw;
-  double upPulseRemaining;    // seconds left in the current Up pulse plateau
-  double downPulseRemaining;  // seconds left in the current Down pulse plateau
-  double lastInvGate;
-  double lastHold;
+  double prev;
   double lastUp;
   double lastDown;
-  double lastUpDn;
-  double lastHighValue;
-  double lastLowValue;
+  double lastChange;
+  double lastSteady;
+  double lastSign;
+  double lastThru;
 };
 
 static ComparatorState gPool[kMaxInstances];
@@ -72,18 +47,14 @@ extern "C" int soemdsp_comparator_create() {
   for (int i = 0; i < kMaxInstances; i++) {
     if (!gPool[i].active) {
       ComparatorState& s = gPool[i];
-      s.wasHigh = false;
       s.hasPrev = false;
-      s.prevRaw = 0.0;
-      s.upPulseRemaining = 0.0;
-      s.downPulseRemaining = 0.0;
-      s.lastInvGate = 0.0;
-      s.lastHold = 0.0;
+      s.prev = 0.0;
       s.lastUp = 0.0;
       s.lastDown = 0.0;
-      s.lastUpDn = 0.0;
-      s.lastHighValue = 0.0;
-      s.lastLowValue = 0.0;
+      s.lastChange = 0.0;
+      s.lastSteady = 0.0;
+      s.lastSign = 0.0;
+      s.lastThru = 0.0;
       s.active = true;
       return i + 1;
     }
@@ -96,79 +67,33 @@ extern "C" void soemdsp_comparator_destroy(int handle) {
   gPool[handle - 1].active = false;
 }
 
-extern "C" double soemdsp_comparator_sample(
-  int    handle,
-  double signalIn,
-  double changeAmount,
-  double pulseTime,
-  double triggerLevel,
-  double pulseLevel,
-  double sampleRate
-) {
+extern "C" double soemdsp_comparator_sample(int handle, double signalIn) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
   ComparatorState& s = gPool[handle - 1];
 
-  const double safeRate = sampleRate < 1.0 ? 44100.0 : sampleRate;
-  const double safePulseTime = safe(pulseTime) < 0.0 ? 0.0 : safe(pulseTime);
-  const double sampleDuration = 1.0 / safeRate;
   const double raw = safe(signalIn);
-  const double threshold = safe(changeAmount);
+  s.lastThru = raw;
+  s.lastSign = raw > 0.0 ? 1.0 : 0.0;
 
-  const bool high = raw > threshold;
-  const bool risingEdge = high && !s.wasHigh;
-  const bool fallingEdge = !high && s.wasHigh;
-  s.wasHigh = high;
-
-  if (high) {
-    s.lastHighValue = raw;
-  } else {
-    s.lastLowValue = raw;
+  if (!s.hasPrev) {
+    s.prev = raw;
+    s.hasPrev = true;
+    s.lastUp = 0.0;
+    s.lastDown = 0.0;
+    s.lastChange = 0.0;
+    s.lastSteady = 0.0;
+    return 0.0;
   }
 
-  const bool unchanged = s.hasPrev && raw == s.prevRaw;
-  s.prevRaw = raw;
-  s.hasPrev = true;
+  const bool rose = raw > s.prev;
+  const bool fell = raw < s.prev;
+  s.prev = raw;
 
-  double upSpike = 0.0;
-  if (risingEdge) {
-    upSpike = safe(triggerLevel);
-    s.upPulseRemaining = safePulseTime;
-  }
-  double downSpike = 0.0;
-  if (fallingEdge) {
-    downSpike = safe(triggerLevel);
-    s.downPulseRemaining = safePulseTime;
-  }
-
-  const double upPlateau = s.upPulseRemaining > 0.0 ? safe(pulseLevel) : 0.0;
-  const double downPlateau = s.downPulseRemaining > 0.0 ? safe(pulseLevel) : 0.0;
-  if (s.upPulseRemaining > 0.0) s.upPulseRemaining -= sampleDuration;
-  if (s.downPulseRemaining > 0.0) s.downPulseRemaining -= sampleDuration;
-
-  const double gate = high ? safe(triggerLevel) : 0.0;
-  const double invGate = high ? 0.0 : safe(triggerLevel);
-  const double hold = unchanged ? safe(triggerLevel) : 0.0;
-  const double up = upSpike + upPlateau;
-  const double down = downSpike + downPlateau;
-  const double upDn = up + down;
-
-  s.lastInvGate = invGate;
-  s.lastHold = hold;
-  s.lastUp = up;
-  s.lastDown = down;
-  s.lastUpDn = upDn;
-
-  return gate;
-}
-
-extern "C" double soemdsp_comparator_inv_gate(int handle) {
-  if (handle < 1 || handle > kMaxInstances) return 0.0;
-  return gPool[handle - 1].lastInvGate;
-}
-
-extern "C" double soemdsp_comparator_hold(int handle) {
-  if (handle < 1 || handle > kMaxInstances) return 0.0;
-  return gPool[handle - 1].lastHold;
+  s.lastUp = rose ? 1.0 : 0.0;
+  s.lastDown = fell ? 1.0 : 0.0;
+  s.lastChange = (rose || fell) ? 1.0 : 0.0;
+  s.lastSteady = (rose || fell) ? 0.0 : 1.0;
+  return s.lastChange;
 }
 
 extern "C" double soemdsp_comparator_up(int handle) {
@@ -181,21 +106,26 @@ extern "C" double soemdsp_comparator_down(int handle) {
   return gPool[handle - 1].lastDown;
 }
 
-extern "C" double soemdsp_comparator_up_dn(int handle) {
+extern "C" double soemdsp_comparator_change(int handle) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
-  return gPool[handle - 1].lastUpDn;
+  return gPool[handle - 1].lastChange;
 }
 
-extern "C" double soemdsp_comparator_last_high(int handle) {
+extern "C" double soemdsp_comparator_steady(int handle) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
-  return gPool[handle - 1].lastHighValue;
+  return gPool[handle - 1].lastSteady;
 }
 
-extern "C" double soemdsp_comparator_last_low(int handle) {
+extern "C" double soemdsp_comparator_sign(int handle) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
-  return gPool[handle - 1].lastLowValue;
+  return gPool[handle - 1].lastSign;
+}
+
+extern "C" double soemdsp_comparator_thru(int handle) {
+  if (handle < 1 || handle > kMaxInstances) return 0.0;
+  return gPool[handle - 1].lastThru;
 }
 
 extern "C" int soemdsp_comparator_version() {
-  return 3;
+  return 5;
 }

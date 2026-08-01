@@ -1,35 +1,42 @@
 // Room light — screenspace dim veil with rect light punches.
 //
-// 💡 drag = room dim. Screens/text = axis-aligned rect lights only.
+// 💡 drag = room dim (0 = full light / no veil, 1 = pure black outside holes).
 //
-// Policy: cables stay under the veil and dim with the room. Do not re-add
-// wire polyline punches, glow underlays, or a second "undimmed" wire layer.
-// Coarse path sampling cannot match the SVG cable; faking it is not acceptable.
+// Simple light sim only:
+//   - black veil alpha = dim (true 0…1, no caps)
+//   - hard rect holes from painted light faces only (no text, no bloom)
+// Cables stay under the veil.
+//
+// Punch geometry:
+//   Prefer the *painted* surface (scope fallback canvas, music-player panel
+//   canvas, LED lamp) — not the outer module cell — so module strokes /
+//   padding / widgets stay under the veil. Map holes via the dimmer canvas
+//   client rect (not the host alone) so CSS `zoom` on the graph surface
+//   keeps holes locked to the screens.
 
 (() => {
   "use strict";
 
   const STORAGE_KEY = "soemdsp-sandbox.roomDimmer.v1";
-  const MAX_RECTS = 40;
-  const SHADER_REV = 4;
+  const MAX_RECTS = 48;
+  const SHADER_REV = 7;
+  // Inset punch by this many CSS px so 1px borders / AA don't open chrome.
+  const PUNCH_INSET_CSS = 1.25;
 
+  // Prefer painted canvases first; shells only if no canvas child.
   const LIGHT_SELECTOR = [
-    "[data-light-source]",
-    ".node-light-source",
+    "canvas.node-phosphor-waveform-canvas",
+    "canvas.node-module-scope-local-fallback-canvas",
+    "canvas.node-xy-pad-canvas",
+    "canvas.node-number-readout-canvas",
+    ".node-led-lamp",
     ".node-module-scope-window",
-    ".node-led-face",
     ".node-xy-pad",
     ".node-number-readout-face",
     ".node-ray-bouncer-face",
-    // Music Player face (not a module-scope window)
     ".node-phosphor-waveform-display",
-  ].join(", ");
-  const TEXT_LIGHT_SELECTOR = [
-    ".dsp-node .node-header-title-row",
-    ".dsp-node .node-slider-readout-label",
-    ".dsp-node .node-slider-readout-value",
-    ".dsp-node .node-port-label",
-    ".dsp-node .node-io-row > span",
+    "[data-light-source]",
+    ".node-light-source",
   ].join(", ");
 
   const VERT = `
@@ -45,15 +52,13 @@ void main() {
 precision mediump float;
 
 uniform float uDim;
-uniform float uExposure;
-uniform float uAspect; // width/height of canvas (uv x is stretched)
-
 uniform int uRectCount;
 uniform vec4 uRect[${MAX_RECTS}];
 uniform float uRectStr[${MAX_RECTS}];
 
 varying vec2 vUv;
 
+// Axis-aligned rect SDF in UV space (r = xy min, zw size).
 float rectSdf(vec2 p, vec4 r) {
   vec2 c = r.xy + r.zw * 0.5;
   vec2 h = max(r.zw * 0.5, vec2(1e-4));
@@ -62,36 +67,26 @@ float rectSdf(vec2 p, vec4 r) {
 }
 
 void main() {
-  float dim = clamp(uDim, 0.0, 1.0);
-  float veilUser = pow(dim, 0.82);
-  float veil = clamp(veilUser * mix(1.0, uExposure, 0.55), 0.0, 1.08);
+  // Dim is a true 0…1 gain: 0 = no veil, 1 = pure black outside holes.
+  float veil = clamp(uDim, 0.0, 1.0);
 
-  float core = 0.0;
-  float bloom = 0.0;
-
-  // Screens + text (rects) only — no wire polyline underlay.
+  // open = 1 → full hole (nothing of the veil over this pixel).
+  float open = 0.0;
   for (int i = 0; i < ${MAX_RECTS}; i++) {
     if (i >= uRectCount) break;
     float s = clamp(uRectStr[i], 0.0, 1.0);
-    if (s < 0.008) continue;
+    if (s < 0.001) continue;
     float d = rectSdf(vUv, uRect[i]);
-    float solid = 1.0 - smoothstep(-0.001, 0.0025, d);
-    float punch = s >= 0.34 ? solid : solid * s * 1.15;
-    core = max(core, clamp(punch, 0.0, 1.0));
-    float harsh = pow(s, 1.8);
-    float fall = mix(70.0, 36.0, harsh);
-    bloom = max(bloom, exp(-max(d, 0.0) * fall) * harsh * 0.28);
+    // Hard edge + 1px AA. Strength s is hole gain (use 1.0 for full cutout).
+    float inside = 1.0 - smoothstep(-0.0005, 0.001, d);
+    open = max(open, inside * s);
   }
+  open = clamp(open, 0.0, 1.0);
 
-  bloom = min(bloom, 0.55);
-  core = clamp(core, 0.0, 1.0);
-
-  float roomA = clamp(veil * (1.0 - core) * 0.992, 0.0, 0.992);
-  float bloomGain = 0.08 + 0.22 * smoothstep(0.15, 0.9, veil);
-  vec3 tint = vec3(0.45, 0.85, 0.95);
-  vec3 rgb = tint * bloom * bloomGain;
-
-  gl_FragColor = vec4(rgb, roomA);
+  // Full range: veil=1 and open=0 → alpha 1 (pure darkness).
+  // veil=1 and open=1 → alpha 0 (screen fully visible).
+  float roomA = veil * (1.0 - open);
+  gl_FragColor = vec4(0.0, 0.0, 0.0, roomA);
 }
 `.trim();
 
@@ -113,6 +108,14 @@ void main() {
     return x < 0 ? 0 : x > 1 ? 1 : x;
   }
 
+  // Persist at most half-dark so a refresh never restores pure black (users
+  // thought the UI was broken). Live drag can still go 0…1 this session.
+  const PERSIST_DIM_MAX = 0.5;
+
+  function clampPersistDim(n) {
+    return Math.min(PERSIST_DIM_MAX, clamp01(n));
+  }
+
   function workspace() {
     return document.getElementById("nodeGraphWorkspace");
   }
@@ -128,7 +131,7 @@ void main() {
   function load() {
     try {
       const raw = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "{}");
-      state.dim = clamp01(raw.dim);
+      state.dim = clampPersistDim(raw.dim);
     } catch {
       state.dim = 0;
     }
@@ -141,7 +144,7 @@ void main() {
       try {
         window.localStorage.setItem(
           STORAGE_KEY,
-          JSON.stringify({ v: 2, dim: state.dim }),
+          JSON.stringify({ v: 2, dim: clampPersistDim(state.dim) }),
         );
       } catch { /* ignore */ }
     }, 120);
@@ -219,8 +222,6 @@ void main() {
     state.locs = {
       aPos: gl.getAttribLocation(prog, "aPos"),
       uDim: gl.getUniformLocation(prog, "uDim"),
-      uExposure: gl.getUniformLocation(prog, "uExposure"),
-      uAspect: gl.getUniformLocation(prog, "uAspect"),
       uRectCount: gl.getUniformLocation(prog, "uRectCount"),
       uRect: Array.from({ length: MAX_RECTS }, (_, i) =>
         gl.getUniformLocation(prog, `uRect[${i}]`)),
@@ -233,62 +234,112 @@ void main() {
   function resizeCanvas(canvas) {
     const host = workspace();
     if (!host || !canvas) return false;
+    // Match CSS box of the veil canvas (inset:0 on workspace), not a zoomed child.
+    const rect = canvas.getBoundingClientRect();
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const rect = host.getBoundingClientRect();
-    const w = Math.max(1, Math.round(rect.width * dpr));
-    const h = Math.max(1, Math.round(rect.height * dpr));
+    const w = Math.max(1, Math.round(Math.max(rect.width, 1) * dpr));
+    const h = Math.max(1, Math.round(Math.max(rect.height, 1) * dpr));
     if (canvas.width !== w) canvas.width = w;
     if (canvas.height !== h) canvas.height = h;
-    return true;
+    return canvas.width > 0 && canvas.height > 0;
   }
 
-  function lightStrength(el, kind) {
-    const raw = el?.dataset?.lightStrength;
-    if (raw != null && raw !== "") {
-      const n = Number(raw);
-      if (Number.isFinite(n)) return clamp01(n);
+  function lightStrength(el) {
+    // Walk up for strength (canvas children inherit from face / lamp).
+    let node = el;
+    for (let i = 0; i < 4 && node; i += 1) {
+      const raw = node.dataset?.lightStrength;
+      if (raw != null && raw !== "") {
+        const n = Number(raw);
+        if (Number.isFinite(n)) return clamp01(n);
+      }
+      node = node.parentElement;
     }
-    if (kind === "text") return 0.16;
-    if (el.classList?.contains("node-led-face") || el.classList?.contains("node-led-lamp")) return 0.88;
-    if (el.classList?.contains("node-number-readout-face")) return 0.52;
-    if (el.classList?.contains("node-xy-pad")) return 0.68;
-    if (el.classList?.contains("node-ray-bouncer-face")) return 0.72;
-    if (el.classList?.contains("node-module-scope-window")) return 0.7;
-    if (el.classList?.contains("node-phosphor-waveform-display")) return 0.74;
-    return 0.65;
+    // Unset painted screens default to full hole.
+    return 1;
   }
 
-  function clientToUv(clientX, clientY, wr, sx, sy, canvas) {
-    const x = ((clientX - wr.left) * sx) / canvas.width;
-    const y = (canvas.height - ((clientY - wr.top) * sy)) / canvas.height;
-    return [
-      Math.max(-1, Math.min(2, x)),
-      Math.max(-1, Math.min(2, y)),
-    ];
+  /**
+   * Prefer the painted panel over the outer module cell so punches don't open
+   * module strokes / black padding / slider chrome.
+   */
+  function resolvePunchElement(el) {
+    if (!el) return null;
+    if (el.matches?.("canvas.node-phosphor-waveform-canvas")) return el;
+    if (el.matches?.("canvas.node-module-scope-local-fallback-canvas")) return el;
+    if (el.matches?.("canvas.node-xy-pad-canvas")) return el;
+    if (el.matches?.("canvas.node-number-readout-canvas")) return el;
+    if (el.matches?.(".node-led-lamp")) return el;
+
+    // Outer shells: only if no painted canvas is already the target.
+    const painted = el.querySelector?.(
+      "canvas.node-module-scope-local-fallback-canvas, canvas.node-phosphor-waveform-canvas, canvas.node-xy-pad-canvas, canvas.node-number-readout-canvas, .node-led-lamp",
+    );
+    if (painted) return painted;
+
+    if (el.matches?.(".node-phosphor-waveform-display")) {
+      return el.querySelector?.("canvas.node-phosphor-waveform-canvas") || el;
+    }
+    return el;
   }
 
-  function pushRectLight(el, kind, wr, sx, sy, canvas, seen, rects, strengths, energyRef) {
-    if (!el || seen.has(el) || el.offsetParent === null) return;
-    if (kind === "screen") {
-      const parentLight = el.parentElement?.closest?.(
-        "[data-light-source], .node-light-source, .node-module-scope-window, .node-xy-pad, .node-phosphor-waveform-display",
-      );
-      if (parentLight && parentLight !== el) return;
+  function pushRectLight(el, canvasRect, canvas, seen, rects, strengths) {
+    if (!el || seen.has(el)) return;
+    if (el.offsetParent === null && el !== document.body) {
+      // Zoom surface uses pointer-events:none; offsetParent can be null.
+      // Still punch if the element has a real client rect.
     }
-    if (kind === "text" && el.closest?.(
-      "[data-light-source], .node-light-source, .node-module-scope-window, .node-led-face, .node-xy-pad, .node-phosphor-waveform-display",
-    )) {
-      return;
+    const punchEl = resolvePunchElement(el);
+    if (!punchEl || seen.has(punchEl)) return;
+
+    // Skip outer shell when we already punched its canvas (seen later or earlier).
+    if (
+      punchEl !== el
+      && el.matches?.(
+        ".node-module-scope-window, .node-xy-pad, .node-number-readout-face, .node-ray-bouncer-face, .node-phosphor-waveform-display, [data-light-source], .node-light-source",
+      )
+    ) {
+      // Still mark shell seen so generic selectors don't double-add.
+      seen.add(el);
     }
+
+    seen.add(punchEl);
     seen.add(el);
-    const r = el.getBoundingClientRect();
-    if (r.width < 2 || r.height < 2) return;
 
-    const x = ((r.left - wr.left) * sx) / canvas.width;
-    const y = (canvas.height - ((r.bottom - wr.top) * sy)) / canvas.height;
-    const w = (r.width * sx) / canvas.width;
-    const h = (r.height * sy) / canvas.height;
-    const str = lightStrength(el, kind);
+    const str = lightStrength(punchEl);
+    if (str < 0.001) return;
+
+    const r = punchEl.getBoundingClientRect();
+    if (r.width < 1.5 || r.height < 1.5) return;
+
+    // Map in the veil canvas's client space (same box the GL buffer fills).
+    const cr = canvasRect;
+    const cssW = Math.max(1e-6, cr.width);
+    const cssH = Math.max(1e-6, cr.height);
+    // Device-pixel snap after inset so zoom doesn't leave half-pixel leaks.
+    const dprX = canvas.width / cssW;
+    const dprY = canvas.height / cssH;
+    const insetX = Math.max(1, Math.round(PUNCH_INSET_CSS * dprX));
+    const insetY = Math.max(1, Math.round(PUNCH_INSET_CSS * dprY));
+
+    let leftPx = Math.round((r.left - cr.left) * dprX) + insetX;
+    let topPx = Math.round((r.top - cr.top) * dprY) + insetY;
+    let rightPx = Math.round((r.right - cr.left) * dprX) - insetX;
+    let bottomPx = Math.round((r.bottom - cr.top) * dprY) - insetY;
+    if (rightPx <= leftPx + 1 || bottomPx <= topPx + 1) {
+      // Face smaller than inset budget — use un-inset snapped rect.
+      leftPx = Math.round((r.left - cr.left) * dprX);
+      topPx = Math.round((r.top - cr.top) * dprY);
+      rightPx = Math.round((r.right - cr.left) * dprX);
+      bottomPx = Math.round((r.bottom - cr.top) * dprY);
+    }
+    if (rightPx <= leftPx || bottomPx <= topPx) return;
+
+    // Shader UV: origin bottom-left of canvas buffer (matches previous convention).
+    const x = leftPx / canvas.width;
+    const y = (canvas.height - bottomPx) / canvas.height;
+    const w = (rightPx - leftPx) / canvas.width;
+    const h = (bottomPx - topPx) / canvas.height;
 
     rects.push([
       Math.max(-1, Math.min(2, x)),
@@ -297,41 +348,28 @@ void main() {
       Math.max(0, Math.min(2, h)),
     ]);
     strengths.push(str);
-    if (kind === "screen") {
-      energyRef.v += Math.max(0, w * h) * str;
-    }
   }
 
   function collectLights(canvas) {
     const host = workspace();
     if (!host || !canvas?.width || !canvas?.height) {
-      return { rects: [], rectStr: [], exposure: 1 };
+      return { rects: [], rectStr: [] };
     }
-    const wr = host.getBoundingClientRect();
-    const sx = canvas.width / Math.max(1, wr.width);
-    const sy = canvas.height / Math.max(1, wr.height);
+    // Use the veil canvas box — not only the host — so layout matches GL.
+    const canvasRect = canvas.getBoundingClientRect();
+    if (!(canvasRect.width > 0) || !(canvasRect.height > 0)) {
+      return { rects: [], rectStr: [] };
+    }
     const seen = new Set();
     const rects = [];
     const rectStr = [];
-    const energyRef = { v: 0 };
 
     for (const el of host.querySelectorAll(LIGHT_SELECTOR)) {
       if (rects.length >= MAX_RECTS) break;
-      pushRectLight(el, "screen", wr, sx, sy, canvas, seen, rects, rectStr, energyRef);
-    }
-    for (const el of host.querySelectorAll(TEXT_LIGHT_SELECTOR)) {
-      if (rects.length >= MAX_RECTS) break;
-      pushRectLight(el, "text", wr, sx, sy, canvas, seen, rects, rectStr, energyRef);
+      pushRectLight(el, canvasRect, canvas, seen, rects, rectStr);
     }
 
-    const e = Math.min(1, energyRef.v / 0.16);
-    const exposure = 1 + e * 0.22;
-
-    return {
-      rects,
-      rectStr,
-      exposure,
-    };
+    return { rects, rectStr };
   }
 
   function drawFrame() {
@@ -365,14 +403,15 @@ void main() {
       return;
     }
 
-    const { rects, rectStr, exposure } = collectLights(canvas);
+    const { rects, rectStr } = collectLights(canvas);
     const { locs } = state;
-    const aspect = canvas.width / Math.max(1, canvas.height);
 
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.enable(gl.BLEND);
+    // Straight alpha: black veil RGB is 0, so premultiply is irrelevant;
+    // ONE, ONE_MINUS_SRC_ALPHA still composites correctly with RGB=0.
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.useProgram(state.program);
     gl.bindBuffer(gl.ARRAY_BUFFER, state.buffer);
@@ -380,8 +419,6 @@ void main() {
     gl.vertexAttribPointer(locs.aPos, 2, gl.FLOAT, false, 0, 0);
 
     gl.uniform1f(locs.uDim, dim);
-    gl.uniform1f(locs.uExposure, exposure);
-    gl.uniform1f(locs.uAspect, aspect);
     gl.uniform1i(locs.uRectCount, rects.length);
 
     for (let i = 0; i < MAX_RECTS; i += 1) {
@@ -424,8 +461,8 @@ void main() {
     btn.setAttribute("aria-valuemax", "100");
     btn.setAttribute("aria-valuetext", `Room dim ${Math.round(dim * 100)} percent`);
     btn.title = on
-      ? `Room ${Math.round(dim * 100)}% · drag up/down`
-      : "Room light · drag down to darken (screens / wires / text stay lit)";
+      ? `Room ${Math.round(dim * 100)}% dark · drag (0 = full light, 100 = pure black)`
+      : "Room light · drag: 0 = full light, 100 = pure dark (only screens remain)";
   }
 
   function setDim(value, options = {}) {

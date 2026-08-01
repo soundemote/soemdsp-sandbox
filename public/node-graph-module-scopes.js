@@ -2797,6 +2797,9 @@ function nodeGraphDisplaySettingsFormTypeUsesGradient(type) {
     "dot",
     "lineBurn",
     "numberReadout",
+    "videoscopeBurn",
+    "oscilloscopeBankBurn",
+    "hypersawBurn",
   ].includes(type));
 }
 
@@ -3761,7 +3764,22 @@ if (typeof window !== "undefined") {
 }
 
 function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
-  return ["trace", "dot", "value", "lineBurn", "scope2d", "scope2dTrace", "phosphorLight", "numberReadout", "xyPad", "ledLamp"].includes(displayType);
+  return [
+    "trace",
+    "dot",
+    "value",
+    "lineBurn",
+    "scope2d",
+    "scope2dTrace",
+    "phosphorLight",
+    "numberReadout",
+    "xyPad",
+    "ledLamp",
+    "spectrogramBurn",
+    "videoscopeBurn",
+    "oscilloscopeBankBurn",
+    "hypersawBurn",
+  ].includes(displayType);
 }
 
 function nodeGraphNodeHasLocalDisplaySettings(node) {
@@ -4498,10 +4516,64 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze([]),
     choices: Object.freeze(["window", "overlap", "freqOverlap", "freqScale"]),
   }),
+  // Videoscope / bank / hypersaw: mono energy phosphor (same knobs as 2D Phosphor).
+  // MUST NOT fall through to "trace" — that is Output's Left/Right page
+  // (syncChannel / stereoBlend) and is what made Videoscope look like Output.
+  videoscopeBurn: Object.freeze({
+    fields: Object.freeze([
+      "burn",
+      "decay",
+      "pixelDensity",
+      "dotBudget",
+      "dot1Size",
+      "lineThickness",
+      "dot1Brightness",
+    ]),
+    colors: Object.freeze([]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
+  oscilloscopeBankBurn: Object.freeze({
+    fields: Object.freeze([
+      "burn",
+      "decay",
+      "pixelDensity",
+      "dotBudget",
+      "dot1Size",
+      "lineThickness",
+      "dot1Brightness",
+    ]),
+    colors: Object.freeze([]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
+  hypersawBurn: Object.freeze({
+    fields: Object.freeze([
+      "burn",
+      "decay",
+      "pixelDensity",
+      "dot1Size",
+      "lineThickness",
+      "dot1Brightness",
+    ]),
+    colors: Object.freeze([]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
 });
 
 function nodeGraphTraceDisplayActiveControlsForType(type = nodeGraphTraceDisplaySettingsFormType()) {
-  return nodeGraphTraceDisplayActiveControlsByType[type] || nodeGraphTraceDisplayActiveControlsByType.trace;
+  const key = String(type || "").trim();
+  if (nodeGraphTraceDisplayActiveControlsByType[key]) {
+    return nodeGraphTraceDisplayActiveControlsByType[key];
+  }
+  // Energy / *Burn faces → scope2d controls. Never default unknown types to
+  // "trace" (Output stereo page) — that leaked syncChannel/stereoBlend onto
+  // Videoscope and friends.
+  if (key.endsWith("Burn") || key === "transportBpm" || key === "clock") {
+    return nodeGraphTraceDisplayActiveControlsByType.scope2d;
+  }
+  return nodeGraphTraceDisplayActiveControlsByType.trace;
 }
 
 function nodeGraphTraceDisplayActiveControlSet(kind, type = nodeGraphTraceDisplaySettingsFormType()) {
@@ -4811,6 +4883,11 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   dot: "Phosphor Dot",
   spectrogramBurn: "Spectrogram",
   ledLamp: "LED",
+  // Phosphor energy faces — must not fall through to generic "Trace"
+  // (that title is what made Videoscope look like Output).
+  videoscopeBurn: "Videoscope",
+  oscilloscopeBankBurn: "Bank",
+  hypersawBurn: "Hypersaw",
 });
 
 const nodeGraphDisplaySettingsSectionOrder = Object.freeze([
@@ -5442,6 +5519,13 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
   if (type === "phosphorLight") {
     return normalizeNodeGraphScope2dSettings(nodeGraphScope2dSettingsDefaults);
   }
+  if (
+    type === "videoscopeBurn"
+    || type === "oscilloscopeBankBurn"
+    || type === "hypersawBurn"
+  ) {
+    return normalizeNodeGraphScope2dSettings(nodeGraphScope2dSettingsDefaults);
+  }
   if (type === "spectrogramBurn") {
     return normalizeNodeGraphSpectrogramSettings(nodeGraphSpectrogramSettingsDefaults);
   }
@@ -5484,6 +5568,14 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
     return normalizeNodeGraphXyPadDisplaySettings(settings);
   }
   if (type === "phosphorLight") {
+    return normalizeNodeGraphScope2dSettings(settings);
+  }
+  // Videoscope / bank / hypersaw: energy phosphor (scope2d settings model).
+  if (
+    type === "videoscopeBurn"
+    || type === "oscilloscopeBankBurn"
+    || type === "hypersawBurn"
+  ) {
     return normalizeNodeGraphScope2dSettings(settings);
   }
   if (type === "ledLamp") {
@@ -5589,6 +5681,13 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
       merged.fftSize = node.params.fftSize;
     }
     return normalizeNodeGraphSpectrogramSettings(merged, node);
+  }
+  if (
+    settingsSchema === "videoscopeBurn"
+    || settingsSchema === "oscilloscopeBankBurn"
+    || settingsSchema === "hypersawBurn"
+  ) {
+    return normalizeNodeGraphScope2dSettings(node.traceDisplaySettings);
   }
   // Per-node Trace schema: Output stereo + multi-mode Display (monoTrace).
   // Plain Trace modules use the shared global bucket (editingTraceDefaults).
@@ -6006,6 +6105,15 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
   phosphorLight: Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
   }),
+  videoscopeBurn: Object.freeze({
+    lineThickness: nodeGraphTraceDisplayClampStampBlur,
+  }),
+  oscilloscopeBankBurn: Object.freeze({
+    lineThickness: nodeGraphTraceDisplayClampStampBlur,
+  }),
+  hypersawBurn: Object.freeze({
+    lineThickness: nodeGraphTraceDisplayClampStampBlur,
+  }),
   xyPad: Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
   }),
@@ -6371,6 +6479,14 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
   }
   if (displayType === "phosphorLight") {
     // Legacy alias — same schema as 2D Phosphor.
+    node.traceDisplaySettings = normalizeNodeGraphScope2dSettings(settings);
+    return node.traceDisplaySettings;
+  }
+  if (
+    displayType === "videoscopeBurn"
+    || displayType === "oscilloscopeBankBurn"
+    || displayType === "hypersawBurn"
+  ) {
     node.traceDisplaySettings = normalizeNodeGraphScope2dSettings(settings);
     return node.traceDisplaySettings;
   }
@@ -10513,6 +10629,7 @@ const nodeGraphModuleScopePersistentCanvases = new Map();
 
 // Watch for canvas removals (module DOM rebuilds) and immediately re-attach
 // so there's no visual gap between rebuild and next scope snapshot.
+// Videoscope / scope2d burn faces use the same canvas class + cache.
 (function setupNodeGraphModuleScopeCanvasRescue() {
   if (typeof MutationObserver === "undefined") return;
   const rescue = new MutationObserver((mutations) => {
@@ -10524,8 +10641,14 @@ const nodeGraphModuleScopePersistentCanvases = new Map();
           if (el.className !== "node-module-scope-local-fallback-canvas" && el.nodeName !== "CANVAS") continue;
           for (const [nid, cached] of nodeGraphModuleScopePersistentCanvases) {
             if (cached !== el) continue;
-            // Find the node's current scope element and re-attach the canvas immediately
-            const scopeEl = document.querySelector(`[data-node-id="${nid}"] .node-module-scope`);
+            // Live modules use data-node (not data-node-id); face is
+            // .node-module-scope-window (not .node-module-scope).
+            const host = document.querySelector(
+              `.dsp-node[data-node="${nid}"], [data-node="${nid}"].dsp-node, [data-node-id="${nid}"]`,
+            );
+            const scopeEl = host?.querySelector?.(
+              ".node-module-scope-window, .node-module-scope-window-surface, .node-module-scope",
+            );
             if (scopeEl && cached.parentNode !== scopeEl) {
               scopeEl.appendChild(cached);
             }
@@ -10536,7 +10659,9 @@ const nodeGraphModuleScopePersistentCanvases = new Map();
     }
   });
   // Observe the wiring panel (workspace root) for any DOM changes
-  const root = document.getElementById("nodeWiringPanel") || document.body;
+  const root = document.getElementById("nodeWiringPanel")
+    || document.getElementById("nodeGraphWorkspace")
+    || document.body;
   rescue.observe(root, { childList: true, subtree: true });
 })();
 
@@ -11692,8 +11817,8 @@ function paintNodeGraphNumberReadoutColdBoot(canvas, screenElement, node = null)
   const bright = Number(settings.brightness);
   const b01 = Math.max(0, Math.min(1, (Number.isFinite(bright) ? bright : 0.92) / 2));
   if (screenElement.dataset) {
-    // Dimmer punch needs a non-zero strength or the face stays under the veil.
-    screenElement.dataset.lightStrength = (0.28 + 0.32 * b01).toFixed(3);
+    // Full hole when the LCD plate is present (0…1 dimmer is the only gain).
+    screenElement.dataset.lightStrength = "1";
   }
   nodeGraphFacePlateApplyCss(screenElement, bg);
   const width = canvas.width;
@@ -12175,10 +12300,9 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const bg = nodeGraphFacePlateBackground(settings);
   const bright = Number(settings.brightness);
   const alpha = Math.max(0.15, (Number.isFinite(bright) ? Math.max(0, Math.min(2, bright)) : 0.92) / 2);
-  // Room-light: LCD strength from brightness (kept modest for practical bloom).
+  // Room-light: full hole while the readout face is painted (dimmer = only gain).
   if (canvas?.parentElement?.dataset) {
-    const b01 = Math.max(0, Math.min(1, (Number.isFinite(bright) ? bright : 0.92) / 2));
-    canvas.parentElement.dataset.lightStrength = (0.32 + 0.38 * b01).toFixed(3);
+    canvas.parentElement.dataset.lightStrength = "1";
   }
   const digitFontFamily = nodeGraphNumberReadoutDsegReady
     ? '"DSEG7 Classic", "Consolas", monospace'
@@ -12879,13 +13003,31 @@ function disposeNodeGraphScope2dBurnRendererForCanvas(canvas) {
 
 function nodeGraphScope2dBurnCanvasForSlot(slot) {
   const screenElement = slot?.scopeElement;
+  const nodeId = slot?.nodeId;
   if (!screenElement) {
     return null;
   }
   let canvas = screenElement.querySelector(":scope > .node-module-scope-local-fallback-canvas");
+  // DOM rebuild may have detached the face — re-attach the persistent canvas
+  // so phosphor residual (_phosphorEnergyGl) survives add-module / re-render.
+  if (!canvas && nodeId && nodeGraphModuleScopePersistentCanvases.has(nodeId)) {
+    canvas = nodeGraphModuleScopePersistentCanvases.get(nodeId);
+    if (canvas && canvas.parentNode !== screenElement) {
+      screenElement.appendChild(canvas);
+    }
+  }
   if (canvas && canvas.dataset.scope2dRenderer !== nodeGraphScope2dBurnRendererVersion) {
     disposeNodeGraphScope2dBurnRendererForCanvas(canvas);
+    if (typeof nodeGraphPhosphorEnergyGlDestroy === "function" && canvas._phosphorEnergyGl) {
+      try {
+        nodeGraphPhosphorEnergyGlDestroy(canvas._phosphorEnergyGl);
+      } catch (_) { /* ignore */ }
+      canvas._phosphorEnergyGl = null;
+    }
     canvas.remove();
+    if (nodeId) {
+      nodeGraphModuleScopePersistentCanvases.delete(nodeId);
+    }
     canvas = null;
   }
   if (!canvas) {
@@ -12895,8 +13037,16 @@ function nodeGraphScope2dBurnCanvasForSlot(slot) {
     canvas.dataset.scope2dRenderer = nodeGraphScope2dBurnRendererVersion;
     canvas.setAttribute("aria-hidden", "true");
     screenElement.appendChild(canvas);
-  } else if (canvas.style.mixBlendMode !== "normal") {
-    canvas.style.mixBlendMode = "normal";
+    if (nodeId) {
+      nodeGraphModuleScopePersistentCanvases.set(nodeId, canvas);
+    }
+  } else {
+    if (canvas.style.mixBlendMode !== "normal") {
+      canvas.style.mixBlendMode = "normal";
+    }
+    if (nodeId && !nodeGraphModuleScopePersistentCanvases.has(nodeId)) {
+      nodeGraphModuleScopePersistentCanvases.set(nodeId, canvas);
+    }
   }
   return canvas;
 }
@@ -14682,15 +14832,26 @@ function drawNodeGraphModuleScopeTypedItem(renderer, item, pixelRatio) {
   return false;
 }
 
-/** Room dimmer: mark a painted screen face as a light rect (punches the veil). */
-function nodeGraphModuleScopeMarkScreenLit(screenElement, strength = 0.72) {
+/** Room dimmer: mark a painted screen face as a light rect (full hole = 1). */
+function nodeGraphModuleScopeMarkScreenLit(screenElement, strength = 1) {
   if (!screenElement?.dataset) {
     return;
   }
   const s = Math.max(0, Math.min(1, Number(strength) || 0));
   screenElement.dataset.lightStrength = s.toFixed(3);
+  // Punch target is often the local fallback canvas, not the outer window.
+  const painted = screenElement.querySelector?.(
+    ":scope > canvas.node-module-scope-local-fallback-canvas, :scope > canvas.node-number-readout-canvas",
+  );
+  if (painted?.dataset) {
+    painted.dataset.lightStrength = s.toFixed(3);
+    painted.dataset.lightSource = "screen";
+  }
   if (typeof setNodeGraphLightStrength === "function") {
     setNodeGraphLightStrength(screenElement, s);
+    if (painted) {
+      setNodeGraphLightStrength(painted, s);
+    }
   }
 }
 
@@ -14781,7 +14942,7 @@ function drawNodeGraphModuleScopes() {
   for (const item of visibleItems) {
     const face = item?.screenElement || item?.slot?.scopeElement;
     if (face) {
-      nodeGraphModuleScopeMarkScreenLit(face, 0.72);
+      nodeGraphModuleScopeMarkScreenLit(face, 1);
     }
   }
   const firstVisibleSlot = visibleItems[0]?.slot;

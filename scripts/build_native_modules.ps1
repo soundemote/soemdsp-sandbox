@@ -13,7 +13,8 @@ if (!(Test-Path -LiteralPath $clang)) {
 # adding one entry here (Name, Exports, and Simd only if it uses <wasm_simd128.h>).
 $modules = @(
   @{ Name = "wall_delay"; Simd = $false; Exports = @("soemdsp_wall_delay_version") }
-  @{ Name = "comparator"; Simd = $false; Exports = @("soemdsp_comparator_create", "soemdsp_comparator_destroy", "soemdsp_comparator_sample", "soemdsp_comparator_inv_gate", "soemdsp_comparator_hold", "soemdsp_comparator_up", "soemdsp_comparator_down", "soemdsp_comparator_up_dn", "soemdsp_comparator_last_high", "soemdsp_comparator_last_low", "soemdsp_comparator_version") },
+  @{ Name = "comparator"; Simd = $false; Exports = @("soemdsp_comparator_create", "soemdsp_comparator_destroy", "soemdsp_comparator_sample", "soemdsp_comparator_up", "soemdsp_comparator_down", "soemdsp_comparator_change", "soemdsp_comparator_steady", "soemdsp_comparator_sign", "soemdsp_comparator_thru", "soemdsp_comparator_version") },
+  @{ Name = "sample_delay"; Simd = $false; Exports = @("soemdsp_sample_delay_create", "soemdsp_sample_delay_destroy", "soemdsp_sample_delay_sample", "soemdsp_sample_delay_max_samples", "soemdsp_sample_delay_max_seconds", "soemdsp_sample_delay_version") },
   @{ Name = "min_max"; Simd = $false; Exports = @("soemdsp_min_max_create", "soemdsp_min_max_destroy", "soemdsp_min_max_sample", "soemdsp_min_max_min", "soemdsp_min_max_version") }
   @{ Name = "alias_sine"; Simd = $false; Exports = @("soemdsp_alias_sine_create", "soemdsp_alias_sine_destroy", "soemdsp_alias_sine_sample", "soemdsp_alias_sine_version", "soemdsp_alias_sine_metadata_json", "soemdsp_alias_sine_metadata_json_size") }
   @{ Name = "ellipsoid"; Simd = $false; Exports = @("soemdsp_ellipsoid_sample", "soemdsp_ellipsoid_version") }

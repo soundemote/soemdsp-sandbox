@@ -131,13 +131,13 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) 
   if (typeof nodeGraphExternalNotifyLiveOutputChanged === "function") {
     nodeGraphExternalNotifyLiveOutputChanged();
   }
-  // Update transport play/pause button text
-  const tp = document.getElementById("nodeTransportPlay");
-  if (tp) {
-    const enginePaused = (nodeGraphMvp.live.speedMultiplier ?? 1) === 0;
-    const playing = outputActive && !enginePaused;
+  // Update all transport play/pause mirrors (toolbar + Command Center).
+  const enginePaused = (nodeGraphMvp.live.speedMultiplier ?? 1) === 0;
+  const playing = outputActive && !enginePaused;
+  for (const tp of document.querySelectorAll("[data-transport-play], #nodeTransportPlay")) {
     tp.textContent = playing ? "⏸" : "▶";
     tp.setAttribute("aria-label", playing ? "Pause" : "Play");
+    tp.title = playing ? "Pause" : "Play / Pause";
   }
   renderNodeGraphSpeedReadout();
 }
@@ -250,47 +250,87 @@ function bindNodeGraphLiveVolumeControls() {
   }
 }
 
+function nodeGraphTransportHandleAction(action) {
+  const key = String(action || "").trim();
+  if (key === "play") {
+    const outputActive = nodeGraphLiveOutputIsActive(Boolean(nodeGraphMvp.live.node));
+    if (!outputActive) {
+      if (typeof soemdspSandboxToggleLiveOutput === "function") {
+        soemdspSandboxToggleLiveOutput();
+      } else if (typeof setNodeGraphLiveOutputEnabled === "function") {
+        setNodeGraphLiveOutputEnabled(true);
+      }
+    } else {
+      const speed = (nodeGraphMvp.live.speedMultiplier ?? 1) > 0 ? 0 : 1;
+      if (typeof setNodeGraphLiveSpeed === "function") {
+        setNodeGraphLiveSpeed(speed);
+      }
+    }
+    renderNodeGraphLiveControls();
+    return;
+  }
+  if (key === "stop") {
+    // Always full stop (never toggle). Same path as red Output when on.
+    if (typeof setNodeGraphLiveOutputEnabled === "function") {
+      setNodeGraphLiveOutputEnabled(false);
+    } else if (typeof soemdspSandboxSetLiveOutput === "function") {
+      soemdspSandboxSetLiveOutput(false);
+    } else if (typeof soemdspSandboxToggleLiveOutput === "function") {
+      const outputActive = nodeGraphLiveOutputIsActive(Boolean(nodeGraphMvp.live.node));
+      if (outputActive) {
+        soemdspSandboxToggleLiveOutput();
+      }
+    }
+    renderNodeGraphLiveControls();
+    return;
+  }
+  if (key === "restart") {
+    // ⏮ Full cold stop + start (no need to stop first).
+    const run = typeof restartNodeGraphLiveSimulation === "function"
+      ? restartNodeGraphLiveSimulation()
+      : Promise.resolve(false);
+    Promise.resolve(run).then(() => {
+      renderNodeGraphLiveControls();
+      if (typeof setNodeInteractionHelp === "function") {
+        setNodeInteractionHelp("Simulation restarted (full cold boot).");
+      }
+    }).catch((error) => {
+      console.warn("[transport] restart failed", error);
+      renderNodeGraphLiveControls();
+    });
+    return;
+  }
+  if (key === "record") {
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp("Record is under construction.");
+    }
+    return;
+  }
+  if (key === "forward") {
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp("Forward is under construction.");
+    }
+  }
+}
+
 function bindNodeGraphTransportButtons() {
   bindNodeGraphLiveVolumeControls();
-  const play = document.getElementById("nodeTransportPlay");
-  const stop = document.getElementById("nodeTransportStop");
-  const prev = document.getElementById("nodeTransportPrev");
-  const next = document.getElementById("nodeTransportNext");
-
-  if (play) {
-    play.addEventListener("click", () => {
-      const outputActive = nodeGraphLiveOutputIsActive(Boolean(nodeGraphMvp.live.node));
-      if (!outputActive) {
-        if (typeof soemdspSandboxToggleLiveOutput === "function") soemdspSandboxToggleLiveOutput();
-      } else {
-        const speed = (nodeGraphMvp.live.speedMultiplier ?? 1) > 0 ? 0 : 1;
-        if (typeof setNodeGraphLiveSpeed === "function") setNodeGraphLiveSpeed(speed);
+  // Toolbar + Command Center mirrors share data-transport-action.
+  for (const button of document.querySelectorAll("[data-transport-action]")) {
+    if (button.dataset.transportBound === "true") {
+      continue;
+    }
+    button.dataset.transportBound = "true";
+    const action = button.getAttribute("data-transport-action");
+    if (action === "record" || action === "forward") {
+      button.disabled = true;
+      button.classList.add("under-construction");
+    }
+    button.addEventListener("click", (event) => {
+      if (button.disabled || action === "record" || action === "forward") {
+        event.preventDefault();
       }
-      renderNodeGraphLiveControls();
-    });
-  }
-  if (stop) {
-    stop.addEventListener("click", () => {
-      // Always full stop (never toggle). Same path as red Output when on.
-      if (typeof setNodeGraphLiveOutputEnabled === "function") {
-        setNodeGraphLiveOutputEnabled(false);
-      } else if (typeof soemdspSandboxSetLiveOutput === "function") {
-        soemdspSandboxSetLiveOutput(false);
-      } else if (typeof soemdspSandboxToggleLiveOutput === "function") {
-        const outputActive = nodeGraphLiveOutputIsActive(Boolean(nodeGraphMvp.live.node));
-        if (outputActive) soemdspSandboxToggleLiveOutput();
-      }
-      renderNodeGraphLiveControls();
-    });
-  }
-  if (prev) {
-    prev.addEventListener("click", () => {
-      window.parent?.postMessage?.({ type: "soundemote:prev-patch" }, window.location.origin);
-    });
-  }
-  if (next) {
-    next.addEventListener("click", () => {
-      window.parent?.postMessage?.({ type: "soundemote:next-patch" }, window.location.origin);
+      nodeGraphTransportHandleAction(action);
     });
   }
 }

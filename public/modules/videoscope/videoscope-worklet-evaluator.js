@@ -21,10 +21,20 @@ NodeLiveAudioProcessor.prototype.videoscopeExtractFreshSamples = function videos
   }
   const length = Math.min(Number(buf.length) || 0, buf.capacity || buf.buffer.length);
   const absoluteFrame = Math.max(0, Math.floor(Number(buf.absoluteFrame) || 0));
+  // Frame counter went backwards (buffer recreate / plan sync) — re-arm from now.
+  if (lastFrame > absoluteFrame) {
+    lastFrame = 0;
+  }
   const freshCount = lastFrame > 0
     ? Math.max(0, absoluteFrame - lastFrame)
     : Math.min(length, Math.ceil((Number(this.engineSampleRate) || sampleRate || 44100) / 30));
-  const count = Math.min(length, freshCount);
+  // Cap a single tick so UI stalls / zoom freezes don't dump a huge backlog
+  // into the native ring (would thrash re-triggers and look like a wipe).
+  const maxBurst = Math.min(
+    length,
+    Math.max(512, Math.ceil((Number(this.engineSampleRate) || sampleRate || 44100) / 8)),
+  );
+  const count = Math.min(length, freshCount, maxBurst);
   if (count <= 0) {
     return { newLastFrame: absoluteFrame, samples: null };
   }
@@ -33,6 +43,8 @@ NodeLiveAudioProcessor.prototype.videoscopeExtractFreshSamples = function videos
   for (let index = 0; index < count; index += 1) {
     ordered[index] = buf.buffer[(start + index) % buf.capacity] || 0;
   }
+  // Always snap to absoluteFrame (newest). Cap only limits how many samples
+  // we push this tick; older backlog is discarded in favor of live audio.
   return { newLastFrame: absoluteFrame, samples: ordered };
 };
 
@@ -68,12 +80,18 @@ NodeLiveAudioProcessor.prototype.videoscopeCollectDisplayData = function videosc
     state.pushedFrameB = freshB.newLastFrame;
     const samplesA = freshA.samples;
     const samplesB = freshB.samples;
-    const count = Math.min(samplesA?.length || 0, samplesB?.length || 0);
+    // Mono-safe: missing channel → zeros so a single wired input still arms.
+    // Prefer equal-length pair; if only one side has samples, push that alone.
+    const lenA = samplesA?.length || 0;
+    const lenB = samplesB?.length || 0;
+    const count = Math.max(lenA, lenB);
     for (let index = 0; index < count; index += 1) {
+      const a = index < lenA ? samplesA[index] : 0;
+      const b = index < lenB ? samplesB[index] : 0;
       this.nativeVideoscope.soemdsp_videoscope_push(
         state.nativeHandle,
-        samplesA[index],
-        samplesB[index],
+        a,
+        b,
         triggerLevel,
         triggerSource,
         triggerPolarity,

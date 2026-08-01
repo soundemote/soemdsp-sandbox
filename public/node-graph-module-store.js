@@ -274,9 +274,15 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   comparator: {
     category: "digital",
-    description: "One threshold, eight views of it: continuous Gate/Inverted Gate, a Hold output for steady (unchanging) signal, Up Trig/Down Trig/UpDn Trig pulse outputs on every rising and falling edge, and Last High/Last Low holding the signal's last value on each side of the threshold.",
+    description: "1-sample history edge detector. Up/Down/Change are 1-sample pulses on rise/fall/any change; Steady is high while unchanged; Sign is a continuous In>0 gate; Thru passes In through. First sample seeds history only.",
     label: "Comparator",
-    notes: ["gate", "edge detect", "native"],
+    notes: ["edge detect", "up", "down", "change", "steady", "sign", "native"],
+  },
+  sampleDelay: {
+    category: "utility",
+    description: "Sample-accurate delay line. Delayed is In delayed by Time (seconds) + Samples; Thru is a dry passthrough. Combined delay 0…4s, ring fully reserved so Time can be modulated without reallocation. Native C++/WASM.",
+    label: "Sample Delay",
+    notes: ["delay", "samples", "time", "thru", "native"],
   },
   bitConverter: {
     category: "digital",

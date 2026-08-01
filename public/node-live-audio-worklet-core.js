@@ -146,6 +146,8 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.nativePulseExplosionReady = false;
     this.nativeComparator = null;
     this.nativeComparatorReady = false;
+    this.nativeSampleDelay = null;
+    this.nativeSampleDelayReady = false;
     this.nativeMinMax = null;
     this.nativeMinMaxReady = false;
     this.nativeAliasSine = null;
@@ -214,6 +216,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.humanFilterStates = new Map();
     this.pulseExplosionStates = new Map();
     this.comparatorStates = new Map();
+    this.sampleDelayStates = new Map();
     this.minMaxStates = new Map();
     this.aliasSineStates = new Map();
     this.ladderFilterStates = new Map();
@@ -932,6 +935,22 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
           type: "nativeModuleStatus",
           name: "comparator",
           status: this.nativeComparatorReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "sample_delay" || targetType === "sampleDelay") {
+        for (const state of this.sampleDelayStates.values()) {
+          this.destroySampleDelayNativeState(state);
+        }
+        this.nativeSampleDelay = exports;
+        this.nativeSampleDelayReady = Boolean(
+          this.nativeSampleDelay?.soemdsp_sample_delay_create &&
+          this.nativeSampleDelay?.soemdsp_sample_delay_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "sample_delay",
+          status: this.nativeSampleDelayReady ? "ready" : "missing exports",
         });
         return;
       }
@@ -2046,6 +2065,10 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       this.destroyComparatorNativeState(state);
     }
     this.comparatorStates = new Map();
+    for (const state of this.sampleDelayStates.values()) {
+      this.destroySampleDelayNativeState(state);
+    }
+    this.sampleDelayStates = new Map();
     for (const state of this.minMaxStates.values()) {
       this.destroyMinMaxNativeState(state);
     }
@@ -2435,6 +2458,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       }
       if (node?.type === "comparator" && !this.comparatorStates.has(id)) {
         this.comparatorStates.set(id, this.createComparatorState());
+      }
+      if (node?.type === "sampleDelay" && !this.sampleDelayStates.has(id)) {
+        this.sampleDelayStates.set(id, this.createSampleDelayState());
       }
       if (node?.type === "aliasSine" && !this.aliasSineStates.has(id)) {
         this.aliasSineStates.set(id, this.createAliasSineState());
@@ -2890,6 +2916,12 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       if (!ids.has(id)) {
         this.destroyComparatorNativeState(this.comparatorStates.get(id));
         this.comparatorStates.delete(id);
+      }
+    }
+    for (const id of [...this.sampleDelayStates.keys()]) {
+      if (!ids.has(id)) {
+        this.destroySampleDelayNativeState(this.sampleDelayStates.get(id));
+        this.sampleDelayStates.delete(id);
       }
     }
     for (const id of [...this.minMaxStates.keys()]) {
@@ -5105,6 +5137,13 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     }
   }
 
+  destroySampleDelayNativeState(state) {
+    if (state?.nativeHandle && this.nativeSampleDelay?.soemdsp_sample_delay_destroy) {
+      this.nativeSampleDelay.soemdsp_sample_delay_destroy(state.nativeHandle);
+      state.nativeHandle = 0;
+    }
+  }
+
   destroyMinMaxNativeState(state) {
     if (state.nativeHandle && this.nativeMinMax?.soemdsp_min_max_destroy) {
       this.nativeMinMax.soemdsp_min_max_destroy(state.nativeHandle);
@@ -6407,15 +6446,16 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       comparator: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.comparatorStates.get(nodeId) || this.createComparatorState();
         this.comparatorStates.set(nodeId, state);
-        return this.comparatorSample(
+        return this.comparatorSample(state, mixInput(nodeId, "In"));
+      },
+      sampleDelay: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+        const state = this.sampleDelayStates.get(nodeId) || this.createSampleDelayState();
+        this.sampleDelayStates.set(nodeId, state);
+        return this.sampleDelaySample(
           state,
           mixInput(nodeId, "In"),
-          {
-            changeAmount: this.readEffectiveParameter(node, "changeAmount", 0.5, frame, frames, frameValues),
-            pulseTime: this.readEffectiveParameter(node, "pulseTime", 0.01, frame, frames, frameValues),
-            triggerLevel: this.readEffectiveParameter(node, "triggerLevel", 0.5, frame, frames, frameValues),
-            pulseLevel: this.readEffectiveParameter(node, "pulseLevel", 1, frame, frames, frameValues),
-          },
+          this.readEffectiveParameter(node, "time", 0, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "samples", 0, frame, frames, frameValues),
           safeRate,
         );
       },

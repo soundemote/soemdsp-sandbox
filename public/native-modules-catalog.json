@@ -158,6 +158,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "sample_delay",
+      "label": "Sample Delay",
+      "targetType": "sampleDelay",
+      "kind": "utility",
+      "source": "native_modules/sample_delay/sample_delay.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/sample_delay/sample_delay.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/sample_delay/sample_delay.wasm",
+      "wasmUrl": "native_modules/sample_delay/sample_delay.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "delay_effect",
       "label": "Delay Effect",
       "targetType": "delayEffect",

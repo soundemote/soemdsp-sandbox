@@ -14640,7 +14640,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   box-sizing: border-box;
 }
 
-/* Stretchable body: scroll the command list while the header + nav + resize stay put. */
+/* Header + nav + resize fixed; body sizes to content — no scrollbars. */
 #nodeSceneContextMenu > .scene-context-heading,
 #nodeSceneContextMenu > .node-unified-window-nav-host,
 #nodeSceneContextMenu > .scene-context-resize-handle {
@@ -14652,9 +14652,37 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 }
 
 #nodeSceneContextMenu > #nodeSceneWindowControls {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
+}
+
+/* Command Center family: never show scrollbars (top nav replaces the old long list). */
+#nodeSceneContextMenu,
+#nodeSceneContextMenu *,
+#nodeModuleActionsWindow,
+#nodeModuleActionsWindow *,
+.node-module-actions-window-body,
+.node-parameter-metadata-popover,
+.node-trace-display-settings-popover,
+.node-user-ui-settings-panel,
+.node-visibility-menu {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+#nodeSceneContextMenu::-webkit-scrollbar,
+#nodeSceneContextMenu *::-webkit-scrollbar,
+#nodeModuleActionsWindow::-webkit-scrollbar,
+#nodeModuleActionsWindow *::-webkit-scrollbar,
+.node-module-actions-window-body::-webkit-scrollbar,
+.node-parameter-metadata-popover::-webkit-scrollbar,
+.node-trace-display-settings-popover::-webkit-scrollbar,
+.node-user-ui-settings-panel::-webkit-scrollbar,
+.node-visibility-menu::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
 }
 
 #nodeSceneContextMenu .scene-context-heading {
@@ -14768,7 +14796,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   min-height: 0;
   min-inline-size: 0;
   max-width: 100%;
-  overflow: hidden auto;
+  overflow: hidden;
   padding: 0;
   box-sizing: border-box;
 }
@@ -17058,6 +17086,27 @@ body.node-slider-dragging .node-param-port {
   padding-right: 10px;
 }
 
+/* Command Center copy: full-width row under the window control buttons. */
+#nodeSceneContextMenu .node-transport-group-command-center,
+.node-scene-context-menu .node-transport-group-command-center {
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 6px 0 0;
+  padding: 4px 0 0;
+  border-top: 1px solid rgba(127, 199, 217, 0.12);
+  gap: 3px;
+}
+
+#nodeSceneContextMenu .node-transport-group-command-center button,
+.scene-context-menu .node-transport-group-command-center button {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+  height: 1.85rem;
+  font-size: 0.72rem;
+}
+
 /* One 🔊 + slider + percent widget, used by all three volume controls (live
    input in the toggle palette, live output in the transport group, rendered
    sample in the player row). Sized in em so it inherits whatever type scale
@@ -17147,6 +17196,19 @@ body.node-slider-dragging .node-param-port {
 
 .node-transport-group button:active {
   background: rgba(17, 20, 24, 1);
+}
+
+.node-transport-group button.under-construction,
+.node-transport-group button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  filter: grayscale(0.35);
+}
+
+.node-transport-group button.under-construction:hover,
+.node-transport-group button:disabled:hover {
+  background: rgba(17, 20, 24, 0.62);
+  color: var(--muted);
 }
 
 .node-live-toggle-palette .node-live-toggle {

@@ -127,11 +127,9 @@ function applyNodeGraphLedFaceAppearance(face, settings, level) {
     settings.topImage,
   );
 
-  // Room-light: modest live strength on the lamp plate.
+  // Room-light: on → full hole (1), off → 0. Dim amount is only the room gain.
   if (lamp.dataset) {
-    const br = Math.max(0, Math.min(1, Number(settings.brightness) || 1));
-    const str = Math.max(0, Math.min(1, drive * (0.4 + 0.45 * br)));
-    lamp.dataset.lightStrength = str.toFixed(3);
+    lamp.dataset.lightStrength = drive > 0.001 ? "1" : "0";
   }
 }
 

@@ -200,47 +200,96 @@ function connectNodeGraphGraphInput(sourceNode, sourcePort, destinationNode, des
   return true;
 }
 
+/**
+ * Double-connection (auto-pair) port groups.
+ * Connecting one side of a pair also connects the sibling when both modules
+ * expose matching ports. X≈Left and Y≈Right still cross-pair for stereo.
+ *
+ * Groups:
+ *   stereo-xy-lr  — X/Left  ↔  Y/Right
+ *   ab            — A  ↔  B
+ *   dry-lr        — Left Dry  ↔  Right Dry
+ *   mix-lr        — Left Mix  ↔  Right Mix  (reverb wet/mixed outs)
+ *   wet-lr        — Left Wet  ↔  Right Wet
+ *   out-lr        — Left Out  ↔  Right Out
+ */
+function nodeGraphPortPairMeta(port) {
+  const key = String(port || "").trim().toLowerCase();
+  if (!key) {
+    return null;
+  }
+  const table = {
+    x: { group: "stereo-xy-lr", role: 0, siblings: ["Y", "Right"] },
+    left: { group: "stereo-xy-lr", role: 0, siblings: ["Right", "Y"] },
+    y: { group: "stereo-xy-lr", role: 1, siblings: ["X", "Left"] },
+    right: { group: "stereo-xy-lr", role: 1, siblings: ["Left", "X"] },
+    a: { group: "ab", role: 0, siblings: ["B"] },
+    b: { group: "ab", role: 1, siblings: ["A"] },
+    "left dry": { group: "dry-lr", role: 0, siblings: ["Right Dry"] },
+    "right dry": { group: "dry-lr", role: 1, siblings: ["Left Dry"] },
+    "left mix": { group: "mix-lr", role: 0, siblings: ["Right Mix"] },
+    "right mix": { group: "mix-lr", role: 1, siblings: ["Left Mix"] },
+    "left wet": { group: "wet-lr", role: 0, siblings: ["Right Wet"] },
+    "right wet": { group: "wet-lr", role: 1, siblings: ["Left Wet"] },
+    "left out": { group: "out-lr", role: 0, siblings: ["Right Out"] },
+    "right out": { group: "out-lr", role: 1, siblings: ["Left Out"] },
+  };
+  return table[key] || null;
+}
+
+/** @deprecated use nodeGraphPortPairMeta — kept for any external callers */
 function nodeGraphEquivalentStereoPortName(port) {
-  const key = String(port || "").trim().toLowerCase();
-  if (key === "x" || key === "left") {
-    return "left-x";
+  const meta = nodeGraphPortPairMeta(port);
+  if (!meta || meta.group !== "stereo-xy-lr") {
+    return "";
   }
-  if (key === "y" || key === "right") {
-    return "right-y";
+  return meta.role === 0 ? "left-x" : "right-y";
+}
+
+/** First sibling name that exists on the given port list (exact match). */
+function nodeGraphPortPairSiblingOnModule(port, availablePorts = []) {
+  const meta = nodeGraphPortPairMeta(port);
+  if (!meta) {
+    return "";
+  }
+  const ports = Array.isArray(availablePorts) ? availablePorts : [];
+  for (const candidate of meta.siblings) {
+    if (ports.includes(candidate)) {
+      return candidate;
+    }
   }
   return "";
 }
 
+/** @deprecated use nodeGraphPortPairSiblingOnModule */
 function nodeGraphStereoPairSiblingPort(port) {
-  const key = String(port || "").trim().toLowerCase();
-  if (key === "x") {
-    return "Y";
-  }
-  if (key === "y") {
-    return "X";
-  }
-  if (key === "left") {
-    return "Right";
-  }
-  if (key === "right") {
-    return "Left";
-  }
-  return "";
+  const meta = nodeGraphPortPairMeta(port);
+  return meta?.siblings?.[0] || "";
 }
 
+/**
+ * When connecting one side of a dual port pair, also wire the sibling if both
+ * modules have it. Works for either side (Left or Right / X or Y / A or B).
+ */
 function nodeGraphAutoPairPortConnections(patch, sourceNode, sourcePort, destinationNode, destinationPort, wireData = {}) {
-  if (
-    !patch ||
-    nodeGraphEquivalentStereoPortName(sourcePort) !== "left-x" ||
-    nodeGraphEquivalentStereoPortName(destinationPort) !== "left-x"
-  ) {
+  if (!patch) {
     return 0;
   }
-  const sourcePorts = nodeGraphPatchNodeOutputPorts(sourceNode);
-  const destinationPorts = nodeGraphPatchNodeInputPorts(destinationNode);
-  const nextSourcePort = nodeGraphStereoPairSiblingPort(sourcePort);
-  const nextDestinationPort = nodeGraphStereoPairSiblingPort(destinationPort);
-  if (!sourcePorts.includes(nextSourcePort) || !destinationPorts.includes(nextDestinationPort)) {
+  const srcMeta = nodeGraphPortPairMeta(sourcePort);
+  const dstMeta = nodeGraphPortPairMeta(destinationPort);
+  // Same pair group and same role (both L-side or both R-side).
+  if (!srcMeta || !dstMeta || srcMeta.group !== dstMeta.group || srcMeta.role !== dstMeta.role) {
+    return 0;
+  }
+  const sourcePorts = typeof nodeGraphPatchNodeOutputPorts === "function"
+    ? nodeGraphPatchNodeOutputPorts(sourceNode)
+    : [];
+  const destinationPorts = typeof nodeGraphPatchNodeInputPorts === "function"
+    ? nodeGraphPatchNodeInputPorts(destinationNode)
+    : [];
+  const nextSourcePort = nodeGraphPortPairSiblingOnModule(sourcePort, sourcePorts);
+  const nextDestinationPort = nodeGraphPortPairSiblingOnModule(destinationPort, destinationPorts);
+  if (!nextSourcePort || !nextDestinationPort) {
     return 0;
   }
   const duplicate = patch.connections.some(

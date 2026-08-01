@@ -1076,11 +1076,13 @@ function createNodeGraphPhosphorWaveformDisplay(nodeId, type) {
   section.dataset.nodeType = type;
   // Room dimmer rect punch (same contract as .node-module-scope-window).
   section.dataset.lightSource = "screen";
-  section.dataset.lightStrength = "0.74";
+  section.dataset.lightStrength = "1";
   section.setAttribute("aria-label", `${nodeGraphNodeDisplayName?.(nodeId) || "Music Player"} phosphor waveform display`);
 
   const canvas = document.createElement("canvas");
   canvas.className = "node-phosphor-waveform-canvas";
+  canvas.dataset.lightSource = "screen";
+  canvas.dataset.lightStrength = "1";
   section.append(canvas);
   bindNodeGraphPhosphorWaveformInteractions(section, canvas);
   window.requestAnimationFrame(() => scheduleNodeGraphPhosphorWaveformFrame(section));
@@ -1356,15 +1358,15 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
     : "#000000";
   context.fillRect(0, 0, width, height);
 
-  // Room dimmer: lit plate punches through the veil; cold boot is dark (0).
+  // Room dimmer: on = full hole (1), off = no hole (0). Dim amount is only uDim.
+  // Strength lives on the painted canvas (punch target), not the padded outer cell.
+  const strength = circuitRunning ? "1" : "0";
   if (section.dataset) {
-    if (!circuitRunning) {
-      section.dataset.lightStrength = "0";
-    } else {
-      const bgB = Number(settings.backgroundBrightness);
-      const b01 = Math.max(0.15, Math.min(1, (Number.isFinite(bgB) ? bgB : 1) / 2));
-      section.dataset.lightStrength = (0.45 + 0.4 * b01).toFixed(3);
-    }
+    section.dataset.lightStrength = strength;
+  }
+  if (canvas?.dataset) {
+    canvas.dataset.lightStrength = strength;
+    canvas.dataset.lightSource = "screen";
   }
 
   if (!circuitRunning) {

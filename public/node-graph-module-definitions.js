@@ -35,6 +35,7 @@ const nodeGraphNodeLabels = Object.freeze({
   triggerCounter: "Trigger Counter",
   triggerDivider: "Trigger Divider",
   comparator: "Comparator",
+  sampleDelay: "Sample Delay",
   bitConverter: "Bit Converter",
   stepSequencer: "Step Sequencer",
   spiral: "Spiral",
@@ -2061,15 +2062,42 @@ const nodeGraphModuleDefinitions = (
     parameters: [],
   },
   comparator: {
+    // Edge detector: 1-sample history of In. Pulses are digital (exact 0/1).
+    // Steady / Sign are continuous digital levels; Thru is the raw passthrough.
     digitalInputs: ["In"],
-    digitalOutputs: ["Gate", "Inv Gate", "Hold", "Up Trig", "Down Trig", "UpDn Trig"],
+    digitalOutputs: ["Up", "Down", "Change", "Steady", "Sign"],
     inputs: ["In"],
-    outputs: ["Gate", "Inv Gate", "Hold", "Up Trig", "Down Trig", "UpDn Trig", "Last High", "Last Low"],
+    outputs: ["Up", "Down", "Change", "Steady", "Sign", "Thru"],
+    parameters: [],
+  },
+  sampleDelay: {
+    // Pure delay: Delayed = In delayed by (time * sr + samples), Thru = In.
+    // Max combined delay 4s (reserved ring). Both params can be 0.
+    inputs: ["In"],
+    outputs: ["Delayed", "Thru"],
     parameters: [
-      { defaultValue: "0.5", key: "changeAmount", label: "Change Amount", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
-      { defaultValue: "0.01", key: "pulseTime", kind: "time", label: "Pulse Time", max: "2", maxDigits: 5, mid: "0.05", min: "0", step: "any", unit: "s" },
-      { defaultValue: "0.5", key: "triggerLevel", label: "Trigger Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
-      { defaultValue: "1", key: "pulseLevel", label: "Pulse Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
+      {
+        defaultValue: "0",
+        key: "time",
+        kind: "time",
+        label: "Time",
+        max: "4",
+        maxDigits: 5,
+        mid: "0.1",
+        min: "0",
+        step: "any",
+        unit: "s",
+      },
+      {
+        defaultValue: "0",
+        key: "samples",
+        label: "Samples",
+        max: "192000",
+        mid: "64",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+      },
     ],
   },
   clapPlugin: {

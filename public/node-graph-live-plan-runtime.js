@@ -346,6 +346,7 @@ function createNodeGraphLiveRuntime(plan) {
   const pllStates = new Map();
   const helmholtzStates = new Map();
   const sampleHoldStates = new Map();
+  const sampleDelayStates = new Map();
   const samplePlaybackStates = new Map();
   const samples = new Map((plan.samples || []).map((sample) => [sample.id, sample]));
   const slewLimiterStates = new Map();
@@ -488,6 +489,9 @@ function createNodeGraphLiveRuntime(plan) {
     }
     if (node.type === "comparator") {
       comparatorStates.set(node.id, createNodeGraphComparatorState());
+    }
+    if (node.type === "sampleDelay") {
+      sampleDelayStates.set(node.id, createNodeGraphSampleDelayState());
     }
     if (node.type === "aliasSine") {
       aliasSineStates.set(node.id, createNodeGraphAliasSineState());
@@ -700,6 +704,7 @@ function createNodeGraphLiveRuntime(plan) {
     bradley2AStates,
     antisawStates,
     sampleHoldStates,
+    sampleDelayStates,
     samplePlaybackStates,
     samples,
     scopeCaptureNodeIds: [...(plan.scopeCaptureNodeIds || [])],
@@ -822,6 +827,9 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   }
   if (!runtime.comparatorStates) {
     runtime.comparatorStates = new Map();
+  }
+  if (!runtime.sampleDelayStates) {
+    runtime.sampleDelayStates = new Map();
   }
   if (!runtime.aliasSineStates) {
     runtime.aliasSineStates = new Map();
@@ -1130,6 +1138,9 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     }
     if (node.type === "comparator" && !runtime.comparatorStates.has(node.id)) {
       runtime.comparatorStates.set(node.id, createNodeGraphComparatorState());
+    }
+    if (node.type === "sampleDelay" && !runtime.sampleDelayStates.has(node.id)) {
+      runtime.sampleDelayStates.set(node.id, createNodeGraphSampleDelayState());
     }
     if (node.type === "aliasSine" && !runtime.aliasSineStates.has(node.id)) {
       runtime.aliasSineStates.set(node.id, createNodeGraphAliasSineState());
@@ -1519,6 +1530,11 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   for (const id of [...runtime.comparatorStates.keys()]) {
     if (!nodeIds.has(id)) {
       runtime.comparatorStates.delete(id);
+    }
+  }
+  for (const id of [...runtime.sampleDelayStates.keys()]) {
+    if (!nodeIds.has(id)) {
+      runtime.sampleDelayStates.delete(id);
     }
   }
   for (const id of [...runtime.aliasSineStates.keys()]) {

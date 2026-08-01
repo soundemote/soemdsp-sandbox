@@ -744,6 +744,33 @@ async function setNodeGraphLiveOutputEnabled(enabled) {
 }
 
 /**
+ * Full simulation restart: cold stop (wipe screens / tear down audio) then
+ * start again. Does not require the user to stop first — transport ⏮ uses this.
+ */
+async function restartNodeGraphLiveSimulation() {
+  if (nodeGraphEarProtectionIsTripped()) {
+    nodeGraphTripEarProtection({ source: "live" });
+    renderNodeGraphLiveControls(false);
+    renderNodeGraphExecutionPlanDebug();
+    return false;
+  }
+  // Always tear down first so we never "soft resume" mid-session.
+  if (typeof setNodeGraphLiveOutputEnabled === "function") {
+    await setNodeGraphLiveOutputEnabled(false);
+    await setNodeGraphLiveOutputEnabled(true);
+  } else if (typeof startNodeGraphLiveAudio === "function") {
+    if (nodeGraphMvp.live.node || nodeGraphMvp.live.context) {
+      await stopNodeGraphLiveAudio();
+    }
+    nodeGraphMvp.live.outputEnabled = true;
+    await startNodeGraphLiveAudio();
+  }
+  renderNodeGraphLiveControls(Boolean(nodeGraphMvp.live.node));
+  renderNodeGraphExecutionPlanDebug();
+  return Boolean(nodeGraphMvp.live.outputEnabled && nodeGraphMvp.live.node);
+}
+
+/**
  * Red Output button / bypass: if the engine is on (running or paused), always
  * full stop. If off, start. Pause is transport-only until we have a timeline.
  */
@@ -2323,7 +2350,8 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/resonatorFilter/resonator-filter-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/humanFilter/human-filter-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/pulseExplosion/pulse-explosion-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/comparator/comparator-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/comparator/comparator-worklet-evaluator.js?v=edge-steady-sign-1",
+  "./public/modules/sampleDelay/sample-delay-worklet-evaluator.js?v=sample-delay-1",
   "./public/modules/minMax/min-max-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/aliasSine/alias-sine-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/tb303Filter/tb303-filter-worklet-evaluator.js?v=native-no-fallback-1",
@@ -2366,7 +2394,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/audioPlayer/audio-player-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/sinc/sinc-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/videoscope/videoscope-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/videoscope/videoscope-worklet-evaluator.js?v=videoscope-buffer-hold-1",
   "./public/modules/spectrogram/spectrogram-worklet-evaluator.js?v=native-strip-1",
   "./public/node-live-audio-worklet-register.js?v=blob-loader-20260711",
 ];

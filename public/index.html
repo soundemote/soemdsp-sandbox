@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>soemdsp-sandbox</title>
-  <link rel="stylesheet" href="./public/styles.css?v=window-spawn-label-wrap-1">
+  <link rel="stylesheet" href="./public/styles.css?v=cc-slim-no-scroll-1">
   <link rel="stylesheet" href="./public/modules/stepGrid/step-grid.css?v=stepgrid-own-folder-20260715">
 </head>
 <body class="debug-collapsed node-boot-loading">
@@ -1993,35 +1993,21 @@
                 <kbd>K</kbd>
               </button>
             </div>
-            <button id="nodeSceneOpenModuleBrowser" class="scene-context-window-button" type="button">
-              <span class="scene-context-window-button-icon" aria-hidden="true">🎛️</span>
-              <span class="scene-context-window-button-label">Modules</span>
-              <kbd>Shift+A</kbd>
-            </button>
-            <button id="nodeSceneOpenSavedPatches" class="scene-context-window-button" type="button">
-              <span class="scene-context-window-button-icon" aria-hidden="true">📁</span>
-              <span class="scene-context-window-button-label">Patch Explorer</span>
-            </button>
             <div class="scene-context-patch-actions" role="group" aria-label="Patch actions">
               <button id="nodeSceneCopyPatch" class="scene-context-patch-action-button" type="button" data-tooltip-key="actions.copyPatch">Copy</button>
               <button id="nodeScenePastePatch" class="scene-context-patch-action-button" type="button" data-tooltip-key="actions.pastePatch">Paste</button>
             </div>
-            <button id="nodeSceneOpenModuleActions" class="scene-context-window-button" type="button">
-              <span class="scene-context-window-button-icon" aria-hidden="true">⚙️</span>
-              <span class="scene-context-window-button-label">Module Settings</span>
-            </button>
-            <button id="nodeSceneOpenUiSettings" class="scene-context-window-button" type="button">
-              <span class="scene-context-window-button-icon" aria-hidden="true">🧩</span>
-              <span class="scene-context-window-button-label">UI Settings</span>
-            </button>
-            <button id="nodeSceneOpenPostProcessing" class="scene-context-window-button" type="button">
-              <span class="scene-context-window-button-icon" aria-hidden="true">✨</span>
-              <span class="scene-context-window-button-label">Screen Shader</span>
-            </button>
-            <button id="nodeSceneOpenVisibility" class="scene-context-window-button" type="button">
-              <span class="scene-context-window-button-icon" aria-hidden="true">👁️</span>
-              <span class="scene-context-window-button-label">Visibility</span>
-            </button>
+            <div
+              class="node-transport-group node-transport-group-command-center"
+              id="nodeSceneTransportGroup"
+              role="group"
+              aria-label="Transport controls">
+              <button type="button" data-transport-action="restart" title="Restart simulation (full cold boot)" aria-label="Restart simulation">⏮</button>
+              <button type="button" data-transport-action="stop" title="Stop" aria-label="Stop">⏹</button>
+              <button type="button" data-transport-action="play" title="Play / Pause" aria-label="Play" data-transport-play>▶</button>
+              <button type="button" data-transport-action="record" title="Record (under construction)" aria-label="Record (under construction)" disabled class="under-construction">⏺</button>
+              <button type="button" data-transport-action="forward" title="Forward (under construction)" aria-label="Forward (under construction)" disabled class="under-construction">⏭</button>
+            </div>
           </div>
         </div>
         <div id="nodeSceneSelectedModule" class="scene-context-selected-module" hidden>
@@ -2689,11 +2675,11 @@
           </button>
         </div>
         <div class="node-transport-group" id="nodeTransportGroup" aria-label="Transport controls">
-          <button id="nodeTransportPrev" type="button" title="Previous patch" aria-label="Previous patch">⏮</button>
-          <button id="nodeTransportStop" type="button" title="Stop" aria-label="Stop">⏹</button>
-          <button id="nodeTransportPlay" type="button" title="Play / Pause" aria-label="Play">▶</button>
-          <button id="nodeTransportRecord" type="button" title="Record (under construction)" aria-label="Record" disabled class="under-construction">⏺</button>
-          <button id="nodeTransportNext" type="button" title="Next patch" aria-label="Next patch">⏭</button>
+          <button id="nodeTransportPrev" type="button" data-transport-action="restart" title="Restart simulation (full cold boot)" aria-label="Restart simulation">⏮</button>
+          <button id="nodeTransportStop" type="button" data-transport-action="stop" title="Stop" aria-label="Stop">⏹</button>
+          <button id="nodeTransportPlay" type="button" data-transport-action="play" data-transport-play title="Play / Pause" aria-label="Play">▶</button>
+          <button id="nodeTransportRecord" type="button" data-transport-action="record" title="Record (under construction)" aria-label="Record (under construction)" disabled class="under-construction">⏺</button>
+          <button id="nodeTransportNext" type="button" data-transport-action="forward" title="Forward (under construction)" aria-label="Forward (under construction)" disabled class="under-construction">⏭</button>
         </div>
         <div class="node-render-duration-control" id="nodeRenderDurationControl">
           <button id="nodeRenderButton" type="button"><span>Render</span><span>Sample</span></button>
@@ -3547,7 +3533,7 @@
   <script src="./public/node-graph-image-utils.js?v=pre-formula-restore-1"></script>
   <script src="./public/node-graph-graph-utils.js?v=contour-square-blend-1"></script>
   <script src="./public/node-graph-samples.js?v=music-player-phase-persist-1"></script>
-  <script src="./public/node-graph-phosphor-waveform.js?v=dimmer-punch-screens-1"></script>
+  <script src="./public/node-graph-phosphor-waveform.js?v=dimmer-zoom-tight-1"></script>
   <script src="./public/node-graph-phosphillator.js?v=linebrightness-safe-3"></script>
   <script src="./public/node-graph-embed-config.js?v=embed-config-20260701"></script>
   <script src="./public/node-graph-resources.js?v=embed-config-20260701"></script>
@@ -3582,19 +3568,19 @@
   <script src="./public/lib/trace/trace-stroke.js?v=trace-vector-2"></script>
   <script src="./public/node-graph-phosphor-gaussian-drawer.js?v=gaussian-beam-continuous-1"></script>
   <script type="module" src="./public/color-widget-boot.js?v=bw-channels-1"></script>
-  <script src="./public/modules/spectrogram/spectrogram-gradient-editor.js?v=gradient-selector-1"></script>
-  <script src="./public/node-graph-module-scopes.js?v=dimmer-punch-screens-1"></script>
+  <script src="./public/modules/spectrogram/spectrogram-gradient-editor.js?v=videoscope-settings-2"></script>
+  <script src="./public/node-graph-module-scopes.js?v=videoscope-buffer-hold-1"></script>
   <script src="./public/modules/phosphorLight/phosphor-light-display.js?v=alias-only-1"></script>
   <script src="./public/modules/oscilloscopeBank/oscilloscope-bank-display.js?v=energy-drawer-1"></script>
-  <script src="./public/modules/videoscope/videoscope-display.js?v=energy-drawer-1"></script>
+  <script src="./public/modules/videoscope/videoscope-display.js?v=videoscope-buffer-hold-1"></script>
   <script src="./public/modules/spectrogram/spectrogram-display.js?v=spectrogram-hist-overlap-1"></script>
   <script src="./public/modules/transport/transport-display.js?v=transport-bpm-20260714"></script>
-  <script src="./public/node-graph-room-dimmer.js?v=dimmer-punch-screens-1"></script>
+  <script src="./public/node-graph-room-dimmer.js?v=dim-persist-max-05-1"></script>
   <script src="./public/node-graph-canvas-script.js?v=floating-chrome-unify-1"></script>
   <script src="./public/node-graph-module-factories.js?v=layoutb-no-io-labels-1"></script>
   <script src="./public/modules/led/led-ui.js?v=led-fill-images-1"></script>
   <script src="./public/modules/led/led-settings.js?v=no-led-float-window-1"></script>
-  <script src="./public/modules/led/led-display.js?v=led-fill-images-1"></script>
+  <script src="./public/modules/led/led-display.js?v=dim-full-range-1"></script>
   <script src="./public/modules/bugButton/bug-button-ui.js?v=bug-button-settings-edit-20260723"></script>
   <script src="./public/modules/xyPad/xy-pad-ui.js?v=xy-pad-center-q-1"></script>
   <script src="./public/modules/numberReadout/number-readout-ui.js?v=number-readout-solid-1"></script>
@@ -3631,7 +3617,7 @@
   <script src="./public/node-graph-execution-wires.js?v=external-graph-inputs-1780816800000"></script>
   <script src="./public/node-graph-execution-plan.js?v=layout-ab-clean-1"></script>
   <script src="./public/node-graph-execution-summary.js?v=slider-unit-color-1780307400000"></script>
-  <script src="./public/node-graph-wire-actions.js?v=wire-connect-1"></script>
+  <script src="./public/node-graph-wire-actions.js?v=port-pair-expand-1"></script>
   <script src="./public/node-graph-trace-router.js?v=no-self-burst-1780321400000"></script>
   <script src="./public/node-graph-wire-rendering.js?v=wire-gradient-restored-1"></script>
   <script src="./public/node-graph-render-output.js?v=output-one-trip-1"></script>
@@ -3653,7 +3639,7 @@
   <script src="./public/node-graph-live-meter-controls.js?v=audio-overrun-meter-2"></script>
   <script src="./public/node-graph-live-input-status.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-live-evidence.js?v=badval-face-1"></script>
-  <script src="./public/node-graph-live-control-rendering.js?v=io-vol-mirror-1"></script>
+  <script src="./public/node-graph-live-control-rendering.js?v=cc-transport-1"></script>
   <script src="./public/node-graph-default-patch.js?v=value-slider-face-layers-1"></script>
   <script src="./public/node-graph-state.js?v=grid-default-on-20260725"></script>
   <script src="./public/node-graph-external-ui-events.js?v=xy-pad-impulse-1"></script>
@@ -3732,7 +3718,8 @@
   <script src="./public/modules/resonatorFilter/resonator-filter-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/humanFilter/human-filter-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/pulseExplosion/pulse-explosion-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/comparator/comparator-live-evaluator.js?v=per-module-dispatch-20260711"></script>
+  <script src="./public/modules/comparator/comparator-live-evaluator.js?v=edge-steady-sign-1"></script>
+  <script src="./public/modules/sampleDelay/sample-delay-live-evaluator.js?v=sample-delay-1"></script>
   <script src="./public/modules/minMax/min-max-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/bitConverter/bit-converter-live-evaluator.js?v=bit-converter-20260717"></script>
   <script src="./public/modules/aliasSine/alias-sine-live-evaluator.js?v=per-module-dispatch-20260711"></script>
@@ -3741,7 +3728,7 @@
   <script src="./public/modules/pingPongDelay/ping-pong-delay-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/wallDelay/wall-delay-live-evaluator.js?v=wall-delay-nudge-helper-20260718"></script>
   <script src="./public/modules/wallDelay/wall-delay-room-display.js?v=wall-delay-nudge-helper-20260718"></script>
-  <script src="./public/modules/reverbEffect/reverb-effect-live-evaluator.js?v=per-module-dispatch-20260711"></script>
+  <script src="./public/modules/reverbEffect/reverb-effect-live-evaluator.js?v=port-pair-expand-1"></script>
   <script src="./public/modules/pll/pll-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/helmholtzPitch/helmholtz-pitch-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/slewLimiter/slew-limiter-live-evaluator.js?v=per-module-dispatch-20260711"></script>
@@ -3811,7 +3798,7 @@
   <script src="./public/modules/graph/graph-live-evaluator.js?v=retire-graph-type-20260724"></script>
   <script src="./public/modules/polyBlep/poly-blep-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/node-graph-pulse-explosion-display.js?v=shared-canvas-sizing-20260725"></script>
-  <script src="./public/node-graph-live-runtime.js?v=native-no-fallback-1"></script>
+  <script src="./public/node-graph-live-runtime.js?v=transport-restart-1"></script>
   <script src="./public/node-graph-wire-controller-bootstrap.js?v=wire-break-trigger-0129"></script>
   <script src="./public/node-graph-workspace-event-bindings.js?v=core-reduction-1"></script>
   <script src="./public/node-graph-render-live-event-bindings.js?v=midi-toggle-20260725"></script>

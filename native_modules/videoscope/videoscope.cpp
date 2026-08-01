@@ -7,6 +7,10 @@
 // thread: ring-buffer both channels every sample, trigger on a level
 // crossing, capture a window off the trigger, then let the JS side query
 // min/max per pixel column so oversampled windows don't lose narrow spikes.
+//
+// Capture is frozen into capA/capB on trigger so continued ring writes
+// (and burst catch-up after UI stalls / plan sync) cannot overwrite the
+// displayed window until the next re-trigger.
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -22,15 +26,20 @@ enum Mode { MODE_DOT = 0, MODE_LINE = 1, MODE_XY = 2 };
 struct ScopeState {
   bool active;
 
+  // Live ring (always writing when not frozen).
   double bufA[kBufferCapacity];
   double bufB[kBufferCapacity];
   int writeIndex;
   int filled;  // how many samples have ever been written, capped at capacity
 
   bool lastAboveLevel;
-  int triggerIndex;   // index into the buffer (mod capacity) of the last trigger
+  int triggerIndex;   // ring index just past the trigger sample
   bool hasCapture;
   int windowSize;      // samples in the currently captured frame
+
+  // Frozen acquisition memory — stable until next trigger.
+  double capA[kBufferCapacity];
+  double capB[kBufferCapacity];
 };
 
 static ScopeState gPool[kMaxInstances];
@@ -39,6 +48,22 @@ double absVal(double v) { return v < 0.0 ? -v : v; }
 
 int clampInt(int v, int lo, int hi) {
   return v < lo ? lo : (v > hi ? hi : v);
+}
+
+void copyCaptureWindow(ScopeState& s) {
+  const int n = s.windowSize;
+  if (n <= 0 || n > kBufferCapacity) {
+    s.hasCapture = false;
+    return;
+  }
+  for (int i = 0; i < n; i++) {
+    int index = s.triggerIndex - n + i;
+    index %= kBufferCapacity;
+    if (index < 0) index += kBufferCapacity;
+    s.capA[i] = s.bufA[index];
+    s.capB[i] = s.bufB[index];
+  }
+  s.hasCapture = true;
 }
 
 }  // namespace
@@ -104,20 +129,18 @@ extern "C" void soemdsp_videoscope_push(
     s.triggerIndex = s.writeIndex;  // most recent sample = the trigger point
     s.windowSize = clampInt(timeDivSamples, 1, kBufferCapacity);
     if (s.windowSize <= s.filled) {
-      s.hasCapture = true;
+      // Snapshot into freeze buffer so later ring writes cannot dump it.
+      copyCaptureWindow(s);
     }
   }
 }
 
 // Reads back a captured sample: offset 0 = oldest sample in the window,
 // offset windowSize-1 = the trigger point itself.
-double capturedSample(ScopeState& s, const double* buf, int offset) {
+double capturedSample(ScopeState& s, const double* cap, int offset) {
   if (!s.hasCapture || s.windowSize <= 0) return 0.0;
   const int clampedOffset = clampInt(offset, 0, s.windowSize - 1);
-  int index = s.triggerIndex - s.windowSize + clampedOffset;
-  index %= kBufferCapacity;
-  if (index < 0) index += kBufferCapacity;
-  return buf[index];
+  return cap[clampedOffset];
 }
 
 extern "C" int soemdsp_videoscope_window_size(int handle) {
@@ -133,12 +156,12 @@ extern "C" double soemdsp_videoscope_column_min(int handle, int channelSelect, i
   if (handle < 1 || handle > kMaxInstances || columns <= 0) return 0.0;
   ScopeState& s = gPool[handle - 1];
   if (!s.hasCapture) return 0.0;
-  const double* buf = channelSelect == 1 ? s.bufB : s.bufA;
+  const double* cap = channelSelect == 1 ? s.capB : s.capA;
   const int start = (col * s.windowSize) / columns;
   const int end = clampInt(((col + 1) * s.windowSize) / columns, start + 1, s.windowSize);
-  double minValue = capturedSample(s, buf, start);
+  double minValue = capturedSample(s, cap, start);
   for (int i = start + 1; i < end; i++) {
-    const double v = capturedSample(s, buf, i);
+    const double v = capturedSample(s, cap, i);
     if (v < minValue) minValue = v;
   }
   return minValue;
@@ -148,12 +171,12 @@ extern "C" double soemdsp_videoscope_column_max(int handle, int channelSelect, i
   if (handle < 1 || handle > kMaxInstances || columns <= 0) return 0.0;
   ScopeState& s = gPool[handle - 1];
   if (!s.hasCapture) return 0.0;
-  const double* buf = channelSelect == 1 ? s.bufB : s.bufA;
+  const double* cap = channelSelect == 1 ? s.capB : s.capA;
   const int start = (col * s.windowSize) / columns;
   const int end = clampInt(((col + 1) * s.windowSize) / columns, start + 1, s.windowSize);
-  double maxValue = capturedSample(s, buf, start);
+  double maxValue = capturedSample(s, cap, start);
   for (int i = start + 1; i < end; i++) {
-    const double v = capturedSample(s, buf, i);
+    const double v = capturedSample(s, cap, i);
     if (v > maxValue) maxValue = v;
   }
   return maxValue;
@@ -163,15 +186,15 @@ extern "C" double soemdsp_videoscope_column_max(int handle, int channelSelect, i
 extern "C" double soemdsp_videoscope_xy_a(int handle, int index) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
   ScopeState& s = gPool[handle - 1];
-  return capturedSample(s, s.bufA, index);
+  return capturedSample(s, s.capA, index);
 }
 
 extern "C" double soemdsp_videoscope_xy_b(int handle, int index) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
   ScopeState& s = gPool[handle - 1];
-  return capturedSample(s, s.bufB, index);
+  return capturedSample(s, s.capB, index);
 }
 
 extern "C" int soemdsp_videoscope_version() {
-  return 1;
+  return 2;
 }

@@ -908,6 +908,23 @@
       defaultStops: "phosphor",
       hint: "Select a stop · presets · live audition on the burn trail",
     }),
+    // Videoscope / bank / hypersaw: mono energy phosphor (same LUT as scope2d).
+    // Required so usesDisplayGradient(formType) is true and the host mounts.
+    videoscopeBurn: Object.freeze({
+      channels: "color",
+      defaultStops: "phosphor",
+      hint: "Select a stop · presets · live audition on the videoscope face",
+    }),
+    oscilloscopeBankBurn: Object.freeze({
+      channels: "color",
+      defaultStops: "phosphor",
+      hint: "Select a stop · presets · live audition on the bank face",
+    }),
+    hypersawBurn: Object.freeze({
+      channels: "color",
+      defaultStops: "phosphor",
+      hint: "Select a stop · presets · live audition on the hypersaw face",
+    }),
     // Same color×luma scheme as 2D phosphor: multi-stop color LUT maps
     // underlying light amount (energy / segment intensity) → color.
     numberReadout: Object.freeze({
