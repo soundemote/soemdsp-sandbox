@@ -1263,14 +1263,10 @@ function wipeNodeGraphModuleScopeScreensToColdBoot() {
       delete face.dataset.ledAppearance;
     }
   }
-  // Room-light emitters go dark with the simulation. Always-on display plates
-  // (Number Readout LCD, Value Slider face) keep a full hole under the dimmer.
+  // Room-light emitters go dark with the simulation. Number Readout LCD keeps
+  // a full hole; Value Slider only re-lights when face art is present (paint).
   for (const el of document.querySelectorAll("[data-light-strength], [data-light-source]")) {
-    if (
-      el.dataset
-      && !el.classList?.contains("node-number-readout-face")
-      && !el.classList?.contains("node-value-slider-face")
-    ) {
+    if (el.dataset && !el.classList?.contains("node-number-readout-face")) {
       el.dataset.lightStrength = "0";
     }
   }
@@ -2476,7 +2472,7 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
   color: "#ff0000",
   dot1Enabled: true,
   dot1Size: 0.08,
-  // Output stereo: combine | lighter | screen | source-over | multiply | difference | exclusion | xor
+  // Output stereo: combine (Meet) | lighter | screen | source-over | multiply | …
   stereoBlend: "combine",
   // Meet always auto from Left/Right (complement + soft screen lift).
   meetColor: "auto",
@@ -2512,7 +2508,8 @@ const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   trail: 0.7,
   // Amplitude zoom (Y).
   scale: 1,
-  dot1Brightness: 2,
+  // Bright 0…1 (1 = full deposit energy).
+  dot1Brightness: 1,
   dot1Color: "#75ebff",
   dot1Enabled: true,
   dot1Size: 0.07,
@@ -2568,11 +2565,12 @@ const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
 // numberReadout: independent schema. Residual is previous-digit ghosts only.
 // "trail" UI = how long the last number's residual remains (0 = off, 1 = long).
 // Digit color shares 2D phosphor: multi-stop gradient as energy→color LUT.
+// Bright is 0…1 energy (1 = full gradient tip / full deposit — not a 0…2 overdrive).
 // background = LCD back plate color (separate widget; not gradient floor).
 // Unlit plate = ghostColor only (pick dim/bright there — no ghost-amount slider).
 const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   background: "#000000",
-  brightness: 0.92,
+  brightness: 1,
   color: "#75ebff",
   trail: 0.45,
   decimals: 2,
@@ -2583,6 +2581,11 @@ const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
     Object.freeze({ t: 0.55, color: "#3a9aab" }),
     Object.freeze({ t: 1, color: "#75ebff" }),
   ]),
+});
+
+/** Value Slider face display settings (readout precision only). */
+const nodeGraphValueSliderFaceDisplaySettingsDefaults = Object.freeze({
+  decimals: 2,
 });
 
 // Spectrogram display settings (not module params).
@@ -2979,7 +2982,7 @@ function normalizeNodeGraphXyPadDisplaySettings(settings = {}) {
       source.dot1Brightness ?? source.brightness,
       defaults.dot1Brightness,
       0,
-      Infinity,
+      1,
     ),
     dot1Color: normalizeNodeGraphTraceDisplayColor(peak, defaults.dot1Color),
     dot1Enabled: true,
@@ -3117,7 +3120,7 @@ function normalizeNodeGraphLineBurnSettings(settings = {}) {
       source.dot1Brightness ?? source.brightness,
       defaults.dot1Brightness,
       0,
-      Infinity,
+      1,
     ),
     dot1Color: normalizeNodeGraphTraceDisplayColor(peak, defaults.dot1Color),
     // Always on — hide the display if you don't want the pen.
@@ -3155,7 +3158,7 @@ function normalizeNodeGraphZeroDBurnSettings(settings = {}) {
       source.dot1Brightness ?? source.brightness,
       defaults.dot1Brightness,
       0,
-      2,
+      1,
     ),
     dot1Color: normalizeNodeGraphTraceDisplayColor(peak, defaults.dot1Color),
     dot1Enabled: true,
@@ -3187,7 +3190,7 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
       source.brightness ?? source.dot1Brightness,
       defaults.brightness,
       0,
-      Infinity,
+      1,
     ),
     color: normalizeNodeGraphTraceDisplayColor(source.color ?? source.dot1Color, defaults.color),
     dot1Enabled: true,
@@ -3201,7 +3204,7 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
       source.secondaryBrightness,
       defaults.secondaryBrightness,
       0,
-      Infinity,
+      1,
     ),
     secondaryColor: normalizeNodeGraphTraceDisplayColor(source.secondaryColor, defaults.secondaryColor),
     secondaryEnabled: source.secondaryEnabled !== false,
@@ -3265,7 +3268,7 @@ function normalizeNodeGraphValueOscilloscopeSettings(settings = {}) {
       source.brightness ?? source.dot1Brightness,
       defaults.brightness,
       0,
-      Infinity,
+      1,
     ),
     capEnabled: source.capEnabled !== false,
     capLength: normalizeNodeGraphTraceDisplayNumber(source.capLength, defaults.capLength, 0, 1),
@@ -3347,13 +3350,15 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}) {
   );
   return {
     background,
+    // 0…1 energy for live digits + residual deposit (1 = gradient tip / full white).
+    // Legacy max was 2 with paint-time /2 — that made Bright 1 look half-grey.
     brightness: normalizeNodeGraphTraceDisplayNumber(
       source.brightness ?? source.dot1Brightness,
       defaults.brightness,
       0,
-      2,
+      1,
     ),
-    // Digits = gradient peak (full light); unlit segments use ghostColor as-is.
+    // Digits = gradient at Bright energy; unlit segments use ghostColor as-is.
     color: peak,
     // Residual hold of previous number (0 = none, 1 = long). Legacy decay was same polarity.
     trail: (typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
@@ -3366,6 +3371,34 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}) {
     ),
     gradientStops,
   };
+}
+
+function normalizeNodeGraphValueSliderFaceDisplaySettings(settings = {}) {
+  const source = settings && typeof settings === "object" ? settings : {};
+  const defaults = nodeGraphValueSliderFaceDisplaySettingsDefaults;
+  return {
+    decimals: normalizeNodeGraphTraceDisplayNumber(
+      source.decimals ?? source.numDecimals,
+      defaults.decimals,
+      0,
+      8,
+      true,
+    ),
+  };
+}
+
+function nodeGraphValueSliderFaceDisplaySettingsForNode(node) {
+  if (!node) {
+    return normalizeNodeGraphValueSliderFaceDisplaySettings();
+  }
+  // Prefer display-settings bucket; fall back to face blob if an older path wrote there.
+  const fromDisplay = node.traceDisplaySettings;
+  const fromFace = node.valueSliderFace;
+  const merged = {
+    ...(fromFace && typeof fromFace === "object" ? fromFace : {}),
+    ...(fromDisplay && typeof fromDisplay === "object" ? fromDisplay : {}),
+  };
+  return normalizeNodeGraphValueSliderFaceDisplaySettings(merged);
 }
 
 function normalizeNodeGraphScope2dSettings(settings = {}) {
@@ -3384,7 +3417,7 @@ function normalizeNodeGraphScope2dSettings(settings = {}) {
       source.dot1Brightness ?? source.brightness,
       defaults.dot1Brightness,
       0,
-      Infinity,
+      1,
     ),
     dot1Color: normalizeNodeGraphTraceDisplayColor(peak, defaults.dot1Color),
     dot1Enabled: true,
@@ -3421,7 +3454,7 @@ function normalizeNodeGraphScope2dTraceSettings(settings = {}) {
       source.dot1Brightness ?? source.brightness,
       defaults.dot1Brightness,
       0,
-      Infinity,
+      1,
     ),
     dot1Color: normalizeNodeGraphTraceDisplayColor(source.dot1Color ?? source.color, defaults.dot1Color),
     dot1Enabled: true,
@@ -3645,11 +3678,17 @@ function nodeGraphModuleDisplayModesForType(type) {
   const modes = Array.isArray(declared)
     ? declared.map((mode, index) => normalizeNodeGraphDisplayMode(mode, type, index)).filter(Boolean)
     : [];
-  if (modes.length) {
-    return nodeGraphModuleWithSpectrumCompanionMode(modes);
+  const base = modes.length
+    ? modes
+    : (() => {
+      const implicit = nodeGraphModuleImplicitDisplayModeForType(type);
+      return implicit ? [implicit] : [];
+    })();
+  // Opt out (e.g. Output): one fixed face — no Mode dropdown (Trace vs Spectrum).
+  if (nodeGraphModuleDefinitions?.[type]?.spectrumCompanion === false) {
+    return base;
   }
-  const implicit = nodeGraphModuleImplicitDisplayModeForType(type);
-  return nodeGraphModuleWithSpectrumCompanionMode(implicit ? [implicit] : []);
+  return nodeGraphModuleWithSpectrumCompanionMode(base);
 }
 
 function nodeGraphModuleDefaultDisplayModeKeyForType(type) {
@@ -4639,21 +4678,19 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
+  // Value Slider face: readout precision (images / rotate stay in Module Settings).
+  valueSliderFace: Object.freeze({
+    fields: Object.freeze(["decimals"]),
+    colors: Object.freeze([]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
 });
 
 function nodeGraphTraceDisplayActiveControlsForType(type = nodeGraphTraceDisplaySettingsFormType()) {
   const key = String(type || "").trim();
   if (nodeGraphTraceDisplayActiveControlsByType[key]) {
     return nodeGraphTraceDisplayActiveControlsByType[key];
-  }
-  // Value Slider face has no display steppers (art is Module Settings).
-  if (key === "valueSliderFace") {
-    return Object.freeze({
-      fields: Object.freeze([]),
-      colors: Object.freeze([]),
-      toggles: Object.freeze([]),
-      choices: Object.freeze([]),
-    });
   }
   // Energy / *Burn faces → scope2d controls. Never default unknown types to
   // "trace" (Output stereo page) — that leaked syncChannel/stereoBlend onto
@@ -4805,7 +4842,12 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
   zoomSeconds: Object.freeze({ label: "History (s)", inputmode: "decimal", id: "nodeTraceDisplayZoomSeconds" }),
   sweepSeconds: Object.freeze({ label: "Sweep (s)", inputmode: "decimal", id: "nodeTraceDisplaySweepSeconds" }),
   cycles: Object.freeze({ label: "Cycles", inputmode: "decimal", id: "nodeTraceDisplayCycles" }),
-  decimals: Object.freeze({ label: "Decimals", inputmode: "decimal", id: "nodeTraceDisplayDecimals" }),
+  decimals: Object.freeze({
+    label: "Decimals",
+    inputmode: "numeric",
+    id: "nodeTraceDisplayDecimals",
+    title: "Digits after the decimal point (0–8).",
+  }),
   hue: Object.freeze({
     label: "Hue",
     inputmode: "decimal",
@@ -4824,7 +4866,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Bright",
     inputmode: "decimal",
     id: "nodeTraceDisplayBrightness",
-    title: "Peak deposit / present light. Not Ghost (dim scorch hang) or Trail (hot residual length).",
+    title: "Peak deposit / present light 0–1 (1 = full energy / gradient tip). Not Ghost or Trail.",
   }),
   lineThickness: Object.freeze({ label: "Blur", inputmode: "decimal", id: "nodeTraceDisplayLineThickness" }),
   dot1Size: Object.freeze({ label: "Size", inputmode: "decimal", id: "nodeTraceDisplayDot1Size" }),
@@ -4854,27 +4896,28 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
   }),
 });
 
+// No side-column "Color" labels — the widget is self-evident; full-width row only.
 const nodeGraphDisplaySettingsColorMeta = Object.freeze({
   backgroundColor: Object.freeze({
-    label: "Background",
+    label: "",
     aria: "Background color",
     defaultValue: "#000000",
     id: "nodeTraceDisplayBackgroundColor",
   }),
   ghostColor: Object.freeze({
-    label: "Ghost",
-    aria: "LCD unlit segment color (choose dim or bright here)",
+    label: "",
+    aria: "LCD unlit segment color",
     defaultValue: "#1a4a55",
     id: "nodeTraceDisplayGhostColor",
   }),
   dot1Color: Object.freeze({
-    label: "Color",
-    aria: "Dot color",
+    label: "",
+    aria: "Primary color",
     defaultValue: "#ff0000",
     id: "nodeTraceDisplayColor",
   }),
   secondaryColor: Object.freeze({
-    label: "Color",
+    label: "",
     aria: "Secondary color",
     defaultValue: "#0000ff",
     id: "nodeTraceDisplaySecondaryColor",
@@ -4898,8 +4941,8 @@ const nodeGraphDisplaySettingsChoiceMeta = Object.freeze({
     aria: "Stereo blend mode",
     id: "nodeTraceDisplayStereoBlend",
     options: Object.freeze([
-      Object.freeze({ value: "combine", label: "Combine (meet)" }),
-      Object.freeze({ value: "lighter", label: "Add (lighter)" }),
+      Object.freeze({ value: "combine", label: "Meet" }),
+      Object.freeze({ value: "lighter", label: "Add" }),
       Object.freeze({ value: "screen", label: "Screen" }),
       Object.freeze({ value: "source-over", label: "Over" }),
       Object.freeze({ value: "multiply", label: "Multiply" }),
@@ -4986,6 +5029,7 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   videoscopeBurn: "Videoscope",
   oscilloscopeBankBurn: "Bank",
   hypersawBurn: "Hypersaw",
+  valueSliderFace: "Value Slider",
 });
 
 const nodeGraphDisplaySettingsSectionOrder = Object.freeze([
@@ -5016,15 +5060,22 @@ function nodeGraphDisplaySettingsEscapeHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
-function nodeGraphDisplaySettingsBuildStepperRowHtml(key) {
+function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null) {
   const meta = nodeGraphDisplaySettingsFieldMeta[key] || { label: key, inputmode: "decimal" };
-  const titleAttr = meta.title
-    ? ` title="${nodeGraphDisplaySettingsEscapeHtml(meta.title)}"`
+  let label = meta.label;
+  let title = meta.title;
+  // Value Slider display settings: explicit "Num decimals" for the face readout.
+  if (key === "decimals" && formType === "valueSliderFace") {
+    label = "Num decimals";
+    title = "Digits after the decimal on the Value Slider face readout (0–8).";
+  }
+  const titleAttr = title
+    ? ` title="${nodeGraphDisplaySettingsEscapeHtml(title)}"`
     : "";
   const idAttr = meta.id ? ` id="${nodeGraphDisplaySettingsEscapeHtml(meta.id)}"` : "";
   return `
     <label class="node-trace-display-line-burn-row" data-trace-display-control-row>
-      <span>${nodeGraphDisplaySettingsEscapeHtml(meta.label)}</span>
+      <span>${nodeGraphDisplaySettingsEscapeHtml(label)}</span>
       <span class="metadata-stepper-control">
         <button type="button" data-trace-display-step-target="${key}" data-trace-display-step-direction="-1">-</button>
         <input type="text" inputmode="${meta.inputmode || "decimal"}" data-trace-display-field="${key}"${idAttr}${titleAttr}>
@@ -5068,35 +5119,35 @@ function nodeGraphDisplaySettingsBuildChoiceRowHtml(key) {
 
 function nodeGraphDisplaySettingsColorRowMeta(key, formType = null) {
   const base = nodeGraphDisplaySettingsColorMeta[key] || {
-    label: key,
+    label: "",
     aria: key,
     defaultValue: "#ffffff",
   };
-  // Number Readout: side labels omitted — SoundColorWidget already titles
-  // "Plate" / "Ghost" in large type; free the full row for the widget.
-  if (formType === "numberReadout" && (key === "backgroundColor" || key === "ghostColor")) {
-    return {
-      ...base,
-      label: "",
-      aria: key === "ghostColor" ? "LCD ghost segment color" : "LCD back plate color",
-      sideLabel: false,
-    };
+  // Never a side "Color |" column — one contiguous widget row app-wide.
+  let aria = base.aria || key;
+  if (formType === "numberReadout" && key === "ghostColor") {
+    aria = "LCD ghost segment color";
+  } else if (formType === "numberReadout" && key === "backgroundColor") {
+    aria = "LCD back plate color";
   }
-  return { ...base, sideLabel: true };
+  return {
+    ...base,
+    label: "",
+    aria,
+    sideLabel: false,
+  };
 }
 
 function nodeGraphDisplaySettingsBuildColorRowHtml(key, formType = null) {
   const meta = nodeGraphDisplaySettingsColorRowMeta(key, formType);
   const idAttr = meta.id ? ` id="${nodeGraphDisplaySettingsEscapeHtml(meta.id)}"` : "";
-  const noSide = meta.sideLabel === false || !meta.label;
   return `
-    <div class="node-trace-display-color-widget-row${noSide ? " no-side-label" : ""}" data-trace-display-control-row data-trace-display-color-row="${key}">
-      <span>${nodeGraphDisplaySettingsEscapeHtml(meta.label || "")}</span>
+    <div class="node-trace-display-color-widget-row no-side-label" data-trace-display-control-row data-trace-display-color-row="${key}">
       <div
         class="node-trace-display-color-widget-host"
         data-trace-display-color-widget="${key}"
         role="group"
-        aria-label="${nodeGraphDisplaySettingsEscapeHtml(meta.aria || meta.label || key)}"></div>
+        aria-label="${nodeGraphDisplaySettingsEscapeHtml(meta.aria || key)}"></div>
       <input type="hidden" data-trace-display-color="${key}"${idAttr} value="${nodeGraphDisplaySettingsEscapeHtml(meta.defaultValue || "#ffffff")}">
     </div>`;
 }
@@ -5263,7 +5314,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
       rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml(key));
     }
     for (const key of fieldKeys) {
-      rows.push(nodeGraphDisplaySettingsBuildStepperRowHtml(key));
+      rows.push(nodeGraphDisplaySettingsBuildStepperRowHtml(key, type));
     }
     for (const key of colorKeys) {
       rows.push(nodeGraphDisplaySettingsBuildColorRowHtml(key, type));
@@ -5653,6 +5704,11 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
   if (type === "numberReadout") {
     return normalizeNodeGraphNumberReadoutSettings(nodeGraphNumberReadoutSettingsDefaults);
   }
+  if (type === "valueSliderFace") {
+    return normalizeNodeGraphValueSliderFaceDisplaySettings(
+      nodeGraphValueSliderFaceDisplaySettingsDefaults,
+    );
+  }
   if (type === "xyPad") {
     return normalizeNodeGraphXyPadDisplaySettings(nodeGraphXyPadDisplaySettingsDefaults);
   }
@@ -5711,6 +5767,9 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
   }
   if (type === "numberReadout") {
     return normalizeNodeGraphNumberReadoutSettings(settings);
+  }
+  if (type === "valueSliderFace") {
+    return normalizeNodeGraphValueSliderFaceDisplaySettings(settings);
   }
   if (type === "xyPad") {
     return normalizeNodeGraphXyPadDisplaySettings(settings);
@@ -5822,6 +5881,9 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
   }
   if (settingsSchema === "numberReadout") {
     return normalizeNodeGraphNumberReadoutSettings(node.traceDisplaySettings);
+  }
+  if (settingsSchema === "valueSliderFace") {
+    return nodeGraphValueSliderFaceDisplaySettingsForNode(node);
   }
   if (settingsSchema === "xyPad") {
     return normalizeNodeGraphXyPadDisplaySettings(node.traceDisplaySettings);
@@ -6173,7 +6235,8 @@ function nodeGraphTraceDisplaySensitiveControlMax(key) {
   if (key === "pixelDensity") {
     return 4;
   }
-  return ["dot1Brightness", "secondaryBrightness"].includes(key) ? 2 : 1;
+  // Bright is 0…1 energy app-wide (1 = full tip / full deposit).
+  return 1;
 }
 
 function nodeGraphTraceDisplaySizeToControlValue(value, max = 1) {
@@ -6226,8 +6289,9 @@ function nodeGraphTraceDisplayClampHistorySeconds(value) {
   return clampNodeSliderValue(n, 0, nodeGraphTraceDisplayMaxZoomSeconds);
 }
 
+/** Display Bright 0…1 (1 = full energy / gradient tip). Legacy 0…2 values clamp to 1. */
 function nodeGraphTraceDisplayClampBrightness(value) {
-  return clampNodeSliderValue(Number(value) || 0, 0, 2);
+  return clampNodeSliderValue(Number(value) || 0, 0, 1);
 }
 
 function nodeGraphTraceDisplayClampPixelDensity(value) {
@@ -6300,7 +6364,7 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
       return clampNodeSliderValue(n, 0.1, 30);
     },
   }),
-  // LED lamp: hue degrees, blur 0–1, rounding %, brightness 0–2.
+  // LED lamp: hue degrees, blur 0–1, rounding %, brightness 0–1.
   ledLamp: Object.freeze({
     hue: (value) => {
       const n = Number(value);
@@ -6309,7 +6373,7 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
     },
     lineThickness: nodeGraphTraceDisplayClampUnit,
     rounding: (value) => clampNodeSliderValue(Number(value) || 0, 0, 100),
-    dot1Brightness: (value) => clampNodeSliderValue(Number(value) || 0, 0, 2),
+    dot1Brightness: nodeGraphTraceDisplayClampBrightness,
   }),
   // Phosphor Dot: same blur continuum as 2D Phosphor stamps.
   dot: Object.freeze({
@@ -6684,6 +6748,10 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     node.traceDisplaySettings = normalizeNodeGraphNumberReadoutSettings(settings);
     return node.traceDisplaySettings;
   }
+  if (displayType === "valueSliderFace") {
+    node.traceDisplaySettings = normalizeNodeGraphValueSliderFaceDisplaySettings(settings);
+    return node.traceDisplaySettings;
+  }
   if (displayType === "ledLamp") {
     node.led = typeof normalizeNodeGraphLedLayout === "function"
       ? normalizeNodeGraphLedLayout({
@@ -6880,13 +6948,13 @@ function nodeGraphTraceDisplayColorWidgetModuleUrl() {
   }
   const script = document.querySelector('script[src*="node-graph-module-scopes.js"]');
   if (script?.src) {
-    return new URL("color-widget.js?v=trace-display-3", script.src).href;
+    return new URL("color-widget.js?v=plane-4corner-1", script.src).href;
   }
   // Fallbacks: site root /public/, then document-relative public/
   try {
-    return new URL("/public/color-widget.js?v=trace-display-3", window.location.origin).href;
+    return new URL("/public/color-widget.js?v=plane-4corner-1", window.location.origin).href;
   } catch {
-    return new URL("public/color-widget.js?v=trace-display-3", window.location.href).href;
+    return new URL("public/color-widget.js?v=plane-4corner-1", window.location.href).href;
   }
 }
 
@@ -7021,11 +7089,11 @@ function destroyNodeGraphTraceDisplayColorWidgets() {
 }
 
 function nodeGraphTraceDisplayColorWidgetLabel(field) {
+  // Only non-generic titles (Plate / Ghost / Left / Right). Never "Color".
   if (field === "secondaryColor") {
     return "Right";
   }
   if (field === "backgroundColor") {
-    // Compact strip label inside SoundColorWidget.
     if (nodeGraphTraceDisplaySettingsFormType() === "numberReadout") {
       return "Plate";
     }
@@ -7036,9 +7104,9 @@ function nodeGraphTraceDisplayColorWidgetLabel(field) {
   }
   if (field === "dot1Color") {
     const isOutput = nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type === "output";
-    return isOutput ? "Left" : "Color";
+    return isOutput ? "Left" : "";
   }
-  return "Color";
+  return "";
 }
 
 function syncNodeGraphTraceDisplayColorWidgets(popover = document.getElementById("nodeTraceDisplaySettingsPopover")) {
@@ -7191,6 +7259,10 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
   // XY Pad face is not a scope slot — repaint pads when display settings change.
   if (typeof nodeGraphXyPadRedrawAll === "function") {
     nodeGraphXyPadRedrawAll();
+  }
+  // Value Slider face readout decimals live in Display Settings.
+  if (typeof refreshNodeGraphValueSliderFaces === "function") {
+    refreshNodeGraphValueSliderFaces();
   }
   // LED face applies CSS vars immediately (rounding / pill / squircle).
   // Cosmetic — works with the audio engine stopped.
@@ -10418,7 +10490,8 @@ function nodeGraphModuleScopeHeatmapEnabled(slot) {
 
 function nodeGraphModuleScopeTraceBrightness(slot, settings) {
   const brightness = settings?.brightness ?? settings?.dot1Brightness ?? nodeGraphModuleScopeDefaultSettings.brightness;
-  return clampNodeSliderValue(brightness, 0, 16);
+  // Display Bright is 0…1 app-wide (1 = full).
+  return clampNodeSliderValue(brightness, 0, 1);
 }
 
 function nodeGraphModuleScopeTraceLineThickness(slot, settings) {
@@ -12544,14 +12617,18 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const top = 0;
   const width = canvas.width;
   const height = canvas.height;
-  // Live digits = gradient peak (full energy). Unlit segments = independent ghostColor.
+  // Live digits = gradient sample at Bright energy (0…1). Unlit = ghostColor.
   const gradientStops = settings.gradientStops;
   const peakHex = settings.color || "#75ebff";
-  const rgb = nodeGraphSampleGradientStopsRgb(gradientStops, 1, peakHex);
+  const bright = Number.isFinite(Number(settings.brightness))
+    ? clampNodeSliderValue(Number(settings.brightness), 0, 1)
+    : 1;
+  // Energy→color LUT: Bright 1 = tip stop (full white if gradient ends white).
+  const rgb = nodeGraphSampleGradientStopsRgb(gradientStops, bright, peakHex);
   const plateRgb = nodeGraphNumberReadoutGhostPlateRgb(settings);
   const bg = nodeGraphFacePlateBackground(settings);
-  const bright = Number(settings.brightness);
-  const alpha = Math.max(0.15, (Number.isFinite(bright) ? Math.max(0, Math.min(2, bright)) : 0.92) / 2);
+  // Opaque glyph ink; brightness is encoded in the gradient sample, not alpha/2.
+  const alpha = bright > 0.001 ? 1 : 0;
   // Room-light: full hole while the readout face is painted (dimmer = only gain).
   if (canvas?.parentElement?.dataset) {
     canvas.parentElement.dataset.lightStrength = "1";
@@ -12625,8 +12702,8 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
             plate: false,
           });
           mctx.restore();
-          // Fixed crisp strike — lifetime is controlled only by decay hold.
-          depositGain = clampNodeSliderValue(0.85 * alpha, 0.35, 1.1);
+          // Deposit energy = Bright (0…1). Lifetime is trail hold only.
+          depositGain = bright > 0.001 ? bright : 0;
         }
       }
     }
@@ -14613,8 +14690,8 @@ function drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas, op
 }
 
 // Output stereo: any Left/Right colors + blend modes.
-// Combine equation (default): m=min(L,R); pixel=(L-m)·C_L+(R-m)·C_R+m·C_meet
-// C_meet defaults to max(0,1−C_L−C_R) so classic red+blue→green still holds.
+// Output stereo: any Left/Right colors + blend modes.
+// Meet (combine): m=min(L,R); pixel=(L-m)·C_L+(R-m)·C_R+m·C_meet (complement → red+blue→green).
 function nodeGraphOutputStereoTraceBuffers(nodeId) {
   const id = String(nodeId || "");
   if (!id) {
@@ -14678,7 +14755,7 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
   const bg = nodeGraphFacePlateBackground(settings);
   nodeGraphFacePlateApplyCss(screenElement, bg);
   const fillTraceBackground = () => nodeGraphFacePlateFillCanvas(context, canvas, bg);
-  // putImageData (combine) replaces pixels — paint plate *under* with destination-over after.
+  // putImageData (combine/Meet) replaces pixels — paint plate *under* with destination-over after.
   const paintBackgroundUnder = () => nodeGraphFacePlateFillUnder(context, canvas, bg);
   const stereoBuffers = slot?.type === "output" ? nodeGraphOutputStereoTraceBuffers(slot.nodeId) : null;
   if (stereoBuffers) {
@@ -14756,7 +14833,7 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
       drawNodeGraphTraceDisplayCanvasLayer(context, leftPoints, leftLayer, canvas, { glow: false });
       painted = leftPoints.length + rightPoints.length;
     }
-    // Combine putImageData leaves transparent holes — plate goes underneath.
+    // Meet putImageData leaves transparent holes — plate goes underneath.
     if (blend === "combine") {
       paintBackgroundUnder();
     }
@@ -15096,8 +15173,13 @@ function drawNodeGraphValueSliderFaceItem(_renderer, item, _pixelRatio) {
   } else if (typeof renderNodeGraphValueSliderFace === "function") {
     renderNodeGraphValueSliderFace(face, nodeId);
   }
-  // Dimmer light rect: plate is always a light source (even with no scope buffer).
-  nodeGraphModuleScopeMarkScreenLit(face, 1);
+  // Dimmer cutout only with loaded face art (text/stroke stay under the veil).
+  if (typeof nodeGraphValueSliderFaceSyncLightSource === "function") {
+    nodeGraphValueSliderFaceSyncLightSource(face);
+  } else {
+    const lit = face.classList?.contains("has-image");
+    nodeGraphModuleScopeMarkScreenLit(face, lit ? 1 : 0);
+  }
 }
 
 const nodeGraphModuleScopeCustomRenderers = {
@@ -15239,11 +15321,24 @@ function drawNodeGraphModuleScopes() {
   // Engine-stop wipe sets data-light-strength=0 on all screens. Only LED /
   // Number Readout re-wrote it, so Output + other scopes stayed under the
   // room veil forever. Re-mark every visible painted face each frame.
+  // Value Slider: image face only — empty plate text/stroke stay under dimmer.
   for (const item of visibleItems) {
     const face = item?.screenElement || item?.slot?.scopeElement;
-    if (face) {
-      nodeGraphModuleScopeMarkScreenLit(face, 1);
+    if (!face) {
+      continue;
     }
+    if (face.classList?.contains("node-value-slider-face")) {
+      if (typeof nodeGraphValueSliderFaceSyncLightSource === "function") {
+        nodeGraphValueSliderFaceSyncLightSource(face);
+      } else {
+        nodeGraphModuleScopeMarkScreenLit(
+          face,
+          face.classList.contains("has-image") ? 1 : 0,
+        );
+      }
+      continue;
+    }
+    nodeGraphModuleScopeMarkScreenLit(face, 1);
   }
   const firstVisibleSlot = visibleItems[0]?.slot;
   flushNodeSliderReadoutUpdates();

@@ -7618,9 +7618,13 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
           Y: this.safeFilterNumber(x * sinZ + y * cosZ, null),
         };
       },
-      valueSlider: (node, nodeId, frame, frames, frameValues) => {
+      valueSlider: (node, nodeId, frame, frames, frameValues, mixInput) => {
+        // Final Bias/Out = signal In + effective slider. Unwired In mixes as 0.
+        // Use this path for true domain-unit add (not param-row unit CV).
         const offset = this.readEffectiveParameter(node, "offset", 0, frame, frames, frameValues);
-        return { Bias: offset, Out: offset, offset };
+        const input = Number(mixInput?.(nodeId, "In")) || 0;
+        const value = input + offset;
+        return { Bias: value, Out: value, offset };
       },
       sandboxVisuals: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const screenShake = this.smoothVisualControl(

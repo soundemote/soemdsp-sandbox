@@ -45,15 +45,15 @@ const nodeGraphModuleHeightLimits = Object.freeze({
   minGu: 1,
 });
 
-// App-wide display-area policy: resizable display 1…60 gu (LayoutA scopes).
-// LayoutB solid shells use a 2gu floor (see displayHeightLimitsForType).
+// App-wide display-area policy: resizable display 1…60 gu (LayoutA + LayoutB).
+// 1gu is the universal minimum for every module face / shell display height.
 const nodeGraphModuleDisplayHeightLimits = Object.freeze({
   maxGu: 60,
   minGu: 1,
   stepGu: 1,
 });
 
-/** LayoutB allowable minimum footprint: 2×2 gu (width × display/shell). */
+/** LayoutB module width floor (display height uses displayHeightLimits.minGu = 1). */
 const nodeGraphLayoutBMinGu = 2;
 
 function nodeGraphModuleWidthLimitsForType(type) {
@@ -74,10 +74,8 @@ function nodeGraphModuleHeightLimitsForType(type) {
   return nodeGraphModuleHeightLimits;
 }
 
-function nodeGraphModuleDisplayHeightLimitsForType(type) {
-  if (type && typeof nodeGraphModuleUsesLayoutB === "function" && nodeGraphModuleUsesLayoutB(type)) {
-    return { ...nodeGraphModuleDisplayHeightLimits, minGu: nodeGraphLayoutBMinGu };
-  }
+/** Shared display-height limits for every type (min 1gu). Do not raise per-layout. */
+function nodeGraphModuleDisplayHeightLimitsForType(_type = null) {
   return nodeGraphModuleDisplayHeightLimits;
 }
 
@@ -193,7 +191,7 @@ function nodeGraphModuleSizingCapabilities(type) {
       );
   // Display-height resizing works for any type with a display AREA --
   // whether an oscilloscope fills it or the module's own custom UI does
-  // (graph faces, XY pad, etc.). LayoutB min face height is 2gu; others 1gu.
+  // (graph faces, XY pad, Value Slider, etc.). Min face height is 1gu app-wide.
   const displayHeight = !moduleHeight && (
     nodeGraphModuleTypeHasHideableOscilloscope(normalizedType) ||
     nodeGraphModuleTypeHasCustomDisplayArea(normalizedType)
@@ -257,7 +255,7 @@ function nodeGraphModuleConfiguredDisplayHeightUnits(type, ui = {}) {
   }
   const normalizedUi = normalizeNodeGraphPatchNodeUi(ui, type);
   const defaultHeightGu = nodeGraphModuleDefaultDisplayHeightUnits(type);
-  // LayoutB: min 2gu face; LayoutA scopes: min 1gu.
+  // App-wide: min 1gu face (LayoutA scopes, LayoutB shells, Value Slider, …).
   return normalizeNodeGraphModuleDisplayHeightUnits(
     defaultHeightGu + normalizedUi.displayHeightOffsetGu,
     type,
@@ -479,11 +477,12 @@ function nodeGraphLayoutBIoColumnHeightGu(type) {
 /** @deprecated use nodeGraphLayoutBIoColumnHeightGu */
 const nodeGraphSolidModuleIoColumnHeightGu = nodeGraphLayoutBIoColumnHeightGu;
 
-/** LayoutB shell height in gu: max(display Height, denser IO column, 2gu floor). */
+/** LayoutB shell height in gu: max(display Height, denser IO column, 1gu floor). */
 function nodeGraphLayoutBShellHeightGu(type, ui = {}) {
   const displayGu = nodeGraphModuleConfiguredDisplayHeightUnits(type, ui);
   const ioGu = nodeGraphLayoutBIoColumnHeightGu(type);
-  return Math.max(nodeGraphLayoutBMinGu, displayGu, ioGu);
+  const minDisplayGu = nodeGraphModuleDisplayHeightLimits.minGu;
+  return Math.max(minDisplayGu, displayGu, ioGu);
 }
 
 /** @deprecated use nodeGraphLayoutBShellHeightGu */

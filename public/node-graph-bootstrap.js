@@ -69,6 +69,8 @@ async function initNodeGraphMvp() {
   scheduleNodeMetadataScriptParserSelfTestStatus();
   renderNodeGraphModuleScopeBrightnessControl();
   renderNodeGraphSnapGridButton();
+  // Refresh / cold boot: diagnostics always start hidden (never restored).
+  nodeGraphMvp.keyboardDebugInfoVisible = false;
   renderNodeGraphKeyboardDebugToggle();
   renderNodeGraphSliderVisibilityToggles();
   renderNodeGraphSliderLayout();

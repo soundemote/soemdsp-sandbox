@@ -2571,11 +2571,11 @@ const nodeGraphModuleDefinitions = (
   },
   valueSlider: {
     chrome: NodeGraphModuleChromeLayout.LayoutB,
-    // LayoutB face height (ports beside); value slider sits under the face.
-    // Min footprint is 2×2 gu; default face is 2gu tall.
-    defaultWidthGu: 2,
+    // LayoutB face height (ports beside); Bias slider sits under the face.
+    // Default footprint 4×2 gu (wide enough for signed multi-decimal readout).
+    defaultWidthGu: 4,
     displayHeightGu: 2,
-    // Face is a real display: shows final Bias (modulated / live), not only the
+    // Face is a real display: shows final Bias (In + slider), not only the
     // static parameter meta. Enables continuous readout + image rotation.
     displayType: "valueSliderFace",
     displayModes: [
@@ -2589,6 +2589,12 @@ const nodeGraphModuleDefinitions = (
     ],
     defaultDisplayMode: "face",
     layout: "sliderWidget",
+    // Dedicated signal In: final Bias/Out = In + slider (true domain add).
+    // Param-row mod jack still uses unit CV; use this In for raw CV/audio sum.
+    inputs: ["In"],
+    inputLabels: {
+      In: "In",
+    },
     outputs: ["Bias"],
     outputLabels: {
       Bias: "→",
@@ -3927,7 +3933,7 @@ const nodeGraphModuleDefinitions = (
         step: "1",
       },
       { key: "columns", label: "Columns", defaultValue: "200", min: "16", mid: "200", max: "512", step: "1" },
-      { key: "brightness", label: "Brightness", defaultValue: "1", min: "0.1", mid: "1", max: "2", step: "0.01", maxDigits: 4 },
+      { key: "brightness", label: "Brightness", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01", maxDigits: 4 },
     ],
     visualInputs: [
       { key: "videoscopeA", label: "A", port: "A" },
@@ -3944,7 +3950,7 @@ const nodeGraphModuleDefinitions = (
     // Module: levels only. Analysis look (window / overlap / freq scale) lives
     // in Spectrogram display settings with FFT size / history / gradient.
     parameters: [
-      { key: "brightness", label: "Brightness", defaultValue: "1", min: "0.1", mid: "1", max: "2", step: "0.01", maxDigits: 4 },
+      { key: "brightness", label: "Brightness", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01", maxDigits: 4 },
       { key: "minThreshold", label: "Min Thresh", defaultValue: "0", min: "0", mid: "0", max: "1", step: "0.01", maxDigits: 4 },
       { key: "maxThreshold", label: "Max Thresh", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01", maxDigits: 4 },
     ],
@@ -3983,10 +3989,10 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         min: "0",
         mid: "1",
-        max: "2",
+        max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "Peak light / present gain. Does not set residual hang (use Burn) or main trail length (use Trail).",
+        tooltip: "Peak light / present gain 0–1 (1 = full). Does not set residual hang (use Burn) or main trail length (use Trail).",
       },
       {
         bipolar: true,
@@ -4106,10 +4112,10 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         min: "0",
         mid: "1",
-        max: "2",
+        max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "Peak light / present gain. Not residual hang (Burn) or main trail (Trail).",
+        tooltip: "Peak light / present gain 0–1 (1 = full). Not residual hang (Burn) or main trail (Trail).",
       },
       {
         key: "trail",
@@ -4244,10 +4250,10 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         min: "0",
         mid: "1",
-        max: "2",
+        max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "Deposit + present gain. Does not set trail length (Decay) or burn-in hang (Burn).",
+        tooltip: "Deposit + present gain 0–1 (1 = full). Does not set trail length (Decay) or burn-in hang (Burn).",
       },
       {
         key: "blackFloor",
@@ -4389,6 +4395,12 @@ const nodeGraphModuleDefinitions = (
   },
   output: {
     displayType: "trace",
+    // Single fixed face — no Trace/Spectrum Mode dropdown in Display Settings.
+    spectrumCompanion: false,
+    displayModes: [
+      { key: "trace", label: "Trace", renderer: "trace", settingsSchema: "trace" },
+    ],
+    defaultDisplayMode: "trace",
     inputs: ["Mono", "Left", "Right"],
     output: true,
     parameters: [

@@ -2,8 +2,10 @@ const STYLE_ID = "sound-color-widget-styles";
 const DRAG_SCALE = {
   hue: 0.5,
   percent: 0.18,
-  saturation: 0.36,
 };
+
+/** Labels too generic to waste a title strip on. */
+const GENERIC_LABELS = new Set(["", "color", "colour", "dot color", "secondary color"]);
 
 const css = `
   .scw-mount {
@@ -16,12 +18,6 @@ const css = `
     --color-widget-toast-bg: rgba(18, 20, 15, 0.92);
     --color-widget-toast-ink: rgba(243, 240, 230, 0.92);
     --color-widget-label-ink: rgba(243, 240, 230, 0.72);
-    --color-widget-debug-box: transparent;
-    --color-widget-debug-label: transparent;
-    --color-widget-debug-label-fill: transparent;
-    --color-widget-debug-text: transparent;
-    --color-widget-debug-text-fill: transparent;
-    --color-widget-title-ratio: 42;
     container-type: size;
     display: grid;
     min-height: 0;
@@ -38,82 +34,63 @@ const css = `
     user-select: none;
   }
 
+  /* Default: plane + hue + hex (no title). Title row only when data-has-title. */
   .scw-root {
     background: var(--color-widget-bg);
     border: 1px solid var(--color-widget-border);
     border-radius: min(18cqh, 6px);
     display: grid;
     grid-template-rows:
-      minmax(0, calc(var(--color-widget-title-ratio) * 1%))
-      minmax(0, calc((100 - var(--color-widget-title-ratio)) * 0.58%))
-      minmax(0, calc((100 - var(--color-widget-title-ratio)) * 0.42%));
+      minmax(0, 1fr)
+      minmax(18px, 0.2fr)
+      minmax(18px, 0.22fr);
     height: 100%;
     min-height: 0;
     min-width: 0;
     padding: 0;
     width: 100%;
-    outline: 1px dashed var(--color-widget-debug-box);
-    outline-offset: -1px;
     touch-action: none;
+    gap: 2px;
   }
 
-  .scw-controls {
-    display: grid;
-    gap: min(1.2cqw, 10px);
-    /* Hue / brightness / saturation only — no alpha channel in this app. */
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    min-height: 0;
-    padding: 0;
-    outline: 1px dashed var(--color-widget-debug-box);
-    outline-offset: -1px;
+  .scw-root[data-has-title="1"] {
+    grid-template-rows:
+      minmax(14px, 0.16fr)
+      minmax(0, 1fr)
+      minmax(18px, 0.18fr)
+      minmax(18px, 0.2fr);
   }
 
   .scw-label {
     align-items: center;
-    align-self: stretch;
     color: var(--color-widget-label-ink);
-    display: flex;
+    display: none;
     font-family: system-ui, sans-serif;
-    height: 100%;
     justify-content: center;
-    justify-self: stretch;
     margin: 0;
     min-width: 0;
     overflow: hidden;
-    overflow-wrap: anywhere;
-    padding: 0;
+    padding: 0 2px;
     text-align: center;
-    white-space: normal;
-    width: 100%;
-    background-color: var(--color-widget-debug-label-fill);
-    outline: 2px solid var(--color-widget-debug-label);
-    outline-offset: -1px;
+  }
+
+  .scw-root[data-has-title="1"] .scw-label {
+    display: flex;
   }
 
   .scw-label-text {
-    align-items: center;
-    background-color: var(--color-widget-debug-label-fill);
     display: flex;
-    height: 100%;
+    align-items: center;
     justify-content: center;
-    margin: 0;
-    min-width: 0;
-    outline: 1px dotted var(--color-widget-debug-text);
-    outline-offset: -1px;
-    overflow: hidden;
-    overflow-wrap: anywhere;
-    padding: 0;
-    text-align: center;
-    white-space: normal;
     width: 100%;
+    height: 100%;
+    min-width: 0;
   }
 
   .scw-label-glyph {
     display: inline-flex;
     font-size: 100px;
     line-height: 1;
-    margin: 0;
-    padding: 0;
     transform: scale(var(--scw-label-scale, 1));
     transform-origin: center;
     white-space: nowrap;
@@ -127,8 +104,8 @@ const css = `
   .scw-control {
     appearance: none;
     -webkit-appearance: none;
-    border: 0;
-    border-radius: min(16cqh, 5px);
+    border: 1px solid var(--color-widget-control-border);
+    border-radius: min(12cqh, 4px);
     box-shadow: none;
     color: inherit;
     display: block;
@@ -143,29 +120,18 @@ const css = `
     width: 100%;
   }
 
-  /* Alpha is never used in this app. */
-  .scw-alpha {
-    display: none !important;
-  }
-
-  /* channels:"bw" — brightness only (black / white). */
-  .scw-control[hidden],
-  .scw-root[data-channels="bw"] .scw-hue,
-  .scw-root[data-channels="bw"] .scw-saturation {
-    display: none !important;
-  }
-
-  .scw-root[data-channels="bw"] .scw-controls {
-    grid-template-columns: 1fr;
-  }
-
   .scw-control:focus-visible {
     outline: 1px solid var(--color-widget-accent);
     outline-offset: -1px;
   }
 
+  .scw-alpha,
+  .scw-saturation,
+  .scw-brightness {
+    display: none !important;
+  }
+
   .scw-hue {
-    /* Hex stops — more reliable than space-separated hsl() in some hosts */
     background: linear-gradient(
       90deg,
       #ff0000 0%,
@@ -176,10 +142,51 @@ const css = `
       #ff00ff 83%,
       #ff0000 100%
     );
+    cursor: ew-resize;
   }
 
-  .scw-brightness {
-    background: linear-gradient(90deg, #000000, #ffffff);
+  /* 4-corner plane: UL grey · UR full sat · LL black · LR white */
+  .scw-plane {
+    cursor: crosshair;
+    min-height: 0;
+  }
+
+  .scw-plane-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  .scw-plane-thumb {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    margin: -5px 0 0 -5px;
+    border: 1.5px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.75), 0 0 6px rgba(0, 0, 0, 0.45);
+    pointer-events: none;
+    left: var(--scw-plane-u, 50%);
+    top: var(--scw-plane-v, 50%);
+    z-index: 1;
+  }
+
+  .scw-root[data-channels="bw"] .scw-hue {
+    display: none !important;
+  }
+
+  .scw-root[data-channels="bw"] {
+    grid-template-rows:
+      minmax(0, 1fr)
+      minmax(18px, 0.22fr);
+  }
+
+  .scw-root[data-channels="bw"][data-has-title="1"] {
+    grid-template-rows:
+      minmax(14px, 0.16fr)
+      minmax(0, 1fr)
+      minmax(18px, 0.2fr);
   }
 
   .scw-hex {
@@ -190,17 +197,10 @@ const css = `
       linear-gradient(-45deg, rgba(255, 255, 255, 0.18) 25%, transparent 25%),
       linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, 0.18) 75%),
       linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, 0.18) 75%);
-    background-position:
-      0 0,
-      0 6px,
-      6px -6px,
-      -6px 0;
-    background-size:
-      12px 12px,
-      12px 12px,
-      12px 12px,
-      12px 12px;
+    background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+    background-size: 12px 12px, 12px 12px, 12px 12px, 12px 12px;
     border: 0;
+    border-radius: min(12cqh, 4px);
     color: var(--color-widget-hex-ink);
     container-type: size;
     display: flex;
@@ -209,9 +209,7 @@ const css = `
     justify-content: center;
     overflow: hidden;
     padding: 0;
-    text-align: center;
     position: relative;
-    user-select: none;
     width: 100%;
   }
 
@@ -230,13 +228,10 @@ const css = `
 
   .scw-hex-text {
     align-items: center;
-    background-color: var(--color-widget-debug-text-fill);
     display: flex;
     height: 100%;
     justify-content: center;
     margin: 0;
-    outline: 1px dotted var(--color-widget-debug-text);
-    outline-offset: -1px;
     padding: 0;
     width: 100%;
     z-index: 1;
@@ -246,8 +241,6 @@ const css = `
     display: inline-flex;
     font-size: min(70cqh, 24cqw);
     line-height: 1;
-    margin: 0;
-    padding: 0;
     transform: scale(var(--scw-hex-scale, 1));
     transform-origin: center;
     white-space: nowrap;
@@ -265,13 +258,10 @@ const css = `
     inset: 0;
     justify-content: center;
     opacity: 0;
-    overflow: hidden;
-    padding: 0;
     pointer-events: none;
     position: absolute;
-    text-align: center;
     transition: opacity 120ms ease;
-    white-space: nowrap;
+    z-index: 2;
   }
 
   .scw-hex[data-copied="true"] {
@@ -291,7 +281,6 @@ function injectStyles() {
     style.id = STYLE_ID;
     document.head.appendChild(style);
   }
-  // Always refresh CSS text so channel/layout changes pick up without a full reload race.
   style.textContent = css;
 }
 
@@ -304,9 +293,12 @@ function normalizeColor(color) {
     h: Math.round(clamp(Number(color.h) || 0, 0, 359)),
     s: Math.round(clamp(Number(color.s) || 0, 0, 100)),
     l: Math.round(clamp(Number(color.l) || 0, 0, 100)),
-    // Opaque only — alpha picker removed app-wide.
     a: 1,
   };
+}
+
+function isGenericLabel(label) {
+  return GENERIC_LABELS.has(String(label || "").trim().toLowerCase());
 }
 
 export function hslToHex({ h, s, l }) {
@@ -333,7 +325,7 @@ export function hslToHex({ h, s, l }) {
     .toUpperCase();
 }
 
-function hslToRgb(color) {
+function hslToRgbBytes(color) {
   const hex = hslToHex(color).replace("#", "");
   return {
     r: parseInt(hex.slice(0, 2), 16),
@@ -342,8 +334,32 @@ function hslToRgb(color) {
   };
 }
 
+function rgbBytesToHsl(r, g, b) {
+  const rr = r / 255;
+  const gg = g / 255;
+  const bb = b / 255;
+  const max = Math.max(rr, gg, bb);
+  const min = Math.min(rr, gg, bb);
+  const lightness = (max + min) / 2;
+  let hue = 0;
+  let saturation = 0;
+  if (max !== min) {
+    const delta = max - min;
+    saturation = lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+    if (max === rr) hue = (gg - bb) / delta + (gg < bb ? 6 : 0);
+    else if (max === gg) hue = (bb - rr) / delta + 2;
+    else hue = (rr - gg) / delta + 4;
+    hue /= 6;
+  }
+  return {
+    h: Math.round(hue * 359),
+    s: Math.round(saturation * 100),
+    l: Math.round(lightness * 100),
+    a: 1,
+  };
+}
+
 function colorCss(color) {
-  // Classic comma HSL — opaque only (no alpha channel in this app).
   return `hsl(${color.h}, ${color.s}%, ${color.l}%)`;
 }
 
@@ -352,8 +368,65 @@ function enrichedColor(color) {
     ...color,
     hex: hslToHex(color),
     css: colorCss(color),
-    rgb: hslToRgb(color),
+    rgb: hslToRgbBytes(color),
   };
+}
+
+/**
+ * 4-corner plane (u right, v up from bottom):
+ *   UL grey · UR full sat · LL black · LR white
+ */
+function planeRgb(h, u, v) {
+  const uu = clamp(u, 0, 1);
+  const vv = clamp(v, 0, 1);
+  const sat = hslToRgbBytes({ h, s: 100, l: 50 });
+  const black = { r: 0, g: 0, b: 0 };
+  const white = { r: 255, g: 255, b: 255 };
+  const grey = { r: 128, g: 128, b: 128 };
+  const mix = (a, b, t) => a + (b - a) * t;
+  const bottom = {
+    r: mix(black.r, white.r, uu),
+    g: mix(black.g, white.g, uu),
+    b: mix(black.b, white.b, uu),
+  };
+  const top = {
+    r: mix(grey.r, sat.r, uu),
+    g: mix(grey.g, sat.g, uu),
+    b: mix(grey.b, sat.b, uu),
+  };
+  return {
+    r: Math.round(mix(bottom.r, top.r, vv)),
+    g: Math.round(mix(bottom.g, top.g, vv)),
+    b: Math.round(mix(bottom.b, top.b, vv)),
+  };
+}
+
+function planeColorHsl(h, u, v, keepH = h) {
+  const rgb = planeRgb(h, u, v);
+  const hsl = rgbBytesToHsl(rgb.r, rgb.g, rgb.b);
+  // Near greyscale, preserve the active hue from the hue bar.
+  if (hsl.s < 2) {
+    hsl.h = keepH;
+  }
+  return hsl;
+}
+
+function findPlaneUV(h, color) {
+  const target = hslToRgbBytes(color);
+  let best = { u: 0.5, v: 0.5, d: Infinity };
+  const steps = 24;
+  for (let i = 0; i <= steps; i += 1) {
+    for (let j = 0; j <= steps; j += 1) {
+      const u = i / steps;
+      const v = j / steps;
+      const c = planeRgb(h, u, v);
+      const d = (c.r - target.r) ** 2 + (c.g - target.g) ** 2 + (c.b - target.b) ** 2;
+      if (d < best.d) {
+        best = { u, v, d };
+      }
+    }
+  }
+  return best;
 }
 
 export class SoundColorWidget {
@@ -364,13 +437,13 @@ export class SoundColorWidget {
     injectStyles();
     this.host = host;
     this.host.classList.add("scw-mount");
-    this.label = options.label || "Color";
-    // channels: "full" (default H/S/L) | "bw" (luma only — black/white). No alpha.
+    this.label = options.label || "";
     this.channels = options.channels === "bw" || options.mono === true ? "bw" : "full";
     const rawColor = normalizeColor(options.color || options);
     this.color = this.channels === "bw"
       ? { h: 0, s: 0, l: rawColor.l, a: 1 }
       : rawColor;
+    this.planeUV = findPlaneUV(this.color.h, this.color);
     this.drag = null;
     this.dragElement = null;
     this.toastTimer = null;
@@ -378,16 +451,21 @@ export class SoundColorWidget {
     this.handlePointerDown = this.handlePointerDown.bind(this);
     this.handlePointerMove = this.handlePointerMove.bind(this);
     this.handlePointerUp = this.handlePointerUp.bind(this);
-    this.handleFocusIn = this.handleFocusIn.bind(this);
     this.preventSelection = this.preventSelection.bind(this);
     this.render();
-    this.resizeObserver = new ResizeObserver(() => this.fitFittedText());
-    this.resizeObserver.observe(this.root.querySelector(".scw-hex"));
-    this.resizeObserver.observe(this.root.querySelector(".scw-label-text"));
+    this.resizeObserver = new ResizeObserver(() => {
+      this.paintPlane();
+      this.fitFittedText();
+    });
+    const hex = this.root.querySelector(".scw-hex");
+    const label = this.root.querySelector(".scw-label-text");
+    const plane = this.root.querySelector(".scw-plane");
+    if (hex) this.resizeObserver.observe(hex);
+    if (label) this.resizeObserver.observe(label);
+    if (plane) this.resizeObserver.observe(plane);
     this.root.addEventListener("pointerdown", this.handlePointerDown);
     this.root.addEventListener("selectstart", this.preventSelection);
     this.root.addEventListener("dragstart", this.preventSelection);
-    this.root.addEventListener("focusin", this.handleFocusIn);
     window.addEventListener("pointermove", this.handlePointerMove);
     window.addEventListener("pointerup", this.handlePointerUp);
     window.addEventListener("pointercancel", this.handlePointerUp);
@@ -397,7 +475,6 @@ export class SoundColorWidget {
     this.root?.removeEventListener("pointerdown", this.handlePointerDown);
     this.root?.removeEventListener("selectstart", this.preventSelection);
     this.root?.removeEventListener("dragstart", this.preventSelection);
-    this.root?.removeEventListener("focusin", this.handleFocusIn);
     window.removeEventListener("pointermove", this.handlePointerMove);
     window.removeEventListener("pointerup", this.handlePointerUp);
     window.removeEventListener("pointercancel", this.handlePointerUp);
@@ -411,14 +488,16 @@ export class SoundColorWidget {
     return enrichedColor(this.color);
   }
 
-  setColor(nextColor, emitChange = true) {
+  setColor(nextColor, emitChange = true, options = {}) {
     let next = normalizeColor({ ...this.color, ...nextColor });
     if (this.channels === "bw") {
-      // Luma only — discard hue/saturation (no RGB channel editing).
       next = { h: 0, s: 0, l: next.l, a: 1 };
     }
     next.a = 1;
     this.color = next;
+    if (!options.preservePlaneUV) {
+      this.planeUV = findPlaneUV(this.color.h, this.color);
+    }
     this.render();
     if (emitChange) {
       const detail = this.getColor();
@@ -430,52 +509,99 @@ export class SoundColorWidget {
     }
   }
 
+  hasTitle() {
+    return !isGenericLabel(this.label);
+  }
+
   render() {
     if (!this.root) {
       this.host.innerHTML = `
         <div class="scw-root">
           <span class="scw-label"><span class="scw-label-text"><span class="scw-label-glyph"></span></span></span>
-          <span class="scw-controls">
-            <button type="button" class="scw-control scw-hue" data-part="hue"></button>
-            <button type="button" class="scw-control scw-brightness" data-part="brightness"></button>
-            <button type="button" class="scw-control scw-saturation" data-part="saturation"></button>
+          <button type="button" class="scw-control scw-plane" data-part="plane" aria-label="Color plane">
+            <canvas class="scw-plane-canvas" aria-hidden="true"></canvas>
+            <span class="scw-plane-thumb" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="scw-control scw-hue" data-part="hue" aria-label="Hue"></button>
+          <span class="scw-hex" role="button" tabindex="0">
+            <span class="scw-hex-text"><span class="scw-hex-glyph"></span></span>
+            <span class="scw-copy-toast" aria-live="polite"></span>
           </span>
-          <span class="scw-hex" role="button" tabindex="0"><span class="scw-hex-text"><span class="scw-hex-glyph"></span></span><span class="scw-copy-toast" aria-live="polite"></span></span>
         </div>
       `;
       this.root = this.host.querySelector(".scw-root");
     }
+    const titled = this.hasTitle();
     this.root.dataset.channels = this.channels;
+    this.root.dataset.hasTitle = titled ? "1" : "0";
     this.host.dataset.channels = this.channels;
-    const hueEl = this.root.querySelector(".scw-hue");
-    const satEl = this.root.querySelector(".scw-saturation");
-    const brightEl = this.root.querySelector(".scw-brightness");
-    const bw = this.channels === "bw";
-    if (hueEl) hueEl.hidden = bw;
-    if (satEl) satEl.hidden = bw;
+    const glyph = this.root.querySelector(".scw-label-glyph");
+    if (glyph) {
+      glyph.textContent = titled ? this.label : "";
+    }
     const hex = hslToHex(this.color);
-    this.root.querySelector(".scw-label-glyph").textContent = this.label;
-    if (hueEl) hueEl.setAttribute("aria-label", `${this.label} hue`);
-    if (brightEl) {
-      brightEl.setAttribute("aria-label", bw ? `${this.label} black / white` : `${this.label} brightness`);
-      brightEl.style.background = "linear-gradient(90deg, #000000, #ffffff)";
-    }
-    if (satEl) {
-      satEl.setAttribute("aria-label", `${this.label} saturation`);
-      satEl.style.background =
-        `linear-gradient(90deg, hsl(${this.color.h}, 0%, ${this.color.l}%), hsl(${this.color.h}, 100%, ${this.color.l}%))`;
-    }
     const hexButton = this.root.querySelector(".scw-hex");
     hexButton.querySelector(".scw-hex-glyph").textContent = "";
     hexButton.dataset.hex = hex;
     hexButton.style.setProperty("--scw-final-color", colorCss(this.color));
-    hexButton.setAttribute("aria-label", `Copy ${this.label} hex code ${hex}`);
+    const ariaName = titled ? this.label : "Color";
+    hexButton.setAttribute("aria-label", `Copy ${ariaName} hex ${hex}`);
+    const plane = this.root.querySelector(".scw-plane");
+    if (plane) {
+      plane.setAttribute("aria-label", `${ariaName} plane (grey / black / white / saturated)`);
+      plane.style.setProperty("--scw-plane-u", `${(this.planeUV.u * 100).toFixed(2)}%`);
+      // CSS top is from top; v is from bottom.
+      plane.style.setProperty("--scw-plane-v", `${((1 - this.planeUV.v) * 100).toFixed(2)}%`);
+    }
+    this.paintPlane();
     requestAnimationFrame(() => this.fitFittedText());
+  }
+
+  paintPlane() {
+    const canvas = this.root?.querySelector(".scw-plane-canvas");
+    const plane = this.root?.querySelector(".scw-plane");
+    if (!canvas || !plane) {
+      return;
+    }
+    const w = Math.max(2, Math.round(plane.clientWidth || 1));
+    const h = Math.max(2, Math.round(plane.clientHeight || 1));
+    if (canvas.width !== w) canvas.width = w;
+    if (canvas.height !== h) canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return;
+    }
+    const img = ctx.createImageData(w, h);
+    const data = img.data;
+    const hue = this.channels === "bw" ? 0 : this.color.h;
+    for (let y = 0; y < h; y += 1) {
+      const v = 1 - y / Math.max(1, h - 1);
+      for (let x = 0; x < w; x += 1) {
+        const u = x / Math.max(1, w - 1);
+        let rgb;
+        if (this.channels === "bw") {
+          // Black (bottom) → white (top); ignore hue.
+          const t = v;
+          const g = Math.round(t * 255);
+          rgb = { r: g, g, b: g };
+        } else {
+          rgb = planeRgb(hue, u, v);
+        }
+        const i = (y * w + x) * 4;
+        data[i] = rgb.r;
+        data[i + 1] = rgb.g;
+        data[i + 2] = rgb.b;
+        data[i + 3] = 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
   }
 
   fitFittedText() {
     this.fitTextToBox(".scw-hex", ".scw-hex-glyph", "--scw-hex-scale");
-    this.fitTextToBox(".scw-label-text", ".scw-label-glyph", "--scw-label-scale");
+    if (this.hasTitle()) {
+      this.fitTextToBox(".scw-label-text", ".scw-label-glyph", "--scw-label-scale");
+    }
   }
 
   fitTextToBox(boxSelector, glyphSelector, scaleProperty) {
@@ -541,6 +667,26 @@ export class SoundColorWidget {
     }, 900);
   }
 
+  setPlaneFromClient(clientX, clientY) {
+    const plane = this.root?.querySelector(".scw-plane");
+    if (!plane) {
+      return;
+    }
+    const rect = plane.getBoundingClientRect();
+    if (!(rect.width > 0) || !(rect.height > 0)) {
+      return;
+    }
+    const u = clamp((clientX - rect.left) / rect.width, 0, 1);
+    const v = clamp(1 - (clientY - rect.top) / rect.height, 0, 1);
+    this.planeUV = { u, v };
+    if (this.channels === "bw") {
+      this.setColor({ h: 0, s: 0, l: Math.round(v * 100) }, true, { preservePlaneUV: true });
+      return;
+    }
+    const next = planeColorHsl(this.color.h, u, v, this.color.h);
+    this.setColor(next, true, { preservePlaneUV: true });
+  }
+
   handlePointerDown(event) {
     const hexInput = event.target.closest(".scw-hex");
     if (hexInput) {
@@ -551,11 +697,10 @@ export class SoundColorWidget {
     }
 
     const partElement = event.target.closest("[data-part]");
-    const part = partElement?.dataset.part || this.partFromPoint(event.clientX);
+    const part = partElement?.dataset.part;
     if (!part) {
       event.preventDefault();
       event.stopPropagation();
-      window.getSelection?.()?.removeAllRanges();
       return;
     }
     event.preventDefault();
@@ -572,24 +717,9 @@ export class SoundColorWidget {
       fine: event.shiftKey,
       startColor: { ...this.color },
     };
-  }
-
-  partFromPoint(clientX) {
-    const controls = this.root?.querySelector(".scw-controls");
-    const rect = controls?.getBoundingClientRect();
-    if (!rect || rect.width <= 0) {
-      return null;
+    if (part === "plane") {
+      this.setPlaneFromClient(event.clientX, event.clientY);
     }
-    const x = clamp((clientX - rect.left) / rect.width, 0, 1);
-    if (this.channels === "bw") {
-      return "brightness";
-    }
-    const index = Math.min(2, Math.floor(x * 3));
-    return ["hue", "brightness", "saturation"][index];
-  }
-
-  handleFocusIn(event) {
-    event.target.closest(".scw-hex");
   }
 
   preventSelection(event) {
@@ -597,7 +727,6 @@ export class SoundColorWidget {
   }
 
   dragDelta(event) {
-    // App-wide diagonal policy: right + up increase (see nodeGraphPointerDragScreenDelta).
     const axes = typeof nodeGraphPointerDragScreenDelta === "function"
       ? nodeGraphPointerDragScreenDelta(this.drag.startX, this.drag.startY, event.clientX, event.clientY)
       : { combined: (event.clientX - this.drag.startX) + (this.drag.startY - event.clientY) };
@@ -612,14 +741,14 @@ export class SoundColorWidget {
     event.preventDefault();
     event.stopPropagation();
     window.getSelection?.()?.removeAllRanges();
+    if (this.drag.part === "plane") {
+      this.setPlaneFromClient(event.clientX, event.clientY);
+      return;
+    }
     const delta = this.dragDelta(event);
     const start = this.drag.startColor;
     if (this.drag.part === "hue") {
       this.setColor({ h: Math.round((start.h + delta * DRAG_SCALE.hue + 360) % 360) });
-    } else if (this.drag.part === "brightness") {
-      this.setColor({ l: Math.round(clamp(start.l + delta * DRAG_SCALE.percent, 0, 100)) });
-    } else if (this.drag.part === "saturation") {
-      this.setColor({ s: Math.round(clamp(start.s + delta * DRAG_SCALE.saturation, 0, 100)) });
     }
   }
 

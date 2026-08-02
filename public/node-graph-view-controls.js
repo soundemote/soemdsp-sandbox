@@ -3096,6 +3096,8 @@ function toggleNodeGraphModuleInterfaceControlsVisibility() {
 }
 
 function toggleNodeGraphKeyboardDebugVisibility() {
+  // Session-only: D / Visibility toggles debug chrome for this visit.
+  // Not written to UI settings; refresh always starts hidden.
   nodeGraphMvp.keyboardDebugInfoVisible = !(nodeGraphMvp.keyboardDebugInfoVisible === true);
   renderNodeGraphKeyboardDebugToggle();
   setNodeInteractionHelp(nodeGraphMvp.keyboardDebugInfoVisible ? "Keyboard debug info shown." : "Keyboard debug info hidden.");

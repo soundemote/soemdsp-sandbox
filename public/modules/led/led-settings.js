@@ -12,7 +12,7 @@
 // ---------------------------------------------------------------------------
 // Mono energy, then free multi-stop LUT (same idea as phosphor scopes):
 //
-//   energy = clamp(level * brightness, 0..1)   // one channel (cheap)
+//   energy = clamp(level * brightness, 0..1)   // brightness is 0…1 (1 = full)
 //   color  = sample(gradientStops, energy)     // arbitrary; may go bright→dim
 //
 // Legacy callers may still pass (hue, level, brightness) without stops; we
@@ -94,14 +94,14 @@ function nodeGraphLedEmittedRgb(hueOrSettings, level, brightness = 1) {
     const settings = hueOrSettings;
     stops = settings.gradientStops || settings.gradient;
     hue = Number(settings.hue) || 0;
-    gain = Math.max(0, Math.min(2, Number.isFinite(Number(settings.brightness))
+    gain = Math.max(0, Math.min(1, Number.isFinite(Number(settings.brightness))
       ? Number(settings.brightness)
       : 1));
     // Second arg is still level when called as (settings, level).
     drive = Math.max(0, Math.min(1, Number(level) || 0));
   } else {
     hue = Number(hueOrSettings) || 0;
-    gain = Math.max(0, Math.min(2, Number.isFinite(Number(brightness)) ? Number(brightness) : 1));
+    gain = Math.max(0, Math.min(1, Number.isFinite(Number(brightness)) ? Number(brightness) : 1));
   }
   // Mono energy channel: signal × brightness gain, then free gradient remap.
   const energy = Math.max(0, Math.min(1, drive * gain));
@@ -151,7 +151,7 @@ function buildNodeGraphLedDisplaySettingsBodyHtml() {
       </div>
       <label class="node-led-settings-row">
         <span>Brightness</span>
-        <input type="range" min="0" max="2" step="0.02" data-led-field="brightness" aria-label="LED brightness (scales mono energy into the gradient)">
+        <input type="range" min="0" max="1" step="0.01" data-led-field="brightness" aria-label="LED brightness 0–1 (scales mono energy into the gradient)">
       </label>
       <label class="node-led-settings-row">
         <span>Blur</span>

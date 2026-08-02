@@ -44,10 +44,11 @@ const nodeGraphPhosphorWaveformDefaultSettings = Object.freeze({
   // as before.
   hue: 140,
   lineBrightness: 1,
-  // Per-sample vertical grid (visible when zoomed in). 0 = hidden.
-  gridBrightness: 1,
+  // Per-sample vertical grid (visible when zoomed in). 0 = hidden; 0.5 ≈ legacy mid.
+  gridBrightness: 0.5,
   backgroundHue: 140,
-  backgroundBrightness: 1,
+  // 0…1 (1 = white). Default 0.5 ≈ former mid of 0…2 scale (~8.8% lightness).
+  backgroundBrightness: 0.5,
   // Panel shape/inset. cornerShape only has a visible effect once
   // cornerRadius > 0. edgeSpacing is a 0..1 ratio of the largest inset that
   // still leaves the panel visible, so 1 collapses it to nothing.
@@ -97,16 +98,16 @@ function normalizeNodeGraphPhosphorWaveformSettings(settings = {}) {
       : nodeGraphPhosphorWaveformDefaultSettings.traceWidth,
     hue: Number.isFinite(hue) ? ((hue % 360) + 360) % 360 : nodeGraphPhosphorWaveformDefaultSettings.hue,
     lineBrightness: Number.isFinite(lineBrightness)
-      ? Math.max(0, Math.min(2, lineBrightness))
+      ? Math.max(0, Math.min(1, lineBrightness))
       : nodeGraphPhosphorWaveformDefaultSettings.lineBrightness,
     gridBrightness: Number.isFinite(gridBrightness)
-      ? Math.max(0, Math.min(2, gridBrightness))
+      ? Math.max(0, Math.min(1, gridBrightness))
       : nodeGraphPhosphorWaveformDefaultSettings.gridBrightness,
     backgroundHue: Number.isFinite(backgroundHue)
       ? ((backgroundHue % 360) + 360) % 360
       : nodeGraphPhosphorWaveformDefaultSettings.backgroundHue,
     backgroundBrightness: Number.isFinite(backgroundBrightness)
-      ? Math.max(0, Math.min(2, backgroundBrightness))
+      ? Math.max(0, Math.min(1, backgroundBrightness))
       : nodeGraphPhosphorWaveformDefaultSettings.backgroundBrightness,
     cornerShape: source.cornerShape === "squircle" ? "squircle" : "square",
     cornerRadius: Number.isFinite(cornerRadius)
@@ -1276,15 +1277,10 @@ function nodeGraphPhosphorWaveformLineColor(settings, lightness, alpha) {
 }
 
 function nodeGraphPhosphorWaveformBackgroundColor(settings) {
-  // Brightness 0..2 maps onto 0..100% lightness so the top of the slider is
-  // actually white. The curve is exponential rather than linear because the
-  // useful range is all down at the dark end: a linear ramp to white would
-  // make every setting past the first few percent unusably bright. The
-  // exponent is picked so the default (1) still lands at ~8.8%, which is
-  // where the old `8 * brightness` mapping put it -- high enough that
-  // rotating BG Hue produces a visible change.
+  // Brightness 0…1 maps onto 0…100% lightness (1 = white). Exponential curve
+  // keeps the dark end usable; default 0.5 ≈ old mid (~8.8% lightness).
   const s = normalizeNodeGraphPhosphorWaveformSettings(settings);
-  const normalized = Math.max(0, Math.min(1, s.backgroundBrightness / 2));
+  const normalized = Math.max(0, Math.min(1, Number(s.backgroundBrightness) || 0));
   const scaledLightness = Math.max(0, Math.min(100, 100 * (normalized ** 3.5)));
   return `hsl(${s.backgroundHue}, 70%, ${scaledLightness}%)`;
 }
@@ -1469,12 +1465,12 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   // Per-sample grid, once zoomed in enough that individual frames are
   // legible (roughly 6+ device pixels per sample) — makes the discrete
   // nature of the buffer visible instead of implying a continuous signal.
-  // gridBrightness 0 = hidden; 1 ≈ legacy alpha 0.14; 2 = brighter.
+  // gridBrightness 0 = hidden; 1 = full (former top of 0…2 scale).
   const pixelsPerFrame = width / viewSpan;
-  const gridBrightness = Math.max(0, Math.min(2, Number(settings.gridBrightness) || 0));
+  const gridBrightness = Math.max(0, Math.min(1, Number(settings.gridBrightness) || 0));
   const showSampleGrid = gridBrightness > 0.001 && pixelsPerFrame >= 6 * pixelRatio;
   if (showSampleGrid) {
-    const gridAlpha = Math.min(0.55, 0.14 * gridBrightness);
+    const gridAlpha = Math.min(0.55, 0.28 * gridBrightness);
     context.strokeStyle = nodeGraphPhosphorWaveformLineColor(settings, 68, gridAlpha);
     context.lineWidth = 1;
     context.beginPath();

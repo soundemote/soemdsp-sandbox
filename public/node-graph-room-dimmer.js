@@ -1,17 +1,20 @@
-// Room light — screenspace dim veil with rect light punches.
+// Room light — full-UI screenspace dim veil with rect light punches.
 //
 // 💡 drag = room dim (0 = full light / no veil, 1 = pure black outside holes).
+// Covers the whole app chrome (top toolbar + bottom resource bar + workspace).
+// At 100% everything is blacked out EXCEPT the dimmer button (always punched
+// and stacked above the veil so you can still drag dim back down).
 //
 // Simple light sim only:
-//   - black veil alpha = dim (true 0…1, no caps)
-//   - hard rect holes from painted light faces only (no text, no bloom)
+//   - black veil alpha = dim (true 0…1)
+//   - hard rect holes from painted light faces + the dimmer control itself
 // Cables stay under the veil.
 //
 // Punch geometry:
 //   Prefer the *painted* surface (scope fallback canvas, music-player panel
 //   canvas, LED lamp) — not the outer module cell — so module strokes /
 //   padding / widgets stay under the veil. Map holes via the dimmer canvas
-//   client rect (not the host alone) so CSS `zoom` on the graph surface
+//   client rect (fixed full-viewport) so CSS `zoom` on the graph surface
 //   keeps holes locked to the screens.
 
 (() => {
@@ -19,7 +22,7 @@
 
   const STORAGE_KEY = "soemdsp-sandbox.roomDimmer.v1";
   const MAX_RECTS = 48;
-  const SHADER_REV = 7;
+  const SHADER_REV = 9;
   // Inset punch by this many CSS px so 1px borders / AA don't open chrome.
   const PUNCH_INSET_CSS = 1.25;
 
@@ -113,8 +116,12 @@ void main() {
     return x < 0 ? 0 : x > 1 ? 1 : x;
   }
 
-  // Persist at most half-dark so a refresh never restores pure black (users
-  // thought the UI was broken). Live drag can still go 0…1 this session.
+  /** Live dim is full range 0…1 (100% blacks out the UI; button stays punched). */
+  function clampDim(n) {
+    return clamp01(n);
+  }
+
+  // Persist at most half-dark so a refresh never restores a pure-black UI.
   const PERSIST_DIM_MAX = 0.5;
 
   function clampPersistDim(n) {
@@ -125,12 +132,29 @@ void main() {
     return document.getElementById("nodeGraphWorkspace");
   }
 
+  /** Full-UI host for the fixed veil (bars + workspace). */
+  function veilHost() {
+    return document.body || document.documentElement;
+  }
+
   function canvasEl() {
     return document.getElementById("nodeRoomDimmerCanvas");
   }
 
   function buttonEl() {
     return document.getElementById("nodeRoomDimmerButton");
+  }
+
+  function setVeilActive(on) {
+    const body = veilHost();
+    const ws = workspace();
+    if (on) {
+      body?.classList?.add("room-dimmer-on");
+      ws?.classList?.add("room-dimmer-on");
+    } else {
+      body?.classList?.remove("room-dimmer-on");
+      ws?.classList?.remove("room-dimmer-on");
+    }
   }
 
   function load() {
@@ -149,7 +173,7 @@ void main() {
       try {
         window.localStorage.setItem(
           STORAGE_KEY,
-          JSON.stringify({ v: 2, dim: clampPersistDim(state.dim) }),
+          JSON.stringify({ v: 3, dim: clampPersistDim(state.dim) }),
         );
       } catch { /* ignore */ }
     }, 120);
@@ -237,13 +261,14 @@ void main() {
   }
 
   function resizeCanvas(canvas) {
-    const host = workspace();
-    if (!host || !canvas) return false;
-    // Match CSS box of the veil canvas (inset:0 on workspace), not a zoomed child.
+    if (!canvas) return false;
+    // Fixed full-viewport veil (covers top/bottom bars + workspace).
     const rect = canvas.getBoundingClientRect();
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const w = Math.max(1, Math.round(Math.max(rect.width, 1) * dpr));
-    const h = Math.max(1, Math.round(Math.max(rect.height, 1) * dpr));
+    const cssW = Math.max(rect.width, window.innerWidth || 1, 1);
+    const cssH = Math.max(rect.height, window.innerHeight || 1, 1);
+    const w = Math.max(1, Math.round(cssW * dpr));
+    const h = Math.max(1, Math.round(cssH * dpr));
     if (canvas.width !== w) canvas.width = w;
     if (canvas.height !== h) canvas.height = h;
     return canvas.width > 0 && canvas.height > 0;
@@ -358,11 +383,10 @@ void main() {
   }
 
   function collectLights(canvas) {
-    const host = workspace();
-    if (!host || !canvas?.width || !canvas?.height) {
+    if (!canvas?.width || !canvas?.height) {
       return { rects: [], rectStr: [] };
     }
-    // Use the veil canvas box — not only the host — so layout matches GL.
+    // Full-viewport veil: map module light rects in the same client space.
     const canvasRect = canvas.getBoundingClientRect();
     if (!(canvasRect.width > 0) || !(canvasRect.height > 0)) {
       return { rects: [], rectStr: [] };
@@ -370,10 +394,31 @@ void main() {
     const seen = new Set();
     const rects = [];
     const rectStr = [];
-
-    for (const el of host.querySelectorAll(LIGHT_SELECTOR)) {
+    // Lights live in the graph; query the document so we still find them if
+    // the canvas is reparented outside the workspace.
+    const root = document;
+    for (const el of root.querySelectorAll(LIGHT_SELECTOR)) {
       if (rects.length >= MAX_RECTS) break;
+      // Dimmer control is handled below (always full hole, even at 100% dim).
+      if (el.closest?.("#nodeRoomDimmerButton, .node-room-dimmer-button")) continue;
       pushRectLight(el, canvasRect, canvas, seen, rects, rectStr);
+    }
+
+    // Always punch the dimmer button so it stays visible/usable at full black.
+    const btn = buttonEl();
+    if (btn && rects.length < MAX_RECTS) {
+      const prev = btn.dataset?.lightStrength;
+      if (btn.dataset) {
+        btn.dataset.lightStrength = "1";
+      }
+      pushRectLight(btn, canvasRect, canvas, seen, rects, rectStr);
+      if (btn.dataset) {
+        if (prev == null || prev === "") {
+          delete btn.dataset.lightStrength;
+        } else {
+          btn.dataset.lightStrength = prev;
+        }
+      }
     }
 
     return { rects, rectStr };
@@ -381,18 +426,17 @@ void main() {
 
   function drawFrame() {
     state.raf = 0;
-    const dim = clamp01(state.dim);
+    const dim = clampDim(state.dim);
     const canvas = canvasEl();
-    const host = workspace();
-    if (!canvas || !host) return;
+    if (!canvas) return;
 
     if (dim <= 0.0005) {
-      host.classList.remove("room-dimmer-on");
+      setVeilActive(false);
       clearCanvas();
       return;
     }
 
-    host.classList.add("room-dimmer-on");
+    setVeilActive(true);
     if (!resizeCanvas(canvas)) {
       scheduleDraw();
       return;
@@ -452,28 +496,29 @@ void main() {
 
   function scheduleDraw() {
     if (state.raf) return;
-    if (clamp01(state.dim) <= 0.0005) return;
+    if (clampDim(state.dim) <= 0.0005) return;
     state.raf = window.requestAnimationFrame(drawFrame);
   }
 
   function syncButton() {
     const btn = buttonEl();
     if (!btn) return;
-    const dim = clamp01(state.dim);
+    const dim = clampDim(state.dim);
     const on = dim > 0.0005;
+    const pct = Math.round(dim * 100);
     btn.style.setProperty("--room-dim", String(dim));
     btn.setAttribute("aria-pressed", on ? "true" : "false");
-    btn.setAttribute("aria-valuenow", String(Math.round(dim * 100)));
+    btn.setAttribute("aria-valuenow", String(pct));
     btn.setAttribute("aria-valuemin", "0");
     btn.setAttribute("aria-valuemax", "100");
-    btn.setAttribute("aria-valuetext", `Room dim ${Math.round(dim * 100)} percent`);
+    btn.setAttribute("aria-valuetext", `Room dim ${pct} percent`);
     btn.title = on
-      ? `Room ${Math.round(dim * 100)}% dark · drag (0 = full light, 100 = pure black)`
-      : "Room light · drag: 0 = full light, 100 = pure dark (only screens remain)";
+      ? `Room ${pct}% dark · drag (0 = full light, 100 = pure black; this control stays lit)`
+      : "Room light · drag: 0 = full light, 100 = pure black (screens + this control stay lit)";
   }
 
   function setDim(value, options = {}) {
-    state.dim = clamp01(value);
+    state.dim = clampDim(value);
     syncButton();
     if (state.dim > 0.0005) {
       scheduleDraw();
@@ -482,7 +527,7 @@ void main() {
         window.cancelAnimationFrame(state.raf);
         state.raf = 0;
       }
-      workspace()?.classList.remove("room-dimmer-on");
+      setVeilActive(false);
       clearCanvas();
     }
     if (options.persist !== false) saveSoon();
@@ -510,7 +555,7 @@ void main() {
       state.drag = {
         id: event.pointerId,
         y0: event.clientY,
-        d0: clamp01(state.dim),
+        d0: clampDim(state.dim),
       };
       btn.classList.add("room-dimmer-dragging");
       try { btn.setPointerCapture?.(event.pointerId); } catch { /* ignore */ }
@@ -523,7 +568,7 @@ void main() {
     btn.addEventListener("pointerup", end);
     btn.addEventListener("pointercancel", end);
     btn.addEventListener("keydown", (event) => {
-      const d = clamp01(state.dim);
+      const d = clampDim(state.dim);
       if (event.key === "ArrowUp" || event.key === "ArrowRight") {
         event.preventDefault();
         setDim(d + 0.05);
@@ -556,13 +601,14 @@ void main() {
   }
 
   window.setNodeGraphRoomDim = setDim;
-  window.nodeGraphRoomDim = () => clamp01(state.dim);
+  window.nodeGraphRoomDim = () => clampDim(state.dim);
+  window.nodeGraphRoomDimMax = () => 1;
   window.bindNodeGraphRoomDimmer = bind;
   window.setNodeGraphLightStrength = setLightStrength;
 
   window.setNodeGraphShaderScriptEnabled = (on) => {
     if (!on) setDim(0);
-    else if (clamp01(state.dim) < 0.001) setDim(0.55);
+    else if (clampDim(state.dim) < 0.001) setDim(0.55);
   };
   window.bindNodeGraphShaderScriptEvents = bind;
   window.openNodeGraphGlobalShaderScript = () => {};

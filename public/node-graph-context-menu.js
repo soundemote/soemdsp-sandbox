@@ -739,7 +739,7 @@ const nodeGraphModuleActionControlIds = [
   "nodeSceneCodeblockControls",
   "nodeSceneGraphControls",
   "nodeSceneDisplayHeightControls",
-  "nodeSceneToggleOscilloscope",
+  // Hide Display lives inside ModuleVisibilityActionGroup (not a sibling row).
   "nodeSceneModuleVisibilityActionGroup",
   "nodeSceneToggleInterfaceControls",
   "nodeSceneImageControls",

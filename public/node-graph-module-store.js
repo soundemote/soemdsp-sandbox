@@ -594,10 +594,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   valueSlider: {
     category: "controller",
-    description: "Resizable bias-output slider for manual control in the modular view and UI view. Search keywords: slider, knob, macro, fader, pot.",
+    description: "Resizable bias slider with dedicated In: final Bias = In + slider. Param-row mod jack is unit CV; use In for true additive CV. Search: slider, knob, macro, fader, pot.",
     label: "Value Slider",
     notes: [
       "bias output",
+      "in plus slider",
+      "additive cv input",
       "resizable widget",
       "manual control",
       "slider",

@@ -287,7 +287,7 @@ function normalizeNodeGraphLedLayout(layout = {}) {
   const peakColor = gradientStops[gradientStops.length - 1]?.color || color;
   return {
     blur: clamp(source.blur, 0, 1, defaults.blur),
-    brightness: clamp(source.brightness, 0, 2, defaults.brightness),
+    brightness: clamp(source.brightness, 0, 1, defaults.brightness),
     color: normalizeNodeGraphModuleScopeDotCoreColor(peakColor, color),
     cornerShape: source.cornerShape === "square" ? "square" : "squircle",
     fillPercent: clamp(source.fillPercent ?? source.fill, 0, 100, defaults.fillPercent),

@@ -689,11 +689,11 @@ function createNodeGraphModuleElement(type, node) {
     const face = typeof createNodeGraphValueSliderFace === "function"
       ? createNodeGraphValueSliderFace(node, type)
       : createNodeGraphSliderWidgetBody(node, type);
-    // Face already marks itself as scope-window + light-source; keep class if factory missing.
-    face.classList.add("node-module-scope-window", "node-light-source");
-    if (face.dataset) {
-      face.dataset.lightSource = face.dataset.lightSource || "screen";
-      face.dataset.lightStrength = face.dataset.lightStrength || "1";
+    // Scope window for live Bias paint. Light cutout only when face art loads
+    // (renderNodeGraphValueSliderFace → nodeGraphValueSliderFaceSyncLightSource).
+    face.classList.add("node-module-scope-window");
+    if (face.dataset && face.dataset.lightStrength == null) {
+      face.dataset.lightStrength = "0";
     }
     const shell = createNodeGraphLayoutBShell(node, type, face, null, inputPorts, outputPorts);
     shell.classList.add("node-value-slider-shell");

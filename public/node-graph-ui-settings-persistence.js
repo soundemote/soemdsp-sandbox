@@ -613,7 +613,8 @@ function normalizeNodeUiDevSettings(settings = {}) {
   }
   const gridVisible = view.gridVisible ?? controls.gridVisible ?? controls.showGrid ?? nodeGraphMvp.gridVisible;
   const wiresAboveModules = Boolean(view.wiresAboveModules ?? nodeGraphMvp.wiresAboveModules);
-  const keyboardDebugInfoVisible = Boolean(view.keyboardDebugInfoVisible ?? nodeGraphMvp.keyboardDebugInfoVisible);
+  // Debug chrome is session-only — never default on, never restore from UI settings.
+  const keyboardDebugInfoVisible = false;
   const tooltipEmbedded = Boolean(view.tooltipEmbedded ?? nodeGraphMvp.tooltipEmbedded);
   const moduleButtonsVisible = Boolean(view.moduleButtonsVisible ?? nodeGraphMvp.moduleButtonsVisible);
   const moduleInterfaceControlsVisible = Boolean(view.moduleInterfaceControlsVisible ?? nodeGraphMvp.moduleInterfaceControlsVisible);
@@ -867,7 +868,8 @@ function readNodeUiDevSettingsFromControls(options = {}) {
     view: {
       gridVisible: Boolean(nodeGraphMvp.gridVisible),
       wiresAboveModules: Boolean(nodeGraphMvp.wiresAboveModules),
-      keyboardDebugInfoVisible: Boolean(nodeGraphMvp.keyboardDebugInfoVisible),
+      // Never persist "show debug" — refresh / defaults always hide diagnostics.
+      keyboardDebugInfoVisible: false,
       tooltipEmbedded: Boolean(nodeGraphMvp.tooltipEmbedded),
       moduleButtonsVisible: Boolean(nodeGraphMvp.moduleButtonsVisible),
       moduleInterfaceControlsVisible: Boolean(nodeGraphMvp.moduleInterfaceControlsVisible),
@@ -978,7 +980,8 @@ function applyNodeUiDevSettings(settings) {
   nodeGraphMvp.moduleDefaultOverrides = normalized.moduleDefaultOverrides;
   nodeGraphMvp.gridVisible = Boolean(normalized.view.gridVisible);
   nodeGraphMvp.wiresAboveModules = Boolean(normalized.view.wiresAboveModules);
-  nodeGraphMvp.keyboardDebugInfoVisible = Boolean(normalized.view.keyboardDebugInfoVisible);
+  // Force-hide debug on every UI-settings apply / page load (not a saved preference).
+  nodeGraphMvp.keyboardDebugInfoVisible = false;
   nodeGraphMvp.tooltipEmbedded = Boolean(normalized.view.tooltipEmbedded);
   nodeGraphMvp.moduleButtonsVisible = Boolean(normalized.view.moduleButtonsVisible);
   nodeGraphMvp.moduleInterfaceControlsVisible = Boolean(normalized.view.moduleInterfaceControlsVisible);

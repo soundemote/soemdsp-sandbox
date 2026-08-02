@@ -4,7 +4,7 @@
 //
 // Axes (app-wide):
 // Display Settings order: Size → Blur → Bright → Ghost → Trail → Scale → Antialiasing → Dot Budget
-//   brightness (UI: Bright) → deposit gain
+//   brightness (UI: Bright) → 0…1 energy (1 = full); maps to internal deposit gain
 //   trail                   → main residual length (1 ≈ freeze-ish)
 //   ghost                   → dim scorched floor hang
 //

@@ -176,7 +176,7 @@
     "secondaryLineThickness": "Right-channel blur 0–1 | same hard→soft meaning as primary Blur (Output)",
     "secondaryBrightness": "secondary signal brightness | values above 1 are allowed (Output's Right channel)",
     "secondaryColor": "Output Right channel color | drag hue/bright/sat on the color widget to scan | combine meet is derived from Left+Right",
-    "stereoBlend": "Output stereo blend | Combine: L-only·C_L + R-only·C_R + meet·C_meet (meet from Left/Right; red+blue→green) | other modes are standard canvas composites (Add/Screen/Over/…)",
+    "stereoBlend": "Output stereo blend | Meet: L-only·C_L + R-only·C_R + meet·C_meet (meet from Left/Right; red+blue→green) | other modes are standard canvas composites (Add/Screen/Over/…)",
     "capEnabled": "show or hide the 0D Value line end caps",
     "lineLength": "0D Value line length | 1 reaches the display edge | lower values pull both ends inward",
     "capSize": "0D Value cap thickness as a 0..1 fraction of the display square",

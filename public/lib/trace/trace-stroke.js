@@ -362,14 +362,16 @@
   /**
    * Output stereo dual-trace.
    *
-   * blend "combine" (default) keeps the equation:
+   * blend "combine" (default / Meet UI):
    *   m = min(L, R)
    *   pixel = (L-m)·C_left + (R-m)·C_right + m·C_meet
    * With C_left=red, C_right=blue, C_meet=green this is the original R/B→G.
-   * Any colors work; C_meet defaults to max(0, 1-C_L-C_R) per channel.
+   * C_meet defaults to max(0, 1-C_L-C_R) per channel (complement).
+   * Caller fills plate under transparent holes (destination-over).
    *
-   * Other blends: draw Left then Right with that Canvas composite mode.
-   * Trace blur is ignored (always hard stroke) — soft skirts don't fit lines.
+   * Other blends: draw Left then Right with that Canvas composite mode
+   * (plate must already be filled by the caller).
+   * Trace blur is ignored (always hard stroke).
    */
   function drawStereo(destCtx, leftPoints, rightPoints, leftOptions = {}, rightOptions = {}, stereo = {}) {
     if (!destCtx?.canvas) {
@@ -497,10 +499,10 @@
     draw,
     drawStereo,
     drawStereoRedBlueGreen,
+    normalizeStereoBlend,
+    STEREO_BLEND_MODES,
     meetColorFromPair,
     parseRgb01,
-    STEREO_BLEND_MODES,
-    normalizeStereoBlend,
     budgetPoints,
     pointBudget,
   };

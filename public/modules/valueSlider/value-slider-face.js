@@ -176,9 +176,157 @@ function nodeGraphValueSliderFaceForNode(node) {
   return normalizeNodeGraphValueSliderFace(patchNode?.valueSliderFace);
 }
 
+/** Fixed decimal places for the face readout (Display Settings → Num decimals). */
+function nodeGraphValueSliderFaceReadoutDecimals(patchNode) {
+  if (typeof nodeGraphValueSliderFaceDisplaySettingsForNode === "function") {
+    const settings = nodeGraphValueSliderFaceDisplaySettingsForNode(patchNode);
+    const n = Math.round(Number(settings?.decimals));
+    if (Number.isFinite(n)) {
+      return Math.max(0, Math.min(8, n));
+    }
+  }
+  const raw = Number(
+    patchNode?.traceDisplaySettings?.decimals
+    ?? patchNode?.valueSliderFace?.decimals,
+  );
+  if (Number.isFinite(raw)) {
+    return Math.max(0, Math.min(8, Math.round(raw)));
+  }
+  return 2;
+}
+
+/** Format live Bias for the face plate using Display Settings decimals. */
+function nodeGraphValueSliderFaceFormatReadout(value, patchNode, slider = null) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    return "0";
+  }
+  const places = nodeGraphValueSliderFaceReadoutDecimals(patchNode);
+  const showSign = typeof nodeSliderShouldShowSign === "function" && slider
+    ? nodeSliderShouldShowSign(slider)
+    : true;
+  const absText = number.toFixed(places);
+  if (showSign && number >= 0) {
+    return `+${absText}`;
+  }
+  if (number >= 0) {
+    return ` ${absText}`;
+  }
+  return absText;
+}
+
 /**
- * Latest live Bias sample from scope capture (final worklet output after
- * modulation). This is what a DISPLAY must show — not the static param meta.
+ * Size readout to fill most of the face: start from height budget, then
+ * binary-search down only if the string overflows width (no clip).
+ * Previous maxW*0.42 start made values tiny for no good reason.
+ */
+function nodeGraphValueSliderFaceFitReadout(readout, face = null) {
+  if (!readout || readout.hidden || readout.getAttribute("aria-hidden") === "true") {
+    return;
+  }
+  const style = readout.style;
+  if (!style) {
+    return;
+  }
+  // Clear prior inline size so we measure against host geometry, not last frame.
+  style.fontSize = "";
+  style.transform = "";
+  style.letterSpacing = "";
+  style.lineHeight = "1";
+
+  const host = face || readout.closest?.(".node-value-slider-face") || readout.parentElement;
+  if (!host) {
+    return;
+  }
+  const hostW = host.clientWidth || 0;
+  const hostH = host.clientHeight || 0;
+  if (hostW < 4 || hostH < 4) {
+    return;
+  }
+
+  const hasImage = host.classList?.contains("has-image");
+  const label = !hasImage ? host.querySelector?.("[data-value-slider-face-label]") : null;
+  const labelVisible = Boolean(label && !label.hidden && label.offsetParent !== null);
+  const labelH = labelVisible ? (label.offsetHeight || 0) : 0;
+  // Tight side pad — fill the plate; only pull in enough to avoid edge kiss.
+  const padX = hasImage ? Math.max(2, hostW * 0.04) : Math.max(2, hostW * 0.03);
+  const padY = hasImage ? Math.max(2, hostH * 0.04) : Math.max(1, hostH * 0.02);
+  // Prefer host geometry (not readout.clientHeight — that was already tiny from prior fit).
+  const maxW = Math.max(12, hostW - padX * 2);
+  const maxH = Math.max(
+    12,
+    hasImage
+      ? hostH - padY * 2
+      : hostH - labelH - padY * 2,
+  );
+
+  // Prefer filling height; soft width cap only for absurdly wide modules.
+  const hi = Math.min(maxH * 0.94, maxW * 1.15, 96);
+  const lo = 8;
+  if (!(hi >= lo)) {
+    return;
+  }
+
+  const fits = (px) => {
+    style.fontSize = `${px.toFixed(2)}px`;
+    // scrollWidth/Height include overflow past the content box.
+    return readout.scrollWidth <= maxW + 1 && readout.scrollHeight <= maxH + 1;
+  };
+
+  // Binary search largest size that still fits (fills the face when space allows).
+  let best = lo;
+  let low = lo;
+  let high = hi;
+  if (fits(hi)) {
+    best = hi;
+  } else {
+    for (let i = 0; i < 14; i += 1) {
+      const mid = (low + high) * 0.5;
+      if (fits(mid)) {
+        best = mid;
+        low = mid;
+      } else {
+        high = mid;
+      }
+    }
+    style.fontSize = `${best.toFixed(2)}px`;
+  }
+
+  // Very long strings only: nudge tracking after we already took the largest fit size.
+  if (readout.scrollWidth > maxW + 1) {
+    style.letterSpacing = "-0.03em";
+  }
+}
+
+function attachNodeGraphValueSliderFaceReadoutFit(face) {
+  if (!face || face._valueSliderReadoutFitBound) {
+    return;
+  }
+  face._valueSliderReadoutFitBound = true;
+  const run = () => {
+    const readout = face.querySelector?.("[data-value-slider-face-readout]");
+    if (readout) {
+      nodeGraphValueSliderFaceFitReadout(readout, face);
+    }
+  };
+  if (typeof ResizeObserver === "function") {
+    const ro = new ResizeObserver(() => {
+      if (face._valueSliderReadoutFitRaf) {
+        cancelAnimationFrame(face._valueSliderReadoutFitRaf);
+      }
+      face._valueSliderReadoutFitRaf = requestAnimationFrame(run);
+    });
+    ro.observe(face);
+    face._valueSliderReadoutFitRo = ro;
+  }
+  // First layout pass after insert.
+  requestAnimationFrame(run);
+}
+
+/**
+ * Latest live Bias sample from scope capture (final worklet output:
+ * signal In + effective slider). This is what a DISPLAY must show — not
+ * the static param meta alone.
  */
 function nodeGraphValueSliderFaceLatestScopeSample(nodeId) {
   const id = String(nodeId || "").trim();
@@ -247,7 +395,7 @@ function nodeGraphValueSliderFaceSourceSample(sourceNode, sourcePort) {
 }
 
 /**
- * Final displayed Bias: scope Bias first, else base offset + live modulations.
+ * Final displayed Bias: scope Bias first, else In + effective slider.
  * Parameter meta (slider text) is NOT the display — this is.
  */
 function nodeGraphValueSliderFaceLiveOffset(nodeId) {
@@ -269,6 +417,7 @@ function nodeGraphValueSliderFaceLiveOffset(nodeId) {
   if (!Number.isFinite(base)) {
     base = 0;
   }
+  // Param-row unit CV (optional) on top of the manual slider.
   const modulations = Array.isArray(nodeGraphMvp?.patch?.modulations)
     ? nodeGraphMvp.patch.modulations
     : [];
@@ -294,18 +443,37 @@ function nodeGraphValueSliderFaceLiveOffset(nodeId) {
       contribution += src;
     }
   }
-  if (!hasMod) {
-    return base;
+  let slider = base;
+  if (hasMod) {
+    if (typeof nodeGraphParameterValueToNormalizedSignal === "function"
+      && typeof nodeGraphNormalizedSignalToParameterValue === "function") {
+      const baseSignal = nodeGraphParameterValueToNormalizedSignal(base, metadata);
+      const nextSignal = typeof nodeGraphNormalizedParameterSignalBounds === "function"
+        ? nodeGraphNormalizedParameterSignalBounds(baseSignal + contribution, metadata)
+        : Math.max(0, Math.min(1, baseSignal + contribution));
+      slider = nodeGraphNormalizedSignalToParameterValue(nextSignal, metadata);
+    } else {
+      slider = base + contribution;
+    }
   }
-  if (typeof nodeGraphParameterValueToNormalizedSignal === "function"
-    && typeof nodeGraphNormalizedSignalToParameterValue === "function") {
-    const baseSignal = nodeGraphParameterValueToNormalizedSignal(base, metadata);
-    const nextSignal = typeof nodeGraphNormalizedParameterSignalBounds === "function"
-      ? nodeGraphNormalizedParameterSignalBounds(baseSignal + contribution, metadata)
-      : Math.max(0, Math.min(1, baseSignal + contribution));
-    return nodeGraphNormalizedSignalToParameterValue(nextSignal, metadata);
+  // Dedicated signal In: domain add (same as worklet/live evaluator).
+  let inputSum = 0;
+  const connections = Array.isArray(nodeGraphMvp?.patch?.connections)
+    ? nodeGraphMvp.patch.connections
+    : [];
+  for (const connection of connections) {
+    if (connection.destinationNode !== id || connection.destinationPort !== "In") {
+      continue;
+    }
+    const src = nodeGraphValueSliderFaceSourceSample(
+      connection.sourceNode,
+      connection.sourcePort,
+    );
+    if (src != null && Number.isFinite(src)) {
+      inputSum += src;
+    }
   }
-  return base + contribution;
+  return inputSum + slider;
 }
 
 function nodeGraphValueSliderFaceUnitFromValue(value, patchNode) {
@@ -362,31 +530,15 @@ function paintNodeGraphValueSliderFaceLive(face, nodeId, buffer = null) {
     const slider = document.getElementById(`node-${nodeId}-offset`);
     readout.hidden = false;
     readout.setAttribute("aria-hidden", "false");
-    readout.textContent = typeof formatNodeSliderNumber === "function"
-      ? formatNodeSliderNumber(value, {
-        kind: slider?.dataset?.kind || "decimal",
-        maxDigits: slider?.dataset?.maxDigits,
-        reserveSignSpace: true,
-        showSign: typeof nodeSliderShouldShowSign === "function" && slider
-          ? nodeSliderShouldShowSign(slider)
-          : true,
-      }).trim()
-      : String(value);
+    readout.textContent = nodeGraphValueSliderFaceFormatReadout(value, patchNode, slider);
+    nodeGraphValueSliderFaceFitReadout(readout, face);
   }
 
   const unit = nodeGraphValueSliderFaceUnitFromValue(value, patchNode || { id: nodeId });
   nodeGraphValueSliderFaceApplyLayerTransforms(face, faceData, unit);
   face.dataset.liveValue = String(value);
-  // Always-on display plate: reassert dimmer cutout (cold-boot wipe zeros emitters).
-  if (face.dataset) {
-    face.dataset.lightSource = "screen";
-    face.dataset.lightStrength = "1";
-  }
-  if (typeof nodeGraphModuleScopeMarkScreenLit === "function") {
-    nodeGraphModuleScopeMarkScreenLit(face, 1);
-  } else if (typeof setNodeGraphLightStrength === "function") {
-    setNodeGraphLightStrength(face, 1);
-  }
+  // Dimmer: cutout only with loaded face art (text/stroke stay under the veil).
+  nodeGraphValueSliderFaceSyncLightSource(face, nodeGraphValueSliderFaceHasAnyImage(faceData));
 }
 
 /** Degrees for Bias unit 0…1 (shared span/offset; applied only to layers with rotate). */
@@ -454,18 +606,48 @@ function attachNodeGraphValueSliderFaceDrag(face) {
 }
 
 /**
+ * Room dimmer cutout only when face art is loaded.
+ * Empty plate (label / readout / stroke) stays under the veil — not a light source.
+ * With images, the face punches a hole so the graphic reads as a lit screen.
+ */
+function nodeGraphValueSliderFaceSyncLightSource(face, hasImage = null) {
+  if (!face) {
+    return false;
+  }
+  const lit = hasImage == null
+    ? Boolean(face.classList?.contains("has-image") || face.dataset?.hasImage === "true")
+    : Boolean(hasImage);
+  face.classList.toggle("node-light-source", lit);
+  if (face.dataset) {
+    if (lit) {
+      face.dataset.lightSource = "screen";
+      face.dataset.lightStrength = "1";
+    } else {
+      delete face.dataset.lightSource;
+      face.dataset.lightStrength = "0";
+    }
+  }
+  if (typeof nodeGraphModuleScopeMarkScreenLit === "function") {
+    nodeGraphModuleScopeMarkScreenLit(face, lit ? 1 : 0);
+  } else if (typeof setNodeGraphLightStrength === "function") {
+    setNodeGraphLightStrength(face, lit ? 1 : 0);
+  }
+  return lit;
+}
+
+/**
  * Build the LayoutB face DOM (called from factories).
  * Stack: image1 (back) … image5 (front) → text.
  */
 function createNodeGraphValueSliderFace(node, type) {
   const face = document.createElement("div");
-  // Room dimmer: punch a full hole over this plate (same contract as number readout / LED).
-  face.className = "node-value-slider-face node-module-scope-window node-light-source";
+  // Scope slot for live Bias paint. Dimmer cutout only after face art loads
+  // (see nodeGraphValueSliderFaceSyncLightSource) — not a permanent light source.
+  face.className = "node-value-slider-face node-module-scope-window";
   face.dataset.node = node;
   face.dataset.nodeType = type || "valueSlider";
   face.dataset.sliderTarget = `node-${node}-offset`;
-  face.dataset.lightSource = "screen";
-  face.dataset.lightStrength = "1";
+  face.dataset.lightStrength = "0";
   face.tabIndex = 0;
   face.setAttribute("role", "slider");
   face.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} value display`);
@@ -492,6 +674,7 @@ function createNodeGraphValueSliderFace(node, type) {
 
   face.append(label, readout);
   attachNodeGraphValueSliderFaceDrag(face);
+  attachNodeGraphValueSliderFaceReadoutFit(face);
   renderNodeGraphValueSliderFace(face, node);
   return face;
 }
@@ -592,6 +775,8 @@ function renderNodeGraphValueSliderFace(faceOrNodeId, nodeIdOpt) {
   face.classList.toggle("show-readout", Boolean(faceData.showReadout));
   face.dataset.hasImage = hasAny ? "true" : "false";
   face.dataset.showReadout = faceData.showReadout ? "true" : "false";
+  // Room dimmer: image → light cutout; empty plate (readout/stroke) under veil.
+  nodeGraphValueSliderFaceSyncLightSource(face, hasAny);
   // Class + frame hide: kill white module outline when face art is present.
   // Must run after the face is mounted under .dsp-node (see module-rendering re-render).
   const moduleEl = face.closest?.(".dsp-node");
@@ -681,21 +866,13 @@ function syncNodeGraphValueSliderFaceFromSlider(slider) {
   const displayValue = Number.isFinite(Number(slider.dataset.unboundedValue))
     ? Number(slider.dataset.unboundedValue)
     : Number(slider.value);
-  if (readout && !readout.hidden) {
-    readout.textContent = typeof formatNodeSliderNumber === "function"
-      ? formatNodeSliderNumber(displayValue, {
-        kind: slider.dataset.kind,
-        maxDigits: slider.dataset.maxDigits,
-        reserveSignSpace: true,
-        showSign: typeof nodeSliderShouldShowSign === "function"
-          ? nodeSliderShouldShowSign(slider)
-          : true,
-      }).trim()
-      : String(displayValue);
-  }
   const patchNode = typeof nodeGraphPatchNode === "function"
     ? nodeGraphPatchNode(module.dataset.node)
     : null;
+  if (readout && !readout.hidden) {
+    readout.textContent = nodeGraphValueSliderFaceFormatReadout(displayValue, patchNode, slider);
+    nodeGraphValueSliderFaceFitReadout(readout, face);
+  }
   const faceData = nodeGraphValueSliderFaceForNode(patchNode);
   const min = Number(slider.min);
   const max = Number(slider.max);

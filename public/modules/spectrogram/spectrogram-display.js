@@ -460,7 +460,7 @@ function drawNodeGraphSpectrogramItem(renderer, item, pixelRatio) {
 
   const node = nodeGraphPatchNode(nodeId);
   const settings = spectrogramSettingsForNode(node);
-  const brightness = Math.max(0.1, Math.min(2, Number(node?.params?.brightness) || 1));
+  const brightness = Math.max(0, Math.min(1, Number(node?.params?.brightness) || 1));
   const minThresh = Math.max(0, Number(node?.params?.minThreshold) || 0);
   const maxThresh = Math.max(minThresh + 0.001, Number(node?.params?.maxThreshold) || 1);
   const threshRange = maxThresh - minThresh;

@@ -1460,23 +1460,26 @@ html.soemdsp-hide-ui .status-strip {
   flex: 0 0 auto;
 }
 
+/* Resize grip is chrome on the outer corner only — never a content inset.
+   Content goes to the dock edge; the grip paints on top as a pure hit target. */
 .node-standalone-midi-keyboard-dock .scene-context-resize-handle {
   position: absolute;
   right: 0;
   bottom: 0;
-  z-index: 4;
-  width: 18px;
-  min-width: 18px;
-  height: 18px;
-  min-height: 18px;
+  z-index: 5;
+  width: 14px;
+  min-width: 14px;
+  height: 14px;
+  min-height: 14px;
+  max-width: 14px;
+  max-height: 14px;
   margin: 0;
   padding: 0;
   border: 0;
-  border-radius: 4px 0 6px 0;
+  border-radius: 0 0 9px 0;
   background:
-    linear-gradient(135deg, transparent 0 48%, rgba(241, 184, 75, 0.36) 50% 56%, transparent 58%),
-    linear-gradient(135deg, transparent 0 64%, rgba(241, 184, 75, 0.58) 66% 72%, transparent 74%),
-    rgba(7, 10, 13, 0.72);
+    linear-gradient(135deg, transparent 0 42%, rgba(241, 184, 75, 0.42) 48% 54%, transparent 60%),
+    linear-gradient(135deg, transparent 0 60%, rgba(241, 184, 75, 0.62) 64% 70%, transparent 74%);
   cursor: nwse-resize;
   touch-action: none;
 }
@@ -1484,32 +1487,21 @@ html.soemdsp-hide-ui .status-strip {
 .node-standalone-midi-keyboard-dock .scene-context-resize-handle:hover,
 .node-standalone-midi-keyboard-dock .scene-context-resize-handle.dragging {
   background:
-    linear-gradient(135deg, transparent 0 48%, rgba(241, 184, 75, 0.5) 50% 56%, transparent 58%),
-    linear-gradient(135deg, transparent 0 64%, rgba(241, 184, 75, 0.78) 66% 72%, transparent 74%),
-    rgba(7, 10, 13, 0.72);
+    linear-gradient(135deg, transparent 0 42%, rgba(241, 184, 75, 0.58) 48% 54%, transparent 60%),
+    linear-gradient(135deg, transparent 0 60%, rgba(241, 184, 75, 0.82) 64% 70%, transparent 74%);
 }
 
-/* Body wrapper -- macro row above the performance row (wheels +
-   keyboard), the layout the dock itself used to carry directly before
-   a heading/resize-handle needed their own space around it. Everything
-   that isn't the piano keys themselves is kept as short/horizontal as
-   possible -- the keyboard is the one thing that needs real height;
-   knobs and wheels should stay a thin strip, not stack into tall
-   columns that push the dock's total height up. */
+/* Body flush to dock chrome — no inset “wall” for the resize grip.
+   Keys / signal values use the real window edge as the boundary. */
 .node-standalone-midi-keyboard-body {
   position: relative;
   flex: 1 1 auto;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  gap: 4px;
+  gap: 0;
   min-height: 0;
-  overflow: auto;
-  /* One shared surface for the whole body -- the keyboard/wheels/macro
-     panels below have their own card chrome (border, background,
-     border-radius) stripped so nothing seams between them. Their actual
-     controls (keys, wheel track, knob dial) are untouched -- only the
-     outer card wrapper merges away. */
-  padding: 8px;
+  overflow: hidden;
+  padding: 0;
 }
 
 .node-standalone-performance-row {
@@ -1519,8 +1511,10 @@ html.soemdsp-hide-ui .status-strip {
      wheel only needs to be wide enough to read its label, not a fifth of
      the dock's width. Freed width goes to the keys instead. */
   grid-template-columns: 64px minmax(0, 1fr);
-  gap: 8px;
+  gap: 0;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 /* Pitch and mod wheel stacked vertically in the dock instead of side by
@@ -1541,10 +1535,52 @@ html.soemdsp-hide-ui .status-strip {
   background: none;
   box-shadow: none;
   padding: 0;
+  overflow: hidden;
 }
 
 .node-standalone-midi-keyboard-dock .node-midi-keyboard-panel {
   height: 100%;
+  min-height: 0;
+  /* heading | piano | signal values — signal stays full height of its auto track */
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  gap: 2px;
+}
+
+/* Current-value strip (freq/pitch/x/y…): flush to dock bottom edge, not
+   clipped by an inset padding box or a max-height fight with the piano. */
+.node-standalone-midi-keyboard-dock .node-midi-keyboard-signal-bar {
+  max-height: none;
+  overflow: visible;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin: 0;
+  padding: 3px 6px 4px;
+  border-top: 1px solid rgba(243, 241, 236, 0.1);
+  background: rgba(5, 6, 7, 0.35);
+}
+
+.node-standalone-midi-keyboard-dock .node-midi-keyboard-bitmask-row {
+  margin: 0;
+  padding: 2px 6px 4px;
+}
+
+/* Wheels column flush left against dock chrome. */
+.node-standalone-midi-keyboard-dock .node-performance-wheels-panel {
+  min-height: 0;
+  height: 100%;
+  padding: 2px 2px 2px 4px;
+}
+
+/* Macro strip: only a hair of top air under the window title bar. */
+.node-standalone-midi-keyboard-dock .node-macro-controls-panel {
+  padding: 4px 6px 2px;
+}
+
+/* Piano surface uses the panel edge — no extra card margin inside the dock. */
+.node-standalone-midi-keyboard-dock .node-midi-keyboard-surface {
+  border-radius: 0;
+  border-left: 0;
+  border-right: 0;
 }
 
 /* Title-only text removed from the wheel and keyboard panels, same as
@@ -1576,6 +1612,7 @@ html.soemdsp-hide-ui .status-strip {
    hidden title's now-empty track leaves the controls stranded in. */
 .node-standalone-midi-keyboard-dock.node-standalone-midi-keyboard-dock .node-midi-keyboard-heading {
   display: flex;
+  padding: 2px 6px 0;
 }
 
 /* Specificity note: .node-midi-keyboard-module .node-midi-keyboard-heading
@@ -3009,11 +3046,14 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   min-inline-size: 0;
 }
 
-/* Room dimmer: fill the gap between Speed Limit strip and Download. */
+/* Room dimmer: fill the gap between Speed Limit strip and Download.
+   z-index above the full-UI veil (z:50) so the control stays interactive
+   and fully visible even at 100% room black — the veil also punches its rect. */
 #nodeRoomDimmerButton,
 .node-room-dimmer-button {
   --room-dim: 0;
   position: relative;
+  z-index: 60;
   flex: 1 1 0;
   min-inline-size: 2.5rem;
   max-inline-size: none;
@@ -9554,20 +9594,23 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: none;
 }
 
-/* Room dimmer veil — black screenspace pass; punches clear over light faces. */
+/* Room dimmer veil — full UI (top/bottom bars + workspace). Fixed viewport.
+   z-index below floating windows (~60+) so Command Center etc. stay usable. */
 .node-room-dimmer-canvas {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: 50;
   display: none;
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100dvh;
+  max-width: 100vw;
+  max-height: 100dvh;
   pointer-events: none;
 }
 
+body.room-dimmer-on .node-room-dimmer-canvas,
 .node-graph-workspace.room-dimmer-on .node-room-dimmer-canvas {
   display: block;
-  z-index: 6;
 }
 
 .node-wire-svg {
@@ -10234,14 +10277,18 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  /* Claim remaining face height so JS fit has a real box to fill. */
   min-height: 0;
   max-height: 100%;
-  padding: 0 2px;
+  padding: 0 calc(var(--node-grid-size) * 0.06);
   overflow: hidden;
   color: rgba(243, 241, 236, 0.94);
-  /* Cap size so glyphs stay inside the face / image box on 2gu modules. */
-  font: 700 clamp(0.75rem, calc(var(--node-grid-size) * 0.62), 1.55rem) / 1.05 var(--node-mono-font);
-  letter-spacing: 0.02em;
+  /* Generous base before JS fit; fit scales up/down to fill the plate. */
+  font-family: var(--node-mono-font);
+  font-weight: 700;
+  font-size: clamp(1rem, calc(var(--node-grid-size) * 0.85), 2.4rem);
+  line-height: 1;
+  letter-spacing: 0.01em;
   font-variant-numeric: tabular-nums;
   text-align: center;
   text-overflow: clip;
@@ -10250,6 +10297,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
     0 0 12px rgba(127, 199, 217, 0.28),
     0 1px 2px rgba(0, 0, 0, 0.85);
   pointer-events: none;
+}
+
+/* Empty plate: readout is the main content — take almost all remaining height. */
+.node-value-slider-face:not(.has-image).show-readout .node-value-slider-face-readout:not([hidden]) {
+  flex: 1 1 auto;
+  align-self: stretch;
 }
 
 /* Only show when face has .show-readout (Module Settings “show numeric readout”). */
@@ -10269,12 +10322,15 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   flex: none;
   width: auto;
   height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  padding: 0 2%;
   text-shadow:
     0 0 8px rgba(0, 0, 0, 0.9),
     0 1px 3px rgba(0, 0, 0, 0.95);
 }
 
-/* Module settings: compact ImageN | load | clear | rotate | filename rows */
+/* Module settings: load | clear | rotate | filename (no Image# labels). */
 .node-value-slider-face-controls .node-value-slider-face-layer-stack {
   display: flex;
   flex-direction: column;
@@ -10284,7 +10340,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-value-slider-face-controls .node-value-slider-face-layer-row {
   display: grid;
-  grid-template-columns: 3.4em auto auto auto minmax(0, 1fr);
+  grid-template-columns: auto auto auto minmax(0, 1fr);
   align-items: center;
   gap: 4px 5px;
   margin: 0;
@@ -10298,11 +10354,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 .node-value-slider-face-controls .node-value-slider-face-layer-label {
-  margin: 0;
-  color: var(--text);
-  font: 700 0.68rem/1 var(--node-mono-font);
-  letter-spacing: 0.02em;
-  white-space: nowrap;
+  display: none;
 }
 
 .node-value-slider-face-controls .node-value-slider-face-layer-row button {
@@ -14114,40 +14166,21 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 
 /*
  * Inline SoundColorWidget for Trace display colors.
- * Must NOT wrap a native type=color in a <label> — that opens the OS picker
- * and parks it top-left when the input has no geometry.
+ * Full-width contiguous row — no side "Color |" column.
  * Host needs a real width/height: the widget sizes via container queries.
  */
-.node-trace-display-settings-popover .node-trace-display-color-widget-row {
+.node-trace-display-settings-popover .node-trace-display-color-widget-row,
+.node-trace-display-settings-popover .node-trace-display-color-widget-row.no-side-label {
   display: grid;
-  grid-template-columns: minmax(52px, 0.34fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: stretch;
   gap: 0;
-  min-height: 104px;
+  min-height: 120px;
   padding: 0;
-}
-
-/* Color widget already titles itself (Plate / Ghost / Stop) — give it full width. */
-.node-trace-display-settings-popover .node-trace-display-color-widget-row.no-side-label,
-.node-trace-display-settings-popover .node-trace-display-color-widget-row:has(> span:first-child:empty) {
-  grid-template-columns: minmax(0, 1fr);
 }
 
 .node-trace-display-settings-popover .node-trace-display-color-widget-row > span:first-child {
-  align-self: center;
-  min-width: 0;
-  overflow: hidden;
-  padding: 0 4px 0 0;
-  text-overflow: clip;
-  white-space: nowrap;
-  color: var(--muted, rgba(243, 240, 230, 0.72));
-  font-size: 0.72rem;
-}
-
-.node-trace-display-settings-popover .node-trace-display-color-widget-row.no-side-label > span:first-child,
-.node-trace-display-settings-popover .node-trace-display-color-widget-row > span:first-child:empty {
   display: none;
-  padding: 0;
 }
 
 .node-trace-display-settings-popover .node-trace-display-color-widget-row > input[type="hidden"] {
@@ -14158,9 +14191,8 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  height: 104px;
-  min-height: 104px;
-  /* Match shader-token color widget theme so strips are readable. */
+  height: 120px;
+  min-height: 120px;
   --color-widget-accent: rgba(127, 199, 217, 0.86);
   --color-widget-bg: rgba(0, 5, 7, 0.42);
   --color-widget-border: rgba(127, 199, 217, 0.2);
@@ -14172,8 +14204,8 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 
 .node-trace-display-settings-popover .node-trace-display-color-widget-host.scw-mount {
   display: grid;
-  height: 104px;
-  min-height: 104px;
+  height: 120px;
+  min-height: 120px;
   place-items: stretch;
 }
 
@@ -14185,7 +14217,7 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 
 /*
  * Global `button { min-height: 38px; padding; background: panel }` would
- * crush container-query strips and paint over hue/bright gradients.
+ * crush container-query strips and the 4-corner plane.
  */
 .node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control {
   appearance: none !important;
@@ -14200,14 +14232,26 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   border-radius: 4px !important;
   color: transparent !important;
   box-shadow: none !important;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control.scw-hue {
   cursor: ew-resize;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control.scw-plane {
+  cursor: crosshair;
 }
 
 .node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control:hover {
   border-color: var(--color-widget-accent, rgba(127, 199, 217, 0.86)) !important;
 }
 
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-plane {
+  min-height: 56px;
+}
+
 .node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-hue {
+  min-height: 18px;
   background: linear-gradient(
     90deg,
     hsl(0 100% 50%),
@@ -14220,18 +14264,8 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   ) !important;
 }
 
-.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-brightness {
-  background: linear-gradient(90deg, #000, #fff) !important;
-}
-
-.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-controls {
-  min-height: 28px;
-  height: 100%;
-  align-self: stretch;
-}
-
 .node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-hex {
-  min-height: 22px;
+  min-height: 20px;
 }
 
 .node-trace-display-settings-popover .metadata-section-title {
@@ -15514,7 +15548,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   border-inline-end: 1px solid var(--node-scene-context-menu-divider, rgba(243, 241, 236, 0.14));
 }
 
-/* 4-up: Copy Module / Settings / Paste / Save to Default, and visibility toggles. */
+/* 4-up: Copy Module / Settings / Paste / Save to Default. */
 .scene-context-button-group-4 button {
   flex: 1 1 25%;
   font-size: 0.72rem;
@@ -15525,7 +15559,48 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   border-inline-end: 1px solid var(--node-scene-context-menu-divider, rgba(243, 241, 236, 0.14));
 }
 
-/* Standalone two-line control (e.g. Hide Display above the visibility row). */
+/* 2-up: Hide Display + Hide Title. */
+.scene-context-button-group-2 button {
+  flex: 1 1 50%;
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.scene-context-button-group-2 button:not(:last-child) {
+  border-inline-end: 1px solid var(--node-scene-context-menu-divider, rgba(243, 241, 236, 0.14));
+}
+
+/* Module visibility: two stacked rows (Display|Title, then Buttons|In/Out|Sliders). */
+.scene-context-visibility-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+  border: 1px solid rgba(226, 168, 109, 0.24);
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.scene-context-visibility-stack[hidden] {
+  display: none;
+}
+
+.scene-context-visibility-stack > .scene-context-button-group {
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+}
+
+.scene-context-visibility-stack > .scene-context-button-group + .scene-context-button-group {
+  border-top: 1px solid var(--node-scene-context-menu-divider, rgba(243, 241, 236, 0.14));
+}
+
+.scene-context-visibility-stack .scene-context-button-group button {
+  border-radius: 0;
+  font-weight: 650;
+}
+
+/* Standalone two-line control (if still used outside a group). */
 .scene-context-two-line-button {
   display: flex;
   width: 100%;
@@ -16087,33 +16162,81 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   min-width: 0;
+  /* Stack under Copy/Paste: omit top so the seam is only Copy/Paste's bottom edge. */
   border: 1px solid rgba(226, 168, 109, 0.24);
+  border-top-width: 0;
   border-bottom-width: 0;
 }
 
-.scene-context-history-controls .scene-context-window-button {
-  /* Label + hotkey (Undo Ctrl+Z / Redo Ctrl+Shift+Z). */
-  grid-template-columns: minmax(0, 1fr) auto;
+/*
+ * Undo/Redo: two-line stack (label + kbd), truly centered.
+ * Must beat: grid window-buttons, menu button flex-start + padding 0 10px,
+ * and .scene-context-window-button-label { justify-items:start; text-align:left }.
+ */
+#nodeSceneContextMenu .scene-context-history-controls .scene-context-window-button,
+#nodeSceneContextMenu .scene-context-history-controls .scene-context-window-button:has(kbd),
+.scene-context-window-controls .scene-context-history-controls .scene-context-window-button,
+.scene-context-window-controls .scene-context-history-controls .scene-context-window-button:has(kbd) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  box-sizing: border-box;
+  height: auto;
+  min-height: calc(var(--node-floating-window-button-height) + 14px);
+  margin: 0;
+  padding: 0;
   border: 0;
   border-radius: 0;
+  grid-template-columns: none;
+  place-content: center;
+  line-height: 1;
+  text-align: center;
 }
 
 .scene-context-history-controls .scene-context-window-button + .scene-context-window-button {
   border-left: 1px solid rgba(127, 199, 217, 0.16);
 }
 
-.scene-context-history-controls .scene-context-window-button-label {
-  justify-items: start;
-  padding-inline: 6px 2px;
-  text-align: left;
+#nodeSceneContextMenu .scene-context-history-controls .scene-context-window-button-label,
+.scene-context-window-controls .scene-context-history-controls .scene-context-window-button-label {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  line-height: 1.05;
+  text-align: center;
+  text-overflow: clip;
+  white-space: nowrap;
+  justify-items: center;
+  place-items: center;
 }
 
-.scene-context-history-controls .scene-context-window-button kbd {
-  align-self: center;
-  padding-right: 6px;
-  font-size: 0.55rem;
-  line-height: 1;
+#nodeSceneContextMenu
+  .scene-context-history-controls
+  .scene-context-window-button:has(.scene-context-window-button-label)
+  kbd,
+#nodeSceneContextMenu .scene-context-history-controls .scene-context-window-button kbd,
+.scene-context-window-controls
+  .scene-context-history-controls
+  .scene-context-window-button:has(.scene-context-window-button-label)
+  kbd,
+.scene-context-window-controls .scene-context-history-controls .scene-context-window-button kbd {
+  position: static;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  align-self: stretch;
+  margin: 0;
+  padding: 0;
+  font-size: 0.5rem;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
   white-space: nowrap;
+  text-align: center;
   opacity: 0.78;
 }
 
@@ -16140,9 +16263,8 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
      leftover 3rd track left them off-center with a dead empty gap. */
   grid-template-columns: repeat(2, minmax(0, 1fr));
   min-width: 0;
+  /* Full frame including bottom — that stroke is the shared seam with Undo/Redo. */
   border: 1px solid rgba(226, 168, 109, 0.24);
-  border-top-width: 0;
-  border-bottom-width: 0;
 }
 
 .scene-context-patch-action-button {
@@ -17092,12 +17214,17 @@ body.node-slider-dragging .node-param-port {
   transform-origin: right center;
 }
 
+/*
+ * Wired jacks: fill only — no color stroke / crescent rim.
+ * The contact disc on the wire endpoint SVG carries the connection cue.
+ */
 .node-port.output.connected-port {
   --node-patch-point-color: var(--node-output-fill);
   --node-patch-point-x: 100%;
   --node-port-stroke-mask-color: color-mix(in srgb, var(--node-output-fill) 15%, transparent);
   --node-port-crescent-fill: var(--node-port-stroke-mask-color);
-  --node-port-crescent-stroke: color-mix(in srgb, var(--node-output-stroke) 56%, transparent);
+  --node-port-crescent-stroke: transparent;
+  --node-port-crescent-stroke-width: 0px;
   border-color: transparent;
 }
 
@@ -17108,8 +17235,8 @@ body.node-slider-dragging .node-param-port {
   --node-patch-point-x: 100%;
   --node-port-stroke-mask-color: color-mix(in srgb, var(--node-param-output-fill) 15%, transparent);
   --node-port-crescent-fill: var(--node-port-stroke-mask-color);
-  --node-port-crescent-stroke: color-mix(in srgb, var(--node-param-output-stroke) 56%, transparent);
-  --node-port-crescent-stroke-width: 1px;
+  --node-port-crescent-stroke: transparent;
+  --node-port-crescent-stroke-width: 0px;
   border-color: transparent;
   background: transparent;
 }
@@ -17122,10 +17249,8 @@ body.node-slider-dragging .node-param-port {
   --node-patch-point-x: 0%;
   --node-port-stroke-mask-color: color-mix(in srgb, var(--node-input-fill) 15%, transparent);
   --node-port-crescent-fill: var(--node-port-stroke-mask-color);
-  /* Connected inlet: match fill arc to input (no dark frame hairline on the
-     flat join where the wire meets the half-jack). */
-  --node-port-crescent-stroke: color-mix(in srgb, var(--node-input-stroke) 42%, transparent);
-  --node-port-crescent-stroke-width: 1px;
+  --node-port-crescent-stroke: transparent;
+  --node-port-crescent-stroke-width: 0px;
   border-color: transparent;
 }
 
@@ -17134,8 +17259,8 @@ body.node-slider-dragging .node-param-port {
   --node-patch-point-x: 0%;
   --node-port-stroke-mask-color: color-mix(in srgb, var(--node-mod-input-fill) 15%, transparent);
   --node-port-crescent-fill: var(--node-port-stroke-mask-color);
-  --node-port-crescent-stroke: color-mix(in srgb, var(--node-module-stroke) 16%, transparent);
-  --node-port-crescent-stroke-width: 1px;
+  --node-port-crescent-stroke: transparent;
+  --node-port-crescent-stroke-width: 0px;
   border-color: transparent;
   background: transparent;
 }
@@ -17145,8 +17270,8 @@ body.node-slider-dragging .node-param-port {
   --node-patch-point-x: 0%;
   --node-port-stroke-mask-color: color-mix(in srgb, var(--node-mod-input-fill) 15%, transparent);
   --node-port-crescent-fill: var(--node-port-stroke-mask-color);
-  --node-port-crescent-stroke: color-mix(in srgb, var(--node-module-stroke) 16%, transparent);
-  --node-port-crescent-stroke-width: 1px;
+  --node-port-crescent-stroke: transparent;
+  --node-port-crescent-stroke-width: 0px;
   border-color: transparent;
   background: transparent;
 }
@@ -17157,6 +17282,14 @@ body.node-slider-dragging .node-param-port {
 .node-port.connected-port,
 .node-param-port.connected-port {
   overflow: visible;
+  /* Solid half-disk fill — no rim band in the radial gradient. */
+  background: radial-gradient(
+    circle farthest-side at var(--node-port-crescent-at),
+    var(--node-port-crescent-fill) 0%,
+    var(--node-port-crescent-fill) 100%
+  );
+  box-shadow: none;
+  border: 0;
 }
 
 .node-port:not(.node-param-port).connected-port::before {
@@ -17165,13 +17298,13 @@ body.node-slider-dragging .node-param-port {
 
 .node-param-port.connected-port::before {
   border: 0;
-  /* Keep crescent stroke via inherited --node-port-crescent-* vars. */
+  /* Fill-only crescent (no stroke ring when wired). */
   background: radial-gradient(
     circle farthest-side at var(--node-port-crescent-at),
-    var(--node-port-crescent-fill) calc(100% - var(--node-port-crescent-stroke-width, 1px)),
-    var(--node-port-crescent-stroke) calc(100% - var(--node-port-crescent-stroke-width, 1px)),
-    var(--node-port-crescent-stroke) 100%
+    var(--node-port-crescent-fill) 0%,
+    var(--node-port-crescent-fill) 100%
   );
+  box-shadow: none;
 }
 
 /*
@@ -17275,12 +17408,12 @@ body.node-slider-dragging .node-param-port {
     0 0 var(--node-hover-glow-size) var(--node-hover-glow-spread) color-mix(in srgb, var(--node-patch-point-color, var(--node-port-hover-fill)) 34%, transparent);
 }
 
-.node-port:not(.node-param-port):hover,
-.node-port:not(.node-param-port).patch-point-hover,
+.node-port:not(.node-param-port):not(.connected-port):hover,
+.node-port:not(.node-param-port):not(.connected-port).patch-point-hover,
 /* LayoutA only: row :hover implies jack (compact rows). Solid LayoutB uses
    .patch-point-hover from jack-local hitbox — not row :hover on tall 1fr bands. */
-.dsp-node-io-section .node-io-row:hover .node-port:not(.node-param-port),
-.node-io-row.patch-point-hover .node-port:not(.node-param-port) {
+.dsp-node-io-section .node-io-row:hover .node-port:not(.node-param-port):not(.connected-port),
+.node-io-row.patch-point-hover .node-port:not(.node-param-port):not(.connected-port) {
   --node-port-stroke-mask-color: color-mix(in srgb, var(--node-port-hover-color, var(--node-port-hover-fill)) 16%, transparent);
   --node-port-crescent-fill: var(--node-port-stroke-mask-color);
   --node-port-crescent-stroke: color-mix(in srgb, var(--node-port-hover-color, var(--node-port-hover-stroke)) 68%, transparent);
@@ -17294,6 +17427,22 @@ body.node-slider-dragging .node-param-port {
   );
   box-shadow:
     0 0 var(--node-hover-glow-size) var(--node-hover-glow-spread) color-mix(in srgb, var(--node-port-hover-color, var(--node-port-hover-fill)) 38%, transparent);
+  filter: brightness(1.08);
+}
+
+/* Wired jacks: hover brightens fill only — still no crescent stroke. */
+.node-port.connected-port:hover,
+.node-port.connected-port.patch-point-hover,
+.dsp-node-io-section .node-io-row:hover .node-port.connected-port,
+.node-io-row.patch-point-hover .node-port.connected-port {
+  --node-port-crescent-stroke: transparent;
+  --node-port-crescent-stroke-width: 0px;
+  border: 0;
+  background: radial-gradient(
+    circle farthest-side at var(--node-port-crescent-at),
+    var(--node-port-crescent-fill) 0%,
+    var(--node-port-crescent-fill) 100%
+  );
   filter: brightness(1.08);
 }
 
@@ -17426,19 +17575,32 @@ body.node-slider-dragging .node-param-port {
   display: flex;
   width: 100%;
   box-sizing: border-box;
+  justify-content: center;
+  align-items: stretch;
   margin: 6px 0 0;
+  /* Reset toolbar transport's padding-right: 10px (was shoving the row left). */
   padding: 4px 0 0;
+  padding-right: 0;
   border-top: 1px solid rgba(127, 199, 217, 0.12);
   gap: 3px;
 }
 
+/* Beat .node-scene-context-menu button { justify-content:flex-start; padding:0 10px }. */
 #nodeSceneContextMenu .node-transport-group-command-center button,
-.scene-context-menu .node-transport-group-command-center button {
+.node-scene-context-menu .node-transport-group-command-center button {
   flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: 0;
   width: auto;
   height: 1.85rem;
+  min-height: 1.85rem;
+  margin: 0;
+  padding: 0;
+  text-align: center;
   font-size: 0.72rem;
+  line-height: 1;
 }
 
 /* One 🔊 + slider + percent widget, used by all three volume controls (live
