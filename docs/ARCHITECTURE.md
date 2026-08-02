@@ -15,7 +15,7 @@ Prefer this over outdated “four edit points” mental models when they conflic
 ├─────────────────────────────────────────────────────────────┤
 │  Execution plan                                             │
 │  planRole (source|processor|sink|monitor|always)            │
-│  free-run: role / planFreeRun / residual set / empty inputs │
+│  free-run: role / planFreeRun / visualSink / empty inputs   │
 ├─────────────────────────────────────────────────────────────┤
 │  DSP evaluation (two lanes, same formulas)                  │
 │  · Offline / render: live evaluators + pure stdlib          │
@@ -42,7 +42,7 @@ Do **not** edit hard-coded `sourceNodes` lists (retired). Annotate `planRole: "s
 | Role | Meaning |
 |------|---------|
 | `source` | Free-running seed (osc, controls, generators) |
-| `processor` | Needs graph connectivity; residual free-runners use residual set or `planFreeRun` |
+| `processor` | Needs graph connectivity; free-runners declare `planFreeRun: true` |
 | `sink` | Audio out / plugin out |
 | `monitor` | Visual / meter sinks that still evaluate |
 | `always` | Interactive shell even when sparsely wired |
@@ -62,8 +62,8 @@ See `docs/PATCH_MIGRATIONS.md`.
 
 ```text
 phasor-helpers · control-bus-helpers · parameter-smoother-filters
-node-live-audio-worklet-core.js          (~class shell + native lifecycle)
-  · graph.js · smoother.js
+node-live-audio-worklet-core.js          (~class shell, ~86KB)
+  · graph.js · smoother.js · destroy.js
   · evaluators.js · native-exports.js · set-plan.js · clear-plan.js
   · handle-message · scope-snapshot · evaluate-frame · process
 per-module *-worklet-evaluator.js
@@ -85,9 +85,8 @@ New DSP should land as pure functions first, then thin adapters.
 
 ## Still large (next extracts)
 
-- `node-graph-module-scopes.js` (~600KB) — settings vs paint/capture
-- Worklet destroy* / create* native lifecycle clusters
-- Residual free-run set → `planFreeRun: true` on each definition
+- `node-graph-module-scopes.js` (~600KB) — settings defaults, normalizers, and paint/capture are **interleaved** (not a clean line cut). Prefer extracting pure defaults/normalize clusters by symbol, not file halves.
+- Worklet remaining: constructor bulk, `setNativeModuleWasm`, visual-control helpers
 
 ## Related docs
 

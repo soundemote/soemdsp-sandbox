@@ -52,6 +52,8 @@ function stepGridParameterDefinitions() {
 registerNodeGraphChromelessModule("stepGrid", {
   label: "Step Grid",
   definition: {
+    planRole: "processor",
+    planFreeRun: true,
     // Unsmoothed gate/trigger ports -- see nodeGraphPortIsDigitalSignal.
     digitalInputs: ["Trigger", "Reset"],
     digitalOutputs: ["Gate", "Step"],

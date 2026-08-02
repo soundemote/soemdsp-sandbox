@@ -17,6 +17,8 @@ registerNodeGraphChromelessModule("groupOutput", {
   label: "Group Output",
   compactTile: true,
   definition: {
+    planRole: "processor",
+    planFreeRun: true,
     inputs: ["In"],
     outputs: [],
     parameters: [],

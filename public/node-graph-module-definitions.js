@@ -266,6 +266,7 @@ const nodeGraphModuleDefinitions = (
   },
   codeblock: {
     planRole: "processor",
+    planFreeRun: true,
     inputs: ["In1"],
     outputs: ["Out1"],
     parameters: [],
@@ -1401,6 +1402,7 @@ const nodeGraphModuleDefinitions = (
   },
   degreeTuring: {
     planRole: "processor",
+    planFreeRun: true,
     displayType: "trace",
     displaySignals: [
       { key: "0.1V/Oct", kind: "scalar" },
@@ -1435,6 +1437,7 @@ const nodeGraphModuleDefinitions = (
   },
   gravityWalker: {
     planRole: "processor",
+    planFreeRun: true,
     displayType: "trace",
     displaySignals: [
       { key: "0.1V/Oct", kind: "scalar" },
@@ -1468,6 +1471,7 @@ const nodeGraphModuleDefinitions = (
   },
   degreePhrase: {
     planRole: "processor",
+    planFreeRun: true,
     displayType: "trace",
     displaySignals: [
       { key: "0.1V/Oct", kind: "scalar" },
@@ -1517,6 +1521,7 @@ const nodeGraphModuleDefinitions = (
   },
   noteGlide: {
     planRole: "processor",
+    planFreeRun: true,
     inputs: ["0.1V/Oct"],
     outputs: ["0.1V/Oct"],
     parameters: [
@@ -1525,6 +1530,7 @@ const nodeGraphModuleDefinitions = (
   },
   noteTranspose: {
     planRole: "processor",
+    planFreeRun: true,
     inputs: ["0.1V/Oct"],
     outputs: ["0.1V/Oct"],
     parameters: [
@@ -1534,6 +1540,7 @@ const nodeGraphModuleDefinitions = (
   },
   pitchQuantizer: {
     planRole: "processor",
+    planFreeRun: true,
     // Face: one-octave pitch-class keyboard (toggle keys → 12-bit mask).
     customDisplayArea: true,
     defaultWidthGu: 10,
@@ -1575,6 +1582,7 @@ const nodeGraphModuleDefinitions = (
   // Manual diatonic chord picker. Scale → Pitch Quantizer; Root → bass/voice.
   chordPad: {
     planRole: "processor",
+    planFreeRun: true,
     customDisplayArea: true,
     defaultWidthGu: 14,
     displayHeightGu: 5,
@@ -2042,6 +2050,7 @@ const nodeGraphModuleDefinitions = (
   },
   chordSequencer: {
     planRole: "processor",
+    planFreeRun: true,
     inputs: ["Clock", "Reset"],
     outputs: ["Scale", "Root", "Gate", "Step"],
     parameters: [
@@ -2503,6 +2512,7 @@ const nodeGraphModuleDefinitions = (
   },
   randomClock: {
     planRole: "processor",
+    planFreeRun: true,
     // Trigger-rate module: the dot display reads far better than a trace
     // for something that is mostly flat with an occasional pulse.
     displayType: "dot",
@@ -2520,6 +2530,7 @@ const nodeGraphModuleDefinitions = (
   },
   clockDivider: {
     planRole: "processor",
+    planFreeRun: true,
     // Trigger-rate module: the dot display reads far better than a trace
     // for something that is mostly flat with an occasional pulse.
     displayType: "dot",
@@ -2534,6 +2545,7 @@ const nodeGraphModuleDefinitions = (
   },
   delayedTrigger: {
     planRole: "processor",
+    planFreeRun: true,
     // Trigger-rate module: the dot display reads far better than a trace
     // for something that is mostly flat with an occasional pulse.
     displayType: "dot",
@@ -2610,6 +2622,7 @@ const nodeGraphModuleDefinitions = (
   },
   triggerCounter: {
     planRole: "processor",
+    planFreeRun: true,
     // Trigger-rate module: the dot display reads far better than a trace
     // for something that is mostly flat with an occasional pulse.
     displayType: "dot",
@@ -2625,6 +2638,7 @@ const nodeGraphModuleDefinitions = (
   },
   stepSequencer: {
     planRole: "processor",
+    planFreeRun: true,
     inputs: ["Trigger", "Reset"],
     outputs: ["Out", "Gate"],
     parameters: [
@@ -2672,6 +2686,7 @@ const nodeGraphModuleDefinitions = (
   // step-grid-register.js -- see node-graph-chromeless-module-registry.js.
   triggerDivider: {
     planRole: "processor",
+    planFreeRun: true,
     // Trigger-rate module: the dot display reads far better than a trace
     // for something that is mostly flat with an occasional pulse.
     displayType: "dot",
@@ -3636,6 +3651,7 @@ const nodeGraphModuleDefinitions = (
   },
   reverbEffect: {
     planRole: "processor",
+    planFreeRun: true,
     displayType: "trace",
     inputs: ["In", "Left", "Right"],
     outputs: ["Mono Dry", "Left Dry", "Right Dry", "Mono Mix", "Left Mix", "Right Mix"],
@@ -3677,6 +3693,7 @@ const nodeGraphModuleDefinitions = (
   },
   helmholtzPitch: {
     planRole: "monitor",
+    planFreeRun: true,
     displayType: "trace",
     displayModes: [
       { key: "trace", renderer: "trace", settingsSchema: "trace", source: { value: "Pitch View" } },
@@ -4035,6 +4052,7 @@ const nodeGraphModuleDefinitions = (
   },
   linearEnvelope: {
     planRole: "processor",
+    planFreeRun: true,
     inputs: ["Gate"],
     outputs: ["Out"],
     parameters: [
@@ -4049,6 +4067,7 @@ const nodeGraphModuleDefinitions = (
   },
   pluckEnvelope: {
     planRole: "processor",
+    planFreeRun: true,
     inputs: ["Trigger", "Release"],
     outputs: ["Out"],
     parameters: [
@@ -4075,6 +4094,7 @@ const nodeGraphModuleDefinitions = (
   // drive scenario).
   vactrolEnvelopeSeries: {
     planRole: "processor",
+    planFreeRun: true,
     inputs: ["Light"],
     outputs: ["Env"],
     parameters: [
@@ -4120,6 +4140,7 @@ const nodeGraphModuleDefinitions = (
   // to a specific datasheet.
   vactrolEnvelopeCustom: {
     planRole: "processor",
+    planFreeRun: true,
     inputs: ["Light"],
     outputs: ["Env"],
     parameters: [
@@ -4156,6 +4177,7 @@ const nodeGraphModuleDefinitions = (
   },
   flowerChildEnvelopeFollower: {
     planRole: "processor",
+    planFreeRun: true,
     inputs: ["In"],
     outputs: ["Out"],
     parameters: [
@@ -5136,40 +5158,9 @@ function nodeGraphModuleIsRealtimeOscillatorType(type) {
 
 /**
  * True if a module may emit while its signal inputs are unconnected.
- * Prefer declaration: planRole source/always/monitor, planFreeRun, visualSink,
- * or empty inputs[]. Residual set covers free-running processors not yet
- * migrated to planFreeRun (envelopes, sequencers, codeblock, …).
+ * Declaration-first: planRole source/always/monitor/sink, planFreeRun,
+ * visualSink/monitorSink, or empty inputs[].
  */
-const NODE_GRAPH_PLAN_FREE_RUN_RESIDUAL = Object.freeze(new Set([
-  // Processors that free-run without a wired audio/control bus (not pure sources)
-  "clockDivider",
-  "codeblock",
-  "delayedTrigger",
-  "flowerChildEnvelopeFollower",
-  "groupInput",
-  "groupOutput",
-  "helmholtzPitch",
-  "linearEnvelope",
-  "pluckEnvelope",
-  "pitchQuantizer",
-  "chordPad",
-  "degreeTuring",
-  "gravityWalker",
-  "degreePhrase",
-  "noteGlide",
-  "noteTranspose",
-  "stepGrid",
-  "stepSequencer",
-  "triggerCounter",
-  "triggerDivider",
-  "vactrolEnvelopeSeries",
-  "vactrolEnvelopeCustom",
-  "randomClock",
-  "chordSequencer",
-  // Effects that still register as free-run for plan reachability parity
-  "reverbEffect",
-]));
-
 function nodeGraphModuleProducesOutputWithoutSignalInput(type) {
   const definition = nodeGraphModuleDefinitions[type];
   if (!definition) {
@@ -5195,7 +5186,7 @@ function nodeGraphModuleProducesOutputWithoutSignalInput(type) {
   if (typeof nodeGraphModuleIsPlanSourceType === "function" && nodeGraphModuleIsPlanSourceType(type)) {
     return true;
   }
-  return NODE_GRAPH_PLAN_FREE_RUN_RESIDUAL.has(type);
+  return false;
 }
 
 function nodeGraphCanonicalInputPort(type, port) {

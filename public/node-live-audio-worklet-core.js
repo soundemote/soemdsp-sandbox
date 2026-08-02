@@ -413,13 +413,8 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.visualControlStates = visualState.states;
   }
 
-  destroySabrinaReverbState(state) {
-    if (!state?.nativeHandle || !this.nativeSabrinaReverb?.soemdsp_sabrina_reverb_destroy) {
-      return;
-    }
-    this.nativeSabrinaReverb.soemdsp_sabrina_reverb_destroy(state.nativeHandle);
-    state.nativeHandle = 0;
-  }
+  // destroySabrinaReverbState → node-live-audio-worklet-destroy.js (Phase D)
+
 
   // handleMessage → node-live-audio-worklet-handle-message.js (Phase D)
 
@@ -1652,13 +1647,8 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   // Companion to createStereoFilterState: destroys all three channels'
   // native handles (if any) via the module's existing destroyXNativeState
   // method, tolerating a pre-bundle single-state shape defensively.
-  destroyStereoFilterNativeState(bundle, destroyFn) {
-    for (const channelState of [bundle?.mono, bundle?.left, bundle?.right]) {
-      if (channelState) {
-        destroyFn(channelState);
-      }
-    }
-  }
+  // destroyStereoFilterNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
 
   createOscResetState() {
     return {
@@ -1711,186 +1701,78 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return { brown: 0, gaussianSpare: null, pink: [0, 0, 0, 0, 0, 0, 0], seed: 0, seedKey: "" };
   }
 
-  destroyFbmNativeState(state) {
-    if (state.nativeHandle && this.nativeFbm?.soemdsp_fbm_destroy) {
-      this.nativeFbm.soemdsp_fbm_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyFbmNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroyLadderFilterNativeState(state) {
-    if (state.nativeHandle && this.nativeLadderFilter?.soemdsp_ladder_filter_destroy) {
-      this.nativeLadderFilter.soemdsp_ladder_filter_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
 
-  destroyFlowerChildFilterNativeState(state) {
-    if (state.nativeHandle && this.nativeFlowerChildFilter?.soemdsp_flower_child_filter_destroy) {
-      this.nativeFlowerChildFilter.soemdsp_flower_child_filter_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyLadderFilterNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroyRsmetFilterNativeState(state) {
-    if (state.nativeHandle && this.nativeRsmetFilter?.soemdsp_rsmet_filter_destroy) {
-      this.nativeRsmetFilter.soemdsp_rsmet_filter_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
 
-  destroyYellowjacketFilterNativeState(state) {
-    if (state.nativeHandle && this.nativeYellowjacketFilter?.soemdsp_yellowjacket_filter_destroy) {
-      this.nativeYellowjacketFilter.soemdsp_yellowjacket_filter_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyFlowerChildFilterNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroySuperloveFilterNativeState(state) {
-    if (state.nativeHandle && this.nativeSuperloveFilter?.soemdsp_superlove_filter_destroy) {
-      this.nativeSuperloveFilter.soemdsp_superlove_filter_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
 
-  destroyChaoticPhaseLockingFilterNativeState(state) {
-    if (state.nativeHandle && this.nativeChaoticPhaseLockingFilter?.soemdsp_chaotic_phase_locking_filter_destroy) {
-      this.nativeChaoticPhaseLockingFilter.soemdsp_chaotic_phase_locking_filter_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyRsmetFilterNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroyResonatorFilterNativeState(state) {
-    if (state.nativeHandle && this.nativeResonatorFilter?.soemdsp_resonator_filter_destroy) {
-      this.nativeResonatorFilter.soemdsp_resonator_filter_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
 
-  destroyHumanFilterNativeState(state) {
-    if (state.nativeHandle && this.nativeHumanFilter?.soemdsp_human_filter_destroy) {
-      this.nativeHumanFilter.soemdsp_human_filter_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyYellowjacketFilterNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroyPulseExplosionNativeState(state) {
-    if (state.nativeHandle && this.nativePulseExplosion?.soemdsp_pulse_explosion_destroy) {
-      this.nativePulseExplosion.soemdsp_pulse_explosion_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
 
-  destroyComparatorNativeState(state) {
-    if (state.nativeHandle && this.nativeComparator?.soemdsp_comparator_destroy) {
-      this.nativeComparator.soemdsp_comparator_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroySuperloveFilterNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroySampleDelayNativeState(state) {
-    if (state?.nativeHandle && this.nativeSampleDelay?.soemdsp_sample_delay_destroy) {
-      this.nativeSampleDelay.soemdsp_sample_delay_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
 
-  destroyMinMaxNativeState(state) {
-    if (state.nativeHandle && this.nativeMinMax?.soemdsp_min_max_destroy) {
-      this.nativeMinMax.soemdsp_min_max_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyChaoticPhaseLockingFilterNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroyTransportNativeState(state) {
-    if (state.nativeHandle && this.nativeTransport?.soemdsp_transport_destroy) {
-      this.nativeTransport.soemdsp_transport_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
 
-  destroySlewLimiterNativeState(state) {
-    if (state.nativeHandle && this.nativeSlewLimiter?.soemdsp_slew_limiter_destroy) {
-      this.nativeSlewLimiter.soemdsp_slew_limiter_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyResonatorFilterNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroySampleHoldNativeState(state) {
-    if (state.nativeHandle && this.nativeSampleHold?.soemdsp_sample_hold_destroy) {
-      this.nativeSampleHold.soemdsp_sample_hold_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
 
-  destroyChordMemoryNativeState(state) {
-    if (state.nativeHandle && this.nativeChordMemory?.soemdsp_chord_memory_destroy) {
-      this.nativeChordMemory.soemdsp_chord_memory_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyHumanFilterNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroyTuringMachineNativeState(state) {
-    if (state.nativeHandle && this.nativeTuringMachine?.soemdsp_turing_machine_destroy) {
-      this.nativeTuringMachine.soemdsp_turing_machine_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
 
-  destroyFlowerChildEnvelopeFollowerNativeState(state) {
-    if (state.nativeHandle && this.nativeFlowerChildEnvelopeFollower?.soemdsp_flower_child_envelope_follower_destroy) {
-      this.nativeFlowerChildEnvelopeFollower.soemdsp_flower_child_envelope_follower_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
-  destroyTriggerDividerNativeState(state) {
-    if (state.nativeHandle && this.nativeTriggerDivider?.soemdsp_trigger_divider_destroy) {
-      this.nativeTriggerDivider.soemdsp_trigger_divider_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
-  destroyStepSequencerNativeState(state) {
-    if (state.nativeHandle && this.nativeStepSequencer?.soemdsp_step_sequencer_destroy) {
-      this.nativeStepSequencer.soemdsp_step_sequencer_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
-  destroyTriggerCounterNativeState(state) {
-    if (state.nativeHandle && this.nativeTriggerCounter?.soemdsp_trigger_counter_destroy) {
-      this.nativeTriggerCounter.soemdsp_trigger_counter_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
-  destroyDelayedTriggerNativeState(state) {
-    if (state.nativeHandle && this.nativeDelayedTrigger?.soemdsp_delayed_trigger_destroy) {
-      this.nativeDelayedTrigger.soemdsp_delayed_trigger_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
-  destroyClockNativeState(state) {
-    if (state.nativeHandle && this.nativeClock?.soemdsp_clock_destroy) {
-      this.nativeClock.soemdsp_clock_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
-  destroyRandomClockNativeState(state) {
-    if (state.nativeHandle && this.nativeRandomClock?.soemdsp_random_clock_destroy) {
-      this.nativeRandomClock.soemdsp_random_clock_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
-  destroyPingPongDelayNativeState(state) {
-    if (state.nativeHandle && this.nativePingPongDelay?.soemdsp_ping_pong_delay_destroy) {
-      this.nativePingPongDelay.soemdsp_ping_pong_delay_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
-  destroyPapoulisFilterNativeState(state) {
-    if (state.nativeHandle && this.nativePapoulisFilter?.soemdsp_papoulis_filter_destroy) {
-      this.nativePapoulisFilter.soemdsp_papoulis_filter_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyPulseExplosionNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroyComparatorNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroySampleDelayNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroyMinMaxNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroyTransportNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroySlewLimiterNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroySampleHoldNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroyChordMemoryNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroyTuringMachineNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroyFlowerChildEnvelopeFollowerNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+  // destroyTriggerDividerNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+  // destroyStepSequencerNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+  // destroyTriggerCounterNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+  // destroyDelayedTriggerNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+  // destroyClockNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+  // destroyRandomClockNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+  // destroyPingPongDelayNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+  // destroyPapoulisFilterNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
 
   /**
    * Point the shared param-smoother Papoulis type at papoulis_filter.wasm
@@ -1933,58 +1815,22 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     });
   }
 
-  destroyPapoulisParameterSmootherNativeState(smoother) {
-    const state = smoother?.filterState;
-    if (!state?.nativeHandle) {
-      return;
-    }
-    if (typeof nodeGraphDestroyPapoulisParameterSmootherNativeState === "function") {
-      nodeGraphDestroyPapoulisParameterSmootherNativeState(state);
-      return;
-    }
-    if (this.nativePapoulisFilter?.soemdsp_papoulis_filter_destroy) {
-      try {
-        this.nativePapoulisFilter.soemdsp_papoulis_filter_destroy(state.nativeHandle);
-      } catch (_error) {
-        // Best-effort.
-      }
-    }
-    state.nativeHandle = 0;
-  }
+  // destroyPapoulisParameterSmootherNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroyAllPapoulisParameterSmootherNativeStates() {
-    for (const smoother of this.smoothers.values()) {
-      this.destroyPapoulisParameterSmootherNativeState(smoother);
-    }
-  }
-  destroyPhosphillatorNativeState(state) {
-    if (state.nativeHandle && this.nativePhosphillator?.soemdsp_phosphillator_destroy) {
-      this.nativePhosphillator.soemdsp_phosphillator_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-    state.nativePathRef = null;
-  }
 
-  destroyAliasSineNativeState(state) {
-    if (state.nativeHandle && this.nativeAliasSine?.soemdsp_alias_sine_destroy) {
-      this.nativeAliasSine.soemdsp_alias_sine_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyAllPapoulisParameterSmootherNativeStates → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroyTb303FilterNativeState(state) {
-    if (state.nativeHandle && this.nativeTb303Filter?.soemdsp_tb303_filter_destroy) {
-      this.nativeTb303Filter.soemdsp_tb303_filter_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyPhosphillatorNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroyPassiveFilterNativeState(state) {
-    if (state?.nativeHandle && this.nativePassiveFilter?.soemdsp_passive_filter_destroy) {
-      this.nativePassiveFilter.soemdsp_passive_filter_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+
+  // destroyAliasSineNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroyTb303FilterNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroyPassiveFilterNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
 
   // Papoulis (Optimum-L) order-3 lowpass. Normalized (cutoff = 1 rad/s) prototype:
   //   D(s) = (s + 0.6203) * (s^2 + 0.6904s + 0.9308)
@@ -2333,40 +2179,20 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return (value / 0xffffffff) * 2 - 1;
   }
 
-  destroyVactrolEnvelopeNativeState(state) {
-    if (state?.nativeHandle && this.nativeVactrolEnvelope?.soemdsp_vactrol_envelope_destroy) {
-      this.nativeVactrolEnvelope.soemdsp_vactrol_envelope_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyVactrolEnvelopeNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroyLogisticMapNativeState(state) {
-    if (state?.nativeHandle && this.nativeLogisticMap?.soemdsp_logistic_map_destroy) {
-      this.nativeLogisticMap.soemdsp_logistic_map_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
 
-  destroyPolyBlepNativeState(state) {
-    if (state?.nativeHandle && this.nativePolyBlep?.soemdsp_polyblep_destroy) {
-      this.nativePolyBlep.soemdsp_polyblep_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyLogisticMapNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroyBlitNativeState(state) {
-    if (state?.nativeHandle && this.nativeBlit?.soemdsp_blit_destroy) {
-      this.nativeBlit.soemdsp_blit_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
 
-  destroyArchimedesNativeState(state) {
-    if (state?.nativeHandle && this.nativeArchimedes?.soemdsp_archimedes_destroy) {
-      this.nativeArchimedes.soemdsp_archimedes_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyPolyBlepNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroyBlitNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroyArchimedesNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
 
   // Self-affine Weierstrass-style fractal spiral -- see
   // public/node-graph-fractal-spiral.js for the full derivation. Mirrors
@@ -2376,75 +2202,35 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   // public/node-graph-log-spiral.js for the full derivation. Mirrors that
   // file exactly.
 
-  destroyHenonMapNativeState(state) {
-    if (state?.nativeHandle && this.nativeHenonMap?.soemdsp_henon_map_destroy) {
-      this.nativeHenonMap.soemdsp_henon_map_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyHenonMapNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroyWirdoSpiralNativeState(state) {
-    if (state?.nativeHandle && this.nativeWirdoSpiral?.soemdsp_jbwirdo_destroy) {
-      this.nativeWirdoSpiral.soemdsp_jbwirdo_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
 
-  destroyBlubbNativeState(state) {
-    if (state?.nativeHandle && this.nativeBlubb?.soemdsp_jbblubb_destroy) {
-      this.nativeBlubb.soemdsp_jbblubb_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyWirdoSpiralNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroyMushroomNativeState(state) {
-    if (state?.nativeHandle && this.nativeMushroom?.soemdsp_jbmushroom_destroy) {
-      this.nativeMushroom.soemdsp_jbmushroom_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
 
-  destroyBoingNativeState(state) {
-    if (state?.nativeHandle && this.nativeBoing?.soemdsp_jbboing_destroy) {
-      this.nativeBoing.soemdsp_jbboing_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyBlubbNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroyTorusNativeState(state) {
-    if (state?.nativeHandle && this.nativeTorus?.soemdsp_jbtorus_destroy) {
-      this.nativeTorus.soemdsp_jbtorus_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
 
-  destroyKeplerBouwkampNativeState(state) {
-    if (state?.nativeHandle && this.nativeKeplerBouwkamp?.soemdsp_jbkepler_destroy) {
-      this.nativeKeplerBouwkamp.soemdsp_jbkepler_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyMushroomNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroyNyquistShannonNativeState(state) {
-    if (state?.nativeHandle && this.nativeNyquistShannon?.soemdsp_jbnyquist_destroy) {
-      this.nativeNyquistShannon.soemdsp_jbnyquist_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
 
-  destroyRadarNativeState(state) {
-    if (state?.nativeHandle && this.nativeRadar?.soemdsp_jbradar_destroy) {
-      this.nativeRadar.soemdsp_jbradar_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyBoingNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroyChuaAttractorNativeState(state) {
-    if (state?.nativeHandle && this.nativeChuaAttractor?.soemdsp_chua_attractor_destroy) {
-      this.nativeChuaAttractor.soemdsp_chua_attractor_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+
+  // destroyTorusNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroyKeplerBouwkampNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroyNyquistShannonNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroyRadarNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroyChuaAttractorNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
 
   // Registry of per-module-type dispatch handlers, proving the pattern for
   // logisticMap/turingMachine before the other ~28 worklet-dispatched types
@@ -2458,26 +2244,14 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   // (Phase D extract). Prototype method is assigned before the processor runs.
 
 
-  destroyPitchQuantizerNativeState(state) {
-    if (state?.nativeHandle && this.nativePitchQuantizer?.soemdsp_pitch_quantizer_destroy) {
-      this.nativePitchQuantizer.soemdsp_pitch_quantizer_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyPitchQuantizerNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroyChordSequencerNativeState(state) {
-    if (state?.nativeHandle && this.nativeChordSequencer?.soemdsp_chord_sequencer_destroy) {
-      this.nativeChordSequencer.soemdsp_chord_sequencer_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
 
-  destroyLutCellNativeState(state) {
-    if (state?.nativeHandle && this.nativeLutCell?.soemdsp_lut_cell_destroy) {
-      this.nativeLutCell.soemdsp_lut_cell_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyChordSequencerNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroyLutCellNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
 
   // Unwired inputs default to 0, a constant -- silent no matter the truth
   // table. So an unwired Clock free-runs at a fixed audible rate instead
@@ -2486,119 +2260,53 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   // in this JS orchestration layer -- the native module itself stays a
   // faithful, purely reactive LUT+FF with no self-driving of its own.
 
-  destroySurgeOscillatorNativeState(state) {
-    if (state?.nativeHandle && this.nativeSurgeOscillator?.soemdsp_surge_oscillator_destroy) {
-      this.nativeSurgeOscillator.soemdsp_surge_oscillator_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroySurgeOscillatorNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroyDsfOscillatorNativeState(state) {
-    if (state?.nativeHandle && this.nativeDsfOscillator?.soemdsp_dsf_oscillator_destroy) {
-      this.nativeDsfOscillator.soemdsp_dsf_oscillator_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
 
-  destroyLinearEnvelopeNativeState(state) {
-    if (state?.nativeHandle && this.nativeLinearEnvelope?.soemdsp_linear_envelope_destroy) {
-      this.nativeLinearEnvelope.soemdsp_linear_envelope_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyDsfOscillatorNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroySineWavetableNativeState(state) {
-    if (state?.nativeHandle && this.nativeSineWavetable?.soemdsp_sine_wavetable_destroy) {
-      this.nativeSineWavetable.soemdsp_sine_wavetable_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
 
-  destroyLogSpiralNativeState(state) {
-    if (state?.nativeHandle && this.nativeLogSpiral?.soemdsp_log_spiral_destroy) {
-      this.nativeLogSpiral.soemdsp_log_spiral_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyLinearEnvelopeNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroySnowflakeNativeState(state) {
-    if (state?.nativeHandle && this.nativeSnowflake?.soemdsp_snowflake_destroy) {
-      this.nativeSnowflake.soemdsp_snowflake_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
 
-  destroyFractalSpiralNativeState(state) {
-    if (state?.nativeHandle && this.nativeFractalSpiral?.soemdsp_fractal_spiral_destroy) {
-      this.nativeFractalSpiral.soemdsp_fractal_spiral_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroySineWavetableNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroyJerobeamSpiralNativeState(state) {
-    if (state?.nativeHandle && this.nativeJerobeamSpiral?.soemdsp_jerobeam_spiral_destroy) {
-      this.nativeJerobeamSpiral.soemdsp_jerobeam_spiral_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
 
-  destroyDelayEffectNativeState(state) {
-    for (const channelState of [state?.mono, state?.left, state?.right]) {
-      if (channelState?.nativeHandle && this.nativeDelayEffect?.soemdsp_delay_effect_destroy) {
-        this.nativeDelayEffect.soemdsp_delay_effect_destroy(channelState.nativeHandle);
-        channelState.nativeHandle = 0;
-      }
-    }
-  }
+  // destroyLogSpiralNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroyPluckEnvelopeNativeState(state) {
-    if (state?.nativeHandle && this.nativePluckEnvelope?.soemdsp_pluck_envelope_destroy) {
-      this.nativePluckEnvelope.soemdsp_pluck_envelope_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
 
-  destroyExpAdsrNativeState(state) {
-    if (state?.nativeHandle && this.nativeExpAdsr?.soemdsp_exp_adsr_destroy) {
-      this.nativeExpAdsr.soemdsp_exp_adsr_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroySnowflakeNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroyRandomWalkNativeState(state) {
-    if (state?.nativeHandle && this.nativeRandomWalk?.soemdsp_random_walk_destroy) {
-      this.nativeRandomWalk.soemdsp_random_walk_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
 
-  destroyPiSpigotNoiseNativeState(state) {
-    if (state?.nativeHandle && this.nativePiSpigotNoise?.soemdsp_pi_spigot_noise_destroy) {
-      this.nativePiSpigotNoise.soemdsp_pi_spigot_noise_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyFractalSpiralNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroyBradley2ANativeState(state) {
-    if (state?.nativeHandle && this.nativeBradley2A?.soemdsp_bradley_2a_destroy) {
-      this.nativeBradley2A.soemdsp_bradley_2a_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
 
-  destroyAntisawNativeState(state) {
-    if (state?.nativeHandle && this.nativeAntisaw?.soemdsp_antisaw_destroy) {
-      this.nativeAntisaw.soemdsp_antisaw_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyJerobeamSpiralNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroyLorenzAttractorNativeState(state) {
-    if (state?.nativeHandle && this.nativeLorenzAttractor?.soemdsp_lorenz_attractor_destroy) {
-      this.nativeLorenzAttractor.soemdsp_lorenz_attractor_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+
+  // destroyDelayEffectNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroyPluckEnvelopeNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroyExpAdsrNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroyRandomWalkNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroyPiSpigotNoiseNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroyBradley2ANativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroyAntisawNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroyLorenzAttractorNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
 
   // pureSawEng(t, n), transcribed and simplified directly from "Extended
   // DSF Oscillators.cxx": sin(PI*t*(2N+1)) / sin(PI*t) - 1. Guarded at the
@@ -2624,12 +2332,8 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
 
   // RobinSupersaw — native-only (see robin-supersaw-worklet-evaluator.js).
 
-  destroyRobinSupersawNativeState(state) {
-    if (state?.nativeHandle && this.nativeRobinSupersaw?.soemdsp_robin_supersaw_destroy) {
-      this.nativeRobinSupersaw.soemdsp_robin_supersaw_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyRobinSupersawNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
 
   // rsPitchDitherOsc<T>::calcCycleDistribution(), transcribed.
 
@@ -2639,19 +2343,11 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
 
   // Hypersaw — native-only (see hypersaw-worklet-evaluator.js).
 
-  destroyHypersawNativeState(state) {
-    if (state?.nativeHandle && this.nativeHypersaw?.soemdsp_hypersaw_destroy) {
-      this.nativeHypersaw.soemdsp_hypersaw_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+  // destroyHypersawNativeState → node-live-audio-worklet-destroy.js (Phase D)
 
-  destroyVideoscopeNativeState(state) {
-    if (state?.nativeHandle && this.nativeVideoscope?.soemdsp_videoscope_destroy) {
-      this.nativeVideoscope.soemdsp_videoscope_destroy(state.nativeHandle);
-      state.nativeHandle = 0;
-    }
-  }
+
+  // destroyVideoscopeNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
 
   // evaluateFrame → node-live-audio-worklet-evaluate-frame.js (Phase D)
 

@@ -91,7 +91,8 @@ Replace hard-coded type lists in:
 3. **B2** — [x] `nodeGraphPlanRoleLegacyDisagreements()` for console soak.
 4. **B3** — [x] Plan `sourceNodes` uses **only** `nodeGraphModuleIsPlanSourceType`.  
 5. **B3b** — [x] Removed `NODE_GRAPH_PLAN_LEGACY_SOURCE_TYPES`; roles come from `planRole` (+ realtime-osc / sink / monitor / chromeless fallbacks). Coverage: `nodeGraphPlanRoleCoverageReport()`.
-6. **B4** — [x] Bulk-annotate remaining defs (~90); free-run via roles + thin `NODE_GRAPH_PLAN_FREE_RUN_RESIDUAL` (replaces giant inputCapableSources set).
+6. **B4** — [x] Bulk-annotate remaining defs (~90); free-run via roles + residual set.
+7. **B5** — [x] Residual set removed; free-runners declare `planFreeRun: true` (incl. chromeless stepGrid/groupOutput).
 
 ### Gate
 - Fixed regression patches: oscillator → filter → Output plays
@@ -146,11 +147,12 @@ Split without behavior change:
 - [x] `evaluateFrame` / `process` → dedicated files
 - [x] Graph math cluster → `node-live-audio-worklet-graph.js`
 - [x] Parameter smoother cluster → `node-live-audio-worklet-smoother.js`
-- Core ~363KB → **~98KB**; method files wired after core in worklet Blob
+- [x] Native destroy* cluster → `node-live-audio-worklet-destroy.js` (~72 methods)
+- Core ~363KB → **~86KB**; method files wired after core in worklet Blob
 
 ### Next D slices
-- [ ] destroy*/create* native lifecycle clusters
-- [ ] scopes: normalize/settings cluster vs paint/capture (interleaved — careful)
+- [ ] scopes: symbol-level defaults/normalize extract (line-cut unsafe — interleaved)
+- [ ] Optional: `setNativeModuleWasm` / visual-control helpers
 
 ### Rule
 **Extract only** in first PR: same functions, new files, same load order. No renames of public globals until extract settles.
@@ -180,7 +182,8 @@ Split without behavior change:
 3. [x] **B0/B1/B3**: plan roles; restore curveOsc/snowflake; retire plan OR-chain.
 4. [x] **C0** migrator pipeline; **D** evaluators extract; **A1** inventory + pitch helper on new oscs.
 5. [x] B legacy set removed; free-run residual thinned; worklet graph+smoother extracted; ARCHITECTURE.md.
-6. **Next:** residual → `planFreeRun` on defs; scopes megacore split; A2 remaining pitch; C1 renames when product-ready.
+6. [x] residual → `planFreeRun`; destroy* extract; free-run declaration-complete.
+7. **Next:** scopes symbol extract; A2 polish; C1 renames when product-ready.
 
 ---
 

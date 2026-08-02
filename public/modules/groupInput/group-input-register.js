@@ -12,6 +12,7 @@ registerNodeGraphChromelessModule("groupInput", {
   label: "Group Input",
   compactTile: true,
   definition: {
+    planRole: "source",
     outputs: ["Out"],
     parameters: [],
   },
