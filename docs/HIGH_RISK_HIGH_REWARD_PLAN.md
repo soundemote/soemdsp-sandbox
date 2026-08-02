@@ -54,7 +54,7 @@ Every control/bus (and eventually every module) evaluates through **pure functio
 | Slice | Work | Gate |
 |-------|------|------|
 | **A1** | [x] Inventory — `docs/A1_LIVE_WORKLET_DSP_INVENTORY.md` | Grep report |
-| **A2** | [~] curveOsc/snowflake/dsf/hypersaw use `nodeGraphPitchedFrequency`; continue osc family | Sample parity |
+| **A2** | [~] Live + worklet evaluator pitch batch on shared helper; continue remaining modules | Sample parity |
 | **A3** | Convention: new modules **must** ship pure eval + thin adapters only | Doc in MODULE_PATTERN_REFERENCE |
 | **A4** | Optional: worklet unit smoke that imports helpers and checks a few vectors | `node` smoke script |
 
@@ -89,8 +89,8 @@ Replace hard-coded type lists in:
 1. **B0** — [x] `planRole` on definitions + chromeless registers; `node-graph-plan-roles.js` helpers.
 2. **B1** — [x] Dual path (historical).
 3. **B2** — [x] `nodeGraphPlanRoleLegacyDisagreements()` for console soak.
-4. **B3** — [x] Plan `sourceNodes` uses **only** `nodeGraphModuleIsPlanSourceType` (legacy set remains *inside* helper).  
-   - [ ] Next: remove `NODE_GRAPH_PLAN_LEGACY_SOURCE_TYPES` after soak; shrink `inputCapableSources` set similarly (dual-path already prefers planRole).
+4. **B3** — [x] Plan `sourceNodes` uses **only** `nodeGraphModuleIsPlanSourceType`.  
+5. **B3b** — [x] Removed `NODE_GRAPH_PLAN_LEGACY_SOURCE_TYPES`; roles come from `planRole` (+ realtime-osc / sink / monitor / chromeless fallbacks). Coverage: `nodeGraphPlanRoleCoverageReport()`.
 
 ### Gate
 - Fixed regression patches: oscillator → filter → Output plays
@@ -139,13 +139,14 @@ Split without behavior change:
 2. `node-graph-module-scopes.js` → settings schemas vs paint vs capture (files only)
 
 ### Done
-- [x] `buildLiveModuleEvaluators` → `node-live-audio-worklet-evaluators.js` (~112KB)
-- [x] `applyNativeModuleExports` → `node-live-audio-worklet-native-exports.js` (~55KB)
-- [x] `setPlan` → `node-live-audio-worklet-set-plan.js` (~43KB)
-- Core ~363KB → ~160KB; all wired after core in worklet Blob
+- [x] `buildLiveModuleEvaluators` → `…-evaluators.js`
+- [x] `applyNativeModuleExports` → `…-native-exports.js`
+- [x] `setPlan` / `clearPlan` / `handleMessage` / `postModuleScopeSnapshot`
+- [x] `evaluateFrame` / `process` → dedicated files
+- Core ~363KB → ~128KB; all wired after core in worklet Blob
 
 ### Next D slices
-- [ ] `clearPlan` / `handleMessage` / remaining large methods if needed
+- [ ] Optional: smoothing / graph-math clusters if still painful to navigate
 - [ ] scopes: normalize/settings cluster vs paint/capture (interleaved — careful)
 
 ### Rule
@@ -181,7 +182,7 @@ Split without behavior change:
 
 ## Success criteria (program-level)
 
-- [x] New module can ship without editing `sourceNodes` hard-coded list (plan list retired; annotate `planRole: "source"`)
+- [x] New module can ship without editing `sourceNodes` hard-coded list (annotate `planRole: "source"`)
 - [ ] Live and worklet share pure eval for all control/bus + majority of processors (Phase A mature)
 - [x] Patch renames possible via migrator (Phase C0 pipeline; C1 renames TBD)
-- [~] worklet-core multi-file started (evaluators); scopes still monolith (Phase D)
+- [x] worklet-core multi-file (core + 8 method modules); scopes still monolith (Phase D)
