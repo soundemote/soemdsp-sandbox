@@ -3,6 +3,7 @@ registerNodeGraphChromelessModule("xyPad", {
   customDisplayArea: true,
   solidModule: true,
   definition: {
+    planRole: "source",
     displayHeightGu: 4,
     displayType: "xyPad",
     inputAliases: {

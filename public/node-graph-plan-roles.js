@@ -127,3 +127,47 @@ function nodeGraphModuleIsPlanSinkType(type) {
   }
   return Boolean(def?.output) || t === "output" || t === "pluginOutput";
 }
+
+/**
+ * B2: compare declared planRole vs legacy source set for soak/debug.
+ * Returns { ok, legacyOnly, declaredSourceNotLegacy, missingDefs }.
+ * Does not change plan behavior — call from console while retiring lists.
+ */
+function nodeGraphPlanRoleLegacyDisagreements() {
+  const defs = typeof nodeGraphModuleDefinitions === "object"
+    ? nodeGraphModuleDefinitions
+    : {};
+  const legacyOnly = [];
+  const declaredSourceNotLegacy = [];
+  const missingDefs = [];
+  for (const t of NODE_GRAPH_PLAN_LEGACY_SOURCE_TYPES) {
+    const def = defs[t];
+    if (!def) {
+      missingDefs.push(t);
+      continue;
+    }
+    const role = String(def.planRole || "").trim();
+    if (role && role !== NODE_GRAPH_PLAN_ROLES.source && role !== NODE_GRAPH_PLAN_ROLES.always) {
+      legacyOnly.push({ type: t, planRole: role });
+    }
+  }
+  for (const [t, def] of Object.entries(defs)) {
+    if (String(def?.planRole || "").trim() !== NODE_GRAPH_PLAN_ROLES.source) {
+      continue;
+    }
+    if (!NODE_GRAPH_PLAN_LEGACY_SOURCE_TYPES.has(t)) {
+      // Realtime oscillators may be covered by nodeGraphModuleIsRealtimeOscillatorType.
+      const osc = typeof nodeGraphModuleIsRealtimeOscillatorType === "function"
+        && nodeGraphModuleIsRealtimeOscillatorType(t);
+      if (!osc) {
+        declaredSourceNotLegacy.push(t);
+      }
+    }
+  }
+  return {
+    ok: legacyOnly.length === 0 && missingDefs.length === 0,
+    legacyOnly,
+    declaredSourceNotLegacy,
+    missingDefs,
+  };
+}

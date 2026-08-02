@@ -48,6 +48,7 @@ Every control/bus (and eventually every module) evaluates through **pure functio
 - [x] `node-graph-control-bus-helpers.js` — Bias/In, stereo mix, external stereo, MIDI ports
 - [x] Thinned live evaluators: valueSlider, plugin*, output, audioInput, midiOut
 - [x] Worklet dispatch uses same helpers for those types
+- [x] Restored full `curveOsc` + `snowflake` definitions (catalog was labels/store-only)
 
 ### Next slices (A1–A4)
 | Slice | Work | Gate |
@@ -85,9 +86,9 @@ Replace hard-coded type lists in:
 ```
 
 ### Rollout (critical)
-1. **B0** — Add fields to definitions for all current types that appear in lists; defaults preserve today’s behavior.
-2. **B1** — Plan code: `if (def.planRole === "source" || legacyList.has(type))` — dual path.
-3. **B2** — Log/assert any type that legacy and def disagree.
+1. **B0** — [x] `planRole` on definitions + chromeless registers; `node-graph-plan-roles.js` helpers; dual-read in `compileNodeGraphExecutionPlan`.
+2. **B1** — [x] Dual path: `nodeGraphModuleIsPlanSourceType(type) || legacy OR chain`.
+3. **B2** — [~] `nodeGraphPlanRoleLegacyDisagreements()` for console soak; wire optional log when retiring lists.
 4. **B3** — Remove legacy lists once zero disagreements for a soak period.
 
 ### Gate
@@ -154,10 +155,10 @@ Split without behavior change:
 
 ## Immediate start (this session)
 
-1. Commit + push current WIP (modules, helpers, Plugin shelf, snowflake native, cleanup).
-2. Land this plan doc.
-3. Begin **B0**: design `planRole` fields and annotate modules already on legacy lists (no plan logic switch yet).
-4. Continue **A**: document helper convention; next duplicate batch as capacity allows.
+1. [x] Commit + push Plugin shelf / control-bus / plan B0 (`322a111`).
+2. [x] Land this plan doc.
+3. [x] **B0/B1**: annotate sources + dual-path plan; restore missing `curveOsc`/`snowflake` defs.
+4. **Next:** B2 soak → B3 retire lists; continue **A** duplicate-DSP batches; then **C** formal migrators on top of existing `format.version: 1`.
 
 ---
 

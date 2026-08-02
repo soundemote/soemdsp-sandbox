@@ -27,6 +27,7 @@ registerNodeGraphChromelessModule("bugButton", {
   customDisplayArea: true,
   solidModule: true,
   definition: {
+    planRole: "source",
     defaultWidthGu: 4,
     digitalOutputs: ["Mouse Up", "Mouse Down", "Dn/Up", "Mouse Hover"],
     displayHeightGu: 4,

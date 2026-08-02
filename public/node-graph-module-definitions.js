@@ -67,6 +67,8 @@ const nodeGraphNodeLabels = Object.freeze({
   noteTranspose: "Note Transpose",
   surgeOscillator: "Surge Oscillator",
   softwaveOsc: "Softwave Oscillator",
+  curveOsc: "Curve Oscillator",
+  snowflake: "Snowflake",
   dsfOscillator: "DSF Oscillator",
   robinSupersaw: "RobinSupersaw",
   hypersaw: "Hypersaw",
@@ -386,6 +388,7 @@ const nodeGraphModuleDefinitions = (
     parameters: [],
   },
   osc: {
+    planRole: "source",
     displayType: "lineBurn",
     displayModes: [
       { key: "lineBurn", renderer: "lineBurn", source: { value: "Wave Out" } },
@@ -465,6 +468,7 @@ const nodeGraphModuleDefinitions = (
   // ports on each slider row). If a consumer needs full left-column Phase/Amp
   // jacks, see dsfOscillator (knob + dedicated CV input).
   polyBlep: {
+    planRole: "source",
     displayType: "lineBurn",
     displayModes: [
       { key: "lineBurn", renderer: "lineBurn", source: { value: "Wave Out" } },
@@ -537,6 +541,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   blit: {
+    planRole: "source",
     displayType: "lineBurn",
     displayModes: [
       { key: "lineBurn", renderer: "lineBurn", source: { value: "Wave Out" } },
@@ -608,6 +613,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   sineWavetable: {
+    planRole: "source",
     displayType: "trace",
     inputs: ["0.1V/Oct", "Freq", "Amplitude", "f"],
     inputAliases: {
@@ -662,6 +668,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   archimedes: {
+    planRole: "source",
     displayType: "trace",
     inputs: ["Reset", "0.1V/Oct"],
     inputLabels: {
@@ -711,6 +718,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   aliasSine: {
+    planRole: "source",
     inputs: ["f"],
     inputLabels: { f: "f" },
     outputs: ["Out"],
@@ -720,6 +728,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   additiveOsc: {
+    planRole: "source",
     graphInputs: ["Damping Graph", "Phase Graph"],
     inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
     inputLabels: {
@@ -774,6 +783,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   gpuAdditiveOsc: {
+    planRole: "source",
     graphInputs: ["Damping Graph", "Phase Graph"],
     inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
     inputLabels: {
@@ -828,6 +838,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   ellipsoid: {
+    planRole: "source",
     displayType: "scope2d",
     displaySignals: [
       { key: "Mono", kind: "scalar" },
@@ -864,6 +875,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   spiral: {
+    planRole: "source",
     displayType: "scope2d",
     displaySignals: [
       { key: "X", kind: "scalar" },
@@ -894,6 +906,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   fractalSpiral: {
+    planRole: "source",
     displayType: "scope2d",
     displaySignals: [
       { key: "X", kind: "scalar" },
@@ -920,6 +933,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   logSpiral: {
+    planRole: "source",
     displayType: "scope2d",
     displaySignals: [
       { key: "X", kind: "scalar" },
@@ -943,6 +957,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   lorenzAttractor: {
+    planRole: "source",
     displayType: "scope2d",
     displaySignals: [
       { key: "X", kind: "scalar" },
@@ -969,6 +984,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   logisticMap: {
+    planRole: "source",
     displayType: "trace",
     displaySignals: [
       { key: "Out", kind: "scalar" },
@@ -987,6 +1003,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   antisaw: {
+    planRole: "source",
     outputs: ["Out"],
     parameters: [
       { key: "fundamental", label: "Fundamental", kind: "frequency", defaultValue: "110", min: "0", mid: "1000", max: "20000", step: "any", unit: "Hz" },
@@ -996,6 +1013,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   bradley2a: {
+    planRole: "source",
     outputs: ["Out"],
     parameters: [
       { key: "carrierFreq", label: "Carrier", kind: "frequency", defaultValue: "1004", min: "0", mid: "1000", max: "20000", step: "any", unit: "Hz" },
@@ -1017,6 +1035,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   henonMap: {
+    planRole: "source",
     displayType: "scope2d",
     displaySignals: [
       { key: "X", kind: "scalar" },
@@ -1041,6 +1060,7 @@ const nodeGraphModuleDefinitions = (
   },
   // rayBouncer: solid chromeless registration (public/modules/rayBouncer/*-register.js).
   wirdoSpiral: {
+    planRole: "source",
     displayType: "scope2d",
     displaySignals: [
       { key: "X", kind: "scalar" },
@@ -1072,6 +1092,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   blubb: {
+    planRole: "source",
     displayType: "scope2d",
     displaySignals: [
       { key: "X", kind: "scalar" },
@@ -1095,6 +1116,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   mushroom: {
+    planRole: "source",
     displayType: "scope2d",
     displaySignals: [
       { key: "X", kind: "scalar" },
@@ -1130,6 +1152,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   boing: {
+    planRole: "source",
     displayType: "scope2d",
     displaySignals: [
       { key: "X", kind: "scalar" },
@@ -1162,6 +1185,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   torus: {
+    planRole: "source",
     displayType: "scope2d",
     displaySignals: [
       { key: "X", kind: "scalar" },
@@ -1198,6 +1222,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   keplerBouwkamp: {
+    planRole: "source",
     displayType: "scope2d",
     displaySignals: [
       { key: "X", kind: "scalar" },
@@ -1223,6 +1248,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   nyquistShannon: {
+    planRole: "source",
     displayType: "scope2d",
     displaySignals: [
       { key: "X", kind: "scalar" },
@@ -1255,6 +1281,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   radar: {
+    planRole: "source",
     displayType: "scope2d",
     displaySignals: [
       { key: "X", kind: "scalar" },
@@ -1297,6 +1324,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   chuaAttractor: {
+    planRole: "source",
     displayType: "scope2d",
     displaySignals: [
       { key: "X", kind: "scalar" },
@@ -1321,6 +1349,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   chordMemory: {
+    planRole: "source",
     inputs: ["Pitch", "Latch", "Clear", "Advance"],
     outputs: ["Note 1", "Note 2", "Note 3", "Note 4", "Arp", "Gate", "Trigger"],
     parameters: [
@@ -1345,6 +1374,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   turingMachine: {
+    planRole: "source",
     displayType: "trace",
     displaySignals: [
       { key: "CV", kind: "scalar" },
@@ -1586,6 +1616,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   surgeOscillator: {
+    planRole: "source",
     inputs: ["0.1V/Oct", "Sync", "f"],
     inputLabels: { "0.1V/Oct": "0.1V", f: "f" },
     outputs: ["Out", "Saw", "Square", "Tri", "Sine", "Synced", "Internal Sync"],
@@ -1611,6 +1642,7 @@ const nodeGraphModuleDefinitions = (
   },
   // Port of soemdsp DistortionOscillator — soft-shaped multi-wave (Softwave).
   softwaveOsc: {
+    planRole: "source",
     inputs: ["0.1V/Oct", "Morph", "Phase", "Amplitude", "f"],
     inputLabels: {
       "0.1V/Oct": "0.1V",
@@ -1664,7 +1696,238 @@ const nodeGraphModuleDefinitions = (
       { key: "level", label: "Amplitude", defaultValue: "1", min: "0", mid: "0.5", max: "1", step: "0.01" },
     ],
   },
+  // Parametric 2D math curves → mono Out via Project; X/Y always available for scopes.
+  curveOsc: {
+    planRole: "source",
+    displayType: "scope2d",
+    displaySignals: [
+      { key: "Out", kind: "scalar" },
+      { key: "X", kind: "scalar" },
+      { key: "Y", kind: "scalar" },
+      { key: "X/Y", kind: "xy" },
+    ],
+    displayModes: [
+      { key: "xyBurn", label: "X/Y Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
+      { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "X", y: "Y" } },
+      { key: "trace", label: "Out Trace", renderer: "trace", settingsSchema: "trace", source: { value: "Out" } },
+    ],
+    defaultDisplayMode: "xyBurn",
+    inputs: ["0.1V/Oct", "Phase", "Amplitude", "Reset", "f"],
+    inputLabels: {
+      "0.1V/Oct": "0.1V",
+      Phase: "Phase",
+      Amplitude: "Amp",
+      Reset: "Reset",
+      f: "f",
+    },
+    outputs: ["Out", "X", "Y"],
+    parameters: [
+      {
+        choices: [
+          "Lissajous",
+          "Rose",
+          "Hypotrochoid",
+          "Butterfly",
+          "Superformula",
+          "Harmonograph",
+          "Cubic Novelty",
+        ],
+        defaultValue: "0",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "curve",
+        label: "Curve",
+        linearSmoothing: false,
+        max: "6",
+        mid: "3",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip:
+          "Parametric family: phase θ walks a 2D path (X,Y). Out is not the curve itself — Project collapses that point to one number each sample.",
+      },
+      { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "110", min: "0", mid: "220", max: "20000", step: "any", unit: "Hz" },
+      {
+        defaultValue: "0",
+        key: "phase",
+        kind: "phase",
+        label: "Phase",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        step: "0.01",
+        unit: "cycle",
+        wraparound: true,
+      },
+      {
+        key: "a",
+        label: "A",
+        defaultValue: "0.5",
+        min: "0",
+        mid: "0.5",
+        max: "1",
+        step: "0.001",
+        tooltip: "Shape parameter A (meaning depends on Curve: ratio, petal count, roll radius, etc.).",
+      },
+      {
+        key: "b",
+        label: "B",
+        defaultValue: "0.5",
+        min: "0",
+        mid: "0.5",
+        max: "1",
+        step: "0.001",
+        tooltip: "Shape parameter B (second ratio, draw radius, superformula exponent, etc.).",
+      },
+      {
+        key: "morph",
+        label: "Morph",
+        defaultValue: "0.35",
+        min: "0",
+        mid: "0.5",
+        max: "1",
+        step: "0.001",
+        tooltip: "Extra curve morph (phase offset, blend, petal fill, second system mix — per family).",
+      },
+      {
+        choices: ["Y", "X", "Radius", "Angle", "Dot"],
+        defaultValue: "0",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "project",
+        label: "Project",
+        linearSmoothing: false,
+        max: "4",
+        mid: "2",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip:
+          "2D→1D: each sample the curve is a point (X,Y). Project picks the mono Out from that point — Y or X (axis), Radius (distance from origin), Angle (atan2/π), or Dot (shadow along a direction). X and Y outs still carry the full plane for scopes.",
+      },
+      {
+        defaultValue: "0",
+        key: "projectAngle",
+        kind: "phase",
+        label: "Dot Angle",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        step: "0.01",
+        unit: "cycle",
+        wraparound: true,
+        tooltip:
+          "Only for Project = Dot: direction of the projection line (0…1 cycles). Out = X·cosθ + Y·sinθ — the shadow of the 2D path onto that axis.",
+      },
+      { key: "level", label: "Amplitude", defaultValue: "1", min: "0", mid: "0.5", max: "1", step: "0.01" },
+    ],
+  },
+  // L-system turtle path walked at Frequency → X/Y (Out = Y). Native WASM preferred.
+  snowflake: {
+    planRole: "source",
+    displayType: "scope2d",
+    displaySignals: [
+      { key: "Out", kind: "scalar" },
+      { key: "X", kind: "scalar" },
+      { key: "Y", kind: "scalar" },
+      { key: "X/Y", kind: "xy" },
+    ],
+    displayModes: [
+      { key: "xyBurn", label: "X/Y Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
+      { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "X", y: "Y" } },
+      { key: "trace", label: "Out Trace", renderer: "trace", settingsSchema: "trace", source: { value: "Out" } },
+    ],
+    defaultDisplayMode: "xyBurn",
+    inputs: ["0.1V/Oct", "Amplitude", "Reset", "f"],
+    inputLabels: {
+      "0.1V/Oct": "0.1V",
+      Amplitude: "Amp",
+      Reset: "Reset",
+      f: "f",
+    },
+    outputs: ["Out", "X", "Y"],
+    parameters: [
+      {
+        choices: [
+          "Koch Curve",
+          "Koch Snowflake",
+          "Quadratic Koch",
+          "Sierpinski",
+          "Dragon",
+          "Gosper",
+          "Tree",
+        ],
+        defaultValue: "1",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "pattern",
+        label: "Pattern",
+        linearSmoothing: false,
+        max: "6",
+        mid: "3",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip:
+          "L-system axiom + rewrite rules. Path is rebuilt when Pattern, Iterations, or Angle change; Frequency walks arc length along the polyline.",
+      },
+      { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "55", min: "0", mid: "220", max: "20000", step: "any", unit: "Hz" },
+      {
+        key: "iterations",
+        label: "Iterations",
+        defaultValue: "3",
+        min: "0",
+        mid: "3",
+        max: "7",
+        step: "1",
+        tooltip: "L-system rewrite depth (0–7). Higher = denser self-similar path; cost grows fast.",
+      },
+      {
+        key: "angle",
+        label: "Angle",
+        defaultValue: "60",
+        min: "1",
+        mid: "60",
+        max: "180",
+        step: "0.1",
+        unit: "°",
+        tooltip: "Turtle turn angle in degrees for +/− commands (overrides pattern catalog default at sample time).",
+      },
+      {
+        key: "size",
+        label: "Size",
+        defaultValue: "1",
+        min: "0",
+        mid: "1",
+        max: "4",
+        step: "0.01",
+      },
+      {
+        key: "reverse",
+        label: "Reverse",
+        defaultValue: "0",
+        min: "0",
+        mid: "0.5",
+        max: "1",
+        step: "1",
+        tooltip: "When on, phase ping-pongs along the path (0→1→0) instead of looping one way.",
+      },
+      {
+        key: "spin",
+        label: "Spin",
+        defaultValue: "0",
+        min: "-8",
+        mid: "0",
+        max: "8",
+        step: "0.01",
+        unit: "Hz",
+        tooltip: "Rotate the whole figure continuously (cycles per second).",
+      },
+      { key: "level", label: "Amplitude", defaultValue: "1", min: "0", mid: "0.5", max: "1", step: "0.01" },
+    ],
+  },
   dsfOscillator: {
+    planRole: "source",
     // Left jacks (inputs[]) AND knobs (parameters[]) for pitch/phase/level:
     //   0.1V/Oct  → pitch CV (PolyBLEP-style; not a parameter)
     //   Phase     → CV jack that ADDS to the Phase knob
@@ -1724,6 +1987,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   robinSupersaw: {
+    planRole: "source",
     inputs: ["0.1V/Oct", "f"],
     inputLabels: { "0.1V/Oct": "0.1V", f: "f" },
     outputs: ["Mono", "Left", "Right"],
@@ -1742,6 +2006,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   hypersaw: {
+    planRole: "source",
     displayType: "hypersawBurn",
     displayModes: [
       { key: "hypersawBurn", renderer: "hypersawBurn", source: { value: "Left" } },
@@ -1816,6 +2081,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   lutCell: {
+    planRole: "source",
     inputs: ["A", "B", "C", "D", "Clock"],
     outputs: ["Out", "Q"],
     parameters: [
@@ -1823,12 +2089,14 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   metallicRatio: {
+    planRole: "source",
     outputs: ["Ratio"],
     parameters: [
       { key: "index", label: "Index", defaultValue: "1", min: "0", mid: "4", max: "8", step: "any" },
     ],
   },
   noiseGenerator: {
+    planRole: "source",
     outputs: ["Left Out", "Right Out"],
     parameters: [
       {
@@ -1890,6 +2158,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   randomWalk: {
+    planRole: "source",
     outputs: ["Out"],
     parameters: [
       {
@@ -1955,6 +2224,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   piSpigotNoise: {
+    planRole: "source",
     outputs: ["Left Out", "Right Out"],
     parameters: [
       {
@@ -2016,6 +2286,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   fractalBrownianNoise: {
+    planRole: "source",
     // Display sources reference the pre-level ("Out X Raw" etc.) signal so the
     // scope always shows the fractal noise at full volume, regardless of the
     // Level parameter -- the Level knob only affects the wired/audio output.
@@ -2102,6 +2373,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   clock: {
+    planRole: "source",
     displayType: "dot",
     displayRenderer: "pulseDot",
     inputs: ["Reset"],
@@ -2164,6 +2436,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   transport: {
+    planRole: "source",
     displayModes: [
       { key: "transportBpm", renderer: "transportBpm", source: { value: "bpm" } },
     ],
@@ -2262,21 +2535,25 @@ const nodeGraphModuleDefinitions = (
     parameters: [],
   },
   wireBreak: {
+    planRole: "source",
     inputs: [],
     outputs: ["Pulse", "Gate"],
     parameters: [],
   },
   wireConnect: {
+    planRole: "source",
     inputs: [],
     outputs: ["Pulse"],
     parameters: [],
   },
   wireDisconnect: {
+    planRole: "source",
     inputs: [],
     outputs: ["Pulse"],
     parameters: [],
   },
   windowReopen: {
+    planRole: "source",
     inputs: [],
     outputs: ["Pulse", "Gate", "Sine"],
     parameters: [],
@@ -2287,6 +2564,7 @@ const nodeGraphModuleDefinitions = (
     parameters: [],
   },
   shootingStarExplosion: {
+    planRole: "source",
     inputs: [],
     outputs: ["Pulse"],
     parameters: [
@@ -3453,6 +3731,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   midiOut: {
+    planRole: "source",
     inputs: ["MIDI Number"],
     outputs: ["Normalized", "Full Value"],
     parameters: [
@@ -3480,6 +3759,7 @@ const nodeGraphModuleDefinitions = (
     parameters: [],
   },
   keyboardController: {
+    planRole: "source",
     // Wide enough for ~25 keys with readable white-key labels (min 14gu).
     defaultWidthGu: 18,
     digitalOutputs: ["Held Keys"],
@@ -3522,6 +3802,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   phosphillator: {
+    planRole: "source",
     layout: "phosphillatorDraw",
     inputs: ["0.1V/Oct", "Reset"],
     outputs: ["X", "Y"],
@@ -3543,6 +3824,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   audioPlayer: {
+    planRole: "source",
     layout: "phosphorWaveform",
     inputs: ["Reset", "Speed", "Phase"],
     outputs: ["Mono", "Left", "Right", "Phase", "Trigger"],
@@ -3572,12 +3854,14 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   macroControls: {
+    planRole: "source",
     inputs: ["M1 In", "M2 In", "M3 In", "M4 In", "M5 In", "M6 In", "M7 In", "M8 In", "Reset"],
     layout: "macroControls",
     outputs: ["M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8"],
     parameters: [],
   },
   pitchModWheel: {
+    planRole: "source",
     inputs: ["Pitch", "Mod", "Reset"],
     layout: "pitchModWheel",
     outputs: ["Pitch Wheel", "Mod Wheel"],
@@ -4835,6 +5119,8 @@ function nodeGraphModuleProducesOutputWithoutSignalInput(type) {
     "archimedes",
     "surgeOscillator",
     "softwaveOsc",
+    "curveOsc",
+    "snowflake",
     "robinSupersaw",
     "pitchQuantizer",
     "chordPad",

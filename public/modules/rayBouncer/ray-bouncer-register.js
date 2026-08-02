@@ -7,6 +7,7 @@ registerNodeGraphChromelessModule("rayBouncer", {
   customDisplayArea: true,
   solidModule: true,
   definition: {
+    planRole: "source",
     defaultWidthGu: 8,
     displayHeightGu: 5,
     displayType: "scope2d",
