@@ -31,12 +31,31 @@ uniform float uBreath;
 uniform float uTrapMix;
 uniform vec2 uTrapPoint;
 uniform float uTime;
+uniform float uFold;
+uniform float uBands;
+uniform float uDomainWarp;
 uniform sampler2D uPalette;
 uniform vec3 uBackground;
 
+// Optional domain fold (kaleidoscope-ish) before Julia — denser structure, still evolves with c.
+vec2 domainFold(vec2 z, float fold) {
+  if (fold < 0.001) {
+    return z;
+  }
+  float f = clamp(fold, 0.0, 1.0);
+  // Reflect into first quadrant then re-expand with slight rotation over time
+  vec2 a = abs(z);
+  float ang = atan(a.y, a.x);
+  float rad = length(a);
+  float petals = mix(1.0, 4.0, f);
+  ang = abs(mod(ang * petals + uTime * 0.15 * f, 3.14159265) - 1.5707963);
+  vec2 folded = vec2(cos(ang), sin(ang)) * rad;
+  return mix(z, folded, f * 0.85);
+}
+
 // One Julia sample → energy in [0,1]. soft already baked into maxIter / trap mix by caller.
 float juliaEnergy(vec2 z0, vec2 c, float maxIter, float soft, float trapMix) {
-  vec2 z = z0;
+  vec2 z = domainFold(z0, uFold);
   float trap = 1e6;
   float trap2 = 1e6;
   float i = 0.0;
@@ -49,6 +68,10 @@ float juliaEnergy(vec2 z0, vec2 c, float maxIter, float soft, float trapMix) {
     float x = z.x * z.x - z.y * z.y + c.x;
     float y = 2.0 * z.x * z.y + c.y;
     z = vec2(x, y);
+    // Mild mid-iter fold for organic branching when fold > 0
+    if (uFold > 0.2 && mod(i, 3.0) < 0.5) {
+      z = mix(z, abs(z) * vec2(1.0, 1.0) - vec2(0.15, 0.1) * uFold, uFold * 0.25);
+    }
     float r2 = dot(z, z);
     trap = min(trap, length(z - uTrapPoint));
     trap2 = min(trap2, abs(length(z) - 0.55));
@@ -68,7 +91,7 @@ float juliaEnergy(vec2 z0, vec2 c, float maxIter, float soft, float trapMix) {
       float traps = clamp(t1 * 0.55 + t2 * 0.45, 0.0, 1.0);
       traps = smoothstep(0.0, mix(0.35, 0.85, soft), traps);
 
-      float tm = clamp(trapMix * (1.0 - soft * 0.65), 0.0, 0.7);
+      float tm = clamp(trapMix * (1.0 - soft * 0.65), 0.0, 0.85);
       float e = mix(escape, traps, tm);
       // Final soft curve — flattens micro-contrast
       e = mix(e, e * e * (3.0 - 2.0 * e), soft * 0.7);
@@ -94,12 +117,19 @@ vec2 mapUvToZ(vec2 frag, vec2 offsetPx) {
 
 float sampleAt(vec2 frag, vec2 offsetPx, float maxIter, float soft, float trapMix) {
   vec2 z0 = mapUvToZ(frag, offsetPx);
-  // Soft domain breath — liquid, not sparkle
-  float wAmt = soft * 0.05;
-  z0 += wAmt * vec2(
-    sin(z0.y * 2.2 + uTime * 1.1),
-    cos(z0.x * 1.9 - uTime * 0.9)
-  );
+  // Domain warp: soft haze + independent Domain Warp knob (liquid, not sparkle)
+  float wAmt = soft * 0.04 + uDomainWarp * 0.12;
+  if (wAmt > 0.001) {
+    z0 += wAmt * vec2(
+      sin(z0.y * (2.2 + uDomainWarp) + uTime * 1.1),
+      cos(z0.x * (1.9 + uDomainWarp * 0.7) - uTime * 0.9)
+    );
+    // Second scale for non-repeating liquid
+    z0 += wAmt * 0.45 * vec2(
+      cos(z0.x * 0.7 - z0.y * 1.3 + uTime * 0.37),
+      sin(z0.y * 0.9 + z0.x * 0.5 - uTime * 0.29)
+    );
+  }
   return juliaEnergy(z0, uC, maxIter, soft, trapMix);
 }
 
@@ -184,9 +214,9 @@ void main() {
   float gamma = mix(0.78, 1.05, soft) - glowAmt * 0.1;
   e = pow(e, max(0.45, gamma));
 
-  // Color bands: soft / fewer wraps = less hard striping & less noise
-  // glow 0…1.35 stretches band richness at the top of the 0…4 knob
-  float band = mix(1.65 + glowAmt * 1.6, 0.75 + glowAmt * 0.55, soft);
+  // Color bands: uBands from Bands knob; soft reduces wraps; glow still lifts richness
+  float band = mix(uBands + glowAmt * 0.9, uBands * 0.45 + glowAmt * 0.4, soft);
+  band = max(0.25, band);
   float phase = uColorPhase * mix(1.0, 0.55, soft);
   // Soft uses rounded triangle wrap; low soft uses gentle fract
   float eColor;
@@ -347,6 +377,9 @@ function nodeGraphRgbFractalGlEnsure(canvas) {
       uTrapMix: gl.getUniformLocation(program, "uTrapMix"),
       uTrapPoint: gl.getUniformLocation(program, "uTrapPoint"),
       uTime: gl.getUniformLocation(program, "uTime"),
+      uFold: gl.getUniformLocation(program, "uFold"),
+      uBands: gl.getUniformLocation(program, "uBands"),
+      uDomainWarp: gl.getUniformLocation(program, "uDomainWarp"),
       uPalette: gl.getUniformLocation(program, "uPalette"),
       uBackground: gl.getUniformLocation(program, "uBackground"),
     };
@@ -476,6 +509,9 @@ function nodeGraphRgbFractalGlPaint(canvas, params) {
   gl.uniform1f(U.uTrapMix, params.trapMix);
   gl.uniform2f(U.uTrapPoint, params.trapX, params.trapY);
   gl.uniform1f(U.uTime, params.time);
+  gl.uniform1f(U.uFold, Number(params.fold) || 0);
+  gl.uniform1f(U.uBands, Number.isFinite(Number(params.bands)) ? Number(params.bands) : 1.65);
+  gl.uniform1f(U.uDomainWarp, Number(params.domainWarp) || 0);
   const bg = nodeGraphRgbFractalGlHexToRgb01(params.background);
   gl.uniform3f(U.uBackground, bg[0], bg[1], bg[2]);
 
