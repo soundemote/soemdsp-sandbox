@@ -4180,7 +4180,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     if (!value || typeof value !== "object") {
       return 0;
     }
-    for (const key of ["Out", "Out X", "Out Y", "Out Z", "Left", "Right", "X", "Y", "Z", "Pulse", "Gate", "Count"]) {
+    for (const key of ["Bias", "Out", "Out X", "Out Y", "Out Z", "Left", "Right", "X", "Y", "Z", "Pulse", "Gate", "Count"]) {
       const number = readNumber(value[key]);
       if (number !== null) {
         return number;

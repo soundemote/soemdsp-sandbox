@@ -3,9 +3,10 @@
 // Wraps public/lib/phosphor/phosphor-energy-gl.js with settings helpers.
 //
 // Axes (app-wide):
-//   brightness → deposit gain
-//   trail      → main residual length (1 ≈ freeze-ish)
-//   ghost      → dim scorched floor hang
+// Display Settings order: Size → Blur → Bright → Ghost → Trail → Scale → Antialiasing → Dot Budget
+//   brightness (UI: Bright) → deposit gain
+//   trail                   → main residual length (1 ≈ freeze-ish)
+//   ghost                   → dim scorched floor hang
 //
 // Usage:
 //   PhosphorDrawer.stepDots(face, { trail, ghost, pathPoints, radius, brightness, blur, maxDots });

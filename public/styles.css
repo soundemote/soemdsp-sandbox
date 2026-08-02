@@ -9547,9 +9547,10 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-module-scope-height: 0px;
 }
 
+/* Hide only analyzer scopes — not always-on display plates that reuse the class. */
 .node-graph-workspace.module-oscilloscopes-hidden
   .dsp-node:not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout)
-  .node-module-scope-window {
+  .node-module-scope-window:not(.node-value-slider-face):not(.node-number-readout-face):not(.node-ray-bouncer-face) {
   display: none;
 }
 

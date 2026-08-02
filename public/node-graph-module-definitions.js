@@ -2575,6 +2575,19 @@ const nodeGraphModuleDefinitions = (
     // Min footprint is 2×2 gu; default face is 2gu tall.
     defaultWidthGu: 2,
     displayHeightGu: 2,
+    // Face is a real display: shows final Bias (modulated / live), not only the
+    // static parameter meta. Enables continuous readout + image rotation.
+    displayType: "valueSliderFace",
+    displayModes: [
+      {
+        key: "face",
+        label: "Face",
+        renderer: "valueSliderFace",
+        settingsSchema: "valueSliderFace",
+        source: { value: "Bias" },
+      },
+    ],
+    defaultDisplayMode: "face",
     layout: "sliderWidget",
     outputs: ["Bias"],
     outputLabels: {

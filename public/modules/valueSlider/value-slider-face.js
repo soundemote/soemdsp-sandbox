@@ -176,26 +176,217 @@ function nodeGraphValueSliderFaceForNode(node) {
   return normalizeNodeGraphValueSliderFace(patchNode?.valueSliderFace);
 }
 
-function nodeGraphValueSliderFaceUnitFromParams(patchNode) {
+/**
+ * Latest live Bias sample from scope capture (final worklet output after
+ * modulation). This is what a DISPLAY must show — not the static param meta.
+ */
+function nodeGraphValueSliderFaceLatestScopeSample(nodeId) {
+  const id = String(nodeId || "").trim();
+  if (!id || typeof nodeGraphModuleScopeState === "undefined") {
+    return null;
+  }
+  const buffers = nodeGraphModuleScopeState?.buffers;
+  if (!buffers?.get) {
+    return null;
+  }
+  for (const key of [`${id}:Bias`, `${id}:Out`, id]) {
+    const buffer = buffers.get(key);
+    if (!buffer?.length) {
+      continue;
+    }
+    const sample = Number(buffer[buffer.length - 1]);
+    if (Number.isFinite(sample)) {
+      return sample;
+    }
+  }
+  return null;
+}
+
+/** Source node latest sample (signal port) for main-thread modulation preview. */
+function nodeGraphValueSliderFaceSourceSample(sourceNode, sourcePort) {
+  const id = String(sourceNode || "").trim();
+  const port = String(sourcePort || "").trim();
+  if (!id) {
+    return null;
+  }
+  if (typeof nodeGraphModuleScopeState !== "undefined") {
+    const buffers = nodeGraphModuleScopeState?.buffers;
+    if (buffers?.get) {
+      for (const key of port ? [`${id}:${port}`, id] : [id]) {
+        const buffer = buffers.get(key);
+        if (buffer?.length) {
+          const sample = Number(buffer[buffer.length - 1]);
+          if (Number.isFinite(sample)) {
+            return sample;
+          }
+        }
+      }
+    }
+  }
+  // Parameter-port sources (other sliders / knobs).
+  if (port && typeof nodeGraphParameterOutputPort === "function") {
+    const type = typeof nodeGraphPatchNodeType === "function"
+      ? nodeGraphPatchNodeType(id)
+      : null;
+    if (type && nodeGraphParameterOutputPort(type, port)) {
+      if (typeof nodeGraphReadNodeNumber === "function") {
+        const n = nodeGraphReadNodeNumber(id, port);
+        if (Number.isFinite(n)) {
+          return n;
+        }
+      }
+      if (typeof nodeGraphReadPatchParameterValue === "function") {
+        const n = nodeGraphReadPatchParameterValue(id, port);
+        if (Number.isFinite(n)) {
+          return n;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Final displayed Bias: scope Bias first, else base offset + live modulations.
+ * Parameter meta (slider text) is NOT the display — this is.
+ */
+function nodeGraphValueSliderFaceLiveOffset(nodeId) {
+  const id = String(nodeId || "").trim();
+  const scoped = nodeGraphValueSliderFaceLatestScopeSample(id);
+  if (scoped != null) {
+    return scoped;
+  }
+  const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
+  if (!patchNode) {
+    return 0;
+  }
+  const metadata = typeof nodeGraphReadPatchParameterMetadata === "function"
+    ? nodeGraphReadPatchParameterMetadata(patchNode, "offset")
+    : {};
+  let base = typeof nodeGraphReadNodeNumber === "function"
+    ? nodeGraphReadNodeNumber(id, "offset")
+    : Number(patchNode.params?.offset);
+  if (!Number.isFinite(base)) {
+    base = 0;
+  }
+  const modulations = Array.isArray(nodeGraphMvp?.patch?.modulations)
+    ? nodeGraphMvp.patch.modulations
+    : [];
+  let contribution = 0;
+  let hasMod = false;
+  for (const modulation of modulations) {
+    if (modulation.destinationNode !== id || modulation.destinationParam !== "offset") {
+      continue;
+    }
+    const src = nodeGraphValueSliderFaceSourceSample(
+      modulation.sourceNode,
+      modulation.sourcePort,
+    );
+    if (src == null || !Number.isFinite(src)) {
+      continue;
+    }
+    hasMod = true;
+    if (typeof normalizeNodeGraphParameterModulationInput === "function"
+      && typeof nodeGraphApplyParameterModulation === "function") {
+      // Accumulate normalized contribution then denormalize once below.
+      contribution += normalizeNodeGraphParameterModulationInput(src, metadata);
+    } else {
+      contribution += src;
+    }
+  }
+  if (!hasMod) {
+    return base;
+  }
+  if (typeof nodeGraphParameterValueToNormalizedSignal === "function"
+    && typeof nodeGraphNormalizedSignalToParameterValue === "function") {
+    const baseSignal = nodeGraphParameterValueToNormalizedSignal(base, metadata);
+    const nextSignal = typeof nodeGraphNormalizedParameterSignalBounds === "function"
+      ? nodeGraphNormalizedParameterSignalBounds(baseSignal + contribution, metadata)
+      : Math.max(0, Math.min(1, baseSignal + contribution));
+    return nodeGraphNormalizedSignalToParameterValue(nextSignal, metadata);
+  }
+  return base + contribution;
+}
+
+function nodeGraphValueSliderFaceUnitFromValue(value, patchNode) {
   const slider = typeof document !== "undefined"
     ? document.getElementById(`node-${patchNode?.id}-offset`)
     : null;
-  let value = Number(slider?.dataset?.unboundedValue);
-  if (!Number.isFinite(value)) {
-    value = Number(slider?.value);
+  const lo = Number.isFinite(Number(slider?.min))
+    ? Number(slider.min)
+    : (Number.isFinite(Number(patchNode?.paramMeta?.offset?.min))
+      ? Number(patchNode.paramMeta.offset.min)
+      : -1);
+  const hi = Number.isFinite(Number(slider?.max))
+    ? Number(slider.max)
+    : (Number.isFinite(Number(patchNode?.paramMeta?.offset?.max))
+      ? Number(patchNode.paramMeta.offset.max)
+      : 1);
+  if (hi === lo) {
+    return 0.5;
   }
-  if (!Number.isFinite(value)) {
-    value = Number(patchNode?.params?.offset);
+  return Math.max(0, Math.min(1, (Number(value) - lo) / (hi - lo)));
+}
+
+function nodeGraphValueSliderFaceUnitFromParams(patchNode) {
+  const live = nodeGraphValueSliderFaceLiveOffset(patchNode?.id);
+  return nodeGraphValueSliderFaceUnitFromValue(live, patchNode);
+}
+
+/**
+ * Paint face from live Bias (scope / modulation). Call every display frame.
+ */
+function paintNodeGraphValueSliderFaceLive(face, nodeId, buffer = null) {
+  if (!face || !nodeId) {
+    return;
+  }
+  const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  const faceData = nodeGraphValueSliderFaceForNode(patchNode || { valueSliderFace: null });
+
+  let value = null;
+  if (buffer?.length) {
+    const sample = Number(buffer[buffer.length - 1]);
+    if (Number.isFinite(sample)) {
+      value = sample;
+    }
+  }
+  if (value == null) {
+    value = nodeGraphValueSliderFaceLiveOffset(nodeId);
   }
   if (!Number.isFinite(value)) {
     value = 0;
   }
-  const lo = Number.isFinite(Number(slider?.min)) ? Number(slider.min) : -1;
-  const hi = Number.isFinite(Number(slider?.max)) ? Number(slider.max) : 1;
-  if (hi === lo) {
-    return 0.5;
+
+  const readout = face.querySelector("[data-value-slider-face-readout]");
+  if (readout && faceData.showReadout) {
+    const slider = document.getElementById(`node-${nodeId}-offset`);
+    readout.hidden = false;
+    readout.setAttribute("aria-hidden", "false");
+    readout.textContent = typeof formatNodeSliderNumber === "function"
+      ? formatNodeSliderNumber(value, {
+        kind: slider?.dataset?.kind || "decimal",
+        maxDigits: slider?.dataset?.maxDigits,
+        reserveSignSpace: true,
+        showSign: typeof nodeSliderShouldShowSign === "function" && slider
+          ? nodeSliderShouldShowSign(slider)
+          : true,
+      }).trim()
+      : String(value);
   }
-  return Math.max(0, Math.min(1, (value - lo) / (hi - lo)));
+
+  const unit = nodeGraphValueSliderFaceUnitFromValue(value, patchNode || { id: nodeId });
+  nodeGraphValueSliderFaceApplyLayerTransforms(face, faceData, unit);
+  face.dataset.liveValue = String(value);
+  // Always-on display plate: reassert dimmer cutout (cold-boot wipe zeros emitters).
+  if (face.dataset) {
+    face.dataset.lightSource = "screen";
+    face.dataset.lightStrength = "1";
+  }
+  if (typeof nodeGraphModuleScopeMarkScreenLit === "function") {
+    nodeGraphModuleScopeMarkScreenLit(face, 1);
+  } else if (typeof setNodeGraphLightStrength === "function") {
+    setNodeGraphLightStrength(face, 1);
+  }
 }
 
 /** Degrees for Bias unit 0…1 (shared span/offset; applied only to layers with rotate). */
@@ -268,10 +459,13 @@ function attachNodeGraphValueSliderFaceDrag(face) {
  */
 function createNodeGraphValueSliderFace(node, type) {
   const face = document.createElement("div");
-  face.className = "node-value-slider-face";
+  // Room dimmer: punch a full hole over this plate (same contract as number readout / LED).
+  face.className = "node-value-slider-face node-module-scope-window node-light-source";
   face.dataset.node = node;
   face.dataset.nodeType = type || "valueSlider";
   face.dataset.sliderTarget = `node-${node}-offset`;
+  face.dataset.lightSource = "screen";
+  face.dataset.lightStrength = "1";
   face.tabIndex = 0;
   face.setAttribute("role", "slider");
   face.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} value display`);
@@ -450,34 +644,18 @@ function renderNodeGraphValueSliderFace(faceOrNodeId, nodeIdOpt) {
         || (nodeGraphNodeLabels?.valueSlider || "Value Slider");
     }
   }
-  if (readout) {
-    const show = Boolean(faceData.showReadout);
-    readout.hidden = !show;
-    readout.setAttribute("aria-hidden", show ? "false" : "true");
-    if (!show) {
-      readout.textContent = "";
-    } else {
-      const slider = document.getElementById(`node-${nodeId}-offset`);
-      if (slider && typeof syncNodeGraphValueSliderFaceFromSlider === "function") {
-        const displayValue = Number.isFinite(Number(slider.dataset.unboundedValue))
-          ? Number(slider.dataset.unboundedValue)
-          : Number(slider.value);
-        readout.textContent = typeof formatNodeSliderNumber === "function"
-          ? formatNodeSliderNumber(displayValue, {
-            kind: slider.dataset.kind,
-            maxDigits: slider.dataset.maxDigits,
-            reserveSignSpace: true,
-            showSign: typeof nodeSliderShouldShowSign === "function"
-              ? nodeSliderShouldShowSign(slider)
-              : true,
-          }).trim()
-          : String(Number.isFinite(displayValue) ? displayValue : 0);
-      }
-    }
+  // Display paints final live Bias (scope / modulation), not only param meta.
+  if (typeof paintNodeGraphValueSliderFaceLive === "function") {
+    paintNodeGraphValueSliderFaceLive(face, nodeId, null);
+  } else {
+    const unit = nodeGraphValueSliderFaceUnitFromParams(patchNode || { id: nodeId });
+    nodeGraphValueSliderFaceApplyLayerTransforms(face, faceData, unit);
   }
-
-  const unit = nodeGraphValueSliderFaceUnitFromParams(patchNode || { id: nodeId });
-  nodeGraphValueSliderFaceApplyLayerTransforms(face, faceData, unit);
+  if (readout && !faceData.showReadout) {
+    readout.hidden = true;
+    readout.setAttribute("aria-hidden", "true");
+    readout.textContent = "";
+  }
 }
 
 function refreshNodeGraphValueSliderFaces() {

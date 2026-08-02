@@ -685,12 +685,26 @@ function createNodeGraphModuleElement(type, node) {
     article.append(graphShell);
   } else if (definition.layout === "sliderWidget") {
     // LayoutB (XY Pad contract): slim I/O beside a large face; Bias slider under.
+    // Face is a real display (final Bias output), registered for live scope capture.
     const face = typeof createNodeGraphValueSliderFace === "function"
       ? createNodeGraphValueSliderFace(node, type)
       : createNodeGraphSliderWidgetBody(node, type);
+    // Face already marks itself as scope-window + light-source; keep class if factory missing.
+    face.classList.add("node-module-scope-window", "node-light-source");
+    if (face.dataset) {
+      face.dataset.lightSource = face.dataset.lightSource || "screen";
+      face.dataset.lightStrength = face.dataset.lightStrength || "1";
+    }
     const shell = createNodeGraphLayoutBShell(node, type, face, null, inputPorts, outputPorts);
     shell.classList.add("node-value-slider-shell");
     article.append(shell);
+    if (typeof registerNodeGraphModuleScopeSlot === "function") {
+      registerNodeGraphModuleScopeSlot(article, {
+        nodeId: node,
+        type,
+        scopeElement: face,
+      });
+    }
     // Face is only under .dsp-node after append — re-render so has-image / frame-hide
     // can find the module and remove the chrome stroke around the knob image.
     if (typeof renderNodeGraphValueSliderFace === "function") {

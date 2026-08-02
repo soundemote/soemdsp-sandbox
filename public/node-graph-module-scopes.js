@@ -1263,10 +1263,14 @@ function wipeNodeGraphModuleScopeScreensToColdBoot() {
       delete face.dataset.ledAppearance;
     }
   }
-  // Room-light emitters go dark with the simulation. Number Readout faces are
-  // restored to idle LCD strength in wipeNodeGraphNumberReadoutScreensToColdBoot.
+  // Room-light emitters go dark with the simulation. Always-on display plates
+  // (Number Readout LCD, Value Slider face) keep a full hole under the dimmer.
   for (const el of document.querySelectorAll("[data-light-strength], [data-light-source]")) {
-    if (el.dataset && !el.classList?.contains("node-number-readout-face")) {
+    if (
+      el.dataset
+      && !el.classList?.contains("node-number-readout-face")
+      && !el.classList?.contains("node-value-slider-face")
+    ) {
       el.dataset.lightStrength = "0";
     }
   }
@@ -1759,7 +1763,7 @@ function nodeGraphModuleScopeScalarValue(value) {
   if (!value || typeof value !== "object") {
     return 0;
   }
-  for (const key of ["Out", "Out X", "Out Y", "Out Z", "Left", "Right", "X", "Y", "Z", "Pulse", "Gate", "Count"]) {
+  for (const key of ["Bias", "Out", "Out X", "Out Y", "Out Z", "Left", "Right", "X", "Y", "Z", "Pulse", "Gate", "Count"]) {
     const number = readNumber(value[key]);
     if (number !== null) {
       return number;
@@ -3506,7 +3510,7 @@ function nodeGraphTraceDisplaySettingsEditingTraceDefaults() {
   return nodeGraphModuleDisplaySettingsSchemaForNode(node) === "trace" && node?.type !== "output";
 }
 
-const nodeGraphDisplayModeRenderers = Object.freeze(["trace", "clock", "dot", "value", "lineBurn", "hypersawBurn", "oscilloscopeBankBurn", "videoscopeBurn", "spectrogramBurn", "transportBpm", "scope2d", "scope2dTrace", "phosphorLight", "numberReadout", "xyPad", "customDisplay", "spectrum", "ledLamp", "selfPaintFace", "matrixFace", "matrixWaterfallFace", "matrixDisplayFace"]);
+const nodeGraphDisplayModeRenderers = Object.freeze(["trace", "clock", "dot", "value", "lineBurn", "hypersawBurn", "oscilloscopeBankBurn", "videoscopeBurn", "spectrogramBurn", "transportBpm", "scope2d", "scope2dTrace", "phosphorLight", "numberReadout", "xyPad", "customDisplay", "spectrum", "ledLamp", "selfPaintFace", "matrixFace", "matrixWaterfallFace", "matrixDisplayFace", "valueSliderFace"]);
 const nodeGraphDisplayModeSignalKinds = Object.freeze(["scalar", "xy", "buffer"]);
 
 function nodeGraphDisplayModeSettingsSchemaForRenderer(renderer) {
@@ -4330,8 +4334,8 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
   ["bins", "Bins"],
   ["ghost", "Ghost"],
   ["trail", "Trail"],
-  ["pixelDensity", "Pixel density"],
-  ["dotBudget", "Dot budget"],
+  ["pixelDensity", "Antialiasing"],
+  ["dotBudget", "Dot Budget"],
   ["padding", "Amp"],
   ["cycles", "Cycles"],
   ["decimals", "Decimals"],
@@ -4341,7 +4345,7 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
   ["dot1Size", "Size"],
   ["puckSize", "Puck size"],
   ["lineThickness", "Blur"],
-  ["dot1Brightness", "Brightness"],
+  ["dot1Brightness", "Bright"],
   ["secondarySize", "Secondary size"],
   ["secondaryLineThickness", "Secondary blur"],
   ["secondaryBrightness", "Secondary light"],
@@ -4349,6 +4353,46 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
   ["capSize", "Cap size"],
   ["capLength", "Cap length"],
 ]);
+
+/**
+ * Shared phosphor Display Settings order (app-wide, including Lorenz).
+ * Faces pick a subset; builders keep this relative order.
+ * Size → Blur → Bright → Ghost → Trail → Scale → Antialiasing → Dot Budget
+ */
+const nodeGraphPhosphorDisplayFieldOrder = Object.freeze([
+  "dot1Size",
+  "lineThickness",
+  "dot1Brightness",
+  "ghost",
+  "trail",
+  "scale",
+  "pixelDensity",
+  "dotBudget",
+]);
+
+/** Form types that use the mono energy phosphor stack (Stamp + residual). */
+function nodeGraphDisplaySettingsIsPhosphorFormType(type) {
+  const key = String(type || "").trim();
+  // Spectrogram is *Burn by name only — not the stamp/residual phosphor stack.
+  if (key === "spectrogramBurn") {
+    return false;
+  }
+  return key === "scope2d"
+    || key === "phosphorLight"
+    || key === "lineBurn"
+    || key === "dot"
+    || key === "xyPad"
+    || key === "videoscopeBurn"
+    || key === "oscilloscopeBankBurn"
+    || key === "hypersawBurn"
+    || key.endsWith("Burn");
+}
+
+/** Filter shared phosphor order down to keys active on this face. */
+function nodeGraphPhosphorDisplayFieldsFor(keys) {
+  const want = new Set(keys || []);
+  return nodeGraphPhosphorDisplayFieldOrder.filter((key) => want.has(key));
+}
 
 const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
   fields: [
@@ -4384,31 +4428,33 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze(["syncChannel", "stereoBlend"]),
   }),
   // Phosphor energy faces: color via shared Gradient editor (not single swatches).
+  // Field order = nodeGraphPhosphorDisplayFieldOrder (Size…Dot Budget).
   dot: Object.freeze({
-    fields: Object.freeze([
-      "ghost",
-      "trail",
-      "pixelDensity",
+    fields: Object.freeze(nodeGraphPhosphorDisplayFieldsFor([
       "dot1Size",
       "lineThickness",
       "dot1Brightness",
-    ]),
+      "ghost",
+      "trail",
+      "pixelDensity",
+    ])),
     colors: Object.freeze([]),
     toggles: Object.freeze(["bipolarBrightness"]),
     choices: Object.freeze([]),
   }),
   lineBurn: Object.freeze({
-    // Heart-monitor phosphor: seconds to cross + burn/decay/density (+ pen).
-    // Free-run phasor; optional Reset jack; set Sweep (s) to match your period.
+    // Heart-monitor phosphor: Sweep first, then shared phosphor stack.
     fields: Object.freeze([
       "sweepSeconds",
-      "scale",
-      "ghost",
-      "trail",
-      "pixelDensity",
-      "dot1Size",
-      "lineThickness",
-      "dot1Brightness",
+      ...nodeGraphPhosphorDisplayFieldsFor([
+        "dot1Size",
+        "lineThickness",
+        "dot1Brightness",
+        "ghost",
+        "trail",
+        "scale",
+        "pixelDensity",
+      ]),
     ]),
     colors: Object.freeze([]),
     toggles: Object.freeze([]),
@@ -4417,13 +4463,15 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   value: Object.freeze({
     fields: Object.freeze([
       "lineLength",
-      "scale",
-      "ghost",
-      "trail",
-      "pixelDensity",
-      "dot1Size",
-      "lineThickness",
-      "dot1Brightness",
+      ...nodeGraphPhosphorDisplayFieldsFor([
+        "dot1Size",
+        "lineThickness",
+        "dot1Brightness",
+        "ghost",
+        "trail",
+        "scale",
+        "pixelDensity",
+      ]),
       "capSize",
       "capLength",
     ]),
@@ -4431,17 +4479,18 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze(["capEnabled"]),
     choices: Object.freeze([]),
   }),
+  // 2D Phosphor (Lorenz + friends): Size → Blur → Bright → Ghost → Trail → Scale → AA → Dot Budget
   scope2d: Object.freeze({
-    fields: Object.freeze([
+    fields: Object.freeze(nodeGraphPhosphorDisplayFieldsFor([
+      "dot1Size",
+      "lineThickness",
+      "dot1Brightness",
       "ghost",
       "trail",
       "scale",
       "pixelDensity",
       "dotBudget",
-      "dot1Size",
-      "lineThickness",
-      "dot1Brightness",
-    ]),
+    ])),
     colors: Object.freeze([]),
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
@@ -4460,9 +4509,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze([]),
   }),
   numberReadout: Object.freeze({
-    // Decimals first (above decay); digit color = shared phosphor gradient (energy→color);
-    // backgroundColor = LCD back plate; ghostColor = unlit segment ink (pick dim/bright
-    // there — no separate ghost-amount slider).
+    // Decimals first; digit color = shared phosphor gradient (energy→color);
+    // backgroundColor = LCD back plate; ghostColor = unlit segment ink (no ghost slider).
     fields: Object.freeze([
       "decimals",
       "trail",
@@ -4506,31 +4554,33 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   // XY Pad: phosphor of Out X/Y + UI puck. No scale (would desync puck/trail).
   xyPad: Object.freeze({
     fields: Object.freeze([
-      "ghost",
-      "trail",
-      "pixelDensity",
-      "dotBudget",
-      "dot1Size",
-      "lineThickness",
-      "dot1Brightness",
+      ...nodeGraphPhosphorDisplayFieldsFor([
+        "dot1Size",
+        "lineThickness",
+        "dot1Brightness",
+        "ghost",
+        "trail",
+        "pixelDensity",
+        "dotBudget",
+      ]),
       "puckSize",
     ]),
     colors: Object.freeze([]),
     toggles: Object.freeze(["fullDotEconomy"]),
     choices: Object.freeze([]),
   }),
-  // Same controls as scope2d — kept so any leftover formType="phosphorLight" still works.
+  // Same controls as scope2d — leftover formType="phosphorLight".
   phosphorLight: Object.freeze({
-    fields: Object.freeze([
+    fields: Object.freeze(nodeGraphPhosphorDisplayFieldsFor([
+      "dot1Size",
+      "lineThickness",
+      "dot1Brightness",
       "ghost",
       "trail",
       "scale",
       "pixelDensity",
       "dotBudget",
-      "dot1Size",
-      "lineThickness",
-      "dot1Brightness",
-    ]),
+    ])),
     colors: Object.freeze([]),
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
@@ -4546,46 +4596,45 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze(["window", "overlap", "freqOverlap", "freqScale"]),
   }),
   // Videoscope / bank / hypersaw: mono energy phosphor (same knobs as 2D Phosphor).
-  // MUST NOT fall through to "trace" — that is Output's Left/Right page
-  // (syncChannel / stereoBlend) and is what made Videoscope look like Output.
-  // Brightness lives on the module face param — not in Display Settings.
+  // MUST NOT fall through to "trace" — that is Output's Left/Right page.
+  // Videoscope Bright lives on the module face param — not in Display Settings.
   videoscopeBurn: Object.freeze({
-    fields: Object.freeze([
-      "scale",
-      "ghost",
-      "trail",
-      "pixelDensity",
-      "dotBudget",
+    fields: Object.freeze(nodeGraphPhosphorDisplayFieldsFor([
       "dot1Size",
       "lineThickness",
-    ]),
+      "ghost",
+      "trail",
+      "scale",
+      "pixelDensity",
+      "dotBudget",
+    ])),
     colors: Object.freeze([]),
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
   oscilloscopeBankBurn: Object.freeze({
-    fields: Object.freeze([
+    fields: Object.freeze(nodeGraphPhosphorDisplayFieldsFor([
+      "dot1Size",
+      "lineThickness",
+      "dot1Brightness",
       "ghost",
       "trail",
       "pixelDensity",
       "dotBudget",
-      "dot1Size",
-      "lineThickness",
-      "dot1Brightness",
-    ]),
+    ])),
     colors: Object.freeze([]),
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
   hypersawBurn: Object.freeze({
-    fields: Object.freeze([
-      "ghost",
-      "trail",
-      "pixelDensity",
+    fields: Object.freeze(nodeGraphPhosphorDisplayFieldsFor([
       "dot1Size",
       "lineThickness",
       "dot1Brightness",
-    ]),
+      "ghost",
+      "trail",
+      "pixelDensity",
+    ])),
     colors: Object.freeze([]),
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
@@ -4596,6 +4645,15 @@ function nodeGraphTraceDisplayActiveControlsForType(type = nodeGraphTraceDisplay
   const key = String(type || "").trim();
   if (nodeGraphTraceDisplayActiveControlsByType[key]) {
     return nodeGraphTraceDisplayActiveControlsByType[key];
+  }
+  // Value Slider face has no display steppers (art is Module Settings).
+  if (key === "valueSliderFace") {
+    return Object.freeze({
+      fields: Object.freeze([]),
+      colors: Object.freeze([]),
+      toggles: Object.freeze([]),
+      choices: Object.freeze([]),
+    });
   }
   // Energy / *Burn faces → scope2d controls. Never default unknown types to
   // "trace" (Output stereo page) — that leaked syncChannel/stereoBlend onto
@@ -4617,6 +4675,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
     toggles: Object.freeze(["capEnabled"]),
     choices: Object.freeze([]),
   }),
+  // Stamp geometry/light — order matches shared phosphor stack (Size → Blur → Bright).
   dot1: Object.freeze({
     fields: Object.freeze(["dot1Size", "lineThickness", "dot1Brightness", "puckSize"]),
     colors: Object.freeze(["dot1Color"]),
@@ -4630,11 +4689,12 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
     choices: Object.freeze([]),
   }),
   trace: Object.freeze({
-    // decimals before decay so Number Readout shows Decimals first in this section.
-    // Stamp brightness/blur/size live only under the Dot section (avoid duplicates on phosphor).
-    // LED lamp uses its own body builder — not this mega form.
+    // Residual + framing. Ghost once only (was listed twice → double "Ghost" rows).
+    // Phosphor residual order: Ghost → Trail → Scale → Antialiasing → Dot Budget.
+    // Stamp size/blur/bright live only under the Dot/Stamp section.
     fields: Object.freeze([
       "decimals",
+      "sweepSeconds",
       "ghost",
       "trail",
       "zoomSeconds",
@@ -4643,9 +4703,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "pixelDensity",
       "dotBudget",
       "padding",
-      "ghost",
       "fftSize",
-      "sweepSeconds",
       "hue",
       "rounding",
     ]),
@@ -4700,12 +4758,13 @@ function nodeGraphTraceDisplaySettingsRoot() {
 }
 
 // Field labels / input modes for schema-exclusive body builders.
+// Phosphor labels: Size, Blur, Bright, Ghost, Trail, Scale, Antialiasing, Dot Budget.
 const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
   ghost: Object.freeze({
     label: "Ghost",
     inputmode: "decimal",
     id: "nodeTraceDisplayGhost",
-    title: "Dim scorched residual hang (screen burn-in). 0 = none; 1 = long low ghost. Not peak brightness (Brightness) or hot trail length (Trail).",
+    title: "Dim scorched residual hang (screen burn-in). 0 = none; 1 = long low ghost. Not peak light (Bright) or hot trail length (Trail).",
   }),
   trail: Object.freeze({
     label: "Trail",
@@ -4731,19 +4790,22 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     id: "nodeTraceDisplayScale",
     title: "Amplitude zoom (1 = full-scale ±1 fills the face). Raise to enlarge quieter signals.",
   }),
-  pixelDensity: Object.freeze({ label: "Pixel density", inputmode: "decimal", id: "nodeTraceDisplayPixelDensity" }),
-  dotBudget: Object.freeze({ label: "Dot budget", inputmode: "numeric", id: "nodeTraceDisplayDotBudget" }),
+  pixelDensity: Object.freeze({
+    label: "Antialiasing",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayPixelDensity",
+    title: "Face buffer supersampling (higher = smoother stamps, more GPU). 1 = native; above 1 = antialiased energy grid.",
+  }),
+  dotBudget: Object.freeze({
+    label: "Dot Budget",
+    inputmode: "numeric",
+    id: "nodeTraceDisplayDotBudget",
+    title: "Max phosphor stamps drawn per frame. Raise for denser trails; lower to save GPU.",
+  }),
   zoomSeconds: Object.freeze({ label: "History (s)", inputmode: "decimal", id: "nodeTraceDisplayZoomSeconds" }),
   sweepSeconds: Object.freeze({ label: "Sweep (s)", inputmode: "decimal", id: "nodeTraceDisplaySweepSeconds" }),
   cycles: Object.freeze({ label: "Cycles", inputmode: "decimal", id: "nodeTraceDisplayCycles" }),
   decimals: Object.freeze({ label: "Decimals", inputmode: "decimal", id: "nodeTraceDisplayDecimals" }),
-  // Retired: ghost amount used to dim the plate; use Ghost color instead.
-  ghost: Object.freeze({
-    label: "Ghost amount",
-    inputmode: "decimal",
-    id: "nodeTraceDisplayGhost",
-    title: "Retired — pick a dim or bright Ghost color instead.",
-  }),
   hue: Object.freeze({
     label: "Hue",
     inputmode: "decimal",
@@ -4758,7 +4820,12 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
   }),
   padding: Object.freeze({ label: "Amp", inputmode: "decimal", id: "nodeTraceDisplayPadding" }),
   lineLength: Object.freeze({ label: "Line length", inputmode: "decimal", id: "nodeTraceDisplayValueLineLength" }),
-  dot1Brightness: Object.freeze({ label: "Brightness", inputmode: "decimal", id: "nodeTraceDisplayBrightness" }),
+  dot1Brightness: Object.freeze({
+    label: "Bright",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayBrightness",
+    title: "Peak deposit / present light. Not Ghost (dim scorch hang) or Trail (hot residual length).",
+  }),
   lineThickness: Object.freeze({ label: "Blur", inputmode: "decimal", id: "nodeTraceDisplayLineThickness" }),
   dot1Size: Object.freeze({ label: "Size", inputmode: "decimal", id: "nodeTraceDisplayDot1Size" }),
   puckSize: Object.freeze({
@@ -4767,7 +4834,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     id: "nodeTraceDisplayPuckSize",
     title: "UI puck radius (vector overlay). Does not scale the phosphor trail or Phase mapping.",
   }),
-  secondaryBrightness: Object.freeze({ label: "Brightness", inputmode: "decimal", id: "nodeTraceDisplaySecondaryBrightness" }),
+  secondaryBrightness: Object.freeze({ label: "Bright", inputmode: "decimal", id: "nodeTraceDisplaySecondaryBrightness" }),
   secondaryLineThickness: Object.freeze({ label: "Blur", inputmode: "decimal", id: "nodeTraceDisplaySecondaryLineThickness" }),
   secondarySize: Object.freeze({ label: "Size", inputmode: "decimal", id: "nodeTraceDisplaySecondarySize" }),
   capSize: Object.freeze({ label: "Size", inputmode: "decimal", id: "nodeTraceDisplayCapSize" }),
@@ -4783,7 +4850,7 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
   fullDotEconomy: Object.freeze({
     label: "Full dot economy",
     id: "nodeTraceDisplayFullDotEconomy",
-    title: "Always spend dense packing up to Dot budget (default on). Off = thrifty spacing that may under-use the budget.",
+    title: "Always spend dense packing up to Dot Budget (default on). Off = thrifty spacing that may under-use the budget.",
   }),
 });
 
@@ -4925,6 +4992,17 @@ const nodeGraphDisplaySettingsSectionOrder = Object.freeze([
   "trace",
   "value",
   "dot1",
+  "secondary",
+  "gradient",
+  "caps",
+]);
+
+// Phosphor faces: Stamp (Size/Blur/Bright) before residual (Ghost/Trail/…).
+// Yields: Size → Blur → Bright → Ghost → Trail → Scale → Antialiasing → Dot Budget
+const nodeGraphPhosphorDisplaySettingsSectionOrder = Object.freeze([
+  "dot1",
+  "trace",
+  "value",
   "secondary",
   "gradient",
   "caps",
@@ -5072,7 +5150,10 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     return true;
   };
 
-  for (const section of nodeGraphDisplaySettingsSectionOrder) {
+  const sectionOrder = nodeGraphDisplaySettingsIsPhosphorFormType(type)
+    ? nodeGraphPhosphorDisplaySettingsSectionOrder
+    : nodeGraphDisplaySettingsSectionOrder;
+  for (const section of sectionOrder) {
     if (section === "gradient") {
       if (!nodeGraphDisplaySettingsFormTypeUsesGradient(type)) {
         continue;
@@ -11266,6 +11347,12 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
             || selfPaint === "matrixDisplayFace"
           ) {
             drawNodeGraphSelfPaintFaceItem(null, { slot, screenElement: slot.scopeElement }, 1);
+          } else if (selfPaint === "valueSliderFace") {
+            drawNodeGraphValueSliderFaceItem(null, {
+              slot,
+              screenElement: slot.scopeElement,
+              buffer: null,
+            }, 1);
           } else {
             clearNodeGraphModuleScopeLocalFallback(slot);
           }
@@ -14996,6 +15083,23 @@ function drawNodeGraphSelfPaintFaceItem(_renderer, item, _pixelRatio) {
   }
 }
 
+/** Value Slider face = final Bias display (live modulated), not static param meta. */
+function drawNodeGraphValueSliderFaceItem(_renderer, item, _pixelRatio) {
+  drawNodeGraphSelfPaintFaceItem(_renderer, item, _pixelRatio);
+  const face = item?.screenElement || item?.slot?.scopeElement;
+  const nodeId = item?.slot?.nodeId || item?.nodeId;
+  if (!face || !nodeId) {
+    return;
+  }
+  if (typeof paintNodeGraphValueSliderFaceLive === "function") {
+    paintNodeGraphValueSliderFaceLive(face, nodeId, item?.buffer);
+  } else if (typeof renderNodeGraphValueSliderFace === "function") {
+    renderNodeGraphValueSliderFace(face, nodeId);
+  }
+  // Dimmer light rect: plate is always a light source (even with no scope buffer).
+  nodeGraphModuleScopeMarkScreenLit(face, 1);
+}
+
 const nodeGraphModuleScopeCustomRenderers = {
   trace: drawNodeGraphTraceDisplayItem,
   dot: drawNodeGraphDotOscilloscopeItem,
@@ -15010,6 +15114,7 @@ const nodeGraphModuleScopeCustomRenderers = {
   matrixFace: drawNodeGraphSelfPaintFaceItem,
   matrixWaterfallFace: drawNodeGraphSelfPaintFaceItem,
   matrixDisplayFace: drawNodeGraphSelfPaintFaceItem,
+  valueSliderFace: drawNodeGraphValueSliderFaceItem,
   // oscilloscopeBankBurn self-registers from
   // public/modules/oscilloscopeBank/oscilloscope-bank-display.js
   // videoscopeBurn self-registers from
