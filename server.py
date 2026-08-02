@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parent
 PUBLIC = ROOT / "public"
 # Human-readable ship label (date + short codename). Prefer dotted dates over
 # opaque timestamps so the toolbar readout stays demystified for users.
-BUILD_NUMBER = "2026.7.29.Ghostlive"
+BUILD_NUMBER = "2026.8.2.Ghostlive"
 VERSION_FILE = ROOT / "VERSION"
 SANDBOX_VERSION = VERSION_FILE.read_text(encoding="utf-8").strip() if VERSION_FILE.exists() else "0.0.0"
 # Per-process build token: four chars from A–Z / 0–9, rolled when the server
