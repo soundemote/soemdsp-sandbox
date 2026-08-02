@@ -29,7 +29,7 @@ function drawNodeGraphOscilloscopeBankBurnItem(renderer, item, pixelRatio) {
     // Still run energy path so residual fades.
     if (typeof drawNodeGraphScope2dEnergyBurnPath === "function") {
       drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, [], {
-        decay: 0.28,
+        trail: 0.72,
         dot1Brightness: 0.9,
         dot1Color: "#5dff9a",
         dot1Size: 0.02,
@@ -66,7 +66,7 @@ function drawNodeGraphOscilloscopeBankBurnItem(renderer, item, pixelRatio) {
 
   const minSide = Math.max(1, Math.min(canvas.width, canvas.height));
   const settings = {
-    decay: 0.2,
+    trail: 0.8,
     dot1Brightness: 0.95,
     dot1Color: "#5dff9a",
     dot1Enabled: true,

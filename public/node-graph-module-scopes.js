@@ -2503,9 +2503,9 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
 // the period you care about (easier UX than Hz).
 const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   background: "#000000",
-  // Dim residual hang (screen burn-in simulation) — not peak brightness.
-  burn: 0.35,
-  decay: 0.3,
+  // Ghost = dim scorched hang; Trail = main residual (1 ≈ freeze).
+  ghost: 0.35,
+  trail: 0.7,
   // Amplitude zoom (Y).
   scale: 1,
   dot1Brightness: 2,
@@ -2530,8 +2530,8 @@ function nodeGraphTraceDisplayRenderPointBudget() {
 const nodeGraphZeroDBurnSettingsDefaults = Object.freeze({
   background: "#000000",
   bipolarBrightness: false,
-  burn: 0.4,
-  decay: 0.22,
+  ghost: 0.4,
+  trail: 0.78,
   dot1Brightness: 0.92,
   dot1Color: "#75ebff",
   dot1Enabled: true,
@@ -2545,12 +2545,12 @@ const nodeGraphZeroDBurnSettingsDefaults = Object.freeze({
 const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
   background: "#000000",
   brightness: 0.92,
-  burn: 0.25,
+  ghost: 0.25,
   capEnabled: true,
   capLength: 0.16,
   capSize: 0.08,
   color: "#75ebff",
-  decay: 0,
+  trail: 1,
   dot1Enabled: true,
   dot1Size: 0.08,
   lineLength: 0.88,
@@ -2562,7 +2562,7 @@ const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
 });
 
 // numberReadout: independent schema. Residual is previous-digit ghosts only.
-// "decay" UI = how long the last number's residual remains (0 = off, 1 = long).
+// "trail" UI = how long the last number's residual remains (0 = off, 1 = long).
 // Digit color shares 2D phosphor: multi-stop gradient as energy→color LUT.
 // background = LCD back plate color (separate widget; not gradient floor).
 // Unlit plate = ghostColor only (pick dim/bright there — no ghost-amount slider).
@@ -2570,7 +2570,7 @@ const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   background: "#000000",
   brightness: 0.92,
   color: "#75ebff",
-  decay: 0.45,
+  trail: 0.45,
   decimals: 2,
   ghostColor: "#1a4a55",
   gradientStops: Object.freeze([
@@ -2901,9 +2901,9 @@ function syncNodeGraphSpectrogramDisplaySettingsToParams(node, settings) {
 const nodeGraphScope2dSettingsDefaults = Object.freeze({
   // Face plate follows gradient floor (t≈0); kept for plate CSS / migration.
   background: "#000000",
-  // Dim residual hang (burn-in look) on top of Decay — not deposit brightness.
-  burn: 0.45,
-  decay: 0.12,
+  // Ghost = dim scorched floor; Trail = main residual (1 ≈ freeze).
+  ghost: 0.45,
+  trail: 0.88,
   dot1Brightness: 0.92,
   // Peak color = last gradient stop (migration + puck/overlays).
   dot1Color: "#75ebff",
@@ -2932,10 +2932,9 @@ const nodeGraphScope2dSettingsDefaults = Object.freeze({
 // puck has its own size.
 const nodeGraphXyPadDisplaySettingsDefaults = Object.freeze({
   background: "#000000",
-  // Dim residual hang (burn-in) on top of Decay.
-  burn: 0.45,
-  // Trail residual fade while depositing (higher = faster decay).
-  decay: 0.35,
+  // Ghost = dim scorched floor; Trail = main residual (1 ≈ freeze).
+  ghost: 0.45,
+  trail: 0.65,
   // Phosphor beam brightness 0..1.
   dot1Brightness: 0.78,
   // Peak = last gradient stop (UI overlay tints from this).
@@ -2968,8 +2967,10 @@ function normalizeNodeGraphXyPadDisplaySettings(settings = {}) {
   const peak = gradientStops[gradientStops.length - 1]?.color || defaults.dot1Color;
   return {
     background: normalizeNodeGraphTraceDisplayColor(floor, defaults.background),
-    burn: normalizeNodeGraphTraceDisplayNumber(source.burn, defaults.burn, 0, 1),
-    decay: normalizeNodeGraphTraceDisplayNumber(source.decay, defaults.decay, 0, 1),
+    ghost: normalizeNodeGraphTraceDisplayNumber(source.ghost ?? source.burn, defaults.ghost ?? defaults.burn, 0, 1),
+    trail: (typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
+      ? PhosphorResidual.migrateTrail(source, defaults.trail ?? (Number.isFinite(defaults.decay) ? 1 - defaults.decay : 0.88))
+      : normalizeNodeGraphTraceDisplayNumber(source.trail ?? (Number.isFinite(Number(source.decay)) ? 1 - Number(source.decay) : defaults.trail), defaults.trail ?? 0.88, 0, 1)),
     dot1Brightness: normalizeNodeGraphTraceDisplayNumber(
       source.dot1Brightness ?? source.brightness,
       defaults.dot1Brightness,
@@ -3104,8 +3105,10 @@ function normalizeNodeGraphLineBurnSettings(settings = {}) {
   const peak = gradientStops[gradientStops.length - 1]?.color || defaults.dot1Color;
   return {
     background: normalizeNodeGraphTraceDisplayColor(floor, defaults.background),
-    burn: normalizeNodeGraphTraceDisplayNumber(source.burn, defaults.burn, 0, 1),
-    decay: normalizeNodeGraphTraceDisplayNumber(source.decay, defaults.decay, 0, 1),
+    ghost: normalizeNodeGraphTraceDisplayNumber(source.ghost ?? source.burn, defaults.ghost ?? defaults.burn, 0, 1),
+    trail: (typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
+      ? PhosphorResidual.migrateTrail(source, defaults.trail ?? (Number.isFinite(defaults.decay) ? 1 - defaults.decay : 0.88))
+      : normalizeNodeGraphTraceDisplayNumber(source.trail ?? (Number.isFinite(Number(source.decay)) ? 1 - Number(source.decay) : defaults.trail), defaults.trail ?? 0.88, 0, 1)),
     dot1Brightness: normalizeNodeGraphTraceDisplayNumber(
       source.dot1Brightness ?? source.brightness,
       defaults.dot1Brightness,
@@ -3140,8 +3143,10 @@ function normalizeNodeGraphZeroDBurnSettings(settings = {}) {
   return {
     background: normalizeNodeGraphTraceDisplayColor(floor, defaults.background),
     bipolarBrightness: source.bipolarBrightness === true,
-    burn: normalizeNodeGraphTraceDisplayNumber(source.burn, defaults.burn, 0, 1),
-    decay: normalizeNodeGraphTraceDisplayNumber(source.decay, defaults.decay, 0, 1),
+    ghost: normalizeNodeGraphTraceDisplayNumber(source.ghost ?? source.burn, defaults.ghost ?? defaults.burn, 0, 1),
+    trail: (typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
+      ? PhosphorResidual.migrateTrail(source, defaults.trail ?? (Number.isFinite(defaults.decay) ? 1 - defaults.decay : 0.88))
+      : normalizeNodeGraphTraceDisplayNumber(source.trail ?? (Number.isFinite(Number(source.decay)) ? 1 - Number(source.decay) : defaults.trail), defaults.trail ?? 0.88, 0, 1)),
     dot1Brightness: normalizeNodeGraphTraceDisplayNumber(
       source.dot1Brightness ?? source.brightness,
       defaults.dot1Brightness,
@@ -3261,9 +3266,11 @@ function normalizeNodeGraphValueOscilloscopeSettings(settings = {}) {
     capEnabled: source.capEnabled !== false,
     capLength: normalizeNodeGraphTraceDisplayNumber(source.capLength, defaults.capLength, 0, 1),
     capSize: normalizeNodeGraphTraceDisplayNumber(source.capSize, defaults.capSize, 0, 1),
-    burn: normalizeNodeGraphTraceDisplayNumber(source.burn, defaults.burn, 0, 1),
+    ghost: normalizeNodeGraphTraceDisplayNumber(source.ghost ?? source.burn, defaults.ghost ?? defaults.burn, 0, 1),
     color: normalizeNodeGraphTraceDisplayColor(source.color ?? source.dot1Color, defaults.color),
-    decay: normalizeNodeGraphTraceDisplayNumber(source.decay, defaults.decay, 0, 1),
+    trail: (typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
+      ? PhosphorResidual.migrateTrail(source, defaults.trail ?? (Number.isFinite(defaults.decay) ? 1 - defaults.decay : 0.88))
+      : normalizeNodeGraphTraceDisplayNumber(source.trail ?? (Number.isFinite(Number(source.decay)) ? 1 - Number(source.decay) : defaults.trail), defaults.trail ?? 0.88, 0, 1)),
     dot1Enabled: true,
     dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
     lineLength: normalizeNodeGraphTraceDisplayNumber(source.lineLength, defaults.lineLength, 0, 1),
@@ -3344,8 +3351,10 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}) {
     ),
     // Digits = gradient peak (full light); unlit segments use ghostColor as-is.
     color: peak,
-    // Residual hold of previous number (0 = none, 1 = long). Not phosphor "burn".
-    decay: normalizeNodeGraphTraceDisplayNumber(source.decay, defaults.decay, 0, 1),
+    // Residual hold of previous number (0 = none, 1 = long). Legacy decay was same polarity.
+    trail: (typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
+      ? PhosphorResidual.migrateTrail(source, defaults.trail ?? 0.45, { invertLegacyDecay: false })
+      : normalizeNodeGraphTraceDisplayNumber(source.trail ?? source.decay, defaults.trail ?? 0.45, 0, 1)),
     decimals: normalizeNodeGraphTraceDisplayNumber(source.decimals, defaults.decimals, 0, 8, true),
     ghostColor: normalizeNodeGraphTraceDisplayColor(
       source.ghostColor,
@@ -3363,8 +3372,10 @@ function normalizeNodeGraphScope2dSettings(settings = {}) {
   const peak = gradientStops[gradientStops.length - 1]?.color || defaults.dot1Color;
   return {
     background: normalizeNodeGraphTraceDisplayColor(floor, defaults.background),
-    burn: normalizeNodeGraphTraceDisplayNumber(source.burn, defaults.burn, 0, 1),
-    decay: normalizeNodeGraphTraceDisplayNumber(source.decay, defaults.decay, 0, 1),
+    ghost: normalizeNodeGraphTraceDisplayNumber(source.ghost ?? source.burn, defaults.ghost ?? defaults.burn, 0, 1),
+    trail: (typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
+      ? PhosphorResidual.migrateTrail(source, defaults.trail ?? (Number.isFinite(defaults.decay) ? 1 - defaults.decay : 0.88))
+      : normalizeNodeGraphTraceDisplayNumber(source.trail ?? (Number.isFinite(Number(source.decay)) ? 1 - Number(source.decay) : defaults.trail), defaults.trail ?? 0.88, 0, 1)),
     dot1Brightness: normalizeNodeGraphTraceDisplayNumber(
       source.dot1Brightness ?? source.brightness,
       defaults.dot1Brightness,
@@ -4317,14 +4328,13 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
   ["sweepHz", "Sweep (Hz)"],
   ["fftSize", "FFT size"],
   ["bins", "Bins"],
-  ["burn", "Burn"],
-  ["decay", "Decay"],
+  ["ghost", "Ghost"],
+  ["trail", "Trail"],
   ["pixelDensity", "Pixel density"],
   ["dotBudget", "Dot budget"],
   ["padding", "Amp"],
   ["cycles", "Cycles"],
   ["decimals", "Decimals"],
-  ["ghost", "Ghost"],
   ["hue", "Hue"],
   ["rounding", "Rounding"],
 
@@ -4376,8 +4386,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   // Phosphor energy faces: color via shared Gradient editor (not single swatches).
   dot: Object.freeze({
     fields: Object.freeze([
-      "burn",
-      "decay",
+      "ghost",
+      "trail",
       "pixelDensity",
       "dot1Size",
       "lineThickness",
@@ -4393,8 +4403,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     fields: Object.freeze([
       "sweepSeconds",
       "scale",
-      "burn",
-      "decay",
+      "ghost",
+      "trail",
       "pixelDensity",
       "dot1Size",
       "lineThickness",
@@ -4408,8 +4418,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     fields: Object.freeze([
       "lineLength",
       "scale",
-      "burn",
-      "decay",
+      "ghost",
+      "trail",
       "pixelDensity",
       "dot1Size",
       "lineThickness",
@@ -4423,8 +4433,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   }),
   scope2d: Object.freeze({
     fields: Object.freeze([
-      "burn",
-      "decay",
+      "ghost",
+      "trail",
       "scale",
       "pixelDensity",
       "dotBudget",
@@ -4455,7 +4465,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     // there — no separate ghost-amount slider).
     fields: Object.freeze([
       "decimals",
-      "decay",
+      "trail",
       "dot1Brightness",
     ]),
     colors: Object.freeze(["backgroundColor", "ghostColor"]),
@@ -4496,8 +4506,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   // XY Pad: phosphor of Out X/Y + UI puck. No scale (would desync puck/trail).
   xyPad: Object.freeze({
     fields: Object.freeze([
-      "burn",
-      "decay",
+      "ghost",
+      "trail",
       "pixelDensity",
       "dotBudget",
       "dot1Size",
@@ -4512,8 +4522,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   // Same controls as scope2d — kept so any leftover formType="phosphorLight" still works.
   phosphorLight: Object.freeze({
     fields: Object.freeze([
-      "burn",
-      "decay",
+      "ghost",
+      "trail",
       "scale",
       "pixelDensity",
       "dotBudget",
@@ -4542,8 +4552,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   videoscopeBurn: Object.freeze({
     fields: Object.freeze([
       "scale",
-      "burn",
-      "decay",
+      "ghost",
+      "trail",
       "pixelDensity",
       "dotBudget",
       "dot1Size",
@@ -4555,8 +4565,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   }),
   oscilloscopeBankBurn: Object.freeze({
     fields: Object.freeze([
-      "burn",
-      "decay",
+      "ghost",
+      "trail",
       "pixelDensity",
       "dotBudget",
       "dot1Size",
@@ -4569,8 +4579,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   }),
   hypersawBurn: Object.freeze({
     fields: Object.freeze([
-      "burn",
-      "decay",
+      "ghost",
+      "trail",
       "pixelDensity",
       "dot1Size",
       "lineThickness",
@@ -4625,8 +4635,8 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
     // LED lamp uses its own body builder — not this mega form.
     fields: Object.freeze([
       "decimals",
-      "burn",
-      "decay",
+      "ghost",
+      "trail",
       "zoomSeconds",
       "historySeconds",
       "scale",
@@ -4691,19 +4701,17 @@ function nodeGraphTraceDisplaySettingsRoot() {
 
 // Field labels / input modes for schema-exclusive body builders.
 const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
-  burn: Object.freeze({
-    label: "Burn",
+  ghost: Object.freeze({
+    label: "Ghost",
     inputmode: "decimal",
-    id: "nodeTraceDisplayBurn",
-    title: "Screen burn-in simulation: long-lived low residual hang. 0 = none; 1 = multi-second dim ghosts that still fade. Not peak brightness (use Brightness) and not main trail speed (use Decay).",
+    id: "nodeTraceDisplayGhost",
+    title: "Dim scorched residual hang (screen burn-in). 0 = none; 1 = long low ghost. Not peak brightness (Brightness) or hot trail length (Trail).",
   }),
-  decay: Object.freeze({
-    label: "Decay",
+  trail: Object.freeze({
+    label: "Trail",
     inputmode: "decimal",
-    id: "nodeTraceDisplayDecay",
-    // Number readout: ghost hold of the previous value (0 = none, 1 = long).
-    // Phosphor faces: main residual fade rate (hot trail length).
-    title: "Main residual fade. Higher = shorter trail. For long dim burn-in ghosts use Burn; for peak light use Brightness.",
+    id: "nodeTraceDisplayTrail",
+    title: "Main residual length. 0 = dies immediately; 1 ≈ freeze-ish hot path. Dim scorched floor is Ghost.",
   }),
   historySeconds: Object.freeze({
     label: "History (s)",
@@ -5341,7 +5349,8 @@ function applyNodeGraphTraceDisplaySettingsTooltips(popover) {
     secondaryBrightness: "traceDisplaySettings.secondaryBrightness",
     secondarySize: "traceDisplaySettings.secondarySize",
     secondaryLineThickness: "traceDisplaySettings.secondaryLineThickness",
-    decay: "traceDisplaySettings.decay",
+    trail: "traceDisplaySettings.trail",
+    ghost: "traceDisplaySettings.ghost",
     pixelDensity: "traceDisplaySettings.pixelDensity",
     dotBudget: "traceDisplaySettings.dotBudget",
     zoomSeconds: "traceDisplaySettings.zoomSeconds",
@@ -6167,11 +6176,11 @@ function nodeGraphTraceDisplayClampDotBudget(value) {
 // Each entry owns exactly one field's rule — adding/changing a rule for one
 // display type cannot silently change behavior for another.
 const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
-  burn: nodeGraphTraceDisplayClampUnit,
+  ghost: nodeGraphTraceDisplayClampUnit,
   capLength: nodeGraphTraceDisplayClampUnit,
   capSize: nodeGraphTraceDisplayClampUnit,
   cycles: (value) => Math.max(1, Math.min(64, Math.round(Number(value) || 0))),
-  decay: nodeGraphTraceDisplayClampUnit,
+  trail: nodeGraphTraceDisplayClampUnit,
   dotBudget: nodeGraphTraceDisplayClampDotBudget,
   decimals: (value) => Math.max(0, Math.min(8, Math.round(Number(value) || 0))),
   dot1Brightness: nodeGraphTraceDisplayClampBrightness,
@@ -11455,8 +11464,12 @@ function drawNodeGraphDotOscilloscopeItem(renderer, item, pixelRatio) {
   const size01 = clampNodeSliderValue(settings.dot1Size, 0, 1);
   const radius = Math.max(0.5, minSide * size01 * 0.5);
   const blur = nodeGraphTraceDisplayClampStampBlur(settings.lineThickness);
-  const decay = clampNodeSliderValue(Number(settings.decay) || 0, 0, 1);
-  const burn = clampNodeSliderValue(Number(settings.burn) || 0, 0, 1);
+  const trail = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
+    ? PhosphorResidual.migrateTrail(settings, 0.78)
+    : clampNodeSliderValue(Number(settings.trail ?? (Number.isFinite(Number(settings.decay)) ? 1 - Number(settings.decay) : 0.78)), 0, 1);
+  const ghost = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateGhost
+    ? PhosphorResidual.migrateGhost(settings, 0.4)
+    : clampNodeSliderValue(Number(settings.ghost ?? settings.burn) || 0, 0, 1);
 
   // Opaque face plate (CSS mix-blend is normal; never screen-tint the module chrome).
   canvas.style.mixBlendMode = "normal";
@@ -11473,11 +11486,11 @@ function drawNodeGraphDotOscilloscopeItem(renderer, item, pixelRatio) {
       : 0;
     const cx = width * 0.5;
     const cy = height * 0.5;
-    // Freeze = hold energy FBO: no deposit, no decay, no bleed. Still present.
+    // Freeze = hold energy FBO: no deposit, no residual step, no bleed. Still present.
     if (!nodeGraphModuleScopePhosphorFrozen()) {
       nodeGraphPhosphorEnergyGlStepBeams(energyGl, {
-        decay,
-        burn,
+        trail,
+        ghost,
         pathPoints: deposit > 1e-8 ? [{ x: cx, y: cy }] : [],
         radius,
         brightness: deposit,
@@ -12143,7 +12156,7 @@ function nodeGraphNumberReadoutSettingsSignature(settings) {
     settings.background,
     settings.brightness,
     settings.color,
-    settings.decay,
+    settings.trail,
     settings.decimals,
     settings.ghostColor,
     stopsSig,
@@ -12420,7 +12433,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     : (decimals > 0 ? ` !.${"!".repeat(decimals)}` : " !");
   const text = unit ? `${valueText} ${unit}` : valueText;
   // Decay UI = residual hold of previous number (0 = none, 1 = longest).
-  const decay = clampNodeSliderValue(Number(settings.decay) || 0, 0, 1);
+  const trail = clampNodeSliderValue(Number(settings.trail ?? settings.decay) || 0, 0, 1);
   const settingsSig = nodeGraphNumberReadoutSettingsSignature(settings);
   const styleChanged =
     canvas._nodeGraphNumberReadoutSettingsSig !== settingsSig ||
@@ -12432,7 +12445,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     || canvas._nodeGraphNumberReadoutText !== text;
   // Ghost residual only when decay > 0; static live digit is never energy-charged.
   const frozen = nodeGraphModuleScopePhosphorFrozen();
-  const energyActive = decay > 0.001;
+  const energyActive = trail > 0.001;
   const needsContinuous = !frozen && energyActive;
   if (!textChanged && !styleChanged && !needsContinuous) {
     return;
@@ -12536,12 +12549,10 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     // Full multi-stop energy→color LUT (not peak-only greyscale ramp).
     nodeGraphPhosphorApplyGradientLut(energyGl, settings, peakHex);
     if (!frozen) {
-      // UI decay high = long ghost → low energy fade. UI 0 = no residual system.
-      // Map hold [0,1] → fade [~0.55, ~0.012] (gentle curve so mid feels useful).
-      const hold = decay;
-      const energyFade = Math.max(0.01, Math.min(0.6, Math.pow(1 - hold, 1.65) * 0.55 + 0.01));
+      // Trail high = long digit residual (same polarity as phosphor Trail).
       nodeGraphPhosphorEnergyGlStep(energyGl, {
-        decay: energyFade,
+        trail,
+        ghost: 0,
         depositGain: maskCanvas && depositGain > 0.001 ? depositGain : 0,
         maskCanvas: maskCanvas && depositGain > 0.001 ? maskCanvas : null,
         bleed: 0,
@@ -12612,7 +12623,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
           context.save();
           context.globalCompositeOperation = "lighter";
           context.imageSmoothingEnabled = false;
-          context.globalAlpha = Math.min(1, 0.4 + decay * 0.45);
+          context.globalAlpha = Math.min(1, 0.4 + trail * 0.45);
           context.drawImage(residualLayer, 0, 0, width, height);
           context.globalAlpha = 1;
           context.restore();
@@ -12621,7 +12632,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
         context.save();
         context.globalCompositeOperation = "lighter";
         context.imageSmoothingEnabled = false;
-        context.globalAlpha = Math.min(1, 0.4 + decay * 0.45);
+        context.globalAlpha = Math.min(1, 0.4 + trail * 0.45);
         context.drawImage(energyGl.canvas, 0, 0, width, height);
         context.globalAlpha = 1;
         context.restore();
@@ -13659,7 +13670,7 @@ function nodeGraphScope2dBurnDecayValues(settings) {
     decayFast: decay > 0 ? 1 - decay * 0.38 : 1,
     decaySlow: decay > 0 ? 1 - decay * 0.1 : 1,
     exposure: nodeGraphScope2dEnergyBurnExposure(),
-    floor: decay > 0 ? decay * 0.0035 : 0,
+    floor: erase > 0 ? erase * 0.0035 : 0,
   };
 }
 
@@ -13849,9 +13860,12 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
     return false;
   }
 
-  const decay = clampNodeSliderValue(Number(settings?.decay) || 0, 0, 1);
-  // Burn = long-lived dim residual hang (screen burn-in), not deposit gain.
-  const burn = clampNodeSliderValue(Number(settings?.burn) || 0, 0, 1);
+  const trail = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
+    ? PhosphorResidual.migrateTrail(settings || {}, 0.88)
+    : clampNodeSliderValue(Number(settings?.trail ?? (Number.isFinite(Number(settings?.decay)) ? 1 - Number(settings.decay) : 0.88)), 0, 1);
+  const ghost = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateGhost
+    ? PhosphorResidual.migrateGhost(settings || {}, 0.45)
+    : clampNodeSliderValue(Number(settings?.ghost ?? settings?.burn) || 0, 0, 1);
   const dotSpace = nodeGraphScope2dStrokeSpace(canvas);
   const layers = nodeGraphScope2dBurnLayers(settings, dotSpace);
   const layer = layers[0] || null;
@@ -13863,17 +13877,17 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
   // Engine speed 0 (and other pause paths): never step energy — hold FBO as-is.
   const frozen = nodeGraphModuleScopePhosphorFrozen();
   if (frozen) {
-    // Present only (below). No decay, no bleed, no deposit.
+    // Present only (below). No residual step, no bleed, no deposit.
   } else if (layer) {
-    // Soft hits on NEW motion only. Deposit = brightness; Decay = trail; Burn = dim hang.
+    // Soft hits on NEW motion only. Deposit = brightness; Trail = hot hang; Ghost = dim scorch.
     const size01 = clampNodeSliderValue(settings?.dot1Size, 0, 1);
     const beamBrightness = nodeGraphScope2dEnergyBurnDepositGain(
       layer.brightness,
       size01,
     );
     nodeGraphPhosphorEnergyGlStepBeams(energyGl, {
-      decay,
-      burn,
+      trail,
+      ghost,
       pathPoints: points,
       radius: Math.max(0.35, layer.radius),
       brightness: beamBrightness,
@@ -13890,7 +13904,7 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
     });
   } else if (typeof nodeGraphPhosphorEnergyGlStep === "function") {
     // Fade + bleed when no drawable layer (trail still softens outward).
-    nodeGraphPhosphorEnergyGlStep(energyGl, { decay, burn, depositGain: 0, bleed: 0.1 });
+    nodeGraphPhosphorEnergyGlStep(energyGl, { trail, ghost, depositGain: 0, bleed: 0.1 });
   }
 
   if (!frozen) {
@@ -14113,7 +14127,8 @@ function drawNodeGraphHypersawBurnItem(renderer, item, pixelRatio) {
   }
   const minSide = Math.max(1, Math.min(canvas.width, canvas.height));
   const settings = {
-    decay: 0.22,
+    trail: 0.78,
+    ghost: 0.4,
     dot1Brightness: 0.95,
     dot1Color: "#3de0ff",
     dot1Enabled: true,
@@ -14866,8 +14881,8 @@ function nodeGraphScope2dCanvasSettingsSignature(settings) {
   const safeSettings = normalizeNodeGraphScope2dSettings(settings);
   return [
     safeSettings.background,
-    safeSettings.burn,
-    safeSettings.decay,
+    safeSettings.ghost,
+    safeSettings.trail,
     safeSettings.dot1Enabled ? 1 : 0,
     safeSettings.dot1Size,
     safeSettings.dot1Brightness,

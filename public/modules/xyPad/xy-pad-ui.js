@@ -523,8 +523,8 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
     face._xyPadLutKey = lutKey;
   }
 
-  const decay = Math.max(0, Math.min(1, Number(options.decay) || 0.12));
-  const burn = Math.max(0, Math.min(1, Number(options.burn) || 0.45));
+  const trail = Math.max(0, Math.min(1, Number(options.trail) ?? (Number.isFinite(Number(options.decay)) ? 1 - Number(options.decay) : 0.88)));
+  const ghost = Math.max(0, Math.min(1, Number(options.ghost) ?? Number(options.burn) ?? 0.45));
   const brightness01 = Math.max(0, Number(options.brightness) || 0.78);
   const minSide = Math.max(1, Math.min(width, height));
   // Full 0–1 size range (was capped at 0.2 — blocked large hard discs).
@@ -717,8 +717,8 @@ function drawNodeGraphXyPad(pad, options = {}) {
     || "#7fc7d9";
   // Face = phosphor of Out X/Y (same idea as wiring Out → scope2d) + vector UI.
   const brightness = Math.max(0, Number(display.dot1Brightness) || 0.78);
-  const decayUx = Math.max(0, Math.min(1, Number(display.decay) || 0.35));
-  const burnUx = Math.max(0, Math.min(1, Number(display.burn) || 0.45));
+  const trailUx = Math.max(0, Math.min(1, Number(display.trail) ?? (Number.isFinite(Number(display.decay)) ? 1 - Number(display.decay) : 0.65)));
+  const ghostUx = Math.max(0, Math.min(1, Number(display.ghost) ?? Number(display.burn) ?? 0.45));
   // Phosphor beam stamp size (unit face); not multiplied by a global scale.
   const beamSize01 = Math.max(0.005, Math.min(1, Number(display.dot1Size) || 0.07));
   const blur = typeof nodeGraphTraceDisplayClampStampBlur === "function"
@@ -919,7 +919,7 @@ function nodeGraphXyPadDisplaySettings(pad) {
   }
   return {
     background: "#000000",
-    decay: 0.35,
+    trail: 0.65,
     dot1Brightness: 0.78,
     dot1Color: "#7fc7d9",
     dot1Size: 0.07,

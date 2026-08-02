@@ -176,10 +176,10 @@ function matrixPhosphorBaseKeep(trail, dtSec = 1 / 60) {
  * Trail/Decay → hot path keep. Burn → dim floor (screen burn-in), not permanent.
  * Returns next energy (not just a keep factor) so the floor is enforced.
  */
-function matrixPhosphorApplyBurnHang(energy01, baseKeep, burn = 0) {
+function matrixPhosphorApplyGhostHang(energy01, baseKeep, ghost = 0) {
   const e = Math.max(0, Number(energy01) || 0);
   const bk = Math.max(0, Math.min(1, Number(baseKeep) || 0));
-  const b = Math.max(0, Math.min(1, Number(burn) || 0));
+  const b = Math.max(0, Math.min(1, Number(ghost) || 0));
   if (b <= 0.001) {
     return e * bk;
   }
@@ -193,11 +193,11 @@ function matrixPhosphorApplyBurnHang(energy01, baseKeep, burn = 0) {
 }
 
 /**
- * Per-cell keep factor (compat). Prefer matrixPhosphorApplyBurnHang for accuracy.
+ * Per-cell keep factor (compat). Prefer matrixPhosphorApplyGhostHang for accuracy.
  */
-function matrixPhosphorCellKeep(baseKeep, energy01, burn = 0) {
+function matrixPhosphorCellKeep(baseKeep, energy01, ghost = 0) {
   const e = Math.max(1e-6, Number(energy01) || 0);
-  const next = matrixPhosphorApplyBurnHang(e, baseKeep, burn);
+  const next = matrixPhosphorApplyGhostHang(e, baseKeep, burn);
   return Math.max(0, Math.min(1, next / e));
 }
 
@@ -611,7 +611,7 @@ function matrixPlateParamsFromNode(node) {
     bufRows: grid.bufRows,
     // No hard max 0.98 — high trail is real multi-second persistence.
     trail: Number.isFinite(trailRaw) ? Math.max(0, trailRaw) : 0.82,
-    burn: Math.max(0, Math.min(1, Number(p.burn) || 0.35)),
+    ghost: Math.max(0, Math.min(1, Number(p.ghost ?? p.burn) || 0.35)),
     brightness: (() => {
       const b = Number(p.brightness);
       return Number.isFinite(b) ? Math.max(0, b) : 1;

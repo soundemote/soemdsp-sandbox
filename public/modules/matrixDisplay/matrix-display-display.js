@@ -78,30 +78,28 @@ function matrixDisplayEnsureSim(nodeId, paramsOrCols, maybeRows) {
 }
 
 /**
- * Phosphor fade for age grid. decay 0 = long trails, 1 = short (maps to trail = 1-decay).
- * Frame-rate independent; dim cells hang longer (same model as Matrix Trail).
+ * Phosphor fade for age grid. Trail 0 = die now, 1 ≈ freeze (main residual).
+ * Ghost = dim scorched hang. Frame-rate independent.
  */
-function matrixDisplayFade(ages, decay, dtSec = 1 / 60, maxAge = 32, burn = 0) {
-  const d = Math.max(0, Math.min(1, Number(decay) || 0));
-  // decay UI → trail persistence (0 decay = max trail).
-  const trail = 1 - d;
+function matrixDisplayFade(ages, trail, dtSec = 1 / 60, maxAge = 32, ghost = 0) {
+  const t = Math.max(0, Math.min(1, Number(trail) || 0));
   const baseKeep = typeof matrixPhosphorBaseKeep === "function"
-    ? matrixPhosphorBaseKeep(trail, dtSec)
+    ? matrixPhosphorBaseKeep(t, dtSec)
     : Math.exp(-(dtSec || 1 / 60) / 0.3);
   const kill = typeof matrixPhosphorKillFloor === "function"
-    ? matrixPhosphorKillFloor(trail)
+    ? matrixPhosphorKillFloor(t)
     : 0.015;
-  const burnAmt = Math.max(0, Math.min(1, Number(burn) || 0));
-  const killFloor = kill * (1 - burnAmt * 0.85);
+  const ghostAmt = Math.max(0, Math.min(1, Number(ghost) || 0));
+  const killFloor = kill * (1 - ghostAmt * 0.85);
   const ma = Math.max(1, maxAge);
-  const applyHang = typeof matrixPhosphorApplyBurnHang === "function"
-    ? matrixPhosphorApplyBurnHang
+  const applyHang = typeof matrixPhosphorApplyGhostHang === "function"
+    ? matrixPhosphorApplyGhostHang
     : (energy, keep) => energy * keep;
   for (let i = 0; i < ages.length; i += 1) {
     const a = ages[i];
     if (a <= 0) continue;
     const e0 = a / ma;
-    const e1 = applyHang(e0, baseKeep, burnAmt);
+    const e1 = applyHang(e0, baseKeep, ghostAmt);
     ages[i] = e1 < killFloor ? 0 : Math.max(1, Math.min(ma, Math.round(e1 * ma)));
   }
 }
@@ -279,8 +277,8 @@ function matrixDisplayTickFace(face) {
 
   if (!params.freeze) {
     // One exponential step per frame (dt-aware) — not N discrete age chops.
-    matrixDisplayFade(state.ages, params.decay, dt, MATRIX_DISPLAY_MAX_AGE, params.burn);
-    // Deposit from brightness; burn only affects residual hang in fade.
+    matrixDisplayFade(state.ages, params.trail, dt, MATRIX_DISPLAY_MAX_AGE, params.ghost);
+    // Deposit from brightness; ghost only affects residual hang in fade.
     matrixDisplayIngestBuffers(state, MATRIX_DISPLAY_MAX_AGE, params.brightness);
   }
 

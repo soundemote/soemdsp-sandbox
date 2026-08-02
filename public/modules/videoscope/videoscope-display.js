@@ -82,7 +82,7 @@ function drawNodeGraphVideoscopeItem(renderer, item, pixelRatio) {
   const minSide = Math.max(1, Math.min(canvas.width, canvas.height));
   const defaultSize = Math.max(0.008, Math.min(0.04, (mode === 0 ? 3.5 : 2.5) / minSide));
   const settings = {
-    decay: Number.isFinite(Number(face.decay)) ? Number(face.decay) : 0.18,
+    trail: Number.isFinite(Number(face.trail)) ? Number(face.trail) : (Number.isFinite(Number(face.decay)) ? 1 - Number(face.decay) : 0.82),
     // Brightness only for deposit (no burn gain coupling).
     dot1Brightness: Number.isFinite(Number(face.dot1Brightness))
       ? Number(face.dot1Brightness) * (paramBrightness / 1)

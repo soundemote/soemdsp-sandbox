@@ -78,10 +78,14 @@ function matrixDisplayParamsFromNode(node) {
     stampY: stamp,
     bufColumns,
     bufRows,
-    // decay: 0 = long trails, 1 = short (main residual)
-    decay: matrixDisplayClamp01(p.decay ?? 0.22, 0.22),
-    // burn: long-lived dim hang (screen burn-in), not deposit gain
-    burn: matrixDisplayClamp01(p.burn ?? 0.35, 0.35),
+    // trail: 0 = die now, 1 ≈ freeze (main residual). Legacy decay inverted.
+    trail: (() => {
+      if (p.trail != null) return matrixDisplayClamp01(p.trail, 0.78);
+      if (p.decay != null) return matrixDisplayClamp01(1 - Number(p.decay), 0.78);
+      return 0.78;
+    })(),
+    // ghost: dim scorched hang (legacy burn)
+    ghost: matrixDisplayClamp01(p.ghost ?? p.burn ?? 0.35, 0.35),
     // brightness: deposit + present
     brightness: (() => {
       const b = Number(p.brightness);
