@@ -12,20 +12,32 @@ Patch JSON cannot define new module types. A module type must be hardcoded
 in sandbox source. There is no plugin loader, manifest registry, WASM module
 format, or external plugin-host path for user-defined modules yet.
 
-## The four edit points
+## Architecture (current)
 
-Every audio module touches four locations:
+See **`docs/ARCHITECTURE.md`** for the full map (plan roles, patch migrators,
+worklet multi-file layout, shared stdlib).
+
+### Edit points (audio module)
 
 ```text
-1. public/node-graph-module-definitions.js   — definition + label
-2. public/index.html                          — Add Module menu button
-3. public/node-graph-live-frame-evaluator.js  — Render Sample + ScriptProcessor
-4. public/node-live-audio-worklet.js          — Live Audio (AudioWorklet)
+1. Definition + planRole     — module-definitions.js or chromeless register
+2. Catalog / store           — module-store or chromeless catalog
+3. Pure math (preferred)     — modules/<type>/*-math.js or node-graph-stdlib/*
+4. Live evaluator (thin)     — modules/<type>/*-live-evaluator.js
+5. Worklet evaluator (thin)  — modules/<type>/*-worklet-evaluator.js
+6. index.html                — script tags + Add Module menu (if not chromeless)
 ```
 
-Locations 3 and 4 must produce identical output for the same input. They are
-sibling execution lanes. A module with sound behavior must be implemented in
-both.
+Live and worklet lanes must share pure functions where possible. Do **not**
+add types to retired hard-coded plan source lists — set `planRole: "source"`
+(or `monitor` / `sink` / `planFreeRun` as appropriate).
+
+### A3 convention (required for new modules)
+
+1. Ship **pure** evaluation first (no DOM, no `nodeGraphMvp` in math files).
+2. Live + worklet adapters only read params / mix inputs / call pure functions.
+3. Declare **`planRole`** on the definition (never rely on residual free-run sets).
+4. Prefer `nodeGraphPitchedFrequency` / phasor helpers over copy-pasted 0.1V/Oct math.
 
 ## Reference module: `gain`
 

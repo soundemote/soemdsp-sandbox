@@ -54,8 +54,8 @@ Every control/bus (and eventually every module) evaluates through **pure functio
 | Slice | Work | Gate |
 |-------|------|------|
 | **A1** | [x] Inventory — `docs/A1_LIVE_WORKLET_DSP_INVENTORY.md` | Grep report |
-| **A2** | [~] Live + worklet evaluator pitch batch on shared helper; continue remaining modules | Sample parity |
-| **A3** | Convention: new modules **must** ship pure eval + thin adapters only | Doc in MODULE_PATTERN_REFERENCE |
+| **A2** | [~] Live + worklet pitch helper batch (many oscs); continue remainder | Sample parity |
+| **A3** | [x] Convention in MODULE_PATTERN_REFERENCE + ARCHITECTURE.md | Doc |
 | **A4** | Optional: worklet unit smoke that imports helpers and checks a few vectors | `node` smoke script |
 
 ### Non-goals this phase
@@ -91,6 +91,7 @@ Replace hard-coded type lists in:
 3. **B2** — [x] `nodeGraphPlanRoleLegacyDisagreements()` for console soak.
 4. **B3** — [x] Plan `sourceNodes` uses **only** `nodeGraphModuleIsPlanSourceType`.  
 5. **B3b** — [x] Removed `NODE_GRAPH_PLAN_LEGACY_SOURCE_TYPES`; roles come from `planRole` (+ realtime-osc / sink / monitor / chromeless fallbacks). Coverage: `nodeGraphPlanRoleCoverageReport()`.
+6. **B4** — [x] Bulk-annotate remaining defs (~90); free-run via roles + thin `NODE_GRAPH_PLAN_FREE_RUN_RESIDUAL` (replaces giant inputCapableSources set).
 
 ### Gate
 - Fixed regression patches: oscillator → filter → Output plays
@@ -143,10 +144,12 @@ Split without behavior change:
 - [x] `applyNativeModuleExports` → `…-native-exports.js`
 - [x] `setPlan` / `clearPlan` / `handleMessage` / `postModuleScopeSnapshot`
 - [x] `evaluateFrame` / `process` → dedicated files
-- Core ~363KB → ~128KB; all wired after core in worklet Blob
+- [x] Graph math cluster → `node-live-audio-worklet-graph.js`
+- [x] Parameter smoother cluster → `node-live-audio-worklet-smoother.js`
+- Core ~363KB → **~98KB**; method files wired after core in worklet Blob
 
 ### Next D slices
-- [ ] Optional: smoothing / graph-math clusters if still painful to navigate
+- [ ] destroy*/create* native lifecycle clusters
 - [ ] scopes: normalize/settings cluster vs paint/capture (interleaved — careful)
 
 ### Rule
@@ -176,7 +179,8 @@ Split without behavior change:
 2. [x] Land this plan doc.
 3. [x] **B0/B1/B3**: plan roles; restore curveOsc/snowflake; retire plan OR-chain.
 4. [x] **C0** migrator pipeline; **D** evaluators extract; **A1** inventory + pitch helper on new oscs.
-5. **Next:** soak B legacy-set removal; A2 more pitch/CV batches; D native-exports/setPlan; C1 valueSlider→knob when product-ready.
+5. [x] B legacy set removed; free-run residual thinned; worklet graph+smoother extracted; ARCHITECTURE.md.
+6. **Next:** residual → `planFreeRun` on defs; scopes megacore split; A2 remaining pitch; C1 renames when product-ready.
 
 ---
 

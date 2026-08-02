@@ -265,11 +265,13 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   codeblock: {
+    planRole: "processor",
     inputs: ["In1"],
     outputs: ["Out1"],
     parameters: [],
   },
   customDisplay: {
+    planRole: "monitor",
     bufferedInputs: ["In1"],
     displayHeightGu: 5,
     displayType: "customDisplay",
@@ -283,6 +285,7 @@ const nodeGraphModuleDefinitions = (
     visualSink: true,
   },
   graph2: {
+    planRole: "processor",
     chrome: NodeGraphModuleChromeLayout.LayoutB,
     // Default face height (was hardcoded 4×moduleScopeHeightGu = 8). Min is 1gu app-wide.
     displayHeightGu: 8,
@@ -330,6 +333,7 @@ const nodeGraphModuleDefinitions = (
   // Point-to-point segments + step grid. Shape is global; per-node curve (`c`)
   // is still individual, with curveOffset added as a global bias.
   graphCopy: {
+    planRole: "processor",
     chrome: NodeGraphModuleChromeLayout.LayoutB,
     displayHeightGu: 8,
     inputs: ["In"],
@@ -383,6 +387,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   moduleGroup: {
+    planRole: "source",
     inputs: [],
     outputs: [],
     parameters: [],
@@ -1395,6 +1400,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   degreeTuring: {
+    planRole: "processor",
     displayType: "trace",
     displaySignals: [
       { key: "0.1V/Oct", kind: "scalar" },
@@ -1428,6 +1434,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   gravityWalker: {
+    planRole: "processor",
     displayType: "trace",
     displaySignals: [
       { key: "0.1V/Oct", kind: "scalar" },
@@ -1460,6 +1467,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   degreePhrase: {
+    planRole: "processor",
     displayType: "trace",
     displaySignals: [
       { key: "0.1V/Oct", kind: "scalar" },
@@ -1508,6 +1516,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   noteGlide: {
+    planRole: "processor",
     inputs: ["0.1V/Oct"],
     outputs: ["0.1V/Oct"],
     parameters: [
@@ -1515,6 +1524,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   noteTranspose: {
+    planRole: "processor",
     inputs: ["0.1V/Oct"],
     outputs: ["0.1V/Oct"],
     parameters: [
@@ -1523,6 +1533,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   pitchQuantizer: {
+    planRole: "processor",
     // Face: one-octave pitch-class keyboard (toggle keys → 12-bit mask).
     customDisplayArea: true,
     defaultWidthGu: 10,
@@ -1563,6 +1574,7 @@ const nodeGraphModuleDefinitions = (
   },
   // Manual diatonic chord picker. Scale → Pitch Quantizer; Root → bass/voice.
   chordPad: {
+    planRole: "processor",
     customDisplayArea: true,
     defaultWidthGu: 14,
     displayHeightGu: 5,
@@ -2029,6 +2041,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   chordSequencer: {
+    planRole: "processor",
     inputs: ["Clock", "Reset"],
     outputs: ["Scale", "Root", "Gate", "Step"],
     parameters: [
@@ -2489,6 +2502,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   randomClock: {
+    planRole: "processor",
     // Trigger-rate module: the dot display reads far better than a trace
     // for something that is mostly flat with an occasional pulse.
     displayType: "dot",
@@ -2505,6 +2519,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   clockDivider: {
+    planRole: "processor",
     // Trigger-rate module: the dot display reads far better than a trace
     // for something that is mostly flat with an occasional pulse.
     displayType: "dot",
@@ -2518,6 +2533,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   delayedTrigger: {
+    planRole: "processor",
     // Trigger-rate module: the dot display reads far better than a trace
     // for something that is mostly flat with an occasional pulse.
     displayType: "dot",
@@ -2531,6 +2547,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   buttonEvents: {
+    planRole: "source",
     outputs: ["Click", "Hover", "Down", "Up", "Enter", "Leave"],
     parameters: [],
   },
@@ -2559,6 +2576,7 @@ const nodeGraphModuleDefinitions = (
     parameters: [],
   },
   shootingStarTail: {
+    planRole: "source",
     inputs: [],
     outputs: ["Pulse"],
     parameters: [],
@@ -2573,6 +2591,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   nextPatch: {
+    planRole: "processor",
     layout: "patchCommand",
     inputs: ["Trigger"],
     outputs: [],
@@ -2581,6 +2600,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   previousPatch: {
+    planRole: "processor",
     layout: "patchCommand",
     inputs: ["Trigger"],
     outputs: [],
@@ -2589,6 +2609,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   triggerCounter: {
+    planRole: "processor",
     // Trigger-rate module: the dot display reads far better than a trace
     // for something that is mostly flat with an occasional pulse.
     displayType: "dot",
@@ -2603,6 +2624,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   stepSequencer: {
+    planRole: "processor",
     inputs: ["Trigger", "Reset"],
     outputs: ["Out", "Gate"],
     parameters: [
@@ -2649,6 +2671,7 @@ const nodeGraphModuleDefinitions = (
   // stepGrid registers its own definition from public/modules/stepGrid/
   // step-grid-register.js -- see node-graph-chromeless-module-registry.js.
   triggerDivider: {
+    planRole: "processor",
     // Trigger-rate module: the dot display reads far better than a trace
     // for something that is mostly flat with an occasional pulse.
     displayType: "dot",
@@ -2662,11 +2685,13 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   minMax: {
+    planRole: "processor",
     inputs: ["In 1", "In 2", "In 3", "In 4"],
     outputs: ["Max", "Min"],
     parameters: [],
   },
   comparator: {
+    planRole: "processor",
     // Edge detector: 1-sample history of In. Pulses are digital (exact 0/1).
     // Steady / Sign are continuous digital levels; Thru is the raw passthrough.
     digitalInputs: ["In"],
@@ -2676,6 +2701,7 @@ const nodeGraphModuleDefinitions = (
     parameters: [],
   },
   sampleDelay: {
+    planRole: "processor",
     // Pure delay: Delayed = In delayed by (time * sr + samples), Thru = In.
     // Max combined delay 4s (reserved ring). Both params can be 0.
     inputs: ["In"],
@@ -2706,6 +2732,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   bitConverter: {
+    planRole: "processor",
     // Full Scale carries a raw, exact integer (e.g. keyboardController's
     // Held Keys bitmask) -- must not be smoothed like a normal CV input,
     // same reasoning as Held Keys itself being a digital output. The two
@@ -2730,6 +2757,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   gain: {
+    planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
@@ -2750,6 +2778,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   gainBias: {
+    planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
@@ -2780,6 +2809,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   gainBiasMix: {
+    planRole: "processor",
     inputs: ["In1", "In2", "In3", "In4"],
     outputs: ["Out1", "Out2", "Out3", "Out4"],
     parameters: [
@@ -2797,6 +2827,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   bias: {
+    planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
@@ -2817,6 +2848,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   softClipper: {
+    planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
@@ -2847,6 +2879,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   rotate3dTo2d: {
+    planRole: "processor",
     inputs: ["X", "Y", "Z"],
     outputs: ["X", "Y"],
     parameters: [
@@ -3075,6 +3108,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   passiveFilter: {
+    planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
@@ -3123,6 +3157,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   papoulisFilter: {
+    planRole: "processor",
     inputs: ["In"],
     layout: "filterCurve",
     outputs: ["Out"],
@@ -3142,6 +3177,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   cookbookFilter: {
+    planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
@@ -3211,6 +3247,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   rsmetFilter: {
+    planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
@@ -3238,6 +3275,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   yellowjacketFilter: {
+    planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
@@ -3251,6 +3289,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   superloveFilter: {
+    planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
@@ -3278,6 +3317,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   chaoticPhaseLockingFilter: {
+    planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
@@ -3291,6 +3331,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   resonatorFilter: {
+    planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
@@ -3318,6 +3359,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   humanFilter: {
+    planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
@@ -3345,6 +3387,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   pulseExplosion: {
+    planRole: "processor",
     inputs: ["Trigger"],
     outputs: ["Out", "Curve"],
     layout: "pulseCurve",
@@ -3360,6 +3403,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   flowerChildFilter: {
+    planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
@@ -3414,6 +3458,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   ladderFilter: {
+    planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
@@ -3472,6 +3517,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   tb303Filter: {
+    planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
@@ -3534,6 +3580,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   delayEffect: {
+    planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
@@ -3552,6 +3599,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   pingPongDelay: {
+    planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
@@ -3567,6 +3615,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   wallDelay: {
+    planRole: "processor",
     layout: "wallRoomDisplay",
     inputs: ["In"],
     outputs: ["Left", "Right"],
@@ -3586,6 +3635,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   reverbEffect: {
+    planRole: "processor",
     displayType: "trace",
     inputs: ["In", "Left", "Right"],
     outputs: ["Mono Dry", "Left Dry", "Right Dry", "Mono Mix", "Left Mix", "Right Mix"],
@@ -3602,6 +3652,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   pll: {
+    planRole: "processor",
     displaySignals: [
       { key: "VCO Out", kind: "scalar" },
       { key: "PC Out", kind: "scalar" },
@@ -3625,6 +3676,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   helmholtzPitch: {
+    planRole: "monitor",
     displayType: "trace",
     displayModes: [
       { key: "trace", renderer: "trace", settingsSchema: "trace", source: { value: "Pitch View" } },
@@ -3665,6 +3717,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   slewLimiter: {
+    planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
@@ -3699,6 +3752,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   sampleHold: {
+    planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right", "Trigger"],
@@ -3749,6 +3803,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   midiNotePitch: {
+    planRole: "processor",
     inputs: ["MIDI Note", "Octave Offset", "Pitch Offset"],
     inputAliases: {
       Note: "MIDI Note",
@@ -3773,6 +3828,7 @@ const nodeGraphModuleDefinitions = (
     parameters: [],
   },
   samplePlayer: {
+    planRole: "processor",
     inputs: ["Trigger", "Reset", "Pitch", "Start", "End"],
     outputs: ["Out"],
     parameters: [
@@ -3787,6 +3843,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   sampleLooper: {
+    planRole: "processor",
     inputs: ["Gate", "Reset", "Pitch", "Start", "End", "Loop Start", "Loop End"],
     outputs: ["Out", "Phase"],
     parameters: [
@@ -3868,6 +3925,7 @@ const nodeGraphModuleDefinitions = (
     parameters: [],
   },
   expAdsr: {
+    planRole: "processor",
     inputs: ["Gate"],
     outputs: ["Out"],
     parameters: [
@@ -3976,6 +4034,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   linearEnvelope: {
+    planRole: "processor",
     inputs: ["Gate"],
     outputs: ["Out"],
     parameters: [
@@ -3989,6 +4048,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   pluckEnvelope: {
+    planRole: "processor",
     inputs: ["Trigger", "Release"],
     outputs: ["Out"],
     parameters: [
@@ -4014,6 +4074,7 @@ const nodeGraphModuleDefinitions = (
   // normalized Light input 1.0 == 1000 lux (bright close-range LED, the usual vactrol
   // drive scenario).
   vactrolEnvelopeSeries: {
+    planRole: "processor",
     inputs: ["Light"],
     outputs: ["Env"],
     parameters: [
@@ -4058,6 +4119,7 @@ const nodeGraphModuleDefinitions = (
   // (10 ohm lit / 1 megohm dark) are a generic mid-range CdS-cell figure, not tied
   // to a specific datasheet.
   vactrolEnvelopeCustom: {
+    planRole: "processor",
     inputs: ["Light"],
     outputs: ["Env"],
     parameters: [
@@ -4093,6 +4155,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   flowerChildEnvelopeFollower: {
+    planRole: "processor",
     inputs: ["In"],
     outputs: ["Out"],
     parameters: [
@@ -4102,6 +4165,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   sandboxVisuals: {
+    planRole: "monitor",
     bufferedInputs: ["Shake", "X", "Y", "Dim", "Red", "Green", "Blue", "Scope Off", "Pause"],
     displayType: "trace",
     inputs: ["Shake", "X", "Y", "Dim", "Red", "Green", "Blue", "Scope Off", "Pause", "Trace Image"],
@@ -4169,6 +4233,7 @@ const nodeGraphModuleDefinitions = (
     visualSink: true,
   },
   screenSpaceShader: {
+    planRole: "monitor",
     inputs: ["Shake", "X", "Y", "Dim", "Red", "Green", "Blue", "Scope Off", "Pause", "Trace Image"],
     layout: "screenSpaceShader",
     outputs: [],
@@ -4176,6 +4241,7 @@ const nodeGraphModuleDefinitions = (
     visualSink: true,
   },
   bloomGlow: {
+    planRole: "monitor",
     displayType: "dot",
     outputs: [],
     parameters: [
@@ -4187,6 +4253,7 @@ const nodeGraphModuleDefinitions = (
     visualSink: true,
   },
   rgbaHsla: {
+    planRole: "monitor",
     bufferedInputs: ["Red", "Green", "Blue", "Hue", "Saturation", "Lightness", "HSL Mix", "Alpha"],
     displayType: "trace",
     inputs: ["Red", "Green", "Blue", "Hue", "Saturation", "Lightness", "HSL Mix", "Alpha"],
@@ -4215,6 +4282,7 @@ const nodeGraphModuleDefinitions = (
     visualSink: true,
   },
   chromaColor: {
+    planRole: "monitor",
     displayType: "dot",
     outputs: [],
     parameters: [
@@ -4231,6 +4299,7 @@ const nodeGraphModuleDefinitions = (
     visualSink: true,
   },
   image: {
+    planRole: "source",
     layout: "image",
     outputAliases: {
       Image: "RGBA",
@@ -4239,6 +4308,7 @@ const nodeGraphModuleDefinitions = (
     parameters: [],
   },
   canvas: {
+    planRole: "monitor",
     bufferedInputs: ["a_buffer"],
     displayHeightGu: 5,
     inputs: ["a_buffer", "a not buffer"],
@@ -4256,6 +4326,7 @@ const nodeGraphModuleDefinitions = (
   // Multi-mode Display sink: flip face family without swapping modules.
   // Default remains 2D Trace (X/Y). Mono modes use In; XY modes use X/Y.
   visualOscilloscope: {
+    planRole: "monitor",
     bufferedInputs: ["In", "X", "Y"],
     displayType: "scope2dTrace",
     defaultDisplayMode: "xyTrace",
@@ -4303,6 +4374,7 @@ const nodeGraphModuleDefinitions = (
     visualSink: true,
   },
   traceDisplay: {
+    planRole: "monitor",
     bufferedInputs: ["In"],
     displayType: "trace",
     inputs: ["In"],
@@ -4315,6 +4387,7 @@ const nodeGraphModuleDefinitions = (
     visualSink: true,
   },
   dotOscilloscope: {
+    planRole: "monitor",
     bufferedInputs: ["In"],
     displayType: "dot",
     inputs: ["In"],
@@ -4327,6 +4400,7 @@ const nodeGraphModuleDefinitions = (
     visualSink: true,
   },
   oscilloscopeBank: {
+    planRole: "monitor",
     displayType: "oscilloscopeBankBurn",
     dataInputs: ["Phases", "Amplitudes", "Pans"],
     layout: "traceDisplay",
@@ -4335,6 +4409,7 @@ const nodeGraphModuleDefinitions = (
     visualSink: true,
   },
   videoscope: {
+    planRole: "processor",
     bufferedInputs: ["A", "B"],
     displayType: "videoscopeBurn",
     inputs: ["A", "B"],
@@ -4409,6 +4484,7 @@ const nodeGraphModuleDefinitions = (
     visualSink: true,
   },
   spectrogram: {
+    planRole: "monitor",
     bufferedInputs: ["In"],
     displayType: "spectrogramBurn",
     inputs: ["In"],
@@ -4429,6 +4505,7 @@ const nodeGraphModuleDefinitions = (
   // Matrix Waterfall — pure parameter rain (Fall / Rise). No ports, no plate modes.
   // Glyph table + gradient live in Display Settings. Clean base for future work.
   matrixWaterfall: {
+    planRole: "source",
     customDisplayArea: true,
     defaultWidthGu: 12,
     displayHeightGu: 10,
@@ -4537,6 +4614,7 @@ const nodeGraphModuleDefinitions = (
   // Matrix Display — Info plate + Serial Char+Trigger bins. No rain.
   // Message + gradient in Display Settings. In sample for Info value row.
   matrixDisplay: {
+    planRole: "monitor",
     bufferedInputs: ["In", "Char", "Trigger", "Reset"],
     customDisplayArea: true,
     defaultWidthGu: 12,
@@ -4628,6 +4706,7 @@ const nodeGraphModuleDefinitions = (
   },
   // Text Stream — type text, emit one character at a time (digital Char + Trigger).
   textStream: {
+    planRole: "monitor",
     customDisplayArea: true,
     defaultWidthGu: 12,
     displayHeightGu: 6,
@@ -4669,6 +4748,7 @@ const nodeGraphModuleDefinitions = (
   // Glyph ramp = phosphor tail; Decay / Burn = age memory. Layout id "matrixDisplay" is historical.
   // displayType selfPaintFace: same as Matrix — own rAF canvas, no Trace overlay.
   asciiscope: {
+    planRole: "monitor",
     bufferedInputs: ["X", "Y"],
     customDisplayArea: true,
     defaultWidthGu: 14,
@@ -4755,6 +4835,7 @@ const nodeGraphModuleDefinitions = (
     visualSink: true,
   },
   valueOscilloscope: {
+    planRole: "monitor",
     bufferedInputs: ["In"],
     displayHeightGu: 5,
     displayType: "value",
@@ -4769,6 +4850,7 @@ const nodeGraphModuleDefinitions = (
   },
   // numberReadout: solid chromeless registration (public/modules/numberReadout/*-register.js).
   lineBurnOscilloscope: {
+    planRole: "monitor",
     bufferedInputs: ["In", "Reset"],
     displayType: "lineBurn",
     inputs: ["In", "Reset"],
@@ -4782,6 +4864,7 @@ const nodeGraphModuleDefinitions = (
     visualSink: true,
   },
   scope2d: {
+    planRole: "monitor",
     bufferedInputs: ["X", "Y"],
     displayHeightGu: 5,
     displayType: "scope2d",
@@ -4798,6 +4881,7 @@ const nodeGraphModuleDefinitions = (
   // Legacy alias of scope2d (2D Phosphor). Hidden from shop; patches migrate
   // to type "scope2d" on load. Kept so mid-session / odd loaders still resolve.
   phosphorLight: {
+    planRole: "monitor",
     bufferedInputs: ["X", "Y"],
     displayHeightGu: 5,
     displayType: "scope2d",
@@ -4812,6 +4896,7 @@ const nodeGraphModuleDefinitions = (
     visualSink: true,
   },
   scope2dTrace: {
+    planRole: "monitor",
     bufferedInputs: ["X", "Y"],
     displayHeightGu: 5,
     displayType: "scope2dTrace",
@@ -4826,6 +4911,7 @@ const nodeGraphModuleDefinitions = (
     visualSink: true,
   },
   badvalMonitor: {
+    planRole: "monitor",
     // LayoutA + custom display face (resizable warning panel, ports under).
     chrome: NodeGraphModuleChromeLayout.LayoutA,
     customDisplayArea: true,
@@ -4839,6 +4925,7 @@ const nodeGraphModuleDefinitions = (
     slidersAlwaysHidden: true,
   },
   speakerProtection: {
+    planRole: "processor",
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
@@ -4849,11 +4936,13 @@ const nodeGraphModuleDefinitions = (
     parameters: [],
   },
   textBox: {
+    planRole: "processor",
     layout: "textBox",
     layoutOnly: true,
     parameters: [],
   },
   animatedTextBox: {
+    planRole: "processor",
     layout: "textBox",
     layoutOnly: true,
     dataInputs: ["Title", "Text"],
@@ -4885,6 +4974,7 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   sinc: {
+    planRole: "processor",
     displayType: "trace",
     inputs: ["0.1V/Oct", "Freq", "Phase", "f"],
     inputAliases: { "0.1V": "0.1V/Oct", freq: "Freq", phase: "Phase" },
@@ -5044,118 +5134,68 @@ function nodeGraphModuleIsRealtimeOscillatorType(type) {
   return type === "osc" || type === "polyBlep" || type === "sineWavetable" || type === "blit";
 }
 
+/**
+ * True if a module may emit while its signal inputs are unconnected.
+ * Prefer declaration: planRole source/always/monitor, planFreeRun, visualSink,
+ * or empty inputs[]. Residual set covers free-running processors not yet
+ * migrated to planFreeRun (envelopes, sequencers, codeblock, …).
+ */
+const NODE_GRAPH_PLAN_FREE_RUN_RESIDUAL = Object.freeze(new Set([
+  // Processors that free-run without a wired audio/control bus (not pure sources)
+  "clockDivider",
+  "codeblock",
+  "delayedTrigger",
+  "flowerChildEnvelopeFollower",
+  "groupInput",
+  "groupOutput",
+  "helmholtzPitch",
+  "linearEnvelope",
+  "pluckEnvelope",
+  "pitchQuantizer",
+  "chordPad",
+  "degreeTuring",
+  "gravityWalker",
+  "degreePhrase",
+  "noteGlide",
+  "noteTranspose",
+  "stepGrid",
+  "stepSequencer",
+  "triggerCounter",
+  "triggerDivider",
+  "vactrolEnvelopeSeries",
+  "vactrolEnvelopeCustom",
+  "randomClock",
+  "chordSequencer",
+  // Effects that still register as free-run for plan reachability parity
+  "reverbEffect",
+]));
+
 function nodeGraphModuleProducesOutputWithoutSignalInput(type) {
   const definition = nodeGraphModuleDefinitions[type];
   if (!definition) {
     return false;
   }
-  // Visual-only sinks don't need signal input to produce output.
-  if (definition.visualSink) {
+  if (definition.visualSink || definition.monitorSink || definition.planFreeRun === true) {
     return true;
   }
-  // A module with no input ports is a signal source by nature.
+  // No declared inputs → pure free-runner / source shell.
   if (!Array.isArray(definition.inputs) || definition.inputs.length === 0) {
     return true;
   }
-  // B dual-path: planRole source/always (or legacy source helper) can free-run
-  // even when inputs[] is non-empty (pitch CV jacks, Reset, etc.).
+  const role = String(definition.planRole || "").trim();
+  // Sources, monitors, sinks (Output with unwired mono), and always-evaluate shells.
+  if (
+    role === "source"
+    || role === "always"
+    || role === "monitor"
+    || role === "sink"
+  ) {
+    return true;
+  }
   if (typeof nodeGraphModuleIsPlanSourceType === "function" && nodeGraphModuleIsPlanSourceType(type)) {
     return true;
   }
-  if (definition.planRole === "source" || definition.planRole === "always") {
-    return true;
-  }
-  // Specific module types that have input ports but can produce output
-  // without signal input (e.g. parameter-driven or script-driven output).
-  const inputCapableSources = new Set([
-    "audioInput",
-    "pluginInput",
-    "pluginMidiIn",
-    "pluginMidiOut",
-    "valueSlider",
-    "pluginSlider",
-    "toggleButton",
-    "momentaryButton",
-    "audioPlayer",
-    "bloomGlow",
-    "canvas",
-    "chromaColor",
-    "clock",
-    "clockDivider",
-    "codeblock",
-    "delayedTrigger",
-    "hypersaw",
-    "transport",
-    "wireBreak",
-    "wireConnect",
-    "wireDisconnect",
-    "windowReopen",
-    "shootingStarExplosion",
-    "fractalBrownianNoise",
-    "flowerChildEnvelopeFollower",
-    "groupInput",
-    "groupOutput",
-    "keyboardController",
-    "led",
-    "xyPad",
-    "asciiscope",
-    "matrixDisplay",
-    "matrixWaterfall",
-    "textStream",
-    "linearEnvelope",
-    "lorenzAttractor",
-    "logisticMap",
-    "henonMap",
-    "rayBouncer",
-    "chuaAttractor",
-    "lutCell",
-    "ellipsoid",
-    "macroControls",
-    "midiNotePitch",
-    "midiOut",
-    "moduleGroup",
-    "noiseGenerator",
-    "osc",
-    "phosphillator",
-    "pitchModWheel",
-    "additiveOsc",
-    "gpuAdditiveOsc",
-    "helmholtzPitch",
-    "pluckEnvelope",
-    "polyBlep",
-    "blit",
-    "archimedes",
-    "surgeOscillator",
-    "softwaveOsc",
-    "curveOsc",
-    "snowflake",
-    "robinSupersaw",
-    "pitchQuantizer",
-    "chordPad",
-    "degreeTuring",
-    "gravityWalker",
-    "degreePhrase",
-    "noteGlide",
-    "noteTranspose",
-    "randomWalk",
-    "rgbaHsla",
-    "sandboxVisuals",
-    "screenSpaceShader",
-    "sineWavetable",
-    "stepGrid",
-    "stepSequencer",
-    "triggerCounter",
-    "triggerDivider",
-    "vactrolEnvelopeSeries",
-    "vactrolEnvelopeCustom",
-    "visualOscilloscope",
-    "spiral",
-    "fractalSpiral",
-    "logSpiral",
-    "output",
-    "reverbEffect",
-  ]);
-  return inputCapableSources.has(type);
+  return NODE_GRAPH_PLAN_FREE_RUN_RESIDUAL.has(type);
 }
 
 function nodeGraphCanonicalInputPort(type, port) {

@@ -10,6 +10,7 @@ registerNodeGraphChromelessModule("led", {
   solidModule: true,
   customDisplayArea: true,
   definition: {
+    planRole: "monitor",
     bufferedInputs: ["In"],
     defaultWidthGu: 2,
     displayType: "ledLamp",

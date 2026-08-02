@@ -1044,560 +1044,109 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return Math.max(min, Math.min(max, number));
   }
 
-  normalizeGraphNumber(value, fallback = 0, min = 0, max = 1) {
-    const number = Number(value);
-    return Number.isFinite(number)
-      ? Math.max(min, Math.min(max, number))
-      : fallback;
-  }
+  // normalizeGraphNumber → node-live-audio-worklet-graph.js (Phase D graph math)
 
-  normalizeGraphShape(value) {
-    const shape = String(value || "").trim().toLowerCase();
-    if (shape === "logarithmic") {
-      return "log";
-    }
-    if (shape === "smooth" || shape === "smoothstep") {
-      return "smoothstep";
-    }
-    if (
-      shape === "linear" ||
-      shape === "exponential" ||
-      shape === "rational" ||
-      shape === "log" ||
-      shape === "hold"
-    ) {
-      return shape;
-    }
-    return "rational";
-  }
 
-  normalizeGraphNode(value = {}, index = 0) {
-    const source = value && typeof value === "object" ? value : {};
-    const fallback = index <= 0
-      ? { c: 0, shape: "linear", x: 0, y: 0 }
-      : { c: 0, shape: "rational", x: 1, y: 1 };
-    return {
-      c: this.normalizeGraphNumber(source.c, fallback.c, -1, 1),
-      shape: this.normalizeGraphShape(source.shape ?? fallback.shape),
-      x: this.normalizeGraphNumber(source.x, fallback.x),
-      y: this.normalizeGraphNumber(source.y, fallback.y),
-    };
-  }
+  // normalizeGraphShape → node-live-audio-worklet-graph.js (Phase D graph math)
 
-  normalizeGraph(value = {}) {
-    const source = value && typeof value === "object" ? value : {};
-    const inputNodes = Array.isArray(source.nodes) && source.nodes.length >= 2
-      ? source.nodes
-      : [{ c: 0, shape: "linear", x: 0, y: 0 }, { c: 0, shape: "rational", x: 1, y: 1 }];
-    const nodes = inputNodes
-      .slice(0, 32)
-      .map((node, index) => this.normalizeGraphNode(node, index))
-      .sort((left, right) => left.x - right.x);
-    if (nodes.length < 2) {
-      nodes.push(
-        this.normalizeGraphNode({ c: 0, shape: "linear", x: 0, y: 0 }, 0),
-        this.normalizeGraphNode({ c: 0, shape: "rational", x: 1, y: 1 }, 1),
-      );
-    }
-    return { nodes };
-  }
 
-  graphEndpointYLockEnabledForNode(node) {
-    return (node?.type === "graph2" || node?.type === "graphCopy") &&
-      Number(node?.params?.lockEndpointY) >= 0.5;
-  }
+  // normalizeGraphNode → node-live-audio-worklet-graph.js (Phase D graph math)
 
-  graphWithLockedEndpointY(graphValue) {
-    const graph = this.normalizeGraph(graphValue);
-    if (graph.nodes.length < 2) {
-      return graph;
-    }
-    const lastIndex = graph.nodes.length - 1;
-    const anchorY = this.normalizeGraphNumber(graph.nodes[0]?.y, 0);
-    const nodes = graph.nodes.map((node, index) => (
-      index === 0 || index === lastIndex
-        ? this.normalizeGraphNode({ ...node, y: anchorY }, index)
-        : node
-    ));
-    return this.normalizeGraph({ ...graph, nodes });
-  }
 
-  graphForNode(node) {
-    return this.graphEndpointYLockEnabledForNode(node)
-      ? this.graphWithLockedEndpointY(node?.graph)
-      : this.normalizeGraph(node?.graph);
-  }
+  // normalizeGraph → node-live-audio-worklet-graph.js (Phase D graph math)
+
+
+  // graphEndpointYLockEnabledForNode → node-live-audio-worklet-graph.js (Phase D graph math)
+
+
+  // graphWithLockedEndpointY → node-live-audio-worklet-graph.js (Phase D graph math)
+
+
+  // graphForNode → node-live-audio-worklet-graph.js (Phase D graph math)
+
 
   /**
    * |contour| = 1 → perfect step. Matches continuous rational as |c|→1:
    * +1 jump to right immediately; −1 hold left until end.
    */
-  graphHardStepShape(position, contourSign) {
-    const p = this.normalizeGraphNumber(position, 0, 0, 1);
-    if (contourSign >= 0) {
-      return p <= 0 ? 0 : 1;
-    }
-    return p >= 1 ? 1 : 0;
-  }
+  // graphHardStepShape → node-live-audio-worklet-graph.js (Phase D graph math)
+
 
   /**
    * Blend continuous → shared hard square by |contour| so rational/exp/log
    * all hit full square at the same |c| (and same Curve Offset).
    */
-  graphBlendContourTowardHardStep(position, contour, continuousValue) {
-    const p = this.normalizeGraphNumber(position, 0, 0, 1);
-    const c = this.normalizeGraphNumber(contour, 0, -1, 1);
-    const a = Math.abs(c);
-    if (a < 1e-9) {
-      return continuousValue;
-    }
-    if (a >= 1 - 1e-12) {
-      return this.graphHardStepShape(p, c);
-    }
-    const hard = this.graphHardStepShape(p, c);
-    const cont = Number.isFinite(continuousValue) ? continuousValue : p;
-    return cont * (1 - a) + hard * a;
-  }
+  // graphBlendContourTowardHardStep → node-live-audio-worklet-graph.js (Phase D graph math)
 
-  graphRationalCurve(position, contour = 0) {
-    const p = this.normalizeGraphNumber(position, 0, 0, 1);
-    const c = this.normalizeGraphNumber(contour, 0, -1, 1);
-    let continuous = p;
-    if (Math.abs(c) >= 0.000001) {
-      const cSafe = Math.max(-0.999999, Math.min(0.999999, c));
-      continuous = cSafe < 0
-        ? (p * (1 + cSafe)) / (1 + cSafe * p)
-        : p / (1 - cSafe + cSafe * p);
-    }
-    return this.graphBlendContourTowardHardStep(p, c, continuous);
-  }
 
-  graphExponentialCurve(position, contour = 0) {
-    const p = this.normalizeGraphNumber(position, 0, 0, 1);
-    const t = this.normalizeGraphNumber(contour, 0, -1, 1);
-    let continuous = p;
-    if (Math.abs(t) >= 0.000001) {
-      const a = Math.min(0.999999, Math.abs(t));
-      const mag = 1.2 + 6.8 * (a / (1 - a * 0.85));
-      const k = t < 0 ? -mag : mag;
-      if (Math.abs(k) >= 0.05) {
-        const denom = Math.exp(k) - 1;
-        if (Math.abs(denom) >= 1e-9) {
-          continuous = (Math.exp(k * p) - 1) / denom;
-        }
-      }
-    }
-    return this.graphBlendContourTowardHardStep(p, t, continuous);
-  }
+  // graphRationalCurve → node-live-audio-worklet-graph.js (Phase D graph math)
 
-  graphLogarithmicCurve(position, contour = 0) {
-    const p = this.normalizeGraphNumber(position, 0, 0, 1);
-    const t = this.normalizeGraphNumber(contour, 0, -1, 1);
-    let continuous = p;
-    if (Math.abs(t) >= 0.000001) {
-      const a = Math.min(0.999999, Math.abs(t));
-      const b = Math.exp(1.2 + 5.5 * (a / (1 - a * 0.85)));
-      if (Number.isFinite(b) && b > 1.000001) {
-        const denom = Math.log(b);
-        if (Number.isFinite(denom) && Math.abs(denom) >= 1e-9) {
-          continuous = t < 0
-            ? 1 - Math.log(1 + (1 - p) * (b - 1)) / denom
-            : Math.log(1 + p * (b - 1)) / denom;
-        }
-      }
-    }
-    return this.graphBlendContourTowardHardStep(p, t, continuous);
-  }
 
-  graphSmoothCurve(position) {
-    const p = this.normalizeGraphNumber(position, 0, 0, 1);
-    return p * p * (3 - 2 * p);
-  }
+  // graphExponentialCurve → node-live-audio-worklet-graph.js (Phase D graph math)
 
-  normalizeGraph2SmoothingMode(value) {
-    if (value === "legacy") {
-      return "legacy";
-    }
-    const modes = ["linear", "catmull", "quadratic", "cubic"];
-    const raw = String(value ?? "").trim().toLowerCase();
-    // Old Curve labels that all used the same guide-tension path.
-    if (raw === "smooth" || raw === "bezier" || raw === "catmullrom" || raw === "catmull") {
-      return "catmull";
-    }
-    if (modes.includes(raw)) {
-      return raw;
-    }
-    if (Number.isFinite(Number(value))) {
-      const n = Math.round(Number(value));
-      if (n === 4) {
-        return "cubic";
-      }
-      if (n === 5) {
-        return "catmull";
-      }
-      return modes[Math.max(0, Math.min(modes.length - 1, n))];
-    }
-    return "catmull";
-  }
 
-  graphModeCurve(position, mode, index = 0) {
-    const normalizedMode = this.normalizeGraph2SmoothingMode(mode);
-    if (normalizedMode === "linear") {
-      return this.normalizeGraphNumber(position, 0, 0, 1);
-    }
-    return this.graphSmoothCurve(position);
-  }
+  // graphLogarithmicCurve → node-live-audio-worklet-graph.js (Phase D graph math)
 
-  graphBezierPointAt(controls, position = 0) {
-    const t = this.normalizeGraphNumber(position, 0, 0, 1);
-    let points = controls.map((node) => ({
-      x: this.normalizeGraphNumber(node.x, 0),
-      y: this.normalizeGraphNumber(node.y, 0),
-    }));
-    if (!points.length) {
-      return { x: 0, y: 0 };
-    }
-    while (points.length > 1) {
-      points = points.slice(0, -1).map((point, index) => {
-        const next = points[index + 1];
-        return {
-          x: point.x + (next.x - point.x) * t,
-          y: point.y + (next.y - point.y) * t,
-        };
-      });
-    }
-    return points[0];
-  }
+
+  // graphSmoothCurve → node-live-audio-worklet-graph.js (Phase D graph math)
+
+
+  // normalizeGraph2SmoothingMode → node-live-audio-worklet-graph.js (Phase D graph math)
+
+
+  // graphModeCurve → node-live-audio-worklet-graph.js (Phase D graph math)
+
+
+  // graphBezierPointAt → node-live-audio-worklet-graph.js (Phase D graph math)
+
 
   // Guide-point Bezier: start+end on-curve only; interior nodes are handles.
   // Tension 0 = line, 1 = tight pull toward guides (no hard corners).
   // Mirrors offline nodeGraphGraphGuideBezierValueAt.
-  graphGuideBezierControls(nodes, tension = 1) {
-    const count = nodes.length;
-    if (count < 2) {
-      return nodes.map((node) => ({ x: node.x, y: node.y }));
-    }
-    const u = this.normalizeGraphNumber(tension, 1, 0, 1);
-    if (u <= 1e-6) {
-      return [
-        { x: nodes[0].x, y: nodes[0].y },
-        { x: nodes[count - 1].x, y: nodes[count - 1].y },
-      ];
-    }
-    const pull = 0.08 + 1.42 * (u ** 0.6);
-    const first = nodes[0];
-    const last = nodes[count - 1];
-    return nodes.map((node, index) => {
-      if (index === 0 || index === count - 1) {
-        return { x: node.x, y: node.y };
-      }
-      const s = index / (count - 1);
-      const chordX = first.x + (last.x - first.x) * s;
-      const chordY = first.y + (last.y - first.y) * s;
-      return {
-        x: chordX + (node.x - chordX) * pull,
-        y: chordY + (node.y - chordY) * pull,
-      };
-    });
-  }
+  // graphGuideBezierControls → node-live-audio-worklet-graph.js (Phase D graph math)
 
-  graphGuideBezierValueAt(graph, xValue, tension = 1) {
-    const x = this.normalizeGraphNumber(xValue, 0, -Infinity, Infinity);
-    const nodes = graph.nodes;
-    if (nodes.length < 2) {
-      return nodes[0]?.y ?? 0;
-    }
-    if (x <= nodes[0].x) {
-      return nodes[0].y;
-    }
-    const last = nodes[nodes.length - 1];
-    if (x >= last.x) {
-      return last.y;
-    }
-    const controls = this.graphGuideBezierControls(nodes, tension);
-    const samples = 96;
-    let prev = this.graphBezierPointAt(controls, 0);
-    for (let index = 1; index <= samples; index += 1) {
-      const point = this.graphBezierPointAt(controls, index / samples);
-      const minX = Math.min(prev.x, point.x);
-      const maxX = Math.max(prev.x, point.x);
-      if (x >= minX && x <= maxX) {
-        const dx = point.x - prev.x;
-        const a = Math.abs(dx) < 1e-12 ? 0 : (x - prev.x) / dx;
-        return this.safeFilterNumber(prev.y + (point.y - prev.y) * a, null);
-      }
-      prev = point;
-    }
-    let bestY = nodes[0].y;
-    let bestDist = Infinity;
-    for (let index = 0; index <= samples; index += 1) {
-      const point = this.graphBezierPointAt(controls, index / samples);
-      const dist = Math.abs(point.x - x);
-      if (dist < bestDist) {
-        bestDist = dist;
-        bestY = point.y;
-      }
-    }
-    return this.safeFilterNumber(bestY, null);
-  }
 
-  graphBezierValueAt(graph, xValue, tension = 1) {
-    return this.graphGuideBezierValueAt(graph, xValue, tension);
-  }
+  // graphGuideBezierValueAt → node-live-audio-worklet-graph.js (Phase D graph math)
 
-  graphPolylineValueAt(graph, xValue) {
-    const x = this.normalizeGraphNumber(xValue, 0, -Infinity, Infinity);
-    const nodes = graph.nodes;
-    if (!nodes.length) {
-      return 0;
-    }
-    if (nodes.length < 2 || x <= nodes[0].x) {
-      return nodes[0].y;
-    }
-    if (x >= nodes[nodes.length - 1].x) {
-      return nodes[nodes.length - 1].y;
-    }
-    for (let index = 0; index < nodes.length - 1; index += 1) {
-      if (x <= nodes[index + 1].x) {
-        const left = nodes[index];
-        const right = nodes[index + 1];
-        const dx = right.x - left.x;
-        if (Math.abs(dx) < 0.000001) {
-          return 0.5 * (left.y + right.y);
-        }
-        const t = (x - left.x) / dx;
-        return left.y + (right.y - left.y) * t;
-      }
-    }
-    return nodes[nodes.length - 1].y;
-  }
 
-  graphHermiteY(y1, y2, m1, m2, t) {
-    const t2 = t * t;
-    const t3 = t2 * t;
-    return (2 * t3 - 3 * t2 + 1) * y1
-      + (t3 - 2 * t2 + t) * m1
-      + (-2 * t3 + 3 * t2) * y2
-      + (t3 - t2) * m2;
-  }
+  // graphBezierValueAt → node-live-audio-worklet-graph.js (Phase D graph math)
 
-  graphInterpolationWindowStart(nodes, x, degree) {
-    const targetCount = Math.max(2, Math.min(nodes.length, degree + 1));
-    let segmentIndex = 0;
-    for (let index = 0; index < nodes.length - 1; index += 1) {
-      if (x <= nodes[index + 1].x) {
-        segmentIndex = index;
-        break;
-      }
-      segmentIndex = index;
-    }
-    const start = segmentIndex - Math.max(0, Math.floor((targetCount - 2) * 0.5));
-    return Math.max(0, Math.min(nodes.length - targetCount, start));
-  }
 
-  graphLagrangeValueAt(graph, xValue, degree = 3) {
-    const x = this.normalizeGraphNumber(xValue, 0, -Infinity, Infinity);
-    const nodes = graph.nodes;
-    if (nodes.length < 2) {
-      return nodes[0]?.y ?? 0;
-    }
-    for (const node of nodes) {
-      if (Math.abs(x - node.x) < 0.000001) {
-        return node.y;
-      }
-    }
-    const targetCount = Math.max(2, Math.min(nodes.length, degree + 1));
-    const start = this.graphInterpolationWindowStart(nodes, x, degree);
-    const windowNodes = nodes.slice(start, start + targetCount);
-    let value = 0;
-    for (let index = 0; index < windowNodes.length; index += 1) {
-      const point = windowNodes[index];
-      let basis = 1;
-      for (let otherIndex = 0; otherIndex < windowNodes.length; otherIndex += 1) {
-        if (otherIndex === index) {
-          continue;
-        }
-        const other = windowNodes[otherIndex];
-        const denominator = point.x - other.x;
-        if (Math.abs(denominator) < 0.000001) {
-          continue;
-        }
-        basis *= (x - other.x) / denominator;
-      }
-      value += point.y * basis;
-    }
-    return value;
-  }
+  // graphPolylineValueAt → node-live-audio-worklet-graph.js (Phase D graph math)
+
+
+  // graphHermiteY → node-live-audio-worklet-graph.js (Phase D graph math)
+
+
+  // graphInterpolationWindowStart → node-live-audio-worklet-graph.js (Phase D graph math)
+
+
+  // graphLagrangeValueAt → node-live-audio-worklet-graph.js (Phase D graph math)
+
 
   // Cardinal through-points: tension 0 = polyline, mid = tight rounded, 1 = loose.
   // Matches offline nodeGraphGraphCardinalValueAt (see graph-utils).
-  graphCardinalValueAt(graph, xValue, tension = 1) {
-    const x = this.normalizeGraphNumber(xValue, 0, -Infinity, Infinity);
-    const nodes = graph.nodes;
-    if (nodes.length < 2) {
-      return nodes[0]?.y ?? 0;
-    }
-    for (const node of nodes) {
-      if (Math.abs(x - node.x) < 0.000001) {
-        return node.y;
-      }
-    }
-    if (x <= nodes[0].x) {
-      return nodes[0].y;
-    }
-    if (x >= nodes[nodes.length - 1].x) {
-      return nodes[nodes.length - 1].y;
-    }
-    const u = this.normalizeGraphNumber(tension, 1, 0, 1);
-    if (u <= 1e-6) {
-      return this.graphPolylineValueAt(graph, x);
-    }
-    const s = 0.5 * (0.12 + 1.55 * (u ** 0.55));
-    const yAt = (i) => {
-      if (i < 0) {
-        return 2 * nodes[0].y - nodes[1].y;
-      }
-      if (i >= nodes.length) {
-        return 2 * nodes[nodes.length - 1].y - nodes[nodes.length - 2].y;
-      }
-      return nodes[i].y;
-    };
-    const xAt = (i) => {
-      if (i < 0) {
-        return 2 * nodes[0].x - nodes[1].x;
-      }
-      if (i >= nodes.length) {
-        return 2 * nodes[nodes.length - 1].x - nodes[nodes.length - 2].x;
-      }
-      return nodes[i].x;
-    };
-    for (let index = 0; index < nodes.length - 1; index += 1) {
-      if (x > nodes[index + 1].x) {
-        continue;
-      }
-      const x1 = nodes[index].x;
-      const x2 = nodes[index + 1].x;
-      const y1 = nodes[index].y;
-      const y2 = nodes[index + 1].y;
-      const dx = x2 - x1;
-      if (Math.abs(dx) < 0.000001) {
-        return 0.5 * (y1 + y2);
-      }
-      const t = (x - x1) / dx;
-      const dxIn = xAt(index + 1) - xAt(index - 1);
-      const dxOut = xAt(index + 2) - xAt(index);
-      const m1 = Math.abs(dxIn) < 1e-9 ? 0 : s * (yAt(index + 1) - yAt(index - 1)) / dxIn * dx;
-      const m2 = Math.abs(dxOut) < 1e-9 ? 0 : s * (yAt(index + 2) - yAt(index)) / dxOut * dx;
-      return this.safeFilterNumber(this.graphHermiteY(y1, y2, m1, m2, t), null);
-    }
-    return nodes[nodes.length - 1].y;
-  }
+  // graphCardinalValueAt → node-live-audio-worklet-graph.js (Phase D graph math)
 
-  graphCatmullRomValueAt(graph, xValue, tension = 1) {
-    return this.graphCardinalValueAt(graph, xValue, tension);
-  }
 
-  graphSmoothingModeForNode(node) {
-    // Step Graph / legacy graph: segment evaluation path.
-    if (node?.type === "graphCopy" || node?.type === "graph") {
-      return "legacy";
-    }
-    // Smooth Graph (graph2): one global smoothing algorithm through the dots.
-    return this.normalizeGraph2SmoothingMode(node?.params?.smoothingMode);
-  }
+  // graphCatmullRomValueAt → node-live-audio-worklet-graph.js (Phase D graph math)
 
-  graphSegmentShapeFromParam(value) {
-    const shapes = ["linear", "rational", "exponential", "log", "smoothstep", "hold"];
-    if (Number.isFinite(Number(value)) && String(value).trim() !== "") {
-      return shapes[Math.max(0, Math.min(shapes.length - 1, Math.round(Number(value))))];
-    }
-    return this.normalizeGraphShape(value);
-  }
+
+  // graphSmoothingModeForNode → node-live-audio-worklet-graph.js (Phase D graph math)
+
+
+  // graphSegmentShapeFromParam → node-live-audio-worklet-graph.js (Phase D graph math)
+
 
   /** Step Graph: global shape + curveOffset; per-node c still applied. */
-  graphSegmentOptionsForNode(node) {
-    if (node?.type !== "graphCopy" && node?.type !== "graph") {
-      return {};
-    }
-    const params = node?.params || {};
-    return {
-      curveOffset: this.normalizeGraphNumber(params.curveOffset, 0, -1, 1),
-      segmentShape: this.graphSegmentShapeFromParam(
-        params.segmentShape != null && params.segmentShape !== ""
-          ? params.segmentShape
-          : "linear",
-      ),
-    };
-  }
+  // graphSegmentOptionsForNode → node-live-audio-worklet-graph.js (Phase D graph math)
 
-  graphSegmentValue(graph, x, index, smoothingMode = "legacy", segmentOptions = {}) {
-    const left = graph.nodes[index];
-    const right = graph.nodes[index + 1];
-    const dx = right.x - left.x;
-    if (Math.abs(dx) < 0.000001) {
-      return 0.5 * (left.y + right.y);
-    }
-    const p = this.normalizeGraphNumber((x - left.x) / dx, 0, 0, 1);
-    if (smoothingMode !== "legacy") {
-      const shaped = this.graphModeCurve(p, smoothingMode, index);
-      return left.y + (right.y - left.y) * shaped;
-    }
-    const offset = this.normalizeGraphNumber(segmentOptions.curveOffset, 0, -1, 1);
-    // Per-node c + global offset; ±1 = hard step for rational / exp / log.
-    const contour = this.normalizeGraphNumber((Number(right.c) || 0) + offset, 0, -1, 1);
-    const shape = segmentOptions.segmentShape != null && segmentOptions.segmentShape !== ""
-      ? this.normalizeGraphShape(segmentOptions.segmentShape)
-      : this.normalizeGraphShape(right.shape || "rational");
-    let shaped = p;
-    if (shape === "exponential") {
-      shaped = this.graphExponentialCurve(p, contour);
-    } else if (shape === "log" || shape === "logarithmic") {
-      shaped = this.graphLogarithmicCurve(p, contour);
-    } else if (shape === "hold") {
-      shaped = p >= 1 ? 1 : 0;
-    } else if (shape === "smoothstep" || shape === "smooth") {
-      shaped = this.graphSmoothCurve(p);
-    } else if (shape === "linear") {
-      shaped = p;
-    } else {
-      shaped = this.graphRationalCurve(p, contour);
-    }
-    return left.y + (right.y - left.y) * shaped;
-  }
 
-  graphValueAt(graphValue, xValue, smoothingMode = "legacy", tension = 1, segmentOptions = {}) {
-    const graph = this.normalizeGraph(graphValue);
-    const x = this.normalizeGraphNumber(xValue, 0, -Infinity, Infinity);
-    if (!graph.nodes.length) {
-      return 0;
-    }
-    const normalizedMode = this.normalizeGraph2SmoothingMode(smoothingMode);
-    // Catmull = guide-tension curve (old smooth/bezier aliases map here).
-    if (normalizedMode === "catmull") {
-      return this.graphGuideBezierValueAt(graph, x, tension);
-    }
-    if (x < graph.nodes[0].x) {
-      return graph.nodes[0].y;
-    }
-    if (x > graph.nodes[graph.nodes.length - 1].x) {
-      return graph.nodes[graph.nodes.length - 1].y;
-    }
-    if (normalizedMode === "quadratic") {
-      return this.safeFilterNumber(this.graphLagrangeValueAt(graph, x, 2), null);
-    }
-    if (normalizedMode === "cubic") {
-      return this.safeFilterNumber(this.graphLagrangeValueAt(graph, x, 3), null);
-    }
-    for (let index = 0; index < graph.nodes.length - 1; index += 1) {
-      if (x <= graph.nodes[index + 1].x) {
-        return this.safeFilterNumber(
-          this.graphSegmentValue(graph, x, index, smoothingMode, segmentOptions),
-          null,
-        );
-      }
-    }
-    return graph.nodes[graph.nodes.length - 1].y;
-  }
+  // graphSegmentValue → node-live-audio-worklet-graph.js (Phase D graph math)
+
+
+  // graphValueAt → node-live-audio-worklet-graph.js (Phase D graph math)
+
 
   outputSampleClipped(value) {
     return this.badValueReason(value) || value < -0.95 || value > 0.95;
@@ -1838,36 +1387,14 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
 
   // smoothingSeconds metadata is a SAMPLE COUNT, not seconds: 0 bypasses
   // smoothing entirely, and any N > 0 smooths over exactly N samples.
-  smoothingSecondsFromMetadata(metadata = {}) {
-    const value = Number(metadata?.smoothingSeconds);
-    return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
-  }
+  // smoothingSecondsFromMetadata → node-live-audio-worklet-smoother.js (Phase D parameter smoother)
 
-  smoothingModeFromMetadata(metadata = {}) {
-    return nodeSmoothingModeNormalize(metadata?.smoothingMode);
-  }
 
-  smoothingTypeFromMetadata(metadata = {}) {
-    const raw = metadata?.smoothingType;
-    if (raw != null && String(raw).trim() !== "") {
-      if (typeof normalizeNodeGraphParameterSmootherFilterType === "function") {
-        return normalizeNodeGraphParameterSmootherFilterType(raw);
-      }
-      const key = String(raw).trim();
-      if (key === "linear" || key === "L" || key === "l") {
-        return "linear";
-      }
-      if (key === "twoPole" || key === "2P" || key === "2p" || key === "two-pole" || key === "2pole") {
-        return "twoPole";
-      }
-      return key === "papoulis" ? "papoulis" : "onePole";
-    }
-    // Legacy: linearSmoothing=false → type linear (instant).
-    if (metadata?.linearSmoothing === false) {
-      return "linear";
-    }
-    return "onePole";
-  }
+  // smoothingModeFromMetadata → node-live-audio-worklet-smoother.js (Phase D parameter smoother)
+
+
+  // smoothingTypeFromMetadata → node-live-audio-worklet-smoother.js (Phase D parameter smoother)
+
 
   // Resolves a parameter's effective smoothing window in seconds (0 means
   // "snap instantly") from its smoothingMode:
@@ -1878,303 +1405,69 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   //   blockSize       -- smooth over exactly one audio processing block
   //   internalGlobal  -- internal samples PLUS the global smoothing time
   //   off             -- always instant, ignoring both internal and global
-  resolveSmoothingSecondsForMode(mode, smoothingSamples, frames, rate = sampleRate, globalSeconds = this.autoSmoothingSeconds) {
-    const safeRate = Math.max(1, Number(rate) || 44100);
-    const safeGlobal = Number.isFinite(Number(globalSeconds)) ? Math.max(0, Number(globalSeconds)) : 0;
-    const internalSeconds = smoothingSamples > 0 ? smoothingSamples / safeRate : 0;
-    switch (mode) {
-      case "off":
-        return 0;
-      case "blockSize":
-        // Under construction: behaves as no smoothing until implemented.
-        return 0;
-      case "global":
-        return safeGlobal;
-      case "internalGlobal":
-        return internalSeconds + safeGlobal;
-      case "internal":
-      default:
-        return internalSeconds;
-    }
-  }
+  // resolveSmoothingSecondsForMode → node-live-audio-worklet-smoother.js (Phase D parameter smoother)
 
-  createSmoother(initialValue, metadata = {}) {
-    const value = Number(initialValue);
-    const safeValue = Number.isFinite(value) ? value : 0;
-    const signal = this.parameterValueToNormalizedSignal(safeValue, metadata);
-    const smoothingType = this.smoothingTypeFromMetadata(metadata);
-    const usesFilter = typeof nodeGraphParameterSmootherUsesFilter === "function"
-      ? nodeGraphParameterSmootherUsesFilter(smoothingType)
-      : (smoothingType !== "linear" && metadata?.linearSmoothing !== false);
-    const smoother = {
-      current: safeValue,
-      linearSmoothing: usesFilter,
-      max: Number.isFinite(Number(metadata?.max)) ? Number(metadata.max) : 1,
-      metadata,
-      min: Number.isFinite(Number(metadata?.min)) ? Number(metadata.min) : 0,
-      smoothingMode: this.smoothingModeFromMetadata(metadata),
-      smoothingSeconds: this.smoothingSecondsFromMetadata(metadata),
-      smoothingType,
-      outputBuffer: signal,
-      targetSignal: signal,
-      target: safeValue,
-      lastValue: safeValue,
-      wraparound: Boolean(metadata?.wraparound),
-      filterState: null,
-      filterStateType: null,
-    };
-    if (typeof nodeGraphEnsureParameterSmootherFilterState === "function") {
-      nodeGraphEnsureParameterSmootherFilterState(smoother, smoothingType);
-    }
-    return smoother;
-  }
 
-  clampAutoSmoothingSeconds(seconds) {
-    const value = Number(seconds);
-    if (!Number.isFinite(value)) {
-      return 0.016;
-    }
-    return Math.max(0, value);
-  }
+  // createSmoother → node-live-audio-worklet-smoother.js (Phase D parameter smoother)
 
-  smoothingFrequencyFromSeconds(seconds) {
-    const normalized = this.clampAutoSmoothingSeconds(seconds);
-    return normalized <= 0 ? 0 : 1 / normalized;
-  }
 
-  syncNestedAutoSmoothingSeconds(seconds = this.autoSmoothingSeconds) {
-    const normalized = this.clampAutoSmoothingSeconds(seconds);
-    for (const runtime of this.moduleGroupRuntimes?.values?.() || []) {
-      runtime.autoSmoothingSeconds = normalized;
-      runtime.syncNestedAutoSmoothingSeconds?.(normalized);
-    }
-  }
+  // clampAutoSmoothingSeconds → node-live-audio-worklet-smoother.js (Phase D parameter smoother)
+
+
+  // smoothingFrequencyFromSeconds → node-live-audio-worklet-smoother.js (Phase D parameter smoother)
+
+
+  // syncNestedAutoSmoothingSeconds → node-live-audio-worklet-smoother.js (Phase D parameter smoother)
+
 
   // soemdsp SmootherBase::needsSmoothing — skip settled params.
-  smootherNeedsWork(smoother) {
-    return Math.abs((smoother.outputBuffer ?? 0) - (smoother.targetSignal ?? 0)) > 1e-7;
-  }
+  // smootherNeedsWork → node-live-audio-worklet-smoother.js (Phase D parameter smoother)
+
 
   /** Snap chase state to target (value + optional filter state). */
-  settleSmoother(smoother, { snapFilter = true } = {}) {
-    if (!smoother) {
-      return;
-    }
-    smoother.current = smoother.target;
-    smoother.outputBuffer = smoother.targetSignal;
-    smoother.lastValue = smoother.target;
-    if (snapFilter && typeof nodeGraphParameterSmootherFilterSnap === "function") {
-      nodeGraphParameterSmootherFilterSnap(smoother, smoother.targetSignal);
-    }
-  }
+  // settleSmoother → node-live-audio-worklet-smoother.js (Phase D parameter smoother)
+
 
   /** Drop a marked-or-settled entry from the dirty-list key set. */
-  clearSmootherActiveMembership(smoother) {
-    if (!smoother) {
-      return;
-    }
-    const key = smoother._activeKey;
-    if (key) {
-      this.activeSmootherKeys.delete(key);
-    }
-    smoother._activeKey = null;
-    smoother._activeDrop = false;
-  }
+  // clearSmootherActiveMembership → node-live-audio-worklet-smoother.js (Phase D parameter smoother)
+
 
   /**
    * soemdsp SmootherManager::addForSmoothing — only moving chases are hot.
    * Cost ∝ active count, not all params.
    */
-  activateSmoother(key, smoother) {
-    if (!smoother || !key) {
-      return false;
-    }
-    if (!smoother.linearSmoothing || !this.smootherNeedsWork(smoother)) {
-      return false;
-    }
-    if (this.activeSmootherKeys.has(key)) {
-      return true;
-    }
-    this.activeSmootherKeys.add(key);
-    smoother._activeKey = key;
-    smoother._activeDrop = false;
-    this.activeSmoothers.push(smoother);
-    return true;
-  }
+  // activateSmoother → node-live-audio-worklet-smoother.js (Phase D parameter smoother)
 
-  deactivateSmoother(key, smoother) {
-    if (!key || !this.activeSmootherKeys.has(key)) {
-      if (smoother) {
-        smoother._activeKey = null;
-      }
-      return;
-    }
-    this.activeSmootherKeys.delete(key);
-    if (smoother) {
-      smoother._activeKey = null;
-      // Compact in runActiveSmoothers / finishSmoothing.
-      smoother._activeDrop = true;
-    }
-  }
+
+  // deactivateSmoother → node-live-audio-worklet-smoother.js (Phase D parameter smoother)
+
 
   /** One sample of chase. Returns true if still moving (stay on dirty list). */
-  stepSmootherOneSample(smoother, frames) {
-    if (!smoother?.linearSmoothing) {
-      this.settleSmoother(smoother, { snapFilter: false });
-      return false;
-    }
-    if (!this.smootherNeedsWork(smoother)) {
-      this.settleSmoother(smoother);
-      return false;
-    }
-    const smoothingSeconds = this.clampAutoSmoothingSeconds(this.resolveSmoothingSecondsForMode(
-      smoother.smoothingMode,
-      smoother.smoothingSeconds || 0,
-      frames,
-      sampleRate,
-    ));
-    if (smoothingSeconds <= 0) {
-      this.settleSmoother(smoother);
-      return false;
-    }
-    const cutoff = this.smoothingFrequencyFromSeconds(smoothingSeconds);
-    const signal = typeof nodeGraphParameterSmootherFilterSample === "function"
-      ? nodeGraphParameterSmootherFilterSample(smoother, smoother.targetSignal, cutoff, sampleRate)
-      : this.onePoleLowpassSample(smoother, smoother.targetSignal, cutoff, sampleRate);
-    const value = this.normalizedSignalToParameterValue(signal, smoother.metadata);
-    smoother.current = value;
-    smoother.lastValue = value;
-    return this.smootherNeedsWork(smoother);
-  }
+  // stepSmootherOneSample → node-live-audio-worklet-smoother.js (Phase D parameter smoother)
+
 
   /**
    * soemdsp SmootherManager::run + clean — advance dirty chases once per
    * engine sample, then drop settled ones.
    */
-  runActiveSmoothers(frames) {
-    const list = this.activeSmoothers;
-    if (!list.length) {
-      return;
-    }
-    let write = 0;
-    for (let i = 0; i < list.length; i += 1) {
-      const smoother = list[i];
-      if (!smoother || smoother._activeDrop) {
-        this.clearSmootherActiveMembership(smoother);
-        continue;
-      }
-      if (this.stepSmootherOneSample(smoother, frames)) {
-        list[write] = smoother;
-        write += 1;
-      } else {
-        this.clearSmootherActiveMembership(smoother);
-      }
-    }
-    list.length = write;
-  }
+  // runActiveSmoothers → node-live-audio-worklet-smoother.js (Phase D parameter smoother)
 
-  updateSmoother(smoother, targetValue, metadata = {}, smootherKey = null) {
-    const value = Number(targetValue);
-    smoother.target = Number.isFinite(value) ? value : smoother.target;
-    smoother.max = Number.isFinite(Number(metadata?.max)) ? Number(metadata.max) : smoother.max;
-    smoother.metadata = metadata;
-    smoother.min = Number.isFinite(Number(metadata?.min)) ? Number(metadata.min) : smoother.min;
-    smoother.smoothingMode = this.smoothingModeFromMetadata(metadata);
-    smoother.smoothingSeconds = this.smoothingSecondsFromMetadata(metadata);
-    const nextType = this.smoothingTypeFromMetadata(metadata);
-    if (smoother.smoothingType !== nextType) {
-      if (smoother.filterState?.nativeHandle) {
-        this.destroyPapoulisParameterSmootherNativeState(smoother);
-      }
-      smoother.smoothingType = nextType;
-      smoother.filterState = null;
-      smoother.filterStateType = null;
-    } else {
-      smoother.smoothingType = nextType;
-    }
-    smoother.linearSmoothing = typeof nodeGraphParameterSmootherUsesFilter === "function"
-      ? nodeGraphParameterSmootherUsesFilter(nextType)
-      : (nextType !== "linear" && metadata?.linearSmoothing !== false);
-    smoother.targetSignal = this.parameterValueToNormalizedSignal(smoother.target, metadata);
-    smoother.wraparound = Boolean(metadata?.wraparound);
-    const key = smootherKey || smoother._activeKey || null;
-    if (!smoother.linearSmoothing || !this.smootherNeedsWork(smoother)) {
-      this.settleSmoother(smoother);
-      if (key) {
-        this.deactivateSmoother(key, smoother);
-      }
-      return;
-    }
-    if (key) {
-      this.activateSmoother(key, smoother);
-    }
-  }
+
+  // updateSmoother → node-live-audio-worklet-smoother.js (Phase D parameter smoother)
+
 
   /**
    * Readers only — active set advances once per engine sample in evaluateFrame.
    * lastValue is the shared out_.
    */
-  readSmoothedParameter(node, key, fallback, frame, frames) {
-    const smootherKey = this.parameterKey(node?.id, key);
-    const smoother = this.smoothers.get(smootherKey);
-    if (!smoother) {
-      const value = Number(node?.params?.[key]);
-      return Number.isFinite(value) ? value : fallback;
-    }
-    if (!smoother.linearSmoothing) {
-      return smoother.target;
-    }
-    // Safety: target moved but not yet on the dirty list — lazy one-shot step.
-    if (this.smootherNeedsWork(smoother) && !this.activeSmootherKeys.has(smootherKey)) {
-      this.activateSmoother(smootherKey, smoother);
-      this.stepSmootherOneSample(smoother, frames);
-      if (!this.smootherNeedsWork(smoother)) {
-        this.deactivateSmoother(smootherKey, smoother);
-      }
-    }
-    return Number.isFinite(smoother.lastValue) ? smoother.lastValue : smoother.target;
-  }
+  // readSmoothedParameter → node-live-audio-worklet-smoother.js (Phase D parameter smoother)
 
-  finishSmoothing() {
-    const list = this.activeSmoothers;
-    if (list.length) {
-      let write = 0;
-      for (let i = 0; i < list.length; i += 1) {
-        const smoother = list[i];
-        if (!smoother || smoother._activeDrop) {
-          this.clearSmootherActiveMembership(smoother);
-          continue;
-        }
-        smoother.current = smoother.lastValue ?? smoother.current;
-        list[write] = smoother;
-        write += 1;
-      }
-      list.length = write;
-    }
-    for (const runtime of this.moduleGroupRuntimes?.values?.() || []) {
-      runtime.finishSmoothing();
-    }
-  }
 
-  applyParameterBounds(value, metadata = {}) {
-    const min = Number(metadata.min);
-    const max = Number(metadata.max);
-    if (metadata.unboundedMin && metadata.unboundedMax) {
-      return value;
-    }
-    if (metadata.unboundedMin && Number.isFinite(max)) {
-      return Math.min(value, max);
-    }
-    if (metadata.unboundedMax && Number.isFinite(min)) {
-      return Math.max(value, min);
-    }
-    if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
-      return value;
-    }
-    return metadata.wraparound
-      ? this.wrapValue(value, min, max)
-      : this.clampValue(value, min, max);
-  }
+  // finishSmoothing → node-live-audio-worklet-smoother.js (Phase D parameter smoother)
+
+
+  // applyParameterBounds → node-live-audio-worklet-smoother.js (Phase D parameter smoother)
+
 
   readRuntimeOutput(frameValues, nodeId, port = "Out") {
     const output = frameValues?.has(nodeId)
@@ -2247,57 +1540,14 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return this.applyParameterBounds(min + range * normalizedValue, metadata);
   }
 
-  applyParameterModulation(base, modulationSignal, metadata = {}) {
-    if (metadata?.kind === "frequency" && metadata.nonlinearSlider) {
-      const baseFrequency = Math.max(0.000001, Number(base) || 0.000001);
-      const octaves = (Number(modulationSignal) || 0) / 0.1;
-      return this.applyParameterBounds(baseFrequency * (2 ** octaves), metadata);
-    }
-    const baseSignal = this.parameterValueToNormalizedSignal(base, metadata);
-    return this.normalizedSignalToParameterValue(baseSignal + modulationSignal, metadata);
-  }
+  // applyParameterModulation → node-live-audio-worklet-smoother.js (Phase D parameter smoother)
 
-  readRuntimePortOutput(frameValues, nodeId, port = "Out", frame = 0, frames = 1) {
-    const node = this.nodes.get(nodeId);
-    if (!this.parameterOutputExists(node, port)) {
-      return this.readRuntimeOutput(frameValues, nodeId, port);
-    }
-    const value = this.readSmoothedParameter(node, port, 0, frame, frames);
-    return this.normalizeParameterOutputValue(value, node?.paramMeta?.[port] || {});
-  }
 
-  readEffectiveParameter(node, key, fallback, frame, frames, frameValues) {
-    const base = this.readSmoothedParameter(node, key, fallback, frame, frames);
-    const modulations = this.modulationConnections.get(this.parameterKey(node?.id, key));
-    // Most parameters have no modulation wired to them at all. Skip the
-    // normalize/denormalize round trip (parameterSkewExponent alone runs two
-    // Math.log() calls) entirely in that case instead of paying it on every
-    // sample for every parameter, modulated or not -- this was the actual
-    // per-sample cost behind Sabrina Reverb's real-time audio underruns
-    // (measured, not guessed: 8 parameters x this unconditional work was
-    // enough to push ctx.currentTime ~5% behind wall-clock).
-    if (!modulations || !modulations.length) {
-      return base;
-    }
-    const metadata = node?.paramMeta?.[key] || {};
-    const min = Number(metadata.min);
-    const max = Number(metadata.max);
-    const hasMetadataRange = Number.isFinite(min) && Number.isFinite(max) && max > min;
-    const modulationSignal = modulations.reduce(
-      (sum, modulation) => sum + this.normalizeParameterModulationInput(this.readRuntimePortOutput(
-        frameValues,
-        modulation.sourceNode,
-        modulation.sourcePort,
-        frame,
-        frames,
-      ), metadata),
-      0,
-    );
-    if (!hasMetadataRange) {
-      return base + modulationSignal;
-    }
-    return this.applyParameterModulation(base, modulationSignal, metadata);
-  }
+  // readRuntimePortOutput → node-live-audio-worklet-smoother.js (Phase D parameter smoother)
+
+
+  // readEffectiveParameter → node-live-audio-worklet-smoother.js (Phase D parameter smoother)
+
 
   phaseRadians(value) {
     return this.wrapValue(Number(value) || 0, 0, 1) * Math.PI * 2;
