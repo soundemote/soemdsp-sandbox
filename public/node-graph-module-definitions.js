@@ -5057,6 +5057,14 @@ function nodeGraphModuleProducesOutputWithoutSignalInput(type) {
   if (!Array.isArray(definition.inputs) || definition.inputs.length === 0) {
     return true;
   }
+  // B dual-path: planRole source/always (or legacy source helper) can free-run
+  // even when inputs[] is non-empty (pitch CV jacks, Reset, etc.).
+  if (typeof nodeGraphModuleIsPlanSourceType === "function" && nodeGraphModuleIsPlanSourceType(type)) {
+    return true;
+  }
+  if (definition.planRole === "source" || definition.planRole === "always") {
+    return true;
+  }
   // Specific module types that have input ports but can produce output
   // without signal input (e.g. parameter-driven or script-driven output).
   const inputCapableSources = new Set([

@@ -2325,7 +2325,11 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-graph-stdlib/node-graph-phasor-helpers.js?v=phasor-helpers-1",
   "./public/node-graph-stdlib/node-graph-control-bus-helpers.js?v=control-bus-1",
   "./public/node-graph-parameter-smoother-filters.js?v=two-pole-smooth-1",
-  "./public/node-live-audio-worklet-core.js?v=phosphillator-drawnpath-1",
+  "./public/node-live-audio-worklet-core.js?v=plan-d-split-2",
+  // Phase D: class methods extracted from core (must follow class definition).
+  "./public/node-live-audio-worklet-evaluators.js?v=plan-d-split-1",
+  "./public/node-live-audio-worklet-native-exports.js?v=plan-d-split-2",
+  "./public/node-live-audio-worklet-set-plan.js?v=plan-d-split-2",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=xy-pad-dsp-path-1",
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=native-strip-1",

@@ -28,9 +28,9 @@ Stop paying dual-implementation tax and hand-maintained type lists. One evaluati
 | # | Bet | Reward | Risk | Start order |
 |---|-----|--------|------|-------------|
 | **A** | Shared live/worklet DSP (continue) | One bug class dies; faster modules | Worklet Blob globals | **1 — in progress** |
-| **B** | Data-driven plan roles | No more 5× type lists | Mute whole shelves if wrong | **2 — next** |
-| **C** | Patch schema + migrations | Free renames (Knob type id, params) | Bad migration = lost patches | **3** |
-| **D** | Mechanical megacore splits | Maintainability | Load-order / missing registers | **4** |
+| **B** | Data-driven plan roles | No more 5× type lists | Mute whole shelves if wrong | **2 — B3 plan list retired** |
+| **C** | Patch schema + migrations | Free renames (Knob type id, params) | Bad migration = lost patches | **3 — C0 pipeline landed** |
+| **D** | Mechanical megacore splits | Maintainability | Load-order / missing registers | **4 — evaluators extract done** |
 | **E** | Used-modules WASM slim | Load size / player readiness | Incomplete dep walk | Later |
 | **F** | Param surface model (In vs mod) | End slider≠readout class | Feel shift on all patches | Later, explicit product |
 
@@ -53,8 +53,8 @@ Every control/bus (and eventually every module) evaluates through **pure functio
 ### Next slices (A1–A4)
 | Slice | Work | Gate |
 |-------|------|------|
-| **A1** | Inventory modules that still duplicate live vs worklet (osc family, filters mono/L/R) | Grep report |
-| **A2** | Extract next pure batch (e.g. mono/L/R filter passthrough skeleton, pitch helpers already partial) | Same output sample-for-sample on a fixed patch |
+| **A1** | [x] Inventory — `docs/A1_LIVE_WORKLET_DSP_INVENTORY.md` | Grep report |
+| **A2** | [~] curveOsc/snowflake/dsf/hypersaw use `nodeGraphPitchedFrequency`; continue osc family | Sample parity |
 | **A3** | Convention: new modules **must** ship pure eval + thin adapters only | Doc in MODULE_PATTERN_REFERENCE |
 | **A4** | Optional: worklet unit smoke that imports helpers and checks a few vectors | `node` smoke script |
 
@@ -86,10 +86,11 @@ Replace hard-coded type lists in:
 ```
 
 ### Rollout (critical)
-1. **B0** — [x] `planRole` on definitions + chromeless registers; `node-graph-plan-roles.js` helpers; dual-read in `compileNodeGraphExecutionPlan`.
-2. **B1** — [x] Dual path: `nodeGraphModuleIsPlanSourceType(type) || legacy OR chain`.
-3. **B2** — [~] `nodeGraphPlanRoleLegacyDisagreements()` for console soak; wire optional log when retiring lists.
-4. **B3** — Remove legacy lists once zero disagreements for a soak period.
+1. **B0** — [x] `planRole` on definitions + chromeless registers; `node-graph-plan-roles.js` helpers.
+2. **B1** — [x] Dual path (historical).
+3. **B2** — [x] `nodeGraphPlanRoleLegacyDisagreements()` for console soak.
+4. **B3** — [x] Plan `sourceNodes` uses **only** `nodeGraphModuleIsPlanSourceType` (legacy set remains *inside* helper).  
+   - [ ] Next: remove `NODE_GRAPH_PLAN_LEGACY_SOURCE_TYPES` after soak; shrink `inputCapableSources` set similarly (dual-path already prefers planRole).
 
 ### Gate
 - Fixed regression patches: oscillator → filter → Output plays
@@ -102,19 +103,24 @@ Replace hard-coded type lists in:
 
 ### Goal
 ```js
-patch.patchFormat = 1; // integer, bumped on breaking shape changes
+patch.format = { kind: "soemdsp-sandbox-node-patch", version: N };
 ```
 
 Migrators run on load **before** unknown-type throws:
 
 ```text
-load → migrate to current → normalize → compile
+load → migrateNodeGraphPatchToCurrent → validate/normalize → compile
 ```
+
+### Done (C0)
+- [x] `public/node-graph-patch-migrations.js` — version climb + phosphorLight rename
+- [x] Wired at start of `validateNodeGraphPatch`
+- [x] `index.html` loads migrations before patch-core
 
 ### First migrations (examples)
 | From | To |
 |------|-----|
-| (implicit 0) | `patchFormat: 1` |
+| (implicit 0) | `format.version: 1` + phosphorLight→scope2d |
 | Future: `valueSlider` type rename | `knob` + face field rename |
 | Future: param key renames | mapped with defaults |
 
@@ -131,6 +137,16 @@ Split without behavior change:
 
 1. `node-live-audio-worklet-core.js` → native load / process / evaluators map (files only)
 2. `node-graph-module-scopes.js` → settings schemas vs paint vs capture (files only)
+
+### Done
+- [x] `buildLiveModuleEvaluators` → `node-live-audio-worklet-evaluators.js` (~112KB)
+- [x] `applyNativeModuleExports` → `node-live-audio-worklet-native-exports.js` (~55KB)
+- [x] `setPlan` → `node-live-audio-worklet-set-plan.js` (~43KB)
+- Core ~363KB → ~160KB; all wired after core in worklet Blob
+
+### Next D slices
+- [ ] `clearPlan` / `handleMessage` / remaining large methods if needed
+- [ ] scopes: normalize/settings cluster vs paint/capture (interleaved — careful)
 
 ### Rule
 **Extract only** in first PR: same functions, new files, same load order. No renames of public globals until extract settles.
@@ -157,14 +173,15 @@ Split without behavior change:
 
 1. [x] Commit + push Plugin shelf / control-bus / plan B0 (`322a111`).
 2. [x] Land this plan doc.
-3. [x] **B0/B1**: annotate sources + dual-path plan; restore missing `curveOsc`/`snowflake` defs.
-4. **Next:** B2 soak → B3 retire lists; continue **A** duplicate-DSP batches; then **C** formal migrators on top of existing `format.version: 1`.
+3. [x] **B0/B1/B3**: plan roles; restore curveOsc/snowflake; retire plan OR-chain.
+4. [x] **C0** migrator pipeline; **D** evaluators extract; **A1** inventory + pitch helper on new oscs.
+5. **Next:** soak B legacy-set removal; A2 more pitch/CV batches; D native-exports/setPlan; C1 valueSlider→knob when product-ready.
 
 ---
 
 ## Success criteria (program-level)
 
-- [ ] New module can ship without editing `sourceNodes` hard-coded list (Phase B complete)
+- [x] New module can ship without editing `sourceNodes` hard-coded list (plan list retired; annotate `planRole: "source"`)
 - [ ] Live and worklet share pure eval for all control/bus + majority of processors (Phase A mature)
-- [ ] Patch renames possible via migrator (Phase C)
-- [ ] worklet-core and scopes are multi-file without behavior change (Phase D)
+- [x] Patch renames possible via migrator (Phase C0 pipeline; C1 renames TBD)
+- [~] worklet-core multi-file started (evaluators); scopes still monolith (Phase D)

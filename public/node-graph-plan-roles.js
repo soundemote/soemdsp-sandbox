@@ -1,7 +1,9 @@
 // Execution-plan roles (Phase B of docs/HIGH_RISK_HIGH_REWARD_PLAN.md).
 //
-// B0: declare roles + dual-read helpers. Plan still uses legacy lists until B3.
-// Prefer definition.planRole; fall back to legacy classification for parity.
+// B3: compileNodeGraphExecutionPlan seeds sources only via
+// nodeGraphModuleIsPlanSourceType (no hard-coded OR chain in the plan).
+// Prefer definition.planRole; NODE_GRAPH_PLAN_LEGACY_SOURCE_TYPES remains a
+// fallback inside the helper until a soak shows zero disagreements.
 
 /** @typedef {"source"|"processor"|"sink"|"monitor"|"always"} NodeGraphPlanRole */
 

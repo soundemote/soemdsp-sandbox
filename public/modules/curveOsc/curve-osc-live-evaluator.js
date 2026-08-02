@@ -50,10 +50,9 @@ nodeGraphLiveModuleEvaluators.curveOsc = ({
       1,
     )
     : referenceVoltage;
-  const pitchedFrequency = Math.max(
-    0,
-    baseFrequency * (2 ** ((pitchInput - referenceVoltage) / 0.1)),
-  );
+  const pitchedFrequency = typeof nodeGraphPitchedFrequency === "function"
+    ? nodeGraphPitchedFrequency(baseFrequency, pitchInput, referenceVoltage)
+    : Math.max(0, baseFrequency * (2 ** ((pitchInput - referenceVoltage) / 0.1)));
   const fHz = typeof nodeGraphReadFInputHz === "function"
     ? nodeGraphReadFInputHz(mixInput, hasInput, nodeId)
     : null;

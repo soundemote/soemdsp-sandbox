@@ -89,6 +89,12 @@ function validateNodeGraphPatch(patch) {
     throw new Error("patch must be an object");
   }
 
+  // Phase C: climb format.version before shape checks / unknown-type throws.
+  const migrated = typeof migrateNodeGraphPatchToCurrent === "function"
+    ? migrateNodeGraphPatchToCurrent(patch)
+    : patch;
+  patch = migrated;
+
   if (patch.format !== undefined) {
     if (
       patch.format?.kind !== nodeGraphPatchFormat.kind ||
@@ -121,7 +127,13 @@ function validateNodeGraphPatch(patch) {
   const ids = new Set();
   const nodes = patch.nodes
     .filter((node) => !retiredNodeTypes.has(String(node.type || "").trim()))
-    .map((rawNode) => migrateNodeGraphPhosphorLightToScope2d(rawNode))
+    // phosphorLight → scope2d also runs inside migrateNodeGraphPatchToCurrent;
+    // keep local map for boot if migrations.js is missing.
+    .map((rawNode) => (
+      typeof migrateNodeGraphPhosphorLightToScope2d === "function"
+        ? migrateNodeGraphPhosphorLightToScope2d(rawNode)
+        : rawNode
+    ))
     .map((node) => {
     const id = String(node.id || "").trim();
     const type = String(node.type || "").trim();

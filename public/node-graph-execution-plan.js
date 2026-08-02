@@ -592,53 +592,15 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
 
   const topology = nodeGraphTopologicalOrder(graph.nodes, scheduling.orderDependencies, reachableNodes);
   const order = topology.order.filter((nodeId) => reachableNodes.has(nodeId));
-  // B0 dual-path: prefer planRole helpers when present; keep legacy OR so
-  // behavior stays identical until all types are annotated and lists retire (B3).
+  // B3: source seeding is data-driven via planRole (+ legacy fallback inside
+  // nodeGraphModuleIsPlanSourceType until NODE_GRAPH_PLAN_LEGACY_SOURCE_TYPES retires).
   const sourceNodes = order.filter((nodeId) => {
     const type = graph.nodeMap.get(nodeId)?.type;
-    if (typeof nodeGraphModuleIsPlanSourceType === "function" && nodeGraphModuleIsPlanSourceType(type)) {
-      return true;
+    if (typeof nodeGraphModuleIsPlanSourceType === "function") {
+      return nodeGraphModuleIsPlanSourceType(type);
     }
-    return type === "audioInput" ||
-      type === "pluginInput" ||
-      type === "pluginMidiIn" ||
-      type === "pluginMidiOut" ||
-      type === "valueSlider" ||
-      type === "pluginSlider" ||
-      type === "toggleButton" ||
-      type === "momentaryButton" ||
-      type === "audioPlayer" ||
-      type === "clock" ||
-      type === "transport" ||
-      type === "wireBreak" ||
-      type === "wireConnect" ||
-      type === "wireDisconnect" ||
-      type === "windowReopen" ||
-      type === "shootingStarExplosion" ||
-      nodeGraphModuleIsRealtimeOscillatorType(type) ||
-      type === "fractalBrownianNoise" ||
-      type === "keyboardController" ||
-      type === "lorenzAttractor" ||
-      type === "logisticMap" ||
-      type === "henonMap" ||
-      type === "rayBouncer" ||
-      type === "chuaAttractor" ||
-      type === "surgeOscillator" ||
-      type === "dsfOscillator" ||
-      type === "softwaveOsc" ||
-      type === "curveOsc" ||
-      type === "snowflake" ||
-      type === "ellipsoid" ||
-      type === "bugButton" ||
-      type === "xyPad" ||
-      type === "macroControls" ||
-      type === "midiOut" ||
-      type === "noiseGenerator" ||
-      type === "pitchModWheel" ||
-      type === "additiveOsc" ||
-      type === "gpuAdditiveOsc" ||
-      type === "randomWalk" ||
-      type === "spiral";
+    // Boot-order fallback if plan-roles.js failed to load.
+    return nodeGraphModuleIsRealtimeOscillatorType(type);
   });
   const inactiveNodes = graph.nodes
     .filter((node) => !reachableNodes.has(node.id))
