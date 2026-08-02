@@ -110,6 +110,7 @@ Do not mix cleanup-only and feature in one commit unless user prefers one dump.
 | 2026-08-01 | Retired type `clapPlugin` so old patches drop host nodes instead of `unknown node type`. |
 | 2026-08-01 | Removed empty `public/modules/impulseButton` and `public/modules/knob` dirs. |
 | 2026-08-01 | progress.md / README hygiene already applied. |
+| 2026-08-02 | Shared **control-bus helpers** (`node-graph-control-bus-helpers.js`): Bias/In, stereo mix, external stereo frame, MIDI ports — live evaluators + worklet dispatch share one pure API. Thinned valueSlider/plugin/output/audioInput/midiOut evaluators. Removed CLAP export JS earlier. |
 
 ---
 

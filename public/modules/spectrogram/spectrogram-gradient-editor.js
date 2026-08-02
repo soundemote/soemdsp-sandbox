@@ -955,6 +955,18 @@
       defaultStops: "phosphor",
       hint: "Energy → color · stops may go bright→dim · live on the lamp",
     }),
+    // RGB Shape: Position param samples this LUT for fill color.
+    rgbShapeFace: Object.freeze({
+      channels: "color",
+      defaultStops: "phosphor",
+      hint: "Shape fill · Position param samples along the gradient",
+    }),
+    // RGB Soft Fractal: Julia smooth-iter → psychedelic gradient.
+    rgbFractalFace: Object.freeze({
+      channels: "color",
+      defaultStops: "phosphor",
+      hint: "Julia escape → color · vivid multi-stop gradient · live evolving",
+    }),
     // Matrix faces: cell energy (black→white underlying) → multi-stop LUT.
     // defaultStops "matrix" = digital-rain ramp (green body, white tip).
     matrixFace: Object.freeze({

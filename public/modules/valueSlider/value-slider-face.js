@@ -650,7 +650,7 @@ function createNodeGraphValueSliderFace(node, type) {
   face.dataset.lightStrength = "0";
   face.tabIndex = 0;
   face.setAttribute("role", "slider");
-  face.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} value display`);
+  face.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} knob`);
 
   for (let i = 0; i < nodeGraphValueSliderFaceLayerCount; i += 1) {
     const layerId = nodeGraphValueSliderFaceLayerIds[i];
@@ -665,7 +665,7 @@ function createNodeGraphValueSliderFace(node, type) {
   const label = document.createElement("div");
   label.className = "node-value-slider-face-label";
   label.dataset.valueSliderFaceLabel = "true";
-  label.textContent = nodeGraphNodeLabels?.[type || "valueSlider"] || "Value";
+  label.textContent = nodeGraphNodeLabels?.[type || "valueSlider"] || "Knob";
 
   const readout = document.createElement("div");
   readout.className = "node-value-slider-face-readout";

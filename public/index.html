@@ -506,8 +506,17 @@
              guide below, so they take real layout space instead of floating
              over the patch. #nodeInteractionHelp is MOVED into this slot and
              back out again - there is only ever one of it, which is what lets
-             setNodeInteractionHelp keep working by id regardless of mode. -->
-        <div id="nodeInteractionHelpEmbedSlot" class="node-interaction-help-embed-slot" hidden></div>
+             setNodeInteractionHelp keep working by id regardless of mode.
+             Resize handle between this tips band and the modular workspace. -->
+        <div id="nodeInteractionHelpEmbedSlot" class="node-interaction-help-embed-slot" hidden>
+          <button
+            id="nodeInteractionHelpEmbedResize"
+            class="node-interaction-help-embed-resize"
+            type="button"
+            aria-label="Drag to resize embedded tips"
+            title="Drag to resize tips height"
+            hidden></button>
+        </div>
         <div class="node-constraint-color-guide" aria-label="Resource constraint color guide">
           <span class="node-constraint-stack" data-constraint-stack="cpu">
             <label class="node-constraint-chip" data-constraint="cpu" data-tooltip-key="constraints.cpu">
@@ -2090,7 +2099,7 @@
             type="text"
             autocomplete="off"
             spellcheck="false"
-            placeholder="display alias (Value Slider label, wires)">
+            placeholder="display alias (Knob / module label, wires)">
         </label>
         <button id="nodeSceneAddToGroup" type="button" role="menuitem" hidden disabled title="Add to group under construction. Module grouping is under construction.">
           <span>Add to group</span>
@@ -3567,6 +3576,9 @@
   <script src="./public/node-graph-chromeless-module-registry.js?v=chrome-seal-all-1"></script>
   <script src="./public/node-graph-module-chrome.js?v=layoutb-title-on-1"></script>
   <script src="./public/modules/led/led-register.js?v=layoutb-min-2x2-1"></script>
+  <script src="./public/modules/rgbShape/rgb-shape-register.js?v=rgb-shape-1"></script>
+  <script src="./public/modules/rgbPicture/rgb-picture-register.js?v=rgb-picture-1"></script>
+  <script src="./public/modules/rgbFractal/rgb-fractal-register.js?v=rgb-fractal-7"></script>
   <script src="./public/modules/bugButton/bug-button-register.js?v=bug-button-io-order-20260724"></script>
   <script src="./public/modules/xyPad/xy-pad-dsp.js?v=xy-pad-center-q-1"></script>
   <script src="./public/modules/xyPad/xy-pad-register.js?v=xy-pad-center-q-1"></script>
@@ -3575,10 +3587,11 @@
   <script src="./public/modules/stepGrid/step-grid-register.js?v=stepgrid-variable-steps-20260715"></script>
   <script src="./public/modules/groupInput/group-input-register.js?v=chromeless-portals-1"></script>
   <script src="./public/modules/groupOutput/group-output-register.js?v=chromeless-portals-1"></script>
-  <script src="./public/node-graph-module-definitions.js?v=output-no-mode-1"></script>
+  <script src="./public/node-graph-module-definitions.js?v=plugin-shelf-1"></script>
+  <script src="./public/node-graph-plan-roles.js?v=plan-roles-b0"></script>
   <script src="./public/node-graph-module-controls.js?v=f-input-speed-limit-20260726"></script>
   <script src="./public/node-graph-data-bus.js?v=data-plane-merge-20260711"></script>
-  <script src="./public/node-graph-module-store.js?v=cc-module-search-1"></script>
+  <script src="./public/node-graph-module-store.js?v=plugin-shelf-1"></script>
   <script src="./public/node-graph-module-sizing.js?v=display-min-1gu-1"></script>
   <script src="./public/node-graph-metadata-kinds.js?v=0051"></script>
   <script src="./public/node-graph-parameter-smoother-filters.js?v=two-pole-smooth-1"></script>
@@ -3640,6 +3653,13 @@
   <script src="./public/modules/led/led-ui.js?v=led-fill-images-1"></script>
   <script src="./public/modules/led/led-settings.js?v=led-gradient-lut-1"></script>
   <script src="./public/modules/led/led-display.js?v=led-gradient-lut-1"></script>
+  <script src="./public/modules/rgbShape/rgb-shape-ui.js?v=rgb-shape-1"></script>
+  <script src="./public/modules/rgbShape/rgb-shape-display.js?v=rgb-shape-1"></script>
+  <script src="./public/modules/rgbPicture/rgb-picture-ui.js?v=rgb-picture-1"></script>
+  <script src="./public/modules/rgbPicture/rgb-picture-display.js?v=rgb-picture-1"></script>
+  <script src="./public/modules/rgbFractal/rgb-fractal-gl.js?v=rgb-fractal-7"></script>
+  <script src="./public/modules/rgbFractal/rgb-fractal-ui.js?v=rgb-fractal-7"></script>
+  <script src="./public/modules/rgbFractal/rgb-fractal-display.js?v=rgb-fractal-7"></script>
   <script src="./public/modules/bugButton/bug-button-ui.js?v=bug-button-settings-edit-20260723"></script>
   <script src="./public/modules/xyPad/xy-pad-ui.js?v=room-dimmer-full-ui-90-1"></script>
   <script src="./public/modules/numberReadout/number-readout-ui.js?v=number-readout-solid-1"></script>
@@ -3661,6 +3681,7 @@
   <script src="./public/node-graph-port-geometry.js?v=wire-restore-pre-regression-1"></script>
   <script src="./public/node-graph-slider-readout.js?v=param-alias-label-1"></script>
   <script src="./public/modules/valueSlider/value-slider-face.js?v=value-slider-readout-fill-1"></script>
+  <script src="./public/modules/plugin/plugin-controls-ui.js?v=plugin-shelf-1"></script>
   <script src="./public/node-graph-slider-readout-controls.js?v=bug-button-settings-edit-20260723"></script>
   <script src="./public/node-graph-ghost-sliders.js?v=unbounded-speed-1"></script>
   <script src="./public/node-code-settings-editor.js?v=code-settings-shell-1"></script>
@@ -3733,6 +3754,8 @@
   <script src="./public/node-graph-chord-pad.js?v=chord-pad-1"></script>
   <script src="./public/modules/chordPad/chord-pad-ui.js?v=chord-pad-1"></script>
   <script src="./public/node-graph-softwave-oscillator.js?v=softwave-1"></script>
+  <script src="./public/modules/curveOsc/curve-osc-math.js?v=curve-osc-1"></script>
+  <script src="./public/modules/snowflake/snowflake-math.js?v=snowflake-1"></script>
   <script src="./public/modules/asciiscope/asciiscope-core.js?v=room-dimmer-full-ui-90-1"></script>
   <script src="./public/modules/asciiscope/asciiscope-gl.js?v=room-dimmer-full-ui-90-1"></script>
   <script src="./public/modules/asciiscope/asciiscope-display.js?v=room-dimmer-full-ui-90-1"></script>
@@ -3754,6 +3777,7 @@
   <script src="./public/node-graph-stdlib/node-graph-visual-control-helpers.js?v=stdlib-batch3-20260715"></script>
   <script src="./public/node-graph-stdlib/node-graph-seeded-rng-helpers.js?v=stdlib-batch3-20260715"></script>
   <script src="./public/node-graph-stdlib/node-graph-shared-dsp-helpers.js?v=stdlib-batch3-20260715"></script>
+  <script src="./public/node-graph-stdlib/node-graph-control-bus-helpers.js?v=control-bus-1"></script>
   <script src="./public/node-graph-stdlib/node-graph-shared-app-helpers.js?v=stdlib-app-helpers-20260725"></script>
   <script src="./public/node-graph-stdlib/node-graph-sinc-kernel.js?v=sinc-bandlimit-20260725"></script>
   <script src="./public/node-graph-live-frame-evaluator.js?v=step-global-shape-1"></script>
@@ -3766,6 +3790,8 @@
   <script src="./public/modules/pitchQuantizer/pitch-quantizer-live-evaluator.js?v=pitch-quantizer-face-1"></script>
   <script src="./public/modules/chordPad/chord-pad-live-evaluator.js?v=chord-pad-1"></script>
   <script src="./public/modules/softwaveOsc/softwave-osc-live-evaluator.js?v=softwave-1"></script>
+  <script src="./public/modules/curveOsc/curve-osc-live-evaluator.js?v=curve-osc-1"></script>
+  <script src="./public/modules/snowflake/snowflake-live-evaluator.js?v=snowflake-1"></script>
   <script src="./public/modules/asciiscope/asciiscope-live-evaluator.js?v=matrix-split-1"></script>
   <script src="./public/modules/matrixDisplay/matrix-display-live-evaluator.js?v=matrix-display-1"></script>
   <script src="./public/modules/textStream/text-stream-live-evaluator.js?v=text-stream-1"></script>
@@ -3849,6 +3875,9 @@
   <script src="./public/modules/gain/gain-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/sinc/sinc-live-evaluator.js?v=sinc-bandlimit-20260725"></script>
   <script src="./public/modules/led/led-live-evaluator.js?v=per-module-dispatch-20260711"></script>
+  <script src="./public/modules/rgbShape/rgb-shape-live-evaluator.js?v=rgb-shape-1"></script>
+  <script src="./public/modules/rgbPicture/rgb-picture-live-evaluator.js?v=rgb-picture-1"></script>
+  <script src="./public/modules/rgbFractal/rgb-fractal-live-evaluator.js?v=rgb-fractal-1"></script>
   <script src="./public/modules/bugButton/bug-button-live-evaluator.js?v=solid-module-shell-2-20260723"></script>
   <script src="./public/modules/xyPad/xy-pad-live-evaluator.js?v=xy-pad-drag-1"></script>
   <script src="./public/modules/gainBias/gain-bias-live-evaluator.js?v=gain-bias-20260725"></script>
@@ -3856,6 +3885,7 @@
   <script src="./public/modules/softClipper/soft-clipper-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/rotate3dTo2d/rotate-3d-to-2d-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/valueSlider/value-slider-live-evaluator.js?v=per-module-dispatch-20260711"></script>
+  <script src="./public/modules/plugin/plugin-controls-live-evaluator.js?v=plugin-shelf-1"></script>
   <script src="./public/modules/sandboxVisuals/sandbox-visuals-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/screenSpaceShader/screen-space-shader-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/bloomGlow/bloom-glow-live-evaluator.js?v=per-module-dispatch-20260711"></script>

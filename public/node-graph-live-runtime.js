@@ -2323,6 +2323,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   // Pure stdlib first so per-module worklet chunks can call nodeGraphWrap01 /
   // nodeGraphTrisaw / nodeGraphPitchedFrequency / nodeGraphAdvancePhase01.
   "./public/node-graph-stdlib/node-graph-phasor-helpers.js?v=phasor-helpers-1",
+  "./public/node-graph-stdlib/node-graph-control-bus-helpers.js?v=control-bus-1",
   "./public/node-graph-parameter-smoother-filters.js?v=two-pole-smooth-1",
   "./public/node-live-audio-worklet-core.js?v=phosphillator-drawnpath-1",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
@@ -2353,6 +2354,12 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/nyquistShannon/nyquist-shannon-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/surgeOscillator/surge-oscillator-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/softwaveOsc/softwave-osc-worklet-evaluator.js?v=phasor-stdlib-1",
+  // Pure curve math before worklet glue (createNodeGraphCurveOscState / sample).
+  "./public/modules/curveOsc/curve-osc-math.js?v=curve-osc-1",
+  "./public/modules/curveOsc/curve-osc-worklet-evaluator.js?v=curve-osc-1",
+  // RS-MET-style L-system turtle oscillator (pure JS).
+  "./public/modules/snowflake/snowflake-math.js?v=snowflake-1",
+  "./public/modules/snowflake/snowflake-worklet-evaluator.js?v=snowflake-1",
   "./public/modules/textStream/text-stream-worklet-evaluator.js?v=text-stream-1",
   "./public/modules/dsfOscillator/dsf-oscillator-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/robinSupersaw/robin-supersaw-worklet-evaluator.js?v=native-no-fallback-1",

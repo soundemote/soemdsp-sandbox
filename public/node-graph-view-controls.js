@@ -1252,6 +1252,101 @@ function renderNodeGraphTooltipWindowToggle() {
   renderNodeGraphVisibilityMenuButton();
 }
 
+// Embedded tips height (in-flow band above modular workspace). User-draggable;
+// text is fitted to the box so hover tips do not reflow the graph.
+const nodeTooltipEmbedHeightDefault = 46;
+const nodeTooltipEmbedHeightMin = 32;
+const nodeTooltipEmbedHeightMax = 320;
+
+function normalizeNodeGraphTooltipEmbedHeight(value) {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) {
+    return nodeTooltipEmbedHeightDefault;
+  }
+  return Math.max(nodeTooltipEmbedHeightMin, Math.min(nodeTooltipEmbedHeightMax, n));
+}
+
+function applyNodeGraphTooltipEmbedHeight(height = nodeGraphMvp.tooltipEmbedHeight) {
+  const px = normalizeNodeGraphTooltipEmbedHeight(
+    height ?? nodeGraphMvp.tooltipEmbedHeight ?? nodeTooltipEmbedHeightDefault,
+  );
+  nodeGraphMvp.tooltipEmbedHeight = px;
+  const panel = document.getElementById("nodeWiringPanel");
+  const help = document.getElementById("nodeInteractionHelp");
+  const css = `${px}px`;
+  panel?.style?.setProperty("--node-tooltip-embed-height", css);
+  if (help?.classList.contains("is-embedded")) {
+    help.style.setProperty("--node-tooltip-embed-height", css);
+  }
+  return px;
+}
+
+function beginNodeGraphTooltipEmbedResize(event) {
+  if (event.button != null && event.button !== 0) {
+    return;
+  }
+  const handle = document.getElementById("nodeInteractionHelpEmbedResize");
+  const help = document.getElementById("nodeInteractionHelp");
+  if (!handle || !help?.classList.contains("is-embedded")) {
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  handle.classList.add("dragging");
+  nodeGraphMvp.tooltipEmbedResizing = {
+    handle,
+    startY: event.clientY,
+    startHeight: normalizeNodeGraphTooltipEmbedHeight(
+      nodeGraphMvp.tooltipEmbedHeight ?? nodeTooltipEmbedHeightDefault,
+    ),
+    pointerId: event.pointerId,
+  };
+  try {
+    handle.setPointerCapture?.(event.pointerId);
+  } catch {
+    // ignore
+  }
+}
+
+function dragNodeGraphTooltipEmbedResize(event) {
+  const state = nodeGraphMvp.tooltipEmbedResizing;
+  if (!state) {
+    return;
+  }
+  // Drag down = taller tips (toward modular workspace); drag up = shorter.
+  const delta = event.clientY - state.startY;
+  const next = applyNodeGraphTooltipEmbedHeight(state.startHeight + delta);
+  const help = document.getElementById("nodeInteractionHelp");
+  if (typeof fitNodeInteractionHelpText === "function") {
+    fitNodeInteractionHelpText(help);
+  }
+  return next;
+}
+
+function endNodeGraphTooltipEmbedResize(event) {
+  const state = nodeGraphMvp.tooltipEmbedResizing;
+  if (!state) {
+    return;
+  }
+  if (event?.pointerId != null) {
+    try {
+      state.handle?.releasePointerCapture?.(event.pointerId);
+    } catch {
+      // ignore
+    }
+  }
+  state.handle?.classList.remove("dragging");
+  nodeGraphMvp.tooltipEmbedResizing = null;
+  applyNodeGraphTooltipEmbedHeight();
+  const help = document.getElementById("nodeInteractionHelp");
+  if (typeof fitNodeInteractionHelpText === "function") {
+    fitNodeInteractionHelpText(help);
+  }
+  if (typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
+    saveNodeGraphWorkingPatchToUserSettings({ immediateFile: false });
+  }
+}
+
 // Physically relocates #nodeInteractionHelp between the floating window and
 // the in-flow slot, carrying its shown-ness across so flipping the mode never
 // silently hides the tips you were reading.
@@ -1259,6 +1354,7 @@ function applyNodeGraphTooltipEmbed({ shown } = {}) {
   const help = document.getElementById("nodeInteractionHelp");
   const slot = document.getElementById("nodeInteractionHelpEmbedSlot");
   const win = document.getElementById("nodeTooltipWindow");
+  const resize = document.getElementById("nodeInteractionHelpEmbedResize");
   if (!help || !slot || !win) {
     return;
   }
@@ -1266,12 +1362,24 @@ function applyNodeGraphTooltipEmbed({ shown } = {}) {
   const wantShown = shown === undefined ? nodeGraphTooltipsShown() : Boolean(shown);
   help.classList.toggle("is-embedded", embedded);
   if (embedded) {
+    // Help first, then resize grip (stay under the tip, above modular view).
     if (help.parentElement !== slot) {
-      slot.append(help);
+      if (resize && resize.parentElement === slot) {
+        slot.insertBefore(help, resize);
+      } else {
+        slot.append(help);
+      }
+    }
+    if (resize && resize.parentElement !== slot) {
+      slot.append(resize);
     }
     // The window is empty in this mode - there is nothing left in it to show.
     win.hidden = true;
     slot.hidden = !wantShown;
+    if (resize) {
+      resize.hidden = !wantShown;
+    }
+    applyNodeGraphTooltipEmbedHeight();
   } else {
     if (help.parentElement !== win) {
       // Before the resize handle, so the handle stays the last child and keeps
@@ -1279,6 +1387,9 @@ function applyNodeGraphTooltipEmbed({ shown } = {}) {
       win.insertBefore(help, document.getElementById("nodeTooltipWindowResizeHandle"));
     }
     slot.hidden = true;
+    if (resize) {
+      resize.hidden = true;
+    }
     if (wantShown && win.hidden) {
       openNodeGraphTooltipWindow();
       return;
@@ -1341,8 +1452,15 @@ function openNodeGraphTooltipWindow() {
 function toggleNodeGraphTooltipWindow() {
   if (nodeGraphMvp.tooltipEmbedded === true) {
     const slot = document.getElementById("nodeInteractionHelpEmbedSlot");
+    const resize = document.getElementById("nodeInteractionHelpEmbedResize");
     if (slot) {
       slot.hidden = !slot.hidden;
+      if (resize) {
+        resize.hidden = slot.hidden;
+      }
+      if (!slot.hidden && typeof applyNodeGraphTooltipEmbedHeight === "function") {
+        applyNodeGraphTooltipEmbedHeight();
+      }
     }
     renderNodeGraphTooltipWindowToggle();
     return;

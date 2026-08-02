@@ -616,6 +616,9 @@ function normalizeNodeUiDevSettings(settings = {}) {
   // Debug chrome is session-only — never default on, never restore from UI settings.
   const keyboardDebugInfoVisible = false;
   const tooltipEmbedded = Boolean(view.tooltipEmbedded ?? nodeGraphMvp.tooltipEmbedded);
+  const tooltipEmbedHeight = typeof normalizeNodeGraphTooltipEmbedHeight === "function"
+    ? normalizeNodeGraphTooltipEmbedHeight(view.tooltipEmbedHeight ?? nodeGraphMvp.tooltipEmbedHeight ?? 46)
+    : Math.max(32, Math.min(320, Math.round(Number(view.tooltipEmbedHeight ?? nodeGraphMvp.tooltipEmbedHeight) || 46)));
   const moduleButtonsVisible = Boolean(view.moduleButtonsVisible ?? nodeGraphMvp.moduleButtonsVisible);
   const moduleInterfaceControlsVisible = Boolean(view.moduleInterfaceControlsVisible ?? nodeGraphMvp.moduleInterfaceControlsVisible);
   const moduleOscilloscopesVisible = Boolean(view.moduleOscilloscopesVisible ?? nodeGraphMvp.moduleOscilloscopesVisible);
@@ -781,6 +784,7 @@ function normalizeNodeUiDevSettings(settings = {}) {
       wiresAboveModules,
       keyboardDebugInfoVisible,
       tooltipEmbedded,
+      tooltipEmbedHeight,
       moduleButtonsVisible,
       moduleInterfaceControlsVisible,
       moduleOscilloscopesVisible,
@@ -871,6 +875,9 @@ function readNodeUiDevSettingsFromControls(options = {}) {
       // Never persist "show debug" — refresh / defaults always hide diagnostics.
       keyboardDebugInfoVisible: false,
       tooltipEmbedded: Boolean(nodeGraphMvp.tooltipEmbedded),
+      tooltipEmbedHeight: typeof normalizeNodeGraphTooltipEmbedHeight === "function"
+        ? normalizeNodeGraphTooltipEmbedHeight(nodeGraphMvp.tooltipEmbedHeight ?? 46)
+        : Math.max(32, Math.min(320, Math.round(Number(nodeGraphMvp.tooltipEmbedHeight) || 46))),
       moduleButtonsVisible: Boolean(nodeGraphMvp.moduleButtonsVisible),
       moduleInterfaceControlsVisible: Boolean(nodeGraphMvp.moduleInterfaceControlsVisible),
       moduleOscilloscopesVisible: Boolean(nodeGraphMvp.moduleOscilloscopesVisible),
@@ -983,6 +990,12 @@ function applyNodeUiDevSettings(settings) {
   // Force-hide debug on every UI-settings apply / page load (not a saved preference).
   nodeGraphMvp.keyboardDebugInfoVisible = false;
   nodeGraphMvp.tooltipEmbedded = Boolean(normalized.view.tooltipEmbedded);
+  nodeGraphMvp.tooltipEmbedHeight = typeof normalizeNodeGraphTooltipEmbedHeight === "function"
+    ? normalizeNodeGraphTooltipEmbedHeight(normalized.view.tooltipEmbedHeight ?? 46)
+    : Math.max(32, Math.min(320, Math.round(Number(normalized.view.tooltipEmbedHeight) || 46)));
+  if (typeof applyNodeGraphTooltipEmbedHeight === "function") {
+    applyNodeGraphTooltipEmbedHeight(nodeGraphMvp.tooltipEmbedHeight);
+  }
   nodeGraphMvp.moduleButtonsVisible = Boolean(normalized.view.moduleButtonsVisible);
   nodeGraphMvp.moduleInterfaceControlsVisible = Boolean(normalized.view.moduleInterfaceControlsVisible);
   nodeGraphMvp.moduleOscilloscopesVisible = Boolean(normalized.view.moduleOscilloscopesVisible);

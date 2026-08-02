@@ -1,0 +1,88 @@
+// RGB category: Picture — load SVG/image onto the face (Value Slider face style).
+// LayoutB solid shell; geometry params are center-based like Shape.
+registerNodeGraphChromelessModule("rgbPicture", {
+  label: "Picture",
+  solidModule: true,
+  customDisplayArea: true,
+  definition: {
+    bufferedInputs: ["In"],
+    defaultWidthGu: 4,
+    displayHeightGu: 4,
+    displayType: "rgbPictureFace",
+    displayModes: [
+      {
+        key: "face",
+        label: "Face",
+        renderer: "rgbPictureFace",
+        settingsSchema: "rgbPictureFace",
+        source: { value: "Out" },
+      },
+    ],
+    defaultDisplayMode: "face",
+    inputs: ["In"],
+    inputLabels: {
+      In: "",
+    },
+    outputs: ["Out"],
+    outputLabels: {
+      Out: "",
+    },
+    parameters: [
+      {
+        defaultValue: "1",
+        key: "width",
+        label: "Width",
+        max: "2",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Center-based width in face units (1 ≈ half face, 2 ≈ full).",
+      },
+      {
+        defaultValue: "1",
+        key: "height",
+        label: "Height",
+        max: "2",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Center-based height in face units (1 ≈ half face, 2 ≈ full).",
+      },
+      {
+        bipolar: true,
+        defaultValue: "0",
+        key: "x",
+        label: "X",
+        max: "1",
+        mid: "0",
+        min: "-1",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Center-based X (−1…+1, 0 = face center).",
+      },
+      {
+        bipolar: true,
+        defaultValue: "0",
+        key: "y",
+        label: "Y",
+        max: "1",
+        mid: "0",
+        min: "-1",
+        nonlinearSlider: false,
+        step: "any",
+        tooltip: "Center-based Y (−1…+1, 0 = face center, +up).",
+      },
+    ],
+    visualInputs: [
+      { key: "rgbPicture", label: "In", port: "In" },
+    ],
+    visualSink: true,
+  },
+  catalog: {
+    category: "rgb",
+    description: "Load an SVG or image onto the face (same idea as Value Slider face art). Width/height/x/y are center-based. In → Out passthrough. Pick the file in Display Settings.",
+    notes: ["rgb", "svg", "image", "LayoutB", "visual sink"],
+  },
+});

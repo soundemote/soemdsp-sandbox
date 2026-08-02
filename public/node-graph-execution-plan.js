@@ -419,6 +419,12 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
   if (hasOutputNode) {
     markReachable(outputNode);
   }
+  // Plugin Output nodes are audio sinks; keep them reachable so upstream evaluates.
+  for (const node of graph.nodes) {
+    if (node?.type === "pluginOutput" && !bypassedNodes.has(node.id)) {
+      markReachable(node.id);
+    }
+  }
   // groupOutput nodes only need forced reachability when this compile IS a
   // moduleGroup's own inner sourcePatch -- which, by construction
   // (saveNodeGraphSelectionAsModuleGroup excludes type "output"), never has
@@ -586,9 +592,21 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
 
   const topology = nodeGraphTopologicalOrder(graph.nodes, scheduling.orderDependencies, reachableNodes);
   const order = topology.order.filter((nodeId) => reachableNodes.has(nodeId));
+  // B0 dual-path: prefer planRole helpers when present; keep legacy OR so
+  // behavior stays identical until all types are annotated and lists retire (B3).
   const sourceNodes = order.filter((nodeId) => {
     const type = graph.nodeMap.get(nodeId)?.type;
+    if (typeof nodeGraphModuleIsPlanSourceType === "function" && nodeGraphModuleIsPlanSourceType(type)) {
+      return true;
+    }
     return type === "audioInput" ||
+      type === "pluginInput" ||
+      type === "pluginMidiIn" ||
+      type === "pluginMidiOut" ||
+      type === "valueSlider" ||
+      type === "pluginSlider" ||
+      type === "toggleButton" ||
+      type === "momentaryButton" ||
       type === "audioPlayer" ||
       type === "clock" ||
       type === "transport" ||
@@ -608,6 +626,8 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
       type === "surgeOscillator" ||
       type === "dsfOscillator" ||
       type === "softwaveOsc" ||
+      type === "curveOsc" ||
+      type === "snowflake" ||
       type === "ellipsoid" ||
       type === "bugButton" ||
       type === "xyPad" ||

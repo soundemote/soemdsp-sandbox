@@ -44,4 +44,4 @@ Base: commit `ed2533f Add Sabrina reverb WIP module`
 ## Notes
 
 - Branch history below may still mention older `void/sandbox-bugfixes` state; treat **current master WIP** as source of truth for uncommitted Asciiscope / quantizer / keyboard / CLAP strip.
-- **Become a plugin** (export to CLAP/VST/AU) remains product language via `makePlugin` tooltip — not host integration.
+- Plugin export / host packaging is **out of scope** for this repo (Make Plugin stays disabled placeholder).

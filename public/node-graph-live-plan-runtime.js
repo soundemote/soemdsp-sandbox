@@ -284,6 +284,8 @@ function createNodeGraphLiveRuntime(plan) {
   const pitchQuantizerStates = new Map();
   const surgeOscillatorStates = new Map();
   const softwaveOscStates = new Map();
+  const curveOscStates = new Map();
+  const snowflakeStates = new Map();
   const textStreamStates = new Map();
   const degreeTuringStates = new Map();
   const gravityWalkerStates = new Map();
@@ -399,6 +401,12 @@ function createNodeGraphLiveRuntime(plan) {
     }
     if (node.type === "softwaveOsc") {
       softwaveOscStates.set(node.id, createNodeGraphSoftwaveOscillatorState());
+    }
+    if (node.type === "curveOsc" && typeof createNodeGraphCurveOscState === "function") {
+      curveOscStates.set(node.id, createNodeGraphCurveOscState());
+    }
+    if (node.type === "snowflake" && typeof createNodeGraphSnowflakeState === "function") {
+      snowflakeStates.set(node.id, createNodeGraphSnowflakeState());
     }
     if (node.type === "textStream" && typeof createNodeGraphTextStreamState === "function") {
       textStreamStates.set(node.id, createNodeGraphTextStreamState());
@@ -635,6 +643,8 @@ function createNodeGraphLiveRuntime(plan) {
     pitchQuantizerStates,
     surgeOscillatorStates,
     softwaveOscStates,
+    curveOscStates,
+    snowflakeStates,
     textStreamStates,
     degreeTuringStates,
     gravityWalkerStates,
@@ -882,6 +892,12 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   if (!runtime.softwaveOscStates) {
     runtime.softwaveOscStates = new Map();
   }
+  if (!runtime.curveOscStates) {
+    runtime.curveOscStates = new Map();
+  }
+  if (!runtime.snowflakeStates) {
+    runtime.snowflakeStates = new Map();
+  }
   if (!runtime.textStreamStates) runtime.textStreamStates = new Map();
   if (!runtime.degreeTuringStates) runtime.degreeTuringStates = new Map();
   if (!runtime.gravityWalkerStates) runtime.gravityWalkerStates = new Map();
@@ -1077,6 +1093,12 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     }
     if (node.type === "softwaveOsc" && !runtime.softwaveOscStates.has(node.id)) {
       runtime.softwaveOscStates.set(node.id, createNodeGraphSoftwaveOscillatorState());
+    }
+    if (node.type === "curveOsc" && !runtime.curveOscStates.has(node.id) && typeof createNodeGraphCurveOscState === "function") {
+      runtime.curveOscStates.set(node.id, createNodeGraphCurveOscState());
+    }
+    if (node.type === "snowflake" && !runtime.snowflakeStates.has(node.id) && typeof createNodeGraphSnowflakeState === "function") {
+      runtime.snowflakeStates.set(node.id, createNodeGraphSnowflakeState());
     }
     if (node.type === "textStream" && !runtime.textStreamStates.has(node.id) && typeof createNodeGraphTextStreamState === "function") {
       runtime.textStreamStates.set(node.id, createNodeGraphTextStreamState());
@@ -1427,6 +1449,20 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     for (const id of [...runtime.softwaveOscStates.keys()]) {
       if (!nodeIds.has(id)) {
         runtime.softwaveOscStates.delete(id);
+      }
+    }
+  }
+  if (runtime.curveOscStates) {
+    for (const id of [...runtime.curveOscStates.keys()]) {
+      if (!nodeIds.has(id)) {
+        runtime.curveOscStates.delete(id);
+      }
+    }
+  }
+  if (runtime.snowflakeStates) {
+    for (const id of [...runtime.snowflakeStates.keys()]) {
+      if (!nodeIds.has(id)) {
+        runtime.snowflakeStates.delete(id);
       }
     }
   }

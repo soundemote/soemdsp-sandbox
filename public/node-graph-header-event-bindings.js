@@ -47,6 +47,19 @@ function bindNodeGraphHeaderControlEvents() {
   document
     .getElementById("nodeTooltipWindowResizeHandle")
     ?.addEventListener("pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowResize(event, "tooltipWindow"));
+  // Embedded tips height: drag strip between tips band and modular workspace.
+  const embedResize = document.getElementById("nodeInteractionHelpEmbedResize");
+  if (embedResize && typeof beginNodeGraphTooltipEmbedResize === "function") {
+    embedResize.addEventListener("pointerdown", beginNodeGraphTooltipEmbedResize);
+    embedResize.addEventListener("pointermove", (event) => {
+      if (nodeGraphMvp?.tooltipEmbedResizing) {
+        dragNodeGraphTooltipEmbedResize(event);
+      }
+    });
+    embedResize.addEventListener("pointerup", endNodeGraphTooltipEmbedResize);
+    embedResize.addEventListener("pointercancel", endNodeGraphTooltipEmbedResize);
+    embedResize.addEventListener("lostpointercapture", endNodeGraphTooltipEmbedResize);
+  }
   // Move/up: registry pointer bridge
   document.getElementById("nodePhosphorWaveformSettingsClose")?.addEventListener("click", closeNodeGraphPhosphorWaveformSettings);
   document

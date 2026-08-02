@@ -246,6 +246,8 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.pitchQuantizerStates = new Map();
     this.surgeOscillatorStates = new Map();
     this.softwaveOscStates = new Map();
+    this.curveOscStates = new Map();
+    this.snowflakeStates = new Map();
     this.dsfOscillatorStates = new Map();
     this.robinSupersawStates = new Map();
     this.hypersawStates = new Map();
@@ -1796,6 +1798,24 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
         });
         return;
       }
+      if (name === "snowflake" || targetType === "snowflake") {
+        if (this.snowflakeStates) {
+          for (const state of this.snowflakeStates.values()) {
+            this.destroySnowflakeNativeState?.(state);
+          }
+        }
+        this.nativeSnowflake = exports;
+        this.nativeSnowflakeReady = Boolean(
+          this.nativeSnowflake?.soemdsp_snowflake_create &&
+          this.nativeSnowflake?.soemdsp_snowflake_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "snowflake",
+          status: this.nativeSnowflakeReady ? "ready" : "missing exports",
+        });
+        return;
+      }
       if (name === "fractal_spiral" || targetType === "fractalSpiral") {
         for (const state of this.fractalSpiralStates.values()) {
           this.destroyFractalSpiralNativeState(state);
@@ -2113,6 +2133,8 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.pitchQuantizerStates = new Map();
     this.surgeOscillatorStates = new Map();
     this.softwaveOscStates = new Map();
+    this.curveOscStates = new Map();
+    this.snowflakeStates = new Map();
     this.dsfOscillatorStates = new Map();
     this.robinSupersawStates = new Map();
     this.hypersawStates = new Map();
@@ -2415,6 +2437,14 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       }
       if (node?.type === "softwaveOsc" && !this.softwaveOscStates.has(id)) {
         this.softwaveOscStates.set(id, this.createSoftwaveOscillatorState());
+      }
+      if (node?.type === "curveOsc" && !this.curveOscStates?.has(id)) {
+        if (!this.curveOscStates) this.curveOscStates = new Map();
+        this.curveOscStates.set(id, this.createCurveOscState());
+      }
+      if (node?.type === "snowflake" && !this.snowflakeStates?.has(id)) {
+        if (!this.snowflakeStates) this.snowflakeStates = new Map();
+        this.snowflakeStates.set(id, this.createSnowflakeState());
       }
       if (node?.type === "dsfOscillator" && !this.dsfOscillatorStates.has(id)) {
         this.dsfOscillatorStates.set(id, this.createDsfOscillatorState());
@@ -2802,6 +2832,21 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       for (const id of [...this.softwaveOscStates.keys()]) {
         if (!ids.has(id)) {
           this.softwaveOscStates.delete(id);
+        }
+      }
+    }
+    if (this.curveOscStates) {
+      for (const id of [...this.curveOscStates.keys()]) {
+        if (!ids.has(id)) {
+          this.curveOscStates.delete(id);
+        }
+      }
+    }
+    if (this.snowflakeStates) {
+      for (const id of [...this.snowflakeStates.keys()]) {
+        if (!ids.has(id)) {
+          this.destroySnowflakeNativeState?.(this.snowflakeStates.get(id));
+          this.snowflakeStates.delete(id);
         }
       }
     }
@@ -6335,6 +6380,87 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
           antialias: read("antialias", 0),
         });
       },
+      // 2D parametric math curve → 1D Out via Project mode; also emits X/Y.
+      curveOsc: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
+        if (!this.curveOscStates) {
+          this.curveOscStates = new Map();
+        }
+        const state = this.curveOscStates.get(nodeId) || this.createCurveOscState();
+        this.curveOscStates.set(nodeId, state);
+        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        if (this.inputConnections.has(this.inputKey(nodeId, "Reset"))
+          && this.safeFilterNumber(mixInput(nodeId, "Reset"), null) > 0.5) {
+          state.phase = 0;
+        }
+        const baseFrequency = Math.max(0, read("frequency", 110));
+        const referenceMidiNote = Number.isFinite(this.pitchReferenceMidiNote) ? this.pitchReferenceMidiNote : 48;
+        const referenceVoltage = referenceMidiNote / 120;
+        const hasPitchInput = this.inputConnections.has(this.inputKey(nodeId, "0.1V/Oct"));
+        const pitchInput = hasPitchInput
+          ? this.clampValue(this.safeFilterNumber(mixInput(nodeId, "0.1V/Oct"), null), -1, 1)
+          : referenceVoltage;
+        const pitchedFrequency = Math.max(0, baseFrequency * (2 ** ((pitchInput - referenceVoltage) / 0.1)));
+        const effectiveFrequency = this.resolveFrequencyHz(pitchedFrequency, this.readFInputHz(mixInput, nodeId));
+        const phaseKnob = read("phase", 0);
+        const phaseCv = this.inputConnections.has(this.inputKey(nodeId, "Phase"))
+          ? this.safeFilterNumber(mixInput(nodeId, "Phase"), 0)
+          : 0;
+        const phase = this.wrapValue(phaseKnob + phaseCv, 0, 1);
+        const levelKnob = read("level", 1);
+        const level = this.inputConnections.has(this.inputKey(nodeId, "Amplitude"))
+          ? levelKnob * this.safeFilterNumber(mixInput(nodeId, "Amplitude"), 1)
+          : levelKnob;
+        return this.curveOscillatorSample(state, {
+          frequencyHz: effectiveFrequency,
+          sampleRate: safeRate,
+          curve: read("curve", 0),
+          a: read("a", 0.5),
+          b: read("b", 0.5),
+          morph: read("morph", 0.35),
+          project: read("project", 0),
+          projectAngle: read("projectAngle", 0),
+          phase,
+          level,
+        });
+      },
+      // RS-MET-style L-system + turtle → stereo X/Y (Out = Y). Native WASM preferred.
+      snowflake: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
+        if (!this.snowflakeStates) {
+          this.snowflakeStates = new Map();
+        }
+        const state = this.snowflakeStates.get(nodeId) || this.createSnowflakeState();
+        this.snowflakeStates.set(nodeId, state);
+        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        let reset = 0;
+        if (this.inputConnections.has(this.inputKey(nodeId, "Reset"))) {
+          reset = this.safeFilterNumber(mixInput(nodeId, "Reset"), 0);
+        }
+        const baseFrequency = Math.max(0, read("frequency", 55));
+        const referenceMidiNote = Number.isFinite(this.pitchReferenceMidiNote) ? this.pitchReferenceMidiNote : 48;
+        const referenceVoltage = referenceMidiNote / 120;
+        const hasPitchInput = this.inputConnections.has(this.inputKey(nodeId, "0.1V/Oct"));
+        const pitchInput = hasPitchInput
+          ? this.clampValue(this.safeFilterNumber(mixInput(nodeId, "0.1V/Oct"), null), -1, 1)
+          : referenceVoltage;
+        const pitchedFrequency = Math.max(0, baseFrequency * (2 ** ((pitchInput - referenceVoltage) / 0.1)));
+        const effectiveFrequency = this.resolveFrequencyHz(pitchedFrequency, this.readFInputHz(mixInput, nodeId));
+        const levelKnob = read("level", 1);
+        const level = this.inputConnections.has(this.inputKey(nodeId, "Amplitude"))
+          ? levelKnob * this.safeFilterNumber(mixInput(nodeId, "Amplitude"), 1)
+          : levelKnob;
+        return this.snowflakeSample(state, {
+          frequencyHz: effectiveFrequency,
+          sampleRate: safeRate,
+          pattern: read("pattern", 1),
+          iterations: read("iterations", 3),
+          angle: read("angle", 60),
+          size: read("size", 1),
+          reverse: read("reverse", 0),
+          spin: read("spin", 0),
+          level,
+          reset,
+        });
+      },
       dsfOscillator: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.dsfOscillatorStates.get(nodeId) || this.createDsfOscillatorState();
         this.dsfOscillatorStates.set(nodeId, state);
@@ -7383,21 +7509,15 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       },
       midiOut: (node, nodeId, frame, frames, frameValues, mixInput) => {
         const hasMidiInput = this.inputConnections.has(this.inputKey(nodeId, "MIDI Number"));
-        const midiNumber = this.clampValue(Math.round(this.readEffectiveParameter(
-          node,
-          "midiNumber",
-          60,
-          frame,
-          frames,
-          frameValues,
-        )), 0, 127);
-        const outputMidiNumber = hasMidiInput
-          ? this.clampValue(Math.round(Number(mixInput(nodeId, "MIDI Number")) || 0), 0, 127)
-          : midiNumber;
-        return {
-          "Full Value": outputMidiNumber,
-          Normalized: outputMidiNumber / 127,
-        };
+        const midiNumber = this.readEffectiveParameter(node, "midiNumber", 60, frame, frames, frameValues);
+        const resolved = typeof nodeGraphDspResolveMidiNumber === "function"
+          ? nodeGraphDspResolveMidiNumber(midiNumber, mixInput(nodeId, "MIDI Number"), hasMidiInput)
+          : (hasMidiInput
+            ? this.clampValue(Math.round(Number(mixInput(nodeId, "MIDI Number")) || 0), 0, 127)
+            : this.clampValue(Math.round(midiNumber), 0, 127));
+        return typeof nodeGraphDspMidiNumberPorts === "function"
+          ? nodeGraphDspMidiNumberPorts(resolved)
+          : { "Full Value": resolved, Normalized: resolved / 127 };
       },
       midiNotePitch: (node, nodeId, frame, frames, frameValues, mixInput) => {
         const pitch = this.clampValue((
@@ -7405,8 +7525,11 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
           Number(mixInput(nodeId, "Octave Offset")) * 12 +
           Number(mixInput(nodeId, "Pitch Offset"))
         ) || 0, 0, 127);
+        const hz = typeof nodeGraphDspMidiNoteToHz === "function"
+          ? nodeGraphDspMidiNoteToHz(pitch)
+          : 440 * (2 ** ((pitch - 69) / 12));
         return {
-          Frequency: 440 * (2 ** ((pitch - 69) / 12)),
+          Frequency: hz,
           "Pitch 0-1": pitch / 127,
           "Pitch 0-127": pitch,
         };
@@ -7546,6 +7669,15 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       led: (node, nodeId, frame, frames, frameValues, mixInput) => ({
         Out: this.safeFilterNumber(mixInput(nodeId, "In"), null),
       }),
+      rgbShape: (node, nodeId, frame, frames, frameValues, mixInput) => ({
+        Out: this.safeFilterNumber(mixInput(nodeId, "In"), null),
+      }),
+      rgbPicture: (node, nodeId, frame, frames, frameValues, mixInput) => ({
+        Out: this.safeFilterNumber(mixInput(nodeId, "In"), null),
+      }),
+      rgbFractal: (node, nodeId, frame, frames, frameValues, mixInput) => ({
+        Out: this.safeFilterNumber(mixInput(nodeId, "In"), null),
+      }),
       bitConverter: (node, nodeId, frame, frames, frameValues, mixInput) => {
         const bits = Math.max(1, Math.min(53, Math.round(
           this.readEffectiveParameter(node, "bits", 53, frame, frames, frameValues),
@@ -7619,12 +7751,49 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
         };
       },
       valueSlider: (node, nodeId, frame, frames, frameValues, mixInput) => {
-        // Final Bias/Out = signal In + effective slider. Unwired In mixes as 0.
-        // Use this path for true domain-unit add (not param-row unit CV).
         const offset = this.readEffectiveParameter(node, "offset", 0, frame, frames, frameValues);
-        const input = Number(mixInput?.(nodeId, "In")) || 0;
-        const value = input + offset;
-        return { Bias: value, Out: value, offset };
+        return nodeGraphDspBiasFromIn(offset, mixInput?.(nodeId, "In"));
+      },
+      pluginSlider: (node, nodeId, frame, frames, frameValues, mixInput) =>
+        nodeGraphDspBiasFromIn(
+          this.readEffectiveParameter(node, "value", 0, frame, frames, frameValues),
+          mixInput?.(nodeId, "In"),
+        ),
+      toggleButton: (node, nodeId, frame, frames, frameValues) =>
+        nodeGraphDspBinaryOut(this.readEffectiveParameter(node, "value", 0, frame, frames, frameValues)),
+      momentaryButton: (node, nodeId, frame, frames, frameValues) =>
+        nodeGraphDspBinaryOut(this.readEffectiveParameter(node, "value", 0, frame, frames, frameValues)),
+      pluginInput: (node, nodeId, frame, frames, frameValues) =>
+        nodeGraphDspExternalStereoFrame(
+          this.externalInput,
+          frame,
+          this.readEffectiveParameter(node, "level", 1, frame, frames, frameValues),
+        ),
+      pluginOutput: (node, nodeId, frame, frames, frameValues, mixInput) =>
+        nodeGraphDspStereoMix(
+          mixInput(nodeId, "Mono"),
+          mixInput(nodeId, "Left"),
+          mixInput(nodeId, "Right"),
+        ),
+      pluginMidiIn: (node, nodeId, frame, frames, frameValues) =>
+        nodeGraphDspMidiKeyboardPorts(
+          this.midiKeyboardSignal || {},
+          this.readEffectiveParameter(node, "defaultNote", 60, frame, frames, frameValues),
+        ),
+      pluginMidiOut: (node, nodeId, frame, frames, frameValues, mixInput) => {
+        const hasMidiInput = this.inputConnections.has(this.inputKey(nodeId, "MIDI Number"));
+        const midiNumber = this.readEffectiveParameter(node, "midiNumber", 60, frame, frames, frameValues);
+        const midi = nodeGraphDspResolveMidiNumber(
+          midiNumber,
+          mixInput(nodeId, "MIDI Number"),
+          hasMidiInput,
+        );
+        const hasGate = this.inputConnections.has(this.inputKey(nodeId, "Gate"));
+        return nodeGraphDspMidiNumberPorts(midi, {
+          includeGate: true,
+          hasGate,
+          gate: mixInput(nodeId, "Gate"),
+        });
       },
       sandboxVisuals: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const screenShake = this.smoothVisualControl(
@@ -7817,16 +7986,12 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       groupOutput: (node, nodeId, frame, frames, frameValues, mixInput) => ({
         Out: mixInput(nodeId, "In"),
       }),
-      output: (node, nodeId, frame, frames, frameValues, mixInput) => {
-        const outputMonoIn = mixInput(nodeId, "Mono");
-        const outputLeftIn = mixInput(nodeId, "Left");
-        const outputRightIn = mixInput(nodeId, "Right");
-        return {
-          Left: outputMonoIn + outputLeftIn,
-          Out: outputMonoIn + (outputLeftIn + outputRightIn) * 0.5,
-          Right: outputMonoIn + outputRightIn,
-        };
-      },
+      output: (node, nodeId, frame, frames, frameValues, mixInput) =>
+        nodeGraphDspStereoMix(
+          mixInput(nodeId, "Mono"),
+          mixInput(nodeId, "Left"),
+          mixInput(nodeId, "Right"),
+        ),
       groupInput: (node, nodeId) => ({
         Out: Number(this.externalGroupInputs?.get(nodeId)) || 0,
       }),
@@ -8005,6 +8170,13 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   destroyLogSpiralNativeState(state) {
     if (state?.nativeHandle && this.nativeLogSpiral?.soemdsp_log_spiral_destroy) {
       this.nativeLogSpiral.soemdsp_log_spiral_destroy(state.nativeHandle);
+      state.nativeHandle = 0;
+    }
+  }
+
+  destroySnowflakeNativeState(state) {
+    if (state?.nativeHandle && this.nativeSnowflake?.soemdsp_snowflake_destroy) {
+      this.nativeSnowflake.soemdsp_snowflake_destroy(state.nativeHandle);
       state.nativeHandle = 0;
     }
   }
@@ -8276,17 +8448,16 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       if (liveModuleEvaluator) {
         value = liveModuleEvaluator(node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame, graphInputValue, graphOutputValue);
       } else if (node?.type === "audioInput") {
+        // Hardware process() buffers (not externalInput map) — same stereo math as helpers.
         const input = inputs[0] || [];
         const leftChannel = input[0] || input[1] || null;
         const rightChannel = input[1] || input[0] || null;
-        const left = Number(leftChannel?.[inputFrame]) || 0;
-        const right = Number(rightChannel?.[inputFrame]) || left;
         const level = this.readEffectiveParameter(node, "level", 1, frame, frames, frameValues);
-        value = {
-          Left: left * level,
-          Out: ((left + right) * 0.5) * level,
-          Right: right * level,
-        };
+        value = nodeGraphDspExternalStereoFrame(
+          { left: leftChannel, right: rightChannel },
+          inputFrame,
+          level,
+        );
       }
       frameValues.set(nodeId, value);
       this.nodeOutputs.set(nodeId, value);

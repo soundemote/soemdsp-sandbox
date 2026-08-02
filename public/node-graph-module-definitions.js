@@ -82,7 +82,14 @@ const nodeGraphNodeLabels = Object.freeze({
   bias: "Bias",
   softClipper: "Soft Clipper",
   rotate3dTo2d: "Rotation 3D to 2D",
-  valueSlider: "Value Slider",
+  valueSlider: "Knob",
+  pluginSlider: "Slider",
+  toggleButton: "Toggle",
+  momentaryButton: "Momentary",
+  pluginInput: "Plugin Input",
+  pluginOutput: "Plugin Output",
+  pluginMidiIn: "Plugin MIDI In",
+  pluginMidiOut: "Plugin MIDI Out",
   passiveFilter: "Passive Filter",
   cookbookFilter: "Multi Stage Filter",
   flowerChildFilter: "Flower Child Filter",
@@ -230,6 +237,7 @@ const nodeGraphModuleDefinitions = (
     : Object.freeze
 )({
   audioInput: {
+    planRole: "source",
     outputs: ["Left", "Right"],
     parameters: [
       {
@@ -2569,14 +2577,12 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0", key: "rotateZ", kind: "phase", label: "Rotate Z", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "0.01", unit: "cycle", wraparound: true },
     ],
   },
+  // Plugin Knob (type id valueSlider kept for patch compatibility).
   valueSlider: {
+    planRole: "source",
     chrome: NodeGraphModuleChromeLayout.LayoutB,
-    // LayoutB face height (ports beside); Bias slider sits under the face.
-    // Default footprint 4×2 gu (wide enough for signed multi-decimal readout).
     defaultWidthGu: 4,
     displayHeightGu: 2,
-    // Face is a real display: shows final Bias (In + slider), not only the
-    // static parameter meta. Enables continuous readout + image rotation.
     displayType: "valueSliderFace",
     displayModes: [
       {
@@ -2589,8 +2595,6 @@ const nodeGraphModuleDefinitions = (
     ],
     defaultDisplayMode: "face",
     layout: "sliderWidget",
-    // Dedicated signal In: final Bias/Out = In + slider (true domain add).
-    // Param-row mod jack still uses unit CV; use this In for raw CV/audio sum.
     inputs: ["In"],
     inputLabels: {
       In: "In",
@@ -2610,6 +2614,185 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         nonlinearSlider: false,
         step: "any",
+      },
+    ],
+  },
+  pluginSlider: {
+    planRole: "source",
+    chrome: NodeGraphModuleChromeLayout.LayoutB,
+    defaultWidthGu: 4,
+    displayHeightGu: 2,
+    displayType: "pluginSliderFace",
+    displayModes: [
+      {
+        key: "face",
+        label: "Face",
+        renderer: "pluginSliderFace",
+        settingsSchema: "pluginSliderFace",
+        source: { value: "Bias" },
+      },
+    ],
+    defaultDisplayMode: "face",
+    layout: "sliderWidget",
+    inputs: ["In"],
+    inputLabels: { In: "In" },
+    outputs: ["Bias"],
+    outputLabels: { Bias: "→" },
+    parameters: [
+      {
+        bipolar: true,
+        defaultValue: "0",
+        key: "value",
+        label: "→",
+        max: "1",
+        mid: "0",
+        min: "-1",
+        nonlinearSlider: false,
+        step: "any",
+      },
+    ],
+  },
+  toggleButton: {
+    planRole: "source",
+    chrome: NodeGraphModuleChromeLayout.LayoutB,
+    defaultWidthGu: 3,
+    displayHeightGu: 2,
+    displayType: "toggleButtonFace",
+    displayModes: [
+      {
+        key: "face",
+        label: "Face",
+        renderer: "toggleButtonFace",
+        settingsSchema: "toggleButtonFace",
+        source: { value: "Out" },
+      },
+    ],
+    defaultDisplayMode: "face",
+    layout: "sliderWidget",
+    outputs: ["Out"],
+    outputLabels: { Out: "→" },
+    parameters: [
+      {
+        defaultValue: "0",
+        key: "value",
+        label: "State",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        choices: ["Off", "On"],
+        displayChoices: true,
+      },
+    ],
+  },
+  momentaryButton: {
+    planRole: "source",
+    chrome: NodeGraphModuleChromeLayout.LayoutB,
+    defaultWidthGu: 3,
+    displayHeightGu: 2,
+    displayType: "momentaryButtonFace",
+    displayModes: [
+      {
+        key: "face",
+        label: "Face",
+        renderer: "momentaryButtonFace",
+        settingsSchema: "momentaryButtonFace",
+        source: { value: "Out" },
+      },
+    ],
+    defaultDisplayMode: "face",
+    layout: "sliderWidget",
+    outputs: ["Out"],
+    outputLabels: { Out: "→" },
+    parameters: [
+      {
+        defaultValue: "0",
+        key: "value",
+        label: "Gate",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        hidden: true,
+      },
+    ],
+  },
+  pluginInput: {
+    planRole: "source",
+    outputs: ["Left", "Right", "Out"],
+    outputLabels: { Out: "Mono" },
+    parameters: [
+      {
+        defaultValue: "1",
+        key: "level",
+        label: "Amplitude",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        step: "0.01",
+      },
+    ],
+  },
+  pluginOutput: {
+    planRole: "sink",
+    displayType: "trace",
+    spectrumCompanion: false,
+    displayModes: [
+      { key: "trace", label: "Trace", renderer: "trace", settingsSchema: "trace" },
+    ],
+    defaultDisplayMode: "trace",
+    inputs: ["Mono", "Left", "Right"],
+    output: true,
+    parameters: [
+      {
+        defaultValue: "0.1",
+        key: "volume",
+        label: "Volume",
+        max: "1",
+        mid: "0.1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+      },
+    ],
+  },
+  pluginMidiIn: {
+    planRole: "source",
+    outputs: ["Gate", "MIDI", "Velocity", "0.1V/Oct", "Frequency"],
+    outputLabels: {
+      "0.1V/Oct": "0.1V",
+    },
+    parameters: [
+      {
+        defaultValue: "60",
+        key: "defaultNote",
+        label: "Default Note",
+        max: "127",
+        maxDigits: 3,
+        mid: "60",
+        min: "0",
+        step: "1",
+        tooltip: "Note used when no live MIDI is active (sandbox preview).",
+      },
+    ],
+  },
+  pluginMidiOut: {
+    planRole: "source",
+    inputs: ["MIDI Number", "Gate"],
+    outputs: ["Normalized", "Full Value", "Gate"],
+    parameters: [
+      {
+        defaultValue: "60",
+        key: "midiNumber",
+        label: "MIDI Number",
+        max: "127",
+        maxDigits: 3,
+        mid: "64",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
       },
     ],
   },
@@ -4394,6 +4577,7 @@ const nodeGraphModuleDefinitions = (
     parameters: [],
   },
   output: {
+    planRole: "sink",
     displayType: "trace",
     // Single fixed face — no Trace/Spectrum Mode dropdown in Display Settings.
     spectrumCompanion: false,
@@ -4593,6 +4777,13 @@ function nodeGraphModuleProducesOutputWithoutSignalInput(type) {
   // without signal input (e.g. parameter-driven or script-driven output).
   const inputCapableSources = new Set([
     "audioInput",
+    "pluginInput",
+    "pluginMidiIn",
+    "pluginMidiOut",
+    "valueSlider",
+    "pluginSlider",
+    "toggleButton",
+    "momentaryButton",
     "audioPlayer",
     "bloomGlow",
     "canvas",

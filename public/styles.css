@@ -19329,3 +19329,54 @@ code {
   line-height: 1;
   pointer-events: none;
 }
+
+/* —— Plugin shelf faces (Knob is value-slider face) —— */
+.node-plugin-toggle-face,
+.node-plugin-momentary-face,
+.node-plugin-slider-face {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: calc(var(--node-grid-size) * 0.15);
+}
+.node-plugin-toggle-button,
+.node-plugin-momentary-button {
+  width: 100%;
+  height: 100%;
+  min-height: calc(var(--node-grid-size) * 1.1);
+  border: 1px solid hsl(200 20% 35% / 0.85);
+  border-radius: calc(var(--node-grid-size) * 0.12);
+  background: linear-gradient(180deg, hsl(210 14% 22%), hsl(210 16% 14%));
+  color: #d8e6ef;
+  font: 700 0.85em/1.1 ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+}
+.node-plugin-toggle-button.is-on {
+  background: linear-gradient(180deg, hsl(145 45% 32%), hsl(145 50% 18%));
+  border-color: hsl(145 40% 45% / 0.9);
+  color: #eafff2;
+}
+.node-plugin-momentary-button.is-down {
+  background: linear-gradient(180deg, hsl(28 70% 40%), hsl(20 65% 22%));
+  border-color: hsl(30 70% 50% / 0.9);
+  color: #fff6e8;
+}
+.node-plugin-slider-face-row {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  pointer-events: auto;
+}
+.node-plugin-slider-face .node-parameter-control {
+  width: 100%;
+}
+.node-plugin-slider-face-input {
+  width: 100%;
+}

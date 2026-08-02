@@ -2806,6 +2806,8 @@ function nodeGraphDisplaySettingsFormTypeUsesGradient(type) {
     "oscilloscopeBankBurn",
     "hypersawBurn",
     "ledLamp",
+    "rgbShapeFace",
+    "rgbFractalFace",
     "matrixFace",
     "matrixWaterfallFace",
     "matrixDisplayFace",
@@ -3543,7 +3545,7 @@ function nodeGraphTraceDisplaySettingsEditingTraceDefaults() {
   return nodeGraphModuleDisplaySettingsSchemaForNode(node) === "trace" && node?.type !== "output";
 }
 
-const nodeGraphDisplayModeRenderers = Object.freeze(["trace", "clock", "dot", "value", "lineBurn", "hypersawBurn", "oscilloscopeBankBurn", "videoscopeBurn", "spectrogramBurn", "transportBpm", "scope2d", "scope2dTrace", "phosphorLight", "numberReadout", "xyPad", "customDisplay", "spectrum", "ledLamp", "selfPaintFace", "matrixFace", "matrixWaterfallFace", "matrixDisplayFace", "valueSliderFace"]);
+const nodeGraphDisplayModeRenderers = Object.freeze(["trace", "clock", "dot", "value", "lineBurn", "hypersawBurn", "oscilloscopeBankBurn", "videoscopeBurn", "spectrogramBurn", "transportBpm", "scope2d", "scope2dTrace", "phosphorLight", "numberReadout", "xyPad", "customDisplay", "spectrum", "ledLamp", "selfPaintFace", "matrixFace", "matrixWaterfallFace", "matrixDisplayFace", "valueSliderFace", "pluginSliderFace", "toggleButtonFace", "momentaryButtonFace", "rgbShapeFace", "rgbPictureFace", "rgbFractalFace"]);
 const nodeGraphDisplayModeSignalKinds = Object.freeze(["scalar", "xy", "buffer"]);
 
 function nodeGraphDisplayModeSettingsSchemaForRenderer(renderer) {
@@ -4571,6 +4573,27 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze([]),
     choices: Object.freeze(["cornerShape"]),
   }),
+  // RGB Shape: gradient picker only (geometry is module params).
+  rgbShapeFace: Object.freeze({
+    fields: Object.freeze([]),
+    colors: Object.freeze([]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
+  // RGB Picture: load SVG/image (custom body); geometry is module params.
+  rgbPictureFace: Object.freeze({
+    fields: Object.freeze([]),
+    colors: Object.freeze([]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
+  // RGB Soft Fractal: gradient only (field is module params + rAF).
+  rgbFractalFace: Object.freeze({
+    fields: Object.freeze([]),
+    colors: Object.freeze([]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
   // Matrix faces: custom bodies (glyph / message) — no stepper fields.
   matrixFace: Object.freeze({
     fields: Object.freeze([]),
@@ -4678,9 +4701,27 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
-  // Value Slider face: readout precision (images / rotate stay in Module Settings).
+  // Knob face: readout precision (images / rotate stay in Module Settings).
   valueSliderFace: Object.freeze({
     fields: Object.freeze(["decimals"]),
+    colors: Object.freeze([]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
+  pluginSliderFace: Object.freeze({
+    fields: Object.freeze([]),
+    colors: Object.freeze([]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
+  toggleButtonFace: Object.freeze({
+    fields: Object.freeze([]),
+    colors: Object.freeze([]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
+  momentaryButtonFace: Object.freeze({
+    fields: Object.freeze([]),
     colors: Object.freeze([]),
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
@@ -5021,6 +5062,9 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   dot: "Phosphor Dot",
   spectrogramBurn: "Spectrogram",
   ledLamp: "LED",
+  rgbShapeFace: "Shape",
+  rgbPictureFace: "Picture",
+  rgbFractalFace: "Soft Fractal",
   matrixFace: "Matrix",
   matrixWaterfallFace: "Waterfall",
   matrixDisplayFace: "Matrix",
@@ -5029,7 +5073,10 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   videoscopeBurn: "Videoscope",
   oscilloscopeBankBurn: "Bank",
   hypersawBurn: "Hypersaw",
-  valueSliderFace: "Value Slider",
+  valueSliderFace: "Knob",
+  pluginSliderFace: "Slider",
+  toggleButtonFace: "Toggle",
+  momentaryButtonFace: "Momentary",
 });
 
 const nodeGraphDisplaySettingsSectionOrder = Object.freeze([
@@ -5162,6 +5209,9 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
   // Blur/Corners/Rounding) — better than the generic stepper form.
   if (type === "ledLamp" && typeof buildNodeGraphLedDisplaySettingsBodyHtml === "function") {
     return buildNodeGraphLedDisplaySettingsBodyHtml();
+  }
+  if (type === "rgbPictureFace" && typeof buildNodeGraphRgbPictureDisplaySettingsBodyHtml === "function") {
+    return buildNodeGraphRgbPictureDisplaySettingsBodyHtml();
   }
   // Matrix Waterfall / Matrix Display custom bodies.
   if (
@@ -5364,6 +5414,15 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
   if (type === "matrixFace" || type === "matrixWaterfallFace" || type === "matrixDisplayFace") {
     if (typeof bindNodeGraphMatrixFaceDisplaySettingsBody === "function") {
       bindNodeGraphMatrixFaceDisplaySettingsBody(host);
+    }
+  }
+  // RGB Picture: load / clear image.
+  if (type === "rgbPictureFace") {
+    if (typeof bindNodeGraphRgbPictureDisplaySettingsEvents === "function") {
+      bindNodeGraphRgbPictureDisplaySettingsEvents(host);
+    }
+    if (typeof syncNodeGraphRgbPictureDisplaySettingsControls === "function") {
+      syncNodeGraphRgbPictureDisplaySettingsControls(host);
     }
   }
   // XY Pad: action row for clearing the phosphor residual buffer.
@@ -5731,6 +5790,21 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
       ? normalizeNodeGraphLedLayout()
       : { hue: 0, brightness: 1, blur: 0, rounding: 100, cornerShape: "squircle" };
   }
+  if (type === "rgbShapeFace") {
+    return typeof normalizeNodeGraphRgbShapeSettings === "function"
+      ? normalizeNodeGraphRgbShapeSettings()
+      : { background: "#000000", gradientStops: [] };
+  }
+  if (type === "rgbPictureFace") {
+    return typeof normalizeNodeGraphRgbPictureSettings === "function"
+      ? normalizeNodeGraphRgbPictureSettings()
+      : { background: "#000000", dataUrl: "", fileName: "" };
+  }
+  if (type === "rgbFractalFace") {
+    return typeof normalizeNodeGraphRgbFractalSettings === "function"
+      ? normalizeNodeGraphRgbFractalSettings()
+      : { background: "#05060a", gradientStops: [] };
+  }
   if (type === "matrixFace" || type === "matrixWaterfallFace" || type === "matrixDisplayFace") {
     return typeof normalizeNodeGraphMatrixFaceSettings === "function"
       ? normalizeNodeGraphMatrixFaceSettings(null, type)
@@ -5799,6 +5873,21 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
         cornerShape: raw.cornerShape,
       })
       : raw;
+  }
+  if (type === "rgbShapeFace") {
+    return typeof normalizeNodeGraphRgbShapeSettings === "function"
+      ? normalizeNodeGraphRgbShapeSettings(settings)
+      : (settings || {});
+  }
+  if (type === "rgbPictureFace") {
+    return typeof normalizeNodeGraphRgbPictureSettings === "function"
+      ? normalizeNodeGraphRgbPictureSettings(settings)
+      : (settings || {});
+  }
+  if (type === "rgbFractalFace") {
+    return typeof normalizeNodeGraphRgbFractalSettings === "function"
+      ? normalizeNodeGraphRgbFractalSettings(settings)
+      : (settings || {});
   }
   if (type === "matrixFace" || type === "matrixWaterfallFace" || type === "matrixDisplayFace") {
     return typeof normalizeNodeGraphMatrixFaceSettings === "function"
@@ -5892,6 +5981,21 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
     return typeof normalizeNodeGraphLedLayout === "function"
       ? normalizeNodeGraphLedLayout(node.led)
       : (node.led || {});
+  }
+  if (settingsSchema === "rgbShapeFace") {
+    return typeof nodeGraphRgbShapeSettingsForNode === "function"
+      ? nodeGraphRgbShapeSettingsForNode(node)
+      : normalizeNodeGraphRgbShapeSettings?.(node?.traceDisplaySettings);
+  }
+  if (settingsSchema === "rgbPictureFace") {
+    return typeof nodeGraphRgbPictureSettingsForNode === "function"
+      ? nodeGraphRgbPictureSettingsForNode(node)
+      : normalizeNodeGraphRgbPictureSettings?.(node?.rgbPicture || node?.traceDisplaySettings);
+  }
+  if (settingsSchema === "rgbFractalFace") {
+    return typeof nodeGraphRgbFractalSettingsForNode === "function"
+      ? nodeGraphRgbFractalSettingsForNode(node)
+      : normalizeNodeGraphRgbFractalSettings?.(node?.traceDisplaySettings);
   }
   if (
     settingsSchema === "matrixFace"
@@ -6094,6 +6198,12 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
       if (editor && typeof editor.setStops === "function" && normalized.gradientStops) {
         editor.setStops(normalized.gradientStops);
       }
+    }
+    return;
+  }
+  if (formType === "rgbPictureFace") {
+    if (typeof syncNodeGraphRgbPictureDisplaySettingsControls === "function") {
+      syncNodeGraphRgbPictureDisplaySettingsControls(root);
     }
     return;
   }
@@ -6763,6 +6873,35 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
       : (settings || {});
     return node.led;
   }
+  if (displayType === "rgbShapeFace") {
+    node.traceDisplaySettings = typeof normalizeNodeGraphRgbShapeSettings === "function"
+      ? normalizeNodeGraphRgbShapeSettings(settings)
+      : (settings || {});
+    return node.traceDisplaySettings;
+  }
+  if (displayType === "rgbPictureFace") {
+    const normalized = typeof normalizeNodeGraphRgbPictureSettings === "function"
+      ? normalizeNodeGraphRgbPictureSettings(settings)
+      : (settings || {});
+    node.rgbPicture = typeof nodeGraphRgbPictureToPatch === "function"
+      ? nodeGraphRgbPictureToPatch(normalized)
+      : normalized;
+    node.traceDisplaySettings = {
+      ...(node.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
+        ? node.traceDisplaySettings
+        : {}),
+      background: normalized.background,
+      dataUrl: normalized.dataUrl,
+      fileName: normalized.fileName,
+    };
+    return node.traceDisplaySettings;
+  }
+  if (displayType === "rgbFractalFace") {
+    node.traceDisplaySettings = typeof normalizeNodeGraphRgbFractalSettings === "function"
+      ? normalizeNodeGraphRgbFractalSettings(settings)
+      : (settings || {});
+    return node.traceDisplaySettings;
+  }
   if (
     displayType === "matrixFace"
     || displayType === "matrixWaterfallFace"
@@ -7275,6 +7414,18 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
       } else if (typeof refreshNodeGraphLedFaceForNode === "function") {
         refreshNodeGraphLedFaceForNode(ledNodeId);
       }
+    }
+    if (ledNode?.type === "rgbShape" && typeof paintNodeGraphRgbShapeFaceForNode === "function") {
+      paintNodeGraphRgbShapeFaceForNode(ledNodeId);
+      requestAnimationFrame(() => paintNodeGraphRgbShapeFaceForNode(ledNodeId));
+    }
+    if (ledNode?.type === "rgbPicture" && typeof paintNodeGraphRgbPictureFaceForNode === "function") {
+      paintNodeGraphRgbPictureFaceForNode(ledNodeId);
+      requestAnimationFrame(() => paintNodeGraphRgbPictureFaceForNode(ledNodeId));
+    }
+    if (ledNode?.type === "rgbFractal" && typeof paintNodeGraphRgbFractalFaceForNode === "function") {
+      paintNodeGraphRgbFractalFaceForNode(ledNodeId, { force: true, dt: 0 });
+      requestAnimationFrame(() => paintNodeGraphRgbFractalFaceForNode(ledNodeId, { force: true, dt: 0 }));
     }
   }
   return settings;
@@ -15197,6 +15348,13 @@ const nodeGraphModuleScopeCustomRenderers = {
   matrixWaterfallFace: drawNodeGraphSelfPaintFaceItem,
   matrixDisplayFace: drawNodeGraphSelfPaintFaceItem,
   valueSliderFace: drawNodeGraphValueSliderFaceItem,
+  pluginSliderFace: (renderer, item) => {
+    item?.screenElement?.syncFromParameters?.();
+  },
+  toggleButtonFace: (renderer, item) => {
+    item?.screenElement?.syncFromParameters?.();
+  },
+  momentaryButtonFace: () => {},
   // oscilloscopeBankBurn self-registers from
   // public/modules/oscilloscopeBank/oscilloscope-bank-display.js
   // videoscopeBurn self-registers from

@@ -44,8 +44,7 @@ function normalizeNodeGraphPatchParameter(type, key, value, metadata = null) {
 // any other retired type below, rather than crashing on load.
 const nodeGraphRetiredNodeTypes = new Set([
   "bipolarKnob",
-  // Host-side CLAP module removed from mainline (see soemdsp-sandbox-claphost).
-  // Drop silently on load so old patches don't throw unknown-type.
+  // Legacy host module type; drop silently so old patches don't throw unknown-type.
   "clapPlugin",
   "formulaVisual",
   "graph",
@@ -266,6 +265,16 @@ function validateNodeGraphPatch(patch) {
         normalizedNode.valueSliderFace = typeof nodeGraphValueSliderFaceToPatch === "function"
           ? nodeGraphValueSliderFaceToPatch(face)
           : face;
+      }
+    }
+    if (type === "rgbPicture" && typeof normalizeNodeGraphRgbPictureSettings === "function") {
+      const picture = normalizeNodeGraphRgbPictureSettings(
+        node.rgbPicture || node.traceDisplaySettings,
+      );
+      if (picture.dataUrl || (picture.background && picture.background !== "#000000")) {
+        normalizedNode.rgbPicture = typeof nodeGraphRgbPictureToPatch === "function"
+          ? nodeGraphRgbPictureToPatch(picture)
+          : picture;
       }
     }
     const normalizedPortScripts = normalizeNodeGraphPortScripts(type, node.portScripts);

@@ -59,7 +59,7 @@ python server.py
 ---
 
 
-> **CLAP host** (third-party plugin hosting) was removed from this repo so the modular graph stays any-to-any first. Experiments: [soemdsp-sandbox-claphost](https://github.com/soundemote/soemdsp-sandbox-claphost). Exporting a patch *as* a plugin later is a separate product goal.
+> Third-party plugin **hosting** experiments live outside this tree ([soemdsp-sandbox-claphost](https://github.com/soundemote/soemdsp-sandbox-claphost)). This repo is modular authoring only.
 
 ## 🎚️ Analog filters research
 

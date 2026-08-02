@@ -174,6 +174,9 @@ var nodeGraphMvp = {
   // floating tips window. WHERE the tips are, not whether they are shown -
   // that stays the Hide/Show Tooltips toggle in both modes.
   tooltipEmbedded: false,
+  // Embedded tips band height (px). User-draggable between tips and modular view.
+  tooltipEmbedHeight: 46,
+  tooltipEmbedResizing: null,
   modularOnlyControlsVisible: false,
   moduleButtonsVisible: false,
   moduleDefaultOverrides: {},

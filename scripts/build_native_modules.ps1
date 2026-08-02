@@ -64,6 +64,7 @@ $modules = @(
   @{ Name = "lorenz_attractor"; Simd = $false; Exports = @("soemdsp_lorenz_attractor_create", "soemdsp_lorenz_attractor_destroy", "soemdsp_lorenz_attractor_sample", "soemdsp_lorenz_attractor_x", "soemdsp_lorenz_attractor_y", "soemdsp_lorenz_attractor_z", "soemdsp_lorenz_attractor_version", "soemdsp_lorenz_attractor_metadata_json", "soemdsp_lorenz_attractor_metadata_json_size") }
   @{ Name = "sine_wavetable"; Simd = $false; Exports = @("soemdsp_sine_wavetable_create", "soemdsp_sine_wavetable_destroy", "soemdsp_sine_wavetable_sample", "soemdsp_sine_wavetable_sin", "soemdsp_sine_wavetable_cos", "soemdsp_sine_wavetable_version", "soemdsp_sine_wavetable_metadata_json", "soemdsp_sine_wavetable_metadata_json_size") }
   @{ Name = "log_spiral"; Simd = $false; Exports = @("soemdsp_log_spiral_create", "soemdsp_log_spiral_destroy", "soemdsp_log_spiral_sample", "soemdsp_log_spiral_x", "soemdsp_log_spiral_y", "soemdsp_log_spiral_z", "soemdsp_log_spiral_version", "soemdsp_log_spiral_metadata_json", "soemdsp_log_spiral_metadata_json_size") }
+  @{ Name = "snowflake"; Simd = $false; Exports = @("soemdsp_snowflake_create", "soemdsp_snowflake_destroy", "soemdsp_snowflake_sample", "soemdsp_snowflake_x", "soemdsp_snowflake_y", "soemdsp_snowflake_out", "soemdsp_snowflake_version", "soemdsp_snowflake_metadata_json", "soemdsp_snowflake_metadata_json_size") }
   @{ Name = "fractal_spiral"; Simd = $false; Exports = @("soemdsp_fractal_spiral_create", "soemdsp_fractal_spiral_destroy", "soemdsp_fractal_spiral_sample", "soemdsp_fractal_spiral_x", "soemdsp_fractal_spiral_y", "soemdsp_fractal_spiral_z", "soemdsp_fractal_spiral_version", "soemdsp_fractal_spiral_metadata_json", "soemdsp_fractal_spiral_metadata_json_size") }
   @{ Name = "jerobeam_spiral"; Simd = $false; Exports = @("soemdsp_jerobeam_spiral_create", "soemdsp_jerobeam_spiral_destroy", "soemdsp_jerobeam_spiral_sample", "soemdsp_jerobeam_spiral_x", "soemdsp_jerobeam_spiral_y", "soemdsp_jerobeam_spiral_z", "soemdsp_jerobeam_spiral_left", "soemdsp_jerobeam_spiral_right", "soemdsp_jerobeam_spiral_version", "soemdsp_jerobeam_spiral_metadata_json", "soemdsp_jerobeam_spiral_metadata_json_size") }
   @{ Name = "additive_osc"; Simd = $false; Exports = @("soemdsp_additive_osc_sample", "soemdsp_additive_osc_version", "soemdsp_additive_osc_metadata_json", "soemdsp_additive_osc_metadata_json_size") }
@@ -182,12 +183,12 @@ $responseLines = foreach ($module in $modules) {
 }
 Set-Content -LiteralPath $responseFile -Value $responseLines -Encoding ascii
 
-# 128MB max: the combined static pools (delay lines, reverb, wavetables)
-# total ~101MB of initial memory; a bounded max keeps V8's reservation small.
+# 160MB max: combined static pools (delay lines, reverb, wavetables, snowflake
+# path buffers, …) need ~130MB+; a bounded max keeps V8's reservation small.
 $ldArgs = @(
   "--no-entry",
   "--export-memory",
-  "--max-memory=134217728",
+  "--max-memory=167772160",
   "@$responseFile",
   "-o", "$combinedDir\soemdsp_combined.wasm"
 ) + $objFiles

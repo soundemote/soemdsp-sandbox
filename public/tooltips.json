@@ -103,7 +103,7 @@
     "uiDevMoveTitle": "move UIDEV helper",
     "uiSettingsMove": "drag to move the UI settings panel",
     "uiSettingsMoveTitle": "move UI settings",
-    "makePlugin": "export the current circuit to CLAP/VST/AU/other, turning a sandbox patch into a multiplatform audio plugin | currently unavailable",
+    "makePlugin": "export the current circuit as a multiplatform audio plugin | currently unavailable",
     "makeModule": "design a reusable DSP module from the current circuit or selected nodes | currently unavailable",
     "makeWidget": "build a custom UI widget/performer control for circuit interactions and visual performance | currently unavailable",
     "sharePatchCommunity": "share this patch with the community so others can load, remix, and learn from it | currently unavailable",

@@ -684,19 +684,30 @@ function createNodeGraphModuleElement(type, node) {
     graphShell.classList.add("node-graph-solid-shell");
     article.append(graphShell);
   } else if (definition.layout === "sliderWidget") {
-    // LayoutB (XY Pad contract): slim I/O beside a large face; Bias slider under.
-    // Face is a real display (final Bias output), registered for live scope capture.
-    const face = typeof createNodeGraphValueSliderFace === "function"
-      ? createNodeGraphValueSliderFace(node, type)
-      : createNodeGraphSliderWidgetBody(node, type);
-    // Scope window for live Bias paint. Light cutout only when face art loads
-    // (renderNodeGraphValueSliderFace → nodeGraphValueSliderFaceSyncLightSource).
+    // LayoutB (XY Pad contract): slim I/O beside a large face; Bias/control under.
+    // Plugin shelf: Knob (valueSlider), Slider, Toggle, Momentary each pick a face.
+    let face = null;
+    if (type === "pluginSlider" && typeof createNodeGraphPluginSliderFace === "function") {
+      face = createNodeGraphPluginSliderFace(node, type);
+    } else if (type === "toggleButton" && typeof createNodeGraphToggleButtonFace === "function") {
+      face = createNodeGraphToggleButtonFace(node, type);
+    } else if (type === "momentaryButton" && typeof createNodeGraphMomentaryButtonFace === "function") {
+      face = createNodeGraphMomentaryButtonFace(node, type);
+    } else if (typeof createNodeGraphValueSliderFace === "function") {
+      face = createNodeGraphValueSliderFace(node, type);
+    } else {
+      face = createNodeGraphSliderWidgetBody(node, type);
+    }
     face.classList.add("node-module-scope-window");
     if (face.dataset && face.dataset.lightStrength == null) {
       face.dataset.lightStrength = "0";
     }
     const shell = createNodeGraphLayoutBShell(node, type, face, null, inputPorts, outputPorts);
     shell.classList.add("node-value-slider-shell");
+    if (type === "pluginSlider") shell.classList.add("node-plugin-slider-shell");
+    if (type === "toggleButton" || type === "momentaryButton") {
+      shell.classList.add("node-plugin-button-shell");
+    }
     article.append(shell);
     if (typeof registerNodeGraphModuleScopeSlot === "function") {
       registerNodeGraphModuleScopeSlot(article, {
@@ -705,11 +716,10 @@ function createNodeGraphModuleElement(type, node) {
         scopeElement: face,
       });
     }
-    // Face is only under .dsp-node after append — re-render so has-image / frame-hide
-    // can find the module and remove the chrome stroke around the knob image.
-    if (typeof renderNodeGraphValueSliderFace === "function") {
+    if (type === "valueSlider" && typeof renderNodeGraphValueSliderFace === "function") {
       renderNodeGraphValueSliderFace(face, node);
     }
+    face?.syncFromParameters?.();
   } else if (definition.layout === "keyboardController" || definition.layout === "macroControls" || definition.layout === "pitchModWheel") {
     if (definition.layout === "keyboardController") {
       article.append(createNodeGraphKeyboardControllerBody(node));

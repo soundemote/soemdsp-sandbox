@@ -101,6 +101,7 @@ const nodeGraphModuleStoreDepartments = Object.freeze([
   { id: "oscilloscope", emoji: "📺", label: "Oscilloscope", symbol: "OSC", title: "Oscilloscope", pitch: "Dedicated display testbeds for trace, line burn, 2D scope, videoscope, and canvas-style waveform inspection." },
   { id: "multimeter",   emoji: "📟", label: "Multimeter",   symbol: "0D",  title: "Multimeter", pitch: "Readouts that are not waveforms: numbers, character grids, and other value/message faces for what the signal is saying right now." },
   { id: "debug",        emoji: "🐞", label: "Debug",        symbol: "DBG", title: "Debug",     pitch: "Inspection tools, sentinels, and safety monitors for catching bad values while a patch is under test." },
+  { id: "plugin",       emoji: "🔌", label: "Plugin",       symbol: "PLG", title: "Plugin",    pitch: "Performance controls and boundary ports: knobs, sliders, buttons, dedicated audio I/O, and MIDI I/O for building clear patch front-ends." },
 ]);
 
 // Fast lookup: department ID → definition object.
@@ -156,6 +157,8 @@ const nodeGraphModuleStoreDepartmentAliasToId = Object.freeze({
   Oscilloscope:      "oscilloscope",
   Other:             "digital",
   Portals:           "portal",
+  Plugin:            "plugin",
+  plugin:            "plugin",
   RGB:               "rgb",
   Sample:            "sample",
   "Sample Player":   "sample",
@@ -394,6 +397,20 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Softwave Oscillator",
     notes: ["softwave", "tube", "tanh", "morph", "analog waves", "walter"],
   },
+  curveOsc: {
+    category: "oscillator",
+    description:
+      "Novel parametric math curves drawn in 2D (Lissajous, rose, hypotrochoid, butterfly, superformula, harmonograph, cubic). Phase walks the path → point (X,Y). Project collapses that point to mono Out (Y, X, Radius, Angle, or Dot along Dot Angle). X/Y outs keep the full plane for 2D scopes while Out is the 1D audio/mod signal.",
+    label: "Curve Oscillator",
+    notes: ["2d to 1d", "project", "lissajous", "rose", "butterfly", "superformula", "parametric", "xy"],
+  },
+  snowflake: {
+    category: "oscillator",
+    description:
+      "RS-MET-style fractal pattern synthesis: L-system rewrite (Koch, snowflake, Sierpinski, dragon, Gosper, tree) + turtle graphics polyline, walked at Frequency into stereo X/Y (Out = Y). Native C++/WASM (JS fallback). Iterations deepen self-similarity; Angle is the turtle turn; Reverse ping-pongs the path.",
+    label: "Snowflake",
+    notes: ["L-system", "turtle", "Koch", "fractal pattern synthesis", "RS-MET", "X/Y", "native", "wasm"],
+  },
   dsfOscillator: {
     category: "oscillator",
     description: "The DSF starter kit: Sine, a bandlimited Saw built from pureSawEng (Walter H. Hackett, Extended DSF Oscillators.cxx), a PWM Square derived from two phase-offset Saws, Trimorph (a second leaky integration on the Square), and SquSaw (a Saw crossfaded with a fixed 50%-duty square, landing on a saw-to-triangle-like character). Alias-free by construction: the maximum harmonic count is always Nyquist/frequency. CV jacks: 0.1V/Oct (pitch), Phase (adds to Phase knob), Amplitude (scales Amplitude knob). Native C++/WASM.",
@@ -593,23 +610,72 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["audio source", "left right outputs", "live input"],
   },
   valueSlider: {
-    category: "controller",
-    description: "Resizable bias slider with dedicated In: final Bias = In + slider. Param-row mod jack is unit CV; use In for true additive CV. Search: slider, knob, macro, fader, pot.",
-    label: "Value Slider",
+    category: "plugin",
+    description:
+      "Knob — rotatable face control. Bias = In + knob (offset). Param-row mod is unit CV; In is true additive CV. Search: knob, pot, macro, value slider.",
+    label: "Knob",
     notes: [
+      "plugin",
       "bias output",
-      "in plus slider",
+      "in plus knob",
       "additive cv input",
       "resizable widget",
       "manual control",
-      "slider",
       "knob",
-      "macro",
-      "fader",
       "pot",
       "potentiometer",
-      "value",
+      "macro",
+      "value slider",
     ],
+  },
+  pluginSlider: {
+    category: "plugin",
+    description:
+      "Slider — LayoutA/B-style fader face that mirrors the parameter row slider (unskinnable). Bias = In + value.",
+    label: "Slider",
+    notes: ["plugin", "fader", "slider", "bias"],
+  },
+  toggleButton: {
+    category: "plugin",
+    description:
+      "Toggle — press to latch Out to 1, press again for 0. Simple on/off control for patches.",
+    label: "Toggle",
+    notes: ["plugin", "toggle", "latch", "button", "switch"],
+  },
+  momentaryButton: {
+    category: "plugin",
+    description:
+      "Momentary — mouse/touch down = Out 1, up = 0. Gate-style button for patches.",
+    label: "Momentary",
+    notes: ["plugin", "momentary", "gate", "button"],
+  },
+  pluginInput: {
+    category: "plugin",
+    description:
+      "Plugin Audio Input — stereo audio in (Left/Right/Out), clear patch front-end boundary.",
+    label: "Plugin Input",
+    notes: ["plugin", "audio input", "stereo"],
+  },
+  pluginOutput: {
+    category: "plugin",
+    description:
+      "Plugin Audio Output — stereo audio out (Mono/Left/Right). Clear patch end-point alongside classic Output.",
+    label: "Plugin Output",
+    notes: ["plugin", "audio output", "stereo"],
+  },
+  pluginMidiIn: {
+    category: "plugin",
+    description:
+      "Plugin MIDI In — keyboard/MIDI as Gate, MIDI note, velocity, and 0.1V/Oct.",
+    label: "Plugin MIDI In",
+    notes: ["plugin", "midi input", "note", "gate"],
+  },
+  pluginMidiOut: {
+    category: "plugin",
+    description:
+      "Plugin MIDI Out — MIDI number / gate in; normalized + full-value outs for monitoring.",
+    label: "Plugin MIDI Out",
+    notes: ["plugin", "midi output"],
   },
   midiOut: {
     category: "controller",
