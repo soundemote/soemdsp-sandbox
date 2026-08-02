@@ -69,7 +69,9 @@ function nodeGraphPolyBlepOscillatorLiveEvaluator({ runtime, node, nodeId, frame
       "osc 0.1v/oct input",
     ), -1, 1)
     : referenceVoltage;
-  const pitchedFrequency = Math.max(0, frequency * (2 ** ((pitchInput - referenceVoltage) / 0.1)));
+  const pitchedFrequency = typeof nodeGraphPitchedFrequency === "function"
+    ? nodeGraphPitchedFrequency(frequency, pitchInput, referenceVoltage)
+    : Math.max(0, frequency * (2 ** ((pitchInput - referenceVoltage) / 0.1)));
   // Universal `f` jack: absolute Hz 0..Speed Limit overrides pitch path when wired.
   const fHz = typeof nodeGraphReadFInputHz === "function"
     ? nodeGraphReadFInputHz(mixInput, hasInput, nodeId)

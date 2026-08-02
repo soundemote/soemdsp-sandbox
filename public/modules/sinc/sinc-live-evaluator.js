@@ -19,7 +19,9 @@ nodeGraphLiveModuleEvaluators.sinc = ({ runtime, node, nodeId, frame, frames, fr
       "Sinc 0.1v input",
     ), -1, 1)
     : referenceVoltage;
-  const pitched = Math.max(0, baseFreq * (2 ** ((pitchInput - referenceVoltage) / 0.1)));
+  const pitched = typeof nodeGraphPitchedFrequency === "function"
+    ? nodeGraphPitchedFrequency(baseFreq, pitchInput, referenceVoltage)
+    : Math.max(0, baseFreq * (2 ** ((pitchInput - referenceVoltage) / 0.1)));
   const fHz = typeof nodeGraphReadFInputHz === "function"
     ? nodeGraphReadFInputHz(mixInput, hasInput, nodeId)
     : null;

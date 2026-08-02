@@ -2330,6 +2330,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-live-audio-worklet-evaluators.js?v=plan-d-split-1",
   "./public/node-live-audio-worklet-native-exports.js?v=plan-d-split-2",
   "./public/node-live-audio-worklet-set-plan.js?v=plan-d-split-2",
+  "./public/node-live-audio-worklet-clear-plan.js?v=plan-d-split-3",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=xy-pad-dsp-path-1",
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=native-strip-1",

@@ -47,7 +47,9 @@ nodeGraphLiveModuleEvaluators.sineWavetable = ({ runtime, node, nodeId, frame, f
       "sin/cos 0.1v input",
     ), -1, 1)
     : referenceVoltage;
-  const pitchedFrequency = Math.max(0, (baseFrequency + freqInput) * (2 ** ((pitchInput - referenceVoltage) / 0.1)));
+  const pitchedFrequency = typeof nodeGraphPitchedFrequency === "function"
+    ? nodeGraphPitchedFrequency((baseFrequency + freqInput), pitchInput, referenceVoltage)
+    : Math.max(0, (baseFrequency + freqInput) * (2 ** ((pitchInput - referenceVoltage) / 0.1)));
   const fHz = typeof nodeGraphReadFInputHz === "function"
     ? nodeGraphReadFInputHz(mixInput, hasInput, nodeId)
     : null;
