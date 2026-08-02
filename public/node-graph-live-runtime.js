@@ -746,6 +746,11 @@ async function setNodeGraphLiveOutputEnabled(enabled) {
 /**
  * Full simulation restart: cold stop (wipe screens / tear down audio) then
  * start again. Does not require the user to stop first — transport ⏮ uses this.
+ *
+ * Important: do NOT route through setNodeGraphLiveOutputEnabled(false) then
+ * (true). That bumps outputToggleSerial twice and can leave a start mid-flight
+ * cancelled with status still "starting" and no worklet — Play then only
+ * toggles pause and the engine never comes back.
  */
 async function restartNodeGraphLiveSimulation() {
   if (nodeGraphEarProtectionIsTripped()) {
@@ -754,17 +759,50 @@ async function restartNodeGraphLiveSimulation() {
     renderNodeGraphExecutionPlanDebug();
     return false;
   }
-  // Always tear down first so we never "soft resume" mid-session.
-  if (typeof setNodeGraphLiveOutputEnabled === "function") {
-    await setNodeGraphLiveOutputEnabled(false);
-    await setNodeGraphLiveOutputEnabled(true);
-  } else if (typeof startNodeGraphLiveAudio === "function") {
-    if (nodeGraphMvp.live.node || nodeGraphMvp.live.context) {
+
+  // One serial for this whole restart so nothing mid-flight from a prior
+  // enable/disable can "win" and leave us half-started.
+  const serial = nodeGraphMvp.live.outputToggleSerial + 1;
+  nodeGraphMvp.live.outputToggleSerial = serial;
+  nodeGraphMvp.live.outputEnabled = true;
+
+  // Cold boot is never "still paused" — restore last play speed (or 1).
+  const resume = Number(nodeGraphMvp.live.lastPlaySpeed);
+  nodeGraphMvp.live.speedMultiplier = Number.isFinite(resume) && resume > 0 ? resume : 1;
+  if (!(Number(nodeGraphMvp.live.lastPlaySpeed) > 0)) {
+    nodeGraphMvp.live.lastPlaySpeed = nodeGraphMvp.live.speedMultiplier;
+  }
+
+  try {
+    if (typeof stopNodeGraphLiveAudio === "function") {
       await stopNodeGraphLiveAudio();
     }
-    nodeGraphMvp.live.outputEnabled = true;
-    await startNodeGraphLiveAudio();
+  } catch (_error) {
+    // Teardown is best effort before a fresh start.
   }
+
+  // Another restart/stop may have superseded us while we were tearing down.
+  if (serial !== nodeGraphMvp.live.outputToggleSerial || !nodeGraphMvp.live.outputEnabled) {
+    renderNodeGraphLiveControls(Boolean(nodeGraphMvp.live.node));
+    renderNodeGraphExecutionPlanDebug();
+    return false;
+  }
+
+  // stopNodeGraphLiveAudio may leave status "stopped"; keep output armed.
+  nodeGraphMvp.live.outputEnabled = true;
+
+  if (typeof startNodeGraphLiveAudio === "function") {
+    await startNodeGraphLiveAudio(serial);
+  }
+
+  // If start cancelled itself without a node, do not leave UI looking "live".
+  if (!nodeGraphMvp.live.node && serial === nodeGraphMvp.live.outputToggleSerial) {
+    if (typeof setNodeGraphLiveStatus === "function") {
+      setNodeGraphLiveStatus("stopped");
+    }
+    nodeGraphMvp.live.outputEnabled = false;
+  }
+
   renderNodeGraphLiveControls(Boolean(nodeGraphMvp.live.node));
   renderNodeGraphExecutionPlanDebug();
   return Boolean(nodeGraphMvp.live.outputEnabled && nodeGraphMvp.live.node);
@@ -1617,26 +1655,6 @@ function handleNodeGraphLiveWorkletMessage(event) {
     setNodeGraphLivePlanTitle(nodeGraphLivePlanScheduleTitle(message.order));
   }
 }
-
-function nodeGraphLiveClapNodes(plan = {}) {
-  return (plan.nodes || []).filter((node) => node?.type === "clapPlugin");
-}
-
-function nodeGraphLiveClapNodeTitle(node) {
-  return nodeGraphPatchNodeTitle(nodeGraphPatchNode(node?.id) || node);
-}
-
-function assertNodeGraphLivePlanSupportsClap(plan = {}) {
-  const clapNodes = nodeGraphLiveClapNodes(plan);
-  if (!clapNodes.length) {
-    return;
-  }
-  const names = clapNodes.map((node) => nodeGraphLiveClapNodeTitle(node)).join(", ");
-  const error = new Error(`Live Audio cannot route CLAP Plugin nodes yet (CLAP is under construction). Bounce these with Render Sample instead, or remove them to run Live Audio: ${names}`);
-  error.issues = clapNodes.map((node) => `Live Audio CLAP routing unavailable: ${nodeGraphLiveClapNodeTitle(node)}`);
-  throw error;
-}
-
 function nodeGraphLivePlanErrorIssues(error) {
   return Array.isArray(error?.issues) && error.issues.length
     ? error.issues.map((issue) => String(issue))
@@ -1724,7 +1742,6 @@ async function sendNodeGraphLivePlan() {
     if (typeof nodeGraphEnsureLiveSamplesForPlan === "function") {
       await nodeGraphEnsureLiveSamplesForPlan(plan, nodeGraphMvp.patch);
     }
-    assertNodeGraphLivePlanSupportsClap(plan);
     const audio = nodeGraphAudioDerivation(nodeGraphMvp.patch);
     const planShapeSignature = nodeGraphLivePlanShapeSignature(plan);
     const canSendConnectionUpdate = Boolean(
@@ -2303,8 +2320,11 @@ async function stopNodeGraphLiveAudio() {
 // then register.js calls registerProcessor last, once everything above it
 // has finished defining/registering.
 const nodeGraphLiveWorkletSourceFiles = [
+  // Pure stdlib first so per-module worklet chunks can call nodeGraphWrap01 /
+  // nodeGraphTrisaw / nodeGraphPitchedFrequency / nodeGraphAdvancePhase01.
+  "./public/node-graph-stdlib/node-graph-phasor-helpers.js?v=phasor-helpers-1",
   "./public/node-graph-parameter-smoother-filters.js?v=two-pole-smooth-1",
-  "./public/node-live-audio-worklet-core.js?v=native-no-fallback-1",
+  "./public/node-live-audio-worklet-core.js?v=phosphillator-drawnpath-1",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=xy-pad-dsp-path-1",
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=native-strip-1",
@@ -2323,8 +2343,8 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/rayBouncer/ray-bouncer-worklet-evaluator.js?v=ray-bouncer-native-only-1",
   "./public/modules/chuaAttractor/chua-attractor-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/chordMemory/chord-memory-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/pitchQuantizer/pitch-quantizer-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/wirdoSpiral/wirdo-spiral-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/pitchQuantizer/pitch-quantizer-worklet-evaluator.js?v=pitch-quantizer-face-1",
+  "./public/modules/wirdoSpiral/wirdo-spiral-worklet-evaluator.js?v=phasor-stdlib-1",
   "./public/modules/blubb/blubb-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/mushroom/mushroom-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/boing/boing-worklet-evaluator.js?v=native-strip-1",
@@ -2332,14 +2352,19 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/keplerBouwkamp/kepler-bouwkamp-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/nyquistShannon/nyquist-shannon-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/surgeOscillator/surge-oscillator-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/softwaveOsc/softwave-osc-worklet-evaluator.js?v=phasor-stdlib-1",
+  "./public/modules/textStream/text-stream-worklet-evaluator.js?v=text-stream-1",
   "./public/modules/dsfOscillator/dsf-oscillator-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/robinSupersaw/robin-supersaw-worklet-evaluator.js?v=native-no-fallback-1",
-  "./public/modules/hypersaw/hypersaw-worklet-evaluator.js?v=native-no-fallback-1",
+  "./public/modules/hypersaw/hypersaw-worklet-evaluator.js?v=phasor-stdlib-1",
   "./public/modules/chordSequencer/chord-sequencer-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/chordPad/chord-pad-worklet-evaluator.js?v=chord-pad-1",
+  // Musical engines last among musical/chord chunks so JS spruces override native-only stubs.
+  "./public/modules/musicalEngines/musical-engines-worklet-evaluator.js?v=musical-engines-1",
   "./public/modules/lutCell/lut-cell-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/passiveFilter/passive-filter-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/papoulisFilter/papoulis-filter-worklet-evaluator.js?v=xy-pad-native-1",
-  "./public/modules/phosphillator/phosphillator-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/phosphillator/phosphillator-worklet-evaluator.js?v=drawnpath-fix-1",
   "./public/modules/cookbookFilter/cookbook-filter-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/ladderFilter/ladder-filter-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/flowerChildFilter/flower-child-filter-worklet-evaluator.js?v=native-strip-1",
@@ -2371,7 +2396,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/xyPad/xy-pad-dsp.js?v=xy-pad-center-q-1",
   "./public/modules/xyPad/xy-pad-worklet-evaluator.js?v=xy-pad-phosphor-out-1",
   "./public/modules/flowerChildEnvelopeFollower/flower-child-envelope-follower-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/spiral/spiral-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/spiral/spiral-worklet-evaluator.js?v=phasor-stdlib-1",
   "./public/modules/fractalSpiral/fractal-spiral-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/logSpiral/log-spiral-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/lorenzAttractor/lorenz-attractor-worklet-evaluator.js?v=native-strip-1",
@@ -2390,7 +2415,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/metallicRatio/metallic-ratio-worklet-evaluator.js?v=native-no-fallback-1",
   "./public/modules/speakerProtection/speaker-protection-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/badvalMonitor/badval-monitor-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/radar/radar-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/radar/radar-worklet-evaluator.js?v=phasor-stdlib-1",
   "./public/modules/audioPlayer/audio-player-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/sinc/sinc-worklet-evaluator.js?v=native-strip-1",
@@ -2563,6 +2588,25 @@ async function syncNodeGraphLiveInputSource() {
   }
 }
 
+/** Abort an in-flight start cleanly so UI does not stick on "starting". */
+function nodeGraphLiveOutputAbortStart(reason = "stopped") {
+  if (typeof setNodeGraphLiveStatus === "function") {
+    setNodeGraphLiveStatus(reason === "error" ? "error" : "stopped");
+  }
+  // Only disarm output when we truly have no engine — a superseding start
+  // keeps outputEnabled true with a new serial.
+  if (!nodeGraphMvp.live.node && !nodeGraphMvp.live.context) {
+    // Leave outputEnabled alone if a newer serial still owns a start request;
+    // callers that fully cancel set it themselves.
+  }
+  if (typeof renderNodeGraphLiveControls === "function") {
+    renderNodeGraphLiveControls(Boolean(nodeGraphMvp.live.node));
+  }
+  if (typeof renderNodeGraphExecutionPlanDebug === "function") {
+    renderNodeGraphExecutionPlanDebug();
+  }
+}
+
 async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputToggleSerial) {
   if (nodeGraphEarProtectionIsTripped()) {
     nodeGraphTripEarProtection({ source: "live" });
@@ -2571,13 +2615,13 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     return;
   }
   if (nodeGraphLiveOutputStartCancelled(outputSerial)) {
-    renderNodeGraphLiveControls(false);
-    renderNodeGraphExecutionPlanDebug();
+    nodeGraphLiveOutputAbortStart("stopped");
     return;
   }
   try {
     if (!nodeGraphScriptReadyForGraphAction("live audio")) {
       markNodeGraphLiveScriptBlocked();
+      nodeGraphMvp.live.outputEnabled = false;
       renderNodeGraphLiveControls(false);
       return;
     }
@@ -2591,8 +2635,7 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     if (nodeGraphMvp.live.node || nodeGraphMvp.live.context) {
       await stopNodeGraphLiveAudio();
       if (nodeGraphLiveOutputStartCancelled(outputSerial)) {
-        renderNodeGraphLiveControls(false);
-        renderNodeGraphExecutionPlanDebug();
+        nodeGraphLiveOutputAbortStart("stopped");
         return;
       }
       setNodeGraphLiveStatus("starting", "warn");
@@ -2600,7 +2643,6 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     }
 
     const plan = nodeGraphBuildLivePlan();
-    assertNodeGraphLivePlanSupportsClap(plan);
     const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextConstructor) {
       throw new Error("Web Audio API unavailable");
@@ -2612,9 +2654,12 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
       await context.resume();
     }
     if (nodeGraphLiveOutputStartCancelled(outputSerial)) {
-      await context.close();
-      renderNodeGraphLiveControls(false);
-      renderNodeGraphExecutionPlanDebug();
+      try {
+        await context.close();
+      } catch (_error) {
+        // Context may already be closing.
+      }
+      nodeGraphLiveOutputAbortStart("stopped");
       return;
     }
     const outputGain = context.createGain();
@@ -2640,9 +2685,12 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
       } catch (_error) {
         // A not-yet-connected live node is already silent.
       }
-      await context.close();
-      renderNodeGraphLiveControls(false);
-      renderNodeGraphExecutionPlanDebug();
+      try {
+        await context.close();
+      } catch (_error) {
+        // Context may already be closing.
+      }
+      nodeGraphLiveOutputAbortStart("stopped");
       return;
     }
     nodeGraphMvp.live.context = context;
@@ -2655,18 +2703,34 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     await syncNodeGraphLiveInputSource();
     if (nodeGraphLiveOutputStartCancelled(outputSerial)) {
       await stopNodeGraphLiveAudio();
-      renderNodeGraphExecutionPlanDebug();
+      // Superseded start: leave outputEnabled for the newer serial owner.
+      nodeGraphLiveOutputAbortStart("stopped");
       return;
     }
     sendNodeGraphLivePlan();
     sendNodeGraphLiveMacroControls();
     sendNodeGraphLivePitchModWheelSignal();
+    // Ensure worklet has the current transport speed (esp. after ⏮ restart).
+    if (typeof sendNodeGraphLiveSpeed === "function") {
+      sendNodeGraphLiveSpeed();
+    }
+    if (typeof sendNodeGraphLiveSpeedLimit === "function") {
+      sendNodeGraphLiveSpeedLimit();
+    }
     if (usesWorklet) {
       setNodeGraphLiveEngineStatus("engine worklet", "good");
       setNodeGraphLiveEngineTitle();
     }
     await context.resume();
+    if (nodeGraphLiveOutputStartCancelled(outputSerial)) {
+      await stopNodeGraphLiveAudio();
+      nodeGraphLiveOutputAbortStart("stopped");
+      return;
+    }
     clearNodeGraphLiveStatusTitle();
+    if (typeof setNodeGraphLiveStatus === "function") {
+      setNodeGraphLiveStatus("running", "good");
+    }
     renderNodeGraphLiveControls(true);
   } catch (error) {
     const inputError = Boolean(error.nodeGraphInputError);

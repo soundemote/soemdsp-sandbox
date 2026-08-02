@@ -256,15 +256,33 @@
         gradient.append(stop);
       }
 
-      // Visual stroke lives on the endpoint SVG — define the paint server there
-      // (clone onto the wire SVG too if different, for any under-layer use).
+      // Paint server on both layers: under-module cable SVG and over-module
+      // endpoint SVG (caps always; strokes when "Wires Above Modules" is on).
       const capSvg = endpointCapSvg();
-      const primary = capSvg || svg;
-      ensureSvgDefs(primary)?.append(gradient);
-      if (svg && svg !== primary) {
-        ensureSvgDefs(svg)?.append(gradient.cloneNode(true));
+      ensureSvgDefs(svg)?.append(gradient);
+      if (capSvg && capSvg !== svg) {
+        ensureSvgDefs(capSvg)?.append(gradient.cloneNode(true));
       }
       return `url(#${id})`;
+    }
+
+    /** True when cable strokes paint above module faces (Visibility toggle). */
+    function wiresAboveModules() {
+      return Boolean(
+        typeof nodeGraphMvp !== "undefined" && nodeGraphMvp?.wiresAboveModules,
+      );
+    }
+
+    /**
+     * Visual cable stroke host. Hit targets always stay on the under-module
+     * wire SVG. Caps always stay on the endpoint overlay (mid-jack discs).
+     * Stroke layer follows Visibility → Wires Above Modules.
+     */
+    function visualCableSvg(wireSvg) {
+      if (wiresAboveModules()) {
+        return endpointCapSvg() || wireSvg;
+      }
+      return wireSvg;
     }
 
     function drawPath(svg, options) {
@@ -309,27 +327,17 @@
         svg.append(hitPath);
       }
 
-      // Visual cable + discs share the endpoint SVG above modules.
-      // Paint order: discs first, then stroke on top. If the disc is drawn
-      // *over* the stroke, the circle's antialiased edge composites over the
-      // cable and samples show a third color only at the join — even when
-      // fill and stroke are the same RGB (art-program pixel check).
-      const capSvg = endpointCapSvg() || svg;
+      // Caps always on the endpoint overlay (visible mid-jack above faces).
+      // Cable stroke: under modules by default; above when Visibility toggle on.
+      // When stroke + disc share a layer, paint discs first then stroke so the
+      // join has no AA fringe (disc-over-stroke samples a third color at edge).
+      const paintSvg = visualCableSvg(svg) || svg;
+      const above = paintSvg !== svg;
       const [fromColor, toColor] = wireColors || [null, null];
       const capClass = [
         String(pathClass).includes("inactive-wire") ? "inactive-wire" : "",
         kind === "modulation" || kind === "graph" ? "modulation" : "",
       ].filter(Boolean).join(" ");
-      // Disc fill = port color at that end (matches gradient end plateaus).
-      // Stroke is painted after discs so the join has no AA fringe.
-      drawEndpointCap(svg, from, "from", stroke, capClass, {
-        endColor: fromColor,
-        gradientId,
-      });
-      drawEndpointCap(svg, to, "to", stroke, capClass, {
-        endColor: toColor,
-        gradientId,
-      });
 
       const renderedPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
       renderedPath.setAttribute(
@@ -349,7 +357,28 @@
       renderedPath.setAttribute("d", pathData);
       renderedPath.setAttribute("stroke", stroke);
       renderedPath.style.stroke = stroke;
-      capSvg.append(renderedPath);
+
+      if (above) {
+        drawEndpointCap(svg, from, "from", stroke, capClass, {
+          endColor: fromColor,
+          gradientId,
+        });
+        drawEndpointCap(svg, to, "to", stroke, capClass, {
+          endColor: toColor,
+          gradientId,
+        });
+        paintSvg.append(renderedPath);
+      } else {
+        paintSvg.append(renderedPath);
+        drawEndpointCap(svg, from, "from", stroke, capClass, {
+          endColor: fromColor,
+          gradientId,
+        });
+        drawEndpointCap(svg, to, "to", stroke, capClass, {
+          endColor: toColor,
+          gradientId,
+        });
+      }
     }
 
     function elementForEndpoint(endpoint) {

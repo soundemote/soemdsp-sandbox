@@ -65,7 +65,7 @@ function nodeGraphEarProtectionFaultDetail(details = {}) {
   const source = details.source ? `${details.source} ` : "";
   const count = Number(details.protectionMuteCount ?? details.count) || 0;
   const countText = count ? ` after ${count} protected frame${count === 1 ? "" : "s"}` : "";
-  return `${source}audio output muted${countText}. Close to reset.`;
+  return `${source}output muted${countText}. Close this dialog, then unpause when ready.`;
 }
 
 function closeNodeGraphEarProtectionFaultUi() {
@@ -76,6 +76,10 @@ function closeNodeGraphEarProtectionFaultUi() {
   document.body?.classList.remove("node-ear-protection-tripped");
 }
 
+/**
+ * Clear the safety latch without tearing down the live engine.
+ * Trip pauses (speed 0) instead of stop — recovery is unmute + unpause.
+ */
 function nodeGraphResetEarProtectionFault() {
   globalThis.nodeGraphEarProtectionTripped = false;
   globalThis.nodeGraphEarProtectionDetails = null;
@@ -84,32 +88,34 @@ function nodeGraphResetEarProtectionFault() {
     if (typeof setNodeGraphLiveOutputMuted === "function") {
       setNodeGraphLiveOutputMuted(false);
     }
-    if (typeof nodeGraphMvp !== "undefined") {
-      nodeGraphMvp.live.outputEnabled = false;
-    }
+    // Leave the engine paused. User unpauses with Play / Space when ready —
+    // safer than auto-resuming a patch that just tripped protection.
     if (typeof setNodeGraphLiveStatus === "function") {
-      setNodeGraphLiveStatus("idle", "");
+      setNodeGraphLiveStatus("paused", "warn");
     }
     if (typeof setNodeGraphLiveEngineStatus === "function") {
-      setNodeGraphLiveEngineStatus("engine idle", "");
+      setNodeGraphLiveEngineStatus("engine paused — unpause to resume", "warn");
     }
     if (typeof setNodeGraphLiveEngineTitle === "function") {
-      setNodeGraphLiveEngineTitle("");
+      setNodeGraphLiveEngineTitle("Ear protection cleared. Engine still paused — press Play to resume.");
     }
     if (typeof setNodeGraphLivePlanStatus === "function") {
-      setNodeGraphLivePlanStatus("plan idle", "");
+      setNodeGraphLivePlanStatus("paused after protection trip", "warn");
     }
     if (typeof setNodeGraphLiveScheduleStatus === "function") {
-      setNodeGraphLiveScheduleStatus("schedule idle", "");
+      setNodeGraphLiveScheduleStatus("protection cleared; unpause to continue", "warn");
     }
     if (typeof setNodeGraphLiveMeter === "function") {
       setNodeGraphLiveMeter();
     }
     if (typeof labelPrimaryAudioTitle === "function") {
-      labelPrimaryAudioTitle("Audio ready", true);
+      labelPrimaryAudioTitle("Ear protection cleared. Unpause to resume audio.", true);
+    }
+    if (typeof labelPrimaryAudio === "function") {
+      labelPrimaryAudio("Engine paused", true);
     }
     if (typeof renderNodeGraphLiveControls === "function") {
-      renderNodeGraphLiveControls(false);
+      renderNodeGraphLiveControls(Boolean(nodeGraphMvp?.live?.node || nodeGraphMvp?.live?.context));
     }
     if (typeof refreshNodeGraphSpeakerProtectionBodies === "function") {
       refreshNodeGraphSpeakerProtectionBodies();
@@ -174,6 +180,11 @@ function nodeGraphApplyEarProtectionFaultUi(details = {}) {
     detail.textContent = nodeGraphEarProtectionFaultDetail(details);
   }
 
+  const pausedLine = document.getElementById("nodeEarProtectionFaultPaused");
+  if (pausedLine) {
+    pausedLine.textContent = "The engine was paused.";
+  }
+
   const fault = document.getElementById("nodeEarProtectionFault");
   if (fault) {
     fault.hidden = false;
@@ -187,36 +198,36 @@ function nodeGraphApplyEarProtectionFaultUi(details = {}) {
     }
     const audioStats = document.getElementById("nodeAudioStats");
     if (audioStats) {
-      audioStats.textContent = `audio muted / protected ${Number(details.protectionMuteCount ?? details.count) || 1}`;
+      audioStats.textContent = `engine paused / protected ${Number(details.protectionMuteCount ?? details.count) || 1}`;
       audioStats.className = "pill warn";
       audioStats.dataset.renderProtectionMutes = String(Number(details.protectionMuteCount ?? details.count) || 1);
     }
     if (typeof labelPrimaryAudioTitle === "function") {
-      labelPrimaryAudioTitle("Ear Protection tripped. Close the dialog to reset audio.", false);
+      labelPrimaryAudioTitle("Ear Protection tripped. Engine paused. Close dialog, then unpause.", false);
     }
     if (typeof labelPrimaryAudio === "function") {
-      labelPrimaryAudio("Audio muted for safety", false);
+      labelPrimaryAudio("Engine paused for safety", false);
     }
     if (typeof setNodeGraphLiveStatus === "function") {
       setNodeGraphLiveStatus("protection tripped", "warn");
     }
     if (typeof setNodeGraphLiveEngineStatus === "function") {
-      setNodeGraphLiveEngineStatus("audio muted", "warn");
+      setNodeGraphLiveEngineStatus("engine paused", "warn");
     }
     if (typeof setNodeGraphLiveEngineTitle === "function") {
-      setNodeGraphLiveEngineTitle("Ear Protection tripped. Close the dialog to reset audio.");
+      setNodeGraphLiveEngineTitle("Ear Protection tripped. Engine was paused — close dialog, then unpause.");
     }
     if (typeof setNodeGraphLivePlanStatus === "function") {
-      setNodeGraphLivePlanStatus("reset available", "warn");
+      setNodeGraphLivePlanStatus("paused for safety", "warn");
     }
     if (typeof setNodeGraphLiveScheduleStatus === "function") {
-      setNodeGraphLiveScheduleStatus("ear protection tripped; close dialog to reset", "warn");
+      setNodeGraphLiveScheduleStatus("ear protection tripped; engine paused — close dialog to clear", "warn");
     }
     if (typeof setNodeGraphLiveMeter === "function") {
       setNodeGraphLiveMeter(0, 0, 0, Number(details.protectionMuteCount ?? details.count) || 1);
     }
     if (typeof renderNodeGraphLiveControls === "function") {
-      renderNodeGraphLiveControls(false);
+      renderNodeGraphLiveControls(Boolean(nodeGraphMvp?.live?.node || nodeGraphMvp?.live?.context));
     }
     if (typeof refreshNodeGraphSpeakerProtectionBodies === "function") {
       refreshNodeGraphSpeakerProtectionBodies();
@@ -226,6 +237,10 @@ function nodeGraphApplyEarProtectionFaultUi(details = {}) {
   }
 }
 
+/**
+ * Trip ear protection: mute + pause the live engine (do not stop/tear down).
+ * Recovery after closing the dialog is unpause (Play / Space).
+ */
 function nodeGraphTripEarProtection(details = {}) {
   if (nodeGraphEarProtectionIsTripped()) {
     nodeGraphApplyEarProtectionFaultUi(details);
@@ -234,44 +249,56 @@ function nodeGraphTripEarProtection(details = {}) {
   globalThis.nodeGraphEarProtectionTripped = true;
   nodeGraphApplyEarProtectionFaultUi(details);
 
+  // Stop any rendered WAV path — that is offline playback, not the live engine.
   try {
     if (typeof stopNodeGraphRenderedPlayback === "function") {
       stopNodeGraphRenderedPlayback();
     }
   } catch (_error) {
-    // Best effort; closing the dialog clears the trip.
+    // Best effort.
   }
   try {
     if (typeof clearNodeGraphRenderedAudioElement === "function") {
       clearNodeGraphRenderedAudioElement();
     }
   } catch (_error) {
-    // Best effort; live output is the primary speaker path.
+    // Best effort.
   }
+
+  // Mute immediately so residual frames cannot blast after the trip.
   try {
     if (typeof setNodeGraphLiveOutputMuted === "function") {
       setNodeGraphLiveOutputMuted(true);
     }
   } catch (_error) {
-    // Best effort; the output engine may not exist.
+    // Best effort.
   }
+
+  // Pause the live engine in place (speed 0). Do NOT stop / disable output —
+  // tearing down was the bug: Output then could not "unpause" a dead engine.
   try {
-    if (typeof nodeGraphMvp !== "undefined") {
-      nodeGraphMvp.live.outputEnabled = false;
-      nodeGraphMvp.live.outputToggleSerial += 1;
-    }
-    if (typeof stopNodeGraphLiveAudio === "function") {
-      const stopResult = stopNodeGraphLiveAudio();
-      if (stopResult && typeof stopResult.finally === "function") {
-        stopResult.finally(() => {
-          if (nodeGraphEarProtectionIsTripped()) {
-            nodeGraphApplyEarProtectionFaultUi(details);
-          }
-        });
+    if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp?.live) {
+      // Keep outputEnabled so the engine graph stays up while paused.
+      const speed = Number(nodeGraphMvp.live.speedMultiplier ?? 1);
+      if (Number.isFinite(speed) && speed > 0) {
+        nodeGraphMvp.live.lastPlaySpeed = speed;
       }
     }
+    if (typeof setNodeGraphLiveSpeed === "function") {
+      setNodeGraphLiveSpeed(0);
+    } else if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp?.live) {
+      nodeGraphMvp.live.speedMultiplier = 0;
+    }
   } catch (_error) {
-    // Best effort; closing the dialog clears the trip.
+    // Best effort; dialog still latches the trip.
+  }
+
+  try {
+    if (typeof renderNodeGraphLiveControls === "function") {
+      renderNodeGraphLiveControls(Boolean(nodeGraphMvp?.live?.node || nodeGraphMvp?.live?.context));
+    }
+  } catch (_error) {
+    // UI refresh is optional.
   }
   return true;
 }

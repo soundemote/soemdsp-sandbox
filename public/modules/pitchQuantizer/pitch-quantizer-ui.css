@@ -1,0 +1,192 @@
+/* Pitch Quantizer — one-octave pitch-class keyboard face */
+
+.node-pitch-quantizer-face {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(243, 241, 236, 0.12);
+  border-radius: 6px;
+  background:
+    linear-gradient(180deg, rgba(127, 199, 217, 0.08), transparent 42%),
+    #080a0c;
+  box-sizing: border-box;
+}
+
+/* Scale jack driving the mask (e.g. Chord Pad) — keyboard is display-only. */
+.node-pitch-quantizer-face.scale-jacked {
+  border-color: rgba(177, 132, 255, 0.35);
+}
+
+.node-pitch-quantizer-face.scale-jacked .node-pitch-quantizer-key {
+  cursor: default;
+  opacity: 0.95;
+}
+
+.node-pitch-quantizer-face.scale-jacked .node-pitch-quantizer-tool {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.node-pitch-quantizer-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.node-pitch-quantizer-tool {
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid rgba(243, 241, 236, 0.14);
+  border-radius: 4px;
+  background: rgba(5, 6, 7, 0.72);
+  color: var(--text);
+  font: 700 0.68rem/1 "Cascadia Mono", Consolas, monospace;
+  cursor: pointer;
+}
+
+.node-pitch-quantizer-tool:hover {
+  border-color: rgba(127, 199, 217, 0.45);
+  color: var(--scope, #7fc7d9);
+}
+
+.node-pitch-quantizer-hint {
+  margin-left: auto;
+  color: var(--muted);
+  font: 700 0.62rem/1 "Cascadia Mono", Consolas, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.node-pitch-quantizer-keyboard {
+  position: relative;
+  container-type: inline-size;
+  width: 100%;
+  height: 100%;
+  min-height: 72px;
+  overflow: hidden;
+  border: 1px solid rgba(243, 241, 236, 0.14);
+  border-radius: 5px;
+  background: #050607;
+}
+
+.node-pitch-quantizer-white-row {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  align-items: stretch;
+  min-width: 0;
+}
+
+.node-pitch-quantizer-key {
+  box-sizing: border-box;
+  margin: 0;
+  min-width: 0;
+  border: 0;
+  cursor: pointer;
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.node-pitch-quantizer-key-white {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 100%;
+  padding: 0 1px 6px;
+  border-right: 1px solid rgba(5, 6, 7, 0.72);
+  color: rgba(5, 6, 7, 0.78);
+  font-size: clamp(0.5rem, 6cqi, 0.78rem);
+  background: linear-gradient(180deg, #f7f2e8 0%, #cfc7b8 72%, #a79f93 100%);
+}
+
+.node-pitch-quantizer-key-white:last-child {
+  border-right: 0;
+}
+
+.node-pitch-quantizer-key-white.active {
+  color: #eaf8ff;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(213, 247, 255, 0.9), transparent 30%),
+    linear-gradient(180deg, #7edcff 0%, #1e85ff 74%, #0a3f9a 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(207, 246, 255, 0.75),
+    inset 0 0 16px rgba(17, 102, 255, 0.4);
+  text-shadow: 0 0 6px rgba(234, 248, 255, 0.8);
+}
+
+.node-pitch-quantizer-black-row {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.node-pitch-quantizer-key-black {
+  position: absolute;
+  top: 0;
+  left: var(--key-left, 0%);
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 58%;
+  padding: 0 1px 5px;
+  border: 1px solid rgba(127, 199, 217, 0.22);
+  border-radius: 0 0 4px 4px;
+  color: rgba(243, 241, 236, 0.88);
+  font-size: clamp(0.4rem, 4cqi, 0.62rem);
+  background: linear-gradient(180deg, #2a3036 0%, #0a0c0f 100%);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
+}
+
+.node-pitch-quantizer-key-black.active {
+  border-color: rgba(118, 215, 255, 0.9);
+  color: #eaf8ff;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(151, 230, 255, 0.65), transparent 32%),
+    linear-gradient(180deg, #236ec9 0%, #081a43 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(184, 239, 255, 0.7),
+    0 0 14px rgba(35, 162, 255, 0.55);
+  text-shadow: 0 0 6px rgba(234, 248, 255, 0.75);
+}
+
+.node-pitch-quantizer-key:focus-visible {
+  outline: 2px solid rgba(127, 199, 217, 0.85);
+  outline-offset: -2px;
+  z-index: 3;
+}
+
+/* Module grid layout row for the face */
+.dsp-node.pitch-quantizer-layout {
+  grid-template-rows:
+    var(--node-header-height)
+    var(--node-module-scope-height)
+    minmax(var(--node-io-section-min-height), auto)
+    auto
+    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
+}
+
+.dsp-node.pitch-quantizer-layout > .node-pitch-quantizer-face {
+  grid-row: 2;
+  align-self: stretch;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  pointer-events: auto;
+}

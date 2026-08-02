@@ -2,14 +2,13 @@ function createNodeGraphWirdoSpiralState() {
   return { phase: 0, splashPhase: 0, resetWasHigh: false };
 }
 
+// Shared stdlib (node-graph-phasor-helpers.js). Local names keep port call-sites stable.
 function nodeGraphWirdoSpiralWrap01(v) {
-  return v - Math.floor(v);
+  return nodeGraphWrap01(v);
 }
 
 function nodeGraphWirdoSpiralTrisaw(phase, warp) {
-  const safeWarp = clampNodeSliderValue(warp, 0.001, 0.999);
-  const wrapped = nodeGraphWirdoSpiralWrap01(phase);
-  return wrapped < safeWarp ? wrapped / safeWarp : (1 - wrapped) / (1 - safeWarp);
+  return nodeGraphTrisaw(phase, warp);
 }
 
 // Ported from soemdsp/include/soemdsp/oscillator/JerobeamWirdoSpiral.{h,cpp}

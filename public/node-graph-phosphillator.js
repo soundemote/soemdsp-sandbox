@@ -1,10 +1,9 @@
-// Phosphillator — draw a shape freehand with the mouse, get a closed-loop
-// X/Y drawing back. This file covers capture + storage (stage 1): a
-// drawable phosphor-style canvas, live Papoulis-smoothed capture of the
-// pointer stream, and cubic (Catmull-Rom) uniform-arclength resampling into
-// a fixed-length closed loop, stored on the patch node and rendered with the
-// same phosphor-glow look as the rest of this fork. Playback (turning the
-// stored loop into audio-rate X/Y CV output) is a separate follow-up pass.
+// Phosphillator — draw a shape freehand with the mouse, get an open-path
+// X/Y drawing back. Capture uses Papoulis-smoothed pointer stream + cubic
+// (Catmull-Rom) uniform-arclength resampling into a fixed-length open path
+// stored on the patch node. Playback walks that path with a Jerobeam-style
+// trisaw sharpness morph: 0% reverse-saw (end→start + jump), 50% triangle
+// (forward then reverse back to start), 100% forward-saw (start→end + jump).
 
 const nodeGraphPhosphillatorCaptureStates = new Map();
 const nodeGraphPhosphillatorResampledPointCount = 256;
@@ -89,17 +88,19 @@ function nodeGraphPhosphillatorCatmullRom(p0, p1, p2, p3, t) {
   );
 }
 
-function nodeGraphPhosphillatorResampleClosedLoop(points, targetCount) {
+// Open-path arclength resample (no last→first segment). Endpoints clamp for
+// Catmull-Rom neighbors so the spline stays within the drawn stroke.
+function nodeGraphPhosphillatorResampleOpenPath(points, targetCount) {
   const n = points.length;
   if (n < 3) {
     return [];
   }
-  const at = (index) => points[((index % n) + n) % n];
+  const at = (index) => points[Math.max(0, Math.min(n - 1, index))];
   const segmentLengths = [];
   let totalLength = 0;
-  for (let i = 0; i < n; i += 1) {
-    const a = at(i);
-    const b = at(i + 1);
+  for (let i = 0; i < n - 1; i += 1) {
+    const a = points[i];
+    const b = points[i + 1];
     const length = Math.hypot(b.x - a.x, b.y - a.y);
     segmentLengths.push(length);
     totalLength += length;
@@ -110,10 +111,14 @@ function nodeGraphPhosphillatorResampleClosedLoop(points, targetCount) {
   const resampled = [];
   let segmentIndex = 0;
   let segmentStartLength = 0;
+  const lastSeg = n - 2;
   for (let k = 0; k < targetCount; k += 1) {
-    const targetLength = (k / targetCount) * totalLength;
+    // Include both endpoints: k=0 → start, k=targetCount-1 → end.
+    const targetLength = targetCount <= 1
+      ? 0
+      : (k / (targetCount - 1)) * totalLength;
     while (
-      segmentIndex < n - 1
+      segmentIndex < lastSeg
       && segmentStartLength + segmentLengths[segmentIndex] < targetLength
     ) {
       segmentStartLength += segmentLengths[segmentIndex];
@@ -139,7 +144,7 @@ function nodeGraphPhosphillatorFinishCapture(nodeId) {
   if (!state || state.points.length < 3) {
     return;
   }
-  const resampled = nodeGraphPhosphillatorResampleClosedLoop(state.points, nodeGraphPhosphillatorResampledPointCount);
+  const resampled = nodeGraphPhosphillatorResampleOpenPath(state.points, nodeGraphPhosphillatorResampledPointCount);
   if (!resampled.length) {
     return;
   }
@@ -311,7 +316,8 @@ function drawNodeGraphPhosphillatorDrawDisplay(section) {
       const unpacked = unpackNodeGraphPhosphorDrawSample(packed);
       return nodeGraphPhosphillatorPointToPixel(unpacked, width, height);
     });
-    drawNodeGraphPhosphillatorGlowPath(context, pixels, true);
+    // Open path — no last→first stroke; playback reverses instead of jumping.
+    drawNodeGraphPhosphillatorGlowPath(context, pixels, false);
     return;
   }
 
@@ -329,12 +335,10 @@ function drawNodeGraphPhosphillatorDrawDisplay(section) {
   );
 }
 
-// Playback: turn the stored closed loop into X/Y CV. The drawn points decode
-// once per patch change (cached, keyed on the points array reference — a
-// new array reference means a new drawing) into flat X/Y arrays; each
-// sample advances a 0..1 phase accumulator (same 0.1V/Oct -> frequency
-// convention used by osc) and arclength-indexes into the loop with linear
-// interpolation between the two nearest stored points.
+// Playback: open path + Jerobeam trisaw path index. Drawn points decode once
+// per patch change (cache keyed on the points array reference) into flat X/Y
+// arrays; each sample advances a 0..1 phase accumulator (0.1V/Oct → freq)
+// and maps phase through trisaw(sharpness) onto the open path [0 .. n-1].
 
 const nodeGraphPhosphillatorDecodedPathCache = new Map();
 
@@ -360,43 +364,46 @@ function nodeGraphPhosphillatorDecodedPath(nodeId, node) {
   return decoded;
 }
 
-function nodeGraphPhosphillatorLoopSample(decoded, phase) {
+// Index the open path at pathPos ∈ [0,1] (0 = first point, 1 = last). No wrap.
+function nodeGraphPhosphillatorPathSample(decoded, pathPos) {
   const n = decoded.count;
-  const index = ((phase % 1) + 1) % 1 * n;
-  const i0 = Math.floor(index) % n;
-  const i1 = (i0 + 1) % n;
-  const t = index - Math.floor(index);
+  if (n < 2) {
+    return { x: decoded.decodedX[0] || 0, y: decoded.decodedY[0] || 0 };
+  }
+  const pos = Math.min(1, Math.max(0, Number(pathPos) || 0));
+  const index = pos * (n - 1);
+  const i0 = Math.min(n - 2, Math.floor(index));
+  const i1 = i0 + 1;
+  const t = index - i0;
   return {
     x: decoded.decodedX[i0] + (decoded.decodedX[i1] - decoded.decodedX[i0]) * t,
     y: decoded.decodedY[i0] + (decoded.decodedY[i1] - decoded.decodedY[i0]) * t,
   };
 }
 
+// phase ∈ [0,1) oscillator phase; sharpness ∈ [0,1] trisaw warp (stdlib).
+function nodeGraphPhosphillatorLoopSample(decoded, phase, sharpness) {
+  const pathPos = nodeGraphTrisaw(phase, sharpness);
+  return nodeGraphPhosphillatorPathSample(decoded, pathPos);
+}
+
 function createNodeGraphPhosphillatorPlaybackState() {
   return { lastReset: false, phase: 0 };
 }
 
-// cvInput follows the same 0.1V/Oct convention used by osc:
-// frequency * 2**(cv/0.1). phaseOffsetTurns and reset are 0..1 / boolean.
+// cvInput: 0.1V/Oct via nodeGraphPitchedFrequency / nodeGraphAdvancePhase01.
 function nodeGraphPhosphillatorAdvancePhase(state, cvInput, frequency, reset, sampleRate) {
-  const resetActive = Number(reset) > 0.5;
-  if (resetActive && !state.lastReset) {
-    state.phase = 0;
-  }
-  state.lastReset = resetActive;
-  const pitchedFrequency = Math.max(0, Number(frequency) * (2 ** ((Number(cvInput) || 0) / 0.1)));
-  const increment = Math.max(1, Number(sampleRate) || 1) > 0 ? pitchedFrequency / Math.max(1, Number(sampleRate) || 1) : 0;
-  state.phase = ((state.phase + increment) % 1 + 1) % 1;
-  return state.phase;
+  return nodeGraphAdvancePitchedPhase01(state, frequency, cvInput, sampleRate, reset);
 }
 
-function nodeGraphPhosphillatorPlaybackSample(state, node, nodeId, cvInput, frequency, phaseOffset, reset, sampleRate) {
+function nodeGraphPhosphillatorPlaybackSample(state, node, nodeId, cvInput, frequency, phaseOffset, reset, sampleRate, sharpness) {
   const phase = nodeGraphPhosphillatorAdvancePhase(state, cvInput, frequency, reset, sampleRate);
   const decoded = nodeGraphPhosphillatorDecodedPath(nodeId, node);
   if (!decoded) {
     return { X: 0, Y: 0 };
   }
-  const effectivePhase = ((phase + (Number(phaseOffset) || 0)) % 1 + 1) % 1;
-  const point = nodeGraphPhosphillatorLoopSample(decoded, effectivePhase);
+  const effectivePhase = nodeGraphWrap01((Number(phase) || 0) + (Number(phaseOffset) || 0));
+  const sharp = Number.isFinite(Number(sharpness)) ? Number(sharpness) : 0.5;
+  const point = nodeGraphPhosphillatorLoopSample(decoded, effectivePhase, sharp);
   return { X: point.x, Y: point.y };
 }

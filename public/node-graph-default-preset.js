@@ -50,14 +50,8 @@ function nodeGraphDefaultPresetPatchIsUsable(patch) {
     return false;
   }
   const hasOutput = patch.nodes.some((node) => node?.id === "output" && node?.type === "output");
-  // A shipped/stored default preset saved before the CLAP Plugin module
-  // became a standing fixture (see nodeGraphDefaultNodeConfigs) won't have
-  // one -- treating that preset as unusable falls back to
-  // nodeGraphDefaultPatch below, so the guarantee holds everywhere,
-  // including a stale existing public/presets/default.json.
-  const hasClapPlugin = patch.nodes.some((node) => node?.type === "clapPlugin");
   const visibleNodeCount = patch.nodes.filter((node) => nodeGraphModuleShouldBeVisible(node)).length;
-  return hasOutput && hasClapPlugin && visibleNodeCount > 1;
+  return hasOutput && visibleNodeCount > 1;
 }
 
 function nodeGraphLocalDefaultPresetAllowed() {

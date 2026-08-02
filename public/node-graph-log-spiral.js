@@ -27,8 +27,9 @@ function createLogSpiralState() {
   };
 }
 
+// Shared stdlib (node-graph-phasor-helpers.js).
 function logSpiralWrap01(value) {
-  return value - Math.floor(value);
+  return nodeGraphWrap01(value);
 }
 
 function logSpiralSample(options = {}) {

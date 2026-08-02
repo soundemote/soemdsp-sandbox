@@ -691,7 +691,16 @@ function loadSelectedNodeGraphPatchPreset() {
     }
     renderNodeGraphPatchPresetControls(entry.name);
   } catch (error) {
-    setNodeGraphScriptStatus(`preset load failed: ${error?.message || error}`, false);
+    const message = String(error?.message || error || "failed to load patch");
+    if (typeof nodeGraphShowPatchLoadFault === "function") {
+      nodeGraphShowPatchLoadFault({
+        message,
+        script: error?.patchScript || entry.text || "",
+        title: "Failed to load preset",
+      });
+    } else {
+      setNodeGraphScriptStatus(`preset load failed: ${message}`, false);
+    }
   }
 }
 
@@ -810,14 +819,24 @@ function handleNodeGraphScriptFileLoad(event) {
   }
   const reader = new FileReader();
   reader.addEventListener("load", () => {
+    const scriptText = String(reader.result || "");
     try {
-      commitNodeGraphPatch(loadNodeGraphPatchFromScript(String(reader.result || "")), {
+      commitNodeGraphPatch(loadNodeGraphPatchFromScript(scriptText), {
         patchDirtyState: "saved",
         status: "script loaded",
       });
       setNodeGraphCurrentSavedPatch("");
     } catch (error) {
-      setNodeGraphScriptStatus(error.message, false);
+      const message = String(error?.message || error || "failed to load patch");
+      if (typeof nodeGraphShowPatchLoadFault === "function") {
+        nodeGraphShowPatchLoadFault({
+          message,
+          script: error?.patchScript || scriptText,
+          title: "Failed to load patch file",
+        });
+      } else {
+        setNodeGraphScriptStatus(message, false);
+      }
     } finally {
       event.currentTarget.value = "";
     }
@@ -1115,19 +1134,29 @@ async function loadNodeGraphDemoPatch(filename) {
   if (!nodeGraphScriptReadyForGraphAction("load saved patch")) {
     return;
   }
+  let scriptText = "";
   try {
     const response = await fetch(`/api/patches/file?name=${encodeURIComponent(safeFilename)}`);
-    const text = await response.text();
+    scriptText = await response.text();
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
-    commitNodeGraphPatch(loadNodeGraphPatchFromScript(text), {
+    commitNodeGraphPatch(loadNodeGraphPatchFromScript(scriptText), {
       patchDirtyState: "saved",
       status: `patch loaded: ${safeFilename}`,
     });
     setNodeGraphCurrentSavedPatch(safeFilename);
   } catch (error) {
-    setNodeGraphScriptStatus(`patch load failed: ${error?.message || error}`, false);
+    const message = String(error?.message || error || "failed to load patch");
+    if (typeof nodeGraphShowPatchLoadFault === "function") {
+      nodeGraphShowPatchLoadFault({
+        message,
+        script: error?.patchScript || scriptText,
+        title: `Failed to load ${safeFilename}`,
+      });
+    } else {
+      setNodeGraphScriptStatus(`patch load failed: ${message}`, false);
+    }
   }
 }
 

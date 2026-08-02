@@ -24,7 +24,7 @@ registerNodeGraphChromelessModule("led", {
   },
   catalog: {
     category: "object",
-    description: "Signal light. Layout B (In | lamp | Out), resizable, with color/blur/rounding/brightness settings.",
+    description: "Signal light. Layout B (In | lamp | Out), resizable. Mono energy (level × brightness) maps through a multi-stop gradient (any bright/dim shape).",
     notes: ["LayoutB", "resizable", "input light", "visual indicator"],
   },
 });

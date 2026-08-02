@@ -2,8 +2,9 @@ NodeLiveAudioProcessor.prototype.createWirdoSpiralState = function createWirdoSp
     return { phase: 0, splashPhase: 0, resetWasHigh: false, nativeHandle: 0 };
   };
 
+// Shared stdlib (node-graph-phasor-helpers.js, first in worklet Blob).
 NodeLiveAudioProcessor.prototype.wirdoSpiralWrap01 = function wirdoSpiralWrap01(v) {
-    return v - Math.floor(v);
+    return nodeGraphWrap01(v);
   };
 
 NodeLiveAudioProcessor.prototype.wirdoSpiralSample = function wirdoSpiralSample(state, options = {}) {

@@ -9,8 +9,9 @@ function createJerobeamSpiralState() {
   };
 }
 
+// Shared stdlib (node-graph-phasor-helpers.js). Local names keep port call-sites stable.
 function spiralWrap01(value) {
-  return value - Math.floor(value);
+  return nodeGraphWrap01(value);
 }
 
 function spiralFmod(value, divisor) {
@@ -18,9 +19,7 @@ function spiralFmod(value, divisor) {
 }
 
 function spiralTrisaw(phase, sharp) {
-  const wrapped = spiralWrap01(phase);
-  const warp = Math.max(0.001, Math.min(0.999, sharp));
-  return wrapped < warp ? wrapped / warp : (1 - wrapped) / (1 - warp);
+  return nodeGraphTrisaw(phase, sharp);
 }
 
 function spiralNextPhasor(state, key, frequency, offset, sampleRate, bipolar = false) {

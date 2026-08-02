@@ -12,21 +12,11 @@ Primary note:
 docs/LOFI_PITCH_SHIFT_PLAN.md
 ```
 
-## WebUI CLAP Host
+## CLAP host (extracted)
 
-The CLAP-hosting path should use a local native companion app, not browser-native plugin loading.
+CLAP host experiments were moved out of this repo to
+https://github.com/soundemote/soemdsp-sandbox-claphost
 
-Primary note:
-
-```text
-docs/WEBUI_CLAP_HOST_PLAN.md
-```
-
-Planning shelf:
-
-```text
-C:\Users\argit\Documents\_PROGRAMMING\CODEGUIDE\agents\DIRECTOR\planning\webui-clap-host.md
-```
 
 ## Trace Pathfinding
 

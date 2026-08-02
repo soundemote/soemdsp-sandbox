@@ -641,7 +641,11 @@ function copyNodeGraphModule(sourceNode) {
       ? { layout: normalizeNodeGraphImageLayout(sourceNode.layout) }
       : {}),
     ...(sourceNode.type === "valueSlider" && typeof normalizeNodeGraphValueSliderFace === "function"
-      ? { valueSliderFace: normalizeNodeGraphValueSliderFace(sourceNode.valueSliderFace) }
+      ? {
+        valueSliderFace: typeof nodeGraphValueSliderFaceToPatch === "function"
+          ? nodeGraphValueSliderFaceToPatch(sourceNode.valueSliderFace)
+          : normalizeNodeGraphValueSliderFace(sourceNode.valueSliderFace),
+      }
       : {}),
     ...(sourceNode.type === "led"
       ? { led: normalizeNodeGraphLedLayout(sourceNode.led) }
@@ -677,8 +681,8 @@ function copyNodeGraphModuleFromContext() {
 // The subset of a node's fields that count as "settings" for the Copy
 // Settings / Paste Settings / Save to Default actions -- everything about a
 // module except its grid position/id/type. Deliberately excludes
-// `moduleGroup` (a full nested sub-patch) and `clap` (a plugin instance
-// binding) since those aren't meaningfully "default-able" per module type.
+// `moduleGroup` (a full nested sub-patch) since that isn't meaningfully
+// "default-able" per module type.
 const nodeGraphModuleSettingsFields = Object.freeze([
   "alias",
   "widthGu",
@@ -949,9 +953,8 @@ function setNodeGraphModuleAliasFromContext({ record = true } = {}) {
   const alias = normalizeNodeGraphPatchNodeAlias(input?.value);
 
   // Live typing (input event, record:false): mutate the live patch + soft-update
-  // alias consumers only. Do NOT rewrite the chrome header (stays type name).
-  // A full commit rebuilds every module DOM and was kicking the caret out of
-  // the alias field on each character / Backspace.
+  // alias consumers (header title, Value Slider face) without a full commit
+  // (which rebuilds every module DOM and kicks the caret out of the field).
   if (!record) {
     if (alias) {
       sourceNode.alias = alias;
@@ -960,6 +963,17 @@ function setNodeGraphModuleAliasFromContext({ record = true } = {}) {
     }
     if (nodeGraphMvp) {
       nodeGraphMvp.patchDirtyState = "edited";
+    }
+    // Header title tracks alias live while Module Settings is open.
+    const moduleEl = document.querySelector(`.dsp-node[data-node="${CSS.escape(sourceNode.id)}"]`);
+    const headerTitle = moduleEl?.querySelector?.(".node-header-title");
+    if (headerTitle && document.activeElement !== headerTitle) {
+      const display = alias || nodeGraphDefaultNodeTitle(sourceNode.type, sourceNode.id);
+      if (headerTitle.tagName === "INPUT") {
+        headerTitle.value = display;
+      } else {
+        headerTitle.textContent = display;
+      }
     }
     // Value Slider face label tracks alias live.
     if (sourceNode.type === "valueSlider" && typeof renderNodeGraphValueSliderFace === "function") {

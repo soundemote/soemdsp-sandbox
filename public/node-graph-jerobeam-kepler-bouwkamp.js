@@ -2,8 +2,9 @@ function createNodeGraphKeplerBouwkampState() {
   return { phase: 0, resetWasHigh: false };
 }
 
+// Shared stdlib (node-graph-phasor-helpers.js). Local names keep port call-sites stable.
 function nodeGraphKeplerBouwkampWrap01(v) {
-  return v - Math.floor(v);
+  return nodeGraphWrap01(v);
 }
 
 function nodeGraphKeplerBouwkampWrapMod(v, modulus) {
@@ -15,9 +16,7 @@ function nodeGraphKeplerBouwkampWrapMod(v, modulus) {
 // conversion -- matches triangle(osc_phase, tri) in the reference being
 // called directly on the radian-domain osc_phase.
 function nodeGraphKeplerBouwkampTrisaw(phase, warp) {
-  const safeWarp = clampNodeSliderValue(warp, 0.001, 0.999);
-  const wrapped = nodeGraphKeplerBouwkampWrap01(phase);
-  return wrapped < safeWarp ? wrapped / safeWarp : (1 - wrapped) / (1 - safeWarp);
+  return nodeGraphTrisaw(phase, warp);
 }
 
 // Ported from soemdsp/include/soemdsp/oscillator/JerobeamKeplerBouwkamp.{h,cpp}

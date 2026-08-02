@@ -13,5 +13,6 @@ nodeGraphLiveModuleEvaluators.phosphillator = ({ runtime, node, nodeId, frame, f
     readNodeGraphLiveEffectiveParam(runtime, node, "phase", 0, frame, frames, frameValues),
     mixInput(nodeId, "Reset"),
     sampleRate,
+    readNodeGraphLiveEffectiveParam(runtime, node, "sharpness", 0.5, frame, frames, frameValues),
   );
 };

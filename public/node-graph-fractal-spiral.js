@@ -32,8 +32,9 @@ function createFractalSpiralState() {
   };
 }
 
+// Shared stdlib (node-graph-phasor-helpers.js).
 function fractalSpiralWrap01(value) {
-  return value - Math.floor(value);
+  return nodeGraphWrap01(value);
 }
 
 function fractalSpiralSample(options = {}) {

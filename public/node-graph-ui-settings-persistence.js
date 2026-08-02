@@ -250,11 +250,21 @@ function normalizeNodeGraphModuleStoreDepartmentState(value = "") {
   if (!department) {
     return "";
   }
+  // Prefer shared resolver (canonical ids + aliases: music→sample, etc.).
+  if (typeof normalizeNodeGraphModuleStoreDepartment === "function") {
+    return normalizeNodeGraphModuleStoreDepartment(department);
+  }
   if (
     typeof nodeGraphModuleStoreDepartmentIds !== "undefined" &&
     nodeGraphModuleStoreDepartmentIds.has(department)
   ) {
     return department;
+  }
+  if (
+    typeof nodeGraphModuleStoreDepartmentAliasToId !== "undefined" &&
+    nodeGraphModuleStoreDepartmentAliasToId[department]
+  ) {
+    return nodeGraphModuleStoreDepartmentAliasToId[department];
   }
   return "";
 }
@@ -602,6 +612,7 @@ function normalizeNodeUiDevSettings(settings = {}) {
     normalizedModuleDefaultOverrides[type] = snapshot;
   }
   const gridVisible = view.gridVisible ?? controls.gridVisible ?? controls.showGrid ?? nodeGraphMvp.gridVisible;
+  const wiresAboveModules = Boolean(view.wiresAboveModules ?? nodeGraphMvp.wiresAboveModules);
   const keyboardDebugInfoVisible = Boolean(view.keyboardDebugInfoVisible ?? nodeGraphMvp.keyboardDebugInfoVisible);
   const tooltipEmbedded = Boolean(view.tooltipEmbedded ?? nodeGraphMvp.tooltipEmbedded);
   const moduleButtonsVisible = Boolean(view.moduleButtonsVisible ?? nodeGraphMvp.moduleButtonsVisible);
@@ -719,12 +730,15 @@ function normalizeNodeUiDevSettings(settings = {}) {
   );
   let workingPatch = null;
   if (view.workingPatch && typeof view.workingPatch === "object") {
-    try {
-      workingPatch = cloneNodeGraphPatch(validateNodeGraphPatch(view.workingPatch));
-      workingPatch = sanitizeNodeUiDevWorkingPatchForStartup(workingPatch);
-    } catch {
-      workingPatch = null;
-    }
+    // Hard fail: never swallow validate errors into null (that silently
+    // replaced the graph with the default and looked like "lost modules").
+    const loaded = typeof loadNodeGraphPatchFromObject === "function"
+      ? loadNodeGraphPatchFromObject(view.workingPatch)
+      : validateNodeGraphPatch(view.workingPatch);
+    workingPatch = cloneNodeGraphPatch(loaded);
+    workingPatch = typeof sanitizeNodeUiDevWorkingPatchForStartup === "function"
+      ? sanitizeNodeUiDevWorkingPatchForStartup(workingPatch)
+      : workingPatch;
   }
   const currentSavedPatchFilename = String(view.currentSavedPatchFilename || "").trim();
   const patchDirtyState = ["saved", "edited", "untouched"].includes(view.patchDirtyState)
@@ -763,6 +777,7 @@ function normalizeNodeUiDevSettings(settings = {}) {
     moduleDefaultOverrides: normalizedModuleDefaultOverrides,
     view: {
       gridVisible: Boolean(gridVisible),
+      wiresAboveModules,
       keyboardDebugInfoVisible,
       tooltipEmbedded,
       moduleButtonsVisible,
@@ -851,6 +866,7 @@ function readNodeUiDevSettingsFromControls(options = {}) {
     moduleDefaultOverrides: nodeGraphMvp.moduleDefaultOverrides,
     view: {
       gridVisible: Boolean(nodeGraphMvp.gridVisible),
+      wiresAboveModules: Boolean(nodeGraphMvp.wiresAboveModules),
       keyboardDebugInfoVisible: Boolean(nodeGraphMvp.keyboardDebugInfoVisible),
       tooltipEmbedded: Boolean(nodeGraphMvp.tooltipEmbedded),
       moduleButtonsVisible: Boolean(nodeGraphMvp.moduleButtonsVisible),
@@ -961,6 +977,7 @@ function applyNodeUiDevSettings(settings) {
   }
   nodeGraphMvp.moduleDefaultOverrides = normalized.moduleDefaultOverrides;
   nodeGraphMvp.gridVisible = Boolean(normalized.view.gridVisible);
+  nodeGraphMvp.wiresAboveModules = Boolean(normalized.view.wiresAboveModules);
   nodeGraphMvp.keyboardDebugInfoVisible = Boolean(normalized.view.keyboardDebugInfoVisible);
   nodeGraphMvp.tooltipEmbedded = Boolean(normalized.view.tooltipEmbedded);
   nodeGraphMvp.moduleButtonsVisible = Boolean(normalized.view.moduleButtonsVisible);
@@ -1078,6 +1095,9 @@ function applyNodeUiDevSettings(settings) {
     applyNodeGraphPan();
   }
   renderNodeGraphGridToggle();
+  if (typeof renderNodeGraphWiresAboveModulesToggle === "function") {
+    renderNodeGraphWiresAboveModulesToggle();
+  }
   if (typeof renderNodeGraphKeyboardDebugToggle === "function") {
     renderNodeGraphKeyboardDebugToggle();
   }
@@ -1112,7 +1132,21 @@ function loadNodeUiDevLocalDefaultSettings() {
   try {
     const text = window.localStorage.getItem(nodeUiDevDefaultSettingsStorageKey);
     return text ? loadNodeUiDevSettingsFromScript(text) : null;
-  } catch {
+  } catch (error) {
+    const message = String(error?.message || error || "");
+    // Hard patch-load failures must not be swallowed into "no settings".
+    if (message.startsWith("failed to load patch at:")) {
+      console.error(message);
+      try {
+        if (typeof window !== "undefined" && window.SE?.ERROR) {
+          window.SE.ERROR(message, "patch-load");
+        }
+      } catch (_error) {
+        // Debug console optional.
+      }
+      throw (error instanceof Error ? error : new Error(message));
+    }
+    console.error("[soemdsp] Failed to load local UI settings:", message);
     return null;
   }
 }
@@ -1183,7 +1217,6 @@ function clearNodeUserStartupLocalStorage() {
     "soemdsp-sandbox.",
   ];
   const exactKeys = [
-    "nodeGraphClapHostBaseUrl",
     "signalPlotSettings",
   ];
   let removed = 0;
@@ -1278,8 +1311,12 @@ function clearNodeUserStartupRuntimeState() {
   // explicitly hidden" family.
   nodeGraphMvp.gridVisible = true;
   nodeGraphMvp.sliderAmountVisible = true;
+  nodeGraphMvp.wiresAboveModules = false;
   if (typeof renderNodeGraphGridToggle === "function") {
     renderNodeGraphGridToggle();
+  }
+  if (typeof renderNodeGraphWiresAboveModulesToggle === "function") {
+    renderNodeGraphWiresAboveModulesToggle();
   }
   if (typeof renderNodeGraphSliderVisibilityToggles === "function") {
     renderNodeGraphSliderVisibilityToggles();
@@ -1353,7 +1390,52 @@ function saveNodeGraphWorkspaceViewToUserSettings(options = {}) {
 }
 
 async function loadNodeUiDevDefaultSettings() {
-  const storedSettings = loadNodeUiDevLocalDefaultSettings();
+  let storedSettings = null;
+  try {
+    storedSettings = loadNodeUiDevLocalDefaultSettings();
+  } catch (error) {
+    const message = String(error?.message || error || "failed to load patch");
+    document.documentElement.dataset.nodeUiDevSettingsSource = "patch-load-failed";
+    // Full settings blob so the user can still recover their file from the dialog.
+    let script = String(error?.patchScript || "");
+    if (!script) {
+      try {
+        script = window.localStorage?.getItem?.(nodeUiDevDefaultSettingsStorageKey) || "";
+      } catch (_error) {
+        script = "";
+      }
+    }
+    if (typeof nodeGraphShowPatchLoadFault === "function") {
+      nodeGraphShowPatchLoadFault({
+        message,
+        script,
+        title: "Failed to load saved patch",
+      });
+    } else {
+      if (typeof setNodeGraphScriptStatus === "function") {
+        setNodeGraphScriptStatus(message, false);
+      }
+      if (typeof setNodeUiDevSettingsStatus === "function") {
+        setNodeUiDevSettingsStatus(message, false);
+      }
+      console.error(message);
+    }
+    // Modal blocks the graph; still boot chrome with bundled UI defaults
+    // (no working patch) so Initialize can run.
+    const bundledSettings = loadNodeUiDevBundledDefaultSettings();
+    if (bundledSettings) {
+      try {
+        // Drop any working patch from bundled blob — user must Initialize.
+        if (bundledSettings.view) {
+          bundledSettings.view = { ...bundledSettings.view, workingPatch: null };
+        }
+        applyNodeUiDevSettings(bundledSettings);
+      } catch (_error) {
+        // Controls-only fallback below.
+      }
+    }
+    return;
+  }
   if (storedSettings) {
     applyNodeUiDevSettings(storedSettings);
     const storedCatalogVisibility = loadNodeGraphModuleCatalogVisibilityLocal();

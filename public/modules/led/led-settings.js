@@ -10,64 +10,107 @@
 // ---------------------------------------------------------------------------
 // Light mathematics
 // ---------------------------------------------------------------------------
-// The input level drives the lamp from off to blown out:
+// Mono energy, then free multi-stop LUT (same idea as phosphor scopes):
 //
-//   0.0  black       (no light)
-//   0.5  the hue     (fully saturated -- the LED at its rated color)
-//   1.0  white       (over-driven, all three channels railed)
+//   energy = clamp(level * brightness, 0..1)   // one channel (cheap)
+//   color  = sample(gradientStops, energy)     // arbitrary; may go bright→dim
 //
-// Mixing happens in LINEAR light, not in sRGB or HSL, because that is what a
-// real emitter does: twice the drive is twice the photons. Doing it in gamma
-// space instead makes the lower half look washed out and the upper half read
-// as the color simply fading, rather than the hue holding while the other two
-// channels catch up to it.
+// Legacy callers may still pass (hue, level, brightness) without stops; we
+// seed a black→hue→white ramp in that case.
 
-function nodeGraphLedSrgbToLinear(channel) {
-  const value = Math.max(0, Math.min(1, Number(channel) || 0));
-  return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+function nodeGraphLedHexToRgb255(hex) {
+  if (typeof nodeGraphScopeHexColorToRgb === "function") {
+    const floats = nodeGraphScopeHexColorToRgb(hex);
+    return floats.map((c) => Math.round(Math.max(0, Math.min(1, c)) * 255));
+  }
+  const match = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || "").trim());
+  if (!match) {
+    return [255, 255, 255];
+  }
+  return match.slice(1).map((part) => Number.parseInt(part, 16));
 }
 
-function nodeGraphLedLinearToSrgb(channel) {
-  const value = Math.max(0, Math.min(1, Number(channel) || 0));
-  return value <= 0.0031308 ? value * 12.92 : 1.055 * value ** (1 / 2.4) - 0.055;
+function nodeGraphLedNormalizeStops(stops, hueFallback = 0) {
+  if (typeof normalizeNodeGraphLedGradientStops === "function") {
+    return normalizeNodeGraphLedGradientStops(stops, hueFallback);
+  }
+  if (Array.isArray(stops) && stops.length >= 2) {
+    return stops;
+  }
+  if (typeof nodeGraphLedGradientStopsFromHue === "function") {
+    return nodeGraphLedGradientStopsFromHue(hueFallback);
+  }
+  return [
+    { t: 0, color: "#000000" },
+    { t: 1, color: "#ffffff" },
+  ];
 }
 
-// Fully saturated hue at HSL lightness 50% -- the "rated color" of the part.
-function nodeGraphLedHueToSrgb(hue) {
-  const h = ((((Number(hue) || 0) % 360) + 360) % 360) / 60;
-  const x = 1 - Math.abs((h % 2) - 1);
-  if (h < 1) return [1, x, 0];
-  if (h < 2) return [x, 1, 0];
-  if (h < 3) return [0, 1, x];
-  if (h < 4) return [0, x, 1];
-  if (h < 5) return [x, 0, 1];
-  return [1, 0, x];
+/** Sample multi-stop gradient at energy t∈[0,1] → [r,g,b] 0..255. */
+function nodeGraphLedSampleGradientRgb(stops, energy) {
+  const list = Array.isArray(stops) && stops.length ? stops : nodeGraphLedNormalizeStops(null, 0);
+  const t = Math.max(0, Math.min(1, Number(energy) || 0));
+  const parsed = list.map((s) => {
+    const [r, g, b] = nodeGraphLedHexToRgb255(s?.color);
+    return {
+      t: Math.max(0, Math.min(1, Number(s?.t) || 0)),
+      r,
+      g,
+      b,
+    };
+  }).sort((a, b) => a.t - b.t);
+  if (t <= parsed[0].t) {
+    return [parsed[0].r, parsed[0].g, parsed[0].b];
+  }
+  const last = parsed[parsed.length - 1];
+  if (t >= last.t) {
+    return [last.r, last.g, last.b];
+  }
+  for (let i = 1; i < parsed.length; i += 1) {
+    const a = parsed[i - 1];
+    const b = parsed[i];
+    if (t <= b.t) {
+      const u = (t - a.t) / Math.max(1e-6, b.t - a.t);
+      return [
+        Math.round(a.r + (b.r - a.r) * u),
+        Math.round(a.g + (b.g - a.g) * u),
+        Math.round(a.b + (b.b - a.b) * u),
+      ];
+    }
+  }
+  return [last.r, last.g, last.b];
 }
 
-// level 0..1 -> [r, g, b] each 0..255. brightness scales the emitted light in
-// linear space AFTER the ramp, so turning it down dims the lamp without
-// changing which color it is at a given level.
-function nodeGraphLedEmittedRgb(hue, level, brightness = 1) {
-  const drive = Math.max(0, Math.min(1, Number(level) || 0));
-  const gain = Math.max(0, Math.min(2, Number.isFinite(Number(brightness)) ? Number(brightness) : 1));
-  return nodeGraphLedHueToSrgb(hue)
-    .map(nodeGraphLedSrgbToLinear)
-    .map((channel) => (
-      drive <= 0.5
-        // Off -> rated color: scale the hue's own light up from nothing.
-        ? channel * (drive / 0.5)
-        // Rated color -> white: the two dim channels climb to meet the bright
-        // one. The already-railed channel stays put, so the hue holds until it
-        // physically cannot any more.
-        : channel + (1 - channel) * ((drive - 0.5) / 0.5)
-    ))
-    .map((channel) => Math.round(
-      Math.max(0, Math.min(1, nodeGraphLedLinearToSrgb(channel * gain))) * 255,
-    ));
+/**
+ * level 0..1, brightness multiplies mono energy before the LUT.
+ * settings may be a full LED layout (preferred) or omitted for legacy (hue, level, brightness).
+ */
+function nodeGraphLedEmittedRgb(hueOrSettings, level, brightness = 1) {
+  let stops = null;
+  let hue = 0;
+  let gain = 1;
+  let drive = Math.max(0, Math.min(1, Number(level) || 0));
+  if (hueOrSettings && typeof hueOrSettings === "object" && !Array.isArray(hueOrSettings)) {
+    const settings = hueOrSettings;
+    stops = settings.gradientStops || settings.gradient;
+    hue = Number(settings.hue) || 0;
+    gain = Math.max(0, Math.min(2, Number.isFinite(Number(settings.brightness))
+      ? Number(settings.brightness)
+      : 1));
+    // Second arg is still level when called as (settings, level).
+    drive = Math.max(0, Math.min(1, Number(level) || 0));
+  } else {
+    hue = Number(hueOrSettings) || 0;
+    gain = Math.max(0, Math.min(2, Number.isFinite(Number(brightness)) ? Number(brightness) : 1));
+  }
+  // Mono energy channel: signal × brightness gain, then free gradient remap.
+  const energy = Math.max(0, Math.min(1, drive * gain));
+  const normalizedStops = nodeGraphLedNormalizeStops(stops, hue);
+  return nodeGraphLedSampleGradientRgb(normalizedStops, energy);
 }
 
-function nodeGraphLedEmittedColor(hue, level, brightness = 1) {
-  const [r, g, b] = nodeGraphLedEmittedRgb(hue, level, brightness);
+function nodeGraphLedEmittedColor(hueOrSettings, level, brightness = 1) {
+  const [r, g, b] = nodeGraphLedEmittedRgb(hueOrSettings, level, brightness);
   return `rgb(${r}, ${g}, ${b})`;
 }
 
@@ -91,18 +134,24 @@ function nodeGraphLedSettingsTargetNodeId() {
 /** LED range-slider control scheme (shared Display Settings body, not steppers). */
 function buildNodeGraphLedDisplaySettingsBodyHtml() {
   // Shared .node-led-settings-row rules style this panel inside Display Settings.
+  // Gradient host uses the same selector as other phosphor faces.
   return `
     <div class="node-led-display-settings-panel" data-led-display-settings-panel>
-      <div class="node-led-settings-row" aria-label="Color ramp preview">
+      <div class="metadata-section-title node-trace-display-gradient-title">Gradient</div>
+      <div class="metadata-field-section node-trace-display-gradient-section">
+        <div
+          id="nodeTraceDisplayGradientSelectorHost"
+          class="node-gradient-selector-host node-shared-gradient-host node-spectrogram-gradient-host"
+          data-gradient-selector-host
+          data-shared-gradient-host
+          data-spectrogram-gradient-host></div>
+      </div>
+      <div class="node-led-settings-row" aria-label="Energy → color preview">
         <span class="node-led-color-preview" data-led-color-preview aria-hidden="true"></span>
       </div>
       <label class="node-led-settings-row">
-        <span>Color</span>
-        <input type="range" min="0" max="360" step="1" data-led-field="hue" aria-label="LED hue">
-      </label>
-      <label class="node-led-settings-row">
         <span>Brightness</span>
-        <input type="range" min="0" max="2" step="0.02" data-led-field="brightness" aria-label="LED brightness">
+        <input type="range" min="0" max="2" step="0.02" data-led-field="brightness" aria-label="LED brightness (scales mono energy into the gradient)">
       </label>
       <label class="node-led-settings-row">
         <span>Blur</span>
@@ -150,7 +199,6 @@ function syncNodeGraphLedDisplaySettingsControls(root, settings) {
       el.value = String(value);
     }
   };
-  setRange("hue", settings.hue);
   setRange("brightness", settings.brightness);
   setRange("blur", settings.blur);
   setRange("rounding", settings.rounding);
@@ -172,8 +220,9 @@ function syncNodeGraphLedDisplaySettingsControls(root, settings) {
   }
   const preview = root.querySelector?.("[data-led-color-preview]");
   if (preview && typeof nodeGraphLedEmittedColor === "function") {
+    // Preview the actual LUT path (level × brightness → gradient sample).
     preview.style.background = `linear-gradient(90deg, ${[0, 0.25, 0.5, 0.75, 1]
-      .map((level) => nodeGraphLedEmittedColor(settings.hue, level, settings.brightness))
+      .map((level) => nodeGraphLedEmittedColor(settings, level))
       .join(", ")})`;
   }
 }
@@ -272,7 +321,6 @@ function bindNodeGraphLedDisplaySettingsBody(host) {
   if (typeof bindNodeGraphNativeSliderModifiers === "function"
     && typeof nodeGraphLedDefaultSettings === "object") {
     for (const [key, fallback] of Object.entries({
-      hue: nodeGraphLedDefaultSettings.hue,
       brightness: nodeGraphLedDefaultSettings.brightness,
       blur: nodeGraphLedDefaultSettings.blur,
       rounding: nodeGraphLedDefaultSettings.rounding,

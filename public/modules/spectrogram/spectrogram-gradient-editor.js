@@ -46,6 +46,17 @@
     { t: 1, color: "#75ebff" },
   ]);
 
+  // Digital-rain matrix: black floor → deep green → bright green → white tip.
+  // Shared preset + default for Matrix Waterfall / Matrix Display faces.
+  const DEFAULT_MATRIX_STOPS = Object.freeze([
+    { t: 0, color: "#000000" },
+    { t: 0.12, color: "#001a08" },
+    { t: 0.35, color: "#0a5c20" },
+    { t: 0.62, color: "#1ecf55" },
+    { t: 0.85, color: "#7dff9a" },
+    { t: 1, color: "#ffffff" },
+  ]);
+
   // Black/white channel presets only (no hue/RGB ramps).
   const PRESETS_BW = Object.freeze([
     {
@@ -125,6 +136,12 @@
       id: "green",
       label: "P1 Green",
       colors: ["#000000", "#0a2810", "#2a8840", "#80ff90"],
+    },
+    {
+      // App-wide digital-rain ramp (not Matrix-only) — black → green → white tip.
+      id: "matrix",
+      label: "Matrix",
+      colors: ["#000000", "#001a08", "#0a5c20", "#1ecf55", "#7dff9a", "#ffffff"],
     },
   ]);
 
@@ -932,6 +949,29 @@
       defaultStops: "phosphor",
       hint: "Select a stop · presets · live audition on the LCD (energy → color)",
     }),
+    // LED: mono energy (level × brightness) → free multi-stop LUT (may go bright→dim).
+    ledLamp: Object.freeze({
+      channels: "color",
+      defaultStops: "phosphor",
+      hint: "Energy → color · stops may go bright→dim · live on the lamp",
+    }),
+    // Matrix faces: cell energy (black→white underlying) → multi-stop LUT.
+    // defaultStops "matrix" = digital-rain ramp (green body, white tip).
+    matrixFace: Object.freeze({
+      channels: "color",
+      defaultStops: "matrix",
+      hint: "Energy → color · mono cell brightness mapped through the gradient",
+    }),
+    matrixWaterfallFace: Object.freeze({
+      channels: "color",
+      defaultStops: "matrix",
+      hint: "Energy → color · rain mono brightness mapped through the gradient",
+    }),
+    matrixDisplayFace: Object.freeze({
+      channels: "color",
+      defaultStops: "matrix",
+      hint: "Energy → color · plate mono brightness mapped through the gradient",
+    }),
   });
 
   const DEFAULT_BW_STOPS = Object.freeze([
@@ -946,6 +986,9 @@
     }
     if (kind === "spectrogram") {
       return DEFAULT_STOPS.map((s) => ({ t: s.t, color: s.color }));
+    }
+    if (kind === "matrix") {
+      return DEFAULT_MATRIX_STOPS.map((s) => ({ t: s.t, color: s.color }));
     }
     // phosphor / color energy faces (including numberReadout LCD)
     return DEFAULT_PHOSPHOR_STOPS.map((s) => ({ t: s.t, color: s.color }));
@@ -1149,6 +1192,7 @@
   global.SHARED_DEFAULT_GRADIENT_STOPS = DEFAULT_STOPS;
   global.SPECTROGRAM_DEFAULT_GRADIENT_STOPS = DEFAULT_STOPS;
   global.PHOSPHOR_DEFAULT_GRADIENT_STOPS = DEFAULT_PHOSPHOR_STOPS;
+  global.MATRIX_DEFAULT_GRADIENT_STOPS = DEFAULT_MATRIX_STOPS;
   global.SHARED_GRADIENT_PRESETS = PRESETS;
   global.SPECTROGRAM_GRADIENT_PRESETS = PRESETS;
   global.PHOSPHOR_GRADIENT_PRESETS = PRESETS;

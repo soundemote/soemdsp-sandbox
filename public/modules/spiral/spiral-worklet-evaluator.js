@@ -10,8 +10,9 @@ NodeLiveAudioProcessor.prototype.createSpiralState = function createSpiralState(
     };
   };
 
+// Shared stdlib (node-graph-phasor-helpers.js, first in worklet Blob).
 NodeLiveAudioProcessor.prototype.spiralWrap01 = function spiralWrap01(value) {
-    return value - Math.floor(value);
+    return nodeGraphWrap01(value);
   };
 
 NodeLiveAudioProcessor.prototype.spiralFmod = function spiralFmod(value, divisor) {
@@ -19,9 +20,7 @@ NodeLiveAudioProcessor.prototype.spiralFmod = function spiralFmod(value, divisor
   };
 
 NodeLiveAudioProcessor.prototype.spiralTrisaw = function spiralTrisaw(phase, sharp) {
-    const wrapped = this.spiralWrap01(phase);
-    const warp = Math.max(0.001, Math.min(0.999, sharp));
-    return wrapped < warp ? wrapped / warp : (1 - wrapped) / (1 - warp);
+    return nodeGraphTrisaw(phase, sharp);
   };
 
 NodeLiveAudioProcessor.prototype.spiralNextPhasor = function spiralNextPhasor(state, key, frequency, offset, sampleRate, bipolar = false) {

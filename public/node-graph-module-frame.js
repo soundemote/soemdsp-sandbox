@@ -202,6 +202,60 @@ function nodeGraphModuleFrameRadiusPx(nodeElement) {
 }
 
 /**
+ * Value Slider (and similar) with face art: no chrome outline at all.
+ * Class / dataset set by renderNodeGraphValueSliderFace after the face is mounted.
+ */
+function nodeGraphModuleFrameShouldHide(nodeElement) {
+  if (!nodeElement?.classList) {
+    return false;
+  }
+  if (nodeElement.classList.contains("value-slider-face-has-image")) {
+    return true;
+  }
+  if (nodeElement.dataset?.hideModuleFrame === "1" || nodeElement.dataset?.hideModuleFrame === "true") {
+    return true;
+  }
+  // Fallback if class lag: face already marked has-image.
+  if (nodeElement.querySelector?.(".node-value-slider-face.has-image")) {
+    return true;
+  }
+  // Patch data fallback (DOM class not ready yet).
+  if (nodeElement.dataset?.nodeType === "valueSlider" && typeof nodeGraphPatchNode === "function") {
+    const patchNode = nodeGraphPatchNode(nodeElement.dataset.node);
+    if (typeof nodeGraphValueSliderFaceHasAnyImage === "function"
+      && nodeGraphValueSliderFaceHasAnyImage(patchNode?.valueSliderFace)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function nodeGraphModuleFrameHide(nodeElement) {
+  if (!nodeElement) {
+    return;
+  }
+  const svg = nodeElement.querySelector(":scope > .node-module-frame");
+  if (svg) {
+    // Remove from DOM so nothing can repaint a stroke around the face/image.
+    svg.remove();
+  }
+  nodeElement.dataset.moduleFrameFp = "hidden";
+  // Even if a frame is recreated before the next hide, paint nothing.
+  nodeElement.style.setProperty("--node-module-stroke", "transparent");
+  nodeElement.style.setProperty("--node-module-selected-stroke", "transparent");
+  nodeElement.style.setProperty("--node-module-drag-stroke", "transparent");
+}
+
+function nodeGraphModuleFrameRestoreStrokeVars(nodeElement) {
+  if (!nodeElement?.style) {
+    return;
+  }
+  nodeElement.style.removeProperty("--node-module-stroke");
+  nodeElement.style.removeProperty("--node-module-selected-stroke");
+  nodeElement.style.removeProperty("--node-module-drag-stroke");
+}
+
+/**
  * Rebuild one module's gapped outline. Safe to call often; skips when
  * geometry fingerprint is unchanged.
  */
@@ -209,6 +263,12 @@ function updateNodeGraphModuleFrame(nodeElement) {
   if (!nodeElement?.classList?.contains("dsp-node") || nodeElement.hidden) {
     return;
   }
+  // Face art: drop outline (CSS alone was not reliable for all states).
+  if (nodeGraphModuleFrameShouldHide(nodeElement)) {
+    nodeGraphModuleFrameHide(nodeElement);
+    return;
+  }
+  nodeGraphModuleFrameRestoreStrokeVars(nodeElement);
   const w = nodeElement.clientWidth;
   const h = nodeElement.clientHeight;
   if (w < 2 || h < 2) {
@@ -234,6 +294,12 @@ function updateNodeGraphModuleFrame(nodeElement) {
   if (!svg || !path) {
     return;
   }
+  // Re-show after a previous face-art hide.
+  svg.removeAttribute("hidden");
+  svg.style.display = "";
+  svg.style.visibility = "";
+  svg.style.opacity = "";
+  path.removeAttribute("stroke");
   svg.setAttribute("width", String(w));
   svg.setAttribute("height", String(h));
   svg.setAttribute("viewBox", `0 0 ${w} ${h}`);

@@ -1,21 +1,30 @@
 // Canonical phosphor face drawer (mono energy + LUT).
 //
-// All retained burn scopes should go through this module. It wraps the shared
+// All retained phosphor scopes should go through this module. It wraps the shared
 // WebGL energy device (node-graph-phosphor-energy-gl.js) with settings helpers
 // and a single step/present contract.
 //
 // Blur UX: 0 = hard disc (~1px AA), 1 = full soft gaussian bleed.
 //
+// Honest phosphor axes (app-wide):
+//   brightness → deposit gain (how hard new hits write)
+//   decay      → main residual fade rate
+//   burn       → long-lived dim hang (screen burn-in, not permanent, not peak gain)
+//
 // Usage:
 //   const face = PhosphorDrawer.ensure(canvas, w, h);
 //   PhosphorDrawer.setLut(face, peakRgbBytes, "#000000");
-//   PhosphorDrawer.stepDots(face, { decay, pathPoints, radius, brightness, blur, maxDots, burn });
-//   PhosphorDrawer.presentTo(face, destCtx, { exposure, width, height, smooth: true });
+//   PhosphorDrawer.stepDots(face, { decay, burn, pathPoints, radius, brightness, blur, maxDots });
+//   PhosphorDrawer.presentTo(face, destCtx, { width, height, smooth: true });
 
 (function initPhosphorDrawer(global) {
   const DEFAULT_BLUR = 0.35;
-  const DEFAULT_BURN = 0.82;
   const DEFAULT_DECAY = 0.12;
+  const DEFAULT_BURN = 0.45;
+  /** Fixed film exposure — not a second brightness knob. */
+  const DEFAULT_EXPOSURE = 2.9;
+  /** Deposit scale: brightness × this × size factor. */
+  const DEPOSIT_SCALE = 0.1;
 
   function clamp01(value, fallback = 0) {
     const n = Number(value);
@@ -45,18 +54,20 @@
     return Math.max(0, Math.min(1, v));
   }
 
-  /** Deposit gain: smooth low end, no dead band near burn 0. */
-  function depositGain(burn, brightness, size01) {
-    const b = clamp01(burn, 0);
+  /**
+   * Deposit gain from brightness × size only.
+   * @param {number} brightness
+   * @param {number} [size01]
+   */
+  function depositGain(brightness, size01 = 0) {
     const br = Math.max(0, Number(brightness) || 0);
     const s = clamp01(size01, 0);
-    const burnShape = Math.pow(b, 0.78);
-    return Math.max(0, br * (0.022 + burnShape * 0.1) * (1.12 - s * 0.42));
+    return Math.max(0, br * DEPOSIT_SCALE * (1.12 - s * 0.42));
   }
 
-  /** Soft film exposure — mostly stable so burn doesn’t double-crush. */
-  function exposure(burn) {
-    return 1.85 + clamp01(burn, 0) * 2.1;
+  /** Soft film exposure — constant. */
+  function exposure() {
+    return DEFAULT_EXPOSURE;
   }
 
   /** Radius in buffer px: size 0–1 of face min side → diameter = size * minSide. */
@@ -91,27 +102,24 @@
 
   /**
    * One frame: fade + optional bleed + soft/hard dots along pathPoints.
-   * options.burn is optional convenience for deposit gain when brightness is raw.
+   * brightness = deposit; decay = main fade; burn = dim residual hang.
    */
   function stepDots(face, options = {}) {
     if (!face || typeof global.nodeGraphPhosphorEnergyGlStepBeams !== "function") {
       return false;
     }
     const blur = normalizeBlur(options.blur, DEFAULT_BLUR);
-    const burn = clamp01(options.burn, DEFAULT_BURN);
     const size01 = clamp01(options.size01, 0.08);
     let brightness = Number(options.brightness);
-    if (!Number.isFinite(brightness) || options.useBurnGain) {
-      brightness = depositGain(
-        burn,
-        Number.isFinite(Number(options.dotBrightness))
-          ? Number(options.dotBrightness)
-          : Number(options.brightness) || 0.92,
-        size01,
-      );
+    if (!Number.isFinite(brightness) || options.useDepositGain) {
+      const raw = Number.isFinite(Number(options.dotBrightness))
+        ? Number(options.dotBrightness)
+        : Number(options.brightness) || 0.92;
+      brightness = depositGain(raw, size01);
     }
     return global.nodeGraphPhosphorEnergyGlStepBeams(face, {
       decay: clamp01(options.decay, DEFAULT_DECAY),
+      burn: clamp01(options.burn, DEFAULT_BURN),
       pathPoints: options.pathPoints || null,
       vertices: options.vertices || null,
       radius: Math.max(0.35, Number(options.radius) || 2),
@@ -132,6 +140,7 @@
     }
     return global.nodeGraphPhosphorEnergyGlStep(face, {
       decay: clamp01(options.decay, DEFAULT_DECAY),
+      burn: clamp01(options.burn, DEFAULT_BURN),
       depositGain: 0,
       maskCanvas: null,
       bleed: Number.isFinite(Number(options.bleed)) ? Number(options.bleed) : 0.1,
@@ -150,13 +159,9 @@
     const trailGain = Number.isFinite(Number(options.trailGain))
       ? Number(options.trailGain)
       : 1;
-    let exp = Number(options.exposure);
-    if (!Number.isFinite(exp) && options.burn !== undefined) {
-      exp = exposure(options.burn);
-    }
-    if (!Number.isFinite(exp)) {
-      exp = exposure(DEFAULT_BURN);
-    }
+    const exp = Number.isFinite(Number(options.exposure))
+      ? Number(options.exposure)
+      : DEFAULT_EXPOSURE;
     const ok = global.nodeGraphPhosphorEnergyGlPresent(face, trailGain, { exposure: exp });
     if (!ok) {
       return false;
@@ -216,8 +221,10 @@
 
   const api = {
     DEFAULT_BLUR,
-    DEFAULT_BURN,
     DEFAULT_DECAY,
+    DEFAULT_BURN,
+    DEFAULT_EXPOSURE,
+    DEPOSIT_SCALE,
     clamp01,
     normalizeBlur,
     depositGain,
@@ -234,6 +241,4 @@
   };
 
   global.PhosphorDrawer = api;
-  // Back-compat aliases used by older call sites during migration.
-  global.nodeGraphPhosphorDrawer = api;
-})(typeof window !== "undefined" ? window : globalThis);
+})(typeof globalThis !== "undefined" ? globalThis : window);

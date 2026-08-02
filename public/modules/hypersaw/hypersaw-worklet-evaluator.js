@@ -11,9 +11,9 @@ NodeLiveAudioProcessor.prototype.hypersawPolyBlep = function hypersawPolyBlep(t,
     return 0;
   };
 
+// Shared stdlib (node-graph-phasor-helpers.js, first in worklet Blob).
 NodeLiveAudioProcessor.prototype.hypersawWrap01 = function hypersawWrap01(x) {
-    const w = x - Math.floor(x);
-    return w < 0 ? 0 : (w >= 1 ? 0 : w);
+    return nodeGraphWrap01(x);
   };
 
 NodeLiveAudioProcessor.prototype.createHypersawVoice = function createHypersawVoice() {

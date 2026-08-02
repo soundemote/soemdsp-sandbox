@@ -48,6 +48,9 @@ async function initNodeGraphMvp() {
   markNodeGraphRenderPending();
   applyNodeGraphZoom();
   renderNodeGraphGridToggle();
+  if (typeof renderNodeGraphWiresAboveModulesToggle === "function") {
+    renderNodeGraphWiresAboveModulesToggle();
+  }
   bindNodeGraphMacroControlModuleEvents();
   bindNodeGraphKeyboardControllerModuleEvents();
   bindNodeGraphMetadataPopoverEvents();

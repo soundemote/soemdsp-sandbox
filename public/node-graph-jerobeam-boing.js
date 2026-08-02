@@ -2,14 +2,13 @@ function createNodeGraphBoingState() {
   return { phase: 0, zHistory: 0, resetWasHigh: false };
 }
 
+// Shared stdlib (node-graph-phasor-helpers.js). Local names keep port call-sites stable.
 function nodeGraphBoingWrap01(v) {
-  return v - Math.floor(v);
+  return nodeGraphWrap01(v);
 }
 
 function nodeGraphBoingTrisaw(phase, warp) {
-  const safeWarp = clampNodeSliderValue(warp, 0.001, 0.999);
-  const wrapped = nodeGraphBoingWrap01(phase);
-  return wrapped < safeWarp ? wrapped / safeWarp : (1 - wrapped) / (1 - safeWarp);
+  return nodeGraphTrisaw(phase, warp);
 }
 
 function nodeGraphBoingSphere(fphas, dens, shape) {

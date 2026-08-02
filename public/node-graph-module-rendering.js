@@ -395,11 +395,17 @@ function nodeGraphModuleLayoutClassNames(type, definition, layout) {
     classes.push("audio-player-layout");
   }
   const layoutClasses = {
-    clapPlugin: "clap-plugin-layout",
     filterCurve: "filter-curve-layout",
     graph: "graph-node-layout",
     image: "image-node-layout",
     keyboardController: "keyboard-controller-layout",
+    pitchQuantizer: "pitch-quantizer-layout",
+    chordPad: "chord-pad-layout",
+    asciiscope: "asciiscope-layout",
+    matrixDisplay: "matrix-display-layout",
+    matrixWaterfall: "matrix-waterfall-layout",
+    matrixPlate: "matrix-plate-layout",
+    textStream: "text-stream-layout",
     macroControls: "macro-controls-layout",
     patchCommand: "patch-command-layout",
     phosphillatorDraw: "phosphillator-draw-layout",
@@ -453,8 +459,14 @@ function createNodeGraphLayoutBShell(node, type, customBody, registration, input
     || createNodeGraphLayoutBIoColumnPlaceholder("output");
   // Layout B: no In/Out text chrome — jacks only; face expands into that space.
   // (solidPortLabels:false was the old per-module opt-out; now it's the default.)
-  inputColumn.classList.add("labels-hidden");
-  outputColumn.classList.add("labels-hidden");
+  // Only real jack columns get labels-hidden (jack-band width). Empty placeholders
+  // must stay node-layout-b-io-empty so the face claims that side (minus 1px pad).
+  if (hasInputs) {
+    inputColumn.classList.add("labels-hidden");
+  }
+  if (hasOutputs) {
+    outputColumn.classList.add("labels-hidden");
+  }
   shell.classList.toggle("layout-b-no-inputs", !hasInputs);
   shell.classList.toggle("layout-b-no-outputs", !hasOutputs);
   customBody.classList.add("node-solid-module-custom-ui");
@@ -679,6 +691,11 @@ function createNodeGraphModuleElement(type, node) {
     const shell = createNodeGraphLayoutBShell(node, type, face, null, inputPorts, outputPorts);
     shell.classList.add("node-value-slider-shell");
     article.append(shell);
+    // Face is only under .dsp-node after append — re-render so has-image / frame-hide
+    // can find the module and remove the chrome stroke around the knob image.
+    if (typeof renderNodeGraphValueSliderFace === "function") {
+      renderNodeGraphValueSliderFace(face, node);
+    }
   } else if (definition.layout === "keyboardController" || definition.layout === "macroControls" || definition.layout === "pitchModWheel") {
     if (definition.layout === "keyboardController") {
       article.append(createNodeGraphKeyboardControllerBody(node));
@@ -723,9 +740,9 @@ function createNodeGraphModuleElement(type, node) {
       inputPorts,
       outputPorts,
     );
-  } else if (definition.layout === "clapPlugin") {
-    if (typeof createNodeGraphClapPluginBody === "function") {
-      article.append(createNodeGraphClapPluginBody(node));
+  } else if (definition.layout === "filterCurve") {
+    if (!patchNodeUi.oscilloscopeHidden) {
+      article.append(createNodeGraphFilterCurveDisplay(node, type));
     }
     appendNodeGraphModuleIoSection(
       article,
@@ -734,9 +751,84 @@ function createNodeGraphModuleElement(type, node) {
       inputPorts,
       outputPorts,
     );
-  } else if (definition.layout === "filterCurve") {
-    if (!patchNodeUi.oscilloscopeHidden) {
-      article.append(createNodeGraphFilterCurveDisplay(node, type));
+  } else if (definition.layout === "pitchQuantizer") {
+    if (typeof createNodeGraphPitchQuantizerFace === "function") {
+      article.append(createNodeGraphPitchQuantizerFace(node));
+    }
+  } else if (definition.layout === "chordPad") {
+    if (typeof createNodeGraphChordPadFace === "function") {
+      article.append(createNodeGraphChordPadFace(node));
+    }
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
+  } else if (definition.layout === "matrixWaterfall") {
+    const rainFace = typeof createNodeGraphMatrixWaterfallFace === "function"
+      ? createNodeGraphMatrixWaterfallFace(node)
+      : (typeof createNodeGraphAsciiscopeFace === "function"
+        ? createNodeGraphAsciiscopeFace(node)
+        : null);
+    if (rainFace) {
+      article.append(rainFace);
+      // Slot kept only for room-dimmer / light punches — no Trace overlay (selfPaint).
+      registerNodeGraphModuleScopeSlot(article, {
+        nodeId: node,
+        type,
+        scopeElement: rainFace,
+      });
+    }
+    // No I/O section — parameter-only module.
+  } else if (definition.layout === "matrixPlate" || definition.layout === "asciiscope") {
+    // matrixPlate = Matrix Display (Info/Serial). "asciiscope" kept as alias.
+    const plateFace = typeof createNodeGraphMatrixPlateFace === "function"
+      ? createNodeGraphMatrixPlateFace(node)
+      : (typeof createNodeGraphAsciiscopeFace === "function"
+        ? createNodeGraphAsciiscopeFace(node)
+        : null);
+    if (plateFace) {
+      article.append(plateFace);
+      registerNodeGraphModuleScopeSlot(article, {
+        nodeId: node,
+        type,
+        scopeElement: plateFace,
+      });
+    }
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
+  } else if (definition.layout === "matrixDisplay") {
+    const matrixFace = typeof createNodeGraphMatrixDisplayFace === "function"
+      ? createNodeGraphMatrixDisplayFace(node)
+      : null;
+    if (matrixFace) {
+      article.append(matrixFace);
+      registerNodeGraphModuleScopeSlot(article, {
+        nodeId: node,
+        type,
+        scopeElement: matrixFace,
+      });
+    }
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
+  } else if (definition.layout === "textStream") {
+    const textFace = typeof createNodeGraphTextStreamFace === "function"
+      ? createNodeGraphTextStreamFace(node)
+      : null;
+    if (textFace) {
+      article.append(textFace);
     }
     appendNodeGraphModuleIoSection(
       article,

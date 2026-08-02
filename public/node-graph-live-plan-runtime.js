@@ -115,24 +115,6 @@ function nodeGraphBuildLiveParameterNodes(activeNodeIds = null) {
         paramMeta[parameter.key] = nodeGraphReadPatchParameterMetadata(node, parameter.key);
       }
       nodeGraphInjectSpectrogramWorkletParams(node, params);
-      if (node.type === "clapPlugin") {
-        for (const [key, metadata] of Object.entries(node.paramMeta || {})) {
-          if (Object.hasOwn(paramMeta, key)) {
-            continue;
-          }
-          const normalizedMetadata = normalizeNodeGraphPatchParameterMetadata(node.type, key, metadata);
-          if (!normalizedMetadata) {
-            continue;
-          }
-          paramMeta[key] = normalizedMetadata;
-          params[key] = normalizeNodeGraphPatchParameter(
-            node.type,
-            key,
-            Object.hasOwn(node.params || {}, key) ? node.params[key] : normalizedMetadata.def,
-            normalizedMetadata,
-          );
-        }
-      }
       const runtimeNode = {
         id: node.id,
         paramMeta,
@@ -147,9 +129,6 @@ function nodeGraphBuildLiveParameterNodes(activeNodeIds = null) {
         if (runtimeNode.moduleGroup.sourcePatch) {
           runtimeNode.moduleGroupPlan = nodeGraphBuildLivePlanForPatch(runtimeNode.moduleGroup.sourcePatch);
         }
-      }
-      if (node.type === "clapPlugin") {
-        runtimeNode.clap = normalizeNodeGraphClapPluginBinding(node.clap);
       }
       if (node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer") {
         runtimeNode.sample = { id: normalizeNodeGraphSampleId(node.sample?.id) };
@@ -187,24 +166,6 @@ function nodeGraphBuildLiveParameterNodesForPatch(patch, activeNodeIds = null) {
         ) || nodeGraphParameterDefinitionMetadata(parameter);
       }
       nodeGraphInjectSpectrogramWorkletParams(node, params);
-      if (node.type === "clapPlugin") {
-        for (const [key, metadata] of Object.entries(node.paramMeta || {})) {
-          if (Object.hasOwn(paramMeta, key)) {
-            continue;
-          }
-          const normalizedMetadata = normalizeNodeGraphPatchParameterMetadata(node.type, key, metadata);
-          if (!normalizedMetadata) {
-            continue;
-          }
-          paramMeta[key] = normalizedMetadata;
-          params[key] = normalizeNodeGraphPatchParameter(
-            node.type,
-            key,
-            Object.hasOwn(node.params || {}, key) ? node.params[key] : normalizedMetadata.def,
-            normalizedMetadata,
-          );
-        }
-      }
       const runtimeNode = {
         id: node.id,
         paramMeta,
@@ -219,9 +180,6 @@ function nodeGraphBuildLiveParameterNodesForPatch(patch, activeNodeIds = null) {
         if (runtimeNode.moduleGroup.sourcePatch) {
           runtimeNode.moduleGroupPlan = nodeGraphBuildLivePlanForPatch(runtimeNode.moduleGroup.sourcePatch);
         }
-      }
-      if (node.type === "clapPlugin") {
-        runtimeNode.clap = normalizeNodeGraphClapPluginBinding(node.clap);
       }
       if (node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer") {
         runtimeNode.sample = { id: normalizeNodeGraphSampleId(node.sample?.id) };
@@ -325,6 +283,12 @@ function createNodeGraphLiveRuntime(plan) {
   const turingMachineStates = new Map();
   const pitchQuantizerStates = new Map();
   const surgeOscillatorStates = new Map();
+  const softwaveOscStates = new Map();
+  const textStreamStates = new Map();
+  const degreeTuringStates = new Map();
+  const gravityWalkerStates = new Map();
+  const degreePhraseStates = new Map();
+  const noteGlideStates = new Map();
   const dsfOscillatorStates = new Map();
   const robinSupersawStates = new Map();
   const hypersawStates = new Map();
@@ -432,6 +396,24 @@ function createNodeGraphLiveRuntime(plan) {
     }
     if (node.type === "surgeOscillator") {
       surgeOscillatorStates.set(node.id, createNodeGraphSurgeOscillatorState());
+    }
+    if (node.type === "softwaveOsc") {
+      softwaveOscStates.set(node.id, createNodeGraphSoftwaveOscillatorState());
+    }
+    if (node.type === "textStream" && typeof createNodeGraphTextStreamState === "function") {
+      textStreamStates.set(node.id, createNodeGraphTextStreamState());
+    }
+    if (node.type === "degreeTuring" && typeof createNodeGraphDegreeTuringState === "function") {
+      degreeTuringStates.set(node.id, createNodeGraphDegreeTuringState());
+    }
+    if (node.type === "gravityWalker" && typeof createNodeGraphGravityWalkerState === "function") {
+      gravityWalkerStates.set(node.id, createNodeGraphGravityWalkerState());
+    }
+    if (node.type === "degreePhrase" && typeof createNodeGraphDegreePhraseState === "function") {
+      degreePhraseStates.set(node.id, createNodeGraphDegreePhraseState());
+    }
+    if (node.type === "noteGlide" && typeof createNodeGraphNoteGlideState === "function") {
+      noteGlideStates.set(node.id, createNodeGraphNoteGlideState());
     }
     if (node.type === "dsfOscillator") {
       dsfOscillatorStates.set(node.id, createNodeGraphDsfOscillatorState());
@@ -652,6 +634,12 @@ function createNodeGraphLiveRuntime(plan) {
     turingMachineStates,
     pitchQuantizerStates,
     surgeOscillatorStates,
+    softwaveOscStates,
+    textStreamStates,
+    degreeTuringStates,
+    gravityWalkerStates,
+    degreePhraseStates,
+    noteGlideStates,
     dsfOscillatorStates,
     robinSupersawStates,
     hypersawStates,
@@ -891,6 +879,14 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   if (!runtime.surgeOscillatorStates) {
     runtime.surgeOscillatorStates = new Map();
   }
+  if (!runtime.softwaveOscStates) {
+    runtime.softwaveOscStates = new Map();
+  }
+  if (!runtime.textStreamStates) runtime.textStreamStates = new Map();
+  if (!runtime.degreeTuringStates) runtime.degreeTuringStates = new Map();
+  if (!runtime.gravityWalkerStates) runtime.gravityWalkerStates = new Map();
+  if (!runtime.degreePhraseStates) runtime.degreePhraseStates = new Map();
+  if (!runtime.noteGlideStates) runtime.noteGlideStates = new Map();
   if (!runtime.dsfOscillatorStates) {
     runtime.dsfOscillatorStates = new Map();
   }
@@ -1078,6 +1074,24 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     }
     if (node.type === "surgeOscillator" && !runtime.surgeOscillatorStates.has(node.id)) {
       runtime.surgeOscillatorStates.set(node.id, createNodeGraphSurgeOscillatorState());
+    }
+    if (node.type === "softwaveOsc" && !runtime.softwaveOscStates.has(node.id)) {
+      runtime.softwaveOscStates.set(node.id, createNodeGraphSoftwaveOscillatorState());
+    }
+    if (node.type === "textStream" && !runtime.textStreamStates.has(node.id) && typeof createNodeGraphTextStreamState === "function") {
+      runtime.textStreamStates.set(node.id, createNodeGraphTextStreamState());
+    }
+    if (node.type === "degreeTuring" && !runtime.degreeTuringStates.has(node.id) && typeof createNodeGraphDegreeTuringState === "function") {
+      runtime.degreeTuringStates.set(node.id, createNodeGraphDegreeTuringState());
+    }
+    if (node.type === "gravityWalker" && !runtime.gravityWalkerStates.has(node.id) && typeof createNodeGraphGravityWalkerState === "function") {
+      runtime.gravityWalkerStates.set(node.id, createNodeGraphGravityWalkerState());
+    }
+    if (node.type === "degreePhrase" && !runtime.degreePhraseStates.has(node.id) && typeof createNodeGraphDegreePhraseState === "function") {
+      runtime.degreePhraseStates.set(node.id, createNodeGraphDegreePhraseState());
+    }
+    if (node.type === "noteGlide" && !runtime.noteGlideStates.has(node.id) && typeof createNodeGraphNoteGlideState === "function") {
+      runtime.noteGlideStates.set(node.id, createNodeGraphNoteGlideState());
     }
     if (node.type === "dsfOscillator" && !runtime.dsfOscillatorStates.has(node.id)) {
       runtime.dsfOscillatorStates.set(node.id, createNodeGraphDsfOscillatorState());
@@ -1407,6 +1421,20 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   for (const id of [...runtime.surgeOscillatorStates.keys()]) {
     if (!nodeIds.has(id)) {
       runtime.surgeOscillatorStates.delete(id);
+    }
+  }
+  if (runtime.softwaveOscStates) {
+    for (const id of [...runtime.softwaveOscStates.keys()]) {
+      if (!nodeIds.has(id)) {
+        runtime.softwaveOscStates.delete(id);
+      }
+    }
+  }
+  for (const mapName of ["textStreamStates", "degreeTuringStates", "gravityWalkerStates", "degreePhraseStates", "noteGlideStates"]) {
+    const map = runtime[mapName];
+    if (!map) continue;
+    for (const id of [...map.keys()]) {
+      if (!nodeIds.has(id)) map.delete(id);
     }
   }
   for (const id of [...runtime.dsfOscillatorStates.keys()]) {

@@ -3,7 +3,6 @@ const DRAG_SCALE = {
   hue: 0.5,
   percent: 0.18,
   saturation: 0.36,
-  alpha: 0.003,
 };
 
 const css = `
@@ -61,7 +60,8 @@ const css = `
   .scw-controls {
     display: grid;
     gap: min(1.2cqw, 10px);
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    /* Hue / brightness / saturation only — no alpha channel in this app. */
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     min-height: 0;
     padding: 0;
     outline: 1px dashed var(--color-widget-debug-box);
@@ -143,11 +143,15 @@ const css = `
     width: 100%;
   }
 
+  /* Alpha is never used in this app. */
+  .scw-alpha {
+    display: none !important;
+  }
+
   /* channels:"bw" — brightness only (black / white). */
   .scw-control[hidden],
   .scw-root[data-channels="bw"] .scw-hue,
-  .scw-root[data-channels="bw"] .scw-saturation,
-  .scw-root[data-channels="bw"] .scw-alpha {
+  .scw-root[data-channels="bw"] .scw-saturation {
     display: none !important;
   }
 
@@ -176,28 +180,6 @@ const css = `
 
   .scw-brightness {
     background: linear-gradient(90deg, #000000, #ffffff);
-  }
-
-  .scw-alpha {
-    background-color: #20241d;
-    background-image:
-      var(--alpha-gradient),
-      linear-gradient(45deg, rgba(255, 255, 255, 0.18) 25%, transparent 25%),
-      linear-gradient(-45deg, rgba(255, 255, 255, 0.18) 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, 0.18) 75%),
-      linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, 0.18) 75%);
-    background-position:
-      0 0,
-      0 0,
-      0 6px,
-      6px -6px,
-      -6px 0;
-    background-size:
-      100% 100%,
-      12px 12px,
-      12px 12px,
-      12px 12px,
-      12px 12px;
   }
 
   .scw-hex {
@@ -303,13 +285,14 @@ const css = `
 `;
 
 function injectStyles() {
-  if (document.getElementById(STYLE_ID)) {
-    return;
+  let style = document.getElementById(STYLE_ID);
+  if (!style) {
+    style = document.createElement("style");
+    style.id = STYLE_ID;
+    document.head.appendChild(style);
   }
-  const style = document.createElement("style");
-  style.id = STYLE_ID;
+  // Always refresh CSS text so channel/layout changes pick up without a full reload race.
   style.textContent = css;
-  document.head.appendChild(style);
 }
 
 function clamp(value, min, max) {
@@ -321,7 +304,8 @@ function normalizeColor(color) {
     h: Math.round(clamp(Number(color.h) || 0, 0, 359)),
     s: Math.round(clamp(Number(color.s) || 0, 0, 100)),
     l: Math.round(clamp(Number(color.l) || 0, 0, 100)),
-    a: Number(clamp(Number(color.a ?? 1), 0, 1).toFixed(2)),
+    // Opaque only — alpha picker removed app-wide.
+    a: 1,
   };
 }
 
@@ -359,12 +343,8 @@ function hslToRgb(color) {
 }
 
 function colorCss(color) {
-  // Classic comma HSL — space-separated / alpha form fails to paint in some hosts.
-  const a = Number.isFinite(Number(color.a)) ? Number(color.a) : 1;
-  if (a >= 0.999) {
-    return `hsl(${color.h}, ${color.s}%, ${color.l}%)`;
-  }
-  return `hsla(${color.h}, ${color.s}%, ${color.l}%, ${a})`;
+  // Classic comma HSL — opaque only (no alpha channel in this app).
+  return `hsl(${color.h}, ${color.s}%, ${color.l}%)`;
 }
 
 function enrichedColor(color) {
@@ -385,11 +365,11 @@ export class SoundColorWidget {
     this.host = host;
     this.host.classList.add("scw-mount");
     this.label = options.label || "Color";
-    // channels: "full" (default H/S/L/A) | "bw" (luma only — black/white)
+    // channels: "full" (default H/S/L) | "bw" (luma only — black/white). No alpha.
     this.channels = options.channels === "bw" || options.mono === true ? "bw" : "full";
     const rawColor = normalizeColor(options.color || options);
     this.color = this.channels === "bw"
-      ? { h: 0, s: 0, l: rawColor.l, a: rawColor.a ?? 1 }
+      ? { h: 0, s: 0, l: rawColor.l, a: 1 }
       : rawColor;
     this.drag = null;
     this.dragElement = null;
@@ -435,8 +415,9 @@ export class SoundColorWidget {
     let next = normalizeColor({ ...this.color, ...nextColor });
     if (this.channels === "bw") {
       // Luma only — discard hue/saturation (no RGB channel editing).
-      next = { h: 0, s: 0, l: next.l, a: next.a ?? 1 };
+      next = { h: 0, s: 0, l: next.l, a: 1 };
     }
+    next.a = 1;
     this.color = next;
     this.render();
     if (emitChange) {
@@ -458,7 +439,6 @@ export class SoundColorWidget {
             <button type="button" class="scw-control scw-hue" data-part="hue"></button>
             <button type="button" class="scw-control scw-brightness" data-part="brightness"></button>
             <button type="button" class="scw-control scw-saturation" data-part="saturation"></button>
-            <button type="button" class="scw-control scw-alpha" data-part="alpha"></button>
           </span>
           <span class="scw-hex" role="button" tabindex="0"><span class="scw-hex-text"><span class="scw-hex-glyph"></span></span><span class="scw-copy-toast" aria-live="polite"></span></span>
         </div>
@@ -469,12 +449,10 @@ export class SoundColorWidget {
     this.host.dataset.channels = this.channels;
     const hueEl = this.root.querySelector(".scw-hue");
     const satEl = this.root.querySelector(".scw-saturation");
-    const alphaEl = this.root.querySelector(".scw-alpha");
     const brightEl = this.root.querySelector(".scw-brightness");
     const bw = this.channels === "bw";
     if (hueEl) hueEl.hidden = bw;
     if (satEl) satEl.hidden = bw;
-    if (alphaEl) alphaEl.hidden = bw;
     const hex = hslToHex(this.color);
     this.root.querySelector(".scw-label-glyph").textContent = this.label;
     if (hueEl) hueEl.setAttribute("aria-label", `${this.label} hue`);
@@ -486,13 +464,6 @@ export class SoundColorWidget {
       satEl.setAttribute("aria-label", `${this.label} saturation`);
       satEl.style.background =
         `linear-gradient(90deg, hsl(${this.color.h}, 0%, ${this.color.l}%), hsl(${this.color.h}, 100%, ${this.color.l}%))`;
-    }
-    if (alphaEl) {
-      alphaEl.setAttribute("aria-label", `${this.label} alpha`);
-      alphaEl.style.setProperty(
-        "--alpha-gradient",
-        `linear-gradient(90deg, hsla(${this.color.h}, ${this.color.s}%, ${this.color.l}%, 0), ${colorCss(this.color)})`,
-      );
     }
     const hexButton = this.root.querySelector(".scw-hex");
     hexButton.querySelector(".scw-hex-glyph").textContent = "";
@@ -610,8 +581,11 @@ export class SoundColorWidget {
       return null;
     }
     const x = clamp((clientX - rect.left) / rect.width, 0, 1);
-    const index = Math.min(3, Math.floor(x * 4));
-    return ["hue", "brightness", "saturation", "alpha"][index];
+    if (this.channels === "bw") {
+      return "brightness";
+    }
+    const index = Math.min(2, Math.floor(x * 3));
+    return ["hue", "brightness", "saturation"][index];
   }
 
   handleFocusIn(event) {
@@ -646,8 +620,6 @@ export class SoundColorWidget {
       this.setColor({ l: Math.round(clamp(start.l + delta * DRAG_SCALE.percent, 0, 100)) });
     } else if (this.drag.part === "saturation") {
       this.setColor({ s: Math.round(clamp(start.s + delta * DRAG_SCALE.saturation, 0, 100)) });
-    } else if (this.drag.part === "alpha") {
-      this.setColor({ a: Number(clamp(start.a + delta * DRAG_SCALE.alpha, 0, 1).toFixed(2)) });
     }
   }
 

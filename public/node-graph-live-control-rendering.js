@@ -131,15 +131,69 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) 
   if (typeof nodeGraphExternalNotifyLiveOutputChanged === "function") {
     nodeGraphExternalNotifyLiveOutputChanged();
   }
-  // Update all transport play/pause mirrors (toolbar + Command Center).
+  // Transport colors (only the active state is lit):
+  //   playing → green play control
+  //   paused  → yellow pause control
+  //   stopped → red stop control
   const enginePaused = (nodeGraphMvp.live.speedMultiplier ?? 1) === 0;
   const playing = outputActive && !enginePaused;
-  for (const tp of document.querySelectorAll("[data-transport-play], #nodeTransportPlay")) {
-    tp.textContent = playing ? "⏸" : "▶";
-    tp.setAttribute("aria-label", playing ? "Pause" : "Play");
-    tp.title = playing ? "Pause" : "Play / Pause";
-  }
+  const paused = outputActive && enginePaused;
+  syncNodeGraphTransportPlayButtons({ playing, paused });
   renderNodeGraphSpeedReadout();
+}
+
+/**
+ * Transport button states — one color at a time:
+ *   playing → green ▶ (play control)
+ *   paused  → yellow ⏸ (pause control)
+ *   stopped → red ⏹ (stop control); play stays grey ▶
+ */
+function syncNodeGraphTransportPlayButtons({ playing = false, paused = false } = {}) {
+  const isPlaying = Boolean(playing);
+  const isPaused = Boolean(paused) && !isPlaying;
+  const isStopped = !isPlaying && !isPaused;
+
+  for (const tp of document.querySelectorAll("[data-transport-play], #nodeTransportPlay, button.node-transport-play")) {
+    if (!(tp instanceof HTMLElement)) continue;
+    if (tp.id === "nodeRenderedPlayerPlay") continue;
+
+    tp.classList.add("node-transport-play");
+    tp.classList.remove("is-playing", "is-paused");
+
+    if (isPlaying) {
+      // Green play button — sim is running (click pauses).
+      tp.textContent = "▶";
+      tp.setAttribute("aria-label", "Pause");
+      tp.title = "Playing — click to pause";
+      tp.setAttribute("aria-pressed", "true");
+      tp.classList.add("is-playing");
+      tp.dataset.transportState = "playing";
+    } else if (isPaused) {
+      // Yellow pause button — sim paused (click resumes).
+      tp.textContent = "⏸";
+      tp.setAttribute("aria-label", "Resume");
+      tp.title = "Paused — click to resume";
+      tp.setAttribute("aria-pressed", "false");
+      tp.classList.add("is-paused");
+      tp.dataset.transportState = "paused";
+    } else {
+      // Stopped — grey play affordance.
+      tp.textContent = "▶";
+      tp.setAttribute("aria-label", "Play");
+      tp.title = "Play";
+      tp.setAttribute("aria-pressed", "false");
+      tp.dataset.transportState = "stopped";
+    }
+  }
+
+  for (const stop of document.querySelectorAll('[data-transport-action="stop"], #nodeTransportStop, button.node-transport-stop')) {
+    if (!(stop instanceof HTMLElement)) continue;
+    stop.classList.add("node-transport-stop");
+    stop.classList.toggle("is-stopped", isStopped);
+    stop.dataset.transportState = isStopped ? "stopped" : isPlaying ? "playing" : "paused";
+    stop.title = isStopped ? "Stopped" : "Stop";
+    stop.setAttribute("aria-label", isStopped ? "Stopped" : "Stop");
+  }
 }
 
 // The header "Speed" field mirrors the engine's speed multiplier, so pausing
@@ -253,12 +307,15 @@ function bindNodeGraphLiveVolumeControls() {
 function nodeGraphTransportHandleAction(action) {
   const key = String(action || "").trim();
   if (key === "play") {
-    const outputActive = nodeGraphLiveOutputIsActive(Boolean(nodeGraphMvp.live.node));
-    if (!outputActive) {
-      if (typeof soemdspSandboxToggleLiveOutput === "function") {
-        soemdspSandboxToggleLiveOutput();
-      } else if (typeof setNodeGraphLiveOutputEnabled === "function") {
+    // Only toggle pause when a live worklet/node actually exists.
+    // If status is stuck on "starting" or outputEnabled is true without an
+    // engine (broken ⏮ path), treat Play as "start engine" not "unpause".
+    const hasEngine = Boolean(nodeGraphMvp.live.node);
+    if (!hasEngine) {
+      if (typeof setNodeGraphLiveOutputEnabled === "function") {
         setNodeGraphLiveOutputEnabled(true);
+      } else if (typeof soemdspSandboxToggleLiveOutput === "function") {
+        soemdspSandboxToggleLiveOutput();
       }
     } else {
       const speed = (nodeGraphMvp.live.speedMultiplier ?? 1) > 0 ? 0 : 1;

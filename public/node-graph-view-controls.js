@@ -66,6 +66,40 @@ function renderNodeGraphGridToggle() {
   syncNodeUserUiSettingsViewControls();
 }
 
+/** Cable strokes under modules (default) or above faces (Visibility toggle). */
+function renderNodeGraphWiresAboveModulesToggle() {
+  const workspace = document.getElementById("nodeGraphWorkspace");
+  const button = document.getElementById("nodeWiresAboveModulesToggleButton");
+  const above = Boolean(nodeGraphMvp.wiresAboveModules);
+  workspace?.classList.toggle("wires-above-modules", above);
+  if (button) {
+    button.textContent = above ? "Wires Under Modules" : "Wires Above Modules";
+    button.setAttribute("aria-pressed", above ? "true" : "false");
+    button.title = above
+      ? "Cable strokes paint above module faces"
+      : "Cable strokes paint under modules (contact plugs stay on top)";
+  }
+  if (typeof drawNodeGraphWires === "function") {
+    drawNodeGraphWires();
+  }
+  renderNodeGraphVisibilityMenuButton();
+  if (typeof syncNodeUserUiSettingsViewControls === "function") {
+    syncNodeUserUiSettingsViewControls();
+  }
+}
+
+function toggleNodeGraphWiresAboveModules() {
+  nodeGraphMvp.wiresAboveModules = !nodeGraphMvp.wiresAboveModules;
+  renderNodeGraphWiresAboveModulesToggle();
+  if (typeof setNodeInteractionHelp === "function") {
+    setNodeInteractionHelp(
+      nodeGraphMvp.wiresAboveModules
+        ? "Wires drawn above modules."
+        : "Wires drawn under modules.",
+    );
+  }
+}
+
 function renderNodeGraphSliderVisibilityToggles() {
   const workspace = document.getElementById("nodeGraphWorkspace");
   const amountButton = document.getElementById("nodeSliderAmountToggleButton");

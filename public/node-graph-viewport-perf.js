@@ -72,7 +72,7 @@ function applyNodeGraphViewportCssLight(options = {}) {
     const zoomResetButton = document.getElementById("nodeZoomResetButton");
     const zoomInButton = document.getElementById("nodeZoomInButton");
     const z = typeof nodeGraphZoom === "function" ? nodeGraphZoom() : 1;
-    const limits = typeof nodeGraphZoomLimits !== "undefined" ? nodeGraphZoomLimits : { min: 0.1, max: 50 };
+    const limits = typeof nodeGraphZoomLimits !== "undefined" ? nodeGraphZoomLimits : { min: 0.1, max: 100 };
     if (zoomOutButton) {
       zoomOutButton.disabled = z <= limits.min + 0.001;
     }

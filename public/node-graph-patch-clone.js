@@ -147,15 +147,22 @@ function normalizeNodeGraphGraphConnections(graphConnections = []) {
 const nodeGraphLedDefaultColor = "#ff0000";
 const nodeGraphLedCenterColor = "#ffffff";
 
-// Everything the LED options window edits. The lamp is described by a HUE
-// rather than a color, because the face's actual color is a function of the
-// live input level: 0 is black, 0.5 is this hue at full saturation, 1 is
-// white (see nodeGraphLedEmittedRgb in public/modules/led/led-settings.js).
+// LED light model:
+//   energy = clamp(level * brightness, 0..1)   // mono "brightness" channel
+//   color  = sample multi-stop gradient at energy  // free LUT (may go bright→dim)
+// Legacy hue is only used to seed a default black→hue→white ramp when a patch
+// has no gradientStops yet.
 //
 // rounding/cornerShape are the same pair the Music Player's waveform panel
 // uses: rounding is a PERCENTAGE of the largest radius the face can take
 // (half its shorter side), so 100 is fully round at any module size, and it
 // means the same thing to both corner shapes.
+const nodeGraphLedDefaultGradientStops = Object.freeze([
+  Object.freeze({ t: 0, color: "#000000" }),
+  Object.freeze({ t: 0.5, color: "#ff0000" }),
+  Object.freeze({ t: 1, color: "#ffffff" }),
+]);
+
 const nodeGraphLedDefaultSettings = Object.freeze({
   blur: 0.35,
   brightness: 1,
@@ -163,8 +170,10 @@ const nodeGraphLedDefaultSettings = Object.freeze({
   // 0% = inscribed square (never a stretched rectangle of the cell);
   // 100% = lamp plate fills the available face area.
   fillPercent: 0,
+  // Kept for migration / legacy UI; color comes from gradientStops.
   hue: 0,
   rounding: 100,
+  gradientStops: nodeGraphLedDefaultGradientStops,
   // Decorative image layers (back → lamp → top). Same data-URL shape as value slider face.
   bottomImage: Object.freeze({ dataUrl: "", fileName: "" }),
   topImage: Object.freeze({ dataUrl: "", fileName: "" }),
@@ -204,6 +213,58 @@ function nodeGraphLedHueFromHexColor(hex) {
   return ((hue * 60) % 360 + 360) % 360;
 }
 
+/** Hex for a fully saturated hue at mid lightness (legacy seed color). */
+function nodeGraphLedHexFromHue(hue) {
+  const h = ((((Number(hue) || 0) % 360) + 360) % 360) / 60;
+  const x = 1 - Math.abs((h % 2) - 1);
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  if (h < 1) { r = 1; g = x; b = 0; }
+  else if (h < 2) { r = x; g = 1; b = 0; }
+  else if (h < 3) { r = 0; g = 1; b = x; }
+  else if (h < 4) { r = 0; g = x; b = 1; }
+  else if (h < 5) { r = x; g = 0; b = 1; }
+  else { r = 1; g = 0; b = x; }
+  const toHex = (c) => Math.round(Math.max(0, Math.min(1, c)) * 255).toString(16).padStart(2, "0");
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+/** Default black → hue → white when only a legacy hue/color is present. */
+function nodeGraphLedGradientStopsFromHue(hue) {
+  const mid = nodeGraphLedHexFromHue(hue);
+  return [
+    { t: 0, color: "#000000" },
+    { t: 0.5, color: mid },
+    { t: 1, color: "#ffffff" },
+  ];
+}
+
+function normalizeNodeGraphLedGradientStops(raw, hueFallback = 0) {
+  if (typeof normalizeNodeGraphSharedGradientStops === "function") {
+    return normalizeNodeGraphSharedGradientStops(
+      raw,
+      nodeGraphLedGradientStopsFromHue(hueFallback),
+    );
+  }
+  if (typeof NodeGraphGradientSelector !== "undefined"
+    && typeof NodeGraphGradientSelector.normalizeStops === "function") {
+    return NodeGraphGradientSelector.normalizeStops(raw, {
+      channels: "color",
+      defaultStops: "phosphor",
+      fallbackStops: nodeGraphLedGradientStopsFromHue(hueFallback),
+    });
+  }
+  const list = Array.isArray(raw) ? raw : null;
+  if (list && list.length >= 2) {
+    return list.map((s, i) => ({
+      t: Math.max(0, Math.min(1, Number(s?.t) || (i / Math.max(1, list.length - 1)))),
+      color: String(s?.color || "#ffffff"),
+    }));
+  }
+  return nodeGraphLedGradientStopsFromHue(hueFallback);
+}
+
 function normalizeNodeGraphLedLayout(layout = {}) {
   const source = layout && typeof layout === "object" ? layout : {};
   const defaults = nodeGraphLedDefaultSettings;
@@ -216,69 +277,27 @@ function normalizeNodeGraphLedLayout(layout = {}) {
     const number = Number(value);
     return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
   };
+  const hasStops = Array.isArray(source.gradientStops) && source.gradientStops.length >= 2
+    || Array.isArray(source.gradient) && source.gradient.length >= 2;
+  const gradientStops = normalizeNodeGraphLedGradientStops(
+    hasStops ? (source.gradientStops ?? source.gradient) : null,
+    hue,
+  );
+  // Peak of LUT (for legacy color field mirrors).
+  const peakColor = gradientStops[gradientStops.length - 1]?.color || color;
   return {
     blur: clamp(source.blur, 0, 1, defaults.blur),
     brightness: clamp(source.brightness, 0, 2, defaults.brightness),
-    color,
+    color: normalizeNodeGraphModuleScopeDotCoreColor(peakColor, color),
     cornerShape: source.cornerShape === "square" ? "square" : "squircle",
     fillPercent: clamp(source.fillPercent ?? source.fill, 0, 100, defaults.fillPercent),
+    gradientStops,
     hue,
     kind: "led",
     rounding: clamp(source.rounding, 0, 100, defaults.rounding),
     bottomImage: normalizeNodeGraphLedImageLayer(source.bottomImage || source.bottom),
     topImage: normalizeNodeGraphLedImageLayer(source.topImage || source.top),
   };
-}
-
-function normalizeNodeGraphClapAudioPorts(ports = []) {
-  if (!Array.isArray(ports)) {
-    return [];
-  }
-  return ports.slice(0, 32).map((port, index) => {
-    const source = port && typeof port === "object" ? port : {};
-    const id = Number(source.id);
-    const sourceIndex = Number(source.index);
-    const channelCount = Number(source.channelCount);
-    return {
-      channelCount: Number.isFinite(channelCount) ? Math.max(0, Math.min(64, Math.round(channelCount))) : 0,
-      flags: Number.isFinite(Number(source.flags)) ? Math.round(Number(source.flags)) : 0,
-      id: Number.isFinite(id) ? Math.round(id) : index,
-      inPlacePair: Number.isFinite(Number(source.inPlacePair)) ? Math.round(Number(source.inPlacePair)) : -1,
-      index: Number.isFinite(sourceIndex) ? Math.round(sourceIndex) : index,
-      name: String(source.name || "").trim().slice(0, 128),
-      portType: String(source.portType || "").trim().slice(0, 128),
-    };
-  });
-}
-
-function normalizeNodeGraphClapPluginBinding(clap = {}) {
-  const source = clap && typeof clap === "object" ? clap : {};
-  const catalogId = String(source.catalogId ?? source.pluginId ?? "").trim().slice(0, 128);
-  const clapId = String(source.clapId ?? "").trim().slice(0, 256);
-  const path = String(source.path ?? "").trim().slice(0, 2048);
-  const name = String(source.name ?? "").trim().slice(0, 128);
-  const vendor = String(source.vendor ?? "").trim().slice(0, 128);
-  const instanceId = String(source.instanceId ?? "").trim().slice(0, 128);
-  const stateBase64 = String(source.stateBase64 ?? "").trim().slice(0, 6_000_000);
-  const stateByteCount = Number(source.stateByteCount);
-  const stateSavedAt = String(source.stateSavedAt ?? "").trim().slice(0, 64);
-  const binding = {};
-  if (catalogId) binding.catalogId = catalogId;
-  if (clapId) binding.clapId = clapId;
-  if (path) binding.path = path;
-  if (name) binding.name = name;
-  if (vendor) binding.vendor = vendor;
-  if (instanceId) binding.instanceId = instanceId;
-  if (stateBase64 && /^[A-Za-z0-9+/=]+$/.test(stateBase64)) binding.stateBase64 = stateBase64;
-  if (Number.isFinite(stateByteCount) && stateByteCount >= 0) {
-    binding.stateByteCount = Math.floor(stateByteCount);
-  }
-  if (stateSavedAt) binding.stateSavedAt = stateSavedAt;
-  const audioInputs = normalizeNodeGraphClapAudioPorts(source.audioInputs);
-  const audioOutputs = normalizeNodeGraphClapAudioPorts(source.audioOutputs);
-  if (audioInputs.length) binding.audioInputs = audioInputs;
-  if (audioOutputs.length) binding.audioOutputs = audioOutputs;
-  return binding;
 }
 
 // When true, titles become "1D Trace 2" from id suffix. When false (default),
@@ -299,11 +318,14 @@ function nodeGraphDefaultNodeTitle(type, id) {
 }
 
 /**
- * Chrome header / Module Settings “selected” line: always the module’s type
- * (or plugin/group binding name). User alias is separate — Value Slider face
- * label, wire lists via nodeGraphPatchNodeTitle, Alias field under Command Center.
+ * Chrome header / Module Settings “selected” line: user alias when set,
+ * otherwise the module type title (or plugin/group binding name).
+ * Same resolution as nodeGraphPatchNodeTitle for ordinary modules.
  */
 function nodeGraphModuleChromeTitle(node) {
+  if (typeof nodeGraphPatchNodeTitle === "function") {
+    return nodeGraphPatchNodeTitle(node);
+  }
   const patchNode = typeof node === "string"
     ? (typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(node) : null)
     : node;
@@ -316,12 +338,8 @@ function nodeGraphModuleChromeTitle(node) {
       || nodeGraphNodeLabels.moduleGroup
       || "Module Group";
   }
-  if (patchNode.type === "clapPlugin") {
-    return normalizeNodeGraphClapPluginBinding(patchNode.clap).name
-      || nodeGraphNodeLabels.clapPlugin
-      || "CLAP Plugin";
-  }
-  return nodeGraphDefaultNodeTitle(patchNode.type, patchNode.id);
+  return normalizeNodeGraphPatchNodeAlias(patchNode.alias)
+    || nodeGraphDefaultNodeTitle(patchNode.type, patchNode.id);
 }
 
 function nodeGraphPatchNodeTitle(node) {
@@ -333,11 +351,6 @@ function nodeGraphPatchNodeTitle(node) {
     return normalizeNodeGraphPatchNodeAlias(patchNode.alias) ||
       normalizeNodeGraphModuleGroup(patchNode.moduleGroup).name ||
       nodeGraphNodeLabels.moduleGroup;
-  }
-  if (patchNode.type === "clapPlugin") {
-    return normalizeNodeGraphPatchNodeAlias(patchNode.alias) ||
-      normalizeNodeGraphClapPluginBinding(patchNode.clap).name ||
-      nodeGraphNodeLabels.clapPlugin;
   }
   return normalizeNodeGraphPatchNodeAlias(patchNode.alias) || nodeGraphDefaultNodeTitle(patchNode.type, patchNode.id);
 }
@@ -359,7 +372,16 @@ function cloneNodeGraphTypedDisplaySettings(node) {
   if (displayType === "value") {
     return { traceDisplaySettings: normalizeNodeGraphValueOscilloscopeSettings(migrate(node.traceDisplaySettings, false)) };
   }
-  if (displayType === "scope2d" || displayType === "phosphorLight") {
+  // scope2d-schema faces (incl. Videoscope / bank / hypersaw energy phosphor).
+  // Must not fall through to {} — validateNodeGraphPatch only copies what we
+  // return here, so resize/commit would wipe burn/decay/density on miss.
+  if (
+    displayType === "scope2d"
+    || displayType === "phosphorLight"
+    || displayType === "videoscopeBurn"
+    || displayType === "oscilloscopeBankBurn"
+    || displayType === "hypersawBurn"
+  ) {
     // phosphorLight is a legacy alias of scope2d; always store scope2d schema.
     const raw = migrate(node.traceDisplaySettings, false) || {};
     const mapped = {
@@ -377,8 +399,33 @@ function cloneNodeGraphTypedDisplaySettings(node) {
   if (displayType === "numberReadout") {
     return { traceDisplaySettings: normalizeNodeGraphNumberReadoutSettings(migrate(node.traceDisplaySettings, false)) };
   }
+  if (displayType === "xyPad" && typeof normalizeNodeGraphXyPadDisplaySettings === "function") {
+    return {
+      traceDisplaySettings: normalizeNodeGraphXyPadDisplaySettings(migrate(node.traceDisplaySettings, false)),
+    };
+  }
+  if (displayType === "spectrogramBurn" && typeof normalizeNodeGraphSpectrogramSettings === "function") {
+    const merged = { ...(migrate(node.traceDisplaySettings, false) || {}) };
+    if (merged.fftSize == null && node.params?.fftSize != null) {
+      merged.fftSize = node.params.fftSize;
+    }
+    return { traceDisplaySettings: normalizeNodeGraphSpectrogramSettings(merged, node) };
+  }
+  if (displayType === "ledLamp" && typeof normalizeNodeGraphLedLayout === "function") {
+    // LED face settings live on node.led (not traceDisplaySettings).
+    return { led: normalizeNodeGraphLedLayout(node.led) };
+  }
   if (displayType === "trace" && Object.hasOwn(node, "traceDisplaySettings")) {
     return { traceDisplaySettings: normalizeNodeGraphTraceDisplaySettings(migrate(node.traceDisplaySettings, isOutput)) };
+  }
+  // Last resort: if a face still has settings but schema is unknown/new,
+  // preserve the object rather than dropping it on every validate/clone.
+  if (Object.hasOwn(node, "traceDisplaySettings") && node.traceDisplaySettings) {
+    return {
+      traceDisplaySettings: {
+        ...(typeof node.traceDisplaySettings === "object" ? node.traceDisplaySettings : {}),
+      },
+    };
   }
   return {};
 }
@@ -440,6 +487,32 @@ function cloneNodeGraphPatch(patch) {
         ...(node.type === "customDisplay"
           ? { customDisplay: normalizeNodeGraphCustomDisplay(node.customDisplay) }
           : {}),
+        ...(node.type === "matrixWaterfall" && typeof normalizeNodeGraphMatrixWaterfall === "function"
+          ? {
+            matrixWaterfall: normalizeNodeGraphMatrixWaterfall(
+              node.matrixWaterfall || node.matrixDisplay,
+            ),
+          }
+          : {}),
+        ...(node.type === "matrixDisplay"
+          ? {
+            matrixDisplay: typeof normalizeNodeGraphMatrixPlate === "function"
+              ? normalizeNodeGraphMatrixPlate(node.matrixDisplay)
+              : (typeof normalizeNodeGraphAsciiscope === "function"
+                ? normalizeNodeGraphAsciiscope(node.matrixDisplay)
+                : node.matrixDisplay),
+          }
+          : {}),
+        ...(node.type === "asciiscope" && typeof normalizeNodeGraphMatrixDisplay === "function"
+          ? {
+            asciiscope: normalizeNodeGraphMatrixDisplay(
+              node.asciiscope?.glyphRamp != null ? node.asciiscope : node.matrixDisplay,
+            ),
+          }
+          : {}),
+        ...(node.type === "textStream" && typeof normalizeNodeGraphTextStream === "function"
+          ? { textStream: normalizeNodeGraphTextStream(node.textStream) }
+          : {}),
         ...(node.type === "canvas"
           ? { canvasScript: normalizeNodeGraphCanvasScript(node.canvasScript) }
           : {}),
@@ -452,9 +525,6 @@ function cloneNodeGraphPatch(patch) {
           : {}),
         ...(node.type === "moduleGroup"
           ? { moduleGroup: normalizeNodeGraphModuleGroup(node.moduleGroup) }
-          : {}),
-        ...(node.type === "clapPlugin"
-          ? { clap: normalizeNodeGraphClapPluginBinding(node.clap) }
           : {}),
         ...((node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer") && normalizeNodeGraphSampleId(node.sample?.id)
           ? { sample: { id: normalizeNodeGraphSampleId(node.sample?.id) } }

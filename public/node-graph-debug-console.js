@@ -138,24 +138,21 @@
   }
 
   function persistLogNow(reason = "tick") {
+    // Persistence is opt-in via SE.dump() only. Auto-saving on every push made
+    // F5 restore racey with clearLogOnStartup and confused "clear on refresh".
+    if (reason !== "manual" && reason !== "dump") {
+      return;
+    }
     try {
       const payload = serializeLogPayload(reason);
       const text = JSON.stringify(payload);
       try { sessionStorage.setItem(STORAGE_SESSION, text); } catch (_) {}
-      // Always mirror to last-unload key on explicit flush reasons so a refresh
-      // that nukes session mid-write still leaves a recoverable dump.
-      if (reason === "pagehide" || reason === "beforeunload" || reason === "freeze" || reason === "manual") {
-        try { localStorage.setItem(STORAGE_LAST_UNLOAD, text); } catch (_) {}
-      }
+      try { localStorage.setItem(STORAGE_LAST_UNLOAD, text); } catch (_) {}
     } catch (_) {}
   }
 
   function schedulePersist() {
-    if (persistTimer || restoring) return;
-    persistTimer = window.setTimeout(() => {
-      persistTimer = 0;
-      persistLogNow("tick");
-    }, 250);
+    // No auto-persist — refresh must show an empty log.
   }
 
   function readStoredLog(key, store) {
@@ -239,21 +236,20 @@
   }
 
   function installPersistLifecycle() {
-    const flush = (reason) => {
-      try {
-        if (persistTimer) {
-          window.clearTimeout(persistTimer);
-          persistTimer = 0;
-        }
-        persistLogNow(reason);
-      } catch (_) {}
-    };
-    // pagehide is the reliable one for refresh / tab close / mobile.
-    window.addEventListener("pagehide", () => flush("pagehide"));
-    window.addEventListener("beforeunload", () => flush("beforeunload"));
-    window.addEventListener("freeze", () => flush("freeze"));
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "hidden") flush("hidden");
+    // Crash/dump only via SE.dump() — do NOT re-persist on pagehide/F5.
+    // Refresh must start empty; writing here raced clearLogOnStartup and
+    // left a recoverable dump that users saw as "log not clearing".
+    // Optional: keep a last-unload dump only for explicit manual dump.
+    window.addEventListener("pageshow", (event) => {
+      // BFCache restores the full JS heap (entries + DOM) without re-running
+      // init — force a wipe so refresh/back always looks empty.
+      if (event.persisted) {
+        clearLogOnStartup();
+        try { rebuild(); updateBadge(); } catch (_) {}
+        try {
+          SE.INFO("log cleared after back-forward restore");
+        } catch (_) {}
+      }
     });
   }
 
@@ -426,14 +422,22 @@
       #seDebugPanel .se-chip{cursor:pointer;padding:1px 8px;border-radius:10px;border:1px solid #2c3444;color:#9aa4b2;background:#191e28;font-size:11px;}
       #seDebugPanel .se-chip.on{color:#fff;border-color:#4b6;background:#1c2a22;}
       #seDebugPanel input.se-search{flex:1;min-width:80px;background:#0d1016;border:1px solid #2c3444;color:#cdd6e4;border-radius:5px;padding:2px 7px;font:inherit;}
-      #seDebugPanel .se-log{flex:1 1 auto;min-height:0;overflow:auto;padding:6px 10px;-webkit-user-select:text;user-select:text;cursor:text;
+      /* body { user-select:none } is global — force selectable text in the log. */
+      #seDebugPanel .se-log,
+      #seDebugPanel .se-log *,
+      #seDebugPanel .se-row,
+      #seDebugPanel .se-row *{
+        -webkit-user-select:text !important;user-select:text !important;
+        -moz-user-select:text !important;-ms-user-select:text !important;
+      }
+      #seDebugPanel .se-log{flex:1 1 auto;min-height:0;overflow:auto;padding:6px 10px;cursor:text;
         background:#0a0c0e;font-size:11px;line-height:1.45;overscroll-behavior:contain;}
       #seDebugPanel.se-resizing .se-log{overflow:hidden;pointer-events:none;}
       #seDebugPanel .se-resize-grip{position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;z-index:3;
         background:linear-gradient(135deg,transparent 0 48%,#3a4558 48% 52%,transparent 52% 68%,#3a4558 68% 72%,transparent 72%);
         touch-action:none;}
       #seDebugPanel .se-row{white-space:pre-wrap;word-break:break-word;padding:2px 0;
-        border-bottom:1px solid #12151a;-webkit-user-select:text;user-select:text;}
+        border-bottom:1px solid #12151a;}
       /* ch4os-style: [#n 2:09:25 AM] [+12ms] LEVEL loc: msg */
       #seDebugPanel .se-row .se-meta{color:#64748b;}
       #seDebugPanel .se-row .se-t{color:#64748b;}
@@ -443,6 +447,10 @@
       #seDebugPanel .se-row .se-loc::after{content:":";color:#38bdf8;}
       #seDebugPanel .se-row .se-msg{color:#e2e8f0;}
       #seDebugPanel .se-empty{color:#5b6472;padding:10px;}
+      #seDebugPanel input.se-search,
+      #seDebugPanel button{
+        -webkit-user-select:none !important;user-select:none !important;
+      }
     `;
     document.head.appendChild(s);
   }
@@ -490,6 +498,7 @@
         <button class="se-bug" data-se-fake-err type="button" title="Click: generate a fake ERR entry (tests the log pipeline end to end)" aria-label="Generate a fake error">🐞</button>
         <span class="se-title">Debug Log</span>
         <button class="se-tool" data-se-watch aria-pressed="false">○ smoothing</button>
+        <button class="se-tool" data-se-cats title="Copy module category list (emoji + name, one per line)" aria-label="Copy module category list">📋🎛️</button>
         <button class="se-tool" data-se-pause>Pause</button>
         <button class="se-tool" data-se-copy>Copy</button>
         <button class="se-tool" data-se-clear>Clear</button>
@@ -499,7 +508,7 @@
         ${["all","LOG","WARN","FAIL","SMOOTH","ERROR"].map((f)=>`<span class="se-chip${f==="all"?" on":""}" data-se-filter="${f}">${f}</span>`).join("")}
         <input class="se-search" data-se-search placeholder="filter text…">
       </div>
-      <div class="se-log" data-se-list><div class="se-empty">No log entries yet.</div></div>
+      <div class="se-log node-text-selectable" data-se-list tabindex="0"><div class="se-empty">No log entries yet.</div></div>
       <div class="se-resize-grip" data-se-resize title="Resize" aria-hidden="true"></div>`;
     document.body.appendChild(p);
     els.panel = p;
@@ -514,6 +523,7 @@
     });
     p.querySelector("[data-se-clear]").addEventListener("click", clearLog);
     p.querySelector("[data-se-copy]").addEventListener("click", copyLog);
+    p.querySelector("[data-se-cats]")?.addEventListener("click", dumpModuleCategories);
     const pauseBtn = p.querySelector("[data-se-pause]");
     pauseBtn.addEventListener("click", () => { paused = !paused; pauseBtn.textContent = paused ? "Resume" : "Pause"; if (!paused) rebuild(); });
     els.watchBtn.addEventListener("click", () => setSmoothingWatch(!smoothingWatch));
@@ -523,6 +533,30 @@
       rebuild();
     }));
     p.querySelector("[data-se-search]").addEventListener("input", (e) => { search = e.target.value.toLowerCase(); rebuild(); });
+
+    // Keep selection/copy working inside the log: stop workspace/drag handlers
+    // from eating pointer/selectstart, and don't clear ranges on mousedown.
+    if (els.list) {
+      const stopBubble = (e) => { e.stopPropagation(); };
+      els.list.addEventListener("pointerdown", stopBubble);
+      els.list.addEventListener("mousedown", stopBubble);
+      els.list.addEventListener("click", stopBubble);
+      els.list.addEventListener("selectstart", (e) => {
+        e.stopPropagation();
+      });
+      // Ctrl/Cmd+C copies current selection when focus is in the log.
+      els.list.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === "c") {
+          const selected = window.getSelection?.()?.toString?.() || "";
+          if (selected) {
+            // Let the browser handle native copy of the selection.
+            return;
+          }
+          e.preventDefault();
+          copyLog();
+        }
+      });
+    }
 
     makeDraggable(p, p.querySelector("[data-se-drag]"));
     makeResizable(p, p.querySelector("[data-se-resize]"), els.list);
@@ -666,20 +700,118 @@
     els.list.innerHTML = rows.length ? rows.map(rowHtml).join("") : `<div class="se-empty">No matching entries.</div>`;
     els.list.scrollTop = 0;
   }
+  function wipePersistedLogStorage() {
+    try { sessionStorage.removeItem(STORAGE_SESSION); } catch (_) {}
+    try { localStorage.removeItem(STORAGE_LAST_UNLOAD); } catch (_) {}
+  }
+
+  /** Fresh empty log for this page load (storage wiped so refresh does not restore). */
+  function clearLogOnStartup() {
+    entries.length = 0;
+    errorCount = 0;
+    lastPushTs = 0;
+    seq = 0;
+    wipePersistedLogStorage();
+  }
+
   function clearLog() {
     entries.length = 0;
     errorCount = 0;
     lastPushTs = 0;
-    try { sessionStorage.removeItem(STORAGE_SESSION); } catch (_) {}
-    try { localStorage.removeItem(STORAGE_LAST_UNLOAD); } catch (_) {}
+    wipePersistedLogStorage();
     updateBadge();
     rebuild();
     SE.INFO("log cleared (including persisted dump)");
   }
   function copyLog() {
-    // Newest-first plain text, same shape as ch4os snapshot lines.
-    const text = entries.filter(matches).map(formatEntryLine).join("\n");
-    navigator.clipboard?.writeText(text).then(() => SE.INFO("log copied to clipboard"), () => {});
+    // Prefer the user's current selection when it sits inside the log.
+    let text = "";
+    try {
+      const sel = window.getSelection?.();
+      const selected = sel?.toString?.() || "";
+      if (selected && els.list && sel.rangeCount > 0) {
+        const anchor = sel.anchorNode;
+        if (anchor && (els.list === anchor || els.list.contains(anchor.nodeType === 1 ? anchor : anchor.parentElement))) {
+          text = selected;
+        }
+      }
+    } catch (_) {}
+    if (!text) {
+      // Newest-first plain text, same shape as ch4os snapshot lines.
+      text = entries.filter(matches).map(formatEntryLine).join("\n");
+    }
+    if (!text) {
+      SE.INFO("nothing to copy");
+      return;
+    }
+    const done = (ok) => {
+      if (ok) SE.INFO(text.includes("\n") || text.length > 80 ? "log copied to clipboard" : "selection copied");
+    };
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(() => done(true), () => {
+        try {
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          ta.setAttribute("readonly", "");
+          ta.style.cssText = "position:fixed;left:-9999px;opacity:0";
+          document.body.appendChild(ta);
+          ta.select();
+          const ok = document.execCommand("copy");
+          ta.remove();
+          done(ok);
+        } catch (_) { done(false); }
+      });
+    } else {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.cssText = "position:fixed;left:-9999px;opacity:0";
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand("copy");
+        ta.remove();
+        done(ok);
+      } catch (_) { done(false); }
+    }
+  }
+
+  /**
+   * Module department list as one multi-line LOG entry (emoji + name per line).
+   * Shape (easy select/copy of a single log row):
+   *   [#2410 10:31:53 AM] [+0ms] LOG categories:
+   *   🕹️ Controllers
+   *   ♟️ Game Triggers
+   *   …
+   */
+  function dumpModuleCategories() {
+    const deps = (typeof nodeGraphModuleStoreDepartments !== "undefined"
+      && Array.isArray(nodeGraphModuleStoreDepartments))
+      ? nodeGraphModuleStoreDepartments
+      : [];
+    if (!deps.length) {
+      push("WARN", "no module categories available (store not loaded)", "debug-console");
+      return;
+    }
+    const lines = deps.map((dep) => {
+      const emoji = String(dep?.emoji || "").trim() || "·";
+      const name = String(dep?.title || dep?.label || dep?.id || "").trim() || "?";
+      return `${emoji} ${name}`;
+    });
+    // One entry: header + emoji lines. formatEntryLine → easy single-block copy.
+    //   [#n t] [+0ms] LOG categories:
+    //   🕹️ Controllers
+    //   …
+    const entry = push("LOG", `categories:\n${lines.join("\n")}`, "");
+    const text = formatEntryLine(entry);
+    try {
+      navigator.clipboard?.writeText(text).then(
+        () => SE.INFO("module categories copied (one log entry)"),
+        () => {},
+      );
+    } catch (_) {
+      // Clipboard may be denied; the multi-line entry is still in the log.
+    }
   }
   function updateBadge() {
     if (!els.badge) return;
@@ -709,21 +841,21 @@
   function init() {
     try {
       installPersistLifecycle();
-      // Capture always (errors), even if UI is opted out — restore/persist still run.
-      const n = restorePersistedLog();
+      // Fresh log every startup / refresh — never restore prior dump.
+      clearLogOnStartup();
+      // Drop any leftover dump from older builds that auto-persisted on hide.
+      wipePersistedLogStorage();
       if (!seDevEnabled()) {
-        // Keep logging + persistence without the panel.
-        SE.INFO(`debug console (headless) — restored ${n} lines, build ${seBuildMode()}`);
+        // Keep logging without the panel.
+        SE.INFO(`debug console (headless) — build ${seBuildMode()}`);
         return;
       }
       injectStyles();
       buildButton();
       buildPanel();
       SE.INFO(
-        `debug console ready — build ${(document.querySelector("[data-build-number-value]")?.textContent || "?")} (${seBuildMode()})`
-        + (n ? ` · restored ${n} lines from before refresh` : " · no prior dump"),
+        `debug console ready — build ${(document.querySelector("[data-build-number-value]")?.textContent || "?")} (${seBuildMode()}) · log cleared on load`,
       );
-      SE.INFO(`log dump keys: sessionStorage["${STORAGE_SESSION}"], localStorage["${STORAGE_LAST_UNLOAD}"] · SE.dump()`);
       rebuild();
     } catch (err) {
       try { console.error("[se-debug] init failed", err); } catch (_) {}

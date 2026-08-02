@@ -282,15 +282,18 @@ function handleNodeGraphKeydown(event) {
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.code === "Space") {
     event.preventDefault();
     event.stopPropagation(); // prevent the editable-target check below from eating it
-    if (nodeGraphMvp?.live?.outputEnabled && nodeGraphMvp?.live?.node) {
+    if (nodeGraphMvp?.live?.node) {
       // Engine is running: Space toggles speed between 0 (pause) and 1 (play).
       const isPaused = (nodeGraphMvp.live.speedMultiplier ?? 1) === 0;
       const nextSpeed = isPaused ? 1 : 0;
       if (typeof setNodeGraphLiveSpeed === "function") {
         setNodeGraphLiveSpeed(nextSpeed);
       }
+    } else if (typeof setNodeGraphLiveOutputEnabled === "function") {
+      // No worklet: start (or re-start). Do not toggleOutput — if outputEnabled
+      // was left true without a node (broken restart), toggle would only stop.
+      setNodeGraphLiveOutputEnabled(true);
     } else if (typeof toggleNodeGraphLiveOutput === "function") {
-      // Engine is off: Space starts it.
       toggleNodeGraphLiveOutput();
     }
     return;

@@ -6,14 +6,13 @@ function createNodeGraphRadarState() {
   };
 }
 
+// Shared stdlib (node-graph-phasor-helpers.js). Local names keep port call-sites stable.
 function nodeGraphRadarWrap01(v) {
-  return v - Math.floor(v);
+  return nodeGraphWrap01(v);
 }
 
 function nodeGraphRadarTrisaw(phase, warp) {
-  const safeWarp = clampNodeSliderValue(warp, 0.001, 0.999);
-  const wrapped = nodeGraphRadarWrap01(phase);
-  return wrapped < safeWarp ? wrapped / safeWarp : (1 - wrapped) / (1 - safeWarp);
+  return nodeGraphTrisaw(phase, warp);
 }
 
 function nodeGraphRadarSign(v) {

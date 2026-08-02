@@ -51,7 +51,9 @@ body {
   -webkit-user-select: none;
 }
 
-:is(input, textarea, select, [contenteditable="true"], .node-text-selectable) {
+:is(input, textarea, select, [contenteditable="true"], .node-text-selectable),
+#seDebugPanel .se-log,
+#seDebugPanel .se-log * {
   user-select: text;
   -webkit-user-select: text;
 }
@@ -235,58 +237,253 @@ body.node-ear-protection-tripped .node-ear-protection-fault {
   user-select: text;
 }
 
-.node-ear-protection-fault-kicker,
-.node-ear-protection-fault-reset,
-.node-ear-protection-fault-explain,
-.node-ear-protection-fault-contact,
-#nodeEarProtectionFaultDetail {
-  color: rgba(243, 241, 236, 0.74);
-  font-size: 0.78rem;
+.node-ear-protection-fault-kicker {
+  color: rgba(255, 150, 140, 0.88);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
-.node-ear-protection-fault-panel strong {
-  margin-block: 5px 7px;
+.node-ear-protection-fault-title {
+  margin-block: 8px 4px;
   color: var(--node-ear-protection-color);
-  font-size: 1.14rem;
-  font-weight: 700;
+  font-size: 1.28rem;
+  font-weight: 800;
   letter-spacing: 0;
   text-shadow: 0 0 18px rgba(255, 95, 81, 0.44);
+}
+
+/* Primary recovery message — most important line after the title. */
+.node-ear-protection-fault-paused {
+  margin: 10px auto 6px;
+  color: rgba(255, 214, 120, 0.98);
+  font-size: 1.12rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  text-shadow: 0 0 14px rgba(255, 190, 80, 0.35);
+}
+
+.node-ear-protection-fault-detail {
+  color: rgba(243, 241, 236, 0.92);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .node-ear-protection-fault-reset {
   margin-top: 10px;
   color: rgba(127, 199, 217, 0.82);
+  font-size: 0.78rem;
 }
 
 .node-ear-protection-fault-close {
   width: min(220px, 100%);
-  margin: 14px auto 0;
-  padding: 8px 14px;
-  border: 1px solid rgba(127, 199, 217, 0.36);
+  margin: 16px auto 0;
+  padding: 10px 14px;
+  border: 1px solid rgba(127, 199, 217, 0.45);
   border-radius: 6px;
-  background: rgba(17, 20, 24, 0.82);
-  color: rgba(243, 241, 236, 0.92);
-  font: 700 0.82rem/1 "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+  background: rgba(17, 20, 24, 0.9);
+  color: rgba(243, 241, 236, 0.96);
+  font: 700 0.9rem/1 "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
   pointer-events: auto;
   user-select: none;
 }
 
 .node-ear-protection-fault-close:hover,
 .node-ear-protection-fault-close:focus-visible {
-  border-color: rgba(127, 199, 217, 0.68);
-  background: rgba(24, 31, 36, 0.92);
+  border-color: rgba(127, 199, 217, 0.8);
+  background: rgba(28, 36, 42, 0.96);
   outline: 0;
 }
 
-.node-ear-protection-fault-explain,
-.node-ear-protection-fault-contact {
-  max-inline-size: 58em;
-  margin: 9px auto 0;
+.node-ear-protection-fault-explain {
+  max-inline-size: 52em;
+  margin: 12px auto 0;
+  color: rgba(243, 241, 236, 0.62);
+  font-size: 0.76rem;
   line-height: 1.45;
 }
 
 .node-ear-protection-fault-contact {
-  color: rgba(243, 241, 236, 0.86);
+  display: block;
+  max-inline-size: 52em;
+  margin: 14px auto 0;
+  color: rgba(243, 241, 236, 0.88);
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.node-ear-protection-fault-email {
+  display: block;
+  margin-top: 8px;
+  color: rgba(140, 220, 255, 0.98);
+  font-size: 1.22rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  text-shadow: 0 0 16px rgba(100, 190, 255, 0.35);
+  word-break: break-all;
+}
+
+.node-ear-protection-fault-email:hover,
+.node-ear-protection-fault-email:focus-visible {
+  color: rgba(190, 240, 255, 1);
+  text-decoration: underline;
+  outline: 0;
+}
+
+/* Patch load hard-fail — modal like ear protector; only continue via Initialize. */
+body.node-patch-load-fault-open {
+  --node-patch-load-fault-color: rgba(255, 160, 90, 0.95);
+}
+
+.node-patch-load-fault {
+  position: fixed;
+  inset: 0;
+  z-index: 100002;
+  display: none;
+  place-items: center;
+  pointer-events: auto;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(255, 150, 70, 0.12), transparent 36%),
+    rgba(0, 0, 0, 0.52);
+}
+
+body.node-patch-load-fault-open .node-patch-load-fault {
+  display: grid;
+}
+
+.node-patch-load-fault-panel {
+  min-inline-size: min(520px, calc(100vw - 32px));
+  max-inline-size: min(720px, calc(100vw - 32px));
+  max-block-size: min(90vh, 860px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px 22px 16px;
+  border: 1px solid rgba(255, 160, 90, 0.42);
+  border-radius: 6px;
+  background:
+    linear-gradient(90deg, rgba(255, 150, 70, 0.08), rgba(127, 199, 217, 0.05)),
+    rgba(5, 7, 9, 0.94);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.86),
+    0 0 28px rgba(255, 140, 60, 0.22);
+  color: var(--text);
+  font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+  text-align: left;
+  pointer-events: auto;
+  user-select: text;
+  overflow: hidden;
+}
+
+.node-patch-load-fault-kicker {
+  color: rgba(255, 180, 120, 0.9);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.node-patch-load-fault-title {
+  margin: 0;
+  color: var(--node-patch-load-fault-color, rgba(255, 160, 90, 0.95));
+  font-size: 1.2rem;
+  font-weight: 800;
+  text-align: center;
+  text-shadow: 0 0 16px rgba(255, 140, 60, 0.35);
+}
+
+.node-patch-load-fault-detail {
+  margin: 4px 0 0;
+  max-block-size: 7.5em;
+  overflow: auto;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 160, 90, 0.22);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.35);
+  color: rgba(255, 230, 200, 0.95);
+  font: 600 0.78rem/1.4 "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.node-patch-load-fault-script-label {
+  margin-top: 6px;
+  color: rgba(243, 241, 236, 0.72);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.node-patch-load-fault-script {
+  display: block;
+  width: 100%;
+  min-height: 7.5rem;
+  max-height: 14rem;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(127, 199, 217, 0.28);
+  border-radius: 4px;
+  background: rgba(8, 10, 12, 0.92);
+  color: rgba(210, 230, 240, 0.92);
+  font: 0.72rem/1.35 "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+  resize: vertical;
+  overflow: auto;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.node-patch-load-fault-script:focus {
+  outline: 0;
+  border-color: rgba(127, 199, 217, 0.55);
+}
+
+.node-patch-load-fault-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.node-patch-load-fault-copy,
+.node-patch-load-fault-init {
+  min-width: min(200px, 100%);
+  padding: 10px 14px;
+  border-radius: 6px;
+  font: 700 0.88rem/1 "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+  cursor: pointer;
+  user-select: none;
+  pointer-events: auto;
+}
+
+.node-patch-load-fault-copy {
+  border: 1px solid rgba(127, 199, 217, 0.45);
+  background: rgba(17, 20, 24, 0.9);
+  color: rgba(243, 241, 236, 0.96);
+}
+
+.node-patch-load-fault-copy:hover,
+.node-patch-load-fault-copy:focus-visible {
+  border-color: rgba(127, 199, 217, 0.8);
+  background: rgba(28, 36, 42, 0.96);
+  outline: 0;
+}
+
+.node-patch-load-fault-init {
+  border: 1px solid rgba(255, 160, 90, 0.55);
+  background: rgba(48, 28, 12, 0.92);
+  color: rgba(255, 230, 200, 0.98);
+}
+
+.node-patch-load-fault-init:hover,
+.node-patch-load-fault-init:focus-visible {
+  border-color: rgba(255, 180, 110, 0.85);
+  background: rgba(64, 36, 14, 0.96);
+  outline: 0;
 }
 
 .node-missing-sample-assets {
@@ -652,165 +849,6 @@ button:disabled {
   color: var(--warn);
 }
 
-.node-clap-host-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  justify-content: flex-start;
-  flex: 1 0 100%;
-  margin: 0;
-  padding: 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel);
-}
-
-.node-clap-host-heading {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  min-width: min(100%, 280px);
-  margin-right: auto;
-}
-
-.node-clap-host-heading > div {
-  display: grid;
-  gap: 2px;
-}
-
-/* Local process liveness dot -- deliberately distinct from the connect
-   button so "is the companion process running" is visible without a
-   click, since the URL box next to it otherwise reads as "type in a
-   remote server address" (which it isn't -- 127.0.0.1 only). */
-.node-clap-host-indicator {
-  flex: 0 0 auto;
-  width: 10px;
-  height: 10px;
-  margin-top: 4px;
-  border-radius: 50%;
-  background: var(--muted);
-}
-
-.node-clap-host-indicator[data-state="connected"] {
-  background: var(--good);
-  box-shadow: 0 0 8px 1px var(--good);
-}
-
-.node-clap-host-indicator[data-state="error"] {
-  background: var(--warn);
-  box-shadow: 0 0 8px 1px var(--warn);
-}
-
-.node-clap-host-indicator[data-state="connecting"],
-.node-clap-host-indicator[data-state="checking"] {
-  background: var(--warn);
-  animation: node-clap-host-indicator-pulse 1s ease-in-out infinite;
-}
-
-@keyframes node-clap-host-indicator-pulse {
-  0%, 100% { opacity: 0.35; }
-  50% { opacity: 1; }
-}
-
-.node-clap-host-strip span {
-  color: var(--good);
-  font-size: 0.9rem;
-  font-weight: 700;
-}
-
-.node-clap-host-strip span.warn {
-  color: var(--warn);
-}
-
-.node-clap-host-strip span.error {
-  color: var(--warn);
-}
-
-.node-clap-host-strip small {
-  color: var(--muted);
-  font-size: 0.72rem;
-}
-
-.node-clap-host-url-control {
-  display: grid;
-  gap: 2px;
-  min-width: min(100%, 230px);
-}
-
-.node-clap-host-url-control span {
-  color: var(--muted);
-  font-size: 0.66rem;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.node-clap-host-url-control input {
-  min-height: 2.2rem;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #111820;
-  color: var(--text);
-  font: inherit;
-  font-size: 0.78rem;
-  padding: 0 9px;
-}
-
-.node-clap-host-strip button {
-  min-height: 2.2rem;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #1e242c;
-  color: var(--text);
-  font: inherit;
-  font-size: 0.78rem;
-}
-
-.node-clap-host-strip button:disabled {
-  opacity: 0.62;
-}
-
-.node-clap-host-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.node-clap-host-advanced {
-  flex: 1 0 100%;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.node-clap-host-advanced summary {
-  cursor: pointer;
-  color: var(--muted);
-  font-size: 0.68rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  list-style: none;
-}
-
-.node-clap-host-advanced summary::-webkit-details-marker {
-  display: none;
-}
-
-.node-clap-host-advanced summary::before {
-  content: "\25b8 ";
-}
-
-.node-clap-host-advanced[open] summary::before {
-  content: "\25be ";
-}
-
-.node-clap-host-advanced[open] {
-  padding-top: 8px;
-  margin-top: 2px;
-  border-top: 1px dashed var(--line);
-}
 
 .audio-panel {
   display: grid;
@@ -1366,8 +1404,11 @@ html.soemdsp-hide-ui .status-strip {
 }
 
 .node-midi-keyboard-module {
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  /* heading | piano (flex) | signal bar | bitmask — four children, four tracks.
+     Old 3-track grid left signal/bitmask fighting the piano for space. */
+  grid-template-rows: auto minmax(112px, 1fr) auto auto;
   height: 100%;
+  min-height: 0;
   margin: 0;
   border-radius: 0;
 }
@@ -1593,10 +1634,13 @@ html.soemdsp-hide-ui .status-strip {
 
 .node-midi-keyboard-heading {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   min-width: 0;
+  /* Controls wrap rather than force the piano thinner */
+  overflow: hidden;
 }
 
 .node-midi-keyboard-heading > div {
@@ -1628,7 +1672,7 @@ html.soemdsp-hide-ui .status-strip {
 
 .node-midi-keyboard-module .node-midi-keyboard-heading {
   display: grid;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.8fr);
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 2fr);
   align-items: start;
   gap: 6px;
 }
@@ -1636,6 +1680,17 @@ html.soemdsp-hide-ui .status-strip {
 .node-midi-keyboard-module .node-midi-keyboard-heading > .node-midi-keyboard-midi-controls {
   flex-wrap: wrap;
   justify-content: flex-end;
+  row-gap: 4px;
+}
+
+/* Compact mode/MIDI chrome on placed modules so more room goes to keys */
+.dsp-node.keyboard-controller-layout .node-midi-keyboard-title strong {
+  font-size: 0.82rem;
+}
+
+.dsp-node.keyboard-controller-layout .node-midi-keyboard-panel {
+  padding: 6px;
+  gap: 5px;
 }
 
 .node-midi-keyboard-midi-controls button,
@@ -1976,8 +2031,12 @@ body[data-macro-knob-value-position="top"] .node-macro-knob-edit-input {
 .node-midi-keyboard-performance {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: 0;
   min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .node-midi-keyboard-wheel-bank {
@@ -2074,7 +2133,12 @@ body[data-macro-knob-value-position="top"] .node-macro-knob-edit-input {
 
 .node-midi-keyboard-surface {
   position: relative;
-  min-height: 132px;
+  /* cqi font scaling for note labels under tight module widths */
+  container-type: inline-size;
+  container-name: midi-keys;
+  width: 100%;
+  height: 100%;
+  min-height: 112px;
   overflow: hidden;
   border: 1px solid rgba(243, 241, 236, 0.16);
   border-radius: 6px;
@@ -2084,7 +2148,7 @@ body[data-macro-knob-value-position="top"] .node-macro-knob-edit-input {
 }
 
 .node-midi-keyboard-module .node-midi-keyboard-surface {
-  min-height: 108px;
+  min-height: 112px;
 }
 
 @media (max-width: 720px) {
@@ -2111,18 +2175,28 @@ body[data-macro-knob-value-position="top"] .node-macro-knob-edit-input {
   display: grid;
   grid-template-columns: repeat(15, minmax(0, 1fr));
   align-items: end;
+  min-width: 0;
 }
 
 .node-midi-keyboard-white-row span {
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  box-sizing: border-box;
   min-width: 0;
   height: 100%;
-  padding: 0 2px 8px;
+  /* Labels must stay inside the key — never paint over neighbors */
+  padding: 0 1px 6px;
+  overflow: hidden;
   border-right: 1px solid rgba(5, 6, 7, 0.72);
   color: rgba(5, 6, 7, 0.92);
-  font: 700 0.72rem/1 "Cascadia Mono", Consolas, monospace;
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-weight: 700;
+  font-size: clamp(0.42rem, 5.2cqi, 0.72rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  text-overflow: clip;
   background:
     linear-gradient(180deg, #f7f2e8 0%, #cfc7b8 72%, #a79f93 100%);
 }
@@ -2167,6 +2241,7 @@ body[data-macro-knob-value-position="top"] .node-macro-knob-edit-input {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  min-width: 0;
 }
 
 .node-midi-keyboard-black-row span {
@@ -2176,22 +2251,47 @@ body[data-macro-knob-value-position="top"] .node-macro-knob-edit-input {
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  box-sizing: border-box;
   width: 4.2%;
+  max-width: 100%;
   height: 64%;
-  padding-bottom: 7px;
+  padding: 0 1px 5px;
+  overflow: hidden;
   border: 1px solid rgba(127, 199, 217, 0.25);
   border-radius: 0 0 4px 4px;
-  color: rgba(243, 241, 236, 0.82);
-  font: 700 0.62rem/1 "Cascadia Mono", Consolas, monospace;
+  /* Black keys are too narrow for full note names at typical module widths —
+     keep the cap blank so labels never bleed onto neighboring whites. */
+  color: transparent;
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-weight: 700;
+  font-size: 0;
+  line-height: 1;
+  white-space: nowrap;
   background:
     linear-gradient(180deg, #20252a 0%, #090b0e 100%);
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45);
   pointer-events: auto;
 }
 
+/* Wide piano surfaces only: show black-key note names inside the key. */
+@container midi-keys (min-width: 520px) {
+  .node-midi-keyboard-black-row span {
+    color: rgba(243, 241, 236, 0.82);
+    font-size: clamp(0.4rem, 3.4cqi, 0.58rem);
+  }
+}
+
+/* Very narrow surfaces: drop white labels too (keys stay playable). */
+@container midi-keys (max-width: 260px) {
+  .node-midi-keyboard-white-row span {
+    color: transparent;
+    font-size: 0;
+    text-shadow: none;
+  }
+}
+
 .node-midi-keyboard-black-row span.active {
   border-color: rgba(118, 215, 255, 0.96);
-  color: #eaf8ff;
   background:
     radial-gradient(circle at 50% 20%, rgba(151, 230, 255, 0.7), transparent 30%),
     linear-gradient(180deg, #236ec9 0%, #081a43 100%);
@@ -2201,12 +2301,17 @@ body[data-macro-knob-value-position="top"] .node-macro-knob-edit-input {
     0 8px 18px rgba(0, 0, 0, 0.45),
     0 0 18px rgba(35, 162, 255, 0.72),
     0 0 36px rgba(35, 112, 255, 0.42);
-  text-shadow: 0 0 7px rgba(234, 248, 255, 0.84);
+}
+
+@container midi-keys (min-width: 520px) {
+  .node-midi-keyboard-black-row span.active {
+    color: #eaf8ff;
+    text-shadow: 0 0 7px rgba(234, 248, 255, 0.84);
+  }
 }
 
 .node-midi-keyboard-black-row span.held {
   border-color: rgba(255, 200, 110, 0.96);
-  color: #1a1200;
   background:
     radial-gradient(circle at 50% 20%, rgba(255, 210, 140, 0.7), transparent 30%),
     linear-gradient(180deg, #c9760f 0%, #4a2604 100%);
@@ -2216,7 +2321,13 @@ body[data-macro-knob-value-position="top"] .node-macro-knob-edit-input {
     0 8px 18px rgba(0, 0, 0, 0.45),
     0 0 18px rgba(241, 184, 75, 0.72),
     0 0 36px rgba(224, 138, 30, 0.42);
-  text-shadow: 0 0 7px rgba(255, 236, 200, 0.84);
+}
+
+@container midi-keys (min-width: 520px) {
+  .node-midi-keyboard-black-row span.held {
+    color: #1a1200;
+    text-shadow: 0 0 7px rgba(255, 236, 200, 0.84);
+  }
 }
 
 .node-midi-keyboard-signal-bar {
@@ -2224,6 +2335,9 @@ body[data-macro-knob-value-position="top"] .node-macro-knob-edit-input {
   flex-wrap: wrap;
   gap: 4px;
   min-width: 0;
+  /* Stay in its own grid track — never spill into the piano */
+  max-height: 40%;
+  overflow: auto;
 }
 
 .node-midi-keyboard-signal-bar span {
@@ -7635,6 +7749,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 /* Always fixed: must never participate in #nodeWiringPanel flow layout
    (that pushed the modular workspace down and blocked its resize handle). */
 .node-module-shop-view {
+  /* Size queries for back/search stack at very thin window widths. */
+  container-type: inline-size;
+  container-name: module-shop;
   position: fixed;
   top: 72px;
   left: 12px;
@@ -7785,27 +7902,23 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   box-shadow: inset 0 0 0 1px rgba(127, 199, 217, 0.18);
 }
 
+/* Back + search: one row when space allows; wrap at very thin shop widths. */
 .node-module-shop-controls {
-  display: grid;
-  grid-template-columns: minmax(54px, 0.32fr) minmax(0, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 3px;
   align-items: stretch;
   min-height: var(--node-floating-window-button-height);
-  max-height: var(--node-floating-window-button-height);
-  overflow: hidden;
-}
-
-.node-module-shop-view.department-selected .node-module-shop-controls {
-  grid-template-columns: minmax(54px, 0.32fr) minmax(0, 1fr);
-  align-items: stretch;
+  max-height: none;
+  overflow: visible;
 }
 
 .node-module-shop-view:not(.department-selected) .node-module-department-search-placeholder {
-  grid-column: 1 / -1;
+  flex: 1 1 100%;
 }
 
 .node-module-home-shelf {
-  grid-column: 1 / -1;
+  flex: 1 1 100%;
   display: grid;
   gap: 4px;
   min-width: 0;
@@ -7816,7 +7929,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 .node-module-department-back-button {
+  box-sizing: border-box;
   display: grid;
+  /* Fixed width when sharing a row with search; full-width stack below. */
+  flex: 0 0 54px;
+  width: 54px;
+  min-width: 54px;
   min-height: var(--node-floating-window-button-height);
   place-items: center;
   border: 1px solid rgba(127, 199, 217, 0.24);
@@ -7832,9 +7950,11 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-module-department-search-placeholder {
   display: grid;
-  min-width: 0;
+  /* ~8rem min forces wrap before search is crushed beside back. */
+  flex: 1 1 8rem;
+  min-width: min(100%, 8rem);
   min-height: var(--node-floating-window-button-height);
-  max-height: var(--node-floating-window-button-height);
+  max-height: none;
   align-self: stretch;
   overflow: hidden;
 }
@@ -7850,6 +7970,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-module-department-search-placeholder input {
   box-sizing: border-box;
   width: 100%;
+  min-width: 0;
   height: var(--node-floating-window-button-height);
   min-height: var(--node-floating-window-button-height);
   max-height: var(--node-floating-window-button-height);
@@ -7859,7 +7980,31 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   color: rgba(243, 241, 236, 0.62);
   font: 0.84rem/1.2 var(--mono);
   letter-spacing: 0;
-  padding: 0 8px;
+  /* Right pad leaves room for the native search clear (X) so text isn't clipped. */
+  padding: 0 1.6rem 0 8px;
+}
+
+/* WebKit/Blink search clear control — keep it inside the pad zone. */
+.node-module-department-search-placeholder input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 0.85rem;
+  height: 0.85rem;
+  margin: 0;
+  background:
+    linear-gradient(45deg, transparent 42%, rgba(174, 180, 187, 0.85) 42%, rgba(174, 180, 187, 0.85) 58%, transparent 58%),
+    linear-gradient(-45deg, transparent 42%, rgba(174, 180, 187, 0.85) 42%, rgba(174, 180, 187, 0.85) 58%, transparent 58%);
+  cursor: pointer;
+  opacity: 0.75;
+}
+
+.node-module-department-search-placeholder input[type="search"]::-webkit-search-cancel-button:hover {
+  opacity: 1;
+}
+
+.node-module-department-search-placeholder input[type="search"]::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 /* The search box is focused automatically every time the browser opens (see
@@ -7885,10 +8030,33 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   opacity: 1;
 }
 
+/* Stack + full-width once the shop is too narrow for back|search side-by-side
+   (~54px back + gap + ~8rem search ≈ 185px). Selectors are descendants of the
+   container (.node-module-shop-view), not nested inside a second shop-view. */
+@container module-shop (max-width: 200px) {
+  .node-module-department-back-button:not([hidden]) {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 100%;
+  }
+
+  .node-module-department-search-placeholder {
+    flex: 1 1 100%;
+    min-width: 100%;
+  }
+
+  .node-module-department-search-placeholder input {
+    font-size: 0.78rem;
+    padding: 0 1.45rem 0 6px;
+  }
+}
+
 .node-module-department-title {
   display: grid;
-  min-height: 18px;
+  min-height: 0;
   align-items: center;
+  margin: 0;
+  padding: 2px 6px 0;
   border-bottom: 1px solid rgba(127, 199, 217, 0.14);
   color: rgba(127, 199, 217, 0.9);
   font-size: 0.78rem;
@@ -7897,6 +8065,13 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   line-height: 1.1;
   text-align: center;
   text-transform: none;
+}
+
+/* Module list sits flush under the category title (no top pad/gap). */
+.node-module-shop-view.department-selected #nodeModuleDepartmentList {
+  margin-top: 0;
+  padding-top: 0;
+  gap: 0;
 }
 
 .node-module-department-title[hidden] {
@@ -7986,15 +8161,18 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   gap: 0;
 }
 
+/* Scroll chevrons: absolute so they never become grid/flex items (sticky
+   ::before on display:grid left a blank band under the category title). */
 .node-module-shop-section::before,
 .node-module-shop-section::after {
-  position: sticky;
+  position: absolute;
   left: 0;
   right: 0;
   display: grid;
   place-items: center;
-  height: 0;
-  min-height: 0;
+  height: 1.1rem;
+  margin: 0;
+  padding: 0;
   color: rgba(243, 241, 236, 0.88);
   font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
   font-size: 0.88rem;
@@ -8011,14 +8189,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-module-shop-section::before {
   content: "▲";
-  top: 1px;
-  transform: translateY(2px);
+  top: 2px;
 }
 
 .node-module-shop-section::after {
   content: "▼";
-  bottom: 1px;
-  transform: translateY(-1rem);
+  bottom: 2px;
 }
 
 .node-module-shop-section:hover.can-scroll-up::before,
@@ -9403,9 +9579,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   pointer-events: auto;
 }
 
-/* Contact discs + visual cable strokes above modules. Hit targets stay on
-   .node-wire-svg. Paint order in JS: disc then stroke so the join has no
-   antialias fringe (disc-over-stroke was sampling a third color at the edge). */
+/* Contact discs always above modules (mid-jack plugs). Cable strokes paint
+   under modules by default (on .node-wire-svg); Visibility → Wires Above
+   Modules draws strokes here too. Hit targets stay on .node-wire-svg. */
 .node-wire-endpoint-svg {
   position: absolute;
   inset: 0;
@@ -9674,8 +9850,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-filter-curve-display,
 .node-phosphor-waveform-display,
 .node-phosphillator-draw-display,
-.node-wall-room-display,
-.node-clap-plugin-body {
+.node-wall-room-display {
   pointer-events: auto;
 }
 
@@ -9790,6 +9965,49 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   );
 }
 
+/*
+ * Value Slider with face art:
+ *  - keep module plate (shell 1px margin + .dsp-node fill)
+ *  - kill chrome outline (SVG frame + stroke CSS vars)
+ *  - face transparent so no nested plate rim around the knob image
+ *
+ * --node-module-stroke is also forced transparent in JS on the element.
+ */
+.dsp-node.slider-widget-layout.value-slider-face-has-image,
+.dsp-node.slider-widget-layout:has(.node-value-slider-face.has-image),
+.dsp-node.slider-widget-layout[data-hide-module-frame="1"] {
+  --node-module-stroke: transparent !important;
+  --node-module-selected-stroke: transparent !important;
+  --node-module-drag-stroke: transparent !important;
+  --node-port-crescent-stroke: transparent !important;
+}
+
+.dsp-node.slider-widget-layout.value-slider-face-has-image > .node-module-frame,
+.dsp-node.slider-widget-layout:has(.node-value-slider-face.has-image) > .node-module-frame,
+.dsp-node.slider-widget-layout[data-hide-module-frame="1"] > .node-module-frame,
+.dsp-node.slider-widget-layout.value-slider-face-has-image .node-module-frame,
+.dsp-node.slider-widget-layout[data-hide-module-frame="1"] .node-module-frame {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.dsp-node.slider-widget-layout.value-slider-face-has-image > .node-module-frame .node-module-frame-path,
+.dsp-node.slider-widget-layout:has(.node-value-slider-face.has-image) > .node-module-frame .node-module-frame-path,
+.dsp-node.slider-widget-layout[data-hide-module-frame="1"] > .node-module-frame .node-module-frame-path,
+.dsp-node.slider-widget-layout.value-slider-face-has-image.selected > .node-module-frame .node-module-frame-path,
+.dsp-node.slider-widget-layout.value-slider-face-has-image.connected > .node-module-frame .node-module-frame-path,
+.dsp-node.slider-widget-layout.value-slider-face-has-image.dragging > .node-module-frame .node-module-frame-path,
+.dsp-node.slider-widget-layout.value-slider-face-has-image .node-module-frame-path,
+.dsp-node.slider-widget-layout[data-hide-module-frame="1"] .node-module-frame-path {
+  stroke: transparent !important;
+  stroke: none !important;
+  stroke-width: 0 !important;
+  stroke-opacity: 0 !important;
+  fill: none !important;
+}
+
 .node-value-slider-face {
   /* Shared image box: layers + numeric readout must stay inside this inset. */
   --value-slider-face-image-inset: 6%;
@@ -9805,6 +10023,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   min-height: 0;
   padding: calc(var(--node-grid-size) * 0.18);
   border: none;
+  outline: none;
+  box-shadow: none;
   background: #020609;
   pointer-events: auto;
   overflow: hidden;
@@ -9812,21 +10032,114 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   touch-action: none;
   cursor: var(--node-dot-cursor);
   user-select: none;
-  outline: none;
 }
 
-/* Empty face: title top-center, optional readout below. */
+/*
+ * Empty face plate: dim chrome stroke inset from the outer module edge so the
+ * two borders read as separate (outer module frame vs inner plate stroke).
+ * Fixed rgba so a stuck --node-module-stroke:transparent cannot zero it out.
+ */
 .node-value-slider-face:not(.has-image) {
+  --value-slider-empty-stroke-inset: 4px;
   justify-content: flex-start;
   padding-top: calc(var(--node-grid-size) * 0.28);
   gap: 2px;
+  border: none;
+  /* Inset stroke: sits inside the plate, clear of the module outline. */
+  outline: 1px solid rgba(243, 241, 236, 0.26);
+  outline-offset: calc(-1 * var(--value-slider-empty-stroke-inset, 4px));
+  box-shadow: none;
+}
+
+/* With face art: no plate stroke. */
+.node-value-slider-face.has-image {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Focus: kill UA ring only — keep empty-face inset outline. */
+.node-value-slider-face:focus,
+.node-value-slider-face:focus-visible,
+.node-value-slider-face:active {
+  /* do not zero outline on empty faces — that is the dim plate stroke */
+}
+
+.node-value-slider-face.has-image:focus,
+.node-value-slider-face.has-image:focus-visible,
+.node-value-slider-face.has-image:active {
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.node-value-slider-face:not(.has-image):focus,
+.node-value-slider-face:not(.has-image):focus-visible,
+.node-value-slider-face:not(.has-image):active {
+  outline: 1px solid rgba(243, 241, 236, 0.26);
+  outline-offset: calc(-1 * var(--value-slider-empty-stroke-inset, 4px));
+}
+
+/* Empty Value Slider: force a visible (dim) module SVG outline. */
+.dsp-node.slider-widget-layout:not(.value-slider-face-has-image) > .node-module-frame {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: none !important;
+}
+
+.dsp-node.slider-widget-layout:not(.value-slider-face-has-image) > .node-module-frame .node-module-frame-path {
+  stroke: rgba(243, 241, 236, 0.2) !important;
+  stroke-width: 1px !important;
+  stroke-opacity: 1 !important;
+  fill: none !important;
+}
+
+.dsp-node.slider-widget-layout:not(.value-slider-face-has-image).selected > .node-module-frame .node-module-frame-path {
+  stroke: var(--node-module-selected-stroke, #e2a86d) !important;
+  stroke-width: 1px !important;
 }
 
 .node-value-slider-face.value-dragging {
   cursor: var(--node-dot-cursor);
 }
 
-/* Three image layers: bottom (static) → mid plate (optional rotate) → top (static). */
+/*
+ * Face art: keep module plate; no nested face plate.
+ * Critical: empty <img> layers must stay display:none. Author `display:block`
+ * was overriding the [hidden] attribute, so cleared/empty layers showed the
+ * browser broken-image icon (classic ~#C0C0C0 silver frame) that flickered
+ * with zoom.
+ */
+.dsp-node.slider-widget-layout.value-slider-face-has-image .node-solid-module-custom-ui,
+.dsp-node.slider-widget-layout[data-hide-module-frame="1"] .node-solid-module-custom-ui {
+  /* Keep the normal 1px shell air — margin:0 was only needed for wrong hairline theory. */
+  overflow: hidden;
+}
+
+.node-value-slider-face.has-image {
+  --value-slider-face-image-inset: 0%;
+  padding: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.node-value-slider-face.has-image .node-value-slider-face-layer {
+  overflow: hidden;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+.node-value-slider-face.has-image .node-value-slider-face-layer.is-empty {
+  display: none !important;
+}
+
+/* Four image layers: image1 (back) … image4 (front). Each may rotate with Bias. */
 .node-value-slider-face-layer {
   position: absolute;
   inset: var(--value-slider-face-image-inset, 6%);
@@ -9836,20 +10149,19 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   min-height: 0;
   overflow: hidden;
   pointer-events: none;
-}
-
-.node-value-slider-face-bottom {
-  z-index: 0;
-}
-
-.node-value-slider-face-plate {
-  z-index: 1;
   transform-origin: 50% 50%;
   transition: transform 40ms linear;
+  border: none;
+  outline: none;
+  background: transparent;
 }
 
-.node-value-slider-face-top {
-  z-index: 2;
+.node-value-slider-face-layer.is-empty {
+  display: none !important;
+}
+
+.node-value-slider-face-layer.is-rotating {
+  /* keep transition for live Bias drag */
 }
 
 .node-value-slider-face-image {
@@ -9857,14 +10169,31 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   width: 100%;
   height: 100%;
   object-fit: contain;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent;
   user-select: none;
   -webkit-user-drag: none;
   pointer-events: none;
 }
 
+/* Author display:block must not defeat [hidden] — broken-image chrome is silver. */
+.node-value-slider-face-image[hidden],
+.node-value-slider-face-image.is-empty,
+.node-value-slider-face-image:not([src]) {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  visibility: hidden !important;
+}
+
 .node-value-slider-face-label {
   position: relative;
-  z-index: 3;
+  z-index: 5;
   box-sizing: border-box;
   flex: 0 0 auto;
   width: 100%;
@@ -9895,7 +10224,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-value-slider-face-readout {
   position: relative;
-  z-index: 3;
+  z-index: 5;
   display: none;
   box-sizing: border-box;
   flex: 1 1 auto;
@@ -9944,81 +10273,135 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
     0 1px 3px rgba(0, 0, 0, 0.95);
 }
 
-/* Module settings: vertical layer stack TOP → MID → LOW */
+/* Module settings: compact ImageN | load | clear | rotate | filename rows */
 .node-value-slider-face-controls .node-value-slider-face-layer-stack {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 4px;
   min-width: 0;
 }
 
 .node-value-slider-face-controls .node-value-slider-face-layer-row {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: 3.4em auto auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 4px 5px;
   margin: 0;
-  padding: 8px 0 10px;
-  border-bottom: 1px solid rgba(128, 224, 224, 0.12);
+  padding: 3px 0;
+  min-width: 0;
+  border-bottom: 1px solid rgba(128, 224, 224, 0.1);
 }
 
 .node-value-slider-face-controls .node-value-slider-face-layer-row:last-of-type {
   border-bottom: 0;
-  padding-bottom: 4px;
 }
 
-.node-value-slider-face-controls .node-value-slider-face-layer-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.node-value-slider-face-controls .node-value-slider-face-layer-row strong {
+.node-value-slider-face-controls .node-value-slider-face-layer-label {
   margin: 0;
   color: var(--text);
-  font: 700 0.74rem/1 var(--node-mono-font);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font: 700 0.68rem/1 var(--node-mono-font);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.node-value-slider-face-controls .node-value-slider-face-layer-row button {
+  margin: 0;
+  padding: 2px 7px;
+  font: 600 0.66rem/1.2 var(--node-mono-font);
+  min-height: 0;
 }
 
 .node-value-slider-face-controls .node-value-slider-face-filename {
   margin: 0;
-  min-height: 1.2em;
+  min-width: 0;
   color: var(--muted);
-  font: 600 0.72rem/1.3 var(--node-mono-font);
+  font: 600 0.64rem/1.2 var(--node-mono-font);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.node-value-slider-face-controls .node-value-slider-face-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  margin: 0;
-}
-
 .node-value-slider-face-controls .node-value-slider-face-check {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   margin: 0;
+  white-space: nowrap;
 }
 
 .node-value-slider-face-controls .node-value-slider-face-rotate-inline {
-  margin-left: 2px;
-  padding: 2px 6px;
+  margin: 0;
+  padding: 1px 5px;
   border: 1px solid rgba(127, 199, 217, 0.2);
   border-radius: 4px;
   background: rgba(8, 14, 18, 0.55);
   color: rgba(220, 234, 238, 0.88);
-  font: 600 0.68rem/1 var(--node-mono-font);
+  font: 600 0.64rem/1 var(--node-mono-font);
   text-transform: lowercase;
 }
 
 .node-value-slider-face-controls .node-value-slider-face-rotate-inline input {
   margin: 0;
+}
+
+.node-value-slider-face-controls .node-value-slider-face-shared-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 10px;
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(128, 224, 224, 0.1);
+  overflow: visible;
+  min-width: 0;
+}
+
+.node-value-slider-face-controls .node-value-slider-face-shared-row .node-value-slider-face-num-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.node-value-slider-face-controls .node-value-slider-face-shared-row .node-value-slider-face-num-field > span {
+  font: 600 0.62rem/1 var(--node-mono-font);
+  color: var(--muted);
+  letter-spacing: 0.03em;
+  text-transform: lowercase;
+}
+
+.node-value-slider-face-controls .node-value-slider-face-shared-row input[type="number"] {
+  width: 4.5em;
+  min-width: 0;
+  padding: 2px 4px;
+  font: 600 0.72rem/1.2 var(--node-mono-font);
+}
+
+/* Full “readout” label — row layout, never clip to “read”. */
+.node-value-slider-face-controls .node-value-slider-face-shared-row .node-value-slider-face-readout-toggle {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  align-self: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 3px 6px;
+  border: 1px solid rgba(127, 199, 217, 0.22);
+  border-radius: 4px;
+  background: rgba(8, 14, 18, 0.55);
+  color: rgba(220, 234, 238, 0.92);
+  font: 600 0.7rem/1 var(--node-mono-font);
+  white-space: nowrap;
+  overflow: visible;
+}
+
+.node-value-slider-face-controls .node-value-slider-face-shared-row .node-value-slider-face-readout-toggle span {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
 .dsp-node.patch-command-layout {
@@ -10029,21 +10412,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
     var(--node-module-bottom-gap-track, minmax(2px, 1fr));
 }
 
-/* Without this override, .node-clap-plugin-body lands in the generic
-   .dsp-node row sized by --node-module-scope-height (a fixed ~2gu row
-   meant for a small display/scope widget) -- nowhere near enough for a
-   select + preset row + detail text + safety line + 8 action buttons +
-   a parameter list, so the body overflowed its row and visually
-   overlapped whatever sat below it. minmax(0, 1fr) lets that row use
-   the node's full (now much taller, see nodeGraphModuleHeightWidgetUnits'
-   clapPlugin case) height budget instead of a fixed small slice of it. */
-.dsp-node.clap-plugin-layout {
-  grid-template-rows:
-    var(--node-header-height)
-    minmax(0, 1fr)
-    minmax(var(--node-io-section-min-height), auto)
-    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
-}
 
 .node-patch-command-body {
   display: grid;
@@ -10321,17 +10689,30 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   pointer-events: none;
 }
 
-/* Empty side (no inputs or no outputs): collapse fully — display takes the space. */
+/*
+ * Empty side (no inputs or no outputs): collapse fully — display takes the space
+ * (custom-ui keeps 1px margin each side = 2px total air). Must beat the
+ * .labels-hidden jack-band width rules below (empty placeholders also get
+ * labels-hidden in createNodeGraphLayoutBShell).
+ */
 .node-solid-module-shell > .node-io-column.node-layout-b-io-empty,
-.node-module-chrome-layout-b-shell > .node-io-column.node-layout-b-io-empty {
-  width: 0;
-  min-width: 0;
-  max-width: 0;
-  overflow: hidden;
-  padding: 0;
-  margin: 0;
-  border: 0;
-  pointer-events: none;
+.node-module-chrome-layout-b-shell > .node-io-column.node-layout-b-io-empty,
+.dsp-node.chrome-layout-b .node-solid-module-shell > .node-io-column.node-layout-b-io-empty,
+.dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell > .node-io-column.node-layout-b-io-empty,
+.dsp-node.chrome-layout-b .node-solid-module-shell > .node-io-column.labels-hidden.node-layout-b-io-empty,
+.dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell > .node-io-column.labels-hidden.node-layout-b-io-empty,
+.dsp-node.solid-module-layout .node-solid-module-shell > .node-io-column.node-layout-b-io-empty,
+.dsp-node.solid-module-layout .node-solid-module-shell > .node-io-column.labels-hidden.node-layout-b-io-empty,
+.dsp-node.chrome-layout-b.io-hidden .node-solid-module-shell > .node-io-column.node-layout-b-io-empty,
+.dsp-node.chrome-layout-b.io-hidden .node-module-chrome-layout-b-shell > .node-io-column.node-layout-b-io-empty {
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  pointer-events: none !important;
 }
 
 .node-solid-module-shell > .node-io-column .node-io-row,
@@ -10558,32 +10939,21 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
     rgba(5, 9, 12, 0.92);
 }
 
+/* Play control uses shared .node-transport-play palette (grey / green / yellow). */
 .node-rendered-player button {
   flex: 0 0 auto;
   width: 44px;
   height: 100%;
   min-height: 0;
-  border: 1px solid rgba(57, 230, 163, 0.4);
   border-radius: 6px;
-  background: rgba(9, 16, 14, 0.9);
-  color: rgba(57, 230, 163, 0.95);
   font-size: 16px;
   line-height: 1;
   cursor: pointer;
 }
 
-.node-rendered-player button:hover:not(:disabled) {
-  background: rgba(20, 38, 30, 0.95);
-  box-shadow: 0 0 8px rgba(57, 230, 163, 0.3);
-}
-
 .node-rendered-player button:disabled {
   opacity: 0.35;
   cursor: default;
-}
-
-.node-rendered-player.playing button {
-  box-shadow: 0 0 10px rgba(57, 230, 163, 0.35);
 }
 
 .node-rendered-player-wave {
@@ -10780,8 +11150,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   padding: 0;
 }
 
-.node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.clap-plugin-layout):not(.solid-module-layout),
-.dsp-node.buttons-hidden:not(.text-box-layout):not(.image-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.clap-plugin-layout):not(.solid-module-layout) {
+.node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.solid-module-layout),
+.dsp-node.buttons-hidden:not(.text-box-layout):not(.image-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.solid-module-layout) {
   grid-template-rows:
     var(--node-header-height)
     var(--node-module-scope-height)
@@ -10790,131 +11160,19 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
     var(--node-module-bottom-gap-track, minmax(2px, 1fr));
 }
 
-.node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.clap-plugin-layout):not(.solid-module-layout)::after,
-.dsp-node.buttons-hidden:not(.text-box-layout):not(.image-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.clap-plugin-layout):not(.solid-module-layout)::after {
+.node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.solid-module-layout)::after,
+.dsp-node.buttons-hidden:not(.text-box-layout):not(.image-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.solid-module-layout)::after {
   content: "";
   display: block;
   min-height: 0;
 }
 
-.node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.clap-plugin-layout):not(.solid-module-layout) .dsp-node-body,
-.dsp-node.buttons-hidden:not(.text-box-layout):not(.image-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.clap-plugin-layout):not(.solid-module-layout) .dsp-node-body {
+.node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.solid-module-layout) .dsp-node-body,
+.dsp-node.buttons-hidden:not(.text-box-layout):not(.image-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.solid-module-layout) .dsp-node-body {
   align-content: start;
   grid-auto-rows: var(--node-body-row-height);
 }
 
-.node-clap-plugin-body {
-  grid-auto-rows: auto;
-  gap: 6px;
-  padding: 8px;
-  /* align-self defaults to "start" for .dsp-node-body elsewhere in this
-     file, which makes a grid item size to its own content instead of
-     filling its track -- with that default, min-height:0/overflow-y:auto
-     below never actually engage (there's no filled track to overflow
-     against), and the body just grows past its row into the io section
-     below it. "stretch" is what makes this row's real estate (the
-     minmax(0, 1fr) track from .dsp-node.clap-plugin-layout) actually
-     apply to this element instead of being sized-to-content and ignored. */
-  align-self: stretch;
-  min-height: 0;
-  overflow-y: auto;
-  border-top: 1px solid rgba(128, 224, 224, 0.14);
-  border-bottom: 1px solid rgba(128, 224, 224, 0.14);
-  background: rgba(5, 10, 14, 0.28);
-}
-
-.node-clap-plugin-select,
-.node-clap-plugin-preset-select,
-.node-clap-plugin-preset-name,
-.node-clap-plugin-actions button,
-.node-clap-plugin-preset-row button {
-  width: 100%;
-  min-width: 0;
-  min-height: 28px;
-  border: 1px solid rgba(128, 224, 224, 0.2);
-  border-radius: 4px;
-  background: rgba(8, 14, 18, 0.9);
-  color: var(--text);
-  font: inherit;
-  font-size: 0.72rem;
-}
-
-.node-clap-plugin-select:disabled,
-.node-clap-plugin-preset-select:disabled,
-.node-clap-plugin-actions button:disabled,
-.node-clap-plugin-preset-row button:disabled {
-  opacity: 0.55;
-}
-
-.node-clap-plugin-preset-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 6px;
-}
-
-.node-clap-plugin-detail {
-  color: var(--muted);
-  font-size: 0.68rem;
-  line-height: 1.25;
-}
-
-.node-clap-plugin-copy-detail {
-  justify-self: start;
-  width: auto;
-  min-width: 0;
-  min-height: 22px;
-  padding: 2px 10px;
-  border: 1px solid rgba(128, 224, 224, 0.2);
-  border-radius: 4px;
-  background: rgba(8, 14, 18, 0.9);
-  color: var(--text);
-  font: inherit;
-  font-size: 0.64rem;
-}
-
-.node-clap-plugin-safety {
-  border: 1px solid rgba(127, 199, 217, 0.18);
-  color: var(--muted);
-  font-size: 0.66rem;
-  line-height: 1.25;
-  padding: 5px 6px;
-}
-
-.node-clap-plugin-safety.good {
-  border-color: rgba(117, 210, 146, 0.28);
-  color: var(--good);
-}
-
-.node-clap-plugin-safety.warn {
-  border-color: rgba(255, 180, 90, 0.42);
-  color: var(--warn);
-}
-
-.node-clap-plugin-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.node-clap-plugin-param-list {
-  display: grid;
-  gap: 6px;
-  max-height: 240px;
-  overflow: auto;
-}
-
-/* No .node-clap-plugin-param-row/-header/-name/-value layout rules here
-   on purpose -- the row carries the plain .node-parameter-row class too
-   (see createNodeGraphClapParameterRow), so it renders with the exact
-   same generic slider (.node-slider-readout, styled track/thumb,
-   drag/fine-tune/reset/jump) every other module's parameters use, not a
-   bespoke bare <input type="range">. */
-
-.node-clap-plugin-param-empty {
-  color: var(--muted);
-  font-size: 0.66rem;
-  line-height: 1.25;
-}
 
 .node-module-scope-window {
   position: relative;
@@ -11100,6 +11358,19 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-graph-workspace.pixelated-canvas-zoom .node-number-readout-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-phosphor-light-canvas {
   image-rendering: pixelated;
+}
+
+/*
+ * Matrix Sharp mode must stay smooth under workspace zoom (image-rendering:auto).
+ * Pixel mode sets image-rendering:pixelated inline. Do NOT force pixelated on
+ * .node-asciiscope-canvas here — that made Sharp and Pixel look identical.
+ */
+.node-graph-workspace.pixelated-canvas-zoom .node-matrix-display-canvas {
+  image-rendering: pixelated;
+}
+
+.node-graph-workspace.pixelated-canvas-zoom .node-asciiscope-canvas {
+  /* Leave to JS: Sharp = auto, Pixel = pixelated */
 }
 
 /*
@@ -15296,6 +15567,68 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   white-space: nowrap;
 }
 
+/* Command Center module search (same catalog as Module Browser). */
+.scene-context-module-search {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+  margin: 0;
+  padding: 6px 8px 8px;
+  border: 0;
+  border-bottom: 1px solid rgba(127, 199, 217, 0.12);
+  background: rgb(7, 10, 13);
+  box-sizing: border-box;
+}
+
+.scene-context-module-search-field {
+  display: block;
+  flex: none;
+  width: 100%;
+  min-width: 0;
+}
+
+.scene-context-module-search-results {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  min-width: 0;
+  max-height: min(240px, 36vh);
+  margin-top: 6px;
+  overflow: auto;
+  border: 1px solid rgba(127, 199, 217, 0.16);
+  border-radius: 6px;
+  background: rgba(3, 5, 7, 0.55);
+}
+
+.scene-context-module-search-results[hidden] {
+  display: none;
+}
+
+.scene-context-module-search-results .scene-context-store-card {
+  min-height: 34px;
+  padding: 6px 8px;
+  border-radius: 0;
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+  text-align: left;
+}
+
+.scene-context-module-search-results .scene-context-store-card:first-child {
+  border-top: 0;
+}
+
+.scene-context-module-search-results .scene-context-store-card strong {
+  font-size: 0.74rem;
+}
+
+.scene-context-module-search-results .scene-context-store-empty {
+  padding: 10px 8px;
+  color: rgba(174, 180, 187, 0.72);
+  font-size: 0.68rem;
+  text-align: center;
+}
+
 .scene-context-home-modules {
   display: grid;
   gap: 0;
@@ -17186,7 +17519,7 @@ body.node-slider-dragging .node-param-port {
   font-size: 0.75rem;
   line-height: 1;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .node-transport-group button:hover {
@@ -17209,6 +17542,133 @@ body.node-slider-dragging .node-param-port {
 .node-transport-group button:disabled:hover {
   background: rgba(17, 20, 24, 0.62);
   color: var(--muted);
+}
+
+/* ── Shared transport palette (app-wide play / pause / stop) ────────────────
+   Sample-player phosphor green when playing, idle grey when stopped,
+   yellow when paused, red for stop. Used by toolbar transport, Command
+   Center mirrors, and the bottom rendered-sample player. */
+:root {
+  --transport-play-border: rgba(57, 230, 163, 0.4);
+  --transport-play-bg: rgba(9, 16, 14, 0.9);
+  --transport-play-fg: rgba(57, 230, 163, 0.95);
+  --transport-play-bg-hover: rgba(20, 38, 30, 0.95);
+  --transport-play-glow: rgba(57, 230, 163, 0.35);
+  --transport-pause-border: rgba(230, 190, 57, 0.5);
+  --transport-pause-bg: rgba(22, 18, 8, 0.92);
+  --transport-pause-fg: rgba(240, 205, 80, 0.96);
+  --transport-pause-bg-hover: rgba(40, 32, 10, 0.95);
+  --transport-pause-glow: rgba(230, 190, 57, 0.35);
+  --transport-stop-border: rgba(230, 90, 90, 0.5);
+  --transport-stop-bg: rgba(22, 10, 10, 0.92);
+  --transport-stop-fg: rgba(240, 120, 120, 0.96);
+  --transport-stop-bg-hover: rgba(42, 14, 14, 0.95);
+  --transport-stop-glow: rgba(230, 90, 90, 0.3);
+  --transport-idle-border: var(--line);
+  --transport-idle-bg: rgba(17, 20, 24, 0.62);
+  --transport-idle-fg: var(--muted);
+  --transport-idle-bg-hover: rgba(17, 20, 24, 0.85);
+  --transport-idle-fg-hover: var(--scope);
+}
+
+/* Play / pause dual control — grey idle, green playing, yellow paused. */
+button.node-transport-play,
+button[data-transport-play],
+#nodeRenderedPlayerPlay,
+#nodeTransportPlay {
+  border-color: var(--transport-idle-border);
+  background: var(--transport-idle-bg);
+  color: var(--transport-idle-fg);
+  box-shadow: none;
+}
+
+button.node-transport-play:hover:not(:disabled),
+button[data-transport-play]:hover:not(:disabled),
+#nodeRenderedPlayerPlay:hover:not(:disabled),
+#nodeTransportPlay:hover:not(:disabled) {
+  border-color: var(--transport-idle-border);
+  background: var(--transport-idle-bg-hover);
+  color: var(--transport-idle-fg-hover);
+  box-shadow: none;
+}
+
+button.node-transport-play.is-playing,
+button[data-transport-play].is-playing,
+#nodeRenderedPlayerPlay.is-playing,
+#nodeTransportPlay.is-playing {
+  border-color: var(--transport-play-border);
+  background: var(--transport-play-bg);
+  color: var(--transport-play-fg);
+  box-shadow: 0 0 10px var(--transport-play-glow);
+}
+
+button.node-transport-play.is-playing:hover:not(:disabled),
+button[data-transport-play].is-playing:hover:not(:disabled),
+#nodeRenderedPlayerPlay.is-playing:hover:not(:disabled),
+#nodeTransportPlay.is-playing:hover:not(:disabled) {
+  background: var(--transport-play-bg-hover);
+  color: var(--transport-play-fg);
+  box-shadow: 0 0 12px var(--transport-play-glow);
+}
+
+button.node-transport-play.is-paused,
+button[data-transport-play].is-paused,
+#nodeRenderedPlayerPlay.is-paused,
+#nodeTransportPlay.is-paused {
+  border-color: var(--transport-pause-border);
+  background: var(--transport-pause-bg);
+  color: var(--transport-pause-fg);
+  box-shadow: 0 0 10px var(--transport-pause-glow);
+}
+
+button.node-transport-play.is-paused:hover:not(:disabled),
+button[data-transport-play].is-paused:hover:not(:disabled),
+#nodeRenderedPlayerPlay.is-paused:hover:not(:disabled),
+#nodeTransportPlay.is-paused:hover:not(:disabled) {
+  background: var(--transport-pause-bg-hover);
+  color: var(--transport-pause-fg);
+  box-shadow: 0 0 12px var(--transport-pause-glow);
+}
+
+/* Stop — idle grey; red only when simulation is already stopped. */
+button.node-transport-stop,
+button[data-transport-action="stop"],
+#nodeTransportStop {
+  border-color: var(--transport-idle-border);
+  background: var(--transport-idle-bg);
+  color: var(--transport-idle-fg);
+  box-shadow: none;
+}
+
+button.node-transport-stop:hover:not(:disabled),
+button[data-transport-action="stop"]:hover:not(:disabled),
+#nodeTransportStop:hover:not(:disabled) {
+  background: var(--transport-idle-bg-hover);
+  color: var(--transport-idle-fg-hover);
+  box-shadow: none;
+}
+
+button.node-transport-stop.is-stopped,
+button[data-transport-action="stop"].is-stopped,
+#nodeTransportStop.is-stopped {
+  border-color: var(--transport-stop-border);
+  background: var(--transport-stop-bg);
+  color: var(--transport-stop-fg);
+  box-shadow: 0 0 8px var(--transport-stop-glow);
+}
+
+button.node-transport-stop.is-stopped:hover:not(:disabled),
+button[data-transport-action="stop"].is-stopped:hover:not(:disabled),
+#nodeTransportStop.is-stopped:hover:not(:disabled) {
+  background: var(--transport-stop-bg-hover);
+  color: var(--transport-stop-fg);
+  box-shadow: 0 0 10px var(--transport-stop-glow);
+}
+
+button.node-transport-stop:disabled,
+button[data-transport-action="stop"]:disabled {
+  filter: none;
+  opacity: 0.42;
 }
 
 .node-live-toggle-palette .node-live-toggle {

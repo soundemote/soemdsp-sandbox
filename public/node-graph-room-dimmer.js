@@ -29,12 +29,16 @@
     "canvas.node-module-scope-local-fallback-canvas",
     "canvas.node-xy-pad-canvas",
     "canvas.node-number-readout-canvas",
+    "canvas.node-asciiscope-canvas",
+    "canvas.node-matrix-display-canvas",
     ".node-led-lamp",
     ".node-module-scope-window",
     ".node-xy-pad",
     ".node-number-readout-face",
     ".node-ray-bouncer-face",
     ".node-phosphor-waveform-display",
+    ".node-asciiscope-stage",
+    ".node-matrix-display-stage",
     "[data-light-source]",
     ".node-light-source",
   ].join(", ");
@@ -269,11 +273,13 @@ void main() {
     if (el.matches?.("canvas.node-module-scope-local-fallback-canvas")) return el;
     if (el.matches?.("canvas.node-xy-pad-canvas")) return el;
     if (el.matches?.("canvas.node-number-readout-canvas")) return el;
+    if (el.matches?.("canvas.node-asciiscope-canvas")) return el;
+    if (el.matches?.("canvas.node-matrix-display-canvas")) return el;
     if (el.matches?.(".node-led-lamp")) return el;
 
     // Outer shells: only if no painted canvas is already the target.
     const painted = el.querySelector?.(
-      "canvas.node-module-scope-local-fallback-canvas, canvas.node-phosphor-waveform-canvas, canvas.node-xy-pad-canvas, canvas.node-number-readout-canvas, .node-led-lamp",
+      "canvas.node-module-scope-local-fallback-canvas, canvas.node-phosphor-waveform-canvas, canvas.node-xy-pad-canvas, canvas.node-number-readout-canvas, canvas.node-asciiscope-canvas, canvas.node-matrix-display-canvas, .node-led-lamp",
     );
     if (painted) return painted;
 

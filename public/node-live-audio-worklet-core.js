@@ -240,10 +240,12 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.radarStates = new Map();
     this.chordMemoryStates = new Map();
     this.chordSequencerStates = new Map();
+    this.chordPadStates = new Map();
     this.lutCellStates = new Map();
     this.turingMachineStates = new Map();
     this.pitchQuantizerStates = new Map();
     this.surgeOscillatorStates = new Map();
+    this.softwaveOscStates = new Map();
     this.dsfOscillatorStates = new Map();
     this.robinSupersawStates = new Map();
     this.hypersawStates = new Map();
@@ -2110,6 +2112,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.turingMachineStates = new Map();
     this.pitchQuantizerStates = new Map();
     this.surgeOscillatorStates = new Map();
+    this.softwaveOscStates = new Map();
     this.dsfOscillatorStates = new Map();
     this.robinSupersawStates = new Map();
     this.hypersawStates = new Map();
@@ -2285,12 +2288,17 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.nodes = new Map(nodes.map((node) => [node.id, {
       id: node.id,
       codeblock: this.normalizeCodeblock(node.codeblock),
+      // Phosphillator open-path samples (packed float64 XY). Plan builder puts
+      // drawnPath on runtime nodes; without this copy the worklet always saw
+      // an empty path and output silence (engine still ran).
+      drawnPath: node.drawnPath || null,
       graph: node.graph || null,
       moduleGroup: node.moduleGroup || null,
       moduleGroupPlan: node.moduleGroupPlan || null,
       paramMeta: node.paramMeta || {},
       params: node.params || {},
       sample: node.sample || null,
+      samplePhase: Number.isFinite(Number(node.samplePhase)) ? Number(node.samplePhase) : null,
       type: node.type,
     }]));
     this.samples = new Map((Array.isArray(plan?.samples) ? plan.samples : []).map((sample) => [
@@ -2396,11 +2404,17 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       if (node?.type === "chordSequencer" && !this.chordSequencerStates.has(id)) {
         this.chordSequencerStates.set(id, this.createChordSequencerState());
       }
+      if (node?.type === "chordPad" && !this.chordPadStates.has(id)) {
+        this.chordPadStates.set(id, this.createChordPadState());
+      }
       if (node?.type === "lutCell" && !this.lutCellStates.has(id)) {
         this.lutCellStates.set(id, this.createLutCellState());
       }
       if (node?.type === "surgeOscillator" && !this.surgeOscillatorStates.has(id)) {
         this.surgeOscillatorStates.set(id, this.createSurgeOscillatorState());
+      }
+      if (node?.type === "softwaveOsc" && !this.softwaveOscStates.has(id)) {
+        this.softwaveOscStates.set(id, this.createSoftwaveOscillatorState());
       }
       if (node?.type === "dsfOscillator" && !this.dsfOscillatorStates.has(id)) {
         this.dsfOscillatorStates.set(id, this.createDsfOscillatorState());
@@ -2765,6 +2779,13 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
         this.chordSequencerStates.delete(id);
       }
     }
+    if (this.chordPadStates) {
+      for (const id of [...this.chordPadStates.keys()]) {
+        if (!ids.has(id)) {
+          this.chordPadStates.delete(id);
+        }
+      }
+    }
     for (const id of [...this.lutCellStates.keys()]) {
       if (!ids.has(id)) {
         this.destroyLutCellNativeState(this.lutCellStates.get(id));
@@ -2775,6 +2796,13 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       if (!ids.has(id)) {
         this.destroySurgeOscillatorNativeState(this.surgeOscillatorStates.get(id));
         this.surgeOscillatorStates.delete(id);
+      }
+    }
+    if (this.softwaveOscStates) {
+      for (const id of [...this.softwaveOscStates.keys()]) {
+        if (!ids.has(id)) {
+          this.softwaveOscStates.delete(id);
+        }
       }
     }
     for (const id of [...this.dsfOscillatorStates.keys()]) {
@@ -3235,6 +3263,13 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       }
       current.params = { ...(node.params || {}) };
       current.paramMeta = { ...(node.paramMeta || {}) };
+      // Keep drawn path in sync when params push also carries node extras.
+      if (Object.hasOwn(node, "drawnPath")) {
+        current.drawnPath = node.drawnPath || null;
+      }
+      if (Object.hasOwn(node, "samplePhase") && Number.isFinite(Number(node.samplePhase))) {
+        current.samplePhase = Number(node.samplePhase);
+      }
       parameterCount += Object.keys(current.params || {}).length;
       for (const [key, value] of Object.entries(current.params || {})) {
         const smootherKey = this.parameterKey(node.id, key);
@@ -5820,16 +5855,22 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
           }),
         };
       },
-      turingMachine: (node, nodeId, frame, frames, frameValues, mixInput) => {
+      turingMachine: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         const state = this.turingMachineStates.get(nodeId) || this.createTuringMachineState();
         this.turingMachineStates.set(nodeId, state);
         const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        const hasScale = typeof hasInput === "function" ? hasInput(nodeId, "Scale") : this.inputConnections.has(this.inputKey(nodeId, "Scale"));
+        const hasRoot = typeof hasInput === "function" ? hasInput(nodeId, "Root") : this.inputConnections.has(this.inputKey(nodeId, "Root"));
         return this.turingMachineSample(state, {
           clock: mixInput(nodeId, "Clock"),
           length: read("length", 8),
           level: read("level", 1),
           probability: read("probability", 0.25),
+          octaves: read("octaves", 1),
           reset: mixInput(nodeId, "Reset"),
+          hasScaleInput: hasScale,
+          scaleInput: hasScale ? mixInput(nodeId, "Scale") : 0,
+          root: hasRoot ? mixInput(nodeId, "Root") : (60 / 120),
         });
       },
       henonMap: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
@@ -5901,23 +5942,125 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       chordMemory: (node, nodeId, frame, frames, frameValues, mixInput) => {
         const state = this.chordMemoryStates.get(nodeId) || this.createChordMemoryState();
         this.chordMemoryStates.set(nodeId, state);
+        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
         return this.chordMemorySample(state, {
           advance: mixInput(nodeId, "Advance"),
           clear: mixInput(nodeId, "Clear"),
           latch: mixInput(nodeId, "Latch"),
           pitch: mixInput(nodeId, "Pitch"),
+          walk: read("walk", 1),
+          leap: read("leap", 0.15),
+          mutate: read("mutate", 0.2),
+          octaves: read("octaves", 0),
+        });
+      },
+      degreeTuring: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
+        if (!this.degreeTuringStates) this.degreeTuringStates = new Map();
+        const state = this.degreeTuringStates.get(nodeId) || this.createDegreeTuringState();
+        this.degreeTuringStates.set(nodeId, state);
+        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        const hasScale = typeof hasInput === "function" ? hasInput(nodeId, "Scale") : this.inputConnections.has(this.inputKey(nodeId, "Scale"));
+        const hasRoot = typeof hasInput === "function" ? hasInput(nodeId, "Root") : this.inputConnections.has(this.inputKey(nodeId, "Root"));
+        return this.degreeTuringSample(state, {
+          clock: mixInput(nodeId, "Clock"),
+          reset: mixInput(nodeId, "Reset"),
+          length: read("length", 8),
+          probability: read("probability", 0.18),
+          octaves: read("octaves", 1),
+          level: read("level", 1),
+          scaleChoice: read("scale", 1),
+          hasScaleInput: hasScale,
+          scaleInput: hasScale ? mixInput(nodeId, "Scale") : 0,
+          root: hasRoot ? mixInput(nodeId, "Root") : (60 / 120),
+        });
+      },
+      gravityWalker: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
+        if (!this.gravityWalkerStates) this.gravityWalkerStates = new Map();
+        const state = this.gravityWalkerStates.get(nodeId) || this.createGravityWalkerState();
+        this.gravityWalkerStates.set(nodeId, state);
+        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        const hasScale = typeof hasInput === "function" ? hasInput(nodeId, "Scale") : this.inputConnections.has(this.inputKey(nodeId, "Scale"));
+        const hasRoot = typeof hasInput === "function" ? hasInput(nodeId, "Root") : this.inputConnections.has(this.inputKey(nodeId, "Root"));
+        return this.gravityWalkerSample(state, {
+          clock: mixInput(nodeId, "Clock"),
+          reset: mixInput(nodeId, "Reset"),
+          leap: read("leap", 0.15),
+          leapCv: mixInput(nodeId, "Leap"),
+          gravity: read("gravity", 0.65),
+          octaves: read("octaves", 1),
+          level: read("level", 1),
+          scaleChoice: read("scale", 1),
+          hasScaleInput: hasScale,
+          scaleInput: hasScale ? mixInput(nodeId, "Scale") : 0,
+          root: hasRoot ? mixInput(nodeId, "Root") : (60 / 120),
+        });
+      },
+      degreePhrase: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
+        if (!this.degreePhraseStates) this.degreePhraseStates = new Map();
+        const state = this.degreePhraseStates.get(nodeId) || this.createDegreePhraseState();
+        this.degreePhraseStates.set(nodeId, state);
+        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        const hasScale = typeof hasInput === "function" ? hasInput(nodeId, "Scale") : this.inputConnections.has(this.inputKey(nodeId, "Scale"));
+        const hasRoot = typeof hasInput === "function" ? hasInput(nodeId, "Root") : this.inputConnections.has(this.inputKey(nodeId, "Root"));
+        return this.degreePhraseSample(state, {
+          clock: mixInput(nodeId, "Clock"),
+          reset: mixInput(nodeId, "Reset"),
+          steps: read("steps", 8),
+          mutate: read("mutate", 0.08),
+          octaves: read("octaves", 1),
+          level: read("level", 1),
+          scaleChoice: read("scale", 1),
+          hasScaleInput: hasScale,
+          scaleInput: hasScale ? mixInput(nodeId, "Scale") : 0,
+          root: hasRoot ? mixInput(nodeId, "Root") : (60 / 120),
+          step1: read("step1", 0),
+          step2: read("step2", 0.25),
+          step3: read("step3", 0.5),
+          step4: read("step4", 0.15),
+          step5: read("step5", 0.75),
+          step6: read("step6", 0.4),
+          step7: read("step7", 0.6),
+          step8: read("step8", 0),
+          rest1: read("rest1", 0),
+          rest2: read("rest2", 0),
+          rest3: read("rest3", 0),
+          rest4: read("rest4", 1),
+          rest5: read("rest5", 0),
+          rest6: read("rest6", 0),
+          rest7: read("rest7", 1),
+          rest8: read("rest8", 0),
+        });
+      },
+      noteGlide: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+        if (!this.noteGlideStates) this.noteGlideStates = new Map();
+        const state = this.noteGlideStates.get(nodeId) || this.createNoteGlideState();
+        this.noteGlideStates.set(nodeId, state);
+        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        return this.noteGlideSample(state, {
+          pitch: mixInput(nodeId, "0.1V/Oct"),
+          time: read("time", 0.05),
+        }, safeRate);
+      },
+      noteTranspose: (node, nodeId, frame, frames, frameValues, mixInput) => {
+        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        return this.noteTransposeSample({
+          pitch: mixInput(nodeId, "0.1V/Oct"),
+          semitones: read("semitones", 0),
+          octaves: read("octaves", 0),
         });
       },
       pitchQuantizer: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         const state = this.pitchQuantizerStates.get(nodeId) || this.createPitchQuantizerState();
         this.pitchQuantizerStates.set(nodeId, state);
         const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        const hasScale = hasInput(nodeId, "Scale");
         return {
           "0.1V/Oct": this.pitchQuantizerSample(state, {
-            hasScaleInput: hasInput(nodeId, "Scale"),
+            hasScaleInput: hasScale,
             pitch: mixInput(nodeId, "0.1V/Oct"),
             scaleChoice: read("scale", 1),
             scaleInput: mixInput(nodeId, "Scale"),
+            scaleMask: hasScale ? undefined : read("scaleMask", 2741),
           }),
         };
       },
@@ -6129,6 +6272,69 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
           level: read("level", 1),
         });
       },
+      textStream: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
+        if (!this.textStreamStates) {
+          this.textStreamStates = new Map();
+        }
+        const state = this.textStreamStates.get(nodeId) || this.createTextStreamState();
+        this.textStreamStates.set(nodeId, state);
+        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        const message = node?.textStream?.message != null
+          ? String(node.textStream.message)
+          : "HELLO MATRIX";
+        const clockConnected = typeof hasInput === "function"
+          ? hasInput(nodeId, "Clock")
+          : this.inputConnections.has(this.inputKey(nodeId, "Clock"));
+        return this.textStreamSample(state, {
+          message,
+          rate: read("rate", 8),
+          loop: Math.round(read("loop", 1)) >= 1,
+          clock: mixInput(nodeId, "Clock"),
+          reset: mixInput(nodeId, "Reset"),
+          clockConnected,
+          sampleRate: safeRate,
+        });
+      },
+      softwaveOsc: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
+        if (!this.softwaveOscStates) {
+          this.softwaveOscStates = new Map();
+        }
+        const state = this.softwaveOscStates.get(nodeId) || this.createSoftwaveOscillatorState();
+        this.softwaveOscStates.set(nodeId, state);
+        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        const baseFrequency = Math.max(0, read("frequency", 100));
+        const referenceMidiNote = Number.isFinite(this.pitchReferenceMidiNote) ? this.pitchReferenceMidiNote : 48;
+        const referenceVoltage = referenceMidiNote / 120;
+        const hasPitchInput = this.inputConnections.has(this.inputKey(nodeId, "0.1V/Oct"));
+        const pitchInput = hasPitchInput
+          ? this.clampValue(this.safeFilterNumber(mixInput(nodeId, "0.1V/Oct"), null), -1, 1)
+          : referenceVoltage;
+        const pitchedFrequency = Math.max(0, baseFrequency * (2 ** ((pitchInput - referenceVoltage) / 0.1)));
+        const effectiveFrequency = this.resolveFrequencyHz(pitchedFrequency, this.readFInputHz(mixInput, nodeId));
+        const morphKnob = read("morph", 0.5);
+        const morphCv = this.inputConnections.has(this.inputKey(nodeId, "Morph"))
+          ? this.safeFilterNumber(mixInput(nodeId, "Morph"), 0)
+          : 0;
+        const morph = this.clampValue(morphKnob + morphCv, 0, 1);
+        const phaseKnob = read("phase", 0);
+        const phaseCv = this.inputConnections.has(this.inputKey(nodeId, "Phase"))
+          ? this.safeFilterNumber(mixInput(nodeId, "Phase"), 0)
+          : 0;
+        const phase = this.wrapValue(phaseKnob + phaseCv, 0, 1);
+        const levelKnob = read("level", 1);
+        const level = this.inputConnections.has(this.inputKey(nodeId, "Amplitude"))
+          ? levelKnob * this.safeFilterNumber(mixInput(nodeId, "Amplitude"), 1)
+          : levelKnob;
+        return this.softwaveOscillatorSample(state, {
+          frequencyHz: effectiveFrequency,
+          sampleRate: safeRate,
+          waveform: read("waveform", 0),
+          morph,
+          phase,
+          level,
+          antialias: read("antialias", 0),
+        });
+      },
       dsfOscillator: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.dsfOscillatorStates.get(nodeId) || this.createDsfOscillatorState();
         this.dsfOscillatorStates.set(nodeId, state);
@@ -6228,7 +6434,25 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
           clock: mixInput(nodeId, "Clock"),
           level: read("level", 1),
           progression: read("progression", 0),
+          direction: read("direction", 0),
+          key: read("key", 0),
           reset: mixInput(nodeId, "Reset"),
+        });
+      },
+      chordPad: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
+        if (!this.chordPadStates) {
+          this.chordPadStates = new Map();
+        }
+        const state = this.chordPadStates.get(nodeId) || this.createChordPadState();
+        this.chordPadStates.set(nodeId, state);
+        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        return this.chordPadSample(state, {
+          key: read("key", 0),
+          mode: read("mode", 0),
+          degree: read("degree", 0),
+          level: read("level", 1),
+          hasSelectInput: hasInput(nodeId, "Select"),
+          select: mixInput(nodeId, "Select"),
         });
       },
       lutCell: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
@@ -6281,6 +6505,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
           this.readEffectiveParameter(node, "phase", 0, frame, frames, frameValues),
           mixInput(nodeId, "Reset"),
           safeRate,
+          this.readEffectiveParameter(node, "sharpness", 0.5, frame, frames, frameValues),
         );
       },
       cookbookFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
@@ -7587,10 +7812,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
       },
       groupOutput: (node, nodeId, frame, frames, frameValues, mixInput) => ({
         Out: mixInput(nodeId, "In"),
-      }),
-      clapPlugin: () => ({
-        Left: 0,
-        Right: 0,
       }),
       output: (node, nodeId, frame, frames, frameValues, mixInput) => {
         const outputMonoIn = mixInput(nodeId, "Mono");

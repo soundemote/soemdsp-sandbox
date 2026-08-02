@@ -32,9 +32,9 @@ function nodeGraphHypersawPolyBlep(t, dt) {
   return 0;
 }
 
+// Shared stdlib (node-graph-phasor-helpers.js).
 function nodeGraphHypersawWrap01(x) {
-  const w = x - Math.floor(x);
-  return w < 0 ? 0 : (w >= 1 ? 0 : w);
+  return nodeGraphWrap01(x);
 }
 
 function nodeGraphHypersawCreateVoice() {

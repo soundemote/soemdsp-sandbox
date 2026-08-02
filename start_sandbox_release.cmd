@@ -9,27 +9,20 @@ setlocal enabledelayedexpansion
 ::    launching soundemote-site's dev server (we do that ourselves below, so
 ::    it runs alongside the local sandbox server instead of blocking this
 ::    window).
-:: 2) Starts the CLAP plugin host companion process (tools\webui-clap-host),
-::    idempotently -- skipped if a copy is already running, matching
-::    start_sandbox.ps1's original behavior (folded in here; both
-::    start_sandbox.cmd and start_sandbox.ps1 are retired by
-::    start_sandbox_debug.cmd / start_sandbox_release.cmd now covering the
-::    same ground between them).
-:: 3) Starts THIS local sandbox server in RELEASE mode (BUILD_MODE=release --
+:: 2) Starts THIS local sandbox server in RELEASE mode (BUILD_MODE=release --
 ::    the debug console's bug button renders neutral instead of red; see
 ::    node-graph-debug-console.js).
-:: 4) Launches soundemote-site's own npm dev server in its own window.
+:: 3) Launches soundemote-site's own npm dev server in its own window.
 ::
-:: You end up with three windows: the CLAP plugin host, the local sandbox
-:: (port 8765, this repo's own server.py), and soundemote-site's dev server
-:: (port 8080) -- all serving/backing the same just-synced release copy.
+:: You end up with two windows: the local sandbox (port 8765, this repo's
+:: own server.py), and soundemote-site's dev server (port 8080) -- both
+:: serving/backing the same just-synced release copy.
 ::
 :: Extra args are passed through to launch_soundemote_site_with_sandbox.ps1's
 :: prepare step, e.g.:  start_sandbox_release.cmd -SkipNativeBuild -SkipSmoke
 ::
 :: See start_sandbox_debug.cmd for the plain local-debug counterpart (no
-:: build/smoke-test/sync/soundemote-site involved at all, just the sandbox
-:: server + CLAP host).
+:: build/smoke-test/sync/soundemote-site involved at all).
 
 set "REPO=%~dp0"
 cd /d "%REPO%"
@@ -49,10 +42,10 @@ if not exist "%REPO%..\soundemote-site" (
     exit /b 1
 )
 
-:: [1/5] Build native modules, regenerate catalog, run smoke test, sync into
+:: [1/4] Build native modules, regenerate catalog, run smoke test, sync into
 :: soundemote-site. -PrepareOnly stops there instead of also launching
-:: soundemote-site's dev server (see step [5/5] below).
-echo [1/5] Running build + smoke test + soundemote-site sync pipeline...
+:: soundemote-site's dev server (see step [4/4] below).
+echo [1/4] Running build + smoke test + soundemote-site sync pipeline...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%REPO%..\launch_soundemote_site_with_sandbox.ps1" -PrepareOnly %*
 if errorlevel 1 (
     echo.
@@ -61,26 +54,10 @@ if errorlevel 1 (
 )
 echo.
 
-:: [2/5] CLAP plugin host companion process. Idempotent: if it's already
-:: running, skip it rather than killing/relaunching (restarting it is
-:: disruptive/slow, unlike the sandbox server restart below). Fire-and-forget
-:: -- we don't block waiting for it; if it fails, that shows up in its own
-:: console window, and CLAP Plugin modules will just show "Not Running"
-:: until it's up.
-echo [2/5] Checking CLAP plugin host (port 47991)...
-set "CLAP_PID="
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":47991.*LISTENING" 2^>nul') do set "CLAP_PID=%%a"
-if defined CLAP_PID (
-    echo       Already running ^(PID !CLAP_PID!^) -- not starting another copy.
-) else (
-    echo       Starting local CLAP plugin host...
-    start "CLAP Plugin Host" /D "%REPO%" powershell -NoProfile -ExecutionPolicy Bypass -Command "& '%REPO%tools\webui-clap-host\start_webui_clap_host.ps1' -Port 47991; Read-Host 'Press Enter to close'"
-)
-
 :: Kill any existing python process on port 8765 (local sandbox) and
 :: whatever's holding the soundemote-site dev port, so the launches below
 :: don't fail because a previous run is still holding either one.
-echo [3/5] Stopping existing local sandbox / site dev servers...
+echo [2/4] Stopping existing local sandbox / site dev servers...
 for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":8765.*LISTENING" 2^>nul') do (
     taskkill /F /PID %%a >nul 2>&1
     echo       Killed stale process PID %%a on 8765
@@ -92,7 +69,7 @@ for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":%SITE_PORT%.*LISTENING" 2^>
 timeout /t 1 /nobreak >nul
 
 :: Start the local sandbox server, in RELEASE mode
-echo [4/5] Starting local sandbox server (release, port 8765)...
+echo [3/4] Starting local sandbox server (release, port 8765)...
 start "Soemdsp Sandbox (Release)" /D "%REPO%" powershell -NoProfile -ExecutionPolicy Bypass -Command "python server.py --host 127.0.0.1 --port 8765 --release; Read-Host 'Press Enter to close'"
 
 :wait8765
@@ -103,15 +80,14 @@ echo       Local sandbox ready at http://127.0.0.1:8765/
 
 :: Launch soundemote-site's dev server in its own window, alongside the
 :: local sandbox above, instead of blocking this window.
-echo [5/5] Launching soundemote-site dev server (port %SITE_PORT%)...
+echo [4/4] Launching soundemote-site dev server (port %SITE_PORT%)...
 start "Soundemote Site" /D "%REPO%..\soundemote-site" powershell -NoProfile -ExecutionPolicy Bypass -Command "npm run dev -- --host 0.0.0.0 --port %SITE_PORT%; Read-Host 'Press Enter to close'"
 
 start http://127.0.0.1:8765/
 start http://localhost:%SITE_PORT%/
 
 echo.
-echo Three windows are starting:
-echo   CLAP plugin host (if not already running): port 47991
+echo Two windows are starting:
 echo   Local sandbox (release):                   http://127.0.0.1:8765/
 echo   soundemote-site:                            http://localhost:%SITE_PORT%/
 echo Close each PowerShell window to stop that process.

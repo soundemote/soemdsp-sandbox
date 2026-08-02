@@ -123,10 +123,22 @@ function updateNodeGraphRenderedPlayerUi() {
     els.playhead.style.left = `${(progress * 100).toFixed(3)}%`;
   }
   const playing = !els.audio.paused && !els.audio.ended;
+  // Paused = has source, not ended, but audio.paused (user hit pause mid-file).
+  const paused = Boolean(
+    !playing
+    && els.audio.paused
+    && !els.audio.ended
+    && (els.audio.currentSrc || els.audio.getAttribute("src"))
+    && (Number(els.audio.currentTime) || 0) > 0.02,
+  );
   if (els.play) {
+    els.play.classList.add("node-transport-play");
     els.play.textContent = playing ? "❚❚" : "▶";
     els.play.setAttribute("aria-label", playing ? "Pause rendered sample" : "Play rendered sample");
     els.play.setAttribute("aria-pressed", playing ? "true" : "false");
+    els.play.classList.toggle("is-playing", playing);
+    els.play.classList.toggle("is-paused", paused);
+    els.play.dataset.transportState = playing ? "playing" : paused ? "paused" : "stopped";
   }
   els.root.classList.toggle("playing", playing);
   const hasSource = Boolean(els.audio.currentSrc || els.audio.getAttribute("src"));

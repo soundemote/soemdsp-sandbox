@@ -17,8 +17,11 @@
 const nodeGraphLedFaceDefaultInsetPx = 0;
 
 function nodeGraphLedFaceShapeSignature(settings, level, cellW, cellH, lampW, lampH) {
+  const stopsSig = Array.isArray(settings.gradientStops)
+    ? settings.gradientStops.map((s) => `${s.t}:${s.color}`).join(",")
+    : "";
   return [
-    settings.hue,
+    stopsSig,
     settings.brightness,
     settings.blur,
     settings.rounding,
@@ -93,7 +96,7 @@ function applyNodeGraphLedFaceAppearance(face, settings, level) {
   // waveform); "squircle" uses CSS corner-shape: squircle when supported.
   const shape = settings.cornerShape === "squircle" ? "squircle" : "round";
 
-  const [r, g, b] = nodeGraphLedEmittedRgb(settings.hue, drive, settings.brightness);
+  const [r, g, b] = nodeGraphLedEmittedRgb(settings, drive);
   // Blur is a glow that spreads outward from the lit face, scaled to the
   // module's own size so a big LED glows proportionally rather than wearing
   // the same few pixels of halo a 1gu tile does. It fades with the level, so
@@ -135,8 +138,8 @@ function applyNodeGraphLedFaceAppearance(face, settings, level) {
 
 /**
  * Push current patch LED settings onto a node face immediately.
- * Cosmetic only (radius / corner shape / hue / blur / fill / images) — does
- * NOT require the audio engine or an analyzer buffer. Safe offline.
+ * Cosmetic only (radius / corner shape / gradient / blur / fill / images) —
+ * does NOT require the audio engine or an analyzer buffer. Safe offline.
  */
 function refreshNodeGraphLedFaceForNode(nodeId) {
   const id = String(nodeId || "").trim();

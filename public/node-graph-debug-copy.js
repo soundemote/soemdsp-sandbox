@@ -62,7 +62,7 @@ async function copyNodeGraphRuntimeSketch() {
 // flattened, closure-free JSON shape already sent to the browser's
 // AudioWorklet (see setPlan in node-live-audio-worklet-core.js) -- the
 // same shape a native C++ graph interpreter (soemdsp-sandbox-native's
-// clap-plugin/graph-engine/) is meant to consume, so it can be tested
+// native graph-engine) is meant to consume, so it can be tested
 // against a real exported patch instead of only synthetic fixtures.
 function downloadNodeGraphLivePlanJson() {
   const status = document.getElementById("nodeLivePlanExportStatus");

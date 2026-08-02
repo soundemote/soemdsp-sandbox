@@ -10,7 +10,7 @@ For the process guide (how to add a module step by step), see
 
 Patch JSON cannot define new module types. A module type must be hardcoded
 in sandbox source. There is no plugin loader, manifest registry, WASM module
-format, or CLAP/JUCE module path for user-defined modules yet.
+format, or external plugin-host path for user-defined modules yet.
 
 ## The four edit points
 
@@ -96,7 +96,7 @@ gain: {
   inputs: ["In"],              // string array of input port names
   outputs: ["Out"],            // string array of output port names
   parameters: [ ... ],         // array of parameter definitions
-  layout?: "textBox" | "graph" | "clapPlugin",  // optional special rendering
+  layout?: "textBox" | "graph",  // optional special rendering
   displayType?: string,        // optional display category
   inputLabels?: {},            // optional port label overrides
   outputLabels?: {},
@@ -282,7 +282,7 @@ The execution plan's unsupported-source gate
 `node-graph-module-definitions.js`) determines whether a module type can
 produce output without signal input. A module with no `inputs` array is
 automatically treated as a source. Modules with inputs that can still run
-without signal (e.g. `canvas`, `clapPlugin`, `codeblock`) are listed in
+without signal (e.g. `canvas`, `codeblock`) are listed in
 the `inputCapableSources` set inside that function.
 
 ## Native (C++ -> wasm) modules

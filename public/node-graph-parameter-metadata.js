@@ -110,61 +110,8 @@ function nodeGraphPatchNodeParameterDefinitions(node) {
       ? { ...parameter, defaultLabel: parameter.label, label: alias }
       : { ...parameter, defaultLabel: parameter.label };
   });
-  if (patchNode?.type === "clapPlugin") {
-    for (const [key, sourceMetadata] of Object.entries(patchNode.paramMeta || {})) {
-      if (parameters.some((parameter) => parameter.key === key)) {
-        continue;
-      }
-      const metadata = normalizeNodeGraphPatchParameterMetadata(patchNode.type, key, sourceMetadata);
-      if (!metadata?.clapParamId && metadata?.clapParamId !== 0) {
-        continue;
-      }
-      parameters.push({
-        ...metadata,
-        defaultValue: metadata.def,
-        key,
-        label: metadata.clapParamName || metadata.label || key,
-      });
-    }
-  }
   return parameters;
 }
-
-function nodeGraphClapAudioPortLaneNames(ports = [], fallback = []) {
-  if (!Array.isArray(ports) || ports.length === 0) {
-    return [...fallback];
-  }
-  const used = new Set();
-  const names = [];
-  const unique = (base) => {
-    const cleanBase = String(base || "").trim() || "Port";
-    let name = cleanBase;
-    let index = 2;
-    while (used.has(name)) {
-      name = `${cleanBase} ${index}`;
-      index += 1;
-    }
-    used.add(name);
-    return name;
-  };
-  for (const port of ports) {
-    const source = port && typeof port === "object" ? port : {};
-    const base = String(source.name || "").trim() || `Port ${names.length + 1}`;
-    const channelCount = Math.max(1, Math.min(64, Math.round(Number(source.channelCount) || 1)));
-    if (channelCount === 1) {
-      names.push(unique(base));
-    } else if (channelCount === 2) {
-      names.push(unique(`${base} L`));
-      names.push(unique(`${base} R`));
-    } else {
-      for (let channel = 1; channel <= channelCount; channel += 1) {
-        names.push(unique(`${base} ${channel}`));
-      }
-    }
-  }
-  return names.length ? names : [...fallback];
-}
-
 function nodeGraphModuleGroupEndpointName(node, fallback, used = new Set()) {
   const base = normalizeNodeGraphPatchNodeAlias(node?.alias) ||
     String(node?.label || "").trim() ||
@@ -348,12 +295,6 @@ function nodeGraphPatchNodeInputPorts(node) {
   if (patchNode?.type === "moduleGroup") {
     return normalizeNodeGraphModuleGroup(patchNode.moduleGroup).inputs.map((input) => input.name);
   }
-  if (patchNode?.type === "clapPlugin") {
-    return nodeGraphClapAudioPortLaneNames(
-      patchNode.clap?.audioInputs,
-      nodeGraphModuleDefinitions.clapPlugin?.inputs || [],
-    );
-  }
   if (patchNode?.type === "canvas") {
     return normalizeNodeGraphCanvasScript(patchNode.canvasScript).inputs;
   }
@@ -380,34 +321,8 @@ function nodeGraphPatchNodeOutputPorts(node) {
   if (patchNode?.type === "moduleGroup") {
     return normalizeNodeGraphModuleGroup(patchNode.moduleGroup).outputs.map((output) => output.name);
   }
-  if (patchNode?.type === "clapPlugin") {
-    return [
-      ...nodeGraphClapAudioPortLaneNames(
-        patchNode.clap?.audioOutputs,
-        nodeGraphModuleDefinitions.clapPlugin?.outputs || [],
-      ),
-      ...nodeGraphPatchNodeParameterDefinitions(patchNode).map((parameter) => parameter.key),
-    ];
-  }
   return nodeGraphModuleOutputPorts(patchNode?.type);
 }
-
-function nodeGraphPatchNodeClapAudioInputPorts(node) {
-  const patchNode = typeof node === "string" ? nodeGraphPatchNode(node) : node;
-  return nodeGraphClapAudioPortLaneNames(
-    patchNode?.clap?.audioInputs,
-    nodeGraphModuleDefinitions.clapPlugin?.inputs || [],
-  );
-}
-
-function nodeGraphPatchNodeClapAudioOutputPorts(node) {
-  const patchNode = typeof node === "string" ? nodeGraphPatchNode(node) : node;
-  return nodeGraphClapAudioPortLaneNames(
-    patchNode?.clap?.audioOutputs,
-    nodeGraphModuleDefinitions.clapPlugin?.outputs || [],
-  );
-}
-
 function nodeGraphParameterOutputPort(typeOrNode, port) {
   if (typeOrNode && typeof typeOrNode === "object") {
     return nodeGraphPatchNodeParameterDefinitions(typeOrNode).find(
@@ -537,48 +452,6 @@ function nodeGraphDefaultParamMetaForType(type) {
   }
   return metadata;
 }
-
-function nodeGraphClapPatchParameterFallbackMetadata(key, metadata = {}) {
-  const source = metadata && typeof metadata === "object" ? metadata : {};
-  const min = Number.isFinite(Number(source.min)) ? Number(source.min) : 0;
-  const max = Number.isFinite(Number(source.max)) && Number(source.max) > min
-    ? Number(source.max)
-    : min + 1;
-  const def = Number.isFinite(Number(source.def)) ? Number(source.def) : min;
-  let smoothingType = "onePole";
-  if (Object.hasOwn(source, "smoothingType") && source.smoothingType != null && String(source.smoothingType).trim() !== "") {
-    smoothingType = normalizeNodeGraphMetadataSmoothingType(source.smoothingType);
-  } else if (source.linearSmoothing === false) {
-    smoothingType = "linear";
-  }
-  return {
-    choices: Array.isArray(source.choices) ? source.choices : [],
-    curveAmount: normalizeNodeSliderCurveAmount(source.curveAmount),
-    def,
-    displayChoices: Boolean(source.displayChoices),
-    divideChoicesVisibly: Boolean(source.divideChoicesVisibly),
-    kind: normalizeNodeMetadataKind(source.kind || "decimal"),
-    bipolar: Boolean(source.bipolar),
-    linearSmoothing: nodeGraphMetadataLinearSmoothingFromType(smoothingType),
-    max,
-    maxDigits: normalizeNodeGraphMetadataMaxDigits(source.maxDigits, source.kind || "decimal"),
-    mid: Number.isFinite(Number(source.mid)) ? Number(source.mid) : (min + max) / 2,
-    min,
-    nonlinearSlider: Boolean(source.nonlinearSlider),
-    sliderCurve: normalizeNodeSliderCurve(source.sliderCurve, source.nonlinearSlider),
-    showSign: Boolean(source.showSign),
-    smoothingMode: normalizeNodeGraphMetadataSmoothingMode(source.smoothingMode),
-    smoothingSeconds: normalizeNodeGraphMetadataSmoothingSeconds(source.smoothingSeconds),
-    smoothingType,
-    step: Number.isFinite(Number(source.step)) && Number(source.step) > 0 ? Number(source.step) : 0,
-    tooltip: String(source.tooltip || "").slice(0, 240),
-    unboundedMax: Boolean(source.unboundedMax),
-    unboundedMin: Boolean(source.unboundedMin),
-    unit: String(source.unit || ""),
-    wraparound: Boolean(source.wraparound),
-  };
-}
-
 function normalizeNodeGraphPatchMetadataAlias(alias) {
   return String(alias ?? "").trim().slice(0, 64);
 }
@@ -589,9 +462,7 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
   );
   const fallback = parameter
     ? nodeGraphParameterDefinitionMetadata(parameter)
-    : type === "clapPlugin"
-      ? nodeGraphClapPatchParameterFallbackMetadata(key, metadata)
-      : null;
+    : null;
   if (!fallback) {
     return null;
   }
@@ -700,16 +571,6 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
     normalized.linearSmoothing = false;
     normalized.smoothingMode = "off";
     normalized.smoothingSeconds = 0;
-  }
-  if (type === "clapPlugin") {
-    const clapParamId = Number(source.clapParamId);
-    const clapParamIndex = Number(source.clapParamIndex);
-    return {
-      ...normalized,
-      ...(Number.isFinite(clapParamId) ? { clapParamId: Math.round(clapParamId) } : {}),
-      ...(Number.isFinite(clapParamIndex) ? { clapParamIndex: Math.round(clapParamIndex) } : {}),
-      clapParamName: String(source.clapParamName || key).slice(0, 128),
-    };
   }
   return normalized;
 }

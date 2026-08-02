@@ -126,8 +126,7 @@ void soemdsp_module_process(int handle, /* inputs */, /* outputs */) {
 - The handle pool does not replace the `soemdsp` binding layer. It is a
   browser-side instance management convenience for wasm modules.
 - Stateful modules that need to persist state across render sessions must
-  save/restore through the existing `clap.state`-like mechanism or a
-  module-specific state blob in patch JSON.
+  save/restore through a module-specific state blob in patch JSON.
 
 ## Open questions
 

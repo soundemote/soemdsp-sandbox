@@ -57,6 +57,8 @@ var nodeGraphMvp = {
   // Grid on by default -- a fresh profile, and anything reset by Clear
   // Startup, should come up showing the workspace grid.
   gridVisible: true,
+  // Cable strokes under modules by default; Visibility can raise them above.
+  wiresAboveModules: false,
   macroControls: new Array(10).fill(0),
   macroKnobArcThickness: 7,
   macroKnobArcGapBrightness: 0,
@@ -200,6 +202,8 @@ var nodeGraphMvp = {
   // openNodeGraphModuleShop.
   moduleStoreDepartmentAnchor: "",
   moduleStoreDepartmentSearch: "",
+  // Command Center module search (independent of Module Browser search box).
+  commandCenterModuleSearch: "",
   sampleBuffers: new Map(),
   sampleLoadErrors: new Map(),
   sampleRuntimeStatus: new Map(),

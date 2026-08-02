@@ -23,8 +23,8 @@ registerNodeGraphChromelessModule("numberReadout", {
     visualSink: true,
   },
   catalog: {
-    category: "display",
+    category: "multimeter",
     description: "Solid LCD number face: hard DSEG digits with residual ghosts of previous values. Side-mounted input, no header chrome.",
-    notes: ["solid module", "LCD readout", "decay ghosts", "DSEG7"],
+    notes: ["solid module", "LCD readout", "decay ghosts", "DSEG7", "multimeter"],
   },
 });

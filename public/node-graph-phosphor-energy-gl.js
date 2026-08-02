@@ -70,16 +70,31 @@
   // Fade previous energy, optional soft neighborhood bleed, optional mask deposit.
   // Bleed is what makes a slow dwell "grow outward" instead of a hard saturated disc:
   // each frame a little energy seeps into neighbors (CRT phosphor charge diffusion).
+  //
+  // Temporal dither after keep is critical on rgba8 fallbacks: e*=keep quantizes to
+  // 1/255 steps and dim trails "hold then jump". Dither lets energy average smoothly.
+  // Dual-rate fade:
+  //   uKeep     = main trail from Decay (hot cores + normal residual)
+  //   uKeepSlow = long-lived dim hang from Burn (screen burn-in simulation)
+  //   uBurn     = 0..1 how strongly dim energy uses the slow keep
+  // Burn is NOT deposit brightness — only residual lifetime of low energy.
   const STEP_FRAG = `
     precision highp float;
     varying vec2 vUv;
     uniform sampler2D uEnergy;
     uniform sampler2D uMask;
     uniform float uKeep;
+    uniform float uKeepSlow;
+    uniform float uBurn;
     uniform float uGain;
     uniform float uUseMask;
     uniform vec2 uTexel;
     uniform float uBleed;
+    uniform float uFrame;
+    uniform float uQuantizeBits; // 0 = HDR float, 8 = rgba8-ish
+    float hash21(vec2 p) {
+      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+    }
     void main() {
       float e0 = texture2D(uEnergy, vUv).r;
       float bleed = clamp(uBleed, 0.0, 1.0);
@@ -98,7 +113,24 @@
         float blur = (e0 * 4.0 + (e1 + e2 + e3 + e4) * 2.0 + (e5 + e6 + e7 + e8)) / 16.0;
         e = mix(e0, blur, bleed);
       }
-      e *= uKeep;
+      // Decay kills the hot trail. Burn leaves a long-lived *dim floor* (screen
+      // burn-in): residual under burnCap decays with keepSlow only.
+      // burn 0 → pure Decay; burn 1 → multi-tens-of-seconds dim scorch (still dies).
+      float burn = clamp(uBurn, 0.0, 1.0);
+      float keepFast = clamp(uKeep, 0.0, 1.0);
+      float keepSlow = max(keepFast, clamp(uKeepSlow, 0.0, 0.9998));
+      float eFast = e * keepFast;
+      // Ghost ceiling: readable dim trail, never a second peak (burn=1 ≈ 0.5).
+      // Quadratic so mid burn (0.7) still leaves a solid floor (~0.32).
+      float burnCap = burn * 0.12 + burn * burn * 0.38;
+      float eGhost = min(e * keepSlow, burnCap);
+      e = max(eFast, eGhost);
+      // Break 8-bit banding on long slow decays (1 LSB of UNORM8 ≈ 1/255).
+      if (uQuantizeBits > 0.5) {
+        float n = hash21(vUv * 1.017 + vec2(uFrame * 0.137, uFrame * 0.091));
+        e += (n - 0.5) * (1.0 / 255.0);
+      }
+      e = max(e, 0.0);
       if (uUseMask > 0.5) {
         vec4 m = texture2D(uMask, vUv);
         float ink = max(m.r, max(m.g, m.b)) * m.a;
@@ -115,6 +147,7 @@
   // turns slow burn into a flat plateau with a hard pixel edge at the isosurface.
   // Soft film (1-exp) compresses bright cores and leaves dim skirts glowing.
   // Low-end lift keeps tiny residual energy visible so low burn is dim, not dead.
+  // Present dither blurs 256-entry LUT steps so decay doesn't posterize.
   const PRESENT_FRAG = `
     precision highp float;
     varying vec2 vUv;
@@ -122,10 +155,16 @@
     uniform sampler2D uLut;
     uniform float uTrailGain;
     uniform float uExposure;
+    uniform float uFrame;
+    float hash21(vec2 p) {
+      return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+    }
     void main() {
       float raw = max(texture2D(uEnergy, vUv).r, 0.0);
-      // Lift sub-threshold residual so 8-bit/near-zero energy still glows dimly
-      // (avoids a hard "off" band when burn is low under decay).
+      // Sub-LSB temporal dither before film/LUT — hides discrete energy levels.
+      float n = hash21(vUv * 0.97 + vec2(uFrame * 0.11, -uFrame * 0.07));
+      raw = max(0.0, raw + (n - 0.5) * (1.0 / 384.0));
+      // Lift sub-threshold residual so near-zero energy still glows dimly.
       float lifted = raw + 0.045 * pow(raw, 0.42);
       float e;
       if (uExposure > 0.001) {
@@ -135,7 +174,9 @@
         e = lifted / (1.0 + lifted);
         e = pow(clamp(e, 0.0, 1.0), 0.88);
       }
-      vec3 c = texture2D(uLut, vec2(clamp(e, 0.0, 1.0), 0.5)).rgb;
+      // Tiny dither in LUT domain so color doesn't stair-step with energy.
+      e = clamp(e + (n - 0.5) * (1.0 / 512.0), 0.0, 1.0);
+      vec3 c = texture2D(uLut, vec2(e, 0.5)).rgb;
       float a = clamp(e * uTrailGain, 0.0, 1.0);
       gl_FragColor = vec4(c * a, a);
     }
@@ -309,30 +350,37 @@
     if (!gl._phosphorEnergyTextureFormats) {
       const halfFloat = gl.getExtension("OES_texture_half_float");
       const halfFloatLinear = gl.getExtension("OES_texture_half_float_linear");
-      const colorBufferHalfFloat = gl.getExtension("EXT_color_buffer_half_float")
-        || gl.getExtension("WEBGL_color_buffer_float");
+      // Render-to-half-float needs EXT_color_buffer_half_float (not WEBGL_color_buffer_float).
+      const colorBufferHalfFloat = gl.getExtension("EXT_color_buffer_half_float");
       const floatTex = gl.getExtension("OES_texture_float");
       const floatLinear = gl.getExtension("OES_texture_float_linear");
+      // Full float render targets need WEBGL_color_buffer_float (or EXT on some drivers).
+      const colorBufferFloat = gl.getExtension("WEBGL_color_buffer_float")
+        || gl.getExtension("EXT_color_buffer_float");
       const formats = [];
-      // HDR energy is critical: 8-bit clamps cores to 1 and kills soft skirts.
+      // HDR energy is critical: rgba8 quantizes e*=keep to 1/255 steps → visible decay jumps.
       if (halfFloat && colorBufferHalfFloat) {
         formats.push({
           filter: halfFloatLinear ? gl.LINEAR : gl.NEAREST,
           type: halfFloat.HALF_FLOAT_OES,
           label: "rgba16f",
+          quantizeBits: 0,
         });
       }
-      if (floatTex && colorBufferHalfFloat) {
+      if (floatTex && colorBufferFloat) {
         formats.push({
           filter: floatLinear ? gl.LINEAR : gl.NEAREST,
           type: gl.FLOAT,
           label: "rgba32f",
+          quantizeBits: 0,
         });
       }
+      // Last resort — enable temporal dither in STEP (quantizeBits=8).
       formats.push({
         filter: gl.LINEAR,
         type: gl.UNSIGNED_BYTE,
         label: "rgba8",
+        quantizeBits: 8,
       });
       gl._phosphorEnergyTextureFormats = formats;
     }
@@ -378,6 +426,7 @@
           height,
           type: format.type || gl.UNSIGNED_BYTE,
           label: format.label || "rgba8",
+          quantizeBits: format.quantizeBits != null ? format.quantizeBits : (format.label === "rgba8" ? 8 : 0),
         };
       }
       gl.deleteFramebuffer(framebuffer);
@@ -421,9 +470,27 @@
     if (d <= 0.001) {
       return 0;
     }
-    // Gentler floor than 0.025 — a high minimum erase made low burn deposits
-    // quantize to zero (dead band ~0.04) instead of a dim continuous trail.
+    // Gentler floor than 0.025 — a high minimum erase made low residual
+    // quantize to zero (dead band) instead of a dim continuous trail.
     return Math.max(0.006, Math.min(0.55, 0.006 + d * 0.11 + d * d * 0.32));
+  }
+
+  /**
+   * Slow keep for burn-in residual (screen scorch).
+   * Curves hard so mid burn (0.7) already hangs tens of seconds at 60fps.
+   * burn 1 → still not permanent (keep ≤ 0.99975).
+   */
+  function burnKeepAmount(burn, baseKeep) {
+    const b = Math.max(0, Math.min(1, Number(burn) || 0));
+    const k = Math.max(0, Math.min(1, Number(baseKeep) || 0));
+    if (b <= 0.001) {
+      return k;
+    }
+    // fade = (1-b)^2.8 * 0.012 → keep = 1 - fade
+    // b=0.5 → keep≈0.9974; b=0.7 → keep≈0.9991; b=1 → keep≈0.99975
+    const fade = Math.pow(1 - b, 2.8) * 0.012;
+    const slow = 1 - Math.max(0.00025, fade);
+    return Math.min(0.99975, Math.max(k, slow));
   }
 
   function buildStops(peakRgb, backgroundHex) {
@@ -539,10 +606,14 @@
       uEnergy: gl.getUniformLocation(stepProgram, "uEnergy"),
       uMask: gl.getUniformLocation(stepProgram, "uMask"),
       uKeep: gl.getUniformLocation(stepProgram, "uKeep"),
+      uKeepSlow: gl.getUniformLocation(stepProgram, "uKeepSlow"),
+      uBurn: gl.getUniformLocation(stepProgram, "uBurn"),
       uGain: gl.getUniformLocation(stepProgram, "uGain"),
       uUseMask: gl.getUniformLocation(stepProgram, "uUseMask"),
       uTexel: gl.getUniformLocation(stepProgram, "uTexel"),
       uBleed: gl.getUniformLocation(stepProgram, "uBleed"),
+      uFrame: gl.getUniformLocation(stepProgram, "uFrame"),
+      uQuantizeBits: gl.getUniformLocation(stepProgram, "uQuantizeBits"),
     };
     const present = {
       program: presentProgram,
@@ -551,6 +622,7 @@
       uLut: gl.getUniformLocation(presentProgram, "uLut"),
       uTrailGain: gl.getUniformLocation(presentProgram, "uTrailGain"),
       uExposure: gl.getUniformLocation(presentProgram, "uExposure"),
+      uFrame: gl.getUniformLocation(presentProgram, "uFrame"),
     };
     const copy = {
       program: copyProgram,
@@ -1216,12 +1288,15 @@
     }
     const {
       decay = 0,
+      burn = 0,
       depositGain = 0,
       maskCanvas = null,
     } = options;
     const { gl } = renderer;
     const fade = fadeAmount(decay);
     const keep = Math.max(0, 1 - fade);
+    const keepSlow = burnKeepAmount(burn, keep);
+    const burnAmt = Math.max(0, Math.min(1, Number(burn) || 0));
     const useMask = maskCanvas && depositGain > 0.0001 ? 1 : 0;
     // Default bleed: gentle CRT-like charge diffusion. Soft enough to not mush
     // the beam, strong enough that a slow burn grows a soft halo over time.
@@ -1231,11 +1306,12 @@
       : 0.12;
 
     // Skip only when truly idle: no fade, no bleed, no mask, nothing active.
-    if (keep >= 0.9999 && bleed < 0.0001 && !useMask) {
+    // Burn hang still counts as work when residual may be decaying slowly.
+    if (keepSlow >= 0.9999 && bleed < 0.0001 && !useMask) {
       return true;
     }
     // No residual and nothing depositing — skip empty full-screen passes.
-    if (!useMask && renderer.energyActive === false && keep >= 0.9999) {
+    if (!useMask && renderer.energyActive === false && keepSlow >= 0.9999) {
       return true;
     }
 
@@ -1269,6 +1345,12 @@
     gl.uniform1i(renderer.step.uMask, 1);
 
     gl.uniform1f(renderer.step.uKeep, keep);
+    if (renderer.step.uKeepSlow) {
+      gl.uniform1f(renderer.step.uKeepSlow, keepSlow);
+    }
+    if (renderer.step.uBurn) {
+      gl.uniform1f(renderer.step.uBurn, burnAmt);
+    }
     gl.uniform1f(renderer.step.uGain, useMask ? Math.max(0, Math.min(1.5, depositGain)) : 0);
     gl.uniform1f(renderer.step.uUseMask, useMask);
     const tw = Math.max(1, renderer.width);
@@ -1279,17 +1361,30 @@
     if (renderer.step.uBleed) {
       gl.uniform1f(renderer.step.uBleed, bleed);
     }
+    renderer.frameIndex = ((renderer.frameIndex || 0) + 1) % 1000003;
+    if (renderer.step.uFrame) {
+      gl.uniform1f(renderer.step.uFrame, renderer.frameIndex);
+    }
+    // Dither harder on rgba8; light dither still helps half-float near black.
+    const qBits = renderer.read?.quantizeBits != null
+      ? renderer.read.quantizeBits
+      : (renderer.read?.label === "rgba8" ? 8 : 0);
+    if (renderer.step.uQuantizeBits) {
+      gl.uniform1f(renderer.step.uQuantizeBits, qBits > 0 ? qBits : 0);
+    }
 
     drawFullScreen(renderer, renderer.step);
     swap(renderer);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.bindTexture(gl.TEXTURE_2D, null);
-    // Only count quiet toward sleep when energy is actually decaying. Bleed alone
-    // must not kill residual — a long dwell with decay=0 should keep glowing.
-    if (fade > 0) {
+    // Sleep only after burn hang has had time to die (minutes at high burn).
+    if (fade > 0 || burnAmt > 0.001) {
       renderer.quietFrames = (renderer.quietFrames || 0) + 1;
-      if (renderer.quietFrames > 240) {
+      const sleepAfter = burnAmt > 0.001
+        ? Math.round(1800 + burnAmt * burnAmt * 12000)
+        : 240;
+      if (renderer.quietFrames > sleepAfter) {
         renderer.energyActive = false;
       }
     }
@@ -1307,6 +1402,7 @@
     }
     const {
       decay = 0,
+      burn = 0,
       pathPoints = null,
       vertices = null,
       radius = 2,
@@ -1350,8 +1446,10 @@
     }
 
     // Fade + neighborhood bleed (even when decay is 0 — bleed is the slow halo).
+    // Burn = long-lived dim residual hang (screen burn-in), not deposit gain.
     stepEnergy(renderer, {
       decay,
+      burn,
       depositGain: 0,
       maskCanvas: null,
       bleed: willDeposit || renderer.energyActive ? bleed : 0,
@@ -1421,6 +1519,9 @@
       renderer.present.uExposure,
       Number.isFinite(exposure) && exposure > 0 ? exposure : 0,
     );
+    if (renderer.present.uFrame) {
+      gl.uniform1f(renderer.present.uFrame, renderer.frameIndex || 0);
+    }
     drawFullScreen(renderer, renderer.present);
     gl.bindTexture(gl.TEXTURE_2D, null);
     return true;

@@ -40,11 +40,22 @@ function drawNodeGraphVideoscopeItem(renderer, item, pixelRatio) {
     return;
   }
 
+  // Amplitude zoom: 1 = ±1 fills the face (same contract as scope2d / Trace).
+  const ampScale = (() => {
+    const raw = Number(face.scale);
+    if (!Number.isFinite(raw) || raw <= 0) {
+      return 1;
+    }
+    return typeof clampNodeSliderValue === "function"
+      ? clampNodeSliderValue(raw, 0.01, 100)
+      : Math.max(0.01, Math.min(100, raw));
+  })();
+
   let pathPoints = [];
   if (mode === 2) {
-    pathPoints = nodeGraphVideoscopeBuildXyPath(canvas, nodeId);
+    pathPoints = nodeGraphVideoscopeBuildXyPath(canvas, nodeId, ampScale);
   } else {
-    pathPoints = nodeGraphVideoscopeBuildTracePath(canvas, nodeId, mode === 0);
+    pathPoints = nodeGraphVideoscopeBuildTracePath(canvas, nodeId, mode === 0, ampScale);
   }
 
   // No fresh bus data this frame — re-draw last capture so phosphor does not
@@ -53,7 +64,7 @@ function drawNodeGraphVideoscopeItem(renderer, item, pixelRatio) {
     const held = nodeGraphVideoscopeLastCapture.get(String(nodeId));
     if (held && held.mode === mode) {
       if (mode === 2 && held.xyA?.length && held.xyB?.length) {
-        pathPoints = nodeGraphVideoscopePathFromXy(canvas, held.xyA, held.xyB);
+        pathPoints = nodeGraphVideoscopePathFromXy(canvas, held.xyA, held.xyB, ampScale);
       } else if (held.colMinA?.length && held.colMaxA?.length) {
         pathPoints = nodeGraphVideoscopePathFromColumns(
           canvas,
@@ -62,6 +73,7 @@ function drawNodeGraphVideoscopeItem(renderer, item, pixelRatio) {
           held.colMinB,
           held.colMaxB,
           mode === 0,
+          ampScale,
         );
       }
     }
@@ -70,8 +82,8 @@ function drawNodeGraphVideoscopeItem(renderer, item, pixelRatio) {
   const minSide = Math.max(1, Math.min(canvas.width, canvas.height));
   const defaultSize = Math.max(0.008, Math.min(0.04, (mode === 0 ? 3.5 : 2.5) / minSide));
   const settings = {
-    burn: Number.isFinite(Number(face.burn)) ? Number(face.burn) : Math.min(1, 0.35 + paramBrightness * 0.35),
     decay: Number.isFinite(Number(face.decay)) ? Number(face.decay) : 0.18,
+    // Brightness only for deposit (no burn gain coupling).
     dot1Brightness: Number.isFinite(Number(face.dot1Brightness))
       ? Number(face.dot1Brightness) * (paramBrightness / 1)
       : Math.min(2, 0.55 + paramBrightness * 0.45),
@@ -100,7 +112,7 @@ function nodeGraphVideoscopeRememberCapture(nodeId, payload) {
   nodeGraphVideoscopeLastCapture.set(String(nodeId), payload);
 }
 
-function nodeGraphVideoscopeBuildTracePath(canvas, nodeId, dotMode) {
+function nodeGraphVideoscopeBuildTracePath(canvas, nodeId, dotMode, ampScale = 1) {
   const colMinA = nodeGraphDataBus.get(nodeGraphDataBusKey(nodeId, "ColMinA"));
   const colMaxA = nodeGraphDataBus.get(nodeGraphDataBusKey(nodeId, "ColMaxA"));
   const colMinB = nodeGraphDataBus.get(nodeGraphDataBusKey(nodeId, "ColMinB"));
@@ -115,13 +127,22 @@ function nodeGraphVideoscopeBuildTracePath(canvas, nodeId, dotMode) {
     colMinB,
     colMaxB,
   });
-  return nodeGraphVideoscopePathFromColumns(canvas, colMinA, colMaxA, colMinB, colMaxB, dotMode);
+  return nodeGraphVideoscopePathFromColumns(
+    canvas, colMinA, colMaxA, colMinB, colMaxB, dotMode, ampScale,
+  );
 }
 
-function nodeGraphVideoscopePathFromColumns(canvas, colMinA, colMaxA, colMinB, colMaxB, dotMode) {
+function nodeGraphVideoscopePathFromColumns(
+  canvas, colMinA, colMaxA, colMinB, colMaxB, dotMode, ampScale = 1,
+) {
   if (!canvas || !colMinA?.length || !colMaxA?.length) {
     return [];
   }
+  const gain = Number.isFinite(Number(ampScale)) && Number(ampScale) > 0
+    ? Number(ampScale)
+    : 1;
+  // Soft headroom so peaks can overshoot the face slightly before hard clamp.
+  const clampLimit = 1.5 / Math.max(0.25, Math.min(gain, 4));
   const pathPoints = [];
   const centerY = canvas.height * 0.5;
   const halfHeight = canvas.height * 0.5;
@@ -130,6 +151,11 @@ function nodeGraphVideoscopePathFromColumns(canvas, colMinA, colMaxA, colMinB, c
   const spacing = Math.max(1.0, canvas.height / 80);
   const drawer = typeof PhosphorDrawer !== "undefined" ? PhosphorDrawer : null;
 
+  const mapY = (sample) => {
+    const v = clampNodeSliderValue(sample, -clampLimit, clampLimit) * gain;
+    return centerY - v * halfHeight;
+  };
+
   const addChannel = (colMin, colMax) => {
     if (!colMin?.length || !colMax?.length) {
       return;
@@ -137,8 +163,8 @@ function nodeGraphVideoscopePathFromColumns(canvas, colMinA, colMaxA, colMinB, c
     const count = Math.min(colMin.length, colMax.length, columns);
     for (let col = 0; col < count; col += 1) {
       const x = (col + 0.5) * colWidth;
-      const yMin = centerY - clampNodeSliderValue(colMin[col], -1.5, 1.5) * halfHeight;
-      const yMax = centerY - clampNodeSliderValue(colMax[col], -1.5, 1.5) * halfHeight;
+      const yMin = mapY(colMin[col]);
+      const yMax = mapY(colMax[col]);
       if (dotMode) {
         pathPoints.push({ x, y: (yMin + yMax) * 0.5 });
       } else if (drawer) {
@@ -153,20 +179,24 @@ function nodeGraphVideoscopePathFromColumns(canvas, colMinA, colMaxA, colMinB, c
   return pathPoints;
 }
 
-function nodeGraphVideoscopeBuildXyPath(canvas, nodeId) {
+function nodeGraphVideoscopeBuildXyPath(canvas, nodeId, ampScale = 1) {
   const xyA = nodeGraphDataBus.get(nodeGraphDataBusKey(nodeId, "XyA"));
   const xyB = nodeGraphDataBus.get(nodeGraphDataBusKey(nodeId, "XyB"));
   if (!xyA?.length || !xyB?.length) {
     return [];
   }
   nodeGraphVideoscopeRememberCapture(nodeId, { mode: 2, xyA, xyB });
-  return nodeGraphVideoscopePathFromXy(canvas, xyA, xyB);
+  return nodeGraphVideoscopePathFromXy(canvas, xyA, xyB, ampScale);
 }
 
-function nodeGraphVideoscopePathFromXy(canvas, xyA, xyB) {
+function nodeGraphVideoscopePathFromXy(canvas, xyA, xyB, ampScale = 1) {
   if (!canvas || !xyA?.length || !xyB?.length) {
     return [];
   }
+  const gain = Number.isFinite(Number(ampScale)) && Number(ampScale) > 0
+    ? Number(ampScale)
+    : 1;
+  const clampLimit = 1.5 / Math.max(0.25, Math.min(gain, 4));
   const centerX = canvas.width * 0.5;
   const centerY = canvas.height * 0.5;
   const halfWidth = canvas.width * 0.5;
@@ -174,9 +204,11 @@ function nodeGraphVideoscopePathFromXy(canvas, xyA, xyB) {
   const count = Math.min(xyA.length, xyB.length);
   const pathPoints = [];
   for (let i = 0; i < count; i += 1) {
+    const ax = clampNodeSliderValue(xyA[i], -clampLimit, clampLimit) * gain;
+    const ay = clampNodeSliderValue(xyB[i], -clampLimit, clampLimit) * gain;
     pathPoints.push({
-      x: centerX + clampNodeSliderValue(xyA[i], -1.5, 1.5) * halfWidth,
-      y: centerY - clampNodeSliderValue(xyB[i], -1.5, 1.5) * halfHeight,
+      x: centerX + ax * halfWidth,
+      y: centerY - ay * halfHeight,
     });
   }
   return pathPoints;

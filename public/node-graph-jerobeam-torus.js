@@ -10,14 +10,13 @@ function createNodeGraphTorusState() {
   };
 }
 
+// Shared stdlib (node-graph-phasor-helpers.js). Local names keep port call-sites stable.
 function nodeGraphTorusWrap01(v) {
-  return v - Math.floor(v);
+  return nodeGraphWrap01(v);
 }
 
 function nodeGraphTorusTrisaw(phase, warp) {
-  const safeWarp = clampNodeSliderValue(warp, 0.001, 0.999);
-  const wrapped = nodeGraphTorusWrap01(phase);
-  return wrapped < safeWarp ? wrapped / safeWarp : (1 - wrapped) / (1 - safeWarp);
+  return nodeGraphTrisaw(phase, warp);
 }
 
 function nodeGraphTorusSign(v) {

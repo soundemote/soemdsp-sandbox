@@ -2,8 +2,9 @@ function createNodeGraphBlubbState() {
   return { phase: 0, resetWasHigh: false };
 }
 
+// Shared stdlib (node-graph-phasor-helpers.js). Local name keeps port call-sites stable.
 function nodeGraphBlubbWrap01(v) {
-  return v - Math.floor(v);
+  return nodeGraphWrap01(v);
 }
 
 function nodeGraphBlubbBipolarTriangle(phase) {

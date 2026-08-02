@@ -524,7 +524,7 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
   }
 
   const decay = Math.max(0, Math.min(1, Number(options.decay) || 0.12));
-  const burn = Math.max(0, Math.min(1, Number(options.burn) || 0.82));
+  const burn = Math.max(0, Math.min(1, Number(options.burn) || 0.45));
   const brightness01 = Math.max(0, Number(options.brightness) || 0.78);
   const minSide = Math.max(1, Math.min(width, height));
   // Full 0–1 size range (was capped at 0.2 — blocked large hard discs).
@@ -538,10 +538,10 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
       ? drawer.radiusFromSize(minSide, size01)
       : minSide * size01 * 0.5),
   );
-  // Energy deposit gain (not raw 0..1 UX) — matches scope2d burn ribbons.
+  // Energy deposit from brightness only (decay fades residual).
   const deposit = drawer?.depositGain
-    ? drawer.depositGain(burn, brightness01, size01)
-    : brightness01 * (0.022 + Math.pow(burn, 0.78) * 0.1) * (1.12 - size01 * 0.42);
+    ? drawer.depositGain(brightness01, size01)
+    : brightness01 * 0.1 * (1.12 - size01 * 0.42);
   const liveDeposit = Boolean(options.liveDeposit);
   let pathPoints = Array.isArray(options.pathPoints) ? options.pathPoints : null;
   // Beam segments need ≥2 points; a dwell stamp is a near-zero segment.
@@ -565,6 +565,7 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
     if (typeof nodeGraphPhosphorEnergyGlStepBeams === "function") {
       nodeGraphPhosphorEnergyGlStepBeams(face, {
         decay,
+        burn,
         pathPoints,
         radius,
         brightness: deposit,
@@ -577,17 +578,18 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
     } else if (mode === "dots" && drawer?.stepDots) {
       drawer.stepDots(face, {
         decay,
+        burn,
         pathPoints,
         radius,
         brightness: deposit,
         blur,
         maxDots,
-        burn,
         fullDotEconomy,
       });
     } else if (drawer?.stepBeams) {
       drawer.stepBeams(face, {
         decay,
+        burn,
         pathPoints,
         radius,
         brightness: deposit,
@@ -600,12 +602,12 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
     } else if (drawer?.stepDots) {
       drawer.stepDots(face, {
         decay,
+        burn,
         pathPoints,
         radius,
         brightness: deposit,
         blur,
         maxDots,
-        burn,
         fullDotEconomy,
       });
     }
@@ -618,8 +620,8 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
   }
 
   const exposure = drawer?.exposure
-    ? drawer.exposure(burn)
-    : 1.85 + burn * 2.1;
+    ? drawer.exposure()
+    : 2.9;
   if (typeof nodeGraphPhosphorEnergyGlPresent === "function") {
     if (!nodeGraphPhosphorEnergyGlPresent(face, 1, { exposure })) {
       face._xyPadPresentedIdle = true;
@@ -716,7 +718,7 @@ function drawNodeGraphXyPad(pad, options = {}) {
   // Face = phosphor of Out X/Y (same idea as wiring Out → scope2d) + vector UI.
   const brightness = Math.max(0, Number(display.dot1Brightness) || 0.78);
   const decayUx = Math.max(0, Math.min(1, Number(display.decay) || 0.35));
-  const burn = Math.max(0, Math.min(1, Number(display.burn) || 0.82));
+  const burnUx = Math.max(0, Math.min(1, Number(display.burn) || 0.45));
   // Phosphor beam stamp size (unit face); not multiplied by a global scale.
   const beamSize01 = Math.max(0.005, Math.min(1, Number(display.dot1Size) || 0.07));
   const blur = typeof nodeGraphTraceDisplayClampStampBlur === "function"
@@ -802,8 +804,8 @@ function drawNodeGraphXyPad(pad, options = {}) {
     background: bgHex,
     gradientStops,
     decay: decayUx,
+    burn: burnUx,
     brightness,
-    burn,
     blur,
     size01: beamSize01,
     maxDots: dotBudget,
@@ -917,7 +919,6 @@ function nodeGraphXyPadDisplaySettings(pad) {
   }
   return {
     background: "#000000",
-    burn: 0.82,
     decay: 0.35,
     dot1Brightness: 0.78,
     dot1Color: "#7fc7d9",

@@ -1144,6 +1144,9 @@ function configureNodeSceneContextMenu(mode) {
   } else {
     setNodeSceneContextHeader("Command", "Center");
     menu.setAttribute("aria-label", "Command Center");
+    if (typeof renderNodeGraphCommandCenterModuleSearch === "function") {
+      renderNodeGraphCommandCenterModuleSearch();
+    }
   }
   const hasActionSelection = !actionMode || (moduleMode ? hasModuleActionTarget : Boolean(selectedWire));
   if (moduleActionsWindowButton) {
@@ -1253,13 +1256,15 @@ function configureNodeSceneContextMenu(mode) {
       selectedLabel.textContent = "";
       selectedLabel.hidden = true;
     }
-    // Module type name under Command Center (not the user alias — alias is its own field).
+    // Selected module title under Command Center (alias when set, else type name).
     selectedModule.querySelector("strong").textContent = multiModuleMode
       ? `${selectedNodeIds.size} modules`
       : targetNode
-        ? (typeof nodeGraphModuleChromeTitle === "function"
-          ? nodeGraphModuleChromeTitle(targetNode)
-          : (nodeGraphNodeLabels?.[targetNode.type] || targetNode.type))
+        ? (typeof nodeGraphPatchNodeTitle === "function"
+          ? nodeGraphPatchNodeTitle(targetNode)
+          : (typeof nodeGraphModuleChromeTitle === "function"
+            ? nodeGraphModuleChromeTitle(targetNode)
+            : (nodeGraphNodeLabels?.[targetNode.type] || targetNode.type)))
         : "none";
     aliasControl.hidden = multiModuleMode;
     aliasInput.disabled = !targetNode || multiModuleMode;
@@ -1842,7 +1847,7 @@ function openNodeXyPadContextMenu(event) {
 
 function openNodeScopeContextMenu(event) {
   const contextScope = event.target.closest?.(
-    ".node-module-scope-window, .node-led-face, .node-number-readout-face, .node-ray-bouncer-face",
+    ".node-module-scope-window, .node-led-face, .node-number-readout-face, .node-ray-bouncer-face, .node-asciiscope-face, .node-matrix-face",
   );
   const nodeId = contextScope?.dataset?.node || "";
   if (!nodeId || !nodeGraphPatchNode(nodeId)) {
@@ -2080,5 +2085,8 @@ function openNodeGraphCommandCenter(x, y) {
   }
   if (typeof syncNodeGraphUnifiedWindowNavBars === "function") {
     syncNodeGraphUnifiedWindowNavBars();
+  }
+  if (typeof renderNodeGraphCommandCenterModuleSearch === "function") {
+    renderNodeGraphCommandCenterModuleSearch();
   }
 }

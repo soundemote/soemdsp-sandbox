@@ -52,8 +52,9 @@ function nodeGraphDsfPureSawEngMorphed(t, nMax, morph) {
   return nodeGraphDsfPureSawEng(t, lowN) * (1 - frac) + nodeGraphDsfPureSawEng(t, highN) * frac;
 }
 
+// Shared stdlib (node-graph-phasor-helpers.js).
 function nodeGraphDsfWrap01(x) {
-  return x - Math.floor(x);
+  return nodeGraphWrap01(x);
 }
 
 // options: { frequencyHz, sampleRate, waveform (0=Sine,1=Saw,2=Square PWM,

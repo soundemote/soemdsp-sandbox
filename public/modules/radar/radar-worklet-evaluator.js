@@ -7,10 +7,9 @@ NodeLiveAudioProcessor.prototype.createRadarState = function createRadarState() 
     };
   };
 
+// Shared stdlib (node-graph-phasor-helpers.js, first in worklet Blob).
 NodeLiveAudioProcessor.prototype.radarTrisaw = function radarTrisaw(phase, warp) {
-    const safeWarp = this.clampValue(warp, 0.001, 0.999);
-    const wrapped = phase - Math.floor(phase);
-    return wrapped < safeWarp ? wrapped / safeWarp : (1 - wrapped) / (1 - safeWarp);
+    return nodeGraphTrisaw(phase, warp);
   };
 
 NodeLiveAudioProcessor.prototype.radarSign = function radarSign(v) {

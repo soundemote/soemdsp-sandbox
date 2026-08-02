@@ -403,7 +403,7 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
   const outputNode = "output";
   const reachableNodes = new Set();
   const bypassedNodes = new Set(graph.bypassedNodes || []);
-  const passthroughTypes = new Set(["badvalMonitor", "bias", "chaoticPhaseLockingFilter", "cookbookFilter", "flowerChildFilter", "gain", "gainBias", "humanFilter", "ladderFilter", "papoulisFilter", "passiveFilter", "pll", "resonatorFilter", "reverbEffect", "rsmetFilter", "sampleDelay", "sampleHold", "slewLimiter", "softClipper", "speakerProtection", "superloveFilter", "tb303Filter", "wallDelay", "yellowjacketFilter"]);
+  const passthroughTypes = new Set(["asciiscope", "matrixDisplay", "matrixWaterfall", "badvalMonitor", "bias", "chaoticPhaseLockingFilter", "cookbookFilter", "flowerChildFilter", "gain", "gainBias", "humanFilter", "ladderFilter", "papoulisFilter", "passiveFilter", "pll", "resonatorFilter", "reverbEffect", "rsmetFilter", "sampleDelay", "sampleHold", "slewLimiter", "softClipper", "speakerProtection", "superloveFilter", "tb303Filter", "wallDelay", "yellowjacketFilter"]);
 
   function markReachable(nodeId) {
     if (reachableNodes.has(nodeId) || !graph.nodeMap.has(nodeId)) {
@@ -583,28 +583,6 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
 
   const scheduling = nodeGraphBuildSchedulingDependencies(graph, reachableNodes);
 
-  // Surface CLAP feedback at plan time so the user sees the issue before hitting Render.
-  for (const connection of scheduling.feedbackConnections) {
-    const sourceType = graph.nodeMap.get(connection.sourceNode)?.type;
-    const destinationType = graph.nodeMap.get(connection.destinationNode)?.type;
-    if (sourceType === "clapPlugin" || destinationType === "clapPlugin") {
-      issues.push(`feedback involving CLAP Plugin nodes is not supported yet: ${connection.sourceNode} -> ${connection.destinationNode}`);
-    }
-  }
-  for (const modulation of scheduling.feedbackModulations) {
-    const sourceType = graph.nodeMap.get(modulation.sourceNode)?.type;
-    const destinationType = graph.nodeMap.get(modulation.destinationNode)?.type;
-    if (sourceType === "clapPlugin" || destinationType === "clapPlugin") {
-      issues.push(`feedback modulation involving CLAP Plugin nodes is not supported yet: ${modulation.sourceNode} -> ${modulation.destinationNode}`);
-    }
-  }
-  for (const graphConnection of scheduling.feedbackGraphConnections) {
-    const sourceType = graph.nodeMap.get(graphConnection.sourceNode)?.type;
-    const destinationType = graph.nodeMap.get(graphConnection.destinationNode)?.type;
-    if (sourceType === "clapPlugin" || destinationType === "clapPlugin") {
-      issues.push(`feedback graph connection involving CLAP Plugin nodes is not supported yet: ${graphConnection.sourceNode} -> ${graphConnection.destinationNode}`);
-    }
-  }
 
   const topology = nodeGraphTopologicalOrder(graph.nodes, scheduling.orderDependencies, reachableNodes);
   const order = topology.order.filter((nodeId) => reachableNodes.has(nodeId));
@@ -629,6 +607,7 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
       type === "chuaAttractor" ||
       type === "surgeOscillator" ||
       type === "dsfOscillator" ||
+      type === "softwaveOsc" ||
       type === "ellipsoid" ||
       type === "bugButton" ||
       type === "xyPad" ||

@@ -2503,7 +2503,8 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
 // the period you care about (easier UX than Hz).
 const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   background: "#000000",
-  burn: 0.3,
+  // Dim residual hang (screen burn-in simulation) — not peak brightness.
+  burn: 0.35,
   decay: 0.3,
   // Amplitude zoom (Y).
   scale: 1,
@@ -2529,7 +2530,7 @@ function nodeGraphTraceDisplayRenderPointBudget() {
 const nodeGraphZeroDBurnSettingsDefaults = Object.freeze({
   background: "#000000",
   bipolarBrightness: false,
-  burn: 0.55,
+  burn: 0.4,
   decay: 0.22,
   dot1Brightness: 0.92,
   dot1Color: "#75ebff",
@@ -2544,7 +2545,7 @@ const nodeGraphZeroDBurnSettingsDefaults = Object.freeze({
 const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
   background: "#000000",
   brightness: 0.92,
-  burn: 0,
+  burn: 0.25,
   capEnabled: true,
   capLength: 0.16,
   capSize: 0.08,
@@ -2561,17 +2562,16 @@ const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
 });
 
 // numberReadout: independent schema. Residual is previous-digit ghosts only.
-// "decay" UI = how long the last number's ghost remains (0 = off, 1 = long).
+// "decay" UI = how long the last number's residual remains (0 = off, 1 = long).
 // Digit color shares 2D phosphor: multi-stop gradient as energy→color LUT.
 // background = LCD back plate color (separate widget; not gradient floor).
+// Unlit plate = ghostColor only (pick dim/bright there — no ghost-amount slider).
 const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   background: "#000000",
   brightness: 0.92,
   color: "#75ebff",
   decay: 0.45,
   decimals: 2,
-  // Unlit DSEG segment strength (0 = off) and independent color (not gradient).
-  ghost: 0.22,
   ghostColor: "#1a4a55",
   gradientStops: Object.freeze([
     Object.freeze({ t: 0, color: "#000000" }),
@@ -2579,8 +2579,6 @@ const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
     Object.freeze({ t: 0.55, color: "#3a9aab" }),
     Object.freeze({ t: 1, color: "#75ebff" }),
   ]),
-  innerGlow: 0.35,
-  innerShadow: 0.4,
 });
 
 // Spectrogram display settings (not module params).
@@ -2800,6 +2798,10 @@ function nodeGraphDisplaySettingsFormTypeUsesGradient(type) {
     "videoscopeBurn",
     "oscilloscopeBankBurn",
     "hypersawBurn",
+    "ledLamp",
+    "matrixFace",
+    "matrixWaterfallFace",
+    "matrixDisplayFace",
   ].includes(type));
 }
 
@@ -2899,7 +2901,8 @@ function syncNodeGraphSpectrogramDisplaySettingsToParams(node, settings) {
 const nodeGraphScope2dSettingsDefaults = Object.freeze({
   // Face plate follows gradient floor (t≈0); kept for plate CSS / migration.
   background: "#000000",
-  burn: 0.82,
+  // Dim residual hang (burn-in look) on top of Decay — not deposit brightness.
+  burn: 0.45,
   decay: 0.12,
   dot1Brightness: 0.92,
   // Peak color = last gradient stop (migration + puck/overlays).
@@ -2929,7 +2932,8 @@ const nodeGraphScope2dSettingsDefaults = Object.freeze({
 // puck has its own size.
 const nodeGraphXyPadDisplaySettingsDefaults = Object.freeze({
   background: "#000000",
-  burn: 0.82,
+  // Dim residual hang (burn-in) on top of Decay.
+  burn: 0.45,
   // Trail residual fade while depositing (higher = faster decay).
   decay: 0.35,
   // Phosphor beam brightness 0..1.
@@ -3254,10 +3258,10 @@ function normalizeNodeGraphValueOscilloscopeSettings(settings = {}) {
       0,
       Infinity,
     ),
-    burn: normalizeNodeGraphTraceDisplayNumber(source.burn, defaults.burn, 0, 1),
     capEnabled: source.capEnabled !== false,
     capLength: normalizeNodeGraphTraceDisplayNumber(source.capLength, defaults.capLength, 0, 1),
     capSize: normalizeNodeGraphTraceDisplayNumber(source.capSize, defaults.capSize, 0, 1),
+    burn: normalizeNodeGraphTraceDisplayNumber(source.burn, defaults.burn, 0, 1),
     color: normalizeNodeGraphTraceDisplayColor(source.color ?? source.dot1Color, defaults.color),
     decay: normalizeNodeGraphTraceDisplayNumber(source.decay, defaults.decay, 0, 1),
     dot1Enabled: true,
@@ -3338,19 +3342,16 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}) {
       0,
       2,
     ),
-    // Digits = gradient peak (full light); unlit segments use ghostColor.
+    // Digits = gradient peak (full light); unlit segments use ghostColor as-is.
     color: peak,
-    // Ghost hold of previous number (0 = none, 1 = long). Not phosphor "burn".
+    // Residual hold of previous number (0 = none, 1 = long). Not phosphor "burn".
     decay: normalizeNodeGraphTraceDisplayNumber(source.decay, defaults.decay, 0, 1),
     decimals: normalizeNodeGraphTraceDisplayNumber(source.decimals, defaults.decimals, 0, 8, true),
-    ghost: normalizeNodeGraphTraceDisplayNumber(source.ghost, defaults.ghost, 0, 1),
     ghostColor: normalizeNodeGraphTraceDisplayColor(
       source.ghostColor,
       defaults.ghostColor,
     ),
     gradientStops,
-    innerGlow: normalizeNodeGraphTraceDisplayNumber(source.innerGlow, defaults.innerGlow, 0, 1),
-    innerShadow: normalizeNodeGraphTraceDisplayNumber(source.innerShadow, defaults.innerShadow, 0, 1),
   };
 }
 
@@ -3494,7 +3495,7 @@ function nodeGraphTraceDisplaySettingsEditingTraceDefaults() {
   return nodeGraphModuleDisplaySettingsSchemaForNode(node) === "trace" && node?.type !== "output";
 }
 
-const nodeGraphDisplayModeRenderers = Object.freeze(["trace", "clock", "dot", "value", "lineBurn", "hypersawBurn", "oscilloscopeBankBurn", "videoscopeBurn", "spectrogramBurn", "transportBpm", "scope2d", "scope2dTrace", "phosphorLight", "numberReadout", "xyPad", "customDisplay", "spectrum", "ledLamp"]);
+const nodeGraphDisplayModeRenderers = Object.freeze(["trace", "clock", "dot", "value", "lineBurn", "hypersawBurn", "oscilloscopeBankBurn", "videoscopeBurn", "spectrogramBurn", "transportBpm", "scope2d", "scope2dTrace", "phosphorLight", "numberReadout", "xyPad", "customDisplay", "spectrum", "ledLamp", "selfPaintFace", "matrixFace", "matrixWaterfallFace", "matrixDisplayFace"]);
 const nodeGraphDisplayModeSignalKinds = Object.freeze(["scalar", "xy", "buffer"]);
 
 function nodeGraphDisplayModeSettingsSchemaForRenderer(renderer) {
@@ -3779,6 +3780,9 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "videoscopeBurn",
     "oscilloscopeBankBurn",
     "hypersawBurn",
+    "matrixFace",
+    "matrixWaterfallFace",
+    "matrixDisplayFace",
   ].includes(displayType);
 }
 
@@ -4323,13 +4327,11 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
   ["ghost", "Ghost"],
   ["hue", "Hue"],
   ["rounding", "Rounding"],
-  ["innerGlow", "Inner glow"],
-  ["innerShadow", "Inner shadow"],
 
   ["dot1Size", "Size"],
   ["puckSize", "Puck size"],
   ["lineThickness", "Blur"],
-  ["dot1Brightness", "Dot light"],
+  ["dot1Brightness", "Brightness"],
   ["secondarySize", "Secondary size"],
   ["secondaryLineThickness", "Secondary blur"],
   ["secondaryBrightness", "Secondary light"],
@@ -4449,13 +4451,11 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   }),
   numberReadout: Object.freeze({
     // Decimals first (above decay); digit color = shared phosphor gradient (energy→color);
-    // backgroundColor = LCD back plate; ghostColor = unlit segment ink.
+    // backgroundColor = LCD back plate; ghostColor = unlit segment ink (pick dim/bright
+    // there — no separate ghost-amount slider).
     fields: Object.freeze([
       "decimals",
       "decay",
-      "ghost",
-      "innerGlow",
-      "innerShadow",
       "dot1Brightness",
     ]),
     colors: Object.freeze(["backgroundColor", "ghostColor"]),
@@ -4473,6 +4473,25 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     colors: Object.freeze([]),
     toggles: Object.freeze([]),
     choices: Object.freeze(["cornerShape"]),
+  }),
+  // Matrix faces: custom bodies (glyph / message) — no stepper fields.
+  matrixFace: Object.freeze({
+    fields: Object.freeze([]),
+    colors: Object.freeze([]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
+  matrixWaterfallFace: Object.freeze({
+    fields: Object.freeze([]),
+    colors: Object.freeze([]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
+  matrixDisplayFace: Object.freeze({
+    fields: Object.freeze([]),
+    colors: Object.freeze([]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
   }),
   // XY Pad: phosphor of Out X/Y + UI puck. No scale (would desync puck/trail).
   xyPad: Object.freeze({
@@ -4519,15 +4538,16 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   // Videoscope / bank / hypersaw: mono energy phosphor (same knobs as 2D Phosphor).
   // MUST NOT fall through to "trace" — that is Output's Left/Right page
   // (syncChannel / stereoBlend) and is what made Videoscope look like Output.
+  // Brightness lives on the module face param — not in Display Settings.
   videoscopeBurn: Object.freeze({
     fields: Object.freeze([
+      "scale",
       "burn",
       "decay",
       "pixelDensity",
       "dotBudget",
       "dot1Size",
       "lineThickness",
-      "dot1Brightness",
     ]),
     colors: Object.freeze([]),
     toggles: Object.freeze([]),
@@ -4601,10 +4621,11 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
   }),
   trace: Object.freeze({
     // decimals before decay so Number Readout shows Decimals first in this section.
-    // hue/rounding/dot1Brightness/lineThickness also used by LED lamp form.
+    // Stamp brightness/blur/size live only under the Dot section (avoid duplicates on phosphor).
+    // LED lamp uses its own body builder — not this mega form.
     fields: Object.freeze([
-      "burn",
       "decimals",
+      "burn",
       "decay",
       "zoomSeconds",
       "historySeconds",
@@ -4613,14 +4634,9 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "dotBudget",
       "padding",
       "ghost",
-      "innerGlow",
-      "innerShadow",
       "fftSize",
       "sweepSeconds",
-      // LED lamp (formType ledLamp): hue → brightness → blur → rounding.
       "hue",
-      "dot1Brightness",
-      "lineThickness",
       "rounding",
     ]),
     // Face plate (+ number readout ghost ink) lives with Trace section.
@@ -4675,14 +4691,19 @@ function nodeGraphTraceDisplaySettingsRoot() {
 
 // Field labels / input modes for schema-exclusive body builders.
 const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
-  burn: Object.freeze({ label: "Burn", inputmode: "decimal", id: "nodeTraceDisplayBurn" }),
+  burn: Object.freeze({
+    label: "Burn",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayBurn",
+    title: "Screen burn-in simulation: long-lived low residual hang. 0 = none; 1 = multi-second dim ghosts that still fade. Not peak brightness (use Brightness) and not main trail speed (use Decay).",
+  }),
   decay: Object.freeze({
     label: "Decay",
     inputmode: "decimal",
     id: "nodeTraceDisplayDecay",
     // Number readout: ghost hold of the previous value (0 = none, 1 = long).
-    // Other form types still use decay as phosphor fade rate via their own docs.
-    title: "How long the ghost of the previous number remains (0 = none, 1 = longest). Static numbers are never burned.",
+    // Phosphor faces: main residual fade rate (hot trail length).
+    title: "Main residual fade. Higher = shorter trail. For long dim burn-in ghosts use Burn; for peak light use Brightness.",
   }),
   historySeconds: Object.freeze({
     label: "History (s)",
@@ -4708,11 +4729,12 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
   sweepSeconds: Object.freeze({ label: "Sweep (s)", inputmode: "decimal", id: "nodeTraceDisplaySweepSeconds" }),
   cycles: Object.freeze({ label: "Cycles", inputmode: "decimal", id: "nodeTraceDisplayCycles" }),
   decimals: Object.freeze({ label: "Decimals", inputmode: "decimal", id: "nodeTraceDisplayDecimals" }),
+  // Retired: ghost amount used to dim the plate; use Ghost color instead.
   ghost: Object.freeze({
-    label: "Ghost",
+    label: "Ghost amount",
     inputmode: "decimal",
     id: "nodeTraceDisplayGhost",
-    title: "Unlit LCD segment strength (0 = hidden, 1 = full ghost plate).",
+    title: "Retired — pick a dim or bright Ghost color instead.",
   }),
   hue: Object.freeze({
     label: "Hue",
@@ -4726,8 +4748,6 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     id: "nodeTraceDisplayRounding",
     title: "LED corner rounding percent (0 = square tile, 100 = full capsule/circle).",
   }),
-  innerGlow: Object.freeze({ label: "Inner glow", inputmode: "decimal", id: "nodeTraceDisplayInnerGlow" }),
-  innerShadow: Object.freeze({ label: "Inner shadow", inputmode: "decimal", id: "nodeTraceDisplayInnerShadow" }),
   padding: Object.freeze({ label: "Amp", inputmode: "decimal", id: "nodeTraceDisplayPadding" }),
   lineLength: Object.freeze({ label: "Line length", inputmode: "decimal", id: "nodeTraceDisplayValueLineLength" }),
   dot1Brightness: Object.freeze({ label: "Brightness", inputmode: "decimal", id: "nodeTraceDisplayBrightness" }),
@@ -4768,7 +4788,7 @@ const nodeGraphDisplaySettingsColorMeta = Object.freeze({
   }),
   ghostColor: Object.freeze({
     label: "Ghost",
-    aria: "LCD ghost segment color",
+    aria: "LCD unlit segment color (choose dim or bright here)",
     defaultValue: "#1a4a55",
     id: "nodeTraceDisplayGhostColor",
   }),
@@ -4883,6 +4903,9 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   dot: "Phosphor Dot",
   spectrogramBurn: "Spectrogram",
   ledLamp: "LED",
+  matrixFace: "Matrix",
+  matrixWaterfallFace: "Waterfall",
+  matrixDisplayFace: "Matrix",
   // Phosphor energy faces — must not fall through to generic "Trace"
   // (that title is what made Videoscope look like Output).
   videoscopeBurn: "Videoscope",
@@ -5003,6 +5026,13 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
   if (type === "ledLamp" && typeof buildNodeGraphLedDisplaySettingsBodyHtml === "function") {
     return buildNodeGraphLedDisplaySettingsBodyHtml();
   }
+  // Matrix Waterfall / Matrix Display custom bodies.
+  if (
+    (type === "matrixFace" || type === "matrixWaterfallFace" || type === "matrixDisplayFace")
+    && typeof buildNodeGraphMatrixFaceDisplaySettingsBodyHtml === "function"
+  ) {
+    return buildNodeGraphMatrixFaceDisplaySettingsBodyHtml(type);
+  }
   const activeFields = nodeGraphTraceDisplayActiveControlSet("fields", type);
   const activeColors = nodeGraphTraceDisplayActiveControlSet("colors", type);
   const activeToggles = nodeGraphTraceDisplayActiveControlSet("toggles", type);
@@ -5107,8 +5137,23 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
           ${enabledToggle}
         </div>`);
     } else if (section === "dot1") {
-      // XY Pad: beam stamp + puck size (outer title is already "Phosphor").
-      const dotTitle = type === "xyPad" ? "Beam & puck" : titleText;
+      // Phosphor faces: stamp geometry/light (not a second "Dot" copy of Brightness/Blur).
+      const phosphorStamp =
+        type === "scope2d"
+        || type === "scope2dTrace"
+        || type === "phosphorLight"
+        || type === "lineBurn"
+        || type === "dot"
+        || type === "value"
+        || type === "videoscopeBurn"
+        || type === "oscilloscopeBankBurn"
+        || type === "hypersawBurn"
+        || type === "xyPad";
+      const dotTitle = type === "xyPad"
+        ? "Beam & puck"
+        : phosphorStamp
+          ? "Stamp"
+          : titleText;
       parts.push(`
         <div class="metadata-section-title node-trace-display-dot1-title">
           <span id="nodeTraceDisplayDot1TitleLabel">${nodeGraphDisplaySettingsEscapeHtml(dotTitle)}</span>
@@ -5173,6 +5218,12 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
     }
     if (typeof renderNodeGraphLedSettingsWindow === "function") {
       renderNodeGraphLedSettingsWindow();
+    }
+  }
+  // Matrix Waterfall / Matrix Display settings panels.
+  if (type === "matrixFace" || type === "matrixWaterfallFace" || type === "matrixDisplayFace") {
+    if (typeof bindNodeGraphMatrixFaceDisplaySettingsBody === "function") {
+      bindNodeGraphMatrixFaceDisplaySettingsBody(host);
     }
   }
   // XY Pad: action row for clearing the phosphor residual buffer.
@@ -5290,7 +5341,6 @@ function applyNodeGraphTraceDisplaySettingsTooltips(popover) {
     secondaryBrightness: "traceDisplaySettings.secondaryBrightness",
     secondarySize: "traceDisplaySettings.secondarySize",
     secondaryLineThickness: "traceDisplaySettings.secondaryLineThickness",
-    burn: "traceDisplaySettings.burn",
     decay: "traceDisplaySettings.decay",
     pixelDensity: "traceDisplaySettings.pixelDensity",
     dotBudget: "traceDisplaySettings.dotBudget",
@@ -5440,6 +5490,7 @@ function syncNodeGraphTraceDisplayModeSelector(node = null) {
     return;
   }
   const modes = nodeGraphModuleDisplayModesForType(node.type);
+  // One mode (e.g. Lorenz phosphor-only) → no Mode control.
   if (modes.length <= 1) {
     setNodeGraphTraceDisplayModeSelectorVisible(popover, false);
     return;
@@ -5534,6 +5585,13 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
       ? normalizeNodeGraphLedLayout()
       : { hue: 0, brightness: 1, blur: 0, rounding: 100, cornerShape: "squircle" };
   }
+  if (type === "matrixFace" || type === "matrixWaterfallFace" || type === "matrixDisplayFace") {
+    return typeof normalizeNodeGraphMatrixFaceSettings === "function"
+      ? normalizeNodeGraphMatrixFaceSettings(null, type)
+      : (typeof normalizeNodeGraphAsciiscope === "function"
+        ? normalizeNodeGraphAsciiscope(null)
+        : { glyphTable: ".", message: "READY" });
+  }
   return normalizeNodeGraphTraceDisplaySettings(nodeGraphTraceDisplaySettingsDefaults);
 }
 
@@ -5579,18 +5637,26 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
     return normalizeNodeGraphScope2dSettings(settings);
   }
   if (type === "ledLamp") {
-    // Map shared form field names → LED model keys.
+    // Map shared form field names → LED model keys (incl. gradientStops).
     const raw = settings && typeof settings === "object" ? settings : {};
     return typeof normalizeNodeGraphLedLayout === "function"
       ? normalizeNodeGraphLedLayout({
         ...raw,
         brightness: raw.brightness ?? raw.dot1Brightness,
         blur: raw.blur ?? raw.lineThickness,
+        gradientStops: raw.gradientStops ?? raw.gradient,
         hue: raw.hue,
         rounding: raw.rounding,
         cornerShape: raw.cornerShape,
       })
       : raw;
+  }
+  if (type === "matrixFace" || type === "matrixWaterfallFace" || type === "matrixDisplayFace") {
+    return typeof normalizeNodeGraphMatrixFaceSettings === "function"
+      ? normalizeNodeGraphMatrixFaceSettings(settings, type)
+      : (typeof normalizeNodeGraphAsciiscope === "function"
+        ? normalizeNodeGraphAsciiscope(settings)
+        : settings || {});
   }
   return normalizeNodeGraphTraceDisplaySettings(settings);
 }
@@ -5675,6 +5741,21 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
       ? normalizeNodeGraphLedLayout(node.led)
       : (node.led || {});
   }
+  if (
+    settingsSchema === "matrixFace"
+    || settingsSchema === "matrixWaterfallFace"
+    || settingsSchema === "matrixDisplayFace"
+  ) {
+    if (typeof nodeGraphMatrixStoreFromNode === "function") {
+      return nodeGraphMatrixStoreFromNode(node);
+    }
+    if (typeof nodeGraphMatrixFaceStoreFromNode === "function") {
+      return nodeGraphMatrixFaceStoreFromNode(node);
+    }
+    return typeof normalizeNodeGraphAsciiscope === "function"
+      ? normalizeNodeGraphAsciiscope(node?.matrixDisplay || node?.matrixWaterfall)
+      : { glyphTable: ".", message: "READY" };
+  }
   if (settingsSchema === "spectrogramBurn") {
     const merged = { ...(node.traceDisplaySettings || {}) };
     if (merged.fftSize == null && node.params?.fftSize != null) {
@@ -5711,11 +5792,9 @@ function readNodeGraphTraceDisplaySettingsForm() {
   if (formType === "ledLamp") {
     const panel = root?.querySelector?.("[data-led-display-settings-panel]") || root;
     const next = { ...current };
-    for (const key of ["hue", "brightness", "blur", "rounding"]) {
+    for (const key of ["brightness", "blur", "rounding", "fillPercent"]) {
       const input = panel?.querySelector?.(`[data-led-field="${key}"]`);
-      if (input && document.activeElement === input) {
-        next[key] = Number(input.value);
-      } else if (input) {
+      if (input) {
         next[key] = Number(input.value);
       }
     }
@@ -5725,7 +5804,30 @@ function readNodeGraphTraceDisplaySettingsForm() {
         ? "square"
         : "squircle";
     }
+    // Gradient editor writes via applyNodeGraphTraceDisplaySettingsForm — must
+    // not early-return before pulling stops (was the bright→dim failure mode).
+    if (nodeGraphDisplaySettingsFormTypeUsesGradient(formType)) {
+      const editor = typeof NodeGraphGradientSelector !== "undefined"
+        ? NodeGraphGradientSelector.getActive?.()
+        : (nodeGraphMvp?.gradientSelector
+          || nodeGraphMvp?.spectrogramGradientEditor
+          || nodeGraphMvp?.sharedGradientEditor);
+      if (editor && typeof editor.getStops === "function") {
+        next.gradientStops = editor.getStops();
+      }
+    }
     return normalizeNodeGraphDisplaySettingsForFormType(next, formType);
+  }
+  // Matrix Waterfall / Matrix Display custom form bodies.
+  if (
+    formType === "matrixFace"
+    || formType === "matrixWaterfallFace"
+    || formType === "matrixDisplayFace"
+  ) {
+    if (typeof readNodeGraphMatrixFaceDisplaySettingsForm === "function") {
+      return readNodeGraphMatrixFaceDisplaySettingsForm(root, current);
+    }
+    return normalizeNodeGraphDisplaySettingsForFormType(current, formType);
   }
   const next = { ...current };
   const activeFields = nodeGraphTraceDisplayActiveControlSet("fields", formType);
@@ -5830,6 +5932,37 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
     if (typeof syncNodeGraphLedDisplaySettingsControls === "function") {
       const panel = root?.querySelector?.("[data-led-display-settings-panel]") || root;
       syncNodeGraphLedDisplaySettingsControls(panel, normalized);
+    }
+    if (nodeGraphDisplaySettingsFormTypeUsesGradient(formType)) {
+      const editor = typeof NodeGraphGradientSelector !== "undefined"
+        ? NodeGraphGradientSelector.getActive?.()
+        : (nodeGraphMvp?.gradientSelector
+          || nodeGraphMvp?.spectrogramGradientEditor
+          || nodeGraphMvp?.sharedGradientEditor);
+      if (editor && typeof editor.setStops === "function" && normalized.gradientStops) {
+        editor.setStops(normalized.gradientStops);
+      }
+    }
+    return;
+  }
+  if (
+    formType === "matrixFace"
+    || formType === "matrixWaterfallFace"
+    || formType === "matrixDisplayFace"
+  ) {
+    if (typeof syncNodeGraphMatrixFaceDisplaySettingsControls === "function") {
+      const panel = root?.querySelector?.("[data-matrix-face-settings-panel]") || root;
+      syncNodeGraphMatrixFaceDisplaySettingsControls(panel, normalized);
+    }
+    if (nodeGraphDisplaySettingsFormTypeUsesGradient(formType)) {
+      const editor = typeof NodeGraphGradientSelector !== "undefined"
+        ? NodeGraphGradientSelector.getActive?.()
+        : (nodeGraphMvp?.gradientSelector
+          || nodeGraphMvp?.spectrogramGradientEditor
+          || nodeGraphMvp?.sharedGradientEditor);
+      if (editor && typeof editor.setStops === "function" && normalized.gradientStops) {
+        editor.setStops(normalized.gradientStops);
+      }
     }
     return;
   }
@@ -6045,8 +6178,6 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   dot1Size: nodeGraphTraceDisplayClampUnit,
   ghost: nodeGraphTraceDisplayClampUnit,
   historySeconds: nodeGraphTraceDisplayClampHistorySeconds,
-  innerGlow: nodeGraphTraceDisplayClampUnit,
-  innerShadow: nodeGraphTraceDisplayClampUnit,
   lineLength: nodeGraphTraceDisplayClampUnit,
   lineThickness: nodeGraphTraceDisplayClampNonNegative,
   pixelDensity: nodeGraphTraceDisplayClampPixelDensity,
@@ -6469,9 +6600,31 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
         ...(settings || {}),
         brightness: settings?.brightness ?? settings?.dot1Brightness,
         blur: settings?.blur ?? settings?.lineThickness,
+        gradientStops: settings?.gradientStops ?? settings?.gradient,
       })
       : (settings || {});
     return node.led;
+  }
+  if (
+    displayType === "matrixFace"
+    || displayType === "matrixWaterfallFace"
+    || displayType === "matrixDisplayFace"
+  ) {
+    const nodeType = node.type;
+    if (nodeType === "matrixWaterfall" || displayType === "matrixWaterfallFace") {
+      node.matrixWaterfall = typeof normalizeNodeGraphMatrixWaterfall === "function"
+        ? normalizeNodeGraphMatrixWaterfall(settings)
+        : (typeof normalizeNodeGraphMatrixFaceSettings === "function"
+          ? normalizeNodeGraphMatrixFaceSettings(settings, "matrixWaterfallFace")
+          : (settings || {}));
+      return node.matrixWaterfall;
+    }
+    node.matrixDisplay = typeof normalizeNodeGraphMatrixPlate === "function"
+      ? normalizeNodeGraphMatrixPlate(settings)
+      : (typeof normalizeNodeGraphMatrixFaceSettings === "function"
+        ? normalizeNodeGraphMatrixFaceSettings(settings, "matrixDisplayFace")
+        : (settings || {}));
+    return node.matrixDisplay;
   }
   if (displayType === "xyPad") {
     node.traceDisplaySettings = normalizeNodeGraphXyPadDisplaySettings(settings);
@@ -10835,13 +10988,13 @@ function drawNodeGraphModuleScopeCanvasDotPath(context, points, proxyCanvas, pix
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = "high";
 
-  const drawConnectedStroke = (lineWidth, shadowBlur, rgb, alpha) => {
+  const drawConnectedStroke = (lineWidth, _shadowBlurIgnored, rgb, alpha) => {
     context.beginPath();
     context.lineCap = "round";
     context.lineJoin = "round";
     context.lineWidth = lineWidth;
-    context.shadowBlur = shadowBlur;
-    context.shadowColor = nodeGraphModuleScopeCanvasRgba(rgb, alpha * 0.65);
+    // No ad-hoc canvas shadow glow — brightness is stroke alpha only.
+    context.shadowBlur = 0;
     context.strokeStyle = nodeGraphModuleScopeCanvasRgba(rgb, alpha);
     let pathOpen = false;
     let localSkipThroughSegment = -1;
@@ -11093,7 +11246,21 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
         entry.skip = "no-buffer";
         slotDebug.push(entry);
         renderNodeGraphModuleScopeAnalyzer(slot, null);
-        clearNodeGraphModuleScopeLocalFallback(slot);
+        // Self-painted faces: remove any Trace overlay entirely (don't leave a
+        // transparent absolute canvas sitting on the custom UI).
+        {
+          const selfPaint = nodeGraphModuleDisplayRendererForSlot(slot);
+          if (
+            selfPaint === "selfPaintFace"
+            || selfPaint === "matrixFace"
+            || selfPaint === "matrixWaterfallFace"
+            || selfPaint === "matrixDisplayFace"
+          ) {
+            drawNodeGraphSelfPaintFaceItem(null, { slot, screenElement: slot.scopeElement }, 1);
+          } else {
+            clearNodeGraphModuleScopeLocalFallback(slot);
+          }
+        }
         // Number Readout: keep an idle LCD plate when there is no live sample
         // (stop / unwired) instead of leaving a wiped blank face.
         if (slot?.type === "numberReadout" || nodeGraphModuleDisplayRendererForSlot(slot) === "numberReadout") {
@@ -11288,8 +11455,8 @@ function drawNodeGraphDotOscilloscopeItem(renderer, item, pixelRatio) {
   const size01 = clampNodeSliderValue(settings.dot1Size, 0, 1);
   const radius = Math.max(0.5, minSide * size01 * 0.5);
   const blur = nodeGraphTraceDisplayClampStampBlur(settings.lineThickness);
-  const burn = clampNodeSliderValue(Number(settings.burn) || 0, 0, 1);
   const decay = clampNodeSliderValue(Number(settings.decay) || 0, 0, 1);
+  const burn = clampNodeSliderValue(Number(settings.burn) || 0, 0, 1);
 
   // Opaque face plate (CSS mix-blend is normal; never screen-tint the module chrome).
   canvas.style.mixBlendMode = "normal";
@@ -11301,8 +11468,8 @@ function drawNodeGraphDotOscilloscopeItem(renderer, item, pixelRatio) {
     nodeGraphPhosphorApplyGradientLut(energyGl, settings, "#75ebff");
     const deposit = brightness01 > 0.001 && settings.dot1Brightness > 0
       ? (typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.depositGain
-        ? PhosphorDrawer.depositGain(burn, settings.dot1Brightness * brightness01, size01)
-        : settings.dot1Brightness * brightness01 * (0.02 + burn * 0.08))
+        ? PhosphorDrawer.depositGain(settings.dot1Brightness * brightness01, size01)
+        : settings.dot1Brightness * brightness01 * 0.1)
       : 0;
     const cx = width * 0.5;
     const cy = height * 0.5;
@@ -11310,6 +11477,7 @@ function drawNodeGraphDotOscilloscopeItem(renderer, item, pixelRatio) {
     if (!nodeGraphModuleScopePhosphorFrozen()) {
       nodeGraphPhosphorEnergyGlStepBeams(energyGl, {
         decay,
+        burn,
         pathPoints: deposit > 1e-8 ? [{ x: cx, y: cy }] : [],
         radius,
         brightness: deposit,
@@ -11319,8 +11487,8 @@ function drawNodeGraphDotOscilloscopeItem(renderer, item, pixelRatio) {
       });
     }
     const exposure = typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.exposure
-      ? PhosphorDrawer.exposure(burn)
-      : 1.85 + burn * 2.1;
+      ? PhosphorDrawer.exposure()
+      : 2.9;
     nodeGraphFacePlateFillCanvas(context, canvas, bg);
     if (typeof nodeGraphPhosphorEnergyGlPresent === "function"
       && nodeGraphPhosphorEnergyGlPresent(energyGl, 1, { exposure })) {
@@ -11360,8 +11528,8 @@ function drawNodeGraphValueOscilloscopeCanvasLine(context, points, color, bright
   context.lineJoin = "round";
   context.lineWidth = thickness;
   context.strokeStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${Math.min(1, alpha).toFixed(4)})`;
-  context.shadowColor = context.strokeStyle;
-  context.shadowBlur = Math.max(0, thickness * clampNodeSliderValue(Number(blur) || 0, 0, 1) * 2.5);
+  // No shadowBlur glow — thickness/blur are stroke geometry only when needed.
+  context.shadowBlur = 0;
   context.beginPath();
   context.moveTo(points.x1, points.y1);
   context.lineTo(points.x2, points.y2);
@@ -11400,8 +11568,7 @@ function drawNodeGraphValueOscilloscopeTrail(item, pixelRatio, geometry, setting
   nodeGraphOneDimensionalBurnFadeTrail(context, canvas, settings);
   // Ensure plate under fade holes / first frames.
   nodeGraphFacePlateFillUnder(context, canvas, bg);
-  const burn = clampNodeSliderValue(Number(settings?.burn) || 0, 0, 1);
-  if (burn <= 0 || !geometry) {
+  if (!geometry) {
     return;
   }
   const screenRect = item?.screenRect;
@@ -11430,7 +11597,8 @@ function drawNodeGraphValueOscilloscopeTrail(item, pixelRatio, geometry, setting
   const lineBase = Math.max(1, Math.min(canvas.width, canvas.height));
   const innerThickness = Math.max(0, lineBase * clampNodeSliderValue(settings.dot1Size, 0, 1));
   const capThickness = Math.max(0, lineBase * clampNodeSliderValue(settings.capSize, 0, 1));
-  const trailIntensity = (0.04 + burn * 0.22) / Math.max(1, Math.sqrt(sampleLines.length));
+  // Brightness only (decay fades residual above).
+  const trailIntensity = 0.12 / Math.max(1, Math.sqrt(sampleLines.length));
   if (settings.dot1Enabled !== false) {
     for (const line of sampleLines) {
       drawNodeGraphValueOscilloscopeCanvasLine(
@@ -11570,28 +11738,26 @@ function nodeGraphPhosphorEnergyFadeAmount(decay) {
 }
 
 /**
- * Smooth mono-energy deposit gain from burn × brightness × size.
- * Monotonic, no dead zone: low burn is dim, high burn is hot — not off/on.
+ * Smooth mono-energy deposit gain from brightness × size only.
  */
-function nodeGraphScope2dEnergyBurnDepositGain(burn, brightness, size01) {
-  const b = clampNodeSliderValue(Number(burn) || 0, 0, 1);
+function nodeGraphScope2dEnergyBurnDepositGain(brightness, size01 = 0) {
+  if (typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.depositGain) {
+    return PhosphorDrawer.depositGain(brightness, size01);
+  }
   const br = Math.max(0, Number(brightness) || 0);
   const s = clampNodeSliderValue(Number(size01) || 0, 0, 1);
-  // Slight low-end lift (pow < 1) so scrubbing 0.02→0.08 feels continuous.
-  // Floor keeps a faint tip at burn 0; span covers strong dwell at burn 1.
-  const burnShape = Math.pow(b, 0.78);
-  const sizeFactor = 1.12 - s * 0.42;
-  return Math.max(0, br * (0.022 + burnShape * 0.10) * sizeFactor);
+  return Math.max(0, br * 0.1 * (1.12 - s * 0.42));
 }
 
-/** Soft present exposure — mostly stable so burn doesn't double-attenuate. */
-function nodeGraphScope2dEnergyBurnExposure(burn) {
-  const b = clampNodeSliderValue(Number(burn) || 0, 0, 1);
-  // Base exposure keeps low residual visible; burn only gently opens the film.
-  return 1.85 + b * 2.1;
+/** Fixed film exposure — prefer PhosphorDrawer. */
+function nodeGraphScope2dEnergyBurnExposure() {
+  if (typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.exposure) {
+    return PhosphorDrawer.exposure();
+  }
+  return 2.9;
 }
 
-function nodeGraphPhosphorEnergyFade(context, width, height, burn, decay) {
+function nodeGraphPhosphorEnergyFade(context, width, height, decay) {
   if (!context || !(width > 0) || !(height > 0)) {
     return;
   }
@@ -11607,12 +11773,10 @@ function nodeGraphPhosphorEnergyFade(context, width, height, burn, decay) {
   context.restore();
 }
 
-/** Softness in buffer px for energy deposits (scales with face/font + burn). */
-function nodeGraphPhosphorEnergySoftnessPx(sizePx, burn = 0.5) {
+/** Softness in buffer px for energy deposits (size only — no ad-hoc glow). */
+function nodeGraphPhosphorEnergySoftnessPx(sizePx, _ignored = 0.5) {
   const size = Math.max(1, Number(sizePx) || 1);
-  const b = clampNodeSliderValue(Number(burn) || 0, 0, 1);
-  // Always a bit of blur so residual never stamps harsh 1-bit edges.
-  return Math.max(1.25, size * (0.1 + b * 0.22));
+  return Math.max(1.25, size * 0.18);
 }
 
 /**
@@ -11810,12 +11974,8 @@ function paintNodeGraphNumberReadoutColdBoot(canvas, screenElement, node = null)
   const settings = nodeGraphNumberReadoutSettingsForNode(node);
   const decimals = nodeGraphNumberReadoutSafeDecimals(settings.decimals);
   const valueText = decimals > 0 ? ` !.${"!".repeat(decimals)}` : " !";
-  const ghost = clampNodeSliderValue(Number(settings.ghost) || 0, 0, 1);
-  const innerShadow = clampNodeSliderValue(Number(settings.innerShadow) || 0, 0, 1);
   const plateRgb = nodeGraphNumberReadoutGhostPlateRgb(settings);
   const bg = nodeGraphFacePlateBackground(settings);
-  const bright = Number(settings.brightness);
-  const b01 = Math.max(0, Math.min(1, (Number.isFinite(bright) ? bright : 0.92) / 2));
   if (screenElement.dataset) {
     // Full hole when the LCD plate is present (0…1 dimmer is the only gain).
     screenElement.dataset.lightStrength = "1";
@@ -11838,21 +11998,19 @@ function paintNodeGraphNumberReadoutColdBoot(canvas, screenElement, node = null)
   context.clearRect(0, 0, width, height);
   context.fillStyle = bg;
   context.fillRect(0, 0, width, height);
-  if (ghost > 0.001) {
-    nodeGraphNumberReadoutDrawDigits(context, {
-      text: valueText,
-      centerX: width * 0.5,
-      centerY: layout.digitAreaH * 0.5,
-      fontFamily: digitFontFamily,
-      fontSize: layout.fontSize,
-      cellW: layout.cellW,
-      rgb: plateRgb,
-      alpha: Math.max(0.12, ghost * (nodeGraphNumberReadoutDsegReady ? 0.72 : 0.55)),
-      softBlurPx: 0,
-      plate: true,
-    });
-  }
-  nodeGraphNumberReadoutDrawInnerShadow(context, 0, 0, width, height, innerShadow);
+  // Unlit plate = ghostColor as chosen (no separate ghost-amount dim).
+  nodeGraphNumberReadoutDrawDigits(context, {
+    text: valueText,
+    centerX: width * 0.5,
+    centerY: layout.digitAreaH * 0.5,
+    fontFamily: digitFontFamily,
+    fontSize: layout.fontSize,
+    cellW: layout.cellW,
+    rgb: plateRgb,
+    alpha: 1,
+    softBlurPx: 0,
+    plate: true,
+  });
   // Keep cache dirty (invalidate already did) so live samples always redraw.
   canvas._nodeGraphNumberReadoutText = null;
   return true;
@@ -11987,10 +12145,7 @@ function nodeGraphNumberReadoutSettingsSignature(settings) {
     settings.color,
     settings.decay,
     settings.decimals,
-    settings.ghost,
     settings.ghostColor,
-    settings.innerGlow,
-    settings.innerShadow,
     stopsSig,
   ].join("|");
 }
@@ -12264,11 +12419,8 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     ? nodeGraphNumberReadoutFormatValue(nodeGraphOscilloscopeLatestSample(item.buffer, 0), decimals)
     : (decimals > 0 ? ` !.${"!".repeat(decimals)}` : " !");
   const text = unit ? `${valueText} ${unit}` : valueText;
-  // Decay UI = ghost hold of previous number (0 = none, 1 = longest).
+  // Decay UI = residual hold of previous number (0 = none, 1 = longest).
   const decay = clampNodeSliderValue(Number(settings.decay) || 0, 0, 1);
-  const ghost = clampNodeSliderValue(Number(settings.ghost) || 0, 0, 1);
-  const innerGlow = clampNodeSliderValue(Number(settings.innerGlow) || 0, 0, 1);
-  const innerShadow = clampNodeSliderValue(Number(settings.innerShadow) || 0, 0, 1);
   const settingsSig = nodeGraphNumberReadoutSettingsSignature(settings);
   const styleChanged =
     canvas._nodeGraphNumberReadoutSettingsSig !== settingsSig ||
@@ -12407,21 +12559,19 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   context.fillStyle = bg;
   context.fillRect(left, top, width, height);
 
-  // Unlit LCD segments: ghostColor × ghost amount (independent of energy gradient).
-  if (ghost > 0.001) {
-    nodeGraphNumberReadoutDrawDigits(context, {
-      text: valueText,
-      centerX: digitX,
-      centerY: digitY,
-      fontFamily: digitFontFamily,
-      fontSize: digitFontSize,
-      cellW,
-      rgb: plateRgb,
-      alpha: Math.max(0.12, ghost * (nodeGraphNumberReadoutDsegReady ? 0.72 : 0.55)),
-      softBlurPx: 0,
-      plate: true,
-    });
-  }
+  // Unlit LCD segments: ghostColor as chosen (dim/bright is the color itself).
+  nodeGraphNumberReadoutDrawDigits(context, {
+    text: valueText,
+    centerX: digitX,
+    centerY: digitY,
+    fontFamily: digitFontFamily,
+    fontSize: digitFontSize,
+    cellW,
+    rgb: plateRgb,
+    alpha: 1,
+    softBlurPx: 0,
+    plate: true,
+  });
 
   // Ghost residual, punched free of live glyph pixels every frame so static
   // digits stay clean even if older energy still sits under them.
@@ -12491,7 +12641,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     rgb,
     alpha,
     softBlurPx: 0,
-    glow: innerGlow,
+    glow: 0,
     plate: false,
   });
 
@@ -12504,7 +12654,6 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     context.fillText(unit, left + width * 0.5, top + digitAreaHeight + labelHeight * 0.5);
   }
 
-  nodeGraphNumberReadoutDrawInnerShadow(context, left, top, width, height, innerShadow);
   context.restore();
 
   canvas._nodeGraphNumberReadoutText = text;
@@ -12626,12 +12775,12 @@ function nodeGraphOneDimensionalBurnFadeTrail(context, canvas, settings) {
   if (!context || !canvas?.width || !canvas?.height) {
     return;
   }
-  const burn = clampNodeSliderValue(Number(settings?.burn) || 0, 0, 1);
   const decay = clampNodeSliderValue(Number(settings?.decay) || 0, 0, 1);
   if (decay <= 0) {
     return;
   }
-  const fadeAlpha = clampNodeSliderValue(0.012 + decay * 0.3 - burn * 0.006, 0.002, 0.34);
+  // Decay only — no burn term (burn is not a second brightness/gain).
+  const fadeAlpha = clampNodeSliderValue(0.012 + decay * 0.3, 0.002, 0.34);
   context.save();
   context.globalCompositeOperation = "destination-out";
   context.fillStyle = `rgba(0, 0, 0, ${fadeAlpha.toFixed(4)})`;
@@ -13505,12 +13654,11 @@ function copyNodeGraphScope2dBurnSurface(renderer, sourceSurface, targetSurface,
 }
 
 function nodeGraphScope2dBurnDecayValues(settings) {
-  const burn = clampNodeSliderValue(Number(settings?.burn) || 0, 0, 1);
   const decay = clampNodeSliderValue(Number(settings?.decay) || 0, 0, 1);
   return {
     decayFast: decay > 0 ? 1 - decay * 0.38 : 1,
     decaySlow: decay > 0 ? 1 - decay * 0.1 : 1,
-    exposure: nodeGraphScope2dEnergyBurnExposure(burn),
+    exposure: nodeGraphScope2dEnergyBurnExposure(),
     floor: decay > 0 ? decay * 0.0035 : 0,
   };
 }
@@ -13593,7 +13741,7 @@ function buildNodeGraphScope2dBurnVertices(pathPoints) {
   return vertices;
 }
 
-function drawNodeGraphScope2dBurnBeamLayer(renderer, vertices, layer, burn) {
+function drawNodeGraphScope2dBurnBeamLayer(renderer, vertices, layer, _ignoredBurn) {
   const gl = renderer?.gl;
   const vertexCount = Math.floor((vertices?.length || 0) / 5);
   if (!gl || vertexCount <= 0 || !layer || layer.radius <= 0 || layer.brightness <= 0) {
@@ -13617,7 +13765,8 @@ function drawNodeGraphScope2dBurnBeamLayer(renderer, vertices, layer, burn) {
   gl.uniform1f(renderer.beamRadiusLocation, Math.max(0.5, layer.radius));
   gl.uniform3f(renderer.beamColorLocation, layer.color[0], layer.color[1], layer.color[2]);
   gl.uniform1f(renderer.beamBlurLocation, clampNodeSliderValue(layer.blur, 0, 1));
-  gl.uniform1f(renderer.beamBrightnessLocation, layer.brightness * (0.012 + burn * 0.052));
+  // Brightness only — fixed deposit scale (no burn multiplier).
+  gl.uniform1f(renderer.beamBrightnessLocation, layer.brightness * 0.055);
   gl.drawArrays(gl.TRIANGLES, 0, vertexCount);
   recordNodeGraphModuleScopeRenderMetrics(vertexCount, vertexCount);
 }
@@ -13700,8 +13849,9 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
     return false;
   }
 
-  const burn = clampNodeSliderValue(Number(settings?.burn) || 0, 0, 1);
   const decay = clampNodeSliderValue(Number(settings?.decay) || 0, 0, 1);
+  // Burn = long-lived dim residual hang (screen burn-in), not deposit gain.
+  const burn = clampNodeSliderValue(Number(settings?.burn) || 0, 0, 1);
   const dotSpace = nodeGraphScope2dStrokeSpace(canvas);
   const layers = nodeGraphScope2dBurnLayers(settings, dotSpace);
   const layer = layers[0] || null;
@@ -13715,15 +13865,15 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
   if (frozen) {
     // Present only (below). No decay, no bleed, no deposit.
   } else if (layer) {
-    // Soft circular hits on NEW motion only. Burn gain is smooth (no dead band).
+    // Soft hits on NEW motion only. Deposit = brightness; Decay = trail; Burn = dim hang.
     const size01 = clampNodeSliderValue(settings?.dot1Size, 0, 1);
     const beamBrightness = nodeGraphScope2dEnergyBurnDepositGain(
-      burn,
       layer.brightness,
       size01,
     );
     nodeGraphPhosphorEnergyGlStepBeams(energyGl, {
       decay,
+      burn,
       pathPoints: points,
       radius: Math.max(0.35, layer.radius),
       brightness: beamBrightness,
@@ -13740,7 +13890,7 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
     });
   } else if (typeof nodeGraphPhosphorEnergyGlStep === "function") {
     // Fade + bleed when no drawable layer (trail still softens outward).
-    nodeGraphPhosphorEnergyGlStep(energyGl, { decay, depositGain: 0, bleed: 0.1 });
+    nodeGraphPhosphorEnergyGlStep(energyGl, { decay, burn, depositGain: 0, bleed: 0.1 });
   }
 
   if (!frozen) {
@@ -13750,9 +13900,8 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
     }
   }
 
-  // Soft film exposure — stable base so low burn stays dim, not blank.
-  // Re-present while frozen so the face stays visible if something cleared the 2D canvas.
-  const exposure = nodeGraphScope2dEnergyBurnExposure(burn);
+  // Fixed film exposure (not a second brightness).
+  const exposure = nodeGraphScope2dEnergyBurnExposure();
   context.setTransform(1, 0, 0, 1, 0, 0);
   nodeGraphFacePlateFillCanvas(context, canvas, bgHex);
   if (nodeGraphPhosphorEnergyGlPresent(energyGl, 1, { exposure })) {
@@ -13869,14 +14018,13 @@ function drawNodeGraphRetainedBurnPath(item, pixelRatio, pathPoints, settings, o
     canvas._nodeGraphOneDimensionalBurnLastDrawnFrame = endFrame;
   }
   if (vertices.length > 0) {
-    const burn = clampNodeSliderValue(Number(settings?.burn) || 0, 0, 1);
     const gl = renderer.gl;
     gl.bindFramebuffer(gl.FRAMEBUFFER, renderer.writeSurface.framebuffer);
     gl.viewport(0, 0, renderer.width, renderer.height);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE);
     for (const layer of layers) {
-      drawNodeGraphScope2dBurnBeamLayer(renderer, vertices, layer, burn);
+      drawNodeGraphScope2dBurnBeamLayer(renderer, vertices, layer);
     }
     gl.disable(gl.BLEND);
   }
@@ -13965,7 +14113,6 @@ function drawNodeGraphHypersawBurnItem(renderer, item, pixelRatio) {
   }
   const minSide = Math.max(1, Math.min(canvas.width, canvas.height));
   const settings = {
-    burn: 0.55,
     decay: 0.22,
     dot1Brightness: 0.95,
     dot1Color: "#3de0ff",
@@ -14805,6 +14952,35 @@ function drawNodeGraphScope2dItem(renderer, item, pixelRatio) {
 // without editing this file, once they've also been added to the
 // nodeGraphDisplayModeRenderers allow-list above (that list stays a
 // separate validation step, not a dispatch mechanism).
+/**
+ * Modules that paint their own face canvas (Matrix Display, Asciiscope XY, …).
+ * Scope slot stays registered so visualSink buffer capture + room-dimmer light
+ * punches still work — but we must never mount a Trace local-fallback canvas
+ * over the custom UI (that painted a grey baseline bar across the module).
+ */
+function drawNodeGraphSelfPaintFaceItem(_renderer, item, _pixelRatio) {
+  const screen = item?.screenElement || item?.slot?.scopeElement;
+  if (!screen) {
+    return;
+  }
+  // Strip any leftover scope overlay from before this displayType existed.
+  for (const overlay of screen.querySelectorAll?.(
+    ":scope > .node-module-scope-local-fallback-canvas",
+  ) || []) {
+    try {
+      if (typeof disposeNodeGraphScope2dBurnRendererForCanvas === "function") {
+        disposeNodeGraphScope2dBurnRendererForCanvas(overlay);
+      }
+    } catch (_) { /* best-effort */ }
+    overlay.remove();
+  }
+  // Drop persistent-canvas cache so a rebuild does not re-append the ghost plate.
+  const nodeId = item?.slot?.nodeId || item?.nodeId;
+  if (nodeId && typeof nodeGraphModuleScopePersistentCanvases !== "undefined") {
+    nodeGraphModuleScopePersistentCanvases.delete?.(nodeId);
+  }
+}
+
 const nodeGraphModuleScopeCustomRenderers = {
   trace: drawNodeGraphTraceDisplayItem,
   dot: drawNodeGraphDotOscilloscopeItem,
@@ -14815,6 +14991,10 @@ const nodeGraphModuleScopeCustomRenderers = {
   scope2d: drawNodeGraphScope2dItem,
   numberReadout: drawNodeGraphNumberReadoutItem,
   customDisplay: drawNodeGraphCustomDisplayItem,
+  selfPaintFace: drawNodeGraphSelfPaintFaceItem,
+  matrixFace: drawNodeGraphSelfPaintFaceItem,
+  matrixWaterfallFace: drawNodeGraphSelfPaintFaceItem,
+  matrixDisplayFace: drawNodeGraphSelfPaintFaceItem,
   // oscilloscopeBankBurn self-registers from
   // public/modules/oscilloscopeBank/oscilloscope-bank-display.js
   // videoscopeBurn self-registers from

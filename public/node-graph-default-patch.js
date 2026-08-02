@@ -72,6 +72,24 @@ function createNodeGraphPatchNode(type, options = {}) {
   if (resolvedType === "customDisplay") {
     node.customDisplay = normalizeNodeGraphCustomDisplay(opts.customDisplay);
   }
+  if (resolvedType === "matrixWaterfall" && typeof normalizeNodeGraphMatrixWaterfall === "function") {
+    node.matrixWaterfall = normalizeNodeGraphMatrixWaterfall(
+      opts.matrixWaterfall || opts.matrixDisplay || opts.asciiscope,
+    );
+  }
+  if (resolvedType === "matrixDisplay") {
+    if (typeof normalizeNodeGraphMatrixPlate === "function") {
+      node.matrixDisplay = normalizeNodeGraphMatrixPlate(opts.matrixDisplay || opts.asciiscope);
+    } else if (typeof normalizeNodeGraphAsciiscope === "function") {
+      node.matrixDisplay = normalizeNodeGraphAsciiscope(opts.matrixDisplay || opts.asciiscope);
+    }
+  }
+  if (resolvedType === "asciiscope" && typeof normalizeNodeGraphMatrixDisplay === "function") {
+    node.asciiscope = normalizeNodeGraphMatrixDisplay(opts.asciiscope || opts.matrixDisplay);
+  }
+  if (resolvedType === "textStream" && typeof normalizeNodeGraphTextStream === "function") {
+    node.textStream = normalizeNodeGraphTextStream(opts.textStream);
+  }
   if (resolvedType === "canvas") {
     node.canvasScript = normalizeNodeGraphCanvasScript(opts.canvasScript);
   }
@@ -84,15 +102,16 @@ function createNodeGraphPatchNode(type, options = {}) {
   if (resolvedType === "moduleGroup") {
     node.moduleGroup = normalizeNodeGraphModuleGroup(options.moduleGroup);
   }
-  if (resolvedType === "clapPlugin") {
-    node.clap = normalizeNodeGraphClapPluginBinding(options.clap);
-  }
   if (resolvedType === "valueSlider" && typeof normalizeNodeGraphValueSliderFace === "function") {
     const face = normalizeNodeGraphValueSliderFace(opts.valueSliderFace);
     if (typeof nodeGraphValueSliderFaceIsNonDefault === "function"
       ? nodeGraphValueSliderFaceIsNonDefault(face)
-      : (face.mid?.dataUrl || face.bottom?.dataUrl || face.top?.dataUrl || face.rotateLikeKnob)) {
-      node.valueSliderFace = face;
+      : (typeof nodeGraphValueSliderFaceHasAnyImage === "function"
+        ? nodeGraphValueSliderFaceHasAnyImage(face)
+        : face.layers?.some?.((layer) => layer?.dataUrl))) {
+      node.valueSliderFace = typeof nodeGraphValueSliderFaceToPatch === "function"
+        ? nodeGraphValueSliderFaceToPatch(face)
+        : face;
     }
   }
   return node;

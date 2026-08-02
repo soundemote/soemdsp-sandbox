@@ -100,6 +100,27 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
       patchNode.paramMeta[key],
     ),
   };
+  // Pitch Quantizer: preset Scale slider writes the face keyboard mask so
+  // audio + keyboard stay in sync. Custom (choice 6) leaves scaleMask alone.
+  if (patchNode.type === "pitchQuantizer" && key === "scale") {
+    const choice = Math.round(Number(patchNode.params.scale) || 0);
+    if (
+      choice >= 0
+      && choice <= 5
+      && typeof nodeGraphPitchQuantizerMaskFromChoice === "function"
+    ) {
+      const mask = nodeGraphPitchQuantizerMaskFromChoice(choice);
+      patchNode.params.scaleMask = normalizeNodeGraphPatchParameter(
+        patchNode.type,
+        "scaleMask",
+        mask,
+        patchNode.paramMeta?.scaleMask,
+      );
+      if (typeof syncNodeGraphPitchQuantizerFace === "function") {
+        syncNodeGraphPitchQuantizerFace(node);
+      }
+    }
+  }
   const graphPhaseChanged = (
     key === "phase" &&
     nodeGraphModuleIsGraphType(patchNode.type) &&

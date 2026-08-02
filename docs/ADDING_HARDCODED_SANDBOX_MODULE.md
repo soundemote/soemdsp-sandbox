@@ -5,8 +5,8 @@ This guide describes the current WebUI path for adding a module to
 
 Current state: WebUI modules are hardcoded sandbox modules. Adding one means
 editing sandbox source code. There is not yet a user-facing custom module
-loader, manifest-driven module registry, plugin API, WASM module format, CLAP
-or JUCE module path, or server-persisted project/module format.
+loader, manifest-driven module registry, plugin API, WASM module format,
+or server-persisted project/module format.
 
 This guide does not describe the final C++ API.
 
@@ -250,4 +250,4 @@ Before considering a hardcoded module complete:
 - Smoke tests cover the source markers and behavior contract that must survive
   future edits.
 - The documentation still states that this is not a plugin API, manifest module
-  format, WASM module format, CLAP/JUCE path, or final C++ module API.
+  format, WASM module format, or final C++ module API.

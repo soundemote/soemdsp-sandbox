@@ -20,6 +20,10 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeModuleShopResizeHandle", "pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowResize(event, "moduleBrowser"));
   bindNodeGraphSceneElementEvent("nodeModuleDepartmentSearch", "input", handleNodeGraphModuleDepartmentSearchInput);
   bindNodeGraphSceneElementEvent("nodeModuleDepartmentSearch", "keydown", handleNodeGraphModuleDepartmentSearchKeydown);
+  bindNodeGraphSceneElementEvent("nodeCommandCenterModuleSearchInput", "input", handleNodeGraphCommandCenterModuleSearchInput);
+  bindNodeGraphSceneElementEvent("nodeCommandCenterModuleSearchInput", "keydown", handleNodeGraphCommandCenterModuleSearchKeydown);
+  bindNodeGraphSceneElementEvent("nodeCommandCenterModuleSearchResults", "click", handleNodeGraphModuleStoreClick);
+  bindNodeGraphSceneElementEvent("nodeCommandCenterModuleSearchResults", "pointerdown", beginNodeGraphModuleStorePointerPlacement);
   bindNodeGraphSceneElementEvent("nodeModuleDepartmentBack", "click", () => setNodeGraphModuleStoreDepartment(""));
   // Module shop / module actions / code box / command center drag+resize:
   // registry pointer bridge (node-graph-floating-windows.js)
@@ -180,13 +184,21 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeSceneToggleTitle", "click", toggleNodeGraphModuleTitleFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneImageSave", "click", saveNodeGraphImageFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneImageRefresh", "click", refreshNodeGraphImageFromContext);
-  bindNodeGraphSceneElementEvent("nodeSceneValueSliderFaceLoadBottom", "click", () => pickNodeGraphValueSliderFaceImage("bottom"));
-  bindNodeGraphSceneElementEvent("nodeSceneValueSliderFaceClearBottom", "click", () => clearNodeGraphValueSliderFaceImage("bottom"));
-  bindNodeGraphSceneElementEvent("nodeSceneValueSliderFaceLoadMid", "click", () => pickNodeGraphValueSliderFaceImage("mid"));
-  bindNodeGraphSceneElementEvent("nodeSceneValueSliderFaceClearMid", "click", () => clearNodeGraphValueSliderFaceImage("mid"));
-  bindNodeGraphSceneElementEvent("nodeSceneValueSliderFaceLoadTop", "click", () => pickNodeGraphValueSliderFaceImage("top"));
-  bindNodeGraphSceneElementEvent("nodeSceneValueSliderFaceClearTop", "click", () => clearNodeGraphValueSliderFaceImage("top"));
-  bindNodeGraphSceneElementEvent("nodeSceneValueSliderFaceRotate", "change", () => setNodeGraphValueSliderFaceRotateFromContext({ record: true }));
+  bindNodeGraphSceneElementEvent("nodeSceneValueSliderFaceLoad1", "click", () => pickNodeGraphValueSliderFaceImage("image1"));
+  bindNodeGraphSceneElementEvent("nodeSceneValueSliderFaceClear1", "click", () => clearNodeGraphValueSliderFaceImage("image1"));
+  bindNodeGraphSceneElementEvent("nodeSceneValueSliderFaceRotate1", "change", () => setNodeGraphValueSliderFaceLayerRotateFromContext("image1", { record: true }));
+  bindNodeGraphSceneElementEvent("nodeSceneValueSliderFaceLoad2", "click", () => pickNodeGraphValueSliderFaceImage("image2"));
+  bindNodeGraphSceneElementEvent("nodeSceneValueSliderFaceClear2", "click", () => clearNodeGraphValueSliderFaceImage("image2"));
+  bindNodeGraphSceneElementEvent("nodeSceneValueSliderFaceRotate2", "change", () => setNodeGraphValueSliderFaceLayerRotateFromContext("image2", { record: true }));
+  bindNodeGraphSceneElementEvent("nodeSceneValueSliderFaceLoad3", "click", () => pickNodeGraphValueSliderFaceImage("image3"));
+  bindNodeGraphSceneElementEvent("nodeSceneValueSliderFaceClear3", "click", () => clearNodeGraphValueSliderFaceImage("image3"));
+  bindNodeGraphSceneElementEvent("nodeSceneValueSliderFaceRotate3", "change", () => setNodeGraphValueSliderFaceLayerRotateFromContext("image3", { record: true }));
+  bindNodeGraphSceneElementEvent("nodeSceneValueSliderFaceLoad4", "click", () => pickNodeGraphValueSliderFaceImage("image4"));
+  bindNodeGraphSceneElementEvent("nodeSceneValueSliderFaceClear4", "click", () => clearNodeGraphValueSliderFaceImage("image4"));
+  bindNodeGraphSceneElementEvent("nodeSceneValueSliderFaceRotate4", "change", () => setNodeGraphValueSliderFaceLayerRotateFromContext("image4", { record: true }));
+  bindNodeGraphSceneElementEvent("nodeSceneValueSliderFaceLoad5", "click", () => pickNodeGraphValueSliderFaceImage("image5"));
+  bindNodeGraphSceneElementEvent("nodeSceneValueSliderFaceClear5", "click", () => clearNodeGraphValueSliderFaceImage("image5"));
+  bindNodeGraphSceneElementEvent("nodeSceneValueSliderFaceRotate5", "change", () => setNodeGraphValueSliderFaceLayerRotateFromContext("image5", { record: true }));
   bindNodeGraphSceneElementEvent("nodeSceneValueSliderFaceRotationDegrees", "input", () => setNodeGraphValueSliderFaceRotationDegreesFromContext({ record: false }));
   bindNodeGraphSceneElementEvent("nodeSceneValueSliderFaceRotationDegrees", "change", () => setNodeGraphValueSliderFaceRotationDegreesFromContext({ record: true }));
   bindNodeGraphSceneElementEvent("nodeSceneValueSliderFaceRotationOffset", "input", () => setNodeGraphValueSliderFaceRotationOffsetFromContext({ record: false }));

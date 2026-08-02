@@ -546,19 +546,42 @@ function createNodeGraphModuleHeader(type, node, definition) {
   titleText.className = "node-header-title node-header-title-input";
   titleText.dataset.node = node;
   titleText.spellcheck = false;
-  // Always the module type name (not user alias). Alias lives under Command
-  // Center Module Settings and drives Value Slider face label / wire names.
-  titleText.value = typeof nodeGraphModuleChromeTitle === "function"
-    ? nodeGraphModuleChromeTitle({ id: node, type })
+  // Shows user alias when set, otherwise the default type title.
+  // Pass node id so patch lookup can read alias (not a bare {id,type} stub).
+  titleText.value = typeof nodeGraphPatchNodeTitle === "function"
+    ? nodeGraphPatchNodeTitle(node)
     : (nodeGraphNodeLabels?.[type] || type);
-  titleText.readOnly = true;
-  titleText.tabIndex = -1;
-  titleText.setAttribute("aria-readonly", "true");
-  titleText.title = "Module type name (edit ALIAS under Module Settings)";
-  // Single/double click on the title behave exactly like clicking anywhere
-  // else in the header row (select/drag the module, or open the module
-  // settings menu on double-click). Title is not an alias editor.
+  titleText.title = "Triple-click to rename (alias). Double-click header for Module Settings.";
+  // Single/double click: select/drag or open module settings (bubbles to row).
+  // preventDefault blocks the input's native caret placement on click #1.
+  // Triple-click (detail >= 3) starts an inline alias edit.
   titleText.addEventListener("pointerdown", (event) => event.preventDefault());
+  titleText.addEventListener("click", (event) => {
+    if (event.detail < 3) {
+      return;
+    }
+    event.stopPropagation();
+    titleText.focus();
+    titleText.select();
+  });
+  titleText.addEventListener("change", () => {
+    if (typeof commitNodeGraphModuleTitleFromHeaderInput === "function") {
+      commitNodeGraphModuleTitleFromHeaderInput(node, titleText.value);
+    }
+  });
+  titleText.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      titleText.blur();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(node) : null;
+      titleText.value = typeof nodeGraphPatchNodeTitle === "function"
+        ? nodeGraphPatchNodeTitle(patchNode || { id: node, type })
+        : titleText.value;
+      titleText.blur();
+    }
+  });
   titleRow.append(titleText);
   header.append(titleRow);
 

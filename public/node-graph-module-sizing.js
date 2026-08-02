@@ -63,6 +63,10 @@ function nodeGraphModuleWidthLimitsForType(type) {
   if (typeof nodeGraphModuleUsesLayoutB === "function" && nodeGraphModuleUsesLayoutB(type)) {
     return { ...nodeGraphModuleWidthLimits, minGu: nodeGraphLayoutBMinGu };
   }
+  // MIDI Keyboard needs real horizontal room for white keys + labels.
+  if (nodeGraphModuleDefinitions[type]?.layout === "keyboardController") {
+    return { ...nodeGraphModuleWidthLimits, minGu: 14 };
+  }
   return nodeGraphModuleWidthLimits;
 }
 
@@ -117,7 +121,9 @@ function nodeGraphModuleTypeHasCustomDisplayArea(type) {
   // LayoutA status faces (BADVAL, …) and LayoutB faces that own the display row.
   return layout === "graph"
     || layout === "sliderWidget"
-    || layout === "badvalMonitor";
+    || layout === "badvalMonitor"
+    || layout === "pitchQuantizer"
+    || layout === "asciiscope";
 }
 
 function nodeGraphModuleTypeHasHideableOscilloscope(type) {
@@ -133,7 +139,6 @@ function nodeGraphModuleTypeHasHideableOscilloscope(type) {
   }
   return Boolean(nodeGraphModuleDefinitions[type]) && ![
     "canvas",
-    "clapPlugin",
     "graph",
     "image",
     "keyboardController",
@@ -321,11 +326,21 @@ function nodeGraphDefaultModuleGridWidthUnits(type) {
   if (nodeGraphModuleDefinitions[type]?.layout === "filterCurve") {
     return 8;
   }
+  if (nodeGraphModuleDefinitions[type]?.layout === "pitchQuantizer") {
+    return 10;
+  }
+  if (nodeGraphModuleDefinitions[type]?.layout === "asciiscope") {
+    return 14;
+  }
   if (nodeGraphModuleDefinitions[type]?.layout === "pulseCurve") {
     return 8;
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "wallRoomDisplay") {
     return 8;
+  }
+  // ~15 white keys at usable width + I/O chrome; 7gu was crushing note labels.
+  if (nodeGraphModuleDefinitions[type]?.layout === "keyboardController") {
+    return 18;
   }
   return 7;
 }
@@ -650,9 +665,10 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
     ];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "keyboardController") {
+    // Heading + piano surface + signal/bitmask rows need more than a scope face.
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
-      { id: "keyboard", heightGu: 12, visible: true },
+      { id: "keyboard", heightGu: 16, visible: true },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
     ];
   }
@@ -691,6 +707,24 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: true },
     ];
   }
+  if (nodeGraphModuleDefinitions[type]?.layout === "pitchQuantizer") {
+    return [
+      { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
+      { id: "face", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: true },
+      { id: "io", heightGu: ioHeightGu, visible: ioVisible },
+      { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
+      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: true },
+    ];
+  }
+  if (nodeGraphModuleDefinitions[type]?.layout === "asciiscope") {
+    return [
+      { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
+      { id: "face", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: true },
+      { id: "io", heightGu: ioHeightGu, visible: ioVisible },
+      { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
+      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: true },
+    ];
+  }
   if (nodeGraphModuleDefinitions[type]?.layout === "wallRoomDisplay") {
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
@@ -706,25 +740,6 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "curve", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
-      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: true },
-    ];
-  }
-  if (nodeGraphModuleDefinitions[type]?.layout === "clapPlugin") {
-    // clapPlugin has no static parameters[] (they're discovered live from
-    // whatever plugin is bound, see nodeGraphClapParameterPayload), so the
-    // generic "params" row below -- driven by nodeGraphModuleBodyRowCount's
-    // static definition.parameters.length -- always saw 0 and never grew
-    // the node. The 18gu body budget here is a fixed estimate sized to fit
-    // the plugin select, preset row, detail text, safety line, and the
-    // 8-button action grid at their real CSS min-heights, plus the
-    // scrollable parameter list's own 240px max-height (see
-    // .node-clap-plugin-param-list) -- so a plugin with many parameters
-    // (e.g. "Soundemote - soemdsp DSP Proof") scrolls its own param list
-    // instead of the node overlapping neighboring modules.
-    return [
-      { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
-      { id: "clapBody", heightGu: 18, visible: true },
-      { id: "io", heightGu: ioHeightGu, visible: ioVisible },
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: true },
     ];
   }

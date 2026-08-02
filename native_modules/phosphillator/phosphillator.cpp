@@ -13,6 +13,10 @@
 // scheme. If the path is longer than kMaxPathPoints, soemdsp_phosphillator_set_path
 // returns 0 and the JS wrapper falls back to the JS implementation for that
 // node rather than silently truncating a user's drawing.
+//
+// Path scan uses open-path indexing (no last→first wrap) with a Jerobeam
+// trisaw sharpness morph: 0 = reverse saw, 0.5 = triangle (forward then
+// reverse), 1 = forward saw. Version is 2 for this semantics.
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -34,6 +38,15 @@ struct PhosphillatorState {
 };
 
 static PhosphillatorState gPool[kMaxInstances];
+
+// Jerobeam trisaw: warp 0 ≈ reverse saw, 0.5 = triangle, 1 ≈ forward saw.
+double phosphillator_trisaw(double phase, double warp) {
+  const double wrapped = wrap01(phase);
+  const double safeWarp = clamp(warp, 0.001, 0.999);
+  return wrapped < safeWarp
+    ? wrapped / safeWarp
+    : (1.0 - wrapped) / (1.0 - safeWarp);
+}
 
 }  // namespace
 
@@ -97,7 +110,8 @@ extern "C" double soemdsp_phosphillator_sample(
   double frequency,
   double phaseOffset,
   double reset,
-  double rate
+  double rate,
+  double sharpness
 ) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
   PhosphillatorState& s = gPool[handle - 1];
@@ -118,12 +132,16 @@ extern "C" double soemdsp_phosphillator_sample(
   }
 
   const double effectivePhase = wrap01(s.phase + safe(phaseOffset));
+  const double pathPos = phosphillator_trisaw(effectivePhase, safe(sharpness));
   const int n = s.pathCount;
-  const double index = effectivePhase * (double)n;
+  // Open path: index spans [0 .. n-1], never wraps last→first.
+  const double index = pathPos * (double)(n - 1);
   const double indexFloor = dsp_floor(index);
-  const int i0 = ((int)indexFloor) % n;
-  const int i1 = (i0 + 1) % n;
-  const double t = index - indexFloor;
+  int i0 = (int)indexFloor;
+  if (i0 < 0) i0 = 0;
+  if (i0 > n - 2) i0 = n - 2;
+  const int i1 = i0 + 1;
+  const double t = index - (double)i0;
 
   const double x0 = (double)s.pathX[i0];
   const double x1 = (double)s.pathX[i1];
@@ -139,6 +157,7 @@ extern "C" double soemdsp_phosphillator_y(int handle) {
   return gPool[handle - 1].outY;
 }
 
+// v2: open-path indexing + sharpness trisaw argument on sample().
 extern "C" int soemdsp_phosphillator_version() {
-  return 1;
+  return 2;
 }

@@ -74,7 +74,6 @@ const nodeGraphModuleCatalogVisibilityStorageKey = "soemdsp-sandbox.moduleCatalo
 // DepartmentAliases map, DepartmentAds map) with emoji baked into identity
 // strings and mismatched keys between them.
 const nodeGraphModuleStoreDepartments = Object.freeze([
-  { id: "plugin",       emoji: "🔌", label: "Plugin",       symbol: "⧉",   title: "CLAP",     pitch: "Host a real installed CLAP plugin from a local companion process and run your patch's audio through it." },
   { id: "controller",   emoji: "🕹️", label: "Controller",   symbol: "⌘",   title: "Controllers", pitch: "Input devices and control bridges for keyboards, MIDI, gamepads, and external gestures." },
   { id: "gametrigger",  emoji: "♟️", label: "Game Trigger",  symbol: "",    title: "Game Triggers", pitch: "" },
   { id: "portal",       emoji: "🌐", label: "Portal",       symbol: "IO",  title: "Portals",   pitch: "Patch boundary portals for moving left, right, and mono signal lanes between rooms, templates, and larger circuits." },
@@ -85,19 +84,22 @@ const nodeGraphModuleStoreDepartments = Object.freeze([
   { id: "space",        emoji: "⛪", label: "Space",        symbol: "FX",  title: "Delay",     pitch: "Delay, reverb, distortion, and performance processors for shaping finished sound." },
   { id: "digital",      emoji: "🔬", label: "Digital",      symbol: "{ }", title: "Digital",   pitch: "Patch-local code surfaces, exact value conversion, and digital/visual programming tools inside the sandbox." },
   { id: "clock",        emoji: "⌚", label: "Clock",        symbol: "♪",   title: "Clock",     pitch: "Clocks, dividers, counters, and trigger timing -- everything that decides WHEN the rest of the patch fires." },
+  // Pitch, scale, chord — not sample playback (that's Sample Player) and not
+  // "when" (that's Clock). G-clef mark keeps Musical distinct from 🎶 Sample Player.
+  { id: "musical",      emoji: "🎼", label: "Musical",      symbol: "𝄞",  title: "Musical",  pitch: "Pitch, scale, and harmony tools: quantizers, chord pickers, progressions, and other note-theory building blocks." },
   { id: "modulator",    emoji: "♾️", label: "Modulator",    symbol: "⇄",   title: "Modulator", pitch: "Motion sources for pitch, amplitude, time, and texture. Small control engines that make patches move." },
   { id: "oscillator",   emoji: "⚪", label: "Oscillator",   symbol: "∿",   title: "Oscillator", pitch: "Start with a voice. Tone generators, phase motion, and the raw signal that everything else learns to orbit." },
   { id: "chaos",        emoji: "🌌", label: "Chaos",        symbol: "∞",   title: "Chaos",     pitch: "All the various attractors and strange motion systems. The wild shelf where math starts looking back." },
   { id: "jerobeam",     emoji: "♻️", label: "Jerobeam",     symbol: "JRB", title: "Jerobeam",  pitch: "Jerobeam spiral and orbit motion systems. Spiral Generator lives here." },
   { id: "noise",        emoji: "🌧️", label: "Noise",        symbol: "✦",   title: "Noise",     pitch: "Noise, dust, instability, sparks, and all the useful mess a clean machine secretly needs." },
-  { id: "music",        emoji: "🎶", label: "Music",        symbol: "OUT", title: "Music",     pitch: "Music playback, audio sinks, and listening endpoints for turning patch signal into rendered or live sound." },
-  { id: "sample",       emoji: "🔊", label: "Sample",       symbol: "▣",   title: "Samples",   pitch: "Audio-file shelf. Empty by default until sandbox has a real file-library flow." },
-  { id: "grains",       emoji: "⏳", label: "Grains",       symbol: "",    title: "Grains",    pitch: "" },
-  { id: "media",        emoji: "🎞️", label: "Media",        symbol: "",    title: "Media",     pitch: "" },
+  // Was "Music" (playback only). Sample Player holds Music Player / sample modules.
+  // 🎶 reused so the shelf still reads as the audio-file family, not theory.
+  // Samples / Grains / Media shelves stay offline until file storage exists.
+  { id: "sample",       emoji: "🎶", label: "Sample Player", symbol: "▣", title: "Sample Player", pitch: "Sample and music-file playback: one-shots, loops, and scrubbable players that turn stored audio into patch signal." },
   { id: "object",       emoji: "🧊", label: "Object",       symbol: "●",   title: "Object",    pitch: "Things you place in the world rather than wire into the signal path -- indicator lights, label plates, and other in-world props." },
   { id: "rgb",          emoji: "🌈", label: "RGB",          symbol: "◍",   title: "RGB",       pitch: "Color sinks for the screen wash — precise RGB/HSL channels or stylized chroma drift, alpha, bloom, and glow." },
   { id: "oscilloscope", emoji: "📺", label: "Oscilloscope", symbol: "OSC", title: "Oscilloscope", pitch: "Dedicated display testbeds for trace, line burn, 2D scope, videoscope, and canvas-style waveform inspection." },
-  { id: "multimeter",   emoji: "📟", label: "Multimeter",   symbol: "0D",  title: "Multimeter", pitch: "Single-value readouts. Burn, line, or text display for the latest value on a signal — no waveform, just the number." },
+  { id: "multimeter",   emoji: "📟", label: "Multimeter",   symbol: "0D",  title: "Multimeter", pitch: "Readouts that are not waveforms: numbers, character grids, and other value/message faces for what the signal is saying right now." },
   { id: "debug",        emoji: "🐞", label: "Debug",        symbol: "DBG", title: "Debug",     pitch: "Inspection tools, sentinels, and safety monitors for catching bad values while a patch is under test." },
 ]);
 
@@ -118,10 +120,9 @@ const nodeGraphModuleStoreDepartmentIds = Object.freeze(
 // entries and from the previous DepartmentAliases map) to canonical IDs.
 const nodeGraphModuleStoreDepartmentAliasToId = Object.freeze({
   Arpeggiator:       "clock",
-  Audio:             "music",
-  "Audio Player":    "music",
+  Audio:             "sample",
+  "Audio Player":    "sample",
   Chaos:             "chaos",
-  CLAP:              "plugin",
   Controllers:       "controller",
   Debug:             "debug",
   Delay:             "space",
@@ -131,7 +132,12 @@ const nodeGraphModuleStoreDepartmentAliasToId = Object.freeze({
   Envelope:          "envelope",
   Filter:            "filter",
   "Game Triggers":   "gametrigger",
-  Grains:            "grains",
+  // grains / media / samples shelves hidden until file storage — aliases no-op to sample if seen.
+  Grains:            "sample",
+  grains:            "sample",
+  Harmony:           "musical",
+  Media:             "sample",
+  media:             "sample",
   Jerobeam:          "jerobeam",
   // "LED" was this department's own name before it widened to Object; keep the
   // alias so stored settings and old patches still resolve.
@@ -141,13 +147,20 @@ const nodeGraphModuleStoreDepartmentAliasToId = Object.freeze({
   Modulator:         "modulator",
   Modulators:        "modulator",
   Multimeter:        "multimeter",
+  // Retired shelf id "music" (playback) → Sample Player. Theory tools → Musical.
+  Music:             "sample",
+  music:             "sample",
+  Musical:           "musical",
   Noise:             "noise",
   Oscillator:        "oscillator",
   Oscilloscope:      "oscilloscope",
   Other:             "digital",
   Portals:           "portal",
   RGB:               "rgb",
+  Sample:            "sample",
+  "Sample Player":   "sample",
   Samples:           "sample",
+  samples:           "sample",
   Sequence:          "clock",
   Sequencer:         "clock",
   Time:              "clock",
@@ -297,11 +310,17 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   // stepGrid registers its own catalog entry from public/modules/stepGrid/
   // step-grid-register.js -- see node-graph-chromeless-module-registry.js.
+  chordPad: {
+    category: "musical",
+    description: "Pick a diatonic chord with seven pads (Key + Major/Minor). Scale is a 12-bit pitch-class mask for Pitch Quantizer; Root is 0.1V/Oct; Gate follows Level. Optional Select CV chooses the pad.",
+    label: "Chord Pad",
+    notes: ["chord", "diatonic", "scale mask", "root", "pitch quantizer", "pads"],
+  },
   chordSequencer: {
-    category: "clock",
-    description: "Steps through a built-in diatonic chord progression on each Clock. Scale outputs the current chord as a 12-bit pitch-class mask (feed it straight into Pitch Quantizer), Root outputs the chord's root as 0.1V/Oct.",
+    category: "musical",
+    description: "Clocked chord progressions → Scale mask + Root (0.1V/Oct). Extra progressions, Key transpose, Forward/Reverse/Ping-Pong, Step CV.",
     label: "Chord Sequencer",
-    notes: ["chord progression", "digital signal", "scale mask output", "root output"],
+    notes: ["chord progression", "scale mask", "root", "ping-pong", "key"],
   },
   lutCell: {
     category: "digital",
@@ -316,28 +335,64 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["RS-MET tribute", "metallic mean", "golden ratio", "Robin Schmidt"],
   },
   chordMemory: {
-    category: "clock",
-    description: "Latches up to 4 notes from a mono Pitch input one at a time (Latch trigger), then outputs them as stacked simultaneous pitches or arpeggiated in sequence.",
+    category: "musical",
+    description: "Latches up to 4 notes from a mono Pitch input (Latch), Clear wipes, Advance walks active slots. Walk modes: Order, Shuffle Bag (no-repeat), Mutate — plus Leap / Leap Octaves. Trigger pulses on each Advance step; Note 1–4 still hold the stack.",
     label: "Chord Memory",
-    notes: ["latch", "mono to chord", "step record", "arpeggio output"],
+    notes: ["latch", "mono to chord", "shuffle bag", "mutate walk", "trigger"],
   },
   turingMachine: {
     category: "digital",
-    description: "Classic mutating shift-register sequencer: each Clock, the pattern shifts and the new bit is randomly flipped with a set Probability, giving evolving, semi-repeating loops. Also outputs a 12-bit Scale mask.",
+    description: "Mutating shift-register. CV/Scale/Gate as before; patch Scale+Root to get melodic Pitch (degree in scale). Trigger on each clock step.",
     label: "Turing Machine",
-    notes: ["generative", "shift register", "mutating pattern", "scale mask output"],
+    notes: ["generative", "shift register", "scale mask", "pitch from scale"],
   },
   pitchQuantizer: {
-    category: "clock",
-    description: "Snaps a 0.1V/Oct pitch signal to the nearest note in a scale. Pick a preset (Major, Minor, Pentatonic...) or feed a 12-bit pitch-class mask into the Scale input.",
+    category: "musical",
+    description: "Snaps a 0.1V/Oct pitch signal to the nearest note in a scale. Toggle pitch classes on the one-octave keyboard (applies across every octave), pick a preset, or feed a 12-bit pitch-class mask into the Scale input.",
     label: "Pitch Quantizer",
-    notes: ["quantizer", "scale", "0.1v/oct", "melody from chaos"],
+    notes: ["quantizer", "scale keyboard", "0.1v/oct", "pitch class mask", "melody from chaos"],
+  },
+  degreeTuring: {
+    category: "musical",
+    description: "Turing-style mutating register that picks scale degrees (not up/down arp). Wire Scale+Root from Chord Pad/Seq, Clock it, take 0.1V/Oct. Probability corrodes the loop; Length sets period.",
+    label: "Degree Turing",
+    notes: ["generative melody", "scale degrees", "mutating loop", "mono"],
+  },
+  gravityWalker: {
+    category: "musical",
+    description: "Mono degree walker with inertia (Gravity) and Leap chance/CV. Prefers stepwise motion in Scale+Root; leaps keep it from looping a tiny stair forever.",
+    label: "Gravity Walker",
+    notes: ["melodic walker", "gravity", "leap", "mono", "scale"],
+  },
+  degreePhrase: {
+    category: "musical",
+    description: "Eight degree knobs + rest toggles as a phrase in Scale+Root. Mutate slowly corrodes steps. Not a classic arp — a looping phrase that ages.",
+    label: "Degree Phrase",
+    notes: ["phrase", "degrees", "rests", "mutate", "mono"],
+  },
+  noteGlide: {
+    category: "musical",
+    description: "Portamento / slew on 0.1V/Oct. Put after quantizers, walkers, or phrase engines.",
+    label: "Note Glide",
+    notes: ["portamento", "slew", "0.1v/oct"],
+  },
+  noteTranspose: {
+    category: "musical",
+    description: "Offset 0.1V/Oct by semitones and octaves.",
+    label: "Note Transpose",
+    notes: ["transpose", "octave", "semitone"],
   },
   surgeOscillator: {
     category: "oscillator",
     description: "Anti-aliased Saw/Square/Tri/Sine oscillator with hard sync: a rising zero-crossing on the Sync input forces the phase back near 0, sub-sample-interpolated and PolyBLEP-corrected so the sync reset doesn't alias like a naive hard sync would. Native C++/WASM.",
     label: "Surge Oscillator",
     notes: ["oscillator", "hard sync", "polyblep", "anti-aliasing", "native"],
+  },
+  softwaveOsc: {
+    category: "oscillator",
+    description: "Softwave Oscillator — soft-shaped multi-wave voice (tanh / morph) ported from soemdsp DistortionOscillator. Waves: analog saw/square, perfect saw, tri, bow tri, soft bow tri, Walter wave, parabol sine. Morph drives softness; not a distortion FX module.",
+    label: "Softwave Oscillator",
+    notes: ["softwave", "tube", "tanh", "morph", "analog waves", "walter"],
   },
   dsfOscillator: {
     category: "oscillator",
@@ -468,12 +523,6 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Stereo noise source built from real digits of pi (fetched once, embedded), read via an irrational playback-rate drift so a tiny buffer never sounds like a hard loop. Independent seed per channel, White/Pink/Brown/Blue/Violet color, and a 4-stage one-pole Gaussian-smoothing cascade. Native C++/WASM.",
     label: "Pi Spigot Noise",
     notes: ["real pi digits", "stereo independent seeds", "noise color", "gaussian smoothing", "native"],
-  },
-  clapPlugin: {
-    category: "plugin",
-    description: "Browser-side shell for a local CLAP host plugin. Stores plugin identity and can use a host instance during bounded Render Sample.",
-    label: "CLAP Plugin",
-    notes: ["local host", "native plugin", "offline render"],
   },
   codeblock: {
     category: "digital",
@@ -643,13 +692,13 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["pitch wheel", "mod wheel", "performance control"],
   },
   samplePlayer: {
-    category: "music",
+    category: "sample",
     description: "Patch-local one-shot sample playback. Trigger starts from Start and plays to End with simple click ramps.",
     label: "Sample Player",
     notes: ["sample playback", "one shot", "audio source"],
   },
   audioPlayer: {
-    category: "music",
+    category: "sample",
     description: "Patch-local music file player with stereo outputs and a phasor-driven scrub input for sample-accurate playback head control.",
     label: "Music Player",
     notes: ["music playback", "scrubbable", "phasor", "audio source"],
@@ -661,7 +710,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["freehand draw", "phosphor", "xy oscillator", "papoulis smoothing"],
   },
   sampleLooper: {
-    category: "music",
+    category: "sample",
     description: "Patch-local gated sample loop playback with loop bounds, pitch control, and seam crossfade.",
     label: "Sample Looper",
     notes: ["sample playback", "loop", "audio source"],
@@ -889,6 +938,30 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Videoscope",
     notes: ["oscilloscope", "trigger", "dot", "line", "xy", "native", "phosphor display"],
   },
+  matrixWaterfall: {
+    category: "rgb",
+    description: "Self-running matrix rain. Parameter-only (no ports). Fall or Rise. Glyph table + gradient in Display Settings. Clean base for future matrix work.",
+    label: "Matrix Waterfall",
+    notes: ["rain", "fall", "rise", "parameter only", "glyph table", "gradient", "rgb"],
+  },
+  matrixDisplay: {
+    category: "multimeter",
+    description: "Matrix character plate: Info message and Serial Char+Trigger bins (Text Stream). LCD residual on change. No rain. Gradient in Display Settings.",
+    label: "Matrix Display",
+    notes: ["info plate", "serial", "lcd residual", "text stream", "multimeter"],
+  },
+  textStream: {
+    category: "digital",
+    description: "Type a message, emit one character at a time. Char = Unicode code point (integer). Trigger pulses on each new char. Clock advances one char; free-run uses Rate (Hz). Filter Char if you want to mangle the stream.",
+    label: "Text Stream",
+    notes: ["serial", "character", "digital", "text box"],
+  },
+  asciiscope: {
+    category: "oscilloscope",
+    description: "XY character-grid phosphor (standalone asciiscope instrument). Plots X/Y into a cell age map; glyph ramp string is the trail (cold→hot). Decay and Burn are phosphor memory and write hardness.",
+    label: "Asciiscope",
+    notes: ["xy", "glyph ramp", "phosphor decay", "character trail", "oscilloscope"],
+  },
   spectrogram: {
     category: "oscilloscope",
     description: "Regular STFT spectrogram. Module: Brightness, Min/Max Thresh. Display: History, FFT size, Window, Overlap, Freq Scale, Smooth, gradient presets.",
@@ -903,7 +976,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   numberReadout: {
     category: "multimeter",
-    description: "Phosphor LCD readout (DSEG7 Classic): 0–1 energy burn + gradient colormap, soft trails, hard plate/live digits. Shows the latest input value.",
+    description: "Phosphor LCD readout (DSEG7 Classic): energy residual + gradient colormap, soft trails, hard plate/live digits. Shows the latest input value.",
     label: "Number Readout",
     notes: [
       "numeric display",
@@ -912,7 +985,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "seven-segment",
       "energy phosphor",
       "gradient map",
-      "burn",
+      "brightness",
       "decay",
       "LCD plate",
       "latest value",
@@ -920,15 +993,15 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   lineBurnOscilloscope: {
     category: "oscilloscope",
-    description: "Heart-monitor phosphor: pen takes Sweep (s) to cross left→right. Rising-edge Reset (≥0.5) snaps back to the left. Burn, decay, pixel density.",
+    description: "Heart-monitor phosphor: pen takes Sweep (s) to cross left→right. Rising-edge Reset (≥0.5) snaps back to the left. Brightness, decay, pixel density.",
     label: "1D Burn Dot",
-    notes: ["heart monitor", "phosphor sweep", "reset", "burn", "decay"],
+    notes: ["heart monitor", "phosphor sweep", "reset", "brightness", "decay"],
   },
   scope2d: {
     category: "oscilloscope",
-    description: "XY phosphor scope (mono energy + gradient LUT). Soft/hard stamps, burn, decay, and dwell bleed — the path Lorenz and other attractors use.",
+    description: "XY phosphor scope (mono energy + gradient LUT). Soft/hard stamps, brightness, decay, and dwell bleed — the path Lorenz and other attractors use.",
     label: "2D Phosphor",
-    notes: ["xy phosphor", "energy drawer", "burn", "decay", "2D scope"],
+    notes: ["xy phosphor", "energy drawer", "brightness", "decay", "2D scope"],
   },
   phosphorLight: {
     category: "oscilloscope",
@@ -1403,6 +1476,88 @@ function handleNodeGraphModuleDepartmentSearchKeydown(event) {
   nodeGraphMvp.moduleStoreDepartmentSearch = "";
   event.currentTarget.value = "";
   renderNodeGraphModuleStoreCatalog();
+}
+
+/**
+ * Command Center module search — same catalog matching as the Module Browser,
+ * but lives on the Command Center page so you don't have to switch tabs.
+ */
+function handleNodeGraphCommandCenterModuleSearchInput(event) {
+  nodeGraphMvp.commandCenterModuleSearch = String(event?.currentTarget?.value || "");
+  renderNodeGraphCommandCenterModuleSearch();
+}
+
+function handleNodeGraphCommandCenterModuleSearchKeydown(event) {
+  if (event?.key !== "Escape") {
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  nodeGraphMvp.commandCenterModuleSearch = "";
+  if (event.currentTarget) {
+    event.currentTarget.value = "";
+  }
+  renderNodeGraphCommandCenterModuleSearch();
+}
+
+function renderNodeGraphCommandCenterModuleSearch() {
+  const shell = document.getElementById("nodeCommandCenterModuleSearch");
+  const field = document.getElementById("nodeCommandCenterModuleSearchInput");
+  const results = document.getElementById("nodeCommandCenterModuleSearchResults");
+  if (!shell || !field || !results) {
+    return;
+  }
+  // Only meaningful while Command Center itself is open (not Module Actions).
+  const commandCenter = document.getElementById("nodeSceneContextMenu");
+  if (commandCenter?.hidden) {
+    return;
+  }
+
+  const query = String(nodeGraphMvp.commandCenterModuleSearch || "");
+  if (document.activeElement !== field && field.value !== query) {
+    field.value = query;
+  }
+
+  const needle = typeof nodeGraphNormalizeModuleDepartmentSearch === "function"
+    ? nodeGraphNormalizeModuleDepartmentSearch(query)
+    : String(query || "").trim().toLowerCase();
+
+  results.replaceChildren();
+  if (!needle) {
+    results.hidden = true;
+    shell.classList.remove("has-results");
+    return;
+  }
+
+  const entries = typeof nodeGraphModuleStoreEntries === "function"
+    ? nodeGraphModuleStoreEntries()
+    : [];
+  const matches = entries
+    .filter((entry) => entry.visible && entry.implemented
+      && (typeof nodeGraphModuleStoreEntryMatchesSearch === "function"
+        ? nodeGraphModuleStoreEntryMatchesSearch(entry, query)
+        : true))
+    .sort(typeof nodeGraphModuleStoreSearchResultOrder === "function"
+      ? nodeGraphModuleStoreSearchResultOrder
+      : () => 0);
+
+  if (!matches.length) {
+    const empty = document.createElement("div");
+    empty.className = "scene-context-store-empty";
+    empty.textContent = "No modules match this search.";
+    results.append(empty);
+    results.hidden = false;
+    shell.classList.add("has-results");
+    return;
+  }
+
+  for (const entry of matches) {
+    if (typeof createNodeGraphModuleStoreButton === "function") {
+      results.append(createNodeGraphModuleStoreButton(entry));
+    }
+  }
+  results.hidden = false;
+  shell.classList.add("has-results");
 }
 
 function nodeGraphModuleStoreDemoPatchAvailable(type) {

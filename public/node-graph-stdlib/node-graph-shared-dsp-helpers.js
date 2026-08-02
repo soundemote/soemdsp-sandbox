@@ -3,6 +3,10 @@
 // Each helper below is shared by exactly 2-11 modules (noted per
 // function) -- too widely used to live in any one module's folder,
 // too small individually to warrant its own file.
+//
+// Pure phase/pitch primitives (wrap01, trisaw, pitched frequency, phasor
+// advance) live in node-graph-phasor-helpers.js so they can also load into
+// the AudioWorklet Blob without depending on nodeGraphMvp / safe-filter.
 
 function createNodeGraphTriggerDividerState() {
   return {
