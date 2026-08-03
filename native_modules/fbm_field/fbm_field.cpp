@@ -13,9 +13,9 @@ namespace {
 using namespace soemdsp_maths;
 
 static const int kMaxInstances = 32;
-// Face grid: dense enough for bilinear upscale to look smooth, cheap enough for rAF.
-static const int kMaxGridW = 256;
-static const int kMaxGridH = 256;
+// Face grid max: one sample per canvas pixel (no upscale). Cap keeps rAF bounded.
+static const int kMaxGridW = 512;
+static const int kMaxGridH = 512;
 static const int kMaxGridCells = kMaxGridW * kMaxGridH;
 
 struct FbmFieldState {

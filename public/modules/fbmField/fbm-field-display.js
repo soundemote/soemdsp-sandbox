@@ -1,5 +1,6 @@
-// FBM Field face: 2D noise field from WASM fill_grid (same fbm2d as X/Y).
-// WebGL only presents/upscales + gradient LUT — no JS/GLSL noise evaluation.
+// FBM Field face: 1 WASM sample per canvas pixel. No field upscale/downscale.
+// Canvas buffer size == fill_grid size. CSS may enlarge with pixelated scaling
+// only when the face is bigger than the 512² WASM cap (honest blocks, not blur).
 
 const nodeGraphFbmFieldSettingsDefaults = Object.freeze({
   background: "#05060a",
@@ -11,9 +12,6 @@ const nodeGraphFbmFieldSettingsDefaults = Object.freeze({
     Object.freeze({ t: 1, color: "#ffffff" }),
   ]),
 });
-
-/** WASM grid resolution (bilinear upscale to full face). */
-const NODE_GRAPH_FBM_FIELD_GRID = 192;
 
 function normalizeNodeGraphFbmFieldSettings(settings = {}) {
   const source = settings && typeof settings === "object" ? settings : {};
@@ -79,19 +77,39 @@ function nodeGraphFbmFieldShouldFreeze(domainRate) {
   return !(Math.abs(Number(domainRate) || 0) > 1e-6);
 }
 
-function syncNodeGraphFbmFieldCanvasHiRes(canvas, face, pixelRatio) {
+/**
+ * Size canvas buffer to 1 sample per pixel (capped by WASM max grid).
+ * DPR is NOT applied as extra supersampling — that would be a second scale.
+ * CSS size = face; buffer = eval grid (1:1 with WASM).
+ */
+function nodeGraphFbmFieldResolveGridSize(face, wasmMaxW, wasmMaxH) {
+  const cssW = Math.max(1, Math.round(face.clientWidth || 1));
+  const cssH = Math.max(1, Math.round(face.clientHeight || 1));
+  const maxW = Math.max(8, Math.min(512, wasmMaxW || 512));
+  const maxH = Math.max(8, Math.min(512, wasmMaxH || 512));
+  // Fit inside max while preserving aspect — still 1:1 samples, may pixelate via CSS if capped
+  let gw = cssW;
+  let gh = cssH;
+  if (gw > maxW || gh > maxH) {
+    const s = Math.min(maxW / gw, maxH / gh);
+    gw = Math.max(1, Math.round(gw * s));
+    gh = Math.max(1, Math.round(gh * s));
+  }
+  return { gridW: gw, gridH: gh, cssW, cssH, capped: cssW !== gw || cssH !== gh };
+}
+
+function syncNodeGraphFbmFieldCanvas1to1(canvas, face, gridW, gridH) {
   if (!canvas || !face) return false;
-  const dpr = Math.min(2, Math.max(1, Number(pixelRatio) || window.devicePixelRatio || 1));
-  const w = Math.max(1, Math.round(face.clientWidth * dpr));
-  const h = Math.max(1, Math.round(face.clientHeight * dpr));
-  if (canvas.width !== w || canvas.height !== h) {
-    canvas.width = w;
-    canvas.height = h;
+  if (canvas.width !== gridW || canvas.height !== gridH) {
+    canvas.width = gridW;
+    canvas.height = gridH;
   }
   canvas.style.width = "100%";
   canvas.style.height = "100%";
-  canvas.style.imageRendering = "auto";
-  return w > 0 && h > 0;
+  // If CSS stretches past 1:1 (face larger than cap), show true samples as blocks — no blur
+  canvas.style.imageRendering = "pixelated";
+  canvas.style.imageRendering = "crisp-edges";
+  return true;
 }
 
 function nodeGraphFbmFieldFillBlack(canvas, face) {
@@ -114,11 +132,7 @@ function nodeGraphFbmFieldFillBlack(canvas, face) {
 
 function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
   if (!canvas || !face || !nodeId) return false;
-  const pixelRatio = Number(nodeGraphModuleScopeState?.backingPixelRatio)
-    || Math.max(1, window.devicePixelRatio || 1);
-  if (!syncNodeGraphFbmFieldCanvasHiRes(canvas, face, pixelRatio)) return false;
 
-  // Kick wasm load early
   if (typeof nodeGraphFbmFieldLoadWasm === "function") {
     nodeGraphFbmFieldLoadWasm();
   }
@@ -145,10 +159,21 @@ function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
   if (!Number.isFinite(dt) || dt < 0) dt = 0;
   dt = Math.min(0.05, dt);
   if (frozen) dt = 0;
-  // Same domain rate as audio: frequency * evolve (units/sec)
   face._fbmFieldTime += dt * domainRate;
 
-  const params = {
+  const wasm = typeof nodeGraphFbmFieldWasm !== "undefined" ? nodeGraphFbmFieldWasm.exports : null;
+  const maxW = wasm?.soemdsp_fbm_field_grid_max_width?.() || 512;
+  const maxH = wasm?.soemdsp_fbm_field_grid_max_height?.() || 512;
+  const { gridW, gridH } = nodeGraphFbmFieldResolveGridSize(face, maxW, maxH);
+  if (!syncNodeGraphFbmFieldCanvas1to1(canvas, face, gridW, gridH)) return false;
+
+  if (typeof nodeGraphFbmFieldFillGrid !== "function") {
+    return nodeGraphFbmFieldFillBlack(canvas, face);
+  }
+
+  const grid = nodeGraphFbmFieldFillGrid({
+    width: gridW,
+    height: gridH,
     domainTime: face._fbmFieldTime,
     zoom: nodeGraphFbmFieldReadParam(nodeId, "zoom", 1),
     panX: nodeGraphFbmFieldReadParam(nodeId, "panX", 0),
@@ -161,33 +186,23 @@ function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
     scale: nodeGraphFbmFieldReadParam(nodeId, "scale", 1),
     smoothness: nodeGraphFbmFieldReadParam(nodeId, "smoothness", 0.55),
     contrast: nodeGraphFbmFieldReadParam(nodeId, "contrast", 1),
-    width: NODE_GRAPH_FBM_FIELD_GRID,
-    height: NODE_GRAPH_FBM_FIELD_GRID,
-  };
+  });
 
-  if (typeof nodeGraphFbmFieldFillGrid !== "function") {
-    return nodeGraphFbmFieldFillBlack(canvas, face);
-  }
-  const grid = nodeGraphFbmFieldFillGrid(params);
-  if (!grid?.mono) {
-    // wasm not ready yet
-    if (!face._fbmFieldHasFrame) {
-      return nodeGraphFbmFieldFillBlack(canvas, face);
-    }
+  if (!grid?.mono || grid.width !== gridW || grid.height !== gridH) {
+    if (!face._fbmFieldHasFrame) return nodeGraphFbmFieldFillBlack(canvas, face);
     return true;
   }
 
   const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   const settings = nodeGraphFbmFieldSettingsForNode(patchNode);
-  const soft = Math.max(0, Math.min(1, 0.15 + params.smoothness * 0.4));
 
   if (typeof nodeGraphFbmFieldGlPresent !== "function") {
     return nodeGraphFbmFieldFillBlack(canvas, face);
   }
+
   const ok = nodeGraphFbmFieldGlPresent(canvas, grid.mono, grid.width, grid.height, {
     gradientStops: settings.gradientStops,
     background: settings.background,
-    soft,
   });
   if (ok) {
     if (face.dataset) face.dataset.lightStrength = "1";
@@ -213,7 +228,6 @@ function drawNodeGraphFbmFieldFaceItem(renderer, item, pixelRatio) {
   const slot = item?.slot;
   const face = item?.screenElement || slot?.scopeElement;
   if (!slot || !face) return;
-  // Scope pass: force still/update when rAF is not the owner.
   if (!face._fbmFieldRunning && typeof paintNodeGraphFbmFieldFace === "function") {
     const canvas = face.querySelector?.(".node-fbm-field-canvas");
     if (canvas) {
@@ -221,7 +235,6 @@ function drawNodeGraphFbmFieldFaceItem(renderer, item, pixelRatio) {
         dt: 0,
         force: true,
         face,
-        pixelRatio,
       });
     }
   }

@@ -1,5 +1,5 @@
-// FBM Field face present: uploads WASM mono grid → bilinear texture + gradient LUT.
-// Does NOT evaluate noise — only displays soemdsp_fbm_field_fill_grid results.
+// FBM Field present: 1:1 WASM mono samples → screen. No bilinear field upscale,
+// no palette soft. NEAREST only. Color = gradient LUT sample of that exact mono.
 
 const NODE_GRAPH_FBM_FIELD_GL_VS = `
 attribute vec2 aPos;
@@ -10,33 +10,19 @@ void main() {
 }
 `;
 
+// Field texture must be sized exactly to the canvas (1 texel = 1 pixel).
 const NODE_GRAPH_FBM_FIELD_GL_FS = `
-#ifdef GL_FRAGMENT_PRECISION_HIGH
-precision highp float;
-#else
 precision mediump float;
-#endif
 varying vec2 vUv;
 uniform sampler2D uField;
 uniform sampler2D uPalette;
 uniform vec3 uBackground;
-uniform float uSoft;
 
 void main() {
-  // Bilinear field sample (smooth upscale from WASM grid)
+  // NEAREST field sample — no interpolated fake detail
   float e = texture2D(uField, vUv).r;
   e = clamp(e, 0.0, 1.0);
   vec3 col = texture2D(uPalette, vec2(e, 0.5)).rgb;
-  if (uSoft > 0.01) {
-    float w = 0.004 + uSoft * 0.02;
-    vec3 a = texture2D(uPalette, vec2(clamp(e - w, 0.0, 1.0), 0.5)).rgb;
-    vec3 b = texture2D(uPalette, vec2(clamp(e + w, 0.0, 1.0), 0.5)).rgb;
-    col = mix(col, (a + col + b) / 3.0, uSoft * 0.7);
-  }
-  // Mild vignette toward background
-  vec2 q = vUv - 0.5;
-  float vig = smoothstep(1.05, 0.15, length(q) * 1.2);
-  col = mix(uBackground, col, mix(0.94, 1.0, vig));
   gl_FragColor = vec4(col, 1.0);
 }
 `;
@@ -93,12 +79,12 @@ function nodeGraphFbmFieldGlEnsure(canvas) {
   try {
     gl = canvas.getContext("webgl", {
       alpha: false,
-      antialias: true,
+      antialias: false, // no MSAA smear
       depth: false,
       premultipliedAlpha: false,
       preserveDrawingBuffer: false,
       powerPreference: "high-performance",
-    }) || canvas.getContext("experimental-webgl", { alpha: false, antialias: true });
+    }) || canvas.getContext("experimental-webgl", { alpha: false, antialias: false });
   } catch (_) {
     gl = null;
   }
@@ -116,15 +102,16 @@ function nodeGraphFbmFieldGlEnsure(canvas) {
 
     const fieldTex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, fieldTex);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    // NEAREST = each canvas pixel is exactly one WASM sample
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
     const paletteTex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, paletteTex);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     const blank = new Uint8Array(256 * 4);
@@ -139,15 +126,12 @@ function nodeGraphFbmFieldGlEnsure(canvas) {
       fieldTex,
       paletteTex,
       paletteKey: "",
-      fieldW: 0,
-      fieldH: 0,
       lost: false,
       failed: false,
       uniforms: {
         uField: gl.getUniformLocation(program, "uField"),
         uPalette: gl.getUniformLocation(program, "uPalette"),
         uBackground: gl.getUniformLocation(program, "uBackground"),
-        uSoft: gl.getUniformLocation(program, "uSoft"),
       },
     };
     canvas.addEventListener("webglcontextlost", (ev) => {
@@ -161,7 +145,7 @@ function nodeGraphFbmFieldGlEnsure(canvas) {
     nodeGraphFbmFieldGlStates.set(canvas, state);
     return state;
   } catch (err) {
-    console.warn("[FBM Field] WebGL present init failed", err);
+    console.warn("[FBM Field] WebGL init failed", err);
     nodeGraphFbmFieldGlStates.set(canvas, { failed: true });
     return null;
   }
@@ -195,31 +179,30 @@ function nodeGraphFbmFieldGlUploadPalette(state, stops) {
 }
 
 /**
- * @param {HTMLCanvasElement} canvas full-res face canvas
- * @param {Float32Array} monoGrid row-major 0…1 from WASM
- * @param {number} gridW
- * @param {number} gridH
- * @param {object} options gradientStops, background, soft
+ * Present WASM mono grid 1:1 onto canvas. canvas.width/height MUST equal gridW/gridH.
+ * @param {Float32Array} monoGrid 0…1 from soemdsp_fbm_field_fill_grid
  */
 function nodeGraphFbmFieldGlPresent(canvas, monoGrid, gridW, gridH, options = {}) {
   const state = nodeGraphFbmFieldGlEnsure(canvas);
   if (!state?.gl || state.lost || !monoGrid || gridW < 1 || gridH < 1) {
     return false;
   }
-  const gl = state.gl;
-  const w = canvas.width | 0;
-  const h = canvas.height | 0;
-  if (w < 1 || h < 1) return false;
+  // Enforce 1:1 — refuse to present if canvas was sized differently
+  if ((canvas.width | 0) !== (gridW | 0) || (canvas.height | 0) !== (gridH | 0)) {
+    canvas.width = gridW;
+    canvas.height = gridH;
+  }
 
+  const gl = state.gl;
   nodeGraphFbmFieldGlUploadPalette(state, options.gradientStops);
 
-  // Upload mono as LUMINANCE (WebGL1) for single-channel bilinear sample.
+  // Pack float mono → 8-bit LUMINANCE (WebGL1). Documented quantization only.
   const pixels = new Uint8Array(gridW * gridH);
   const n = Math.min(pixels.length, monoGrid.length);
   for (let i = 0; i < n; i += 1) {
-    const e = Math.max(0, Math.min(1, monoGrid[i]));
-    pixels[i] = Math.round(e * 255);
+    pixels[i] = Math.round(Math.max(0, Math.min(1, monoGrid[i])) * 255);
   }
+
   gl.bindTexture(gl.TEXTURE_2D, state.fieldTex);
   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
   gl.texImage2D(
@@ -233,10 +216,8 @@ function nodeGraphFbmFieldGlPresent(canvas, monoGrid, gridW, gridH, options = {}
     gl.UNSIGNED_BYTE,
     pixels,
   );
-  state.fieldW = gridW;
-  state.fieldH = gridH;
 
-  gl.viewport(0, 0, w, h);
+  gl.viewport(0, 0, gridW, gridH);
   gl.disable(gl.DEPTH_TEST);
   gl.disable(gl.BLEND);
   gl.useProgram(state.program);
@@ -252,7 +233,6 @@ function nodeGraphFbmFieldGlPresent(canvas, monoGrid, gridW, gridH, options = {}
   gl.uniform1i(state.uniforms.uPalette, 1);
   const bg = nodeGraphFbmFieldGlHexToRgb01(options.background || "#000000");
   gl.uniform3f(state.uniforms.uBackground, bg[0], bg[1], bg[2]);
-  gl.uniform1f(state.uniforms.uSoft, Math.max(0, Math.min(1, Number(options.soft) || 0.35)));
 
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   return true;
