@@ -65,22 +65,22 @@ registerNodeGraphChromelessModule("fbmField", {
     outputLabels: { X: "X", Y: "Y", Z: "Z" },
     parameters: [
       {
-        choices: ["Scroll", "Volume 3D", "Slice"],
+        choices: ["Scroll", "Volume"],
         defaultValue: "1",
         displayChoices: true,
         divideChoicesVisibly: true,
         key: "motion",
         label: "Motion",
         linearSmoothing: false,
-        max: "2",
-        mid: "1",
+        max: "1",
+        mid: "0.5",
         min: "0",
         nonlinearSlider: false,
         step: "1",
         tooltip:
           "Domain motion (What I See Is What I Hear — face + X/Y/Z share one mapping). "
-          + "Scroll: pan frozen 2D field. Volume 3D: time walks Z → morph in place. "
-          + "Slice: crossfade two 2D lattices.",
+          + "Scroll: pan a frozen 2D field. Volume: time walks the 3rd lattice axis → morph in place. "
+          + "X/Y/Z are three fixed spatial probe points on that same field.",
       },
       {
         defaultValue: "20",
@@ -94,7 +94,7 @@ registerNodeGraphChromelessModule("fbmField", {
         step: "any",
         unit: "Hz",
         tooltip:
-          "Domain rate (Hz): scroll speed, volume Z-walk rate, or slice crossfade rate. "
+          "Domain rate (Hz): scroll speed or volume Z-walk rate. "
           + "0 freezes. X/Y/Z are field samples at three fixed points — not white noise.",
       },
       {
@@ -220,7 +220,7 @@ registerNodeGraphChromelessModule("fbmField", {
         mid: "1",
         min: "0",
         step: "1",
-        tooltip: "Lattice seed (Slice mode also uses seed+7919 for the second lattice).",
+        tooltip: "Lattice seed.",
       },
       {
         defaultValue: "1",
@@ -238,14 +238,15 @@ registerNodeGraphChromelessModule("fbmField", {
     category: "noise",
     description:
       "Value-noise fBm field (native WASM). Face and X/Y/Z share one domain mapping "
-      + "(Scroll / Volume 3D / Slice). WebGL only presents the mono grid + gradient.",
+      + "(Scroll / Volume). WebGL only presents the mono grid + gradient.",
     notes: [
       "LayoutB",
       "field",
       "wasm",
       "native-only",
       "same-kernel",
-      "motion-modes",
+      "scroll",
+      "volume",
       "out x/y/z",
       "wisiwih",
       "no-js-fallback",

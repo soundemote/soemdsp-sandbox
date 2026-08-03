@@ -19,12 +19,10 @@ static const int kMaxGridH = 512;
 static const int kMaxGridCells = kMaxGridW * kMaxGridH;
 
 // Motion modes (integer param "motion")
-// 0 Scroll   — time pans XY through frozen 2D field
-// 1 Volume3D — time walks Z of fbm3d; XY fixed → morph in place
-// 2 Slice    — crossfade two 2D lattices (seed / seed+Δ)
+// 0 Scroll — time pans XY through frozen 2D field
+// 1 Volume — time walks Z of fbm3d; XY fixed → morph in place
 static const int kMotionScroll = 0;
-static const int kMotionVolume3D = 1;
-static const int kMotionSlice = 2;
+static const int kMotionVolume = 1;
 
 struct FbmFieldState {
   bool active;
@@ -189,10 +187,6 @@ static double fbm3d(
   return maxValue > 0.0 ? total / maxValue : 0.0;
 }
 
-static double fract01(double t) {
-  return t - dsp_floor(t);
-}
-
 // Shared field sample for face pixel and audio probes (bipolar −1…1).
 // spatialX/Y = world position; domainT = shared domain clock (Frequency).
 static double fieldAt(
@@ -208,27 +202,15 @@ static double fieldAt(
   double smoothness,
   double span
 ) {
-  const int mode = clamp_int(motion, 0, 2);
-  if (mode == kMotionVolume3D) {
+  const int mode = clamp_int(motion, 0, 1);
+  if (mode == kMotionVolume) {
     // Time walks Z; XY stay put → morph / boil in place.
     return fbm3d(
       spatialX, spatialY, domainT * span,
       seed, octaves, persistence, lacunarity, scale, smoothness
     );
   }
-  if (mode == kMotionSlice) {
-    // Crossfade two 2D lattices (seed / seed+Δ).
-    const double a = fbm2d(
-      spatialX, spatialY, seed, octaves, persistence, lacunarity, scale, smoothness
-    );
-    const double b = fbm2d(
-      spatialX, spatialY, seed + 7919, octaves, persistence, lacunarity, scale, smoothness
-    );
-    const double u = fade(fract01(domainT), 1.0);
-    return a + (b - a) * u;
-  }
-  // Scroll: domainT pans the frozen 2D field (caller may also pre-offset;
-  // here we apply the canonical scroll so probes and face match).
+  // Scroll: domainT pans the frozen 2D field so probes and face match.
   const double scrollX = domainT * span;
   const double scrollY = domainT * span * 0.73;
   return fbm2d(
@@ -248,7 +230,7 @@ static double bipolarToMono(double bipolar, double contrast) {
 }
 
 static int normalizeMotion(int motion) {
-  return clamp_int(motion, 0, 2);
+  return clamp_int(motion, 0, 1);
 }
 
 }  // namespace

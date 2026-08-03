@@ -8,7 +8,7 @@ NodeLiveAudioProcessor.prototype.fbmFieldNum = function fbmFieldNum(value, fallb
 
 NodeLiveAudioProcessor.prototype.fbmFieldMotionMode = function fbmFieldMotionMode(value) {
   const n = Math.round(this.fbmFieldNum(value, 1));
-  return Math.max(0, Math.min(2, n));
+  return Math.max(0, Math.min(1, n));
 };
 
 NodeLiveAudioProcessor.prototype.createFbmFieldState = function createFbmFieldState() {

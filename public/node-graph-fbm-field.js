@@ -9,10 +9,10 @@ function nodeGraphFbmFieldNum(value, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-/** Motion: 0 Scroll, 1 Volume 3D, 2 Slice. */
+/** Motion: 0 Scroll, 1 Volume. */
 function nodeGraphFbmFieldMotionMode(value) {
   const n = Math.round(nodeGraphFbmFieldNum(value, 1));
-  return Math.max(0, Math.min(2, n));
+  return Math.max(0, Math.min(1, n));
 }
 
 function nodeGraphFbmFieldLoadWasm() {
