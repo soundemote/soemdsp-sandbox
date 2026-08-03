@@ -1,4 +1,5 @@
-// FBM Field face: CPU 2D fBm mono → multi-stop gradient (shared Display Settings).
+// FBM Field face: WebGL 2D fBm (primary) + low-res CPU fallback.
+// Gradient via shared Display Settings multi-stop LUT.
 
 const nodeGraphFbmFieldSettingsDefaults = Object.freeze({
   background: "#05060a",
@@ -11,8 +12,9 @@ const nodeGraphFbmFieldSettingsDefaults = Object.freeze({
   ]),
 });
 
-/** Cap long side of CPU grid for face paint. */
-const NODE_GRAPH_FBM_FIELD_FACE_MAX = 96;
+/** CPU fallback only — long-side cap. */
+const NODE_GRAPH_FBM_FIELD_CPU_MAX = 96;
+const NODE_GRAPH_FBM_FIELD_CPU_SIM_MS = 33;
 
 function normalizeNodeGraphFbmFieldSettings(settings = {}) {
   const source = settings && typeof settings === "object" ? settings : {};
@@ -64,11 +66,8 @@ function nodeGraphFbmFieldSampleGradientRgb(stops, energy) {
   if (typeof nodeGraphLedSampleGradientRgb === "function") {
     return nodeGraphLedSampleGradientRgb(stops, energy);
   }
-  if (typeof matrixSampleGradientRgb === "function") {
-    const c = matrixSampleGradientRgb(stops, energy);
-    if (c && typeof c === "object") {
-      return [c.r ?? c[0] ?? 0, c.g ?? c[1] ?? 0, c.b ?? c[2] ?? 0];
-    }
+  if (typeof nodeGraphSampleGradientStopsRgb === "function") {
+    return nodeGraphSampleGradientStopsRgb(stops, energy, "#ffffff");
   }
   const t = Math.max(0, Math.min(1, Number(energy) || 0));
   const list = Array.isArray(stops) && stops.length >= 2 ? stops : nodeGraphFbmFieldSettingsDefaults.gradientStops;
@@ -99,16 +98,35 @@ function nodeGraphFbmFieldSampleGradientRgb(stops, energy) {
   return [last.r, last.g, last.b];
 }
 
-function syncNodeGraphFbmFieldCanvas(canvas, face, pixelRatio) {
+/** Full-res canvas for WebGL (Soft Fractal style). */
+function syncNodeGraphFbmFieldCanvasHiRes(canvas, face, pixelRatio) {
+  if (!canvas || !face) {
+    return false;
+  }
+  const dpr = Math.max(1, Number(pixelRatio) || window.devicePixelRatio || 1);
+  const dprCap = Math.min(dpr, 2);
+  const w = Math.max(1, Math.round(face.clientWidth * dprCap));
+  const h = Math.max(1, Math.round(face.clientHeight * dprCap));
+  if (canvas.width !== w || canvas.height !== h) {
+    canvas.width = w;
+    canvas.height = h;
+  }
+  canvas.style.width = "100%";
+  canvas.style.height = "100%";
+  canvas.style.imageRendering = "auto";
+  return w > 0 && h > 0;
+}
+
+/** Low-res canvas only when CPU path is forced. */
+function syncNodeGraphFbmFieldCanvasCpu(canvas, face, pixelRatio) {
   if (!canvas || !face) {
     return false;
   }
   const dpr = Math.max(1, Math.min(2, Number(pixelRatio) || window.devicePixelRatio || 1));
   const cssW = Math.max(1, face.clientWidth || 1);
   const cssH = Math.max(1, face.clientHeight || 1);
-  // Downsample grid for CPU fBm; upscale via CSS.
   const long = Math.max(cssW, cssH);
-  const gridScale = Math.min(1, NODE_GRAPH_FBM_FIELD_FACE_MAX / Math.max(1, long));
+  const gridScale = Math.min(1, NODE_GRAPH_FBM_FIELD_CPU_MAX / Math.max(1, long));
   const w = Math.max(8, Math.round(cssW * gridScale * dpr));
   const h = Math.max(8, Math.round(cssH * gridScale * dpr));
   if (canvas.width !== w || canvas.height !== h) {
@@ -121,34 +139,58 @@ function syncNodeGraphFbmFieldCanvas(canvas, face, pixelRatio) {
   return w > 0 && h > 0;
 }
 
-function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
-  if (!canvas || !face || typeof nodeGraphFbmFieldFaceMono !== "function") {
+function paintNodeGraphFbmFieldFaceCpu(canvas, face, nodeId, params, settings, time) {
+  if (typeof nodeGraphFbmFieldFaceMono !== "function") {
     return false;
   }
-  const dt = Number(options.dt) || 0;
+  if (!syncNodeGraphFbmFieldCanvasCpu(canvas, face)) {
+    return false;
+  }
+  const w = canvas.width;
+  const h = canvas.height;
+  const ctx = canvas.getContext("2d", { alpha: false });
+  if (!ctx) {
+    return false;
+  }
+  const stops = settings.gradientStops;
+  const bg = settings.background || "#05060a";
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, w, h);
+  const image = ctx.createImageData(w, h);
+  const data = image.data;
+  const faceParams = {
+    ...params,
+    octaves: Math.min(5, Math.round(params.octaves) || 4),
+  };
+  for (let y = 0; y < h; y += 1) {
+    const v = (y + 0.5) / h;
+    for (let x = 0; x < w; x += 1) {
+      const u = (x + 0.5) / w;
+      const mono = nodeGraphFbmFieldFaceMono(u, v, faceParams, time);
+      const [r, g, b] = nodeGraphFbmFieldSampleGradientRgb(stops, mono);
+      const i = (y * w + x) * 4;
+      data[i] = r;
+      data[i + 1] = g;
+      data[i + 2] = b;
+      data[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(image, 0, 0);
+  return true;
+}
+
+function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
+  if (!canvas || !face || !nodeId) {
+    return false;
+  }
+  const pixelRatio = Number(nodeGraphModuleScopeState?.backingPixelRatio)
+    || Math.max(1, window.devicePixelRatio || 1);
+
   if (!Number.isFinite(face._fbmFieldTime)) {
     face._fbmFieldTime = 0;
   }
-  // Evolve only when circuit-ish running or force scrub with speed from param.
-  let evolving = true;
-  try {
-    if (typeof nodeGraphModuleScopeCircuitRunning === "function") {
-      evolving = nodeGraphModuleScopeCircuitRunning();
-    } else {
-      const live = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live : null;
-      evolving = Boolean(live?.outputEnabled && live?.node);
-    }
-  } catch (_) {
-    evolving = true;
-  }
-  if (evolving || options.force) {
-    // Always advance with wall-clock for living texture when speed > 0.
-    face._fbmFieldTime += dt;
-  }
-
-  if (!syncNodeGraphFbmFieldCanvas(canvas, face, options.pixelRatio)) {
-    return false;
-  }
+  const dt = Number(options.dt) || 0;
+  face._fbmFieldTime += Math.min(0.05, Math.max(0, dt));
 
   const params = {
     contrast: nodeGraphFbmFieldReadParam(nodeId, "contrast", 1),
@@ -167,47 +209,49 @@ function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
 
   const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   const settings = nodeGraphFbmFieldSettingsForNode(patchNode);
-  const stops = settings.gradientStops;
-  const bg = settings.background || "#05060a";
-
-  const w = canvas.width;
-  const h = canvas.height;
-  const ctx = canvas.getContext("2d", { alpha: false });
-  if (!ctx) {
-    return false;
-  }
-  // Fill background first.
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, w, h);
-
-  const image = ctx.createImageData(w, h);
-  const data = image.data;
   const time = face._fbmFieldTime || 0;
-  // Cap octaves on face for frame budget (still matches character).
-  const faceParams = {
-    ...params,
-    octaves: Math.min(6, Math.round(params.octaves) || 4),
-  };
 
-  for (let y = 0; y < h; y += 1) {
-    const v = (y + 0.5) / h;
-    for (let x = 0; x < w; x += 1) {
-      const u = (x + 0.5) / w;
-      const mono = nodeGraphFbmFieldFaceMono(u, v, faceParams, time);
-      const [r, g, b] = nodeGraphFbmFieldSampleGradientRgb(stops, mono);
-      const i = (y * w + x) * 4;
-      data[i] = r;
-      data[i + 1] = g;
-      data[i + 2] = b;
-      data[i + 3] = 255;
+  // Prefer WebGL full-face (high res) — never call 2d on a canvas that already has WebGL.
+  const wantGl = typeof nodeGraphFbmFieldGlPaint === "function";
+  const glReady = wantGl && typeof nodeGraphFbmFieldGlEnsure === "function"
+    ? Boolean(nodeGraphFbmFieldGlEnsure(canvas))
+    : false;
+
+  if (glReady) {
+    if (!syncNodeGraphFbmFieldCanvasHiRes(canvas, face, pixelRatio)) {
+      return false;
+    }
+    const ok = nodeGraphFbmFieldGlPaint(canvas, {
+      ...params,
+      time,
+      gradientStops: settings.gradientStops,
+      background: settings.background,
+    });
+    if (ok) {
+      if (face.dataset) face.dataset.lightStrength = "1";
+      face._fbmFieldHasFrame = true;
+      return true;
     }
   }
-  ctx.putImageData(image, 0, 0);
-  if (face.dataset) {
-    face.dataset.lightStrength = "1";
+
+  // CPU throttle when no GL
+  if (!options.force && face._fbmFieldHasFrame) {
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+    const lastSim = Number(face._fbmFieldLastSimMs) || 0;
+    if (now - lastSim < NODE_GRAPH_FBM_FIELD_CPU_SIM_MS) {
+      return true;
+    }
+    face._fbmFieldLastSimMs = now;
+  } else {
+    face._fbmFieldLastSimMs = typeof performance !== "undefined" ? performance.now() : Date.now();
   }
-  face._fbmFieldHasFrame = true;
-  return true;
+
+  const ok = paintNodeGraphFbmFieldFaceCpu(canvas, face, nodeId, params, settings, time);
+  if (ok) {
+    if (face.dataset) face.dataset.lightStrength = "1";
+    face._fbmFieldHasFrame = true;
+  }
+  return ok;
 }
 
 function paintNodeGraphFbmFieldFaceForNode(nodeId, options = {}) {
@@ -226,9 +270,6 @@ function paintNodeGraphFbmFieldFaceForNode(nodeId, options = {}) {
   return paintNodeGraphFbmFieldFace(canvas, face, id, options);
 }
 
-/**
- * Scope pass: ensure a still frame when rAF is not running.
- */
 function drawNodeGraphFbmFieldFaceItem(renderer, item, pixelRatio) {
   const slot = item?.slot;
   const face = item?.screenElement || slot?.scopeElement;

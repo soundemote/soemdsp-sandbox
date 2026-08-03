@@ -126,6 +126,8 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.nativeNoiseGeneratorReady = false;
     this.nativeFbm = null;
     this.nativeFbmReady = false;
+    this.nativeFbmField = null;
+    this.nativeFbmFieldReady = false;
     this.nativeLadderFilter = null;
     this.nativeLadderFilterReady = false;
     this.nativeFlowerChildFilter = null;

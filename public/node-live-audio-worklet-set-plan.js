@@ -879,6 +879,7 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
     }
     for (const id of [...this.fbmFieldStates.keys()]) {
       if (!ids.has(id)) {
+        this.destroyFbmFieldNativeState?.(this.fbmFieldStates.get(id));
         this.fbmFieldStates.delete(id);
       }
     }

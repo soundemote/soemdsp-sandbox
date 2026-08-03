@@ -78,6 +78,9 @@ NodeLiveAudioProcessor.prototype.clearPlan = function clearPlan() {
       this.destroyFbmNativeState(state);
     }
     this.fractalBrownianNoiseStates = new Map();
+    for (const state of this.fbmFieldStates.values()) {
+      this.destroyFbmFieldNativeState?.(state);
+    }
     this.fbmFieldStates = new Map();
     this.gpuAdditiveQueues = new Map();
     this.gpuAdditiveStatusCounter = 0;

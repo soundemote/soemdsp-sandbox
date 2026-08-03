@@ -226,9 +226,13 @@ registerNodeGraphChromelessModule("fbmField", {
   catalog: {
     category: "noise",
     description:
-      "2D fractal Brownian field (value-noise fBm). Layout B face shows mono terrain remapped by Display Settings gradient. X/Y sample the same field so the visual translates directly to noise.",
+      "2D fractal Brownian field (value-noise fBm). Layout B WebGL face (high-res shader + gradient LUT). Live X/Y from native WASM; JS fallback if wasm missing. Same field family as Fractal Brownian Noise.",
     notes: [
       "LayoutB",
+      "webgl",
+      "shader",
+      "native",
+      "wasm",
       "fbm",
       "perlin-style",
       "2d noise",

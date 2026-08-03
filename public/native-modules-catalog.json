@@ -218,6 +218,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "fbm_field",
+      "label": "FBM Field",
+      "targetType": "fbmField",
+      "kind": "noise",
+      "source": "native_modules/fbm_field/fbm_field.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/fbm_field/fbm_field.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/fbm_field/fbm_field.wasm",
+      "wasmUrl": "native_modules/fbm_field/fbm_field.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "flower_child_envelope_follower",
       "label": "Flower Child Envelope Follower",
       "targetType": "flowerChildEnvelopeFollower",
