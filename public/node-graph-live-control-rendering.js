@@ -16,31 +16,40 @@ function nodeGraphLiveEngineIsPaused() {
 
 /**
  * Three-way transport/engine UI state:
- *   playing — engine up, output on, speed > 0
- *   paused  — engine up, output on, speed === 0
- *   stopped — no engine / output off
+ *   playing  — live worklet/node present, speed > 0
+ *   paused   — live worklet/node present, speed === 0
+ *   starting — output armed / status starting, node not ready yet
+ *   stopped  — cold (no node, output not armed)
+ *
+ * Engine presence wins over the outputEnabled flag. Requiring both made the
+ * UI flash green then snap back to red stop whenever a start/teardown race
+ * cleared the flag for a frame (or a cancelled start re-rendered "stopped")
+ * while the worklet was actually up — Output (Off), red ⏹, grey ▶.
  */
 function nodeGraphLiveTransportUiState() {
-  const statusText = document.getElementById("nodeLiveStatus")?.textContent || "";
+  const statusText = String(document.getElementById("nodeLiveStatus")?.textContent || "").trim();
   if (statusText === "error") {
     return "stopped";
   }
   const outputOn = Boolean(nodeGraphMvp?.live?.outputEnabled);
   const engineUp = nodeGraphLiveEngineIsUp();
-  const starting = statusText === "starting" || (outputOn && !engineUp && statusText !== "error");
-  if (starting && outputOn) {
-    // Starting counts as "on" for Output label; transport play stays idle until node exists.
-    return engineUp
-      ? ((nodeGraphMvp.live.speedMultiplier ?? 1) === 0 ? "paused" : "playing")
-      : "starting";
+  const speed = Number(nodeGraphMvp?.live?.speedMultiplier ?? 1);
+  const paused = Number.isFinite(speed) && speed <= 0;
+
+  if (engineUp) {
+    return paused ? "paused" : "playing";
   }
-  if (!outputOn || !engineUp) {
-    return "stopped";
+
+  // Mid-start: output requested (or status says so) but worklet not mounted yet.
+  if (
+    outputOn
+    || statusText === "starting"
+    || statusText === "priming"
+  ) {
+    return "starting";
   }
-  if ((nodeGraphMvp.live.speedMultiplier ?? 1) === 0) {
-    return "paused";
-  }
-  return "playing";
+
+  return "stopped";
 }
 
 // Monochrome text-style glyphs (VS15) so OS emoji does not force red stop / ignore CSS color.
@@ -396,13 +405,17 @@ function nodeGraphTransportHandleAction(action) {
   const key = String(action || "").trim();
   if (key === "play") {
     // Only toggle pause when a live worklet/node actually exists.
-    // If status is stuck on "starting" or outputEnabled is true without an
-    // engine (broken ⏮ path), treat Play as "start engine" not "unpause".
+    // Never re-call enable while already starting — that bumps
+    // outputToggleSerial and cancels the in-flight start (green flash → red).
     const hasEngine = Boolean(nodeGraphMvp.live.node);
     const transportState = typeof nodeGraphLiveTransportUiState === "function"
       ? nodeGraphLiveTransportUiState()
       : (hasEngine ? "playing" : "stopped");
-    if (!hasEngine || transportState === "stopped" || transportState === "starting") {
+    if (transportState === "starting") {
+      renderNodeGraphLiveControls();
+      return;
+    }
+    if (!hasEngine || transportState === "stopped") {
       if (typeof setNodeGraphLiveOutputEnabled === "function") {
         setNodeGraphLiveOutputEnabled(true);
       } else if (typeof soemdspSandboxToggleLiveOutput === "function") {

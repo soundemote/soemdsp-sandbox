@@ -910,6 +910,30 @@ async function setNodeGraphLiveOutputEnabled(enabled) {
     return;
   }
   const outputEnabled = Boolean(enabled);
+
+  // Idempotent enable: re-arming while already live/starting used to bump
+  // outputToggleSerial, cancel the in-flight start, and flash green → red stop
+  // even though audio came up (or a cancelled start tore the winner down).
+  if (outputEnabled) {
+    if (nodeGraphMvp.live.outputEnabled && nodeGraphMvp.live.node) {
+      renderNodeGraphLiveControls(true);
+      renderNodeGraphExecutionPlanDebug();
+      return;
+    }
+    if (nodeGraphMvp.live.outputEnabled && !nodeGraphMvp.live.node) {
+      const status = String(document.getElementById("nodeLiveStatus")?.textContent || "");
+      if (status === "starting" || status === "priming") {
+        renderNodeGraphLiveControls();
+        renderNodeGraphExecutionPlanDebug();
+        return;
+      }
+    }
+  } else if (!nodeGraphMvp.live.outputEnabled && !nodeGraphMvp.live.node && !nodeGraphMvp.live.context) {
+    renderNodeGraphLiveControls(false);
+    renderNodeGraphExecutionPlanDebug();
+    return;
+  }
+
   const serial = nodeGraphMvp.live.outputToggleSerial + 1;
   nodeGraphMvp.live.outputToggleSerial = serial;
   nodeGraphMvp.live.outputEnabled = outputEnabled;
@@ -2859,6 +2883,17 @@ async function syncNodeGraphLiveInputSource() {
 
 /** Abort an in-flight start cleanly so UI does not stick on "starting". */
 function nodeGraphLiveOutputAbortStart(reason = "stopped") {
+  // Never paint "stopped" over a live/newer session — a superseded start
+  // used to re-render red stop after the winner had already gone green.
+  if (nodeGraphMvp.live.node) {
+    if (typeof renderNodeGraphLiveControls === "function") {
+      renderNodeGraphLiveControls(true);
+    }
+    if (typeof renderNodeGraphExecutionPlanDebug === "function") {
+      renderNodeGraphExecutionPlanDebug();
+    }
+    return;
+  }
   if (typeof setNodeGraphLiveStatus === "function") {
     setNodeGraphLiveStatus(reason === "error" ? "error" : "stopped");
   }
@@ -2874,6 +2909,40 @@ function nodeGraphLiveOutputAbortStart(reason = "stopped") {
   if (typeof renderNodeGraphExecutionPlanDebug === "function") {
     renderNodeGraphExecutionPlanDebug();
   }
+}
+
+/**
+ * Dispose a cancelled start without murdering a newer session.
+ * Returns true if a full stopNodeGraphLiveAudio ran.
+ */
+async function nodeGraphLiveOutputDisposeCancelledStart(outputSerial, localContext = null, localNode = null) {
+  const currentSerial = nodeGraphMvp.live.outputToggleSerial;
+  const superseded = outputSerial !== currentSerial;
+  const ownsLiveNode = localNode && nodeGraphMvp.live.node === localNode;
+  const ownsLiveContext = localContext && nodeGraphMvp.live.context === localContext;
+
+  if (superseded && !ownsLiveNode && !ownsLiveContext) {
+    // Newer start owns the world — only free our orphan locals.
+    try {
+      localNode?.disconnect?.();
+    } catch (_error) {
+      // Already silent.
+    }
+    if (localContext && localContext.state !== "closed") {
+      try {
+        await localContext.close();
+      } catch (_error) {
+        // Context may already be closing.
+      }
+    }
+    return false;
+  }
+
+  // We still own the live refs (or nothing is live) — full cold stop.
+  if (typeof stopNodeGraphLiveAudio === "function") {
+    await stopNodeGraphLiveAudio();
+  }
+  return true;
 }
 
 async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputToggleSerial) {
@@ -2949,16 +3018,7 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
       setNodeGraphLiveEngineTitle(error.message);
     }
     if (nodeGraphLiveOutputStartCancelled(outputSerial)) {
-      try {
-        liveNode?.disconnect();
-      } catch (_error) {
-        // A not-yet-connected live node is already silent.
-      }
-      try {
-        await context.close();
-      } catch (_error) {
-        // Context may already be closing.
-      }
+      await nodeGraphLiveOutputDisposeCancelledStart(outputSerial, context, liveNode);
       nodeGraphLiveOutputAbortStart("stopped");
       return;
     }
@@ -2971,8 +3031,8 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     outputGain.connect(context.destination);
     await syncNodeGraphLiveInputSource();
     if (nodeGraphLiveOutputStartCancelled(outputSerial)) {
-      await stopNodeGraphLiveAudio();
-      // Superseded start: leave outputEnabled for the newer serial owner.
+      // Superseded: dispose only if we still own live (never kill the winner).
+      await nodeGraphLiveOutputDisposeCancelledStart(outputSerial, context, liveNode);
       nodeGraphLiveOutputAbortStart("stopped");
       return;
     }
@@ -2992,7 +3052,7 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     }
     await context.resume();
     if (nodeGraphLiveOutputStartCancelled(outputSerial)) {
-      await stopNodeGraphLiveAudio();
+      await nodeGraphLiveOutputDisposeCancelledStart(outputSerial, context, liveNode);
       nodeGraphLiveOutputAbortStart("stopped");
       return;
     }
@@ -3000,19 +3060,24 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     if (typeof setNodeGraphLiveStatus === "function") {
       setNodeGraphLiveStatus("running", "good");
     }
+    // Keep the arming flag honest once the worklet is up.
+    nodeGraphMvp.live.outputEnabled = true;
     renderNodeGraphLiveControls(true);
   } catch (error) {
     const inputError = Boolean(error.nodeGraphInputError);
     const inputErrorMessage = inputError ? nodeGraphLiveInputErrorMessage(error) : "";
-    await stopNodeGraphLiveAudio();
-    if (inputError) {
-      nodeGraphMvp.live.outputEnabled = false;
-      setNodeGraphLiveInputStatus("blocked", inputErrorMessage);
-      setNodeGraphLiveMicStatus("blocked", inputErrorMessage);
-      setNodeGraphLiveBlockedError("input", error, { schedule: false });
-    } else {
-      setNodeGraphLiveBlockedError("plan", error);
+    // Do not tear down a newer successful start from this failed serial.
+    if (outputSerial === nodeGraphMvp.live.outputToggleSerial) {
+      await stopNodeGraphLiveAudio();
+      if (inputError) {
+        nodeGraphMvp.live.outputEnabled = false;
+        setNodeGraphLiveInputStatus("blocked", inputErrorMessage);
+        setNodeGraphLiveMicStatus("blocked", inputErrorMessage);
+        setNodeGraphLiveBlockedError("input", error, { schedule: false });
+      } else {
+        setNodeGraphLiveBlockedError("plan", error);
+      }
+      renderNodeGraphLiveControls(false);
     }
-    renderNodeGraphLiveControls(false);
   }
 }
