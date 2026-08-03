@@ -227,14 +227,14 @@ registerNodeGraphChromelessModule("fbmField", {
       },
       {
         defaultValue: "1",
-        key: "amplitude",
-        label: "Amplitude",
+        key: "brightness",
+        label: "Brightness",
         max: "1",
         mid: "0.5",
         min: "0",
         step: "0.01",
         tooltip:
-          "Overall gain after contrast. Face: scales mono brightness toward black (0 = black plate). "
+          "Overall gain after contrast. Face: scales mono toward black (0 = black plate). "
           + "X/Y/Z: scales bipolar CV toward silence. 1 = full.",
       },
     ],

@@ -400,10 +400,7 @@ function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
     contrast: nodeGraphFbmFieldReadParam(nodeId, "contrast", 1),
     // 0 Scroll · 1 Volume — same mapping as X/Y/Z probes
     motion: nodeGraphFbmFieldReadParam(nodeId, "motion", 1),
-    amplitude: (() => {
-      const a = nodeGraphFbmFieldReadParam(nodeId, "amplitude", NaN);
-      return Number.isFinite(a) ? a : nodeGraphFbmFieldReadParam(nodeId, "level", 1);
-    })(),
+    brightness: nodeGraphFbmFieldReadParam(nodeId, "brightness", 1),
   });
 
   if (!grid?.mono || grid.width !== gridW || grid.height !== gridH) {

@@ -71,7 +71,7 @@ function nodeGraphFbmFieldSample(options = {}) {
     Math.max(0.05, nodeGraphFbmFieldNum(options.zoom, 1)),
     nodeGraphFbmFieldNum(options.panX, 0),
     nodeGraphFbmFieldNum(options.panY, 0),
-    Math.max(0, nodeGraphFbmFieldNum(options.amplitude ?? options.level, 1)),
+    Math.max(0, nodeGraphFbmFieldNum(options.brightness, 1)),
     Math.max(1, nodeGraphFbmFieldNum(options.sampleRate, 44100)),
     nodeGraphFbmFieldMotionMode(options.motion),
     Math.max(0, nodeGraphFbmFieldNum(options.contrast, 1)),
@@ -122,7 +122,7 @@ function nodeGraphFbmFieldFillGrid(options = {}) {
     Math.max(0, Math.min(1, nodeGraphFbmFieldNum(options.smoothness, 0.55))),
     Math.max(0, nodeGraphFbmFieldNum(options.contrast, 1)),
     nodeGraphFbmFieldMotionMode(options.motion),
-    Math.max(0, nodeGraphFbmFieldNum(options.amplitude ?? options.level, 1)),
+    Math.max(0, nodeGraphFbmFieldNum(options.brightness, 1)),
   );
   if (!cells) return null;
   const gw = wasm.soemdsp_fbm_field_grid_width();

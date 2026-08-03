@@ -304,7 +304,7 @@ extern "C" void soemdsp_fbm_field_sample(
   double zoom,
   double panX,
   double panY,
-  double amplitude,
+  double brightness,
   double sampleRate,
   int motion,
   double contrast
@@ -329,8 +329,8 @@ extern "C" void soemdsp_fbm_field_sample(
   const double safeFreq = frequency < 0.0 ? 0.0 : frequency;
   const double safeRate = sampleRate < 1.0 ? 1.0 : sampleRate;
   const double safeContrast = contrast < 0.0 ? 0.0 : contrast;
-  // Amplitude: overall field gain (face mono + jacks). ≥0.
-  const double safeAmp = amplitude < 0.0 ? 0.0 : amplitude;
+  // Brightness: overall field gain (face mono + jacks). ≥0.
+  const double safeBright = brightness < 0.0 ? 0.0 : brightness;
   const double span = 1.0 / safeZoom;
   const int mode = normalizeMotion(motion);
   const double t = s.time;
@@ -339,16 +339,16 @@ extern "C" void soemdsp_fbm_field_sample(
   const double cx = panX;
   const double cy = panY;
 
-  // contrast around 0, then amplitude (same product as face mono path).
+  // contrast around 0, then brightness (audio gain; face uses mono * brightness → black).
   const double rawX = applyContrastBipolar(fieldAt(
     cx, cy, t, mode, safeSeed, safeOctaves, safePers, safeLac, safeScale, safeSmooth, span
-  ), safeContrast) * safeAmp;
+  ), safeContrast) * safeBright;
   const double rawY = applyContrastBipolar(fieldAt(
     cx + d, cy, t, mode, safeSeed, safeOctaves, safePers, safeLac, safeScale, safeSmooth, span
-  ), safeContrast) * safeAmp;
+  ), safeContrast) * safeBright;
   const double rawZ = applyContrastBipolar(fieldAt(
     cx, cy + d, t, mode, safeSeed, safeOctaves, safePers, safeLac, safeScale, safeSmooth, span
-  ), safeContrast) * safeAmp;
+  ), safeContrast) * safeBright;
 
   s.lastRawX = safe_bounded(rawX);
   s.lastRawY = safe_bounded(rawY);
@@ -360,7 +360,7 @@ extern "C" void soemdsp_fbm_field_sample(
 }
 
 // Face grid: each texel = fieldAt at that pixel's spatial pos + same domainT as audio.
-// contrast + amplitude match sample() so mono = 0.5 * (1 + bipolar_out).
+// contrast → mid-grey; brightness → mono * brightness toward black.
 extern "C" int soemdsp_fbm_field_fill_grid(
   int width,
   int height,
@@ -377,7 +377,7 @@ extern "C" int soemdsp_fbm_field_fill_grid(
   double smoothness,
   double contrast,
   int motion,
-  double amplitude
+  double brightness
 ) {
   int w = width < 1 ? 1 : (width > kMaxGridW ? kMaxGridW : width);
   int h = height < 1 ? 1 : (height > kMaxGridH ? kMaxGridH : height);
@@ -389,7 +389,7 @@ extern "C" int soemdsp_fbm_field_fill_grid(
   const double safeSmooth = clamp(smoothness, 0.0, 1.0);
   const double safeZoom = zoom < 0.05 ? 0.05 : zoom;
   const double safeContrast = contrast < 0.0 ? 0.0 : contrast;
-  const double safeAmp = amplitude < 0.0 ? 0.0 : amplitude;
+  const double safeBright = brightness < 0.0 ? 0.0 : brightness;
   const double span = 1.0 / safeZoom;
   const double ang = rotate * 6.283185307179586;
   const double cosR = soemdsp_maths::dsp_cos(ang);
@@ -413,10 +413,10 @@ extern "C" int soemdsp_fbm_field_fill_grid(
         spatialX, spatialY, t, mode,
         safeSeed, safeOctaves, safePers, safeLac, safeScale, safeSmooth, span
       );
-      // Contrast → mid-grey compression; Amplitude → scales that mono toward black (0).
-      // (Audio uses bipolar*contrast*amplitude → silence at 0; face uses mono*amp → black.)
+      // Contrast → mid-grey; Brightness → mono * brightness toward black (0).
+      // Audio: bipolar * contrast * brightness → silence at 0.
       const double mono = bipolarToMono(safe_bounded(bipolar), safeContrast);
-      gGridMono[j * w + i] = (float)clamp(mono * safeAmp, 0.0, 1.0);
+      gGridMono[j * w + i] = (float)clamp(mono * safeBright, 0.0, 1.0);
     }
   }
   gGridW = w;
