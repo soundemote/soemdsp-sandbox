@@ -62,13 +62,17 @@ See `docs/PATCH_MIGRATIONS.md`.
 
 ```text
 phasor-helpers · control-bus-helpers · parameter-smoother-filters
-node-live-audio-worklet-core.js          (~class shell, ~86KB)
-  · graph.js · smoother.js · destroy.js
-  · evaluators.js · native-exports.js · set-plan.js · clear-plan.js
+node-live-audio-worklet-core.js          (~class shell, ~65KB)
+  · graph · smoother · param-map · destroy · analog
+  · visual · scope-io · native-load
+  · evaluators · native-exports · set-plan · clear-plan
   · handle-message · scope-snapshot · evaluate-frame · process
 per-module *-worklet-evaluator.js
 node-live-audio-worklet-register.js      (registerProcessor last)
 ```
+
+Main-thread faces: `node-graph-module-scope-defaults.js` (pure constants) loads
+before `node-graph-module-scopes.js`.
 
 Mechanical rule: **extract only** — same method bodies on `NodeLiveAudioProcessor.prototype`.
 
@@ -85,8 +89,8 @@ New DSP should land as pure functions first, then thin adapters.
 
 ## Still large (next extracts)
 
-- `node-graph-module-scopes.js` (~600KB) — settings defaults, normalizers, and paint/capture are **interleaved** (not a clean line cut). Prefer extracting pure defaults/normalize clusters by symbol, not file halves.
-- Worklet remaining: constructor bulk, `setNativeModuleWasm`, visual-control helpers
+- `node-graph-module-scopes.js` (~593KB after defaults peel) — normalize/paint still interleaved; next: normalize* helpers by symbol
+- Worklet remaining: constructor bulk, connection builders, residual stubs
 
 ## Related docs
 

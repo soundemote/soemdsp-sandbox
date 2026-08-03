@@ -360,60 +360,13 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return y;
   }
 
-  createVisualControlState() {
-    return {
-      controls: {
-        blue: 0,
-        chromaAlpha: 0,
-        chromaDrift: 0,
-        chromaHue: 0,
-        chromaLightness: 0,
-        chromaSaturation: 0,
-        chromaSpread: 0,
-        green: 0,
-        red: 0,
-        scopePaused: 0,
-        scopeTracesOff: 0,
-        screenDim: 0,
-        screenShake: 0,
-        visualBloom: 0,
-        visualBrightness: 0,
-        visualGlow: 0,
-        x: 0,
-        y: 0,
-      },
-      counter: 0,
-      states: new Map([
-        ["blue", 0],
-        ["chromaAlpha", 0],
-        ["chromaDrift", 0],
-        ["chromaHue", 0],
-        ["chromaLightness", 0],
-        ["chromaSaturation", 0],
-        ["chromaSpread", 0],
-        ["green", 0],
-        ["red", 0],
-        ["scopePaused", 0],
-        ["scopeTracesOff", 0],
-        ["screenDim", 0],
-        ["screenShake", 0],
-        ["visualBloom", 0],
-        ["visualBrightness", 0],
-        ["visualGlow", 0],
-        ["x", 0],
-        ["y", 0],
-      ]),
-    };
-  }
+  // createVisualControlState → node-live-audio-worklet-visual.js (Phase D visual controls)
 
-  resetVisualControls() {
-    const visualState = this.createVisualControlState();
-    this.visualControls = visualState.controls;
-    this.visualControlCounter = visualState.counter;
-    this.visualControlStates = visualState.states;
-  }
 
-  // destroySabrinaReverbState → node-live-audio-worklet-destroy.js (Phase D)
+  // resetVisualControls → node-live-audio-worklet-visual.js (Phase D visual controls)
+
+
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
   // handleMessage → node-live-audio-worklet-handle-message.js (Phase D)
@@ -509,65 +462,8 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.bugButtonStates.set(nodeId, state);
   }
 
-  async setNativeModuleWasm(message) {
-    if (!(message.bytes instanceof ArrayBuffer)) {
-      return;
-    }
-    const name = String(message.name || "");
-    const targetType = String(message.targetType || "");
-    let exports = null;
-    try {
-      const result = await WebAssembly.instantiate(message.bytes, {});
-      exports = result?.instance?.exports || null;
-    } catch (error) {
-      // For the combined binary, report per-module errors (so Module
-      // Diagnostics names what's affected) plus one under "combined" (so
-      // the main thread's retry handler un-marks it for the next plan
-      // update).
-      const failed = name === "combined" && Array.isArray(message.modules)
-        ? [...message.modules, { name: "combined" }]
-        : [{ name, targetType }];
-      for (const entry of failed) {
-        this.port.postMessage({
-          type: "nativeModuleStatus",
-          name: String(entry?.name || name),
-          status: "error",
-          message: String(error?.message || error || "native module load failed"),
-        });
-      }
-      return;
-    }
-    if (name === "combined") {
-      // One instance, one shared linear memory, every module's exports on
-      // the same object (all prefix-namespaced) -- apply it to each module
-      // slot in turn. See scripts/build_native_modules.ps1 for why.
-      const entries = Array.isArray(message.modules) ? message.modules : [];
-      for (const entry of entries) {
-        const entryName = String(entry?.name || "");
-        try {
-          this.applyNativeModuleExports(entryName, String(entry?.targetType || ""), exports);
-        } catch (error) {
-          this.port.postMessage({
-            type: "nativeModuleStatus",
-            name: entryName,
-            status: "error",
-            message: String(error?.message || error || "native module apply failed"),
-          });
-        }
-      }
-      return;
-    }
-    try {
-      this.applyNativeModuleExports(name, targetType, exports);
-    } catch (error) {
-      this.port.postMessage({
-        type: "nativeModuleStatus",
-        name,
-        status: "error",
-        message: String(error?.message || error || "native module apply failed"),
-      });
-    }
-  }
+  // setNativeModuleWasm → node-live-audio-worklet-native-load.js (Phase D native wasm load + gpu additive)
+
 
   // The dispatch chain below (one block per native module, unchanged) was
   // the body of setNativeModuleWasm; it now receives the exports object
@@ -579,84 +475,11 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   // clearPlan → node-live-audio-worklet-clear-plan.js (Phase D)
 
 
-  pushGpuAdditiveChunk(message = {}) {
-    if (message.sessionId !== this.sessionId || message.planSerial !== this.planSerial) {
-      return;
-    }
-    const nodeId = String(message.nodeId || "");
-    const samples = message.samples instanceof Float32Array
-      ? message.samples
-      : new Float32Array(message.samples || []);
-    if (!nodeId || samples.length <= 0) {
-      return;
-    }
-    const queue = this.gpuAdditiveQueues.get(nodeId) || {
-      backend: "",
-      chunks: [],
-      droppedChunks: 0,
-      expectedSequence: 0,
-      heldGain: 1,
-      heldSamples: 0,
-      lastSample: 0,
-      readIndex: 0,
-      resetCount: 0,
-      version: "",
-    };
-    queue.backend = String(message.backend || queue.backend || "");
-    const version = String(message.version || "");
-    if (queue.version !== version) {
-      queue.chunks = [];
-      queue.droppedChunks = 0;
-      queue.expectedSequence = 0;
-      queue.readIndex = 0;
-      queue.resetCount += 1;
-      queue.version = version;
-    }
-    const sequence = Number(message.sequence);
-    if (Number.isFinite(sequence)) {
-      if (sequence < queue.expectedSequence) {
-        return;
-      }
-      if (sequence > queue.expectedSequence) {
-        queue.droppedChunks += sequence - queue.expectedSequence;
-        queue.chunks = [];
-        queue.readIndex = 0;
-      }
-      queue.expectedSequence = sequence + 1;
-    }
-    queue.chunks.push(samples);
-    while (queue.chunks.length > 12) {
-      queue.chunks.shift();
-      queue.droppedChunks += 1;
-      queue.readIndex = 0;
-    }
-    this.gpuAdditiveQueues.set(nodeId, queue);
-  }
+  // pushGpuAdditiveChunk → node-live-audio-worklet-native-load.js (Phase D native wasm load + gpu additive)
 
-  postGpuAdditiveStatus() {
-    const queues = [];
-    for (const [nodeId, queue] of this.gpuAdditiveQueues) {
-      queues.push({
-        nodeId,
-        backend: queue.backend,
-        chunks: queue.chunks.length,
-        droppedChunks: queue.droppedChunks,
-        expectedSequence: queue.expectedSequence,
-        heldGain: queue.heldGain,
-        heldSamples: queue.heldSamples,
-        resetCount: queue.resetCount,
-        samples: queue.chunks.reduce((sum, chunk) => sum + chunk.length, 0) - queue.readIndex,
-        version: queue.version,
-      });
-    }
-    this.port.postMessage({
-      queues,
-      sessionId: this.sessionId,
-      type: "gpuAdditiveStatus",
-      underruns: this.gpuAdditiveUnderruns,
-    });
-    this.gpuAdditiveUnderruns = 0;
-  }
+
+  // postGpuAdditiveStatus → node-live-audio-worklet-native-load.js (Phase D native wasm load + gpu additive)
+
 
   // setPlan → node-live-audio-worklet-set-plan.js (Phase D)
 
@@ -1169,213 +992,32 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return "";
   }
 
-  scopeScalarValue(value) {
-    const readNumber = (candidate) => {
-      const number = Number(candidate);
-      if (this.badValueReason(number)) {
-        return null;
-      }
-      return this.clampValue(number, -1, 1);
-    };
-    if (typeof value === "number") {
-      return readNumber(value) ?? 0;
-    }
-    if (!value || typeof value !== "object") {
-      return 0;
-    }
-    for (const key of ["Bias", "Out", "Out X", "Out Y", "Out Z", "Left", "Right", "X", "Y", "Z", "Pulse", "Gate", "Count"]) {
-      const number = readNumber(value[key]);
-      if (number !== null) {
-        return number;
-      }
-    }
-    for (const candidate of Object.values(value)) {
-      const number = readNumber(candidate);
-      if (number !== null) {
-        return number;
-      }
-    }
-    return 0;
-  }
+  // scopeScalarValue → node-live-audio-worklet-scope-io.js (Phase D scope capture IO)
 
-  captureModuleScopeFrame(frameValues = null, frame = 0, frames = 1) {
-    this.scopeSampleStride = Math.max(1, Math.floor((Number(this.engineSampleRate) || sampleRate || 44100) / 12000));
-    const captureDebugScope = (this.scopeCounter % this.scopeSampleStride) === 0;
-    if (captureDebugScope) {
-      const captureNodeIds = Array.isArray(this.scopeCaptureNodeIds)
-        ? this.scopeCaptureNodeIds
-        : this.order;
-      for (const nodeId of captureNodeIds) {
-        if (!this.nodeOutputs.has(nodeId)) {
-          continue;
-        }
-        this.captureModuleScopeOutput(nodeId, this.nodeOutputs.get(nodeId));
-      }
-    }
-    for (const sink of this.visualSinks || []) {
-      const nodeId = String(sink?.nodeId || "");
-      if (!nodeId) {
-        continue;
-      }
-      if (
-        Array.isArray(this.scopeCaptureNodeIds) &&
-        !this.scopeCaptureNodeIds.includes(nodeId)
-      ) {
-        continue;
-      }
-      let value = 0;
-      for (const input of sink.inputs || []) {
-        if (!input?.connected) {
-          continue;
-        }
-        const inputValue = (input.connections || []).reduce(
-          (connectionSum, connection) => connectionSum + this.readRuntimePortOutput(
-            frameValues,
-            connection.sourceNode,
-            connection.sourcePort,
-            frame,
-            frames,
-          ),
-          0,
-        );
-        value += inputValue;
-        const inputPort = String(input.port || "").trim();
-        if (input?.buffered && inputPort) {
-          this.writeVisualInputBufferSample(nodeId, inputPort, inputValue, sink.bufferSampleLimit);
-        }
-        if (captureDebugScope && inputPort && !input?.buffered) {
-          const portId = `${nodeId}:${inputPort}`;
-          this.appendScopeBufferSample(portId, inputValue);
-        }
-      }
-      if (captureDebugScope) {
-        this.appendScopeBufferSample(nodeId, value);
-      }
-    }
-  }
 
-  appendScopeBufferSample(id, value) {
-    const key = String(id || "");
-    if (!key) {
-      return;
-    }
-    const limit = 4096;
-    let samples = this.scopeBuffers.get(key);
-    if (!(samples instanceof Float32Array)) {
-      samples = new Float32Array(limit);
-      samples.nodeGraphScopeWriteIndex = 0;
-      samples.nodeGraphScopeLength = 0;
-      this.scopeBuffers.set(key, samples);
-    }
-    const writeIndex = Math.max(0, Math.min(limit - 1, Number(samples.nodeGraphScopeWriteIndex) || 0));
-    samples[writeIndex] = this.scopeScalarValue(value);
-    samples.nodeGraphScopeWriteIndex = (writeIndex + 1) % limit;
-    samples.nodeGraphScopeLength = Math.min(limit, (Number(samples.nodeGraphScopeLength) || 0) + 1);
-  }
+  // captureModuleScopeFrame → node-live-audio-worklet-scope-io.js (Phase D scope capture IO)
 
-  createVisualInputBuffer(capacity = 262144) {
-    const safeCapacity = this.normalizeVisualInputBufferCapacity(capacity);
-    return {
-      absoluteFrame: 0,
-      buffer: new Float32Array(safeCapacity),
-      capacity: safeCapacity,
-      length: 0,
-      postedFrame: 0,
-      writeIndex: 0,
-    };
-  }
 
-  normalizeVisualInputBufferCapacity(capacity = 262144) {
-    return Math.max(1, Math.round(Number(capacity) || 262144));
-  }
+  // appendScopeBufferSample → node-live-audio-worklet-scope-io.js (Phase D scope capture IO)
 
-  resizeVisualInputBufferState(state, capacity = 262144) {
-    const safeCapacity = this.normalizeVisualInputBufferCapacity(capacity);
-    if (!state || state.capacity !== safeCapacity || !(state.buffer instanceof Float32Array)) {
-      const next = this.createVisualInputBuffer(safeCapacity);
-      if (!state?.buffer?.length || !state?.length) {
-        return next;
-      }
-      const oldCapacity = state.capacity || state.buffer.length;
-      const oldLength = Math.min(Number(state.length) || 0, oldCapacity);
-      const copyCount = Math.min(oldLength, safeCapacity);
-      const first = ((Number(state.writeIndex) || 0) - oldLength + oldCapacity) % oldCapacity;
-      for (let index = 0; index < copyCount; index += 1) {
-        const oldIndex = (first + oldLength - copyCount + index) % oldCapacity;
-        next.buffer[index] = state.buffer[oldIndex] || 0;
-      }
-      next.length = copyCount;
-      next.writeIndex = copyCount % safeCapacity;
-      next.absoluteFrame = Math.max(Number(state.absoluteFrame) || 0, copyCount);
-      next.postedFrame = Math.min(Math.max(Number(state.postedFrame) || 0, 0), next.absoluteFrame);
-      return next;
-    }
-    return state;
-  }
 
-  syncVisualInputBuffers() {
-    const expected = new Map();
-    for (const sink of this.visualSinks || []) {
-      const nodeId = String(sink?.nodeId || "");
-      if (!nodeId) {
-        continue;
-      }
-      for (const input of sink.inputs || []) {
-        if (!input?.buffered) {
-          continue;
-        }
-        const port = String(input.port || "").trim();
-        if (!port) {
-          continue;
-        }
-        const key = `${nodeId}:${port}`;
-        expected.set(key, this.normalizeVisualInputBufferCapacity(sink.bufferSampleLimit));
-      }
-    }
-    for (const [key, capacity] of expected) {
-      const current = this.visualInputBuffers.get(key);
-      if (!current || current.capacity !== capacity) {
-        this.visualInputBuffers.set(key, this.resizeVisualInputBufferState(current, capacity));
-      }
-    }
-    for (const key of [...this.visualInputBuffers.keys()]) {
-      if (!expected.has(key)) {
-        this.visualInputBuffers.delete(key);
-      }
-    }
-  }
+  // createVisualInputBuffer → node-live-audio-worklet-scope-io.js (Phase D scope capture IO)
 
-  writeVisualInputBufferSample(nodeId, port, value, capacity = 262144) {
-    const key = `${nodeId}:${port}`;
-    let buffer = this.visualInputBuffers.get(key);
-    const safeCapacity = this.normalizeVisualInputBufferCapacity(capacity);
-    if (!buffer || buffer.capacity !== safeCapacity) {
-      buffer = this.resizeVisualInputBufferState(buffer, safeCapacity);
-      this.visualInputBuffers.set(key, buffer);
-    }
-    buffer.buffer[buffer.writeIndex] = this.scopeScalarValue(value);
-    buffer.writeIndex = (buffer.writeIndex + 1) % buffer.capacity;
-    buffer.length = Math.min(buffer.capacity, buffer.length + 1);
-    buffer.absoluteFrame += 1;
-  }
 
-  captureModuleScopeOutput(nodeId, output) {
-    const id = String(nodeId || "");
-    if (!id) {
-      return;
-    }
-    this.appendScopeBufferSample(id, output);
-    if (!output || typeof output !== "object") {
-      return;
-    }
-    for (const [port, value] of Object.entries(output)) {
-      if (!port || !Number.isFinite(Number(value))) {
-        continue;
-      }
-      const portId = `${id}:${port}`;
-      this.appendScopeBufferSample(portId, value);
-    }
-  }
+  // normalizeVisualInputBufferCapacity → node-live-audio-worklet-scope-io.js (Phase D scope capture IO)
+
+
+  // resizeVisualInputBufferState → node-live-audio-worklet-scope-io.js (Phase D scope capture IO)
+
+
+  // syncVisualInputBuffers → node-live-audio-worklet-scope-io.js (Phase D scope capture IO)
+
+
+  // writeVisualInputBufferSample → node-live-audio-worklet-scope-io.js (Phase D scope capture IO)
+
+
+  // captureModuleScopeOutput → node-live-audio-worklet-scope-io.js (Phase D scope capture IO)
+
 
   // postModuleScopeSnapshot → node-live-audio-worklet-scope-snapshot.js (Phase D)
 
@@ -1474,66 +1116,23 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return output === undefined || output === null ? 0 : Number(output);
   }
 
-  parameterOutputExists(node, port) {
-    return Boolean(node?.params && Object.hasOwn(node.params, port));
-  }
+  // parameterOutputExists → node-live-audio-worklet-param-map.js (Phase D parameter normalize map)
 
-  normalizeParameterOutputValue(value, metadata = {}) {
-    return this.parameterValueToNormalizedSignal(value, metadata);
-  }
 
-  normalizeParameterModulationInput(value, metadata = {}) {
-    const number = Number(value) || 0;
-    // Frequency parameters accept bipolar modulation [-1, 1] so through-zero
-    // FM is possible (set frequency to 0, modulate with an oscillator, and the
-    // pitch sweeps both positive and negative). All other parameters use [0, 1].
-    return metadata?.kind === "frequency"
-      ? this.clampValue(number, -1, 1)
-      : this.clampValue(number, 0, 1);
-  }
+  // normalizeParameterOutputValue → node-live-audio-worklet-param-map.js (Phase D parameter normalize map)
 
-  parameterSkewExponent(metadata = {}) {
-    if (!metadata.nonlinearSlider) {
-      return 1;
-    }
-    const min = Number(metadata.min);
-    const max = Number(metadata.max);
-    const mid = Number(metadata.mid);
-    const range = max - min;
-    if (!Number.isFinite(range) || range <= 0 || !Number.isFinite(mid)) {
-      return 1;
-    }
-    const normalizedMid = this.clampValue((mid - min) / range, 0.000001, 0.999999);
-    return Math.log(normalizedMid) / Math.log(0.5);
-  }
 
-  parameterValueToNormalizedSignal(value, metadata = {}) {
-    const min = Number(metadata.min);
-    const max = Number(metadata.max);
-    const range = max - min;
-    if (!Number.isFinite(range) || range <= 0) {
-      return 0;
-    }
-    const bounded = metadata.wraparound
-      ? this.wrapValue(Number(value) || 0, min, max)
-      : this.clampValue(Number(value) || 0, min, max);
-    const normalizedValue = this.clampValue((bounded - min) / range, 0, 1);
-    return this.clampValue(normalizedValue ** (1 / this.parameterSkewExponent(metadata)), 0, 1);
-  }
+  // normalizeParameterModulationInput → node-live-audio-worklet-param-map.js (Phase D parameter normalize map)
 
-  normalizedSignalToParameterValue(signal, metadata = {}) {
-    const min = Number(metadata.min);
-    const max = Number(metadata.max);
-    const range = max - min;
-    if (!Number.isFinite(range) || range <= 0) {
-      return Number.isFinite(min) ? min : 0;
-    }
-    const normalizedSignal = metadata.wraparound
-      ? this.wrapValue(Number(signal) || 0, 0, 1)
-      : this.clampValue(Number(signal) || 0, 0, 1);
-    const normalizedValue = normalizedSignal ** this.parameterSkewExponent(metadata);
-    return this.applyParameterBounds(min + range * normalizedValue, metadata);
-  }
+
+  // parameterSkewExponent → node-live-audio-worklet-param-map.js (Phase D parameter normalize map)
+
+
+  // parameterValueToNormalizedSignal → node-live-audio-worklet-param-map.js (Phase D parameter normalize map)
+
+
+  // normalizedSignalToParameterValue → node-live-audio-worklet-param-map.js (Phase D parameter normalize map)
+
 
   // applyParameterModulation → node-live-audio-worklet-smoother.js (Phase D parameter smoother)
 
@@ -1647,7 +1246,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   // Companion to createStereoFilterState: destroys all three channels'
   // native handles (if any) via the module's existing destroyXNativeState
   // method, tolerating a pre-bundle single-state shape defensively.
-  // destroyStereoFilterNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
   createOscResetState() {
@@ -1701,77 +1300,61 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return { brown: 0, gaussianSpare: null, pink: [0, 0, 0, 0, 0, 0, 0], seed: 0, seedKey: "" };
   }
 
-  // destroyFbmNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyLadderFilterNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyFlowerChildFilterNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyRsmetFilterNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyYellowjacketFilterNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroySuperloveFilterNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyChaoticPhaseLockingFilterNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyResonatorFilterNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyHumanFilterNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyPulseExplosionNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyComparatorNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroySampleDelayNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyMinMaxNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyTransportNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroySlewLimiterNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroySampleHoldNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyChordMemoryNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyTuringMachineNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyFlowerChildEnvelopeFollowerNativeState → node-live-audio-worklet-destroy.js (Phase D)
-
-  // destroyTriggerDividerNativeState → node-live-audio-worklet-destroy.js (Phase D)
-
-  // destroyStepSequencerNativeState → node-live-audio-worklet-destroy.js (Phase D)
-
-  // destroyTriggerCounterNativeState → node-live-audio-worklet-destroy.js (Phase D)
-
-  // destroyDelayedTriggerNativeState → node-live-audio-worklet-destroy.js (Phase D)
-
-  // destroyClockNativeState → node-live-audio-worklet-destroy.js (Phase D)
-
-  // destroyRandomClockNativeState → node-live-audio-worklet-destroy.js (Phase D)
-
-  // destroyPingPongDelayNativeState → node-live-audio-worklet-destroy.js (Phase D)
-
-  // destroyPapoulisFilterNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
   /**
@@ -1815,21 +1398,19 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     });
   }
 
-  // destroyPapoulisParameterSmootherNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyAllPapoulisParameterSmootherNativeStates → node-live-audio-worklet-destroy.js (Phase D)
-
-  // destroyPhosphillatorNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyAliasSineNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyTb303FilterNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyPassiveFilterNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
   // Papoulis (Optimum-L) order-3 lowpass. Normalized (cutoff = 1 rad/s) prototype:
@@ -1862,75 +1443,17 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     return 0;
   }
 
-  visualControlIntensity(value, nodeId, source = "visual control") {
-    const number = Number(value);
-    const reason = this.badValueReason(number);
-    if (reason) {
-      this.badNumberCount += 1;
-      if (!this.lastBadValueNodeId) {
-        this.lastBadValueReason = reason;
-        this.lastBadValueNodeId = nodeId || "";
-        this.lastBadValueSource = source;
-      }
-      return 0;
-    }
-    return this.clampValue(Math.abs(number), 0, 1);
-  }
+  // visualControlIntensity → node-live-audio-worklet-visual.js (Phase D visual controls)
 
-  visualControlSigned(value, nodeId, source = "visual control") {
-    const number = Number(value);
-    const reason = this.badValueReason(number);
-    if (reason) {
-      this.badNumberCount += 1;
-      if (!this.lastBadValueNodeId) {
-        this.lastBadValueReason = reason;
-        this.lastBadValueNodeId = nodeId || "";
-        this.lastBadValueSource = source;
-      }
-      return 0;
-    }
-    return this.clampValue(number, -1, 1);
-  }
 
-  smoothVisualControl(key, target, rate = sampleRate, seconds = 0.045, min = 0, max = 1) {
-    const safeTarget = this.clampValue(Number(target) || 0, min, max);
-    const previous = Number(this.visualControlStates.get(key));
-    const current = Number.isFinite(previous) ? previous : 0;
-    const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
-    const time = Math.max(0, Number(seconds) || 0);
-    const coefficient = time <= 0 ? 1 : 1 - Math.exp(-1 / Math.max(1, time * safeRate));
-    const next = current + (safeTarget - current) * coefficient;
-    const cleaned = Math.abs(next) < 0.000001 ? 0 : this.clampValue(next, min, max);
-    this.visualControlStates.set(key, cleaned);
-    this.visualControls[key] = cleaned;
-    return cleaned;
-  }
+  // visualControlSigned → node-live-audio-worklet-visual.js (Phase D visual controls)
 
-  postVisualControls() {
-    this.port.postMessage({
-      patchFingerprint: this.patchFingerprint,
-      blue: this.clampValue(this.visualControls.blue, 0, 1),
-      chromaAlpha: this.clampValue(this.visualControls.chromaAlpha, 0, 1),
-      chromaDrift: this.clampValue(this.visualControls.chromaDrift, 0, 1),
-      chromaHue: this.clampValue(this.visualControls.chromaHue, 0, 1),
-      chromaLightness: this.clampValue(this.visualControls.chromaLightness, 0, 1),
-      chromaSaturation: this.clampValue(this.visualControls.chromaSaturation, 0, 1),
-      chromaSpread: this.clampValue(this.visualControls.chromaSpread, 0, 1),
-      green: this.clampValue(this.visualControls.green, 0, 1),
-      red: this.clampValue(this.visualControls.red, 0, 1),
-      scopePaused: this.clampValue(this.visualControls.scopePaused, 0, 1),
-      scopeTracesOff: this.clampValue(this.visualControls.scopeTracesOff, 0, 1),
-      screenDim: this.clampValue(this.visualControls.screenDim, 0, 1),
-      screenShake: this.clampValue(this.visualControls.screenShake, 0, 1),
-      sessionId: this.sessionId,
-      type: "visualControls",
-      visualBloom: this.clampValue(this.visualControls.visualBloom, 0, 1),
-      visualBrightness: this.clampValue(this.visualControls.visualBrightness, 0, 1),
-      visualGlow: this.clampValue(this.visualControls.visualGlow, 0, 1),
-      x: this.clampValue(this.visualControls.x, -1, 1),
-      y: this.clampValue(this.visualControls.y, -1, 1),
-    });
-  }
+
+  // smoothVisualControl → node-live-audio-worklet-visual.js (Phase D visual controls)
+
+
+  // postVisualControls → node-live-audio-worklet-visual.js (Phase D visual controls)
+
 
   sampleChannelAt(sample, channelIndex, frameIndex) {
     const channel = sample?.channelData?.[channelIndex] || sample?.samples;
@@ -1958,32 +1481,11 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     };
   }
 
-  onePoleHighpassSample(state, input, frequency, rate = sampleRate) {
-    const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
-    const safeInput = this.safeFilterNumber(input, state);
-    const frequencyValue = Math.max(0, this.safeFilterNumber(frequency, state));
-    const w = Math.min((Math.PI * 2) / safeRate, 0.000142475857) * frequencyValue;
-    const a1 = Math.exp(-w);
-    const b0 = 0.5 * (1 + a1);
-    const b1 = -b0;
-    state.outputBuffer = this.safeFilterNumber(
-      b0 * safeInput + b1 * state.inputBuffer + a1 * state.outputBuffer,
-      state,
-    );
-    state.inputBuffer = safeInput;
-    return state.outputBuffer;
-  }
+  // onePoleHighpassSample → node-live-audio-worklet-analog.js (Phase D analog / filter / seeded helpers)
 
-  onePoleLowpassSample(state, input, frequency, rate = sampleRate) {
-    const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
-    const safeInput = this.safeFilterNumber(input, state);
-    const frequencyValue = Math.max(0, this.safeFilterNumber(frequency, state));
-    const w = Math.min((Math.PI * 2) / safeRate, 0.000142475857) * frequencyValue;
-    const a1 = Math.exp(-w);
-    const b0 = 1 - a1;
-    state.outputBuffer = this.safeFilterNumber(b0 * safeInput + a1 * state.outputBuffer, state);
-    return state.outputBuffer;
-  }
+
+  // onePoleLowpassSample → node-live-audio-worklet-analog.js (Phase D analog / filter / seeded helpers)
+
 
   // Exact soemdsp::curve::Rational::get(p), p already normalized to [0,1].
 
@@ -1994,96 +1496,29 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   // Shared helpers for the RSMET/Yellowjacket/SuperLove/ChaoticPhaseLocking/
   // Resonator/Human filter family below.
 
-  analogLadderTapStep(y, input, a, mode, stages) {
-    const c = [0, 0, 0, 0, 0];
-    if (mode === 1) {
-      c[stages] = 1;
-    } else if (mode === 2) {
-      const hp = [[1, -1, 0, 0, 0], [1, -2, 1, 0, 0], [1, -3, 3, -1, 0], [1, -4, 6, -4, 1]];
-      for (let i = 0; i <= stages; i++) c[i] = hp[stages - 1][i];
-    } else if (mode === 3) {
-      const bp = [[0, 2, -2, 0, 0], [0, 2, -2, 0, 0], [0, 0, 3, -3, 0], [0, 0, 4, -8, 4]];
-      for (let i = 0; i < 5; i++) c[i] = bp[stages - 1][i];
-    }
-    let y0 = input;
-    y0 = y0 / (1 + y0 * y0);
-    y[1] = y0 + a * (y0 - y[1]);
-    y[2] = y[1] + a * (y[1] - y[2]);
-    y[3] = y[2] + a * (y[2] - y[3]);
-    y[4] = y[3] + a * (y[3] - y[4]);
-    y[0] = y0;
-    return c[0] * y[0] + c[1] * y[1] + c[2] * y[2] + c[3] * y[3] + c[4] * y[4];
-  }
+  // analogLadderTapStep → node-live-audio-worklet-analog.js (Phase D analog / filter / seeded helpers)
 
-  analogLadderCoefficient(cutoffHz, sampleRateValue) {
-    const wc = Math.max(1e-9, Math.min(Math.PI * 0.98, 2 * Math.PI * cutoffHz / sampleRateValue));
-    const s = Math.sin(wc);
-    const c = Math.cos(wc);
-    const t = Math.tan(0.25 * (wc - Math.PI));
-    let denom = s - c * t;
-    if (denom > -1e-12 && denom < 1e-12) denom = denom >= 0 ? 1e-12 : -1e-12;
-    return t / denom;
-  }
 
-  analogRationalCurve(p, skew) {
-    return ((1 + skew) * p) / (1 - skew + 2 * skew * p);
-  }
+  // analogLadderCoefficient → node-live-audio-worklet-analog.js (Phase D analog / filter / seeded helpers)
 
-  analogEvalGraph(nodes, x) {
-    if (nodes.length === 0) return 0;
-    if (x < nodes[0].x) return nodes[0].y;
-    let i = -1;
-    for (let k = 0; k < nodes.length; k++) {
-      if (nodes[k].x > x) { i = k; break; }
-    }
-    if (i < 0) return nodes[nodes.length - 1].y;
-    if (i === 0) return nodes[0].y;
-    const n1 = nodes[i - 1];
-    const n2 = nodes[i];
-    if (n2.x - n1.x < 1e-9) return 0.5 * (n1.y + n2.y);
-    const p = (x - n1.x) / (n2.x - n1.x);
-    if (n2.shape === 1) return n1.y + (n2.y - n1.y) * this.analogRationalCurve(p, n2.skew);
-    if (n2.shape === 2) {
-      const c = 0.5 * (n2.skew + 1);
-      const a = 2 * Math.log((1 - c) / c);
-      return n1.y + (n2.y - n1.y) * (1 - Math.exp(p * a)) / (1 - Math.exp(a));
-    }
-    return n1.y + (n2.y - n1.y) * p;
-  }
 
-  analogWaveEllipseFull(phaseCycles, A, bSin, bCos, C) {
-    const sinX = Math.sin(phaseCycles * 2 * Math.PI);
-    const cosX = Math.cos(phaseCycles * 2 * Math.PI);
-    const apc = A + cosX;
-    let sqrtVal = Math.sqrt(apc * apc + (C * sinX) * (C * sinX));
-    if (sqrtVal < 1e-12) sqrtVal = 1e-12;
-    return (apc * bCos + (C * sinX) * bSin) / sqrtVal;
-  }
+  // analogRationalCurve → node-live-audio-worklet-analog.js (Phase D analog / filter / seeded helpers)
 
-  analogWaveEllipse(phaseCycles, ellipseC) {
-    return this.analogWaveEllipseFull(phaseCycles, 0, 0, 1, ellipseC);
-  }
 
-  analogWaveTrisaw(phaseCycles, morph) {
-    let phaseRad = phaseCycles * 2 * Math.PI;
-    phaseRad = phaseRad - 2 * Math.PI * Math.floor(phaseRad / (2 * Math.PI));
-    const morphRad = morph * 2 * Math.PI;
-    let sourceMin, sourceMax, targetMin, targetRange;
-    if (phaseRad > morphRad) {
-      sourceMin = morphRad; sourceMax = 2 * Math.PI; targetMin = 1; targetRange = -1;
-    } else {
-      sourceMin = 0; sourceMax = morphRad; targetMin = 0; targetRange = 1;
-    }
-    const sourceRange = sourceMax - sourceMin;
-    let uni;
-    if (sourceMin === sourceMax) uni = sourceMin;
-    else uni = targetMin + (targetRange * (phaseRad - sourceMin)) / sourceRange;
-    return 2 * uni - 1;
-  }
+  // analogEvalGraph → node-live-audio-worklet-analog.js (Phase D analog / filter / seeded helpers)
 
-  analogPitchToFreq(pitch) {
-    return 440 * Math.pow(2, (pitch - 69) / 12);
-  }
+
+  // analogWaveEllipseFull → node-live-audio-worklet-analog.js (Phase D analog / filter / seeded helpers)
+
+
+  // analogWaveEllipse → node-live-audio-worklet-analog.js (Phase D analog / filter / seeded helpers)
+
+
+  // analogWaveTrisaw → node-live-audio-worklet-analog.js (Phase D analog / filter / seeded helpers)
+
+
+  // analogPitchToFreq → node-live-audio-worklet-analog.js (Phase D analog / filter / seeded helpers)
+
 
   // --- RSMET Filter ---
 
@@ -2097,9 +1532,8 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
 
   // --- Human Filter ---
 
-  humanFilterDbToAmp(db) {
-    return Math.pow(10, db / 20);
-  }
+  // humanFilterDbToAmp → node-live-audio-worklet-analog.js (Phase D analog / filter / seeded helpers)
+
 
   // --- Pulse Explosion ---
 
@@ -2115,16 +1549,8 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     };
   }
 
-  delayInterpolateLinear(buffer, where) {
-    const length = buffer.length;
-    if (!length) {
-      return 0;
-    }
-    const before = Math.floor(where) % length;
-    const after = (before + 1) % length;
-    const mix = where - Math.floor(where);
-    return buffer[before] * (1 - mix) + buffer[after] * mix;
-  }
+  // delayInterpolateLinear → node-live-audio-worklet-analog.js (Phase D analog / filter / seeded helpers)
+
 
   // X/Y as a fraction of a whole note. Both are free metaparameters -- never
   // clamped or rejected here, only floored for this one computation:
@@ -2141,95 +1567,65 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   // soemdsp_sabrina_reverb_set_params. Pure extraction -- same clamps, same
   // key construction, same condition, same call args as before.
 
-  seededKey(nodeId, seed, salt) {
-    return `${nodeId}.${salt}.${Math.max(0, Math.round(Number(seed) || 0))}`;
-  }
-
-  resetSeededState(state, nodeId, seed, salt) {
-    const key = this.seededKey(nodeId, seed, salt);
-    if (state.seedKey !== key) {
-      state.seedKey = key;
-      state.seed = this.stableSeed(key);
-      state.gaussianSpare = null;
-      state.brown = 0;
-      state.pink = [0, 0, 0, 0, 0, 0, 0];
-      if ("out" in state) {
-        state.out = 0;
-      }
-      if (state.lowpass) {
-        state.lowpass.outputBuffer = 0;
-      }
-    }
-  }
-
-  nextSeededUnipolar(state) {
-    state.seed = (Math.imul(1664525, state.seed || 0x12345678) + 1013904223) >>> 0;
-    return state.seed / 0xffffffff;
-  }
-
-  nextSeededBipolar(state) {
-    return this.nextSeededUnipolar(state) * 2 - 1;
-  }
-
-  hashBipolar(index, seed) {
-    let value = (Math.trunc(index) ^ Math.trunc(seed)) >>> 0;
-    value = Math.imul(value ^ (value >>> 16), 2246822507) >>> 0;
-    value = Math.imul(value ^ (value >>> 13), 3266489909) >>> 0;
-    value = (value ^ (value >>> 16)) >>> 0;
-    return (value / 0xffffffff) * 2 - 1;
-  }
-
-  // destroyVactrolEnvelopeNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // seededKey → node-live-audio-worklet-analog.js (Phase D analog / filter / seeded helpers)
 
 
-  // destroyLogisticMapNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // resetSeededState → node-live-audio-worklet-analog.js (Phase D analog / filter / seeded helpers)
 
 
-  // destroyPolyBlepNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // nextSeededUnipolar → node-live-audio-worklet-analog.js (Phase D analog / filter / seeded helpers)
 
 
-  // destroyBlitNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // nextSeededBipolar → node-live-audio-worklet-analog.js (Phase D analog / filter / seeded helpers)
 
 
-  // destroyArchimedesNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // hashBipolar → node-live-audio-worklet-analog.js (Phase D analog / filter / seeded helpers)
 
 
-  // Self-affine Weierstrass-style fractal spiral -- see
-  // public/node-graph-fractal-spiral.js for the full derivation. Mirrors
-  // that file exactly.
-
-  // Pure logarithmic (equiangular) spiral -- see
-  // public/node-graph-log-spiral.js for the full derivation. Mirrors that
-  // file exactly.
-
-  // destroyHenonMapNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyWirdoSpiralNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyBlubbNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyMushroomNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyBoingNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyTorusNativeState → node-live-audio-worklet-destroy.js (Phase D)
+
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyKeplerBouwkampNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyNyquistShannonNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyRadarNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyChuaAttractorNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
+
+
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
   // Registry of per-module-type dispatch handlers, proving the pattern for
@@ -2244,13 +1640,13 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   // (Phase D extract). Prototype method is assigned before the processor runs.
 
 
-  // destroyPitchQuantizerNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyChordSequencerNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyLutCellNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
   // Unwired inputs default to 0, a constant -- silent no matter the truth
@@ -2260,52 +1656,52 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
   // in this JS orchestration layer -- the native module itself stays a
   // faithful, purely reactive LUT+FF with no self-driving of its own.
 
-  // destroySurgeOscillatorNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyDsfOscillatorNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyLinearEnvelopeNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroySineWavetableNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyLogSpiralNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroySnowflakeNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyFractalSpiralNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyJerobeamSpiralNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyDelayEffectNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyPluckEnvelopeNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyExpAdsrNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyRandomWalkNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyPiSpigotNoiseNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyBradley2ANativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyAntisawNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyLorenzAttractorNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
   // pureSawEng(t, n), transcribed and simplified directly from "Extended
@@ -2332,7 +1728,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
 
   // RobinSupersaw — native-only (see robin-supersaw-worklet-evaluator.js).
 
-  // destroyRobinSupersawNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
   // rsPitchDitherOsc<T>::calcCycleDistribution(), transcribed.
@@ -2343,10 +1739,10 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
 
   // Hypersaw — native-only (see hypersaw-worklet-evaluator.js).
 
-  // destroyHypersawNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
-  // destroyVideoscopeNativeState → node-live-audio-worklet-destroy.js (Phase D)
+  // destroy* methods → node-live-audio-worklet-destroy.js (Phase D)
 
 
   // evaluateFrame → node-live-audio-worklet-evaluate-frame.js (Phase D)

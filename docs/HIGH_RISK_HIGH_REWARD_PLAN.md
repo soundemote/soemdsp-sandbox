@@ -148,11 +148,13 @@ Split without behavior change:
 - [x] Graph math cluster → `node-live-audio-worklet-graph.js`
 - [x] Parameter smoother cluster → `node-live-audio-worklet-smoother.js`
 - [x] Native destroy* cluster → `node-live-audio-worklet-destroy.js` (~72 methods)
-- Core ~363KB → **~86KB**; method files wired after core in worklet Blob
+- [x] visual / scope-io / native-load / analog / param-map extracts
+- [x] scopes pure defaults → `node-graph-module-scope-defaults.js` (18 consts)
+- Core ~363KB → **~65KB**; method files wired after core in worklet Blob
 
 ### Next D slices
-- [ ] scopes: symbol-level defaults/normalize extract (line-cut unsafe — interleaved)
-- [ ] Optional: `setNativeModuleWasm` / visual-control helpers
+- [ ] scopes: normalize* helpers by symbol (still interleaved with paint)
+- [ ] worklet: constructor / connection-map residual
 
 ### Rule
 **Extract only** in first PR: same functions, new files, same load order. No renames of public globals until extract settles.
@@ -183,7 +185,8 @@ Split without behavior change:
 4. [x] **C0** migrator pipeline; **D** evaluators extract; **A1** inventory + pitch helper on new oscs.
 5. [x] B legacy set removed; free-run residual thinned; worklet graph+smoother extracted; ARCHITECTURE.md.
 6. [x] residual → `planFreeRun`; destroy* extract; free-run declaration-complete.
-7. **Next:** scopes symbol extract; A2 polish; C1 renames when product-ready.
+7. [x] More worklet clusters + scopes defaults peel.
+8. **Next:** scopes normalize extract; constructor slim; C1 renames when product-ready.
 
 ---
 
