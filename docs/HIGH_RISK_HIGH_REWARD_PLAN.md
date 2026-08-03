@@ -1,9 +1,11 @@
 # Architecture plan — remaining work
 
 Active bets only. Finished work lives in git history and `docs/ARCHITECTURE.md`.
-**2026-08-02 session map:** `docs/SESSION_PROGRESS_2026-08-02.md`.
+**Session map:** `docs/SESSION_PROGRESS_2026-08-02.md`.
 
-**Constraint:** parity gates (live + offline + save/reload). No silent behavior drift.
+**Constraint:** live/offline/worklet parity for DSP you change.  
+**Patch compatibility:** not a goal right now — **old patches may break** when module
+types, ports, or format change. Prefer clean current graph over migrators.
 
 ---
 
@@ -12,10 +14,11 @@ Active bets only. Finished work lives in git history and `docs/ARCHITECTURE.md`.
 **Goal:** one pure formula path; thin live + worklet adapters.
 
 **Still to do**
-- Peel more dual live/worklet pairs onto helpers / `*-math.js` (Phase/Amp, pitch, filters)
+- Peel more dual live/worklet pairs onto helpers / `*-math.js` (filters, remaining oscs)
 - Optional: small `node` smoke for pure helpers
 
-**Recently shared:** phasor/pitch helpers, control-bus, param surfaces, rotate3dTo2d + vectorscopeTransform math.
+**Recently shared:** phasor/pitch helpers, control-bus, param surfaces, rotate3d,
+vectorscopeTransform, gain / bias / gainBias math.
 
 **Refs:** `docs/A1_LIVE_WORKLET_DSP_INVENTORY.md`, `docs/PARAM_SURFACES.md`
 
@@ -26,40 +29,49 @@ Active bets only. Finished work lives in git history and `docs/ARCHITECTURE.md`.
 **Goal:** player/embed can avoid downloading the full combined native binary.
 
 **Still to do**
-- clapplayer / external player shell default to slim (not this monorepo)
+- External player shells (e.g. clapplayer) default to slim — out of this monorepo
 
-**Done here:** optional fetch metrics (`nodeGraphLiveNativeWasmFetchReport`).
+**Done here:** `?wasmLoad=slim`, player-ish defaults, `nodeGraphLiveNativeWasmFetchReport()`.
 
-**How it works:** patch decides types → slim fetches those WASM only.  
-Not module-browser filtering. See `docs/WASM_SLIM_LOAD.md`.
-
-**In code:** `?wasmLoad=slim`, player-ish query defaults (`hideui`/`autostart`/`player`), embed-config, live override.
+See `docs/WASM_SLIM_LOAD.md`.
 
 ---
 
 ## D follow-up — Scopes paint peel
 
-**Goal:** split remaining face paint/capture/UI out of the big scopes file for maintainability only (no sound change).
+**Goal:** split remaining face paint/UI out of the big scopes file (maintainability only).
 
 **Still to do**
-- Remaining orchestrator / typed-item dispatch in scopes.js
+- More geometry / buffer / sync helpers still in `module-scopes.js`
 
-**Peeled:** defaults, normalize, display-mode, phosphor, settings-form, **settings-ui**, capture, number-readout, **draw-basic**, **draw-burn**
+**Peeled:** defaults, normalize, display-mode, phosphor, settings-form, settings-ui,
+capture, number-readout, draw-basic, draw-burn, **draw-orchestrator**
 
 ---
 
-## Optional / later
+## Finished (not open)
 
 | Item | Note |
 |------|------|
-| Worklet `evaluators.js` further split | **Done (sources/processors/utility clusters)** — more peels optional |
-| Param surface SIGNAL IN audit | Ongoing — sinc Phase + sineWavetable Amp helpers landed |
-| Product renames via migrators | **Format 3+ only when we rename types/ports on purpose** — load-time pure map so old patches open. Format 2 already did `valueSlider`→`knob`. Not a standing backlog task. |
+| Worklet **evaluators.js** split | **Done** — `evaluators-sources` / `-processors` / `-utility` + thin merge shell. Further split optional only if a cluster file gets huge again. |
+| Patch format migrators | Present but **not a priority**. Rename modules freely; old patches can fail. |
+
+---
+
+## SIGNAL IN audit (ongoing)
+
+Oscillators should use shared helpers for `0.1V/Oct` / Phase / Amplitude jacks
+(`nodeGraphParamResolveOscPitchHz`, `nodeGraphParamSignalInPhaseAdd`,
+`nodeGraphParamSignalInAmplitude` / Additive).  
+Pitch **processors** (e.g. pitchQuantizer) pass CV through — they do not need Hz resolve.
+
+See `docs/PARAM_SURFACES.md`.
 
 ---
 
 ## Working agreement
 
-1. One primary track at a time inside a session.  
-2. Parity before deleting dual paths.  
+1. One primary track at a time inside a session when possible.  
+2. Parity before deleting dual DSP paths.  
 3. Extract-only for D peels (same globals, new files, load order).  
+4. Call graph nodes **modules**, not “products.”  

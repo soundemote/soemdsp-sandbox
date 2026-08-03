@@ -666,15 +666,13 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           { threshold: read("threshold", 0), steps },
         );
       },
-      gain: (node, nodeId, frame, frames, frameValues, mixInput) => {
-        const gainAmount = this.readEffectiveParameter(node, "amount", 1, frame, frames, frameValues);
-        const gainMono = mixInput(nodeId);
-        return {
-          Out: gainMono * gainAmount,
-          Left: (mixInput(nodeId, "Left") + gainMono) * gainAmount,
-          Right: (mixInput(nodeId, "Right") + gainMono) * gainAmount,
-        };
-      },
+      gain: (node, nodeId, frame, frames, frameValues, mixInput) =>
+        this.gainFrame(
+          mixInput(nodeId),
+          mixInput(nodeId, "Left"),
+          mixInput(nodeId, "Right"),
+          this.readEffectiveParameter(node, "amount", 1, frame, frames, frameValues),
+        ),
       gainBias: (node, nodeId, frame, frames, frameValues, mixInput) => {
         const gainBiasAmount = this.readEffectiveParameter(node, "amount", 1, frame, frames, frameValues);
         const gainBiasOffset = this.readEffectiveParameter(node, "offset", 0, frame, frames, frameValues);
@@ -686,15 +684,13 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           gainBiasOffset,
         );
       },
-      bias: (node, nodeId, frame, frames, frameValues, mixInput) => {
-        const biasOffset = this.readEffectiveParameter(node, "offset", 0, frame, frames, frameValues);
-        const biasMono = mixInput(nodeId);
-        return {
-          Out: biasMono + biasOffset,
-          Left: mixInput(nodeId, "Left") + biasMono + biasOffset,
-          Right: mixInput(nodeId, "Right") + biasMono + biasOffset,
-        };
-      },
+      bias: (node, nodeId, frame, frames, frameValues, mixInput) =>
+        this.biasFrame(
+          mixInput(nodeId),
+          mixInput(nodeId, "Left"),
+          mixInput(nodeId, "Right"),
+          this.readEffectiveParameter(node, "offset", 0, frame, frames, frameValues),
+        ),
       softClipper: (node, nodeId, frame, frames, frameValues, mixInput) => {
         const softClipperCenter = this.readEffectiveParameter(node, "center", 0, frame, frames, frameValues);
         const softClipperWidth = this.readEffectiveParameter(node, "width", 2, frame, frames, frameValues);

@@ -6,20 +6,32 @@ nodeGraphLiveModuleEvaluators.surgeOscillator = ({ runtime, node, nodeId, frame,
   runtime.surgeOscillatorStates.set(nodeId, state);
   const read = (key, fallback) => readNodeGraphLiveEffectiveParam(runtime, node, key, fallback, frame, frames, frameValues);
   const baseFrequency = Math.max(0, read("frequency", 100));
-  const pitchInput = clampNodeSliderValue(nodeGraphSafeFilterNumber(
-    mixInput(nodeId, "0.1V/Oct"),
-    runtime,
-    nodeId,
-    0,
-    "hard sync oscillator 0.1v input",
-  ), -10, 10);
-  const frequencyHz = (typeof nodeGraphPitchedFrequency === "function" ? nodeGraphPitchedFrequency(baseFrequency, pitchInput, 0) : Math.max(0, baseFrequency * (2 ** (pitchInput / 0.1))));
+  const pitchReferenceAudio = normalizeNodeGraphPatchAudio(nodeGraphMvp.patch.audio);
+  const referenceVoltage = pitchReferenceAudio.pitchReferenceMidiNote / 120;
+  const hasPitch = hasInput?.(nodeId, "0.1V/Oct");
+  const pitchCv = hasPitch
+    ? clampNodeSliderValue(nodeGraphSafeFilterNumber(
+      mixInput(nodeId, "0.1V/Oct"),
+      runtime,
+      nodeId,
+      null,
+      "hard sync oscillator 0.1v input",
+    ), -1, 1)
+    : referenceVoltage;
   const fHz = typeof nodeGraphReadFInputHz === "function"
     ? nodeGraphReadFInputHz(mixInput, hasInput, nodeId)
     : null;
-  const effectiveFrequency = typeof nodeGraphResolveFrequencyHz === "function"
-    ? nodeGraphResolveFrequencyHz(frequencyHz, fHz)
-    : frequencyHz;
+  const effectiveFrequency = typeof nodeGraphParamResolveOscPitchHz === "function"
+    ? nodeGraphParamResolveOscPitchHz({
+      baseHz: baseFrequency,
+      hasPitchCv: hasPitch,
+      pitchCv,
+      referenceVoltage,
+      fHz,
+    })
+    : (typeof nodeGraphPitchedFrequency === "function"
+      ? nodeGraphPitchedFrequency(baseFrequency, pitchCv, referenceVoltage)
+      : Math.max(0, baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1))));
   return nodeGraphSurgeOscillatorSample(state, {
     frequencyHz: effectiveFrequency,
     sampleRate,

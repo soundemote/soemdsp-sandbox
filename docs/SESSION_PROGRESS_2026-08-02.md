@@ -33,25 +33,19 @@ settings chrome + orchestrator draw.
 - wasmLoad slim path; Phase F surfaces; format 2 knob
 - plan roles, worklet core split, Soft Fractal controls
 
-## What “format 3+ product renames” means
+## Module renames / patch format
 
-Patches are versioned: `{ format: { kind, version } }`. On load,
-`migrateNodeGraphPatchToCurrent` walks migrators (v0→1→2…).
+**No backwards compatibility goal right now** — old patches may break when
+modules (types, ports, faces) change. Existing format 0→2 migrators still run
+if loaded; new migrators are not a priority. See `docs/PATCH_MIGRATIONS.md`.
 
-**Format 2** already renames module type `valueSlider` → `knob` so old patches
-open without “unknown type”.
+## Still open
 
-**Format 3+** would be the same mechanism for the **next** intentional product
-rename (another module type, port name, or face key). It is **not** open work —
-only when we decide a rename that must not break saved patches. Then: bump
-`format.version`, add pure migrator, rename defs/store in the same change.
+1. **A** — more `*-math.js` / helper peels  
+2. **D** — more scopes geometry/buffer helpers (settings-ui + draw-orchestrator done)  
+3. **E** — external player shells default to slim (out of this tree)  
+4. **SIGNAL IN** — remaining oscs onto resolve/Phase/Amp helpers  
 
-## Still open (post-push work targets)
+**Done / not open:** worklet **evaluators.js** split (sources/processors/utility).
 
-1. **A** — more `*-math.js` / helper peels; SIGNAL IN consistency on remaining jacks  
-2. **D** — settings UI chrome + draw orchestrator peels out of scopes.js  
-3. **E** — clapplayer repo default to slim (out of this tree); optional fetch metrics  
-4. **Worklet evaluators.js** — split map into cluster files (navigation only)  
-5. **SIGNAL IN audit** — every Phase / Amplitude / 0.1V/Oct jack uses shared helpers  
-
-See also: `docs/PARAM_SURFACES.md`, `docs/WASM_SLIM_LOAD.md`, `docs/A1_LIVE_WORKLET_DSP_INVENTORY.md`.
+See: `docs/PARAM_SURFACES.md`, `docs/WASM_SLIM_LOAD.md`, `docs/A1_LIVE_WORKLET_DSP_INVENTORY.md`.

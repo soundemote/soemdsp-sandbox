@@ -1,38 +1,38 @@
 # Patch format migrations
 
-**Phase C** of `HIGH_RISK_HIGH_REWARD_PLAN.md`.
+**Phase C** of the architecture plan. Implementation: `public/node-graph-patch-migrations.js`.
 
-## Pipeline
+## Policy (current)
+
+**Backwards compatibility is not a goal right now.** Old patches may break when
+module types, ports, or faces change. Prefer a clean current graph.
+
+Migrators that already exist (format 0→1→2) still run on load if present; do
+**not** add new ones unless we explicitly decide we care again. For module
+renames, just rename definitions/store/evaluators — no format bump required
+while this policy holds.
+
+## Pipeline (if migrations.js is loaded)
 
 ```text
-load JSON → migrateNodeGraphPatchToCurrent(patch) → validateNodeGraphPatch → compile plan
+load JSON → migrateNodeGraphPatchToCurrent(patch) → validate → compile plan
 ```
 
-- Implementation: `public/node-graph-patch-migrations.js`
-- Loaded before `node-graph-patch-core.js` in `index.html`
-- Current format: `{ kind: "soemdsp-sandbox-node-patch", version: 1 }`
-
-## Version ladder
+## Existing ladder (historical)
 
 | From | To | What happens |
 |------|-----|----------------|
 | missing / 0 | 1 | Stamp `format`; phosphorLight → scope2d |
-| 1 | 2 | `valueSlider` → `knob`; `valueSliderFace` → `knobFace` |
-| 2 | 2 | Idempotent re-stamp; re-apply safe renames |
+| 1 | 2 | `valueSlider` → `knob`; face keys |
+| 2 | 2 | Idempotent re-stamp |
 
-## Adding a migration (e.g. knob → knob)
+## If we reinstate BC later
 
-1. Bump `nodeGraphPatchFormat.version` to N+1 in `node-graph-module-definitions.js`.
-2. Append migrator at index N in `nodeGraphPatchMigrators` (maps version N → N+1).
-   - Notes stub: `nodeGraphPatchMigrateV1ToV2Reserved` in `patch-migrations.js`.
-3. Migrator must be pure: `(patch) => nextPatch`, copy nodes/arrays it mutates.
-4. Rename module type in definitions/store/UI in the **same** change set.
-5. Gate: open a 0.4.3-era patch and a current patch; both load without data loss.
-
-**Do not bump format while users have live sessions open** unless coordinated —
-open patches may re-save mid-edit.
+1. Bump `nodeGraphPatchFormat.version`.
+2. Append a pure migrator for **module** type/port/face renames.
+3. Gate on opening real saved patches.
 
 ## Non-goals
 
 - Silent formula changes inside migrators
-- Dropping unknown modules without the retired-type set (use `nodeGraphRetiredNodeTypes`)
+- Preserving every historical module id forever  

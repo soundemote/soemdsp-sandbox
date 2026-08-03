@@ -41,16 +41,18 @@ through-zero LFOs work on level, morph, etc.
 | **0.1V/Oct** | `nodeGraphPitchedFrequency` / `nodeGraphParamResolveOscPitchHz` |
 | Phase jack | `nodeGraphParamSignalInPhaseAdd` (domain + CV, wrap 0…1 cycles) |
 
-**Converted SIGNAL IN (Phase/Amp) so far:** softwave, dsf, curveOsc, snowflake (Amp),
-sinc **Phase** jack (was knob-only), sineWavetable **Amplitude** (additive via
-`nodeGraphParamSignalInAdditive` — historical contract, not multiply).
+**Converted / using helpers:** softwave, dsf, curveOsc, snowflake (Amp),
+sinc Phase, sineWavetable Amplitude (**additive** via `nodeGraphParamSignalInAdditive`),
+surge / hypersaw / robin → `nodeGraphParamResolveOscPitchHz` (live and/or worklet).
 
-**Still audit:** any module with Phase/Amplitude/0.1V/Oct jacks that still inlines
-pitch or phase math instead of helpers — prefer `nodeGraphPitchedFrequency` +
-Phase/Amp helpers for live + worklet parity.
+**Pitch processors** (pitchQuantizer, noteGlide, …): pass `0.1V/Oct` as CV —
+do **not** force osc Hz resolve.
 
-**Note:** sineWavetable Amplitude is **additive** domain CV (amp + jack). Most
-other oscs use **Amplitude as multiply** (`nodeGraphParamSignalInAmplitude`).
+**Still converting:** remaining oscs that inline pitch/Phase/Amp blocks instead
+of `nodeGraphParamResolveOscPitchHz` / PhaseAdd / Amplitude helpers.
+
+**Note:** sineWavetable Amplitude is **additive** (amp + jack). Most other oscs
+use **Amplitude as multiply** (`nodeGraphParamSignalInAmplitude`).
 
 ## API (pure)
 
