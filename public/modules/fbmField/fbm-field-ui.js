@@ -15,6 +15,62 @@ function createNodeGraphFbmFieldBody(node, type) {
   canvas.setAttribute("aria-hidden", "true");
   canvas.style.cssText = "display:block;width:100%;height:100%;";
   face.append(canvas);
+
+  // Probe reticles (X/Y/Z sample points) — positions synced in display paint.
+  const overlay = document.createElement("div");
+  overlay.className = "node-fbm-field-probe-overlay";
+  overlay.setAttribute("aria-hidden", "true");
+  overlay.style.cssText = [
+    "position:absolute",
+    "inset:0",
+    "pointer-events:none",
+    "overflow:hidden",
+    "z-index:2",
+  ].join(";");
+  for (const key of ["X", "Y", "Z"]) {
+    const mark = document.createElement("div");
+    mark.className = "node-fbm-field-probe-mark";
+    mark.dataset.probe = key;
+    mark.style.cssText = [
+      "position:absolute",
+      "width:0",
+      "height:0",
+      "transform:translate(-50%,-50%)",
+      "display:none",
+      "align-items:center",
+      "justify-content:center",
+      "font:600 9px/1 ui-monospace,Consolas,monospace",
+      "letter-spacing:0",
+      "user-select:none",
+    ].join(";");
+    const ring = document.createElement("span");
+    ring.className = "node-fbm-field-probe-ring";
+    ring.style.cssText = [
+      "display:block",
+      "width:9px",
+      "height:9px",
+      "border:1.5px solid rgba(255,255,255,0.92)",
+      "border-radius:50%",
+      "box-shadow:0 0 0 1px rgba(0,0,0,0.75),0 0 4px rgba(0,0,0,0.5)",
+      "background:rgba(0,0,0,0.15)",
+    ].join(";");
+    const label = document.createElement("span");
+    label.className = "node-fbm-field-probe-label";
+    label.textContent = key;
+    label.style.cssText = [
+      "position:absolute",
+      "left:11px",
+      "top:50%",
+      "transform:translateY(-50%)",
+      "color:#fff",
+      "text-shadow:0 0 2px #000,0 1px 2px #000",
+      "font-size:9px",
+      "line-height:1",
+    ].join(";");
+    mark.append(ring, label);
+    overlay.append(mark);
+  }
+  face.append(overlay);
   return face;
 }
 

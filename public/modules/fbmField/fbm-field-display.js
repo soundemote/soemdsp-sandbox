@@ -152,6 +152,7 @@ function nodeGraphFbmFieldFillBlack(canvas, face) {
     face._fbmFieldHasFrame = false;
     face._fbmFieldTime = 0;
     face._fbmFieldLastTs = 0;
+    nodeGraphFbmFieldSyncProbeMarkers(face, face.dataset?.node || "", false);
   }
   if (face?.dataset) face.dataset.lightStrength = "0";
   if (typeof setNodeGraphLightStrength === "function" && face) {
@@ -220,6 +221,67 @@ function syncNodeGraphFbmFieldFacesToLiveState() {
   }
 }
 
+/**
+ * Map field-space probe (sx,sy) → face UV (matches fill_grid + rotate).
+ * Probes: X=center, Y=+X offset, Z=+Y offset (span*0.35) — same as native sample().
+ */
+function nodeGraphFbmFieldProbeToFaceUv(sx, sy, panX, panY, span, cosR, sinR) {
+  const rx = sx - panX;
+  const ry = sy - panY;
+  // Inverse of face rotate: [px,py] = R^T * [rx,ry]
+  const px = rx * cosR + ry * sinR;
+  const py = -rx * sinR + ry * cosR;
+  const nx = span > 1e-12 ? px / span : 0;
+  const ny = span > 1e-12 ? py / span : 0;
+  return {
+    u: (nx + 1) * 0.5,
+    v: (1 - ny) * 0.5,
+  };
+}
+
+function nodeGraphFbmFieldSyncProbeMarkers(face, nodeId, visible) {
+  const overlay = face?.querySelector?.(".node-fbm-field-probe-overlay");
+  if (!overlay) return;
+  if (!visible) {
+    for (const mark of overlay.querySelectorAll(".node-fbm-field-probe-mark")) {
+      mark.style.display = "none";
+    }
+    return;
+  }
+  const zoom = Math.max(0.05, nodeGraphFbmFieldReadParam(nodeId, "zoom", 1));
+  const panX = nodeGraphFbmFieldReadParam(nodeId, "panX", 0);
+  const panY = nodeGraphFbmFieldReadParam(nodeId, "panY", 0);
+  const rotate = nodeGraphFbmFieldReadParam(nodeId, "rotate", 0);
+  const span = 1 / zoom;
+  const d = span * 0.35;
+  const ang = rotate * Math.PI * 2;
+  const cosR = Math.cos(ang);
+  const sinR = Math.sin(ang);
+  // Match native soemdsp_fbm_field_sample probe layout.
+  const probes = [
+    { key: "X", sx: panX, sy: panY, color: "rgba(120,220,255,0.95)" },
+    { key: "Y", sx: panX + d, sy: panY, color: "rgba(160,255,140,0.95)" },
+    { key: "Z", sx: panX, sy: panY + d, color: "rgba(255,190,120,0.95)" },
+  ];
+  for (const p of probes) {
+    const mark = overlay.querySelector(`.node-fbm-field-probe-mark[data-probe="${p.key}"]`);
+    if (!mark) continue;
+    const { u, v } = nodeGraphFbmFieldProbeToFaceUv(p.sx, p.sy, panX, panY, span, cosR, sinR);
+    // Hide if outside the face (zoom/pan can push Y/Z off-screen).
+    if (u < -0.02 || u > 1.02 || v < -0.02 || v > 1.02) {
+      mark.style.display = "none";
+      continue;
+    }
+    mark.style.display = "flex";
+    mark.style.left = `${Math.max(0, Math.min(1, u)) * 100}%`;
+    mark.style.top = `${Math.max(0, Math.min(1, v)) * 100}%`;
+    const ring = mark.querySelector(".node-fbm-field-probe-ring");
+    if (ring) ring.style.borderColor = p.color;
+    const label = mark.querySelector(".node-fbm-field-probe-label");
+    if (label) label.style.color = p.color;
+  }
+}
+
 function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
   if (!canvas || !face || !nodeId) return false;
 
@@ -240,6 +302,7 @@ function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
       }
       face._fbmFieldRunning = false;
     }
+    nodeGraphFbmFieldSyncProbeMarkers(face, nodeId, false);
     // Always plate black on stop (force re-clear even if already flagged black —
     // wipe / remount / size change can leave a stale WebGL frame).
     return nodeGraphFbmFieldFillBlack(canvas, face);
@@ -252,6 +315,7 @@ function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
   if (frozen && face._fbmFieldHasFrame && !options.force) {
     face._fbmFieldLastTs = 0;
     if (face.dataset) face.dataset.lightStrength = "1";
+    nodeGraphFbmFieldSyncProbeMarkers(face, nodeId, true);
     return true;
   }
 
@@ -311,6 +375,7 @@ function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
     if (face.dataset) face.dataset.lightStrength = "1";
     face._fbmFieldHasFrame = true;
     face._fbmFieldBlack = false;
+    nodeGraphFbmFieldSyncProbeMarkers(face, nodeId, true);
   }
   return ok;
 }
