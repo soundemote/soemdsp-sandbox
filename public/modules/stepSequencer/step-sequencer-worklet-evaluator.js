@@ -44,6 +44,24 @@ NodeLiveAudioProcessor.prototype.stepSequencerSample = function stepSequencerSam
         });
       }
     }
+    // JS path: pure math (step-sequencer-math.js).
+    if (typeof nodeGraphStepSequencerCore === "function") {
+      const out = nodeGraphStepSequencerCore(
+        state,
+        this.safeFilterNumber(trigger, null),
+        this.safeFilterNumber(reset, null),
+        {
+          level: this.safeFilterNumber(params?.level, null),
+          steps: this.safeFilterNumber(params?.steps, null),
+          threshold: this.safeFilterNumber(params?.threshold, null),
+          values: (params?.values || []).map((v) => this.safeFilterNumber(v, null)),
+        },
+      );
+      return {
+        Gate: this.safeFilterNumber(out.Gate, null),
+        Out: this.safeFilterNumber(out.Out, null),
+      };
+    }
     return { Gate: 0, Out: 0 };
   };
 

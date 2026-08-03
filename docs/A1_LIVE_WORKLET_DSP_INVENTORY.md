@@ -11,7 +11,7 @@
 | `node-graph-control-bus-helpers.js` | Bias/In, binary out, stereo mix, external stereo, MIDI ports |
 | `node-graph-shared-dsp-helpers.js` | trigger divider, one-pole LP, noise channel state, etc. |
 | `node-graph-analog-filter-helpers.js` | analog filter math |
-| Per-module `*-math.js` | … clock, transport, randomWalk, triggerDivider, noiseGenerator, … |
+| Per-module `*-math.js` | … clock, transport, randomWalk, stepSequencer, metallicRatio, … |
 
 ## High-duplicate pitch CV pattern (next A2 batches)
 

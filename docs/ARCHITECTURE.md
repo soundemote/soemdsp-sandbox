@@ -78,8 +78,8 @@ scope-defaults → normalize → display-mode → phosphor → settings-form
   → settings-ui → capture → number-readout → draw-basic → draw-burn
   → scopes.js → spectrum → buffer-io → sync → metrics → geometry
   → webgl → vertices → offline → screen-items → slots → buffer-view
-  → monitors → scene-controls → shader-settings
-  → paint-helpers → draw-orchestrator
+  → monitors → scene-controls → shader-settings → trace-controls
+  → wipe → graph-query → paint-helpers → draw-orchestrator
 ```
 
 Mechanical rule: **extract only** — same method bodies on `NodeLiveAudioProcessor.prototype`.
