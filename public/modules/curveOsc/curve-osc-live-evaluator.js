@@ -64,7 +64,9 @@ nodeGraphLiveModuleEvaluators.curveOsc = ({
   const phaseCv = hasInput?.(nodeId, "Phase")
     ? nodeGraphSafeFilterNumber(mixInput(nodeId, "Phase"), runtime, nodeId, 0, "curve osc phase")
     : 0;
-  const phase = wrapNodeSliderValue(phaseKnob + phaseCv, 0, 1);
+  const phase = typeof nodeGraphParamSignalInPhaseAdd === "function"
+    ? nodeGraphParamSignalInPhaseAdd(phaseKnob, phaseCv)
+    : wrapNodeSliderValue(phaseKnob + phaseCv, 0, 1);
 
   const levelKnob = read("level", 1);
   const level = hasInput?.(nodeId, "Amplitude")

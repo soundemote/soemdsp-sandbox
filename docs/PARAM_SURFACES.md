@@ -37,9 +37,11 @@ through-zero LFOs work on level, morph, etc.
 | Jack pattern | Helper / convention |
 |--------------|---------------------|
 | Knob **In** additive | `nodeGraphDspBiasFromIn` / `nodeGraphParamSignalInAdditive` |
-| Amplitude multiply | `nodeGraphParamSignalInMultiply` (unwired → 1) |
-| **0.1V/Oct** | `nodeGraphPitchedFrequency(base, cv, ref)` |
-| Phase jack | usually domain + CV (cycles), module-local |
+| Amplitude multiply | `nodeGraphParamSignalInAmplitude` / `nodeGraphParamSignalInMultiply` (unwired → 1) |
+| **0.1V/Oct** | `nodeGraphPitchedFrequency` / `nodeGraphParamResolveOscPitchHz` |
+| Phase jack | `nodeGraphParamSignalInPhaseAdd` (domain + CV, wrap 0…1 cycles) |
+
+**Converted SIGNAL IN (Phase/Amp) so far:** softwave, dsf, curveOsc (live + worklet map).
 
 ## API (pure)
 

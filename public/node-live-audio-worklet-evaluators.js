@@ -488,11 +488,15 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators = function buildLiveM
         const phaseCv = this.inputConnections.has(this.inputKey(nodeId, "Phase"))
           ? this.safeFilterNumber(mixInput(nodeId, "Phase"), 0)
           : 0;
-        const phase = this.wrapValue(phaseKnob + phaseCv, 0, 1);
+        const phase = typeof nodeGraphParamSignalInPhaseAdd === "function"
+          ? nodeGraphParamSignalInPhaseAdd(phaseKnob, phaseCv)
+          : this.wrapValue(phaseKnob + phaseCv, 0, 1);
         const levelKnob = read("level", 1);
-        const level = this.inputConnections.has(this.inputKey(nodeId, "Amplitude"))
-          ? levelKnob * this.safeFilterNumber(mixInput(nodeId, "Amplitude"), 1)
-          : levelKnob;
+        const hasAmp = this.inputConnections.has(this.inputKey(nodeId, "Amplitude"));
+        const ampCv = hasAmp ? this.safeFilterNumber(mixInput(nodeId, "Amplitude"), 1) : 1;
+        const level = typeof nodeGraphParamSignalInAmplitude === "function"
+          ? nodeGraphParamSignalInAmplitude(levelKnob, ampCv, hasAmp)
+          : (hasAmp ? levelKnob * ampCv : levelKnob);
         return this.softwaveOscillatorSample(state, {
           frequencyHz: effectiveFrequency,
           sampleRate: safeRate,
@@ -530,11 +534,15 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators = function buildLiveM
         const phaseCv = this.inputConnections.has(this.inputKey(nodeId, "Phase"))
           ? this.safeFilterNumber(mixInput(nodeId, "Phase"), 0)
           : 0;
-        const phase = this.wrapValue(phaseKnob + phaseCv, 0, 1);
+        const phase = typeof nodeGraphParamSignalInPhaseAdd === "function"
+          ? nodeGraphParamSignalInPhaseAdd(phaseKnob, phaseCv)
+          : this.wrapValue(phaseKnob + phaseCv, 0, 1);
         const levelKnob = read("level", 1);
-        const level = this.inputConnections.has(this.inputKey(nodeId, "Amplitude"))
-          ? levelKnob * this.safeFilterNumber(mixInput(nodeId, "Amplitude"), 1)
-          : levelKnob;
+        const hasAmp = this.inputConnections.has(this.inputKey(nodeId, "Amplitude"));
+        const ampCv = hasAmp ? this.safeFilterNumber(mixInput(nodeId, "Amplitude"), 1) : 1;
+        const level = typeof nodeGraphParamSignalInAmplitude === "function"
+          ? nodeGraphParamSignalInAmplitude(levelKnob, ampCv, hasAmp)
+          : (hasAmp ? levelKnob * ampCv : levelKnob);
         return this.curveOscillatorSample(state, {
           frequencyHz: effectiveFrequency,
           sampleRate: safeRate,
@@ -572,9 +580,11 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators = function buildLiveM
           : Math.max(0, baseFrequency * (2 ** ((pitchInput - referenceVoltage) / 0.1))));
         const effectiveFrequency = this.resolveFrequencyHz(pitchedFrequency, this.readFInputHz(mixInput, nodeId));
         const levelKnob = read("level", 1);
-        const level = this.inputConnections.has(this.inputKey(nodeId, "Amplitude"))
-          ? levelKnob * this.safeFilterNumber(mixInput(nodeId, "Amplitude"), 1)
-          : levelKnob;
+        const hasAmp = this.inputConnections.has(this.inputKey(nodeId, "Amplitude"));
+        const ampCv = hasAmp ? this.safeFilterNumber(mixInput(nodeId, "Amplitude"), 1) : 1;
+        const level = typeof nodeGraphParamSignalInAmplitude === "function"
+          ? nodeGraphParamSignalInAmplitude(levelKnob, ampCv, hasAmp)
+          : (hasAmp ? levelKnob * ampCv : levelKnob);
         return this.snowflakeSample(state, {
           frequencyHz: effectiveFrequency,
           sampleRate: safeRate,
@@ -610,11 +620,15 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators = function buildLiveM
         const phaseCv = this.inputConnections.has(this.inputKey(nodeId, "Phase"))
           ? this.safeFilterNumber(mixInput(nodeId, "Phase"), null)
           : 0;
-        const phase = this.wrapValue(phaseKnob + phaseCv, 0, 1);
+        const phase = typeof nodeGraphParamSignalInPhaseAdd === "function"
+          ? nodeGraphParamSignalInPhaseAdd(phaseKnob, phaseCv)
+          : this.wrapValue(phaseKnob + phaseCv, 0, 1);
         const levelKnob = read("level", 1);
-        const level = this.inputConnections.has(this.inputKey(nodeId, "Amplitude"))
-          ? levelKnob * this.safeFilterNumber(mixInput(nodeId, "Amplitude"), null)
-          : levelKnob;
+        const hasAmp = this.inputConnections.has(this.inputKey(nodeId, "Amplitude"));
+        const ampCv = hasAmp ? this.safeFilterNumber(mixInput(nodeId, "Amplitude"), 1) : 1;
+        const level = typeof nodeGraphParamSignalInAmplitude === "function"
+          ? nodeGraphParamSignalInAmplitude(levelKnob, ampCv, hasAmp)
+          : (hasAmp ? levelKnob * ampCv : levelKnob);
         return this.dsfOscillatorSample(state, {
           frequencyHz: effectiveFrequency,
           sampleRate: safeRate,

@@ -182,6 +182,55 @@ function nodeGraphParamSignalInMultiply(domainValue, scaleSample, defaultScale =
   return (Number(domainValue) || 0) * scale;
 }
 
+/**
+ * SIGNAL IN — phase jack adds to phase knob (cycles), wrapped to [0, 1).
+ * Unwired phaseCv should be 0.
+ */
+function nodeGraphParamSignalInPhaseAdd(domainPhase, phaseCv) {
+  const p = (Number(domainPhase) || 0) + (Number(phaseCv) || 0);
+  return p - Math.floor(p);
+}
+
+/**
+ * SIGNAL IN — Amplitude jack multiplies level knob when wired.
+ * hasAmp false → return domainLevel unchanged; true → domain * amp (default amp 1).
+ */
+function nodeGraphParamSignalInAmplitude(domainLevel, ampSample, hasAmp) {
+  if (!hasAmp) {
+    return Number(domainLevel) || 0;
+  }
+  return nodeGraphParamSignalInMultiply(domainLevel, ampSample, 1);
+}
+
+/**
+ * Resolve osc pitch from domain frequency + optional 0.1V/Oct + optional f (Hz) jack.
+ * Uses nodeGraphPitchedFrequency / nodeGraphResolveFrequencyHz when available.
+ */
+function nodeGraphParamResolveOscPitchHz(options = {}) {
+  const baseHz = Math.max(0, Number(options.baseHz) || 0);
+  const pitchCv = options.pitchCv;
+  const referenceVoltage = Number(options.referenceVoltage);
+  const ref = Number.isFinite(referenceVoltage) ? referenceVoltage : 0;
+  const hasPitch = options.hasPitchCv === true;
+  const cv = hasPitch ? pitchCv : ref;
+  let pitched = baseHz;
+  if (typeof nodeGraphPitchedFrequency === "function") {
+    pitched = nodeGraphPitchedFrequency(baseHz, cv, ref);
+  } else {
+    const c = Number(cv);
+    const pitch = Number.isFinite(c) ? c : 0;
+    pitched = Math.max(0, baseHz * (2 ** ((pitch - ref) / 0.1)));
+  }
+  const fHz = options.fHz;
+  if (fHz != null && Number.isFinite(Number(fHz))) {
+    if (typeof nodeGraphResolveFrequencyHz === "function") {
+      return nodeGraphResolveFrequencyHz(pitched, Number(fHz));
+    }
+    return Math.max(0, Number(fHz));
+  }
+  return pitched;
+}
+
 // Aliases matching older live/worklet names (thin adapters call these).
 function nodeGraphParamValueToNormalizedSignal(value, metadata) {
   return nodeGraphParamDomainToUnit(value, metadata);

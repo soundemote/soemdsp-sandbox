@@ -52,18 +52,18 @@ nodeGraphLiveModuleEvaluators.softwaveOsc = ({
   const phaseCv = hasInput(nodeId, "Phase")
     ? nodeGraphSafeFilterNumber(mixInput(nodeId, "Phase"), runtime, nodeId, 0, "softwave phase")
     : 0;
-  const phase = wrapNodeSliderValue(phaseKnob + phaseCv, 0, 1);
+  const phase = typeof nodeGraphParamSignalInPhaseAdd === "function"
+    ? nodeGraphParamSignalInPhaseAdd(phaseKnob, phaseCv)
+    : wrapNodeSliderValue(phaseKnob + phaseCv, 0, 1);
 
   const levelKnob = read("level", 1);
-  const level = hasInput(nodeId, "Amplitude")
-    ? levelKnob * nodeGraphSafeFilterNumber(
-      mixInput(nodeId, "Amplitude"),
-      runtime,
-      nodeId,
-      1,
-      "softwave amp",
-    )
-    : levelKnob;
+  const hasAmp = hasInput?.(nodeId, "Amplitude") || hasInput(nodeId, "Amplitude");
+  const ampCv = hasAmp
+    ? nodeGraphSafeFilterNumber(mixInput(nodeId, "Amplitude"), runtime, nodeId, 1, "amp")
+    : 1;
+  const level = typeof nodeGraphParamSignalInAmplitude === "function"
+    ? nodeGraphParamSignalInAmplitude(levelKnob, ampCv, hasAmp)
+    : (hasAmp ? levelKnob * ampCv : levelKnob);
 
   return nodeGraphSoftwaveOscillatorSample(state, {
     frequencyHz: effectiveFrequency,
