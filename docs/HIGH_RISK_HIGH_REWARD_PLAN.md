@@ -27,7 +27,8 @@ Active bets only. Finished work lives in git history and `docs/ARCHITECTURE.md`.
 
 **Still to do**
 - clapplayer / external player shell default to slim (not this monorepo)
-- Optional: bytes-fetched metrics / diagnostics  
+
+**Done here:** optional fetch metrics (`nodeGraphLiveNativeWasmFetchReport`).
 
 **How it works:** patch decides types → slim fetches those WASM only.  
 Not module-browser filtering. See `docs/WASM_SLIM_LOAD.md`.
@@ -41,10 +42,9 @@ Not module-browser filtering. See `docs/WASM_SLIM_LOAD.md`.
 **Goal:** split remaining face paint/capture/UI out of the big scopes file for maintainability only (no sound change).
 
 **Still to do**
-- Trace display settings UI chrome (forms already partly peeled)
 - Remaining orchestrator / typed-item dispatch in scopes.js
 
-**Peeled:** defaults, normalize, display-mode, phosphor, settings-form, capture, number-readout, **draw-basic**, **draw-burn**
+**Peeled:** defaults, normalize, display-mode, phosphor, settings-form, **settings-ui**, capture, number-readout, **draw-basic**, **draw-burn**
 
 ---
 
@@ -52,8 +52,8 @@ Not module-browser filtering. See `docs/WASM_SLIM_LOAD.md`.
 
 | Item | Note |
 |------|------|
-| Worklet `evaluators.js` further split | Navigation only |
-| Param surface SIGNAL IN audit | All Phase/Amp jacks consistent |
+| Worklet `evaluators.js` further split | **Done (sources/processors/utility clusters)** — more peels optional |
+| Param surface SIGNAL IN audit | Ongoing — sinc Phase + sineWavetable Amp helpers landed |
 | Product renames via migrators | **Format 3+ only when we rename types/ports on purpose** — load-time pure map so old patches open. Format 2 already did `valueSlider`→`knob`. Not a standing backlog task. |
 
 ---

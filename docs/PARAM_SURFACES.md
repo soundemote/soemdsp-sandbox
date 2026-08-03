@@ -41,7 +41,16 @@ through-zero LFOs work on level, morph, etc.
 | **0.1V/Oct** | `nodeGraphPitchedFrequency` / `nodeGraphParamResolveOscPitchHz` |
 | Phase jack | `nodeGraphParamSignalInPhaseAdd` (domain + CV, wrap 0…1 cycles) |
 
-**Converted SIGNAL IN (Phase/Amp) so far:** softwave, dsf, curveOsc (live + worklet map).
+**Converted SIGNAL IN (Phase/Amp) so far:** softwave, dsf, curveOsc, snowflake (Amp),
+sinc **Phase** jack (was knob-only), sineWavetable **Amplitude** (additive via
+`nodeGraphParamSignalInAdditive` — historical contract, not multiply).
+
+**Still audit:** any module with Phase/Amplitude/0.1V/Oct jacks that still inlines
+pitch or phase math instead of helpers — prefer `nodeGraphPitchedFrequency` +
+Phase/Amp helpers for live + worklet parity.
+
+**Note:** sineWavetable Amplitude is **additive** domain CV (amp + jack). Most
+other oscs use **Amplitude as multiply** (`nodeGraphParamSignalInAmplitude`).
 
 ## API (pure)
 

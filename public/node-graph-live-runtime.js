@@ -297,6 +297,53 @@ async function fetchNodeGraphLiveNativeModuleCatalog() {
   return nodeGraphLiveNativeModuleCatalogPromise;
 }
 
+/** Phase E diagnostics: bytes fetched per wasm URL (filled after each fetch). */
+const nodeGraphLiveNativeWasmFetchStats = {
+  mode: null,
+  byUrl: Object.create(null),
+  totalBytes: 0,
+  fetchCount: 0,
+};
+
+function nodeGraphLiveRecordNativeWasmFetch(wasmUrl, byteLength) {
+  const url = String(wasmUrl || "");
+  const n = Number(byteLength) || 0;
+  if (!url || n <= 0) {
+    return;
+  }
+  if (!nodeGraphLiveNativeWasmFetchStats.byUrl[url]) {
+    nodeGraphLiveNativeWasmFetchStats.byUrl[url] = { bytes: 0, hits: 0 };
+  }
+  const row = nodeGraphLiveNativeWasmFetchStats.byUrl[url];
+  // Count first successful materialization only (cache hits share one ArrayBuffer).
+  if (row.hits === 0) {
+    row.bytes = n;
+    nodeGraphLiveNativeWasmFetchStats.totalBytes += n;
+  }
+  row.hits += 1;
+  nodeGraphLiveNativeWasmFetchStats.fetchCount += 1;
+}
+
+/** Console/API helper: `nodeGraphLiveNativeWasmFetchReport()`. */
+function nodeGraphLiveNativeWasmFetchReport() {
+  const mode = nodeGraphLiveNativeWasmLoadModeResolved
+    || (typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live?.nativeWasmLoadMode : null)
+    || "unresolved";
+  const urls = Object.keys(nodeGraphLiveNativeWasmFetchStats.byUrl).sort();
+  return {
+    mode,
+    fetchCount: nodeGraphLiveNativeWasmFetchStats.fetchCount,
+    uniqueUrls: urls.length,
+    totalBytes: nodeGraphLiveNativeWasmFetchStats.totalBytes,
+    totalKiB: Math.round(nodeGraphLiveNativeWasmFetchStats.totalBytes / 102.4) / 10,
+    byUrl: urls.map((url) => ({
+      url,
+      bytes: nodeGraphLiveNativeWasmFetchStats.byUrl[url].bytes,
+      hits: nodeGraphLiveNativeWasmFetchStats.byUrl[url].hits,
+    })),
+  };
+}
+
 async function fetchNodeGraphLiveNativeModuleBytes(entry) {
   const wasmUrl = String(entry?.wasmUrl || "");
   if (!wasmUrl) {
@@ -304,7 +351,14 @@ async function fetchNodeGraphLiveNativeModuleBytes(entry) {
   }
   if (!nodeGraphLiveNativeModuleBytes[wasmUrl]) {
     nodeGraphLiveNativeModuleBytes[wasmUrl] = fetch(wasmUrl, { cache: "no-store" })
-      .then((response) => response.ok ? response.arrayBuffer() : null)
+      .then(async (response) => {
+        if (!response.ok) {
+          return null;
+        }
+        const buf = await response.arrayBuffer();
+        nodeGraphLiveRecordNativeWasmFetch(wasmUrl, buf?.byteLength);
+        return buf;
+      })
       .catch(() => null);
   }
   return nodeGraphLiveNativeModuleBytes[wasmUrl];
@@ -456,6 +510,14 @@ async function sendNodeGraphLiveNativeModulesUsedOnly(liveNode, plan, eligibleEn
     );
   }
   await Promise.all(neededEntries.map((entry) => sendNodeGraphLiveNativeModule(liveNode, entry)));
+  if (neededEntries.length && typeof console !== "undefined" && console.debug) {
+    const report = nodeGraphLiveNativeWasmFetchReport();
+    console.debug("[native-wasm slim] totals", {
+      uniqueUrls: report.uniqueUrls,
+      totalKiB: report.totalKiB,
+      mode: report.mode,
+    });
+  }
 }
 
 /** Force re-resolve load mode (e.g. after embed flips player flag). */
@@ -2423,7 +2485,10 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-live-audio-worklet-visual.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-scope-io.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
-  "./public/node-live-audio-worklet-evaluators.js?v=plan-d-split-4",
+  "./public/node-live-audio-worklet-evaluators-sources.js?v=evaluators-split-1",
+  "./public/node-live-audio-worklet-evaluators-processors.js?v=evaluators-split-1",
+  "./public/node-live-audio-worklet-evaluators-utility.js?v=evaluators-split-1",
+  "./public/node-live-audio-worklet-evaluators.js?v=evaluators-split-1",
   "./public/node-live-audio-worklet-native-exports.js?v=plan-d-split-2",
   "./public/node-live-audio-worklet-set-plan.js?v=plan-d-split-2",
   "./public/node-live-audio-worklet-clear-plan.js?v=plan-d-split-3",
@@ -2530,6 +2595,8 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/radar/radar-worklet-evaluator.js?v=phasor-stdlib-1",
   "./public/modules/audioPlayer/audio-player-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/gainBias/gain-bias-math.js?v=gain-bias-1",
+  "./public/modules/gainBias/gain-bias-worklet-evaluator.js?v=gain-bias-1",
   "./public/modules/rotate3dTo2d/rotate-3d-to-2d-math.js?v=rotate-3d-to-2d-1",
   "./public/modules/rotate3dTo2d/rotate-3d-to-2d-worklet-evaluator.js?v=rotate-3d-to-2d-1",
   "./public/modules/vectorscopeTransform/vectorscope-transform-math.js?v=vectorscope-transform-1",

@@ -30,13 +30,23 @@ nodeGraphLiveModuleEvaluators.sineWavetable = ({ runtime, node, nodeId, frame, f
     null,
     "sin/cos freq input",
   );
-  const ampInput = nodeGraphSafeFilterNumber(
-    mixInput(nodeId, "Amplitude"),
+  // Amplitude jack is additive CV on the amp knob (historical sineWavetable contract).
+  const ampKnob = readNodeGraphLiveEffectiveParam(
     runtime,
-    nodeId,
-    null,
-    "sin/cos amplitude input",
+    node,
+    "amp",
+    1,
+    frame,
+    frames,
+    frameValues,
   );
+  const ampCv = hasInput?.(nodeId, "Amplitude")
+    ? nodeGraphSafeFilterNumber(mixInput(nodeId, "Amplitude"), runtime, nodeId, 0, "sin/cos amplitude")
+    : 0;
+  const amplitudeRaw = typeof nodeGraphParamSignalInAdditive === "function"
+    ? nodeGraphParamSignalInAdditive(ampKnob, ampCv)
+    : ampKnob + ampCv;
+  const amplitude = Math.max(0, amplitudeRaw);
   const referenceVoltage = normalizeNodeGraphPatchAudio(nodeGraphMvp.patch.audio).pitchReferenceMidiNote / 120;
   const pitchInput = hasInput(nodeId, "0.1V/Oct")
     ? clampNodeSliderValue(nodeGraphSafeFilterNumber(
@@ -56,15 +66,6 @@ nodeGraphLiveModuleEvaluators.sineWavetable = ({ runtime, node, nodeId, frame, f
   const effectiveFrequency = typeof nodeGraphResolveFrequencyHz === "function"
     ? nodeGraphResolveFrequencyHz(pitchedFrequency, fHz)
     : pitchedFrequency;
-  const amplitude = Math.max(0, readNodeGraphLiveEffectiveParam(
-    runtime,
-    node,
-    "amp",
-    1,
-    frame,
-    frames,
-    frameValues,
-  ) + ampInput);
   const phaseIncrement = effectiveFrequency / sampleRate;
   const value = nodeGraphSineCosWavetableSample(phase + phaseOffset, effectiveFrequency, amplitude, sampleRate);
   runtime.phases.set(

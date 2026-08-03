@@ -4,7 +4,13 @@
 nodeGraphLiveModuleEvaluators.sinc = ({ runtime, node, nodeId, frame, frames, frameValues, mixInput, hasInput, sampleRate }) => {
   const read = (key, fallback) => readNodeGraphLiveEffectiveParam(runtime, node, key, fallback, frame, frames, frameValues);
   const baseFreq = Math.max(0, read("freq", 100));
-  const phaseShift = read("phase", 0);
+  const phaseKnob = read("phase", 0);
+  const phaseCv = hasInput?.(nodeId, "Phase")
+    ? nodeGraphSafeFilterNumber(mixInput(nodeId, "Phase"), runtime, nodeId, 0, "sinc phase")
+    : 0;
+  const phaseShift = typeof nodeGraphParamSignalInPhaseAdd === "function"
+    ? nodeGraphParamSignalInPhaseAdd(phaseKnob, phaseCv)
+    : ((Number(phaseKnob) || 0) + (Number(phaseCv) || 0));
   const lobes = Math.max(1, Math.round(read("lobes", 4)));
   const bandLimited = Math.round(read("bandLimit", 1)) !== 0;
 

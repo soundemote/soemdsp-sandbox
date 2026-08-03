@@ -77,22 +77,26 @@ NodeLiveAudioProcessor.prototype.sineWavetableWorkletEvaluate = function sineWav
     frameValues,
   );
   const freqInput = this.safeFilterNumber(mixInput(nodeId, "Freq"), null);
-  const ampInput = this.safeFilterNumber(mixInput(nodeId, "Amplitude"), null);
-  const pitchInput = this.clampValue(
-    this.safeFilterNumber(mixInput(nodeId, "0.1V/Oct"), null),
-    -1,
-    1,
+  const ampKnob = this.readEffectiveParameter(node, "amp", 1, frame, frames, frameValues);
+  // Additive Amplitude jack (same contract as live evaluator), not multiply.
+  const hasAmp = this.inputConnections.has(this.inputKey(nodeId, "Amplitude"));
+  const ampCv = hasAmp ? this.safeFilterNumber(mixInput(nodeId, "Amplitude"), 0) : 0;
+  const amplitude = Math.max(
+    0,
+    typeof nodeGraphParamSignalInAdditive === "function"
+      ? nodeGraphParamSignalInAdditive(ampKnob, ampCv)
+      : ampKnob + ampCv,
   );
-  const pitchedFrequency = (typeof nodeGraphPitchedFrequency === "function" ? nodeGraphPitchedFrequency((baseFrequency + freqInput), pitchInput, 0) : Math.max(0, (baseFrequency + freqInput) * (2 ** (pitchInput / 0.1))));
+  const referenceMidiNote = Number.isFinite(this.pitchReferenceMidiNote) ? this.pitchReferenceMidiNote : 48;
+  const referenceVoltage = referenceMidiNote / 120;
+  const hasPitchInput = this.inputConnections.has(this.inputKey(nodeId, "0.1V/Oct"));
+  const pitchInput = hasPitchInput
+    ? this.clampValue(this.safeFilterNumber(mixInput(nodeId, "0.1V/Oct"), null), -1, 1)
+    : referenceVoltage;
+  const pitchedFrequency = (typeof nodeGraphPitchedFrequency === "function"
+    ? nodeGraphPitchedFrequency((baseFrequency + freqInput), pitchInput, referenceVoltage)
+    : Math.max(0, (baseFrequency + freqInput) * (2 ** ((pitchInput - referenceVoltage) / 0.1))));
   const effectiveFrequency = this.resolveFrequencyHz(pitchedFrequency, this.readFInputHz(mixInput, nodeId));
-  const amplitude = Math.max(0, this.readEffectiveParameter(
-    node,
-    "amp",
-    1,
-    frame,
-    frames,
-    frameValues,
-  ) + ampInput);
   let value;
   if (
     this.nativeSineWavetableReady &&

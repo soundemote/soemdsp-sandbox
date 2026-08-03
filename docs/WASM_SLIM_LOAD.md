@@ -73,5 +73,14 @@ Website/iframe chooses **mode + which patch URL**; the **patch** chooses **which
 
 - [x] Mode switch + used-only send path  
 - [x] Player-ish query/embed hints default to slim  
-- [ ] clapplayer repo default wiring  
-- [ ] Optional fetch metrics  
+- [x] Optional fetch metrics — `nodeGraphLiveNativeWasmFetchReport()` + slim debug totals  
+- [ ] clapplayer / external player shell default wiring (out of this monorepo)  
+
+## Diagnostics
+
+After Live Audio has loaded native WASM:
+
+```js
+nodeGraphLiveNativeWasmFetchReport()
+// { mode, fetchCount, uniqueUrls, totalBytes, totalKiB, byUrl: [...] }
+```
