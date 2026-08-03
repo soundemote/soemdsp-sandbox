@@ -48,6 +48,13 @@ NodeLiveAudioProcessor.prototype.randomWalkSample = function randomWalkSample(st
       });
     }
   }
+  // JS path: pure math (random-walk-math.js).
+  if (typeof nodeGraphRandomWalkCore === "function") {
+    return this.safeFilterNumber(
+      nodeGraphRandomWalkCore(state, params || {}, rate, nodeId),
+      null,
+    );
+  }
   return 0;
 };
 

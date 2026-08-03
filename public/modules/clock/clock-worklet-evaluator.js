@@ -58,6 +58,24 @@ NodeLiveAudioProcessor.prototype.clockSample = function clockSample(state, reset
         });
       }
     }
+    // JS path: pure math (clock-math.js).
+    if (typeof nodeGraphClockCore === "function") {
+      const out = nodeGraphClockCore(
+        state,
+        this.safeFilterNumber(reset, null),
+        this.safeFilterNumber(phaseOffset, null),
+        Math.max(0, this.safeFilterNumber(rate, null)),
+        this.clampValue(this.safeFilterNumber(duty, null), 0, 1),
+        this.safeFilterNumber(level, null),
+        rateHz,
+      );
+      return {
+        "Analog Out": this.safeFilterNumber(out["Analog Out"], null),
+        "Digital Out": this.safeFilterNumber(out["Digital Out"], null),
+        Out: this.safeFilterNumber(out.Out, null),
+        Pulse: this.safeFilterNumber(out.Pulse, null),
+      };
+    }
     return { "Analog Out": 0, "Digital Out": 0, Out: 0, Pulse: 0 };
   };
 

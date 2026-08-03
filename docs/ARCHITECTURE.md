@@ -78,6 +78,7 @@ scope-defaults → normalize → display-mode → phosphor → settings-form
   → settings-ui → capture → number-readout → draw-basic → draw-burn
   → scopes.js → spectrum → buffer-io → sync → metrics → geometry
   → webgl → vertices → offline → screen-items → slots → buffer-view
+  → monitors → scene-controls → shader-settings
   → paint-helpers → draw-orchestrator
 ```
 
