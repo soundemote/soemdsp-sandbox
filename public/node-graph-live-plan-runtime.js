@@ -264,6 +264,7 @@ function createNodeGraphLiveRuntime(plan) {
   const pulseExplosionStates = new Map();
   const comparatorStates = new Map();
   const speedColorInertiaStates = new Map();
+  const inertialFilterStates = new Map();
   const aliasSineStates = new Map();
   const ladderFilterStates = new Map();
   const tb303FilterStates = new Map();
@@ -484,6 +485,9 @@ function createNodeGraphLiveRuntime(plan) {
     if (node.type === "speedColorInertia") {
       speedColorInertiaStates.set(node.id, createNodeGraphSpeedColorInertiaState());
     }
+    if (node.type === "inertialFilter") {
+      inertialFilterStates.set(node.id, createNodeGraphStereoInertialFilterState());
+    }
     if (node.type === "sampleDelay") {
       sampleDelayStates.set(node.id, createNodeGraphSampleDelayState());
     }
@@ -625,6 +629,7 @@ function createNodeGraphLiveRuntime(plan) {
     pulseExplosionStates,
     comparatorStates,
     speedColorInertiaStates,
+    inertialFilterStates,
     aliasSineStates,
     graphInputConnections,
     graphLfoStates,
@@ -833,6 +838,9 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   }
   if (!runtime.speedColorInertiaStates) {
     runtime.speedColorInertiaStates = new Map();
+  }
+  if (!runtime.inertialFilterStates) {
+    runtime.inertialFilterStates = new Map();
   }
   if (!runtime.sampleDelayStates) {
     runtime.sampleDelayStates = new Map();
@@ -1185,6 +1193,9 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     }
     if (node.type === "speedColorInertia" && !runtime.speedColorInertiaStates.has(node.id)) {
       runtime.speedColorInertiaStates.set(node.id, createNodeGraphSpeedColorInertiaState());
+    }
+    if (node.type === "inertialFilter" && !runtime.inertialFilterStates.has(node.id)) {
+      runtime.inertialFilterStates.set(node.id, createNodeGraphStereoInertialFilterState());
     }
     if (node.type === "sampleDelay" && !runtime.sampleDelayStates.has(node.id)) {
       runtime.sampleDelayStates.set(node.id, createNodeGraphSampleDelayState());
@@ -1611,6 +1622,13 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     for (const id of [...runtime.speedColorInertiaStates.keys()]) {
       if (!nodeIds.has(id)) {
         runtime.speedColorInertiaStates.delete(id);
+      }
+    }
+  }
+  if (runtime.inertialFilterStates) {
+    for (const id of [...runtime.inertialFilterStates.keys()]) {
+      if (!nodeIds.has(id)) {
+        runtime.inertialFilterStates.delete(id);
       }
     }
   }

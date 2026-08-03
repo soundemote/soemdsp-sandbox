@@ -380,6 +380,21 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           Right: this.slewLimiterSample(state.right, mixInput(nodeId, "Right") + slewMono, slewUpTime, slewDownTime, safeRate),
         };
       },
+      inertialFilter: (node, nodeId, frame, frames, frameValues, mixInput) => {
+        if (!this.inertialFilterStates) {
+          this.inertialFilterStates = new Map();
+        }
+        const state = this.inertialFilterStates.get(nodeId) || this.createStereoInertialFilterState();
+        this.inertialFilterStates.set(nodeId, state);
+        const attack = this.readEffectiveParameter(node, "attack", 1, frame, frames, frameValues);
+        const release = this.readEffectiveParameter(node, "release", 0.005, frame, frames, frameValues);
+        const mono = mixInput(nodeId);
+        return {
+          Out: this.inertialFilterSample(state.mono, mono, attack, release),
+          Left: this.inertialFilterSample(state.left, mixInput(nodeId, "Left") + mono, attack, release),
+          Right: this.inertialFilterSample(state.right, mixInput(nodeId, "Right") + mono, attack, release),
+        };
+      },
       sampleHold: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         const state = this.sampleHoldStates.get(nodeId) || this.createStereoSampleHoldState();
         this.sampleHoldStates.set(nodeId, state);

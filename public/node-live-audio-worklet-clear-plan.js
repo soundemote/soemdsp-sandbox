@@ -126,6 +126,7 @@ NodeLiveAudioProcessor.prototype.clearPlan = function clearPlan() {
     }
     this.comparatorStates = new Map();
     this.speedColorInertiaStates = new Map();
+    this.inertialFilterStates = new Map();
     for (const state of this.sampleDelayStates.values()) {
       this.destroySampleDelayNativeState(state);
     }

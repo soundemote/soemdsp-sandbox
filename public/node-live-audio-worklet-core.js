@@ -217,6 +217,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.pulseExplosionStates = new Map();
     this.comparatorStates = new Map();
     this.speedColorInertiaStates = new Map();
+    this.inertialFilterStates = new Map();
     this.sampleDelayStates = new Map();
     this.minMaxStates = new Map();
     this.aliasSineStates = new Map();

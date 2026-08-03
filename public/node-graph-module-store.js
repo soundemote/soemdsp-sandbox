@@ -878,8 +878,27 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   slewLimiter: {
     category: "filter",
-    description: "Limits rising and falling motion independently, turning abrupt changes into shaped ramps.",
-    notes: ["up time", "down time", "asymmetric glide"],
+    description:
+      "Up/Down Slew — hard rate limit. Caps how fast the signal may rise or fall (seconds for full-scale). Linear ramps to steps. Compare with Inertial Filter (exponential approach).",
+    label: "Up/Down Slew",
+    notes: ["up time", "down time", "asymmetric glide", "rate limit", "slew", "filter", "portamento"],
+  },
+  inertialFilter: {
+    category: "filter",
+    description:
+      "Inertial Filter — exponential approach with separate Attack/Release (0…1 mix per sample). Not a hard slew rate. Same family as Speed Color Inertia; put next to Up/Down Slew to hear the difference.",
+    label: "Inertial Filter",
+    notes: [
+      "inertia",
+      "attack",
+      "release",
+      "exponential",
+      "one pole",
+      "asymmetric",
+      "filter",
+      "slew",
+      "smooth",
+    ],
   },
   delayEffect: {
     category: "space",

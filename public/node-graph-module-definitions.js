@@ -115,6 +115,7 @@ const nodeGraphNodeLabels = Object.freeze({
   helmholtzPitch: "Pitch Detector",
   speedColorInertia: "Speed Color Inertia",
   slewLimiter: "Up/Down Slew",
+  inertialFilter: "Inertial Filter",
   sampleHold: "Sample & Hold",
   midiOut: "Midi Out",
   midiNotePitch: "Midi Note Pitch",
@@ -3816,6 +3817,7 @@ const nodeGraphModuleDefinitions = (
       },
     ],
   },
+  // Hard rate limit: max |Δ| per sample from up/down times in seconds.
   slewLimiter: {
     planRole: "processor",
     inputAliases: { Mono: "In" },
@@ -3836,6 +3838,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
+        tooltip: "Seconds to climb full scale (+1). 0 = unlimited rise rate.",
       },
       {
         defaultValue: "0.20",
@@ -3848,6 +3851,40 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
+        tooltip: "Seconds to fall full scale (−1). 0 = unlimited fall rate.",
+      },
+    ],
+  },
+  // Exponential approach: out += (in − out) * k with separate rise/fall k (0…1).
+  // Same family as Speed Color Inertia; compare with Up/Down Slew for hard ramps.
+  inertialFilter: {
+    planRole: "processor",
+    inputAliases: { Mono: "In" },
+    inputLabels: { In: "Mono" },
+    inputs: ["In", "Left", "Right"],
+    outputAliases: { Mono: "Out" },
+    outputLabels: { Out: "Mono" },
+    outputs: ["Out", "Left", "Right"],
+    parameters: [
+      {
+        defaultValue: "1",
+        key: "attack",
+        label: "Attack",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        step: "any",
+        tooltip: "Rise coeff 0…1: fraction of remaining error closed each sample when going up. 1 = instant.",
+      },
+      {
+        defaultValue: "0.005",
+        key: "release",
+        label: "Release",
+        max: "1",
+        mid: "0.05",
+        min: "0",
+        step: "any",
+        tooltip: "Fall coeff 0…1 when going down. Small = slow settle (inertia).",
       },
     ],
   },
