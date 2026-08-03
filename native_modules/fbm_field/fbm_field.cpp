@@ -220,7 +220,16 @@ static double fieldAt(
   );
 }
 
+// Contrast = expand/compress deviation from mid / zero.
+// Mono face: mid = 0.5 + (bipolar*0.5)*c  (same as scaling bipolar by c then → 0…1).
+// Audio:     bipolar_out = clamp(bipolar * c, -1…1)  — same expansion, stay bipolar.
+static double applyContrastBipolar(double bipolar, double contrast) {
+  const double c = contrast < 0.0 ? 0.0 : contrast;
+  return clamp(bipolar * c, -1.0, 1.0);
+}
+
 static double bipolarToMono(double bipolar, double contrast) {
+  // Equivalent: mono = 0.5 * (1 + applyContrastBipolar(bipolar, contrast))
   double mid = bipolar * 0.5 + 0.5;
   const double c = contrast < 0.0 ? 0.0 : contrast;
   if (c != 1.0) {
@@ -297,7 +306,8 @@ extern "C" void soemdsp_fbm_field_sample(
   double panY,
   double level,
   double sampleRate,
-  int motion
+  int motion,
+  double contrast
 ) {
   if (handle < 1 || handle > kMaxInstances) return;
   FbmFieldState& s = gPool[handle - 1];
@@ -318,6 +328,7 @@ extern "C" void soemdsp_fbm_field_sample(
   const double safeZoom = zoom < 0.05 ? 0.05 : zoom;
   const double safeFreq = frequency < 0.0 ? 0.0 : frequency;
   const double safeRate = sampleRate < 1.0 ? 1.0 : sampleRate;
+  const double safeContrast = contrast < 0.0 ? 0.0 : contrast;
   const double span = 1.0 / safeZoom;
   const int mode = normalizeMotion(motion);
   const double t = s.time;
@@ -326,15 +337,16 @@ extern "C" void soemdsp_fbm_field_sample(
   const double cx = panX;
   const double cy = panY;
 
-  const double rawX = fieldAt(
+  // Same contrast law as face mono (expand around 0), then Level.
+  const double rawX = applyContrastBipolar(fieldAt(
     cx, cy, t, mode, safeSeed, safeOctaves, safePers, safeLac, safeScale, safeSmooth, span
-  );
-  const double rawY = fieldAt(
+  ), safeContrast);
+  const double rawY = applyContrastBipolar(fieldAt(
     cx + d, cy, t, mode, safeSeed, safeOctaves, safePers, safeLac, safeScale, safeSmooth, span
-  );
-  const double rawZ = fieldAt(
+  ), safeContrast);
+  const double rawZ = applyContrastBipolar(fieldAt(
     cx, cy + d, t, mode, safeSeed, safeOctaves, safePers, safeLac, safeScale, safeSmooth, span
-  );
+  ), safeContrast);
 
   s.lastRawX = safe_bounded(rawX);
   s.lastRawY = safe_bounded(rawY);

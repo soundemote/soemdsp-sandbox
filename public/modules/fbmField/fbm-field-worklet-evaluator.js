@@ -57,6 +57,7 @@ NodeLiveAudioProcessor.prototype.fbmFieldVector = function fbmFieldVector(state,
       this.fbmFieldNum(params.level, 1),
       safeRate,
       this.fbmFieldMotionMode(params.motion),
+      Math.max(0, this.fbmFieldNum(params.contrast, 1)),
     );
     const x = this.nativeFbmField.soemdsp_fbm_field_x(state.nativeHandle);
     const y = this.nativeFbmField.soemdsp_fbm_field_y(state.nativeHandle);

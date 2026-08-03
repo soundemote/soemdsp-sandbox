@@ -9,6 +9,7 @@ nodeGraphLiveModuleEvaluators.fbmField = ({ runtime, node, nodeId, frame, frames
   const read = (key, fallback) =>
     readNodeGraphLiveEffectiveParam(runtime, node, key, fallback, frame, frames, frameValues);
   const out = nodeGraphFbmFieldSample({
+    contrast: read("contrast", 1),
     frequency: Math.max(0, read("frequency", 20)),
     lacunarity: read("lacunarity", 2),
     level: read("level", 1),

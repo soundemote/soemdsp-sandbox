@@ -208,7 +208,10 @@ registerNodeGraphChromelessModule("fbmField", {
         min: "0",
         nonlinearSlider: true,
         step: "any",
-        tooltip: "Mono energy contrast before gradient (face).",
+        tooltip:
+          "Dynamics around mid/zero — same law on face and X/Y/Z. "
+          + "1 = unity. >1 expands (more black/white, hotter CV swings). "
+          + "<1 compresses toward mid-gray / quieter field. Clamps at ±1 after expand.",
       },
       {
         defaultValue: "1",

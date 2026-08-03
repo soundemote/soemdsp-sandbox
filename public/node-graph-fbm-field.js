@@ -74,6 +74,7 @@ function nodeGraphFbmFieldSample(options = {}) {
     nodeGraphFbmFieldNum(options.level, 1),
     Math.max(1, nodeGraphFbmFieldNum(options.sampleRate, 44100)),
     nodeGraphFbmFieldMotionMode(options.motion),
+    Math.max(0, nodeGraphFbmFieldNum(options.contrast, 1)),
   );
   const x = wasm.soemdsp_fbm_field_x(state.nativeHandle);
   const y = wasm.soemdsp_fbm_field_y(state.nativeHandle);
