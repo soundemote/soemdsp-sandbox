@@ -26,9 +26,10 @@ VERSION_FILE = ROOT / "VERSION"
 SANDBOX_VERSION = VERSION_FILE.read_text(encoding="utf-8").strip() if VERSION_FILE.exists() else "0.0.0"
 # Per-build stamp: random A–Z/0–9, re-rolled when the server starts OR when
 # source fingerprints change (so a hard refresh after code edits proves the
-# shell is fresh — toolbar shows e.g. "K7M2QX").
+# shell is fresh — toolbar shows e.g. "K7M2"). Four chars is enough: we only
+# need to tell the last handful of builds apart, not be unique forever.
 _BUILD_TOKEN_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-_BUILD_TOKEN_LEN = 6
+_BUILD_TOKEN_LEN = 4
 _build_token_value = ""
 _build_token_fingerprint = ""
 
