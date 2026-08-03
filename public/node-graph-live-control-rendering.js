@@ -28,16 +28,22 @@ function nodeGraphLiveEngineIsPaused() {
  */
 function nodeGraphLiveTransportUiState() {
   const statusText = String(document.getElementById("nodeLiveStatus")?.textContent || "").trim();
-  if (statusText === "error") {
-    return "stopped";
-  }
   const outputOn = Boolean(nodeGraphMvp?.live?.outputEnabled);
   const engineUp = nodeGraphLiveEngineIsUp();
+  const contextUp = Boolean(nodeGraphMvp?.live?.context);
   const speed = Number(nodeGraphMvp?.live?.speedMultiplier ?? 1);
   const paused = Number.isFinite(speed) && speed <= 0;
 
-  if (engineUp) {
+  // Live graph present always wins for transport chrome. Status pill may still
+  // say "error" (plan/processor issue) but we must not paint red-stop / Output
+  // (Off) while a worklet is connected — that was the green-flash → red-stop
+  // + silence bug when plan errors muted host gain without tearing down.
+  if (engineUp || (contextUp && outputOn)) {
     return paused ? "paused" : "playing";
+  }
+
+  if (statusText === "error") {
+    return "stopped";
   }
 
   // Mid-start: output requested (or status says so) but worklet not mounted yet.

@@ -1952,9 +1952,14 @@ function nodeGraphLiveConnectionUpdatePayload(plan = {}, audio = {}) {
   };
 }
 
+/**
+ * Push the current patch plan into the live engine.
+ * @returns {Promise<boolean>} true if the plan applied (or was intentionally
+ *   preserved after a recoverable error); false if audio was muted/stopped.
+ */
 async function sendNodeGraphLivePlan() {
   if (!nodeGraphMvp.live.node && !nodeGraphMvp.live.context) {
-    return;
+    return false;
   }
   const hadLivePlan = Boolean(
     nodeGraphMvp.live.planEvidence ||
@@ -2014,7 +2019,10 @@ async function sendNodeGraphLivePlan() {
         }
         // Lazily send wasm for any native module type this plan introduced
         // (no-op for already-sent modules; see sendNodeGraphLiveNativeModules).
-        sendNodeGraphLiveNativeModules(nodeGraphMvp.live.node, plan);
+        // Await so cold-start does not race "running" UI ahead of the plan.
+        if (typeof sendNodeGraphLiveNativeModules === "function") {
+          await sendNodeGraphLiveNativeModules(nodeGraphMvp.live.node, plan);
+        }
         nodeGraphStartGpuAdditiveProducer(plan, audio);
       }
     } else if (nodeGraphMvp.live.runtime) {
@@ -2036,17 +2044,33 @@ async function sendNodeGraphLivePlan() {
       nodeGraphSetLivePlanRunningStatus(plan);
     }
     nodeGraphMvp.live.planShapeSignature = planShapeSignature;
+    // Plan applied — never leave host gain muted from a prior error.
+    setNodeGraphLiveOutputMuted(false);
+    return true;
   } catch (error) {
     const issues = nodeGraphLivePlanErrorIssues(error);
     nodeGraphClearGpuAdditivePrime();
     error.issues = issues;
     const canPreservePlan = hadLivePlan && nodeGraphShouldPreservePreviousLivePlanAfterError(error);
     if (!canPreservePlan) {
+      // Cold / non-recoverable plan failure: full tear-down, not a muted zombie
+      // worklet (muted + status error was painting red stop with no audio).
       setNodeGraphLiveOutputMuted(true);
       nodeGraphMvp.live.runtime = null;
-      nodeGraphMvp.live.node?.port?.postMessage({ type: "stop", sessionId: nodeGraphMvp.live.sessionId, planSerial: nodeGraphMvp.live.planSerial });
+      try {
+        nodeGraphMvp.live.node?.port?.postMessage({
+          type: "stop",
+          sessionId: nodeGraphMvp.live.sessionId,
+          planSerial: nodeGraphMvp.live.planSerial,
+        });
+      } catch (_error) {
+        // Worklet may already be dead.
+      }
+      setNodeGraphLiveBlockedError("plan", error, { preservePreviousPlan: false });
+      return false;
     }
-    setNodeGraphLiveBlockedError("plan", error, { preservePreviousPlan: canPreservePlan });
+    setNodeGraphLiveBlockedError("plan", error, { preservePreviousPlan: true });
+    return true;
   }
 }
 
@@ -2589,7 +2613,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/bradley2a/bradley-2a-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/antisaw/antisaw-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/fractalBrownianNoise/fractal-brownian-noise-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/fbmField/fbm-field-worklet-evaluator.js?v=fbm-field-11",
+  "./public/modules/fbmField/fbm-field-worklet-evaluator.js?v=fbm-field-13",
   "./public/modules/logisticMap/logistic-map-math.js?v=logistic-map-1",
   "./public/modules/logisticMap/logistic-map-worklet-evaluator.js?v=logistic-map-1",
   "./public/modules/turingMachine/turing-machine-worklet-evaluator.js?v=native-strip-1",
@@ -3029,6 +3053,8 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     nodeGraphMvp.live.usesWorklet = usesWorklet;
     liveNode.connect(outputGain);
     outputGain.connect(context.destination);
+    // Fresh session is never muted — clear any sticky mute from a prior error.
+    setNodeGraphLiveOutputMuted(false);
     await syncNodeGraphLiveInputSource();
     if (nodeGraphLiveOutputStartCancelled(outputSerial)) {
       // Superseded: dispose only if we still own live (never kill the winner).
@@ -3036,7 +3062,20 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
       nodeGraphLiveOutputAbortStart("stopped");
       return;
     }
-    sendNodeGraphLivePlan();
+    const planOk = await sendNodeGraphLivePlan();
+    if (nodeGraphLiveOutputStartCancelled(outputSerial)) {
+      await nodeGraphLiveOutputDisposeCancelledStart(outputSerial, context, liveNode);
+      nodeGraphLiveOutputAbortStart("stopped");
+      return;
+    }
+    if (!planOk) {
+      // Plan failed on cold start: do not leave a silent connected worklet.
+      nodeGraphMvp.live.outputEnabled = false;
+      await stopNodeGraphLiveAudio();
+      // stop paints "stopped"; keep plan error title if present.
+      renderNodeGraphLiveControls(false);
+      return;
+    }
     sendNodeGraphLiveMacroControls();
     sendNodeGraphLivePitchModWheelSignal();
     // Ensure worklet has the current transport speed (esp. after ⏮ restart).
@@ -3062,15 +3101,22 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     }
     // Keep the arming flag honest once the worklet is up.
     nodeGraphMvp.live.outputEnabled = true;
+    setNodeGraphLiveOutputMuted(false);
     renderNodeGraphLiveControls(true);
+    // One more frame after layout/status pills settle — guarantee green Live.
+    window.requestAnimationFrame(() => {
+      if (nodeGraphMvp.live.node && nodeGraphMvp.live.outputEnabled) {
+        renderNodeGraphLiveControls(true);
+      }
+    });
   } catch (error) {
     const inputError = Boolean(error.nodeGraphInputError);
     const inputErrorMessage = inputError ? nodeGraphLiveInputErrorMessage(error) : "";
     // Do not tear down a newer successful start from this failed serial.
     if (outputSerial === nodeGraphMvp.live.outputToggleSerial) {
       await stopNodeGraphLiveAudio();
+      nodeGraphMvp.live.outputEnabled = false;
       if (inputError) {
-        nodeGraphMvp.live.outputEnabled = false;
         setNodeGraphLiveInputStatus("blocked", inputErrorMessage);
         setNodeGraphLiveMicStatus("blocked", inputErrorMessage);
         setNodeGraphLiveBlockedError("input", error, { schedule: false });
