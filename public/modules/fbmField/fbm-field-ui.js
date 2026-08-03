@@ -1,4 +1,4 @@
-// FBM Field Layout B body + rAF. Face paints WASM field grid (not XY scope).
+// Fractal Brownian Field Layout B body + rAF. Face paints WASM field grid.
 
 function createNodeGraphFbmFieldBody(node, type) {
   const face = document.createElement("div");
@@ -7,7 +7,7 @@ function createNodeGraphFbmFieldBody(node, type) {
   face.dataset.nodeType = type;
   face.dataset.lightSource = "screen";
   face.dataset.lightStrength = "0";
-  face.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} FBM field`);
+  face.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} Fractal Brownian Field`);
   face.style.cssText = "position:relative;width:100%;height:100%;overflow:hidden;background:#000000;";
 
   const canvas = document.createElement("canvas");
@@ -16,9 +16,10 @@ function createNodeGraphFbmFieldBody(node, type) {
   canvas.style.cssText = "display:block;width:100%;height:100%;";
   face.append(canvas);
 
-  // Probe reticles (X/Y/Z sample points) — positions synced in display paint.
+  // Debug-only probe overlay (X/Y/Z sample points + motion-mode annotation).
+  // Hidden via body.keyboard-debug-hidden .node-debug-only
   const overlay = document.createElement("div");
-  overlay.className = "node-fbm-field-probe-overlay";
+  overlay.className = "node-fbm-field-probe-overlay node-debug-only";
   overlay.setAttribute("aria-hidden", "true");
   overlay.style.cssText = [
     "position:absolute",
@@ -27,6 +28,41 @@ function createNodeGraphFbmFieldBody(node, type) {
     "overflow:hidden",
     "z-index:2",
   ].join(";");
+
+  const modeTag = document.createElement("div");
+  modeTag.className = "node-fbm-field-debug-mode-tag";
+  modeTag.style.cssText = [
+    "position:absolute",
+    "left:4px",
+    "top:3px",
+    "padding:1px 4px",
+    "border-radius:2px",
+    "font:600 8px/1.2 ui-monospace,Consolas,monospace",
+    "letter-spacing:0.04em",
+    "color:rgba(255,255,255,0.9)",
+    "background:rgba(0,0,0,0.55)",
+    "border:1px solid rgba(255,255,255,0.25)",
+    "text-shadow:0 1px 1px #000",
+    "display:none",
+  ].join(";");
+  overlay.append(modeTag);
+
+  // Volume-mode: triangle linking the three probes (same Z-slice)
+  const svgNs = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(svgNs, "svg");
+  svg.classList.add("node-fbm-field-probe-svg");
+  svg.setAttribute("aria-hidden", "true");
+  svg.style.cssText = "position:absolute;inset:0;width:100%;height:100%;overflow:visible;display:none;";
+  const tri = document.createElementNS(svgNs, "polygon");
+  tri.classList.add("node-fbm-field-volume-tri");
+  tri.setAttribute("fill", "rgba(255,200,80,0.06)");
+  tri.setAttribute("stroke", "rgba(255,200,80,0.45)");
+  tri.setAttribute("stroke-width", "1");
+  tri.setAttribute("stroke-dasharray", "3 2");
+  tri.setAttribute("points", "");
+  svg.append(tri);
+  overlay.append(svg);
+
   for (const key of ["X", "Y", "Z"]) {
     const mark = document.createElement("div");
     mark.className = "node-fbm-field-probe-mark";
@@ -53,6 +89,23 @@ function createNodeGraphFbmFieldBody(node, type) {
       "border-radius:50%",
       "box-shadow:0 0 0 1px rgba(0,0,0,0.75),0 0 4px rgba(0,0,0,0.5)",
       "background:rgba(0,0,0,0.15)",
+      "box-sizing:border-box",
+    ].join(";");
+    // Volume-only outer halo (depth / same-slice cue)
+    const halo = document.createElement("span");
+    halo.className = "node-fbm-field-probe-halo";
+    halo.style.cssText = [
+      "position:absolute",
+      "left:50%",
+      "top:50%",
+      "width:15px",
+      "height:15px",
+      "margin:-7.5px 0 0 -7.5px",
+      "border:1px solid rgba(255,200,80,0.55)",
+      "border-radius:50%",
+      "box-sizing:border-box",
+      "display:none",
+      "pointer-events:none",
     ].join(";");
     const label = document.createElement("span");
     label.className = "node-fbm-field-probe-label";
@@ -67,7 +120,7 @@ function createNodeGraphFbmFieldBody(node, type) {
       "font-size:9px",
       "line-height:1",
     ].join(";");
-    mark.append(ring, label);
+    mark.append(halo, ring, label);
     overlay.append(mark);
   }
   face.append(overlay);

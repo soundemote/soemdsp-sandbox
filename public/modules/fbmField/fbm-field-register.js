@@ -1,6 +1,6 @@
-// Noise: FBM Field — shared domain field (face + X/Y/Z). Motion modes only.
+// Noise: Fractal Brownian Field — shared domain (face + X/Y/Z). Motion: Scroll | Volume.
 registerNodeGraphChromelessModule("fbmField", {
-  label: "FBM Field",
+  label: "Fractal Brownian Field",
   solidModule: true,
   customDisplayArea: true,
   definition: {

@@ -1,4 +1,4 @@
-// FBM Field present: 1:1 WASM mono samples → screen. No bilinear field upscale,
+// Fractal Brownian Field present: 1:1 WASM mono samples → screen.
 // no palette soft. NEAREST only. Color = gradient LUT sample of that exact mono.
 
 const NODE_GRAPH_FBM_FIELD_GL_VS = `
@@ -145,7 +145,7 @@ function nodeGraphFbmFieldGlEnsure(canvas) {
     nodeGraphFbmFieldGlStates.set(canvas, state);
     return state;
   } catch (err) {
-    console.warn("[FBM Field] WebGL init failed", err);
+    console.warn("[Fractal Brownian Field] WebGL init failed", err);
     nodeGraphFbmFieldGlStates.set(canvas, { failed: true });
     return null;
   }

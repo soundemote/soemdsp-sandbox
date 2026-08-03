@@ -1,5 +1,5 @@
 // soemdsp-native-module: fbm_field
-// soemdsp-native-label: FBM Field
+// soemdsp-native-label: Fractal Brownian Field
 // soemdsp-native-target: fbmField
 // soemdsp-native-kind: noise
 

@@ -1,4 +1,4 @@
-// FBM Field — native WASM only. No JS DSP fallback.
+// Fractal Brownian Field — native WASM only. No JS DSP fallback.
 
 /** Finite number or fallback — allows 0 (do not use `x || default`). */
 NodeLiveAudioProcessor.prototype.fbmFieldNum = function fbmFieldNum(value, fallback) {
@@ -79,7 +79,7 @@ NodeLiveAudioProcessor.prototype.fbmFieldVector = function fbmFieldVector(state,
       type: "nativeModuleStatus",
       name: "fbm_field",
       status: "disabled",
-      message: String(error?.message || error || "native FBM Field failed"),
+      message: String(error?.message || error || "native Fractal Brownian Field failed"),
     });
     return { X: 0, Y: 0, Z: 0, "X Raw": 0, "Y Raw": 0, "Z Raw": 0 };
   }

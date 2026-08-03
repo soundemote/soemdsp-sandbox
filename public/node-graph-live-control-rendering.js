@@ -223,7 +223,7 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) 
     starting: transportStarting,
   });
   renderNodeGraphSpeedReadout();
-  // FBM Field: no rAF / no face paint while engine is stopped (red stop).
+  // Fractal Brownian Field: no rAF / face paint while engine stopped.
   // Start loops when live; wipe black when stopped.
   if (typeof syncNodeGraphFbmFieldFacesToLiveState === "function") {
     try {

@@ -183,7 +183,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
-  // FBM Field: mono terrain → gradient only (params are knobs).
+  // Fractal Brownian Field: mono terrain → gradient only (params are knobs).
   fbmFieldFace: Object.freeze({
     fields: Object.freeze([]),
     colors: Object.freeze([]),
@@ -661,7 +661,7 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   rgbShapeFace: "Shape",
   rgbPictureFace: "Picture",
   rgbFractalFace: "Soft Fractal",
-  fbmFieldFace: "FBM Field",
+  fbmFieldFace: "Fractal Brownian Field",
   matrixFace: "Matrix",
   matrixWaterfallFace: "Waterfall",
   matrixDisplayFace: "Matrix",

@@ -967,7 +967,7 @@
       defaultStops: "phosphor",
       hint: "Julia escape → color · vivid multi-stop gradient · live evolving",
     }),
-    // FBM Field: mono 2D fBm energy → multi-stop gradient.
+    // Fractal Brownian Field: mono field energy → multi-stop gradient.
     fbmFieldFace: Object.freeze({
       channels: "color",
       defaultStops: "phosphor",

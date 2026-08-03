@@ -1,4 +1,4 @@
-// FBM Field face: 1 WASM sample per canvas pixel. No field upscale/downscale.
+// Fractal Brownian Field face: 1 WASM sample per canvas pixel.
 // Canvas buffer size == fill_grid size. CSS may enlarge with pixelated scaling
 // only when the face is bigger than the 512² WASM cap (honest blocks, not blur).
 
@@ -239,19 +239,37 @@ function nodeGraphFbmFieldProbeToFaceUv(sx, sy, panX, panY, span, cosR, sinR) {
   };
 }
 
+/** Debug UI on: Hide Debug off (body without keyboard-debug-hidden). */
+function nodeGraphFbmFieldDebugOverlayEnabled() {
+  try {
+    return !document.body?.classList?.contains("keyboard-debug-hidden");
+  } catch (_error) {
+    return false;
+  }
+}
+
 function nodeGraphFbmFieldSyncProbeMarkers(face, nodeId, visible) {
   const overlay = face?.querySelector?.(".node-fbm-field-probe-overlay");
   if (!overlay) return;
-  if (!visible) {
+  const debugOn = nodeGraphFbmFieldDebugOverlayEnabled();
+  const show = Boolean(visible) && debugOn;
+  const modeTag = overlay.querySelector(".node-fbm-field-debug-mode-tag");
+  const svg = overlay.querySelector(".node-fbm-field-probe-svg");
+  const tri = overlay.querySelector(".node-fbm-field-volume-tri");
+  if (!show) {
     for (const mark of overlay.querySelectorAll(".node-fbm-field-probe-mark")) {
       mark.style.display = "none";
     }
+    if (modeTag) modeTag.style.display = "none";
+    if (svg) svg.style.display = "none";
     return;
   }
   const zoom = Math.max(0.05, nodeGraphFbmFieldReadParam(nodeId, "zoom", 1));
   const panX = nodeGraphFbmFieldReadParam(nodeId, "panX", 0);
   const panY = nodeGraphFbmFieldReadParam(nodeId, "panY", 0);
   const rotate = nodeGraphFbmFieldReadParam(nodeId, "rotate", 0);
+  const motion = Math.max(0, Math.min(1, Math.round(nodeGraphFbmFieldReadParam(nodeId, "motion", 1))));
+  const isVolume = motion === 1;
   const span = 1 / zoom;
   const d = span * 0.35;
   const ang = rotate * Math.PI * 2;
@@ -263,6 +281,19 @@ function nodeGraphFbmFieldSyncProbeMarkers(face, nodeId, visible) {
     { key: "Y", sx: panX + d, sy: panY, color: "rgba(160,255,140,0.95)" },
     { key: "Z", sx: panX, sy: panY + d, color: "rgba(255,190,120,0.95)" },
   ];
+  if (modeTag) {
+    modeTag.style.display = "block";
+    modeTag.textContent = isVolume ? "VOLUME  (t → lattice Z)" : "SCROLL  (t → pan XY)";
+    modeTag.style.borderColor = isVolume
+      ? "rgba(255,200,80,0.55)"
+      : "rgba(140,200,255,0.45)";
+    modeTag.style.color = isVolume
+      ? "rgba(255,220,140,0.95)"
+      : "rgba(180,220,255,0.95)";
+  }
+  const faceW = Math.max(1, face.clientWidth || 1);
+  const faceH = Math.max(1, face.clientHeight || 1);
+  const triPts = [];
   for (const p of probes) {
     const mark = overlay.querySelector(`.node-fbm-field-probe-mark[data-probe="${p.key}"]`);
     if (!mark) continue;
@@ -270,15 +301,31 @@ function nodeGraphFbmFieldSyncProbeMarkers(face, nodeId, visible) {
     // Hide if outside the face (zoom/pan can push Y/Z off-screen).
     if (u < -0.02 || u > 1.02 || v < -0.02 || v > 1.02) {
       mark.style.display = "none";
+      const halo = mark.querySelector(".node-fbm-field-probe-halo");
+      if (halo) halo.style.display = "none";
       continue;
     }
+    const cu = Math.max(0, Math.min(1, u));
+    const cv = Math.max(0, Math.min(1, v));
     mark.style.display = "flex";
-    mark.style.left = `${Math.max(0, Math.min(1, u)) * 100}%`;
-    mark.style.top = `${Math.max(0, Math.min(1, v)) * 100}%`;
+    mark.style.left = `${cu * 100}%`;
+    mark.style.top = `${cv * 100}%`;
     const ring = mark.querySelector(".node-fbm-field-probe-ring");
     if (ring) ring.style.borderColor = p.color;
     const label = mark.querySelector(".node-fbm-field-probe-label");
     if (label) label.style.color = p.color;
+    const halo = mark.querySelector(".node-fbm-field-probe-halo");
+    if (halo) halo.style.display = isVolume ? "block" : "none";
+    triPts.push(`${(cu * faceW).toFixed(1)},${(cv * faceH).toFixed(1)}`);
+  }
+  if (svg && tri) {
+    if (isVolume && triPts.length >= 2) {
+      svg.style.display = "block";
+      tri.setAttribute("points", triPts.join(" "));
+    } else {
+      svg.style.display = "none";
+      tri.setAttribute("points", "");
+    }
   }
 }
 
