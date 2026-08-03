@@ -1049,7 +1049,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
             scale: read("scale", 1),
             seed: read("seed", 1),
             smoothness: read("smoothness", 0.55),
-            speed: read("speed", 0.15),
+            speed: read("speed", 1),
             zoom: read("zoom", 1),
           },
           safeRate,

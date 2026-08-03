@@ -1,5 +1,5 @@
-// Noise: FBM Field — 2D fractal Brownian texture (Layout B) with X/Y outs.
-// Face mono energy maps through Display Settings gradient (black/white → color).
+// Noise: FBM Field — Layout B face shows the *same* X/Y samples as the jacks
+// (scope phosphor), not a separate GPU field re-evaluation.
 registerNodeGraphChromelessModule("fbmField", {
   label: "FBM Field",
   solidModule: true,
@@ -17,9 +17,10 @@ registerNodeGraphChromelessModule("fbmField", {
     displayModes: [
       {
         key: "face",
-        label: "Field",
+        label: "X/Y",
+        // fbmFieldFace → draws live buffer samples via scope2d phosphor path
         renderer: "fbmFieldFace",
-        settingsSchema: "fbmFieldFace",
+        settingsSchema: "scope2d",
         source: { x: "X Raw", y: "Y Raw" },
       },
       {
@@ -74,7 +75,7 @@ registerNodeGraphChromelessModule("fbmField", {
         step: "any",
         unit: "Hz",
         tooltip:
-          "Domain rate through the field (Hz-ish). Drives X/Y audio probe and face scroll together.",
+          "Domain rate through the field (Hz). Advances the WASM probe that produces X/Y — face shows those same samples.",
       },
       {
         defaultValue: "1",
@@ -86,7 +87,7 @@ registerNodeGraphChromelessModule("fbmField", {
         nonlinearSlider: true,
         step: "any",
         tooltip:
-          "Multiplies face scroll vs Frequency (1 = lock visual to Frequency). 0 freezes the texture; audio still follows Frequency.",
+          "Multiplies Frequency into the probe rate (audio + face together). 0 freezes X/Y (still frame at last sample).",
       },
       {
         defaultValue: "4",
@@ -228,21 +229,15 @@ registerNodeGraphChromelessModule("fbmField", {
   catalog: {
     category: "noise",
     description:
-      "2D fractal Brownian field (value-noise fBm). Layout B WebGL face (high-res shader + gradient LUT). X/Y from native WASM only — no JS DSP. Same field family as Fractal Brownian Noise.",
+      "2D value-noise fBm (native WASM). X/Y jacks and the Layout B face show the same live samples (phosphor of Out X/Y). No separate visual math path.",
     notes: [
       "LayoutB",
-      "webgl",
-      "shader",
+      "phosphor",
+      "same-samples",
       "native-only",
       "wasm",
       "fbm",
-      "perlin-style",
-      "2d noise",
-      "gradient",
       "out x/y",
-      "smoothness",
-      "lacunarity",
-      "octaves",
       "no-js-fallback",
     ],
   },
