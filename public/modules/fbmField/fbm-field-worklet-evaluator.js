@@ -1,5 +1,11 @@
 // FBM Field — native WASM only. No JS DSP fallback.
 
+/** Finite number or fallback — allows 0 (do not use `x || default`). */
+NodeLiveAudioProcessor.prototype.fbmFieldNum = function fbmFieldNum(value, fallback) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+};
+
 NodeLiveAudioProcessor.prototype.createFbmFieldState = function createFbmFieldState() {
   return { nativeHandle: 0 };
 };
@@ -28,23 +34,24 @@ NodeLiveAudioProcessor.prototype.fbmFieldVector = function fbmFieldVector(state,
     if (!state.nativeHandle) {
       return { X: 0, Y: 0, "X Raw": 0, "Y Raw": 0 };
     }
-    const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
+    const safeRate = Math.max(1, this.fbmFieldNum(rate, sampleRate || 44100));
     // Frequency alone advances domain time (face + X/Y probes share this rate).
-    const frequency = Math.max(0, Number(params.frequency) || 0);
+    // Use fbmFieldNum so smoothness/level 0 are not replaced by defaults.
+    const frequency = Math.max(0, this.fbmFieldNum(params.frequency, 0));
     this.nativeFbmField.soemdsp_fbm_field_sample(
       state.nativeHandle,
       Number(reset) > 0.5 ? 1 : 0,
       frequency,
-      Math.max(0, Math.round(Number(params.seed) || 0)),
-      Math.max(1, Math.min(8, Math.round(Number(params.octaves) || 4))),
-      this.clampValue(Number(params.persistence) || 0.5, 0, 0.99),
-      this.clampValue(Number(params.lacunarity) || 2, 1, 4),
-      Math.max(0.000001, Number(params.scale) || 1),
-      this.clampValue(Number(params.smoothness) || 0.55, 0, 1),
-      Math.max(0.05, Number(params.zoom) || 1),
-      Number(params.panX) || 0,
-      Number(params.panY) || 0,
-      Number(params.level) || 0,
+      Math.max(0, Math.round(this.fbmFieldNum(params.seed, 0))),
+      Math.max(1, Math.min(8, Math.round(this.fbmFieldNum(params.octaves, 4)))),
+      this.clampValue(this.fbmFieldNum(params.persistence, 0.5), 0, 0.99),
+      this.clampValue(this.fbmFieldNum(params.lacunarity, 2), 1, 4),
+      Math.max(0.000001, this.fbmFieldNum(params.scale, 1)),
+      this.clampValue(this.fbmFieldNum(params.smoothness, 0.55), 0, 1),
+      Math.max(0.05, this.fbmFieldNum(params.zoom, 1)),
+      this.fbmFieldNum(params.panX, 0),
+      this.fbmFieldNum(params.panY, 0),
+      this.fbmFieldNum(params.level, 0),
       safeRate,
     );
     const x = this.nativeFbmField.soemdsp_fbm_field_x(state.nativeHandle);

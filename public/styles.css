@@ -18224,14 +18224,17 @@ button[data-transport-action="stop"]:disabled {
   cursor: text;
 }
 
-/* Output/Input Live: green = running (was always red — looked like “stop”). */
+/*
+ * Input / Output toggles: neutral “on” (red-ish armed), never green/yellow.
+ * Play / pause / stop colors live ONLY on transport controls.
+ */
 .node-live-toggle.active {
   position: relative;
   z-index: 3;
-  border-color: rgba(57, 230, 163, 0.55);
-  background: rgba(12, 40, 30, 0.82);
-  color: rgba(180, 255, 220, 0.96);
-  box-shadow: inset 0 0 0 1px rgba(57, 230, 163, 0.35);
+  border-color: rgba(242, 93, 93, 0.76);
+  background: rgba(122, 28, 28, 0.72);
+  color: #ffd6d6;
+  box-shadow: inset 0 0 0 1px rgba(242, 93, 93, 0.76);
 }
 
 .node-live-toggle.active:hover,
@@ -18239,15 +18242,15 @@ button[data-transport-action="stop"]:disabled {
   z-index: 4;
 }
 
-/* Output Paused: yellow — matches transport pause control. */
+/* Paused: same armed look as Live — pause color is on the transport ▶/⏸ only. */
 .node-live-toggle.paused,
 #nodeLiveOutputButton.paused {
   position: relative;
   z-index: 3;
-  border-color: rgba(230, 190, 57, 0.65);
-  background: rgba(40, 32, 10, 0.88);
-  color: rgba(240, 205, 80, 0.98);
-  box-shadow: inset 0 0 0 1px rgba(230, 190, 57, 0.4), 0 0 10px rgba(230, 190, 57, 0.25);
+  border-color: rgba(242, 93, 93, 0.76);
+  background: rgba(122, 28, 28, 0.72);
+  color: #ffd6d6;
+  box-shadow: inset 0 0 0 1px rgba(242, 93, 93, 0.76);
 }
 
 .node-live-toggle.paused:hover,
@@ -18255,15 +18258,11 @@ button[data-transport-action="stop"]:disabled {
 #nodeLiveOutputButton.paused:hover,
 #nodeLiveOutputButton.paused:focus-visible {
   z-index: 4;
-  background: rgba(50, 40, 12, 0.95);
 }
 
-.node-live-toggle-palette .node-live-toggle.active span:last-child {
-  color: rgba(180, 255, 220, 0.96);
-}
-
+.node-live-toggle-palette .node-live-toggle.active span:last-child,
 .node-live-toggle-palette .node-live-toggle.paused span:last-child {
-  color: rgba(240, 205, 80, 0.98);
+  color: #ffd6d6;
 }
 
 .node-palette button[data-palette-node].active {

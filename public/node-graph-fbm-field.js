@@ -3,6 +3,12 @@
 
 const nodeGraphFbmFieldWasm = { promise: null, exports: null, failed: false };
 
+/** Finite number or fallback — allows 0 (never use `x || default` for knobs). */
+function nodeGraphFbmFieldNum(value, fallback) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 function nodeGraphFbmFieldLoadWasm() {
   if (nodeGraphFbmFieldWasm.promise || typeof fetch !== "function" || typeof WebAssembly === "undefined") {
     return nodeGraphFbmFieldWasm.promise;
@@ -49,18 +55,18 @@ function nodeGraphFbmFieldSample(options = {}) {
   wasm.soemdsp_fbm_field_sample(
     state.nativeHandle,
     Number(options.reset) > 0.5 ? 1 : 0,
-    Math.max(0, Number(options.frequency) || 0),
-    Math.max(0, Math.round(Number(options.seed) || 0)),
-    Math.max(1, Math.min(8, Math.round(Number(options.octaves) || 4))),
-    Math.max(0, Math.min(0.99, Number(options.persistence) || 0.5)),
-    Math.max(1, Math.min(4, Number(options.lacunarity) || 2)),
-    Math.max(0.000001, Number(options.scale) || 1),
-    Math.max(0, Math.min(1, Number(options.smoothness) || 0.55)),
-    Math.max(0.05, Number(options.zoom) || 1),
-    Number(options.panX) || 0,
-    Number(options.panY) || 0,
-    Number(options.level) || 0,
-    Math.max(1, Number(options.sampleRate) || 44100),
+    Math.max(0, nodeGraphFbmFieldNum(options.frequency, 0)),
+    Math.max(0, Math.round(nodeGraphFbmFieldNum(options.seed, 0))),
+    Math.max(1, Math.min(8, Math.round(nodeGraphFbmFieldNum(options.octaves, 4)))),
+    Math.max(0, Math.min(0.99, nodeGraphFbmFieldNum(options.persistence, 0.5))),
+    Math.max(1, Math.min(4, nodeGraphFbmFieldNum(options.lacunarity, 2))),
+    Math.max(0.000001, nodeGraphFbmFieldNum(options.scale, 1)),
+    Math.max(0, Math.min(1, nodeGraphFbmFieldNum(options.smoothness, 0.55))),
+    Math.max(0.05, nodeGraphFbmFieldNum(options.zoom, 1)),
+    nodeGraphFbmFieldNum(options.panX, 0),
+    nodeGraphFbmFieldNum(options.panY, 0),
+    nodeGraphFbmFieldNum(options.level, 0),
+    Math.max(1, nodeGraphFbmFieldNum(options.sampleRate, 44100)),
   );
   const x = wasm.soemdsp_fbm_field_x(state.nativeHandle);
   const y = wasm.soemdsp_fbm_field_y(state.nativeHandle);
@@ -91,18 +97,18 @@ function nodeGraphFbmFieldFillGrid(options = {}) {
   const cells = wasm.soemdsp_fbm_field_fill_grid(
     width,
     height,
-    Number(options.domainTime) || 0,
-    Math.max(0.05, Number(options.zoom) || 1),
-    Number(options.panX) || 0,
-    Number(options.panY) || 0,
-    Number(options.rotate) || 0,
-    Math.max(0, Math.round(Number(options.seed) || 0)),
-    Math.max(1, Math.min(8, Math.round(Number(options.octaves) || 4))),
-    Math.max(0, Math.min(0.99, Number(options.persistence) || 0.5)),
-    Math.max(1, Math.min(4, Number(options.lacunarity) || 2)),
-    Math.max(0.000001, Number(options.scale) || 1),
-    Math.max(0, Math.min(1, Number(options.smoothness) || 0.55)),
-    Math.max(0, Number(options.contrast) || 1),
+    nodeGraphFbmFieldNum(options.domainTime, 0),
+    Math.max(0.05, nodeGraphFbmFieldNum(options.zoom, 1)),
+    nodeGraphFbmFieldNum(options.panX, 0),
+    nodeGraphFbmFieldNum(options.panY, 0),
+    nodeGraphFbmFieldNum(options.rotate, 0),
+    Math.max(0, Math.round(nodeGraphFbmFieldNum(options.seed, 0))),
+    Math.max(1, Math.min(8, Math.round(nodeGraphFbmFieldNum(options.octaves, 4)))),
+    Math.max(0, Math.min(0.99, nodeGraphFbmFieldNum(options.persistence, 0.5))),
+    Math.max(1, Math.min(4, nodeGraphFbmFieldNum(options.lacunarity, 2))),
+    Math.max(0.000001, nodeGraphFbmFieldNum(options.scale, 1)),
+    Math.max(0, Math.min(1, nodeGraphFbmFieldNum(options.smoothness, 0.55))),
+    Math.max(0, nodeGraphFbmFieldNum(options.contrast, 1)),
   );
   if (!cells) return null;
   const gw = wasm.soemdsp_fbm_field_grid_width();
