@@ -64,6 +64,7 @@ NodeLiveAudioProcessor.prototype.createNestedRuntime = function createNestedRunt
   runtime.pingPongDelayStates = new Map();
   runtime.expAdsrStates = new Map();
   runtime.fractalBrownianNoiseStates = new Map();
+  runtime.fbmFieldStates = new Map();
   runtime.flowerChildEnvelopeFollowerStates = new Map();
   runtime.graphInputConnections = new Map();
   runtime.ladderFilterStates = new Map();
@@ -229,6 +230,7 @@ NodeLiveAudioProcessor.prototype.setNestedPlan = function setNestedPlan(plan) {
     if (node?.type === "bradley2a") this.bradley2AStates.set(id, this.createBradley2AState());
     if (node?.type === "antisaw") this.antisawStates.set(id, this.createAntisawState());
     if (node?.type === "fractalBrownianNoise") this.fractalBrownianNoiseStates.set(id, this.createFractalBrownianNoiseState());
+    if (node?.type === "fbmField") this.fbmFieldStates.set(id, this.createFbmFieldState());
     if (node?.type === "flowerChildEnvelopeFollower") this.flowerChildEnvelopeFollowerStates.set(id, this.createFlowerChildEnvelopeFollowerState());
     if (node?.type === "pluckEnvelope") this.pluckEnvelopeStates.set(id, this.createPluckEnvelopeState());
     if (node?.type === "stepSequencer") this.stepSequencerStates.set(id, this.createStepSequencerState());

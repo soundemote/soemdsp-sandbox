@@ -202,6 +202,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.nativePhosphillatorReady = false;
     this.pllStates = new Map();
     this.fractalBrownianNoiseStates = new Map();
+    this.fbmFieldStates = new Map();
     this.graphInputConnections = new Map();
     this.gpuAdditiveQueues = new Map();
     this.gpuAdditiveStatusCounter = 0;

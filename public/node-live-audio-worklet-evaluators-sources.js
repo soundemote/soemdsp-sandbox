@@ -1030,6 +1030,32 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           mixInput(nodeId, "Reset"),
         );
       },
+      fbmField: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+        const state = this.fbmFieldStates.get(nodeId) || this.createFbmFieldState();
+        this.fbmFieldStates.set(nodeId, state);
+        const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        return this.fbmFieldVector(
+          state,
+          {
+            contrast: read("contrast", 1),
+            frequency: read("frequency", 0.5),
+            lacunarity: read("lacunarity", 2),
+            level: read("level", 1),
+            octaves: read("octaves", 4),
+            panX: read("panX", 0),
+            panY: read("panY", 0),
+            persistence: read("persistence", 0.5),
+            rotate: read("rotate", 0),
+            scale: read("scale", 1),
+            seed: read("seed", 1),
+            smoothness: read("smoothness", 0.55),
+            speed: read("speed", 0.15),
+            zoom: read("zoom", 1),
+          },
+          safeRate,
+          mixInput(nodeId, "Reset"),
+        );
+      },
       spiral: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.spiralStates.get(nodeId) || this.createSpiralState();
         this.spiralStates.set(nodeId, state);

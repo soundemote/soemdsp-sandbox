@@ -253,6 +253,7 @@ function createNodeGraphLiveRuntime(plan) {
   const wallDelayStates = new Map();
   const expAdsrStates = new Map();
   const fractalBrownianNoiseStates = new Map();
+  const fbmFieldStates = new Map();
   const flowerChildEnvelopeFollowerStates = new Map();
   const flowerChildFilterStates = new Map();
   const rsmetFilterStates = new Map();
@@ -566,6 +567,9 @@ function createNodeGraphLiveRuntime(plan) {
     if (node.type === "fractalBrownianNoise") {
       fractalBrownianNoiseStates.set(node.id, createNodeGraphFractalBrownianNoiseState());
     }
+    if (node.type === "fbmField") {
+      fbmFieldStates.set(node.id, createNodeGraphFbmFieldState());
+    }
     if (node.type === "flowerChildEnvelopeFollower") {
       flowerChildEnvelopeFollowerStates.set(node.id, createNodeGraphFlowerChildEnvelopeFollowerState());
     }
@@ -618,6 +622,7 @@ function createNodeGraphLiveRuntime(plan) {
     wallDelayStates,
     expAdsrStates,
     fractalBrownianNoiseStates,
+    fbmFieldStates,
     flowerChildEnvelopeFollowerStates,
     flowerChildFilterStates,
     rsmetFilterStates,
@@ -1000,6 +1005,9 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   if (!runtime.fractalBrownianNoiseStates) {
     runtime.fractalBrownianNoiseStates = new Map();
   }
+  if (!runtime.fbmFieldStates) {
+    runtime.fbmFieldStates = new Map();
+  }
   if (!runtime.flowerChildEnvelopeFollowerStates) {
     runtime.flowerChildEnvelopeFollowerStates = new Map();
   }
@@ -1271,6 +1279,9 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     }
     if (node.type === "fractalBrownianNoise" && !runtime.fractalBrownianNoiseStates.has(node.id)) {
       runtime.fractalBrownianNoiseStates.set(node.id, createNodeGraphFractalBrownianNoiseState());
+    }
+    if (node.type === "fbmField" && !runtime.fbmFieldStates.has(node.id)) {
+      runtime.fbmFieldStates.set(node.id, createNodeGraphFbmFieldState());
     }
     if (
       node.type === "flowerChildEnvelopeFollower" &&
@@ -1745,6 +1756,13 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   for (const id of [...runtime.fractalBrownianNoiseStates.keys()]) {
     if (!nodeIds.has(id)) {
       runtime.fractalBrownianNoiseStates.delete(id);
+    }
+  }
+  if (runtime.fbmFieldStates) {
+    for (const id of [...runtime.fbmFieldStates.keys()]) {
+      if (!nodeIds.has(id)) {
+        runtime.fbmFieldStates.delete(id);
+      }
     }
   }
   for (const id of [...runtime.flowerChildEnvelopeFollowerStates.keys()]) {

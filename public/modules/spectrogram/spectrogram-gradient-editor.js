@@ -967,6 +967,12 @@
       defaultStops: "phosphor",
       hint: "Julia escape → color · vivid multi-stop gradient · live evolving",
     }),
+    // FBM Field: mono 2D fBm energy → multi-stop gradient.
+    fbmFieldFace: Object.freeze({
+      channels: "color",
+      defaultStops: "phosphor",
+      hint: "Field energy (black→white) → color · same gradient as scopes/LED",
+    }),
     // Matrix faces: cell energy (black→white underlying) → multi-stop LUT.
     // defaultStops "matrix" = digital-rain ramp (green body, white tip).
     matrixFace: Object.freeze({

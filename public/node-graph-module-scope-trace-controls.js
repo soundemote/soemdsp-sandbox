@@ -183,6 +183,13 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
+  // FBM Field: mono terrain → gradient only (params are knobs).
+  fbmFieldFace: Object.freeze({
+    fields: Object.freeze([]),
+    colors: Object.freeze([]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
   // Matrix faces: custom bodies (glyph / message) — no stepper fields.
   matrixFace: Object.freeze({
     fields: Object.freeze([]),
@@ -654,6 +661,7 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   rgbShapeFace: "Shape",
   rgbPictureFace: "Picture",
   rgbFractalFace: "Soft Fractal",
+  fbmFieldFace: "FBM Field",
   matrixFace: "Matrix",
   matrixWaterfallFace: "Waterfall",
   matrixDisplayFace: "Matrix",

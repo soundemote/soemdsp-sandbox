@@ -304,6 +304,9 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       if (node?.type === "fractalBrownianNoise" && !this.fractalBrownianNoiseStates.has(id)) {
         this.fractalBrownianNoiseStates.set(id, this.createFractalBrownianNoiseState());
       }
+      if (node?.type === "fbmField" && !this.fbmFieldStates.has(id)) {
+        this.fbmFieldStates.set(id, this.createFbmFieldState());
+      }
       if (
         node?.type === "flowerChildEnvelopeFollower" &&
         !this.flowerChildEnvelopeFollowerStates.has(id)
@@ -872,6 +875,11 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       if (!ids.has(id)) {
         this.destroyFbmNativeState(this.fractalBrownianNoiseStates.get(id));
         this.fractalBrownianNoiseStates.delete(id);
+      }
+    }
+    for (const id of [...this.fbmFieldStates.keys()]) {
+      if (!ids.has(id)) {
+        this.fbmFieldStates.delete(id);
       }
     }
     for (const id of [...this.flowerChildEnvelopeFollowerStates.keys()]) {

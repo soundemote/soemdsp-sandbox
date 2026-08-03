@@ -437,6 +437,11 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
       ? normalizeNodeGraphRgbFractalSettings()
       : { background: "#05060a", gradientStops: [] };
   }
+  if (type === "fbmFieldFace") {
+    return typeof normalizeNodeGraphFbmFieldSettings === "function"
+      ? normalizeNodeGraphFbmFieldSettings()
+      : { background: "#05060a", gradientStops: [] };
+  }
   if (type === "matrixFace" || type === "matrixWaterfallFace" || type === "matrixDisplayFace") {
     return typeof normalizeNodeGraphMatrixFaceSettings === "function"
       ? normalizeNodeGraphMatrixFaceSettings(null, type)
@@ -519,6 +524,11 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
   if (type === "rgbFractalFace") {
     return typeof normalizeNodeGraphRgbFractalSettings === "function"
       ? normalizeNodeGraphRgbFractalSettings(settings)
+      : (settings || {});
+  }
+  if (type === "fbmFieldFace") {
+    return typeof normalizeNodeGraphFbmFieldSettings === "function"
+      ? normalizeNodeGraphFbmFieldSettings(settings)
       : (settings || {});
   }
   if (type === "matrixFace" || type === "matrixWaterfallFace" || type === "matrixDisplayFace") {
@@ -628,6 +638,11 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
     return typeof nodeGraphRgbFractalSettingsForNode === "function"
       ? nodeGraphRgbFractalSettingsForNode(node)
       : normalizeNodeGraphRgbFractalSettings?.(node?.traceDisplaySettings);
+  }
+  if (settingsSchema === "fbmFieldFace") {
+    return typeof nodeGraphFbmFieldSettingsForNode === "function"
+      ? nodeGraphFbmFieldSettingsForNode(node)
+      : normalizeNodeGraphFbmFieldSettings?.(node?.traceDisplaySettings);
   }
   if (
     settingsSchema === "matrixFace"
@@ -1531,6 +1546,12 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
   if (displayType === "rgbFractalFace") {
     node.traceDisplaySettings = typeof normalizeNodeGraphRgbFractalSettings === "function"
       ? normalizeNodeGraphRgbFractalSettings(settings)
+      : (settings || {});
+    return node.traceDisplaySettings;
+  }
+  if (displayType === "fbmFieldFace") {
+    node.traceDisplaySettings = typeof normalizeNodeGraphFbmFieldSettings === "function"
+      ? normalizeNodeGraphFbmFieldSettings(settings)
       : (settings || {});
     return node.traceDisplaySettings;
   }

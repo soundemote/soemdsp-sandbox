@@ -181,6 +181,7 @@ function nodeGraphDisplaySettingsFormTypeUsesGradient(type) {
     "ledLamp",
     "rgbShapeFace",
     "rgbFractalFace",
+    "fbmFieldFace",
     "matrixFace",
     "matrixWaterfallFace",
     "matrixDisplayFace",

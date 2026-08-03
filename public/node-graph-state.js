@@ -255,6 +255,7 @@ var nodeGraphMvp = {
     expAdsr: 0,
     flowerChildEnvelopeFollower: 0,
     fractalBrownianNoise: 0,
+    fbmField: 0,
     gain: 1,
     graph: 0,
     flowerChildFilter: 0,
