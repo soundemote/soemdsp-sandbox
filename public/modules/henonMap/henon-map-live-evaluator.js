@@ -2,10 +2,17 @@
 // nodeGraphLiveModuleEvaluators (declared in node-graph-live-frame-evaluator.js).
 // Extracted from the inline if/else-if branch that used to live in that file.
 nodeGraphLiveModuleEvaluators.henonMap = ({ runtime, node, nodeId, frame, frames, frameValues, mixInput, sampleRate }) => {
-  const state = runtime.henonMapStates.get(nodeId) || createNodeGraphHenonMapState();
-  runtime.henonMapStates.set(nodeId, state);
+  // Prefer pure JS map when available (henon-map-math.js); else wasm offline glue.
+  if (!runtime.henonMapJsStates) {
+    runtime.henonMapJsStates = new Map();
+  }
+  let jsState = runtime.henonMapJsStates.get(nodeId);
+  if (!jsState && typeof createNodeGraphHenonMapJsState === "function") {
+    jsState = createNodeGraphHenonMapJsState();
+    runtime.henonMapJsStates.set(nodeId, jsState);
+  }
   const read = (key, fallback) => readNodeGraphLiveEffectiveParam(runtime, node, key, fallback, frame, frames, frameValues);
-  const henon = nodeGraphHenonMapSample({
+  const opts = {
     a: read("a", 1.4),
     b: read("b", 0.3),
     rate: read("rate", 8),
@@ -13,8 +20,15 @@ nodeGraphLiveModuleEvaluators.henonMap = ({ runtime, node, nodeId, frame, frames
     sampleRate,
     seedX: read("seedX", 0.1),
     seedY: read("seedY", 0.1),
-    state,
-  });
+  };
+  let henon;
+  if (jsState && typeof nodeGraphHenonMapCore === "function") {
+    henon = nodeGraphHenonMapCore(jsState, opts);
+  } else {
+    const state = runtime.henonMapStates.get(nodeId) || createNodeGraphHenonMapState();
+    runtime.henonMapStates.set(nodeId, state);
+    henon = nodeGraphHenonMapSample({ ...opts, state });
+  }
   const henonLevel = read("level", 1);
   return {
     X: henon.x * henonLevel,

@@ -76,10 +76,12 @@ Main-thread faces load order:
 ```text
 scope-defaults → normalize → display-mode → phosphor → settings-form
   → settings-ui → capture → number-readout → draw-basic → draw-burn
-  → scopes.js → spectrum → buffer-io → sync → metrics → geometry
-  → webgl → vertices → offline → screen-items → slots → buffer-view
-  → monitors → scene-controls → shader-settings → trace-controls
-  → wipe → graph-query → paint-helpers → draw-orchestrator
+  → scopes.js (thin shell: state + scalar + drawFrame)
+  → spectrum → buffer-io → sync → metrics → geometry → webgl → vertices
+  → offline → screen-items → slots → buffer-view → monitors
+  → scene-controls → shader-settings → trace-controls → wipe
+  → graph-query → settings → lifecycle → canvas
+  → paint-helpers → draw-orchestrator
 ```
 
 Mechanical rule: **extract only** — same method bodies on `NodeLiveAudioProcessor.prototype`.

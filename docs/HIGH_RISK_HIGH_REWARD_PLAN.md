@@ -14,12 +14,10 @@ types, ports, or format change. Prefer clean current graph over migrators.
 **Goal:** one pure formula path; thin live + worklet adapters.
 
 **Still to do**
-- Peel more dual live/worklet pairs onto helpers / `*-math.js` (filters, envelopes)
+- Peel more dual live/worklet pairs onto helpers / `*-math.js` (filters, envelopes, remaining attractors)
 - Optional: small `node` smoke for pure helpers
 
-**Shared recently:** gain/bias/gainBias, softClipper, comparator, sampleDelay, slewLimiter,
-inertialFilter, sampleHold math; rotate3d, vectorscope, speedColorInertia (uses inertial math).
-
+**Shared extensively:** utilities, clocks, sequencers, maps (henon), noise, slews, etc.  
 **Refs:** `docs/A1_LIVE_WORKLET_DSP_INVENTORY.md`, `docs/PARAM_SURFACES.md`
 
 ---
@@ -31,8 +29,9 @@ inertialFilter, sampleHold math; rotate3d, vectorscope, speedColorInertia (uses 
 **Still to do**
 - External player shells (e.g. clapplayer) default to slim — **out of this monorepo**
 
-**Done in sandbox:** `?wasmLoad=slim`, player-ish query defaults, embed-config.example.json,
-fetch report / `?wasmStats=1`, `nodeGraphLiveGetNativeWasmLoadMode()` on window after resolve.
+**Done in sandbox:** slim mode, player-ish defaults, embed-config.example.json, fetch
+report / `?wasmStats=1`, window APIs, plan status `/ wasm slim|combined [KiB]`,
+`nodeGraphMvp.live.nativeWasmLoadMode` mirror.
 
 See `docs/WASM_SLIM_LOAD.md`.
 
@@ -40,13 +39,18 @@ See `docs/WASM_SLIM_LOAD.md`.
 
 ## D follow-up — Scopes paint peel
 
-**Goal:** split remaining face paint/UI out of the big scopes file (maintainability only).
+**Goal:** split face paint/UI out of the megacore scopes file.
 
-**Still to do**
-- Thin leftover core: settings-local, canvas lifecycle, drawFrame entry (small)
+**Status:** **Effectively complete.** Core `module-scopes.js` is now a thin shell
+(~state + snapshot listeners + scalar helper + drawFrame entry, ~5–6KB).
 
-**Peeled:** … monitors, scene-controls, shader-settings, **trace-controls**, **wipe**,
-**graph-query**, paint-helpers, draw-orchestrator (+ earlier peels)
+**Peeled files:** defaults, normalize, display-mode, phosphor, settings-form,
+settings-ui, capture, number-readout, draw-basic, draw-burn, spectrum, buffer-io,
+sync, metrics, geometry, webgl, vertices, offline, screen-items, slots,
+buffer-view, monitors, scene-controls, shader-settings, trace-controls, wipe,
+graph-query, **settings**, **lifecycle**, **canvas**, paint-helpers, draw-orchestrator.
+
+**Optional later:** further split of any still-large peel (offline, vertices, settings-ui).
 
 ---
 
@@ -58,13 +62,14 @@ See `docs/WASM_SLIM_LOAD.md`.
 | Patch format migrators | Not a priority; old patches may break |
 | Osc SIGNAL IN pitch resolve | Major oscs on `nodeGraphParamResolveOscPitchHz` |
 | Up/Down Slew + Inertial Filter | Both in **Filter** shelf for A/B |
+| Scopes megacore peel | Done (thin shell remains) |
 
 ---
 
 ## SIGNAL IN audit (ongoing)
 
 Oscillators: shared pitch / Phase / Amp helpers.  
-Pitch **processors** (pitchQuantizer, keyboard CV, …) pass `0.1V/Oct` through — no Hz resolve.
+Pitch **processors** pass CV through — no Hz resolve.
 
 See `docs/PARAM_SURFACES.md`.
 

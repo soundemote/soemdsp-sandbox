@@ -45,6 +45,17 @@ NodeLiveAudioProcessor.prototype.henonMapSample = function henonMapSample(state,
         });
       }
     }
+    // JS path: pure map (henon-map-math.js).
+    if (typeof nodeGraphHenonMapCore === "function") {
+      if (!state.jsPhase && state.jsPhase !== 0) {
+        // Attach JS fields onto native state object for dual use.
+        state.hasStarted = false;
+        state.phase = 0;
+        if (!Number.isFinite(state.x)) state.x = 0;
+        if (!Number.isFinite(state.y)) state.y = 0;
+      }
+      return nodeGraphHenonMapCore(state, options);
+    }
     return { x: 0, y: 0 };
   };
 
