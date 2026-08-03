@@ -23,8 +23,13 @@ load JSON → migrateNodeGraphPatchToCurrent(patch) → validateNodeGraphPatch �
 
 1. Bump `nodeGraphPatchFormat.version` to N+1 in `node-graph-module-definitions.js`.
 2. Append migrator at index N in `nodeGraphPatchMigrators` (maps version N → N+1).
+   - Notes stub: `nodeGraphPatchMigrateV1ToV2Reserved` in `patch-migrations.js`.
 3. Migrator must be pure: `(patch) => nextPatch`, copy nodes/arrays it mutates.
-4. Gate: open a 0.4.3-era patch and a current patch; both load without data loss.
+4. Rename module type in definitions/store/UI in the **same** change set.
+5. Gate: open a 0.4.3-era patch and a current patch; both load without data loss.
+
+**Do not bump format while users have live sessions open** unless coordinated —
+open patches may re-save mid-edit.
 
 ## Non-goals
 
