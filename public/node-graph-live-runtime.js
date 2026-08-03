@@ -2324,6 +2324,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   // nodeGraphTrisaw / nodeGraphPitchedFrequency / nodeGraphAdvancePhase01.
   "./public/node-graph-stdlib/node-graph-phasor-helpers.js?v=phasor-helpers-1",
   "./public/node-graph-stdlib/node-graph-control-bus-helpers.js?v=control-bus-1",
+  "./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=param-surface-1",
   "./public/node-graph-parameter-smoother-filters.js?v=two-pole-smooth-1",
   "./public/node-live-audio-worklet-core.js?v=plan-d-split-8",
   // Phase D: class methods extracted from core (must follow class definition).

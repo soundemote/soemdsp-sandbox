@@ -435,23 +435,21 @@ function nodeGraphKnobFaceLiveOffset(nodeId) {
       continue;
     }
     hasMod = true;
-    if (typeof normalizeNodeGraphParameterModulationInput === "function"
-      && typeof nodeGraphApplyParameterModulation === "function") {
-      // Accumulate normalized contribution then denormalize once below.
+    // Phase F: MOD is bipolar unit [−1, 1]; sum then apply once.
+    if (typeof normalizeNodeGraphParameterModulationInput === "function") {
       contribution += normalizeNodeGraphParameterModulationInput(src, metadata);
+    } else if (typeof nodeGraphParamNormalizeModInput === "function") {
+      contribution += nodeGraphParamNormalizeModInput(src, metadata);
     } else {
       contribution += src;
     }
   }
   let slider = base;
   if (hasMod) {
-    if (typeof nodeGraphParameterValueToNormalizedSignal === "function"
-      && typeof nodeGraphNormalizedSignalToParameterValue === "function") {
-      const baseSignal = nodeGraphParameterValueToNormalizedSignal(base, metadata);
-      const nextSignal = typeof nodeGraphNormalizedParameterSignalBounds === "function"
-        ? nodeGraphNormalizedParameterSignalBounds(baseSignal + contribution, metadata)
-        : Math.max(0, Math.min(1, baseSignal + contribution));
-      slider = nodeGraphNormalizedSignalToParameterValue(nextSignal, metadata);
+    if (typeof nodeGraphParamApplyMod === "function") {
+      slider = nodeGraphParamApplyMod(base, contribution, metadata);
+    } else if (typeof nodeGraphApplyParameterModulation === "function") {
+      slider = nodeGraphApplyParameterModulation(base, contribution, metadata);
     } else {
       slider = base + contribution;
     }

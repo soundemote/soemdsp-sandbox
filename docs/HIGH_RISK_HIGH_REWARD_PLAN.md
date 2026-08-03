@@ -32,7 +32,7 @@ Stop paying dual-implementation tax and hand-maintained type lists. One evaluati
 | **C** | Patch schema + migrations | Free renames (Knob type id, params) | Bad migration = lost patches | **3 — C0 pipeline landed** |
 | **D** | Mechanical megacore splits | Maintainability | Load-order / missing registers | **4 — evaluators extract done** |
 | **E** | Used-modules WASM slim | Load size / player readiness | Incomplete dep walk | Later |
-| **F** | Param surface model (In vs mod) | End slider≠readout class | Feel shift on all patches | Later, explicit product |
+| **F** | Param surface model (In vs mod vs domain) | End slider≠readout class | Feel shift on all patches | **Landed** |
 
 ---
 
@@ -165,10 +165,12 @@ Split without behavior change:
 
 ---
 
-## Phase E / F — Later
+## Phase E / F
 
-- **E:** Used-module WASM subset for load time + clapplayer.
-- **F:** Explicit param surfaces (signal In / unit mod / domain knob) — product-visible; schedule deliberately.
+- **E:** Used-module WASM subset for load time + clapplayer — **not started**.
+- **F:** [x] Explicit param surfaces — `node-graph-param-surface-helpers.js` + live/worklet wire-up.  
+  MOD is bipolar unit; frequency MOD is 0.1V/Oct-style. See `docs/PARAM_SURFACES.md`.  
+  Optional follow-up: per-module SIGNAL IN audit (Phase/Amp jacks) for full consistency.
 
 ---
 

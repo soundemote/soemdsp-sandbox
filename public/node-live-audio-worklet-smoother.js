@@ -295,6 +295,9 @@ NodeLiveAudioProcessor.prototype.finishSmoothing = function finishSmoothing() {
 };
 
 NodeLiveAudioProcessor.prototype.applyParameterBounds = function applyParameterBounds(value, metadata = {}) {
+    if (typeof nodeGraphParamApplyDomainBounds === "function") {
+      return nodeGraphParamApplyDomainBounds(value, metadata);
+    }
     const min = Number(metadata.min);
     const max = Number(metadata.max);
     if (metadata.unboundedMin && metadata.unboundedMax) {
@@ -314,8 +317,12 @@ NodeLiveAudioProcessor.prototype.applyParameterBounds = function applyParameterB
       : this.clampValue(value, min, max);
 };
 
+/** DOMAIN + MOD → effective domain (Phase F: nodeGraphParamApplyMod). */
 NodeLiveAudioProcessor.prototype.applyParameterModulation = function applyParameterModulation(base, modulationSignal, metadata = {}) {
-    if (metadata?.kind === "frequency" && metadata.nonlinearSlider) {
+    if (typeof nodeGraphParamApplyMod === "function") {
+      return nodeGraphParamApplyMod(base, modulationSignal, metadata);
+    }
+    if (String(metadata?.kind || "").toLowerCase() === "frequency") {
       const baseFrequency = Math.max(0.000001, Number(base) || 0.000001);
       const octaves = (Number(modulationSignal) || 0) / 0.1;
       return this.applyParameterBounds(baseFrequency * (2 ** octaves), metadata);

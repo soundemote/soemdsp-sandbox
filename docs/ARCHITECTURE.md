@@ -79,16 +79,19 @@ scope-defaults → normalize → display-mode → phosphor → settings-form →
 
 Mechanical rule: **extract only** — same method bodies on `NodeLiveAudioProcessor.prototype`.
 
-## Shared DSP (Phase A)
+## Shared DSP (Phase A + F)
 
 | File | Responsibility |
 |------|----------------|
 | `stdlib/node-graph-phasor-helpers.js` | wrap01, trisaw, pitched frequency, phase advance |
 | `stdlib/node-graph-control-bus-helpers.js` | Bias/In, stereo mix, external in, MIDI ports |
+| `stdlib/node-graph-param-surface-helpers.js` | **DOMAIN / MOD / SIGNAL IN** contracts (Phase F) |
 | `stdlib/node-graph-shared-dsp-helpers.js` | trigger divider, one-pole, noise channel state |
 | `stdlib/node-graph-analog-filter-helpers.js` | analog filter math |
 
 New DSP should land as pure functions first, then thin adapters.
+
+**Param surfaces:** see `docs/PARAM_SURFACES.md`.
 
 ## Still large (next extracts)
 

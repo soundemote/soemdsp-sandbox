@@ -1,3 +1,6 @@
+// Thin wrappers over param-surface helpers + smoother state.
+// Canonical MOD/DOMAIN math: node-graph-param-surface-helpers.js (Phase F).
+
 // Thin wrapper over the stdlib helper -- kept because this short name is used
 // throughout the live/render evaluator lane.
 function readNodeGraphLiveParam(node, key, fallback = 0) {
@@ -14,6 +17,9 @@ function readNodeGraphLiveSmoothedParam(runtime, node, key, fallback, frame, fra
 }
 
 function nodeGraphApplyParameterBounds(value, metadata = {}) {
+  if (typeof nodeGraphParamApplyDomainBounds === "function") {
+    return nodeGraphParamApplyDomainBounds(value, metadata);
+  }
   const min = Number(metadata.min);
   const max = Number(metadata.max);
   if (metadata.unboundedMin && metadata.unboundedMax) {
@@ -54,18 +60,27 @@ function readNodeGraphRuntimeOutput(runtime, frameValues, nodeId, port = "Out") 
   return output === undefined || output === null ? 0 : Number(output);
 }
 
+/** DOMAIN → unit (parameter port used as a bus source). */
 function normalizeNodeGraphParameterOutputValue(value, metadata = {}) {
+  if (typeof nodeGraphParamDomainToModOutput === "function") {
+    return nodeGraphParamDomainToModOutput(value, metadata);
+  }
   return nodeGraphParameterValueToNormalizedSignal(value, metadata);
 }
 
+/** MOD surface: raw sample → bipolar unit [−1, 1]. */
 function normalizeNodeGraphParameterModulationInput(value, metadata = {}) {
+  if (typeof nodeGraphParamNormalizeModInput === "function") {
+    return nodeGraphParamNormalizeModInput(value, metadata);
+  }
   const number = Number(value) || 0;
-  return normalizeNodeMetadataKind(metadata.kind) === "frequency" && metadata.nonlinearSlider
-    ? clampNodeSliderValue(number, -1, 1)
-    : clampNodeSliderValue(number, 0, 1);
+  return clampNodeSliderValue(number, -1, 1);
 }
 
 function nodeGraphParameterSkewExponent(metadata = {}) {
+  if (typeof nodeGraphParamSkewExponent === "function") {
+    return nodeGraphParamSkewExponent(metadata);
+  }
   if (!metadata.nonlinearSlider) {
     return 1;
   }
@@ -81,6 +96,9 @@ function nodeGraphParameterSkewExponent(metadata = {}) {
 }
 
 function nodeGraphParameterValueToNormalizedSignal(value, metadata = {}) {
+  if (typeof nodeGraphParamDomainToUnit === "function") {
+    return nodeGraphParamDomainToUnit(value, metadata);
+  }
   const min = Number(metadata.min);
   const max = Number(metadata.max);
   const range = max - min;
@@ -99,6 +117,9 @@ function nodeGraphParameterValueToNormalizedSignal(value, metadata = {}) {
 }
 
 function nodeGraphNormalizedSignalToParameterValue(signal, metadata = {}) {
+  if (typeof nodeGraphParamUnitToDomain === "function") {
+    return nodeGraphParamUnitToDomain(signal, metadata);
+  }
   const min = Number(metadata.min);
   const max = Number(metadata.max);
   const range = max - min;
@@ -112,8 +133,13 @@ function nodeGraphNormalizedSignalToParameterValue(signal, metadata = {}) {
   return nodeGraphApplyParameterBounds(min + range * normalizedValue, metadata);
 }
 
+/** DOMAIN + MOD → effective domain value. */
 function nodeGraphApplyParameterModulation(base, modulationSignal, metadata = {}) {
-  if (normalizeNodeMetadataKind(metadata.kind) === "frequency" && metadata.nonlinearSlider) {
+  if (typeof nodeGraphParamApplyMod === "function") {
+    return nodeGraphParamApplyMod(base, modulationSignal, metadata);
+  }
+  // Fallback mirrors Phase F contract.
+  if (String(metadata?.kind || "").toLowerCase() === "frequency") {
     const baseFrequency = Math.max(0.000001, Number(base) || 0.000001);
     const octaves = (Number(modulationSignal) || 0) / 0.1;
     return nodeGraphApplyParameterBounds(baseFrequency * (2 ** octaves), metadata);
@@ -151,10 +177,7 @@ function readNodeGraphLiveEffectiveParam(
 ) {
   const base = readNodeGraphLiveSmoothedParam(runtime, node, key, fallback, frame, frames);
   const modulations = runtime.modulationConnections?.get(nodeGraphParameterKey(node?.id, key));
-  // See node-live-audio-worklet-core.js readEffectiveParameter: skip the
-  // normalize/denormalize round trip (Math.log-based skew math) entirely
-  // when nothing modulates this parameter, instead of paying it every
-  // sample for every parameter regardless.
+  // Skip unit-space round trip when nothing modulates this parameter.
   if (!modulations || !modulations.length) {
     return base;
   }
