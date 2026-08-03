@@ -29,9 +29,8 @@ NodeLiveAudioProcessor.prototype.fbmFieldVector = function fbmFieldVector(state,
       return { X: 0, Y: 0, "X Raw": 0, "Y Raw": 0 };
     }
     const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
-    // Evolve multiplies Frequency so face (same samples) and audio share one rate.
-    const evolve = Math.max(0, Number(params.speed) || 0);
-    const frequency = Math.max(0, Number(params.frequency) || 0) * evolve;
+    // Frequency alone advances domain time (face + X/Y probes share this rate).
+    const frequency = Math.max(0, Number(params.frequency) || 0);
     this.nativeFbmField.soemdsp_fbm_field_sample(
       state.nativeHandle,
       Number(reset) > 0.5 ? 1 : 0,

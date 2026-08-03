@@ -144,10 +144,9 @@ function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
   }
   face._fbmFieldBlack = false;
 
+  // Frequency alone is domain rate (same as WASM X/Y path). No second rate knob.
   const frequency = Math.max(0, nodeGraphFbmFieldReadParam(nodeId, "frequency", 0.5));
-  const evolve = Math.max(0, nodeGraphFbmFieldReadParam(nodeId, "speed", 1));
-  const domainRate = frequency * evolve;
-  const frozen = nodeGraphFbmFieldShouldFreeze(domainRate);
+  const frozen = nodeGraphFbmFieldShouldFreeze(frequency);
   if (frozen && face._fbmFieldHasFrame && !options.force) {
     face._fbmFieldLastTs = 0;
     if (face.dataset) face.dataset.lightStrength = "1";
@@ -159,7 +158,7 @@ function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
   if (!Number.isFinite(dt) || dt < 0) dt = 0;
   dt = Math.min(0.05, dt);
   if (frozen) dt = 0;
-  face._fbmFieldTime += dt * domainRate;
+  face._fbmFieldTime += dt * frequency;
 
   const wasm = typeof nodeGraphFbmFieldWasm !== "undefined" ? nodeGraphFbmFieldWasm.exports : null;
   const maxW = wasm?.soemdsp_fbm_field_grid_max_width?.() || 512;

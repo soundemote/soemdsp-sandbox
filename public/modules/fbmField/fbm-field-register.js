@@ -67,18 +67,8 @@ registerNodeGraphChromelessModule("fbmField", {
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Domain rate (Hz). Advances field scroll and X/Y probe path together.",
-      },
-      {
-        defaultValue: "1",
-        key: "speed",
-        label: "Evolve",
-        max: "4",
-        mid: "1",
-        min: "0",
-        nonlinearSlider: true,
-        step: "any",
-        tooltip: "Multiplies Frequency for domain motion. 0 freezes field + X/Y path.",
+        tooltip:
+          "Domain rate (Hz). Single clock for field scroll and X/Y probes. 0 freezes both.",
       },
       {
         defaultValue: "4",
