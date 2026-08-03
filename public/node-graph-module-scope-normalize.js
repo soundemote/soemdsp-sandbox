@@ -679,9 +679,9 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}) {
 }
 
 
-function normalizeNodeGraphValueSliderFaceDisplaySettings(settings = {}) {
+function normalizeNodeGraphKnobFaceDisplaySettings(settings = {}) {
   const source = settings && typeof settings === "object" ? settings : {};
-  const defaults = nodeGraphValueSliderFaceDisplaySettingsDefaults;
+  const defaults = nodeGraphKnobFaceDisplaySettingsDefaults;
   return {
     decimals: normalizeNodeGraphTraceDisplayNumber(
       source.decimals ?? source.numDecimals,
@@ -694,18 +694,18 @@ function normalizeNodeGraphValueSliderFaceDisplaySettings(settings = {}) {
 }
 
 
-function nodeGraphValueSliderFaceDisplaySettingsForNode(node) {
+function nodeGraphKnobFaceDisplaySettingsForNode(node) {
   if (!node) {
-    return normalizeNodeGraphValueSliderFaceDisplaySettings();
+    return normalizeNodeGraphKnobFaceDisplaySettings();
   }
   // Prefer display-settings bucket; fall back to face blob if an older path wrote there.
   const fromDisplay = node.traceDisplaySettings;
-  const fromFace = node.valueSliderFace;
+  const fromFace = node.knobFace;
   const merged = {
     ...(fromFace && typeof fromFace === "object" ? fromFace : {}),
     ...(fromDisplay && typeof fromDisplay === "object" ? fromDisplay : {}),
   };
-  return normalizeNodeGraphValueSliderFaceDisplaySettings(merged);
+  return normalizeNodeGraphKnobFaceDisplaySettings(merged);
 }
 
 

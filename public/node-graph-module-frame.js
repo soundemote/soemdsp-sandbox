@@ -202,28 +202,28 @@ function nodeGraphModuleFrameRadiusPx(nodeElement) {
 }
 
 /**
- * Value Slider (and similar) with face art: no chrome outline at all.
- * Class / dataset set by renderNodeGraphValueSliderFace after the face is mounted.
+ * Knob (and similar) with face art: no chrome outline at all.
+ * Class / dataset set by renderNodeGraphKnobFace after the face is mounted.
  */
 function nodeGraphModuleFrameShouldHide(nodeElement) {
   if (!nodeElement?.classList) {
     return false;
   }
-  if (nodeElement.classList.contains("value-slider-face-has-image")) {
+  if (nodeElement.classList.contains("knob-face-has-image")) {
     return true;
   }
   if (nodeElement.dataset?.hideModuleFrame === "1" || nodeElement.dataset?.hideModuleFrame === "true") {
     return true;
   }
   // Fallback if class lag: face already marked has-image.
-  if (nodeElement.querySelector?.(".node-value-slider-face.has-image")) {
+  if (nodeElement.querySelector?.(".node-knob-face.has-image")) {
     return true;
   }
   // Patch data fallback (DOM class not ready yet).
-  if (nodeElement.dataset?.nodeType === "valueSlider" && typeof nodeGraphPatchNode === "function") {
+  if (nodeElement.dataset?.nodeType === "knob" && typeof nodeGraphPatchNode === "function") {
     const patchNode = nodeGraphPatchNode(nodeElement.dataset.node);
-    if (typeof nodeGraphValueSliderFaceHasAnyImage === "function"
-      && nodeGraphValueSliderFaceHasAnyImage(patchNode?.valueSliderFace)) {
+    if (typeof nodeGraphKnobFaceHasAnyImage === "function"
+      && nodeGraphKnobFaceHasAnyImage(patchNode?.knobFace)) {
       return true;
     }
   }

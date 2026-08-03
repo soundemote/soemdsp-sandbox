@@ -84,7 +84,7 @@ const nodeGraphNodeLabels = Object.freeze({
   bias: "Bias",
   softClipper: "Soft Clipper",
   rotate3dTo2d: "Rotation 3D to 2D",
-  valueSlider: "Knob",
+  knob: "Knob",
   pluginSlider: "Slider",
   toggleButton: "Toggle",
   momentaryButton: "Momentary",
@@ -2903,19 +2903,19 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0", key: "rotateZ", kind: "phase", label: "Rotate Z", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "0.01", unit: "cycle", wraparound: true },
     ],
   },
-  // Plugin Knob (type id valueSlider kept for patch compatibility).
-  valueSlider: {
+  // Plugin Knob (type id knob kept for patch compatibility).
+  knob: {
     planRole: "source",
     chrome: NodeGraphModuleChromeLayout.LayoutB,
     defaultWidthGu: 4,
     displayHeightGu: 2,
-    displayType: "valueSliderFace",
+    displayType: "knobFace",
     displayModes: [
       {
         key: "face",
         label: "Face",
-        renderer: "valueSliderFace",
-        settingsSchema: "valueSliderFace",
+        renderer: "knobFace",
+        settingsSchema: "knobFace",
         source: { value: "Bias" },
       },
     ],
@@ -5102,7 +5102,7 @@ const nodeGraphModuleLayout = Object.freeze({
 
 const nodeGraphPatchFormat = Object.freeze({
   kind: "soemdsp-sandbox-node-patch",
-  version: 1,
+  version: 2,
 });
 
 function nodeGraphModuleVisualInputs(type) {

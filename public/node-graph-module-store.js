@@ -609,7 +609,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Input",
     notes: ["audio source", "left right outputs", "live input"],
   },
-  valueSlider: {
+  knob: {
     category: "plugin",
     description:
       "Knob — rotatable face control. Bias = In + knob (offset). Param-row mod is unit CV; In is true additive CV. Search: knob, pot, macro, value slider.",

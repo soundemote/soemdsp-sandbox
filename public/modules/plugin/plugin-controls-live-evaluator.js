@@ -1,5 +1,5 @@
 // Plugin shelf live/offline evaluators — thin wrappers over control-bus helpers.
-// Knob (valueSlider) lives in value-slider-live-evaluator.js (same helpers).
+// Knob (knob) lives in knob-live-evaluator.js (same helpers).
 
 function nodeGraphPluginReadParam(runtime, node, key, fallback, frame, frames, frameValues) {
   if (typeof readNodeGraphLiveEffectiveParam === "function") {

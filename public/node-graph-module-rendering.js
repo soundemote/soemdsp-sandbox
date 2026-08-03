@@ -70,10 +70,10 @@ function nodeGraphIoRowPointerInPortHitbox(event) {
 function attachNodeGraphSolidModuleShellEvents(node) {
   node.querySelectorAll(".node-solid-module-custom-ui").forEach((face) => {
     face.addEventListener("pointerdown", beginNodeGraphNodeDrag);
-    // Graph face owns double-click (add/remove points). Value Slider face owns
+    // Graph face owns double-click (add/remove points). Knob face owns
     // double-click type-in (Bias). Do not open Module Settings from those.
     face.addEventListener("dblclick", (event) => {
-      if (event.target?.closest?.(".node-module-graph-display, .node-value-slider-face")) {
+      if (event.target?.closest?.(".node-module-graph-display, .node-knob-face")) {
         return;
       }
       openNodeModuleActionMenu(event);
@@ -83,7 +83,7 @@ function attachNodeGraphSolidModuleShellEvents(node) {
   node.querySelectorAll(".node-solid-module-shell").forEach((shell) => {
     shell.addEventListener("pointerdown", beginNodeGraphNodeDrag);
     shell.addEventListener("dblclick", (event) => {
-      if (event.target?.closest?.(".node-module-graph-display, .node-value-slider-face")) {
+      if (event.target?.closest?.(".node-module-graph-display, .node-knob-face")) {
         return;
       }
       openNodeModuleActionMenu(event);
@@ -591,7 +591,7 @@ function createNodeGraphModuleElement(type, node) {
     );
     chromelessRegistration.afterMount?.(article, chromelessBody, node, type);
   } else if (chrome.headerless) {
-    // Headerless LayoutB (e.g. valueSlider): title + face + side ports.
+    // Headerless LayoutB (e.g. knob): title + face + side ports.
     if (!patchNodeUi.titleHidden) {
       article.append(createNodeGraphModuleHeader(type, node, definition));
     }
@@ -685,7 +685,7 @@ function createNodeGraphModuleElement(type, node) {
     article.append(graphShell);
   } else if (definition.layout === "sliderWidget") {
     // LayoutB (XY Pad contract): slim I/O beside a large face; Bias/control under.
-    // Plugin shelf: Knob (valueSlider), Slider, Toggle, Momentary each pick a face.
+    // Plugin shelf: Knob (knob), Slider, Toggle, Momentary each pick a face.
     let face = null;
     if (type === "pluginSlider" && typeof createNodeGraphPluginSliderFace === "function") {
       face = createNodeGraphPluginSliderFace(node, type);
@@ -693,8 +693,8 @@ function createNodeGraphModuleElement(type, node) {
       face = createNodeGraphToggleButtonFace(node, type);
     } else if (type === "momentaryButton" && typeof createNodeGraphMomentaryButtonFace === "function") {
       face = createNodeGraphMomentaryButtonFace(node, type);
-    } else if (typeof createNodeGraphValueSliderFace === "function") {
-      face = createNodeGraphValueSliderFace(node, type);
+    } else if (typeof createNodeGraphKnobFace === "function") {
+      face = createNodeGraphKnobFace(node, type);
     } else {
       face = createNodeGraphSliderWidgetBody(node, type);
     }
@@ -703,7 +703,7 @@ function createNodeGraphModuleElement(type, node) {
       face.dataset.lightStrength = "0";
     }
     const shell = createNodeGraphLayoutBShell(node, type, face, null, inputPorts, outputPorts);
-    shell.classList.add("node-value-slider-shell");
+    shell.classList.add("node-knob-shell");
     if (type === "pluginSlider") shell.classList.add("node-plugin-slider-shell");
     if (type === "toggleButton" || type === "momentaryButton") {
       shell.classList.add("node-plugin-button-shell");
@@ -716,8 +716,8 @@ function createNodeGraphModuleElement(type, node) {
         scopeElement: face,
       });
     }
-    if (type === "valueSlider" && typeof renderNodeGraphValueSliderFace === "function") {
-      renderNodeGraphValueSliderFace(face, node);
+    if (type === "knob" && typeof renderNodeGraphKnobFace === "function") {
+      renderNodeGraphKnobFace(face, node);
     }
     face?.syncFromParameters?.();
   } else if (definition.layout === "keyboardController" || definition.layout === "macroControls" || definition.layout === "pitchModWheel") {

@@ -294,12 +294,12 @@ function syncNodeGraphSliderReadouts() {
   }
 }
 
-// Value Slider face live sync: modules/valueSlider/value-slider-face.js
-// (syncNodeGraphValueSliderFaceFromSlider).
+// Knob face live sync: modules/knob/knob-face.js
+// (syncNodeGraphKnobFaceFromSlider).
 
 function syncNodeSliderReadout(slider) {
-  if (typeof syncNodeGraphValueSliderFaceFromSlider === "function") {
-    syncNodeGraphValueSliderFaceFromSlider(slider);
+  if (typeof syncNodeGraphKnobFaceFromSlider === "function") {
+    syncNodeGraphKnobFaceFromSlider(slider);
   }
   const readout = slider.closest("label")?.querySelector(".node-slider-readout");
   if (!readout) {

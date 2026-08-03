@@ -51,7 +51,7 @@ function normalizeNodeGraphPatchNodeUi(ui = {}, type = "") {
   const alwaysHideSliders = type
     && typeof nodeGraphModuleTypeSlidersAlwaysHidden === "function"
     && nodeGraphModuleTypeSlidersAlwaysHidden(type);
-  // LayoutB (Value Slider, LED, XY Pad, …) shows a normal title bar by default.
+  // LayoutB (Knob, LED, XY Pad, …) shows a normal title bar by default.
   // "Hide title" still sets titleHidden:true and persists.
   const titleHidden = Object.prototype.hasOwnProperty.call(source, "titleHidden")
     ? Boolean(source.titleHidden)

@@ -63,7 +63,7 @@ Related: `docs/CORE_REDUCTION_PLAN.md` (core shell reduction). This doc is a **h
 
 | Item | Action | Risk |
 |------|--------|------|
-| 3.1 | `createNodeGraphSliderWidgetBody` is a thin deprecated alias; leave definition for compat, ensure primary call sites use `createNodeGraphValueSliderFace` (already do) | None |
+| 3.1 | `createNodeGraphSliderWidgetBody` is a thin deprecated alias; leave definition for compat, ensure primary call sites use `createNodeGraphKnobFace` (already do) | None |
 | 3.2 | Prefer not deleting deprecated wrappers in this pass (smoke/history may still name them) | — |
 | 3.3 | `progress.md` / this plan: checkboxes updated as work lands | None |
 
@@ -110,7 +110,7 @@ Do not mix cleanup-only and feature in one commit unless user prefers one dump.
 | 2026-08-01 | Retired type `clapPlugin` so old patches drop host nodes instead of `unknown node type`. |
 | 2026-08-01 | Removed empty `public/modules/impulseButton` and `public/modules/knob` dirs. |
 | 2026-08-01 | progress.md / README hygiene already applied. |
-| 2026-08-02 | Shared **control-bus helpers** (`node-graph-control-bus-helpers.js`): Bias/In, stereo mix, external stereo frame, MIDI ports — live evaluators + worklet dispatch share one pure API. Thinned valueSlider/plugin/output/audioInput/midiOut evaluators. Removed CLAP export JS earlier. |
+| 2026-08-02 | Shared **control-bus helpers** (`node-graph-control-bus-helpers.js`): Bias/In, stereo mix, external stereo frame, MIDI ports — live evaluators + worklet dispatch share one pure API. Thinned knob/plugin/output/audioInput/midiOut evaluators. Removed CLAP export JS earlier. |
 
 ---
 

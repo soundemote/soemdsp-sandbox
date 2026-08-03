@@ -160,7 +160,7 @@ const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
 });
 
 
-const nodeGraphValueSliderFaceDisplaySettingsDefaults = Object.freeze({
+const nodeGraphKnobFaceDisplaySettingsDefaults = Object.freeze({
   decimals: 2,
 });
 

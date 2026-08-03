@@ -522,7 +522,7 @@ function handleNodeGraphModuleScopeDiscontinuitySkipSamplesInput(event) {
 
 const nodeGraphSliderLayouts = Object.freeze([
   { key: "text-inside", label: "Text Inside" },
-  { key: "label-value-slider", label: "Label Value Slider" },
+  { key: "label-value-slider", label: "Label Knob" },
   { key: "value-unit-left", label: "Value And Unit Left" },
   { key: "value-unit-right", label: "Value And Unit Right" },
   { key: "label-outside", label: "Label Outside" },

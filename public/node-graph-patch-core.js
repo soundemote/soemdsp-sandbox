@@ -267,15 +267,15 @@ function validateNodeGraphPatch(patch) {
     if (type === "textStream" && typeof normalizeNodeGraphTextStream === "function") {
       normalizedNode.textStream = normalizeNodeGraphTextStream(node.textStream);
     }
-    if (type === "valueSlider" && typeof normalizeNodeGraphValueSliderFace === "function") {
-      const face = normalizeNodeGraphValueSliderFace(node.valueSliderFace);
-      if (typeof nodeGraphValueSliderFaceIsNonDefault === "function"
-        ? nodeGraphValueSliderFaceIsNonDefault(face)
-        : (typeof nodeGraphValueSliderFaceHasAnyImage === "function"
-          ? nodeGraphValueSliderFaceHasAnyImage(face)
+    if (type === "knob" && typeof normalizeNodeGraphKnobFace === "function") {
+      const face = normalizeNodeGraphKnobFace(node.knobFace);
+      if (typeof nodeGraphKnobFaceIsNonDefault === "function"
+        ? nodeGraphKnobFaceIsNonDefault(face)
+        : (typeof nodeGraphKnobFaceHasAnyImage === "function"
+          ? nodeGraphKnobFaceHasAnyImage(face)
           : face.layers?.some?.((layer) => layer?.dataUrl))) {
-        normalizedNode.valueSliderFace = typeof nodeGraphValueSliderFaceToPatch === "function"
-          ? nodeGraphValueSliderFaceToPatch(face)
+        normalizedNode.knobFace = typeof nodeGraphKnobFaceToPatch === "function"
+          ? nodeGraphKnobFaceToPatch(face)
           : face;
       }
     }
@@ -888,11 +888,11 @@ function applyNodeGraphPatchToDom() {
     } else if (nodeGraphModuleDefinitions[patchNode.type]?.layout === "graph") {
       syncNodeGraphGraphElement(element, patchNode);
     } else if (
-      patchNode.type === "valueSlider"
-      && typeof renderNodeGraphValueSliderFace === "function"
+      patchNode.type === "knob"
+      && typeof renderNodeGraphKnobFace === "function"
     ) {
       // Keep face art / frame-hide in sync after patch DOM apply.
-      renderNodeGraphValueSliderFace(patchNode.id);
+      renderNodeGraphKnobFace(patchNode.id);
     }
   }
   syncNodeGraphInputModuleLiveState();
@@ -959,7 +959,7 @@ function commitNodeGraphPatch(patch, options = {}) {
   // layoutEdit: module move / snap only — skip DOM rebuild + audio plan + render pending.
   const isLayoutEdit = Boolean(options.layoutEdit);
   // softDom: cosmetic module face / label-only edits — keep existing module DOM
-  // (avoids image reload flash on Value Slider readout/rotate toggles).
+  // (avoids image reload flash on Knob readout/rotate toggles).
   const isSoftDom = Boolean(options.softDom || options.faceEdit);
   let validated;
   try {

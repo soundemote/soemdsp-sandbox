@@ -9590,7 +9590,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 /* Hide only analyzer scopes — not always-on display plates that reuse the class. */
 .node-graph-workspace.module-oscilloscopes-hidden
   .dsp-node:not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout)
-  .node-module-scope-window:not(.node-value-slider-face):not(.node-number-readout-face):not(.node-ray-bouncer-face) {
+  .node-module-scope-window:not(.node-knob-face):not(.node-number-readout-face):not(.node-ray-bouncer-face) {
   display: none;
 }
 
@@ -9874,7 +9874,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 /* Solid shell must be on the whitelist: .dsp-node is pointer-events:none. */
 .node-solid-module-shell,
 .node-solid-module-custom-ui,
-.node-value-slider-face,
+.node-knob-face,
 .node-xy-pad,
 .dsp-node-body,
 .dsp-node button,
@@ -9998,9 +9998,9 @@ body.room-dimmer-on .node-room-dimmer-canvas,
     var(--node-module-bottom-gap-track, minmax(2px, 1fr));
 }
 
-/* Value Slider uses solid-module-layout rows (shell + params + shared bottom gap). */
+/* Knob uses solid-module-layout rows (shell + params + shared bottom gap). */
 
-.dsp-node.slider-widget-layout .node-value-slider-shell {
+.dsp-node.slider-widget-layout .node-knob-shell {
   min-height: calc(
     var(--node-grid-height) * var(
       --node-module-shell-height-units,
@@ -10010,15 +10010,15 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 /*
- * Value Slider with face art:
+ * Knob with face art:
  *  - keep module plate (shell 1px margin + .dsp-node fill)
  *  - kill chrome outline (SVG frame + stroke CSS vars)
  *  - face transparent so no nested plate rim around the knob image
  *
  * --node-module-stroke is also forced transparent in JS on the element.
  */
-.dsp-node.slider-widget-layout.value-slider-face-has-image,
-.dsp-node.slider-widget-layout:has(.node-value-slider-face.has-image),
+.dsp-node.slider-widget-layout.knob-face-has-image,
+.dsp-node.slider-widget-layout:has(.node-knob-face.has-image),
 .dsp-node.slider-widget-layout[data-hide-module-frame="1"] {
   --node-module-stroke: transparent !important;
   --node-module-selected-stroke: transparent !important;
@@ -10026,10 +10026,10 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   --node-port-crescent-stroke: transparent !important;
 }
 
-.dsp-node.slider-widget-layout.value-slider-face-has-image > .node-module-frame,
-.dsp-node.slider-widget-layout:has(.node-value-slider-face.has-image) > .node-module-frame,
+.dsp-node.slider-widget-layout.knob-face-has-image > .node-module-frame,
+.dsp-node.slider-widget-layout:has(.node-knob-face.has-image) > .node-module-frame,
 .dsp-node.slider-widget-layout[data-hide-module-frame="1"] > .node-module-frame,
-.dsp-node.slider-widget-layout.value-slider-face-has-image .node-module-frame,
+.dsp-node.slider-widget-layout.knob-face-has-image .node-module-frame,
 .dsp-node.slider-widget-layout[data-hide-module-frame="1"] .node-module-frame {
   display: none !important;
   visibility: hidden !important;
@@ -10037,13 +10037,13 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   pointer-events: none !important;
 }
 
-.dsp-node.slider-widget-layout.value-slider-face-has-image > .node-module-frame .node-module-frame-path,
-.dsp-node.slider-widget-layout:has(.node-value-slider-face.has-image) > .node-module-frame .node-module-frame-path,
+.dsp-node.slider-widget-layout.knob-face-has-image > .node-module-frame .node-module-frame-path,
+.dsp-node.slider-widget-layout:has(.node-knob-face.has-image) > .node-module-frame .node-module-frame-path,
 .dsp-node.slider-widget-layout[data-hide-module-frame="1"] > .node-module-frame .node-module-frame-path,
-.dsp-node.slider-widget-layout.value-slider-face-has-image.selected > .node-module-frame .node-module-frame-path,
-.dsp-node.slider-widget-layout.value-slider-face-has-image.connected > .node-module-frame .node-module-frame-path,
-.dsp-node.slider-widget-layout.value-slider-face-has-image.dragging > .node-module-frame .node-module-frame-path,
-.dsp-node.slider-widget-layout.value-slider-face-has-image .node-module-frame-path,
+.dsp-node.slider-widget-layout.knob-face-has-image.selected > .node-module-frame .node-module-frame-path,
+.dsp-node.slider-widget-layout.knob-face-has-image.connected > .node-module-frame .node-module-frame-path,
+.dsp-node.slider-widget-layout.knob-face-has-image.dragging > .node-module-frame .node-module-frame-path,
+.dsp-node.slider-widget-layout.knob-face-has-image .node-module-frame-path,
 .dsp-node.slider-widget-layout[data-hide-module-frame="1"] .node-module-frame-path {
   stroke: transparent !important;
   stroke: none !important;
@@ -10052,9 +10052,9 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   fill: none !important;
 }
 
-.node-value-slider-face {
+.node-knob-face {
   /* Shared image box: layers + numeric readout must stay inside this inset. */
-  --value-slider-face-image-inset: 6%;
+  --knob-face-image-inset: 6%;
   position: relative;
   box-sizing: border-box;
   display: flex;
@@ -10083,68 +10083,68 @@ body.room-dimmer-on .node-room-dimmer-canvas,
  * two borders read as separate (outer module frame vs inner plate stroke).
  * Fixed rgba so a stuck --node-module-stroke:transparent cannot zero it out.
  */
-.node-value-slider-face:not(.has-image) {
-  --value-slider-empty-stroke-inset: 4px;
+.node-knob-face:not(.has-image) {
+  --knob-empty-stroke-inset: 4px;
   justify-content: flex-start;
   padding-top: calc(var(--node-grid-size) * 0.28);
   gap: 2px;
   border: none;
   /* Inset stroke: sits inside the plate, clear of the module outline. */
   outline: 1px solid rgba(243, 241, 236, 0.26);
-  outline-offset: calc(-1 * var(--value-slider-empty-stroke-inset, 4px));
+  outline-offset: calc(-1 * var(--knob-empty-stroke-inset, 4px));
   box-shadow: none;
 }
 
 /* With face art: no plate stroke. */
-.node-value-slider-face.has-image {
+.node-knob-face.has-image {
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
 }
 
 /* Focus: kill UA ring only — keep empty-face inset outline. */
-.node-value-slider-face:focus,
-.node-value-slider-face:focus-visible,
-.node-value-slider-face:active {
+.node-knob-face:focus,
+.node-knob-face:focus-visible,
+.node-knob-face:active {
   /* do not zero outline on empty faces — that is the dim plate stroke */
 }
 
-.node-value-slider-face.has-image:focus,
-.node-value-slider-face.has-image:focus-visible,
-.node-value-slider-face.has-image:active {
+.node-knob-face.has-image:focus,
+.node-knob-face.has-image:focus-visible,
+.node-knob-face.has-image:active {
   border: none !important;
   box-shadow: none !important;
   outline: none !important;
 }
 
-.node-value-slider-face:not(.has-image):focus,
-.node-value-slider-face:not(.has-image):focus-visible,
-.node-value-slider-face:not(.has-image):active {
+.node-knob-face:not(.has-image):focus,
+.node-knob-face:not(.has-image):focus-visible,
+.node-knob-face:not(.has-image):active {
   outline: 1px solid rgba(243, 241, 236, 0.26);
-  outline-offset: calc(-1 * var(--value-slider-empty-stroke-inset, 4px));
+  outline-offset: calc(-1 * var(--knob-empty-stroke-inset, 4px));
 }
 
-/* Empty Value Slider: force a visible (dim) module SVG outline. */
-.dsp-node.slider-widget-layout:not(.value-slider-face-has-image) > .node-module-frame {
+/* Empty Knob: force a visible (dim) module SVG outline. */
+.dsp-node.slider-widget-layout:not(.knob-face-has-image) > .node-module-frame {
   display: block !important;
   visibility: visible !important;
   opacity: 1 !important;
   pointer-events: none !important;
 }
 
-.dsp-node.slider-widget-layout:not(.value-slider-face-has-image) > .node-module-frame .node-module-frame-path {
+.dsp-node.slider-widget-layout:not(.knob-face-has-image) > .node-module-frame .node-module-frame-path {
   stroke: rgba(243, 241, 236, 0.2) !important;
   stroke-width: 1px !important;
   stroke-opacity: 1 !important;
   fill: none !important;
 }
 
-.dsp-node.slider-widget-layout:not(.value-slider-face-has-image).selected > .node-module-frame .node-module-frame-path {
+.dsp-node.slider-widget-layout:not(.knob-face-has-image).selected > .node-module-frame .node-module-frame-path {
   stroke: var(--node-module-selected-stroke, #e2a86d) !important;
   stroke-width: 1px !important;
 }
 
-.node-value-slider-face.value-dragging {
+.node-knob-face.value-dragging {
   cursor: var(--node-dot-cursor);
 }
 
@@ -10155,14 +10155,14 @@ body.room-dimmer-on .node-room-dimmer-canvas,
  * browser broken-image icon (classic ~#C0C0C0 silver frame) that flickered
  * with zoom.
  */
-.dsp-node.slider-widget-layout.value-slider-face-has-image .node-solid-module-custom-ui,
+.dsp-node.slider-widget-layout.knob-face-has-image .node-solid-module-custom-ui,
 .dsp-node.slider-widget-layout[data-hide-module-frame="1"] .node-solid-module-custom-ui {
   /* Keep the normal 1px shell air — margin:0 was only needed for wrong hairline theory. */
   overflow: hidden;
 }
 
-.node-value-slider-face.has-image {
-  --value-slider-face-image-inset: 0%;
+.node-knob-face.has-image {
+  --knob-face-image-inset: 0%;
   padding: 0;
   background: transparent;
   border: none;
@@ -10171,7 +10171,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   overflow: hidden;
 }
 
-.node-value-slider-face.has-image .node-value-slider-face-layer {
+.node-knob-face.has-image .node-knob-face-layer {
   overflow: hidden;
   border: none;
   outline: none;
@@ -10179,14 +10179,14 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   background: transparent;
 }
 
-.node-value-slider-face.has-image .node-value-slider-face-layer.is-empty {
+.node-knob-face.has-image .node-knob-face-layer.is-empty {
   display: none !important;
 }
 
 /* Four image layers: image1 (back) … image4 (front). Each may rotate with Bias. */
-.node-value-slider-face-layer {
+.node-knob-face-layer {
   position: absolute;
-  inset: var(--value-slider-face-image-inset, 6%);
+  inset: var(--knob-face-image-inset, 6%);
   display: grid;
   place-items: center;
   min-width: 0;
@@ -10200,15 +10200,15 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   background: transparent;
 }
 
-.node-value-slider-face-layer.is-empty {
+.node-knob-face-layer.is-empty {
   display: none !important;
 }
 
-.node-value-slider-face-layer.is-rotating {
+.node-knob-face-layer.is-rotating {
   /* keep transition for live Bias drag */
 }
 
-.node-value-slider-face-image {
+.node-knob-face-image {
   display: block;
   width: 100%;
   height: 100%;
@@ -10223,9 +10223,9 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 /* Author display:block must not defeat [hidden] — broken-image chrome is silver. */
-.node-value-slider-face-image[hidden],
-.node-value-slider-face-image.is-empty,
-.node-value-slider-face-image:not([src]) {
+.node-knob-face-image[hidden],
+.node-knob-face-image.is-empty,
+.node-knob-face-image:not([src]) {
   display: none !important;
   width: 0 !important;
   height: 0 !important;
@@ -10235,7 +10235,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   visibility: hidden !important;
 }
 
-.node-value-slider-face-label {
+.node-knob-face-label {
   position: relative;
   z-index: 5;
   box-sizing: border-box;
@@ -10262,11 +10262,11 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   pointer-events: none;
 }
 
-.node-value-slider-face.has-image .node-value-slider-face-label {
+.node-knob-face.has-image .node-knob-face-label {
   display: none;
 }
 
-.node-value-slider-face-readout {
+.node-knob-face-readout {
   position: relative;
   z-index: 5;
   display: none;
@@ -10300,25 +10300,25 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 /* Empty plate: readout is the main content — take almost all remaining height. */
-.node-value-slider-face:not(.has-image).show-readout .node-value-slider-face-readout:not([hidden]) {
+.node-knob-face:not(.has-image).show-readout .node-knob-face-readout:not([hidden]) {
   flex: 1 1 auto;
   align-self: stretch;
 }
 
 /* Only show when face has .show-readout (Module Settings “show numeric readout”). */
-.node-value-slider-face.show-readout .node-value-slider-face-readout:not([hidden]) {
+.node-knob-face.show-readout .node-knob-face-readout:not([hidden]) {
   display: flex;
 }
 
-.node-value-slider-face-readout[hidden],
-.node-value-slider-face:not(.show-readout) .node-value-slider-face-readout {
+.node-knob-face-readout[hidden],
+.node-knob-face:not(.show-readout) .node-knob-face-readout {
   display: none !important;
 }
 
 /* Same inset as image layers — value must not spill past the graphic box. */
-.node-value-slider-face.has-image .node-value-slider-face-readout {
+.node-knob-face.has-image .node-knob-face-readout {
   position: absolute;
-  inset: var(--value-slider-face-image-inset, 6%);
+  inset: var(--knob-face-image-inset, 6%);
   flex: none;
   width: auto;
   height: auto;
@@ -10331,14 +10331,14 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 /* Module settings: load | clear | rotate | filename (no Image# labels). */
-.node-value-slider-face-controls .node-value-slider-face-layer-stack {
+.node-knob-face-controls .node-knob-face-layer-stack {
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-width: 0;
 }
 
-.node-value-slider-face-controls .node-value-slider-face-layer-row {
+.node-knob-face-controls .node-knob-face-layer-row {
   display: grid;
   grid-template-columns: auto auto auto minmax(0, 1fr);
   align-items: center;
@@ -10349,22 +10349,22 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   border-bottom: 1px solid rgba(128, 224, 224, 0.1);
 }
 
-.node-value-slider-face-controls .node-value-slider-face-layer-row:last-of-type {
+.node-knob-face-controls .node-knob-face-layer-row:last-of-type {
   border-bottom: 0;
 }
 
-.node-value-slider-face-controls .node-value-slider-face-layer-label {
+.node-knob-face-controls .node-knob-face-layer-label {
   display: none;
 }
 
-.node-value-slider-face-controls .node-value-slider-face-layer-row button {
+.node-knob-face-controls .node-knob-face-layer-row button {
   margin: 0;
   padding: 2px 7px;
   font: 600 0.66rem/1.2 var(--node-mono-font);
   min-height: 0;
 }
 
-.node-value-slider-face-controls .node-value-slider-face-filename {
+.node-knob-face-controls .node-knob-face-filename {
   margin: 0;
   min-width: 0;
   color: var(--muted);
@@ -10374,7 +10374,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   white-space: nowrap;
 }
 
-.node-value-slider-face-controls .node-value-slider-face-check {
+.node-knob-face-controls .node-knob-face-check {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -10382,7 +10382,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   white-space: nowrap;
 }
 
-.node-value-slider-face-controls .node-value-slider-face-rotate-inline {
+.node-knob-face-controls .node-knob-face-rotate-inline {
   margin: 0;
   padding: 1px 5px;
   border: 1px solid rgba(127, 199, 217, 0.2);
@@ -10393,11 +10393,11 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   text-transform: lowercase;
 }
 
-.node-value-slider-face-controls .node-value-slider-face-rotate-inline input {
+.node-knob-face-controls .node-knob-face-rotate-inline input {
   margin: 0;
 }
 
-.node-value-slider-face-controls .node-value-slider-face-shared-row {
+.node-knob-face-controls .node-knob-face-shared-row {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
@@ -10409,7 +10409,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   min-width: 0;
 }
 
-.node-value-slider-face-controls .node-value-slider-face-shared-row .node-value-slider-face-num-field {
+.node-knob-face-controls .node-knob-face-shared-row .node-knob-face-num-field {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -10418,14 +10418,14 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   min-width: 0;
 }
 
-.node-value-slider-face-controls .node-value-slider-face-shared-row .node-value-slider-face-num-field > span {
+.node-knob-face-controls .node-knob-face-shared-row .node-knob-face-num-field > span {
   font: 600 0.62rem/1 var(--node-mono-font);
   color: var(--muted);
   letter-spacing: 0.03em;
   text-transform: lowercase;
 }
 
-.node-value-slider-face-controls .node-value-slider-face-shared-row input[type="number"] {
+.node-knob-face-controls .node-knob-face-shared-row input[type="number"] {
   width: 4.5em;
   min-width: 0;
   padding: 2px 4px;
@@ -10433,7 +10433,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 /* Full “readout” label — row layout, never clip to “read”. */
-.node-value-slider-face-controls .node-value-slider-face-shared-row .node-value-slider-face-readout-toggle {
+.node-knob-face-controls .node-knob-face-shared-row .node-knob-face-readout-toggle {
   display: inline-flex;
   flex-direction: row;
   align-items: center;
@@ -10451,7 +10451,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   overflow: visible;
 }
 
-.node-value-slider-face-controls .node-value-slider-face-shared-row .node-value-slider-face-readout-toggle span {
+.node-knob-face-controls .node-knob-face-shared-row .node-knob-face-readout-toggle span {
   overflow: visible;
   text-overflow: clip;
   white-space: nowrap;
@@ -10602,7 +10602,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   box-shadow: none;
 }
 
-/* Headerless LayoutB (XY Pad, Value Slider, …): optional title + shell + params +
+/* Headerless LayoutB (XY Pad, Knob, …): optional title + shell + params +
    shared bottom gap. Title uses --node-header-height (0 when no title / title-hidden).
    Same clearance rule + same trailing track as LayoutA (.dsp-node). */
 .dsp-node.solid-module-layout,
@@ -19330,7 +19330,7 @@ code {
   pointer-events: none;
 }
 
-/* —— Plugin shelf faces (Knob is value-slider face) —— */
+/* —— Plugin shelf faces (Knob face + slider/button faces) —— */
 .node-plugin-toggle-face,
 .node-plugin-momentary-face,
 .node-plugin-slider-face {

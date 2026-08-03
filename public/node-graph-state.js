@@ -295,7 +295,7 @@ var nodeGraphMvp = {
     textBox: 0,
     triggerCounter: 0,
     triggerDivider: 0,
-    valueSlider: 0,
+    knob: 0,
     vactrolEnvelopeSeries: 0,
     vactrolEnvelopeCustom: 0,
   },

@@ -1,4 +1,4 @@
-// RGB category: Picture — load SVG/image onto the face (Value Slider face style).
+// RGB category: Picture — load SVG/image onto the face (Knob face style).
 // LayoutB solid shell; geometry params are center-based like Shape.
 registerNodeGraphChromelessModule("rgbPicture", {
   label: "Picture",
@@ -82,7 +82,7 @@ registerNodeGraphChromelessModule("rgbPicture", {
   },
   catalog: {
     category: "rgb",
-    description: "Load an SVG or image onto the face (same idea as Value Slider face art). Width/height/x/y are center-based. In → Out passthrough. Pick the file in Display Settings.",
+    description: "Load an SVG or image onto the face (same idea as Knob face art). Width/height/x/y are center-based. In → Out passthrough. Pick the file in Display Settings.",
     notes: ["rgb", "svg", "image", "LayoutB", "visual sink"],
   },
 });

@@ -5,10 +5,10 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null) {
   const meta = nodeGraphDisplaySettingsFieldMeta[key] || { label: key, inputmode: "decimal" };
   let label = meta.label;
   let title = meta.title;
-  // Value Slider display settings: explicit "Num decimals" for the face readout.
-  if (key === "decimals" && formType === "valueSliderFace") {
+  // Knob display settings: explicit "Num decimals" for the face readout.
+  if (key === "decimals" && formType === "knobFace") {
     label = "Num decimals";
-    title = "Digits after the decimal on the Value Slider face readout (0–8).";
+    title = "Digits after the decimal on the Knob face readout (0–8).";
   }
   const titleAttr = title
     ? ` title="${nodeGraphDisplaySettingsEscapeHtml(title)}"`

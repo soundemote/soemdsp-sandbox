@@ -1883,7 +1883,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators = function buildLiveM
           Y: this.safeFilterNumber(x * sinZ + y * cosZ, null),
         };
       },
-      valueSlider: (node, nodeId, frame, frames, frameValues, mixInput) => {
+      knob: (node, nodeId, frame, frames, frameValues, mixInput) => {
         const offset = this.readEffectiveParameter(node, "offset", 0, frame, frames, frameValues);
         return nodeGraphDspBiasFromIn(offset, mixInput?.(nodeId, "In"));
       },

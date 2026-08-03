@@ -1,4 +1,4 @@
-// Picture face: SVG/image load (Value Slider–style data URL) + center-based place.
+// Picture face: SVG/image load (Knob–style data URL) + center-based place.
 
 const nodeGraphRgbPictureMaxDataUrlChars = 6 * 1024 * 1024;
 

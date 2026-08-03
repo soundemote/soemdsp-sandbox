@@ -591,19 +591,19 @@ function bindNodeGraphNativeSliderModifiers(input, defaultValue) {
 function nodeSliderIsDragSurface(el) {
   return Boolean(
     el?.classList?.contains("node-slider-readout")
-    || el?.classList?.contains("node-value-slider-face"),
+    || el?.classList?.contains("node-knob-face"),
   );
 }
 
 /**
  * Resolve the drag surface for a pointer/keyboard event.
- * Value Slider face mirrors Bias `.node-slider-readout` (same modifiers + path).
+ * Knob face mirrors Bias `.node-slider-readout` (same modifiers + path).
  */
 function nodeSliderDragSurfaceFromEvent(event) {
   if (nodeSliderIsDragSurface(event?.currentTarget)) {
     return event.currentTarget;
   }
-  return event?.target?.closest?.(".node-slider-readout, .node-value-slider-face") || null;
+  return event?.target?.closest?.(".node-slider-readout, .node-knob-face") || null;
 }
 
 /** Type-in edit for a surface (face → linked Bias readout so we never replace the face DOM). */
@@ -611,7 +611,7 @@ function beginNodeSliderSurfaceEdit(surface) {
   if (!surface || typeof beginNodeSliderReadoutEdit !== "function") {
     return;
   }
-  if (surface.classList.contains("node-value-slider-face")) {
+  if (surface.classList.contains("node-knob-face")) {
     const sliderId = String(surface.dataset.sliderTarget || "").trim();
     if (!sliderId) {
       return;

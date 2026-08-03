@@ -241,13 +241,13 @@ function createNodeGraphModuleScopeSection(node, type) {
 
 // createNodeGraphLedFace moved to public/modules/led/led-ui.js.
 
-// createNodeGraphValueSliderFace is defined in
-// public/modules/valueSlider/value-slider-face.js (loaded after this file).
+// createNodeGraphKnobFace is defined in
+// public/modules/knob/knob-face.js (loaded after this file).
 
-/** @deprecated use createNodeGraphValueSliderFace */
+/** @deprecated use createNodeGraphKnobFace */
 function createNodeGraphSliderWidgetBody(node, type) {
-  return typeof createNodeGraphValueSliderFace === "function"
-    ? createNodeGraphValueSliderFace(node, type)
+  return typeof createNodeGraphKnobFace === "function"
+    ? createNodeGraphKnobFace(node, type)
     : document.createElement("div");
 }
 

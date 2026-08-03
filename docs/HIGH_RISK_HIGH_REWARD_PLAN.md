@@ -46,7 +46,7 @@ Every control/bus (and eventually every module) evaluates through **pure functio
 
 ### Done so far
 - [x] `node-graph-control-bus-helpers.js` — Bias/In, stereo mix, external stereo, MIDI ports
-- [x] Thinned live evaluators: valueSlider, plugin*, output, audioInput, midiOut
+- [x] Thinned live evaluators: knob, plugin*, output, audioInput, midiOut
 - [x] Worklet dispatch uses same helpers for those types
 - [x] Restored full `curveOsc` + `snowflake` definitions (catalog was labels/store-only)
 
@@ -123,7 +123,7 @@ load → migrateNodeGraphPatchToCurrent → validate/normalize → compile
 | From | To |
 |------|-----|
 | (implicit 0) | `format.version: 1` + phosphorLight→scope2d |
-| Future: `valueSlider` type rename | `knob` + face field rename |
+| Future: `knob` type rename | `knob` + face field rename |
 | Future: param key renames | mapped with defaults |
 
 ### Gate

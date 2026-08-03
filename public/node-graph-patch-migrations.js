@@ -14,7 +14,7 @@ function nodeGraphPatchCurrentFormatVersion() {
       return v;
     }
   }
-  return 1;
+  return 2;
 }
 
 function nodeGraphPatchFormatKind() {
@@ -78,8 +78,63 @@ function nodeGraphPatchMigratePhosphorLightNodes(patch) {
 }
 
 /**
+ * Module type + face field renames: valueSlider → knob.
+ * Also migrates face property and displayType/mode schema keys when present.
+ */
+function nodeGraphPatchMigrateValueSliderToKnob(patch) {
+  if (!patch || !Array.isArray(patch.nodes)) {
+    return patch;
+  }
+  let changed = false;
+  const nodes = patch.nodes.map((node) => {
+    if (!node || typeof node !== "object") {
+      return node;
+    }
+    let next = node;
+    const type = String(node.type || "").trim();
+    if (type === "valueSlider") {
+      changed = true;
+      next = { ...next, type: "knob" };
+    }
+    // Face art payload
+    if (Object.prototype.hasOwnProperty.call(next, "valueSliderFace")) {
+      changed = true;
+      const face = next.valueSliderFace;
+      next = { ...next, knobFace: face };
+      delete next.valueSliderFace;
+    }
+    // Display mode keys stored on node (if any)
+    if (next.displayMode === "valueSliderFace" || next.displayType === "valueSliderFace") {
+      changed = true;
+      next = {
+        ...next,
+        displayMode: next.displayMode === "valueSliderFace" ? "face" : next.displayMode,
+        displayType: next.displayType === "valueSliderFace" ? "knobFace" : next.displayType,
+      };
+    }
+    // Selected display mode object
+    if (next.selectedDisplayMode && typeof next.selectedDisplayMode === "object") {
+      const sdm = next.selectedDisplayMode;
+      if (sdm.renderer === "valueSliderFace" || sdm.settingsSchema === "valueSliderFace" || sdm.key === "valueSliderFace") {
+        changed = true;
+        next = {
+          ...next,
+          selectedDisplayMode: {
+            ...sdm,
+            key: sdm.key === "valueSliderFace" ? "face" : sdm.key,
+            renderer: sdm.renderer === "valueSliderFace" ? "knobFace" : sdm.renderer,
+            settingsSchema: sdm.settingsSchema === "valueSliderFace" ? "knobFace" : sdm.settingsSchema,
+          },
+        };
+      }
+    }
+    return next;
+  });
+  return changed ? { ...patch, nodes } : patch;
+}
+
+/**
  * 0 → 1: stamp explicit format; apply known module renames that predate versioning.
- * Version 1 was already the live format before this pipeline existed.
  */
 function nodeGraphPatchMigrateV0ToV1(patch) {
   let next = nodeGraphPatchMigratePhosphorLightNodes(patch);
@@ -93,29 +148,26 @@ function nodeGraphPatchMigrateV0ToV1(patch) {
 }
 
 /**
- * 1 → 2 (reserved / currently identity): future product renames only.
- *
- * When product is ready, bump nodeGraphPatchFormat.version to 2 and implement
- * e.g. valueSlider → knob here. Until then this is a no-op so format 1 patches
- * stay on version 1 (migrator table length is consulted only when climbing).
- *
- * Example body (do NOT enable without format bump + UI type renames):
- *   nodes.map(n => n.type === "valueSlider" ? { ...n, type: "knob" } : n)
+ * 1 → 2: valueSlider → knob (+ face field rename).
  */
-function nodeGraphPatchMigrateV1ToV2Reserved(patch) {
-  // Identity — kept so the migrator slot exists and is documented.
-  return patch;
+function nodeGraphPatchMigrateV1ToV2(patch) {
+  let next = nodeGraphPatchMigrateValueSliderToKnob(patch);
+  next = nodeGraphPatchMigratePhosphorLightNodes(next);
+  return {
+    ...next,
+    format: {
+      kind: nodeGraphPatchFormatKind(),
+      version: 2,
+    },
+  };
 }
 
 /**
  * Migrator table: index i migrates version i → i+1.
- * Add future entries here (e.g. valueSlider → knob) without touching load call sites.
  */
 const nodeGraphPatchMigrators = Object.freeze([
   nodeGraphPatchMigrateV0ToV1,
-  // Slot for 1 → 2 when product renames land (see nodeGraphPatchMigrateV1ToV2Reserved).
-  // Not registered until format.version is bumped — keeping length 1 avoids
-  // forcing every load through an identity hop.
+  nodeGraphPatchMigrateV1ToV2,
 ]);
 
 /**
@@ -135,7 +187,6 @@ function migrateNodeGraphPatchToCurrent(patch) {
   if (next.format && next.format.kind != null) {
     const kind = String(next.format.kind);
     if (kind && kind !== nodeGraphPatchFormatKind()) {
-      // Leave as-is; validateNodeGraphPatch reports unsupported format.
       return next;
     }
   }
@@ -153,7 +204,6 @@ function migrateNodeGraphPatchToCurrent(patch) {
     version += 1;
   }
 
-  // Always stamp current format after successful climb (idempotent for already-v1).
   if (version >= current) {
     next = {
       ...next,
@@ -162,9 +212,9 @@ function migrateNodeGraphPatchToCurrent(patch) {
         version: current,
       },
     };
-    // Re-run node renames that must stay applied even when already at current version
-    // (e.g. phosphorLight still in a v1 hand-edited patch).
+    // Re-apply safe renames even on current-version patches (hand-edited JSON).
     next = nodeGraphPatchMigratePhosphorLightNodes(next);
+    next = nodeGraphPatchMigrateValueSliderToKnob(next);
   }
 
   return next;

@@ -1226,7 +1226,7 @@ function wipeNodeGraphModuleScopeScreensToColdBoot() {
     }
   }
   // Room-light emitters go dark with the simulation. Number Readout LCD keeps
-  // a full hole; Value Slider only re-lights when face art is present (paint).
+  // a full hole; Knob only re-lights when face art is present (paint).
   for (const el of document.querySelectorAll("[data-light-strength], [data-light-source]")) {
     if (el.dataset && !el.classList?.contains("node-number-readout-face")) {
       el.dataset.lightStrength = "0";
@@ -2448,8 +2448,8 @@ function nodeGraphTraceDisplayRenderPointBudget() {
 // background = LCD back plate color (separate widget; not gradient floor).
 // Unlit plate = ghostColor only (pick dim/bright there — no ghost-amount slider).
 // nodeGraphNumberReadoutSettingsDefaults → node-graph-module-scope-defaults.js
-/** Value Slider face display settings (readout precision only). */
-// nodeGraphValueSliderFaceDisplaySettingsDefaults → node-graph-module-scope-defaults.js
+/** Knob face display settings (readout precision only). */
+// nodeGraphKnobFaceDisplaySettingsDefaults → node-graph-module-scope-defaults.js
 // Spectrogram display settings (not module params).
 // Regular fixed STFT (RX-style). Display owns: History, FFT size, Window,
 // Overlap, Freq Scale, Smooth, gradient. Dual-written to params for worklet.
@@ -2517,8 +2517,8 @@ function nodeGraphTraceDisplayRenderPointBudget() {
  */
 // nodeGraphSampleGradientStopsRgb → node-graph-module-scope-normalize.js
 // normalizeNodeGraphNumberReadoutSettings → node-graph-module-scope-normalize.js
-// normalizeNodeGraphValueSliderFaceDisplaySettings → node-graph-module-scope-normalize.js
-// nodeGraphValueSliderFaceDisplaySettingsForNode → node-graph-module-scope-normalize.js
+// normalizeNodeGraphKnobFaceDisplaySettings → node-graph-module-scope-normalize.js
+// nodeGraphKnobFaceDisplaySettingsForNode → node-graph-module-scope-normalize.js
 // normalizeNodeGraphScope2dSettings → node-graph-module-scope-normalize.js
 // normalizeNodeGraphScope2dTraceSettings → node-graph-module-scope-normalize.js
 // nodeGraphZeroDBurnSettingsForNode → node-graph-module-scope-normalize.js
@@ -2530,7 +2530,7 @@ function nodeGraphTraceDisplayRenderPointBudget() {
 // nodeGraphGlobalTraceSettings → node-graph-module-scope-normalize.js
 // nodeGraphTraceDisplaySettingsEditingGlobal → node-graph-module-scope-normalize.js
 // nodeGraphTraceDisplaySettingsEditingTraceDefaults → node-graph-module-scope-normalize.js
-const nodeGraphDisplayModeRenderers = Object.freeze(["trace", "clock", "dot", "value", "lineBurn", "hypersawBurn", "oscilloscopeBankBurn", "videoscopeBurn", "spectrogramBurn", "transportBpm", "scope2d", "scope2dTrace", "phosphorLight", "numberReadout", "xyPad", "customDisplay", "spectrum", "ledLamp", "selfPaintFace", "matrixFace", "matrixWaterfallFace", "matrixDisplayFace", "valueSliderFace", "pluginSliderFace", "toggleButtonFace", "momentaryButtonFace", "rgbShapeFace", "rgbPictureFace", "rgbFractalFace"]);
+const nodeGraphDisplayModeRenderers = Object.freeze(["trace", "clock", "dot", "value", "lineBurn", "hypersawBurn", "oscilloscopeBankBurn", "videoscopeBurn", "spectrogramBurn", "transportBpm", "scope2d", "scope2dTrace", "phosphorLight", "numberReadout", "xyPad", "customDisplay", "spectrum", "ledLamp", "selfPaintFace", "matrixFace", "matrixWaterfallFace", "matrixDisplayFace", "knobFace", "pluginSliderFace", "toggleButtonFace", "momentaryButtonFace", "rgbShapeFace", "rgbPictureFace", "rgbFractalFace"]);
 const nodeGraphDisplayModeSignalKinds = Object.freeze(["scalar", "xy", "buffer"]);
 
 // nodeGraphDisplayModeSettingsSchemaForRenderer → node-graph-module-scope-display-mode.js
@@ -3511,7 +3511,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze([]),
   }),
   // Knob face: readout precision (images / rotate stay in Module Settings).
-  valueSliderFace: Object.freeze({
+  knobFace: Object.freeze({
     fields: Object.freeze(["decimals"]),
     colors: Object.freeze([]),
     toggles: Object.freeze([]),
@@ -3882,7 +3882,7 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   videoscopeBurn: "Videoscope",
   oscilloscopeBankBurn: "Bank",
   hypersawBurn: "Hypersaw",
-  valueSliderFace: "Knob",
+  knobFace: "Knob",
   pluginSliderFace: "Slider",
   toggleButtonFace: "Toggle",
   momentaryButtonFace: "Momentary",
@@ -4314,9 +4314,9 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
   if (type === "numberReadout") {
     return normalizeNodeGraphNumberReadoutSettings(nodeGraphNumberReadoutSettingsDefaults);
   }
-  if (type === "valueSliderFace") {
-    return normalizeNodeGraphValueSliderFaceDisplaySettings(
-      nodeGraphValueSliderFaceDisplaySettingsDefaults,
+  if (type === "knobFace") {
+    return normalizeNodeGraphKnobFaceDisplaySettings(
+      nodeGraphKnobFaceDisplaySettingsDefaults,
     );
   }
   if (type === "xyPad") {
@@ -4393,8 +4393,8 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
   if (type === "numberReadout") {
     return normalizeNodeGraphNumberReadoutSettings(settings);
   }
-  if (type === "valueSliderFace") {
-    return normalizeNodeGraphValueSliderFaceDisplaySettings(settings);
+  if (type === "knobFace") {
+    return normalizeNodeGraphKnobFaceDisplaySettings(settings);
   }
   if (type === "xyPad") {
     return normalizeNodeGraphXyPadDisplaySettings(settings);
@@ -4522,8 +4522,8 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
   if (settingsSchema === "numberReadout") {
     return normalizeNodeGraphNumberReadoutSettings(node.traceDisplaySettings);
   }
-  if (settingsSchema === "valueSliderFace") {
-    return nodeGraphValueSliderFaceDisplaySettingsForNode(node);
+  if (settingsSchema === "knobFace") {
+    return nodeGraphKnobFaceDisplaySettingsForNode(node);
   }
   if (settingsSchema === "xyPad") {
     return normalizeNodeGraphXyPadDisplaySettings(node.traceDisplaySettings);
@@ -5409,8 +5409,8 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     node.traceDisplaySettings = normalizeNodeGraphNumberReadoutSettings(settings);
     return node.traceDisplaySettings;
   }
-  if (displayType === "valueSliderFace") {
-    node.traceDisplaySettings = normalizeNodeGraphValueSliderFaceDisplaySettings(settings);
+  if (displayType === "knobFace") {
+    node.traceDisplaySettings = normalizeNodeGraphKnobFaceDisplaySettings(settings);
     return node.traceDisplaySettings;
   }
   if (displayType === "ledLamp") {
@@ -5950,9 +5950,9 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
   if (typeof nodeGraphXyPadRedrawAll === "function") {
     nodeGraphXyPadRedrawAll();
   }
-  // Value Slider face readout decimals live in Display Settings.
-  if (typeof refreshNodeGraphValueSliderFaces === "function") {
-    refreshNodeGraphValueSliderFaces();
+  // Knob face readout decimals live in Display Settings.
+  if (typeof refreshNodeGraphKnobFaces === "function") {
+    refreshNodeGraphKnobFaces();
   }
   // LED face applies CSS vars immediately (rounding / pill / squircle).
   // Cosmetic — works with the audio engine stopped.
@@ -10054,8 +10054,8 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
             || selfPaint === "matrixDisplayFace"
           ) {
             drawNodeGraphSelfPaintFaceItem(null, { slot, screenElement: slot.scopeElement }, 1);
-          } else if (selfPaint === "valueSliderFace") {
-            drawNodeGraphValueSliderFaceItem(null, {
+          } else if (selfPaint === "knobFace") {
+            drawNodeGraphKnobFaceItem(null, {
               slot,
               screenElement: slot.scopeElement,
               buffer: null,
@@ -13660,22 +13660,22 @@ function drawNodeGraphSelfPaintFaceItem(_renderer, item, _pixelRatio) {
   }
 }
 
-/** Value Slider face = final Bias display (live modulated), not static param meta. */
-function drawNodeGraphValueSliderFaceItem(_renderer, item, _pixelRatio) {
+/** Knob face = final Bias display (live modulated), not static param meta. */
+function drawNodeGraphKnobFaceItem(_renderer, item, _pixelRatio) {
   drawNodeGraphSelfPaintFaceItem(_renderer, item, _pixelRatio);
   const face = item?.screenElement || item?.slot?.scopeElement;
   const nodeId = item?.slot?.nodeId || item?.nodeId;
   if (!face || !nodeId) {
     return;
   }
-  if (typeof paintNodeGraphValueSliderFaceLive === "function") {
-    paintNodeGraphValueSliderFaceLive(face, nodeId, item?.buffer);
-  } else if (typeof renderNodeGraphValueSliderFace === "function") {
-    renderNodeGraphValueSliderFace(face, nodeId);
+  if (typeof paintNodeGraphKnobFaceLive === "function") {
+    paintNodeGraphKnobFaceLive(face, nodeId, item?.buffer);
+  } else if (typeof renderNodeGraphKnobFace === "function") {
+    renderNodeGraphKnobFace(face, nodeId);
   }
   // Dimmer cutout only with loaded face art (text/stroke stay under the veil).
-  if (typeof nodeGraphValueSliderFaceSyncLightSource === "function") {
-    nodeGraphValueSliderFaceSyncLightSource(face);
+  if (typeof nodeGraphKnobFaceSyncLightSource === "function") {
+    nodeGraphKnobFaceSyncLightSource(face);
   } else {
     const lit = face.classList?.contains("has-image");
     nodeGraphModuleScopeMarkScreenLit(face, lit ? 1 : 0);
@@ -13696,7 +13696,7 @@ const nodeGraphModuleScopeCustomRenderers = {
   matrixFace: drawNodeGraphSelfPaintFaceItem,
   matrixWaterfallFace: drawNodeGraphSelfPaintFaceItem,
   matrixDisplayFace: drawNodeGraphSelfPaintFaceItem,
-  valueSliderFace: drawNodeGraphValueSliderFaceItem,
+  knobFace: drawNodeGraphKnobFaceItem,
   pluginSliderFace: (renderer, item) => {
     item?.screenElement?.syncFromParameters?.();
   },
@@ -13828,15 +13828,15 @@ function drawNodeGraphModuleScopes() {
   // Engine-stop wipe sets data-light-strength=0 on all screens. Only LED /
   // Number Readout re-wrote it, so Output + other scopes stayed under the
   // room veil forever. Re-mark every visible painted face each frame.
-  // Value Slider: image face only — empty plate text/stroke stay under dimmer.
+  // Knob: image face only — empty plate text/stroke stay under dimmer.
   for (const item of visibleItems) {
     const face = item?.screenElement || item?.slot?.scopeElement;
     if (!face) {
       continue;
     }
-    if (face.classList?.contains("node-value-slider-face")) {
-      if (typeof nodeGraphValueSliderFaceSyncLightSource === "function") {
-        nodeGraphValueSliderFaceSyncLightSource(face);
+    if (face.classList?.contains("node-knob-face")) {
+      if (typeof nodeGraphKnobFaceSyncLightSource === "function") {
+        nodeGraphKnobFaceSyncLightSource(face);
       } else {
         nodeGraphModuleScopeMarkScreenLit(
           face,

@@ -38,7 +38,7 @@
     ".node-module-scope-window",
     ".node-xy-pad",
     ".node-number-readout-face",
-    ".node-value-slider-face",
+    ".node-knob-face",
     ".node-ray-bouncer-face",
     ".node-phosphor-waveform-display",
     ".node-asciiscope-stage",
@@ -328,7 +328,7 @@ void main() {
     if (
       punchEl !== el
       && el.matches?.(
-        ".node-module-scope-window, .node-xy-pad, .node-number-readout-face, .node-value-slider-face, .node-ray-bouncer-face, .node-phosphor-waveform-display, [data-light-source], .node-light-source",
+        ".node-module-scope-window, .node-xy-pad, .node-number-readout-face, .node-knob-face, .node-ray-bouncer-face, .node-phosphor-waveform-display, [data-light-source], .node-light-source",
       )
     ) {
       // Still mark shell seen so generic selectors don't double-add.

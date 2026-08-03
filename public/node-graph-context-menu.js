@@ -743,7 +743,7 @@ const nodeGraphModuleActionControlIds = [
   "nodeSceneModuleVisibilityActionGroup",
   "nodeSceneToggleInterfaceControls",
   "nodeSceneImageControls",
-  "nodeSceneValueSliderFaceControls",
+  "nodeSceneKnobFaceControls",
   "nodeSceneCanvasControls",
   "nodeSceneLedControls",
   "nodeSceneBugButtonControls",
@@ -1044,7 +1044,7 @@ function configureNodeSceneContextMenu(mode) {
   const imageControls = document.getElementById("nodeSceneImageControls");
   const imageSave = document.getElementById("nodeSceneImageSave");
   const imageRefresh = document.getElementById("nodeSceneImageRefresh");
-  const valueSliderFaceControls = document.getElementById("nodeSceneValueSliderFaceControls");
+  const knobFaceControls = document.getElementById("nodeSceneKnobFaceControls");
   const canvasControls = document.getElementById("nodeSceneCanvasControls");
   const canvasScript = document.getElementById("nodeSceneCanvasScript");
   const ledControls = document.getElementById("nodeSceneLedControls");
@@ -1232,8 +1232,8 @@ function configureNodeSceneContextMenu(mode) {
   toggleIoButton.hidden = !moduleMode || multiModuleMode;
   toggleTitleButton.hidden = !moduleMode || multiModuleMode;
   imageControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "image");
-  if (valueSliderFaceControls) {
-    valueSliderFaceControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "valueSlider");
+  if (knobFaceControls) {
+    knobFaceControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "knob");
   }
   canvasControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "canvas");
   ledControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "led");
@@ -1460,8 +1460,8 @@ function configureNodeSceneContextMenu(mode) {
       imageSave.title = imageLayout.dataUrl ? "Save this image node's current image." : "Load an image before saving.";
       imageRefresh.title = "Refresh image preview and trace texture.";
     }
-    if (targetNode?.type === "valueSlider" && typeof syncNodeGraphValueSliderFaceControls === "function") {
-      syncNodeGraphValueSliderFaceControls(targetNode);
+    if (targetNode?.type === "knob" && typeof syncNodeGraphKnobFaceControls === "function") {
+      syncNodeGraphKnobFaceControls(targetNode);
     }
     if (targetNode?.type === "canvas") {
       canvasScript.disabled = false;
@@ -1789,7 +1789,7 @@ function openNodeModuleActionMenu(event) {
   if (typeof openNodeXyPadContextMenu === "function" && openNodeXyPadContextMenu(event)) {
     return;
   }
-  if (typeof openNodeValueSliderFaceContextMenu === "function" && openNodeValueSliderFaceContextMenu(event)) {
+  if (typeof openNodeKnobFaceContextMenu === "function" && openNodeKnobFaceContextMenu(event)) {
     return;
   }
   if (typeof openNodeScopeContextMenu === "function" && openNodeScopeContextMenu(event)) {

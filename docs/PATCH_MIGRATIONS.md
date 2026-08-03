@@ -17,9 +17,10 @@ load JSON → migrateNodeGraphPatchToCurrent(patch) → validateNodeGraphPatch �
 | From | To | What happens |
 |------|-----|----------------|
 | missing / 0 | 1 | Stamp `format`; phosphorLight → scope2d |
-| 1 | 1 | Idempotent re-stamp; re-apply safe renames |
+| 1 | 2 | `valueSlider` → `knob`; `valueSliderFace` → `knobFace` |
+| 2 | 2 | Idempotent re-stamp; re-apply safe renames |
 
-## Adding a migration (e.g. valueSlider → knob)
+## Adding a migration (e.g. knob → knob)
 
 1. Bump `nodeGraphPatchFormat.version` to N+1 in `node-graph-module-definitions.js`.
 2. Append migrator at index N in `nodeGraphPatchMigrators` (maps version N → N+1).

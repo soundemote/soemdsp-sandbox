@@ -1,7 +1,7 @@
 // Pure control/bus DSP primitives shared by live evaluators and the worklet.
 // No DOM, no nodeGraphMvp — safe to load into the AudioWorklet Blob.
 //
-// Used by: valueSlider, pluginSlider, toggle/momentary, audioInput/pluginInput,
+// Used by: knob, pluginSlider, toggle/momentary, audioInput/pluginInput,
 // output/pluginOutput, pluginMidiIn, midiOut/pluginMidiOut (and similar).
 
 function nodeGraphDspClamp(n, lo, hi) {

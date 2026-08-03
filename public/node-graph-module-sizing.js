@@ -30,7 +30,7 @@ function nodeGraphModuleTypeHasHideableSliders(type) {
   if (nodeGraphModuleTypeSlidersAlwaysHidden(type)) {
     return false;
   }
-  // LayoutB modules (incl. valueSlider) keep ordinary param rows under the face.
+  // LayoutB modules (incl. knob) keep ordinary param rows under the face.
   return definition.layout !== "led";
 }
 
@@ -191,7 +191,7 @@ function nodeGraphModuleSizingCapabilities(type) {
       );
   // Display-height resizing works for any type with a display AREA --
   // whether an oscilloscope fills it or the module's own custom UI does
-  // (graph faces, XY pad, Value Slider, etc.). Min face height is 1gu app-wide.
+  // (graph faces, XY pad, Knob, etc.). Min face height is 1gu app-wide.
   const displayHeight = !moduleHeight && (
     nodeGraphModuleTypeHasHideableOscilloscope(normalizedType) ||
     nodeGraphModuleTypeHasCustomDisplayArea(normalizedType)
@@ -255,7 +255,7 @@ function nodeGraphModuleConfiguredDisplayHeightUnits(type, ui = {}) {
   }
   const normalizedUi = normalizeNodeGraphPatchNodeUi(ui, type);
   const defaultHeightGu = nodeGraphModuleDefaultDisplayHeightUnits(type);
-  // App-wide: min 1gu face (LayoutA scopes, LayoutB shells, Value Slider, …).
+  // App-wide: min 1gu face (LayoutA scopes, LayoutB shells, Knob, …).
   return normalizeNodeGraphModuleDisplayHeightUnits(
     defaultHeightGu + normalizedUi.displayHeightOffsetGu,
     type,
@@ -548,7 +548,7 @@ function nodeGraphModuleRequiredHeightUnits(type) {
 
 function nodeGraphModuleHeaderHeightUnits(ui = {}, type = "") {
   const normalizedUi = nodeGraphEffectivePatchNodeUi(ui, type);
-  // Headerless LayoutB (Value Slider, …) omits the header entirely when the
+  // Headerless LayoutB (Knob, …) omits the header entirely when the
   // title is hidden — do not reserve the LayoutA "buttons-only" strip.
   if (
     type
@@ -823,7 +823,7 @@ function nodeGraphModuleGridHeightUnitsForUi(type, ui = {}) {
     }
     return 1;
   }
-  // Headerless LayoutB (valueSlider, etc.).
+  // Headerless LayoutB (knob, etc.).
   if (typeof nodeGraphModuleIsHeaderlessLayoutB === "function" && nodeGraphModuleIsHeaderlessLayoutB(type)) {
     return nodeGraphLayoutBGridHeightUnits(type, ui);
   }

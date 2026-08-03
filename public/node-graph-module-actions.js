@@ -640,11 +640,11 @@ function copyNodeGraphModule(sourceNode) {
     ...(sourceNode.type === "image"
       ? { layout: normalizeNodeGraphImageLayout(sourceNode.layout) }
       : {}),
-    ...(sourceNode.type === "valueSlider" && typeof normalizeNodeGraphValueSliderFace === "function"
+    ...(sourceNode.type === "knob" && typeof normalizeNodeGraphKnobFace === "function"
       ? {
-        valueSliderFace: typeof nodeGraphValueSliderFaceToPatch === "function"
-          ? nodeGraphValueSliderFaceToPatch(sourceNode.valueSliderFace)
-          : normalizeNodeGraphValueSliderFace(sourceNode.valueSliderFace),
+        knobFace: typeof nodeGraphKnobFaceToPatch === "function"
+          ? nodeGraphKnobFaceToPatch(sourceNode.knobFace)
+          : normalizeNodeGraphKnobFace(sourceNode.knobFace),
       }
       : {}),
     ...(sourceNode.type === "led"
@@ -692,7 +692,7 @@ const nodeGraphModuleSettingsFields = Object.freeze([
   "graph",
   "codeblock",
   "customDisplay",
-  "valueSliderFace",
+  "knobFace",
   "canvasScript",
   "screenSpaceShader",
   "scopeShader",
@@ -953,7 +953,7 @@ function setNodeGraphModuleAliasFromContext({ record = true } = {}) {
   const alias = normalizeNodeGraphPatchNodeAlias(input?.value);
 
   // Live typing (input event, record:false): mutate the live patch + soft-update
-  // alias consumers (header title, Value Slider face) without a full commit
+  // alias consumers (header title, Knob face) without a full commit
   // (which rebuilds every module DOM and kicks the caret out of the field).
   if (!record) {
     if (alias) {
@@ -975,9 +975,9 @@ function setNodeGraphModuleAliasFromContext({ record = true } = {}) {
         headerTitle.textContent = display;
       }
     }
-    // Value Slider face label tracks alias live.
-    if (sourceNode.type === "valueSlider" && typeof renderNodeGraphValueSliderFace === "function") {
-      renderNodeGraphValueSliderFace(sourceNode.id);
+    // Knob face label tracks alias live.
+    if (sourceNode.type === "knob" && typeof renderNodeGraphKnobFace === "function") {
+      renderNodeGraphKnobFace(sourceNode.id);
     }
     return;
   }

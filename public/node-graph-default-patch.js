@@ -102,15 +102,15 @@ function createNodeGraphPatchNode(type, options = {}) {
   if (resolvedType === "moduleGroup") {
     node.moduleGroup = normalizeNodeGraphModuleGroup(options.moduleGroup);
   }
-  if (resolvedType === "valueSlider" && typeof normalizeNodeGraphValueSliderFace === "function") {
-    const face = normalizeNodeGraphValueSliderFace(opts.valueSliderFace);
-    if (typeof nodeGraphValueSliderFaceIsNonDefault === "function"
-      ? nodeGraphValueSliderFaceIsNonDefault(face)
-      : (typeof nodeGraphValueSliderFaceHasAnyImage === "function"
-        ? nodeGraphValueSliderFaceHasAnyImage(face)
+  if (resolvedType === "knob" && typeof normalizeNodeGraphKnobFace === "function") {
+    const face = normalizeNodeGraphKnobFace(opts.knobFace);
+    if (typeof nodeGraphKnobFaceIsNonDefault === "function"
+      ? nodeGraphKnobFaceIsNonDefault(face)
+      : (typeof nodeGraphKnobFaceHasAnyImage === "function"
+        ? nodeGraphKnobFaceHasAnyImage(face)
         : face.layers?.some?.((layer) => layer?.dataUrl))) {
-      node.valueSliderFace = typeof nodeGraphValueSliderFaceToPatch === "function"
-        ? nodeGraphValueSliderFaceToPatch(face)
+      node.knobFace = typeof nodeGraphKnobFaceToPatch === "function"
+        ? nodeGraphKnobFaceToPatch(face)
         : face;
     }
   }
