@@ -1875,31 +1875,19 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators = function buildLiveM
           Right: this.nativeSoftClipperSample(mixInput(nodeId, "Right") + softClipperMono, softClipperCenter, softClipperWidth),
         };
       },
-      rotate3dTo2d: (node, nodeId, frame, frames, frameValues, mixInput) => {
-        const angleX = this.readEffectiveParameter(node, "rotateX", 0, frame, frames, frameValues) * Math.PI * 2;
-        const angleY = this.readEffectiveParameter(node, "rotateY", 0, frame, frames, frameValues) * Math.PI * 2;
-        const angleZ = this.readEffectiveParameter(node, "rotateZ", 0, frame, frames, frameValues) * Math.PI * 2;
-        let x = this.safeFilterNumber(mixInput(nodeId, "X"), null);
-        let y = this.safeFilterNumber(mixInput(nodeId, "Y"), null);
-        let z = this.safeFilterNumber(mixInput(nodeId, "Z"), null);
-        const sinX = Math.sin(angleX);
-        const cosX = Math.cos(angleX);
-        const nextY = y * cosX - z * sinX;
-        const nextZ = y * sinX + z * cosX;
-        y = nextY;
-        z = nextZ;
-        const sinY = Math.sin(angleY);
-        const cosY = Math.cos(angleY);
-        const nextX = x * cosY + z * sinY;
-        z = -x * sinY + z * cosY;
-        x = nextX;
-        const sinZ = Math.sin(angleZ);
-        const cosZ = Math.cos(angleZ);
-        return {
-          X: this.safeFilterNumber(x * cosZ - y * sinZ, null),
-          Y: this.safeFilterNumber(x * sinZ + y * cosZ, null),
-        };
-      },
+      // 3D rotation → XY. Math: rotate-3d-to-2d-math.js.
+      rotate3dTo2d: (node, nodeId, frame, frames, frameValues, mixInput) =>
+        this.rotate3dTo2dSample(
+          mixInput(nodeId, "X"),
+          mixInput(nodeId, "Y"),
+          mixInput(nodeId, "Z"),
+          this.readEffectiveParameter(node, "rotateX", 0, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "rotateY", 0, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "rotateZ", 0, frame, frames, frameValues),
+        ),
+      // Stereo L/R (X/Y) → goniometer axes. Math: vectorscope-transform-math.js.
+      vectorscopeTransform: (node, nodeId, frame, frames, frameValues, mixInput) =>
+        this.vectorscopeTransformSample(mixInput(nodeId, "X"), mixInput(nodeId, "Y")),
       knob: (node, nodeId, frame, frames, frameValues, mixInput) => {
         const offset = this.readEffectiveParameter(node, "offset", 0, frame, frames, frameValues);
         return nodeGraphDspBiasFromIn(offset, mixInput?.(nodeId, "In"));

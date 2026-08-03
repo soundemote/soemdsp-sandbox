@@ -84,6 +84,7 @@ const nodeGraphNodeLabels = Object.freeze({
   bias: "Bias",
   softClipper: "Soft Clipper",
   rotate3dTo2d: "Rotation 3D to 2D",
+  vectorscopeTransform: "Vectorscope Transform",
   knob: "Knob",
   pluginSlider: "Slider",
   toggleButton: "Toggle",
@@ -2902,6 +2903,15 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0", key: "rotateY", kind: "phase", label: "Rotate Y", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "0.01", unit: "cycle", wraparound: true },
       { defaultValue: "0", key: "rotateZ", kind: "phase", label: "Rotate Z", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "0.01", unit: "cycle", wraparound: true },
     ],
+  },
+  // Stereo L/R (as X/Y) → goniometer axes for any X/Y scope. Fixed 45° rotation.
+  vectorscopeTransform: {
+    planRole: "processor",
+    inputs: ["X", "Y"],
+    inputLabels: { X: "X / L", Y: "Y / R" },
+    inputAliases: { L: "X", R: "Y", Left: "X", Right: "Y" },
+    outputs: ["X", "Y"],
+    parameters: [],
   },
   // Plugin Knob (type id knob kept for patch compatibility).
   knob: {

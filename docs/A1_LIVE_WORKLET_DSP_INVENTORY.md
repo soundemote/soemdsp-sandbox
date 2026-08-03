@@ -11,7 +11,7 @@
 | `node-graph-control-bus-helpers.js` | Bias/In, binary out, stereo mix, external stereo, MIDI ports |
 | `node-graph-shared-dsp-helpers.js` | trigger divider, one-pole LP, noise channel state, etc. |
 | `node-graph-analog-filter-helpers.js` | analog filter math |
-| Per-module `*-math.js` | curveOsc, snowflake (pure + worklet fallback) |
+| Per-module `*-math.js` | curveOsc, snowflake, rotate3dTo2d, vectorscopeTransform (pure + thin adapters) |
 
 ## High-duplicate pitch CV pattern (next A2 batches)
 

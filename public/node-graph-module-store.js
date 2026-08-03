@@ -597,6 +597,22 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Rotation 3D to 2D",
     notes: ["3D rotation", "2D projection", "signal transform"],
   },
+  vectorscopeTransform: {
+    category: "dynamics",
+    description:
+      "Goniometer / vectorscope transform: rotate stereo L/R (X/Y) by 45° so mono is vertical and anti-phase is horizontal. Wire into any X/Y scope.",
+    label: "Vectorscope Transform",
+    notes: [
+      "vectorscope",
+      "goniometer",
+      "phase scope",
+      "stereo image",
+      "mid side",
+      "L R",
+      "X Y",
+      "signal transform",
+    ],
+  },
   output: {
     category: "portal",
     description: "Stereo audio sink. Route Left and Right signals here to hear the patch.",
