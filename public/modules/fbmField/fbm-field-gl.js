@@ -96,7 +96,10 @@ float sampleEnergy(vec2 frag, vec2 offsetPx) {
   float s = sin(ang);
   vec2 r = vec2(p.x * c - p.y * s, p.x * s + p.y * c);
   float span = 1.0 / max(0.05, uZoom);
-  vec2 world = r * span + uPan + vec2(uTime * uEvolve, uTime * uEvolve * 0.73);
+  // uTime is domain position already integrated with Frequency (and Evolve scale).
+  // uEvolve kept as residual scroll bias (usually 1 when time is pre-integrated).
+  float scroll = uTime * max(uEvolve, 0.0);
+  vec2 world = r * span + uPan + vec2(scroll, scroll * 0.73);
   float bipolar = fbm2d(world, uOctaves, uPersistence, uLacunarity, uScale, uSmoothness);
   float mono = bipolar * 0.5 + 0.5;
   // Contrast around mid-grey

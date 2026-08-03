@@ -73,18 +73,20 @@ registerNodeGraphChromelessModule("fbmField", {
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "How fast the X/Y probe walks through the field (audio rate).",
+        tooltip:
+          "Domain rate through the field (Hz-ish). Drives X/Y audio probe and face scroll together.",
       },
       {
-        defaultValue: "0.15",
+        defaultValue: "1",
         key: "speed",
         label: "Evolve",
         max: "4",
-        mid: "0.5",
+        mid: "1",
         min: "0",
         nonlinearSlider: true,
         step: "any",
-        tooltip: "Face domain scroll rate. 0 freezes the texture (pause); audio still runs if Frequency > 0.",
+        tooltip:
+          "Multiplies face scroll vs Frequency (1 = lock visual to Frequency). 0 freezes the texture; audio still follows Frequency.",
       },
       {
         defaultValue: "4",

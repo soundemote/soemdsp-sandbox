@@ -73,10 +73,10 @@ function nodeGraphFbmFieldCircuitRunning() {
 }
 
 /**
- * Transport pause, live speed multiplier ≤ 0, or module Evolve (speed) ≈ 0.
- * Evolve is unipolar 0…4 on this module.
+ * Transport pause, live speed multiplier ≤ 0, or domain rate ≈ 0.
+ * Domain rate = Frequency × Evolve (face scroll locked to audio probe rate).
  */
-function nodeGraphFbmFieldShouldFreeze(moduleEvolve = 0.15) {
+function nodeGraphFbmFieldShouldFreeze(domainRate = 0) {
   try {
     if (typeof nodeGraphModuleScopeEnginePaused === "function" && nodeGraphModuleScopeEnginePaused()) {
       return true;
@@ -88,7 +88,7 @@ function nodeGraphFbmFieldShouldFreeze(moduleEvolve = 0.15) {
       return true;
     }
   } catch (_) { /* fall through */ }
-  return !(Math.abs(Number(moduleEvolve) || 0) > 1e-6);
+  return !(Math.abs(Number(domainRate) || 0) > 1e-6);
 }
 
 function syncNodeGraphFbmFieldCanvasHiRes(canvas, face, pixelRatio) {
@@ -155,9 +155,13 @@ function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
   }
   face._fbmFieldBlack = false;
 
-  const evolve = Math.max(0, nodeGraphFbmFieldReadParam(nodeId, "speed", 0.15));
-  const frozen = nodeGraphFbmFieldShouldFreeze(evolve);
-  // Hold last frame while paused / Evolve=0 (unless force for knob scrub still-frame).
+  // Frequency = same domain rate as WASM X/Y probe (units/sec).
+  // Evolve multiplies face scroll (0 freezes face; 1 locks visual to Frequency).
+  const frequency = Math.max(0, nodeGraphFbmFieldReadParam(nodeId, "frequency", 0.5));
+  const evolve = Math.max(0, nodeGraphFbmFieldReadParam(nodeId, "speed", 1));
+  const domainRate = frequency * evolve;
+  const frozen = nodeGraphFbmFieldShouldFreeze(domainRate);
+  // Hold last frame while paused / domainRate=0 (unless force for knob scrub still-frame).
   if (frozen && face._fbmFieldHasFrame && !options.force) {
     face._fbmFieldLastTs = 0;
     if (face.dataset) face.dataset.lightStrength = "1";
@@ -174,7 +178,8 @@ function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
   if (frozen) {
     dt = 0;
   }
-  face._fbmFieldTime += dt;
+  // Integrate domain position so Frequency moves the texture (matches audio time base).
+  face._fbmFieldTime += dt * domainRate;
 
   const params = {
     contrast: nodeGraphFbmFieldReadParam(nodeId, "contrast", 1),
@@ -187,7 +192,8 @@ function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
     scale: nodeGraphFbmFieldReadParam(nodeId, "scale", 1),
     seed: nodeGraphFbmFieldReadParam(nodeId, "seed", 1),
     smoothness: nodeGraphFbmFieldReadParam(nodeId, "smoothness", 0.55),
-    speed: evolve,
+    // time already includes Frequency×Evolve; shader scroll factor = 1
+    speed: 1,
     zoom: nodeGraphFbmFieldReadParam(nodeId, "zoom", 1),
   };
 
