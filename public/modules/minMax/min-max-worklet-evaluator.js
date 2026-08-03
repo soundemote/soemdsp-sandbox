@@ -33,5 +33,33 @@ NodeLiveAudioProcessor.prototype.minMaxSample = function minMaxSample(state, val
         });
       }
     }
+    // JS path: pure math (min-max-math.js).
+    if (typeof nodeGraphMinMaxCore === "function") {
+      const safe = [
+        this.safeFilterNumber(values[0], state),
+        this.safeFilterNumber(values[1], state),
+        this.safeFilterNumber(values[2], state),
+        this.safeFilterNumber(values[3], state),
+      ];
+      const out = nodeGraphMinMaxCore(safe, connectedMask);
+      return {
+        Max: this.safeFilterNumber(out.Max, state),
+        Min: this.safeFilterNumber(out.Min, state),
+      };
+    }
+    // JS path: pure math (min-max-math.js).
+    if (typeof nodeGraphMinMaxCore === "function") {
+      const safe = [
+        this.safeFilterNumber(values[0], state),
+        this.safeFilterNumber(values[1], state),
+        this.safeFilterNumber(values[2], state),
+        this.safeFilterNumber(values[3], state),
+      ];
+      const out = nodeGraphMinMaxCore(safe, connectedMask);
+      return {
+        Max: this.safeFilterNumber(out.Max, state),
+        Min: this.safeFilterNumber(out.Min, state),
+      };
+    }
     return { Max: 0, Min: 0 };
   };

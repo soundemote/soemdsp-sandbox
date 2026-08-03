@@ -76,7 +76,8 @@ Main-thread faces load order:
 ```text
 scope-defaults → normalize → display-mode → phosphor → settings-form
   → settings-ui → capture → number-readout → draw-basic → draw-burn
-  → scopes.js → spectrum → buffer-io → sync → paint-helpers → draw-orchestrator
+  → scopes.js → spectrum → buffer-io → sync → metrics → geometry
+  → paint-helpers → draw-orchestrator
 ```
 
 Mechanical rule: **extract only** — same method bodies on `NodeLiveAudioProcessor.prototype`.

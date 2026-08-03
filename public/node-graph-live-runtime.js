@@ -442,8 +442,22 @@ let nodeGraphLiveNativeWasmLoadModeResolved = null;
  * embed-config.json: { "wasmLoad": "slim" } or { "nativeWasmLoad": "slim" }
  * Runtime override: nodeGraphMvp.live.nativeWasmLoadMode
  */
+function nodeGraphLiveInstallNativeWasmDiagnostics() {
+  try {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.nodeGraphLiveNativeWasmFetchReport = nodeGraphLiveNativeWasmFetchReport;
+    window.nodeGraphLiveNativeWasmFetchStats = nodeGraphLiveNativeWasmFetchStats;
+    window.nodeGraphLiveGetNativeWasmLoadMode = () =>
+      nodeGraphLiveNativeWasmLoadModeResolved || nodeGraphLiveNativeWasmFetchStats.mode || "unresolved";
+  } catch (_e) { /* ignore */ }
+}
+
 async function nodeGraphLiveResolveNativeWasmLoadMode() {
   if (nodeGraphLiveNativeWasmLoadModeResolved === "slim" || nodeGraphLiveNativeWasmLoadModeResolved === "combined") {
+    nodeGraphLiveNativeWasmFetchStats.mode = nodeGraphLiveNativeWasmLoadModeResolved;
+    nodeGraphLiveInstallNativeWasmDiagnostics();
     return nodeGraphLiveNativeWasmLoadModeResolved;
   }
   const normalize = (raw) => {
@@ -456,47 +470,51 @@ async function nodeGraphLiveResolveNativeWasmLoadMode() {
     }
     return "";
   };
+  let mode = "";
   try {
     const fromLive = normalize(typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live?.nativeWasmLoadMode : "");
     if (fromLive) {
-      nodeGraphLiveNativeWasmLoadModeResolved = fromLive;
-      return fromLive;
+      mode = fromLive;
     }
   } catch (_e) { /* ignore */ }
-  try {
-    const params = new URLSearchParams(window.location.search || "");
-    const fromQuery = normalize(params.get("wasmLoad") || params.get("nativeWasm") || "");
-    if (fromQuery) {
-      nodeGraphLiveNativeWasmLoadModeResolved = fromQuery;
-      return fromQuery;
-    }
-    // Player-style embeds (hide chrome / autoplay) default to slim unless
-    // explicitly set to combined above. Authoring sandbox stays combined.
-    const hideUi = params.get("hideui") === "1" || params.get("hideUI") === "1";
-    const autoStart = params.get("autostart") === "1";
-    const playerHint = params.get("player") === "1" || params.get("clapplayer") === "1";
-    if (hideUi || autoStart || playerHint) {
-      nodeGraphLiveNativeWasmLoadModeResolved = "slim";
-      return "slim";
-    }
-  } catch (_e) { /* ignore */ }
-  try {
-    if (typeof nodeGraphLoadEmbedConfig === "function") {
-      const config = await nodeGraphLoadEmbedConfig();
-      const fromConfig = normalize(config?.wasmLoad || config?.nativeWasmLoad || "");
-      if (fromConfig) {
-        nodeGraphLiveNativeWasmLoadModeResolved = fromConfig;
-        return fromConfig;
+  if (!mode) {
+    try {
+      const params = new URLSearchParams(window.location.search || "");
+      const fromQuery = normalize(params.get("wasmLoad") || params.get("nativeWasm") || "");
+      if (fromQuery) {
+        mode = fromQuery;
+      } else {
+        // Player-style embeds (hide chrome / autoplay) default to slim unless
+        // explicitly set to combined above. Authoring sandbox stays combined.
+        const hideUi = params.get("hideui") === "1" || params.get("hideUI") === "1";
+        const autoStart = params.get("autostart") === "1";
+        const playerHint = params.get("player") === "1" || params.get("clapplayer") === "1";
+        if (hideUi || autoStart || playerHint) {
+          mode = "slim";
+        }
       }
-      // embed-config can mark player builds without query params
-      if (config?.player === true || config?.mode === "player") {
-        nodeGraphLiveNativeWasmLoadModeResolved = "slim";
-        return "slim";
+    } catch (_e) { /* ignore */ }
+  }
+  if (!mode) {
+    try {
+      if (typeof nodeGraphLoadEmbedConfig === "function") {
+        const config = await nodeGraphLoadEmbedConfig();
+        const fromConfig = normalize(config?.wasmLoad || config?.nativeWasmLoad || "");
+        if (fromConfig) {
+          mode = fromConfig;
+        } else if (config?.player === true || config?.mode === "player") {
+          mode = "slim";
+        }
       }
-    }
-  } catch (_e) { /* ignore */ }
-  nodeGraphLiveNativeWasmLoadModeResolved = "combined";
-  return "combined";
+    } catch (_e) { /* ignore */ }
+  }
+  if (!mode) {
+    mode = "combined";
+  }
+  nodeGraphLiveNativeWasmLoadModeResolved = mode;
+  nodeGraphLiveNativeWasmFetchStats.mode = mode;
+  nodeGraphLiveInstallNativeWasmDiagnostics();
+  return mode;
 }
 
 async function sendNodeGraphLiveNativeModulesUsedOnly(liveNode, plan, eligibleEntries, sent) {
@@ -2587,7 +2605,8 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/comparator/comparator-worklet-evaluator.js?v=comparator-1",
   "./public/modules/sampleDelay/sample-delay-math.js?v=sample-delay-1",
   "./public/modules/sampleDelay/sample-delay-worklet-evaluator.js?v=sample-delay-1",
-  "./public/modules/minMax/min-max-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/minMax/min-max-math.js?v=min-max-1",
+  "./public/modules/minMax/min-max-worklet-evaluator.js?v=min-max-1",
   "./public/modules/aliasSine/alias-sine-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/tb303Filter/tb303-filter-worklet-evaluator.js?v=native-no-fallback-1",
   "./public/modules/delayEffect/delay-effect-worklet-evaluator.js?v=native-strip-1",

@@ -87,8 +87,13 @@ nodeGraphLiveNativeWasmFetchReport()
 
 Auto-log once after load: `?wasmStats=1` (or `nodeGraphMvp.live.debugNativeWasm = true`).
 
-Also on `window` after first report call: `nodeGraphLiveNativeWasmFetchReport`,
-`nodeGraphLiveNativeWasmFetchStats`.
+On `window` after load-mode resolve (Live Audio start):
+
+| API | Purpose |
+|-----|---------|
+| `nodeGraphLiveGetNativeWasmLoadMode()` | `"slim"` \| `"combined"` \| `"unresolved"` |
+| `nodeGraphLiveNativeWasmFetchReport()` | totals + per-URL bytes |
+| `nodeGraphLiveNativeWasmFetchStats` | raw accumulator |
 
 Player-style embed example (sibling of `index.html`, not under `public/`):
 

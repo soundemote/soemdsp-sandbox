@@ -51,6 +51,22 @@ NodeLiveAudioProcessor.prototype.sampleHoldSample = function sampleHoldSample(st
         });
       }
     }
+    // JS path: pure math (sample-hold-math.js) when native unavailable.
+    if (typeof nodeGraphSampleHoldCore === "function") {
+      return this.safeFilterNumber(
+        nodeGraphSampleHoldCore(
+          state,
+          this.safeFilterNumber(input, state),
+          this.safeFilterNumber(trigger, state),
+          this.safeFilterNumber(threshold, state),
+          sampleFrequency,
+          sampleRate,
+          hasInConnected,
+          nodeId || "sampleHold",
+        ),
+        state,
+      );
+    }
     return this.safeFilterNumber(input, state) ?? 0;
   };
 

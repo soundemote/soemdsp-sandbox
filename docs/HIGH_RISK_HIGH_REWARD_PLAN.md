@@ -32,7 +32,7 @@ inertialFilter, sampleHold math; rotate3d, vectorscope, speedColorInertia (uses 
 - External player shells (e.g. clapplayer) default to slim — **out of this monorepo**
 
 **Done in sandbox:** `?wasmLoad=slim`, player-ish query defaults, embed-config.example.json,
-`nodeGraphLiveNativeWasmFetchReport()` / `?wasmStats=1` / window exposure.
+fetch report / `?wasmStats=1`, `nodeGraphLiveGetNativeWasmLoadMode()` on window after resolve.
 
 See `docs/WASM_SLIM_LOAD.md`.
 
@@ -43,11 +43,11 @@ See `docs/WASM_SLIM_LOAD.md`.
 **Goal:** split remaining face paint/UI out of the big scopes file (maintainability only).
 
 **Still to do**
-- Remaining slot / metrics / geometry / WebGL helpers still in `module-scopes.js`
+- Remaining slot / WebGL / screen-item helpers still in `module-scopes.js`
 
 **Peeled:** defaults, normalize, display-mode, phosphor, settings-form, settings-ui,
-capture, number-readout, draw-basic, draw-burn, spectrum, buffer-io, **sync**,
-paint-helpers, draw-orchestrator
+capture, number-readout, draw-basic, draw-burn, spectrum, buffer-io, sync,
+**metrics**, **geometry**, paint-helpers, draw-orchestrator
 
 ---
 
