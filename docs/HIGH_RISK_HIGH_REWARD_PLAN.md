@@ -43,12 +43,10 @@ See `docs/WASM_SLIM_LOAD.md`.
 **Goal:** split remaining face paint/UI out of the big scopes file (maintainability only).
 
 **Still to do**
-- Remaining slot registry / scene controls / shader-settings helpers in `module-scopes.js`
+- Remaining scene-controls / shader-settings / wipe-buffers helpers in `module-scopes.js`
 
-**Peeled:** defaults, normalize, display-mode, phosphor, settings-form, settings-ui,
-capture, number-readout, draw-basic, draw-burn, spectrum, buffer-io, sync,
-metrics, geometry, webgl, vertices, **offline**, **screen-items**, paint-helpers,
-draw-orchestrator
+**Peeled:** … offline, screen-items, **slots**, **buffer-view**, paint-helpers,
+draw-orchestrator (+ earlier peels)
 
 ---
 

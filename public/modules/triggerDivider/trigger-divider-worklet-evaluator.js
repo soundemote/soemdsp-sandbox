@@ -41,6 +41,19 @@ NodeLiveAudioProcessor.prototype.triggerDividerSample = function triggerDividerS
         });
       }
     }
+    // JS path: pure math (trigger-divider-math.js).
+    if (typeof nodeGraphTriggerDividerCore === "function") {
+      return this.safeFilterNumber(
+        nodeGraphTriggerDividerCore(
+          state,
+          this.safeFilterNumber(trigger, null),
+          this.safeFilterNumber(reset, null),
+          params || {},
+          rate,
+        ),
+        null,
+      );
+    }
     return 0;
   };
 

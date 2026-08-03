@@ -513,6 +513,12 @@ async function nodeGraphLiveResolveNativeWasmLoadMode() {
   }
   nodeGraphLiveNativeWasmLoadModeResolved = mode;
   nodeGraphLiveNativeWasmFetchStats.mode = mode;
+  try {
+    if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp?.live) {
+      // Mirror for UI/status without calling async resolve again.
+      nodeGraphMvp.live.nativeWasmLoadMode = mode;
+    }
+  } catch (_e) { /* ignore */ }
   nodeGraphLiveInstallNativeWasmDiagnostics();
   return mode;
 }
@@ -2552,6 +2558,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/additiveOsc/additive-osc-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/polyBlep/poly-blep-worklet-evaluator.js?v=native-no-fallback-1",
   "./public/modules/noiseGenerator/noise-generator-worklet-evaluator.js?v=native-strip-1",
+  // noise channel math lives in worklet methods; main-thread uses noise-generator-math.js
   "./public/modules/randomWalk/random-walk-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/piSpigotNoise/pi-spigot-noise-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/bradley2a/bradley-2a-worklet-evaluator.js?v=native-strip-1",
@@ -2637,7 +2644,8 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/transport/transport-worklet-evaluator.js?v=native-no-fallback-1",
   "./public/modules/randomClock/random-clock-math.js?v=random-clock-1",
   "./public/modules/randomClock/random-clock-worklet-evaluator.js?v=random-clock-1",
-  "./public/modules/triggerDivider/trigger-divider-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/triggerDivider/trigger-divider-math.js?v=trigger-divider-1",
+  "./public/modules/triggerDivider/trigger-divider-worklet-evaluator.js?v=trigger-divider-1",
   "./public/modules/delayedTrigger/delayed-trigger-math.js?v=delayed-trigger-1",
   "./public/modules/delayedTrigger/delayed-trigger-worklet-evaluator.js?v=delayed-trigger-1",
   "./public/modules/triggerCounter/trigger-counter-math.js?v=trigger-counter-1",

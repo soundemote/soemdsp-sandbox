@@ -1,0 +1,176 @@
+// Scope slot registry / monitors / drawable queries (Phase D).
+// Load after scopes.js. Extract-only.
+
+function registerNodeGraphModuleScopeSlot(moduleElement, options = {}) {
+  const nodeId = moduleElement?.dataset?.node || options.nodeId || "";
+  if (!nodeId) {
+    return null;
+  }
+  const scopeElement = options.scopeElement
+    || moduleElement?.querySelector?.(".node-module-scope-window")
+    || null;
+  const slot = {
+    element: moduleElement,
+    nodeId,
+    scopeElement,
+    type: options.type || moduleElement?.dataset?.nodeType || "",
+  };
+  if (options.viewDrag !== false) {
+    bindNodeGraphModuleScopeWindowEvents(scopeElement);
+  }
+  nodeGraphModuleScopeState.slots.set(nodeId, slot);
+  scheduleNodeGraphModuleScopeDraw();
+  return slot;
+}
+
+function unregisterNodeGraphModuleScopeSlot(nodeId) {
+  const slot = nodeGraphModuleScopeState.slots.get(nodeId);
+  const burnCanvas = slot?.scopeElement?.querySelector?.(
+    ":scope > .node-module-scope-local-fallback-canvas",
+  );
+  if (burnCanvas && typeof disposeNodeGraphScope2dBurnRendererForCanvas === "function") {
+    disposeNodeGraphScope2dBurnRendererForCanvas(burnCanvas);
+  }
+  nodeGraphModuleScopeState.slots.delete(nodeId);
+  nodeGraphModuleScopeState.lightDisplayStates.delete(nodeId);
+  nodeGraphModuleScopeState.modelFrameTimes.delete(nodeId);
+  nodeGraphModuleScopeState.clockPhasors.delete(nodeId);
+  nodeGraphModuleScopeState.oscillatorPhasors.delete(nodeId);
+  if (typeof nodeGraphPhosphorWaveformViewStates !== "undefined") {
+    nodeGraphPhosphorWaveformViewStates.delete(nodeId);
+  }
+}
+
+function nodeGraphModuleScopeSlots() {
+  return [...nodeGraphModuleScopeState.slots.values()]
+    .filter((slot) => slot.element?.isConnected && !slot.element.hidden && slot.scopeElement);
+}
+
+function nodeGraphModuleScopeSlotDisplayVisible(slot) {
+  if (!slot?.element?.isConnected || slot.element.hidden || !slot.scopeElement) {
+    return false;
+  }
+  if (nodeGraphMvp?.moduleOscilloscopesVisible === false) {
+    return false;
+  }
+  const patchNode = typeof nodeGraphPatchNode === "function"
+    ? nodeGraphPatchNode(slot.nodeId)
+    : null;
+  if (
+    slot.nodeId &&
+    typeof nodeGraphNodeIsBypassed === "function" &&
+    nodeGraphNodeIsBypassed(slot.nodeId)
+  ) {
+    return false;
+  }
+  if (
+    patchNode &&
+    typeof nodeGraphModuleDisplayVisibleForUi === "function" &&
+    !nodeGraphModuleDisplayVisibleForUi(patchNode.type, patchNode.ui)
+  ) {
+    return false;
+  }
+  const normalizedUi = patchNode?.ui && typeof nodeGraphEffectivePatchNodeUi === "function"
+    ? nodeGraphEffectivePatchNodeUi(patchNode.ui)
+    : (patchNode?.ui || {});
+  return normalizedUi?.oscilloscopeHidden !== true;
+}
+
+function nodeGraphModuleScopeSlotIsDrawable(slot) {
+  return nodeGraphModuleScopeSlotDisplayVisible(slot);
+}
+
+function nodeGraphVisibleModuleScopeSlots() {
+  return nodeGraphModuleScopeSlots().filter(nodeGraphModuleScopeSlotIsDrawable);
+}
+
+function nodeGraphVisibleModuleScopeNodeIds() {
+  return new Set(nodeGraphVisibleModuleScopeSlots()
+    .map((slot) => String(slot?.nodeId || ""))
+    .filter(Boolean));
+}
+
+function nodeGraphModuleScopeHasDrawableSlots() {
+  return nodeGraphVisibleModuleScopeSlots().length > 0;
+}
+
+function nodeGraphModuleScopeMonitorFingerprint(monitors = []) {
+  return normalizeNodeGraphPatchMonitors(monitors)
+    .map(nodeGraphMonitorEndpointKey)
+    .sort()
+    .join("|");
+}
+
+function nodeGraphModuleScopeIsOscillatorType(type) {
+  return nodeGraphModuleIsRealtimeOscillatorType(type);
+}
+
+function nodeGraphModuleScopeIsAdditiveType(type) {
+  return type === "additiveOsc" || type === "gpuAdditiveOsc";
+}
+
+function nodeGraphDefaultModuleScopeMonitors(patch = nodeGraphMvp?.patch) {
+  return (Array.isArray(patch?.nodes) ? patch.nodes : [])
+    .map((node) => {
+      if (nodeGraphModuleScopeIsOscillatorType(node?.type)) {
+        return {
+          io: "output",
+          node: node.id,
+          port: nodeGraphOscillatorSelectedOutputPort(node),
+        };
+      }
+      const inputs = nodeGraphPatchNodeInputPorts(node);
+      if (inputs.length) {
+        return {
+          io: "input",
+          node: node.id,
+          port: inputs[0],
+        };
+      }
+      const outputs = nodeGraphPatchNodeOutputPorts(node);
+      if (!outputs.length) {
+        return null;
+      }
+      const port = outputs.includes("Out") ? "Out" : outputs[0];
+      return {
+        io: "output",
+        node: node.id,
+        port,
+      };
+    })
+    .filter(Boolean);
+}
+
+function nodeGraphOscillatorSelectedOutputPort(node) {
+  const outputs = nodeGraphPatchNodeOutputPorts(node);
+  return outputs.includes("Wave Out") ? "Wave Out" : outputs[0] || "Out";
+}
+
+// nodeGraphModuleScopeCaptureMonitors → node-graph-module-scope-capture.js
+function nodeGraphModuleScopeHasModelDisplay() {
+  return nodeGraphVisibleModuleScopeSlots().some((slot) => {
+    const renderer = nodeGraphModuleDisplayRendererForSlot(slot);
+    const outputs = nodeGraphPatchNodeOutputPorts(nodeGraphModuleScopeNodeForSlot(slot));
+    return slot.type === "clock" ||
+      slot.type === "transport" ||
+      nodeGraphModuleScopeIsOscillatorType(slot.type) ||
+      (["traceDisplay", "dotOscilloscope", "valueOscilloscope", "lineBurnOscilloscope"].includes(slot.type) &&
+        nodeGraphModuleScopeConnectionsTo(slot.nodeId, "In").length > 0) ||
+      (["scope2d", "scope2dTrace", "phosphorLight"].includes(renderer) && (
+        (outputs.includes("X") && outputs.includes("Y")) ||
+        (
+          nodeGraphModuleScopeConnectionsTo(slot.nodeId, "X").length > 0 &&
+          nodeGraphModuleScopeConnectionsTo(slot.nodeId, "Y").length > 0
+        )
+      )) ||
+      (slot.type === "gain" && nodeGraphModuleScopeConnectionsTo(slot.nodeId, "In").length > 0) ||
+      (slot.type === "output" && nodeGraphModuleScopeOutputConnectionList(
+        nodeGraphModuleScopeOutputInputConnections(slot.nodeId),
+      ).length > 0);
+  });
+}
+
+function nodeGraphModuleScopeHasRenderableSlots() {
+  return nodeGraphVisibleModuleScopeSlots().some((slot) => slot?.scopeElement);
+}
+
