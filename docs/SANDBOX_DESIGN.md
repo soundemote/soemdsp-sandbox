@@ -1,5 +1,8 @@
 # Sandbox Design Docs
 
+**Standing product rules (compat, native-only DSP, GPU faces, WISIWIH, etc.):**  
+see **[APP_POLICY.md](./APP_POLICY.md)**. This file focuses on UI aesthetics and interaction.
+
 ## 1. Mouse-Adjacent Hover Tooltips Are Forbidden
 
 Native browser hover tooltips and custom tooltip bubbles that appear near the mouse are not allowed in the sandbox. They create visual clutter, fight the modular interface, and make precise UI work feel unstable.
