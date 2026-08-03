@@ -1,4 +1,5 @@
-// FBM Field face: WebGL only (no JS/CPU fBm paint). Black plate if GL missing.
+// FBM Field face: WebGL only (no JS/CPU fBm paint).
+// Soft Fractal rules: black when audio stopped/reset; freeze on Evolve≈0 / pause.
 
 const nodeGraphFbmFieldSettingsDefaults = Object.freeze({
   background: "#05060a",
@@ -57,6 +58,39 @@ function nodeGraphFbmFieldReadParam(nodeId, key, fallback) {
   return Number.isFinite(raw) ? raw : fallback;
 }
 
+function nodeGraphFbmFieldCircuitRunning() {
+  try {
+    if (typeof nodeGraphModuleScopeCircuitRunning === "function") {
+      return nodeGraphModuleScopeCircuitRunning();
+    }
+  } catch (_) { /* fall through */ }
+  try {
+    const live = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live : null;
+    return Boolean(live?.outputEnabled && live?.node);
+  } catch (_) {
+    return false;
+  }
+}
+
+/**
+ * Transport pause, live speed multiplier ≤ 0, or module Evolve (speed) ≈ 0.
+ * Evolve is unipolar 0…4 on this module.
+ */
+function nodeGraphFbmFieldShouldFreeze(moduleEvolve = 0.15) {
+  try {
+    if (typeof nodeGraphModuleScopeEnginePaused === "function" && nodeGraphModuleScopeEnginePaused()) {
+      return true;
+    }
+  } catch (_) { /* fall through */ }
+  try {
+    const speed = Number(typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live?.speedMultiplier : 1);
+    if (Number.isFinite(speed) && speed <= 0) {
+      return true;
+    }
+  } catch (_) { /* fall through */ }
+  return !(Math.abs(Number(moduleEvolve) || 0) > 1e-6);
+}
+
 function syncNodeGraphFbmFieldCanvasHiRes(canvas, face, pixelRatio) {
   if (!canvas || !face) {
     return false;
@@ -75,28 +109,29 @@ function syncNodeGraphFbmFieldCanvasHiRes(canvas, face, pixelRatio) {
   return w > 0 && h > 0;
 }
 
-function nodeGraphFbmFieldFillBackground(canvas, face, background) {
-  // Prefer GL clear if this canvas already has a GL context (never call 2d on it).
-  if (typeof nodeGraphFbmFieldGlEnsure === "function") {
-    const state = nodeGraphFbmFieldGlEnsure(canvas);
-    if (state?.gl && !state.lost) {
-      const gl = state.gl;
-      const bg = typeof nodeGraphFbmFieldGlHexToRgb01 === "function"
-        ? nodeGraphFbmFieldGlHexToRgb01(background)
-        : [0.02, 0.024, 0.04];
-      gl.viewport(0, 0, canvas.width | 0, canvas.height | 0);
-      gl.clearColor(bg[0], bg[1], bg[2], 1);
-      gl.clear(gl.COLOR_BUFFER_BIT);
-      if (face?.dataset) face.dataset.lightStrength = "0";
-      return true;
-    }
+/** Pure black — audio stopped / reset (matches Soft Fractal). */
+function nodeGraphFbmFieldFillBlack(canvas, face) {
+  if (!canvas) {
+    return false;
   }
-  // No WebGL: solid CSS background only (no JS fBm).
+  if (typeof nodeGraphFbmFieldGlClearBlack === "function" && nodeGraphFbmFieldGlClearBlack(canvas)) {
+    if (face?.dataset) face.dataset.lightStrength = "0";
+    if (face) {
+      face._fbmFieldHasFrame = false;
+      face._fbmFieldBlack = true;
+    }
+    return true;
+  }
+  // Ensure canvas has size for a future GL path; CSS black plate meanwhile.
   if (face) {
-    face.style.background = background || "#05060a";
+    face.style.background = "#000000";
   }
   if (face?.dataset) face.dataset.lightStrength = "0";
-  return false;
+  if (face) {
+    face._fbmFieldHasFrame = false;
+    face._fbmFieldBlack = true;
+  }
+  return true;
 }
 
 function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
@@ -106,11 +141,40 @@ function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
   const pixelRatio = Number(nodeGraphModuleScopeState?.backingPixelRatio)
     || Math.max(1, window.devicePixelRatio || 1);
 
+  if (!syncNodeGraphFbmFieldCanvasHiRes(canvas, face, pixelRatio)) {
+    return false;
+  }
+
+  // Audio stopped / reset → screen off (black), not a frozen still of the field.
+  if (!nodeGraphFbmFieldCircuitRunning()) {
+    face._fbmFieldLastTs = 0;
+    if (face._fbmFieldBlack && !options.force) {
+      return true;
+    }
+    return nodeGraphFbmFieldFillBlack(canvas, face);
+  }
+  face._fbmFieldBlack = false;
+
+  const evolve = Math.max(0, nodeGraphFbmFieldReadParam(nodeId, "speed", 0.15));
+  const frozen = nodeGraphFbmFieldShouldFreeze(evolve);
+  // Hold last frame while paused / Evolve=0 (unless force for knob scrub still-frame).
+  if (frozen && face._fbmFieldHasFrame && !options.force) {
+    face._fbmFieldLastTs = 0;
+    if (face.dataset) face.dataset.lightStrength = "1";
+    return true;
+  }
+
   if (!Number.isFinite(face._fbmFieldTime)) {
     face._fbmFieldTime = 0;
   }
-  const dt = Number(options.dt) || 0;
-  face._fbmFieldTime += Math.min(0.05, Math.max(0, dt));
+
+  let dt = Number(options.dt);
+  if (!Number.isFinite(dt) || dt < 0) dt = 0;
+  dt = Math.min(0.05, dt);
+  if (frozen) {
+    dt = 0;
+  }
+  face._fbmFieldTime += dt;
 
   const params = {
     contrast: nodeGraphFbmFieldReadParam(nodeId, "contrast", 1),
@@ -123,7 +187,7 @@ function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
     scale: nodeGraphFbmFieldReadParam(nodeId, "scale", 1),
     seed: nodeGraphFbmFieldReadParam(nodeId, "seed", 1),
     smoothness: nodeGraphFbmFieldReadParam(nodeId, "smoothness", 0.55),
-    speed: nodeGraphFbmFieldReadParam(nodeId, "speed", 0.15),
+    speed: evolve,
     zoom: nodeGraphFbmFieldReadParam(nodeId, "zoom", 1),
   };
 
@@ -132,16 +196,12 @@ function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
   const time = face._fbmFieldTime || 0;
 
   if (typeof nodeGraphFbmFieldGlPaint !== "function" || typeof nodeGraphFbmFieldGlEnsure !== "function") {
-    return nodeGraphFbmFieldFillBackground(canvas, face, settings.background);
-  }
-
-  if (!syncNodeGraphFbmFieldCanvasHiRes(canvas, face, pixelRatio)) {
-    return false;
+    return nodeGraphFbmFieldFillBlack(canvas, face);
   }
 
   const glReady = Boolean(nodeGraphFbmFieldGlEnsure(canvas));
   if (!glReady) {
-    return nodeGraphFbmFieldFillBackground(canvas, face, settings.background);
+    return nodeGraphFbmFieldFillBlack(canvas, face);
   }
 
   const ok = nodeGraphFbmFieldGlPaint(canvas, {
@@ -153,6 +213,7 @@ function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
   if (ok) {
     if (face.dataset) face.dataset.lightStrength = "1";
     face._fbmFieldHasFrame = true;
+    face._fbmFieldBlack = false;
   }
   return ok;
 }

@@ -408,3 +408,16 @@ function nodeGraphFbmFieldGlPaint(canvas, params) {
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   return true;
 }
+
+/** Clear face to pure black (audio stopped / reset). */
+function nodeGraphFbmFieldGlClearBlack(canvas) {
+  const state = nodeGraphFbmFieldGlEnsure(canvas);
+  if (!state?.gl || state.lost) {
+    return false;
+  }
+  const gl = state.gl;
+  gl.viewport(0, 0, canvas.width | 0, canvas.height | 0);
+  gl.clearColor(0, 0, 0, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  return true;
+}

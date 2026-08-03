@@ -46,10 +46,12 @@ function nodeGraphFbmFieldStartLoop(face, nodeId) {
     }
     const last = face._fbmFieldLastTs || ts;
     let dt = Math.min(0.05, Math.max(0, (ts - last) / 1000));
+    // Tab resume / first frame: do not dump a large phase step.
     if (!face._fbmFieldLastTs) {
       dt = 0;
     }
     face._fbmFieldLastTs = ts;
+    // paint handles: black when circuit off; freeze when Evolve=0 / engine pause.
     if (typeof paintNodeGraphFbmFieldFaceForNode === "function") {
       paintNodeGraphFbmFieldFaceForNode(nodeId, { dt, face });
     }

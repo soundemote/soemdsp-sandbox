@@ -84,7 +84,7 @@ registerNodeGraphChromelessModule("fbmField", {
         min: "0",
         nonlinearSlider: true,
         step: "any",
-        tooltip: "Face domain scroll rate (visual evolution of the texture).",
+        tooltip: "Face domain scroll rate. 0 freezes the texture (pause); audio still runs if Frequency > 0.",
       },
       {
         defaultValue: "4",
