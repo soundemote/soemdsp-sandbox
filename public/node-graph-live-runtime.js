@@ -449,7 +449,18 @@ async function sendNodeGraphLiveNativeModulesUsedOnly(liveNode, plan, eligibleEn
       neededEntries.push(entry);
     }
   }
+  if (neededEntries.length && typeof console !== "undefined" && console.debug) {
+    console.debug(
+      "[native-wasm slim] fetch",
+      neededEntries.map((e) => e.targetType || e.name).filter(Boolean),
+    );
+  }
   await Promise.all(neededEntries.map((entry) => sendNodeGraphLiveNativeModule(liveNode, entry)));
+}
+
+/** Force re-resolve load mode (e.g. after embed flips player flag). */
+function nodeGraphLiveResetNativeWasmLoadMode() {
+  nodeGraphLiveNativeWasmLoadModeResolved = null;
 }
 
 async function sendNodeGraphLiveNativeModules(liveNode, plan = null) {

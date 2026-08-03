@@ -38,10 +38,10 @@ Not module-browser filtering. See `docs/WASM_SLIM_LOAD.md`.
 **Goal:** split remaining face paint/capture/UI out of the big scopes file for maintainability only (no sound change).
 
 **Still to do**
-- Scope2d / burn / trace paint clusters  
-- Other large draw* symbols as they hurt navigation
+- Trace display settings UI chrome (forms already partly peeled)
+- Remaining orchestrator / typed-item dispatch in scopes.js
 
-**Peeled:** defaults, normalize, display-mode, phosphor, settings-form, **capture**, **number-readout**
+**Peeled:** defaults, normalize, display-mode, phosphor, settings-form, capture, number-readout, **draw-basic**, **draw-burn**
 
 ---
 

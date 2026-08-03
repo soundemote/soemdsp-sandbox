@@ -483,7 +483,10 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators = function buildLiveM
         const morphCv = this.inputConnections.has(this.inputKey(nodeId, "Morph"))
           ? this.safeFilterNumber(mixInput(nodeId, "Morph"), 0)
           : 0;
-        const morph = this.clampValue(morphKnob + morphCv, 0, 1);
+        const morphRaw = typeof nodeGraphParamSignalInAdditive === "function"
+          ? nodeGraphParamSignalInAdditive(morphKnob, morphCv)
+          : morphKnob + morphCv;
+        const morph = this.clampValue(morphRaw, 0, 1);
         const phaseKnob = read("phase", 0);
         const phaseCv = this.inputConnections.has(this.inputKey(nodeId, "Phase"))
           ? this.safeFilterNumber(mixInput(nodeId, "Phase"), 0)

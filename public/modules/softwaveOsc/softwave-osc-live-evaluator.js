@@ -46,7 +46,11 @@ nodeGraphLiveModuleEvaluators.softwaveOsc = ({
   const morphCv = hasInput(nodeId, "Morph")
     ? nodeGraphSafeFilterNumber(mixInput(nodeId, "Morph"), runtime, nodeId, 0, "softwave morph")
     : 0;
-  const morph = clampNodeSliderValue(morphKnob + morphCv, 0, 1);
+  // Morph jack is additive domain CV (clamp), not param-row MOD.
+  const morphRaw = typeof nodeGraphParamSignalInAdditive === "function"
+    ? nodeGraphParamSignalInAdditive(morphKnob, morphCv)
+    : morphKnob + morphCv;
+  const morph = clampNodeSliderValue(morphRaw, 0, 1);
 
   const phaseKnob = read("phase", 0);
   const phaseCv = hasInput(nodeId, "Phase")
