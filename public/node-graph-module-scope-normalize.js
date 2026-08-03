@@ -1,0 +1,863 @@
+// Display/settings normalizers extracted from node-graph-module-scopes.js
+// (Phase D). Load after scope-defaults.js, before scopes.js.
+
+function nodeGraphSpectrogramSnapFftSize(value) {
+  const raw = Number(value);
+  if (!Number.isFinite(raw)) {
+    return nodeGraphSpectrogramSettingsDefaults.fftSize;
+  }
+  // Legacy module choice index.
+  if (raw >= 0 && raw <= 3 && Math.abs(raw - Math.round(raw)) < 1e-6) {
+    return nodeGraphSpectrogramFftSizes[Math.round(raw)] || nodeGraphSpectrogramSettingsDefaults.fftSize;
+  }
+  let best = nodeGraphSpectrogramFftSizes[0];
+  let bestDist = Math.abs(raw - best);
+  for (const v of nodeGraphSpectrogramFftSizes) {
+    const d = Math.abs(raw - v);
+    if (d < bestDist) {
+      best = v;
+      bestDist = d;
+    }
+  }
+  return best;
+}
+
+
+function nodeGraphSpectrogramStepFftSize(value, direction) {
+  const current = nodeGraphSpectrogramSnapFftSize(value);
+  const idx = Math.max(0, nodeGraphSpectrogramFftSizes.indexOf(current));
+  const next = idx + (direction < 0 ? -1 : 1);
+  return nodeGraphSpectrogramFftSizes[Math.max(0, Math.min(nodeGraphSpectrogramFftSizes.length - 1, next))];
+}
+
+
+function nodeGraphSpectrogramFftSizeFromNode(node) {
+  const fromSettings = node?.traceDisplaySettings?.fftSize;
+  const fromParams = node?.params?.fftSize;
+  return nodeGraphSpectrogramSnapFftSize(
+    fromSettings ?? fromParams ?? nodeGraphSpectrogramSettingsDefaults.fftSize,
+  );
+}
+
+
+function normalizeNodeGraphSharedGradientStops(raw, fallbackStops = null, options = {}) {
+  if (typeof NodeGraphGradientSelector !== "undefined"
+    && typeof NodeGraphGradientSelector.normalizeStops === "function") {
+    return NodeGraphGradientSelector.normalizeStops(raw, {
+      channels: options.channels || "color",
+      fallbackStops,
+      defaultStops: options.defaultStops,
+    });
+  }
+  if (typeof normalizeSharedGradientStops === "function") {
+    const normalized = normalizeSharedGradientStops(raw);
+    if (Array.isArray(normalized) && normalized.length >= 2) {
+      return normalized.map((s) => ({ t: s.t, color: s.color }));
+    }
+  }
+  const list = Array.isArray(raw) ? raw : [];
+  const fallback = Array.isArray(fallbackStops) && fallbackStops.length >= 2
+    ? fallbackStops
+    : (typeof PHOSPHOR_DEFAULT_GRADIENT_STOPS !== "undefined"
+      ? PHOSPHOR_DEFAULT_GRADIENT_STOPS
+      : nodeGraphSpectrogramSettingsDefaults.gradientStops);
+  const out = [];
+  for (let i = 0; i < list.length; i += 1) {
+    const stop = list[i];
+    if (!stop) continue;
+    const fb = fallback[Math.min(i, fallback.length - 1)]?.color || "#ffffff";
+    const hex = normalizeNodeGraphTraceDisplayColor(stop.color ?? stop.hex, fb);
+    const t = Number.isFinite(Number(stop.t))
+      ? clampNodeSliderValue(Number(stop.t), 0, 1)
+      : (list.length <= 1 ? 0 : i / (list.length - 1));
+    out.push({ t, color: hex });
+  }
+  if (out.length < 2) {
+    return fallback.map((s) => ({ t: s.t, color: s.color }));
+  }
+  out.sort((a, b) => a.t - b.t);
+  out[0].t = 0;
+  out[out.length - 1].t = 1;
+  return out;
+}
+
+
+function normalizeNodeGraphSpectrogramGradientStops(raw) {
+  return normalizeNodeGraphSharedGradientStops(
+    raw,
+    nodeGraphSpectrogramSettingsDefaults.gradientStops,
+  );
+}
+
+
+function nodeGraphPhosphorDefaultGradientStops(peakHex = "#75ebff", backgroundHex = "#000000") {
+  if (typeof phosphorStopsFromPeak === "function") {
+    return phosphorStopsFromPeak(peakHex, backgroundHex);
+  }
+  const peak = normalizeNodeGraphTraceDisplayColor(peakHex, "#75ebff");
+  const bg = normalizeNodeGraphTraceDisplayColor(backgroundHex, "#000000");
+  const mixHex = (a, b, t) => {
+    const ar = parseInt(a.slice(1, 3), 16);
+    const ag = parseInt(a.slice(3, 5), 16);
+    const ab = parseInt(a.slice(5, 7), 16);
+    const br = parseInt(b.slice(1, 3), 16);
+    const bg_ = parseInt(b.slice(3, 5), 16);
+    const bb = parseInt(b.slice(5, 7), 16);
+    const m = (x, y) => Math.round(x + (y - x) * t);
+    return `#${m(ar, br).toString(16).padStart(2, "0")}${m(ag, bg_).toString(16).padStart(2, "0")}${m(ab, bb).toString(16).padStart(2, "0")}`;
+  };
+  return [
+    { t: 0, color: bg },
+    { t: 0.18, color: mixHex(bg, peak, 0.28) },
+    { t: 0.55, color: mixHex(bg, peak, 0.7) },
+    { t: 1, color: peak },
+  ];
+}
+
+
+function nodeGraphPhosphorGradientStopsFromSettings(settings = {}, peakFallback = "#75ebff") {
+  const source = settings && typeof settings === "object" ? settings : {};
+  const peak = normalizeNodeGraphTraceDisplayColor(
+    source.dot1Color ?? source.color ?? peakFallback,
+    peakFallback,
+  );
+  const bg = normalizeNodeGraphTraceDisplayColor(
+    source.background ?? source.backgroundColor ?? "#000000",
+    "#000000",
+  );
+  if (source.gradientStops || source.gradient) {
+    return normalizeNodeGraphSharedGradientStops(
+      source.gradientStops ?? source.gradient,
+      nodeGraphPhosphorDefaultGradientStops(peak, bg),
+    );
+  }
+  return nodeGraphPhosphorDefaultGradientStops(peak, bg);
+}
+
+
+function nodeGraphPhosphorApplyGradientLut(faceOrEnergyGl, settings, peakFallback = "#75ebff") {
+  if (!faceOrEnergyGl) {
+    return false;
+  }
+  const stops = nodeGraphPhosphorGradientStopsFromSettings(settings, peakFallback);
+  if (typeof PhosphorDrawer !== "undefined" && PhosphorDrawer?.setLutStops) {
+    return PhosphorDrawer.setLutStops(faceOrEnergyGl, stops);
+  }
+  if (typeof nodeGraphPhosphorEnergyGlSetLutFromStops === "function") {
+    return Boolean(nodeGraphPhosphorEnergyGlSetLutFromStops(faceOrEnergyGl, stops));
+  }
+  // Legacy peak LUT fallback.
+  const peak = stops[stops.length - 1]?.color || peakFallback;
+  const bg = stops[0]?.color || "#000000";
+  const peakRgb = typeof nodeGraphScopeRgbFloatsToCanvasRgb === "function"
+    && typeof nodeGraphScopeHexColorToRgb === "function"
+    ? nodeGraphScopeRgbFloatsToCanvasRgb(nodeGraphScopeHexColorToRgb(peak))
+    : [117, 235, 255];
+  if (typeof nodeGraphPhosphorEnergyGlSetLutFromPeak === "function") {
+    nodeGraphPhosphorEnergyGlSetLutFromPeak(faceOrEnergyGl, peakRgb, bg);
+    return true;
+  }
+  return false;
+}
+
+
+function nodeGraphDisplaySettingsFormTypeUsesGradient(type) {
+  if (typeof NodeGraphGradientSelector !== "undefined"
+    && typeof NodeGraphGradientSelector.usesDisplayGradient === "function") {
+    return NodeGraphGradientSelector.usesDisplayGradient(type);
+  }
+  // Until the selector script loads — keep a minimal local mirror.
+  return Boolean(type && [
+    "spectrogramBurn",
+    "scope2d",
+    "phosphorLight",
+    "xyPad",
+    "dot",
+    "lineBurn",
+    "numberReadout",
+    "videoscopeBurn",
+    "oscilloscopeBankBurn",
+    "hypersawBurn",
+    "ledLamp",
+    "rgbShapeFace",
+    "rgbFractalFace",
+    "matrixFace",
+    "matrixWaterfallFace",
+    "matrixDisplayFace",
+  ].includes(type));
+}
+
+
+function normalizeNodeGraphSpectrogramSettings(settings = {}, node = null) {
+  const source = settings && typeof settings === "object" ? settings : {};
+  const defaults = nodeGraphSpectrogramSettingsDefaults;
+  // FFT: display setting, dual-write, or legacy module choice index.
+  const fftRaw = source.fftSize ?? node?.params?.fftSize ?? defaults.fftSize;
+  const fftSize = nodeGraphSpectrogramSnapFftSize(fftRaw);
+  const snapChoice = (raw, max, fallback) => {
+    const n = Math.round(Number(raw));
+    if (!Number.isFinite(n)) return fallback;
+    return Math.max(0, Math.min(max, n));
+  };
+  const window = snapChoice(
+    source.window ?? node?.params?.window ?? defaults.window,
+    4,
+    defaults.window,
+  );
+  // Time overlap grew from 3 choices (2×/4×/8× @ 0–2) to 4 (none/2×/4×/8× @ 0–3).
+  // Patches without freqOverlap still use the old index map — shift +1 so hop
+  // settings keep their previous meaning.
+  let overlapRaw = source.overlap ?? node?.params?.overlap ?? defaults.overlap;
+  const legacyNoFreqOverlap = !Object.hasOwn(source, "freqOverlap")
+    && !(node?.params && Object.hasOwn(node.params, "freqOverlap"));
+  if (legacyNoFreqOverlap) {
+    const n = Math.round(Number(overlapRaw));
+    if (Number.isFinite(n) && n >= 0 && n <= 2) {
+      overlapRaw = n + 1;
+    }
+  }
+  const overlap = snapChoice(overlapRaw, 5, defaults.overlap);
+  const freqOverlap = snapChoice(
+    source.freqOverlap ?? node?.params?.freqOverlap ?? defaults.freqOverlap,
+    2,
+    defaults.freqOverlap,
+  );
+  const freqScale = snapChoice(
+    source.freqScale ?? node?.params?.freqScale ?? defaults.freqScale,
+    2,
+    defaults.freqScale,
+  );
+  const gradientStops = normalizeNodeGraphSpectrogramGradientStops(
+    source.gradientStops ?? source.gradient,
+  );
+  // Face fill follows gradient floor (t≈0) — no independent background control.
+  const gradientFloor = gradientStops[0]?.color
+    || defaults.gradientStops[0].color
+    || "#000000";
+  return {
+    background: normalizeNodeGraphTraceDisplayColor(gradientFloor, "#000000"),
+    fftSize,
+    window,
+    overlap,
+    freqOverlap,
+    freqScale,
+    // Face width = historySeconds of audio. Longer = slower scroll.
+    // Min 0.1 s (0 was a fake “empty” that the display remapped to 0.05).
+    historySeconds: (() => {
+      const minH = 0.1;
+      const maxH = 30;
+      const raw = source.historySeconds ?? source.zoomSeconds;
+      if (raw === undefined || raw === null || raw === "") {
+        return defaults.historySeconds;
+      }
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n < 0) {
+        return defaults.historySeconds;
+      }
+      if (n === 0) {
+        return minH;
+      }
+      return clampNodeSliderValue(n, minH, maxH);
+    })(),
+    gradientStops,
+  };
+}
+
+
+function syncNodeGraphSpectrogramDisplaySettingsToParams(node, settings) {
+  if (!node) return;
+  const safe = normalizeNodeGraphSpectrogramSettings(settings, node);
+  node.params = node.params && typeof node.params === "object" ? { ...node.params } : {};
+  node.params.fftSize = safe.fftSize; // analysis window (128…16384)
+  node.params.window = safe.window;
+  node.params.overlap = safe.overlap; // time hop factor index
+  node.params.freqOverlap = safe.freqOverlap; // zero-pad factor index
+  node.params.freqScale = safe.freqScale;
+  // History window: worklet re-STFTs this many seconds of reference audio
+  // when analysis settings change (reprint whole spectrogram, no clear).
+  node.params.historySeconds = safe.historySeconds;
+  // Removed / migrated controls.
+  delete node.params.outputBins;
+  delete node.params.smoothing;
+}
+
+
+function normalizeNodeGraphXyPadDisplaySettings(settings = {}) {
+  const source = settings && typeof settings === "object" ? settings : {};
+  const defaults = nodeGraphXyPadDisplaySettingsDefaults;
+  const gradientStops = nodeGraphPhosphorGradientStopsFromSettings(source, defaults.dot1Color);
+  const floor = gradientStops[0]?.color || defaults.background;
+  const peak = gradientStops[gradientStops.length - 1]?.color || defaults.dot1Color;
+  return {
+    background: normalizeNodeGraphTraceDisplayColor(floor, defaults.background),
+    ghost: normalizeNodeGraphTraceDisplayNumber(source.ghost ?? source.burn, defaults.ghost ?? defaults.burn, 0, 1),
+    trail: (typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
+      ? PhosphorResidual.migrateTrail(source, defaults.trail ?? (Number.isFinite(defaults.decay) ? 1 - defaults.decay : 0.88))
+      : normalizeNodeGraphTraceDisplayNumber(source.trail ?? (Number.isFinite(Number(source.decay)) ? 1 - Number(source.decay) : defaults.trail), defaults.trail ?? 0.88, 0, 1)),
+    dot1Brightness: normalizeNodeGraphTraceDisplayNumber(
+      source.dot1Brightness ?? source.brightness,
+      defaults.dot1Brightness,
+      0,
+      1,
+    ),
+    dot1Color: normalizeNodeGraphTraceDisplayColor(peak, defaults.dot1Color),
+    dot1Enabled: true,
+    dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
+    dotBudget: Math.max(
+      64,
+      Math.min(8192, Math.round(
+        Number(source.dotBudget ?? defaults.dotBudget) || defaults.dotBudget,
+      )),
+    ),
+    // Default ON when missing (devilish solid trails). Explicit false stays off.
+    fullDotEconomy: source.fullDotEconomy !== false
+      && source.useFullDotEconomy !== false,
+    gradientStops,
+    lineThickness: nodeGraphTraceDisplayClampStampBlur(
+      source.lineThickness ?? source.dot1Blur ?? defaults.lineThickness,
+    ),
+    pixelDensity: normalizeNodeGraphTraceDisplayNumber(
+      source.pixelDensity,
+      defaults.pixelDensity,
+      0,
+      4,
+    ),
+    // Ignore legacy scale for layout; keep puckSize (migrate old scale→puck if missing).
+    puckSize: normalizeNodeGraphTraceDisplayNumber(
+      source.puckSize ?? (Number.isFinite(Number(source.scale)) && Number(source.scale) > 0
+        ? defaults.puckSize * Math.min(2, Number(source.scale))
+        : defaults.puckSize),
+      defaults.puckSize,
+      0.005,
+      0.25,
+    ),
+  };
+}
+
+
+function nodeGraphXyPadDisplaySettingsForNode(node) {
+  if (!node) {
+    return normalizeNodeGraphXyPadDisplaySettings();
+  }
+  return normalizeNodeGraphXyPadDisplaySettings(node.traceDisplaySettings);
+}
+
+
+function normalizeNodeGraphTraceDisplayColor(value, fallback = nodeGraphTraceDisplaySettingsDefaults.color) {
+  const color = String(value || "").trim();
+  if (/^#[0-9a-f]{6}$/i.test(color)) {
+    return color.toLowerCase();
+  }
+  if (/^#[0-9a-f]{3}$/i.test(color)) {
+    const [, r, g, b] = color.toLowerCase();
+    return `#${r}${r}${g}${g}${b}${b}`;
+  }
+  return fallback;
+}
+
+
+function normalizeNodeGraphTraceDisplayNumber(value, fallback, min, max, integer = false) {
+  const number = Number(value);
+  const safeFallback = Number.isFinite(Number(fallback)) ? Number(fallback) : 0;
+  const safeMin = Number.isFinite(Number(min)) ? Number(min) : -Infinity;
+  const safeMax = Number.isFinite(Number(max)) ? Number(max) : Infinity;
+  const normalized = Number.isFinite(number)
+    ? Math.max(safeMin, Math.min(safeMax, number))
+    : Math.max(safeMin, Math.min(safeMax, safeFallback));
+  return integer ? Math.round(normalized) : normalized;
+}
+
+
+
+function normalizeNodeGraphTraceDisplayZoomSeconds(value, fallback) {
+  const number = Number(value);
+  if (Number.isFinite(number)) {
+    return clampNodeSliderValue(number, 0, nodeGraphTraceDisplayMaxZoomSeconds);
+  }
+  const safeFallback = Number(fallback);
+  return Number.isFinite(safeFallback) ? clampNodeSliderValue(safeFallback, 0, nodeGraphTraceDisplayMaxZoomSeconds) : 0;
+}
+
+
+function nodeGraphTraceDisplayClampSweepSeconds(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) {
+    return nodeGraphLineBurnSettingsDefaults.sweepSeconds;
+  }
+  return clampNodeSliderValue(n, 0.01, 10);
+}
+
+
+function normalizeNodeGraphLineBurnSweepSeconds(source, defaults) {
+  const explicit = Number(source?.sweepSeconds);
+  if (Number.isFinite(explicit) && explicit > 0) {
+    return nodeGraphTraceDisplayClampSweepSeconds(explicit);
+  }
+  // Legacy: sweepHz = full left→right crossings per second.
+  const legacyHz = Number(source?.sweepHz);
+  if (Number.isFinite(legacyHz) && legacyHz > 0) {
+    return nodeGraphTraceDisplayClampSweepSeconds(1 / legacyHz);
+  }
+  // Legacy window fields already meant "seconds per sweep".
+  const legacyWindowMs = source?.windowMs === undefined ? undefined : Number(source.windowMs) / 1000;
+  const zoomSeconds = Number(source?.zoomSeconds ?? source?.windowSeconds ?? legacyWindowMs);
+  if (Number.isFinite(zoomSeconds) && zoomSeconds > 0) {
+    return nodeGraphTraceDisplayClampSweepSeconds(zoomSeconds);
+  }
+  return defaults.sweepSeconds;
+}
+
+
+function normalizeNodeGraphLineBurnSettings(settings = {}) {
+  const source = settings && typeof settings === "object" ? settings : {};
+  const defaults = nodeGraphLineBurnSettingsDefaults;
+  const gradientStops = nodeGraphPhosphorGradientStopsFromSettings(source, defaults.dot1Color);
+  const floor = gradientStops[0]?.color || defaults.background;
+  const peak = gradientStops[gradientStops.length - 1]?.color || defaults.dot1Color;
+  return {
+    background: normalizeNodeGraphTraceDisplayColor(floor, defaults.background),
+    ghost: normalizeNodeGraphTraceDisplayNumber(source.ghost ?? source.burn, defaults.ghost ?? defaults.burn, 0, 1),
+    trail: (typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
+      ? PhosphorResidual.migrateTrail(source, defaults.trail ?? (Number.isFinite(defaults.decay) ? 1 - defaults.decay : 0.88))
+      : normalizeNodeGraphTraceDisplayNumber(source.trail ?? (Number.isFinite(Number(source.decay)) ? 1 - Number(source.decay) : defaults.trail), defaults.trail ?? 0.88, 0, 1)),
+    dot1Brightness: normalizeNodeGraphTraceDisplayNumber(
+      source.dot1Brightness ?? source.brightness,
+      defaults.dot1Brightness,
+      0,
+      1,
+    ),
+    dot1Color: normalizeNodeGraphTraceDisplayColor(peak, defaults.dot1Color),
+    // Always on — hide the display if you don't want the pen.
+    dot1Enabled: true,
+    dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
+    gradientStops,
+    lineThickness: nodeGraphTraceDisplayClampStampBlur(
+      source.lineThickness ?? defaults.lineThickness,
+    ),
+    pixelDensity: normalizeNodeGraphTraceDisplayNumber(
+      source.pixelDensity,
+      defaults.pixelDensity,
+      0,
+      4,
+    ),
+    scale: normalizeNodeGraphTraceDisplayNumber(source.scale, defaults.scale, 0.01, 100),
+    sweepSeconds: normalizeNodeGraphLineBurnSweepSeconds(source, defaults),
+  };
+}
+
+
+function normalizeNodeGraphZeroDBurnSettings(settings = {}) {
+  const source = settings && typeof settings === "object" ? settings : {};
+  const defaults = nodeGraphZeroDBurnSettingsDefaults;
+  const gradientStops = nodeGraphPhosphorGradientStopsFromSettings(source, defaults.dot1Color);
+  const floor = gradientStops[0]?.color || defaults.background;
+  const peak = gradientStops[gradientStops.length - 1]?.color || defaults.dot1Color;
+  return {
+    background: normalizeNodeGraphTraceDisplayColor(floor, defaults.background),
+    bipolarBrightness: source.bipolarBrightness === true,
+    ghost: normalizeNodeGraphTraceDisplayNumber(source.ghost ?? source.burn, defaults.ghost ?? defaults.burn, 0, 1),
+    trail: (typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
+      ? PhosphorResidual.migrateTrail(source, defaults.trail ?? (Number.isFinite(defaults.decay) ? 1 - defaults.decay : 0.88))
+      : normalizeNodeGraphTraceDisplayNumber(source.trail ?? (Number.isFinite(Number(source.decay)) ? 1 - Number(source.decay) : defaults.trail), defaults.trail ?? 0.88, 0, 1)),
+    dot1Brightness: normalizeNodeGraphTraceDisplayNumber(
+      source.dot1Brightness ?? source.brightness,
+      defaults.dot1Brightness,
+      0,
+      1,
+    ),
+    dot1Color: normalizeNodeGraphTraceDisplayColor(peak, defaults.dot1Color),
+    dot1Enabled: true,
+    dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
+    gradientStops,
+    lineThickness: nodeGraphTraceDisplayClampStampBlur(
+      source.lineThickness ?? source.dot1Blur ?? defaults.lineThickness,
+    ),
+    pixelDensity: normalizeNodeGraphTraceDisplayNumber(
+      source.pixelDensity,
+      defaults.pixelDensity,
+      0,
+      4,
+    ),
+  };
+}
+
+
+function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
+  const source = settings && typeof settings === "object" ? settings : {};
+  const defaults = nodeGraphTraceDisplaySettingsDefaults;
+  const legacyWindowMs = source.windowMs === undefined ? undefined : Number(source.windowMs) / 1000;
+  const zoomSeconds = source.zoomSeconds ?? source.windowSeconds ?? legacyWindowMs;
+  return {
+    background: normalizeNodeGraphTraceDisplayColor(
+      source.background ?? source.backgroundColor,
+      defaults.background,
+    ),
+    brightness: normalizeNodeGraphTraceDisplayNumber(
+      source.brightness ?? source.dot1Brightness,
+      defaults.brightness,
+      0,
+      1,
+    ),
+    color: normalizeNodeGraphTraceDisplayColor(source.color ?? source.dot1Color, defaults.color),
+    dot1Enabled: true,
+    dot1Size: normalizeNodeGraphTraceDisplayNumber(
+      source.dot1Size,
+      defaults.dot1Size,
+      0,
+      1,
+    ),
+    secondaryBrightness: normalizeNodeGraphTraceDisplayNumber(
+      source.secondaryBrightness,
+      defaults.secondaryBrightness,
+      0,
+      1,
+    ),
+    secondaryColor: normalizeNodeGraphTraceDisplayColor(source.secondaryColor, defaults.secondaryColor),
+    secondaryEnabled: source.secondaryEnabled !== false,
+    secondarySize: normalizeNodeGraphTraceDisplayNumber(
+      source.secondarySize,
+      defaults.secondarySize,
+      0,
+      1,
+    ),
+    secondaryLineThickness: 0,
+    cycles: normalizeNodeGraphTraceDisplayNumber(source.cycles, defaults.cycles, -Infinity, Infinity),
+    // Trace is hard-stroke only (blur not meaningful for Canvas paths).
+    lineThickness: 0,
+    pixelDensity: normalizeNodeGraphTraceDisplayNumber(
+      source.pixelDensity,
+      defaults.pixelDensity,
+      0,
+      4,
+    ),
+    padding: normalizeNodeGraphTraceDisplayNumber(source.padding, defaults.padding, -Infinity, Infinity),
+    // Amplitude zoom: multiplies samples before face mapping (1 = full-scale).
+    scale: normalizeNodeGraphTraceDisplayNumber(source.scale, defaults.scale ?? 1, 0.01, 100),
+    skipDiscontinuities: source.skipDiscontinuities !== false,
+    sourceSync: source.sourceSync !== false,
+    stereoBlend: (function () {
+      const raw = String(source.stereoBlend || defaults.stereoBlend || "combine").toLowerCase().trim();
+      const ok = typeof TraceStroke !== "undefined" && Array.isArray(TraceStroke.STEREO_BLEND_MODES)
+        ? TraceStroke.STEREO_BLEND_MODES
+        : ["combine", "lighter", "screen", "source-over", "multiply", "difference", "exclusion", "xor"];
+      return ok.includes(raw) ? raw : "combine";
+    })(),
+    // Always auto — derived from Left/Right via meetColorFromPair (no manual meet).
+    meetColor: "auto",
+    syncChannel: (function normalizeSyncChannel() {
+      const raw = String(source.syncChannel || "").toLowerCase().trim();
+      if (raw === "left" || raw === "right" || raw === "mono" || raw === "off") {
+        return raw;
+      }
+      // Legacy boolean: true → mono (single-channel trigger), false → off.
+      if (source.sourceSync === false || source.sourceSync === 0 || source.sourceSync === "false") {
+        return "off";
+      }
+      if (source.sourceSync === true || source.sourceSync === 1 || source.sourceSync === "true") {
+        return "mono";
+      }
+      return defaults.syncChannel || "off";
+    })(),
+    zoomSeconds: normalizeNodeGraphTraceDisplayZoomSeconds(zoomSeconds, defaults.zoomSeconds),
+  };
+}
+
+
+function normalizeNodeGraphValueOscilloscopeSettings(settings = {}) {
+  const source = settings && typeof settings === "object" ? settings : {};
+  const defaults = nodeGraphValueOscilloscopeSettingsDefaults;
+  return {
+    background: normalizeNodeGraphTraceDisplayColor(
+      source.background ?? source.backgroundColor,
+      defaults.background,
+    ),
+    brightness: normalizeNodeGraphTraceDisplayNumber(
+      source.brightness ?? source.dot1Brightness,
+      defaults.brightness,
+      0,
+      1,
+    ),
+    capEnabled: source.capEnabled !== false,
+    capLength: normalizeNodeGraphTraceDisplayNumber(source.capLength, defaults.capLength, 0, 1),
+    capSize: normalizeNodeGraphTraceDisplayNumber(source.capSize, defaults.capSize, 0, 1),
+    ghost: normalizeNodeGraphTraceDisplayNumber(source.ghost ?? source.burn, defaults.ghost ?? defaults.burn, 0, 1),
+    color: normalizeNodeGraphTraceDisplayColor(source.color ?? source.dot1Color, defaults.color),
+    trail: (typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
+      ? PhosphorResidual.migrateTrail(source, defaults.trail ?? (Number.isFinite(defaults.decay) ? 1 - defaults.decay : 0.88))
+      : normalizeNodeGraphTraceDisplayNumber(source.trail ?? (Number.isFinite(Number(source.decay)) ? 1 - Number(source.decay) : defaults.trail), defaults.trail ?? 0.88, 0, 1)),
+    dot1Enabled: true,
+    dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
+    lineLength: normalizeNodeGraphTraceDisplayNumber(source.lineLength, defaults.lineLength, 0, 1),
+    lineThickness: normalizeNodeGraphTraceDisplayNumber(source.lineThickness, defaults.lineThickness, 0, 1),
+    pixelDensity: normalizeNodeGraphTraceDisplayNumber(
+      source.pixelDensity,
+      defaults.pixelDensity,
+      0,
+      4,
+    ),
+    scale: normalizeNodeGraphTraceDisplayNumber(source.scale, defaults.scale, 0.01, 100),
+  };
+}
+
+
+function nodeGraphSampleGradientStopsRgb(stops, energyT, peakFallback = "#75ebff") {
+  const list = Array.isArray(stops) && stops.length >= 2
+    ? stops
+    : nodeGraphPhosphorDefaultGradientStops(peakFallback);
+  const t = Math.max(0, Math.min(1, Number(energyT) || 0));
+  const hexToRgb = (hex, fb = "#808080") => {
+    const color = normalizeNodeGraphTraceDisplayColor(hex, fb);
+    const match = /^#?([0-9a-f]{6})$/i.exec(String(color).trim());
+    if (!match) {
+      return [128, 128, 128];
+    }
+    const n = Number.parseInt(match[1], 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  };
+  const first = list[0];
+  const last = list[list.length - 1];
+  if (t <= (Number(first.t) || 0)) {
+    return hexToRgb(first.color, peakFallback);
+  }
+  if (t >= (Number(last.t) || 1)) {
+    return hexToRgb(last.color, peakFallback);
+  }
+  for (let i = 1; i < list.length; i += 1) {
+    const a = list[i - 1];
+    const b = list[i];
+    const at = Number(a.t) || 0;
+    const bt = Number(b.t) || 1;
+    if (t <= bt) {
+      const u = (t - at) / Math.max(1e-6, bt - at);
+      const ar = hexToRgb(a.color, peakFallback);
+      const br = hexToRgb(b.color, peakFallback);
+      return [
+        Math.round(ar[0] + (br[0] - ar[0]) * u),
+        Math.round(ar[1] + (br[1] - ar[1]) * u),
+        Math.round(ar[2] + (br[2] - ar[2]) * u),
+      ];
+    }
+  }
+  return hexToRgb(last.color, peakFallback);
+}
+
+
+function normalizeNodeGraphNumberReadoutSettings(settings = {}) {
+  const source = settings && typeof settings === "object" ? settings : {};
+  const defaults = nodeGraphNumberReadoutSettingsDefaults;
+  // Digit energy→color LUT (shared phosphor multi-stop path).
+  const gradientStops = nodeGraphPhosphorGradientStopsFromSettings(source, defaults.color);
+  const peak = gradientStops[gradientStops.length - 1]?.color || defaults.color;
+  // LCD back plate is independent of gradient floor (own color widget).
+  const background = normalizeNodeGraphTraceDisplayColor(
+    source.background ?? source.backgroundColor,
+    defaults.background,
+  );
+  return {
+    background,
+    // 0…1 energy for live digits + residual deposit (1 = gradient tip / full white).
+    // Legacy max was 2 with paint-time /2 — that made Bright 1 look half-grey.
+    brightness: normalizeNodeGraphTraceDisplayNumber(
+      source.brightness ?? source.dot1Brightness,
+      defaults.brightness,
+      0,
+      1,
+    ),
+    // Digits = gradient at Bright energy; unlit segments use ghostColor as-is.
+    color: peak,
+    // Residual hold of previous number (0 = none, 1 = long). Legacy decay was same polarity.
+    trail: (typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
+      ? PhosphorResidual.migrateTrail(source, defaults.trail ?? 0.45, { invertLegacyDecay: false })
+      : normalizeNodeGraphTraceDisplayNumber(source.trail ?? source.decay, defaults.trail ?? 0.45, 0, 1)),
+    decimals: normalizeNodeGraphTraceDisplayNumber(source.decimals, defaults.decimals, 0, 8, true),
+    ghostColor: normalizeNodeGraphTraceDisplayColor(
+      source.ghostColor,
+      defaults.ghostColor,
+    ),
+    gradientStops,
+  };
+}
+
+
+function normalizeNodeGraphValueSliderFaceDisplaySettings(settings = {}) {
+  const source = settings && typeof settings === "object" ? settings : {};
+  const defaults = nodeGraphValueSliderFaceDisplaySettingsDefaults;
+  return {
+    decimals: normalizeNodeGraphTraceDisplayNumber(
+      source.decimals ?? source.numDecimals,
+      defaults.decimals,
+      0,
+      8,
+      true,
+    ),
+  };
+}
+
+
+function nodeGraphValueSliderFaceDisplaySettingsForNode(node) {
+  if (!node) {
+    return normalizeNodeGraphValueSliderFaceDisplaySettings();
+  }
+  // Prefer display-settings bucket; fall back to face blob if an older path wrote there.
+  const fromDisplay = node.traceDisplaySettings;
+  const fromFace = node.valueSliderFace;
+  const merged = {
+    ...(fromFace && typeof fromFace === "object" ? fromFace : {}),
+    ...(fromDisplay && typeof fromDisplay === "object" ? fromDisplay : {}),
+  };
+  return normalizeNodeGraphValueSliderFaceDisplaySettings(merged);
+}
+
+
+function normalizeNodeGraphScope2dSettings(settings = {}) {
+  const source = settings && typeof settings === "object" ? settings : {};
+  const defaults = nodeGraphScope2dSettingsDefaults;
+  const gradientStops = nodeGraphPhosphorGradientStopsFromSettings(source, defaults.dot1Color);
+  const floor = gradientStops[0]?.color || defaults.background;
+  const peak = gradientStops[gradientStops.length - 1]?.color || defaults.dot1Color;
+  return {
+    background: normalizeNodeGraphTraceDisplayColor(floor, defaults.background),
+    ghost: normalizeNodeGraphTraceDisplayNumber(source.ghost ?? source.burn, defaults.ghost ?? defaults.burn, 0, 1),
+    trail: (typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
+      ? PhosphorResidual.migrateTrail(source, defaults.trail ?? (Number.isFinite(defaults.decay) ? 1 - defaults.decay : 0.88))
+      : normalizeNodeGraphTraceDisplayNumber(source.trail ?? (Number.isFinite(Number(source.decay)) ? 1 - Number(source.decay) : defaults.trail), defaults.trail ?? 0.88, 0, 1)),
+    dot1Brightness: normalizeNodeGraphTraceDisplayNumber(
+      source.dot1Brightness ?? source.brightness,
+      defaults.dot1Brightness,
+      0,
+      1,
+    ),
+    dot1Color: normalizeNodeGraphTraceDisplayColor(peak, defaults.dot1Color),
+    dot1Enabled: true,
+    dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
+    dotBudget: Math.max(
+      64,
+      Math.min(8192, Math.round(
+        Number(source.dotBudget ?? defaults.dotBudget) || defaults.dotBudget,
+      )),
+    ),
+    gradientStops,
+    lineThickness: nodeGraphTraceDisplayClampStampBlur(
+      source.lineThickness ?? source.dot1Blur ?? defaults.lineThickness,
+    ),
+    pixelDensity: normalizeNodeGraphTraceDisplayNumber(
+      source.pixelDensity,
+      defaults.pixelDensity,
+      0,
+      4,
+    ),
+    scale: normalizeNodeGraphTraceDisplayNumber(source.scale, defaults.scale, 0, Infinity),
+  };
+}
+
+
+function normalizeNodeGraphScope2dTraceSettings(settings = {}) {
+  const source = settings && typeof settings === "object" ? settings : {};
+  const defaults = nodeGraphScope2dTraceSettingsDefaults;
+  return {
+    background: normalizeNodeGraphTraceDisplayColor(
+      source.background ?? source.backgroundColor,
+      defaults.background,
+    ),
+    dot1Brightness: normalizeNodeGraphTraceDisplayNumber(
+      source.dot1Brightness ?? source.brightness,
+      defaults.dot1Brightness,
+      0,
+      1,
+    ),
+    dot1Color: normalizeNodeGraphTraceDisplayColor(source.dot1Color ?? source.color, defaults.dot1Color),
+    dot1Enabled: true,
+    dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
+    historySeconds: normalizeNodeGraphTraceDisplayZoomSeconds(
+      source.historySeconds ?? source.history,
+      defaults.historySeconds,
+    ),
+    lineThickness: nodeGraphTraceDisplayClampStampBlur(
+      source.lineThickness ?? source.dot1Blur ?? defaults.lineThickness,
+    ),
+    pixelDensity: normalizeNodeGraphTraceDisplayNumber(
+      source.pixelDensity,
+      defaults.pixelDensity,
+      0,
+      4,
+    ),
+    scale: normalizeNodeGraphTraceDisplayNumber(source.scale, defaults.scale, 0, Infinity),
+  };
+}
+
+
+function nodeGraphZeroDBurnSettingsForNode(node) {
+  if (!node) {
+    return normalizeNodeGraphZeroDBurnSettings();
+  }
+  return normalizeNodeGraphZeroDBurnSettings(node.zeroDBurnSettings);
+}
+
+
+function nodeGraphTraceDisplaySettingsForNode(node) {
+  if (!node) {
+    return normalizeNodeGraphTraceDisplaySettings();
+  }
+  const settingsSchema = nodeGraphModuleDisplaySettingsSchemaForNode(node);
+  return settingsSchema === "value"
+    ? normalizeNodeGraphValueOscilloscopeSettings(node.traceDisplaySettings)
+    : normalizeNodeGraphTraceDisplaySettings(node.traceDisplaySettings);
+}
+
+
+function nodeGraphLineBurnSettingsForNode(node) {
+  if (!node) {
+    return normalizeNodeGraphLineBurnSettings();
+  }
+  return normalizeNodeGraphLineBurnSettings(node.traceDisplaySettings);
+}
+
+
+function nodeGraphNumberReadoutSettingsForNode(node) {
+  if (!node) {
+    return normalizeNodeGraphNumberReadoutSettings();
+  }
+  return normalizeNodeGraphNumberReadoutSettings(node.traceDisplaySettings);
+}
+
+
+function nodeGraphScope2dSettingsForNode(node) {
+  if (!node) {
+    return normalizeNodeGraphScope2dSettings();
+  }
+  return normalizeNodeGraphScope2dSettings(node.traceDisplaySettings);
+}
+
+
+function nodeGraphScope2dTraceSettingsForNode(node) {
+  if (!node) {
+    return normalizeNodeGraphScope2dTraceSettings();
+  }
+  return normalizeNodeGraphScope2dTraceSettings(node.traceDisplaySettings);
+}
+
+
+function nodeGraphGlobalTraceSettings() {
+  return normalizeNodeGraphTraceDisplaySettings(nodeGraphMvp?.traceSettings);
+}
+
+
+function nodeGraphTraceDisplaySettingsEditingGlobal() {
+  return nodeGraphMvp?.traceDisplaySettingsTargetNode === "__globalTraceSettings";
+}
+
+
+function nodeGraphTraceDisplaySettingsEditingTraceDefaults() {
+  if (nodeGraphTraceDisplaySettingsEditingGlobal()) {
+    return true;
+  }
+  const node = nodeGraphPatchNode(nodeGraphMvp?.traceDisplaySettingsTargetNode);
+  // Plain Trace nodes intentionally share one global look -- edits fall
+  // through to nodeGraphMvp.traceSettings below. Output reuses the same
+  // "trace" schema to render its Left/Right channels, but each Output
+  // node's colors/sizes are its own per-node choice (read straight off
+  // node.traceDisplaySettings in drawNodeGraphTraceDisplayCanvasItem), so
+  // it must never share the global bucket the way plain Trace nodes do.
+  return nodeGraphModuleDisplaySettingsSchemaForNode(node) === "trace" && node?.type !== "output";
+}
+

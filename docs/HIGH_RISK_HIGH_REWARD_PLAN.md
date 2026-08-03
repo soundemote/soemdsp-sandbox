@@ -148,13 +148,15 @@ Split without behavior change:
 - [x] Graph math cluster → `node-live-audio-worklet-graph.js`
 - [x] Parameter smoother cluster → `node-live-audio-worklet-smoother.js`
 - [x] Native destroy* cluster → `node-live-audio-worklet-destroy.js` (~72 methods)
-- [x] visual / scope-io / native-load / analog / param-map extracts
-- [x] scopes pure defaults → `node-graph-module-scope-defaults.js` (18 consts)
-- Core ~363KB → **~65KB**; method files wired after core in worklet Blob
+- [x] visual / scope-io / native-load / analog / param-map / events / dsp-state
+- [x] scopes pure defaults → `scope-defaults.js`
+- [x] scopes normalize* + display-mode helpers → `scope-normalize.js` / `scope-display-mode.js`
+- [x] worklet-core slimmed to **~13KB** constructor shell (all methods on prototype siblings)
+- Original megacore ~363KB → modular tree
 
 ### Next D slices
-- [ ] scopes: normalize* helpers by symbol (still interleaved with paint)
-- [ ] worklet: constructor / connection-map residual
+- [ ] scopes: paint/UI HTML clusters (optional)
+- [ ] worklet: evaluators map / setPlan further subdiv if needed
 
 ### Rule
 **Extract only** in first PR: same functions, new files, same load order. No renames of public globals until extract settles.
@@ -186,7 +188,8 @@ Split without behavior change:
 5. [x] B legacy set removed; free-run residual thinned; worklet graph+smoother extracted; ARCHITECTURE.md.
 6. [x] residual → `planFreeRun`; destroy* extract; free-run declaration-complete.
 7. [x] More worklet clusters + scopes defaults peel.
-8. **Next:** scopes normalize extract; constructor slim; C1 renames when product-ready.
+8. [x] scopes normalize + display-mode; worklet events/dsp-state; core shell ~13KB.
+9. **Next:** optional scopes paint split; C1 renames when product-ready.
 
 ---
 

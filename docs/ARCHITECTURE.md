@@ -62,17 +62,20 @@ See `docs/PATCH_MIGRATIONS.md`.
 
 ```text
 phasor-helpers · control-bus-helpers · parameter-smoother-filters
-node-live-audio-worklet-core.js          (~class shell, ~65KB)
-  · graph · smoother · param-map · destroy · analog
-  · visual · scope-io · native-load
+node-live-audio-worklet-core.js          (~13KB: consts + class + constructor)
+  · graph · smoother · param-map · destroy · analog · dsp-state
+  · events · visual · scope-io · native-load
   · evaluators · native-exports · set-plan · clear-plan
   · handle-message · scope-snapshot · evaluate-frame · process
 per-module *-worklet-evaluator.js
 node-live-audio-worklet-register.js      (registerProcessor last)
 ```
 
-Main-thread faces: `node-graph-module-scope-defaults.js` (pure constants) loads
-before `node-graph-module-scopes.js`.
+Main-thread faces load order:
+
+```text
+scope-defaults.js → scope-normalize.js → scope-display-mode.js → scopes.js
+```
 
 Mechanical rule: **extract only** — same method bodies on `NodeLiveAudioProcessor.prototype`.
 
@@ -89,8 +92,8 @@ New DSP should land as pure functions first, then thin adapters.
 
 ## Still large (next extracts)
 
-- `node-graph-module-scopes.js` (~593KB after defaults peel) — normalize/paint still interleaved; next: normalize* helpers by symbol
-- Worklet remaining: constructor bulk, connection builders, residual stubs
+- `node-graph-module-scopes.js` (~556KB) — paint/capture/UI HTML still large; next optional: phosphor energy / form HTML clusters
+- Worklet core is constructor shell; remaining bulk is evaluators map + setPlan/native-exports
 
 ## Related docs
 
