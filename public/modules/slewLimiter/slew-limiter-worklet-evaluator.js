@@ -44,6 +44,19 @@ NodeLiveAudioProcessor.prototype.slewLimiterSample = function slewLimiterSample(
         });
       }
     }
+    // JS path: pure math (slew-limiter-math.js).
+    if (typeof nodeGraphSlewLimiterSample === "function") {
+      return this.safeFilterNumber(
+        nodeGraphSlewLimiterSample(
+          state,
+          this.safeFilterNumber(input, state),
+          upTime,
+          downTime,
+          rate,
+        ),
+        state,
+      );
+    }
     return this.safeFilterNumber(input, state) ?? 0;
   };
 

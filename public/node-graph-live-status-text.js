@@ -21,7 +21,19 @@ function nodeGraphLivePlanStatusText(plan, serial = nodeGraphMvp.live.planSerial
   const fingerprintText = plan.patchFingerprint ? ` / fp ${plan.patchFingerprint}` : "";
   const visualText = (plan.visualSinks || []).length ? ` / ${(plan.visualSinks || []).length} visual` : "";
   const routeText = plan.speakerOutputActive ? "" : visualText ? " / visual-only" : "";
-  return `plan${serialText} ${plan.nodes.length} nodes / ${plan.connections.length} wires / ${plan.modulations.length} mods${visualText}${routeText}${feedbackText}${fingerprintText}`;
+  // Phase E: show slim vs combined when known (query/embed/live override).
+  let wasmText = "";
+  try {
+    const mode = typeof nodeGraphLiveGetNativeWasmLoadMode === "function"
+      ? nodeGraphLiveGetNativeWasmLoadMode()
+      : (typeof nodeGraphLiveNativeWasmLoadModeResolved !== "undefined"
+        ? nodeGraphLiveNativeWasmLoadModeResolved
+        : "");
+    if (mode === "slim" || mode === "combined") {
+      wasmText = ` / wasm ${mode}`;
+    }
+  } catch (_e) { /* ignore */ }
+  return `plan${serialText} ${plan.nodes.length} nodes / ${plan.connections.length} wires / ${plan.modulations.length} mods${visualText}${routeText}${feedbackText}${fingerprintText}${wasmText}`;
 }
 
 function nodeGraphLiveBlockedStatusText(kind, error) {

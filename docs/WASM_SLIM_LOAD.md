@@ -95,6 +95,8 @@ On `window` after load-mode resolve (Live Audio start):
 | `nodeGraphLiveNativeWasmFetchReport()` | totals + per-URL bytes |
 | `nodeGraphLiveNativeWasmFetchStats` | raw accumulator |
 
+Live plan status line also shows `/ wasm slim` or `/ wasm combined` when resolved.
+
 Player-style embed example (sibling of `index.html`, not under `public/`):
 
 ```json

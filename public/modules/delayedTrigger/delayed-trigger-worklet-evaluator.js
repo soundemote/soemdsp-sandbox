@@ -43,6 +43,19 @@ NodeLiveAudioProcessor.prototype.delayedTriggerSample = function delayedTriggerS
         });
       }
     }
+    // JS path: pure math (delayed-trigger-math.js).
+    if (typeof nodeGraphDelayedTriggerCore === "function") {
+      return this.safeFilterNumber(
+        nodeGraphDelayedTriggerCore(
+          state,
+          this.safeFilterNumber(trigger, null),
+          this.safeFilterNumber(reset, null),
+          params || {},
+          rateHz,
+        ),
+        null,
+      );
+    }
     return 0;
   };
 
