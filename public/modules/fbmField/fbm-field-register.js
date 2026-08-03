@@ -234,8 +234,8 @@ registerNodeGraphChromelessModule("fbmField", {
         min: "0",
         step: "0.01",
         tooltip:
-          "Overall field gain after contrast — face brightness and X/Y/Z together. "
-          + "1 = full. Lower = dimmer image and quieter CV (swings pull toward mid/zero).",
+          "Overall gain after contrast. Face: scales mono brightness toward black (0 = black plate). "
+          + "X/Y/Z: scales bipolar CV toward silence. 1 = full.",
       },
     ],
   },

@@ -413,9 +413,10 @@ extern "C" int soemdsp_fbm_field_fill_grid(
         spatialX, spatialY, t, mode,
         safeSeed, safeOctaves, safePers, safeLac, safeScale, safeSmooth, span
       );
-      // Same pipeline as jacks: contrast, then amplitude, then mono for gradient.
-      const double driven = applyContrastBipolar(safe_bounded(bipolar), safeContrast) * safeAmp;
-      gGridMono[j * w + i] = (float)bipolarToMono(safe_bounded(driven), 1.0);
+      // Contrast → mid-grey compression; Amplitude → scales that mono toward black (0).
+      // (Audio uses bipolar*contrast*amplitude → silence at 0; face uses mono*amp → black.)
+      const double mono = bipolarToMono(safe_bounded(bipolar), safeContrast);
+      gGridMono[j * w + i] = (float)clamp(mono * safeAmp, 0.0, 1.0);
     }
   }
   gGridW = w;
