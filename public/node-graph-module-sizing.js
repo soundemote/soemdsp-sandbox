@@ -804,8 +804,9 @@ function nodeGraphLayoutBGridHeightUnits(type, ui = {}, { compact = false } = {}
 const nodeGraphSolidModuleGridHeightUnits = nodeGraphLayoutBGridHeightUnits;
 
 function nodeGraphModuleGridHeightUnitsForUi(type, ui = {}) {
-  // Chromeless layouts have no generic header/IO strip math. Compact tiles are
-  // usually 1gu; LayoutB chromeless uses the shared shell+sliders contract.
+  // Chromeless: LayoutB uses shell+sliders; LayoutA uses the full header/face/IO/params stack
+  // (Soft Fractal multi-out). Do not size LayoutA chromeless as face-only — that stacks
+  // jacks and sliders into the display height and they overlap.
   if (nodeGraphChromelessModuleLayouts.has(nodeGraphModuleDefinitions[type]?.layout)) {
     if (nodeGraphChromelessModuleIsCompactTile(type)) {
       if (typeof nodeGraphModuleUsesLayoutB === "function" && nodeGraphModuleUsesLayoutB(type)) {
@@ -818,10 +819,9 @@ function nodeGraphModuleGridHeightUnitsForUi(type, ui = {}) {
     if (typeof nodeGraphModuleUsesLayoutB === "function" && nodeGraphModuleUsesLayoutB(type)) {
       return nodeGraphLayoutBGridHeightUnits(type, ui);
     }
-    if (nodeGraphModuleSizingCapabilities(type).displayHeight) {
-      return nodeGraphModuleConfiguredDisplayHeightUnits(type, ui);
-    }
-    return 1;
+    // LayoutA chromeless (ports under face + param rows): same math as ordinary LayoutA.
+    const layoutAContentGu = nodeGraphModuleRequiredHeightUnitsForUi(type, ui);
+    return nodeGraphModuleHeightWithBottomClearance(layoutAContentGu);
   }
   // Headerless LayoutB (knob, etc.).
   if (typeof nodeGraphModuleIsHeaderlessLayoutB === "function" && nodeGraphModuleIsHeaderlessLayoutB(type)) {

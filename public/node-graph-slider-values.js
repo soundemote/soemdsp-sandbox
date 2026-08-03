@@ -592,12 +592,7 @@ function nodeSliderValueFromRelativeTravel(slider, travel) {
   if (!Number.isFinite(range) || range <= 0 || !Number.isFinite(numericTravel)) {
     return min;
   }
-  if (numericTravel < 0 && slider.dataset.unboundedMin === "true") {
-    return min + range * numericTravel;
-  }
-  if (numericTravel > 1 && slider.dataset.unboundedMax === "true") {
-    return max + range * (numericTravel - 1);
-  }
+  // No UI overshoot — travel outside [0,1] clamps via pointer travel helper.
   return nodeSliderValueFromPointerTravel(slider, numericTravel);
 }
 
@@ -752,8 +747,10 @@ function setNodeSliderMetadata(slider, metadata) {
   slider.dataset.nonlinearSlider = slider.dataset.sliderCurve === "linear" ? "false" : "true";
   slider.dataset.showSign = metadata.showSign ? "true" : "false";
   slider.dataset.bipolar = metadata.bipolar ? "true" : "false";
-  slider.dataset.unboundedMax = metadata.unboundedMax ? "true" : "false";
-  slider.dataset.unboundedMin = metadata.unboundedMin ? "true" : "false";
+  // Clear legacy overshoot keys if present (older sessions).
+  if (slider.dataset.unboundedMax != null) delete slider.dataset.unboundedMax;
+  if (slider.dataset.unboundedMin != null) delete slider.dataset.unboundedMin;
+  if (slider.dataset.unboundedValue != null) delete slider.dataset.unboundedValue;
   slider.dataset.wraparound = metadata.wraparound ? "true" : "false";
   slider.value = String(normalizeNodeSliderValue(slider, Number(slider.value), metadata.min, metadata.max));
   syncNodeSliderReadout(slider);

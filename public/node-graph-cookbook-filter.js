@@ -269,7 +269,7 @@ function nodeGraphFilterCurveLiveParam(node, key, fallback = 0) {
     ? nodeGraphSliderForParameter(nodeId, key)
     : null;
   if (slider) {
-    const fromSlider = Number(slider.dataset.unboundedValue ?? slider.value);
+    const fromSlider = Number(slider.value);
     if (Number.isFinite(fromSlider)) {
       base = fromSlider;
     }

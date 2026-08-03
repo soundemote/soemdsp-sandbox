@@ -1,6 +1,50 @@
 // Scope buffer view / interpolate / zoom helpers (Phase D).
 // Load after scopes.js. Extract-only.
 
+/**
+ * Stable id per buffer object so Hx vs Hy (and any multi-signal) never share
+ * one auto-trigger lock. Sharing one lock across different buffers made traces
+ * freeze / thrash when several signals had Sync enabled.
+ */
+function nodeGraphScopeBufferObjectId(buffer) {
+  if (!buffer || typeof buffer !== "object") {
+    return "none";
+  }
+  if (buffer.nodeGraphScopeBufferKey != null && String(buffer.nodeGraphScopeBufferKey)) {
+    return String(buffer.nodeGraphScopeBufferKey);
+  }
+  if (!buffer._nodeGraphScopeObjectId) {
+    const serial = (nodeGraphModuleScopeState.bufferObjectIdSerial =
+      (Number(nodeGraphModuleScopeState.bufferObjectIdSerial) || 0) + 1);
+    buffer._nodeGraphScopeObjectId = `b${serial}`;
+  }
+  return String(buffer._nodeGraphScopeObjectId);
+}
+
+/**
+ * Per-display, per-trigger-buffer lock key.
+ * Must NOT be only `nodeId:channel` — one Soft Fractal Hx + Hy on two Traces
+ * (or multi-port views) would clobber a shared lock and freeze.
+ */
+function nodeGraphTraceDisplaySyncLockKey(slot, syncChannel, displayBuffer, triggerBuffer, options = {}) {
+  const nodeId = String(slot?.nodeId || "anon");
+  const port = String(
+    options.lockPort
+    || slot?.port
+    || slot?.sourcePort
+    || slot?.source?.value
+    || slot?.displayType
+    || "main",
+  );
+  const channel = String(syncChannel || "mono");
+  const displayId = nodeGraphScopeBufferObjectId(displayBuffer);
+  const triggerId = nodeGraphScopeBufferObjectId(triggerBuffer || displayBuffer);
+  const suffix = String(options.lockSuffix || "");
+  return [nodeId, port, channel, `d:${displayId}`, `t:${triggerId}`, suffix]
+    .filter((part) => part !== "")
+    .join("|");
+}
+
 function nodeGraphTraceDisplayBufferView(buffer, slot, options = {}) {
   const settings = nodeGraphTraceDisplaySettingsForSlot(slot);
   const zoomEditActive = Boolean(nodeGraphMvp?.traceDisplayZoomEditActive);
@@ -21,15 +65,28 @@ function nodeGraphTraceDisplayBufferView(buffer, slot, options = {}) {
     ? nodeGraphModuleScopeEstimatedCycle(syncBuffer || syncSourceBuffer)
     : null;
   if (syncEligible && estimatedCycle) {
-    const lockKey = `${String(slot?.nodeId || "")}:${syncChannel}`;
+    const lockKey = nodeGraphTraceDisplaySyncLockKey(
+      slot,
+      syncChannel,
+      buffer,
+      syncSourceBuffer,
+      options,
+    );
     let lock = nodeGraphModuleScopeState.traceDisplaySyncLocks.get(lockKey);
     if (!lock) {
       lock = {};
       nodeGraphModuleScopeState.traceDisplaySyncLocks.set(lockKey, lock);
     }
+    // If the trigger buffer object changed, drop stale phase (prevents freeze).
+    const triggerId = nodeGraphScopeBufferObjectId(syncSourceBuffer);
+    if (lock.triggerId && lock.triggerId !== triggerId) {
+      lock = {};
+      nodeGraphModuleScopeState.traceDisplaySyncLocks.set(lockKey, lock);
+    }
+    lock.triggerId = triggerId;
     const triggeredStart = nodeGraphTraceDisplayStabilizedSyncStart(
       lock,
-      syncSourceBuffer,
+      buffer,
       syncBuffer,
       estimatedCycle,
       visibleSamples,
@@ -75,10 +132,13 @@ function nodeGraphTraceDisplayStereoBufferViews(leftBuffer, rightBuffer, slot) {
   } else if (syncChannel === "mono") {
     syncBuffer = nodeGraphTraceDisplayMonoSyncBuffer(leftBuffer, rightBuffer) || leftBuffer;
   }
-  // Trigger window from the chosen source, then force both channels to that start.
+  // One master trigger for the pair — dedicated lock suffix so it never collides
+  // with a mono Trace on the same node watching only Left or Right.
   const master = nodeGraphTraceDisplayBufferView(syncBuffer, slot, {
     syncBuffer,
-    syncChannel: "mono",
+    syncChannel,
+    lockSuffix: `stereo-master:${syncChannel}`,
+    lockPort: "stereo",
   });
   return {
     left: nodeGraphTraceDisplayBufferView(leftBuffer, slot, {

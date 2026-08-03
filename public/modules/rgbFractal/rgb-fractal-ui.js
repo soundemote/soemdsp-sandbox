@@ -38,16 +38,9 @@ function nodeGraphRgbFractalStartLoop(face, nodeId) {
     if (!Number.isFinite(face._rgbFractalOrbitPhasor)) {
       face._rgbFractalOrbitPhasor = Number(face._rgbFractalPhase) || 0;
     }
-    if (!Number.isFinite(face._rgbFractalFlowPhasor)) face._rgbFractalFlowPhasor = 0;
-    if (!Number.isFinite(face._rgbFractalWarpPhasor)) face._rgbFractalWarpPhasor = 0;
     if (!Number.isFinite(face._rgbFractalRotationPhasor)) {
-      face._rgbFractalRotationPhasor = (Number(face._rgbFractalFlowPhasor) || 0) * 0.85;
+      face._rgbFractalRotationPhasor = 0;
     }
-    if (!Number.isFinite(face._rgbFractalColorPhasor)) {
-      face._rgbFractalColorPhasor = (Number(face._rgbFractalOrbitPhasor) || 0) * 0.14;
-    }
-    if (!Number.isFinite(face._rgbFractalPanPhasor)) face._rgbFractalPanPhasor = 0;
-    if (!Number.isFinite(face._rgbFractalTrapPhasor)) face._rgbFractalTrapPhasor = 0;
     face._rgbFractalPhase = face._rgbFractalOrbitPhasor;
   }
   face._rgbFractalLastTs = 0;

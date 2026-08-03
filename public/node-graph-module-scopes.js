@@ -70,11 +70,14 @@ const nodeGraphModuleScopeState = {
   slots: new Map(),
   traceDisplayDrawCache: new Map(),
   traceDisplayScratch: new Map(),
-  // Per-DISPLAY-node auto-trigger lock for Trace/Output Sync (phase EMA,
-  // miss timeout). Keyed by the display's own node id — NOT the shared
-  // captured-signal buffer — so multiple scopes on one source keep independent
-  // locks. See nodeGraphTraceDisplayStabilizedSyncStart.
+  // Per-display + per-trigger-buffer auto-trigger locks (phase EMA, miss
+  // timeout). Keys include nodeId, port, sync channel, and buffer object ids
+  // so multi-signal Sync never shares one lock (that froze traces). See
+  // nodeGraphTraceDisplaySyncLockKey / StabilizedSyncStart.
   traceDisplaySyncLocks: new Map(),
+  /** @type {Map<string, Float32Array>} */
+  monoSyncScratch: new Map(),
+  bufferObjectIdSerial: 0,
   traceImageTexture: {
     dataUrl: "",
     generatedKey: "",

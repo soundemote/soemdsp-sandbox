@@ -313,9 +313,7 @@ function syncNodeSliderReadout(slider) {
   const labelText = readout.querySelector(".node-slider-readout-label");
   const valueText = readout.querySelector(".node-slider-readout-value");
   const unitText = readout.querySelector(".node-slider-readout-unit");
-  const displayValue = Number.isFinite(Number(slider.dataset.unboundedValue))
-    ? Number(slider.dataset.unboundedValue)
-    : Number(slider.value);
+  const displayValue = Number(slider.value);
   const position = nodeSliderTravelFromValue(slider, Number(slider.value)) * 100;
   let unit = (slider.dataset.unit || "").trim();
   let formattedValue = displayValue;

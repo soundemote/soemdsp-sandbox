@@ -57,6 +57,20 @@
     { t: 1, color: "#ffffff" },
   ]);
 
+  // Soft Fractal default: deep indigo floor → blue/magenta/orange psychedelic ramp → white.
+  // Same stops as nodeGraphRgbFractalSettingsDefaults.gradientStops.
+  const DEFAULT_SOFT_FRACTAL_STOPS = Object.freeze([
+    { t: 0, color: "#050018" },
+    { t: 0.1, color: "#12083a" },
+    { t: 0.22, color: "#1a1cff" },
+    { t: 0.38, color: "#b000ff" },
+    { t: 0.52, color: "#ff1493" },
+    { t: 0.66, color: "#ff6a00" },
+    { t: 0.8, color: "#ffd54a" },
+    { t: 0.92, color: "#fff6c8" },
+    { t: 1, color: "#ffffff" },
+  ]);
+
   // Black/white channel presets only (no hue/RGB ramps).
   const PRESETS_BW = Object.freeze([
     {
@@ -142,6 +156,23 @@
       id: "matrix",
       label: "Matrix",
       colors: ["#000000", "#001a08", "#0a5c20", "#1ecf55", "#7dff9a", "#ffffff"],
+    },
+    {
+      // Soft Fractal module default (uneven stop positions — use `stops` not even colors).
+      id: "softFractal",
+      label: "Soft Fractal",
+      colors: [
+        "#050018",
+        "#12083a",
+        "#1a1cff",
+        "#b000ff",
+        "#ff1493",
+        "#ff6a00",
+        "#ffd54a",
+        "#fff6c8",
+        "#ffffff",
+      ],
+      stops: DEFAULT_SOFT_FRACTAL_STOPS,
     },
   ]);
 
@@ -663,9 +694,14 @@
         btn.textContent = preset.label;
         btn.title = preset.colors.join(", ");
         btn.addEventListener("click", () => {
-          stops = mono
-            ? forceStopsGrayscale(colorsToStops(preset.colors))
-            : colorsToStops(preset.colors);
+          // Prefer explicit stops (preserves Soft Fractal / Matrix spacing); else even colors.
+          let next;
+          if (Array.isArray(preset.stops) && preset.stops.length >= 2) {
+            next = preset.stops.map((s) => ({ t: s.t, color: s.color }));
+          } else {
+            next = colorsToStops(preset.colors);
+          }
+          stops = mono ? forceStopsGrayscale(next) : next;
           activeIndex = 0;
           activePresetId = preset.id;
           renderBar();
@@ -964,8 +1000,8 @@
     // RGB Soft Fractal: Julia smooth-iter → psychedelic gradient.
     rgbFractalFace: Object.freeze({
       channels: "color",
-      defaultStops: "phosphor",
-      hint: "Julia escape → color · vivid multi-stop gradient · live evolving",
+      defaultStops: "softFractal",
+      hint: "Julia escape → color · Soft Fractal preset · live evolving",
     }),
     // Fractal Brownian Field: mono field energy → multi-stop gradient.
     fbmFieldFace: Object.freeze({
@@ -1007,6 +1043,9 @@
     }
     if (kind === "matrix") {
       return DEFAULT_MATRIX_STOPS.map((s) => ({ t: s.t, color: s.color }));
+    }
+    if (kind === "softFractal") {
+      return DEFAULT_SOFT_FRACTAL_STOPS.map((s) => ({ t: s.t, color: s.color }));
     }
     // phosphor / color energy faces (including numberReadout LCD)
     return DEFAULT_PHOSPHOR_STOPS.map((s) => ({ t: s.t, color: s.color }));

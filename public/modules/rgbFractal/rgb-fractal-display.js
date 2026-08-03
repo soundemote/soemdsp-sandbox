@@ -2,10 +2,11 @@
 // Continuous phasors for seed/flow/warp/rotation/color (speed changes rate only).
 
 const nodeGraphRgbFractalSettingsDefaults = Object.freeze({
-  background: "#050014",
+  // True black plate — exterior / empty energy stays dark (not a strobing field).
+  background: "#000000",
   gradientStops: Object.freeze([
-    Object.freeze({ t: 0, color: "#050018" }),
-    Object.freeze({ t: 0.1, color: "#12083a" }),
+    Object.freeze({ t: 0, color: "#000000" }),
+    Object.freeze({ t: 0.12, color: "#12083a" }),
     Object.freeze({ t: 0.22, color: "#1a1cff" }),
     Object.freeze({ t: 0.38, color: "#b000ff" }),
     Object.freeze({ t: 0.52, color: "#ff1493" }),
@@ -92,6 +93,30 @@ function nodeGraphRgbFractalReadParam(nodeId, key, fallback) {
   return Number.isFinite(raw) ? raw : fallback;
 }
 
+/** Latest sample from a buffered input port (Rotation / In). */
+function nodeGraphRgbFractalReadPort(nodeId, port, fallback = 0) {
+  const id = String(nodeId || "").trim();
+  const p = String(port || "").trim();
+  if (!id || !p) {
+    return fallback;
+  }
+  try {
+    const key = `${id}:${p}`;
+    const buf = typeof nodeGraphModuleScopeState !== "undefined"
+      ? nodeGraphModuleScopeState?.buffers?.get?.(key)
+      : null;
+    if (buf?.length) {
+      const sample = typeof nodeGraphOscilloscopeLatestSample === "function"
+        ? nodeGraphOscilloscopeLatestSample(buf, fallback)
+        : Number(buf[buf.length - 1]);
+      if (Number.isFinite(sample)) {
+        return sample;
+      }
+    }
+  } catch (_) { /* fall through */ }
+  return fallback;
+}
+
 function nodeGraphRgbFractalCanvasForSlot(slot) {
   const face = slot?.scopeElement;
   if (!face) {
@@ -139,104 +164,60 @@ function nodeGraphRgbFractalEnsurePhasors(face) {
   if (!Number.isFinite(face._rgbFractalOrbitPhasor)) {
     face._rgbFractalOrbitPhasor = Number(face._rgbFractalPhase) || 0;
   }
-  if (!Number.isFinite(face._rgbFractalFlowPhasor)) {
-    face._rgbFractalFlowPhasor = 0;
-  }
-  if (!Number.isFinite(face._rgbFractalWarpPhasor)) {
-    face._rgbFractalWarpPhasor = 0;
-  }
   if (!Number.isFinite(face._rgbFractalRotationPhasor)) {
-    face._rgbFractalRotationPhasor = (Number(face._rgbFractalFlowPhasor) || 0) * 0.85;
-  }
-  if (!Number.isFinite(face._rgbFractalColorPhasor)) {
-    face._rgbFractalColorPhasor = (Number(face._rgbFractalOrbitPhasor) || 0) * 0.14;
-  }
-  if (!Number.isFinite(face._rgbFractalPanPhasor)) {
-    face._rgbFractalPanPhasor = 0;
-  }
-  if (!Number.isFinite(face._rgbFractalTrapPhasor)) {
-    face._rgbFractalTrapPhasor = 0;
+    face._rgbFractalRotationPhasor = 0;
   }
   face._rgbFractalPhase = face._rgbFractalOrbitPhasor;
 }
 
-/**
- * Map seed + motion params → Julia c near Mandelbrot-edge families.
- * opts: { morph, wander, orbitSize, harm1, harm2, detune }
- */
-function nodeGraphRgbFractalComputeC(seed, warp, tOrbit, tFlow, tWarp, opts = {}) {
-  const loci = NODE_GRAPH_RGB_FRACTAL_LOCI;
+/** Continuous sample of locus ring at s∈[0,1) — Catmull–Rom (matches audio path). */
+function nodeGraphRgbFractalSampleLocus(loci, s01) {
   const n = loci.length;
-  const w = Math.max(0, Number(warp) || 0);
-  const morph = Math.max(0, Number(opts.morph) || 0);
-  const wanderAmt = Math.max(0, Number(opts.wander) || 0);
-  const orbitSize = Math.max(0, Number(opts.orbitSize) || 1);
-  const harm1 = Math.max(0.05, Number(opts.harm1) || 1);
-  const harm2 = Math.max(0.05, Number(opts.harm2) || 1.618);
-  const detune = Math.max(0, Number(opts.detune) || 0);
+  if (!(n > 0)) return { x: 0, y: 0 };
+  const u = (((s01 % 1) + 1) % 1) * n;
+  const i1 = Math.floor(u) % n;
+  const t = u - Math.floor(u);
+  const i0 = (i1 - 1 + n) % n;
+  const i2 = (i1 + 1) % n;
+  const i3 = (i1 + 2) % n;
+  const p0 = loci[i0];
+  const p1 = loci[i1];
+  const p2 = loci[i2];
+  const p3 = loci[i3];
+  const t2 = t * t;
+  const t3 = t2 * t;
+  const x = 0.5 * (
+    (2 * p1.x)
+    + (-p0.x + p2.x) * t
+    + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2
+    + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3
+  );
+  const y = 0.5 * (
+    (2 * p1.y)
+    + (-p0.y + p2.y) * t
+    + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2
+    + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3
+  );
+  return { x, y };
+}
 
-  // Seed walks the locus ring with smooth crossfade
-  const u = ((seed % 1) + 1) % 1 * n;
-  const i0 = Math.floor(u) % n;
-  const i1 = (i0 + 1) % n;
-  const f = u - Math.floor(u);
-  const ft = f * f * (3 - 2 * f);
-  const a = loci[i0];
-  const b = loci[i1];
-  let cx = a.x + (b.x - a.x) * ft;
-  let cy = a.y + (b.y - a.y) * ft;
-
-  // Local multi-harmonic orbit (Lissajous-ish). harm1/harm2 + detune → quasi-periodic.
-  const rad = (0.01 + orbitSize * 0.07 + Math.min(w, 4) * 0.02) * (0.55 + orbitSize * 0.45);
-  const dSkew = 1 + detune * 0.271828;
-  const a1 = tOrbit * harm1 + tFlow * (1.1 + detune * 0.37) + seed * 6.28318;
-  const a2 = tOrbit * harm2 * dSkew - tFlow * 0.4 + tWarp * (0.7 + detune * 0.2) + seed * 3.1;
-  const a3 = tOrbit * (harm1 + harm2) * 0.5 * (1 + detune * 0.14142) + tWarp * 0.31;
-  cx += rad * Math.cos(a1) * (0.5 + 0.35 * Math.cos(a2 * 0.37) + 0.15 * Math.sin(a3));
-  cy += rad * Math.sin(a1 * 0.93 + 0.35) * (0.5 + 0.35 * Math.sin(a2 * 0.51) + 0.15 * Math.cos(a3 * 1.07));
-
-  // Morph toward a distant family (independent of warp chaos)
-  if (morph > 0.01) {
-    const mAmt = Math.min(1, Math.pow(morph / 2.2, 0.8));
-    const j = (i0 + 3 + Math.floor(seed * 7 + morph * 2)) % n;
-    const c = loci[j];
-    const j2 = (j + 5) % n;
-    const c2 = loci[j2];
-    const mt = 0.5 + 0.5 * Math.sin(tWarp * (0.4 + detune * 0.15) + tOrbit * 0.11);
-    const mx = c.x + (c2.x - c.x) * mt;
-    const my = c.y + (c2.y - c.y) * mt;
-    cx = cx * (1 - mAmt) + mx * mAmt;
-    cy = cy * (1 - mAmt) + my * mAmt;
+/**
+ * Pure planetary c(t) — same as audio: Seed + circular orbit only.
+ */
+function nodeGraphRgbFractalComputeC(seed, tOrbit, orbitSize) {
+  if (typeof nodeGraphRgbFractalAudioComputeC === "function") {
+    return nodeGraphRgbFractalAudioComputeC(seed, tOrbit, orbitSize);
   }
-
-  // Wander / chaos path on c (rate from warp phasor, amount from wander)
-  if (wanderAmt > 0.01 || w > 0.01) {
-    const wAmt = Math.min(1.4, wanderAmt * 0.55 + Math.min(w, 4) * 0.2);
-    const amp = 0.02 + wanderAmt * 0.09 + Math.min(w, 4) * 0.03;
-    const f1 = 1.1 + seed + detune * 0.19;
-    const f2 = 0.9 + seed * 0.7 + detune * 0.31;
-    const f3 = 2.1 + detune * 0.47;
-    cx += wAmt * amp * Math.sin(tWarp * f1 + tOrbit * 0.2 + a1 * 0.15);
-    cy += wAmt * amp * Math.cos(tWarp * f2 - tOrbit * 0.15 - a2 * 0.12);
-    if (wanderAmt > 0.4 || w > 0.5) {
-      const k = Math.min(1.4, (wanderAmt + w) * 0.35);
-      cx += k * 0.08 * Math.sin(tWarp * f3 + a1);
-      cy += k * 0.08 * Math.cos(tWarp * (1.7 + detune * 0.2) - a2);
-      // Slow third-order drift so paths don't re-close soon
-      cx += k * 0.04 * Math.sin(tFlow * (0.17 + detune * 0.05) + seed * 5.0);
-      cy += k * 0.04 * Math.cos(tFlow * (0.13 + detune * 0.07) - seed * 4.0);
-    }
-  }
-
-  // Soft clamp into a drawable Julia neighborhood (prevents total wash-out)
-  const cMag = Math.hypot(cx, cy);
-  const clampR = 1.45 + Math.min(0.35, orbitSize * 0.08 + wanderAmt * 0.05);
-  if (cMag > clampR) {
-    const s = clampR / cMag;
-    cx *= s;
-    cy *= s;
-  }
-  return { cx, cy };
+  const loci = NODE_GRAPH_RGB_FRACTAL_LOCI;
+  const seed01 = ((seed % 1) + 1) % 1;
+  const base = nodeGraphRgbFractalSampleLocus(loci, seed01);
+  const size = Number(orbitSize);
+  const rad = (Number.isFinite(size) ? Math.max(0, size) : 0) * 0.028;
+  const theta = tOrbit;
+  return {
+    cx: base.x + rad * Math.cos(theta),
+    cy: base.y + rad * Math.sin(theta),
+  };
 }
 
 function syncNodeGraphRgbFractalCanvas(canvas, face, pixelRatio) {
@@ -358,20 +339,30 @@ function paintNodeGraphRgbFractalFaceCpu(canvas, face, params) {
   }
   const aspect = simW / Math.max(1, simH);
   const { cx, cy, halfSpan, cosR, sinR, centerX, centerY, colorPhase, breath, glow } = params;
+  const panX = Number(params.panX) || 0;
+  const panY = Number(params.panY) || 0;
   for (let j = 0; j < simH; j += 1) {
-    const vn = ((j + 0.5) / simH) * 2 - 1;
     const row = j * simW;
     for (let i = 0; i < simW; i += 1) {
+      // Pure offset pan (no UV wrap) — matches WebGL mapUvToZ
       const un = ((i + 0.5) / simW) * 2 - 1;
+      const vn = ((j + 0.5) / simH) * 2 - 1;
       const zx = un * halfSpan * aspect;
       const zy = vn * halfSpan;
-      const rx = zx * cosR - zy * sinR + centerX;
-      const ry = zx * sinR + zy * cosR + centerY;
+      const rx = zx * cosR - zy * sinR + centerX + panX;
+      const ry = zx * sinR + zy * cosR + centerY + panY;
       let e = nodeGraphRgbFractalJuliaSmooth(rx, ry, cx, cy, maxIter);
       e = Math.pow(Math.max(0, Math.min(1, e)), 0.72 - glow * 0.25);
-      e = (e * (2.2 + glow * 2.5) + colorPhase) % 1;
-      if (e < 0) e += 1;
-      field[row + i] = Math.max(0, Math.min(1, e * breath));
+      // Gate palette phase by energy so empty exterior stays black (no full-face strobe).
+      const lit = e < 0.03 ? 0 : Math.min(1, (e - 0.03) / 0.19);
+      if (lit > 0.001) {
+        e = (e * (2.2 + glow * 2.5) + colorPhase * lit) % 1;
+        if (e < 0) e += 1;
+        e *= lit * breath;
+      } else {
+        e = 0;
+      }
+      field[row + i] = Math.max(0, Math.min(1, e));
     }
   }
 
@@ -469,8 +460,9 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
   }
   face._rgbFractalBlack = false;
 
-  // Wide practical ranges (match register definition). Speed is bipolar (−8…+8).
-  const speed = Math.max(-8, Math.min(8, nodeGraphRgbFractalReadParam(nodeId, "speed", 1)));
+  // Domain values come from params (UI already honors min/max). No code re-clamp.
+  const speedRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "speed", 1));
+  const speed = Number.isFinite(speedRaw) ? speedRaw : 0;
   const frozen = nodeGraphRgbFractalShouldFreeze(speed);
   if (frozen && face._rgbFractalHasFrame && !options.force) {
     face._rgbFractalLastTs = 0;
@@ -481,6 +473,7 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
 
   let dt = Number(options.dt);
   if (!Number.isFinite(dt) || dt < 0) dt = 0;
+  // Frame dt cap is render safety (not a parameter limit).
   dt = Math.min(0.05, dt);
   if (frozen) dt = 0;
 
@@ -506,148 +499,87 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
   }
 
   const seed = ((nodeGraphRgbFractalReadParam(nodeId, "seed", 0) % 1) + 1) % 1;
-  // Scale is fixed zoom only (no auto zoom in/out). Max stays practical.
-  const scale = Math.max(0.1, Math.min(48, nodeGraphRgbFractalReadParam(nodeId, "scale", 1.2)));
-  const depth = Math.max(0, Math.min(4, nodeGraphRgbFractalReadParam(nodeId, "depth", 1.2)));
-  const warp = Math.max(0, Math.min(4, nodeGraphRgbFractalReadParam(nodeId, "warp", 0.6)));
-  const rotation = Math.max(-8, Math.min(8, nodeGraphRgbFractalReadParam(nodeId, "rotation", 0.4)));
-  const softRaw = Math.max(0, Math.min(2, nodeGraphRgbFractalReadParam(nodeId, "soft", 0.85)));
-  const flow = Math.max(0, Math.min(4, nodeGraphRgbFractalReadParam(nodeId, "flow", 0.4)));
-  const glowRaw = Math.max(0, Math.min(4, nodeGraphRgbFractalReadParam(nodeId, "glow", 1)));
-  const panX = Math.max(-4, Math.min(4, nodeGraphRgbFractalReadParam(nodeId, "x", 0)));
-  const panY = Math.max(-4, Math.min(4, nodeGraphRgbFractalReadParam(nodeId, "y", 0)));
-  const detune = Math.max(0, Math.min(3, nodeGraphRgbFractalReadParam(nodeId, "detune", 0.45)));
-  const orbitRateK = Math.max(0, Math.min(4, nodeGraphRgbFractalReadParam(nodeId, "orbit", 1)));
-  const orbitSize = Math.max(0, Math.min(4, nodeGraphRgbFractalReadParam(nodeId, "orbitSize", 1)));
-  const morph = Math.max(0, Math.min(4, nodeGraphRgbFractalReadParam(nodeId, "morph", 0.7)));
-  const wander = Math.max(0, Math.min(4, nodeGraphRgbFractalReadParam(nodeId, "wander", 0.55)));
-  const harm1 = Math.max(0.1, Math.min(5, nodeGraphRgbFractalReadParam(nodeId, "harm1", 1)));
-  const harm2 = Math.max(0.1, Math.min(5, nodeGraphRgbFractalReadParam(nodeId, "harm2", 1.618)));
-  const panDrift = Math.max(0, Math.min(4, nodeGraphRgbFractalReadParam(nodeId, "panDrift", 0.15)));
-  const panSize = Math.max(0, Math.min(2, nodeGraphRgbFractalReadParam(nodeId, "panSize", 0.25)));
-  const fold = Math.max(0, Math.min(2, nodeGraphRgbFractalReadParam(nodeId, "fold", 0.35)));
-  const trapAmt = Math.max(0, Math.min(2, nodeGraphRgbFractalReadParam(nodeId, "trap", 0.55)));
-  const trapSpin = Math.max(0, Math.min(4, nodeGraphRgbFractalReadParam(nodeId, "trapSpin", 0.5)));
-  const trapRad = Math.max(0, Math.min(2, nodeGraphRgbFractalReadParam(nodeId, "trapRad", 0.4)));
-  const colorRateK = Math.max(0, Math.min(4, nodeGraphRgbFractalReadParam(nodeId, "colorRate", 1)));
-  const colorShift = ((nodeGraphRgbFractalReadParam(nodeId, "colorShift", 0) % 1) + 1) % 1;
-  const bands = Math.max(0, Math.min(4, nodeGraphRgbFractalReadParam(nodeId, "bands", 1)));
-  const domainWarp = Math.max(0, Math.min(2, nodeGraphRgbFractalReadParam(nodeId, "domainWarp", 0.4)));
+  const scaleRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "scale", 1.2));
+  const scale = Number.isFinite(scaleRaw) && scaleRaw > 0 ? scaleRaw : 1.2;
+  const depthRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "depth", 1.2));
+  const depth = Number.isFinite(depthRaw) ? Math.max(0, depthRaw) : 1.2;
+  const orbitSize = nodeGraphRgbFractalReadParam(nodeId, "orbitSize", 1);
+  // Pure view offset (bipolar); applied in complex plane after halfSpan is known.
+  const panXRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "panX", 0));
+  const panYRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "panY", 0));
+  const panAmtX = Number.isFinite(panXRaw) ? panXRaw : 0;
+  const panAmtY = Number.isFinite(panYRaw) ? panYRaw : 0;
 
-  // Shader expects soft/glow roughly 0…1 intensity (soft 2 / glow 4 = full throw)
-  const soft = Math.min(1, softRaw / 1.5);
-  const glow = Math.min(1.35, glowRaw / 2.2);
+  // Face look: Soft + Color Bands.
+  const softRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "soft", 0.18));
+  const soft = Number.isFinite(softRaw) ? Math.max(0, Math.min(1, softRaw)) : 0.18;
+  const bandsRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "bands", 1));
+  const bands = Number.isFinite(bandsRaw) ? Math.max(0.25, bandsRaw) : 1;
+  const glow = 0;
+  const breath = 1;
+  face._rgbFractalBreath = 1;
 
-  let breath = Number(face._rgbFractalBreath);
-  if (!Number.isFinite(breath)) breath = 1;
-  const buffer = options.buffer;
-  if (buffer?.length && !buffer.nodeGraphScopeXy) {
-    const sample = typeof nodeGraphOscilloscopeLatestSample === "function"
-      ? nodeGraphOscilloscopeLatestSample(buffer, 0)
-      : Number(buffer[buffer.length - 1]);
-    if (Number.isFinite(sample)) {
-      breath = Math.max(0.55, Math.min(1.4, 0.9 + sample * 0.5));
-      face._rgbFractalBreath = breath;
-    }
-  }
+  const rotMultRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "rotation", 1));
+  const rotMult = Number.isFinite(rotMultRaw) ? rotMultRaw : 0;
 
   nodeGraphRgbFractalEnsurePhasors(face);
   if (dt > 0) {
-    // Signed master speed; Detune multiplies secondary rates by irrational-ish factors
-    // so phasors rarely re-lock (ever-evolving instead of short loops).
-    const speedAbs = Math.abs(speed);
-    const sign = Math.sign(speed || 1);
-    const d1 = 1 + detune * 0.6180339887;
-    const d2 = 1 + detune * 1.4142135623;
-    const d3 = 1 + detune * 0.7071067811;
-    const d4 = 1 + detune * 0.3333333333;
-    const seedOrbitSkew = 0.65 + seed * 0.7;
-    const orbitRate = speed * orbitRateK * (0.75 + Math.min(warp, 4) * 0.12) * seedOrbitSkew * d1;
-    face._rgbFractalOrbitPhasor += orbitRate * dt;
-    face._rgbFractalFlowPhasor += speed * flow * 0.85 * d2 * dt;
-    face._rgbFractalWarpPhasor += speed * (0.2 + Math.min(warp, 4) * 0.65) * d3 * dt;
-    const spinGate = speedAbs > 1e-6
-      ? (0.35 + Math.min(speedAbs, 8) * 0.12) * sign
-      : 0;
-    face._rgbFractalRotationPhasor += rotation * spinGate * dt;
-    face._rgbFractalColorPhasor += speed * colorRateK * (0.14 + glowRaw * 0.05) * d4 * dt;
-    face._rgbFractalPanPhasor += speed * panDrift * 0.28 * (1 + detune * 0.5) * dt;
-    face._rgbFractalTrapPhasor += speed * trapSpin * 0.55 * (1 + detune * 0.41) * dt;
+    // Shared planetary clock: pure θ for face c + co-rotation.
+    const dTheta = speed * 0.32 * dt;
+    face._rgbFractalOrbitPhasor += dTheta;
     face._rgbFractalPhase = face._rgbFractalOrbitPhasor;
+    face._rgbFractalRotationPhasor += -rotMult * dTheta;
   }
 
   const tOrbit = Number(face._rgbFractalOrbitPhasor) || 0;
-  const tFlow = Number(face._rgbFractalFlowPhasor) || 0;
-  const tWarp = Number(face._rgbFractalWarpPhasor) || 0;
-  const tRot = Number(face._rgbFractalRotationPhasor) || 0;
-  const tColor = (Number(face._rgbFractalColorPhasor) || 0) + seed * 2.4 + colorShift * 6.28318;
-  const tPan = Number(face._rgbFractalPanPhasor) || 0;
-  const tTrap = Number(face._rgbFractalTrapPhasor) || 0;
+  const { cx, cy } = nodeGraphRgbFractalComputeC(seed, tOrbit, orbitSize);
 
-  const { cx, cy } = nodeGraphRgbFractalComputeC(seed, warp, tOrbit, tFlow, tWarp, {
-    morph,
-    wander,
-    orbitSize,
-    harm1,
-    harm2,
-    detune,
-  });
-
-  // Fixed Scale only — no zoom breathing / pulse. Higher scale = smaller window.
-  // halfSpan floor keeps a practical dig without floating-point mush.
   const halfSpan = Math.max(
     0.022,
     Math.min(5, 2.55 / Math.pow(Math.max(0.1, scale), 0.92)),
   );
-  const rot = tRot * Math.PI * 2;
+  // Pan ±1 ≈ shift by one half-span (pure offset, no wrap).
+  const panX = panAmtX * halfSpan;
+  const panY = panAmtY * halfSpan;
+
+  const rot = Number(face._rgbFractalRotationPhasor) || 0;
   const cosR = Math.cos(rot);
   const sinR = Math.sin(rot);
-  // Manual pan + auto elliptical pan (detuned so it doesn't re-sync with orbit)
-  const autoPanX = panSize * Math.cos(tPan * Math.PI * 2);
-  const autoPanY = panSize * Math.sin(tPan * Math.PI * 2 * (1 + detune * 0.27) + 0.4);
-  const centerX = (panX + autoPanX) * halfSpan * 0.55;
-  const centerY = -(panY + autoPanY) * halfSpan * 0.55;
+  const centerX = 0;
+  const centerY = 0;
 
   const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   const settings = nodeGraphRgbFractalSettingsForNode(patchNode);
 
-  // Orbit-trap attractor: independent trap phasor + trapRad
-  const trapAmp = 0.08 + trapRad * 0.45 + Math.min(flow, 4) * 0.04;
-  const trapX = trapAmp * Math.cos(tTrap * Math.PI * 2 + seed * 4.0)
-    + 0.08 * Math.sin(tWarp * (1 + detune * 0.2));
-  const trapY = trapAmp * Math.sin(tTrap * Math.PI * 2 * (1 + detune * 0.19) - seed * 3.0)
-    + 0.07 * Math.cos(tOrbit * 0.4);
-  const trapMix = Math.min(0.85, (0.08 + trapAmt * 0.42 + Math.min(warp, 4) * 0.05) * (1 - soft * 0.45));
-
-  // Depth 0…4 → ~24…~360 iters before soft roll-off in shader
-  const maxIter = Math.round(24 + depth * 85 * (1 - soft * 0.32));
-
-  // Color band density for shader (bands 0…4)
-  const bandAmt = 0.35 + bands * 1.15 + glow * 0.35;
+  // Pure escape coloring. Cap iters at shader loop max (GPU safety), not param max.
+  const maxIter = Math.min(256, Math.max(8, Math.round(24 + depth * 85 * 0.9)));
 
   const paintParams = {
     cx,
     cy,
     centerX,
     centerY,
+    panX,
+    panY,
     halfSpan,
     cosR,
     sinR,
     maxIter,
     soft,
     glow,
-    colorPhase: tColor,
+    colorPhase: 0,
     breath,
-    trapMix,
-    trapX,
-    trapY,
-    time: tOrbit + tFlow * 0.7 + tWarp * 0.35,
-    background: settings.background,
+    trapMix: 0,
+    trapX: 0,
+    trapY: 0,
+    // time frozen: shader no longer uses it for grain/warp (avoids plate breathing)
+    time: 0,
+    background: settings.background || "#000000",
     gradientStops: settings.gradientStops,
     depth,
-    fold: Math.min(1, fold / 1.5),
-    bands: bandAmt,
-    domainWarp: Math.min(1, domainWarp / 1.5 + soft * 0.15),
+    fold: 0,
+    bands,
+    domainWarp: 0,
   };
 
   let ok = false;
@@ -682,7 +614,7 @@ function paintNodeGraphRgbFractalFaceForNode(nodeId, options = {}) {
 }
 
 /**
- * Scope pass: only sample In → breath. Full fractal is owned by face rAF.
+ * Scope pass: face is owned by rAF. No In→breath (that read as plate pulsing).
  */
 function drawNodeGraphRgbFractalFaceItem(renderer, item, pixelRatio) {
   const slot = item?.slot;
@@ -691,14 +623,7 @@ function drawNodeGraphRgbFractalFaceItem(renderer, item, pixelRatio) {
     return;
   }
   const buffer = item?.buffer;
-  if (buffer?.length && !buffer.nodeGraphScopeXy) {
-    const sample = typeof nodeGraphOscilloscopeLatestSample === "function"
-      ? nodeGraphOscilloscopeLatestSample(buffer, 0)
-      : Number(buffer[buffer.length - 1]);
-    if (Number.isFinite(sample)) {
-      face._rgbFractalBreath = Math.max(0.55, Math.min(1.4, 0.9 + sample * 0.5));
-    }
-  }
+  face._rgbFractalBreath = 1;
   if (!face._rgbFractalRunning && typeof paintNodeGraphRgbFractalFace === "function") {
     const canvas = nodeGraphRgbFractalCanvasForSlot(slot);
     if (canvas) {

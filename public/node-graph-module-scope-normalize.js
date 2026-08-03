@@ -535,7 +535,24 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
     // Amplitude zoom: multiplies samples before face mapping (1 = full-scale).
     scale: normalizeNodeGraphTraceDisplayNumber(source.scale, defaults.scale ?? 1, 0.01, 100),
     skipDiscontinuities: source.skipDiscontinuities !== false,
-    sourceSync: source.sourceSync !== false,
+    // Default OFF (matches defaults.sourceSync). Never use `!== false` here —
+    // that treated missing settings as Sync-on and let multi-scope locks thrash.
+    sourceSync: (function normalizeSourceSync() {
+      if (source.sourceSync === false || source.sourceSync === 0 || source.sourceSync === "false") {
+        return false;
+      }
+      if (source.sourceSync === true || source.sourceSync === 1 || source.sourceSync === "true") {
+        return true;
+      }
+      const ch = String(source.syncChannel || "").toLowerCase().trim();
+      if (ch === "left" || ch === "right" || ch === "mono") {
+        return true;
+      }
+      if (ch === "off") {
+        return false;
+      }
+      return defaults.sourceSync === true;
+    })(),
     stereoBlend: (function () {
       const raw = String(source.stereoBlend || defaults.stereoBlend || "combine").toLowerCase().trim();
       const ok = typeof TraceStroke !== "undefined" && Array.isArray(TraceStroke.STEREO_BLEND_MODES)

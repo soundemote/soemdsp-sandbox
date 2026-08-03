@@ -158,9 +158,27 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
       rgbPicture: (node, nodeId, frame, frames, frameValues, mixInput) => ({
         Out: this.safeFilterNumber(mixInput(nodeId, "In"), null),
       }),
-      rgbFractal: (node, nodeId, frame, frames, frameValues, mixInput) => ({
-        Out: this.safeFilterNumber(mixInput(nodeId, "In"), null),
-      }),
+      rgbFractal: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+        if (!this.rgbFractalStates) {
+          this.rgbFractalStates = new Map();
+        }
+        const state = this.rgbFractalStates.get(nodeId) || this.createRgbFractalState();
+        this.rgbFractalStates.set(nodeId, state);
+        const read = (key, fallback) =>
+          this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        const params = {
+          speed: read("speed", 1),
+          seed: read("seed", 0),
+          orbitSize: read("orbitSize", 1),
+          detune: read("detune", 0.45),
+        };
+        const sr = Math.max(1, Number(safeRate) || sampleRate || 44100);
+        const result = this.rgbFractalSample(state, params, 0, sr) || {};
+        return {
+          Hx: this.safeFilterNumber(result.Hx, null),
+          Hy: this.safeFilterNumber(result.Hy, null),
+        };
+      },
       knob: (node, nodeId, frame, frames, frameValues, mixInput) => {
         const offset = this.readEffectiveParameter(node, "offset", 0, frame, frames, frameValues);
         return nodeGraphDspBiasFromIn(offset, mixInput?.(nodeId, "In"));

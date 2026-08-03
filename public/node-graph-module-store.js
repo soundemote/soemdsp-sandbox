@@ -939,7 +939,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   speedColorInertia: {
     category: "multimeter",
     description:
-      "Signal speed → color inertia. Measures |Δsample|: smooth sines stay saturated (Inertia high); saw edges spike Speed and desaturate toward white. Attack/release smooth the color state. Outs: Raw, Speed, Inertia.",
+      "Signal speed → color inertia. Face is a solid color plate (Hue/Lightness + Inertia sat), not a trace. Smooth sines stay saturated; saw edges desaturate toward white. Outs: Raw, Speed, Inertia.",
     label: "Speed Color Inertia",
     notes: [
       "multimeter",
@@ -948,6 +948,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "inertia",
       "saturation",
       "color",
+      "solid face",
       "audiovisual",
       "sine red",
       "saw white",

@@ -68,9 +68,7 @@ function beginNodeSliderReadoutEdit(readout) {
   input.type = "text";
   input.className = "node-slider-readout-input";
   input.inputMode = "text";
-  const editValue = Number.isFinite(Number(slider.dataset.unboundedValue))
-    ? Number(slider.dataset.unboundedValue)
-    : Number(slider.value);
+  const editValue = Number(slider.value);
   input.value = nodeSliderChoiceLabel(slider) ?? formatNodeSliderNumber(editValue, {
     kind: slider.dataset.kind,
     maxDigits: slider.dataset.maxDigits,

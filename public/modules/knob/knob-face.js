@@ -861,9 +861,7 @@ function syncNodeGraphKnobFaceFromSlider(slider) {
     return;
   }
   const readout = face.querySelector("[data-knob-face-readout]");
-  const displayValue = Number.isFinite(Number(slider.dataset.unboundedValue))
-    ? Number(slider.dataset.unboundedValue)
-    : Number(slider.value);
+  const displayValue = Number(slider.value);
   const patchNode = typeof nodeGraphPatchNode === "function"
     ? nodeGraphPatchNode(module.dataset.node)
     : null;

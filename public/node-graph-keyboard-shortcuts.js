@@ -276,12 +276,18 @@ function handleNodeGraphKeydown(event) {
     setNodeGraphViewMode("modular");
     return;
   }
-  // Space ALWAYS controls audio transport (pause/play/start) — even when
-  // an input is focused. Misused audio can cause distress; Space must be a
-  // reliable panic button regardless of UI focus.
+  // While typing in a text/search field (module search, name boxes, code
+  // editor), bare-key shortcuts must not fire -- e.g. "d" toggling debug while
+  // you search for "led", or Space being stolen for transport. Range/checkbox
+  // focus does not block shortcuts. Modifier combos (Ctrl+Z, etc.) still work.
+  if (nodeGraphEventTargetIsTextEditable(event.target) && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    return;
+  }
+  // Space controls audio transport when not typing (panic / play-pause).
+  // Text inputs are excluded above so module search and name fields can take spaces.
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.code === "Space") {
     event.preventDefault();
-    event.stopPropagation(); // prevent the editable-target check below from eating it
+    event.stopPropagation();
     // Same path as the transport ▶ button so Space and click stay in lockstep
     // (start when cold, pause/resume when engine is up — never a bare toggle
     // that can leave outputEnabled true with no worklet).
@@ -298,13 +304,6 @@ function handleNodeGraphKeydown(event) {
     } else if (typeof toggleNodeGraphLiveOutput === "function") {
       toggleNodeGraphLiveOutput();
     }
-    return;
-  }
-  // While typing in a text/search field (module search, name boxes, code
-  // editor), bare-key shortcuts must not fire -- e.g. "d" toggling debug while
-  // you search for "led". Range/checkbox focus does not block shortcuts.
-  // Modifier combos (Ctrl+Z, etc.) and Space (above) still work.
-  if (nodeGraphEventTargetIsTextEditable(event.target) && !event.ctrlKey && !event.metaKey && !event.altKey) {
     return;
   }
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z" && !event.shiftKey) {

@@ -254,6 +254,7 @@ function createNodeGraphLiveRuntime(plan) {
   const expAdsrStates = new Map();
   const fractalBrownianNoiseStates = new Map();
   const fbmFieldStates = new Map();
+  const rgbFractalStates = new Map();
   const flowerChildEnvelopeFollowerStates = new Map();
   const flowerChildFilterStates = new Map();
   const rsmetFilterStates = new Map();
@@ -570,6 +571,16 @@ function createNodeGraphLiveRuntime(plan) {
     if (node.type === "fbmField") {
       fbmFieldStates.set(node.id, createNodeGraphFbmFieldState());
     }
+    if (node.type === "rgbFractal") {
+      rgbFractalStates.set(
+        node.id,
+        typeof createNodeGraphRgbFractalState === "function"
+          ? createNodeGraphRgbFractalState()
+          : (typeof createNodeGraphRgbFractalAudioState === "function"
+            ? createNodeGraphRgbFractalAudioState()
+            : {}),
+      );
+    }
     if (node.type === "flowerChildEnvelopeFollower") {
       flowerChildEnvelopeFollowerStates.set(node.id, createNodeGraphFlowerChildEnvelopeFollowerState());
     }
@@ -623,6 +634,7 @@ function createNodeGraphLiveRuntime(plan) {
     expAdsrStates,
     fractalBrownianNoiseStates,
     fbmFieldStates,
+    rgbFractalStates,
     flowerChildEnvelopeFollowerStates,
     flowerChildFilterStates,
     rsmetFilterStates,
@@ -1008,6 +1020,9 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   if (!runtime.fbmFieldStates) {
     runtime.fbmFieldStates = new Map();
   }
+  if (!runtime.rgbFractalStates) {
+    runtime.rgbFractalStates = new Map();
+  }
   if (!runtime.flowerChildEnvelopeFollowerStates) {
     runtime.flowerChildEnvelopeFollowerStates = new Map();
   }
@@ -1282,6 +1297,19 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     }
     if (node.type === "fbmField" && !runtime.fbmFieldStates.has(node.id)) {
       runtime.fbmFieldStates.set(node.id, createNodeGraphFbmFieldState());
+    }
+    if (!runtime.rgbFractalStates) {
+      runtime.rgbFractalStates = new Map();
+    }
+    if (node.type === "rgbFractal" && !runtime.rgbFractalStates.has(node.id)) {
+      runtime.rgbFractalStates.set(
+        node.id,
+        typeof createNodeGraphRgbFractalState === "function"
+          ? createNodeGraphRgbFractalState()
+          : (typeof createNodeGraphRgbFractalAudioState === "function"
+            ? createNodeGraphRgbFractalAudioState()
+            : {}),
+      );
     }
     if (
       node.type === "flowerChildEnvelopeFollower" &&
@@ -1762,6 +1790,13 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     for (const id of [...runtime.fbmFieldStates.keys()]) {
       if (!nodeIds.has(id)) {
         runtime.fbmFieldStates.delete(id);
+      }
+    }
+  }
+  if (runtime.rgbFractalStates) {
+    for (const id of [...runtime.rgbFractalStates.keys()]) {
+      if (!nodeIds.has(id)) {
+        runtime.rgbFractalStates.delete(id);
       }
     }
   }

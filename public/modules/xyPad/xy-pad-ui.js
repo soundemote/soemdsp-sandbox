@@ -106,7 +106,6 @@ function nodeGraphXyPadWritePosition(pad, x, y, options = {}) {
       if (!slider) {
         continue;
       }
-      delete slider.dataset.unboundedValue;
       slider.value = String(value);
       if (isDrag && typeof scheduleNodeSliderReadoutUpdate === "function") {
         scheduleNodeSliderReadoutUpdate(slider, value);

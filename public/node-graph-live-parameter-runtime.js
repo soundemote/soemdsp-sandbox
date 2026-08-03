@@ -17,20 +17,12 @@ function readNodeGraphLiveSmoothedParam(runtime, node, key, fallback, frame, fra
 }
 
 function nodeGraphApplyParameterBounds(value, metadata = {}) {
+  // DOMAIN only — always honor parameter min/max. MOD policy is ApplyMod.
   if (typeof nodeGraphParamApplyDomainBounds === "function") {
     return nodeGraphParamApplyDomainBounds(value, metadata);
   }
   const min = Number(metadata.min);
   const max = Number(metadata.max);
-  if (metadata.unboundedMin && metadata.unboundedMax) {
-    return value;
-  }
-  if (metadata.unboundedMin && Number.isFinite(max)) {
-    return Math.min(value, max);
-  }
-  if (metadata.unboundedMax && Number.isFinite(min)) {
-    return Math.max(value, min);
-  }
   if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
     return value;
   }
@@ -138,14 +130,38 @@ function nodeGraphApplyParameterModulation(base, modulationSignal, metadata = {}
   if (typeof nodeGraphParamApplyMod === "function") {
     return nodeGraphParamApplyMod(base, modulationSignal, metadata);
   }
-  // Fallback mirrors Phase F contract.
+  // Fallback mirrors nodeGraphParamApplyMod (including modClamp).
+  const mod = Number(modulationSignal) || 0;
+  let shouldClamp = true;
+  if (Object.hasOwn(metadata, "modClamp")) {
+    shouldClamp = Boolean(metadata.modClamp);
+  } else if (metadata.unboundedMax || metadata.unboundedMin) {
+    shouldClamp = false;
+  }
+  let result;
   if (String(metadata?.kind || "").toLowerCase() === "frequency") {
     const baseFrequency = Math.max(0.000001, Number(base) || 0.000001);
-    const octaves = (Number(modulationSignal) || 0) / 0.1;
-    return nodeGraphApplyParameterBounds(baseFrequency * (2 ** octaves), metadata);
+    result = baseFrequency * (2 ** (mod / 0.1));
+  } else {
+    const min = Number(metadata.min);
+    const max = Number(metadata.max);
+    const range = max - min;
+    const baseSignal = nodeGraphParameterValueToNormalizedSignal(base, metadata);
+    const unit = baseSignal + mod;
+    if (!Number.isFinite(range) || range <= 0) {
+      result = Number.isFinite(min) ? min : 0;
+    } else if (metadata.wraparound) {
+      return nodeGraphNormalizedSignalToParameterValue(unit, metadata);
+    } else {
+      const exp = nodeGraphParameterSkewExponent(metadata);
+      const nv = (unit >= 0 && unit <= 1) ? (unit ** exp) : unit;
+      result = min + range * nv;
+    }
   }
-  const baseSignal = nodeGraphParameterValueToNormalizedSignal(base, metadata);
-  return nodeGraphNormalizedSignalToParameterValue(baseSignal + modulationSignal, metadata);
+  if (!Number.isFinite(result)) {
+    return 0;
+  }
+  return shouldClamp ? nodeGraphApplyParameterBounds(result, metadata) : result;
 }
 
 function readNodeGraphRuntimePortOutput(runtime, frameValues, nodeId, port = "Out", frame = 0, frames = 1) {

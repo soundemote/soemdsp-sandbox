@@ -13732,7 +13732,8 @@ input.node-header-title:focus {
   min-height: var(--metadata-popover-min-height, 120px);
   max-width: min(var(--metadata-popover-max-width, 900px), calc(100vw - 12px));
   max-height: min(var(--metadata-popover-max-height, 820px), calc(100vh - 12px));
-  overflow: auto;
+  /* Shell does not scroll — heading/nav stay fixed; body grid is the scrollport. */
+  overflow: hidden;
   padding: 0;
   border: 1px solid rgba(127, 199, 217, 0.42);
   border-radius: 8px;
@@ -13818,7 +13819,11 @@ input.node-header-title:focus {
 .node-trace-display-settings-popover > .node-trace-display-settings-grid {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+  /* Wheel-scroll body (scrollbar hidden via rules below). */
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .node-parameter-metadata-popover > .node-unified-inspector-empty,

@@ -416,8 +416,10 @@ function nodeGraphParameterDefinitionMetadata(parameter) {
     smoothingType,
     step: Number.isFinite(step) && step > 0 ? step : 0,
     tooltip: String(parameter.tooltip || "").slice(0, 240),
-    unboundedMax: Boolean(parameter.unboundedMax),
-    unboundedMin: Boolean(parameter.unboundedMin),
+    // After MOD: re-clamp to min/max (default true). UI never leaves min/max.
+    modClamp: Object.hasOwn(parameter, "modClamp")
+      ? Boolean(parameter.modClamp)
+      : !(parameter.unboundedMax || parameter.unboundedMin),
     unit: parameter.unit ?? "",
     wraparound: Boolean(parameter.wraparound),
   };
@@ -546,12 +548,16 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
     })(),
     step: Number.isFinite(step) && step > 0 ? step : 0,
     tooltip: String(Object.hasOwn(source, "tooltip") ? source.tooltip ?? "" : fallback.tooltip || "").slice(0, 240),
-    unboundedMax: Object.hasOwn(source, "unboundedMax")
-      ? Boolean(source.unboundedMax)
-      : Boolean(fallback.unboundedMax),
-    unboundedMin: Object.hasOwn(source, "unboundedMin")
-      ? Boolean(source.unboundedMin)
-      : Boolean(fallback.unboundedMin),
+    modClamp: (() => {
+      if (Object.hasOwn(source, "modClamp")) {
+        return Boolean(source.modClamp);
+      }
+      // Legacy paramMeta used unboundedMax/Min for “mod may leave domain”.
+      if (Object.hasOwn(source, "unboundedMax") || Object.hasOwn(source, "unboundedMin")) {
+        return !(source.unboundedMax || source.unboundedMin);
+      }
+      return fallback.modClamp !== false;
+    })(),
     unit: String(Object.hasOwn(source, "unit") ? source.unit ?? "" : fallback.unit),
     wraparound: fallback.wraparound && Object.hasOwn(source, "wraparound")
       ? Boolean(source.wraparound)

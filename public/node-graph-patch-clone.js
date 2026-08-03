@@ -21,8 +21,7 @@ function normalizeNodeGraphParamMetaForNode(type, paramMeta = {}) {
       mid: 0.1,
       min: 0,
       showSign: false,
-      unboundedMax: false,
-      unboundedMin: false,
+      modClamp: true,
     };
   }
   return metadata;

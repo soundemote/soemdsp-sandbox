@@ -880,7 +880,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0", key: "shapeY", label: "Shape Y", max: "1", mid: "0", min: "-1", step: "0.01" },
       { defaultValue: "1", key: "scaleX", label: "Scale X", max: "10", mid: "1", min: "0", step: "0.01" },
       { defaultValue: "1", key: "scaleY", label: "Scale Y", max: "10", mid: "1", min: "0", step: "0.01" },
-      { defaultValue: "1", key: "level", label: "Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "0.01", unboundedMax: true },
+      { defaultValue: "1", key: "level", label: "Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "0.01", modClamp: false },
     ],
   },
   spiral: {
@@ -1349,7 +1349,7 @@ const nodeGraphModuleDefinitions = (
     inputs: ["Reset"],
     outputs: ["X", "Y", "Z"],
     parameters: [
-      { key: "speed", label: "Speed", defaultValue: "1", min: "0", mid: "1", max: "8", step: "0.01", unboundedMax: true },
+      { key: "speed", label: "Speed", defaultValue: "1", min: "0", mid: "1", max: "8", step: "0.01", modClamp: false },
       { key: "alpha", label: "Alpha", defaultValue: "15.6", min: "0", mid: "15.6", max: "40", step: "0.01" },
       { key: "beta", label: "Beta", defaultValue: "28", min: "0", mid: "28", max: "60", step: "0.01" },
       { key: "m0", label: "M0", defaultValue: "-1.143", min: "-4", mid: "-1.143", max: "4", step: "0.001" },
@@ -2917,10 +2917,26 @@ const nodeGraphModuleDefinitions = (
   },
   // |Δsample| speed → desaturation target + attack/release inertia (multimeter).
   // Sine → high Inertia (rich color); saw edges → Speed spike → Inertia drops (white).
+  // Face is a solid color plate (not a trace): Hue/Lightness knobs + Inertia sat.
   speedColorInertia: {
     planRole: "monitor",
     planFreeRun: true,
     monitorSink: true,
+    displayHeightGu: 2,
+    displayType: "speedColorInertiaFace",
+    defaultDisplayMode: "face",
+    displayModes: [
+      {
+        key: "face",
+        label: "Color",
+        renderer: "speedColorInertiaFace",
+        source: { value: "Inertia" },
+      },
+    ],
+    visualInputs: [
+      { key: "speedColorInertia", label: "In", port: "In" },
+    ],
+    visualSink: true,
     inputs: ["In"],
     inputAliases: { Mono: "In" },
     inputLabels: { In: "In" },
@@ -2973,7 +2989,7 @@ const nodeGraphModuleDefinitions = (
         step: "0.01",
         unit: "cycle",
         wraparound: true,
-        tooltip: "Base hue as cycle (0=red … ~0.67=blue). For faces/debug; not mixed into Speed/Inertia math.",
+        tooltip: "Base hue of the solid color face (0=red … ~0.67=blue). Not mixed into Speed/Inertia signal math.",
       },
       {
         defaultValue: "0.5",
@@ -2983,7 +2999,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Base lightness 0…1 for faces/debug; not mixed into Speed/Inertia math.",
+        tooltip: "Base lightness of the solid color face 0…1. Not mixed into Speed/Inertia signal math.",
       },
     ],
   },
@@ -4666,7 +4682,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         maxDigits: 4,
-        unboundedMax: true,
+        modClamp: false,
         tooltip: "Glyph field density. Low = bigger characters (fewer cells); high = smaller (more cells). One character per cell. Changing density remaps phosphor — does not wipe trails.",
       },
       {
@@ -4734,7 +4750,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         maxDigits: 4,
-        unboundedMax: true,
+        modClamp: false,
         tooltip: "How often new rain streams appear. Independent of glyph size (Density).",
       },
       {

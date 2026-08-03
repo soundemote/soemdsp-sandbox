@@ -20,6 +20,7 @@ precision mediump float;
 uniform vec2 uResolution;
 uniform vec2 uC;
 uniform vec2 uCenter;
+uniform vec2 uPan;
 uniform float uHalfSpan;
 uniform float uCosR;
 uniform float uSinR;
@@ -48,7 +49,8 @@ vec2 domainFold(vec2 z, float fold) {
   float ang = atan(a.y, a.x);
   float rad = length(a);
   float petals = mix(1.0, 4.0, f);
-  ang = abs(mod(ang * petals + uTime * 0.15 * f, 3.14159265) - 1.5707963);
+  // Static fold only — no uTime (time spin read as breathing).
+  ang = abs(mod(ang * petals, 3.14159265) - 1.5707963);
   vec2 folded = vec2(cos(ang), sin(ang)) * rad;
   return mix(z, folded, f * 0.85);
 }
@@ -99,46 +101,44 @@ float juliaEnergy(vec2 z0, vec2 c, float maxIter, float soft, float trapMix) {
     }
     i += 1.0;
   }
-  // Interior: wide trap glow, almost no high-freq sin when soft
+  // Interior: wide trap glow — no time grain (that read as breathing).
   float t1 = 1.0 - smoothstep(0.0, mix(1.2, 2.2, soft), trap);
-  float grain = (1.0 - soft) * 0.05 * sin(z0.x * 3.5 + z0.y * 2.8 + uTime);
-  return clamp(0.05 + 0.14 * t1 + grain, 0.0, 1.0);
+  return clamp(0.05 + 0.14 * t1, 0.0, 1.0);
 }
 
 vec2 mapUvToZ(vec2 frag, vec2 offsetPx) {
   vec2 uv = (frag + offsetPx) / uResolution;
   uv.y = 1.0 - uv.y;
+  // Pure view offset via uCenter (no UV wrap / torus pan).
   vec2 n = uv * 2.0 - 1.0;
   float aspect = uResolution.x / max(1.0, uResolution.y);
   vec2 p = vec2(n.x * uHalfSpan * aspect, n.y * uHalfSpan);
   vec2 r = vec2(p.x * uCosR - p.y * uSinR, p.x * uSinR + p.y * uCosR);
-  return r + uCenter;
+  return r + uCenter + uPan;
 }
 
 float sampleAt(vec2 frag, vec2 offsetPx, float maxIter, float soft, float trapMix) {
   vec2 z0 = mapUvToZ(frag, offsetPx);
-  // Domain warp: soft haze + independent Domain Warp knob (liquid, not sparkle)
-  float wAmt = soft * 0.04 + uDomainWarp * 0.12;
+  // Domain warp only when explicitly requested — never free-run on soft/time (breathing).
+  float wAmt = uDomainWarp * 0.1;
   if (wAmt > 0.001) {
+    // Static spatial warp only (no uTime) so the plate does not pulse.
     z0 += wAmt * vec2(
-      sin(z0.y * (2.2 + uDomainWarp) + uTime * 1.1),
-      cos(z0.x * (1.9 + uDomainWarp * 0.7) - uTime * 0.9)
+      sin(z0.y * (1.05 + uDomainWarp * 0.35)),
+      cos(z0.x * (0.95 + uDomainWarp * 0.28))
     );
-    // Second scale for non-repeating liquid
-    z0 += wAmt * 0.45 * vec2(
-      cos(z0.x * 0.7 - z0.y * 1.3 + uTime * 0.37),
-      sin(z0.y * 0.9 + z0.x * 0.5 - uTime * 0.29)
+    z0 += wAmt * 0.4 * vec2(
+      cos(z0.x * 0.45 - z0.y * 0.7 + 1.7),
+      sin(z0.y * 0.5 + z0.x * 0.35)
     );
   }
   return juliaEnergy(z0, uC, maxIter, soft, trapMix);
 }
 
-// Soft triangle wrap: no hard palette discontinuities like raw fract()
+// Forward modular wrap (0→1→0 as continue, not triangle ping-pong 0→1→0 reverse).
+// Palette blur in paletteSample softens the seam.
 float softWrap(float x) {
-  float f = fract(x);
-  // smooth triangle 0→1→0 with rounded peak/valley
-  float tri = 1.0 - abs(f * 2.0 - 1.0);
-  return smoothstep(0.0, 1.0, tri);
+  return fract(x);
 }
 
 vec3 paletteSample(float e, float soft) {
@@ -214,39 +214,41 @@ void main() {
   float gamma = mix(0.78, 1.05, soft) - glowAmt * 0.1;
   e = pow(e, max(0.45, gamma));
 
-  // Color bands: uBands from Bands knob; soft reduces wraps; glow still lifts richness
+  // Structure mask: far exterior / empty plate stays black — Color Rate must NOT
+  // cycle palette where energy is near zero (that was full-face strobe).
+  float lit = smoothstep(0.03, 0.22, e);
+
+  // Color bands: only where structure exists; phase gated by lit
   float band = mix(uBands + glowAmt * 0.9, uBands * 0.45 + glowAmt * 0.4, soft);
   band = max(0.25, band);
-  float phase = uColorPhase * mix(1.0, 0.55, soft);
-  // Soft uses rounded triangle wrap; low soft uses gentle fract
+  float phase = uColorPhase * mix(1.0, 0.55, soft) * lit;
   float eColor;
   if (soft > 0.25) {
     eColor = softWrap(e * band + phase);
-    // Blend toward raw energy so it stays painterly, not zebra
-    eColor = mix(e, eColor, mix(0.55, 0.35, soft));
+    eColor = mix(e, eColor, mix(0.55, 0.35, soft) * lit);
   } else {
     eColor = fract(e * band + phase);
   }
-  eColor = clamp(eColor * uBreath, 0.0, 1.0);
-  // Soft pulls color toward mid palette (less extreme contrast edges)
-  eColor = mix(eColor, 0.5 + (eColor - 0.5) * mix(1.0, 0.7, soft), soft * 0.5);
+  eColor = clamp(eColor * mix(1.0, uBreath, lit), 0.0, 1.0);
+  eColor = mix(eColor, 0.5 + (eColor - 0.5) * mix(1.0, 0.7, soft), soft * 0.5 * lit);
 
-  vec3 col = paletteSample(eColor, soft);
+  // Prefer true black surroundings (uBackground often near-black)
+  vec3 voidCol = vec3(0.0);
+  vec3 plate = mix(voidCol, uBackground, 0.35);
+  vec3 col = mix(plate, paletteSample(eColor, soft), lit);
 
-  // Glow bloom (wide, soft) — full throw of Glow 0…4 maps into glowAmt
-  if (glowAmt > 0.03) {
+  // Glow only on lit structure (not a full-face flash)
+  if (glowAmt > 0.03 && lit > 0.01) {
     vec2 q = gl_FragCoord.xy / uResolution - 0.5;
-    float g = exp(-dot(q, q) * mix(2.6, 1.5, soft));
+    float g = exp(-dot(q, q) * mix(3.2, 2.0, soft));
     vec3 tip = paletteSample(mix(0.88, 0.72, soft), soft);
-    col += tip * g * (0.05 + glowAmt * 0.28) * mix(1.0, 0.75, soft);
+    col += tip * g * (0.04 + glowAmt * 0.22) * mix(1.0, 0.75, soft) * lit;
   }
 
-  // Soft overall haze toward background (dream plate)
+  // Mild edge vignette into black (no soft haze recoloring empty space)
   vec2 q2 = gl_FragCoord.xy / uResolution - 0.5;
-  float vig = smoothstep(1.05, 0.2, length(q2) * 1.2);
-  float haze = soft * 0.12;
-  col = mix(col, uBackground, haze * (1.0 - vig * 0.5));
-  col = mix(uBackground, col, mix(0.94, 1.0, vig));
+  float vig = smoothstep(1.15, 0.35, length(q2) * 1.15);
+  col *= mix(0.88, 1.0, vig);
 
   gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
 }
@@ -284,10 +286,10 @@ function nodeGraphRgbFractalGlLink(gl, vsSource, fsSource) {
   return prog;
 }
 
-function nodeGraphRgbFractalGlHexToRgb01(hex, fallback = [0.02, 0, 0.08]) {
+function nodeGraphRgbFractalGlHexToRgb01(hex, fallback = [0, 0, 0]) {
   const color = typeof normalizeNodeGraphTraceDisplayColor === "function"
-    ? normalizeNodeGraphTraceDisplayColor(hex, "#050014")
-    : String(hex || "#050014");
+    ? normalizeNodeGraphTraceDisplayColor(hex, "#000000")
+    : String(hex || "#000000");
   const match = /^#?([0-9a-f]{6})$/i.exec(String(color).trim());
   if (!match) {
     return fallback;
@@ -366,6 +368,7 @@ function nodeGraphRgbFractalGlEnsure(canvas) {
       uResolution: gl.getUniformLocation(program, "uResolution"),
       uC: gl.getUniformLocation(program, "uC"),
       uCenter: gl.getUniformLocation(program, "uCenter"),
+      uPan: gl.getUniformLocation(program, "uPan"),
       uHalfSpan: gl.getUniformLocation(program, "uHalfSpan"),
       uCosR: gl.getUniformLocation(program, "uCosR"),
       uSinR: gl.getUniformLocation(program, "uSinR"),
@@ -498,6 +501,13 @@ function nodeGraphRgbFractalGlPaint(canvas, params) {
   gl.uniform2f(U.uResolution, w, h);
   gl.uniform2f(U.uC, params.cx, params.cy);
   gl.uniform2f(U.uCenter, params.centerX, params.centerY);
+  const panX = Number(params.panX);
+  const panY = Number(params.panY);
+  gl.uniform2f(
+    U.uPan,
+    Number.isFinite(panX) ? panX : 0,
+    Number.isFinite(panY) ? panY : 0,
+  );
   gl.uniform1f(U.uHalfSpan, params.halfSpan);
   gl.uniform1f(U.uCosR, params.cosR);
   gl.uniform1f(U.uSinR, params.sinR);

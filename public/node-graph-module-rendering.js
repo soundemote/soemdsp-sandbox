@@ -582,13 +582,26 @@ function createNodeGraphModuleElement(type, node) {
     if (chrome.headerless && !patchNodeUi.titleHidden) {
       article.append(createNodeGraphModuleHeader(type, node, definition));
     }
+    // LayoutA chromeless still uses the normal header (title / display gear).
+    if (!chrome.headerless && !chrome.portsBeside && !patchNodeUi.titleHidden) {
+      article.append(createNodeGraphModuleHeader(type, node, definition));
+    }
     const chromelessBody = chromelessRegistration.createBody(node, type);
-    // LayoutB → ports beside; otherwise chromeless face owns its own ports.
-    article.append(
-      chrome.portsBeside
-        ? createNodeGraphLayoutBShell(node, type, chromelessBody, chromelessRegistration, inputPorts, outputPorts)
-        : chromelessBody,
-    );
+    // LayoutB → ports beside face. LayoutA → face then ports under (labeled I/O strip).
+    if (chrome.portsBeside) {
+      article.append(
+        createNodeGraphLayoutBShell(node, type, chromelessBody, chromelessRegistration, inputPorts, outputPorts),
+      );
+    } else {
+      article.append(chromelessBody);
+      appendNodeGraphModuleIoSection(
+        article,
+        createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+        node,
+        inputPorts,
+        outputPorts,
+      );
+    }
     chromelessRegistration.afterMount?.(article, chromelessBody, node, type);
   } else if (chrome.headerless) {
     // Headerless LayoutB (e.g. knob): title + face + side ports.
@@ -936,9 +949,11 @@ function createNodeGraphModuleElement(type, node) {
     article.append(stateBadge);
   }
 
+  // Chromeless LayoutB always had params under the shell; LayoutA chromeless
+  // (e.g. Soft Fractal multi-out) also needs the param rows.
   if (
     definition.parameters?.length &&
-    (!nodeGraphChromelessModuleLayouts.has(layout) || chrome.portsBeside)
+    (!nodeGraphChromelessModuleLayouts.has(layout) || chrome.portsBeside || chrome.portsUnder)
   ) {
     const body = document.createElement("div");
     body.className = "dsp-node-body";

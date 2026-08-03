@@ -25,21 +25,17 @@ function nodeGraphPatchNodePortDisplayLabel(node, type, port, io) {
   return alias || nodeGraphPortDisplayLabel(type, port, io);
 }
 
-function applyNodeGraphInputUnboundedValue(input, value) {
-  const number = Number(value);
-  const min = Number(input?.min);
-  const max = Number(input?.max);
-  const unboundedMin = input?.dataset?.unboundedMin === "true";
-  const unboundedMax = input?.dataset?.unboundedMax === "true";
-  if (
-    Number.isFinite(number) &&
-    ((unboundedMin && Number.isFinite(min) && number < min) ||
-      (unboundedMax && Number.isFinite(max) && number > max))
-  ) {
-    input.dataset.unboundedValue = String(number);
-  } else if (input) {
-    delete input.dataset.unboundedValue;
+/**
+ * Legacy name (was UI overshoot). DOMAIN never leaves min/max — only clears
+ * stale unbounded* dataset keys from older sessions.
+ */
+function applyNodeGraphInputUnboundedValue(input, _value) {
+  if (!input?.dataset) {
+    return;
   }
+  delete input.dataset.unboundedValue;
+  delete input.dataset.unboundedMax;
+  delete input.dataset.unboundedMin;
 }
 
 function createNodeGraphIoColumn(node, type, ports, io) {
@@ -654,8 +650,6 @@ function createNodeGraphParameter(node, type, parameter) {
   input.dataset.curveAmount = String(normalizeNodeSliderCurveAmount(metadata?.curveAmount));
   input.dataset.nonlinearSlider = metadata?.nonlinearSlider ? "true" : "false";
   input.dataset.showSign = metadata?.showSign ? "true" : "false";
-  input.dataset.unboundedMax = metadata?.unboundedMax ? "true" : "false";
-  input.dataset.unboundedMin = metadata?.unboundedMin ? "true" : "false";
   input.dataset.wraparound = metadata?.wraparound ? "true" : "false";
   applyNodeGraphInputUnboundedValue(input, input.value);
   input.setAttribute("aria-label", `${nodeGraphNodeLabels[type]} ${parameter.label}`);

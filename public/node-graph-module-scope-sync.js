@@ -440,6 +440,7 @@ function nodeGraphTraceDisplayStabilizedSyncStart(lock, buffer, syncBuffer, cycl
     lock.lastSyncVisibleSamples = visibleSamples;
     lock.lastSyncTotalSampleCount = totalSampleCount;
     lock.missedSamples = 0;
+    lock.stuckFrames = 0;
     lock.haveLock = true;
     if (!(Number(lock.periodEma) > 0) && periodHint > 0) {
       lock.periodEma = periodHint;
@@ -451,15 +452,25 @@ function nodeGraphTraceDisplayStabilizedSyncStart(lock, buffer, syncBuffer, cycl
   // Auto freerun so aperiodic / quiet signals never freeze the face.
   const step = Math.max(1, elapsed || Math.round(Math.max(8, sampleRate / 120)));
   lock.missedSamples = (Number(lock.missedSamples) || 0) + step;
+  // If samples advance but we keep holding the same phase without reacquire,
+  // count "stuck" progress — multi-sync thrash used to freeze here forever.
+  if (elapsed > 0 && phaseHint !== null && Number(lock.lastHeldStart) === phaseHint) {
+    lock.stuckFrames = (Number(lock.stuckFrames) || 0) + 1;
+  } else {
+    lock.stuckFrames = 0;
+  }
+  lock.lastHeldStart = phaseHint;
   const autoTimeout = Math.max(
     visibleSamples,
     period > 0 ? period * 2.5 : 0,
     Math.round(sampleRate * 0.08),
   );
+  const stuckTooLong = (Number(lock.stuckFrames) || 0) > 12;
   if (
     lock.haveLock
     && phaseHint !== null
     && lock.missedSamples < autoTimeout
+    && !stuckTooLong
   ) {
     lock.lastSyncStart = phaseHint;
     lock.lastSyncPeriod = period || periodHint;
@@ -471,6 +482,8 @@ function nodeGraphTraceDisplayStabilizedSyncStart(lock, buffer, syncBuffer, cycl
   // Lost lock — freerun (caller uses latest window). Ready to re-arm next edge.
   lock.haveLock = false;
   lock.missedSamples = 0;
+  lock.stuckFrames = 0;
+  lock.lastHeldStart = null;
   if (Number.isFinite(totalSampleCount)) {
     lock.lastSyncTotalSampleCount = totalSampleCount;
   }
@@ -501,10 +514,15 @@ function nodeGraphTraceDisplayMonoSyncBuffer(leftBuffer, rightBuffer) {
     return leftBuffer || rightBuffer || null;
   }
   const n = Math.min(leftBuffer.length, rightBuffer.length);
-  let mono = leftBuffer._traceMonoSyncScratch;
+  // Scratch lives on a pair-specific key so concurrent scopes don't stomp one mono pad.
+  const pairKey = `${nodeGraphScopeBufferObjectId(leftBuffer)}|${nodeGraphScopeBufferObjectId(rightBuffer)}`;
+  if (!nodeGraphModuleScopeState.monoSyncScratch) {
+    nodeGraphModuleScopeState.monoSyncScratch = new Map();
+  }
+  let mono = nodeGraphModuleScopeState.monoSyncScratch.get(pairKey);
   if (!mono || !(mono instanceof Float32Array) || mono.length < n) {
     mono = new Float32Array(n);
-    leftBuffer._traceMonoSyncScratch = mono;
+    nodeGraphModuleScopeState.monoSyncScratch.set(pairKey, mono);
   }
   for (let i = 0; i < n; i += 1) {
     const a = Number(leftBuffer[i]);
@@ -514,6 +532,7 @@ function nodeGraphTraceDisplayMonoSyncBuffer(leftBuffer, rightBuffer) {
   // Attach the same metadata cycle/view helpers expect on captured buffers.
   const head = {
     length: n,
+    nodeGraphScopeBufferKey: `mono:${pairKey}`,
     nodeGraphScopeTotalSampleCount: leftBuffer.nodeGraphScopeTotalSampleCount
       ?? rightBuffer.nodeGraphScopeTotalSampleCount,
     nodeGraphScopeRecentSampleCount: leftBuffer.nodeGraphScopeRecentSampleCount
@@ -524,6 +543,9 @@ function nodeGraphTraceDisplayMonoSyncBuffer(leftBuffer, rightBuffer) {
     get(target, prop) {
       if (prop === "length") {
         return n;
+      }
+      if (prop === "nodeGraphScopeBufferKey") {
+        return target.nodeGraphScopeBufferKey;
       }
       if (typeof prop === "string" && /^[0-9]+$/.test(prop)) {
         return mono[Number(prop)];

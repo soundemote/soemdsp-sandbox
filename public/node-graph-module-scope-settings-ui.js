@@ -2080,6 +2080,10 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
       paintNodeGraphRgbFractalFaceForNode(ledNodeId, { force: true, dt: 0 });
       requestAnimationFrame(() => paintNodeGraphRgbFractalFaceForNode(ledNodeId, { force: true, dt: 0 }));
     }
+    if (ledNode?.type === "fbmField" && typeof paintNodeGraphFbmFieldFaceForNode === "function") {
+      paintNodeGraphFbmFieldFaceForNode(ledNodeId, { force: true, dt: 0 });
+      requestAnimationFrame(() => paintNodeGraphFbmFieldFaceForNode(ledNodeId, { force: true, dt: 0 }));
+    }
   }
   return settings;
 }

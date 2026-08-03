@@ -223,17 +223,7 @@ function updateNodeSliderCurrentValue(slider, rawValue) {
     return;
   }
 
-  const unboundedMin = slider.dataset.unboundedMin === "true";
-  const unboundedMax = slider.dataset.unboundedMax === "true";
-  const min = Number(slider.min);
-  const max = Number(slider.max);
-  if ((unboundedMin && Number.isFinite(min) && value < min) || (unboundedMax && Number.isFinite(max) && value > max)) {
-    slider.dataset.unboundedValue = String(value);
-    slider.value = String(normalizeNodeSliderValue(slider, value));
-  } else {
-    delete slider.dataset.unboundedValue;
-    slider.value = String(normalizeNodeSliderValue(slider, value));
-  }
+  slider.value = String(normalizeNodeSliderValue(slider, value));
   syncNodeSliderReadout(slider);
   syncNodeGraphPatchParameterFromSlider(slider, {
     record: true,
@@ -309,20 +299,6 @@ function commitNodeSliderDragValue(slider, status = "parameter changed") {
 
 function setNodeSliderValue(slider, value, options = {}) {
   const isDrag = options.interaction === "drag";
-  const number = Number(value);
-  const min = Number(slider.min);
-  const max = Number(slider.max);
-  const unboundedMin = slider.dataset.unboundedMin === "true";
-  const unboundedMax = slider.dataset.unboundedMax === "true";
-  if (
-    Number.isFinite(number) &&
-    ((unboundedMin && Number.isFinite(min) && number < min) ||
-      (unboundedMax && Number.isFinite(max) && number > max))
-  ) {
-    slider.dataset.unboundedValue = String(number);
-  } else {
-    delete slider.dataset.unboundedValue;
-  }
   const normalized = normalizeNodeSliderValue(slider, value);
   // The input value is authoritative for patch/audio sync. Only its painted
   // readout is frame-batched, so dragging never depends on a scope draw loop.
@@ -403,7 +379,7 @@ function setNodeChoiceSliderFromPointer(slider, surface, clientX, options = {}) 
   if (!Number.isFinite(value)) {
     return false;
   }
-  const current = Number(slider.dataset.unboundedValue ?? slider.value);
+  const current = Number(slider.value);
   if (Number.isFinite(current) && Math.round(current) === Math.round(value)) {
     return false;
   }

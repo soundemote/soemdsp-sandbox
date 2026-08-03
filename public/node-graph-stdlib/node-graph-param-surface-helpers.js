@@ -10,6 +10,9 @@
 //                • kind "frequency" → 0.1V/Oct style: baseHz * 2^(mod / 0.1)
 //                • everything else  → unit-space add, then map back to domain
 //                  (with nonlinear mid skew when nonlinearSlider is set).
+//              After MOD, metadata.modClamp (default true) re-applies DOMAIN
+//              min/max. modClamp:false lets effective value leave the domain
+//              (CV only — UI never overshoots min/max).
 //
 //   SIGNAL IN — named input jacks (In, 0.1V/Oct, Phase, Amplitude, …).
 //              NOT the same as MOD. Handled by module evaluators:
@@ -55,26 +58,31 @@ function nodeGraphParamUsesPitchMod(metadata = {}) {
 }
 
 /**
- * DOMAIN bounds: clamp or wrap into [min, max] when finite.
+ * DOMAIN bounds: always clamp or wrap into parameter min/max when finite.
+ * UI / stored knob values never leave this range. MOD overshoot is separate
+ * (see nodeGraphParamApplyMod + metadata.modClamp).
  */
 function nodeGraphParamApplyDomainBounds(value, metadata = {}) {
   const min = Number(metadata.min);
   const max = Number(metadata.max);
-  if (metadata.unboundedMin && metadata.unboundedMax) {
-    return Number(value) || 0;
-  }
-  if (metadata.unboundedMin && Number.isFinite(max)) {
-    return Math.min(Number(value) || 0, max);
-  }
-  if (metadata.unboundedMax && Number.isFinite(min)) {
-    return Math.max(Number(value) || 0, min);
-  }
   if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
     return Number(value) || 0;
   }
   return metadata.wraparound
     ? nodeGraphParamWrap(Number(value) || 0, min, max)
     : nodeGraphParamClamp(Number(value) || 0, min, max);
+}
+
+/** Default true: after MOD, re-clamp to domain min/max. Per-parameter. */
+function nodeGraphParamModClamp(metadata = {}) {
+  if (Object.hasOwn(metadata, "modClamp")) {
+    return Boolean(metadata.modClamp);
+  }
+  // Legacy patches: unboundedMax/Min meant “effective may leave domain”.
+  if (metadata.unboundedMax || metadata.unboundedMin) {
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -143,17 +151,40 @@ function nodeGraphParamNormalizeModInput(value, _metadata = {}) {
 /**
  * Apply summed MOD (already normalized, may be outside [−1,1] if multi-source)
  * onto a DOMAIN base value.
+ * modClamp (default true): re-apply domain min/max after MOD.
+ * modClamp false: effective value may leave [min, max] — CV only, not UI.
  */
 function nodeGraphParamApplyMod(base, modSum, metadata = {}) {
   const mod = Number(modSum) || 0;
+  const shouldClamp = nodeGraphParamModClamp(metadata);
+  let result;
   if (nodeGraphParamUsesPitchMod(metadata)) {
     // 0.1V/Oct: mod of +0.1 → +1 octave (same scale as pitch jacks).
     const baseFrequency = Math.max(1e-6, Number(base) || 1e-6);
-    const octaves = mod / 0.1;
-    return nodeGraphParamApplyDomainBounds(baseFrequency * (2 ** octaves), metadata);
+    result = baseFrequency * (2 ** (mod / 0.1));
+  } else {
+    const min = Number(metadata.min);
+    const max = Number(metadata.max);
+    const range = max - min;
+    const baseUnit = nodeGraphParamDomainToUnit(base, metadata);
+    const unit = baseUnit + mod;
+    if (!Number.isFinite(range) || range <= 0) {
+      result = Number.isFinite(min) ? min : 0;
+    } else if (metadata.wraparound) {
+      // Wraparound params always stay in range (toroidal domain).
+      result = nodeGraphParamUnitToDomain(unit, metadata);
+      return result;
+    } else {
+      const exp = nodeGraphParamSkewExponent(metadata);
+      // Inside [0,1]: nonlinear mid skew. Outside: linear unit so MOD can open.
+      const nv = (unit >= 0 && unit <= 1) ? (unit ** exp) : unit;
+      result = min + range * nv;
+    }
   }
-  const baseUnit = nodeGraphParamDomainToUnit(base, metadata);
-  return nodeGraphParamUnitToDomain(baseUnit + mod, metadata);
+  if (!Number.isFinite(result)) {
+    return 0;
+  }
+  return shouldClamp ? nodeGraphParamApplyDomainBounds(result, metadata) : result;
 }
 
 /**

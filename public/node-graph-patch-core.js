@@ -18,17 +18,7 @@ function normalizeNodeGraphPatchParameter(type, key, value, metadata = null) {
       : 0;
   const min = Number(metadata?.min ?? parameter?.min);
   const max = Number(metadata?.max ?? parameter?.max);
-  const unboundedMin = Boolean(metadata?.unboundedMin ?? parameter?.unboundedMin);
-  const unboundedMax = Boolean(metadata?.unboundedMax ?? parameter?.unboundedMax);
-  if (unboundedMin && unboundedMax) {
-    return candidate;
-  }
-  if (unboundedMin && Number.isFinite(max)) {
-    return Math.min(candidate, max);
-  }
-  if (unboundedMax && Number.isFinite(min)) {
-    return Math.max(candidate, min);
-  }
+  // Stored DOMAIN always honors parameter min/max (no UI / patch overshoot).
   if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
     return candidate;
   }

@@ -307,6 +307,9 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       if (node?.type === "fbmField" && !this.fbmFieldStates.has(id)) {
         this.fbmFieldStates.set(id, this.createFbmFieldState());
       }
+      if (node?.type === "rgbFractal" && !this.rgbFractalStates.has(id)) {
+        this.rgbFractalStates.set(id, this.createRgbFractalState());
+      }
       if (
         node?.type === "flowerChildEnvelopeFollower" &&
         !this.flowerChildEnvelopeFollowerStates.has(id)
@@ -881,6 +884,13 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       if (!ids.has(id)) {
         this.destroyFbmFieldNativeState?.(this.fbmFieldStates.get(id));
         this.fbmFieldStates.delete(id);
+      }
+    }
+    if (this.rgbFractalStates) {
+      for (const id of [...this.rgbFractalStates.keys()]) {
+        if (!ids.has(id)) {
+          this.rgbFractalStates.delete(id);
+        }
       }
     }
     for (const id of [...this.flowerChildEnvelopeFollowerStates.keys()]) {

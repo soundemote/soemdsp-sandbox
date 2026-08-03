@@ -176,6 +176,9 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "matrixFace",
     "matrixWaterfallFace",
     "matrixDisplayFace",
+    // Soft Fractal + Fractal Brownian Field: gradient / background in Display Settings.
+    "rgbFractalFace",
+    "fbmFieldFace",
   ].includes(displayType);
 }
 
