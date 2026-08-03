@@ -157,36 +157,13 @@ registerNodeGraphChromelessModule("rgbFractal", {
         defaultValue: "1.2",
         key: "scale",
         label: "Scale",
-        max: "24",
-        mid: "1.5",
+        max: "48",
+        mid: "2",
         min: "0.1",
         nonlinearSlider: true,
         step: "any",
         tooltip:
-          "Base zoom. Low = wide overview, high = deep close-up. Zoom Pulse modulates this over time.",
-      },
-      {
-        defaultValue: "0.25",
-        key: "zoomPulse",
-        label: "Zoom Pulse",
-        max: "4",
-        mid: "0.5",
-        min: "0",
-        nonlinearSlider: true,
-        step: "any",
-        tooltip:
-          "Rate of slow zoom breathing (× Speed). 0 = fixed Scale, higher = living camera push/pull.",
-      },
-      {
-        defaultValue: "0.35",
-        key: "zoomAmt",
-        label: "Zoom Amt",
-        max: "2",
-        mid: "0.5",
-        min: "0",
-        nonlinearSlider: true,
-        step: "any",
-        tooltip: "How much Zoom Pulse changes the window (0 = off, 1 = strong breath, 2 = extreme dig).",
+          "Fixed zoom only (no auto zoom in/out). Low (~0.1–0.5) = wide overview, 1–3 = normal frame, high (16–48) = deep dig. Cap stays practical — zoom does not raise GPU cost; Depth/Soft do.",
       },
       {
         bipolar: true,
@@ -397,10 +374,10 @@ registerNodeGraphChromelessModule("rgbFractal", {
   catalog: {
     category: "rgb",
     description:
-      "Full-face WebGL Julia with smooth coloring + orbit traps. Wide experimental knobs: Speed/Detune master, independent Orbit/Flow/Color/Trap rates, Morph/Wander/Harmonics, Zoom Pulse, Pan Drift, Fold, Bands. Detune + golden Harm 2 break locked cycles for ever-evolving motion. In → Out.",
+      "Full-face WebGL Julia with smooth coloring + orbit traps. Fixed Scale zoom (no auto zoom pulse). Speed/Detune master; Orbit/Flow/Color/Trap rates; Morph/Wander/Harmonics; Pan Drift; Fold; Bands. Detune + golden Harm 2 for ever-evolving motion. In → Out.",
     notes: [
       "rgb", "julia", "webgl", "psychedelic", "soft", "orbit trap", "gradient",
-      "LayoutB", "seed", "rotation", "detune", "ever-evolving",
+      "LayoutB", "seed", "rotation", "detune", "ever-evolving", "fixed zoom",
     ],
   },
 });

@@ -151,9 +151,6 @@ function nodeGraphRgbFractalEnsurePhasors(face) {
   if (!Number.isFinite(face._rgbFractalColorPhasor)) {
     face._rgbFractalColorPhasor = (Number(face._rgbFractalOrbitPhasor) || 0) * 0.14;
   }
-  if (!Number.isFinite(face._rgbFractalZoomPhasor)) {
-    face._rgbFractalZoomPhasor = 0;
-  }
   if (!Number.isFinite(face._rgbFractalPanPhasor)) {
     face._rgbFractalPanPhasor = 0;
   }
@@ -509,7 +506,8 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
   }
 
   const seed = ((nodeGraphRgbFractalReadParam(nodeId, "seed", 0) % 1) + 1) % 1;
-  const scale = Math.max(0.1, Math.min(24, nodeGraphRgbFractalReadParam(nodeId, "scale", 1.2)));
+  // Scale is fixed zoom only (no auto zoom in/out). Max stays practical.
+  const scale = Math.max(0.1, Math.min(48, nodeGraphRgbFractalReadParam(nodeId, "scale", 1.2)));
   const depth = Math.max(0, Math.min(4, nodeGraphRgbFractalReadParam(nodeId, "depth", 1.2)));
   const warp = Math.max(0, Math.min(4, nodeGraphRgbFractalReadParam(nodeId, "warp", 0.6)));
   const rotation = Math.max(-8, Math.min(8, nodeGraphRgbFractalReadParam(nodeId, "rotation", 0.4)));
@@ -518,7 +516,6 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
   const glowRaw = Math.max(0, Math.min(4, nodeGraphRgbFractalReadParam(nodeId, "glow", 1)));
   const panX = Math.max(-4, Math.min(4, nodeGraphRgbFractalReadParam(nodeId, "x", 0)));
   const panY = Math.max(-4, Math.min(4, nodeGraphRgbFractalReadParam(nodeId, "y", 0)));
-  // New exploration knobs
   const detune = Math.max(0, Math.min(3, nodeGraphRgbFractalReadParam(nodeId, "detune", 0.45)));
   const orbitRateK = Math.max(0, Math.min(4, nodeGraphRgbFractalReadParam(nodeId, "orbit", 1)));
   const orbitSize = Math.max(0, Math.min(4, nodeGraphRgbFractalReadParam(nodeId, "orbitSize", 1)));
@@ -526,8 +523,6 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
   const wander = Math.max(0, Math.min(4, nodeGraphRgbFractalReadParam(nodeId, "wander", 0.55)));
   const harm1 = Math.max(0.1, Math.min(5, nodeGraphRgbFractalReadParam(nodeId, "harm1", 1)));
   const harm2 = Math.max(0.1, Math.min(5, nodeGraphRgbFractalReadParam(nodeId, "harm2", 1.618)));
-  const zoomPulse = Math.max(0, Math.min(4, nodeGraphRgbFractalReadParam(nodeId, "zoomPulse", 0.25)));
-  const zoomAmt = Math.max(0, Math.min(2, nodeGraphRgbFractalReadParam(nodeId, "zoomAmt", 0.35)));
   const panDrift = Math.max(0, Math.min(4, nodeGraphRgbFractalReadParam(nodeId, "panDrift", 0.15)));
   const panSize = Math.max(0, Math.min(2, nodeGraphRgbFractalReadParam(nodeId, "panSize", 0.25)));
   const fold = Math.max(0, Math.min(2, nodeGraphRgbFractalReadParam(nodeId, "fold", 0.35)));
@@ -566,7 +561,6 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
     const d2 = 1 + detune * 1.4142135623;
     const d3 = 1 + detune * 0.7071067811;
     const d4 = 1 + detune * 0.3333333333;
-    const d5 = 1 + detune * 1.7320508075;
     const seedOrbitSkew = 0.65 + seed * 0.7;
     const orbitRate = speed * orbitRateK * (0.75 + Math.min(warp, 4) * 0.12) * seedOrbitSkew * d1;
     face._rgbFractalOrbitPhasor += orbitRate * dt;
@@ -577,7 +571,6 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
       : 0;
     face._rgbFractalRotationPhasor += rotation * spinGate * dt;
     face._rgbFractalColorPhasor += speed * colorRateK * (0.14 + glowRaw * 0.05) * d4 * dt;
-    face._rgbFractalZoomPhasor += speed * zoomPulse * 0.35 * d5 * dt;
     face._rgbFractalPanPhasor += speed * panDrift * 0.28 * (1 + detune * 0.5) * dt;
     face._rgbFractalTrapPhasor += speed * trapSpin * 0.55 * (1 + detune * 0.41) * dt;
     face._rgbFractalPhase = face._rgbFractalOrbitPhasor;
@@ -588,7 +581,6 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
   const tWarp = Number(face._rgbFractalWarpPhasor) || 0;
   const tRot = Number(face._rgbFractalRotationPhasor) || 0;
   const tColor = (Number(face._rgbFractalColorPhasor) || 0) + seed * 2.4 + colorShift * 6.28318;
-  const tZoom = Number(face._rgbFractalZoomPhasor) || 0;
   const tPan = Number(face._rgbFractalPanPhasor) || 0;
   const tTrap = Number(face._rgbFractalTrapPhasor) || 0;
 
@@ -601,12 +593,11 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
     detune,
   });
 
-  // Scale 0.1…24 as zoom + optional breathing from Zoom Pulse / Amt
-  const zoomBreath = 1 + zoomAmt * 0.55 * Math.sin(tZoom * Math.PI * 2);
-  const scaleEff = Math.max(0.08, scale * Math.max(0.35, zoomBreath));
+  // Fixed Scale only — no zoom breathing / pulse. Higher scale = smaller window.
+  // halfSpan floor keeps a practical dig without floating-point mush.
   const halfSpan = Math.max(
-    0.035,
-    Math.min(5, 2.55 / Math.pow(Math.max(0.1, scaleEff), 0.92)),
+    0.022,
+    Math.min(5, 2.55 / Math.pow(Math.max(0.1, scale), 0.92)),
   );
   const rot = tRot * Math.PI * 2;
   const cosR = Math.cos(rot);
