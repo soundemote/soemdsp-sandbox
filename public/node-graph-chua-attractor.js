@@ -1,5 +1,6 @@
-// Offline / main-thread glue for chua_attractor.wasm — no pure-JS DSP mirror.
-// Silent (0,0,0) until wasm finishes loading.
+// Offline / main-thread glue for chua_attractor.wasm (optional native path).
+// Pure JS lives in modules/chuaAttractor/chua-attractor-math.js and is preferred
+// by the live evaluator. Silent (0,0,0) until wasm finishes loading if used.
 
 const nodeGraphChuaAttractorWasm = { promise: null, exports: null, failed: false };
 

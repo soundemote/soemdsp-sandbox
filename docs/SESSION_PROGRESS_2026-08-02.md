@@ -6,7 +6,7 @@ Pair with `docs/HIGH_RISK_HIGH_REWARD_PLAN.md` (remaining-only).
 
 | Track | Still open |
 |-------|------------|
-| **A** | More `*-math.js` peels (filters, lorenz/chua); optional node smoke |
+| **A** | More `*-math.js` peels (filters, pluck envelope); optional node smoke |
 | **D** | Effectively complete (thin shell) |
 | **E** | External player/clapplayer slim default (other repo) |
 | **SIGNAL IN** | Residual non-osc CV modules only (by design) |

@@ -1,11 +1,17 @@
-// Registers the offline/render-time dispatch handler for chuaAttractor into
-// nodeGraphLiveModuleEvaluators (declared in node-graph-live-frame-evaluator.js).
-// Extracted from the inline if/else-if branch that used to live in that file.
+// Offline/render-time dispatch for chuaAttractor.
+// Prefer pure JS (chua-attractor-math.js); else wasm offline glue.
 nodeGraphLiveModuleEvaluators.chuaAttractor = ({ runtime, node, nodeId, frame, frames, frameValues, mixInput, sampleRate }) => {
-  const state = runtime.chuaAttractorStates.get(nodeId) || createNodeGraphChuaAttractorState();
-  runtime.chuaAttractorStates.set(nodeId, state);
-  const read = (key, fallback) => readNodeGraphLiveEffectiveParam(runtime, node, key, fallback, frame, frames, frameValues);
-  const chua = nodeGraphChuaAttractorSample({
+  if (!runtime.chuaAttractorJsStates) {
+    runtime.chuaAttractorJsStates = new Map();
+  }
+  let jsState = runtime.chuaAttractorJsStates.get(nodeId);
+  if (!jsState && typeof createNodeGraphChuaAttractorJsState === "function") {
+    jsState = createNodeGraphChuaAttractorJsState();
+    runtime.chuaAttractorJsStates.set(nodeId, jsState);
+  }
+  const read = (key, fallback) =>
+    readNodeGraphLiveEffectiveParam(runtime, node, key, fallback, frame, frames, frameValues);
+  const opts = {
     alpha: read("alpha", 15.6),
     beta: read("beta", 28),
     m0: read("m0", -1.143),
@@ -13,8 +19,15 @@ nodeGraphLiveModuleEvaluators.chuaAttractor = ({ runtime, node, nodeId, frame, f
     reset: mixInput(nodeId, "Reset"),
     sampleRate,
     speed: read("speed", 1),
-    state,
-  });
+  };
+  let chua;
+  if (jsState && typeof nodeGraphChuaAttractorCore === "function") {
+    chua = nodeGraphChuaAttractorCore(jsState, opts);
+  } else {
+    const state = runtime.chuaAttractorStates.get(nodeId) || createNodeGraphChuaAttractorState();
+    runtime.chuaAttractorStates.set(nodeId, state);
+    chua = nodeGraphChuaAttractorSample({ ...opts, state });
+  }
   const chuaLevel = read("level", 1);
   return {
     X: chua.x * chuaLevel,

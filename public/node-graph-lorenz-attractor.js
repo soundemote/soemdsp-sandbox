@@ -1,5 +1,6 @@
-// Offline / main-thread glue for lorenz_attractor.wasm — no pure-JS DSP mirror.
-// Silent (0,0,0) until wasm finishes loading. Live path uses worklet native only.
+// Offline / main-thread glue for lorenz_attractor.wasm (optional native path).
+// Pure JS lives in modules/lorenzAttractor/lorenz-attractor-math.js and is preferred
+// by the live evaluator. Silent (0,0,0) until wasm finishes loading if used.
 
 const nodeGraphLorenzAttractorWasm = { promise: null, exports: null, failed: false };
 
