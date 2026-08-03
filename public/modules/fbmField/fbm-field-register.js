@@ -1,5 +1,4 @@
-// Noise: FBM Field — Layout B face shows the *same* X/Y samples as the jacks
-// (scope phosphor), not a separate GPU field re-evaluation.
+// Noise: FBM Field — Layout B 2D field (WASM grid) + X/Y probes of the same field.
 registerNodeGraphChromelessModule("fbmField", {
   label: "FBM Field",
   solidModule: true,
@@ -17,10 +16,9 @@ registerNodeGraphChromelessModule("fbmField", {
     displayModes: [
       {
         key: "face",
-        label: "X/Y",
-        // fbmFieldFace → draws live buffer samples via scope2d phosphor path
+        label: "Field",
         renderer: "fbmFieldFace",
-        settingsSchema: "scope2d",
+        settingsSchema: "fbmFieldFace",
         source: { x: "X Raw", y: "Y Raw" },
       },
       {
@@ -54,14 +52,9 @@ registerNodeGraphChromelessModule("fbmField", {
     ],
     defaultDisplayMode: "face",
     inputs: ["Reset"],
-    inputLabels: {
-      Reset: "Rst",
-    },
+    inputLabels: { Reset: "Rst" },
     outputs: ["X", "Y"],
-    outputLabels: {
-      X: "X",
-      Y: "Y",
-    },
+    outputLabels: { X: "X", Y: "Y" },
     parameters: [
       {
         defaultValue: "0.5",
@@ -74,8 +67,7 @@ registerNodeGraphChromelessModule("fbmField", {
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip:
-          "Domain rate through the field (Hz). Advances the WASM probe that produces X/Y — face shows those same samples.",
+        tooltip: "Domain rate (Hz). Advances field scroll and X/Y probe path together.",
       },
       {
         defaultValue: "1",
@@ -86,8 +78,7 @@ registerNodeGraphChromelessModule("fbmField", {
         min: "0",
         nonlinearSlider: true,
         step: "any",
-        tooltip:
-          "Multiplies Frequency into the probe rate (audio + face together). 0 freezes X/Y (still frame at last sample).",
+        tooltip: "Multiplies Frequency for domain motion. 0 freezes field + X/Y path.",
       },
       {
         defaultValue: "4",
@@ -109,7 +100,7 @@ registerNodeGraphChromelessModule("fbmField", {
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Amplitude falloff per octave (classic fBm roughness).",
+        tooltip: "Amplitude falloff per octave.",
       },
       {
         defaultValue: "2",
@@ -120,7 +111,7 @@ registerNodeGraphChromelessModule("fbmField", {
         min: "1",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Frequency multiplier per octave (2 = classic Perlin stacking).",
+        tooltip: "Frequency multiplier per octave (2 = classic Perlin stack).",
       },
       {
         defaultValue: "0.55",
@@ -131,7 +122,7 @@ registerNodeGraphChromelessModule("fbmField", {
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Lattice interpolation: 0 blocky/linear → 0.5 hermite → 1 quintic silk.",
+        tooltip: "Lattice interpolation: 0 blocky → 1 quintic silk.",
       },
       {
         defaultValue: "1",
@@ -141,7 +132,7 @@ registerNodeGraphChromelessModule("fbmField", {
         mid: "1",
         min: "0.1",
         step: "any",
-        tooltip: "Spatial frequency of the noise lattice (texture grain).",
+        tooltip: "Spatial frequency of the noise lattice.",
       },
       {
         defaultValue: "1",
@@ -152,7 +143,7 @@ registerNodeGraphChromelessModule("fbmField", {
         min: "0.1",
         nonlinearSlider: true,
         step: "any",
-        tooltip: "View magnification of the field (and X/Y path scale).",
+        tooltip: "View magnification (and X/Y path scale).",
       },
       {
         bipolar: true,
@@ -164,7 +155,7 @@ registerNodeGraphChromelessModule("fbmField", {
         min: "-4",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Shift the field / probe origin on X.",
+        tooltip: "Field / probe origin X.",
       },
       {
         bipolar: true,
@@ -176,7 +167,7 @@ registerNodeGraphChromelessModule("fbmField", {
         min: "-4",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Shift the field / probe origin on Y.",
+        tooltip: "Field / probe origin Y.",
       },
       {
         defaultValue: "0",
@@ -189,7 +180,7 @@ registerNodeGraphChromelessModule("fbmField", {
         kind: "phase",
         unit: "cycle",
         wraparound: true,
-        tooltip: "View rotation of the face texture (cycles).",
+        tooltip: "View rotation of the field (cycles).",
       },
       {
         defaultValue: "1",
@@ -200,7 +191,7 @@ registerNodeGraphChromelessModule("fbmField", {
         min: "0",
         nonlinearSlider: true,
         step: "any",
-        tooltip: "Mono energy contrast before gradient (face only; X/Y stay raw field).",
+        tooltip: "Mono energy contrast before gradient (face).",
       },
       {
         defaultValue: "1",
@@ -212,7 +203,7 @@ registerNodeGraphChromelessModule("fbmField", {
         mid: "1",
         min: "0",
         step: "1",
-        tooltip: "Lattice seed. Change for a new terrain family.",
+        tooltip: "Lattice seed.",
       },
       {
         defaultValue: "1",
@@ -222,21 +213,21 @@ registerNodeGraphChromelessModule("fbmField", {
         mid: "0.5",
         min: "0",
         step: "0.01",
-        tooltip: "Output gain on X/Y (face uses full field; scopes use Raw).",
+        tooltip: "Output gain on X/Y jacks.",
       },
     ],
   },
   catalog: {
     category: "noise",
     description:
-      "2D value-noise fBm (native WASM). X/Y jacks and the Layout B face show the same live samples (phosphor of Out X/Y). No separate visual math path.",
+      "2D value-noise fBm field (native WASM). Face grid and X/Y probes use the same fbm2d kernel — not a separate GPU noise path. WebGL only upscales + applies gradient.",
     notes: [
       "LayoutB",
-      "phosphor",
-      "same-samples",
-      "native-only",
+      "2d field",
       "wasm",
-      "fbm",
+      "native-only",
+      "same-kernel",
+      "gradient",
       "out x/y",
       "no-js-fallback",
     ],

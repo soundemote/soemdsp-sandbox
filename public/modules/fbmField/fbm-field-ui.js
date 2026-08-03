@@ -1,5 +1,4 @@
-// FBM Field Layout B body. Face paint is driven by scope buffers (X/Y samples),
-// not an independent rAF field simulation.
+// FBM Field Layout B body + rAF. Face paints WASM field grid (not XY scope).
 
 function createNodeGraphFbmFieldBody(node, type) {
   const face = document.createElement("div");
@@ -10,14 +9,17 @@ function createNodeGraphFbmFieldBody(node, type) {
   face.dataset.lightStrength = "0";
   face.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} FBM field`);
   face.style.cssText = "position:relative;width:100%;height:100%;overflow:hidden;background:#000000;";
-  // Scope2d burn creates/attaches its own .node-module-scope-local-fallback-canvas.
+
+  const canvas = document.createElement("canvas");
+  canvas.className = "node-fbm-field-canvas";
+  canvas.setAttribute("aria-hidden", "true");
+  canvas.style.cssText = "display:block;width:100%;height:100%;";
+  face.append(canvas);
   return face;
 }
 
 function nodeGraphFbmFieldStopLoop(face) {
-  if (!face) {
-    return;
-  }
+  if (!face) return;
   if (face._fbmFieldRaf) {
     cancelAnimationFrame(face._fbmFieldRaf);
     face._fbmFieldRaf = 0;
@@ -25,35 +27,23 @@ function nodeGraphFbmFieldStopLoop(face) {
   face._fbmFieldRunning = false;
 }
 
-/**
- * Lightweight rAF: only enforces black plate when audio is stopped.
- * Sample deposits happen on the scope paint path (same buffers as jacks).
- */
 function nodeGraphFbmFieldStartLoop(face, nodeId) {
-  if (!face || face._fbmFieldRunning) {
-    return;
-  }
+  if (!face || face._fbmFieldRunning) return;
   face._fbmFieldRunning = true;
+  if (!Number.isFinite(face._fbmFieldTime)) face._fbmFieldTime = 0;
+  face._fbmFieldLastTs = 0;
 
-  const tick = () => {
+  const tick = (ts) => {
     if (!face.isConnected) {
       nodeGraphFbmFieldStopLoop(face);
       return;
     }
-    let running = false;
-    try {
-      if (typeof nodeGraphModuleScopeCircuitRunning === "function") {
-        running = nodeGraphModuleScopeCircuitRunning();
-      } else {
-        const live = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live : null;
-        running = Boolean(live?.outputEnabled && live?.node);
-      }
-    } catch (_) {
-      running = false;
-    }
-    if (!running && !face._fbmFieldBlack && typeof nodeGraphFbmFieldFillBlack === "function") {
-      const canvas = face.querySelector?.("canvas");
-      nodeGraphFbmFieldFillBlack(canvas, face);
+    const last = face._fbmFieldLastTs || ts;
+    let dt = Math.min(0.05, Math.max(0, (ts - last) / 1000));
+    if (!face._fbmFieldLastTs) dt = 0;
+    face._fbmFieldLastTs = ts;
+    if (typeof paintNodeGraphFbmFieldFaceForNode === "function") {
+      paintNodeGraphFbmFieldFaceForNode(nodeId, { dt, face });
     }
     face._fbmFieldRaf = requestAnimationFrame(tick);
   };
@@ -71,6 +61,22 @@ registerNodeGraphChromelessModuleUi("fbmField", {
         viewDrag: false,
       });
     }
+    const repaint = () => {
+      if (typeof paintNodeGraphFbmFieldFaceForNode === "function") {
+        paintNodeGraphFbmFieldFaceForNode(node, { face: body, dt: 0, force: true });
+      }
+    };
+    article.addEventListener("input", (event) => {
+      if (event.target?.dataset?.param) repaint();
+    });
+    article.addEventListener("change", (event) => {
+      if (event.target?.dataset?.param) repaint();
+    });
+    if (typeof nodeGraphFbmFieldLoadWasm === "function") {
+      nodeGraphFbmFieldLoadWasm();
+    }
     nodeGraphFbmFieldStartLoop(body, node);
+    repaint();
+    requestAnimationFrame(repaint);
   },
 });

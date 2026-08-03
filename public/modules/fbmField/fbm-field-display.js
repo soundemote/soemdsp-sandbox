@@ -1,8 +1,8 @@
-// FBM Field face: paints the *actual* X/Y audio samples (scope phosphor).
-// No independent GPU/JS field evaluation — visual == audio sample stream.
+// FBM Field face: 2D noise field from WASM fill_grid (same fbm2d as X/Y).
+// WebGL only presents/upscales + gradient LUT — no JS/GLSL noise evaluation.
 
 const nodeGraphFbmFieldSettingsDefaults = Object.freeze({
-  background: "#000000",
+  background: "#05060a",
   gradientStops: Object.freeze([
     Object.freeze({ t: 0, color: "#000000" }),
     Object.freeze({ t: 0.25, color: "#1a2744" }),
@@ -12,40 +12,44 @@ const nodeGraphFbmFieldSettingsDefaults = Object.freeze({
   ]),
 });
 
+/** WASM grid resolution (bilinear upscale to full face). */
+const NODE_GRAPH_FBM_FIELD_GRID = 192;
+
 function normalizeNodeGraphFbmFieldSettings(settings = {}) {
-  // Prefer full scope2d phosphor model so trail/blur/gradient match other X/Y faces.
-  if (typeof normalizeNodeGraphScope2dSettings === "function") {
-    const source = settings && typeof settings === "object" ? settings : {};
-    const defaults = nodeGraphFbmFieldSettingsDefaults;
-    const merged = {
-      ...source,
-      background: source.background ?? defaults.background,
-      gradientStops: source.gradientStops ?? source.gradient ?? defaults.gradientStops,
-    };
-    return normalizeNodeGraphScope2dSettings(merged);
-  }
   const source = settings && typeof settings === "object" ? settings : {};
   const defaults = nodeGraphFbmFieldSettingsDefaults;
-  let gradientStops = defaults.gradientStops.map((s) => ({ t: s.t, color: s.color }));
+  const peak = defaults.gradientStops[defaults.gradientStops.length - 1].color;
+  let gradientStops;
   if (typeof nodeGraphPhosphorGradientStopsFromSettings === "function") {
     if (source.gradientStops || source.gradient) {
-      gradientStops = nodeGraphPhosphorGradientStopsFromSettings(
-        source,
-        defaults.gradientStops[defaults.gradientStops.length - 1].color,
-      );
+      gradientStops = nodeGraphPhosphorGradientStopsFromSettings(source, peak);
+    } else {
+      gradientStops = defaults.gradientStops.map((s) => ({ t: s.t, color: s.color }));
     }
+  } else {
+    gradientStops = Array.isArray(source.gradientStops) && source.gradientStops.length >= 2
+      ? source.gradientStops
+      : defaults.gradientStops.map((s) => ({ t: s.t, color: s.color }));
   }
-  return {
-    background: source.background || defaults.background,
-    gradientStops,
-  };
+  const background = typeof normalizeNodeGraphTraceDisplayColor === "function"
+    ? normalizeNodeGraphTraceDisplayColor(source.background ?? source.backgroundColor, defaults.background)
+    : String(source.background || defaults.background);
+  return { background, gradientStops };
 }
 
 function nodeGraphFbmFieldSettingsForNode(node) {
-  if (!node) {
-    return normalizeNodeGraphFbmFieldSettings();
-  }
+  if (!node) return normalizeNodeGraphFbmFieldSettings();
   return normalizeNodeGraphFbmFieldSettings(node.traceDisplaySettings);
+}
+
+function nodeGraphFbmFieldReadParam(nodeId, key, fallback) {
+  if (typeof nodeGraphReadNodeNumber === "function") {
+    const n = nodeGraphReadNodeNumber(nodeId, key);
+    if (Number.isFinite(n)) return n;
+  }
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  const raw = Number(node?.params?.[key]);
+  return Number.isFinite(raw) ? raw : fallback;
 }
 
 function nodeGraphFbmFieldCircuitRunning() {
@@ -62,89 +66,165 @@ function nodeGraphFbmFieldCircuitRunning() {
   }
 }
 
+function nodeGraphFbmFieldShouldFreeze(domainRate) {
+  try {
+    if (typeof nodeGraphModuleScopeEnginePaused === "function" && nodeGraphModuleScopeEnginePaused()) {
+      return true;
+    }
+  } catch (_) { /* fall through */ }
+  try {
+    const speed = Number(typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live?.speedMultiplier : 1);
+    if (Number.isFinite(speed) && speed <= 0) return true;
+  } catch (_) { /* fall through */ }
+  return !(Math.abs(Number(domainRate) || 0) > 1e-6);
+}
+
+function syncNodeGraphFbmFieldCanvasHiRes(canvas, face, pixelRatio) {
+  if (!canvas || !face) return false;
+  const dpr = Math.min(2, Math.max(1, Number(pixelRatio) || window.devicePixelRatio || 1));
+  const w = Math.max(1, Math.round(face.clientWidth * dpr));
+  const h = Math.max(1, Math.round(face.clientHeight * dpr));
+  if (canvas.width !== w || canvas.height !== h) {
+    canvas.width = w;
+    canvas.height = h;
+  }
+  canvas.style.width = "100%";
+  canvas.style.height = "100%";
+  canvas.style.imageRendering = "auto";
+  return w > 0 && h > 0;
+}
+
 function nodeGraphFbmFieldFillBlack(canvas, face) {
-  if (face?.dataset) face.dataset.lightStrength = "0";
+  if (typeof nodeGraphFbmFieldGlClearBlack === "function" && nodeGraphFbmFieldGlClearBlack(canvas)) {
+    if (face?.dataset) face.dataset.lightStrength = "0";
+    if (face) {
+      face._fbmFieldBlack = true;
+      face._fbmFieldHasFrame = false;
+    }
+    return true;
+  }
   if (face) {
-    face._fbmFieldHasFrame = false;
-    face._fbmFieldBlack = true;
     face.style.background = "#000000";
+    face._fbmFieldBlack = true;
+    face._fbmFieldHasFrame = false;
   }
-  // Prefer shared phosphor clear if present on the scope burn canvas.
-  if (canvas && typeof nodeGraphPhosphorEnergyGlClear === "function" && canvas._phosphorEnergyGl) {
-    try {
-      nodeGraphPhosphorEnergyGlClear(canvas._phosphorEnergyGl);
-    } catch (_) { /* ignore */ }
-  }
-  if (canvas) {
-    const gl = canvas.getContext?.("webgl") || canvas.getContext?.("experimental-webgl");
-    if (gl) {
-      gl.viewport(0, 0, canvas.width | 0, canvas.height | 0);
-      gl.clearColor(0, 0, 0, 1);
-      gl.clear(gl.COLOR_BUFFER_BIT);
-      return true;
-    }
-    const ctx = canvas.getContext?.("2d");
-    if (ctx) {
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.fillStyle = "#000000";
-      ctx.fillRect(0, 0, canvas.width || 1, canvas.height || 1);
-      return true;
-    }
-  }
+  if (face?.dataset) face.dataset.lightStrength = "0";
   return true;
 }
 
-/**
- * Draw face from live X/Y scope buffers — same samples that leave the module jacks.
- */
-function drawNodeGraphFbmFieldFaceItem(renderer, item, pixelRatio) {
-  const slot = item?.slot;
-  const face = item?.screenElement || slot?.scopeElement;
-  if (!slot || !face) {
-    return;
+function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
+  if (!canvas || !face || !nodeId) return false;
+  const pixelRatio = Number(nodeGraphModuleScopeState?.backingPixelRatio)
+    || Math.max(1, window.devicePixelRatio || 1);
+  if (!syncNodeGraphFbmFieldCanvasHiRes(canvas, face, pixelRatio)) return false;
+
+  // Kick wasm load early
+  if (typeof nodeGraphFbmFieldLoadWasm === "function") {
+    nodeGraphFbmFieldLoadWasm();
   }
 
   if (!nodeGraphFbmFieldCircuitRunning()) {
-    const canvas = typeof nodeGraphScope2dBurnCanvasForSlot === "function"
-      ? nodeGraphScope2dBurnCanvasForSlot(slot)
-      : face.querySelector?.("canvas");
-    if (face._fbmFieldBlack) {
-      return;
-    }
-    nodeGraphFbmFieldFillBlack(canvas, face);
-    return;
+    face._fbmFieldLastTs = 0;
+    if (face._fbmFieldBlack && !options.force) return true;
+    return nodeGraphFbmFieldFillBlack(canvas, face);
   }
   face._fbmFieldBlack = false;
 
-  // Delegate to the real X/Y phosphor path: deposits buffer.x / buffer.y only.
-  if (typeof drawNodeGraphScope2dItem === "function") {
-    drawNodeGraphScope2dItem(renderer, item, pixelRatio);
+  const frequency = Math.max(0, nodeGraphFbmFieldReadParam(nodeId, "frequency", 0.5));
+  const evolve = Math.max(0, nodeGraphFbmFieldReadParam(nodeId, "speed", 1));
+  const domainRate = frequency * evolve;
+  const frozen = nodeGraphFbmFieldShouldFreeze(domainRate);
+  if (frozen && face._fbmFieldHasFrame && !options.force) {
+    face._fbmFieldLastTs = 0;
     if (face.dataset) face.dataset.lightStrength = "1";
-    face._fbmFieldHasFrame = true;
-    return;
+    return true;
   }
 
-  // Fallback: retained burn with explicit path from buffer samples.
-  const buffer = item?.buffer;
-  if (!buffer?.nodeGraphScopeXy || !buffer.x?.length || !buffer.y?.length) {
-    return;
+  if (!Number.isFinite(face._fbmFieldTime)) face._fbmFieldTime = 0;
+  let dt = Number(options.dt);
+  if (!Number.isFinite(dt) || dt < 0) dt = 0;
+  dt = Math.min(0.05, dt);
+  if (frozen) dt = 0;
+  // Same domain rate as audio: frequency * evolve (units/sec)
+  face._fbmFieldTime += dt * domainRate;
+
+  const params = {
+    domainTime: face._fbmFieldTime,
+    zoom: nodeGraphFbmFieldReadParam(nodeId, "zoom", 1),
+    panX: nodeGraphFbmFieldReadParam(nodeId, "panX", 0),
+    panY: nodeGraphFbmFieldReadParam(nodeId, "panY", 0),
+    rotate: nodeGraphFbmFieldReadParam(nodeId, "rotate", 0),
+    seed: nodeGraphFbmFieldReadParam(nodeId, "seed", 1),
+    octaves: nodeGraphFbmFieldReadParam(nodeId, "octaves", 4),
+    persistence: nodeGraphFbmFieldReadParam(nodeId, "persistence", 0.5),
+    lacunarity: nodeGraphFbmFieldReadParam(nodeId, "lacunarity", 2),
+    scale: nodeGraphFbmFieldReadParam(nodeId, "scale", 1),
+    smoothness: nodeGraphFbmFieldReadParam(nodeId, "smoothness", 0.55),
+    contrast: nodeGraphFbmFieldReadParam(nodeId, "contrast", 1),
+    width: NODE_GRAPH_FBM_FIELD_GRID,
+    height: NODE_GRAPH_FBM_FIELD_GRID,
+  };
+
+  if (typeof nodeGraphFbmFieldFillGrid !== "function") {
+    return nodeGraphFbmFieldFillBlack(canvas, face);
   }
-  const rect = item?.scopeRect;
-  if (!rect || typeof drawNodeGraphScope2dRetainedBurn !== "function") {
-    return;
+  const grid = nodeGraphFbmFieldFillGrid(params);
+  if (!grid?.mono) {
+    // wasm not ready yet
+    if (!face._fbmFieldHasFrame) {
+      return nodeGraphFbmFieldFillBlack(canvas, face);
+    }
+    return true;
   }
-  const square = typeof nodeGraphModuleScopeCenteredSquareRect === "function"
-    ? nodeGraphModuleScopeCenteredSquareRect(rect)
-    : rect;
-  const node = typeof nodeGraphModuleScopeNodeForSlot === "function"
-    ? nodeGraphModuleScopeNodeForSlot(slot)
-    : null;
-  const settings = typeof nodeGraphScope2dSettingsForNode === "function"
-    ? nodeGraphScope2dSettingsForNode(node)
-    : nodeGraphFbmFieldSettingsForNode(node);
-  drawNodeGraphScope2dRetainedBurn(item, pixelRatio, square, buffer, settings);
-  if (face.dataset) face.dataset.lightStrength = "1";
-  face._fbmFieldHasFrame = true;
+
+  const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  const settings = nodeGraphFbmFieldSettingsForNode(patchNode);
+  const soft = Math.max(0, Math.min(1, 0.15 + params.smoothness * 0.4));
+
+  if (typeof nodeGraphFbmFieldGlPresent !== "function") {
+    return nodeGraphFbmFieldFillBlack(canvas, face);
+  }
+  const ok = nodeGraphFbmFieldGlPresent(canvas, grid.mono, grid.width, grid.height, {
+    gradientStops: settings.gradientStops,
+    background: settings.background,
+    soft,
+  });
+  if (ok) {
+    if (face.dataset) face.dataset.lightStrength = "1";
+    face._fbmFieldHasFrame = true;
+    face._fbmFieldBlack = false;
+  }
+  return ok;
+}
+
+function paintNodeGraphFbmFieldFaceForNode(nodeId, options = {}) {
+  const id = String(nodeId || "").trim();
+  if (!id) return false;
+  const face = options.face
+    || (typeof nodeGraphNodeElement === "function"
+      ? nodeGraphNodeElement(id)?.querySelector?.(".node-fbm-field-face")
+      : null);
+  const canvas = face?.querySelector?.(".node-fbm-field-canvas");
+  if (!face || !canvas) return false;
+  return paintNodeGraphFbmFieldFace(canvas, face, id, options);
+}
+
+function drawNodeGraphFbmFieldFaceItem(renderer, item, pixelRatio) {
+  const slot = item?.slot;
+  const face = item?.screenElement || slot?.scopeElement;
+  if (!slot || !face) return;
+  // Scope pass: force still/update when rAF is not the owner.
+  if (!face._fbmFieldRunning && typeof paintNodeGraphFbmFieldFace === "function") {
+    const canvas = face.querySelector?.(".node-fbm-field-canvas");
+    if (canvas) {
+      paintNodeGraphFbmFieldFace(canvas, face, slot.nodeId, {
+        dt: 0,
+        force: true,
+        face,
+        pixelRatio,
+      });
+    }
+  }
 }
 
 if (typeof nodeGraphModuleScopeCustomRenderers === "object" && nodeGraphModuleScopeCustomRenderers) {
