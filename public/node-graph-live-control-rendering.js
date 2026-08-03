@@ -197,10 +197,16 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) 
   //   stopped            → red stop control
   // Important: "starting" must NOT look like stopped (was lighting red ⏹
   // the moment Space/Play armed output, before the worklet existed).
-  const playing = transportState === "playing" || transportState === "starting";
+  // Note: do not redeclare `starting` (status-text flag above) — that SyntaxError
+  // unloaded this whole file and left renderNodeGraphLiveControls undefined.
+  const transportStarting = transportState === "starting";
+  const playing = transportState === "playing" || transportStarting;
   const paused = transportState === "paused";
-  const starting = transportState === "starting";
-  syncNodeGraphTransportPlayButtons({ playing, paused, starting });
+  syncNodeGraphTransportPlayButtons({
+    playing,
+    paused,
+    starting: transportStarting,
+  });
   renderNodeGraphSpeedReadout();
   // FBM Field: no rAF / no face paint while engine is stopped (red stop).
   // Start loops when live; wipe black when stopped.
