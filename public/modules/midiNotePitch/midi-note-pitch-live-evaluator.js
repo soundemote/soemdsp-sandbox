@@ -7,8 +7,11 @@ nodeGraphLiveModuleEvaluators.midiNotePitch = ({ nodeId, mixInput }) => {
     Number(mixInput(nodeId, "Octave Offset")) * 12 +
     Number(mixInput(nodeId, "Pitch Offset"))
   ) || 0));
+  const frequencyHz = typeof nodeGraphDspMidiNoteToHz === "function"
+    ? nodeGraphDspMidiNoteToHz(pitch)
+    : 440 * (2 ** ((pitch - 69) / 12));
   return {
-    Frequency: 440 * (2 ** ((pitch - 69) / 12)),
+    Frequency: frequencyHz,
     "Pitch 0-1": pitch / 127,
     "Pitch 0-127": pitch,
   };

@@ -242,7 +242,7 @@ NodeLiveAudioProcessor.prototype.additiveOscWorkletEvaluate = function additiveO
     -1,
     1,
   );
-  const pitchedFrequency = Math.max(0, frequency * (2 ** (pitchInput / 0.1)));
+  const pitchedFrequency = (typeof nodeGraphPitchedFrequency === "function" ? nodeGraphPitchedFrequency(frequency, pitchInput, 0) : Math.max(0, frequency * (2 ** (pitchInput / 0.1))));
   const effectiveFrequency = this.resolveFrequencyHz(pitchedFrequency, this.readFInputHz(mixInput, nodeId));
   const incrementInput = this.safeFilterNumber(mixInput(nodeId, "Increment"), null);
   const phaseIncrement = (effectiveFrequency / safeRate) + incrementInput;

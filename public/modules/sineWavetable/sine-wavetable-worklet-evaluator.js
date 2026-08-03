@@ -83,7 +83,7 @@ NodeLiveAudioProcessor.prototype.sineWavetableWorkletEvaluate = function sineWav
     -1,
     1,
   );
-  const pitchedFrequency = Math.max(0, (baseFrequency + freqInput) * (2 ** (pitchInput / 0.1)));
+  const pitchedFrequency = (typeof nodeGraphPitchedFrequency === "function" ? nodeGraphPitchedFrequency((baseFrequency + freqInput), pitchInput, 0) : Math.max(0, (baseFrequency + freqInput) * (2 ** (pitchInput / 0.1))));
   const effectiveFrequency = this.resolveFrequencyHz(pitchedFrequency, this.readFInputHz(mixInput, nodeId));
   const amplitude = Math.max(0, this.readEffectiveParameter(
     node,

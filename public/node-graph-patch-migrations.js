@@ -93,12 +93,29 @@ function nodeGraphPatchMigrateV0ToV1(patch) {
 }
 
 /**
+ * 1 → 2 (reserved / currently identity): future product renames only.
+ *
+ * When product is ready, bump nodeGraphPatchFormat.version to 2 and implement
+ * e.g. valueSlider → knob here. Until then this is a no-op so format 1 patches
+ * stay on version 1 (migrator table length is consulted only when climbing).
+ *
+ * Example body (do NOT enable without format bump + UI type renames):
+ *   nodes.map(n => n.type === "valueSlider" ? { ...n, type: "knob" } : n)
+ */
+function nodeGraphPatchMigrateV1ToV2Reserved(patch) {
+  // Identity — kept so the migrator slot exists and is documented.
+  return patch;
+}
+
+/**
  * Migrator table: index i migrates version i → i+1.
  * Add future entries here (e.g. valueSlider → knob) without touching load call sites.
  */
 const nodeGraphPatchMigrators = Object.freeze([
   nodeGraphPatchMigrateV0ToV1,
-  // 1 → 2: reserved for next breaking shape change
+  // Slot for 1 → 2 when product renames land (see nodeGraphPatchMigrateV1ToV2Reserved).
+  // Not registered until format.version is bumped — keeping length 1 avoids
+  // forcing every load through an identity hop.
 ]);
 
 /**

@@ -32,7 +32,7 @@ nodeGraphLiveModuleEvaluators.ellipsoid = ({ runtime, node, nodeId, frame, frame
     null,
     "ellipsoid 0.1v/oct input",
   ), -1, 1);
-  const pitchedFrequency = Math.max(0, frequency * (2 ** (pitchInput / 0.1)));
+  const pitchedFrequency = (typeof nodeGraphPitchedFrequency === "function" ? nodeGraphPitchedFrequency(frequency, pitchInput, 0) : Math.max(0, frequency * (2 ** (pitchInput / 0.1))));
   const incrementInput = nodeGraphSafeFilterNumber(
     mixInput(nodeId, "Increment"),
     runtime,

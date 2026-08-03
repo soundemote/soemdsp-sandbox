@@ -3916,274 +3916,16 @@ function nodeGraphDisplaySettingsEscapeHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
-function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null) {
-  const meta = nodeGraphDisplaySettingsFieldMeta[key] || { label: key, inputmode: "decimal" };
-  let label = meta.label;
-  let title = meta.title;
-  // Value Slider display settings: explicit "Num decimals" for the face readout.
-  if (key === "decimals" && formType === "valueSliderFace") {
-    label = "Num decimals";
-    title = "Digits after the decimal on the Value Slider face readout (0–8).";
-  }
-  const titleAttr = title
-    ? ` title="${nodeGraphDisplaySettingsEscapeHtml(title)}"`
-    : "";
-  const idAttr = meta.id ? ` id="${nodeGraphDisplaySettingsEscapeHtml(meta.id)}"` : "";
-  return `
-    <label class="node-trace-display-line-burn-row" data-trace-display-control-row>
-      <span>${nodeGraphDisplaySettingsEscapeHtml(label)}</span>
-      <span class="metadata-stepper-control">
-        <button type="button" data-trace-display-step-target="${key}" data-trace-display-step-direction="-1">-</button>
-        <input type="text" inputmode="${meta.inputmode || "decimal"}" data-trace-display-field="${key}"${idAttr}${titleAttr}>
-        <button type="button" data-trace-display-step-target="${key}" data-trace-display-step-direction="1">+</button>
-      </span>
-    </label>`;
-}
-
-function nodeGraphDisplaySettingsBuildToggleRowHtml(key) {
-  const meta = nodeGraphDisplaySettingsToggleMeta[key] || { label: key };
-  const idAttr = meta.id ? ` id="${nodeGraphDisplaySettingsEscapeHtml(meta.id)}"` : "";
-  const titleAttr = meta.title
-    ? ` title="${nodeGraphDisplaySettingsEscapeHtml(meta.title)}"`
-    : "";
-  return `
-    <label class="metadata-checkbox-label" data-trace-display-control-row${titleAttr}>
-      <input type="checkbox" data-trace-display-toggle="${key}"${idAttr}${titleAttr}>
-      ${nodeGraphDisplaySettingsEscapeHtml(meta.label)}
-    </label>`;
-}
-
-function nodeGraphDisplaySettingsBuildChoiceRowHtml(key) {
-  const meta = nodeGraphDisplaySettingsChoiceMeta[key];
-  if (!meta) {
-    return "";
-  }
-  const idAttr = meta.id ? ` id="${nodeGraphDisplaySettingsEscapeHtml(meta.id)}"` : "";
-  const options = (meta.options || [])
-    .map((option) => (
-      `<option value="${nodeGraphDisplaySettingsEscapeHtml(option.value)}">${nodeGraphDisplaySettingsEscapeHtml(option.label)}</option>`
-    ))
-    .join("");
-  return `
-    <label class="node-trace-display-line-burn-row" data-trace-display-control-row data-trace-display-choice-row="${key}">
-      <span>${nodeGraphDisplaySettingsEscapeHtml(meta.label)}</span>
-      <select data-trace-display-choice="${key}"${idAttr} aria-label="${nodeGraphDisplaySettingsEscapeHtml(meta.aria || meta.label)}">
-        ${options}
-      </select>
-    </label>`;
-}
-
-function nodeGraphDisplaySettingsColorRowMeta(key, formType = null) {
-  const base = nodeGraphDisplaySettingsColorMeta[key] || {
-    label: "",
-    aria: key,
-    defaultValue: "#ffffff",
-  };
-  // Never a side "Color |" column — one contiguous widget row app-wide.
-  let aria = base.aria || key;
-  if (formType === "numberReadout" && key === "ghostColor") {
-    aria = "LCD ghost segment color";
-  } else if (formType === "numberReadout" && key === "backgroundColor") {
-    aria = "LCD back plate color";
-  }
-  return {
-    ...base,
-    label: "",
-    aria,
-    sideLabel: false,
-  };
-}
-
-function nodeGraphDisplaySettingsBuildColorRowHtml(key, formType = null) {
-  const meta = nodeGraphDisplaySettingsColorRowMeta(key, formType);
-  const idAttr = meta.id ? ` id="${nodeGraphDisplaySettingsEscapeHtml(meta.id)}"` : "";
-  return `
-    <div class="node-trace-display-color-widget-row no-side-label" data-trace-display-control-row data-trace-display-color-row="${key}">
-      <div
-        class="node-trace-display-color-widget-host"
-        data-trace-display-color-widget="${key}"
-        role="group"
-        aria-label="${nodeGraphDisplaySettingsEscapeHtml(meta.aria || key)}"></div>
-      <input type="hidden" data-trace-display-color="${key}"${idAttr} value="${nodeGraphDisplaySettingsEscapeHtml(meta.defaultValue || "#ffffff")}">
-    </div>`;
-}
-
+// nodeGraphDisplaySettingsBuildStepperRowHtml → node-graph-module-scope-settings-form.js
+// nodeGraphDisplaySettingsBuildToggleRowHtml → node-graph-module-scope-settings-form.js
+// nodeGraphDisplaySettingsBuildChoiceRowHtml → node-graph-module-scope-settings-form.js
+// nodeGraphDisplaySettingsColorRowMeta → node-graph-module-scope-settings-form.js
+// nodeGraphDisplaySettingsBuildColorRowHtml → node-graph-module-scope-settings-form.js
 /**
  * Schema-exclusive body: only controls for this formType exist in the DOM.
  * Replaces the old mega-form + hide loop so spectrogram never shares markup with Output.
  */
-function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
-  const type = formType || "trace";
-  // LED keeps its range-slider control scheme (preview + Color/Brightness/
-  // Blur/Corners/Rounding) — better than the generic stepper form.
-  if (type === "ledLamp" && typeof buildNodeGraphLedDisplaySettingsBodyHtml === "function") {
-    return buildNodeGraphLedDisplaySettingsBodyHtml();
-  }
-  if (type === "rgbPictureFace" && typeof buildNodeGraphRgbPictureDisplaySettingsBodyHtml === "function") {
-    return buildNodeGraphRgbPictureDisplaySettingsBodyHtml();
-  }
-  // Matrix Waterfall / Matrix Display custom bodies.
-  if (
-    (type === "matrixFace" || type === "matrixWaterfallFace" || type === "matrixDisplayFace")
-    && typeof buildNodeGraphMatrixFaceDisplaySettingsBodyHtml === "function"
-  ) {
-    return buildNodeGraphMatrixFaceDisplaySettingsBodyHtml(type);
-  }
-  const activeFields = nodeGraphTraceDisplayActiveControlSet("fields", type);
-  const activeColors = nodeGraphTraceDisplayActiveControlSet("colors", type);
-  const activeToggles = nodeGraphTraceDisplayActiveControlSet("toggles", type);
-  const activeChoices = nodeGraphTraceDisplayActiveControlSet("choices", type);
-  const isOutputNode = node?.type === "output";
-  const parts = [];
-
-  // Filter keys that only apply on Output for the shared "trace" schema.
-  const allowKey = (kind, key) => {
-    if (type !== "trace") {
-      return true;
-    }
-    if (!isOutputNode) {
-      if (
-        key === "secondarySize" ||
-        key === "secondaryBrightness" ||
-        key === "secondaryLineThickness" ||
-        key === "secondaryEnabled" ||
-        key === "secondaryColor" ||
-        key === "syncChannel" ||
-        key === "stereoBlend"
-      ) {
-        return false;
-      }
-    } else if (key === "sourceSync") {
-      // Output uses syncChannel select, not the legacy Sync checkbox.
-      return false;
-    }
-    return true;
-  };
-
-  const sectionOrder = nodeGraphDisplaySettingsIsPhosphorFormType(type)
-    ? nodeGraphPhosphorDisplaySettingsSectionOrder
-    : nodeGraphDisplaySettingsSectionOrder;
-  for (const section of sectionOrder) {
-    if (section === "gradient") {
-      if (!nodeGraphDisplaySettingsFormTypeUsesGradient(type)) {
-        continue;
-      }
-      parts.push(`<div class="metadata-section-title node-trace-display-gradient-title">Gradient</div>`);
-      // Single host for NodeGraphGradientSelector (all faces share this control).
-      parts.push(`
-        <div class="metadata-field-section node-trace-display-gradient-section">
-          <div
-            id="nodeTraceDisplayGradientSelectorHost"
-            class="node-gradient-selector-host node-shared-gradient-host node-spectrogram-gradient-host"
-            data-gradient-selector-host
-            data-shared-gradient-host
-            data-spectrogram-gradient-host></div>
-        </div>`);
-      continue;
-    }
-
-    const sectionControls = nodeGraphTraceDisplaySectionControls[section];
-    if (!sectionControls) {
-      continue;
-    }
-    const fieldKeys = (sectionControls.fields || []).filter(
-      (key) => activeFields.has(key) && allowKey("fields", key),
-    );
-    const colorKeys = (sectionControls.colors || []).filter(
-      (key) => activeColors.has(key) && allowKey("colors", key),
-    );
-    const toggleKeys = (sectionControls.toggles || []).filter(
-      (key) => activeToggles.has(key) && allowKey("toggles", key),
-    );
-    const choiceKeys = (sectionControls.choices || []).filter(
-      (key) => activeChoices.has(key) && allowKey("choices", key),
-    );
-    // syncChannel / stereoBlend live in activeChoices but are listed under
-    // "trace" sectionChoices only for spectrogram historically — include
-    // Output sync choices from active set even if not in section map.
-    if (section === "trace" && type === "trace" && isOutputNode) {
-      for (const key of ["syncChannel", "stereoBlend"]) {
-        if (activeChoices.has(key) && !choiceKeys.includes(key)) {
-          choiceKeys.push(key);
-        }
-      }
-    }
-    if (!fieldKeys.length && !colorKeys.length && !toggleKeys.length && !choiceKeys.length) {
-      // secondaryEnabled is only in section title for secondary; handle below.
-      if (!(section === "secondary" && activeToggles.has("secondaryEnabled") && isOutputNode && type === "trace")) {
-        continue;
-      }
-    }
-
-    let titleText = section === "trace"
-      ? (nodeGraphDisplaySettingsFormTypeTitles[type] || "Trace")
-      : section === "value"
-        ? "Line"
-        : section === "dot1"
-          ? (isOutputNode && type === "trace" ? "Left" : "Dot")
-          : section === "secondary"
-            ? (isOutputNode && type === "trace" ? "Right" : "Secondary")
-            : section === "caps"
-              ? "Caps"
-              : section;
-    if (section === "secondary") {
-      const enabledToggle = isOutputNode && type === "trace" && activeToggles.has("secondaryEnabled")
-        ? `<input id="nodeTraceDisplaySecondaryEnabled" type="checkbox" aria-label="${isOutputNode ? "Right on" : "Secondary on"}" data-trace-display-toggle="secondaryEnabled">`
-        : "";
-      parts.push(`
-        <div class="metadata-section-title node-trace-display-secondary-title">
-          <span id="nodeTraceDisplaySecondaryTitleLabel">${nodeGraphDisplaySettingsEscapeHtml(titleText)}</span>
-          ${enabledToggle}
-        </div>`);
-    } else if (section === "dot1") {
-      // Phosphor faces: stamp geometry/light (not a second "Dot" copy of Brightness/Blur).
-      const phosphorStamp =
-        type === "scope2d"
-        || type === "scope2dTrace"
-        || type === "phosphorLight"
-        || type === "lineBurn"
-        || type === "dot"
-        || type === "value"
-        || type === "videoscopeBurn"
-        || type === "oscilloscopeBankBurn"
-        || type === "hypersawBurn"
-        || type === "xyPad";
-      const dotTitle = type === "xyPad"
-        ? "Beam & puck"
-        : phosphorStamp
-          ? "Stamp"
-          : titleText;
-      parts.push(`
-        <div class="metadata-section-title node-trace-display-dot1-title">
-          <span id="nodeTraceDisplayDot1TitleLabel">${nodeGraphDisplaySettingsEscapeHtml(dotTitle)}</span>
-        </div>`);
-    } else {
-      parts.push(`<div class="metadata-section-title node-trace-display-${section}-title">${nodeGraphDisplaySettingsEscapeHtml(titleText)}</div>`);
-    }
-
-    const rows = [];
-    // Preferred order: choices (sync), toggles, fields, colors — matches prior UX.
-    for (const key of choiceKeys) {
-      rows.push(nodeGraphDisplaySettingsBuildChoiceRowHtml(key));
-    }
-    for (const key of toggleKeys) {
-      if (section === "secondary" && key === "secondaryEnabled") {
-        continue; // already in title
-      }
-      rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml(key));
-    }
-    for (const key of fieldKeys) {
-      rows.push(nodeGraphDisplaySettingsBuildStepperRowHtml(key, type));
-    }
-    for (const key of colorKeys) {
-      rows.push(nodeGraphDisplaySettingsBuildColorRowHtml(key, type));
-    }
-    parts.push(`<div class="metadata-field-section node-trace-display-${section}-section">${rows.join("")}</div>`);
-  }
-
-  return parts.join("\n");
-}
-
+// buildNodeGraphDisplaySettingsBodyHtml → node-graph-module-scope-settings-form.js
 function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
   if (!popover) {
     return;
@@ -7265,52 +7007,9 @@ function nodeGraphModuleScopePaused() {
  * Primary signal is engine speed 0. While frozen we still advance per-canvas
  * sample cursors so unpause does not dump a backlog of stamps.
  */
-function nodeGraphModuleScopePhosphorFrozen() {
-  return nodeGraphModuleScopePaused();
-}
-
-function absorbNodeGraphPhosphorDrawCursorOnCanvas(canvas, endFrame) {
-  if (!canvas || !Number.isFinite(Number(endFrame))) {
-    return;
-  }
-  const frame = Number(endFrame);
-  canvas._nodeGraphScope2dLastDrawnFrame = frame;
-  canvas._nodeGraphOneDimensionalBurnLastDrawnFrame = frame;
-  canvas._phosphorScope2dLastFrame = frame;
-  if (canvas._nodeGraphScope2dBurnRenderer) {
-    canvas._nodeGraphScope2dBurnRenderer.lastFrame = frame;
-    canvas._nodeGraphScope2dBurnRenderer._nodeGraphScope2dLastDrawnFrame = frame;
-  }
-}
-
-function absorbNodeGraphModuleScopePhosphorDrawCursors() {
-  if (typeof nodeGraphModuleScopeSlots !== "function") {
-    return;
-  }
-  for (const slot of nodeGraphModuleScopeSlots() || []) {
-    const buffer = nodeGraphModuleScopeDisplayBuffer?.(
-      slot,
-      nodeGraphModuleScopeCapturedBufferForSlot?.(slot),
-    ) || nodeGraphModuleScopeCapturedBufferForSlot?.(slot);
-    const endFrame = Number(buffer?.nodeGraphScopeAbsoluteFrame);
-    if (!Number.isFinite(endFrame)) {
-      continue;
-    }
-    const burnCanvas = typeof nodeGraphScope2dBurnCanvasForSlot === "function"
-      ? nodeGraphScope2dBurnCanvasForSlot(slot)
-      : null;
-    absorbNodeGraphPhosphorDrawCursorOnCanvas(burnCanvas, endFrame);
-    const localCanvas = typeof nodeGraphModuleScopeLocalFallbackCanvas === "function"
-      ? nodeGraphModuleScopeLocalFallbackCanvas(slot)
-      : null;
-    absorbNodeGraphPhosphorDrawCursorOnCanvas(localCanvas, endFrame);
-    const numberCanvas = typeof nodeGraphNumberReadoutCanvasForSlot === "function"
-      ? nodeGraphNumberReadoutCanvasForSlot(slot)
-      : null;
-    absorbNodeGraphPhosphorDrawCursorOnCanvas(numberCanvas, endFrame);
-  }
-}
-
+// nodeGraphModuleScopePhosphorFrozen → node-graph-module-scope-phosphor.js
+// absorbNodeGraphPhosphorDrawCursorOnCanvas → node-graph-module-scope-phosphor.js
+// absorbNodeGraphModuleScopePhosphorDrawCursors → node-graph-module-scope-phosphor.js
 function nodeGraphModuleScopeBackingPixelRatio(rect, requestedPixelRatio = window.devicePixelRatio || 1) {
   const width = Math.max(1, Number(rect?.width) || 1);
   const height = Math.max(1, Number(rect?.height) || 1);
@@ -8429,32 +8128,7 @@ function nodeGraphModuleScopeVisibleMetricRect(rect, options = {}) {
     : rect;
 }
 
-function nodeGraphModuleScopePhosphorFrameReady(slot) {
-  const key = String(slot?.nodeId || "__default");
-  const fps = normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp?.moduleScopeFramesPerSecond ?? 60);
-  const now = Math.max(0, Number(nodeGraphModuleScopeState.animationTime) || 0);
-  const state = nodeGraphModuleScopeState.phosphorFrame || {
-    key: "",
-    lastUpdate: 0,
-  };
-  if (state.key !== key || !Number.isFinite(Number(state.lastUpdate))) {
-    nodeGraphModuleScopeState.phosphorFrame = {
-      key,
-      lastUpdate: now,
-    };
-    return true;
-  }
-  const tick = nodeGraphModuleScopeAdvanceFixedFrameClock(state, now, fps);
-  if (!tick.ready) {
-    return false;
-  }
-  nodeGraphModuleScopeState.phosphorFrame = {
-    key,
-    lastUpdate: tick.lastUpdate,
-  };
-  return true;
-}
-
+// nodeGraphModuleScopePhosphorFrameReady → node-graph-module-scope-phosphor.js
 function beginNodeGraphModuleScopeRenderMetricsFrame() {
   const metrics = nodeGraphModuleScopeState.renderMetrics || {};
   metrics.drawCalls = 0;
@@ -10840,36 +10514,13 @@ function drawNodeGraphValueOscilloscopeItem(renderer, item, pixelRatio) {
 // Number Readout is the first consumer; other burn paths can migrate later.
 // ─────────────────────────────────────────────────────────────────────────────
 
-function nodeGraphPhosphorEnergyEnsureCanvas(host, key, width, height) {
-  if (!host || !(width > 0) || !(height > 0)) {
-    return null;
-  }
-  let canvas = host[key];
-  if (!canvas || canvas.width !== width || canvas.height !== height) {
-    canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    host[key] = canvas;
-  }
-  return canvas;
-}
-
+// nodeGraphPhosphorEnergyEnsureCanvas → node-graph-module-scope-phosphor.js
 /**
  * Per-frame energy erase amount in 0–1 (destination-out alpha).
  * Decay alone drives fade rate. Burn is deposit gain only — do not cancel fade
  * with burn or small decay values become invisible under continuous re-deposit.
  */
-function nodeGraphPhosphorEnergyFadeAmount(decay) {
-  const d = clampNodeSliderValue(Number(decay) || 0, 0, 1);
-  if (d <= 0.001) {
-    return 0;
-  }
-  // Gentler floor so low burn can still accumulate a dim continuous trail
-  // (old 0.025 min erase created a dead band near burn ~0.04).
-  // At ~60fps: decay 0.3 → ~0.07/frame; decay 1 → dies in a few frames.
-  return clampNodeSliderValue(0.006 + d * 0.11 + d * d * 0.32, 0.006, 0.55);
-}
-
+// nodeGraphPhosphorEnergyFadeAmount → node-graph-module-scope-phosphor.js
 /**
  * Smooth mono-energy deposit gain from brightness × size only.
  */
@@ -10890,132 +10541,21 @@ function nodeGraphScope2dEnergyBurnExposure() {
   return 2.9;
 }
 
-function nodeGraphPhosphorEnergyFade(context, width, height, decay) {
-  if (!context || !(width > 0) || !(height > 0)) {
-    return;
-  }
-  const fadeAlpha = nodeGraphPhosphorEnergyFadeAmount(decay);
-  if (fadeAlpha <= 0) {
-    return;
-  }
-  context.save();
-  context.setTransform(1, 0, 0, 1, 0, 0);
-  context.globalCompositeOperation = "destination-out";
-  context.fillStyle = `rgba(0, 0, 0, ${fadeAlpha.toFixed(4)})`;
-  context.fillRect(0, 0, width, height);
-  context.restore();
-}
-
+// nodeGraphPhosphorEnergyFade → node-graph-module-scope-phosphor.js
 /** Softness in buffer px for energy deposits (size only — no ad-hoc glow). */
-function nodeGraphPhosphorEnergySoftnessPx(sizePx, _ignored = 0.5) {
-  const size = Math.max(1, Number(sizePx) || 1);
-  return Math.max(1.25, size * 0.18);
-}
-
+// nodeGraphPhosphorEnergySoftnessPx → node-graph-module-scope-phosphor.js
 /**
  * Build a 0–1 → RGB gradient for phosphor presentation.
  * peakRgb: 0–255 triple (or 0–1 floats — both accepted).
  * Stops: floor → dim body → peak → hot shoulder.
  */
-function nodeGraphPhosphorBuildGradientStops(peakRgb, backgroundHex = "#000000") {
-  const peak = Array.isArray(peakRgb) ? peakRgb : [120, 255, 170];
-  const toByte = (v) => {
-    const n = Number(v);
-    if (!Number.isFinite(n)) return 0;
-    return n <= 1 ? Math.round(clampNodeSliderValue(n, 0, 1) * 255) : Math.round(clampNodeSliderValue(n, 0, 255));
-  };
-  const pr = toByte(peak[0]);
-  const pg = toByte(peak[1]);
-  const pb = toByte(peak[2]);
-  const bg = normalizeNodeGraphTraceDisplayColor(backgroundHex, "#000000");
-  const br = parseInt(bg.slice(1, 3), 16) || 0;
-  const bg_ = parseInt(bg.slice(3, 5), 16) || 0;
-  const bb = parseInt(bg.slice(5, 7), 16) || 0;
-  const mix = (a, b, t) => Math.round(a + (b - a) * t);
-  // No hot-white clip — residual stays in the phosphor hue, not harsh RGB white.
-  return Object.freeze([
-    Object.freeze({ t: 0, r: br, g: bg_, b: bb }),
-    Object.freeze({ t: 0.18, r: mix(br, pr, 0.28), g: mix(bg_, pg, 0.28), b: mix(bb, pb, 0.28) }),
-    Object.freeze({ t: 0.55, r: mix(br, pr, 0.7), g: mix(bg_, pg, 0.7), b: mix(bb, pb, 0.7) }),
-    Object.freeze({ t: 1, r: pr, g: pg, b: pb }),
-  ]);
-}
-
-function nodeGraphPhosphorSampleGradient(energy01, stops) {
-  const e = clampNodeSliderValue(Number(energy01) || 0, 0, 1);
-  const list = Array.isArray(stops) && stops.length ? stops : nodeGraphPhosphorBuildGradientStops([120, 255, 170]);
-  if (e <= list[0].t) {
-    return list[0];
-  }
-  const last = list[list.length - 1];
-  if (e >= last.t) {
-    return last;
-  }
-  for (let i = 1; i < list.length; i += 1) {
-    const a = list[i - 1];
-    const b = list[i];
-    if (e <= b.t) {
-      const span = Math.max(1e-6, b.t - a.t);
-      const u = (e - a.t) / span;
-      return {
-        r: Math.round(a.r + (b.r - a.r) * u),
-        g: Math.round(a.g + (b.g - a.g) * u),
-        b: Math.round(a.b + (b.b - a.b) * u),
-      };
-    }
-  }
-  return last;
-}
-
+// nodeGraphPhosphorBuildGradientStops → node-graph-module-scope-phosphor.js
+// nodeGraphPhosphorSampleGradient → node-graph-module-scope-phosphor.js
 /**
  * Map grayscale energy canvas → colored RGBA into colorCanvas (same size).
  * Energy luma is max(R,G,B)/255. Output alpha tracks energy for lighter blit.
  */
-function nodeGraphPhosphorMapEnergyToColorCanvas(energyCanvas, colorCanvas, stops) {
-  if (!energyCanvas || !colorCanvas) {
-    return false;
-  }
-  const w = energyCanvas.width;
-  const h = energyCanvas.height;
-  if (colorCanvas.width !== w || colorCanvas.height !== h) {
-    colorCanvas.width = w;
-    colorCanvas.height = h;
-  }
-  const ectx = energyCanvas.getContext("2d", { willReadFrequently: true });
-  const cctx = colorCanvas.getContext("2d");
-  if (!ectx || !cctx) {
-    return false;
-  }
-  const src = ectx.getImageData(0, 0, w, h);
-  let out = colorCanvas._phosphorMappedImageData;
-  if (!out || out.width !== w || out.height !== h) {
-    out = cctx.createImageData(w, h);
-    colorCanvas._phosphorMappedImageData = out;
-  }
-  const s = src.data;
-  const d = out.data;
-  const gradient = stops || nodeGraphPhosphorBuildGradientStops([120, 255, 170]);
-  for (let i = 0; i < s.length; i += 4) {
-    // Mild gamma so mid-energy soft edges stay soft instead of posterizing bright.
-    const raw = Math.max(s[i], s[i + 1], s[i + 2]) / 255;
-    const energy = Math.pow(raw, 1.15);
-    if (energy < 0.006) {
-      d[i] = 0;
-      d[i + 1] = 0;
-      d[i + 2] = 0;
-      d[i + 3] = 0;
-      continue;
-    }
-    const c = nodeGraphPhosphorSampleGradient(energy, gradient);
-    d[i] = c.r;
-    d[i + 1] = c.g;
-    d[i + 2] = c.b;
-    d[i + 3] = Math.min(255, Math.round(energy * 230));
-  }
-  cctx.putImageData(out, 0, 0);
-  return true;
-}
-
+// nodeGraphPhosphorMapEnergyToColorCanvas → node-graph-module-scope-phosphor.js
 // ─────────────────────────────────────────────────────────────────────────────
 // Number Readout — energy phosphor + hard LCD plate / live digits
 // DSEG7 Classic: https://github.com/keshikan/DSEG (SIL OFL 1.1)

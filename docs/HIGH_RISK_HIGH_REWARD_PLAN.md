@@ -151,11 +151,12 @@ Split without behavior change:
 - [x] visual / scope-io / native-load / analog / param-map / events / dsp-state
 - [x] scopes pure defaults → `scope-defaults.js`
 - [x] scopes normalize* + display-mode helpers → `scope-normalize.js` / `scope-display-mode.js`
+- [x] scopes phosphor energy + settings-form HTML peels
 - [x] worklet-core slimmed to **~13KB** constructor shell (all methods on prototype siblings)
-- Original megacore ~363KB → modular tree
+- Original megacore ~363KB → modular tree; scopes ~556KB → ~539KB (+ peels)
 
 ### Next D slices
-- [ ] scopes: paint/UI HTML clusters (optional)
+- [ ] scopes: remaining paint/capture HTML (optional)
 - [ ] worklet: evaluators map / setPlan further subdiv if needed
 
 ### Rule

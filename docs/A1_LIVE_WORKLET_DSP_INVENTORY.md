@@ -23,9 +23,14 @@ base * (2 ** ((pitchInput - referenceVoltage) / 0.1))
 
 instead of `nodeGraphPitchedFrequency(base, cv, ref)`.
 
-**Migrated to helper:** `curveOsc`, `snowflake` (live evaluators).
+**Migrated to helper (live and/or worklet):**  
+`curveOsc`, `snowflake`, `dsf`, `hypersaw`, `polyBlep`, `additiveOsc`, `softwave`,
+`sinc`, `sineWavetable`, `robinSupersaw`, `surge`, `ellipsoid` (absolute CV uses ref 0),
+`midiNotePitch` → `nodeGraphDspMidiNoteToHz`.
 
-**Still inline (examples):** `additiveOsc`, `dsfOscillator`, `hypersaw`, `softwaveOsc`, `ellipsoid` (absolute cv without ref in some paths), matching worklet evaluators.
+**Still dual-lane / residual:** some mega-map entries in `worklet-evaluators.js`
+still use helper with fallback formula (OK). GPU additive / native-only paths may
+keep absolute CV conventions intentionally.
 
 **Gate for each slice:** fixed-frequency sample vector matches before/after on offline render.
 
