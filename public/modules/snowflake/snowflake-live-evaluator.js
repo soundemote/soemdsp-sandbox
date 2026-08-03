@@ -59,15 +59,13 @@ nodeGraphLiveModuleEvaluators.snowflake = ({
     : pitchedFrequency;
 
   const levelKnob = read("level", 1);
-  const level = hasInput?.(nodeId, "Amplitude")
-    ? levelKnob * nodeGraphSafeFilterNumber(
-      mixInput(nodeId, "Amplitude"),
-      runtime,
-      nodeId,
-      1,
-      "snowflake amp",
-    )
-    : levelKnob;
+  const hasAmp = Boolean(hasInput?.(nodeId, "Amplitude"));
+  const ampCv = hasAmp
+    ? nodeGraphSafeFilterNumber(mixInput(nodeId, "Amplitude"), runtime, nodeId, 1, "snowflake amp")
+    : 1;
+  const level = typeof nodeGraphParamSignalInAmplitude === "function"
+    ? nodeGraphParamSignalInAmplitude(levelKnob, ampCv, hasAmp)
+    : (hasAmp ? levelKnob * ampCv : levelKnob);
 
   return nodeGraphSnowflakeSample(state, {
     frequencyHz: effectiveFrequency,

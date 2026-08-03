@@ -1,54 +1,48 @@
-# Phase E — Used-modules WASM slim (load size)
+# Phase E — Used-modules WASM slim
 
-## Problem today
+## Problem
 
-Native DSP is often shipped as:
+Authoring prefers **`soemdsp_combined.wasm`**: every native module, one shared
+memory (avoids Chrome’s per-process WASM memory cap). That is large to
+download and slow to cold-start for a **player** that only uses a few types.
 
-- many per-module `.wasm` files, and/or  
-- one **combined** `soemdsp_combined.wasm` that contains *all* native modules
+## Modes
 
-The sandbox currently prefers the **combined** binary so every module is
-available without juggling many WASM memories (browsers cap how many you can
-have). That is great for **authoring** (any module can be added instantly) but
-costs **download size and cold-start time**, especially for a **player** that
-only needs the modules on one patch.
+| Mode | When | Behavior |
+|------|------|----------|
+| **combined** | Default (authoring) | Fetch combined binary once; all natives available |
+| **slim** | Player / embed / clapplayer | Fetch only wasm for **types on the current plan** |
 
-## What “used-modules slim” means
+### How to enable slim
 
-On load (or plan apply):
+1. Query: `?wasmLoad=slim` (aliases: `used`, `used-modules`)  
+2. Or `?nativeWasm=slim`  
+3. Or `embed-config.json`: `{ "wasmLoad": "slim" }` or `{ "nativeWasmLoad": "slim" }`  
+4. Or at runtime: `nodeGraphMvp.live.nativeWasmLoadMode = "slim"` before live start  
 
-1. Walk the patch graph → set of module **types** in use.  
-2. Resolve native dependencies for those types (from `native-modules-catalog.json`).  
-3. Fetch/instantiate **only** that WASM set (or a smaller combined subset).  
-4. If the user adds a new native module later, fetch its WASM then.
+Force combined: `?wasmLoad=combined` (aliases: `full`, `all`).
+
+## Implementation
+
+`sendNodeGraphLiveNativeModules` in `node-graph-live-runtime.js`:
+
+- Resolves mode once via `nodeGraphLiveResolveNativeWasmLoadMode()`  
+- **slim** → `sendNodeGraphLiveNativeModulesUsedOnly` (catalog filter × plan types)  
+- **combined** → existing combined send; on missing binary, falls back to used-only  
+
+Adding a new native module on the patch re-runs send on plan update; already-sent
+modules are skipped (idempotent `sent` set).
 
 ## What it affects
 
-| Area | Effect |
-|------|--------|
-| **Player / embed / clapplayer** | Smaller first paint; faster start |
-| **Authoring sandbox** | Optional; full combined can stay the default |
-| **DSP behavior** | **None**, if the right modules still load |
-| **Risk** | Missing dep → module silent or JS fallback |
+| | |
+|--|--|
+| Download size / cold start | Yes (slim) |
+| Sound / formulas | **No** (if deps load) |
+| Risk | Slim + huge native set → many memories; prefer combined for big patches |
 
-## What it does *not* do
+## Status
 
-- Change formulas or sound  
-- Remove modules from the catalog  
-- Replace C++ — only changes **which binaries are transferred**
-
-## Relation to Phase A
-
-Phase A (shared pure JS) reduces *duplication* of math.  
-Phase E reduces *bytes over the network* for native code. Complementary.
-
-## Rough approach (when implemented)
-
-```text
-patch.nodes → usedTypes
-  → catalog filter wasmAvailable
-  → if player: fetch each needed wasm (or prebuilt slim packs)
-  → if authoring: keep combined unless user enables "slim load"
-```
-
-Status: **not started** (design only).
+- [x] Mode switch + used-only path wired  
+- [ ] clapplayer / site embed defaults to slim  
+- [ ] Optional fetch-byte metrics  

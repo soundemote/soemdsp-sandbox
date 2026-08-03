@@ -358,11 +358,85 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
   );
 }
 
-// Hands native-module wasm to the worklet. Preferred: the single combined
-// binary (all modules, one shared memory). Fallback: lazy per-module sends
-// of only what the patch uses. Both exist because of Chrome's per-process
-// cap on wasm memories -- details inline below.
+// Hands native-module wasm to the worklet.
+//
+// Load modes (Phase E — see docs/WASM_SLIM_LOAD.md):
+//   combined — one soemdsp_combined.wasm (all modules, one memory). Default
+//              for authoring so any module can be added without a re-fetch.
+//   slim     — only wasm for types on the current plan. Prefer for player /
+//              embed / clapplayer (?wasmLoad=slim or embed-config).
+//
+// Chrome caps wasm memories per process (~100); many standalone instances
+// hit that cap. Slim is for small used-sets; huge patches should use combined.
 const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm";
+
+/** @type {null|"slim"|"combined"} */
+let nodeGraphLiveNativeWasmLoadModeResolved = null;
+
+/**
+ * Resolve native WASM load policy once.
+ * Query: ?wasmLoad=slim|combined  (aliases: used, used-modules, full)
+ * embed-config.json: { "wasmLoad": "slim" } or { "nativeWasmLoad": "slim" }
+ * Runtime override: nodeGraphMvp.live.nativeWasmLoadMode
+ */
+async function nodeGraphLiveResolveNativeWasmLoadMode() {
+  if (nodeGraphLiveNativeWasmLoadModeResolved === "slim" || nodeGraphLiveNativeWasmLoadModeResolved === "combined") {
+    return nodeGraphLiveNativeWasmLoadModeResolved;
+  }
+  const normalize = (raw) => {
+    const key = String(raw || "").trim().toLowerCase();
+    if (key === "slim" || key === "used" || key === "used-modules" || key === "usedmodules") {
+      return "slim";
+    }
+    if (key === "combined" || key === "full" || key === "all") {
+      return "combined";
+    }
+    return "";
+  };
+  try {
+    const fromLive = normalize(typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live?.nativeWasmLoadMode : "");
+    if (fromLive) {
+      nodeGraphLiveNativeWasmLoadModeResolved = fromLive;
+      return fromLive;
+    }
+  } catch (_e) { /* ignore */ }
+  try {
+    const params = new URLSearchParams(window.location.search || "");
+    const fromQuery = normalize(params.get("wasmLoad") || params.get("nativeWasm") || "");
+    if (fromQuery) {
+      nodeGraphLiveNativeWasmLoadModeResolved = fromQuery;
+      return fromQuery;
+    }
+  } catch (_e) { /* ignore */ }
+  try {
+    if (typeof nodeGraphLoadEmbedConfig === "function") {
+      const config = await nodeGraphLoadEmbedConfig();
+      const fromConfig = normalize(config?.wasmLoad || config?.nativeWasmLoad || "");
+      if (fromConfig) {
+        nodeGraphLiveNativeWasmLoadModeResolved = fromConfig;
+        return fromConfig;
+      }
+    }
+  } catch (_e) { /* ignore */ }
+  nodeGraphLiveNativeWasmLoadModeResolved = "combined";
+  return "combined";
+}
+
+async function sendNodeGraphLiveNativeModulesUsedOnly(liveNode, plan, eligibleEntries, sent) {
+  const activeTargetTypes = nodeGraphLiveActivePatchNativeTargetTypes(plan);
+  const neededEntries = [];
+  for (const entry of eligibleEntries) {
+    const key = String(entry.name || entry.targetType || "");
+    if (sent.has(key) || sent.has("combined")) {
+      continue;
+    }
+    if (nodeGraphLiveNativeModuleIsUsedByPatch(entry, activeTargetTypes)) {
+      sent.add(key);
+      neededEntries.push(entry);
+    }
+  }
+  await Promise.all(neededEntries.map((entry) => sendNodeGraphLiveNativeModule(liveNode, entry)));
+}
 
 async function sendNodeGraphLiveNativeModules(liveNode, plan = null) {
   if (!liveNode?.port) {
@@ -394,14 +468,17 @@ async function sendNodeGraphLiveNativeModules(liveNode, plan = null) {
     }
     return true;
   });
-  // Preferred path: ONE combined .wasm carrying every module, sharing ONE
-  // linear memory (built by scripts/build_native_modules.ps1). Chrome caps
-  // the number of wasm memories per process (~100); 77 standalone instances
-  // in the worklet sat at that cap and instantiation OOM'd. The combined
-  // instance uses a single memory, so every module can be native at once.
-  // On instantiate failure the worklet posts an error status named
-  // "combined", which the retry handler below un-marks for the next plan
-  // update.
+
+  const loadMode = await nodeGraphLiveResolveNativeWasmLoadMode();
+
+  // Phase E slim: only wasm for types on this plan (player / embed / clapplayer).
+  if (loadMode === "slim") {
+    await sendNodeGraphLiveNativeModulesUsedOnly(liveNode, plan, eligibleEntries, sent);
+    return;
+  }
+
+  // Authoring default: ONE combined .wasm (all modules, one linear memory).
+  // Built by scripts/build_native_modules.ps1. On failure → lazy used-modules.
   if (!liveNode.nodeGraphCombinedUnavailable && !sent.has("combined")) {
     const combinedBytes = await fetchNodeGraphLiveNativeModuleBytes({
       wasmUrl: nodeGraphLiveCombinedNativeModuleUrl,
@@ -424,30 +501,13 @@ async function sendNodeGraphLiveNativeModules(liveNode, plan = null) {
       );
       return;
     }
-    // Combined binary not built/served (e.g. older checkout) -- remember
-    // per worklet and fall back to lazy per-module sends below.
     liveNode.nodeGraphCombinedUnavailable = true;
   }
   if (sent.has("combined")) {
     return;
   }
-  // Fallback path: send only the modules the current patch references,
-  // re-invoked on each full plan update (sent-set makes this idempotent).
-  // Never bulk-send the whole catalog -- that is what hit the wasm-memory
-  // cap in the first place.
-  const activeTargetTypes = nodeGraphLiveActivePatchNativeTargetTypes(plan);
-  const neededEntries = [];
-  for (const entry of eligibleEntries) {
-    const key = String(entry.name || entry.targetType || "");
-    if (sent.has(key)) {
-      continue;
-    }
-    if (nodeGraphLiveNativeModuleIsUsedByPatch(entry, activeTargetTypes)) {
-      sent.add(key);
-      neededEntries.push(entry);
-    }
-  }
-  await Promise.all(neededEntries.map((entry) => sendNodeGraphLiveNativeModule(liveNode, entry)));
+  // Fallback (no combined binary): send only modules the patch uses.
+  await sendNodeGraphLiveNativeModulesUsedOnly(liveNode, plan, eligibleEntries, sent);
 }
 
 async function refreshNodeGraphLiveMicrophonePermissionState() {

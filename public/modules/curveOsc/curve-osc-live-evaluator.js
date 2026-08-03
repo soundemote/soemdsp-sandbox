@@ -69,15 +69,13 @@ nodeGraphLiveModuleEvaluators.curveOsc = ({
     : wrapNodeSliderValue(phaseKnob + phaseCv, 0, 1);
 
   const levelKnob = read("level", 1);
-  const level = hasInput?.(nodeId, "Amplitude")
-    ? levelKnob * nodeGraphSafeFilterNumber(
-      mixInput(nodeId, "Amplitude"),
-      runtime,
-      nodeId,
-      1,
-      "curve osc amp",
-    )
-    : levelKnob;
+  const hasAmp = Boolean(hasInput?.(nodeId, "Amplitude"));
+  const ampCv = hasAmp
+    ? nodeGraphSafeFilterNumber(mixInput(nodeId, "Amplitude"), runtime, nodeId, 1, "curve osc amp")
+    : 1;
+  const level = typeof nodeGraphParamSignalInAmplitude === "function"
+    ? nodeGraphParamSignalInAmplitude(levelKnob, ampCv, hasAmp)
+    : (hasAmp ? levelKnob * ampCv : levelKnob);
 
   return nodeGraphCurveOscillatorSample(state, {
     frequencyHz: effectiveFrequency,

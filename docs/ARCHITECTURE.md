@@ -93,10 +93,22 @@ New DSP should land as pure functions first, then thin adapters.
 
 **Param surfaces:** see `docs/PARAM_SURFACES.md`.
 
-## Still large (next extracts)
+## Scopes paint peel (optional Phase D follow-up)
 
-- `node-graph-module-scopes.js` (~556KB) — paint/capture/UI HTML still large; next optional: phosphor energy / form HTML clusters
-- Worklet core is constructor shell; remaining bulk is evaluators map + setPlan/native-exports
+`node-graph-module-scopes.js` still holds most **paint / capture / phosphor draw /
+settings chrome** after peels for defaults, normalize, display-mode, phosphor
+helpers, and form HTML builders.
+
+A “paint peel” means extracting more **symbol clusters** (e.g. capture pipeline,
+scope2d burn paint, number-readout paint) into sibling files — **not** a random
+line-cut. Goal: smaller files to navigate; same globals and load order.
+
+Not required for sound or patches; pure maintainability.
+
+## Still large (optional)
+
+- Further scopes paint/capture clusters  
+- Worklet `evaluators.js` map split if still painful
 
 ## Related docs
 
