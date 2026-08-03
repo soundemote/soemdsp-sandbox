@@ -220,6 +220,9 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       if (node?.type === "comparator" && !this.comparatorStates.has(id)) {
         this.comparatorStates.set(id, this.createComparatorState());
       }
+      if (node?.type === "speedColorInertia" && !this.speedColorInertiaStates.has(id)) {
+        this.speedColorInertiaStates.set(id, this.createSpeedColorInertiaState());
+      }
       if (node?.type === "sampleDelay" && !this.sampleDelayStates.has(id)) {
         this.sampleDelayStates.set(id, this.createSampleDelayState());
       }
@@ -706,6 +709,13 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       if (!ids.has(id)) {
         this.destroyComparatorNativeState(this.comparatorStates.get(id));
         this.comparatorStates.delete(id);
+      }
+    }
+    if (this.speedColorInertiaStates) {
+      for (const id of [...this.speedColorInertiaStates.keys()]) {
+        if (!ids.has(id)) {
+          this.speedColorInertiaStates.delete(id);
+        }
       }
     }
     for (const id of [...this.sampleDelayStates.keys()]) {

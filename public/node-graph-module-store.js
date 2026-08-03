@@ -917,6 +917,23 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Pitch Detector",
     notes: ["pitch tracking", "pitch detector", "mcleod", "autocorrelation", "frequency follower"],
   },
+  speedColorInertia: {
+    category: "multimeter",
+    description:
+      "Signal speed → color inertia. Measures |Δsample|: smooth sines stay saturated (Inertia high); saw edges spike Speed and desaturate toward white. Attack/release smooth the color state. Outs: Raw, Speed, Inertia.",
+    label: "Speed Color Inertia",
+    notes: [
+      "multimeter",
+      "speed",
+      "slope",
+      "inertia",
+      "saturation",
+      "color",
+      "audiovisual",
+      "sine red",
+      "saw white",
+    ],
+  },
   sampleHold: {
     category: "modulator",
     description: "Captures an input value when a trigger rises and holds it until the next trigger.",

@@ -263,6 +263,7 @@ function createNodeGraphLiveRuntime(plan) {
   const humanFilterStates = new Map();
   const pulseExplosionStates = new Map();
   const comparatorStates = new Map();
+  const speedColorInertiaStates = new Map();
   const aliasSineStates = new Map();
   const ladderFilterStates = new Map();
   const tb303FilterStates = new Map();
@@ -480,6 +481,9 @@ function createNodeGraphLiveRuntime(plan) {
     if (node.type === "comparator") {
       comparatorStates.set(node.id, createNodeGraphComparatorState());
     }
+    if (node.type === "speedColorInertia") {
+      speedColorInertiaStates.set(node.id, createNodeGraphSpeedColorInertiaState());
+    }
     if (node.type === "sampleDelay") {
       sampleDelayStates.set(node.id, createNodeGraphSampleDelayState());
     }
@@ -620,6 +624,7 @@ function createNodeGraphLiveRuntime(plan) {
     humanFilterStates,
     pulseExplosionStates,
     comparatorStates,
+    speedColorInertiaStates,
     aliasSineStates,
     graphInputConnections,
     graphLfoStates,
@@ -825,6 +830,9 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   }
   if (!runtime.comparatorStates) {
     runtime.comparatorStates = new Map();
+  }
+  if (!runtime.speedColorInertiaStates) {
+    runtime.speedColorInertiaStates = new Map();
   }
   if (!runtime.sampleDelayStates) {
     runtime.sampleDelayStates = new Map();
@@ -1174,6 +1182,9 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     }
     if (node.type === "comparator" && !runtime.comparatorStates.has(node.id)) {
       runtime.comparatorStates.set(node.id, createNodeGraphComparatorState());
+    }
+    if (node.type === "speedColorInertia" && !runtime.speedColorInertiaStates.has(node.id)) {
+      runtime.speedColorInertiaStates.set(node.id, createNodeGraphSpeedColorInertiaState());
     }
     if (node.type === "sampleDelay" && !runtime.sampleDelayStates.has(node.id)) {
       runtime.sampleDelayStates.set(node.id, createNodeGraphSampleDelayState());
@@ -1594,6 +1605,13 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   for (const id of [...runtime.comparatorStates.keys()]) {
     if (!nodeIds.has(id)) {
       runtime.comparatorStates.delete(id);
+    }
+  }
+  if (runtime.speedColorInertiaStates) {
+    for (const id of [...runtime.speedColorInertiaStates.keys()]) {
+      if (!nodeIds.has(id)) {
+        runtime.speedColorInertiaStates.delete(id);
+      }
     }
   }
   for (const id of [...runtime.sampleDelayStates.keys()]) {

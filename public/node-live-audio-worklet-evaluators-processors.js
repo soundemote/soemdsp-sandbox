@@ -714,6 +714,21 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
       // Stereo L/R (X/Y) → goniometer axes. Math: vectorscope-transform-math.js.,
       vectorscopeTransform: (node, nodeId, frame, frames, frameValues, mixInput) =>
         this.vectorscopeTransformSample(mixInput(nodeId, "X"), mixInput(nodeId, "Y")),
+      // |Δsample| speed + sat inertia. Math: speed-color-inertia-math.js.
+      speedColorInertia: (node, nodeId, frame, frames, frameValues, mixInput) => {
+        if (!this.speedColorInertiaStates) {
+          this.speedColorInertiaStates = new Map();
+        }
+        const state = this.speedColorInertiaStates.get(nodeId) || this.createSpeedColorInertiaState();
+        this.speedColorInertiaStates.set(nodeId, state);
+        return this.speedColorInertiaSample(
+          state,
+          mixInput(nodeId, "In"),
+          this.readEffectiveParameter(node, "gain", 8, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "attack", 1, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "release", 0.005, frame, frames, frameValues),
+        );
+      },
       gainBiasMix: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.gainBiasMixStates.get(nodeId) || this.createGainBiasMixState();
         this.gainBiasMixStates.set(nodeId, state);
