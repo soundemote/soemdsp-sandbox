@@ -327,10 +327,11 @@ function nodeGraphLiveRecordNativeWasmFetch(wasmUrl, byteLength) {
 /** Console/API helper: `nodeGraphLiveNativeWasmFetchReport()`. */
 function nodeGraphLiveNativeWasmFetchReport() {
   const mode = nodeGraphLiveNativeWasmLoadModeResolved
+    || nodeGraphLiveNativeWasmFetchStats.mode
     || (typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live?.nativeWasmLoadMode : null)
     || "unresolved";
   const urls = Object.keys(nodeGraphLiveNativeWasmFetchStats.byUrl).sort();
-  return {
+  const report = {
     mode,
     fetchCount: nodeGraphLiveNativeWasmFetchStats.fetchCount,
     uniqueUrls: urls.length,
@@ -342,6 +343,14 @@ function nodeGraphLiveNativeWasmFetchReport() {
       hits: nodeGraphLiveNativeWasmFetchStats.byUrl[url].hits,
     })),
   };
+  // Discoverable on window for player/embed diagnostics (Phase E).
+  try {
+    if (typeof window !== "undefined") {
+      window.nodeGraphLiveNativeWasmFetchReport = nodeGraphLiveNativeWasmFetchReport;
+      window.nodeGraphLiveNativeWasmFetchStats = nodeGraphLiveNativeWasmFetchStats;
+    }
+  } catch (_e) { /* ignore */ }
+  return report;
 }
 
 async function fetchNodeGraphLiveNativeModuleBytes(entry) {
@@ -2574,7 +2583,9 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/resonatorFilter/resonator-filter-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/humanFilter/human-filter-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/pulseExplosion/pulse-explosion-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/comparator/comparator-worklet-evaluator.js?v=edge-steady-sign-1",
+  "./public/modules/comparator/comparator-math.js?v=comparator-1",
+  "./public/modules/comparator/comparator-worklet-evaluator.js?v=comparator-1",
+  "./public/modules/sampleDelay/sample-delay-math.js?v=sample-delay-1",
   "./public/modules/sampleDelay/sample-delay-worklet-evaluator.js?v=sample-delay-1",
   "./public/modules/minMax/min-max-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/aliasSine/alias-sine-worklet-evaluator.js?v=native-strip-1",

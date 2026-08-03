@@ -9,25 +9,8 @@ NodeLiveAudioProcessor.prototype.createComparatorState = function createComparat
 };
 
 NodeLiveAudioProcessor.prototype.comparatorSampleJs = function comparatorSampleJs(state, signalIn) {
-  const raw = this.safeFilterNumber(signalIn, state);
-  const sign = raw > 0 ? 1 : 0;
-  if (!state.hasPrev) {
-    state.prev = raw;
-    state.hasPrev = true;
-    return { Up: 0, Down: 0, Change: 0, Steady: 0, Sign: sign, Thru: raw };
-  }
-  const rose = raw > state.prev;
-  const fell = raw < state.prev;
-  state.prev = raw;
-  const changed = rose || fell;
-  return {
-    Up: rose ? 1 : 0,
-    Down: fell ? 1 : 0,
-    Change: changed ? 1 : 0,
-    Steady: changed ? 0 : 1,
-    Sign: sign,
-    Thru: raw,
-  };
+  // Pure math: comparator-math.js (same Blob).
+  return nodeGraphComparatorSample(state, this.safeFilterNumber(signalIn, state));
 };
 
 NodeLiveAudioProcessor.prototype.comparatorSample = function comparatorSample(state, signalIn) {

@@ -30,43 +30,18 @@ NodeLiveAudioProcessor.prototype.sampleDelaySampleJs = function sampleDelaySampl
   samplesParam,
   rate = sampleRate,
 ) {
+  // Pure math: sample-delay-math.js (same Blob).
   const raw = this.safeFilterNumber(input, state);
-  const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
-  const capacity = this.sampleDelayEnsureJsBuffer(state, safeRate);
-  const timePart = Math.max(0, this.safeFilterNumber(timeSeconds, state)) * safeRate;
-  const samplePart = Math.max(0, this.safeFilterNumber(samplesParam, state));
-  let delaySamples = timePart + samplePart;
-  if (delaySamples > capacity - 1) {
-    delaySamples = capacity - 1;
-  }
-  if (delaySamples < 0) {
-    delaySamples = 0;
-  }
-
-  let delayed = raw;
-  if (delaySamples >= 1e-9) {
-    const readPos = state.writeIndex - delaySamples;
-    let i0 = Math.floor(readPos);
-    const frac = readPos - i0;
-    i0 %= capacity;
-    if (i0 < 0) i0 += capacity;
-    const i1 = i0 + 1 >= capacity ? 0 : i0 + 1;
-    const a = state.buffer[i0] || 0;
-    const b = state.buffer[i1] || 0;
-    delayed = a + (b - a) * frac;
-    if (state.filled <= 0) {
-      delayed = 0;
-    }
-  }
-
-  state.buffer[state.writeIndex] = raw;
-  state.writeIndex = (state.writeIndex + 1) % capacity;
-  if (state.filled < capacity) {
-    state.filled += 1;
-  }
+  const out = nodeGraphSampleDelayRingSample(
+    state,
+    raw,
+    this.safeFilterNumber(timeSeconds, state),
+    this.safeFilterNumber(samplesParam, state),
+    rate,
+  );
   return {
-    Delayed: this.safeFilterNumber(delayed, state),
-    Thru: raw,
+    Delayed: this.safeFilterNumber(out.delayed, state),
+    Thru: out.raw,
   };
 };
 

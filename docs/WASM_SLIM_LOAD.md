@@ -87,6 +87,9 @@ nodeGraphLiveNativeWasmFetchReport()
 
 Auto-log once after load: `?wasmStats=1` (or `nodeGraphMvp.live.debugNativeWasm = true`).
 
+Also on `window` after first report call: `nodeGraphLiveNativeWasmFetchReport`,
+`nodeGraphLiveNativeWasmFetchStats`.
+
 Player-style embed example (sibling of `index.html`, not under `public/`):
 
 ```json

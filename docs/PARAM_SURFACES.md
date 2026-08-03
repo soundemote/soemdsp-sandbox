@@ -43,7 +43,8 @@ through-zero LFOs work on level, morph, etc.
 
 **Osc pitch via `nodeGraphParamResolveOscPitchHz`:** softwave, dsf, curveOsc,
 snowflake, polyBlep/osc/blit, additive, sineWavetable, sinc, ellipsoid, surge,
-hypersaw, robin (live + matching worklet map/worklet peels where present).
+hypersaw, robin — live + worklet peels/map aligned (incl. additive/ellipsoid/
+sineWavetable worklet peels).
 
 **Phase / Amp helpers:** softwave, dsf, curveOsc, snowflake Amp, sinc Phase,
 sineWavetable Amplitude (**additive** via `nodeGraphParamSignalInAdditive`).

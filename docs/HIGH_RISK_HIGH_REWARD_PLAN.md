@@ -42,11 +42,11 @@ See `docs/WASM_SLIM_LOAD.md`.
 **Goal:** split remaining face paint/UI out of the big scopes file (maintainability only).
 
 **Still to do**
-- More buffer / sync / spectrum helpers still in `module-scopes.js`
+- Remaining sync / geometry / slot helpers still in `module-scopes.js`
 
 **Peeled:** defaults, normalize, display-mode, phosphor, settings-form, settings-ui,
-capture, number-readout, draw-basic, draw-burn, **paint-helpers** (1D burn, face plate,
-late scope2d paths), **draw-orchestrator**
+capture, number-readout, draw-basic, draw-burn, **spectrum**, **buffer-io**,
+**paint-helpers**, **draw-orchestrator**
 
 ---
 
