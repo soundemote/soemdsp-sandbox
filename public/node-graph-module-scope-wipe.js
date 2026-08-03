@@ -112,6 +112,15 @@ function wipeNodeGraphModuleScopeScreensToColdBoot() {
   }
   // Last: idle LCD plate + unlit segments + dimmer strength (not a solid blank).
   wipeNodeGraphNumberReadoutScreensToColdBoot();
+  // FBM Field uses its own WebGL canvas (not 2d / phosphor) — wipe cannot
+  // clear it via getContext("2d"). Stop rAF + plate pure black.
+  if (typeof wipeNodeGraphFbmFieldScreensToColdBoot === "function") {
+    try {
+      wipeNodeGraphFbmFieldScreensToColdBoot();
+    } catch (_error) {
+      // Best-effort.
+    }
+  }
 }
 
 function clearNodeGraphModuleScopeBuffers(options = {}) {

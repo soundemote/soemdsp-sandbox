@@ -29,12 +29,24 @@ function nodeGraphFbmFieldStopLoop(face) {
 
 function nodeGraphFbmFieldStartLoop(face, nodeId) {
   if (!face || face._fbmFieldRunning) return;
+  // Never spin the face while the engine is fully stopped.
+  if (typeof nodeGraphFbmFieldCircuitRunning === "function" && !nodeGraphFbmFieldCircuitRunning()) {
+    return;
+  }
   face._fbmFieldRunning = true;
   if (!Number.isFinite(face._fbmFieldTime)) face._fbmFieldTime = 0;
   face._fbmFieldLastTs = 0;
 
   const tick = (ts) => {
     if (!face.isConnected) {
+      nodeGraphFbmFieldStopLoop(face);
+      return;
+    }
+    // Engine went off mid-loop — black + halt (paint also stops the loop).
+    if (typeof nodeGraphFbmFieldCircuitRunning === "function" && !nodeGraphFbmFieldCircuitRunning()) {
+      if (typeof paintNodeGraphFbmFieldFaceForNode === "function") {
+        paintNodeGraphFbmFieldFaceForNode(nodeId, { dt: 0, face, force: true });
+      }
       nodeGraphFbmFieldStopLoop(face);
       return;
     }
@@ -45,7 +57,10 @@ function nodeGraphFbmFieldStartLoop(face, nodeId) {
     if (typeof paintNodeGraphFbmFieldFaceForNode === "function") {
       paintNodeGraphFbmFieldFaceForNode(nodeId, { dt, face });
     }
-    face._fbmFieldRaf = requestAnimationFrame(tick);
+    // paint may have stopped the loop (engine off); only reschedule if still live.
+    if (face._fbmFieldRunning) {
+      face._fbmFieldRaf = requestAnimationFrame(tick);
+    }
   };
   face._fbmFieldRaf = requestAnimationFrame(tick);
 }
@@ -67,6 +82,8 @@ registerNodeGraphChromelessModuleUi("fbmField", {
       }
     };
     article.addEventListener("input", (event) => {
+      // Param scrub only while live (and while paused/frozen holds last frame).
+      // When stopped, keep the screen black — no idle field preview.
       if (event.target?.dataset?.param) repaint();
     });
     article.addEventListener("change", (event) => {
@@ -75,7 +92,20 @@ registerNodeGraphChromelessModuleUi("fbmField", {
     if (typeof nodeGraphFbmFieldLoadWasm === "function") {
       nodeGraphFbmFieldLoadWasm();
     }
-    nodeGraphFbmFieldStartLoop(body, node);
+    // Cold mount with engine stopped: plate black, do not start rAF.
+    // When engine starts, syncNodeGraphFbmFieldFacesToLiveState() starts loops.
+    const circuitOn = typeof nodeGraphFbmFieldCircuitRunning === "function"
+      ? nodeGraphFbmFieldCircuitRunning()
+      : false;
+    if (circuitOn) {
+      nodeGraphFbmFieldStartLoop(body, node);
+    } else {
+      nodeGraphFbmFieldStopLoop(body);
+      const canvas = body.querySelector?.(".node-fbm-field-canvas");
+      if (canvas && typeof nodeGraphFbmFieldFillBlack === "function") {
+        nodeGraphFbmFieldFillBlack(canvas, body);
+      }
+    }
     repaint();
     requestAnimationFrame(repaint);
   },

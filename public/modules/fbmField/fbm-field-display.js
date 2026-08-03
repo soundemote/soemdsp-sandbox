@@ -112,22 +112,112 @@ function syncNodeGraphFbmFieldCanvas1to1(canvas, face, gridW, gridH) {
   return true;
 }
 
+function nodeGraphFbmFieldEnsureCanvasSize(canvas, face) {
+  if (!canvas) return false;
+  const cssW = Math.max(1, Math.round(face?.clientWidth || canvas.clientWidth || canvas.width || 1));
+  const cssH = Math.max(1, Math.round(face?.clientHeight || canvas.clientHeight || canvas.height || 1));
+  if (canvas.width !== cssW || canvas.height !== cssH) {
+    canvas.width = cssW;
+    canvas.height = cssH;
+  }
+  canvas.style.width = "100%";
+  canvas.style.height = "100%";
+  canvas.style.imageRendering = "pixelated";
+  canvas.style.imageRendering = "crisp-edges";
+  return true;
+}
+
 function nodeGraphFbmFieldFillBlack(canvas, face) {
-  if (typeof nodeGraphFbmFieldGlClearBlack === "function" && nodeGraphFbmFieldGlClearBlack(canvas)) {
-    if (face?.dataset) face.dataset.lightStrength = "0";
-    if (face) {
-      face._fbmFieldBlack = true;
-      face._fbmFieldHasFrame = false;
+  if (!canvas) return false;
+  nodeGraphFbmFieldEnsureCanvasSize(canvas, face);
+  let cleared = false;
+  if (typeof nodeGraphFbmFieldGlClearBlack === "function") {
+    cleared = Boolean(nodeGraphFbmFieldGlClearBlack(canvas));
+  }
+  // If WebGL clear failed (no context yet / lost), force a blank buffer.
+  if (!cleared) {
+    try {
+      // Resize trick drops any prior drawing buffer contents.
+      const w = Math.max(1, canvas.width | 0);
+      const h = Math.max(1, canvas.height | 0);
+      canvas.width = w;
+      canvas.height = h;
+    } catch (_error) {
+      // Best-effort.
     }
-    return true;
   }
   if (face) {
     face.style.background = "#000000";
     face._fbmFieldBlack = true;
     face._fbmFieldHasFrame = false;
+    face._fbmFieldTime = 0;
+    face._fbmFieldLastTs = 0;
   }
   if (face?.dataset) face.dataset.lightStrength = "0";
+  if (typeof setNodeGraphLightStrength === "function" && face) {
+    try {
+      setNodeGraphLightStrength(face, 0);
+    } catch (_error) {
+      // Best-effort.
+    }
+  }
   return true;
+}
+
+/**
+ * Full cold-stop: cancel every FBM face rAF and plate the screens black.
+ * Called from module-scope wipe (engine stop) and when transport is stopped.
+ */
+function wipeNodeGraphFbmFieldScreensToColdBoot() {
+  if (typeof document === "undefined") return;
+  for (const face of document.querySelectorAll(".node-fbm-field-face")) {
+    if (typeof nodeGraphFbmFieldStopLoop === "function") {
+      nodeGraphFbmFieldStopLoop(face);
+    } else if (face._fbmFieldRaf) {
+      cancelAnimationFrame(face._fbmFieldRaf);
+      face._fbmFieldRaf = 0;
+      face._fbmFieldRunning = false;
+    }
+    const canvas = face.querySelector?.(".node-fbm-field-canvas");
+    if (canvas) {
+      nodeGraphFbmFieldFillBlack(canvas, face);
+    } else {
+      face._fbmFieldBlack = true;
+      face._fbmFieldHasFrame = false;
+      face._fbmFieldTime = 0;
+      if (face.dataset) face.dataset.lightStrength = "0";
+    }
+  }
+}
+
+/**
+ * Transport sync: when engine is live, ensure each mounted FBM face is painting;
+ * when stopped, kill loops and keep screens black (no idle field preview).
+ */
+function syncNodeGraphFbmFieldFacesToLiveState() {
+  if (typeof document === "undefined") return;
+  const running = nodeGraphFbmFieldCircuitRunning();
+  const faces = document.querySelectorAll(".node-fbm-field-face");
+  if (!faces.length) return;
+  if (!running) {
+    // Only re-wipe when something is still spinning or still showing a frame.
+    let needsWipe = false;
+    for (const face of faces) {
+      if (face._fbmFieldRunning || face._fbmFieldHasFrame || !face._fbmFieldBlack) {
+        needsWipe = true;
+        break;
+      }
+    }
+    if (needsWipe) wipeNodeGraphFbmFieldScreensToColdBoot();
+    return;
+  }
+  for (const face of faces) {
+    const nodeId = face.dataset?.node;
+    if (!nodeId) continue;
+    if (typeof nodeGraphFbmFieldStartLoop === "function") {
+      nodeGraphFbmFieldStartLoop(face, nodeId);
+    }
+  }
 }
 
 function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
@@ -139,7 +229,19 @@ function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
 
   if (!nodeGraphFbmFieldCircuitRunning()) {
     face._fbmFieldLastTs = 0;
-    if (face._fbmFieldBlack && !options.force) return true;
+    face._fbmFieldTime = 0;
+    // Stop the paint loop — screen must not keep "running" while engine is off.
+    if (face._fbmFieldRunning && typeof nodeGraphFbmFieldStopLoop === "function") {
+      nodeGraphFbmFieldStopLoop(face);
+    } else if (face._fbmFieldRunning) {
+      if (face._fbmFieldRaf) {
+        cancelAnimationFrame(face._fbmFieldRaf);
+        face._fbmFieldRaf = 0;
+      }
+      face._fbmFieldRunning = false;
+    }
+    // Always plate black on stop (force re-clear even if already flagged black —
+    // wipe / remount / size change can leave a stale WebGL frame).
     return nodeGraphFbmFieldFillBlack(canvas, face);
   }
   face._fbmFieldBlack = false;

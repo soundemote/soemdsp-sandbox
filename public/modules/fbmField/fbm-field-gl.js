@@ -239,10 +239,20 @@ function nodeGraphFbmFieldGlPresent(canvas, monoGrid, gridW, gridH, options = {}
 }
 
 function nodeGraphFbmFieldGlClearBlack(canvas) {
+  if (!canvas) return false;
+  // Need a non-zero buffer or the clear is a no-op and the prior frame can linger.
+  if (!(canvas.width > 0) || !(canvas.height > 0)) {
+    canvas.width = Math.max(1, canvas.width | 0, 1);
+    canvas.height = Math.max(1, canvas.height | 0, 1);
+  }
   const state = nodeGraphFbmFieldGlEnsure(canvas);
   if (!state?.gl || state.lost) return false;
   const gl = state.gl;
-  gl.viewport(0, 0, canvas.width | 0, canvas.height | 0);
+  const w = canvas.width | 0;
+  const h = canvas.height | 0;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, w, h);
+  gl.disable(gl.SCISSOR_TEST);
   gl.clearColor(0, 0, 0, 1);
   gl.clear(gl.COLOR_BUFFER_BIT);
   return true;

@@ -199,6 +199,15 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) 
   const paused = transportState === "paused";
   syncNodeGraphTransportPlayButtons({ playing, paused });
   renderNodeGraphSpeedReadout();
+  // FBM Field: no rAF / no face paint while engine is stopped (red stop).
+  // Start loops when live; wipe black when stopped.
+  if (typeof syncNodeGraphFbmFieldFacesToLiveState === "function") {
+    try {
+      syncNodeGraphFbmFieldFacesToLiveState();
+    } catch (_error) {
+      // Best-effort — face sync must never break transport UI.
+    }
+  }
 }
 
 /**
