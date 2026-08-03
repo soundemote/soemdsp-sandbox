@@ -84,3 +84,12 @@ After Live Audio has loaded native WASM:
 nodeGraphLiveNativeWasmFetchReport()
 // { mode, fetchCount, uniqueUrls, totalBytes, totalKiB, byUrl: [...] }
 ```
+
+Auto-log once after load: `?wasmStats=1` (or `nodeGraphMvp.live.debugNativeWasm = true`).
+
+Player-style embed example (sibling of `index.html`, not under `public/`):
+
+```json
+// embed-config.example.json → copy to ./embed-config.json
+{ "player": true, "wasmLoad": "slim" }
+```

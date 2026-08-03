@@ -1,7 +1,7 @@
 // Registers the offline/render-time dispatch handler for ellipsoid into
 // nodeGraphLiveModuleEvaluators (declared in node-graph-live-frame-evaluator.js).
 // Extracted from the inline if/else-if branch that used to live in that file.
-nodeGraphLiveModuleEvaluators.ellipsoid = ({ runtime, node, nodeId, frame, frames, frameValues, mixInput, sampleRate }) => {
+nodeGraphLiveModuleEvaluators.ellipsoid = ({ runtime, node, nodeId, frame, frames, frameValues, mixInput, hasInput, sampleRate }) => {
   const resetState = runtime.oscResetStates.get(nodeId) || createNodeGraphOscResetState();
   runtime.oscResetStates.set(nodeId, resetState);
   const resetValue = nodeGraphSafeFilterNumber(
@@ -25,14 +25,32 @@ nodeGraphLiveModuleEvaluators.ellipsoid = ({ runtime, node, nodeId, frame, frame
   );
   const phaseOffset = nodeGraphPhaseRadians(read("phase", 0));
   const frequency = read("frequency", 100);
-  const pitchInput = clampNodeSliderValue(nodeGraphSafeFilterNumber(
-    mixInput(nodeId, "0.1V/Oct"),
-    runtime,
-    nodeId,
-    null,
-    "ellipsoid 0.1v/oct input",
-  ), -1, 1);
-  const pitchedFrequency = (typeof nodeGraphPitchedFrequency === "function" ? nodeGraphPitchedFrequency(frequency, pitchInput, 0) : Math.max(0, frequency * (2 ** (pitchInput / 0.1))));
+  const referenceVoltage = typeof normalizeNodeGraphPatchAudio === "function"
+    ? normalizeNodeGraphPatchAudio(nodeGraphMvp?.patch?.audio).pitchReferenceMidiNote / 120
+    : 0;
+  const hasPitch = typeof hasInput === "function"
+    ? hasInput(nodeId, "0.1V/Oct")
+    : true;
+  const pitchCv = hasPitch
+    ? clampNodeSliderValue(nodeGraphSafeFilterNumber(
+      mixInput(nodeId, "0.1V/Oct"),
+      runtime,
+      nodeId,
+      null,
+      "ellipsoid 0.1v/oct input",
+    ), -1, 1)
+    : referenceVoltage;
+  const pitchedFrequency = typeof nodeGraphParamResolveOscPitchHz === "function"
+    ? nodeGraphParamResolveOscPitchHz({
+      baseHz: frequency,
+      hasPitchCv: hasPitch,
+      pitchCv,
+      referenceVoltage,
+      fHz: null,
+    })
+    : (typeof nodeGraphPitchedFrequency === "function"
+      ? nodeGraphPitchedFrequency(frequency, pitchCv, referenceVoltage)
+      : Math.max(0, frequency * (2 ** ((pitchCv - referenceVoltage) / 0.1))));
   const incrementInput = nodeGraphSafeFilterNumber(
     mixInput(nodeId, "Increment"),
     runtime,

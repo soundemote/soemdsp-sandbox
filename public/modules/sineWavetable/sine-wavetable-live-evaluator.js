@@ -48,7 +48,8 @@ nodeGraphLiveModuleEvaluators.sineWavetable = ({ runtime, node, nodeId, frame, f
     : ampKnob + ampCv;
   const amplitude = Math.max(0, amplitudeRaw);
   const referenceVoltage = normalizeNodeGraphPatchAudio(nodeGraphMvp.patch.audio).pitchReferenceMidiNote / 120;
-  const pitchInput = hasInput(nodeId, "0.1V/Oct")
+  const hasPitch = hasInput(nodeId, "0.1V/Oct");
+  const pitchCv = hasPitch
     ? clampNodeSliderValue(nodeGraphSafeFilterNumber(
       mixInput(nodeId, "0.1V/Oct"),
       runtime,
@@ -57,15 +58,21 @@ nodeGraphLiveModuleEvaluators.sineWavetable = ({ runtime, node, nodeId, frame, f
       "sin/cos 0.1v input",
     ), -1, 1)
     : referenceVoltage;
-  const pitchedFrequency = typeof nodeGraphPitchedFrequency === "function"
-    ? nodeGraphPitchedFrequency((baseFrequency + freqInput), pitchInput, referenceVoltage)
-    : Math.max(0, (baseFrequency + freqInput) * (2 ** ((pitchInput - referenceVoltage) / 0.1)));
   const fHz = typeof nodeGraphReadFInputHz === "function"
     ? nodeGraphReadFInputHz(mixInput, hasInput, nodeId)
     : null;
-  const effectiveFrequency = typeof nodeGraphResolveFrequencyHz === "function"
-    ? nodeGraphResolveFrequencyHz(pitchedFrequency, fHz)
-    : pitchedFrequency;
+  const baseWithFreqJack = baseFrequency + freqInput;
+  const effectiveFrequency = typeof nodeGraphParamResolveOscPitchHz === "function"
+    ? nodeGraphParamResolveOscPitchHz({
+      baseHz: baseWithFreqJack,
+      hasPitchCv: hasPitch,
+      pitchCv,
+      referenceVoltage,
+      fHz,
+    })
+    : (typeof nodeGraphPitchedFrequency === "function"
+      ? nodeGraphPitchedFrequency(baseWithFreqJack, pitchCv, referenceVoltage)
+      : Math.max(0, baseWithFreqJack * (2 ** ((pitchCv - referenceVoltage) / 0.1))));
   const phaseIncrement = effectiveFrequency / sampleRate;
   const value = nodeGraphSineCosWavetableSample(phase + phaseOffset, effectiveFrequency, amplitude, sampleRate);
   runtime.phases.set(

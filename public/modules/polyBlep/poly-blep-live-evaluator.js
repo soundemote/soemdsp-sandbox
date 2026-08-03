@@ -60,7 +60,8 @@ function nodeGraphPolyBlepOscillatorLiveEvaluator({ runtime, node, nodeId, frame
     "osc increment input",
   );
   const referenceVoltage = normalizeNodeGraphPatchAudio(nodeGraphMvp.patch.audio).pitchReferenceMidiNote / 120;
-  const pitchInput = hasInput(nodeId, "0.1V/Oct")
+  const hasPitch = hasInput(nodeId, "0.1V/Oct");
+  const pitchCv = hasPitch
     ? clampNodeSliderValue(nodeGraphSafeFilterNumber(
       mixInput(nodeId, "0.1V/Oct"),
       runtime,
@@ -69,16 +70,21 @@ function nodeGraphPolyBlepOscillatorLiveEvaluator({ runtime, node, nodeId, frame
       "osc 0.1v/oct input",
     ), -1, 1)
     : referenceVoltage;
-  const pitchedFrequency = typeof nodeGraphPitchedFrequency === "function"
-    ? nodeGraphPitchedFrequency(frequency, pitchInput, referenceVoltage)
-    : Math.max(0, frequency * (2 ** ((pitchInput - referenceVoltage) / 0.1)));
   // Universal `f` jack: absolute Hz 0..Speed Limit overrides pitch path when wired.
   const fHz = typeof nodeGraphReadFInputHz === "function"
     ? nodeGraphReadFInputHz(mixInput, hasInput, nodeId)
     : null;
-  const effectiveFrequency = typeof nodeGraphResolveFrequencyHz === "function"
-    ? nodeGraphResolveFrequencyHz(pitchedFrequency, fHz)
-    : pitchedFrequency;
+  const effectiveFrequency = typeof nodeGraphParamResolveOscPitchHz === "function"
+    ? nodeGraphParamResolveOscPitchHz({
+      baseHz: frequency,
+      hasPitchCv: hasPitch,
+      pitchCv,
+      referenceVoltage,
+      fHz,
+    })
+    : (typeof nodeGraphPitchedFrequency === "function"
+      ? nodeGraphPitchedFrequency(frequency, pitchCv, referenceVoltage)
+      : Math.max(0, frequency * (2 ** ((pitchCv - referenceVoltage) / 0.1))));
   const phaseIncrement = (effectiveFrequency / sampleRate) + incrementInput;
   const level = readNodeGraphLiveEffectiveParam(
     runtime,

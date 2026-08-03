@@ -35,7 +35,8 @@ nodeGraphLiveModuleEvaluators.snowflake = ({
     ? normalizeNodeGraphPatchAudio(nodeGraphMvp?.patch?.audio)
     : { pitchReferenceMidiNote: 60 };
   const referenceVoltage = (pitchReferenceAudio.pitchReferenceMidiNote || 60) / 120;
-  const pitchInput = hasInput?.(nodeId, "0.1V/Oct")
+  const hasPitch = Boolean(hasInput?.(nodeId, "0.1V/Oct"));
+  const pitchCv = hasPitch
     ? clampNodeSliderValue(
       nodeGraphSafeFilterNumber(
         mixInput(nodeId, "0.1V/Oct"),
@@ -48,15 +49,20 @@ nodeGraphLiveModuleEvaluators.snowflake = ({
       1,
     )
     : referenceVoltage;
-  const pitchedFrequency = typeof nodeGraphPitchedFrequency === "function"
-    ? nodeGraphPitchedFrequency(baseFrequency, pitchInput, referenceVoltage)
-    : Math.max(0, baseFrequency * (2 ** ((pitchInput - referenceVoltage) / 0.1)));
   const fHz = typeof nodeGraphReadFInputHz === "function"
     ? nodeGraphReadFInputHz(mixInput, hasInput, nodeId)
     : null;
-  const effectiveFrequency = typeof nodeGraphResolveFrequencyHz === "function"
-    ? nodeGraphResolveFrequencyHz(pitchedFrequency, fHz)
-    : pitchedFrequency;
+  const effectiveFrequency = typeof nodeGraphParamResolveOscPitchHz === "function"
+    ? nodeGraphParamResolveOscPitchHz({
+      baseHz: baseFrequency,
+      hasPitchCv: hasPitch,
+      pitchCv,
+      referenceVoltage,
+      fHz,
+    })
+    : (typeof nodeGraphPitchedFrequency === "function"
+      ? nodeGraphPitchedFrequency(baseFrequency, pitchCv, referenceVoltage)
+      : Math.max(0, baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1))));
 
   const levelKnob = read("level", 1);
   const hasAmp = Boolean(hasInput?.(nodeId, "Amplitude"));

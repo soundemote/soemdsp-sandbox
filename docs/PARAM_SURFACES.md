@@ -41,18 +41,18 @@ through-zero LFOs work on level, morph, etc.
 | **0.1V/Oct** | `nodeGraphPitchedFrequency` / `nodeGraphParamResolveOscPitchHz` |
 | Phase jack | `nodeGraphParamSignalInPhaseAdd` (domain + CV, wrap 0…1 cycles) |
 
-**Converted / using helpers:** softwave, dsf, curveOsc, snowflake (Amp),
-sinc Phase, sineWavetable Amplitude (**additive** via `nodeGraphParamSignalInAdditive`),
-surge / hypersaw / robin → `nodeGraphParamResolveOscPitchHz` (live and/or worklet).
+**Osc pitch via `nodeGraphParamResolveOscPitchHz`:** softwave, dsf, curveOsc,
+snowflake, polyBlep/osc/blit, additive, sineWavetable, sinc, ellipsoid, surge,
+hypersaw, robin (live + matching worklet map/worklet peels where present).
+
+**Phase / Amp helpers:** softwave, dsf, curveOsc, snowflake Amp, sinc Phase,
+sineWavetable Amplitude (**additive** via `nodeGraphParamSignalInAdditive`).
 
 **Pitch processors** (pitchQuantizer, noteGlide, …): pass `0.1V/Oct` as CV —
 do **not** force osc Hz resolve.
 
-**Still converting:** remaining oscs that inline pitch/Phase/Amp blocks instead
-of `nodeGraphParamResolveOscPitchHz` / PhaseAdd / Amplitude helpers.
-
-**Note:** sineWavetable Amplitude is **additive** (amp + jack). Most other oscs
-use **Amplitude as multiply** (`nodeGraphParamSignalInAmplitude`).
+**Still converting:** any remaining generators that still inline pitch math;
+keyboard/musical engines that emit CV (not osc Hz) stay raw.
 
 ## API (pure)
 

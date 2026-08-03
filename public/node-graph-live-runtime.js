@@ -557,10 +557,12 @@ async function sendNodeGraphLiveNativeModules(liveNode, plan = null) {
   });
 
   const loadMode = await nodeGraphLiveResolveNativeWasmLoadMode();
+  nodeGraphLiveNativeWasmFetchStats.mode = loadMode;
 
   // Phase E slim: only wasm for types on this plan (player / embed / clapplayer).
   if (loadMode === "slim") {
     await sendNodeGraphLiveNativeModulesUsedOnly(liveNode, plan, eligibleEntries, sent);
+    nodeGraphLiveMaybeLogWasmFetchStats(loadMode);
     return;
   }
 
@@ -586,15 +588,35 @@ async function sendNodeGraphLiveNativeModules(liveNode, plan = null) {
         },
         [transferableBytes],
       );
+      nodeGraphLiveMaybeLogWasmFetchStats(loadMode);
       return;
     }
     liveNode.nodeGraphCombinedUnavailable = true;
   }
   if (sent.has("combined")) {
+    nodeGraphLiveMaybeLogWasmFetchStats(loadMode);
     return;
   }
   // Fallback (no combined binary): send only modules the patch uses.
   await sendNodeGraphLiveNativeModulesUsedOnly(liveNode, plan, eligibleEntries, sent);
+  nodeGraphLiveMaybeLogWasmFetchStats(loadMode);
+}
+
+/** Log fetch report when ?wasmStats=1 or live.debugNativeWasm is set. */
+function nodeGraphLiveMaybeLogWasmFetchStats(loadMode) {
+  try {
+    const params = new URLSearchParams(window.location.search || "");
+    const want =
+      params.get("wasmStats") === "1" ||
+      params.get("nativeWasmStats") === "1" ||
+      (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp?.live?.debugNativeWasm === true);
+    if (!want || typeof console === "undefined" || !console.info) {
+      return;
+    }
+    const report = nodeGraphLiveNativeWasmFetchReport();
+    report.mode = loadMode || report.mode;
+    console.info("[native-wasm] fetch report", report);
+  } catch (_e) { /* ignore */ }
 }
 
 async function refreshNodeGraphLiveMicrophonePermissionState() {
@@ -2586,6 +2608,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/stepSequencer/step-sequencer-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/stepGrid/step-grid-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/nextPatch/next-patch-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/softClipper/soft-clipper-math.js?v=soft-clipper-1",
   "./public/modules/softClipper/soft-clipper-worklet-evaluator.js?v=native-no-fallback-1",
   "./public/modules/rgbaHsla/rgba-hsla-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/screenSpaceShader/screen-space-shader-worklet-evaluator.js?v=native-strip-1",
