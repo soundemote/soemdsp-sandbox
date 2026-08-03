@@ -57,18 +57,18 @@ registerNodeGraphChromelessModule("fbmField", {
     outputLabels: { X: "X", Y: "Y" },
     parameters: [
       {
-        defaultValue: "0.5",
+        defaultValue: "20",
         key: "frequency",
         kind: "frequency",
         label: "Frequency",
-        max: "200",
+        max: "2000",
         maxDigits: 5,
-        mid: "0.5",
+        mid: "20",
         min: "0",
         step: "any",
         unit: "Hz",
         tooltip:
-          "Domain rate (Hz). Single clock for field scroll and X/Y probes. 0 freezes both.",
+          "Domain rate (Hz): how fast probes walk the field (and the picture scrolls). Low = slow CV / near-DC; raise for more audible motion. 0 freezes. X/Y are field values, not white noise.",
       },
       {
         defaultValue: "4",

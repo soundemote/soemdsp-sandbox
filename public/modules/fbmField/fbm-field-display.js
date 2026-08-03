@@ -145,7 +145,7 @@ function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
   face._fbmFieldBlack = false;
 
   // Frequency alone is domain rate (same as WASM X/Y path). No second rate knob.
-  const frequency = Math.max(0, nodeGraphFbmFieldReadParam(nodeId, "frequency", 0.5));
+  const frequency = Math.max(0, nodeGraphFbmFieldReadParam(nodeId, "frequency", 20));
   const frozen = nodeGraphFbmFieldShouldFreeze(frequency);
   if (frozen && face._fbmFieldHasFrame && !options.force) {
     face._fbmFieldLastTs = 0;

@@ -9,7 +9,7 @@ nodeGraphLiveModuleEvaluators.fbmField = ({ runtime, node, nodeId, frame, frames
   const read = (key, fallback) =>
     readNodeGraphLiveEffectiveParam(runtime, node, key, fallback, frame, frames, frameValues);
   const out = nodeGraphFbmFieldSample({
-    frequency: Math.max(0, read("frequency", 0.5)),
+    frequency: Math.max(0, read("frequency", 20)),
     lacunarity: read("lacunarity", 2),
     level: read("level", 1),
     octaves: read("octaves", 4),

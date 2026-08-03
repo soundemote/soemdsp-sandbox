@@ -1038,7 +1038,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           state,
           {
             contrast: read("contrast", 1),
-            frequency: read("frequency", 0.5),
+            frequency: read("frequency", 20),
             lacunarity: read("lacunarity", 2),
             level: read("level", 1),
             octaves: read("octaves", 4),

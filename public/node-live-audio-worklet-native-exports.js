@@ -115,8 +115,10 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         return;
       }
       if (name === "fbm_field" || targetType === "fbmField") {
-        for (const state of this.fbmFieldStates.values()) {
-          this.destroyFbmFieldNativeState?.(state);
+        if (this.fbmFieldStates && typeof this.fbmFieldStates.values === "function") {
+          for (const state of this.fbmFieldStates.values()) {
+            this.destroyFbmFieldNativeState?.(state);
+          }
         }
         this.nativeFbmField = exports;
         this.nativeFbmFieldReady = Boolean(
