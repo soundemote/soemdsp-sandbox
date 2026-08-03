@@ -3070,9 +3070,24 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     }
     if (!planOk) {
       // Plan failed on cold start: do not leave a silent connected worklet.
+      // Capture error chrome before stop wipes status pills.
+      const errTitle = document.getElementById("nodeLiveStatus")?.title || "";
+      const errPlan = document.getElementById("nodeLivePlanStatus")?.textContent || "";
+      const errPlanTitle = document.getElementById("nodeLivePlanStatus")?.title || "";
       nodeGraphMvp.live.outputEnabled = false;
       await stopNodeGraphLiveAudio();
-      // stop paints "stopped"; keep plan error title if present.
+      if (typeof setNodeGraphLiveStatus === "function") {
+        setNodeGraphLiveStatus("error", "warn");
+      }
+      if (errTitle && document.getElementById("nodeLiveStatus")) {
+        document.getElementById("nodeLiveStatus").title = errTitle;
+      }
+      if (errPlan && typeof setNodeGraphLivePlanStatus === "function") {
+        setNodeGraphLivePlanStatus(errPlan, "warn");
+      }
+      if (errPlanTitle && typeof setNodeGraphLivePlanTitle === "function") {
+        setNodeGraphLivePlanTitle(errPlanTitle);
+      }
       renderNodeGraphLiveControls(false);
       return;
     }
