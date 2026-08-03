@@ -2081,8 +2081,8 @@
               role="group"
               aria-label="Transport controls">
               <button type="button" data-transport-action="restart" title="Restart simulation (full cold boot)" aria-label="Restart simulation">⏮</button>
-              <button class="node-transport-stop" type="button" data-transport-action="stop" title="Stop" aria-label="Stop">⏹</button>
-              <button class="node-transport-play" type="button" data-transport-action="play" title="Play / Pause" aria-label="Play" data-transport-play data-transport-state="stopped">▶</button>
+              <button class="node-transport-stop is-stopped" type="button" data-transport-action="stop" title="Stopped (engine off)" aria-label="Stopped" data-transport-state="stopped">⏹</button>
+              <button class="node-transport-play" type="button" data-transport-action="play" title="Play" aria-label="Play" data-transport-play data-transport-state="stopped">▶</button>
               <button type="button" data-transport-action="record" title="Record (under construction)" aria-label="Record (under construction)" disabled class="under-construction">⏺</button>
               <button type="button" data-transport-action="forward" title="Forward (under construction)" aria-label="Forward (under construction)" disabled class="under-construction">⏭</button>
             </div>
@@ -2771,8 +2771,8 @@
         </div>
         <div class="node-transport-group" id="nodeTransportGroup" aria-label="Transport controls">
           <button id="nodeTransportPrev" type="button" data-transport-action="restart" title="Restart simulation (full cold boot)" aria-label="Restart simulation">⏮</button>
-          <button id="nodeTransportStop" class="node-transport-stop" type="button" data-transport-action="stop" title="Stop" aria-label="Stop">⏹</button>
-          <button id="nodeTransportPlay" class="node-transport-play" type="button" data-transport-action="play" data-transport-play title="Play / Pause" aria-label="Play" data-transport-state="stopped">▶</button>
+          <button id="nodeTransportStop" class="node-transport-stop is-stopped" type="button" data-transport-action="stop" title="Stopped (engine off)" aria-label="Stopped" data-transport-state="stopped">⏹</button>
+          <button id="nodeTransportPlay" class="node-transport-play" type="button" data-transport-action="play" data-transport-play title="Play" aria-label="Play" data-transport-state="stopped">▶</button>
           <button id="nodeTransportRecord" type="button" data-transport-action="record" title="Record (under construction)" aria-label="Record (under construction)" disabled class="under-construction">⏺</button>
           <button id="nodeTransportNext" type="button" data-transport-action="forward" title="Forward (under construction)" aria-label="Forward (under construction)" disabled class="under-construction">⏭</button>
         </div>
@@ -3752,13 +3752,13 @@
   <script src="./public/node-graph-ui-settings-panels.js?v=unified-window-pos-2"></script>
   <script src="./public/node-graph-ui-settings-persistence.js?v=debug-hide-on-refresh-1"></script>
   <script src="./public/node-graph-ui-settings-sync.js?v=amount-alpha-55-1"></script>
-  <script src="./public/node-graph-keyboard-shortcuts.js?v=transport-restart-fix-1"></script>
+  <script src="./public/node-graph-keyboard-shortcuts.js?v=transport-states-5"></script>
   <script src="./public/node-graph-live-status-text.js?v=live-plan-preserve-20260634"></script>
   <script src="./public/node-graph-live-status-controls.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-live-meter-controls.js?v=audio-overrun-meter-2"></script>
   <script src="./public/node-graph-live-input-status.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-live-evidence.js?v=badval-face-1"></script>
-  <script src="./public/node-graph-live-control-rendering.js?v=transport-states-4"></script>
+  <script src="./public/node-graph-live-control-rendering.js?v=transport-states-5"></script>
   <script src="./public/node-graph-default-patch.js?v=knob-4layers-1"></script>
   <script src="./public/node-graph-state.js?v=cc-module-search-1"></script>
   <script src="./public/node-graph-external-ui-events.js?v=xy-pad-impulse-1"></script>

@@ -192,12 +192,15 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) 
     nodeGraphExternalNotifyLiveOutputChanged();
   }
   // Transport colors (only the active state is lit):
-  //   playing → green play control
-  //   paused  → yellow pause control
-  //   stopped → red stop control
-  const playing = transportState === "playing";
+  //   playing / starting → green play control
+  //   paused             → yellow pause control
+  //   stopped            → red stop control
+  // Important: "starting" must NOT look like stopped (was lighting red ⏹
+  // the moment Space/Play armed output, before the worklet existed).
+  const playing = transportState === "playing" || transportState === "starting";
   const paused = transportState === "paused";
-  syncNodeGraphTransportPlayButtons({ playing, paused });
+  const starting = transportState === "starting";
+  syncNodeGraphTransportPlayButtons({ playing, paused, starting });
   renderNodeGraphSpeedReadout();
   // FBM Field: no rAF / no face paint while engine is stopped (red stop).
   // Start loops when live; wipe black when stopped.
@@ -212,13 +215,15 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) 
 
 /**
  * Transport button states — one color at a time:
- *   playing → green ▶ (play control)
- *   paused  → yellow ⏸ (pause control)
- *   stopped → red ⏹ (stop control); play stays grey ▶
+ *   playing / starting → green ▶ (play control)
+ *   paused             → yellow ⏸ (pause control)
+ *   stopped            → red ⏹ (stop control); play stays grey ▶
  */
-function syncNodeGraphTransportPlayButtons({ playing = false, paused = false } = {}) {
-  const isPlaying = Boolean(playing);
+function syncNodeGraphTransportPlayButtons({ playing = false, paused = false, starting = false } = {}) {
+  const isPlaying = Boolean(playing); // includes "starting" when caller folds it in
   const isPaused = Boolean(paused) && !isPlaying;
+  const isStarting = Boolean(starting) && isPlaying;
+  // Red stop ONLY when fully cold — not while arming/starting the engine.
   const isStopped = !isPlaying && !isPaused;
 
   for (const tp of document.querySelectorAll("[data-transport-play], #nodeTransportPlay, button.node-transport-play")) {
@@ -229,13 +234,13 @@ function syncNodeGraphTransportPlayButtons({ playing = false, paused = false } =
     tp.classList.remove("is-playing", "is-paused");
 
     if (isPlaying) {
-      // Green play button — sim is running (click pauses).
+      // Green play — sim running, or output armed and engine coming up.
       tp.textContent = NODE_GRAPH_TRANSPORT_GLYPH_PLAY;
-      tp.setAttribute("aria-label", "Pause");
-      tp.title = "Playing — click to pause";
+      tp.setAttribute("aria-label", isStarting ? "Starting" : "Pause");
+      tp.title = isStarting ? "Starting engine…" : "Playing — click to pause";
       tp.setAttribute("aria-pressed", "true");
       tp.classList.add("is-playing");
-      tp.dataset.transportState = "playing";
+      tp.dataset.transportState = isStarting ? "starting" : "playing";
     } else if (isPaused) {
       // Yellow pause button — sim paused (click resumes).
       tp.textContent = NODE_GRAPH_TRANSPORT_GLYPH_PAUSE;
@@ -257,11 +262,17 @@ function syncNodeGraphTransportPlayButtons({ playing = false, paused = false } =
   for (const stop of document.querySelectorAll('[data-transport-action="stop"], #nodeTransportStop, button.node-transport-stop')) {
     if (!(stop instanceof HTMLElement)) continue;
     stop.classList.add("node-transport-stop");
-    // Red only when engine is fully stopped. Grey while playing or paused.
+    // Red only when engine is fully stopped. Grey while playing, starting, or paused.
     stop.classList.toggle("is-stopped", isStopped);
     stop.classList.toggle("is-armed", !isStopped);
     stop.textContent = NODE_GRAPH_TRANSPORT_GLYPH_STOP;
-    stop.dataset.transportState = isStopped ? "stopped" : isPlaying ? "playing" : "paused";
+    stop.dataset.transportState = isStopped
+      ? "stopped"
+      : isPaused
+        ? "paused"
+        : isStarting
+          ? "starting"
+          : "playing";
     stop.title = isStopped ? "Stopped (engine off)" : "Stop engine (full cold stop)";
     stop.setAttribute("aria-label", isStopped ? "Stopped" : "Stop");
   }
@@ -464,6 +475,13 @@ function bindNodeGraphTransportButtons() {
       }
       nodeGraphTransportHandleAction(action);
     });
+  }
+  // Cold boot: engine is off — force red stop / grey play immediately so we
+  // never sit in the unstyled HTML defaults after refresh.
+  if (typeof renderNodeGraphLiveControls === "function") {
+    renderNodeGraphLiveControls(Boolean(nodeGraphMvp?.live?.node));
+  } else {
+    syncNodeGraphTransportPlayButtons({ playing: false, paused: false, starting: false });
   }
 }
 
