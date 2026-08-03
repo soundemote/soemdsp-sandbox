@@ -1037,10 +1037,10 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
         return this.fbmFieldVector(
           state,
           {
+            amplitude: read("amplitude", read("level", 1)),
             contrast: read("contrast", 1),
             frequency: read("frequency", 20),
             lacunarity: read("lacunarity", 2),
-            level: read("level", 1),
             motion: read("motion", 1),
             octaves: read("octaves", 4),
             panX: read("panX", 0),

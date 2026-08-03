@@ -304,7 +304,7 @@ extern "C" void soemdsp_fbm_field_sample(
   double zoom,
   double panX,
   double panY,
-  double level,
+  double amplitude,
   double sampleRate,
   int motion,
   double contrast
@@ -329,6 +329,8 @@ extern "C" void soemdsp_fbm_field_sample(
   const double safeFreq = frequency < 0.0 ? 0.0 : frequency;
   const double safeRate = sampleRate < 1.0 ? 1.0 : sampleRate;
   const double safeContrast = contrast < 0.0 ? 0.0 : contrast;
+  // Amplitude: overall field gain (face mono + jacks). ≥0.
+  const double safeAmp = amplitude < 0.0 ? 0.0 : amplitude;
   const double span = 1.0 / safeZoom;
   const int mode = normalizeMotion(motion);
   const double t = s.time;
@@ -337,27 +339,28 @@ extern "C" void soemdsp_fbm_field_sample(
   const double cx = panX;
   const double cy = panY;
 
-  // Same contrast law as face mono (expand around 0), then Level.
+  // contrast around 0, then amplitude (same product as face mono path).
   const double rawX = applyContrastBipolar(fieldAt(
     cx, cy, t, mode, safeSeed, safeOctaves, safePers, safeLac, safeScale, safeSmooth, span
-  ), safeContrast);
+  ), safeContrast) * safeAmp;
   const double rawY = applyContrastBipolar(fieldAt(
     cx + d, cy, t, mode, safeSeed, safeOctaves, safePers, safeLac, safeScale, safeSmooth, span
-  ), safeContrast);
+  ), safeContrast) * safeAmp;
   const double rawZ = applyContrastBipolar(fieldAt(
     cx, cy + d, t, mode, safeSeed, safeOctaves, safePers, safeLac, safeScale, safeSmooth, span
-  ), safeContrast);
+  ), safeContrast) * safeAmp;
 
   s.lastRawX = safe_bounded(rawX);
   s.lastRawY = safe_bounded(rawY);
   s.lastRawZ = safe_bounded(rawZ);
-  s.lastX = safe_bounded(s.lastRawX * level);
-  s.lastY = safe_bounded(s.lastRawY * level);
-  s.lastZ = safe_bounded(s.lastRawZ * level);
+  s.lastX = s.lastRawX;
+  s.lastY = s.lastRawY;
+  s.lastZ = s.lastRawZ;
   s.time = t + safeFreq / safeRate;
 }
 
 // Face grid: each texel = fieldAt at that pixel's spatial pos + same domainT as audio.
+// contrast + amplitude match sample() so mono = 0.5 * (1 + bipolar_out).
 extern "C" int soemdsp_fbm_field_fill_grid(
   int width,
   int height,
@@ -373,7 +376,8 @@ extern "C" int soemdsp_fbm_field_fill_grid(
   double scale,
   double smoothness,
   double contrast,
-  int motion
+  int motion,
+  double amplitude
 ) {
   int w = width < 1 ? 1 : (width > kMaxGridW ? kMaxGridW : width);
   int h = height < 1 ? 1 : (height > kMaxGridH ? kMaxGridH : height);
@@ -385,6 +389,7 @@ extern "C" int soemdsp_fbm_field_fill_grid(
   const double safeSmooth = clamp(smoothness, 0.0, 1.0);
   const double safeZoom = zoom < 0.05 ? 0.05 : zoom;
   const double safeContrast = contrast < 0.0 ? 0.0 : contrast;
+  const double safeAmp = amplitude < 0.0 ? 0.0 : amplitude;
   const double span = 1.0 / safeZoom;
   const double ang = rotate * 6.283185307179586;
   const double cosR = soemdsp_maths::dsp_cos(ang);
@@ -408,7 +413,9 @@ extern "C" int soemdsp_fbm_field_fill_grid(
         spatialX, spatialY, t, mode,
         safeSeed, safeOctaves, safePers, safeLac, safeScale, safeSmooth, span
       );
-      gGridMono[j * w + i] = (float)bipolarToMono(safe_bounded(bipolar), safeContrast);
+      // Same pipeline as jacks: contrast, then amplitude, then mono for gradient.
+      const double driven = applyContrastBipolar(safe_bounded(bipolar), safeContrast) * safeAmp;
+      gGridMono[j * w + i] = (float)bipolarToMono(safe_bounded(driven), 1.0);
     }
   }
   gGridW = w;

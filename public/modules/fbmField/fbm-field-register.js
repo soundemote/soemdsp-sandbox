@@ -227,13 +227,15 @@ registerNodeGraphChromelessModule("fbmField", {
       },
       {
         defaultValue: "1",
-        key: "level",
-        label: "Level",
+        key: "amplitude",
+        label: "Amplitude",
         max: "1",
         mid: "0.5",
         min: "0",
         step: "0.01",
-        tooltip: "Output gain on X/Y/Z jacks.",
+        tooltip:
+          "Overall field gain after contrast — face brightness and X/Y/Z together. "
+          + "1 = full. Lower = dimmer image and quieter CV (swings pull toward mid/zero).",
       },
     ],
   },
