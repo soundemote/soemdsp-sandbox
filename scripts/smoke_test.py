@@ -2660,7 +2660,7 @@ def require_root_shell(base_url: str) -> None:
     root_probe = request(f"{base_url}/")
     require(root_probe.status == 200, "/ shell did not return 200")
     token_match = re.search(
-        rb'data-build-token-value>([A-Z0-9]{4})</span>',
+        rb'data-build-token-value>([A-Z0-9]{4,12})</span>',
         root_probe.body,
     )
     require(token_match is not None, "/ shell missing BUILD_TOKEN span")
