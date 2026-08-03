@@ -2,24 +2,24 @@
 //
 // Instantaneous |Δsample| = "speed" (saw/discontinuities spike; sine is low).
 // Target saturation falls as speed rises (rich color → white). Inertial
-// attack/release smooths saturation (Inertia out).
+// attack/release smooths saturation via Inertial Filter math when loaded.
 //
-// Signal outs (unit-ish, modular-friendly — not CSS strings):
+// Signal outs:
 //   Raw     — current sample
-//   Speed   — min(|Δ| * gain, 1)   high on edges
+//   Speed   — min(|Δ| * gain, 1)
 //   Inertia — smoothed saturation 0…1  (1 = full color, 0 = white)
 
 function createNodeGraphSpeedColorInertiaState() {
   return {
     lastSample: 0,
-    saturation: 1,
+    // Reuse inertial-filter state shape for sat smoother.
+    sat: typeof createNodeGraphInertialFilterState === "function"
+      ? createNodeGraphInertialFilterState()
+      : { initialized: false, out: 1 },
   };
 }
 
 /**
- * @param {{ lastSample: number, saturation: number }} state
- * @param {number} currentSample
- * @param {{ gain?: number, attack?: number, release?: number }} params
  * @returns {{ Raw: number, Speed: number, Inertia: number }}
  */
 function nodeGraphSpeedColorInertiaSample(state, currentSample, params = {}) {
@@ -31,25 +31,39 @@ function nodeGraphSpeedColorInertiaSample(state, currentSample, params = {}) {
   const slopeSpeed = Math.abs(sample - (Number(state.lastSample) || 0));
   state.lastSample = sample;
 
-  // gain maps slope → 0…1 "how white"
   const speed01 = Math.min(slopeSpeed * gain, 1);
   const targetSat = 1 - speed01;
 
-  let sat = Number(state.saturation);
-  if (!Number.isFinite(sat)) {
-    sat = 1;
+  if (!state.sat) {
+    state.sat = { initialized: false, out: 1 };
   }
-  // Attack when desaturating (speed up → white); release when recovering color.
-  if (targetSat < sat) {
-    const a = Number.isFinite(attack) ? attack : 1;
-    sat += (targetSat - sat) * a;
+  // Seed sat to full color once (inertia starts rich).
+  if (!state.sat.initialized) {
+    state.sat.initialized = true;
+    state.sat.out = 1;
+  }
+
+  let sat;
+  if (typeof nodeGraphInertialFilterSample === "function") {
+    // Attack = desaturate (toward white / lower sat); release = recover color.
+    // When target < current we need "fall" = attack; when target > current "rise" = release.
+    // nodeGraphInertialFilterSample uses attack on rise, release on fall — swap for sat:
+    // fall (desaturate) should use attack param; rise (recover) use release param.
+    sat = nodeGraphInertialFilterSample(state.sat, targetSat, release, attack);
   } else {
-    const r = Number.isFinite(release) ? release : 0.005;
-    sat += (targetSat - sat) * r;
+    const cur = Number(state.sat.out);
+    const c = Number.isFinite(cur) ? cur : 1;
+    const delta = targetSat - c;
+    const k = delta < 0
+      ? (Number.isFinite(attack) ? attack : 1)
+      : (Number.isFinite(release) ? release : 0.005);
+    sat = c + delta * k;
+    if (sat < 0) sat = 0;
+    if (sat > 1) sat = 1;
+    state.sat.out = sat;
   }
   if (sat < 0) sat = 0;
   if (sat > 1) sat = 1;
-  state.saturation = sat;
 
   return {
     Raw: sample,
@@ -58,10 +72,6 @@ function nodeGraphSpeedColorInertiaSample(state, currentSample, params = {}) {
   };
 }
 
-/**
- * Optional CSS helper for faces/debug (not a graph output).
- * hueCycle 0…1 → degrees; lightness 0…1 → %.
- */
 function nodeGraphSpeedColorInertiaHslCss(inertia01, hueCycle = 240 / 360, lightness01 = 0.5) {
   const h = (((Number(hueCycle) || 0) % 1) + 1) % 1 * 360;
   const s = Math.max(0, Math.min(100, (Number(inertia01) || 0) * 100));

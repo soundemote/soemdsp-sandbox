@@ -14,11 +14,11 @@ types, ports, or format change. Prefer clean current graph over migrators.
 **Goal:** one pure formula path; thin live + worklet adapters.
 
 **Still to do**
-- Peel more dual live/worklet pairs onto helpers / `*-math.js` (filters, remaining oscs)
+- Peel more dual live/worklet pairs onto helpers / `*-math.js` (filters, envelopes)
 - Optional: small `node` smoke for pure helpers
 
-**Recently shared:** phasor/pitch helpers, control-bus, param surfaces, rotate3d,
-vectorscopeTransform, gain / bias / gainBias math.
+**Shared recently:** gain/bias/gainBias, softClipper, comparator, sampleDelay, slewLimiter,
+inertialFilter, sampleHold math; rotate3d, vectorscope, speedColorInertia (uses inertial math).
 
 **Refs:** `docs/A1_LIVE_WORKLET_DSP_INVENTORY.md`, `docs/PARAM_SURFACES.md`
 
@@ -29,9 +29,10 @@ vectorscopeTransform, gain / bias / gainBias math.
 **Goal:** player/embed can avoid downloading the full combined native binary.
 
 **Still to do**
-- External player shells (e.g. clapplayer) default to slim — out of this monorepo
+- External player shells (e.g. clapplayer) default to slim — **out of this monorepo**
 
-**Done here:** `?wasmLoad=slim`, player-ish defaults, `nodeGraphLiveNativeWasmFetchReport()`.
+**Done in sandbox:** `?wasmLoad=slim`, player-ish query defaults, embed-config.example.json,
+`nodeGraphLiveNativeWasmFetchReport()` / `?wasmStats=1` / window exposure.
 
 See `docs/WASM_SLIM_LOAD.md`.
 
@@ -42,11 +43,11 @@ See `docs/WASM_SLIM_LOAD.md`.
 **Goal:** split remaining face paint/UI out of the big scopes file (maintainability only).
 
 **Still to do**
-- Remaining sync / geometry / slot helpers still in `module-scopes.js`
+- Remaining slot / metrics / geometry / WebGL helpers still in `module-scopes.js`
 
 **Peeled:** defaults, normalize, display-mode, phosphor, settings-form, settings-ui,
-capture, number-readout, draw-basic, draw-burn, **spectrum**, **buffer-io**,
-**paint-helpers**, **draw-orchestrator**
+capture, number-readout, draw-basic, draw-burn, spectrum, buffer-io, **sync**,
+paint-helpers, draw-orchestrator
 
 ---
 
@@ -54,17 +55,17 @@ capture, number-readout, draw-basic, draw-burn, **spectrum**, **buffer-io**,
 
 | Item | Note |
 |------|------|
-| Worklet **evaluators.js** split | **Done** — `evaluators-sources` / `-processors` / `-utility` + thin merge shell. Further split optional only if a cluster file gets huge again. |
-| Patch format migrators | Present but **not a priority**. Rename modules freely; old patches can fail. |
+| Worklet **evaluators.js** split | Done — sources / processors / utility + shell |
+| Patch format migrators | Not a priority; old patches may break |
+| Osc SIGNAL IN pitch resolve | Major oscs on `nodeGraphParamResolveOscPitchHz` |
+| Up/Down Slew + Inertial Filter | Both in **Filter** shelf for A/B |
 
 ---
 
 ## SIGNAL IN audit (ongoing)
 
-Oscillators should use shared helpers for `0.1V/Oct` / Phase / Amplitude jacks
-(`nodeGraphParamResolveOscPitchHz`, `nodeGraphParamSignalInPhaseAdd`,
-`nodeGraphParamSignalInAmplitude` / Additive).  
-Pitch **processors** (e.g. pitchQuantizer) pass CV through — they do not need Hz resolve.
+Oscillators: shared pitch / Phase / Amp helpers.  
+Pitch **processors** (pitchQuantizer, keyboard CV, …) pass `0.1V/Oct` through — no Hz resolve.
 
 See `docs/PARAM_SURFACES.md`.
 
@@ -72,7 +73,7 @@ See `docs/PARAM_SURFACES.md`.
 
 ## Working agreement
 
-1. One primary track at a time inside a session when possible.  
+1. One primary track at a time when possible.  
 2. Parity before deleting dual DSP paths.  
 3. Extract-only for D peels (same globals, new files, load order).  
 4. Call graph nodes **modules**, not “products.”  
