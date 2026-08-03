@@ -7,84 +7,107 @@ NodeLiveAudioProcessor.prototype.oscillatorSample = function oscillatorSample(no
     || !this.nativeBasicOscillator?.soemdsp_basic_oscillator_create
     || !this.nativeBasicOscillator?.soemdsp_basic_oscillator_sample
   ) {
-    throw new Error("native Basic Oscillator not ready");
+    return 0;
   }
-  let handle = this.basicOscillatorNativeHandles.get(nodeId);
-  if (!handle) {
-    handle = this.nativeBasicOscillator.soemdsp_basic_oscillator_create();
-    if (handle) {
-      this.basicOscillatorNativeHandles.set(nodeId, handle);
+  try {
+    let handle = this.basicOscillatorNativeHandles.get(nodeId);
+    if (!handle) {
+      handle = this.nativeBasicOscillator.soemdsp_basic_oscillator_create();
+      if (handle) {
+        this.basicOscillatorNativeHandles.set(nodeId, handle);
+      }
     }
+    if (!handle) {
+      return 0;
+    }
+    return this.nativeBasicOscillator.soemdsp_basic_oscillator_sample(
+      handle,
+      Number(phase) || 0,
+      Number(phaseIncrement) || 0,
+      Math.round(Number(waveform) || 0),
+    );
+  } catch (_error) {
+    this.nativeBasicOscillatorReady = false;
+    return 0;
   }
-  if (!handle) {
-    throw new Error("native Basic Oscillator failed to create instance");
-  }
-  return this.nativeBasicOscillator.soemdsp_basic_oscillator_sample(
-    handle,
-    Number(phase) || 0,
-    Number(phaseIncrement) || 0,
-    Math.round(Number(waveform) || 0),
-  );
+};
+
+/** Silent vector while native wasm is still loading — never throw (throws kill the AudioWorklet). */
+NodeLiveAudioProcessor.prototype.polyBlepSilentVector = function polyBlepSilentVector() {
+  return { out: 0, saw: 0, ramp: 0, square: 0, tri: 0, sine: 0 };
 };
 
 NodeLiveAudioProcessor.prototype.polyBlepNativeVectorSample = function polyBlepNativeVectorSample(state, phase, phaseIncrement, waveform, level, resetEdge) {
+  // Must not throw: process() runs as soon as the node is connected, often
+  // before setNativeModuleWasm finishes instantiating. A throw becomes
+  // onprocessorerror → muted host + dead scopes.
   if (!this.nativePolyBlepReady || !this.nativePolyBlep?.soemdsp_polyblep_create) {
-    throw new Error("native PolyBLEP not ready");
+    return this.polyBlepSilentVector();
   }
-  if (!state.nativeHandle) {
-    state.nativeHandle = this.nativePolyBlep.soemdsp_polyblep_create();
+  try {
+    if (!state.nativeHandle) {
+      state.nativeHandle = this.nativePolyBlep.soemdsp_polyblep_create();
+    }
+    if (!state.nativeHandle) {
+      return this.polyBlepSilentVector();
+    }
+    if (resetEdge) {
+      this.nativePolyBlep.soemdsp_polyblep_reset?.(state.nativeHandle);
+    }
+    this.nativePolyBlep.soemdsp_polyblep_sample(
+      state.nativeHandle,
+      Number(phase) || 0,
+      Number(phaseIncrement) || 0,
+      Math.round(Number(waveform) || 0),
+      Number(level) || 0,
+    );
+    return {
+      out: this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_out(state.nativeHandle), null),
+      saw: this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_saw(state.nativeHandle), null),
+      ramp: this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_ramp(state.nativeHandle), null),
+      square: this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_square(state.nativeHandle), null),
+      tri: this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_tri(state.nativeHandle), null),
+      sine: this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_sine(state.nativeHandle), null),
+    };
+  } catch (_error) {
+    this.nativePolyBlepReady = false;
+    return this.polyBlepSilentVector();
   }
-  if (!state.nativeHandle) {
-    throw new Error("native PolyBLEP failed to create instance");
-  }
-  if (resetEdge) {
-    this.nativePolyBlep.soemdsp_polyblep_reset(state.nativeHandle);
-  }
-  this.nativePolyBlep.soemdsp_polyblep_sample(
-    state.nativeHandle,
-    Number(phase) || 0,
-    Number(phaseIncrement) || 0,
-    Math.round(Number(waveform) || 0),
-    Number(level) || 0,
-  );
-  return {
-    out: this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_out(state.nativeHandle), null),
-    saw: this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_saw(state.nativeHandle), null),
-    ramp: this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_ramp(state.nativeHandle), null),
-    square: this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_square(state.nativeHandle), null),
-    tri: this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_tri(state.nativeHandle), null),
-    sine: this.safeFilterNumber(this.nativePolyBlep.soemdsp_polyblep_sine(state.nativeHandle), null),
-  };
 };
 
 NodeLiveAudioProcessor.prototype.blitNativeVectorSample = function blitNativeVectorSample(state, phase, phaseIncrement, waveform, level, resetEdge) {
   if (!this.nativeBlitReady || !this.nativeBlit?.soemdsp_blit_create) {
-    throw new Error("native BLIT not ready");
+    return this.polyBlepSilentVector();
   }
-  if (!state.nativeHandle) {
-    state.nativeHandle = this.nativeBlit.soemdsp_blit_create();
+  try {
+    if (!state.nativeHandle) {
+      state.nativeHandle = this.nativeBlit.soemdsp_blit_create();
+    }
+    if (!state.nativeHandle) {
+      return this.polyBlepSilentVector();
+    }
+    if (resetEdge) {
+      this.nativeBlit.soemdsp_blit_reset?.(state.nativeHandle);
+    }
+    this.nativeBlit.soemdsp_blit_sample(
+      state.nativeHandle,
+      Number(phase) || 0,
+      Number(phaseIncrement) || 0,
+      Math.round(Number(waveform) || 0),
+      Number(level) || 0,
+    );
+    return {
+      out: this.safeFilterNumber(this.nativeBlit.soemdsp_blit_out(state.nativeHandle), null),
+      saw: this.safeFilterNumber(this.nativeBlit.soemdsp_blit_saw(state.nativeHandle), null),
+      ramp: this.safeFilterNumber(this.nativeBlit.soemdsp_blit_ramp(state.nativeHandle), null),
+      square: this.safeFilterNumber(this.nativeBlit.soemdsp_blit_square(state.nativeHandle), null),
+      tri: this.safeFilterNumber(this.nativeBlit.soemdsp_blit_tri(state.nativeHandle), null),
+      sine: this.safeFilterNumber(this.nativeBlit.soemdsp_blit_sine(state.nativeHandle), null),
+    };
+  } catch (_error) {
+    this.nativeBlitReady = false;
+    return this.polyBlepSilentVector();
   }
-  if (!state.nativeHandle) {
-    throw new Error("native BLIT failed to create instance");
-  }
-  if (resetEdge) {
-    this.nativeBlit.soemdsp_blit_reset(state.nativeHandle);
-  }
-  this.nativeBlit.soemdsp_blit_sample(
-    state.nativeHandle,
-    Number(phase) || 0,
-    Number(phaseIncrement) || 0,
-    Math.round(Number(waveform) || 0),
-    Number(level) || 0,
-  );
-  return {
-    out: this.safeFilterNumber(this.nativeBlit.soemdsp_blit_out(state.nativeHandle), null),
-    saw: this.safeFilterNumber(this.nativeBlit.soemdsp_blit_saw(state.nativeHandle), null),
-    ramp: this.safeFilterNumber(this.nativeBlit.soemdsp_blit_ramp(state.nativeHandle), null),
-    square: this.safeFilterNumber(this.nativeBlit.soemdsp_blit_square(state.nativeHandle), null),
-    tri: this.safeFilterNumber(this.nativeBlit.soemdsp_blit_tri(state.nativeHandle), null),
-    sine: this.safeFilterNumber(this.nativeBlit.soemdsp_blit_sine(state.nativeHandle), null),
-  };
 };
 
 NodeLiveAudioProcessor.prototype.createPolyBlepState = function createPolyBlepState() {

@@ -24,10 +24,62 @@ PUBLIC = ROOT / "public"
 BUILD_NUMBER = "2026.8.2.Ghostlive"
 VERSION_FILE = ROOT / "VERSION"
 SANDBOX_VERSION = VERSION_FILE.read_text(encoding="utf-8").strip() if VERSION_FILE.exists() else "0.0.0"
-# Per-process build token: four chars from A–Z / 0–9, rolled when the server
-# starts (one stamp per run / "build" of the sandbox process).
+# Per-build stamp: random A–Z/0–9, re-rolled when the server starts OR when
+# source fingerprints change (so a hard refresh after code edits proves the
+# shell is fresh — toolbar shows e.g. "K7M2QX").
 _BUILD_TOKEN_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-BUILD_TOKEN = "".join(secrets.choice(_BUILD_TOKEN_ALPHABET) for _ in range(4))
+_BUILD_TOKEN_LEN = 6
+_build_token_value = ""
+_build_token_fingerprint = ""
+
+
+def _source_build_fingerprint() -> str:
+    """Cheap fingerprint of editable surface so token re-rolls without full restart."""
+    newest = 0.0
+    try:
+        newest = max(newest, VERSION_FILE.stat().st_mtime if VERSION_FILE.exists() else 0.0)
+        newest = max(newest, (ROOT / "server.py").stat().st_mtime)
+        public = ROOT / "public"
+        if public.is_dir():
+            # Sample index + a few high-churn roots (full walk is too heavy per request).
+            for rel in (
+                "index.html",
+                "node-graph-live-runtime.js",
+                "node-graph-live-control-rendering.js",
+                "styles.css",
+            ):
+                path = public / rel
+                if path.is_file():
+                    newest = max(newest, path.stat().st_mtime)
+            modules = public / "modules"
+            if modules.is_dir():
+                for path in modules.rglob("*.js"):
+                    try:
+                        newest = max(newest, path.stat().st_mtime)
+                    except OSError:
+                        continue
+    except OSError:
+        pass
+    return f"{newest:.6f}"
+
+
+def roll_build_token(force: bool = False) -> str:
+    global _build_token_value, _build_token_fingerprint
+    fingerprint = _source_build_fingerprint()
+    if force or not _build_token_value or fingerprint != _build_token_fingerprint:
+        _build_token_fingerprint = fingerprint
+        _build_token_value = "".join(
+            secrets.choice(_BUILD_TOKEN_ALPHABET) for _ in range(_BUILD_TOKEN_LEN)
+        )
+    return _build_token_value
+
+
+def current_build_token() -> str:
+    return roll_build_token(force=False)
+
+
+# Initial roll at import / process start.
+BUILD_TOKEN = roll_build_token(force=True)
 
 # "debug" (default) vs "release". Purely a labeling/UI signal -- it does not
 # gate any behavior server-side -- consumed client-side to color the debug
@@ -1233,17 +1285,36 @@ class SandboxServer(BaseHTTPRequestHandler):
         if not path.exists():
             self.send_error(404, "Not found")
             return
-        body = (
+        # Re-roll when sources change so the toolbar stamp proves a fresh shell.
+        token = current_build_token()
+        html = (
             path.read_text(encoding="utf-8")
             .replace("{{BUILD_NUMBER}}", BUILD_NUMBER)
             .replace("{{SANDBOX_VERSION}}", (VERSION_FILE.read_text(encoding="utf-8").strip() if VERSION_FILE.exists() else SANDBOX_VERSION))
             .replace("{{BUILD_MODE}}", BUILD_MODE)
-            .replace("{{BUILD_TOKEN}}", BUILD_TOKEN)
-            .encode("utf-8")
+            .replace("{{BUILD_TOKEN}}", token)
         )
+        # Append &bt=TOKEN to every script/link with a query string so browsers
+        # cannot keep a previous process's JS/CSS after the stamp changes.
+        def _bust(match: re.Match[str]) -> str:
+            attr = match.group(1)
+            url = match.group(2)
+            if "bt=" in url:
+                return match.group(0)
+            joiner = "&" if "?" in url else "?"
+            return f'{attr}="{url}{joiner}bt={token}"'
+
+        html = re.sub(
+            r'((?:src|href))="([^"]+\.(?:js|css)(?:\?[^"]*)?)"',
+            _bust,
+            html,
+            flags=re.IGNORECASE,
+        )
+        body = html.encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        self.send_header("X-Soemdsp-Build-Token", token)
         self.send_no_store_headers()
         self.end_headers()
         if send_body:
@@ -1369,7 +1440,10 @@ def main() -> None:
     SandboxServer.manifest_path = Path(args.manifest).resolve()
     SandboxServer.artifact_root = SandboxServer.manifest_path.parent.resolve()
 
+    token = roll_build_token(force=True)
     print(f"build mode: {BUILD_MODE}")
+    print(f"build token: {token}  (re-rolls on server start or source change)")
+    print(f"version: v{SANDBOX_VERSION} · {BUILD_NUMBER}")
 
     server = ThreadingHTTPServer((args.host, args.port), SandboxServer)
     print(f"soemdsp-sandbox serving http://{args.host}:{args.port}")

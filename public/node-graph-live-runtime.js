@@ -2604,7 +2604,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/sineWavetable/sine-wavetable-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/additiveOsc/additive-osc-worklet-evaluator.js?v=native-strip-1",
-  "./public/modules/polyBlep/poly-blep-worklet-evaluator.js?v=native-no-fallback-1",
+  "./public/modules/polyBlep/poly-blep-worklet-evaluator.js?v=polyblep-soft-1",
   "./public/modules/noiseGenerator/noise-generator-worklet-evaluator.js?v=native-strip-1",
   // noise channel math lives in worklet methods; main-thread uses noise-generator-math.js
   "./public/modules/randomWalk/random-walk-math.js?v=random-walk-1",
@@ -2780,7 +2780,17 @@ async function createNodeGraphLiveWorkletNode(context, plan = null) {
   workletNode.onprocessorerror = () => {
     setNodeGraphLiveProcessorError("AudioWorklet processor crashed");
   };
-  sendNodeGraphLiveNativeModules(workletNode, plan);
+  // Await native wasm post so setPlan is less likely to race an empty
+  // nativePolyBlepReady (PolyBLEP used to throw and kill the worklet).
+  // Instantiate is still async inside the worklet; evaluators must soft-silence
+  // until ready rather than throw.
+  if (typeof sendNodeGraphLiveNativeModules === "function") {
+    try {
+      await sendNodeGraphLiveNativeModules(workletNode, plan);
+    } catch (error) {
+      console.warn("[live] native module preload failed", error);
+    }
+  }
   return workletNode;
 }
 
