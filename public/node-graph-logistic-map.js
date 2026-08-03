@@ -1,6 +1,6 @@
-// Offline / main-thread glue for logistic_map.wasm — no pure-JS DSP mirror.
-// Native sample() already applies level and returns bipolar scaled output.
-// Silent 0 until wasm finishes loading.
+// Offline / main-thread glue for logistic_map.wasm (optional native path).
+// Pure JS map lives in modules/logisticMap/logistic-map-math.js and is preferred
+// by the live evaluator. Native sample() applies level and returns bipolar scaled output.
 
 const nodeGraphLogisticMapWasm = { promise: null, exports: null, failed: false };
 

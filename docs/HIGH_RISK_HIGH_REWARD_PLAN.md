@@ -14,10 +14,10 @@ types, ports, or format change. Prefer clean current graph over migrators.
 **Goal:** one pure formula path; thin live + worklet adapters.
 
 **Still to do**
-- Peel more dual live/worklet pairs onto helpers / `*-math.js` (filters, envelopes, remaining attractors)
+- Peel more dual live/worklet pairs onto helpers / `*-math.js` (filters, remaining attractors e.g. lorenz/chua)
 - Optional: small `node` smoke for pure helpers
 
-**Shared extensively:** utilities, clocks, sequencers, maps (henon), noise, slews, etc.  
+**Shared extensively:** utilities, clocks, sequencers, maps (henon, logistic), envelopes (linear, exp ADSR), noise, slews, etc.  
 **Refs:** `docs/A1_LIVE_WORKLET_DSP_INVENTORY.md`, `docs/PARAM_SURFACES.md`
 
 ---
