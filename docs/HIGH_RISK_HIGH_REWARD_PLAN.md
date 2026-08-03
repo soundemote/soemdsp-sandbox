@@ -114,10 +114,11 @@ Migrators run on load **before** unknown-type throws:
 load → migrateNodeGraphPatchToCurrent → validate/normalize → compile
 ```
 
-### Done (C0)
+### Done (C0–C1)
 - [x] `public/node-graph-patch-migrations.js` — version climb + phosphorLight rename
 - [x] Wired at start of `validateNodeGraphPatch`
 - [x] `index.html` loads migrations before patch-core
+- [x] **C1:** format **version 2** — `valueSlider` → `knob`, face field `valueSliderFace` → `knobFace`
 
 ### First migrations (examples)
 | From | To |
