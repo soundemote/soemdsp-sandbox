@@ -1,48 +1,77 @@
 # Phase E — Used-modules WASM slim
 
-## Problem
+## Short answer
 
-Authoring prefers **`soemdsp_combined.wasm`**: every native module, one shared
-memory (avoids Chrome’s per-process WASM memory cap). That is large to
-download and slow to cold-start for a **player** that only uses a few types.
+**Not** “user picks modules in the Module Browser and only those exist.”  
+The Module Browser still lists everything.
+
+**Yes** — “only **download/instantiate native WASM** for module types **already on the patch (live plan)**,” when slim mode is on.
+
+Typical use: **iframe / player / clapplayer** loads a fixed patch → only that patch’s native modules are fetched.
+
+---
+
+## Two different things people mix up
+
+| | Module Browser | WASM slim (Phase E) |
+|--|----------------|---------------------|
+| What | UI catalog of types you *can* place | Which **.wasm binaries** the browser downloads |
+| When | Always full catalog (authoring) | On live plan apply / patch load |
+| Who decides | You dragging modules | **Patch contents** + load mode |
+
+Adding a module from the browser in **authoring (combined)** does nothing special for WASM — combined already has everything.
+
+Adding a **new native** type under **slim** triggers another fetch on the next plan update (lazy used-modules send).
+
+---
 
 ## Modes
 
-| Mode | When | Behavior |
-|------|------|----------|
-| **combined** | Default (authoring) | Fetch combined binary once; all natives available |
-| **slim** | Player / embed / clapplayer | Fetch only wasm for **types on the current plan** |
+| Mode | Who | Behavior |
+|------|-----|----------|
+| **combined** (default authoring) | Full sandbox | One big `soemdsp_combined.wasm` |
+| **slim** | Player / embed | Per-module wasm only for types on the plan |
 
-### How to enable slim
+### Enable slim
 
-1. Query: `?wasmLoad=slim` (aliases: `used`, `used-modules`)  
-2. Or `?nativeWasm=slim`  
-3. Or `embed-config.json`: `{ "wasmLoad": "slim" }` or `{ "nativeWasmLoad": "slim" }`  
-4. Or at runtime: `nodeGraphMvp.live.nativeWasmLoadMode = "slim"` before live start  
+1. `?wasmLoad=slim`  
+2. Embed auto: `?hideui=1`, `?autostart=1`, `?player=1`, or `?clapplayer=1` → slim unless overridden  
+3. `embed-config.json`: `{ "wasmLoad": "slim" }` or `{ "player": true }`  
+4. Runtime: `nodeGraphMvp.live.nativeWasmLoadMode = "slim"`  
 
-Force combined: `?wasmLoad=combined` (aliases: `full`, `all`).
+Force full: `?wasmLoad=combined`.
 
-## Implementation
+---
 
-`sendNodeGraphLiveNativeModules` in `node-graph-live-runtime.js`:
+## Flow
 
-- Resolves mode once via `nodeGraphLiveResolveNativeWasmLoadMode()`  
-- **slim** → `sendNodeGraphLiveNativeModulesUsedOnly` (catalog filter × plan types)  
-- **combined** → existing combined send; on missing binary, falls back to used-only  
+```text
+Authoring (combined):
+  start live → fetch combined once → all natives ready
 
-Adding a new native module on the patch re-runs send on plan update; already-sent
-modules are skipped (idempotent `sent` set).
+Player (slim):
+  load patch → compile plan → types on plan
+    → catalog lookup → fetch only those .wasm
+    → worklet instantiate each
+  user cannot add random modules (hide UI) OR
+  if they can, next plan update fetches any new native type
+```
 
-## What it affects
+---
 
-| | |
-|--|--|
-| Download size / cold start | Yes (slim) |
-| Sound / formulas | **No** (if deps load) |
-| Risk | Slim + huge native set → many memories; prefer combined for big patches |
+## What it does *not* do
+
+- Hide types from the Module Browser in the full app  
+- Change DSP math  
+- Pre-build a custom wasm on the website (unless you add that later)  
+
+Website/iframe chooses **mode + which patch URL**; the **patch** chooses **which natives**.
+
+---
 
 ## Status
 
-- [x] Mode switch + used-only path wired  
-- [ ] clapplayer / site embed defaults to slim  
-- [ ] Optional fetch-byte metrics  
+- [x] Mode switch + used-only send path  
+- [x] Player-ish query/embed hints default to slim  
+- [ ] clapplayer repo default wiring  
+- [ ] Optional fetch metrics  

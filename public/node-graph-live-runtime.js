@@ -407,6 +407,15 @@ async function nodeGraphLiveResolveNativeWasmLoadMode() {
       nodeGraphLiveNativeWasmLoadModeResolved = fromQuery;
       return fromQuery;
     }
+    // Player-style embeds (hide chrome / autoplay) default to slim unless
+    // explicitly set to combined above. Authoring sandbox stays combined.
+    const hideUi = params.get("hideui") === "1" || params.get("hideUI") === "1";
+    const autoStart = params.get("autostart") === "1";
+    const playerHint = params.get("player") === "1" || params.get("clapplayer") === "1";
+    if (hideUi || autoStart || playerHint) {
+      nodeGraphLiveNativeWasmLoadModeResolved = "slim";
+      return "slim";
+    }
   } catch (_e) { /* ignore */ }
   try {
     if (typeof nodeGraphLoadEmbedConfig === "function") {
@@ -415,6 +424,11 @@ async function nodeGraphLiveResolveNativeWasmLoadMode() {
       if (fromConfig) {
         nodeGraphLiveNativeWasmLoadModeResolved = fromConfig;
         return fromConfig;
+      }
+      // embed-config can mark player builds without query params
+      if (config?.player === true || config?.mode === "player") {
+        nodeGraphLiveNativeWasmLoadModeResolved = "slim";
+        return "slim";
       }
     }
   } catch (_e) { /* ignore */ }

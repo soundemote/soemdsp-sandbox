@@ -1,0 +1,509 @@
+// Scope capture pipeline extracted from node-graph-module-scopes.js (Phase D).
+// Load after phosphor, before scopes.js.
+
+function nodeGraphModuleScopeCaptureMonitors(patch = nodeGraphMvp?.patch) {
+  const monitors = normalizeNodeGraphPatchMonitors(patch?.monitors, patch);
+  return monitors.length ? monitors : nodeGraphDefaultModuleScopeMonitors(patch);
+}
+
+
+function beginNodeGraphRenderedScopeCapture(options = {}) {
+  const patch = options.patch || nodeGraphMvp?.patch;
+  const monitors = nodeGraphModuleScopeCaptureMonitors(patch);
+  const frames = Math.max(0, Math.floor(Number(options.frames) || 0));
+  if (!monitors.length || frames <= 0) {
+    clearNodeGraphModuleScopeBuffers();
+    return null;
+  }
+
+  const groups = new Map();
+  for (const monitor of monitors) {
+    const group = groups.get(monitor.node) || [];
+    group.push(monitor);
+    groups.set(monitor.node, group);
+  }
+
+  const buffers = new Map(
+    [...groups.keys()].map((nodeId) => [nodeId, new Float32Array(frames)]),
+  );
+  return {
+    buffers,
+    frames,
+    groups,
+    monitorFingerprint: nodeGraphModuleScopeMonitorFingerprint(monitors),
+    patchFingerprint: String(options.patchFingerprint || ""),
+    sampleRate: Number(options.sampleRate) || 0,
+  };
+}
+
+
+function captureNodeGraphRenderedScopeFrame(
+  capture,
+  runtime,
+  frameValues,
+  bufferFrame,
+  evaluationFrame,
+  evaluationFrames,
+) {
+  if (!capture) {
+    return;
+  }
+  for (const [nodeId, monitors] of capture.groups) {
+    const buffer = capture.buffers.get(nodeId);
+    if (!buffer || bufferFrame < 0 || bufferFrame >= buffer.length) {
+      continue;
+    }
+    const sum = monitors.reduce(
+      (total, monitor) => total + nodeGraphRenderedScopeMonitorValue(
+        monitor,
+        runtime,
+        frameValues,
+        evaluationFrame,
+        evaluationFrames,
+      ),
+      0,
+    );
+    buffer[bufferFrame] = sum / Math.max(1, monitors.length);
+  }
+}
+
+
+function finishNodeGraphRenderedScopeCapture(capture) {
+  if (!capture) {
+    return;
+  }
+  nodeGraphModuleScopeState.buffers = capture.buffers;
+  nodeGraphModuleScopeState.traceDisplayDrawCache.clear();
+  nodeGraphModuleScopeState.traceDisplayScratch.clear();
+  nodeGraphModuleScopeState.frames = capture.frames;
+  nodeGraphModuleScopeState.monitorFingerprint = capture.monitorFingerprint;
+  nodeGraphModuleScopeState.mode = "rendered";
+  nodeGraphModuleScopeState.patchFingerprint = capture.patchFingerprint;
+  nodeGraphModuleScopeState.sampleRate = capture.sampleRate;
+  scheduleNodeGraphModuleScopeDraw();
+}
+
+
+function beginNodeGraphLiveModuleScopeCapture(plan = {}, options = {}) {
+  if (!nodeGraphModuleScopeHasDrawableSlots() || nodeGraphModuleScopeTracesOff()) {
+    clearNodeGraphModuleScopeBuffers();
+    return;
+  }
+  const ids = Array.isArray(plan.order) && plan.order.length
+    ? plan.order
+    : (Array.isArray(plan.nodes) ? plan.nodes.map((node) => node.id) : []);
+  const frameCapacity = nodeGraphLiveModuleScopeFrameCapacity({ ...options, patch: options.patch || nodeGraphMvp?.patch });
+  const patchFingerprint = String(plan.patchFingerprint || nodeGraphPatchFingerprint());
+  const topologyFingerprint = nodeGraphLiveModuleScopeFingerprint(plan);
+  // Full patch fingerprint includes layout (gx/gy) and cosmetic UI. Moving a
+  // module must NOT wipe sample history, sync locks, or phosphor windows.
+  // Reuse by live mode + same capture node set (topology), not full hash.
+  const topologyUnchanged = nodeGraphModuleScopeState.mode === "live"
+    && nodeGraphModuleScopeState.monitorFingerprint === topologyFingerprint;
+  // Always try per-id reuse while already live — never allocate empty rings
+  // just because the patch text hash changed.
+  const preferReuse = nodeGraphModuleScopeState.mode === "live";
+  const nextBuffers = new Map();
+  for (const id of ids.map((candidate) => String(candidate || "")).filter(Boolean)) {
+    const previous = preferReuse ? nodeGraphModuleScopeState.buffers.get(id) : null;
+    nextBuffers.set(id, resizeNodeGraphLiveModuleScopeBuffer(previous, frameCapacity));
+  }
+  if (preferReuse) {
+    for (const [key, previous] of nodeGraphModuleScopeState.buffers) {
+      if (!String(key || "").includes(":")) {
+        continue;
+      }
+      const nodeId = String(key).split(":")[0];
+      if (nextBuffers.has(nodeId)) {
+        nextBuffers.set(key, resizeNodeGraphLiveModuleScopeBuffer(previous, frameCapacity));
+      }
+    }
+  }
+  if (!topologyUnchanged) {
+    // Topology (which nodes are captured) actually changed — drop draw caches.
+    nodeGraphModuleScopeState.traceDisplayDrawCache.clear();
+    nodeGraphModuleScopeState.traceDisplayScratch.clear();
+    nodeGraphModuleScopeState.traceDisplaySyncLocks.clear();
+  }
+  nodeGraphModuleScopeState.buffers = nextBuffers;
+  nodeGraphModuleScopeState.frames = frameCapacity;
+  nodeGraphModuleScopeState.monitorFingerprint = topologyFingerprint;
+  nodeGraphModuleScopeState.mode = "live";
+  nodeGraphModuleScopeState.patchFingerprint = patchFingerprint;
+  nodeGraphModuleScopeState.sampleRate = Number(options.sampleRate) || Number(nodeGraphModuleScopeState.sampleRate) || 0;
+  scheduleNodeGraphModuleScopeDraw();
+}
+
+
+function nodeGraphModuleScopeCapturedCurrentLightTarget(capturedBuffer) {
+  if (!capturedBuffer?.length) {
+    return null;
+  }
+  for (let index = capturedBuffer.length - 1; index >= 0; index -= 1) {
+    const sample = Number(capturedBuffer[index]);
+    if (Number.isFinite(sample)) {
+      return clampNodeSliderValue(Math.abs(sample), 0, 1);
+    }
+  }
+  return null;
+}
+
+
+function nodeGraphModuleScopeCapturedCurrentPositiveLightTarget(capturedBuffer) {
+  if (!capturedBuffer?.length) {
+    return null;
+  }
+  for (let index = capturedBuffer.length - 1; index >= 0; index -= 1) {
+    const sample = Number(capturedBuffer[index]);
+    if (Number.isFinite(sample)) {
+      return clampNodeSliderValue(sample, 0, 1);
+    }
+  }
+  return null;
+}
+
+
+function nodeGraphModuleScopeCapturedFrameLightTarget(capturedBuffer) {
+  if (!capturedBuffer?.length) {
+    return null;
+  }
+  let sum = 0;
+  let count = 0;
+  for (let index = 0; index < capturedBuffer.length; index += 1) {
+    const sample = Number(capturedBuffer[index]);
+    if (!Number.isFinite(sample)) {
+      continue;
+    }
+    sum += Math.abs(sample);
+    count += 1;
+  }
+  return count > 0 ? clampNodeSliderValue(sum / count, 0, 1) : null;
+}
+
+
+function nodeGraphModuleScopeCapturedFramePositiveLightTarget(capturedBuffer) {
+  if (!capturedBuffer?.length) {
+    return null;
+  }
+  const recentCount = Math.max(0, Math.floor(Number(capturedBuffer.nodeGraphScopeRecentSampleCount) || 0));
+  const startIndex = recentCount > 0
+    ? Math.max(0, capturedBuffer.length - Math.min(capturedBuffer.length, recentCount))
+    : 0;
+  let sum = 0;
+  let count = 0;
+  for (let index = startIndex; index < capturedBuffer.length; index += 1) {
+    const sample = Number(capturedBuffer[index]);
+    if (!Number.isFinite(sample)) {
+      continue;
+    }
+    sum += clampNodeSliderValue(sample, 0, 1);
+    count += 1;
+  }
+  return count > 0 ? clampNodeSliderValue(sum / count, 0, 1) : null;
+}
+
+
+function nodeGraphModuleScopeCapturedFrameBipolarLightTarget(capturedBuffer) {
+  if (!capturedBuffer?.length) {
+    return null;
+  }
+  const recentCount = Math.max(0, Math.floor(Number(capturedBuffer.nodeGraphScopeRecentSampleCount) || 0));
+  const startIndex = recentCount > 0
+    ? Math.max(0, capturedBuffer.length - Math.min(capturedBuffer.length, recentCount))
+    : 0;
+  let sum = 0;
+  let count = 0;
+  for (let index = startIndex; index < capturedBuffer.length; index += 1) {
+    const sample = Number(capturedBuffer[index]);
+    if (!Number.isFinite(sample)) {
+      continue;
+    }
+    sum += clampNodeSliderValue(Math.abs(sample), 0, 1);
+    count += 1;
+  }
+  return count > 0 ? clampNodeSliderValue(sum / count, 0, 1) : null;
+}
+
+
+function nodeGraphModuleScopeCapturedGateLightTarget(capturedBuffer) {
+  if (!capturedBuffer?.length) {
+    return null;
+  }
+  let previousState = null;
+  let transitions = 0;
+  for (let index = 0; index < capturedBuffer.length; index += 1) {
+    const sample = Number(capturedBuffer[index]);
+    if (!Number.isFinite(sample)) {
+      continue;
+    }
+    const state = Math.abs(sample) >= 0.5;
+    if (previousState !== null && state !== previousState) {
+      transitions += 1;
+    }
+    previousState = state;
+    if (transitions > 2) {
+      return nodeGraphModuleScopeCapturedFrameLightTarget(capturedBuffer);
+    }
+  }
+  return nodeGraphModuleScopeCapturedCurrentLightTarget(capturedBuffer);
+}
+
+
+function nodeGraphModuleScopeCapturedPulseLightTarget(capturedBuffer) {
+  if (!capturedBuffer?.length) {
+    return null;
+  }
+  let peak = 0;
+  for (let index = 0; index < capturedBuffer.length; index += 1) {
+    const sample = Number(capturedBuffer[index]);
+    if (Number.isFinite(sample)) {
+      peak = Math.max(peak, Math.abs(sample));
+    }
+  }
+  return clampNodeSliderValue(peak, 0, 1);
+}
+
+
+function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
+  const nodeId = String(slot?.nodeId || "");
+  if (!nodeId) {
+    return null;
+  }
+  const renderer = nodeGraphModuleDisplayRendererForSlot(slot);
+  if (["scope2d", "scope2dTrace", "phosphorLight"].includes(renderer)) {
+    const source = nodeGraphModuleScopeSlotUsesWiredInputs(slot)
+      ? null
+      : nodeGraphModuleDisplaySourceForSlot(slot);
+    return nodeGraphModuleScopeCapturedScope2dBuffer(slot, source
+      ? { xPort: source.x, yPort: source.y }
+      : {});
+  }
+  if (["traceDisplay", "dotOscilloscope", "valueOscilloscope", "numberReadout", "lineBurnOscilloscope"].includes(slot?.type)) {
+    return nodeGraphModuleScopeState.buffers.get(`${nodeId}:In`) ||
+      nodeGraphModuleScopeConnectedSourceBuffer(nodeId, "In") ||
+      null;
+  }
+  // Multi-mode Display (visualOscilloscope): mono modes feed from In.
+  if (slot?.type === "visualOscilloscope" && (renderer === "trace" || renderer === "dot")) {
+    return nodeGraphModuleScopeState.buffers.get(`${nodeId}:In`) ||
+      nodeGraphModuleScopeConnectedSourceBuffer(nodeId, "In") ||
+      null;
+  }
+  if (slot?.type === "customDisplay") {
+    const displayScript = normalizeNodeGraphCustomDisplay(nodeGraphModuleScopeNodeForSlot(slot)?.customDisplay);
+    const primaryPort = displayScript.inputs[0] || "In1";
+    return nodeGraphModuleScopeState.buffers.get(`${nodeId}:${primaryPort}`) ||
+      nodeGraphModuleScopeConnectedSourceBuffer(nodeId, primaryPort) ||
+      new Float32Array([0]);
+  }
+  const source = nodeGraphModuleDisplaySourceForSlot(slot);
+  const sourcePort = String(source?.value || "").trim();
+  if (sourcePort) {
+    const sourceBuffer = nodeGraphModuleScopeState.buffers.get(`${nodeId}:${sourcePort}`);
+    if (sourceBuffer?.length) {
+      return sourceBuffer;
+    }
+  }
+  const selectedPort = nodeGraphModuleScopeShaderOutputPortForSlot(slot);
+  if (selectedPort) {
+    const selectedBuffer = nodeGraphModuleScopeState.buffers.get(`${nodeId}:${selectedPort}`);
+    if (selectedBuffer?.length) {
+      return selectedBuffer;
+    }
+  }
+  return nodeGraphModuleScopeState.buffers.get(nodeId) || null;
+}
+
+
+function nodeGraphModuleScopeClockCapturedLightTarget(slot, capturedBuffer) {
+  if (!capturedBuffer?.length) {
+    return null;
+  }
+  const selectedPort = nodeGraphModuleScopeShaderOutputPortForSlot(slot);
+  if (selectedPort === "Analog Out") {
+    return nodeGraphModuleScopeCapturedCurrentLightTarget(capturedBuffer);
+  }
+  if (selectedPort === "Pulse") {
+    return nodeGraphModuleScopeCapturedPulseLightTarget(capturedBuffer);
+  }
+  return nodeGraphModuleScopeCapturedGateLightTarget(capturedBuffer);
+}
+
+
+function nodeGraphModuleScopeXyTraceFrameCount(length) {
+  const safeLength = Math.max(2, Math.floor(Number(length) || 0));
+  return safeLength;
+}
+
+
+function nodeGraphModuleScopeCapturedXyTraceFrameCount(slot, length) {
+  const frames = nodeGraphModuleScopeXyTraceFrameCount(length);
+  return slot?.type === "audioPlayer"
+    ? Math.min(frames, 256)
+    : frames;
+}
+
+
+function nodeGraphModuleScopeCapturedScope2dBuffer(slot, options = {}) {
+  if (!["scope2d", "scope2dTrace", "phosphorLight"].includes(nodeGraphModuleDisplayRendererForSlot(slot))) {
+    return null;
+  }
+  const xPort = String(options.xPort || "X").trim() || "X";
+  const yPort = String(options.yPort || "Y").trim() || "Y";
+  const xBuffer = nodeGraphModuleScopeState.buffers.get(`${slot.nodeId}:${xPort}`) ||
+    nodeGraphModuleScopeConnectedSourceBuffer(slot.nodeId, xPort);
+  const yBuffer = nodeGraphModuleScopeState.buffers.get(`${slot.nodeId}:${yPort}`) ||
+    nodeGraphModuleScopeConnectedSourceBuffer(slot.nodeId, yPort);
+  const length = Math.min(xBuffer?.length || 0, yBuffer?.length || 0);
+  if (length <= 0) {
+    return null;
+  }
+  const sampleRate = Math.max(1, Number(nodeGraphModuleScopeState.sampleRate) || nodeGraphMvp?.sampleRate || 44100);
+  const fps = typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
+    ? normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp?.moduleScopeFramesPerSecond ?? 60)
+    : 60;
+  const xRecentSamples = nodeGraphScopeBufferRecentSampleCount(xBuffer);
+  const yRecentSamples = nodeGraphScopeBufferRecentSampleCount(yBuffer);
+  const hasRecentSampleMetadata = xRecentSamples !== null || yRecentSamples !== null;
+  if (hasRecentSampleMetadata && !(xRecentSamples > 0 && yRecentSamples > 0)) {
+    return null;
+  }
+  const validLength = Math.min(
+    nodeGraphScopeAvailableSampleCount(xBuffer),
+    nodeGraphScopeAvailableSampleCount(yBuffer),
+    length,
+  );
+  const xTotal = Math.max(0, Math.floor(Number(xBuffer.nodeGraphScopeTotalSampleCount) || 0));
+  const yTotal = Math.max(0, Math.floor(Number(yBuffer.nodeGraphScopeTotalSampleCount) || 0));
+  const absoluteFrame = Math.min(xTotal, yTotal);
+  const canvas = nodeGraphScope2dBurnCanvasForSlot(slot);
+  const lastDrawnFrame = Number(canvas?._nodeGraphScope2dLastDrawnFrame);
+  const newSinceLastDraw = Number.isFinite(lastDrawnFrame) && absoluteFrame > lastDrawnFrame
+    ? absoluteFrame - lastDrawnFrame
+    : 0;
+  const historySeconds = Number(options.historySeconds);
+  const minWindowFrames = nodeGraphScope2dSourceFrameCount(sampleRate, fps, validLength);
+  // Capture only what we need to deposit this frame (new samples + a small
+  // pad). The energy FBO holds the trail via decay — re-capturing ~1s and
+  // re-stamping it every frame painted a lagging "second path" behind the beam.
+  const frames = Number.isFinite(historySeconds)
+    ? Math.min(
+      validLength,
+      Math.max(1, Math.ceil(Math.max(0, historySeconds) * sampleRate)),
+    )
+    : Math.min(
+      validLength,
+      Math.max(minWindowFrames, newSinceLastDraw, 1),
+    );
+  const start = Math.max(0, length - frames);
+  const startFrame = Math.max(0, absoluteFrame - frames);
+  const x = new Float32Array(frames);
+  const y = new Float32Array(frames);
+  for (let index = 0; index < frames; index += 1) {
+    x[index] = Number(xBuffer[start + index]) || 0;
+    y[index] = Number(yBuffer[start + index]) || 0;
+  }
+  return {
+    length: frames,
+    nodeGraphScopeAbsoluteFrame: absoluteFrame,
+    nodeGraphScopeCapturedOutput: true,
+    nodeGraphScopeDrawProgress: 1,
+    nodeGraphScopeStartFrame: startFrame,
+    nodeGraphScopeUseFullWindow: true,
+    nodeGraphScopeXy: true,
+    x,
+    y,
+  };
+}
+
+
+function captureNodeGraphLiveModuleScopeOutput(runtime, nodeId, output) {
+  const id = String(nodeId || "");
+  if (!id) {
+    return;
+  }
+  const samples = runtime.scopeBuffers.get(id) || [];
+  samples.push(nodeGraphModuleScopeScalarValue(output));
+  runtime.scopeBuffers.set(id, samples);
+  if (!output || typeof output !== "object") {
+    return;
+  }
+  for (const [port, value] of Object.entries(output)) {
+    if (!port || !Number.isFinite(Number(value))) {
+      continue;
+    }
+    const portId = `${id}:${port}`;
+    const portSamples = runtime.scopeBuffers.get(portId) || [];
+    portSamples.push(nodeGraphModuleScopeScalarValue(value));
+    runtime.scopeBuffers.set(portId, portSamples);
+  }
+}
+
+
+function captureNodeGraphLiveModuleScopeFrame(runtime, sampleRate) {
+  if (!runtime?.nodeOutputs?.size || !nodeGraphModuleScopeHasDrawableSlots() || nodeGraphModuleScopeTracesOff()) {
+    return;
+  }
+  const interval = Math.max(1, Math.floor((Number(sampleRate) || nodeGraphMvp.sampleRate || 44100) / 30));
+  runtime.scopeBuffers ||= new Map();
+  const visibleScopeNodeIds = Array.isArray(runtime.scopeCaptureNodeIds) && runtime.scopeCaptureNodeIds.length
+    ? new Set(runtime.scopeCaptureNodeIds.map((nodeId) => String(nodeId || "")).filter(Boolean))
+    : nodeGraphVisibleModuleScopeNodeIds();
+  for (const nodeId of visibleScopeNodeIds) {
+    if (!runtime.nodeOutputs.has(nodeId)) {
+      continue;
+    }
+    captureNodeGraphLiveModuleScopeOutput(runtime, nodeId, runtime.nodeOutputs.get(nodeId));
+  }
+  for (const sink of runtime.visualSinks || []) {
+    const nodeId = String(sink?.nodeId || "");
+    if (!nodeId) {
+      continue;
+    }
+    if (!visibleScopeNodeIds.has(nodeId)) {
+      continue;
+    }
+    let value = 0;
+    for (const input of sink.inputs || []) {
+      if (!input?.connected) {
+        continue;
+      }
+      const inputValue = (input.connections || []).reduce(
+        (connectionSum, connection) => connectionSum + readNodeGraphRuntimePortOutput(
+          runtime,
+          null,
+          connection.sourceNode,
+          connection.sourcePort,
+          0,
+          1,
+        ),
+        0,
+      );
+      value += inputValue;
+      const inputPort = String(input.port || "").trim();
+      if (input?.buffered && inputPort) {
+        writeNodeGraphVisualInputBufferSample(runtime, nodeId, inputPort, inputValue, sink.bufferSampleLimit);
+      }
+      if (inputPort) {
+        const portId = `${nodeId}:${inputPort}`;
+        const portSamples = runtime.scopeBuffers.get(portId) || [];
+        portSamples.push(nodeGraphModuleScopeScalarValue(inputValue));
+        runtime.scopeBuffers.set(portId, portSamples);
+      }
+    }
+    const samples = runtime.scopeBuffers.get(nodeId) || [];
+    samples.push(nodeGraphModuleScopeScalarValue(value));
+    runtime.scopeBuffers.set(nodeId, samples);
+  }
+  runtime.scopeCounter = (runtime.scopeCounter || 0) + 1;
+  if (runtime.scopeCounter < interval) {
+    return;
+  }
+  runtime.scopeCounter = 0;
+  pushNodeGraphLiveModuleScopeSnapshot(runtime.scopeBuffers, {
+    patchFingerprint: nodeGraphPatchFingerprint(),
+    sampleRate,
+  });
+  runtime.scopeBuffers = new Map();
+}
+

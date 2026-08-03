@@ -74,7 +74,8 @@ node-live-audio-worklet-register.js      (registerProcessor last)
 Main-thread faces load order:
 
 ```text
-scope-defaults → normalize → display-mode → phosphor → settings-form → scopes.js
+scope-defaults → normalize → display-mode → phosphor → settings-form
+  → capture → number-readout → scopes.js
 ```
 
 Mechanical rule: **extract only** — same method bodies on `NodeLiveAudioProcessor.prototype`.
