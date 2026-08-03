@@ -43,6 +43,20 @@ NodeLiveAudioProcessor.prototype.triggerCounterSample = function triggerCounterS
         });
       }
     }
+    // JS path: pure math (trigger-counter-math.js).
+    if (typeof nodeGraphTriggerCounterCore === "function") {
+      const out = nodeGraphTriggerCounterCore(
+        state,
+        this.safeFilterNumber(trigger, null),
+        this.safeFilterNumber(reset, null),
+        params || {},
+        rate,
+      );
+      return {
+        Count: this.safeFilterNumber(out.Count, null),
+        Pulse: this.safeFilterNumber(out.Pulse, null),
+      };
+    }
     return { Count: 0, Pulse: 0 };
   };
 

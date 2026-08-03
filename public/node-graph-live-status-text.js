@@ -21,7 +21,7 @@ function nodeGraphLivePlanStatusText(plan, serial = nodeGraphMvp.live.planSerial
   const fingerprintText = plan.patchFingerprint ? ` / fp ${plan.patchFingerprint}` : "";
   const visualText = (plan.visualSinks || []).length ? ` / ${(plan.visualSinks || []).length} visual` : "";
   const routeText = plan.speakerOutputActive ? "" : visualText ? " / visual-only" : "";
-  // Phase E: show slim vs combined when known (query/embed/live override).
+  // Phase E: show slim vs combined (+ fetched KiB when available).
   let wasmText = "";
   try {
     const mode = typeof nodeGraphLiveGetNativeWasmLoadMode === "function"
@@ -31,6 +31,12 @@ function nodeGraphLivePlanStatusText(plan, serial = nodeGraphMvp.live.planSerial
         : "");
     if (mode === "slim" || mode === "combined") {
       wasmText = ` / wasm ${mode}`;
+      if (typeof nodeGraphLiveNativeWasmFetchReport === "function") {
+        const rep = nodeGraphLiveNativeWasmFetchReport();
+        if (rep && Number(rep.totalKiB) > 0) {
+          wasmText += ` ${rep.totalKiB}KiB`;
+        }
+      }
     }
   } catch (_e) { /* ignore */ }
   return `plan${serialText} ${plan.nodes.length} nodes / ${plan.connections.length} wires / ${plan.modulations.length} mods${visualText}${routeText}${feedbackText}${fingerprintText}${wasmText}`;

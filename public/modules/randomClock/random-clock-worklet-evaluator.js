@@ -62,6 +62,20 @@ NodeLiveAudioProcessor.prototype.randomClockSample = function randomClockSample(
         });
       }
     }
+    // JS path: pure math (random-clock-math.js).
+    if (typeof nodeGraphRandomClockCore === "function") {
+      const out = nodeGraphRandomClockCore(
+        state,
+        this.safeFilterNumber(reset, null),
+        params || {},
+        rateHz,
+        nodeId,
+      );
+      return {
+        Gate: this.safeFilterNumber(out.Gate, null),
+        Trigger: this.safeFilterNumber(out.Trigger, null),
+      };
+    }
     return { Gate: 0, Trigger: 0 };
   };
 
