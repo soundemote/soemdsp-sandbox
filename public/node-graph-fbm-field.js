@@ -1,5 +1,5 @@
 // Main-thread fbm_field.wasm — native only for audio sample + face grid fill.
-// Face grid uses the same fbm2d kernel as X/Y probes (soemdsp_fbm_field_fill_grid).
+// Face grid and X/Y/Z probes share fieldAt() (What I See Is What I Hear).
 
 const nodeGraphFbmFieldWasm = { promise: null, exports: null, failed: false };
 
@@ -7,6 +7,12 @@ const nodeGraphFbmFieldWasm = { promise: null, exports: null, failed: false };
 function nodeGraphFbmFieldNum(value, fallback) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
+}
+
+/** Motion: 0 Scroll, 1 Volume 3D, 2 Slice. */
+function nodeGraphFbmFieldMotionMode(value) {
+  const n = Math.round(nodeGraphFbmFieldNum(value, 1));
+  return Math.max(0, Math.min(2, n));
 }
 
 function nodeGraphFbmFieldLoadWasm() {
@@ -43,14 +49,14 @@ function nodeGraphFbmFieldSample(options = {}) {
   nodeGraphFbmFieldLoadWasm();
   const wasm = nodeGraphFbmFieldWasm.exports;
   if (!wasm?.soemdsp_fbm_field_create || !wasm?.soemdsp_fbm_field_sample) {
-    return { X: 0, Y: 0, "X Raw": 0, "Y Raw": 0 };
+    return { X: 0, Y: 0, Z: 0, "X Raw": 0, "Y Raw": 0, "Z Raw": 0 };
   }
   const state = options.state || createNodeGraphFbmFieldState();
   if (!state.nativeHandle) {
     state.nativeHandle = wasm.soemdsp_fbm_field_create();
   }
   if (!state.nativeHandle) {
-    return { X: 0, Y: 0, "X Raw": 0, "Y Raw": 0 };
+    return { X: 0, Y: 0, Z: 0, "X Raw": 0, "Y Raw": 0, "Z Raw": 0 };
   }
   wasm.soemdsp_fbm_field_sample(
     state.nativeHandle,
@@ -67,21 +73,26 @@ function nodeGraphFbmFieldSample(options = {}) {
     nodeGraphFbmFieldNum(options.panY, 0),
     nodeGraphFbmFieldNum(options.level, 1),
     Math.max(1, nodeGraphFbmFieldNum(options.sampleRate, 44100)),
+    nodeGraphFbmFieldMotionMode(options.motion),
   );
   const x = wasm.soemdsp_fbm_field_x(state.nativeHandle);
   const y = wasm.soemdsp_fbm_field_y(state.nativeHandle);
+  const z = wasm.soemdsp_fbm_field_z?.(state.nativeHandle) ?? 0;
   const xRaw = wasm.soemdsp_fbm_field_x_raw?.(state.nativeHandle) ?? x;
   const yRaw = wasm.soemdsp_fbm_field_y_raw?.(state.nativeHandle) ?? y;
+  const zRaw = wasm.soemdsp_fbm_field_z_raw?.(state.nativeHandle) ?? z;
   return {
     X: Number.isFinite(x) ? x : 0,
     Y: Number.isFinite(y) ? y : 0,
+    Z: Number.isFinite(z) ? z : 0,
     "X Raw": Number.isFinite(xRaw) ? xRaw : 0,
     "Y Raw": Number.isFinite(yRaw) ? yRaw : 0,
+    "Z Raw": Number.isFinite(zRaw) ? zRaw : 0,
   };
 }
 
 /**
- * Fill mono 0…1 grid via native fbm2d (same kernel as X/Y).
+ * Fill mono 0…1 grid via native fieldAt (same mapping as X/Y/Z).
  * @returns {{ mono: Float32Array, width: number, height: number } | null}
  */
 function nodeGraphFbmFieldFillGrid(options = {}) {
@@ -109,13 +120,12 @@ function nodeGraphFbmFieldFillGrid(options = {}) {
     Math.max(0.000001, nodeGraphFbmFieldNum(options.scale, 1)),
     Math.max(0, Math.min(1, nodeGraphFbmFieldNum(options.smoothness, 0.55))),
     Math.max(0, nodeGraphFbmFieldNum(options.contrast, 1)),
+    nodeGraphFbmFieldMotionMode(options.motion),
   );
   if (!cells) return null;
   const gw = wasm.soemdsp_fbm_field_grid_width();
   const gh = wasm.soemdsp_fbm_field_grid_height();
   const ptr = wasm.soemdsp_fbm_field_grid_ptr();
-  // float32 mono
   const mono = new Float32Array(wasm.memory.buffer, ptr, gw * gh);
-  // Copy so caller is safe if wasm reallocates (it won't grow, but keep stable)
   return { mono: new Float32Array(mono), width: gw, height: gh };
 }

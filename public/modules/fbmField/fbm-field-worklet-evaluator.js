@@ -6,6 +6,11 @@ NodeLiveAudioProcessor.prototype.fbmFieldNum = function fbmFieldNum(value, fallb
   return Number.isFinite(n) ? n : fallback;
 };
 
+NodeLiveAudioProcessor.prototype.fbmFieldMotionMode = function fbmFieldMotionMode(value) {
+  const n = Math.round(this.fbmFieldNum(value, 1));
+  return Math.max(0, Math.min(2, n));
+};
+
 NodeLiveAudioProcessor.prototype.createFbmFieldState = function createFbmFieldState() {
   return { nativeHandle: 0 };
 };
@@ -25,18 +30,16 @@ NodeLiveAudioProcessor.prototype.fbmFieldVector = function fbmFieldVector(state,
     !this.nativeFbmField?.soemdsp_fbm_field_create ||
     !this.nativeFbmField?.soemdsp_fbm_field_sample
   ) {
-    return { X: 0, Y: 0, "X Raw": 0, "Y Raw": 0 };
+    return { X: 0, Y: 0, Z: 0, "X Raw": 0, "Y Raw": 0, "Z Raw": 0 };
   }
   try {
     if (!state.nativeHandle) {
       state.nativeHandle = this.nativeFbmField.soemdsp_fbm_field_create();
     }
     if (!state.nativeHandle) {
-      return { X: 0, Y: 0, "X Raw": 0, "Y Raw": 0 };
+      return { X: 0, Y: 0, Z: 0, "X Raw": 0, "Y Raw": 0, "Z Raw": 0 };
     }
     const safeRate = Math.max(1, this.fbmFieldNum(rate, sampleRate || 44100));
-    // Frequency alone advances domain time (face + X/Y probes share this rate).
-    // Use fbmFieldNum so smoothness/level 0 are not replaced by defaults.
     const frequency = Math.max(0, this.fbmFieldNum(params.frequency, 0));
     this.nativeFbmField.soemdsp_fbm_field_sample(
       state.nativeHandle,
@@ -53,16 +56,21 @@ NodeLiveAudioProcessor.prototype.fbmFieldVector = function fbmFieldVector(state,
       this.fbmFieldNum(params.panY, 0),
       this.fbmFieldNum(params.level, 1),
       safeRate,
+      this.fbmFieldMotionMode(params.motion),
     );
     const x = this.nativeFbmField.soemdsp_fbm_field_x(state.nativeHandle);
     const y = this.nativeFbmField.soemdsp_fbm_field_y(state.nativeHandle);
+    const z = this.nativeFbmField.soemdsp_fbm_field_z?.(state.nativeHandle) ?? 0;
     const xRaw = this.nativeFbmField.soemdsp_fbm_field_x_raw?.(state.nativeHandle) ?? x;
     const yRaw = this.nativeFbmField.soemdsp_fbm_field_y_raw?.(state.nativeHandle) ?? y;
+    const zRaw = this.nativeFbmField.soemdsp_fbm_field_z_raw?.(state.nativeHandle) ?? z;
     return {
       X: this.safeFilterNumber(x, null),
       Y: this.safeFilterNumber(y, null),
+      Z: this.safeFilterNumber(z, null),
       "X Raw": this.safeFilterNumber(xRaw, null),
       "Y Raw": this.safeFilterNumber(yRaw, null),
+      "Z Raw": this.safeFilterNumber(zRaw, null),
     };
   } catch (error) {
     this.nativeFbmFieldReady = false;
@@ -73,6 +81,6 @@ NodeLiveAudioProcessor.prototype.fbmFieldVector = function fbmFieldVector(state,
       status: "disabled",
       message: String(error?.message || error || "native FBM Field failed"),
     });
-    return { X: 0, Y: 0, "X Raw": 0, "Y Raw": 0 };
+    return { X: 0, Y: 0, Z: 0, "X Raw": 0, "Y Raw": 0, "Z Raw": 0 };
   }
 };

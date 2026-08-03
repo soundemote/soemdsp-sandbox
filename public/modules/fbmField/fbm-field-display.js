@@ -287,6 +287,8 @@ function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
     scale: nodeGraphFbmFieldReadParam(nodeId, "scale", 1),
     smoothness: nodeGraphFbmFieldReadParam(nodeId, "smoothness", 0.55),
     contrast: nodeGraphFbmFieldReadParam(nodeId, "contrast", 1),
+    // 0 Scroll · 1 Volume 3D · 2 Slice — same mapping as X/Y/Z probes
+    motion: nodeGraphFbmFieldReadParam(nodeId, "motion", 1),
   });
 
   if (!grid?.mono || grid.width !== gridW || grid.height !== gridH) {

@@ -1,4 +1,4 @@
-// Noise: FBM Field — Layout B 2D field (WASM grid) + X/Y probes of the same field.
+// Noise: FBM Field — shared domain field (face + X/Y/Z). Motion modes only.
 registerNodeGraphChromelessModule("fbmField", {
   label: "FBM Field",
   solidModule: true,
@@ -11,6 +11,7 @@ registerNodeGraphChromelessModule("fbmField", {
     displaySignals: [
       { key: "X Raw", label: "X", kind: "scalar" },
       { key: "Y Raw", label: "Y", kind: "scalar" },
+      { key: "Z Raw", label: "Z", kind: "scalar" },
       { key: "X/Y", kind: "xy" },
     ],
     displayModes: [
@@ -49,13 +50,38 @@ registerNodeGraphChromelessModule("fbmField", {
         settingsSchema: "trace",
         source: { value: "Y Raw" },
       },
+      {
+        key: "zTrace",
+        label: "Z Trace",
+        renderer: "trace",
+        settingsSchema: "trace",
+        source: { value: "Z Raw" },
+      },
     ],
     defaultDisplayMode: "face",
     inputs: ["Reset"],
     inputLabels: { Reset: "Rst" },
-    outputs: ["X", "Y"],
-    outputLabels: { X: "X", Y: "Y" },
+    outputs: ["X", "Y", "Z"],
+    outputLabels: { X: "X", Y: "Y", Z: "Z" },
     parameters: [
+      {
+        choices: ["Scroll", "Volume 3D", "Slice"],
+        defaultValue: "1",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "motion",
+        label: "Motion",
+        linearSmoothing: false,
+        max: "2",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip:
+          "Domain motion (What I See Is What I Hear — face + X/Y/Z share one mapping). "
+          + "Scroll: pan frozen 2D field. Volume 3D: time walks Z → morph in place. "
+          + "Slice: crossfade two 2D lattices.",
+      },
       {
         defaultValue: "20",
         key: "frequency",
@@ -68,7 +94,8 @@ registerNodeGraphChromelessModule("fbmField", {
         step: "any",
         unit: "Hz",
         tooltip:
-          "Domain rate (Hz): how fast probes walk the field (and the picture scrolls). Low = slow CV / near-DC; raise for more audible motion. 0 freezes. X/Y are field values, not white noise.",
+          "Domain rate (Hz): scroll speed, volume Z-walk rate, or slice crossfade rate. "
+          + "0 freezes. X/Y/Z are field samples at three fixed points — not white noise.",
       },
       {
         defaultValue: "4",
@@ -133,7 +160,7 @@ registerNodeGraphChromelessModule("fbmField", {
         min: "0.1",
         nonlinearSlider: true,
         step: "any",
-        tooltip: "View magnification (and X/Y path scale).",
+        tooltip: "View magnification (and domain span for probes).",
       },
       {
         bipolar: true,
@@ -193,7 +220,7 @@ registerNodeGraphChromelessModule("fbmField", {
         mid: "1",
         min: "0",
         step: "1",
-        tooltip: "Lattice seed.",
+        tooltip: "Lattice seed (Slice mode also uses seed+7919 for the second lattice).",
       },
       {
         defaultValue: "1",
@@ -203,22 +230,24 @@ registerNodeGraphChromelessModule("fbmField", {
         mid: "0.5",
         min: "0",
         step: "0.01",
-        tooltip: "Output gain on X/Y jacks.",
+        tooltip: "Output gain on X/Y/Z jacks.",
       },
     ],
   },
   catalog: {
     category: "noise",
     description:
-      "2D value-noise fBm field (native WASM). Face grid and X/Y probes use the same fbm2d kernel — not a separate GPU noise path. WebGL only upscales + applies gradient.",
+      "Value-noise fBm field (native WASM). Face and X/Y/Z share one domain mapping "
+      + "(Scroll / Volume 3D / Slice). WebGL only presents the mono grid + gradient.",
     notes: [
       "LayoutB",
-      "2d field",
+      "field",
       "wasm",
       "native-only",
       "same-kernel",
-      "gradient",
-      "out x/y",
+      "motion-modes",
+      "out x/y/z",
+      "wisiwih",
       "no-js-fallback",
     ],
   },

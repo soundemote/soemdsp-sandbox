@@ -125,7 +125,8 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
           this.nativeFbmField?.soemdsp_fbm_field_create &&
           this.nativeFbmField?.soemdsp_fbm_field_sample &&
           this.nativeFbmField?.soemdsp_fbm_field_x &&
-          this.nativeFbmField?.soemdsp_fbm_field_y,
+          this.nativeFbmField?.soemdsp_fbm_field_y &&
+          this.nativeFbmField?.soemdsp_fbm_field_z,
         );
         this.port.postMessage({
           type: "nativeModuleStatus",

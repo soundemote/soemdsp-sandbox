@@ -12,6 +12,7 @@ nodeGraphLiveModuleEvaluators.fbmField = ({ runtime, node, nodeId, frame, frames
     frequency: Math.max(0, read("frequency", 20)),
     lacunarity: read("lacunarity", 2),
     level: read("level", 1),
+    motion: read("motion", 1),
     octaves: read("octaves", 4),
     panX: read("panX", 0),
     panY: read("panY", 0),
@@ -24,5 +25,5 @@ nodeGraphLiveModuleEvaluators.fbmField = ({ runtime, node, nodeId, frame, frames
     sampleRate,
     state,
   });
-  return out || { X: 0, Y: 0, "X Raw": 0, "Y Raw": 0 };
+  return out || { X: 0, Y: 0, Z: 0, "X Raw": 0, "Y Raw": 0, "Z Raw": 0 };
 };
