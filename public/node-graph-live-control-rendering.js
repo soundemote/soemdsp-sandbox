@@ -4,24 +4,70 @@ function nodeGraphLiveOutputIsActive(running = Boolean(nodeGraphMvp.live.node)) 
   return (running || starting) && statusText !== "error";
 }
 
-function nodeGraphLiveOutputButtonTitle(outputActive, outputEnabled) {
+/** Engine graph is up (worklet/node present). */
+function nodeGraphLiveEngineIsUp() {
+  return Boolean(nodeGraphMvp?.live?.node);
+}
+
+/** Transport pause: speed multiplier exactly 0 while engine is up. */
+function nodeGraphLiveEngineIsPaused() {
+  return nodeGraphLiveEngineIsUp() && (nodeGraphMvp.live.speedMultiplier ?? 1) === 0;
+}
+
+/**
+ * Three-way transport/engine UI state:
+ *   playing — engine up, output on, speed > 0
+ *   paused  — engine up, output on, speed === 0
+ *   stopped — no engine / output off
+ */
+function nodeGraphLiveTransportUiState() {
+  const statusText = document.getElementById("nodeLiveStatus")?.textContent || "";
+  if (statusText === "error") {
+    return "stopped";
+  }
+  const outputOn = Boolean(nodeGraphMvp?.live?.outputEnabled);
+  const engineUp = nodeGraphLiveEngineIsUp();
+  const starting = statusText === "starting" || (outputOn && !engineUp && statusText !== "error");
+  if (starting && outputOn) {
+    // Starting counts as "on" for Output label; transport play stays idle until node exists.
+    return engineUp
+      ? ((nodeGraphMvp.live.speedMultiplier ?? 1) === 0 ? "paused" : "playing")
+      : "starting";
+  }
+  if (!outputOn || !engineUp) {
+    return "stopped";
+  }
+  if ((nodeGraphMvp.live.speedMultiplier ?? 1) === 0) {
+    return "paused";
+  }
+  return "playing";
+}
+
+// Monochrome text-style glyphs (VS15) so OS emoji does not force red stop / ignore CSS color.
+const NODE_GRAPH_TRANSPORT_GLYPH_PLAY = "▶\uFE0E";
+const NODE_GRAPH_TRANSPORT_GLYPH_PAUSE = "⏸\uFE0E";
+const NODE_GRAPH_TRANSPORT_GLYPH_STOP = "⏹\uFE0E";
+
+function nodeGraphLiveOutputButtonTitle(transportState, outputEnabled) {
   if (nodeGraphEarProtectionIsTripped()) {
     return "Ear Protection tripped. Close the dialog to reset audio.";
   }
   const inputActive = Boolean(nodeGraphMvp.live.inputActive);
   const inputStreaming = Boolean(nodeGraphMvp.live.inputStream);
-  const enginePaused = (nodeGraphMvp.live.speedMultiplier ?? 1) === 0;
-  if (outputActive && enginePaused) {
+  if (transportState === "paused") {
     return nodeGraphTooltipText("audio.liveOutputPaused");
   }
-  if (outputActive && inputStreaming) {
+  if ((transportState === "playing" || transportState === "starting") && inputStreaming) {
     return nodeGraphTooltipText("audio.liveOutputRunning");
   }
-  if (outputEnabled && inputActive) {
+  if (outputEnabled && inputActive && transportState !== "playing") {
     return nodeGraphTooltipText("audio.liveOutputPermissionPending");
   }
-  if (outputEnabled) {
+  if (outputEnabled && transportState === "starting") {
     return nodeGraphTooltipText("audio.liveOutputRequested");
+  }
+  if (transportState === "playing") {
+    return nodeGraphTooltipText("audio.liveOutputRunning");
   }
   if (inputActive) {
     return nodeGraphTooltipText("audio.liveOutputWithInput");
@@ -45,8 +91,8 @@ function syncNodeGraphOutputBypassButton(outputEnabled = Boolean(nodeGraphMvp.li
 function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) {
   const statusText = document.getElementById("nodeLiveStatus")?.textContent || "";
   const starting = statusText === "starting";
-  const outputActive = nodeGraphLiveOutputIsActive(running);
   const outputEnabled = Boolean(nodeGraphMvp.live.outputEnabled);
+  const transportState = nodeGraphLiveTransportUiState();
   const inputButton = document.getElementById("nodeLiveInputButton");
   const outputButton = document.getElementById("nodeLiveOutputButton");
   const labelLiveToggle = (button, name, active, stateOverride = null) => {
@@ -111,18 +157,32 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) 
   }
   if (outputButton) {
     const protectionTripped = nodeGraphEarProtectionIsTripped();
-    const enginePaused = (nodeGraphMvp.live.speedMultiplier ?? 1) === 0;
-    outputButton.disabled = starting || protectionTripped;
-    outputButton.classList.toggle("active", outputEnabled && !protectionTripped);
-    outputButton.classList.toggle("paused", enginePaused && !protectionTripped);
+    // Engine on = live worklet up with output requested (playing or paused).
+    const engineOn = !protectionTripped && (
+      transportState === "playing"
+      || transportState === "paused"
+      || transportState === "starting"
+    );
+    const isPaused = transportState === "paused";
+    const isLive = transportState === "playing" || transportState === "starting";
+    outputButton.disabled = starting || transportState === "starting" || protectionTripped;
+    outputButton.classList.toggle("active", engineOn && !isPaused);
+    outputButton.classList.toggle("paused", isPaused);
     outputButton.classList.toggle("node-under-construction-control", protectionTripped);
-    outputButton.setAttribute("aria-pressed", outputEnabled && !protectionTripped ? "true" : "false");
+    outputButton.setAttribute("aria-pressed", engineOn ? "true" : "false");
     outputButton.setAttribute("aria-disabled", protectionTripped ? "true" : "false");
-    labelLiveToggle(outputButton, "Output", protectionTripped ? false : outputEnabled,
+    // Labels must match transport: Live / Paused / Off — never "Paused" when stopped.
+    labelLiveToggle(
+      outputButton,
+      "Output",
+      engineOn,
       protectionTripped ? "Close Dialog"
-        : enginePaused ? "Paused"
-        : null);
-    outputButton.title = nodeGraphLiveOutputButtonTitle(outputActive, outputEnabled);
+        : isPaused ? "Paused"
+        : transportState === "starting" ? "Starting"
+        : isLive ? "Live"
+        : null,
+    );
+    outputButton.title = nodeGraphLiveOutputButtonTitle(transportState, outputEnabled);
   }
   syncNodeGraphOutputBypassButton(outputEnabled);
   syncNodeGraphInputModuleLiveState();
@@ -135,9 +195,8 @@ function renderNodeGraphLiveControls(running = Boolean(nodeGraphMvp.live.node)) 
   //   playing → green play control
   //   paused  → yellow pause control
   //   stopped → red stop control
-  const enginePaused = (nodeGraphMvp.live.speedMultiplier ?? 1) === 0;
-  const playing = outputActive && !enginePaused;
-  const paused = outputActive && enginePaused;
+  const playing = transportState === "playing";
+  const paused = transportState === "paused";
   syncNodeGraphTransportPlayButtons({ playing, paused });
   renderNodeGraphSpeedReadout();
 }
@@ -162,7 +221,7 @@ function syncNodeGraphTransportPlayButtons({ playing = false, paused = false } =
 
     if (isPlaying) {
       // Green play button — sim is running (click pauses).
-      tp.textContent = "▶";
+      tp.textContent = NODE_GRAPH_TRANSPORT_GLYPH_PLAY;
       tp.setAttribute("aria-label", "Pause");
       tp.title = "Playing — click to pause";
       tp.setAttribute("aria-pressed", "true");
@@ -170,7 +229,7 @@ function syncNodeGraphTransportPlayButtons({ playing = false, paused = false } =
       tp.dataset.transportState = "playing";
     } else if (isPaused) {
       // Yellow pause button — sim paused (click resumes).
-      tp.textContent = "⏸";
+      tp.textContent = NODE_GRAPH_TRANSPORT_GLYPH_PAUSE;
       tp.setAttribute("aria-label", "Resume");
       tp.title = "Paused — click to resume";
       tp.setAttribute("aria-pressed", "false");
@@ -178,7 +237,7 @@ function syncNodeGraphTransportPlayButtons({ playing = false, paused = false } =
       tp.dataset.transportState = "paused";
     } else {
       // Stopped — grey play affordance.
-      tp.textContent = "▶";
+      tp.textContent = NODE_GRAPH_TRANSPORT_GLYPH_PLAY;
       tp.setAttribute("aria-label", "Play");
       tp.title = "Play";
       tp.setAttribute("aria-pressed", "false");
@@ -189,9 +248,12 @@ function syncNodeGraphTransportPlayButtons({ playing = false, paused = false } =
   for (const stop of document.querySelectorAll('[data-transport-action="stop"], #nodeTransportStop, button.node-transport-stop')) {
     if (!(stop instanceof HTMLElement)) continue;
     stop.classList.add("node-transport-stop");
+    // Red only when engine is fully stopped. Grey while playing or paused.
     stop.classList.toggle("is-stopped", isStopped);
+    stop.classList.toggle("is-armed", !isStopped);
+    stop.textContent = NODE_GRAPH_TRANSPORT_GLYPH_STOP;
     stop.dataset.transportState = isStopped ? "stopped" : isPlaying ? "playing" : "paused";
-    stop.title = isStopped ? "Stopped" : "Stop";
+    stop.title = isStopped ? "Stopped (engine off)" : "Stop engine (full cold stop)";
     stop.setAttribute("aria-label", isStopped ? "Stopped" : "Stop");
   }
 }
@@ -311,14 +373,18 @@ function nodeGraphTransportHandleAction(action) {
     // If status is stuck on "starting" or outputEnabled is true without an
     // engine (broken ⏮ path), treat Play as "start engine" not "unpause".
     const hasEngine = Boolean(nodeGraphMvp.live.node);
-    if (!hasEngine) {
+    const transportState = typeof nodeGraphLiveTransportUiState === "function"
+      ? nodeGraphLiveTransportUiState()
+      : (hasEngine ? "playing" : "stopped");
+    if (!hasEngine || transportState === "stopped" || transportState === "starting") {
       if (typeof setNodeGraphLiveOutputEnabled === "function") {
         setNodeGraphLiveOutputEnabled(true);
       } else if (typeof soemdspSandboxToggleLiveOutput === "function") {
         soemdspSandboxToggleLiveOutput();
       }
     } else {
-      const speed = (nodeGraphMvp.live.speedMultiplier ?? 1) > 0 ? 0 : 1;
+      // playing ↔ paused
+      const speed = transportState === "paused" ? 1 : 0;
       if (typeof setNodeGraphLiveSpeed === "function") {
         setNodeGraphLiveSpeed(speed);
       }
