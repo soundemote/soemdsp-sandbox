@@ -226,12 +226,12 @@ registerNodeGraphChromelessModule("fbmField", {
   catalog: {
     category: "noise",
     description:
-      "2D fractal Brownian field (value-noise fBm). Layout B WebGL face (high-res shader + gradient LUT). Live X/Y from native WASM; JS fallback if wasm missing. Same field family as Fractal Brownian Noise.",
+      "2D fractal Brownian field (value-noise fBm). Layout B WebGL face (high-res shader + gradient LUT). X/Y from native WASM only — no JS DSP. Same field family as Fractal Brownian Noise.",
     notes: [
       "LayoutB",
       "webgl",
       "shader",
-      "native",
+      "native-only",
       "wasm",
       "fbm",
       "perlin-style",
@@ -241,6 +241,7 @@ registerNodeGraphChromelessModule("fbmField", {
       "smoothness",
       "lacunarity",
       "octaves",
+      "no-js-fallback",
     ],
   },
 });

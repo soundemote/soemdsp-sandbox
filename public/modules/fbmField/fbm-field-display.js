@@ -1,5 +1,4 @@
-// FBM Field face: WebGL 2D fBm (primary) + low-res CPU fallback.
-// Gradient via shared Display Settings multi-stop LUT.
+// FBM Field face: WebGL only (no JS/CPU fBm paint). Black plate if GL missing.
 
 const nodeGraphFbmFieldSettingsDefaults = Object.freeze({
   background: "#05060a",
@@ -11,10 +10,6 @@ const nodeGraphFbmFieldSettingsDefaults = Object.freeze({
     Object.freeze({ t: 1, color: "#ffffff" }),
   ]),
 });
-
-/** CPU fallback only — long-side cap. */
-const NODE_GRAPH_FBM_FIELD_CPU_MAX = 96;
-const NODE_GRAPH_FBM_FIELD_CPU_SIM_MS = 33;
 
 function normalizeNodeGraphFbmFieldSettings(settings = {}) {
   const source = settings && typeof settings === "object" ? settings : {};
@@ -62,43 +57,6 @@ function nodeGraphFbmFieldReadParam(nodeId, key, fallback) {
   return Number.isFinite(raw) ? raw : fallback;
 }
 
-function nodeGraphFbmFieldSampleGradientRgb(stops, energy) {
-  if (typeof nodeGraphLedSampleGradientRgb === "function") {
-    return nodeGraphLedSampleGradientRgb(stops, energy);
-  }
-  if (typeof nodeGraphSampleGradientStopsRgb === "function") {
-    return nodeGraphSampleGradientStopsRgb(stops, energy, "#ffffff");
-  }
-  const t = Math.max(0, Math.min(1, Number(energy) || 0));
-  const list = Array.isArray(stops) && stops.length >= 2 ? stops : nodeGraphFbmFieldSettingsDefaults.gradientStops;
-  const hexToRgb = (hex) => {
-    const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || ""));
-    if (!m) return [255, 255, 255];
-    return m.slice(1).map((p) => Number.parseInt(p, 16));
-  };
-  const parsed = list.map((s) => {
-    const [r, g, b] = hexToRgb(s?.color);
-    return { t: Math.max(0, Math.min(1, Number(s?.t) || 0)), r, g, b };
-  }).sort((a, b) => a.t - b.t);
-  if (t <= parsed[0].t) return [parsed[0].r, parsed[0].g, parsed[0].b];
-  const last = parsed[parsed.length - 1];
-  if (t >= last.t) return [last.r, last.g, last.b];
-  for (let i = 1; i < parsed.length; i += 1) {
-    const a = parsed[i - 1];
-    const b = parsed[i];
-    if (t <= b.t) {
-      const u = (t - a.t) / Math.max(1e-6, b.t - a.t);
-      return [
-        Math.round(a.r + (b.r - a.r) * u),
-        Math.round(a.g + (b.g - a.g) * u),
-        Math.round(a.b + (b.b - a.b) * u),
-      ];
-    }
-  }
-  return [last.r, last.g, last.b];
-}
-
-/** Full-res canvas for WebGL (Soft Fractal style). */
 function syncNodeGraphFbmFieldCanvasHiRes(canvas, face, pixelRatio) {
   if (!canvas || !face) {
     return false;
@@ -117,66 +75,28 @@ function syncNodeGraphFbmFieldCanvasHiRes(canvas, face, pixelRatio) {
   return w > 0 && h > 0;
 }
 
-/** Low-res canvas only when CPU path is forced. */
-function syncNodeGraphFbmFieldCanvasCpu(canvas, face, pixelRatio) {
-  if (!canvas || !face) {
-    return false;
-  }
-  const dpr = Math.max(1, Math.min(2, Number(pixelRatio) || window.devicePixelRatio || 1));
-  const cssW = Math.max(1, face.clientWidth || 1);
-  const cssH = Math.max(1, face.clientHeight || 1);
-  const long = Math.max(cssW, cssH);
-  const gridScale = Math.min(1, NODE_GRAPH_FBM_FIELD_CPU_MAX / Math.max(1, long));
-  const w = Math.max(8, Math.round(cssW * gridScale * dpr));
-  const h = Math.max(8, Math.round(cssH * gridScale * dpr));
-  if (canvas.width !== w || canvas.height !== h) {
-    canvas.width = w;
-    canvas.height = h;
-  }
-  canvas.style.width = "100%";
-  canvas.style.height = "100%";
-  canvas.style.imageRendering = "pixelated";
-  return w > 0 && h > 0;
-}
-
-function paintNodeGraphFbmFieldFaceCpu(canvas, face, nodeId, params, settings, time) {
-  if (typeof nodeGraphFbmFieldFaceMono !== "function") {
-    return false;
-  }
-  if (!syncNodeGraphFbmFieldCanvasCpu(canvas, face)) {
-    return false;
-  }
-  const w = canvas.width;
-  const h = canvas.height;
-  const ctx = canvas.getContext("2d", { alpha: false });
-  if (!ctx) {
-    return false;
-  }
-  const stops = settings.gradientStops;
-  const bg = settings.background || "#05060a";
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, w, h);
-  const image = ctx.createImageData(w, h);
-  const data = image.data;
-  const faceParams = {
-    ...params,
-    octaves: Math.min(5, Math.round(params.octaves) || 4),
-  };
-  for (let y = 0; y < h; y += 1) {
-    const v = (y + 0.5) / h;
-    for (let x = 0; x < w; x += 1) {
-      const u = (x + 0.5) / w;
-      const mono = nodeGraphFbmFieldFaceMono(u, v, faceParams, time);
-      const [r, g, b] = nodeGraphFbmFieldSampleGradientRgb(stops, mono);
-      const i = (y * w + x) * 4;
-      data[i] = r;
-      data[i + 1] = g;
-      data[i + 2] = b;
-      data[i + 3] = 255;
+function nodeGraphFbmFieldFillBackground(canvas, face, background) {
+  // Prefer GL clear if this canvas already has a GL context (never call 2d on it).
+  if (typeof nodeGraphFbmFieldGlEnsure === "function") {
+    const state = nodeGraphFbmFieldGlEnsure(canvas);
+    if (state?.gl && !state.lost) {
+      const gl = state.gl;
+      const bg = typeof nodeGraphFbmFieldGlHexToRgb01 === "function"
+        ? nodeGraphFbmFieldGlHexToRgb01(background)
+        : [0.02, 0.024, 0.04];
+      gl.viewport(0, 0, canvas.width | 0, canvas.height | 0);
+      gl.clearColor(bg[0], bg[1], bg[2], 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      if (face?.dataset) face.dataset.lightStrength = "0";
+      return true;
     }
   }
-  ctx.putImageData(image, 0, 0);
-  return true;
+  // No WebGL: solid CSS background only (no JS fBm).
+  if (face) {
+    face.style.background = background || "#05060a";
+  }
+  if (face?.dataset) face.dataset.lightStrength = "0";
+  return false;
 }
 
 function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
@@ -211,42 +131,25 @@ function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
   const settings = nodeGraphFbmFieldSettingsForNode(patchNode);
   const time = face._fbmFieldTime || 0;
 
-  // Prefer WebGL full-face (high res) — never call 2d on a canvas that already has WebGL.
-  const wantGl = typeof nodeGraphFbmFieldGlPaint === "function";
-  const glReady = wantGl && typeof nodeGraphFbmFieldGlEnsure === "function"
-    ? Boolean(nodeGraphFbmFieldGlEnsure(canvas))
-    : false;
-
-  if (glReady) {
-    if (!syncNodeGraphFbmFieldCanvasHiRes(canvas, face, pixelRatio)) {
-      return false;
-    }
-    const ok = nodeGraphFbmFieldGlPaint(canvas, {
-      ...params,
-      time,
-      gradientStops: settings.gradientStops,
-      background: settings.background,
-    });
-    if (ok) {
-      if (face.dataset) face.dataset.lightStrength = "1";
-      face._fbmFieldHasFrame = true;
-      return true;
-    }
+  if (typeof nodeGraphFbmFieldGlPaint !== "function" || typeof nodeGraphFbmFieldGlEnsure !== "function") {
+    return nodeGraphFbmFieldFillBackground(canvas, face, settings.background);
   }
 
-  // CPU throttle when no GL
-  if (!options.force && face._fbmFieldHasFrame) {
-    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
-    const lastSim = Number(face._fbmFieldLastSimMs) || 0;
-    if (now - lastSim < NODE_GRAPH_FBM_FIELD_CPU_SIM_MS) {
-      return true;
-    }
-    face._fbmFieldLastSimMs = now;
-  } else {
-    face._fbmFieldLastSimMs = typeof performance !== "undefined" ? performance.now() : Date.now();
+  if (!syncNodeGraphFbmFieldCanvasHiRes(canvas, face, pixelRatio)) {
+    return false;
   }
 
-  const ok = paintNodeGraphFbmFieldFaceCpu(canvas, face, nodeId, params, settings, time);
+  const glReady = Boolean(nodeGraphFbmFieldGlEnsure(canvas));
+  if (!glReady) {
+    return nodeGraphFbmFieldFillBackground(canvas, face, settings.background);
+  }
+
+  const ok = nodeGraphFbmFieldGlPaint(canvas, {
+    ...params,
+    time,
+    gradientStops: settings.gradientStops,
+    background: settings.background,
+  });
   if (ok) {
     if (face.dataset) face.dataset.lightStrength = "1";
     face._fbmFieldHasFrame = true;

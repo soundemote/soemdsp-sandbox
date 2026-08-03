@@ -1,6 +1,5 @@
-// Offline / main-thread glue for fbm_field.wasm (optional native path).
-// Pure JS mirror: modules/fbmField/fbm-field-math.js (fallback). Live prefers
-// JS math when present; worklet prefers native when loaded.
+// Offline / main-thread glue for fbm_field.wasm — native only, no pure-JS DSP mirror.
+// Silent zeros until wasm finishes loading (rayBouncer / henon offline pattern).
 
 const nodeGraphFbmFieldWasm = { promise: null, exports: null, failed: false };
 
@@ -19,7 +18,7 @@ function nodeGraphFbmFieldLoadWasm() {
     });
 }
 
-function createNodeGraphFbmFieldNativeState() {
+function createNodeGraphFbmFieldState() {
   return { nativeHandle: 0 };
 }
 
@@ -32,20 +31,20 @@ function destroyNodeGraphFbmFieldNativeState(state) {
 }
 
 /**
- * Native offline sample → { X, Y, "X Raw", "Y Raw" } or null if wasm not ready.
+ * @returns {{ X: number, Y: number, "X Raw": number, "Y Raw": number }}
  */
-function nodeGraphFbmFieldNativeSample(options = {}) {
+function nodeGraphFbmFieldSample(options = {}) {
   nodeGraphFbmFieldLoadWasm();
   const wasm = nodeGraphFbmFieldWasm.exports;
   if (!wasm?.soemdsp_fbm_field_create || !wasm?.soemdsp_fbm_field_sample) {
-    return null;
+    return { X: 0, Y: 0, "X Raw": 0, "Y Raw": 0 };
   }
-  const state = options.state || createNodeGraphFbmFieldNativeState();
+  const state = options.state || createNodeGraphFbmFieldState();
   if (!state.nativeHandle) {
     state.nativeHandle = wasm.soemdsp_fbm_field_create();
   }
   if (!state.nativeHandle) {
-    return null;
+    return { X: 0, Y: 0, "X Raw": 0, "Y Raw": 0 };
   }
   wasm.soemdsp_fbm_field_sample(
     state.nativeHandle,
