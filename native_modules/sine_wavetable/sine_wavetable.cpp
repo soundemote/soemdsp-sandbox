@@ -41,7 +41,7 @@ static double smoothstep01(double value) {
 static double nyquist_fade_amplitude(double frequency, double sampleRate) {
   const double rate = maxd(1.0, sampleRate);
   const double nyquist = rate * 0.5;
-  const double freq = maxd(0.0, frequency);
+  const double freq = maxd(0.0, frequency < 0.0 ? -frequency : frequency);
   const double fadeStart = mind(20000.0, nyquist * 0.9);
   if (freq <= fadeStart) return 1.0;
   if (freq >= nyquist) return 0.0;

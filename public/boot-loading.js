@@ -145,7 +145,11 @@ function finishNodeBootLoading() {
     return;
   }
   if (typeof resetNodeGraphStartupView === "function") {
-    resetNodeGraphStartupView();
+    try {
+      resetNodeGraphStartupView();
+    } catch (error) {
+      console.warn("Unable to reset startup view before hiding boot screen", error);
+    }
   }
   setNodeBootLoadingProgress(100, "ready");
   document.body.dataset.nodeBootFinished = "interface-ready";

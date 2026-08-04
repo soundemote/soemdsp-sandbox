@@ -33,7 +33,7 @@ nodeGraphLiveModuleEvaluators.spiral = ({ runtime, node, nodeId, frame, frames, 
     zAmount: read("zAmount", 0),
     zDepth: read("zDepth", 0),
   });
-  const level = read("level", 1);
+  const level = read("amplitude", 1);
   return {
     X: spiral.x * level,
     Y: spiral.y * level,

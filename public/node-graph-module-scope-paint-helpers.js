@@ -492,9 +492,12 @@ function nodeGraphScope2dTraceCanvasSquare(canvas) {
 }
 
 // nodeGraphScope2dBurnCanvasSquare → node-graph-module-scope-draw-burn.js
+// Continuity gate for downsampled X/Y polylines. Too tight (old 8% of face)
+// broke closed orbits into dashed scraps when history held multiple cycles
+// and the point budget skipped large angular steps.
 function nodeGraphScope2dTraceMaxSegmentPixels(square) {
   const size = Math.max(1, Math.min(Number(square?.width) || 0, Number(square?.height) || 0));
-  return Math.max(8, size * 0.08);
+  return Math.max(24, size * 0.55);
 }
 
 /**
@@ -564,8 +567,11 @@ function buildNodeGraphScope2dTraceCanvasPoints(canvasSquare, buffer, settings) 
     ? nodeGraphScope2dEvenSampleIndices(count, budget)
     : null;
   const points = [];
-  const maxSegmentPixels = nodeGraphScope2dTraceMaxSegmentPixels(canvasSquare);
-  let previousPoint = null;
+  // Do NOT break the polyline by pixel distance. At many frequencies the
+  // history window holds multiple orbits; even-index downsampling then
+  // produces large chords. Gating those as “discontinuities” left only
+  // single-point segments — and a 1-pt stroke is invisible → blank face.
+  // Only break on non-finite / missing samples.
   const visit = (index) => {
     const point = nodeGraphScope2dTracePointFromSamples(
       canvasSquare,
@@ -575,15 +581,9 @@ function buildNodeGraphScope2dTraceCanvasPoints(canvasSquare, buffer, settings) 
     );
     if (!point) {
       breakNodeGraphScope2dPath(points);
-      previousPoint = null;
       return;
     }
-    if (!nodeGraphScope2dTraceSegmentIsContinuous(previousPoint, point, maxSegmentPixels)) {
-      breakNodeGraphScope2dPath(points);
-      previousPoint = null;
-    }
     points.push(point);
-    previousPoint = point;
   };
   if (indices && indices.length) {
     for (let i = 0; i < indices.length; i += 1) {
@@ -754,6 +754,26 @@ function nodeGraphModuleStereoTracePorts(type) {
 
 function nodeGraphModuleUsesStereoTraceDisplay(type) {
   return Boolean(nodeGraphModuleStereoTracePorts(type));
+}
+
+/**
+ * Trace faces that store look/sync on the node (not the shared global Trace
+ * bucket). Must stay aligned across form load, form save, and draw:
+ * editingTraceDefaults / CurrentSettingsForFormType / SettingsForSlot.
+ *
+ * - output / pluginOutput: stereo bus sinks
+ * - visualOscilloscope: multi-mode Display with its own Trace page
+ * - stereoTracePorts modules (Ping Pong, Sabrina, …): dual-channel Trace faces
+ */
+function nodeGraphModuleKeepsPerNodeTraceDisplaySettings(type) {
+  const t = String(type || "").trim();
+  if (!t) {
+    return false;
+  }
+  if (t === "output" || t === "pluginOutput" || t === "visualOscilloscope") {
+    return true;
+  }
+  return nodeGraphModuleUsesStereoTraceDisplay(t);
 }
 
 function nodeGraphStereoTraceBuffers(nodeId, type) {

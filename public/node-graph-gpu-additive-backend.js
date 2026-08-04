@@ -176,7 +176,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
   }
   let normalized = select(0.0, total / max(1.0, norm * 0.72), norm > 0.0);
-  outSamples[frame] = clamp(normalized * params.level, -1.0, 1.0);
+  outSamples[frame] = clamp(normalized * params.amplitude, -1.0, 1.0);
 }
 `;
 
@@ -369,7 +369,7 @@ async function nodeGraphRenderGpuAdditiveChunk(params = {}, options = {}) {
   paramsFloat[0] = sampleRate;
   paramsFloat[1] = Math.max(0, Number(params.frequency) || 0);
   paramsFloat[2] = Number(params.phase) || 0;
-  paramsFloat[3] = clampNodeSliderValue(Number(params.level) || 0, 0, 1);
+  paramsFloat[3] = clampNodeSliderValue(Number(params.amplitude) || 0, 0, 1);
   paramsUint[4] = Math.max(1, Math.min(nodeGraphAdditiveHardMaxHarmonics, Math.round(Number(params.harmonics) || 32)));
   paramsUint[5] = Math.max(0, Math.min(7, Math.round(Number(params.waveform) || 1)));
   paramsUint[6] = frameCount;

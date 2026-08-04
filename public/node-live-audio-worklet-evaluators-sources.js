@@ -9,7 +9,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
         const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
         return {
           Out: this.logisticMapSample(state, {
-            level: read("level", 1),
+            level: read("amplitude", 1),
             r: read("r", 3.9),
             rate: read("rate", 8),
             reset: mixInput(nodeId, "Reset"),
@@ -27,7 +27,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
         return this.turingMachineSample(state, {
           clock: mixInput(nodeId, "Clock"),
           length: read("length", 8),
-          level: read("level", 1),
+          level: read("amplitude", 1),
           probability: read("probability", 0.25),
           octaves: read("octaves", 1),
           reset: mixInput(nodeId, "Reset"),
@@ -49,7 +49,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           seedX: read("seedX", 0.1),
           seedY: read("seedY", 0.1),
         });
-        const henonLevel = read("level", 1);
+        const henonLevel = read("amplitude", 1);
         return {
           X: henon.x * henonLevel,
           Y: henon.y * henonLevel,
@@ -76,7 +76,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           xToY: read("xToY", 0),
           yToX: read("yToX", 0),
         });
-        const level = read("level", 1);
+        const level = read("amplitude", 1);
         return {
           X: bounce.x * level,
           Y: bounce.y * level,
@@ -95,7 +95,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           sampleRate: safeRate,
           speed: read("speed", 1),
         });
-        const chuaLevel = read("level", 1);
+        const chuaLevel = read("amplitude", 1);
         return {
           X: chua.x * chuaLevel,
           Y: chua.y * chuaLevel,
@@ -130,7 +130,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           length: read("length", 8),
           probability: read("probability", 0.18),
           octaves: read("octaves", 1),
-          level: read("level", 1),
+          level: read("amplitude", 1),
           scaleChoice: read("scale", 1),
           hasScaleInput: hasScale,
           scaleInput: hasScale ? mixInput(nodeId, "Scale") : 0,
@@ -151,7 +151,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           leapCv: mixInput(nodeId, "Leap"),
           gravity: read("gravity", 0.65),
           octaves: read("octaves", 1),
-          level: read("level", 1),
+          level: read("amplitude", 1),
           scaleChoice: read("scale", 1),
           hasScaleInput: hasScale,
           scaleInput: hasScale ? mixInput(nodeId, "Scale") : 0,
@@ -171,7 +171,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           steps: read("steps", 8),
           mutate: read("mutate", 0.08),
           octaves: read("octaves", 1),
-          level: read("level", 1),
+          level: read("amplitude", 1),
           scaleChoice: read("scale", 1),
           hasScaleInput: hasScale,
           scaleInput: hasScale ? mixInput(nodeId, "Scale") : 0,
@@ -248,7 +248,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           splashSpeed: read("splashSpeed", 0),
           syncCut: read("syncCut", 1),
         });
-        const wirdoLevel = read("level", 1);
+        const wirdoLevel = read("amplitude", 1);
         return {
           X: wirdo.x * wirdoLevel,
           Y: wirdo.y * wirdoLevel,
@@ -267,7 +267,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           shape: read("shape", 0),
           zDepth: read("zDepth", 0),
         });
-        const blubbLevel = read("level", 1);
+        const blubbLevel = read("amplitude", 1);
         return {
           X: blubb.x * blubbLevel,
           Y: blubb.y * blubbLevel,
@@ -298,7 +298,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           width: read("width", 1),
           wobble: read("wobble", 0.0625),
         });
-        const mushroomLevel = read("level", 1);
+        const mushroomLevel = read("amplitude", 1);
         return {
           X: mushroom.x * mushroomLevel,
           Y: mushroom.y * mushroomLevel,
@@ -326,7 +326,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           zAmount: read("zAmount", 0),
           zDepth: read("zDepth", 0),
         });
-        const boingLevel = read("level", 1);
+        const boingLevel = read("amplitude", 1);
         return {
           X: boing.x * boingLevel,
           Y: boing.y * boingLevel,
@@ -358,7 +358,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           zAngleY: read("zAngleY", 0),
           zDepth: read("zDepth", 0),
         });
-        const torusLevel = read("level", 1);
+        const torusLevel = read("amplitude", 1);
         return {
           X: torus.x * torusLevel,
           Y: torus.y * torusLevel,
@@ -379,7 +379,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           tri: read("tri", 0),
           zoom: read("zoom", 0),
         });
-        const keplerLevel = read("level", 1);
+        const keplerLevel = read("amplitude", 1);
         return {
           X: kepler.x * keplerLevel,
           Y: kepler.y * keplerLevel,
@@ -407,7 +407,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           tone: read("tone", 0),
           toneSmoothTime: read("toneSmoothTime", 0.01),
         });
-        const nyquistLevel = read("level", 1);
+        const nyquistLevel = read("amplitude", 1);
         return {
           X: nyquist.x * nyquistLevel,
           Y: nyquist.y * nyquistLevel,
@@ -436,7 +436,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           : this.resolveFrequencyHz(
             (typeof nodeGraphPitchedFrequency === "function"
               ? nodeGraphPitchedFrequency(baseFrequency, pitchCv, referenceVoltage)
-              : Math.max(0, baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1)))),
+              : baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1))),
             fHz,
           );
         return this.surgeOscillatorSample(state, {
@@ -446,7 +446,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           hasExternalSync: hasInput(nodeId, "Sync"),
           syncFrequencyHz: read("syncFrequency", 50),
           waveform: read("waveform", 0),
-          level: read("level", 1),
+          level: read("amplitude", 1),
         });
       },
       textStream: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
@@ -498,7 +498,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           : this.resolveFrequencyHz(
             (typeof nodeGraphPitchedFrequency === "function"
               ? nodeGraphPitchedFrequency(baseFrequency, pitchCv, referenceVoltage)
-              : Math.max(0, baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1)))),
+              : baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1))),
             fHz,
           );
         const morphKnob = read("morph", 0.5);
@@ -516,7 +516,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
         const phase = typeof nodeGraphParamSignalInPhaseAdd === "function"
           ? nodeGraphParamSignalInPhaseAdd(phaseKnob, phaseCv)
           : this.wrapValue(phaseKnob + phaseCv, 0, 1);
-        const levelKnob = read("level", 1);
+        const levelKnob = read("amplitude", 1);
         const hasAmp = this.inputConnections.has(this.inputKey(nodeId, "Amplitude"));
         const ampCv = hasAmp ? this.safeFilterNumber(mixInput(nodeId, "Amplitude"), 1) : 1;
         const level = typeof nodeGraphParamSignalInAmplitude === "function"
@@ -563,7 +563,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           : this.resolveFrequencyHz(
             (typeof nodeGraphPitchedFrequency === "function"
               ? nodeGraphPitchedFrequency(baseFrequency, pitchCv, referenceVoltage)
-              : Math.max(0, baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1)))),
+              : baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1))),
             fHz,
           );
         const phaseKnob = read("phase", 0);
@@ -573,7 +573,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
         const phase = typeof nodeGraphParamSignalInPhaseAdd === "function"
           ? nodeGraphParamSignalInPhaseAdd(phaseKnob, phaseCv)
           : this.wrapValue(phaseKnob + phaseCv, 0, 1);
-        const levelKnob = read("level", 1);
+        const levelKnob = read("amplitude", 1);
         const hasAmp = this.inputConnections.has(this.inputKey(nodeId, "Amplitude"));
         const ampCv = hasAmp ? this.safeFilterNumber(mixInput(nodeId, "Amplitude"), 1) : 1;
         const level = typeof nodeGraphParamSignalInAmplitude === "function"
@@ -623,10 +623,10 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           : this.resolveFrequencyHz(
             (typeof nodeGraphPitchedFrequency === "function"
               ? nodeGraphPitchedFrequency(baseFrequency, pitchCv, referenceVoltage)
-              : Math.max(0, baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1)))),
+              : baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1))),
             fHz,
           );
-        const levelKnob = read("level", 1);
+        const levelKnob = read("amplitude", 1);
         const hasAmp = this.inputConnections.has(this.inputKey(nodeId, "Amplitude"));
         const ampCv = hasAmp ? this.safeFilterNumber(mixInput(nodeId, "Amplitude"), 1) : 1;
         const level = typeof nodeGraphParamSignalInAmplitude === "function"
@@ -669,7 +669,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           : this.resolveFrequencyHz(
             (typeof nodeGraphPitchedFrequency === "function"
               ? nodeGraphPitchedFrequency(baseFrequency, pitchCv, referenceVoltage)
-              : Math.max(0, baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1)))),
+              : baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1))),
             fHz,
           );
         // Phase / Amplitude jacks: Phase adds to the Phase knob (cycles);
@@ -681,7 +681,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
         const phase = typeof nodeGraphParamSignalInPhaseAdd === "function"
           ? nodeGraphParamSignalInPhaseAdd(phaseKnob, phaseCv)
           : this.wrapValue(phaseKnob + phaseCv, 0, 1);
-        const levelKnob = read("level", 1);
+        const levelKnob = read("amplitude", 1);
         const hasAmp = this.inputConnections.has(this.inputKey(nodeId, "Amplitude"));
         const ampCv = hasAmp ? this.safeFilterNumber(mixInput(nodeId, "Amplitude"), 1) : 1;
         const level = typeof nodeGraphParamSignalInAmplitude === "function"
@@ -726,7 +726,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           : this.resolveFrequencyHz(
             (typeof nodeGraphPitchedFrequency === "function"
               ? nodeGraphPitchedFrequency(baseFrequency, pitchCv, referenceVoltage)
-              : Math.max(0, baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1)))),
+              : baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1))),
             fHz,
           );
         return this.robinSupersawSample(state, {
@@ -734,7 +734,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           sampleRate: safeRate,
           detuneCents: read("detuneCents", 30),
           voices: read("voices", 7),
-          level: read("level", 1),
+          level: read("amplitude", 1),
         });
       },
       hypersaw: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
@@ -765,7 +765,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           : this.resolveFrequencyHz(
             (typeof nodeGraphPitchedFrequency === "function"
               ? nodeGraphPitchedFrequency(baseFrequency, pitchCv, referenceVoltage)
-              : Math.max(0, baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1)))),
+              : baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1))),
             fHz,
           );
         return this.hypersawSample(state, {
@@ -776,7 +776,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           spread: read("spread", 1),
           randomAmount: read("random", 0.15),
           driftAmount: read("drift", 0.1),
-          level: read("level", 0.35),
+          level: read("amplitude", 0.35),
         });
       },
       chordSequencer: (node, nodeId, frame, frames, frameValues, mixInput) => {
@@ -785,7 +785,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
         const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
         return this.chordSequencerSample(state, {
           clock: mixInput(nodeId, "Clock"),
-          level: read("level", 1),
+          level: read("amplitude", 1),
           progression: read("progression", 0),
           direction: read("direction", 0),
           key: read("key", 0),
@@ -803,7 +803,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           key: read("key", 0),
           mode: read("mode", 0),
           degree: read("degree", 0),
-          level: read("level", 1),
+          level: read("amplitude", 1),
           hasSelectInput: hasInput(nodeId, "Select"),
           select: mixInput(nodeId, "Select"),
         });
@@ -838,6 +838,8 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
       gpuAdditiveOsc: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame, graphInputValue) =>
         this.additiveOscWorkletEvaluate(node, nodeId, frame, frames, frameValues, mixInput, safeRate, graphInputValue),
       ellipsoid: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) =>
+        this.ellipsoidWorkletEvaluate(node, nodeId, frame, frames, frameValues, mixInput, safeRate),
+      ellipsoidOsc: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) =>
         this.ellipsoidWorkletEvaluate(node, nodeId, frame, frames, frameValues, mixInput, safeRate),
       sineWavetable: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) =>
         this.sineWavetableWorkletEvaluate(node, nodeId, frame, frames, frameValues, mixInput, safeRate),
@@ -878,7 +880,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           zDepth: read("zDepth", 0),
           zoom: read("zoom", 0),
         });
-        const radarLevel = read("level", 1);
+        const radarLevel = read("amplitude", 1);
         return {
           X: radar.x * radarLevel,
           Y: radar.y * radarLevel,
@@ -907,7 +909,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           : this.resolveFrequencyHz(
             (typeof nodeGraphPitchedFrequency === "function"
               ? nodeGraphPitchedFrequency(baseFreq, pitchCv, referenceVoltage)
-              : Math.max(0, baseFreq * (2 ** ((pitchCv - referenceVoltage) / 0.1)))),
+              : baseFreq * (2 ** ((pitchCv - referenceVoltage) / 0.1))),
             fHz,
           );
         const phaseKnob = read("phase", 0);
@@ -932,10 +934,11 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           state,
           {
             deviation: read("deviation", 0.5),
-            level: read("level", 1),
+            level: read("amplitude", 1),
             mean: read("mean", 0),
             mode: read("mode", 0),
             seed: read("seed", 1),
+            shape: read("shape", 0),
           },
           nodeId,
         );
@@ -949,7 +952,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           {
             frequency: read("frequency", 2),
             jitter: read("jitter", 0.25),
-            level: read("level", 1),
+            level: read("amplitude", 1),
             method: read("method", 3),
             seed: read("seed", 1),
           },
@@ -966,7 +969,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           seedRight: read("seedRight", 0.5),
           color: read("color", 0),
           smoothing: read("smoothing", 0),
-          level: read("level", 1),
+          level: read("amplitude", 1),
         });
       },
       bradley2a: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
@@ -991,7 +994,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
             hitGain: read("hitGain", 1),
             hitPhase: read("hitPhase", 0),
             impulseLevel: read("impulseLevel", 0),
-            level: read("level", 1),
+            level: read("amplitude", 1),
           },
           safeRate,
         );
@@ -1006,7 +1009,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
             fundamental: read("fundamental", 110),
             reflections: read("reflections", 64),
             tilt: read("tilt", 0),
-            level: read("level", 1),
+            level: read("amplitude", 1),
           },
           safeRate,
         );
@@ -1019,7 +1022,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           state,
           {
             frequency: read("frequency", 0.5),
-            level: read("level", 1),
+            level: read("amplitude", 1),
             octaves: read("octaves", 4),
             persistence: read("persistence", 0.5),
             scale: read("scale", 1),
@@ -1087,7 +1090,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           zAmount: read("zAmount", 0),
           zDepth: read("zDepth", 0),
         });
-        const level = read("level", 1);
+        const level = read("amplitude", 1);
         return {
           X: spiral.x * level,
           Y: spiral.y * level,
@@ -1116,7 +1119,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           spin: read("spin", 0.05),
           twist: read("twist", 0.381966),
         });
-        const fractalLevel = read("level", 1);
+        const fractalLevel = read("amplitude", 1);
         return {
           X: fractal.x * fractalLevel,
           Y: fractal.y * fractalLevel,
@@ -1142,7 +1145,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           spin: read("spin", 0.05),
           turns: read("turns", 4),
         });
-        const logSpiralLevel = read("level", 1);
+        const logSpiralLevel = read("amplitude", 1);
         return {
           X: logSpiral.x * logSpiralLevel,
           Y: logSpiral.y * logSpiralLevel,
@@ -1172,7 +1175,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           state,
           zDepth: read("zDepth", 0.4),
         });
-        const level = read("level", 1);
+        const level = read("amplitude", 1);
         return {
           X: lorenz.x * level,
           Y: lorenz.y * level,

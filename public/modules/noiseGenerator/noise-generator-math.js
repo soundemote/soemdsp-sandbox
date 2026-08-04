@@ -9,9 +9,25 @@ function createNodeGraphNoiseGeneratorState() {
   };
 }
 
-function nodeGraphNoiseGeneratorChannelSample(state, mode, mean, deviation) {
+// 0 = even bipolar U(−1,1), 1 = Gaussian ~N(0,1). Smoothstep-blended.
+function nodeGraphNoiseGeneratorShapedBipolar(state, shape) {
+  const t = Math.max(0, Math.min(1, Number(shape) || 0));
+  if (t <= 1e-12) {
+    return nodeGraphNextSeededBipolar(state);
+  }
+  if (t >= 1 - 1e-12) {
+    return nodeGraphNextSeededGaussian(state);
+  }
+  const s = t * t * (3 - 2 * t);
+  const u = nodeGraphNextSeededBipolar(state);
+  const g = nodeGraphNextSeededGaussian(state);
+  return u * (1 - s) + g * s;
+}
+
+function nodeGraphNoiseGeneratorChannelSample(state, mode, mean, deviation, shape = 0) {
   const white = nodeGraphNextSeededBipolar(state);
   if (mode === 1) {
+    // Pure Gaussian (legacy Mode = Gaussian).
     return mean + nodeGraphNextSeededGaussian(state) * deviation;
   }
   if (mode === 2) {
@@ -35,7 +51,8 @@ function nodeGraphNoiseGeneratorChannelSample(state, mode, mean, deviation) {
   if (mode === 4) {
     return Math.abs(white) > 0.94 ? mean + Math.sign(white) * deviation : mean;
   }
-  return mean + white * deviation;
+  // Mode 0 Uniform: continuous Uniform → Gaussian morph.
+  return mean + nodeGraphNoiseGeneratorShapedBipolar(state, shape) * deviation;
 }
 
 /**
@@ -45,14 +62,15 @@ function nodeGraphNoiseGeneratorCore(state, params, nodeId) {
   const mode = Math.max(0, Math.min(4, Math.round(Number(params?.mode) || 0)));
   const mean = Number(params?.mean) || 0;
   const deviation = Math.max(0, Number(params?.deviation) || 0);
+  const shape = Math.max(0, Math.min(1, Number(params?.shape) || 0));
   const level = Number(params?.level) || 0;
   const seed = Number(params?.seed) || 0;
   if (typeof nodeGraphResetSeededState === "function") {
     nodeGraphResetSeededState(state.left, `${nodeId}:left`, seed, "noiseGenerator");
     nodeGraphResetSeededState(state.right, `${nodeId}:right`, seed, "noiseGenerator");
   }
-  const left = Math.max(-1, Math.min(1, nodeGraphNoiseGeneratorChannelSample(state.left, mode, mean, deviation))) * level;
-  const right = Math.max(-1, Math.min(1, nodeGraphNoiseGeneratorChannelSample(state.right, mode, mean, deviation))) * level;
+  const left = Math.max(-1, Math.min(1, nodeGraphNoiseGeneratorChannelSample(state.left, mode, mean, deviation, shape))) * level;
+  const right = Math.max(-1, Math.min(1, nodeGraphNoiseGeneratorChannelSample(state.right, mode, mean, deviation, shape))) * level;
   return {
     "Left Out": left,
     "Right Out": right,

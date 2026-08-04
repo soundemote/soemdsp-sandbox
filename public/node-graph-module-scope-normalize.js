@@ -181,6 +181,7 @@ function nodeGraphDisplaySettingsFormTypeUsesGradient(type) {
     "ledLamp",
     "rgbShapeFace",
     "rgbFractalFace",
+    "evolveFieldFace",
     "fbmFieldFace",
     "matrixFace",
     "matrixWaterfallFace",
@@ -771,9 +772,11 @@ function normalizeNodeGraphScope2dSettings(settings = {}, defaultsOverride = nul
 }
 
 
-function normalizeNodeGraphScope2dTraceSettings(settings = {}) {
+function normalizeNodeGraphScope2dTraceSettings(settings = {}, typeDefaults = null) {
   const source = settings && typeof settings === "object" ? settings : {};
-  const defaults = nodeGraphScope2dTraceSettingsDefaults;
+  const defaults = typeDefaults && typeof typeDefaults === "object"
+    ? { ...nodeGraphScope2dTraceSettingsDefaults, ...typeDefaults }
+    : nodeGraphScope2dTraceSettingsDefaults;
   return {
     background: normalizeNodeGraphTraceDisplayColor(
       source.background ?? source.backgroundColor,
@@ -856,7 +859,10 @@ function nodeGraphScope2dTraceSettingsForNode(node) {
   if (!node) {
     return normalizeNodeGraphScope2dTraceSettings();
   }
-  return normalizeNodeGraphScope2dTraceSettings(node.traceDisplaySettings);
+  const typeDefaults = typeof nodeGraphScope2dTraceSettingsDefaultsForModuleType === "function"
+    ? nodeGraphScope2dTraceSettingsDefaultsForModuleType(node.type)
+    : null;
+  return normalizeNodeGraphScope2dTraceSettings(node.traceDisplaySettings, typeDefaults);
 }
 
 
@@ -875,12 +881,16 @@ function nodeGraphTraceDisplaySettingsEditingTraceDefaults() {
     return true;
   }
   const node = nodeGraphPatchNode(nodeGraphMvp?.traceDisplaySettingsTargetNode);
-  // Plain Trace nodes intentionally share one global look -- edits fall
-  // through to nodeGraphMvp.traceSettings below. Output reuses the same
-  // "trace" schema to render its Left/Right channels, but each Output
-  // node's colors/sizes are its own per-node choice (read straight off
-  // node.traceDisplaySettings in drawNodeGraphTraceDisplayCanvasItem), so
-  // it must never share the global bucket the way plain Trace nodes do.
-  return nodeGraphModuleDisplaySettingsSchemaForNode(node) === "trace" && node?.type !== "output";
+  // Plain Trace nodes share one global look (nodeGraphMvp.traceSettings).
+  // Per-node Trace faces (Output stereo, Display, stereoTracePorts modules)
+  // must edit node.traceDisplaySettings — otherwise the form shows node
+  // values, apply writes global, and draw reads node (settings never stick).
+  if (nodeGraphModuleDisplaySettingsSchemaForNode(node) !== "trace") {
+    return false;
+  }
+  if (typeof nodeGraphModuleKeepsPerNodeTraceDisplaySettings === "function") {
+    return !nodeGraphModuleKeepsPerNodeTraceDisplaySettings(node?.type);
+  }
+  return node?.type !== "output";
 }
 

@@ -169,7 +169,7 @@ function nodeGraphPiSpigotNoiseSample(state, params, runtime = null, nodeId = ""
   const seedRight = clampNodeSliderValue(nodeGraphSafeFilterNumber(params.seedRight, runtime, nodeId, null, "pi spigot noise seed R"), 0, 1);
   const color = clampNodeSliderValue(Math.round(nodeGraphSafeFilterNumber(params.color, runtime, nodeId, null, "pi spigot noise color")), 0, 4);
   const smoothing = clampNodeSliderValue(nodeGraphSafeFilterNumber(params.smoothing, runtime, nodeId, null, "pi spigot noise smoothing"), 0, 1);
-  const level = nodeGraphSafeFilterNumber(params.level, runtime, nodeId, null, "pi spigot noise level");
+  const level = nodeGraphSafeFilterNumber(params.amplitude, runtime, nodeId, null, "pi spigot noise level");
 
   nodeGraphPiSpigotNoiseLoadWasm();
   const wasm = nodeGraphPiSpigotNoiseWasm.exports;
@@ -218,7 +218,7 @@ nodeGraphLiveModuleEvaluators.piSpigotNoise = ({ runtime, node, nodeId, frame, f
       seedRight: read("seedRight", 0.5),
       color: read("color", 0),
       smoothing: read("smoothing", 0),
-      level: read("level", 1),
+      level: read("amplitude", 1),
     },
     runtime,
     nodeId,

@@ -35,7 +35,7 @@ nodeGraphLiveModuleEvaluators.aliasSine = ({ runtime, node, nodeId, frame, frame
   return nodeGraphAliasSineSample(
     state,
     normFreq,
-    readNodeGraphLiveEffectiveParam(runtime, node, "level", 1, frame, frames, frameValues),
+    readNodeGraphLiveEffectiveParam(runtime, node, "amplitude", 1, frame, frames, frameValues),
     runtime,
     nodeId,
   );

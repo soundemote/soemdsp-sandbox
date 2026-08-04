@@ -156,7 +156,7 @@ NodeLiveAudioProcessor.prototype.polyBlepOscillatorWorkletEvaluate = function po
       fHz,
     );
   const phaseIncrement = (effectiveFrequency / safeRate) + incrementInput;
-  const level = this.readEffectiveParameter(node, "level", 1, frame, frames, frameValues);
+  const level = this.readEffectiveParameter(node, "amplitude", 1, frame, frames, frameValues);
 
   // Native-only DSP (APP_POLICY §2 / §5): hosts call one core; no JS twin.
   // polyBlep/blit → vector native module; osc (LFO) → basic_oscillator per tap.

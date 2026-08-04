@@ -4,15 +4,17 @@
 //
 //   DOMAIN   — the knob/slider value in real units (Hz, −1…1, …).
 //              Source of truth for the parameter store / readout.
+//              min/max define the *slider* range (and unit mapping for MOD),
+//              not a hard clip on stored/effective values — unless the param
+//              is wraparound, has constraint cpu|gpu|ram, or hardClamp:true.
 //
 //   MOD      — param-row modulation CV. Always interpreted as a bipolar
 //              unit signal in [−1, 1]. Applied with nodeGraphParamApplyMod:
 //                • kind "frequency" → 0.1V/Oct style: baseHz * 2^(mod / 0.1)
 //                • everything else  → unit-space add, then map back to domain
 //                  (with nonlinear mid skew when nonlinearSlider is set).
-//              After MOD, metadata.modClamp (default true) re-applies DOMAIN
-//              min/max. modClamp:false lets effective value leave the domain
-//              (CV only — UI never overshoots min/max).
+//              After MOD, hard clamp only when wraparound / resource constraint
+//              / hardClamp / explicit modClamp:true (default: do not re-clamp).
 //
 //   SIGNAL IN — named input jacks (In, 0.1V/Oct, Phase, Amplitude, …).
 //              NOT the same as MOD. Handled by module evaluators:
@@ -58,31 +60,64 @@ function nodeGraphParamUsesPitchMod(metadata = {}) {
 }
 
 /**
- * DOMAIN bounds: always clamp or wrap into parameter min/max when finite.
- * UI / stored knob values never leave this range. MOD overshoot is separate
- * (see nodeGraphParamApplyMod + metadata.modClamp).
+ * True when DOMAIN must stay inside min/max (hard clip / wrap).
+ * Default false — min/max are slider/unit-map guides only.
+ * Hard clamp only for:
+ *   • wraparound (toroidal domain — always wrap)
+ *   • constraint cpu | gpu | ram (resource limits)
+ *   • hardClamp: true (explicit)
  */
-function nodeGraphParamApplyDomainBounds(value, metadata = {}) {
-  const min = Number(metadata.min);
-  const max = Number(metadata.max);
-  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
-    return Number(value) || 0;
+function nodeGraphParamShouldHardClampDomain(metadata = {}) {
+  if (metadata.wraparound) {
+    return true;
   }
-  return metadata.wraparound
-    ? nodeGraphParamWrap(Number(value) || 0, min, max)
-    : nodeGraphParamClamp(Number(value) || 0, min, max);
+  if (metadata.hardClamp === true) {
+    return true;
+  }
+  const c = String(metadata.constraint || "").trim().toLowerCase();
+  if (c === "cpu" || c === "gpu" || c === "ram" || c === "memory") {
+    return true;
+  }
+  return false;
 }
 
-/** Default true: after MOD, re-clamp to domain min/max. Per-parameter. */
+/**
+ * DOMAIN bounds for *storage / effective* values.
+ * Does not hard-clip ordinary params to min/max (type large Amplitude freely).
+ * Wraparound always wraps; resource-constrained / hardClamp params clamp.
+ */
+function nodeGraphParamApplyDomainBounds(value, metadata = {}) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return 0;
+  }
+  const min = Number(metadata.min);
+  const max = Number(metadata.max);
+  if (metadata.wraparound && Number.isFinite(min) && Number.isFinite(max) && max > min) {
+    return nodeGraphParamWrap(n, min, max);
+  }
+  if (!nodeGraphParamShouldHardClampDomain(metadata)) {
+    return n;
+  }
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
+    return n;
+  }
+  return nodeGraphParamClamp(n, min, max);
+}
+
+/**
+ * After MOD, re-apply DOMAIN hard bounds?
+ * Default false. Explicit modClamp wins; else same policy as hard domain clamp
+ * (wraparound / constraint / hardClamp). Legacy unboundedMax/Min → false.
+ */
 function nodeGraphParamModClamp(metadata = {}) {
   if (Object.hasOwn(metadata, "modClamp")) {
     return Boolean(metadata.modClamp);
   }
-  // Legacy patches: unboundedMax/Min meant “effective may leave domain”.
   if (metadata.unboundedMax || metadata.unboundedMin) {
     return false;
   }
-  return true;
+  return nodeGraphParamShouldHardClampDomain(metadata);
 }
 
 /**
@@ -151,17 +186,22 @@ function nodeGraphParamNormalizeModInput(value, _metadata = {}) {
 /**
  * Apply summed MOD (already normalized, may be outside [−1,1] if multi-source)
  * onto a DOMAIN base value.
- * modClamp (default true): re-apply domain min/max after MOD.
- * modClamp false: effective value may leave [min, max] — CV only, not UI.
+ * Hard re-clamp after MOD only when nodeGraphParamModClamp says so
+ * (wraparound / resource constraint / hardClamp / explicit modClamp:true).
  */
 function nodeGraphParamApplyMod(base, modSum, metadata = {}) {
   const mod = Number(modSum) || 0;
   const shouldClamp = nodeGraphParamModClamp(metadata);
   let result;
   if (nodeGraphParamUsesPitchMod(metadata)) {
-    // 0.1V/Oct: mod of +0.1 → +1 octave (same scale as pitch jacks).
-    const baseFrequency = Math.max(1e-6, Number(base) || 1e-6);
-    result = baseFrequency * (2 ** (mod / 0.1));
+    // 0.1V/Oct: mod of +0.1 → +1 octave. Through-zero: keep sign of base.
+    const baseFrequency = Number(base);
+    const b = Number.isFinite(baseFrequency) ? baseFrequency : 0;
+    if (Math.abs(b) < 1e-18) {
+      result = 0;
+    } else {
+      result = b * (2 ** (mod / 0.1));
+    }
   } else {
     const min = Number(metadata.min);
     const max = Number(metadata.max);
@@ -234,32 +274,34 @@ function nodeGraphParamSignalInAmplitude(domainLevel, ampSample, hasAmp) {
 }
 
 /**
- * Resolve osc pitch from domain frequency + optional 0.1V/Oct + optional f (Hz) jack.
- * Uses nodeGraphPitchedFrequency / nodeGraphResolveFrequencyHz when available.
+ * Resolve osc pitch from domain frequency + optional 0.1V/Oct + optional f jack.
+ * Through-zero: signed Hz (negative reverses phase). When f is wired:
+ * hz = f × Frequency (signed). 0.1V/Oct scales magnitude, keeps base sign.
  */
 function nodeGraphParamResolveOscPitchHz(options = {}) {
-  const baseHz = Math.max(0, Number(options.baseHz) || 0);
+  const rawBase = Number(options.baseHz);
+  const baseHz = Number.isFinite(rawBase) ? rawBase : 0;
   const pitchCv = options.pitchCv;
   const referenceVoltage = Number(options.referenceVoltage);
   const ref = Number.isFinite(referenceVoltage) ? referenceVoltage : 0;
   const hasPitch = options.hasPitchCv === true;
-  const cv = hasPitch ? pitchCv : ref;
-  let pitched = baseHz;
-  if (typeof nodeGraphPitchedFrequency === "function") {
-    pitched = nodeGraphPitchedFrequency(baseHz, cv, ref);
-  } else {
-    const c = Number(cv);
-    const pitch = Number.isFinite(c) ? c : 0;
-    pitched = Math.max(0, baseHz * (2 ** ((pitch - ref) / 0.1)));
-  }
   const fHz = options.fHz;
+  // f wired: Frequency multiplies f (signed TZ); pitch CV not applied here.
   if (fHz != null && Number.isFinite(Number(fHz))) {
     if (typeof nodeGraphResolveFrequencyHz === "function") {
-      return nodeGraphResolveFrequencyHz(pitched, Number(fHz));
+      return nodeGraphResolveFrequencyHz(baseHz, Number(fHz));
     }
-    return Math.max(0, Number(fHz));
+    const hz = Number(fHz) * baseHz;
+    return Number.isFinite(hz) ? hz : 0;
   }
-  return pitched;
+  const cv = hasPitch ? pitchCv : ref;
+  if (typeof nodeGraphPitchedFrequency === "function") {
+    return nodeGraphPitchedFrequency(baseHz, cv, ref);
+  }
+  const c = Number(cv);
+  const pitch = Number.isFinite(c) ? c : 0;
+  const out = baseHz * (2 ** ((pitch - ref) / 0.1));
+  return Number.isFinite(out) ? out : 0;
 }
 
 // Aliases matching older live/worklet names (thin adapters call these).

@@ -21,24 +21,35 @@ NodeLiveAudioProcessor.prototype.speedLimitHz = function speedLimitHz() {
     return Number.isFinite(value) && value > 0 ? value : 20000;
 };
 
+// Raw f jack sample (Hz scale). Speed Limit applied after Frequency mult.
 NodeLiveAudioProcessor.prototype.readFInputHz = function readFInputHz(mixInput, nodeId, port = "f") {
     if (!this.inputConnections.has(this.inputKey(nodeId, port))) {
       return null;
     }
     const raw = Number(mixInput(nodeId, port));
-    const limit = this.speedLimitHz();
     if (!Number.isFinite(raw)) {
       return 0;
     }
-    return Math.max(0, Math.min(limit, raw));
+    return raw;
 };
 
+// Through-zero: signed Hz. f wired → f × Frequency; else baseHz. Clamp ±Speed Limit.
 NodeLiveAudioProcessor.prototype.resolveFrequencyHz = function resolveFrequencyHz(baseHz, fHzOrNull) {
+    const maxHz = this.speedLimitHz();
+    const clampSigned = (hz) => {
+      if (!Number.isFinite(hz)) return 0;
+      if (hz > maxHz) return maxHz;
+      if (hz < -maxHz) return -maxHz;
+      return hz;
+    };
     if (fHzOrNull != null && Number.isFinite(Number(fHzOrNull))) {
-      return Math.max(0, Number(fHzOrNull));
+      const mult = Number(baseHz);
+      const m = Number.isFinite(mult) ? mult : 0;
+      return clampSigned(Number(fHzOrNull) * m);
     }
     const base = Number(baseHz);
-    return Number.isFinite(base) ? Math.max(0, base) : 0;
+    if (!Number.isFinite(base)) return 0;
+    return clampSigned(base);
 };
 
 NodeLiveAudioProcessor.prototype.effectiveSampleRate = function effectiveSampleRate() {

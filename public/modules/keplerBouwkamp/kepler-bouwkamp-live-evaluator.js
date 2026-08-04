@@ -17,7 +17,7 @@ nodeGraphLiveModuleEvaluators.keplerBouwkamp = ({ runtime, node, nodeId, frame, 
     tri: read("tri", 0),
     zoom: read("zoom", 0),
   });
-  const keplerLevel = read("level", 1);
+  const keplerLevel = read("amplitude", 1);
   return {
     X: kepler.x * keplerLevel,
     Y: kepler.y * keplerLevel,

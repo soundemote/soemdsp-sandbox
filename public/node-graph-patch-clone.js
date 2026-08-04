@@ -417,6 +417,21 @@ function cloneNodeGraphTypedDisplaySettings(node) {
     // LED face settings live on node.led (not traceDisplaySettings).
     return { led: normalizeNodeGraphLedLayout(node.led) };
   }
+  if (displayType === "evolveFieldFace" && typeof normalizeNodeGraphEvolveFieldSettings === "function") {
+    return {
+      traceDisplaySettings: normalizeNodeGraphEvolveFieldSettings(migrate(node.traceDisplaySettings, false)),
+    };
+  }
+  if (displayType === "rgbFractalFace" && typeof normalizeNodeGraphRgbFractalSettings === "function") {
+    return {
+      traceDisplaySettings: normalizeNodeGraphRgbFractalSettings(migrate(node.traceDisplaySettings, false)),
+    };
+  }
+  if (displayType === "fbmFieldFace" && typeof normalizeNodeGraphFbmFieldSettings === "function") {
+    return {
+      traceDisplaySettings: normalizeNodeGraphFbmFieldSettings(migrate(node.traceDisplaySettings, false)),
+    };
+  }
   if (displayType === "trace" && Object.hasOwn(node, "traceDisplaySettings")) {
     return { traceDisplaySettings: normalizeNodeGraphTraceDisplaySettings(migrate(node.traceDisplaySettings, isOutput)) };
   }

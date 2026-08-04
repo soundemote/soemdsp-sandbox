@@ -13,6 +13,8 @@ function createNodeGraphRgbFractalState() {
     dcIm: 0,
     stepCount: 0,
     hasStarted: false,
+    lastDeltaHx: 0,
+    lastDeltaHy: 0,
   };
 }
 

@@ -265,17 +265,19 @@ function syncNodeGraphRgbFractalCanvas(canvas, face, pixelRatio) {
   if (!canvas || !face) {
     return false;
   }
+  // HD fragment-shader face: layout CSS × devicePixelRatio (no intentional
+  // downsample). Soft/AA cost is in the shader, not by shrinking the buffer.
   const dpr = Math.max(1, Number(pixelRatio) || window.devicePixelRatio || 1);
-  // Cap DPR a bit so huge modules don't create multi-megapixel shaders unnecessarily
   const dprCap = Math.min(dpr, 2);
-  const w = Math.max(1, Math.round(face.clientWidth * dprCap));
-  const h = Math.max(1, Math.round(face.clientHeight * dprCap));
+  const w = Math.max(1, Math.round((face.clientWidth || 1) * dprCap));
+  const h = Math.max(1, Math.round((face.clientHeight || 1) * dprCap));
   if (canvas.width !== w || canvas.height !== h) {
     canvas.width = w;
     canvas.height = h;
   }
   canvas.style.width = "100%";
   canvas.style.height = "100%";
+  // Smooth HD scale (not pixelated blocks). Workspace zoom still scales the face.
   canvas.style.imageRendering = "auto";
   return w > 0 && h > 0;
 }
@@ -582,12 +584,15 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
   const panAmtX = Number.isFinite(panXRaw) ? panXRaw : 0;
   const panAmtY = Number.isFinite(panYRaw) ? panYRaw : 0;
 
-  // Face look: Soft + Color Rate / Shift + Color Bands.
-  const softRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "soft", 0.18));
-  const soft = Number.isFinite(softRaw) ? Math.max(0, Math.min(1, softRaw)) : 0.18;
-  const colorRateRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "colorRate", 1));
+  // Face look: Soft + Color Rate (CV jack only) / Shift + Color Bands.
+  const softRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "soft", 0.48));
+  const soft = Number.isFinite(softRaw) ? Math.max(0, Math.min(1, softRaw)) : 0.48;
+  // Color Rate is input-only: wire a CV for palette cycle rate (× Speed).
+  // Unconnected default 1 = natural lock to Speed (same as the old param default).
+  const colorRateRaw = Number(nodeGraphRgbFractalReadPort(nodeId, "Color Rate", 1));
   const colorRate = Number.isFinite(colorRateRaw) ? Math.max(0, colorRateRaw) : 1;
   const colorShift = ((nodeGraphRgbFractalReadParam(nodeId, "colorShift", 0) % 1) + 1) % 1;
+  // Bands default 1 = one smooth pass through the palette (not multi-wrap hash).
   const bandsRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "bands", 1));
   const bands = Number.isFinite(bandsRaw) ? Math.max(0.25, bandsRaw) : 1;
   const glow = 0;
@@ -631,8 +636,9 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
   const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   const settings = nodeGraphRgbFractalSettingsForNode(patchNode);
 
-  // Pure escape coloring. Cap iters at shader loop max (GPU safety), not param max.
-  const maxIter = Math.min(256, Math.max(8, Math.round(24 + depth * 85 * 0.9)));
+  // HD path: full iter budget for the fragment shader; Soft still rolls depth
+  // inside GLSL. Cap at loop max (256) for safety only — no intentional low-res.
+  const maxIter = Math.min(256, Math.max(8, Math.round(24 + depth * 72)));
 
   const paintParams = {
     cx,

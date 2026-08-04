@@ -29,7 +29,7 @@ nodeGraphLiveModuleEvaluators.henonMap = ({ runtime, node, nodeId, frame, frames
     runtime.henonMapStates.set(nodeId, state);
     henon = nodeGraphHenonMapSample({ ...opts, state });
   }
-  const henonLevel = read("level", 1);
+  const henonLevel = read("amplitude", 1);
   return {
     X: henon.x * henonLevel,
     Y: henon.y * henonLevel,

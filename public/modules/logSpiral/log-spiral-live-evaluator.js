@@ -22,7 +22,7 @@ nodeGraphLiveModuleEvaluators.logSpiral = ({ runtime, node, nodeId, frame, frame
     state,
     turns: read("turns", 4),
   });
-  const logSpiralLevel = read("level", 1);
+  const logSpiralLevel = read("amplitude", 1);
   return {
     X: logSpiral.x * logSpiralLevel,
     Y: logSpiral.y * logSpiralLevel,

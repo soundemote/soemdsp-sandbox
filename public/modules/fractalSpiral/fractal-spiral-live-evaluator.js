@@ -25,7 +25,7 @@ nodeGraphLiveModuleEvaluators.fractalSpiral = ({ runtime, node, nodeId, frame, f
     state,
     twist: read("twist", 0.381966),
   });
-  const fractalLevel = read("level", 1);
+  const fractalLevel = read("amplitude", 1);
   return {
     X: fractal.x * fractalLevel,
     Y: fractal.y * fractalLevel,

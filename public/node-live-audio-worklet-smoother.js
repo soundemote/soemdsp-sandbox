@@ -314,18 +314,22 @@ NodeLiveAudioProcessor.prototype.applyParameterModulation = function applyParame
     if (typeof nodeGraphParamApplyMod === "function") {
       return nodeGraphParamApplyMod(base, modulationSignal, metadata);
     }
-    // Fallback mirrors nodeGraphParamApplyMod (including modClamp).
+    // Fallback mirrors nodeGraphParamApplyMod (modClamp default false except constraints).
     const mod = Number(modulationSignal) || 0;
-    let shouldClamp = true;
+    let shouldClamp = false;
     if (Object.hasOwn(metadata, "modClamp")) {
       shouldClamp = Boolean(metadata.modClamp);
-    } else if (metadata.unboundedMax || metadata.unboundedMin) {
-      shouldClamp = false;
+    } else if (metadata.wraparound || metadata.hardClamp === true) {
+      shouldClamp = true;
+    } else {
+      const c = String(metadata.constraint || "").toLowerCase();
+      shouldClamp = c === "cpu" || c === "gpu" || c === "ram" || c === "memory";
     }
     let result;
     if (String(metadata?.kind || "").toLowerCase() === "frequency") {
-      const baseFrequency = Math.max(0.000001, Number(base) || 0.000001);
-      result = baseFrequency * (2 ** (mod / 0.1));
+      const b = Number(base);
+      const baseFrequency = Number.isFinite(b) ? b : 0;
+      result = Math.abs(baseFrequency) < 1e-18 ? 0 : baseFrequency * (2 ** (mod / 0.1));
     } else {
       const min = Number(metadata.min);
       const max = Number(metadata.max);

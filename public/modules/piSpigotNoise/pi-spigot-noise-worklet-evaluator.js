@@ -148,7 +148,7 @@ NodeLiveAudioProcessor.prototype.piSpigotNoiseSample = function piSpigotNoiseSam
   const seedRight = this.clampValue(this.safeFilterNumber(params.seedRight, null), 0, 1);
   const color = this.clampValue(Math.round(this.safeFilterNumber(params.color, null)), 0, 4);
   const smoothing = this.clampValue(this.safeFilterNumber(params.smoothing, null), 0, 1);
-  const level = this.safeFilterNumber(params.level, null);
+  const level = this.safeFilterNumber(params.amplitude, null);
   if (
     this.nativePiSpigotNoiseReady &&
     this.nativePiSpigotNoise?.soemdsp_pi_spigot_noise_create &&

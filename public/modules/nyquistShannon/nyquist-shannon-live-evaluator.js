@@ -24,7 +24,7 @@ nodeGraphLiveModuleEvaluators.nyquistShannon = ({ runtime, node, nodeId, frame, 
     tone: read("tone", 0),
     toneSmoothTime: read("toneSmoothTime", 0.01),
   });
-  const nyquistLevel = read("level", 1);
+  const nyquistLevel = read("amplitude", 1);
   return {
     X: nyquist.x * nyquistLevel,
     Y: nyquist.y * nyquistLevel,

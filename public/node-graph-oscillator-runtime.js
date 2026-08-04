@@ -183,28 +183,92 @@ function nodeGraphOscillatorWaveformSample(runtime, nodeId, phase, phaseIncremen
   return sample;
 }
 
-function nodeGraphEllipsoidSample(phase, offset = 0, shape = 0, scale = 1) {
+/**
+ * soemdsp Ellipsoid::getSineToSquare — Limit AA always on (C floor by ω=2πf/sr).
+ * phaseCycles 0..1 | shape 0=sine 1=square
+ */
+function nodeGraphEllipsoidSineToSquare(
+  phaseCycles,
+  shape = 0,
+  frequencyHz = 0,
+  sampleRate = 44100,
+  mode = 1, // ignored — Limit always
+  phaseIncCycles = 0, // unused; ABI
+) {
+  const sr = Math.max(1, Number(sampleRate) || 44100);
+  const f = Math.max(0, Number(frequencyHz) || 0);
+  const angle = (Number(phaseCycles) || 0) * Math.PI * 2;
+  const sinPhase = Math.sin(angle);
+  const cosPhase = Math.cos(angle);
+  let c = 1 - clampNodeSliderValue(Number(shape) || 0, 0, 1);
+  const cMin = Math.max(0, Math.min(1, (Math.PI * 2 * f) / sr));
+  if (c < cMin) c = cMin;
+  const xx = (cosPhase * cosPhase) + (sinPhase * c) * (sinPhase * c);
+  if (xx <= 1e-24) {
+    if (cosPhase > 0) return 1;
+    if (cosPhase < 0) return -1;
+    return 0;
+  }
+  const out = cosPhase / Math.sqrt(xx);
+  return Number.isFinite(out) ? out : 0;
+}
+
+function nodeGraphEllipsoidSineToSquareVector(phaseCycles, params = {}) {
+  const level = Number(params.amplitude) || Number(params.level) || 0;
+  const shape = clampNodeSliderValue(Number(params.shape) || 0, 0, 1);
+  const phase = Number(phaseCycles) || 0;
+  const frequencyHz = Number(params.frequencyHz) || 0;
+  const sampleRate = Number(params.sampleRate) || 44100;
+  // Bi: −1…1 quadrature; Uni: 0…1 = (bi + 1) / 2
+  const biX = nodeGraphEllipsoidSineToSquare(phase, shape, frequencyHz, sampleRate) * level;
+  const biY = nodeGraphEllipsoidSineToSquare(phase - 0.25, shape, frequencyHz, sampleRate) * level;
+  const uniX = 0.5 * (biX + level);
+  const uniY = 0.5 * (biY + level);
+  return {
+    "Bi X": biX,
+    "Bi Y": biY,
+    "Uni X": uniX,
+    "Uni Y": uniY,
+    // Face / legacy aliases
+    X: biX,
+    Y: biY,
+  };
+}
+
+// Full multi-param getEllipsoid (phase radians). Limit: scale floor by f/sr.
+function nodeGraphEllipsoidSample(phase, offset = 0, shape = 0, scale = 1, frequencyHz = 0, sampleRate = 44100) {
   const phaseRadians = Number(phase) || 0;
   const sinPhase = Math.sin(phaseRadians);
   const cosPhase = Math.cos(phaseRadians);
   const shapeRadians = (Number(shape) || 0) * Math.PI;
   const shapeSin = Math.sin(shapeRadians);
   const shapeCos = Math.cos(shapeRadians);
-  const safeOffset = clampNodeSliderValue(Number(offset) || 0, -1, 1);
-  const safeScale = Math.max(0, Number(scale) || 0);
-  const x = safeOffset + cosPhase;
-  const y = safeScale * sinPhase;
-  const denominator = Math.sqrt((x * x) + (y * y));
+  const safeOffset = Number(offset) || 0;
+  let safeScale = Math.max(0, Number(scale) || 0);
+  const sr = Math.max(1, Number(sampleRate) || 44100);
+  const f = Math.max(0, Number(frequencyHz) || 0);
+  const scaleFloor = Math.max(0, Math.min(1, (Math.PI * 2 * f) / sr));
+  if (safeScale < scaleFloor) safeScale = scaleFloor;
+  const ax = safeOffset + cosPhase;
+  const ay = safeScale * sinPhase;
+  const denominator = Math.sqrt((ax * ax) + (ay * ay));
   if (denominator <= 1e-12) {
     return 0;
   }
-  return clampNodeSliderValue(((x * shapeCos) + (y * shapeSin)) / denominator, -1, 1);
+  const out = ((ax * shapeCos) + (ay * shapeSin)) / denominator;
+  return Number.isFinite(out) ? out : 0;
 }
 
 function nodeGraphEllipsoidVectorSample(phase, params = {}) {
-  const level = clampNodeSliderValue(Number(params.level) || 0, 0, 1);
-  const x = nodeGraphEllipsoidSample(phase, params.offsetX, params.shapeX, params.scaleX) * level;
-  const y = nodeGraphEllipsoidSample(phase - Math.PI * 0.5, params.offsetY, params.shapeY, params.scaleY) * level;
+  // Prefer sine→square when `shape` is provided (RoundShape path).
+  if (params && Object.prototype.hasOwnProperty.call(params, "shape") && params.scaleX == null) {
+    return nodeGraphEllipsoidSineToSquareVector(phase, params);
+  }
+  const level = Math.max(0, Number(params.amplitude) || Number(params.level) || 0);
+  const frequencyHz = Number(params.frequencyHz) || 0;
+  const sampleRate = Number(params.sampleRate) || 44100;
+  const x = nodeGraphEllipsoidSample(phase, params.offsetX, params.shapeX, params.scaleX, frequencyHz, sampleRate) * level;
+  const y = nodeGraphEllipsoidSample(phase - Math.PI * 0.5, params.offsetY, params.shapeY, params.scaleY, frequencyHz, sampleRate) * level;
   return {
     Out: x,
     Mono: x,
@@ -385,7 +449,7 @@ function nodeGraphAdditiveOscillatorSample(runtime, nodeId, phase, params = {}, 
     clampNodeSliderValue(Number(params.modA) || 0, 0, 1),
     clampNodeSliderValue(Number(params.harmonicPhaseAdd) || 0, 0, 1),
     clampNodeSliderValue(Number(params.harmonicPhaseMultiply) || 0, 0, 4),
-    clampNodeSliderValue(Number(params.level) || 0, 0, 1),
+    Math.max(0, Number(params.amplitude) || 0),
     Number(params.dampingFilterFrequency) || 20000,
     safeRate,
   );

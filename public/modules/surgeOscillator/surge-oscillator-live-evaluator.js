@@ -31,7 +31,7 @@ nodeGraphLiveModuleEvaluators.surgeOscillator = ({ runtime, node, nodeId, frame,
     })
     : (typeof nodeGraphPitchedFrequency === "function"
       ? nodeGraphPitchedFrequency(baseFrequency, pitchCv, referenceVoltage)
-      : Math.max(0, baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1))));
+      : baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1)));
   return nodeGraphSurgeOscillatorSample(state, {
     frequencyHz: effectiveFrequency,
     sampleRate,
@@ -39,6 +39,6 @@ nodeGraphLiveModuleEvaluators.surgeOscillator = ({ runtime, node, nodeId, frame,
     hasExternalSync: hasInput(nodeId, "Sync"),
     syncFrequencyHz: read("syncFrequency", 50),
     waveform: read("waveform", 0),
-    level: read("level", 1),
+    level: read("amplitude", 1),
   });
 };

@@ -421,10 +421,13 @@ function nodeGraphParameterDefinitionMetadata(parameter) {
     smoothingType,
     step: Number.isFinite(step) && step > 0 ? step : 0,
     tooltip: String(parameter.tooltip || "").slice(0, 240),
-    // After MOD: re-clamp to min/max (default true). UI never leaves min/max.
+    // After MOD: hard re-clamp only when requested (default false).
+    // Resource params use constraint cpu|gpu|ram; wraparound always wraps.
     modClamp: Object.hasOwn(parameter, "modClamp")
       ? Boolean(parameter.modClamp)
-      : !(parameter.unboundedMax || parameter.unboundedMin),
+      : false,
+    hardClamp: Boolean(parameter.hardClamp),
+    constraint: parameter.constraint ? String(parameter.constraint) : "",
     unit: parameter.unit ?? "",
     wraparound: Boolean(parameter.wraparound),
   };
@@ -559,10 +562,16 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
       }
       // Legacy paramMeta used unboundedMax/Min for “mod may leave domain”.
       if (Object.hasOwn(source, "unboundedMax") || Object.hasOwn(source, "unboundedMin")) {
-        return !(source.unboundedMax || source.unboundedMin);
+        return false;
       }
-      return fallback.modClamp !== false;
+      return Boolean(fallback.modClamp);
     })(),
+    hardClamp: Object.hasOwn(source, "hardClamp")
+      ? Boolean(source.hardClamp)
+      : Boolean(fallback.hardClamp),
+    constraint: Object.hasOwn(source, "constraint")
+      ? String(source.constraint ?? "")
+      : String(fallback.constraint || ""),
     unit: String(Object.hasOwn(source, "unit") ? source.unit ?? "" : fallback.unit),
     wraparound: fallback.wraparound && Object.hasOwn(source, "wraparound")
       ? Boolean(source.wraparound)

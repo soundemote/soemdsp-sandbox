@@ -52,7 +52,7 @@ NodeLiveAudioProcessor.prototype.bradley2ASample = function bradley2ASample(stat
           Number(params.hitGain) || 0,
           Number(params.hitPhase) || 0,
           Number(params.impulseLevel) || 0,
-          Number(params.level) || 0,
+          Number(params.amplitude) || 0,
           safeRate,
         );
         return this.safeFilterNumber(out, null);

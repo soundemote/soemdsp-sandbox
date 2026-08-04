@@ -190,11 +190,14 @@ const phase = wrap01(phaseKnob + phaseCv);
 
 ### Universal linear frequency jack `f`
 
-Most oscillators expose a left-side jack named **`f`**: absolute Hz in
-`[0, Speed Limit]`. Speed Limit is a header control next to Speed (default
-**20000**). When `f` is wired it **overrides** the module’s usual
-frequency/0.1V/Oct path; when unwired, each module keeps its own pitch
-universe.
+Most oscillators expose a left-side jack named **`f`**: linear frequency
+drive (Hz scale, **signed**). Speed Limit is a header control next to Speed
+(default **20000**). When `f` is wired, effective pitch is **`f × Frequency`**
+(both may be signed; 0.1V/Oct is ignored on this path). When unwired, each
+module keeps Frequency / 0.1V/Oct (signed base × octave ratio).
+
+**Through-zero:** negative Hz reverses phase (phase increment is signed).
+Final Hz is clamped to `[−Speed Limit, +Speed Limit]`.
 
 Helpers (public/node-graph-module-controls.js + worklet methods):
 

@@ -57,7 +57,7 @@ function nodeGraphAdditiveOscLiveEvaluator({ runtime, node, nodeId, frame, frame
     })
     : (typeof nodeGraphPitchedFrequency === "function"
       ? nodeGraphPitchedFrequency(frequency, pitchCv, referenceVoltage)
-      : Math.max(0, frequency * (2 ** ((pitchCv - referenceVoltage) / 0.1))));
+      : frequency * (2 ** ((pitchCv - referenceVoltage) / 0.1)));
   const incrementInput = nodeGraphSafeFilterNumber(
     mixInput(nodeId, "Increment"),
     runtime,
@@ -84,7 +84,7 @@ function nodeGraphAdditiveOscLiveEvaluator({ runtime, node, nodeId, frame, frame
       harmonics: readNodeGraphLiveEffectiveParam(runtime, node, "harmonics", 32, frame, frames, frameValues),
       harmonicPhaseAdd: readNodeGraphLiveEffectiveParam(runtime, node, "harmonicPhaseAdd", 0, frame, frames, frameValues),
       harmonicPhaseMultiply: readNodeGraphLiveEffectiveParam(runtime, node, "harmonicPhaseMultiply", 0, frame, frames, frameValues),
-      level: readNodeGraphLiveEffectiveParam(runtime, node, "level", 0.35, frame, frames, frameValues),
+      level: readNodeGraphLiveEffectiveParam(runtime, node, "amplitude", 0.35, frame, frames, frameValues),
       modA: readNodeGraphLiveEffectiveParam(runtime, node, "modA", 0.5, frame, frames, frameValues),
       waveform: readNodeGraphLiveEffectiveParam(runtime, node, "waveform", 1, frame, frames, frameValues),
     },

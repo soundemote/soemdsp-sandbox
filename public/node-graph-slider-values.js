@@ -476,13 +476,48 @@ function finishNodeGraphParameterSmoothing(smoothers, runtime = null) {
   }
 }
 
+/**
+ * Normalize a domain value for the slider *thumb* / HTML range.
+ * Ordinary params are not hard-clipped (min/max are guides). Wraparound wraps.
+ * Resource-constrained params (data-constraint cpu|gpu|ram) and hardClamp clamp.
+ */
 function normalizeNodeSliderValue(slider, value, min = Number(slider.min), max = Number(slider.max)) {
   if (!Number.isFinite(value)) {
     return Number.isFinite(min) ? min : 0;
   }
-  return nodeSliderShouldWraparound(slider)
-    ? wrapNodeSliderValue(value, min, max)
-    : clampNodeSliderValue(value, min, max);
+  if (nodeSliderShouldWraparound(slider)) {
+    return wrapNodeSliderValue(value, min, max);
+  }
+  const constraint = String(slider?.dataset?.constraint || "").toLowerCase();
+  const hard = slider?.dataset?.hardClamp === "true"
+    || constraint === "cpu"
+    || constraint === "gpu"
+    || constraint === "ram"
+    || constraint === "memory";
+  if (!hard) {
+    return value;
+  }
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
+    return value;
+  }
+  return clampNodeSliderValue(value, min, max);
+}
+
+/** Thumb position on an HTML range (must stay in min/max). */
+function nodeSliderThumbDisplayValue(slider, domainValue) {
+  const min = Number(slider.min);
+  const max = Number(slider.max);
+  const n = Number(domainValue);
+  if (!Number.isFinite(n)) {
+    return Number.isFinite(min) ? min : 0;
+  }
+  if (nodeSliderShouldWraparound(slider) && Number.isFinite(min) && Number.isFinite(max) && max > min) {
+    return wrapNodeSliderValue(n, min, max);
+  }
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
+    return n;
+  }
+  return clampNodeSliderValue(n, min, max);
 }
 
 function normalizedNodeSliderMid(slider) {

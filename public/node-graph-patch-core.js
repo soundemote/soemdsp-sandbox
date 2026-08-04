@@ -16,13 +16,39 @@ function normalizeNodeGraphPatchParameter(type, key, value, metadata = null) {
     : Number.isFinite(fallback)
       ? fallback
       : 0;
-  const min = Number(metadata?.min ?? parameter?.min);
-  const max = Number(metadata?.max ?? parameter?.max);
-  // Stored DOMAIN always honors parameter min/max (no UI / patch overshoot).
-  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
+  // min/max are slider guides — only hard-clamp wraparound / resource constraints.
+  const meta = metadata && typeof metadata === "object"
+    ? metadata
+    : {
+      min: parameter?.min,
+      max: parameter?.max,
+      wraparound: parameter?.wraparound,
+      constraint: parameter?.constraint,
+      hardClamp: parameter?.hardClamp,
+    };
+  if (typeof nodeGraphParamApplyDomainBounds === "function") {
+    return nodeGraphParamApplyDomainBounds(candidate, {
+      min: meta.min ?? parameter?.min,
+      max: meta.max ?? parameter?.max,
+      wraparound: meta.wraparound ?? parameter?.wraparound,
+      constraint: meta.constraint ?? parameter?.constraint,
+      hardClamp: meta.hardClamp ?? parameter?.hardClamp,
+    });
+  }
+  const min = Number(meta.min ?? parameter?.min);
+  const max = Number(meta.max ?? parameter?.max);
+  const wrap = Boolean(meta.wraparound ?? parameter?.wraparound);
+  const constraint = String(meta.constraint ?? parameter?.constraint ?? "").toLowerCase();
+  const hard = meta.hardClamp === true
+    || wrap
+    || constraint === "cpu"
+    || constraint === "gpu"
+    || constraint === "ram"
+    || constraint === "memory";
+  if (!hard || !Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
     return candidate;
   }
-  return metadata?.wraparound || parameter?.wraparound
+  return wrap
     ? wrapNodeSliderValue(candidate, min, max)
     : clampNodeSliderValue(candidate, min, max);
 }
@@ -162,16 +188,22 @@ function validateNodeGraphPatch(patch) {
     }
     const params = {};
     const paramMeta = {};
+    const rawParams = node.params && typeof node.params === "object" ? node.params : {};
+    const rawParamMeta = node.paramMeta && typeof node.paramMeta === "object" ? node.paramMeta : {};
     for (const parameter of nodeGraphModuleDefinitions[type].parameters || []) {
+      // Legacy source "level" → "amplitude" (RoundShape and other sources).
+      const legacyLevelMeta = parameter.key === "amplitude" ? rawParamMeta.level : undefined;
       const metadata = normalizeNodeGraphPatchParameterMetadata(
         type,
         parameter.key,
-        node.paramMeta?.[parameter.key],
+        rawParamMeta[parameter.key] ?? legacyLevelMeta,
       );
       paramMeta[parameter.key] = metadata;
-      let value = Object.hasOwn(node.params || {}, parameter.key)
-        ? node.params[parameter.key]
-        : parameter.defaultValue;
+      let value = Object.hasOwn(rawParams, parameter.key)
+        ? rawParams[parameter.key]
+        : (parameter.key === "amplitude" && Object.hasOwn(rawParams, "level")
+          ? rawParams.level
+          : parameter.defaultValue);
       // Smooth Graph Curve: collapse old 6-choice layout (Linear/Smooth/Bezier/
       // Quadratic/Cubic/Catmull) where Smooth/Bezier/Catmull were one path.
       // Detect old layout via saved max≥5 or orphan indices 4–5.

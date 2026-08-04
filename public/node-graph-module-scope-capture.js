@@ -274,9 +274,26 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
     const source = nodeGraphModuleScopeSlotUsesWiredInputs(slot)
       ? null
       : nodeGraphModuleDisplaySourceForSlot(slot);
-    return nodeGraphModuleScopeCapturedScope2dBuffer(slot, source
+    const captureOpts = source
       ? { xPort: source.x, yPort: source.y }
-      : {});
+      : {};
+    // Vector 2D Trace redraws the whole window each frame (no energy FBO).
+    // Without historySeconds it only pulled “new samples since last draw”
+    // (phosphor deposit style) → incomplete / dashed Lissajous. Phosphor
+    // burn keeps the short window intentionally.
+    if (renderer === "scope2dTrace") {
+      const node = typeof nodeGraphModuleScopeNodeForSlot === "function"
+        ? nodeGraphModuleScopeNodeForSlot(slot)
+        : null;
+      const settings = typeof nodeGraphScope2dTraceSettingsForNode === "function"
+        ? nodeGraphScope2dTraceSettingsForNode(node)
+        : null;
+      const history = Number(settings?.historySeconds);
+      if (Number.isFinite(history) && history > 0) {
+        captureOpts.historySeconds = history;
+      }
+    }
+    return nodeGraphModuleScopeCapturedScope2dBuffer(slot, captureOpts);
   }
   if (["traceDisplay", "dotOscilloscope", "valueOscilloscope", "numberReadout", "lineBurnOscilloscope"].includes(slot?.type)) {
     return nodeGraphModuleScopeState.buffers.get(`${nodeId}:In`) ||
@@ -386,7 +403,9 @@ function nodeGraphModuleScopeCapturedScope2dBuffer(slot, options = {}) {
   // Capture only what we need to deposit this frame (new samples + a small
   // pad). The energy FBO holds the trail via decay — re-capturing ~1s and
   // re-stamping it every frame painted a lagging "second path" behind the beam.
-  const frames = Number.isFinite(historySeconds)
+  // Vector 2D Trace passes historySeconds and needs a real contiguous window.
+  // Cap to available ring buffer (validLength) so we never request empty.
+  let frames = Number.isFinite(historySeconds)
     ? Math.min(
       validLength,
       Math.max(1, Math.ceil(Math.max(0, historySeconds) * sampleRate)),
@@ -395,6 +414,10 @@ function nodeGraphModuleScopeCapturedScope2dBuffer(slot, options = {}) {
       validLength,
       Math.max(minWindowFrames, newSinceLastDraw, 1),
     );
+  // Always keep at least a few samples so a slow FPS / short ring still draws.
+  if (validLength > 0) {
+    frames = Math.max(2, Math.min(validLength, frames));
+  }
   const start = Math.max(0, length - frames);
   const startFrame = Math.max(0, absoluteFrame - frames);
   const x = new Float32Array(frames);

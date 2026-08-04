@@ -243,7 +243,9 @@ extern "C" void soemdsp_dsf_oscillator_sample(
   DsfOscillatorState& s = gPool[handle - 1];
 
   const double safeSampleRate = sampleRate > 1.0 ? sampleRate : 48000.0;
-  const double safeFrequency = frequencyHz > 1.0 ? frequencyHz : 1.0;
+  // Through-zero: signed frequency (dt may be negative).
+  const double absFrequency = frequencyHz < 0.0 ? -frequencyHz : frequencyHz;
+  const double safeAbsFrequency = absFrequency > 1.0e-6 ? absFrequency : 1.0e-6;
   const double dt = clampD(frequencyHz / safeSampleRate, -0.5, 0.5);
   const double phaseOffset = wrap01(phase);
 
@@ -253,7 +255,7 @@ extern "C" void soemdsp_dsf_oscillator_sample(
     sample = sinApprox(wrap01(s.t + phaseOffset) * kPi * 2.0);
   } else {
     const double nyquist = safeSampleRate * 0.5;
-    int nMax = static_cast<int>(nyquist / safeFrequency);
+    int nMax = static_cast<int>(nyquist / safeAbsFrequency);
     if (nMax < 1) nMax = 1;
     s.t = wrap01(s.t + dt * 0.9999);
     const double renderT = wrap01(s.t + phaseOffset);

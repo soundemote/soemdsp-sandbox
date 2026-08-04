@@ -156,7 +156,8 @@ extern "C" void soemdsp_hypersaw_sample(
   HypersawState& s = gPool[handle - 1];
 
   const double safeSampleRate = sampleRate > 1.0 ? sampleRate : 48000.0;
-  const double safeFrequency = frequencyHz > 0.0 ? frequencyHz : 0.0;
+  // Through-zero: negative frequency reverses phase (signed phaseIncrement).
+  const double safeFrequency = (frequencyHz == frequencyHz) ? frequencyHz : 0.0;
   const int voiceCount = numVoices < 1 ? 1 : (numVoices > kMaxVoices ? kMaxVoices : numVoices);
   const double spreadAmt = clampD(spread, 0.0, 1.0);
   const double randomAmt = clampD(randomAmount, 0.0, 1.0);
@@ -192,7 +193,9 @@ extern "C" void soemdsp_hypersaw_sample(
     const double dispersion =
       basePosition * spreadAmt + voice.randomOffset * randomAmt + voice.driftLp * driftAmt;
     const double renderPhase = wrap01(voice.phase + phaseOffset + dispersion);
-    const double sawSample = 2.0 * renderPhase - 1.0 - polyBlep(renderPhase, phaseIncrement > 0.0 ? phaseIncrement : 1.0);
+    const double blepDt = phaseIncrement < 0.0 ? -phaseIncrement : phaseIncrement;
+    const double sawSample = 2.0 * renderPhase - 1.0
+      - polyBlep(renderPhase, blepDt > 1.0e-12 ? blepDt : 1.0);
 
     voice.phase = wrap01(voice.phase + phaseIncrement);
 

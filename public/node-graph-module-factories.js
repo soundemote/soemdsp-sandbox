@@ -656,6 +656,14 @@ function createNodeGraphParameter(node, type, parameter) {
   input.dataset.nonlinearSlider = metadata?.nonlinearSlider ? "true" : "false";
   input.dataset.showSign = metadata?.showSign ? "true" : "false";
   input.dataset.wraparound = metadata?.wraparound ? "true" : "false";
+  // Domain hard-clamp policy (slider-values): only constraint / hardClamp clip.
+  if (metadata?.constraint || parameter.constraint) {
+    input.dataset.constraint = String(metadata?.constraint || parameter.constraint || "");
+  }
+  if (metadata?.hardClamp || parameter.hardClamp) {
+    input.dataset.hardClamp = "true";
+  }
+  input.dataset.domainValue = String(metadata?.def ?? parameter.defaultValue);
   applyNodeGraphInputUnboundedValue(input, input.value);
   input.setAttribute("aria-label", `${nodeGraphNodeLabels[type]} ${parameter.label}`);
   label.append(input);

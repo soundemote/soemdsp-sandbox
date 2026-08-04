@@ -7,9 +7,20 @@ Live and worklet both call it (no dual formulas).
 
 | Surface | What it is | Math contract |
 |---------|------------|----------------|
-| **DOMAIN** | Knob/slider value in real units | Stored on the node; readout shows this (after smooth) |
+| **DOMAIN** | Knob/slider value in real units | Stored on the node; readout shows this (after smooth). **min/max are slider/unit-map guides**, not hard clips (unless wraparound, `constraint: cpu|gpu|ram`, or `hardClamp: true`). |
 | **MOD** | Param-row modulation CV | Bipolar unit **[−1, 1]**; see apply rules below |
 | **SIGNAL IN** | Named jacks (`In`, `0.1V/Oct`, …) | Module-specific; **not** the same as MOD |
+
+## DOMAIN hard clamp policy
+
+Hard clamp/wrap of stored or post-MOD effective values only when:
+
+- **`wraparound: true`** — always wrap into min/max
+- **`constraint: "cpu" | "gpu" | "ram"`** — resource-limited params (e.g. harmonics)
+- **`hardClamp: true`** — explicit opt-in
+- **`modClamp: true`** — after MOD only (default is **false**)
+
+Typing Amplitude `8000` or Frequency outside the slider mid-band must stick.
 
 ## MOD apply rules
 
@@ -23,7 +34,7 @@ Then `nodeGraphParamApplyMod(domainBase, modSum, metadata)`:
 
 2. **Everything else**  
    Map domain → unit [0, 1] (with nonlinear mid skew if `nonlinearSlider`),  
-   add `modSum`, map back to domain, apply min/max/wrap.
+   add `modSum`, map back to domain; hard min/max only per policy above.
 
 **Behavior change vs older live path:** non-frequency mod was often treated as
 **unipolar [0, 1]** (negative LFOs clipped). It is now **bipolar [−1, 1]** so

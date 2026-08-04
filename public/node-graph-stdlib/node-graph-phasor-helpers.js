@@ -40,20 +40,24 @@ function nodeGraphTrisaw(phase, warp) {
 
 /**
  * 0.1V/Oct pitch tracking: baseHz * 2^((cv - reference) / 0.1).
- * Matches osc / phosphillator / additive convention. referenceVoltage defaults
- * to 0 (cv is absolute 0.1V/Oct); pass a reference when the jack is relative.
+ * Through-zero: baseHz may be negative (reverse phase). Sign of base is kept;
+ * magnitude scales with the octave ratio.
  */
 function nodeGraphPitchedFrequency(baseHz, cv01Voct = 0, referenceVoltage = 0) {
-  const base = Math.max(0, Number(baseHz) || 0);
+  const base = Number(baseHz);
+  const safeBase = Number.isFinite(base) ? base : 0;
   const cv = Number(cv01Voct);
   const pitch = Number.isFinite(cv) ? cv : 0;
   const ref = Number(referenceVoltage);
   const reference = Number.isFinite(ref) ? ref : 0;
-  return Math.max(0, base * (2 ** ((pitch - reference) / 0.1)));
+  const ratio = 2 ** ((pitch - reference) / 0.1);
+  const out = safeBase * ratio;
+  return Number.isFinite(out) ? out : 0;
 }
 
 /**
- * Advance a free-running [0,1) phasor by frequencyHz / sampleRate.
+ * Advance a free-running [0, 1) phasor by frequencyHz / sampleRate.
+ * Through-zero: negative frequency reverses (phase decreases).
  * Rising-edge reset (reset > threshold while lastReset was low) zeros phase.
  *
  * state must be a mutable object; uses/creates:
@@ -72,9 +76,10 @@ function nodeGraphAdvancePhase01(state, frequencyHz, sampleRate, reset = 0, rese
     state.phase = 0;
   }
   state.lastReset = resetActive;
-  const freq = Math.max(0, Number(frequencyHz) || 0);
+  const freq = Number(frequencyHz);
+  const safeFreq = Number.isFinite(freq) ? freq : 0;
   const rate = Math.max(1, Number(sampleRate) || 1);
-  state.phase = nodeGraphWrap01((Number(state.phase) || 0) + freq / rate);
+  state.phase = nodeGraphWrap01((Number(state.phase) || 0) + safeFreq / rate);
   return state.phase;
 }
 

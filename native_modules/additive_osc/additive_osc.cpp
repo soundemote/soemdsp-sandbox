@@ -112,7 +112,8 @@ extern "C" double soemdsp_additive_osc_sample(
   double sampleRate
 ) {
   const double rate = maxd(1.0, safe(sampleRate));
-  const double safeFrequency = maxd(0.0, safe(frequency));
+  // Through-zero: signed frequency (negative reverses phase).
+  const double safeFrequency = safe(frequency);
   const int maxHarmonics = (int)clamp(roundd(safe(harmonics)), 1.0, (double)kHardMaxHarmonics);
   const int wf = (int)roundd(safe(waveform));
   const double safeModA = clamp(safe(modA), 0.0, 1.0);
@@ -122,13 +123,14 @@ extern "C" double soemdsp_additive_osc_sample(
   const double nyquist = maxd(1.0, rate * 0.5);
   const double safeDampingFilterFrequency = clamp(safe(dampingFilterFrequency) != 0.0 ? safe(dampingFilterFrequency) : 20000.0, 1.0, nyquist);
 
-  const int harmonicLimit = (int)maxd(1.0, mind((double)maxHarmonics, dsp_floor(mind(20000.0, rate * 0.45) / maxd(1.0, safeFrequency))));
+  const double absFrequency = absd(safeFrequency);
+  const int harmonicLimit = (int)maxd(1.0, mind((double)maxHarmonics, dsp_floor(mind(20000.0, rate * 0.45) / maxd(1.0, absFrequency))));
 
   double total = 0.0;
   double norm = 0.0;
   for (int harmonic = 1; harmonic <= harmonicLimit; harmonic++) {
     const HarmonicPartial partial = waveform_harmonic(wf, (double)harmonic, safeModA);
-    const double dampingX = clamp((safeFrequency * (double)harmonic) / safeDampingFilterFrequency, 0.0, 1.0);
+    const double dampingX = clamp((absFrequency * (double)harmonic) / safeDampingFilterFrequency, 0.0, 1.0);
     // No Damping Graph connected in the native path -> flat 1.0 response,
     // matching the JS fallback `() => 1` used when nothing is wired in.
     (void)dampingX;

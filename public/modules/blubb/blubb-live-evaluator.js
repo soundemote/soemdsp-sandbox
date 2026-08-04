@@ -15,7 +15,7 @@ nodeGraphLiveModuleEvaluators.blubb = ({ runtime, node, nodeId, frame, frames, f
     state,
     zDepth: read("zDepth", 0),
   });
-  const blubbLevel = read("level", 1);
+  const blubbLevel = read("amplitude", 1);
   return {
     X: blubb.x * blubbLevel,
     Y: blubb.y * blubbLevel,

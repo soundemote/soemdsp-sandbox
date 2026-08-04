@@ -23,7 +23,7 @@ nodeGraphLiveModuleEvaluators.bradley2a = ({ runtime, node, nodeId, frame, frame
       hitGain: read("hitGain", 1),
       hitPhase: read("hitPhase", 0),
       impulseLevel: read("impulseLevel", 0),
-      level: read("level", 1),
+      level: read("amplitude", 1),
     },
     sampleRate,
   );

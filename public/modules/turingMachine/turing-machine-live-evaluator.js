@@ -8,7 +8,7 @@ nodeGraphLiveModuleEvaluators.turingMachine = ({ runtime, node, nodeId, frame, f
   return nodeGraphTuringMachineSample(state, {
     clock: mixInput(nodeId, "Clock"),
     length: read("length", 8),
-    level: read("level", 1),
+    level: read("amplitude", 1),
     probability: read("probability", 0.25),
     reset: mixInput(nodeId, "Reset"),
   });

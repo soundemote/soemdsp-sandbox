@@ -12,7 +12,7 @@ nodeGraphLiveModuleEvaluators.logisticMap = ({ runtime, node, nodeId, frame, fra
   }
   const read = (key, fallback) => readNodeGraphLiveEffectiveParam(runtime, node, key, fallback, frame, frames, frameValues);
   const opts = {
-    level: read("level", 1),
+    level: read("amplitude", 1),
     r: read("r", 3.9),
     rate: read("rate", 8),
     reset: mixInput(nodeId, "Reset"),

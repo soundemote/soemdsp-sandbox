@@ -276,7 +276,9 @@ extern "C" double soemdsp_ping_pong_delay_sample(
   }
 
   const double dry = safe(input);
-  const double safeFeedback = clamp(safe(feedback), 0.0, 0.95);
+  // No hard feedback ceiling — soft-clip (saturate) is the loop limiter.
+  // Param UI min/max own the range (can be >1 for self-osc / tape cook).
+  const double safeFeedback = safe(feedback);
   const double safeMix = clamp(safe(mix), 0.0, 1.0);
   const double safeLevel = clamp(safe(level), 0.0, 2.0);
   const double driftSec = maxd(0.0, safe(offsetMs)) / 1000.0;

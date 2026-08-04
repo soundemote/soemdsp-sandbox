@@ -30,7 +30,7 @@ nodeGraphLiveModuleEvaluators.lorenzAttractor = ({ runtime, node, nodeId, frame,
     runtime.lorenzAttractorStates.set(nodeId, state);
     lorenz = nodeGraphLorenzAttractorSample({ ...opts, state });
   }
-  const level = read("level", 1);
+  const level = read("amplitude", 1);
   return {
     X: lorenz.x * level,
     Y: lorenz.y * level,

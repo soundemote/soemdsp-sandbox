@@ -40,8 +40,9 @@ NodeLiveAudioProcessor.prototype.sampleDelaySampleJs = function sampleDelaySampl
     rate,
   );
   return {
-    Delayed: this.safeFilterNumber(out.delayed, state),
+    // Dry (Thru) before wet (Delayed).
     Thru: out.raw,
+    Delayed: this.safeFilterNumber(out.delayed, state),
   };
 };
 
@@ -70,8 +71,8 @@ NodeLiveAudioProcessor.prototype.sampleDelaySample = function sampleDelaySample(
           state,
         );
         return {
-          Delayed: delayed,
           Thru: this.safeFilterNumber(input, state),
+          Delayed: delayed,
         };
       }
     } catch (error) {

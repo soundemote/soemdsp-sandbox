@@ -250,7 +250,8 @@ extern "C" void soemdsp_robin_supersaw_sample(
   RobinSupersawState& s = gPool[handle - 1];
 
   const double safeSampleRate = sampleRate > 1.0 ? sampleRate : 48000.0;
-  const double safeFrequency = frequencyHz > 1.0 ? frequencyHz : 1.0;
+  // Through-zero: signed Hz (phase reverse when negative).
+  const double safeFrequency = (frequencyHz == frequencyHz) ? frequencyHz : 0.0;
   const int numVoices = voices < 1 ? 1 : (voices > kMaxVoices ? kMaxVoices : voices);
   const double spreadCents = clamp(detuneCents, 0.0, 100.0);
 

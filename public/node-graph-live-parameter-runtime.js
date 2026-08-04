@@ -17,18 +17,27 @@ function readNodeGraphLiveSmoothedParam(runtime, node, key, fallback, frame, fra
 }
 
 function nodeGraphApplyParameterBounds(value, metadata = {}) {
-  // DOMAIN only — always honor parameter min/max. MOD policy is ApplyMod.
+  // DOMAIN: min/max are slider guides unless wraparound / resource constraint / hardClamp.
   if (typeof nodeGraphParamApplyDomainBounds === "function") {
     return nodeGraphParamApplyDomainBounds(value, metadata);
   }
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  if (metadata.wraparound) {
+    const min = Number(metadata.min);
+    const max = Number(metadata.max);
+    if (Number.isFinite(min) && Number.isFinite(max) && max > min) {
+      return wrapNodeSliderValue(n, min, max);
+    }
+  }
+  const c = String(metadata.constraint || "").toLowerCase();
+  const hard = metadata.hardClamp === true
+    || c === "cpu" || c === "gpu" || c === "ram" || c === "memory";
+  if (!hard) return n;
   const min = Number(metadata.min);
   const max = Number(metadata.max);
-  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
-    return value;
-  }
-  return metadata.wraparound
-    ? wrapNodeSliderValue(value, min, max)
-    : clampNodeSliderValue(value, min, max);
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) return n;
+  return clampNodeSliderValue(n, min, max);
 }
 
 function readNodeGraphRuntimeOutput(runtime, frameValues, nodeId, port = "Out") {
@@ -130,18 +139,23 @@ function nodeGraphApplyParameterModulation(base, modulationSignal, metadata = {}
   if (typeof nodeGraphParamApplyMod === "function") {
     return nodeGraphParamApplyMod(base, modulationSignal, metadata);
   }
-  // Fallback mirrors nodeGraphParamApplyMod (including modClamp).
+  // Fallback mirrors nodeGraphParamApplyMod (modClamp default false except constraints).
   const mod = Number(modulationSignal) || 0;
-  let shouldClamp = true;
+  let shouldClamp = false;
   if (Object.hasOwn(metadata, "modClamp")) {
     shouldClamp = Boolean(metadata.modClamp);
-  } else if (metadata.unboundedMax || metadata.unboundedMin) {
-    shouldClamp = false;
+  } else if (metadata.wraparound || metadata.hardClamp === true) {
+    shouldClamp = true;
+  } else {
+    const c = String(metadata.constraint || "").toLowerCase();
+    shouldClamp = c === "cpu" || c === "gpu" || c === "ram" || c === "memory";
   }
   let result;
   if (String(metadata?.kind || "").toLowerCase() === "frequency") {
-    const baseFrequency = Math.max(0.000001, Number(base) || 0.000001);
-    result = baseFrequency * (2 ** (mod / 0.1));
+    // Through-zero: keep sign of base; 0 base stays 0 under V/Oct.
+    const b = Number(base);
+    const baseFrequency = Number.isFinite(b) ? b : 0;
+    result = Math.abs(baseFrequency) < 1e-18 ? 0 : baseFrequency * (2 ** (mod / 0.1));
   } else {
     const min = Number(metadata.min);
     const max = Number(metadata.max);

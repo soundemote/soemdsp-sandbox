@@ -3303,8 +3303,11 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 .node-visibility-menu-list {
+  /* Fixed row height = other floating-window widgets; extra panel height scrolls
+     instead of stretching every toggle to fill the window. */
   display: grid;
-  grid-auto-rows: auto;
+  grid-auto-rows: var(--node-floating-window-button-height);
+  align-content: start;
   flex: 1 1 auto;
   gap: 0;
   min-width: 0;
@@ -3324,10 +3327,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
+  height: var(--node-floating-window-button-height);
   min-height: var(--node-floating-window-button-height);
+  max-height: var(--node-floating-window-button-height);
   overflow: hidden;
   margin: 0;
-  padding: 0;
+  padding: 0 6px;
   border: 0;
   border-bottom: 1px solid rgba(226, 168, 109, 0.24);
   border-radius: 0;
@@ -3335,8 +3340,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   font-size: 0.72rem;
   line-height: 1;
   text-align: center;
-  text-overflow: clip;
-  white-space: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* The tooltip toggles share one bounded row. Give the hotkey-bearing button
@@ -3345,14 +3350,19 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-visibility-menu-row {
   display: grid;
   grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  height: var(--node-floating-window-button-height);
+  min-height: var(--node-floating-window-button-height);
+  max-height: var(--node-floating-window-button-height);
   min-width: 0;
+  align-items: stretch;
 }
 
 .node-visibility-menu-row .scene-context-window-button-label {
   padding-inline: 2px;
-  overflow-wrap: normal;
+  overflow: hidden;
   text-align: center;
-  white-space: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* The second button in a row IS :last-child of its wrapper, so the rule below
@@ -11453,25 +11463,34 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   touch-action: none;
 }
 
+/*
+ * Workspace zoom ≥ 2.5 → nearest-neighbor upscale of face bitmaps.
+ * Soft Fractal / FBM / scopes / etc. paint at layout resolution; CSS scale
+ * must NOT bilinear-blur when you zoom way in (hard pixels, not mush).
+ * Asciiscope Sharp keeps image-rendering:auto inline — excluded below.
+ */
 .node-graph-workspace.pixelated-canvas-zoom .node-filter-curve-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-phosphor-waveform-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-phosphillator-draw-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-xy-pad-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-module-scope-local-fallback-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-number-readout-canvas,
-.node-graph-workspace.pixelated-canvas-zoom .node-phosphor-light-canvas {
+.node-graph-workspace.pixelated-canvas-zoom .node-phosphor-light-canvas,
+/* Soft Fractal stays smooth HD (image-rendering:auto inline) — not pixelated. */
+.node-graph-workspace.pixelated-canvas-zoom .node-rgb-shape-canvas,
+.node-graph-workspace.pixelated-canvas-zoom .node-rgb-picture-canvas,
+.node-graph-workspace.pixelated-canvas-zoom .node-fbm-field-canvas,
+.node-graph-workspace.pixelated-canvas-zoom .node-evolve-field-canvas,
+.node-graph-workspace.pixelated-canvas-zoom .node-wall-room-canvas,
+.node-graph-workspace.pixelated-canvas-zoom .node-matrix-display-canvas {
   image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
 /*
- * Matrix Sharp mode must stay smooth under workspace zoom (image-rendering:auto).
- * Pixel mode sets image-rendering:pixelated inline. Do NOT force pixelated on
- * .node-asciiscope-canvas here — that made Sharp and Pixel look identical.
+ * Matrix Sharp / Asciiscope Sharp set image-rendering:auto inline so they stay
+ * smooth under zoom. Pixel mode sets pixelated inline. Do not force here.
  */
-.node-graph-workspace.pixelated-canvas-zoom .node-matrix-display-canvas {
-  image-rendering: pixelated;
-}
-
 .node-graph-workspace.pixelated-canvas-zoom .node-asciiscope-canvas {
   /* Leave to JS: Sharp = auto, Pixel = pixelated */
 }
@@ -12402,6 +12421,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 .node-header-timing-widgets {
   box-sizing: border-box;
   display: grid;
+  /* Tap | BPM | Beats | Unit | FPS | Speed | Speed Limit | Smooth (+ Start/End moved out) */
   grid-template-columns: minmax(0, 0.74fr) repeat(7, minmax(0, 1fr));
   min-width: 0;
   width: 100%;
@@ -16052,7 +16072,9 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   grid-template-columns: calc(var(--node-floating-window-button-height) + 4px) minmax(0, 1fr);
   align-items: stretch;
   justify-content: stretch;
+  height: var(--node-floating-window-button-height);
   min-height: var(--node-floating-window-button-height);
+  max-height: var(--node-floating-window-button-height);
   padding: 0;
   border-radius: 5px;
   border-color: rgba(226, 168, 109, 0.24);

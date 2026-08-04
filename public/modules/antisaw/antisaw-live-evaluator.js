@@ -11,7 +11,7 @@ nodeGraphLiveModuleEvaluators.antisaw = ({ runtime, node, nodeId, frame, frames,
       fundamental: read("fundamental", 110),
       reflections: read("reflections", 64),
       tilt: read("tilt", 0),
-      level: read("level", 1),
+      level: read("amplitude", 1),
     },
     sampleRate,
   );

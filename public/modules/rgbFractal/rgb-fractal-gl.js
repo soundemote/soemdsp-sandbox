@@ -59,15 +59,16 @@ vec2 domainFold(vec2 z, float fold) {
   return mix(z, folded, f * 0.85);
 }
 
-// One Julia sample → energy in [0,1]. soft already baked into maxIter / trap mix by caller.
+// One Julia sample → energy in [0,1].
+// soft: creamier escape, wider traps, flatter micro-contrast (pristine, not sparkly).
 float juliaEnergy(vec2 z0, vec2 c, float maxIter, float soft, float trapMix) {
   vec2 z = domainFold(z0, uFold);
   float trap = 1e6;
   float trap2 = 1e6;
   float i = 0.0;
-  // Wider trap falloff when soft → fewer hard filaments
-  float trapW = mix(1.0, 2.4, soft);
-  float trapW2 = mix(0.7, 1.8, soft);
+  // Soft expands trap falloff so filaments are airbrushed, not 1px hash.
+  float trapW = mix(1.15, 2.8, soft);
+  float trapW2 = mix(0.85, 2.1, soft);
 
   for (int n = 0; n < 256; n++) {
     if (i >= maxIter) break;
@@ -87,26 +88,27 @@ float juliaEnergy(vec2 z0, vec2 c, float maxIter, float soft, float trapMix) {
       float nu = log(max(1e-12, logZn / log(2.0))) / log(2.0);
       float smoothI = i + 1.0 - nu;
       float escape = clamp(smoothI / max(1.0, maxIter), 0.0, 1.0);
-      // Soften escape contour (hard rings → cream)
-      escape = smoothstep(0.0, mix(0.55, 1.0, soft), escape);
-      escape = mix(escape, smoothstep(0.0, 1.0, escape), soft * 0.85);
+      // Soften escape contour (hard rings → cream). Soft starts working early.
+      float edge = mix(0.42, 1.05, soft);
+      escape = smoothstep(0.0, edge, escape);
+      escape = mix(escape, smoothstep(0.0, 1.0, escape), soft * 0.9);
 
       float t1 = 1.0 - smoothstep(0.0, trapW, trap);
       float t2 = 1.0 - smoothstep(0.0, trapW2, trap2);
       // Soft kills sharp trap lines (main source of "tiny pixel noise")
       float traps = clamp(t1 * 0.55 + t2 * 0.45, 0.0, 1.0);
-      traps = smoothstep(0.0, mix(0.35, 0.85, soft), traps);
+      traps = smoothstep(0.0, mix(0.28, 0.92, soft), traps);
 
-      float tm = clamp(trapMix * (1.0 - soft * 0.65), 0.0, 0.85);
+      float tm = clamp(trapMix * (1.0 - soft * 0.75), 0.0, 0.85);
       float e = mix(escape, traps, tm);
-      // Final soft curve — flattens micro-contrast
-      e = mix(e, e * e * (3.0 - 2.0 * e), soft * 0.7);
+      // Final soft curve — flattens micro-contrast (pristine plate)
+      e = mix(e, e * e * (3.0 - 2.0 * e), mix(0.25, 0.85, soft));
       return clamp(e, 0.0, 1.0);
     }
     i += 1.0;
   }
   // Interior: wide trap glow — no time grain (that read as breathing).
-  float t1 = 1.0 - smoothstep(0.0, mix(1.2, 2.2, soft), trap);
+  float t1 = 1.0 - smoothstep(0.0, mix(1.2, 2.4, soft), trap);
   return clamp(0.05 + 0.14 * t1, 0.0, 1.0);
 }
 
@@ -139,36 +141,47 @@ float sampleAt(vec2 frag, vec2 offsetPx, float maxIter, float soft, float trapMi
   return juliaEnergy(z0, uC, maxIter, soft, trapMix);
 }
 
-// Forward modular wrap (0→1→0 as continue, not triangle ping-pong 0→1→0 reverse).
-// Palette blur in paletteSample softens the seam.
-float softWrap(float x) {
-  return fract(x);
+// Cheap hash in [0,1) for LUT dither (breaks 8-bit palette posterization).
+float hash21(vec2 p) {
+  return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
 }
 
-vec3 paletteSample(float e, float soft) {
-  // Soft: low-pass the LUT so color edges don't sparkle
+// Sample 256×1 palette. t is clamped (no wrap) so structure never hits a
+// fract seam. Soft widens the LUT low-pass to hide stop-to-stop steps.
+vec3 paletteSample(float t, float soft) {
+  float e = clamp(t, 0.0, 1.0);
+  // Tiny ordered dither in LUT space (~1–2 entries) — kills contour steps
+  // from 8-bit texture quantization without looking noisy.
+  float dith = (hash21(gl_FragCoord.xy) - 0.5) * mix(1.5, 3.0, soft) / 255.0;
+  e = clamp(e + dith, 0.0, 1.0);
+
   vec3 c0 = texture2D(uPalette, vec2(e, 0.5)).rgb;
-  if (soft < 0.08) {
-    return c0;
-  }
-  float w = mix(0.012, 0.055, soft);
-  vec3 cL = texture2D(uPalette, vec2(fract(e - w), 0.5)).rgb;
-  vec3 cR = texture2D(uPalette, vec2(fract(e + w), 0.5)).rgb;
-  vec3 cLL = texture2D(uPalette, vec2(fract(e - w * 2.0), 0.5)).rgb;
-  vec3 cRR = texture2D(uPalette, vec2(fract(e + w * 2.0), 0.5)).rgb;
+  float w = mix(0.012, 0.09, soft);
+  // Edge-safe offsets (no fract wrap → no false color at 0/1).
+  float eL = clamp(e - w, 0.0, 1.0);
+  float eR = clamp(e + w, 0.0, 1.0);
+  float eLL = clamp(e - w * 2.0, 0.0, 1.0);
+  float eRR = clamp(e + w * 2.0, 0.0, 1.0);
+  vec3 cL = texture2D(uPalette, vec2(eL, 0.5)).rgb;
+  vec3 cR = texture2D(uPalette, vec2(eR, 0.5)).rgb;
+  vec3 cLL = texture2D(uPalette, vec2(eLL, 0.5)).rgb;
+  vec3 cRR = texture2D(uPalette, vec2(eRR, 0.5)).rgb;
   vec3 blur = cLL * 0.1 + cL * 0.25 + c0 * 0.3 + cR * 0.25 + cRR * 0.1;
-  return mix(c0, blur, clamp(soft * 1.1, 0.0, 1.0));
+  return mix(c0, blur, clamp(0.35 + soft * 0.75, 0.0, 1.0));
 }
 
 void main() {
   float soft = clamp(uSoft, 0.0, 1.0);
+  // Soft response curve: mid Soft already cream (not "only works near 1").
+  float softEase = soft * soft * (3.0 - 2.0 * soft);
   float glowAmt = clamp(uGlow, 0.0, 1.35);
-  // Soft rolls off iteration depth → sub-pixel filigree becomes smooth color, not noise
-  float maxIter = max(20.0, uMaxIter * mix(1.0, 0.42, soft));
+  // Soft rolls off iteration depth hard → sub-pixel filigree becomes smooth color.
+  // (High Depth + low Soft was the main "noisy Soft Fractal" failure mode.)
+  float maxIter = max(14.0, uMaxIter * mix(1.0, 0.28, softEase));
   float trapMix = uTrapMix;
 
   // Spatial AA radius in pixels — grows with soft (true anti-alias of fine structure)
-  float rad = mix(0.65, 2.8, soft);
+  float rad = mix(0.9, 3.2, softEase);
   float energy = 0.0;
   float wsum = 0.0;
 
@@ -179,9 +192,9 @@ void main() {
     wsum += 1.2;
   }
 
-  // 4-tap diamond (always on — baseline AA even at soft 0)
+  // 4-tap diamond (always on — baseline AA)
   {
-    float tw = 0.85;
+    float tw = 0.9;
     energy += sampleAt(gl_FragCoord.xy, vec2( rad,  0.0), maxIter, soft, trapMix) * tw;
     energy += sampleAt(gl_FragCoord.xy, vec2(-rad,  0.0), maxIter, soft, trapMix) * tw;
     energy += sampleAt(gl_FragCoord.xy, vec2( 0.0,  rad), maxIter, soft, trapMix) * tw;
@@ -189,10 +202,10 @@ void main() {
     wsum += tw * 4.0;
   }
 
-  // 4-tap diagonals when soft enough (creamier, kills sparkle)
-  if (soft > 0.18) {
+  // Diagonals earlier in Soft — cream without needing Soft near 1
+  if (soft > 0.08) {
     float d = rad * 0.72;
-    float tw = 0.45 + soft * 0.45;
+    float tw = 0.4 + softEase * 0.55;
     energy += sampleAt(gl_FragCoord.xy, vec2( d,  d), maxIter, soft, trapMix) * tw;
     energy += sampleAt(gl_FragCoord.xy, vec2(-d,  d), maxIter, soft, trapMix) * tw;
     energy += sampleAt(gl_FragCoord.xy, vec2( d, -d), maxIter, soft, trapMix) * tw;
@@ -200,10 +213,10 @@ void main() {
     wsum += tw * 4.0;
   }
 
-  // Extra ring at high soft — larger footprint = dreamy, no pixel dust
-  if (soft > 0.55) {
+  // Extra ring at medium+ soft — larger footprint = dreamy, no pixel dust
+  if (soft > 0.35) {
     float d = rad * 1.35;
-    float tw = 0.35 + (soft - 0.55) * 0.8;
+    float tw = 0.3 + (softEase - 0.2) * 0.7;
     energy += sampleAt(gl_FragCoord.xy, vec2( d,  0.0), maxIter, soft, trapMix) * tw;
     energy += sampleAt(gl_FragCoord.xy, vec2(-d,  0.0), maxIter, soft, trapMix) * tw;
     energy += sampleAt(gl_FragCoord.xy, vec2( 0.0,  d), maxIter, soft, trapMix) * tw;
@@ -214,35 +227,47 @@ void main() {
   float e = energy / max(1e-4, wsum);
   e = clamp(e, 0.0, 1.0);
 
-  // Contrast: soft flattens micro-detail; glow still lifts midtones gently
-  float gamma = mix(0.78, 1.05, soft) - glowAmt * 0.1;
-  e = pow(e, max(0.45, gamma));
+  // Soft: flatten micro-contrast so escape iso-lines don't posterize in the LUT.
+  float gamma = mix(0.78, 1.08, softEase) - glowAmt * 0.08;
+  e = pow(e, max(0.5, gamma));
+  e = mix(e, e * e * (3.0 - 2.0 * e), softEase * 0.5);
 
   // Structure mask. Haze mode keeps a soft residual so color can wash into empty plate.
   float hazeMode = uOuterMode > 1.5 ? 1.0 : 0.0;
   float lit = hazeMode > 0.5
     ? smoothstep(0.012, 0.42, e)
-    : smoothstep(0.03, 0.22, e);
-  // Residual "aura" around structure — energy that isn't full lit but still carries color.
+    : smoothstep(mix(0.02, 0.05, softEase), mix(0.2, 0.35, softEase), e);
   float aura = hazeMode > 0.5
     ? smoothstep(0.0, 0.28, e) * (1.0 - lit * 0.55)
-    : 0.0;
+    : smoothstep(0.0, mix(0.14, 0.3, softEase), e) * (1.0 - lit) * softEase * 0.65;
 
-  // Color bands: full phase on structure; Haze peeks phase gently into the aura
-  // (slow wash, not full-face strobe on empty plate).
-  float band = mix(uBands + glowAmt * 0.9, uBands * 0.45 + glowAmt * 0.4, soft);
-  band = max(0.25, band);
-  float phaseGate = mix(lit, clamp(lit + aura * 0.55, 0.0, 1.0), hazeMode);
-  float phase = uColorPhase * mix(1.0, 0.55, soft) * phaseGate;
-  float eColor;
-  if (soft > 0.25) {
-    eColor = softWrap(e * band + phase);
-    eColor = mix(e, eColor, mix(0.55, 0.35, soft) * max(lit, aura * 0.75));
-  } else {
-    eColor = fract(e * band + phase);
+  // —— Color (banding fix) —————————————————————————————————————————————
+  // Do NOT fract(e + phase) or gate phase by lit — both create concentric
+  // palette seams on escape rings. Default: continuous energy → LUT.
+  // Color Shift / Rate: global scrub of the LUT (same offset for every pixel).
+  // Color Bands > 1: optional multi-wrap (psychedelic); Soft heavily damps it.
+  float phase = fract(uColorPhase); // 0…1 global only
+  float eStruct = clamp(e * mix(1.0, uBreath, max(lit, aura * 0.4)), 0.0, 1.0);
+
+  // Continuous map: stretch structure through the gradient, then add phase as
+  // a clamp-side scrub (no modular wrap through structure).
+  float stretch = mix(1.0, 0.85, softEase);
+  float eColor = clamp(eStruct * stretch + (phase - 0.5) * mix(0.55, 0.35, softEase) * 2.0, 0.0, 1.0);
+
+  // Multi-wrap only when user explicitly raises Bands above ~1.
+  float bandExtra = max(0.0, uBands - 1.0);
+  if (bandExtra > 0.001) {
+    float wrapAmt = clamp(bandExtra / 8.0, 0.0, 1.0) * (1.0 - softEase * 0.92);
+    wrapAmt *= max(lit, aura * 0.35);
+    // Smooth wrap: avoid a hard seam by blending near 0/1 of fract.
+    float raw = eStruct * (1.0 + bandExtra) + phase;
+    float f = fract(raw);
+    float seam = min(f, 1.0 - f);
+    float seamSoft = smoothstep(0.0, mix(0.02, 0.08, softEase), seam);
+    float eWrap = mix(0.5, f, seamSoft); // pull seam toward mid palette
+    eColor = mix(eColor, eWrap, wrapAmt);
   }
-  eColor = clamp(eColor * mix(1.0, uBreath, max(lit, aura * 0.5)), 0.0, 1.0);
-  eColor = mix(eColor, 0.5 + (eColor - 0.5) * mix(1.0, 0.7, soft), soft * 0.5 * lit);
+  eColor = clamp(eColor, 0.0, 1.0);
 
   vec2 q2 = gl_FragCoord.xy / uResolution - 0.5;
   float rEdge = length(q2);
@@ -258,13 +283,14 @@ void main() {
   float breath = mix(breathIn, breathOut, 0.45);
 
   if (hazeMode > 0.5) {
-    // Wash color: low–mid palette that drifts slowly with Color Phase / Rate.
-    // Uses e so wash hugs structure; not full colorPhase on pure empty (avoids strobe).
-    float washT = fract(
+    // Wash: low–mid palette, clamp (no fract) so haze doesn't ring.
+    float washT = clamp(
       0.06
-      + e * mix(0.22, 0.48, soft)
-      + uColorPhase * 0.18
-      + breath * 0.07
+      + e * mix(0.18, 0.38, soft)
+      + phase * 0.2
+      + breath * 0.05,
+      0.0,
+      1.0
     );
     vec3 washCol = paletteSample(washT, soft);
     vec3 stop0 = paletteSample(0.0, soft);
@@ -302,7 +328,7 @@ void main() {
     col = mix(plate, col, mix(0.72, 1.0, vig));
     // Gentle outer ring of wash color that pulses (in) then recedes (out).
     float ring = smoothstep(0.15, 0.55, rEdge) * smoothstep(0.95, 0.55, rEdge);
-    vec3 ringCol = paletteSample(fract(0.12 + uColorPhase * 0.12 + breath * 0.05), soft);
+    vec3 ringCol = paletteSample(clamp(0.12 + phase * 0.12 + breath * 0.05, 0.0, 1.0), soft);
     col = mix(col, ringCol, ring * mix(0.04, 0.18, soft) * breathIn * (1.0 - lit));
   } else if (uOuterMode > 0.5) {
     // Gradient-start plate: soft falloff into stop 0

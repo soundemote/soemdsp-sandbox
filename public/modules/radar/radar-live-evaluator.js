@@ -34,7 +34,7 @@ nodeGraphLiveModuleEvaluators.radar = ({ runtime, node, nodeId, frame, frames, f
     zDepth: read("zDepth", 0),
     zoom: read("zoom", 0),
   });
-  const radarLevel = read("level", 1);
+  const radarLevel = read("amplitude", 1);
   return {
     X: radar.x * radarLevel,
     Y: radar.y * radarLevel,

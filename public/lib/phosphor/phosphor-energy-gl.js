@@ -1548,7 +1548,7 @@
   global.nodeGraphPhosphorEnergyGlBuildBeamVertices = buildBeamVertices;
   global.nodeGraphPhosphorEnergyGlBuildDotVertices = buildDotVertices;
   global.nodeGraphPhosphorEnergyGlPresent = present;
-  global.nodeGraphPhosphorEnergyGlFadeAmount = fadeAmount;
+  global.nodeGraphPhosphorEnergyGlFadeAmount = fadeAmountFromTrail;
 
   /** Normalize stamp blur to 0..1 (hard→soft). Migrates legacy signed -1..1. */
   function normalizeBlur(value, fallback = 0.35) {

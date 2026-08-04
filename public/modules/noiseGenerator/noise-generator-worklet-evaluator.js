@@ -24,7 +24,22 @@ NodeLiveAudioProcessor.prototype.nextSeededGaussian = function nextSeededGaussia
   return magnitude * Math.cos(angle);
 };
 
-NodeLiveAudioProcessor.prototype.noiseGeneratorChannelSample = function noiseGeneratorChannelSample(chanState, mode, mean, deviation) {
+// 0 = even bipolar, 1 = Gaussian. Smoothstep blend (matches native).
+NodeLiveAudioProcessor.prototype.noiseGeneratorShapedBipolar = function noiseGeneratorShapedBipolar(chanState, shape) {
+  const t = this.clampValue(Number(shape) || 0, 0, 1);
+  if (t <= 1e-12) {
+    return this.nextSeededBipolar(chanState);
+  }
+  if (t >= 1 - 1e-12) {
+    return this.nextSeededGaussian(chanState);
+  }
+  const s = t * t * (3 - 2 * t);
+  const u = this.nextSeededBipolar(chanState);
+  const g = this.nextSeededGaussian(chanState);
+  return u * (1 - s) + g * s;
+};
+
+NodeLiveAudioProcessor.prototype.noiseGeneratorChannelSample = function noiseGeneratorChannelSample(chanState, mode, mean, deviation, shape = 0) {
   const white = this.nextSeededBipolar(chanState);
   if (mode === 1) {
     return mean + this.nextSeededGaussian(chanState) * deviation;
@@ -47,14 +62,15 @@ NodeLiveAudioProcessor.prototype.noiseGeneratorChannelSample = function noiseGen
   if (mode === 4) {
     return Math.abs(white) > 0.94 ? mean + Math.sign(white) * deviation : mean;
   }
-  return mean + white * deviation;
+  return mean + this.noiseGeneratorShapedBipolar(chanState, shape) * deviation;
 };
 
 NodeLiveAudioProcessor.prototype.noiseGeneratorSample = function noiseGeneratorSample(state, params, nodeId) {
   const mode = Math.max(0, Math.min(4, Math.round(this.safeFilterNumber(params.mode, null))));
   const mean = this.safeFilterNumber(params.mean, null);
   const deviation = Math.max(0, this.safeFilterNumber(params.deviation, null));
-  const level = this.safeFilterNumber(params.level, null);
+  const shape = this.clampValue(this.safeFilterNumber(params.shape, null), 0, 1);
+  const level = this.safeFilterNumber(params.amplitude, null);
   const seed = this.safeFilterNumber(params.seed, null);
   if (this.nativeNoiseGeneratorReady) {
     if (!state.nativeHandle) {
@@ -69,7 +85,10 @@ NodeLiveAudioProcessor.prototype.noiseGeneratorSample = function noiseGeneratorS
         const cache = state.blockCache || (state.blockCache = { cursor: 0, size: 0, left: null, right: null });
         if (cache.cursor >= cache.size) {
           const blockSize = NodeLiveAudioProcessor.NOISE_NATIVE_BLOCK_SIZE;
-          this.nativeNoiseGenerator.soemdsp_noise_generator_process_block(state.nativeHandle, seed, mode, mean, deviation, level, blockSize, 1);
+          // v2: (handle, seed, mode, mean, deviation, shape, level, frames, simd)
+          this.nativeNoiseGenerator.soemdsp_noise_generator_process_block(
+            state.nativeHandle, seed, mode, mean, deviation, shape, level, blockSize, 1,
+          );
           const memory = this.nativeNoiseGenerator.memory;
           const leftPtr = this.nativeNoiseGenerator.soemdsp_noise_generator_block_output_left_ptr(state.nativeHandle);
           const rightPtr = this.nativeNoiseGenerator.soemdsp_noise_generator_block_output_right_ptr(state.nativeHandle);
@@ -85,7 +104,10 @@ NodeLiveAudioProcessor.prototype.noiseGeneratorSample = function noiseGeneratorS
           "Right Out": this.safeFilterNumber(cache.right[index], null),
         };
       }
-      this.nativeNoiseGenerator.soemdsp_noise_generator_sample(state.nativeHandle, seed, mode, mean, deviation, level);
+      // v2: (handle, seed, mode, mean, deviation, shape, level)
+      this.nativeNoiseGenerator.soemdsp_noise_generator_sample(
+        state.nativeHandle, seed, mode, mean, deviation, shape, level,
+      );
       return {
         "Left Out": this.safeFilterNumber(this.nativeNoiseGenerator.soemdsp_noise_generator_left(state.nativeHandle), null),
         "Right Out": this.safeFilterNumber(this.nativeNoiseGenerator.soemdsp_noise_generator_right(state.nativeHandle), null),
@@ -94,8 +116,8 @@ NodeLiveAudioProcessor.prototype.noiseGeneratorSample = function noiseGeneratorS
   }
   this.resetSeededState(state.left, `${nodeId}:left`, seed, "noiseGenerator");
   this.resetSeededState(state.right, `${nodeId}:right`, seed, "noiseGenerator");
-  const left = this.safeFilterNumber(this.clampValue(this.noiseGeneratorChannelSample(state.left, mode, mean, deviation), -1, 1) * level, null);
-  const right = this.safeFilterNumber(this.clampValue(this.noiseGeneratorChannelSample(state.right, mode, mean, deviation), -1, 1) * level, null);
+  const left = this.safeFilterNumber(this.clampValue(this.noiseGeneratorChannelSample(state.left, mode, mean, deviation, shape), -1, 1) * level, null);
+  const right = this.safeFilterNumber(this.clampValue(this.noiseGeneratorChannelSample(state.right, mode, mean, deviation, shape), -1, 1) * level, null);
   return { "Left Out": left, "Right Out": right };
 };
 

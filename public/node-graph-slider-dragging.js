@@ -91,12 +91,18 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
       patchNode.paramMeta?.[key] || nodeSliderMetadata(slider),
     ),
   };
+  // Prefer explicit domain value (typed entry may exceed HTML range min/max).
+  const rawDomain = options.domainValue != null
+    ? Number(options.domainValue)
+    : (Number.isFinite(Number(slider?.dataset?.domainValue))
+      ? Number(slider.dataset.domainValue)
+      : nodeGraphReadNodeNumber(node, key));
   patchNode.params = {
     ...(patchNode.params || {}),
     [key]: normalizeNodeGraphPatchParameter(
       patchNode.type,
       key,
-      nodeGraphReadNodeNumber(node, key),
+      rawDomain,
       patchNode.paramMeta[key],
     ),
   };
@@ -223,9 +229,16 @@ function updateNodeSliderCurrentValue(slider, rawValue) {
     return;
   }
 
-  slider.value = String(normalizeNodeSliderValue(slider, value));
+  // Domain may leave slider min/max; HTML range thumb stays in-range for display.
+  const domain = normalizeNodeSliderValue(slider, value);
+  slider.dataset.domainValue = String(domain);
+  const thumb = typeof nodeSliderThumbDisplayValue === "function"
+    ? nodeSliderThumbDisplayValue(slider, domain)
+    : domain;
+  slider.value = String(thumb);
   syncNodeSliderReadout(slider);
   syncNodeGraphPatchParameterFromSlider(slider, {
+    domainValue: domain,
     record: true,
     status: "parameter changed",
   });
@@ -299,15 +312,18 @@ function commitNodeSliderDragValue(slider, status = "parameter changed") {
 
 function setNodeSliderValue(slider, value, options = {}) {
   const isDrag = options.interaction === "drag";
-  const normalized = normalizeNodeSliderValue(slider, value);
-  // The input value is authoritative for patch/audio sync. Only its painted
-  // readout is frame-batched, so dragging never depends on a scope draw loop.
-  slider.value = String(normalized);
+  const domain = normalizeNodeSliderValue(slider, value);
+  slider.dataset.domainValue = String(domain);
+  // Drag values stay in track; typed/non-drag may exceed min/max for the thumb.
+  const thumb = isDrag || typeof nodeSliderThumbDisplayValue !== "function"
+    ? domain
+    : nodeSliderThumbDisplayValue(slider, domain);
+  slider.value = String(thumb);
   // Frame-gate during drags: if already pending rAF update, skip redundant patch work.
   // The flush will apply the latest value — object-spreads mid-frame are wasted.
   const alreadyPending = isDrag && nodeGraphMvp?._pendingReadoutUpdates?.has(slider);
   if (isDrag) {
-    scheduleNodeSliderReadoutUpdate(slider, normalized);
+    scheduleNodeSliderReadoutUpdate(slider, domain);
   } else {
     syncNodeSliderReadout(slider);
   }
@@ -324,6 +340,7 @@ function setNodeSliderValue(slider, value, options = {}) {
   );
   if (!alreadyPending || graphCurveLiveParam) {
     syncNodeGraphPatchParameterFromSlider(slider, {
+      domainValue: domain,
       interaction: options.interaction,
       deferAutosave: isDrag,
       deferUi: true,

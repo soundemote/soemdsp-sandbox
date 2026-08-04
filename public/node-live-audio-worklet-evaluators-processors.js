@@ -236,7 +236,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         return this.aliasSineSample(
           state,
           normFreq,
-          this.readEffectiveParameter(node, "level", 1, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "amplitude", 1, frame, frames, frameValues),
           safeRate,
         );
       },
@@ -528,7 +528,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           this.readEffectiveParameter(node, "phase", 0, frame, frames, frameValues),
           this.readEffectiveParameter(node, "rate", 2, frame, frames, frameValues),
           this.readEffectiveParameter(node, "duty", 0.5, frame, frames, frameValues),
-          this.readEffectiveParameter(node, "level", 1, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "amplitude", 1, frame, frames, frameValues),
           safeRate,
         );
       },
@@ -752,6 +752,10 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           this.readEffectiveParameter(node, "release", 0.005, frame, frames, frameValues),
         );
       },
+      // Spectrogram: face analyzes buffered In; Thru is dry passthrough.
+      spectrogram: (node, nodeId, frame, frames, frameValues, mixInput) => ({
+        Thru: this.safeFilterNumber(mixInput(nodeId, "In"), null),
+      }),
       gainBiasMix: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.gainBiasMixStates.get(nodeId) || this.createGainBiasMixState();
         this.gainBiasMixStates.set(nodeId, state);

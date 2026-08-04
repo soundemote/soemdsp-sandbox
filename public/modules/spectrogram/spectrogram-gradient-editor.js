@@ -1003,6 +1003,12 @@
       defaultStops: "softFractal",
       hint: "Julia escape → color · Soft Fractal preset · live evolving",
     }),
+    // Evolve Field: full-square domain energy → multi-stop gradient.
+    evolveFieldFace: Object.freeze({
+      channels: "color",
+      defaultStops: "phosphor",
+      hint: "Full-plate fractal energy → color · Speed/Color/Seed on the module",
+    }),
     // Fractal Brownian Field: mono field energy → multi-stop gradient.
     fbmFieldFace: Object.freeze({
       channels: "color",

@@ -24,7 +24,7 @@ nodeGraphLiveModuleEvaluators.boing = ({ runtime, node, nodeId, frame, frames, f
     zAmount: read("zAmount", 0),
     zDepth: read("zDepth", 0),
   });
-  const boingLevel = read("level", 1);
+  const boingLevel = read("amplitude", 1);
   return {
     X: boing.x * boingLevel,
     Y: boing.y * boingLevel,

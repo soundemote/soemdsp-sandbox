@@ -35,12 +35,12 @@ nodeGraphLiveModuleEvaluators.robinSupersaw = ({ runtime, node, nodeId, frame, f
     })
     : (typeof nodeGraphPitchedFrequency === "function"
       ? nodeGraphPitchedFrequency(baseFrequency, pitchCv, referenceVoltage)
-      : Math.max(0, baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1))));
+      : baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1)));
   return nodeGraphRobinSupersawSample(state, {
     frequencyHz: effectiveFrequency,
     sampleRate,
     detuneCents: read("detuneCents", 30),
     voices: read("voices", 7),
-    level: read("level", 1),
+    level: read("amplitude", 1),
   });
 };

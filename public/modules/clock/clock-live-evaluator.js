@@ -37,7 +37,7 @@ nodeGraphLiveModuleEvaluators.clock = ({
       "clock duty",
     ),
     nodeGraphSafeFilterNumber(
-      readNodeGraphLiveEffectiveParam(runtime, node, "level", 1, frame, frames, frameValues),
+      readNodeGraphLiveEffectiveParam(runtime, node, "amplitude", 1, frame, frames, frameValues),
       runtime,
       nodeId,
       null,

@@ -23,7 +23,7 @@ nodeGraphLiveModuleEvaluators.wirdoSpiral = ({ runtime, node, nodeId, frame, fra
     state,
     syncCut: read("syncCut", 1),
   });
-  const wirdoLevel = read("level", 1);
+  const wirdoLevel = read("amplitude", 1);
   return {
     X: wirdo.x * wirdoLevel,
     Y: wirdo.y * wirdoLevel,

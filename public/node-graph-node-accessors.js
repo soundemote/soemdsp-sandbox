@@ -19,9 +19,21 @@ function nodeGraphNodeDisplayName(node) {
 }
 
 function nodeGraphReadNodeNumber(node, key) {
+  // Prefer patch domain (may exceed HTML range min/max).
+  const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(node) : null;
+  if (patchNode?.params && Object.hasOwn(patchNode.params, key)) {
+    const fromPatch = Number(patchNode.params[key]);
+    if (Number.isFinite(fromPatch)) {
+      return fromPatch;
+    }
+  }
   const input = nodeGraphNodeElement(node)?.querySelector(
     `input[data-param="${CSS.escape(key)}"]`,
   );
+  const fromDomain = Number(input?.dataset?.domainValue);
+  if (Number.isFinite(fromDomain)) {
+    return fromDomain;
+  }
   const value = Number(input?.value);
   return Number.isFinite(value)
     ? value

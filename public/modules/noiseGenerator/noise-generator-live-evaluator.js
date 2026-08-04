@@ -9,10 +9,11 @@ nodeGraphLiveModuleEvaluators.noiseGenerator = ({ runtime, node, nodeId, frame, 
     state,
     {
       deviation: read("deviation", 0.5),
-      level: read("level", 1),
+      level: read("amplitude", 1),
       mean: read("mean", 0),
       mode: read("mode", 0),
       seed: read("seed", 1),
+      shape: read("shape", 0),
     },
     nodeId,
   );

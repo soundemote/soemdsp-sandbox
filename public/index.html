@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>soemdsp-sandbox</title>
-  <link rel="stylesheet" href="./public/styles.css?v=param-settings-wheel-1">
+  <link rel="stylesheet" href="./public/styles.css?v=visibility-btn-height-1">
   <link rel="stylesheet" href="./public/modules/stepGrid/step-grid.css?v=stepgrid-own-folder-20260715">
   <link rel="stylesheet" href="./public/modules/pitchQuantizer/pitch-quantizer-ui.css?v=chord-pad-1">
   <link rel="stylesheet" href="./public/modules/chordPad/chord-pad-ui.css?v=chord-pad-1">
@@ -56,7 +56,9 @@
         Do you have a better ear or speaker protection algorithm? Email us:
         <a
           class="node-ear-protection-fault-email"
-          href="mailto:soundemote@gmail.com">soundemote@gmail.com</a>
+          href="mailto:soundemote@gmail.com"
+          target="_blank"
+          rel="noopener noreferrer">soundemote@gmail.com</a>
       </span>
       <button
         id="nodeEarProtectionFaultClose"
@@ -3578,7 +3580,8 @@
   <script src="./public/modules/led/led-register.js?v=layoutb-min-2x2-1"></script>
   <script src="./public/modules/rgbShape/rgb-shape-register.js?v=rgb-shape-1"></script>
   <script src="./public/modules/rgbPicture/rgb-picture-register.js?v=rgb-picture-1"></script>
-  <script src="./public/modules/rgbFractal/rgb-fractal-register.js?v=rgb-fractal-planet-23"></script>
+  <script src="./public/modules/rgbFractal/rgb-fractal-register.js?v=rgb-fractal-color-rate-cv-1"></script>
+  <script src="./public/modules/evolveField/evolve-field-register.js?v=evolve-field-uc-1"></script>
   <script src="./public/modules/fbmField/fbm-field-register.js?v=fbm-field-21"></script>
   <script src="./public/modules/bugButton/bug-button-register.js?v=bug-button-io-order-20260724"></script>
   <script src="./public/modules/xyPad/xy-pad-dsp.js?v=xy-pad-center-q-1"></script>
@@ -3691,9 +3694,12 @@
   <script src="./public/modules/rgbShape/rgb-shape-display.js?v=rgb-shape-1"></script>
   <script src="./public/modules/rgbPicture/rgb-picture-ui.js?v=rgb-picture-1"></script>
   <script src="./public/modules/rgbPicture/rgb-picture-display.js?v=rgb-picture-1"></script>
-  <script src="./public/modules/rgbFractal/rgb-fractal-gl.js?v=rgb-fractal-planet-23"></script>
-  <script src="./public/modules/rgbFractal/rgb-fractal-ui.js?v=rgb-fractal-planet-23"></script>
-  <script src="./public/modules/rgbFractal/rgb-fractal-display.js?v=rgb-fractal-planet-23"></script>
+  <script src="./public/modules/rgbFractal/rgb-fractal-gl.js?v=rgb-fractal-color-rate-cv-1"></script>
+  <script src="./public/modules/rgbFractal/rgb-fractal-ui.js?v=rgb-fractal-color-rate-cv-1"></script>
+  <script src="./public/modules/rgbFractal/rgb-fractal-display.js?v=rgb-fractal-color-rate-cv-1"></script>
+  <script src="./public/modules/evolveField/evolve-field-gl.js?v=evolve-field-uc-1"></script>
+  <script src="./public/modules/evolveField/evolve-field-ui.js?v=evolve-field-uc-1"></script>
+  <script src="./public/modules/evolveField/evolve-field-display.js?v=evolve-field-uc-1"></script>
   <script src="./public/node-graph-fbm-field.js?v=fbm-field-21"></script>
   <script src="./public/modules/fbmField/fbm-field-gl.js?v=fbm-field-21"></script>
   <script src="./public/modules/fbmField/fbm-field-ui.js?v=fbm-field-21"></script>
@@ -3821,6 +3827,7 @@
   <script src="./public/node-graph-stdlib/node-graph-shared-app-helpers.js?v=stdlib-app-helpers-20260725"></script>
   <script src="./public/node-graph-stdlib/node-graph-sinc-kernel.js?v=sinc-bandlimit-20260725"></script>
   <script src="./public/node-graph-live-frame-evaluator.js?v=step-global-shape-1"></script>
+  <script src="./public/modules/spectrogram/spectrogram-live-evaluator.js?v=spectrogram-thru-1"></script>
   <script src="./public/modules/logisticMap/logistic-map-math.js?v=logistic-map-1"></script>
   <script src="./public/modules/logisticMap/logistic-map-live-evaluator.js?v=logistic-map-1"></script>
   <script src="./public/modules/turingMachine/turing-machine-live-evaluator.js?v=per-module-dispatch-20260711"></script>
@@ -3944,8 +3951,9 @@
   <script src="./public/modules/led/led-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/rgbShape/rgb-shape-live-evaluator.js?v=rgb-shape-1"></script>
   <script src="./public/modules/rgbPicture/rgb-picture-live-evaluator.js?v=rgb-picture-1"></script>
-  <script src="./public/modules/rgbFractal/rgb-fractal-math.js?v=rgb-fractal-planet-23"></script>
-  <script src="./public/modules/rgbFractal/rgb-fractal-live-evaluator.js?v=rgb-fractal-planet-23"></script>
+  <script src="./public/modules/rgbFractal/rgb-fractal-math.js?v=rgb-fractal-noband-1"></script>
+  <script src="./public/modules/rgbFractal/rgb-fractal-live-evaluator.js?v=rgb-fractal-noband-1"></script>
+  <script src="./public/modules/evolveField/evolve-field-live-evaluator.js?v=evolve-field-uc-1"></script>
   <script src="./public/modules/bugButton/bug-button-live-evaluator.js?v=solid-module-shell-2-20260723"></script>
   <script src="./public/modules/xyPad/xy-pad-live-evaluator.js?v=xy-pad-drag-1"></script>
   <script src="./public/modules/gainBias/gain-bias-math.js?v=gain-bias-1"></script>
@@ -3978,7 +3986,7 @@
   <script src="./public/modules/moduleGroup/module-group-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/codeblock/codeblock-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/sineWavetable/sine-wavetable-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/ellipsoid/ellipsoid-live-evaluator.js?v=per-module-dispatch-20260711"></script>
+  <script src="./public/modules/ellipsoid/ellipsoid-live-evaluator.js?v=uni-bi-outs-1"></script>
   <script src="./public/modules/additiveOsc/additive-osc-live-evaluator.js?v=native-core-1"></script>
   <script src="./public/modules/graph/graph-live-evaluator.js?v=retire-graph-type-20260724"></script>
   <script src="./public/modules/polyBlep/poly-blep-live-evaluator.js?v=one-core-native-20260803"></script>

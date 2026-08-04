@@ -54,8 +54,8 @@ function createNodeGraphSabrinaReverbState() {
 function nodeGraphSabrinaReverbSample(state, leftInput, rightInput, params, sampleRate, runtime = null, nodeId = "") {
   const dryLeft = nodeGraphSafeFilterNumber(leftInput, runtime, nodeId, null, "Sabrina left input");
   const dryRight = nodeGraphSafeFilterNumber(rightInput, runtime, nodeId, null, "Sabrina right input");
-  const dryMono = (dryLeft + dryRight) * 0.5;
-  const dry = { "Left Dry": dryLeft, "Mono Dry": dryMono, "Right Dry": dryRight, "Left Mix": dryLeft, "Mono Mix": dryMono, "Right Mix": dryRight };
+  // Dry L/R then Wet L/R (legacy Mix/Left Dry via outputAliases).
+  const dry = { "Dry L": dryLeft, "Dry R": dryRight, "Wet L": dryLeft, "Wet R": dryRight };
   const native = runtime?.nativeSabrinaReverbReady ? runtime?.nativeSabrinaReverb : null;
   if (!native?.soemdsp_sabrina_reverb_create || !native?.soemdsp_sabrina_reverb_process) {
     return dry;
@@ -75,9 +75,9 @@ function nodeGraphSabrinaReverbSample(state, leftInput, rightInput, params, samp
     }
     applySabrinaDspBindingIfDirty(native, state, params, runtime, nodeId);
     native.soemdsp_sabrina_reverb_process(state.nativeHandle, dryLeft, dryRight);
-    const mixLeft = nodeGraphSafeFilterNumber(native.soemdsp_sabrina_reverb_left?.(state.nativeHandle), runtime, nodeId, null, "Sabrina mix left");
-    const mixRight = nodeGraphSafeFilterNumber(native.soemdsp_sabrina_reverb_right?.(state.nativeHandle), runtime, nodeId, null, "Sabrina mix right");
-    return { "Left Dry": dryLeft, "Mono Dry": dryMono, "Right Dry": dryRight, "Left Mix": mixLeft, "Mono Mix": (mixLeft + mixRight) * 0.5, "Right Mix": mixRight };
+    const mixLeft = nodeGraphSafeFilterNumber(native.soemdsp_sabrina_reverb_left?.(state.nativeHandle), runtime, nodeId, null, "Sabrina wet left");
+    const mixRight = nodeGraphSafeFilterNumber(native.soemdsp_sabrina_reverb_right?.(state.nativeHandle), runtime, nodeId, null, "Sabrina wet right");
+    return { "Dry L": dryLeft, "Dry R": dryRight, "Wet L": mixLeft, "Wet R": mixRight };
   } catch (error) {
     if (runtime) {
       runtime.nativeSabrinaReverbReady = false;

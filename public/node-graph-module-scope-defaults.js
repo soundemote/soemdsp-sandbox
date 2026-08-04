@@ -308,11 +308,37 @@ const nodeGraphScope2dTraceSettingsDefaults = Object.freeze({
   dot1Color: nodeGraphScopePhosphorLookDefaults.peakColor,
   dot1Enabled: true,
   dot1Size: nodeGraphScopePhosphorLookDefaults.size,
-  historySeconds: 0.05,
+  // Closed X/Y orbits (RoundShape, attractors) need ≥1 period on screen.
+  // 0.05s only drew a sliver of a 1 Hz Lissajous and looked “broken up”.
+  historySeconds: 1,
   lineThickness: nodeGraphScopePhosphorLookDefaults.blur,
   // Vector stroke; density scales face buffer for lo-fi/chunky look (default 1).
   pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
   scale: nodeGraphScopePhosphorLookDefaults.scale,
 });
+
+/** Optional per-type 2D Trace defaults (e.g. longer history for closed shapes). */
+const nodeGraphModuleScope2dTraceDisplayDefaultOverrides = Object.freeze({
+  // RoundShape: full closed sine→square orbit; keep a couple of cycles.
+  ellipsoid: Object.freeze({
+    historySeconds: 2,
+  }),
+  ellipsoidOsc: Object.freeze({
+    historySeconds: 2,
+  }),
+});
+
+function nodeGraphScope2dTraceSettingsDefaultsForModuleType(type) {
+  const overrides = type
+    ? nodeGraphModuleScope2dTraceDisplayDefaultOverrides[type]
+    : null;
+  if (!overrides) {
+    return nodeGraphScope2dTraceSettingsDefaults;
+  }
+  return Object.freeze({
+    ...nodeGraphScope2dTraceSettingsDefaults,
+    ...overrides,
+  });
+}
 
 

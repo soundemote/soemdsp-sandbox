@@ -22,7 +22,7 @@ nodeGraphLiveModuleEvaluators.rayBouncer = ({ runtime, node, nodeId, frame, fram
     xToY: read("xToY", 0),
     yToX: read("yToX", 0),
   });
-  const level = read("level", 1);
+  const level = read("amplitude", 1);
   return {
     X: bounce.x * level,
     Y: bounce.y * level,

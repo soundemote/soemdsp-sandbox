@@ -61,10 +61,10 @@ NodeLiveAudioProcessor.prototype.soemReverbSample = function soemReverbSample(st
   const inL = Number(left) || 0;
   const inR = Number(right) || 0;
   const silent = {
-    "Wet L": 0,
-    "Wet R": 0,
     "Dry L": inL,
     "Dry R": inR,
+    "Wet L": 0,
+    "Wet R": 0,
   };
   if (
     !this.nativeSoemReverbReady
@@ -93,10 +93,10 @@ NodeLiveAudioProcessor.prototype.soemReverbSample = function soemReverbSample(st
     const dryL = Number(native.soemdsp_soem_reverb_dry_left(state.nativeHandle));
     const dryR = Number(native.soemdsp_soem_reverb_dry_right(state.nativeHandle));
     return {
-      "Wet L": Number.isFinite(wetL) ? wetL : 0,
-      "Wet R": Number.isFinite(wetR) ? wetR : 0,
       "Dry L": Number.isFinite(dryL) ? dryL : inL,
       "Dry R": Number.isFinite(dryR) ? dryR : inR,
+      "Wet L": Number.isFinite(wetL) ? wetL : 0,
+      "Wet R": Number.isFinite(wetR) ? wetR : 0,
     };
   } catch (_e) {
     this.nativeSoemReverbReady = false;

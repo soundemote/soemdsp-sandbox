@@ -83,7 +83,6 @@ NodeLiveAudioProcessor.prototype.nativeSabrinaReverbSample = function nativeSabr
       this.applySabrinaDspBindingIfDirty(native, state, params);
       const dryLeft = this.safeFilterNumber(leftInput, null);
       const dryRight = this.safeFilterNumber(rightInput, null);
-      const dryMono = (dryLeft + dryRight) * 0.5;
       const inputActive = Math.abs(dryLeft) >= 0.000001 || Math.abs(dryRight) >= 0.000001;
       if (inputActive) {
         state.isIdle = false;
@@ -91,7 +90,8 @@ NodeLiveAudioProcessor.prototype.nativeSabrinaReverbSample = function nativeSabr
       }
       // Bypass mode: reverb is idle, pass dry signal straight through all outputs
       if (state.isIdle) {
-        return { "Left Dry": dryLeft, "Mono Dry": dryMono, "Right Dry": dryRight, "Left Mix": dryLeft, "Mono Mix": dryMono, "Right Mix": dryRight };
+        // Dry L/R then Wet L/R (legacy Mix/Left Dry via outputAliases).
+        return { "Dry L": dryLeft, "Dry R": dryRight, "Wet L": dryLeft, "Wet R": dryRight };
       }
       native.soemdsp_sabrina_reverb_process(state.nativeHandle, dryLeft, dryRight);
       const mixLeft = this.safeFilterNumber(native.soemdsp_sabrina_reverb_left?.(state.nativeHandle), null);
@@ -105,7 +105,7 @@ NodeLiveAudioProcessor.prototype.nativeSabrinaReverbSample = function nativeSabr
       } else {
         state.idleCounter = 0;
       }
-      return { "Left Dry": dryLeft, "Mono Dry": dryMono, "Right Dry": dryRight, "Left Mix": mixLeft, "Mono Mix": (mixLeft + mixRight) * 0.5, "Right Mix": mixRight };
+      return { "Dry L": dryLeft, "Dry R": dryRight, "Wet L": mixLeft, "Wet R": mixRight };
     } catch (error) {
       this.nativeSabrinaReverbReady = false;
       if (state.nativeHandle && native.soemdsp_sabrina_reverb_destroy) {
@@ -128,11 +128,10 @@ NodeLiveAudioProcessor.prototype.nativeSabrinaReverbSample = function nativeSabr
 NodeLiveAudioProcessor.prototype.sabrinaReverbSample = function sabrinaReverbSample(state, leftInput, rightInput, params, rateHz = sampleRate, frame = 0) {
     const dryLeft = this.safeFilterNumber(leftInput, null);
     const dryRight = this.safeFilterNumber(rightInput, null);
-    const dryMono = (dryLeft + dryRight) * 0.5;
     const nativeOutput = this.nativeSabrinaReverbSample(state, leftInput, rightInput, params, rateHz, frame);
     if (nativeOutput) {
       return nativeOutput;
     }
-    return { "Left Dry": dryLeft, "Mono Dry": dryMono, "Right Dry": dryRight, "Left Mix": dryLeft, "Mono Mix": dryMono, "Right Mix": dryRight };
+    return { "Dry L": dryLeft, "Dry R": dryRight, "Wet L": dryLeft, "Wet R": dryRight };
   };
 

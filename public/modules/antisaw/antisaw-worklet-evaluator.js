@@ -33,7 +33,7 @@ NodeLiveAudioProcessor.prototype.antisawSample = function antisawSample(state, p
           Number(params.fundamental) || 0,
           Number(params.reflections) || 0,
           Number(params.tilt) || 0,
-          Number(params.level) || 0,
+          Number(params.amplitude) || 0,
           safeRate,
         );
         return this.safeFilterNumber(out, null);

@@ -2302,15 +2302,21 @@ function formatNodeGraphGlobalSmoothingSeconds(seconds) {
   return value.toFixed(4).replace(/0$/, "");
 }
 
+// Scene-context widget + header "Smooth" field next to Speed Limit.
+function nodeGraphGlobalSmoothingInputElements() {
+  return Array.from(document.querySelectorAll(
+    "#nodeSceneGlobalSmoothingSeconds, [data-global-smoothing-seconds='true']",
+  ));
+}
+
 function syncNodeGraphGlobalSmoothingControl(options = {}) {
-  const input = document.getElementById("nodeSceneGlobalSmoothingSeconds");
-  if (!input) {
-    return;
+  const text = formatNodeGraphGlobalSmoothingSeconds(nodeGraphGlobalSmoothingSeconds());
+  for (const input of nodeGraphGlobalSmoothingInputElements()) {
+    if (!options.force && document.activeElement === input) {
+      continue;
+    }
+    input.value = text;
   }
-  if (!options.force && document.activeElement === input) {
-    return;
-  }
-  input.value = formatNodeGraphGlobalSmoothingSeconds(nodeGraphGlobalSmoothingSeconds());
 }
 
 function setNodeGraphGlobalSmoothingSamples(samples, options = {}) {
@@ -2328,20 +2334,61 @@ function setNodeGraphGlobalSmoothingSeconds(seconds, options = {}) {
   }
 }
 
-function nodeGraphGlobalSmoothingDragStep(event) {
+// Log-space drag for Smooth: much finer near 0 (sample / sub-ms), still
+// reaches multi-second values without endless linear scrubbing.
+// Value ≈ exp(log(start + ε) + pixels · rate) − ε
+const nodeGraphGlobalSmoothingDragLogEps = 1e-4; // ~0.1 ms floor for log map
+const nodeGraphGlobalSmoothingDragLogRate = 0.012; // ~1 decade per ~192 px
+
+function nodeGraphGlobalSmoothingDragMultiplier(event) {
   const multiplier = typeof nodeGraphNumericDragMultiplier === "function"
     ? nodeGraphNumericDragMultiplier(event)
     : 1;
-  return 0.01 * multiplier;
+  return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
 }
 
-function handleNodeGraphGlobalSmoothingSecondsChange() {
-  const input = document.getElementById("nodeSceneGlobalSmoothingSeconds");
+/** @deprecated linear step — kept for any external callers; drag uses log map. */
+function nodeGraphGlobalSmoothingDragStep(event) {
+  const multiplier = nodeGraphGlobalSmoothingDragMultiplier(event);
+  // Scale with current value so near-0 stays fine even if something still calls this.
+  const v = nodeGraphGlobalSmoothingSeconds();
+  return Math.max(2e-5, 5e-5 + v * 0.02) * multiplier;
+}
+
+function nodeGraphGlobalSmoothingSecondsFromDragDelta(startSeconds, pixelDelta, event) {
+  const eps = nodeGraphGlobalSmoothingDragLogEps;
+  const rate = nodeGraphGlobalSmoothingDragLogRate * nodeGraphGlobalSmoothingDragMultiplier(event);
+  const start = Math.max(0, Number(startSeconds) || 0);
+  const next = Math.exp(Math.log(start + eps) + pixelDelta * rate) - eps;
+  // Snap tiny values to exact 0 so “off” is reachable without hunting.
+  if (next < eps * 0.25) {
+    return 0;
+  }
+  return clampNodeGraphAutoSmoothingSeconds(next);
+}
+
+function nodeGraphGlobalSmoothingInputFromEvent(event) {
+  const target = event?.currentTarget;
+  if (target instanceof HTMLInputElement) {
+    return target;
+  }
+  if (target instanceof Element) {
+    return target.querySelector?.("input[data-global-smoothing-seconds='true'], #nodeSceneGlobalSmoothingSeconds")
+      || null;
+  }
+  return document.getElementById("nodeSceneGlobalSmoothingSeconds")
+    || document.querySelector("[data-global-smoothing-seconds='true']");
+}
+
+function handleNodeGraphGlobalSmoothingSecondsChange(event) {
+  const input = nodeGraphGlobalSmoothingInputFromEvent(event);
   if (!input) {
     return;
   }
   setNodeGraphGlobalSmoothingSeconds(input.value);
-  input.readOnly = true;
+  for (const el of nodeGraphGlobalSmoothingInputElements()) {
+    el.readOnly = true;
+  }
 }
 
 function handleNodeGraphGlobalSmoothingSecondsKeydown(event) {
@@ -2349,12 +2396,12 @@ function handleNodeGraphGlobalSmoothingSecondsKeydown(event) {
     return;
   }
   event.preventDefault();
-  handleNodeGraphGlobalSmoothingSecondsChange();
+  handleNodeGraphGlobalSmoothingSecondsChange(event);
   event.currentTarget?.blur?.();
 }
 
 function beginNodeGraphGlobalSmoothingSecondsEdit(event) {
-  const input = document.getElementById("nodeSceneGlobalSmoothingSeconds");
+  const input = nodeGraphGlobalSmoothingInputFromEvent(event);
   if (!input) {
     return;
   }
@@ -2366,7 +2413,7 @@ function beginNodeGraphGlobalSmoothingSecondsEdit(event) {
 }
 
 function beginNodeGraphGlobalSmoothingSecondsDrag(event) {
-  const input = document.getElementById("nodeSceneGlobalSmoothingSeconds");
+  const input = nodeGraphGlobalSmoothingInputFromEvent(event);
   if (!input || event.button > 0 || event.detail > 1) {
     return;
   }
@@ -2384,11 +2431,11 @@ function beginNodeGraphGlobalSmoothingSecondsDrag(event) {
     startValue: nodeGraphGlobalSmoothingSeconds(),
     startX: event.clientX,
     startY: event.clientY,
-    step: nodeGraphGlobalSmoothingDragStep(event),
   };
   input.readOnly = true;
   input.classList.add("value-dragging");
-  input.closest(".scene-context-global-smoothing-control")?.classList.add("value-dragging");
+  input.closest(".scene-context-global-smoothing-control, .node-header-timing-field")
+    ?.classList.add("value-dragging");
   if (event.pointerId !== undefined) {
     input.setPointerCapture?.(event.pointerId);
   }
@@ -2420,7 +2467,9 @@ function dragNodeGraphGlobalSmoothingSeconds(event) {
     : {
       combined: (event.clientX - drag.startX) + (drag.startY - event.clientY),
     };
-  setNodeGraphGlobalSmoothingSeconds(drag.startValue + axes.combined * drag.step);
+  setNodeGraphGlobalSmoothingSeconds(
+    nodeGraphGlobalSmoothingSecondsFromDragDelta(drag.startValue, axes.combined, event),
+  );
   event.preventDefault();
 }
 
@@ -2436,7 +2485,8 @@ function endNodeGraphGlobalSmoothingSecondsDrag(event) {
     setNodeGraphGlobalSmoothingSeconds(nodeGraphDefaultSmoothingBlockSeconds());
   }
   drag.input.classList.remove("value-dragging");
-  drag.input.closest(".scene-context-global-smoothing-control")?.classList.remove("value-dragging");
+  drag.input.closest(".scene-context-global-smoothing-control, .node-header-timing-field")
+    ?.classList.remove("value-dragging");
   drag.input.readOnly = true;
   if (event.pointerId !== undefined && drag.input.hasPointerCapture?.(event.pointerId)) {
     drag.input.releasePointerCapture(event.pointerId);
@@ -2601,7 +2651,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-live-audio-worklet-process.js?v=plan-d-split-4",
   "./public/modules/codeblock/codeblock-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/moduleGroup/module-group-worklet-evaluator.js?v=xy-pad-dsp-path-1",
-  "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/ellipsoid/ellipsoid-worklet-evaluator.js?v=uni-bi-outs-1",
   "./public/modules/sineWavetable/sine-wavetable-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/additiveOsc/additive-osc-worklet-evaluator.js?v=native-core-1",
   "./public/modules/polyBlep/poly-blep-worklet-evaluator.js?v=one-core-native-20260803",
@@ -2614,8 +2664,8 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/antisaw/antisaw-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/fractalBrownianNoise/fractal-brownian-noise-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/fbmField/fbm-field-worklet-evaluator.js?v=fbm-field-21",
-  "./public/modules/rgbFractal/rgb-fractal-math.js?v=rgb-fractal-planet-23",
-  "./public/modules/rgbFractal/rgb-fractal-worklet-evaluator.js?v=rgb-fractal-planet-23",
+  "./public/modules/rgbFractal/rgb-fractal-math.js?v=rgb-fractal-noband-1",
+  "./public/modules/rgbFractal/rgb-fractal-worklet-evaluator.js?v=rgb-fractal-noband-1",
   "./public/modules/logisticMap/logistic-map-math.js?v=logistic-map-1",
   "./public/modules/logisticMap/logistic-map-worklet-evaluator.js?v=logistic-map-1",
   "./public/modules/turingMachine/turing-machine-worklet-evaluator.js?v=native-strip-1",
@@ -2740,7 +2790,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/speedColorInertia/speed-color-inertia-worklet-evaluator.js?v=speed-color-inertia-2",
   "./public/modules/sinc/sinc-worklet-evaluator.js?v=native-core-1",
   "./public/modules/videoscope/videoscope-worklet-evaluator.js?v=videoscope-buffer-hold-1",
-  "./public/modules/spectrogram/spectrogram-worklet-evaluator.js?v=native-strip-1",
+  "./public/modules/spectrogram/spectrogram-worklet-evaluator.js?v=hop-serial-1",
   "./public/node-live-audio-worklet-register.js?v=blob-loader-20260711",
 ];
 

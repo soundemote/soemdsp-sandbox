@@ -30,6 +30,9 @@ const nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([
   // Geometric room delay / "wall verb" — JS prototype only; native is a
   // version stub that the worklet does not wire (unsupported native module).
   "wallDelay",
+  // Full-plate noise flow field experiment (not Julia / kaleidoscope).
+  // Placeholder only until the flow-field design is ready.
+  "evolveField",
 ]));
 
 function nodeGraphModuleTypeIsUnderConstruction(type) {
@@ -218,9 +221,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   osc: {
     category: "modulator",
-    description: "Multi-waveform oscillator (saw, ramp, square, triangle, sine, noise) with 0.1V/Oct and increment CV inputs.",
-    label: "LFO",
-    notes: ["multi-waveform", "cv input"],
+    description: "Basic multi-waveform oscillator (saw, ramp, square, triangle, sine, noise) with 0.1V/Oct and increment CV inputs.",
+    label: "BasicShape",
+    notes: ["BasicShape", "multi-waveform", "cv input", "LFO"],
   },
   aliasSine: {
     category: "oscillator",
@@ -241,10 +244,16 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["additive synthesis", "gpu"],
   },
   ellipsoid: {
-    category: "oscillator",
-    description: "A 3D ellipsoid-orbit oscillator deriving multiple correlated outputs from one elliptical motion path. Native C++/WASM.",
+    category: "modulator",
+    description: "RoundShape — sine→square ellipse (getSineToSquare). Outs: Uni X/Y (0…A) and Bi X/Y (−A…A). Limit AA always on. f + 0.1V/Oct. Native C++/WASM.",
+    label: "RoundShape",
+    notes: ["RoundShape", "getSineToSquare", "Uni X", "Uni Y", "Bi X", "Bi Y", "Limit AA", "f", "native"],
+  },
+  ellipsoidOsc: {
+    category: "source",
+    description: "Full multi-param ellipsoid oscillator: Offset/Shape/Scale per axis + Frequency/Phase/Amplitude. Limit AA always on. X/Y face. Native C++/WASM.",
     label: "Ellipsoid",
-    notes: ["orbit motion", "multi-output", "native"],
+    notes: ["ellipsoid", "offset", "shape", "scale", "Limit AA", "X/Y", "native"],
   },
   clock: {
     category: "clock",
@@ -296,9 +305,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   sampleDelay: {
     category: "utility",
-    description: "Sample-accurate delay line. Delayed is In delayed by Time (seconds) + Samples; Thru is a dry passthrough. Combined delay 0…4s, ring fully reserved so Time can be modulated without reallocation. Native C++/WASM.",
+    description: "Sample-accurate delay line. Thru is dry passthrough; Delayed is In delayed by Time (seconds) + Samples. Outlets dry (Thru) then wet (Delayed). Combined delay 0…4s, ring fully reserved so Time can be modulated without reallocation. Native C++/WASM.",
     label: "Sample Delay",
-    notes: ["delay", "samples", "time", "thru", "native"],
+    notes: ["delay", "samples", "time", "thru", "delayed", "native"],
   },
   bitConverter: {
     category: "digital",
@@ -522,8 +531,8 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   noiseGenerator: {
     category: "noise",
-    description: "Stereo noise source with independent left/right channels and selectable uniform, gaussian, brown, pink, and crackle flavors.",
-    notes: ["stereo output", "distribution choices", "seed control"],
+    description: "Stereo noise: Uniform (with continuous Uniform→Gaussian shape), Gaussian, Brown, Pink, Crackle. Independent L/R seeds. Native C++/WASM.",
+    notes: ["stereo output", "uniform to gaussian", "seed control", "native"],
   },
   randomWalk: {
     category: "modulator",
@@ -910,7 +919,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   pingPongDelay: {
     category: "space",
     description:
-      "Tape-style stereo ping-pong. Tempo base Numer/Denom × Sync; Offset = max L/R drift (ms) driven by independent Parabol/Random Walk/FBM LFOs; passive HPF/LPF + soft clip in feedback.",
+      "Tape-style stereo ping-pong. Tempo base Numer/Denom × Sync; Offset = static R-tap skew (ms); LFO Amp = max L/R drift from independent Parabol/Random Walk/FBM LFOs; passive HPF/LPF + soft clip in feedback. Stereo Trace face shows Mod L/R (delay times, ±1 = full max delay).",
     label: "Ping Pong Delay",
     notes: [
       "ping pong",
@@ -932,15 +941,17 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   reverbEffect: {
     category: "space",
-    description: "Raw Sabrina reverb port: serial diffusion stages with cross-feedback delay, modulation, recycle, and wet/dry mix. Seed randomizes the delay line pattern.",
+    description:
+      "Sabrina reverb: serial diffusion, cross-feedback, modulation, recycle, mix. "
+      + "Stereo outs Dry L/R then Wet L/R (same scheme as SoEmReverb). Seed randomizes delay pattern.",
     label: "Sabrina Reverb",
-    notes: ["Sabrina", "serial diffusion", "cross feedback", "seed"],
+    notes: ["Sabrina", "serial diffusion", "cross feedback", "seed", "Dry L", "Dry R", "Wet L", "Wet R"],
   },
   soemReverb: {
     category: "space",
-    description: "SoEmReverb: soemdsp::delay::Reverb (ModulatedDelay diffusion + echo modes Post/Pre/Slapback), soft-clip feedback, LPF/HPF/peak, ducking. Echo base free or tempo-synced (one time for both echo L/R). Stereo Trace face (Wet L/R) like Output. Native C++/WASM.",
+    description: "SoEmReverb: soemdsp::delay::Reverb (ModulatedDelay diffusion + echo modes Post/Pre/Slapback), soft-clip feedback, LPF/HPF/peak, ducking. Echo base free or tempo-synced (one time for both echo L/R). Stereo Trace face (Wet L/R) like Output. Outlets Dry L/R then Wet L/R. Native C++/WASM.",
     label: "SoEmReverb",
-    notes: ["soemdsp", "ModulatedDelay", "tempo sync", "PostDelay", "PreDelay", "Slapback", "native", "trace"],
+    notes: ["soemdsp", "ModulatedDelay", "tempo sync", "PostDelay", "PreDelay", "Slapback", "native", "trace", "Dry L", "Dry R", "Wet L", "Wet R"],
   },
   pll: {
     category: "clock",
@@ -1103,9 +1114,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   spectrogram: {
     category: "oscilloscope",
-    description: "Regular STFT spectrogram. Module: Brightness, Min/Max Thresh. Display: History, FFT size, Window, Overlap, Freq Scale, Smooth, gradient presets.",
+    description: "Regular STFT spectrogram with Thru passthrough (In → face + Thru). Module: Brightness, Min/Max Thresh. Display: History, FFT size, Window, Overlap, Freq Scale, gradient presets.",
     label: "Spectrogram",
-    notes: ["fft", "spectrum", "frequency waterfall", "spectral display"],
+    notes: ["fft", "spectrum", "frequency waterfall", "spectral display", "thru"],
   },
   valueOscilloscope: {
     category: "oscilloscope",

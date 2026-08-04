@@ -33,7 +33,7 @@ NodeLiveAudioProcessor.prototype.randomWalkSample = function randomWalkSample(st
           method,
           Math.max(0, Number(params.frequency) || 0),
           Math.max(0, Number(params.jitter) || 0),
-          Number(params.level) || 0,
+          Number(params.amplitude) || 0,
           safeRate,
         );
         return this.safeFilterNumber(out, null);

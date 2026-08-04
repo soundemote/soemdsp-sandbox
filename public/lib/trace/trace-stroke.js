@@ -95,24 +95,37 @@
       return pieces;
     }
     let drawing = false;
+    let segmentStart = -1;
     for (let i = 0; i < points.length; i += 1) {
       const p = points[i];
       if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) {
         drawing = false;
+        segmentStart = -1;
         continue;
       }
       if (!drawing) {
         context.beginPath();
         context.moveTo(p.x, p.y);
         drawing = true;
+        segmentStart = i;
         pieces += 1;
       } else {
         context.lineTo(p.x, p.y);
       }
       const next = points[i + 1];
-      if (!next || !Number.isFinite(next?.x)) {
-        context.stroke();
+      if (!next || !Number.isFinite(next?.x) || !Number.isFinite(next?.y)) {
+        // 1-point segments: stroke() is invisible — draw a dot instead.
+        if (segmentStart === i) {
+          const w = Math.max(1, Number(context.lineWidth) || 1);
+          context.beginPath();
+          context.arc(p.x, p.y, w * 0.5, 0, Math.PI * 2);
+          context.fillStyle = context.strokeStyle;
+          context.fill();
+        } else {
+          context.stroke();
+        }
         drawing = false;
+        segmentStart = -1;
       }
     }
     if (drawing) {

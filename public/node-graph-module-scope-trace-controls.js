@@ -186,6 +186,13 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     // First control in Soft Fractal section (before gradient).
     choices: Object.freeze(["outerPlate"]),
   }),
+  // Evolve Field: full-plate gradient only (Speed/Color/Seed are module params).
+  evolveFieldFace: Object.freeze({
+    fields: Object.freeze([]),
+    colors: Object.freeze(["backgroundColor"]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
   // Fractal Brownian Field: mono terrain → gradient only (params are knobs).
   fbmFieldFace: Object.freeze({
     fields: Object.freeze([]),
@@ -606,7 +613,7 @@ const nodeGraphDisplaySettingsChoiceMeta = Object.freeze({
     label: "Outer color",
     aria: "Outer / empty plate color source",
     id: "nodeTraceDisplayOuterPlate",
-    title: "Background = solid plate from the Background swatch. Gradient start = empty space uses gradient stop 0. Haze = dream plate: palette color washes in around the fractal and out (slow breath; soft Color Rate peek, not a full-face strobe).",
+    title: "Background = solid plate from the Background swatch. Gradient start = empty space uses gradient stop 0. Haze = dream plate: palette color washes in around the fractal and out (slow breath; soft Color Rate CV peek, not a full-face strobe).",
     options: Object.freeze([
       Object.freeze({ value: "background", label: "Background" }),
       Object.freeze({ value: "gradientStart", label: "Gradient start" }),
@@ -712,6 +719,7 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   rgbShapeFace: "Shape",
   rgbPictureFace: "Picture",
   rgbFractalFace: "Soft Fractal",
+  evolveFieldFace: "Evolve Field",
   fbmFieldFace: "Fractal Brownian Field",
   matrixFace: "Matrix",
   matrixWaterfallFace: "Waterfall",

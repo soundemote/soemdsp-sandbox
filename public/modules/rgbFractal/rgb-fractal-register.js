@@ -6,7 +6,8 @@ registerNodeGraphChromelessModule("rgbFractal", {
   customDisplayArea: true,
   definition: {
     chrome: "LayoutA",
-    bufferedInputs: [],
+    // Color Rate is CV-only (no slider param) — buffer so the face can sample it.
+    bufferedInputs: ["Color Rate"],
     defaultWidthGu: 5,
     displayHeightGu: 5,
     displayType: "rgbFractalFace",
@@ -20,7 +21,10 @@ registerNodeGraphChromelessModule("rgbFractal", {
       },
     ],
     defaultDisplayMode: "face",
-    inputs: [],
+    inputs: ["Color Rate"],
+    inputLabels: {
+      "Color Rate": "Color Rate",
+    },
     outputs: ["Hx", "Hy"],
     outputLabels: {
       Hx: "Hx",
@@ -128,7 +132,7 @@ registerNodeGraphChromelessModule("rgbFractal", {
         tooltip: "Face zoom only.",
       },
       {
-        defaultValue: "1.2",
+        defaultValue: "0.85",
         key: "depth",
         label: "Depth",
         max: "4",
@@ -136,10 +140,11 @@ registerNodeGraphChromelessModule("rgbFractal", {
         min: "0",
         nonlinearSlider: true,
         step: "any",
-        tooltip: "Julia iteration detail on the face (GPU).",
+        tooltip:
+          "Julia iteration detail on the face (GPU). High Depth + low Soft = sparkly filigree; Soft rolls Depth back for cream.",
       },
       {
-        defaultValue: "0.18",
+        defaultValue: "0.48",
         key: "soft",
         label: "Soft",
         max: "1",
@@ -148,20 +153,9 @@ registerNodeGraphChromelessModule("rgbFractal", {
         nonlinearSlider: false,
         step: "any",
         tooltip:
-          "Face softness: AA, creamier escape edges, palette blur. Face only.",
+          "Pristine cream: spatial AA, fewer iters, smoother escape/palette. Face only. Default is soft — lower for harder structure.",
       },
-      {
-        defaultValue: "1",
-        key: "colorRate",
-        label: "Color Rate",
-        max: "4",
-        mid: "1",
-        min: "0",
-        nonlinearSlider: true,
-        step: "any",
-        tooltip:
-          "Palette cycle rate (× Speed). 0 freezes colors; decoupled from orbit so the gradient can drift on its own period. Face only.",
-      },
+      // Color Rate is input-only (jack), not a parameter slider.
       {
         defaultValue: "0",
         key: "colorShift",
@@ -185,7 +179,8 @@ registerNodeGraphChromelessModule("rgbFractal", {
         nonlinearSlider: true,
         step: "any",
         tooltip:
-          "Palette wraps across structure. Face only.",
+          "Face only. 1 = continuous energy→gradient (no ring wraps). "
+          + "Above 1 multi-wraps escape rings (psychedelic; can look banded). Soft damps wraps.",
       },
     ],
     visualSink: true,
@@ -197,7 +192,7 @@ registerNodeGraphChromelessModule("rgbFractal", {
     notes: [
       "rgb", "julia", "webgl", "planetary", "orbit", "map oscillator",
       "LayoutA", "hx", "hy", "parameter c", "pan", "soft", "bands",
-      "color rate", "color shift", "gradient",
+      "color rate cv", "color shift", "gradient",
     ],
   },
 });

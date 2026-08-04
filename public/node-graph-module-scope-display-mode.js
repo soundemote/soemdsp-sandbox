@@ -176,8 +176,9 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "matrixFace",
     "matrixWaterfallFace",
     "matrixDisplayFace",
-    // Soft Fractal + Fractal Brownian Field: gradient / background in Display Settings.
+    // Soft Fractal + Evolve Field + Fractal Brownian Field: gradient / background in Display Settings.
     "rgbFractalFace",
+    "evolveFieldFace",
     "fbmFieldFace",
     // Macro Controls face: bg / arc colors / names (global bank).
     "macroControlsFace",
@@ -199,18 +200,15 @@ function nodeGraphNodeCanOpenDisplaySettings(node) {
 
 
 function nodeGraphTraceDisplaySettingsForSlot(slot) {
-  // Plain Trace nodes intentionally share one global look (see
-  // nodeGraphTraceDisplaySettingsEditingTraceDefaults). Output reuses the
-  // "trace" schema for its Left/Right channels but each Output node's own
-  // brightness/size/blur are per-node -- reading the global bucket here
-  // meant those fields silently never reflected what was actually saved
-  // on the node (only color worked, since the draw path reads color
-  // straight off the node as a separate override).
-  // Multi-mode Display (visualOscilloscope) also keeps per-node Trace settings
-  // when Mode = 1D Trace.
+  // Plain Trace nodes share one global look (see editingTraceDefaults).
+  // Per-node Trace faces (Output / Display / stereoTracePorts) must read
+  // node.traceDisplaySettings — global here made Sync/colors never stick.
   if (nodeGraphModuleDisplaySettingsSchemaForSlot(slot) === "trace") {
     const nodeType = nodeGraphModuleScopeNodeForSlot(slot)?.type;
-    if (nodeType !== "output" && nodeType !== "visualOscilloscope") {
+    const perNode = typeof nodeGraphModuleKeepsPerNodeTraceDisplaySettings === "function"
+      ? nodeGraphModuleKeepsPerNodeTraceDisplaySettings(nodeType)
+      : (nodeType === "output" || nodeType === "visualOscilloscope");
+    if (!perNode) {
       return nodeGraphGlobalTraceSettings();
     }
   }

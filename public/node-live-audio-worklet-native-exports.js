@@ -4,7 +4,12 @@
 NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNativeModuleExports(name, targetType, exports) {
       if (name === "ellipsoid" || targetType === "ellipsoid") {
         this.nativeEllipsoid = exports;
-        this.nativeEllipsoidReady = Boolean(this.nativeEllipsoid?.soemdsp_ellipsoid_sample);
+        this.nativeEllipsoidReady = Boolean(
+          this.nativeEllipsoid?.soemdsp_ellipsoid_sine_to_square_mode
+          || this.nativeEllipsoid?.soemdsp_ellipsoid_sine_to_square_aa
+          || this.nativeEllipsoid?.soemdsp_ellipsoid_sine_to_square
+          || this.nativeEllipsoid?.soemdsp_ellipsoid_sample,
+        );
         this.port.postMessage({
           type: "nativeModuleStatus",
           name: "ellipsoid",

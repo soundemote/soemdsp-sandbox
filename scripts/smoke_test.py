@@ -2665,15 +2665,25 @@ def require_root_shell(base_url: str) -> None:
     )
     require(token_match is not None, "/ shell missing BUILD_TOKEN span")
     build_token = token_match.group(1).decode("ascii")
-    expected = (
+    expected_html = (
         (PUBLIC / "index.html")
         .read_text(encoding="utf-8")
         .replace("{{BUILD_NUMBER}}", build_number)
         .replace("{{SANDBOX_VERSION}}", sandbox_version)
         .replace("{{BUILD_MODE}}", build_mode)
         .replace("{{BUILD_TOKEN}}", build_token)
-        .encode("utf-8")
     )
+    expected_html = re.sub(
+        r'((?:src|href))="([^"]+\.(?:js|css)(?:\?[^"]*)?)"',
+        lambda match: (
+            match.group(0)
+            if "bt=" in match.group(2)
+            else f'{match.group(1)}="{match.group(2)}{"&" if "?" in match.group(2) else "?"}bt={build_token}"'
+        ),
+        expected_html,
+        flags=re.IGNORECASE,
+    )
+    expected = expected_html.encode("utf-8")
     expected_size = str(len(expected))
     root_response: Response | None = None
     for path in ["/", "/public/index.html"]:
@@ -7558,7 +7568,7 @@ def require_node_graph_mvp_contract() -> None:
         'label: "Mod A"',
         'key: "harmonicPhaseAdd"',
         'label: "Phase Multiply"',
-        "ellipsoid: \"Ellipsoid\"",
+        "ellipsoid: \"RoundShape\"",
         "ellipsoid: {",
         'inputs: ["Reset", "0.1V/Oct", "Increment"]',
         'outputAliases: {',
@@ -7566,9 +7576,8 @@ def require_node_graph_mvp_contract() -> None:
         'Wave: "Mono"',
         '"Wave Out": "Mono"',
         'outputs: ["Mono", "X", "Y"]',
-        'key: "offsetX"',
-        'key: "shapeY"',
-        'key: "scaleX"',
+        'key: "shape"',
+        'label: "Sine → Square"',
         "gain: {",
         "label: \"Amplitude\"",
         "bias: {",
@@ -9532,7 +9541,7 @@ def require_node_graph_mvp_contract() -> None:
         'lutCell: {',
         'metallicRatio: {',
         'label: "Rotation 3D to 2D"',
-        "Ellipsoid",
+        "RoundShape",
         "PolyBLEP",
         "GPU Additive",
         "SinCos",
@@ -10239,6 +10248,8 @@ def require_node_graph_mvp_contract() -> None:
         # Naive LFO (basic_oscillator): raw ramps / corners; polyBLEP helpers remain for other modules.
         "case 4: // Sine",
         "case 5: // Noise",
+        "function nodeGraphEllipsoidSineToSquare(phaseCycles, shape = 0)",
+        "function nodeGraphEllipsoidSineToSquareVector(phaseCycles, params = {})",
         "function nodeGraphEllipsoidSample(phase, offset = 0, shape = 0, scale = 1)",
         "function nodeGraphEllipsoidVectorSample(phase, params = {})",
         "Out: x",
@@ -10298,9 +10309,8 @@ def require_node_graph_mvp_contract() -> None:
         "value = { Out: additiveSample }",
         "nodeGraphLiveModuleEvaluators.ellipsoid = (",
         '"ellipsoid 0.1v/oct input"',
-        "value = nodeGraphEllipsoidVectorSample(phase + phaseOffset",
-        'offsetX: read("offsetX", 0)',
-        'shapeY: read("shapeY", 0)',
+        "nodeGraphEllipsoidSineToSquareVector(samplePhase, { level, shape })",
+        "const shape = clampNodeSliderValue(read(\"shape\", 0), 0, 1)",
         "function nextNodeGraphNoiseSample(runtime, nodeId)",
         "nodeGraphLiveModuleEvaluators.spiral = (",
         "nodeGraphLiveModuleEvaluators.lorenzAttractor = (",
@@ -12952,7 +12962,9 @@ def require_node_graph_mvp_contract() -> None:
         "Fractal Brownian Noise should declare explicit display modes for the pre-level Out X/Y/Z Raw signals",
     )
     require(
-        'ellipsoid: {\n    displayType: "scope2d",\n    displaySignals:' in module_definitions_source
+        'displayType: "scope2dTrace"' in module_definitions_source
+        and 'defaultDisplayMode: "xyTrace"' in module_definitions_source
+        and 'ellipsoid: "RoundShape"' in module_definitions_source
         and 'spiral: {\n    displayType: "scope2d",\n    displaySignals:' in module_definitions_source
         and 'lorenzAttractor: {\n    displayType: "scope2d",\n    displaySignals:' in module_definitions_source,
         "Chaos modules should declare explicit display modes",
@@ -13308,7 +13320,8 @@ def require_node_graph_mvp_contract() -> None:
         "Display Settings should show the specific target module in a tertiary header line",
     )
     require(
-        'ellipsoid: {\n    displayType: "scope2d"' in module_definitions_source
+        'ellipsoid: "RoundShape"' in module_definitions_source
+        and 'key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace"' in module_definitions_source
         and 'spiral: {\n    displayType: "scope2d"' in module_definitions_source
         and 'lorenzAttractor: {\n    displayType: "scope2d"' in module_definitions_source
         and 'visualOscilloscope: {\n    bufferedInputs: ["In", "X", "Y"],\n    displayType: "scope2dTrace"' in module_definitions_source
@@ -16728,11 +16741,13 @@ def require_node_graph_mvp_contract() -> None:
         "buildConnectionMap(items, ids, keyForItem)",
         "buildModulationConnectionMap(modulations, ids)",
         "const nodeLiveAdditiveHardMaxHarmonics = 1024",
+        "ellipsoidSineToSquare(phaseCycles, shape = 0)",
         "ellipsoidSample(phase, offset = 0, shape = 0, scale = 1)",
         "ellipsoidVectorSample(",
         "nativeEllipsoidVectorSample(",
         'message.type === "setNativeModuleWasm"',
         "async setNativeModuleWasm(message)",
+        "soemdsp_ellipsoid_sine_to_square",
         "soemdsp_ellipsoid_sample",
         "target,",
         "levelValue = 1",
@@ -16740,7 +16755,7 @@ def require_node_graph_mvp_contract() -> None:
         "output.Mono = x",
         "output.Wave = x",
         "output[\"Wave Out\"] = x",
-        "this.ellipsoidSample(phase - Math.PI * 0.5",
+        "this.ellipsoidSineToSquare(phase - 0.25, morph)",
         "additiveWaveformHarmonic(waveform, harmonic, modA = 0.5)",
         "additiveDampingCurveValue(value = 0)",
         "additiveDampingAlgorithmValue(value = 0)",
@@ -16784,8 +16799,8 @@ def require_node_graph_mvp_contract() -> None:
         "const value = this.nativeEllipsoidVectorSample(",
         "ellipsoidFrame,",
         "phase + phaseOffset",
-        'this.readEffectiveParameter(node, "offsetX", 0, frame, frames, frameValues)',
-        'this.readEffectiveParameter(node, "shapeY", 0, frame, frames, frameValues)',
+        'this.readEffectiveParameter(node, "shape", 0, frame, frames, frameValues)',
+        'this.readEffectiveParameter(node, "level", 1, frame, frames, frameValues)',
         "Out: selected",
         '"Wave Out": selected',
         "Noise: selected",
@@ -17472,7 +17487,7 @@ def require_native_module_contract(base_url: str) -> None:
         "lut_cell": ["soemdsp_lut_cell_create", "soemdsp_lut_cell_destroy", "soemdsp_lut_cell_sample", "soemdsp_lut_cell_q"],
         "metallic_ratio": ["soemdsp_metallic_ratio_sample"],
         "chua_attractor": ["soemdsp_chua_attractor_create", "soemdsp_chua_attractor_destroy", "soemdsp_chua_attractor_sample"],
-        "ellipsoid": ["soemdsp_ellipsoid_sample"],
+        "ellipsoid": ["soemdsp_ellipsoid_sine_to_square", "soemdsp_ellipsoid_sample"],
         "fractal_brownian_noise": ["soemdsp_fbm_create", "soemdsp_fbm_destroy", "soemdsp_fbm_sample"],
         "henon_map": ["soemdsp_henon_map_create", "soemdsp_henon_map_destroy", "soemdsp_henon_map_sample"],
         "jerobeam_wirdo_spiral": ["soemdsp_jbwirdo_create", "soemdsp_jbwirdo_destroy", "soemdsp_jbwirdo_sample", "soemdsp_jbwirdo_x", "soemdsp_jbwirdo_y"],
@@ -17620,6 +17635,7 @@ def require_native_module_contract(base_url: str) -> None:
     require(ellipsoid_source_path.exists(), "native ellipsoid source should exist")
     ellipsoid_source = ellipsoid_source_path.read_text(encoding="utf-8")
     require("// soemdsp-native-module: ellipsoid" in ellipsoid_source, "native ellipsoid source metadata missing")
+    require("extern \"C\" double soemdsp_ellipsoid_sine_to_square" in ellipsoid_source, "native ellipsoid sine_to_square export missing")
     require("extern \"C\" double soemdsp_ellipsoid_sample" in ellipsoid_source, "native ellipsoid sample export missing")
     require(
         'extern "C" void soemdsp_ellipsoid_vector_sample' not in ellipsoid_source

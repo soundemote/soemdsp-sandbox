@@ -27,7 +27,7 @@ nodeGraphLiveModuleEvaluators.mushroom = ({ runtime, node, nodeId, frame, frames
     width: read("width", 1),
     wobble: read("wobble", 0.0625),
   });
-  const mushroomLevel = read("level", 1);
+  const mushroomLevel = read("amplitude", 1);
   return {
     X: mushroom.x * mushroomLevel,
     Y: mushroom.y * mushroomLevel,

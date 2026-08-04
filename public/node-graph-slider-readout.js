@@ -313,8 +313,10 @@ function syncNodeSliderReadout(slider) {
   const labelText = readout.querySelector(".node-slider-readout-label");
   const valueText = readout.querySelector(".node-slider-readout-value");
   const unitText = readout.querySelector(".node-slider-readout-unit");
-  const displayValue = Number(slider.value);
-  const position = nodeSliderTravelFromValue(slider, Number(slider.value)) * 100;
+  // Prefer unbounded domain value (typed Amplitude etc.); thumb may be clamped.
+  const domainRaw = Number(slider.dataset?.domainValue);
+  const displayValue = Number.isFinite(domainRaw) ? domainRaw : Number(slider.value);
+  const position = nodeSliderTravelFromValue(slider, displayValue) * 100;
   let unit = (slider.dataset.unit || "").trim();
   let formattedValue = displayValue;
   let formattedKind = slider.dataset.kind;

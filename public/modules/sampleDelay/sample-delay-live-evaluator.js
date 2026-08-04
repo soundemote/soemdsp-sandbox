@@ -26,7 +26,8 @@ nodeGraphLiveModuleEvaluators.sampleDelay = ({ runtime, node, nodeId, frame, fra
   );
   const out = nodeGraphSampleDelayRingSample(state, raw, timeSeconds, samplesParam, sampleRate);
   return {
-    Delayed: nodeGraphSafeFilterNumber(out.delayed, runtime, nodeId, null, "sample delay delayed"),
+    // Dry (Thru) before wet (Delayed).
     Thru: out.raw,
+    Delayed: nodeGraphSafeFilterNumber(out.delayed, runtime, nodeId, null, "sample delay delayed"),
   };
 };

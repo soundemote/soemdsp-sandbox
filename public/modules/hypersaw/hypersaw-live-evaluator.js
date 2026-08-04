@@ -35,7 +35,7 @@ nodeGraphLiveModuleEvaluators.hypersaw = ({ runtime, node, nodeId, frame, frames
     })
     : (typeof nodeGraphPitchedFrequency === "function"
       ? nodeGraphPitchedFrequency(baseFrequency, pitchCv, referenceVoltage)
-      : Math.max(0, baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1))));
+      : baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1)));
   const hypersawResult = nodeGraphHypersawSample(state, {
     frequencyHz: effectiveFrequency,
     sampleRate,
@@ -44,7 +44,7 @@ nodeGraphLiveModuleEvaluators.hypersaw = ({ runtime, node, nodeId, frame, frames
     spread: read("spread", 1),
     randomAmount: read("random", 0.15),
     driftAmount: read("drift", 0.1),
-    level: read("level", 0.35),
+    level: read("amplitude", 0.35),
   });
   if (typeof writeNodeGraphDataOutput === "function") {
     writeNodeGraphDataOutput(String(nodeId), "Phases", hypersawResult.voicePhases);

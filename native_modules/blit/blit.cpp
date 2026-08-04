@@ -92,8 +92,9 @@ struct BlitSaw {
     leak = leak_;
   }
 
-  double update(double periodSamples) {
-    const double p = periodSamples;
+  // periodSamples = 1/|dt|; direction +1 forward, −1 through-zero reverse.
+  double update(double periodSamples, double direction = 1.0) {
+    const double p = periodSamples > 1.0e-6 ? periodSamples : 1.0e-6;
     const double maxHarmonics = __builtin_floor(0.5 * p);
     const double m = 2.0 * maxHarmonics + 1.0;
     const double a = m / p;   // limiting value of the kernel at phase 0
@@ -109,7 +110,8 @@ struct BlitSaw {
     tmp += state - c2;
     state = tmp * leak;
 
-    phase += kPi / p;
+    const double dir = direction < 0.0 ? -1.0 : 1.0;
+    phase += dir * (kPi / p);
     phase = wrapRadiansGeneric(phase, kPi);
 
     return tmp;
@@ -151,20 +153,17 @@ void initSlot(SlotState& slot) {
 }
 
 // waveform: 0 Saw, 1 Ramp, 2 Square, 3 Triangle, 4 Sine (matches PolyBLEP)
+// phaseIncrement is signed cycles/sample — negative = through-zero reverse.
 double oscillatorSample(BlitState& s, int slotIndex, double phase, double phaseIncrement, int waveform) {
   SlotState& slot = s.slots[slotIndex];
   if (!slot.initialized) initSlot(slot);
-  // phaseIncrement is cycles-per-sample (dt) directly, per the shared
-  // convention used by every other oscillator in this codebase (see
-  // polyblep.cpp's identical clamp) -- NOT radians-per-sample. An earlier
-  // version divided this by 2*pi here, which silently detuned every note by
-  // a factor of ~6.28 (requesting 20000Hz produced ~3183Hz).
   const double phaseIncMag = phaseIncrement < 0.0 ? -phaseIncrement : phaseIncrement;
   const double dt = clampD(phaseIncMag, 1.0e-6, 0.5);
   const double periodSamples = 1.0 / dt;
+  const double direction = phaseIncrement < 0.0 ? -1.0 : 1.0;
 
-  const double sawARaw = slot.sawA.update(periodSamples) * kSawGain;
-  const double sawBRaw = slot.sawB.update(periodSamples) * kSawGain;
+  const double sawARaw = slot.sawA.update(periodSamples, direction) * kSawGain;
+  const double sawBRaw = slot.sawB.update(periodSamples, direction) * kSawGain;
 
   switch (waveform) {
     case 1:
@@ -174,7 +173,9 @@ double oscillatorSample(BlitState& s, int slotIndex, double phase, double phaseI
     }
     case 3: {
       const double sqOut = clampD(sawARaw - sawBRaw, -1.0, 1.0);
-      slot.triState += dt * kTriTrackGain * (sqOut - slot.triState);
+      // Integrate with signed dt so reverse also reverses the triangle slope.
+      const double signedDt = direction * dt;
+      slot.triState += signedDt * kTriTrackGain * (sqOut - slot.triState);
       return clampD(slot.triState, -1.0, 1.0);
     }
     case 4:

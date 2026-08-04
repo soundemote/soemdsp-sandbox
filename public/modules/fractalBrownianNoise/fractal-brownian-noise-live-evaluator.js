@@ -33,7 +33,7 @@ function nodeGraphFractalBrownianNoiseSample(state, params, sampleRate, runtime 
   const octaves = Math.max(1, Math.min(8, Math.round(nodeGraphSafeFilterNumber(params.octaves, runtime, nodeId, null, "fbm octaves"))));
   const persistence = clampNodeSliderValue(nodeGraphSafeFilterNumber(params.persistence, runtime, nodeId, null, "fbm persistence"), 0, 0.99);
   const scale = Math.max(0.000001, nodeGraphSafeFilterNumber(params.scale, runtime, nodeId, null, "fbm scale"));
-  const level = nodeGraphSafeFilterNumber(params.level, runtime, nodeId, null, "fbm level");
+  const level = nodeGraphSafeFilterNumber(params.amplitude, runtime, nodeId, null, "fbm level");
   let total = 0;
   let amplitude = 1;
   let noiseFrequency = 1;
@@ -62,7 +62,7 @@ function nodeGraphFractalBrownianNoiseVector(state, params, sampleRate, runtime 
   const rawX = nodeGraphFractalBrownianNoiseSample(state, params, sampleRate, runtime, nodeId, "x", { raw: true });
   const rawY = nodeGraphFractalBrownianNoiseSample(state, params, sampleRate, runtime, nodeId, "y", { raw: true });
   const rawZ = nodeGraphFractalBrownianNoiseSample(state, params, sampleRate, runtime, nodeId, "z", { raw: true });
-  const level = nodeGraphSafeFilterNumber(params.level, runtime, nodeId, null, "fbm level");
+  const level = nodeGraphSafeFilterNumber(params.amplitude, runtime, nodeId, null, "fbm level");
   return {
     "Out X": nodeGraphSafeFilterNumber(rawX * level, runtime, nodeId, null, "fbm output"),
     "Out Y": nodeGraphSafeFilterNumber(rawY * level, runtime, nodeId, null, "fbm output"),
@@ -93,7 +93,7 @@ nodeGraphLiveModuleEvaluators.fractalBrownianNoise = ({ runtime, node, nodeId, f
     state,
     {
       frequency: read("frequency", 0.5),
-      level: read("level", 1),
+      level: read("amplitude", 1),
       octaves: read("octaves", 4),
       persistence: read("persistence", 0.5),
       scale: read("scale", 1),

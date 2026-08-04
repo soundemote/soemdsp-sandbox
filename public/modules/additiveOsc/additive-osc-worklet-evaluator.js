@@ -48,7 +48,7 @@ NodeLiveAudioProcessor.prototype.additiveOscillatorSample = function additiveOsc
       this.clampValue(Number(params.modA) || 0, 0, 1),
       this.clampValue(Number(params.harmonicPhaseAdd) || 0, 0, 1),
       this.clampValue(Number(params.harmonicPhaseMultiply) || 0, 0, 4),
-      this.clampValue(Number(params.level) || 0, 0, 1),
+      this.clampValue(Number(params.amplitude) || 0, 0, 1),
       Number(params.dampingFilterFrequency) || 20000,
       safeRateValue,
     );
@@ -94,7 +94,7 @@ NodeLiveAudioProcessor.prototype.additiveOscWorkletEvaluate = function additiveO
     : this.resolveFrequencyHz(
       (typeof nodeGraphPitchedFrequency === "function"
         ? nodeGraphPitchedFrequency(frequency, pitchCv, referenceVoltage)
-        : Math.max(0, frequency * (2 ** ((pitchCv - referenceVoltage) / 0.1)))),
+        : frequency * (2 ** ((pitchCv - referenceVoltage) / 0.1))),
       fHz,
     );
   const incrementInput = this.safeFilterNumber(mixInput(nodeId, "Increment"), null);
@@ -117,7 +117,7 @@ NodeLiveAudioProcessor.prototype.additiveOscWorkletEvaluate = function additiveO
         harmonics: this.readEffectiveParameter(node, "harmonics", 32, frame, frames, frameValues),
         harmonicPhaseAdd: this.readEffectiveParameter(node, "harmonicPhaseAdd", 0, frame, frames, frameValues),
         harmonicPhaseMultiply: this.readEffectiveParameter(node, "harmonicPhaseMultiply", 0, frame, frames, frameValues),
-        level: this.readEffectiveParameter(node, "level", 0.35, frame, frames, frameValues),
+        level: this.readEffectiveParameter(node, "amplitude", 0.35, frame, frames, frameValues),
         modA: this.readEffectiveParameter(node, "modA", 0.5, frame, frames, frameValues),
         waveform: this.readEffectiveParameter(node, "waveform", 1, frame, frames, frameValues),
       },

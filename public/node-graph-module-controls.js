@@ -111,32 +111,44 @@ function nodeGraphModuleDefinitionInvalidateCache(type = null) {
 }
 
 /**
- * Read universal linear frequency jack `f` (absolute Hz).
- * Returns null when the port is not wired; otherwise clamps to [0, speedLimit].
- * Offline: pass mixInput/hasInput from the frame evaluator.
+ * Read universal linear frequency jack `f` (raw bus sample, Hz scale).
+ * Returns null when unwired. Does not apply Speed Limit (that happens after
+ * Frequency multiplies in nodeGraphResolveFrequencyHz).
  */
 function nodeGraphReadFInputHz(mixInput, hasInput, nodeId, options = {}) {
   const port = options.port || "f";
   if (typeof hasInput !== "function" || !hasInput(nodeId, port)) {
     return null;
   }
-  const limit = Number(options.limit);
-  const maxHz = Number.isFinite(limit) && limit > 0 ? limit : nodeGraphLiveSpeedLimitHz();
   const raw = typeof mixInput === "function" ? Number(mixInput(nodeId, port)) : Number(mixInput);
   if (!Number.isFinite(raw)) {
     return 0;
   }
-  return Math.max(0, Math.min(maxHz, raw));
+  return raw;
 }
 
 /**
- * Prefer wired `f` (absolute Hz). Otherwise use the module's own baseHz path
- * (0.1V/Oct, Freq, knob, etc. — left entirely to the caller).
+ * Resolve oscillator Hz. Through-zero: signed Hz allowed (negative = reverse).
+ * When `f` is wired: hz = f × Frequency (both may be signed).
+ * When unwired: baseHz (signed). Result clamped to [−Speed Limit, +Speed Limit].
  */
-function nodeGraphResolveFrequencyHz(baseHz, fHzOrNull) {
+function nodeGraphResolveFrequencyHz(baseHz, fHzOrNull, options = {}) {
+  const limitOpt = Number(options?.limit);
+  const maxHz = Number.isFinite(limitOpt) && limitOpt > 0
+    ? limitOpt
+    : (typeof nodeGraphLiveSpeedLimitHz === "function" ? nodeGraphLiveSpeedLimitHz() : 20000);
+  const clampSigned = (hz) => {
+    if (!Number.isFinite(hz)) return 0;
+    if (hz > maxHz) return maxHz;
+    if (hz < -maxHz) return -maxHz;
+    return hz;
+  };
   if (fHzOrNull != null && Number.isFinite(Number(fHzOrNull))) {
-    return Math.max(0, Number(fHzOrNull));
+    const mult = Number(baseHz);
+    const m = Number.isFinite(mult) ? mult : 0;
+    return clampSigned(Number(fHzOrNull) * m);
   }
   const base = Number(baseHz);
-  return Number.isFinite(base) ? Math.max(0, base) : 0;
+  if (!Number.isFinite(base)) return 0;
+  return clampSigned(base);
 }

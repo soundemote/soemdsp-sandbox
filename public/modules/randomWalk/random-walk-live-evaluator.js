@@ -18,7 +18,7 @@ nodeGraphLiveModuleEvaluators.randomWalk = ({
     {
       frequency: read("frequency", 2),
       jitter: read("jitter", 0),
-      level: read("level", 1),
+      level: read("amplitude", 1),
       method: read("method", 2),
       seed: read("seed", 1),
     },

@@ -46,7 +46,7 @@ nodeGraphLiveModuleEvaluators.softwaveOsc = ({
     })
     : (typeof nodeGraphPitchedFrequency === "function"
       ? nodeGraphPitchedFrequency(baseFrequency, pitchCv, referenceVoltage)
-      : Math.max(0, baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1))));
+      : baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1)));
 
   const morphKnob = read("morph", 0.5);
   const morphCv = hasInput(nodeId, "Morph")
@@ -66,7 +66,7 @@ nodeGraphLiveModuleEvaluators.softwaveOsc = ({
     ? nodeGraphParamSignalInPhaseAdd(phaseKnob, phaseCv)
     : wrapNodeSliderValue(phaseKnob + phaseCv, 0, 1);
 
-  const levelKnob = read("level", 1);
+  const levelKnob = read("amplitude", 1);
   const hasAmp = hasInput?.(nodeId, "Amplitude") || hasInput(nodeId, "Amplitude");
   const ampCv = hasAmp
     ? nodeGraphSafeFilterNumber(mixInput(nodeId, "Amplitude"), runtime, nodeId, 1, "amp")

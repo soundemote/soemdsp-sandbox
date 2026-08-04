@@ -405,7 +405,14 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
     return normalizeNodeGraphScope2dSettings(scope2dDefaults, scope2dDefaults);
   }
   if (type === "scope2dTrace") {
-    return normalizeNodeGraphScope2dTraceSettings(nodeGraphScope2dTraceSettingsDefaults);
+    const targetNode = !nodeGraphTraceDisplaySettingsEditingTraceDefaults()
+      && !nodeGraphTraceDisplaySettingsEditingGlobal()
+      ? nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())
+      : null;
+    const typeDefaults = typeof nodeGraphScope2dTraceSettingsDefaultsForModuleType === "function"
+      ? nodeGraphScope2dTraceSettingsDefaultsForModuleType(targetNode?.type)
+      : nodeGraphScope2dTraceSettingsDefaults;
+    return normalizeNodeGraphScope2dTraceSettings(typeDefaults, typeDefaults);
   }
   if (type === "numberReadout") {
     return normalizeNodeGraphNumberReadoutSettings(nodeGraphNumberReadoutSettingsDefaults);
@@ -452,6 +459,11 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
       ? normalizeNodeGraphRgbFractalSettings()
       : { background: "#05060a", gradientStops: [] };
   }
+  if (type === "evolveFieldFace") {
+    return typeof normalizeNodeGraphEvolveFieldSettings === "function"
+      ? normalizeNodeGraphEvolveFieldSettings()
+      : { background: "#000004", gradientStops: [] };
+  }
   if (type === "fbmFieldFace") {
     return typeof normalizeNodeGraphFbmFieldSettings === "function"
       ? normalizeNodeGraphFbmFieldSettings()
@@ -489,7 +501,11 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
     return normalizeNodeGraphScope2dSettings(settings);
   }
   if (type === "scope2dTrace") {
-    return normalizeNodeGraphScope2dTraceSettings(settings);
+    const node = nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId());
+    const typeDefaults = typeof nodeGraphScope2dTraceSettingsDefaultsForModuleType === "function"
+      ? nodeGraphScope2dTraceSettingsDefaultsForModuleType(node?.type)
+      : null;
+    return normalizeNodeGraphScope2dTraceSettings(settings, typeDefaults);
   }
   if (type === "numberReadout") {
     return normalizeNodeGraphNumberReadoutSettings(settings);
@@ -539,6 +555,11 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
   if (type === "rgbFractalFace") {
     return typeof normalizeNodeGraphRgbFractalSettings === "function"
       ? normalizeNodeGraphRgbFractalSettings(settings)
+      : (settings || {});
+  }
+  if (type === "evolveFieldFace") {
+    return typeof normalizeNodeGraphEvolveFieldSettings === "function"
+      ? normalizeNodeGraphEvolveFieldSettings(settings)
       : (settings || {});
   }
   if (type === "fbmFieldFace") {
@@ -620,7 +641,10 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
     return normalizeNodeGraphScope2dSettings(node.traceDisplaySettings, typeDefaults);
   }
   if (settingsSchema === "scope2dTrace") {
-    return normalizeNodeGraphScope2dTraceSettings(node.traceDisplaySettings);
+    const typeDefaults = typeof nodeGraphScope2dTraceSettingsDefaultsForModuleType === "function"
+      ? nodeGraphScope2dTraceSettingsDefaultsForModuleType(node?.type)
+      : null;
+    return normalizeNodeGraphScope2dTraceSettings(node.traceDisplaySettings, typeDefaults);
   }
   if (settingsSchema === "phosphorLight") {
     const normalize = typeof normalizeNodeGraphPhosphorLightSettings === "function"
@@ -657,6 +681,11 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
       ? nodeGraphRgbFractalSettingsForNode(node)
       : normalizeNodeGraphRgbFractalSettings?.(node?.traceDisplaySettings);
   }
+  if (settingsSchema === "evolveFieldFace") {
+    return typeof nodeGraphEvolveFieldSettingsForNode === "function"
+      ? nodeGraphEvolveFieldSettingsForNode(node)
+      : normalizeNodeGraphEvolveFieldSettings?.(node?.traceDisplaySettings);
+  }
   if (settingsSchema === "fbmFieldFace") {
     return typeof nodeGraphFbmFieldSettingsForNode === "function"
       ? nodeGraphFbmFieldSettingsForNode(node)
@@ -691,11 +720,13 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
   ) {
     return normalizeNodeGraphScope2dSettings(node.traceDisplaySettings);
   }
-  // Per-node Trace schema: Output stereo + multi-mode Display (monoTrace).
+  // Per-node Trace schema: Output stereo, Display, stereoTracePorts modules.
   // Plain Trace modules use the shared global bucket (editingTraceDefaults).
   if (
     settingsSchema === "trace" &&
-    (node?.type === "output" || node?.type === "visualOscilloscope")
+    (typeof nodeGraphModuleKeepsPerNodeTraceDisplaySettings === "function"
+      ? nodeGraphModuleKeepsPerNodeTraceDisplaySettings(node?.type)
+      : (node?.type === "output" || node?.type === "visualOscilloscope"))
   ) {
     return nodeGraphTraceDisplaySettingsForNode(node);
   }
@@ -810,11 +841,28 @@ function readNodeGraphTraceDisplaySettingsForm() {
       next.gradientStops = editor.getStops();
     }
   }
-  // Output: choice is source of truth. Non-output: checkbox maps to off/mono.
-  if (next.syncChannel) {
+  // Sync reconciliation — must key off which control is actually on the form.
+  // Mono Trace only shows the Sync checkbox; syncChannel stays on `next` as a
+  // stale default ("off"). That string is truthy, so the old branch always
+  // forced sourceSync=false and made Sync impossible to enable on DSF / LFO
+  // Trace faces / other mono displays.
+  // Stereo Output shows the Sync channel select (off/left/right/mono).
+  const hasSyncChannelControl = Boolean(
+    root?.querySelector?.(`[data-trace-display-choice="syncChannel"]`),
+  );
+  const hasSourceSyncControl = Boolean(
+    root?.querySelector?.(`[data-trace-display-toggle="sourceSync"]`),
+  );
+  if (hasSyncChannelControl) {
+    const channel = String(next.syncChannel || "off").toLowerCase().trim();
+    next.syncChannel = ["left", "right", "mono", "off"].includes(channel) ? channel : "off";
     next.sourceSync = next.syncChannel !== "off";
+  } else if (hasSourceSyncControl) {
+    next.syncChannel = next.sourceSync ? "mono" : "off";
   } else if (next.sourceSync === true) {
-    next.syncChannel = "mono";
+    next.syncChannel = next.syncChannel && next.syncChannel !== "off"
+      ? next.syncChannel
+      : "mono";
   } else if (next.sourceSync === false) {
     next.syncChannel = "off";
   }
@@ -1574,7 +1622,10 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     return node.traceDisplaySettings;
   }
   if (displayType === "scope2dTrace") {
-    node.traceDisplaySettings = normalizeNodeGraphScope2dTraceSettings(settings);
+    const typeDefaults = typeof nodeGraphScope2dTraceSettingsDefaultsForModuleType === "function"
+      ? nodeGraphScope2dTraceSettingsDefaultsForModuleType(node?.type)
+      : null;
+    node.traceDisplaySettings = normalizeNodeGraphScope2dTraceSettings(settings, typeDefaults);
     return node.traceDisplaySettings;
   }
   // Must not fall through to Trace normalize: that drops decimals and expands
@@ -1624,6 +1675,12 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
   if (displayType === "rgbFractalFace") {
     node.traceDisplaySettings = typeof normalizeNodeGraphRgbFractalSettings === "function"
       ? normalizeNodeGraphRgbFractalSettings(settings)
+      : (settings || {});
+    return node.traceDisplaySettings;
+  }
+  if (displayType === "evolveFieldFace") {
+    node.traceDisplaySettings = typeof normalizeNodeGraphEvolveFieldSettings === "function"
+      ? normalizeNodeGraphEvolveFieldSettings(settings)
       : (settings || {});
     return node.traceDisplaySettings;
   }

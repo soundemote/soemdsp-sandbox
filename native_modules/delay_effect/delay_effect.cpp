@@ -31,7 +31,7 @@ static const char kMetadataJson[] =
     "\"outputs\":[\"Out\",\"Wet\"],"
     "\"parameters\":["
       "{\"key\":\"time\",\"label\":\"Time\",\"kind\":\"time\",\"defaultValue\":0.35,\"min\":0.001,\"mid\":0.5,\"max\":4.25,\"step\":\"any\",\"unit\":\"s\"},"
-      "{\"key\":\"feedback\",\"label\":\"Feedback\",\"defaultValue\":0.4,\"min\":0,\"mid\":0.5,\"max\":0.95,\"step\":\"any\"},"
+      "{\"key\":\"feedback\",\"label\":\"Feedback\",\"defaultValue\":0.4,\"min\":0,\"mid\":0.5,\"max\":2,\"step\":\"any\"},"
       "{\"key\":\"mix\",\"label\":\"Mix\",\"defaultValue\":0.35,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\"},"
       "{\"key\":\"level\",\"label\":\"Level\",\"defaultValue\":1,\"min\":0,\"mid\":1,\"max\":2,\"step\":\"any\"},"
       "{\"key\":\"modAmount\",\"label\":\"Mod Amount\",\"defaultValue\":0,\"min\":0,\"mid\":0.25,\"max\":0.5,\"step\":\"any\"},"
@@ -123,7 +123,8 @@ extern "C" void soemdsp_delay_effect_sample(
 
   const double dry = safe(input);
   const double time_ = clamp(safe(time), 0.001, kMaxDelaySeconds);
-  const double feedback_ = clamp(safe(feedback), 0.0, 0.95);
+  // No hardcoded 0.95 ceiling — parameter min/max own the range.
+  const double feedback_ = safe(feedback);
   const double mix_ = clamp(safe(mix), 0.0, 1.0);
   const double level_ = clamp(safe(level), 0.0, 2.0);
   const double modAmount_ = clamp(safe(modAmount), 0.0, 0.5);

@@ -203,12 +203,10 @@ function nodeGraphPolyBlepOscillatorLiveEvaluator({ runtime, node, nodeId, frame
     })
     : (typeof nodeGraphPitchedFrequency === "function"
       ? nodeGraphPitchedFrequency(frequency, pitchCv, referenceVoltage)
-      : Math.max(0, frequency * (2 ** ((pitchCv - referenceVoltage) / 0.1))));
+      : frequency * (2 ** ((pitchCv - referenceVoltage) / 0.1)));
+  // Signed Hz → signed phase inc (negative = through-zero reverse).
   const phaseIncrement = (effectiveFrequency / sampleRate) + incrementInput;
-  const level = readNodeGraphLiveEffectiveParam(
-    runtime,
-    node,
-    "level",
+  const level = readNodeGraphLiveEffectiveParam(runtime, node, "amplitude",
     1,
     frame,
     frames,

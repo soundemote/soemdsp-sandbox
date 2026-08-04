@@ -28,7 +28,7 @@ nodeGraphLiveModuleEvaluators.chuaAttractor = ({ runtime, node, nodeId, frame, f
     runtime.chuaAttractorStates.set(nodeId, state);
     chua = nodeGraphChuaAttractorSample({ ...opts, state });
   }
-  const chuaLevel = read("level", 1);
+  const chuaLevel = read("amplitude", 1);
   return {
     X: chua.x * chuaLevel,
     Y: chua.y * chuaLevel,

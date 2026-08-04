@@ -28,7 +28,7 @@ nodeGraphLiveModuleEvaluators.torus = ({ runtime, node, nodeId, frame, frames, f
     zAngleY: read("zAngleY", 0),
     zDepth: read("zDepth", 0),
   });
-  const torusLevel = read("level", 1);
+  const torusLevel = read("amplitude", 1);
   return {
     X: torus.x * torusLevel,
     Y: torus.y * torusLevel,

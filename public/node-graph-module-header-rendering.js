@@ -23,6 +23,10 @@ function syncNodeGraphHeaderTimingWidgets() {
       input.value = String(audio[audioKey]);
     }
   }
+  // Header Smooth field mirrors Command Center global smoothing.
+  if (typeof syncNodeGraphGlobalSmoothingControl === "function") {
+    syncNodeGraphGlobalSmoothingControl();
+  }
 }
 
 // Keeps every transport node's own "BPM" parameter mirrored to the patch-wide
@@ -110,6 +114,11 @@ function commitNodeGraphHeaderNumberInput(input) {
 function bindNodeGraphHeaderTimingWidgets(root = document) {
   for (const input of root.querySelectorAll(".node-header-timing-input")) {
     if (input.dataset.timingBound === "true") {
+      continue;
+    }
+    // Global smoothing has its own drag/edit handlers (same as Command Center).
+    if (input.dataset.globalSmoothingSeconds === "true") {
+      input.dataset.timingBound = "true";
       continue;
     }
     input.dataset.timingBound = "true";
@@ -313,6 +322,62 @@ function createNodeGraphHeaderSpeedLimitField() {
   return field;
 }
 
+// Copy of the Command Center global smoothing-time control, styled like
+// Speed Limit (caption + number). Shares autoSmoothingSeconds state with
+// #nodeSceneGlobalSmoothingSeconds — both stay in sync via
+// syncNodeGraphGlobalSmoothingControl.
+function createNodeGraphHeaderSmoothingTimeField() {
+  const field = document.createElement("label");
+  field.className = "node-header-timing-field node-header-scope-field node-header-smoothing-field";
+  field.setAttribute("aria-label", "Global smoothing time in seconds");
+  field.dataset.tooltipKey = "timing.globalSmoothing";
+  field.title = "Global smoothing time in seconds. Drag to tune; double-click to type. Ctrl-click resets to one audio block.";
+
+  const caption = document.createElement("span");
+  caption.className = "node-header-timing-caption";
+  caption.textContent = "Smooth";
+  field.append(caption);
+
+  const input = document.createElement("input");
+  input.id = "nodeHeaderGlobalSmoothingSeconds";
+  input.className = "node-header-timing-input";
+  input.dataset.globalSmoothingSeconds = "true";
+  // Mark so bindNodeGraphHeaderTimingWidgets does not attach BPM-style handlers.
+  input.dataset.timingBound = "true";
+  input.inputMode = "decimal";
+  input.min = "0";
+  input.step = "0.001";
+  input.type = "number";
+  input.readOnly = true;
+  input.autocomplete = "off";
+  input.setAttribute("aria-label", "Global smoothing time in seconds");
+  input.dataset.tooltipKey = "timing.globalSmoothing";
+  input.title = field.title;
+  input.value = typeof formatNodeGraphGlobalSmoothingSeconds === "function"
+    && typeof nodeGraphGlobalSmoothingSeconds === "function"
+    ? formatNodeGraphGlobalSmoothingSeconds(nodeGraphGlobalSmoothingSeconds())
+    : "0.001";
+
+  // Same interaction model as the scene-context smoothing widget.
+  if (typeof handleNodeGraphGlobalSmoothingSecondsChange === "function") {
+    input.addEventListener("change", handleNodeGraphGlobalSmoothingSecondsChange);
+    input.addEventListener("blur", handleNodeGraphGlobalSmoothingSecondsChange);
+  }
+  if (typeof handleNodeGraphGlobalSmoothingSecondsKeydown === "function") {
+    input.addEventListener("keydown", handleNodeGraphGlobalSmoothingSecondsKeydown);
+  }
+  if (typeof beginNodeGraphGlobalSmoothingSecondsEdit === "function") {
+    input.addEventListener("dblclick", beginNodeGraphGlobalSmoothingSecondsEdit);
+  }
+  if (typeof beginNodeGraphGlobalSmoothingSecondsDrag === "function") {
+    input.addEventListener("pointerdown", beginNodeGraphGlobalSmoothingSecondsDrag);
+  }
+  input.addEventListener("keydown", (event) => event.stopPropagation());
+
+  field.append(input);
+  return field;
+}
+
 function createNodeGraphHeaderScopeInput(id, label, value, options = {}) {
   const field = document.createElement("label");
   field.className = "node-header-timing-field node-header-scope-field";
@@ -454,6 +519,7 @@ function createNodeGraphHeaderTimingWidgets() {
     ),
     createNodeGraphHeaderSpeedPlaceholder(),
     createNodeGraphHeaderSpeedLimitField(),
+    createNodeGraphHeaderSmoothingTimeField(),
     createNodeGraphHeaderRenderRangeInput("node-header-render-start-input", "Start", nodeGraphMvp.renderStartSeconds ?? 0, { ariaLabel: "Render start time in seconds", min: 0, max: 3599, tooltip: "Sets the Render Sample start point (seconds)" }),
     createNodeGraphHeaderRenderRangeInput("node-header-render-end-input", "End", nodeGraphMvp.renderEndSeconds ?? (nodeGraphMvp.seconds ?? 2), { ariaLabel: "Render end time in seconds", min: 0.05, max: 3600, tooltip: "Sets the Render Sample end point (seconds)" }),
   );
@@ -506,7 +572,11 @@ function renderNodeGraphPatchTimingControls() {
     syncNodeGraphHeaderTimingWidgets();
     return;
   }
-  if (!host.querySelector(".node-header-timing-widgets")) {
+  // Rebuild if missing the widget group or the Smooth field (added next to Speed Limit).
+  if (
+    !host.querySelector(".node-header-timing-widgets")
+    || !host.querySelector("#nodeHeaderGlobalSmoothingSeconds")
+  ) {
     host.replaceChildren(createNodeGraphHeaderTimingWidgets());
   }
   bindNodeGraphHeaderTimingWidgets(host);

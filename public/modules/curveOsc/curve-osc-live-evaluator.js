@@ -64,7 +64,7 @@ nodeGraphLiveModuleEvaluators.curveOsc = ({
     })
     : (typeof nodeGraphPitchedFrequency === "function"
       ? nodeGraphPitchedFrequency(baseFrequency, pitchCv, referenceVoltage)
-      : Math.max(0, baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1))));
+      : baseFrequency * (2 ** ((pitchCv - referenceVoltage) / 0.1)));
 
   const phaseKnob = read("phase", 0);
   const phaseCv = hasInput?.(nodeId, "Phase")
@@ -74,7 +74,7 @@ nodeGraphLiveModuleEvaluators.curveOsc = ({
     ? nodeGraphParamSignalInPhaseAdd(phaseKnob, phaseCv)
     : wrapNodeSliderValue(phaseKnob + phaseCv, 0, 1);
 
-  const levelKnob = read("level", 1);
+  const levelKnob = read("amplitude", 1);
   const hasAmp = Boolean(hasInput?.(nodeId, "Amplitude"));
   const ampCv = hasAmp
     ? nodeGraphSafeFilterNumber(mixInput(nodeId, "Amplitude"), runtime, nodeId, 1, "curve osc amp")

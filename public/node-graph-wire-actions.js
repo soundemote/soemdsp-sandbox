@@ -203,36 +203,50 @@ function connectNodeGraphGraphInput(sourceNode, sourcePort, destinationNode, des
 /**
  * Double-connection (auto-pair) port groups.
  * Connecting one side of a pair also connects the sibling when both modules
- * expose matching ports. X≈Left and Y≈Right still cross-pair for stereo.
+ * expose matching ports. Same role (0=L/X, 1=R/Y) + same group → auto-pair.
+ *
+ * All stereo L/R-style names share stereo-xy-lr so Wet L→Left also wires
+ * Wet R→Right (and Dry L/R, X/Y, Left Out/Right Out, legacy Mix/Dry names).
+ * Sibling lists are preferred names on the *same* module (own pair first).
  *
  * Groups:
- *   stereo-xy-lr  — X/Left  ↔  Y/Right
+ *   stereo-xy-lr  — X/Left/Wet L/Dry L/…  ↔  Y/Right/Wet R/Dry R/…
  *   ab            — A  ↔  B
- *   dry-lr        — Left Dry  ↔  Right Dry
- *   mix-lr        — Left Mix  ↔  Right Mix  (reverb wet/mixed outs)
- *   wet-lr        — Left Wet  ↔  Right Wet
- *   out-lr        — Left Out  ↔  Right Out
  */
 function nodeGraphPortPairMeta(port) {
   const key = String(port || "").trim().toLowerCase();
   if (!key) {
     return null;
   }
+  // role 0 = left/X side; role 1 = right/Y side. siblings = opposite-side names
+  // preferred on the same module (first existing wins).
   const table = {
-    x: { group: "stereo-xy-lr", role: 0, siblings: ["Y", "Right"] },
-    left: { group: "stereo-xy-lr", role: 0, siblings: ["Right", "Y"] },
-    y: { group: "stereo-xy-lr", role: 1, siblings: ["X", "Left"] },
-    right: { group: "stereo-xy-lr", role: 1, siblings: ["Left", "X"] },
+    x: { group: "stereo-xy-lr", role: 0, siblings: ["Y", "Right", "Wet R", "Dry R", "Right Out", "Bi Y", "Uni Y"] },
+    left: { group: "stereo-xy-lr", role: 0, siblings: ["Right", "Y", "Wet R", "Dry R", "Right Out", "Bi Y", "Uni Y"] },
+    y: { group: "stereo-xy-lr", role: 1, siblings: ["X", "Left", "Wet L", "Dry L", "Left Out", "Bi X", "Uni X"] },
+    right: { group: "stereo-xy-lr", role: 1, siblings: ["Left", "X", "Wet L", "Dry L", "Left Out", "Bi X", "Uni X"] },
+    // RoundShape uni/bi quadrature pairs
+    "bi x": { group: "stereo-xy-lr", role: 0, siblings: ["Bi Y", "Y", "Right", "Uni Y"] },
+    "bi y": { group: "stereo-xy-lr", role: 1, siblings: ["Bi X", "X", "Left", "Uni X"] },
+    "uni x": { group: "stereo-xy-lr", role: 0, siblings: ["Uni Y", "Y", "Right", "Bi Y"] },
+    "uni y": { group: "stereo-xy-lr", role: 1, siblings: ["Uni X", "X", "Left", "Bi X"] },
     a: { group: "ab", role: 0, siblings: ["B"] },
     b: { group: "ab", role: 1, siblings: ["A"] },
-    "left dry": { group: "dry-lr", role: 0, siblings: ["Right Dry"] },
-    "right dry": { group: "dry-lr", role: 1, siblings: ["Left Dry"] },
-    "left mix": { group: "mix-lr", role: 0, siblings: ["Right Mix"] },
-    "right mix": { group: "mix-lr", role: 1, siblings: ["Left Mix"] },
-    "left wet": { group: "wet-lr", role: 0, siblings: ["Right Wet"] },
-    "right wet": { group: "wet-lr", role: 1, siblings: ["Left Wet"] },
-    "left out": { group: "out-lr", role: 0, siblings: ["Right Out"] },
-    "right out": { group: "out-lr", role: 1, siblings: ["Left Out"] },
+    // Space FX dry pair (SoEm / Sabrina) — own pair first, then generic stereo
+    "dry l": { group: "stereo-xy-lr", role: 0, siblings: ["Dry R", "Right Dry", "Right", "Y", "Wet R"] },
+    "dry r": { group: "stereo-xy-lr", role: 1, siblings: ["Dry L", "Left Dry", "Left", "X", "Wet L"] },
+    "left dry": { group: "stereo-xy-lr", role: 0, siblings: ["Right Dry", "Dry R", "Right", "Y"] },
+    "right dry": { group: "stereo-xy-lr", role: 1, siblings: ["Left Dry", "Dry L", "Left", "X"] },
+    // Space FX wet pair
+    "wet l": { group: "stereo-xy-lr", role: 0, siblings: ["Wet R", "Right Wet", "Right Mix", "Right", "Y", "Dry R"] },
+    "wet r": { group: "stereo-xy-lr", role: 1, siblings: ["Wet L", "Left Wet", "Left Mix", "Left", "X", "Dry L"] },
+    "left wet": { group: "stereo-xy-lr", role: 0, siblings: ["Right Wet", "Wet R", "Right Mix", "Right", "Y"] },
+    "right wet": { group: "stereo-xy-lr", role: 1, siblings: ["Left Wet", "Wet L", "Left Mix", "Left", "X"] },
+    // Legacy "Mix" = wet/mixed reverb outs
+    "left mix": { group: "stereo-xy-lr", role: 0, siblings: ["Right Mix", "Wet R", "Right Wet", "Right", "Y"] },
+    "right mix": { group: "stereo-xy-lr", role: 1, siblings: ["Left Mix", "Wet L", "Left Wet", "Left", "X"] },
+    "left out": { group: "stereo-xy-lr", role: 0, siblings: ["Right Out", "Right", "Y", "Wet R", "Dry R"] },
+    "right out": { group: "stereo-xy-lr", role: 1, siblings: ["Left Out", "Left", "X", "Wet L", "Dry L"] },
   };
   return table[key] || null;
 }

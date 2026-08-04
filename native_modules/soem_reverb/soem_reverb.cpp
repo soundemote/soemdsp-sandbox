@@ -33,7 +33,7 @@ static const char kMetadataJson[] =
     "\"targetType\":\"soemReverb\","
     "\"kind\":\"effect\","
     "\"inputs\":[\"Left\",\"Right\",\"Mono\"],"
-    "\"outputs\":[\"Wet L\",\"Wet R\",\"Dry L\",\"Dry R\"],"
+    "\"outputs\":[\"Dry L\",\"Dry R\",\"Wet L\",\"Wet R\"],"
     "\"parameters\":["
       "{\"key\":\"mix\",\"label\":\"Mix\",\"defaultValue\":0.43,\"min\":0,\"max\":1,\"step\":\"any\"},"
       "{\"key\":\"volume\",\"label\":\"Volume\",\"defaultValue\":1,\"min\":0,\"max\":4,\"step\":\"any\"},"
