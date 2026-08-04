@@ -497,13 +497,42 @@ function nodeGraphScope2dTraceMaxSegmentPixels(square) {
   return Math.max(8, size * 0.08);
 }
 
+/**
+ * Size 0–1 → radius px. 0 → 0.5 (1px diameter), 1 → half face min side.
+ * Exponential (side^t / 2) — shared with PhosphorDrawer / TraceStroke.
+ */
+function nodeGraphScopeSize01ToRadiusPx(faceMinSide, size01) {
+  if (typeof PhosphorDrawer !== "undefined" && typeof PhosphorDrawer.size01ToRadiusPx === "function") {
+    return PhosphorDrawer.size01ToRadiusPx(faceMinSide, size01);
+  }
+  if (typeof TraceStroke !== "undefined" && typeof TraceStroke.radiusPx === "function") {
+    return TraceStroke.radiusPx(faceMinSide, size01);
+  }
+  const side = Math.max(1, Number(faceMinSide) || 1);
+  const t = clampNodeSliderValue(Number(size01) || 0, 0, 1);
+  return Math.max(0.5, Math.pow(side, t) * 0.5);
+}
+
+/** Size 0–1 → diameter/line-width px. 0 → 1px, 1 → face min side. */
+function nodeGraphScopeSize01ToDiameterPx(faceMinSide, size01) {
+  if (typeof PhosphorDrawer !== "undefined" && typeof PhosphorDrawer.size01ToDiameterPx === "function") {
+    return PhosphorDrawer.size01ToDiameterPx(faceMinSide, size01);
+  }
+  if (typeof TraceStroke !== "undefined" && typeof TraceStroke.diameterPx === "function") {
+    return TraceStroke.diameterPx(faceMinSide, size01);
+  }
+  const side = Math.max(1, Number(faceMinSide) || 1);
+  const t = clampNodeSliderValue(Number(size01) || 0, 0, 1);
+  return Math.max(1, Math.pow(side, t));
+}
+
 function nodeGraphScope2dLayerRadiusPx(settings, dotSpace) {
   if (settings?.dot1Enabled === false) {
     return 0;
   }
   const sizeValue = Number(settings?.dot1Size);
   const size = Number.isFinite(sizeValue) ? clampNodeSliderValue(sizeValue, 0, 1) : 0;
-  return Math.max(0, (Number(dotSpace) || 0) * size * 0.5);
+  return nodeGraphScopeSize01ToRadiusPx(dotSpace, size);
 }
 
 function nodeGraphScope2dContinuitySpacingPx(settings, dotSpace) {

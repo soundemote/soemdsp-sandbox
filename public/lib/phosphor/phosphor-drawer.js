@@ -57,10 +57,24 @@
     return DEFAULT_EXPOSURE;
   }
 
-  function radiusFromSize(faceMinSide, size01) {
+  /**
+   * Size 0–1 → stroke/dot diameter in px.
+   * 0 → 1px (sharpest useful trace), 1 → face min side (full screen).
+   * Exponential: diameter = side^t so fine control lives near 0.
+   */
+  function size01ToDiameterPx(faceMinSide, size01) {
     const side = Math.max(1, Number(faceMinSide) || 1);
-    const t = clamp01(size01, 0.08);
-    return Math.max(0.35, side * t * 0.5);
+    const t = clamp01(size01, 0);
+    return Math.max(1, Math.pow(side, t));
+  }
+
+  /** Size 0–1 → radius in px (half of diameter). Min radius 0.5 for a 1px disc. */
+  function size01ToRadiusPx(faceMinSide, size01) {
+    return Math.max(0.5, size01ToDiameterPx(faceMinSide, size01) * 0.5);
+  }
+
+  function radiusFromSize(faceMinSide, size01) {
+    return size01ToRadiusPx(faceMinSide, size01);
   }
 
   function ensure(hostCanvas, width, height, key = "_phosphorEnergyGl") {
@@ -224,6 +238,8 @@
     normalizeBlur,
     depositGain,
     exposure,
+    size01ToDiameterPx,
+    size01ToRadiusPx,
     radiusFromSize,
     ensure,
     setLut,

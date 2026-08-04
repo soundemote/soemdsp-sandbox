@@ -533,9 +533,11 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
     : Math.max(0, Math.min(1, Number(options.blur) || 0));
   const radius = Math.max(
     0.5,
-    Number(options.radius) || (drawer?.radiusFromSize
-      ? drawer.radiusFromSize(minSide, size01)
-      : minSide * size01 * 0.5),
+    Number(options.radius) || (drawer?.size01ToRadiusPx
+      ? drawer.size01ToRadiusPx(minSide, size01)
+      : (drawer?.radiusFromSize
+        ? drawer.radiusFromSize(minSide, size01)
+        : Math.max(0.5, Math.pow(minSide, size01) * 0.5))),
   );
   // Energy deposit from brightness only (decay fades residual).
   const deposit = drawer?.depositGain
@@ -916,22 +918,27 @@ function nodeGraphXyPadDisplaySettings(pad) {
   if (typeof normalizeNodeGraphXyPadDisplaySettings === "function") {
     return normalizeNodeGraphXyPadDisplaySettings(node?.traceDisplaySettings);
   }
+  // Fallback if normalize helpers missing — match shared phosphor look (colors alone).
+  const look = typeof nodeGraphScopePhosphorLookDefaults !== "undefined"
+    ? nodeGraphScopePhosphorLookDefaults
+    : null;
   return {
     background: "#000000",
-    trail: 0.65,
-    dot1Brightness: 0.78,
+    ghost: look?.ghost ?? 0.55,
+    trail: look?.trail ?? 0.5175,
+    dot1Brightness: look?.brightness ?? 1,
     dot1Color: "#7fc7d9",
-    dot1Size: 0.07,
-    dotBudget: 2048,
-    fullDotEconomy: true,
+    dot1Size: look?.size ?? 0.0385,
+    dotBudget: look?.dotBudget ?? 2048,
+    fullDotEconomy: look?.fullDotEconomy !== false,
     gradientStops: [
       { t: 0, color: "#000000" },
       { t: 0.18, color: "#0a2830" },
       { t: 0.55, color: "#3a8899" },
       { t: 1, color: "#7fc7d9" },
     ],
-    lineThickness: 0.42,
-    pixelDensity: 1,
+    lineThickness: look?.blur ?? 0.1062,
+    pixelDensity: look?.pixelDensity ?? 1,
     puckSize: 0.045,
   };
 }

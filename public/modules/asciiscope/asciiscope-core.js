@@ -561,6 +561,8 @@ function matrixWaterfallParamsFromNode(node) {
   const spawn = p.spawn != null
     ? Math.max(0, num("spawn", 0.5))
     : (p.columns != null ? Math.max(0, num("density", 0.5)) : 0.5);
+  // Stream Death: 0 never die, 0.5 original mid-stream death, 1 no spawn.
+  const streamDeath = Math.max(0, Math.min(1, num("streamDeath", 0.5)));
   return {
     density: Number.isFinite(density) ? density : grid.density,
     // Provisional; tick re-resolves with live stage aspect for full-face fill.
@@ -578,8 +580,10 @@ function matrixWaterfallParamsFromNode(node) {
     // Trail 0 = no afterglow, 1 = multi-second main residual (not brightness).
     trail: Math.max(0, num("trail", 0.82)),
     // Burn-in hang: long-lived dim residual on top of Trail (not peak brightness).
-    burn: Math.max(0, Math.min(1, num("burn", 0.35))),
+    burn: Math.max(0, Math.min(1, num("ghost", num("burn", 0.35)))),
+    ghost: Math.max(0, Math.min(1, num("ghost", num("burn", 0.35)))),
     spawn,
+    streamDeath,
     // Present + deposit light axis — not residual lifetime.
     brightness: Math.max(0, num("brightness", 1)),
     freeze: Math.round(num("freeze", 0)) > 0 ? 1 : 0,

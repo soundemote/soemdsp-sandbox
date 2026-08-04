@@ -499,16 +499,21 @@ function decayNodeGraphScope2dBurn(renderer, settings) {
 function nodeGraphScope2dBurnLayers(settings, dotSpace) {
   const layers = [];
   if (settings?.dot1Enabled !== false) {
-    // Size 0–1 of face min side: diameter = size * minSide (radius = half).
+    // Size 0–1: exp map → 1px diameter … full face min side (see size01ToRadiusPx).
     // Blur 0–1: hard-ish core → soft wide skirt (shader), not geometric size.
     const size01 = clampNodeSliderValue(settings.dot1Size, 0, 1);
     const side = Math.max(1, Number(dotSpace) || 1);
+    const radius = typeof nodeGraphScopeSize01ToRadiusPx === "function"
+      ? nodeGraphScopeSize01ToRadiusPx(side, size01)
+      : (typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.size01ToRadiusPx
+        ? PhosphorDrawer.size01ToRadiusPx(side, size01)
+        : Math.max(0.5, Math.pow(side, size01) * 0.5));
     layers.push({
       // Blur 0 hard disc … 1 full soft gaussian.
       blur: nodeGraphTraceDisplayClampStampBlur(settings.lineThickness),
       brightness: Math.max(0, Number(settings.dot1Brightness) || 0),
       color: nodeGraphScopeHexColorToRgb(settings.dot1Color),
-      radius: Math.max(0.5, side * size01 * 0.5),
+      radius,
     });
   }
   return layers.filter((layer) => layer.brightness > 0 && layer.radius > 0);
@@ -682,13 +687,21 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
     // Present only (below). No residual step, no bleed, no deposit.
   } else if (layer) {
     // Soft hits on NEW motion only. Deposit = brightness; Trail = hot hang; Ghost = dim scorch.
+    // Dots + Dot Budget economy (not unlimited beam segments): under load, stamps
+    // spread evenly along the path — high-frequency reads as a beautiful sparse
+    // phosphor dust instead of drawing a polyline for every sample (FPS death).
     const size01 = clampNodeSliderValue(settings?.dot1Size, 0, 1);
     const beamBrightness = nodeGraphScope2dEnergyBurnDepositGain(
       layer.brightness,
       size01,
     );
-    // Continuous gaussian beam ribbons (not thrifty dots). Dots under budget
-    // left bead gaps / jagged hard trails; segments match the CRT beam model.
+    const maxDots = Math.max(
+      64,
+      Math.min(
+        8192,
+        Math.round(Number(settings?.dotBudget) || nodeGraphScope2dMaxSamplesPerFrame(canvas)),
+      ),
+    );
     nodeGraphPhosphorEnergyGlStepBeams(energyGl, {
       trail,
       ghost,
@@ -696,16 +709,12 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       radius: Math.max(0.35, layer.radius),
       brightness: beamBrightness,
       blur: nodeGraphTraceDisplayClampStampBlur(layer.blur),
-      mode: "segments",
-      // Still honor stamp budget if a caller forces dots mode later.
-      maxDots: Math.max(
-        64,
-        Math.min(
-          8192,
-          Math.round(Number(settings?.dotBudget) || nodeGraphScope2dMaxSamplesPerFrame(canvas)),
-        ),
-      ),
+      mode: "dots",
+      maxDots,
+      // fullEconomy: pack dense when budget allows; when over budget, widen
+      // spacing across the *whole* path (not head-only truncation).
       fullEconomy: settings?.fullDotEconomy !== false,
+      fullDotEconomy: settings?.fullDotEconomy !== false,
     });
   } else if (typeof nodeGraphPhosphorEnergyGlStep === "function") {
     // Fade + bleed when no drawable layer (trail still softens outward).
@@ -769,11 +778,12 @@ function drawNodeGraphScope2dRetainedBurn(item, pixelRatio, square, buffer, sett
   const budget = nodeGraphScope2dMaxSamplesPerFrame(canvas);
   const rawStart = nodeGraphScope2dDrawStartIndex(canvas, buffer, count);
   const drawStartIndex = nodeGraphScope2dClampDrawStartIndex(rawStart, count, budget);
-  // Interpolate long sample-to-sample jumps so beam segments stay smooth under
-  // sparse capture (avoids long single-line chords that read as jagged folds).
+  // Control points only — stamp density is decided later by Dot Budget economy
+  // (even spacing along total path length). Dense CPU interpolation here just
+  // inflates path length without improving the dotted high-frequency look.
   let pathPoints = drawStartIndex < count
     ? buildNodeGraphScope2dPathPoints(canvasSquare, buffer, drawStartIndex, {
-      interpolate: true,
+      interpolate: false,
       settings,
     })
     : [];
@@ -992,11 +1002,14 @@ function drawNodeGraphScope2dTraceLayer(context, points, dotSpace, settings) {
   }
   const size = clampNodeSliderValue(settings.dot1Size, 0, 1);
   const brightness = Math.max(0, Number(settings.dot1Brightness) || 0);
-  if (size <= 0 || brightness <= 0) {
+  if (brightness <= 0) {
     return;
   }
   const rgb = nodeGraphScopeRgbFloatsToCanvasRgb(nodeGraphScopeHexColorToRgb(settings.dot1Color));
-  const radius = Math.max(0.5, Math.max(1, Number(dotSpace) || 1) * size * 0.5);
+  const side = Math.max(1, Number(dotSpace) || 1);
+  const radius = typeof nodeGraphScopeSize01ToRadiusPx === "function"
+    ? nodeGraphScopeSize01ToRadiusPx(side, size)
+    : Math.max(0.5, Math.pow(side, size) * 0.5);
   context.save();
   context.globalCompositeOperation = "lighter";
   context.lineCap = "round";

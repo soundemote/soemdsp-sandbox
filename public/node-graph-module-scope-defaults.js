@@ -51,31 +51,55 @@ const nodeGraphModuleScopeUnipolarTypes = new Set([
 ]);
 
 
+/**
+ * Shared scope “analog pixel burn” look — from snowflake 2D Phosphor patch
+ * (Desktop/patches/analog pixel burn snowflake). Colors stay per-face defaults.
+ */
+const nodeGraphScopePhosphorLookDefaults = Object.freeze({
+  // Bright 0…1 (1 = full deposit / tip).
+  brightness: 1,
+  // Ghost = dim scorched hang; Trail = main residual (hot path length).
+  ghost: 0.55,
+  trail: 0.5175,
+  // Exp size map 0…1 (see size01ToRadiusPx); snowflake ~0.0385.
+  size: 0.0385,
+  // Stamp blur 0 hard … 1 soft.
+  blur: 0.1062,
+  // Max phosphor stamps / frame (economy spreads when over).
+  dotBudget: 2048,
+  // Face buffer supersample (1 = layout×dpr).
+  pixelDensity: 1,
+  // Amplitude zoom.
+  scale: 1,
+  fullDotEconomy: true,
+});
+
+
 const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
   // Face plate under the stroke (same family as 2D Trace / Phosphor).
   background: "#000000",
-  brightness: 0.92,
+  brightness: nodeGraphScopePhosphorLookDefaults.brightness,
   color: "#ff0000",
   dot1Enabled: true,
-  dot1Size: 0.08,
+  dot1Size: nodeGraphScopePhosphorLookDefaults.size,
   // Output stereo: combine (Meet) | lighter | screen | source-over | multiply | …
   stereoBlend: "combine",
   // Meet always auto from Left/Right (complement + soft screen lift).
   meetColor: "auto",
-  secondaryBrightness: 0.92,
+  secondaryBrightness: nodeGraphScopePhosphorLookDefaults.brightness,
   secondaryColor: "#0000ff",
   secondaryEnabled: true,
-  secondarySize: 0.08,
-  secondaryLineThickness: 0,
+  secondarySize: nodeGraphScopePhosphorLookDefaults.size,
+  secondaryLineThickness: nodeGraphScopePhosphorLookDefaults.blur,
   cycles: 2,
-  // Trace blur unused (hard stroke only); kept for schema compat / phosphor forms.
-  lineThickness: 0,
+  // Instant Trace: blur continuum (0 hard … 1 soft).
+  lineThickness: nodeGraphScopePhosphorLookDefaults.blur,
   // Vector stroke into a density-scaled face buffer (lo-fi look when < 1).
   // Not a phosphor energy grid — still one polyline; density only sets buffer size.
-  pixelDensity: 1,
+  pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
   padding: 0,
   // Amplitude zoom for quieter signals (1 = full-scale ±1 fills the face).
-  scale: 1,
+  scale: nodeGraphScopePhosphorLookDefaults.scale,
   skipDiscontinuities: false,
   // off | left | right | mono — Output stereo chooses which channel triggers the shared window.
   // Non-output single traces treat any non-off as "sync on" for that buffer.
@@ -88,18 +112,21 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
 const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   background: "#000000",
   // Ghost = dim scorched hang; Trail = main residual (1 ≈ freeze).
-  ghost: 0.35,
-  trail: 0.7,
+  ghost: nodeGraphScopePhosphorLookDefaults.ghost,
+  trail: nodeGraphScopePhosphorLookDefaults.trail,
   // Amplitude zoom (Y).
-  scale: 1,
+  scale: nodeGraphScopePhosphorLookDefaults.scale,
   // Bright 0…1 (1 = full deposit energy).
-  dot1Brightness: 1,
+  dot1Brightness: nodeGraphScopePhosphorLookDefaults.brightness,
+  // Color left alone (not from snowflake gradient).
   dot1Color: "#75ebff",
   dot1Enabled: true,
-  dot1Size: 0.07,
-  lineThickness: 0.2,
+  dot1Size: nodeGraphScopePhosphorLookDefaults.size,
+  lineThickness: nodeGraphScopePhosphorLookDefaults.blur,
   // 0 = 1×1 pixel … 1 layout×dpr … 4 AA (same as 2D Phosphor / Trace).
-  pixelDensity: 1,
+  pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
+  dotBudget: nodeGraphScopePhosphorLookDefaults.dotBudget,
+  fullDotEconomy: nodeGraphScopePhosphorLookDefaults.fullDotEconomy,
   // Seconds for one full left→right pass (default 2 s).
   sweepSeconds: 2,
 });
@@ -111,36 +138,40 @@ const nodeGraphTraceDisplayRenderPointBudgetDefault = 4096;
 const nodeGraphZeroDBurnSettingsDefaults = Object.freeze({
   background: "#000000",
   bipolarBrightness: false,
-  ghost: 0.4,
-  trail: 0.78,
-  dot1Brightness: 0.92,
+  ghost: nodeGraphScopePhosphorLookDefaults.ghost,
+  trail: nodeGraphScopePhosphorLookDefaults.trail,
+  dot1Brightness: nodeGraphScopePhosphorLookDefaults.brightness,
+  // Color left alone.
   dot1Color: "#75ebff",
   dot1Enabled: true,
-  dot1Size: 0.35,
+  dot1Size: nodeGraphScopePhosphorLookDefaults.size,
   // Blur 0 hard … 1 soft (same as 2D Phosphor stamps).
-  lineThickness: 0.25,
+  lineThickness: nodeGraphScopePhosphorLookDefaults.blur,
   // 0 = 1×1 pixel … 1 layout×dpr … 4 AA.
-  pixelDensity: 1,
+  pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
+  dotBudget: nodeGraphScopePhosphorLookDefaults.dotBudget,
+  fullDotEconomy: nodeGraphScopePhosphorLookDefaults.fullDotEconomy,
 });
 
 
 const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
   background: "#000000",
-  brightness: 0.92,
-  ghost: 0.25,
+  brightness: nodeGraphScopePhosphorLookDefaults.brightness,
+  ghost: nodeGraphScopePhosphorLookDefaults.ghost,
   capEnabled: true,
   capLength: 0.16,
-  capSize: 0.08,
+  capSize: nodeGraphScopePhosphorLookDefaults.size,
+  // Color left alone.
   color: "#75ebff",
-  trail: 1,
+  trail: nodeGraphScopePhosphorLookDefaults.trail,
   dot1Enabled: true,
-  dot1Size: 0.08,
+  dot1Size: nodeGraphScopePhosphorLookDefaults.size,
   lineLength: 0.88,
-  lineThickness: 0.2,
+  lineThickness: nodeGraphScopePhosphorLookDefaults.blur,
   // 0 = 1×1 pixel … 1 layout×dpr … 4 AA.
-  pixelDensity: 1,
+  pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
   // Amplitude zoom (Y).
-  scale: 1,
+  scale: nodeGraphScopePhosphorLookDefaults.scale,
 });
 
 
@@ -195,17 +226,19 @@ const nodeGraphScope2dSettingsDefaults = Object.freeze({
   // Face plate follows gradient floor (t≈0); kept for plate CSS / migration.
   background: "#000000",
   // Ghost = dim scorched floor; Trail = main residual (1 ≈ freeze).
-  ghost: 0.45,
-  trail: 0.88,
-  dot1Brightness: 0.92,
-  // Peak color = last gradient stop (migration + puck/overlays).
+  // From snowflake “analog pixel burn” phosphor (colors left alone).
+  ghost: nodeGraphScopePhosphorLookDefaults.ghost,
+  trail: nodeGraphScopePhosphorLookDefaults.trail,
+  dot1Brightness: nodeGraphScopePhosphorLookDefaults.brightness,
+  // Peak color = last gradient stop (migration + puck/overlays) — color left alone.
   dot1Color: "#75ebff",
   dot1Enabled: true,
-  // 0–1 of face min side: 1 = diameter fills the square (same as PhosphorLight).
-  dot1Size: 0.08,
+  // Exp size map 0…1 (snowflake analog pixel burn).
+  dot1Size: nodeGraphScopePhosphorLookDefaults.size,
   // Soft stamp budget (ceiling). Under load, dots spread evenly (skips), not head-only.
-  dotBudget: 2048,
-  // Multi-stop energy→color LUT (shared gradient editor).
+  dotBudget: nodeGraphScopePhosphorLookDefaults.dotBudget,
+  fullDotEconomy: nodeGraphScopePhosphorLookDefaults.fullDotEconomy,
+  // Multi-stop energy→color LUT (shared gradient editor) — colors left alone.
   gradientStops: Object.freeze([
     Object.freeze({ t: 0, color: "#000000" }),
     Object.freeze({ t: 0.18, color: "#0a2a33" }),
@@ -213,28 +246,28 @@ const nodeGraphScope2dSettingsDefaults = Object.freeze({
     Object.freeze({ t: 1, color: "#75ebff" }),
   ]),
   // Stamp blur 0–1: 0 hard disc, 1 full soft bleed.
-  lineThickness: 0.35,
+  lineThickness: nodeGraphScopePhosphorLookDefaults.blur,
   // 0 = single pixel, 1 = layout×dpr, 4 = 4× AA.
-  pixelDensity: 1,
-  scale: 1,
+  pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
+  scale: nodeGraphScopePhosphorLookDefaults.scale,
 });
 
 
 const nodeGraphXyPadDisplaySettingsDefaults = Object.freeze({
   background: "#000000",
   // Ghost = dim scorched floor; Trail = main residual (1 ≈ freeze).
-  ghost: 0.45,
-  trail: 0.65,
+  ghost: nodeGraphScopePhosphorLookDefaults.ghost,
+  trail: nodeGraphScopePhosphorLookDefaults.trail,
   // Phosphor beam brightness 0..1.
-  dot1Brightness: 0.78,
-  // Peak = last gradient stop (UI overlay tints from this).
+  dot1Brightness: nodeGraphScopePhosphorLookDefaults.brightness,
+  // Peak = last gradient stop (UI overlay tints from this) — color left alone.
   dot1Color: "#7fc7d9",
-  // Phosphor beam diameter as fraction of face min side (scope stamp size).
-  dot1Size: 0.07,
+  // Phosphor beam diameter (exp size map).
+  dot1Size: nodeGraphScopePhosphorLookDefaults.size,
   // Soft-stamp budget ceiling.
-  dotBudget: 2048,
+  dotBudget: nodeGraphScopePhosphorLookDefaults.dotBudget,
   // Default ON: always spend dense packing up to Dot budget (hard solid trails).
-  fullDotEconomy: true,
+  fullDotEconomy: nodeGraphScopePhosphorLookDefaults.fullDotEconomy,
   gradientStops: Object.freeze([
     Object.freeze({ t: 0, color: "#000000" }),
     Object.freeze({ t: 0.18, color: "#0a2830" }),
@@ -242,9 +275,9 @@ const nodeGraphXyPadDisplaySettingsDefaults = Object.freeze({
     Object.freeze({ t: 1, color: "#7fc7d9" }),
   ]),
   // Stamp blur 0–1: 0 hard disc, 1 full soft bleed.
-  lineThickness: 0.42,
+  lineThickness: nodeGraphScopePhosphorLookDefaults.blur,
   // 0 = single pixel, 1 = layout×dpr, 4 = 4× AA (phosphor face only).
-  pixelDensity: 1,
+  pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
   // UI puck radius as fraction of face min side (vector overlay, not energy).
   puckSize: 0.045,
 });
@@ -253,15 +286,16 @@ const nodeGraphXyPadDisplaySettingsDefaults = Object.freeze({
 const nodeGraphScope2dTraceSettingsDefaults = Object.freeze({
   // Same family as PhosphorLight / Number Readout face plate.
   background: "#000000",
-  dot1Brightness: 0.92,
+  dot1Brightness: nodeGraphScopePhosphorLookDefaults.brightness,
+  // Color left alone.
   dot1Color: "#75ebff",
   dot1Enabled: true,
-  dot1Size: 0.08,
+  dot1Size: nodeGraphScopePhosphorLookDefaults.size,
   historySeconds: 0.05,
-  lineThickness: 0.2,
+  lineThickness: nodeGraphScopePhosphorLookDefaults.blur,
   // Vector stroke; density scales face buffer for lo-fi/chunky look (default 1).
-  pixelDensity: 1,
-  scale: 1,
+  pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
+  scale: nodeGraphScopePhosphorLookDefaults.scale,
 });
 
 

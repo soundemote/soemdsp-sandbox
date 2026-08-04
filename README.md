@@ -164,8 +164,7 @@ resonance *is*:
   added modulation.
 
 That's a genuinely novel result for a feedback resonator: the *shape* of the
-self-oscillation is the mode, not a label on top of the same underlying
-waveform. Measured directly from the real compiled `.wasm` (driven with a
+self-oscillation is the mode. Measured directly from the real compiled `.wasm` (driven with a
 220Hz tone at resonance 0.7–0.85, steady state):
 
 <div align="center">
@@ -580,12 +579,16 @@ not a repeat of a lesson already learned.
    frameCount, useSimd)`, static fixed-size buffers, pointer getters for
    zero-copy JS access) rather than re-deriving one.
 2. **SIMD payoff is conditional on the work being ALU-bound, not
-   memory-bound.** FBM (pure integer hash chain, no buffer access): ~2.76x.
-   Sabrina (delay-buffer reads dominate): ~0.96x, no win. Before converting
-   a new module, check which category its hot loop falls into — WASM
-   SIMD128 has no gather/scatter, so anything indexing a buffer per-lane
-   with a per-lane-different offset won't vectorize well regardless of
-   effort spent.
+   memory-bound.**
+   **ALU-bound** (bound by arithmetic and logic (add, multiply, compare,
+   etc.) bandwidth) means the hot loop is limited by how fast the chip can
+   do math, not by waiting on RAM. **Memory-bound** means loads/stores and
+   cache misses dominate (e.g. thrashing a delay line). FBM (pure integer
+   hash chain, no buffer access): ~2.76x. Sabrina (delay-buffer reads
+   dominate): ~0.96x, no win. Before converting a new module, check which
+   category its hot loop falls into — WASM SIMD128 has no gather/scatter,
+   so anything indexing a buffer per-lane with a per-lane-different offset
+   won't vectorize well regardless of effort spent.
 3. **The block boundary itself is worth ~1.1–1.2x independent of SIMD**
    (FBM ~1.14x, Sabrina ~1.17x, both isolated from the SIMD-math dimension)
    — from resolving params once per block and batching the JS↔WASM

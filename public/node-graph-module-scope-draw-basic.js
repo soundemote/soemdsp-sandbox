@@ -472,7 +472,11 @@ function drawNodeGraphDotOscilloscopeItem(renderer, item, pixelRatio) {
   const height = canvas.height;
   const minSide = Math.max(1, Math.min(width, height));
   const size01 = clampNodeSliderValue(settings.dot1Size, 0, 1);
-  const radius = Math.max(0.5, minSide * size01 * 0.5);
+  const radius = typeof nodeGraphScopeSize01ToRadiusPx === "function"
+    ? nodeGraphScopeSize01ToRadiusPx(minSide, size01)
+    : (typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.size01ToRadiusPx
+      ? PhosphorDrawer.size01ToRadiusPx(minSide, size01)
+      : Math.max(0.5, Math.pow(minSide, size01) * 0.5));
   const blur = nodeGraphTraceDisplayClampStampBlur(settings.lineThickness);
   const trail = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
     ? PhosphorResidual.migrateTrail(settings, 0.78)
@@ -609,8 +613,11 @@ function drawNodeGraphValueOscilloscopeTrail(item, pixelRatio, geometry, setting
     };
   });
   const lineBase = Math.max(1, Math.min(canvas.width, canvas.height));
-  const innerThickness = Math.max(0, lineBase * clampNodeSliderValue(settings.dot1Size, 0, 1));
-  const capThickness = Math.max(0, lineBase * clampNodeSliderValue(settings.capSize, 0, 1));
+  const sizeMap = typeof nodeGraphScopeSize01ToDiameterPx === "function"
+    ? nodeGraphScopeSize01ToDiameterPx
+    : (side, t) => Math.max(1, Math.pow(Math.max(1, side), clampNodeSliderValue(t, 0, 1)));
+  const innerThickness = sizeMap(lineBase, settings.dot1Size);
+  const capThickness = sizeMap(lineBase, settings.capSize);
   // Brightness only (decay fades residual above).
   const trailIntensity = 0.12 / Math.max(1, Math.sqrt(sampleLines.length));
   if (settings.dot1Enabled !== false) {
@@ -674,9 +681,12 @@ function drawNodeGraphValueOscilloscopeItem(renderer, item, pixelRatio) {
   const y = square.top + square.height * 0.5 - value * square.height * 0.44;
   const span = Math.max(1, x2 - x1);
   const lineBase = Math.max(1, Math.min(square.width, square.height));
-  const innerThickness = Math.max(0, lineBase * clampNodeSliderValue(settings.dot1Size, 0, 1));
+  const sizeMap = typeof nodeGraphScopeSize01ToDiameterPx === "function"
+    ? nodeGraphScopeSize01ToDiameterPx
+    : (side, t) => Math.max(1, Math.pow(Math.max(1, side), clampNodeSliderValue(t, 0, 1)));
+  const innerThickness = sizeMap(lineBase, settings.dot1Size);
   const capLength = square.height * clampNodeSliderValue(settings.capLength, 0, 1) * 0.5;
-  const capThickness = Math.max(0, lineBase * clampNodeSliderValue(settings.capSize, 0, 1));
+  const capThickness = sizeMap(lineBase, settings.capSize);
   drawNodeGraphValueOscilloscopeTrail(item, pixelRatio, {
     capLength,
     squareTop: square.top,

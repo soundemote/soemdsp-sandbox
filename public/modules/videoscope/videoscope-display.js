@@ -79,22 +79,35 @@ function drawNodeGraphVideoscopeItem(renderer, item, pixelRatio) {
     }
   }
 
-  const minSide = Math.max(1, Math.min(canvas.width, canvas.height));
-  const defaultSize = Math.max(0.008, Math.min(0.04, (mode === 0 ? 3.5 : 2.5) / minSide));
+  const look = typeof nodeGraphScopePhosphorLookDefaults !== "undefined"
+    ? nodeGraphScopePhosphorLookDefaults
+    : null;
+  const defaultSize = look?.size ?? 0.0385;
   const settings = {
-    trail: Number.isFinite(Number(face.trail)) ? Number(face.trail) : (Number.isFinite(Number(face.decay)) ? 1 - Number(face.decay) : 0.82),
+    ghost: Number.isFinite(Number(face.ghost))
+      ? Number(face.ghost)
+      : (look?.ghost ?? 0.55),
+    trail: Number.isFinite(Number(face.trail))
+      ? Number(face.trail)
+      : (Number.isFinite(Number(face.decay))
+        ? 1 - Number(face.decay)
+        : (look?.trail ?? 0.5175)),
     // Brightness only for deposit (no burn gain coupling).
+    // Color left alone.
     dot1Brightness: Number.isFinite(Number(face.dot1Brightness))
       ? Number(face.dot1Brightness) * (paramBrightness / 1)
-      : Math.min(2, 0.55 + paramBrightness * 0.45),
+      : (look?.brightness ?? 1) * (paramBrightness / 1),
     dot1Color: face.dot1Color || "#50e090",
     dot1Enabled: true,
     dot1Size: Number.isFinite(Number(face.dot1Size)) ? Number(face.dot1Size) : defaultSize,
     lineThickness: Number.isFinite(Number(face.lineThickness))
       ? Number(face.lineThickness)
-      : (mode === 0 ? 0.15 : 0.28),
+      : (look?.blur ?? 0.1062),
     pixelDensity: density,
-    dotBudget: Number.isFinite(Number(face.dotBudget)) ? Number(face.dotBudget) : 4096,
+    dotBudget: Number.isFinite(Number(face.dotBudget))
+      ? Number(face.dotBudget)
+      : (look?.dotBudget ?? 2048),
+    fullDotEconomy: face.fullDotEconomy !== false,
     gradientStops: face.gradientStops,
   };
 

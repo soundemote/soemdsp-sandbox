@@ -218,24 +218,30 @@ void main() {
   float gamma = mix(0.78, 1.05, soft) - glowAmt * 0.1;
   e = pow(e, max(0.45, gamma));
 
-  // Structure mask: Color Rate / bands only where energy exists (no full-face strobe).
-  // Haze mode uses a wider soft edge so filaments bloom into the plate (still phase-gated).
-  float lit = uOuterMode > 1.5
-    ? smoothstep(0.015, 0.36, e)
+  // Structure mask. Haze mode keeps a soft residual so color can wash into empty plate.
+  float hazeMode = uOuterMode > 1.5 ? 1.0 : 0.0;
+  float lit = hazeMode > 0.5
+    ? smoothstep(0.012, 0.42, e)
     : smoothstep(0.03, 0.22, e);
+  // Residual "aura" around structure — energy that isn't full lit but still carries color.
+  float aura = hazeMode > 0.5
+    ? smoothstep(0.0, 0.28, e) * (1.0 - lit * 0.55)
+    : 0.0;
 
-  // Color bands: only where structure exists; phase gated by lit
+  // Color bands: full phase on structure; Haze peeks phase gently into the aura
+  // (slow wash, not full-face strobe on empty plate).
   float band = mix(uBands + glowAmt * 0.9, uBands * 0.45 + glowAmt * 0.4, soft);
   band = max(0.25, band);
-  float phase = uColorPhase * mix(1.0, 0.55, soft) * lit;
+  float phaseGate = mix(lit, clamp(lit + aura * 0.55, 0.0, 1.0), hazeMode);
+  float phase = uColorPhase * mix(1.0, 0.55, soft) * phaseGate;
   float eColor;
   if (soft > 0.25) {
     eColor = softWrap(e * band + phase);
-    eColor = mix(e, eColor, mix(0.55, 0.35, soft) * lit);
+    eColor = mix(e, eColor, mix(0.55, 0.35, soft) * max(lit, aura * 0.75));
   } else {
     eColor = fract(e * band + phase);
   }
-  eColor = clamp(eColor * mix(1.0, uBreath, lit), 0.0, 1.0);
+  eColor = clamp(eColor * mix(1.0, uBreath, max(lit, aura * 0.5)), 0.0, 1.0);
   eColor = mix(eColor, 0.5 + (eColor - 0.5) * mix(1.0, 0.7, soft), soft * 0.5 * lit);
 
   vec2 q2 = gl_FragCoord.xy / uResolution - 0.5;
@@ -244,22 +250,41 @@ void main() {
   // Outer plate mode (Display Settings → Outer color):
   // 0 Background — solid swatch
   // 1 Gradient start — empty + edges → palette stop 0
-  // 2 Haze — radial dream plate (no spatial grain, no empty-plate color phase)
+  // 2 Haze — dream plate: palette wash breathes in around the fractal and out
   vec3 plate;
-  if (uOuterMode > 1.5) {
-    // Fixed low-palette peek (not colorPhase) so empty plate never strobes.
+  // Global breath (time only — rotationally symmetric, no XY grain).
+  float breathIn = 0.5 + 0.5 * sin(uTime * 0.17);
+  float breathOut = 0.5 + 0.5 * sin(uTime * 0.11 + 1.7);
+  float breath = mix(breathIn, breathOut, 0.45);
+
+  if (hazeMode > 0.5) {
+    // Wash color: low–mid palette that drifts slowly with Color Phase / Rate.
+    // Uses e so wash hugs structure; not full colorPhase on pure empty (avoids strobe).
+    float washT = fract(
+      0.06
+      + e * mix(0.22, 0.48, soft)
+      + uColorPhase * 0.18
+      + breath * 0.07
+    );
+    vec3 washCol = paletteSample(washT, soft);
     vec3 stop0 = paletteSample(0.0, soft);
-    // Radial-only breath — rotationally symmetric (depends on r + time only).
-    float pulse = 0.5 + 0.5 * sin(uTime * 0.2 + rEdge * 1.85);
-    float mixAmt = mix(0.12, 0.42, soft) * (0.78 + 0.22 * pulse);
-    plate = mix(uBackground, stop0, mixAmt);
+    // Base plate: background → stop0 → wash, breathing in (color fills outer)
+    // and out (retreats toward background).
+    float fill = mix(0.12, 0.62, soft) * mix(0.35, 1.0, breath);
+    // Stronger wash near filaments (color blooms out from the fractal).
+    float bloom = smoothstep(0.0, 0.32, e) * mix(0.55, 1.0, breathIn);
+    float emptyWash = (1.0 - lit) * fill * mix(0.4, 1.0, bloom);
+    plate = mix(uBackground, stop0, mix(0.15, 0.4, soft) * (0.7 + 0.3 * breathOut));
+    plate = mix(plate, washCol, emptyWash);
   } else if (uOuterMode > 0.5) {
     plate = paletteSample(0.0, soft);
   } else {
     plate = uBackground;
   }
 
-  vec3 col = mix(plate, paletteSample(eColor, soft), lit);
+  // Structure + aura into palette; exterior is the living plate.
+  float cover = clamp(lit + aura * mix(0.35, 0.75, soft), 0.0, 1.0);
+  vec3 col = mix(plate, paletteSample(eColor, soft), cover);
 
   // Glow only on lit structure (not a full-face flash)
   if (glowAmt > 0.03 && lit > 0.01) {
@@ -268,13 +293,17 @@ void main() {
     col += tip * g * (0.04 + glowAmt * 0.22) * mix(1.0, 0.75, soft) * lit;
   }
 
-  if (uOuterMode > 1.5) {
-    // Haze: stronger radial soft falloff into living plate (angle-invariant).
-    float vig = smoothstep(1.2, 0.12, rEdge * 1.12);
-    float pulse = 0.5 + 0.5 * sin(uTime * 0.2 + rEdge * 1.85);
-    float hazeAmt = mix(0.12, 0.3, soft) * (0.82 + 0.18 * pulse);
-    col = mix(col, plate, hazeAmt * (1.0 - vig * 0.55));
-    col = mix(plate, col, mix(0.8, 1.0, vig));
+  if (hazeMode > 0.5) {
+    // Dream haze: color washes out toward plate at edges, breathing depth.
+    float vig = smoothstep(1.2, 0.1, rEdge * 1.08);
+    float hazeAmt = mix(0.2, 0.48, soft) * mix(0.55, 1.2, breathOut);
+    // Wash-out pulls structure edges into plate; wash-in leaves more color in mid field.
+    col = mix(col, plate, hazeAmt * (1.0 - vig * 0.5) * (1.0 - lit * 0.35));
+    col = mix(plate, col, mix(0.72, 1.0, vig));
+    // Gentle outer ring of wash color that pulses (in) then recedes (out).
+    float ring = smoothstep(0.15, 0.55, rEdge) * smoothstep(0.95, 0.55, rEdge);
+    vec3 ringCol = paletteSample(fract(0.12 + uColorPhase * 0.12 + breath * 0.05), soft);
+    col = mix(col, ringCol, ring * mix(0.04, 0.18, soft) * breathIn * (1.0 - lit));
   } else if (uOuterMode > 0.5) {
     // Gradient-start plate: soft falloff into stop 0
     float vig = smoothstep(1.15, 0.35, rEdge * 1.15);

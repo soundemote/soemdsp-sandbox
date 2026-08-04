@@ -5046,6 +5046,19 @@ const nodeGraphModuleDefinitions = (
         tooltip: "How often new rain streams appear. Independent of glyph size (Density).",
       },
       {
+        key: "streamDeath",
+        label: "Stream Death",
+        defaultValue: "0.5",
+        min: "0",
+        mid: "0.5",
+        max: "1",
+        step: "any",
+        maxDigits: 4,
+        modClamp: false,
+        tooltip:
+          "Chance streams end early. 0 = never die (streams wrap forever). 0.5 = original death rate. 1 = no spawn (empty rain).",
+      },
+      {
         choices: ["Off", "On"],
         defaultValue: "0",
         displayChoices: true,

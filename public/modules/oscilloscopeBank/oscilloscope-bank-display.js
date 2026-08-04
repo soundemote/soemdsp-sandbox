@@ -28,14 +28,20 @@ function drawNodeGraphOscilloscopeBankBurnItem(renderer, item, pixelRatio) {
   if (!Array.isArray(phases) || !phases.length || !Array.isArray(amplitudes) || !amplitudes.length) {
     // Still run energy path so residual fades.
     if (typeof drawNodeGraphScope2dEnergyBurnPath === "function") {
+      const look = typeof nodeGraphScopePhosphorLookDefaults !== "undefined"
+        ? nodeGraphScopePhosphorLookDefaults
+        : null;
       drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, [], {
-        trail: 0.72,
-        dot1Brightness: 0.9,
+        ghost: look?.ghost ?? 0.55,
+        trail: look?.trail ?? 0.5175,
+        // Color left alone (bank green).
+        dot1Brightness: look?.brightness ?? 1,
         dot1Color: "#5dff9a",
-        dot1Size: 0.02,
-        lineThickness: 0.2,
-        pixelDensity: 1,
-        dotBudget: 4096,
+        dot1Size: look?.size ?? 0.0385,
+        lineThickness: look?.blur ?? 0.1062,
+        pixelDensity: look?.pixelDensity ?? 1,
+        dotBudget: look?.dotBudget ?? 2048,
+        fullDotEconomy: look?.fullDotEconomy !== false,
       });
     }
     return;
@@ -64,16 +70,21 @@ function drawNodeGraphOscilloscopeBankBurnItem(renderer, item, pixelRatio) {
     }
   }
 
-  const minSide = Math.max(1, Math.min(canvas.width, canvas.height));
+  const look = typeof nodeGraphScopePhosphorLookDefaults !== "undefined"
+    ? nodeGraphScopePhosphorLookDefaults
+    : null;
   const settings = {
-    trail: 0.8,
-    dot1Brightness: 0.95,
+    ghost: look?.ghost ?? 0.55,
+    trail: look?.trail ?? 0.5175,
+    // Color left alone (bank green).
+    dot1Brightness: look?.brightness ?? 1,
     dot1Color: "#5dff9a",
     dot1Enabled: true,
-    dot1Size: Math.max(0.01, Math.min(0.05, 4 / minSide)),
-    lineThickness: 0.22,
-    pixelDensity: 1,
-    dotBudget: 4096,
+    dot1Size: look?.size ?? 0.0385,
+    lineThickness: look?.blur ?? 0.1062,
+    pixelDensity: look?.pixelDensity ?? 1,
+    dotBudget: look?.dotBudget ?? 2048,
+    fullDotEconomy: look?.fullDotEconomy !== false,
   };
 
   if (typeof drawNodeGraphScope2dEnergyBurnPath === "function") {

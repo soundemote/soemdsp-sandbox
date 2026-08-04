@@ -85,8 +85,14 @@ function nodeGraphModuleScopeTraceEdgePaddingRatio(slot, rect) {
       size: clampNodeSliderValue(settings.secondarySize, 0, 1),
     });
   }
+  // Match exp size map: diameter fraction = side^(t-1) ≈ size face occupancy.
+  const faceSide = Math.max(1, Number(rect?.height) || Number(rect?.width) || 256);
   const visualPadding = activePasses.reduce((largest, pass) => {
-    const padding = pass.size * (0.22 + pass.blur * 0.16);
+    const diam = typeof nodeGraphScopeSize01ToDiameterPx === "function"
+      ? nodeGraphScopeSize01ToDiameterPx(faceSide, pass.size)
+      : Math.max(1, Math.pow(faceSide, clampNodeSliderValue(pass.size, 0, 1)));
+    const frac = diam / faceSide;
+    const padding = frac * (0.22 + pass.blur * 0.16);
     return Math.max(largest, padding);
   }, 0);
   const pixelPadding = rect?.height > 0 ? 3 / rect.height : 0;

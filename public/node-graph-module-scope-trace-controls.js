@@ -84,10 +84,11 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
         "trail",
         "scale",
         "pixelDensity",
+        "dotBudget",
       ]),
     ]),
     colors: Object.freeze([]),
-    toggles: Object.freeze([]),
+    toggles: Object.freeze(["fullDotEconomy"]),
     choices: Object.freeze([]),
   }),
   value: Object.freeze({
@@ -122,7 +123,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dotBudget",
     ])),
     colors: Object.freeze([]),
-    toggles: Object.freeze([]),
+    toggles: Object.freeze(["fullDotEconomy"]),
     choices: Object.freeze([]),
   }),
   // 2D Trace = VECTOR path; density = face buffer lo-fi/AA only.
@@ -242,7 +243,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dotBudget",
     ])),
     colors: Object.freeze([]),
-    toggles: Object.freeze([]),
+    toggles: Object.freeze(["fullDotEconomy"]),
     choices: Object.freeze([]),
   }),
   // Spectrogram: history + FFT + analysis choices. Gradient separate.
@@ -468,7 +469,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "History (s)",
     inputmode: "decimal",
     id: "nodeTraceDisplayHistorySeconds",
-    title: "Seconds of audio across the face width (0.1–30 s). Longer = slower waterfall; shorter = faster. +/− steps whole seconds (min 1 s).",
+    title: "Seconds of audio across the face (short windows near 0). Drag uses exponential scaling — fine control for short history, long windows toward the top of the range.",
   }),
   fftSize: Object.freeze({
     label: "FFT size",
@@ -492,9 +493,14 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Dot Budget",
     inputmode: "numeric",
     id: "nodeTraceDisplayDotBudget",
-    title: "Max phosphor stamps drawn per frame. Raise for denser trails; lower to save GPU.",
+    title: "Max phosphor stamps per frame. Under budget: dense packing. Over budget: even spacing across the whole path (beautiful sparse dots at high frequency — not unlimited line drawing).",
   }),
-  zoomSeconds: Object.freeze({ label: "History (s)", inputmode: "decimal", id: "nodeTraceDisplayZoomSeconds" }),
+  zoomSeconds: Object.freeze({
+    label: "History (s)",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayZoomSeconds",
+    title: "Seconds of capture shown (0–10 s). Exponential drag: most useful short windows live near 0; longer history toward max.",
+  }),
   sweepSeconds: Object.freeze({ label: "Sweep (s)", inputmode: "decimal", id: "nodeTraceDisplaySweepSeconds" }),
   cycles: Object.freeze({ label: "Cycles", inputmode: "decimal", id: "nodeTraceDisplayCycles" }),
   decimals: Object.freeze({
@@ -524,7 +530,12 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     title: "Peak deposit / present light 0–1 (1 = full energy / gradient tip). Not Ghost or Trail.",
   }),
   lineThickness: Object.freeze({ label: "Blur", inputmode: "decimal", id: "nodeTraceDisplayLineThickness" }),
-  dot1Size: Object.freeze({ label: "Size", inputmode: "decimal", id: "nodeTraceDisplayDot1Size" }),
+  dot1Size: Object.freeze({
+    label: "Size",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayDot1Size",
+    title: "Trace/dot thickness. 0 = 1px, 1 = full face min side. Exponential — fine control near 0 for sharp beams.",
+  }),
   puckSize: Object.freeze({
     label: "Puck size",
     inputmode: "decimal",
@@ -533,8 +544,18 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
   }),
   secondaryBrightness: Object.freeze({ label: "Bright", inputmode: "decimal", id: "nodeTraceDisplaySecondaryBrightness" }),
   secondaryLineThickness: Object.freeze({ label: "Blur", inputmode: "decimal", id: "nodeTraceDisplaySecondaryLineThickness" }),
-  secondarySize: Object.freeze({ label: "Size", inputmode: "decimal", id: "nodeTraceDisplaySecondarySize" }),
-  capSize: Object.freeze({ label: "Size", inputmode: "decimal", id: "nodeTraceDisplayCapSize" }),
+  secondarySize: Object.freeze({
+    label: "Size",
+    inputmode: "decimal",
+    id: "nodeTraceDisplaySecondarySize",
+    title: "Secondary channel thickness. 0 = 1px, 1 = full face min side (exponential).",
+  }),
+  capSize: Object.freeze({
+    label: "Size",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayCapSize",
+    title: "Cap stroke thickness. 0 = 1px, 1 = full face min side (exponential).",
+  }),
   capLength: Object.freeze({ label: "Length", inputmode: "decimal", id: "nodeTraceDisplayCapLength" }),
 });
 
@@ -547,7 +568,7 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
   fullDotEconomy: Object.freeze({
     label: "Full dot economy",
     id: "nodeTraceDisplayFullDotEconomy",
-    title: "Always spend dense packing up to Dot Budget (default on). Off = thrifty spacing that may under-use the budget.",
+    title: "On (default): pack stamps up to Dot Budget; when over, widen spacing evenly along the path. Off: thrifty spacing (may under-use budget).",
   }),
 });
 
@@ -585,7 +606,7 @@ const nodeGraphDisplaySettingsChoiceMeta = Object.freeze({
     label: "Outer color",
     aria: "Outer / empty plate color source",
     id: "nodeTraceDisplayOuterPlate",
-    title: "Background = solid plate from the Background swatch. Gradient start = empty space uses gradient stop 0. Haze = soft radial dream plate (symmetry-safe; no empty-plate color strobe).",
+    title: "Background = solid plate from the Background swatch. Gradient start = empty space uses gradient stop 0. Haze = dream plate: palette color washes in around the fractal and out (slow breath; soft Color Rate peek, not a full-face strobe).",
     options: Object.freeze([
       Object.freeze({ value: "background", label: "Background" }),
       Object.freeze({ value: "gradientStart", label: "Gradient start" }),

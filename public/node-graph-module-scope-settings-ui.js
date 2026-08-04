@@ -965,9 +965,12 @@ function nodeGraphTraceDisplayStepperQuantum(input) {
   if (input.dataset?.traceDisplayField === "fftSize") {
     return 1; // stepped via table in stepNodeGraphTraceDisplaySetting
   }
-  // History (s): +/− buttons step whole seconds (drag still uses continuous value).
-  if (input.dataset?.traceDisplayField === "historySeconds") {
-    return 1;
+  // History (s): control-space step (exp map) — fine near short windows.
+  if (
+    input.dataset?.traceDisplayField === "historySeconds"
+    || input.dataset?.traceDisplayField === "zoomSeconds"
+  ) {
+    return 0.025;
   }
   if (input.dataset?.traceDisplayField === "pixelDensity") {
     return 0.05;
@@ -985,15 +988,21 @@ function nodeGraphTraceDisplaySizeControlField(key) {
   return ["dot1Size", "secondarySize", "capSize"].includes(key);
 }
 
+/** History window fields (seconds) — use exponential control mapping. */
+function nodeGraphTraceDisplayHistoryControlField(key) {
+  return key === "historySeconds" || key === "zoomSeconds";
+}
+
 function nodeGraphTraceDisplaySensitiveControlField(key) {
-  // historySeconds is linear seconds (0–30 spectrogram / 0–10 elsewhere) — not a
-  // 0–1 size fader. Including it here capped max at 1 and made "+" jump 2→1.
   return nodeGraphTraceDisplaySizeControlField(key) ||
+    nodeGraphTraceDisplayHistoryControlField(key) ||
     key === "pixelDensity" ||
     ["dot1Brightness", "secondaryBrightness"].includes(key);
 }
 
 const nodeGraphTraceDisplaySensitiveControlExponent = 3;
+/** History: stronger exp so most useful short windows sit near control 0. */
+const nodeGraphTraceDisplayHistoryControlExponent = 3.5;
 
 function nodeGraphTraceDisplaySensitiveControlMax(key) {
   if (key === "pixelDensity") {
@@ -1001,6 +1010,50 @@ function nodeGraphTraceDisplaySensitiveControlMax(key) {
   }
   // Bright is 0…1 energy app-wide (1 = full tip / full deposit).
   return 1;
+}
+
+/** Seconds range for History (s) by form type. */
+function nodeGraphTraceDisplayHistoryControlRange(key) {
+  const formType = typeof nodeGraphTraceDisplaySettingsFormType === "function"
+    ? nodeGraphTraceDisplaySettingsFormType()
+    : "";
+  if (key === "historySeconds" && formType === "spectrogramBurn") {
+    return { min: 0.1, max: 30 };
+  }
+  const maxZ = Number(typeof nodeGraphTraceDisplayMaxZoomSeconds !== "undefined"
+    ? nodeGraphTraceDisplayMaxZoomSeconds
+    : 10);
+  return { min: 0, max: Number.isFinite(maxZ) && maxZ > 0 ? maxZ : 10 };
+}
+
+/**
+ * Map stored seconds → 0…1 control. Exponential so short windows have fine drag.
+ * min≤0: t = (s/max)^(1/exp); min>0: t = log(s/min)/log(max/min).
+ */
+function nodeGraphTraceDisplaySecondsToControlValue(seconds, min, max) {
+  const lo = Math.max(0, Number(min) || 0);
+  const hi = Math.max(lo + 1e-9, Number(max) || 10);
+  const s = clampNodeSliderValue(Number(seconds) || 0, lo, hi);
+  const exp = nodeGraphTraceDisplayHistoryControlExponent;
+  if (lo <= 0) {
+    if (s <= 0) {
+      return 0;
+    }
+    return Math.pow(s / hi, 1 / exp);
+  }
+  return Math.log(Math.max(lo, s) / lo) / Math.log(hi / lo);
+}
+
+/** Map 0…1 control → stored seconds (inverse of SecondsToControl). */
+function nodeGraphTraceDisplayControlToSecondsValue(control, min, max) {
+  const t = clampNodeSliderValue(Number(control) || 0, 0, 1);
+  const lo = Math.max(0, Number(min) || 0);
+  const hi = Math.max(lo + 1e-9, Number(max) || 10);
+  const exp = nodeGraphTraceDisplayHistoryControlExponent;
+  if (lo <= 0) {
+    return Math.pow(t, exp) * hi;
+  }
+  return lo * Math.pow(hi / lo, t);
 }
 
 function nodeGraphTraceDisplaySizeToControlValue(value, max = 1) {
@@ -1016,6 +1069,15 @@ function nodeGraphTraceDisplayControlToSizeValue(value, max = 1) {
 }
 
 function adjustNodeGraphTraceDisplaySettingByControlDelta(key, startValue, delta) {
+  // History (s): exp control-space so most useful short windows sit near 0.
+  if (nodeGraphTraceDisplayHistoryControlField(key)) {
+    const { min, max } = nodeGraphTraceDisplayHistoryControlRange(key);
+    return nodeGraphTraceDisplayControlToSecondsValue(
+      nodeGraphTraceDisplaySecondsToControlValue(startValue, min, max) + delta,
+      min,
+      max,
+    );
+  }
   if (!nodeGraphTraceDisplaySensitiveControlField(key)) {
     return startValue + delta;
   }
@@ -1437,18 +1499,13 @@ function stepNodeGraphTraceDisplaySetting(event) {
     typeof nodeGraphSpectrogramStepFftSize === "function"
   ) {
     nextValue = nodeGraphSpectrogramStepFftSize(baseValue, direction);
-  } else if (key === "historySeconds") {
-    // Whole-second steps (ceil/floor so 2.3 + → 3, 2.3 − → 2). Spectrogram min 1 s via +/−.
-    const quantum = 1;
-    if (direction > 0) {
-      nextValue = Math.floor(baseValue + 1e-9) + quantum;
-    } else {
-      nextValue = Math.ceil(baseValue - 1e-9) - quantum;
-    }
-    if (nodeGraphTraceDisplaySettingsFormType() === "spectrogramBurn") {
-      nextValue = Math.max(1, nextValue);
-    }
-    nextValue = normalizeNodeGraphTraceDisplaySettingValueForKey(key, nextValue);
+  } else if (key === "historySeconds" || key === "zoomSeconds") {
+    // Exponential control-space steps (fine near short history, coarser at long).
+    const quantum = nodeGraphTraceDisplayStepperQuantum(input);
+    nextValue = normalizeNodeGraphTraceDisplaySettingValueForKey(
+      key,
+      adjustNodeGraphTraceDisplaySettingByControlDelta(key, baseValue, direction * quantum),
+    );
   } else {
     const quantum = nodeGraphTraceDisplayStepperQuantum(input);
     nextValue = normalizeNodeGraphTraceDisplaySettingValueForKey(

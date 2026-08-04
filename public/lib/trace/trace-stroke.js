@@ -7,7 +7,7 @@
 //
 // Not burn: no energy FBO, no decay, no bleed. Clear + redraw each frame.
 // Hard stroke by default (blur ignored on stereo; mono paths force blur 0).
-// Size = 0–1 face diameter.
+// Size = 0–1 of face min side: 0 → 1px, 1 → full side (exponential).
 
 (function initTraceStroke(global) {
   function clamp01(value, fallback = 0) {
@@ -35,11 +35,24 @@
     return Math.max(0, Math.min(1, v));
   }
 
-  /** Diameter in px from size 0–1 of face min side. */
+  /**
+   * Diameter in px: size 0 → 1px, size 1 → face min side.
+   * Exponential (side^t) so sharp traces have fine control near 0.
+   */
   function diameterPx(faceMinSide, size01) {
+    if (typeof global.PhosphorDrawer?.size01ToDiameterPx === "function") {
+      return global.PhosphorDrawer.size01ToDiameterPx(faceMinSide, size01);
+    }
     const side = Math.max(1, Number(faceMinSide) || 1);
-    const t = clamp01(size01, 0.08);
-    return Math.max(1, side * t);
+    const t = clamp01(size01, 0);
+    return Math.max(1, Math.pow(side, t));
+  }
+
+  function radiusPx(faceMinSide, size01) {
+    if (typeof global.PhosphorDrawer?.size01ToRadiusPx === "function") {
+      return global.PhosphorDrawer.size01ToRadiusPx(faceMinSide, size01);
+    }
+    return Math.max(0.5, diameterPx(faceMinSide, size01) * 0.5);
   }
 
   /**
@@ -119,10 +132,11 @@
       return 0;
     }
     const face = Math.max(1, Number(options.faceMinSide) || 1);
-    const size01 = clamp01(options.size, 0.08);
+    // size 0 is valid (1px min) — only brightness gates draw.
+    const size01 = clamp01(options.size, 0);
     const blur = normalizeBlur(options.blur, 0.2);
     const brightness = Math.max(0, Number(options.brightness) || 0);
-    if (size01 <= 0 || brightness <= 0) {
+    if (brightness <= 0) {
       return 0;
     }
 
@@ -495,6 +509,7 @@
     clamp01,
     normalizeBlur,
     diameterPx,
+    radiusPx,
     edgeProfile,
     draw,
     drawStereo,

@@ -322,7 +322,11 @@ const MATRIX_WATERFALL_WAKE_LEN = 3;
 
 /**
  * Column rain. Signed speed: +Fall (down), −Rise (up), 0 idle.
- * Streams die only after head + wake fully leave the plate.
+ *
+ * streamDeath (0…1):
+ *   0   = never die — streams wrap forever (no mid-stream kill, no off-plate kill)
+ *   0.5 = original mid-stream death rate + normal off-plate end
+ *   1   = don't spawn at all (and no mid-stream survivors)
  *
  * charSpeed = glyph flips per row of head travel (bin height = 1):
  *   0   = fixed glyph for the whole stream
@@ -345,12 +349,24 @@ function matrixStepWaterfall(state, params, glyphSlots, dtSec) {
   const signedSpeed = Number(params.speed);
   const speedMag = Math.abs(Number.isFinite(signedSpeed) ? signedSpeed : 0);
   const spawnAmt = Math.max(0, Number(params.spawn != null ? params.spawn : 0.5) || 0);
+  // Stream Death: 0 never, 0.5 original, 1 no spawn.
+  const deathAmt = Math.max(0, Math.min(1,
+    Number(params.streamDeath != null ? params.streamDeath : 0.5) || 0,
+  ));
+  const immortal = deathAmt <= 1e-6;
+  const noSpawn = deathAmt >= 1 - 1e-6;
+  // Original mid-stream death rate (per speedScale unit) at deathAmt = 0.5.
+  // Scaled so 0 → none, 0.5 → ORIG, 1 → 2× ORIG (while spawn is already off).
+  const ORIG_STREAM_DEATH = 0.022;
+  const deathMult = immortal ? 0 : (deathAmt / 0.5);
   const charRate = Number(params.charSpeed);
   // 0 = locked glyph; default 1 = one change per bin.
   const charSpeed = Number.isFinite(charRate) ? Math.max(0, charRate) : 1;
   const speedScale = speedMag * Math.max(0.12, dtSec * 60);
   const spawnRefCols = 40;
   const spawn = (0.28 + spawnAmt * 0.95) * 0.055 * speedScale * (spawnRefCols / Math.max(1, columns));
+  // Mid-stream kill probability this frame (capped).
+  const pMidDeath = Math.min(1, ORIG_STREAM_DEATH * deathMult * speedScale);
   const slotMax = Math.max(1, glyphSlots.length | 0);
   const rise = signedSpeed < 0;
   const step = speedMag <= 0 ? 0 : (rise ? -1 : 1);
@@ -358,7 +374,7 @@ function matrixStepWaterfall(state, params, glyphSlots, dtSec) {
   if ((state.spawnSuppress | 0) > 0) {
     state.spawnSuppress -= 1;
   }
-  const allowSpawn = step !== 0 && (state.spawnSuppress | 0) <= 0;
+  const allowSpawn = !noSpawn && step !== 0 && (state.spawnSuppress | 0) <= 0;
 
   for (let c = 0; c < columns; c += 1) {
     if (headLife[c] <= 0) {
@@ -421,11 +437,34 @@ function matrixStepWaterfall(state, params, glyphSlots, dtSec) {
           }
         }
       }
+      // Mid-stream death (only while head is on the plate).
+      if (pMidDeath > 0 && matrixNextRng(state) < pMidDeath) {
+        headLife[c] = 0;
+        continue;
+      }
     }
+
+    // Off-plate end, or wrap forever when immortal (streamDeath = 0).
     if (rise) {
-      if (heads[c] < -wake) headLife[c] = 0;
+      if (heads[c] < -wake) {
+        if (immortal) {
+          heads[c] = rows + matrixNextRng(state) * 3;
+          if (charSpeed > 0) {
+            headCharPhase[c] = Math.floor(heads[c] * charSpeed);
+          }
+        } else {
+          headLife[c] = 0;
+        }
+      }
     } else if (heads[c] > rows - 1 + wake) {
-      headLife[c] = 0;
+      if (immortal) {
+        heads[c] = -1 - matrixNextRng(state) * 3;
+        if (charSpeed > 0) {
+          headCharPhase[c] = Math.floor(heads[c] * charSpeed);
+        }
+      } else {
+        headLife[c] = 0;
+      }
     }
   }
 }
