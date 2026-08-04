@@ -390,7 +390,10 @@ function cloneNodeGraphTypedDisplaySettings(node) {
       dot1Brightness: raw.dot1Brightness ?? raw.brightness,
       lineThickness: raw.lineThickness ?? raw.dot1Blur,
     };
-    return { traceDisplaySettings: normalizeNodeGraphScope2dSettings(mapped) };
+    const typeDefaults = typeof nodeGraphScope2dSettingsDefaultsForModuleType === "function"
+      ? nodeGraphScope2dSettingsDefaultsForModuleType(node?.type)
+      : null;
+    return { traceDisplaySettings: normalizeNodeGraphScope2dSettings(mapped, typeDefaults) };
   }
   if (displayType === "scope2dTrace") {
     return { traceDisplaySettings: normalizeNodeGraphScope2dTraceSettings(migrate(node.traceDisplaySettings, false)) };

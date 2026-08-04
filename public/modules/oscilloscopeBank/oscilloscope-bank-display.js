@@ -32,16 +32,17 @@ function drawNodeGraphOscilloscopeBankBurnItem(renderer, item, pixelRatio) {
         ? nodeGraphScopePhosphorLookDefaults
         : null;
       drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, [], {
+        background: look?.background ?? "#000004",
         ghost: look?.ghost ?? 0.55,
         trail: look?.trail ?? 0.5175,
-        // Color left alone (bank green).
         dot1Brightness: look?.brightness ?? 1,
-        dot1Color: "#5dff9a",
+        dot1Color: look?.peakColor ?? "#fcfdbf",
         dot1Size: look?.size ?? 0.0385,
         lineThickness: look?.blur ?? 0.1062,
         pixelDensity: look?.pixelDensity ?? 1,
         dotBudget: look?.dotBudget ?? 2048,
         fullDotEconomy: look?.fullDotEconomy !== false,
+        gradientStops: look?.gradientStops || null,
       });
     }
     return;
@@ -74,17 +75,18 @@ function drawNodeGraphOscilloscopeBankBurnItem(renderer, item, pixelRatio) {
     ? nodeGraphScopePhosphorLookDefaults
     : null;
   const settings = {
+    background: look?.background ?? "#000004",
     ghost: look?.ghost ?? 0.55,
     trail: look?.trail ?? 0.5175,
-    // Color left alone (bank green).
     dot1Brightness: look?.brightness ?? 1,
-    dot1Color: "#5dff9a",
+    dot1Color: look?.peakColor ?? "#fcfdbf",
     dot1Enabled: true,
     dot1Size: look?.size ?? 0.0385,
     lineThickness: look?.blur ?? 0.1062,
     pixelDensity: look?.pixelDensity ?? 1,
     dotBudget: look?.dotBudget ?? 2048,
     fullDotEconomy: look?.fullDotEconomy !== false,
+    gradientStops: look?.gradientStops || null,
   };
 
   if (typeof drawNodeGraphScope2dEnergyBurnPath === "function") {

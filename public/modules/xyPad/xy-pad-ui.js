@@ -918,25 +918,29 @@ function nodeGraphXyPadDisplaySettings(pad) {
   if (typeof normalizeNodeGraphXyPadDisplaySettings === "function") {
     return normalizeNodeGraphXyPadDisplaySettings(node?.traceDisplaySettings);
   }
-  // Fallback if normalize helpers missing — match shared phosphor look (colors alone).
+  // Fallback if normalize helpers missing — full analog pixel burn look.
   const look = typeof nodeGraphScopePhosphorLookDefaults !== "undefined"
     ? nodeGraphScopePhosphorLookDefaults
     : null;
   return {
-    background: "#000000",
+    background: look?.background ?? "#000004",
     ghost: look?.ghost ?? 0.55,
     trail: look?.trail ?? 0.5175,
     dot1Brightness: look?.brightness ?? 1,
-    dot1Color: "#7fc7d9",
+    dot1Color: look?.peakColor ?? "#fcfdbf",
     dot1Size: look?.size ?? 0.0385,
     dotBudget: look?.dotBudget ?? 2048,
     fullDotEconomy: look?.fullDotEconomy !== false,
-    gradientStops: [
-      { t: 0, color: "#000000" },
-      { t: 0.18, color: "#0a2830" },
-      { t: 0.55, color: "#3a8899" },
-      { t: 1, color: "#7fc7d9" },
-    ],
+    gradientStops: look?.gradientStops
+      ? look.gradientStops.map((s) => ({ t: s.t, color: s.color }))
+      : [
+        { t: 0, color: "#000004" },
+        { t: 0.2, color: "#3b0f70" },
+        { t: 0.4, color: "#8c2981" },
+        { t: 0.6, color: "#de4968" },
+        { t: 0.8, color: "#fe9f6d" },
+        { t: 1, color: "#fcfdbf" },
+      ],
     lineThickness: look?.blur ?? 0.1062,
     pixelDensity: look?.pixelDensity ?? 1,
     puckSize: 0.045,

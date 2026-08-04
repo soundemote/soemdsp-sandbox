@@ -727,9 +727,11 @@ function nodeGraphKnobFaceDisplaySettingsForNode(node) {
 }
 
 
-function normalizeNodeGraphScope2dSettings(settings = {}) {
+function normalizeNodeGraphScope2dSettings(settings = {}, defaultsOverride = null) {
   const source = settings && typeof settings === "object" ? settings : {};
-  const defaults = nodeGraphScope2dSettingsDefaults;
+  const defaults = defaultsOverride && typeof defaultsOverride === "object"
+    ? defaultsOverride
+    : nodeGraphScope2dSettingsDefaults;
   const gradientStops = nodeGraphPhosphorGradientStopsFromSettings(source, defaults.dot1Color);
   const floor = gradientStops[0]?.color || defaults.background;
   const peak = gradientStops[gradientStops.length - 1]?.color || defaults.dot1Color;
@@ -843,7 +845,10 @@ function nodeGraphScope2dSettingsForNode(node) {
   if (!node) {
     return normalizeNodeGraphScope2dSettings();
   }
-  return normalizeNodeGraphScope2dSettings(node.traceDisplaySettings);
+  const typeDefaults = typeof nodeGraphScope2dSettingsDefaultsForModuleType === "function"
+    ? nodeGraphScope2dSettingsDefaultsForModuleType(node.type)
+    : null;
+  return normalizeNodeGraphScope2dSettings(node.traceDisplaySettings, typeDefaults);
 }
 
 

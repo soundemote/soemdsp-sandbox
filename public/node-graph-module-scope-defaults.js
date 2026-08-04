@@ -52,16 +52,29 @@ const nodeGraphModuleScopeUnipolarTypes = new Set([
 
 
 /**
- * Shared scope “analog pixel burn” look — from snowflake 2D Phosphor patch
- * (Desktop/patches/analog pixel burn snowflake). Colors stay per-face defaults.
+ * Shared scope “analog pixel burn” display — full numbers + colors from
+ * snowflake 2D Phosphor (Desktop/patches/analog pixel burn snowflake).
  */
 const nodeGraphScopePhosphorLookDefaults = Object.freeze({
+  // Face / gradient floor (stop 0).
+  background: "#000004",
+  // Peak / tip (stop 1 + dot1Color).
+  peakColor: "#fcfdbf",
+  // Multi-stop energy→color LUT.
+  gradientStops: Object.freeze([
+    Object.freeze({ t: 0, color: "#000004" }),
+    Object.freeze({ t: 0.2, color: "#3b0f70" }),
+    Object.freeze({ t: 0.4, color: "#8c2981" }),
+    Object.freeze({ t: 0.6, color: "#de4968" }),
+    Object.freeze({ t: 0.8, color: "#fe9f6d" }),
+    Object.freeze({ t: 1, color: "#fcfdbf" }),
+  ]),
   // Bright 0…1 (1 = full deposit / tip).
   brightness: 1,
   // Ghost = dim scorched hang; Trail = main residual (hot path length).
   ghost: 0.55,
   trail: 0.5175,
-  // Exp size map 0…1 (see size01ToRadiusPx); snowflake ~0.0385.
+  // Exp size map 0…1 (see size01ToRadiusPx).
   size: 0.0385,
   // Stamp blur 0 hard … 1 soft.
   blur: 0.1062,
@@ -77,9 +90,10 @@ const nodeGraphScopePhosphorLookDefaults = Object.freeze({
 
 const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
   // Face plate under the stroke (same family as 2D Trace / Phosphor).
-  background: "#000000",
+  background: nodeGraphScopePhosphorLookDefaults.background,
   brightness: nodeGraphScopePhosphorLookDefaults.brightness,
-  color: "#ff0000",
+  // Mono / primary stroke peak (stereo Output still uses L/R identity colors).
+  color: nodeGraphScopePhosphorLookDefaults.peakColor,
   dot1Enabled: true,
   dot1Size: nodeGraphScopePhosphorLookDefaults.size,
   // Output stereo: combine (Meet) | lighter | screen | source-over | multiply | …
@@ -110,7 +124,7 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
 
 
 const nodeGraphLineBurnSettingsDefaults = Object.freeze({
-  background: "#000000",
+  background: nodeGraphScopePhosphorLookDefaults.background,
   // Ghost = dim scorched hang; Trail = main residual (1 ≈ freeze).
   ghost: nodeGraphScopePhosphorLookDefaults.ghost,
   trail: nodeGraphScopePhosphorLookDefaults.trail,
@@ -118,8 +132,7 @@ const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   scale: nodeGraphScopePhosphorLookDefaults.scale,
   // Bright 0…1 (1 = full deposit energy).
   dot1Brightness: nodeGraphScopePhosphorLookDefaults.brightness,
-  // Color left alone (not from snowflake gradient).
-  dot1Color: "#75ebff",
+  dot1Color: nodeGraphScopePhosphorLookDefaults.peakColor,
   dot1Enabled: true,
   dot1Size: nodeGraphScopePhosphorLookDefaults.size,
   lineThickness: nodeGraphScopePhosphorLookDefaults.blur,
@@ -127,6 +140,7 @@ const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
   dotBudget: nodeGraphScopePhosphorLookDefaults.dotBudget,
   fullDotEconomy: nodeGraphScopePhosphorLookDefaults.fullDotEconomy,
+  gradientStops: nodeGraphScopePhosphorLookDefaults.gradientStops,
   // Seconds for one full left→right pass (default 2 s).
   sweepSeconds: 2,
 });
@@ -136,13 +150,12 @@ const nodeGraphTraceDisplayRenderPointBudgetDefault = 4096;
 
 
 const nodeGraphZeroDBurnSettingsDefaults = Object.freeze({
-  background: "#000000",
+  background: nodeGraphScopePhosphorLookDefaults.background,
   bipolarBrightness: false,
   ghost: nodeGraphScopePhosphorLookDefaults.ghost,
   trail: nodeGraphScopePhosphorLookDefaults.trail,
   dot1Brightness: nodeGraphScopePhosphorLookDefaults.brightness,
-  // Color left alone.
-  dot1Color: "#75ebff",
+  dot1Color: nodeGraphScopePhosphorLookDefaults.peakColor,
   dot1Enabled: true,
   dot1Size: nodeGraphScopePhosphorLookDefaults.size,
   // Blur 0 hard … 1 soft (same as 2D Phosphor stamps).
@@ -151,18 +164,18 @@ const nodeGraphZeroDBurnSettingsDefaults = Object.freeze({
   pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
   dotBudget: nodeGraphScopePhosphorLookDefaults.dotBudget,
   fullDotEconomy: nodeGraphScopePhosphorLookDefaults.fullDotEconomy,
+  gradientStops: nodeGraphScopePhosphorLookDefaults.gradientStops,
 });
 
 
 const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
-  background: "#000000",
+  background: nodeGraphScopePhosphorLookDefaults.background,
   brightness: nodeGraphScopePhosphorLookDefaults.brightness,
   ghost: nodeGraphScopePhosphorLookDefaults.ghost,
   capEnabled: true,
   capLength: 0.16,
   capSize: nodeGraphScopePhosphorLookDefaults.size,
-  // Color left alone.
-  color: "#75ebff",
+  color: nodeGraphScopePhosphorLookDefaults.peakColor,
   trail: nodeGraphScopePhosphorLookDefaults.trail,
   dot1Enabled: true,
   dot1Size: nodeGraphScopePhosphorLookDefaults.size,
@@ -176,18 +189,14 @@ const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
 
 
 const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
-  background: "#000000",
-  brightness: 1,
-  color: "#75ebff",
-  trail: 0.45,
+  background: nodeGraphScopePhosphorLookDefaults.background,
+  brightness: nodeGraphScopePhosphorLookDefaults.brightness,
+  color: nodeGraphScopePhosphorLookDefaults.peakColor,
+  trail: nodeGraphScopePhosphorLookDefaults.trail,
   decimals: 2,
-  ghostColor: "#1a4a55",
-  gradientStops: Object.freeze([
-    Object.freeze({ t: 0, color: "#000000" }),
-    Object.freeze({ t: 0.18, color: "#0a2a33" }),
-    Object.freeze({ t: 0.55, color: "#3a9aab" }),
-    Object.freeze({ t: 1, color: "#75ebff" }),
-  ]),
+  // Unlit segment ink — mid gradient stop for plate contrast.
+  ghostColor: "#8c2981",
+  gradientStops: nodeGraphScopePhosphorLookDefaults.gradientStops,
 });
 
 
@@ -211,40 +220,28 @@ const nodeGraphSpectrogramSettingsDefaults = Object.freeze({
   // 0→1× (no pad), 1→2×, 2→4×. FFT length = min(window×factor, 32768).
   freqOverlap: 0,
   freqScale: 1, // Mel
-  // Lowest gradient stop is the face/history "background" — no separate color.
-  gradientStops: Object.freeze([
-    Object.freeze({ t: 0, color: "#000000" }),
-    Object.freeze({ t: 0.25, color: "#000080" }),
-    Object.freeze({ t: 0.5, color: "#00c0ff" }),
-    Object.freeze({ t: 0.75, color: "#ffff00" }),
-    Object.freeze({ t: 1, color: "#ffffff" }),
-  ]),
+  // Lowest gradient stop is the face/history "background" — analog pixel burn LUT.
+  gradientStops: nodeGraphScopePhosphorLookDefaults.gradientStops,
 });
 
 
 const nodeGraphScope2dSettingsDefaults = Object.freeze({
   // Face plate follows gradient floor (t≈0); kept for plate CSS / migration.
-  background: "#000000",
+  background: nodeGraphScopePhosphorLookDefaults.background,
   // Ghost = dim scorched floor; Trail = main residual (1 ≈ freeze).
-  // From snowflake “analog pixel burn” phosphor (colors left alone).
   ghost: nodeGraphScopePhosphorLookDefaults.ghost,
   trail: nodeGraphScopePhosphorLookDefaults.trail,
   dot1Brightness: nodeGraphScopePhosphorLookDefaults.brightness,
-  // Peak color = last gradient stop (migration + puck/overlays) — color left alone.
-  dot1Color: "#75ebff",
+  // Peak color = last gradient stop (migration + puck/overlays).
+  dot1Color: nodeGraphScopePhosphorLookDefaults.peakColor,
   dot1Enabled: true,
   // Exp size map 0…1 (snowflake analog pixel burn).
   dot1Size: nodeGraphScopePhosphorLookDefaults.size,
   // Soft stamp budget (ceiling). Under load, dots spread evenly (skips), not head-only.
   dotBudget: nodeGraphScopePhosphorLookDefaults.dotBudget,
   fullDotEconomy: nodeGraphScopePhosphorLookDefaults.fullDotEconomy,
-  // Multi-stop energy→color LUT (shared gradient editor) — colors left alone.
-  gradientStops: Object.freeze([
-    Object.freeze({ t: 0, color: "#000000" }),
-    Object.freeze({ t: 0.18, color: "#0a2a33" }),
-    Object.freeze({ t: 0.55, color: "#3a9aab" }),
-    Object.freeze({ t: 1, color: "#75ebff" }),
-  ]),
+  // Multi-stop energy→color LUT (shared gradient editor).
+  gradientStops: nodeGraphScopePhosphorLookDefaults.gradientStops,
   // Stamp blur 0–1: 0 hard disc, 1 full soft bleed.
   lineThickness: nodeGraphScopePhosphorLookDefaults.blur,
   // 0 = single pixel, 1 = layout×dpr, 4 = 4× AA.
@@ -252,28 +249,49 @@ const nodeGraphScope2dSettingsDefaults = Object.freeze({
   scale: nodeGraphScopePhosphorLookDefaults.scale,
 });
 
+/**
+ * Per-module overrides for 2D Phosphor (scope2d) display defaults.
+ * Only fields listed here differ from nodeGraphScope2dSettingsDefaults.
+ * Lorenz needs a larger beam so the butterfly reads clearly at default scale.
+ */
+const nodeGraphModuleScope2dDisplayDefaultOverrides = Object.freeze({
+  lorenzAttractor: Object.freeze({
+    // Exp size map 0…1 — larger than global snowflake default (0.0385).
+    dot1Size: 0.2748,
+  }),
+});
+
+/** Full scope2d defaults for a module type (global + optional overrides). */
+function nodeGraphScope2dSettingsDefaultsForModuleType(type) {
+  const overrides = type
+    ? nodeGraphModuleScope2dDisplayDefaultOverrides[type]
+    : null;
+  if (!overrides) {
+    return nodeGraphScope2dSettingsDefaults;
+  }
+  return Object.freeze({
+    ...nodeGraphScope2dSettingsDefaults,
+    ...overrides,
+  });
+}
+
 
 const nodeGraphXyPadDisplaySettingsDefaults = Object.freeze({
-  background: "#000000",
+  background: nodeGraphScopePhosphorLookDefaults.background,
   // Ghost = dim scorched floor; Trail = main residual (1 ≈ freeze).
   ghost: nodeGraphScopePhosphorLookDefaults.ghost,
   trail: nodeGraphScopePhosphorLookDefaults.trail,
   // Phosphor beam brightness 0..1.
   dot1Brightness: nodeGraphScopePhosphorLookDefaults.brightness,
-  // Peak = last gradient stop (UI overlay tints from this) — color left alone.
-  dot1Color: "#7fc7d9",
+  // Peak = last gradient stop (UI overlay tints from this).
+  dot1Color: nodeGraphScopePhosphorLookDefaults.peakColor,
   // Phosphor beam diameter (exp size map).
   dot1Size: nodeGraphScopePhosphorLookDefaults.size,
   // Soft-stamp budget ceiling.
   dotBudget: nodeGraphScopePhosphorLookDefaults.dotBudget,
   // Default ON: always spend dense packing up to Dot budget (hard solid trails).
   fullDotEconomy: nodeGraphScopePhosphorLookDefaults.fullDotEconomy,
-  gradientStops: Object.freeze([
-    Object.freeze({ t: 0, color: "#000000" }),
-    Object.freeze({ t: 0.18, color: "#0a2830" }),
-    Object.freeze({ t: 0.55, color: "#3a8899" }),
-    Object.freeze({ t: 1, color: "#7fc7d9" }),
-  ]),
+  gradientStops: nodeGraphScopePhosphorLookDefaults.gradientStops,
   // Stamp blur 0–1: 0 hard disc, 1 full soft bleed.
   lineThickness: nodeGraphScopePhosphorLookDefaults.blur,
   // 0 = single pixel, 1 = layout×dpr, 4 = 4× AA (phosphor face only).
@@ -285,10 +303,9 @@ const nodeGraphXyPadDisplaySettingsDefaults = Object.freeze({
 
 const nodeGraphScope2dTraceSettingsDefaults = Object.freeze({
   // Same family as PhosphorLight / Number Readout face plate.
-  background: "#000000",
+  background: nodeGraphScopePhosphorLookDefaults.background,
   dot1Brightness: nodeGraphScopePhosphorLookDefaults.brightness,
-  // Color left alone.
-  dot1Color: "#75ebff",
+  dot1Color: nodeGraphScopePhosphorLookDefaults.peakColor,
   dot1Enabled: true,
   dot1Size: nodeGraphScopePhosphorLookDefaults.size,
   historySeconds: 0.05,

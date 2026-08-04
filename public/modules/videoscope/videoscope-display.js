@@ -84,6 +84,7 @@ function drawNodeGraphVideoscopeItem(renderer, item, pixelRatio) {
     : null;
   const defaultSize = look?.size ?? 0.0385;
   const settings = {
+    background: face.background || look?.background || "#000004",
     ghost: Number.isFinite(Number(face.ghost))
       ? Number(face.ghost)
       : (look?.ghost ?? 0.55),
@@ -93,11 +94,10 @@ function drawNodeGraphVideoscopeItem(renderer, item, pixelRatio) {
         ? 1 - Number(face.decay)
         : (look?.trail ?? 0.5175)),
     // Brightness only for deposit (no burn gain coupling).
-    // Color left alone.
     dot1Brightness: Number.isFinite(Number(face.dot1Brightness))
       ? Number(face.dot1Brightness) * (paramBrightness / 1)
       : (look?.brightness ?? 1) * (paramBrightness / 1),
-    dot1Color: face.dot1Color || "#50e090",
+    dot1Color: face.dot1Color || look?.peakColor || "#fcfdbf",
     dot1Enabled: true,
     dot1Size: Number.isFinite(Number(face.dot1Size)) ? Number(face.dot1Size) : defaultSize,
     lineThickness: Number.isFinite(Number(face.lineThickness))
@@ -108,7 +108,7 @@ function drawNodeGraphVideoscopeItem(renderer, item, pixelRatio) {
       ? Number(face.dotBudget)
       : (look?.dotBudget ?? 2048),
     fullDotEconomy: face.fullDotEconomy !== false,
-    gradientStops: face.gradientStops,
+    gradientStops: face.gradientStops || look?.gradientStops || null,
   };
 
   if (typeof drawNodeGraphScope2dEnergyBurnPath === "function") {

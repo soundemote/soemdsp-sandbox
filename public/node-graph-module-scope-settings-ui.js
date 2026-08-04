@@ -384,6 +384,14 @@ function nodeGraphTraceDisplaySettingsTargetNodeId() {
 }
 
 function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDisplaySettingsFormType()) {
+  // When editing a specific module, apply per-type scope2d overrides (e.g. Lorenz size).
+  const targetNode = !nodeGraphTraceDisplaySettingsEditingTraceDefaults()
+    && !nodeGraphTraceDisplaySettingsEditingGlobal()
+    ? nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())
+    : null;
+  const scope2dDefaults = typeof nodeGraphScope2dSettingsDefaultsForModuleType === "function"
+    ? nodeGraphScope2dSettingsDefaultsForModuleType(targetNode?.type)
+    : nodeGraphScope2dSettingsDefaults;
   if (type === "dot") {
     return normalizeNodeGraphZeroDBurnSettings(nodeGraphZeroDBurnSettingsDefaults);
   }
@@ -394,7 +402,7 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
     return normalizeNodeGraphLineBurnSettings(nodeGraphLineBurnSettingsDefaults);
   }
   if (type === "scope2d") {
-    return normalizeNodeGraphScope2dSettings(nodeGraphScope2dSettingsDefaults);
+    return normalizeNodeGraphScope2dSettings(scope2dDefaults, scope2dDefaults);
   }
   if (type === "scope2dTrace") {
     return normalizeNodeGraphScope2dTraceSettings(nodeGraphScope2dTraceSettingsDefaults);
@@ -412,7 +420,7 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
   }
   // phosphorLight form type is an alias of scope2d (legacy module).
   if (type === "phosphorLight") {
-    return normalizeNodeGraphScope2dSettings(nodeGraphScope2dSettingsDefaults);
+    return normalizeNodeGraphScope2dSettings(scope2dDefaults, scope2dDefaults);
   }
   if (
     type === "videoscopeBurn"
@@ -606,7 +614,10 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
     return normalizeNodeGraphValueOscilloscopeSettings(node.traceDisplaySettings);
   }
   if (settingsSchema === "scope2d") {
-    return normalizeNodeGraphScope2dSettings(node.traceDisplaySettings);
+    const typeDefaults = typeof nodeGraphScope2dSettingsDefaultsForModuleType === "function"
+      ? nodeGraphScope2dSettingsDefaultsForModuleType(node?.type)
+      : null;
+    return normalizeNodeGraphScope2dSettings(node.traceDisplaySettings, typeDefaults);
   }
   if (settingsSchema === "scope2dTrace") {
     return normalizeNodeGraphScope2dTraceSettings(node.traceDisplaySettings);
@@ -1556,7 +1567,10 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     return node.traceDisplaySettings;
   }
   if (displayType === "scope2d") {
-    node.traceDisplaySettings = normalizeNodeGraphScope2dSettings(settings);
+    const typeDefaults = typeof nodeGraphScope2dSettingsDefaultsForModuleType === "function"
+      ? nodeGraphScope2dSettingsDefaultsForModuleType(node?.type)
+      : null;
+    node.traceDisplaySettings = normalizeNodeGraphScope2dSettings(settings, typeDefaults);
     return node.traceDisplaySettings;
   }
   if (displayType === "scope2dTrace") {
