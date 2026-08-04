@@ -17,9 +17,10 @@ Prefer this over outdated “four edit points” mental models when they conflic
 │  planRole (source|processor|sink|monitor|always)            │
 │  free-run: role / planFreeRun / visualSink / empty inputs   │
 ├─────────────────────────────────────────────────────────────┤
-│  DSP evaluation (two lanes, same formulas)                  │
-│  · Offline / render: live evaluators + pure stdlib          │
-│  · Live: AudioWorklet Blob (stdlib → core → method files)   │
+│  DSP evaluation (two hosts, one module core — APP_POLICY §5)│
+│  · Module DSP lives in one place (native and/or pure math)  │
+│  · Offline / render + Live worklet only schedule & observe  │
+│  · Live video/scopes: buffers from worklet, not a 2nd sim   │
 ├─────────────────────────────────────────────────────────────┤
 │  Faces / scopes                                             │
 │  module-scopes (still large) · per-module display/GL        │

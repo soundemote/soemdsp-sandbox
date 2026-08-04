@@ -628,12 +628,13 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   knob: {
     category: "plugin",
     description:
-      "Knob — rotatable face control. Bias = In + knob (offset). Param-row mod is unit CV; In is true additive CV. Search: knob, pot, macro, value slider.",
+      "Knob — module-first control. Face is control + display of live Bias (In + offset). Single Bias outlet. No body param row / param-out twin.",
     label: "Knob",
     notes: [
       "plugin",
       "bias output",
       "in plus knob",
+      "control",
       "additive cv input",
       "resizable widget",
       "manual control",
@@ -647,9 +648,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   pluginSlider: {
     category: "plugin",
     description:
-      "Slider — LayoutA/B-style fader face that mirrors the parameter row slider (unskinnable). Bias = In + value.",
+      "Slider — module-first control. Face is control + display of live Bias (In + value). Single Bias outlet. No body param row / param-out twin.",
     label: "Slider",
-    notes: ["plugin", "fader", "slider", "bias"],
+    notes: ["plugin", "fader", "slider", "bias", "display", "control"],
   },
   toggleButton: {
     category: "plugin",
@@ -765,9 +766,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   macroControls: {
     category: "controller",
-    description: "Reads the ten macro knobs under the modular view and emits M1 through M10 as live 0..1 control signals.",
+    description: "Eight macro knobs as the module display. Emits M1–M8 as live 0..1 control signals (optional M* In / Reset).",
     label: "Macro Controls",
-    notes: ["macro row", "manual control", "ten outputs", "knob", "slider", "macro", "pot"],
+    notes: ["macro row", "manual control", "eight outputs", "knob", "slider", "macro", "pot", "display"],
   },
   pitchModWheel: {
     category: "controller",
@@ -908,9 +909,20 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   pingPongDelay: {
     category: "space",
-    description: "Basic stereo ping-pong delay, tempo-synced to the patch transport as a free X/Y fraction of a whole note (with Normal/Dotted/Triplet), plus a millisecond offset as a modulation entry.",
+    description:
+      "Tape-style stereo ping-pong. Tempo base Numer/Denom × Sync; Offset = max L/R drift (ms) driven by independent Parabol/Random Walk/FBM LFOs; passive HPF/LPF + soft clip in feedback.",
     label: "Ping Pong Delay",
-    notes: ["ping pong", "tempo sync", "X/Y division", "dotted/triplet"],
+    notes: [
+      "ping pong",
+      "tempo sync",
+      "numer/denom",
+      "parabol",
+      "random walk",
+      "fbm",
+      "tape",
+      "soft clip",
+      "passive filter",
+    ],
   },
   wallDelay: {
     category: "space",
@@ -923,6 +935,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Raw Sabrina reverb port: serial diffusion stages with cross-feedback delay, modulation, recycle, and wet/dry mix. Seed randomizes the delay line pattern.",
     label: "Sabrina Reverb",
     notes: ["Sabrina", "serial diffusion", "cross feedback", "seed"],
+  },
+  soemReverb: {
+    category: "space",
+    description: "SoEmReverb: soemdsp::delay::Reverb (ModulatedDelay diffusion + echo modes Post/Pre/Slapback), soft-clip feedback, LPF/HPF/peak, ducking. Echo base free or tempo-synced (one time for both echo L/R). Stereo Trace face (Wet L/R) like Output. Native C++/WASM.",
+    label: "SoEmReverb",
+    notes: ["soemdsp", "ModulatedDelay", "tempo sync", "PostDelay", "PreDelay", "Slapback", "native", "trace"],
   },
   pll: {
     category: "clock",

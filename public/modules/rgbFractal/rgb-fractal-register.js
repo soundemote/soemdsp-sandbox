@@ -152,6 +152,31 @@ registerNodeGraphChromelessModule("rgbFractal", {
       },
       {
         defaultValue: "1",
+        key: "colorRate",
+        label: "Color Rate",
+        max: "4",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: true,
+        step: "any",
+        tooltip:
+          "Palette cycle rate (× Speed). 0 freezes colors; decoupled from orbit so the gradient can drift on its own period. Face only.",
+      },
+      {
+        defaultValue: "0",
+        key: "colorShift",
+        label: "Color Shift",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        wraparound: true,
+        tooltip:
+          "Static palette phase offset (wrap 0–1). Scrubs / shifts the gradient without changing motion. Face only.",
+      },
+      {
+        defaultValue: "1",
         key: "bands",
         label: "Color Bands",
         max: "16",
@@ -172,6 +197,7 @@ registerNodeGraphChromelessModule("rgbFractal", {
     notes: [
       "rgb", "julia", "webgl", "planetary", "orbit", "map oscillator",
       "LayoutA", "hx", "hy", "parameter c", "pan", "soft", "bands",
+      "color rate", "color shift", "gradient",
     ],
   },
 });

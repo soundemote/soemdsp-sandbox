@@ -47,6 +47,29 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         });
         return;
       }
+      if (name === "soem_reverb" || targetType === "soemReverb") {
+        if (this.soemReverbStates) {
+          for (const state of this.soemReverbStates.values()) {
+            if (state?.nativeHandle && this.nativeSoemReverb?.soemdsp_soem_reverb_destroy) {
+              this.nativeSoemReverb.soemdsp_soem_reverb_destroy(state.nativeHandle);
+              state.nativeHandle = 0;
+            }
+          }
+        }
+        this.nativeSoemReverb = exports;
+        this.nativeSoemReverbReady = Boolean(
+          this.nativeSoemReverb?.soemdsp_soem_reverb_create
+          && this.nativeSoemReverb?.soemdsp_soem_reverb_process
+          && this.nativeSoemReverb?.soemdsp_soem_reverb_left
+          && this.nativeSoemReverb?.soemdsp_soem_reverb_right,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "soem_reverb",
+          status: this.nativeSoemReverbReady ? "ready" : "missing exports",
+        });
+        return;
+      }
       if (name === "sabrina_reverb" || targetType === "reverbEffect") {
         for (const state of this.reverbEffectStates.values()) {
           this.destroySabrinaReverbState(state);
@@ -1208,6 +1231,44 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
           type: "nativeModuleStatus",
           name: "additive_osc",
           status: this.nativeAdditiveOscReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "sinc" || targetType === "sinc") {
+        for (const state of this.sincStates.values()) {
+          if (state?.nativeHandle && this.nativeSinc?.soemdsp_sinc_destroy) {
+            this.nativeSinc.soemdsp_sinc_destroy(state.nativeHandle);
+            state.nativeHandle = 0;
+          }
+        }
+        this.nativeSinc = exports;
+        this.nativeSincReady = Boolean(
+          this.nativeSinc?.soemdsp_sinc_create && this.nativeSinc?.soemdsp_sinc_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "sinc",
+          status: this.nativeSincReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "softwave" || targetType === "softwaveOsc") {
+        if (this.softwaveOscStates) {
+          for (const state of this.softwaveOscStates.values()) {
+            if (state?.nativeHandle && this.nativeSoftwave?.soemdsp_softwave_destroy) {
+              this.nativeSoftwave.soemdsp_softwave_destroy(state.nativeHandle);
+              state.nativeHandle = 0;
+            }
+          }
+        }
+        this.nativeSoftwave = exports;
+        this.nativeSoftwaveReady = Boolean(
+          this.nativeSoftwave?.soemdsp_softwave_create && this.nativeSoftwave?.soemdsp_softwave_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "softwave",
+          status: this.nativeSoftwaveReady ? "ready" : "missing exports",
         });
         return;
       }

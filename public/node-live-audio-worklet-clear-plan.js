@@ -197,6 +197,14 @@ NodeLiveAudioProcessor.prototype.clearPlan = function clearPlan() {
       this.destroySabrinaReverbState(state);
     }
     this.reverbEffectStates = new Map();
+    if (this.soemReverbStates) {
+      for (const state of this.soemReverbStates.values()) {
+        if (state?.nativeHandle && this.nativeSoemReverb?.soemdsp_soem_reverb_destroy) {
+          this.nativeSoemReverb.soemdsp_soem_reverb_destroy(state.nativeHandle);
+        }
+      }
+      this.soemReverbStates = new Map();
+    }
     for (const state of this.pllStates.values()) {
       this.destroyPllState(state);
     }

@@ -41,6 +41,9 @@ function nodeGraphRgbFractalStartLoop(face, nodeId) {
     if (!Number.isFinite(face._rgbFractalRotationPhasor)) {
       face._rgbFractalRotationPhasor = 0;
     }
+    if (!Number.isFinite(face._rgbFractalColorPhasor)) {
+      face._rgbFractalColorPhasor = 0;
+    }
     face._rgbFractalPhase = face._rgbFractalOrbitPhasor;
   }
   face._rgbFractalLastTs = 0;

@@ -348,26 +348,15 @@ function refreshNodeGraphScreenSpaceShaderBodyStatus(body) {
 
 // node is optional -- see the comment on createNodeGraphKeyboardControllerBody;
 // same reuse pattern for the standalone performance dock.
+// The knob bank IS the module display (no title/status chrome).
 function createNodeGraphMacroControlsBody(node = null) {
   const section = document.createElement("section");
-  section.className = "node-macro-controls-panel node-macro-controls-module";
+  section.className = "node-macro-controls-panel node-macro-controls-module node-module-scope-window";
   if (node) {
     section.dataset.node = node;
   }
+  section.dataset.macroControlsDisplay = "true";
   section.setAttribute("aria-label", "Macro controls");
-  const heading = document.createElement("div");
-  heading.className = "node-macro-controls-heading";
-  const title = document.createElement("div");
-  const kicker = document.createElement("span");
-  kicker.textContent = "Performance Surface";
-  const strong = document.createElement("strong");
-  strong.textContent = "Macro Controls";
-  title.append(kicker, strong);
-  const status = document.createElement("span");
-  status.className = "pill";
-  status.dataset.macroControlsStatus = "true";
-  status.textContent = "8 macros ready";
-  heading.append(title, status);
   const row = document.createElement("div");
   row.className = "node-macro-controls-row";
   row.setAttribute("aria-label", "Macro knob row");
@@ -382,15 +371,23 @@ function createNodeGraphMacroControlsBody(node = null) {
     knob.setAttribute("aria-valuenow", "0");
     knob.setAttribute("role", "slider");
     const label = document.createElement("span");
-    label.textContent = `M${index + 1}`;
+    const face = typeof nodeGraphMacroControlsFaceSettings === "function"
+      ? nodeGraphMacroControlsFaceSettings()
+      : null;
+    label.textContent = face?.labels?.[index] || `M${index + 1}`;
     const indicator = document.createElement("i");
     const value = document.createElement("strong");
     value.dataset.macroValue = String(index);
     value.textContent = "0.00";
     knob.append(label, indicator, value);
+    knob.setAttribute("aria-label", label.textContent);
     row.append(knob);
   }
-  section.append(heading, row);
+  section.append(row);
+  if (typeof applyNodeGraphMacroControlsFaceSettings === "function") {
+    // Defer so CSS vars apply after insert (dock + module).
+    requestAnimationFrame(() => applyNodeGraphMacroControlsFaceSettings());
+  }
   return section;
 }
 
@@ -594,10 +591,11 @@ function createNodeGraphKeyboardControllerBody(node = null) {
 function createNodeGraphParameter(node, type, parameter) {
   const row = document.createElement("div");
   row.className = "node-parameter-row";
-  // Hidden params still exist in the DOM (pad UI / worklet read by id) but
+  // Hidden params still exist in the DOM (face drag targets, pad state) but
   // must not consume vertical layout — otherwise solid modules (XY Pad)
   // under-count height vs real content and clip the face.
-  if (parameter?.hidden === true) {
+  const isHidden = parameter?.hidden === true;
+  if (isHidden) {
     row.hidden = true;
     row.classList.add("node-parameter-row-hidden");
   }
@@ -606,7 +604,14 @@ function createNodeGraphParameter(node, type, parameter) {
   if (constraint) {
     row.dataset.nodeConstraint = constraint;
   }
-  row.append(createNodeParameterModulationPort(node, type, parameter));
+  // Module-first controls (Slider/Knob face): hidden state params keep a range
+  // input for persistence/drag targets, but no mod/param-out jacks fighting
+  // the single module Bias/Out.
+  const showModPort = !isHidden && parameter?.modulation !== false;
+  const showParamOut = !isHidden && parameter?.parameterOutput !== false;
+  if (showModPort) {
+    row.append(createNodeParameterModulationPort(node, type, parameter));
+  }
 
   const label = document.createElement("label");
   label.className = "node-parameter-control";
@@ -655,7 +660,9 @@ function createNodeGraphParameter(node, type, parameter) {
   input.setAttribute("aria-label", `${nodeGraphNodeLabels[type]} ${parameter.label}`);
   label.append(input);
   row.append(label);
-  row.append(createNodeParameterOutputPort(node, type, parameter));
+  if (showParamOut) {
+    row.append(createNodeParameterOutputPort(node, type, parameter));
+  }
   return row;
 }
 

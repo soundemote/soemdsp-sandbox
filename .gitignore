@@ -1,5 +1,6 @@
 __pycache__/
 *.pyc
+*.o
 *.log
 sandbox-preview.png
 .python-version

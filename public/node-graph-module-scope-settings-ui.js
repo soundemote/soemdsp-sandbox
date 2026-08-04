@@ -48,6 +48,11 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
       bindNodeGraphMatrixFaceDisplaySettingsBody(host);
     }
   }
+  if (type === "macroControlsFace") {
+    if (typeof bindNodeGraphMacroControlsFaceDisplaySettingsBody === "function") {
+      bindNodeGraphMacroControlsFaceDisplaySettingsBody(host);
+    }
+  }
   // RGB Picture: load / clear image.
   if (type === "rgbPictureFace") {
     if (typeof bindNodeGraphRgbPictureDisplaySettingsEvents === "function") {
@@ -85,9 +90,11 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
   popover.dataset.displaySettingsType = type;
   popover.dataset.displaySettingsTargetNode = node?.id ? String(node.id) : "";
   popover.dataset.displaySettingsBodyType = type;
-  // Output Left/Right aria on color hosts.
-  const isOutputNode = node?.type === "output";
-  if (isOutputNode && type === "trace") {
+  // Stereo Trace Left/Right aria on color hosts (Output, SoEmReverb, …).
+  const isStereoTraceNode = typeof nodeGraphModuleUsesStereoTraceDisplay === "function"
+    ? nodeGraphModuleUsesStereoTraceDisplay(node?.type)
+    : node?.type === "output";
+  if (isStereoTraceNode && type === "trace") {
     const leftColorHost = host.querySelector(`[data-trace-display-color-widget="dot1Color"]`);
     if (leftColorHost) {
       leftColorHost.setAttribute("aria-label", "Left color");
@@ -1895,8 +1902,11 @@ function nodeGraphTraceDisplayColorWidgetLabel(field) {
     return "Ghost";
   }
   if (field === "dot1Color") {
-    const isOutput = nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type === "output";
-    return isOutput ? "Left" : "";
+    const nodeType = nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type;
+    const isStereo = typeof nodeGraphModuleUsesStereoTraceDisplay === "function"
+      ? nodeGraphModuleUsesStereoTraceDisplay(nodeType)
+      : nodeType === "output";
+    return isStereo ? "Left" : "";
   }
   return "";
 }
@@ -2430,9 +2440,18 @@ function bindNodeGraphTraceDisplaySettingsEvents(popover) {
 }
 
 function openNodeGraphTraceDisplaySettings(nodeId, event = {}) {
+  // Macro Controls face is a global bank — open dedicated face settings.
+  if (nodeId === "__macroControlsFace") {
+    return typeof openNodeGraphMacroControlsDisplaySettings === "function"
+      ? openNodeGraphMacroControlsDisplaySettings(event)
+      : false;
+  }
   const node = nodeGraphPatchNode(nodeId);
   if (!node) {
     return false;
+  }
+  if (node.type === "macroControls" && typeof openNodeGraphMacroControlsDisplaySettings === "function") {
+    return openNodeGraphMacroControlsDisplaySettings(event);
   }
   // Music Player owns nodePhosphorWaveformSettingsWindow — do not fall through
   // into the shared Trace/schema form (display gear routes there first).

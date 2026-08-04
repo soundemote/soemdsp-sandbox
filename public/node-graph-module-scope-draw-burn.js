@@ -687,6 +687,8 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       layer.brightness,
       size01,
     );
+    // Continuous gaussian beam ribbons (not thrifty dots). Dots under budget
+    // left bead gaps / jagged hard trails; segments match the CRT beam model.
     nodeGraphPhosphorEnergyGlStepBeams(energyGl, {
       trail,
       ghost,
@@ -694,8 +696,8 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       radius: Math.max(0.35, layer.radius),
       brightness: beamBrightness,
       blur: nodeGraphTraceDisplayClampStampBlur(layer.blur),
-      mode: "dots",
-      // User / face ceiling. Under load: even skips across full path (not head-only).
+      mode: "segments",
+      // Still honor stamp budget if a caller forces dots mode later.
       maxDots: Math.max(
         64,
         Math.min(
@@ -703,6 +705,7 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
           Math.round(Number(settings?.dotBudget) || nodeGraphScope2dMaxSamplesPerFrame(canvas)),
         ),
       ),
+      fullEconomy: settings?.fullDotEconomy !== false,
     });
   } else if (typeof nodeGraphPhosphorEnergyGlStep === "function") {
     // Fade + bleed when no drawable layer (trail still softens outward).
@@ -723,9 +726,13 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
   if (nodeGraphPhosphorEnergyGlPresent(energyGl, 1, { exposure })) {
     context.save();
     context.globalCompositeOperation = "lighter";
-    // Smooth when density ≥ 1 (supersample AA); nearest when intentionally chunky.
-    const dens = Number(sync.density);
-    context.imageSmoothingEnabled = Number.isFinite(dens) ? dens >= 0.999 : true;
+    // Always bilinear when compositing energy → face. Nearest upscale of a
+    // sub-1 density FBO made continuous beams look stair-stepped / jagged.
+    // (Pixel-density 0 1×1 “chunky” still soft-fills the plate.)
+    context.imageSmoothingEnabled = true;
+    if ("imageSmoothingQuality" in context) {
+      context.imageSmoothingQuality = "high";
+    }
     context.drawImage(energyGl.canvas, 0, 0, width, height);
     context.restore();
   }
@@ -762,9 +769,11 @@ function drawNodeGraphScope2dRetainedBurn(item, pixelRatio, square, buffer, sett
   const budget = nodeGraphScope2dMaxSamplesPerFrame(canvas);
   const rawStart = nodeGraphScope2dDrawStartIndex(canvas, buffer, count);
   const drawStartIndex = nodeGraphScope2dClampDrawStartIndex(rawStart, count, budget);
+  // Interpolate long sample-to-sample jumps so beam segments stay smooth under
+  // sparse capture (avoids long single-line chords that read as jagged folds).
   let pathPoints = drawStartIndex < count
     ? buildNodeGraphScope2dPathPoints(canvasSquare, buffer, drawStartIndex, {
-      interpolate: false,
+      interpolate: true,
       settings,
     })
     : [];

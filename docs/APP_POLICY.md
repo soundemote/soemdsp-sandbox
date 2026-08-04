@@ -25,6 +25,7 @@ When feature-complete (or when explicitly chosen later): introduce migrations de
 - Module audio/math that has a **native/WASM** path must **not** ship a parallel JS DSP implementation “in case native fails.”
 - If native is missing or not ready: **silence / black / inert** (and optional status), not a second algorithm.
 - Face/display may present native results (e.g. upload a mono grid) but must **not** re-implement the field/kernel in JS or GLSL for “looks only.”
+- Same rule offline: Render Sample must not use a JS twin of a native module (see §5).
 
 ---
 
@@ -44,10 +45,31 @@ When feature-complete (or when explicitly chosen later): introduce migrations de
 
 ---
 
-## 5. One code path for main-thread and worklet math
+## 5. Module DSP lives in one place
 
-- Prefer **same algorithm** in live worklet and offline/main evaluation (shared native, shared pure helpers).
-- Do not maintain diverging “worklet version” vs “render version” of the same module math without a tracked reason.
+**Hosts are not DSP.** Live AudioWorklet, offline/Render Sample, and any main-thread evaluation are **hosts** that call into a single module implementation. They must not each own a different formula for the same module type.
+
+### Single core
+
+- **Module DSP lives in one place** — native/WASM (`native_modules/…`) and/or one pure shared helper (`*-math.js` / stdlib), not a worklet copy and a render copy that can drift.
+- Offline and realtime **reference that same core**. The only intentional difference is **scheduling** (device quantum vs bounce length / block size), not the waveshaper, filter, or feedback math.
+- Do **not** maintain diverging “worklet version” vs “render version” of the same module without a tracked, labeled reason (and fix the split rather than document it as normal).
+
+### Live chaos and video (one universe)
+
+- While playing: **one** dynamical evaluation (the worklet). Faces, scopes, phosphor, and video **observe** that run (buffers / rings from the worklet). They must not re-simulate the graph with a second set of phases, noise seeds, or integrators.
+- **What I see is what I hear** under feedback and chaos requires **one state**, not “same knobs, two sims.”
+
+### Offline / Render Sample
+
+- Offline is the **same modules, same core**, stepped without the audio device clock — not a parallel JS approximation of the live native path.
+- Prefer the **same native export** on main thread for render when the live path is native (lazy instantiate WASM; silence until ready — see §2). Do not invent a second algorithm “so offline works before WASM loads.”
+- A bounce may be a **new take** (new seeds / cold start). That is still the same engine; it is not license to use different math.
+
+### Dual evaluation is not the goal
+
+- Live A/V sync is **one sim, many observers** — not two full graphs forced to stay identical.
+- “Identical pure functions on two threads” still yields two trajectories under chaos if both step state. Prefer capture over re-run for live display.
 
 ---
 
@@ -114,6 +136,9 @@ When feature-complete (or when explicitly chosen later): introduce migrations de
 | Smooth scale scrub so it “sounds nice” | **No** unless product asks |
 | Probe reticles always on | **No** — debug only |
 | Dual path “just in case” | **No** — one path |
+| Second formula for offline/render | **No** — same core as live (§5) |
+| Re-sim graph for live video/scopes | **No** — observe worklet buffers (§5) |
+| JS twin of native “so render works” | **No** — silence until WASM (§2 / §5) |
 
 ---
 

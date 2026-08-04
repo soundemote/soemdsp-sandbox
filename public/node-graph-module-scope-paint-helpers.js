@@ -235,9 +235,16 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
 
 function nodeGraphOneDimensionalBurnPointBudget(canvas) {
   const width = Math.max(1, Number(canvas?.width) || 1);
-  return Math.max(64, Math.min(2048, Math.ceil(width * 4)));
+  // Prefer denser control points so continuous beam ribbons follow the wave
+  // instead of min/max envelope folds (which read as jagged).
+  return Math.max(256, Math.min(8192, Math.ceil(width * 8)));
 }
 
+/**
+ * Thin a 1D burn subpath to `budget` points with even spacing.
+ * (Old min/max-per-bucket sampling preserved peaks but turned sines into
+ * jagged envelope zigzags — wrong for continuous phosphor beams.)
+ */
 function reduceNodeGraphOneDimensionalBurnSubpath(points, start, end, budget, output) {
   const length = end - start;
   if (length <= 0) {
@@ -249,39 +256,16 @@ function reduceNodeGraphOneDimensionalBurnSubpath(points, start, end, budget, ou
     }
     return;
   }
-  const bucketCount = Math.max(1, Math.floor(budget / 4));
-  const bucketStep = length / bucketCount;
-  let lastPushedIndex = -1;
-  const pushUnique = (index) => {
-    if (index < start || index >= end || index === lastPushedIndex) {
-      return;
+  const cap = Math.max(2, Math.floor(Number(budget) || 2));
+  const last = end - 1;
+  let prev = -1;
+  for (let i = 0; i < cap; i += 1) {
+    const index = Math.min(last, start + Math.round((i * (length - 1)) / (cap - 1)));
+    if (index === prev) {
+      continue;
     }
     output.push(points[index]);
-    lastPushedIndex = index;
-  };
-  for (let bucket = 0; bucket < bucketCount; bucket += 1) {
-    const bucketStart = start + Math.floor(bucket * bucketStep);
-    const bucketEnd = Math.min(end, start + Math.max(1, Math.floor((bucket + 1) * bucketStep)));
-    let minIndex = bucketStart;
-    let maxIndex = bucketStart;
-    for (let index = bucketStart + 1; index < bucketEnd; index += 1) {
-      const y = Number(points[index]?.y);
-      if (!Number.isFinite(y)) {
-        continue;
-      }
-      if (y < Number(points[minIndex]?.y)) {
-        minIndex = index;
-      }
-      if (y > Number(points[maxIndex]?.y)) {
-        maxIndex = index;
-      }
-    }
-    const important = [bucketStart, minIndex, maxIndex, bucketEnd - 1]
-      .filter((index) => index >= bucketStart && index < bucketEnd)
-      .sort((a, b) => a - b);
-    for (const index of important) {
-      pushUnique(index);
-    }
+    prev = index;
   }
 }
 
@@ -717,20 +701,49 @@ function drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas, op
   context.restore();
 }
 
-// Output stereo: any Left/Right colors + blend modes.
-// Output stereo: any Left/Right colors + blend modes.
-// Meet (combine): m=min(L,R); pixel=(L-m)·C_L+(R-m)·C_R+m·C_meet (complement → red+blue→green).
-function nodeGraphOutputStereoTraceBuffers(nodeId) {
+// Stereo Trace (Output / pluginOutput / modules with stereoTracePorts):
+// L/R colors + blend modes. Meet (combine): m=min(L,R);
+// pixel=(L-m)·C_L+(R-m)·C_R+m·C_meet (complement → red+blue→green).
+
+/** @returns {{ left: string, right: string } | null} */
+function nodeGraphModuleStereoTracePorts(type) {
+  const t = String(type || "").trim();
+  if (!t) return null;
+  const def = typeof nodeGraphModuleDefinitions === "object"
+    ? nodeGraphModuleDefinitions[t]
+    : null;
+  const ports = def?.stereoTracePorts;
+  if (ports && ports.left != null && ports.right != null) {
+    return { left: String(ports.left), right: String(ports.right) };
+  }
+  // Classic stereo bus sinks.
+  if (def?.output === true || t === "output" || t === "pluginOutput") {
+    return { left: "Left", right: "Right" };
+  }
+  return null;
+}
+
+function nodeGraphModuleUsesStereoTraceDisplay(type) {
+  return Boolean(nodeGraphModuleStereoTracePorts(type));
+}
+
+function nodeGraphStereoTraceBuffers(nodeId, type) {
   const id = String(nodeId || "");
-  if (!id) {
+  const ports = nodeGraphModuleStereoTracePorts(type);
+  if (!id || !ports) {
     return null;
   }
-  const left = nodeGraphModuleScopeState.buffers.get(`${id}:Left`);
-  const right = nodeGraphModuleScopeState.buffers.get(`${id}:Right`);
+  const left = nodeGraphModuleScopeState.buffers.get(`${id}:${ports.left}`);
+  const right = nodeGraphModuleScopeState.buffers.get(`${id}:${ports.right}`);
   if (!left?.length || !right?.length) {
     return null;
   }
   return { left, right };
+}
+
+/** @deprecated Prefer nodeGraphStereoTraceBuffers(nodeId, type). */
+function nodeGraphOutputStereoTraceBuffers(nodeId) {
+  return nodeGraphStereoTraceBuffers(nodeId, "output");
 }
 
 function nodeGraphTraceDisplayPrimaryLayer(settings, color) {
@@ -785,7 +798,9 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
   const fillTraceBackground = () => nodeGraphFacePlateFillCanvas(context, canvas, bg);
   // putImageData (combine/Meet) replaces pixels — paint plate *under* with destination-over after.
   const paintBackgroundUnder = () => nodeGraphFacePlateFillUnder(context, canvas, bg);
-  const stereoBuffers = slot?.type === "output" ? nodeGraphOutputStereoTraceBuffers(slot.nodeId) : null;
+  const stereoBuffers = nodeGraphModuleUsesStereoTraceDisplay(slot?.type)
+    ? nodeGraphStereoTraceBuffers(slot.nodeId, slot.type)
+    : null;
   if (stereoBuffers) {
     const leftBuffer = prepareNodeGraphTraceDisplayBuffer(stereoBuffers.left, settings);
     const rightBuffer = prepareNodeGraphTraceDisplayBuffer(stereoBuffers.right, settings);

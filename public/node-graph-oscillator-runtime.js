@@ -343,85 +343,51 @@ function nodeGraphAdditiveHarmonicCurveAmount({
   }), 0, 1);
 }
 
-function nodeGraphAdditiveWaveformHarmonic(waveform, harmonic, modA = 0.5) {
-  const n = Math.max(1, Math.floor(Number(harmonic) || 1));
-  const h = n;
-  const mod = clampNodeSliderValue(Number(modA) || 0, 0, 1);
-  switch (Math.round(Number(waveform) || 0)) {
-    case 0:
-      return { amplitude: n === Math.max(1, Math.floor(99 * mod + 1)) ? 1 : 0, phase: 0 };
-    case 2:
-      return { amplitude: n % 2 === 1 ? 1 / h : 0, phase: mod * 0.5 };
-    case 3:
-      return { amplitude: n % 2 === 1 ? 1 / (h * h) : 0, phase: n % 4 === 1 ? 0 : 0.5 };
-    case 4:
-      return { amplitude: n % 2 === 1 ? 1 / h : (1 / h) * (1 - mod), phase: 0 };
-    case 5:
-      return { amplitude: Math.cos(h * mod * 0.5) / h, phase: 0 };
-    case 6:
-      {
-        const peak = clampNodeSliderValue(mod, 0.001, 0.999);
-        return { amplitude: (Math.sin(0.5 * h * peak) / (peak * (1 - peak) * h * h)) * 0.2, phase: 0 };
-      }
-    case 7:
-      {
-        const octaves = Math.max(2, Math.floor(2 + mod * 11));
-        let target = 1;
-        while (target < n) {
-          target *= octaves;
-        }
-        return { amplitude: target === n ? 1 / h : 0, phase: 0 };
-      }
-    case 1:
-    default:
-      return { amplitude: 1 / h, phase: n % 2 === 1 ? 0.5 : 0 };
+// Offline additive core: same additive_osc.wasm as the worklet (APP_POLICY §5).
+// No JS harmonic twin. Graph inputs force silence (matches worklet: native
+// path only when Damping/Phase graphs are unwired).
+const nodeGraphAdditiveOscWasm = { promise: null, exports: null, failed: false };
+
+function nodeGraphAdditiveOscLoadWasm() {
+  if (nodeGraphAdditiveOscWasm.promise || typeof fetch !== "function" || typeof WebAssembly === "undefined") {
+    return;
   }
+  nodeGraphAdditiveOscWasm.promise = fetch("/native_modules/additive_osc/additive_osc.wasm")
+    .then((response) => {
+      if (!response.ok) throw new Error(`additive_osc wasm HTTP ${response.status}`);
+      return response.arrayBuffer();
+    })
+    .then((bytes) => WebAssembly.instantiate(bytes, {}))
+    .then((result) => {
+      nodeGraphAdditiveOscWasm.exports = result.instance.exports;
+    })
+    .catch(() => {
+      nodeGraphAdditiveOscWasm.failed = true;
+    });
 }
 
 function nodeGraphAdditiveOscillatorSample(runtime, nodeId, phase, params = {}, sampleRate = nodeGraphMvp?.sampleRate || 44100) {
-  const safeRate = Math.max(1, Number(sampleRate) || nodeGraphMvp?.sampleRate || 44100);
-  const frequency = Math.max(0, Number(params.frequency) || 0);
-  const maxHarmonics = Math.max(
-    1,
-    Math.min(nodeGraphAdditiveHardMaxHarmonics, Math.round(Number(params.harmonics) || 32)),
-  );
-  const waveform = Math.round(Number(params.waveform) || 0);
-  const modA = clampNodeSliderValue(Number(params.modA) || 0, 0, 1);
-  const harmonicPhaseAdd = clampNodeSliderValue(Number(params.harmonicPhaseAdd) || 0, 0, 1);
-  const harmonicPhaseMultiply = clampNodeSliderValue(Number(params.harmonicPhaseMultiply) || 0, 0, 4);
-  const level = clampNodeSliderValue(Number(params.level) || 0, 0, 1);
-  const dampingFilterFrequency = nodeGraphAdditiveFilterFrequencyValue(params.dampingFilterFrequency, safeRate);
-  const dampingGraphValueAt = typeof params.dampingGraphValueAt === "function"
-    ? params.dampingGraphValueAt
-    : () => 1;
-  const phaseGraphValueAt = typeof params.phaseGraphValueAt === "function"
-    ? params.phaseGraphValueAt
-    : () => 0;
-  const harmonicLimit = Math.max(1, Math.min(maxHarmonics, Math.floor(Math.min(20000, safeRate * 0.45) / Math.max(1, frequency))));
-  let total = 0;
-  let norm = 0;
-  for (let harmonic = 1; harmonic <= harmonicLimit; harmonic += 1) {
-    const partial = nodeGraphAdditiveWaveformHarmonic(waveform, harmonic, modA);
-    const dampingX = clampNodeSliderValue((frequency * harmonic) / dampingFilterFrequency, 0, 1);
-    const amplitude = (Number(partial.amplitude) || 0) * clampNodeSliderValue(
-      Number(dampingGraphValueAt(dampingX)) || 0,
-      0,
-      1,
-    );
-    if (amplitude === 0) {
-      continue;
-    }
-    const harmonicRatio = harmonicLimit > 1
-      ? (harmonic - 1) / (harmonicLimit - 1)
-      : 0;
-    const phaseCurve = clampNodeSliderValue(Number(phaseGraphValueAt(harmonicRatio)) || 0, 0, 1);
-    const phaseMultiplier = 1 + phaseCurve * harmonicPhaseMultiply;
-    const phaseOffset = (Number(partial.phase) || 0) + phaseCurve * harmonicPhaseAdd;
-    total += Math.sin((phase * harmonic * phaseMultiplier) + phaseOffset * Math.PI * 2) * amplitude;
-    norm += Math.abs(amplitude);
-  }
-  if (norm <= 0) {
+  // Graph curves are not in the native export; silence rather than a JS twin.
+  if (params.hasGraphInput) {
     return 0;
   }
-  return clampNodeSliderValue((total / Math.max(1, norm * 0.72)) * level, -1, 1);
+  nodeGraphAdditiveOscLoadWasm();
+  const wasm = nodeGraphAdditiveOscWasm.exports;
+  if (!wasm?.soemdsp_additive_osc_sample) {
+    return 0;
+  }
+  const safeRate = Math.max(1, Number(sampleRate) || nodeGraphMvp?.sampleRate || 44100);
+  const out = wasm.soemdsp_additive_osc_sample(
+    Number(phase) || 0,
+    Math.max(0, Number(params.frequency) || 0),
+    Math.max(1, Math.min(nodeGraphAdditiveHardMaxHarmonics, Math.round(Number(params.harmonics) || 32))),
+    Math.round(Number(params.waveform) || 0),
+    clampNodeSliderValue(Number(params.modA) || 0, 0, 1),
+    clampNodeSliderValue(Number(params.harmonicPhaseAdd) || 0, 0, 1),
+    clampNodeSliderValue(Number(params.harmonicPhaseMultiply) || 0, 0, 4),
+    clampNodeSliderValue(Number(params.level) || 0, 0, 1),
+    Number(params.dampingFilterFrequency) || 20000,
+    safeRate,
+  );
+  return Number.isFinite(out) ? out : 0;
 }

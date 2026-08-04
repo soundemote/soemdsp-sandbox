@@ -158,11 +158,14 @@ NodeLiveAudioProcessor.prototype.polyBlepOscillatorWorkletEvaluate = function po
   const phaseIncrement = (effectiveFrequency / safeRate) + incrementInput;
   const level = this.readEffectiveParameter(node, "level", 1, frame, frames, frameValues);
 
-  let nativeVector;
+  // Native-only DSP (APP_POLICY §2 / §5): hosts call one core; no JS twin.
+  // polyBlep/blit → vector native module; osc (LFO) → basic_oscillator per tap.
+  // Missing WASM → silence (never throw — kills the worklet).
+  let value;
   if (node?.type === "polyBlep") {
     const polyBlepState = this.polyBlepStates.get(nodeId) || this.createPolyBlepState();
     this.polyBlepStates.set(nodeId, polyBlepState);
-    nativeVector = this.polyBlepNativeVectorSample(
+    const nativeVector = this.polyBlepNativeVectorSample(
       polyBlepState,
       phase + phaseOffset,
       phaseIncrement,
@@ -170,10 +173,20 @@ NodeLiveAudioProcessor.prototype.polyBlepOscillatorWorkletEvaluate = function po
       level,
       resetEdge,
     );
+    value = {
+      Out: nativeVector.out,
+      Saw: nativeVector.saw,
+      Ramp: nativeVector.ramp,
+      Square: nativeVector.square,
+      Tri: nativeVector.tri,
+      Sine: nativeVector.sine,
+      "Wave Out": nativeVector.out,
+      Noise: nativeVector.out,
+    };
   } else if (node?.type === "blit") {
     const blitState = this.blitStates.get(nodeId) || this.createBlitState();
     this.blitStates.set(nodeId, blitState);
-    nativeVector = this.blitNativeVectorSample(
+    const nativeVector = this.blitNativeVectorSample(
       blitState,
       phase + phaseOffset,
       phaseIncrement,
@@ -181,22 +194,36 @@ NodeLiveAudioProcessor.prototype.polyBlepOscillatorWorkletEvaluate = function po
       level,
       resetEdge,
     );
+    value = {
+      Out: nativeVector.out,
+      Saw: nativeVector.saw,
+      Ramp: nativeVector.ramp,
+      Square: nativeVector.square,
+      Tri: nativeVector.tri,
+      Sine: nativeVector.sine,
+      "Wave Out": nativeVector.out,
+      Noise: nativeVector.out,
+    };
   } else {
-    throw new Error(`polyBlep worklet: unexpected type ${node?.type || "?"}`);
+    // osc (LFO) and any unexpected sibling routed here: basic_oscillator native.
+    const ph = phase + phaseOffset;
+    const sample = (tapId, wf) => this.oscillatorSample(tapId, ph, phaseIncrement, wf) * level;
+    const selected = sample(nodeId, waveform);
+    value = {
+      Out: selected,
+      Saw: sample(`${nodeId}:saw`, 0),
+      Ramp: sample(`${nodeId}:ramp`, 1),
+      Square: sample(`${nodeId}:square`, 2),
+      Tri: sample(`${nodeId}:tri`, 3),
+      Sine: sample(`${nodeId}:sine`, 4),
+      "Wave Out": selected,
+      Noise: selected,
+    };
   }
 
   this.phases.set(
     nodeId,
     this.wrapValue(phase + Math.PI * 2 * phaseIncrement, 0, Math.PI * 2),
   );
-  return {
-    Out: nativeVector.out,
-    Saw: nativeVector.saw,
-    Ramp: nativeVector.ramp,
-    Square: nativeVector.square,
-    Tri: nativeVector.tri,
-    Sine: nativeVector.sine,
-    "Wave Out": nativeVector.out,
-    Noise: nativeVector.out,
-  };
+  return value;
 };

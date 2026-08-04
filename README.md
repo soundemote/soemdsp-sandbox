@@ -15,6 +15,16 @@ browser.
   an AudioWorklet-driven graph.
 - 🧩 **Native DSP modules** — oscillators, filters, envelopes, reverbs, and
   chaos generators compiled from C++ to WASM.
+- 🌈 **Soft Fractal** — WebGL Julia face with pure planetary \(c(t)\); map
+  outs **Hx/Hy** from \(z ← z²+c\); Color Rate / Shift, Outer color
+  (Background / Gradient start / Haze).
+- 📼 **Ping Pong Delay (tape)** — tempo Numer/Denom taps; independent L/R
+  LFO drift (Parabol / Random Walk / FBM); Offset = ±drift ms; passive
+  HPF/LPF + soft clip in the feedback path.
+- 🏛️ **SoEmReverb** — soemdsp reverb (diffusion, tempo-synced echo, ping
+  pong, LFO styles, saturate, ducking) with stereo Trace face.
+- 📺 **Phosphor scopes** — continuous GPU beam ribbons (smoother trails;
+  less jagged hard/dot thinning on line burn and 2D phosphor).
 - 📈 **Render Sample** — bounce a patch to audio and inspect the waveform.
 
 ---

@@ -2,8 +2,11 @@
 // Continuous phasors for seed/flow/warp/rotation/color (speed changes rate only).
 
 const nodeGraphRgbFractalSettingsDefaults = Object.freeze({
-  // True black plate — exterior / empty energy stays dark (not a strobing field).
+  // Display Background color (used when outerPlate = "background").
   background: "#000000",
+  // "background" = original dream plate (first option)
+  // "gradientStart" = gradient stop 0 as outer / empty plate (second option)
+  outerPlate: "background",
   gradientStops: Object.freeze([
     Object.freeze({ t: 0, color: "#000000" }),
     Object.freeze({ t: 0.12, color: "#12083a" }),
@@ -71,7 +74,42 @@ function normalizeNodeGraphRgbFractalSettings(settings = {}) {
   const background = typeof normalizeNodeGraphTraceDisplayColor === "function"
     ? normalizeNodeGraphTraceDisplayColor(source.background ?? source.backgroundColor, defaults.background)
     : String(source.background || defaults.background);
-  return { background, gradientStops };
+  const outerRaw = String(source.outerPlate ?? source.outerColor ?? defaults.outerPlate).trim().toLowerCase();
+  let outerPlate = "background";
+  if (outerRaw === "haze" || outerRaw === "2") {
+    outerPlate = "haze";
+  } else if (
+    outerRaw === "gradientstart"
+    || outerRaw === "gradient"
+    || outerRaw === "1"
+  ) {
+    outerPlate = "gradientStart";
+  }
+  return { background, gradientStops, outerPlate };
+}
+
+/** Low end of the palette — exterior when outerPlate = gradientStart. */
+function nodeGraphRgbFractalStop0Color(settingsOrStops) {
+  if (Array.isArray(settingsOrStops)) {
+    const c = settingsOrStops[0]?.color;
+    return c ? String(c) : "#000000";
+  }
+  const stops = settingsOrStops?.gradientStops;
+  if (Array.isArray(stops) && stops[0]?.color) {
+    return String(stops[0].color);
+  }
+  return String(settingsOrStops?.background || "#000000");
+}
+
+/** Idle / DOM plate color for current outerPlate mode. */
+function nodeGraphRgbFractalPlateColor(settings) {
+  const s = settings && typeof settings === "object" ? settings : {};
+  const mode = String(s.outerPlate || "background");
+  if (mode === "gradientStart") {
+    return nodeGraphRgbFractalStop0Color(s);
+  }
+  // background + haze idle on the Background swatch (haze is live-shader only).
+  return String(s.background || "#000000");
 }
 
 function nodeGraphRgbFractalSettingsForNode(node) {
@@ -167,6 +205,9 @@ function nodeGraphRgbFractalEnsurePhasors(face) {
   if (!Number.isFinite(face._rgbFractalRotationPhasor)) {
     face._rgbFractalRotationPhasor = 0;
   }
+  if (!Number.isFinite(face._rgbFractalColorPhasor)) {
+    face._rgbFractalColorPhasor = 0;
+  }
   face._rgbFractalPhase = face._rgbFractalOrbitPhasor;
 }
 
@@ -239,16 +280,27 @@ function syncNodeGraphRgbFractalCanvas(canvas, face, pixelRatio) {
   return w > 0 && h > 0;
 }
 
-function nodeGraphRgbFractalFillBlack(canvas, face) {
+function nodeGraphRgbFractalFillPlate(canvas, face, plateHex = "#000000") {
   if (!canvas) {
     return false;
   }
+  const color = String(plateHex || "#000000");
   // Prefer GL clear if this canvas already has a GL context
-  if (typeof nodeGraphRgbFractalGlClearBlack === "function" && nodeGraphRgbFractalGlClearBlack(canvas)) {
+  if (typeof nodeGraphRgbFractalGlClearPlate === "function" && nodeGraphRgbFractalGlClearPlate(canvas, color)) {
     if (face?.dataset) face.dataset.lightStrength = "0";
     if (face) {
       face._rgbFractalHasFrame = false;
       face._rgbFractalBlack = true;
+      face.style.background = color;
+    }
+    return true;
+  }
+  if (typeof nodeGraphRgbFractalGlClearBlack === "function" && color === "#000000" && nodeGraphRgbFractalGlClearBlack(canvas)) {
+    if (face?.dataset) face.dataset.lightStrength = "0";
+    if (face) {
+      face._rgbFractalHasFrame = false;
+      face._rgbFractalBlack = true;
+      face.style.background = color;
     }
     return true;
   }
@@ -259,14 +311,29 @@ function nodeGraphRgbFractalFillBlack(canvas, face) {
   const w = Math.max(1, canvas.width || 1);
   const h = Math.max(1, canvas.height || 1);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = "#000000";
+  ctx.fillStyle = color;
   ctx.fillRect(0, 0, w, h);
   if (face?.dataset) face.dataset.lightStrength = "0";
   if (face) {
     face._rgbFractalHasFrame = false;
     face._rgbFractalBlack = true;
+    face.style.background = color;
   }
   return true;
+}
+
+/** Idle fill — uses active outer plate mode (Background or Gradient start). */
+function nodeGraphRgbFractalFillBlack(canvas, face) {
+  const patchNode = face?.dataset?.node && typeof nodeGraphPatchNode === "function"
+    ? nodeGraphPatchNode(face.dataset.node)
+    : null;
+  const settings = typeof nodeGraphRgbFractalSettingsForNode === "function"
+    ? nodeGraphRgbFractalSettingsForNode(patchNode)
+    : null;
+  const plate = typeof nodeGraphRgbFractalPlateColor === "function"
+    ? nodeGraphRgbFractalPlateColor(settings)
+    : "#000000";
+  return nodeGraphRgbFractalFillPlate(canvas, face, plate);
 }
 
 // —— CPU fallback (WebGL missing only) ————————————————————————————————
@@ -430,7 +497,12 @@ function paintNodeGraphRgbFractalFaceCpu(canvas, face, params) {
   }
   octx.putImageData(img, 0, 0);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = params.background || "#050014";
+  // Letterbox / beyond-sim: match outer plate mode (haze idles on Background).
+  const outerMode = String(params.outerPlate || "background");
+  const plate = outerMode === "gradientStart"
+    ? ((Array.isArray(stops) && stops[0]?.color) || params.background || "#000000")
+    : (params.background || "#000000");
+  ctx.fillStyle = plate;
   ctx.fillRect(0, 0, w, h);
   ctx.imageSmoothingEnabled = true;
   if ("imageSmoothingQuality" in ctx) ctx.imageSmoothingQuality = "high";
@@ -510,9 +582,12 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
   const panAmtX = Number.isFinite(panXRaw) ? panXRaw : 0;
   const panAmtY = Number.isFinite(panYRaw) ? panYRaw : 0;
 
-  // Face look: Soft + Color Bands.
+  // Face look: Soft + Color Rate / Shift + Color Bands.
   const softRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "soft", 0.18));
   const soft = Number.isFinite(softRaw) ? Math.max(0, Math.min(1, softRaw)) : 0.18;
+  const colorRateRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "colorRate", 1));
+  const colorRate = Number.isFinite(colorRateRaw) ? Math.max(0, colorRateRaw) : 1;
+  const colorShift = ((nodeGraphRgbFractalReadParam(nodeId, "colorShift", 0) % 1) + 1) % 1;
   const bandsRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "bands", 1));
   const bands = Number.isFinite(bandsRaw) ? Math.max(0.25, bandsRaw) : 1;
   const glow = 0;
@@ -529,6 +604,8 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
     face._rgbFractalOrbitPhasor += dTheta;
     face._rgbFractalPhase = face._rgbFractalOrbitPhasor;
     face._rgbFractalRotationPhasor += -rotMult * dTheta;
+    // Palette cycle independent of orbit — Color Rate × Speed.
+    face._rgbFractalColorPhasor += speed * colorRate * 0.14 * dt;
   }
 
   const tOrbit = Number(face._rgbFractalOrbitPhasor) || 0;
@@ -547,6 +624,9 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
   const sinR = Math.sin(rot);
   const centerX = 0;
   const centerY = 0;
+
+  // Continuous palette phase + static Color Shift (wraps in shader via fract).
+  const colorPhase = (Number(face._rgbFractalColorPhasor) || 0) + colorShift;
 
   const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   const settings = nodeGraphRgbFractalSettingsForNode(patchNode);
@@ -567,14 +647,15 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
     maxIter,
     soft,
     glow,
-    colorPhase: 0,
+    colorPhase,
     breath,
     trapMix: 0,
     trapX: 0,
     trapY: 0,
-    // time frozen: shader no longer uses it for grain/warp (avoids plate breathing)
-    time: 0,
+    // Haze mode uses time for radial-only plate breath; other modes ignore it.
+    time: (settings.outerPlate || "background") === "haze" ? tOrbit : 0,
     background: settings.background || "#000000",
+    outerPlate: settings.outerPlate || "background",
     gradientStops: settings.gradientStops,
     depth,
     fold: 0,
@@ -593,6 +674,8 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
   if (ok) {
     if (face.dataset) face.dataset.lightStrength = "1";
     face._rgbFractalHasFrame = true;
+    // DOM plate under the canvas matches active outer mode.
+    face.style.background = nodeGraphRgbFractalPlateColor(settings);
   }
   return ok;
 }

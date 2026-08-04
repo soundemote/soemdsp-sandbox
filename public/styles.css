@@ -1492,12 +1492,14 @@ html.soemdsp-hide-ui .status-strip {
 }
 
 /* Body flush to dock chrome — no inset “wall” for the resize grip.
-   Keys / signal values use the real window edge as the boundary. */
+   Keys / signal values use the real window edge as the boundary.
+   Top track reserves room for the macro strip so knobs aren’t clipped
+   into the window title bar. */
 .node-standalone-midi-keyboard-body {
   position: relative;
   flex: 1 1 auto;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(76px, auto) minmax(0, 1fr);
   gap: 0;
   min-height: 0;
   overflow: hidden;
@@ -1514,22 +1516,47 @@ html.soemdsp-hide-ui .status-strip {
   gap: 0;
   min-height: 0;
   min-width: 0;
+  height: 100%;
+  align-items: stretch;
   overflow: hidden;
 }
 
-/* Pitch and mod wheel stacked vertically in the dock instead of side by
-   side -- this is a deliberate, explicitly requested exception to
-   "keep everything horizontal": stacked wheels read better and take no
-   more height than the keyboard already needs. Scoped to the dock
-   only; the wheels inside a placed pitchModWheel node are unaffected. */
-.node-standalone-midi-keyboard-dock .node-midi-keyboard-wheel-bank {
-  grid-template-columns: 1fr;
-  grid-template-rows: repeat(2, minmax(0, 1fr));
+/* Pitch and mod wheel stacked vertically in the dock — strict 50/50 of the
+   available column height. Scoped to the dock only; the wheels inside a
+   placed pitchModWheel node are unaffected. */
+.node-standalone-midi-keyboard-dock .node-performance-wheels-panel {
+  display: grid;
+  /* Heading is hidden in the dock; bank fills the column. */
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  align-self: stretch;
+  padding: 0;
+  gap: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  overflow: hidden;
 }
 
-.node-standalone-midi-keyboard-dock .node-midi-keyboard-panel,
-.node-standalone-midi-keyboard-dock .node-performance-wheels-panel,
-.node-standalone-midi-keyboard-dock .node-macro-controls-panel {
+.node-standalone-midi-keyboard-dock .node-midi-keyboard-wheel-bank {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr 1fr;
+  height: 100%;
+  min-height: 0;
+  gap: 4px;
+  align-content: stretch;
+}
+
+.node-standalone-midi-keyboard-dock .node-midi-keyboard-wheel {
+  min-height: 0 !important;
+  height: 100%;
+  max-height: none;
+}
+
+.node-standalone-midi-keyboard-dock .node-midi-keyboard-panel {
   border: none;
   border-radius: 0;
   background: none;
@@ -1564,16 +1591,19 @@ html.soemdsp-hide-ui .status-strip {
   padding: 2px 6px 4px;
 }
 
-/* Wheels column flush left against dock chrome. */
-.node-standalone-midi-keyboard-dock .node-performance-wheels-panel {
-  min-height: 0;
+/* Wheels column flush left against dock chrome (height/split set above). */
+.node-standalone-midi-keyboard-dock .node-performance-wheels-module {
   height: 100%;
-  padding: 2px 2px 2px 4px;
+  min-height: 0;
 }
 
-/* Macro strip: only a hair of top air under the window title bar. */
+/* Macro strip under the dock title bar — keep padding so dials don’t clip. */
 .node-standalone-midi-keyboard-dock .node-macro-controls-panel {
-  padding: 4px 6px 2px;
+  padding: 10px 8px 8px;
+  min-height: 72px;
+  box-sizing: border-box;
+  background: var(--macro-controls-bg, #000000);
+  overflow: hidden;
 }
 
 /* Piano surface uses the panel edge — no extra card margin inside the dock. */
@@ -1626,20 +1656,14 @@ html.soemdsp-hide-ui .status-strip {
 }
 
 .node-standalone-midi-keyboard-dock .node-macro-controls-panel {
-  /* Unbounded rather than a magic-number cap -- the row below is a
-     single short line now, so it never needs to grow past that. */
   max-height: none;
   margin: 0;
-  gap: 4px;
+  gap: 0;
+  border: none;
+  border-radius: 0;
 }
 
-/* "Performance Surface" / "Macro Controls" / "N macros ready" -- the
-   node body's heading text isn't useful in the dock (no ambiguity about
-   what this panel is). Hides the whole heading rather than picking
-   apart its three text pieces individually. */
-.node-standalone-midi-keyboard-dock .node-macro-controls-heading {
-  display: none;
-}
+/* Heading chrome removed from Macro Controls entirely (node + dock). */
 
 /* All 8 knobs on one short horizontal row above the keyboard, not a
    tall multi-row grid -- the dock is wide enough to fit them across,
@@ -1648,25 +1672,30 @@ html.soemdsp-hide-ui .status-strip {
    its own (narrower, 2-row) layout. */
 .node-standalone-midi-keyboard-dock .node-macro-controls-module .node-macro-controls-row,
 .node-standalone-midi-keyboard-dock .node-macro-controls-row {
-  grid-template-columns: repeat(8, minmax(56px, 1fr));
-  grid-template-rows: none;
-  gap: 6px;
+  grid-template-columns: repeat(8, minmax(48px, 1fr));
+  grid-template-rows: minmax(56px, 1fr);
+  gap: 4px;
+  align-content: center;
+  height: 100%;
+  min-height: 56px;
 }
 
-/* Sized up from the module default (48px/0.62rem text) now that the dock
-   spans the full modular-view width and has room to spare. */
+/* Sized for the dock strip without overflowing the top chrome. */
 .node-standalone-midi-keyboard-dock .node-macro-knob {
-  min-height: 66px;
-  padding: 0;
-  font-size: 0.78rem;
+  min-height: 56px;
+  height: 100%;
+  padding: 2px 0;
+  font-size: 0.72rem;
+  /* Avoid scale-up clipping into the title bar. */
+  transform: scale(min(1, var(--macro-knob-size-scale, 1)));
 }
 
 .node-standalone-midi-keyboard-dock .node-macro-knob strong {
-  font-size: 0.86rem;
+  font-size: 0.78rem;
 }
 
 .node-standalone-midi-keyboard-dock .node-macro-knob i {
-  width: min(56px, 82%);
+  width: min(48px, 78%);
 }
 
 .node-midi-keyboard-heading {
@@ -1825,55 +1854,39 @@ html.soemdsp-hide-ui .status-strip {
   opacity: 0.64;
 }
 
+/* Macro knob bank is the module display — no title/status chrome. */
 .node-macro-controls-panel {
   display: grid;
-  gap: 8px;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
   width: calc(100% - 6px);
   margin: 3px auto 0;
-  padding: 8px;
+  padding: 6px;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgba(127, 199, 217, 0.09), transparent 48%),
-    #080a0c;
+  /* Solid black plate by default; Display Settings can override via CSS var. */
+  background: var(--macro-controls-bg, #000000);
+  box-sizing: border-box;
 }
 
 .node-macro-controls-module {
-  grid-template-rows: auto minmax(0, 1fr);
   width: 100%;
   height: 100%;
+  min-height: 0;
   margin: 0;
   border-radius: 0;
+  /* Fill the module body / display slot. */
+  flex: 1 1 auto;
 }
 
 .node-macro-controls-panel[hidden] {
   display: none;
 }
 
+/* Legacy class kept so old dock CSS does not throw; heading no longer built. */
 .node-macro-controls-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  min-width: 0;
-}
-
-.node-macro-controls-heading > div {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.node-macro-controls-heading span:first-child {
-  color: var(--muted);
-  font: 700 0.72rem/1 "Cascadia Mono", Consolas, monospace;
-  text-transform: uppercase;
-}
-
-.node-macro-controls-heading strong {
-  color: var(--text);
-  font: 800 0.94rem/1 "Cascadia Mono", Consolas, monospace;
+  display: none;
 }
 
 .node-macro-controls-row {
@@ -1881,10 +1894,18 @@ html.soemdsp-hide-ui .status-strip {
   grid-template-columns: repeat(8, minmax(54px, 1fr));
   gap: 6px;
   min-width: 0;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  align-content: center;
+  justify-items: stretch;
 }
 
+/* Module face: 2×4 knob grid fills the display area. */
 .node-macro-controls-module .node-macro-controls-row {
-  grid-template-columns: repeat(4, minmax(42px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 4px;
 }
 
 /* Bare knob, no card chrome around it -- the hollow arc (.node-macro-knob
@@ -1923,8 +1944,11 @@ body.macro-knob-hitbox-outline .node-macro-knob i {
 }
 
 .node-macro-controls-module .node-macro-knob {
-  min-height: 64px;
-  padding: 4px;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  padding: 2px;
+  box-sizing: border-box;
 }
 
 /* Absolutely positioned rather than laid out in flow/grid alongside the
@@ -2025,9 +2049,8 @@ body[data-macro-knob-value-position="top"] .node-macro-knob-edit-input {
 /* Hollow arc, not a filled disc -- a conic-gradient value arc swept over
    the knob's usual -132deg..+132deg (264deg) travel, transparent past
    that so the bottom notch stays a true gap instead of wrapping the full
-   circle, then a radial mask punches the center out into a ring. No more
-   flat grey-black fill behind it; the arc reads directly against the
-   module's own background. */
+   circle, then a radial mask punches the center out into a ring. Colors
+   come from Display Settings (--macro-arc-fill / --macro-arc-track). */
 .node-macro-knob i {
   position: absolute;
   top: 50%;
@@ -2044,9 +2067,9 @@ body[data-macro-knob-value-position="top"] .node-macro-knob-edit-input {
      thickness. */
   background: conic-gradient(
     from -132deg,
-    rgba(241, 184, 75, 0.95) calc(var(--macro-value, 0) * 264deg),
-    rgba(241, 184, 75, 0.16) calc(var(--macro-value, 0) * 264deg) 264deg,
-    rgb(241 184 75 / var(--macro-knob-arc-gap-brightness, 0)) 264deg 360deg
+    var(--macro-arc-fill, #f1b84b) calc(var(--macro-value, 0) * 264deg),
+    var(--macro-arc-track, #3a3428) calc(var(--macro-value, 0) * 264deg) 264deg,
+    color-mix(in srgb, var(--macro-arc-fill, #f1b84b) calc(var(--macro-knob-arc-gap-brightness, 0) * 100%), transparent) 264deg 360deg
   );
   /* A percent-of-radius fraction, not a fixed pixel amount -- this knob's
      "100%" here is its own real closest-side distance, so the ring closes
@@ -2055,7 +2078,7 @@ body[data-macro-knob-value-position="top"] .node-macro-knob-edit-input {
      standalone dock, etc. all use different dial sizes). */
   -webkit-mask-image: radial-gradient(closest-side, transparent calc(100% - var(--macro-knob-arc-thickness-percent, 0.3) * 100%), #000 calc(100% - var(--macro-knob-arc-thickness-percent, 0.3) * 100% + 1px));
   mask-image: radial-gradient(closest-side, transparent calc(100% - var(--macro-knob-arc-thickness-percent, 0.3) * 100%), #000 calc(100% - var(--macro-knob-arc-thickness-percent, 0.3) * 100% + 1px));
-  filter: drop-shadow(0 0 5px rgba(241, 184, 75, 0.4));
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--macro-arc-fill, #f1b84b) 40%, transparent));
   pointer-events: none;
 }
 
@@ -10490,11 +10513,30 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 .dsp-node.keyboard-controller-layout,
-.dsp-node.macro-controls-layout,
 .dsp-node.pitch-mod-wheel-layout,
 .dsp-node.speaker-protection-layout,
 .dsp-node.screen-space-shader-layout {
   grid-template-rows: var(--node-header-height) minmax(0, 1fr) minmax(var(--node-io-section-min-height), auto);
+}
+
+/* Macro Controls: header | knob display face | I/O — face height from display-height units. */
+.dsp-node.macro-controls-layout {
+  grid-template-rows:
+    var(--node-header-height)
+    var(--node-module-scope-height)
+    minmax(var(--node-io-section-min-height), auto);
+}
+
+.dsp-node.macro-controls-layout > .node-macro-controls-module {
+  grid-row: 2;
+  align-self: stretch;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 4px;
+  border: none;
+  background: var(--macro-controls-bg, #000000);
 }
 
 /* LayoutA BADVAL face: same display-height row as default LayoutA scopes
@@ -10738,6 +10780,9 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   /* Kill LayoutA column padding — solid shell jacks sit flush to the edge. */
   padding: 0 !important;
   min-height: 0;
+  /* Above the face so jack hits/glow are not stolen by the center custom-ui. */
+  position: relative;
+  z-index: 4;
   /* Gaps between jacks fall through to the shell (module drag/select). */
   pointer-events: none;
 }
@@ -10824,7 +10869,9 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   min-width: var(--node-signal-port-width);
   max-width: var(--node-signal-port-width);
   padding: 0 !important;
-  overflow: hidden;
+  /* Visible so jack glow/hit aren’t clipped to a razor-thin column; shell
+     still owns module bounds. z-index keeps jacks above the face. */
+  overflow: visible;
   justify-items: stretch;
 }
 
@@ -10837,7 +10884,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   width: 100%;
   padding: 0 !important;
   min-height: max(var(--node-port-area-size), var(--node-signal-port-height));
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* Absolute flush like Layout A — flat edge on the module perimeter. */
@@ -10903,6 +10950,9 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   height: calc(100% - 2px);
   max-height: calc(100% - 2px);
   pointer-events: auto;
+  /* Below jack columns (z-index 4) so ports remain clickable on the edge. */
+  position: relative;
+  z-index: 1;
 }
 
 .node-bug-button-face {
@@ -12947,12 +12997,11 @@ input.node-header-title:focus {
   pointer-events: none;
 }
 
-/* LayoutA stacked IO: hovering the compact row lights the jack.
-   LayoutB solid rows are tall equal bands — bare :hover must NOT light jacks
-   (empty gap is for module select/drag). Jack glow uses .patch-point-hover from
-   the geometric hitbox only, or direct .node-port:hover. */
-.dsp-node-io-section .node-io-row:hover,
-.node-io-row.patch-point-hover {
+/* Jack label highlight only when the geometric hitbox is active (patch-point-
+   hover) or the jack itself is hovered — never the whole tall/empty row band
+   (that made ports glow while clicks hit the face / empty chrome). */
+.node-io-row.patch-point-hover,
+.dsp-node-io-section .node-io-row:hover:has(.node-port:hover) {
   cursor: var(--node-dot-cursor);
   color: color-mix(in srgb, var(--text) 88%, var(--accent));
 }
@@ -17041,7 +17090,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
  */
 .node-port {
   position: relative;
-  z-index: 2;
+  z-index: 5;
   --node-port-stroke-mask-color: color-mix(in srgb, var(--node-port-idle-fill) 42%, transparent);
   --node-port-crescent-fill: var(--node-port-stroke-mask-color);
   --node-port-crescent-stroke: color-mix(in srgb, var(--node-module-stroke) 16%, transparent);
@@ -17057,7 +17106,8 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   color: transparent;
   font-family: Consolas, "Courier New", monospace;
   font-size: 0;
-  overflow: hidden;
+  /* Allow soft glow to paint past the half-disk (ancestors may still clip). */
+  overflow: visible;
   text-indent: -999px;
   cursor: var(--node-dot-cursor);
   border: 0;
@@ -17121,7 +17171,7 @@ body.node-slider-dragging .node-param-port {
 
 .node-param-port {
   position: relative;
-  z-index: 2;
+  z-index: 5;
   --node-port-stroke-mask-color: color-mix(in srgb, var(--node-port-idle-fill) 42%, transparent);
   --node-port-crescent-fill: var(--node-port-stroke-mask-color);
   --node-port-crescent-stroke: color-mix(in srgb, var(--node-module-stroke) 16%, transparent);
@@ -17415,9 +17465,7 @@ body.node-slider-dragging .node-param-port {
 
 .node-port:not(.node-param-port):not(.connected-port):hover,
 .node-port:not(.node-param-port):not(.connected-port).patch-point-hover,
-/* LayoutA only: row :hover implies jack (compact rows). Solid LayoutB uses
-   .patch-point-hover from jack-local hitbox — not row :hover on tall 1fr bands. */
-.dsp-node-io-section .node-io-row:hover .node-port:not(.node-param-port):not(.connected-port),
+/* Glow only from jack :hover or geometric hitbox class — not bare row :hover. */
 .node-io-row.patch-point-hover .node-port:not(.node-param-port):not(.connected-port) {
   --node-port-stroke-mask-color: color-mix(in srgb, var(--node-port-hover-color, var(--node-port-hover-fill)) 16%, transparent);
   --node-port-crescent-fill: var(--node-port-stroke-mask-color);
@@ -17438,7 +17486,6 @@ body.node-slider-dragging .node-param-port {
 /* Wired jacks: hover brightens fill only — still no crescent stroke. */
 .node-port.connected-port:hover,
 .node-port.connected-port.patch-point-hover,
-.dsp-node-io-section .node-io-row:hover .node-port.connected-port,
 .node-io-row.patch-point-hover .node-port.connected-port {
   --node-port-crescent-stroke: transparent;
   --node-port-crescent-stroke-width: 0px;
@@ -19412,11 +19459,13 @@ code {
   width: 100%;
   max-width: 100%;
   margin: 0;
-  pointer-events: auto;
+  /* Display paint only — face is the drag surface (data-slider-target). */
+  pointer-events: none;
 }
 .node-plugin-slider-face .node-parameter-control {
   width: 100%;
 }
 .node-plugin-slider-face-input {
   width: 100%;
+  pointer-events: none;
 }

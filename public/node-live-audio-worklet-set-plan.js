@@ -259,6 +259,9 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       if (node?.type === "reverbEffect" && !this.reverbEffectStates.has(id)) {
         this.reverbEffectStates.set(id, this.createSabrinaReverbState());
       }
+      if (node?.type === "soemReverb" && !this.soemReverbStates.has(id)) {
+        this.soemReverbStates.set(id, this.createSoemReverbState());
+      }
       if (node?.type === "pll" && !this.pllStates.has(id)) {
         this.pllStates.set(id, this.createPllState());
       }
@@ -796,6 +799,17 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       if (!ids.has(id)) {
         this.destroySabrinaReverbState(this.reverbEffectStates.get(id));
         this.reverbEffectStates.delete(id);
+      }
+    }
+    if (this.soemReverbStates) {
+      for (const id of [...this.soemReverbStates.keys()]) {
+        if (!ids.has(id)) {
+          const st = this.soemReverbStates.get(id);
+          if (st?.nativeHandle && this.nativeSoemReverb?.soemdsp_soem_reverb_destroy) {
+            this.nativeSoemReverb.soemdsp_soem_reverb_destroy(st.nativeHandle);
+          }
+          this.soemReverbStates.delete(id);
+        }
       }
     }
     for (const id of [...this.pllStates.keys()]) {

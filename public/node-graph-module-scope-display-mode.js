@@ -179,6 +179,8 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     // Soft Fractal + Fractal Brownian Field: gradient / background in Display Settings.
     "rgbFractalFace",
     "fbmFieldFace",
+    // Macro Controls face: bg / arc colors / names (global bank).
+    "macroControlsFace",
   ].includes(displayType);
 }
 

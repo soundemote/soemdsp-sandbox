@@ -219,7 +219,7 @@
     },
     {
       "name": "fbm_field",
-      "label": "FBM Field",
+      "label": "Fractal Brownian Field",
       "targetType": "fbmField",
       "kind": "noise",
       "source": "native_modules/fbm_field/fbm_field.cpp",
@@ -782,6 +782,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "sinc",
+      "label": "Sinc",
+      "targetType": "sinc",
+      "kind": "oscillator",
+      "source": "native_modules/sinc/sinc.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/sinc/sinc.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/sinc/sinc.wasm",
+      "wasmUrl": "native_modules/sinc/sinc.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "sine_wavetable",
       "label": "SinCos",
       "targetType": "sineWavetable",
@@ -818,6 +830,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "soem_reverb",
+      "label": "SoEmReverb",
+      "targetType": "soemReverb",
+      "kind": "effect",
+      "source": "native_modules/soem_reverb/soem_reverb.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/soem_reverb/soem_reverb.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/soem_reverb/soem_reverb.wasm",
+      "wasmUrl": "native_modules/soem_reverb/soem_reverb.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "soft_clipper",
       "label": "Soft Clipper",
       "targetType": "softClipper",
@@ -827,6 +851,18 @@
       "libUrl": "",
       "wasm": "native_modules/soft_clipper/soft_clipper.wasm",
       "wasmUrl": "native_modules/soft_clipper/soft_clipper.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "softwave",
+      "label": "Softwave Oscillator",
+      "targetType": "softwaveOsc",
+      "kind": "oscillator",
+      "source": "native_modules/softwave/softwave.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/softwave/softwave.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/softwave/softwave.wasm",
+      "wasmUrl": "native_modules/softwave/softwave.wasm",
       "wasmAvailable": true
     },
     {

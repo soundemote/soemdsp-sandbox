@@ -1,4 +1,4 @@
-// Plugin control faces: Toggle, Momentary, Slider (param-row mirror).
+// Plugin control faces: Toggle, Momentary, Slider (Bias display, like Knob).
 
 function nodeGraphPluginWriteParamValue(nodeId, key, value, options = {}) {
   const id = String(nodeId || "").trim();
@@ -126,22 +126,104 @@ function createNodeGraphMomentaryButtonFace(node, type) {
   return face;
 }
 
-// —— Slider face (mirrors param-row Layout slider) ————————————————
+// —— Slider face = module DISPLAY of live Bias (same contract as Knob face) ——
+// Parameter meta / raw `value` alone is NOT the display. The face shows
+// final Bias (In + effective slider + mod). Drag still writes the real
+// param-row `value` control via data-slider-target (beginNodeSliderDrag).
+
+/**
+ * Live Bias for the Slider module face.
+ * Prefer scope Bias (worklet output); else In + effective `value` param.
+ * Reuses Knob face helpers where present (same Bias bus).
+ */
+function nodeGraphPluginSliderFaceLiveBias(nodeId) {
+  const id = String(nodeId || "").trim();
+  if (!id) return 0;
+
+  // Scope capture is the same Bias port as the Knob face.
+  if (typeof nodeGraphKnobFaceLatestScopeSample === "function") {
+    const scoped = nodeGraphKnobFaceLatestScopeSample(id);
+    if (scoped != null && Number.isFinite(scoped)) return scoped;
+  }
+
+  const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
+  if (!patchNode) return 0;
+
+  const metadata = typeof nodeGraphReadPatchParameterMetadata === "function"
+    ? nodeGraphReadPatchParameterMetadata(patchNode, "value")
+    : {};
+  let base = typeof nodeGraphReadNodeNumber === "function"
+    ? nodeGraphReadNodeNumber(id, "value")
+    : Number(patchNode.params?.value);
+  if (!Number.isFinite(base)) base = 0;
+
+  // Param-row MOD CV on `value` (bipolar unit, Phase F).
+  const modulations = Array.isArray(nodeGraphMvp?.patch?.modulations)
+    ? nodeGraphMvp.patch.modulations
+    : [];
+  let contribution = 0;
+  let hasMod = false;
+  for (const modulation of modulations) {
+    if (modulation.destinationNode !== id || modulation.destinationParam !== "value") {
+      continue;
+    }
+    const src = typeof nodeGraphKnobFaceSourceSample === "function"
+      ? nodeGraphKnobFaceSourceSample(modulation.sourceNode, modulation.sourcePort)
+      : null;
+    if (src == null || !Number.isFinite(src)) continue;
+    hasMod = true;
+    if (typeof normalizeNodeGraphParameterModulationInput === "function") {
+      contribution += normalizeNodeGraphParameterModulationInput(src, metadata);
+    } else if (typeof nodeGraphParamNormalizeModInput === "function") {
+      contribution += nodeGraphParamNormalizeModInput(src, metadata);
+    } else {
+      contribution += src;
+    }
+  }
+  let slider = base;
+  if (hasMod) {
+    if (typeof nodeGraphParamApplyMod === "function") {
+      slider = nodeGraphParamApplyMod(base, contribution, metadata);
+    } else if (typeof nodeGraphApplyParameterModulation === "function") {
+      slider = nodeGraphApplyParameterModulation(base, contribution, metadata);
+    } else {
+      slider = base + contribution;
+    }
+  }
+
+  // Dedicated signal In: domain add (same as worklet/live evaluator).
+  let inputSum = 0;
+  const connections = Array.isArray(nodeGraphMvp?.patch?.connections)
+    ? nodeGraphMvp.patch.connections
+    : [];
+  for (const connection of connections) {
+    if (connection.destinationNode !== id || connection.destinationPort !== "In") {
+      continue;
+    }
+    const src = typeof nodeGraphKnobFaceSourceSample === "function"
+      ? nodeGraphKnobFaceSourceSample(connection.sourceNode, connection.sourcePort)
+      : null;
+    if (src != null && Number.isFinite(src)) inputSum += src;
+  }
+  return inputSum + slider;
+}
 
 function createNodeGraphPluginSliderFace(node, type) {
   const face = document.createElement("div");
   face.className = "node-plugin-slider-face node-module-scope-window";
   face.dataset.node = node;
   face.dataset.nodeType = type;
+  // Drag surface → real body param slider (control). Face paints Bias (display).
   face.dataset.sliderTarget = `node-${node}-value`;
   face.tabIndex = 0;
   face.setAttribute("role", "slider");
-  face.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} slider`);
+  face.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} slider display`);
 
-  // Clone Layout parameter row chrome (label + range + readout shell).
+  // Visual fader chrome on the face (display only — not the control surface).
   const row = document.createElement("div");
   row.className = "node-parameter-row node-plugin-slider-face-row";
   row.dataset.param = "value";
+  row.dataset.pluginSliderDisplay = "true";
 
   const label = document.createElement("label");
   label.className = "node-parameter-control";
@@ -152,6 +234,7 @@ function createNodeGraphPluginSliderFace(node, type) {
   input.className = "node-plugin-slider-face-input";
   input.id = `node-plugin-slider-face-${node}-value`;
   input.dataset.param = "value";
+  input.dataset.pluginSliderDisplay = "true";
   input.min = "-1";
   input.max = "1";
   input.step = "any";
@@ -160,10 +243,16 @@ function createNodeGraphPluginSliderFace(node, type) {
   input.dataset.kind = "decimal";
   input.dataset.nonlinearSlider = "false";
   input.dataset.showSign = "true";
-  // Drive the real param slider via shared drag target id on the face.
-  // Also keep this visible range in sync for the mirror look.
-  const syncFromParam = () => {
-    const v = nodeGraphPluginReadParamDom(node, "value", 0);
+  // Display-only: do not write params from this input. Face drag / body row
+  // own the control path (same split as Knob face vs offset param).
+  input.tabIndex = -1;
+  input.setAttribute("aria-hidden", "true");
+
+  /** Paint face from live Bias — this is the module display. */
+  const paintDisplay = () => {
+    const bias = nodeGraphPluginSliderFaceLiveBias(node);
+    const v = Number.isFinite(bias) ? bias : 0;
+    face.dataset.liveBias = String(v);
     input.value = String(v);
     if (typeof applyNodeGraphInputUnboundedValue === "function") {
       applyNodeGraphInputUnboundedValue(input, v);
@@ -173,51 +262,45 @@ function createNodeGraphPluginSliderFace(node, type) {
     } else if (typeof updateNodeSliderReadout === "function") {
       updateNodeSliderReadout(input);
     }
+    // aria-valuenow for the face role=slider reflects displayed Bias
+    face.setAttribute("aria-valuemin", input.min);
+    face.setAttribute("aria-valuemax", input.max);
+    face.setAttribute("aria-valuenow", String(v));
   };
-
-  input.addEventListener("input", () => {
-    nodeGraphPluginWriteParamValue(node, "value", input.value, { record: false });
-  });
-  input.addEventListener("change", () => {
-    nodeGraphPluginWriteParamValue(node, "value", input.value, { record: true, status: "slider" });
-  });
 
   label.append(input);
   row.append(label);
   face.append(row);
 
-  // Prefer face-wide drag onto the real parameter slider (same as Knob face).
+  // Full-face drag onto the real parameter slider (control path).
   if (typeof beginNodeSliderDrag === "function") {
-    face.addEventListener("pointerdown", (event) => {
-      // Allow direct interaction with the mirror range without double-binding.
-      if (event.target === input) return;
-      beginNodeSliderDrag(event);
-    });
-    face.addEventListener("mousedown", (event) => {
-      if (event.target === input) return;
-      beginNodeSliderDrag(event);
-    });
+    face.addEventListener("pointerdown", beginNodeSliderDrag);
+    face.addEventListener("mousedown", beginNodeSliderDrag);
+  }
+  if (typeof endNodeSliderDrag === "function") {
+    face.addEventListener("lostpointercapture", endNodeSliderDrag);
+  }
+  if (typeof stepNodeSliderFromKeyboard === "function") {
+    face.addEventListener("keydown", stepNodeSliderFromKeyboard);
   }
 
-  face.syncFromParameters = syncFromParam;
+  face.syncFromParameters = paintDisplay;
   requestAnimationFrame(() => {
-    // Wire readout chrome if the slider stack expects it.
     if (typeof ensureNodeSliderReadout === "function") {
       ensureNodeSliderReadout(input);
     } else if (typeof attachNodeSliderReadout === "function") {
       attachNodeSliderReadout(input);
     }
-    syncFromParam();
+    paintDisplay();
   });
 
-  // Keep mirror in sync when the param-row slider moves.
-  const article = () => (typeof nodeGraphNodeElement === "function" ? nodeGraphNodeElement(node) : null);
+  // When the body control moves, repaint Bias display.
   const bind = () => {
     const real = document.getElementById(`node-${node}-value`);
-    if (!real || real.dataset.pluginSliderMirrorBound === "true") return;
-    real.dataset.pluginSliderMirrorBound = "true";
-    real.addEventListener("input", syncFromParam);
-    real.addEventListener("change", syncFromParam);
+    if (!real || real.dataset.pluginSliderDisplayBound === "true") return;
+    real.dataset.pluginSliderDisplayBound = "true";
+    real.addEventListener("input", paintDisplay);
+    real.addEventListener("change", paintDisplay);
   };
   requestAnimationFrame(bind);
   face.addEventListener("pointerenter", bind);

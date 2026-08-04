@@ -681,6 +681,11 @@ function normalizeNodeUiDevSettings(settings = {}) {
   const macroKnobValuePosition = normalizeNodeGraphMacroKnobValuePosition(
     view.macroKnobValuePosition ?? nodeGraphMvp.macroKnobValuePosition ?? "bottom",
   );
+  const macroControlsFace = typeof normalizeNodeGraphMacroControlsFaceSettings === "function"
+    ? normalizeNodeGraphMacroControlsFaceSettings(
+      view.macroControlsFace ?? nodeGraphMvp.macroControlsFace,
+    )
+    : (view.macroControlsFace ?? nodeGraphMvp.macroControlsFace ?? null);
   const traceSettings = typeof normalizeNodeGraphTraceDisplaySettings === "function"
     ? normalizeNodeGraphTraceDisplaySettings(
       typeof migrateNodeGraphLegacyDot2Settings === "function"
@@ -806,6 +811,7 @@ function normalizeNodeUiDevSettings(settings = {}) {
       macroKnobHitboxOutlineVisible,
       macroKnobLabelPosition,
       macroKnobValuePosition,
+      macroControlsFace,
       traceSettings,
       sliderLayout,
       sliderAmountVisible,
@@ -903,6 +909,9 @@ function readNodeUiDevSettingsFromControls(options = {}) {
       macroKnobHitboxOutlineVisible: Boolean(nodeGraphMvp.macroKnobHitboxOutlineVisible),
       macroKnobLabelPosition: normalizeNodeGraphMacroKnobLabelPosition(nodeGraphMvp.macroKnobLabelPosition ?? "top"),
       macroKnobValuePosition: normalizeNodeGraphMacroKnobValuePosition(nodeGraphMvp.macroKnobValuePosition ?? "bottom"),
+      macroControlsFace: typeof normalizeNodeGraphMacroControlsFaceSettings === "function"
+        ? normalizeNodeGraphMacroControlsFaceSettings(nodeGraphMvp.macroControlsFace)
+        : nodeGraphMvp.macroControlsFace,
       traceSettings: typeof normalizeNodeGraphTraceDisplaySettings === "function"
         ? normalizeNodeGraphTraceDisplaySettings(nodeGraphMvp.traceSettings)
         : nodeGraphMvp.traceSettings,
@@ -1043,6 +1052,12 @@ function applyNodeUiDevSettings(settings) {
   nodeGraphMvp.macroKnobValuePosition = normalizeNodeGraphMacroKnobValuePosition(normalized.view.macroKnobValuePosition);
   if (typeof applyNodeGraphMacroKnobValuePosition === "function") {
     applyNodeGraphMacroKnobValuePosition();
+  }
+  if (typeof normalizeNodeGraphMacroControlsFaceSettings === "function") {
+    nodeGraphMvp.macroControlsFace = normalizeNodeGraphMacroControlsFaceSettings(normalized.view.macroControlsFace);
+    if (typeof applyNodeGraphMacroControlsFaceSettings === "function") {
+      applyNodeGraphMacroControlsFaceSettings();
+    }
   }
   nodeGraphMvp.traceSettings = typeof normalizeNodeGraphTraceDisplaySettings === "function"
     ? normalizeNodeGraphTraceDisplaySettings(normalized.view.traceSettings)

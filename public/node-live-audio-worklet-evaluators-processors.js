@@ -274,9 +274,15 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           mixInput(nodeId) + mixInput(nodeId, "Left") + mixInput(nodeId, "Right"),
           {
             feedback: read("feedback", 0.35),
+            hpfFrequency: read("hpfFrequency", 20),
             level: read("level", 1),
+            lfoRate: read("lfoRate", 0.35),
+            lfoStyle: read("lfoStyle", 0),
+            lfoVariation: read("lfoVariation", 0.25),
+            lpfFrequency: read("lpfFrequency", 8000),
             mix: read("mix", 0.35),
             offsetMs: read("offsetMs", 0),
+            saturate: read("saturate", 1),
             timeDenominator: read("timeDenominator", 4),
             timeNumerator: read("timeNumerator", 1),
             timingMode: read("timingMode", 0),
@@ -308,6 +314,8 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           safeRate,
         );
       },
+      soemReverb: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) =>
+        this.soemReverbWorkletEvaluate(node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput),
       reverbEffect: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.reverbEffectStates.get(nodeId) || this.createSabrinaReverbState();
         this.reverbEffectStates.set(nodeId, state);

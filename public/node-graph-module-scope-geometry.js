@@ -76,7 +76,10 @@ function nodeGraphModuleScopeTraceEdgePaddingRatio(slot, rect) {
       size: clampNodeSliderValue(settings.dot1Size, 0, 1),
     });
   }
-  if (slot?.type === "output" && settings.secondaryEnabled !== false && settings.secondaryBrightness > 0) {
+  const stereoTrace = typeof nodeGraphModuleUsesStereoTraceDisplay === "function"
+    ? nodeGraphModuleUsesStereoTraceDisplay(slot?.type)
+    : slot?.type === "output";
+  if (stereoTrace && settings.secondaryEnabled !== false && settings.secondaryBrightness > 0) {
     activePasses.push({
       blur: clampNodeSliderValue(settings.secondaryLineThickness, 0, 1),
       size: clampNodeSliderValue(settings.secondarySize, 0, 1),

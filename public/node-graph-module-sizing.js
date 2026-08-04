@@ -121,7 +121,8 @@ function nodeGraphModuleTypeHasCustomDisplayArea(type) {
     || layout === "sliderWidget"
     || layout === "badvalMonitor"
     || layout === "pitchQuantizer"
-    || layout === "asciiscope";
+    || layout === "asciiscope"
+    || layout === "macroControls";
 }
 
 function nodeGraphModuleTypeHasHideableOscilloscope(type) {
@@ -187,11 +188,11 @@ function nodeGraphModuleSizingCapabilities(type) {
           && typeof nodeGraphChromelessModuleLayouts !== "undefined"
           && nodeGraphChromelessModuleLayouts.has(layout))
           ? false
-          : (["keyboardController", "macroControls"].includes(layout) ? "custom" : false)
+          : (layout === "keyboardController" ? "custom" : false)
       );
   // Display-height resizing works for any type with a display AREA --
   // whether an oscilloscope fills it or the module's own custom UI does
-  // (graph faces, XY pad, Knob, etc.). Min face height is 1gu app-wide.
+  // (graph faces, XY pad, Knob, macro knobs, etc.). Min face height is 1gu app-wide.
   const displayHeight = !moduleHeight && (
     nodeGraphModuleTypeHasHideableOscilloscope(normalizedType) ||
     nodeGraphModuleTypeHasCustomDisplayArea(normalizedType)
@@ -672,9 +673,10 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
     ];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "macroControls") {
+    // Macro knobs are the display face (no heading chrome).
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
-      { id: "macros", heightGu: 5, visible: true },
+      { id: "face", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: true },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
     ];
   }

@@ -324,14 +324,19 @@ function nodeGraphPatchNodeOutputPorts(node) {
   return nodeGraphModuleOutputPorts(patchNode?.type);
 }
 function nodeGraphParameterOutputPort(typeOrNode, port) {
-  if (typeOrNode && typeof typeOrNode === "object") {
-    return nodeGraphPatchNodeParameterDefinitions(typeOrNode).find(
-      (parameter) => parameter.key === port,
-    ) || null;
+  const list = typeOrNode && typeof typeOrNode === "object"
+    ? nodeGraphPatchNodeParameterDefinitions(typeOrNode)
+    : (nodeGraphModuleDefinitions[typeOrNode]?.parameters || []);
+  const parameter = list.find((entry) => entry.key === port) || null;
+  if (!parameter) {
+    return null;
   }
-  return nodeGraphModuleDefinitions[typeOrNode]?.parameters?.find(
-    (parameter) => parameter.key === port,
-  ) || null;
+  // Hidden / no-output control state (Slider value, Knob offset, …) is not a
+  // wireable param-out jack — the module Bias/Out is the single outlet.
+  if (parameter.hidden === true || parameter.parameterOutput === false) {
+    return null;
+  }
+  return parameter;
 }
 
 function normalizeNodeGraphMetadataChoices(value, fallback = []) {

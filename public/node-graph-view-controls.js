@@ -1676,6 +1676,9 @@ function ensureNodeGraphMacroControls() {
 
 function renderNodeGraphMacroControls() {
   ensureNodeGraphMacroControls();
+  const face = typeof nodeGraphMacroControlsFaceSettings === "function"
+    ? nodeGraphMacroControlsFaceSettings()
+    : null;
   document.querySelectorAll("[data-macro-index]").forEach((knob) => {
     const index = Math.max(0, Math.min(7, Math.round(Number(knob.dataset.macroIndex) || 0)));
     const value = normalizeNodeGraphMacroValue(nodeGraphMvp.macroControls[index]);
@@ -1683,14 +1686,16 @@ function renderNodeGraphMacroControls() {
     knob.style.setProperty("--macro-value", String(value));
     knob.style.setProperty("--macro-angle", `${angle}deg`);
     knob.setAttribute("aria-valuenow", value.toFixed(3));
+    const name = face?.labels?.[index] || `M${index + 1}`;
+    const nameEl = knob.querySelector(":scope > span");
+    if (nameEl) {
+      nameEl.textContent = name;
+    }
+    knob.setAttribute("aria-label", name);
     const readout = knob.querySelector("[data-macro-value]");
     if (readout) {
       readout.textContent = value.toFixed(2);
     }
-  });
-  document.querySelectorAll("[data-macro-controls-status]").forEach((status) => {
-    const activeCount = nodeGraphMvp.macroControls.filter((value) => value > 0).length;
-    status.textContent = activeCount ? `${activeCount} active` : "8 macros ready";
   });
 }
 

@@ -115,19 +115,24 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
   ) {
     return buildNodeGraphMatrixFaceDisplaySettingsBodyHtml(type);
   }
+  if (type === "macroControlsFace" && typeof buildNodeGraphMacroControlsFaceDisplaySettingsBodyHtml === "function") {
+    return buildNodeGraphMacroControlsFaceDisplaySettingsBodyHtml();
+  }
   const activeFields = nodeGraphTraceDisplayActiveControlSet("fields", type);
   const activeColors = nodeGraphTraceDisplayActiveControlSet("colors", type);
   const activeToggles = nodeGraphTraceDisplayActiveControlSet("toggles", type);
   const activeChoices = nodeGraphTraceDisplayActiveControlSet("choices", type);
-  const isOutputNode = node?.type === "output";
+  const isStereoTraceNode = typeof nodeGraphModuleUsesStereoTraceDisplay === "function"
+    ? nodeGraphModuleUsesStereoTraceDisplay(node?.type)
+    : node?.type === "output";
   const parts = [];
 
-  // Filter keys that only apply on Output for the shared "trace" schema.
+  // Filter keys that only apply on stereo Trace faces (Output / SoEmReverb / …).
   const allowKey = (kind, key) => {
     if (type !== "trace") {
       return true;
     }
-    if (!isOutputNode) {
+    if (!isStereoTraceNode) {
       if (
         key === "secondarySize" ||
         key === "secondaryBrightness" ||
@@ -140,7 +145,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
         return false;
       }
     } else if (key === "sourceSync") {
-      // Output uses syncChannel select, not the legacy Sync checkbox.
+      // Stereo Trace uses syncChannel select, not the legacy Sync checkbox.
       return false;
     }
     return true;
@@ -187,7 +192,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     // syncChannel / stereoBlend live in activeChoices but are listed under
     // "trace" sectionChoices only for spectrogram historically — include
     // Output sync choices from active set even if not in section map.
-    if (section === "trace" && type === "trace" && isOutputNode) {
+    if (section === "trace" && type === "trace" && isStereoTraceNode) {
       for (const key of ["syncChannel", "stereoBlend"]) {
         if (activeChoices.has(key) && !choiceKeys.includes(key)) {
           choiceKeys.push(key);
@@ -196,7 +201,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     }
     if (!fieldKeys.length && !colorKeys.length && !toggleKeys.length && !choiceKeys.length) {
       // secondaryEnabled is only in section title for secondary; handle below.
-      if (!(section === "secondary" && activeToggles.has("secondaryEnabled") && isOutputNode && type === "trace")) {
+      if (!(section === "secondary" && activeToggles.has("secondaryEnabled") && isStereoTraceNode && type === "trace")) {
         continue;
       }
     }
@@ -206,15 +211,15 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
       : section === "value"
         ? "Line"
         : section === "dot1"
-          ? (isOutputNode && type === "trace" ? "Left" : "Dot")
+          ? (isStereoTraceNode && type === "trace" ? "Left" : "Dot")
           : section === "secondary"
-            ? (isOutputNode && type === "trace" ? "Right" : "Secondary")
+            ? (isStereoTraceNode && type === "trace" ? "Right" : "Secondary")
             : section === "caps"
               ? "Caps"
               : section;
     if (section === "secondary") {
-      const enabledToggle = isOutputNode && type === "trace" && activeToggles.has("secondaryEnabled")
-        ? `<input id="nodeTraceDisplaySecondaryEnabled" type="checkbox" aria-label="${isOutputNode ? "Right on" : "Secondary on"}" data-trace-display-toggle="secondaryEnabled">`
+      const enabledToggle = isStereoTraceNode && type === "trace" && activeToggles.has("secondaryEnabled")
+        ? `<input id="nodeTraceDisplaySecondaryEnabled" type="checkbox" aria-label="${isStereoTraceNode ? "Right on" : "Secondary on"}" data-trace-display-toggle="secondaryEnabled">`
         : "";
       parts.push(`
         <div class="metadata-section-title node-trace-display-secondary-title">

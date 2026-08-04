@@ -116,6 +116,9 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.nativeEllipsoidReady = false;
     this.nativeSabrinaReverb = null;
     this.nativeSabrinaReverbReady = false;
+    this.nativeSoemReverb = null;
+    this.nativeSoemReverbReady = false;
+    this.soemReverbStates = new Map();
     this.nativePll = null;
     this.nativePllReady = false;
     this.nativeHelmholtz = null;
@@ -233,6 +236,10 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.logisticMapStates = new Map();
     this.gainBiasMixStates = new Map();
     this.sincStates = new Map();
+    this.nativeSinc = null;
+    this.nativeSincReady = false;
+    this.nativeSoftwave = null;
+    this.nativeSoftwaveReady = false;
     this.henonMapStates = new Map();
     this.rayBouncerStates = new Map();
     this.chuaAttractorStates = new Map();

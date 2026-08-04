@@ -78,6 +78,16 @@ $modules = @(
   @{ Name = "metallic_ratio"; Simd = $false; Exports = @("soemdsp_metallic_ratio_sample", "soemdsp_metallic_ratio_version", "soemdsp_metallic_ratio_metadata_json", "soemdsp_metallic_ratio_metadata_json_size") }
   @{ Name = "bradley_2a"; Simd = $false; Exports = @("soemdsp_bradley_2a_create", "soemdsp_bradley_2a_destroy", "soemdsp_bradley_2a_sample", "soemdsp_bradley_2a_version", "soemdsp_bradley_2a_metadata_json", "soemdsp_bradley_2a_metadata_json_size") }
   @{ Name = "antisaw"; Simd = $false; Exports = @("soemdsp_antisaw_create", "soemdsp_antisaw_destroy", "soemdsp_antisaw_sample", "soemdsp_antisaw_version", "soemdsp_antisaw_metadata_json", "soemdsp_antisaw_metadata_json_size") }
+  @{ Name = "sinc"; Simd = $false; Exports = @("soemdsp_sinc_create", "soemdsp_sinc_destroy", "soemdsp_sinc_sample", "soemdsp_sinc_version", "soemdsp_sinc_metadata_json", "soemdsp_sinc_metadata_json_size") }
+  @{ Name = "softwave"; Simd = $false; Exports = @("soemdsp_softwave_create", "soemdsp_softwave_destroy", "soemdsp_softwave_sample", "soemdsp_softwave_version", "soemdsp_softwave_metadata_json", "soemdsp_softwave_metadata_json_size") }
+  @{ Name = "soem_reverb"; Simd = $false; Exports = @(
+    "soemdsp_soem_reverb_create", "soemdsp_soem_reverb_destroy", "soemdsp_soem_reverb_reset",
+    "soemdsp_soem_reverb_set_params", "soemdsp_soem_reverb_process",
+    "soemdsp_soem_reverb_left", "soemdsp_soem_reverb_right",
+    "soemdsp_soem_reverb_wet_left", "soemdsp_soem_reverb_wet_right",
+    "soemdsp_soem_reverb_dry_left", "soemdsp_soem_reverb_dry_right",
+    "soemdsp_soem_reverb_version", "soemdsp_soem_reverb_metadata_json", "soemdsp_soem_reverb_metadata_json_size"
+  ) }
   @{ Name = "videoscope"; Simd = $false; Exports = @("soemdsp_videoscope_create", "soemdsp_videoscope_destroy", "soemdsp_videoscope_push", "soemdsp_videoscope_window_size", "soemdsp_videoscope_column_min", "soemdsp_videoscope_column_max", "soemdsp_videoscope_xy_a", "soemdsp_videoscope_xy_b", "soemdsp_videoscope_version") }
   @{ Name = "transport"; Simd = $false; Exports = @("soemdsp_transport_create", "soemdsp_transport_destroy", "soemdsp_transport_sample", "soemdsp_transport_unipolar", "soemdsp_transport_version") }
   @{ Name = "slew_limiter"; Simd = $false; Exports = @("soemdsp_slew_limiter_create", "soemdsp_slew_limiter_destroy", "soemdsp_slew_limiter_sample", "soemdsp_slew_limiter_version") }

@@ -179,9 +179,11 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   // RGB Soft Fractal: gradient only (field is module params + rAF).
   rgbFractalFace: Object.freeze({
     fields: Object.freeze([]),
-    colors: Object.freeze([]),
+    // Background color used when Outer color = Background (original dream plate).
+    colors: Object.freeze(["backgroundColor"]),
     toggles: Object.freeze([]),
-    choices: Object.freeze([]),
+    // First control in Soft Fractal section (before gradient).
+    choices: Object.freeze(["outerPlate"]),
   }),
   // Fractal Brownian Field: mono terrain → gradient only (params are knobs).
   fbmFieldFace: Object.freeze({
@@ -322,6 +324,13 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
+  // Custom body (colors + 8 name fields) — see macro-controls-settings.js.
+  macroControlsFace: Object.freeze({
+    fields: Object.freeze([]),
+    colors: Object.freeze([]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
 });
 
 function nodeGraphTraceDisplayActiveControlsForType(type = nodeGraphTraceDisplaySettingsFormType()) {
@@ -386,7 +395,16 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
     toggles: Object.freeze(["sourceSync", "skipDiscontinuities", "fullDotEconomy"]),
     // window/overlap/freqOverlap/freqScale = spectrogram; syncChannel/stereoBlend = Output.
     // cornerShape = LED.
-    choices: Object.freeze(["window", "overlap", "freqOverlap", "freqScale", "syncChannel", "stereoBlend", "cornerShape"]),
+    choices: Object.freeze([
+      "outerPlate",
+      "window",
+      "overlap",
+      "freqOverlap",
+      "freqScale",
+      "syncChannel",
+      "stereoBlend",
+      "cornerShape",
+    ]),
   }),
   value: Object.freeze({
     fields: Object.freeze(["lineLength"]),
@@ -562,6 +580,18 @@ const nodeGraphDisplaySettingsColorMeta = Object.freeze({
 });
 
 const nodeGraphDisplaySettingsChoiceMeta = Object.freeze({
+  // Soft Fractal: Background / Gradient start / Haze (radial dream plate).
+  outerPlate: Object.freeze({
+    label: "Outer color",
+    aria: "Outer / empty plate color source",
+    id: "nodeTraceDisplayOuterPlate",
+    title: "Background = solid plate from the Background swatch. Gradient start = empty space uses gradient stop 0. Haze = soft radial dream plate (symmetry-safe; no empty-plate color strobe).",
+    options: Object.freeze([
+      Object.freeze({ value: "background", label: "Background" }),
+      Object.freeze({ value: "gradientStart", label: "Gradient start" }),
+      Object.freeze({ value: "haze", label: "Haze" }),
+    ]),
+  }),
   syncChannel: Object.freeze({
     label: "Sync",
     aria: "Sync channel",
@@ -672,6 +702,7 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   hypersawBurn: "Hypersaw",
   knobFace: "Knob",
   pluginSliderFace: "Slider",
+  macroControlsFace: "Macro Controls",
   toggleButtonFace: "Toggle",
   momentaryButtonFace: "Momentary",
 });

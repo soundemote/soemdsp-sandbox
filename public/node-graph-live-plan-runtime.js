@@ -313,6 +313,7 @@ function createNodeGraphLiveRuntime(plan) {
   const bradley2AStates = new Map();
   const antisawStates = new Map();
   const reverbEffectStates = new Map();
+  const soemReverbStates = new Map();
   const pllStates = new Map();
   const helmholtzStates = new Map();
   const sampleHoldStates = new Map();
@@ -718,6 +719,7 @@ function createNodeGraphLiveRuntime(plan) {
     pluckEnvelopeStates,
     randomClockStates,
     reverbEffectStates,
+    soemReverbStates,
     pllStates,
     helmholtzStates,
     order: [...(plan.order || [])],
@@ -977,6 +979,9 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   }
   if (!runtime.reverbEffectStates) {
     runtime.reverbEffectStates = new Map();
+  }
+  if (!runtime.soemReverbStates) {
+    runtime.soemReverbStates = new Map();
   }
   if (!runtime.pllStates) {
     runtime.pllStates = new Map();
@@ -1249,6 +1254,9 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     }
     if (node.type === "reverbEffect" && !runtime.reverbEffectStates.has(node.id)) {
       runtime.reverbEffectStates.set(node.id, createNodeGraphSabrinaReverbState());
+    }
+    if (node.type === "soemReverb" && !runtime.soemReverbStates.has(node.id)) {
+      runtime.soemReverbStates.set(node.id, createNodeGraphSoemReverbState());
     }
     if (node.type === "pll" && !runtime.pllStates.has(node.id)) {
       runtime.pllStates.set(node.id, createNodeGraphPllState());
@@ -1714,6 +1722,11 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   for (const id of [...runtime.reverbEffectStates.keys()]) {
     if (!nodeIds.has(id)) {
       runtime.reverbEffectStates.delete(id);
+    }
+  }
+  for (const id of [...(runtime.soemReverbStates?.keys() || [])]) {
+    if (!nodeIds.has(id)) {
+      runtime.soemReverbStates.delete(id);
     }
   }
   for (const id of [...(runtime.pllStates?.keys() || [])]) {

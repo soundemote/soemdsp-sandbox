@@ -61,6 +61,12 @@ async function initNodeGraphMvp() {
   applyNodeGraphMacroKnobHitboxOutlineVisible();
   applyNodeGraphMacroKnobLabelPosition();
   applyNodeGraphMacroKnobValuePosition();
+  if (typeof applyNodeGraphMacroControlsFaceSettings === "function") {
+    applyNodeGraphMacroControlsFaceSettings();
+  }
+  if (typeof bindNodeGraphMacroControlsDisplayContextMenu === "function") {
+    bindNodeGraphMacroControlsDisplayContextMenu();
+  }
   renderNodeGraphKeyboardControllerModules();
   renderNodeGraphModuleVisibilityToggles();
   renderNodeGraphPatchTimingControls();

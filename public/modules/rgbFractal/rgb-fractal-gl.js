@@ -37,6 +37,10 @@ uniform float uBands;
 uniform float uDomainWarp;
 uniform sampler2D uPalette;
 uniform vec3 uBackground;
+// 0 = Background plate (solid swatch)
+// 1 = Gradient start (LUT stop 0) as outer / empty plate
+// 2 = Haze — soft radial dream plate (symmetry-safe)
+uniform float uOuterMode;
 
 // Optional domain fold (kaleidoscope-ish) before Julia — denser structure, still evolves with c.
 vec2 domainFold(vec2 z, float fold) {
@@ -214,9 +218,11 @@ void main() {
   float gamma = mix(0.78, 1.05, soft) - glowAmt * 0.1;
   e = pow(e, max(0.45, gamma));
 
-  // Structure mask: far exterior / empty plate stays black — Color Rate must NOT
-  // cycle palette where energy is near zero (that was full-face strobe).
-  float lit = smoothstep(0.03, 0.22, e);
+  // Structure mask: Color Rate / bands only where energy exists (no full-face strobe).
+  // Haze mode uses a wider soft edge so filaments bloom into the plate (still phase-gated).
+  float lit = uOuterMode > 1.5
+    ? smoothstep(0.015, 0.36, e)
+    : smoothstep(0.03, 0.22, e);
 
   // Color bands: only where structure exists; phase gated by lit
   float band = mix(uBands + glowAmt * 0.9, uBands * 0.45 + glowAmt * 0.4, soft);
@@ -232,23 +238,54 @@ void main() {
   eColor = clamp(eColor * mix(1.0, uBreath, lit), 0.0, 1.0);
   eColor = mix(eColor, 0.5 + (eColor - 0.5) * mix(1.0, 0.7, soft), soft * 0.5 * lit);
 
-  // Prefer true black surroundings (uBackground often near-black)
-  vec3 voidCol = vec3(0.0);
-  vec3 plate = mix(voidCol, uBackground, 0.35);
+  vec2 q2 = gl_FragCoord.xy / uResolution - 0.5;
+  float rEdge = length(q2);
+
+  // Outer plate mode (Display Settings → Outer color):
+  // 0 Background — solid swatch
+  // 1 Gradient start — empty + edges → palette stop 0
+  // 2 Haze — radial dream plate (no spatial grain, no empty-plate color phase)
+  vec3 plate;
+  if (uOuterMode > 1.5) {
+    // Fixed low-palette peek (not colorPhase) so empty plate never strobes.
+    vec3 stop0 = paletteSample(0.0, soft);
+    // Radial-only breath — rotationally symmetric (depends on r + time only).
+    float pulse = 0.5 + 0.5 * sin(uTime * 0.2 + rEdge * 1.85);
+    float mixAmt = mix(0.12, 0.42, soft) * (0.78 + 0.22 * pulse);
+    plate = mix(uBackground, stop0, mixAmt);
+  } else if (uOuterMode > 0.5) {
+    plate = paletteSample(0.0, soft);
+  } else {
+    plate = uBackground;
+  }
+
   vec3 col = mix(plate, paletteSample(eColor, soft), lit);
 
   // Glow only on lit structure (not a full-face flash)
   if (glowAmt > 0.03 && lit > 0.01) {
-    vec2 q = gl_FragCoord.xy / uResolution - 0.5;
-    float g = exp(-dot(q, q) * mix(3.2, 2.0, soft));
+    float g = exp(-dot(q2, q2) * mix(3.2, 2.0, soft));
     vec3 tip = paletteSample(mix(0.88, 0.72, soft), soft);
     col += tip * g * (0.04 + glowAmt * 0.22) * mix(1.0, 0.75, soft) * lit;
   }
 
-  // Mild edge vignette into black (no soft haze recoloring empty space)
-  vec2 q2 = gl_FragCoord.xy / uResolution - 0.5;
-  float vig = smoothstep(1.15, 0.35, length(q2) * 1.15);
-  col *= mix(0.88, 1.0, vig);
+  if (uOuterMode > 1.5) {
+    // Haze: stronger radial soft falloff into living plate (angle-invariant).
+    float vig = smoothstep(1.2, 0.12, rEdge * 1.12);
+    float pulse = 0.5 + 0.5 * sin(uTime * 0.2 + rEdge * 1.85);
+    float hazeAmt = mix(0.12, 0.3, soft) * (0.82 + 0.18 * pulse);
+    col = mix(col, plate, hazeAmt * (1.0 - vig * 0.55));
+    col = mix(plate, col, mix(0.8, 1.0, vig));
+  } else if (uOuterMode > 0.5) {
+    // Gradient-start plate: soft falloff into stop 0
+    float vig = smoothstep(1.15, 0.35, rEdge * 1.15);
+    col = mix(plate, col, mix(0.92, 1.0, vig));
+  } else {
+    // Background: light haze + edges into solid swatch
+    float vig = smoothstep(1.05, 0.2, rEdge * 1.2);
+    float haze = soft * 0.12;
+    col = mix(col, uBackground, haze * (1.0 - vig * 0.5));
+    col = mix(uBackground, col, mix(0.94, 1.0, vig));
+  }
 
   gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
 }
@@ -385,6 +422,7 @@ function nodeGraphRgbFractalGlEnsure(canvas) {
       uDomainWarp: gl.getUniformLocation(program, "uDomainWarp"),
       uPalette: gl.getUniformLocation(program, "uPalette"),
       uBackground: gl.getUniformLocation(program, "uBackground"),
+      uOuterMode: gl.getUniformLocation(program, "uOuterMode"),
     };
 
     const paletteTex = gl.createTexture();
@@ -522,8 +560,15 @@ function nodeGraphRgbFractalGlPaint(canvas, params) {
   gl.uniform1f(U.uFold, Number(params.fold) || 0);
   gl.uniform1f(U.uBands, Number.isFinite(Number(params.bands)) ? Number(params.bands) : 1.65);
   gl.uniform1f(U.uDomainWarp, Number(params.domainWarp) || 0);
-  const bg = nodeGraphRgbFractalGlHexToRgb01(params.background);
+  const outerPlate = String(params.outerPlate || "background");
+  const outerMode = outerPlate === "haze" ? 2
+    : (outerPlate === "gradientStart" ? 1 : 0);
+  const bgHex = params.background
+    || (Array.isArray(stops) && stops[0]?.color)
+    || "#000000";
+  const bg = nodeGraphRgbFractalGlHexToRgb01(bgHex);
   gl.uniform3f(U.uBackground, bg[0], bg[1], bg[2]);
+  gl.uniform1f(U.uOuterMode, outerMode);
 
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, state.paletteTex);
@@ -533,14 +578,21 @@ function nodeGraphRgbFractalGlPaint(canvas, params) {
   return true;
 }
 
-function nodeGraphRgbFractalGlClearBlack(canvas) {
+/** Clear to gradient stop 0 (or explicit plate color) — idle / engine-off plate. */
+function nodeGraphRgbFractalGlClearPlate(canvas, plateHex = "#000000") {
   const state = nodeGraphRgbFractalGlEnsure(canvas);
   if (!state?.gl || state.lost) {
     return false;
   }
   const gl = state.gl;
+  const rgb = nodeGraphRgbFractalGlHexToRgb01(plateHex);
   gl.viewport(0, 0, canvas.width | 0, canvas.height | 0);
-  gl.clearColor(0, 0, 0, 1);
+  gl.clearColor(rgb[0], rgb[1], rgb[2], 1);
   gl.clear(gl.COLOR_BUFFER_BIT);
   return true;
+}
+
+/** @deprecated use nodeGraphRgbFractalGlClearPlate */
+function nodeGraphRgbFractalGlClearBlack(canvas) {
+  return nodeGraphRgbFractalGlClearPlate(canvas, "#000000");
 }

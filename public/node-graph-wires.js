@@ -399,66 +399,81 @@
     }
 
     function endpointHitboxClientRect(endpoint, hitboxElement = null) {
-      // Geometry is always centered on the jack.
-      // - Solid shells: jack-local pad only (row is a full 1gu band; expanding
-      //   to the whole row stole module drag and felt like shifting hitboxes).
-      // - Headered stacked IO: if the row is already a tight band, use it;
-      //   tall stretched rows keep only the local jack neighborhood.
+      // Hitbox must match the glowing jack (screen px), not a larger "near
+      // face" zone that only lights the jack while clicks hit the face above.
+      // - Solid shells: jack box + glow pad; optional label reach only when
+      //   labels are visible (pointer can land on the row, not the face).
+      // - Headered stacked IO: tight rows use the full row; tall rows stay
+      //   jack-local + glow.
       const row = hitboxElement?.classList?.contains("node-io-row")
         ? hitboxElement
         : hitboxElement?.closest?.(".node-io-row") || null;
-      const solidShell = Boolean(row?.closest?.(".node-solid-module-shell"));
+      const solidShell = Boolean(
+        row?.closest?.(".node-solid-module-shell")
+        || row?.closest?.(".node-module-chrome-layout-b-shell")
+        || hitboxElement?.closest?.(".node-solid-module-shell")
+        || hitboxElement?.closest?.(".node-module-chrome-layout-b-shell"),
+      );
       const jack = row?.querySelector?.(".node-port")
         || (hitboxElement?.classList?.contains("node-port") ? hitboxElement : null)
+        || (hitboxElement?.classList?.contains("node-param-port") ? hitboxElement : null)
         || elementForEndpoint(endpoint);
       if (!jack && !row) {
         return null;
       }
-      const visual = jack || row;
       const jackRect = (jack || row).getBoundingClientRect();
       if (jackRect.width <= 0 || jackRect.height <= 0) {
         return null;
       }
-      const style = getComputedStyle(visual);
-      const portDiameter =
-        Number.parseFloat(style.getPropertyValue("--node-port-diameter")) ||
-        Math.max(jackRect.width, jackRect.height);
-      const portArea =
-        Number.parseFloat(style.getPropertyValue("--node-port-area-size")) ||
-        portDiameter / 0.57;
-      // Local surrounding pad around the jack.
-      const padX = Math.max(portDiameter * 0.65, 8);
-      const padY = Math.max(portArea * 0.42, portDiameter * 0.55, 8);
+      // Screen-space diameter: half-jacks are width≈radius, height≈diameter.
+      const diameter = Math.max(jackRect.height, jackRect.width * 2, 8);
+      // Match CSS glow halo around the jack (size 0.5×d + spread ≈ 0.21×d).
+      const glowPad = diameter * 0.72;
+
       const center = typeof nodeGraphElementPatchPointClientCenter === "function"
         ? nodeGraphElementPatchPointClientCenter(jack || row, endpoint?.io)
         : {
           x: endpoint?.io === "output"
             ? jackRect.right
-            : (endpoint?.io === "input" ? jackRect.left : jackRect.left + jackRect.width * 0.5),
+            : (endpoint?.io === "input" || endpoint?.io === "modulation" || endpoint?.io === "graph"
+              ? jackRect.left
+              : jackRect.left + jackRect.width * 0.5),
           y: jackRect.top + jackRect.height * 0.5,
         };
 
-      let left = center.x - padX;
-      let right = center.x + padX;
-      let top = center.y - padY;
-      let bottom = center.y + padY;
-
-      // Always cover the jack box itself.
-      left = Math.min(left, jackRect.left);
-      right = Math.max(right, jackRect.right);
-      top = Math.min(top, jackRect.top);
-      bottom = Math.max(bottom, jackRect.bottom);
+      // Jack box + glow pad — the luminous hover region users aim at.
+      let left = jackRect.left - glowPad;
+      let right = jackRect.right + glowPad;
+      let top = jackRect.top - glowPad;
+      let bottom = jackRect.bottom + glowPad;
 
       if (solidShell) {
-        // Reach a short way toward the label so the name is still wirable,
-        // but leave most of the row free for module select/drag.
-        const labelReach = Math.max(portArea * 0.9, 18);
-        if (endpoint?.io === "input") {
-          right = Math.max(right, center.x + labelReach);
-        } else if (endpoint?.io === "output") {
-          left = Math.min(left, center.x - labelReach);
+        const column = row?.closest?.(".node-io-column") || jack?.closest?.(".node-io-column");
+        const labelsHidden = Boolean(
+          column?.classList?.contains("labels-hidden")
+          || row?.closest?.(".io-hidden")
+          || jack?.closest?.(".io-hidden"),
+        );
+        // Labels visible: allow a short reach onto the name (still on the row).
+        // Labels hidden: do NOT extend under the face — that lit the jack while
+        // clicks landed on the face. Jack columns are z-index above the face.
+        if (!labelsHidden && row) {
+          const labelReach = Math.max(diameter * 0.9, 18);
+          if (endpoint?.io === "input" || endpoint?.io === "modulation" || endpoint?.io === "graph") {
+            right = Math.max(right, center.x + labelReach);
+          } else if (endpoint?.io === "output") {
+            left = Math.min(left, center.x - labelReach);
+          }
+        } else if (labelsHidden && column) {
+          // Keep hits inside the jack band (where the port element actually is).
+          const colRect = column.getBoundingClientRect();
+          left = Math.max(left, colRect.left);
+          right = Math.min(right, colRect.right);
+          // Still cover the jack fully.
+          left = Math.min(left, jackRect.left);
+          right = Math.max(right, jackRect.right);
         }
-        // Vertical: stay inside the 1gu port band so space-evenly gaps stay drag.
+        // Vertical: stay inside the port band so inter-jack gaps stay drag.
         if (row) {
           const rowRect = row.getBoundingClientRect();
           top = Math.max(top, rowRect.top);
@@ -466,7 +481,8 @@
         }
       } else if (row) {
         const rowRect = row.getBoundingClientRect();
-        const maxBand = portArea * 1.35;
+        // Compact LayoutA rows: whole row is the hit (and glow) band.
+        const maxBand = diameter * 2.4;
         if (rowRect.height > 0 && rowRect.height <= maxBand) {
           left = Math.min(left, rowRect.left);
           right = Math.max(right, rowRect.right);
