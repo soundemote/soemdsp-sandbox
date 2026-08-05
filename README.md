@@ -1,3 +1,5 @@
+EDIT: PROJECT CURRENTLY IN A MOSTLY BROKEN STATE, WILL FIX OVER THE NEXT FEW DAYS
+
 # 🎛️ soemdsp-sandbox
 
 **A browser-based modular audio synthesis sandbox** — patch together native
