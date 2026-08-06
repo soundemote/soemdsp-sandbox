@@ -1,5 +1,5 @@
 // Realtime SoEmReverb — native-only (APP_POLICY §2/§5).
-// Outputs: Wet L/R, Dry L/R.
+// Outputs: Dry L/R (pure input), Mix L/R (dry/wet blend). No wet-only.
 // Echo base: free seconds OR one tempo-synced time for both echo L/R.
 
 NodeLiveAudioProcessor.prototype.createSoemReverbState = function createSoemReverbState() {
@@ -60,11 +60,12 @@ NodeLiveAudioProcessor.prototype.applySoemReverbParams = function applySoemRever
 NodeLiveAudioProcessor.prototype.soemReverbSample = function soemReverbSample(state, left, right, params, rateHz) {
   const inL = Number(left) || 0;
   const inR = Number(right) || 0;
+  // Dry = pure input; Mix = full dry/wet blend (native left/right).
   const silent = {
     "Dry L": inL,
     "Dry R": inR,
-    "Wet L": 0,
-    "Wet R": 0,
+    "Mix L": inL,
+    "Mix R": inR,
   };
   if (
     !this.nativeSoemReverbReady
@@ -88,15 +89,13 @@ NodeLiveAudioProcessor.prototype.soemReverbSample = function soemReverbSample(st
     const echoSeconds = this.soemReverbEchoSeconds(params);
     this.applySoemReverbParams(state, { ...params, echoTime: echoSeconds });
     native.soemdsp_soem_reverb_process(state.nativeHandle, inL, inR);
-    const wetL = Number(native.soemdsp_soem_reverb_wet_left(state.nativeHandle));
-    const wetR = Number(native.soemdsp_soem_reverb_wet_right(state.nativeHandle));
-    const dryL = Number(native.soemdsp_soem_reverb_dry_left(state.nativeHandle));
-    const dryR = Number(native.soemdsp_soem_reverb_dry_right(state.nativeHandle));
+    const mixL = Number(native.soemdsp_soem_reverb_left(state.nativeHandle));
+    const mixR = Number(native.soemdsp_soem_reverb_right(state.nativeHandle));
     return {
-      "Dry L": Number.isFinite(dryL) ? dryL : inL,
-      "Dry R": Number.isFinite(dryR) ? dryR : inR,
-      "Wet L": Number.isFinite(wetL) ? wetL : 0,
-      "Wet R": Number.isFinite(wetR) ? wetR : 0,
+      "Dry L": inL,
+      "Dry R": inR,
+      "Mix L": Number.isFinite(mixL) ? mixL : inL,
+      "Mix R": Number.isFinite(mixR) ? mixR : inR,
     };
   } catch (_e) {
     this.nativeSoemReverbReady = false;

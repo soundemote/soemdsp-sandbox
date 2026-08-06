@@ -787,7 +787,18 @@ function setNodeSliderMetadata(slider, metadata) {
   if (slider.dataset.unboundedMin != null) delete slider.dataset.unboundedMin;
   if (slider.dataset.unboundedValue != null) delete slider.dataset.unboundedValue;
   slider.dataset.wraparound = metadata.wraparound ? "true" : "false";
-  slider.value = String(normalizeNodeSliderValue(slider, Number(slider.value), metadata.min, metadata.max));
+  // Prefer existing domainValue so metadata edits do not snap the parameter to
+  // a clamped HTML thumb (or leave domainValue stale relative to value).
+  const domainSource = Number.isFinite(Number(slider.dataset.domainValue))
+    ? Number(slider.dataset.domainValue)
+    : Number(slider.value);
+  const domain = normalizeNodeSliderValue(slider, domainSource, metadata.min, metadata.max);
+  slider.dataset.domainValue = String(domain);
+  slider.value = String(
+    typeof nodeSliderThumbDisplayValue === "function"
+      ? nodeSliderThumbDisplayValue(slider, domain)
+      : domain,
+  );
   syncNodeSliderReadout(slider);
 }
 

@@ -127,6 +127,15 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
       }
     }
   }
+  // Value-only writes (mid-frame drag coalesce): domain is already on the
+  // patch; skip graph-face / history / transport side effects until a full sync.
+  if (options.skipGraphFace) {
+    if (options.interaction === "drag") {
+      nodeGraphMvp.patchDirtyState = "edited";
+      nodeGraphMvp._needsHeaderSync = true;
+    }
+    return;
+  }
   const graphPhaseChanged = (
     key === "phase" &&
     nodeGraphModuleIsGraphType(patchNode.type) &&
@@ -301,7 +310,9 @@ function scheduleNodeSliderDragAutosave() {
 
 function commitNodeSliderDragValue(slider, status = "parameter changed") {
   clearNodeSliderDragAutosaveTimer();
+  const domainRaw = Number(slider?.dataset?.domainValue);
   syncNodeGraphPatchParameterFromSlider(slider, {
+    domainValue: Number.isFinite(domainRaw) ? domainRaw : undefined,
     record: true,
     status,
   });
@@ -319,8 +330,10 @@ function setNodeSliderValue(slider, value, options = {}) {
     ? domain
     : nodeSliderThumbDisplayValue(slider, domain);
   slider.value = String(thumb);
-  // Frame-gate during drags: if already pending rAF update, skip redundant patch work.
-  // The flush will apply the latest value — object-spreads mid-frame are wasted.
+  // Frame-gate painted readout work during drag. The patch + live engine must
+  // still see every domain write: flushNodeSliderReadoutUpdates only paints the
+  // thumb/readout — it does NOT write the patch. Skipping patch here made
+  // mid-frame moves vanish from audio and snap the value on the next touch.
   const alreadyPending = isDrag && nodeGraphMvp?._pendingReadoutUpdates?.has(slider);
   if (isDrag) {
     scheduleNodeSliderReadoutUpdate(slider, domain);
@@ -329,8 +342,7 @@ function setNodeSliderValue(slider, value, options = {}) {
   }
   // Tension/smoothing/steps on graph modules must refresh the face every
   // pointer move (not once per rAF), otherwise the curve / step grid only
-  // jumps on mouse-up / next-frame flush. Other params keep the cheaper
-  // once-per-frame path.
+  // jumps on mouse-up / next-frame flush.
   const graphCurveLiveParam = isDrag && (
     slider?.dataset?.param === "tension" ||
     slider?.dataset?.param === "smoothingMode" ||
@@ -338,13 +350,18 @@ function setNodeSliderValue(slider, value, options = {}) {
     slider?.dataset?.param === "segmentShape" ||
     slider?.dataset?.param === "curveOffset"
   );
+  // Always write domain into the patch (live sync reads from patch, rAF-coalesced).
+  syncNodeGraphPatchParameterFromSlider(slider, {
+    domainValue: domain,
+    interaction: options.interaction,
+    deferAutosave: isDrag,
+    // Drag defers heavy UI; non-drag keeps the full sync path.
+    deferUi: isDrag,
+    // Mid-frame drag: still write domain, skip graph-face side effects.
+    // Graph curve params need every sample for live face animation.
+    skipGraphFace: alreadyPending && !graphCurveLiveParam,
+  });
   if (!alreadyPending || graphCurveLiveParam) {
-    syncNodeGraphPatchParameterFromSlider(slider, {
-      domainValue: domain,
-      interaction: options.interaction,
-      deferAutosave: isDrag,
-      deferUi: true,
-    });
     scheduleNodeGraphModuleScopeDrawIfNeeded();
   }
   if (isDrag) {
@@ -354,9 +371,8 @@ function setNodeSliderValue(slider, value, options = {}) {
     syncNodeGraphGhostSliders();
     markNodeGraphRenderPending();
   }
-  if (!alreadyPending || graphCurveLiveParam) {
-    scheduleNodeGraphLiveParameterSync();
-  }
+  // Always schedule (coalesced) so the pending live flush sees the latest patch.
+  scheduleNodeGraphLiveParameterSync();
   // Module levels ↔ bottom toolbar 🔊 mirrors.
   const nodeType = slider.closest?.(".dsp-node")?.dataset?.nodeType;
   const param = slider?.dataset?.param;
@@ -637,7 +653,7 @@ function stepNodeSliderFromKeyboard(event) {
   };
   const min = Number(slider.min);
   const max = Number(slider.max);
-  const current = Number(slider.value);
+  const current = nodeSliderDomainForTravel(slider);
   let nextValue = current;
   if (event.key === "Home") {
     nextValue = min;
@@ -659,8 +675,19 @@ function stepNodeSliderFromKeyboard(event) {
   return true;
 }
 
+function nodeSliderDomainForTravel(slider) {
+  const fromDomain = Number(slider?.dataset?.domainValue);
+  if (Number.isFinite(fromDomain)) {
+    return fromDomain;
+  }
+  const fromValue = Number(slider?.value);
+  return Number.isFinite(fromValue) ? fromValue : 0;
+}
+
 function reanchorNodeSliderDragAtPointer(drag, event) {
-  drag.startTravel = nodeSliderTravelFromValue(drag.slider, Number(drag.slider.value));
+  // Re-anchor from domain (not the clamped HTML thumb) so relative drag stays
+  // continuous for values outside min/max.
+  drag.startTravel = nodeSliderTravelFromValue(drag.slider, nodeSliderDomainForTravel(drag.slider));
   drag.startX = event.clientX;
   drag.startY = event.clientY;
 }
@@ -755,14 +782,16 @@ function beginNodeSliderDrag(event) {
   const resetToDefaultOnClick = (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey;
   const jumpToPointerOnClick = event.altKey && !(event.shiftKey && (event.ctrlKey || event.metaKey));
   const pointerMode = "relative";
-  let startTravel = nodeSliderTravelFromValue(slider, Number(slider.value));
+  // Start relative drag from domainValue so a stale/clamped HTML thumb cannot
+  // jump the parameter when the pointer first moves.
+  let startTravel = nodeSliderTravelFromValue(slider, nodeSliderDomainForTravel(slider));
   if (jumpToPointerOnClick) {
     if (setNodeSliderValueAtPointer(slider, surface, event, { interaction: "drag" })) {
-      startTravel = nodeSliderTravelFromValue(slider, Number(slider.value));
+      startTravel = nodeSliderTravelFromValue(slider, nodeSliderDomainForTravel(slider));
     }
   } else if (!resetToDefaultOnClick && nodeSliderShouldDisplayChoices(slider) && nodeSliderShouldDivideChoicesVisibly(slider)) {
     setNodeChoiceSliderFromPointer(slider, surface, event.clientX, { interaction: "drag" });
-    startTravel = nodeSliderTravelFromValue(slider, Number(slider.value));
+    startTravel = nodeSliderTravelFromValue(slider, nodeSliderDomainForTravel(slider));
   }
   nodeGraphMvp.sliderDragging = {
     moved: false,
@@ -828,7 +857,7 @@ function dragNodeSlider(event) {
   // Re-anchor startTravel when scale changes to prevent value jump (10x delta).
   const currentFineScale = nodeSliderFineTuneScale(event);
   if (currentFineScale !== drag.fineScale) {
-    drag.startTravel = nodeSliderTravelFromValue(drag.slider, Number(drag.slider.value));
+    drag.startTravel = nodeSliderTravelFromValue(drag.slider, nodeSliderDomainForTravel(drag.slider));
     drag.fineScale = currentFineScale;
   }
 

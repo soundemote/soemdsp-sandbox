@@ -240,17 +240,17 @@ function nodeGraphPingPongDelaySample(state, input, params, sampleRate, runtime 
   state.position = (state.position + 1) % state.bufferSize;
   const readPosL = (state.position + state.bufferSize - delaySamplesL) % state.bufferSize;
   const readPosR = (state.position + state.bufferSize - delaySamplesR) % state.bufferSize;
-  const interp = typeof nodeGraphDelayInterpolateLinear === "function"
-    ? nodeGraphDelayInterpolateLinear
-    : (buf, where) => {
-      const len = buf.length;
-      const before = Math.floor(where) % len;
-      const after = (before + 1) % len;
-      const t = where - Math.floor(where);
-      return buf[before] * (1 - t) + buf[after] * t;
-    };
-  const readL = interp(state.bufferL, readPosL);
-  const readR = interp(state.bufferR, readPosR);
+  const interpMode = Math.round(Number(params.interpolation) || 0) >= 1 ? 1 : 0;
+  const readL = typeof nodeGraphDelayInterpolate === "function"
+    ? nodeGraphDelayInterpolate(state.bufferL, readPosL, interpMode)
+    : (typeof nodeGraphDelayInterpolateLinear === "function"
+      ? nodeGraphDelayInterpolateLinear(state.bufferL, readPosL)
+      : 0);
+  const readR = typeof nodeGraphDelayInterpolate === "function"
+    ? nodeGraphDelayInterpolate(state.bufferR, readPosR, interpMode)
+    : (typeof nodeGraphDelayInterpolateLinear === "function"
+      ? nodeGraphDelayInterpolateLinear(state.bufferR, readPosR)
+      : 0);
 
   // Feedback path: other channel → soft clip → HPF → LPF (tape darkening + grunge).
   const fbInL = dry + readR * feedback;
@@ -283,6 +283,8 @@ nodeGraphLiveModuleEvaluators.pingPongDelay = ({ runtime, node, nodeId, frame, f
     {
       feedback: read("feedback", 0.35),
       hpfFrequency: read("hpfFrequency", 20),
+      // 0 = linear, 1 = hermite (default hermite).
+      interpolation: read("interpolation", 1),
       level: read("level", 1),
       lfoRate: read("lfoRate", 0.35),
       lfoStyle: read("lfoStyle", 0),

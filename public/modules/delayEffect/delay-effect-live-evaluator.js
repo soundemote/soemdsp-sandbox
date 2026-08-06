@@ -71,13 +71,20 @@ function nodeGraphDelayEffectSample(state, input, params, sampleRate, runtime = 
   const bufferOffset = delaySamples - delaySamples * lfo * modAmount + 1;
   state.position = (state.position + 1) % state.bufferSize;
   const readPosition = (state.position + state.bufferSize - bufferOffset) % state.bufferSize;
-  const wet = nodeGraphDelayInterpolateLinear(state.buffer, readPosition);
+  const interpMode = Math.round(Number(params.interpolation) || 0) >= 1 ? 1 : 0;
+  const wet = typeof nodeGraphDelayInterpolate === "function"
+    ? nodeGraphDelayInterpolate(state.buffer, readPosition, interpMode)
+    : nodeGraphDelayInterpolateLinear(state.buffer, readPosition);
   const write = mode ? ((0 - dry) - wet * feedback) : (dry + wet * feedback);
   state.buffer[state.position] = Math.max(-8, Math.min(8, write));
   state.wet = mode ? (dry * feedback - wet * (1 - feedback * feedback)) : wet;
+  const dryOut = dry * level;
+  const mixOut = (dry * (1 - mix) + state.wet * mix) * level;
+  // Dry = unprocessed input; Mix = dry/wet blend. No wet-only jack.
   return {
-    Out: (dry * (1 - mix) + state.wet * mix) * level,
-    Wet: state.wet * level,
+    Dry: dryOut,
+    Mix: mixOut,
+    Out: mixOut,
   };
 }
 
@@ -98,15 +105,18 @@ nodeGraphLiveModuleEvaluators.delayEffect = ({ runtime, node, nodeId, frame, fra
     modRate: read("modRate", 0.1),
     modVariation: read("modVariation", 0),
     time: read("time", 0.18),
+    // 0 = linear, 1 = hermite (default hermite).
+    interpolation: read("interpolation", 1),
   };
   const delayMono = mixInput(nodeId);
   const monoResult = nodeGraphDelayEffectSample(state.mono, delayMono, delayParams, sampleRate, runtime, `${nodeId}:mono`);
   const leftResult = nodeGraphDelayEffectSample(state.left, mixInput(nodeId, "Left") + delayMono, delayParams, sampleRate, runtime, `${nodeId}:left`);
   const rightResult = nodeGraphDelayEffectSample(state.right, mixInput(nodeId, "Right") + delayMono, delayParams, sampleRate, runtime, `${nodeId}:right`);
   return {
-    Out: monoResult.Out,
-    Left: leftResult.Out,
-    Right: rightResult.Out,
-    Wet: monoResult.Wet,
+    Dry: monoResult.Dry,
+    Mix: monoResult.Mix,
+    Out: monoResult.Mix,
+    Left: leftResult.Mix,
+    Right: rightResult.Mix,
   };
 };

@@ -889,10 +889,18 @@ function applyNodeGraphPatchToDom() {
       );
       const value = patchNode.params?.[parameter.key] ??
         nodeGraphParameterFallback(patchNode.type, parameter.key);
+      // Keep domainValue + thumb in lockstep with the patch. Readouts prefer
+      // dataset.domainValue; if only input.value is set, the displayed value
+      // can stay stuck at factory default until the user jiggles the slider.
       if (typeof applyNodeGraphInputUnboundedValue === "function") {
         applyNodeGraphInputUnboundedValue(input, value);
+      } else {
+        const n = Number(value);
+        if (Number.isFinite(n)) {
+          input.dataset.domainValue = String(n);
+        }
+        input.value = String(value);
       }
-      input.value = String(value);
       syncNodeSliderReadout(input);
     }
     if (typeof syncNodeGraphParameterVisualsForNodeElement === "function") {

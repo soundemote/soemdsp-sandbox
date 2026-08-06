@@ -422,12 +422,20 @@ function paintNodeGraphRgbFractalFaceCpu(canvas, face, params) {
       const ry = zx * sinR + zy * cosR + centerY + panY;
       let e = nodeGraphRgbFractalJuliaSmooth(rx, ry, cx, cy, maxIter);
       e = Math.pow(Math.max(0, Math.min(1, e)), 0.72 - glow * 0.25);
-      // Gate palette phase by energy so empty exterior stays black (no full-face strobe).
+      // Match GPU: energy → one gradient pass; phase rotates (does not multi-wrap bands).
       const lit = e < 0.03 ? 0 : Math.min(1, (e - 0.03) / 0.19);
       if (lit > 0.001) {
-        e = (e * (2.2 + glow * 2.5) + colorPhase * lit) % 1;
-        if (e < 0) e += 1;
-        e *= lit * breath;
+        const phase = ((Number(colorPhase) % 1) + 1) % 1;
+        const bands = Math.max(0.25, Number(params.bands) || 1);
+        const span = Math.min(1, bands);
+        let once = e * span;
+        if (bands > 1.001) {
+          // Explicit multi-wrap only when Color Bands > 1.
+          once = ((e * bands + phase) % 1 + 1) % 1;
+        } else {
+          once = ((once + phase) % 1 + 1) % 1;
+        }
+        e = once * lit * (Number(breath) || 1);
       } else {
         e = 0;
       }

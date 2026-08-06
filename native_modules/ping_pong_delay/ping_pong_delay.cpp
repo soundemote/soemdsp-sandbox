@@ -19,6 +19,9 @@ using namespace soemdsp_maths;
 
 static const int kMaxInstances = 4;
 static const double kMaxDelaySeconds = 8.0;
+// 8s @ 192 kHz. Buffers live in a flat pool (not inside the state struct) so
+// freestanding wasm keeps them in BSS — nested arrays inside the struct were
+// being written into the .wasm as ~49MB of zeros and tanked combined load.
 static const int kMaxDelaySamples = 1536002; // 8s @ 192kHz
 
 enum LfoStyle { LfoParabol = 0, LfoRandomWalk = 1, LfoFbm = 2 };
@@ -163,10 +166,15 @@ struct LfoChannel {
   }
 };
 
+// Flat delay-line pools (BSS). Do not nest these arrays inside PingPongDelayState
+// — clang/wasm-ld materializes large nested struct members as file-backed data.
+static float gBufferL[kMaxInstances][kMaxDelaySamples];
+static float gBufferR[kMaxInstances][kMaxDelaySamples];
+
 struct PingPongDelayState {
   bool active;
-  float bufferL[kMaxDelaySamples];
-  float bufferR[kMaxDelaySamples];
+  float* bufferL;
+  float* bufferR;
   int bufferSize;
   int position;
   double wetL;
@@ -183,6 +191,9 @@ struct PingPongDelayState {
 static PingPongDelayState gPool[kMaxInstances];
 
 static void reset_delay(PingPongDelayState& s, int size) {
+  if (!s.bufferL || !s.bufferR) {
+    return;
+  }
   for (int i = 0; i < size; i++) {
     s.bufferL[i] = 0.0f;
     s.bufferR[i] = 0.0f;
@@ -230,6 +241,8 @@ extern "C" int soemdsp_ping_pong_delay_create() {
   for (int i = 0; i < kMaxInstances; i++) {
     if (!gPool[i].active) {
       PingPongDelayState& s = gPool[i];
+      s.bufferL = gBufferL[i];
+      s.bufferR = gBufferR[i];
       reset_delay(s, 2);
       s.outLeft = 0.0;
       s.outRight = 0.0;

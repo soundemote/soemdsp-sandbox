@@ -84,11 +84,12 @@ function nodeGraphSoemReverbSample(state, left, right, params, sampleRate, runti
   const wasm = nodeGraphSoemReverbWasm.exports;
   const inL = Number(left) || 0;
   const inR = Number(right) || 0;
+  // Dry = pure input; Mix = full dry/wet blend (native left/right). No wet-only.
   const silent = {
     "Dry L": inL,
     "Dry R": inR,
-    "Wet L": 0,
-    "Wet R": 0,
+    "Mix L": inL,
+    "Mix R": inR,
   };
   if (!wasm?.soemdsp_soem_reverb_create || !wasm?.soemdsp_soem_reverb_process) {
     return silent;
@@ -108,15 +109,13 @@ function nodeGraphSoemReverbSample(state, left, right, params, sampleRate, runti
   const nativeParams = { ...params, echoTime: echoSeconds };
   applySoemReverbParams(wasm, state, nativeParams);
   wasm.soemdsp_soem_reverb_process(state.nativeHandle, inL, inR);
-  const wetL = Number(wasm.soemdsp_soem_reverb_wet_left(state.nativeHandle));
-  const wetR = Number(wasm.soemdsp_soem_reverb_wet_right(state.nativeHandle));
-  const dryL = Number(wasm.soemdsp_soem_reverb_dry_left(state.nativeHandle));
-  const dryR = Number(wasm.soemdsp_soem_reverb_dry_right(state.nativeHandle));
+  const mixL = Number(wasm.soemdsp_soem_reverb_left(state.nativeHandle));
+  const mixR = Number(wasm.soemdsp_soem_reverb_right(state.nativeHandle));
   return {
-    "Dry L": Number.isFinite(dryL) ? dryL : inL,
-    "Dry R": Number.isFinite(dryR) ? dryR : inR,
-    "Wet L": Number.isFinite(wetL) ? wetL : 0,
-    "Wet R": Number.isFinite(wetR) ? wetR : 0,
+    "Dry L": inL,
+    "Dry R": inR,
+    "Mix L": Number.isFinite(mixL) ? mixL : inL,
+    "Mix R": Number.isFinite(mixR) ? mixR : inR,
   };
 }
 

@@ -104,6 +104,11 @@ function syncNodeGraphScope2dBurnCanvas(canvas, screenElement, pixelRatio, pixel
   if (resized) {
     canvas.width = width;
     canvas.height = height;
+    // Pixel-space bridge point is invalid after a buffer resize (density /
+    // layout change). Leaving it in the old coordinate space draws a bright
+    // chord from the stale location to the new path — “lines out of place”
+    // on X/Y phosphor faces.
+    canvas._nodeGraphScope2dLastDrawnPoint = null;
   }
   // Below 1: intentional chunk. At/above 1: smooth CSS scale (AA when density > 1).
   if (density < 0.999) {

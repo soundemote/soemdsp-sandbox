@@ -169,6 +169,37 @@ NodeLiveAudioProcessor.prototype.pingPongInterpLinear = function pingPongInterpL
   return buffer[before] * (1 - mix) + buffer[after] * mix;
 };
 
+/** 4-point Hermite (Catmull-Rom). Prefer shared helper when present in the blob. */
+NodeLiveAudioProcessor.prototype.pingPongInterp = function pingPongInterp(buffer, where, interpolation = 1) {
+  if (typeof nodeGraphDelayInterpolate === "function") {
+    return nodeGraphDelayInterpolate(buffer, where, interpolation);
+  }
+  const mode = Math.round(Number(interpolation) || 0);
+  if (mode < 1) {
+    return this.pingPongInterpLinear(buffer, where);
+  }
+  const length = buffer?.length || 0;
+  if (!length) return 0;
+  let w = Number(where) || 0;
+  while (w < 0) w += length;
+  const whole = Math.floor(w);
+  const t = w - whole;
+  let i0 = whole % length;
+  if (i0 < 0) i0 += length;
+  const im1 = i0 === 0 ? length - 1 : i0 - 1;
+  const i1 = i0 + 1 >= length ? i0 + 1 - length : i0 + 1;
+  const i2 = i1 + 1 >= length ? i1 + 1 - length : i1 + 1;
+  const ym1 = buffer[im1] || 0;
+  const y0 = buffer[i0] || 0;
+  const y1 = buffer[i1] || 0;
+  const y2 = buffer[i2] || 0;
+  const c0 = y0;
+  const c1 = 0.5 * (y1 - ym1);
+  const c2 = ym1 - 2.5 * y0 + 2.0 * y1 - 0.5 * y2;
+  const c3 = 0.5 * (y2 - ym1) + 1.5 * (y0 - y1);
+  return ((c3 * t + c2) * t + c1) * t + c0;
+};
+
 /** Pure JS tape ping-pong (always available). */
 NodeLiveAudioProcessor.prototype.pingPongDelaySampleJs = function pingPongDelaySampleJs(state, input, params, rateHz) {
   const safeRate = Math.max(1, Number(rateHz) || sampleRate || 44100);
@@ -216,8 +247,9 @@ NodeLiveAudioProcessor.prototype.pingPongDelaySampleJs = function pingPongDelayS
   state.position = (state.position + 1) % state.bufferSize;
   const readPosL = (state.position + state.bufferSize - delaySamplesL) % state.bufferSize;
   const readPosR = (state.position + state.bufferSize - delaySamplesR) % state.bufferSize;
-  const readL = this.pingPongInterpLinear(state.bufferL, readPosL);
-  const readR = this.pingPongInterpLinear(state.bufferR, readPosR);
+  const interpMode = Math.round(Number(params.interpolation) || 0) >= 1 ? 1 : 0;
+  const readL = this.pingPongInterp(state.bufferL, readPosL, interpMode);
+  const readR = this.pingPongInterp(state.bufferR, readPosR, interpMode);
 
   const clippedL = this.pingPongSoftClip(dry + readR * feedback, saturate);
   const clippedR = this.pingPongSoftClip(readL * feedback, saturate);

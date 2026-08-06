@@ -253,16 +253,20 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           modRate: read("modRate", 0.1),
           modVariation: read("modVariation", 0),
           time: read("time", 0.18),
+          // 0 = linear, 1 = hermite (default hermite).
+          interpolation: read("interpolation", 1),
         };
         const delayMono = mixInput(nodeId);
         const monoResult = this.delayEffectSample(state.mono, delayMono, delayParams, safeRate, `${nodeId}:mono`);
         const leftResult = this.delayEffectSample(state.left, mixInput(nodeId, "Left") + delayMono, delayParams, safeRate, `${nodeId}:left`);
         const rightResult = this.delayEffectSample(state.right, mixInput(nodeId, "Right") + delayMono, delayParams, safeRate, `${nodeId}:right`);
+        // Dry = pure input; Mix = dry/wet blend. No wet-only jack.
         return {
-          Out: monoResult.Out,
-          Left: leftResult.Out,
-          Right: rightResult.Out,
-          Wet: monoResult.Wet,
+          Dry: monoResult.Dry,
+          Mix: monoResult.Mix ?? monoResult.Out,
+          Out: monoResult.Mix ?? monoResult.Out,
+          Left: leftResult.Mix ?? leftResult.Out,
+          Right: rightResult.Mix ?? rightResult.Out,
         };
       },
       pingPongDelay: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
@@ -275,6 +279,8 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           {
             feedback: read("feedback", 0.35),
             hpfFrequency: read("hpfFrequency", 20),
+            // 0 = linear, 1 = hermite (default hermite).
+            interpolation: read("interpolation", 1),
             level: read("level", 1),
             lfoRate: read("lfoRate", 0.35),
             lfoStyle: read("lfoStyle", 0),

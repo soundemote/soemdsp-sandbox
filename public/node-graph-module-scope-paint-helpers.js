@@ -1033,7 +1033,21 @@ function nodeGraphScope2dPointDistance(a, b) {
 function bridgeNodeGraphScope2dAdjacentFramePath(canvas, pathPoints, maxDistancePx, spacingPx) {
   const previousPoint = canvas?._nodeGraphScope2dLastDrawnPoint || null;
   const firstPoint = firstNodeGraphScope2dPathPoint(pathPoints);
-  if (!previousPoint || !firstPoint || nodeGraphScope2dPointDistance(previousPoint, firstPoint) > maxDistancePx) {
+  if (!previousPoint || !firstPoint) {
+    return pathPoints;
+  }
+  // Bridge gate stays tight even when the vector-trace discontinuity gate is
+  // loose (multi-orbit history). A long adjacent-frame bridge after a cursor
+  // glitch or residual desync paints a bright wrong chord across the face.
+  const faceMin = Math.min(
+    Math.max(1, Number(canvas?.width) || 1),
+    Math.max(1, Number(canvas?.height) || 1),
+  );
+  const bridgeMax = Math.min(
+    Math.max(1, Number(maxDistancePx) || 1),
+    Math.max(12, faceMin * 0.12),
+  );
+  if (nodeGraphScope2dPointDistance(previousPoint, firstPoint) > bridgeMax) {
     return pathPoints;
   }
   // One bridge vertex only — soft GPU beam segments already fill the gap

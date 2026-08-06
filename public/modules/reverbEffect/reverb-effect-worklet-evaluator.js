@@ -90,8 +90,8 @@ NodeLiveAudioProcessor.prototype.nativeSabrinaReverbSample = function nativeSabr
       }
       // Bypass mode: reverb is idle, pass dry signal straight through all outputs
       if (state.isIdle) {
-        // Dry L/R then Wet L/R (legacy Mix/Left Dry via outputAliases).
-        return { "Dry L": dryLeft, "Dry R": dryRight, "Wet L": dryLeft, "Wet R": dryRight };
+        // Dry = pure input; Mix = dry/wet blend (no wet-only outs).
+        return { "Dry L": dryLeft, "Dry R": dryRight, "Mix L": dryLeft, "Mix R": dryRight };
       }
       native.soemdsp_sabrina_reverb_process(state.nativeHandle, dryLeft, dryRight);
       const mixLeft = this.safeFilterNumber(native.soemdsp_sabrina_reverb_left?.(state.nativeHandle), null);
@@ -105,7 +105,7 @@ NodeLiveAudioProcessor.prototype.nativeSabrinaReverbSample = function nativeSabr
       } else {
         state.idleCounter = 0;
       }
-      return { "Dry L": dryLeft, "Dry R": dryRight, "Wet L": mixLeft, "Wet R": mixRight };
+      return { "Dry L": dryLeft, "Dry R": dryRight, "Mix L": mixLeft, "Mix R": mixRight };
     } catch (error) {
       this.nativeSabrinaReverbReady = false;
       if (state.nativeHandle && native.soemdsp_sabrina_reverb_destroy) {
@@ -132,6 +132,6 @@ NodeLiveAudioProcessor.prototype.sabrinaReverbSample = function sabrinaReverbSam
     if (nativeOutput) {
       return nativeOutput;
     }
-    return { "Dry L": dryLeft, "Dry R": dryRight, "Wet L": dryLeft, "Wet R": dryRight };
+    return { "Dry L": dryLeft, "Dry R": dryRight, "Mix L": dryLeft, "Mix R": dryRight };
   };
 

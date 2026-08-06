@@ -26,16 +26,32 @@ function nodeGraphPatchNodePortDisplayLabel(node, type, port, io) {
 }
 
 /**
- * Legacy name (was UI overshoot). DOMAIN never leaves min/max — only clears
- * stale unbounded* dataset keys from older sessions.
+ * Apply a DOMAIN parameter value onto a slider input.
+ * Clears legacy unbounded* dataset keys from older sessions, keeps
+ * `dataset.domainValue` aligned with the stored patch value (readouts and
+ * commit paths prefer domainValue over the HTML range thumb), and sets the
+ * thumb to an in-range display value when domain exceeds min/max.
  */
-function applyNodeGraphInputUnboundedValue(input, _value) {
+function applyNodeGraphInputUnboundedValue(input, value) {
   if (!input?.dataset) {
     return;
   }
   delete input.dataset.unboundedValue;
   delete input.dataset.unboundedMax;
   delete input.dataset.unboundedMin;
+  if (value === undefined || value === null || value === "") {
+    return;
+  }
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return;
+  }
+  input.dataset.domainValue = String(n);
+  if (typeof nodeSliderThumbDisplayValue === "function") {
+    input.value = String(nodeSliderThumbDisplayValue(input, n));
+  } else {
+    input.value = String(n);
+  }
 }
 
 function createNodeGraphIoColumn(node, type, ports, io) {

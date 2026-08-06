@@ -179,8 +179,8 @@ registerNodeGraphChromelessModule("rgbFractal", {
         nonlinearSlider: true,
         step: "any",
         tooltip:
-          "Face only. 1 = continuous energy→gradient (no ring wraps). "
-          + "Above 1 multi-wraps escape rings (psychedelic; can look banded). Soft damps wraps.",
+          "Face only. 1 = one pass through the gradient (structure energy → full spectrum once). "
+          + "Below 1 compresses toward low stops. Above 1 multi-wraps (psychedelic rings). Soft damps wraps.",
       },
     ],
     visualSink: true,

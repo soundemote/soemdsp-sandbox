@@ -633,6 +633,8 @@ function syncNodeGraphModuleScopeLocalFallbackCanvas(canvas, screenElement, pixe
     }
     canvas.width = width;
     canvas.height = height;
+    // Stale pixel-space bridge anchors must not survive a face buffer resize.
+    canvas._nodeGraphScope2dLastDrawnPoint = null;
     const context = previousCanvas ? canvas.getContext("2d") : null;
     if (context) {
       context.imageSmoothingEnabled = false;

@@ -3839,9 +3839,19 @@ const nodeGraphModuleDefinitions = (
     inputAliases: { Mono: "In" },
     inputLabels: { In: "Mono" },
     inputs: ["In", "Left", "Right"],
-    outputAliases: { Mono: "Out" },
-    outputLabels: { Out: "Mono" },
-    outputs: ["Out", "Left", "Right", "Wet"],
+    // Dry = unprocessed input; Mix = dry/wet blend (was Out). No wet-only jack.
+    outputAliases: {
+      Mono: "Mix",
+      Out: "Mix",
+      Wet: "Mix",
+    },
+    outputLabels: {
+      Dry: "Dry",
+      Mix: "Mix",
+      Left: "Mix L",
+      Right: "Mix R",
+    },
+    outputs: ["Dry", "Mix", "Left", "Right"],
     parameters: [
       { defaultValue: "0.18", key: "time", kind: "time", label: "Time", max: "4", maxDigits: 5, mid: "0.18", min: "0.001", step: "any", unit: "s" },
       { defaultValue: "0.25", key: "feedback", label: "Feedback", max: "2", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
@@ -3851,6 +3861,22 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0.1", key: "modRate", kind: "frequency", label: "Mod Rate", max: "90", maxDigits: 5, mid: "0.1", min: "0", step: "any", unit: "Hz" },
       { defaultValue: "0", key: "modVariation", label: "Variation", max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "any" },
       { choices: ["Delay", "Diffuse"], defaultValue: "0", displayChoices: true, divideChoicesVisibly: true, key: "mode", label: "Mode", linearSmoothing: false, max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "1" },
+      {
+        choices: ["Linear", "Hermite"],
+        defaultValue: "1",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "interpolation",
+        label: "Interp",
+        linearSmoothing: false,
+        max: "1",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip:
+          "Delay-line fractional read. Linear is cheapest; Hermite (Catmull-Rom) is smoother under modulation / pitch bend.",
+      },
     ],
   },
   pingPongDelay: {
@@ -4042,6 +4068,22 @@ const nodeGraphModuleDefinitions = (
       },
       { defaultValue: "0.35", key: "mix", label: "Mix", max: "1", mid: "0.35", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "1", key: "level", label: "Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
+      {
+        choices: ["Linear", "Hermite"],
+        defaultValue: "1",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "interpolation",
+        label: "Interp",
+        linearSmoothing: false,
+        max: "1",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip:
+          "Delay-line fractional read. Linear is cheapest; Hermite (Catmull-Rom) is smoother under LFO drift / pitch bend.",
+      },
     ],
   },
   wallDelay: {
@@ -4068,22 +4110,24 @@ const nodeGraphModuleDefinitions = (
     planRole: "processor",
     planFreeRun: true,
     displayType: "trace",
-    // Same wet/dry L/R scheme as SoEmReverb (and space FX in general).
-    stereoTracePorts: { left: "Wet L", right: "Wet R" },
+    // Dry = pure input; Mix = dry/wet blend (no wet-only jacks).
+    stereoTracePorts: { left: "Mix L", right: "Mix R" },
     inputs: ["In", "Left", "Right"],
-    // Legacy Left Mix / Right Mix / Left Dry / … map → Wet/Dry L/R.
+    // Legacy Wet / Left Mix / … → Mix L/R.
     outputAliases: {
-      "Left Mix": "Wet L",
-      "Right Mix": "Wet R",
-      "Mono Mix": "Wet L",
+      "Wet L": "Mix L",
+      "Wet R": "Mix R",
+      "Left Mix": "Mix L",
+      "Right Mix": "Mix R",
+      "Mono Mix": "Mix L",
       "Left Dry": "Dry L",
       "Right Dry": "Dry R",
       "Mono Dry": "Dry L",
     },
-    // Dry before Wet (convention for space FX outlet order).
-    outputs: ["Dry L", "Dry R", "Wet L", "Wet R"],
+    // Dry before Mix (space FX outlet order).
+    outputs: ["Dry L", "Dry R", "Mix L", "Mix R"],
     parameters: [
-      { defaultValue: "0.43", key: "mix", label: "Mix", max: "1", mid: "0.43", min: "0", nonlinearSlider: false, step: "any", tooltip: "Wet/dry balance for the reverb output." },
+      { defaultValue: "0.43", key: "mix", label: "Mix", max: "1", mid: "0.43", min: "0", nonlinearSlider: false, step: "any", tooltip: "Dry/wet balance on the Mix outputs (not a wet-only path)." },
       { defaultValue: "0.35", key: "diffusionSize", label: "Diffusion Size", max: "1", mid: "0.35", min: "0", nonlinearSlider: false, smoothingSeconds: 0.05, step: "any", tooltip: "Size of the diffusion network." },
       { defaultValue: "0.70", key: "diffusionAmount", label: "Diffusion Amount", max: "0.98", mid: "0.70", min: "0", nonlinearSlider: false, step: "any", tooltip: "Strength of early diffusion." },
       { defaultValue: "0.02", key: "delaySize", label: "Delay Size", max: "1", mid: "0.02", min: "0", nonlinearSlider: false, smoothingSeconds: 0.05, step: "any", tooltip: "Main reverb delay length." },
@@ -4104,12 +4148,22 @@ const nodeGraphModuleDefinitions = (
       { key: "trace", label: "Trace", renderer: "trace", settingsSchema: "trace" },
     ],
     defaultDisplayMode: "trace",
-    stereoTracePorts: { left: "Wet L", right: "Wet R" },
+    stereoTracePorts: { left: "Mix L", right: "Mix R" },
     inputs: ["Mono", "Left", "Right"],
-    // Dry before Wet (convention for space FX outlet order).
-    outputs: ["Dry L", "Dry R", "Wet L", "Wet R"],
+    // Dry = pure input; Mix = full dry/wet blend (no wet-only jacks).
+    outputAliases: {
+      "Wet L": "Mix L",
+      "Wet R": "Mix R",
+      "Left Mix": "Mix L",
+      "Right Mix": "Mix R",
+      "Mono Mix": "Mix L",
+      "Left Dry": "Dry L",
+      "Right Dry": "Dry R",
+      "Mono Dry": "Dry L",
+    },
+    outputs: ["Dry L", "Dry R", "Mix L", "Mix R"],
     parameters: [
-      { defaultValue: "0.43", key: "mix", label: "Mix", max: "1", mid: "0.43", min: "0", step: "any" },
+      { defaultValue: "0.43", key: "mix", label: "Mix", max: "1", mid: "0.43", min: "0", step: "any", tooltip: "Dry/wet balance on the Mix outputs." },
       { defaultValue: "1", key: "volume", label: "Volume", max: "4", mid: "1", min: "0", step: "any" },
       {
         choices: ["Off", "On"],

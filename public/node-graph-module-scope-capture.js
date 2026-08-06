@@ -361,6 +361,44 @@ function nodeGraphModuleScopeCapturedXyTraceFrameCount(slot, length) {
 }
 
 
+/**
+ * Absolute sample counter for a live scope buffer.
+ * Prefer nodeGraphScopeAbsoluteFrame (visual input rings); fall back to
+ * totalSampleCount (module port streams).
+ */
+function nodeGraphScopeBufferAbsoluteFrame(buffer) {
+  const abs = Math.floor(Number(buffer?.nodeGraphScopeAbsoluteFrame) || 0);
+  if (abs > 0) {
+    return abs;
+  }
+  return Math.max(0, Math.floor(Number(buffer?.nodeGraphScopeTotalSampleCount) || 0));
+}
+
+/**
+ * Read one sample from a retained scope buffer at an absolute frame index.
+ * Live buffers keep the newest samples at the end of the array.
+ * Returns null when that frame is outside the retained window.
+ */
+function nodeGraphScopeBufferSampleAtAbsoluteFrame(buffer, absoluteFrame) {
+  if (!buffer?.length) {
+    return null;
+  }
+  const abs = nodeGraphScopeBufferAbsoluteFrame(buffer);
+  const retained = nodeGraphScopeAvailableSampleCount(buffer);
+  const frame = Math.floor(Number(absoluteFrame) || 0);
+  if (abs <= 0 || retained <= 0 || frame < abs - retained || frame >= abs) {
+    return null;
+  }
+  // Newest sample (abs-1) sits at index length-1; age 0 = newest.
+  const age = abs - 1 - frame;
+  const index = buffer.length - 1 - age;
+  if (index < 0 || index >= buffer.length) {
+    return null;
+  }
+  const value = Number(buffer[index]);
+  return Number.isFinite(value) ? value : 0;
+}
+
 function nodeGraphModuleScopeCapturedScope2dBuffer(slot, options = {}) {
   if (!["scope2d", "scope2dTrace", "phosphorLight"].includes(nodeGraphModuleDisplayRendererForSlot(slot))) {
     return null;
@@ -385,14 +423,17 @@ function nodeGraphModuleScopeCapturedScope2dBuffer(slot, options = {}) {
   if (hasRecentSampleMetadata && !(xRecentSamples > 0 && yRecentSamples > 0)) {
     return null;
   }
-  const validLength = Math.min(
-    nodeGraphScopeAvailableSampleCount(xBuffer),
-    nodeGraphScopeAvailableSampleCount(yBuffer),
-    length,
-  );
-  const xTotal = Math.max(0, Math.floor(Number(xBuffer.nodeGraphScopeTotalSampleCount) || 0));
-  const yTotal = Math.max(0, Math.floor(Number(yBuffer.nodeGraphScopeTotalSampleCount) || 0));
-  const absoluteFrame = Math.min(xTotal, yTotal);
+  const xRetained = nodeGraphScopeAvailableSampleCount(xBuffer);
+  const yRetained = nodeGraphScopeAvailableSampleCount(yBuffer);
+  const validLength = Math.min(xRetained, yRetained, length);
+  const xTotal = nodeGraphScopeBufferAbsoluteFrame(xBuffer);
+  const yTotal = nodeGraphScopeBufferAbsoluteFrame(yBuffer);
+  // Shared timeline so X/Y pair by absolute frame — not by array index.
+  // When totals drift (one port skipped a batch), end-aligned index pairing
+  // draws Lissajous chords in the wrong place.
+  const absoluteFrame = xTotal > 0 && yTotal > 0
+    ? Math.min(xTotal, yTotal)
+    : Math.max(xTotal, yTotal);
   const canvas = nodeGraphScope2dBurnCanvasForSlot(slot);
   const lastDrawnFrame = Number(canvas?._nodeGraphScope2dLastDrawnFrame);
   const newSinceLastDraw = Number.isFinite(lastDrawnFrame) && absoluteFrame > lastDrawnFrame
@@ -418,13 +459,40 @@ function nodeGraphModuleScopeCapturedScope2dBuffer(slot, options = {}) {
   if (validLength > 0) {
     frames = Math.max(2, Math.min(validLength, frames));
   }
-  const start = Math.max(0, length - frames);
+  // Overlap of the two retained windows on the shared absolute timeline.
+  if (xTotal > 0 && yTotal > 0) {
+    const overlapStart = Math.max(xTotal - xRetained, yTotal - yRetained);
+    const overlapEnd = Math.min(xTotal, yTotal);
+    const overlap = Math.max(0, overlapEnd - overlapStart);
+    if (overlap > 0) {
+      frames = Math.min(frames, overlap);
+    }
+  }
   const startFrame = Math.max(0, absoluteFrame - frames);
   const x = new Float32Array(frames);
   const y = new Float32Array(frames);
-  for (let index = 0; index < frames; index += 1) {
-    x[index] = Number(xBuffer[start + index]) || 0;
-    y[index] = Number(yBuffer[start + index]) || 0;
+  const useAbsolutePairing = xTotal > 0 && yTotal > 0;
+  if (useAbsolutePairing) {
+    for (let index = 0; index < frames; index += 1) {
+      const frame = startFrame + index;
+      const xv = nodeGraphScopeBufferSampleAtAbsoluteFrame(xBuffer, frame);
+      const yv = nodeGraphScopeBufferSampleAtAbsoluteFrame(yBuffer, frame);
+      // Missing either channel breaks the polyline (do not invent 0,0).
+      if (xv === null || yv === null) {
+        x[index] = Number.NaN;
+        y[index] = Number.NaN;
+      } else {
+        x[index] = xv;
+        y[index] = yv;
+      }
+    }
+  } else {
+    // Legacy buffers without absolute counters: end-aligned pairing.
+    const start = Math.max(0, length - frames);
+    for (let index = 0; index < frames; index += 1) {
+      x[index] = Number(xBuffer[start + index]) || 0;
+      y[index] = Number(yBuffer[start + index]) || 0;
+    }
   }
   return {
     length: frames,

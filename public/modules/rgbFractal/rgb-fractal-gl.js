@@ -1,5 +1,7 @@
 // Soft Fractal — WebGL full-face Julia (Milkdrop-class path).
 // Fragment shader does smooth escape + orbit traps; palette is a 256×1 LUT texture.
+// Bump when fragment/vertex source changes so live sessions recompile (not keep a stale program).
+const NODE_GRAPH_RGB_FRACTAL_GL_REV = 4;
 
 const NODE_GRAPH_RGB_FRACTAL_GL_VS = `
 attribute vec2 aPos;
@@ -141,33 +143,33 @@ float sampleAt(vec2 frag, vec2 offsetPx, float maxIter, float soft, float trapMi
   return juliaEnergy(z0, uC, maxIter, soft, trapMix);
 }
 
-// Cheap hash in [0,1) for LUT dither (breaks 8-bit palette posterization).
-float hash21(vec2 p) {
-  return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
-}
-
-// Sample 256×1 palette. t is clamped (no wrap) so structure never hits a
-// fract seam. Soft widens the LUT low-pass to hide stop-to-stop steps.
+// Sample 256×1 palette. Soft Fractal is fully gradient-compatible: energy
+// 0…1 is one trip through the LUT (see eColor below). Soft low-passes the
+// LUT so multi-stop palettes read as a cream spectrum, not posterized rings.
+// Texel centers: (t * 255 + 0.5) / 256 so LINEAR filter does not grab edges.
 vec3 paletteSample(float t, float soft) {
   float e = clamp(t, 0.0, 1.0);
-  // Tiny ordered dither in LUT space (~1–2 entries) — kills contour steps
-  // from 8-bit texture quantization without looking noisy.
-  float dith = (hash21(gl_FragCoord.xy) - 0.5) * mix(1.5, 3.0, soft) / 255.0;
-  e = clamp(e + dith, 0.0, 1.0);
-
-  vec3 c0 = texture2D(uPalette, vec2(e, 0.5)).rgb;
-  float w = mix(0.012, 0.09, soft);
-  // Edge-safe offsets (no fract wrap → no false color at 0/1).
+  float u = (e * 255.0 + 0.5) / 256.0;
+  vec3 c0 = texture2D(uPalette, vec2(u, 0.5)).rgb;
+  // Soft: wider LUT blur (no spatial hash — that read as grainy noise).
+  float w = mix(0.0, 0.07, soft);
+  if (w < 0.001) {
+    return c0;
+  }
   float eL = clamp(e - w, 0.0, 1.0);
   float eR = clamp(e + w, 0.0, 1.0);
   float eLL = clamp(e - w * 2.0, 0.0, 1.0);
   float eRR = clamp(e + w * 2.0, 0.0, 1.0);
-  vec3 cL = texture2D(uPalette, vec2(eL, 0.5)).rgb;
-  vec3 cR = texture2D(uPalette, vec2(eR, 0.5)).rgb;
-  vec3 cLL = texture2D(uPalette, vec2(eLL, 0.5)).rgb;
-  vec3 cRR = texture2D(uPalette, vec2(eRR, 0.5)).rgb;
+  float uL = (eL * 255.0 + 0.5) / 256.0;
+  float uR = (eR * 255.0 + 0.5) / 256.0;
+  float uLL = (eLL * 255.0 + 0.5) / 256.0;
+  float uRR = (eRR * 255.0 + 0.5) / 256.0;
+  vec3 cL = texture2D(uPalette, vec2(uL, 0.5)).rgb;
+  vec3 cR = texture2D(uPalette, vec2(uR, 0.5)).rgb;
+  vec3 cLL = texture2D(uPalette, vec2(uLL, 0.5)).rgb;
+  vec3 cRR = texture2D(uPalette, vec2(uRR, 0.5)).rgb;
   vec3 blur = cLL * 0.1 + cL * 0.25 + c0 * 0.3 + cR * 0.25 + cRR * 0.1;
-  return mix(c0, blur, clamp(0.35 + soft * 0.75, 0.0, 1.0));
+  return mix(c0, blur, clamp(soft * 1.15, 0.0, 1.0));
 }
 
 void main() {
@@ -241,31 +243,39 @@ void main() {
     ? smoothstep(0.0, 0.28, e) * (1.0 - lit * 0.55)
     : smoothstep(0.0, mix(0.14, 0.3, softEase), e) * (1.0 - lit) * softEase * 0.65;
 
-  // —— Color (banding fix) —————————————————————————————————————————————
-  // Do NOT fract(e + phase) or gate phase by lit — both create concentric
-  // palette seams on escape rings. Default: continuous energy → LUT.
-  // Color Shift / Rate: global scrub of the LUT (same offset for every pixel).
-  // Color Bands > 1: optional multi-wrap (psychedelic); Soft heavily damps it.
-  float phase = fract(uColorPhase); // 0…1 global only
+  // —— Color (gradient-compatible) ————————————————————————————————————
+  // Soft Fractal IS compatible with multi-stop gradients. Contract:
+  //   energy 0…1  →  one trip through the LUT (bands = 1)
+  //   Color Rate / Shift  →  rotate that mapping (fract), not clamp-scrub
+  // Clamp-side phase scrub (old “banding fix”) piled colors at the ends of
+  // the spectrum and looked multi-banded/noisy. True rotation + Soft LUT
+  // blur matches the first implementation’s cream look.
+  float phase = fract(uColorPhase);
   float eStruct = clamp(e * mix(1.0, uBreath, max(lit, aura * 0.4)), 0.0, 1.0);
+  // Soft flattens escape iso-rings so multi-stop palettes don’t posterize.
+  eStruct = mix(eStruct, eStruct * eStruct * (3.0 - 2.0 * eStruct), softEase * 0.4);
 
-  // Continuous map: stretch structure through the gradient, then add phase as
-  // a clamp-side scrub (no modular wrap through structure).
-  float stretch = mix(1.0, 0.85, softEase);
-  float eColor = clamp(eStruct * stretch + (phase - 0.5) * mix(0.55, 0.35, softEase) * 2.0, 0.0, 1.0);
-
-  // Multi-wrap only when user explicitly raises Bands above ~1.
-  float bandExtra = max(0.0, uBands - 1.0);
-  if (bandExtra > 0.001) {
-    float wrapAmt = clamp(bandExtra / 8.0, 0.0, 1.0) * (1.0 - softEase * 0.92);
+  float b = max(0.25, uBands);
+  float eColor;
+  if (b <= 1.001) {
+    // One spectrum pass. b < 1 compresses toward low stops; b = 1 full range.
+    // Phase rotates the whole mapping (Milkdrop-style) without re-wrapping structure.
+    float span = clamp(b, 0.25, 1.0);
+    float once = eStruct * span;
+    // Soft: more weight on continuous energy (cream); less harsh phase spin.
+    float rotated = fract(once + phase);
+    eColor = mix(rotated, once, softEase * 0.38);
+  } else {
+    // Multi-wrap only when Color Bands > 1 (explicit psychedelic mode).
+    float wrapAmt = clamp((b - 1.0) / 8.0, 0.0, 1.0) * (1.0 - softEase * 0.9);
     wrapAmt *= max(lit, aura * 0.35);
-    // Smooth wrap: avoid a hard seam by blending near 0/1 of fract.
-    float raw = eStruct * (1.0 + bandExtra) + phase;
+    float raw = eStruct * b + phase;
     float f = fract(raw);
     float seam = min(f, 1.0 - f);
-    float seamSoft = smoothstep(0.0, mix(0.02, 0.08, softEase), seam);
-    float eWrap = mix(0.5, f, seamSoft); // pull seam toward mid palette
-    eColor = mix(eColor, eWrap, wrapAmt);
+    float seamSoft = smoothstep(0.0, mix(0.025, 0.1, softEase), seam);
+    float eWrap = mix(0.5, f, seamSoft);
+    float once = eStruct;
+    eColor = mix(once, eWrap, wrapAmt);
   }
   eColor = clamp(eColor, 0.0, 1.0);
 
@@ -403,11 +413,15 @@ function nodeGraphRgbFractalGlEnsure(canvas) {
     return null;
   }
   let state = nodeGraphRgbFractalGlStates.get(canvas);
-  if (state?.gl && !state.lost) {
+  // Stale program after shader source edit — drop and rebuild on this canvas.
+  if (state?.gl && !state.lost && state.rev === NODE_GRAPH_RGB_FRACTAL_GL_REV) {
     return state;
   }
-  if (state?.failed) {
+  if (state?.failed && state.rev === NODE_GRAPH_RGB_FRACTAL_GL_REV) {
     return null;
+  }
+  if (state) {
+    nodeGraphRgbFractalGlStates.delete(canvas);
   }
 
   let gl = null;
@@ -501,6 +515,7 @@ function nodeGraphRgbFractalGlEnsure(canvas) {
       uniforms,
       paletteTex,
       paletteKey: "",
+      rev: NODE_GRAPH_RGB_FRACTAL_GL_REV,
       lost: false,
       failed: false,
     };
@@ -518,7 +533,7 @@ function nodeGraphRgbFractalGlEnsure(canvas) {
     return state;
   } catch (err) {
     console.warn("[Soft Fractal] WebGL init failed, using CPU fallback", err);
-    nodeGraphRgbFractalGlStates.set(canvas, { failed: true });
+    nodeGraphRgbFractalGlStates.set(canvas, { failed: true, rev: NODE_GRAPH_RGB_FRACTAL_GL_REV });
     return null;
   }
 }
@@ -613,7 +628,8 @@ function nodeGraphRgbFractalGlPaint(canvas, params) {
   gl.uniform2f(U.uTrapPoint, params.trapX, params.trapY);
   gl.uniform1f(U.uTime, params.time);
   gl.uniform1f(U.uFold, Number(params.fold) || 0);
-  gl.uniform1f(U.uBands, Number.isFinite(Number(params.bands)) ? Number(params.bands) : 1.65);
+  // Default 1 = one trip through the gradient (not multi-wrap psychedelia).
+  gl.uniform1f(U.uBands, Number.isFinite(Number(params.bands)) ? Number(params.bands) : 1);
   gl.uniform1f(U.uDomainWarp, Number(params.domainWarp) || 0);
   const outerPlate = String(params.outerPlate || "background");
   const outerMode = outerPlate === "haze" ? 2
