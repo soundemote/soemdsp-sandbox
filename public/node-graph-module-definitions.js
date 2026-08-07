@@ -365,7 +365,7 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         key: "amplitude",
         label: "Amplitude",
-        max: "1000000",
+        max: "1",
         mid: "1",
         min: "0",
         step: "0.01",
@@ -581,7 +581,7 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         key: "amplitude",
         label: "Amplitude",
-        max: "1000000",
+        max: "1",
         mid: "1",
         min: "0",
         nonlinearSlider: false,
@@ -663,12 +663,16 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         key: "amplitude",
         label: "Amplitude",
-        max: "1000000",
-        mid: "1",
+        // Slider guide 0…1 (full-scale wave). Domain is not hard-clamped —
+        // type larger values or use MOD if you want overdrive / CV gain.
+        max: "1",
+        mid: "0.5",
         min: "0",
         nonlinearSlider: false,
         step: "any",
         modClamp: false,
+        tooltip:
+          "Output level. Slider 0…1 = full-scale bipolar wave. Min/max are guides only — type large values for gain past unity (domain not hard-clamped).",
       },
     ],
   },
@@ -738,7 +742,7 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         key: "amplitude",
         label: "Amplitude",
-        max: "1000000",
+        max: "1",
         mid: "1",
         min: "0",
         nonlinearSlider: false,
@@ -846,7 +850,7 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         key: "amplitude",
         label: "Amplitude",
-        max: "1000000",
+        max: "1",
         mid: "1",
         min: "0",
         nonlinearSlider: false,
@@ -862,7 +866,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Out"],
     parameters: [
       { defaultValue: "0.1", key: "normFreq", label: "Norm Freq", max: "1.5", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
-      { defaultValue: "1", key: "amplitude", label: "Amplitude", max: "1000000", mid: "1", min: "0", nonlinearSlider: false, step: "any" , modClamp: false },
+      { defaultValue: "1", key: "amplitude", label: "Amplitude", max: "1", mid: "1", min: "0", nonlinearSlider: false, step: "any" , modClamp: false },
     ],
   },
   additiveOsc: {
@@ -919,7 +923,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0", key: "harmonicPhaseMultiply", label: "Phase Multiply", max: "4", mid: "1", min: "0", step: "any" },
       { constraint: "cpu", defaultValue: "32", key: "harmonics", label: "Harmonics", max: "1024", mid: "32", min: "1", step: "1" },
       { defaultValue: "20000", key: "dampingFilterFrequency", kind: "frequency", label: "Filter Frequency", max: "20000", mid: "2000", min: "20", step: "any", unit: "Hz" },
-      { defaultValue: "0.35", key: "amplitude", label: "Amplitude", max: "1000000", mid: "1", min: "0", nonlinearSlider: false, step: "any" , modClamp: false },
+      { defaultValue: "0.35", key: "amplitude", label: "Amplitude", max: "1", mid: "1", min: "0", nonlinearSlider: false, step: "any" , modClamp: false },
     ],
   },
   gpuAdditiveOsc: {
@@ -976,7 +980,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0", key: "harmonicPhaseMultiply", label: "Phase Multiply", max: "4", mid: "1", min: "0", step: "any" },
       { constraint: "gpu", defaultValue: "256", key: "harmonics", label: "Harmonics", max: "4096", mid: "256", min: "1", step: "1" },
       { defaultValue: "20000", key: "dampingFilterFrequency", kind: "frequency", label: "Filter Frequency", max: "20000", mid: "2000", min: "20", step: "any", unit: "Hz" },
-      { defaultValue: "0.35", key: "amplitude", label: "Amplitude", max: "1000000", mid: "1", min: "0", nonlinearSlider: false, step: "any" , modClamp: false },
+      { defaultValue: "0.35", key: "amplitude", label: "Amplitude", max: "1", mid: "1", min: "0", nonlinearSlider: false, step: "any" , modClamp: false },
     ],
   },
   // RoundShape — sine→square modulator (getSineToSquare). Separate from full Ellipsoid osc.
@@ -1110,7 +1114,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["X", "Y", "Z"],
     parameters: [
       { key: "frequency", label: "Frequency", defaultValue: "440", min: "40", mid: "440", max: "2000", step: "any", unit: "Hz" },
-      { key: "density", label: "Density", defaultValue: "1", min: "0.1", mid: "1", max: "16", step: "0.01" },
+      { constraint: "cpu", key: "density", label: "Density", defaultValue: "1", min: "0.1", mid: "1", max: "16", step: "0.01" },
       { key: "size", label: "Size", defaultValue: "0.5", min: "0.1", mid: "0.5", max: "4", step: "0.01" },
       { key: "sharp", label: "Sharp", defaultValue: "0.5", min: "0.01", mid: "0.5", max: "0.99", step: "0.01" },
       { key: "sharpCurve", label: "Sharp Curve", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01" },
@@ -1121,7 +1125,7 @@ const nodeGraphModuleDefinitions = (
       { key: "rotY", label: "Rot Y", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01", kind: "phase", wraparound: true },
       { key: "zDepth", label: "Z Depth", defaultValue: "0", min: "0", mid: "0", max: "1", step: "0.01" },
       { key: "zAmount", label: "Z Amount", defaultValue: "0", min: "0", mid: "0", max: "1", step: "0.01" },
-      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1000000", step: "0.01" , modClamp: false },
+      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ],
   },
   fractalSpiral: {
@@ -1148,7 +1152,7 @@ const nodeGraphModuleDefinitions = (
       { key: "lacunarity", label: "Detail (Lacunarity)", defaultValue: "2", min: "1.1", mid: "4", max: "8", step: "0.01" },
       { key: "twist", label: "Golden Twist", defaultValue: "0.381966", min: "0", mid: "0.5", max: "1", step: "0.000001", kind: "phase", wraparound: true },
       { key: "spin", label: "Spin", defaultValue: "0.05", min: "-4", mid: "0", max: "4", step: "0.001" },
-      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1000000", step: "0.01" , modClamp: false },
+      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ],
   },
   logSpiral: {
@@ -1172,7 +1176,7 @@ const nodeGraphModuleDefinitions = (
       { key: "size", label: "Size", defaultValue: "0.5", min: "0.01", mid: "0.5", max: "2", step: "0.01" },
       { key: "growth", label: "Growth", defaultValue: "3", min: "-12", mid: "0", max: "12", step: "0.01" },
       { key: "spin", label: "Spin", defaultValue: "0.05", min: "-4", mid: "0", max: "4", step: "0.001" },
-      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1000000", step: "0.01" , modClamp: false },
+      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ],
   },
   lorenzAttractor: {
@@ -1199,7 +1203,7 @@ const nodeGraphModuleDefinitions = (
       { key: "scale", label: "Scale", defaultValue: "1", min: "0", mid: "1", max: "4", step: "0.01" },
       { key: "rotate", label: "Rotate", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01", kind: "phase", unit: "cycle", wraparound: true },
       { key: "zDepth", label: "Z Depth", defaultValue: "0.4", min: "0", mid: "0.4", max: "1", step: "0.01" },
-      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1000000", step: "0.01" , modClamp: false },
+      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ],
   },
   logisticMap: {
@@ -1218,7 +1222,7 @@ const nodeGraphModuleDefinitions = (
       { key: "rate", label: "Rate", kind: "frequency", defaultValue: "8", min: "0", mid: "20", max: "2000", maxDigits: 5, step: "any" },
       { key: "r", label: "R", defaultValue: "3.9", min: "0", mid: "2", max: "4", step: "0.0001" },
       { key: "seed", label: "Seed", defaultValue: "0.5", min: "0.0001", mid: "0.5", max: "0.9999", step: "0.0001" },
-      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1000000", step: "0.01" , modClamp: false },
+      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ],
   },
   antisaw: {
@@ -1228,7 +1232,7 @@ const nodeGraphModuleDefinitions = (
       { key: "fundamental", label: "Fundamental", kind: "frequency", defaultValue: "110", min: "0", mid: "1000", max: "20000", step: "any", unit: "Hz" },
       { key: "reflections", label: "Reflections", defaultValue: "64", min: "1", mid: "128", max: "256", step: "1" },
       { key: "tilt", label: "Tilt", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "any" },
-      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1000000", step: "any" , modClamp: false },
+      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "any" , modClamp: false },
     ],
   },
   bradley2a: {
@@ -1250,7 +1254,7 @@ const nodeGraphModuleDefinitions = (
       { key: "hitGain", label: "Gain Hit", defaultValue: "1", min: "0", mid: "1", max: "4", step: "any" },
       { key: "hitPhase", label: "Phase Hit", defaultValue: "0", min: "-3.141592653589793", mid: "0", max: "3.141592653589793", step: "any" },
       { key: "impulseLevel", label: "Impulse", defaultValue: "0", min: "0", mid: "0.25", max: "1", step: "any" },
-      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1000000", step: "any" , modClamp: false },
+      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "any" , modClamp: false },
     ],
   },
   henonMap: {
@@ -1274,7 +1278,7 @@ const nodeGraphModuleDefinitions = (
       { key: "b", label: "B", defaultValue: "0.3", min: "-1", mid: "0", max: "1", step: "0.0001" },
       { key: "seedX", label: "Seed X", defaultValue: "0.1", min: "-1", mid: "0", max: "1", step: "0.0001" },
       { key: "seedY", label: "Seed Y", defaultValue: "0.1", min: "-1", mid: "0", max: "1", step: "0.0001" },
-      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1000000", step: "0.01" , modClamp: false },
+      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ],
   },
   // rayBouncer: solid chromeless registration (public/modules/rayBouncer/*-register.js).
@@ -1297,17 +1301,17 @@ const nodeGraphModuleDefinitions = (
       { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "8", min: "0", mid: "20", max: "2000", maxDigits: 5, step: "any" },
       { key: "sharp", label: "Sharp", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01" },
       { key: "cross", label: "Cross", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01" },
-      { key: "density", label: "Density", defaultValue: "0.8", min: "0", mid: "1", max: "8", step: "0.01" },
+      { constraint: "cpu", key: "density", label: "Density", defaultValue: "0.8", min: "0", mid: "1", max: "8", step: "0.01" },
       { key: "length", label: "Length", defaultValue: "1", min: "0", mid: "1", max: "2", step: "0.01" },
       { key: "rotate", label: "Rotate", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "0.01" },
       { key: "splashDepth", label: "Splash", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01" },
-      { key: "splashDensity", label: "Splash Density", defaultValue: "0", min: "0", mid: "4", max: "16", step: "0.01" },
+      { constraint: "cpu", key: "splashDensity", label: "Splash Density", defaultValue: "0", min: "0", mid: "4", max: "16", step: "0.01" },
       { key: "cut", label: "Cut", defaultValue: "1000", min: "2", mid: "500", max: "1000", step: "1" },
       { key: "scrap", label: "Scrap", defaultValue: "1", min: "0.0001", mid: "0.5", max: "1", step: "0.0001" },
       { key: "ringCut", label: "Ring Cut", defaultValue: "10", min: "1", mid: "5", max: "10", step: "0.01" },
       { key: "splashSpeed", label: "Splash Speed", defaultValue: "0", min: "-20", mid: "0", max: "20", step: "0.01" },
       { key: "syncCut", label: "Sync Cut", defaultValue: "1", min: "0", mid: "0.5", max: "1", step: "0.01" },
-      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1000000", step: "0.01" , modClamp: false },
+      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ],
   },
   blubb: {
@@ -1331,7 +1335,7 @@ const nodeGraphModuleDefinitions = (
       { key: "rotX", label: "Rot X", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "0.01" },
       { key: "rotY", label: "Rot Y", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "0.01" },
       { key: "zDepth", label: "Z Depth", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01" },
-      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1000000", step: "0.01" , modClamp: false },
+      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ],
   },
   mushroom: {
@@ -1352,9 +1356,9 @@ const nodeGraphModuleDefinitions = (
     parameters: [
       { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "8", min: "0", mid: "20", max: "2000", maxDigits: 5, step: "any" },
       { key: "phaseOffset", label: "Phase", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "0.01" },
-      { key: "numMushrooms", label: "Num Mushrooms", defaultValue: "1", min: "-5", mid: "1", max: "5", step: "1" },
+      { constraint: "cpu", key: "numMushrooms", label: "Num Mushrooms", defaultValue: "1", min: "-5", mid: "1", max: "5", step: "1" },
       { key: "grow", label: "Grow", defaultValue: "1", min: "0", mid: "0.5", max: "1", step: "0.01" },
-      { key: "density", label: "Density", defaultValue: "3", min: "0", mid: "3", max: "100", step: "0.01" },
+      { constraint: "cpu", key: "density", label: "Density", defaultValue: "3", min: "0", mid: "3", max: "100", step: "0.01" },
       { key: "capRotation", label: "Cap Rotation", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "0.01" },
       { key: "stemRotationSpeed", label: "Stem Rotation Speed", defaultValue: "0", min: "-20", mid: "0", max: "20", step: "0.01" },
       { key: "head", label: "Head", defaultValue: "0.6667", min: "0", mid: "0.5", max: "1", step: "0.01" },
@@ -1367,7 +1371,7 @@ const nodeGraphModuleDefinitions = (
       { key: "stem", label: "Stem", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01" },
       { key: "apart", label: "Apart", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01" },
       { key: "capStemTransition", label: "Cap/Stem Transition", defaultValue: "0.1", min: "0", mid: "0.5", max: "1", step: "0.01" },
-      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1000000", step: "0.01" , modClamp: false },
+      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ],
   },
   boing: {
@@ -1387,7 +1391,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["X", "Y"],
     parameters: [
       { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "8", min: "0", mid: "20", max: "2000", maxDigits: 5, step: "any" },
-      { key: "density", label: "Density", defaultValue: "1", min: "0", mid: "4", max: "16", step: "0.01" },
+      { constraint: "cpu", key: "density", label: "Density", defaultValue: "1", min: "0", mid: "4", max: "16", step: "0.01" },
       { key: "sharpness", label: "Sharpness", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "0.01" },
       { key: "rotX", label: "Rot X", defaultValue: "0", min: "-180", mid: "0", max: "180", step: "0.1" },
       { key: "rotY", label: "Rot Y", defaultValue: "0", min: "-180", mid: "0", max: "180", step: "0.1" },
@@ -1400,7 +1404,7 @@ const nodeGraphModuleDefinitions = (
       { key: "shape", label: "Shape", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01" },
       { key: "volume", label: "Volume", defaultValue: "1", min: "0", mid: "1", max: "2", step: "0.01" },
       { key: "volumePreJump", label: "Volume Pre-Jump", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "1" },
-      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1000000", step: "0.01" , modClamp: false },
+      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ],
   },
   torus: {
@@ -1420,9 +1424,9 @@ const nodeGraphModuleDefinitions = (
     outputs: ["X", "Y"],
     parameters: [
       { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "8", min: "0", mid: "20", max: "2000", maxDigits: 5, step: "any" },
-      { key: "density", label: "Density", defaultValue: "1", min: "0", mid: "5", max: "50", step: "0.01" },
+      { constraint: "cpu", key: "density", label: "Density", defaultValue: "1", min: "0", mid: "5", max: "50", step: "0.01" },
       { key: "quantizeDensity", label: "Quantize Density", defaultValue: "1", min: "0", mid: "0.5", max: "1", step: "1" },
-      { key: "subdensity", label: "Sub Density", defaultValue: "0", min: "0", mid: "1", max: "2", step: "0.01" },
+      { constraint: "cpu", key: "subdensity", label: "Sub Density", defaultValue: "0", min: "0", mid: "1", max: "2", step: "0.01" },
       { key: "quantizeSubDensity", label: "Quantize Sub Density", defaultValue: "1", min: "0", mid: "0.5", max: "1", step: "1" },
       { key: "sharp", label: "Sharp", defaultValue: "0.5", min: "0", mid: "0.5", max: "1", step: "0.01" },
       { key: "size", label: "Size", defaultValue: "1", min: "0.1", mid: "0.5", max: "1", step: "0.01" },
@@ -1437,7 +1441,7 @@ const nodeGraphModuleDefinitions = (
       { key: "zAngleX", label: "Z Angle X", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "0.01" },
       { key: "zAngleY", label: "Z Angle Y", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "0.01" },
       { key: "zDepth", label: "Z Depth", defaultValue: "0", min: "0", mid: "1", max: "2", step: "0.01" },
-      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1000000", step: "0.01" , modClamp: false },
+      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ],
   },
   keplerBouwkamp: {
@@ -1463,7 +1467,7 @@ const nodeGraphModuleDefinitions = (
       { key: "zoom", label: "Zoom", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01" },
       { key: "rotation", label: "Rotation", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "0.01" },
       { key: "tri", label: "Tri", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01" },
-      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1000000", step: "0.01" , modClamp: false },
+      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ],
   },
   nyquistShannon: {
@@ -1496,7 +1500,7 @@ const nodeGraphModuleDefinitions = (
       { key: "enableToneModPitch", label: "Tone Mod: Pitch", defaultValue: "1", min: "0", mid: "0.5", max: "1", step: "1" },
       { key: "enableToneModFreq", label: "Tone Mod: Freq", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "1" },
       { key: "enableToneModNote", label: "Tone Mod: Note", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "1" },
-      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1000000", step: "0.01" , modClamp: false },
+      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ],
   },
   radar: {
@@ -1517,7 +1521,7 @@ const nodeGraphModuleDefinitions = (
     parameters: [
       { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "1", min: "0", mid: "20", max: "2000", maxDigits: 5, step: "any" },
       { key: "phaseOffset", label: "Phase", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01" },
-      { key: "density", label: "Density", defaultValue: "1", min: "0", mid: "50", max: "100", step: "0.01" },
+      { constraint: "cpu", key: "density", label: "Density", defaultValue: "1", min: "0", mid: "50", max: "100", step: "0.01" },
       { key: "sharp", label: "Sharp", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "0.01" },
       { key: "fade", label: "Fade", defaultValue: "1", min: "0.1", mid: "5", max: "10", step: "0.01" },
       { key: "rotation", label: "Rotation", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "0.01" },
@@ -1539,7 +1543,7 @@ const nodeGraphModuleDefinitions = (
       { key: "inner", label: "Inner", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01" },
       { key: "x", label: "X", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "0.01" },
       { key: "y", label: "Y", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "0.01" },
-      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1000000", step: "0.01" , modClamp: false },
+      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ],
   },
   chuaAttractor: {
@@ -1564,7 +1568,7 @@ const nodeGraphModuleDefinitions = (
       { key: "beta", label: "Beta", defaultValue: "28", min: "0", mid: "28", max: "60", step: "0.01" },
       { key: "m0", label: "M0", defaultValue: "-1.143", min: "-4", mid: "-1.143", max: "4", step: "0.001" },
       { key: "m1", label: "M1", defaultValue: "-0.714", min: "-4", mid: "-0.714", max: "4", step: "0.001" },
-      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1000000", step: "0.01" , modClamp: false },
+      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ],
   },
   chordMemory: {
@@ -1610,7 +1614,7 @@ const nodeGraphModuleDefinitions = (
       { key: "length", label: "Length", defaultValue: "8", min: "1", mid: "8", max: "16", nonlinearSlider: false, step: "1" },
       { key: "probability", label: "Probability", defaultValue: "0.25", min: "0", mid: "0.25", max: "1", step: "any" },
       { key: "octaves", label: "Octaves", defaultValue: "1", min: "0", mid: "1", max: "4", nonlinearSlider: false, step: "1", tooltip: "Pitch range in octaves when Scale is patched (degree span)." },
-      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1000000", step: "0.01" , modClamp: false },
+      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ],
   },
   degreeTuring: {
@@ -1870,7 +1874,7 @@ const nodeGraphModuleDefinitions = (
       },
       { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "0", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Default slider 0…20 kHz. Pitch MOD can run down through 0. Signed/reverse-phase: wire f or widen Min in parameter settings (domain is not hard-clamped)." },
       { key: "syncFrequency", label: "Sync Freq", kind: "frequency", defaultValue: "50", min: "0", mid: "50", max: "20000", step: "any", unit: "Hz" },
-      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1000000", step: "0.01" , modClamp: false },
+      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ],
   },
   // Port of soemdsp DistortionOscillator — soft-shaped multi-wave (Softwave).
@@ -1936,7 +1940,7 @@ const nodeGraphModuleDefinitions = (
         wraparound: true,
       },
       { key: "antialias", label: "AA", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01" },
-      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1000000", step: "0.01" , modClamp: false },
+      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ],
   },
   // Parametric 2D math curves → mono Out via Project; X/Y always available for scopes.
@@ -2062,7 +2066,7 @@ const nodeGraphModuleDefinitions = (
         tooltip:
           "Only for Project = Dot: direction of the projection line (0…1 cycles). Out = X·cosθ + Y·sinθ — the shadow of the 2D path onto that axis.",
       },
-      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1000000", step: "0.01" , modClamp: false },
+      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ],
   },
   // L-system turtle path walked at Frequency → X/Y (Out = Y). Native WASM preferred.
@@ -2116,6 +2120,7 @@ const nodeGraphModuleDefinitions = (
       },
       { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "55", min: "0", mid: "220", max: "20000", step: "any", unit: "Hz" },
       {
+        constraint: "cpu",
         key: "iterations",
         label: "Iterations",
         defaultValue: "3",
@@ -2166,7 +2171,7 @@ const nodeGraphModuleDefinitions = (
         unit: "Hz",
         tooltip: "Rotate the whole figure continuously (cycles per second).",
       },
-      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1000000", step: "0.01" , modClamp: false },
+      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ],
   },
   dsfOscillator: {
@@ -2233,7 +2238,7 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         key: "amplitude",
         label: "Amplitude",
-        max: "1000000",
+        max: "1",
         mid: "1",
         min: "0",
         nonlinearSlider: false,
@@ -2257,8 +2262,8 @@ const nodeGraphModuleDefinitions = (
       // node-graph-patch-normalizers.js for the full explanation.
       { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "0", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Default slider 0…20 kHz. Pitch MOD can run down through 0. Signed/reverse-phase: wire f or widen Min in parameter settings (domain is not hard-clamped)." },
       { key: "detuneCents", label: "Detune", defaultValue: "30", min: "0", mid: "50", max: "100", step: "0.1", unit: "cents" },
-      { key: "voices", label: "Voices", defaultValue: "7", min: "1", mid: "5", max: "9", step: "1" },
-      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1000000", step: "0.01" , modClamp: false },
+      { constraint: "cpu", key: "voices", label: "Voices", defaultValue: "7", min: "1", mid: "5", max: "9", step: "1" },
+      { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ],
   },
   hypersaw: {
@@ -2275,13 +2280,13 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Left", "Right"],
     dataOutputs: ["Phases", "Amplitudes", "Pans"],
     parameters: [
-      { key: "voices", label: "Num Sawtooths", defaultValue: "8", min: "1", mid: "8", max: "32", step: "1" },
+      { constraint: "cpu", key: "voices", label: "Num Sawtooths", defaultValue: "8", min: "1", mid: "8", max: "32", step: "1" },
       { key: "phase", label: "Phase", kind: "phase", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01", unit: "cycle", wraparound: true },
       { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "0", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Default slider 0…20 kHz. Pitch MOD can run down through 0. Signed/reverse-phase: wire f or widen Min in parameter settings (domain is not hard-clamped)." },
       { key: "spread", label: "Spread", defaultValue: "1", min: "0", mid: "0.5", max: "1", step: "0.01" },
       { key: "random", label: "Random", defaultValue: "0.15", min: "0", mid: "0.5", max: "1", step: "0.01" },
       { key: "drift", label: "Drift", defaultValue: "0.1", min: "0", mid: "0.5", max: "1", step: "0.01" },
-      { key: "amplitude", label: "Amplitude", defaultValue: "0.35", min: "0", mid: "1", max: "1000000", step: "0.01" , modClamp: false },
+      { key: "amplitude", label: "Amplitude", defaultValue: "0.35", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ],
   },
   chordSequencer: {
@@ -2419,7 +2424,7 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         key: "amplitude",
         label: "Amplitude",
-        max: "1000000",
+        max: "1",
         mid: "1",
         min: "0",
         nonlinearSlider: false,
@@ -2486,7 +2491,7 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         key: "amplitude",
         label: "Amplitude",
-        max: "1000000",
+        max: "1",
         mid: "1",
         min: "0",
         nonlinearSlider: false,
@@ -2549,7 +2554,7 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         key: "amplitude",
         label: "Amplitude",
-        max: "1000000",
+        max: "1",
         mid: "1",
         min: "0",
         nonlinearSlider: false,
@@ -2637,7 +2642,7 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         key: "amplitude",
         label: "Amplitude",
-        max: "1000000",
+        max: "1",
         mid: "1",
         min: "0",
         nonlinearSlider: false,
@@ -2701,7 +2706,7 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         key: "amplitude",
         label: "Amplitude",
-        max: "1000000",
+        max: "1",
         mid: "1",
         min: "0",
         nonlinearSlider: false,
@@ -2732,7 +2737,7 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         key: "amplitude",
         label: "Amplitude",
-        max: "1000000",
+        max: "1",
         maxDigits: 4,
         mid: "1",
         min: "0",
@@ -3445,7 +3450,7 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         key: "amplitude",
         label: "Amplitude",
-        max: "1000000",
+        max: "1",
         mid: "1",
         min: "0",
         step: "0.01",
@@ -3740,6 +3745,7 @@ const nodeGraphModuleDefinitions = (
         tooltip: "Cutoff / center. 0 allowed (frozen).",
       },
       {
+        constraint: "cpu",
         defaultValue: "4",
         key: "order",
         label: "Order",
@@ -3801,6 +3807,7 @@ const nodeGraphModuleDefinitions = (
         unit: "Hz",
       },
       {
+        constraint: "cpu",
         defaultValue: "4",
         key: "order",
         label: "Order",
@@ -3861,6 +3868,7 @@ const nodeGraphModuleDefinitions = (
         unit: "Hz",
       },
       {
+        constraint: "cpu",
         defaultValue: "4",
         key: "order",
         label: "Order",
@@ -3920,6 +3928,7 @@ const nodeGraphModuleDefinitions = (
         unit: "Hz",
       },
       {
+        constraint: "cpu",
         defaultValue: "4",
         key: "order",
         label: "Order",
@@ -3991,6 +4000,7 @@ const nodeGraphModuleDefinitions = (
         unit: "Hz",
       },
       {
+        constraint: "cpu",
         defaultValue: "4",
         key: "order",
         label: "Order",
@@ -4108,6 +4118,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Low Left", "Low Right", "High Left", "High Right"],
     parameters: [
       {
+        constraint: "cpu",
         defaultValue: "4",
         key: "order",
         label: "Slope",
@@ -4141,6 +4152,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Low Left", "Low Right", "Mid Left", "Mid Right", "High Left", "High Right"],
     parameters: [
       {
+        constraint: "cpu",
         defaultValue: "4",
         key: "order",
         label: "Slope",
@@ -4187,6 +4199,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Low Left", "Low Right", "Low-Mid Left", "Low-Mid Right", "High-Mid Left", "High-Mid Right", "High Left", "High Right"],
     parameters: [
       {
+        constraint: "cpu",
         defaultValue: "4",
         key: "order",
         label: "Slope",
@@ -4246,6 +4259,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Band 1 Left", "Band 1 Right", "Band 2 Left", "Band 2 Right", "Band 3 Left", "Band 3 Right", "Band 4 Left", "Band 4 Right", "Band 5 Left", "Band 5 Right"],
     parameters: [
       {
+        constraint: "cpu",
         defaultValue: "4",
         key: "order",
         label: "Slope",
@@ -4318,6 +4332,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Band 1 Left", "Band 1 Right", "Band 2 Left", "Band 2 Right", "Band 3 Left", "Band 3 Right", "Band 4 Left", "Band 4 Right", "Band 5 Left", "Band 5 Right", "Band 6 Left", "Band 6 Right"],
     parameters: [
       {
+        constraint: "cpu",
         defaultValue: "4",
         key: "order",
         label: "Slope",
@@ -4460,7 +4475,7 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         key: "amplitude",
         label: "Amplitude",
-        max: "1000000",
+        max: "1",
         mid: "1",
         min: "0",
         nonlinearSlider: false,
@@ -4588,7 +4603,7 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         key: "amplitude",
         label: "Amplitude",
-        max: "1000000",
+        max: "1",
         mid: "1",
         min: "0",
         nonlinearSlider: false,
@@ -4688,6 +4703,7 @@ const nodeGraphModuleDefinitions = (
         tooltip: "0 allowed. Circuit floors tiny values for coefficient stability only.",
       },
       {
+        constraint: "cpu",
         defaultValue: "2",
         key: "stages",
         label: "Stages",
@@ -4833,7 +4849,7 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         key: "amplitude",
         label: "Amplitude",
-        max: "1000000",
+        max: "1",
         mid: "1",
         min: "0",
         nonlinearSlider: false,
@@ -4951,7 +4967,7 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         key: "amplitude",
         label: "Amplitude",
-        max: "1000000",
+        max: "1",
         mid: "1",
         min: "0",
         nonlinearSlider: false,
@@ -4989,6 +5005,7 @@ const nodeGraphModuleDefinitions = (
         tooltip: "Under construction. Planned: modulation depth of center frequency.",
       },
       {
+        constraint: "cpu",
         defaultValue: "4",
         key: "stages",
         label: "Stages",
@@ -5107,6 +5124,7 @@ const nodeGraphModuleDefinitions = (
         tooltip: "Under construction. Planned: delay modulation depth.",
       },
       {
+        constraint: "cpu",
         defaultValue: "2",
         key: "voices",
         label: "Voices",
@@ -5197,14 +5215,18 @@ const nodeGraphModuleDefinitions = (
           "Allpass corner (group-delay focus). Default slider 0…20 kHz — not hard-clamped; widen range in parameter settings if you want.",
       },
       {
-        defaultValue: "0.5",
-        key: "amount",
-        label: "Amount",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        step: "any",
-        tooltip: "Stack order / strength: more cascaded allpass stages (up to 64). Higher = more time smear / bubbly reshape.",
+        // Cascade depth: each step is one 2nd-order allpass (biquad). Cost is
+        // O(filters) per sample on the audio thread — mark for CPU debug overlay.
+        constraint: "cpu",
+        defaultValue: "32",
+        key: "filters",
+        label: "Filters",
+        max: "64",
+        mid: "32",
+        min: "1",
+        step: "1",
+        tooltip:
+          "Number of cascaded 2nd-order allpass stages (1…64). More filters = deeper group-delay smear, higher CPU. Legacy patches with Amount 0…1 are remapped here.",
       },
       {
         defaultValue: "0.5",
@@ -5244,6 +5266,7 @@ const nodeGraphModuleDefinitions = (
         tooltip: "Smear energy across neighboring FFT bins (0 = sharp spectrum, 1 = wide frequency wash).",
       },
       {
+        constraint: "cpu",
         defaultValue: "2048",
         key: "fftSize",
         label: "FFT Size",
@@ -5324,7 +5347,7 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         key: "amplitude",
         label: "Amplitude",
-        max: "1000000",
+        max: "1",
         mid: "1",
         min: "0",
         nonlinearSlider: false,
@@ -5400,7 +5423,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0.5", key: "centerTime", label: "Center Time", max: "10", mid: "1", min: "0", nonlinearSlider: false, step: "any", unit: "s" },
       { defaultValue: "1", key: "endTime", label: "End Time", max: "10", mid: "1", min: "0", nonlinearSlider: false, step: "any", unit: "s" },
       { defaultValue: "0.3", key: "timeSpread", label: "Time Spread", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
-      { defaultValue: "20", key: "numberOfPulses", label: "Number of Pulses", max: "128", mid: "20", min: "1", nonlinearSlider: false, step: "1" },
+      { constraint: "cpu", defaultValue: "20", key: "numberOfPulses", label: "Number of Pulses", max: "128", mid: "20", min: "1", nonlinearSlider: false, step: "1" },
       { defaultValue: "0.3", key: "lowAmplitude", label: "Low Amplitude", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "1", key: "highAmplitude", label: "High Amplitude", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0", key: "seed", label: "Seed", max: "999999", mid: "1", min: "0", nonlinearSlider: false, step: "1" },
@@ -5509,6 +5532,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
       },
       {
+        constraint: "cpu",
         defaultValue: "4",
         key: "stages",
         label: "Stages",
@@ -5849,8 +5873,8 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0.3", key: "roomRoundness", label: "Roundness", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any", tooltip: "0 = perfect ellipsoid (sphere at Width=Height), 1 = a box (cube at Width=Height). Superellipsoid blend, |x/a|^n+|y/b|^n+|z/c|^n=1, only affects the Squircle preset." },
       { defaultValue: "17", key: "earDistance", label: "Ear Distance", max: "60", mid: "17", min: "0", nonlinearSlider: false, step: "any", unit: "cm", tooltip: "Distance between the two listener ears in centimeters (17cm is a typical human head). Each ear samples the room from its own offset position along X, so Left/Right delay taps genuinely differ -- 0 collapses back to a single centered listener (mono)." },
       { control: "number", defaultValue: "0", key: "roomSeed", label: "Seed", linearSmoothing: false, max: "9999", maxDigits: 0, mid: "1", min: "0", nonlinearSlider: false, step: "1", tooltip: "Randomizes the Random/Fractal room shape and each bounce's scatter direction. Same seed always reproduces the same shape and echo pattern." },
-      { control: "number", defaultValue: "6", key: "rayCount", label: "Rays", linearSmoothing: false, max: "16", maxDigits: 0, mid: "6", min: "1", nonlinearSlider: false, step: "1", tooltip: "Number of initial directions sampled from each ear (X). Total delay taps = Rays x Bounces." },
-      { control: "number", defaultValue: "3", key: "bounceCount", label: "Bounces", linearSmoothing: false, max: "6", maxDigits: 0, mid: "3", min: "1", nonlinearSlider: false, step: "1", tooltip: "Number of wall bounces simulated per ray (Y). Total delay taps = Rays x Bounces." },
+      { constraint: "cpu", control: "number", defaultValue: "6", key: "rayCount", label: "Rays", linearSmoothing: false, max: "16", maxDigits: 0, mid: "6", min: "1", nonlinearSlider: false, step: "1", tooltip: "Number of initial directions sampled from each ear (X). Total delay taps = Rays x Bounces." },
+      { constraint: "cpu", control: "number", defaultValue: "3", key: "bounceCount", label: "Bounces", linearSmoothing: false, max: "6", maxDigits: 0, mid: "3", min: "1", nonlinearSlider: false, step: "1", tooltip: "Number of wall bounces simulated per ray (Y). Total delay taps = Rays x Bounces." },
       { defaultValue: "0.6", key: "reflectivity", label: "Reflectivity", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any", tooltip: "1 = mirror-like: each bounce reflects off the room's real surface normal, stays coherent, and loses little energy. 0 = rough/absorptive: each bounce scatters into a random direction and energy drops fast -- reads as more diffusion. Also sets the shared diffusion cascade's feedback (1 - Reflectivity)." },
       { defaultValue: "0.5", key: "mix", label: "Mix", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "1", key: "level", label: "Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
@@ -5991,7 +6015,7 @@ const nodeGraphModuleDefinitions = (
         tooltip: "Added on top of free or tempo-synced echo base (ms). Good LFO target for push/pull around the beat.",
       },
       { defaultValue: "0.5", key: "recycle", label: "Recycle", max: "2", mid: "0.5", min: "0", step: "any" },
-      { control: "number", defaultValue: "10", key: "numDelays", label: "Num Delays", max: "12", min: "0", step: "1" },
+      { constraint: "cpu", control: "number", defaultValue: "10", key: "numDelays", label: "Num Delays", max: "12", min: "0", step: "1" },
       { defaultValue: "0.35", key: "diffusionSize", label: "Diffuse Size", max: "1", mid: "0.35", min: "0.0001", step: "any" },
       { defaultValue: "0.7", key: "diffusionAmount", label: "Diffuse Amt", max: "0.98", mid: "0.7", min: "0", step: "any" },
       { control: "number", defaultValue: "500", key: "seed", label: "Seed", max: "999", min: "0", step: "1" },
@@ -6032,8 +6056,8 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "1000", key: "bandFrequency", kind: "frequency", label: "Band Freq", max: "20000", mid: "1000", min: "20", step: "any", unit: "Hz" },
       { defaultValue: "0", key: "bandDecibels", label: "Band dB", max: "24", mid: "0", min: "-24", step: "any" },
       { defaultValue: "1", key: "bandQ", label: "Band Q", max: "10", mid: "1", min: "0.1", step: "any" },
-      { defaultValue: "2", key: "lpfStages", label: "LPF Stages", max: "5", min: "0", step: "1" },
-      { defaultValue: "2", key: "bandStages", label: "Band Stages", max: "5", min: "0", step: "1" },
+      { constraint: "cpu", defaultValue: "2", key: "lpfStages", label: "LPF Stages", max: "5", min: "0", step: "1" },
+      { constraint: "cpu", defaultValue: "2", key: "bandStages", label: "Band Stages", max: "5", min: "0", step: "1" },
       { defaultValue: "1", key: "duckLimit", label: "Ducking", max: "1", mid: "1", min: "0.01", step: "any" },
       { defaultValue: "0.04", key: "duckRelease", label: "Duck Rel", max: "2", mid: "0.04", min: "0.001", step: "any", unit: "s" },
     ],
@@ -6083,6 +6107,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Frequency", "Fidelity"],
     parameters: [
       {
+        constraint: "cpu",
         defaultValue: "512",
         key: "windowSize",
         label: "Window",
@@ -6310,7 +6335,7 @@ const nodeGraphModuleDefinitions = (
     inputs: ["Reset", "Speed", "Phase"],
     outputs: ["Mono", "Left", "Right", "Phase", "Trigger"],
     parameters: [
-      { defaultValue: "1", key: "amplitude", label: "Amplitude", max: "1000000", mid: "1", min: "0", nonlinearSlider: false, step: "any" , modClamp: false },
+      { defaultValue: "1", key: "amplitude", label: "Amplitude", max: "1", mid: "1", min: "0", nonlinearSlider: false, step: "any" , modClamp: false },
       { defaultValue: "1", key: "speed", label: "Speed", linearSmoothing: false, max: "8", maxDigits: 4, mid: "1", min: "0", step: "any", unit: "x" },
       { defaultValue: "0", key: "start", label: "Start", linearSmoothing: false, max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "1", key: "end", label: "End", linearSmoothing: false, max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
@@ -6553,7 +6578,7 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "1",
         key: "amplitude",
         label: "Amplitude",
-        max: "1000000",
+        max: "1",
         mid: "1",
         min: "0",
         nonlinearSlider: false,
@@ -6980,7 +7005,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
       },
-      { key: "timeDivSamples", label: "Window Size", defaultValue: "512", min: "8", mid: "512", max: "8192", step: "1" },
+      { constraint: "ram", key: "timeDivSamples", label: "Window Size", defaultValue: "512", min: "8", mid: "512", max: "8192", step: "1" },
       {
         choices: ["Run", "Freeze"],
         defaultValue: "0",
@@ -7052,6 +7077,7 @@ const nodeGraphModuleDefinitions = (
     parameters: [
       // min/mid/max are default metaparam ranges only — not engine hard limits.
       {
+        constraint: "gpu",
         key: "density",
         label: "Density",
         defaultValue: "0.4",
@@ -7190,6 +7216,7 @@ const nodeGraphModuleDefinitions = (
         tooltip: "Info: message plate (+ optional In value). Serial: Char+Trigger bins (Text Stream).",
       },
       {
+        constraint: "gpu",
         key: "density",
         label: "Density",
         defaultValue: "0.55",
@@ -7308,6 +7335,7 @@ const nodeGraphModuleDefinitions = (
     outputs: [],
     parameters: [
       {
+        constraint: "gpu",
         key: "density",
         label: "Density",
         defaultValue: "0.7",

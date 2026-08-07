@@ -1,28 +1,23 @@
 // Canonical phosphor face drawer (mono energy + LUT).
 //
-// Wraps public/lib/phosphor/phosphor-energy-gl.js with settings helpers.
+// All retained burn scopes should go through this module. It wraps the shared
+// WebGL energy device (node-graph-phosphor-energy-gl.js) with settings helpers
+// and a single step/present contract.
 //
-// Axes (app-wide):
-// Display Settings order: Size → Blur → Bright → Ghost → Trail → Scale → Antialiasing → Dot Budget
-//   brightness (UI: Bright) → 0…1 energy (1 = full); maps to internal deposit gain
-//   trail                   → main residual length (1 ≈ freeze-ish)
-//   ghost                   → dim scorched floor hang
+// Blur UX: 0 = hard disc (~1px AA), 1 = full soft gaussian bleed.
 //
 // Usage:
-//   PhosphorDrawer.stepDots(face, { trail, ghost, pathPoints, radius, brightness, blur, maxDots });
-//   PhosphorDrawer.presentTo(face, destCtx, { width, height });
+//   const face = PhosphorDrawer.ensure(canvas, w, h);
+//   PhosphorDrawer.setLut(face, peakRgbBytes, "#000000");
+//   PhosphorDrawer.stepDots(face, { decay, pathPoints, radius, brightness, blur, maxDots, burn });
+//   PhosphorDrawer.presentTo(face, destCtx, { exposure, width, height, smooth: true });
 
 (function initPhosphorDrawer(global) {
   const DEFAULT_BLUR = 0.35;
-  const DEFAULT_TRAIL = global.PhosphorResidual?.DEFAULT_TRAIL ?? 0.88;
-  const DEFAULT_GHOST = global.PhosphorResidual?.DEFAULT_GHOST ?? 0.45;
-  const DEFAULT_EXPOSURE = 2.9;
-  const DEPOSIT_SCALE = 0.1;
+  const DEFAULT_BURN = 0.82;
+  const DEFAULT_DECAY = 0.12;
 
   function clamp01(value, fallback = 0) {
-    if (global.PhosphorResidual?.clamp01) {
-      return global.PhosphorResidual.clamp01(value, fallback);
-    }
     const n = Number(value);
     if (!Number.isFinite(n)) {
       return Math.max(0, Math.min(1, Number(fallback) || 0));
@@ -30,6 +25,9 @@
     return Math.max(0, Math.min(1, n));
   }
 
+  /**
+   * Blur 0..1 (hard→soft). Migrates legacy signed -1..1 values.
+   */
   function normalizeBlur(value, fallback = DEFAULT_BLUR) {
     if (typeof global.nodeGraphPhosphorEnergyGlNormalizeBlur === "function") {
       return global.nodeGraphPhosphorEnergyGlNormalizeBlur(value, fallback);
@@ -47,35 +45,46 @@
     return Math.max(0, Math.min(1, v));
   }
 
-  function depositGain(brightness, size01 = 0) {
+  /** Deposit gain: smooth low end, no dead band near burn 0.
+   *  Online signature: (burn, brightness, size01).
+   *  Legacy 2-arg: (brightness, size01) uses default burn. */
+  function depositGain(burn, brightness, size01) {
+    if (arguments.length < 3 || size01 === undefined) {
+      // legacy (brightness, size01)
+      return depositGain(DEFAULT_BURN, burn, brightness);
+    }
+    const b = clamp01(burn, 0);
     const br = Math.max(0, Number(brightness) || 0);
     const s = clamp01(size01, 0);
-    return Math.max(0, br * DEPOSIT_SCALE * (1.12 - s * 0.42));
+    const burnShape = Math.pow(b, 0.78);
+    return Math.max(0, br * (0.022 + burnShape * 0.1) * (1.12 - s * 0.42));
   }
 
-  function exposure() {
-    return DEFAULT_EXPOSURE;
+  /** Soft film exposure — mostly stable so burn doesn’t double-crush. */
+  function exposure(burn) {
+    return 1.85 + clamp01(burn, 0) * 2.1;
   }
 
-  /**
-   * c1091b4 radius: size 0–1 of face min side → diameter = size * minSide,
-   * radius = half. Linear geometric size; Blur handles hard→soft.
-   */
-  function size01ToDiameterPx(faceMinSide, size01) {
+  // Size 0–1 linear diameter map: diameter = size * faceMinSide.
+  // Floor: size 0 → 1 buffer pixel (radius 0.5). Soft blur still AA's the edge.
+  const MIN_DIAMETER_PX = 1;
+  const MIN_RADIUS_PX = MIN_DIAMETER_PX * 0.5;
+
+  /** Diameter in buffer px: size 0–1 of face min side (1px floor at size 0). */
+  function diameterFromSize(faceMinSide, size01) {
     const side = Math.max(1, Number(faceMinSide) || 1);
-    const t = clamp01(size01, 0.08);
-    return Math.max(0.7, side * t);
+    const t = clamp01(size01, 0);
+    return Math.max(MIN_DIAMETER_PX, side * t);
   }
 
-  function size01ToRadiusPx(faceMinSide, size01) {
-    return radiusFromSize(faceMinSide, size01);
-  }
-
+  /** Radius in buffer px: half of diameterFromSize (0.5px floor at size 0). */
   function radiusFromSize(faceMinSide, size01) {
-    const side = Math.max(1, Number(faceMinSide) || 1);
-    const t = clamp01(size01, 0.08);
-    return Math.max(0.35, side * t * 0.5);
+    return Math.max(MIN_RADIUS_PX, diameterFromSize(faceMinSide, size01) * 0.5);
   }
+
+  // Canonical names used across paint-helpers / TraceStroke.
+  const size01ToDiameterPx = diameterFromSize;
+  const size01ToRadiusPx = radiusFromSize;
 
   function ensure(hostCanvas, width, height, key = "_phosphorEnergyGl") {
     if (typeof global.nodeGraphPhosphorEnergyGlEnsure !== "function") {
@@ -92,6 +101,7 @@
     return true;
   }
 
+  /** Multi-stop LUT from shared gradient editor format [{t,color}]. */
   function setLutStops(face, stops) {
     if (!face || typeof global.nodeGraphPhosphorEnergyGlSetLutFromStops !== "function") {
       return false;
@@ -99,46 +109,38 @@
     return Boolean(global.nodeGraphPhosphorEnergyGlSetLutFromStops(face, stops));
   }
 
-  function resolveTrail(options) {
-    if (Number.isFinite(Number(options.trail))) {
-      return clamp01(Number(options.trail), DEFAULT_TRAIL);
-    }
-    if (Number.isFinite(Number(options.decay))) {
-      // Legacy decay: high = die fast → trail high = long.
-      return clamp01(1 - Number(options.decay), DEFAULT_TRAIL);
-    }
-    return DEFAULT_TRAIL;
-  }
-
-  function resolveGhost(options) {
-    if (Number.isFinite(Number(options.ghost))) {
-      return clamp01(Number(options.ghost), DEFAULT_GHOST);
-    }
-    if (Number.isFinite(Number(options.burn))) {
-      return clamp01(Number(options.burn), DEFAULT_GHOST);
-    }
-    return DEFAULT_GHOST;
-  }
-
+  /**
+   * One frame: fade + optional bleed + soft/hard dots along pathPoints.
+   * options.burn is optional convenience for deposit gain when brightness is raw.
+   */
   function stepDots(face, options = {}) {
     if (!face || typeof global.nodeGraphPhosphorEnergyGlStepBeams !== "function") {
       return false;
     }
     const blur = normalizeBlur(options.blur, DEFAULT_BLUR);
+    const burn = clamp01(options.burn, DEFAULT_BURN);
     const size01 = clamp01(options.size01, 0.08);
     let brightness = Number(options.brightness);
-    if (!Number.isFinite(brightness) || options.useDepositGain) {
-      const raw = Number.isFinite(Number(options.dotBrightness))
-        ? Number(options.dotBrightness)
-        : Number(options.brightness) || 0.92;
-      brightness = depositGain(raw, size01);
+    if (!Number.isFinite(brightness) || options.useBurnGain) {
+      brightness = depositGain(
+        burn,
+        Number.isFinite(Number(options.dotBrightness))
+          ? Number(options.dotBrightness)
+          : Number(options.brightness) || 0.92,
+        size01,
+      );
     }
+    const radiusRaw = Number(options.radius);
+    const radius = Number.isFinite(radiusRaw) && radiusRaw > 0
+      ? Math.max(MIN_RADIUS_PX, radiusRaw)
+      : (Number.isFinite(Number(options.size01))
+        ? radiusFromSize(Math.max(1, Number(options.faceMinSide) || 256), size01)
+        : Math.max(MIN_RADIUS_PX, 2));
     return global.nodeGraphPhosphorEnergyGlStepBeams(face, {
-      trail: resolveTrail(options),
-      ghost: resolveGhost(options),
+      decay: clamp01(options.decay, DEFAULT_DECAY),
       pathPoints: options.pathPoints || null,
       vertices: options.vertices || null,
-      radius: Math.max(0.35, Number(options.radius) || 2),
+      radius,
       brightness: Math.max(0, brightness || 0),
       blur,
       mode: "dots",
@@ -155,14 +157,16 @@
       return false;
     }
     return global.nodeGraphPhosphorEnergyGlStep(face, {
-      trail: resolveTrail(options),
-      ghost: resolveGhost(options),
+      decay: clamp01(options.decay, DEFAULT_DECAY),
       depositGain: 0,
       maskCanvas: null,
       bleed: Number.isFinite(Number(options.bleed)) ? Number(options.bleed) : 0.1,
     });
   }
 
+  /**
+   * Present energy×LUT into dest 2D context (lighter composite).
+   */
   function presentTo(face, destCtx, options = {}) {
     if (!face || !destCtx || typeof global.nodeGraphPhosphorEnergyGlPresent !== "function") {
       return false;
@@ -172,9 +176,13 @@
     const trailGain = Number.isFinite(Number(options.trailGain))
       ? Number(options.trailGain)
       : 1;
-    const exp = Number.isFinite(Number(options.exposure))
-      ? Number(options.exposure)
-      : DEFAULT_EXPOSURE;
+    let exp = Number(options.exposure);
+    if (!Number.isFinite(exp) && options.burn !== undefined) {
+      exp = exposure(options.burn);
+    }
+    if (!Number.isFinite(exp)) {
+      exp = exposure(DEFAULT_BURN);
+    }
     const ok = global.nodeGraphPhosphorEnergyGlPresent(face, trailGain, { exposure: exp });
     if (!ok) {
       return false;
@@ -187,6 +195,10 @@
     return true;
   }
 
+  /**
+   * Build a vertical stem path (for hypersaw / voice-bank style scopes).
+   * Returns [{x,y}, ...] from (x,y0) to (x,y1) with ~spacing steps.
+   */
   function verticalStemPoints(x, y0, y1, spacingPx = 2) {
     const points = [];
     const x0 = Number(x);
@@ -205,6 +217,9 @@
     return points;
   }
 
+  /**
+   * Append a segment as dense path points (null break between pieces).
+   */
   function appendSegment(out, x0, y0, x1, y1, spacingPx = 2) {
     if (!Array.isArray(out)) {
       return out;
@@ -225,22 +240,20 @@
     return out;
   }
 
-  global.PhosphorDrawer = {
+  const api = {
     DEFAULT_BLUR,
-    DEFAULT_TRAIL,
-    DEFAULT_GHOST,
-    DEFAULT_EXPOSURE,
-    DEPOSIT_SCALE,
-    // Legacy aliases
-    DEFAULT_DECAY: 1 - DEFAULT_TRAIL,
-    DEFAULT_BURN: DEFAULT_GHOST,
+    DEFAULT_BURN,
+    DEFAULT_DECAY,
+    MIN_DIAMETER_PX,
+    MIN_RADIUS_PX,
     clamp01,
     normalizeBlur,
     depositGain,
     exposure,
+    diameterFromSize,
+    radiusFromSize,
     size01ToDiameterPx,
     size01ToRadiusPx,
-    radiusFromSize,
     ensure,
     setLut,
     setLutStops,
@@ -250,4 +263,8 @@
     verticalStemPoints,
     appendSegment,
   };
-})(typeof globalThis !== "undefined" ? globalThis : window);
+
+  global.PhosphorDrawer = api;
+  // Back-compat aliases used by older call sites during migration.
+  global.nodeGraphPhosphorDrawer = api;
+})(typeof window !== "undefined" ? window : globalThis);

@@ -508,7 +508,12 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     id: "nodeTraceDisplayZoomSeconds",
     title: "Seconds of capture shown (0–10 s). Exponential drag: most useful short windows live near 0; longer history toward max.",
   }),
-  sweepSeconds: Object.freeze({ label: "Sweep (s)", inputmode: "decimal", id: "nodeTraceDisplaySweepSeconds" }),
+  sweepSeconds: Object.freeze({
+    label: "Sweep (s)",
+    inputmode: "decimal",
+    id: "nodeTraceDisplaySweepSeconds",
+    title: "Seconds for one left→right pass (0.01–10). 0 clamps to 0.01 (fastest), not back to the 2 s default.",
+  }),
   cycles: Object.freeze({ label: "Cycles", inputmode: "decimal", id: "nodeTraceDisplayCycles" }),
   decimals: Object.freeze({
     label: "Decimals",

@@ -98,6 +98,8 @@ registerNodeGraphChromelessModule("fbmField", {
           + "0 freezes. X/Y/Z are field samples at three fixed points — not white noise.",
       },
       {
+        // Each octave is another noise layer per sample (CPU).
+        constraint: "cpu",
         defaultValue: "4",
         key: "octaves",
         label: "Octaves",
@@ -106,7 +108,7 @@ registerNodeGraphChromelessModule("fbmField", {
         min: "1",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Layer count. More octaves = finer fractal detail.",
+        tooltip: "Layer count. More octaves = finer fractal detail (higher CPU).",
       },
       {
         defaultValue: "0.5",

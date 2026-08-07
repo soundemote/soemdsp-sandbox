@@ -1,8 +1,8 @@
 // Modal hard-fail UI when a patch (or startup working patch) cannot load.
-// Pattern mirrors ear protection: full-screen latch, one recovery action.
+// Pattern mirrors ear protection: full-screen latch.
 //
-// Recovery: copy the failed script (clipboard or select the box), then
-// "Initialize patch" to clear working-patch state and load the init/default graph.
+// Actions: copy the failed script, "Initialize patch" (wipe working-patch and
+// load init/default), or simply Close (dismiss dialog; graph left as-is).
 
 let nodeGraphPatchLoadFaultScript = "";
 let nodeGraphPatchLoadFaultBound = false;
@@ -23,6 +23,16 @@ function bindNodeGraphPatchLoadFaultUi() {
   document
     .getElementById("nodePatchLoadFaultInit")
     ?.addEventListener("click", () => nodeGraphInitAfterPatchLoadFault());
+  document
+    .getElementById("nodePatchLoadFaultClose")
+    ?.addEventListener("click", () => nodeGraphClosePatchLoadFaultUi());
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || !nodeGraphPatchLoadFaultIsOpen()) {
+      return;
+    }
+    event.preventDefault();
+    nodeGraphClosePatchLoadFaultUi();
+  });
 }
 
 /**

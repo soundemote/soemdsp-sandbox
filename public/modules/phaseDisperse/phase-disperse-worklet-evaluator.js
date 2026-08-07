@@ -11,13 +11,13 @@ NodeLiveAudioProcessor.prototype.phaseDisperseSample = function phaseDisperseSam
   state,
   input,
   frequencyHz,
-  amount,
+  filters,
   pinch,
   rate = sampleRate,
 ) {
   if (typeof nodeGraphPhaseDisperseSample === "function") {
     return this.safeFilterNumber(
-      nodeGraphPhaseDisperseSample(state, input, frequencyHz, amount, pinch, rate),
+      nodeGraphPhaseDisperseSample(state, input, frequencyHz, filters, pinch, rate),
       null,
     );
   }

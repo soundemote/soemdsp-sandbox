@@ -1119,9 +1119,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   phaseDisperse: {
     category: "scientificFilter",
     description:
-      "Cascaded 2nd-order allpass group-delay (Disperser class). Frequency = APF corner, Amount = stack order (up to 64), Pinch = Q (concentrates delay). Flat magnitude — smears when frequencies arrive. Sibling of Allpass; not Bode, not STFT Blur.",
+      "Cascaded 2nd-order allpass group-delay (Disperser class). Frequency = APF corner, Filters = cascade depth (1…64, CPU), Pinch = Q (concentrates delay). Flat magnitude — smears when frequencies arrive. Sibling of Allpass; not Bode, not STFT Blur.",
     label: "Phase Disperse",
-    notes: ["allpass", "group delay", "disperser", "scientific", "phase"],
+    notes: ["allpass", "group delay", "disperser", "scientific", "phase", "cpu"],
   },
   phaser: {
     category: "analogFilter",

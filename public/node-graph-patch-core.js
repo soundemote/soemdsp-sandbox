@@ -205,7 +205,13 @@ function validateNodeGraphPatch(patch) {
         ? rawParams[parameter.key]
         : (parameter.key === "amplitude" && Object.hasOwn(rawParams, "level")
           ? rawParams.level
-          : parameter.defaultValue);
+          : (parameter.key === "filters"
+            && type === "phaseDisperse"
+            && Object.hasOwn(rawParams, "amount")
+            ? (typeof nodeGraphPhaseDisperseAmountToStages === "function"
+              ? nodeGraphPhaseDisperseAmountToStages(rawParams.amount)
+              : 1 + Math.max(0, Math.min(1, Number(rawParams.amount) || 0)) * 63)
+            : parameter.defaultValue));
       // Smooth Graph Curve: collapse old 6-choice layout (Linear/Smooth/Bezier/
       // Quadratic/Cubic/Catmull) where Smooth/Bezier/Catmull were one path.
       // Detect old layout via saved max≥5 or orphan indices 4–5.

@@ -84,7 +84,7 @@ const nodeGraphScopePhosphorLookDefaults = Object.freeze({
   //   burn 0.45  → ghost = 0.45
   ghost: 0.45,
   trail: 0.88,
-  // Size 0…1 linear diameter map (c1091b4 scope2d default 0.08).
+  // Size 0…1 linear diameter map (0 → 1px floor, 1 → full face min side). Default 0.08.
   size: 0.08,
   // Stamp blur 0 hard … 1 soft (c1091b4 lineThickness 0.35).
   blur: 0.35,
@@ -135,26 +135,22 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
 
 
 const nodeGraphLineBurnSettingsDefaults = Object.freeze({
-  background: nodeGraphScopePhosphorLookDefaults.background,
-  // c1091b4 lineBurn: burn 0.35, decay 0.3 → ghost 0.35, trail 0.7
-  ghost: 0.35,
+  // Match soundemote.io / soundemote-site embedded sandbox (working 1D phosphor).
+  background: "#000000",
+  burn: 0.3,
+  decay: 0.3,
+  // Ghost/Trail aliases for current Display Settings UI (Trail high = long).
+  ghost: 0.3,
   trail: 0.7,
   // Amplitude zoom (Y).
   scale: 1,
-  // c1091b4 used brighter deposit for 1D heart-monitor.
+  // Online uses brightness 2 (not clamped to 0…1).
   dot1Brightness: 2,
-  dot1Color: nodeGraphScopePhosphorLookDefaults.peakColor,
+  dot1Color: "#75ebff",
   dot1Enabled: true,
-  // c1091b4 lineBurn size 0.07
   dot1Size: 0.07,
-  // c1091b4 lineThickness 0.2
   lineThickness: 0.2,
-  // 0 = 1×1 pixel … 1 layout×dpr … 4 AA (same as 2D Phosphor / Trace).
   pixelDensity: 1,
-  dotBudget: 2048,
-  // Match c1091b4 (no fullEconomy flag on deposit).
-  fullDotEconomy: false,
-  gradientStops: nodeGraphScopePhosphorLookDefaults.gradientStops,
   // Seconds for one full left→right pass (default 2 s).
   sweepSeconds: 2,
 });
@@ -241,39 +237,43 @@ const nodeGraphSpectrogramSettingsDefaults = Object.freeze({
 
 
 const nodeGraphScope2dSettingsDefaults = Object.freeze({
-  // Face plate follows gradient floor (t≈0); kept for plate CSS / migration.
-  background: nodeGraphScopePhosphorLookDefaults.background,
-  // Ghost = dim scorched floor; Trail = main residual (1 ≈ freeze).
-  ghost: nodeGraphScopePhosphorLookDefaults.ghost,
-  trail: nodeGraphScopePhosphorLookDefaults.trail,
-  dot1Brightness: nodeGraphScopePhosphorLookDefaults.brightness,
+  // Match soundemote.io / site sandbox 2D Phosphor defaults.
+  background: "#000000",
+  burn: 0.82,
+  decay: 0.12,
+  // Ghost/Trail aliases for Display Settings UI (Trail high = long residual).
+  ghost: 0.82,
+  trail: 0.88, // 1 - 0.12
+  // Online allows Bright > 1 for some faces; default 0.92 stays in 0…1.
+  dot1Brightness: 0.92,
   // Peak color = last gradient stop (migration + puck/overlays).
-  dot1Color: nodeGraphScopePhosphorLookDefaults.peakColor,
+  dot1Color: "#75ebff",
   dot1Enabled: true,
-  // Size 0…1 (linear diameter map).
-  dot1Size: nodeGraphScopePhosphorLookDefaults.size,
+  // 0–1 of face min side (site default 0.08).
+  dot1Size: 0.08,
   // Soft stamp budget (ceiling). Under load, dots spread evenly (skips), not head-only.
-  dotBudget: nodeGraphScopePhosphorLookDefaults.dotBudget,
-  fullDotEconomy: nodeGraphScopePhosphorLookDefaults.fullDotEconomy,
-  // Multi-stop energy→color LUT (shared gradient editor).
-  gradientStops: nodeGraphScopePhosphorLookDefaults.gradientStops,
+  dotBudget: 2048,
+  // Multi-stop energy→color LUT (site cyan burn ramp).
+  gradientStops: Object.freeze([
+    Object.freeze({ t: 0, color: "#000000" }),
+    Object.freeze({ t: 0.18, color: "#0a2a33" }),
+    Object.freeze({ t: 0.55, color: "#3a9aab" }),
+    Object.freeze({ t: 1, color: "#75ebff" }),
+  ]),
   // Stamp blur 0–1: 0 hard disc, 1 full soft bleed.
-  lineThickness: nodeGraphScopePhosphorLookDefaults.blur,
+  lineThickness: 0.35,
   // 0 = single pixel, 1 = layout×dpr, 4 = 4× AA.
-  pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
-  scale: nodeGraphScopePhosphorLookDefaults.scale,
+  pixelDensity: 1,
+  scale: 1,
 });
 
 /**
  * Per-module overrides for 2D Phosphor (scope2d) display defaults.
  * Only fields listed here differ from nodeGraphScope2dSettingsDefaults.
- * Lorenz needs a larger beam so the butterfly reads clearly at default scale.
+ * (Empty: Lorenz used to force dot1Size 0.2748 — that was a giant stamp;
+ *  it now inherits the shared Size 0.08 default.)
  */
 const nodeGraphModuleScope2dDisplayDefaultOverrides = Object.freeze({
-  lorenzAttractor: Object.freeze({
-    // Lorenz: slightly smaller than global default so attractors stay readable.
-    dot1Size: 0.2748,
-  }),
 });
 
 /** Full scope2d defaults for a module type (global + optional overrides). */

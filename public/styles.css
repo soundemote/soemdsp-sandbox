@@ -334,7 +334,7 @@ body.node-ear-protection-tripped .node-ear-protection-fault {
   outline: 0;
 }
 
-/* Patch load hard-fail — modal like ear protector; only continue via Initialize. */
+/* Patch load hard-fail — modal like ear protector; Copy / Initialize / Close. */
 body.node-patch-load-fault-open {
   --node-patch-load-fault-color: rgba(255, 160, 90, 0.95);
 }
@@ -450,8 +450,9 @@ body.node-patch-load-fault-open .node-patch-load-fault {
 }
 
 .node-patch-load-fault-copy,
-.node-patch-load-fault-init {
-  min-width: min(200px, 100%);
+.node-patch-load-fault-init,
+.node-patch-load-fault-close {
+  min-width: min(160px, 100%);
   padding: 10px 14px;
   border-radius: 6px;
   font: 700 0.88rem/1 "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
@@ -483,6 +484,19 @@ body.node-patch-load-fault-open .node-patch-load-fault {
 .node-patch-load-fault-init:focus-visible {
   border-color: rgba(255, 180, 110, 0.85);
   background: rgba(64, 36, 14, 0.96);
+  outline: 0;
+}
+
+.node-patch-load-fault-close {
+  border: 1px solid rgba(180, 190, 200, 0.35);
+  background: rgba(14, 16, 18, 0.92);
+  color: rgba(230, 232, 236, 0.92);
+}
+
+.node-patch-load-fault-close:hover,
+.node-patch-load-fault-close:focus-visible {
+  border-color: rgba(220, 225, 230, 0.55);
+  background: rgba(28, 32, 36, 0.96);
   outline: 0;
 }
 
@@ -17834,9 +17848,10 @@ body.node-slider-dragging .node-param-port {
   height: 100%;
   min-height: 0;
   margin: 0;
+  /* Vertical range: standardized writing-mode + direction (not nonstandard
+     appearance: slider-vertical, which Chromium deprecates). */
   writing-mode: vertical-lr;
   direction: rtl;
-  appearance: slider-vertical;
   accent-color: var(--accent, #39e6a3);
   cursor: pointer;
 }

@@ -317,10 +317,14 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           this.phaseDisperseStates.set(nodeId, state);
         }
         const frequency = this.readEffectiveParameter(node, "frequency", 100, frame, frames, frameValues);
-        const amount = this.readEffectiveParameter(node, "amount", 0.5, frame, frames, frameValues);
+        // Filters = cascade depth (CPU). Legacy Amount 0…1 still accepted.
+        let filters = this.readEffectiveParameter(node, "filters", NaN, frame, frames, frameValues);
+        if (!Number.isFinite(Number(filters))) {
+          filters = this.readEffectiveParameter(node, "amount", 0.5, frame, frames, frameValues);
+        }
         const pinch = this.readEffectiveParameter(node, "pinch", 0.5, frame, frames, frameValues);
         const audioIn = this.safeFilterNumber(mixInput(nodeId), null) ?? 0;
-        return this.phaseDisperseSample(state, audioIn, frequency, amount, pinch, safeRate);
+        return this.phaseDisperseSample(state, audioIn, frequency, filters, pinch, safeRate);
       },
       bode: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         if (!this.bodeStates) this.bodeStates = new Map();

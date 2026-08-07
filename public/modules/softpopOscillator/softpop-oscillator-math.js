@@ -2,14 +2,14 @@
 // Gaussian white / pink / brown → EQ ZDF SVF Bandpass Peak (mode 4) × amplitude.
 // Independent L/R noise; Reset rising edge restarts the seeded sequence.
 
-// Worklet Blob may not have main-thread globals; provide minimal polyfills.
-if (typeof nodeGraphTau === "undefined") {
-  // eslint-disable-next-line no-var
-  var nodeGraphTau = Math.PI * 2;
-}
-if (typeof nodeGraphStableSeed !== "function") {
-  // eslint-disable-next-line no-var
-  var nodeGraphStableSeed = function nodeGraphStableSeedPolyfill(text) {
+// Worklet Blob may not have main-thread globals. Never redeclare nodeGraphTau /
+// nodeGraphStableSeed with var (conflicts with main-thread const) — local aliases only.
+const softpopTau = (typeof nodeGraphTau === "number" && Number.isFinite(nodeGraphTau))
+  ? nodeGraphTau
+  : Math.PI * 2;
+const softpopStableSeed = (typeof nodeGraphStableSeed === "function")
+  ? nodeGraphStableSeed
+  : function softpopStableSeedPolyfill(text) {
     let h = 2166136261 >>> 0;
     const s = String(text || "");
     for (let i = 0; i < s.length; i += 1) {
@@ -18,7 +18,6 @@ if (typeof nodeGraphStableSeed !== "function") {
     }
     return h || 0x12345678;
   };
-}
 
 function createNodeGraphSoftpopNoiseChannel() {
   if (typeof createNodeGraphNoiseGeneratorChannelState === "function") {

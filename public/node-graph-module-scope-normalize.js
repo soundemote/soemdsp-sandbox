@@ -383,7 +383,9 @@ function normalizeNodeGraphTraceDisplayZoomSeconds(value, fallback) {
 
 function nodeGraphTraceDisplayClampSweepSeconds(value) {
   const n = Number(value);
-  if (!Number.isFinite(n) || n <= 0) {
+  // Non-finite only → default. 0 / negative → fastest legal sweep (0.01 s),
+  // NOT snap back to default 2 s (that felt broken when dragging Sweep to 0).
+  if (!Number.isFinite(n)) {
     return nodeGraphLineBurnSettingsDefaults.sweepSeconds;
   }
   return clampNodeSliderValue(n, 0.01, 10);
@@ -416,17 +418,36 @@ function normalizeNodeGraphLineBurnSettings(settings = {}) {
   const gradientStops = nodeGraphPhosphorGradientStopsFromSettings(source, defaults.dot1Color);
   const floor = gradientStops[0]?.color || defaults.background;
   const peak = gradientStops[gradientStops.length - 1]?.color || defaults.dot1Color;
+  // Online sandbox: burn/decay drive deposit+fade. Also accept Ghost/Trail UI.
+  const burn = normalizeNodeGraphTraceDisplayNumber(
+    source.burn ?? source.ghost,
+    defaults.burn ?? defaults.ghost,
+    0,
+    1,
+  );
+  const trail = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
+    ? PhosphorResidual.migrateTrail(source, defaults.trail ?? 0.7)
+    : normalizeNodeGraphTraceDisplayNumber(
+      source.trail ?? (Number.isFinite(Number(source.decay)) ? 1 - Number(source.decay) : defaults.trail),
+      defaults.trail ?? 0.7,
+      0,
+      1,
+    );
+  const decay = Number.isFinite(Number(source.decay))
+    ? normalizeNodeGraphTraceDisplayNumber(source.decay, defaults.decay, 0, 1)
+    : normalizeNodeGraphTraceDisplayNumber(1 - trail, defaults.decay, 0, 1);
   return {
     background: normalizeNodeGraphTraceDisplayColor(floor, defaults.background),
-    ghost: normalizeNodeGraphTraceDisplayNumber(source.ghost ?? source.burn, defaults.ghost ?? defaults.burn, 0, 1),
-    trail: (typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
-      ? PhosphorResidual.migrateTrail(source, defaults.trail ?? (Number.isFinite(defaults.decay) ? 1 - defaults.decay : 0.88))
-      : normalizeNodeGraphTraceDisplayNumber(source.trail ?? (Number.isFinite(Number(source.decay)) ? 1 - Number(source.decay) : defaults.trail), defaults.trail ?? 0.88, 0, 1)),
+    burn,
+    decay,
+    ghost: burn,
+    trail,
+    // Online allows brightness > 1 (default 2). Clamping to 0…1 made 1D trails thin/broken.
     dot1Brightness: normalizeNodeGraphTraceDisplayNumber(
       source.dot1Brightness ?? source.brightness,
       defaults.dot1Brightness,
       0,
-      1,
+      Infinity,
     ),
     dot1Color: normalizeNodeGraphTraceDisplayColor(peak, defaults.dot1Color),
     // Always on — hide the display if you don't want the pen.
@@ -736,17 +757,39 @@ function normalizeNodeGraphScope2dSettings(settings = {}, defaultsOverride = nul
   const gradientStops = nodeGraphPhosphorGradientStopsFromSettings(source, defaults.dot1Color);
   const floor = gradientStops[0]?.color || defaults.background;
   const peak = gradientStops[gradientStops.length - 1]?.color || defaults.dot1Color;
+  // Online path uses burn/decay. Accept Ghost/Trail UI as aliases.
+  const burn = normalizeNodeGraphTraceDisplayNumber(
+    source.burn ?? source.ghost,
+    defaults.burn ?? defaults.ghost,
+    0,
+    1,
+  );
+  const trail = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
+    ? PhosphorResidual.migrateTrail(
+      source,
+      defaults.trail ?? (Number.isFinite(defaults.decay) ? 1 - defaults.decay : 0.88),
+    )
+    : normalizeNodeGraphTraceDisplayNumber(
+      source.trail ?? (Number.isFinite(Number(source.decay)) ? 1 - Number(source.decay) : defaults.trail),
+      defaults.trail ?? 0.88,
+      0,
+      1,
+    );
+  const decay = Number.isFinite(Number(source.decay))
+    ? normalizeNodeGraphTraceDisplayNumber(source.decay, defaults.decay, 0, 1)
+    : normalizeNodeGraphTraceDisplayNumber(1 - trail, defaults.decay ?? 0.12, 0, 1);
   return {
     background: normalizeNodeGraphTraceDisplayColor(floor, defaults.background),
-    ghost: normalizeNodeGraphTraceDisplayNumber(source.ghost ?? source.burn, defaults.ghost ?? defaults.burn, 0, 1),
-    trail: (typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
-      ? PhosphorResidual.migrateTrail(source, defaults.trail ?? (Number.isFinite(defaults.decay) ? 1 - defaults.decay : 0.88))
-      : normalizeNodeGraphTraceDisplayNumber(source.trail ?? (Number.isFinite(Number(source.decay)) ? 1 - Number(source.decay) : defaults.trail), defaults.trail ?? 0.88, 0, 1)),
+    burn,
+    decay,
+    ghost: burn,
+    trail,
+    // Online allows Bright > 1 (Infinity); default 0.92 stays in 0…1.
     dot1Brightness: normalizeNodeGraphTraceDisplayNumber(
       source.dot1Brightness ?? source.brightness,
       defaults.dot1Brightness,
       0,
-      1,
+      Infinity,
     ),
     dot1Color: normalizeNodeGraphTraceDisplayColor(peak, defaults.dot1Color),
     dot1Enabled: true,

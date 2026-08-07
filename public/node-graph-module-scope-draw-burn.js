@@ -504,17 +504,23 @@ function decayNodeGraphScope2dBurn(renderer, settings) {
 function nodeGraphScope2dBurnLayers(settings, dotSpace) {
   const layers = [];
   if (settings?.dot1Enabled !== false) {
-    // c1091b4 exact formula: diameter = size * minSide, radius = half.
+    // Linear diameter map: size * minSide, radius = half; size 0 → 1px (radius 0.5).
     const size01 = clampNodeSliderValue(settings.dot1Size, 0, 1);
     const side = Math.max(1, Number(dotSpace) || 1);
+    const radius = typeof nodeGraphScopeSize01ToRadiusPx === "function"
+      ? nodeGraphScopeSize01ToRadiusPx(side, size01)
+      : (typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.size01ToRadiusPx
+        ? PhosphorDrawer.size01ToRadiusPx(side, size01)
+        : Math.max(0.5, side * size01 * 0.5));
     layers.push({
       // Blur 0 hard disc … 1 full soft gaussian.
       blur: nodeGraphTraceDisplayClampStampBlur(settings.lineThickness),
       brightness: Math.max(0, Number(settings.dot1Brightness) || 0),
       color: nodeGraphScopeHexColorToRgb(settings.dot1Color),
-      radius: Math.max(0.5, side * size01 * 0.5),
+      radius,
     });
   }
+  // Size 0 is valid (1px floor) — only brightness gates the layer.
   return layers.filter((layer) => layer.brightness > 0 && layer.radius > 0);
 }
 
@@ -666,12 +672,24 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
     return false;
   }
 
+  // Online sandbox: deposit/exposure driven by Burn; fade by Decay.
+  // Local UI uses Trail/Ghost — map Trail high → long residual → low decay.
   const trail = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
     ? PhosphorResidual.migrateTrail(settings || {}, 0.88)
     : clampNodeSliderValue(Number(settings?.trail ?? (Number.isFinite(Number(settings?.decay)) ? 1 - Number(settings.decay) : 0.88)), 0, 1);
   const ghost = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateGhost
     ? PhosphorResidual.migrateGhost(settings || {}, 0.45)
     : clampNodeSliderValue(Number(settings?.ghost ?? settings?.burn) || 0, 0, 1);
+  const burn = clampNodeSliderValue(
+    Number.isFinite(Number(settings?.burn)) ? Number(settings.burn) : ghost,
+    0,
+    1,
+  );
+  const decay = clampNodeSliderValue(
+    Number.isFinite(Number(settings?.decay)) ? Number(settings.decay) : 1 - trail,
+    0,
+    1,
+  );
   const dotSpace = nodeGraphScope2dStrokeSpace(canvas);
   const layers = nodeGraphScope2dBurnLayers(settings, dotSpace);
   const layer = layers[0] || null;
@@ -683,24 +701,24 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
   // Engine speed 0 (and other pause paths): never step energy — hold FBO as-is.
   const frozen = nodeGraphModuleScopePhosphorFrozen();
   if (frozen) {
-    // Present only (below). No residual step, no bleed, no deposit.
+    // Present only (below). No decay, no bleed, no deposit.
   } else if (layer) {
-    // c1091b4 energy burn deposit: dots only, maxDots ceiling, no fullEconomy flag
-    // (thrifty ideal spacing; under load skip evenly across the path).
+    // Soft circular hits on NEW motion only. Burn gain is smooth (no dead band).
     const size01 = clampNodeSliderValue(settings?.dot1Size, 0, 1);
     const beamBrightness = nodeGraphScope2dEnergyBurnDepositGain(
+      burn,
       layer.brightness,
       size01,
     );
     nodeGraphPhosphorEnergyGlStepBeams(energyGl, {
-      trail,
-      ghost,
+      decay,
       pathPoints: points,
-      radius: Math.max(0.35, layer.radius),
+      radius: Math.max(0.5, layer.radius),
       brightness: beamBrightness,
       blur: nodeGraphTraceDisplayClampStampBlur(layer.blur),
       mode: "dots",
-      // User / face ceiling. Under load: even skips across full path (not head-only).
+      // Stamp ceiling only — packing is arc-length (stable density). Over budget
+      // widens spacing across the whole path (no mid-path truncate / blobs).
       maxDots: Math.max(
         64,
         Math.min(
@@ -708,13 +726,11 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
           Math.round(Number(settings?.dotBudget) || nodeGraphScope2dMaxSamplesPerFrame(canvas)),
         ),
       ),
-      // Only pass fullEconomy when explicitly true (c1091b4 default: off).
-      fullEconomy: settings?.fullDotEconomy === true,
       fullDotEconomy: settings?.fullDotEconomy === true,
     });
   } else if (typeof nodeGraphPhosphorEnergyGlStep === "function") {
     // Fade + bleed when no drawable layer (trail still softens outward).
-    nodeGraphPhosphorEnergyGlStep(energyGl, { trail, ghost, depositGain: 0, bleed: 0.1 });
+    nodeGraphPhosphorEnergyGlStep(energyGl, { decay, depositGain: 0, bleed: 0.1 });
   }
 
   if (!frozen) {
@@ -724,20 +740,17 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
     }
   }
 
-  // Fixed film exposure (not a second brightness).
-  const exposure = nodeGraphScope2dEnergyBurnExposure();
+  // Soft film exposure — stable base so low burn stays dim, not blank.
+  // Re-present while frozen so the face stays visible if something cleared the 2D canvas.
+  const exposure = nodeGraphScope2dEnergyBurnExposure(burn);
   context.setTransform(1, 0, 0, 1, 0, 0);
   nodeGraphFacePlateFillCanvas(context, canvas, bgHex);
   if (nodeGraphPhosphorEnergyGlPresent(energyGl, 1, { exposure })) {
     context.save();
     context.globalCompositeOperation = "lighter";
-    // Always bilinear when compositing energy → face. Nearest upscale of a
-    // sub-1 density FBO made continuous beams look stair-stepped / jagged.
-    // (Pixel-density 0 1×1 “chunky” still soft-fills the plate.)
-    context.imageSmoothingEnabled = true;
-    if ("imageSmoothingQuality" in context) {
-      context.imageSmoothingQuality = "high";
-    }
+    // Smooth when density ≥ 1 (supersample AA); nearest when intentionally chunky.
+    const dens = Number(sync.density);
+    context.imageSmoothingEnabled = Number.isFinite(dens) ? dens >= 0.999 : true;
     context.drawImage(energyGl.canvas, 0, 0, width, height);
     context.restore();
   }
@@ -768,8 +781,8 @@ function drawNodeGraphScope2dRetainedBurn(item, pixelRatio, square, buffer, sett
     });
     return;
   }
-  // c1091b4 retained burn: newest samples only + adjacent-frame bridge.
-  // Phosphor residual is the lagging trail — do not re-stamp full history.
+  // Deposit only samples since last draw (+ bridge). Phosphor residual is the
+  // lagging trail — do not re-stamp the full history every frame.
   const count = Math.min(buffer?.x?.length || 0, buffer?.y?.length || 0);
   const budget = nodeGraphScope2dMaxSamplesPerFrame(canvas);
   const rawStart = nodeGraphScope2dDrawStartIndex(canvas, buffer, count);
@@ -893,26 +906,40 @@ function drawNodeGraphLineBurnOscilloscopeItem(renderer, item, pixelRatio) {
   }
   const nodeId = String(item?.slot?.nodeId || "");
   // Prefer the sink's own Reset capture (full-rate visual input buffer).
-  // Fall back to whatever is wired into Reset if the port buffer is empty
-  // (e.g. plan not yet rebuilt after adding the jack).
+  // Only when *fresh* samples arrived this post — stale Reset rings after
+  // disconnect used to false-trigger rising edges and snap the pen (Y tears).
   let resetBuffer = null;
   if (nodeId) {
     const own = nodeGraphModuleScopeState.buffers.get(`${nodeId}:Reset`);
-    const ownLen = own?.length || 0;
     const ownRecent = Math.floor(Number(own?.nodeGraphScopeRecentSampleCount) || 0);
-    if (own && ownLen > 0 && (ownRecent > 0 || ownLen > 0)) {
+    if (own && ownRecent > 0) {
       resetBuffer = own;
     } else if (typeof nodeGraphModuleScopeConnectedSourceBuffer === "function") {
-      resetBuffer = nodeGraphModuleScopeConnectedSourceBuffer(nodeId, "Reset");
+      const wired = nodeGraphModuleScopeConnectedSourceBuffer(nodeId, "Reset");
+      const wiredRecent = Math.floor(Number(wired?.nodeGraphScopeRecentSampleCount) || 0);
+      if (wired && wiredRecent > 0) {
+        resetBuffer = wired;
+      }
     }
   }
   // Points already in canvas pixel space (not workspace screen rect).
-  // c1091b4: reduce control points, then dots deposit with maxDots economy.
+  // Undrawn-window path draws every sample since lastDrawn (not just the
+  // latest post) so skipped RAF / multi-post gaps no longer Y-jump the pen.
+  // Match online: no spatial bridge (that glued stale lastPoint across gaps).
   const pathPoints = reduceNodeGraphOneDimensionalBurnPoints(
     nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetBuffer),
     nodeGraphOneDimensionalBurnPointBudget(canvas),
   );
-  drawNodeGraphRetainedBurnPath(item, pixelRatio, pathPoints, settings, { endFrame });
+  // Prefer buffer absolute frame; fall back to undrawn-window end so the
+  // cursor still advances when metadata is partial.
+  let cursorEnd = endFrame;
+  if (!Number.isFinite(cursorEnd) && typeof nodeGraphOneDimensionalBurnUndrawnWindow === "function") {
+    const w = nodeGraphOneDimensionalBurnUndrawnWindow(canvas, buffer);
+    if (Number.isFinite(Number(w?.endFrame))) {
+      cursorEnd = Number(w.endFrame);
+    }
+  }
+  drawNodeGraphRetainedBurnPath(item, pixelRatio, pathPoints, settings, { endFrame: cursorEnd });
 }
 
 
@@ -1003,13 +1030,13 @@ function drawNodeGraphScope2dTraceLayer(context, points, dotSpace, settings) {
   const side = Math.max(1, Number(dotSpace) || 1);
   const radius = typeof nodeGraphScopeSize01ToRadiusPx === "function"
     ? nodeGraphScopeSize01ToRadiusPx(side, size)
-    : Math.max(0.35, side * Math.max(0.08, size) * 0.5);
+    : Math.max(0.5, side * size * 0.5);
   // Canvas fallback: soft dots only (match energy-GL dots path; no polyline joins).
   context.save();
   context.globalCompositeOperation = "lighter";
   context.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${Math.min(1, brightness)})`;
   context.shadowBlur = 0;
-  const r = Math.max(0.35, radius);
+  const r = Math.max(0.5, radius);
   for (let i = 0; i < points.length; i += 1) {
     const p = points[i];
     if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;

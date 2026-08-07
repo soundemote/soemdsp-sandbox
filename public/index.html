@@ -103,6 +103,13 @@
           onclick="globalThis.nodeGraphInitAfterPatchLoadFault?.()">
           Initialize patch
         </button>
+        <button
+          id="nodePatchLoadFaultClose"
+          class="node-patch-load-fault-close"
+          type="button"
+          onclick="globalThis.nodeGraphClosePatchLoadFaultUi?.()">
+          Close
+        </button>
       </div>
     </div>
   </div>
@@ -3640,24 +3647,24 @@
   <script src="./public/node-graph-context-menu.js?v=visibility-two-row-1"></script>
   <script src="./public/node-graph-module-actions.js?v=alias-title-restore-1"></script>
   <!-- node-graph-code-screen.js loaded by node-graph-code-screen-loader.js on demand -->
-  <script src="./public/lib/phosphor/phosphor-residual.js?v=room-dimmer-full-ui-90-1"></script>
-  <script src="./public/lib/phosphor/phosphor-energy-gl.js?v=room-dimmer-full-ui-90-1"></script>
-  <script src="./public/lib/phosphor/phosphor-drawer.js?v=room-dimmer-full-ui-90-1"></script>
-  <script src="./public/node-graph-phosphor-energy-gl.js?v=room-dimmer-full-ui-90-1"></script>
-  <script src="./public/lib/trace/trace-stroke.js?v=trace-vector-2"></script>
+  <script src="./public/lib/phosphor/phosphor-residual.js?v=c1091b4-restore-2"></script>
+  <script src="./public/lib/phosphor/phosphor-energy-gl.js?v=dot-arclen-1"></script>
+  <script src="./public/lib/phosphor/phosphor-drawer.js?v=size-1px-0"></script>
+  <script src="./public/node-graph-phosphor-energy-gl.js?v=2d-site-cap-1"></script>
+  <script src="./public/lib/trace/trace-stroke.js?v=size-1px-0"></script>
   <script src="./public/node-graph-phosphor-gaussian-drawer.js?v=gaussian-beam-continuous-1"></script>
   <script type="module" src="./public/color-widget-boot.js?v=plane-4corner-1"></script>
   <script src="./public/modules/spectrogram/spectrogram-gradient-editor.js?v=matrix-preset-1"></script>
-  <script src="./public/node-graph-module-scope-defaults.js?v=scope-defaults-1"></script>
-  <script src="./public/node-graph-module-scope-normalize.js?v=scope-sync-lock-1"></script>
+  <script src="./public/node-graph-module-scope-defaults.js?v=size-1px-0"></script>
+  <script src="./public/node-graph-module-scope-normalize.js?v=2d-site-cap-1"></script>
   <script src="./public/node-graph-module-scope-display-mode.js?v=scope-display-mode-1"></script>
   <script src="./public/node-graph-module-scope-phosphor.js?v=scope-phosphor-1"></script>
   <script src="./public/node-graph-module-scope-settings-form.js?v=scope-settings-form-1"></script>
   <script src="./public/node-graph-module-scope-settings-ui.js?v=scope-settings-ui-1"></script>
-  <script src="./public/node-graph-module-scope-capture.js?v=scope-capture-1"></script>
+  <script src="./public/node-graph-module-scope-capture.js?v=2d-site-cap-1"></script>
   <script src="./public/node-graph-module-scope-number-readout.js?v=scope-number-readout-1"></script>
   <script src="./public/node-graph-module-scope-draw-basic.js?v=scope-draw-basic-1"></script>
-  <script src="./public/node-graph-module-scope-draw-burn.js?v=scope-draw-burn-1"></script>
+  <script src="./public/node-graph-module-scope-draw-burn.js?v=dot-arclen-1"></script>
   <script src="./public/node-graph-module-scopes.js?v=scope-sync-lock-1"></script>
   <script src="./public/node-graph-module-scope-spectrum.js?v=scope-spectrum-1"></script>
   <script src="./public/node-graph-module-scope-buffer-io.js?v=scope-buffer-io-1"></script>
@@ -3667,19 +3674,19 @@
   <script src="./public/node-graph-module-scope-webgl.js?v=scope-webgl-1"></script>
   <script src="./public/node-graph-module-scope-vertices.js?v=scope-vertices-1"></script>
   <script src="./public/node-graph-module-scope-offline.js?v=scope-offline-1"></script>
-  <script src="./public/node-graph-module-scope-screen-items.js?v=scope-screen-items-1"></script>
+  <script src="./public/node-graph-module-scope-screen-items.js?v=1d-bright-1"></script>
   <script src="./public/node-graph-module-scope-slots.js?v=scope-slots-1"></script>
   <script src="./public/node-graph-module-scope-buffer-view.js?v=scope-sync-lock-1"></script>
   <script src="./public/node-graph-module-scope-monitors.js?v=scope-monitors-1"></script>
   <script src="./public/node-graph-module-scope-scene-controls.js?v=scope-scene-controls-1"></script>
   <script src="./public/node-graph-module-scope-shader-settings.js?v=scope-shader-settings-1"></script>
-  <script src="./public/node-graph-module-scope-trace-controls.js?v=scope-trace-controls-1"></script>
+  <script src="./public/node-graph-module-scope-trace-controls.js?v=sweep-fix-1"></script>
   <script src="./public/node-graph-module-scope-wipe.js?v=scope-wipe-2"></script>
   <script src="./public/node-graph-module-scope-graph-query.js?v=scope-graph-query-1"></script>
   <script src="./public/node-graph-module-scope-settings.js?v=scope-settings-1"></script>
   <script src="./public/node-graph-module-scope-lifecycle.js?v=scope-lifecycle-1"></script>
   <script src="./public/node-graph-module-scope-canvas.js?v=scope-canvas-1"></script>
-  <script src="./public/node-graph-module-scope-paint-helpers.js?v=scope-paint-helpers-1"></script>
+  <script src="./public/node-graph-module-scope-paint-helpers.js?v=1d-undrawn-1"></script>
   <script src="./public/node-graph-module-scope-draw-orchestrator.js?v=scope-draw-orch-1"></script>
   <script src="./public/modules/phosphorLight/phosphor-light-display.js?v=alias-only-1"></script>
   <script src="./public/modules/oscilloscopeBank/oscilloscope-bank-display.js?v=room-dimmer-full-ui-90-1"></script>
@@ -3939,7 +3946,7 @@
   <script src="./public/modules/lorenzAttractor/lorenz-attractor-live-evaluator.js?v=lorenz-1"></script>
   <script src="./public/modules/noiseGenerator/noise-generator-math.js?v=noise-generator-1"></script>
   <script src="./public/modules/noiseGenerator/noise-generator-live-evaluator.js?v=noise-generator-1"></script>
-  <script src="./public/modules/softpopOscillator/softpop-oscillator-math.js?v=softpop-1"></script>
+  <script src="./public/modules/softpopOscillator/softpop-oscillator-math.js?v=edge-fill-1"></script>
   <script src="./public/modules/softpopOscillator/softpop-oscillator-live-evaluator.js?v=softpop-1"></script>
   <script src="./public/modules/sinepulse/sinepulse-math.js?v=sinepulse-1"></script>
   <script src="./public/modules/sinepulse/sinepulse-live-evaluator.js?v=sinepulse-1"></script>

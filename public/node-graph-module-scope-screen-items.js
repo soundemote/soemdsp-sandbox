@@ -323,23 +323,34 @@ function nodeGraphValueOscilloscopeTrailSamples(buffer) {
  */
 // nodeGraphPhosphorEnergyFadeAmount → node-graph-module-scope-phosphor.js
 /**
- * Smooth mono-energy deposit gain from brightness × size only.
+ * Online (soundemote) deposit: (burn, brightness, size01).
+ * Legacy 2-arg (brightness, size01) uses default burn 0.45.
  */
-function nodeGraphScope2dEnergyBurnDepositGain(brightness, size01 = 0) {
-  if (typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.depositGain) {
-    return PhosphorDrawer.depositGain(brightness, size01);
+function nodeGraphScope2dEnergyBurnDepositGain(burn, brightness, size01) {
+  if (arguments.length < 3 || size01 === undefined) {
+    return nodeGraphScope2dEnergyBurnDepositGain(0.45, burn, brightness);
   }
+  if (typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.depositGain) {
+    return PhosphorDrawer.depositGain(burn, brightness, size01);
+  }
+  const b = clampNodeSliderValue(Number(burn) || 0, 0, 1);
   const br = Math.max(0, Number(brightness) || 0);
   const s = clampNodeSliderValue(Number(size01) || 0, 0, 1);
-  return Math.max(0, br * 0.1 * (1.12 - s * 0.42));
+  // Slight low-end lift (pow < 1) so scrubbing 0.02→0.08 feels continuous.
+  // Floor keeps a faint tip at burn 0; span covers strong dwell at burn 1.
+  const burnShape = Math.pow(b, 0.78);
+  const sizeFactor = 1.12 - s * 0.42;
+  return Math.max(0, br * (0.022 + burnShape * 0.10) * sizeFactor);
 }
 
-/** Fixed film exposure — prefer PhosphorDrawer. */
-function nodeGraphScope2dEnergyBurnExposure() {
+/** Soft present exposure — burn gently opens film (online sandbox formula). */
+function nodeGraphScope2dEnergyBurnExposure(burn) {
   if (typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.exposure) {
-    return PhosphorDrawer.exposure();
+    return PhosphorDrawer.exposure(burn);
   }
-  return 2.9;
+  const b = clampNodeSliderValue(Number(burn) || 0, 0, 1);
+  // Base exposure keeps low residual visible; burn only gently opens the film.
+  return 1.85 + b * 2.1;
 }
 
 // nodeGraphPhosphorEnergyFade → node-graph-module-scope-phosphor.js

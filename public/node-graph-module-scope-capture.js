@@ -423,17 +423,16 @@ function nodeGraphModuleScopeCapturedScope2dBuffer(slot, options = {}) {
   if (hasRecentSampleMetadata && !(xRecentSamples > 0 && yRecentSamples > 0)) {
     return null;
   }
-  const xRetained = nodeGraphScopeAvailableSampleCount(xBuffer);
-  const yRetained = nodeGraphScopeAvailableSampleCount(yBuffer);
-  const validLength = Math.min(xRetained, yRetained, length);
-  const xTotal = nodeGraphScopeBufferAbsoluteFrame(xBuffer);
-  const yTotal = nodeGraphScopeBufferAbsoluteFrame(yBuffer);
-  // Shared timeline so X/Y pair by absolute frame — not by array index.
-  // When totals drift (one port skipped a batch), end-aligned index pairing
-  // draws Lissajous chords in the wrong place.
-  const absoluteFrame = xTotal > 0 && yTotal > 0
-    ? Math.min(xTotal, yTotal)
-    : Math.max(xTotal, yTotal);
+  // Match soundemote.io / site sandbox capture: end-aligned X/Y pairs, continuous
+  // path (no absolute-frame NaN holes that broke the polyline into dots).
+  const validLength = Math.min(
+    nodeGraphScopeAvailableSampleCount(xBuffer),
+    nodeGraphScopeAvailableSampleCount(yBuffer),
+    length,
+  );
+  const xTotal = Math.max(0, Math.floor(Number(xBuffer.nodeGraphScopeTotalSampleCount) || 0));
+  const yTotal = Math.max(0, Math.floor(Number(yBuffer.nodeGraphScopeTotalSampleCount) || 0));
+  const absoluteFrame = Math.min(xTotal, yTotal);
   const canvas = nodeGraphScope2dBurnCanvasForSlot(slot);
   const lastDrawnFrame = Number(canvas?._nodeGraphScope2dLastDrawnFrame);
   const newSinceLastDraw = Number.isFinite(lastDrawnFrame) && absoluteFrame > lastDrawnFrame
@@ -445,8 +444,7 @@ function nodeGraphModuleScopeCapturedScope2dBuffer(slot, options = {}) {
   // pad). The energy FBO holds the trail via decay — re-capturing ~1s and
   // re-stamping it every frame painted a lagging "second path" behind the beam.
   // Vector 2D Trace passes historySeconds and needs a real contiguous window.
-  // Cap to available ring buffer (validLength) so we never request empty.
-  let frames = Number.isFinite(historySeconds)
+  const frames = Number.isFinite(historySeconds)
     ? Math.min(
       validLength,
       Math.max(1, Math.ceil(Math.max(0, historySeconds) * sampleRate)),
@@ -455,44 +453,13 @@ function nodeGraphModuleScopeCapturedScope2dBuffer(slot, options = {}) {
       validLength,
       Math.max(minWindowFrames, newSinceLastDraw, 1),
     );
-  // Always keep at least a few samples so a slow FPS / short ring still draws.
-  if (validLength > 0) {
-    frames = Math.max(2, Math.min(validLength, frames));
-  }
-  // Overlap of the two retained windows on the shared absolute timeline.
-  if (xTotal > 0 && yTotal > 0) {
-    const overlapStart = Math.max(xTotal - xRetained, yTotal - yRetained);
-    const overlapEnd = Math.min(xTotal, yTotal);
-    const overlap = Math.max(0, overlapEnd - overlapStart);
-    if (overlap > 0) {
-      frames = Math.min(frames, overlap);
-    }
-  }
+  const start = Math.max(0, length - frames);
   const startFrame = Math.max(0, absoluteFrame - frames);
   const x = new Float32Array(frames);
   const y = new Float32Array(frames);
-  const useAbsolutePairing = xTotal > 0 && yTotal > 0;
-  if (useAbsolutePairing) {
-    for (let index = 0; index < frames; index += 1) {
-      const frame = startFrame + index;
-      const xv = nodeGraphScopeBufferSampleAtAbsoluteFrame(xBuffer, frame);
-      const yv = nodeGraphScopeBufferSampleAtAbsoluteFrame(yBuffer, frame);
-      // Missing either channel breaks the polyline (do not invent 0,0).
-      if (xv === null || yv === null) {
-        x[index] = Number.NaN;
-        y[index] = Number.NaN;
-      } else {
-        x[index] = xv;
-        y[index] = yv;
-      }
-    }
-  } else {
-    // Legacy buffers without absolute counters: end-aligned pairing.
-    const start = Math.max(0, length - frames);
-    for (let index = 0; index < frames; index += 1) {
-      x[index] = Number(xBuffer[start + index]) || 0;
-      y[index] = Number(yBuffer[start + index]) || 0;
-    }
+  for (let index = 0; index < frames; index += 1) {
+    x[index] = Number(xBuffer[start + index]) || 0;
+    y[index] = Number(yBuffer[start + index]) || 0;
   }
   return {
     length: frames,

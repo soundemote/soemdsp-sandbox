@@ -7,6 +7,14 @@ function nodeGraphOneDimensionalBurnSampleToY(sample, height, settings = null) {
   return h * 0.5 - clampNodeSliderValue((Number(sample) || 0) * amp, -1, 1) * h * 0.44;
 }
 
+/**
+ * Classic digital-scope envelope for 1D Phosphor.
+ *
+ * Bucket samples by pixel column: keep min/max Y per column, then emit a
+ * left→right polyline. Square edges become ONE vertical stem (column min→max)
+ * instead of a staircase of polyblep samples or budget-starved stamp chains.
+ * Flats stay a single horizontal at the plateau Y.
+ */
 function nodeGraphOneDimensionalBurnFadeTrail(context, canvas, settings) {
   if (!context || !canvas?.width || !canvas?.height) {
     return;
@@ -109,20 +117,30 @@ function nodeGraphOneDimensionalBurnResetSample(resetBuffer, inIndex, inCount) {
   }
   const safeInCount = Math.max(1, Math.floor(Number(inCount) || 1));
   const safeIndex = Math.max(0, Math.min(safeInCount - 1, Math.floor(Number(inIndex) || 0)));
-  // Prefer Reset's recent window; fall back to full buffer.
-  const rRecent = Math.floor(Number(resetBuffer.nodeGraphScopeRecentSampleCount) || 0);
-  const rCount = Math.max(1, Math.min(
-    resetBuffer.length,
-    rRecent > 0 ? rRecent : resetBuffer.length,
-  ));
+  // Trailing retained samples (not recent-only) so multi-post undrawn In
+  // windows still line up with Reset history of the same length.
+  const rRetained = Math.max(
+    0,
+    Math.min(
+      resetBuffer.length,
+      Math.floor(
+        Number(resetBuffer.nodeGraphScopeRetainedSampleCount)
+        || Number(resetBuffer.nodeGraphScopeRecentSampleCount)
+        || resetBuffer.length,
+      ),
+    ),
+  );
+  const rCount = Math.min(rRetained || resetBuffer.length, safeInCount);
+  if (rCount <= 0) {
+    return 0;
+  }
   // Align ends: last sample of In window ↔ last sample of Reset window.
   const fromEnd = (safeInCount - 1) - safeIndex;
+  if (fromEnd >= rCount) {
+    return 0;
+  }
   const rIndex = (resetBuffer.length - 1) - fromEnd;
-  // If Reset has a shorter recent tail, clamp into that tail.
-  const rStart = resetBuffer.length - rCount;
-  if (rIndex < rStart || rIndex >= resetBuffer.length) {
-    // Still try absolute-frame overlap when both streams share a clock range
-    // (same absoluteFrame counters when both ports ran from the start).
+  if (rIndex < 0 || rIndex >= resetBuffer.length) {
     return 0;
   }
   return Number(resetBuffer[rIndex]) || 0;
@@ -136,19 +154,78 @@ function nodeGraphOneDimensionalBurnBreakPath(points) {
   }
 }
 
+/**
+ * How many trailing samples of `buffer` still need depositing for this face.
+ *
+ * Prefer absoluteFrame − lastDrawn so multiple scope posts between RAF draws
+ * are all stamped (recentSampleCount alone only holds the *latest* post — that
+ * dropped earlier chunks and Y-jumped the pen). Falls back to recent-only when
+ * absolute frames are missing (legacy / main-thread capture).
+ */
+function nodeGraphOneDimensionalBurnUndrawnWindow(canvas, buffer) {
+  const retained = Math.max(
+    0,
+    Math.min(
+      buffer?.length || 0,
+      Math.floor(
+        Number(buffer?.nodeGraphScopeRetainedSampleCount)
+        || Number(buffer?.length)
+        || 0,
+      ),
+    ),
+  );
+  const recent = Math.max(0, Math.floor(Number(buffer?.nodeGraphScopeRecentSampleCount) || 0));
+  const absEnd = Number(buffer?.nodeGraphScopeAbsoluteFrame);
+  const totalSamples = Number(buffer?.nodeGraphScopeTotalSampleCount);
+  const lastDrawn = Number(
+    canvas?._nodeGraphOneDimensionalBurnLastDrawnFrame
+    ?? canvas?._nodeGraphScope2dLastDrawnFrame,
+  );
+
+  // Worklet visual-input path: absolute sample index is authoritative.
+  if (Number.isFinite(absEnd) && absEnd > 0) {
+    if (Number.isFinite(lastDrawn) && lastDrawn >= absEnd) {
+      return { count: 0, drawStartIndex: 0, endFrame: absEnd };
+    }
+    const undrawn = Number.isFinite(lastDrawn) && lastDrawn > 0
+      ? Math.max(0, Math.floor(absEnd - lastDrawn))
+      : Math.max(recent, 0);
+    const count = Math.min(retained || buffer.length, undrawn > 0 ? undrawn : Math.max(recent, 1));
+    return { count, drawStartIndex: 0, endFrame: absEnd };
+  }
+
+  // Legacy: no absoluteFrame — use totalSampleCount cursor when available.
+  if (Number.isFinite(totalSamples) && totalSamples > 0 && Number.isFinite(lastDrawn)) {
+    if (lastDrawn >= totalSamples) {
+      return { count: 0, drawStartIndex: 0, endFrame: totalSamples };
+    }
+    const undrawn = Math.max(0, Math.floor(totalSamples - lastDrawn));
+    const count = Math.min(retained || buffer.length, undrawn > 0 ? undrawn : Math.max(recent, 1));
+    return { count, drawStartIndex: 0, endFrame: totalSamples };
+  }
+
+  // Cold start / incomplete metadata: draw the latest post only.
+  const count = Math.max(1, Math.min(buffer.length, recent || 1));
+  const drawStartIndex = nodeGraphOneDimensionalBurnDrawStartIndex(canvas, buffer, count);
+  const frameInfo = nodeGraphOneDimensionalBurnBufferFrameInfo(buffer, count);
+  return {
+    count,
+    drawStartIndex,
+    endFrame: Number.isFinite(frameInfo.endFrame) ? frameInfo.endFrame : null,
+  };
+}
+
 function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetBuffer = null) {
   if (!buffer?.length || !canvas?.width || !canvas?.height) {
     return [];
   }
-  const count = Math.max(1, Math.min(
-    buffer.length,
-    Math.floor(Number(buffer.nodeGraphScopeRecentSampleCount) || 1),
-  ));
-  const start = Math.max(0, buffer.length - count);
-  const drawStartIndex = nodeGraphOneDimensionalBurnDrawStartIndex(canvas, buffer, count);
-  if (drawStartIndex >= count) {
+  const windowInfo = nodeGraphOneDimensionalBurnUndrawnWindow(canvas, buffer);
+  const count = Math.max(0, Math.floor(Number(windowInfo.count) || 0));
+  const drawStartIndex = Math.max(0, Math.floor(Number(windowInfo.drawStartIndex) || 0));
+  if (count <= 0 || drawStartIndex >= count) {
     return [];
   }
+  const start = Math.max(0, buffer.length - count);
   const sampleRate = Math.max(1, Number(nodeGraphScopeSampleRate(buffer)) || 44100);
   // Seconds to cross the face → phase advance per sample.
   let sweepSeconds = Number(settings?.sweepSeconds);
@@ -235,13 +312,12 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
 
 function nodeGraphOneDimensionalBurnPointBudget(canvas) {
   const width = Math.max(1, Number(canvas?.width) || 1);
-  // c1091b4 budget
   return Math.max(64, Math.min(2048, Math.ceil(width * 4)));
 }
 
 /**
- * Thin a 1D burn subpath (c1091b4 min/max-per-bucket).
- * Preserves peaks in each bucket so HF still reads after budget cut.
+ * Thin a 1D burn subpath with even index spacing (not min/max envelope).
+ * Min/max buckets turn continuous waves into jagged zigzags.
  */
 function reduceNodeGraphOneDimensionalBurnSubpath(points, start, end, budget, output) {
   const length = end - start;
@@ -522,8 +598,8 @@ function nodeGraphScope2dTraceMaxSegmentPixels(square) {
 }
 
 /**
- * Size 0–1 → radius px (c1091b4 best phosphor linear map).
- * diameter = size * faceMinSide, radius = half. Blur handles softness.
+ * Size 0–1 → radius px (linear diameter map).
+ * diameter = size * faceMinSide, radius = half. Size 0 → 1px diameter (0.5 radius).
  */
 function nodeGraphScopeSize01ToRadiusPx(faceMinSide, size01) {
   if (typeof PhosphorDrawer !== "undefined" && typeof PhosphorDrawer.size01ToRadiusPx === "function") {
@@ -533,11 +609,11 @@ function nodeGraphScopeSize01ToRadiusPx(faceMinSide, size01) {
     return TraceStroke.radiusPx(faceMinSide, size01);
   }
   const side = Math.max(1, Number(faceMinSide) || 1);
-  const t = clampNodeSliderValue(Number(size01) || 0.08, 0, 1);
-  return Math.max(0.35, side * t * 0.5);
+  const t = clampNodeSliderValue(Number(size01), 0, 1);
+  return Math.max(0.5, side * t * 0.5);
 }
 
-/** Size 0–1 → diameter/line-width px (linear: size * face min side). */
+/** Size 0–1 → diameter/line-width px (linear: size * face min side; min 1px). */
 function nodeGraphScopeSize01ToDiameterPx(faceMinSide, size01) {
   if (typeof PhosphorDrawer !== "undefined" && typeof PhosphorDrawer.size01ToDiameterPx === "function") {
     return PhosphorDrawer.size01ToDiameterPx(faceMinSide, size01);
@@ -546,8 +622,8 @@ function nodeGraphScopeSize01ToDiameterPx(faceMinSide, size01) {
     return TraceStroke.diameterPx(faceMinSide, size01);
   }
   const side = Math.max(1, Number(faceMinSide) || 1);
-  const t = clampNodeSliderValue(Number(size01) || 0.08, 0, 1);
-  return Math.max(0.7, side * t);
+  const t = clampNodeSliderValue(Number(size01), 0, 1);
+  return Math.max(1, side * t);
 }
 
 function nodeGraphScope2dLayerRadiusPx(settings, dotSpace) {
@@ -729,14 +805,17 @@ function drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas, op
     });
     return;
   }
+  // Size 0 is valid (1px min) — only brightness gates draw.
   const size = clampNodeSliderValue(layer.size, 0, 1);
   const brightness = Math.max(0, Number(layer.brightness) || 0);
-  if (size <= 0 || brightness <= 0) {
+  if (brightness <= 0) {
     return;
   }
   const rgb = nodeGraphScopeRgbFloatsToCanvasRgb(nodeGraphScopeHexColorToRgb(layer.color));
   const gain = Math.min(1, brightness);
-  const lineWidth = Math.max(1, face * size);
+  const lineWidth = typeof nodeGraphScopeSize01ToDiameterPx === "function"
+    ? nodeGraphScopeSize01ToDiameterPx(face, size)
+    : Math.max(1, face * size);
   context.save();
   context.globalCompositeOperation = "source-over";
   context.imageSmoothingEnabled = true;
@@ -1054,22 +1133,12 @@ function nodeGraphScope2dPointDistance(a, b) {
 function bridgeNodeGraphScope2dAdjacentFramePath(canvas, pathPoints, maxDistancePx, spacingPx) {
   const previousPoint = canvas?._nodeGraphScope2dLastDrawnPoint || null;
   const firstPoint = firstNodeGraphScope2dPathPoint(pathPoints);
-  if (!previousPoint || !firstPoint) {
+  if (!previousPoint || !firstPoint || nodeGraphScope2dPointDistance(previousPoint, firstPoint) > maxDistancePx) {
     return pathPoints;
   }
-  // Bridge gate stays tight even when the vector-trace discontinuity gate is
-  // loose (multi-orbit history). A long adjacent-frame bridge after a cursor
-  // glitch or residual desync paints a bright wrong chord across the face.
-  const faceMin = Math.min(
-    Math.max(1, Number(canvas?.width) || 1),
-    Math.max(1, Number(canvas?.height) || 1),
-  );
-  // c1091b4: bridge when within maxDistancePx only (caller passes trace max segment).
-  void faceMin;
-  if (nodeGraphScope2dPointDistance(previousPoint, firstPoint) > Math.max(1, Number(maxDistancePx) || 1)) {
-    return pathPoints;
-  }
-  // One bridge vertex only — soft stamps fill the short residual gap.
+  // One bridge vertex only — soft GPU beam segments already fill the gap
+  // (prettyscope/woscope style). Dense CPU interpolation here multiplies
+  // segment count and tanks FPS at high speed without improving softness.
   void spacingPx;
   return [previousPoint, ...pathPoints];
 }

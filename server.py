@@ -48,6 +48,12 @@ def _source_build_fingerprint() -> str:
                 "node-graph-live-runtime.js",
                 "node-graph-live-control-rendering.js",
                 "styles.css",
+                # Phosphor draw stack — token must re-roll when these change so
+                # hard-refresh proves the browser is not on stale scope JS.
+                "lib/phosphor/phosphor-energy-gl.js",
+                "lib/phosphor/phosphor-drawer.js",
+                "node-graph-module-scope-draw-burn.js",
+                "node-graph-module-scope-paint-helpers.js",
             ):
                 path = public / rel
                 if path.is_file():
@@ -429,6 +435,12 @@ class SandboxServer(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path in ("/", "/index.html"):
             self.serve_index(send_body=send_body)
+            return
+
+        # Optional embed overrides (sibling of public/, not under it). Missing
+        # file → empty JSON so the client fetch is 200 instead of a noisy 404.
+        if parsed.path == "/embed-config.json":
+            self.serve_embed_config(send_body=send_body)
             return
 
         if parsed.path.startswith("/public/"):
@@ -1316,6 +1328,21 @@ class SandboxServer(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("X-Soemdsp-Build-Token", token)
+        self.send_no_store_headers()
+        self.end_headers()
+        if send_body:
+            self.wfile.write(body)
+
+    def serve_embed_config(self, send_body: bool = True) -> None:
+        """Serve optional root embed-config.json, or {} when absent (no 404 noise)."""
+        path = ROOT / "embed-config.json"
+        if path.is_file():
+            self.serve_file(path, send_body=send_body)
+            return
+        body = b"{}\n"
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
         self.send_no_store_headers()
         self.end_headers()
         if send_body:
