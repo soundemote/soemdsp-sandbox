@@ -13949,15 +13949,23 @@ input.node-header-title:focus {
 .metadata-toggle-section {
   display: grid;
   gap: 0;
-  overflow: hidden;
+  /* Visible — never clip MIN/MAX/steppers inside nested cards. */
+  overflow: visible;
   border: 1px solid rgba(127, 199, 217, 0.24);
   border-radius: 5px;
   background: rgba(5, 9, 11, 0.62);
 }
 
-/* Metaparameter row: Save / Restore / Set Default (3-up). */
+/* Metaparameter row: Save / Restore / Set Default / Restore Default. */
 .metadata-field-actions {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* Parameter popover: keep actions on one full-width row of the flat grid. */
+.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-field-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: visible;
 }
 
 /* Single action (Display Settings "Defaults") fills the full row width. */
@@ -13975,7 +13983,7 @@ input.node-header-title:focus {
   display: grid;
   align-items: center;
   min-height: 22px;
-  padding: 0;
+  padding: 0 8px;
   border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
   border-radius: 5px;
   background: color-mix(in srgb, var(--accent) 8%, transparent);
@@ -14001,7 +14009,8 @@ input.node-header-title:focus {
   border-bottom: 1px solid rgba(127, 199, 217, 0.14);
 }
 
-.metadata-field-section label,
+/* 1-col field stacks: no right border. Toggle 2-col: clear on even cells. */
+.metadata-field-section:not(.metadata-smoothing-mode-section):not(.metadata-smoothing-type-section) label,
 .metadata-toggle-section label:nth-child(2n) {
   border-right: 0;
 }
@@ -14019,6 +14028,70 @@ input.node-header-title:focus {
 .metadata-smoothing-mode-section {
   padding: 6px;
   gap: 6px;
+}
+
+/*
+ * Parameter Settings (Mix etc.): one flat 2-column body grid.
+ * Range/Fields/Toggles wrappers use display:contents so labels share the
+ * same grid as section titles — no nested clipping cards.
+ */
+.node-parameter-metadata-popover > .metadata-popover-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  align-items: stretch;
+  gap: 0;
+  box-sizing: border-box;
+}
+
+.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-field-actions,
+.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-section-title,
+.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-choices-label,
+.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-smoothing-mode-section,
+.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-smoothing-type-section,
+.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-advanced-toggle {
+  grid-column: 1 / -1;
+}
+
+/* Flatten range / identity / toggles into the parent 2-col grid. */
+.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-range-section,
+.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-identity-section,
+.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-toggle-section {
+  display: contents;
+}
+
+.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-range-section > label,
+.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-identity-section > label,
+.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-toggle-section > label {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 30px;
+  margin: 0;
+  padding: 0 4px 0 6px;
+  border: 0;
+  border-right: 1px solid rgba(127, 199, 217, 0.14);
+  border-bottom: 1px solid rgba(127, 199, 217, 0.14);
+  background: rgba(5, 9, 11, 0.62);
+}
+
+.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-range-section > label:nth-child(2n),
+.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-identity-section > label:nth-child(2n),
+.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-toggle-section > label:nth-child(2n) {
+  border-right: 0;
+}
+
+/* Full-width rows inside the flat grid when a lone control needs the line. */
+.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-range-section > .metadata-curve-sensitivity-label {
+  grid-column: 1 / -1;
+  border-right: 0;
+}
+
+/* Smoothing blocks stay self-contained full-width (not display:contents). */
+.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-smoothing-mode-section,
+.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-smoothing-type-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  overflow: visible;
 }
 
 .metadata-smoothing-mode-title {
