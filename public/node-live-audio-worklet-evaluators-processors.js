@@ -292,12 +292,35 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         this.classicFxStubPassthrough(mixInput(nodeId)),
       chorus: (node, nodeId, frame, frames, frameValues, mixInput) =>
         this.classicFxStubPassthrough(mixInput(nodeId)),
-      bode: (node, nodeId, frame, frames, frameValues, mixInput) =>
-        this.classicFxStubPassthrough(mixInput(nodeId)),
-      phaseDisperse: (node, nodeId, frame, frames, frameValues, mixInput) =>
-        this.classicFxStubPassthrough(mixInput(nodeId)),
       stftBlur: (node, nodeId, frame, frames, frameValues, mixInput) =>
         this.classicFxStubPassthrough(mixInput(nodeId)),
+      phaseDisperse: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+        if (!this.phaseDisperseStates) this.phaseDisperseStates = new Map();
+        let state = this.phaseDisperseStates.get(nodeId);
+        if (!state) {
+          state = this.createPhaseDisperseState();
+          this.phaseDisperseStates.set(nodeId, state);
+        }
+        const frequency = this.readEffectiveParameter(node, "frequency", 100, frame, frames, frameValues);
+        const amount = this.readEffectiveParameter(node, "amount", 0.5, frame, frames, frameValues);
+        const pinch = this.readEffectiveParameter(node, "pinch", 0.5, frame, frames, frameValues);
+        const audioIn = this.safeFilterNumber(mixInput(nodeId), null) ?? 0;
+        return this.phaseDisperseSample(state, audioIn, frequency, amount, pinch, safeRate);
+      },
+      bode: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+        if (!this.bodeStates) this.bodeStates = new Map();
+        let state = this.bodeStates.get(nodeId);
+        if (!state) {
+          state = this.createBodeState();
+          this.bodeStates.set(nodeId, state);
+        }
+        const shift = this.readEffectiveParameter(node, "shift", 0, frame, frames, frameValues);
+        const fine = this.readEffectiveParameter(node, "fine", 0, frame, frames, frameValues);
+        const feedback = this.readEffectiveParameter(node, "feedback", 0, frame, frames, frameValues);
+        const mix = this.readEffectiveParameter(node, "mix", 1, frame, frames, frameValues);
+        const audioIn = this.safeFilterNumber(mixInput(nodeId), null) ?? 0;
+        return this.bodeSample(state, audioIn, shift, fine, feedback, mix, safeRate);
+      },
       formantFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const mono = mixInput(nodeId);
         return {

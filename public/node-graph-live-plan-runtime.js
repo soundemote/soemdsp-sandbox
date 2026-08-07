@@ -274,6 +274,8 @@ function createNodeGraphLiveRuntime(plan) {
   const modeResonatorStates = new Map();
   const combResonatorStates = new Map();
   const waveguideStates = new Map();
+  const phaseDisperseStates = new Map();
+  const bodeStates = new Map();
   const softpopOscillatorStates = new Map();
   const yellowjacketFilterStates = new Map();
   const superloveFilterStates = new Map();
@@ -721,6 +723,8 @@ function createNodeGraphLiveRuntime(plan) {
     modeResonatorStates,
     combResonatorStates,
     waveguideStates,
+    phaseDisperseStates,
+    bodeStates,
     softpopOscillatorStates,
     yellowjacketFilterStates,
     superloveFilterStates,
@@ -919,7 +923,7 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   if (!runtime.activeFilterStates) {
     runtime.activeFilterStates = new Map();
   }
-  for (const sci of ["butterworth", "linkwitzRiley", "bessel", "chebyshev", "elliptic", "bandpass", "allpass", "crossover2", "crossover3", "crossover4", "crossover5", "crossover6", "modeResonator", "combResonator", "waveguide", "softpopOscillator"]) {
+  for (const sci of ["butterworth", "linkwitzRiley", "bessel", "chebyshev", "elliptic", "bandpass", "allpass", "crossover2", "crossover3", "crossover4", "crossover5", "crossover6", "modeResonator", "combResonator", "waveguide", "phaseDisperse", "bode", "softpopOscillator"]) {
     const key = `${sci}States`;
     if (!runtime[key]) runtime[key] = new Map();
   }
@@ -1783,7 +1787,7 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
       }
     }
   }
-  for (const sciType of ["butterworth", "linkwitzRiley", "bessel", "chebyshev", "elliptic", "bandpass", "allpass", "crossover2", "crossover3", "crossover4", "crossover5", "crossover6", "modeResonator", "combResonator", "waveguide", "softpopOscillator"]) {
+  for (const sciType of ["butterworth", "linkwitzRiley", "bessel", "chebyshev", "elliptic", "bandpass", "allpass", "crossover2", "crossover3", "crossover4", "crossover5", "crossover6", "modeResonator", "combResonator", "waveguide", "phaseDisperse", "bode", "softpopOscillator"]) {
     const map = runtime[`${sciType}States`];
     if (!map) continue;
     for (const id of [...map.keys()]) {

@@ -5021,7 +5021,7 @@ const nodeGraphModuleDefinitions = (
         min: "-5000",
         step: "any",
         unit: "Hz",
-        tooltip: "Under construction. Planned: Bode frequency shift Δf (Hz), through-zero.",
+        tooltip: "Frequency shift Δf in Hz (through-zero). Adds Δ to every partial — breaks harmonic ratios (not pitch shift).",
       },
       {
         defaultValue: "0",
@@ -5032,7 +5032,7 @@ const nodeGraphModuleDefinitions = (
         min: "-50",
         step: "any",
         unit: "Hz",
-        tooltip: "Under construction. Planned: fine shift offset.",
+        tooltip: "Fine shift offset in Hz, added to Shift.",
       },
       {
         defaultValue: "0",
@@ -5042,7 +5042,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "any",
-        tooltip: "Under construction. Planned: regenerative Bode feedback.",
+        tooltip: "Regenerative feedback of the shifted signal into the input (classic Bode spice).",
       },
       {
         defaultValue: "1",
@@ -5052,7 +5052,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Under construction. Planned: dry/wet.",
+        tooltip: "Dry/wet blend. 1 = fully shifted.",
       },
     ],
   },
@@ -5072,7 +5072,7 @@ const nodeGraphModuleDefinitions = (
         min: "20",
         step: "any",
         unit: "Hz",
-        tooltip: "Under construction. Planned: group-delay corner (Disperser-style).",
+        tooltip: "Allpass corner: shapes the group-delay curve (where delay concentrates relative to the spectrum).",
       },
       {
         defaultValue: "0.5",
@@ -5082,7 +5082,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Under construction. Planned: all-pass stack order / strength.",
+        tooltip: "Stack order / strength: more cascaded allpass stages (up to 64). Higher = more time smear / bubbly reshape.",
       },
       {
         defaultValue: "0.5",
@@ -5092,7 +5092,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Under construction. Planned: Q — concentrate group delay around Frequency.",
+        tooltip: "Q of each allpass: high Pinch concentrates group delay in a narrow band around Frequency.",
       },
     ],
   },

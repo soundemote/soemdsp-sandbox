@@ -130,6 +130,8 @@ NodeLiveAudioProcessor.prototype.clearPlan = function clearPlan() {
     this.modeResonatorStates = new Map();
     this.combResonatorStates = new Map();
     this.waveguideStates = new Map();
+    this.phaseDisperseStates = new Map();
+    this.bodeStates = new Map();
     this.softpopOscillatorStates = new Map();
     for (const state of this.yellowjacketFilterStates.values()) {
       this.destroyStereoFilterNativeState(state, (s) => this.destroyYellowjacketFilterNativeState(s));

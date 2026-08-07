@@ -43,10 +43,6 @@ const nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([
   "phaser",
   "flanger",
   "chorus",
-  // Bode frequency shifter (SSB / Hilbert)
-  "bode",
-  // Kilohearts Disperser-class cascaded all-pass group delay
-  "phaseDisperse",
   // STFT spectral blur
   "stftBlur",
 ]));
@@ -1109,9 +1105,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   phaseDisperse: {
     category: "scientificFilter",
     description:
-      "Under construction. Phase Disperse: cascaded all-pass group-delay (Kilohearts Disperser class). Frequency, Amount (order), Pinch (Q). Flat magnitude — rearranges when frequencies arrive. Sibling of Allpass Filter; not Bode, not STFT Blur.",
+      "Cascaded 2nd-order allpass group-delay (Disperser class). Frequency = APF corner, Amount = stack order (up to 64), Pinch = Q (concentrates delay). Flat magnitude — smears when frequencies arrive. Sibling of Allpass; not Bode, not STFT Blur.",
     label: "Phase Disperse",
-    notes: ["under construction", "allpass", "group delay", "disperser", "scientific"],
+    notes: ["allpass", "group delay", "disperser", "scientific", "phase"],
   },
   phaser: {
     category: "analogFilter",
@@ -1137,9 +1133,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   bode: {
     category: "space",
     description:
-      "Under construction. Bode frequency shifter (SSB / Hilbert): shift spectrum by Δ Hz (through-zero), optional feedback + mix. Not pitch shift, not Phase Disperse.",
+      "Bode frequency shifter (SSB via Hilbert FIR): shift spectrum by Δ Hz (through-zero), Fine, Feedback, Mix. Breaks harmonic ratios for metallic/bubbly spectra. Not pitch shift, not Phase Disperse.",
     label: "Bode Shifter",
-    notes: ["under construction", "bode", "frequency shifter", "SSB", "Hilbert", "space"],
+    notes: ["bode", "frequency shifter", "SSB", "Hilbert", "space"],
   },
   stftBlur: {
     category: "space",

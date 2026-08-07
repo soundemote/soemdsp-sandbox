@@ -234,6 +234,14 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       if (node?.type === "waveguide" && !this.waveguideStates.has(id)) {
         this.waveguideStates.set(id, this.createWaveguideState());
       }
+      if (!this.phaseDisperseStates) this.phaseDisperseStates = new Map();
+      if (node?.type === "phaseDisperse" && !this.phaseDisperseStates.has(id)) {
+        this.phaseDisperseStates.set(id, this.createPhaseDisperseState());
+      }
+      if (!this.bodeStates) this.bodeStates = new Map();
+      if (node?.type === "bode" && !this.bodeStates.has(id)) {
+        this.bodeStates.set(id, this.createBodeState());
+      }
       if (!this.softpopOscillatorStates) this.softpopOscillatorStates = new Map();
       if (node?.type === "softpopOscillator" && !this.softpopOscillatorStates.has(id)) {
         this.softpopOscillatorStates.set(id, this.createSoftpopOscillatorState());
@@ -772,6 +780,16 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
     if (this.waveguideStates) {
       for (const id of [...this.waveguideStates.keys()]) {
         if (!ids.has(id)) this.waveguideStates.delete(id);
+      }
+    }
+    if (this.phaseDisperseStates) {
+      for (const id of [...this.phaseDisperseStates.keys()]) {
+        if (!ids.has(id)) this.phaseDisperseStates.delete(id);
+      }
+    }
+    if (this.bodeStates) {
+      for (const id of [...this.bodeStates.keys()]) {
+        if (!ids.has(id)) this.bodeStates.delete(id);
       }
     }
     if (this.softpopOscillatorStates) {

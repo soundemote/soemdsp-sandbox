@@ -39,6 +39,8 @@ const nodeGraphModuleScopeUnipolarTypes = new Set([
   "modeResonator",
   "combResonator",
   "waveguide",
+  "phaseDisperse",
+  "bode",
   "linearEnvelope",
   "midiNotePitch",
   "midiOut",
