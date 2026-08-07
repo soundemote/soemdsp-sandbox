@@ -235,9 +235,9 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
 
 function nodeGraphOneDimensionalBurnPointBudget(canvas) {
   const width = Math.max(1, Number(canvas?.width) || 1);
-  // Prefer denser control points so continuous beam ribbons follow the wave
-  // instead of min/max envelope folds (which read as jagged).
-  return Math.max(256, Math.min(8192, Math.ceil(width * 8)));
+  // Dense control points for continuous beam ribbons (lineBurn / PolyBLEP face).
+  // Even thinning keeps the true waveform; min/max buckets made envelope zigzags.
+  return Math.max(512, Math.min(8192, Math.ceil(width * 12)));
 }
 
 /**

@@ -692,9 +692,12 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
     // Present only (below). No residual step, no bleed, no deposit.
   } else if (layer) {
     // Soft hits on NEW motion only. Deposit = brightness; Trail = hot hang; Ghost = dim scorch.
-    // Dots + Dot Budget economy (not unlimited beam segments): under load, stamps
-    // spread evenly along the path — high-frequency reads as a beautiful sparse
-    // phosphor dust instead of drawing a polyline for every sample (FPS death).
+    //
+    // Deposit mode:
+    //   "segments" — continuous Gaussian beam ribbons along the path (CRT beam).
+    //                Required for PolyBLEP / lineBurn heart-monitor: sample→Y vs
+    //                sweep→X must stay a continuous trace, not sparse dust.
+    //   "dots"     — stamp budget economy for 2D orbits (FPS under dense history).
     const size01 = clampNodeSliderValue(settings?.dot1Size, 0, 1);
     const beamBrightness = nodeGraphScope2dEnergyBurnDepositGain(
       layer.brightness,
@@ -707,6 +710,8 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
         Math.round(Number(settings?.dotBudget) || nodeGraphScope2dMaxSamplesPerFrame(canvas)),
       ),
     );
+    const rawMode = String(options.depositMode || settings?.burnDepositMode || "dots").toLowerCase();
+    const depositMode = rawMode === "segments" || rawMode === "beams" ? "segments" : "dots";
     nodeGraphPhosphorEnergyGlStepBeams(energyGl, {
       trail,
       ghost,
@@ -714,7 +719,7 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       radius: Math.max(0.35, layer.radius),
       brightness: beamBrightness,
       blur: nodeGraphTraceDisplayClampStampBlur(layer.blur),
-      mode: "dots",
+      mode: depositMode,
       maxDots,
       // fullEconomy: pack dense when budget allows; when over budget, widen
       // spacing across the *whole* path (not head-only truncation).
@@ -919,11 +924,17 @@ function drawNodeGraphLineBurnOscilloscopeItem(renderer, item, pixelRatio) {
     }
   }
   // Points already in canvas pixel space (not workspace screen rect).
+  // Even thin (not min/max buckets) so the path follows the wave, not an
+  // envelope zigzag. Deposit as continuous beam segments (not thrifty dots)
+  // — dots under budget left bead gaps / jagged hard trails on PolyBLEP faces.
   const pathPoints = reduceNodeGraphOneDimensionalBurnPoints(
     nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetBuffer),
     nodeGraphOneDimensionalBurnPointBudget(canvas),
   );
-  drawNodeGraphRetainedBurnPath(item, pixelRatio, pathPoints, settings, { endFrame });
+  drawNodeGraphRetainedBurnPath(item, pixelRatio, pathPoints, settings, {
+    endFrame,
+    depositMode: "segments",
+  });
 }
 
 
