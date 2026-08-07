@@ -830,6 +830,11 @@
     const fullEconomy = options.fullEconomy === true
       || options.fullDotEconomy === true
       || options.useFullDotEconomy === true;
+    // "vertices" = one stamp per true sample (1D lineBurn). No chord packing —
+    // interpolating between thinned samples created jagged “quantized line” look.
+    // Under budget: even sample skip across the whole path (economy spread).
+    const verticesOnly = String(options.stampMode || options.pathStamp || "path").toLowerCase() === "vertices"
+      || options.verticesOnly === true;
     // Hard (blur 0): pack ~every 0.35–0.5 px or radius*0.12 so discs tile solid.
     // Soft: wider step is fine (skirts fuse). Full economy always takes the dense path.
     const thriftyStep = Math.max(0.35, radius * (0.18 + blur * 0.18));
@@ -856,85 +861,103 @@
       return [];
     }
 
-    let totalLen = 0;
-    let pairCount = 0;
-    for (let p = 0; p < pieces.length; p += 1) {
-      const pts = pieces[p];
-      if (pts.length === 1) {
-        continue;
-      }
-      for (let i = 1; i < pts.length; i += 1) {
-        totalLen += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
-        pairCount += 1;
-      }
-    }
-    // Estimate stamps if we used ideal spacing. Many tiny pairs need ~1 stamp
-    // each (ceil), so length/step alone under-counts — that false ceiling used
-    // to stop mid-path and made low-frequency look disconnected.
-    let idealCount = pieces.length;
-    for (let p = 0; p < pieces.length; p += 1) {
-      const pts = pieces[p];
-      for (let i = 1; i < pts.length; i += 1) {
-        const dist = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
-        idealCount += dist < 1e-4 ? 0 : Math.max(1, Math.ceil(dist / idealStep));
-      }
-    }
-    idealCount = Math.max(1, idealCount);
-    // Full economy: pack toward the full maxDots budget along the path
-    // (solid hard trails). Floor step so a 1px twitch cannot dump 2k stamps.
-    // Over budget: widen evenly across the FULL path (beautiful skips).
-    let step = idealStep;
-    if (fullEconomy && totalLen > 1e-4) {
-      const budgetStep = totalLen / Math.max(1, maxDots - Math.max(1, pieces.length));
-      // Dense floor (~0.28px / radius*0.12); spend budget when path is longer.
-      step = Math.max(0.28, Math.min(denseStep, budgetStep));
-    }
-    if (idealCount > maxDots && totalLen > 1e-4) {
-      step = Math.max(step, totalLen / Math.max(1, maxDots - Math.max(1, pieces.length)));
-    }
-    // Hard ceiling is always maxDots only — never a short idealCount cap.
-    const stampCap = maxDots;
-
     const stamps = [];
     const pushStamp = (x, y) => {
-      if (stamps.length / 2 >= stampCap) {
+      if (stamps.length / 2 >= maxDots) {
         return false;
       }
       stamps.push(x, y);
       return true;
     };
 
-    // Oldest→newest so even sparse coverage maps the whole shape.
-    outer: for (let p = 0; p < pieces.length; p += 1) {
-      const pts = pieces[p];
-      if (pts.length === 1) {
+    if (verticesOnly) {
+      // Count real samples across pieces.
+      let totalPts = 0;
+      for (let p = 0; p < pieces.length; p += 1) totalPts += pieces[p].length;
+      // Even index stride so HF still maps the whole shape (no chord alias).
+      const stride = totalPts > maxDots
+        ? Math.max(1, Math.ceil(totalPts / maxDots))
+        : 1;
+      let seen = 0;
+      outerV: for (let p = 0; p < pieces.length; p += 1) {
+        const pts = pieces[p];
+        for (let i = 0; i < pts.length; i += 1) {
+          if ((seen % stride) === 0) {
+            if (!pushStamp(pts[i].x, pts[i].y)) break outerV;
+          }
+          seen += 1;
+        }
+      }
+    } else {
+      let totalLen = 0;
+      let pairCount = 0;
+      for (let p = 0; p < pieces.length; p += 1) {
+        const pts = pieces[p];
+        if (pts.length === 1) {
+          continue;
+        }
+        for (let i = 1; i < pts.length; i += 1) {
+          totalLen += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+          pairCount += 1;
+        }
+      }
+      // Estimate stamps if we used ideal spacing. Many tiny pairs need ~1 stamp
+      // each (ceil), so length/step alone under-counts — that false ceiling used
+      // to stop mid-path and made low-frequency look disconnected.
+      let idealCount = pieces.length;
+      for (let p = 0; p < pieces.length; p += 1) {
+        const pts = pieces[p];
+        for (let i = 1; i < pts.length; i += 1) {
+          const dist = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+          idealCount += dist < 1e-4 ? 0 : Math.max(1, Math.ceil(dist / idealStep));
+        }
+      }
+      idealCount = Math.max(1, idealCount);
+      // Full economy: pack toward the full maxDots budget along the path
+      // (solid hard trails). Floor step so a 1px twitch cannot dump 2k stamps.
+      // Over budget: widen evenly across the FULL path (beautiful skips).
+      let step = idealStep;
+      if (fullEconomy && totalLen > 1e-4) {
+        const budgetStep = totalLen / Math.max(1, maxDots - Math.max(1, pieces.length));
+        // Dense floor (~0.28px / radius*0.12); spend budget when path is longer.
+        step = Math.max(0.28, Math.min(denseStep, budgetStep));
+      }
+      if (idealCount > maxDots && totalLen > 1e-4) {
+        step = Math.max(step, totalLen / Math.max(1, maxDots - Math.max(1, pieces.length)));
+      }
+
+      // Oldest→newest so even sparse coverage maps the whole shape.
+      outer: for (let p = 0; p < pieces.length; p += 1) {
+        const pts = pieces[p];
+        if (pts.length === 1) {
+          if (!pushStamp(pts[0].x, pts[0].y)) {
+            break;
+          }
+          continue;
+        }
         if (!pushStamp(pts[0].x, pts[0].y)) {
           break;
         }
-        continue;
-      }
-      if (!pushStamp(pts[0].x, pts[0].y)) {
-        break;
-      }
-      for (let i = 1; i < pts.length; i += 1) {
-        const a = pts[i - 1];
-        const b = pts[i];
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const dist = Math.hypot(dx, dy);
-        if (dist < 1e-4) {
-          continue;
-        }
-        const n = Math.max(1, Math.ceil(dist / step));
-        for (let s = 1; s <= n; s += 1) {
-          const t = s / n;
-          if (!pushStamp(a.x + dx * t, a.y + dy * t)) {
-            break outer;
+        for (let i = 1; i < pts.length; i += 1) {
+          const a = pts[i - 1];
+          const b = pts[i];
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist < 1e-4) {
+            continue;
+          }
+          const n = Math.max(1, Math.ceil(dist / step));
+          for (let s = 1; s <= n; s += 1) {
+            const t = s / n;
+            if (!pushStamp(a.x + dx * t, a.y + dy * t)) {
+              break outer;
+            }
           }
         }
       }
+      void pairCount;
     }
-    void pairCount;
 
     const vertices = [];
     const corners = [0, 1, 2, 1, 3, 2];
@@ -1430,6 +1453,9 @@
           radius,
           blur,
           maxDots,
+          stampMode: options.stampMode,
+          verticesOnly: options.verticesOnly,
+          pathStamp: options.pathStamp,
           fullEconomy: options.fullEconomy === true
             || options.fullDotEconomy === true
             || options.useFullDotEconomy === true,
