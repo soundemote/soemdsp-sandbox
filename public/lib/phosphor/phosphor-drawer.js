@@ -58,10 +58,8 @@
   }
 
   /**
-   * Size map from best phosphor model (c1091b4 Snapshot best phosphor model).
-   * Size 0–1 of face min side → diameter = size * minSide (radius = half).
-   * Linear geometric size; Blur handles hard→soft, not Size.
-   * (21ae19f exp map side^t made default sizes look wrong / broken trails.)
+   * c1091b4 radius: size 0–1 of face min side → diameter = size * minSide,
+   * radius = half. Linear geometric size; Blur handles hard→soft.
    */
   function size01ToDiameterPx(faceMinSide, size01) {
     const side = Math.max(1, Number(faceMinSide) || 1);
@@ -69,14 +67,14 @@
     return Math.max(0.7, side * t);
   }
 
-  /** Size 0–1 → radius in px (half of diameter). */
   function size01ToRadiusPx(faceMinSide, size01) {
-    return Math.max(0.35, size01ToDiameterPx(faceMinSide, size01) * 0.5);
+    return radiusFromSize(faceMinSide, size01);
   }
 
-  /** Radius in buffer px — alias of size01ToRadiusPx (c1091b4 name). */
   function radiusFromSize(faceMinSide, size01) {
-    return size01ToRadiusPx(faceMinSide, size01);
+    const side = Math.max(1, Number(faceMinSide) || 1);
+    const t = clamp01(size01, 0.08);
+    return Math.max(0.35, side * t * 0.5);
   }
 
   function ensure(hostCanvas, width, height, key = "_phosphorEnergyGl") {

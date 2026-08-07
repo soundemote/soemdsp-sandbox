@@ -504,21 +504,15 @@ function decayNodeGraphScope2dBurn(renderer, settings) {
 function nodeGraphScope2dBurnLayers(settings, dotSpace) {
   const layers = [];
   if (settings?.dot1Enabled !== false) {
-    // Size 0–1 of face min side: diameter = size * minSide (c1091b4 linear map).
-    // Blur 0–1: hard-ish core → soft wide skirt (shader), not geometric size.
+    // c1091b4 exact formula: diameter = size * minSide, radius = half.
     const size01 = clampNodeSliderValue(settings.dot1Size, 0, 1);
     const side = Math.max(1, Number(dotSpace) || 1);
-    const radius = typeof nodeGraphScopeSize01ToRadiusPx === "function"
-      ? nodeGraphScopeSize01ToRadiusPx(side, size01)
-      : (typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.size01ToRadiusPx
-        ? PhosphorDrawer.size01ToRadiusPx(side, size01)
-        : Math.max(0.35, side * Math.max(0.08, size01) * 0.5));
     layers.push({
       // Blur 0 hard disc … 1 full soft gaussian.
       blur: nodeGraphTraceDisplayClampStampBlur(settings.lineThickness),
       brightness: Math.max(0, Number(settings.dot1Brightness) || 0),
       color: nodeGraphScopeHexColorToRgb(settings.dot1Color),
-      radius,
+      radius: Math.max(0.5, side * size01 * 0.5),
     });
   }
   return layers.filter((layer) => layer.brightness > 0 && layer.radius > 0);
@@ -691,28 +685,13 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
   if (frozen) {
     // Present only (below). No residual step, no bleed, no deposit.
   } else if (layer) {
-    // Soft hits on NEW motion only. Deposit = brightness; Trail = hot hang; Ghost = dim scorch.
-    // Always DOTS (never beam segments for burn faces). Lines form only when
-    // stamps are dense enough to fuse. Under budget: spread stamps evenly.
-    //
-    // stampMode:
-    //   "path" (default) — pack along polyline chords (2D orbits).
-    //   "vertices"       — one stamp per true sample (1D lineBurn / PolyBLEP):
-    //                      never interpolate chords (that made jagged “quantized”
-    //                      polylines when control points were thinned).
+    // c1091b4 energy burn deposit: dots only, maxDots ceiling, no fullEconomy flag
+    // (thrifty ideal spacing; under load skip evenly across the path).
     const size01 = clampNodeSliderValue(settings?.dot1Size, 0, 1);
     const beamBrightness = nodeGraphScope2dEnergyBurnDepositGain(
       layer.brightness,
       size01,
     );
-    const maxDots = Math.max(
-      64,
-      Math.min(
-        8192,
-        Math.round(Number(settings?.dotBudget) || nodeGraphScope2dMaxSamplesPerFrame(canvas)),
-      ),
-    );
-    const stampMode = String(options.stampMode || settings?.stampMode || "path").toLowerCase();
     nodeGraphPhosphorEnergyGlStepBeams(energyGl, {
       trail,
       ghost,
@@ -721,12 +700,17 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       brightness: beamBrightness,
       blur: nodeGraphTraceDisplayClampStampBlur(layer.blur),
       mode: "dots",
-      stampMode,
-      maxDots,
-      // fullEconomy: pack dense when budget allows; when over budget, widen
-      // spacing across the *whole* path (not head-only truncation).
-      fullEconomy: settings?.fullDotEconomy !== false,
-      fullDotEconomy: settings?.fullDotEconomy !== false,
+      // User / face ceiling. Under load: even skips across full path (not head-only).
+      maxDots: Math.max(
+        64,
+        Math.min(
+          8192,
+          Math.round(Number(settings?.dotBudget) || nodeGraphScope2dMaxSamplesPerFrame(canvas)),
+        ),
+      ),
+      // Only pass fullEconomy when explicitly true (c1091b4 default: off).
+      fullEconomy: settings?.fullDotEconomy === true,
+      fullDotEconomy: settings?.fullDotEconomy === true,
     });
   } else if (typeof nodeGraphPhosphorEnergyGlStep === "function") {
     // Fade + bleed when no drawable layer (trail still softens outward).
@@ -784,41 +768,27 @@ function drawNodeGraphScope2dRetainedBurn(item, pixelRatio, square, buffer, sett
     });
     return;
   }
-  // Deposit only samples since last draw. Phosphor residual is the lagging
-  // trail — do not re-stamp the full history every frame.
+  // c1091b4 retained burn: newest samples only + adjacent-frame bridge.
+  // Phosphor residual is the lagging trail — do not re-stamp full history.
   const count = Math.min(buffer?.x?.length || 0, buffer?.y?.length || 0);
   const budget = nodeGraphScope2dMaxSamplesPerFrame(canvas);
   const rawStart = nodeGraphScope2dDrawStartIndex(canvas, buffer, count);
   const drawStartIndex = nodeGraphScope2dClampDrawStartIndex(rawStart, count, budget);
-  // Catch-up jump (skipped a backlog of samples): do NOT bridge to last point —
-  // that paints bright wrong chords across the face (“erratic lines”).
-  const catchUpJump = drawStartIndex > rawStart;
-  // Control points only — stamp density is decided later by Dot Budget economy.
   let pathPoints = drawStartIndex < count
     ? buildNodeGraphScope2dPathPoints(canvasSquare, buffer, drawStartIndex, {
       interpolate: false,
       settings,
     })
     : [];
-  if (!catchUpJump) {
-    // Tight adjacent-frame bridge only (short residual gap). Loose bridges
-    // looked like random line segments even when stamp quality was fine.
-    pathPoints = bridgeNodeGraphScope2dAdjacentFramePath(
-      canvas,
-      pathPoints,
-      Math.min(
-        8,
-        nodeGraphScope2dTraceMaxSegmentPixels(canvasSquare) * 0.15,
-      ),
-      nodeGraphScope2dInterpolationSpacingPx(
-        settings,
-        Math.min(canvasSquare.width, canvasSquare.height),
-      ),
-    );
-  } else {
-    // Drop stale bridge anchor after a catch-up.
-    if (canvas) canvas._nodeGraphScope2dLastDrawnPoint = null;
-  }
+  pathPoints = bridgeNodeGraphScope2dAdjacentFramePath(
+    canvas,
+    pathPoints,
+    nodeGraphScope2dTraceMaxSegmentPixels(canvasSquare),
+    nodeGraphScope2dInterpolationSpacingPx(
+      settings,
+      Math.min(canvasSquare.width, canvasSquare.height),
+    ),
+  );
   drawNodeGraphRetainedBurnPath(item, pixelRatio, pathPoints, settings, {
     endFrame: Number(buffer.nodeGraphScopeAbsoluteFrame),
   });
@@ -937,19 +907,12 @@ function drawNodeGraphLineBurnOscilloscopeItem(renderer, item, pixelRatio) {
     }
   }
   // Points already in canvas pixel space (not workspace screen rect).
-  // Pass true sample positions; energy-GL stamps vertices only (no chord fill).
-  // Dot budget spreads by even sample skip when over maxDots — lines form only
-  // when stamps are dense enough to fuse (explicit dots, implicit line).
-  const pathPoints = nodeGraphOneDimensionalBurnFramePoints(
-    canvas,
-    buffer,
-    settings,
-    resetBuffer,
+  // c1091b4: reduce control points, then dots deposit with maxDots economy.
+  const pathPoints = reduceNodeGraphOneDimensionalBurnPoints(
+    nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetBuffer),
+    nodeGraphOneDimensionalBurnPointBudget(canvas),
   );
-  drawNodeGraphRetainedBurnPath(item, pixelRatio, pathPoints, settings, {
-    endFrame,
-    stampMode: "vertices",
-  });
+  drawNodeGraphRetainedBurnPath(item, pixelRatio, pathPoints, settings, { endFrame });
 }
 
 

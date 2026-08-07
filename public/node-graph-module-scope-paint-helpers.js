@@ -235,15 +235,13 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
 
 function nodeGraphOneDimensionalBurnPointBudget(canvas) {
   const width = Math.max(1, Number(canvas?.width) || 1);
-  // Soft ceiling for callers that still thin paths before deposit.
-  // lineBurn itself no longer pre-thins — energy-GL spreads by maxDots.
-  return Math.max(256, Math.min(8192, Math.ceil(width * 8)));
+  // c1091b4 budget
+  return Math.max(64, Math.min(2048, Math.ceil(width * 4)));
 }
 
 /**
- * Thin a 1D burn subpath to `budget` points with even spacing.
- * (Old min/max-per-bucket sampling preserved peaks but turned sines into
- * jagged envelope zigzags — wrong for continuous phosphor beams.)
+ * Thin a 1D burn subpath (c1091b4 min/max-per-bucket).
+ * Preserves peaks in each bucket so HF still reads after budget cut.
  */
 function reduceNodeGraphOneDimensionalBurnSubpath(points, start, end, budget, output) {
   const length = end - start;
@@ -256,16 +254,39 @@ function reduceNodeGraphOneDimensionalBurnSubpath(points, start, end, budget, ou
     }
     return;
   }
-  const cap = Math.max(2, Math.floor(Number(budget) || 2));
-  const last = end - 1;
-  let prev = -1;
-  for (let i = 0; i < cap; i += 1) {
-    const index = Math.min(last, start + Math.round((i * (length - 1)) / (cap - 1)));
-    if (index === prev) {
-      continue;
+  const bucketCount = Math.max(1, Math.floor(budget / 4));
+  const bucketStep = length / bucketCount;
+  let lastPushedIndex = -1;
+  const pushUnique = (index) => {
+    if (index < start || index >= end || index === lastPushedIndex) {
+      return;
     }
     output.push(points[index]);
-    prev = index;
+    lastPushedIndex = index;
+  };
+  for (let bucket = 0; bucket < bucketCount; bucket += 1) {
+    const bucketStart = start + Math.floor(bucket * bucketStep);
+    const bucketEnd = Math.min(end, start + Math.max(1, Math.floor((bucket + 1) * bucketStep)));
+    let minIndex = bucketStart;
+    let maxIndex = bucketStart;
+    for (let index = bucketStart + 1; index < bucketEnd; index += 1) {
+      const y = Number(points[index]?.y);
+      if (!Number.isFinite(y)) {
+        continue;
+      }
+      if (y < Number(points[minIndex]?.y)) {
+        minIndex = index;
+      }
+      if (y > Number(points[maxIndex]?.y)) {
+        maxIndex = index;
+      }
+    }
+    const important = [bucketStart, minIndex, maxIndex, bucketEnd - 1]
+      .filter((index) => index >= bucketStart && index < bucketEnd)
+      .sort((a, b) => a - b);
+    for (const index of important) {
+      pushUnique(index);
+    }
   }
 }
 
@@ -1043,16 +1064,12 @@ function bridgeNodeGraphScope2dAdjacentFramePath(canvas, pathPoints, maxDistance
     Math.max(1, Number(canvas?.width) || 1),
     Math.max(1, Number(canvas?.height) || 1),
   );
-  // Very tight gate: only stitch a sub-pixel residual gap. Anything larger
-  // draws a wrong chord (“erratic” bright lines). Phosphor residual covers gaps.
-  const bridgeMax = Math.min(
-    Math.max(1, Number(maxDistancePx) || 1),
-    Math.max(4, faceMin * 0.025),
-  );
-  if (nodeGraphScope2dPointDistance(previousPoint, firstPoint) > bridgeMax) {
+  // c1091b4: bridge when within maxDistancePx only (caller passes trace max segment).
+  void faceMin;
+  if (nodeGraphScope2dPointDistance(previousPoint, firstPoint) > Math.max(1, Number(maxDistancePx) || 1)) {
     return pathPoints;
   }
-  // One bridge vertex only — dots/path pack along this short segment.
+  // One bridge vertex only — soft stamps fill the short residual gap.
   void spacingPx;
   return [previousPoint, ...pathPoints];
 }

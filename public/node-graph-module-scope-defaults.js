@@ -77,22 +77,25 @@ const nodeGraphScopePhosphorLookDefaults = Object.freeze({
     Object.freeze({ t: 0.8, color: "#fe9f6d" }),
     Object.freeze({ t: 1, color: "#fcfdbf" }),
   ]),
-  // Bright 0…1 (1 = full deposit / tip).
-  brightness: 1,
-  // Ghost = dim scorched hang; Trail = main residual (hot path length).
-  ghost: 0.55,
-  trail: 0.5175,
-  // Size 0…1 (linear diameter = size × face min side). Shared trail faces (2D Phosphor etc.).
-  size: 0.0385,
-  // Stamp blur 0 hard … 1 soft.
-  blur: 0.1062,
+  // Bright 0…1 (1 = full deposit / tip). c1091b4 scope2d used ~0.92.
+  brightness: 0.92,
+  // Ghost/Trail match c1091b4 burn/decay after rename:
+  //   decay 0.12 → trail = 1 - 0.12 = 0.88
+  //   burn 0.45  → ghost = 0.45
+  ghost: 0.45,
+  trail: 0.88,
+  // Size 0…1 linear diameter map (c1091b4 scope2d default 0.08).
+  size: 0.08,
+  // Stamp blur 0 hard … 1 soft (c1091b4 lineThickness 0.35).
+  blur: 0.35,
   // Max phosphor stamps / frame (economy spreads when over).
   dotBudget: 2048,
   // Face buffer supersample (1 = layout×dpr).
   pixelDensity: 1,
   // Amplitude zoom.
   scale: 1,
-  fullDotEconomy: true,
+  // c1091b4 energy burn did NOT pass fullEconomy → thrifty ideal spacing (false).
+  fullDotEconomy: false,
 });
 
 
@@ -133,21 +136,24 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
 
 const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   background: nodeGraphScopePhosphorLookDefaults.background,
-  // Ghost = dim scorched hang; Trail = main residual (1 ≈ freeze).
-  ghost: nodeGraphScopePhosphorLookDefaults.ghost,
-  trail: nodeGraphScopePhosphorLookDefaults.trail,
+  // c1091b4 lineBurn: burn 0.35, decay 0.3 → ghost 0.35, trail 0.7
+  ghost: 0.35,
+  trail: 0.7,
   // Amplitude zoom (Y).
-  scale: nodeGraphScopePhosphorLookDefaults.scale,
-  // Bright 0…1 (1 = full deposit energy).
-  dot1Brightness: nodeGraphScopePhosphorLookDefaults.brightness,
+  scale: 1,
+  // c1091b4 used brighter deposit for 1D heart-monitor.
+  dot1Brightness: 2,
   dot1Color: nodeGraphScopePhosphorLookDefaults.peakColor,
   dot1Enabled: true,
-  dot1Size: nodeGraphScopePhosphorLookDefaults.size,
-  lineThickness: nodeGraphScopePhosphorLookDefaults.blur,
+  // c1091b4 lineBurn size 0.07
+  dot1Size: 0.07,
+  // c1091b4 lineThickness 0.2
+  lineThickness: 0.2,
   // 0 = 1×1 pixel … 1 layout×dpr … 4 AA (same as 2D Phosphor / Trace).
-  pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
-  dotBudget: nodeGraphScopePhosphorLookDefaults.dotBudget,
-  fullDotEconomy: nodeGraphScopePhosphorLookDefaults.fullDotEconomy,
+  pixelDensity: 1,
+  dotBudget: 2048,
+  // Match c1091b4 (no fullEconomy flag on deposit).
+  fullDotEconomy: false,
   gradientStops: nodeGraphScopePhosphorLookDefaults.gradientStops,
   // Seconds for one full left→right pass (default 2 s).
   sweepSeconds: 2,
