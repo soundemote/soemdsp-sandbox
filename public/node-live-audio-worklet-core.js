@@ -236,6 +236,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.bodeStates = new Map();
     this.stftBlurStates = new Map();
     this.softpopOscillatorStates = new Map();
+    this.sinepulseStates = new Map();
     this.nativeButterworth = null;
     this.nativeButterworthReady = false;
     this.nativeLinkwitzRiley = null;

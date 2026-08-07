@@ -964,6 +964,31 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           nodeId,
         );
       },
+      sinepulse: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+        if (!this.sinepulseStates) this.sinepulseStates = new Map();
+        let state = this.sinepulseStates.get(nodeId);
+        if (!state) {
+          state = this.createSinepulseState();
+          this.sinepulseStates.set(nodeId, state);
+        }
+        const baseFreq = this.readEffectiveParameter(node, "frequency", 55, frame, frames, frameValues);
+        const frequency = this.resolveSoftpopOrBandpassHz
+          ? this.resolveSoftpopOrBandpassHz(node, nodeId, baseFreq, frame, frames, frameValues, mixInput)
+          : baseFreq;
+        return this.sinepulseSample(
+          state,
+          frequency,
+          this.readEffectiveParameter(node, "sweep", 0.7, frame, frames, frameValues),
+          Math.round(this.readEffectiveParameter(node, "direction", 0, frame, frames, frameValues)),
+          Math.round(this.readEffectiveParameter(node, "curve", 1, frame, frames, frameValues)),
+          Math.round(this.readEffectiveParameter(node, "hardReset", 1, frame, frames, frameValues)),
+          this.readEffectiveParameter(node, "phase", 0, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "amplitude", 1, frame, frames, frameValues),
+          this.safeFilterNumber(mixInput(nodeId, "Increment"), null) ?? 0,
+          mixInput(nodeId, "Reset"),
+          safeRate,
+        );
+      },
       randomWalk: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.randomWalkStates.get(nodeId) || this.createRandomWalkState();
         this.randomWalkStates.set(nodeId, state);

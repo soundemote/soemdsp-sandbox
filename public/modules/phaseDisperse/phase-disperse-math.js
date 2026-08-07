@@ -29,7 +29,10 @@ function createNodeGraphPhaseDisperseState() {
  */
 function nodeGraphPhaseDisperseEnsure(state, frequencyHz, q, sampleRate) {
   const rate = Math.max(1, Number(sampleRate) || 44100);
-  const f = Math.max(20, Math.min(rate * 0.49, Number(frequencyHz) || 100));
+  // No musical floor — min/max are the parameter system / slider only.
+  // Clamp only to (0, Nyquist) so ω/tan(ω/2) stay defined.
+  const raw = Number(frequencyHz);
+  const f = Math.max(0, Math.min(rate * 0.49, Number.isFinite(raw) ? raw : 100));
   const safeQ = Math.max(0.05, Math.min(40, Number(q) || 0.707));
 
   if (state.lastF === f && state.lastQ === safeQ && state.lastRate === rate) {

@@ -1019,6 +1019,22 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "mono",
     ],
   },
+  sinepulse: {
+    category: "oscillator",
+    description:
+      "Period-reset chirp: a sine whose instant frequency sweeps each tooth, then the schedule resets. Low Frequency = zap/kick sweeps; high = saw-ish buzz. Sweep depth, Down/Up, Linear/Exp, Hard Reset. Cheap single-sin path — no Phase Disperse stack. 0.1V/Oct + f + Reset + Increment.",
+    label: "Sinepulse",
+    notes: [
+      "chirp",
+      "period reset",
+      "sweep",
+      "kick",
+      "zap",
+      "failing saw",
+      "oscillator",
+      "sine",
+    ],
+  },
   formantFilter: {
     category: "scientificFilter",
     description: "Under construction. Formant / vocal-tract style filter bank (placeholder).",
