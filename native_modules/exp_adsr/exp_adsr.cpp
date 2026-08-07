@@ -1,5 +1,5 @@
 // soemdsp-native-module: exp_adsr
-// soemdsp-native-label: Exp ADSR
+// soemdsp-native-label: Curve Envelope
 // soemdsp-native-target: expAdsr
 // soemdsp-native-kind: envelope
 
@@ -12,7 +12,7 @@ using namespace soemdsp_maths;
 static const char kMetadataJson[] =
   "{"
     "\"module\":\"exp_adsr\","
-    "\"label\":\"Exp ADSR\","
+    "\"label\":\"Curve Envelope\","
     "\"targetType\":\"expAdsr\","
     "\"kind\":\"envelope\","
     "\"inputs\":[\"Gate\"],"

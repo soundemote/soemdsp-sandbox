@@ -11,6 +11,7 @@
 //   exp_log.h           -- general-purpose exp()/ln() polyfills (no libm in freestanding wasm32)
 //   graph.h             -- breakpoint X/Y graph (ported from soemdsp::utility::Graph)
 //   analog_filter_trig.h -- sin/cos/2^x family shared by the analog filter modules
+//   scientific_iir.h     -- classical IIR cascade (Butterworth/LR/Bessel/Cheby/Elliptic)
 //
 // Add a new helper to whichever topic file it belongs to (or a new topic
 // file, included below) only once it's confirmed byte-for-byte identical
@@ -22,3 +23,4 @@
 #include "exp_log.h"
 #include "graph.h"
 #include "analog_filter_trig.h"
+#include "scientific_iir.h"

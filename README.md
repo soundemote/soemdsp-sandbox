@@ -123,7 +123,7 @@ compiled artifact with a Python+wasmtime harness before wiring:
 | Module | Modes | Notes |
 |---|---|---|
 | `flower_child_filter` | Clean, Dirty, Rev3, Downsampled | The original two revisions plus an ellipsoid-oscillator variant and a sample-and-hold aliasing variant |
-| `rsmet_filter` | LP6/12/18/24, HP6/12/18/24, BP6, BP12 (10) | A ladder filter with a tanh soft clipper and noise injection stage |
+| `active_filter` | LP6/12/18/24, HP6/12/18/24, BP6, BP12 (10) | Active Filter: RS-MET ladder, real Hz cutoff, res 0–1, soft-clip (no noise) |
 | `yellowjacket_filter` | — | Feedback ellipse-oscillator filter, grindy, easily produces square-wave-like output. Its resonance has a chaotic, bubbly character reminiscent of a Polivoks-style filter |
 | `superlove_filter` | LP18, LP24, HP6, BP6 | Trisaw-oscillator feedback resonator, warm and stably self-oscillating |
 | `chaotic_phase_locking_filter` | — | Direct feedback ellipse-waveshaper resonator (no oscillator phasor) |

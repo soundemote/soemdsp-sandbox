@@ -152,7 +152,9 @@ function validateNodeGraphPatch(patch) {
     ))
     .map((node) => {
     const id = String(node.id || "").trim();
-    const type = String(node.type || "").trim();
+    const type = typeof nodeGraphResolveModuleTypeAlias === "function"
+      ? nodeGraphResolveModuleTypeAlias(node.type)
+      : String(node.type || "").trim();
     if (!id) {
       throw new Error("node id missing");
     }

@@ -125,3 +125,55 @@ function nodeGraphExpAdsrSample(state, gate, params, sampleRate, runtime = null,
   }
   return out;
 }
+
+/**
+ * Face preview: one gated note (gate high through A+D+sustain hold, then release).
+ * Points are 0..1 time and 0..1 level (pre-level knob).
+ */
+function nodeGraphExpAdsrPreviewCurve(params = {}, sampleRate = 2000, points = 160) {
+  const delay = Math.max(0, Number(params.delay) || 0);
+  const attack = Math.max(0, Number(params.attack) || 0);
+  const decay = Math.max(0, Number(params.decay) || 0);
+  const sustain = Math.max(0, Math.min(1, Number(params.sustain) || 0));
+  const release = Math.max(0, Number(params.release) || 0);
+  const attackShape = Math.max(1e-9, Number(params.attackShape) || 0.3);
+  const releaseShape = Math.max(1e-9, Number(params.releaseShape) || 0.0001);
+  // Brief sustain plateau so the knee is visible
+  const sustainHold = Math.max(0.05, Math.min(0.4, (attack + decay + release) * 0.15 || 0.08));
+  const gateHigh = delay + Math.max(attack + decay + sustainHold, 0.02);
+  const total = Math.max(gateHigh + Math.max(release * 1.2, release + 0.02, 0.05), 0.08);
+  const rate = Math.max(200, Number(sampleRate) || 2000);
+  const n = Math.max(32, Math.round(Number(points) || 160));
+  const state = createNodeGraphExpAdsrState();
+  const out = [];
+  const totalSamples = Math.max(n, Math.ceil(total * rate));
+  const step = Math.max(1, Math.floor(totalSamples / n));
+  let t = 0;
+  for (let i = 0; i < totalSamples; i += 1) {
+    const gate = t < gateHigh ? 1 : 0;
+    const y = nodeGraphExpAdsrCore(state, gate, {
+      delay,
+      attack,
+      attackShape,
+      decay,
+      sustain,
+      release,
+      releaseShape,
+      level: 1,
+      loop: 0,
+    }, rate);
+    if (i % step === 0 || i === totalSamples - 1) {
+      out.push({ t: t / total, y: Math.max(0, Math.min(1, Math.abs(y))) });
+    }
+    t += 1 / rate;
+  }
+  if (out.length && out[out.length - 1].t < 1) {
+    out.push({ t: 1, y: out[out.length - 1].y });
+  }
+  return {
+    points: out,
+    total,
+    gateHigh,
+    labels: { left: "A", mid: "S", right: "R" },
+  };
+}

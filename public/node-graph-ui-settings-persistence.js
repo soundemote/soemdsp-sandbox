@@ -996,8 +996,14 @@ function applyNodeUiDevSettings(settings) {
   nodeGraphMvp.moduleDefaultOverrides = normalized.moduleDefaultOverrides;
   nodeGraphMvp.gridVisible = Boolean(normalized.view.gridVisible);
   nodeGraphMvp.wiresAboveModules = Boolean(normalized.view.wiresAboveModules);
-  // Force-hide debug on every UI-settings apply / page load (not a saved preference).
-  nodeGraphMvp.keyboardDebugInfoVisible = false;
+  // Force-hide debug on every UI-settings apply / page load (not a saved
+  // preference). Same for debug and release builds — Clear Startup / Save /
+  // cold boot must never leave developer chrome visible by default.
+  if (typeof hideNodeGraphDebugChrome === "function") {
+    hideNodeGraphDebugChrome();
+  } else {
+    nodeGraphMvp.keyboardDebugInfoVisible = false;
+  }
   nodeGraphMvp.tooltipEmbedded = Boolean(normalized.view.tooltipEmbedded);
   nodeGraphMvp.tooltipEmbedHeight = typeof normalizeNodeGraphTooltipEmbedHeight === "function"
     ? normalizeNodeGraphTooltipEmbedHeight(normalized.view.tooltipEmbedHeight ?? 46)
@@ -1129,7 +1135,10 @@ function applyNodeUiDevSettings(settings) {
   if (typeof renderNodeGraphWiresAboveModulesToggle === "function") {
     renderNodeGraphWiresAboveModulesToggle();
   }
-  if (typeof renderNodeGraphKeyboardDebugToggle === "function") {
+  // Debug hide already applied above; re-render so body classes + buttons match.
+  if (typeof hideNodeGraphDebugChrome === "function") {
+    hideNodeGraphDebugChrome();
+  } else if (typeof renderNodeGraphKeyboardDebugToggle === "function") {
     renderNodeGraphKeyboardDebugToggle();
   }
   renderNodeGraphModuleVisibilityToggles();
@@ -1343,6 +1352,16 @@ function clearNodeUserStartupRuntimeState() {
   nodeGraphMvp.gridVisible = true;
   nodeGraphMvp.sliderAmountVisible = true;
   nodeGraphMvp.wiresAboveModules = false;
+  // Clear Startup / reset view: never bake "Show Debug" into the next load.
+  // Force off before re-serializing settings as the new startup default.
+  if (typeof hideNodeGraphDebugChrome === "function") {
+    hideNodeGraphDebugChrome();
+  } else {
+    nodeGraphMvp.keyboardDebugInfoVisible = false;
+    if (typeof renderNodeGraphKeyboardDebugToggle === "function") {
+      renderNodeGraphKeyboardDebugToggle();
+    }
+  }
   if (typeof renderNodeGraphGridToggle === "function") {
     renderNodeGraphGridToggle();
   }

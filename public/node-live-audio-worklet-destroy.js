@@ -38,12 +38,14 @@ NodeLiveAudioProcessor.prototype.destroyFlowerChildFilterNativeState = function 
     }
 };
 
-NodeLiveAudioProcessor.prototype.destroyRsmetFilterNativeState = function destroyRsmetFilterNativeState(state) {
-    if (state.nativeHandle && this.nativeRsmetFilter?.soemdsp_rsmet_filter_destroy) {
-      this.nativeRsmetFilter.soemdsp_rsmet_filter_destroy(state.nativeHandle);
+NodeLiveAudioProcessor.prototype.destroyActiveFilterNativeState = function destroyActiveFilterNativeState(state) {
+    if (state.nativeHandle && this.nativeActiveFilter?.soemdsp_active_filter_destroy) {
+      this.nativeActiveFilter.soemdsp_active_filter_destroy(state.nativeHandle);
       state.nativeHandle = 0;
     }
 };
+
+// destroyScientificIirNativeState is defined in scientific-iir-worklet-evaluator.js
 
 NodeLiveAudioProcessor.prototype.destroyYellowjacketFilterNativeState = function destroyYellowjacketFilterNativeState(state) {
     if (state.nativeHandle && this.nativeYellowjacketFilter?.soemdsp_yellowjacket_filter_destroy) {

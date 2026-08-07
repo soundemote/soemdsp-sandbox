@@ -55,7 +55,10 @@ function nodeGraphTb303SoftClip(x) {
 
 function nodeGraphTb303FilterCoefficients(cutoff, resonance, sampleRate) {
   const rate = Math.max(1, Number(sampleRate) || 44100);
-  const safeCutoff = Math.max(200, Math.min(20000, Math.min(rate * 0.49, Number(cutoff) || 1000)));
+  // Param may be 0 (frozen). Only crash-safety: non-negative, <= ~Nyquist.
+  // Tiny omega floor is applied below for trig/exp, not as a musical min.
+  const rawCutoff = Number(cutoff);
+  const safeCutoff = Math.max(0, Math.min(rate * 0.49, Number.isFinite(rawCutoff) ? rawCutoff : 0));
   const resonanceRaw = Math.max(0, Math.min(1, (Number(resonance) || 0) * 0.01));
   // Resonance skew: musical curve toward self-oscillation.
   const r = (1 - Math.exp(-3 * resonanceRaw)) / (1 - Math.exp(-3));

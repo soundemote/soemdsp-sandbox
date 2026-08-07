@@ -195,20 +195,77 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         });
         return;
       }
-      if (name === "rsmet_filter" || targetType === "rsmetFilter") {
-        for (const state of this.rsmetFilterStates.values()) {
-          this.destroyStereoFilterNativeState(state, (s) => this.destroyRsmetFilterNativeState(s));
+      if (name === "active_filter" || targetType === "activeFilter") {
+        if (this.activeFilterStates) {
+          for (const state of this.activeFilterStates.values()) {
+            this.destroyStereoFilterNativeState(state, (s) => this.destroyActiveFilterNativeState(s));
+          }
         }
-        this.nativeRsmetFilter = exports;
-        this.nativeRsmetFilterReady = Boolean(
-          this.nativeRsmetFilter?.soemdsp_rsmet_filter_create &&
-          this.nativeRsmetFilter?.soemdsp_rsmet_filter_sample,
+        this.nativeActiveFilter = exports;
+        this.nativeActiveFilterReady = Boolean(
+          this.nativeActiveFilter?.soemdsp_active_filter_create &&
+          this.nativeActiveFilter?.soemdsp_active_filter_sample,
         );
         this.port.postMessage({
           type: "nativeModuleStatus",
-          name: "rsmet_filter",
-          status: this.nativeRsmetFilterReady ? "ready" : "missing exports",
+          name: "active_filter",
+          status: this.nativeActiveFilterReady ? "ready" : "missing exports",
         });
+        return;
+      }
+      if (name === "butterworth" || targetType === "butterworth") {
+        if (this.butterworthStates) {
+          for (const state of this.butterworthStates.values()) {
+            this.destroyStereoFilterNativeState(state, (s) => this.destroyScientificIirNativeState("butterworth", s));
+          }
+        }
+        this.nativeButterworth = exports;
+        this.nativeButterworthReady = Boolean(exports?.soemdsp_butterworth_create && exports?.soemdsp_butterworth_sample);
+        this.port.postMessage({ type: "nativeModuleStatus", name: "butterworth", status: this.nativeButterworthReady ? "ready" : "missing exports" });
+        return;
+      }
+      if (name === "linkwitz_riley" || targetType === "linkwitzRiley") {
+        if (this.linkwitzRileyStates) {
+          for (const state of this.linkwitzRileyStates.values()) {
+            this.destroyStereoFilterNativeState(state, (s) => this.destroyScientificIirNativeState("linkwitzRiley", s));
+          }
+        }
+        this.nativeLinkwitzRiley = exports;
+        this.nativeLinkwitzRileyReady = Boolean(exports?.soemdsp_linkwitz_riley_create && exports?.soemdsp_linkwitz_riley_sample);
+        this.port.postMessage({ type: "nativeModuleStatus", name: "linkwitz_riley", status: this.nativeLinkwitzRileyReady ? "ready" : "missing exports" });
+        return;
+      }
+      if (name === "bessel" || targetType === "bessel") {
+        if (this.besselStates) {
+          for (const state of this.besselStates.values()) {
+            this.destroyStereoFilterNativeState(state, (s) => this.destroyScientificIirNativeState("bessel", s));
+          }
+        }
+        this.nativeBessel = exports;
+        this.nativeBesselReady = Boolean(exports?.soemdsp_bessel_create && exports?.soemdsp_bessel_sample);
+        this.port.postMessage({ type: "nativeModuleStatus", name: "bessel", status: this.nativeBesselReady ? "ready" : "missing exports" });
+        return;
+      }
+      if (name === "chebyshev" || targetType === "chebyshev") {
+        if (this.chebyshevStates) {
+          for (const state of this.chebyshevStates.values()) {
+            this.destroyStereoFilterNativeState(state, (s) => this.destroyScientificIirNativeState("chebyshev", s));
+          }
+        }
+        this.nativeChebyshev = exports;
+        this.nativeChebyshevReady = Boolean(exports?.soemdsp_chebyshev_create && exports?.soemdsp_chebyshev_sample);
+        this.port.postMessage({ type: "nativeModuleStatus", name: "chebyshev", status: this.nativeChebyshevReady ? "ready" : "missing exports" });
+        return;
+      }
+      if (name === "elliptic" || targetType === "elliptic") {
+        if (this.ellipticStates) {
+          for (const state of this.ellipticStates.values()) {
+            this.destroyStereoFilterNativeState(state, (s) => this.destroyScientificIirNativeState("elliptic", s));
+          }
+        }
+        this.nativeElliptic = exports;
+        this.nativeEllipticReady = Boolean(exports?.soemdsp_elliptic_create && exports?.soemdsp_elliptic_sample);
+        this.port.postMessage({ type: "nativeModuleStatus", name: "elliptic", status: this.nativeEllipticReady ? "ready" : "missing exports" });
         return;
       }
       if (name === "yellowjacket_filter" || targetType === "yellowjacketFilter") {

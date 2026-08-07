@@ -33,6 +33,22 @@ const nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([
   // Full-plate noise flow field experiment (not Julia / kaleidoscope).
   // Placeholder only until the flow-field design is ready.
   "evolveField",
+  // Classical formant bank (vowel / vocal tract) — placeholder until design lands.
+  "formantFilter",
+  // Binary counter clock (bit outs + gate) — placeholder until design lands.
+  "binaryClock",
+  // Waveguide physical model — shell exists (passthrough); full engine later.
+  "waveguide",
+  // Classic modulation FX
+  "phaser",
+  "flanger",
+  "chorus",
+  // Bode frequency shifter (SSB / Hilbert)
+  "bode",
+  // Kilohearts Disperser-class cascaded all-pass group delay
+  "phaseDisperse",
+  // STFT spectral blur
+  "stftBlur",
 ]));
 
 function nodeGraphModuleTypeIsUnderConstruction(type) {
@@ -83,7 +99,10 @@ const nodeGraphModuleStoreDepartments = Object.freeze([
   { id: "drum",         emoji: "🥁", label: "Drum",         symbol: "▥",   title: "Drum",      pitch: "Rhythm machines, drum voices, pattern engines, and percussion control surfaces." },
   { id: "dynamics",     emoji: "⚡", label: "Dynamics",     symbol: "⚡",   title: "Dynamics",  pitch: "Power routing, level control, offsets, and response shaping for keeping a circuit alive under pressure." },
   { id: "envelope",     emoji: "📐", label: "Envelope",     symbol: "⌒",   title: "Envelope",  pitch: "Attack, decay, sustain, release, and gate-shaped motion. Make sound and visuals breathe on command." },
-  { id: "filter",       emoji: "💧", label: "Filter",       symbol: "◫",   title: "Filter",    pitch: "Shape the airframe. Carve mass, reveal brightness, and teach a signal where it is allowed to fly." },
+  // Spectral filters split by intent: textbook toolbox vs character engines.
+  // Temporary names only if we rename later — these are the hard-won labels.
+  { id: "scientificFilter", emoji: "💧", label: "Scientific Filter", symbol: "🔬", title: "Scientific Filter", pitch: "Textbook responses. Hz, order, clean controls — Passive, Active, EQ, Tilt, and other predictable spectral tools." },
+  { id: "analogFilter",     emoji: "🎛️", label: "Analog Filter",     symbol: "≈",  title: "Analog Filter",     pitch: "Named character circuits. Timbre first — 303, Flower Child, SuperLove, and other engines with personality." },
   { id: "space",        emoji: "⛪", label: "Space",        symbol: "FX",  title: "Delay",     pitch: "Delay, reverb, distortion, and performance processors for shaping finished sound." },
   { id: "digital",      emoji: "🔬", label: "Digital",      symbol: "{ }", title: "Digital",   pitch: "Patch-local code surfaces, exact value conversion, and digital/visual programming tools inside the sandbox." },
   { id: "clock",        emoji: "⌚", label: "Clock",        symbol: "♪",   title: "Clock",     pitch: "Clocks, dividers, counters, and trigger timing -- everything that decides WHEN the rest of the patch fires." },
@@ -134,7 +153,13 @@ const nodeGraphModuleStoreDepartmentAliasToId = Object.freeze({
   Drum:              "drum",
   Dynamics:          "dynamics",
   Envelope:          "envelope",
-  Filter:            "filter",
+  Filter:            "scientificFilter",
+  filter:            "scientificFilter",
+  "Scientific Filter": "scientificFilter",
+  scientificFilter:  "scientificFilter",
+  "Analog Filter":   "analogFilter",
+  analogFilter:      "analogFilter",
+  Analog:            "analogFilter",
   "Game Triggers":   "gametrigger",
   // grains / media / samples shelves hidden until file storage — aliases no-op to sample if seen.
   Grains:            "sample",
@@ -574,20 +599,33 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   gain: {
     category: "dynamics",
-    description: "Signal booster and throttle. Use it to push, tame, or route engine power.",
-    notes: ["multiplication", "level control", "headroom"],
+    description:
+      "Scale then offset: out = in × Amplitude + Offset. Replaces the old Gain Bias module (same math). Mono sums into L/R before scale.",
+    label: "Gain",
+    notes: ["multiplication", "offset", "scale and shift", "utility", "gain bias", "level control"],
   },
+  // Retired shop entry — type still loads as alias of gain.
   gainBias: {
     category: "dynamics",
-    description: "Gain and Bias in one module: scale the signal, then offset it. Saves wiring the pair together every time you need to fit a signal into a range.",
+    description: "Retired: use Gain (now has Offset). Load alias only.",
+    hidden: true,
     label: "Gain Bias",
-    notes: ["multiplication", "offset", "scale and shift", "utility"],
+    notes: ["legacy", "hidden"],
   },
+  mix: {
+    category: "dynamics",
+    description:
+      "4-channel utility mixer with per-channel volume and bias, plus 3 bleed sends into output 1. Clean signal routing for multi-voice patches.",
+    label: "Mix",
+    notes: ["mixer", "bias", "bleed", "4-channel", "utility"],
+  },
+  // Legacy id for Mix.
   gainBiasMix: {
     category: "dynamics",
-    description: "4-channel utility mixer with per-channel volume and bias, plus 3 bleed sends into output 1. Clean signal routing for multi-voice patches.",
-    label: "GainBiasMix",
-    notes: ["mixer", "bias", "bleed", "4-channel", "utility"],
+    description: "Retired name: use Mix. Load alias only.",
+    hidden: true,
+    label: "Mix",
+    notes: ["legacy", "hidden"],
   },
   bias: {
     category: "dynamics",
@@ -809,64 +847,324 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Sample Looper",
     notes: ["sample playback", "loop", "audio source"],
   },
+  // --- Scientific Filter: textbook / predictable spectral tools ---
   passiveFilter: {
-    category: "filter",
-    description: "1-pole RC filter with LP, HP, and BP modes. Low Cut is the HP edge; High Cut is the LP edge. BP chains HP then LP.",
-    notes: ["lowpass", "highpass", "bandpass", "1-pole"],
+    category: "scientificFilter",
+    description:
+      "Cheap 1-pole (~6 dB/oct) LP / HP / BP for gentle taming. HP Low Cut knocks rumble without a brick-wall. Not a tilt (see Tilt Filter) and not a steep EQ (see EQ Filter).",
+    label: "Passive Filter",
+    notes: ["lowpass", "highpass", "bandpass", "1-pole", "6 dB/oct", "tame", "rumble", "scientific"],
+  },
+  tiltFilter: {
+    category: "scientificFilter",
+    description:
+      "First-order spectral tilt around a pivot. +Amount brightens (cut lows / boost highs); −Amount darkens. Gentle balance — not a hard HP. Formulas after Robin Schmidt (RS-MET) shelf BLT.",
+    label: "Tilt Filter",
+    notes: ["tilt", "shelf", "tone balance", "first order", "Robin Schmidt", "RS-MET", "scientific"],
+  },
+  eqFilter: {
+    category: "scientificFilter",
+    description:
+      "Zero-latency ZDF state-variable EQ: LP, HP, BP, notch, allpass, peak, low/high shelf. Direct from Robin Schmidt’s rsStateVariableFilter (RS-MET). Prefer this for single-band EQ; Multi Stage Filter cascades RBJ biquads for steeper slopes.",
+    label: "EQ Filter",
+    notes: [
+      "EQ",
+      "SVF",
+      "ZDF",
+      "lowpass",
+      "highpass",
+      "bandpass",
+      "shelf",
+      "peak",
+      "notch",
+      "Robin Schmidt",
+      "RS-MET",
+      "min-phase",
+      "scientific",
+    ],
   },
   papoulisFilter: {
-    category: "filter",
+    category: "scientificFilter",
     description: "3rd-order Papoulis (Optimum-L) lowpass: monotonic, ripple-free passband like Butterworth but with a faster roll-off for the same order.",
     label: "Papoulis Filter",
-    notes: ["lowpass", "optimum-l", "legendre", "monotonic", "3-pole"],
+    notes: ["lowpass", "optimum-l", "legendre", "monotonic", "3-pole", "scientific"],
   },
   cookbookFilter: {
-    category: "filter",
-    description: "RSMET cookbook biquad cascade with mode, frequency, stages, Q, and gain controls plus an in-module response curve.",
+    category: "scientificFilter",
+    description:
+      "RBJ cookbook biquad cascade (LP/HP/BP/shelf/peak/…) with up to 5 stages for steeper slopes. For a single best-behaved EQ band prefer EQ Filter (Robin Schmidt ZDF SVF).",
     label: "Multi Stage Filter",
-    notes: ["mode selection", "biquad stages", "curve display"],
+    notes: ["mode selection", "biquad stages", "curve display", "RBJ", "cascade", "scientific"],
   },
-  rsmetFilter: {
-    category: "filter",
-    description: "A ladder filter preceded by a tanh soft clipper and noise injection stage, with exponential frequency/resonance response curves. 10 modes: LP6/12/18/24, HP6/12/18/24, BP6, BP12.",
-    label: "RSMET Filter",
-    notes: ["ladder + soft clip", "exponential curves", "10 modes"],
+  activeFilter: {
+    category: "scientificFilter",
+    description:
+      "Scientific multipole (RS-MET ladder core): LP/HP/BP slopes, Hz cutoff, Feedback Circuit (Off / Res / Clip / both), Gain Comp on/off. Digital-perfect multipole with optional drive — not a full analog ladder model.",
+    label: "Active Filter",
+    notes: [
+      "active",
+      "multipole",
+      "Hz cutoff",
+      "resonance 0-1",
+      "feedback circuit",
+      "gain compensation",
+      "LP HP BP",
+      "Robin Schmidt",
+      "RS-MET",
+      "scientific",
+    ],
   },
+  ladderFilter: {
+    category: "scientificFilter",
+    description:
+      "Lab-style RS-MET ladder surface: Flat / LP / HP / BP plus Stages 1–4. Same multipole family as Active Filter; Mode×Stages instead of named slopes. Prefer Active Filter for the defacto path.",
+    label: "Ladder Filter",
+    notes: ["lab", "stages", "flat", "multipole", "scientific", "RS-MET"],
+  },
+  butterworth: {
+    category: "scientificFilter",
+    description:
+      "Butterworth multipole — maximally flat passband. Accuracy: high (classic section-Q SOS + RBJ). Issue only when matching a specific lab/MATLAB prototype bit-for-bit. Best use: transparent LP/HP/BP/BR, teaching slopes, general clean filtering. Not a speaker crossover product (use dedicated Crossover modules when those land).",
+    label: "Butterworth Filter",
+    notes: ["butterworth", "multipole", "flat passband", "scientific", "high accuracy", "classical", "approximated digital SOS"],
+  },
+  linkwitzRiley: {
+    category: "scientificFilter",
+    description:
+      "Linkwitz-Riley multipole (cascaded Butterworth halves). Accuracy: good for single-filter LR character. Accuracy issue: pairing this module’s LP with another HP by hand is NOT a guaranteed flat-sum crossover — phase/order must match; use a dedicated Crossover module for that job. Best use: LR-shaped single path, soft steepness.",
+    label: "Linkwitz-Riley Filter",
+    notes: ["linkwitz-riley", "crossover character", "butterworth cascade", "scientific", "not a multi-band crossover product"],
+  },
+  bessel: {
+    category: "scientificFilter",
+    description:
+      "Bessel (Thomson) multipole — flat group-delay character, gentler roll-off. Accuracy: musical/table Qs (not full analog Bessel redesign). Issue only for matching published Bessel transfer functions or delay specs. Best use: soft filtering with less ring / time-smear.",
+    label: "Bessel Filter",
+    notes: ["bessel", "thomson", "group delay", "musical accuracy", "approximated", "classical"],
+  },
+  chebyshev: {
+    category: "scientificFilter",
+    description:
+      "Chebyshev-style multipole — steeper wall via Q lift + Ripple (dB). Accuracy: approximated (not exact equiripple poles). Issue when you need guaranteed passband ripple bounds or a scientific Cheby-I match. Best use: musical steeper LP/HP with a bit more edge than Butterworth.",
+    label: "Chebyshev Filter",
+    notes: ["chebyshev", "approximated", "equiripple-style", "steep", "musical", "classical"],
+  },
+  elliptic: {
+    category: "scientificFilter",
+    description:
+      "Elliptic-named multipole — sharp SOS approx (elevated Q). Accuracy: low vs true Cauer (no Jacobi zeros). Issue whenever “true elliptic / stopband zeros” matter. Best use: aggressive multipole tone only; not for lab elliptic or anti-alias claims. Full elliptic would need PrototypeDesigner-class poles/zeros later.",
+    label: "Elliptic Filter",
+    notes: ["elliptic", "cauer", "approximated", "sharp", "not true zeros", "classical", "RS-MET later"],
+  },
+  bandpass: {
+    category: "scientificFilter",
+    description:
+      "True resonant 2-pole bandpass (EQ ZDF SVF Bandpass Peak, Robin Schmidt). Accuracy: high for constant-peak BP. Best use: pitched resonance, formant-ish peaks, Softpop’s filter core. 0.1V/Oct + f for center.",
+    label: "Bandpass Filter",
+    notes: ["bandpass", "resonant", "2-pole", "SVF", "ZDF", "scientific", "Robin Schmidt", "RS-MET", "0.1V"],
+  },
+  allpass: {
+    category: "scientificFilter",
+    description:
+      "True 2-pole allpass (EQ ZDF SVF Allpass, Robin Schmidt). Flat magnitude, frequency-dependent phase. Accuracy: high (same SVF core as EQ). Best use: phase correction, phaser building blocks, delay-ish phase lag without EQ. Not a time delay line (use Sample Delay / delay FX for echo).",
+    label: "Allpass Filter",
+    notes: ["allpass", "phase", "SVF", "ZDF", "scientific", "Robin Schmidt", "RS-MET", "not a delay line"],
+  },
+  crossover2: {
+    category: "scientificFilter",
+    description:
+      "Stereo Linkwitz-Riley 2-way crossover (RS-MET-style successive LR splits + branch compensation allpass). Mono+L/R in; per-band L/R outs only (no mono out). Sum of bands is approximately flat/allpass of the input when slopes match. Best for multiband processing where recombination matters.",
+    label: "2-Crossover",
+    notes: ["crossover", "linkwitz-riley", "2-way", "stereo", "scientific", "RS-MET"],
+  },
+  crossover3: {
+    category: "scientificFilter",
+    description:
+      "Stereo Linkwitz-Riley 3-way crossover (RS-MET-style successive LR splits + branch compensation allpass). Mono+L/R in; per-band L/R outs only (no mono out). Sum of bands is approximately flat/allpass of the input when slopes match. Best for multiband processing where recombination matters.",
+    label: "3-Crossover",
+    notes: ["crossover", "linkwitz-riley", "3-way", "stereo", "scientific", "RS-MET"],
+  },
+  crossover4: {
+    category: "scientificFilter",
+    description:
+      "Stereo Linkwitz-Riley 4-way crossover (RS-MET-style successive LR splits + branch compensation allpass). Mono+L/R in; per-band L/R outs only (no mono out). Sum of bands is approximately flat/allpass of the input when slopes match. Best for multiband processing where recombination matters.",
+    label: "4-Crossover",
+    notes: ["crossover", "linkwitz-riley", "4-way", "stereo", "scientific", "RS-MET"],
+  },
+  crossover5: {
+    category: "scientificFilter",
+    description:
+      "Stereo Linkwitz-Riley 5-way crossover (RS-MET-style successive LR splits + branch compensation allpass). Mono+L/R in; per-band L/R outs only (no mono out). Sum of bands is approximately flat/allpass of the input when slopes match. Best for multiband processing where recombination matters.",
+    label: "5-Crossover",
+    notes: ["crossover", "linkwitz-riley", "5-way", "stereo", "scientific", "RS-MET"],
+  },
+  crossover6: {
+    category: "scientificFilter",
+    description:
+      "Stereo Linkwitz-Riley 6-way crossover (RS-MET-style successive LR splits + branch compensation allpass). Mono+L/R in; per-band L/R outs only (no mono out). Sum of bands is approximately flat/allpass of the input when slopes match. Best for multiband processing where recombination matters.",
+    label: "6-Crossover",
+    notes: ["crossover", "linkwitz-riley", "6-way", "stereo", "scientific", "RS-MET"],
+  },
+  softpopOscillator: {
+    category: "oscillator",
+    description:
+      "Softpop: Gaussian white / pink / brown through resonant Peak BP. 0.1V + f pitch, Q, Amplitude, Seed + Reset, Stereo|Mono width.",
+    label: "Softpop Oscillator",
+    notes: [
+      "softpop",
+      "noise oscillator",
+      "band noise",
+      "gaussian",
+      "pink",
+      "brown",
+      "bandpass",
+      "resonant",
+      "seed",
+      "reset",
+      "stereo",
+      "mono",
+    ],
+  },
+  formantFilter: {
+    category: "scientificFilter",
+    description: "Under construction. Formant / vocal-tract style filter bank (placeholder).",
+    label: "Formant Filter",
+    notes: ["under construction", "formant", "vowel", "scientific"],
+  },
+  binaryClock: {
+    category: "clock",
+    description: "Under construction. Binary counter clock with bit outputs and gate (placeholder).",
+    label: "Binary Clock",
+    notes: ["under construction", "binary", "counter", "clock", "bits"],
+  },
+  // --- Analog Filter: character / named circuits ---
   yellowjacketFilter: {
-    category: "filter",
+    category: "analogFilter",
     description: "A feedback-modulated ellipse-oscillator filter through a one-pole stage, with a resonance-vs-frequency curve shaping both the oscillator waveshape and feedback gain. Grindy, easily produces square-wave-like output.",
     label: "Yellowjacket Filter",
-    notes: ["ellipse oscillator", "feedback FM", "grindy"],
+    notes: ["ellipse oscillator", "feedback FM", "grindy", "analog"],
   },
   superloveFilter: {
-    category: "filter",
+    category: "analogFilter",
     description: "A trisaw-oscillator feedback resonator through a multi-pole ladder tap. 4 modes: LP18, LP24, HP6, BP6. Warm, bass-heavy, stably self-oscillating.",
     label: "SuperLove Filter",
-    notes: ["trisaw oscillator", "4 modes", "stable self-oscillation"],
+    notes: ["trisaw oscillator", "4 modes", "stable self-oscillation", "analog"],
   },
   chaoticPhaseLockingFilter: {
-    category: "filter",
+    category: "analogFilter",
     description: "A feedback ellipse-waveshaper resonator (no oscillator phasor) through a 12dB lowpass and a DC-blocking highpass. The chaos control drives the ellipse waveshape directly, producing phase-locked chaotic textures.",
     label: "Chaotic Phase Locking Filter",
-    notes: ["ellipse waveshaper", "direct feedback", "phase locking"],
+    notes: ["ellipse waveshaper", "direct feedback", "phase locking", "analog"],
+  },
+  modeResonator: {
+    category: "scientificFilter",
+    description:
+      "Complex 2-pole mode for predictable ping resonance: rings at Frequency, Decay in seconds (to 1/e), Hold = forever. Impulse-normalized gain. Digital accuracy / stability — not analog howl. Feed impulses or Trigger for metallic ring. Resonator Filter remains the character/chaos engine.",
+    label: "Mode Resonator",
+    notes: [
+      "mode",
+      "ping",
+      "ring",
+      "complex pole",
+      "decay seconds",
+      "hold",
+      "stable",
+      "scientific",
+      "metallic",
+    ],
+  },
+  combResonator: {
+    category: "scientificFilter",
+    description:
+      "Delay+feedback (or feedforward) comb: Frequency sets fractional delay D=fs/f (integer ring + Thiran allpass) so Feedback+ peaks at k·f. Decay in seconds, Hold, loop Damping (KS-style), Polarity +/−, Feedforward Depth. Trigger or audio in. Scientific pitch comb — not a waveguide network, not Delay FX.",
+    label: "Comb Resonator",
+    notes: [
+      "comb",
+      "delay feedback",
+      "fractional delay",
+      "thiran",
+      "karplus-strong",
+      "pitch",
+      "decay seconds",
+      "damping",
+      "feedforward",
+      "scientific",
+      "harmonic",
+    ],
+  },
+  waveguide: {
+    category: "scientificFilter",
+    description:
+      "Under construction. Planned digital waveguide (physical delay-loop model): Frequency + Decay, loop Loss, Dispersion — beyond Comb Resonator (termination filters, stiffness, later dual-rail). Currently mono dry passthrough so patches stay safe. Use Comb Resonator / Mode Resonator for working resonance now.",
+    label: "Waveguide",
+    notes: [
+      "under construction",
+      "waveguide",
+      "placeholder",
+      "physical modeling",
+      "dispersion",
+      "scientific",
+    ],
+  },
+  phaseDisperse: {
+    category: "scientificFilter",
+    description:
+      "Under construction. Phase Disperse: cascaded all-pass group-delay (Kilohearts Disperser class). Frequency, Amount (order), Pinch (Q). Flat magnitude — rearranges when frequencies arrive. Sibling of Allpass Filter; not Bode, not STFT Blur.",
+    label: "Phase Disperse",
+    notes: ["under construction", "allpass", "group delay", "disperser", "scientific"],
+  },
+  phaser: {
+    category: "analogFilter",
+    description:
+      "Under construction. Classic phaser: modulated all-pass stages + feedback + mix. Character modulation FX (not the scientific single Allpass or Phase Disperse stack).",
+    label: "Phaser",
+    notes: ["under construction", "phaser", "allpass", "modulation", "analog"],
+  },
+  flanger: {
+    category: "space",
+    description:
+      "Under construction. Classic flanger: short modulated delay + feedback + mix (comb-in-time). Lives with Delay / Space FX.",
+    label: "Flanger",
+    notes: ["under construction", "flanger", "delay", "modulation", "space"],
+  },
+  chorus: {
+    category: "space",
+    description:
+      "Under construction. Classic chorus: multi-voice modulated delays + mix. Lives with Delay / Space FX.",
+    label: "Chorus",
+    notes: ["under construction", "chorus", "delay", "modulation", "space"],
+  },
+  bode: {
+    category: "space",
+    description:
+      "Under construction. Bode frequency shifter (SSB / Hilbert): shift spectrum by Δ Hz (through-zero), optional feedback + mix. Not pitch shift, not Phase Disperse.",
+    label: "Bode Shifter",
+    notes: ["under construction", "bode", "frequency shifter", "SSB", "Hilbert", "space"],
+  },
+  stftBlur: {
+    category: "space",
+    description:
+      "Under construction. STFT Blur: smear spectral frames in time and/or across frequency bins. FFT-domain texture — not all-pass group delay, not Bode shift.",
+    label: "STFT Blur",
+    notes: ["under construction", "STFT", "spectral", "blur", "FFT", "space"],
   },
   resonatorFilter: {
-    category: "filter",
+    category: "analogFilter",
     description: "A dual-phasor FM feedback resonator through a one-pole lowpass and a DC-blocking highpass. 3 modes: Sinusoid, Triangle, Sawtooth -- each a chaotic variation on its namesake waveform.",
     label: "Resonator Filter",
-    notes: ["dual-phasor FM", "3 waveform modes", "chaotic"],
+    notes: ["dual-phasor FM", "3 waveform modes", "chaotic", "analog"],
   },
   humanFilter: {
-    category: "filter",
+    category: "analogFilter",
     description: "A dual-phasor feedback network shaped by a bell/peak filter in the feedback path, with a DC-blocking highpass on the output. 3 modes: BP6, LP6, LP12, differing only in which oscillator combination reaches the output.",
     label: "Human Filter",
-    notes: ["dual-phasor feedback", "bell-shaped feedback path", "3 modes"],
+    notes: ["dual-phasor feedback", "bell-shaped feedback path", "3 modes", "analog"],
   },
   flowerChildFilter: {
-    category: "filter",
+    category: "analogFilter",
     description: "Resonant self-oscillating filter built from a feedback-modulated phasor through two cascaded one-pole stages. 4 modes: Clean (sine oscillator), Dirty (reshaped oscillator, hotter output), Rev3 (ellipsoid oscillator with richer resonance shaping), Downsampled (Clean's architecture with a sample-and-hold aliasing stage).",
     label: "Flower Child Filter",
-    notes: ["self-oscillating", "4 modes", "feedback FM"],
+    notes: ["self-oscillating", "4 modes", "feedback FM", "analog"],
   },
   pulseExplosion: {
     category: "clock",
@@ -874,27 +1172,23 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Pulse Explosion",
     notes: ["trigger burst", "skewed distribution", "randomized amplitude"],
   },
-  ladderFilter: {
-    category: "filter",
-    description: "RSMET ladder filter using the gain-compensated getSample path with frequency, resonance, stage depth, and mode controls.",
-    label: "Ladder Filter",
-    notes: ["RSMET ladder", "gain compensated", "resonant stages"],
-  },
   tb303Filter: {
-    category: "filter",
-    description: "TB-303 style ladder filter with feedback highpass, resonance skewing, and 15 output modes (LP/HP/BP at 6/12/18/24 dB per octave). Based on Robin Schmidt's TeeBeeFilter.",
+    category: "analogFilter",
+    description:
+      "TB-303 style ladder (Robin Schmidt TeeBeeFilter / Open303): feedback highpass, resonance skew, drive, 15 LP/HP/BP taps. Strong character — not a transparent scientific EQ.",
     label: "TB-303 Filter",
-    notes: ["feedback highpass", "resonance skewed", "15 modes"],
+    notes: ["feedback highpass", "resonance skewed", "15 modes", "character", "Robin Schmidt", "analog"],
   },
+  // Rate limiters live with Dynamics (not spectral filters).
   slewLimiter: {
-    category: "filter",
+    category: "dynamics",
     description:
       "Up/Down Slew — hard rate limit. Caps how fast the signal may rise or fall (seconds for full-scale). Linear ramps to steps. Compare with Inertial Filter (exponential approach).",
     label: "Up/Down Slew",
-    notes: ["up time", "down time", "asymmetric glide", "rate limit", "slew", "filter", "portamento"],
+    notes: ["up time", "down time", "asymmetric glide", "rate limit", "slew", "portamento", "dynamics"],
   },
   inertialFilter: {
-    category: "filter",
+    category: "dynamics",
     description:
       "Inertial Filter — exponential approach with separate Attack/Release (0…1 mix per sample). Not a hard slew rate. Same family as Speed Color Inertia; put next to Up/Down Slew to hear the difference.",
     label: "Inertial Filter",
@@ -905,9 +1199,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "exponential",
       "one pole",
       "asymmetric",
-      "filter",
       "slew",
       "smooth",
+      "dynamics",
     ],
   },
   delayEffect: {
@@ -990,9 +1284,32 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   expAdsr: {
     category: "envelope",
-    description: "Soundemote-style exponential ADSR. Gate it with a clock or pulse and shape the rise and fall curves. Native C++/WASM.",
-    label: "Exponential Envelope",
-    notes: ["gate input", "target-ratio curves", "loopable envelope", "native"],
+    description:
+      "Curve Envelope (full DADSR): delay, attack, decay, sustain, release, Attack/Fall curve shapes, loop. Prefer Attack Decay when you only need A/D + curve. Face shows the gated contour preview.",
+    label: "Curve Envelope",
+    notes: ["gate input", "target-ratio curves", "loopable envelope", "curve shape", "native", "DADSR", "prefer Attack Decay for simple AD"],
+  },
+  attackDecay: {
+    category: "envelope",
+    description:
+      "Default easy envelope: Attack, Decay, Curve, Amplitude. Input Gate|Trigger; Cycle Off|Loop|LFO. One-pole vactrol-style slew + γ curve. Canvas face preview.",
+    label: "Attack Decay",
+    notes: [
+      "attack",
+      "decay",
+      "curve",
+      "gamma",
+      "gate",
+      "trigger",
+      "loop",
+      "lfo",
+      "easy envelope",
+      "default envelope",
+      "vactrol style",
+      "one-pole",
+      "exponential",
+      "RC",
+    ],
   },
   flowerChildEnvelopeFollower: {
     category: "envelope",

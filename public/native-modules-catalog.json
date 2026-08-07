@@ -2,6 +2,18 @@
   "ok": true,
   "modules": [
     {
+      "name": "active_filter",
+      "label": "Active Filter",
+      "targetType": "activeFilter",
+      "kind": "filter",
+      "source": "native_modules/active_filter/active_filter.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/active_filter/active_filter.cpp",
+      "libUrl": "https://github.com/RobinSchmidt/RS-MET",
+      "wasm": "native_modules/active_filter/active_filter.wasm",
+      "wasmUrl": "native_modules/active_filter/active_filter.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "additive_osc",
       "label": "Additive Osc",
       "targetType": "additiveOsc",
@@ -62,6 +74,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "bessel",
+      "label": "Bessel Filter",
+      "targetType": "bessel",
+      "kind": "filter",
+      "source": "native_modules/bessel/bessel.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/bessel/bessel.cpp",
+      "libUrl": "https://github.com/RobinSchmidt/RS-MET",
+      "wasm": "native_modules/bessel/bessel.wasm",
+      "wasmUrl": "native_modules/bessel/bessel.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "blit",
       "label": "BLIT Oscillator",
       "targetType": "blit",
@@ -86,6 +110,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "butterworth",
+      "label": "Butterworth Filter",
+      "targetType": "butterworth",
+      "kind": "filter",
+      "source": "native_modules/butterworth/butterworth.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/butterworth/butterworth.cpp",
+      "libUrl": "https://github.com/RobinSchmidt/RS-MET",
+      "wasm": "native_modules/butterworth/butterworth.wasm",
+      "wasmUrl": "native_modules/butterworth/butterworth.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "chaotic_phase_locking_filter",
       "label": "Chaotic Phase Locking Filter",
       "targetType": "chaoticPhaseLockingFilter",
@@ -95,6 +131,18 @@
       "libUrl": "",
       "wasm": "native_modules/chaotic_phase_locking_filter/chaotic_phase_locking_filter.wasm",
       "wasmUrl": "native_modules/chaotic_phase_locking_filter/chaotic_phase_locking_filter.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "chebyshev",
+      "label": "Chebyshev Filter",
+      "targetType": "chebyshev",
+      "kind": "filter",
+      "source": "native_modules/chebyshev/chebyshev.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/chebyshev/chebyshev.cpp",
+      "libUrl": "https://github.com/RobinSchmidt/RS-MET",
+      "wasm": "native_modules/chebyshev/chebyshev.wasm",
+      "wasmUrl": "native_modules/chebyshev/chebyshev.wasm",
       "wasmAvailable": true
     },
     {
@@ -195,9 +243,9 @@
     },
     {
       "name": "ellipsoid",
-      "label": "Ellipsoid",
+      "label": "RoundShape / Ellipsoid",
       "targetType": "ellipsoid",
-      "kind": "oscillator",
+      "kind": "modulator",
       "source": "native_modules/ellipsoid/ellipsoid.cpp",
       "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/ellipsoid/ellipsoid.cpp",
       "libUrl": "",
@@ -206,8 +254,20 @@
       "wasmAvailable": true
     },
     {
+      "name": "elliptic",
+      "label": "Elliptic Filter",
+      "targetType": "elliptic",
+      "kind": "filter",
+      "source": "native_modules/elliptic/elliptic.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/elliptic/elliptic.cpp",
+      "libUrl": "https://github.com/RobinSchmidt/RS-MET",
+      "wasm": "native_modules/elliptic/elliptic.wasm",
+      "wasmUrl": "native_modules/elliptic/elliptic.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "exp_adsr",
-      "label": "Exp ADSR",
+      "label": "Curve Envelope",
       "targetType": "expAdsr",
       "kind": "envelope",
       "source": "native_modules/exp_adsr/exp_adsr.cpp",
@@ -455,6 +515,18 @@
       "libUrl": "",
       "wasm": "native_modules/linear_envelope/linear_envelope.wasm",
       "wasmUrl": "native_modules/linear_envelope/linear_envelope.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "linkwitz_riley",
+      "label": "Linkwitz-Riley Filter",
+      "targetType": "linkwitzRiley",
+      "kind": "filter",
+      "source": "native_modules/linkwitz_riley/linkwitz_riley.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/linkwitz_riley/linkwitz_riley.cpp",
+      "libUrl": "https://github.com/RobinSchmidt/RS-MET",
+      "wasm": "native_modules/linkwitz_riley/linkwitz_riley.wasm",
+      "wasmUrl": "native_modules/linkwitz_riley/linkwitz_riley.wasm",
       "wasmAvailable": true
     },
     {
@@ -722,18 +794,6 @@
       "wasmAvailable": true
     },
     {
-      "name": "rsmet_filter",
-      "label": "RSMET Filter",
-      "targetType": "rsmetFilter",
-      "kind": "filter",
-      "source": "native_modules/rsmet_filter/rsmet_filter.cpp",
-      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/rsmet_filter/rsmet_filter.cpp",
-      "libUrl": "",
-      "wasm": "native_modules/rsmet_filter/rsmet_filter.wasm",
-      "wasmUrl": "native_modules/rsmet_filter/rsmet_filter.wasm",
-      "wasmAvailable": true
-    },
-    {
       "name": "sabrina_reverb",
       "label": "Sabrina Reverb",
       "targetType": "reverbEffect",
@@ -840,6 +900,18 @@
       "wasm": "native_modules/soem_reverb/soem_reverb.wasm",
       "wasmUrl": "native_modules/soem_reverb/soem_reverb.wasm",
       "wasmAvailable": true
+    },
+    {
+      "name": "soem_reverb",
+      "label": "soem_reverb",
+      "targetType": "soem_reverb",
+      "kind": "",
+      "source": "native_modules/soem_reverb/stub_test.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/soem_reverb/stub_test.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/soem_reverb/stub_test.wasm",
+      "wasmUrl": "native_modules/soem_reverb/stub_test.wasm",
+      "wasmAvailable": false
     },
     {
       "name": "soft_clipper",

@@ -64,7 +64,7 @@ Jerobeam family: `blubb`, `boing`, `keplerBouwkamp`, `mushroom`, `nyquistShannon
 plus `fractalSpiral`, `logSpiral`, `pulseExplosion`, `randomWalk`, `randomClock`, …
 
 ### Filters
-`chaoticPhaseLockingFilter`, `flowerChildFilter`, `humanFilter`, `ladderFilter`, `papoulisFilter`, `passiveFilter`, `resonatorFilter`, `rsmetFilter`, `superloveFilter`, `tb303Filter`, `yellowjacketFilter`
+`activeFilter`, `chaoticPhaseLockingFilter`, `flowerChildFilter`, `humanFilter`, `ladderFilter`, `papoulisFilter`, `passiveFilter`, `resonatorFilter`, `superloveFilter`, `tb303Filter`, `yellowjacketFilter`
 
 ### Delays / dynamics / utility (native in catalog)
 `delayEffect`, `pingPongDelay`, `sampleDelay`, `sampleHold`, `slewLimiter`, `softClipper`,  

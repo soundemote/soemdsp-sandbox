@@ -3056,6 +3056,11 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   font-size: clamp(0.92rem, calc(var(--node-toolbar-row-height) * 0.34), 1.22rem);
 }
 
+/* History row zeroes sibling borders; keep a seam so Undo | Redo stay distinct. */
+#nodeRedoButton {
+  border-left: 1px solid rgba(127, 199, 217, 0.28);
+}
+
 #nodeUserUiSettingsButton {
   flex: 0.95 1 0;
   min-inline-size: 0;
@@ -3523,6 +3528,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
    needed here. */
 
 .node-user-ui-settings-actions {
+  /* Stay above the scrollable exposed-settings list so overflow never steals clicks. */
+  position: relative;
+  z-index: 2;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0;
@@ -3531,18 +3539,32 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   padding: 0;
   border-bottom: 1px solid rgba(127, 199, 217, 0.16);
   background: rgba(3, 5, 7, 0.48);
+  isolation: isolate;
 }
 
 .node-user-ui-settings-actions button {
+  min-width: 0;
   min-height: var(--node-floating-window-button-height);
-  padding: 0;
+  padding: 0 4px;
   border-radius: 0;
   font-family: Consolas, "Courier New", monospace;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
+  /* Long labels (e.g. "Save UI Settings") used to paint over "Clear Startup"
+     and capture its clicks — clip to the grid cell hitbox. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  position: relative;
+  z-index: 0;
 }
 
 .node-user-ui-settings-actions button + button {
   margin-left: -1px;
+}
+
+.node-user-ui-settings-actions button:hover,
+.node-user-ui-settings-actions button:focus-visible {
+  z-index: 1;
 }
 
 .node-user-ui-settings-status-row {
@@ -3566,14 +3588,18 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 .node-user-ui-settings-controls {
+  position: relative;
+  z-index: 0;
   display: grid;
   gap: 7px;
   align-content: start;
   min-width: 0;
   min-height: 0;
   max-height: 100%;
-  overflow-y: auto;
+  /* Clip children that use overflow:visible so they cannot paint over the
+     Clear Startup / Save action row above this grid track. */
   overflow-x: hidden;
+  overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
   padding: 9px;
@@ -3583,7 +3609,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: grid;
   gap: 0;
   min-width: 0;
-  overflow: visible;
+  overflow: hidden;
   border: 1px solid rgba(127, 199, 217, 0.16);
   border-radius: 5px;
   background: rgba(3, 5, 7, 0.28);
@@ -8863,12 +8889,15 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   border-top: 1px solid rgba(127, 199, 217, 0.12);
 }
 
+/* Keep section chrome inside the scrollport — overflow:visible let long
+   labels / color rows extend under the action bar and block Clear Startup. */
 .node-user-ui-settings-controls .node-user-ui-settings-section {
-  overflow: visible;
+  overflow: hidden;
 }
 
 .node-user-ui-settings-controls .node-user-ui-settings-section .node-ui-dev-section-body {
-  overflow: visible;
+  overflow: hidden;
+  min-width: 0;
 }
 
 .node-ui-dev-actions {

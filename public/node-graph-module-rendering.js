@@ -396,6 +396,7 @@ function nodeGraphModuleLayoutClassNames(type, definition, layout) {
   }
   const layoutClasses = {
     filterCurve: "filter-curve-layout",
+    envelopeCurve: "filter-curve-layout",
     graph: "graph-node-layout",
     image: "image-node-layout",
     keyboardController: "keyboard-controller-layout",
@@ -537,6 +538,13 @@ function createNodeGraphModuleElement(type, node) {
   article.className = nodeGraphModuleLayoutClassNames(type, definition, layout);
   article.dataset.node = node;
   article.dataset.nodeType = type;
+  // Browser tooltip on module hover: store description (accuracy notes, best use, etc.)
+  const storeEntry = typeof nodeGraphModuleStoreCatalog === "object"
+    ? nodeGraphModuleStoreCatalog[type]
+    : null;
+  if (storeEntry?.description) {
+    article.title = `${nodeGraphNodeLabels?.[type] || type}: ${storeEntry.description}`;
+  }
   const chrome = typeof nodeGraphModuleChrome === "function"
     ? nodeGraphModuleChrome(type)
     : {
@@ -780,6 +788,17 @@ function createNodeGraphModuleElement(type, node) {
   } else if (definition.layout === "filterCurve") {
     if (!patchNodeUi.oscilloscopeHidden) {
       article.append(createNodeGraphFilterCurveDisplay(node, type));
+    }
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
+  } else if (definition.layout === "envelopeCurve") {
+    if (!patchNodeUi.oscilloscopeHidden && typeof createNodeGraphEnvelopeCurveDisplay === "function") {
+      article.append(createNodeGraphEnvelopeCurveDisplay(node, type));
     }
     appendNodeGraphModuleIoSection(
       article,

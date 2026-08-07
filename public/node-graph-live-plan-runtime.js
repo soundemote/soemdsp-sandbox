@@ -252,12 +252,29 @@ function createNodeGraphLiveRuntime(plan) {
   const pingPongDelayStates = new Map();
   const wallDelayStates = new Map();
   const expAdsrStates = new Map();
+  const attackDecayStates = new Map();
   const fractalBrownianNoiseStates = new Map();
   const fbmFieldStates = new Map();
   const rgbFractalStates = new Map();
   const flowerChildEnvelopeFollowerStates = new Map();
   const flowerChildFilterStates = new Map();
-  const rsmetFilterStates = new Map();
+  const activeFilterStates = new Map();
+  const butterworthStates = new Map();
+  const linkwitzRileyStates = new Map();
+  const besselStates = new Map();
+  const chebyshevStates = new Map();
+  const ellipticStates = new Map();
+  const bandpassStates = new Map();
+  const allpassStates = new Map();
+  const crossover2States = new Map();
+  const crossover3States = new Map();
+  const crossover4States = new Map();
+  const crossover5States = new Map();
+  const crossover6States = new Map();
+  const modeResonatorStates = new Map();
+  const combResonatorStates = new Map();
+  const waveguideStates = new Map();
+  const softpopOscillatorStates = new Map();
   const yellowjacketFilterStates = new Map();
   const superloveFilterStates = new Map();
   const chaoticPhaseLockingFilterStates = new Map();
@@ -267,6 +284,8 @@ function createNodeGraphLiveRuntime(plan) {
   const comparatorStates = new Map();
   const speedColorInertiaStates = new Map();
   const inertialFilterStates = new Map();
+  const tiltFilterStates = new Map();
+  const eqFilterStates = new Map();
   const aliasSineStates = new Map();
   const ladderFilterStates = new Map();
   const tb303FilterStates = new Map();
@@ -461,8 +480,41 @@ function createNodeGraphLiveRuntime(plan) {
     if (node.type === "flowerChildFilter") {
       flowerChildFilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphFlowerChildFilterState));
     }
-    if (node.type === "rsmetFilter") {
-      rsmetFilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphRsmetFilterState));
+    if (node.type === "activeFilter") {
+      activeFilterStates.set(
+        node.id,
+        typeof createNodeGraphStereoActiveFilterState === "function"
+          ? createNodeGraphStereoActiveFilterState()
+          : createNodeGraphStereoFilterState(createNodeGraphActiveFilterState),
+      );
+    }
+    if (node.type === "butterworth" || node.type === "linkwitzRiley" || node.type === "bessel" || node.type === "chebyshev" || node.type === "elliptic") {
+      const map = ({ butterworth: butterworthStates, linkwitzRiley: linkwitzRileyStates, bessel: besselStates, chebyshev: chebyshevStates, elliptic: ellipticStates })[node.type];
+      map.set(node.id, createNodeGraphStereoScientificIirState());
+    }
+    if (node.type === "bandpass") {
+      bandpassStates.set(
+        node.id,
+        typeof createNodeGraphStereoEqFilterState === "function"
+          ? createNodeGraphStereoEqFilterState()
+          : createNodeGraphStereoFilterState(createNodeGraphEqFilterState),
+      );
+    }
+    if (node.type === "allpass") {
+      allpassStates.set(
+        node.id,
+        typeof createNodeGraphStereoEqFilterState === "function"
+          ? createNodeGraphStereoEqFilterState()
+          : createNodeGraphStereoFilterState(createNodeGraphEqFilterState),
+      );
+    }
+    if (node.type === "softpopOscillator") {
+      softpopOscillatorStates.set(
+        node.id,
+        typeof createNodeGraphSoftpopOscillatorState === "function"
+          ? createNodeGraphSoftpopOscillatorState()
+          : { left: {}, right: {}, lastReset: false, generation: 0, lastSeed: NaN },
+      );
     }
     if (node.type === "yellowjacketFilter") {
       yellowjacketFilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphYellowjacketFilterState));
@@ -490,6 +542,12 @@ function createNodeGraphLiveRuntime(plan) {
     }
     if (node.type === "inertialFilter") {
       inertialFilterStates.set(node.id, createNodeGraphStereoInertialFilterState());
+    }
+    if (node.type === "tiltFilter") {
+      tiltFilterStates.set(node.id, createNodeGraphStereoTiltFilterState());
+    }
+    if (node.type === "eqFilter") {
+      eqFilterStates.set(node.id, createNodeGraphStereoEqFilterState());
     }
     if (node.type === "sampleDelay") {
       sampleDelayStates.set(node.id, createNodeGraphSampleDelayState());
@@ -547,6 +605,14 @@ function createNodeGraphLiveRuntime(plan) {
     }
     if (node.type === "expAdsr") {
       expAdsrStates.set(node.id, createNodeGraphExpAdsrState());
+    }
+    if (node.type === "attackDecay") {
+      attackDecayStates.set(
+        node.id,
+        typeof createNodeGraphAttackDecayState === "function"
+          ? createNodeGraphAttackDecayState()
+          : { raw: 0 },
+      );
     }
     if (node.type === "linearEnvelope") {
       linearEnvelopeStates.set(node.id, createNodeGraphLinearEnvelopeState());
@@ -633,12 +699,29 @@ function createNodeGraphLiveRuntime(plan) {
     pingPongDelayStates,
     wallDelayStates,
     expAdsrStates,
+    attackDecayStates,
     fractalBrownianNoiseStates,
     fbmFieldStates,
     rgbFractalStates,
     flowerChildEnvelopeFollowerStates,
     flowerChildFilterStates,
-    rsmetFilterStates,
+    activeFilterStates,
+    butterworthStates,
+    linkwitzRileyStates,
+    besselStates,
+    chebyshevStates,
+    ellipticStates,
+    bandpassStates,
+    allpassStates,
+    crossover2States,
+    crossover3States,
+    crossover4States,
+    crossover5States,
+    crossover6States,
+    modeResonatorStates,
+    combResonatorStates,
+    waveguideStates,
+    softpopOscillatorStates,
     yellowjacketFilterStates,
     superloveFilterStates,
     chaoticPhaseLockingFilterStates,
@@ -648,6 +731,8 @@ function createNodeGraphLiveRuntime(plan) {
     comparatorStates,
     speedColorInertiaStates,
     inertialFilterStates,
+    tiltFilterStates,
+    eqFilterStates,
     aliasSineStates,
     graphInputConnections,
     graphLfoStates,
@@ -831,8 +916,12 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   if (!runtime.flowerChildFilterStates) {
     runtime.flowerChildFilterStates = new Map();
   }
-  if (!runtime.rsmetFilterStates) {
-    runtime.rsmetFilterStates = new Map();
+  if (!runtime.activeFilterStates) {
+    runtime.activeFilterStates = new Map();
+  }
+  for (const sci of ["butterworth", "linkwitzRiley", "bessel", "chebyshev", "elliptic", "bandpass", "allpass", "crossover2", "crossover3", "crossover4", "crossover5", "crossover6", "modeResonator", "combResonator", "waveguide", "softpopOscillator"]) {
+    const key = `${sci}States`;
+    if (!runtime[key]) runtime[key] = new Map();
   }
   if (!runtime.yellowjacketFilterStates) {
     runtime.yellowjacketFilterStates = new Map();
@@ -860,6 +949,12 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   }
   if (!runtime.inertialFilterStates) {
     runtime.inertialFilterStates = new Map();
+  }
+  if (!runtime.tiltFilterStates) {
+    runtime.tiltFilterStates = new Map();
+  }
+  if (!runtime.eqFilterStates) {
+    runtime.eqFilterStates = new Map();
   }
   if (!runtime.sampleDelayStates) {
     runtime.sampleDelayStates = new Map();
@@ -1000,6 +1095,9 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   }
   if (!runtime.expAdsrStates) {
     runtime.expAdsrStates = new Map();
+  }
+  if (!runtime.attackDecayStates) {
+    runtime.attackDecayStates = new Map();
   }
   if (!runtime.noiseGeneratorStates) {
     runtime.noiseGeneratorStates = new Map();
@@ -1192,8 +1290,47 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     if (node.type === "flowerChildFilter" && !runtime.flowerChildFilterStates.has(node.id)) {
       runtime.flowerChildFilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphFlowerChildFilterState));
     }
-    if (node.type === "rsmetFilter" && !runtime.rsmetFilterStates.has(node.id)) {
-      runtime.rsmetFilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphRsmetFilterState));
+    if (node.type === "activeFilter" && !runtime.activeFilterStates.has(node.id)) {
+      runtime.activeFilterStates.set(
+        node.id,
+        typeof createNodeGraphStereoActiveFilterState === "function"
+          ? createNodeGraphStereoActiveFilterState()
+          : createNodeGraphStereoFilterState(createNodeGraphActiveFilterState),
+      );
+    }
+    for (const sciType of ["butterworth", "linkwitzRiley", "bessel", "chebyshev", "elliptic"]) {
+      const mapName = `${sciType}States`;
+      if (!runtime[mapName]) runtime[mapName] = new Map();
+      if (node.type === sciType && !runtime[mapName].has(node.id)) {
+        runtime[mapName].set(node.id, createNodeGraphStereoScientificIirState());
+      }
+    }
+    if (!runtime.bandpassStates) runtime.bandpassStates = new Map();
+    if (node.type === "bandpass" && !runtime.bandpassStates.has(node.id)) {
+      runtime.bandpassStates.set(
+        node.id,
+        typeof createNodeGraphStereoEqFilterState === "function"
+          ? createNodeGraphStereoEqFilterState()
+          : createNodeGraphStereoFilterState(createNodeGraphEqFilterState),
+      );
+    }
+    if (!runtime.allpassStates) runtime.allpassStates = new Map();
+    if (node.type === "allpass" && !runtime.allpassStates.has(node.id)) {
+      runtime.allpassStates.set(
+        node.id,
+        typeof createNodeGraphStereoEqFilterState === "function"
+          ? createNodeGraphStereoEqFilterState()
+          : createNodeGraphStereoFilterState(createNodeGraphEqFilterState),
+      );
+    }
+    if (!runtime.softpopOscillatorStates) runtime.softpopOscillatorStates = new Map();
+    if (node.type === "softpopOscillator" && !runtime.softpopOscillatorStates.has(node.id)) {
+      runtime.softpopOscillatorStates.set(
+        node.id,
+        typeof createNodeGraphSoftpopOscillatorState === "function"
+          ? createNodeGraphSoftpopOscillatorState()
+          : { left: {}, right: {}, lastReset: false, generation: 0, lastSeed: NaN },
+      );
     }
     if (node.type === "yellowjacketFilter" && !runtime.yellowjacketFilterStates.has(node.id)) {
       runtime.yellowjacketFilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphYellowjacketFilterState));
@@ -1224,6 +1361,12 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     }
     if (node.type === "inertialFilter" && !runtime.inertialFilterStates.has(node.id)) {
       runtime.inertialFilterStates.set(node.id, createNodeGraphStereoInertialFilterState());
+    }
+    if (node.type === "tiltFilter" && !runtime.tiltFilterStates.has(node.id)) {
+      runtime.tiltFilterStates.set(node.id, createNodeGraphStereoTiltFilterState());
+    }
+    if (node.type === "eqFilter" && !runtime.eqFilterStates.has(node.id)) {
+      runtime.eqFilterStates.set(node.id, createNodeGraphStereoEqFilterState());
     }
     if (node.type === "sampleDelay" && !runtime.sampleDelayStates.has(node.id)) {
       runtime.sampleDelayStates.set(node.id, createNodeGraphSampleDelayState());
@@ -1281,6 +1424,14 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     }
     if (node.type === "expAdsr" && !runtime.expAdsrStates.has(node.id)) {
       runtime.expAdsrStates.set(node.id, createNodeGraphExpAdsrState());
+    }
+    if (node.type === "attackDecay" && !runtime.attackDecayStates.has(node.id)) {
+      runtime.attackDecayStates.set(
+        node.id,
+        typeof createNodeGraphAttackDecayState === "function"
+          ? createNodeGraphAttackDecayState()
+          : { raw: 0 },
+      );
     }
     if (node.type === "linearEnvelope" && !runtime.linearEnvelopeStates.has(node.id)) {
       runtime.linearEnvelopeStates.set(node.id, createNodeGraphLinearEnvelopeState());
@@ -1625,9 +1776,18 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
       runtime.flowerChildFilterStates.delete(id);
     }
   }
-  for (const id of [...runtime.rsmetFilterStates.keys()]) {
-    if (!nodeIds.has(id)) {
-      runtime.rsmetFilterStates.delete(id);
+  if (runtime.activeFilterStates) {
+    for (const id of [...runtime.activeFilterStates.keys()]) {
+      if (!nodeIds.has(id)) {
+        runtime.activeFilterStates.delete(id);
+      }
+    }
+  }
+  for (const sciType of ["butterworth", "linkwitzRiley", "bessel", "chebyshev", "elliptic", "bandpass", "allpass", "crossover2", "crossover3", "crossover4", "crossover5", "crossover6", "modeResonator", "combResonator", "waveguide", "softpopOscillator"]) {
+    const map = runtime[`${sciType}States`];
+    if (!map) continue;
+    for (const id of [...map.keys()]) {
+      if (!nodeIds.has(id)) map.delete(id);
     }
   }
   for (const id of [...runtime.yellowjacketFilterStates.keys()]) {
@@ -1676,6 +1836,20 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     for (const id of [...runtime.inertialFilterStates.keys()]) {
       if (!nodeIds.has(id)) {
         runtime.inertialFilterStates.delete(id);
+      }
+    }
+  }
+  if (runtime.tiltFilterStates) {
+    for (const id of [...runtime.tiltFilterStates.keys()]) {
+      if (!nodeIds.has(id)) {
+        runtime.tiltFilterStates.delete(id);
+      }
+    }
+  }
+  if (runtime.eqFilterStates) {
+    for (const id of [...runtime.eqFilterStates.keys()]) {
+      if (!nodeIds.has(id)) {
+        runtime.eqFilterStates.delete(id);
       }
     }
   }
@@ -1762,6 +1936,13 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   for (const id of [...runtime.expAdsrStates.keys()]) {
     if (!nodeIds.has(id)) {
       runtime.expAdsrStates.delete(id);
+    }
+  }
+  if (runtime.attackDecayStates) {
+    for (const id of [...runtime.attackDecayStates.keys()]) {
+      if (!nodeIds.has(id)) {
+        runtime.attackDecayStates.delete(id);
+      }
     }
   }
   for (const id of [...runtime.noiseGeneratorStates.keys()]) {

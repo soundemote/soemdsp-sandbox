@@ -27,7 +27,9 @@ NodeLiveAudioProcessor.prototype.cookbookFilterCoefficients = function cookbookF
       return { a1: 0, a2: 0, b0: 1, b1: 0, b2: 0 };
     }
     const safeRate = Math.max(1, Number(rate) || sampleRate || 44100);
-    const freq = this.clampValue(Number(frequency) || 1000, 20, Math.min(20000, safeRate * 0.49));
+    // 0 Hz allowed; only non-negative + Nyquist. No arbitrary 20 Hz floor.
+    const rawFreq = Number(frequency);
+    const freq = Math.max(0, Math.min(safeRate * 0.49, Number.isFinite(rawFreq) ? rawFreq : 0));
     const safeQ = Math.max(0.0001, Number(q) || 1);
     const omega = 2 * Math.PI * freq / safeRate;
     const sine = Math.sin(omega);

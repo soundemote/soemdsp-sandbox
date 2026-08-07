@@ -44,12 +44,12 @@ static const char kMetadataJson[] =
         "\"label\":\"Cutoff\","
         "\"kind\":\"frequency\","
         "\"defaultValue\":1000,"
-        "\"min\":200,"
+        "\"min\":0,"
         "\"mid\":1000,"
         "\"max\":20000,"
         "\"step\":\"any\","
         "\"unit\":\"Hz\","
-        "\"tooltip\":\"Sets the filter cutoff frequency. Minimum is 200 Hz, matching the original hardware.\""
+        "\"tooltip\":\"Filter cutoff in Hz. 0 is allowed (frozen / DC). Circuit uses a tiny floor only to avoid coefficient blow-up.\""
       "},"
       "{"
         "\"key\":\"resonance\","
@@ -178,10 +178,13 @@ extern "C" double soemdsp_tb303_filter_sample(
   const int safeMode = mode < 0 ? 0 : (mode > 14 ? 14 : mode);
   if (safeMode != s.lastMode) set_mode(s, safeMode);
 
-  // clamp parameters
-  const double maxFreq     = rate * 0.49 < 20000.0 ? rate * 0.49 : 20000.0;
-  const double safeCutoff  = clamp(cutoff, 200.0, maxFreq);
-  const double r_raw       = clamp(resonance * 0.01, 0.0, 1.0);
+  // Crash-safety only: allow 0 Hz (frozen), never send NaN/negative into
+  // trig/exp. Nyquist ceiling is the only hard upper bound.
+  // Musical range is a metaparameter concern — no arbitrary 200 Hz floor.
+  const double maxFreq    = rate * 0.49;
+  const double rawCutoff  = safe(cutoff);
+  const double safeCutoff = rawCutoff < 0.0 ? 0.0 : (rawCutoff > maxFreq ? maxFreq : rawCutoff);
+  const double r_raw      = clamp(resonance * 0.01, 0.0, 1.0);
   const double driveFactor = dsp_exp_squaring(clamp(drive, -24.0, 24.0) * 0.11512925465);
 
   // resonance skewing: (1 - exp(-3*r)) / (1 - exp(-3))

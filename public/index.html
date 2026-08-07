@@ -127,7 +127,7 @@
         onclick="dismissNodeGraphMissingSampleAssetsDialog()">Close</button>
     </div>
   </div>
-  <script src="./public/boot-loading.js?v=hide-cpu-sysinfo-20260701"></script>
+  <script src="./public/boot-loading.js?v=debug-off-default-2"></script>
   <main class="shell">
     <section class="status-strip" aria-label="Sandbox status">
       <div>
@@ -1962,10 +1962,12 @@
           aria-label="user UI settings actions">
           <button
             id="nodeUserUiSettingsClearStartup"
-            type="button">Clear Startup</button>
+            type="button"
+            title="Clear startup / local UI settings keys">Clear Startup</button>
           <button
             id="nodeUserUiSettingsSaveDefault"
-            type="button">Save UI Settings</button>
+            type="button"
+            title="Save current UI settings as default">Save</button>
           <button
             id="nodeUserUiSettingsOpenUiDev"
             type="button"
@@ -3627,7 +3629,7 @@
   <script src="./public/node-graph-settings-text-fit.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-default-preset.js?v=embed-config-20260701"></script>
   <script src="./public/node-graph-script-status.js?v=slider-unit-color-1780307400000"></script>
-  <script src="./public/node-graph-view-controls.js?v=debug-hide-on-refresh-1"></script>
+  <script src="./public/node-graph-view-controls.js?v=debug-off-default-2"></script>
   <script src="./public/node-graph-workspace-geometry.js?v=zoom-max-100"></script>
   <script src="./public/node-graph-viewport-perf.js?v=zoom-max-100"></script>
   <script src="./public/node-graph-workspace-zoom.js?v=viewport-perf-1"></script>
@@ -3756,7 +3758,7 @@
   <script src="./public/node-graph-ui-settings-utils.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-user-ui-settings-controls.js?v=knob-style-to-uidev-20260725"></script>
   <script src="./public/node-graph-ui-settings-panels.js?v=unified-window-pos-2"></script>
-  <script src="./public/node-graph-ui-settings-persistence.js?v=debug-hide-on-refresh-1"></script>
+  <script src="./public/node-graph-ui-settings-persistence.js?v=debug-off-default-2"></script>
   <script src="./public/node-graph-ui-settings-sync.js?v=amount-alpha-55-1"></script>
   <script src="./public/node-graph-keyboard-shortcuts.js?v=transport-states-5"></script>
   <script src="./public/node-graph-live-status-text.js?v=live-plan-preserve-20260634"></script>
@@ -3867,7 +3869,8 @@
   <script src="./public/modules/cookbookFilter/cookbook-filter-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/ladderFilter/ladder-filter-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/flowerChildFilter/flower-child-filter-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/rsmetFilter/rsmet-filter-live-evaluator.js?v=per-module-dispatch-20260711"></script>
+  <script src="./public/modules/activeFilter/active-filter-math.js?v=active-filter-1"></script>
+  <script src="./public/modules/activeFilter/active-filter-live-evaluator.js?v=active-filter-1"></script>
   <script src="./public/modules/yellowjacketFilter/yellowjacket-filter-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/superloveFilter/superlove-filter-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/chaoticPhaseLockingFilter/chaotic-phase-locking-filter-live-evaluator.js?v=per-module-dispatch-20260711"></script>
@@ -3896,10 +3899,28 @@
   <script src="./public/modules/slewLimiter/slew-limiter-live-evaluator.js?v=slew-1"></script>
   <script src="./public/modules/inertialFilter/inertial-filter-math.js?v=inertial-filter-1"></script>
   <script src="./public/modules/inertialFilter/inertial-filter-live-evaluator.js?v=inertial-filter-1"></script>
+  <script src="./public/modules/tiltFilter/tilt-filter-math.js?v=tilt-eq-1"></script>
+  <script src="./public/modules/tiltFilter/tilt-filter-live-evaluator.js?v=tilt-eq-1"></script>
+  <script src="./public/modules/eqFilter/eq-filter-math.js?v=tilt-eq-1"></script>
+  <script src="./public/modules/eqFilter/eq-filter-live-evaluator.js?v=tilt-eq-1"></script>
+  <script src="./public/modules/scientificIir/scientific-iir-math.js?v=scientific-iir-1"></script>
+  <script src="./public/modules/scientificIir/scientific-iir-live-evaluator.js?v=scientific-iir-1"></script>
+  <script src="./public/modules/crossover/crossover-math.js?v=crossover-1"></script>
+  <script src="./public/modules/crossover/crossover-live-evaluator.js?v=crossover-1"></script>
+  <script src="./public/modules/modeResonator/mode-resonator-math.js?v=mode-resonator-1"></script>
+  <script src="./public/modules/modeResonator/mode-resonator-live-evaluator.js?v=mode-resonator-1"></script>
+  <script src="./public/modules/combResonator/comb-resonator-math.js?v=comb-resonator-1"></script>
+  <script src="./public/modules/combResonator/comb-resonator-live-evaluator.js?v=comb-resonator-1"></script>
+  <script src="./public/modules/waveguide/waveguide-math.js?v=waveguide-stub-1"></script>
+  <script src="./public/modules/waveguide/waveguide-live-evaluator.js?v=waveguide-stub-1"></script>
+  <script src="./public/modules/classicFxStubs/classic-fx-stubs-live-evaluator.js?v=classic-fx-stubs-1"></script>
   <script src="./public/modules/sampleHold/sample-hold-math.js?v=sample-hold-1"></script>
   <script src="./public/modules/sampleHold/sample-hold-live-evaluator.js?v=sample-hold-1"></script>
   <script src="./public/modules/expAdsr/exp-adsr-math.js?v=exp-adsr-1"></script>
   <script src="./public/modules/expAdsr/exp-adsr-live-evaluator.js?v=exp-adsr-1"></script>
+  <script src="./public/modules/attackDecay/attack-decay-math.js?v=attack-decay-1"></script>
+  <script src="./public/modules/attackDecay/attack-decay-display.js?v=attack-decay-1"></script>
+  <script src="./public/modules/attackDecay/attack-decay-live-evaluator.js?v=attack-decay-1"></script>
   <script src="./public/modules/linearEnvelope/linear-envelope-math.js?v=linear-envelope-1"></script>
   <script src="./public/modules/linearEnvelope/linear-envelope-live-evaluator.js?v=linear-envelope-1"></script>
   <script src="./public/modules/pluckEnvelope/pluck-envelope-live-evaluator.js?v=per-module-dispatch-20260711"></script>
@@ -3912,6 +3933,8 @@
   <script src="./public/modules/lorenzAttractor/lorenz-attractor-live-evaluator.js?v=lorenz-1"></script>
   <script src="./public/modules/noiseGenerator/noise-generator-math.js?v=noise-generator-1"></script>
   <script src="./public/modules/noiseGenerator/noise-generator-live-evaluator.js?v=noise-generator-1"></script>
+  <script src="./public/modules/softpopOscillator/softpop-oscillator-math.js?v=softpop-1"></script>
+  <script src="./public/modules/softpopOscillator/softpop-oscillator-live-evaluator.js?v=softpop-1"></script>
   <script src="./public/modules/randomWalk/random-walk-math.js?v=random-walk-1"></script>
   <script src="./public/modules/randomWalk/random-walk-live-evaluator.js?v=random-walk-1"></script>
   <script src="./public/modules/piSpigotNoise/pi-spigot-noise-live-evaluator.js?v=per-module-dispatch-20260711"></script>
@@ -3945,8 +3968,8 @@
   <script src="./public/modules/macroControls/macro-controls-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/macroControls/macro-controls-settings.js?v=macro-face-1"></script>
   <script src="./public/modules/pitchModWheel/pitch-mod-wheel-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/gain/gain-math.js?v=gain-1"></script>
-  <script src="./public/modules/gain/gain-live-evaluator.js?v=gain-1"></script>
+  <script src="./public/modules/gain/gain-math.js?v=gain-offset-1"></script>
+  <script src="./public/modules/gain/gain-live-evaluator.js?v=gain-offset-1"></script>
   <script src="./public/modules/sinc/sinc-live-evaluator.js?v=native-core-1"></script>
   <script src="./public/modules/led/led-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/rgbShape/rgb-shape-live-evaluator.js?v=rgb-shape-1"></script>
@@ -3956,8 +3979,7 @@
   <script src="./public/modules/evolveField/evolve-field-live-evaluator.js?v=evolve-field-uc-1"></script>
   <script src="./public/modules/bugButton/bug-button-live-evaluator.js?v=solid-module-shell-2-20260723"></script>
   <script src="./public/modules/xyPad/xy-pad-live-evaluator.js?v=xy-pad-drag-1"></script>
-  <script src="./public/modules/gainBias/gain-bias-math.js?v=gain-bias-1"></script>
-  <script src="./public/modules/gainBias/gain-bias-live-evaluator.js?v=gain-bias-1"></script>
+
   <script src="./public/modules/bias/bias-math.js?v=bias-1"></script>
   <script src="./public/modules/bias/bias-live-evaluator.js?v=bias-1"></script>
   <script src="./public/modules/softClipper/soft-clipper-math.js?v=soft-clipper-1"></script>
@@ -4002,7 +4024,7 @@
   <script src="./public/node-graph-settings-event-bindings.js?v=dblclick-header-fields-20260722"></script>
   <script src="./public/node-graph-slider-event-bindings.js?v=node-graph-slider-event-bindings-refactor-1780369200000"></script>
   <script src="./public/node-graph-event-bindings.js?v=remove-dead-uiview-bind-20260724"></script>
-  <script src="./public/node-graph-bootstrap.js?v=debug-hide-on-refresh-1"></script>
+  <script src="./public/node-graph-bootstrap.js?v=debug-off-default-2"></script>
   <script src="./public/app-event-bindings.js?v=app-event-bindings-refactor-1780361400000"></script>
   <script src="./public/app.js?v=loading-steps-1"></script>
 </body>

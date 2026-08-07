@@ -1,5 +1,5 @@
-// GainBiasMix: 4-channel utility mixer with per-channel volume/bias
-// and 3 bleed sends into output 1.
+// Mix (legacy type id: gainBiasMix): 4-channel utility mixer with per-channel
+// volume/bias and 3 bleed sends into output 1.
 //
 // In1 ──[vol1]──[+bias1]──┬── Out1
 // In2 ──[vol2]──[+bias2]──┼── Out2

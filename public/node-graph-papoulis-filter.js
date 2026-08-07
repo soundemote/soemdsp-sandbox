@@ -177,18 +177,23 @@ function createNodeGraphPapoulisFilterState() {
 }
 
 function nodeGraphPapoulisFilterSample(state, input, cutoffHz, sampleRate) {
-  const safeCutoff = Math.max(0.01, Math.min(sampleRate * 0.49, Number(cutoffHz) || 0));
-  if (state.cutoffHz !== safeCutoff || state.sampleRate !== sampleRate) {
-    state.coeffs = designPapoulisLowpass3(safeCutoff, sampleRate);
-    state.cutoffHz = safeCutoff;
+  // Param may be 0 (frozen LP). Tiny floor only for bilinear design stability.
+  const raw = Number(cutoffHz);
+  const safeCutoff = Math.max(0, Math.min(sampleRate * 0.49, Number.isFinite(raw) ? raw : 0));
+  const designCutoff = Math.max(1e-6, safeCutoff);
+  if (state.cutoffHz !== designCutoff || state.sampleRate !== sampleRate) {
+    state.coeffs = designPapoulisLowpass3(designCutoff, sampleRate);
+    state.cutoffHz = designCutoff;
     state.sampleRate = sampleRate;
   }
   return papoulisLowpass3Process(state.filter, state.coeffs, Number(input) || 0);
 }
 
 function nodeGraphPapoulisFilterMagnitudeAt(cutoffHz, frequency, sampleRate) {
-  const safeCutoff = Math.max(0.01, Math.min(sampleRate * 0.49, Number(cutoffHz) || 0));
-  const coeffs = designPapoulisLowpass3(safeCutoff, sampleRate);
+  const raw = Number(cutoffHz);
+  const safeCutoff = Math.max(0, Math.min(sampleRate * 0.49, Number.isFinite(raw) ? raw : 0));
+  const designCutoff = Math.max(1e-6, safeCutoff);
+  const coeffs = designPapoulisLowpass3(designCutoff, sampleRate);
   const omega = (2 * Math.PI * Math.max(0, frequency)) / Math.max(1, sampleRate);
   const zRe = Math.cos(omega);
   const zIm = -Math.sin(omega);

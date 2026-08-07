@@ -261,7 +261,7 @@ var nodeGraphMvp = {
     gain: 1,
     graph: 0,
     flowerChildFilter: 0,
-    rsmetFilter: 0,
+    activeFilter: 0,
     yellowjacketFilter: 0,
     superloveFilter: 0,
     chaoticPhaseLockingFilter: 0,

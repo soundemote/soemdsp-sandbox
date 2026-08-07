@@ -74,6 +74,7 @@ NodeLiveAudioProcessor.prototype.clearPlan = function clearPlan() {
     this.pingPongDelayStates = new Map();
     this.wallDelayStates = new Map();
     this.expAdsrStates = new Map();
+    this.attackDecayStates = new Map();
     for (const state of this.fractalBrownianNoiseStates.values()) {
       this.destroyFbmNativeState(state);
     }
@@ -98,10 +99,38 @@ NodeLiveAudioProcessor.prototype.clearPlan = function clearPlan() {
       this.destroyStereoFilterNativeState(state, (s) => this.destroyFlowerChildFilterNativeState(s));
     }
     this.flowerChildFilterStates = new Map();
-    for (const state of this.rsmetFilterStates.values()) {
-      this.destroyStereoFilterNativeState(state, (s) => this.destroyRsmetFilterNativeState(s));
+    if (this.activeFilterStates) {
+      for (const state of this.activeFilterStates.values()) {
+        this.destroyStereoFilterNativeState(state, (s) => this.destroyActiveFilterNativeState(s));
+      }
     }
-    this.rsmetFilterStates = new Map();
+    this.activeFilterStates = new Map();
+    for (const sci of [
+      ["butterworthStates", "butterworth"],
+      ["linkwitzRileyStates", "linkwitzRiley"],
+      ["besselStates", "bessel"],
+      ["chebyshevStates", "chebyshev"],
+      ["ellipticStates", "elliptic"],
+    ]) {
+      const map = this[sci[0]];
+      if (map) {
+        for (const state of map.values()) {
+          this.destroyStereoFilterNativeState(state, (s) => this.destroyScientificIirNativeState?.(sci[1], s));
+        }
+      }
+      this[sci[0]] = new Map();
+    }
+    this.bandpassStates = new Map();
+    this.allpassStates = new Map();
+    this.crossover2States = new Map();
+    this.crossover3States = new Map();
+    this.crossover4States = new Map();
+    this.crossover5States = new Map();
+    this.crossover6States = new Map();
+    this.modeResonatorStates = new Map();
+    this.combResonatorStates = new Map();
+    this.waveguideStates = new Map();
+    this.softpopOscillatorStates = new Map();
     for (const state of this.yellowjacketFilterStates.values()) {
       this.destroyStereoFilterNativeState(state, (s) => this.destroyYellowjacketFilterNativeState(s));
     }
@@ -132,6 +161,8 @@ NodeLiveAudioProcessor.prototype.clearPlan = function clearPlan() {
     this.comparatorStates = new Map();
     this.speedColorInertiaStates = new Map();
     this.inertialFilterStates = new Map();
+    this.tiltFilterStates = new Map();
+    this.eqFilterStates = new Map();
     for (const state of this.sampleDelayStates.values()) {
       this.destroySampleDelayNativeState(state);
     }

@@ -76,8 +76,13 @@ async function initNodeGraphMvp() {
   renderNodeGraphModuleScopeBrightnessControl();
   renderNodeGraphSnapGridButton();
   // Refresh / cold boot: diagnostics always start hidden (never restored).
-  nodeGraphMvp.keyboardDebugInfoVisible = false;
-  renderNodeGraphKeyboardDebugToggle();
+  // Same in debug and release builds — UX must not default to developer chrome.
+  if (typeof hideNodeGraphDebugChrome === "function") {
+    hideNodeGraphDebugChrome();
+  } else {
+    nodeGraphMvp.keyboardDebugInfoVisible = false;
+    renderNodeGraphKeyboardDebugToggle();
+  }
   renderNodeGraphSliderVisibilityToggles();
   renderNodeGraphSliderLayout();
   ensureNodeGraphStartupModulesVisible();

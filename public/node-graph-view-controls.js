@@ -652,10 +652,28 @@ function nodeGraphFloatingWindowPosition(element, x, y, options = {}) {
   return { left, top };
 }
 
+/**
+ * Master debug chrome: Visibility "Show Debug" (keyboard diagnostics,
+ * constraint guide, evidence / .node-debug-only surfaces).
+ *
+ * Default is ALWAYS off — debug and release builds alike. Session-only via D
+ * / Visibility; never restored from UI settings / Clear Startup / Save.
+ * Hiding also re-collapses the evidence panels so a prior "Show Evidence"
+ * cannot leave developer chrome visible after Hide Debug or a cold start.
+ */
 function renderNodeGraphKeyboardDebugToggle() {
   const button = document.getElementById("nodeKeyboardDebugToggleButton");
-  const visible = nodeGraphMvp.keyboardDebugInfoVisible === true;
+  const visible = nodeGraphMvp?.keyboardDebugInfoVisible === true;
   document.body.classList.toggle("keyboard-debug-hidden", !visible);
+  // When debug is off, force evidence collapsed too (release-like UX).
+  if (!visible) {
+    document.body.classList.add("debug-collapsed");
+    const evidence = document.getElementById("toggleDebugButton");
+    if (evidence) {
+      evidence.textContent = "Show Evidence";
+      evidence.setAttribute("aria-pressed", "false");
+    }
+  }
   if (button) {
     const label = button.querySelector("span");
     if (label) {
@@ -667,6 +685,34 @@ function renderNodeGraphKeyboardDebugToggle() {
     button.removeAttribute("title");
   }
   renderNodeGraphVisibilityMenuButton();
+}
+
+/** Force diagnostics off (startup, Clear Startup, UI-settings apply). */
+function hideNodeGraphDebugChrome() {
+  if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
+    nodeGraphMvp.keyboardDebugInfoVisible = false;
+  }
+  document.body.classList.add("keyboard-debug-hidden");
+  document.body.classList.add("debug-collapsed");
+  if (typeof renderNodeGraphKeyboardDebugToggle === "function") {
+    renderNodeGraphKeyboardDebugToggle();
+  } else {
+    const evidence = document.getElementById("toggleDebugButton");
+    if (evidence) {
+      evidence.textContent = "Show Evidence";
+      evidence.setAttribute("aria-pressed", "false");
+    }
+    const button = document.getElementById("nodeKeyboardDebugToggleButton");
+    if (button) {
+      const label = button.querySelector("span");
+      if (label) {
+        label.textContent = "Show Debug";
+      } else {
+        button.textContent = "Show Debug";
+      }
+      button.setAttribute("aria-pressed", "false");
+    }
+  }
 }
 
 
@@ -3220,10 +3266,15 @@ function toggleNodeGraphModuleInterfaceControlsVisibility() {
 
 function toggleNodeGraphKeyboardDebugVisibility() {
   // Session-only: D / Visibility toggles debug chrome for this visit.
-  // Not written to UI settings; refresh always starts hidden.
+  // Not written to UI settings; refresh / Clear Startup / Save always start hidden
+  // (debug and release builds alike).
   nodeGraphMvp.keyboardDebugInfoVisible = !(nodeGraphMvp.keyboardDebugInfoVisible === true);
   renderNodeGraphKeyboardDebugToggle();
-  setNodeInteractionHelp(nodeGraphMvp.keyboardDebugInfoVisible ? "Keyboard debug info shown." : "Keyboard debug info hidden.");
+  setNodeInteractionHelp(
+    nodeGraphMvp.keyboardDebugInfoVisible
+      ? "Debug chrome shown (session only — not saved)."
+      : "Debug chrome hidden.",
+  );
 }
 
 function toggleNodeGraphSliderAmount() {

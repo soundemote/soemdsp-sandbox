@@ -2,7 +2,7 @@
 //
 // Shared sin/cos/2^x/pitch/waveshape/graph-eval helpers for the analog-
 // modeled self-oscillating filter family: chaoticPhaseLockingFilter,
-// humanFilter, resonatorFilter, rsmetFilter, superloveFilter,
+// humanFilter, resonatorFilter, activeFilter, superloveFilter,
 // yellowjacketFilter. This is the JS counterpart of
 // native_modules/sandbox_native_maths/analog_filter_trig.h -- same
 // duplication problem (each module independently derived the same

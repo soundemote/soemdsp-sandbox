@@ -196,8 +196,47 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       if (node?.type === "flowerChildFilter" && !this.flowerChildFilterStates.has(id)) {
         this.flowerChildFilterStates.set(id, this.createStereoFilterState(() => this.createFlowerChildFilterState()));
       }
-      if (node?.type === "rsmetFilter" && !this.rsmetFilterStates.has(id)) {
-        this.rsmetFilterStates.set(id, this.createStereoFilterState(() => this.createRsmetFilterState()));
+      if (node?.type === "activeFilter" && !this.activeFilterStates.has(id)) {
+        this.activeFilterStates.set(id, this.createStereoActiveFilterState());
+      }
+      for (const sci of ["butterworth", "linkwitzRiley", "bessel", "chebyshev", "elliptic"]) {
+        const mapName = `${sci}States`;
+        if (!this[mapName]) this[mapName] = new Map();
+        if (node?.type === sci && !this[mapName].has(id)) {
+          this[mapName].set(id, this.createStereoScientificIirState());
+        }
+      }
+      if (!this.bandpassStates) this.bandpassStates = new Map();
+      if (node?.type === "bandpass" && !this.bandpassStates.has(id)) {
+        this.bandpassStates.set(id, this.createStereoBandpassState());
+      }
+      if (!this.allpassStates) this.allpassStates = new Map();
+      if (node?.type === "allpass" && !this.allpassStates.has(id)) {
+        this.allpassStates.set(id, this.createStereoAllpassState());
+      }
+      for (let n = 2; n <= 6; n += 1) {
+        const ctype = `crossover${n}`;
+        const mapName = `${ctype}States`;
+        if (!this[mapName]) this[mapName] = new Map();
+        if (node?.type === ctype && !this[mapName].has(id)) {
+          this[mapName].set(id, this.createCrossoverStereoState(n));
+        }
+      }
+      if (!this.modeResonatorStates) this.modeResonatorStates = new Map();
+      if (node?.type === "modeResonator" && !this.modeResonatorStates.has(id)) {
+        this.modeResonatorStates.set(id, this.createModeResonatorState());
+      }
+      if (!this.combResonatorStates) this.combResonatorStates = new Map();
+      if (node?.type === "combResonator" && !this.combResonatorStates.has(id)) {
+        this.combResonatorStates.set(id, this.createCombResonatorState());
+      }
+      if (!this.waveguideStates) this.waveguideStates = new Map();
+      if (node?.type === "waveguide" && !this.waveguideStates.has(id)) {
+        this.waveguideStates.set(id, this.createWaveguideState());
+      }
+      if (!this.softpopOscillatorStates) this.softpopOscillatorStates = new Map();
+      if (node?.type === "softpopOscillator" && !this.softpopOscillatorStates.has(id)) {
+        this.softpopOscillatorStates.set(id, this.createSoftpopOscillatorState());
       }
       if (node?.type === "yellowjacketFilter" && !this.yellowjacketFilterStates.has(id)) {
         this.yellowjacketFilterStates.set(id, this.createStereoFilterState(() => this.createYellowjacketFilterState()));
@@ -225,6 +264,12 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       }
       if (node?.type === "inertialFilter" && !this.inertialFilterStates.has(id)) {
         this.inertialFilterStates.set(id, this.createStereoInertialFilterState());
+      }
+      if (node?.type === "tiltFilter" && !this.tiltFilterStates.has(id)) {
+        this.tiltFilterStates.set(id, this.createStereoTiltFilterState());
+      }
+      if (node?.type === "eqFilter" && !this.eqFilterStates.has(id)) {
+        this.eqFilterStates.set(id, this.createStereoEqFilterState());
       }
       if (node?.type === "sampleDelay" && !this.sampleDelayStates.has(id)) {
         this.sampleDelayStates.set(id, this.createSampleDelayState());
@@ -285,6 +330,10 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       }
       if (node?.type === "expAdsr" && !this.expAdsrStates.has(id)) {
         this.expAdsrStates.set(id, this.createExpAdsrState());
+      }
+      if (!this.attackDecayStates) this.attackDecayStates = new Map();
+      if (node?.type === "attackDecay" && !this.attackDecayStates.has(id)) {
+        this.attackDecayStates.set(id, this.createAttackDecayState());
       }
       if (node?.type === "linearEnvelope" && !this.linearEnvelopeStates.has(id)) {
         this.linearEnvelopeStates.set(id, this.createLinearEnvelopeState());
@@ -675,10 +724,59 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
         this.flowerChildFilterStates.delete(id);
       }
     }
-    for (const id of [...this.rsmetFilterStates.keys()]) {
-      if (!ids.has(id)) {
-        this.destroyStereoFilterNativeState(this.rsmetFilterStates.get(id), (s) => this.destroyRsmetFilterNativeState(s));
-        this.rsmetFilterStates.delete(id);
+    if (this.activeFilterStates) {
+      for (const id of [...this.activeFilterStates.keys()]) {
+        if (!ids.has(id)) {
+          this.destroyStereoFilterNativeState(this.activeFilterStates.get(id), (s) => this.destroyActiveFilterNativeState(s));
+          this.activeFilterStates.delete(id);
+        }
+      }
+    }
+    for (const sci of ["butterworth", "linkwitzRiley", "bessel", "chebyshev", "elliptic"]) {
+      const map = this[`${sci}States`];
+      if (!map) continue;
+      for (const id of [...map.keys()]) {
+        if (!ids.has(id)) {
+          this.destroyStereoFilterNativeState(map.get(id), (s) => this.destroyScientificIirNativeState?.(sci, s));
+          map.delete(id);
+        }
+      }
+    }
+    if (this.bandpassStates) {
+      for (const id of [...this.bandpassStates.keys()]) {
+        if (!ids.has(id)) this.bandpassStates.delete(id);
+      }
+    }
+    if (this.allpassStates) {
+      for (const id of [...this.allpassStates.keys()]) {
+        if (!ids.has(id)) this.allpassStates.delete(id);
+      }
+    }
+    for (let n = 2; n <= 6; n += 1) {
+      const map = this[`crossover${n}States`];
+      if (!map) continue;
+      for (const id of [...map.keys()]) {
+        if (!ids.has(id)) map.delete(id);
+      }
+    }
+    if (this.modeResonatorStates) {
+      for (const id of [...this.modeResonatorStates.keys()]) {
+        if (!ids.has(id)) this.modeResonatorStates.delete(id);
+      }
+    }
+    if (this.combResonatorStates) {
+      for (const id of [...this.combResonatorStates.keys()]) {
+        if (!ids.has(id)) this.combResonatorStates.delete(id);
+      }
+    }
+    if (this.waveguideStates) {
+      for (const id of [...this.waveguideStates.keys()]) {
+        if (!ids.has(id)) this.waveguideStates.delete(id);
+      }
+    }
+    if (this.softpopOscillatorStates) {
+      for (const id of [...this.softpopOscillatorStates.keys()]) {
+        if (!ids.has(id)) this.softpopOscillatorStates.delete(id);
       }
     }
     for (const id of [...this.yellowjacketFilterStates.keys()]) {
@@ -734,6 +832,20 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       for (const id of [...this.inertialFilterStates.keys()]) {
         if (!ids.has(id)) {
           this.inertialFilterStates.delete(id);
+        }
+      }
+    }
+    if (this.tiltFilterStates) {
+      for (const id of [...this.tiltFilterStates.keys()]) {
+        if (!ids.has(id)) {
+          this.tiltFilterStates.delete(id);
+        }
+      }
+    }
+    if (this.eqFilterStates) {
+      for (const id of [...this.eqFilterStates.keys()]) {
+        if (!ids.has(id)) {
+          this.eqFilterStates.delete(id);
         }
       }
     }
@@ -850,6 +962,11 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       if (!ids.has(id)) {
         this.destroyExpAdsrNativeState(this.expAdsrStates.get(id));
         this.expAdsrStates.delete(id);
+      }
+    }
+    if (this.attackDecayStates) {
+      for (const id of [...this.attackDecayStates.keys()]) {
+        if (!ids.has(id)) this.attackDecayStates.delete(id);
       }
     }
     for (const id of [...this.noiseGeneratorStates.keys()]) {

@@ -46,7 +46,9 @@ function nodeGraphCookbookFilterCoefficients(
     return { a1: 0, a2: 0, b0: 1, b1: 0, b2: 0 };
   }
   const rate = Math.max(1, Number(sampleRate) || Number(globalThis.nodeGraphMvp?.sampleRate) || 44100);
-  const freq = clampNodeSliderValue(Number(frequency) || 1000, 20, Math.min(20000, rate * 0.49));
+  // 0 Hz allowed (frozen). Only crash-safety: non-negative + Nyquist ceiling.
+  const rawFreq = Number(frequency);
+  const freq = Math.max(0, Math.min(rate * 0.49, Number.isFinite(rawFreq) ? rawFreq : 0));
   const safeQ = Math.max(0.0001, Number(q) || 1);
   const omega = 2 * Math.PI * freq / rate;
   const sine = Math.sin(omega);
@@ -329,6 +331,33 @@ function nodeGraphFilterCurveView(node) {
       drive: nodeGraphFilterCurveLiveParam(node, "drive", 0),
     };
   }
+  if (node.type === "eqFilter") {
+    return {
+      type: node.type,
+      mode: nodeGraphFilterCurveLiveParam(node, "mode", 1),
+      frequency: nodeGraphFilterCurveLiveParam(node, "frequency", 1000),
+      q: nodeGraphFilterCurveLiveParam(node, "q", 0.707),
+      gain: nodeGraphFilterCurveLiveParam(node, "gain", 0),
+    };
+  }
+  if (node.type === "bandpass") {
+    return {
+      type: node.type,
+      mode: 4, // Bandpass Peak
+      frequency: nodeGraphFilterCurveLiveParam(node, "frequency", 1000),
+      q: nodeGraphFilterCurveLiveParam(node, "q", 1),
+      gain: 0,
+    };
+  }
+  if (node.type === "allpass") {
+    return {
+      type: node.type,
+      mode: 6, // Allpass (flat magnitude — curve still draws ~0 dB)
+      frequency: nodeGraphFilterCurveLiveParam(node, "frequency", 1000),
+      q: nodeGraphFilterCurveLiveParam(node, "q", 0.707),
+      gain: 0,
+    };
+  }
   // cookbook / multi-stage family
   return {
     type: node.type,
@@ -375,6 +404,20 @@ function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null
     }
     return 1;
   }
+  if (node.type === "eqFilter" || node.type === "bandpass" || node.type === "allpass") {
+    if (typeof nodeGraphEqFilterMagnitudeAt === "function") {
+      const mag = nodeGraphEqFilterMagnitudeAt(
+        Number(v.mode) || (node.type === "bandpass" ? 4 : node.type === "allpass" ? 6 : 1),
+        Number(v.frequency) || 1000,
+        Number(v.q) || 0.707,
+        Number(v.gain) || 0,
+        frequency,
+        sampleRate,
+      );
+      return Number.isFinite(mag) && mag > 0 ? mag : 1e-6;
+    }
+    return 1;
+  }
   const mode = Number(v.mode) || 0;
   const cutoff = Number(v.frequency) || 1000;
   const q = Number(v.q) || 1;
@@ -415,6 +458,14 @@ function nodeGraphFilterCurveLabel(node) {
   if (node.type === "tb303Filter") {
     const modes = typeof nodeGraphTb303FilterModes !== "undefined" ? nodeGraphTb303FilterModes : null;
     return modes?.[Math.round(Number(node.params?.mode) || 4)] || "TB-303";
+  }
+  if (node.type === "eqFilter") {
+    const modes = typeof nodeGraphEqFilterModes !== "undefined" ? nodeGraphEqFilterModes : null;
+    return modes?.[Math.round(Number(node.params?.mode) || 1)] || "EQ";
+  }
+  if (node.type === "activeFilter") {
+    const modes = typeof nodeGraphActiveFilterModes !== "undefined" ? nodeGraphActiveFilterModes : null;
+    return modes?.[Math.round(Number(node.params?.mode) || 3)] || "Active";
   }
   return nodeGraphCookbookFilterModes[Math.round(Number(node.params?.mode) || 0)] || "Filter";
 }

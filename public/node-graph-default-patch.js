@@ -10,9 +10,19 @@ function nodeGraphModuleDefaultOverrideForType(type) {
     : null;
 }
 
+function nodeGraphResolveModuleTypeAlias(type) {
+  const t = String(type || "").trim();
+  // phosphorLight → scope2d (2D Phosphor).
+  if (t === "phosphorLight") return "scope2d";
+  // Gain Bias folded into Gain (offset lives on Gain now).
+  if (t === "gainBias") return "gain";
+  // GainBiasMix renamed to Mix.
+  if (t === "gainBiasMix") return "mix";
+  return t;
+}
+
 function createNodeGraphPatchNode(type, options = {}) {
-  // phosphorLight is a retired alias of scope2d (2D Phosphor).
-  const resolvedType = type === "phosphorLight" ? "scope2d" : type;
+  const resolvedType = nodeGraphResolveModuleTypeAlias(type);
   const override = nodeGraphModuleDefaultOverrideForType(resolvedType);
   const opts = override ? { ...override, ...options } : options;
   const node = {

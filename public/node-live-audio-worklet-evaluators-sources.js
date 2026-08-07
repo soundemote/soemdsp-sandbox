@@ -943,6 +943,27 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           nodeId,
         );
       },
+      softpopOscillator: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+        if (!this.softpopOscillatorStates) this.softpopOscillatorStates = new Map();
+        const state = this.softpopOscillatorStates.get(nodeId) || this.createSoftpopOscillatorState();
+        this.softpopOscillatorStates.set(nodeId, state);
+        const baseFreq = this.readEffectiveParameter(node, "frequency", 1000, frame, frames, frameValues);
+        const frequency = this.resolveSoftpopOrBandpassHz(node, nodeId, baseFreq, frame, frames, frameValues, mixInput);
+        return this.softpopOscillatorSample(
+          state,
+          {
+            amplitude: this.readEffectiveParameter(node, "amplitude", 1, frame, frames, frameValues),
+            color: this.readEffectiveParameter(node, "color", 0, frame, frames, frameValues),
+            frequency,
+            q: this.readEffectiveParameter(node, "q", 4, frame, frames, frameValues),
+            reset: mixInput(nodeId, "Reset"),
+            seed: this.readEffectiveParameter(node, "seed", 1, frame, frames, frameValues),
+            stereoMode: this.readEffectiveParameter(node, "stereoMode", 0, frame, frames, frameValues),
+          },
+          safeRate,
+          nodeId,
+        );
+      },
       randomWalk: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.randomWalkStates.get(nodeId) || this.createRandomWalkState();
         this.randomWalkStates.set(nodeId, state);

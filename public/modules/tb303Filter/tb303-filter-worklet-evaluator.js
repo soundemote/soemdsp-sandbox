@@ -14,11 +14,13 @@ NodeLiveAudioProcessor.prototype.tb303FilterSample = function tb303FilterSample(
   if (!state.nativeHandle) {
     throw new Error("native TB-303 Filter failed to create instance");
   }
+  // Pass cutoff through (including 0). Native clamps only for circuit safety.
+  const cutoff = this.safeFilterNumber(params.cutoff, state);
   return this.safeFilterNumber(
     this.nativeTb303Filter.soemdsp_tb303_filter_sample(
       state.nativeHandle,
       this.safeFilterNumber(input, state),
-      Math.max(200, this.safeFilterNumber(params.cutoff, state)),
+      Number.isFinite(cutoff) ? Math.max(0, cutoff) : 0,
       Math.max(0, Math.min(100, this.safeFilterNumber(params.resonance, state))),
       Math.max(0, Math.min(14, Math.round(Number(params.mode) || 4))),
       Number(params.drive) || 0,
