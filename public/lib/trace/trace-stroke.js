@@ -36,23 +36,22 @@
   }
 
   /**
-   * Diameter in px: size 0 → 1px, size 1 → face min side.
-   * Exponential (side^t) so sharp traces have fine control near 0.
+   * Diameter in px — linear map matching c1091b4 phosphor (size * face min side).
    */
   function diameterPx(faceMinSide, size01) {
     if (typeof global.PhosphorDrawer?.size01ToDiameterPx === "function") {
       return global.PhosphorDrawer.size01ToDiameterPx(faceMinSide, size01);
     }
     const side = Math.max(1, Number(faceMinSide) || 1);
-    const t = clamp01(size01, 0);
-    return Math.max(1, Math.pow(side, t));
+    const t = clamp01(size01, 0.08);
+    return Math.max(0.7, side * t);
   }
 
   function radiusPx(faceMinSide, size01) {
     if (typeof global.PhosphorDrawer?.size01ToRadiusPx === "function") {
       return global.PhosphorDrawer.size01ToRadiusPx(faceMinSide, size01);
     }
-    return Math.max(0.5, diameterPx(faceMinSide, size01) * 0.5);
+    return Math.max(0.35, diameterPx(faceMinSide, size01) * 0.5);
   }
 
   /**

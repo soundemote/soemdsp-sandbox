@@ -58,21 +58,23 @@
   }
 
   /**
-   * Size 0–1 → stroke/dot diameter in px.
-   * 0 → 1px (sharpest useful trace), 1 → face min side (full screen).
-   * Exponential: diameter = side^t so fine control lives near 0.
+   * Size map from best phosphor model (c1091b4 Snapshot best phosphor model).
+   * Size 0–1 of face min side → diameter = size * minSide (radius = half).
+   * Linear geometric size; Blur handles hard→soft, not Size.
+   * (21ae19f exp map side^t made default sizes look wrong / broken trails.)
    */
   function size01ToDiameterPx(faceMinSide, size01) {
     const side = Math.max(1, Number(faceMinSide) || 1);
-    const t = clamp01(size01, 0);
-    return Math.max(1, Math.pow(side, t));
+    const t = clamp01(size01, 0.08);
+    return Math.max(0.7, side * t);
   }
 
-  /** Size 0–1 → radius in px (half of diameter). Min radius 0.5 for a 1px disc. */
+  /** Size 0–1 → radius in px (half of diameter). */
   function size01ToRadiusPx(faceMinSide, size01) {
-    return Math.max(0.5, size01ToDiameterPx(faceMinSide, size01) * 0.5);
+    return Math.max(0.35, size01ToDiameterPx(faceMinSide, size01) * 0.5);
   }
 
+  /** Radius in buffer px — alias of size01ToRadiusPx (c1091b4 name). */
   function radiusFromSize(faceMinSide, size01) {
     return size01ToRadiusPx(faceMinSide, size01);
   }

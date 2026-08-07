@@ -504,7 +504,7 @@ function decayNodeGraphScope2dBurn(renderer, settings) {
 function nodeGraphScope2dBurnLayers(settings, dotSpace) {
   const layers = [];
   if (settings?.dot1Enabled !== false) {
-    // Size 0–1: exp map → 1px diameter … full face min side (see size01ToRadiusPx).
+    // Size 0–1 of face min side: diameter = size * minSide (c1091b4 linear map).
     // Blur 0–1: hard-ish core → soft wide skirt (shader), not geometric size.
     const size01 = clampNodeSliderValue(settings.dot1Size, 0, 1);
     const side = Math.max(1, Number(dotSpace) || 1);
@@ -512,7 +512,7 @@ function nodeGraphScope2dBurnLayers(settings, dotSpace) {
       ? nodeGraphScopeSize01ToRadiusPx(side, size01)
       : (typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.size01ToRadiusPx
         ? PhosphorDrawer.size01ToRadiusPx(side, size01)
-        : Math.max(0.5, Math.pow(side, size01) * 0.5));
+        : Math.max(0.35, side * Math.max(0.08, size01) * 0.5));
     layers.push({
       // Blur 0 hard disc … 1 full soft gaussian.
       blur: nodeGraphTraceDisplayClampStampBlur(settings.lineThickness),
@@ -1014,17 +1014,20 @@ function drawNodeGraphScope2dTraceLayer(context, points, dotSpace, settings) {
   const side = Math.max(1, Number(dotSpace) || 1);
   const radius = typeof nodeGraphScopeSize01ToRadiusPx === "function"
     ? nodeGraphScopeSize01ToRadiusPx(side, size)
-    : Math.max(0.5, Math.pow(side, size) * 0.5);
+    : Math.max(0.35, side * Math.max(0.08, size) * 0.5);
+  // Canvas fallback: soft dots only (match energy-GL dots path; no polyline joins).
   context.save();
   context.globalCompositeOperation = "lighter";
-  context.lineCap = "round";
-  context.lineJoin = "round";
-  context.lineWidth = radius * 2;
-  context.strokeStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${Math.min(1, brightness)})`;
+  context.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${Math.min(1, brightness)})`;
   context.shadowBlur = 0;
-  context.beginPath();
-  drawNodeGraphScopeCanvasSmoothPath(context, points);
-  context.stroke();
+  const r = Math.max(0.35, radius);
+  for (let i = 0; i < points.length; i += 1) {
+    const p = points[i];
+    if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
+    context.beginPath();
+    context.arc(p.x, p.y, r, 0, Math.PI * 2);
+    context.fill();
+  }
   context.restore();
 }
 

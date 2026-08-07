@@ -558,10 +558,11 @@ const nodeGraphModuleDefinitions = (
         label: "Frequency",
         max: "20000",
         mid: "440",
-        min: "-20000",
+        min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Signed Hz (through-zero): negative reverses phase.",
+        tooltip:
+          "Default slider 0…20 kHz. Pitch MOD can run down through 0. Signed/reverse-phase: wire f or widen Min in parameter settings (domain is not hard-clamped).",
       },
       {
         defaultValue: "0",
@@ -639,10 +640,11 @@ const nodeGraphModuleDefinitions = (
         label: "Frequency",
         max: "20000",
         mid: "440",
-        min: "-20000",
+        min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Signed Hz (through-zero): negative reverses phase.",
+        tooltip:
+          "Default slider 0…20 kHz. Pitch MOD can run down through 0. Signed/reverse-phase: wire f or widen Min in parameter settings (domain is not hard-clamped).",
       },
       {
         defaultValue: "0",
@@ -713,10 +715,11 @@ const nodeGraphModuleDefinitions = (
         label: "Frequency",
         max: "20000",
         mid: "440",
-        min: "-20000",
+        min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Signed Hz (through-zero): negative reverses phase.",
+        tooltip:
+          "Default slider 0…20 kHz. Pitch MOD can run down through 0. Signed/reverse-phase: wire f or widen Min in parameter settings (domain is not hard-clamped).",
       },
       {
         defaultValue: "0",
@@ -823,10 +826,11 @@ const nodeGraphModuleDefinitions = (
         label: "Frequency",
         max: "20000",
         mid: "440",
-        min: "-20000",
+        min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Signed Hz (through-zero): negative reverses phase.",
+        tooltip:
+          "Default slider 0…20 kHz. Pitch MOD can run down through 0. Signed/reverse-phase: wire f or widen Min in parameter settings (domain is not hard-clamped).",
       },
       {
         defaultValue: "3",
@@ -891,10 +895,11 @@ const nodeGraphModuleDefinitions = (
         label: "Frequency",
         max: "20000",
         mid: "440",
-        min: "-20000",
+        min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Signed Hz (through-zero): negative reverses phase.",
+        tooltip:
+          "Default slider 0…20 kHz. Pitch MOD can run down through 0. Signed/reverse-phase: wire f or widen Min in parameter settings (domain is not hard-clamped).",
       },
       {
         defaultValue: "0",
@@ -947,10 +952,11 @@ const nodeGraphModuleDefinitions = (
         label: "Frequency",
         max: "20000",
         mid: "440",
-        min: "-20000",
+        min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Signed Hz (through-zero): negative reverses phase.",
+        tooltip:
+          "Default slider 0…20 kHz. Pitch MOD can run down through 0. Signed/reverse-phase: wire f or widen Min in parameter settings (domain is not hard-clamped).",
       },
       {
         defaultValue: "0",
@@ -1861,7 +1867,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
       },
-      { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "-20000", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Signed Hz (through-zero): negative reverses phase." },
+      { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "0", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Default slider 0…20 kHz. Pitch MOD can run down through 0. Signed/reverse-phase: wire f or widen Min in parameter settings (domain is not hard-clamped)." },
       { key: "syncFrequency", label: "Sync Freq", kind: "frequency", defaultValue: "50", min: "0", mid: "50", max: "20000", step: "any", unit: "Hz" },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1000000", step: "0.01" , modClamp: false },
     ],
@@ -1904,7 +1910,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
       },
-      { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "-20000", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Signed Hz (through-zero): negative reverses phase." },
+      { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "0", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Default slider 0…20 kHz. Pitch MOD can run down through 0. Signed/reverse-phase: wire f or widen Min in parameter settings (domain is not hard-clamped)." },
       {
         key: "morph",
         label: "Morph",
@@ -2194,7 +2200,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
       },
-      { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "-20000", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Signed Hz (through-zero): negative reverses phase." },
+      { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "0", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Default slider 0…20 kHz. Pitch MOD can run down through 0. Signed/reverse-phase: wire f or widen Min in parameter settings (domain is not hard-clamped)." },
       {
         defaultValue: "0",
         key: "phase",
@@ -2248,7 +2254,7 @@ const nodeGraphModuleDefinitions = (
       // keyboard is automatically in tune; doubling it transposes the
       // whole instrument up exactly one octave. See
       // node-graph-patch-normalizers.js for the full explanation.
-      { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "-20000", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Signed Hz (through-zero): negative reverses phase." },
+      { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "0", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Default slider 0…20 kHz. Pitch MOD can run down through 0. Signed/reverse-phase: wire f or widen Min in parameter settings (domain is not hard-clamped)." },
       { key: "detuneCents", label: "Detune", defaultValue: "30", min: "0", mid: "50", max: "100", step: "0.1", unit: "cents" },
       { key: "voices", label: "Voices", defaultValue: "7", min: "1", mid: "5", max: "9", step: "1" },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1000000", step: "0.01" , modClamp: false },
@@ -2270,7 +2276,7 @@ const nodeGraphModuleDefinitions = (
     parameters: [
       { key: "voices", label: "Num Sawtooths", defaultValue: "8", min: "1", mid: "8", max: "32", step: "1" },
       { key: "phase", label: "Phase", kind: "phase", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01", unit: "cycle", wraparound: true },
-      { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "-20000", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Signed Hz (through-zero): negative reverses phase." },
+      { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "0", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Default slider 0…20 kHz. Pitch MOD can run down through 0. Signed/reverse-phase: wire f or widen Min in parameter settings (domain is not hard-clamped)." },
       { key: "spread", label: "Spread", defaultValue: "1", min: "0", mid: "0.5", max: "1", step: "0.01" },
       { key: "random", label: "Random", defaultValue: "0.15", min: "0", mid: "0.5", max: "1", step: "0.01" },
       { key: "drift", label: "Drift", defaultValue: "0.1", min: "0", mid: "0.5", max: "1", step: "0.01" },
