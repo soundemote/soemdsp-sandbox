@@ -43,8 +43,6 @@ const nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([
   "phaser",
   "flanger",
   "chorus",
-  // STFT spectral blur
-  "stftBlur",
 ]));
 
 function nodeGraphModuleTypeIsUnderConstruction(type) {
@@ -1140,9 +1138,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   stftBlur: {
     category: "space",
     description:
-      "Under construction. STFT Blur: smear spectral frames in time and/or across frequency bins. FFT-domain texture — not all-pass group delay, not Bode shift.",
+      "STFT spectral blur: smear magnitudes across frames (Blur Time) and/or neighboring bins (Blur Freq). Hann overlap-add, FFT Size 256–4096 (power of two). Mix dry/wet. Washes / clouds spectra — not Phase Disperse, not Bode.",
     label: "STFT Blur",
-    notes: ["under construction", "STFT", "spectral", "blur", "FFT", "space"],
+    notes: ["STFT", "spectral", "blur", "FFT", "space"],
   },
   resonatorFilter: {
     category: "analogFilter",

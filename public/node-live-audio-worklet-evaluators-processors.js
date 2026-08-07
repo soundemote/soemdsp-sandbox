@@ -292,8 +292,23 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         this.classicFxStubPassthrough(mixInput(nodeId)),
       chorus: (node, nodeId, frame, frames, frameValues, mixInput) =>
         this.classicFxStubPassthrough(mixInput(nodeId)),
-      stftBlur: (node, nodeId, frame, frames, frameValues, mixInput) =>
-        this.classicFxStubPassthrough(mixInput(nodeId)),
+      stftBlur: (node, nodeId, frame, frames, frameValues, mixInput) => {
+        if (!this.stftBlurStates) this.stftBlurStates = new Map();
+        let state = this.stftBlurStates.get(nodeId);
+        const fftSize = this.readEffectiveParameter(node, "fftSize", 2048, frame, frames, frameValues);
+        const snap = typeof nodeGraphStftBlurSnapFftSize === "function"
+          ? nodeGraphStftBlurSnapFftSize(fftSize)
+          : 2048;
+        if (!state || state.n !== snap) {
+          state = this.createStftBlurState(fftSize);
+          this.stftBlurStates.set(nodeId, state);
+        }
+        const blurTime = this.readEffectiveParameter(node, "blurTime", 0.5, frame, frames, frameValues);
+        const blurFreq = this.readEffectiveParameter(node, "blurFreq", 0, frame, frames, frameValues);
+        const mix = this.readEffectiveParameter(node, "mix", 1, frame, frames, frameValues);
+        const audioIn = this.safeFilterNumber(mixInput(nodeId), null) ?? 0;
+        return this.stftBlurSample(state, audioIn, blurTime, blurFreq, fftSize, mix);
+      },
       phaseDisperse: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         if (!this.phaseDisperseStates) this.phaseDisperseStates = new Map();
         let state = this.phaseDisperseStates.get(nodeId);

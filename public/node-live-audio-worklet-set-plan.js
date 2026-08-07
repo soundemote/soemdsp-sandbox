@@ -242,6 +242,10 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       if (node?.type === "bode" && !this.bodeStates.has(id)) {
         this.bodeStates.set(id, this.createBodeState());
       }
+      if (!this.stftBlurStates) this.stftBlurStates = new Map();
+      if (node?.type === "stftBlur" && !this.stftBlurStates.has(id)) {
+        this.stftBlurStates.set(id, this.createStftBlurState(2048));
+      }
       if (!this.softpopOscillatorStates) this.softpopOscillatorStates = new Map();
       if (node?.type === "softpopOscillator" && !this.softpopOscillatorStates.has(id)) {
         this.softpopOscillatorStates.set(id, this.createSoftpopOscillatorState());
@@ -790,6 +794,11 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
     if (this.bodeStates) {
       for (const id of [...this.bodeStates.keys()]) {
         if (!ids.has(id)) this.bodeStates.delete(id);
+      }
+    }
+    if (this.stftBlurStates) {
+      for (const id of [...this.stftBlurStates.keys()]) {
+        if (!ids.has(id)) this.stftBlurStates.delete(id);
       }
     }
     if (this.softpopOscillatorStates) {
