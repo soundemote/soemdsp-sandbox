@@ -784,30 +784,41 @@ function drawNodeGraphScope2dRetainedBurn(item, pixelRatio, square, buffer, sett
     });
     return;
   }
-  // Deposit only samples since last draw (+ bridge). Phosphor residual is the
-  // lagging trail — do not re-stamp the full history every frame.
+  // Deposit only samples since last draw. Phosphor residual is the lagging
+  // trail — do not re-stamp the full history every frame.
   const count = Math.min(buffer?.x?.length || 0, buffer?.y?.length || 0);
   const budget = nodeGraphScope2dMaxSamplesPerFrame(canvas);
   const rawStart = nodeGraphScope2dDrawStartIndex(canvas, buffer, count);
   const drawStartIndex = nodeGraphScope2dClampDrawStartIndex(rawStart, count, budget);
-  // Control points only — stamp density is decided later by Dot Budget economy
-  // (even spacing along total path length). Dense CPU interpolation here just
-  // inflates path length without improving the dotted high-frequency look.
+  // Catch-up jump (skipped a backlog of samples): do NOT bridge to last point —
+  // that paints bright wrong chords across the face (“erratic lines”).
+  const catchUpJump = drawStartIndex > rawStart;
+  // Control points only — stamp density is decided later by Dot Budget economy.
   let pathPoints = drawStartIndex < count
     ? buildNodeGraphScope2dPathPoints(canvasSquare, buffer, drawStartIndex, {
       interpolate: false,
       settings,
     })
     : [];
-  pathPoints = bridgeNodeGraphScope2dAdjacentFramePath(
-    canvas,
-    pathPoints,
-    nodeGraphScope2dTraceMaxSegmentPixels(canvasSquare),
-    nodeGraphScope2dInterpolationSpacingPx(
-      settings,
-      Math.min(canvasSquare.width, canvasSquare.height),
-    ),
-  );
+  if (!catchUpJump) {
+    // Tight adjacent-frame bridge only (short residual gap). Loose bridges
+    // looked like random line segments even when stamp quality was fine.
+    pathPoints = bridgeNodeGraphScope2dAdjacentFramePath(
+      canvas,
+      pathPoints,
+      Math.min(
+        8,
+        nodeGraphScope2dTraceMaxSegmentPixels(canvasSquare) * 0.15,
+      ),
+      nodeGraphScope2dInterpolationSpacingPx(
+        settings,
+        Math.min(canvasSquare.width, canvasSquare.height),
+      ),
+    );
+  } else {
+    // Drop stale bridge anchor after a catch-up.
+    if (canvas) canvas._nodeGraphScope2dLastDrawnPoint = null;
+  }
   drawNodeGraphRetainedBurnPath(item, pixelRatio, pathPoints, settings, {
     endFrame: Number(buffer.nodeGraphScopeAbsoluteFrame),
   });

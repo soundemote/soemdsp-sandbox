@@ -183,7 +183,7 @@ const nodeGraphNodeLabels = Object.freeze({
   textStream: "Text Stream",
   valueOscilloscope: "0D Value",
   numberReadout: "Number Readout",
-  lineBurnOscilloscope: "1D Burn Dot",
+  lineBurnOscilloscope: "1D Phosphor",
   scope2d: "2D Phosphor",
   scope2dTrace: "2D Trace",
   phosphorLight: "2D Phosphor",

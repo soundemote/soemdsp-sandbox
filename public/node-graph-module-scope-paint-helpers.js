@@ -1043,16 +1043,16 @@ function bridgeNodeGraphScope2dAdjacentFramePath(canvas, pathPoints, maxDistance
     Math.max(1, Number(canvas?.width) || 1),
     Math.max(1, Number(canvas?.height) || 1),
   );
+  // Very tight gate: only stitch a sub-pixel residual gap. Anything larger
+  // draws a wrong chord (“erratic” bright lines). Phosphor residual covers gaps.
   const bridgeMax = Math.min(
     Math.max(1, Number(maxDistancePx) || 1),
-    Math.max(12, faceMin * 0.12),
+    Math.max(4, faceMin * 0.025),
   );
   if (nodeGraphScope2dPointDistance(previousPoint, firstPoint) > bridgeMax) {
     return pathPoints;
   }
-  // One bridge vertex only — soft GPU beam segments already fill the gap
-  // (prettyscope/woscope style). Dense CPU interpolation here multiplies
-  // segment count and tanks FPS at high speed without improving softness.
+  // One bridge vertex only — dots/path pack along this short segment.
   void spacingPx;
   return [previousPoint, ...pathPoints];
 }

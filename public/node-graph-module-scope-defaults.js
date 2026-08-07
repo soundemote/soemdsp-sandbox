@@ -82,8 +82,8 @@ const nodeGraphScopePhosphorLookDefaults = Object.freeze({
   // Ghost = dim scorched hang; Trail = main residual (hot path length).
   ghost: 0.55,
   trail: 0.5175,
-  // Exp size map 0…1 (see size01ToRadiusPx).
-  size: 0.0385,
+  // Size 0…1 (linear diameter = size × face min side). ~2/3 fills a solid beam.
+  size: 0.6667,
   // Stamp blur 0 hard … 1 soft.
   blur: 0.1062,
   // Max phosphor stamps / frame (economy spreads when over).

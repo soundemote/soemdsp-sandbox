@@ -1390,12 +1390,13 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "oscilloscope",
     description: "Multi-mode Display sink. Modes: 2D Trace / 2D Phosphor (X/Y), 1D Trace / Phosphor Dot (Mono). Same face settings as the dedicated modules.",
     label: "Display",
-    notes: ["multi-mode", "2D Trace", "2D Phosphor", "1D Trace", "Phosphor Dot", "visual sink"],
+    notes: ["multi-mode", "2D Trace", "2D Phosphor", "1D Trace", "1D Phosphor", "Phosphor Dot", "visual sink"],
   },
   traceDisplay: {
     category: "oscilloscope",
-    description: "Focused 1D waveform display testbed. Patch any signal into In and inspect the current trace without the full prettyscope renderer.",
-    notes: ["1D waveform", "display testbed", "input trace"],
+    description: "1D Trace: focused waveform display. Patch any signal into In and inspect the current vector stroke (no phosphor persistence).",
+    label: "1D Trace",
+    notes: ["1D Trace", "waveform", "display testbed", "input trace"],
   },
   dotOscilloscope: {
     category: "oscilloscope",
@@ -1470,15 +1471,15 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   lineBurnOscilloscope: {
     category: "oscilloscope",
-    description: "Heart-monitor phosphor: pen takes Sweep (s) to cross left→right. Rising-edge Reset (≥0.5) snaps back to the left. Brightness, decay, pixel density.",
-    label: "1D Burn Dot",
-    notes: ["heart monitor", "phosphor sweep", "reset", "brightness", "decay"],
+    description: "1D Phosphor: heart-monitor energy trail. Pen takes Sweep (s) left→right; rising-edge Reset (≥0.5) snaps left. Soft dots fuse into a beam when budget allows.",
+    label: "1D Phosphor",
+    notes: ["1D Phosphor", "heart monitor", "phosphor sweep", "reset", "brightness", "trail"],
   },
   scope2d: {
     category: "oscilloscope",
-    description: "XY phosphor scope (mono energy + gradient LUT). Soft/hard stamps, brightness, decay, and dwell bleed — the path Lorenz and other attractors use.",
+    description: "2D Phosphor: XY energy trail (mono energy + gradient LUT). Soft/hard stamps, brightness, trail/ghost residual — the path Lorenz and other attractors use.",
     label: "2D Phosphor",
-    notes: ["xy phosphor", "energy drawer", "brightness", "decay", "2D scope"],
+    notes: ["2D Phosphor", "xy phosphor", "energy drawer", "brightness", "trail"],
   },
   phosphorLight: {
     category: "oscilloscope",

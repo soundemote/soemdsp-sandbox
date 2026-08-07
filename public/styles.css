@@ -13961,8 +13961,8 @@ input.node-header-title:focus {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-/* Parameter popover: keep actions on one full-width row of the flat grid. */
-.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-field-actions {
+/* Parameter popover only: keep actions on one full-width row of the flat grid. */
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-field-actions {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   overflow: visible;
@@ -14031,11 +14031,11 @@ input.node-header-title:focus {
 }
 
 /*
- * Parameter Settings (Mix etc.): one flat 2-column body grid.
- * Range/Fields/Toggles wrappers use display:contents so labels share the
- * same grid as section titles — no nested clipping cards.
+ * Parameter Settings only (not Display Settings — that also uses
+ * .node-parameter-metadata-popover as a chrome class and must stay 1-col full width).
+ * Flat 2-column body grid; Range/Fields/Toggles use display:contents.
  */
-.node-parameter-metadata-popover > .metadata-popover-grid {
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-content: start;
@@ -14044,25 +14044,25 @@ input.node-header-title:focus {
   box-sizing: border-box;
 }
 
-.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-field-actions,
-.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-section-title,
-.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-choices-label,
-.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-smoothing-mode-section,
-.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-smoothing-type-section,
-.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-advanced-toggle {
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-field-actions,
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-section-title,
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-choices-label,
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-smoothing-mode-section,
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-smoothing-type-section,
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-advanced-toggle {
   grid-column: 1 / -1;
 }
 
 /* Flatten range / identity / toggles into the parent 2-col grid. */
-.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-range-section,
-.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-identity-section,
-.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-toggle-section {
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-range-section,
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-identity-section,
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-toggle-section {
   display: contents;
 }
 
-.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-range-section > label,
-.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-identity-section > label,
-.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-toggle-section > label {
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-range-section > label,
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-identity-section > label,
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-toggle-section > label {
   box-sizing: border-box;
   min-width: 0;
   min-height: 30px;
@@ -14074,24 +14074,40 @@ input.node-header-title:focus {
   background: rgba(5, 9, 11, 0.62);
 }
 
-.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-range-section > label:nth-child(2n),
-.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-identity-section > label:nth-child(2n),
-.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-toggle-section > label:nth-child(2n) {
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-range-section > label:nth-child(2n),
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-identity-section > label:nth-child(2n),
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-toggle-section > label:nth-child(2n) {
   border-right: 0;
 }
 
 /* Full-width rows inside the flat grid when a lone control needs the line. */
-.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-range-section > .metadata-curve-sensitivity-label {
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-range-section > .metadata-curve-sensitivity-label {
   grid-column: 1 / -1;
   border-right: 0;
 }
 
 /* Smoothing blocks stay self-contained full-width (not display:contents). */
-.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-smoothing-mode-section,
-.node-parameter-metadata-popover > .metadata-popover-grid > .metadata-smoothing-type-section {
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-smoothing-mode-section,
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-smoothing-type-section {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   overflow: visible;
+}
+
+/* Display Settings: single-column full-width body (never share param 2-col flat). */
+.node-trace-display-settings-popover > .metadata-popover-grid,
+.node-trace-display-settings-popover > .node-trace-display-settings-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.node-trace-display-settings-popover > .metadata-popover-grid > *,
+.node-trace-display-settings-popover > .node-trace-display-settings-grid > * {
+  grid-column: 1 / -1;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .metadata-smoothing-mode-title {
