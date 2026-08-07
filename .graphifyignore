@@ -1,0 +1,10 @@
+# Keep graphify focused; native WASM and backups blow the graph without helping structure.
+native_modules/
+backups/
+saved-patches/
+**/__pycache__/
+**/*.wasm
+**/*.o
+**/*.pyc
+graphify-out/
+.venv/

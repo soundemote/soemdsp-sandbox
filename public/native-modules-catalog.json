@@ -902,18 +902,6 @@
       "wasmAvailable": true
     },
     {
-      "name": "soem_reverb",
-      "label": "soem_reverb",
-      "targetType": "soem_reverb",
-      "kind": "",
-      "source": "native_modules/soem_reverb/stub_test.cpp",
-      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/soem_reverb/stub_test.cpp",
-      "libUrl": "",
-      "wasm": "native_modules/soem_reverb/stub_test.wasm",
-      "wasmUrl": "native_modules/soem_reverb/stub_test.wasm",
-      "wasmAvailable": false
-    },
-    {
       "name": "soft_clipper",
       "label": "Soft Clipper",
       "targetType": "softClipper",

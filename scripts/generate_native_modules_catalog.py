@@ -56,7 +56,11 @@ def main() -> None:
     modules = []
     if NATIVE_MODULES.exists():
         for source_path in sorted(NATIVE_MODULES.glob("*/*.cpp")):
+            # Canonical layout is <name>/<name>.cpp — skip sibling helpers
+            # (e.g. soem_reverb/stub_test.cpp) and the combined/ tree.
             if source_path.parent.name == "combined":
+                continue
+            if source_path.stem != source_path.parent.name:
                 continue
             entry = native_module_entry_from_source(source_path)
             if entry:

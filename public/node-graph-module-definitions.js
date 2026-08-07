@@ -55,7 +55,7 @@ const nodeGraphNodeLabels = Object.freeze({
   bradley2a: "Bradley 2A Jitter/Hit Synth",
   antisaw: "Antisaw",
   henonMap: "Henon Map",
-  rayBouncer: "Ray Bouncer",
+  // rayBouncer label lives in modules/rayBouncer/*-register.js (chromeless).
   chuaAttractor: "Chua Attractor",
   chordMemory: "Chord Memory",
   turingMachine: "Turing Machine",
@@ -182,7 +182,7 @@ const nodeGraphNodeLabels = Object.freeze({
   matrixWaterfall: "Matrix Waterfall",
   textStream: "Text Stream",
   valueOscilloscope: "0D Value",
-  numberReadout: "Number Readout",
+  // numberReadout label lives in modules/numberReadout/*-register.js (chromeless).
   lineBurnOscilloscope: "1D Phosphor",
   scope2d: "2D Phosphor",
   scope2dTrace: "2D Trace",
