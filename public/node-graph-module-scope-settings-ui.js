@@ -1225,7 +1225,7 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   secondaryBrightness: nodeGraphTraceDisplayClampBrightness,
   secondaryLineThickness: nodeGraphTraceDisplayClampNonNegative,
   secondarySize: nodeGraphTraceDisplayClampUnit,
-  // 1D Burn Dot: seconds for one left→right pass.
+  // 1D Phosphor: seconds for one left→right pass.
   sweepSeconds: nodeGraphTraceDisplayClampSweepSeconds,
   // Legacy Hz field (migrated on load); keep clamp if old UI still posts it.
   sweepHz: (value) => clampNodeSliderValue(Number(value) || 0, 0.01, 100),
@@ -1264,7 +1264,7 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
   dot: Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
   }),
-  // 1D Burn Dot: stamp blur + sweep rate.
+  // 1D Phosphor: stamp blur + sweep rate.
   lineBurn: Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
   }),

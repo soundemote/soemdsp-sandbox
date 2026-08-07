@@ -29,7 +29,7 @@ function nodeGraphScopeRgbFloatsToCanvasRgb(color) {
   return rgb.map((value) => Math.max(0, Math.min(255, Math.round(clampNodeSliderValue(Number(value) || 0, 0, 1) * 255))));
 }
 
-/** Rising-edge threshold for 1D Burn Dot Reset (same family as osc Reset jacks). */
+/** Rising-edge threshold for 1D Phosphor Reset (same family as osc Reset jacks). */
 const nodeGraphLineBurnResetThreshold = 0.5;
 
 /**

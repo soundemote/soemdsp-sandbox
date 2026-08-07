@@ -243,7 +243,7 @@ const nodeGraphScope2dSettingsDefaults = Object.freeze({
   // Peak color = last gradient stop (migration + puck/overlays).
   dot1Color: nodeGraphScopePhosphorLookDefaults.peakColor,
   dot1Enabled: true,
-  // Exp size map 0…1 (snowflake analog pixel burn).
+  // Size 0…1 (linear diameter map).
   dot1Size: nodeGraphScopePhosphorLookDefaults.size,
   // Soft stamp budget (ceiling). Under load, dots spread evenly (skips), not head-only.
   dotBudget: nodeGraphScopePhosphorLookDefaults.dotBudget,
@@ -264,7 +264,7 @@ const nodeGraphScope2dSettingsDefaults = Object.freeze({
  */
 const nodeGraphModuleScope2dDisplayDefaultOverrides = Object.freeze({
   lorenzAttractor: Object.freeze({
-    // Exp size map 0…1 — larger than global snowflake default (0.0385).
+    // Lorenz: slightly smaller than global default so attractors stay readable.
     dot1Size: 0.2748,
   }),
 });

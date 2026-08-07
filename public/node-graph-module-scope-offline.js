@@ -358,7 +358,7 @@ function nodeGraphModuleScopeOscillatorPhasor(slot, frequency, cycles, modelTime
 // displayType/renderer "trace"), so the field exists here for all of them,
 // but a non-Output trace node's draw path never reads it.
 // nodeGraphTraceDisplaySettingsDefaults → node-graph-module-scope-defaults.js
-// 1D Burn Dot = heart-monitor phosphor: pen takes sweepSeconds to cross left→right.
+// 1D Phosphor = heart-monitor energy trail: pen takes sweepSeconds to cross left→right.
 // Y = sample. Optional rising-edge Reset snaps to the left. Tune seconds to match
 // the period you care about (easier UX than Hz).
 // nodeGraphLineBurnSettingsDefaults → node-graph-module-scope-defaults.js
