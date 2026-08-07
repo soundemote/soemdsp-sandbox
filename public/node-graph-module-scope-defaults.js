@@ -82,8 +82,8 @@ const nodeGraphScopePhosphorLookDefaults = Object.freeze({
   // Ghost = dim scorched hang; Trail = main residual (hot path length).
   ghost: 0.55,
   trail: 0.5175,
-  // Size 0…1 (linear diameter = size × face min side). ~2/3 fills a solid beam.
-  size: 0.6667,
+  // Size 0…1 (linear diameter = size × face min side). Shared trail faces (2D Phosphor etc.).
+  size: 0.0385,
   // Stamp blur 0 hard … 1 soft.
   blur: 0.1062,
   // Max phosphor stamps / frame (economy spreads when over).
@@ -165,7 +165,8 @@ const nodeGraphZeroDBurnSettingsDefaults = Object.freeze({
   dot1Brightness: nodeGraphScopePhosphorLookDefaults.brightness,
   dot1Color: nodeGraphScopePhosphorLookDefaults.peakColor,
   dot1Enabled: true,
-  dot1Size: nodeGraphScopePhosphorLookDefaults.size,
+  // Phosphor Dot only: large single stamp (~2/3 face min side). Not shared with 2D Phosphor.
+  dot1Size: 0.6667,
   // Blur 0 hard … 1 soft (same as 2D Phosphor stamps).
   lineThickness: nodeGraphScopePhosphorLookDefaults.blur,
   // 0 = 1×1 pixel … 1 layout×dpr … 4 AA.
