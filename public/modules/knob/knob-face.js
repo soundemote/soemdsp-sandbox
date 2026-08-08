@@ -14,8 +14,8 @@ const nodeGraphKnobFaceAcceptedTypes = Object.freeze([
   "image/svg+xml",
 ]);
 
-/** Layer count / keys (image1 = back, image5 = front). */
-const nodeGraphKnobFaceLayerCount = 5;
+/** Layer count / keys (image1 = back, image6 = front). Max 6 for now. */
+const nodeGraphKnobFaceLayerCount = 6;
 const nodeGraphKnobFaceLayerIds = Object.freeze(
   Array.from({ length: nodeGraphKnobFaceLayerCount }, (_, i) => `image${i + 1}`),
 );
@@ -45,7 +45,7 @@ function normalizeNodeGraphKnobFaceLayer(source = {}) {
 
 /**
  * Normalize face data. Migrates legacy top/mid/bottom (+ global rotateLikeKnob)
- * into five per-layer slots (image1…image5).
+ * into per-layer slots (image1…image6).
  */
 function normalizeNodeGraphKnobFace(source = {}) {
   const raw = source && typeof source === "object" ? source : {};
@@ -58,7 +58,7 @@ function normalizeNodeGraphKnobFace(source = {}) {
     for (let i = 0; i < nodeGraphKnobFaceLayerCount; i += 1) {
       layers[i] = normalizeNodeGraphKnobFaceLayer(raw.layers[i]);
     }
-  } else if (raw.image1 || raw.image2 || raw.image3 || raw.image4 || raw.image5) {
+  } else if (raw.image1 || raw.image2 || raw.image3 || raw.image4 || raw.image5 || raw.image6) {
     for (let i = 0; i < nodeGraphKnobFaceLayerCount; i += 1) {
       const key = `image${i + 1}`;
       layers[i] = normalizeNodeGraphKnobFaceLayer(raw[key]);
@@ -80,7 +80,7 @@ function normalizeNodeGraphKnobFace(source = {}) {
       ),
     };
     layers[2] = normalizeNodeGraphKnobFaceLayer(raw.top);
-    // image4 / image5 stay empty under legacy migration
+    // image4…image6 stay empty under legacy migration
   }
 
   return {
@@ -91,6 +91,7 @@ function normalizeNodeGraphKnobFace(source = {}) {
     image3: layers[2],
     image4: layers[3],
     image5: layers[4],
+    image6: layers[5],
     rotationDegrees: Number.isFinite(rotationDegrees)
       ? Math.max(0, Math.min(1440, rotationDegrees))
       : nodeGraphKnobFaceDefaults.rotationDegrees,

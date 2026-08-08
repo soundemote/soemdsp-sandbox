@@ -10360,7 +10360,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   display: none !important;
 }
 
-/* Four image layers: image1 (back) … image4 (front). Each may rotate with Bias. */
+/* Image layers: image1 (back) … image6 (front). Each may rotate with Bias. */
 .node-knob-face-layer {
   position: absolute;
   inset: var(--knob-face-image-inset, 6%);

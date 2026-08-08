@@ -199,6 +199,9 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeSceneKnobFaceLoad5", "click", () => pickNodeGraphKnobFaceImage("image5"));
   bindNodeGraphSceneElementEvent("nodeSceneKnobFaceClear5", "click", () => clearNodeGraphKnobFaceImage("image5"));
   bindNodeGraphSceneElementEvent("nodeSceneKnobFaceRotate5", "change", () => setNodeGraphKnobFaceLayerRotateFromContext("image5", { record: true }));
+  bindNodeGraphSceneElementEvent("nodeSceneKnobFaceLoad6", "click", () => pickNodeGraphKnobFaceImage("image6"));
+  bindNodeGraphSceneElementEvent("nodeSceneKnobFaceClear6", "click", () => clearNodeGraphKnobFaceImage("image6"));
+  bindNodeGraphSceneElementEvent("nodeSceneKnobFaceRotate6", "change", () => setNodeGraphKnobFaceLayerRotateFromContext("image6", { record: true }));
   bindNodeGraphSceneElementEvent("nodeSceneKnobFaceRotationDegrees", "input", () => setNodeGraphKnobFaceRotationDegreesFromContext({ record: false }));
   bindNodeGraphSceneElementEvent("nodeSceneKnobFaceRotationDegrees", "change", () => setNodeGraphKnobFaceRotationDegreesFromContext({ record: true }));
   bindNodeGraphSceneElementEvent("nodeSceneKnobFaceRotationOffset", "input", () => setNodeGraphKnobFaceRotationOffsetFromContext({ record: false }));
