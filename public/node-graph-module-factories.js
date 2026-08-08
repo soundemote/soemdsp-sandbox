@@ -386,16 +386,27 @@ function createNodeGraphMacroControlsBody(node = null) {
     knob.setAttribute("aria-valuemax", "1");
     knob.setAttribute("aria-valuenow", "0");
     knob.setAttribute("role", "slider");
-    const label = document.createElement("span");
     const face = typeof nodeGraphMacroControlsFaceSettings === "function"
       ? nodeGraphMacroControlsFaceSettings()
       : null;
+    // Shared layout: title above dial, value on dial (top), circle centered in dial.
+    const label = document.createElement("span");
+    label.className = "node-macro-knob-label";
+    label.dataset.macroKnobLabel = "true";
     label.textContent = face?.labels?.[index] || `M${index + 1}`;
-    const indicator = document.createElement("i");
+    const dial = document.createElement("span");
+    dial.className = "node-macro-knob-dial";
+    dial.dataset.macroKnobDial = "true";
     const value = document.createElement("strong");
+    value.className = "node-macro-knob-value";
     value.dataset.macroValue = String(index);
     value.textContent = "0.00";
-    knob.append(label, indicator, value);
+    const indicator = document.createElement("i");
+    indicator.className = "node-macro-knob-arc";
+    indicator.dataset.macroKnobArc = "true";
+    indicator.setAttribute("aria-hidden", "true");
+    dial.append(value, indicator);
+    knob.append(label, dial);
     knob.setAttribute("aria-label", label.textContent);
     row.append(knob);
   }

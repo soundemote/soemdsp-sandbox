@@ -1922,14 +1922,20 @@ html.soemdsp-hide-ui .status-strip {
   gap: 4px;
 }
 
-/* Bare knob, no card chrome around it -- the hollow arc (.node-macro-knob
-   i) is the whole visual, not a boxed square button. */
+/* Shared macro dial (bank, keyboard dock, Knob module):
+   title above the dial · value on the dial (default top) · circle centered in dial.
+   Angle drag uses the circle center, not the full button (see view-controls). */
 .node-macro-knob {
   position: relative;
-  display: block;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1px;
+  box-sizing: border-box;
   min-width: 0;
   min-height: 86px;
-  padding: 5px;
+  padding: 3px 4px 4px;
   overflow: hidden;
   border: none;
   border-radius: 0;
@@ -1939,19 +1945,11 @@ html.soemdsp-hide-ui .status-strip {
   touch-action: none;
   cursor: var(--node-move-cursor);
   user-select: none;
-  /* Scales the whole widget (dial, label, value readout) as one unit,
-     centered in place -- a "zoom" on the knob rather than resizing any
-     one piece. Transform doesn't reflow the grid cell, so past ~100%
-     this deliberately overflows/clips against the panel's own
-     overflow:hidden instead of pushing sibling knobs around. */
   transform: scale(var(--macro-knob-size-scale, 1));
   transform-origin: center center;
 }
 
-/* Makes the knob's real interactive hit region visible -- it's this whole
-   rectangular button, not just the circular dial drawn inside it, so
-   dragging/clicking works well outside the visible arc unless you can see
-   where the actual box ends. */
+body.macro-knob-hitbox-outline .node-macro-knob-dial,
 body.macro-knob-hitbox-outline .node-macro-knob i {
   outline: 1px solid rgba(241, 184, 75, 0.55);
   outline-offset: 1px;
@@ -1961,83 +1959,98 @@ body.macro-knob-hitbox-outline .node-macro-knob i {
   min-height: 0;
   height: 100%;
   width: 100%;
-  padding: 2px;
+  padding: 1px 2px 2px;
   box-sizing: border-box;
 }
 
-/* Absolutely positioned rather than laid out in flow/grid alongside the
-   dial -- an earlier version shared a CSS Grid row between label/value/
-   dial, which let the dial's track get squeezed down to ~1px whenever
-   something else shared its row (a grid track-sizing interaction, not
-   anything intentional). Absolute positioning can't affect a sibling's
-   size at all: the dial (see .node-macro-knob i below) stays centered and
-   full size no matter where label/value are placed. Deliberately no
-   collision handling -- label, value, and the dial can all land on "mid"
-   and just overlap, which is fine. */
-.node-macro-knob span,
-.node-macro-knob strong {
-  position: absolute;
-  left: 50%;
+/* Title sits above the dial widget (not over the circle). */
+.node-macro-knob-label,
+.node-macro-knob > span:not(.node-macro-knob-dial):not(.node-macro-knob-edit-input) {
+  position: relative;
   z-index: 2;
-  max-width: calc(100% - 8px);
+  flex: 0 0 auto;
+  max-width: 100%;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: clip;
-  padding: 2px 4px;
+  padding: 0 2px;
+  text-align: center;
+  line-height: 1.1;
+}
+
+body[data-macro-knob-label-position="mid"] .node-macro-knob-label,
+body[data-macro-knob-label-position="mid"] .node-macro-knob > span:not(.node-macro-knob-dial):not(.node-macro-knob-edit-input) {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+body[data-macro-knob-label-position="bottom"] .node-macro-knob-label,
+body[data-macro-knob-label-position="bottom"] .node-macro-knob > span:not(.node-macro-knob-dial):not(.node-macro-knob-edit-input) {
+  position: absolute;
+  left: 50%;
+  top: auto;
+  bottom: 2px;
   transform: translateX(-50%);
 }
 
-/* Unconditional defaults (label=top, value=bottom) so there's no flash of
-   the wrong spot before JS sets the body[data-macro-knob-*-position]
-   attribute on load; the attribute selectors below only need to cover the
-   two positions that differ from each default. */
-.node-macro-knob span {
-  top: 2px;
+/* Dial cell: geometric home of the circle; value lives here too. */
+.node-macro-knob-dial {
+  position: relative;
+  flex: 1 1 auto;
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
 }
 
-.node-macro-knob strong {
-  bottom: 2px;
-}
-
-body[data-macro-knob-label-position="mid"] .node-macro-knob span {
-  top: 50%;
-  bottom: auto;
-  transform: translate(-50%, -50%);
-}
-
-body[data-macro-knob-label-position="bottom"] .node-macro-knob span {
-  top: auto;
-  bottom: 2px;
-}
-
-body[data-macro-knob-value-position="mid"] .node-macro-knob strong {
-  top: 50%;
-  bottom: auto;
-  transform: translate(-50%, -50%);
-}
-
-body[data-macro-knob-value-position="top"] .node-macro-knob strong {
+/* Value default = top of dial (old title slot). */
+.node-macro-knob-dial .node-macro-knob-value,
+.node-macro-knob-dial > strong,
+.node-macro-knob-dial > [data-macro-value],
+.node-macro-knob-dial > [data-knob-face-readout] {
+  position: absolute;
+  left: 50%;
   top: 2px;
   bottom: auto;
-}
-
-.node-macro-knob strong {
+  z-index: 2;
+  max-width: calc(100% - 6px);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: clip;
+  padding: 1px 3px;
   color: var(--text);
   font-size: 0.62rem;
+  transform: translateX(-50%);
 }
 
-/* Takes the value readout's exact spot (see .node-macro-knob strong above
-   and its body[data-macro-knob-value-position] overrides) while editing --
-   it replaces that <strong> in the DOM, so it needs the same positioning
-   rules to land in the same place instead of falling back into flow. */
+body[data-macro-knob-value-position="mid"] .node-macro-knob-dial .node-macro-knob-value,
+body[data-macro-knob-value-position="mid"] .node-macro-knob-dial > strong,
+body[data-macro-knob-value-position="mid"] .node-macro-knob-dial > [data-macro-value],
+body[data-macro-knob-value-position="mid"] .node-macro-knob-dial > [data-knob-face-readout] {
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+body[data-macro-knob-value-position="bottom"] .node-macro-knob-dial .node-macro-knob-value,
+body[data-macro-knob-value-position="bottom"] .node-macro-knob-dial > strong,
+body[data-macro-knob-value-position="bottom"] .node-macro-knob-dial > [data-macro-value],
+body[data-macro-knob-value-position="bottom"] .node-macro-knob-dial > [data-knob-face-readout] {
+  top: auto;
+  bottom: 2px;
+  transform: translateX(-50%);
+}
+
 .node-macro-knob-edit-input {
   position: absolute;
   left: 50%;
-  bottom: 2px;
-  z-index: 2;
+  top: 2px;
+  bottom: auto;
+  z-index: 3;
   width: calc(100% - 8px);
   min-width: 0;
-  padding: 2px 4px;
+  padding: 1px 3px;
   border: 1px solid rgba(241, 184, 75, 0.42);
   border-radius: 3px;
   background: rgba(5, 6, 7, 0.85);
@@ -2051,20 +2064,18 @@ body[data-macro-knob-value-position="top"] .node-macro-knob strong {
 
 body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
   top: 50%;
-  bottom: auto;
   transform: translate(-50%, -50%);
 }
 
-body[data-macro-knob-value-position="top"] .node-macro-knob-edit-input {
-  top: 2px;
-  bottom: auto;
+body[data-macro-knob-value-position="bottom"] .node-macro-knob-edit-input {
+  top: auto;
+  bottom: 2px;
+  transform: translateX(-50%);
 }
 
-/* Hollow arc, not a filled disc -- a conic-gradient value arc swept over
-   the knob's usual -132deg..+132deg (264deg) travel, transparent past
-   that so the bottom notch stays a true gap instead of wrapping the full
-   circle, then a radial mask punches the center out into a ring. Colors
-   come from Display Settings (--macro-arc-fill / --macro-arc-track). */
+/* Hollow arc — centered in the dial cell only (not the title row). */
+.node-macro-knob-dial i,
+.node-macro-knob-arc,
 .node-macro-knob i {
   position: absolute;
   top: 50%;
@@ -2074,22 +2085,12 @@ body[data-macro-knob-value-position="top"] .node-macro-knob-edit-input {
   aspect-ratio: 1 / 1;
   border-radius: 50%;
   transform: translate(-50%, -50%);
-  /* The last stop (264deg..360deg) is the knob's mechanical-travel notch --
-     what makes this read as an open arc rather than a closed loop. Its
-     brightness is its own independent user setting (0% = fully
-     transparent, the normal open-arc look) rather than tied to arc
-     thickness. */
   background: conic-gradient(
     from -132deg,
     var(--macro-arc-fill, #f1b84b) calc(var(--macro-value, 0) * 264deg),
     var(--macro-arc-track, #3a3428) calc(var(--macro-value, 0) * 264deg) 264deg,
     color-mix(in srgb, var(--macro-arc-fill, #f1b84b) calc(var(--macro-knob-arc-gap-brightness, 0) * 100%), transparent) 264deg 360deg
   );
-  /* A percent-of-radius fraction, not a fixed pixel amount -- this knob's
-     "100%" here is its own real closest-side distance, so the ring closes
-     into a genuinely full circle at 100% no matter what size this
-     particular dial actually renders at (compact module rows, the
-     standalone dock, etc. all use different dial sizes). */
   -webkit-mask-image: radial-gradient(closest-side, transparent calc(100% - var(--macro-knob-arc-thickness-percent, 0.3) * 100%), #000 calc(100% - var(--macro-knob-arc-thickness-percent, 0.3) * 100% + 1px));
   mask-image: radial-gradient(closest-side, transparent calc(100% - var(--macro-knob-arc-thickness-percent, 0.3) * 100%), #000 calc(100% - var(--macro-knob-arc-thickness-percent, 0.3) * 100% + 1px));
   filter: drop-shadow(0 0 5px color-mix(in srgb, var(--macro-arc-fill, #f1b84b) 40%, transparent));
@@ -10209,7 +10210,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   user-select: none;
 }
 
-/* Macro dial fill: ignore bank size-scale; fill the module face. */
+/* Knob module: same shared macro layout, fill plate; no global size-scale. */
 .dsp-node.slider-widget-layout .node-knob-face.node-knob-module-macro.node-macro-knob,
 .node-knob-face.node-knob-module-macro.node-macro-knob {
   min-height: 0;
@@ -10221,6 +10222,11 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   color: var(--muted);
 }
 
+.dsp-node.slider-widget-layout .node-knob-face.node-knob-module-macro .node-macro-knob-dial,
+.node-knob-face.node-knob-module-macro .node-macro-knob-dial {
+  min-height: 0;
+}
+
 /* Dial scales with face (not fixed 42px bank size). */
 .dsp-node.slider-widget-layout .node-knob-face.node-knob-module-macro i,
 .node-knob-face.node-knob-module-macro i {
@@ -10229,10 +10235,21 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 /* Value readout a bit larger on the module plate. */
-.dsp-node.slider-widget-layout .node-knob-face.node-knob-module-macro strong,
-.node-knob-face.node-knob-module-macro strong {
+.dsp-node.slider-widget-layout .node-knob-face.node-knob-module-macro .node-macro-knob-dial strong,
+.node-knob-face.node-knob-module-macro .node-macro-knob-dial strong {
   font-size: 0.72rem;
   color: var(--text);
+}
+
+/* Image art loaded: hide shared macro dial chrome; layers take the face. */
+.node-knob-face.has-image .node-macro-knob-dial,
+.node-knob-face.has-image [data-knob-face-dial] {
+  display: none !important;
+}
+
+.node-knob-face.has-image .node-macro-knob-label,
+.node-knob-face.has-image [data-knob-face-label] {
+  display: none !important;
 }
 
 /*

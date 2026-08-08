@@ -38,11 +38,12 @@ function drawNodeGraphKnobFaceItem(_renderer, item, _pixelRatio) {
   } else if (typeof renderNodeGraphKnobFace === "function") {
     renderNodeGraphKnobFace(face, nodeId);
   }
-  // Macro dial plate is always a light source (lit face).
+  // Lit when macro dial is showing or image art is loaded.
+  const lit = face.classList?.contains("has-image") || face.classList?.contains("node-knob-module-macro");
   if (typeof nodeGraphKnobFaceSyncLightSource === "function") {
-    nodeGraphKnobFaceSyncLightSource(face, true);
+    nodeGraphKnobFaceSyncLightSource(face, lit);
   } else {
-    nodeGraphModuleScopeMarkScreenLit(face, 1);
+    nodeGraphModuleScopeMarkScreenLit(face, lit ? 1 : 0);
   }
 }
 

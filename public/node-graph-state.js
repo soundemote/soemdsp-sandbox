@@ -67,7 +67,8 @@ var nodeGraphMvp = {
   macroKnobSizeScale: 1,
   macroKnobHitboxOutlineVisible: false,
   macroKnobLabelPosition: "top",
-  macroKnobValuePosition: "bottom",
+  // Value on dial (top of circle cell); title sits above the dial widget.
+  macroKnobValuePosition: "top",
   sliderLayout: "text-inside",
   // Amount fill on by default, and restored by Clear Startup (see
   // clearNodeUserStartupRuntimeState).

@@ -86,9 +86,10 @@ function applyNodeGraphMacroControlsFaceSettings() {
   document.querySelectorAll("[data-macro-index]").forEach((knob) => {
     const index = Math.max(0, Math.min(7, Math.round(Number(knob.dataset.macroIndex) || 0)));
     const name = settings.labels[index] || `M${index + 1}`;
-    const label = knob.querySelector(":scope > span:not([data-macro-value])");
-    // Label is the first span child (value is <strong data-macro-value>).
-    const nameEl = knob.querySelector(":scope > span");
+    // Title sits above the dial (shared layout).
+    const nameEl = knob.querySelector(
+      ":scope > .node-macro-knob-label, :scope > [data-macro-knob-label], :scope > span:not(.node-macro-knob-dial)",
+    );
     if (nameEl && !nameEl.dataset.macroValue) {
       nameEl.textContent = name;
     }

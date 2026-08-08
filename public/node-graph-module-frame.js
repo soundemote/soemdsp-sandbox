@@ -215,8 +215,8 @@ function nodeGraphModuleFrameShouldHide(nodeElement) {
   if (nodeElement.dataset?.hideModuleFrame === "1" || nodeElement.dataset?.hideModuleFrame === "true") {
     return true;
   }
-// Legacy image faces used to hide the module frame; macro dial keeps the frame.
-  if (nodeElement.querySelector?.(".node-knob-face.has-image:not(.node-knob-module-macro)")) {
+// Knob with face art: hide module frame so images read full-bleed.
+  if (nodeElement.querySelector?.(".node-knob-face.has-image")) {
     return true;
   }
   return false;

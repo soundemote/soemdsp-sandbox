@@ -1704,7 +1704,8 @@ function setNodeGraphMacroKnobLabelPosition(value) {
 }
 
 function normalizeNodeGraphMacroKnobValuePosition(value) {
-  return nodeGraphMacroKnobPositionValues.includes(value) ? value : "bottom";
+  // Default top — value sits where the title used to (above the circle in the dial cell).
+  return nodeGraphMacroKnobPositionValues.includes(value) ? value : "top";
 }
 
 function applyNodeGraphMacroKnobValuePosition() {
@@ -1766,8 +1767,16 @@ function setNodeGraphMacroControl(index, value) {
 // themselves don't apply here, but the modifier detection/math is shared
 // via nodeGraphNumericDragMultiplier (node-graph-slider-values.js) and
 // reproduced 1:1 for the rest.
+/** Dial circle rect (not the full button — label sits above the circle). */
+function nodeGraphMacroKnobDialElement(knob) {
+  return knob?.querySelector?.("[data-macro-knob-arc], .node-macro-knob-arc, .node-macro-knob-dial i, :scope > i")
+    || knob?.querySelector?.("[data-macro-knob-dial], .node-macro-knob-dial")
+    || knob;
+}
+
 function nodeGraphMacroKnobValueAtPointer(knob, event) {
-  const rect = knob.getBoundingClientRect();
+  // Angle is relative to the arc circle center, not the label+dial bounding box.
+  const rect = nodeGraphMacroKnobDialElement(knob).getBoundingClientRect();
   const centerX = rect.left + rect.width / 2;
   const centerY = rect.top + rect.height / 2;
   const dx = event.clientX - centerX;

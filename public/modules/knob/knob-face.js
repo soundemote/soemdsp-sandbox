@@ -521,12 +521,15 @@ function nodeGraphKnobFaceApplyMacroStyle(face, settings) {
 /**
  * Paint face from live Bias (scope / modulation). Call every display frame.
  * Macro dial arc uses unit 0…1 via --macro-value (same as bank macros).
+ * When any image layer is loaded, hide macro chrome and show layers only.
  */
 function paintNodeGraphKnobFaceLive(face, nodeId, buffer = null) {
   if (!face || !nodeId) {
     return;
   }
   const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  const faceData = nodeGraphKnobFaceForNode(patchNode || { knobFace: null });
+  const hasImage = nodeGraphKnobFaceHasAnyImage(faceData);
   const display = typeof nodeGraphKnobFaceDisplaySettingsForNode === "function"
     ? nodeGraphKnobFaceDisplaySettingsForNode(patchNode)
     : null;
@@ -545,6 +548,37 @@ function paintNodeGraphKnobFaceLive(face, nodeId, buffer = null) {
   }
   if (!Number.isFinite(value)) {
     value = 0;
+  }
+
+  const unit = nodeGraphKnobFaceUnitFromValue(value, patchNode || { id: nodeId });
+  face.style.setProperty("--macro-value", String(unit));
+  face.dataset.liveValue = String(value);
+  face.setAttribute("aria-valuenow", String(value));
+  face.classList.toggle("has-image", hasImage);
+  face.dataset.hasImage = hasImage ? "true" : "false";
+
+  const dial = face.querySelector("[data-knob-face-dial], .node-macro-knob-dial");
+  if (dial) {
+    dial.hidden = hasImage;
+    dial.style.display = hasImage ? "none" : "";
+  }
+
+  if (hasImage) {
+    // Image mode: layers only — hide shared macro title/dial/value chrome.
+    nodeGraphKnobFaceApplyLayerTransforms(face, faceData, unit);
+    const label = face.querySelector("[data-knob-face-label]");
+    if (label) {
+      label.hidden = true;
+      label.style.display = "none";
+    }
+    const readout = face.querySelector("[data-knob-face-readout]");
+    if (readout) {
+      readout.hidden = true;
+      readout.style.display = "none";
+      readout.setAttribute("aria-hidden", "true");
+    }
+    nodeGraphKnobFaceSyncLightSource(face, true);
+    return;
   }
 
   nodeGraphKnobFaceApplyMacroStyle(face, display);
@@ -574,11 +608,6 @@ function paintNodeGraphKnobFaceLive(face, nodeId, buffer = null) {
     }
   }
 
-  const unit = nodeGraphKnobFaceUnitFromValue(value, patchNode || { id: nodeId });
-  face.style.setProperty("--macro-value", String(unit));
-  face.dataset.liveValue = String(value);
-  face.setAttribute("aria-valuenow", String(value));
-  // Macro dial is always a lit plate (no image-layer light-source path).
   nodeGraphKnobFaceSyncLightSource(face, true);
 }
 
@@ -678,11 +707,11 @@ function nodeGraphKnobFaceSyncLightSource(face, hasImage = null) {
 
 /**
  * Build the LayoutB face DOM (called from factories).
- * Structure matches macro bank knobs: label + arc (<i>) + value (<strong>).
+ * Shared macro layout: title above dial · value on dial · circle centered.
+ * Image layers stay in the tree; when any art is loaded, macro dial hides.
  */
 function createNodeGraphKnobFace(node, type) {
   const face = document.createElement("div");
-  // Reuse .node-macro-knob dial CSS; colors are set per-face via local vars.
   face.className = "node-knob-face node-module-scope-window node-knob-module-macro node-macro-knob";
   face.dataset.node = node;
   face.dataset.nodeType = type || "knob";
@@ -696,19 +725,41 @@ function createNodeGraphKnobFace(node, type) {
   face.setAttribute("aria-valuemax", "1");
   face.setAttribute("aria-valuenow", "0");
 
+  // Image layers (back → front); hidden until art is loaded.
+  for (let i = 0; i < nodeGraphKnobFaceLayerCount; i += 1) {
+    const layerId = nodeGraphKnobFaceLayerIds[i];
+    const wrap = document.createElement("div");
+    wrap.className = `node-knob-face-layer node-knob-face-${layerId} is-empty`;
+    wrap.dataset.knobFaceLayer = layerId;
+    wrap.style.zIndex = String(i);
+    wrap.append(nodeGraphKnobFaceMakeLayerImg(layerId));
+    face.append(wrap);
+  }
+
   const label = document.createElement("span");
+  label.className = "node-macro-knob-label";
   label.dataset.knobFaceLabel = "true";
+  label.dataset.macroKnobLabel = "true";
   label.textContent = nodeGraphNodeLabels?.[type || "knob"] || "Knob";
 
-  const arc = document.createElement("i");
-  arc.dataset.knobFaceArc = "true";
-  arc.setAttribute("aria-hidden", "true");
+  const dial = document.createElement("span");
+  dial.className = "node-macro-knob-dial";
+  dial.dataset.macroKnobDial = "true";
+  dial.dataset.knobFaceDial = "true";
 
   const readout = document.createElement("strong");
+  readout.className = "node-macro-knob-value";
   readout.dataset.knobFaceReadout = "true";
   readout.textContent = "0.00";
 
-  face.append(label, arc, readout);
+  const arc = document.createElement("i");
+  arc.className = "node-macro-knob-arc";
+  arc.dataset.knobFaceArc = "true";
+  arc.dataset.macroKnobArc = "true";
+  arc.setAttribute("aria-hidden", "true");
+
+  dial.append(readout, arc);
+  face.append(label, dial);
   attachNodeGraphKnobFaceDrag(face);
   renderNodeGraphKnobFace(face, node);
   return face;
@@ -798,21 +849,52 @@ function renderNodeGraphKnobFace(faceOrNodeId, nodeIdOpt) {
   if (!face || !nodeId) {
     return;
   }
-  // Ensure macro classes exist (older DOM / soft re-sync).
   face.classList.add("node-knob-module-macro", "node-macro-knob");
-  face.classList.remove("has-image", "rotate-knob");
-  face.dataset.hasImage = "false";
+
+  const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  const faceData = nodeGraphKnobFaceForNode(patchNode || { knobFace: null });
+  const hasAny = nodeGraphKnobFaceHasAnyImage(faceData);
+
+  // Sync image layers (art mode).
+  for (let i = 0; i < nodeGraphKnobFaceLayerCount; i += 1) {
+    const layerId = nodeGraphKnobFaceLayerIds[i];
+    let wrap = face.querySelector(`[data-knob-face-layer="${layerId}"]`);
+    if (!wrap) {
+      wrap = document.createElement("div");
+      wrap.className = `node-knob-face-layer node-knob-face-${layerId} is-empty`;
+      wrap.dataset.knobFaceLayer = layerId;
+      wrap.style.zIndex = String(i);
+      wrap.append(nodeGraphKnobFaceMakeLayerImg(layerId));
+      face.prepend(wrap);
+    }
+    const img = wrap.querySelector(`[data-knob-face-image="${layerId}"]`)
+      || wrap.querySelector("img");
+    const layer = faceData.layers[i];
+    nodeGraphKnobFaceApplyLayerImage(img, layer, nodeId, layerId);
+    face.classList.toggle(`has-${layerId}`, Boolean(layer?.dataUrl));
+  }
+
+  face.classList.toggle("has-image", hasAny);
+  face.dataset.hasImage = hasAny ? "true" : "false";
+  const anyRotate = faceData.layers.some((layer) => layer.rotate && layer.dataUrl);
+  face.classList.toggle("rotate-knob", anyRotate && hasAny);
 
   const moduleEl = face.closest?.(".dsp-node");
   if (moduleEl) {
-    moduleEl.classList.remove("knob-face-has-image");
-    moduleEl.dataset.hideModuleFrame = "0";
-    if (typeof nodeGraphModuleFrameRestoreStrokeVars === "function") {
-      nodeGraphModuleFrameRestoreStrokeVars(moduleEl);
+    moduleEl.classList.toggle("knob-face-has-image", hasAny);
+    if (hasAny) {
+      moduleEl.dataset.hideModuleFrame = "1";
+      if (typeof nodeGraphModuleFrameHide === "function") {
+        nodeGraphModuleFrameHide(moduleEl);
+      }
+    } else {
+      moduleEl.dataset.hideModuleFrame = "0";
+      if (typeof nodeGraphModuleFrameRestoreStrokeVars === "function") {
+        nodeGraphModuleFrameRestoreStrokeVars(moduleEl);
+      }
     }
   }
 
-  // Live Bias + per-node colors / label / readout.
   if (typeof paintNodeGraphKnobFaceLive === "function") {
     paintNodeGraphKnobFaceLive(face, nodeId, null);
   }
