@@ -1,6 +1,6 @@
 # Progress — soemdsp-sandbox
 
-Branch: `master` @ `946f964` **BEST SOFT FRACTAL** (and later hygiene if present).
+Branch: `master` @ `4d25266` **SPEED LIMIT FIX** (and later hygiene if present).
 
 ## Agent Rules
 - Do not ask questions unless truly blocked.
@@ -25,13 +25,14 @@ graphify update .   # no LLM; AST re-extract
 ### Where we are
 - **Modules are healthy communities** — Soft Fractal (`rgbFractal`) is a tight island: display / gl / ui / register / math / worklet. Good.
 - **Core gravity wells** (largest files / hubs): module-definitions, code-screen (satellite), module-store, view-controls, live-runtime; settings-ui peeled into satellites.
-- **Cross-community bridges (god-nodes)**: `bindNodeGraphSceneMenuEvents` (81), `bindNodeGraphHeaderControlEvents` (74), `bindNodeGraphMvpEvents` — high betweenness; treat as shell wiring, not casual split targets.
+- **Cross-community bridges (god-nodes)**: `bindNodeGraphSceneMenuEvents`, `bindNodeGraphHeaderControlEvents`, `bindNodeGraphMvpEvents` — high betweenness; treat as shell wiring, not casual split targets.
 - **Scopes peel**: largely done; **settings-ui peel landed** (form-io / field-edit / apply / window).
+- **Speed Limit**: runtime pitch/f/DSP ceiling only — does **not** rewrite frequency knob `paramMeta` on spawn.
 - **Import cycles**: none detected.
 - **Soft Fractal cost model**: fixed layout×DPR buffer + CSS pixelate on app zoom (resource-agnostic).
 
 ### Suggested improvement tracks (graph-backed)
-1. **Dead CSS / chrome discipline** — CORE_REDUCTION Phase C ongoing.
+1. **Dead CSS / chrome discipline** — CORE_REDUCTION Phase C ongoing; floating-window action rows use fixed `--node-floating-window-button-height`.
 2. **Leave event-binder god-nodes alone** unless a concrete feature forces a split with tests.
 3. **Optional**: module-store catalog vs UI split if search/catalog work continues.
 4. **Product backlog** — see `docs/FUTURE_PLANNING.md` (lo-fi pitch, trace pathfinding, visual→sound).
@@ -47,6 +48,7 @@ graphify update .   # no LLM; AST re-extract
 ## Active / hygiene
 
 - [x] Peel `node-graph-module-scope-settings-ui.js` by symbol cluster (form-io / field-edit / apply / window)
+- [x] Speed Limit runtime-only; EQ 0 Hz; UI Settings action row fixed height (`4d25266`)
 - [ ] Ongoing: dead CSS when found (CORE_REDUCTION Phase C)
 - [x] `graphify-out/` gitignored (local analysis only)
 

@@ -14697,23 +14697,11 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   min-height: max-content;
 }
 
-/* Mode dropdown removed (one face per module). Keep rule inert if old DOM appears. */
+/* Mode dropdown removed (one face per module). Hide any leftover Mode chrome. */
 .node-trace-display-settings-popover .node-trace-display-mode-title,
 .node-trace-display-settings-popover .node-trace-display-mode-section,
 .node-trace-display-settings-popover [data-trace-display-mode-select] {
   display: none !important;
-}
-
-.node-trace-display-settings-popover [data-trace-display-mode-select] {
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  height: 28px;
-  border: var(--node-hairline, 1px) solid rgba(127, 199, 217, 0.28);
-  background: rgba(3, 8, 10, 0.92);
-  color: var(--node-cyan, #8ee8ff);
-  font-family: var(--mono);
-  font-size: 0.78rem;
 }
 
 .node-trace-display-settings-popover [hidden] {
@@ -15539,11 +15527,15 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 }
 
 .node-module-actions-window button:not(.scene-context-drag-handle):not(.panel-close-button):not(.scene-context-resize-handle):not(.node-unified-window-nav-button) {
+  box-sizing: border-box;
   min-width: 0;
+  height: var(--node-floating-window-button-height);
   min-height: var(--node-floating-window-button-height);
+  max-height: var(--node-floating-window-button-height);
   padding: 0;
   overflow: hidden;
   font-size: 0.62rem;
+  line-height: 1;
   justify-content: center;
   text-align: center;
   text-overflow: clip;
@@ -15553,7 +15545,9 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 /* Two-line Module Settings action / visibility buttons (shared, all modules). */
 .node-module-actions-window .scene-context-button-group button,
 .node-module-actions-window .scene-context-two-line-button {
+  height: auto;
   min-height: calc(var(--node-floating-window-button-height, 30px) + 12px);
+  max-height: none;
   padding: 3px 2px;
   overflow: hidden;
   font-size: 0.7rem;
