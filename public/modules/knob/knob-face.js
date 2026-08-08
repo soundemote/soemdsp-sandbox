@@ -1,10 +1,10 @@
-// Knob face visuals: five stacked image layers (Image1…Image5),
-// each with optional Bias-driven rotation + readout overlay.
-// Right-click the face → Module Settings.
+// Knob face = shared macro-knob dial renderer (arc + label + value).
+// Colors / readout options live in per-node Display Settings (not the global
+// Macro Controls bank, and not UI Dev macro thickness — those stay global look
+// tools for the 8-knob bank). Drag still drives Bias via the offset slider.
 //
-// Stack (back → front): image1 → image2 → image3 → image4 → image5 → label / readout
-//
-// Formats: PNG, JPEG, WebP, GIF, SVG (APNG when the browser animates image/png).
+// Legacy image-layer APIs remain for old Module Settings / patches; the live
+// face no longer paints stacked images.
 
 const nodeGraphKnobFaceAcceptedTypes = Object.freeze([
   "image/png",
@@ -499,15 +499,39 @@ function nodeGraphKnobFaceUnitFromParams(patchNode) {
   return nodeGraphKnobFaceUnitFromValue(live, patchNode);
 }
 
+/** Apply per-node macro dial colors onto the face (local CSS vars only). */
+function nodeGraphKnobFaceApplyMacroStyle(face, settings) {
+  if (!face) {
+    return;
+  }
+  const s = settings && typeof settings === "object"
+    ? settings
+    : (typeof normalizeNodeGraphKnobFaceDisplaySettings === "function"
+      ? normalizeNodeGraphKnobFaceDisplaySettings()
+      : {});
+  const bg = s.background || "#000000";
+  const fill = s.arcFill || "#f1b84b";
+  const track = s.arcTrack || "#3a3428";
+  face.style.setProperty("--macro-arc-fill", fill);
+  face.style.setProperty("--macro-arc-track", track);
+  face.style.setProperty("--knob-module-bg", bg);
+  face.style.background = bg;
+}
+
 /**
  * Paint face from live Bias (scope / modulation). Call every display frame.
+ * Macro dial arc uses unit 0…1 via --macro-value (same as bank macros).
  */
 function paintNodeGraphKnobFaceLive(face, nodeId, buffer = null) {
   if (!face || !nodeId) {
     return;
   }
   const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-  const faceData = nodeGraphKnobFaceForNode(patchNode || { knobFace: null });
+  const display = typeof nodeGraphKnobFaceDisplaySettingsForNode === "function"
+    ? nodeGraphKnobFaceDisplaySettingsForNode(patchNode)
+    : null;
+  const showReadout = display ? display.showReadout !== false : true;
+  const showLabel = display ? display.showLabel !== false : true;
 
   let value = null;
   if (buffer?.length) {
@@ -523,20 +547,39 @@ function paintNodeGraphKnobFaceLive(face, nodeId, buffer = null) {
     value = 0;
   }
 
+  nodeGraphKnobFaceApplyMacroStyle(face, display);
+
+  const label = face.querySelector("[data-knob-face-label]");
+  if (label) {
+    const alias = typeof normalizeNodeGraphPatchNodeAlias === "function"
+      ? normalizeNodeGraphPatchNodeAlias(patchNode?.alias)
+      : String(patchNode?.alias || "").trim();
+    label.textContent = alias || (nodeGraphNodeLabels?.knob || "Knob");
+    label.hidden = !showLabel;
+    label.style.display = showLabel ? "" : "none";
+  }
+
   const readout = face.querySelector("[data-knob-face-readout]");
-  if (readout && faceData.showReadout) {
-    const slider = document.getElementById(`node-${nodeId}-offset`);
-    readout.hidden = false;
-    readout.setAttribute("aria-hidden", "false");
-    readout.textContent = nodeGraphKnobFaceFormatReadout(value, patchNode, slider);
-    nodeGraphKnobFaceFitReadout(readout, face);
+  if (readout) {
+    if (showReadout) {
+      const slider = document.getElementById(`node-${nodeId}-offset`);
+      readout.hidden = false;
+      readout.style.display = "";
+      readout.setAttribute("aria-hidden", "false");
+      readout.textContent = nodeGraphKnobFaceFormatReadout(value, patchNode, slider);
+    } else {
+      readout.hidden = true;
+      readout.style.display = "none";
+      readout.setAttribute("aria-hidden", "true");
+    }
   }
 
   const unit = nodeGraphKnobFaceUnitFromValue(value, patchNode || { id: nodeId });
-  nodeGraphKnobFaceApplyLayerTransforms(face, faceData, unit);
+  face.style.setProperty("--macro-value", String(unit));
   face.dataset.liveValue = String(value);
-  // Dimmer: cutout only with loaded face art (text/stroke stay under the veil).
-  nodeGraphKnobFaceSyncLightSource(face, nodeGraphKnobFaceHasAnyImage(faceData));
+  face.setAttribute("aria-valuenow", String(value));
+  // Macro dial is always a lit plate (no image-layer light-source path).
+  nodeGraphKnobFaceSyncLightSource(face, true);
 }
 
 /** Degrees for Bias unit 0…1 (shared span/offset; applied only to layers with rotate). */
@@ -635,44 +678,38 @@ function nodeGraphKnobFaceSyncLightSource(face, hasImage = null) {
 
 /**
  * Build the LayoutB face DOM (called from factories).
- * Stack: image1 (back) … image5 (front) → text.
+ * Structure matches macro bank knobs: label + arc (<i>) + value (<strong>).
  */
 function createNodeGraphKnobFace(node, type) {
   const face = document.createElement("div");
-  // Scope slot for live Bias paint. Dimmer cutout only after face art loads
-  // (see nodeGraphKnobFaceSyncLightSource) — not a permanent light source.
-  face.className = "node-knob-face node-module-scope-window";
+  // Reuse .node-macro-knob dial CSS; colors are set per-face via local vars.
+  face.className = "node-knob-face node-module-scope-window node-knob-module-macro node-macro-knob";
   face.dataset.node = node;
   face.dataset.nodeType = type || "knob";
   face.dataset.sliderTarget = `node-${node}-offset`;
-  face.dataset.lightStrength = "0";
+  face.dataset.lightStrength = "1";
+  face.dataset.lightSource = "screen";
   face.tabIndex = 0;
   face.setAttribute("role", "slider");
   face.setAttribute("aria-label", `${nodeGraphNodeDisplayName(node)} knob`);
+  face.setAttribute("aria-valuemin", "-1");
+  face.setAttribute("aria-valuemax", "1");
+  face.setAttribute("aria-valuenow", "0");
 
-  for (let i = 0; i < nodeGraphKnobFaceLayerCount; i += 1) {
-    const layerId = nodeGraphKnobFaceLayerIds[i];
-    const wrap = document.createElement("div");
-    wrap.className = `node-knob-face-layer node-knob-face-${layerId} is-empty`;
-    wrap.dataset.knobFaceLayer = layerId;
-    wrap.style.zIndex = String(i);
-    wrap.append(nodeGraphKnobFaceMakeLayerImg(layerId));
-    face.append(wrap);
-  }
-
-  const label = document.createElement("div");
-  label.className = "node-knob-face-label";
+  const label = document.createElement("span");
   label.dataset.knobFaceLabel = "true";
   label.textContent = nodeGraphNodeLabels?.[type || "knob"] || "Knob";
 
-  const readout = document.createElement("div");
-  readout.className = "node-knob-face-readout";
-  readout.dataset.knobFaceReadout = "true";
-  readout.textContent = "0";
+  const arc = document.createElement("i");
+  arc.dataset.knobFaceArc = "true";
+  arc.setAttribute("aria-hidden", "true");
 
-  face.append(label, readout);
+  const readout = document.createElement("strong");
+  readout.dataset.knobFaceReadout = "true";
+  readout.textContent = "0.00";
+
+  face.append(label, arc, readout);
   attachNodeGraphKnobFaceDrag(face);
-  attachNodeGraphKnobFaceReadoutFit(face);
   renderNodeGraphKnobFace(face, node);
   return face;
 }
@@ -761,83 +798,23 @@ function renderNodeGraphKnobFace(faceOrNodeId, nodeIdOpt) {
   if (!face || !nodeId) {
     return;
   }
-  const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-  const faceData = nodeGraphKnobFaceForNode(patchNode || { knobFace: null });
-  const label = face.querySelector("[data-knob-face-label]");
-  const readout = face.querySelector("[data-knob-face-readout]");
+  // Ensure macro classes exist (older DOM / soft re-sync).
+  face.classList.add("node-knob-module-macro", "node-macro-knob");
+  face.classList.remove("has-image", "rotate-knob");
+  face.dataset.hasImage = "false";
 
-  const hasAny = nodeGraphKnobFaceHasAnyImage(faceData);
-  const anyRotate = faceData.layers.some((layer) => layer.rotate && layer.dataUrl);
-  face.classList.toggle("has-image", hasAny);
-  face.classList.toggle("rotate-knob", anyRotate);
-  face.classList.toggle("show-readout", Boolean(faceData.showReadout));
-  face.dataset.hasImage = hasAny ? "true" : "false";
-  face.dataset.showReadout = faceData.showReadout ? "true" : "false";
-  // Room dimmer: image → light cutout; empty plate (readout/stroke) under veil.
-  nodeGraphKnobFaceSyncLightSource(face, hasAny);
-  // Class + frame hide: kill white module outline when face art is present.
-  // Must run after the face is mounted under .dsp-node (see module-rendering re-render).
   const moduleEl = face.closest?.(".dsp-node");
   if (moduleEl) {
-    moduleEl.classList.toggle("knob-face-has-image", hasAny);
-    moduleEl.dataset.hideModuleFrame = hasAny ? "1" : "0";
-    if (hasAny) {
-      if (typeof nodeGraphModuleFrameHide === "function") {
-        nodeGraphModuleFrameHide(moduleEl);
-      }
-      // Belt-and-suspenders: zero stroke vars even if an SVG reappears.
-      moduleEl.style.setProperty("--node-module-stroke", "transparent");
-      moduleEl.style.setProperty("--node-module-selected-stroke", "transparent");
-      moduleEl.style.setProperty("--node-module-drag-stroke", "transparent");
-    } else {
-      // No face art: restore module outline stroke vars + rebuild SVG path.
-      moduleEl.dataset.hideModuleFrame = "0";
-      if (typeof nodeGraphModuleFrameRestoreStrokeVars === "function") {
-        nodeGraphModuleFrameRestoreStrokeVars(moduleEl);
-      } else {
-        moduleEl.style.removeProperty("--node-module-stroke");
-        moduleEl.style.removeProperty("--node-module-selected-stroke");
-        moduleEl.style.removeProperty("--node-module-drag-stroke");
-      }
-      // Ensure frame exists even if a prior hide removed the SVG node.
-      delete moduleEl.dataset.moduleFrameFp;
-      if (typeof updateNodeGraphModuleFrame === "function") {
-        updateNodeGraphModuleFrame(moduleEl);
-      } else if (typeof scheduleNodeGraphModuleFramesUpdate === "function") {
-        scheduleNodeGraphModuleFramesUpdate({ nodeElement: moduleEl, force: true });
-      }
+    moduleEl.classList.remove("knob-face-has-image");
+    moduleEl.dataset.hideModuleFrame = "0";
+    if (typeof nodeGraphModuleFrameRestoreStrokeVars === "function") {
+      nodeGraphModuleFrameRestoreStrokeVars(moduleEl);
     }
   }
 
-  for (let i = 0; i < nodeGraphKnobFaceLayerCount; i += 1) {
-    const layerId = nodeGraphKnobFaceLayerIds[i];
-    const img = face.querySelector(`[data-knob-face-image="${layerId}"]`);
-    const layer = faceData.layers[i];
-    nodeGraphKnobFaceApplyLayerImage(img, layer, nodeId, layerId);
-    face.classList.toggle(`has-${layerId}`, Boolean(layer?.dataUrl));
-  }
-
-  if (label) {
-    label.hidden = !faceData.showLabel || hasAny;
-    if (!hasAny) {
-      const alias = typeof normalizeNodeGraphPatchNodeAlias === "function"
-        ? normalizeNodeGraphPatchNodeAlias(patchNode?.alias)
-        : String(patchNode?.alias || "").trim();
-      label.textContent = alias
-        || (nodeGraphNodeLabels?.knob || "Knob");
-    }
-  }
-  // Display paints final live Bias (scope / modulation), not only param meta.
+  // Live Bias + per-node colors / label / readout.
   if (typeof paintNodeGraphKnobFaceLive === "function") {
     paintNodeGraphKnobFaceLive(face, nodeId, null);
-  } else {
-    const unit = nodeGraphKnobFaceUnitFromParams(patchNode || { id: nodeId });
-    nodeGraphKnobFaceApplyLayerTransforms(face, faceData, unit);
-  }
-  if (readout && !faceData.showReadout) {
-    readout.hidden = true;
-    readout.setAttribute("aria-hidden", "true");
-    readout.textContent = "";
   }
 }
 
@@ -847,7 +824,7 @@ function refreshNodeGraphKnobFaces() {
   }
 }
 
-/** Live Bias drag: update readout + rotating layer angles. */
+/** Live Bias drag: update readout + macro arc unit. */
 function syncNodeGraphKnobFaceFromSlider(slider) {
   if (!slider || slider.dataset.param !== "offset") {
     return;
@@ -860,16 +837,20 @@ function syncNodeGraphKnobFaceFromSlider(slider) {
   if (!face) {
     return;
   }
+  const nodeId = module.dataset.node;
+  // Prefer full live paint (includes In + mod) when available.
+  if (typeof paintNodeGraphKnobFaceLive === "function" && nodeId) {
+    paintNodeGraphKnobFaceLive(face, nodeId, null);
+    return;
+  }
   const readout = face.querySelector("[data-knob-face-readout]");
   const displayValue = Number(slider.value);
   const patchNode = typeof nodeGraphPatchNode === "function"
-    ? nodeGraphPatchNode(module.dataset.node)
+    ? nodeGraphPatchNode(nodeId)
     : null;
   if (readout && !readout.hidden) {
     readout.textContent = nodeGraphKnobFaceFormatReadout(displayValue, patchNode, slider);
-    nodeGraphKnobFaceFitReadout(readout, face);
   }
-  const faceData = nodeGraphKnobFaceForNode(patchNode);
   const min = Number(slider.min);
   const max = Number(slider.max);
   let u = 0.5;
@@ -877,7 +858,7 @@ function syncNodeGraphKnobFaceFromSlider(slider) {
     u = (displayValue - min) / (max - min);
   }
   u = Math.max(0, Math.min(1, u));
-  nodeGraphKnobFaceApplyLayerTransforms(face, faceData, u);
+  face.style.setProperty("--macro-value", String(u));
 }
 
 function nodeGraphKnobFacePatchTarget(nodeId) {

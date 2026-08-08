@@ -215,17 +215,9 @@ function nodeGraphModuleFrameShouldHide(nodeElement) {
   if (nodeElement.dataset?.hideModuleFrame === "1" || nodeElement.dataset?.hideModuleFrame === "true") {
     return true;
   }
-  // Fallback if class lag: face already marked has-image.
-  if (nodeElement.querySelector?.(".node-knob-face.has-image")) {
+// Legacy image faces used to hide the module frame; macro dial keeps the frame.
+  if (nodeElement.querySelector?.(".node-knob-face.has-image:not(.node-knob-module-macro)")) {
     return true;
-  }
-  // Patch data fallback (DOM class not ready yet).
-  if (nodeElement.dataset?.nodeType === "knob" && typeof nodeGraphPatchNode === "function") {
-    const patchNode = nodeGraphPatchNode(nodeElement.dataset.node);
-    if (typeof nodeGraphKnobFaceHasAnyImage === "function"
-      && nodeGraphKnobFaceHasAnyImage(patchNode?.knobFace)) {
-      return true;
-    }
   }
   return false;
 }

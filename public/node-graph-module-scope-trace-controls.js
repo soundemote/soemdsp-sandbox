@@ -308,11 +308,11 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
-  // Knob face: readout precision (images / rotate stay in Module Settings).
+  // Knob face: macro dial colors + readout (per-module; not global macro bank).
   knobFace: Object.freeze({
     fields: Object.freeze(["decimals"]),
-    colors: Object.freeze([]),
-    toggles: Object.freeze([]),
+    colors: Object.freeze(["backgroundColor", "arcFill", "arcTrack"]),
+    toggles: Object.freeze(["showLabel", "showReadout"]),
     choices: Object.freeze([]),
   }),
   pluginSliderFace: Object.freeze({
@@ -605,6 +605,16 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
     title:
       "Stamp only real sample hits — no path packing between samples. Completely avoids connective lines / chord fill. Dense samples still fuse visually; sparse samples stay discrete dots.",
   }),
+  showLabel: Object.freeze({
+    label: "Show label",
+    id: "nodeTraceDisplayShowLabel",
+    title: "Show the name/alias above the dial on the Knob module face.",
+  }),
+  showReadout: Object.freeze({
+    label: "Show value",
+    id: "nodeTraceDisplayShowReadout",
+    title: "Show the live Bias readout on the Knob module face.",
+  }),
 });
 
 // No side-column "Color" labels — the widget is self-evident; full-width row only.
@@ -632,6 +642,19 @@ const nodeGraphDisplaySettingsColorMeta = Object.freeze({
     aria: "Secondary color",
     defaultValue: "#0000ff",
     id: "nodeTraceDisplaySecondaryColor",
+  }),
+  // Knob module macro dial (per-node Display Settings).
+  arcFill: Object.freeze({
+    label: "",
+    aria: "Arc fill (value)",
+    defaultValue: "#f1b84b",
+    id: "nodeTraceDisplayArcFill",
+  }),
+  arcTrack: Object.freeze({
+    label: "",
+    aria: "Arc track (unfilled)",
+    defaultValue: "#3a3428",
+    id: "nodeTraceDisplayArcTrack",
   }),
 });
 

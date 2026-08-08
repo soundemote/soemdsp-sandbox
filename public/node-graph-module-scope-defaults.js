@@ -215,8 +215,14 @@ const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
 });
 
 
+/** Knob module face: macro-dial look; colors are per-node (not global macro bank). */
 const nodeGraphKnobFaceDisplaySettingsDefaults = Object.freeze({
   decimals: 2,
+  background: "#000000",
+  arcFill: "#f1b84b",
+  arcTrack: "#3a3428",
+  showLabel: true,
+  showReadout: true,
 });
 
 

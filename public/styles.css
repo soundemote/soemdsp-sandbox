@@ -10185,24 +10185,22 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   fill: none !important;
 }
 
+/* Knob module face = macro dial renderer, sized to the LayoutB display plate.
+   Colors via per-face --macro-arc-* / background (Display Settings), not the
+   global Macro Controls bank. Do not apply --macro-knob-size-scale here. */
 .node-knob-face {
-  /* Shared image box: layers + numeric readout must stay inside this inset. */
-  --knob-face-image-inset: 6%;
   position: relative;
   box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  display: block;
   width: 100%;
   height: 100%;
   min-width: 0;
   min-height: 0;
-  padding: calc(var(--node-grid-size) * 0.18);
+  padding: 4px;
   border: none;
   outline: none;
   box-shadow: none;
-  background: #020609;
+  background: var(--knob-module-bg, #000000);
   pointer-events: auto;
   overflow: hidden;
   /* Same drag affordance as Bias .node-slider-readout */
@@ -10211,20 +10209,49 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   user-select: none;
 }
 
+/* Macro dial fill: ignore bank size-scale; fill the module face. */
+.dsp-node.slider-widget-layout .node-knob-face.node-knob-module-macro.node-macro-knob,
+.node-knob-face.node-knob-module-macro.node-macro-knob {
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  transform: none;
+  transform-origin: center center;
+  font: 700 0.68rem/1 "Cascadia Mono", Consolas, monospace;
+  color: var(--muted);
+}
+
+/* Dial scales with face (not fixed 42px bank size). */
+.dsp-node.slider-widget-layout .node-knob-face.node-knob-module-macro i,
+.node-knob-face.node-knob-module-macro i {
+  width: min(78%, 88px);
+  max-width: calc(100% - 12px);
+}
+
+/* Value readout a bit larger on the module plate. */
+.dsp-node.slider-widget-layout .node-knob-face.node-knob-module-macro strong,
+.node-knob-face.node-knob-module-macro strong {
+  font-size: 0.72rem;
+  color: var(--text);
+}
+
 /*
- * Empty face plate: dim chrome stroke inset from the outer module edge so the
- * two borders read as separate (outer module frame vs inner plate stroke).
- * Fixed rgba so a stuck --node-module-stroke:transparent cannot zero it out.
+ * Empty face plate: dim chrome stroke (legacy non-macro plate). Macro dial
+ * uses solid background from Display Settings instead.
  */
-.node-knob-face:not(.has-image) {
+.node-knob-face:not(.node-knob-module-macro):not(.has-image) {
   --knob-empty-stroke-inset: 4px;
   justify-content: flex-start;
   padding-top: calc(var(--node-grid-size) * 0.28);
   gap: 2px;
   border: none;
-  /* Inset stroke: sits inside the plate, clear of the module outline. */
   outline: 1px solid rgba(243, 241, 236, 0.26);
   outline-offset: calc(-1 * var(--knob-empty-stroke-inset, 4px));
+  box-shadow: none;
+}
+
+.node-knob-face.node-knob-module-macro {
+  outline: none;
   box-shadow: none;
 }
 

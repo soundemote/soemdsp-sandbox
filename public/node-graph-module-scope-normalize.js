@@ -778,6 +778,18 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}) {
 function normalizeNodeGraphKnobFaceDisplaySettings(settings = {}) {
   const source = settings && typeof settings === "object" ? settings : {};
   const defaults = nodeGraphKnobFaceDisplaySettingsDefaults;
+  const parseColor = (value, fallback) => {
+    const text = String(value || "").trim();
+    if (/^#[0-9a-fA-F]{6}$/.test(text) || /^#[0-9a-fA-F]{3}$/.test(text)) {
+      return text.length === 4
+        ? `#${text[1]}${text[1]}${text[2]}${text[2]}${text[3]}${text[3]}`
+        : text;
+    }
+    if (/^rgba?\(/i.test(text) || /^hsla?\(/i.test(text)) {
+      return text;
+    }
+    return fallback;
+  };
   return {
     decimals: normalizeNodeGraphTraceDisplayNumber(
       source.decimals ?? source.numDecimals,
@@ -786,6 +798,14 @@ function normalizeNodeGraphKnobFaceDisplaySettings(settings = {}) {
       8,
       true,
     ),
+    background: parseColor(
+      source.background ?? source.backgroundColor,
+      defaults.background,
+    ),
+    arcFill: parseColor(source.arcFill ?? source.dot1Color, defaults.arcFill),
+    arcTrack: parseColor(source.arcTrack ?? source.secondaryColor, defaults.arcTrack),
+    showLabel: source.showLabel !== false && source.showLabel !== "false",
+    showReadout: source.showReadout !== false && source.showReadout !== "false",
   };
 }
 

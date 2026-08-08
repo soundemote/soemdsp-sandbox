@@ -92,6 +92,12 @@ function nodeGraphDisplaySettingsColorRowMeta(key, formType = null) {
     aria = "LCD ghost segment color";
   } else if (formType === "numberReadout" && key === "backgroundColor") {
     aria = "LCD back plate color";
+  } else if (formType === "knobFace" && key === "backgroundColor") {
+    aria = "Knob face background";
+  } else if (formType === "knobFace" && key === "arcFill") {
+    aria = "Knob arc fill (value)";
+  } else if (formType === "knobFace" && key === "arcTrack") {
+    aria = "Knob arc track (unfilled)";
   }
   return {
     ...base,

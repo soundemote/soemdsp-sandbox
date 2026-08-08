@@ -3301,12 +3301,12 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   // Plugin Knob (type id knob kept for patch compatibility).
-  // Module-first: face = control + display; one Bias out; offset is hidden state.
+  // Module-first: macro-dial face + Bias out; offset is hidden state.
   knob: {
     planRole: "source",
     chrome: NodeGraphModuleChromeLayout.LayoutB,
-    defaultWidthGu: 4,
-    displayHeightGu: 2,
+    defaultWidthGu: 7,
+    displayHeightGu: 3,
     displayType: "knobFace",
     displayModes: [
       {

@@ -498,6 +498,12 @@ function readNodeGraphTraceDisplaySettingsForm() {
       if (key === "ghostColor") {
         next.ghostColor = input.value;
       }
+      if (key === "arcFill") {
+        next.arcFill = input.value;
+      }
+      if (key === "arcTrack") {
+        next.arcTrack = input.value;
+      }
     }
   }
   // Meet always derived from Left/Right (no manual override / Auto checkbox).
@@ -566,6 +572,12 @@ function nodeGraphDisplaySettingsFormValue(settings, key) {
   }
   if (key === "backgroundColor") {
     return settings.backgroundColor ?? settings.background;
+  }
+  if (key === "arcFill") {
+    return settings.arcFill;
+  }
+  if (key === "arcTrack") {
+    return settings.arcTrack;
   }
   if (key === "ghostColor") {
     return settings.ghostColor;

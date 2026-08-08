@@ -25,7 +25,7 @@ function drawNodeGraphSelfPaintFaceItem(_renderer, item, _pixelRatio) {
   }
 }
 
-/** Knob face = final Bias display (live modulated), not static param meta. */
+/** Knob face = macro dial + live Bias (modulated), not static param meta. */
 function drawNodeGraphKnobFaceItem(_renderer, item, _pixelRatio) {
   drawNodeGraphSelfPaintFaceItem(_renderer, item, _pixelRatio);
   const face = item?.screenElement || item?.slot?.scopeElement;
@@ -38,12 +38,11 @@ function drawNodeGraphKnobFaceItem(_renderer, item, _pixelRatio) {
   } else if (typeof renderNodeGraphKnobFace === "function") {
     renderNodeGraphKnobFace(face, nodeId);
   }
-  // Dimmer cutout only with loaded face art (text/stroke stay under the veil).
+  // Macro dial plate is always a light source (lit face).
   if (typeof nodeGraphKnobFaceSyncLightSource === "function") {
-    nodeGraphKnobFaceSyncLightSource(face);
+    nodeGraphKnobFaceSyncLightSource(face, true);
   } else {
-    const lit = face.classList?.contains("has-image");
-    nodeGraphModuleScopeMarkScreenLit(face, lit ? 1 : 0);
+    nodeGraphModuleScopeMarkScreenLit(face, 1);
   }
 }
 
