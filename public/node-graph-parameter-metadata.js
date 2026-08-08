@@ -505,10 +505,32 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
   if (max <= min) {
     max = min + 1;
   }
-  const mid = Number(Object.hasOwn(source, "mid") ? source.mid : fallback.mid);
-  const def = Number(Object.hasOwn(source, "def") ? source.def : fallback.def);
+  let mid = Number(Object.hasOwn(source, "mid") ? source.mid : fallback.mid);
+  let def = Number(Object.hasOwn(source, "def") ? source.def : fallback.def);
   const step = Number(Object.hasOwn(source, "step") ? source.step : fallback.step);
   const kind = normalizeNodeMetadataKind(source.kind || fallback.kind);
+  // Frequency metaparam accidentally saved as 0…1 (unit mistaken for Hz): restore
+  // the module’s full-band default range so EQ/filter faces show real Hz.
+  const unitStr = String(Object.hasOwn(source, "unit") ? source.unit ?? "" : fallback.unit || "")
+    .trim()
+    .toLowerCase();
+  if (
+    kind === "frequency"
+    && (unitStr === "hz" || unitStr === "")
+    && Number.isFinite(fallback.max)
+    && fallback.max >= 1000
+    && max <= 1
+    && min >= 0
+  ) {
+    min = Number.isFinite(fallback.min) ? fallback.min : 0;
+    max = fallback.max;
+    if (!Number.isFinite(mid) || mid <= 1) {
+      mid = Number.isFinite(fallback.mid) ? fallback.mid : Math.min(1000, max);
+    }
+    if (!Number.isFinite(def) || def <= 1) {
+      def = Number.isFinite(fallback.def) ? fallback.def : mid;
+    }
+  }
   const choices = normalizeNodeGraphMetadataChoices(
     Object.hasOwn(source, "choices") ? source.choices : fallback.choices,
     fallback.choices,

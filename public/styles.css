@@ -3797,6 +3797,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-tooltip-window {
   position: fixed;
   z-index: 60;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   width: clamp(
@@ -3816,6 +3817,13 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   box-shadow:
     0 18px 44px rgba(0, 0, 0, 0.42),
     inset 0 0 0 1px rgba(127, 199, 217, 0.08);
+}
+
+/* Title bar stays fixed; tip body owns every remaining pixel of the window. */
+.node-tooltip-window > .scene-context-heading {
+  flex: 0 0 auto;
+  position: relative; /* not sticky — no scroll body under the title in this window */
+  top: auto;
 }
 
 .node-tooltip-window[hidden] {
@@ -4188,32 +4196,38 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 /* No border/background/box-shadow of its own -- .node-tooltip-window
-   (the only place this renders now) already provides that chrome as
-   the single visible boundary; this used to double up into a "box
-   inside box" look (its own card border sitting inside the window's
-   card border) back when it lived loose in .node-help-stack. Fills the
-   window (flex: 1 1 auto) instead of a fixed height now that the
-   window itself can be resized taller.
-   Font size is NOT fixed: fitNodeInteractionHelpText scales the text to
-   fill this box (floating + embedded). --node-tooltip-text-size is only
-   a max ceiling from UI Dev. */
+   already provides chrome. Fills leftover window height (flex: 1 + min-height: 0).
+   Do NOT set a large min-height here — at window min (90px) the title bar is
+   ~30px, so the body only has ~60px; a 72px min left empty/clipped space.
+   Font size is NOT fixed: fitNodeInteractionHelpText scales text to the box.
+   --node-tooltip-text-size is only a max ceiling from UI Dev. */
 .node-interaction-help {
   display: flex;
   flex: 1 1 auto;
   align-items: center;
   justify-content: center;
-  min-height: 72px;
+  align-self: stretch;
+  box-sizing: border-box;
+  min-height: 0;
   min-width: 0;
-  padding: 6px 10px;
+  width: 100%;
+  height: auto;
+  padding: 4px 10px 8px; /* bottom room for the SE resize grip */
   color: var(--muted);
   font-family: Consolas, "Courier New", monospace;
   font-size: 8px; /* floor; JS fit sets the real size to fill the box */
-  line-height: 1.3;
+  line-height: 1.25;
   overflow: hidden;
   text-align: center;
   white-space: pre-line;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+/* Floating tips host: claim every pixel under the title bar. */
+.node-tooltip-window > .node-interaction-help {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .node-interaction-help:empty {
@@ -11544,11 +11558,13 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 /*
- * TEMP vanilla sharpness test: nearest-neighbor CSS scaling (was `auto`,
- * which bilinear-filters when the workspace / face is scaled and looked
- * soft/blurry). Revert to `auto` if hop-column dropouts return.
+ * Spectrogram: default CSS smooth scale under workspace zoom (permanent buffer
+ * is layout×dpr — fixed). Only pixelate at high zoom like other faces, so
+ * zoom in/out doesn’t look staircased/choppy between 1× and 2.5×.
  */
-.node-module-scope-local-fallback-canvas.node-spectrogram-canvas,
+.node-module-scope-local-fallback-canvas.node-spectrogram-canvas {
+  image-rendering: auto;
+}
 .node-graph-workspace.pixelated-canvas-zoom .node-module-scope-local-fallback-canvas.node-spectrogram-canvas {
   image-rendering: pixelated;
   image-rendering: crisp-edges;

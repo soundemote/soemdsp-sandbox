@@ -10,6 +10,12 @@
 //
 // This keeps motion tied to real time without needing a huge hop ring, and
 // avoids the “zoom/stretch as we fill” effect.
+//
+// Zoom / face-resize:
+//   Workspace zoom must NOT reallocate the permanent buffer (layout CSS size is
+//   stable; CSS scales the face canvas). Module drag-resize does change layout
+//   size — we rebuffer with bilinear stretch and only when the size moves by a
+//   few pixels so continuous drag doesn’t thrash nearest-neighbor every frame.
 
 const spectrogramHistory = new Map();
 const spectrogramLutRgbCache = new Map();
@@ -19,6 +25,8 @@ const spectrogramLutRgbCache = new Map();
 const SPECTROGRAM_MAX_HISTORY_SECONDS = 30;
 // 0 is not valid (used to coerce to 0.05 while UI showed 0).
 const SPECTROGRAM_MIN_HISTORY_SECONDS = 0.1;
+// Don’t re-stretch permanent ink for 1–2 px layout chatter during drag-resize.
+const SPECTROGRAM_REBUFFER_DELTA_PX = 3;
 // (Transport bin count is half-FFT length from the worklet — not a fixed 256.)
 
 function spectrogramDefaultGradientStops() {
@@ -319,6 +327,7 @@ function spectrogramCreateState(faceW, faceH) {
  * Resize face bitmap without wiping history or changing wall-clock scroll rate.
  * Stretch existing ink to the new face so full width still means History (s).
  * scrollDebtSec stays in seconds (independent of face pixel size).
+ * Uses bilinear stretch so module resize / dpr changes don’t look staircased.
  */
 function spectrogramResizePreserve(st, faceW, faceH) {
   const w = Math.max(1, faceW | 0);
@@ -336,40 +345,63 @@ function spectrogramResizePreserve(st, faceW, faceH) {
   next.lastHistorySerial = st.lastHistorySerial;
   next.paintFreqScale = st.paintFreqScale;
   next.paintSampleRate = st.paintSampleRate;
+  next.paintMinFreq = st.paintMinFreq;
+  next.paintMaxFreq = st.paintMaxFreq;
   next.historySeconds = st.historySeconds;
   next.pendingValid = Boolean(st.pendingValid);
   if (st.pendingValid && st.pendingMags?.length) {
+    // Bilinear-ish vertical remap of pending column (sample neighbors).
     for (let y = 0; y < h; y += 1) {
-      const srcY = Math.min(oldH - 1, Math.floor((y * oldH) / h));
-      next.pendingMags[y] = st.pendingMags[srcY] || 0;
+      const srcF = oldH <= 1 ? 0 : (y * (oldH - 1)) / Math.max(1, h - 1);
+      const y0 = Math.max(0, Math.min(oldH - 1, Math.floor(srcF)));
+      const y1 = Math.min(oldH - 1, y0 + 1);
+      const t = srcF - y0;
+      const a = Number(st.pendingMags[y0]) || 0;
+      const b = Number(st.pendingMags[y1]) || 0;
+      next.pendingMags[y] = a * (1 - t) + b * t;
     }
   }
 
   const nctx = next.ctx;
   if (nctx && st.canvas) {
-    // Stretch full face → full face so painted time scale still matches History (s).
-    nctx.imageSmoothingEnabled = false;
+    // Smooth stretch — nearest-neighbor rebuffer on every layout tick looked
+    // like broken drawing under workspace zoom / module resize.
+    nctx.imageSmoothingEnabled = true;
+    if ("imageSmoothingQuality" in nctx) nctx.imageSmoothingQuality = "medium";
     nctx.drawImage(st.canvas, 0, 0, oldW, oldH, 0, 0, w, h);
+    nctx.imageSmoothingEnabled = false;
   }
   return next;
 }
 
 function spectrogramEnsureState(nodeId, faceW, faceH, historySeconds) {
   let st = spectrogramHistory.get(String(nodeId || ""));
-  const w = Math.max(1, faceW | 0);
-  const h = Math.max(1, faceH | 0);
+  const wantW = Math.max(1, faceW | 0);
+  const wantH = Math.max(1, faceH | 0);
   const hist = Math.max(
     SPECTROGRAM_MIN_HISTORY_SECONDS,
     Math.min(SPECTROGRAM_MAX_HISTORY_SECONDS, Number(historySeconds) || 2),
   );
   const key = String(nodeId || "");
   if (!st) {
-    st = spectrogramCreateState(w, h);
+    st = spectrogramCreateState(wantW, wantH);
     spectrogramHistory.set(key, st);
-  } else if (st.faceW !== w || st.faceH !== h) {
-    st = spectrogramResizePreserve(st, w, h);
-    spectrogramHistory.set(key, st);
+  } else {
+    const dw = Math.abs((st.faceW | 0) - wantW);
+    const dh = Math.abs((st.faceH | 0) - wantH);
+    // Rebuffer when size moves enough. Tiny 1–2 px chatter during drag is
+    // presented via smooth drawImage instead of thrashing nearest-neighbor.
+    if (
+      dw >= SPECTROGRAM_REBUFFER_DELTA_PX
+      || dh >= SPECTROGRAM_REBUFFER_DELTA_PX
+    ) {
+      st = spectrogramResizePreserve(st, wantW, wantH);
+      spectrogramHistory.set(key, st);
+    }
   }
+  // Desired present size (may differ slightly from permanent buffer during drag).
+  st.presentW = wantW;
+  st.presentH = wantH;
   // History (s) only changes scroll rate for new ink — never wipes the bitmap.
   st.historySeconds = hist;
   return st;
@@ -453,13 +485,15 @@ function spectrogramIngestHop(
   maxFreqHz,
 ) {
   const h = st.faceH;
-  const w = st.faceW;
+  // Wall-clock width = what the user sees (present), not a stale buffer size
+  // while module resize is mid-drag.
+  const w = Math.max(1, (st.presentW | 0) || (st.faceW | 0));
   const hist = Math.max(
     SPECTROGRAM_MIN_HISTORY_SECONDS,
     Number(st.historySeconds) || 2,
   );
   const hopSec = Math.max(1, hopSize) / Math.max(1, sampleRate);
-  // Seconds of audio represented by one face pixel.
+  // Seconds of audio represented by one *display* face pixel.
   // Smaller history → fewer seconds per pixel → faster scroll (same hop covers more px).
   const secPerPx = hist / Math.max(1, w);
 
@@ -480,12 +514,15 @@ function spectrogramIngestHop(
   spectrogramPoolPending(st, st.columnScratch);
 
   st.scrollDebtSec = Math.max(0, Number(st.scrollDebtSec) || 0) + hopSec;
-  // Emit whole pixels; keep leftover audio-seconds for the next hop.
-  let whole = Math.floor(st.scrollDebtSec / Math.max(1e-12, secPerPx));
+  // Emit whole *buffer* pixels. Map display sec/px → buffer pixels so scroll
+  // rate matches History (s) even if present size ≠ buffer size mid-resize.
+  const bufW = Math.max(1, st.faceW | 0);
+  const secPerBufPx = hist / bufW;
+  let whole = Math.floor(st.scrollDebtSec / Math.max(1e-12, secPerBufPx));
   if (whole >= 1) {
-    whole = Math.min(w, whole);
+    whole = Math.min(bufW, whole);
     spectrogramScrollPaintPixels(st, whole, lutRgb, minThresh, threshRange, brightness);
-    st.scrollDebtSec -= whole * secPerPx;
+    st.scrollDebtSec -= whole * secPerBufPx;
     if (st.scrollDebtSec < 0) st.scrollDebtSec = 0;
   }
 }
@@ -496,10 +533,14 @@ function spectrogramPresent(ctx, st, faceW, faceH, bg) {
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, faceW, faceH);
   if (!st?.canvas || faceW < 1 || faceH < 1) return;
-  // 1:1 permanent bitmap (same size as face). TEMP: no smoothing anywhere.
-  ctx.imageSmoothingEnabled = false;
-  if ("imageSmoothingQuality" in ctx) ctx.imageSmoothingQuality = "low";
-  ctx.drawImage(st.canvas, 0, 0, faceW, faceH);
+  const srcW = Math.max(1, st.faceW | 0);
+  const srcH = Math.max(1, st.faceH | 0);
+  // 1:1 when buffer matches face (crisp). Smooth scale when sizes differ
+  // (module mid-drag, or brief size mismatch) so zoom doesn’t stair-step.
+  const exact = srcW === faceW && srcH === faceH;
+  ctx.imageSmoothingEnabled = !exact;
+  if ("imageSmoothingQuality" in ctx) ctx.imageSmoothingQuality = exact ? "low" : "medium";
+  ctx.drawImage(st.canvas, 0, 0, srcW, srcH, 0, 0, faceW, faceH);
 }
 
 function drawNodeGraphSpectrogramItem(renderer, item, pixelRatio) {
@@ -513,14 +554,14 @@ function drawNodeGraphSpectrogramItem(renderer, item, pixelRatio) {
   if (!syncNodeGraphModuleScopeLocalFallbackCanvas(canvas, screenElement, pixelRatio, 1)) return;
   canvas.style.mixBlendMode = "normal";
   canvas.classList.add("node-spectrogram-canvas");
-  // TEMP vanilla: force nearest-neighbor CSS scaling (was "auto" = browser blur).
-  canvas.style.imageRendering = "pixelated";
-  canvas.style.setProperty("image-rendering", "pixelated");
+  // Don’t force pixelated here — CSS smooth-scales under workspace zoom;
+  // .pixelated-canvas-zoom (≥ 2.5) switches to nearest-neighbor like other faces.
+  if (canvas.style.imageRendering) {
+    canvas.style.imageRendering = "";
+  }
 
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
-  ctx.imageSmoothingEnabled = false;
-  if ("imageSmoothingQuality" in ctx) ctx.imageSmoothingQuality = "low";
 
   const faceW = canvas.width | 0;
   const faceH = canvas.height | 0;

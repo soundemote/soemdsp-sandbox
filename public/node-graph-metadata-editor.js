@@ -1660,11 +1660,12 @@ function toggleNodeMetadataAdvancedScript() {
 }
 
 /**
- * Parameter Settings −/+ step size from the current magnitude (not a fixed 0.1):
- *   |value| < 10  → 1
- *   10…99         → 10
- *   100…999       → 100
- *   …             → 10^floor(log10(|value|))
+ * Parameter Settings −/+ step size from the current magnitude:
+ *   |value| < 1     → 0.1   (includes 0)
+ *   1…<10           → 1
+ *   10…<100         → 10
+ *   100…<1000       → 100
+ *   ≥1000           → 1000  (max increment)
  * Max digits always steps by 1.
  */
 function metadataStepperQuantum(input, currentValue) {
@@ -1672,20 +1673,30 @@ function metadataStepperQuantum(input, currentValue) {
     return 1;
   }
   const abs = Math.abs(Number(currentValue));
-  if (!Number.isFinite(abs) || abs < 10) {
+  if (!Number.isFinite(abs) || abs < 1) {
+    return 0.1;
+  }
+  if (abs < 10) {
     return 1;
   }
-  return 10 ** Math.floor(Math.log10(abs));
+  if (abs < 100) {
+    return 10;
+  }
+  if (abs < 1000) {
+    return 100;
+  }
+  return 1000;
 }
 
 function formatMetadataStepperValue(value, quantum) {
   if (!Number.isFinite(value)) {
     return "0";
   }
-  // Magnitude steps are always whole units (1, 10, 100…); max-digits too.
+  // Whole-unit quanta (1, 10, 100, 1000) and max-digits: integer display.
   if (!Number.isFinite(quantum) || quantum >= 1 - 1e-12) {
     return String(Math.round(value));
   }
+  // Sub-unit steps (0.1): keep one decimal without float dust.
   const decimals = Math.min(8, Math.max(0, String(quantum).split(".")[1]?.length || 0));
   return value.toFixed(decimals).replace(/\.?0+$/g, "");
 }

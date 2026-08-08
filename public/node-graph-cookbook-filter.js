@@ -1,14 +1,16 @@
+// Per-stage biquad is 2-pole (12 dB/oct); cascade Stages multiplies slope.
+// Compact labels match Active/TB-303 style (no spaces).
 const nodeGraphCookbookFilterModes = Object.freeze([
   "Bypass",
-  "Lowpass",
-  "Highpass",
-  "Bandpass Skirt",
-  "Bandpass Peak",
-  "Bandreject",
-  "Allpass",
+  "LP12",
+  "HP12",
+  "BP12 Skirt",
+  "BP12 Peak",
+  "BR12",
+  "AP12",
   "Peak",
-  "Low Shelf",
-  "High Shelf",
+  "LS12",
+  "HS12",
 ]);
 
 function createNodeGraphCookbookFilterState() {
@@ -257,9 +259,10 @@ function nodeGraphLadderFilterMagnitudeAt(params, frequency, sampleRate) {
 }
 
 /**
- * Live display value for a filter param: prefer the slider's current value
- * (tracks mid-drag before patch commit), then apply parameter-source ghost
- * modulation so modulated cutoffs animate on the curve face.
+ * Live display value for a filter param (domain units only — Hz, Q, dB, …).
+ * Prefers the slider’s domainValue (mid-drag before patch commit), then patch
+ * params. Metaparameters own min/max mapping; do not invent unit→domain math here.
+ * Ghost parameter-source mods still apply when present.
  */
 function nodeGraphFilterCurveLiveParam(node, key, fallback = 0) {
   const nodeId = node?.id || "";
@@ -271,9 +274,13 @@ function nodeGraphFilterCurveLiveParam(node, key, fallback = 0) {
     ? nodeGraphSliderForParameter(nodeId, key)
     : null;
   if (slider) {
-    const fromSlider = Number(slider.value);
-    if (Number.isFinite(fromSlider)) {
-      base = fromSlider;
+    // Domain value only (metaparam range). Never use input.value (unit thumb).
+    const fromDomain = Number(slider.dataset?.domainValue);
+    if (Number.isFinite(fromDomain)) {
+      base = fromDomain;
+    } else if (typeof nodeGraphReadNodeNumber === "function") {
+      const fromNode = Number(nodeGraphReadNodeNumber(nodeId, key));
+      if (Number.isFinite(fromNode)) base = fromNode;
     }
   } else {
     const fromPatch = Number(node?.params?.[key]);
@@ -447,7 +454,7 @@ function nodeGraphFilterCurveCutoffFrequencies(node, view = null) {
 function nodeGraphFilterCurveLabel(node) {
   if (node.type === "passiveFilter") {
     const mode = Math.round(Number(node.params?.mode) || 0);
-    return mode === 1 ? "1-Pole BP" : mode === 2 ? "1-Pole HP" : "1-Pole LP";
+    return mode === 1 ? "BP6" : mode === 2 ? "HP6" : "LP6";
   }
   if (node.type === "ladderFilter") {
     return nodeGraphLadderFilterModes[Math.round(Number(node.params?.mode) || 0)] || "Ladder";

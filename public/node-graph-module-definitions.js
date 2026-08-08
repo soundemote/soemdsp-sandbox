@@ -204,13 +204,14 @@ const nodeGraphNodeLabels = Object.freeze({
   ...nodeGraphChromelessModuleLabelEntries(),
 });
 
-const nodeGraphLadderFilterModes = Object.freeze(["Flat", "Lowpass", "Highpass", "Bandpass"]);
+const nodeGraphLadderFilterModes = Object.freeze(["Flat", "LP", "HP", "BP"]);
 
+// Compact pole labels — no spaces (LP12 not "LP 12").
 const nodeGraphTb303FilterModes = Object.freeze([
   "Flat",
-  "LP 6", "LP 12", "LP 18", "LP 24",
-  "HP 6", "HP 12", "HP 18", "HP 24",
-  "BP 12/12", "BP 6/18", "BP 18/6", "BP 6/12", "BP 12/6", "BP 6/6",
+  "LP6", "LP12", "LP18", "LP24",
+  "HP6", "HP12", "HP18", "HP24",
+  "BP12/12", "BP6/18", "BP18/6", "BP6/12", "BP12/6", "BP6/6",
 ]);
 
 // The PerkinElmer VTL5C-series single-cell parts we have solid datasheet
@@ -3537,7 +3538,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Out", "Left", "Right"],
     parameters: [
       {
-        choices: ["LP", "BP", "HP"],
+        choices: ["LP6", "BP6", "HP6"],
         defaultValue: "0",
         displayChoices: true,
         key: "mode",
@@ -3548,7 +3549,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "1-pole (~6 dB/oct). HP tames lows gently; LP softens highs; BP chains both.",
+        tooltip: "1-pole (~6 dB/oct). HP6 tames lows gently; LP6 softens highs; BP6 chains both.",
       },
       {
         defaultValue: "200",
@@ -3630,16 +3631,17 @@ const nodeGraphModuleDefinitions = (
       {
         choices: [
           "Bypass",
-          "Lowpass",
-          "Highpass",
-          "Bandpass Skirt",
-          "Bandpass Peak",
-          "Bandreject",
-          "Allpass",
+          "HP12",
+          "LP12",
+          "BP12 Skirt",
+          "BP12 Peak",
+          "BR12",
+          "AP12",
           "Peak",
-          "Low Shelf",
-          "High Shelf",
+          "LS12",
+          "HS12",
         ],
+        // 1 = HP12 (first usable mode after Bypass); 2-pole SVF → 12 dB/oct
         defaultValue: "1",
         displayChoices: true,
         divideChoicesVisibly: true,
@@ -3651,9 +3653,10 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "ZDF state-variable EQ (Robin Schmidt / RS-MET). Min-phase, zero latency.",
+        tooltip: "ZDF state-variable EQ (Robin Schmidt / RS-MET). 2-pole modes use compact labels (HP12, LP12, …). Order: Bypass, HP12, LP12, then the rest. Min-phase, zero latency.",
       },
       {
+        // Metaparam defaults: full audio band 0…20 kHz (not 0…1 unit).
         defaultValue: "1000",
         key: "frequency",
         kind: "frequency",
@@ -3664,7 +3667,8 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "0 allowed (frozen). Musical limits belong in metaparameters; DSP only guards crash cases.",
+        tooltip:
+          "Cutoff / center in Hz. Metaparam default range 0…20000. 0 allowed (frozen). DSP only guards crash cases.",
       },
       {
         defaultValue: "0.707",
@@ -3688,7 +3692,7 @@ const nodeGraphModuleDefinitions = (
         showSign: true,
         step: "any",
         unit: "dB",
-        tooltip: "Used by Peak, Low Shelf, and High Shelf modes.",
+        tooltip: "Used by Peak, LS12, and HS12 modes.",
       },
     ],
   },

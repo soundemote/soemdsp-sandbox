@@ -1,13 +1,13 @@
 // Single source of truth for "what modules exist": every type registered in
 // nodeGraphModuleDefinitions is automatically discoverable in the Module
-// Browser. There used to be a second, hand-maintained array here that had
-// to be kept in sync by hand -- it silently drifted out of sync more than
-// once (a real, dispatchable module could sit fully wired and totally
-// invisible in the UI with no error anywhere, since nothing here checked
-// against nodeGraphModuleDefinitions). Deriving this list removes that
-// failure mode entirely: if a module is in the files, it shows up, no
-// second registration step to forget.
-const nodeGraphModuleStoreTypes = Object.freeze(Object.keys(nodeGraphModuleDefinitions));
+// Browser. Live list (not freeze-at-parse) so load order / late chromeless
+// registration never leaves a real module invisible to search.
+function nodeGraphModuleStoreTypesList() {
+  const defs = (typeof nodeGraphModuleDefinitions === "object" && nodeGraphModuleDefinitions)
+    ? nodeGraphModuleDefinitions
+    : {};
+  return Object.keys(defs);
+}
 
 let nodeGraphNativeModuleEntries = Object.freeze([]);
 let nodeGraphNativeModuleEntriesByTarget = Object.freeze({});
@@ -884,9 +884,13 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   eqFilter: {
     category: "scientificFilter",
     description:
-      "Zero-latency ZDF state-variable EQ: LP, HP, BP, notch, allpass, peak, low/high shelf. Direct from Robin Schmidt’s rsStateVariableFilter (RS-MET). Prefer this for single-band EQ; Multi Stage Filter cascades RBJ biquads for steeper slopes.",
+      "Zero-latency ZDF state-variable EQ: LP, HP, BP, notch, allpass, peak, low/high shelf. Direct from Robin Schmidt's rsStateVariableFilter (RS-MET). Prefer this for single-band EQ; Multi Stage Filter cascades RBJ biquads for steeper slopes.",
     label: "EQ Filter",
     notes: [
+      "eq",
+      "eq filter",
+      "equalizer",
+      "equaliser",
       "EQ",
       "SVF",
       "ZDF",
@@ -900,6 +904,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "RS-MET",
       "min-phase",
       "scientific",
+      "scientific filter",
     ],
   },
   papoulisFilter: {
@@ -1596,7 +1601,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
 
 function defaultNodeGraphModuleCatalogVisibility() {
   return Object.fromEntries(
-    nodeGraphModuleStoreTypes.map((type) => [
+    nodeGraphModuleStoreTypesList().map((type) => [
       type,
       {
         developer: true,
@@ -1609,7 +1614,7 @@ function defaultNodeGraphModuleCatalogVisibility() {
 function normalizeNodeGraphModuleCatalogVisibility(value = {}) {
   const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   return Object.fromEntries(
-    nodeGraphModuleStoreTypes.map((type) => {
+    nodeGraphModuleStoreTypesList().map((type) => {
       const entry = source[type];
       if (entry && typeof entry === "object" && !Array.isArray(entry)) {
         return [
@@ -2437,7 +2442,7 @@ function nodeGraphLibEntryForType(type) {
 }
 
 function nodeGraphModuleStoreEntries() {
-  return nodeGraphModuleStoreTypes
+  return nodeGraphModuleStoreTypesList()
     .map((type) => {
       const nativeModules = nodeGraphNativeModulesForType(type);
       const implemented =
@@ -2467,7 +2472,7 @@ function nodeGraphModuleStoreEntries() {
 }
 
 function setNodeGraphModuleCatalogVisibility(type, visible, shelf = "shop") {
-  if (!nodeGraphModuleStoreTypes.includes(type)) {
+  if (!Object.hasOwn(nodeGraphModuleDefinitions || {}, type)) {
     return;
   }
   const key = shelf === "home" ? "home" : "developer";
@@ -2524,10 +2529,16 @@ function nodeGraphModuleStoreEntryMatchesSearch(entry, query) {
   if (!needle) {
     return true;
   }
+  // Include department display name (e.g. "Scientific Filter") so shelf labels match.
+  const depId = String(entry.category || "");
+  const depLabel = nodeGraphModuleStoreDepartmentById[depId]?.label
+    || nodeGraphModuleStoreDepartmentById[depId]?.title
+    || "";
   const haystack = [
     entry.label,
     entry.type,
     entry.category,
+    depLabel,
     entry.description,
     ...(entry.notes || []),
   ]
@@ -2540,6 +2551,38 @@ function nodeGraphModuleStoreEntryMatchesSearch(entry, query) {
     return true;
   }
   return tokens.every((token) => haystack.includes(token));
+}
+
+/** Lower score = better match (label/type prefix beats loose substring). */
+function nodeGraphModuleStoreSearchRank(entry, query) {
+  const needle = nodeGraphNormalizeModuleDepartmentSearch(query);
+  if (!needle) {
+    return 0;
+  }
+  const label = String(entry?.label || "").toLowerCase();
+  const type = String(entry?.type || "").toLowerCase();
+  const tokens = needle.split(/\s+/).filter(Boolean);
+  if (!tokens.length) {
+    return 0;
+  }
+  // Exact label / type
+  if (label === needle || type === needle) {
+    return -100;
+  }
+  // Label starts with full query ("eq" → "eq filter")
+  if (label.startsWith(needle) || type.startsWith(needle)) {
+    return -80;
+  }
+  // Every token is a word-start in the label (e.g. "eq" in "EQ Filter")
+  const labelWords = label.split(/[^a-z0-9]+/).filter(Boolean);
+  if (tokens.every((t) => labelWords.some((w) => w.startsWith(t)))) {
+    return -60;
+  }
+  // Type camelCase starts (eqFilter)
+  if (tokens.every((t) => type.includes(t))) {
+    return -40;
+  }
+  return 0;
 }
 
 function nodeGraphModuleStoreDepartmentMatchesSearch(department, entries, query) {
@@ -2562,10 +2605,17 @@ function nodeGraphModuleStoreDepartmentMatchesSearch(department, entries, query)
   return haystack.includes(needle);
 }
 
-function nodeGraphModuleStoreSearchResultOrder(a, b) {
+function nodeGraphModuleStoreSearchResultOrder(a, b, query = "") {
   const implementedDelta = Number(Boolean(b?.implemented)) - Number(Boolean(a?.implemented));
   if (implementedDelta) {
     return implementedDelta;
+  }
+  const q = query
+    || (typeof nodeGraphMvp !== "undefined" && (nodeGraphMvp.moduleStoreDepartmentSearch || nodeGraphMvp.commandCenterModuleSearch))
+    || "";
+  const rankDelta = nodeGraphModuleStoreSearchRank(a, q) - nodeGraphModuleStoreSearchRank(b, q);
+  if (rankDelta) {
+    return rankDelta;
   }
   return String(a?.label || "").localeCompare(String(b?.label || ""));
 }
@@ -2770,7 +2820,7 @@ function renderNodeGraphCommandCenterModuleSearch() {
         ? nodeGraphModuleStoreEntryMatchesSearch(entry, query)
         : true))
     .sort(typeof nodeGraphModuleStoreSearchResultOrder === "function"
-      ? nodeGraphModuleStoreSearchResultOrder
+      ? (a, b) => nodeGraphModuleStoreSearchResultOrder(a, b, query)
       : () => 0);
 
   if (!matches.length) {
@@ -3165,7 +3215,7 @@ function renderNodeGraphModuleStoreCatalog() {
     (!selectedDepartment || hasDepartmentSearchText || entry.category === selectedDepartment)
   );
   const visibleModuleEntries = selectedDepartment || departmentSearch
-    ? [...publicEntries].sort(nodeGraphModuleStoreSearchResultOrder)
+    ? [...publicEntries].sort((a, b) => nodeGraphModuleStoreSearchResultOrder(a, b, departmentSearch))
     : publicEntries;
   const homeEntries = entries.filter((entry) => entry.implemented && entry.homeVisible);
 

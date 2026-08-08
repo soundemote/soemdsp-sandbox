@@ -11,17 +11,19 @@
 // https://github.com/RobinSchmidt/RS-MET
 // Notes: https://github.com/RobinSchmidt/RS-MET/blob/work/Notes/StateVariableFilter.txt
 
+// 2-pole ZDF SVF → 12 dB/oct LP/HP (and matching 2-pole BP/BR/AP/shelves).
+// Compact pole labels, no spaces (HP12 not "HP 12").
 const nodeGraphEqFilterModes = Object.freeze([
   "Bypass",
-  "Lowpass",
-  "Highpass",
-  "Bandpass Skirt",
-  "Bandpass Peak",
-  "Bandreject",
-  "Allpass",
+  "HP12",
+  "LP12",
+  "BP12 Skirt",
+  "BP12 Peak",
+  "BR12",
+  "AP12",
   "Peak",
-  "Low Shelf",
-  "High Shelf",
+  "LS12",
+  "HS12",
 ]);
 
 function createNodeGraphEqFilterState() {
@@ -104,13 +106,13 @@ function nodeGraphEqFilterSetup(state, mode, omega, q, linearA) {
     return;
   }
   if (safeMode === 1) {
-    // LP: H(s) = 1 / (s^2 + s/Q + 1)
-    nodeGraphEqFilterSetupCore(state, omega, 1 / Q, 1, 0, 0, 1);
+    // HP (first after Bypass in the mode list)
+    nodeGraphEqFilterSetupCore(state, omega, 1 / Q, 0, 0, 1, 1);
     return;
   }
   if (safeMode === 2) {
-    // HP
-    nodeGraphEqFilterSetupCore(state, omega, 1 / Q, 0, 0, 1, 1);
+    // LP: H(s) = 1 / (s^2 + s/Q + 1)
+    nodeGraphEqFilterSetupCore(state, omega, 1 / Q, 1, 0, 0, 1);
     return;
   }
   if (safeMode === 3) {
