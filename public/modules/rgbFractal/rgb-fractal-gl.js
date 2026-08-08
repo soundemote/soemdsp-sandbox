@@ -2,7 +2,7 @@
 // Fragment shader does smooth escape + orbit traps; palette is a 256×1 LUT texture.
 
 // Bump when fragment/vertex source changes so live sessions recompile.
-const NODE_GRAPH_RGB_FRACTAL_GL_REV = 15;
+const NODE_GRAPH_RGB_FRACTAL_GL_REV = 16;
 
 // Separable 1D gaussian (horizontal or vertical). Dense 1px taps for smooth
 // sub-pixel → light image soft. Screen Blur max = one H+V pair (not stacked).
@@ -45,7 +45,7 @@ void main() {
 `;
 
 // GLSL ES 1.0 (WebGL1). Prefer highp so smooth coloring does not band/hard-edge.
-// Soft knob: wider spatial AA, fewer iters (kills sub-pixel noise), gentler color wraps.
+// Soft knob: energy-space cream (escape contour + spatial AA). Not Color Shift.
 const NODE_GRAPH_RGB_FRACTAL_GL_FS = `
 #ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
@@ -96,15 +96,16 @@ vec2 domainFold(vec2 z, float fold) {
   return mix(z, folded, f * 0.85);
 }
 
-// One Julia sample → energy in [0,1]. soft already baked into maxIter / trap mix by caller.
+// One Julia sample → energy in [0,1]. Soft creams escape contours / micro-contrast
+// in energy space (structure). Soft does NOT own palette phase — that is Color Shift.
 float juliaEnergy(vec2 z0, vec2 c, float maxIter, float soft, float trapMix) {
   vec2 z = domainFold(z0, uFold);
   float trap = 1e6;
   float trap2 = 1e6;
   float i = 0.0;
   // Wider trap falloff when soft → fewer hard filaments
-  float trapW = mix(1.0, 2.4, soft);
-  float trapW2 = mix(0.7, 1.8, soft);
+  float trapW = mix(1.0, 2.8, soft);
+  float trapW2 = mix(0.7, 2.1, soft);
 
   for (int n = 0; n < 256; n++) {
     if (i >= maxIter) break;
@@ -124,27 +125,30 @@ float juliaEnergy(vec2 z0, vec2 c, float maxIter, float soft, float trapMix) {
       float nu = log(max(1e-12, logZn / log(2.0))) / log(2.0);
       float smoothI = i + 1.0 - nu;
       float escape = clamp(smoothI / max(1.0, maxIter), 0.0, 1.0);
-      // Soften escape contour (hard rings → cream)
-      escape = smoothstep(0.0, mix(0.55, 1.0, soft), escape);
-      escape = mix(escape, smoothstep(0.0, 1.0, escape), soft * 0.85);
+      // Soft: widen + double-smooth escape rings (hard iso-lines → cream structure)
+      escape = smoothstep(0.0, mix(0.35, 1.45, soft), escape);
+      escape = mix(escape, smoothstep(0.0, 1.0, escape), soft * 0.95);
+      escape = mix(escape, escape * escape * (3.0 - 2.0 * escape), soft * 0.55);
 
       float t1 = 1.0 - smoothstep(0.0, trapW, trap);
       float t2 = 1.0 - smoothstep(0.0, trapW2, trap2);
       // Soft kills sharp trap lines (main source of "tiny pixel noise")
       float traps = clamp(t1 * 0.55 + t2 * 0.45, 0.0, 1.0);
-      traps = smoothstep(0.0, mix(0.35, 0.85, soft), traps);
+      traps = smoothstep(0.0, mix(0.35, 0.95, soft), traps);
 
-      float tm = clamp(trapMix * (1.0 - soft * 0.65), 0.0, 0.85);
+      // Soft also contributes a little trap cream even when trapMix is 0 (default face).
+      float softTrap = soft * 0.32;
+      float tm = clamp(trapMix * (1.0 - soft * 0.45) + softTrap, 0.0, 0.8);
       float e = mix(escape, traps, tm);
-      // Final soft curve — flattens micro-contrast
-      e = mix(e, e * e * (3.0 - 2.0 * e), soft * 0.7);
+      // Final soft curve — flattens micro-contrast in energy (not palette phase)
+      e = mix(e, e * e * (3.0 - 2.0 * e), soft * 0.85);
       return clamp(e, 0.0, 1.0);
     }
     i += 1.0;
   }
   // Interior: wide trap glow — no time grain (that read as breathing).
-  float t1 = 1.0 - smoothstep(0.0, mix(1.2, 2.2, soft), trap);
-  return clamp(0.05 + 0.14 * t1, 0.0, 1.0);
+  float t1 = 1.0 - smoothstep(0.0, mix(1.2, 2.6, soft), trap);
+  return clamp(0.05 + 0.14 * t1 + soft * 0.04, 0.0, 1.0);
 }
 
 vec2 mapUvToZ(vec2 frag, vec2 offsetPx) {
@@ -211,16 +215,15 @@ void main() {
   float maxIter = max(1.0, uMaxIter);
   float trapMix = uTrapMix;
 
-  // Energy sample. Edge Blur > 0 → dense 1px gaussian multi-tap of *energy*
-  // (more of the edge-soften effect, no sparse step ghosts).
-  // Edge Blur 0 → single center sample (sharp / no extra cost).
+  // Energy sample in structure space. Soft owns mild spatial cream; Edge Blur adds more.
+  // Combined sigma so Soft alone creams filaments (not palette spin).
+  float softSigma = soft * 1.25; // Soft 1 ≈ 1.25px energy AA
+  float blurSigma = edgeBlur < 0.015 ? 0.0 : min(2.0, 0.15 + edgeBlur * 0.23);
+  float sigma = sqrt(softSigma * softSigma + blurSigma * blurSigma);
   float e;
-  if (edgeBlur < 0.015) {
+  if (sigma < 0.08) {
     e = sampleAt(gl_FragCoord.xy, vec2(0.0), maxIter, soft, trapMix);
   } else {
-    // Lower max sigma to reduce filament shimmer (dense taps + large σ = thrash).
-    // UI 0…8 → sigma ~0.15…~2.0 px.
-    float sigma = min(2.0, 0.15 + edgeBlur * 0.23);
     float inv2s2 = 1.0 / max(1e-4, 2.0 * sigma * sigma);
     float sum = 0.0;
     float wsum = 0.0;
@@ -240,22 +243,21 @@ void main() {
   }
   e = clamp(e, 0.0, 1.0);
 
-  // Contrast: soft flattens micro-detail; glow still lifts midtones gently
-  float gamma = mix(0.78, 1.05, soft) - glowAmt * 0.1;
+  // Contrast: soft flattens micro-detail in energy; glow still lifts midtones gently
+  float gamma = mix(0.72, 1.18, soft) - glowAmt * 0.1;
   e = pow(e, max(0.45, gamma));
 
-  // —— Aug 2 color path (cream gradient, not lit-gated multi-band scrub) ——
-  // Color bands: uBands from Bands knob; soft reduces wraps; glow lifts richness.
-  float band = mix(uBands + glowAmt * 0.9, uBands * 0.45 + glowAmt * 0.4, soft);
-  band = max(0.25, band);
-  float phase = uColorPhase * mix(1.0, 0.55, soft);
-  // Soft (and low Soft) use triangle softWrap — never raw fract (hard seams = noise).
+  // —— Color path: Color Bands + Color Shift own wraps/phase. Soft does not. ——
+  // (Older Soft×phase / Soft×band coupling read as "Soft spins the gradient".)
+  float band = max(0.25, uBands + glowAmt * 0.9);
+  float phase = uColorPhase;
+  // Triangle softWrap — never raw fract (hard seams = noise).
   float eColor = softWrap(e * band + phase);
-  // Blend toward raw energy so it stays painterly, not zebra
-  eColor = mix(e, eColor, mix(0.55, 0.35, soft));
+  // Blend toward raw energy so bands stay painterly, not zebra
+  eColor = mix(e, eColor, 0.52);
   eColor = clamp(eColor * uBreath, 0.0, 1.0);
-  // Soft pulls color toward mid palette (less extreme contrast edges)
-  eColor = mix(eColor, 0.5 + (eColor - 0.5) * mix(1.0, 0.7, soft), soft * 0.5);
+  // Soft only: mild mid-palette pull + LUT low-pass (paletteSample) — no phase scrub
+  eColor = mix(eColor, 0.5 + (eColor - 0.5) * mix(1.0, 0.78, soft), soft * 0.35);
 
   vec3 col = paletteSample(eColor, soft);
 

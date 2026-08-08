@@ -660,34 +660,44 @@ function paintNodeGraphRgbFractalFaceCpu(canvas, face, params) {
       const rx = zx * cosR - zy * sinR + centerX + panX;
       const ry = zx * sinR + zy * cosR + centerY + panY;
       let e = nodeGraphRgbFractalJuliaSmooth(rx, ry, cx, cy, maxIter);
-      e = Math.pow(Math.max(0, Math.min(1, e)), 0.72 - glow * 0.25);
-      // Aug 2 GPU soft triangle wrap (no raw fract palette seams).
+      // Soft creams energy structure (gamma); Color Shift / Bands own palette mapping.
       const soft = Math.max(0, Math.min(1, Number(params.soft) || 0));
+      const gamma = 0.72 + soft * 0.46 - (Number(glow) || 0) * 0.25;
+      e = Math.pow(Math.max(0, Math.min(1, e)), Math.max(0.45, gamma));
+      // Soft escape cream (smoothstep-ish)
+      if (soft > 0.01) {
+        const t = Math.max(0, Math.min(1, e / (0.35 + soft * 1.1)));
+        e = t * t * (3 - 2 * t);
+        e = e * (1 - soft * 0.55) + e * e * (3 - 2 * e) * soft * 0.55;
+      }
+      // Color Bands + Color Shift only — Soft must not scale phase/bands (was "gradient spin").
       const bands = Math.max(0.25, Number(params.bands) || 1);
-      const band = bands * (1 - soft * 0.55) + soft * (bands * 0.45);
-      const phase = (Number(colorPhase) || 0) * (1 - soft * 0.45);
-      let eColor = e * Math.max(0.25, band) + phase;
+      const phase = Number(colorPhase) || 0;
+      let eColor = e * bands + phase;
       eColor = eColor - Math.floor(eColor);
       const tri = 1 - Math.abs(eColor * 2 - 1);
-      // smoothstep(0,1,tri) ≈ tri for [0,1]
       eColor = tri * tri * (3 - 2 * tri);
-      eColor = e * (1 - (0.55 - soft * 0.2)) + eColor * (0.55 - soft * 0.2);
+      eColor = e * 0.48 + eColor * 0.52;
       eColor = Math.max(0, Math.min(1, eColor * (Number(breath) || 1)));
-      eColor = eColor * (1 - soft * 0.5) + (0.5 + (eColor - 0.5) * (1 - soft * 0.3)) * soft * 0.5;
+      eColor = eColor * (1 - soft * 0.35)
+        + (0.5 + (eColor - 0.5) * (1 - soft * 0.22)) * soft * 0.35;
       field[row + i] = Math.max(0, Math.min(1, eColor));
     }
   }
 
-  // Edge Blur (CPU): dense 1px gaussian on energy (matches GPU — more effect, no steps).
+  // Soft + Edge Blur (CPU): spatial cream on field (Soft alone must read as soften, not recolor).
+  const softAmt = Math.max(0, Math.min(1, Number(params.soft) || 0));
   const blurAmt = Math.max(0, Math.min(8, Number(params.blur) || 0));
-  if (blurAmt > 0.015) {
+  const softSigma = softAmt * 1.25;
+  const blurSigma = blurAmt > 0.015 ? Math.min(2, 0.15 + blurAmt * 0.23) : 0;
+  const sigma = Math.sqrt(softSigma * softSigma + blurSigma * blurSigma);
+  if (sigma > 0.08) {
     let dst = face._rgbFractalFieldB;
     if (!dst || dst.length !== field.length) {
       dst = new Float32Array(field.length);
       face._rgbFractalFieldB = dst;
     }
     const radius = 2; // smaller kernel matches lower max sigma
-    const sigma = Math.min(2, 0.15 + blurAmt * 0.23);
     const inv2s2 = 1 / Math.max(1e-4, 2 * sigma * sigma);
     for (let j = 0; j < simH; j += 1) {
       for (let i = 0; i < simW; i += 1) {

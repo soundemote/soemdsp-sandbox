@@ -196,7 +196,7 @@ registerNodeGraphChromelessModule("rgbFractal", {
         nonlinearSlider: false,
         step: "any",
         tooltip:
-          "Structure/palette cream (escape softstep, contrast, LUT low-pass). Not Color Shift (that only slides the gradient phase).",
+          "Energy cream: softens escape contours + spatial AA on structure. Does not scrub Color Shift phase. Face only.",
       },
       {
         defaultValue: "1",
@@ -208,7 +208,7 @@ registerNodeGraphChromelessModule("rgbFractal", {
         nonlinearSlider: true,
         step: "any",
         tooltip:
-          "1 = one pass through the gradient. Below 1 compresses low stops; above 1 multi-wraps. Soft damps wraps. Face only.",
+          "1 = one pass through the gradient. Below 1 compresses low stops; above 1 multi-wraps. Independent of Soft. Face only.",
       },
       {
         defaultValue: "0",
