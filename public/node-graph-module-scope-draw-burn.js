@@ -91,7 +91,7 @@ function syncNodeGraphScope2dBurnCanvas(canvas, screenElement, pixelRatio, pixel
   }
   // Layout pixel grid × density — not screen-space getBoundingClientRect.
   // Workspace zoom must not reallocate burn FBOs (that was the FPS cliff).
-  // pixelDensity 2–4 supersamples so zoomed-in views stay soft, not blocky.
+  // density <1 = chunky pixelated; 1 = native; 2–4 = supersample.
   const size = nodeGraphModuleScopeFaceBackingSize(screenElement, pixelRatio);
   if (!size) {
     return { resized: false, synced: false };
@@ -110,7 +110,7 @@ function syncNodeGraphScope2dBurnCanvas(canvas, screenElement, pixelRatio, pixel
     // on X/Y phosphor faces.
     canvas._nodeGraphScope2dLastDrawnPoint = null;
   }
-  // Below 1: intentional chunk. At/above 1: smooth CSS scale (AA when density > 1).
+  // Below 1: intentional chunky CSS upscale. At/above 1: smooth scale.
   if (density < 0.999) {
     canvas.style.imageRendering = "pixelated";
   } else if (canvas.style.imageRendering) {
@@ -703,7 +703,8 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
   if (frozen) {
     // Present only (below). No decay, no bleed, no deposit.
   } else if (layer) {
-    // Soft circular hits on NEW motion only. Burn gain is smooth (no dead band).
+    // Continuous gaussian beam ribbons (capsule SDF + soft skirts) — not sparse
+    // linear stamps. Matches classic scope2d / online continuous-tube look.
     const size01 = clampNodeSliderValue(settings?.dot1Size, 0, 1);
     const beamBrightness = nodeGraphScope2dEnergyBurnDepositGain(
       burn,
@@ -716,9 +717,9 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       radius: Math.max(0.5, layer.radius),
       brightness: beamBrightness,
       blur: nodeGraphTraceDisplayClampStampBlur(layer.blur),
-      mode: "dots",
-      // Stamp ceiling only — packing is arc-length (stable density). Over budget
-      // widens spacing across the whole path (no mid-path truncate / blobs).
+      // segments = GPU ribbon with gaussian cross-section (default).
+      // dots = discrete stamps (economy / intentional dotted look only).
+      mode: "segments",
       maxDots: Math.max(
         64,
         Math.min(
@@ -748,7 +749,7 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
   if (nodeGraphPhosphorEnergyGlPresent(energyGl, 1, { exposure })) {
     context.save();
     context.globalCompositeOperation = "lighter";
-    // Smooth when density ≥ 1 (supersample AA); nearest when intentionally chunky.
+    // Smooth when density ≥ 1 (supersample); nearest when intentionally chunky.
     const dens = Number(sync.density);
     context.imageSmoothingEnabled = Number.isFinite(dens) ? dens >= 0.999 : true;
     context.drawImage(energyGl.canvas, 0, 0, width, height);

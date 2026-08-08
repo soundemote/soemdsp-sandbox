@@ -971,17 +971,41 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           state = this.createSinepulseState();
           this.sinepulseStates.set(nodeId, state);
         }
-        const baseFreq = this.readEffectiveParameter(node, "frequency", 55, frame, frames, frameValues);
-        const frequency = this.resolveSoftpopOrBandpassHz
-          ? this.resolveSoftpopOrBandpassHz(node, nodeId, baseFreq, frame, frames, frameValues, mixInput)
-          : baseFreq;
+        // Rate = master sweep rate. HighFreq/LowFreq = endpoints. Shift collapses span.
+        let baseRate = this.readEffectiveParameter(node, "rate", NaN, frame, frames, frameValues);
+        if (!Number.isFinite(Number(baseRate))) {
+          baseRate = this.readEffectiveParameter(node, "frequency", 1, frame, frames, frameValues);
+        }
+        const rateHz = this.resolveSoftpopOrBandpassHz
+          ? this.resolveSoftpopOrBandpassHz(node, nodeId, baseRate, frame, frames, frameValues, mixInput)
+          : baseRate;
+        let freqCurve = this.readEffectiveParameter(node, "freqCurve", NaN, frame, frames, frameValues);
+        if (!Number.isFinite(Number(freqCurve))) {
+          freqCurve = this.readEffectiveParameter(node, "curve", 0.5, frame, frames, frameValues);
+        }
+        let shift = this.readEffectiveParameter(node, "shift", NaN, frame, frames, frameValues);
+        if (!Number.isFinite(Number(shift))) {
+          const legacy = Number(this.readEffectiveParameter(node, "together", 0, frame, frames, frameValues));
+          shift = Number.isFinite(legacy) ? Math.max(0, Math.min(1, Math.abs(legacy) / 4)) : 0;
+        }
+        let highFreq = this.readEffectiveParameter(node, "highFreq", NaN, frame, frames, frameValues);
+        if (!Number.isFinite(Number(highFreq))) {
+          highFreq = this.readEffectiveParameter(node, "frequencyHigh", 20000, frame, frames, frameValues);
+        }
+        let lowFreq = this.readEffectiveParameter(node, "lowFreq", NaN, frame, frames, frameValues);
+        if (!Number.isFinite(Number(lowFreq))) {
+          lowFreq = this.readEffectiveParameter(node, "frequencyLow", 0, frame, frames, frameValues);
+        }
         return this.sinepulseSample(
           state,
-          frequency,
-          this.readEffectiveParameter(node, "sweep", 0.7, frame, frames, frameValues),
+          rateHz,
+          highFreq,
+          lowFreq,
+          shift,
+          this.readEffectiveParameter(node, "sweep", 1, frame, frames, frameValues),
           Math.round(this.readEffectiveParameter(node, "direction", 0, frame, frames, frameValues)),
-          Math.round(this.readEffectiveParameter(node, "curve", 1, frame, frames, frameValues)),
-          Math.round(this.readEffectiveParameter(node, "hardReset", 1, frame, frames, frameValues)),
+          freqCurve,
+          this.readEffectiveParameter(node, "ampCurve", 0, frame, frames, frameValues),
           this.readEffectiveParameter(node, "phase", 0, frame, frames, frameValues),
           this.readEffectiveParameter(node, "amplitude", 1, frame, frames, frameValues),
           this.safeFilterNumber(mixInput(nodeId, "Increment"), null) ?? 0,

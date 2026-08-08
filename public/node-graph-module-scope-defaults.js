@@ -90,7 +90,7 @@ const nodeGraphScopePhosphorLookDefaults = Object.freeze({
   blur: 0.35,
   // Max phosphor stamps / frame (economy spreads when over).
   dotBudget: 2048,
-  // Face buffer supersample (1 = layout×dpr).
+  // Face buffer scale (1 = native layout×dpr; <1 pixelated; 2–4 supersample).
   pixelDensity: 1,
   // Amplitude zoom.
   scale: 1,

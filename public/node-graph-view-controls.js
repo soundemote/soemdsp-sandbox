@@ -1166,6 +1166,10 @@ function applyNodeGraphTooltipWindowSize(size = nodeGraphMvp.tooltipWindowSize) 
     return normalized;
   }
   applyNodeGraphFloatingWindowSizeVars(win, "node-tooltip-window", nodeTooltipWindowDefaultSize, normalized);
+  // Window size is the box the tip text fills — re-fit after every resize.
+  if (typeof fitNodeInteractionHelpText === "function") {
+    fitNodeInteractionHelpText(document.getElementById("nodeInteractionHelp"));
+  }
   return normalized;
 }
 

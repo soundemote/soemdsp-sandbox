@@ -146,3 +146,7 @@ NodeLiveAudioProcessor.prototype.formantFilterSample = function formantFilterSam
 NodeLiveAudioProcessor.prototype.binaryClockSample = function binaryClockSample() {
   return { Out: 0, Bit0: 0, Bit1: 0, Bit2: 0, Bit3: 0, Gate: 0 };
 };
+
+NodeLiveAudioProcessor.prototype.thereminSample = function thereminSample() {
+  return { Out: 0, Pitch: 0, Volume: 0 };
+};

@@ -1700,6 +1700,16 @@ function stepNodeMetadataField(event) {
   if (input.id === "metadataMaxDigitsValue") {
     next = Math.max(0, Math.min(12, Math.round(next)));
   }
+  // Optional clamp (e.g. SENSITIVITY uses standard curve range −1…+1).
+  const clampMin = Number(input.dataset.metadataClampMin);
+  const clampMax = Number(input.dataset.metadataClampMax);
+  if (Number.isFinite(clampMin) && Number.isFinite(clampMax) && clampMax >= clampMin) {
+    next = Math.max(clampMin, Math.min(clampMax, next));
+  } else if (input.id === "metadataCurveSensitivityValue") {
+    next = typeof normalizeNodeSliderCurveAmount === "function"
+      ? normalizeNodeSliderCurveAmount(next, 0)
+      : Math.max(-1, Math.min(1, next));
+  }
   input.value = formatMetadataStepperValue(next, quantum);
   syncNodeMetadataMidVisibility();
   setNodeMetadataFieldsDirty(true);
@@ -2118,6 +2128,7 @@ function readNodeMetadataEditorValues(slider) {
     alias: normalizeNodeGraphPatchMetadataAlias(document.getElementById("metadataAliasValue").value),
     tooltip: String(document.getElementById("metadataTooltipValue").value || "").trim().slice(0, 240),
     curveAmount: normalizeNodeSliderCurveAmount(
+      // Already −1…+1 in normalizeNodeSliderCurveAmount (standard bipolar curve range).
       sanitizeMetadataNumberInput("metadataCurveSensitivityValue"),
       current.curveAmount,
     ),

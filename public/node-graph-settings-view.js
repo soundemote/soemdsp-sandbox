@@ -32,6 +32,7 @@ function syncNodeGraphSettingsView() {
   const pitchReference = normalizeNodeGraphPatchAudio(nodeGraphMvp.patch.audio);
   setNodeGraphSettingsField("patchPitchReferenceMidiNoteValue", pitchReference.pitchReferenceMidiNote);
   setNodeGraphSettingsField("patchPitchReferenceHzValue", pitchReference.pitchReferenceHz);
+  setNodeGraphSettingsField("patchSpeedLimitHzValue", pitchReference.speedLimitHz);
   const grid = normalizeNodeGraphPatchGrid(nodeGraphMvp.patch.grid);
   setNodeGraphSettingsField("patchGridWidthPxValue", grid.widthPx);
   setNodeGraphSettingsField("patchGridHeightPxValue", grid.heightPx);
@@ -75,18 +76,21 @@ function readNodeGraphVisualSettingsView() {
 function readNodeGraphAudioSettingsView() {
   const pitchReferenceMidiNote = document.getElementById("patchPitchReferenceMidiNoteValue")?.value;
   const pitchReferenceHz = document.getElementById("patchPitchReferenceHzValue")?.value;
+  const speedLimitHz = document.getElementById("patchSpeedLimitHzValue")?.value;
   const oversampling = document.getElementById("patchOversamplingValue")?.value;
   if (nodeGraphOversamplingPresets.map(String).includes(oversampling)) {
     return normalizeNodeGraphPatchAudio({
       targetSampleRate: nodeGraphTargetSampleRateForOversampling(Number(oversampling)),
       pitchReferenceMidiNote,
       pitchReferenceHz,
+      speedLimitHz,
     });
   }
   return normalizeNodeGraphPatchAudio({
     targetSampleRate: document.getElementById("patchTargetSampleRateValue")?.value,
     pitchReferenceMidiNote,
     pitchReferenceHz,
+    speedLimitHz,
   });
 }
 

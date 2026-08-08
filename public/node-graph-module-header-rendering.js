@@ -105,6 +105,19 @@ function commitNodeGraphHeaderNumberInput(input) {
     updateNodeGraphPatchTimingFromHeader(input);
   } else if (input.dataset.audioField) {
     updateNodeGraphPatchAudioFromHeader(input);
+  } else if (input.dataset.speedLimit === "true") {
+    if (typeof setNodeGraphProjectSpeedLimitHz === "function") {
+      setNodeGraphProjectSpeedLimitHz(input.value, { persist: true });
+    } else if (typeof setNodeGraphLiveSpeedLimit === "function") {
+      setNodeGraphLiveSpeedLimit(input.value);
+    }
+    input.value = String(
+      typeof nodeGraphProjectSpeedLimitHz === "function"
+        ? nodeGraphProjectSpeedLimitHz()
+        : (typeof nodeGraphLiveSpeedLimitHz === "function"
+          ? nodeGraphLiveSpeedLimitHz()
+          : 20000),
+    );
   } else if (input.dataset.globalScopeInput) {
     setNodeGraphScopeNumberInputValue(input, input.value);
   }
@@ -127,7 +140,8 @@ function bindNodeGraphHeaderTimingWidgets(root = document) {
     }
     input.addEventListener("change", () => commitNodeGraphHeaderNumberInput(input));
     input.addEventListener("blur", () => commitNodeGraphHeaderNumberInput(input));
-    if (input.dataset.timingField || input.dataset.audioField) {
+    // timing / audio / speedLimit: double-click unlocks typing after drag-mode readOnly.
+    if (input.dataset.timingField || input.dataset.audioField || input.dataset.speedLimit === "true") {
       input.addEventListener("dblclick", beginNodeGraphScopeNumberEdit);
     }
     input.addEventListener("keydown", (event) => {
@@ -138,7 +152,10 @@ function bindNodeGraphHeaderTimingWidgets(root = document) {
       event.stopPropagation();
     });
     input.addEventListener("pointerdown", (event) => {
-      if ((input.dataset.timingField || input.dataset.audioField) && input.readOnly) {
+      if (
+        (input.dataset.timingField || input.dataset.audioField || input.dataset.speedLimit === "true")
+        && input.readOnly
+      ) {
         event.preventDefault();
       }
       event.stopPropagation();
@@ -277,13 +294,16 @@ function createNodeGraphHeaderSpeedPlaceholder() {
   return field;
 }
 
-// Full-scale ceiling (Hz) for the universal oscillator `f` input: 0..speedLimit.
+// Project Speed Limit (Hz): absolute max for frequency knobs, f-jack, DSP clamps.
+// No project minimum frequency (0 allowed). Default 20000; user-adjustable.
+// Same interaction as BPM / pitch ref: drag to tune, double-click to type.
 function createNodeGraphHeaderSpeedLimitField() {
   const field = document.createElement("label");
   field.className = "node-header-timing-field node-header-scope-field";
-  field.setAttribute("aria-label", "Speed limit for oscillator f input in Hertz");
+  field.setAttribute("aria-label", "Project speed limit in Hertz");
   field.dataset.headerNumberDrag = "true";
-  field.title = "Max Hz for the universal oscillator f input (linear 0…limit).";
+  field.title =
+    "Project Speed Limit (Hz): maximum frequency for knobs, f jacks, and DSP. No minimum frequency. Default 20000. Drag to tune; double-click to type.";
 
   const caption = document.createElement("span");
   caption.className = "node-header-timing-caption";
@@ -293,31 +313,29 @@ function createNodeGraphHeaderSpeedLimitField() {
   const input = document.createElement("input");
   input.className = "node-header-timing-input";
   input.dataset.speedLimit = "true";
+  // Required so field-level drag/dblclick resolve this input (see
+  // nodeGraphScopeNumberDragInputFromTarget).
+  input.dataset.globalScopeNumberDrag = "true";
   input.inputMode = "decimal";
   input.min = "1";
-  input.max = "192000";
-  input.step = "any";
-  input.type = "number";
-  input.value = String(
-    typeof nodeGraphLiveSpeedLimitHz === "function"
-      ? nodeGraphLiveSpeedLimitHz()
-      : (nodeGraphMvp?.live?.speedLimit ?? 20000),
+  input.max = String(
+    typeof NODE_GRAPH_PROJECT_SPEED_LIMIT_CONTROL_MAX_HZ === "number"
+      ? NODE_GRAPH_PROJECT_SPEED_LIMIT_CONTROL_MAX_HZ
+      : 192000,
   );
-  input.setAttribute("aria-label", "Speed limit Hertz for f input");
-  input.addEventListener("keydown", (event) => event.stopPropagation());
-  input.addEventListener("pointerdown", (event) => event.stopPropagation());
-  const commit = () => {
-    if (typeof setNodeGraphLiveSpeedLimit === "function") {
-      setNodeGraphLiveSpeedLimit(input.value);
-    }
-    input.value = String(
-      typeof nodeGraphLiveSpeedLimitHz === "function"
+  // Integer Hz; "any" + NaN step broke drag snap into 0.01 steps oddly for this range.
+  input.step = "1";
+  input.type = "number";
+  input.readOnly = true;
+  input.value = String(
+    typeof nodeGraphProjectSpeedLimitHz === "function"
+      ? nodeGraphProjectSpeedLimitHz()
+      : (typeof nodeGraphLiveSpeedLimitHz === "function"
         ? nodeGraphLiveSpeedLimitHz()
-        : 20000,
-    );
-  };
-  input.addEventListener("change", commit);
-  input.addEventListener("blur", commit);
+        : (nodeGraphMvp?.live?.speedLimit ?? 20000)),
+  );
+  input.setAttribute("aria-label", "Project speed limit Hertz");
+  input.title = field.title;
   field.append(input);
   return field;
 }

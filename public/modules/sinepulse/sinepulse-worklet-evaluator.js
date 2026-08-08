@@ -10,10 +10,13 @@ NodeLiveAudioProcessor.prototype.createSinepulseState = function createSinepulse
 NodeLiveAudioProcessor.prototype.sinepulseSample = function sinepulseSample(
   state,
   frequencyHz,
+  frequencyHigh,
+  frequencyLow,
+  shift01,
   sweep,
   direction,
-  curve,
-  hardReset,
+  freqCurve,
+  ampCurve,
   phaseOffset,
   amplitude,
   increment,
@@ -21,13 +24,32 @@ NodeLiveAudioProcessor.prototype.sinepulseSample = function sinepulseSample(
   rate = sampleRate,
 ) {
   if (typeof nodeGraphSinepulseSample === "function") {
-    return this.safeFilterNumber(
-      nodeGraphSinepulseSample(
-        state, frequencyHz, sweep, direction, curve, hardReset,
-        phaseOffset, amplitude, increment, resetGate, rate,
-      ),
-      null,
+    const out = nodeGraphSinepulseSample(
+      state,
+      frequencyHz,
+      frequencyHigh,
+      frequencyLow,
+      shift01,
+      sweep,
+      direction,
+      freqCurve,
+      ampCurve,
+      phaseOffset,
+      amplitude,
+      increment,
+      resetGate,
+      rate,
     );
+    if (out && typeof out === "object") {
+      return {
+        Out: this.safeFilterNumber(out.Out, null) ?? 0,
+        f: this.safeFilterNumber(out.f, null) ?? 0,
+        Amp: this.safeFilterNumber(out.Amp, null) ?? 0,
+        Freq: this.safeFilterNumber(out.Freq, null) ?? 0,
+      };
+    }
+    const y = this.safeFilterNumber(out, null) ?? 0;
+    return { Out: y, f: 0, Amp: 0, Freq: 0 };
   }
-  return 0;
+  return { Out: 0, f: 0, Amp: 0, Freq: 0 };
 };

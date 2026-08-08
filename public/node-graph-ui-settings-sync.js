@@ -292,7 +292,8 @@ function syncNodeUiDevSettingsHeaderControls() {
     0,
     Math.min(100, Number(modularHeaderButtonBackgroundInput.value) || 0),
   );
-  const tooltipTextSizePx = Math.max(8, Math.min(28, Number(tooltipTextSizeInput.value) || 14));
+  // Max ceiling for tip fit-to-box (not a fixed display size).
+  const tooltipTextSizePx = Math.max(12, Math.min(96, Number(tooltipTextSizeInput.value) || 64));
   const minimumGridBrightnessPercent = Math.max(
     0,
     Math.min(100, Number(minimumGridBrightnessInput.value) || 0),
@@ -367,6 +368,10 @@ function syncNodeUiDevSettingsHeaderControls() {
   document
     .getElementById("nodeWiringPanel")
     ?.style.setProperty("--node-tooltip-text-size", `${tooltipTextSizePx}px`);
+  // Tip text scales to the box; re-fit when the max ceiling changes.
+  if (typeof fitNodeInteractionHelpText === "function") {
+    fitNodeInteractionHelpText(document.getElementById("nodeInteractionHelp"));
+  }
   document
     .documentElement
     .style

@@ -381,7 +381,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
   }),
   trace: Object.freeze({
     // Residual + framing. Ghost once only (was listed twice → double "Ghost" rows).
-    // Phosphor residual order: Ghost → Trail → Scale → Antialiasing → Dot Budget.
+    // Phosphor residual order: Ghost → Trail → Scale → Pixel density → Dot Budget.
     // Stamp size/blur/bright live only under the Dot/Stamp section.
     fields: Object.freeze([
       "decimals",
@@ -458,7 +458,7 @@ function nodeGraphTraceDisplaySettingsRoot() {
 }
 
 // Field labels / input modes for schema-exclusive body builders.
-// Phosphor labels: Size, Blur, Bright, Ghost, Trail, Scale, Antialiasing, Dot Budget.
+// Phosphor labels: Size, Blur, Bright, Ghost, Trail, Scale, Pixel density, Dot Budget.
 const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
   ghost: Object.freeze({
     label: "Ghost",
@@ -491,10 +491,11 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     title: "Amplitude zoom (1 = full-scale ±1 fills the face). Raise to enlarge quieter signals.",
   }),
   pixelDensity: Object.freeze({
-    label: "Antialiasing",
+    label: "Pixel density",
     inputmode: "decimal",
     id: "nodeTraceDisplayPixelDensity",
-    title: "Face buffer supersampling (higher = smoother stamps, more GPU). 1 = native; above 1 = antialiased energy grid.",
+    title:
+      "Face buffer scale (0–4). 1 = native layout×dpr. Below 1 = intentional low-res (pixelated / chunky). Above 1 = supersample then filter down (smoother, more GPU).",
   }),
   dotBudget: Object.freeze({
     label: "Dot Budget",
@@ -751,7 +752,7 @@ const nodeGraphDisplaySettingsSectionOrder = Object.freeze([
 ]);
 
 // Phosphor faces: Stamp (Size/Blur/Bright) before residual (Ghost/Trail/…).
-// Yields: Size → Blur → Bright → Ghost → Trail → Scale → Antialiasing → Dot Budget
+// Yields: Size → Blur → Bright → Ghost → Trail → Scale → Pixel density → Dot Budget
 const nodeGraphPhosphorDisplaySettingsSectionOrder = Object.freeze([
   "dot1",
   "trace",

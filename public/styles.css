@@ -1079,7 +1079,7 @@ audio {
 
 .node-wiring-panel {
   --node-toolbar-button-bg-alpha: 0.62;
-  --node-tooltip-text-size: 14px;
+  --node-tooltip-text-size: 64px; /* max font for tip fit-to-box (not a fixed size) */
   --node-min-grid-brightness-alpha: 0.045;
   margin-top: 0;
   padding: 0;
@@ -4193,21 +4193,27 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
    inside box" look (its own card border sitting inside the window's
    card border) back when it lived loose in .node-help-stack. Fills the
    window (flex: 1 1 auto) instead of a fixed height now that the
-   window itself can be resized taller. */
+   window itself can be resized taller.
+   Font size is NOT fixed: fitNodeInteractionHelpText scales the text to
+   fill this box (floating + embedded). --node-tooltip-text-size is only
+   a max ceiling from UI Dev. */
 .node-interaction-help {
   display: flex;
   flex: 1 1 auto;
   align-items: center;
   justify-content: center;
   min-height: 72px;
+  min-width: 0;
   padding: 6px 10px;
   color: var(--muted);
   font-family: Consolas, "Courier New", monospace;
-  font-size: var(--node-tooltip-text-size);
-  line-height: 1.35;
+  font-size: 8px; /* floor; JS fit sets the real size to fill the box */
+  line-height: 1.3;
   overflow: hidden;
   text-align: center;
   white-space: pre-line;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .node-interaction-help:empty {
@@ -4231,9 +4237,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
    grow or shrink with the text reflows the whole interface every time the
    pointer moves over a different control -- the old width:fit-content plus
    open-ended min-height did exactly that. Width and height are now constant
-   and the TEXT is fitted to the box instead (fitNodeInteractionHelpText in
-   node-graph-interaction-help.js shrinks the font until it fits, down to a
-   floor). --node-tooltip-embed-height is the single knob for the height. */
+   and the TEXT expands/shrinks to fill the box (fitNodeInteractionHelpText).
+   --node-tooltip-embed-height is the single knob for the height. */
 .node-interaction-help.is-embedded {
   --node-tooltip-embed-height: 46px;
   box-sizing: border-box;

@@ -39,7 +39,8 @@ const nodeUiDevSettingControls = Object.freeze([
   { defaultValue: 50, id: "nodeUiDevButtonTextSize", key: "uiDevButtonTextSize", max: 100, min: 0, type: "number" },
   { defaultValue: 76, exposeDefault: true, id: "nodeUiDevLiveToggleTextSize", key: "liveToggleTextSize", max: 100, min: 0, type: "number" },
   { defaultValue: 62, exposeDefault: true, id: "nodeUiDevModularHeaderButtonBackground", key: "modularHeaderButtonBackground", max: 100, min: 0, type: "number" },
-  { defaultValue: 14, exposeDefault: true, id: "nodeUiDevTooltipTextSize", key: "tooltipTextSize", max: 28, min: 8, type: "number" },
+  // Ceiling only: tip text scales to fill its window/embed box up to this max.
+  { defaultValue: 64, exposeDefault: true, id: "nodeUiDevTooltipTextSize", key: "tooltipTextSize", max: 96, min: 12, type: "number" },
   { defaultValue: 0, exposeDefault: true, id: "nodeUiDevMinimumGridBrightness", key: "minimumGridBrightness", max: 100, min: 0, type: "number" },
   { defaultValue: 78, exposeDefault: true, id: "nodeUiDevModuleLightSpread", key: "moduleLightSpread", max: 220, min: 40, type: "number" },
   { defaultValue: 18, exposeDefault: true, id: "nodeUiDevTextGlowLevel", key: "textGlowLevel", max: 100, min: 0, type: "number" },

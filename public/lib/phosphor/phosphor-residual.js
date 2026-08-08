@@ -1,7 +1,7 @@
 // Shared phosphor residual model (app-wide).
 //
 // Display Settings order (shared faces, including Lorenz):
-//   Size → Blur → Bright → Ghost → Trail → Scale → Antialiasing → Dot Budget
+//   Size → Blur → Bright → Ghost → Trail → Scale → Pixel density → Dot Budget
 //
 // Axes (all 0..1, high = more of the named quality):
 //   Bright     → peak deposit / present light

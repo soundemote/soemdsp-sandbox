@@ -25,6 +25,19 @@ function normalizeNodeGraphPatchAudio(audio = {}) {
   // in the Patch Settings panel for anyone who wants it instead.
   const pitchReferenceMidiNote = Number(audio?.pitchReferenceMidiNote);
   const pitchReferenceHz = Number(audio?.pitchReferenceHz);
+  // Project Speed Limit: absolute max Hz for frequency domains / f-jack /
+  // DSP clamps. User-adjustable (header + patch settings). Default 20000.
+  // There is no project minimum frequency (0 is allowed on signals).
+  const speedLimitHz = Number(audio?.speedLimitHz);
+  const defaultLimit = typeof nodeGraphProjectSpeedLimitDefaultHz === "function"
+    ? nodeGraphProjectSpeedLimitDefaultHz()
+    : 20000;
+  const controlMax = typeof NODE_GRAPH_PROJECT_SPEED_LIMIT_CONTROL_MAX_HZ === "number"
+    ? NODE_GRAPH_PROJECT_SPEED_LIMIT_CONTROL_MAX_HZ
+    : 192000;
+  const safeSpeedLimit = Number.isFinite(speedLimitHz) && speedLimitHz > 0
+    ? Math.min(controlMax, speedLimitHz)
+    : defaultLimit;
   return {
     targetSampleRate: Number.isFinite(targetSampleRate)
       ? Math.max(8000, Math.min(768000, targetSampleRate))
@@ -33,8 +46,9 @@ function normalizeNodeGraphPatchAudio(audio = {}) {
       ? Math.max(0, Math.min(127, pitchReferenceMidiNote))
       : 48,
     pitchReferenceHz: Number.isFinite(pitchReferenceHz) && pitchReferenceHz > 0
-      ? Math.max(0.01, Math.min(20000, pitchReferenceHz))
+      ? Math.max(0.01, Math.min(safeSpeedLimit, pitchReferenceHz))
       : 100,
+    speedLimitHz: safeSpeedLimit,
   };
 }
 

@@ -143,3 +143,10 @@ nodeGraphLiveModuleEvaluators.binaryClock = () => ({
   Bit3: 0,
   Gate: 0,
 });
+
+// Under construction: Theremin — silent placeholder (Controller shelf)
+nodeGraphLiveModuleEvaluators.theremin = () => ({
+  Out: 0,
+  Pitch: 0,
+  Volume: 0,
+});

@@ -176,7 +176,7 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
   ["bins", "Bins"],
   ["ghost", "Ghost"],
   ["trail", "Trail"],
-  ["pixelDensity", "Antialiasing"],
+  ["pixelDensity", "Pixel density"],
   ["dotBudget", "Dot Budget"],
   ["padding", "Amp"],
   ["cycles", "Cycles"],
@@ -199,7 +199,7 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
 /**
  * Shared phosphor Display Settings order (app-wide, including Lorenz).
  * Faces pick a subset; builders keep this relative order.
- * Size → Blur → Bright → Ghost → Trail → Scale → Antialiasing → Dot Budget
+ * Size → Blur → Bright → Ghost → Trail → Scale → Pixel density → Dot Budget
  */
 const nodeGraphPhosphorDisplayFieldOrder = Object.freeze([
   "dot1Size",

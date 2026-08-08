@@ -1078,6 +1078,16 @@
                 <option value="440" label="440Hz / concert A"></option>
               </datalist>
             </label>
+            <label title="Project maximum frequency (Hz). Frequency knobs, f jacks, and DSP clamps use this. No minimum frequency on signals. Default 20000.">
+              Speed Limit (Hz)
+              <input
+                id="patchSpeedLimitHzValue"
+                type="number"
+                min="1"
+                max="192000"
+                step="any"
+                data-patch-audio-field>
+            </label>
           </div>
           <div class="node-settings-grid-unit-row">
             <label>Grid Unit Width PX
@@ -1332,16 +1342,16 @@
             </div>
           </label>
           <label class="node-ui-dev-control">
-            <span>tooltip text size</span>
+            <span>tooltip max text size</span>
             <div class="node-ui-dev-control-row">
               <input
                 id="nodeUiDevTooltipTextSize"
                 type="range"
-                min="8"
-                max="28"
+                min="12"
+                max="96"
                 step="1"
-                value="14">
-              <output id="nodeUiDevTooltipTextSizeValue" for="nodeUiDevTooltipTextSize">14px</output>
+                value="64">
+              <output id="nodeUiDevTooltipTextSizeValue" for="nodeUiDevTooltipTextSize">64px</output>
             </div>
           </label>
           <label class="node-ui-dev-control">
@@ -2924,11 +2934,11 @@
               </select>
               <input id="metadataNonlinearSliderValue" type="checkbox" hidden tabindex="-1" aria-hidden="true">
             </label>
-            <label id="metadataCurveSensitivityLabel" class="metadata-curve-sensitivity-label" data-tooltip-key="parameterSettings.skewSensitivity">
-              <span>SENSITIVITY</span>
+            <label id="metadataCurveSensitivityLabel" class="metadata-curve-sensitivity-label" data-tooltip-key="parameterSettings.skewSensitivity" title="Edge skew strength. Standard range −1…+1 (same as FreqCurve-style bipolar). Only used when SKEW = edge skew.">
+              <span>SENSITIVITY (−1…+1)</span>
               <span class="metadata-stepper-control">
                 <button type="button" data-metadata-step-target="metadataCurveSensitivityValue" data-metadata-step-direction="-1" data-tooltip-key="parameterSettings.skewSensitivity">-</button>
-                <input id="metadataCurveSensitivityValue" type="text" inputmode="decimal" data-tooltip-key="parameterSettings.skewSensitivity">
+                <input id="metadataCurveSensitivityValue" type="text" inputmode="decimal" data-tooltip-key="parameterSettings.skewSensitivity" data-metadata-clamp-min="-1" data-metadata-clamp-max="1" aria-valuemin="-1" aria-valuemax="1">
                 <button type="button" data-metadata-step-target="metadataCurveSensitivityValue" data-metadata-step-direction="1" data-tooltip-key="parameterSettings.skewSensitivity">+</button>
               </span>
             </label>
@@ -3600,15 +3610,15 @@
   <script src="./public/modules/stepGrid/step-grid-register.js?v=stepgrid-variable-steps-20260715"></script>
   <script src="./public/modules/groupInput/group-input-register.js?v=chromeless-portals-1"></script>
   <script src="./public/modules/groupOutput/group-output-register.js?v=chromeless-portals-1"></script>
-  <script src="./public/node-graph-module-definitions.js?v=plugin-shelf-1"></script>
+  <script src="./public/node-graph-module-definitions.js?v=sinepulse-rename-1"></script>
   <script src="./public/node-graph-plan-roles.js?v=plan-roles-b0"></script>
-  <script src="./public/node-graph-module-controls.js?v=f-input-speed-limit-20260726"></script>
+  <script src="./public/node-graph-module-controls.js?v=speed-limit-project-1"></script>
   <script src="./public/node-graph-data-bus.js?v=data-plane-merge-20260711"></script>
-  <script src="./public/node-graph-module-store.js?v=plugin-shelf-1"></script>
+  <script src="./public/node-graph-module-store.js?v=sinepulse-rename-1"></script>
   <script src="./public/node-graph-module-sizing.js?v=display-min-1gu-1"></script>
   <script src="./public/node-graph-metadata-kinds.js?v=0051"></script>
   <script src="./public/node-graph-parameter-smoother-filters.js?v=two-pole-smooth-1"></script>
-  <script src="./public/node-graph-parameter-metadata.js?v=mod-clamp-1"></script>
+  <script src="./public/node-graph-parameter-metadata.js?v=speed-limit-project-1"></script>
   <script src="./public/node-graph-metadata-defaults.js?v=decimal-template-1"></script>
   <script src="./public/node-graph-text-box-utils.js?v=text-box-size-1000-1"></script>
   <script src="./public/node-graph-port-script.js?v=nuke-scriptbox-20260719"></script>
@@ -3623,16 +3633,16 @@
   <script src="./public/node-graph-embed-config.js?v=embed-config-20260701"></script>
   <script src="./public/node-graph-resources.js?v=embed-config-20260701"></script>
   <script src="./public/node-graph-text-box-rendering.js?v=data-plane-merge-20260709"></script>
-  <script src="./public/node-graph-patch-normalizers.js?v=robin-supersaw-v7-oscillator-freq-defaults-20260703"></script>
+  <script src="./public/node-graph-patch-normalizers.js?v=speed-limit-project-1"></script>
   <script src="./public/node-graph-audio-derivation.js?v=sample-rate-oversampling-1780468200000"></script>
   <script src="./public/node-graph-grid-utils.js?v=center-origin-view-1"></script>
-  <script src="./public/node-graph-patch-runtime.js?v=dynamic-module-counts-1"></script>
+  <script src="./public/node-graph-patch-runtime.js?v=speed-limit-project-1"></script>
   <script src="./public/node-graph-code-screen-model.js?v=code-screen-1"></script>
   <!-- Code Screen UI is a satellite (CORE_REDUCTION_PLAN.md); loaded on demand. -->
   <script src="./public/node-graph-code-screen-loader.js?v=core-reduction-1"></script>
   <script src="./public/node-graph-patch-serialization.js?v=share-link-1"></script>
   <script src="./public/node-graph-settings-fields.js?v=slider-unit-color-1780307400000"></script>
-  <script src="./public/node-graph-settings-view.js?v=robin-supersaw-v7-oscillator-freq-defaults-20260703"></script>
+  <script src="./public/node-graph-settings-view.js?v=speed-limit-project-1"></script>
   <script src="./public/node-graph-settings-text-fit.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-default-preset.js?v=embed-config-20260701"></script>
   <script src="./public/node-graph-script-status.js?v=slider-unit-color-1780307400000"></script>
@@ -3647,16 +3657,16 @@
   <script src="./public/node-graph-context-menu.js?v=visibility-two-row-1"></script>
   <script src="./public/node-graph-module-actions.js?v=alias-title-restore-1"></script>
   <!-- node-graph-code-screen.js loaded by node-graph-code-screen-loader.js on demand -->
-  <script src="./public/lib/phosphor/phosphor-residual.js?v=c1091b4-restore-2"></script>
-  <script src="./public/lib/phosphor/phosphor-energy-gl.js?v=dot-arclen-1"></script>
-  <script src="./public/lib/phosphor/phosphor-drawer.js?v=size-1px-0"></script>
-  <script src="./public/node-graph-phosphor-energy-gl.js?v=2d-site-cap-1"></script>
+  <script src="./public/lib/phosphor/phosphor-residual.js?v=beam-gauss-1"></script>
+  <script src="./public/lib/phosphor/phosphor-energy-gl.js?v=beam-gauss-2"></script>
+  <script src="./public/lib/phosphor/phosphor-drawer.js?v=beam-gauss-1"></script>
+  <script src="./public/node-graph-phosphor-energy-gl.js?v=beam-gauss-2"></script>
   <script src="./public/lib/trace/trace-stroke.js?v=size-1px-0"></script>
   <script src="./public/node-graph-phosphor-gaussian-drawer.js?v=gaussian-beam-continuous-1"></script>
   <script type="module" src="./public/color-widget-boot.js?v=plane-4corner-1"></script>
   <script src="./public/modules/spectrogram/spectrogram-gradient-editor.js?v=matrix-preset-1"></script>
-  <script src="./public/node-graph-module-scope-defaults.js?v=size-1px-0"></script>
-  <script src="./public/node-graph-module-scope-normalize.js?v=2d-site-cap-1"></script>
+  <script src="./public/node-graph-module-scope-defaults.js?v=beam-gauss-1"></script>
+  <script src="./public/node-graph-module-scope-normalize.js?v=beam-gauss-1"></script>
   <script src="./public/node-graph-module-scope-display-mode.js?v=scope-display-mode-1"></script>
   <script src="./public/node-graph-module-scope-phosphor.js?v=scope-phosphor-1"></script>
   <script src="./public/node-graph-module-scope-settings-form.js?v=scope-settings-form-1"></script>
@@ -3664,15 +3674,15 @@
   <script src="./public/node-graph-module-scope-capture.js?v=2d-site-cap-1"></script>
   <script src="./public/node-graph-module-scope-number-readout.js?v=scope-number-readout-1"></script>
   <script src="./public/node-graph-module-scope-draw-basic.js?v=scope-draw-basic-1"></script>
-  <script src="./public/node-graph-module-scope-draw-burn.js?v=dot-arclen-1"></script>
+  <script src="./public/node-graph-module-scope-draw-burn.js?v=beam-gauss-1"></script>
   <script src="./public/node-graph-module-scopes.js?v=scope-sync-lock-1"></script>
-  <script src="./public/node-graph-module-scope-spectrum.js?v=scope-spectrum-1"></script>
+  <script src="./public/node-graph-module-scope-spectrum.js?v=beam-gauss-1"></script>
   <script src="./public/node-graph-module-scope-buffer-io.js?v=scope-buffer-io-1"></script>
   <script src="./public/node-graph-module-scope-sync.js?v=scope-sync-lock-1"></script>
   <script src="./public/node-graph-module-scope-metrics.js?v=scope-metrics-1"></script>
   <script src="./public/node-graph-module-scope-geometry.js?v=scope-geometry-1"></script>
   <script src="./public/node-graph-module-scope-webgl.js?v=scope-webgl-1"></script>
-  <script src="./public/node-graph-module-scope-vertices.js?v=scope-vertices-1"></script>
+  <script src="./public/node-graph-module-scope-vertices.js?v=beam-gauss-1"></script>
   <script src="./public/node-graph-module-scope-offline.js?v=scope-offline-1"></script>
   <script src="./public/node-graph-module-scope-screen-items.js?v=1d-bright-1"></script>
   <script src="./public/node-graph-module-scope-slots.js?v=scope-slots-1"></script>
@@ -3680,13 +3690,13 @@
   <script src="./public/node-graph-module-scope-monitors.js?v=scope-monitors-1"></script>
   <script src="./public/node-graph-module-scope-scene-controls.js?v=scope-scene-controls-1"></script>
   <script src="./public/node-graph-module-scope-shader-settings.js?v=scope-shader-settings-1"></script>
-  <script src="./public/node-graph-module-scope-trace-controls.js?v=sweep-fix-1"></script>
+  <script src="./public/node-graph-module-scope-trace-controls.js?v=beam-gauss-1"></script>
   <script src="./public/node-graph-module-scope-wipe.js?v=scope-wipe-2"></script>
   <script src="./public/node-graph-module-scope-graph-query.js?v=scope-graph-query-1"></script>
   <script src="./public/node-graph-module-scope-settings.js?v=scope-settings-1"></script>
   <script src="./public/node-graph-module-scope-lifecycle.js?v=scope-lifecycle-1"></script>
   <script src="./public/node-graph-module-scope-canvas.js?v=scope-canvas-1"></script>
-  <script src="./public/node-graph-module-scope-paint-helpers.js?v=1d-undrawn-1"></script>
+  <script src="./public/node-graph-module-scope-paint-helpers.js?v=beam-gauss-1"></script>
   <script src="./public/node-graph-module-scope-draw-orchestrator.js?v=scope-draw-orch-1"></script>
   <script src="./public/modules/phosphorLight/phosphor-light-display.js?v=alias-only-1"></script>
   <script src="./public/modules/oscilloscopeBank/oscilloscope-bank-display.js?v=room-dimmer-full-ui-90-1"></script>
@@ -3720,7 +3730,7 @@
   <script src="./public/modules/stepGrid/step-grid-ui.js?v=stepgrid-variable-steps-20260715"></script>
   <script src="./public/modules/groupInput/group-input-ui.js?v=chromeless-portals-1"></script>
   <script src="./public/modules/groupOutput/group-output-ui.js?v=chromeless-portals-1"></script>
-  <script src="./public/node-graph-module-header-rendering.js?v=alias-title-restore-1"></script>
+  <script src="./public/node-graph-module-header-rendering.js?v=speed-limit-project-1"></script>
   <script src="./public/node-graph-module-rendering.js?v=room-dimmer-full-ui-90-1"></script>
   <script src="./public/node-graph-module-frame.js?v=room-dimmer-full-ui-90-1"></script>
   <script src="./public/node-graph-history.js?v=slider-unit-color-1780307400000"></script>
@@ -3738,7 +3748,7 @@
   <script src="./public/node-graph-slider-readout-controls.js?v=bug-button-settings-edit-20260723"></script>
   <script src="./public/node-graph-ghost-sliders.js?v=unbounded-speed-1"></script>
   <script src="./public/node-code-settings-editor.js?v=code-settings-shell-1"></script>
-  <script src="./public/node-graph-metadata-editor.js?v=core-reduction-1"></script>
+  <script src="./public/node-graph-metadata-editor.js?v=sens-range-1"></script>
   <script src="./public/node-graph-render-settings.js?v=cleanup-20260725-slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-ear-protection.js?v=ear-protection-pause-1"></script>
   <script src="./public/node-graph-patch-load-fault.js?v=patch-load-fault-1"></script>
@@ -3911,7 +3921,7 @@
   <script src="./public/modules/eqFilter/eq-filter-math.js?v=tilt-eq-1"></script>
   <script src="./public/modules/eqFilter/eq-filter-live-evaluator.js?v=tilt-eq-1"></script>
   <script src="./public/modules/scientificIir/scientific-iir-math.js?v=scientific-iir-1"></script>
-  <script src="./public/modules/scientificIir/scientific-iir-live-evaluator.js?v=scientific-iir-1"></script>
+  <script src="./public/modules/scientificIir/scientific-iir-live-evaluator.js?v=theremin-uc-1"></script>
   <script src="./public/modules/crossover/crossover-math.js?v=crossover-1"></script>
   <script src="./public/modules/crossover/crossover-live-evaluator.js?v=crossover-1"></script>
   <script src="./public/modules/modeResonator/mode-resonator-math.js?v=mode-resonator-1"></script>
@@ -3948,8 +3958,8 @@
   <script src="./public/modules/noiseGenerator/noise-generator-live-evaluator.js?v=noise-generator-1"></script>
   <script src="./public/modules/softpopOscillator/softpop-oscillator-math.js?v=edge-fill-1"></script>
   <script src="./public/modules/softpopOscillator/softpop-oscillator-live-evaluator.js?v=softpop-1"></script>
-  <script src="./public/modules/sinepulse/sinepulse-math.js?v=sinepulse-1"></script>
-  <script src="./public/modules/sinepulse/sinepulse-live-evaluator.js?v=sinepulse-1"></script>
+  <script src="./public/modules/sinepulse/sinepulse-math.js?v=sinepulse-16"></script>
+  <script src="./public/modules/sinepulse/sinepulse-live-evaluator.js?v=sinepulse-16"></script>
   <script src="./public/modules/randomWalk/random-walk-math.js?v=random-walk-1"></script>
   <script src="./public/modules/randomWalk/random-walk-live-evaluator.js?v=random-walk-1"></script>
   <script src="./public/modules/piSpigotNoise/pi-spigot-noise-live-evaluator.js?v=per-module-dispatch-20260711"></script>

@@ -637,11 +637,12 @@ function syncNodeGraphModuleScopeLocalFallbackCanvas(canvas, screenElement, pixe
     canvas._nodeGraphScope2dLastDrawnPoint = null;
     const context = previousCanvas ? canvas.getContext("2d") : null;
     if (context) {
-      context.imageSmoothingEnabled = false;
+      // Nearest when going chunky; smooth when supersampling up.
+      context.imageSmoothingEnabled = density >= 0.999;
       context.drawImage(previousCanvas, 0, 0, previousWidth, previousHeight, 0, 0, width, height);
     }
   }
-  // Below 1: intentional chunky CSS upscale. At/above 1: smooth scale (AA when density > 1).
+  // Below 1: intentional chunky CSS upscale. At/above 1: smooth scale.
   if (density < 0.999) {
     canvas.style.imageRendering = "pixelated";
   } else if (canvas.style.imageRendering) {

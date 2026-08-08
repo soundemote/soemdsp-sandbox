@@ -37,6 +37,8 @@ const nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([
   "formantFilter",
   // Binary counter clock (bit outs + gate) — placeholder until design lands.
   "binaryClock",
+  // Space-controlled pitch object / performance controller — placeholder.
+  "theremin",
   // Waveguide physical model — shell exists (passthrough); full engine later.
   "waveguide",
   // Classic modulation FX
@@ -1022,17 +1024,19 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   sinepulse: {
     category: "oscillator",
     description:
-      "Period-reset chirp: a sine whose instant frequency sweeps each tooth, then the schedule resets. Low Frequency = zap/kick sweeps; high = saw-ish buzz. Sweep depth, Down/Up, Linear/Exp, Hard Reset. Cheap single-sin path — no Phase Disperse stack. 0.1V/Oct + f + Reset + Increment.",
+      "Sine chirp / zap. Rate = sweep rate. LowFreq/HighFreq = pitch endpoints (capped by project Speed Limit). Shift collapses LowFreq toward HighFreq. Sweep = fill. FreqCurve/AmpCurve bipolar (−1…+1). CV: f, Amp, Freq. Up/Down. 0.1V/Oct + f + Reset + Increment.",
     label: "Sinepulse",
     notes: [
       "chirp",
+      "sine sweep",
       "period reset",
       "sweep",
       "kick",
       "zap",
-      "failing saw",
+      "pulse",
       "oscillator",
       "sine",
+      "high low",
     ],
   },
   formantFilter: {
@@ -1046,6 +1050,13 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Under construction. Binary counter clock with bit outputs and gate (placeholder).",
     label: "Binary Clock",
     notes: ["under construction", "binary", "counter", "clock", "bits"],
+  },
+  theremin: {
+    category: "controller",
+    description:
+      "Under construction. Theremin — space-controlled pitch/volume controller (hand / proximity CV planned). Placeholder until the interaction and voice design land.",
+    label: "Theremin",
+    notes: ["under construction", "theremin", "controller", "proximity", "pitch", "performance"],
   },
   // --- Analog Filter: character / named circuits ---
   yellowjacketFilter: {
@@ -1685,10 +1696,668 @@ function nodeGraphNativeModulesForType(type) {
 // "Code" button entries for modules that stay JavaScript on purpose (not
 // backed by a native_modules/*.cpp entry). Points at the file where the
 // module's DSP is actually implemented, not just where it's dispatched.
+// JS / pure-browser modules: Code button targets the primary DSP source file.
+// Regenerated-ish via scripts/_gen_js_source_entries.py when module folders grow.
 const nodeGraphJsSourceEntriesByType = Object.freeze({
+  activeFilter: {
+    source: "public/modules/activeFilter/active-filter-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/activeFilter/active-filter-math.js",
+  },
+  additiveOsc: {
+    source: "public/modules/additiveOsc/additive-osc-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/additiveOsc/additive-osc-worklet-evaluator.js",
+  },
+  aliasSine: {
+    source: "public/modules/aliasSine/alias-sine-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/aliasSine/alias-sine-worklet-evaluator.js",
+  },
+  allpass: {
+    source: "public/modules/scientificIir/scientific-iir-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/scientificIir/scientific-iir-math.js",
+  },
+  antisaw: {
+    source: "public/modules/antisaw/antisaw-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/antisaw/antisaw-worklet-evaluator.js",
+  },
+  asciiscope: {
+    source: "public/modules/asciiscope/asciiscope-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/asciiscope/asciiscope-live-evaluator.js",
+  },
+  attackDecay: {
+    source: "public/modules/attackDecay/attack-decay-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/attackDecay/attack-decay-math.js",
+  },
+  audioInput: {
+    source: "public/modules/audioInput/audio-input-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/audioInput/audio-input-live-evaluator.js",
+  },
+  audioPlayer: {
+    source: "public/modules/audioPlayer/audio-player-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/audioPlayer/audio-player-worklet-evaluator.js",
+  },
+  badvalMonitor: {
+    source: "public/modules/badvalMonitor/badval-monitor-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/badvalMonitor/badval-monitor-worklet-evaluator.js",
+  },
+  bandpass: {
+    source: "public/modules/scientificIir/scientific-iir-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/scientificIir/scientific-iir-math.js",
+  },
+  bessel: {
+    source: "public/modules/scientificIir/scientific-iir-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/scientificIir/scientific-iir-math.js",
+  },
+  bias: {
+    source: "public/modules/bias/bias-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/bias/bias-math.js",
+  },
+  bitConverter: {
+    source: "public/modules/bitConverter/bit-converter-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/bitConverter/bit-converter-math.js",
+  },
+  bloomGlow: {
+    source: "public/modules/bloomGlow/bloom-glow-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/bloomGlow/bloom-glow-live-evaluator.js",
+  },
+  blubb: {
+    source: "public/modules/blubb/blubb-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/blubb/blubb-worklet-evaluator.js",
+  },
+  bode: {
+    source: "public/modules/bode/bode-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/bode/bode-math.js",
+  },
+  boing: {
+    source: "public/modules/boing/boing-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/boing/boing-worklet-evaluator.js",
+  },
+  bradley2a: {
+    source: "public/modules/bradley2a/bradley-2a-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/bradley2a/bradley-2a-worklet-evaluator.js",
+  },
+  bugButton: {
+    source: "public/modules/bugButton/bug-button-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/bugButton/bug-button-worklet-evaluator.js",
+  },
+  butterworth: {
+    source: "public/modules/scientificIir/scientific-iir-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/scientificIir/scientific-iir-math.js",
+  },
+  buttonEvents: {
+    source: "public/modules/buttonEvents/button-events-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/buttonEvents/button-events-live-evaluator.js",
+  },
+  chaoticPhaseLockingFilter: {
+    source: "public/modules/chaoticPhaseLockingFilter/chaotic-phase-locking-filter-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/chaoticPhaseLockingFilter/chaotic-phase-locking-filter-worklet-evaluator.js",
+  },
+  chebyshev: {
+    source: "public/modules/scientificIir/scientific-iir-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/scientificIir/scientific-iir-math.js",
+  },
+  chordMemory: {
+    source: "public/modules/chordMemory/chord-memory-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/chordMemory/chord-memory-worklet-evaluator.js",
+  },
+  chordPad: {
+    source: "public/modules/chordPad/chord-pad-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/chordPad/chord-pad-worklet-evaluator.js",
+  },
+  chordSequencer: {
+    source: "public/modules/chordSequencer/chord-sequencer-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/chordSequencer/chord-sequencer-worklet-evaluator.js",
+  },
+  chromaColor: {
+    source: "public/modules/chromaColor/chroma-color-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/chromaColor/chroma-color-live-evaluator.js",
+  },
+  chuaAttractor: {
+    source: "public/modules/chuaAttractor/chua-attractor-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/chuaAttractor/chua-attractor-math.js",
+  },
+  classicFxStubs: {
+    source: "public/modules/classicFxStubs/classic-fx-stubs-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/classicFxStubs/classic-fx-stubs-worklet-evaluator.js",
+  },
+  clock: {
+    source: "public/modules/clock/clock-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/clock/clock-math.js",
+  },
+  clockDivider: {
+    source: "public/modules/clockDivider/clock-divider-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/clockDivider/clock-divider-live-evaluator.js",
+  },
+  codeblock: {
+    source: "public/modules/codeblock/codeblock-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/codeblock/codeblock-worklet-evaluator.js",
+  },
+  combResonator: {
+    source: "public/modules/combResonator/comb-resonator-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/combResonator/comb-resonator-math.js",
+  },
+  comparator: {
+    source: "public/modules/comparator/comparator-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/comparator/comparator-math.js",
+  },
+  cookbookFilter: {
+    source: "public/modules/cookbookFilter/cookbook-filter-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/cookbookFilter/cookbook-filter-worklet-evaluator.js",
+  },
+  crossover: {
+    source: "public/modules/crossover/crossover-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/crossover/crossover-math.js",
+  },
+  crossover2: {
+    source: "public/modules/crossover/crossover-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/crossover/crossover-math.js",
+  },
+  crossover3: {
+    source: "public/modules/crossover/crossover-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/crossover/crossover-math.js",
+  },
+  crossover4: {
+    source: "public/modules/crossover/crossover-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/crossover/crossover-math.js",
+  },
+  crossover5: {
+    source: "public/modules/crossover/crossover-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/crossover/crossover-math.js",
+  },
+  crossover6: {
+    source: "public/modules/crossover/crossover-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/crossover/crossover-math.js",
+  },
+  curveOsc: {
+    source: "public/modules/curveOsc/curve-osc-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/curveOsc/curve-osc-math.js",
+  },
+  delayEffect: {
+    source: "public/modules/delayEffect/delay-effect-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/delayEffect/delay-effect-worklet-evaluator.js",
+  },
+  delayedTrigger: {
+    source: "public/modules/delayedTrigger/delayed-trigger-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/delayedTrigger/delayed-trigger-math.js",
+  },
+  dsfOscillator: {
+    source: "public/modules/dsfOscillator/dsf-oscillator-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/dsfOscillator/dsf-oscillator-worklet-evaluator.js",
+  },
+  ellipsoid: {
+    source: "public/modules/ellipsoid/ellipsoid-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/ellipsoid/ellipsoid-worklet-evaluator.js",
+  },
+  ellipsoidOsc: {
+    source: "public/modules/ellipsoid/ellipsoid-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/ellipsoid/ellipsoid-worklet-evaluator.js",
+  },
+  elliptic: {
+    source: "public/modules/scientificIir/scientific-iir-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/scientificIir/scientific-iir-math.js",
+  },
+  eqFilter: {
+    source: "public/modules/eqFilter/eq-filter-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/eqFilter/eq-filter-math.js",
+  },
+  evolveField: {
+    source: "public/modules/evolveField/evolve-field-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/evolveField/evolve-field-live-evaluator.js",
+  },
+  expAdsr: {
+    source: "public/modules/expAdsr/exp-adsr-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/expAdsr/exp-adsr-math.js",
+  },
+  fbmField: {
+    source: "public/modules/fbmField/fbm-field-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/fbmField/fbm-field-worklet-evaluator.js",
+  },
+  flowerChildEnvelopeFollower: {
+    source: "public/modules/flowerChildEnvelopeFollower/flower-child-envelope-follower-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/flowerChildEnvelopeFollower/flower-child-envelope-follower-worklet-evaluator.js",
+  },
+  flowerChildFilter: {
+    source: "public/modules/flowerChildFilter/flower-child-filter-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/flowerChildFilter/flower-child-filter-worklet-evaluator.js",
+  },
+  fractalBrownianNoise: {
+    source: "public/modules/fractalBrownianNoise/fractal-brownian-noise-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/fractalBrownianNoise/fractal-brownian-noise-worklet-evaluator.js",
+  },
+  fractalSpiral: {
+    source: "public/modules/fractalSpiral/fractal-spiral-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/fractalSpiral/fractal-spiral-worklet-evaluator.js",
+  },
+  gain: {
+    source: "public/modules/gain/gain-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/gain/gain-math.js",
+  },
+  gainBias: {
+    source: "public/modules/gainBias/gain-bias-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/gainBias/gain-bias-math.js",
+  },
+  gainBiasMix: {
+    source: "public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js",
+  },
+  graph: {
+    source: "public/modules/graph/graph-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/graph/graph-live-evaluator.js",
+  },
+  groupInput: {
+    source: "public/modules/groupInput/group-input-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/groupInput/group-input-live-evaluator.js",
+  },
+  groupOutput: {
+    source: "public/modules/groupOutput/group-output-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/groupOutput/group-output-live-evaluator.js",
+  },
+  helmholtzPitch: {
+    source: "public/modules/helmholtzPitch/helmholtz-pitch-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/helmholtzPitch/helmholtz-pitch-worklet-evaluator.js",
+  },
+  henonMap: {
+    source: "public/modules/henonMap/henon-map-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/henonMap/henon-map-math.js",
+  },
+  humanFilter: {
+    source: "public/modules/humanFilter/human-filter-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/humanFilter/human-filter-worklet-evaluator.js",
+  },
+  hypersaw: {
+    source: "public/modules/hypersaw/hypersaw-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/hypersaw/hypersaw-worklet-evaluator.js",
+  },
+  inertialFilter: {
+    source: "public/modules/inertialFilter/inertial-filter-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/inertialFilter/inertial-filter-math.js",
+  },
+  keplerBouwkamp: {
+    source: "public/modules/keplerBouwkamp/kepler-bouwkamp-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/keplerBouwkamp/kepler-bouwkamp-worklet-evaluator.js",
+  },
+  keyboardController: {
+    source: "public/modules/keyboardController/keyboard-controller-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/keyboardController/keyboard-controller-live-evaluator.js",
+  },
+  knob: {
+    source: "public/modules/knob/knob-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/knob/knob-live-evaluator.js",
+  },
+  ladderFilter: {
+    source: "public/modules/ladderFilter/ladder-filter-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/ladderFilter/ladder-filter-worklet-evaluator.js",
+  },
+  led: {
+    source: "public/modules/led/led-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/led/led-live-evaluator.js",
+  },
+  linearEnvelope: {
+    source: "public/modules/linearEnvelope/linear-envelope-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/linearEnvelope/linear-envelope-math.js",
+  },
+  linkwitzRiley: {
+    source: "public/modules/scientificIir/scientific-iir-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/scientificIir/scientific-iir-math.js",
+  },
+  logSpiral: {
+    source: "public/modules/logSpiral/log-spiral-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/logSpiral/log-spiral-worklet-evaluator.js",
+  },
+  logisticMap: {
+    source: "public/modules/logisticMap/logistic-map-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/logisticMap/logistic-map-math.js",
+  },
+  lorenzAttractor: {
+    source: "public/modules/lorenzAttractor/lorenz-attractor-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/lorenzAttractor/lorenz-attractor-math.js",
+  },
+  lutCell: {
+    source: "public/modules/lutCell/lut-cell-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/lutCell/lut-cell-worklet-evaluator.js",
+  },
+  macroControls: {
+    source: "public/modules/macroControls/macro-controls-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/macroControls/macro-controls-live-evaluator.js",
+  },
+  matrixDisplay: {
+    source: "public/modules/matrixDisplay/matrix-display-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/matrixDisplay/matrix-display-live-evaluator.js",
+  },
+  metallicRatio: {
+    source: "public/modules/metallicRatio/metallic-ratio-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/metallicRatio/metallic-ratio-math.js",
+  },
+  midiNotePitch: {
+    source: "public/modules/midiNotePitch/midi-note-pitch-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/midiNotePitch/midi-note-pitch-live-evaluator.js",
+  },
+  midiOut: {
+    source: "public/modules/midiOut/midi-out-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/midiOut/midi-out-live-evaluator.js",
+  },
+  minMax: {
+    source: "public/modules/minMax/min-max-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/minMax/min-max-math.js",
+  },
+  modeResonator: {
+    source: "public/modules/modeResonator/mode-resonator-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/modeResonator/mode-resonator-math.js",
+  },
+  moduleGroup: {
+    source: "public/modules/moduleGroup/module-group-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/moduleGroup/module-group-worklet-evaluator.js",
+  },
+  mushroom: {
+    source: "public/modules/mushroom/mushroom-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/mushroom/mushroom-worklet-evaluator.js",
+  },
+  musicalEngines: {
+    source: "public/modules/musicalEngines/musical-engines-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/musicalEngines/musical-engines-worklet-evaluator.js",
+  },
+  nextPatch: {
+    source: "public/modules/nextPatch/next-patch-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/nextPatch/next-patch-worklet-evaluator.js",
+  },
+  noiseGenerator: {
+    source: "public/modules/noiseGenerator/noise-generator-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/noiseGenerator/noise-generator-math.js",
+  },
+  numberReadout: {
+    source: "public/modules/numberReadout/number-readout-register.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/numberReadout/number-readout-register.js",
+  },
+  nyquistShannon: {
+    source: "public/modules/nyquistShannon/nyquist-shannon-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/nyquistShannon/nyquist-shannon-worklet-evaluator.js",
+  },
+  osc: {
+    source: "public/node-graph-oscillator-runtime.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/node-graph-oscillator-runtime.js",
+  },
+  oscilloscopeBank: {
+    source: "public/modules/oscilloscopeBank/oscilloscope-bank-display.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/oscilloscopeBank/oscilloscope-bank-display.js",
+  },
+  output: {
+    source: "public/modules/output/output-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/output/output-live-evaluator.js",
+  },
+  papoulisFilter: {
+    source: "public/modules/papoulisFilter/papoulis-filter-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/papoulisFilter/papoulis-filter-worklet-evaluator.js",
+  },
+  passiveFilter: {
+    source: "public/modules/passiveFilter/passive-filter-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/passiveFilter/passive-filter-worklet-evaluator.js",
+  },
+  patchCommand: {
+    source: "public/modules/patchCommand/patch-command-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/patchCommand/patch-command-live-evaluator.js",
+  },
+  phaseDisperse: {
+    source: "public/modules/phaseDisperse/phase-disperse-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/phaseDisperse/phase-disperse-math.js",
+  },
+  phosphillator: {
+    source: "public/modules/phosphillator/phosphillator-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/phosphillator/phosphillator-worklet-evaluator.js",
+  },
+  phosphorLight: {
+    source: "public/modules/phosphorLight/phosphor-light-display.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/phosphorLight/phosphor-light-display.js",
+  },
+  piSpigotNoise: {
+    source: "public/modules/piSpigotNoise/pi-spigot-noise-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/piSpigotNoise/pi-spigot-noise-worklet-evaluator.js",
+  },
+  pingPongDelay: {
+    source: "public/modules/pingPongDelay/ping-pong-delay-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/pingPongDelay/ping-pong-delay-worklet-evaluator.js",
+  },
+  pitchModWheel: {
+    source: "public/modules/pitchModWheel/pitch-mod-wheel-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/pitchModWheel/pitch-mod-wheel-live-evaluator.js",
+  },
+  pitchQuantizer: {
+    source: "public/modules/pitchQuantizer/pitch-quantizer-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/pitchQuantizer/pitch-quantizer-worklet-evaluator.js",
+  },
+  pll: {
+    source: "public/modules/pll/pll-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/pll/pll-worklet-evaluator.js",
+  },
+  pluckEnvelope: {
+    source: "public/modules/pluckEnvelope/pluck-envelope-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/pluckEnvelope/pluck-envelope-worklet-evaluator.js",
+  },
+  plugin: {
+    source: "public/modules/plugin/plugin-controls-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/plugin/plugin-controls-live-evaluator.js",
+  },
+  polyBlep: {
+    source: "public/modules/polyBlep/poly-blep-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/polyBlep/poly-blep-worklet-evaluator.js",
+  },
+  pulseExplosion: {
+    source: "public/modules/pulseExplosion/pulse-explosion-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/pulseExplosion/pulse-explosion-worklet-evaluator.js",
+  },
+  radar: {
+    source: "public/modules/radar/radar-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/radar/radar-worklet-evaluator.js",
+  },
+  randomClock: {
+    source: "public/modules/randomClock/random-clock-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/randomClock/random-clock-math.js",
+  },
+  randomWalk: {
+    source: "public/modules/randomWalk/random-walk-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/randomWalk/random-walk-math.js",
+  },
+  rayBouncer: {
+    source: "public/modules/rayBouncer/ray-bouncer-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/rayBouncer/ray-bouncer-worklet-evaluator.js",
+  },
+  resonatorFilter: {
+    source: "public/modules/resonatorFilter/resonator-filter-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/resonatorFilter/resonator-filter-worklet-evaluator.js",
+  },
+  reverbEffect: {
+    source: "public/modules/reverbEffect/reverb-effect-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/reverbEffect/reverb-effect-worklet-evaluator.js",
+  },
+  rgbFractal: {
+    source: "public/modules/rgbFractal/rgb-fractal-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/rgbFractal/rgb-fractal-math.js",
+  },
+  rgbPicture: {
+    source: "public/modules/rgbPicture/rgb-picture-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/rgbPicture/rgb-picture-live-evaluator.js",
+  },
+  rgbShape: {
+    source: "public/modules/rgbShape/rgb-shape-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/rgbShape/rgb-shape-live-evaluator.js",
+  },
+  rgbaHsla: {
+    source: "public/modules/rgbaHsla/rgba-hsla-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/rgbaHsla/rgba-hsla-worklet-evaluator.js",
+  },
+  robinSupersaw: {
+    source: "public/modules/robinSupersaw/robin-supersaw-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/robinSupersaw/robin-supersaw-worklet-evaluator.js",
+  },
+  rotate3dTo2d: {
+    source: "public/modules/rotate3dTo2d/rotate-3d-to-2d-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/rotate3dTo2d/rotate-3d-to-2d-math.js",
+  },
+  sampleDelay: {
+    source: "public/modules/sampleDelay/sample-delay-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/sampleDelay/sample-delay-math.js",
+  },
+  sampleHold: {
+    source: "public/modules/sampleHold/sample-hold-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/sampleHold/sample-hold-math.js",
+  },
+  sandboxVisuals: {
+    source: "public/modules/sandboxVisuals/sandbox-visuals-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/sandboxVisuals/sandbox-visuals-live-evaluator.js",
+  },
+  scientificIir: {
+    source: "public/modules/scientificIir/scientific-iir-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/scientificIir/scientific-iir-math.js",
+  },
+  screenSpaceShader: {
+    source: "public/modules/screenSpaceShader/screen-space-shader-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/screenSpaceShader/screen-space-shader-worklet-evaluator.js",
+  },
+  shootingStarExplosion: {
+    source: "public/modules/shootingStarExplosion/shooting-star-explosion-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/shootingStarExplosion/shooting-star-explosion-live-evaluator.js",
+  },
+  sinc: {
+    source: "public/modules/sinc/sinc-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/sinc/sinc-worklet-evaluator.js",
+  },
   sineWavetable: {
     source: "public/node-graph-oscillator-runtime.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/node-graph-oscillator-runtime.js",
+  },
+  sinepulse: {
+    source: "public/modules/sinepulse/sinepulse-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/sinepulse/sinepulse-math.js",
+  },
+  slewLimiter: {
+    source: "public/modules/slewLimiter/slew-limiter-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/slewLimiter/slew-limiter-math.js",
+  },
+  snowflake: {
+    source: "public/modules/snowflake/snowflake-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/snowflake/snowflake-math.js",
+  },
+  soemReverb: {
+    source: "public/modules/soemReverb/soem-reverb-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/soemReverb/soem-reverb-worklet-evaluator.js",
+  },
+  softClipper: {
+    source: "public/modules/softClipper/soft-clipper-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/softClipper/soft-clipper-math.js",
+  },
+  softpopOscillator: {
+    source: "public/modules/softpopOscillator/softpop-oscillator-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/softpopOscillator/softpop-oscillator-math.js",
+  },
+  softwaveOsc: {
+    source: "public/modules/softwaveOsc/softwave-osc-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/softwaveOsc/softwave-osc-worklet-evaluator.js",
+  },
+  speakerProtection: {
+    source: "public/modules/speakerProtection/speaker-protection-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/speakerProtection/speaker-protection-worklet-evaluator.js",
+  },
+  spectrogram: {
+    source: "public/modules/spectrogram/spectrogram-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/spectrogram/spectrogram-worklet-evaluator.js",
+  },
+  speedColorInertia: {
+    source: "public/modules/speedColorInertia/speed-color-inertia-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/speedColorInertia/speed-color-inertia-math.js",
+  },
+  spiral: {
+    source: "public/modules/spiral/spiral-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/spiral/spiral-worklet-evaluator.js",
+  },
+  stepGrid: {
+    source: "public/modules/stepGrid/step-grid-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/stepGrid/step-grid-worklet-evaluator.js",
+  },
+  stepSequencer: {
+    source: "public/modules/stepSequencer/step-sequencer-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/stepSequencer/step-sequencer-math.js",
+  },
+  stftBlur: {
+    source: "public/modules/stftBlur/stft-blur-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/stftBlur/stft-blur-math.js",
+  },
+  superloveFilter: {
+    source: "public/modules/superloveFilter/superlove-filter-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/superloveFilter/superlove-filter-worklet-evaluator.js",
+  },
+  surgeOscillator: {
+    source: "public/modules/surgeOscillator/surge-oscillator-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/surgeOscillator/surge-oscillator-worklet-evaluator.js",
+  },
+  tb303Filter: {
+    source: "public/modules/tb303Filter/tb303-filter-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/tb303Filter/tb303-filter-worklet-evaluator.js",
+  },
+  textStream: {
+    source: "public/modules/textStream/text-stream-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/textStream/text-stream-worklet-evaluator.js",
+  },
+  tiltFilter: {
+    source: "public/modules/tiltFilter/tilt-filter-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/tiltFilter/tilt-filter-math.js",
+  },
+  torus: {
+    source: "public/modules/torus/torus-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/torus/torus-worklet-evaluator.js",
+  },
+  transport: {
+    source: "public/modules/transport/transport-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/transport/transport-math.js",
+  },
+  triggerCounter: {
+    source: "public/modules/triggerCounter/trigger-counter-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/triggerCounter/trigger-counter-math.js",
+  },
+  triggerDivider: {
+    source: "public/modules/triggerDivider/trigger-divider-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/triggerDivider/trigger-divider-math.js",
+  },
+  turingMachine: {
+    source: "public/modules/turingMachine/turing-machine-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/turingMachine/turing-machine-worklet-evaluator.js",
+  },
+  vactrolEnvelope: {
+    source: "public/modules/vactrolEnvelope/vactrol-envelope-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/vactrolEnvelope/vactrol-envelope-live-evaluator.js",
+  },
+  vactrolEnvelopeSeries: {
+    source: "public/modules/vactrolEnvelopeSeries/vactrol-envelope-series-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/vactrolEnvelopeSeries/vactrol-envelope-series-worklet-evaluator.js",
+  },
+  vectorscopeTransform: {
+    source: "public/modules/vectorscopeTransform/vectorscope-transform-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/vectorscopeTransform/vectorscope-transform-math.js",
+  },
+  videoscope: {
+    source: "public/modules/videoscope/videoscope-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/videoscope/videoscope-worklet-evaluator.js",
+  },
+  wallDelay: {
+    source: "public/modules/wallDelay/wall-delay-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/wallDelay/wall-delay-worklet-evaluator.js",
+  },
+  waveguide: {
+    source: "public/modules/waveguide/waveguide-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/waveguide/waveguide-math.js",
+  },
+  wirdoSpiral: {
+    source: "public/modules/wirdoSpiral/wirdo-spiral-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/wirdoSpiral/wirdo-spiral-worklet-evaluator.js",
+  },
+  wireEvents: {
+    source: "public/modules/wireEvents/wire-events-live-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/wireEvents/wire-events-live-evaluator.js",
+  },
+  xyPad: {
+    source: "public/modules/xyPad/xy-pad-dsp.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/xyPad/xy-pad-dsp.js",
+  },
+  yellowjacketFilter: {
+    source: "public/modules/yellowjacketFilter/yellowjacket-filter-worklet-evaluator.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/yellowjacketFilter/yellowjacket-filter-worklet-evaluator.js",
   },
 });
 

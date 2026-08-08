@@ -116,6 +116,12 @@ function setNodeGraphScopeNumberInputValue(input, value) {
     updateNodeGraphPatchTimingFromHeader(input);
   } else if (input.dataset.audioField) {
     updateNodeGraphPatchAudioFromHeader(input);
+  } else if (input.dataset.speedLimit === "true") {
+    if (typeof setNodeGraphProjectSpeedLimitHz === "function") {
+      setNodeGraphProjectSpeedLimitHz(input.value, { persist: true });
+    } else if (typeof setNodeGraphLiveSpeedLimit === "function") {
+      setNodeGraphLiveSpeedLimit(input.value);
+    }
   } else if (input.dataset.globalScopeInput === "lineThickness") {
     setNodeGraphModuleScopeLineThickness(input.value);
   } else if (input.dataset.globalScopeInput === "dotCore1Size") {
@@ -283,6 +289,11 @@ function nodeGraphScopeNumberDragScale(input, event) {
   }
   if (input.dataset.timingField) {
     return (step / 10) * multiplier;
+  }
+  // Speed Limit spans 1…192k; full-range /160 is too coarse for fine Hz work.
+  if (input.dataset.speedLimit === "true") {
+    const base = Math.max(step, (max - min) / 480);
+    return base * multiplier;
   }
   if (input.dataset.scopeInput === "cycles") {
     const baseCycles = Math.max(step / 8, (max - min) / 960);

@@ -349,6 +349,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         };
       },
       binaryClock: () => this.binaryClockSample(),
+      theremin: () => this.thereminSample(),
       yellowjacketFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.yellowjacketFilterStates.get(nodeId) || this.createStereoFilterState(() => this.createYellowjacketFilterState());
         this.yellowjacketFilterStates.set(nodeId, state);

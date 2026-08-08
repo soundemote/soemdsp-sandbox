@@ -175,7 +175,8 @@
       float side = (aCorner == 0.0 || aCorner == 2.0) ? 1.0 : -1.0;
       float endpointMix = aCorner < 2.0 ? 0.0 : 1.0;
       float cap = aCorner < 2.0 ? -1.0 : 1.0;
-      float padding = max(uRadius * 3.45, 2.0);
+      // Pad must cover soft multi-skirt (up to ~3.2×R) so glow is not clipped.
+      float padding = max(uRadius * 6.5, 2.5);
       vec2 endpoint = mix(aStart, aEnd, endpointMix);
       vec2 position = endpoint + normal * side * padding + tangent * cap * padding;
       vStart = aStart;
@@ -207,19 +208,32 @@
         : 0.0;
       vec2 closest = vStart + segment * t;
       float d = length(vPosition - closest);
+      float d2 = d * d;
 
       // Hard ribbon (blur 0): flat capsule core + ~1px AA — true hard edge.
       float aa = max(0.65, min(1.6, R * 0.08));
       float hard = 1.0 - smoothstep(R - aa, R + aa * 0.35, d);
 
-      // Soft ribbon (blur 1): wide gaussian energy skirt.
-      float sigma = max(R * mix(0.34, 1.15, soft), 0.45);
-      float softProfile = exp(-(d * d) / (2.0 * sigma * sigma));
-      // Morph hard capsule → soft beam. soft^1.4 keeps mid range painterly.
-      float softMix = pow(soft, 1.4);
+      // Soft ribbon (blur 1): same triple-gaussian stack as soft stamps —
+      // core + mid + wide skirt so trails read as glow, not a flat tube.
+      float coreW = max(R * mix(0.30, 0.58, soft), 0.5);
+      float midW = max(R * mix(0.55, 1.45, soft), coreW * 1.2);
+      float skirtW = max(R * mix(0.9, 3.2, soft), midW * 1.2);
+      float core = exp(-d2 / (2.0 * coreW * coreW));
+      float mid = exp(-d2 / (2.0 * midW * midW));
+      float skirt = exp(-d2 / (2.0 * skirtW * skirtW));
+      float coreAmt = mix(0.72, 0.12, soft);
+      float midAmt = mix(0.20, 0.40, soft);
+      float skirtAmt = mix(0.06, 0.95, soft);
+      float softPeak = mix(0.78, 0.36, soft);
+      float softProfile = core * coreAmt + mid * midAmt + skirt * skirtAmt;
+      float softNow = coreAmt + midAmt + skirtAmt;
+      softProfile = softProfile * (softPeak / max(softNow, 0.001));
+
+      // Morph hard capsule → soft gaussian beam.
+      float softMix = pow(soft, 1.45);
       float hardPeak = 0.88;
-      float softPeak = mix(0.78, 0.42, soft);
-      float profile = mix(hard * hardPeak, softProfile * softPeak, softMix);
+      float profile = mix(hard * hardPeak, softProfile, softMix);
 
       float e = max(profile, 0.0) * uBrightness;
       // Monochrome energy (R=G=B); additive blend accumulates trail.

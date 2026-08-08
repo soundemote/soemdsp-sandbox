@@ -413,6 +413,8 @@ const nodeGraphScope2dBurnRendererVersion = "energy-mono-lut-soft-beam-1";
  */
 function nodeGraphScope2dResolvePixelDensity(pixelDensity, layoutWidth = 1, layoutHeight = 1) {
   const raw = Number(pixelDensity);
+  // 0–4 buffer scale: <1 = intentional low-res (pixelated upscale),
+  // 1 = native layout×dpr, >1 = supersample then filter down.
   const density = Number.isFinite(raw) ? Math.max(0, Math.min(4, raw)) : 1;
   // effective === density; canvas size uses max(1, round(layout * density)).
   return { density, effective: density, minDensity: 0 };

@@ -61,4 +61,13 @@ function syncNodeGraphRuntimeFromPatch() {
   if (typeof setNodeGraphModularOnlyControlsVisible === "function") {
     setNodeGraphModularOnlyControlsVisible(Boolean(nodeGraphMvp.patch.modularOnlyControlsVisible));
   }
+  // Project Speed Limit lives on patch.audio and drives live + worklet clamps.
+  if (typeof syncNodeGraphProjectSpeedLimitFromPatch === "function") {
+    syncNodeGraphProjectSpeedLimitFromPatch();
+  } else if (nodeGraphMvp?.live && nodeGraphMvp?.patch?.audio) {
+    const lim = Number(nodeGraphMvp.patch.audio.speedLimitHz);
+    if (Number.isFinite(lim) && lim > 0) {
+      nodeGraphMvp.live.speedLimit = lim;
+    }
+  }
 }

@@ -4239,7 +4239,9 @@ def require_xy_pad_interaction_contract() -> None:
     require(
         "registerNodeGraphChromelessModuleUi(" in ui_source
         and 'xyPad: {' not in definitions_source
-        and 'xyPad: {' not in store_source,
+        # Catalog/definition blocks are forbidden; JS Code-button source map entry is fine.
+        and "xyPad: {\n    category:" not in store_source
+        and "xyPad: {\n    label:" not in store_source,
         "XY Pad should be fully self-registered instead of duplicated in shared module tables",
     )
     require(
