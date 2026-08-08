@@ -101,22 +101,33 @@ New DSP should land as pure functions first, then thin adapters.
 
 **Param surfaces:** see `docs/PARAM_SURFACES.md`.
 
-## Scopes paint peel (optional Phase D follow-up)
+## Scopes paint peel (mostly landed; optional further peels)
 
-`node-graph-module-scopes.js` still holds most **paint / capture / phosphor draw /
-settings chrome** after peels for defaults, normalize, display-mode, phosphor
-helpers, and form HTML builders.
+The old `node-graph-module-scopes.js` megafile is **already peeled** into sibling
+`node-graph-module-scope-*.js` files (defaults, normalize, draw-burn, paint-helpers,
+capture, offline, phosphor, webgl, slots, etc.). `node-graph-module-scopes.js`
+itself is now a thin compatibility/entry shim (~5 KB).
 
-A “paint peel” means extracting more **symbol clusters** (e.g. capture pipeline,
-scope2d burn paint, number-readout paint) into sibling files — **not** a random
-line-cut. Goal: smaller files to navigate; same globals and load order.
+**Still large (optional next peels):**
 
-Not required for sound or patches; pure maintainability.
+| File | ~size | Notes |
+|------|------:|-------|
+| `node-graph-module-scope-settings-ui.js` | ~109 KB | Settings chrome + form wiring — best next peel by symbol cluster |
+| `node-graph-module-scope-paint-helpers.js` | ~51 KB | Path/trace helpers |
+| `node-graph-module-scope-draw-burn.js` | ~42 KB | Burn paint |
 
-## Still large (optional)
+A further peel means extracting **symbol clusters** — not a random line-cut.
+Same globals and load order. Not required for sound or patches; pure maintainability.
 
-- Further scopes paint/capture clusters  
-- Worklet `evaluators.js` map split if still painful
+## Still large (optional, non-scopes)
+
+- `node-graph-module-definitions.js` (~280 KB) — catalog gravity well  
+- `node-graph-code-screen.js` (~258 KB) — already satellite-loaded  
+- `node-graph-module-store.js` (~160 KB)  
+- Worklet evaluator maps if still painful  
+- Event-binding god-nodes (see graphify): `bindNodeGraphSceneMenuEvents`,
+  `bindNodeGraphHeaderControlEvents`, `bindNodeGraphMvpEvents` — high betweenness,
+  do not casually split
 
 ## Related docs
 

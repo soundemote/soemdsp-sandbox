@@ -16,3 +16,7 @@ backups/native_cpp_stage.tgz
 _to_delete/
 /nul
 /ziPyGNnI
+
+# Graphify local analysis output
+graphify-out/
+

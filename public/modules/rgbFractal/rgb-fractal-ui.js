@@ -57,7 +57,7 @@ function nodeGraphRgbFractalStartLoop(face, nodeId) {
     }
     face._rgbFractalRaf = requestAnimationFrame(tick);
 
-    // Respect global scope FPS so app-zoom high-res faces don't free-run.
+    // Respect global scope FPS (fixed layout×dpr buffer; zoom is CSS pixelate).
     const fps = typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
       ? normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp?.moduleScopeFramesPerSecond ?? 60)
       : Math.max(1, Number(nodeGraphMvp?.moduleScopeFramesPerSecond) || 60);
