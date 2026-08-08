@@ -83,6 +83,7 @@ function installNodeUiDevExposeControls() {
     checkbox.type = "checkbox";
     checkbox.id = nodeUiDevExposeCheckboxId(definition.key);
     checkbox.dataset.nodeUiDevExpose = definition.key;
+    // Default off — UI Settings starts empty; opt-in per control in UIDEV.
     checkbox.checked = Boolean(definition.exposeDefault);
     checkbox.setAttribute("aria-label", `Expose ${nodeUiDevControlLabel(definition)} in UI settings`);
     label.append(checkbox);

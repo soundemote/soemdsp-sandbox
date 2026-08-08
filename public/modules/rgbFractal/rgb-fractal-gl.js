@@ -2,7 +2,7 @@
 // Fragment shader does smooth escape + orbit traps; palette is a 256×1 LUT texture.
 
 // Bump when fragment/vertex source changes so live sessions recompile.
-const NODE_GRAPH_RGB_FRACTAL_GL_REV = 14;
+const NODE_GRAPH_RGB_FRACTAL_GL_REV = 15;
 
 // Separable 1D gaussian (horizontal or vertical). Dense 1px taps for smooth
 // sub-pixel → light image soft. Screen Blur max = one H+V pair (not stacked).
@@ -207,8 +207,8 @@ void main() {
   // Edge Blur domain 0…8 (UI); maps to gaussian sigma in pixels.
   float edgeBlur = max(0.0, uBlur);
   float glowAmt = clamp(uGlow, 0.0, 1.35);
-  // Full iteration budget (Soft does not drop iters).
-  float maxIter = max(8.0, uMaxIter);
+  // Full iteration budget (Soft does not drop iters). Depth 0 may pass 1.
+  float maxIter = max(1.0, uMaxIter);
   float trapMix = uTrapMix;
 
   // Energy sample. Edge Blur > 0 → dense 1px gaussian multi-tap of *energy*
@@ -268,32 +268,26 @@ void main() {
     col += tip * g * (0.05 + glowAmt * 0.28) * mix(1.0, 0.75, soft);
   }
 
-  // Outer plate mode (Display Settings → Outer color), soft Aug-2 vignette base.
-  // 0 Background — solid swatch
-  // 1 Gradient start — empty + edges → palette stop 0
-  // 2 Haze — soft dream plate wash (no XY grain; phase is global)
+  // Outer plate (Display Settings → Outer color):
+  // 0 Stop 0.00 — solid exterior from gradient LUT at t=0
+  // 1 Gradient  — soft exterior sampled from the full gradient
   vec3 plate;
-  if (uOuterMode > 1.5) {
-    // Haze: gentle palette wash from low stops (clamp, no fract rings)
-    float washT = clamp(0.08 + e * 0.35 + phase * 0.12, 0.0, 1.0);
+  if (uOuterMode > 0.5) {
+    // Gradient: soft palette wash around the set (not solid stop0)
+    float washT = clamp(0.06 + e * 0.42 + rEdge * 0.22 + phase * 0.08, 0.0, 1.0);
     vec3 washCol = paletteSample(washT, soft);
     vec3 stop0 = paletteSample(0.0, soft);
-    plate = mix(uBackground, stop0, mix(0.2, 0.45, soft));
-    plate = mix(plate, washCol, mix(0.2, 0.55, soft) * (0.35 + 0.65 * e));
-    float vig = smoothstep(1.15, 0.15, rEdge * 1.1);
-    float hazeAmt = mix(0.18, 0.42, soft);
-    col = mix(col, plate, hazeAmt * (1.0 - vig * 0.55));
-    col = mix(plate, col, mix(0.78, 1.0, vig));
-  } else if (uOuterMode > 0.5) {
-    plate = paletteSample(0.0, soft);
-    float vig = smoothstep(1.15, 0.35, rEdge * 1.15);
-    col = mix(plate, col, mix(0.92, 1.0, vig));
+    plate = mix(stop0, washCol, mix(0.35, 0.7, soft));
+    float vig = smoothstep(1.15, 0.18, rEdge * 1.1);
+    float hazeAmt = mix(0.22, 0.48, soft);
+    col = mix(col, plate, hazeAmt * (1.0 - vig * 0.5));
+    col = mix(plate, col, mix(0.8, 1.0, vig));
   } else {
-    // Background: Aug 2 soft overall haze toward background (dream plate)
-    float vig = smoothstep(1.05, 0.2, rEdge * 1.2);
-    float haze = soft * 0.12;
-    col = mix(col, uBackground, haze * (1.0 - vig * 0.5));
-    col = mix(uBackground, col, mix(0.94, 1.0, vig));
+    // Stop 0.00: empty / exterior is gradient stop at t=0.00 (solid plate)
+    plate = paletteSample(0.0, soft);
+    float vig = smoothstep(1.12, 0.38, rEdge * 1.12);
+    // Strong plate so outer color reads as Stop 0.00, not residual background
+    col = mix(plate, col, mix(0.9, 1.0, vig));
   }
 
   gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
@@ -674,12 +668,20 @@ function nodeGraphRgbFractalGlPaint(canvas, params) {
   gl.uniform1f(U.uFold, Number(params.fold) || 0);
   gl.uniform1f(U.uBands, Number.isFinite(Number(params.bands)) ? Number(params.bands) : 1.65);
   gl.uniform1f(U.uDomainWarp, Number(params.domainWarp) || 0);
-  const outerPlate = String(params.outerPlate || "background");
-  const outerMode = outerPlate === "haze" ? 2
-    : (outerPlate === "gradientStart" ? 1 : 0);
-  const bgHex = params.background
-    || (Array.isArray(stops) && stops[0]?.color)
-    || "#000000";
+  const outerPlate = String(params.outerPlate || "stop0");
+  // 0 = Stop 0.00 (solid palette t=0), 1 = Gradient (soft full-palette exterior)
+  const outerMode = (
+    outerPlate === "gradient"
+    || outerPlate === "haze"
+    || outerPlate === "2"
+  ) ? 1 : 0;
+  // uBackground: prefer explicit stop-0 color so Stop 0.00 matches the editor.
+  const stop0Hex = typeof nodeGraphRgbFractalStop0Color === "function"
+    ? nodeGraphRgbFractalStop0Color(stops)
+    : ((Array.isArray(stops) && stops[0]?.color) || "#000000");
+  const bgHex = outerMode < 0.5
+    ? stop0Hex
+    : (params.background || stop0Hex || "#000000");
   const bg = nodeGraphRgbFractalGlHexToRgb01(bgHex);
   gl.uniform3f(U.uBackground, bg[0], bg[1], bg[2]);
   gl.uniform1f(U.uOuterMode, outerMode);

@@ -2035,7 +2035,7 @@ async function sendNodeGraphLivePlan() {
       setNodeGraphLivePlanStatus(nodeGraphLivePlanStatusText(plan), "good");
       setNodeGraphLivePlanTitle(nodeGraphLivePlanScheduleTitle(plan.order));
     } else {
-      nodeGraphMvp.live.runtime = createNodeGraphLiveRuntime(plan);
+      nodeGraphMvp.live.runtime = createNodeGraphLiveRuntime(plan, nodeGraphMvp.live.runtime);
       setNodeGraphLiveEvidence("plan-applied", nodeGraphMvp.live.planEvidence);
       setNodeGraphLivePlanStatus(nodeGraphLivePlanStatusText(plan), "good");
       setNodeGraphLivePlanTitle(nodeGraphLivePlanScheduleTitle(plan.order));
@@ -2641,7 +2641,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-evaluators-sources.js?v=sinepulse-drum-1",
   "./public/node-live-audio-worklet-evaluators-processors.js?v=theremin-uc-1",
-  "./public/node-live-audio-worklet-evaluators-utility.js?v=rgb-fractal-planet-23",
+  "./public/node-live-audio-worklet-evaluators-utility.js?v=orbit-speed-1",
   "./public/node-live-audio-worklet-evaluators.js?v=evaluators-split-1",
   "./public/node-live-audio-worklet-native-exports.js?v=plan-d-split-2",
   "./public/node-live-audio-worklet-set-plan.js?v=plan-d-split-2",
@@ -2665,8 +2665,8 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/antisaw/antisaw-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/fractalBrownianNoise/fractal-brownian-noise-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/fbmField/fbm-field-worklet-evaluator.js?v=fbm-field-21",
-  "./public/modules/rgbFractal/rgb-fractal-math.js?v=rgb-fractal-pixelate-1",
-  "./public/modules/rgbFractal/rgb-fractal-worklet-evaluator.js?v=rgb-fractal-pixelate-1",
+  "./public/modules/rgbFractal/rgb-fractal-math.js?v=orbit-speed-1",
+  "./public/modules/rgbFractal/rgb-fractal-worklet-evaluator.js?v=orbit-speed-1",
   "./public/modules/logisticMap/logistic-map-math.js?v=logistic-map-1",
   "./public/modules/logisticMap/logistic-map-worklet-evaluator.js?v=logistic-map-1",
   "./public/modules/turingMachine/turing-machine-worklet-evaluator.js?v=native-strip-1",
@@ -2886,7 +2886,7 @@ function nodeGraphLiveAwaitStartup(promise, message = "live audio startup timed 
 function createNodeGraphLiveScriptProcessorNode(context, plan) {
   const scriptNode = context.createScriptProcessor(nodeGraphAudioBlockSize, 2, 2);
   scriptNode.onaudioprocess = renderNodeGraphLiveScriptBlock;
-  nodeGraphMvp.live.runtime = createNodeGraphLiveRuntime(plan);
+  nodeGraphMvp.live.runtime = createNodeGraphLiveRuntime(plan, nodeGraphMvp.live.runtime);
   nodeGraphMvp.live.runtime.earProtector = createNodeGraphEarProtector(context.sampleRate);
   nodeGraphMvp.live.scriptNode = scriptNode;
   return scriptNode;

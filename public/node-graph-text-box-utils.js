@@ -6,8 +6,26 @@ function nodeGraphTextBoxOneLineText(value) {
   return String(value ?? "").replace(/[\r\n]+/g, " ");
 }
 
+/**
+ * Text Box layout modes:
+ * - singleLine — one line, no wrap; manual size only
+ * - multiline  — explicit newlines; shrink-to-fit width only
+ * - fill       — multiline + grow/shrink font so text uses available box room
+ */
 function normalizeNodeGraphTextBoxMode(value) {
-  return String(value || "").toLowerCase() === "multiline" ? "multiline" : "singleLine";
+  const mode = String(value || "").trim().toLowerCase();
+  if (mode === "multiline" || mode === "multi" || mode === "multi-line") {
+    return "multiline";
+  }
+  if (mode === "fill" || mode === "multilinefill" || mode === "multiline-fill" || mode === "fit") {
+    return "fill";
+  }
+  return "singleLine";
+}
+
+function nodeGraphTextBoxModeIsMultiline(mode) {
+  const m = normalizeNodeGraphTextBoxMode(mode);
+  return m === "multiline" || m === "fill";
 }
 
 function normalizeNodeGraphTextBoxHorizontalAlign(value) {

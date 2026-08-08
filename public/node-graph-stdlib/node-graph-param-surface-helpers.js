@@ -12,7 +12,7 @@
 //              unit signal in [−1, 1]. Applied with nodeGraphParamApplyMod:
 //                • kind "frequency" → 0.1V/Oct style: baseHz * 2^(mod / 0.1)
 //                • everything else  → unit-space add, then map back to domain
-//                  (with nonlinear mid skew when nonlinearSlider is set).
+//                  (with mid/custom skew when sliderCurve is skew/custom).
 //              After MOD, hard clamp only when wraparound / resource constraint
 //              / hardClamp / explicit modClamp:true (default: do not re-clamp).
 //
@@ -121,11 +121,31 @@ function nodeGraphParamModClamp(metadata = {}) {
 }
 
 /**
- * Nonlinear mid skew: maps linear unit 0.5 → mid of domain.
+ * Nonlinear mid-style skew exponent for DOMAIN↔unit (MOD path).
+ * - mid skew: unit 0.5 → domain mid
+ * - custom skew: same power law; knee from curveAmount (SENSITIVITY −1…+1)
+ * - edge skew / linear: 1 (edge S-curve is UI drag only)
  * exponent 1 = linear.
  */
 function nodeGraphParamSkewExponent(metadata = {}) {
-  if (!metadata.nonlinearSlider) {
+  const curve = typeof normalizeNodeSliderCurve === "function"
+    ? normalizeNodeSliderCurve(metadata.sliderCurve, metadata.nonlinearSlider)
+    : (metadata.nonlinearSlider ? "skew" : "linear");
+  if (curve === "custom") {
+    const amount = typeof normalizeNodeSliderCurveAmount === "function"
+      ? normalizeNodeSliderCurveAmount(metadata.curveAmount)
+      : Math.max(-1, Math.min(1, Number(metadata.curveAmount) || 0));
+    if (typeof nodeSliderSkewExponentFromSensitivity === "function") {
+      return nodeSliderSkewExponentFromSensitivity(amount);
+    }
+    // Fallback if slider-values not loaded yet (same mapping as UI).
+    const a = Math.max(-1, Math.min(1, Number(amount) || 0));
+    if (a <= 0) {
+      return 1 + (-a) * 3; // 1…4
+    }
+    return 1 + a * (0.25 - 1); // 1…0.25
+  }
+  if (curve !== "skew") {
     return 1;
   }
   const min = Number(metadata.min);
@@ -216,7 +236,7 @@ function nodeGraphParamApplyMod(base, modSum, metadata = {}) {
       return result;
     } else {
       const exp = nodeGraphParamSkewExponent(metadata);
-      // Inside [0,1]: nonlinear mid skew. Outside: linear unit so MOD can open.
+      // Inside [0,1]: mid/custom power skew. Outside: linear unit so MOD can open.
       const nv = (unit >= 0 && unit <= 1) ? (unit ** exp) : unit;
       result = min + range * nv;
     }

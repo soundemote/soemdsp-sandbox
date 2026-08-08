@@ -13,6 +13,10 @@ function createNodeGraphRgbFractalBody(node, type) {
   canvas.className = "node-rgb-fractal-canvas";
   canvas.setAttribute("aria-hidden", "true");
   face.append(canvas);
+  // Restore orbit/rotation/color from node-keyed store (resize rebuilds this DOM).
+  if (typeof nodeGraphRgbFractalEnsurePhasors === "function") {
+    nodeGraphRgbFractalEnsurePhasors(face, node);
+  }
   return face;
 }
 
@@ -33,7 +37,7 @@ function nodeGraphRgbFractalStartLoop(face, nodeId) {
   }
   face._rgbFractalRunning = true;
   if (typeof nodeGraphRgbFractalEnsurePhasors === "function") {
-    nodeGraphRgbFractalEnsurePhasors(face);
+    nodeGraphRgbFractalEnsurePhasors(face, nodeId);
   } else {
     if (!Number.isFinite(face._rgbFractalOrbitPhasor)) {
       face._rgbFractalOrbitPhasor = Number(face._rgbFractalPhase) || 0;
@@ -46,6 +50,7 @@ function nodeGraphRgbFractalStartLoop(face, nodeId) {
     }
     face._rgbFractalPhase = face._rgbFractalOrbitPhasor;
   }
+  // Do not wipe phasors on (re)start — only clock anchors so first dt is 0.
   face._rgbFractalLastTs = 0;
   face._rgbFractalPendingDt = 0;
   face._rgbFractalLastPaintTs = 0;

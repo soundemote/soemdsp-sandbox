@@ -93,7 +93,7 @@ function nodeGraphRgbFractalAudioSampleLocus(loci, s01) {
 
 /**
  * Pure planetary c(t): Seed family center + single forward circular orbit.
- * No multi-sine wander — modulate Seed / Orbit Size / Speed externally if wanted.
+ * No multi-sine wander — modulate C / Orbit Size / Orbit Speed / Speed externally if wanted.
  */
 function nodeGraphRgbFractalAudioComputeC(seed, tOrbit, orbitSize) {
   const loci = NODE_GRAPH_RGB_FRACTAL_AUDIO_LOCI;
@@ -110,7 +110,11 @@ function nodeGraphRgbFractalAudioComputeC(seed, tOrbit, orbitSize) {
 
 function nodeGraphRgbFractalAudioAdvancePhasors(state, params, dt) {
   const speed = Number(params.speed);
-  const rate = Number.isFinite(speed) ? speed : 0;
+  const orbitSpeedRaw = Number(params.orbitSpeed);
+  const orbitSpeed = Number.isFinite(orbitSpeedRaw) ? Math.max(0, orbitSpeedRaw) : 1;
+  const master = Number.isFinite(speed) ? speed : 0;
+  // c-walk only: Speed × Orbit Speed (map step rate stays Speed-only in AudioSample).
+  const rate = master * orbitSpeed;
   if (!(Math.abs(rate) > 1e-6) || !(dt > 0)) return;
   state.orbitPhasor += rate * 0.32 * dt;
 }

@@ -6177,9 +6177,9 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "4", key: "roomScale", label: "Scale", max: "20", mid: "4", min: "0.5", nonlinearSlider: false, step: "any", unit: "m", tooltip: "Real-world size in meters: Width/Height are proportions (1.0 = default), multiplied by this to get the actual center-to-wall distance in meters that the delay taps' timing is computed from (distance / speed of sound)." },
       { defaultValue: "0.3", key: "roomRoundness", label: "Roundness", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any", tooltip: "0 = perfect ellipsoid (sphere at Width=Height), 1 = a box (cube at Width=Height). Superellipsoid blend, |x/a|^n+|y/b|^n+|z/c|^n=1, only affects the Squircle preset." },
       { defaultValue: "17", key: "earDistance", label: "Ear Distance", max: "60", mid: "17", min: "0", nonlinearSlider: false, step: "any", unit: "cm", tooltip: "Distance between the two listener ears in centimeters (17cm is a typical human head). Each ear samples the room from its own offset position along X, so Left/Right delay taps genuinely differ -- 0 collapses back to a single centered listener (mono)." },
-      { control: "number", defaultValue: "0", key: "roomSeed", label: "Seed", linearSmoothing: false, max: "9999", maxDigits: 0, mid: "1", min: "0", nonlinearSlider: false, step: "1", tooltip: "Randomizes the Random/Fractal room shape and each bounce's scatter direction. Same seed always reproduces the same shape and echo pattern." },
-      { constraint: "cpu", control: "number", defaultValue: "6", key: "rayCount", label: "Rays", linearSmoothing: false, max: "16", maxDigits: 0, mid: "6", min: "1", nonlinearSlider: false, step: "1", tooltip: "Number of initial directions sampled from each ear (X). Total delay taps = Rays x Bounces." },
-      { constraint: "cpu", control: "number", defaultValue: "3", key: "bounceCount", label: "Bounces", linearSmoothing: false, max: "6", maxDigits: 0, mid: "3", min: "1", nonlinearSlider: false, step: "1", tooltip: "Number of wall bounces simulated per ray (Y). Total delay taps = Rays x Bounces." },
+      { control: "number", defaultValue: "0", key: "roomSeed", label: "Seed", linearSmoothing: false, max: "9999", maxDigits: 1, mid: "1", min: "0", nonlinearSlider: false, step: "1", tooltip: "Randomizes the Random/Fractal room shape and each bounce's scatter direction. Same seed always reproduces the same shape and echo pattern." },
+      { constraint: "cpu", control: "number", defaultValue: "6", key: "rayCount", label: "Rays", linearSmoothing: false, max: "16", maxDigits: 1, mid: "6", min: "1", nonlinearSlider: false, step: "1", tooltip: "Number of initial directions sampled from each ear (X). Total delay taps = Rays x Bounces." },
+      { constraint: "cpu", control: "number", defaultValue: "3", key: "bounceCount", label: "Bounces", linearSmoothing: false, max: "6", maxDigits: 1, mid: "3", min: "1", nonlinearSlider: false, step: "1", tooltip: "Number of wall bounces simulated per ray (Y). Total delay taps = Rays x Bounces." },
       { defaultValue: "0.6", key: "reflectivity", label: "Reflectivity", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any", tooltip: "1 = mirror-like: each bounce reflects off the room's real surface normal, stays coherent, and loses little energy. 0 = rough/absorptive: each bounce scatters into a random direction and energy drops fast -- reads as more diffusion. Also sets the shared diffusion cascade's feedback (1 - Reflectivity)." },
       { defaultValue: "0.5", key: "mix", label: "Mix", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "1", key: "level", label: "Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
@@ -6214,7 +6214,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0.07", key: "lfoAmplitude", label: "LFO Amp", max: "1", mid: "0.07", min: "0", nonlinearSlider: false, step: "any", tooltip: "Amount of delay modulation." },
       { defaultValue: "0.83", key: "lfoBaseSpeed", label: "LFO Speed", max: "1", mid: "0.83", min: "0", nonlinearSlider: false, step: "any", tooltip: "Base speed of delay modulation." },
       { defaultValue: "0.001", key: "lfoVariation", label: "LFO Var", max: "1", mid: "0.001", min: "0", nonlinearSlider: false, step: "any", tooltip: "Randomized variation in delay modulation." },
-      { control: "number", defaultValue: "0", key: "seed", label: "Seed", linearSmoothing: false, max: "99999", maxDigits: 0, mid: "1", min: "0", nonlinearSlider: false, step: "1", tooltip: "Randomizes the delay line pattern. Same seed always reproduces the same reverb character." },
+      { control: "number", defaultValue: "0", key: "seed", label: "Seed", linearSmoothing: false, max: "99999", maxDigits: 1, mid: "1", min: "0", nonlinearSlider: false, step: "1", tooltip: "Randomizes the delay line pattern. Same seed always reproduces the same reverb character." },
     ],
   },
   soemReverb: {
@@ -6275,7 +6275,7 @@ const nodeGraphModuleDefinitions = (
         label: "X",
         linearSmoothing: false,
         max: "16",
-        maxDigits: 0,
+        maxDigits: 1,
         mid: "1",
         min: "0",
         step: "1",
@@ -6288,7 +6288,7 @@ const nodeGraphModuleDefinitions = (
         label: "Y",
         linearSmoothing: false,
         max: "16",
-        maxDigits: 0,
+        maxDigits: 1,
         mid: "4",
         min: "0",
         step: "1",
@@ -6960,11 +6960,11 @@ const nodeGraphModuleDefinitions = (
       },
       {
         defaultValue: "1", key: "sensitivity", label: "Sensitivity", max: "4", maxDigits: 5, mid: "1", min: "0", nonlinearSlider: false, step: "any",
-        displayTransform: (value) => ({ maxDigits: 0, unit: "lux full-drive", value: 1000 / Math.max(value, 0.001) }),
+        displayTransform: (value) => ({ maxDigits: 1, unit: "lux full-drive", value: 1000 / Math.max(value, 0.001) }),
       },
       {
         defaultValue: "0", key: "lightOffset", label: "Light Offset", max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "any",
-        displayTransform: (value) => ({ maxDigits: 0, unit: "lux bias", value: value * 1000 }),
+        displayTransform: (value) => ({ maxDigits: 1, unit: "lux bias", value: value * 1000 }),
       },
       {
         defaultValue: "0", key: "darkCurrent", label: "Dark Current", max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "any",
@@ -7001,11 +7001,11 @@ const nodeGraphModuleDefinitions = (
       },
       {
         defaultValue: "1", key: "sensitivity", label: "Sensitivity", max: "4", maxDigits: 5, mid: "1", min: "0", nonlinearSlider: false, step: "any",
-        displayTransform: (value) => ({ maxDigits: 0, unit: "lux full-drive", value: 1000 / Math.max(value, 0.001) }),
+        displayTransform: (value) => ({ maxDigits: 1, unit: "lux full-drive", value: 1000 / Math.max(value, 0.001) }),
       },
       {
         defaultValue: "0", key: "lightOffset", label: "Light Offset", max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "any",
-        displayTransform: (value) => ({ maxDigits: 0, unit: "lux bias", value: value * 1000 }),
+        displayTransform: (value) => ({ maxDigits: 1, unit: "lux bias", value: value * 1000 }),
       },
       {
         defaultValue: "0", key: "darkCurrent", label: "Dark Current", max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "any",

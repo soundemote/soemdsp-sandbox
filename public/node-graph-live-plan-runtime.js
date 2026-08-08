@@ -229,11 +229,16 @@ function nodeGraphLiveModulationConnectionMap(plan) {
   );
 }
 
-function createNodeGraphLiveRuntime(plan) {
+function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
   const nodes = new Map((plan.nodes || []).map((node) => [node.id, node]));
   const inputConnections = nodeGraphLiveInputConnectionMap(plan);
   const graphInputConnections = nodeGraphLiveGraphInputConnectionMap(plan);
   const modulationConnections = nodeGraphLiveModulationConnectionMap(plan);
+  // Preserve Soft Fractal map orbit across plan rebuilds (module resize →
+  // scheduleLivePlanSync must not reseed zx/zy / orbitPhasor).
+  const previousRgbFractalStates = previousRuntime?.rgbFractalStates instanceof Map
+    ? previousRuntime.rgbFractalStates
+    : null;
   const phases = new Map();
   const noiseSeedKeys = new Map();
   const noiseSeeds = new Map();
@@ -651,13 +656,15 @@ function createNodeGraphLiveRuntime(plan) {
       fbmFieldStates.set(node.id, createNodeGraphFbmFieldState());
     }
     if (node.type === "rgbFractal") {
+      const kept = previousRgbFractalStates?.get(node.id);
       rgbFractalStates.set(
         node.id,
-        typeof createNodeGraphRgbFractalState === "function"
-          ? createNodeGraphRgbFractalState()
-          : (typeof createNodeGraphRgbFractalAudioState === "function"
-            ? createNodeGraphRgbFractalAudioState()
-            : {}),
+        kept
+          || (typeof createNodeGraphRgbFractalState === "function"
+            ? createNodeGraphRgbFractalState()
+            : (typeof createNodeGraphRgbFractalAudioState === "function"
+              ? createNodeGraphRgbFractalAudioState()
+              : {})),
       );
     }
     if (node.type === "flowerChildEnvelopeFollower") {

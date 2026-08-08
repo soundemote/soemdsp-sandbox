@@ -273,10 +273,17 @@ function applyNodeGraphUnifiedWindowSize(element, pageKey = "", size = null) {
   if (!(width > 40) || !(height > 40)) {
     return false;
   }
-  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1200;
-  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 800;
-  width = Math.max(96, Math.min(width, viewportWidth - 16));
-  height = Math.max(120, Math.min(height, viewportHeight - 16));
+  // Cap by available view from this element's origin (not a fixed pixel max).
+  if (typeof nodeGraphFloatingWindowAvailableBox === "function") {
+    const available = nodeGraphFloatingWindowAvailableBox({}, { element });
+    width = Math.max(96, Math.min(width, available.maxWidth));
+    height = Math.max(120, Math.min(height, available.maxHeight));
+  } else {
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1200;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 800;
+    width = Math.max(96, Math.min(width, viewportWidth - 2));
+    height = Math.max(120, Math.min(height, viewportHeight - 2));
+  }
   const box = { width, height };
 
   // Keep page-specific CSS vars / persistence in sync with the shared box.

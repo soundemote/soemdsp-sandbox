@@ -30,13 +30,15 @@ function clearNodeSceneContextMenuDragState() {
 
 const nodeSceneContextWindowDefaultSize = Object.freeze({
   width: 185,
-  height: 520,
+  // Content-height cold open (no fixed tall box full of empty chrome).
+  // User resize / unified seat still pin an explicit height when set.
+  // height omitted → CSS height:auto from content.
   minWidth: 24,
   // Match module-browser max so the unified floating window can keep one size
   // when switching Command Center ↔ Modules without clamping narrower.
   maxWidth: 980,
-  minHeight: 160,
-  maxHeight: 900,
+  minHeight: 120,
+  // Height max is available view space from the window top (no fixed ceiling).
 });
 
 const nodeModuleActionsWindowDefaultSize = Object.freeze({
@@ -45,19 +47,26 @@ const nodeModuleActionsWindowDefaultSize = Object.freeze({
   minWidth: 24,
   maxWidth: 980,
   minHeight: 120,
-  maxHeight: 900,
 });
 
 // pulseNodeGraphFloatingWindowAttention moved to node-graph-floating-windows.js
 // -- it is used by six different windows, so it belongs with the rest of the
 // shared floating-window subsystem rather than in the context menu.
 
-function normalizeNodeSceneContextWindowSize(size = {}) {
-  return normalizeNodeGraphFloatingWindowSize(size, nodeSceneContextWindowDefaultSize);
+function normalizeNodeSceneContextWindowSize(size = {}, element = null) {
+  return normalizeNodeGraphFloatingWindowSize(
+    size,
+    nodeSceneContextWindowDefaultSize,
+    element ? { element } : {},
+  );
 }
 
-function normalizeNodeModuleActionsWindowSize(size = {}) {
-  return normalizeNodeGraphFloatingWindowSize(size, nodeModuleActionsWindowDefaultSize);
+function normalizeNodeModuleActionsWindowSize(size = {}, element = null) {
+  return normalizeNodeGraphFloatingWindowSize(
+    size,
+    nodeModuleActionsWindowDefaultSize,
+    element ? { element } : {},
+  );
 }
 
 function syncNodeModuleActionsWindowHeightLimit() {
@@ -65,19 +74,20 @@ function syncNodeModuleActionsWindowHeightLimit() {
   if (!menu) {
     return null;
   }
-  const normalized = normalizeNodeModuleActionsWindowSize(nodeGraphMvp.moduleActionWindowSize || nodeModuleActionsWindowDefaultSize);
-  const effectiveHeight = Math.max(
-    nodeModuleActionsWindowDefaultSize.minHeight,
-    Math.min(nodeModuleActionsWindowDefaultSize.maxHeight, Number(normalized.height) || nodeModuleActionsWindowDefaultSize.height),
+  const normalized = normalizeNodeModuleActionsWindowSize(
+    nodeGraphMvp.moduleActionWindowSize || nodeModuleActionsWindowDefaultSize,
+    menu,
   );
-  menu.style.setProperty("--node-module-actions-height", `${Math.round(effectiveHeight)}px`);
-  return effectiveHeight;
+  const height = Number(normalized.height) || nodeModuleActionsWindowDefaultSize.height;
+  menu.style.setProperty("--node-module-actions-height", `${Math.round(height)}px`);
+  return height;
 }
 
 /**
- * When the unified seat locks a floating panel with inline width/height,
- * CSS vars alone no longer drive layout. Keep inline box + shared seat size
- * in lockstep so corner-resize actually moves the window again.
+ * Keep floating panel box size on the element so corner-resize always sticks.
+ * CSS vars alone can lose height when a partial size update clears --*-height
+ * (normalize used to drop missing height → auto → content-sized, can't grow).
+ * Inline width/height + max none wins over per-page max-height caps.
  */
 function syncNodeGraphFloatingWindowInlineBox(element, size = {}) {
   if (!element) {
@@ -85,54 +95,90 @@ function syncNodeGraphFloatingWindowInlineBox(element, size = {}) {
   }
   const width = Math.round(Number(size.width));
   const height = Math.round(Number(size.height));
-  const hasInlineBox = Boolean(
-    element.style.width
-    || element.style.height
-    || element.style.maxWidth === "none"
-    || element.style.maxHeight === "none",
-  );
-  // Once seated/unified, always write the box. Cold open (no inline size yet)
-  // keeps using CSS vars only.
-  if (!hasInlineBox) {
-    return;
-  }
   if (width > 40) {
     element.style.width = `${width}px`;
   }
   if (height > 40) {
     element.style.height = `${height}px`;
   }
-  element.style.boxSizing = "border-box";
-  element.style.maxWidth = "none";
-  element.style.maxHeight = "none";
+  if (width > 40 || height > 40) {
+    element.style.boxSizing = "border-box";
+    // Clear CSS max-* so authored maxHeight vars cannot block stretch once
+    // the user has an explicit box (still clamped in normalize to viewport).
+    element.style.maxWidth = "none";
+    element.style.maxHeight = "none";
+  }
   if (width > 40 && height > 40 && nodeGraphMvp) {
     nodeGraphMvp.unifiedWindowSize = { width, height };
   }
 }
 
-function applyNodeSceneContextWindowSize(size = nodeGraphMvp.sceneContextWindowSize) {
-  const menu = document.getElementById("nodeSceneContextMenu");
-  const normalized = normalizeNodeSceneContextWindowSize(size || nodeSceneContextWindowDefaultSize);
-  nodeGraphMvp.sceneContextWindowSize = normalized;
-  if (!menu) {
-    return normalized;
-  }
-  applyNodeGraphFloatingWindowSizeVars(menu, "node-scene-context", nodeSceneContextWindowDefaultSize, normalized);
-  syncNodeGraphFloatingWindowInlineBox(menu, normalized);
-  return normalized;
+function mergeNodeGraphFloatingWindowSize(current, next, defaults) {
+  const base = (current && typeof current === "object")
+    ? current
+    : (defaults && typeof defaults === "object" ? defaults : {});
+  const patch = (next && typeof next === "object") ? next : {};
+  return {
+    ...base,
+    ...patch,
+  };
 }
 
-function applyNodeModuleActionsWindowSize(size = nodeGraphMvp.moduleActionWindowSize) {
-  const menu = document.getElementById("nodeModuleActionsWindow");
-  const normalized = normalizeNodeModuleActionsWindowSize(size || nodeModuleActionsWindowDefaultSize);
-  nodeGraphMvp.moduleActionWindowSize = normalized;
+function applyNodeSceneContextWindowSize(size = nodeGraphMvp.sceneContextWindowSize, element = null) {
+  const menu = element || document.getElementById("nodeSceneContextMenu");
+  const merged = mergeNodeGraphFloatingWindowSize(
+    nodeGraphMvp.sceneContextWindowSize,
+    size,
+    nodeSceneContextWindowDefaultSize,
+  );
+  const normalized = normalizeNodeSceneContextWindowSize(merged, menu);
+  // Strip internal cap fields before persist.
+  const stored = {
+    width: normalized.width,
+    ...(Number.isFinite(normalized.height) ? { height: normalized.height } : {}),
+  };
+  nodeGraphMvp.sceneContextWindowSize = stored;
   if (!menu) {
-    return normalized;
+    return stored;
   }
-  applyNodeGraphFloatingWindowSizeVars(menu, "node-module-actions", nodeModuleActionsWindowDefaultSize, normalized);
+  applyNodeGraphFloatingWindowSizeVars(menu, "node-scene-context", nodeSceneContextWindowDefaultSize, stored);
+  syncNodeGraphFloatingWindowInlineBox(menu, stored);
+  // Live max from view space so CSS does not leave a fixed-pixel gap at bottom.
+  if (Number.isFinite(normalized._maxHeight)) {
+    menu.style.setProperty("--node-scene-context-max-height", `${normalized._maxHeight}px`);
+  }
+  if (Number.isFinite(normalized._maxWidth)) {
+    menu.style.setProperty("--node-scene-context-max-width", `${normalized._maxWidth}px`);
+  }
+  return stored;
+}
+
+function applyNodeModuleActionsWindowSize(size = nodeGraphMvp.moduleActionWindowSize, element = null) {
+  const menu = element || document.getElementById("nodeModuleActionsWindow");
+  const merged = mergeNodeGraphFloatingWindowSize(
+    nodeGraphMvp.moduleActionWindowSize,
+    size,
+    nodeModuleActionsWindowDefaultSize,
+  );
+  const normalized = normalizeNodeModuleActionsWindowSize(merged, menu);
+  const stored = {
+    width: normalized.width,
+    ...(Number.isFinite(normalized.height) ? { height: normalized.height } : {}),
+  };
+  nodeGraphMvp.moduleActionWindowSize = stored;
+  if (!menu) {
+    return stored;
+  }
+  applyNodeGraphFloatingWindowSizeVars(menu, "node-module-actions", nodeModuleActionsWindowDefaultSize, stored);
   syncNodeModuleActionsWindowHeightLimit();
-  syncNodeGraphFloatingWindowInlineBox(menu, normalized);
-  return normalized;
+  syncNodeGraphFloatingWindowInlineBox(menu, stored);
+  if (Number.isFinite(normalized._maxHeight)) {
+    menu.style.setProperty("--node-module-actions-max-height", `${normalized._maxHeight}px`);
+  }
+  if (Number.isFinite(normalized._maxWidth)) {
+    menu.style.setProperty("--node-module-actions-max-width", `${normalized._maxWidth}px`);
+  }
+  return stored;
 }
 
 function saveNodeSceneContextWindowSizeToUserSettings() {
@@ -723,11 +769,13 @@ function setNodeGraphSceneContextButtonLines(button, line1, line2 = "") {
 }
 
 // Order in the Module Settings body: module title first (under nav), then
-// Copy Module / Copy Settings row, then alias / size / rest.
+// Copy Module / Settings / Paste / Default, then Show/Hide section, then rest.
 const nodeGraphModuleActionControlIds = [
   "nodeSceneSelectedModule",
   // Copy Module lives inside this group (left of Copy Settings).
   "nodeSceneModuleSettingsActionGroup",
+  // Show/Hide chrome toggles — immediately under copy/settings row.
+  "nodeSceneModuleVisibilitySection",
   "nodeSceneAliasControl",
   "nodeSceneAddToUi",
   "nodeSceneWireTypeControl",
@@ -739,9 +787,6 @@ const nodeGraphModuleActionControlIds = [
   "nodeSceneCodeblockControls",
   "nodeSceneGraphControls",
   "nodeSceneDisplayHeightControls",
-  // Hide Display lives inside ModuleVisibilityActionGroup (not a sibling row).
-  "nodeSceneModuleVisibilityActionGroup",
-  "nodeSceneToggleInterfaceControls",
   "nodeSceneImageControls",
   "nodeSceneKnobFaceControls",
   "nodeSceneCanvasControls",
@@ -977,6 +1022,7 @@ function configureNodeSceneContextMenu(mode) {
   const moduleActionsWindow = document.getElementById("nodeModuleActionsWindow");
   const copyButton = document.getElementById("nodeSceneCopyModule");
   const moduleSettingsActionGroup = document.getElementById("nodeSceneModuleSettingsActionGroup");
+  const moduleVisibilitySection = document.getElementById("nodeSceneModuleVisibilitySection");
   const moduleVisibilityActionGroup = document.getElementById("nodeSceneModuleVisibilityActionGroup");
   const copySettingsButton = document.getElementById("nodeSceneCopyModuleSettings");
   const pasteSettingsButton = document.getElementById("nodeScenePasteModuleSettings");
@@ -1054,6 +1100,7 @@ function configureNodeSceneContextMenu(mode) {
   const textBoxControls = document.getElementById("nodeSceneTextBoxControls");
   const textBoxSingleLine = document.getElementById("nodeSceneTextBoxSingleLine");
   const textBoxMultiline = document.getElementById("nodeSceneTextBoxMultiline");
+  const textBoxFill = document.getElementById("nodeSceneTextBoxFill");
   const textBoxHorizontalAlignControls = document.getElementById("nodeSceneTextBoxHorizontalAlignControls");
   const textBoxAlignLeft = document.getElementById("nodeSceneTextBoxAlignLeft");
   const textBoxAlignCenter = document.getElementById("nodeSceneTextBoxAlignCenter");
@@ -1200,8 +1247,12 @@ function configureNodeSceneContextMenu(mode) {
   if (setDefaultButton) {
     setDefaultButton.hidden = !moduleMode || multiModuleMode;
   }
+  if (moduleVisibilitySection) {
+    moduleVisibilitySection.hidden = !moduleMode || multiModuleMode;
+  }
   if (moduleVisibilityActionGroup) {
-    moduleVisibilityActionGroup.hidden = !moduleMode || multiModuleMode;
+    // Stack stays visible with the section; individual buttons still gate per capability.
+    moduleVisibilityActionGroup.hidden = false;
   }
   const targetIsGraphType = nodeGraphModuleIsGraphType(targetNode?.type);
   deleteButton.hidden = !(moduleMode || wireMode);
@@ -1485,10 +1536,15 @@ function configureNodeSceneContextMenu(mode) {
       bugButtonGlyph.disabled = true;
       bugButtonGlyph.value = "";
     }
-    textBoxSingleLine.setAttribute("aria-pressed", textBoxMode === "singleLine" ? "true" : "false");
-    textBoxMultiline.setAttribute("aria-pressed", textBoxMode === "multiline" ? "true" : "false");
-    textBoxSingleLine.title = nodeGraphTooltipText("actions.textBoxSingleLine");
-    textBoxMultiline.title = nodeGraphTooltipText("actions.textBoxMultiline");
+    textBoxSingleLine?.setAttribute("aria-pressed", textBoxMode === "singleLine" ? "true" : "false");
+    textBoxMultiline?.setAttribute("aria-pressed", textBoxMode === "multiline" ? "true" : "false");
+    textBoxFill?.setAttribute("aria-pressed", textBoxMode === "fill" ? "true" : "false");
+    if (textBoxSingleLine) textBoxSingleLine.title = nodeGraphTooltipText("actions.textBoxSingleLine") || "Single line";
+    if (textBoxMultiline) textBoxMultiline.title = nodeGraphTooltipText("actions.textBoxMultiline") || "Multiline (fixed size; shrink if too wide)";
+    if (textBoxFill) {
+      textBoxFill.title = nodeGraphTooltipText("actions.textBoxFill")
+        || "Fill — multiline text grows or shrinks to use the available face";
+    }
     textBoxTextInput.disabled = !targetNode || !targetSupportsTextBoxHeight;
     textBoxTextInput.value = targetSupportsTextBoxHeight ? textBoxLayout.text : "";
     textBoxTextInput.title = nodeGraphTooltipText("actions.textBoxContent");

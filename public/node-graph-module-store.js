@@ -2572,12 +2572,16 @@ const nodeGraphModuleShopWindowDefaultSize = Object.freeze({
   minWidth: 96,
   maxWidth: 980,
   minHeight: 120,
-  maxHeight: 760,
+  // Height max = available view from window top (no fixed ceiling).
 });
 
-function normalizeNodeGraphModuleShopWindowSize(size = {}) {
+function normalizeNodeGraphModuleShopWindowSize(size = {}, element = null) {
   if (typeof normalizeNodeGraphFloatingWindowSize === "function") {
-    return normalizeNodeGraphFloatingWindowSize(size, nodeGraphModuleShopWindowDefaultSize);
+    return normalizeNodeGraphFloatingWindowSize(
+      size,
+      nodeGraphModuleShopWindowDefaultSize,
+      element ? { element } : {},
+    );
   }
   const source = size && typeof size === "object" ? size : {};
   return {
@@ -2590,31 +2594,50 @@ function normalizeNodeGraphModuleShopWindowSize(size = {}) {
     ),
     height: Math.max(
       nodeGraphModuleShopWindowDefaultSize.minHeight,
-      Math.min(
-        nodeGraphModuleShopWindowDefaultSize.maxHeight,
-        Math.round(Number(source.height) || nodeGraphModuleShopWindowDefaultSize.height),
-      ),
+      Math.round(Number(source.height) || nodeGraphModuleShopWindowDefaultSize.height),
     ),
   };
 }
 
-function applyNodeGraphModuleShopWindowSize(size = {}) {
-  const panel = document.getElementById("nodeModuleShopView");
-  const normalized = normalizeNodeGraphModuleShopWindowSize(size);
+function applyNodeGraphModuleShopWindowSize(size = {}, element = null) {
+  const panel = element || document.getElementById("nodeModuleShopView");
+  const previous = nodeGraphMvp?.moduleShopWindowSize
+    || nodeGraphMvp?.unifiedWindowSize
+    || nodeGraphMvp?.workspaceWindowStates?.moduleBrowser?.size
+    || null;
+  const merged = typeof mergeNodeGraphFloatingWindowSize === "function"
+    ? mergeNodeGraphFloatingWindowSize(previous, size, nodeGraphModuleShopWindowDefaultSize)
+    : { ...(previous || nodeGraphModuleShopWindowDefaultSize), ...(size || {}) };
+  const normalized = normalizeNodeGraphModuleShopWindowSize(merged, panel);
+  const stored = {
+    width: normalized.width,
+    ...(Number.isFinite(normalized.height) ? { height: normalized.height } : {}),
+  };
+  if (nodeGraphMvp) {
+    nodeGraphMvp.moduleShopWindowSize = stored;
+  }
   if (panel) {
     if (typeof applyNodeGraphFloatingWindowSizeVars === "function") {
-      applyNodeGraphFloatingWindowSizeVars(panel, "node-module-shop", nodeGraphModuleShopWindowDefaultSize, normalized);
+      applyNodeGraphFloatingWindowSizeVars(panel, "node-module-shop", nodeGraphModuleShopWindowDefaultSize, stored);
     } else {
-      panel.style.setProperty("--node-module-shop-width", `${normalized.width}px`);
-      panel.style.setProperty("--node-module-shop-height", `${normalized.height}px`);
+      panel.style.setProperty("--node-module-shop-width", `${stored.width}px`);
+      if (Number.isFinite(stored.height)) {
+        panel.style.setProperty("--node-module-shop-height", `${stored.height}px`);
+      }
     }
-    // Same inline-box lock as Command Center after unified seating.
+    // Always pin inline box so height stretch is not lost to CSS auto/max caps.
     if (typeof syncNodeGraphFloatingWindowInlineBox === "function") {
-      syncNodeGraphFloatingWindowInlineBox(panel, normalized);
+      syncNodeGraphFloatingWindowInlineBox(panel, stored);
+    }
+    if (Number.isFinite(normalized._maxHeight)) {
+      panel.style.setProperty("--node-module-shop-max-height", `${normalized._maxHeight}px`);
+    }
+    if (Number.isFinite(normalized._maxWidth)) {
+      panel.style.setProperty("--node-module-shop-max-width", `${normalized._maxWidth}px`);
     }
   }
   requestAnimationFrame(updateNodeGraphModuleStoreScrollAffordance);
-  return normalized;
+  return stored;
 }
 
 function nodeGraphModuleShopWindowSizeFromElement(panel = document.getElementById("nodeModuleShopView")) {

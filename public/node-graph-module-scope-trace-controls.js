@@ -177,10 +177,10 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
-  // RGB Soft Fractal: gradient only (field is module params + rAF).
+  // RGB Soft Fractal: outer plate mode + gradient (field is module params + rAF).
   rgbFractalFace: Object.freeze({
     fields: Object.freeze([]),
-    // Background color used when Outer color = Background (original dream plate).
+    // Optional plate fallback; Outer color Stop 0.00 uses gradient t=0, not this swatch.
     colors: Object.freeze(["backgroundColor"]),
     toggles: Object.freeze([]),
     // First control in Soft Fractal section (before gradient).
@@ -614,16 +614,15 @@ const nodeGraphDisplaySettingsColorMeta = Object.freeze({
 });
 
 const nodeGraphDisplaySettingsChoiceMeta = Object.freeze({
-  // Soft Fractal: Background / Gradient start / Haze (radial dream plate).
+  // Soft Fractal: Stop 0.00 (solid gradient t=0) / Gradient (soft palette exterior).
   outerPlate: Object.freeze({
     label: "Outer color",
     aria: "Outer / empty plate color source",
     id: "nodeTraceDisplayOuterPlate",
-    title: "Background = solid plate from the Background swatch. Gradient start = empty space uses gradient stop 0. Haze = dream plate: palette color washes in around the fractal and out (slow breath; soft Color Rate CV peek, not a full-face strobe).",
+    title: "Stop 0.00 = exterior is the gradient color at stop t=0.00 (default). Gradient = soft exterior plate sampled from the full gradient.",
     options: Object.freeze([
-      Object.freeze({ value: "background", label: "Background" }),
-      Object.freeze({ value: "gradientStart", label: "Gradient start" }),
-      Object.freeze({ value: "haze", label: "Haze" }),
+      Object.freeze({ value: "stop0", label: "Stop 0.00" }),
+      Object.freeze({ value: "gradient", label: "Gradient" }),
     ]),
   }),
   syncChannel: Object.freeze({

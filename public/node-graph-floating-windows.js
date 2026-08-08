@@ -1,53 +1,149 @@
-function normalizeNodeGraphFloatingWindowSize(size = {}, defaults = {}) {
-  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 720;
-  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 760;
-  // Small default margin so most floating windows don't sit flush against
-  // the physical screen edge (hard to grab an edge-aligned resize handle,
-  // etc.) -- but some windows (the standalone keyboard dock) explicitly
-  // want to be draggable all the way to the true viewport edge, so this
-  // is a per-window override via defaults.viewportMargin, not hardcoded.
-  const viewportMargin = Number.isFinite(Number(defaults.viewportMargin)) ? Number(defaults.viewportMargin) : 28;
+/**
+ * Tiny pad so a max-stretch still leaves the SE grip on the last pixels of the
+ * viewport. Not a framing margin — free drag may still leave the box half off.
+ */
+function nodeGraphFloatingWindowEdgePad(defaults = {}) {
+  if (Number.isFinite(Number(defaults.edgePad))) {
+    return Math.max(0, Number(defaults.edgePad));
+  }
+  return 2;
+}
+
+function nodeGraphFloatingWindowViewportSize() {
+  return {
+    width: window.innerWidth || document.documentElement.clientWidth || 720,
+    height: window.innerHeight || document.documentElement.clientHeight || 760,
+  };
+}
+
+/**
+ * Max box size from current top-left to the viewport bottom-right.
+ * Position-aware: a window lower on screen gets a shorter max height so the
+ * SE resize grip is never resized off the bottom of the view.
+ *
+ * Does NOT force the window fully on-screen — free drag may park half off.
+ * context: { element?, left?, top?, width?, height? }
+ */
+function nodeGraphFloatingWindowAvailableBox(defaults = {}, context = {}) {
+  const viewport = nodeGraphFloatingWindowViewportSize();
+  const pad = nodeGraphFloatingWindowEdgePad(defaults);
+  let left = Number(context.left);
+  let top = Number(context.top);
+  if (context.element && !context.element.hidden) {
+    const rect = context.element.getBoundingClientRect();
+    if (!Number.isFinite(left)) left = rect.left;
+    if (!Number.isFinite(top)) top = rect.top;
+  }
+  if (!Number.isFinite(left)) left = 0;
+  if (!Number.isFinite(top)) top = 0;
+  // Room from current origin to viewport edge (pad keeps SE grip grabable).
+  const maxWidth = Math.max(1, Math.floor(viewport.width - left - pad));
+  const maxHeight = Math.max(1, Math.floor(viewport.height - top - pad));
+  return {
+    maxWidth,
+    maxHeight,
+    viewportWidth: viewport.width,
+    viewportHeight: viewport.height,
+    left,
+    top,
+    pad,
+  };
+}
+
+/**
+ * size + defaults + optional context { element, left, top }.
+ * Max height/width are available view space from the window origin — no fixed
+ * pixel ceiling. Optional defaults.maxWidth/maxHeight only apply when smaller
+ * than available (product caps), never as a substitute for viewport room.
+ */
+function normalizeNodeGraphFloatingWindowSize(size = {}, defaults = {}, context = {}) {
+  const available = nodeGraphFloatingWindowAvailableBox(defaults, context);
   const minWidth = Math.max(1, Number(defaults.minWidth) || 160);
-  const configuredMaxWidth = Number(defaults.maxWidth);
-  const maxWidth = Math.max(
-    minWidth,
-    Math.min(
-      Number.isFinite(configuredMaxWidth) ? configuredMaxWidth : 720,
-      viewportWidth - viewportMargin,
-    ),
-  );
   const minHeight = Math.max(1, Number(defaults.minHeight) || 120);
+  const configuredMaxWidth = Number(defaults.maxWidth);
   const configuredMaxHeight = Number(defaults.maxHeight);
-  const maxHeight = Math.max(
-    minHeight,
-    Math.min(
-      Number.isFinite(configuredMaxHeight) ? configuredMaxHeight : 760,
-      viewportHeight - viewportMargin,
-    ),
-  );
+  let maxWidth = Math.max(minWidth, available.maxWidth);
+  let maxHeight = Math.max(minHeight, available.maxHeight);
+  // Soft product caps only when they are tighter than available view space.
+  if (Number.isFinite(configuredMaxWidth) && configuredMaxWidth > 0) {
+    maxWidth = Math.max(minWidth, Math.min(maxWidth, configuredMaxWidth));
+  }
+  if (Number.isFinite(configuredMaxHeight) && configuredMaxHeight > 0) {
+    maxHeight = Math.max(minHeight, Math.min(maxHeight, configuredMaxHeight));
+  }
   const source = size && typeof size === "object" ? size : {};
   const width = Math.max(
     minWidth,
     Math.min(maxWidth, Number(source.width) || Number(defaults.width) || minWidth),
   );
-  const height = Number.isFinite(Number(source.height))
-    ? Math.max(minHeight, Math.min(maxHeight, Number(source.height)))
+  // Never drop height on partial updates (width-only). Fall back to defaults
+  // so applySizeVars does not remove --*-height and snap the window to auto.
+  let heightRaw = Number(source.height);
+  if (!Number.isFinite(heightRaw)) {
+    heightRaw = Number(defaults.height);
+  }
+  const height = Number.isFinite(heightRaw)
+    ? Math.max(minHeight, Math.min(maxHeight, heightRaw))
     : null;
   return {
     width: Math.round(width),
-    ...(height ? { height: Math.round(height) } : {}),
+    ...(Number.isFinite(height) ? { height: Math.round(height) } : {}),
+    // Expose caps so callers can debug / UI can show limits.
+    _maxWidth: Math.round(maxWidth),
+    _maxHeight: Math.round(maxHeight),
   };
+}
+
+/**
+ * If the SE corner sits below/right of the viewport after a size or browser
+ * resize, shrink the box (keep top-left) so the grip is reachable again.
+ * Does not move the window — free drag half-off is unchanged.
+ */
+function ensureNodeGraphFloatingWindowResizeHandleReachable(element, applySize, defaults = {}) {
+  if (!element || element.hidden || typeof applySize !== "function") {
+    return null;
+  }
+  const rect = element.getBoundingClientRect();
+  const available = nodeGraphFloatingWindowAvailableBox(defaults, {
+    element,
+    left: rect.left,
+    top: rect.top,
+  });
+  const minWidth = Math.max(1, Number(defaults.minWidth) || 96);
+  const minHeight = Math.max(1, Number(defaults.minHeight) || 120);
+  let width = Math.round(rect.width);
+  let height = Math.round(rect.height);
+  let changed = false;
+  if (width > available.maxWidth) {
+    width = Math.max(minWidth, available.maxWidth);
+    changed = true;
+  }
+  if (height > available.maxHeight) {
+    height = Math.max(minHeight, available.maxHeight);
+    changed = true;
+  }
+  if (!changed) {
+    return null;
+  }
+  return applySize({ width, height });
 }
 
 function applyNodeGraphFloatingWindowSizeVars(element, cssPrefix, defaults = {}, normalized = {}) {
   if (!element || !cssPrefix) {
     return;
   }
+  // Prefer live available-view caps from normalize (_max*) over fixed defaults.
+  const maxWidth = Number.isFinite(Number(normalized._maxWidth))
+    ? normalized._maxWidth
+    : defaults.maxWidth;
+  const maxHeight = Number.isFinite(Number(normalized._maxHeight))
+    ? normalized._maxHeight
+    : defaults.maxHeight;
   const pairs = [
     ["min-width", defaults.minWidth],
-    ["max-width", defaults.maxWidth],
+    ["max-width", maxWidth],
     ["min-height", defaults.minHeight],
-    ["max-height", defaults.maxHeight],
+    ["max-height", maxHeight],
     ["width", normalized.width],
     ["height", normalized.height],
   ];
@@ -55,9 +151,78 @@ function applyNodeGraphFloatingWindowSizeVars(element, cssPrefix, defaults = {},
     const propertyName = `--${cssPrefix}-${name}`;
     if (Number.isFinite(Number(value))) {
       element.style.setProperty(propertyName, `${Math.round(Number(value))}px`);
-    } else if (name === "height") {
+    } else if (name === "height" || name === "max-height" || name === "max-width") {
+      // Drop stale fixed ceilings so available-view math can own the limit.
       element.style.removeProperty(propertyName);
     }
+  }
+}
+
+/**
+ * After the browser viewport changes, shrink any visible floating window whose
+ * SE grip is below/right of the view (height/width too large for its origin).
+ * Does not move windows — free half-off placement is preserved when size fits.
+ */
+function fitNodeGraphFloatingWindowsToViewport() {
+  const jobs = [
+    {
+      id: "nodeSceneContextMenu",
+      apply: typeof applyNodeSceneContextWindowSize === "function" ? applyNodeSceneContextWindowSize : null,
+      defaults: typeof nodeSceneContextWindowDefaultSize !== "undefined" ? nodeSceneContextWindowDefaultSize : { minWidth: 24, minHeight: 160 },
+    },
+    {
+      id: "nodeModuleActionsWindow",
+      apply: typeof applyNodeModuleActionsWindowSize === "function" ? applyNodeModuleActionsWindowSize : null,
+      defaults: typeof nodeModuleActionsWindowDefaultSize !== "undefined" ? nodeModuleActionsWindowDefaultSize : { minWidth: 24, minHeight: 120 },
+    },
+    {
+      id: "nodeModuleShopView",
+      apply: typeof applyNodeGraphModuleShopWindowSize === "function" ? applyNodeGraphModuleShopWindowSize : null,
+      defaults: typeof nodeGraphModuleShopWindowDefaultSize !== "undefined" ? nodeGraphModuleShopWindowDefaultSize : { minWidth: 96, minHeight: 120 },
+    },
+    {
+      id: "nodeParameterMetadataPopover",
+      apply: typeof applyNodeMetadataPopoverSize === "function" ? applyNodeMetadataPopoverSize : null,
+      defaults: { minWidth: 140, minHeight: 120 },
+    },
+    {
+      id: "nodeTraceDisplaySettingsPopover",
+      apply: typeof applyNodeGraphTraceDisplaySettingsWindowSize === "function"
+        ? applyNodeGraphTraceDisplaySettingsWindowSize
+        : null,
+      defaults: { minWidth: 140, minHeight: 120 },
+    },
+  ];
+  for (const job of jobs) {
+    if (!job.apply) continue;
+    const element = document.getElementById(job.id);
+    if (!element || element.hidden) continue;
+    ensureNodeGraphFloatingWindowResizeHandleReachable(element, job.apply, job.defaults);
+  }
+}
+
+function bindNodeGraphFloatingWindowViewportFit() {
+  if (typeof window === "undefined") {
+    return;
+  }
+  if (window.__nodeGraphFloatingWindowViewportFitBound) {
+    return;
+  }
+  window.__nodeGraphFloatingWindowViewportFitBound = true;
+  let timer = 0;
+  window.addEventListener("resize", () => {
+    window.clearTimeout(timer);
+    timer = window.setTimeout(() => {
+      fitNodeGraphFloatingWindowsToViewport();
+    }, 50);
+  });
+}
+
+if (typeof window !== "undefined") {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bindNodeGraphFloatingWindowViewportFit, { once: true });
+  } else {
+    bindNodeGraphFloatingWindowViewportFit();
   }
 }
 
@@ -465,6 +630,7 @@ function beginNodeGraphFloatingWindowResize(event, element, stateKey) {
   const rect = element.getBoundingClientRect();
   const drag = {
     handle: event.currentTarget,
+    element,
     pointerId: event.pointerId ?? null,
     startClientX: event.clientX,
     startClientY: event.clientY,
@@ -472,6 +638,9 @@ function beginNodeGraphFloatingWindowResize(event, element, stateKey) {
     lastClientY: event.clientY,
     startWidth: rect.width,
     startHeight: rect.height,
+    // Freeze origin for max-size math so mid-drag layout shifts don't jitter the cap.
+    startLeft: rect.left,
+    startTop: rect.top,
   };
   nodeGraphMvp[stateKey] = drag;
   event.currentTarget.classList.add("dragging");
@@ -497,9 +666,24 @@ function dragNodeGraphFloatingWindowResize(event, stateKey, applySize, axes = {}
   if (axes.height !== false) {
     nextSize.height = drag.startHeight + event.clientY - drag.startClientY;
   }
+  // Cap by available view from the window origin (not a fixed maxHeight).
+  const available = nodeGraphFloatingWindowAvailableBox({}, {
+    element: drag.element,
+    left: drag.startLeft,
+    top: drag.startTop,
+  });
+  if (axes.width !== false && Number.isFinite(nextSize.width)) {
+    nextSize.width = Math.min(nextSize.width, available.maxWidth);
+  }
+  if (axes.height !== false && Number.isFinite(nextSize.height)) {
+    nextSize.height = Math.min(nextSize.height, available.maxHeight);
+  }
   drag.lastClientX = event.clientX;
   drag.lastClientY = event.clientY;
-  applySize(nextSize);
+  // Pass element so apply/normalize uses the same origin-aware caps.
+  if (typeof applySize === "function") {
+    applySize(nextSize, drag.element);
+  }
   event.preventDefault();
   return true;
 }

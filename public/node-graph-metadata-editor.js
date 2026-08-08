@@ -1712,7 +1712,8 @@ function stepNodeMetadataField(event) {
   const quantum = metadataStepperQuantum(input, base);
   let next = base + direction * quantum;
   if (input.id === "metadataMaxDigitsValue") {
-    next = Math.max(0, Math.min(12, Math.round(next)));
+    // App-wide: maxDigits ≥ 1 (0 is invalid).
+    next = Math.max(1, Math.min(12, Math.round(next)));
   }
   // Optional clamp (e.g. SENSITIVITY uses standard curve range −1…+1).
   const clampMin = Number(input.dataset.metadataClampMin);

@@ -2,11 +2,11 @@
 // Continuous phasors for seed/flow/warp/rotation/color (speed changes rate only).
 
 const nodeGraphRgbFractalSettingsDefaults = Object.freeze({
-  // Display Background color (used when outerPlate = "background").
+  // Fallback plate color (legacy / Gradient soft mix).
   background: "#000000",
-  // "background" = original dream plate (first option)
-  // "gradientStart" = gradient stop 0 as outer / empty plate (second option)
-  outerPlate: "background",
+  // "stop0"     = exterior is gradient stop at t=0.00 (default)
+  // "gradient"  = soft exterior sampled from the full gradient
+  outerPlate: "stop0",
   gradientStops: Object.freeze([
     Object.freeze({ t: 0, color: "#000000" }),
     Object.freeze({ t: 0.12, color: "#12083a" }),
@@ -73,41 +73,75 @@ function normalizeNodeGraphRgbFractalSettings(settings = {}) {
   const background = typeof normalizeNodeGraphTraceDisplayColor === "function"
     ? normalizeNodeGraphTraceDisplayColor(source.background ?? source.backgroundColor, defaults.background)
     : String(source.background || defaults.background);
-  const outerRaw = String(source.outerPlate ?? source.outerColor ?? defaults.outerPlate).trim().toLowerCase();
-  let outerPlate = "background";
-  if (outerRaw === "haze" || outerRaw === "2") {
-    outerPlate = "haze";
-  } else if (
-    outerRaw === "gradientstart"
-    || outerRaw === "gradient"
-    || outerRaw === "1"
+  const outerRaw = String(source.outerPlate ?? source.outerColor ?? defaults.outerPlate)
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "");
+  // Canonical: stop0 | gradient. Legacy aliases migrate here.
+  let outerPlate = "stop0";
+  if (
+    outerRaw === "gradient"
+    || outerRaw === "haze"
+    || outerRaw === "2"
   ) {
-    outerPlate = "gradientStart";
+    outerPlate = "gradient";
+  } else if (
+    outerRaw === "stop0"
+    || outerRaw === "stop0.00"
+    || outerRaw === "gradientstart"
+    || outerRaw === "1"
+    || outerRaw === "background"
+    || outerRaw === "0"
+    || outerRaw === ""
+  ) {
+    // stop0 default; legacy Background / Gradient start → solid stop 0.00 plate
+    outerPlate = "stop0";
   }
   return { background, gradientStops, outerPlate };
 }
 
-/** Low end of the palette — exterior when outerPlate = gradientStart. */
+/**
+ * Color of the gradient stop at t≈0.00 (lowest t, preferring exact 0).
+ * Used when outerPlate = stop0.
+ */
 function nodeGraphRgbFractalStop0Color(settingsOrStops) {
-  if (Array.isArray(settingsOrStops)) {
-    const c = settingsOrStops[0]?.color;
-    return c ? String(c) : "#000000";
+  const stops = Array.isArray(settingsOrStops)
+    ? settingsOrStops
+    : settingsOrStops?.gradientStops;
+  if (!Array.isArray(stops) || !stops.length) {
+    return String(settingsOrStops?.background || "#000000");
   }
-  const stops = settingsOrStops?.gradientStops;
-  if (Array.isArray(stops) && stops[0]?.color) {
-    return String(stops[0].color);
+  let best = null;
+  let bestT = Infinity;
+  for (const s of stops) {
+    if (!s?.color) continue;
+    const t = Number(s.t);
+    const tt = Number.isFinite(t) ? t : 0;
+    if (Math.abs(tt) < 1e-6) {
+      return String(s.color);
+    }
+    if (tt < bestT) {
+      bestT = tt;
+      best = s;
+    }
   }
-  return String(settingsOrStops?.background || "#000000");
+  if (best?.color) {
+    return String(best.color);
+  }
+  return String(stops[0]?.color || settingsOrStops?.background || "#000000");
 }
 
 /** Idle / DOM plate color for current outerPlate mode. */
 function nodeGraphRgbFractalPlateColor(settings) {
   const s = settings && typeof settings === "object" ? settings : {};
-  const mode = String(s.outerPlate || "background");
-  if (mode === "gradientStart") {
+  const mode = String(s.outerPlate || "stop0");
+  if (mode === "stop0" || mode === "gradientStart") {
     return nodeGraphRgbFractalStop0Color(s);
   }
-  // background + haze idle on the Background swatch (haze is live-shader only).
+  // gradient: soft exterior still idles on stop 0 so letterbox matches LUT low end
+  if (mode === "gradient" || mode === "haze") {
+    return nodeGraphRgbFractalStop0Color(s);
+  }
   return String(s.background || "#000000");
 }
 
@@ -223,17 +257,101 @@ function nodeGraphRgbFractalShouldFreeze(moduleSpeed = 1) {
   return !(Math.abs(Number(moduleSpeed) || 0) > 1e-6);
 }
 
-function nodeGraphRgbFractalEnsurePhasors(face) {
-  if (!Number.isFinite(face._rgbFractalOrbitPhasor)) {
-    face._rgbFractalOrbitPhasor = Number(face._rgbFractalPhase) || 0;
+/**
+ * Face animation state keyed by node id — survives module DOM rebuilds
+ * (width/height resize commits re-create the face element).
+ * @type {Map<string, { orbitPhasor: number, rotationPhasor: number, colorPhasor: number }>}
+ */
+const nodeGraphRgbFractalFaceStates = new Map();
+
+function nodeGraphRgbFractalFaceStateKey(nodeId) {
+  return String(nodeId || "").trim();
+}
+
+function nodeGraphRgbFractalFaceState(nodeId) {
+  const id = nodeGraphRgbFractalFaceStateKey(nodeId);
+  if (!id) {
+    return null;
   }
-  if (!Number.isFinite(face._rgbFractalRotationPhasor)) {
-    face._rgbFractalRotationPhasor = 0;
+  let state = nodeGraphRgbFractalFaceStates.get(id);
+  if (!state) {
+    state = {
+      orbitPhasor: 0,
+      rotationPhasor: 0,
+      colorPhasor: 0,
+    };
+    nodeGraphRgbFractalFaceStates.set(id, state);
   }
-  if (!Number.isFinite(face._rgbFractalColorPhasor)) {
-    face._rgbFractalColorPhasor = 0;
+  return state;
+}
+
+function nodeGraphRgbFractalPruneFaceStates() {
+  if (typeof nodeGraphPatchNode !== "function") {
+    return;
+  }
+  for (const id of [...nodeGraphRgbFractalFaceStates.keys()]) {
+    const node = nodeGraphPatchNode(id);
+    if (!node || node.type !== "rgbFractal") {
+      nodeGraphRgbFractalFaceStates.delete(id);
+    }
+  }
+}
+
+/**
+ * Bind face element phasors to durable node state (and restore after DOM rebuild).
+ * @param {HTMLElement|null} face
+ * @param {string} [nodeId]
+ */
+function nodeGraphRgbFractalEnsurePhasors(face, nodeId) {
+  if (!face) {
+    return null;
+  }
+  const id = nodeGraphRgbFractalFaceStateKey(nodeId)
+    || String(face.dataset?.node || face.closest?.("[data-node]")?.dataset?.node || "").trim();
+  const durable = id ? nodeGraphRgbFractalFaceState(id) : null;
+
+  if (durable) {
+    // Fresh face (recreated on resize): restore from map.
+    // Live face: keep face values, then write-through below after sim step.
+    if (!face._rgbFractalPhasorsBound || !Number.isFinite(face._rgbFractalOrbitPhasor)) {
+      face._rgbFractalOrbitPhasor = Number(durable.orbitPhasor) || 0;
+      face._rgbFractalRotationPhasor = Number(durable.rotationPhasor) || 0;
+      face._rgbFractalColorPhasor = Number(durable.colorPhasor) || 0;
+      face._rgbFractalPhasorsBound = true;
+    }
+  } else {
+    if (!Number.isFinite(face._rgbFractalOrbitPhasor)) {
+      face._rgbFractalOrbitPhasor = Number(face._rgbFractalPhase) || 0;
+    }
+    if (!Number.isFinite(face._rgbFractalRotationPhasor)) {
+      face._rgbFractalRotationPhasor = 0;
+    }
+    if (!Number.isFinite(face._rgbFractalColorPhasor)) {
+      face._rgbFractalColorPhasor = 0;
+    }
   }
   face._rgbFractalPhase = face._rgbFractalOrbitPhasor;
+  return durable;
+}
+
+/** Write face phasors back to the durable map (call after each sim step). */
+function nodeGraphRgbFractalCommitPhasors(face, nodeId) {
+  if (!face) {
+    return;
+  }
+  const id = nodeGraphRgbFractalFaceStateKey(nodeId)
+    || String(face.dataset?.node || face.closest?.("[data-node]")?.dataset?.node || "").trim();
+  if (!id) {
+    return;
+  }
+  const durable = nodeGraphRgbFractalFaceState(id);
+  if (!durable) {
+    return;
+  }
+  durable.orbitPhasor = Number(face._rgbFractalOrbitPhasor) || 0;
+  durable.rotationPhasor = Number(face._rgbFractalRotationPhasor) || 0;
+  durable.colorPhasor = Number(face._rgbFractalColorPhasor) || 0;
+  face._rgbFractalPhasorsBound = true;
 }
 
 /** Continuous sample of locus ring at s∈[0,1) — Catmull–Rom (matches audio path). */
@@ -287,26 +405,103 @@ function nodeGraphRgbFractalComputeC(seed, tOrbit, orbitSize) {
 }
 
 /**
- * Soft Fractal face buffer = layout face (clientWidth/Height) × dpr.
+ * Soft Fractal face buffer = layout face (clientWidth/Height) × dpr / downsample.
  *
  * App / workspace zoom does NOT grow the GPU buffer — CSS scales the fixed
- * bitmap (pixelated-canvas-zoom → nearest-neighbor). Defined pixels are the
- * middle ground: Zoom-in stays crisp chunks, not denser Julia sampling every
- * frame (shader cost stays ~constant with app zoom).
+ * bitmap (pixelated-canvas-zoom → nearest-neighbor). Downsample param further
+ * shrinks the buffer for an intentional variable pixel grid.
  *
  * Scale (module param) only changes halfSpan — same pixel budget, different region.
  * Cap long edge as a safety for huge faces / high-DPR displays.
  */
 const NODE_GRAPH_RGB_FRACTAL_FACE_MAX_LONG = 2048;
+const NODE_GRAPH_RGB_FRACTAL_DOWNSAMPLE_MIN = 1;
+const NODE_GRAPH_RGB_FRACTAL_DOWNSAMPLE_MAX = 32;
+const NODE_GRAPH_RGB_FRACTAL_MAX_ITER_MIN = 1;
+const NODE_GRAPH_RGB_FRACTAL_MAX_ITER_MAX = 256;
+/** Default maxIter (was depth 0.85 on the old 0…4 scale). */
+const NODE_GRAPH_RGB_FRACTAL_MAX_ITER_DEFAULT = 55;
 
-function syncNodeGraphRgbFractalCanvas(canvas, face, pixelRatio) {
+function nodeGraphRgbFractalNormalizeDownsample(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) {
+    return 1;
+  }
+  return Math.max(
+    NODE_GRAPH_RGB_FRACTAL_DOWNSAMPLE_MIN,
+    Math.min(NODE_GRAPH_RGB_FRACTAL_DOWNSAMPLE_MAX, n),
+  );
+}
+
+/**
+ * Depth domain is maxIter (integer 1…256).
+ * Legacy continuous 0…4 floats (non-integer) map through the old linear curve
+ * so existing patches keep their look; integer values are used as maxIter.
+ */
+function nodeGraphRgbFractalResolveMaxIter(raw) {
+  const d = Number(raw);
+  if (!Number.isFinite(d)) {
+    return NODE_GRAPH_RGB_FRACTAL_MAX_ITER_DEFAULT;
+  }
+  // Legacy: continuous 0…4 (e.g. default 0.85) — not whole-number maxIter intent.
+  if (d >= 0 && d <= 4 && Math.abs(d - Math.round(d)) > 1e-6) {
+    return Math.min(
+      NODE_GRAPH_RGB_FRACTAL_MAX_ITER_MAX,
+      Math.max(
+        NODE_GRAPH_RGB_FRACTAL_MAX_ITER_MIN,
+        Math.round(1 + d * ((NODE_GRAPH_RGB_FRACTAL_MAX_ITER_MAX - 1) / 4)),
+      ),
+    );
+  }
+  return Math.min(
+    NODE_GRAPH_RGB_FRACTAL_MAX_ITER_MAX,
+    Math.max(NODE_GRAPH_RGB_FRACTAL_MAX_ITER_MIN, Math.round(d)),
+  );
+}
+
+/**
+ * One-shot patch migration: rewrite depth from old 0…4 float to maxIter integer.
+ */
+function nodeGraphRgbFractalMigrateDepthParam(node) {
+  if (!node || node.type !== "rgbFractal" || !node.params || typeof node.params !== "object") {
+    return false;
+  }
+  if (node.params._depthIsMaxIter === true || node.params._depthIsMaxIter === "true") {
+    return false;
+  }
+  const raw = Number(node.params.depth);
+  if (!Number.isFinite(raw)) {
+    node.params.depth = String(NODE_GRAPH_RGB_FRACTAL_MAX_ITER_DEFAULT);
+    node.params._depthIsMaxIter = true;
+    return true;
+  }
+  // Only rewrite clear legacy floats (0…4 non-integer) or exact old default scale.
+  if (raw >= 0 && raw <= 4 && Math.abs(raw - Math.round(raw)) > 1e-6) {
+    node.params.depth = String(nodeGraphRgbFractalResolveMaxIter(raw));
+    node.params._depthIsMaxIter = true;
+    return true;
+  }
+  // Integer already in 1…256: treat as maxIter going forward.
+  if (raw >= 1 && raw <= 256 && Math.abs(raw - Math.round(raw)) <= 1e-6) {
+    node.params._depthIsMaxIter = true;
+    return false;
+  }
+  // Out-of-range legacy: clamp as maxIter.
+  node.params.depth = String(nodeGraphRgbFractalResolveMaxIter(raw));
+  node.params._depthIsMaxIter = true;
+  return true;
+}
+
+function syncNodeGraphRgbFractalCanvas(canvas, face, pixelRatio, downsample = 1) {
   if (!canvas || !face) {
     return false;
   }
   const dpr = Math.max(1, Number(pixelRatio) || window.devicePixelRatio || 1);
+  const ds = nodeGraphRgbFractalNormalizeDownsample(downsample);
   // clientWidth/Height = layout size; ignores workspace CSS transform scale.
-  let w = Math.max(1, Math.round((face.clientWidth || face.offsetWidth || 1) * dpr));
-  let h = Math.max(1, Math.round((face.clientHeight || face.offsetHeight || 1) * dpr));
+  // Downsample divides the buffer so each face CSS pixel maps to a chunky texel.
+  let w = Math.max(1, Math.round((face.clientWidth || face.offsetWidth || 1) * dpr / ds));
+  let h = Math.max(1, Math.round((face.clientHeight || face.offsetHeight || 1) * dpr / ds));
   const longEdge = Math.max(w, h);
   const maxLong = NODE_GRAPH_RGB_FRACTAL_FACE_MAX_LONG;
   if (longEdge > maxLong) {
@@ -320,7 +515,14 @@ function syncNodeGraphRgbFractalCanvas(canvas, face, pixelRatio) {
   }
   canvas.style.width = "100%";
   canvas.style.height = "100%";
-  // image-rendering left to CSS (.pixelated-canvas-zoom); do not force auto.
+  // Downsample > 1: force nearest-neighbor so the grid is intentional blocks.
+  // At 1, leave to CSS (.pixelated-canvas-zoom under workspace zoom).
+  if (ds > 1.001) {
+    canvas.style.setProperty("image-rendering", "pixelated");
+  } else {
+    canvas.style.removeProperty("image-rendering");
+  }
+  face._rgbFractalDownsample = ds;
   return w > 0 && h > 0;
 }
 
@@ -437,7 +639,7 @@ function paintNodeGraphRgbFractalFaceCpu(canvas, face, params) {
   // Raw: one field sample per canvas pixel — no sim downscale.
   const simW = w;
   const simH = h;
-  const maxIter = Math.round(18 + params.depth * 40);
+  const maxIter = nodeGraphRgbFractalResolveMaxIter(params.depth);
   let field = face._rgbFractalField;
   if (!field || field.length !== simW * simH) {
     field = new Float32Array(simW * simH);
@@ -543,10 +745,10 @@ function paintNodeGraphRgbFractalFaceCpu(canvas, face, params) {
   }
   octx.putImageData(img, 0, 0);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  // Letterbox / beyond-sim: match outer plate mode (haze idles on Background).
-  const outerMode = String(params.outerPlate || "background");
-  const plate = outerMode === "gradientStart"
-    ? ((Array.isArray(stops) && stops[0]?.color) || params.background || "#000000")
+  // Letterbox / beyond-sim: match outer plate (Stop 0.00 or Gradient).
+  const outerMode = String(params.outerPlate || "stop0");
+  const plate = (outerMode === "stop0" || outerMode === "gradientStart" || outerMode === "gradient" || outerMode === "haze")
+    ? nodeGraphRgbFractalStop0Color(Array.isArray(stops) ? stops : params)
     : (params.background || "#000000");
   ctx.fillStyle = plate;
   ctx.fillRect(0, 0, w, h);
@@ -611,7 +813,11 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
   const pixelRatio = Number(typeof nodeGraphModuleScopeState !== "undefined"
     ? nodeGraphModuleScopeState?.backingPixelRatio
     : 0) || window.devicePixelRatio || 1;
-  if (!syncNodeGraphRgbFractalCanvas(canvas, face, pixelRatio)) {
+  // Read downsample before buffer sync so resolution follows the knob live.
+  const downsample = nodeGraphRgbFractalNormalizeDownsample(
+    nodeGraphRgbFractalReadParam(nodeId, "downsample", 1),
+  );
+  if (!syncNodeGraphRgbFractalCanvas(canvas, face, pixelRatio, downsample)) {
     return false;
   }
 
@@ -629,6 +835,7 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
   const patchNodeEarly = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   if (patchNodeEarly) {
     nodeGraphRgbFractalMigrateRotationParams(patchNodeEarly);
+    nodeGraphRgbFractalMigrateDepthParam(patchNodeEarly);
   }
 
   const speedRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "speed", 1));
@@ -672,9 +879,12 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
   const seed = ((nodeGraphRgbFractalReadParam(nodeId, "seed", 0) % 1) + 1) % 1;
   const scaleRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "scale", 1.2));
   const scale = Number.isFinite(scaleRaw) && scaleRaw > 0 ? scaleRaw : 1.2;
-  const depthRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "depth", 1.2));
-  const depth = Number.isFinite(depthRaw) ? Math.max(0, depthRaw) : 1.2;
+  const depth = nodeGraphRgbFractalResolveMaxIter(
+    nodeGraphRgbFractalReadParam(nodeId, "depth", 55),
+  );
   const orbitSize = nodeGraphRgbFractalReadParam(nodeId, "orbitSize", 1);
+  const orbitSpeedRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "orbitSpeed", 1));
+  const orbitSpeed = Number.isFinite(orbitSpeedRaw) ? Math.max(0, orbitSpeedRaw) : 1;
   // Pure view offset (bipolar); applied in complex plane after halfSpan is known.
   const panXRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "panX", 0));
   const panYRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "panY", 0));
@@ -707,16 +917,18 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
   const rotSpeed = Number.isFinite(rotSpeedRaw) ? rotSpeedRaw : 0;
   const rotAngle01 = ((nodeGraphRgbFractalReadParam(nodeId, "rotation", 0) % 1) + 1) % 1;
 
-  nodeGraphRgbFractalEnsurePhasors(face);
+  nodeGraphRgbFractalEnsurePhasors(face, nodeId);
   if (dt > 0) {
-    // Master Speed multiplies all free-running rates (orbit, rotation, color).
-    const dTheta = speed * 0.32 * dt;
-    face._rgbFractalOrbitPhasor += dTheta;
+    // Master Speed multiplies free-running rates; Orbit Speed scales c-walk only.
+    const dMaster = speed * 0.32 * dt;
+    const dOrbit = dMaster * orbitSpeed;
+    face._rgbFractalOrbitPhasor += dOrbit;
     face._rgbFractalPhase = face._rgbFractalOrbitPhasor;
-    face._rgbFractalRotationPhasor += -rotSpeed * dTheta;
+    face._rgbFractalRotationPhasor += -rotSpeed * dMaster;
     // Palette walk: Speed × Color Shift Rate (static Color Shift is applied below).
     face._rgbFractalColorPhasor += speed * colorShiftRate * 0.14 * dt;
   }
+  nodeGraphRgbFractalCommitPhasors(face, nodeId);
 
   const tOrbit = Number(face._rgbFractalOrbitPhasor) || 0;
   const { cx, cy } = nodeGraphRgbFractalComputeC(seed, tOrbit, orbitSize);
@@ -745,8 +957,8 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
   const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   const settings = nodeGraphRgbFractalSettingsForNode(patchNode);
 
-  // Full iter budget for the raw face (shader uses uMaxIter as-is).
-  const maxIter = Math.min(256, Math.max(8, Math.round(24 + depth * 85 * 0.9)));
+  // Depth domain is maxIter itself (integer 1…256).
+  const maxIter = depth;
 
   const paintParams = {
     cx,
@@ -769,9 +981,11 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
     trapX: 0,
     trapY: 0,
     // Haze mode uses time for radial-only plate breath; other modes ignore it.
-    time: (settings.outerPlate || "background") === "haze" ? tOrbit : 0,
+    time: (settings.outerPlate || "stop0") === "gradient" || (settings.outerPlate || "") === "haze"
+      ? tOrbit
+      : 0,
     background: settings.background || "#000000",
-    outerPlate: settings.outerPlate || "background",
+    outerPlate: settings.outerPlate || "stop0",
     gradientStops: settings.gradientStops,
     depth,
     fold: 0,
@@ -808,6 +1022,13 @@ function paintNodeGraphRgbFractalFaceForNode(nodeId, options = {}) {
   const canvas = face?.querySelector?.(".node-rgb-fractal-canvas");
   if (!face || !canvas) {
     return false;
+  }
+  // Occasional prune so deleted modules do not keep face state forever.
+  if ((paintNodeGraphRgbFractalFaceForNode._pruneAt || 0) < (performance.now?.() || Date.now())) {
+    paintNodeGraphRgbFractalFaceForNode._pruneAt = (performance.now?.() || Date.now()) + 5000;
+    if (typeof nodeGraphRgbFractalPruneFaceStates === "function") {
+      nodeGraphRgbFractalPruneFaceStates();
+    }
   }
   return paintNodeGraphRgbFractalFace(canvas, face, id, options);
 }

@@ -70,15 +70,31 @@ async function loadNodeMetadataKindTemplates() {
 function syncNodeMetadataMidVisibility() {
   const label = document.getElementById("metadataMidLabel");
   const sensitivity = document.getElementById("metadataCurveSensitivityLabel");
+  const hint = document.getElementById("metadataCurveSensitivityHint");
   const curve = document.getElementById("metadataSliderCurveValue");
   const checkbox = document.getElementById("metadataNonlinearSliderValue");
-  const curveValue = curve ? curve.value : (checkbox?.checked ? "skew" : "linear");
+  const curveValue = curve
+    ? (typeof normalizeNodeSliderCurve === "function"
+      ? normalizeNodeSliderCurve(curve.value)
+      : curve.value)
+    : (checkbox?.checked ? "skew" : "linear");
   const nonlinear = curveValue !== "linear";
+  // MID only for mid skew; SENSITIVITY for custom skew + edge skew.
   if (label) {
-    label.hidden = !nonlinear;
+    label.hidden = typeof nodeSliderCurveUsesMid === "function"
+      ? !nodeSliderCurveUsesMid(curveValue)
+      : curveValue !== "skew";
   }
   if (sensitivity) {
-    sensitivity.hidden = curveValue !== "edges";
+    sensitivity.hidden = typeof nodeSliderCurveUsesSensitivity === "function"
+      ? !nodeSliderCurveUsesSensitivity(curveValue)
+      : (curveValue !== "edges" && curveValue !== "custom");
+  }
+  if (hint) {
+    // Custom = mid-style power from sens; edge = S-curve travel balance.
+    hint.textContent = curveValue === "edges"
+      ? "0:mild, +1:fine near ends, -1:fine near center"
+      : "0:linear, +1:fine near min, -1:fine near max";
   }
   if (checkbox) {
     checkbox.checked = Boolean(nonlinear);

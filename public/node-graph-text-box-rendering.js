@@ -16,7 +16,10 @@ function syncNodeGraphTextBoxContentAlignment(field, layout = normalizeNodeGraph
   const paddingTop = Number.parseFloat(style.paddingTop) || 0;
   const paddingBottom = Number.parseFloat(style.paddingBottom) || 0;
   const text = String(field.value || "");
-  const lineCount = layout.textMode === "multiline"
+  const multiline = typeof nodeGraphTextBoxModeIsMultiline === "function"
+    ? nodeGraphTextBoxModeIsMultiline(layout.textMode)
+    : layout.textMode !== "singleLine";
+  const lineCount = multiline
     ? Math.max(1, text.split(/\r\n|\r|\n/).length)
     : 1;
   const contentHeight = lineCount * lineHeight;
@@ -26,34 +29,104 @@ function syncNodeGraphTextBoxContentAlignment(field, layout = normalizeNodeGraph
   field.style.setProperty("--node-text-box-content-offset", `${offset.toFixed(2)}px`);
 }
 
+const nodeGraphTextBoxFitScaleLimits = Object.freeze({
+  min: 0.4,
+  // Fill mode may grow well past 1× when the face is large / text is short.
+  maxFill: 16,
+});
+
+/**
+ * Measure max painted line width at the field's current computed font (fit-scale=1).
+ */
+function nodeGraphTextBoxMeasureMaxLineWidth(field, layout = normalizeNodeGraphTextBoxLayout()) {
+  if (!field) {
+    return 0;
+  }
+  const style = window.getComputedStyle(field);
+  const text = String(field.value || "");
+  const lines = text.split(/\r\n|\r|\n/);
+  const mode = normalizeNodeGraphTextBoxMode(layout.textMode);
+  // Multiline/fill: measure whole lines (newlines are author breaks).
+  // Also measure longest word so a single long token still shrinks to width.
+  const samples = mode === "singleLine"
+    ? [text || " "]
+    : [
+      ...lines.map((line) => line || " "),
+      ...lines.flatMap((line) => line.trim().split(/\s+/).filter(Boolean)),
+    ];
+  const list = samples.length ? samples : [" "];
+  const canvas = nodeGraphTextBoxMeasureMaxLineWidth.canvas ||= document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return 0;
+  }
+  context.font = style.font;
+  return list.reduce((width, sample) =>
+    Math.max(width, context.measureText(sample || " ").width), 0);
+}
+
+/**
+ * multiline: shrink only when wider than the box (never grow).
+ */
 function nodeGraphTextBoxWidthFitScale(field, layout = normalizeNodeGraphTextBoxLayout()) {
   if (!field) {
     return 1;
   }
-  if (layout.textMode === "singleLine") {
+  if (normalizeNodeGraphTextBoxMode(layout.textMode) === "singleLine") {
     return 1;
   }
   const style = window.getComputedStyle(field);
   const paddingLeft = Number.parseFloat(style.paddingLeft) || 0;
   const paddingRight = Number.parseFloat(style.paddingRight) || 0;
   const availableWidth = Math.max(1, field.clientWidth - paddingLeft - paddingRight);
-  const text = String(field.value || "");
-  const lines = text.split(/\r\n|\r|\n/);
-  const measuredText = layout.textMode === "multiline"
-    ? lines.flatMap((line) => line.trim().split(/\s+/).filter(Boolean))
-    : lines;
-  const samples = measuredText.length ? measuredText : [text || " "];
-  const canvas = nodeGraphTextBoxWidthFitScale.canvas ||= document.createElement("canvas");
-  const context = canvas.getContext("2d");
-  if (!context) {
+  const maxWidth = nodeGraphTextBoxMeasureMaxLineWidth(field, layout);
+  if (!(maxWidth > 0)) {
     return 1;
   }
-  context.font = style.font;
-  const maxWidth = samples.reduce((width, sample) =>
-    Math.max(width, context.measureText(sample || " ").width), 0);
   return maxWidth > availableWidth
-    ? Math.max(0.4, availableWidth / maxWidth)
+    ? Math.max(nodeGraphTextBoxFitScaleLimits.min, availableWidth / maxWidth)
     : 1;
+}
+
+/**
+ * fill: grow or shrink so text uses available height and stays within width.
+ * textSizePercent is the base (preferred) size; fit-scale multiplies from there.
+ */
+function nodeGraphTextBoxFillFitScale(field, layout = normalizeNodeGraphTextBoxLayout()) {
+  if (!field) {
+    return 1;
+  }
+  const style = window.getComputedStyle(field);
+  const fontSize = Number.parseFloat(style.fontSize) || 14;
+  const lineHeight = Number.parseFloat(style.lineHeight) || fontSize * 1.2;
+  const paddingLeft = Number.parseFloat(style.paddingLeft) || 0;
+  const paddingRight = Number.parseFloat(style.paddingRight) || 0;
+  const paddingTop = Number.parseFloat(style.paddingTop) || 0;
+  const paddingBottom = Number.parseFloat(style.paddingBottom) || 0;
+  const availableWidth = Math.max(1, field.clientWidth - paddingLeft - paddingRight);
+  const availableHeight = Math.max(1, field.clientHeight - paddingTop - paddingBottom);
+  const text = String(field.value || "");
+  const lineCount = Math.max(1, text.split(/\r\n|\r|\n/).length);
+  const contentHeightAt1 = lineCount * lineHeight;
+  const maxWidthAt1 = nodeGraphTextBoxMeasureMaxLineWidth(field, layout);
+  const sHeight = contentHeightAt1 > 0 ? availableHeight / contentHeightAt1 : nodeGraphTextBoxFitScaleLimits.maxFill;
+  const sWidth = maxWidthAt1 > 0 ? availableWidth / maxWidthAt1 : nodeGraphTextBoxFitScaleLimits.maxFill;
+  const scale = Math.min(sHeight, sWidth);
+  return Math.max(
+    nodeGraphTextBoxFitScaleLimits.min,
+    Math.min(nodeGraphTextBoxFitScaleLimits.maxFill, scale),
+  );
+}
+
+function nodeGraphTextBoxFontFitScale(field, layout = normalizeNodeGraphTextBoxLayout()) {
+  const mode = normalizeNodeGraphTextBoxMode(layout.textMode);
+  if (mode === "fill") {
+    return nodeGraphTextBoxFillFitScale(field, layout);
+  }
+  if (mode === "multiline") {
+    return nodeGraphTextBoxWidthFitScale(field, layout);
+  }
+  return 1;
 }
 
 function syncNodeGraphTextBoxVisualFit(field, layout = normalizeNodeGraphTextBoxLayout()) {
@@ -62,10 +135,13 @@ function syncNodeGraphTextBoxVisualFit(field, layout = normalizeNodeGraphTextBox
   }
   field.scrollLeft = 0;
   field.scrollTop = 0;
+  // Measure at fit-scale 1 (base = textSizePercent only), then apply fit.
   field.style.setProperty("--node-text-box-font-fit-scale", "1");
+  // Force layout so getComputedStyle reflects fit=1 before measuring.
+  void field.offsetWidth;
   field.style.setProperty(
     "--node-text-box-font-fit-scale",
-    String(nodeGraphTextBoxWidthFitScale(field, layout)),
+    String(nodeGraphTextBoxFontFitScale(field, layout)),
   );
   syncNodeGraphTextBoxContentAlignment(field, layout);
 }
@@ -201,6 +277,8 @@ function syncNodeGraphTextBoxElement(element, patchNode) {
   }
   field.dataset.textAlign = layout.horizontalAlign;
   field.dataset.textBoxMode = layout.textMode;
+  // fill is multiline + auto size; keep CSS white-space rules on multiline path
+  field.dataset.textBoxModeCss = layout.textMode === "singleLine" ? "singleLine" : "multiline";
   field.style.textAlign = layout.horizontalAlign;
   field.style.setProperty("--node-text-box-font-scale", String(layout.textSizePercent / 100));
   if (field.value !== layout.text) {

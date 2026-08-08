@@ -33,7 +33,8 @@ Then `nodeGraphParamApplyMod(domainBase, modSum, metadata)`:
    Same scale as **0.1V/Oct** jacks: +0.1 → +1 octave.
 
 2. **Everything else**  
-   Map domain → unit [0, 1] (with nonlinear mid skew if `nonlinearSlider`),  
+   Map domain → unit [0, 1] (mid skew if `sliderCurve: "skew"`, custom sensitivity
+   skew if `"custom"`; edge S-curve is UI-drag only),  
    add `modSum`, map back to domain; hard min/max only per policy above.
 
 **Behavior change vs older live path:** non-frequency mod was often treated as

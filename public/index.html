@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>soemdsp-sandbox</title>
-  <link rel="stylesheet" href="./public/styles.css?v=rgb-fractal-pixelate-1">
+  <link rel="stylesheet" href="./public/styles.css?v=module-show-hide-1">
   <link rel="stylesheet" href="./public/modules/stepGrid/step-grid.css?v=stepgrid-own-folder-20260715">
   <link rel="stylesheet" href="./public/modules/pitchQuantizer/pitch-quantizer-ui.css?v=chord-pad-1">
   <link rel="stylesheet" href="./public/modules/chordPad/chord-pad-ui.css?v=chord-pad-1">
@@ -2060,6 +2060,35 @@
             <span class="scene-context-button-lines"><span>Save to</span><span>Default</span></span>
           </button>
         </div>
+        <div id="nodeSceneModuleVisibilitySection" class="scene-context-module-section" hidden>
+          <div class="scene-context-module-section-title">Show / Hide</div>
+          <div id="nodeSceneModuleVisibilityActionGroup" class="scene-context-visibility-stack" role="group" aria-label="Module visibility">
+            <div class="scene-context-button-group scene-context-button-group-2" role="group" aria-label="Display and title">
+              <button id="nodeSceneToggleOscilloscope" type="button" role="menuitem" hidden>
+                <span class="scene-context-button-lines"><span>Hide</span><span>Display</span></span>
+              </button>
+              <button id="nodeSceneToggleTitle" type="button" role="menuitem" hidden>
+                <span class="scene-context-button-lines"><span>Hide</span><span>Title</span></span>
+              </button>
+            </div>
+            <div class="scene-context-button-group scene-context-button-group-3" role="group" aria-label="Chrome">
+              <button id="nodeSceneToggleButtons" type="button" role="menuitem" hidden>
+                <span class="scene-context-button-lines"><span>Hide</span><span>Buttons</span></span>
+              </button>
+              <button id="nodeSceneToggleIo" type="button" role="menuitem" hidden>
+                <span class="scene-context-button-lines"><span>Hide</span><span>In/Out</span></span>
+              </button>
+              <button id="nodeSceneToggleSliders" type="button" role="menuitem" hidden>
+                <span class="scene-context-button-lines"><span>Hide</span><span>Sliders</span></span>
+              </button>
+            </div>
+            <div class="scene-context-button-group scene-context-button-group-1" role="group" aria-label="Control surface">
+              <button id="nodeSceneToggleInterfaceControls" type="button" role="menuitem" hidden>
+                <span class="scene-context-button-lines"><span>Hide</span><span>Control surface</span></span>
+              </button>
+            </div>
+          </div>
+        </div>
         <div id="nodeSceneWindowControls" class="scene-context-text-box-controls scene-context-window-controls">
           <div>
             <div class="scene-context-patch-actions" role="group" aria-label="Patch actions">
@@ -2326,30 +2355,6 @@
           <button id="nodeSceneDisplayHeightIncrease" type="button" aria-label="Increase display height">+</button>
           <span id="nodeSceneDisplayHeightValue" class="scene-context-gu-value" aria-live="polite">2 gu</span>
         </div>
-        <div id="nodeSceneModuleVisibilityActionGroup" class="scene-context-visibility-stack" role="group" aria-label="Module visibility" hidden>
-          <div class="scene-context-button-group scene-context-button-group-2" role="group" aria-label="Display and title">
-            <button id="nodeSceneToggleOscilloscope" type="button" role="menuitem" hidden>
-              <span class="scene-context-button-lines"><span>Hide</span><span>Display</span></span>
-            </button>
-            <button id="nodeSceneToggleTitle" type="button" role="menuitem" hidden>
-              <span class="scene-context-button-lines"><span>Hide</span><span>Title</span></span>
-            </button>
-          </div>
-          <div class="scene-context-button-group scene-context-button-group-3" role="group" aria-label="Chrome">
-            <button id="nodeSceneToggleButtons" type="button" role="menuitem" hidden>
-              <span class="scene-context-button-lines"><span>Hide</span><span>Buttons</span></span>
-            </button>
-            <button id="nodeSceneToggleIo" type="button" role="menuitem" hidden>
-              <span class="scene-context-button-lines"><span>Hide</span><span>In/Out</span></span>
-            </button>
-            <button id="nodeSceneToggleSliders" type="button" role="menuitem" hidden>
-              <span class="scene-context-button-lines"><span>Hide</span><span>Sliders</span></span>
-            </button>
-          </div>
-        </div>
-        <button id="nodeSceneToggleInterfaceControls" type="button" role="menuitem" hidden>
-          <span>Hide control surface</span>
-        </button>
         <div id="nodeSceneImageControls" class="scene-context-text-box-controls" hidden>
           <span>image</span>
           <div>
@@ -2447,9 +2452,10 @@
         </label>
         <div id="nodeSceneTextBoxControls" class="scene-context-text-box-controls" hidden>
           <span>text box style</span>
-          <div>
+          <div class="three">
             <button id="nodeSceneTextBoxSingleLine" type="button" aria-pressed="true">single line</button>
             <button id="nodeSceneTextBoxMultiline" type="button" aria-pressed="false">multiline</button>
+            <button id="nodeSceneTextBoxFill" type="button" aria-pressed="false" title="Multiline text grows or shrinks to fill the available face">fill</button>
           </div>
         </div>
         <div id="nodeSceneTextBoxHorizontalAlignControls" class="scene-context-text-box-controls" hidden>
@@ -2930,17 +2936,19 @@
               <select id="metadataSliderCurveValue">
                 <option value="linear">off</option>
                 <option value="skew">mid skew</option>
+                <option value="custom">custom skew</option>
                 <option value="edges">edge skew</option>
               </select>
               <input id="metadataNonlinearSliderValue" type="checkbox" hidden tabindex="-1" aria-hidden="true">
             </label>
-            <label id="metadataCurveSensitivityLabel" class="metadata-curve-sensitivity-label" data-tooltip-key="parameterSettings.skewSensitivity" title="Edge skew strength. Standard range −1…+1 (same as FreqCurve-style bipolar). Only used when SKEW = edge skew.">
-              <span>SENSITIVITY (−1…+1)</span>
+            <label id="metadataCurveSensitivityLabel" class="metadata-curve-sensitivity-label" data-tooltip-key="parameterSettings.skewSensitivity" title="Used by custom skew and edge skew. Hidden for off and mid skew.">
+              <span class="metadata-curve-sensitivity-heading">SENSITIVITY</span>
               <span class="metadata-stepper-control">
                 <button type="button" data-metadata-step-target="metadataCurveSensitivityValue" data-metadata-step-direction="-1" data-tooltip-key="parameterSettings.skewSensitivity">-</button>
                 <input id="metadataCurveSensitivityValue" type="text" inputmode="decimal" data-tooltip-key="parameterSettings.skewSensitivity" data-metadata-clamp-min="-1" data-metadata-clamp-max="1" aria-valuemin="-1" aria-valuemax="1">
                 <button type="button" data-metadata-step-target="metadataCurveSensitivityValue" data-metadata-step-direction="1" data-tooltip-key="parameterSettings.skewSensitivity">+</button>
               </span>
+              <span id="metadataCurveSensitivityHint" class="metadata-curve-sensitivity-hint">0:linear, +1:fine near min, -1:fine near max</span>
             </label>
           </div>
           <div class="metadata-section-title">Fields</div>
@@ -2953,7 +2961,7 @@
               <span>MAX DIGITS</span>
               <span class="metadata-stepper-control">
                 <button type="button" data-metadata-step-target="metadataMaxDigitsValue" data-metadata-step-direction="-1">-</button>
-                <input id="metadataMaxDigitsValue" type="number" min="0" max="12" step="1" inputmode="numeric">
+                <input id="metadataMaxDigitsValue" type="number" min="1" max="12" step="1" inputmode="numeric" data-metadata-clamp-min="1" data-metadata-clamp-max="12">
                 <button type="button" data-metadata-step-target="metadataMaxDigitsValue" data-metadata-step-direction="1">+</button>
               </span>
             </label>
@@ -3586,8 +3594,8 @@
   <script src="./public/manifest-view.js?v=manifest-view-refactor-1780360800000"></script>
   <script src="./public/manifest-loader.js?v=manifest-loader-refactor-1780389600000"></script>
   <script src="./public/node-graph-wires.js?v=wires-above-toggle-1"></script>
-  <script src="./public/node-graph-floating-windows.js?v=core-reduction-1"></script>
-  <script src="./public/node-graph-unified-window.js?v=core-reduction-1"></script>
+  <script src="./public/node-graph-floating-windows.js?v=view-max-1"></script>
+  <script src="./public/node-graph-unified-window.js?v=view-max-1"></script>
   <script src="./public/node-graph-file-actions.js?v=patch-load-fault-1"></script>
   <script src="./public/node-graph-default-buttons.js?v=patch-save-refresh-1"></script>
   <script src="./public/node-graph-cookbook-filter.js?v=tb303-stable-1"></script>
@@ -3599,7 +3607,7 @@
   <script src="./public/modules/led/led-register.js?v=layoutb-min-2x2-1"></script>
   <script src="./public/modules/rgbShape/rgb-shape-register.js?v=rgb-shape-1"></script>
   <script src="./public/modules/rgbPicture/rgb-picture-register.js?v=rgb-picture-1"></script>
-  <script src="./public/modules/rgbFractal/rgb-fractal-register.js?v=rgb-fractal-pixelate-1"></script>
+  <script src="./public/modules/rgbFractal/rgb-fractal-register.js?v=orbit-speed-1"></script>
   <script src="./public/modules/evolveField/evolve-field-register.js?v=evolve-field-uc-1"></script>
   <script src="./public/modules/fbmField/fbm-field-register.js?v=fbm-field-21"></script>
   <script src="./public/modules/bugButton/bug-button-register.js?v=bug-button-io-order-20260724"></script>
@@ -3610,29 +3618,29 @@
   <script src="./public/modules/stepGrid/step-grid-register.js?v=stepgrid-variable-steps-20260715"></script>
   <script src="./public/modules/groupInput/group-input-register.js?v=chromeless-portals-1"></script>
   <script src="./public/modules/groupOutput/group-output-register.js?v=chromeless-portals-1"></script>
-  <script src="./public/node-graph-module-definitions.js?v=sinepulse-drum-1"></script>
+  <script src="./public/node-graph-module-definitions.js?v=maxdigits-1"></script>
   <script src="./public/node-graph-plan-roles.js?v=plan-roles-b0"></script>
   <script src="./public/node-graph-module-controls.js?v=speed-limit-project-1"></script>
   <script src="./public/node-graph-data-bus.js?v=data-plane-merge-20260711"></script>
-  <script src="./public/node-graph-module-store.js?v=sinepulse-drum-1"></script>
+  <script src="./public/node-graph-module-store.js?v=view-max-1"></script>
   <script src="./public/node-graph-module-sizing.js?v=display-min-1gu-1"></script>
-  <script src="./public/node-graph-metadata-kinds.js?v=0051"></script>
+  <script src="./public/node-graph-metadata-kinds.js?v=param-meta-ui-1"></script>
   <script src="./public/node-graph-parameter-smoother-filters.js?v=two-pole-smooth-1"></script>
-  <script src="./public/node-graph-parameter-metadata.js?v=speed-limit-project-1"></script>
+  <script src="./public/node-graph-parameter-metadata.js?v=maxdigits-1"></script>
   <script src="./public/node-graph-metadata-defaults.js?v=decimal-template-1"></script>
-  <script src="./public/node-graph-text-box-utils.js?v=text-box-size-1000-1"></script>
+  <script src="./public/node-graph-text-box-utils.js?v=text-fill-depth-1"></script>
   <script src="./public/node-graph-port-script.js?v=nuke-scriptbox-20260719"></script>
   <script src="./public/node-graph-image-utils.js?v=pre-formula-restore-1"></script>
   <script src="./public/node-graph-graph-utils.js?v=contour-square-blend-1"></script>
   <script src="./public/node-graph-samples.js?v=music-player-phase-persist-1"></script>
   <script src="./public/node-graph-phosphor-waveform.js?v=dimmer-zoom-tight-1"></script>
   <script src="./public/node-graph-stdlib/node-graph-phasor-helpers.js?v=phasor-helpers-1"></script>
-  <script src="./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=param-surface-4"></script>
+  <script src="./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=skew-custom-1"></script>
   <script src="./public/node-graph-musical-engines.js?v=musical-engines-1"></script>
   <script src="./public/node-graph-phosphillator.js?v=phasor-stdlib-1"></script>
   <script src="./public/node-graph-embed-config.js?v=embed-config-20260701"></script>
   <script src="./public/node-graph-resources.js?v=embed-config-20260701"></script>
-  <script src="./public/node-graph-text-box-rendering.js?v=data-plane-merge-20260709"></script>
+  <script src="./public/node-graph-text-box-rendering.js?v=text-fill-depth-1"></script>
   <script src="./public/node-graph-patch-normalizers.js?v=speed-limit-project-1"></script>
   <script src="./public/node-graph-audio-derivation.js?v=sample-rate-oversampling-1780468200000"></script>
   <script src="./public/node-graph-grid-utils.js?v=center-origin-view-1"></script>
@@ -3654,7 +3662,7 @@
   <script src="./public/node-graph-camera-view.js?v=utility-camera-feed-1780810000000"></script>
   <script src="./public/node-graph-marquee-selection.js?v=title-blur-on-marquee-20260707"></script>
   <script src="./public/node-graph-node-dragging.js?v=layout-edit-light-1"></script>
-  <script src="./public/node-graph-context-menu.js?v=visibility-two-row-1"></script>
+  <script src="./public/node-graph-context-menu.js?v=module-show-hide-1"></script>
   <script src="./public/node-graph-module-actions.js?v=alias-title-restore-1"></script>
   <!-- node-graph-code-screen.js loaded by node-graph-code-screen-loader.js on demand -->
   <script src="./public/lib/phosphor/phosphor-residual.js?v=beam-gauss-1"></script>
@@ -3690,7 +3698,7 @@
   <script src="./public/node-graph-module-scope-monitors.js?v=scope-monitors-1"></script>
   <script src="./public/node-graph-module-scope-scene-controls.js?v=scope-scene-controls-1"></script>
   <script src="./public/node-graph-module-scope-shader-settings.js?v=scope-shader-settings-1"></script>
-  <script src="./public/node-graph-module-scope-trace-controls.js?v=beam-gauss-1"></script>
+  <script src="./public/node-graph-module-scope-trace-controls.js?v=outer-stop0-1"></script>
   <script src="./public/node-graph-module-scope-wipe.js?v=scope-wipe-2"></script>
   <script src="./public/node-graph-module-scope-graph-query.js?v=scope-graph-query-1"></script>
   <script src="./public/node-graph-module-scope-settings.js?v=scope-settings-1"></script>
@@ -3713,9 +3721,9 @@
   <script src="./public/modules/rgbShape/rgb-shape-display.js?v=rgb-shape-1"></script>
   <script src="./public/modules/rgbPicture/rgb-picture-ui.js?v=rgb-picture-1"></script>
   <script src="./public/modules/rgbPicture/rgb-picture-display.js?v=rgb-picture-1"></script>
-  <script src="./public/modules/rgbFractal/rgb-fractal-gl.js?v=rgb-fractal-pixelate-1"></script>
-  <script src="./public/modules/rgbFractal/rgb-fractal-ui.js?v=rgb-fractal-pixelate-1"></script>
-  <script src="./public/modules/rgbFractal/rgb-fractal-display.js?v=rgb-fractal-pixelate-1"></script>
+  <script src="./public/modules/rgbFractal/rgb-fractal-gl.js?v=outer-stop0-1"></script>
+  <script src="./public/modules/rgbFractal/rgb-fractal-ui.js?v=outer-stop0-1"></script>
+  <script src="./public/modules/rgbFractal/rgb-fractal-display.js?v=orbit-speed-1"></script>
   <script src="./public/modules/evolveField/evolve-field-gl.js?v=evolve-field-uc-1"></script>
   <script src="./public/modules/evolveField/evolve-field-ui.js?v=evolve-field-uc-1"></script>
   <script src="./public/modules/evolveField/evolve-field-display.js?v=evolve-field-uc-1"></script>
@@ -3736,8 +3744,8 @@
   <script src="./public/node-graph-history.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-visual-utils.js?v=shared-canvas-sizing-20260725"></script>
   <script src="./public/node-graph-patch-clone.js?v=alias-title-restore-1"></script>
-  <script src="./public/node-graph-slider-metadata.js?v=papoulis-smoother-1"></script>
-  <script src="./public/node-graph-slider-values.js?v=mod-clamp-1"></script>
+  <script src="./public/node-graph-slider-metadata.js?v=maxdigits-1"></script>
+  <script src="./public/node-graph-slider-values.js?v=skew-custom-1"></script>
   <script src="./public/node-graph-slider-dragging.js?v=mod-clamp-1"></script>
   <script src="./public/node-graph-node-accessors.js?v=cleanup-20260725-smoothing-time-20260701"></script>
   <script src="./public/node-graph-selection.js?v=no-led-float-window-1"></script>
@@ -3748,7 +3756,7 @@
   <script src="./public/node-graph-slider-readout-controls.js?v=bug-button-settings-edit-20260723"></script>
   <script src="./public/node-graph-ghost-sliders.js?v=unbounded-speed-1"></script>
   <script src="./public/node-code-settings-editor.js?v=code-settings-shell-1"></script>
-  <script src="./public/node-graph-metadata-editor.js?v=sens-range-1"></script>
+  <script src="./public/node-graph-metadata-editor.js?v=maxdigits-1"></script>
   <script src="./public/node-graph-render-settings.js?v=cleanup-20260725-slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-ear-protection.js?v=ear-protection-pause-1"></script>
   <script src="./public/node-graph-patch-load-fault.js?v=patch-load-fault-1"></script>
@@ -3768,13 +3776,13 @@
   <script src="./public/node-graph-debug-copy.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-execution-debug-api.js?v=noise-generator-stereo-20260630"></script>
   <script src="./public/node-graph-execution-debug-view.js?v=slider-unit-color-1780307400000"></script>
-  <script src="./public/node-graph-tooltips.js?v=0040"></script>
+  <script src="./public/node-graph-tooltips.js?v=maxdigits-1"></script>
   <script src="./public/node-graph-interaction-help.js?v=tooltip-fixed-box-b-20260725"></script>
-  <script src="./public/presets/useruisettings.js?v=no-led-float-window-1"></script>
-  <script src="./public/node-graph-ui-settings-definitions.js?v=amount-alpha-55-1"></script>
+  <script src="./public/presets/useruisettings.js?v=expose-empty-1"></script>
+  <script src="./public/node-graph-ui-settings-definitions.js?v=expose-empty-1"></script>
   <script src="./public/node-graph-ui-settings-utils.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-user-ui-settings-controls.js?v=knob-style-to-uidev-20260725"></script>
-  <script src="./public/node-graph-ui-settings-panels.js?v=unified-window-pos-2"></script>
+  <script src="./public/node-graph-ui-settings-panels.js?v=expose-empty-1"></script>
   <script src="./public/node-graph-ui-settings-persistence.js?v=debug-off-default-2"></script>
   <script src="./public/node-graph-ui-settings-sync.js?v=amount-alpha-55-1"></script>
   <script src="./public/node-graph-keyboard-shortcuts.js?v=transport-states-5"></script>
@@ -3789,7 +3797,7 @@
   <script src="./public/node-graph-external-ui-events.js?v=xy-pad-impulse-1"></script>
   <script src="./public/node-graph-patch-migrations.js?v=patch-migrators-c0"></script>
   <script src="./public/node-graph-patch-core.js?v=mod-clamp-1"></script>
-  <script src="./public/node-graph-live-plan-runtime.js?v=text-stream-1"></script>
+  <script src="./public/node-graph-live-plan-runtime.js?v=rgb-fractal-state-1"></script>
   <script src="./public/node-graph-live-parameter-runtime.js?v=mod-clamp-1"></script>
   <script src="./public/node-graph-oscillator-runtime.js?v=0150-native-core"></script>
   <script src="./public/node-graph-gpu-additive-backend.js?v=external-graph-inputs-1780816800000"></script>
@@ -3999,8 +4007,8 @@
   <script src="./public/modules/led/led-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/rgbShape/rgb-shape-live-evaluator.js?v=rgb-shape-1"></script>
   <script src="./public/modules/rgbPicture/rgb-picture-live-evaluator.js?v=rgb-picture-1"></script>
-  <script src="./public/modules/rgbFractal/rgb-fractal-math.js?v=rgb-fractal-pixelate-1"></script>
-  <script src="./public/modules/rgbFractal/rgb-fractal-live-evaluator.js?v=rgb-fractal-pixelate-1"></script>
+  <script src="./public/modules/rgbFractal/rgb-fractal-math.js?v=orbit-speed-1"></script>
+  <script src="./public/modules/rgbFractal/rgb-fractal-live-evaluator.js?v=orbit-speed-1"></script>
   <script src="./public/modules/evolveField/evolve-field-live-evaluator.js?v=evolve-field-uc-1"></script>
   <script src="./public/modules/bugButton/bug-button-live-evaluator.js?v=solid-module-shell-2-20260723"></script>
   <script src="./public/modules/xyPad/xy-pad-live-evaluator.js?v=xy-pad-drag-1"></script>
@@ -4038,13 +4046,13 @@
   <script src="./public/modules/graph/graph-live-evaluator.js?v=retire-graph-type-20260724"></script>
   <script src="./public/modules/polyBlep/poly-blep-live-evaluator.js?v=one-core-native-20260803"></script>
   <script src="./public/node-graph-pulse-explosion-display.js?v=shared-canvas-sizing-20260725"></script>
-  <script src="./public/node-graph-live-runtime.js?v=transport-live-fix-10"></script>
+  <script src="./public/node-graph-live-runtime.js?v=rgb-fractal-state-1"></script>
   <script src="./public/node-graph-wire-controller-bootstrap.js?v=wire-break-trigger-0129"></script>
   <script src="./public/node-graph-workspace-event-bindings.js?v=core-reduction-1"></script>
   <script src="./public/node-graph-render-live-event-bindings.js?v=midi-toggle-20260725"></script>
   <script src="./public/node-graph-header-event-bindings.js?v=wires-above-toggle-1"></script>
   <script src="./public/node-graph-help-event-bindings.js?v=remove-workspace-view-0002"></script>
-  <script src="./public/node-graph-scene-menu-event-bindings.js?v=cc-module-search-1"></script>
+  <script src="./public/node-graph-scene-menu-event-bindings.js?v=text-fill-depth-1"></script>
   <script src="./public/node-graph-uidev-event-bindings.js?v=slider-fill-hsla-20260725"></script>
   <script src="./public/node-graph-settings-event-bindings.js?v=dblclick-header-fields-20260722"></script>
   <script src="./public/node-graph-slider-event-bindings.js?v=node-graph-slider-event-bindings-refactor-1780369200000"></script>

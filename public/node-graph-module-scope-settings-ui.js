@@ -2030,6 +2030,9 @@ function nodeGraphTraceDisplayColorWidgetLabel(field) {
     if (nodeGraphTraceDisplaySettingsFormType() === "numberReadout") {
       return "Plate";
     }
+    if (nodeGraphTraceDisplaySettingsFormType() === "rgbFractalFace") {
+      return "Bg";
+    }
     return "Bg";
   }
   if (field === "ghostColor") {

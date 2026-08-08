@@ -170,6 +170,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
           speed: read("speed", 1),
           seed: read("seed", 0),
           orbitSize: read("orbitSize", 1),
+          orbitSpeed: read("orbitSpeed", 1),
           detune: read("detune", 0.45),
         };
         const sr = Math.max(1, Number(safeRate) || sampleRate || 44100);

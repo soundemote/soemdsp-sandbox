@@ -34,7 +34,8 @@ function limit_decimals(
   }
   if (!dot) {
     if (!removeTrailingZeros) {
-      const boundedMaxDigits = Math.max(0, Math.min(12, Math.round(Number(maxDigits) || 0)));
+      // maxDigits policy: ≥ 1 app-wide (same as normalizeNodeGraphMetadataMaxDigits).
+      const boundedMaxDigits = Math.max(1, Math.min(12, Math.round(Number(maxDigits) || 1)));
       const boundedMinDecimals = Math.max(0, Math.round(Number(minDecimalPlaces) || 0));
       const boundedMaxDecimals = Math.max(0, Math.round(Number(maxDecimalPlaces) || 0));
       const digitBudget = Math.max(0, boundedMaxDigits - whole.length);
@@ -46,7 +47,7 @@ function limit_decimals(
     return `${sign}${whole}`;
   }
 
-  const boundedMaxDigits = Math.max(0, Math.min(12, Math.round(Number(maxDigits) || 0)));
+  const boundedMaxDigits = Math.max(1, Math.min(12, Math.round(Number(maxDigits) || 1)));
   const boundedMinDecimals = Math.max(0, Math.round(Number(minDecimalPlaces) || 0));
   const boundedMaxDecimals = Math.max(0, Math.round(Number(maxDecimalPlaces) || 0));
   let digitBudget = Math.max(0, boundedMaxDigits - whole.length);
@@ -233,10 +234,25 @@ function normalizeNodeSliderCurve(value, nonlinearSlider = false) {
   if (curve === "edges" || curve === "edge" || curve === "s") {
     return "edges";
   }
-  if (curve === "skew" || curve === "nonlinear" || curve === "exponential") {
+  // Mid-style power curve, but knee from SENSITIVITY (−1…+1) instead of MID.
+  if (curve === "custom" || curve === "sens" || curve === "sensitivity") {
+    return "custom";
+  }
+  if (curve === "skew" || curve === "mid" || curve === "nonlinear" || curve === "exponential") {
     return "skew";
   }
   return nonlinearSlider ? "skew" : "linear";
+}
+
+/** True when SKEW mode uses the SENSITIVITY (−1…+1) field. */
+function nodeSliderCurveUsesSensitivity(curve) {
+  const c = normalizeNodeSliderCurve(curve, false);
+  return c === "custom" || c === "edges";
+}
+
+/** True when SKEW mode uses the MID domain field for the response knee. */
+function nodeSliderCurveUsesMid(curve) {
+  return normalizeNodeSliderCurve(curve, false) === "skew";
 }
 
 function nodeSliderCurve(slider) {
@@ -412,7 +428,6 @@ function formatNodeSliderMetadataTooltip(slider) {
     `unit ${metadata.unit}`,
     `choices ${metadata.choices.length ? formatNodeMetadataChoices(metadata.choices) : "none"}`,
     `curve ${metadata.sliderCurve}`,
-    `sensitivity ${formatNodeSliderCompactNumber(metadata.curveAmount)}`,
     `display choices ${metadata.displayChoices}`,
     `divide choices visibly ${metadata.divideChoicesVisibly}`,
     `linear smoothing ${metadata.linearSmoothing}`,
@@ -420,7 +435,14 @@ function formatNodeSliderMetadataTooltip(slider) {
     `show sign ${metadata.showSign}`,
     `wraparound ${metadata.wraparound}`,
   ];
-  if (metadata.nonlinearSlider) {
+  if (typeof nodeSliderCurveUsesSensitivity === "function"
+    ? nodeSliderCurveUsesSensitivity(metadata.sliderCurve)
+    : (metadata.sliderCurve === "edges" || metadata.sliderCurve === "custom")) {
+    rows.push(`sensitivity ${formatNodeSliderCompactNumber(metadata.curveAmount)}`);
+  }
+  if (typeof nodeSliderCurveUsesMid === "function"
+    ? nodeSliderCurveUsesMid(metadata.sliderCurve)
+    : metadata.sliderCurve === "skew") {
     rows.splice(3, 0, `mid ${formatNodeSliderNumber(metadata.mid, numberOptions)}`);
   }
   return rows.join(" / ");

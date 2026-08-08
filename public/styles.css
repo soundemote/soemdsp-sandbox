@@ -7886,12 +7886,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   height: clamp(
     var(--node-module-shop-min-height, 120px),
     var(--node-module-shop-height, 620px),
-    min(var(--node-module-shop-max-height, 760px), calc(100vh - 24px))
+    min(var(--node-module-shop-max-height, 100dvh), 100dvh)
   );
   min-width: var(--node-module-shop-min-width, 96px);
   min-height: var(--node-module-shop-min-height, 120px);
-  max-width: min(var(--node-module-shop-max-width, 980px), calc(100vw - 28px));
-  max-height: min(var(--node-module-shop-max-height, 760px), calc(100vh - 24px));
+  max-width: min(var(--node-module-shop-max-width, 980px), calc(100vw - 4px));
+  max-height: min(var(--node-module-shop-max-height, 100dvh), 100dvh);
   margin: 0;
   overflow: hidden;
   padding: 0;
@@ -7953,7 +7953,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   grid-row: auto;
   min-width: 0;
   width: 100%;
-  padding: 3px 4px 2px;
+  padding: 2px 3px;
   border-bottom: 1px solid rgba(127, 199, 217, 0.14);
   background: rgba(3, 5, 7, 0.92);
   overflow-x: hidden;
@@ -12434,8 +12434,16 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   display: none;
 }
 
-.node-text-box-input[data-text-box-mode="singleLine"] {
+.node-text-box-input[data-text-box-mode="singleLine"],
+.node-text-box-input[data-text-box-mode-css="singleLine"] {
   white-space: nowrap;
+}
+
+.node-text-box-input[data-text-box-mode="multiline"],
+.node-text-box-input[data-text-box-mode="fill"],
+.node-text-box-input[data-text-box-mode-css="multiline"] {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .node-text-box-input:focus {
@@ -13954,13 +13962,20 @@ input.node-header-title:focus {
 }
 
 .metadata-popover-grid label {
+  /* Label hugs content so value/stepper get the width when the window is narrow. */
   display: grid;
-  grid-template-columns: minmax(78px, 0.42fr) minmax(0, 1fr);
+  grid-template-columns: max-content minmax(0, 1fr);
   align-items: center;
-  gap: 0;
+  column-gap: 6px;
+  gap: 0 6px;
   min-width: 0;
   color: var(--muted);
   font-size: 0.62rem;
+}
+
+.metadata-popover-grid label > span:first-child {
+  white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 
 .metadata-field-actions,
@@ -14039,12 +14054,83 @@ input.node-header-title:focus {
   border-right: 0;
 }
 
+/* Range cells: keep short names (MAX/MID/MIN…) compact; give steppers the rest. */
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover)
+  > .metadata-popover-grid
+  > .metadata-range-section
+  > label {
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 4px;
+  padding: 0 3px 0 5px;
+}
+
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover)
+  > .metadata-popover-grid
+  > .metadata-range-section
+  > label
+  > span:first-child {
+  max-width: none;
+  font-size: 0.58rem;
+  letter-spacing: 0;
+}
+
+/* SKEW select fills the value column without forcing a fat label. */
+.node-parameter-metadata-popover:not(.node-trace-display-settings-popover)
+  > .metadata-popover-grid
+  > .metadata-range-section
+  > .metadata-curve-label
+  > select {
+  min-width: 0;
+  width: 100%;
+}
+
+/* SENSITIVITY: heading + stepper on row 1, hint full-width below. */
+.metadata-curve-sensitivity-label {
+  align-items: center;
+  min-height: 0 !important;
+  height: auto;
+  row-gap: 2px !important;
+  padding-top: 3px !important;
+  padding-bottom: 4px !important;
+}
+
+.metadata-curve-sensitivity-label > .metadata-curve-sensitivity-heading {
+  grid-column: 1;
+  grid-row: 1;
+  max-width: none;
+  font-size: 0.58rem;
+}
+
+.metadata-curve-sensitivity-label > .metadata-stepper-control {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+}
+
+.metadata-curve-sensitivity-hint {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  margin: 0;
+  padding: 0 1px 1px;
+  color: rgba(205, 214, 216, 0.55);
+  font-size: 0.55rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.25;
+  white-space: normal;
+  text-transform: none;
+  max-width: none !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+}
+
 .metadata-field-section label:last-child,
 .metadata-toggle-section label:nth-last-child(-n + 2) {
   border-bottom: 0;
 }
 
-.metadata-smoothing-mode-section {
+.metadata-smoothing-mode-section,
+.metadata-smoothing-type-section {
   padding: 6px;
   gap: 6px;
 }
@@ -14103,6 +14189,9 @@ input.node-header-title:focus {
 .node-parameter-metadata-popover:not(.node-trace-display-settings-popover) > .metadata-popover-grid > .metadata-range-section > .metadata-curve-sensitivity-label {
   grid-column: 1 / -1;
   border-right: 0;
+  /* 2-row layout: heading|stepper, then hint */
+  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-rows: auto auto;
 }
 
 /* Smoothing blocks stay self-contained full-width (not display:contents). */
@@ -14137,8 +14226,12 @@ input.node-header-title:focus {
 }
 
 .metadata-smoothing-mode-group {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  /* Flex so 4-button TYPE and 5-button SOURCE both fill full width evenly. */
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  width: 100%;
   gap: 0;
   overflow: hidden;
   border: 1px solid rgba(127, 199, 217, 0.24);
@@ -14146,6 +14239,9 @@ input.node-header-title:focus {
 }
 
 .metadata-smoothing-mode-button {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
   min-height: 30px;
   padding: 2px 0;
   border: 0;
@@ -15127,8 +15223,9 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   z-index: 19;
   display: grid;
   gap: 6px;
-  width: min(430px, calc(100vw - 28px));
-  max-height: min(760px, calc(100vh - 28px));
+  width: min(430px, calc(100vw - 4px));
+  /* Max is live via --*-max-height from available view space (window top → bottom). */
+  max-height: min(var(--node-scene-context-max-height, 100dvh), 100dvh);
   overflow: auto;
   padding: 8px;
   border: 1px solid rgba(127, 199, 217, 0.42);
@@ -15143,32 +15240,54 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 }
 
 #nodeSceneContextMenu {
+  position: fixed;
   display: flex;
   flex-direction: column;
-  width: min(var(--node-scene-context-width, 215px), calc(100vw - 28px));
+  width: min(var(--node-scene-context-width, 215px), calc(100vw - 4px));
   min-width: var(--node-scene-context-min-width, var(--node-module-actions-min-width, 24px));
-  max-width: min(var(--node-scene-context-max-width, 430px), calc(100vw - 28px));
+  max-width: min(var(--node-scene-context-max-width, 980px), calc(100vw - 4px));
+  /* Prefer explicit height var; cold open with no var = content height. */
   height: var(--node-scene-context-height, auto);
-  min-height: var(--node-scene-context-min-height, 160px);
-  max-height: min(var(--node-scene-context-max-height, 900px), calc(100vh - 28px));
+  min-height: var(--node-scene-context-min-height, 120px);
+  /* Live cap: set by JS from (viewport bottom − window top − edge pad). */
+  max-height: min(var(--node-scene-context-max-height, 100dvh), 100dvh);
   gap: 0;
   overflow: hidden;
   padding: 0;
   box-sizing: border-box;
 }
 
-/* Header + nav + resize fixed; body sizes to content — no scrollbars. */
+/* Pack Command Center chrome flush — no phantom section padding. */
+#nodeSceneContextMenu > .scene-context-heading {
+  margin: 0;
+  padding-block: 0;
+}
+
+#nodeSceneContextMenu > #nodeSceneWindowControls > div {
+  gap: 0;
+  margin: 0;
+  padding: 0;
+}
+
+/* Everything content-sized — no flex-grow voids between sections.
+   Extra window height (user resize) sits as empty chrome at the bottom. */
 #nodeSceneContextMenu > .scene-context-heading,
 #nodeSceneContextMenu > .node-unified-window-nav-host,
-#nodeSceneContextMenu > .scene-context-resize-handle {
-  flex: 0 0 auto;
-}
-
+#nodeSceneContextMenu > .scene-context-resize-handle,
 #nodeSceneContextMenu > :not(.scene-context-heading):not(.scene-context-resize-handle):not(.node-unified-window-nav-host) {
   flex: 0 0 auto;
+  min-height: 0;
 }
 
+/* Home controls stack — never stretch; that left giant empty gaps under transport. */
 #nodeSceneContextMenu > #nodeSceneWindowControls {
+  flex: 0 0 auto;
+  min-height: 0;
+  overflow: visible;
+}
+
+/* Search: compact field; results only claim height when open. */
+#nodeSceneContextMenu > #nodeCommandCenterModuleSearch {
   flex: 0 0 auto;
   min-height: 0;
   overflow: hidden;
@@ -15274,9 +15393,9 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   );
   height: var(--node-module-actions-height, auto);
   min-width: var(--node-module-actions-min-width, 24px);
-  max-width: min(var(--node-module-actions-max-width, 360px), calc(100vw - 28px));
+  max-width: min(var(--node-module-actions-max-width, 980px), calc(100vw - 4px));
   min-height: var(--node-module-actions-min-height, 40px);
-  max-height: min(var(--node-module-actions-max-height, 520px), calc(100vh - 28px));
+  max-height: min(var(--node-module-actions-max-height, 100dvh), 100dvh);
   gap: 0;
   overflow: hidden;
   padding: 0;
@@ -15781,7 +15900,40 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   border-inline-end: 1px solid var(--node-scene-context-menu-divider, rgba(243, 241, 236, 0.14));
 }
 
-/* Module visibility: two stacked rows (Display|Title, then Buttons|In/Out|Sliders). */
+/* Module settings section (e.g. Show / Hide under Copy/Paste row). */
+.scene-context-module-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.scene-context-module-section[hidden] {
+  display: none !important;
+}
+
+.scene-context-module-section-title {
+  display: grid;
+  align-items: center;
+  min-height: 22px;
+  margin: 0;
+  padding: 0 8px;
+  border: 1px solid rgba(127, 199, 217, 0.2);
+  border-bottom: 0;
+  background: color-mix(in srgb, var(--accent, #7fc7d9) 10%, rgba(5, 9, 11, 0.92));
+  color: color-mix(in srgb, var(--accent, #7fc7d9) 88%, white 8%);
+  font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+/* Module visibility: Display|Title, Buttons|In/Out|Sliders, Control surface. */
 .scene-context-visibility-stack {
   display: flex;
   flex-direction: column;
@@ -15809,6 +15961,11 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 .scene-context-visibility-stack .scene-context-button-group button {
   border-radius: 0;
   font-weight: 650;
+}
+
+.scene-context-button-group-1 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 /* Standalone two-line control (if still used outside a group). */
@@ -15860,7 +16017,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   gap: 0;
   min-width: 0;
   margin: 0;
-  padding: 6px 8px 8px;
+  padding: 4px 6px;
   border: 0;
   border-bottom: 1px solid rgba(127, 199, 217, 0.12);
   background: rgb(7, 10, 13);
@@ -15880,7 +16037,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   gap: 0;
   min-width: 0;
   max-height: min(240px, 36vh);
-  margin-top: 6px;
+  margin-top: 4px;
   overflow: auto;
   border: 1px solid rgba(127, 199, 217, 0.16);
   border-radius: 6px;
@@ -16108,11 +16265,20 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 
 .scene-context-text-box-controls {
   display: grid;
-  gap: 6px;
-  padding: 7px 8px;
+  gap: 3px;
+  padding: 4px 6px;
   border: 1px solid rgba(127, 199, 217, 0.18);
   border-radius: 5px;
   background: rgba(7, 10, 13, 0.55);
+}
+
+/* Command Center home stack already packs tightly; keep zero chrome there. */
+#nodeSceneWindowControls.scene-context-text-box-controls {
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .scene-context-text-box-controls[hidden] {
@@ -16329,8 +16495,9 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 .scene-context-timing-controls {
   display: block;
   min-width: 0;
-  --scene-context-timing-row-height: calc(var(--node-floating-window-button-height) * 1.28);
-  min-height: var(--scene-context-timing-row-height);
+  --scene-context-timing-row-height: var(--node-floating-window-button-height);
+  /* No min-height when empty; rows size themselves. */
+  min-height: 0;
   border: 1px solid rgba(226, 168, 109, 0.24);
   border-bottom-width: 0;
   overflow: hidden;
@@ -16394,12 +16561,12 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 1px;
   box-sizing: border-box;
   height: auto;
-  min-height: calc(var(--node-floating-window-button-height) + 14px);
+  min-height: var(--node-floating-window-button-height);
   margin: 0;
-  padding: 0;
+  padding: 2px 0;
   border: 0;
   border-radius: 0;
   grid-template-columns: none;
@@ -17788,12 +17955,12 @@ body.node-slider-dragging .node-param-port {
   box-sizing: border-box;
   justify-content: center;
   align-items: stretch;
-  margin: 6px 0 0;
+  margin: 0;
   /* Reset toolbar transport's padding-right: 10px (was shoving the row left). */
-  padding: 4px 0 0;
+  padding: 2px 0 0;
   padding-right: 0;
   border-top: 1px solid rgba(127, 199, 217, 0.12);
-  gap: 3px;
+  gap: 2px;
 }
 
 /* Beat .node-scene-context-menu button { justify-content:flex-start; padding:0 10px }. */

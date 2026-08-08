@@ -52,7 +52,7 @@ registerNodeGraphChromelessModule("rgbFractal", {
         nonlinearSlider: true,
         step: "any",
         tooltip:
-          "Master rate (× orbit, map step, Rotation Speed, Color Shift Rate). Domain 0…10; mid at 1. 0 freezes time.",
+          "Master rate (× Orbit Speed, map step, Rotation Speed, Color Shift Rate). Domain 0…10; mid at 1. 0 freezes time.",
       },
       {
         defaultValue: "1.2",
@@ -93,6 +93,20 @@ registerNodeGraphChromelessModule("rgbFractal", {
           "Radius of pure circular c orbit around C (face + map). 0 = pinned c.",
       },
       {
+        // Dedicated c-walk rate: orbit θ advances at Speed × Orbit Speed.
+        // Default 1 preserves prior behaviour (orbit locked to master Speed).
+        defaultValue: "1",
+        key: "orbitSpeed",
+        label: "Orbit Speed",
+        max: "10",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: true,
+        step: "any",
+        tooltip:
+          "How fast c walks the circular orbit around C (× Speed). Face + map share this path. 0 pins θ (still at current angle); 1 = lock to Speed. Independent of map step rate.",
+      },
+      {
         defaultValue: "0",
         key: "rotation",
         label: "Rotation",
@@ -117,7 +131,7 @@ registerNodeGraphChromelessModule("rgbFractal", {
         nonlinearSlider: true,
         step: "any",
         tooltip:
-          "Face co-rotation *rate* (× Speed). Default 0 = no spin. ±1 = natural lock to orbit rate. Face only.",
+          "Face co-rotation *rate* (× Speed). Default 0 = no spin. ±1 = natural lock to master Speed rate. Face only.",
       },
       {
         bipolar: true,
@@ -146,16 +160,30 @@ registerNodeGraphChromelessModule("rgbFractal", {
           "Look-at Y in the complex plane (±1 ≈ one unit). Scale zooms into (X, Y). Domain −5…+5. Face only.",
       },
       {
-        defaultValue: "0.85",
+        // Depth *is* maxIter (integer). Legacy patches with 0…4 floats are migrated in paint.
+        defaultValue: "55",
         key: "depth",
         label: "Depth",
-        max: "4",
-        mid: "1",
-        min: "0",
+        max: "256",
+        mid: "64",
+        min: "1",
+        maxDigits: 1,
+        nonlinearSlider: true,
+        step: "1",
+        tooltip:
+          "Julia iteration count on the face (maxIter). Integer 1…256. 1 = almost no structure (details can flow in); 256 = max filigree. Face only.",
+      },
+      {
+        defaultValue: "1",
+        key: "downsample",
+        label: "Downsample",
+        max: "32",
+        mid: "4",
+        min: "1",
         nonlinearSlider: true,
         step: "any",
         tooltip:
-          "Julia iteration detail on the face (GPU maxIter). 0 soft blobs, higher = deeper filigree.",
+          "Face pixel grid. 1 = native layout×DPR. Higher = fewer GPU pixels, nearest-neighbor upscale (variable pixel look). Face only; does not change c / Hx Hy.",
       },
       {
         // Not the same as Color Shift: Soft shapes energy/escape/LUT cream; Color Shift is palette phase.
@@ -237,11 +265,12 @@ registerNodeGraphChromelessModule("rgbFractal", {
   catalog: {
     category: "rgb",
     description:
-      "Julia face with pure planetary c(t). Outs Hx/Hy = chaotic map z←z²+c. Depth = face iteration detail. No multi-sine wander — modulate Seed/Orbit/Speed externally.",
+      "Julia face with pure planetary c(t). Outs Hx/Hy = chaotic map z←z²+c. Depth = face iteration detail. No multi-sine wander — modulate C / Orbit Size / Orbit Speed / Speed externally.",
     notes: [
-      "rgb", "julia", "webgl", "planetary", "orbit", "map oscillator",
+      "rgb", "julia", "webgl", "planetary", "orbit", "orbit speed", "map oscillator",
       "LayoutA", "hx", "hy", "parameter c", "pan", "soft", "bands",
-      "depth", "detail", "rotation", "rotation speed", "color shift", "gradient",
+      "depth", "detail", "downsample", "pixel", "pixel grid", "lofi",
+      "rotation", "rotation speed", "color shift", "gradient",
     ],
   },
 });

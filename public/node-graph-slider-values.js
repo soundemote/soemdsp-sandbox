@@ -532,8 +532,27 @@ function normalizedNodeSliderMid(slider) {
   return clampNodeSliderValue((mid - min) / range, 0.000001, 0.999999);
 }
 
+/**
+ * Mid-style power exponent for travel→value.
+ * - mid skew: knee from domain MID (center of travel lands on mid)
+ * - custom skew: knee from SENSITIVITY (−1…+1): 0 = linear,
+ *   +1 = fine near min (mid toward max), −1 = fine near max (mid toward min)
+ * - edge skew / off: 1 (linear in this path; edges uses its own S-curve)
+ */
+function nodeSliderSkewExponentFromSensitivity(amount) {
+  const a = clampNodeSliderValue(Number(amount) || 0, -1, 1);
+  if (a <= 0) {
+    return 1 + (-a) * (nodeSliderMaxSkewExponent - 1);
+  }
+  return 1 + a * (nodeSliderMinSkewExponent - 1);
+}
+
 function nodeSliderSkewExponent(slider) {
-  if (nodeSliderCurve(slider) !== "skew") {
+  const curve = nodeSliderCurve(slider);
+  if (curve === "custom") {
+    return nodeSliderSkewExponentFromSensitivity(nodeSliderCurveAmount(slider));
+  }
+  if (curve !== "skew") {
     return 1;
   }
   const exponent = Math.log(normalizedNodeSliderMid(slider)) / Math.log(0.5);
@@ -564,6 +583,7 @@ function nodeSliderCurveValueFromTravel(slider, travel) {
     }
     return 0.5 + 0.5 * ((normalizedTravel - 0.5) * 2) ** power;
   }
+  // mid skew + custom skew: shared power law
   return normalizedTravel ** nodeSliderSkewExponent(slider);
 }
 
