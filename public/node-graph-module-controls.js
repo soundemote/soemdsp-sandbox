@@ -6,13 +6,14 @@
 //    math into one shared scheme — each module stays its own universe.
 // 2) Optional `controls[]` on a definition expands into inputs/parameters so
 //    new modules can declare knob + jack roles in one place.
-// 3) Project Speed Limit: single max Hz for frequency domains, f-jack clamp,
-//    and DSP caps. No project minimum frequency (0 is allowed). Header + patch
-//    audio field; default 20000 (user-adjustable).
+// 3) Project Speed Limit: ONE runtime ceiling for pitch/f resolution and DSP
+//    Hz clamps. Not written into parameter min/max (those stay definition /
+//    user metaparam). No project minimum frequency (0 is allowed). Header +
+//    patch audio field; default 20000 (user-adjustable).
 
 const nodeGraphModuleDefinitionCache = new Map();
 
-/** Default project speed limit (Hz). Full-band frequency knobs use this. */
+/** Default project speed limit (Hz). Live clamp default; not a knob-domain bake. */
 const NODE_GRAPH_PROJECT_SPEED_LIMIT_DEFAULT_HZ = 20000;
 /** Upper bound for the Speed Limit control itself (not signal Hz floor). */
 const NODE_GRAPH_PROJECT_SPEED_LIMIT_CONTROL_MAX_HZ = 192000;
@@ -43,19 +44,14 @@ function nodeGraphLiveSpeedLimitHz() {
 }
 
 /**
- * Domain max for a frequency parameter declaration.
- * Full-band params (declared max ≥ default speed limit) track the live project
- * limit so raising Speed Limit widens knobs; smaller intentional maxes stay put
- * but never exceed the project limit.
+ * Optional helper: what a declared domain max would be if clamped to Speed Limit.
+ * Prefer NOT writing this into paramMeta — Speed Limit is applied at runtime
+ * (resolveFrequencyHz / worklet). Kept for tooling / diagnostics only.
  */
 function nodeGraphFrequencyParamDomainMaxHz(declaredMax) {
   const limit = nodeGraphProjectSpeedLimitHz();
   const d = Number(declaredMax);
-  const fullBand = NODE_GRAPH_PROJECT_SPEED_LIMIT_DEFAULT_HZ;
   if (Number.isFinite(d) && d > 0) {
-    if (d >= fullBand - 1e-9) {
-      return limit;
-    }
     return Math.min(d, limit);
   }
   return limit;

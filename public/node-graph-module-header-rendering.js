@@ -294,7 +294,7 @@ function createNodeGraphHeaderSpeedPlaceholder() {
   return field;
 }
 
-// Project Speed Limit (Hz): absolute max for frequency knobs, f-jack, DSP clamps.
+// Project Speed Limit (Hz): live pitch/f + DSP ceiling only (not knob metaparam max).
 // No project minimum frequency (0 allowed). Default 20000; user-adjustable.
 // Same interaction as BPM / pitch ref: drag to tune, double-click to type.
 function createNodeGraphHeaderSpeedLimitField() {
@@ -303,7 +303,7 @@ function createNodeGraphHeaderSpeedLimitField() {
   field.setAttribute("aria-label", "Project speed limit in Hertz");
   field.dataset.headerNumberDrag = "true";
   field.title =
-    "Project Speed Limit (Hz): maximum frequency for knobs, f jacks, and DSP. No minimum frequency. Default 20000. Drag to tune; double-click to type.";
+    "Project Speed Limit (Hz): runtime max for pitch / f jacks / DSP frequency resolve. Does not rewrite frequency knob ranges. No minimum frequency. Default 20000. Drag to tune; double-click to type.";
 
   const caption = document.createElement("span");
   caption.className = "node-header-timing-caption";

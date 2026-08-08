@@ -483,24 +483,9 @@ function nodeGraphModuleDisplaySignalsForType(type) {
 // normalizeNodeGraphDisplayMode → node-graph-module-scope-display-mode.js
 // nodeGraphModuleImplicitDisplayModeSource → node-graph-module-scope-display-mode.js
 // nodeGraphModuleImplicitDisplayModeForType → node-graph-module-scope-display-mode.js
+/** @deprecated Spectrum companion faces removed — one display per module. */
 function nodeGraphModuleWithSpectrumCompanionMode(modes) {
-  if (!Array.isArray(modes) || !modes.length || modes.some((mode) => mode.renderer === "spectrum")) {
-    return modes;
-  }
-  const traceMode = modes.find((mode) => mode.renderer === "trace");
-  if (!traceMode) {
-    return modes;
-  }
-  return [
-    ...modes,
-    {
-      key: `${traceMode.key}Spectrum`,
-      label: `${traceMode.label} (Spectrum)`,
-      renderer: "spectrum",
-      settingsSchema: "trace",
-      source: { ...traceMode.source },
-    },
-  ];
+  return Array.isArray(modes) ? modes : [];
 }
 
 // nodeGraphModuleDisplayModesForType → node-graph-module-scope-display-mode.js

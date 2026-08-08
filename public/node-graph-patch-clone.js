@@ -60,7 +60,8 @@ function normalizeNodeGraphPatchNodeUi(ui = {}, type = "") {
     displayHeightOffsetGu: type
       ? normalizeNodeGraphModuleDisplayHeightOffsetUnits(type, source.displayHeightOffsetGu)
       : normalizeNodeGraphModuleDisplayHeightOffsetUnits(source.displayHeightOffsetGu),
-    displayModeKey: String(source.displayModeKey || "").trim(),
+    // Multi-mode faces removed — displayModeKey is no longer stored or used.
+    displayModeKey: "",
     ioHidden: Boolean(source.ioHidden),
     interfaceControlsHidden: Boolean(source.interfaceControlsHidden),
     movementLocked: Boolean(source.movementLocked),
@@ -71,15 +72,9 @@ function normalizeNodeGraphPatchNodeUi(ui = {}, type = "") {
   };
 }
 
-function normalizeNodeGraphPatchNodeDisplayModeKey(type, value = "") {
-  const key = String(value || "").trim();
-  if (!key) {
-    return "";
-  }
-  const modes = typeof nodeGraphModuleDisplayModesForType === "function"
-    ? nodeGraphModuleDisplayModesForType(type)
-    : [];
-  return modes.some((mode) => mode.key === key) ? key : "";
+/** @deprecated Multi-mode faces removed — always empty (one face per module). */
+function normalizeNodeGraphPatchNodeDisplayModeKey(_type, _value = "") {
+  return "";
 }
 
 function nodeGraphEffectivePatchNodeUi(ui = {}, type = "") {
@@ -476,7 +471,9 @@ function cloneNodeGraphPatch(patch) {
       const ui = nodeGraphModuleDefinitions[node.type]?.layout === "textBox" && !Object.hasOwn(node, "ui")
         ? { buttonsHidden: true }
         : normalizeNodeGraphPatchNodeUi(node.ui, node.type);
-      ui.displayModeKey = normalizeNodeGraphPatchNodeDisplayModeKey(node.type, ui.displayModeKey);
+      if (ui.displayModeKey) {
+        ui.displayModeKey = "";
+      }
       return {
         ...node,
         ...(normalizeNodeGraphPatchNodeAlias(node.alias)
@@ -557,7 +554,7 @@ function cloneNodeGraphPatch(patch) {
           ? { portMeta: normalizeNodeGraphPatchPortMeta(node.portMeta) }
           : {}),
         params: { ...(node.params || {}) },
-        ...(ui.buttonsHidden || ui.displayModeKey || ui.ioHidden || ui.interfaceControlsHidden || ui.movementLocked || ui.titleHidden || ui.oscilloscopeHidden || ui.slidersHidden || ui.displayHeightOffsetGu ? { ui } : {}),
+        ...(ui.buttonsHidden || ui.ioHidden || ui.interfaceControlsHidden || ui.movementLocked || ui.titleHidden || ui.oscilloscopeHidden || ui.slidersHidden || ui.displayHeightOffsetGu ? { ui } : {}),
       };
     }),
     requiredAssets: typeof nodeGraphRequiredAssetsForPatch === "function"

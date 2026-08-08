@@ -378,20 +378,12 @@ function nodeGraphParameterDefinitionMetadata(parameter) {
   }
   const min = Number(parameter.min);
   const max = Number(parameter.max);
-  const kindEarly = nodeGraphInferParameterMetadataKind(parameter);
-  // Frequency domains use project Speed Limit as the absolute ceiling.
-  // Full-band params (max ≥ default 20k) track the live limit; smaller maxes stay.
-  let resolvedMax = max;
-  if (
-    kindEarly === "frequency"
-    || String(parameter.unit || "").toLowerCase() === "hz"
-  ) {
-    if (typeof nodeGraphFrequencyParamDomainMaxHz === "function") {
-      resolvedMax = nodeGraphFrequencyParamDomainMaxHz(max);
-    }
-  }
+  // Domain min/max come only from the module definition (and later user metaparam
+  // edits). Do NOT bake Project Speed Limit into paramMeta — that duplicated the
+  // live DSP ceiling and froze wrong ranges when limit was low at spawn.
+  // Speed Limit is a single runtime clamp (resolveFrequencyHz / worklet).
   const safeMin = Number.isFinite(min) ? min : 0;
-  const safeMax = Number.isFinite(resolvedMax) && resolvedMax >= safeMin ? resolvedMax : safeMin + 1;
+  const safeMax = Number.isFinite(max) && max >= safeMin ? max : safeMin + 1;
   const mid = Number(parameter.mid);
   const def = Number(parameter.defaultValue);
   const step = Number(parameter.step);

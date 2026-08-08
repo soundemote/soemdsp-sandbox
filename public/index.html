@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>soemdsp-sandbox</title>
-  <link rel="stylesheet" href="./public/styles.css?v=tooltip-fill-1">
+  <link rel="stylesheet" href="./public/styles.css?v=ui-settings-action-height-1">
   <link rel="stylesheet" href="./public/modules/stepGrid/step-grid.css?v=stepgrid-own-folder-20260715">
   <link rel="stylesheet" href="./public/modules/pitchQuantizer/pitch-quantizer-ui.css?v=chord-pad-1">
   <link rel="stylesheet" href="./public/modules/chordPad/chord-pad-ui.css?v=chord-pad-1">
@@ -1077,7 +1077,7 @@
                 <option value="440" label="440Hz / concert A"></option>
               </datalist>
             </label>
-            <label title="Project maximum frequency (Hz). Frequency knobs, f jacks, and DSP clamps use this. No minimum frequency on signals. Default 20000.">
+            <label title="Project runtime maximum frequency (Hz) for pitch / f jacks / DSP resolve. Does not change frequency knob min/max. No minimum frequency on signals. Default 20000.">
               Speed Limit (Hz)
               <input
                 id="patchSpeedLimitHzValue"
@@ -3597,7 +3597,7 @@
   <script src="./public/node-graph-unified-window.js?v=view-max-1"></script>
   <script src="./public/node-graph-file-actions.js?v=patch-load-fault-1"></script>
   <script src="./public/node-graph-default-buttons.js?v=patch-save-refresh-1"></script>
-  <script src="./public/node-graph-cookbook-filter.js?v=eq-pole-labels-1"></script>
+  <script src="./public/node-graph-cookbook-filter.js?v=eq-zero-hz-1"></script>
   <script src="./public/node-graph-papoulis-filter.js?v=mouse-smooth-1"></script>
   <script src="./public/node-graph-phosphor-draw-sample.js?v=phosphor-draw-sample-1"></script>
   <script src="./public/node-graph-color-standards.js?v=color-standards-1"></script>
@@ -3619,13 +3619,13 @@
   <script src="./public/modules/groupOutput/group-output-register.js?v=chromeless-portals-1"></script>
   <script src="./public/node-graph-module-definitions.js?v=eq-pole-labels-1"></script>
   <script src="./public/node-graph-plan-roles.js?v=plan-roles-b0"></script>
-  <script src="./public/node-graph-module-controls.js?v=speed-limit-project-1"></script>
+  <script src="./public/node-graph-module-controls.js?v=speed-limit-runtime-only-1"></script>
   <script src="./public/node-graph-data-bus.js?v=data-plane-merge-20260711"></script>
   <script src="./public/node-graph-module-store.js?v=eq-search-1"></script>
   <script src="./public/node-graph-module-sizing.js?v=display-min-1gu-1"></script>
   <script src="./public/node-graph-metadata-kinds.js?v=param-meta-ui-1"></script>
   <script src="./public/node-graph-parameter-smoother-filters.js?v=two-pole-smooth-1"></script>
-  <script src="./public/node-graph-parameter-metadata.js?v=eq-freq-meta-1"></script>
+  <script src="./public/node-graph-parameter-metadata.js?v=speed-limit-runtime-only-1"></script>
   <script src="./public/node-graph-metadata-defaults.js?v=decimal-template-1"></script>
   <script src="./public/node-graph-text-box-utils.js?v=text-fill-depth-1"></script>
   <script src="./public/node-graph-port-script.js?v=nuke-scriptbox-20260719"></script>
@@ -3674,11 +3674,16 @@
   <script src="./public/modules/spectrogram/spectrogram-gradient-editor.js?v=spec-preset-2col-1"></script>
   <script src="./public/node-graph-module-scope-defaults.js?v=spec-module-params-1"></script>
   <script src="./public/node-graph-module-scope-normalize.js?v=spec-module-params-1"></script>
-  <script src="./public/node-graph-module-scope-display-mode.js?v=scope-display-mode-1"></script>
+  <script src="./public/node-graph-module-scope-display-mode.js?v=one-face-1"></script>
   <script src="./public/node-graph-module-scope-phosphor.js?v=scope-phosphor-1"></script>
   <script src="./public/node-graph-module-scope-settings-form.js?v=dots-only-1"></script>
   <script src="./public/node-graph-module-scope-settings-controls.js?v=spec-freq-range-1"></script>
-  <script src="./public/node-graph-module-scope-settings-ui.js?v=dots-only-1"></script>
+  <!-- Display Settings peel: form-io → field-edit → apply → window → thin ui anchor -->
+  <script src="./public/node-graph-module-scope-settings-form-io.js?v=one-face-1"></script>
+  <script src="./public/node-graph-module-scope-settings-field-edit.js?v=one-face-1"></script>
+  <script src="./public/node-graph-module-scope-settings-apply.js?v=one-face-1"></script>
+  <script src="./public/node-graph-module-scope-settings-window.js?v=one-face-1"></script>
+  <script src="./public/node-graph-module-scope-settings-ui.js?v=one-face-1"></script>
   <script src="./public/node-graph-module-scope-capture.js?v=fuse-pack-1"></script>
   <script src="./public/node-graph-module-scope-number-readout.js?v=scope-number-readout-1"></script>
   <script src="./public/node-graph-module-scope-draw-basic.js?v=scope-draw-basic-1"></script>
@@ -3691,7 +3696,7 @@
   <script src="./public/node-graph-module-scope-geometry.js?v=scope-geometry-1"></script>
   <script src="./public/node-graph-module-scope-webgl.js?v=scope-webgl-1"></script>
   <script src="./public/node-graph-module-scope-vertices.js?v=beam-gauss-1"></script>
-  <script src="./public/node-graph-module-scope-offline.js?v=scope-offline-1"></script>
+  <script src="./public/node-graph-module-scope-offline.js?v=one-face-1"></script>
   <script src="./public/node-graph-module-scope-screen-items.js?v=1d-bright-1"></script>
   <script src="./public/node-graph-module-scope-slots.js?v=scope-slots-1"></script>
   <script src="./public/node-graph-module-scope-buffer-view.js?v=scope-sync-lock-1"></script>
@@ -3738,12 +3743,12 @@
   <script src="./public/modules/stepGrid/step-grid-ui.js?v=stepgrid-variable-steps-20260715"></script>
   <script src="./public/modules/groupInput/group-input-ui.js?v=chromeless-portals-1"></script>
   <script src="./public/modules/groupOutput/group-output-ui.js?v=chromeless-portals-1"></script>
-  <script src="./public/node-graph-module-header-rendering.js?v=speed-limit-project-1"></script>
+  <script src="./public/node-graph-module-header-rendering.js?v=speed-limit-runtime-only-1"></script>
   <script src="./public/node-graph-module-rendering.js?v=room-dimmer-full-ui-90-1"></script>
   <script src="./public/node-graph-module-frame.js?v=room-dimmer-full-ui-90-1"></script>
   <script src="./public/node-graph-history.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-visual-utils.js?v=shared-canvas-sizing-20260725"></script>
-  <script src="./public/node-graph-patch-clone.js?v=alias-title-restore-1"></script>
+  <script src="./public/node-graph-patch-clone.js?v=one-face-1"></script>
   <script src="./public/node-graph-slider-metadata.js?v=maxdigits-1"></script>
   <script src="./public/node-graph-slider-values.js?v=skew-custom-1"></script>
   <script src="./public/node-graph-slider-dragging.js?v=mod-clamp-1"></script>
@@ -3796,7 +3801,7 @@
   <script src="./public/node-graph-state.js?v=cc-module-search-1"></script>
   <script src="./public/node-graph-external-ui-events.js?v=xy-pad-impulse-1"></script>
   <script src="./public/node-graph-patch-migrations.js?v=patch-migrators-c0"></script>
-  <script src="./public/node-graph-patch-core.js?v=mod-clamp-1"></script>
+  <script src="./public/node-graph-patch-core.js?v=one-face-1"></script>
   <script src="./public/node-graph-live-plan-runtime.js?v=spec-module-params-1"></script>
   <script src="./public/node-graph-live-parameter-runtime.js?v=mod-clamp-1"></script>
   <script src="./public/node-graph-oscillator-runtime.js?v=0150-native-core"></script>
@@ -3926,8 +3931,8 @@
   <script src="./public/modules/inertialFilter/inertial-filter-live-evaluator.js?v=inertial-filter-1"></script>
   <script src="./public/modules/tiltFilter/tilt-filter-math.js?v=tilt-eq-1"></script>
   <script src="./public/modules/tiltFilter/tilt-filter-live-evaluator.js?v=tilt-eq-1"></script>
-  <script src="./public/modules/eqFilter/eq-filter-math.js?v=eq-pole-labels-1"></script>
-  <script src="./public/modules/eqFilter/eq-filter-live-evaluator.js?v=eq-pole-labels-1"></script>
+  <script src="./public/modules/eqFilter/eq-filter-math.js?v=eq-zero-hz-1"></script>
+  <script src="./public/modules/eqFilter/eq-filter-live-evaluator.js?v=eq-zero-hz-1"></script>
   <script src="./public/modules/scientificIir/scientific-iir-math.js?v=scientific-iir-1"></script>
   <script src="./public/modules/scientificIir/scientific-iir-live-evaluator.js?v=pixelgrid-uc-1"></script>
   <script src="./public/modules/crossover/crossover-math.js?v=crossover-1"></script>

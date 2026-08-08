@@ -108,13 +108,26 @@ The old `node-graph-module-scopes.js` megafile is **already peeled** into siblin
 capture, offline, phosphor, webgl, slots, etc.). `node-graph-module-scopes.js`
 itself is now a thin compatibility/entry shim (~5 KB).
 
+**Display Settings peel (landed):** the old `node-graph-module-scope-settings-ui.js`
+blob is split by symbol cluster (same globals, load order in `index.html`):
+
+| Satellite | Role |
+|-----------|------|
+| `…-settings-form.js` | HTML body builders |
+| `…-settings-controls.js` | Clamps / stepper quanta |
+| `…-settings-form-io.js` | Defaults, normalize, read/write form, color widgets |
+| `…-settings-field-edit.js` | Type-in, drag, steppers, toggles |
+| `…-settings-apply.js` | Apply/persist, assign to node, mode change |
+| `…-settings-window.js` | Open/close, size, drag/resize, bind |
+| `…-settings-ui.js` | Thin load-order anchor |
+
 **Still large (optional next peels):**
 
 | File | ~size | Notes |
 |------|------:|-------|
-| `node-graph-module-scope-settings-ui.js` | ~109 KB | Settings chrome + form wiring — best next peel by symbol cluster |
 | `node-graph-module-scope-paint-helpers.js` | ~51 KB | Path/trace helpers |
 | `node-graph-module-scope-draw-burn.js` | ~42 KB | Burn paint |
+| `styles.css` | ~530 KB | Dead CSS / chrome discipline (Phase C) |
 
 A further peel means extracting **symbol clusters** — not a random line-cut.
 Same globals and load order. Not required for sound or patches; pure maintainability.

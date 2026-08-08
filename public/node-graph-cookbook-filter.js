@@ -376,6 +376,12 @@ function nodeGraphFilterCurveView(node) {
   };
 }
 
+/** Domain Hz for curve math. 0 is valid — never use `x || fallback` (0 is falsy). */
+function nodeGraphFilterCurveFiniteHz(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null) {
   const v = view || nodeGraphFilterCurveView(node) || {};
   if (node.type === "passiveFilter") {
@@ -390,19 +396,19 @@ function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null
   }
   if (node.type === "ladderFilter") {
     return nodeGraphLadderFilterMagnitudeAt({
-      frequency: Number(v.frequency) || 1000,
+      frequency: nodeGraphFilterCurveFiniteHz(v.frequency, 1000),
       mode: Number(v.mode) || 1,
       resonance: Number(v.resonance) || 0,
       stages: Number(v.stages) || 4,
     }, frequency, sampleRate);
   }
   if (node.type === "papoulisFilter") {
-    return nodeGraphPapoulisFilterMagnitudeAt(Number(v.cutoff) || 1000, frequency, sampleRate);
+    return nodeGraphPapoulisFilterMagnitudeAt(nodeGraphFilterCurveFiniteHz(v.cutoff, 1000), frequency, sampleRate);
   }
   if (node.type === "tb303Filter") {
     if (typeof nodeGraphTb303FilterMagnitudeAt === "function") {
       const mag = nodeGraphTb303FilterMagnitudeAt({
-        cutoff: Number(v.cutoff) || 1000,
+        cutoff: nodeGraphFilterCurveFiniteHz(v.cutoff, 1000),
         drive: Number(v.drive) || 0,
         mode: Number(v.mode) || 4,
         resonance: Number(v.resonance) || 0,
@@ -415,7 +421,7 @@ function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null
     if (typeof nodeGraphEqFilterMagnitudeAt === "function") {
       const mag = nodeGraphEqFilterMagnitudeAt(
         Number(v.mode) || (node.type === "bandpass" ? 4 : node.type === "allpass" ? 6 : 1),
-        Number(v.frequency) || 1000,
+        nodeGraphFilterCurveFiniteHz(v.frequency, 1000),
         Number(v.q) || 0.707,
         Number(v.gain) || 0,
         frequency,
@@ -426,7 +432,7 @@ function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null
     return 1;
   }
   const mode = Number(v.mode) || 0;
-  const cutoff = Number(v.frequency) || 1000;
+  const cutoff = nodeGraphFilterCurveFiniteHz(v.frequency, 1000);
   const q = Number(v.q) || 1;
   const gain = Number(v.gain) || 0;
   const stages = nodeGraphCookbookFilterStageCount(v.stages);
@@ -439,16 +445,41 @@ function nodeGraphFilterCurveCutoffFrequencies(node, view = null) {
   if (node.type === "passiveFilter") {
     const mode = Math.round(Number(v.mode) || 0);
     if (mode === 2) {
-      return [Number(v.lowFrequency) || 0].filter((x) => Number.isFinite(x) && x >= 0);
+      return [nodeGraphFilterCurveFiniteHz(v.lowFrequency, 0)]
+        .filter((x) => Number.isFinite(x) && x >= 0);
     }
     return [v.lowFrequency, v.highFrequency]
-      .map((value) => Number(value) || 0)
+      .map((value) => nodeGraphFilterCurveFiniteHz(value, 0))
       .filter((value) => Number.isFinite(value) && value >= 0);
   }
   if (node.type === "papoulisFilter" || node.type === "tb303Filter") {
-    return [Number(v.cutoff) || 0].filter((value) => Number.isFinite(value) && value > 0);
+    // 0 Hz is valid — still draw the marker at the left edge of the log axis.
+    return [nodeGraphFilterCurveFiniteHz(v.cutoff, 0)]
+      .filter((value) => Number.isFinite(value) && value >= 0);
   }
-  return [Number(v.frequency) || 0].filter((value) => Number.isFinite(value) && value >= 0);
+  return [nodeGraphFilterCurveFiniteHz(v.frequency, 0)]
+    .filter((value) => Number.isFinite(value) && value >= 0);
+}
+
+/**
+ * Map cutoff Hz → [0,1] along the log frequency axis.
+ * Axis floor is minFreq for drawing only; domain 0 (and any f < minFreq) pins to the left edge.
+ * Never clamp the domain value itself up to minFreq — that made 0 look like 20 Hz.
+ */
+function nodeGraphFilterCurveCutoffRatio(frequencyHz, minFreq, maxFreq) {
+  const f = Number(frequencyHz);
+  if (!Number.isFinite(f) || f <= 0 || f <= minFreq) {
+    return 0;
+  }
+  if (f >= maxFreq) {
+    return 1;
+  }
+  const logMin = Math.log10(minFreq);
+  const logRange = Math.log10(maxFreq) - logMin;
+  if (!(logRange > 0)) {
+    return 0;
+  }
+  return (Math.log10(f) - logMin) / logRange;
 }
 
 function nodeGraphFilterCurveLabel(node) {
@@ -561,7 +592,8 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
   const cutoffDrawableWidth = Math.max(1, width - cutoffLineWidth);
   context.lineWidth = cutoffLineWidth;
   for (const frequency of nodeGraphFilterCurveCutoffFrequencies(node, view)) {
-    const cutoffRatio = (Math.log10(clampNodeSliderValue(frequency, minFreq, maxFreq)) - logMin) / logRange;
+    // 0 Hz (and anything below the log axis floor) → left edge, not minFreq.
+    const cutoffRatio = nodeGraphFilterCurveCutoffRatio(frequency, minFreq, maxFreq);
     const cutoffX = cutoffInset + cutoffRatio * cutoffDrawableWidth;
     context.beginPath();
     context.moveTo(cutoffX, 0);

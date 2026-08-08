@@ -79,7 +79,12 @@ function nodeGraphEqFilterSetupBypass(state) {
 }
 
 function nodeGraphEqFilterSetupCore(state, omega, r, aL, aB, aH, gScale) {
-  const w = nodeGraphEqFilterClamp(omega, 1e-9, Math.PI * 0.999);
+  // 0 Hz is valid (ω=0 → g=tan(0)=0). Only clamp the Nyquist-side pole so tan stays finite.
+  // Do not floor ω with 1e-9: that makes 0 and ~0 different and can desync UI from DSP.
+  const rawW = Number(omega);
+  const w = Number.isFinite(rawW)
+    ? Math.max(0, Math.min(Math.PI * 0.999, rawW))
+    : 0;
   const safeR = Math.max(1e-9, Number(r) || 1e-9);
   const g = Math.tan(0.5 * w) * (Number(gScale) || 1);
   const c = g + safeR;

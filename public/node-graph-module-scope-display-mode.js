@@ -104,6 +104,11 @@ function nodeGraphModuleImplicitDisplayModeForType(type) {
 }
 
 
+/**
+ * One fixed face per module type.
+ * Extra displayModes entries and Trace↔Spectrum companions are ignored for
+ * selection — beautiful single-face modules only (no Mode dropdown).
+ */
 function nodeGraphModuleDisplayModesForType(type) {
   const declared = nodeGraphModuleDefinitions?.[type]?.displayModes;
   const modes = Array.isArray(declared)
@@ -115,27 +120,26 @@ function nodeGraphModuleDisplayModesForType(type) {
       const implicit = nodeGraphModuleImplicitDisplayModeForType(type);
       return implicit ? [implicit] : [];
     })();
-  // Opt out (e.g. Output): one fixed face — no Mode dropdown (Trace vs Spectrum).
-  if (nodeGraphModuleDefinitions?.[type]?.spectrumCompanion === false) {
-    return base;
+  if (!base.length) {
+    return [];
   }
-  return nodeGraphModuleWithSpectrumCompanionMode(base);
+  // Prefer defaultDisplayMode when present; otherwise first declared mode only.
+  const preferredKey = String(nodeGraphModuleDefinitions?.[type]?.defaultDisplayMode || "").trim();
+  const preferred = preferredKey
+    ? (base.find((mode) => mode.key === preferredKey) || base[0])
+    : base[0];
+  return preferred ? [preferred] : [];
 }
 
 
 function nodeGraphModuleDefaultDisplayModeKeyForType(type) {
-  const declared = String(nodeGraphModuleDefinitions?.[type]?.defaultDisplayMode || "").trim();
-  const modes = nodeGraphModuleDisplayModesForType(type);
-  return modes.some((mode) => mode.key === declared)
-    ? declared
-    : (modes[0]?.key || "");
+  return nodeGraphModuleDisplayModesForType(type)[0]?.key || "";
 }
 
 
 function nodeGraphModuleSelectedDisplayMode(node) {
-  const modes = nodeGraphModuleDisplayModesForType(node?.type);
-  const selected = String(node?.ui?.displayModeKey || nodeGraphModuleDefaultDisplayModeKeyForType(node?.type) || "").trim();
-  return modes.find((mode) => mode.key === selected) || modes[0] || null;
+  // Always the sole mode for the type — ui.displayModeKey no longer switches faces.
+  return nodeGraphModuleDisplayModesForType(node?.type)[0] || null;
 }
 
 

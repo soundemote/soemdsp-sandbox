@@ -361,8 +361,11 @@ function validateNodeGraphPatch(patch) {
     const ui = nodeGraphModuleDefinitions[type].layout === "textBox" && !Object.hasOwn(node, "ui")
       ? { buttonsHidden: true }
       : normalizeNodeGraphPatchNodeUi(node.ui, node.type);
-    ui.displayModeKey = normalizeNodeGraphPatchNodeDisplayModeKey(type, ui.displayModeKey);
-    if (ui.buttonsHidden || ui.displayModeKey || ui.ioHidden || ui.interfaceControlsHidden || ui.movementLocked || ui.titleHidden || ui.oscilloscopeHidden || ui.slidersHidden || ui.displayHeightOffsetGu) {
+    // Drop legacy multi-mode face selection (one display type per module now).
+    if (ui.displayModeKey) {
+      ui.displayModeKey = "";
+    }
+    if (ui.buttonsHidden || ui.ioHidden || ui.interfaceControlsHidden || ui.movementLocked || ui.titleHidden || ui.oscilloscopeHidden || ui.slidersHidden || ui.displayHeightOffsetGu) {
       normalizedNode.ui = ui;
     }
     return normalizedNode;
