@@ -159,3 +159,6 @@ nodeGraphLiveModuleEvaluators.electroHat = () => ({ Out: 0 });
 // Under construction: multi-frame wavetable oscillators — silent placeholders (Oscillator shelf)
 nodeGraphLiveModuleEvaluators.wavetable2d = () => ({ Out: 0 });
 nodeGraphLiveModuleEvaluators.wavetable3d = () => ({ Out: 0 });
+
+// Under construction: RGB pixel-grid experiments — silent placeholder
+nodeGraphLiveModuleEvaluators.pixelGrid = () => ({});

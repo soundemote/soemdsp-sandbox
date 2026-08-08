@@ -1139,9 +1139,9 @@ function bridgeNodeGraphScope2dAdjacentFramePath(canvas, pathPoints, maxDistance
   if (!previousPoint || !firstPoint || nodeGraphScope2dPointDistance(previousPoint, firstPoint) > maxDistancePx) {
     return pathPoints;
   }
-  // One bridge vertex only — soft GPU beam segments already fill the gap
-  // (prettyscope/woscope style). Dense CPU interpolation here multiplies
-  // segment count and tanks FPS at high speed without improving softness.
+  // One bridge sample only when the gap is tiny (continuous motion). Phosphor
+  // stamps sample hits — never chord-fill long jumps with intermediate dots or
+  // beam segments (that drew sporadic lines across the face).
   void spacingPx;
   return [previousPoint, ...pathPoints];
 }

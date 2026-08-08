@@ -144,6 +144,7 @@ const nodeGraphNodeLabels = Object.freeze({
   theremin: "Theremin",
   wavetable2d: "Wavetable2D",
   wavetable3d: "Wavetable3D",
+  pixelGrid: "PixelGrid",
   phosphillator: "Phosphillator",
   delayEffect: "Delay",
   pingPongDelay: "Ping Pong Delay",
@@ -4608,7 +4609,8 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Up (0) = LowFreq → HighFreq. Down (1) = HighFreq → LowFreq.",
+        tooltip:
+          "Up = LowFreq → HighFreq. Down = HighFreq → LowFreq. Flipping mid-sweep reflects progress so pitch continues the other way without a jump.",
       },
       {
         defaultValue: "0.5",
@@ -4635,6 +4637,22 @@ const nodeGraphModuleDefinitions = (
           "Amplitude envelope shape (−1…+1), same map as FreqCurve: −1 super-log … 0 linear … +1 super-exponential. Independent of FreqCurve.",
       },
       {
+        choices: ["Off", "On"],
+        defaultValue: "1",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "hardReset",
+        label: "Hard Reset",
+        linearSmoothing: false,
+        max: "1",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip:
+          "On = zero the sine phase at each tooth (and Reset jack edge) for a sharper attack. Off = continuous phase across teeth.",
+      },
+      {
         defaultValue: "0",
         key: "phase",
         kind: "phase",
@@ -4658,20 +4676,21 @@ const nodeGraphModuleDefinitions = (
         modClamp: false,
       },
       {
-        choices: ["Off", "On"],
-        defaultValue: "1",
+        // Lo-fi → hi-fi (less high-frequency timing jitter). Default = Fine.
+        choices: ["Off", "Soft Edge", "Adaptive", "Shaped", "Noise", "Fine"],
+        defaultValue: "5",
         displayChoices: true,
         divideChoicesVisibly: true,
         key: "antialias",
         label: "Antialias",
         linearSmoothing: false,
-        max: "1",
-        mid: "1",
+        max: "5",
+        mid: "5",
         min: "0",
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Rate period antialiasing (pitch dither). On = RobinSupersaw-style noise: each chirp period is an integer sample length chosen so mean Rate is exact and the ±1-sample error is noise instead of a fixed alias comb. Off = continuous fractional Rate advance.",
+          "Rate-period AA, ordered lo-fi → hi-fi. Off = continuous Rate, no period AA. Soft Edge = continuous + PolyBLEP on tooth wrap / hard-reset (Cont+BLEP). Adaptive = Noise when periods are long, continuous when short (Noise+Blend). Shaped = noise-shaped integer lengths (Noise+Shape). Noise = classic Robin ±1-sample pitch dither. Fine (default) = same at half-sample resolution (Noise+½).",
       },
     ],
   },
@@ -5077,6 +5096,14 @@ const nodeGraphModuleDefinitions = (
         tooltip: "Under construction — output level.",
       },
     ],
+  },
+  // Under construction: RGB pixel-grid experiments (shelf card only for now).
+  pixelGrid: {
+    planRole: "monitor",
+    visualSink: true,
+    inputs: [],
+    outputs: [],
+    parameters: [],
   },
   cookbookFilter: {
     planRole: "processor",
@@ -7464,12 +7491,50 @@ const nodeGraphModuleDefinitions = (
     layout: "traceDisplay",
     // Dry passthrough so the analyzer can sit in-line (In → face + Thru).
     outputs: ["Thru"],
-    // Module: levels only. Analysis look (window / overlap / freq scale) lives
-    // in Spectrogram display settings with FFT size / history / gradient.
+    // Face knobs: levels + view band + scroll window.
+    // Analysis look (FFT / window / overlap / freq scale / gradient) stays in Display Settings.
     parameters: [
       { key: "brightness", label: "Brightness", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01", maxDigits: 4 },
       { key: "minThreshold", label: "Min Thresh", defaultValue: "0", min: "0", mid: "0", max: "1", step: "0.01", maxDigits: 4 },
       { key: "maxThreshold", label: "Max Thresh", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01", maxDigits: 4 },
+      {
+        key: "minFreq",
+        kind: "frequency",
+        label: "Min Freq",
+        defaultValue: "20",
+        min: "1",
+        mid: "200",
+        max: "24000",
+        step: "any",
+        maxDigits: 5,
+        unit: "Hz",
+        tooltip: "Lowest frequency at the bottom of the face. Zoom with Max Freq to spend vertical pixels on a band.",
+      },
+      {
+        key: "maxFreq",
+        kind: "frequency",
+        label: "Max Freq",
+        defaultValue: "20000",
+        min: "1",
+        mid: "8000",
+        max: "24000",
+        step: "any",
+        maxDigits: 5,
+        unit: "Hz",
+        tooltip: "Highest frequency at the top of the face (must stay above Min Freq).",
+      },
+      {
+        key: "historySeconds",
+        label: "History",
+        defaultValue: "2",
+        min: "0.1",
+        mid: "2",
+        max: "30",
+        step: "any",
+        maxDigits: 4,
+        unit: "s",
+        tooltip: "Seconds of audio across the face width. Longer = slower waterfall scroll.",
+      },
     ],
     visualInputs: [
       { key: "spectrogram", label: "In", port: "In" },

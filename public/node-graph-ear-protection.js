@@ -62,7 +62,15 @@ function nodeGraphEarProtectionIsTripped() {
 }
 
 function nodeGraphEarProtectionFaultDetail(details = {}) {
-  const source = details.source ? `${details.source} ` : "";
+  let sourceRaw = details.source != null ? String(details.source).trim() : "";
+  // Title-case common source labels (e.g. worklet → Worklet).
+  if (sourceRaw) {
+    sourceRaw = sourceRaw.replace(/\bworklet\b/gi, "Worklet");
+    if (sourceRaw === sourceRaw.toLowerCase()) {
+      sourceRaw = sourceRaw.charAt(0).toUpperCase() + sourceRaw.slice(1);
+    }
+  }
+  const source = sourceRaw ? `${sourceRaw} ` : "";
   const count = Number(details.protectionMuteCount ?? details.count) || 0;
   const countText = count ? ` after ${count} protected frame${count === 1 ? "" : "s"}` : "";
   return `${source}output muted${countText}. Close this dialog, then unpause when ready.`;

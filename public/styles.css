@@ -14663,6 +14663,21 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   pointer-events: none;
 }
 
+/* Full Dot Economy | Dots only — one horizontal packing row on 2D Phosphor. */
+.node-trace-display-settings-popover .node-trace-display-packing-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 1rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.node-trace-display-settings-popover .node-trace-display-packing-toggles .metadata-checkbox-label {
+  margin: 0;
+  flex: 0 1 auto;
+}
+
 .node-trace-display-settings-popover[data-display-settings-type="dot"] .node-trace-display-trace-title,
 .node-trace-display-settings-popover[data-display-settings-type="dot"] .node-trace-display-trace-section,
 .node-trace-display-settings-popover[data-display-settings-type="dot"] .node-trace-display-trace-thickness-row,

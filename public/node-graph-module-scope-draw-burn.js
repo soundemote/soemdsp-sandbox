@@ -672,24 +672,16 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
     return false;
   }
 
-  // Online sandbox: deposit/exposure driven by Burn; fade by Decay.
-  // Local UI uses Trail/Ghost — map Trail high → long residual → low decay.
+  // Ghost/Trail UI → burn/decay for the site packing path (same math as soundemote.io).
+  // Trail high → long residual → low decay. Ghost high → stronger deposit (burn).
   const trail = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
     ? PhosphorResidual.migrateTrail(settings || {}, 0.88)
     : clampNodeSliderValue(Number(settings?.trail ?? (Number.isFinite(Number(settings?.decay)) ? 1 - Number(settings.decay) : 0.88)), 0, 1);
   const ghost = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateGhost
     ? PhosphorResidual.migrateGhost(settings || {}, 0.45)
     : clampNodeSliderValue(Number(settings?.ghost ?? settings?.burn) || 0, 0, 1);
-  const burn = clampNodeSliderValue(
-    Number.isFinite(Number(settings?.burn)) ? Number(settings.burn) : ghost,
-    0,
-    1,
-  );
-  const decay = clampNodeSliderValue(
-    Number.isFinite(Number(settings?.decay)) ? Number(settings.decay) : 1 - trail,
-    0,
-    1,
-  );
+  const burn = ghost;
+  const decay = clampNodeSliderValue(1 - trail, 0, 1);
   const dotSpace = nodeGraphScope2dStrokeSpace(canvas);
   const layers = nodeGraphScope2dBurnLayers(settings, dotSpace);
   const layer = layers[0] || null;
@@ -703,23 +695,34 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
   if (frozen) {
     // Present only (below). No decay, no bleed, no deposit.
   } else if (layer) {
-    // Continuous gaussian beam ribbons (capsule SDF + soft skirts) — not sparse
-    // linear stamps. Matches classic scope2d / online continuous-tube look.
+    // Soft circular hits only (dots). Pack so soft discs fuse under budget;
+    // Full Dot Economy densifies further toward Dot Budget.
     const size01 = clampNodeSliderValue(settings?.dot1Size, 0, 1);
     const beamBrightness = nodeGraphScope2dEnergyBurnDepositGain(
       burn,
       layer.brightness,
       size01,
     );
+    const fullEcoRaw = settings?.fullDotEconomy ?? settings?.useFullDotEconomy;
+    const fullDotEconomy = fullEcoRaw === true
+      || fullEcoRaw === 1
+      || fullEcoRaw === "1"
+      || fullEcoRaw === "true"
+      || fullEcoRaw === "on";
+    const dotsOnlyRaw = settings?.dotsOnly ?? settings?.verticesOnly;
+    const dotsOnly = dotsOnlyRaw === true
+      || dotsOnlyRaw === 1
+      || dotsOnlyRaw === "1"
+      || dotsOnlyRaw === "true"
+      || dotsOnlyRaw === "on";
     nodeGraphPhosphorEnergyGlStepBeams(energyGl, {
       decay,
       pathPoints: points,
-      radius: Math.max(0.5, layer.radius),
+      radius: Math.max(0.35, layer.radius),
       brightness: beamBrightness,
       blur: nodeGraphTraceDisplayClampStampBlur(layer.blur),
-      // segments = GPU ribbon with gaussian cross-section (default).
-      // dots = discrete stamps (economy / intentional dotted look only).
-      mode: "segments",
+      mode: "dots",
+      // User / face ceiling. Under load: even skips across full path (not head-only).
       maxDots: Math.max(
         64,
         Math.min(
@@ -727,7 +730,13 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
           Math.round(Number(settings?.dotBudget) || nodeGraphScope2dMaxSamplesPerFrame(canvas)),
         ),
       ),
-      fullDotEconomy: settings?.fullDotEconomy === true,
+      fullEconomy: fullDotEconomy,
+      fullDotEconomy,
+      // Sample hits only — no chord packing (no connective lines).
+      dotsOnly,
+      verticesOnly: dotsOnly,
+      // Less seepage when thrifty / dots-only so gaps don't grow dim threads.
+      bleed: (fullDotEconomy && !dotsOnly) ? undefined : 0.03,
     });
   } else if (typeof nodeGraphPhosphorEnergyGlStep === "function") {
     // Fade + bleed when no drawable layer (trail still softens outward).
@@ -794,6 +803,7 @@ function drawNodeGraphScope2dRetainedBurn(item, pixelRatio, square, buffer, sett
       settings,
     })
     : [];
+  // Adjacent-frame bridge (soundemote.io): short residual gap only; one vertex.
   pathPoints = bridgeNodeGraphScope2dAdjacentFramePath(
     canvas,
     pathPoints,

@@ -249,25 +249,50 @@
         text-overflow: ellipsis;
       }
       .sge-presets {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
       }
       .sge-preset {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
         font-size: 0.68rem;
-        padding: 3px 8px;
-        border: none;
-        border-radius: 999px;
-        background: rgba(248, 252, 255, 0.08);
-        color: rgba(248, 252, 255, 0.78);
+        padding: 6px 8px;
+        border: 1px solid rgba(248, 252, 255, 0.14);
+        border-radius: 6px;
+        /* Fallback plate under the gradient swatch */
+        background: rgba(0, 0, 0, 0.45);
+        color: #f8fcff;
+        text-shadow: 0 0 3px #000, 0 1px 2px rgba(0, 0, 0, 0.85);
         cursor: pointer;
+        overflow: hidden;
+      }
+      .sge-preset-swatch {
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        pointer-events: none;
+        opacity: 0.92;
+      }
+      .sge-preset-label {
+        position: relative;
+        z-index: 1;
+        font-weight: 600;
+        letter-spacing: 0.01em;
       }
       .sge-preset:hover {
-        background: rgba(248, 252, 255, 0.14);
+        border-color: rgba(248, 252, 255, 0.32);
+        filter: brightness(1.08);
       }
       .sge-preset[data-active="true"] {
-        background: rgba(241, 184, 75, 0.22);
-        color: #f1b84b;
+        border-color: rgba(241, 184, 75, 0.85);
+        box-shadow: 0 0 0 1px rgba(241, 184, 75, 0.45);
+        color: #fff6d8;
       }
       .sge-section-label {
         font-size: 0.68rem;
@@ -283,8 +308,8 @@
       .sge-color-widget-host {
         min-width: 0;
         width: 100%;
-        height: 100px;
-        min-height: 100px;
+        height: 78px;
+        min-height: 78px;
         border: none !important;
         box-shadow: none !important;
         outline: none !important;
@@ -292,8 +317,8 @@
         overflow: visible;
       }
       .sge-color-widget-host.scw-mount {
-        height: 100px;
-        min-height: 100px;
+        height: 78px;
+        min-height: 78px;
         container-type: size;
       }
       .sge-color-widget-host .scw-root {
@@ -302,10 +327,10 @@
         outline: none !important;
         background: rgba(0, 0, 0, 0.28);
         border-radius: 4px;
-        height: 100px !important;
-        min-height: 100px !important;
-        /* Fixed rows: label | sliders | hex — avoid % minmax collapse */
-        grid-template-rows: 18px 48px 28px !important;
+        height: 78px !important;
+        min-height: 78px !important;
+        /* Fixed rows: label | sliders only (hex readout hidden — list below) */
+        grid-template-rows: 18px 52px !important;
         --color-widget-title-ratio: 18;
       }
       .sge-color-widget-host .scw-controls {
@@ -345,18 +370,21 @@
       /* B/W channel mode: single brightness slider (Number Readout). */
       .sge-color-widget-host[data-channels="bw"] .scw-root,
       .sge-color-widget-host .scw-root[data-channels="bw"] {
-        grid-template-rows: 18px 48px 28px !important;
+        grid-template-rows: 18px 52px !important;
       }
       .sge-color-widget-host[data-channels="bw"] .scw-controls,
       .sge-color-widget-host .scw-root[data-channels="bw"] .scw-controls {
         grid-template-columns: minmax(0, 1fr) !important;
       }
+      /* Hex readout under sliders is redundant with Hex list — hide it. */
       .sge-color-widget-host .scw-hex {
+        display: none !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
         border: none !important;
-        box-shadow: none !important;
-        outline: none !important;
-        min-height: 28px !important;
-        height: 28px !important;
       }
       .sge-row {
         display: grid;
@@ -591,11 +619,11 @@
         <button type="button" data-sge-copy>Copy hex</button>
         <button type="button" data-sge-paste>Paste hex</button>
       </div>
-      <div class="sge-section-label">Presets</div>
-      <div class="sge-presets" data-sge-presets></div>
       <div class="sge-section-label">Hex list</div>
       <textarea class="sge-hex" data-sge-list rows="2" spellcheck="false"
         aria-label="Gradient as hex list"></textarea>
+      <div class="sge-section-label">Presets</div>
+      <div class="sge-presets" data-sge-presets></div>
       <div class="sge-hint" data-sge-hint></div>
     `;
     host.appendChild(root);
@@ -691,8 +719,23 @@
         btn.type = "button";
         btn.className = "sge-preset";
         btn.dataset.active = String(preset.id === activePresetId);
-        btn.textContent = preset.label;
         btn.title = preset.colors.join(", ");
+        // Gradient swatch behind the label.
+        let swatchStops;
+        if (Array.isArray(preset.stops) && preset.stops.length >= 2) {
+          swatchStops = preset.stops.map((s) => ({ t: s.t, color: s.color }));
+        } else {
+          swatchStops = colorsToStops(preset.colors);
+        }
+        if (mono) swatchStops = forceStopsGrayscale(swatchStops);
+        const swatch = document.createElement("span");
+        swatch.className = "sge-preset-swatch";
+        swatch.style.background = stopsToCss(swatchStops);
+        swatch.setAttribute("aria-hidden", "true");
+        const label = document.createElement("span");
+        label.className = "sge-preset-label";
+        label.textContent = preset.label;
+        btn.append(swatch, label);
         btn.addEventListener("click", () => {
           // Prefer explicit stops (preserves Soft Fractal / Matrix spacing); else even colors.
           let next;

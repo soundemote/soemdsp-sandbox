@@ -136,15 +136,15 @@
       : (Number.isFinite(Number(options.size01))
         ? radiusFromSize(Math.max(1, Number(options.faceMinSide) || 256), size01)
         : Math.max(MIN_RADIUS_PX, 2));
-    // Prefer continuous gaussian ribbons unless caller forces dots.
-    const mode = String(options.mode || "segments").toLowerCase() === "dots"
-      ? "dots"
-      : "segments";
+    // Site path: always dots for soft circular hits (segments only if forced).
+    const mode = String(options.mode || "dots").toLowerCase() === "segments"
+      ? "segments"
+      : "dots";
     return global.nodeGraphPhosphorEnergyGlStepBeams(face, {
       decay: clamp01(options.decay, DEFAULT_DECAY),
       pathPoints: options.pathPoints || null,
       vertices: options.vertices || null,
-      radius,
+      radius: Math.max(0.35, radius),
       brightness: Math.max(0, brightness || 0),
       blur,
       mode,

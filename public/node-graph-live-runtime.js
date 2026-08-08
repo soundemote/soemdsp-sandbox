@@ -1706,7 +1706,7 @@ function handleNodeGraphLiveWorkletMessage(event) {
       nodeGraphTripEarProtection({
         nodeId: message.protectionNodeId || "",
         protectionPeak: Number(message.protectionPeak) || 0,
-        source: "worklet",
+        source: "Worklet",
         protectionMuteCount: Number(message.protectionMuteCount) || 0,
       });
     }
@@ -2639,8 +2639,8 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-live-audio-worklet-visual.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-scope-io.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
-  "./public/node-live-audio-worklet-evaluators-sources.js?v=sinepulse-drum-1",
-  "./public/node-live-audio-worklet-evaluators-processors.js?v=wavetable-uc-1",
+  "./public/node-live-audio-worklet-evaluators-sources.js?v=sinepulse-24",
+  "./public/node-live-audio-worklet-evaluators-processors.js?v=pixelgrid-uc-1",
   "./public/node-live-audio-worklet-evaluators-utility.js?v=orbit-speed-1",
   "./public/node-live-audio-worklet-evaluators.js?v=evaluators-split-1",
   "./public/node-live-audio-worklet-native-exports.js?v=plan-d-split-2",
@@ -2739,7 +2739,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/eqFilter/eq-filter-math.js?v=tilt-eq-1",
   "./public/modules/eqFilter/eq-filter-worklet-evaluator.js?v=tilt-eq-1",
   "./public/modules/scientificIir/scientific-iir-math.js?v=scientific-iir-1",
-  "./public/modules/scientificIir/scientific-iir-worklet-evaluator.js?v=wavetable-uc-1",
+  "./public/modules/scientificIir/scientific-iir-worklet-evaluator.js?v=pixelgrid-uc-1",
   "./public/modules/crossover/crossover-math.js?v=crossover-1",
   "./public/modules/crossover/crossover-worklet-evaluator.js?v=crossover-1",
   "./public/modules/modeResonator/mode-resonator-math.js?v=mode-resonator-1",
@@ -2758,8 +2758,8 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/noiseGenerator/noise-generator-math.js?v=softpop-1",
   "./public/modules/softpopOscillator/softpop-oscillator-math.js?v=softpop-1",
   "./public/modules/softpopOscillator/softpop-oscillator-worklet-evaluator.js?v=softpop-1",
-  "./public/modules/sinepulse/sinepulse-math.js?v=sinepulse-17",
-  "./public/modules/sinepulse/sinepulse-worklet-evaluator.js?v=sinepulse-17",
+  "./public/modules/sinepulse/sinepulse-math.js?v=sinepulse-24",
+  "./public/modules/sinepulse/sinepulse-worklet-evaluator.js?v=sinepulse-24",
   "./public/modules/sampleHold/sample-hold-math.js?v=sample-hold-1",
   "./public/modules/sampleHold/sample-hold-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/expAdsr/exp-adsr-math.js?v=exp-adsr-1",
@@ -2819,7 +2819,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/speedColorInertia/speed-color-inertia-worklet-evaluator.js?v=speed-color-inertia-2",
   "./public/modules/sinc/sinc-worklet-evaluator.js?v=native-core-1",
   "./public/modules/videoscope/videoscope-worklet-evaluator.js?v=videoscope-buffer-hold-1",
-  "./public/modules/spectrogram/spectrogram-worklet-evaluator.js?v=hop-serial-1",
+  "./public/modules/spectrogram/spectrogram-worklet-evaluator.js?v=spec-overlap-batch-1",
   "./public/node-live-audio-worklet-register.js?v=blob-loader-20260711",
 ];
 

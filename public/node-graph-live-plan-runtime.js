@@ -73,13 +73,15 @@ function nodeGraphBuildLivePlanForPatch(patch) {
 }
 
 /**
- * Spectrogram analysis knobs live in display settings. Inject into worklet
- * params (fftSize, window, overlap, freqOverlap, freqScale, historySeconds).
+ * Spectrogram: analysis knobs from display settings; view knobs from module params.
+ * Inject into worklet (fftSize, window, overlap, freqOverlap, freqScale) +
+ * historySeconds / minFreq / maxFreq for any main-thread consumers.
  */
 function nodeGraphInjectSpectrogramWorkletParams(node, params) {
   if (!node || node.type !== "spectrogram" || !params || typeof params !== "object") {
     return;
   }
+  const p = node.params && typeof node.params === "object" ? node.params : {};
   if (typeof normalizeNodeGraphSpectrogramSettings === "function") {
     const safe = normalizeNodeGraphSpectrogramSettings(node.traceDisplaySettings || {}, node);
     params.fftSize = safe.fftSize;
@@ -87,16 +89,24 @@ function nodeGraphInjectSpectrogramWorkletParams(node, params) {
     params.overlap = safe.overlap;
     params.freqOverlap = safe.freqOverlap;
     params.freqScale = safe.freqScale;
-    params.historySeconds = safe.historySeconds;
+    // Face view: module sliders win; fall back to legacy display settings.
+    const hist = Number(p.historySeconds ?? safe.historySeconds);
+    params.historySeconds = Number.isFinite(hist) && hist > 0 ? hist : 2;
+    const minF = Number(p.minFreq ?? safe.minFreq);
+    const maxF = Number(p.maxFreq ?? safe.maxFreq);
+    params.minFreq = Number.isFinite(minF) ? minF : 20;
+    params.maxFreq = Number.isFinite(maxF) ? maxF : 20000;
     return;
   }
-  const rawFft = node.traceDisplaySettings?.fftSize ?? node.params?.fftSize ?? 1024;
+  const rawFft = node.traceDisplaySettings?.fftSize ?? p.fftSize ?? 1024;
   params.fftSize = Number.isFinite(Number(rawFft)) ? Number(rawFft) : 1024;
-  params.window = Number(node.traceDisplaySettings?.window ?? node.params?.window ?? 1) || 1;
-  params.overlap = Number(node.traceDisplaySettings?.overlap ?? node.params?.overlap ?? 2) || 2;
-  params.freqOverlap = Number(node.traceDisplaySettings?.freqOverlap ?? node.params?.freqOverlap ?? 0) || 0;
-  params.freqScale = Number(node.traceDisplaySettings?.freqScale ?? node.params?.freqScale ?? 1) || 1;
-  params.historySeconds = Number(node.traceDisplaySettings?.historySeconds ?? node.params?.historySeconds ?? 2) || 2;
+  params.window = Number(node.traceDisplaySettings?.window ?? p.window ?? 1) || 1;
+  params.overlap = Number(node.traceDisplaySettings?.overlap ?? p.overlap ?? 2) || 2;
+  params.freqOverlap = Number(node.traceDisplaySettings?.freqOverlap ?? p.freqOverlap ?? 0) || 0;
+  params.freqScale = Number(node.traceDisplaySettings?.freqScale ?? p.freqScale ?? 1) || 1;
+  params.historySeconds = Number(p.historySeconds ?? node.traceDisplaySettings?.historySeconds ?? 2) || 2;
+  params.minFreq = Number(p.minFreq ?? 20) || 20;
+  params.maxFreq = Number(p.maxFreq ?? 20000) || 20000;
 }
 
 function nodeGraphBuildLiveParameterNodes(activeNodeIds = null) {

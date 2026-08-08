@@ -35,23 +35,53 @@ function spectrogramDefaultGradientStops() {
 }
 
 function spectrogramSettingsForNode(node) {
+  let base;
   if (typeof normalizeNodeGraphSpectrogramSettings === "function") {
-    return normalizeNodeGraphSpectrogramSettings(
+    base = normalizeNodeGraphSpectrogramSettings(
       node?.traceDisplaySettings || node?.spectrogramDisplaySettings,
       node,
     );
+  } else {
+    const source = node?.traceDisplaySettings || {};
+    base = {
+      historySeconds: Math.max(
+        SPECTROGRAM_MIN_HISTORY_SECONDS,
+        Math.min(SPECTROGRAM_MAX_HISTORY_SECONDS, Number(source.historySeconds) || 2),
+      ),
+      fftSize: Math.max(128, Math.min(16384, Math.round(Number(source.fftSize) || 1024))),
+      freqScale: Math.max(0, Math.min(2, Math.round(Number(source.freqScale) || 0))),
+      minFreq: 20,
+      maxFreq: 20000,
+      window: Math.max(0, Math.min(4, Math.round(Number(source.window) || 1))),
+      overlap: Math.max(0, Math.min(5, Math.round(Number(source.overlap) || 2))),
+      gradientStops: Array.isArray(source.gradientStops) ? source.gradientStops : spectrogramDefaultGradientStops(),
+    };
   }
-  const source = node?.traceDisplaySettings || {};
+  // View knobs live on the module face (params). Display settings only as legacy fallback.
+  const p = node?.params && typeof node.params === "object" ? node.params : {};
+  let minFreq = Number(p.minFreq);
+  if (!Number.isFinite(minFreq)) minFreq = Number(base.minFreq) || 20;
+  let maxFreq = Number(p.maxFreq);
+  if (!Number.isFinite(maxFreq)) maxFreq = Number(base.maxFreq) || 20000;
+  minFreq = Math.max(1, Math.min(24000, minFreq));
+  maxFreq = Math.max(1, Math.min(24000, maxFreq));
+  if (!(maxFreq > minFreq)) {
+    maxFreq = Math.min(24000, minFreq + 1);
+    if (!(maxFreq > minFreq)) minFreq = Math.max(1, maxFreq - 1);
+  }
+  let historySeconds = Number(p.historySeconds);
+  if (!Number.isFinite(historySeconds) || historySeconds <= 0) {
+    historySeconds = Number(base.historySeconds) || 2;
+  }
+  historySeconds = Math.max(
+    SPECTROGRAM_MIN_HISTORY_SECONDS,
+    Math.min(SPECTROGRAM_MAX_HISTORY_SECONDS, historySeconds),
+  );
   return {
-    historySeconds: Math.max(
-      SPECTROGRAM_MIN_HISTORY_SECONDS,
-      Math.min(SPECTROGRAM_MAX_HISTORY_SECONDS, Number(source.historySeconds) || 2),
-    ),
-    fftSize: Math.max(128, Math.min(16384, Math.round(Number(source.fftSize) || 1024))),
-    freqScale: Math.max(0, Math.min(2, Math.round(Number(source.freqScale) || 0))),
-    window: Math.max(0, Math.min(4, Math.round(Number(source.window) || 1))),
-    overlap: Math.max(0, Math.min(5, Math.round(Number(source.overlap) || 2))),
-    gradientStops: Array.isArray(source.gradientStops) ? source.gradientStops : spectrogramDefaultGradientStops(),
+    ...base,
+    minFreq,
+    maxFreq,
+    historySeconds,
   };
 }
 
@@ -164,39 +194,73 @@ function spectrogramBarkToHz(bark) {
   return 600 * Math.sinh(bark / 6);
 }
 
-function spectrogramRowTToHz(t, freqScaleIdx, sampleRate) {
+/**
+ * Resolve vertical view band in Hz, clamped to [1, Nyquist] with min < max.
+ * Defaults match classic spectrogram (20 Hz … Nyquist).
+ */
+function spectrogramResolveViewBand(minFreqHz, maxFreqHz, sampleRate) {
   const sr = Math.max(1, Number(sampleRate) || 44100);
   const nyquist = sr / 2;
-  const minFreq = 20;
+  let lo = Number(minFreqHz);
+  let hi = Number(maxFreqHz);
+  if (!Number.isFinite(lo)) lo = 20;
+  if (!Number.isFinite(hi)) hi = nyquist;
+  lo = Math.max(1, Math.min(nyquist - 1e-6, lo));
+  hi = Math.max(lo + 1e-6, Math.min(nyquist, hi));
+  if (!(hi > lo)) {
+    hi = Math.min(nyquist, lo + 1);
+    if (!(hi > lo)) lo = Math.max(1, hi - 1);
+  }
+  return { minFreq: lo, maxFreq: hi, nyquist };
+}
+
+/**
+ * Row t=0 (top of face) → high freq; t=1 (bottom) → low freq.
+ * Maps the chosen Min/Max band through Linear / Mel / Bark.
+ */
+function spectrogramRowTToHz(t, freqScaleIdx, sampleRate, minFreqHz, maxFreqHz) {
+  const band = spectrogramResolveViewBand(minFreqHz, maxFreqHz, sampleRate);
   const scale = Math.max(0, Math.min(2, Math.round(Number(freqScaleIdx) || 0)));
+  // Face y grows downward; invert so top of face = Max freq.
   const u = Math.max(0, Math.min(1, 1 - t));
   if (scale === 1) {
-    const melMin = spectrogramHzToMel(minFreq);
-    const melMax = spectrogramHzToMel(nyquist);
+    const melMin = spectrogramHzToMel(band.minFreq);
+    const melMax = spectrogramHzToMel(band.maxFreq);
     return spectrogramMelToHz(melMin + u * (melMax - melMin));
   }
   if (scale === 2) {
-    const barkMin = spectrogramHzToBark(minFreq);
-    const barkMax = spectrogramHzToBark(nyquist);
+    const barkMin = spectrogramHzToBark(band.minFreq);
+    const barkMax = spectrogramHzToBark(band.maxFreq);
     return spectrogramBarkToHz(barkMin + u * (barkMax - barkMin));
   }
-  return minFreq + u * (nyquist - minFreq);
+  return band.minFreq + u * (band.maxFreq - band.minFreq);
 }
 
+/** Absolute Hz → linear FFT bin index (spectrum covers 0…Nyquist). */
 function spectrogramHzToLinearBin(hz, linearBins, sampleRate) {
   const sr = Math.max(1, Number(sampleRate) || 44100);
   const nyquist = sr / 2;
-  const minFreq = 20;
   const lb = Math.max(1, linearBins | 0);
-  const t = (hz - minFreq) / Math.max(1e-9, nyquist - minFreq);
+  // Bin 0 ≈ DC, last bin ≈ Nyquist (matches worklet magnitude packing).
+  const t = Math.max(0, Number(hz) || 0) / Math.max(1e-9, nyquist);
   return Math.max(0, Math.min(lb - 1, t * (lb - 1)));
 }
 
 /**
  * Map one LINEAR spectrum column → face-height magnitudes (peak-normalized).
  * Bilinear blend between FFT bins for smooth freq-scale remap.
+ * minFreqHz/maxFreqHz zoom the vertical axis onto a sub-band of the spectrum.
  */
-function spectrogramSpectrumToColumnMags(out, spectrum, spectrumBins, faceH, freqScaleIdx, sampleRate) {
+function spectrogramSpectrumToColumnMags(
+  out,
+  spectrum,
+  spectrumBins,
+  faceH,
+  freqScaleIdx,
+  sampleRate,
+  minFreqHz,
+  maxFreqHz,
+) {
   const h = Math.max(1, faceH | 0);
   if (!out || out.length < h) return;
   out.fill(0);
@@ -206,7 +270,7 @@ function spectrogramSpectrumToColumnMags(out, spectrum, spectrumBins, faceH, fre
   let peak = 1e-12;
   for (let y = 0; y < h; y += 1) {
     const t = y / rowDenom;
-    const hz = spectrogramRowTToHz(t, freqScaleIdx, sampleRate);
+    const hz = spectrogramRowTToHz(t, freqScaleIdx, sampleRate, minFreqHz, maxFreqHz);
     const binF = spectrogramHzToLinearBin(hz, spectrumBins, sampleRate);
     const b0 = Math.max(0, Math.min(spectrumBins - 1, Math.floor(binF)));
     const b1 = Math.min(spectrumBins - 1, b0 + 1);
@@ -385,6 +449,8 @@ function spectrogramIngestHop(
   minThresh,
   threshRange,
   brightness,
+  minFreqHz,
+  maxFreqHz,
 ) {
   const h = st.faceH;
   const w = st.faceW;
@@ -408,6 +474,8 @@ function spectrogramIngestHop(
     h,
     freqScaleIdx,
     sampleRate,
+    minFreqHz,
+    maxFreqHz,
   );
   spectrogramPoolPending(st, st.columnScratch);
 
@@ -465,6 +533,8 @@ function drawNodeGraphSpectrogramItem(renderer, item, pixelRatio) {
   const maxThresh = Math.max(minThresh + 0.001, Number(node?.params?.maxThreshold) || 1);
   const threshRange = maxThresh - minThresh;
   const freqScaleIdx = Math.max(0, Math.min(2, Math.round(Number(settings.freqScale) || 0)));
+  const minFreqHz = Number(settings.minFreq);
+  const maxFreqHz = Number(settings.maxFreq);
   const lutRgb = spectrogramLutRgbForStops(settings.gradientStops);
   const historySeconds = Math.max(
     SPECTROGRAM_MIN_HISTORY_SECONDS,
@@ -490,6 +560,8 @@ function drawNodeGraphSpectrogramItem(renderer, item, pixelRatio) {
   // Ink uses settings at paint time; already-drawn pixels stay as-is.
   st.paintFreqScale = freqScaleIdx;
   st.paintSampleRate = sampleRate;
+  st.paintMinFreq = minFreqHz;
+  st.paintMaxFreq = maxFreqHz;
 
   const frozen = typeof nodeGraphModuleScopePhosphorFrozen === "function"
     && nodeGraphModuleScopePhosphorFrozen();
@@ -521,6 +593,8 @@ function drawNodeGraphSpectrogramItem(renderer, item, pixelRatio) {
           minThresh,
           threshRange,
           brightness,
+          minFreqHz,
+          maxFreqHz,
         );
       }
       st.lastHop = hopSerial;
@@ -536,6 +610,8 @@ function drawNodeGraphSpectrogramItem(renderer, item, pixelRatio) {
         minThresh,
         threshRange,
         brightness,
+        minFreqHz,
+        maxFreqHz,
       );
       st.lastHop = hopSerial;
     }

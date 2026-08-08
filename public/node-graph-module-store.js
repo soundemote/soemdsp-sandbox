@@ -42,6 +42,8 @@ const nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([
   // Multi-frame wavetable oscillators — placeholders until table engine lands.
   "wavetable2d",
   "wavetable3d",
+  // RGB pixel-grid experiments (stroke split, bevels, etc.) — placeholder.
+  "pixelGrid",
   // Waveguide physical model — shell exists (passthrough); full engine later.
   "waveguide",
   // Classic modulation FX
@@ -1045,7 +1047,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   sinepulse: {
     category: "drum",
     description:
-      "Sine chirp / zap drum voice. Rate = sweep rate. LowFreq/HighFreq = pitch endpoints (capped by project Speed Limit). Shift collapses LowFreq toward HighFreq. Sweep = fill. FreqCurve/AmpCurve bipolar (−1…+1). Antialias dithers Rate period (Robin pitch dither). CV: f, Amp, Freq. Up/Down. 0.1V/Oct + f + Reset + Increment.",
+      "Sine chirp / zap drum voice. Rate = sweep rate. LowFreq/HighFreq = pitch endpoints (capped by project Speed Limit). Shift collapses LowFreq toward HighFreq. Sweep = fill. FreqCurve/AmpCurve bipolar (−1…+1). Antialias lo→hi: Off, Soft Edge, Adaptive, Shaped, Noise, Fine (default). CV: f, Amp, Freq. Up/Down. 0.1V/Oct + f + Reset + Increment.",
     label: "Sinepulse",
     notes: [
       "drum",
@@ -1440,6 +1442,21 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Layered RGBA compositor for images, scopes, shader passes, transforms, and future game-engine surfaces.",
     notes: ["layer compositor", "RGBA output", "shader script"],
   },
+  pixelGrid: {
+    category: "rgb",
+    description:
+      "various pixel grid experiments such as splitting pixels via 1 black stroke, creating 3d pixel effects with bevels, etc.",
+    label: "PixelGrid",
+    notes: [
+      "under construction",
+      "pixel grid",
+      "rgb",
+      "bevel",
+      "stroke",
+      "3d pixel",
+      "pixel experiments",
+    ],
+  },
   // led registers its own catalog entry from public/modules/led/led-register.js
   // -- see node-graph-chromeless-module-registry.js.
   visualOscilloscope: {
@@ -1498,7 +1515,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   spectrogram: {
     category: "oscilloscope",
-    description: "Regular STFT spectrogram with Thru passthrough (In → face + Thru). Module: Brightness, Min/Max Thresh. Display: History, FFT size, Window, Overlap, Freq Scale, gradient presets.",
+    description: "Regular STFT spectrogram with Thru passthrough (In → face + Thru). Module: Brightness, Min/Max Thresh, Min/Max Freq, History. Display: FFT size, Window, Time/Freq overlap, Freq Scale, gradient presets.",
     label: "Spectrogram",
     notes: ["fft", "spectrum", "frequency waterfall", "spectral display", "thru"],
   },

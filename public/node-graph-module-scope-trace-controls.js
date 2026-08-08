@@ -123,7 +123,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dotBudget",
     ])),
     colors: Object.freeze([]),
-    toggles: Object.freeze(["fullDotEconomy"]),
+    // Same horizontal packing row: Full Dot Economy | Dots only
+    toggles: Object.freeze(["fullDotEconomy", "dotsOnly"]),
     choices: Object.freeze([]),
   }),
   // 2D Trace = VECTOR path; density = face buffer lo-fi/AA only.
@@ -253,10 +254,10 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze(["fullDotEconomy"]),
     choices: Object.freeze([]),
   }),
-  // Spectrogram: history + FFT + analysis choices. Gradient separate.
+  // Spectrogram: FFT + analysis choices. History / Min·Max Freq are module sliders.
+  // Gradient separate.
   spectrogramBurn: Object.freeze({
     fields: Object.freeze([
-      "historySeconds",
       "fftSize",
     ]),
     colors: Object.freeze([]),
@@ -395,6 +396,8 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "dotBudget",
       "padding",
       "fftSize",
+      "minFreq",
+      "maxFreq",
       "hue",
       "rounding",
     ]),
@@ -483,6 +486,18 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     inputmode: "numeric",
     id: "nodeTraceDisplayFftSize",
     title: "Analysis window length (samples). Steps 128…16384. Time hop = N / time-overlap. Freq overlap zero-pads the FFT.",
+  }),
+  minFreq: Object.freeze({
+    label: "Min freq (Hz)",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayMinFreq",
+    title: "Lowest frequency drawn at the bottom of the face (1–24000 Hz). Raise this with Max freq to zoom into a band — more vertical pixels on the range you care about.",
+  }),
+  maxFreq: Object.freeze({
+    label: "Max freq (Hz)",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayMaxFreq",
+    title: "Highest frequency drawn at the top of the face (1–24000 Hz, must stay above Min). Lower this to crop ultrasonic / empty highs and spend face height on mid/low detail.",
   }),
   scale: Object.freeze({
     label: "Scale",
@@ -581,7 +596,14 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
   fullDotEconomy: Object.freeze({
     label: "Full dot economy",
     id: "nodeTraceDisplayFullDotEconomy",
-    title: "On (default): pack stamps up to Dot Budget; when over, widen spacing evenly along the path. Off: thrifty spacing (may under-use budget).",
+    title:
+      "Off (default): pack soft stamps at fuse spacing (continuous trail, thrifty on Dot Budget). On: denser packing up to Dot Budget (brighter solid trails). Over budget: spacing widens evenly along the whole path — never truncates the head. Ignored when Dots only is on (except even sample skip under budget).",
+  }),
+  dotsOnly: Object.freeze({
+    label: "Dots only",
+    id: "nodeTraceDisplayDotsOnly",
+    title:
+      "Stamp only real sample hits — no path packing between samples. Completely avoids connective lines / chord fill. Dense samples still fuse visually; sparse samples stay discrete dots.",
   }),
 });
 

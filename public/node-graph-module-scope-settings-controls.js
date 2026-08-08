@@ -18,6 +18,13 @@ function nodeGraphTraceDisplayStepperQuantum(input) {
   if (input.dataset?.traceDisplayField === "fftSize") {
     return 1; // stepped via table in stepNodeGraphTraceDisplaySetting
   }
+  // Spectrogram view band (Hz).
+  if (
+    input.dataset?.traceDisplayField === "minFreq"
+    || input.dataset?.traceDisplayField === "maxFreq"
+  ) {
+    return 10;
+  }
   // History (s): control-space step (exp map) — fine near short windows.
   if (
     input.dataset?.traceDisplayField === "historySeconds"
@@ -221,6 +228,16 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   fftSize: (value) => (typeof nodeGraphSpectrogramSnapFftSize === "function"
     ? nodeGraphSpectrogramSnapFftSize(value)
     : 1024),
+  minFreq: (value) => {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 20;
+    return clampNodeSliderValue(n, 1, 24000);
+  },
+  maxFreq: (value) => {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 20000;
+    return clampNodeSliderValue(n, 1, 24000);
+  },
   zoomSeconds: nodeGraphTraceDisplayClampHistorySeconds,
 });
 
@@ -236,6 +253,16 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
       // 0 is not meaningful (was silently treated as ~0.05 s).
       if (n <= 0) return 0.1;
       return clampNodeSliderValue(n, 0.1, 30);
+    },
+    minFreq: (value) => {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return 20;
+      return clampNodeSliderValue(n, 1, 24000);
+    },
+    maxFreq: (value) => {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return 20000;
+      return clampNodeSliderValue(n, 1, 24000);
     },
   }),
   // LED lamp: hue degrees, blur 0–1, rounding %, brightness 0–1.

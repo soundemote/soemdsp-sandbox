@@ -8,6 +8,9 @@ NodeLiveAudioProcessor.prototype.createSinepulseState = function createSinepulse
     tooth: 0,
     phase: 0,
     lastReset: 0,
+    prevOut: 0,
+    blepMem: 0,
+    lastDirection: -1,
     rateDither: {
       sampleCount: 0,
       lenNow: 100,
@@ -15,6 +18,10 @@ NodeLiveAudioProcessor.prototype.createSinepulseState = function createSinepulse
       probShort: 0,
       probMid: 1,
       phaseSlope: 1 / 99,
+      shapeErr: 0,
+      halfCount: 0,
+      halfLen: 200,
+      blendUseNoise: 1,
     },
   };
 };
@@ -34,7 +41,8 @@ NodeLiveAudioProcessor.prototype.sinepulseSample = function sinepulseSample(
   increment,
   resetGate,
   rate = sampleRate,
-  antialias = 0,
+  antialias = 5,
+  hardReset = 1,
 ) {
   if (typeof nodeGraphSinepulseSample === "function") {
     const out = nodeGraphSinepulseSample(
@@ -53,6 +61,7 @@ NodeLiveAudioProcessor.prototype.sinepulseSample = function sinepulseSample(
       resetGate,
       rate,
       antialias,
+      hardReset,
     );
     if (out && typeof out === "object") {
       return {

@@ -151,6 +151,10 @@ const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   dot1Size: 0.07,
   lineThickness: 0.2,
   pixelDensity: 1,
+  // Soft stamp budget (ceiling) — same packing model as 2D Phosphor.
+  dotBudget: nodeGraphScopePhosphorLookDefaults.dotBudget,
+  // Site thrifty packing by default (explicit Full Dot Economy ON for dense).
+  fullDotEconomy: false,
   // Seconds for one full left→right pass (default 2 s).
   sweepSeconds: 2,
 });
@@ -231,28 +235,37 @@ const nodeGraphSpectrogramSettingsDefaults = Object.freeze({
   // 0→1× (no pad), 1→2×, 2→4×. FFT length = min(window×factor, 32768).
   freqOverlap: 0,
   freqScale: 1, // Mel
+  // Vertical face maps this Hz band (bottom→top). Zooming the range uses more
+  // face pixels on the band of interest (better detail than full Nyquist).
+  minFreq: 20,
+  maxFreq: 20000,
   // Lowest gradient stop is the face/history "background" — analog pixel burn LUT.
   gradientStops: nodeGraphScopePhosphorLookDefaults.gradientStops,
 });
 
 
 const nodeGraphScope2dSettingsDefaults = Object.freeze({
-  // Match soundemote.io / site sandbox 2D Phosphor defaults.
+  // soundemote.io / site sandbox 2D Phosphor defaults (continuous fused stamps).
   background: "#000000",
-  burn: 0.82,
-  decay: 0.12,
-  // Ghost/Trail aliases for Display Settings UI (Trail high = long residual).
+  // Ghost/Trail are the Display Settings knobs (UI truth).
+  // burn/decay are legacy mirrors (burn≡ghost, decay≡1−trail).
   ghost: 0.82,
-  trail: 0.88, // 1 - 0.12
-  // Bright 0…1 (1 = full deposit). Default 0.92.
+  trail: 0.88,
+  burn: 0.82,
+  decay: 0.12, // 1 - trail
+  // Bright 0…1 (1 = full deposit). Site default ~0.92.
   dot1Brightness: 0.92,
   // Peak color = last gradient stop (migration + puck/overlays).
   dot1Color: "#75ebff",
   dot1Enabled: true,
-  // 0–1 of face min side (site default 0.08).
+  // 0–1 of face min side (site default 0.08 — stamps fuse under thrifty packing).
   dot1Size: 0.08,
-  // Soft stamp budget (ceiling). Under load, dots spread evenly (skips), not head-only.
+  // Soft stamp budget (ceiling). Under load, path packing widens evenly.
   dotBudget: 2048,
+  // Explicit ON = dense pack up to Dot Budget (fuse packing is default).
+  fullDotEconomy: false,
+  // Stamp only real sample hits — never path-pack chords (no connective lines).
+  dotsOnly: false,
   // Multi-stop energy→color LUT (site cyan burn ramp).
   gradientStops: Object.freeze([
     Object.freeze({ t: 0, color: "#000000" }),
@@ -260,7 +273,7 @@ const nodeGraphScope2dSettingsDefaults = Object.freeze({
     Object.freeze({ t: 0.55, color: "#3a9aab" }),
     Object.freeze({ t: 1, color: "#75ebff" }),
   ]),
-  // Stamp blur 0–1: 0 hard disc, 1 full soft bleed.
+  // Stamp blur 0–1: 0 hard disc, 1 full soft bleed (site 0.35).
   lineThickness: 0.35,
   // 0 = single pixel, 1 = layout×dpr, 4 = 4× AA.
   pixelDensity: 1,
@@ -270,8 +283,7 @@ const nodeGraphScope2dSettingsDefaults = Object.freeze({
 /**
  * Per-module overrides for 2D Phosphor (scope2d) display defaults.
  * Only fields listed here differ from nodeGraphScope2dSettingsDefaults.
- * (Empty: Lorenz used to force dot1Size 0.2748 — that was a giant stamp;
- *  it now inherits the shared Size 0.08 default.)
+ * (Empty: Lorenz used to force a giant stamp; it inherits Size 0.01 now.)
  */
 const nodeGraphModuleScope2dDisplayDefaultOverrides = Object.freeze({
 });

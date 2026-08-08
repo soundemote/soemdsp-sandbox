@@ -6575,7 +6575,6 @@ def require_node_graph_mvp_contract() -> None:
         'role="progressbar"',
         'aria-valuenow="4"',
         "nodeEarProtectionFault",
-        "Audio Safety Circuit Open",
         "Ear Protection Tripped",
         "Audio output was muted for safety.",
         "Close this dialog to clear the trip and continue working.",

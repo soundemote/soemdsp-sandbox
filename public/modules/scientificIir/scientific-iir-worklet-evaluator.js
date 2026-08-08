@@ -172,3 +172,8 @@ NodeLiveAudioProcessor.prototype.wavetable2dSample = function wavetable2dSample(
 NodeLiveAudioProcessor.prototype.wavetable3dSample = function wavetable3dSample() {
   return { Out: 0 };
 };
+
+// UC RGB pixel-grid experiments (silent placeholder)
+NodeLiveAudioProcessor.prototype.pixelGridSample = function pixelGridSample() {
+  return {};
+};

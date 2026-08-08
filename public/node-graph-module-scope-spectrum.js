@@ -173,6 +173,8 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
   ["sweepSeconds", "Sweep (s)"],
   ["sweepHz", "Sweep (Hz)"],
   ["fftSize", "FFT size"],
+  ["minFreq", "Min freq (Hz)"],
+  ["maxFreq", "Max freq (Hz)"],
   ["bins", "Bins"],
   ["ghost", "Ghost"],
   ["trail", "Trail"],

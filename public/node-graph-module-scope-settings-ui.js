@@ -215,6 +215,7 @@ function applyNodeGraphTraceDisplaySettingsTooltips(popover) {
     sourceSync: "traceDisplaySettings.sourceSync",
     syncChannel: "traceDisplaySettings.syncChannel",
     fullDotEconomy: "traceDisplaySettings.fullDotEconomy",
+    dotsOnly: "traceDisplaySettings.dotsOnly",
   };
   for (const [field, key] of Object.entries(toggleKeys)) {
     popover.querySelector(`[data-trace-display-toggle="${field}"]`)?.setAttribute("data-tooltip-key", key);

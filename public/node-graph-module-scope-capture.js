@@ -399,16 +399,50 @@ function nodeGraphScopeBufferSampleAtAbsoluteFrame(buffer, absoluteFrame) {
   return Number.isFinite(value) ? value : 0;
 }
 
+/** Prefer denser / higher-rate of two scope buffers (wired sink vs source). */
+function nodeGraphScope2dPickRicherBuffer(local, connected) {
+  if (!local) {
+    return connected || null;
+  }
+  if (!connected) {
+    return local;
+  }
+  const localAvail = typeof nodeGraphScopeAvailableSampleCount === "function"
+    ? nodeGraphScopeAvailableSampleCount(local)
+    : (local.length || 0);
+  const connAvail = typeof nodeGraphScopeAvailableSampleCount === "function"
+    ? nodeGraphScopeAvailableSampleCount(connected)
+    : (connected.length || 0);
+  const localRate = Number(local.nodeGraphScopeSampleRate) || 0;
+  const connRate = Number(connected.nodeGraphScopeSampleRate) || 0;
+  // Prefer higher sample rate; then more retained samples.
+  if (connRate > localRate * 1.05) {
+    return connected;
+  }
+  if (localRate > connRate * 1.05) {
+    return local;
+  }
+  return connAvail > localAvail ? connected : local;
+}
+
 function nodeGraphModuleScopeCapturedScope2dBuffer(slot, options = {}) {
   if (!["scope2d", "scope2dTrace", "phosphorLight"].includes(nodeGraphModuleDisplayRendererForSlot(slot))) {
     return null;
   }
   const xPort = String(options.xPort || "X").trim() || "X";
   const yPort = String(options.yPort || "Y").trim() || "Y";
-  const xBuffer = nodeGraphModuleScopeState.buffers.get(`${slot.nodeId}:${xPort}`) ||
-    nodeGraphModuleScopeConnectedSourceBuffer(slot.nodeId, xPort);
-  const yBuffer = nodeGraphModuleScopeState.buffers.get(`${slot.nodeId}:${yPort}`) ||
-    nodeGraphModuleScopeConnectedSourceBuffer(slot.nodeId, yPort);
+  const localX = nodeGraphModuleScopeState.buffers.get(`${slot.nodeId}:${xPort}`);
+  const localY = nodeGraphModuleScopeState.buffers.get(`${slot.nodeId}:${yPort}`);
+  const connX = typeof nodeGraphModuleScopeConnectedSourceBuffer === "function"
+    ? nodeGraphModuleScopeConnectedSourceBuffer(slot.nodeId, xPort)
+    : null;
+  const connY = typeof nodeGraphModuleScopeConnectedSourceBuffer === "function"
+    ? nodeGraphModuleScopeConnectedSourceBuffer(slot.nodeId, yPort)
+    : null;
+  // Wired 2D Phosphor sinks: don't silently use a thin local ring when the
+  // connected generator has a richer buffer (same data Lorenz face draws).
+  const xBuffer = nodeGraphScope2dPickRicherBuffer(localX, connX);
+  const yBuffer = nodeGraphScope2dPickRicherBuffer(localY, connY);
   const length = Math.min(xBuffer?.length || 0, yBuffer?.length || 0);
   if (length <= 0) {
     return null;

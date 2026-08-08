@@ -39,6 +39,25 @@ function nodeGraphDisplaySettingsBuildToggleRowHtml(key) {
     </label>`;
 }
 
+/** Packing toggles share one horizontal row on 2D Phosphor (Full Dot Economy | Dots only). */
+const NODE_GRAPH_DISPLAY_PACKING_TOGGLE_KEYS = Object.freeze(["fullDotEconomy", "dotsOnly"]);
+
+function nodeGraphDisplaySettingsBuildPackingToggleRowHtml(keys) {
+  const labels = keys.map((key) => {
+    const meta = nodeGraphDisplaySettingsToggleMeta[key] || { label: key };
+    const idAttr = meta.id ? ` id="${nodeGraphDisplaySettingsEscapeHtml(meta.id)}"` : "";
+    const titleAttr = meta.title
+      ? ` title="${nodeGraphDisplaySettingsEscapeHtml(meta.title)}"`
+      : "";
+    return `
+    <label class="metadata-checkbox-label node-trace-display-packing-toggle"${titleAttr}>
+      <input type="checkbox" data-trace-display-toggle="${key}"${idAttr}${titleAttr}>
+      ${nodeGraphDisplaySettingsEscapeHtml(meta.label)}
+    </label>`;
+  }).join("");
+  return `<div class="node-trace-display-packing-toggles" data-trace-display-control-row>${labels}</div>`;
+}
+
 
 function nodeGraphDisplaySettingsBuildChoiceRowHtml(key) {
   const meta = nodeGraphDisplaySettingsChoiceMeta[key];
@@ -257,9 +276,20 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     for (const key of choiceKeys) {
       rows.push(nodeGraphDisplaySettingsBuildChoiceRowHtml(key));
     }
+    // Group Full Dot Economy + Dots only on one horizontal row when both present.
+    const packingKeys = NODE_GRAPH_DISPLAY_PACKING_TOGGLE_KEYS.filter((key) => toggleKeys.includes(key));
+    const packingKeySet = new Set(packingKeys);
+    let packingRowEmitted = false;
     for (const key of toggleKeys) {
       if (section === "secondary" && key === "secondaryEnabled") {
         continue; // already in title
+      }
+      if (packingKeySet.has(key)) {
+        if (!packingRowEmitted && packingKeys.length) {
+          rows.push(nodeGraphDisplaySettingsBuildPackingToggleRowHtml(packingKeys));
+          packingRowEmitted = true;
+        }
+        continue;
       }
       rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml(key));
     }

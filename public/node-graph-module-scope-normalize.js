@@ -229,6 +229,29 @@ function normalizeNodeGraphSpectrogramSettings(settings = {}, node = null) {
     2,
     defaults.freqScale,
   );
+  // View band (Hz). Hard range 1…24000; min always strictly below max.
+  const clampHz = (raw, fallback) => {
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return fallback;
+    return clampNodeSliderValue(n, 1, 24000);
+  };
+  let minFreq = clampHz(source.minFreq ?? defaults.minFreq, defaults.minFreq);
+  let maxFreq = clampHz(source.maxFreq ?? defaults.maxFreq, defaults.maxFreq);
+  if (!(maxFreq > minFreq)) {
+    // Keep a usable span; prefer expanding max, else pull min down.
+    if (minFreq < 24000) {
+      maxFreq = Math.min(24000, minFreq + Math.max(1, minFreq * 0.05));
+    } else {
+      minFreq = Math.max(1, maxFreq - 1);
+    }
+  }
+  // Ensure at least 1 Hz span after float noise.
+  if (maxFreq - minFreq < 1) {
+    maxFreq = Math.min(24000, minFreq + 1);
+    if (maxFreq - minFreq < 1) {
+      minFreq = Math.max(1, maxFreq - 1);
+    }
+  }
   const gradientStops = normalizeNodeGraphSpectrogramGradientStops(
     source.gradientStops ?? source.gradient,
   );
@@ -243,6 +266,8 @@ function normalizeNodeGraphSpectrogramSettings(settings = {}, node = null) {
     overlap,
     freqOverlap,
     freqScale,
+    minFreq,
+    maxFreq,
     // Face width = historySeconds of audio. Longer = slower scroll.
     // Min 0.1 s (0 was a fake “empty” that the display remapped to 0.05).
     historySeconds: (() => {
@@ -275,9 +300,17 @@ function syncNodeGraphSpectrogramDisplaySettingsToParams(node, settings) {
   node.params.overlap = safe.overlap; // time hop factor index
   node.params.freqOverlap = safe.freqOverlap; // zero-pad factor index
   node.params.freqScale = safe.freqScale;
-  // History window: worklet re-STFTs this many seconds of reference audio
-  // when analysis settings change (reprint whole spectrogram, no clear).
-  node.params.historySeconds = safe.historySeconds;
+  // History / Min·Max Freq are module face sliders — do not clobber from display.
+  // Seed once if missing (legacy patches that only had display settings).
+  if (!Number.isFinite(Number(node.params.historySeconds))) {
+    node.params.historySeconds = safe.historySeconds;
+  }
+  if (!Number.isFinite(Number(node.params.minFreq))) {
+    node.params.minFreq = safe.minFreq;
+  }
+  if (!Number.isFinite(Number(node.params.maxFreq))) {
+    node.params.maxFreq = safe.maxFreq;
+  }
   // Removed / migrated controls.
   delete node.params.outputBins;
   delete node.params.smoothing;
@@ -436,29 +469,36 @@ function normalizeNodeGraphLineBurnSettings(settings = {}) {
   const gradientStops = nodeGraphPhosphorGradientStopsFromSettings(source, defaults.dot1Color);
   const floor = gradientStops[0]?.color || defaults.background;
   const peak = gradientStops[gradientStops.length - 1]?.color || defaults.dot1Color;
-  // Online sandbox: burn/decay drive deposit+fade. Also accept Ghost/Trail UI.
-  const burn = normalizeNodeGraphTraceDisplayNumber(
-    source.burn ?? source.ghost,
-    defaults.burn ?? defaults.ghost,
-    0,
-    1,
-  );
+  // Ghost/Trail are UI truth (same as scope2d). burn/decay are mirrors only.
+  const defaultTrail = Number.isFinite(Number(defaults.trail)) ? Number(defaults.trail) : 0.7;
+  const defaultGhost = Number.isFinite(Number(defaults.ghost))
+    ? Number(defaults.ghost)
+    : (Number.isFinite(Number(defaults.burn)) ? Number(defaults.burn) : 0.3);
   const trail = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
-    ? PhosphorResidual.migrateTrail(source, defaults.trail ?? 0.7)
+    ? PhosphorResidual.migrateTrail(source, defaultTrail)
     : normalizeNodeGraphTraceDisplayNumber(
-      source.trail ?? (Number.isFinite(Number(source.decay)) ? 1 - Number(source.decay) : defaults.trail),
-      defaults.trail ?? 0.7,
+      source.trail != null
+        ? source.trail
+        : (Number.isFinite(Number(source.decay)) ? 1 - Number(source.decay) : defaultTrail),
+      defaultTrail,
       0,
       1,
     );
-  const decay = Number.isFinite(Number(source.decay))
-    ? normalizeNodeGraphTraceDisplayNumber(source.decay, defaults.decay, 0, 1)
-    : normalizeNodeGraphTraceDisplayNumber(1 - trail, defaults.decay, 0, 1);
+  const ghost = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateGhost
+    ? PhosphorResidual.migrateGhost(source, defaultGhost)
+    : normalizeNodeGraphTraceDisplayNumber(
+      source.ghost != null ? source.ghost : source.burn,
+      defaultGhost,
+      0,
+      1,
+    );
+  const burn = ghost;
+  const decay = normalizeNodeGraphTraceDisplayNumber(1 - trail, 0.3, 0, 1);
   return {
     background: normalizeNodeGraphTraceDisplayColor(floor, defaults.background),
     burn,
     decay,
-    ghost: burn,
+    ghost,
     trail,
     // Bright 0…1 exact (legacy 0…2 values halved once on load).
     dot1Brightness: normalizeNodeGraphTraceDisplayBrightness(
@@ -469,6 +509,16 @@ function normalizeNodeGraphLineBurnSettings(settings = {}) {
     // Always on — hide the display if you don't want the pen.
     dot1Enabled: true,
     dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
+    // Dot Budget + Full Dot Economy persist (toggle was dropped before).
+    dotBudget: Math.max(
+      64,
+      Math.min(8192, Math.round(
+        Number(source.dotBudget ?? defaults.dotBudget) || defaults.dotBudget || 2048,
+      )),
+    ),
+    // Explicit true only — thrifty path packing matches soundemote.io.
+    fullDotEconomy: source.fullDotEconomy === true
+      || source.useFullDotEconomy === true,
     gradientStops,
     lineThickness: nodeGraphTraceDisplayClampStampBlur(
       source.lineThickness ?? defaults.lineThickness,
@@ -763,32 +813,40 @@ function normalizeNodeGraphScope2dSettings(settings = {}, defaultsOverride = nul
   const gradientStops = nodeGraphPhosphorGradientStopsFromSettings(source, defaults.dot1Color);
   const floor = gradientStops[0]?.color || defaults.background;
   const peak = gradientStops[gradientStops.length - 1]?.color || defaults.dot1Color;
-  // Online path uses burn/decay. Accept Ghost/Trail UI as aliases.
-  const burn = normalizeNodeGraphTraceDisplayNumber(
-    source.burn ?? source.ghost,
-    defaults.burn ?? defaults.ghost,
-    0,
-    1,
-  );
+  // Display Settings truth is Ghost + Trail (UI knobs). burn/decay are legacy
+  // mirrors only — never prefer stale burn/decay over a freshly scrubbed Ghost/Trail
+  // (that made both knobs appear dead on Lorenz + 2D Phosphor).
+  const defaultTrail = Number.isFinite(Number(defaults.trail))
+    ? Number(defaults.trail)
+    : (Number.isFinite(Number(defaults.decay)) ? 1 - Number(defaults.decay) : 0.88);
+  const defaultGhost = Number.isFinite(Number(defaults.ghost))
+    ? Number(defaults.ghost)
+    : (Number.isFinite(Number(defaults.burn)) ? Number(defaults.burn) : 0.45);
   const trail = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
-    ? PhosphorResidual.migrateTrail(
-      source,
-      defaults.trail ?? (Number.isFinite(defaults.decay) ? 1 - defaults.decay : 0.88),
-    )
+    ? PhosphorResidual.migrateTrail(source, defaultTrail)
     : normalizeNodeGraphTraceDisplayNumber(
-      source.trail ?? (Number.isFinite(Number(source.decay)) ? 1 - Number(source.decay) : defaults.trail),
-      defaults.trail ?? 0.88,
+      source.trail != null
+        ? source.trail
+        : (Number.isFinite(Number(source.decay)) ? 1 - Number(source.decay) : defaultTrail),
+      defaultTrail,
       0,
       1,
     );
-  const decay = Number.isFinite(Number(source.decay))
-    ? normalizeNodeGraphTraceDisplayNumber(source.decay, defaults.decay, 0, 1)
-    : normalizeNodeGraphTraceDisplayNumber(1 - trail, defaults.decay ?? 0.12, 0, 1);
+  const ghost = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateGhost
+    ? PhosphorResidual.migrateGhost(source, defaultGhost)
+    : normalizeNodeGraphTraceDisplayNumber(
+      source.ghost != null ? source.ghost : source.burn,
+      defaultGhost,
+      0,
+      1,
+    );
+  const burn = ghost;
+  const decay = normalizeNodeGraphTraceDisplayNumber(1 - trail, 0.12, 0, 1);
   return {
     background: normalizeNodeGraphTraceDisplayColor(floor, defaults.background),
     burn,
     decay,
-    ghost: burn,
+    ghost,
     trail,
     // Bright 0…1 exact (legacy 0…2 halved once).
     dot1Brightness: normalizeNodeGraphTraceDisplayBrightness(
@@ -804,6 +862,11 @@ function normalizeNodeGraphScope2dSettings(settings = {}, defaultsOverride = nul
         Number(source.dotBudget ?? defaults.dotBudget) || defaults.dotBudget,
       )),
     ),
+    // Full Dot Economy / Dots only: explicit true only (checkboxes work).
+    fullDotEconomy: source.fullDotEconomy === true
+      || source.useFullDotEconomy === true,
+    dotsOnly: source.dotsOnly === true
+      || source.verticesOnly === true,
     gradientStops,
     lineThickness: nodeGraphTraceDisplayClampStampBlur(
       source.lineThickness ?? source.dot1Blur ?? defaults.lineThickness,

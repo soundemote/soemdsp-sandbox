@@ -757,35 +757,30 @@
   }
 
   /**
-   * Dots-only with dwell fill + beautiful budget failure.
+   * Dot deposit + Dot Budget.
    *
-   * Under budget (thrifty): stamp only at ideal spacing (enough for fused soft
-   * lines); may use far fewer than maxDots — never pad.
+   * dotsOnly / verticesOnly: stamp ONLY real sample hits — no chord packing
+   * between samples (no connective lines). Over maxDots: even index skip.
    *
-   * fullEconomy: always spend dense packing up to maxDots so hard trails read
-   * solid (no thrifty under-use of the budget).
-   *
-   * Over budget: do NOT solid-line the head and drop the rest. Widen spacing
-   * evenly across the whole path so the full signal shape stays visible as
-   * disconnected dots (skips). Fail beautifully instead of truncating.
+   * Path packing (default): soft discs fuse into continuous trails.
+   * fullEconomy OFF: fuse spacing. ON: denser pack toward maxDots.
+   * Over budget: widen step evenly across the whole path.
    *
    * Format: center.x, center.y, corner (6 verts per stamp).
    */
   function buildDotVertices(pathPoints, options = {}) {
     const points = Array.isArray(pathPoints) ? pathPoints : [];
-    const radius = Math.max(0.5, Number(options.radius) || 2);
-    // Blur 0..1; denser packing at hard end so discs fuse without soft skirts.
+    const radius = Math.max(0.35, Number(options.radius) || 2);
     const blur = Math.max(0, Math.min(1, Number(options.blur) || 0));
     const maxDots = Math.max(16, Math.floor(Number(options.maxDots) || 2048));
     const fullEconomy = options.fullEconomy === true
       || options.fullDotEconomy === true
-      || options.useFullDotEconomy === true;
-    // Target spacing in *path pixels* (not per-sample). Sample-count packing
-    // made low-freq trails blobby: short undrawn windows stamped every sample,
-    // long windows hit maxDots and truncated mid-path (draw / not-draw).
-    const thriftyStep = Math.max(0.35, radius * (0.18 + blur * 0.18));
-    const denseStep = Math.max(0.28, Math.min(radius * 0.12, 1.1));
-    const idealStep = fullEconomy ? denseStep : thriftyStep;
+      || options.useFullDotEconomy === true
+      || options.fullEconomy === 1
+      || options.fullDotEconomy === 1;
+    const dotsOnly = options.dotsOnly === true
+      || options.verticesOnly === true
+      || String(options.stampMode || "").toLowerCase() === "vertices";
 
     const pieces = [];
     let piece = [];
@@ -807,36 +802,9 @@
       return [];
     }
 
-    let totalLen = 0;
-    for (let p = 0; p < pieces.length; p += 1) {
-      const pts = pieces[p];
-      for (let i = 1; i < pts.length; i += 1) {
-        totalLen += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
-      }
-    }
-
-    // Budget covers the whole path at a uniform step. Over maxDots → widen
-    // evenly (never truncates the tail — that caused frame-to-frame blobs).
-    const stampSlots = Math.max(1, maxDots - Math.max(0, pieces.length));
-    let step = idealStep;
-    if (totalLen > 1e-4) {
-      const budgetStep = totalLen / stampSlots;
-      if (fullEconomy) {
-        step = (totalLen / denseStep + pieces.length > maxDots)
-          ? Math.max(denseStep, budgetStep)
-          : denseStep;
-      } else {
-        step = (totalLen / thriftyStep + pieces.length > maxDots)
-          ? Math.max(thriftyStep, budgetStep)
-          : thriftyStep;
-      }
-    }
-    step = Math.max(0.28, step);
-    const stampCap = maxDots;
-
     const stamps = [];
     const pushStamp = (x, y) => {
-      if (stamps.length / 2 >= stampCap) {
+      if (stamps.length / 2 >= maxDots) {
         return false;
       }
       if (!Number.isFinite(x) || !Number.isFinite(y)) {
@@ -846,51 +814,92 @@
       return true;
     };
 
-    // Arc-length walker: place a stamp every `step` px along each piece.
-    // Tiny audio samples no longer force one stamp each (that blew the budget
-    // and left later frames starved / blotchy).
-    outer: for (let p = 0; p < pieces.length; p += 1) {
-      const pts = pieces[p];
-      if (pts.length === 1) {
+    // —— Dots only: sample hits only, never mid-segment stamps ——
+    if (dotsOnly) {
+      let totalPts = 0;
+      for (let p = 0; p < pieces.length; p += 1) {
+        totalPts += pieces[p].length;
+      }
+      // Even index stride under budget; thrifty skips when not fullEconomy.
+      let stride = totalPts > maxDots
+        ? Math.max(1, Math.ceil(totalPts / maxDots))
+        : 1;
+      if (!fullEconomy && totalPts > 1 && totalPts <= maxDots) {
+        // Mild thrifty: keep ~half the samples when dense (still no chords).
+        stride = Math.max(1, Math.floor(totalPts / Math.min(maxDots, Math.max(2, Math.ceil(totalPts * 0.55)))));
+      }
+      let seen = 0;
+      outerV: for (let p = 0; p < pieces.length; p += 1) {
+        const pts = pieces[p];
+        for (let i = 0; i < pts.length; i += 1) {
+          if ((seen % stride) === 0) {
+            if (!pushStamp(pts[i].x, pts[i].y)) {
+              break outerV;
+            }
+          }
+          seen += 1;
+        }
+      }
+    } else {
+      // —— Path packing: fuse soft stamps along continuous motion ——
+      const fuseStep = Math.max(0.28, radius * (0.42 + blur * 0.22));
+      const denseStep = Math.max(0.22, Math.min(radius * (0.18 + blur * 0.08), fuseStep * 0.55));
+
+      let totalLen = 0;
+      for (let p = 0; p < pieces.length; p += 1) {
+        const pts = pieces[p];
+        for (let i = 1; i < pts.length; i += 1) {
+          const dist = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+          if (dist > 1e-4) {
+            totalLen += dist;
+          }
+        }
+      }
+
+      let step = fullEconomy ? denseStep : fuseStep;
+      if (fullEconomy && totalLen > 1e-4) {
+        const budgetStep = totalLen / Math.max(1, maxDots - Math.max(1, pieces.length));
+        step = Math.max(0.22, Math.min(denseStep, budgetStep));
+      }
+      let idealCount = pieces.length;
+      for (let p = 0; p < pieces.length; p += 1) {
+        const pts = pieces[p];
+        for (let i = 1; i < pts.length; i += 1) {
+          const dist = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+          idealCount += dist < 1e-4 ? 0 : Math.max(1, Math.ceil(dist / step));
+        }
+      }
+      idealCount = Math.max(1, idealCount);
+      if (idealCount > maxDots && totalLen > 1e-4) {
+        step = Math.max(step, totalLen / Math.max(1, maxDots - Math.max(1, pieces.length)));
+      }
+
+      outer: for (let p = 0; p < pieces.length; p += 1) {
+        const pts = pieces[p];
+        if (pts.length === 1) {
+          if (!pushStamp(pts[0].x, pts[0].y)) {
+            break;
+          }
+          continue;
+        }
         if (!pushStamp(pts[0].x, pts[0].y)) {
           break;
         }
-        continue;
-      }
-      if (!pushStamp(pts[0].x, pts[0].y)) {
-        break;
-      }
-      let carry = 0; // path distance since last stamp
-      for (let i = 1; i < pts.length; i += 1) {
-        const a = pts[i - 1];
-        const b = pts[i];
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const segLen = Math.hypot(dx, dy);
-        if (segLen < 1e-12) {
-          continue;
-        }
-        let traveled = 0;
-        while (carry + (segLen - traveled) >= step - 1e-9) {
-          const need = step - carry;
-          traveled += need;
-          const t = Math.min(1, traveled / segLen);
-          if (!pushStamp(a.x + dx * t, a.y + dy * t)) {
-            break outer;
+        for (let i = 1; i < pts.length; i += 1) {
+          const a = pts[i - 1];
+          const b = pts[i];
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist < 1e-4) {
+            continue;
           }
-          carry = 0;
-        }
-        carry += segLen - traveled;
-      }
-      // Seal the piece endpoint if the walker stopped short (keeps joints solid).
-      const last = pts[pts.length - 1];
-      const nStamps = stamps.length / 2;
-      if (nStamps > 0) {
-        const lx = stamps[(nStamps - 1) * 2];
-        const ly = stamps[(nStamps - 1) * 2 + 1];
-        if (Math.hypot(last.x - lx, last.y - ly) > step * 0.35) {
-          if (!pushStamp(last.x, last.y)) {
-            break;
+          const n = Math.max(1, Math.ceil(dist / step));
+          for (let s = 1; s <= n; s += 1) {
+            const t = s / n;
+            if (!pushStamp(a.x + dx * t, a.y + dy * t)) {
+              break outer;
+            }
           }
         }
       }
@@ -1324,9 +1333,9 @@
   }
 
   /**
-   * Efficient scope frame: fade mono energy, then additive GPU beam segments
-   * (Lorenz geometry → energy FBO → LUT present later).
-   * options.mode: "segments" (default) | "dots" — dots = one soft impact per sample.
+   * Efficient scope frame: fade mono energy, then additive deposit.
+   * options.mode: "dots" (preferred — sample impacts) | "segments" (legacy beam ribbons).
+   * Scope2d always passes dots; segments remain for any caller that still wants ribbons.
    */
   function stepBeams(renderer, options = {}) {
     if (!isRendererLive(renderer)) {
@@ -1339,9 +1348,9 @@
       radius = 2,
       brightness = 0,
       blur = 0.35,
-      mode = "segments",
+      mode = "dots",
     } = options;
-    const dotsMode = String(mode || "segments").toLowerCase() === "dots";
+    const dotsMode = String(mode || "dots").toLowerCase() !== "segments";
     const maxDots = Math.max(64, Math.floor(Number(options.maxDots) || 2048));
     // Blur 0..1 — wider bleed when user asks for soft.
     const softAmt = Math.max(0, Math.min(1, Number(blur) || 0));
@@ -1361,6 +1370,9 @@
           fullEconomy: options.fullEconomy === true
             || options.fullDotEconomy === true
             || options.useFullDotEconomy === true,
+          dotsOnly: options.dotsOnly === true || options.verticesOnly === true,
+          verticesOnly: options.dotsOnly === true || options.verticesOnly === true,
+          stampMode: options.stampMode,
         });
       }
     } else if (!Array.isArray(depositVertices) || depositVertices.length < 5) {
