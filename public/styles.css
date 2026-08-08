@@ -7368,17 +7368,24 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 /*
  * Single floating-window corner resize grip.
  * Position: absolute bottom-right on the window surface.
+ * z-index must beat scroll bodies / form widgets (Display Settings, Parameter
+ * Settings) so SE drag still works when a control sits under the grip.
  */
 .scene-context-resize-handle {
   position: absolute;
   right: 0;
   bottom: 0;
-  z-index: 4;
+  z-index: 80;
   box-sizing: border-box;
+  width: 18px;
+  height: 18px;
   inline-size: 18px;
   block-size: 18px;
-  min-inline-size: 18px;
-  min-block-size: 18px;
+  /* Explicit mins — popover * { min-width/min-inline-size: 0 } would shrink the hit box. */
+  min-width: 18px !important;
+  min-height: 18px !important;
+  min-inline-size: 18px !important;
+  min-block-size: 18px !important;
   max-inline-size: 18px;
   max-block-size: 18px;
   margin: 0;
@@ -7391,6 +7398,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
     rgba(7, 10, 13, 0.72);
   touch-action: none;
   user-select: none;
+  pointer-events: auto;
   cursor: se-resize;
 }
 
@@ -7407,6 +7415,22 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .floating-window-locked .scene-context-resize-handle {
   opacity: 0;
   pointer-events: none;
+}
+
+/* Scrollable inspector bodies stay below the SE grip in the stacking order. */
+.node-parameter-metadata-popover > .metadata-popover-grid,
+.node-trace-display-settings-popover > .metadata-popover-grid,
+.node-trace-display-settings-popover > .node-trace-display-settings-grid {
+  position: relative;
+  z-index: 0;
+  /* Keep last form rows out from under the 18px corner grip. */
+  padding-bottom: 22px;
+}
+
+.node-parameter-metadata-popover > .scene-context-resize-handle,
+.node-trace-display-settings-popover > .scene-context-resize-handle {
+  z-index: 90;
+  pointer-events: auto;
 }
 
 .node-saved-patches-clipboard-row {
