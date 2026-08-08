@@ -163,3 +163,12 @@ NodeLiveAudioProcessor.prototype.electroSnareSample = function electroSnareSampl
 NodeLiveAudioProcessor.prototype.electroHatSample = function electroHatSample() {
   return { Out: 0 };
 };
+
+// UC multi-frame wavetable oscillators (silent placeholders)
+NodeLiveAudioProcessor.prototype.wavetable2dSample = function wavetable2dSample() {
+  return { Out: 0 };
+};
+
+NodeLiveAudioProcessor.prototype.wavetable3dSample = function wavetable3dSample() {
+  return { Out: 0 };
+};

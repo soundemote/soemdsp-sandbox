@@ -353,6 +353,8 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
       electroKick: () => this.electroKickSample(),
       electroSnare: () => this.electroSnareSample(),
       electroHat: () => this.electroHatSample(),
+      wavetable2d: () => this.wavetable2dSample(),
+      wavetable3d: () => this.wavetable3dSample(),
       yellowjacketFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.yellowjacketFilterStates.get(nodeId) || this.createStereoFilterState(() => this.createYellowjacketFilterState());
         this.yellowjacketFilterStates.set(nodeId, state);

@@ -155,3 +155,7 @@ nodeGraphLiveModuleEvaluators.theremin = () => ({
 nodeGraphLiveModuleEvaluators.electroKick = () => ({ Out: 0 });
 nodeGraphLiveModuleEvaluators.electroSnare = () => ({ Out: 0 });
 nodeGraphLiveModuleEvaluators.electroHat = () => ({ Out: 0 });
+
+// Under construction: multi-frame wavetable oscillators — silent placeholders (Oscillator shelf)
+nodeGraphLiveModuleEvaluators.wavetable2d = () => ({ Out: 0 });
+nodeGraphLiveModuleEvaluators.wavetable3d = () => ({ Out: 0 });

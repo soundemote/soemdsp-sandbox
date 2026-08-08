@@ -39,6 +39,9 @@ const nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([
   "binaryClock",
   // Space-controlled pitch object / performance controller — placeholder.
   "theremin",
+  // Multi-frame wavetable oscillators — placeholders until table engine lands.
+  "wavetable2d",
+  "wavetable3d",
   // Waveguide physical model — shell exists (passthrough); full engine later.
   "waveguide",
   // Classic modulation FX
@@ -237,6 +240,20 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Table-driven sine/cosine oscillator with pitch, frequency, amplitude, and Nyquist-edge fade. Native C++/WASM.",
     label: "SinCos",
     notes: ["implemented", "wavetable", "sin/cos", "native"],
+  },
+  wavetable2d: {
+    category: "oscillator",
+    description:
+      "Under construction. Wavetable2D — multi-frame 2D wavetable oscillator (frame morph / scan). Placeholder until the table engine lands.",
+    label: "Wavetable2D",
+    notes: ["under construction", "wavetable", "2d", "morph", "oscillator", "frame"],
+  },
+  wavetable3d: {
+    category: "oscillator",
+    description:
+      "Under construction. Wavetable3D — volumetric / dual-axis morph wavetable oscillator. Placeholder until the table engine lands.",
+    label: "Wavetable3D",
+    notes: ["under construction", "wavetable", "3d", "morph", "volume", "oscillator"],
   },
   sinc: {
     category: "oscillator",
