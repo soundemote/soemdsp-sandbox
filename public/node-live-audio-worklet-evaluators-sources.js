@@ -1011,6 +1011,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           this.safeFilterNumber(mixInput(nodeId, "Increment"), null) ?? 0,
           mixInput(nodeId, "Reset"),
           safeRate,
+          Math.round(this.readEffectiveParameter(node, "antialias", 1, frame, frames, frameValues)),
         );
       },
       randomWalk: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {

@@ -48,12 +48,25 @@ function nodeGraphRgbFractalStartLoop(face, nodeId) {
   }
   face._rgbFractalLastTs = 0;
   face._rgbFractalPendingDt = 0;
+  face._rgbFractalLastPaintTs = 0;
 
   const tick = (ts) => {
     if (!face.isConnected) {
       nodeGraphRgbFractalStopLoop(face);
       return;
     }
+    face._rgbFractalRaf = requestAnimationFrame(tick);
+
+    // Respect global scope FPS so app-zoom high-res faces don't free-run.
+    const fps = typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
+      ? normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp?.moduleScopeFramesPerSecond ?? 60)
+      : Math.max(1, Number(nodeGraphMvp?.moduleScopeFramesPerSecond) || 60);
+    const minDtMs = 1000 / Math.max(1, fps);
+    const lastPaint = Number(face._rgbFractalLastPaintTs) || 0;
+    if (lastPaint && (ts - lastPaint) < minDtMs - 0.5) {
+      return;
+    }
+
     const last = face._rgbFractalLastTs || ts;
     let dt = Math.min(0.05, Math.max(0, (ts - last) / 1000));
     // Tab resume / first frame: do not dump a large phase step.
@@ -61,10 +74,10 @@ function nodeGraphRgbFractalStartLoop(face, nodeId) {
       dt = 0;
     }
     face._rgbFractalLastTs = ts;
+    face._rgbFractalLastPaintTs = ts;
     if (typeof paintNodeGraphRgbFractalFaceForNode === "function") {
       paintNodeGraphRgbFractalFaceForNode(nodeId, { dt, face });
     }
-    face._rgbFractalRaf = requestAnimationFrame(tick);
   };
   face._rgbFractalRaf = requestAnimationFrame(tick);
 }

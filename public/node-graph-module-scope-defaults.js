@@ -144,8 +144,8 @@ const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   trail: 0.7,
   // Amplitude zoom (Y).
   scale: 1,
-  // Online uses brightness 2 (not clamped to 0…1).
-  dot1Brightness: 2,
+  // Bright 0…1 (1 = full deposit). Was 2 on a fake 0…2 UI that code then clamped.
+  dot1Brightness: 1,
   dot1Color: "#75ebff",
   dot1Enabled: true,
   dot1Size: 0.07,
@@ -244,7 +244,7 @@ const nodeGraphScope2dSettingsDefaults = Object.freeze({
   // Ghost/Trail aliases for Display Settings UI (Trail high = long residual).
   ghost: 0.82,
   trail: 0.88, // 1 - 0.12
-  // Online allows Bright > 1 for some faces; default 0.92 stays in 0…1.
+  // Bright 0…1 (1 = full deposit). Default 0.92.
   dot1Brightness: 0.92,
   // Peak color = last gradient stop (migration + puck/overlays).
   dot1Color: "#75ebff",

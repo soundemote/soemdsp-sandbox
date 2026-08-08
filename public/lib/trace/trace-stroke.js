@@ -166,8 +166,8 @@
         rgb = [117, 235, 255];
       }
     }
-    // Brightness scales RGB (opaque stroke) — not alpha stacks / lighter glow.
-    const gain = Math.min(1, brightness);
+    // Brightness is 0…1 exactly (UI + settings). No 0…2→half remap here.
+    const gain = Math.max(0, Math.min(1, brightness));
     const r = Math.round(rgb[0] * gain);
     const g = Math.round(rgb[1] * gain);
     const b = Math.round(rgb[2] * gain);

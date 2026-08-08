@@ -7,6 +7,10 @@
 // Sweep (0..1) = active fraction of each period.
 // FreqCurve / AmpCurve ∈ [-1, 1] bipolar shape controls.
 // Direction: 0 = Up (Low→High), 1 = Down (High→Low).
+// Antialiasing (Rate): when On, master period uses Robin Schmidt pitch
+//   dithering (same idea as RobinSupersaw) — integer sample cycle lengths
+//   chosen so mean Rate is exact and the quantization error is noise, not
+//   a fixed spectral comb. Off = continuous fractional tooth advance.
 //
 // Outputs: Out (audio), f (Hz), Amp (0..1 env), Freq (0..1 curve pos).
 
@@ -25,7 +29,106 @@ function createNodeGraphSinepulseState() {
     tooth: 0,
     phase: 0,
     lastReset: 0,
+    // Rate pitch-dither voice (rsPitchDitherOsc-style; only used when AA On).
+    rateDither: nodeGraphSinepulseCreateRateDitherVoice(),
   };
+}
+
+/** One pitch-dithered integer-cycle phasor for the master Rate period. */
+function nodeGraphSinepulseCreateRateDitherVoice() {
+  return {
+    sampleCount: 0,
+    lenNow: 100,
+    lenMid: 100,
+    probShort: 0,
+    probMid: 1,
+    phaseSlope: 1 / 99,
+  };
+}
+
+/**
+ * Robin / rsPitchDitherOsc cycle distribution: pick among floor-1 / floor /
+ * floor+1 sample lengths so mean period matches the desired fractional cycle
+ * length and variance stays ~0.25 sample² (hides the quantization in noise).
+ */
+function nodeGraphSinepulseCalcCycleDistribution(c) {
+  const ci = Math.floor(c);
+  const cf = c - ci;
+  let c2 = ci;
+  if (cf >= 0.5) c2 += 1;
+  // Keep at least 2 samples so a closed phasor (0…1 over lenNow−1) is defined.
+  if (c2 < 2) c2 = 2;
+  const c1 = c2 - 1;
+  const c3 = c2 + 1;
+
+  const e1 = c1 - c;
+  const e2 = c2 - c;
+  const e3 = c3 - c;
+  const v1 = e1 * e1;
+  const v2 = e2 * e2;
+  const v3 = e3 * e3;
+  const v = 0.25;
+  const d1 = v - v1;
+  const d2 = v - v2;
+  const d3 = v - v3;
+  const denom = e3 * (v1 - v2) - e2 * (v1 - v3) + e1 * (v2 - v3);
+  if (!(Math.abs(denom) > 1e-18)) {
+    return { lenMid: c2, probShort: 0, probMid: 1 };
+  }
+  const s = 1 / denom;
+  return {
+    lenMid: c2,
+    probShort: (d2 * e3 - d3 * e2) * s,
+    probMid: (d3 * e1 - d1 * e3) * s,
+  };
+}
+
+function nodeGraphSinepulseUpdateRateCycleLength(voice) {
+  const r = Math.random();
+  let len;
+  if (r < voice.probShort) {
+    len = voice.lenMid - 1;
+  } else if (r < voice.probShort + voice.probMid) {
+    len = voice.lenMid;
+  } else {
+    len = voice.lenMid + 1;
+  }
+  voice.lenNow = Math.max(2, len | 0);
+  // phasorRangeClosed = true → slope so count 0…lenNow-1 spans 0…1.
+  voice.phaseSlope = 1 / Math.max(1, voice.lenNow - 1);
+}
+
+/**
+ * Advance Rate dither phasor one sample. Returns { u, wrapped } where u is
+ * the 0…1 position in the current chirp period.
+ */
+function nodeGraphSinepulseAdvanceRateDither(voice, toothHz, sampleRate) {
+  if (!voice || typeof voice !== "object") {
+    return { u: 0, wrapped: false };
+  }
+  const sr = Math.max(1, Number(sampleRate) || 44100);
+  const th = Math.max(0, Number(toothHz) || 0);
+  // Mean samples per chirp period. Floor at 2 (Nyquist-ish period floor).
+  const meanCycleLength = th > 0 ? Math.max(2, sr / th) : 2;
+  const dist = nodeGraphSinepulseCalcCycleDistribution(meanCycleLength);
+  voice.lenMid = dist.lenMid;
+  voice.probShort = dist.probShort;
+  voice.probMid = dist.probMid;
+
+  if (!(voice.lenNow >= 2) || !Number.isFinite(voice.phaseSlope) || !(voice.phaseSlope > 0)) {
+    nodeGraphSinepulseUpdateRateCycleLength(voice);
+  }
+
+  const p = voice.phaseSlope * (Number(voice.sampleCount) || 0);
+  voice.sampleCount = (Number(voice.sampleCount) || 0) + 1;
+  let wrapped = false;
+  if (voice.sampleCount >= voice.lenNow) {
+    voice.sampleCount = 0;
+    nodeGraphSinepulseUpdateRateCycleLength(voice);
+    wrapped = true;
+  }
+  const u = Number.isFinite(p) ? Math.max(0, Math.min(1, p)) : 0;
+  return { u, wrapped };
 }
 
 function nodeGraphSinepulseSilentOut() {
@@ -189,6 +292,7 @@ function nodeGraphSinepulseActiveEnv(localT, direction, ampCurve) {
 
 /**
  * One sample → { Out, f, Amp, Freq }.
+ * antialias: 0 = Off (continuous Rate phasor), 1 = On (pitch-dithered Rate).
  */
 function nodeGraphSinepulseSample(
   state,
@@ -205,10 +309,17 @@ function nodeGraphSinepulseSample(
   increment,
   resetGate,
   sampleRate,
+  antialias = 0,
 ) {
   if (!state || typeof state !== "object") return nodeGraphSinepulseSilentOut();
   const sr = Math.max(1, Number(sampleRate) || 44100);
-  const toothHz = nodeGraphSinepulseToothRateHz(frequencyHz);
+  // Increment jack is cycles-per-sample → add to master Rate (Hz).
+  let toothHz = nodeGraphSinepulseToothRateHz(frequencyHz);
+  const incHz = (Number(increment) || 0) * sr;
+  if (Number.isFinite(incHz) && incHz !== 0) {
+    toothHz = nodeGraphSinepulseToothRateHz(toothHz + incHz);
+  }
+  const aaOn = Math.round(Number(antialias) || 0) !== 0;
   const shifted = nodeGraphSinepulseApplyShift(
     frequencyHigh,
     frequencyLow,
@@ -221,6 +332,11 @@ function nodeGraphSinepulseSample(
   if (on && !state.lastReset) {
     state.tooth = 0;
     state.phase = 0;
+    if (state.rateDither) {
+      state.rateDither.sampleCount = 0;
+    } else {
+      state.rateDither = nodeGraphSinepulseCreateRateDitherVoice();
+    }
   }
   state.lastReset = on ? 1 : 0;
 
@@ -228,18 +344,30 @@ function nodeGraphSinepulseSample(
     return nodeGraphSinepulseSilentOut();
   }
 
-  const toothInc = toothHz / sr + (Number(increment) || 0);
-  let tooth = (Number(state.tooth) || 0) + toothInc;
+  let u;
   let wrapped = false;
 
-  if (tooth >= 1 || tooth < 0) {
-    tooth = tooth - Math.floor(tooth);
-    wrapped = true;
-    state.phase = 0;
+  if (aaOn) {
+    if (!state.rateDither || typeof state.rateDither !== "object") {
+      state.rateDither = nodeGraphSinepulseCreateRateDitherVoice();
+    }
+    const advanced = nodeGraphSinepulseAdvanceRateDither(state.rateDither, toothHz, sr);
+    u = advanced.u;
+    wrapped = advanced.wrapped;
+    state.tooth = u;
+  } else {
+    // Continuous fractional advance (legacy). Increment already in toothHz.
+    const toothInc = toothHz / sr;
+    let tooth = (Number(state.tooth) || 0) + toothInc;
+    if (tooth >= 1 || tooth < 0) {
+      tooth = tooth - Math.floor(tooth);
+      wrapped = true;
+      state.phase = 0;
+    }
+    state.tooth = tooth;
+    u = tooth;
   }
-  state.tooth = tooth;
 
-  const u = tooth;
   const fill = nodeGraphSinepulseActiveFill(sweep, toothHz, sr);
 
   if (u >= fill) {

@@ -540,7 +540,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Bright",
     inputmode: "decimal",
     id: "nodeTraceDisplayBrightness",
-    title: "Peak deposit / present light 0–1 (1 = full energy / gradient tip). Not Ghost or Trail.",
+    title: "Peak deposit / present light 0–1 exactly (1 = full energy / gradient tip). Not Ghost or Trail. Not a 0–2 scale.",
   }),
   lineThickness: Object.freeze({ label: "Blur", inputmode: "decimal", id: "nodeTraceDisplayLineThickness" }),
   dot1Size: Object.freeze({

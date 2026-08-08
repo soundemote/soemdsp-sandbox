@@ -1659,18 +1659,31 @@ function toggleNodeMetadataAdvancedScript() {
   setNodeMetadataAdvancedScriptVisible(!popover?.classList.contains("metadata-script-open"));
 }
 
-function metadataStepperQuantum(input) {
+/**
+ * Parameter Settings −/+ step size from the current magnitude (not a fixed 0.1):
+ *   |value| < 10  → 1
+ *   10…99         → 10
+ *   100…999       → 100
+ *   …             → 10^floor(log10(|value|))
+ * Max digits always steps by 1.
+ */
+function metadataStepperQuantum(input, currentValue) {
   if (input?.id === "metadataMaxDigitsValue") {
     return 1;
   }
-  return 0.1;
+  const abs = Math.abs(Number(currentValue));
+  if (!Number.isFinite(abs) || abs < 10) {
+    return 1;
+  }
+  return 10 ** Math.floor(Math.log10(abs));
 }
 
 function formatMetadataStepperValue(value, quantum) {
   if (!Number.isFinite(value)) {
     return "0";
   }
-  if (Number.isInteger(quantum)) {
+  // Magnitude steps are always whole units (1, 10, 100…); max-digits too.
+  if (!Number.isFinite(quantum) || quantum >= 1 - 1e-12) {
     return String(Math.round(value));
   }
   const decimals = Math.min(8, Math.max(0, String(quantum).split(".")[1]?.length || 0));
@@ -1694,9 +1707,10 @@ function stepNodeMetadataField(event) {
   event.preventDefault();
   event.stopPropagation();
   const direction = Number(button.dataset.metadataStepDirection) < 0 ? -1 : 1;
-  const quantum = metadataStepperQuantum(input);
   const current = Number(input.value);
-  let next = (Number.isFinite(current) ? current : 0) + direction * quantum;
+  const base = Number.isFinite(current) ? current : 0;
+  const quantum = metadataStepperQuantum(input, base);
+  let next = base + direction * quantum;
   if (input.id === "metadataMaxDigitsValue") {
     next = Math.max(0, Math.min(12, Math.round(next)));
   }

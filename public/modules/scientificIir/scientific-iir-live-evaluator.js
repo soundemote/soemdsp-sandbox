@@ -150,3 +150,8 @@ nodeGraphLiveModuleEvaluators.theremin = () => ({
   Pitch: 0,
   Volume: 0,
 });
+
+// Under construction: electro drum voices — silent placeholders (Drum shelf)
+nodeGraphLiveModuleEvaluators.electroKick = () => ({ Out: 0 });
+nodeGraphLiveModuleEvaluators.electroSnare = () => ({ Out: 0 });
+nodeGraphLiveModuleEvaluators.electroHat = () => ({ Out: 0 });

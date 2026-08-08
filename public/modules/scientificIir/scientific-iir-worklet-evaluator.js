@@ -150,3 +150,16 @@ NodeLiveAudioProcessor.prototype.binaryClockSample = function binaryClockSample(
 NodeLiveAudioProcessor.prototype.thereminSample = function thereminSample() {
   return { Out: 0, Pitch: 0, Volume: 0 };
 };
+
+// UC electro drum voices (silent placeholders)
+NodeLiveAudioProcessor.prototype.electroKickSample = function electroKickSample() {
+  return { Out: 0 };
+};
+
+NodeLiveAudioProcessor.prototype.electroSnareSample = function electroSnareSample() {
+  return { Out: 0 };
+};
+
+NodeLiveAudioProcessor.prototype.electroHatSample = function electroHatSample() {
+  return { Out: 0 };
+};

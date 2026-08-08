@@ -45,6 +45,10 @@ const nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([
   "phaser",
   "flanger",
   "chorus",
+  // Electro drum voice suite (placeholders until synthesis design lands).
+  "electroKick",
+  "electroSnare",
+  "electroHat",
 ]));
 
 function nodeGraphModuleTypeIsUnderConstruction(type) {
@@ -1022,11 +1026,13 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     ],
   },
   sinepulse: {
-    category: "oscillator",
+    category: "drum",
     description:
-      "Sine chirp / zap. Rate = sweep rate. LowFreq/HighFreq = pitch endpoints (capped by project Speed Limit). Shift collapses LowFreq toward HighFreq. Sweep = fill. FreqCurve/AmpCurve bipolar (−1…+1). CV: f, Amp, Freq. Up/Down. 0.1V/Oct + f + Reset + Increment.",
+      "Sine chirp / zap drum voice. Rate = sweep rate. LowFreq/HighFreq = pitch endpoints (capped by project Speed Limit). Shift collapses LowFreq toward HighFreq. Sweep = fill. FreqCurve/AmpCurve bipolar (−1…+1). Antialias dithers Rate period (Robin pitch dither). CV: f, Amp, Freq. Up/Down. 0.1V/Oct + f + Reset + Increment.",
     label: "Sinepulse",
     notes: [
+      "drum",
+      "percussion",
       "chirp",
       "sine sweep",
       "period reset",
@@ -1034,10 +1040,32 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "kick",
       "zap",
       "pulse",
-      "oscillator",
       "sine",
       "high low",
+      "antialias",
+      "pitch dither",
     ],
+  },
+  electroKick: {
+    category: "drum",
+    description:
+      "Under construction. Electro kick — classic electronic kick voice (placeholder until the synthesis design lands).",
+    label: "ElectroKick",
+    notes: ["under construction", "drum", "kick", "electro", "percussion", "bass drum"],
+  },
+  electroSnare: {
+    category: "drum",
+    description:
+      "Under construction. Electro snare — classic electronic snare voice (placeholder until the synthesis design lands).",
+    label: "ElectroSnare",
+    notes: ["under construction", "drum", "snare", "electro", "percussion"],
+  },
+  electroHat: {
+    category: "drum",
+    description:
+      "Under construction. Electro hat — classic electronic hi-hat voice (placeholder until the synthesis design lands).",
+    label: "ElectroHat",
+    notes: ["under construction", "drum", "hi-hat", "hat", "electro", "percussion", "cymbal"],
   },
   formantFilter: {
     category: "scientificFilter",

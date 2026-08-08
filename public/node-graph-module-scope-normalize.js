@@ -296,11 +296,9 @@ function normalizeNodeGraphXyPadDisplaySettings(settings = {}) {
     trail: (typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
       ? PhosphorResidual.migrateTrail(source, defaults.trail ?? (Number.isFinite(defaults.decay) ? 1 - defaults.decay : 0.88))
       : normalizeNodeGraphTraceDisplayNumber(source.trail ?? (Number.isFinite(Number(source.decay)) ? 1 - Number(source.decay) : defaults.trail), defaults.trail ?? 0.88, 0, 1)),
-    dot1Brightness: normalizeNodeGraphTraceDisplayNumber(
+    dot1Brightness: normalizeNodeGraphTraceDisplayBrightness(
       source.dot1Brightness ?? source.brightness,
       defaults.dot1Brightness,
-      0,
-      1,
     ),
     dot1Color: normalizeNodeGraphTraceDisplayColor(peak, defaults.dot1Color),
     dot1Enabled: true,
@@ -367,6 +365,26 @@ function normalizeNodeGraphTraceDisplayNumber(value, fallback, min, max, integer
     ? Math.max(safeMin, Math.min(safeMax, number))
     : Math.max(safeMin, Math.min(safeMax, safeFallback));
   return integer ? Math.round(normalized) : normalized;
+}
+
+/**
+ * Oscilloscope / phosphor Bright: UI and engine both use 0…1 exactly (1 = full).
+ * Legacy patches used a 0…2 control that draw code then clamped/min'd to 1 —
+ * migrate once so 2 → 1, 1 → 0.5, etc. Values already ≤1 pass through.
+ */
+function normalizeNodeGraphTraceDisplayBrightness(value, fallback = 1) {
+  let n = Number(value);
+  if (!Number.isFinite(n)) {
+    n = Number(fallback);
+  }
+  if (!Number.isFinite(n)) {
+    n = 1;
+  }
+  // Legacy 0…2 overdrive scale → 0…1.
+  if (n > 1 && n <= 2.0001) {
+    n = n * 0.5;
+  }
+  return Math.max(0, Math.min(1, n));
 }
 
 
@@ -442,12 +460,10 @@ function normalizeNodeGraphLineBurnSettings(settings = {}) {
     decay,
     ghost: burn,
     trail,
-    // Online allows brightness > 1 (default 2). Clamping to 0…1 made 1D trails thin/broken.
-    dot1Brightness: normalizeNodeGraphTraceDisplayNumber(
+    // Bright 0…1 exact (legacy 0…2 values halved once on load).
+    dot1Brightness: normalizeNodeGraphTraceDisplayBrightness(
       source.dot1Brightness ?? source.brightness,
       defaults.dot1Brightness,
-      0,
-      Infinity,
     ),
     dot1Color: normalizeNodeGraphTraceDisplayColor(peak, defaults.dot1Color),
     // Always on — hide the display if you don't want the pen.
@@ -482,11 +498,9 @@ function normalizeNodeGraphZeroDBurnSettings(settings = {}) {
     trail: (typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
       ? PhosphorResidual.migrateTrail(source, defaults.trail ?? (Number.isFinite(defaults.decay) ? 1 - defaults.decay : 0.88))
       : normalizeNodeGraphTraceDisplayNumber(source.trail ?? (Number.isFinite(Number(source.decay)) ? 1 - Number(source.decay) : defaults.trail), defaults.trail ?? 0.88, 0, 1)),
-    dot1Brightness: normalizeNodeGraphTraceDisplayNumber(
+    dot1Brightness: normalizeNodeGraphTraceDisplayBrightness(
       source.dot1Brightness ?? source.brightness,
       defaults.dot1Brightness,
-      0,
-      1,
     ),
     dot1Color: normalizeNodeGraphTraceDisplayColor(peak, defaults.dot1Color),
     dot1Enabled: true,
@@ -515,11 +529,9 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
       source.background ?? source.backgroundColor,
       defaults.background,
     ),
-    brightness: normalizeNodeGraphTraceDisplayNumber(
+    brightness: normalizeNodeGraphTraceDisplayBrightness(
       source.brightness ?? source.dot1Brightness,
       defaults.brightness,
-      0,
-      1,
     ),
     color: normalizeNodeGraphTraceDisplayColor(source.color ?? source.dot1Color, defaults.color),
     dot1Enabled: true,
@@ -529,11 +541,9 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
       0,
       1,
     ),
-    secondaryBrightness: normalizeNodeGraphTraceDisplayNumber(
+    secondaryBrightness: normalizeNodeGraphTraceDisplayBrightness(
       source.secondaryBrightness,
       defaults.secondaryBrightness,
-      0,
-      1,
     ),
     secondaryColor: normalizeNodeGraphTraceDisplayColor(source.secondaryColor, defaults.secondaryColor),
     secondaryEnabled: source.secondaryEnabled !== false,
@@ -611,11 +621,9 @@ function normalizeNodeGraphValueOscilloscopeSettings(settings = {}) {
       source.background ?? source.backgroundColor,
       defaults.background,
     ),
-    brightness: normalizeNodeGraphTraceDisplayNumber(
+    brightness: normalizeNodeGraphTraceDisplayBrightness(
       source.brightness ?? source.dot1Brightness,
       defaults.brightness,
-      0,
-      1,
     ),
     capEnabled: source.capEnabled !== false,
     capLength: normalizeNodeGraphTraceDisplayNumber(source.capLength, defaults.capLength, 0, 1),
@@ -697,11 +705,9 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}) {
     background,
     // 0…1 energy for live digits + residual deposit (1 = gradient tip / full white).
     // Legacy max was 2 with paint-time /2 — that made Bright 1 look half-grey.
-    brightness: normalizeNodeGraphTraceDisplayNumber(
+    brightness: normalizeNodeGraphTraceDisplayBrightness(
       source.brightness ?? source.dot1Brightness,
       defaults.brightness,
-      0,
-      1,
     ),
     // Digits = gradient at Bright energy; unlit segments use ghostColor as-is.
     color: peak,
@@ -784,12 +790,10 @@ function normalizeNodeGraphScope2dSettings(settings = {}, defaultsOverride = nul
     decay,
     ghost: burn,
     trail,
-    // Online allows Bright > 1 (Infinity); default 0.92 stays in 0…1.
-    dot1Brightness: normalizeNodeGraphTraceDisplayNumber(
+    // Bright 0…1 exact (legacy 0…2 halved once).
+    dot1Brightness: normalizeNodeGraphTraceDisplayBrightness(
       source.dot1Brightness ?? source.brightness,
       defaults.dot1Brightness,
-      0,
-      Infinity,
     ),
     dot1Color: normalizeNodeGraphTraceDisplayColor(peak, defaults.dot1Color),
     dot1Enabled: true,
@@ -825,11 +829,9 @@ function normalizeNodeGraphScope2dTraceSettings(settings = {}, typeDefaults = nu
       source.background ?? source.backgroundColor,
       defaults.background,
     ),
-    dot1Brightness: normalizeNodeGraphTraceDisplayNumber(
+    dot1Brightness: normalizeNodeGraphTraceDisplayBrightness(
       source.dot1Brightness ?? source.brightness,
       defaults.dot1Brightness,
-      0,
-      1,
     ),
     dot1Color: normalizeNodeGraphTraceDisplayColor(source.dot1Color ?? source.color, defaults.dot1Color),
     dot1Enabled: true,

@@ -104,6 +104,9 @@ nodeGraphLiveModuleEvaluators.sinepulse = ({
   const ampCurve = readNodeGraphLiveEffectiveParam(runtime, node, "ampCurve", 0, frame, frames, frameValues);
   const phase = readNodeGraphLiveEffectiveParam(runtime, node, "phase", 0, frame, frames, frameValues);
   const amplitude = readNodeGraphLiveEffectiveParam(runtime, node, "amplitude", 1, frame, frames, frameValues);
+  const antialias = Math.round(
+    readNodeGraphLiveEffectiveParam(runtime, node, "antialias", 1, frame, frames, frameValues),
+  );
   const increment = Number(mixInput(nodeId, "Increment")) || 0;
   const resetGate = mixInput(nodeId, "Reset");
   const sr = Math.max(1, Number(sampleRate) || nodeGraphMvp?.sampleRate || 44100);
@@ -123,6 +126,7 @@ nodeGraphLiveModuleEvaluators.sinepulse = ({
     increment,
     resetGate,
     sr,
+    antialias,
   );
   return nodeGraphSinepulseSafePorts(out, runtime, nodeId);
 };

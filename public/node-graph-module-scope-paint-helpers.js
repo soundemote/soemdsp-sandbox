@@ -809,12 +809,13 @@ function drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas, op
   }
   // Size 0 is valid (1px min) — only brightness gates draw.
   const size = clampNodeSliderValue(layer.size, 0, 1);
-  const brightness = Math.max(0, Number(layer.brightness) || 0);
+  // Bright is 0…1 from display settings — use as-is (no 0…2→half remap).
+  const brightness = Math.max(0, Math.min(1, Number(layer.brightness) || 0));
   if (brightness <= 0) {
     return;
   }
   const rgb = nodeGraphScopeRgbFloatsToCanvasRgb(nodeGraphScopeHexColorToRgb(layer.color));
-  const gain = Math.min(1, brightness);
+  const gain = brightness;
   const lineWidth = typeof nodeGraphScopeSize01ToDiameterPx === "function"
     ? nodeGraphScopeSize01ToDiameterPx(face, size)
     : Math.max(1, face * size);

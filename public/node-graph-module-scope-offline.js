@@ -374,7 +374,7 @@ function nodeGraphTraceDisplayRenderPointBudget() {
 // numberReadout: independent schema. Residual is previous-digit ghosts only.
 // "trail" UI = how long the last number's residual remains (0 = off, 1 = long).
 // Digit color shares 2D phosphor: multi-stop gradient as energy→color LUT.
-// Bright is 0…1 energy (1 = full gradient tip / full deposit — not a 0…2 overdrive).
+// Bright is 0…1 energy exactly (1 = full gradient tip / full deposit).
 // background = LCD back plate color (separate widget; not gradient floor).
 // Unlit plate = ghostColor only (pick dim/bright there — no ghost-amount slider).
 // nodeGraphNumberReadoutSettingsDefaults → node-graph-module-scope-defaults.js

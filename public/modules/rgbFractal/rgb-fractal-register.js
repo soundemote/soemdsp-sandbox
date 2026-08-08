@@ -1,13 +1,13 @@
 // Soft Fractal — pure planetary Julia face + chaotic map outs Hx/Hy.
 // No multi-sine wander / harmonic soft c — modulate externally if wanted.
+// Detail on the face = Depth (iteration budget). Not a separate hidden "detail" key.
 registerNodeGraphChromelessModule("rgbFractal", {
   label: "Soft Fractal",
   solidModule: false,
   customDisplayArea: true,
   definition: {
     chrome: "LayoutA",
-    // Color Rate is CV-only (no slider param) — buffer so the face can sample it.
-    bufferedInputs: ["Color Rate"],
+    bufferedInputs: [],
     defaultWidthGu: 5,
     displayHeightGu: 5,
     displayType: "rgbFractalFace",
@@ -21,33 +21,56 @@ registerNodeGraphChromelessModule("rgbFractal", {
       },
     ],
     defaultDisplayMode: "face",
-    inputs: ["Color Rate"],
-    inputLabels: {
-      "Color Rate": "Color Rate",
-    },
+    inputs: [],
     outputs: ["Hx", "Hy"],
     outputLabels: {
       Hx: "Hx",
       Hy: "Hy",
     },
+    // Order matches module face strip (top → bottom).
     parameters: [
       {
-        bipolar: true,
-        defaultValue: "1",
-        key: "speed",
-        label: "Speed",
-        max: "24",
-        mid: "0",
-        min: "-24",
+        defaultValue: "0.45",
+        key: "detune",
+        label: "Detune Output",
+        max: "3",
+        mid: "0.5",
+        min: "0",
         nonlinearSlider: true,
         step: "any",
         tooltip:
-          "Shared clock: advances pure planetary c orbit + map step rate + face co-rotation. 0 freezes; sign reverses.",
+          "Hx/Hy map anti-lock only: skews step rate, reseed, tiny z kick. Does not change the face c path.",
       },
       {
+        // Domain 0…10 with mid at 1 for fine control near freeze (MID skew).
+        defaultValue: "1",
+        key: "speed",
+        label: "Speed",
+        max: "10",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: true,
+        step: "any",
+        tooltip:
+          "Master rate (× orbit, map step, Rotation Speed, Color Shift Rate). Domain 0…10; mid at 1. 0 freezes time.",
+      },
+      {
+        defaultValue: "1.2",
+        key: "scale",
+        label: "Scale",
+        max: "48",
+        mid: "2",
+        min: "0.1",
+        nonlinearSlider: true,
+        step: "any",
+        tooltip:
+          "Face zoom (half-span). Zooms about the X/Y look-at — pan first, then Scale digs into that point.",
+      },
+      {
+        // Mathematical base of Julia c: family-ring position; live c = C + orbit.
         defaultValue: "0",
         key: "seed",
-        label: "Seed",
+        label: "C",
         max: "1",
         mid: "0.5",
         min: "0",
@@ -55,7 +78,7 @@ registerNodeGraphChromelessModule("rgbFractal", {
         step: "any",
         wraparound: true,
         tooltip:
-          "Fixed center on the Julia family ring (0…1 wrap). Continuous Catmull–Rom. c orbits this point only.",
+          "Julia parameter c base (0…1 wrap along the curated family ring). Live c = C + Orbit Size·(cos θ, sin θ). Key: seed.",
       },
       {
         defaultValue: "1",
@@ -67,69 +90,60 @@ registerNodeGraphChromelessModule("rgbFractal", {
         nonlinearSlider: true,
         step: "any",
         tooltip:
-          "Radius of pure circular c orbit around Seed (face + map). 0 = pinned c.",
+          "Radius of pure circular c orbit around C (face + map). 0 = pinned c.",
+      },
+      {
+        defaultValue: "0",
+        key: "rotation",
+        label: "Rotation",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        wraparound: true,
+        unit: "cycle",
+        tooltip:
+          "Static face view angle (0…1 cycle wrap). Adds to the free-running Rotation Speed phasor. Face only.",
       },
       {
         bipolar: true,
-        defaultValue: "1",
-        key: "rotation",
-        label: "Rotation",
+        defaultValue: "0",
+        key: "rotationSpeed",
+        label: "Rotation Speed",
         max: "4",
         mid: "0",
         min: "-4",
         nonlinearSlider: true,
         step: "any",
         tooltip:
-          "Face co-rotation rate multiplier (phasor). 0 freezes current angle; ±1 = natural lock to orbit rate. Face only.",
+          "Face co-rotation *rate* (× Speed). Default 0 = no spin. ±1 = natural lock to orbit rate. Face only.",
       },
       {
         bipolar: true,
         defaultValue: "0",
         key: "panX",
-        label: "Pan X",
-        max: "1",
+        label: "X",
+        max: "5",
         mid: "0",
-        min: "-1",
+        min: "-5",
         nonlinearSlider: false,
         step: "any",
         tooltip:
-          "Horizontal view offset (pure shift, no wrap). ±1 ≈ one half-span. Face only.",
+          "Look-at X in the complex plane (±1 ≈ one unit). Scale zooms into (X, Y). Domain −5…+5. Face only.",
       },
       {
         bipolar: true,
         defaultValue: "0",
         key: "panY",
-        label: "Pan Y",
-        max: "1",
+        label: "Y",
+        max: "5",
         mid: "0",
-        min: "-1",
+        min: "-5",
         nonlinearSlider: false,
         step: "any",
         tooltip:
-          "Vertical view offset (pure shift, no wrap). ±1 ≈ one half-span. Face only.",
-      },
-      {
-        defaultValue: "0.45",
-        key: "detune",
-        label: "Detune",
-        max: "3",
-        mid: "0.5",
-        min: "0",
-        nonlinearSlider: true,
-        step: "any",
-        tooltip:
-          "Map anti-lock for Hx/Hy: skews step rate, reseed, tiny z kick. Does not multi-sine the c path.",
-      },
-      {
-        defaultValue: "1.2",
-        key: "scale",
-        label: "Scale",
-        max: "48",
-        mid: "2",
-        min: "0.1",
-        nonlinearSlider: true,
-        step: "any",
-        tooltip: "Face zoom only.",
+          "Look-at Y in the complex plane (±1 ≈ one unit). Scale zooms into (X, Y). Domain −5…+5. Face only.",
       },
       {
         defaultValue: "0.85",
@@ -141,9 +155,10 @@ registerNodeGraphChromelessModule("rgbFractal", {
         nonlinearSlider: true,
         step: "any",
         tooltip:
-          "Julia iteration detail on the face (GPU). High Depth + low Soft = sparkly filigree; Soft rolls Depth back for cream.",
+          "Julia iteration detail on the face (GPU maxIter). 0 soft blobs, higher = deeper filigree.",
       },
       {
+        // Not the same as Color Shift: Soft shapes energy/escape/LUT cream; Color Shift is palette phase.
         defaultValue: "0.48",
         key: "soft",
         label: "Soft",
@@ -153,21 +168,7 @@ registerNodeGraphChromelessModule("rgbFractal", {
         nonlinearSlider: false,
         step: "any",
         tooltip:
-          "Pristine cream: spatial AA, fewer iters, smoother escape/palette. Face only. Default is soft — lower for harder structure.",
-      },
-      // Color Rate is input-only (jack), not a parameter slider.
-      {
-        defaultValue: "0",
-        key: "colorShift",
-        label: "Color Shift",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        nonlinearSlider: false,
-        step: "any",
-        wraparound: true,
-        tooltip:
-          "Static palette phase offset (wrap 0–1). Scrubs / shifts the gradient without changing motion. Face only.",
+          "Structure/palette cream (escape softstep, contrast, LUT low-pass). Not Color Shift (that only slides the gradient phase).",
       },
       {
         defaultValue: "1",
@@ -179,8 +180,56 @@ registerNodeGraphChromelessModule("rgbFractal", {
         nonlinearSlider: true,
         step: "any",
         tooltip:
-          "Face only. 1 = one pass through the gradient (structure energy → full spectrum once). "
-          + "Below 1 compresses toward low stops. Above 1 multi-wraps (psychedelic rings). Soft damps wraps.",
+          "1 = one pass through the gradient. Below 1 compresses low stops; above 1 multi-wraps. Soft damps wraps. Face only.",
+      },
+      {
+        defaultValue: "0",
+        key: "blur",
+        label: "Edge Blur",
+        max: "8",
+        mid: "1.5",
+        min: "0",
+        nonlinearSlider: true,
+        step: "any",
+        tooltip:
+          "Dense 1px gaussian on fractal energy (softens filaments/edges). Domain 0…8 maps to a modest max radius (~2px) to limit shimmer. Separate from Screen Blur. Face only.",
+      },
+      {
+        defaultValue: "0",
+        key: "screenBlur",
+        label: "Screen Blur",
+        max: "8",
+        mid: "2",
+        min: "0",
+        nonlinearSlider: true,
+        step: "any",
+        tooltip:
+          "True full-image soft after draw. Domain 0…8 = sub-pixel kiss → light max soft. Face only.",
+      },
+      {
+        defaultValue: "0",
+        key: "colorShift",
+        label: "Color Shift",
+        max: "1",
+        mid: "0.5",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        wraparound: true,
+        tooltip:
+          "Static palette phase offset (wrap 0–1). Scrubs the gradient only — does not reshape Soft/energy. Face only.",
+      },
+      {
+        defaultValue: "1",
+        key: "colorShiftRate",
+        label: "Color Shift Rate",
+        max: "4",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: true,
+        step: "any",
+        tooltip:
+          "How fast the palette walks (× Speed). 0 freezes color motion; 1 = lock to Speed. Face only.",
       },
     ],
     visualSink: true,
@@ -188,11 +237,11 @@ registerNodeGraphChromelessModule("rgbFractal", {
   catalog: {
     category: "rgb",
     description:
-      "Julia face with pure planetary c(t). Outs Hx/Hy = chaotic map z←z²+c. No multi-sine wander — modulate Seed/Orbit/Speed externally.",
+      "Julia face with pure planetary c(t). Outs Hx/Hy = chaotic map z←z²+c. Depth = face iteration detail. No multi-sine wander — modulate Seed/Orbit/Speed externally.",
     notes: [
       "rgb", "julia", "webgl", "planetary", "orbit", "map oscillator",
       "LayoutA", "hx", "hy", "parameter c", "pan", "soft", "bands",
-      "color rate cv", "color shift", "gradient",
+      "depth", "detail", "rotation", "rotation speed", "color shift", "gradient",
     ],
   },
 });

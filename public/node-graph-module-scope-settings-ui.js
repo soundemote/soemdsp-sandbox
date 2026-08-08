@@ -1174,9 +1174,15 @@ function nodeGraphTraceDisplayClampHistorySeconds(value) {
   return clampNodeSliderValue(n, 0, nodeGraphTraceDisplayMaxZoomSeconds);
 }
 
-/** Display Bright 0…1 (1 = full energy / gradient tip). Legacy 0…2 values clamp to 1. */
+/** Display Bright 0…1 (1 = full energy). Legacy 0…2 values halved once (same as normalize). */
 function nodeGraphTraceDisplayClampBrightness(value) {
-  return clampNodeSliderValue(Number(value) || 0, 0, 1);
+  if (typeof normalizeNodeGraphTraceDisplayBrightness === "function") {
+    return normalizeNodeGraphTraceDisplayBrightness(value, 1);
+  }
+  let n = Number(value);
+  if (!Number.isFinite(n)) n = 0;
+  if (n > 1 && n <= 2.0001) n *= 0.5;
+  return clampNodeSliderValue(n, 0, 1);
 }
 
 function nodeGraphTraceDisplayClampPixelDensity(value) {

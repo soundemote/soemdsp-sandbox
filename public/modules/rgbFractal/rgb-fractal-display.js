@@ -51,8 +51,7 @@ const NODE_GRAPH_RGB_FRACTAL_LOCI = Object.freeze([
   Object.freeze({ x: 0.32, y: 0.043, name: "minibrot" }),
 ]);
 
-/** CPU fallback grid (only if WebGL missing). */
-const NODE_GRAPH_RGB_FRACTAL_CPU_MAX_LONG = 280;
+/** CPU fallback throttle only (not a resolution cut). */
 const NODE_GRAPH_RGB_FRACTAL_CPU_SIM_MS = 33;
 
 function normalizeNodeGraphRgbFractalSettings(settings = {}) {
@@ -129,6 +128,32 @@ function nodeGraphRgbFractalReadParam(nodeId, key, fallback) {
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   const raw = Number(node?.params?.[key]);
   return Number.isFinite(raw) ? raw : fallback;
+}
+
+/**
+ * One-shot migrate: old Soft Fractal stored co-rotation *rate* on key "rotation".
+ * That key is now the static angle; rate lives on "rotationSpeed".
+ */
+function nodeGraphRgbFractalMigrateRotationParams(node) {
+  if (!node || node.type !== "rgbFractal" || !node.params || typeof node.params !== "object") {
+    return;
+  }
+  if (Object.prototype.hasOwnProperty.call(node.params, "rotationSpeed")) {
+    return;
+  }
+  if (!Object.prototype.hasOwnProperty.call(node.params, "rotation")) {
+    node.params.rotationSpeed = 0;
+    return;
+  }
+  const legacyRate = Number(node.params.rotation);
+  node.params.rotationSpeed = Number.isFinite(legacyRate) ? legacyRate : 0;
+  node.params.rotation = 0;
+  // Keep paramMeta in a usable shape if present.
+  if (node.paramMeta && typeof node.paramMeta === "object") {
+    if (node.paramMeta.rotation && !node.paramMeta.rotationSpeed) {
+      node.paramMeta.rotationSpeed = { ...node.paramMeta.rotation };
+    }
+  }
 }
 
 /** Latest sample from a buffered input port (Rotation / In). */
@@ -261,24 +286,41 @@ function nodeGraphRgbFractalComputeC(seed, tOrbit, orbitSize) {
   };
 }
 
+/**
+ * Soft Fractal face buffer = layout face (clientWidth/Height) × dpr.
+ *
+ * App / workspace zoom does NOT grow the GPU buffer — CSS scales the fixed
+ * bitmap (pixelated-canvas-zoom → nearest-neighbor). Defined pixels are the
+ * middle ground: Zoom-in stays crisp chunks, not denser Julia sampling every
+ * frame (shader cost stays ~constant with app zoom).
+ *
+ * Scale (module param) only changes halfSpan — same pixel budget, different region.
+ * Cap long edge as a safety for huge faces / high-DPR displays.
+ */
+const NODE_GRAPH_RGB_FRACTAL_FACE_MAX_LONG = 2048;
+
 function syncNodeGraphRgbFractalCanvas(canvas, face, pixelRatio) {
   if (!canvas || !face) {
     return false;
   }
-  // HD fragment-shader face: layout CSS × devicePixelRatio (no intentional
-  // downsample). Soft/AA cost is in the shader, not by shrinking the buffer.
   const dpr = Math.max(1, Number(pixelRatio) || window.devicePixelRatio || 1);
-  const dprCap = Math.min(dpr, 2);
-  const w = Math.max(1, Math.round((face.clientWidth || 1) * dprCap));
-  const h = Math.max(1, Math.round((face.clientHeight || 1) * dprCap));
+  // clientWidth/Height = layout size; ignores workspace CSS transform scale.
+  let w = Math.max(1, Math.round((face.clientWidth || face.offsetWidth || 1) * dpr));
+  let h = Math.max(1, Math.round((face.clientHeight || face.offsetHeight || 1) * dpr));
+  const longEdge = Math.max(w, h);
+  const maxLong = NODE_GRAPH_RGB_FRACTAL_FACE_MAX_LONG;
+  if (longEdge > maxLong) {
+    const s = maxLong / longEdge;
+    w = Math.max(1, Math.round(w * s));
+    h = Math.max(1, Math.round(h * s));
+  }
   if (canvas.width !== w || canvas.height !== h) {
     canvas.width = w;
     canvas.height = h;
   }
   canvas.style.width = "100%";
   canvas.style.height = "100%";
-  // Smooth HD scale (not pixelated blocks). Workspace zoom still scales the face.
-  canvas.style.imageRendering = "auto";
+  // image-rendering left to CSS (.pixelated-canvas-zoom); do not force auto.
   return w > 0 && h > 0;
 }
 
@@ -392,14 +434,9 @@ function paintNodeGraphRgbFractalFaceCpu(canvas, face, params) {
   }
   const w = canvas.width;
   const h = canvas.height;
-  let simW = w;
-  let simH = h;
-  const longEdge = Math.max(simW, simH);
-  if (longEdge > NODE_GRAPH_RGB_FRACTAL_CPU_MAX_LONG) {
-    const s = NODE_GRAPH_RGB_FRACTAL_CPU_MAX_LONG / longEdge;
-    simW = Math.max(1, Math.round(simW * s));
-    simH = Math.max(1, Math.round(simH * s));
-  }
+  // Raw: one field sample per canvas pixel — no sim downscale.
+  const simW = w;
+  const simH = h;
   const maxIter = Math.round(18 + params.depth * 40);
   let field = face._rgbFractalField;
   if (!field || field.length !== simW * simH) {
@@ -422,48 +459,47 @@ function paintNodeGraphRgbFractalFaceCpu(canvas, face, params) {
       const ry = zx * sinR + zy * cosR + centerY + panY;
       let e = nodeGraphRgbFractalJuliaSmooth(rx, ry, cx, cy, maxIter);
       e = Math.pow(Math.max(0, Math.min(1, e)), 0.72 - glow * 0.25);
-      // Match GPU: energy → one gradient pass; phase rotates (does not multi-wrap bands).
-      const lit = e < 0.03 ? 0 : Math.min(1, (e - 0.03) / 0.19);
-      if (lit > 0.001) {
-        const phase = ((Number(colorPhase) % 1) + 1) % 1;
-        const bands = Math.max(0.25, Number(params.bands) || 1);
-        const span = Math.min(1, bands);
-        let once = e * span;
-        if (bands > 1.001) {
-          // Explicit multi-wrap only when Color Bands > 1.
-          once = ((e * bands + phase) % 1 + 1) % 1;
-        } else {
-          once = ((once + phase) % 1 + 1) % 1;
-        }
-        e = once * lit * (Number(breath) || 1);
-      } else {
-        e = 0;
-      }
-      field[row + i] = Math.max(0, Math.min(1, e));
+      // Aug 2 GPU soft triangle wrap (no raw fract palette seams).
+      const soft = Math.max(0, Math.min(1, Number(params.soft) || 0));
+      const bands = Math.max(0.25, Number(params.bands) || 1);
+      const band = bands * (1 - soft * 0.55) + soft * (bands * 0.45);
+      const phase = (Number(colorPhase) || 0) * (1 - soft * 0.45);
+      let eColor = e * Math.max(0.25, band) + phase;
+      eColor = eColor - Math.floor(eColor);
+      const tri = 1 - Math.abs(eColor * 2 - 1);
+      // smoothstep(0,1,tri) ≈ tri for [0,1]
+      eColor = tri * tri * (3 - 2 * tri);
+      eColor = e * (1 - (0.55 - soft * 0.2)) + eColor * (0.55 - soft * 0.2);
+      eColor = Math.max(0, Math.min(1, eColor * (Number(breath) || 1)));
+      eColor = eColor * (1 - soft * 0.5) + (0.5 + (eColor - 0.5) * (1 - soft * 0.3)) * soft * 0.5;
+      field[row + i] = Math.max(0, Math.min(1, eColor));
     }
   }
 
-  // Soft: one blur pass
-  if (params.soft > 0.1) {
+  // Edge Blur (CPU): dense 1px gaussian on energy (matches GPU — more effect, no steps).
+  const blurAmt = Math.max(0, Math.min(8, Number(params.blur) || 0));
+  if (blurAmt > 0.015) {
     let dst = face._rgbFractalFieldB;
     if (!dst || dst.length !== field.length) {
       dst = new Float32Array(field.length);
       face._rgbFractalFieldB = dst;
     }
-    const ck = 2.2;
+    const radius = 2; // smaller kernel matches lower max sigma
+    const sigma = Math.min(2, 0.15 + blurAmt * 0.23);
+    const inv2s2 = 1 / Math.max(1e-4, 2 * sigma * sigma);
     for (let j = 0; j < simH; j += 1) {
       for (let i = 0; i < simW; i += 1) {
         let acc = 0;
         let wgt = 0;
-        for (let dj = -1; dj <= 1; dj += 1) {
+        for (let dj = -radius; dj <= radius; dj += 1) {
           const y = j + dj;
           if (y < 0 || y >= simH) continue;
-          for (let di = -1; di <= 1; di += 1) {
+          for (let di = -radius; di <= radius; di += 1) {
             const x = i + di;
             if (x < 0 || x >= simW) continue;
-            const k = di === 0 && dj === 0 ? ck : 1;
-            acc += field[y * simW + x] * k;
-            wgt += k;
+            const w = Math.exp(-(di * di + dj * dj) * inv2s2);
+            acc += field[y * simW + x] * w;
+            wgt += w;
           }
         }
         dst[j * simW + i] = acc / Math.max(1e-6, wgt);
@@ -517,6 +553,52 @@ function paintNodeGraphRgbFractalFaceCpu(canvas, face, params) {
   ctx.imageSmoothingEnabled = true;
   if ("imageSmoothingQuality" in ctx) ctx.imageSmoothingQuality = "high";
   ctx.drawImage(off, 0, 0, simW, simH, 0, 0, w, h);
+
+  // Screen Blur (CPU): one H+V pair, continuous sub-pixel → light max (matches GPU).
+  const screenBlurAmt = Math.max(0, Math.min(8, Number(params.screenBlur) || 0));
+  if (screenBlurAmt > 0.02 && w > 2 && h > 2) {
+    const t = screenBlurAmt / 8;
+    const tEase = t * t;
+    const sigma = 0.22 + tEase * 1.45;
+    const inv2s2 = 1 / (2 * sigma * sigma);
+    let src = ctx.getImageData(0, 0, w, h);
+    let dst = ctx.createImageData(w, h);
+    const blur1D = (horizontal) => {
+      const sdata = src.data;
+      const ddata = dst.data;
+      for (let y = 0; y < h; y += 1) {
+        for (let x = 0; x < w; x += 1) {
+          let r = 0;
+          let g = 0;
+          let b = 0;
+          let wgt = 0;
+          for (let i = -5; i <= 5; i += 1) {
+            const xx = horizontal ? x + i : x;
+            const yy = horizontal ? y : y + i;
+            if (xx < 0 || xx >= w || yy < 0 || yy >= h) continue;
+            const ww = Math.exp(-(i * i) * inv2s2);
+            const o = (yy * w + xx) * 4;
+            r += sdata[o] * ww;
+            g += sdata[o + 1] * ww;
+            b += sdata[o + 2] * ww;
+            wgt += ww;
+          }
+          const p = (y * w + x) * 4;
+          const inv = 1 / Math.max(1e-6, wgt);
+          ddata[p] = r * inv;
+          ddata[p + 1] = g * inv;
+          ddata[p + 2] = b * inv;
+          ddata[p + 3] = 255;
+        }
+      }
+      const tmp = src;
+      src = dst;
+      dst = tmp;
+    };
+    blur1D(true);
+    blur1D(false);
+    ctx.putImageData(src, 0, 0);
+  }
   return true;
 }
 
@@ -526,8 +608,9 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
   if (!canvas || !face || !nodeId) {
     return false;
   }
-  const pixelRatio = Number(nodeGraphModuleScopeState?.backingPixelRatio)
-    || Math.max(1, window.devicePixelRatio || 1);
+  const pixelRatio = Number(typeof nodeGraphModuleScopeState !== "undefined"
+    ? nodeGraphModuleScopeState?.backingPixelRatio
+    : 0) || window.devicePixelRatio || 1;
   if (!syncNodeGraphRgbFractalCanvas(canvas, face, pixelRatio)) {
     return false;
   }
@@ -543,21 +626,27 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
   face._rgbFractalBlack = false;
 
   // Domain values come from params (UI already honors min/max). No code re-clamp.
+  const patchNodeEarly = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  if (patchNodeEarly) {
+    nodeGraphRgbFractalMigrateRotationParams(patchNodeEarly);
+  }
+
   const speedRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "speed", 1));
   const speed = Number.isFinite(speedRaw) ? speedRaw : 0;
   const frozen = nodeGraphRgbFractalShouldFreeze(speed);
-  if (frozen && face._rgbFractalHasFrame && !options.force) {
-    face._rgbFractalLastTs = 0;
-    face._rgbFractalPendingDt = 0;
-    if (face.dataset) face.dataset.lightStrength = "1";
-    return true;
-  }
+  // Speed 0 freezes *time* (orbit / color phase / co-rotation), not the face.
+  // Always re-paint so Seed / Scale / Soft / etc. still update while frozen.
+  // (Previous early-return skipped redraw entirely → seed scrub looked dead.)
 
   let dt = Number(options.dt);
   if (!Number.isFinite(dt) || dt < 0) dt = 0;
   // Frame dt cap is render safety (not a parameter limit).
   dt = Math.min(0.05, dt);
-  if (frozen) dt = 0;
+  if (frozen) {
+    dt = 0;
+    face._rgbFractalLastTs = 0;
+    face._rgbFractalPendingDt = 0;
+  }
 
   // CPU fallback: throttle sim. WebGL: paint every rAF (cheap full-face).
   const wantGl = typeof nodeGraphRgbFractalGlPaint === "function";
@@ -592,14 +681,21 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
   const panAmtX = Number.isFinite(panXRaw) ? panXRaw : 0;
   const panAmtY = Number.isFinite(panYRaw) ? panYRaw : 0;
 
-  // Face look: Soft + Color Rate (CV jack only) / Shift + Color Bands.
+  // Face look: Soft + Blur + Color Shift / Color Shift Rate + Color Bands.
   const softRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "soft", 0.48));
   const soft = Number.isFinite(softRaw) ? Math.max(0, Math.min(1, softRaw)) : 0.48;
-  // Color Rate is input-only: wire a CV for palette cycle rate (× Speed).
-  // Unconnected default 1 = natural lock to Speed (same as the old param default).
-  const colorRateRaw = Number(nodeGraphRgbFractalReadPort(nodeId, "Color Rate", 1));
-  const colorRate = Number.isFinite(colorRateRaw) ? Math.max(0, colorRateRaw) : 1;
+  // Edge Blur domain 0…8 (energy multi-tap). Screen Blur is full-image post.
+  const blurRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "blur", 0));
+  const blur = Number.isFinite(blurRaw) ? Math.max(0, Math.min(8, blurRaw)) : 0;
+  const screenBlurRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "screenBlur", 0));
+  const screenBlur = Number.isFinite(screenBlurRaw)
+    ? Math.max(0, Math.min(8, screenBlurRaw))
+    : 0;
   const colorShift = ((nodeGraphRgbFractalReadParam(nodeId, "colorShift", 0) % 1) + 1) % 1;
+  const colorShiftRateRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "colorShiftRate", 1));
+  const colorShiftRate = Number.isFinite(colorShiftRateRaw)
+    ? Math.max(0, colorShiftRateRaw)
+    : 1;
   // Bands default 1 = one smooth pass through the palette (not multi-wrap hash).
   const bandsRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "bands", 1));
   const bands = Number.isFinite(bandsRaw) ? Math.max(0.25, bandsRaw) : 1;
@@ -607,18 +703,19 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
   const breath = 1;
   face._rgbFractalBreath = 1;
 
-  const rotMultRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "rotation", 1));
-  const rotMult = Number.isFinite(rotMultRaw) ? rotMultRaw : 0;
+  const rotSpeedRaw = Number(nodeGraphRgbFractalReadParam(nodeId, "rotationSpeed", 0));
+  const rotSpeed = Number.isFinite(rotSpeedRaw) ? rotSpeedRaw : 0;
+  const rotAngle01 = ((nodeGraphRgbFractalReadParam(nodeId, "rotation", 0) % 1) + 1) % 1;
 
   nodeGraphRgbFractalEnsurePhasors(face);
   if (dt > 0) {
-    // Shared planetary clock: pure θ for face c + co-rotation.
+    // Master Speed multiplies all free-running rates (orbit, rotation, color).
     const dTheta = speed * 0.32 * dt;
     face._rgbFractalOrbitPhasor += dTheta;
     face._rgbFractalPhase = face._rgbFractalOrbitPhasor;
-    face._rgbFractalRotationPhasor += -rotMult * dTheta;
-    // Palette cycle independent of orbit — Color Rate × Speed.
-    face._rgbFractalColorPhasor += speed * colorRate * 0.14 * dt;
+    face._rgbFractalRotationPhasor += -rotSpeed * dTheta;
+    // Palette walk: Speed × Color Shift Rate (static Color Shift is applied below).
+    face._rgbFractalColorPhasor += speed * colorShiftRate * 0.14 * dt;
   }
 
   const tOrbit = Number(face._rgbFractalOrbitPhasor) || 0;
@@ -628,11 +725,15 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
     0.022,
     Math.min(5, 2.55 / Math.pow(Math.max(0.1, scale), 0.92)),
   );
-  // Pan ±1 ≈ shift by one half-span (pure offset, no wrap).
-  const panX = panAmtX * halfSpan;
-  const panY = panAmtY * halfSpan;
+  // X/Y = fixed look-at in the complex plane (not × halfSpan).
+  // Scale only changes halfSpan, so zoom is always centered on (X, Y).
+  // ±1 ≈ one complex unit; domain −5…+5 covers a useful Julia view range.
+  const panX = panAmtX;
+  const panY = panAmtY;
 
-  const rot = Number(face._rgbFractalRotationPhasor) || 0;
+  // Static Rotation (0…1 cycle) + free-running Rotation Speed phasor.
+  // Rotation is about the look-at (applied before pan in the shader).
+  const rot = (Number(face._rgbFractalRotationPhasor) || 0) + rotAngle01 * Math.PI * 2;
   const cosR = Math.cos(rot);
   const sinR = Math.sin(rot);
   const centerX = 0;
@@ -644,9 +745,8 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
   const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   const settings = nodeGraphRgbFractalSettingsForNode(patchNode);
 
-  // HD path: full iter budget for the fragment shader; Soft still rolls depth
-  // inside GLSL. Cap at loop max (256) for safety only — no intentional low-res.
-  const maxIter = Math.min(256, Math.max(8, Math.round(24 + depth * 72)));
+  // Full iter budget for the raw face (shader uses uMaxIter as-is).
+  const maxIter = Math.min(256, Math.max(8, Math.round(24 + depth * 85 * 0.9)));
 
   const paintParams = {
     cx,
@@ -660,6 +760,8 @@ function paintNodeGraphRgbFractalFace(canvas, face, nodeId, options = {}) {
     sinR,
     maxIter,
     soft,
+    blur,
+    screenBlur,
     glow,
     colorPhase,
     breath,

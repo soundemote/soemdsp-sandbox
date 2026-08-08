@@ -11513,9 +11513,9 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 
 /*
  * Workspace zoom ≥ 2.5 → nearest-neighbor upscale of face bitmaps.
- * Soft Fractal / FBM / scopes / etc. paint at layout resolution; CSS scale
- * must NOT bilinear-blur when you zoom way in (hard pixels, not mush).
- * Asciiscope Sharp keeps image-rendering:auto inline — excluded below.
+ * Faces paint at layout × dpr (resource-agnostic zoom): app zoom shows defined
+ * pixels instead of re-rendering denser detail. Soft Fractal is included —
+ * fixed GPU buffer, CSS pixelate on zoom. Asciiscope Sharp keeps auto inline.
  */
 .node-graph-workspace.pixelated-canvas-zoom .node-filter-curve-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-phosphor-waveform-canvas,
@@ -11524,9 +11524,9 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-module-scope-local-fallback-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-number-readout-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-phosphor-light-canvas,
-/* Soft Fractal stays smooth HD (image-rendering:auto inline) — not pixelated. */
 .node-graph-workspace.pixelated-canvas-zoom .node-rgb-shape-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-rgb-picture-canvas,
+.node-graph-workspace.pixelated-canvas-zoom .node-rgb-fractal-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-fbm-field-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-evolve-field-canvas,
 .node-graph-workspace.pixelated-canvas-zoom .node-wall-room-canvas,

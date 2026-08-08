@@ -1023,7 +1023,8 @@ function drawNodeGraphScope2dTraceLayer(context, points, dotSpace, settings) {
     return;
   }
   const size = clampNodeSliderValue(settings.dot1Size, 0, 1);
-  const brightness = Math.max(0, Number(settings.dot1Brightness) || 0);
+  // Bright 0…1 exact — no 0…2 UI with a later half/clamp.
+  const brightness = Math.max(0, Math.min(1, Number(settings.dot1Brightness) || 0));
   if (brightness <= 0) {
     return;
   }
@@ -1035,7 +1036,7 @@ function drawNodeGraphScope2dTraceLayer(context, points, dotSpace, settings) {
   // Canvas fallback: soft dots only (match energy-GL dots path; no polyline joins).
   context.save();
   context.globalCompositeOperation = "lighter";
-  context.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${Math.min(1, brightness)})`;
+  context.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${brightness})`;
   context.shadowBlur = 0;
   const r = Math.max(0.5, radius);
   for (let i = 0; i < points.length; i += 1) {
