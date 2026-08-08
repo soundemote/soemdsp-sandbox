@@ -4615,7 +4615,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-io-section-min-height: 24px;
   --node-io-section-padding-block: 0;
   --node-module-grid-inset: calc(var(--node-grid-size) * 0.2142857);
-  --node-module-roundness-ratio: 0.1;
+  /* 0 = square module chrome (LayoutA + LayoutB). UI Dev “module roundness” drives this. */
+  --node-module-roundness-ratio: 0;
   --node-module-scope-height: calc(var(--node-grid-height) * var(--node-module-display-height-units, 2));
   --node-module-interface-controls-height: calc(var(--node-grid-height) * var(--node-module-interface-controls-height-units, 4));
   --node-scope-port-band-overlap: 0px;
@@ -9997,7 +9998,8 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   height: calc((var(--node-grid-height) * var(--node-grid-height-units, 4)) - (var(--node-module-grid-inset) * 2));
   min-height: calc((var(--node-grid-height) * var(--node-grid-height-units, 4)) - (var(--node-module-grid-inset) * 2));
   padding: 0;
-  border-radius: 5px;
+  /* Shared LayoutA + LayoutB chrome: square by default (roundness-ratio 0). */
+  border-radius: calc(var(--node-grid-size) * 2 * var(--node-module-roundness-ratio, 0));
   /* Frame stroke is SVG .node-module-frame (gaps at jacks). No CSS outline —
      outline cannot leave holes for ports and always paints over them. */
   outline: none;
@@ -10026,7 +10028,8 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   stroke: color-mix(in srgb, var(--node-module-stroke) 16%, transparent);
   stroke-width: 1px;
   stroke-linecap: butt;
-  stroke-linejoin: round;
+  /* Miter matches square module corners (round softens even r=0 joins). */
+  stroke-linejoin: miter;
   vector-effect: non-scaling-stroke;
 }
 
@@ -11437,6 +11440,25 @@ body.room-dimmer-on .node-room-dimmer-canvas,
     var(--node-header-padding-inline)
     var(--node-header-padding-block-end);
   background: rgba(7, 10, 13, 0.28);
+  /* Title strip is square-edged; module roundness clips via .dsp-node only. */
+  border-radius: 0;
+  overflow: hidden;
+}
+
+/* LayoutB solid (Knob, XY Pad, …): same title bar metrics/paint as LayoutA. */
+.dsp-node.solid-module-layout > .dsp-node-header,
+.dsp-node.chrome-layout-b.solid-module-layout > .dsp-node-header,
+.dsp-node.chrome-layout-b > .dsp-node-header {
+  width: 100%;
+  min-width: 0;
+  height: var(--node-header-height);
+  margin: 0;
+  padding:
+    var(--node-header-padding-block-start)
+    var(--node-header-padding-inline)
+    var(--node-header-padding-block-end);
+  background: rgba(7, 10, 13, 0.28);
+  border-radius: 0;
 }
 
 .dsp-node-body {

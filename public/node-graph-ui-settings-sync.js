@@ -416,6 +416,12 @@ function syncNodeUiDevSettingsHeaderControls() {
   document
     .getElementById("nodeGraphWorkspace")
     ?.style.setProperty("--node-module-roundness-ratio", String(moduleRoundnessPercent / 100));
+  // Module frame SVG reads border-radius — rebuild outlines when roundness changes.
+  if (typeof scheduleNodeGraphModuleFramesUpdate === "function") {
+    scheduleNodeGraphModuleFramesUpdate({ force: true });
+  } else if (typeof updateAllNodeGraphModuleFrames === "function") {
+    updateAllNodeGraphModuleFrames({ force: true });
+  }
   gridColorInput.value = gridColor;
   workspaceBackgroundColorInput.value = workspaceBackgroundColor;
   document

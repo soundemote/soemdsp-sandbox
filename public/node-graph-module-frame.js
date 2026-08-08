@@ -196,9 +196,12 @@ function nodeGraphModuleFrameBuildPath(width, height, radius, leftGaps, rightGap
 }
 
 function nodeGraphModuleFrameRadiusPx(nodeElement) {
+  // Prefer computed border-radius (wired to --node-module-roundness-ratio).
+  // Default 0 = square chrome for LayoutA and LayoutB.
   const raw = getComputedStyle(nodeElement).borderRadius;
-  const n = Number.parseFloat(raw);
-  return Number.isFinite(n) ? n : 5;
+  const first = String(raw || "").split(/\s+/)[0];
+  const n = Number.parseFloat(first);
+  return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
 /**
