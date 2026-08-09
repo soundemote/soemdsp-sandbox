@@ -10101,16 +10101,43 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   pointer-events: none;
 }
 
-/* Drag-select box on empty canvas — phosphor light-blue dotted outline. */
+/* Legacy area marquee (unused — hit trail replaced it). */
 .node-selection-marquee {
   position: absolute;
   z-index: 3;
   box-sizing: border-box;
-  /* Common phosphor / --accent light blue */
   border: 1px dotted var(--accent, #7fc7d9);
   border-radius: 0;
   background: color-mix(in srgb, var(--accent, #7fc7d9) 8%, transparent);
   box-shadow: none;
+  pointer-events: none;
+}
+
+/* Hitpoint select snake — thick phosphor dotted trail following the cursor. */
+.node-selection-hit-trail {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.node-selection-hit-trail[hidden] {
+  display: none;
+}
+
+.node-selection-hit-trail-path {
+  fill: none;
+  stroke: var(--accent, #7fc7d9);
+  /* JS sets stroke-width / dasharray in layout px for zoom-stable screen size. */
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 12 10;
+  opacity: 0.92;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent, #7fc7d9) 55%, transparent));
   pointer-events: none;
 }
 

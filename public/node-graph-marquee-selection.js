@@ -1,74 +1,194 @@
+// Hitpoint / “snake” selection: drag a thick dotted trail on empty canvas;
+// whatever the cursor hits is selected. First hit locks mode to modules XOR wires.
+
+const nodeGraphHitTrailMinStepPx = 2;
+const nodeGraphHitTrailMaxPoints = 4000;
+
+function nodeGraphHitTrailSvg() {
+  return document.getElementById("nodeSelectionHitTrail");
+}
+
+function nodeGraphHitTrailPath() {
+  return document.getElementById("nodeSelectionHitTrailPath");
+}
+
 function renderNodeGraphMarqueeSelection() {
+  // Legacy name kept for call sites. Renders the hit trail snake.
+  const svg = nodeGraphHitTrailSvg();
+  const path = nodeGraphHitTrailPath();
   const marquee = document.getElementById("nodeSelectionMarquee");
+  if (marquee) {
+    marquee.hidden = true;
+  }
   const drag = nodeGraphMvp.marqueeSelection;
-  if (!marquee || !drag) {
-    if (marquee) {
-      marquee.hidden = true;
+  if (!svg || !path || !drag?.points?.length) {
+    if (svg) {
+      svg.hidden = true;
+    }
+    if (path) {
+      path.removeAttribute("d");
     }
     return;
   }
 
-  const rect = nodeGraphRectFromPoints(drag.start, drag.current);
-  marquee.hidden = false;
-  marquee.style.left = `${rect.left}px`;
-  marquee.style.top = `${rect.top}px`;
-  marquee.style.width = `${rect.width}px`;
-  marquee.style.height = `${rect.height}px`;
+  const points = drag.points;
+  let d = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 1; i < points.length; i += 1) {
+    d += ` L ${points[i].x} ${points[i].y}`;
+  }
+  path.setAttribute("d", d);
+  // Keep ~5 screen-px thick dashes stable under workspace CSS zoom.
+  const zoom = Math.max(0.0001, typeof nodeGraphZoom === "function" ? Number(nodeGraphZoom()) || 1 : 1);
+  path.setAttribute("stroke-width", String(5 / zoom));
+  path.setAttribute("stroke-dasharray", `${12 / zoom} ${10 / zoom}`);
+  svg.hidden = false;
 }
 
-function nodeGraphNodesInsideRect(rect) {
-  const ids = [];
-  for (const node of document.querySelectorAll(".dsp-node:not(.removed)")) {
-    if (nodeGraphRectsIntersect(rect, nodeGraphNodeBounds(node))) {
-      ids.push(node.dataset.node);
+function nodeGraphHitTrailAppendPoint(drag, point) {
+  if (!drag.points?.length) {
+    drag.points = [{ x: point.x, y: point.y }];
+    return true;
+  }
+  const last = drag.points[drag.points.length - 1];
+  const dx = point.x - last.x;
+  const dy = point.y - last.y;
+  if ((dx * dx) + (dy * dy) < nodeGraphHitTrailMinStepPx * nodeGraphHitTrailMinStepPx) {
+    return false;
+  }
+  drag.points.push({ x: point.x, y: point.y });
+  if (drag.points.length > nodeGraphHitTrailMaxPoints) {
+    drag.points.splice(0, drag.points.length - nodeGraphHitTrailMaxPoints);
+  }
+  return true;
+}
+
+/**
+ * What is under the cursor in client space (modules / wires).
+ * Trail has pointer-events:none so it never steals hits.
+ */
+function nodeGraphHitTestSelectionAtClient(clientX, clientY) {
+  const el = document.elementFromPoint(clientX, clientY);
+  if (!el || !(el instanceof Element)) {
+    return null;
+  }
+  const wire = el.closest?.(".node-wire-hit-path, .node-wire-path");
+  if (wire && !wire.classList.contains("temp")) {
+    const index = Number(wire.dataset.connectionIndex);
+    if (Number.isInteger(index) && index >= 0) {
+      return {
+        kind: "wire",
+        wireKind: wire.dataset.connectionKind || "signal",
+        index,
+      };
     }
   }
-  return ids;
+  const node = el.closest?.(".dsp-node");
+  if (node?.dataset?.node && !node.classList.contains("removed")) {
+    return { kind: "module", id: node.dataset.node };
+  }
+  return null;
 }
 
-function updateNodeGraphMarqueeSelection() {
+function nodeGraphHitTrailApplyHit(drag, hit) {
+  if (!drag || !hit) {
+    return;
+  }
+  // Lock to first hit type: modules XOR wires for this drag.
+  if (!drag.lockMode) {
+    drag.lockMode = hit.kind === "wire" ? "wires" : "modules";
+  }
+  if (drag.lockMode === "modules" && hit.kind !== "module") {
+    return;
+  }
+  if (drag.lockMode === "wires" && hit.kind !== "wire") {
+    return;
+  }
+
+  if (drag.lockMode === "modules") {
+    if (!drag.hitNodeIds) {
+      drag.hitNodeIds = new Set(drag.startSelectedIds || []);
+    }
+    if (!nodeGraphMvp.activeNodes.has(hit.id)) {
+      return;
+    }
+    if (drag.hitNodeIds.has(hit.id)) {
+      return;
+    }
+    drag.hitNodeIds.add(hit.id);
+    setNodeGraphNodeSelection([...drag.hitNodeIds]);
+    return;
+  }
+
+  // wires
+  if (!drag.hitWires) {
+    drag.hitWires = [...(drag.startSelectedWires || [])];
+  }
+  const key = `${hit.wireKind}:${hit.index}`;
+  if (drag.hitWireKeys?.has(key)) {
+    return;
+  }
+  if (!drag.hitWireKeys) {
+    drag.hitWireKeys = new Set(drag.hitWires.map((w) => `${w.kind}:${w.index}`));
+  }
+  drag.hitWireKeys.add(key);
+  drag.hitWires.push({ kind: hit.wireKind, index: hit.index });
+  if (typeof setNodeGraphWireSelection === "function") {
+    setNodeGraphWireSelection(drag.hitWires);
+  } else {
+    setNodeGraphSelection({ type: "wire", kind: hit.wireKind, index: hit.index });
+  }
+}
+
+function updateNodeGraphMarqueeSelection(event = null) {
   const drag = nodeGraphMvp.marqueeSelection;
   if (!drag) {
     return;
   }
-
-  const rect = nodeGraphRectFromPoints(drag.start, drag.current);
-  const ids = drag.additive
-    ? [...new Set([...(drag.startSelectedIds || []), ...nodeGraphNodesInsideRect(rect)])]
-    : nodeGraphNodesInsideRect(rect);
-  setNodeGraphNodeSelection(ids);
+  if (event && Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
+    const hit = nodeGraphHitTestSelectionAtClient(event.clientX, event.clientY);
+    nodeGraphHitTrailApplyHit(drag, hit);
+  }
   renderNodeGraphMarqueeSelection();
 }
 
 function nodeGraphMarqueeTargetIsBlocked(target) {
   return Boolean(target?.closest?.(
-    ".dsp-node, .node-port, .node-param-port, .node-slider-readout, .node-wire-hit-path, button, input, textarea, select",
+    ".dsp-node, .node-port, .node-param-port, .node-slider-readout, .node-wire-hit-path, .node-wire-path, button, input, textarea, select",
   ));
 }
 
 function startNodeGraphMarqueeSelection(event, workspace) {
-  // event.preventDefault() below suppresses the browser's normal
-  // click-elsewhere-blurs-the-focused-field behavior, so a module title
-  // being edited (see node-graph-module-header-rendering.js) would stay
-  // focused forever on a left-click into empty canvas. Blur it explicitly
-  // so marquee-select on empty space also exits title-edit mode, matching
-  // what already happens via the context menu / right-click path.
+  // event.preventDefault() suppresses browser blur; blur title edit explicitly.
   if (document.activeElement?.classList?.contains("node-header-title")) {
     document.activeElement.blur();
   }
   const point = nodeGraphClientPoint(event);
   const additive = event.shiftKey || event.ctrlKey || event.metaKey;
+  const startSelectedWires = typeof nodeGraphSelectedWireEntries === "function"
+    ? nodeGraphSelectedWireEntries()
+    : [];
   nodeGraphMvp.marqueeSelection = {
     additive,
     current: point,
+    hitNodeIds: additive ? new Set(nodeGraphSelectedNodeIds()) : new Set(),
+    hitWires: additive ? [...startSelectedWires] : [],
+    hitWireKeys: additive
+      ? new Set(startSelectedWires.map((w) => `${w.kind}:${w.index}`))
+      : new Set(),
+    lockMode: null,
     moved: false,
     pointerId: event.pointerId,
+    points: [{ x: point.x, y: point.y }],
     start: point,
     startSelectedIds: [...nodeGraphSelectedNodeIds()],
+    startSelectedWires,
   };
   if (!additive) {
     setNodeGraphSelection(null);
   }
+  // Sample under cursor immediately (usually empty at start).
+  const hit = nodeGraphHitTestSelectionAtClient(event.clientX, event.clientY);
+  nodeGraphHitTrailApplyHit(nodeGraphMvp.marqueeSelection, hit);
   renderNodeGraphMarqueeSelection();
   workspace.setPointerCapture(event.pointerId);
   event.preventDefault();
@@ -139,12 +259,14 @@ function dragNodeGraphMarqueeSelection(event) {
     return;
   }
 
-  drag.current = nodeGraphClientPoint(event);
+  const point = nodeGraphClientPoint(event);
+  drag.current = point;
   drag.moved ||=
-    Math.abs(drag.current.x - drag.start.x) > 3 ||
-    Math.abs(drag.current.y - drag.start.y) > 3;
+    Math.abs(point.x - drag.start.x) > 3 ||
+    Math.abs(point.y - drag.start.y) > 3;
+  nodeGraphHitTrailAppendPoint(drag, point);
   if (drag.moved) {
-    updateNodeGraphMarqueeSelection();
+    updateNodeGraphMarqueeSelection(event);
   } else {
     renderNodeGraphMarqueeSelection();
   }
@@ -159,7 +281,7 @@ function endNodeGraphMarqueeSelection(event) {
   }
 
   if (drag.moved) {
-    updateNodeGraphMarqueeSelection();
+    updateNodeGraphMarqueeSelection(event);
   } else if (!drag.additive) {
     setNodeGraphSelection(null);
   }

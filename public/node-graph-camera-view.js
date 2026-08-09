@@ -211,6 +211,7 @@ function createNodeGraphCameraWorldClone(source, wireSvg) {
   clone.querySelector("#nodeModularOnlyBackButton")?.remove();
   clone.querySelector("#nodeCameraOverlayLayer")?.remove();
   clone.querySelector("#nodeSelectionMarquee")?.remove();
+  clone.querySelector("#nodeSelectionHitTrail")?.remove();
   clone.querySelector("#nodeWireSvg, .node-wire-svg")?.remove();
   clone.querySelector("#nodeWireEndpointSvg, .node-wire-endpoint-svg")?.remove();
   const zoomSurface = clone.querySelector("#nodeGraphZoomSurface, .node-graph-zoom-surface") || clone;

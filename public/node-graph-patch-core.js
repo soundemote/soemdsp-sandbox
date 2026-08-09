@@ -1132,8 +1132,25 @@ function deleteSelectedNodeGraphItem() {
     return;
   }
 
-  if (selection.type === "wire") {
-    disconnectNodeGraphConnection(selection.index, selection.kind || "signal");
+  if (selection.type === "wire" || selection.type === "wires") {
+    const entries = typeof nodeGraphSelectedWireEntries === "function"
+      ? nodeGraphSelectedWireEntries(selection)
+      : [{ kind: selection.kind || "signal", index: selection.index }];
+    // High → low per kind so indices stay valid while removing.
+    const byKind = new Map();
+    for (const entry of entries) {
+      const kind = entry.kind || "signal";
+      if (!byKind.has(kind)) {
+        byKind.set(kind, []);
+      }
+      byKind.get(kind).push(Number(entry.index));
+    }
+    for (const [kind, indices] of byKind) {
+      indices.sort((a, b) => b - a);
+      for (const index of indices) {
+        disconnectNodeGraphConnection(index, kind);
+      }
+    }
     return;
   }
 

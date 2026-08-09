@@ -138,6 +138,20 @@ function disconnectNodeGraphConnection(index, kind = "signal") {
     setNodeGraphSelection(null);
   } else if (selection?.type === "wire" && (selection.kind || "signal") === kind && selection.index > index) {
     setNodeGraphSelection({ ...selection, index: selection.index - 1 });
+  } else if (selection?.type === "wires" && typeof nodeGraphSelectedWireEntries === "function") {
+    // Drop removed wire; shift higher indices of the same kind down by one.
+    const next = nodeGraphSelectedWireEntries(selection)
+      .filter((e) => !(e.kind === kind && e.index === index))
+      .map((e) => (
+        e.kind === kind && e.index > index
+          ? { kind: e.kind, index: e.index - 1 }
+          : e
+      ));
+    if (typeof setNodeGraphWireSelection === "function") {
+      setNodeGraphWireSelection(next);
+    } else {
+      setNodeGraphSelection(null);
+    }
   }
   commitNodeGraphPatch(patch, { status: "wire disconnected", wireEdit: true });
   if (typeof triggerNodeGraphWireDisconnectEvent === "function") {

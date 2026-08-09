@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>soemdsp-sandbox</title>
-  <link rel="stylesheet" href="./public/styles.css?v=marquee-dotted-1">
+  <link rel="stylesheet" href="./public/styles.css?v=hitpoint-select-1">
   <link rel="stylesheet" href="./public/modules/stepGrid/step-grid.css?v=stepgrid-own-folder-20260715">
   <link rel="stylesheet" href="./public/modules/pitchQuantizer/pitch-quantizer-ui.css?v=chord-pad-1">
   <link rel="stylesheet" href="./public/modules/chordPad/chord-pad-ui.css?v=chord-pad-1">
@@ -650,6 +650,15 @@
             focusable="false"></svg>
           <div id="nodeCameraOverlayLayer" class="node-camera-overlay-layer" aria-hidden="true"></div>
           <div id="nodeSelectionMarquee" class="node-selection-marquee" hidden></div>
+          <!-- Hitpoint select trail: thick phosphor dotted snake while dragging -->
+          <svg
+            id="nodeSelectionHitTrail"
+            class="node-selection-hit-trail"
+            aria-hidden="true"
+            focusable="false"
+            hidden>
+            <path id="nodeSelectionHitTrailPath" class="node-selection-hit-trail-path"></path>
+          </svg>
         </div>
         <canvas
           id="nodeModuleScopeCanvas"
@@ -3728,8 +3737,8 @@
   <script src="./public/node-graph-viewport-perf.js?v=zoom-max-100"></script>
   <script src="./public/node-graph-workspace-zoom.js?v=zoom-reset-center-1"></script>
   <script src="./public/node-graph-workspace-view.js?v=readout-no-kb-1"></script>
-  <script src="./public/node-graph-camera-view.js?v=utility-camera-feed-1780810000000"></script>
-  <script src="./public/node-graph-marquee-selection.js?v=title-blur-on-marquee-20260707"></script>
+  <script src="./public/node-graph-camera-view.js?v=hitpoint-select-1"></script>
+  <script src="./public/node-graph-marquee-selection.js?v=hitpoint-select-1"></script>
   <script src="./public/node-graph-node-dragging.js?v=layout-edit-light-1"></script>
   <script src="./public/node-graph-context-menu.js?v=multi-actions-1"></script>
   <script src="./public/node-graph-module-actions.js?v=multi-actions-1"></script>
@@ -3824,7 +3833,7 @@
   <script src="./public/node-graph-slider-values.js?v=smooth-snap-1e6"></script>
   <script src="./public/node-graph-slider-dragging.js?v=drag-reanchor-1"></script>
   <script src="./public/node-graph-node-accessors.js?v=cleanup-20260725-smoothing-time-20260701"></script>
-  <script src="./public/node-graph-selection.js?v=round-radius-resolve-1"></script>
+  <script src="./public/node-graph-selection.js?v=hitpoint-select-1"></script>
   <script src="./public/node-graph-port-geometry.js?v=wire-restore-pre-regression-1"></script>
   <script src="./public/node-graph-slider-readout.js?v=param-alias-label-1"></script>
   <script src="./public/modules/knob/knob-face.js?v=knob-no-stroke-size-1"></script>
@@ -3845,7 +3854,7 @@
   <script src="./public/node-graph-execution-wires.js?v=external-graph-inputs-1780816800000"></script>
   <script src="./public/node-graph-execution-plan.js?v=matrix-split-1"></script>
   <script src="./public/node-graph-execution-summary.js?v=slider-unit-color-1780307400000"></script>
-  <script src="./public/node-graph-wire-actions.js?v=port-pair-expand-1"></script>
+  <script src="./public/node-graph-wire-actions.js?v=hitpoint-select-1"></script>
   <script src="./public/node-graph-trace-router.js?v=no-self-burst-1780321400000"></script>
   <script src="./public/node-graph-wire-rendering.js?v=tips-embed-wires-1"></script>
   <script src="./public/node-graph-render-output.js?v=output-one-trip-1"></script>
@@ -3872,7 +3881,7 @@
   <script src="./public/node-graph-state.js?v=cc-module-search-1"></script>
   <script src="./public/node-graph-external-ui-events.js?v=xy-pad-impulse-1"></script>
   <script src="./public/node-graph-patch-migrations.js?v=patch-migrators-c0"></script>
-  <script src="./public/node-graph-patch-core.js?v=vis-override-1"></script>
+  <script src="./public/node-graph-patch-core.js?v=hitpoint-select-1"></script>
   <script src="./public/node-graph-live-plan-runtime.js?v=spec-module-params-1"></script>
   <script src="./public/node-graph-live-parameter-runtime.js?v=mod-clamp-1"></script>
   <script src="./public/node-graph-oscillator-runtime.js?v=0150-native-core"></script>
