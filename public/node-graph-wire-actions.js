@@ -118,45 +118,82 @@ function setSelectedNodeGraphWireType(wireType) {
 }
 
 function disconnectNodeGraphConnection(index, kind = "signal") {
-  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-  let removed = false;
-  if (kind === "graph") {
-    removed = index >= 0 && index < patch.graphConnections.length;
-    patch.graphConnections = patch.graphConnections.filter((_connection, connectionIndex) => connectionIndex !== index);
-  } else if (kind === "modulation") {
-    removed = index >= 0 && index < patch.modulations.length;
-    patch.modulations = patch.modulations.filter((_modulation, modulationIndex) => modulationIndex !== index);
-  } else {
-    removed = index >= 0 && index < patch.connections.length;
-    patch.connections = patch.connections.filter((_connection, connectionIndex) => connectionIndex !== index);
+  disconnectNodeGraphConnections([{ kind, index }]);
+}
+
+/**
+ * Remove one or more wires in a single patch commit.
+ * @param {Array<{ kind?: string, index: number }>} entries
+ * @param {{ status?: string }} [options]
+ * @returns {number} how many wires were removed
+ */
+function disconnectNodeGraphConnections(entries, options = {}) {
+  if (!Array.isArray(entries) || entries.length === 0) {
+    return 0;
   }
-  if (!removed) {
-    return;
-  }
-  const selection = nodeGraphMvp.selected;
-  if (sameNodeGraphSelection(selection, { type: "wire", kind, index })) {
-    setNodeGraphSelection(null);
-  } else if (selection?.type === "wire" && (selection.kind || "signal") === kind && selection.index > index) {
-    setNodeGraphSelection({ ...selection, index: selection.index - 1 });
-  } else if (selection?.type === "wires" && typeof nodeGraphSelectedWireEntries === "function") {
-    // Drop removed wire; shift higher indices of the same kind down by one.
-    const next = nodeGraphSelectedWireEntries(selection)
-      .filter((e) => !(e.kind === kind && e.index === index))
-      .map((e) => (
-        e.kind === kind && e.index > index
-          ? { kind: e.kind, index: e.index - 1 }
-          : e
-      ));
-    if (typeof setNodeGraphWireSelection === "function") {
-      setNodeGraphWireSelection(next);
+  const signal = new Set();
+  const modulation = new Set();
+  const graph = new Set();
+  for (const entry of entries) {
+    const index = Number(entry?.index);
+    if (!Number.isInteger(index) || index < 0) {
+      continue;
+    }
+    const kind = entry.kind || "signal";
+    if (kind === "graph") {
+      graph.add(index);
+    } else if (kind === "modulation") {
+      modulation.add(index);
     } else {
-      setNodeGraphSelection(null);
+      signal.add(index);
     }
   }
-  commitNodeGraphPatch(patch, { status: "wire disconnected", wireEdit: true });
-  if (typeof triggerNodeGraphWireDisconnectEvent === "function") {
-    triggerNodeGraphWireDisconnectEvent(kind);
+  if (!signal.size && !modulation.size && !graph.size) {
+    return 0;
   }
+
+  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+  let removed = 0;
+  if (signal.size) {
+    const before = patch.connections.length;
+    patch.connections = patch.connections.filter((_connection, connectionIndex) => !signal.has(connectionIndex));
+    removed += before - patch.connections.length;
+  }
+  if (modulation.size) {
+    const before = patch.modulations.length;
+    patch.modulations = patch.modulations.filter((_modulation, modulationIndex) => !modulation.has(modulationIndex));
+    removed += before - patch.modulations.length;
+  }
+  if (graph.size) {
+    const before = patch.graphConnections.length;
+    patch.graphConnections = patch.graphConnections.filter((_connection, connectionIndex) => !graph.has(connectionIndex));
+    removed += before - patch.graphConnections.length;
+  }
+  if (!removed) {
+    return 0;
+  }
+
+  // Selection indices for the removed kinds are no longer valid — clear wire selection.
+  const selection = nodeGraphMvp.selected;
+  if (selection?.type === "wire" || selection?.type === "wires") {
+    setNodeGraphSelection(null);
+  }
+
+  const status = options.status
+    || (removed === 1 ? "wire disconnected" : `${removed} wires disconnected`);
+  commitNodeGraphPatch(patch, { status, wireEdit: true });
+  if (typeof triggerNodeGraphWireDisconnectEvent === "function") {
+    if (signal.size) {
+      triggerNodeGraphWireDisconnectEvent("signal");
+    }
+    if (modulation.size) {
+      triggerNodeGraphWireDisconnectEvent("modulation");
+    }
+    if (graph.size) {
+      triggerNodeGraphWireDisconnectEvent("graph");
+    }
+  }
+  return removed;
 }
 
 function connectNodeGraphGraphInput(sourceNode, sourcePort, destinationNode, destinationGraphInput, options = {}) {

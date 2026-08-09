@@ -677,8 +677,8 @@ function nodeGraphFloatingWindowPosition(element, x, y, options = {}) {
  * Master debug chrome: Visibility "Show Debug" (keyboard diagnostics,
  * constraint guide, evidence / .node-debug-only surfaces).
  *
- * Default is ALWAYS off — debug and release builds alike. Session-only via D
- * / Visibility; never restored from UI settings / Clear Startup / Save.
+ * Default is ALWAYS off — debug and release builds alike. Session-only via
+ * Visibility → Debug; never restored from UI settings / Clear Startup / Save.
  * Hiding also re-collapses the evidence panels so a prior "Show Evidence"
  * cannot leave developer chrome visible after Hide Debug or a cold start.
  */
@@ -3314,7 +3314,7 @@ function toggleNodeGraphModuleInterfaceControlsVisibility() {
 }
 
 function toggleNodeGraphKeyboardDebugVisibility() {
-  // Session-only: D / Visibility toggles debug chrome for this visit.
+  // Session-only: Visibility → Debug toggles debug chrome for this visit.
   // Not written to UI settings; refresh / Clear Startup / Save always start hidden
   // (debug and release builds alike).
   nodeGraphMvp.keyboardDebugInfoVisible = !(nodeGraphMvp.keyboardDebugInfoVisible === true);

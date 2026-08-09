@@ -761,6 +761,7 @@
         element.querySelector?.(".node-port")?.classList.remove("port-connection-selected");
       }
       state.portConnectionMode = null;
+      state.portMovePointer = null;
     }
 
     function cancelPortConnectionMode() {
@@ -777,8 +778,45 @@
       if (!mode) {
         return;
       }
-      for (const { endpoint, from } of mode.selected.values()) {
-        const connected = helpers.connectEndpoints(endpoint, targetEndpoint);
+      // Moving existing wires: remove originals first (one commit), then reattach.
+      if (mode.movingWires) {
+        const removes = [];
+        for (const entry of mode.selected.values()) {
+          if (entry.remove && Number.isInteger(entry.remove.index)) {
+            removes.push({ kind: entry.remove.kind || "signal", index: entry.remove.index });
+          }
+          if (Array.isArray(entry.extraRemoves)) {
+            for (const extra of entry.extraRemoves) {
+              if (extra && Number.isInteger(extra.index)) {
+                removes.push({ kind: extra.kind || "signal", index: extra.index });
+              }
+            }
+          }
+        }
+        if (removes.length) {
+          if (typeof disconnectNodeGraphConnections === "function") {
+            disconnectNodeGraphConnections(removes, {
+              status: removes.length === 1 ? "wire moved" : `${removes.length} wires moved`,
+            });
+          } else {
+            const byKind = new Map();
+            for (const entry of removes) {
+              const list = byKind.get(entry.kind) || [];
+              list.push(entry.index);
+              byKind.set(entry.kind, list);
+            }
+            for (const [kind, indices] of byKind) {
+              indices.sort((a, b) => b - a);
+              for (const index of indices) {
+                disconnectNodeGraphConnection(index, kind);
+              }
+            }
+          }
+        }
+      }
+      for (const { endpoint, from, connectOptions } of mode.selected.values()) {
+        const options = connectOptions || {};
+        const connected = helpers.connectEndpoints(endpoint, targetEndpoint, options);
         if (!connected && helpers.endpointsShouldBurst(endpoint, targetEndpoint)) {
           const to = helpers.endpointPoint(targetEndpoint, targetElement);
           animateDestroyedWire(from, to);
@@ -787,8 +825,318 @@
           deps.triggerWireBreak?.("port-click");
         }
       }
+      // Keep a one-shot suppressClick arm if the caller set one (drag-drop),
+      // so the trailing click does not start a new wire.
+      const suppressClick = Boolean(state.portMovePointer?.suppressClick);
       clearPortConnectionMode();
+      if (suppressClick) {
+        state.portMovePointer = { suppressClick: true, active: false, pointerId: null };
+      }
       deps.drawWires();
+    }
+
+    function portsMatch(a, b) {
+      return String(a || "").trim() === String(b || "").trim();
+    }
+
+    function wireListForKind(kind) {
+      if (kind === "modulation") {
+        return Array.isArray(state.modulations)
+          ? state.modulations
+          : (state.patch?.modulations || []);
+      }
+      if (kind === "graph") {
+        return Array.isArray(state.graphConnections)
+          ? state.graphConnections
+          : (state.patch?.graphConnections || []);
+      }
+      return Array.isArray(state.connections)
+        ? state.connections
+        : (state.patch?.connections || []);
+    }
+
+    function wireTouchesEndpoint(kind, wire, endpoint) {
+      if (!wire || !endpoint) {
+        return null;
+      }
+      const node = String(endpoint.node || "");
+      if (endpoint.io === "input" && kind === "signal") {
+        if (
+          String(wire.destinationNode || "") === node &&
+          portsMatch(wire.destinationPort, endpoint.port)
+        ) {
+          return {
+            freeRole: "destination",
+            fixedEndpoint: {
+              io: "output",
+              node: wire.sourceNode,
+              port: wire.sourcePort,
+            },
+          };
+        }
+      }
+      if (endpoint.io === "modulation" && kind === "modulation") {
+        const param = endpoint.param || endpoint.port;
+        if (
+          String(wire.destinationNode || "") === node &&
+          portsMatch(wire.destinationParam, param)
+        ) {
+          return {
+            freeRole: "destination",
+            fixedEndpoint: {
+              io: "output",
+              node: wire.sourceNode,
+              port: wire.sourcePort,
+            },
+          };
+        }
+      }
+      if (endpoint.io === "graph" && kind === "graph") {
+        const graphInput = endpoint.graphInput || endpoint.port;
+        if (
+          String(wire.destinationNode || "") === node &&
+          portsMatch(wire.destinationGraphInput, graphInput)
+        ) {
+          return {
+            freeRole: "destination",
+            fixedEndpoint: {
+              io: "output",
+              node: wire.sourceNode,
+              port: wire.sourcePort,
+            },
+          };
+        }
+      }
+      if (endpoint.io === "output") {
+        if (
+          String(wire.sourceNode || "") === node &&
+          portsMatch(wire.sourcePort, endpoint.port)
+        ) {
+          // Grabbing the source end: free end is the output; fixed is destination.
+          if (kind === "signal") {
+            return {
+              freeRole: "source",
+              fixedEndpoint: {
+                io: "input",
+                node: wire.destinationNode,
+                port: wire.destinationPort,
+              },
+            };
+          }
+          if (kind === "modulation") {
+            return {
+              freeRole: "source",
+              fixedEndpoint: {
+                io: "modulation",
+                node: wire.destinationNode,
+                param: wire.destinationParam,
+                port: wire.destinationParam,
+              },
+            };
+          }
+          if (kind === "graph") {
+            return {
+              freeRole: "source",
+              fixedEndpoint: {
+                io: "graph",
+                node: wire.destinationNode,
+                graphInput: wire.destinationGraphInput,
+                port: wire.destinationGraphInput,
+              },
+            };
+          }
+        }
+      }
+      return null;
+    }
+
+    /**
+     * Selected wires that touch this jack (only those — not every cable on the port).
+     */
+    function selectedWiresAtEndpoint(endpoint) {
+      if (!endpoint) {
+        return [];
+      }
+      const entries = typeof nodeGraphSelectedWireEntries === "function"
+        ? nodeGraphSelectedWireEntries(state.selected)
+        : [];
+      if (!entries.length) {
+        return [];
+      }
+      const results = [];
+      for (const entry of entries) {
+        const kind = entry.kind || "signal";
+        const list = wireListForKind(kind);
+        const wire = list[entry.index];
+        if (!wire) {
+          continue;
+        }
+        const touch = wireTouchesEndpoint(kind, wire, endpoint);
+        if (!touch) {
+          continue;
+        }
+        results.push({
+          kind,
+          index: entry.index,
+          wire,
+          freeRole: touch.freeRole,
+          fixedEndpoint: touch.fixedEndpoint,
+        });
+      }
+      return results;
+    }
+
+    function elementForEndpoint(endpoint) {
+      if (!endpoint) {
+        return null;
+      }
+      if (endpoint.io === "input" || endpoint.io === "output") {
+        if (typeof nodeGraphPortElementForWireEndpoint === "function") {
+          const portEl = nodeGraphPortElementForWireEndpoint(endpoint.node, endpoint.port, endpoint.io);
+          return portEl?.closest?.(".node-io-row") || portEl || null;
+        }
+        return null;
+      }
+      if (endpoint.io === "modulation" && typeof nodeGraphModulationPortSelector === "function") {
+        return document.querySelector(nodeGraphModulationPortSelector(endpoint.node, endpoint.param || endpoint.port));
+      }
+      if (endpoint.io === "graph" && typeof nodeGraphGraphInputPortSelector === "function") {
+        return document.querySelector(
+          nodeGraphGraphInputPortSelector(endpoint.node, endpoint.graphInput || endpoint.port),
+        );
+      }
+      return null;
+    }
+
+    function connectOptionsFromWire(wire) {
+      if (!wire) {
+        return { autoPair: false };
+      }
+      const options = { autoPair: false };
+      if (wire.wireType) {
+        options.wireType = wire.wireType;
+      }
+      if (wire.pixelWire) {
+        options.pixelWire = true;
+      }
+      if (Array.isArray(wire.tracePoints) && wire.tracePoints.length) {
+        options.tracePoints = wire.tracePoints.slice();
+      }
+      return options;
+    }
+
+    function markEndpointSelected(element) {
+      if (!element) {
+        return;
+      }
+      element.classList.add("port-connection-selected");
+      element.querySelector?.(".node-port")?.classList.add("port-connection-selected");
+      if (element.classList.contains("node-port")) {
+        element.classList.add("port-connection-selected");
+      }
+    }
+
+    function fixedEndpointPoint(fixedEndpoint, clientX, clientY) {
+      const element = elementForEndpoint(fixedEndpoint);
+      let from = helpers.endpointPoint(fixedEndpoint, element);
+      if (!from && typeof nodeGraphPortCenter === "function" && (fixedEndpoint.io === "input" || fixedEndpoint.io === "output")) {
+        from = nodeGraphPortCenter(fixedEndpoint.node, fixedEndpoint.port, fixedEndpoint.io);
+      }
+      if (!from && fixedEndpoint.io === "modulation" && typeof nodeGraphModulationPortCenter === "function") {
+        from = nodeGraphModulationPortCenter(fixedEndpoint.node, fixedEndpoint.param || fixedEndpoint.port);
+      }
+      if (!from && fixedEndpoint.io === "graph" && typeof nodeGraphGraphInputPortCenter === "function") {
+        from = nodeGraphGraphInputPortCenter(fixedEndpoint.node, fixedEndpoint.graphInput || fixedEndpoint.port);
+      }
+      if (!from) {
+        from = deps.clientPoint({ clientX, clientY });
+      }
+      return { from, element };
+    }
+
+    /**
+     * Soft-lift only selected wires that attach to this jack.
+     * Cable paths hide while moving; endpoint dots stay (drawn as caps).
+     */
+    function startMoveSelectedWiresAtPort(endpoint, clientX, clientY) {
+      const movable = selectedWiresAtEndpoint(endpoint);
+      if (!movable.length) {
+        return false;
+      }
+
+      state.wireDragging = null;
+
+      // Grabbing destination end → free end seeks a new input (fixed = sources).
+      // Grabbing source end → free end seeks a new output (fixed = destinations).
+      const freeIsDestination = movable[0].freeRole === "destination";
+      const direction = freeIsDestination ? "output" : "input";
+
+      const selected = new Map();
+      const hideWireKeys = [];
+      const fixedCapEndpoints = [];
+
+      for (const entry of movable) {
+        // Only move wires grabbed from the same end type as the first match.
+        if ((entry.freeRole === "destination") !== freeIsDestination) {
+          continue;
+        }
+        hideWireKeys.push(`${entry.kind}:${entry.index}`);
+        const fixed = entry.fixedEndpoint;
+        const fixedKey = endpointKey(fixed);
+        const { from, element } = fixedEndpointPoint(fixed, clientX, clientY);
+        fixedCapEndpoints.push({
+          endpoint: fixed,
+          point: from,
+          kind: entry.kind,
+        });
+        if (selected.has(fixedKey)) {
+          const existing = selected.get(fixedKey);
+          if (!existing.extraRemoves) {
+            existing.extraRemoves = [];
+          }
+          existing.extraRemoves.push({ kind: entry.kind, index: entry.index });
+          continue;
+        }
+        selected.set(fixedKey, {
+          endpoint: fixed,
+          element,
+          from,
+          connectOptions: connectOptionsFromWire(entry.wire),
+          remove: { kind: entry.kind, index: entry.index },
+        });
+        markEndpointSelected(element);
+      }
+
+      if (selected.size === 0) {
+        return false;
+      }
+
+      // Endpoint dots while moving use the color of the jack the user grabbed.
+      let interactColor = null;
+      if (typeof nodeGraphPortWireColor === "function") {
+        const portName = endpoint.port || endpoint.param || endpoint.graphInput || "";
+        interactColor = nodeGraphPortWireColor(endpoint.node, portName, endpoint.io) || null;
+      }
+
+      state.portConnectionMode = {
+        direction,
+        selected,
+        cursorPoint: deps.clientPoint({ clientX, clientY }),
+        movingWires: true,
+        hideWireKeys,
+        // Caps for fixed ends (and original grab port) while cable paths are hidden.
+        fixedCapEndpoints,
+        interactColor,
+        originEndpoint: {
+          io: endpoint.io,
+          node: endpoint.node,
+          port: endpoint.port,
+          param: endpoint.param,
+          graphInput: endpoint.graphInput,
+        },
+      };
+      deps.drawWires();
+      return true;
     }
 
     function handlePortClickFromElement(portElement, clientX, clientY) {
@@ -804,7 +1152,16 @@
         ? (hitboxElement.querySelector(".node-port") || hitboxElement)
         : hitboxElement;
       const mode = state.portConnectionMode;
+
+      // Swallow the synthetic click after a selected-wire drag (drop or cancel)
+      // so we don't also start a brand-new wire on the same gesture.
+      if (state.portMovePointer?.suppressClick) {
+        state.portMovePointer = null;
+        return true;
+      }
+
       if (!mode) {
+        // Normal click-to-start (or multi-select) a new wire from this jack.
         const from = helpers.endpointPoint(endpoint, hitboxElement);
         if (!from) {
           return false;
@@ -924,6 +1281,24 @@
       if (!helpers.pointInEndpointHitbox(endpoint, event.clientX, event.clientY, hitboxElement)) {
         return;
       }
+
+      // Arm selected-wire move: only selected wires that touch THIS port.
+      // Actual lift happens after drag threshold so plain click still starts
+      // a normal new wire.
+      const movable = selectedWiresAtEndpoint(endpoint);
+      if (movable.length > 0 && !state.portConnectionMode) {
+        state.portMovePointer = {
+          pointerId: event.pointerId ?? null,
+          startClientX: event.clientX,
+          startClientY: event.clientY,
+          endpoint,
+          active: false,
+          suppressClick: false,
+        };
+        event.stopPropagation();
+        return;
+      }
+
       const from = helpers.endpointPoint(endpoint, hitboxElement);
       if (!from) {
         return;
@@ -942,6 +1317,44 @@
     }
 
     function handleWireDragMove(event) {
+      const movePtr = state.portMovePointer;
+      if (movePtr) {
+        if (
+          movePtr.pointerId !== null &&
+          event.pointerId !== undefined &&
+          movePtr.pointerId !== event.pointerId
+        ) {
+          // not our pointer
+        } else {
+          const dx = event.clientX - movePtr.startClientX;
+          const dy = event.clientY - movePtr.startClientY;
+          if (!movePtr.active && Math.hypot(dx, dy) >= 4) {
+            // Crossed drag threshold → soft-lift selected wires at this port.
+            if (
+              startMoveSelectedWiresAtPort(
+                movePtr.endpoint,
+                event.clientX,
+                event.clientY,
+              )
+            ) {
+              movePtr.active = true;
+              movePtr.suppressClick = true;
+            } else {
+              // Selection no longer valid; fall back to normal new-wire drag.
+              state.portMovePointer = null;
+            }
+          }
+          if (movePtr?.active && state.portConnectionMode?.movingWires) {
+            state.portConnectionMode.cursorPoint = deps.clientPoint(event);
+            deps.drawWires();
+            return;
+          }
+          if (movePtr && !movePtr.active) {
+            // Still arming — don't start a parallel single-wire drag.
+            return;
+          }
+        }
+      }
       const drag = state.wireDragging;
       if (!drag) {
         return;
@@ -960,6 +1373,42 @@
     }
 
     function handleWireDragEnd(event) {
+      const movePtr = state.portMovePointer;
+      if (movePtr) {
+        if (
+          movePtr.pointerId !== null &&
+          event.pointerId !== undefined &&
+          movePtr.pointerId !== event.pointerId
+        ) {
+          // not our pointer
+        } else if (movePtr.active && state.portConnectionMode?.movingWires) {
+          const target = helpers.patchPointTargetFromPoint(event.clientX, event.clientY);
+          const targetHitbox = target?.closest?.(".node-io-row") || target;
+          const targetEndpoint = targetHitbox ? helpers.endpointFromElement(targetHitbox) : null;
+          // Swallow the trailing click after a real drag-move (drop or cancel).
+          state.portMovePointer = {
+            pointerId: movePtr.pointerId,
+            suppressClick: true,
+            active: false,
+          };
+          if (
+            targetEndpoint &&
+            isCompatibleTarget(state.portConnectionMode, targetEndpoint)
+          ) {
+            commitPortConnectionMode(targetEndpoint, targetHitbox);
+            return;
+          }
+          // Dropped on empty / invalid: cancel move (wires snap back).
+          // Keep suppressClick arm so click does not start a new wire.
+          const suppress = state.portMovePointer;
+          cancelPortConnectionMode();
+          state.portMovePointer = suppress;
+          return;
+        } else if (!movePtr.active) {
+          // Never dragged — clear arm so click can start a normal new wire.
+          state.portMovePointer = null;
+        }
+      }
       const drag = state.wireDragging;
       if (!drag) {
         return;

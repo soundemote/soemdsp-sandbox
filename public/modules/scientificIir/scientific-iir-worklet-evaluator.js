@@ -151,6 +151,10 @@ NodeLiveAudioProcessor.prototype.thereminSample = function thereminSample() {
   return { Out: 0, Pitch: 0, Volume: 0 };
 };
 
+NodeLiveAudioProcessor.prototype.oscSample = function oscSample() {
+  return { Out: 0, X: 0, Y: 0, Gate: 0 };
+};
+
 // UC electro drum voices (silent placeholders)
 NodeLiveAudioProcessor.prototype.electroKickSample = function electroKickSample() {
   return { Out: 0 };

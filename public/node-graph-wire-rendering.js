@@ -428,9 +428,64 @@ function nodeGraphDrawGraphWire(svg, connection, index, context) {
   }
 }
 
+/**
+ * While selected wires are soft-lifted, keep endpoint dots on fixed jacks.
+ * Free-end path is drawn as a temp ghost; dots on modules must stay.
+ * Caps use interactColor (the jack that was grabbed) when provided.
+ */
+function nodeGraphDrawMovingWireFixedCaps(svg, wire, kind = "signal", interactColor = null) {
+  if (typeof nodeGraphWireHelpers?.drawEndpointCap !== "function" || !wire) {
+    return;
+  }
+  const from = nodeGraphPortCenter(wire.sourceNode, wire.sourcePort, "output");
+  const nativeFromColor = nodeGraphPortWireColor(wire.sourceNode, wire.sourcePort, "output");
+  let to = null;
+  let nativeToColor = null;
+  if (kind === "modulation") {
+    to = nodeGraphModulationPortCenter(wire.destinationNode, wire.destinationParam);
+    nativeToColor = nodeGraphPortWireColor(wire.destinationNode, wire.destinationParam, "modulation");
+  } else if (kind === "graph") {
+    to = typeof nodeGraphGraphInputPortCenter === "function"
+      ? nodeGraphGraphInputPortCenter(wire.destinationNode, wire.destinationGraphInput)
+      : null;
+    nativeToColor = nodeGraphPortWireColor(wire.destinationNode, wire.destinationGraphInput, "graph");
+  } else {
+    to = nodeGraphPortCenter(wire.destinationNode, wire.destinationPort, "input");
+    nativeToColor = nodeGraphPortWireColor(wire.destinationNode, wire.destinationPort, "input");
+  }
+  // Prefer the color of the jack the user interacted with for both dots.
+  const fromColor = interactColor || nativeFromColor;
+  const toColor = interactColor || nativeToColor;
+  const paint = fromColor || toColor || null;
+  const capClass = kind === "modulation" || kind === "graph" ? "modulation" : "";
+  // Always keep the fixed-side dots: both ends get caps so neither jack goes
+  // blank while the cable path is hidden (ghost replaces the stroke only).
+  if (nodeGraphWirePointIsFinite(from)) {
+    nodeGraphWireHelpers.drawEndpointCap(svg, from, "from", paint, capClass, {
+      endColor: fromColor,
+    });
+  }
+  if (nodeGraphWirePointIsFinite(to)) {
+    nodeGraphWireHelpers.drawEndpointCap(svg, to, "to", paint, capClass, {
+      endColor: toColor,
+    });
+  }
+}
+
 function nodeGraphDrawTemporaryWire(svg, options) {
-  const { className, endpoint, from, gradientId, to, tracePoints = null } = options;
-  const fromColor = nodeGraphPortWireColor(endpoint.node, endpoint.port, endpoint.io);
+  const {
+    className,
+    endpoint,
+    from,
+    gradientId,
+    to,
+    tracePoints = null,
+    drawCursorCap = false,
+    interactColor = null,
+  } = options;
+  const nativeFromColor = nodeGraphPortWireColor(endpoint.node, endpoint.port, endpoint.io);
+  const fromColor = interactColor || nativeFromColor;
+  const freeColor = interactColor || "rgba(243, 241, 236, 0.9)";
   const stroke = nodeGraphWireHelpers.createGradient(
     svg,
     gradientId,
@@ -439,7 +494,7 @@ function nodeGraphDrawTemporaryWire(svg, options) {
     "node-wire-gradient-stop",
     [
       fromColor,
-      "rgba(243, 241, 236, 0.44)",
+      freeColor,
     ],
   );
   // Cap under stroke (same paint-order rule as permanent wires).
@@ -451,6 +506,13 @@ function nodeGraphDrawTemporaryWire(svg, options) {
       endColor: fromColor,
       gradientId,
     });
+    if (drawCursorCap && nodeGraphWirePointIsFinite(to)) {
+      const freeRole = role === "from" ? "to" : "from";
+      nodeGraphWireHelpers.drawEndpointCap(svg, to, freeRole, stroke, "temp", {
+        endColor: freeColor,
+        gradientId,
+      });
+    }
   }
   const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
   path.setAttribute("class", className);
@@ -525,16 +587,48 @@ function drawNodeGraphWires(options = {}) {
     nodeGraphResetConnectedWireClasses(workspace);
   }
 
+  // Soft-lifted selected wires: hide cable paths (ghosts follow cursor) but keep
+  // endpoint dots on the fixed jacks so ports still look plugged.
+  const moveMode = nodeGraphMvp.portConnectionMode?.movingWires
+    ? nodeGraphMvp.portConnectionMode
+    : null;
+  const hideWireKeys = moveMode && Array.isArray(moveMode.hideWireKeys)
+    ? new Set(moveMode.hideWireKeys)
+    : null;
+
+  const interactColor = moveMode?.interactColor || null;
   const context = { activeNodeIds, feedbackSets, plan, skipHitPath: lite };
   for (const [index, connection] of nodeGraphMvp.connections.entries()) {
+    if (hideWireKeys?.has(`signal:${index}`)) {
+      // Caps only at the fixed end(s) — path is replaced by temp ghosts.
+      nodeGraphDrawMovingWireFixedCaps(svg, connection, "signal", interactColor);
+      if (!lite) {
+        markNodeGraphWireEndpointsConnected(connection);
+      }
+      continue;
+    }
     nodeGraphDrawSignalWire(svg, connection, index, context);
   }
 
   for (const [index, modulation] of nodeGraphMvp.modulations.entries()) {
+    if (hideWireKeys?.has(`modulation:${index}`)) {
+      nodeGraphDrawMovingWireFixedCaps(svg, modulation, "modulation", interactColor);
+      if (!lite) {
+        markNodeGraphWireEndpointsConnected(modulation, "modulation");
+      }
+      continue;
+    }
     nodeGraphDrawModulationWire(svg, modulation, index, context);
   }
 
   for (const [index, graphConnection] of nodeGraphMvp.graphConnections.entries()) {
+    if (hideWireKeys?.has(`graph:${index}`)) {
+      nodeGraphDrawMovingWireFixedCaps(svg, graphConnection, "graph", interactColor);
+      if (!lite) {
+        markNodeGraphWireEndpointsConnected(graphConnection, "graph");
+      }
+      continue;
+    }
     nodeGraphDrawGraphWire(svg, graphConnection, index, context);
   }
 
@@ -553,6 +647,8 @@ function drawNodeGraphWires(options = {}) {
           from,
           gradientId: `node-wire-gradient-ghost-${ghostIndex}`,
           to: mode.cursorPoint,
+          drawCursorCap: Boolean(mode.movingWires),
+          interactColor: mode.movingWires ? (mode.interactColor || null) : null,
         });
         ghostIndex += 1;
       }

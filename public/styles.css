@@ -10113,32 +10113,36 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   pointer-events: none;
 }
 
-/* Hitpoint select snake — thick phosphor dotted trail following the cursor. */
+/* Hitpoint select snake — thick phosphor dotted trail following the cursor.
+   Lives on the zoom surface; path coords are surface layout px (same as modules). */
 .node-selection-hit-trail {
   position: absolute;
-  inset: 0;
-  z-index: 4;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
   width: 100%;
   height: 100%;
   overflow: visible;
-  pointer-events: none;
+  pointer-events: none !important;
 }
 
 .node-selection-hit-trail[hidden] {
-  display: none;
+  display: none !important;
 }
 
 .node-selection-hit-trail-path {
-  fill: none;
-  stroke: var(--accent, #7fc7d9);
-  /* JS sets stroke-width / dasharray in layout px for zoom-stable screen size. */
-  stroke-width: 5;
+  fill: none !important;
+  stroke: var(--accent, #7fc7d9) !important;
+  /* JS overwrites width/dash for zoom-stable screen size. */
+  stroke-width: 6;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-dasharray: 12 10;
-  opacity: 0.92;
-  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent, #7fc7d9) 55%, transparent));
-  pointer-events: none;
+  stroke-dasharray: 14 11;
+  opacity: 0.95;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--accent, #7fc7d9) 65%, transparent));
+  pointer-events: none !important;
 }
 
 .dsp-node {

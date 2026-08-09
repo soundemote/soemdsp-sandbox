@@ -277,8 +277,8 @@ function handleNodeGraphKeydown(event) {
     return;
   }
   // While typing in a text/search field (module search, name boxes, code
-  // editor), bare-key shortcuts must not fire -- e.g. "d" toggling debug while
-  // you search for "led", or Space being stolen for transport. Range/checkbox
+  // editor), bare-key shortcuts must not fire -- e.g. Space stolen for
+  // transport, or single-letter view hotkeys while typing. Range/checkbox
   // focus does not block shortcuts. Modifier combos (Ctrl+Z, etc.) still work.
   if (nodeGraphEventTargetIsTextEditable(event.target) && !event.ctrlKey && !event.metaKey && !event.altKey) {
     return;
@@ -378,10 +378,11 @@ function handleNodeGraphKeydown(event) {
     }
     return;
   }
-  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "d") {
+  // M → condensed draggable modular-only view (chrome hidden; Escape returns).
+  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "m") {
     event.preventDefault();
-    if (typeof toggleNodeGraphKeyboardDebugVisibility === "function") {
-      toggleNodeGraphKeyboardDebugVisibility();
+    if (typeof toggleNodeGraphModularOnlyView === "function") {
+      toggleNodeGraphModularOnlyView();
     }
     return;
   }

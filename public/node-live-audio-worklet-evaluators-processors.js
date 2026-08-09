@@ -350,6 +350,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
       },
       binaryClock: () => this.binaryClockSample(),
       theremin: () => this.thereminSample(),
+      osc: () => this.oscSample(),
       electroKick: () => this.electroKickSample(),
       electroSnare: () => this.electroSnareSample(),
       electroHat: () => this.electroHatSample(),

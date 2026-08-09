@@ -151,6 +151,14 @@ nodeGraphLiveModuleEvaluators.theremin = () => ({
   Volume: 0,
 });
 
+// Under construction: OSC — silent placeholder (Controller shelf)
+nodeGraphLiveModuleEvaluators.osc = () => ({
+  Out: 0,
+  X: 0,
+  Y: 0,
+  Gate: 0,
+});
+
 // Under construction: electro drum voices — silent placeholders (Drum shelf)
 nodeGraphLiveModuleEvaluators.electroKick = () => ({ Out: 0 });
 nodeGraphLiveModuleEvaluators.electroSnare = () => ({ Out: 0 });

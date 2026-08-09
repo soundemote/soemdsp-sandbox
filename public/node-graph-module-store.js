@@ -39,6 +39,8 @@ const nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([
   "binaryClock",
   // Space-controlled pitch object / performance controller — placeholder.
   "theremin",
+  // Open Sound Control I/O bridge (Controller shelf) — placeholder.
+  "osc",
   // Multi-frame wavetable oscillators — placeholders until table engine lands.
   "wavetable2d",
   "wavetable3d",
@@ -1109,6 +1111,13 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "Under construction. Theremin — space-controlled pitch/volume controller (hand / proximity CV planned). Placeholder until the interaction and voice design land.",
     label: "Theremin",
     notes: ["under construction", "theremin", "controller", "proximity", "pitch", "performance"],
+  },
+  osc: {
+    category: "controller",
+    description:
+      "Under construction. OSC — Open Sound Control send/receive bridge (network ports, address paths, float/int/blob CV planned). Placeholder until the protocol and routing UI land.",
+    label: "OSC",
+    notes: ["under construction", "osc", "open sound control", "controller", "network", "midi-alternative", "cv"],
   },
   // --- Analog Filter: character / named circuits ---
   yellowjacketFilter: {
