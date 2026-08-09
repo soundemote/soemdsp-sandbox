@@ -206,12 +206,12 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
 /**
  * Shared phosphor Display Settings order (app-wide, including Lorenz).
  * Faces pick a subset; builders keep this relative order.
- * Size → Blur → Bright → Ghost → Trail → Scale → Pixel density → Dot Budget
+ * Bright → Size → Blur → Ghost → Trail → Scale → Pixel density → Dot Budget
  */
 const nodeGraphPhosphorDisplayFieldOrder = Object.freeze([
+  "dot1Brightness",
   "dot1Size",
   "lineThickness",
-  "dot1Brightness",
   "ghost",
   "trail",
   "scale",

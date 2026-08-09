@@ -109,7 +109,8 @@ function nodeGraphModuleScopeMarkScreenLit(screenElement, strength = 1) {
   }
 }
 
-function drawNodeGraphModuleScopes() {
+function drawNodeGraphModuleScopes(options = {}) {
+  const force = options?.force === true;
   const debug = setNodeGraphModuleScopeDebugPhase("enter", {
     drawAttempts: (Number(nodeGraphModuleScopeState.renderDebug?.drawAttempts) || 0) + 1,
     lastFrameStartMs: nodeGraphModuleScopeNowMs(),
@@ -162,7 +163,9 @@ function drawNodeGraphModuleScopes() {
   }
   nodeGraphModuleScopeState.scopeTracesOffActive = false;
   const scopePaused = nodeGraphModuleScopePaused();
-  if (scopePaused && !nodeGraphModuleScopeHasModelDisplay()) {
+  // force=true (Display Settings → Clear): still run a frame so faces re-ensure
+  // energy GL / cold plate. Individual phosphor draws stay frozen (no deposit).
+  if (scopePaused && !nodeGraphModuleScopeHasModelDisplay() && !force) {
     // Phosphor freeze: hold face pixels, stop decay/deposit, absorb sample cursors
     // so unpause does not stamp a backlog onto the frozen image.
     absorbNodeGraphModuleScopePhosphorDrawCursors();
@@ -214,12 +217,14 @@ function drawNodeGraphModuleScopes() {
   }
   const firstVisibleSlot = visibleItems[0]?.slot;
   flushNodeSliderReadoutUpdates();
-  if (!scopePaused && nodeGraphModuleScopeTraceDisplayFrameUnchanged(visibleItems)) {
+  if (!force && !scopePaused && nodeGraphModuleScopeTraceDisplayFrameUnchanged(visibleItems)) {
     setNodeGraphModuleScopeDebugPhase("trace-unchanged");
     commitNodeGraphModuleScopeRenderMetricsFrame(animationTime);
     return;
   }
-  if (!nodeGraphModuleScopePhosphorFrameReady(firstVisibleSlot)) {
+  // force (Clear) must not wait on the phosphor FPS clock — that dropped
+  // pause-clear rebinds and left faces dark until Stop+Play.
+  if (!force && !nodeGraphModuleScopePhosphorFrameReady(firstVisibleSlot)) {
     setNodeGraphModuleScopeDebugPhase("fps-gate");
     commitNodeGraphModuleScopeRenderMetricsFrame(animationTime);
     scheduleNodeGraphModuleScopeDraw();
@@ -315,7 +320,8 @@ function drawNodeGraphModuleScopes() {
   }
 }
 
-function scheduleNodeGraphModuleScopeDraw() {
+function scheduleNodeGraphModuleScopeDraw(options = {}) {
+  const force = options?.force === true;
   if (!nodeGraphModuleScopeHasDrawableSlots()) {
     return;
   }
@@ -327,7 +333,9 @@ function scheduleNodeGraphModuleScopeDraw() {
     markNodeGraphModuleScopeDebugSkip("traces-off");
     return;
   }
-  if (nodeGraphModuleScopePaused() && !nodeGraphModuleScopeHasModelDisplay()) {
+  // Pause normally only absorbs cursors (hold residual). Force=true after Clear
+  // so energy rebinds and the cold plate sticks even while frozen.
+  if (nodeGraphModuleScopePaused() && !nodeGraphModuleScopeHasModelDisplay() && !force) {
     // Keep cursors current while frozen (no full redraw / no decay).
     absorbNodeGraphModuleScopePhosphorDrawCursors();
     return;
@@ -335,27 +343,47 @@ function scheduleNodeGraphModuleScopeDraw() {
   if (nodeGraphModuleScopeState.drawFrame) {
     const now = (performance.now?.() || Date.now());
     const requestedAt = Number(nodeGraphModuleScopeState.drawFrameRequestedAt) || 0;
-    if (requestedAt > 0 && now - requestedAt > 250) {
+    // force always wins: cancel a pending non-force RAF so Clear is not dropped.
+    const pendingForce = nodeGraphModuleScopeState.drawFrameForce === true;
+    if (force && !pendingForce) {
       window.cancelAnimationFrame(nodeGraphModuleScopeState.drawFrame);
       nodeGraphModuleScopeState.drawFrame = 0;
       nodeGraphModuleScopeState.drawFrameRequestedAt = 0;
+      nodeGraphModuleScopeState.drawFrameForce = false;
+      if (nodeGraphModuleScopeState.drawFrameWatchdog) {
+        window.clearTimeout(nodeGraphModuleScopeState.drawFrameWatchdog);
+        nodeGraphModuleScopeState.drawFrameWatchdog = 0;
+      }
+    } else if (requestedAt > 0 && now - requestedAt > 250) {
+      window.cancelAnimationFrame(nodeGraphModuleScopeState.drawFrame);
+      nodeGraphModuleScopeState.drawFrame = 0;
+      nodeGraphModuleScopeState.drawFrameRequestedAt = 0;
+      nodeGraphModuleScopeState.drawFrameForce = false;
       if (nodeGraphModuleScopeState.drawFrameWatchdog) {
         window.clearTimeout(nodeGraphModuleScopeState.drawFrameWatchdog);
         nodeGraphModuleScopeState.drawFrameWatchdog = 0;
       }
     } else {
+      // Coalesce: if force already pending, keep it; if non-force pending and we
+      // also want force, the branch above already cancelled.
+      if (force) {
+        nodeGraphModuleScopeState.drawFrameForce = true;
+      }
       return;
     }
   }
   setNodeGraphModuleScopeDebugPhase("request-raf");
+  nodeGraphModuleScopeState.drawFrameForce = force;
   const frameId = window.requestAnimationFrame(() => {
     if (nodeGraphModuleScopeState.drawFrameWatchdog) {
       window.clearTimeout(nodeGraphModuleScopeState.drawFrameWatchdog);
       nodeGraphModuleScopeState.drawFrameWatchdog = 0;
     }
+    const frameForce = nodeGraphModuleScopeState.drawFrameForce === true;
     nodeGraphModuleScopeState.drawFrame = 0;
     nodeGraphModuleScopeState.drawFrameRequestedAt = 0;
-    runNodeGraphModuleScopeDrawFrame("raf");
+    nodeGraphModuleScopeState.drawFrameForce = false;
+    runNodeGraphModuleScopeDrawFrame("raf", { force: frameForce });
   });
   nodeGraphModuleScopeState.drawFrame = frameId;
   nodeGraphModuleScopeState.drawFrameRequestedAt = (performance.now?.() || Date.now());
@@ -363,11 +391,13 @@ function scheduleNodeGraphModuleScopeDraw() {
     if (nodeGraphModuleScopeState.drawFrame !== frameId) {
       return;
     }
+    const frameForce = nodeGraphModuleScopeState.drawFrameForce === true;
     window.cancelAnimationFrame(frameId);
     nodeGraphModuleScopeState.drawFrame = 0;
     nodeGraphModuleScopeState.drawFrameRequestedAt = 0;
+    nodeGraphModuleScopeState.drawFrameForce = false;
     nodeGraphModuleScopeState.drawFrameWatchdog = 0;
     setNodeGraphModuleScopeDebugPhase("watchdog");
-    runNodeGraphModuleScopeDrawFrame("watchdog");
+    runNodeGraphModuleScopeDrawFrame("watchdog", { force: frameForce });
   }, 100);
 }

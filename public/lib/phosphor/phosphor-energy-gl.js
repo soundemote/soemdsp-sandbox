@@ -734,6 +734,35 @@
     renderer.lutTexture = null;
     renderer.maskTexture = null;
     renderer.alive = false;
+    renderer.energyActive = false;
+    renderer.quietFrames = 0;
+  }
+
+  /**
+   * Wipe residual energy to black without tearing down GL (keeps face canvas
+   * healthy). Used by Display Settings → Clear, including while paused.
+   */
+  function clearEnergy(renderer) {
+    if (!isRendererLive(renderer)) {
+      return false;
+    }
+    const { gl } = renderer;
+    const w = Math.max(1, renderer.width || 1);
+    const h = Math.max(1, renderer.height || 1);
+    for (const surface of [renderer.read, renderer.write]) {
+      if (!surface?.framebuffer) {
+        continue;
+      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, surface.framebuffer);
+      gl.viewport(0, 0, w, h);
+      gl.clearColor(0, 0, 0, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    // Empty residual: present may skip (caller fills the 2D plate).
+    renderer.energyActive = false;
+    renderer.quietFrames = 0;
+    return true;
   }
 
   /** Append one ribbon quad (6 verts × 5 floats) like scope2d burn. */
@@ -1552,6 +1581,7 @@
 
   global.nodeGraphPhosphorEnergyGlEnsure = ensure;
   global.nodeGraphPhosphorEnergyGlDestroy = destroyRenderer;
+  global.nodeGraphPhosphorEnergyGlClear = clearEnergy;
   global.nodeGraphPhosphorEnergyGlResize = resizeRenderer;
   global.nodeGraphPhosphorEnergyGlSetLutFromPeak = setLutFromPeak;
   global.nodeGraphPhosphorEnergyGlSetLutFromStops = setLutFromStops;

@@ -52,16 +52,51 @@ function renderNodeGraphVisibilityMenuButton() {
   button.removeAttribute("title");
 }
 
+/** Visibility menu mark: white square = on/visible, black square = off/hidden. */
+const nodeGraphVisibilityMarkOn = "⬜";
+const nodeGraphVisibilityMarkOff = "⬛";
+
+/**
+ * Label a Visibility-menu toggle without the words Show/Hide.
+ * @param {HTMLElement|null} button
+ * @param {boolean} enabled  true = visible/on
+ * @param {string} name  short noun phrase ("Grid", "Sliders", …)
+ * @param {{ labelEl?: HTMLElement|null }} [options]
+ */
+function setNodeGraphVisibilityToggleLabel(button, enabled, name, options = {}) {
+  if (!button) {
+    return;
+  }
+  const mark = enabled ? nodeGraphVisibilityMarkOn : nodeGraphVisibilityMarkOff;
+  const label = `${mark} ${name}`;
+  const target = options.labelEl
+    || button.querySelector(":scope > .node-visibility-toggle-label, :scope > span:not(kbd)")
+    || null;
+  if (target && target !== button) {
+    target.textContent = label;
+  } else if (!button.querySelector("kbd")) {
+    button.textContent = label;
+  } else {
+    // Keep sibling <kbd>; rewrite first text-ish span or prepend label span.
+    let span = button.querySelector(":scope > span:not(kbd)");
+    if (!span) {
+      span = document.createElement("span");
+      span.className = "node-visibility-toggle-label";
+      button.insertBefore(span, button.firstChild);
+    }
+    span.textContent = label;
+  }
+  button.setAttribute("aria-pressed", enabled ? "true" : "false");
+  button.setAttribute("aria-label", `${name}, ${enabled ? "visible" : "hidden"}`);
+  button.removeAttribute("title");
+}
+
 function renderNodeGraphGridToggle() {
   const workspace = document.getElementById("nodeGraphWorkspace");
   const button = document.getElementById("nodeGridToggleButton");
   const visible = Boolean(nodeGraphMvp.gridVisible);
   workspace?.classList.toggle("grid-visible", visible);
-  if (button) {
-    button.textContent = visible ? "Hide Grid" : "Show Grid";
-    button.setAttribute("aria-pressed", visible ? "true" : "false");
-    button.removeAttribute("title");
-  }
+  setNodeGraphVisibilityToggleLabel(button, visible, "Grid");
   renderNodeGraphVisibilityMenuButton();
   syncNodeUserUiSettingsViewControls();
 }
@@ -108,16 +143,8 @@ function renderNodeGraphSliderVisibilityToggles() {
   const positionVisible = Boolean(nodeGraphMvp.sliderPositionVisible);
   workspace?.classList.toggle("show-slider-amount", amountVisible);
   workspace?.classList.toggle("hide-slider-position", !positionVisible);
-  if (amountButton) {
-    amountButton.textContent = amountVisible ? "Hide Amount Slider" : "Show Amount Slider";
-    amountButton.setAttribute("aria-pressed", amountVisible ? "true" : "false");
-    amountButton.removeAttribute("title");
-  }
-  if (positionButton) {
-    positionButton.textContent = positionVisible ? "Hide Position Slider" : "Show Position Slider";
-    positionButton.setAttribute("aria-pressed", positionVisible ? "true" : "false");
-    positionButton.removeAttribute("title");
-  }
+  setNodeGraphVisibilityToggleLabel(amountButton, amountVisible, "Amount Slider");
+  setNodeGraphVisibilityToggleLabel(positionButton, positionVisible, "Position Slider");
   renderNodeGraphVisibilityMenuButton();
   syncNodeUserUiSettingsViewControls();
 }
@@ -178,26 +205,10 @@ function renderNodeGraphModuleVisibilityToggles() {
       syncNodeGraphLayoutBNoParamsClass(element, patchNode.type, effectiveUi);
     }
   }
-  if (buttonsButton) {
-    buttonsButton.textContent = buttonsVisible ? "Hide Module Buttons" : "Show Module Buttons";
-    buttonsButton.setAttribute("aria-pressed", buttonsVisible ? "true" : "false");
-    buttonsButton.removeAttribute("title");
-  }
-  if (scopesButton) {
-    scopesButton.textContent = scopesVisible ? "Hide Displays" : "Show Displays";
-    scopesButton.setAttribute("aria-pressed", scopesVisible ? "true" : "false");
-    scopesButton.removeAttribute("title");
-  }
-  if (interfaceControlsButton) {
-    interfaceControlsButton.textContent = interfaceControlsVisible ? "Hide Control Surfaces" : "Show Control Surfaces";
-    interfaceControlsButton.setAttribute("aria-pressed", interfaceControlsVisible ? "true" : "false");
-    interfaceControlsButton.removeAttribute("title");
-  }
-  if (slidersButton) {
-    slidersButton.textContent = slidersVisible ? "Hide Sliders" : "Show Sliders";
-    slidersButton.setAttribute("aria-pressed", slidersVisible ? "true" : "false");
-    slidersButton.removeAttribute("title");
-  }
+  setNodeGraphVisibilityToggleLabel(buttonsButton, buttonsVisible, "Module Buttons");
+  setNodeGraphVisibilityToggleLabel(scopesButton, scopesVisible, "Displays");
+  setNodeGraphVisibilityToggleLabel(interfaceControlsButton, interfaceControlsVisible, "Control Surfaces");
+  setNodeGraphVisibilityToggleLabel(slidersButton, slidersVisible, "Sliders");
   if (!scopesVisible && typeof closeNodeScopeContextMenu === "function") {
     closeNodeScopeContextMenu();
   }
@@ -684,16 +695,7 @@ function renderNodeGraphKeyboardDebugToggle() {
       evidence.setAttribute("aria-pressed", "false");
     }
   }
-  if (button) {
-    const label = button.querySelector("span");
-    if (label) {
-      label.textContent = visible ? "Hide Debug" : "Show Debug";
-    } else {
-      button.textContent = visible ? "Hide Debug" : "Show Debug";
-    }
-    button.setAttribute("aria-pressed", visible ? "true" : "false");
-    button.removeAttribute("title");
-  }
+  setNodeGraphVisibilityToggleLabel(button, visible, "Debug");
   renderNodeGraphVisibilityMenuButton();
 }
 
@@ -713,15 +715,7 @@ function hideNodeGraphDebugChrome() {
       evidence.setAttribute("aria-pressed", "false");
     }
     const button = document.getElementById("nodeKeyboardDebugToggleButton");
-    if (button) {
-      const label = button.querySelector("span");
-      if (label) {
-        label.textContent = "Show Debug";
-      } else {
-        button.textContent = "Show Debug";
-      }
-      button.setAttribute("aria-pressed", "false");
-    }
+    setNodeGraphVisibilityToggleLabel(button, false, "Debug");
   }
 }
 

@@ -84,13 +84,52 @@ function nodeGraphModuleFrameEdgeSegments(y0, y1, gaps) {
 }
 
 /**
+ * Layout offset of `el` inside `ancestor` (unzoomed CSS px).
+ * Prefer offset chain over getBoundingClientRect so CSS `zoom` does not
+ * inject subpixel noise into frame gaps (that made selection strokes jitter).
+ */
+function nodeGraphModuleFrameLayoutBoxInNode(el, ancestor) {
+  if (!el || !ancestor) {
+    return null;
+  }
+  let x = 0;
+  let y = 0;
+  let cur = el;
+  // Walk offsetParent while staying under the module. Absolute ports still
+  // report offsetLeft/Top relative to their offset parent.
+  while (cur && cur !== ancestor) {
+    x += cur.offsetLeft || 0;
+    y += cur.offsetTop || 0;
+    const parent = cur.offsetParent;
+    if (!parent || parent === cur) {
+      return null;
+    }
+    // offsetParent can jump past intermediate wrappers; if it left the node,
+    // fall back to client rects.
+    if (parent !== ancestor && !ancestor.contains(parent)) {
+      return null;
+    }
+    cur = parent;
+  }
+  if (cur !== ancestor) {
+    return null;
+  }
+  const w = el.offsetWidth || 0;
+  const h = el.offsetHeight || 0;
+  if (w < 0.5 || h < 0.5) {
+    return null;
+  }
+  return { x, y, w, h, cy: y + h * 0.5 };
+}
+
+/**
  * Vertical half-extent of the *visible* jack (crescent), not the full hit-box.
  * Param ports use a tall hit row but a scaled ::before half-disk; gaps must
  * hug that crescent so the module-edge stroke still runs between jacks.
+ * Returns layout CSS px (not screen px) so CSS zoom does not rescale gaps.
  */
-function nodeGraphModuleFramePortVisualHalfPx(port, nodeElement) {
-  const pr = port.getBoundingClientRect();
-  const hitHalf = Math.max(0.5, pr.height * 0.5);
+function nodeGraphModuleFramePortVisualHalfPx(port, nodeElement, layoutBox = null) {
+  const hitHalf = Math.max(0.5, (layoutBox?.h || port.offsetHeight || 0) * 0.5);
   if (!port.classList.contains("node-param-port")) {
     // Signal ports: element size is already the half-disk.
     return hitHalf;
@@ -100,30 +139,27 @@ function nodeGraphModuleFramePortVisualHalfPx(port, nodeElement) {
   const cs = getComputedStyle(nodeElement);
   const area = Number.parseFloat(cs.getPropertyValue("--node-port-area-size"))
     || Number.parseFloat(cs.getPropertyValue("--node-grid-height"))
-    || pr.height;
+    || hitHalf * 2;
   const ratio = Number.parseFloat(cs.getPropertyValue("--node-port-size-ratio"));
   const sizeRatio = Number.isFinite(ratio) && ratio > 0.05 && ratio <= 1 ? ratio : 0.57;
   const visualDiameter = Math.max(2, area * sizeRatio);
-  // Screen px: area is CSS px (layout); hit box may be zoomed via transform.
-  // Scale visual diameter by the same zoom as the hit rect.
-  const layoutH = port.offsetHeight || area;
-  const zoom = layoutH > 0.5 ? pr.height / layoutH : 1;
-  return Math.max(1, (visualDiameter * 0.5) * zoom);
+  return Math.max(1, visualDiameter * 0.5);
 }
 
 function nodeGraphModuleFrameCollectGaps(nodeElement, width, height, nodeRect) {
   const left = [];
   const right = [];
-  if (!nodeElement || width < 2 || height < 2 || !nodeRect?.width) {
+  if (!nodeElement || width < 2 || height < 2) {
     return { left, right };
   }
-  const scaleY = height / nodeRect.height;
   // Clear the jack diameter (+ a little) so the frame stroke never crosses
   // the wire→inlet join (a dark hairline between wire end and half-jack).
   const pad = 1.5;
   const ports = nodeElement.querySelectorAll(
     ".node-port.input, .node-port.output, .node-param-port.modulation-input, .node-param-port.graph-input, .node-param-port.parameter-output, .node-io-proxy-port.input, .node-io-proxy-port.output",
   );
+  // Fallback only: screen→layout scale if offset chain fails (rare).
+  const scaleY = nodeRect?.height > 0.5 ? height / nodeRect.height : 1;
   for (const port of ports) {
     if (!port.isConnected || port.offsetParent === null) {
       // Hidden (io-hidden, display:none, etc.)
@@ -133,13 +169,26 @@ function nodeGraphModuleFrameCollectGaps(nodeElement, width, height, nodeRect) {
     if (style.display === "none" || style.visibility === "hidden") {
       continue;
     }
-    const pr = port.getBoundingClientRect();
-    if (pr.width < 0.5 || pr.height < 0.5) {
+    let cy;
+    let half;
+    const box = nodeGraphModuleFrameLayoutBoxInNode(port, nodeElement);
+    if (box) {
+      cy = box.cy;
+      half = nodeGraphModuleFramePortVisualHalfPx(port, nodeElement, box) + pad;
+    } else if (nodeRect?.width) {
+      const pr = port.getBoundingClientRect();
+      if (pr.width < 0.5 || pr.height < 0.5) {
+        continue;
+      }
+      // Screen → layout for center; half-size is already layout CSS px.
+      cy = ((pr.top + pr.height * 0.5) - nodeRect.top) * scaleY;
+      half = nodeGraphModuleFramePortVisualHalfPx(port, nodeElement) + pad;
+    } else {
       continue;
     }
-    const cy = ((pr.top + pr.height * 0.5) - nodeRect.top) * scaleY;
-    const halfPx = nodeGraphModuleFramePortVisualHalfPx(port, nodeElement);
-    const half = halfPx * scaleY + pad;
+    // Snap to 0.25 layout px — kills subpixel fingerprint thrash / stroke jitter.
+    cy = Math.round(cy * 4) / 4;
+    half = Math.round(half * 4) / 4;
     const isOutput = port.classList.contains("output")
       || port.classList.contains("parameter-output");
     if (isOutput) {
@@ -151,61 +200,72 @@ function nodeGraphModuleFrameCollectGaps(nodeElement, width, height, nodeRect) {
   return { left, right };
 }
 
+/**
+ * Build the gapped frame path on the module's layout box (0…width × 0…height).
+ * Stroke is centered on this path (half in / half out of the plate) so the
+ * geometric edge of the module is always the stroke centerline — at every
+ * workspace zoom (stroke-width is CSS-inverted; path geometry is not).
+ */
 function nodeGraphModuleFrameBuildPath(width, height, radius, leftGaps, rightGaps) {
-  const w = Math.max(1, width);
-  const h = Math.max(1, height);
-  const r = Math.max(0, Math.min(radius, w * 0.5, h * 0.5));
+  // Integer layout box — matches clientWidth/Height used for the SVG viewBox.
+  const w = Math.max(1, Math.round(Number(width) || 0));
+  const h = Math.max(1, Math.round(Number(height) || 0));
+  const r = Math.max(0, Math.min(Number(radius) || 0, w * 0.5, h * 0.5));
   const edgeTop = r;
   const edgeBottom = h - r;
   let d = "";
+  // One decimal is enough; avoid float dust that walks the edge under zoom.
+  const f = (n) => {
+    const v = Math.round(Number(n) * 10) / 10;
+    return Number.isInteger(v) ? String(v) : v.toFixed(1);
+  };
 
-  // Top edge + top-right corner
-  d += `M ${r.toFixed(2)} 0`;
-  d += ` L ${(w - r).toFixed(2)} 0`;
+  // Top edge + top-right corner (path sits on the plate edge).
+  d += `M ${f(r)} 0`;
+  d += ` L ${f(w - r)} 0`;
   if (r > 0.01) {
-    d += ` A ${r.toFixed(2)} ${r.toFixed(2)} 0 0 1 ${w.toFixed(2)} ${r.toFixed(2)}`;
+    d += ` A ${f(r)} ${f(r)} 0 0 1 ${f(w)} ${f(r)}`;
   }
 
   // Right edge (top → bottom), gapped at output jacks
   for (const [y0, y1] of nodeGraphModuleFrameEdgeSegments(edgeTop, edgeBottom, rightGaps)) {
-    d += ` M ${w.toFixed(2)} ${y0.toFixed(2)} L ${w.toFixed(2)} ${y1.toFixed(2)}`;
+    d += ` M ${f(w)} ${f(y0)} L ${f(w)} ${f(y1)}`;
   }
 
   // Bottom-right corner + bottom edge + bottom-left corner
-  d += ` M ${w.toFixed(2)} ${(h - r).toFixed(2)}`;
+  d += ` M ${f(w)} ${f(h - r)}`;
   if (r > 0.01) {
-    d += ` A ${r.toFixed(2)} ${r.toFixed(2)} 0 0 1 ${(w - r).toFixed(2)} ${h.toFixed(2)}`;
+    d += ` A ${f(r)} ${f(r)} 0 0 1 ${f(w - r)} ${f(h)}`;
   }
-  d += ` L ${r.toFixed(2)} ${h.toFixed(2)}`;
+  d += ` L ${f(r)} ${f(h)}`;
   if (r > 0.01) {
-    d += ` A ${r.toFixed(2)} ${r.toFixed(2)} 0 0 1 0 ${(h - r).toFixed(2)}`;
+    d += ` A ${f(r)} ${f(r)} 0 0 1 0 ${f(h - r)}`;
   }
 
-  // Left edge (bottom → top segments still drawn as top→bottom pairs)
+  // Left edge
   for (const [y0, y1] of nodeGraphModuleFrameEdgeSegments(edgeTop, edgeBottom, leftGaps)) {
-    d += ` M 0 ${y0.toFixed(2)} L 0 ${y1.toFixed(2)}`;
+    d += ` M 0 ${f(y0)} L 0 ${f(y1)}`;
   }
 
   // Top-left corner
-  d += ` M 0 ${r.toFixed(2)}`;
+  d += ` M 0 ${f(r)}`;
   if (r > 0.01) {
-    d += ` A ${r.toFixed(2)} ${r.toFixed(2)} 0 0 1 ${r.toFixed(2)} 0`;
+    d += ` A ${f(r)} ${f(r)} 0 0 1 ${f(r)} 0`;
   }
 
   return d;
 }
 
 function nodeGraphModuleFrameRadiusPx(nodeElement) {
-  // Stroke corner radius is independent of the module plate (which stays square).
-  // Prefer --node-module-frame-radius so the outline can stay rounded at all zooms
-  // while .dsp-node border-radius remains 0 (sharp front plate).
+  // Stroke-only rounding: path corners use --node-module-frame-radius.
+  // The plate fill stays square (border-radius / roundness-ratio separate).
   const cs = getComputedStyle(nodeElement);
   const frameRaw = cs.getPropertyValue("--node-module-frame-radius").trim();
   const frameN = Number.parseFloat(frameRaw);
   if (Number.isFinite(frameN) && frameN > 0) {
     return frameN;
   }
-  // Fallback: computed border-radius (UI Dev module roundness / legacy).
+  // Fallback: plate border-radius when frame radius is unset/0.
   const raw = cs.borderRadius;
   const first = String(raw || "").split(/\s+/)[0];
   const n = Number.parseFloat(first);
@@ -277,6 +337,7 @@ function updateNodeGraphModuleFrame(nodeElement) {
   if (w < 2 || h < 2) {
     return;
   }
+  // Layout offsets first; getBoundingClientRect only if offset chain fails.
   const nodeRect = nodeElement.getBoundingClientRect();
   const { left, right } = nodeGraphModuleFrameCollectGaps(nodeElement, w, h, nodeRect);
   const radius = nodeGraphModuleFrameRadiusPx(nodeElement);
@@ -284,8 +345,8 @@ function updateNodeGraphModuleFrame(nodeElement) {
     w,
     h,
     radius.toFixed(2),
-    left.map((g) => `${g.cy.toFixed(1)}:${g.half.toFixed(1)}`).join(","),
-    right.map((g) => `${g.cy.toFixed(1)}:${g.half.toFixed(1)}`).join(","),
+    left.map((g) => `${g.cy.toFixed(2)}:${g.half.toFixed(2)}`).join(","),
+    right.map((g) => `${g.cy.toFixed(2)}:${g.half.toFixed(2)}`).join(","),
   ].join("|");
   if (nodeElement.dataset.moduleFrameFp === fingerprint) {
     return;
@@ -303,9 +364,14 @@ function updateNodeGraphModuleFrame(nodeElement) {
   svg.style.visibility = "";
   svg.style.opacity = "";
   path.removeAttribute("stroke");
-  svg.setAttribute("width", String(w));
-  svg.setAttribute("height", String(h));
+  // CSS sizes the SVG to the plate (inset:0; width/height 100%). viewBox maps
+  // path 0…w×0…h onto that box 1:1 — do not also set width/height attributes
+  // (those fight fractional CSS boxes under zoom and walk the stroke off-edge).
+  svg.removeAttribute("width");
+  svg.removeAttribute("height");
   svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  svg.setAttribute("preserveAspectRatio", "none");
+  // Path on the true plate edge; stroke-width stays 1 screen px via CSS invert.
   path.setAttribute("d", nodeGraphModuleFrameBuildPath(w, h, radius, left, right));
 }
 

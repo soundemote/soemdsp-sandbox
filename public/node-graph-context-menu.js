@@ -1449,61 +1449,42 @@ function configureNodeSceneContextMenu(mode) {
         ? `Open the reference library this module is based on (${nativeLibEntry.libUrl}).`
         : "No third-party reference library for this module.";
     }
+    // Visibility marks: ⬜ = visible/on, ⬛ = hidden/off (no Show/Hide words).
+    const visOn = typeof nodeGraphVisibilityMarkOn === "string" ? nodeGraphVisibilityMarkOn : "⬜";
+    const visOff = typeof nodeGraphVisibilityMarkOff === "string" ? nodeGraphVisibilityMarkOff : "⬛";
+    const setVisLines = (button, hidden, name) => {
+      if (!button) {
+        return;
+      }
+      setNodeGraphSceneContextButtonLines(button, hidden ? visOff : visOn, name);
+      button.setAttribute("aria-pressed", hidden ? "true" : "false");
+      button.setAttribute("aria-label", `${name}, ${hidden ? "hidden" : "visible"}`);
+    };
     toggleButtonsButton.disabled = !targetNode;
-    setNodeGraphSceneContextButtonLines(
-      toggleButtonsButton,
-      buttonsHidden ? "Show" : "Hide",
-      "Buttons",
-    );
-    toggleButtonsButton.setAttribute("aria-pressed", buttonsHidden ? "true" : "false");
+    setVisLines(toggleButtonsButton, buttonsHidden, "Buttons");
     toggleButtonsButton.title = nodeGraphTooltipText(buttonsHidden ? "actions.showModuleButtons" : "actions.hideModuleButtons");
     toggleOscilloscopeButton.disabled = !targetNode || !targetSupportsDisplayHeight;
-    setNodeGraphSceneContextButtonLines(
-      toggleOscilloscopeButton,
-      oscilloscopeHidden ? "Show" : "Hide",
-      visualFaceLabel || "Display",
-    );
-    toggleOscilloscopeButton.setAttribute("aria-pressed", oscilloscopeHidden ? "true" : "false");
+    setVisLines(toggleOscilloscopeButton, oscilloscopeHidden, visualFaceLabel || "Display");
     toggleOscilloscopeButton.title = oscilloscopeHidden
       ? `Show this module's built-in ${visualFaceLabel}.`
       : `Hide this module's built-in ${visualFaceLabel}.`;
     toggleInterfaceControlsButton.disabled = !targetNode || !nodeGraphModuleTypeHasInterfaceControls(targetNode.type);
-    setNodeGraphSceneContextButtonLines(
-      toggleInterfaceControlsButton,
-      interfaceControlsHidden ? "Show" : "Hide",
-      "Control surface",
-    );
-    toggleInterfaceControlsButton.setAttribute("aria-pressed", interfaceControlsHidden ? "true" : "false");
+    setVisLines(toggleInterfaceControlsButton, interfaceControlsHidden, "Control surface");
     toggleInterfaceControlsButton.title = interfaceControlsHidden
       ? "Show this module's control surface."
       : "Hide this module's control surface.";
     toggleSlidersButton.disabled = !targetNode || !nodeGraphModuleTypeHasHideableSliders(targetNode.type);
-    setNodeGraphSceneContextButtonLines(
-      toggleSlidersButton,
-      slidersHidden ? "Show" : "Hide",
-      "Sliders",
-    );
-    toggleSlidersButton.setAttribute("aria-pressed", slidersHidden ? "true" : "false");
+    setVisLines(toggleSlidersButton, slidersHidden, "Sliders");
     toggleSlidersButton.title = slidersHidden
       ? "Show this module's parameter sliders."
       : "Hide this module's parameter sliders.";
     toggleIoButton.disabled = !targetNode;
-    setNodeGraphSceneContextButtonLines(
-      toggleIoButton,
-      ioHidden ? "Show" : "Hide",
-      "In/Out",
-    );
-    toggleIoButton.setAttribute("aria-pressed", ioHidden ? "true" : "false");
+    setVisLines(toggleIoButton, ioHidden, "In/Out");
     toggleIoButton.title = ioHidden
       ? "Show this module's input and output ports."
       : "Hide this module's input and output ports.";
     toggleTitleButton.disabled = !targetNode;
-    setNodeGraphSceneContextButtonLines(
-      toggleTitleButton,
-      titleHidden ? "Show" : "Hide",
-      "Title",
-    );
-    toggleTitleButton.setAttribute("aria-pressed", titleHidden ? "true" : "false");
+    setVisLines(toggleTitleButton, titleHidden, "Title");
     toggleTitleButton.title = nodeGraphTooltipText(titleHidden ? "actions.showModuleTitle" : "actions.hideModuleTitle");
     if (targetNode?.type === "image") {
       const imageLayout = normalizeNodeGraphImageLayout(targetNode.layout);

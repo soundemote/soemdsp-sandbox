@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>soemdsp-sandbox</title>
-  <link rel="stylesheet" href="./public/styles.css?v=css-cleanup-2">
+  <link rel="stylesheet" href="./public/styles.css?v=module-stroke-round-1">
   <link rel="stylesheet" href="./public/modules/stepGrid/step-grid.css?v=stepgrid-own-folder-20260715">
   <link rel="stylesheet" href="./public/modules/pitchQuantizer/pitch-quantizer-ui.css?v=chord-pad-1">
   <link rel="stylesheet" href="./public/modules/chordPad/chord-pad-ui.css?v=chord-pad-1">
@@ -288,15 +288,15 @@
             <button id="nodeTooltipToggleButton" type="button" role="menuitem" aria-pressed="false" data-tooltip-mode="off">
               <span class="node-tooltip-mode-label">Tooltips off</span>
             </button>
-            <button id="nodeGridToggleButton" type="button" role="menuitem" aria-pressed="false">Show Grid</button>
+            <button id="nodeGridToggleButton" type="button" role="menuitem" aria-pressed="false">⬜ Grid</button>
             <button id="nodeWiresAboveModulesToggleButton" type="button" role="menuitem" aria-pressed="false">Wires Above Modules</button>
-            <button id="nodeModuleButtonsToggleButton" type="button" role="menuitem" aria-pressed="false">Show Module Buttons</button>
-            <button id="nodeOscilloscopeToggleButton" type="button" role="menuitem" aria-pressed="false">Show Displays</button>
-            <button id="nodeModuleInterfaceControlsToggleButton" type="button" role="menuitem" aria-pressed="true">Hide Control Surfaces</button>
-            <button id="nodeModuleSlidersToggleButton" type="button" role="menuitem" aria-pressed="true">Hide Sliders</button>
-            <button id="nodeSliderAmountToggleButton" type="button" role="menuitem" aria-pressed="false">Show Amount Slider</button>
-            <button id="nodeSliderPositionToggleButton" type="button" role="menuitem" aria-pressed="true">Hide Position Slider</button>
-            <button id="nodeKeyboardDebugToggleButton" type="button" role="menuitem" aria-pressed="false"><span>Show Debug</span><kbd>D</kbd></button>
+            <button id="nodeModuleButtonsToggleButton" type="button" role="menuitem" aria-pressed="false">⬜ Module Buttons</button>
+            <button id="nodeOscilloscopeToggleButton" type="button" role="menuitem" aria-pressed="false">⬜ Displays</button>
+            <button id="nodeModuleInterfaceControlsToggleButton" type="button" role="menuitem" aria-pressed="true">⬛ Control Surfaces</button>
+            <button id="nodeModuleSlidersToggleButton" type="button" role="menuitem" aria-pressed="true">⬛ Sliders</button>
+            <button id="nodeSliderAmountToggleButton" type="button" role="menuitem" aria-pressed="false">⬜ Amount Slider</button>
+            <button id="nodeSliderPositionToggleButton" type="button" role="menuitem" aria-pressed="true">⬛ Position Slider</button>
+            <button id="nodeKeyboardDebugToggleButton" type="button" role="menuitem" aria-pressed="false"><span>⬛ Debug</span><kbd>D</kbd></button>
           </div>
           <button
             id="nodeVisibilityMenuResizeHandle"
@@ -2126,30 +2126,30 @@
           </button>
         </div>
         <div id="nodeSceneModuleVisibilitySection" class="scene-context-module-section" hidden>
-          <div class="scene-context-module-section-title">Show / Hide</div>
+          <div class="scene-context-module-section-title">Visibility</div>
           <div id="nodeSceneModuleVisibilityActionGroup" class="scene-context-visibility-stack" role="group" aria-label="Module visibility">
             <div class="scene-context-button-group scene-context-button-group-2" role="group" aria-label="Display and title">
               <button id="nodeSceneToggleOscilloscope" type="button" role="menuitem" hidden>
-                <span class="scene-context-button-lines"><span>Hide</span><span>Display</span></span>
+                <span class="scene-context-button-lines"><span>⬜</span><span>Display</span></span>
               </button>
               <button id="nodeSceneToggleTitle" type="button" role="menuitem" hidden>
-                <span class="scene-context-button-lines"><span>Hide</span><span>Title</span></span>
+                <span class="scene-context-button-lines"><span>⬜</span><span>Title</span></span>
               </button>
             </div>
             <div class="scene-context-button-group scene-context-button-group-3" role="group" aria-label="Chrome">
               <button id="nodeSceneToggleButtons" type="button" role="menuitem" hidden>
-                <span class="scene-context-button-lines"><span>Hide</span><span>Buttons</span></span>
+                <span class="scene-context-button-lines"><span>⬜</span><span>Buttons</span></span>
               </button>
               <button id="nodeSceneToggleIo" type="button" role="menuitem" hidden>
-                <span class="scene-context-button-lines"><span>Hide</span><span>In/Out</span></span>
+                <span class="scene-context-button-lines"><span>⬜</span><span>In/Out</span></span>
               </button>
               <button id="nodeSceneToggleSliders" type="button" role="menuitem" hidden>
-                <span class="scene-context-button-lines"><span>Hide</span><span>Sliders</span></span>
+                <span class="scene-context-button-lines"><span>⬜</span><span>Sliders</span></span>
               </button>
             </div>
             <div class="scene-context-button-group scene-context-button-group-1" role="group" aria-label="Control surface">
               <button id="nodeSceneToggleInterfaceControls" type="button" role="menuitem" hidden>
-                <span class="scene-context-button-lines"><span>Hide</span><span>Control surface</span></span>
+                <span class="scene-context-button-lines"><span>⬜</span><span>Control surface</span></span>
               </button>
             </div>
           </div>
@@ -2187,7 +2187,6 @@
               </button>
               <button id="nodeSceneToggleStandaloneMidiKeyboard" class="scene-context-window-button" type="button" aria-label="Show Keyboard" aria-pressed="false">
                 <span class="scene-context-window-button-icon" aria-hidden="true">🎹</span>
-                <kbd>K</kbd>
               </button>
             </div>
             <div
@@ -3724,7 +3723,7 @@
   <script src="./public/node-graph-settings-text-fit.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-default-preset.js?v=embed-config-20260701"></script>
   <script src="./public/node-graph-script-status.js?v=slider-unit-color-1780307400000"></script>
-  <script src="./public/node-graph-view-controls.js?v=tooltips-labels-1"></script>
+  <script src="./public/node-graph-view-controls.js?v=vis-emoji-1"></script>
   <script src="./public/node-graph-workspace-geometry.js?v=zoom-max-100"></script>
   <script src="./public/node-graph-viewport-perf.js?v=zoom-max-100"></script>
   <script src="./public/node-graph-workspace-zoom.js?v=zoom-reset-center-1"></script>
@@ -3732,18 +3731,18 @@
   <script src="./public/node-graph-camera-view.js?v=utility-camera-feed-1780810000000"></script>
   <script src="./public/node-graph-marquee-selection.js?v=title-blur-on-marquee-20260707"></script>
   <script src="./public/node-graph-node-dragging.js?v=layout-edit-light-1"></script>
-  <script src="./public/node-graph-context-menu.js?v=module-show-hide-1"></script>
+  <script src="./public/node-graph-context-menu.js?v=vis-emoji-1"></script>
   <script src="./public/node-graph-module-actions.js?v=vis-override-1"></script>
   <!-- node-graph-code-screen.js loaded by node-graph-code-screen-loader.js on demand -->
-  <script src="./public/lib/phosphor/phosphor-residual.js?v=bright-deposit-1"></script>
-  <script src="./public/lib/phosphor/phosphor-energy-gl.js?v=bright-deposit-1"></script>
+  <script src="./public/lib/phosphor/phosphor-residual.js?v=clear-pause-bright-1"></script>
+  <script src="./public/lib/phosphor/phosphor-energy-gl.js?v=clear-pause-bright-1"></script>
   <script src="./public/lib/phosphor/phosphor-drawer.js?v=bright-deposit-1"></script>
-  <script src="./public/node-graph-phosphor-energy-gl.js?v=bright-deposit-1"></script>
+  <script src="./public/node-graph-phosphor-energy-gl.js?v=clear-pause-bright-1"></script>
   <script src="./public/lib/trace/trace-stroke.js?v=size-1px-0"></script>
   <script src="./public/node-graph-phosphor-gaussian-drawer.js?v=gaussian-beam-continuous-1"></script>
   <script type="module" src="./public/color-widget-boot.js?v=hue-spectrum-ssot-1"></script>
   <script src="./public/modules/spectrogram/spectrogram-gradient-editor.js?v=css-cleanup-1"></script>
-  <script src="./public/node-graph-module-scope-defaults.js?v=phosphor-packing-row-1"></script>
+  <script src="./public/node-graph-module-scope-defaults.js?v=phosphor-defaults-1"></script>
   <script src="./public/node-graph-module-scope-normalize.js?v=packing-toggle-1"></script>
   <script src="./public/node-graph-module-scope-display-mode.js?v=one-face-1"></script>
   <script src="./public/node-graph-module-scope-phosphor.js?v=scope-phosphor-1"></script>
@@ -3759,9 +3758,9 @@
   <script src="./public/node-graph-module-scope-capture.js?v=fuse-pack-1"></script>
   <script src="./public/node-graph-module-scope-number-readout.js?v=nr-hue-bright-1"></script>
   <script src="./public/node-graph-module-scope-draw-basic.js?v=0d-value-raf-1"></script>
-  <script src="./public/node-graph-module-scope-draw-burn.js?v=bright-deposit-1"></script>
-  <script src="./public/node-graph-module-scopes.js?v=scope-sync-lock-1"></script>
-  <script src="./public/node-graph-module-scope-spectrum.js?v=knob-arc-geom-1"></script>
+  <script src="./public/node-graph-module-scope-draw-burn.js?v=phosphor-defaults-1"></script>
+  <script src="./public/node-graph-module-scopes.js?v=clear-pause-bright-1"></script>
+  <script src="./public/node-graph-module-scope-spectrum.js?v=clear-pause-bright-1"></script>
   <script src="./public/node-graph-module-scope-buffer-io.js?v=scope-buffer-io-1"></script>
   <script src="./public/node-graph-module-scope-sync.js?v=scope-sync-lock-1"></script>
   <script src="./public/node-graph-module-scope-metrics.js?v=scope-metrics-1"></script>
@@ -3775,14 +3774,14 @@
   <script src="./public/node-graph-module-scope-monitors.js?v=scope-monitors-1"></script>
   <script src="./public/node-graph-module-scope-scene-controls.js?v=drag-reanchor-1"></script>
   <script src="./public/node-graph-module-scope-shader-settings.js?v=scope-shader-settings-1"></script>
-  <script src="./public/node-graph-module-scope-trace-controls.js?v=latch-packing-1"></script>
-  <script src="./public/node-graph-module-scope-wipe.js?v=latch-packing-1"></script>
+  <script src="./public/node-graph-module-scope-trace-controls.js?v=clear-pause-bright-1"></script>
+  <script src="./public/node-graph-module-scope-wipe.js?v=clear-pause-bright-1"></script>
   <script src="./public/node-graph-module-scope-graph-query.js?v=scope-graph-query-1"></script>
   <script src="./public/node-graph-module-scope-settings.js?v=scope-settings-1"></script>
   <script src="./public/node-graph-module-scope-lifecycle.js?v=scope-lifecycle-1"></script>
   <script src="./public/node-graph-module-scope-canvas.js?v=scope-canvas-1"></script>
-  <script src="./public/node-graph-module-scope-paint-helpers.js?v=packing-toggle-1"></script>
-  <script src="./public/node-graph-module-scope-draw-orchestrator.js?v=macro-knob-layout-2"></script>
+  <script src="./public/node-graph-module-scope-paint-helpers.js?v=clear-pause-bright-1"></script>
+  <script src="./public/node-graph-module-scope-draw-orchestrator.js?v=clear-pause-bright-1"></script>
   <script src="./public/modules/phosphorLight/phosphor-light-display.js?v=alias-only-1"></script>
   <script src="./public/modules/oscilloscopeBank/oscilloscope-bank-display.js?v=room-dimmer-full-ui-90-1"></script>
   <script src="./public/modules/videoscope/videoscope-display.js?v=room-dimmer-full-ui-90-1"></script>
@@ -3817,7 +3816,7 @@
   <script src="./public/modules/groupOutput/group-output-ui.js?v=chromeless-portals-1"></script>
   <script src="./public/node-graph-module-header-rendering.js?v=speed-limit-runtime-only-1"></script>
   <script src="./public/node-graph-module-rendering.js?v=vis-override-1"></script>
-  <script src="./public/node-graph-module-frame.js?v=frame-round-stroke-1"></script>
+  <script src="./public/node-graph-module-frame.js?v=module-stroke-round-1"></script>
   <script src="./public/node-graph-history.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-visual-utils.js?v=shared-canvas-sizing-20260725"></script>
   <script src="./public/node-graph-patch-clone.js?v=vis-override-1"></script>
@@ -3862,7 +3861,7 @@
   <script src="./public/node-graph-ui-settings-panels.js?v=expose-empty-1"></script>
   <script src="./public/node-graph-ui-settings-persistence.js?v=debug-off-default-2"></script>
   <script src="./public/node-graph-ui-settings-sync.js?v=module-square-corners-1"></script>
-  <script src="./public/node-graph-keyboard-shortcuts.js?v=hotkeys-no-tvm-1"></script>
+  <script src="./public/node-graph-keyboard-shortcuts.js?v=no-hotkey-k-1"></script>
   <script src="./public/node-graph-live-status-text.js?v=live-plan-preserve-20260634"></script>
   <script src="./public/node-graph-live-status-controls.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-live-meter-controls.js?v=audio-overrun-meter-2"></script>

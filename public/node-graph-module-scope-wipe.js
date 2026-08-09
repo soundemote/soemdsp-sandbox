@@ -124,8 +124,39 @@ function wipeNodeGraphModuleScopeScreensToColdBoot() {
 }
 
 /**
+ * Drop a face canvas from the persistent map (and DOM) so the next draw can
+ * allocate a healthy 2D canvas. WebGL-poisoned faces must not be reattached.
+ */
+function nodeGraphDropScopeFaceCanvas(canvas, nodeId = "") {
+  if (!(canvas instanceof HTMLCanvasElement)) {
+    return;
+  }
+  if (typeof nodeGraphModuleScopePersistentCanvases !== "undefined"
+    && nodeGraphModuleScopePersistentCanvases?.delete) {
+    if (nodeId) {
+      const held = nodeGraphModuleScopePersistentCanvases.get(nodeId);
+      if (held === canvas) {
+        nodeGraphModuleScopePersistentCanvases.delete(nodeId);
+      }
+    } else if (nodeGraphModuleScopePersistentCanvases.forEach) {
+      nodeGraphModuleScopePersistentCanvases.forEach((value, key) => {
+        if (value === canvas) {
+          nodeGraphModuleScopePersistentCanvases.delete(key);
+        }
+      });
+    }
+  }
+  try {
+    canvas.remove();
+  } catch (_error) {
+    // Best-effort.
+  }
+}
+
+/**
  * Wipe phosphor residual for one module face (Display Settings → Clear).
- * Restarts pixel burn-in when Trail is frozen without resetting the whole graph.
+ * Works while paused: clears energy FBOs in place (no destroy), resets draw
+ * cursors, paints a cold plate, and forces a draw so unpause can deposit again.
  */
 function clearNodeGraphDisplaySettingsPhosphor(nodeId) {
   const id = String(nodeId || "").trim();
@@ -157,31 +188,54 @@ function clearNodeGraphDisplaySettingsPhosphor(nodeId) {
   }
 
   for (const canvas of canvases) {
+    // Prefer in-place energy wipe — destroy + re-ensure while paused left
+    // faces stuck (energyActive false / dead canvas until Stop+Play).
     for (const key of phosphorKeys) {
       const face = canvas[key];
-      if (face && typeof nodeGraphPhosphorEnergyGlDestroy === "function") {
+      if (!face) {
+        continue;
+      }
+      let cleared = false;
+      if (typeof nodeGraphPhosphorEnergyGlClear === "function") {
+        try {
+          cleared = Boolean(nodeGraphPhosphorEnergyGlClear(face));
+        } catch (_error) {
+          cleared = false;
+        }
+      }
+      if (!cleared && typeof nodeGraphPhosphorEnergyGlDestroy === "function") {
         try {
           nodeGraphPhosphorEnergyGlDestroy(face);
         } catch (_error) {
           // Best-effort.
         }
+        canvas[key] = null;
       }
-      canvas[key] = null;
     }
-    // Drop draw-cursor so the next frame deposits cleanly without a resume dump.
+    // Drop draw-cursor so the next live frame deposits fresh samples without
+    // a resume dump, and so a rewound absolute frame cannot stick lastFrame ahead.
     delete canvas._nodeGraphScope2dLastDrawnFrame;
     delete canvas._nodeGraphScope2dLastDrawnPoint;
     delete canvas._nodeGraphOneDimensionalBurnLastDrawnFrame;
     delete canvas._phosphorDrawCursorAbsFrame;
-    if (typeof disposeNodeGraphScope2dBurnRendererForCanvas === "function") {
-      try {
-        disposeNodeGraphScope2dBurnRendererForCanvas(canvas);
-      } catch (_error) {
-        // Best-effort.
-      }
+    delete canvas._phosphorScope2dLastFrame;
+    if (canvas._nodeGraphScope2dBurnRenderer) {
+      canvas._nodeGraphScope2dBurnRenderer.lastFrame = NaN;
+      canvas._nodeGraphScope2dBurnRenderer._nodeGraphScope2dLastDrawnFrame = undefined;
     }
-    const context = canvas.getContext?.("2d");
-    if (context && canvas.width > 0 && canvas.height > 0) {
+    // Do NOT dispose legacy WebGL-on-face burn here — that permanently poisons
+    // the canvas so getContext("2d") fails and the face never draws again.
+    let context = null;
+    try {
+      context = canvas.getContext?.("2d") || null;
+    } catch (_error) {
+      context = null;
+    }
+    if (!context) {
+      nodeGraphDropScopeFaceCanvas(canvas, id);
+      continue;
+    }
+    if (canvas.width > 0 && canvas.height > 0) {
       const bg = typeof nodeGraphModuleScopePlateBackgroundForElement === "function"
         ? nodeGraphModuleScopePlateBackgroundForElement(canvas)
         : "#000000";
@@ -207,8 +261,12 @@ function clearNodeGraphDisplaySettingsPhosphor(nodeId) {
     }
   }
 
+  // Force a draw even while paused so energy re-binds and the plate stays black.
+  // Without this, pause early-outs only absorb cursors and never re-ensure GL.
   if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
-    scheduleNodeGraphModuleScopeDraw();
+    scheduleNodeGraphModuleScopeDraw({ force: true });
+  } else if (typeof runNodeGraphModuleScopeDrawFrame === "function") {
+    runNodeGraphModuleScopeDrawFrame("phosphor-clear", { force: true });
   }
   return canvases.size > 0;
 }

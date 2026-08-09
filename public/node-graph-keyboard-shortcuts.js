@@ -341,13 +341,6 @@ function handleNodeGraphKeydown(event) {
     }
     return;
   }
-  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "k") {
-    event.preventDefault();
-    if (typeof toggleNodeGraphStandaloneMidiKeyboard === "function") {
-      toggleNodeGraphStandaloneMidiKeyboard();
-    }
-    return;
-  }
   if (event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey && event.key.toLowerCase() === "a") {
     event.preventDefault();
     if (typeof openNodeGraphUnifiedWindowPage === "function") {

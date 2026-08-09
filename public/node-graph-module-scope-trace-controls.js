@@ -76,7 +76,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze(["syncChannel", "stereoBlend"]),
   }),
   // Phosphor energy faces: color via shared Gradient editor (not single swatches).
-  // Field order = nodeGraphPhosphorDisplayFieldOrder (Size…Dot Budget).
+  // Field order = nodeGraphPhosphorDisplayFieldOrder (Bright…Dot Budget).
   dot: Object.freeze({
     fields: Object.freeze(nodeGraphPhosphorDisplayFieldsFor([
       "dot1Size",
@@ -129,12 +129,12 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze(["capEnabled"]),
     choices: Object.freeze([]),
   }),
-  // 2D Phosphor (Lorenz + friends): Size → Blur → Bright → Ghost → Trail → Scale → AA → Dot Budget
+  // 2D Phosphor (Lorenz + friends): Bright → Size → Blur → Ghost → Trail → Scale → AA → Dot Budget
   scope2d: Object.freeze({
     fields: Object.freeze(nodeGraphPhosphorDisplayFieldsFor([
+      "dot1Brightness",
       "dot1Size",
       "lineThickness",
-      "dot1Brightness",
       "ghost",
       "trail",
       "scale",
@@ -395,13 +395,13 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
     toggles: Object.freeze(["capEnabled"]),
     choices: Object.freeze([]),
   }),
-  // Stamp geometry/light — order matches shared phosphor stack (Size → Blur → Bright).
+  // Stamp geometry/light — order matches shared phosphor stack (Bright → Size → Blur).
   // ghostBrightness sits next to Bright for Number Readout (min residual gradient stop).
   dot1: Object.freeze({
     fields: Object.freeze([
+      "dot1Brightness",
       "dot1Size",
       "lineThickness",
-      "dot1Brightness",
       "ghostBrightness",
       "puckSize",
     ]),
@@ -513,7 +513,7 @@ function nodeGraphTraceDisplaySettingsRoot() {
 }
 
 // Field labels / input modes for schema-exclusive body builders.
-// Phosphor labels: Size, Blur, Bright, Ghost, Trail, Scale, Pixel density, Dot Budget.
+// Phosphor labels: Bright, Size, Blur, Ghost, Trail, Scale, Pixel density, Dot Budget.
 const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
   ghost: Object.freeze({
     label: "Ghost",
@@ -901,8 +901,8 @@ const nodeGraphDisplaySettingsSectionOrder = Object.freeze([
   "caps",
 ]);
 
-// Phosphor faces: Stamp (Size/Blur/Bright) before residual (Ghost/Trail/…).
-// Yields: Size → Blur → Bright → Ghost → Trail → Scale → Pixel density → Dot Budget
+// Phosphor faces: Stamp (Bright/Size/Blur) before residual (Ghost/Trail/…).
+// Yields: Bright → Size → Blur → Ghost → Trail → Scale → Pixel density → Dot Budget
 const nodeGraphPhosphorDisplaySettingsSectionOrder = Object.freeze([
   "dot1",
   "trace",

@@ -34,6 +34,18 @@ function disposeNodeGraphScope2dBurnRendererForCanvas(canvas) {
 }
 
 
+/** True when the face can still take a 2D context (not WebGL-poisoned). */
+function nodeGraphScope2dFaceCanvasIsUsable(canvas) {
+  if (!(canvas instanceof HTMLCanvasElement)) {
+    return false;
+  }
+  try {
+    return Boolean(canvas.getContext("2d"));
+  } catch (_error) {
+    return false;
+  }
+}
+
 function nodeGraphScope2dBurnCanvasForSlot(slot) {
   const screenElement = slot?.scopeElement;
   const nodeId = slot?.nodeId;
@@ -45,7 +57,14 @@ function nodeGraphScope2dBurnCanvasForSlot(slot) {
   // so phosphor residual (_phosphorEnergyGl) survives add-module / re-render.
   if (!canvas && nodeId && nodeGraphModuleScopePersistentCanvases.has(nodeId)) {
     canvas = nodeGraphModuleScopePersistentCanvases.get(nodeId);
-    if (canvas && canvas.parentNode !== screenElement) {
+    // Never reattach a canvas that lost 2D (e.g. after legacy WebGL dispose).
+    if (canvas && !nodeGraphScope2dFaceCanvasIsUsable(canvas)) {
+      try {
+        canvas.remove();
+      } catch (_error) { /* ignore */ }
+      nodeGraphModuleScopePersistentCanvases.delete(nodeId);
+      canvas = null;
+    } else if (canvas && canvas.parentNode !== screenElement) {
       screenElement.appendChild(canvas);
     }
   }
@@ -58,6 +77,23 @@ function nodeGraphScope2dBurnCanvasForSlot(slot) {
       canvas._phosphorEnergyGl = null;
     }
     canvas.remove();
+    if (nodeId) {
+      nodeGraphModuleScopePersistentCanvases.delete(nodeId);
+    }
+    canvas = null;
+  }
+  // Live face also poisoned? Drop and recreate.
+  if (canvas && !nodeGraphScope2dFaceCanvasIsUsable(canvas)) {
+    disposeNodeGraphScope2dBurnRendererForCanvas(canvas);
+    if (canvas._phosphorEnergyGl && typeof nodeGraphPhosphorEnergyGlDestroy === "function") {
+      try {
+        nodeGraphPhosphorEnergyGlDestroy(canvas._phosphorEnergyGl);
+      } catch (_error) { /* ignore */ }
+      canvas._phosphorEnergyGl = null;
+    }
+    try {
+      canvas.remove();
+    } catch (_error) { /* ignore */ }
     if (nodeId) {
       nodeGraphModuleScopePersistentCanvases.delete(nodeId);
     }
@@ -1001,16 +1037,23 @@ function drawNodeGraphHypersawBurnItem(renderer, item, pixelRatio) {
     }
   }
   const minSide = Math.max(1, Math.min(canvas.width, canvas.height));
+  const look = typeof nodeGraphScopePhosphorLookDefaults !== "undefined"
+    ? nodeGraphScopePhosphorLookDefaults
+    : null;
   const settings = {
-    trail: 0.78,
-    ghost: 0.4,
-    dot1Brightness: 0.95,
+    trail: look?.trail ?? 0,
+    ghost: look?.ghost ?? 0.45,
+    dot1Brightness: look?.brightness ?? 0.08,
     dot1Color: "#3de0ff",
     dot1Enabled: true,
-    dot1Size: Math.max(0.012, Math.min(0.06, 5 / minSide)),
-    lineThickness: 0.25,
-    pixelDensity: 1,
-    dotBudget: 4096,
+    // Keep phase columns thin enough to resolve many voices on small faces.
+    dot1Size: Math.min(
+      look?.size ?? 0.02,
+      Math.max(0.012, Math.min(0.06, 5 / minSide)),
+    ),
+    lineThickness: look?.blur ?? 0.35,
+    pixelDensity: look?.pixelDensity ?? 1,
+    dotBudget: look?.dotBudget ?? 2048,
   };
   drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settings, {
     endFrame: Number(item?.buffer?.nodeGraphScopeAbsoluteFrame),

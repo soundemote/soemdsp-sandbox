@@ -4685,10 +4685,16 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-module-grid-inset: calc(var(--node-grid-size) * 0.2142857);
   /* 0 = square module *plate* (LayoutA + LayoutB). UI Dev “module roundness” drives this. */
   --node-module-roundness-ratio: 0;
-  /* SVG frame stroke corner radius — rounded outline while the plate stays square. */
+  /* Stroke-only corner radius (plate fill stays square via roundness-ratio 0). */
   --node-module-frame-radius: calc(var(--node-grid-size) * 0.35);
-  /* Device-stable 1px outline (selected / idle / drag). */
-  --node-module-frame-stroke-width: 1px;
+  /*
+   * 1 *screen* CSS pixel under workspace CSS `zoom`.
+   * Path sits on the plate edge; stroke is centered on that path (half in /
+   * half out). Width is inverted so CSS zoom does not thicken the ring.
+   * Do NOT also use vector-effect:non-scaling-stroke — that double-handles
+   * scale and walks the ring off the edge under zoom.
+   */
+  --node-module-frame-stroke-width: calc(1px / max(0.0001, var(--node-graph-zoom, 1)));
   --node-module-scope-height: calc(var(--node-grid-height) * var(--node-module-display-height-units, 2));
   --node-module-interface-controls-height: calc(var(--node-grid-height) * var(--node-module-interface-controls-height-units, 4));
   --node-scope-port-band-overlap: 0px;
@@ -10106,13 +10112,20 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 
 /* Gapped module chrome — under ports/content, never covers inlets/outlets.
    Higher specificity than `.dsp-node svg { pointer-events: auto }` so the
-   outline never steals hits from faces (XY pad, scopes, etc.). */
+   outline never steals hits from faces (XY pad, scopes, etc.).
+   Pin to the plate box 1:1 (no attribute width/height) so the path edge and
+   the module fill edge stay coincident under CSS zoom. */
 .dsp-node > .node-module-frame,
 .node-module-frame {
   position: absolute;
-  inset: 0;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
   width: 100%;
   height: 100%;
+  margin: 0;
+  padding: 0;
   overflow: visible;
   pointer-events: none !important;
   z-index: 0;
@@ -10121,24 +10134,22 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 .node-module-frame-path {
   fill: none;
   stroke: color-mix(in srgb, var(--node-module-stroke) 16%, transparent);
-  /* Always 1 screen px at every workspace zoom (not layout-scaled). */
-  stroke-width: var(--node-module-frame-stroke-width, 1px);
+  /* 1 screen px; centerline = plate edge (see --node-module-frame-stroke-width). */
+  stroke-width: var(--node-module-frame-stroke-width);
+  /* Round stroke only — path arcs + round joins; plate fill stays square. */
   stroke-linecap: round;
-  /* Round joins + path corner arcs = rounded stroke; plate remains square. */
   stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
+  shape-rendering: geometricPrecision;
 }
 
 .dsp-node.connected .node-module-frame-path {
   stroke: color-mix(in srgb, var(--node-module-stroke) 16%, transparent);
-  stroke-width: var(--node-module-frame-stroke-width, 1px);
-  vector-effect: non-scaling-stroke;
+  stroke-width: var(--node-module-frame-stroke-width);
 }
 
 .dsp-node.dragging .node-module-frame-path {
   stroke: color-mix(in srgb, var(--node-module-drag-stroke) 62%, transparent);
-  stroke-width: var(--node-module-frame-stroke-width, 1px);
-  vector-effect: non-scaling-stroke;
+  stroke-width: var(--node-module-frame-stroke-width);
 }
 
 /* Knob / plugin shelf faces: no module-frame stroke at all (idle / selected / drag). */
@@ -10158,10 +10169,11 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 
 .dsp-node.selected .node-module-frame-path {
   stroke: var(--node-module-selected-stroke);
-  stroke-width: var(--node-module-frame-stroke-width, 1px);
+  /* 1 screen px; centerline locked to plate edge at every zoom. */
+  stroke-width: var(--node-module-frame-stroke-width);
   stroke-linecap: round;
   stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
+  shape-rendering: geometricPrecision;
 }
 
 .dsp-node-header,

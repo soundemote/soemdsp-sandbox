@@ -148,13 +148,13 @@ function nodeGraphModuleScopeScalarValue(value) {
 
 // Scope graph query → node-graph-module-scope-graph-query.js
 // Scope canvas → node-graph-module-scope-canvas.js
-function runNodeGraphModuleScopeDrawFrame(source = "raf") {
+function runNodeGraphModuleScopeDrawFrame(source = "raf", options = {}) {
   try {
-    drawNodeGraphModuleScopes();
+    drawNodeGraphModuleScopes(options);
   } catch (error) {
     markNodeGraphModuleScopeDebugError(error);
     console.error(`node graph module scope ${source} draw failed`, error);
-    scheduleNodeGraphModuleScopeDraw();
+    scheduleNodeGraphModuleScopeDraw(options?.force ? { force: true } : {});
   }
 }
 

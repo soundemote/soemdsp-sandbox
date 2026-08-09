@@ -1275,6 +1275,7 @@ function nodeGraphScope2dDrawStartIndex(state, buffer, count) {
   const startFrame = Number(buffer?.nodeGraphScopeStartFrame);
   const endFrame = Number(buffer?.nodeGraphScopeAbsoluteFrame);
   const lastFrame = Number(state?._nodeGraphScope2dLastDrawnFrame);
+  const safeCount = Math.max(0, Math.floor(Number(count) || 0));
   if (
     !Number.isFinite(startFrame) ||
     !Number.isFinite(endFrame) ||
@@ -1283,14 +1284,21 @@ function nodeGraphScope2dDrawStartIndex(state, buffer, count) {
   ) {
     return 0;
   }
+  // Buffer rewound (clear / stop / ring restart) — never leave lastFrame ahead.
+  if (lastFrame > endFrame) {
+    if (state && typeof state === "object") {
+      state._nodeGraphScope2dLastDrawnFrame = endFrame;
+    }
+    return 0;
+  }
   if (lastFrame >= endFrame) {
-    return count;
+    return safeCount;
   }
   if (lastFrame <= startFrame) {
     return 0;
   }
   const frameOffset = Math.max(0, Math.floor(lastFrame - startFrame) - 1);
-  return Math.min(Math.max(0, Math.floor(Number(count) || 0) - 1), frameOffset);
+  return Math.min(Math.max(0, safeCount - 1), frameOffset);
 }
 
 function buildNodeGraphScope2dPathPoints(square, buffer, startIndex = 0, options = {}) {
