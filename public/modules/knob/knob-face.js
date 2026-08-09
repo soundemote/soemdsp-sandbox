@@ -708,7 +708,7 @@ function nodeGraphKnobFaceSyncLightSource(face, hasImage = null) {
 
 /**
  * Build the LayoutB face DOM (called from factories).
- * Shared macro layout: title above dial · value on dial · circle centered.
+ * Shared macro layout: title above dial · value centered in the circle.
  * Image layers stay in the tree; when any art is loaded, macro dial hides.
  */
 function createNodeGraphKnobFace(node, type) {
@@ -944,8 +944,30 @@ function syncNodeGraphKnobFaceFromSlider(slider) {
   face.style.setProperty("--macro-value", String(u));
 }
 
+function nodeGraphKnobFaceTargetNodeId(explicitId = "") {
+  const fromArg = String(explicitId || "").trim();
+  if (fromArg) {
+    return fromArg;
+  }
+  // Prefer Display Settings target (image layers live there).
+  if (typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function") {
+    const fromDisplay = String(nodeGraphTraceDisplaySettingsTargetNodeId() || "").trim();
+    if (fromDisplay) {
+      return fromDisplay;
+    }
+  }
+  if (nodeGraphMvp?.traceDisplaySettingsTargetNode) {
+    return String(nodeGraphMvp.traceDisplaySettingsTargetNode).trim();
+  }
+  return String(
+    (typeof nodeGraphModuleActionTargetNodeId === "function"
+      ? nodeGraphModuleActionTargetNodeId()
+      : "") || "",
+  ).trim();
+}
+
 function nodeGraphKnobFacePatchTarget(nodeId) {
-  const id = String(nodeId || nodeGraphModuleActionTargetNodeId?.() || "").trim();
+  const id = nodeGraphKnobFaceTargetNodeId(nodeId);
   const patch = typeof cloneNodeGraphPatch === "function"
     ? cloneNodeGraphPatch(nodeGraphMvp.patch)
     : null;
@@ -980,21 +1002,23 @@ function commitNodeGraphKnobFace(nextFace, { record = true, status = "value slid
     commitNodeGraphPatch(patch, { record, status, softDom: true, markPending: false });
   }
   renderNodeGraphKnobFace(id || targetNode.id);
-  // Soft-sync settings controls only — full menu rebuild was glitching the face.
-  const live = typeof nodeGraphPatchNode === "function"
-    ? nodeGraphPatchNode(id || targetNode.id)
-    : targetNode;
-  if (typeof syncNodeGraphKnobFaceControls === "function") {
-    syncNodeGraphKnobFaceControls(live);
+  // Soft-sync Display Settings layer list (filenames / rotate flags).
+  if (typeof syncNodeGraphKnobFaceDisplaySettingsControls === "function") {
+    syncNodeGraphKnobFaceDisplaySettingsControls();
   }
   return true;
 }
 
 function pickNodeGraphKnobFaceImage(layerId = "image1") {
-  const nodeId = String(nodeGraphModuleActionTargetNodeId?.() || "").trim();
+  const nodeId = nodeGraphKnobFaceTargetNodeId();
   const sourceNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   if (!sourceNode || sourceNode.type !== "knob") {
     return;
+  }
+  // Keep action target in sync so Module Settings paths still resolve.
+  if (nodeGraphMvp) {
+    nodeGraphMvp.sceneContextTargetNode = nodeId;
+    nodeGraphMvp.lastModuleActionTargetNode = nodeId;
   }
   const layer = nodeGraphKnobFaceNormalizeLayerId(layerId);
   let input = document.getElementById("nodeKnobFaceFileInput");
@@ -1217,7 +1241,7 @@ function handleNodeGraphKnobFaceFileInputChange(event) {
 
 function clearNodeGraphKnobFaceImage(layerId = "image1") {
   const sourceNode = typeof nodeGraphPatchNode === "function"
-    ? nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId?.())
+    ? nodeGraphPatchNode(nodeGraphKnobFaceTargetNodeId())
     : null;
   if (!sourceNode || sourceNode.type !== "knob") {
     return;
@@ -1236,26 +1260,37 @@ function clearNodeGraphKnobFaceImage(layerId = "image1") {
   }, { status: `value slider ${layer} image cleared` });
 }
 
-function setNodeGraphKnobFaceLayerRotateFromContext(layerId, { record = true } = {}) {
+function setNodeGraphKnobFaceLayerRotate(layerId, rotate, { record = true } = {}) {
   const sourceNode = typeof nodeGraphPatchNode === "function"
-    ? nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId?.())
+    ? nodeGraphPatchNode(nodeGraphKnobFaceTargetNodeId())
     : null;
   if (!sourceNode || sourceNode.type !== "knob") {
     return;
   }
   const layer = nodeGraphKnobFaceNormalizeLayerId(layerId);
   const layerIndex = nodeGraphKnobFaceLayerIndex(layer);
-  const input = document.getElementById(`nodeSceneKnobFaceRotate${layerIndex + 1}`);
   const prev = nodeGraphKnobFaceForNode(sourceNode);
   const nextLayers = prev.layers.map((entry, index) => (
     index === layerIndex
-      ? { ...entry, rotate: Boolean(input?.checked) }
+      ? { ...entry, rotate: Boolean(rotate) }
       : { ...entry }
   ));
   commitNodeGraphKnobFace({
     ...prev,
     layers: nextLayers,
   }, { record, status: `value slider ${layer} rotate updated` });
+}
+
+function setNodeGraphKnobFaceLayerRotateFromContext(layerId, { record = true } = {}) {
+  const layer = nodeGraphKnobFaceNormalizeLayerId(layerId);
+  const layerIndex = nodeGraphKnobFaceLayerIndex(layer);
+  // Prefer Display Settings checkbox; fall back to legacy Module Settings id.
+  const displayInput = document.querySelector(
+    `#nodeTraceDisplaySettingsPopover [data-knob-face-rotate="${layer}"]`,
+  );
+  const legacyInput = document.getElementById(`nodeSceneKnobFaceRotate${layerIndex + 1}`);
+  const checked = Boolean(displayInput?.checked ?? legacyInput?.checked);
+  setNodeGraphKnobFaceLayerRotate(layer, checked, { record });
 }
 
 /** @deprecated global rotate — kept so old bindings no-op safely */
@@ -1308,55 +1343,115 @@ function setNodeGraphKnobFaceShowReadoutFromContext({ record = true } = {}) {
   }, { record, status: "value slider readout visibility updated" });
 }
 
-function syncNodeGraphKnobFaceControls(targetNode) {
+/**
+ * Image layers / span / offset / readout live in Display Settings now.
+ * Module Settings must not resurface the old face controls block.
+ */
+function syncNodeGraphKnobFaceControls(_targetNode) {
   const controls = document.getElementById("nodeSceneKnobFaceControls");
-  if (!controls) {
+  if (controls) {
+    controls.hidden = true;
+  }
+  if (typeof syncNodeGraphKnobFaceDisplaySettingsControls === "function") {
+    syncNodeGraphKnobFaceDisplaySettingsControls();
+  }
+}
+
+/** Image-layer rows for Knob Display Settings (not Module Settings). */
+function buildNodeGraphKnobFaceLayersDisplaySettingsHtml() {
+  const layerCount = typeof nodeGraphKnobFaceLayerCount === "number"
+    ? nodeGraphKnobFaceLayerCount
+    : 6;
+  const rows = [];
+  for (let i = 1; i <= layerCount; i += 1) {
+    rows.push(`
+      <div class="node-knob-face-layer-row" data-knob-face-layer="image${i}">
+        <button type="button" data-knob-face-action="load" data-knob-face-layer-id="image${i}">load</button>
+        <button type="button" data-knob-face-action="clear" data-knob-face-layer-id="image${i}">clear</button>
+        <label class="node-knob-face-check" title="Rotate with Bias">
+          <input type="checkbox" data-knob-face-rotate="image${i}">
+          <span>rotate</span>
+        </label>
+        <p class="node-knob-face-filename" data-knob-face-filename="image${i}" title="">—</p>
+      </div>`);
+  }
+  return `
+    <div class="metadata-section-title">Image layers</div>
+    <div class="metadata-field-section node-knob-face-display-layers" data-knob-face-display-settings-panel>
+      <p class="node-knob-face-display-hint">Back (1) → front (${layerCount}). Optional art replaces the macro dial.</p>
+      <div class="node-knob-face-layer-stack">
+        ${rows.join("\n")}
+      </div>
+    </div>`;
+}
+
+function bindNodeGraphKnobFaceDisplaySettingsEvents(root) {
+  const panel = root?.querySelector?.("[data-knob-face-display-settings-panel]") || root;
+  if (!panel || panel.dataset.knobFaceDisplayBound === "true") {
     return;
   }
-  const isTarget = targetNode?.type === "knob";
-  controls.hidden = !isTarget;
-  if (!isTarget) {
+  panel.dataset.knobFaceDisplayBound = "true";
+  panel.addEventListener("click", (event) => {
+    const btn = event.target?.closest?.("[data-knob-face-action]");
+    if (!btn) {
+      return;
+    }
+    event.preventDefault();
+    const layerId = btn.dataset.knobFaceLayerId || "image1";
+    const action = btn.dataset.knobFaceAction;
+    if (action === "load") {
+      pickNodeGraphKnobFaceImage(layerId);
+    } else if (action === "clear") {
+      clearNodeGraphKnobFaceImage(layerId);
+    }
+  });
+  panel.addEventListener("change", (event) => {
+    const input = event.target?.closest?.("[data-knob-face-rotate]");
+    if (!input) {
+      return;
+    }
+    const layerId = input.getAttribute("data-knob-face-rotate") || "image1";
+    setNodeGraphKnobFaceLayerRotate(layerId, Boolean(input.checked), { record: true });
+  });
+}
+
+function syncNodeGraphKnobFaceDisplaySettingsControls(root) {
+  const panel = root?.querySelector?.("[data-knob-face-display-settings-panel]")
+    || document.querySelector("#nodeTraceDisplaySettingsPopover [data-knob-face-display-settings-panel]");
+  if (!panel) {
     return;
   }
-  const face = nodeGraphKnobFaceForNode(targetNode);
+  const nodeId = nodeGraphKnobFaceTargetNodeId();
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  if (!node || node.type !== "knob") {
+    return;
+  }
+  const face = nodeGraphKnobFaceForNode(node);
   for (let i = 0; i < nodeGraphKnobFaceLayerCount; i += 1) {
-    const n = i + 1;
+    const layerId = `image${i + 1}`;
     const layer = face.layers[i];
-    const fileEl = document.getElementById(`nodeSceneKnobFaceFileName${n}`);
+    const fileEl = panel.querySelector(`[data-knob-face-filename="${layerId}"]`);
     if (fileEl) {
       fileEl.textContent = layer.dataUrl
-        ? (layer.fileName || `image${n} loaded`)
+        ? (layer.fileName || `${layerId} loaded`)
         : "—";
-      fileEl.title = layer.dataUrl ? (layer.fileName || `image${n}`) : "no image";
+      fileEl.title = layer.dataUrl ? (layer.fileName || layerId) : "no image";
     }
-    const clearBtn = document.getElementById(`nodeSceneKnobFaceClear${n}`);
+    const clearBtn = panel.querySelector(
+      `[data-knob-face-action="clear"][data-knob-face-layer-id="${layerId}"]`,
+    );
     if (clearBtn) {
       clearBtn.disabled = !layer.dataUrl;
     }
-    const rotate = document.getElementById(`nodeSceneKnobFaceRotate${n}`);
+    const rotate = panel.querySelector(`[data-knob-face-rotate="${layerId}"]`);
     if (rotate && document.activeElement !== rotate) {
       rotate.checked = Boolean(layer.rotate);
-      rotate.disabled = false;
     }
-  }
-  const degrees = document.getElementById("nodeSceneKnobFaceRotationDegrees");
-  const offset = document.getElementById("nodeSceneKnobFaceRotationOffset");
-  const showReadout = document.getElementById("nodeSceneKnobFaceShowReadout");
-  if (degrees && document.activeElement !== degrees) {
-    degrees.value = String(face.rotationDegrees);
-    degrees.disabled = false;
-  }
-  if (offset && document.activeElement !== offset) {
-    offset.value = String(face.rotationOffsetDegrees);
-    offset.disabled = false;
-  }
-  if (showReadout && document.activeElement !== showReadout) {
-    showReadout.checked = face.showReadout;
   }
 }
 
 /**
- * Right-click on Knob face → Module Settings (face section visible).
+ * Right-click on Knob face → Display Settings (image layers, colors, span/offset).
  */
 function openNodeKnobFaceContextMenu(event) {
   const target = event?.target;
@@ -1385,7 +1480,8 @@ function openNodeKnobFaceContextMenu(event) {
     nodeGraphMvp.sceneContextTargetNode = nodeId;
     nodeGraphMvp.lastModuleActionTargetNode = nodeId;
   }
-  return typeof openNodeGraphModuleSettingsFromContextEvent === "function"
-    ? openNodeGraphModuleSettingsFromContextEvent(event, nodeEl)
-    : false;
+  if (typeof openNodeGraphTraceDisplaySettings === "function") {
+    return openNodeGraphTraceDisplaySettings(nodeId, event);
+  }
+  return false;
 }

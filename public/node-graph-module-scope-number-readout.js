@@ -23,12 +23,15 @@ function invalidateNodeGraphNumberReadoutPaintCache(canvas) {
   }
   canvas._numberReadoutLastValueText = "";
   canvas._numberReadoutLastTextChangeAt = 0;
+  canvas._numberReadoutResidualText = "";
+  canvas._numberReadoutResidualBornAt = 0;
   canvas._nodeGraphNumberReadoutText = null;
   canvas._nodeGraphNumberReadoutSettingsSig = null;
   canvas._nodeGraphNumberReadoutFontReady = null;
   canvas._nodeGraphNumberReadoutWidth = -1;
   canvas._nodeGraphNumberReadoutHeight = -1;
   canvas._nodeGraphNumberReadoutPaintAt = 0;
+  // Tear down any legacy energy residual FBOs from the old phosphor path.
   canvas._numberReadoutEnergyMask = null;
   for (const key of ["_phosphorEnergyGl"]) {
     const face = canvas[key];
@@ -52,6 +55,22 @@ function invalidateNodeGraphNumberReadoutPaintCache(canvas) {
   }
 }
 
+/** Residual opacity for the previous reading (ghostColor ink). Trail = length, Ghost = strength. */
+function nodeGraphNumberReadoutResidualAlpha(ageMs, trail, ghost) {
+  const t = clampNodeSliderValue(Number(trail) || 0, 0, 1);
+  const g = clampNodeSliderValue(Number(ghost) || 0, 0, 1);
+  if (t <= 0.001 && g <= 0.001) {
+    return 0;
+  }
+  // Lifetime: Trail stretches hang; Ghost adds extra scorch hang.
+  const lifeMs = 60 + t * 2400 + g * 4200;
+  const age = Math.max(0, Number(ageMs) || 0);
+  const linear = Math.max(0, 1 - age / lifeMs);
+  // Peak opacity from Ghost (and a little Trail so residual is still visible when Ghost is low).
+  const peak = 0.18 + g * 0.62 + t * 0.12;
+  return Math.max(0, Math.min(1, linear * peak));
+}
+
 
 function paintNodeGraphNumberReadoutColdBoot(canvas, screenElement, node = null) {
   if (!canvas || !screenElement) {
@@ -69,9 +88,6 @@ function paintNodeGraphNumberReadoutColdBoot(canvas, screenElement, node = null)
     return false;
   }
   const settings = nodeGraphNumberReadoutSettingsForNode(node);
-  const decimals = nodeGraphNumberReadoutSafeDecimals(settings.decimals);
-  const valueText = decimals > 0 ? ` !.${"!".repeat(decimals)}` : " !";
-  const plateRgb = nodeGraphNumberReadoutGhostPlateRgb(settings);
   const bg = nodeGraphFacePlateBackground(settings);
   if (screenElement.dataset) {
     // Full hole when the LCD plate is present (0…1 dimmer is the only gain).
@@ -80,34 +96,11 @@ function paintNodeGraphNumberReadoutColdBoot(canvas, screenElement, node = null)
   nodeGraphFacePlateApplyCss(screenElement, bg);
   const width = canvas.width;
   const height = canvas.height;
-  const digitFontFamily = nodeGraphNumberReadoutDsegReady
-    ? '"DSEG7 Classic", "Consolas", monospace'
-    : '"Consolas", "Courier New", monospace';
   context.setTransform(1, 0, 0, 1, 0, 0);
-  const layout = nodeGraphNumberReadoutComputeLayout(
-    context,
-    valueText,
-    digitFontFamily,
-    width,
-    height,
-    false,
-  );
   context.clearRect(0, 0, width, height);
   context.fillStyle = bg;
   context.fillRect(0, 0, width, height);
-  // Unlit plate = ghostColor as chosen (no separate ghost-amount dim).
-  nodeGraphNumberReadoutDrawDigits(context, {
-    text: valueText,
-    centerX: width * 0.5,
-    centerY: layout.digitAreaH * 0.5,
-    fontFamily: digitFontFamily,
-    fontSize: layout.fontSize,
-    cellW: layout.cellW,
-    rgb: plateRgb,
-    alpha: 1,
-    softBlurPx: 0,
-    plate: true,
-  });
+  // No unlit 88.88 grid — idle face is empty plate only.
   // Keep cache dirty (invalidate already did) so live samples always redraw.
   canvas._nodeGraphNumberReadoutText = null;
   return true;
@@ -244,6 +237,7 @@ function nodeGraphNumberReadoutSettingsSignature(settings) {
     settings.background,
     settings.brightness,
     settings.color,
+    settings.ghost,
     settings.trail,
     settings.decimals,
     settings.ghostColor,
@@ -513,8 +507,13 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     ? nodeGraphNumberReadoutFormatValue(nodeGraphOscilloscopeLatestSample(item.buffer, 0), decimals)
     : (decimals > 0 ? ` !.${"!".repeat(decimals)}` : " !");
   const text = unit ? `${valueText} ${unit}` : valueText;
-  // Decay UI = residual hold of previous number (0 = none, 1 = longest).
-  const trail = clampNodeSliderValue(Number(settings.trail ?? settings.decay) || 0, 0, 1);
+  // Residual knobs: Trail = hang length, Ghost = residual strength (ghostColor ink).
+  const trail = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
+    ? PhosphorResidual.migrateTrail(settings, 0.88, { invertLegacyDecay: false })
+    : clampNodeSliderValue(Number(settings.trail ?? settings.decay) || 0, 0, 1);
+  const ghost = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateGhost
+    ? PhosphorResidual.migrateGhost(settings, 0.45)
+    : clampNodeSliderValue(Number(settings.ghost ?? settings.burn) || 0, 0, 1);
   const settingsSig = nodeGraphNumberReadoutSettingsSignature(settings);
   const styleChanged =
     canvas._nodeGraphNumberReadoutSettingsSig !== settingsSig ||
@@ -524,33 +523,56 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   // null cache (engine-stop wipe) always forces a full present.
   const textChanged = canvas._nodeGraphNumberReadoutText == null
     || canvas._nodeGraphNumberReadoutText !== text;
-  // Ghost residual only when decay > 0; static live digit is never energy-charged.
   const frozen = nodeGraphModuleScopePhosphorFrozen();
-  const energyActive = trail > 0.001;
-  const needsContinuous = !frozen && energyActive;
+  const residualWanted = trail > 0.001 || ghost > 0.001;
+  const now = performance.now?.() || Date.now();
+
+  // Capture previous reading when the live text changes (simple LCD residual).
+  const previousValueText = String(canvas._numberReadoutLastValueText || "");
+  if (
+    residualWanted
+    && textChanged
+    && previousValueText
+    && previousValueText !== valueText
+    && !previousValueText.includes("!")
+  ) {
+    canvas._numberReadoutResidualText = previousValueText;
+    canvas._numberReadoutResidualBornAt = now;
+    canvas._numberReadoutLastTextChangeAt = now;
+  } else if (!residualWanted) {
+    canvas._numberReadoutResidualText = "";
+    canvas._numberReadoutResidualBornAt = 0;
+  }
+
+  const residualText = String(canvas._numberReadoutResidualText || "");
+  const residualAge = now - (Number(canvas._numberReadoutResidualBornAt) || 0);
+  const residualAlpha = residualText
+    ? nodeGraphNumberReadoutResidualAlpha(frozen ? 0 : residualAge, trail, ghost)
+    : 0;
+  if (residualAlpha <= 0.01) {
+    canvas._numberReadoutResidualText = "";
+  }
+  const needsContinuous = !frozen && residualAlpha > 0.01;
   if (!textChanged && !styleChanged && !needsContinuous) {
     return;
   }
-  const now = performance.now?.() || Date.now();
 
   // Draw in full canvas buffer pixels (layout face × dpr — fixed under zoom).
   const left = 0;
   const top = 0;
   const width = canvas.width;
   const height = canvas.height;
-  // Live digits = gradient sample at Bright energy (0…1). Unlit = ghostColor.
+  // Live digits = gradient sample at Bright energy (0…1).
   const gradientStops = settings.gradientStops;
   const peakHex = settings.color || "#75ebff";
   const bright = Number.isFinite(Number(settings.brightness))
     ? clampNodeSliderValue(Number(settings.brightness), 0, 1)
     : 1;
-  // Energy→color LUT: Bright 1 = tip stop (full white if gradient ends white).
   const rgb = nodeGraphSampleGradientStopsRgb(gradientStops, bright, peakHex);
-  const plateRgb = nodeGraphNumberReadoutGhostPlateRgb(settings);
+  // Residual ink = ghostColor (user-chosen LCD ghost), not the live gradient.
+  const residualRgb = nodeGraphNumberReadoutGhostPlateRgb(settings);
   const bg = nodeGraphFacePlateBackground(settings);
-  // Opaque glyph ink; brightness is encoded in the gradient sample, not alpha/2.
   const alpha = bright > 0.001 ? 1 : 0;
-  // Room-light: full hole while the readout face is painted (dimmer = only gain).
   if (canvas?.parentElement?.dataset) {
     canvas.parentElement.dataset.lightStrength = "1";
   }
@@ -558,7 +580,6 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     ? '"DSEG7 Classic", "Consolas", monospace'
     : '"Consolas", "Courier New", monospace';
   const hasUnit = Boolean(unit);
-  // Natural DSEG metrics — face only letterboxes; never skews glyphs to fill it.
   context.setTransform(1, 0, 0, 1, 0, 0);
   const layout = nodeGraphNumberReadoutComputeLayout(
     context,
@@ -575,79 +596,6 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const digitX = left + width * 0.5;
   const digitY = top + digitAreaHeight * 0.5;
 
-  // ── Ghost of previous number only (decay = hold length) ──
-  // Live reading is hard DSEG only. On change, stamp only *changed* previous
-  // cells into residual (static digits never charged). Decay = ghost hold.
-  const energyGl = energyActive ? nodeGraphNumberReadoutEnergyGl(canvas) : null;
-  let maskCanvas = null;
-  let depositGain = 0;
-  const previousValueText = String(canvas._numberReadoutLastValueText || "");
-  const shouldDeposit = energyActive
-    && !frozen
-    && textChanged
-    && Boolean(previousValueText)
-    && previousValueText !== valueText;
-  if (shouldDeposit) {
-    const ghostText = nodeGraphNumberReadoutGhostDepositText(previousValueText, valueText);
-    if (ghostText) {
-      maskCanvas = nodeGraphNumberReadoutEnergyMaskCanvas(canvas);
-      if (maskCanvas) {
-        const mctx = maskCanvas.getContext("2d");
-        if (mctx) {
-          mctx.setTransform(1, 0, 0, 1, 0, 0);
-          mctx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
-          // Use previous layout metrics so outgoing glyphs sit where they were.
-          const prevLayout = nodeGraphNumberReadoutComputeLayout(
-            mctx,
-            previousValueText,
-            digitFontFamily,
-            width,
-            height,
-            hasUnit,
-          );
-          mctx.save();
-          mctx.globalCompositeOperation = "source-over";
-          // Only changed cells (others are "!" / space) — no full-string XOR,
-          // which left anti-aliased energy under static "0"s.
-          nodeGraphNumberReadoutDrawDigits(mctx, {
-            text: ghostText,
-            centerX: left + width * 0.5,
-            centerY: top + prevLayout.digitAreaH * 0.5,
-            fontFamily: digitFontFamily,
-            fontSize: prevLayout.fontSize,
-            cellW: prevLayout.cellW,
-            rgb: [255, 255, 255],
-            alpha: 1,
-            softBlurPx: 0,
-            energy: true,
-            plate: false,
-          });
-          mctx.restore();
-          // Deposit energy = Bright (0…1). Lifetime is trail hold only.
-          depositGain = bright > 0.001 ? bright : 0;
-        }
-      }
-    }
-    canvas._numberReadoutLastTextChangeAt = now;
-  }
-  if (energyGl && typeof nodeGraphPhosphorEnergyGlStep === "function") {
-    // Full multi-stop energy→color LUT (not peak-only greyscale ramp).
-    nodeGraphPhosphorApplyGradientLut(energyGl, settings, peakHex);
-    if (!frozen) {
-      // Trail high = long digit residual (same polarity as phosphor Trail).
-      nodeGraphPhosphorEnergyGlStep(energyGl, {
-        trail,
-        ghost: 0,
-        depositGain: maskCanvas && depositGain > 0.001 ? depositGain : 0,
-        maskCanvas: maskCanvas && depositGain > 0.001 ? maskCanvas : null,
-        bleed: 0,
-      });
-    }
-  } else if (!energyActive) {
-    canvas._numberReadoutLastTextChangeAt = 0;
-  }
-  canvas._numberReadoutLastValueText = valueText;
-
   // ── Present ──
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.save();
@@ -655,78 +603,32 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   context.fillStyle = bg;
   context.fillRect(left, top, width, height);
 
-  // Unlit LCD segments: ghostColor as chosen (dim/bright is the color itself).
-  nodeGraphNumberReadoutDrawDigits(context, {
-    text: valueText,
-    centerX: digitX,
-    centerY: digitY,
-    fontFamily: digitFontFamily,
-    fontSize: digitFontSize,
-    cellW,
-    rgb: plateRgb,
-    alpha: 1,
-    softBlurPx: 0,
-    plate: true,
-  });
-
-  // Ghost residual, punched free of live glyph pixels every frame so static
-  // digits stay clean even if older energy still sits under them.
-  if (energyGl && energyActive && typeof nodeGraphPhosphorEnergyGlPresent === "function") {
-    const presented = nodeGraphPhosphorEnergyGlPresent(energyGl, 0.95);
-    if (presented !== false) {
-      const residualLayer = nodeGraphPhosphorEnergyEnsureCanvas(
-        canvas,
-        "_numberReadoutResidualPresent",
-        width,
-        height,
-      );
-      if (residualLayer) {
-        const rctx = residualLayer.getContext("2d");
-        if (rctx) {
-          rctx.setTransform(1, 0, 0, 1, 0, 0);
-          rctx.clearRect(0, 0, width, height);
-          rctx.globalCompositeOperation = "source-over";
-          rctx.imageSmoothingEnabled = false;
-          rctx.drawImage(energyGl.canvas, 0, 0, width, height);
-          // Carve live digits out of residual (slight soft expand eats AA skirts).
-          rctx.globalCompositeOperation = "destination-out";
-          const punchExpandPx = Math.max(1.25, digitFontSize * 0.045);
-          nodeGraphNumberReadoutDrawDigits(rctx, {
-            text: valueText,
-            centerX: digitX,
-            centerY: digitY,
-            fontFamily: digitFontFamily,
-            fontSize: digitFontSize,
-            cellW,
-            rgb: [255, 255, 255],
-            alpha: 1,
-            softBlurPx: punchExpandPx,
-            energy: true,
-            plate: false,
-          });
-          rctx.globalCompositeOperation = "source-over";
-          context.save();
-          context.globalCompositeOperation = "lighter";
-          context.imageSmoothingEnabled = false;
-          context.globalAlpha = Math.min(1, 0.4 + trail * 0.45);
-          context.drawImage(residualLayer, 0, 0, width, height);
-          context.globalAlpha = 1;
-          context.restore();
-        }
-      } else {
-        context.save();
-        context.globalCompositeOperation = "lighter";
-        context.imageSmoothingEnabled = false;
-        context.globalAlpha = Math.min(1, 0.4 + trail * 0.45);
-        context.drawImage(energyGl.canvas, 0, 0, width, height);
-        context.globalAlpha = 1;
-        context.restore();
-      }
-    }
+  // Previous reading in ghostColor (no unlit 88.88 plate, no additive energy FBO).
+  if (residualText && residualAlpha > 0.01) {
+    const residualLayout = nodeGraphNumberReadoutComputeLayout(
+      context,
+      residualText,
+      digitFontFamily,
+      width,
+      height,
+      hasUnit,
+    );
+    nodeGraphNumberReadoutDrawDigits(context, {
+      text: residualText,
+      centerX: left + width * 0.5,
+      centerY: top + residualLayout.digitAreaH * 0.5,
+      fontFamily: digitFontFamily,
+      fontSize: residualLayout.fontSize,
+      cellW: residualLayout.cellW,
+      rgb: residualRgb,
+      alpha: residualAlpha,
+      softBlurPx: 0,
+      glow: 0,
+      plate: false,
+    });
   }
 
-  // Live value — hard/crisp on plate (never energy-charged). Opaque enough that
-  // any residual fringe left outside the punch cannot tint the digit core.
+  // Live value — hard/crisp on top (covers residual where digits overlap).
   nodeGraphNumberReadoutDrawDigits(context, {
     text: valueText,
     centerX: digitX,
@@ -752,6 +654,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
 
   context.restore();
 
+  canvas._numberReadoutLastValueText = valueText;
   canvas._nodeGraphNumberReadoutText = text;
   canvas._nodeGraphNumberReadoutSettingsSig = settingsSig;
   canvas._nodeGraphNumberReadoutFontReady = nodeGraphNumberReadoutDsegReady;

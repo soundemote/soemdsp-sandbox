@@ -1261,16 +1261,12 @@ function endNodeGraphTooltipWindowDrag(event) {
   });
 }
 
-// ── Tips: SHOWN is one question, WHERE is another ─────────────────────────
-// Two independent toggles sharing one row in the visibility menu.
-//
-//   Hide/Show Tooltips - are the tips displayed at all
-//   Embed Tips         - floating window, or in-flow band beside the
-//                        CPU/RAM/GPU guide
+// ── Tips: one 3-state control ─────────────────────────────────────────────
+// Visibility menu button (and T) cycles:
+//   embedded → float → off → embedded → …
 //
 // Shown-ness has no state variable of its own; it is read off whichever host
-// is currently in use, so there is nothing to keep in sync and no way for the
-// button label to disagree with what is on screen.
+// is currently in use, so the button label cannot disagree with the screen.
 function nodeGraphTooltipsShown() {
   if (nodeGraphMvp.tooltipEmbedded === true) {
     return document.getElementById("nodeInteractionHelpEmbedSlot")?.hidden === false;
@@ -1278,26 +1274,31 @@ function nodeGraphTooltipsShown() {
   return document.getElementById("nodeTooltipWindow")?.hidden === false;
 }
 
+/** @returns {"embedded"|"float"|"off"} */
+function nodeGraphTooltipMode() {
+  if (!nodeGraphTooltipsShown()) {
+    return "off";
+  }
+  return nodeGraphMvp.tooltipEmbedded === true ? "embedded" : "float";
+}
+
 function renderNodeGraphTooltipWindowToggle() {
   const button = document.getElementById("nodeTooltipToggleButton");
-  const visible = nodeGraphTooltipsShown();
+  const mode = nodeGraphTooltipMode();
   if (button) {
-    const label = button.querySelector(".scene-context-window-button-label");
+    const label =
+      button.querySelector(".node-tooltip-mode-label") ||
+      button.querySelector(".scene-context-window-button-label");
     if (label) {
-      label.textContent = visible ? "Hide Tooltips" : "Show Tooltips";
+      label.textContent =
+        mode === "embedded" ? "Tips Embedded" : mode === "float" ? "Tips Float" : "Tips Off";
+    } else if (!button.querySelector("kbd") && button.childElementCount === 0) {
+      button.textContent =
+        mode === "embedded" ? "Tips Embedded" : mode === "float" ? "Tips Float" : "Tips Off";
     }
-    button.setAttribute("aria-pressed", visible ? "true" : "false");
+    button.dataset.tooltipMode = mode;
+    button.setAttribute("aria-pressed", mode === "off" ? "false" : "true");
     button.removeAttribute("title");
-  }
-  const embedButton = document.getElementById("nodeTooltipEmbedToggleButton");
-  if (embedButton) {
-    const embedded = nodeGraphMvp.tooltipEmbedded === true;
-    const label = embedButton.querySelector(".scene-context-window-button-label");
-    if (label) {
-      label.textContent = embedded ? "Float Tips" : "Embed Tips";
-    }
-    embedButton.setAttribute("aria-pressed", embedded ? "true" : "false");
-    embedButton.removeAttribute("title");
   }
   renderNodeGraphVisibilityMenuButton();
 }
@@ -1320,6 +1321,7 @@ function applyNodeGraphTooltipEmbedHeight(height = nodeGraphMvp.tooltipEmbedHeig
   const px = normalizeNodeGraphTooltipEmbedHeight(
     height ?? nodeGraphMvp.tooltipEmbedHeight ?? nodeTooltipEmbedHeightDefault,
   );
+  const prev = Number(nodeGraphMvp.tooltipEmbedHeight);
   nodeGraphMvp.tooltipEmbedHeight = px;
   const panel = document.getElementById("nodeWiringPanel");
   const help = document.getElementById("nodeInteractionHelp");
@@ -1327,6 +1329,10 @@ function applyNodeGraphTooltipEmbedHeight(height = nodeGraphMvp.tooltipEmbedHeig
   panel?.style?.setProperty("--node-tooltip-embed-height", css);
   if (help?.classList.contains("is-embedded")) {
     help.style.setProperty("--node-tooltip-embed-height", css);
+  }
+  // Height changes reflow the modular workspace under the tips band.
+  if (prev !== px && typeof notifyNodeGraphChromeLayoutChanged === "function") {
+    notifyNodeGraphChromeLayoutChanged();
   }
   return px;
 }
@@ -1442,6 +1448,9 @@ function applyNodeGraphTooltipEmbed({ shown } = {}) {
     }
     if (wantShown && win.hidden) {
       openNodeGraphTooltipWindow();
+      if (typeof notifyNodeGraphChromeLayoutChanged === "function") {
+        notifyNodeGraphChromeLayoutChanged();
+      }
       return;
     }
     if (!wantShown) {
@@ -1454,14 +1463,55 @@ function applyNodeGraphTooltipEmbed({ shown } = {}) {
     fitNodeInteractionHelpText(help);
   }
   renderNodeGraphTooltipWindowToggle();
+  // Embedded tips take in-flow space above the workspace; wire SVG viewBox must
+  // remeasure after that reflow or cables stretch off their jacks.
+  if (typeof notifyNodeGraphChromeLayoutChanged === "function") {
+    notifyNodeGraphChromeLayoutChanged();
+  }
 }
 
 function toggleNodeGraphTooltipEmbed() {
+  // Kept for callers that only want to flip host without cycling off.
   const wasShown = nodeGraphTooltipsShown();
   nodeGraphMvp.tooltipEmbedded = !(nodeGraphMvp.tooltipEmbedded === true);
   applyNodeGraphTooltipEmbed({ shown: wasShown });
   setNodeInteractionHelp(
     nodeGraphMvp.tooltipEmbedded
+      ? "Tips embedded beside the resource meters."
+      : "Tips floating in their own window.",
+  );
+}
+
+function hideNodeGraphTooltips() {
+  if (nodeGraphMvp.tooltipEmbedded === true) {
+    const slot = document.getElementById("nodeInteractionHelpEmbedSlot");
+    const resize = document.getElementById("nodeInteractionHelpEmbedResize");
+    if (slot) {
+      slot.hidden = true;
+    }
+    if (resize) {
+      resize.hidden = true;
+    }
+    renderNodeGraphTooltipWindowToggle();
+    if (typeof notifyNodeGraphChromeLayoutChanged === "function") {
+      notifyNodeGraphChromeLayoutChanged();
+    }
+    return;
+  }
+  closeNodeGraphTooltipWindow();
+}
+
+/** Apply one of the three tips modes: embedded | float | off. */
+function setNodeGraphTooltipMode(mode) {
+  const next = mode === "embedded" || mode === "float" || mode === "off" ? mode : "off";
+  if (next === "off") {
+    hideNodeGraphTooltips();
+    return;
+  }
+  nodeGraphMvp.tooltipEmbedded = next === "embedded";
+  applyNodeGraphTooltipEmbed({ shown: true });
+  setNodeInteractionHelp(
+    next === "embedded"
       ? "Tips embedded beside the resource meters."
       : "Tips floating in their own window.",
   );
@@ -1496,30 +1546,12 @@ function openNodeGraphTooltipWindow() {
   renderNodeGraphTooltipWindowToggle();
 }
 
-// Bound to both the menu button and the T key. In embedded mode there is no
-// window to open, so this shows/hides the in-flow slot instead - same button,
-// same meaning, different host.
+// Bound to the visibility menu button and the T key.
+// Cycles: embedded → float → off → embedded → …
 function toggleNodeGraphTooltipWindow() {
-  if (nodeGraphMvp.tooltipEmbedded === true) {
-    const slot = document.getElementById("nodeInteractionHelpEmbedSlot");
-    const resize = document.getElementById("nodeInteractionHelpEmbedResize");
-    if (slot) {
-      slot.hidden = !slot.hidden;
-      if (resize) {
-        resize.hidden = slot.hidden;
-      }
-      if (!slot.hidden && typeof applyNodeGraphTooltipEmbedHeight === "function") {
-        applyNodeGraphTooltipEmbedHeight();
-      }
-    }
-    renderNodeGraphTooltipWindowToggle();
-    return;
-  }
-  if (document.getElementById("nodeTooltipWindow")?.hidden === false) {
-    closeNodeGraphTooltipWindow();
-    return;
-  }
-  openNodeGraphTooltipWindow();
+  const mode = nodeGraphTooltipMode();
+  const next = mode === "embedded" ? "float" : mode === "float" ? "off" : "embedded";
+  setNodeGraphTooltipMode(next);
 }
 
 function renderNodeGraphVideoViewToggle() {
@@ -1704,8 +1736,8 @@ function setNodeGraphMacroKnobLabelPosition(value) {
 }
 
 function normalizeNodeGraphMacroKnobValuePosition(value) {
-  // Default top — value sits where the title used to (above the circle in the dial cell).
-  return nodeGraphMacroKnobPositionValues.includes(value) ? value : "top";
+  // Default mid — value sits in the center of the circle; title stays above the dial.
+  return nodeGraphMacroKnobPositionValues.includes(value) ? value : "mid";
 }
 
 function applyNodeGraphMacroKnobValuePosition() {

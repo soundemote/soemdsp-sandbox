@@ -1,3 +1,85 @@
+const nodeUserUiSettingsWindowDefaultSize = Object.freeze({
+  width: 360,
+  height: 620,
+  minWidth: 280,
+  minHeight: 240,
+});
+
+const nodeUiDevHelperWindowDefaultSize = Object.freeze({
+  width: 360,
+  height: 520,
+  minWidth: 280,
+  minHeight: 200,
+});
+
+function normalizeNodeUserUiSettingsWindowSize(size = {}, element = null) {
+  return normalizeNodeGraphFloatingWindowSize(
+    size,
+    nodeUserUiSettingsWindowDefaultSize,
+    { element: element || document.getElementById("nodeUserUiSettingsPanel") },
+  );
+}
+
+function normalizeNodeUiDevHelperWindowSize(size = {}, element = null) {
+  return normalizeNodeGraphFloatingWindowSize(
+    size,
+    nodeUiDevHelperWindowDefaultSize,
+    { element: element || document.getElementById("nodeUiDevHelper") },
+  );
+}
+
+function applyNodeUserUiSettingsWindowSize(size = nodeGraphMvp.userUiSettingsWindowSize, element = null) {
+  const panel = element || document.getElementById("nodeUserUiSettingsPanel");
+  const merged = (size && typeof size === "object")
+    ? size
+    : (nodeGraphMvp.userUiSettingsWindowSize || nodeUserUiSettingsWindowDefaultSize);
+  const normalized = normalizeNodeUserUiSettingsWindowSize(merged, panel);
+  const stored = {
+    width: normalized.width,
+    ...(Number.isFinite(normalized.height) ? { height: normalized.height } : {}),
+  };
+  nodeGraphMvp.userUiSettingsWindowSize = stored;
+  if (!panel) {
+    return stored;
+  }
+  applyNodeGraphFloatingWindowSizeVars(
+    panel,
+    "node-user-ui-settings",
+    nodeUserUiSettingsWindowDefaultSize,
+    { ...stored, _maxWidth: normalized._maxWidth, _maxHeight: normalized._maxHeight },
+  );
+  if (typeof syncNodeGraphFloatingWindowInlineBox === "function") {
+    syncNodeGraphFloatingWindowInlineBox(panel, stored);
+  }
+  return stored;
+}
+
+function applyNodeUiDevHelperWindowSize(size = nodeGraphMvp.uiDevHelperWindowSize, element = null) {
+  const helper = element || document.getElementById("nodeUiDevHelper");
+  const merged = (size && typeof size === "object")
+    ? size
+    : (nodeGraphMvp.uiDevHelperWindowSize || nodeUiDevHelperWindowDefaultSize);
+  const normalized = normalizeNodeUiDevHelperWindowSize(merged, helper);
+  const stored = {
+    width: normalized.width,
+    ...(Number.isFinite(normalized.height) ? { height: normalized.height } : {}),
+  };
+  nodeGraphMvp.uiDevHelperWindowSize = stored;
+  if (!helper) {
+    return stored;
+  }
+  applyNodeGraphFloatingWindowSizeVars(
+    helper,
+    "node-ui-dev-helper",
+    nodeUiDevHelperWindowDefaultSize,
+    { ...stored, _maxWidth: normalized._maxWidth, _maxHeight: normalized._maxHeight },
+  );
+  if (typeof syncNodeGraphFloatingWindowInlineBox === "function") {
+    syncNodeGraphFloatingWindowInlineBox(helper, stored);
+  }
+  return stored;
+}
+
 function setNodeUiDevHelperVisible(visible) {
   const helper = document.getElementById("nodeUiDevHelper");
   const button = document.getElementById("nodeUiDevButton");
@@ -7,8 +89,19 @@ function setNodeUiDevHelperVisible(visible) {
   helper.hidden = !visible;
   button.classList.toggle("active", visible);
   button.setAttribute("aria-pressed", String(visible));
-  if (visible && typeof positionNodeGraphWorkspaceWindowFromState === "function") {
-    positionNodeGraphWorkspaceWindowFromState("uiDev", helper);
+  if (visible) {
+    if (typeof bindNodeGraphFloatingWindowResizeHandle === "function") {
+      bindNodeGraphFloatingWindowResizeHandle("uiDev");
+    }
+    if (typeof markNodeGraphFloatingWindowSurface === "function") {
+      markNodeGraphFloatingWindowSurface(helper);
+    }
+    const savedSize = nodeGraphMvp.workspaceWindowStates?.uiDev?.size
+      || nodeGraphMvp.uiDevHelperWindowSize;
+    applyNodeUiDevHelperWindowSize(savedSize || nodeUiDevHelperWindowDefaultSize, helper);
+    if (typeof positionNodeGraphWorkspaceWindowFromState === "function") {
+      positionNodeGraphWorkspaceWindowFromState("uiDev", helper);
+    }
   }
   setNodeInteractionHelp(
     visible
@@ -42,6 +135,15 @@ function setNodeUserUiSettingsVisible(visible) {
   button?.classList.toggle("active", visible);
   button?.setAttribute("aria-pressed", String(visible));
   if (visible) {
+    if (typeof bindNodeGraphFloatingWindowResizeHandle === "function") {
+      bindNodeGraphFloatingWindowResizeHandle("uiSettings");
+    }
+    if (typeof markNodeGraphFloatingWindowSurface === "function") {
+      markNodeGraphFloatingWindowSurface(panel);
+    }
+    const savedSize = nodeGraphMvp.workspaceWindowStates?.uiSettings?.size
+      || nodeGraphMvp.userUiSettingsWindowSize;
+    applyNodeUserUiSettingsWindowSize(savedSize || nodeUserUiSettingsWindowDefaultSize, panel);
     const pending = nodeGraphMvp._unifiedWindowPendingPosition;
     if (pending && Number.isFinite(Number(pending.left)) && Number.isFinite(Number(pending.top))) {
       if (typeof setNodeGraphFloatingWindowViewportPosition === "function") {
@@ -127,193 +229,27 @@ function organizeNodeUiDevSections() {
   helperBody.dataset.sectionsOrganized = "true";
 }
 
-let nodeUserUiSettingsDragging = null;
-
-function positionNodeUserUiSettingsPanel(panel, x, y) {
-  if (!panel) {
-    return;
-  }
-  const { left, top } = nodeGraphFloatingWindowPosition(panel, x, y);
-  setNodeGraphFloatingWindowViewportPosition(panel, left, top);
-  if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
-    rememberNodeGraphWorkspaceWindowState(
-      "uiSettings",
-      panel,
-      { open: !panel.hidden, position: { left, top } },
-      { persist: false },
-    );
-  }
-}
+// Move / resize use the shared floating-window registry
+// (beginNodeGraphRegisteredFloatingWindowDrag/Resize + pointer bridge).
+// Keep thin wrappers so existing event bindings keep compiling.
 
 function beginNodeUserUiSettingsDrag(event) {
-  if (event.button > 0 || event.target.closest(".panel-close-button")) {
-    return;
-  }
-  const panel = document.getElementById("nodeUserUiSettingsPanel");
-  if (!panel || panel.hidden) {
-    return;
-  }
-  const rect = panel.getBoundingClientRect();
-  const handle =
-    event.currentTarget.id === "nodeUserUiSettingsHeading"
-      ? document.getElementById("nodeUserUiSettingsDragHandle")
-      : event.currentTarget;
-  nodeUserUiSettingsDragging = {
-    handle,
-    heading: document.getElementById("nodeUserUiSettingsHeading"),
-    offsetX: event.clientX - rect.left,
-    offsetY: event.clientY - rect.top,
-    pointerId: event.pointerId ?? null,
-  };
-  handle?.classList.add("dragging");
-  nodeUserUiSettingsDragging.heading?.classList.add("dragging");
-  if (event.pointerId !== undefined) {
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }
-  event.preventDefault();
-  event.stopPropagation();
-}
-
-function dragNodeUserUiSettings(event) {
-  const drag = nodeUserUiSettingsDragging;
-  if (
-    !drag ||
-    (drag.pointerId !== null && event.pointerId !== undefined && drag.pointerId !== event.pointerId)
-  ) {
-    return;
-  }
-  positionNodeUserUiSettingsPanel(
-    document.getElementById("nodeUserUiSettingsPanel"),
-    event.clientX - drag.offsetX,
-    event.clientY - drag.offsetY,
-  );
-  event.preventDefault();
-}
-
-function endNodeUserUiSettingsDrag(event) {
-  const drag = nodeUserUiSettingsDragging;
-  if (
-    !drag ||
-    (drag.pointerId !== null && event.pointerId !== undefined && drag.pointerId !== event.pointerId)
-  ) {
-    return;
-  }
-  drag.handle?.classList.remove("dragging");
-  drag.heading?.classList.remove("dragging");
-  if (event.pointerId !== undefined) {
-    const heading = document.getElementById("nodeUserUiSettingsHeading");
-    const handle = document.getElementById("nodeUserUiSettingsDragHandle");
-    if (heading?.hasPointerCapture?.(event.pointerId)) {
-      heading.releasePointerCapture(event.pointerId);
-    }
-    if (handle?.hasPointerCapture?.(event.pointerId)) {
-      handle.releasePointerCapture(event.pointerId);
-    }
-  }
-  nodeUserUiSettingsDragging = null;
-  if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
-    rememberNodeGraphWorkspaceWindowState(
-      "uiSettings",
-      document.getElementById("nodeUserUiSettingsPanel"),
-      { open: true },
-      { status: false },
-    );
-  }
-}
-
-let nodeUiDevHelperDragging = null;
-
-function positionNodeUiDevHelper(helper, x, y) {
-  if (!helper) {
-    return;
-  }
-  const { left, top } = nodeGraphFloatingWindowPosition(helper, x, y);
-  setNodeGraphFloatingWindowViewportPosition(helper, left, top);
-  if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
-    rememberNodeGraphWorkspaceWindowState(
-      "uiDev",
-      helper,
-      { open: !helper.hidden, position: { left, top } },
-      { persist: false },
-    );
+  if (typeof beginNodeGraphRegisteredFloatingWindowDrag === "function") {
+    beginNodeGraphRegisteredFloatingWindowDrag(event, "uiSettings");
   }
 }
 
 function beginNodeUiDevHelperDrag(event) {
-  if (event.button > 0 || event.target.closest(".panel-close-button")) {
-    return;
-  }
-
-  const helper = document.getElementById("nodeUiDevHelper");
-  if (!helper || helper.hidden) {
-    return;
-  }
-
-  const rect = helper.getBoundingClientRect();
-  const handle =
-    event.currentTarget.id === "nodeUiDevHelperHeading"
-      ? document.getElementById("nodeUiDevHelperDragHandle")
-      : event.currentTarget;
-  nodeUiDevHelperDragging = {
-    handle,
-    heading: document.getElementById("nodeUiDevHelperHeading"),
-    offsetX: event.clientX - rect.left,
-    offsetY: event.clientY - rect.top,
-    pointerId: event.pointerId ?? null,
-  };
-  handle?.classList.add("dragging");
-  nodeUiDevHelperDragging.heading?.classList.add("dragging");
-  if (event.pointerId !== undefined) {
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }
-  event.preventDefault();
-  event.stopPropagation();
-}
-
-function dragNodeUiDevHelper(event) {
-  const drag = nodeUiDevHelperDragging;
-  if (
-    !drag ||
-    (drag.pointerId !== null && event.pointerId !== undefined && drag.pointerId !== event.pointerId)
-  ) {
-    return;
-  }
-  positionNodeUiDevHelper(
-    document.getElementById("nodeUiDevHelper"),
-    event.clientX - drag.offsetX,
-    event.clientY - drag.offsetY,
-  );
-  event.preventDefault();
-}
-
-function endNodeUiDevHelperDrag(event) {
-  const drag = nodeUiDevHelperDragging;
-  if (
-    !drag ||
-    (drag.pointerId !== null && event.pointerId !== undefined && drag.pointerId !== event.pointerId)
-  ) {
-    return;
-  }
-
-  drag.handle?.classList.remove("dragging");
-  drag.heading?.classList.remove("dragging");
-  if (event.pointerId !== undefined) {
-    const heading = document.getElementById("nodeUiDevHelperHeading");
-    const handle = document.getElementById("nodeUiDevHelperDragHandle");
-    if (heading?.hasPointerCapture?.(event.pointerId)) {
-      heading.releasePointerCapture(event.pointerId);
-    }
-    if (handle?.hasPointerCapture?.(event.pointerId)) {
-      handle.releasePointerCapture(event.pointerId);
-    }
-  }
-  nodeUiDevHelperDragging = null;
-  if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
-    rememberNodeGraphWorkspaceWindowState(
-      "uiDev",
-      document.getElementById("nodeUiDevHelper"),
-      { open: true },
-      { status: false },
-    );
+  if (typeof beginNodeGraphRegisteredFloatingWindowDrag === "function") {
+    beginNodeGraphRegisteredFloatingWindowDrag(event, "uiDev");
   }
 }
+
+/** @deprecated registry pointer bridge owns move/up */
+function dragNodeUserUiSettings() {}
+/** @deprecated registry pointer bridge owns move/up */
+function endNodeUserUiSettingsDrag() {}
+/** @deprecated registry pointer bridge owns move/up */
+function dragNodeUiDevHelper() {}
+/** @deprecated registry pointer bridge owns move/up */
+function endNodeUiDevHelperDrag() {}

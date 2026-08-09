@@ -38,8 +38,9 @@ function bindNodeGraphSettingsFormEvents() {
     field.addEventListener("input", handleNodeGraphSettingsInput);
     field.addEventListener("change", commitNodeGraphSettingsHistory);
   }
+  // Patch Explorer name/tags are always editable (no double-click gate).
   for (const field of document.querySelectorAll("[data-patch-header-info-field]")) {
-    applyNodeGraphDoubleClickToEdit(field);
+    field.readOnly = false;
     field.addEventListener("input", handleNodeGraphHeaderInfoInput);
     field.addEventListener("change", commitNodeGraphSettingsHistory);
   }
@@ -47,6 +48,16 @@ function bindNodeGraphSettingsFormEvents() {
     field.addEventListener("input", handleNodeGraphSavedPatchBankNameInput);
     field.addEventListener("change", commitNodeGraphSettingsHistory);
   }
+  for (const field of document.querySelectorAll("[data-patch-library-path]")) {
+    field.addEventListener("input", handleNodeGraphPatchLibraryPathInput);
+    field.addEventListener("change", handleNodeGraphPatchLibraryPathInput);
+  }
+  document
+    .getElementById("nodePatchFactoryPathButton")
+    ?.addEventListener("click", handleNodeGraphPatchLibraryPathButtonClick);
+  document
+    .getElementById("nodePatchUserPathButton")
+    ?.addEventListener("click", handleNodeGraphPatchLibraryPathButtonClick);
   for (const field of document.querySelectorAll("[data-patch-visual-field]")) {
     field.addEventListener("input", handleNodeGraphSettingsInput);
     field.addEventListener("change", commitNodeGraphSettingsHistory);

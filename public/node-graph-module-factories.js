@@ -389,7 +389,7 @@ function createNodeGraphMacroControlsBody(node = null) {
     const face = typeof nodeGraphMacroControlsFaceSettings === "function"
       ? nodeGraphMacroControlsFaceSettings()
       : null;
-    // Shared layout: title above dial, value on dial (top), circle centered in dial.
+    // Shared layout: title above dial, value centered in the circle.
     const label = document.createElement("span");
     label.className = "node-macro-knob-label";
     label.dataset.macroKnobLabel = "true";

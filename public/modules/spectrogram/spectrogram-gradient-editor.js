@@ -616,8 +616,6 @@
       <div class="sge-actions">
         <button type="button" data-sge-add>+ Stop</button>
         <button type="button" data-sge-remove>− Stop</button>
-        <button type="button" data-sge-copy>Copy hex</button>
-        <button type="button" data-sge-paste>Paste hex</button>
       </div>
       <div class="sge-section-label">Hex list</div>
       <textarea class="sge-hex" data-sge-list rows="2" spellcheck="false"
@@ -641,8 +639,6 @@
     const colorHost = root.querySelector("[data-sge-color-widget]");
     const addBtn = root.querySelector("[data-sge-add]");
     const removeBtn = root.querySelector("[data-sge-remove]");
-    const copyBtn = root.querySelector("[data-sge-copy]");
-    const pasteBtn = root.querySelector("[data-sge-paste]");
 
     const emit = () => {
       options.onChange?.(normalizeStops(stops));
@@ -845,33 +841,6 @@
       activeIndex = Math.min(activeIndex, stops.length - 1);
       stops[0].t = 0;
       stops[stops.length - 1].t = 1;
-      activePresetId = "";
-      renderBar();
-      renderControls();
-      emit();
-    });
-    copyBtn.addEventListener("click", async () => {
-      const text = stopsToHexList(stops);
-      listArea.value = text;
-      try {
-        await navigator.clipboard?.writeText?.(text);
-      } catch {
-        listArea.select();
-        document.execCommand?.("copy");
-      }
-    });
-    pasteBtn.addEventListener("click", async () => {
-      let text = listArea.value;
-      try {
-        const clip = await navigator.clipboard?.readText?.();
-        if (clip) text = clip;
-      } catch {
-        // use textarea
-      }
-      const parsed = parseHexList(text);
-      if (!parsed) return;
-      stops = parsed;
-      activeIndex = 0;
       activePresetId = "";
       renderBar();
       renderControls();

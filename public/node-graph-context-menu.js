@@ -1283,8 +1283,9 @@ function configureNodeSceneContextMenu(mode) {
   toggleIoButton.hidden = !moduleMode || multiModuleMode;
   toggleTitleButton.hidden = !moduleMode || multiModuleMode;
   imageControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "image");
+  // Image layers / span / offset / readout live in Display Settings, not Module Settings.
   if (knobFaceControls) {
-    knobFaceControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "knob");
+    knobFaceControls.hidden = true;
   }
   canvasControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "canvas");
   ledControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "led");

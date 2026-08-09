@@ -146,10 +146,21 @@ function nodeInteractionMouseHint(element) {
     return nodeGraphTooltipText("view.gridHelp");
   }
   if (element.id === "nodeTooltipToggleButton") {
-    return nodeGraphTooltipText(nodeGraphTooltipsShown() ? "view.tipsHide" : "view.tipsShow");
-  }
-  if (element.id === "nodeTooltipEmbedToggleButton") {
-    return nodeGraphTooltipText(nodeGraphMvp.tooltipEmbedded ? "view.tipsFloat" : "view.tipsEmbed");
+    const mode =
+      typeof nodeGraphTooltipMode === "function"
+        ? nodeGraphTooltipMode()
+        : nodeGraphTooltipsShown()
+          ? nodeGraphMvp.tooltipEmbedded
+            ? "embedded"
+            : "float"
+          : "off";
+    if (mode === "embedded") {
+      return nodeGraphTooltipText("view.tipsCycleFloat");
+    }
+    if (mode === "float") {
+      return nodeGraphTooltipText("view.tipsCycleOff");
+    }
+    return nodeGraphTooltipText("view.tipsCycleEmbed");
   }
   if (element.id === "nodeSliderAmountToggleButton") {
     return nodeGraphTooltipText(nodeGraphMvp.sliderAmountVisible ? "view.sliderAmountHide" : "view.sliderAmountShow");

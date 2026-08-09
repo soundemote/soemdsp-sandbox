@@ -39,7 +39,22 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     return node.traceDisplaySettings;
   }
   if (displayType === "knobFace") {
-    node.traceDisplaySettings = normalizeNodeGraphKnobFaceDisplaySettings(settings);
+    const normalized = normalizeNodeGraphKnobFaceDisplaySettings(settings);
+    node.traceDisplaySettings = normalized;
+    // Mirror span/offset/readout/label into the face blob (image layers live there).
+    if (typeof normalizeNodeGraphKnobFace === "function") {
+      const face = normalizeNodeGraphKnobFace(node.knobFace);
+      const nextFace = {
+        ...face,
+        rotationDegrees: normalized.rotationDegrees,
+        rotationOffsetDegrees: normalized.rotationOffsetDegrees,
+        showReadout: normalized.showReadout,
+        showLabel: normalized.showLabel,
+      };
+      node.knobFace = typeof nodeGraphKnobFaceToPatch === "function"
+        ? nodeGraphKnobFaceToPatch(nextFace)
+        : nextFace;
+    }
     return node.traceDisplaySettings;
   }
   if (displayType === "ledLamp") {

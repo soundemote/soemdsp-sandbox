@@ -163,7 +163,98 @@ function applyNodeGraphFloatingWindowSizeVars(element, cssPrefix, defaults = {},
  * SE grip is below/right of the view (height/width too large for its origin).
  * Does not move windows — free half-off placement is preserved when size fits.
  */
+/**
+ * Shared SE corner resize grip — one class, one look, one attachment path.
+ * Creates the button if missing so every floating window gets the same widget
+ * without bespoke markup drift.
+ */
+function ensureNodeGraphFloatingWindowResizeHandle(element, options = {}) {
+  if (!element) {
+    return null;
+  }
+  let handle = element.querySelector(":scope > .scene-context-resize-handle");
+  if (!handle) {
+    handle = document.createElement("button");
+    handle.type = "button";
+    handle.className = "scene-context-resize-handle";
+    element.append(handle);
+  }
+  if (options.id && !handle.id) {
+    handle.id = String(options.id);
+  }
+  if (options.ariaLabel) {
+    handle.setAttribute("aria-label", String(options.ariaLabel));
+  } else if (!handle.getAttribute("aria-label")) {
+    handle.setAttribute("aria-label", "Resize window");
+  }
+  handle.tabIndex = -1;
+  return handle;
+}
+
+/**
+ * Ensure every registered floating window has the shared SE grip DOM.
+ * Call bindNodeGraphFloatingWindowResizeHandle(workspaceKey) to attach the
+ * shared registry resize listener (idempotent).
+ */
+function installNodeGraphFloatingWindowResizeHandles() {
+  for (const entry of nodeGraphFloatingWindowRegistryEntries) {
+    if (entry.resizeStateKey == null) {
+      continue;
+    }
+    const element = document.getElementById(entry.elementId);
+    if (!element) {
+      continue;
+    }
+    ensureNodeGraphFloatingWindowResizeHandle(element, {
+      id: entry.resizeHandleId || `${entry.elementId}ResizeHandle`,
+      ariaLabel: entry.resizeAriaLabel || `Resize ${entry.workspaceKey}`,
+    });
+  }
+}
+
+/** Bind shared registry resize on a window's SE grip (once). */
+function bindNodeGraphFloatingWindowResizeHandle(workspaceKey) {
+  const entry = nodeGraphFloatingWindowRegistryEntryByWorkspaceKey(workspaceKey);
+  const element = entry ? document.getElementById(entry.elementId) : null;
+  if (!entry || !element || entry.resizeStateKey == null) {
+    return null;
+  }
+  const handle = ensureNodeGraphFloatingWindowResizeHandle(element, {
+    id: entry.resizeHandleId || `${entry.elementId}ResizeHandle`,
+    ariaLabel: entry.resizeAriaLabel || `Resize ${entry.workspaceKey}`,
+  });
+  if (!handle || handle.dataset.floatingWindowResizeBound === "true") {
+    return handle;
+  }
+  handle.dataset.floatingWindowResizeBound = "true";
+  handle.addEventListener("pointerdown", (event) => {
+    beginNodeGraphRegisteredFloatingWindowResize(event, entry.workspaceKey);
+  });
+  return handle;
+}
+
 function fitNodeGraphFloatingWindowsToViewport() {
+  // Prefer the single registry list so new windows pick up viewport fit free.
+  if (typeof nodeGraphFloatingWindowRegistryEntries !== "undefined") {
+    for (const entry of nodeGraphFloatingWindowRegistryEntries) {
+      if (entry.sizeAxes?.width === false && entry.sizeAxes?.height === false) {
+        continue;
+      }
+      const apply = nodeGraphFloatingWindowRegistryApplySize(entry);
+      if (!apply) {
+        continue;
+      }
+      const element = document.getElementById(entry.elementId);
+      if (!element || element.hidden) {
+        continue;
+      }
+      ensureNodeGraphFloatingWindowResizeHandleReachable(element, apply, {
+        minWidth: 96,
+        minHeight: 120,
+      });
+    }
+    return;
+  }
   const jobs = [
     {
       id: "nodeSceneContextMenu",
@@ -808,6 +899,28 @@ const nodeGraphFloatingWindowRegistryEntries = Object.freeze([
     sizeAxes: Object.freeze({ width: true, height: true }),
     headingDragClass: true,
   }),
+  Object.freeze({
+    workspaceKey: "uiSettings",
+    elementId: "nodeUserUiSettingsPanel",
+    dragStateKey: "userUiSettingsDragging",
+    resizeStateKey: "userUiSettingsResizing",
+    applySizeName: "applyNodeUserUiSettingsWindowSize",
+    sizeAxes: Object.freeze({ width: true, height: true }),
+    headingDragClass: true,
+    resizeHandleId: "nodeUserUiSettingsResizeHandle",
+    resizeAriaLabel: "Resize UI settings",
+  }),
+  Object.freeze({
+    workspaceKey: "uiDev",
+    elementId: "nodeUiDevHelper",
+    dragStateKey: "uiDevHelperDragging",
+    resizeStateKey: "uiDevHelperResizing",
+    applySizeName: "applyNodeUiDevHelperWindowSize",
+    sizeAxes: Object.freeze({ width: true, height: true }),
+    headingDragClass: true,
+    resizeHandleId: "nodeUiDevHelperResizeHandle",
+    resizeAriaLabel: "Resize UIDEV helper",
+  }),
 ]);
 
 function nodeGraphFloatingWindowRegistryEntryByWorkspaceKey(workspaceKey) {
@@ -1006,6 +1119,12 @@ function bindNodeGraphFloatingWindowRegistryPointerBridge() {
   document.addEventListener("pointermove", nodeGraphFloatingWindowRegistryPointerMove);
   document.addEventListener("pointerup", nodeGraphFloatingWindowRegistryPointerEnd);
   document.addEventListener("pointercancel", nodeGraphFloatingWindowRegistryPointerEnd);
+  // Shared SE grips for every registry surface (creates if markup omitted).
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", installNodeGraphFloatingWindowResizeHandles, { once: true });
+  } else {
+    installNodeGraphFloatingWindowResizeHandles();
+  }
 }
 
 function rebaseNodeGraphFloatingWindowDrag(target, next) {

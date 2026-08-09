@@ -207,15 +207,17 @@ const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   background: nodeGraphScopePhosphorLookDefaults.background,
   brightness: nodeGraphScopePhosphorLookDefaults.brightness,
   color: nodeGraphScopePhosphorLookDefaults.peakColor,
+  // Residual of previous digits (same Ghost/Trail model as other phosphor faces).
+  ghost: nodeGraphScopePhosphorLookDefaults.ghost,
   trail: nodeGraphScopePhosphorLookDefaults.trail,
   decimals: 2,
-  // Unlit segment ink — mid gradient stop for plate contrast.
+  // Unlit LCD segment ink (plate grid) — not the Ghost residual knob.
   ghostColor: "#8c2981",
   gradientStops: nodeGraphScopePhosphorLookDefaults.gradientStops,
 });
 
 
-/** Knob module face: macro-dial look; colors are per-node (not global macro bank). */
+/** Knob module face: macro-dial look; colors + rotation are per-node Display Settings. */
 const nodeGraphKnobFaceDisplaySettingsDefaults = Object.freeze({
   decimals: 2,
   background: "#000000",
@@ -223,6 +225,9 @@ const nodeGraphKnobFaceDisplaySettingsDefaults = Object.freeze({
   arcTrack: "#3a3428",
   showLabel: true,
   showReadout: true,
+  // Image-layer rotation (shared across layers that have rotate on).
+  rotationDegrees: 270,
+  rotationOffsetDegrees: -135,
 });
 
 

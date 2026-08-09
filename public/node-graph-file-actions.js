@@ -36,11 +36,11 @@ const nodeGraphPatchPresetStorageKey = "soemdsp-sandbox.patchPresets.v1";
 const nodeGraphSavedPatchBankSlotCount = 128;
 const nodeGraphSavedPatchBankMaxProgram = nodeGraphSavedPatchBankSlotCount - 1;
 const nodeGraphSavedPatchesWindowDefaultSize = Object.freeze({
-  width: 185,
+  width: 380,
   height: 620,
-  minWidth: 80,
+  minWidth: 280,
   maxWidth: 720,
-  minHeight: 96,
+  minHeight: 280,
   maxHeight: 760,
 });
 
@@ -506,10 +506,14 @@ function syncNodeGraphSelectedSavedPatchEditor() {
   const bankNameInput = document.getElementById("nodeSavedPatchesBankNameInput");
   const headerBankNameInput = document.getElementById("nodePatchBankNameHeader");
   const nameInput = document.getElementById("nodeSavedPatchesPatchNameInput");
+  const headerNameInput = document.getElementById("nodePatchNameHeader");
   const tagsInput = document.getElementById("nodeSavedPatchesPatchTagsInput");
+  const headerTagsInput = document.getElementById("nodePatchTagsHeader");
   const entry = nodeGraphSelectedSavedPatchEntry();
   const patchInfo = normalizeNodeGraphPatchInfo(nodeGraphMvp.patch.info);
   const bankName = nodeGraphMvp.savedPatchBankName || entry?.bankName || patchInfo.bankName || "";
+  const name = entry?.name || patchInfo.name || "";
+  const tags = entry?.tags || patchInfo.tags || "";
   nodeGraphMvp.savedPatchBankName = bankName;
   if (bankNameInput && document.activeElement !== bankNameInput) {
     bankNameInput.value = bankName;
@@ -518,10 +522,74 @@ function syncNodeGraphSelectedSavedPatchEditor() {
     headerBankNameInput.value = bankName;
   }
   if (nameInput && document.activeElement !== nameInput) {
-    nameInput.value = entry?.name || patchInfo.name || "Patch name";
+    nameInput.value = name;
+  }
+  if (headerNameInput && document.activeElement !== headerNameInput) {
+    headerNameInput.value = name;
   }
   if (tagsInput && document.activeElement !== tagsInput) {
-    tagsInput.value = entry?.tags || patchInfo.tags || "";
+    tagsInput.value = tags;
+  }
+  if (headerTagsInput && document.activeElement !== headerTagsInput) {
+    headerTagsInput.value = tags;
+  }
+  if (typeof syncNodeGraphPatchLibraryPathFields === "function") {
+    syncNodeGraphPatchLibraryPathFields();
+  }
+}
+
+function nodeGraphPatchLibraryPathDefaults() {
+  return {
+    factory: String(nodeGraphMvp.savedPatchFactoryPath || "").trim(),
+    user: String(nodeGraphMvp.savedPatchUserPath || "").trim(),
+  };
+}
+
+function syncNodeGraphPatchLibraryPathFields() {
+  const paths = nodeGraphPatchLibraryPathDefaults();
+  for (const kind of ["factory", "user"]) {
+    const input = document.querySelector(`[data-patch-library-path="${kind}"]`);
+    if (input && document.activeElement !== input) {
+      input.value = paths[kind] || "";
+    }
+  }
+}
+
+function handleNodeGraphPatchLibraryPathInput(event) {
+  const kind = String(event.currentTarget?.dataset?.patchLibraryPath || "").trim();
+  const value = String(event.currentTarget?.value || "").trim();
+  if (kind === "factory") {
+    nodeGraphMvp.savedPatchFactoryPath = value;
+  } else if (kind === "user") {
+    nodeGraphMvp.savedPatchUserPath = value;
+  } else {
+    return;
+  }
+  if (typeof saveNodeGraphWorkspaceWindowStatesToUserSettings === "function") {
+    saveNodeGraphWorkspaceWindowStatesToUserSettings({ status: false });
+  } else if (typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
+    saveNodeGraphWorkingPatchToUserSettings({ immediateFile: false });
+  }
+}
+
+function handleNodeGraphPatchLibraryPathButtonClick(event) {
+  const kind = event.currentTarget?.id === "nodePatchFactoryPathButton" ? "factory" : "user";
+  const input = document.querySelector(`[data-patch-library-path="${kind}"]`);
+  if (!input) {
+    return;
+  }
+  // Exposed for setup: focus + select so the user can type/paste a path.
+  // Folder pickers can land here later without changing the chrome.
+  input.focus();
+  try {
+    input.select();
+  } catch (_) { /* ignore */ }
+  if (typeof setNodeInteractionHelp === "function") {
+    setNodeInteractionHelp(
+      kind === "factory"
+        ? "Type or paste the factory patches folder path."
+        : "Type or paste the user patches folder path.",
+    );
   }
 }
 
@@ -1343,6 +1411,8 @@ function setNodeGraphSavedPatchesWindowVisible(visible) {
       });
     }
     syncNodeGraphSavedPatchGridColumns();
+    syncNodeGraphSelectedSavedPatchEditor();
+    syncNodeGraphPatchLibraryPathFields();
     renderNodeGraphDemoPatchList();
     if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
       noteNodeGraphUnifiedWindowOpened("patchExplorer", panel);

@@ -370,17 +370,17 @@ function nodeGraphPatchNodeDisplayVisibleInPlan(node, options = {}) {
   if (node?.id && bypassedNodes.has(node.id)) {
     return false;
   }
+  // DisplayVisibleForUi already applies the global "Show displays" flag for
+  // hideable analyzer scopes, while keeping custom faces (Number Readout,
+  // Knob, LED, …) always active so they still receive live buffers.
+  if (typeof nodeGraphModuleDisplayVisibleForUi === "function") {
+    return nodeGraphModuleDisplayVisibleForUi(node?.type, node?.ui);
+  }
   if (nodeGraphMvp?.moduleOscilloscopesVisible === false) {
     return false;
   }
-  if (
-    typeof nodeGraphModuleDisplayVisibleForUi === "function" &&
-    !nodeGraphModuleDisplayVisibleForUi(node.type, node.ui)
-  ) {
-    return false;
-  }
   const normalizedUi = node?.ui && typeof nodeGraphEffectivePatchNodeUi === "function"
-    ? nodeGraphEffectivePatchNodeUi(node.ui)
+    ? nodeGraphEffectivePatchNodeUi(node.ui, node.type)
     : (node?.ui || {});
   return normalizedUi?.oscilloscopeHidden !== true;
 }

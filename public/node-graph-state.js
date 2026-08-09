@@ -67,8 +67,8 @@ var nodeGraphMvp = {
   macroKnobSizeScale: 1,
   macroKnobHitboxOutlineVisible: false,
   macroKnobLabelPosition: "top",
-  // Value on dial (top of circle cell); title sits above the dial widget.
-  macroKnobValuePosition: "top",
+  // Value centered in the circle; title sits above the dial widget.
+  macroKnobValuePosition: "mid",
   sliderLayout: "text-inside",
   // Amount fill on by default, and restored by Clear Startup (see
   // clearNodeUserStartupRuntimeState).
@@ -323,6 +323,9 @@ var nodeGraphMvp = {
   sceneContextPoint: null,
   savedPatchBankIndex: 0,
   savedPatchBankName: "",
+  // Exposed while patch library locations settle (factory pack vs user saves).
+  savedPatchFactoryPath: "",
+  savedPatchUserPath: "",
   savedPatchGridColumns: 3,
   savedPatchExplorerView: "banks",
   selectedSavedPatchProgram: 0,
@@ -351,6 +354,12 @@ var nodeGraphMvp = {
   sceneContextDragging: null,
   sceneContextResizing: null,
   sceneContextWindowSize: null,
+  userUiSettingsDragging: null,
+  userUiSettingsResizing: null,
+  userUiSettingsWindowSize: null,
+  uiDevHelperDragging: null,
+  uiDevHelperResizing: null,
+  uiDevHelperWindowSize: null,
   sliderDragging: null,
   smoothZoomDragging: null,
   snapGridWhilePanning: false,

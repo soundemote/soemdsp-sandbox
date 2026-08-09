@@ -461,6 +461,12 @@ function applyNodeGraphWorkspaceWindowStateToElement(key) {
   if (key === "tooltipWindow" && typeof applyNodeGraphTooltipWindowSize === "function") {
     applyNodeGraphTooltipWindowSize(state.size);
   }
+  if (key === "uiSettings" && typeof applyNodeUserUiSettingsWindowSize === "function") {
+    applyNodeUserUiSettingsWindowSize(state.size);
+  }
+  if (key === "uiDev" && typeof applyNodeUiDevHelperWindowSize === "function") {
+    applyNodeUiDevHelperWindowSize(state.size);
+  }
   if (key === "moduleActions" && typeof applyNodeModuleActionsWindowSize === "function") {
     applyNodeModuleActionsWindowSize(nodeGraphMvp.sharedInspectorWindowState?.size);
   }
@@ -679,7 +685,7 @@ function normalizeNodeUiDevSettings(settings = {}) {
     view.macroKnobLabelPosition ?? nodeGraphMvp.macroKnobLabelPosition ?? "top",
   );
   const macroKnobValuePosition = normalizeNodeGraphMacroKnobValuePosition(
-    view.macroKnobValuePosition ?? nodeGraphMvp.macroKnobValuePosition ?? "bottom",
+    view.macroKnobValuePosition ?? nodeGraphMvp.macroKnobValuePosition ?? "mid",
   );
   const macroControlsFace = typeof normalizeNodeGraphMacroControlsFaceSettings === "function"
     ? normalizeNodeGraphMacroControlsFaceSettings(
@@ -764,6 +770,12 @@ function normalizeNodeUiDevSettings(settings = {}) {
   const savedPatchBankName = typeof nodeGraphOneLineText === "function"
     ? nodeGraphOneLineText(view.savedPatchBankName ?? nodeGraphMvp.savedPatchBankName ?? "")
     : String(view.savedPatchBankName ?? nodeGraphMvp.savedPatchBankName ?? "").trim();
+  const savedPatchFactoryPath = String(
+    view.savedPatchFactoryPath ?? nodeGraphMvp.savedPatchFactoryPath ?? "",
+  ).trim();
+  const savedPatchUserPath = String(
+    view.savedPatchUserPath ?? nodeGraphMvp.savedPatchUserPath ?? "",
+  ).trim();
   const savedPatchExplorerView = view.savedPatchExplorerView === "patches" ? "patches" : "banks";
   return {
     format: {
@@ -827,6 +839,8 @@ function normalizeNodeUiDevSettings(settings = {}) {
       moduleStoreDepartment,
       savedPatchBankIndex,
       savedPatchBankName,
+      savedPatchFactoryPath,
+      savedPatchUserPath,
       savedPatchGridColumns,
       savedPatchExplorerView,
       workingPatch,
@@ -908,7 +922,7 @@ function readNodeUiDevSettingsFromControls(options = {}) {
       macroKnobSizeScale: normalizeNodeGraphMacroKnobSizeScale(nodeGraphMvp.macroKnobSizeScale ?? 1),
       macroKnobHitboxOutlineVisible: Boolean(nodeGraphMvp.macroKnobHitboxOutlineVisible),
       macroKnobLabelPosition: normalizeNodeGraphMacroKnobLabelPosition(nodeGraphMvp.macroKnobLabelPosition ?? "top"),
-      macroKnobValuePosition: normalizeNodeGraphMacroKnobValuePosition(nodeGraphMvp.macroKnobValuePosition ?? "bottom"),
+      macroKnobValuePosition: normalizeNodeGraphMacroKnobValuePosition(nodeGraphMvp.macroKnobValuePosition ?? "mid"),
       macroControlsFace: typeof normalizeNodeGraphMacroControlsFaceSettings === "function"
         ? normalizeNodeGraphMacroControlsFaceSettings(nodeGraphMvp.macroControlsFace)
         : nodeGraphMvp.macroControlsFace,
@@ -933,6 +947,17 @@ function readNodeUiDevSettingsFromControls(options = {}) {
         zoom: typeof nodeGraphZoom === "function" ? nodeGraphZoom() : nodeGraphMvp.zoom,
       }),
       moduleStoreDepartment: normalizeNodeGraphModuleStoreDepartmentState(nodeGraphMvp.moduleStoreDepartment),
+      savedPatchBankIndex: typeof normalizeNodeGraphSavedPatchBankIndex === "function"
+        ? normalizeNodeGraphSavedPatchBankIndex(nodeGraphMvp.savedPatchBankIndex)
+        : Math.max(0, Math.min(127, Math.round(Number(nodeGraphMvp.savedPatchBankIndex) || 0))),
+      savedPatchBankName: typeof nodeGraphOneLineText === "function"
+        ? nodeGraphOneLineText(nodeGraphMvp.savedPatchBankName)
+        : String(nodeGraphMvp.savedPatchBankName || "").trim(),
+      savedPatchFactoryPath: String(nodeGraphMvp.savedPatchFactoryPath || "").trim(),
+      savedPatchUserPath: String(nodeGraphMvp.savedPatchUserPath || "").trim(),
+      savedPatchGridColumns: typeof normalizeNodeGraphSavedPatchGridColumns === "function"
+        ? normalizeNodeGraphSavedPatchGridColumns(nodeGraphMvp.savedPatchGridColumns)
+        : Math.max(1, Math.min(16, Math.round(Number(nodeGraphMvp.savedPatchGridColumns) || 3))),
       savedPatchExplorerView: nodeGraphMvp.savedPatchExplorerView === "patches" ? "patches" : "banks",
       workingPatch: workingPatchForSettings,
       currentSavedPatchFilename: includeWorkingPatch ? (nodeGraphMvp.currentSavedPatchFilename || "") : "",
@@ -1107,10 +1132,15 @@ function applyNodeUiDevSettings(settings) {
   nodeGraphMvp.savedPatchBankName = typeof nodeGraphOneLineText === "function"
     ? nodeGraphOneLineText(normalized.view.savedPatchBankName)
     : String(normalized.view.savedPatchBankName || "").trim();
+  nodeGraphMvp.savedPatchFactoryPath = String(normalized.view.savedPatchFactoryPath || "").trim();
+  nodeGraphMvp.savedPatchUserPath = String(normalized.view.savedPatchUserPath || "").trim();
   nodeGraphMvp.savedPatchGridColumns = typeof normalizeNodeGraphSavedPatchGridColumns === "function"
     ? normalizeNodeGraphSavedPatchGridColumns(normalized.view.savedPatchGridColumns)
     : Math.max(1, Math.min(16, Math.round(Number(normalized.view.savedPatchGridColumns) || 3)));
   nodeGraphMvp.savedPatchExplorerView = normalized.view.savedPatchExplorerView === "patches" ? "patches" : "banks";
+  if (typeof syncNodeGraphPatchLibraryPathFields === "function") {
+    syncNodeGraphPatchLibraryPathFields();
+  }
   nodeGraphMvp.workingPatch = normalized.view.workingPatch
     ? cloneNodeGraphPatch(normalized.view.workingPatch)
     : null;
@@ -1336,14 +1366,14 @@ function clearNodeUserStartupRuntimeState() {
   nodeGraphMvp.moduleStoreDepartmentAnchor = "";
   nodeGraphMvp.moduleScopeSettings = {};
   nodeGraphMvp.savedPatchExplorerView = "banks";
-  // These "visible unless explicitly hidden" view toggles (Show displays,
-  // Show control surfaces, Show module buttons/sliders) are read straight
-  // from nodeGraphMvp when the cleared state gets re-serialized just below
-  // in clearNodeUserStartupState -- without resetting them here, whatever
-  // the user had hidden stayed hidden and got baked right back into the
-  // "cleared" default, making Clear Startup look like it did nothing for
-  // visibility.
-  nodeGraphMvp.moduleButtonsVisible = true;
+  // These view toggles are read straight from nodeGraphMvp when the cleared
+  // state gets re-serialized just below in clearNodeUserStartupState --
+  // without resetting them here, whatever the user had changed stayed put
+  // and got baked right back into the "cleared" default, making Clear
+  // Startup look like it did nothing for visibility. App policy: module
+  // header buttons stay hidden by default; control surfaces, displays, and
+  // sliders come back on.
+  nodeGraphMvp.moduleButtonsVisible = false;
   nodeGraphMvp.moduleInterfaceControlsVisible = true;
   nodeGraphMvp.moduleOscilloscopesVisible = true;
   nodeGraphMvp.moduleSlidersVisible = true;

@@ -225,7 +225,7 @@ function bindNodeGraphHeaderControlEvents() {
     .getElementById("nodeSceneBlinkLightShape")
     .addEventListener("change", handleNodeGraphSceneScopeOptionInput);
   document.getElementById("nodeModuleSlidersToggleButton").addEventListener("click", toggleNodeGraphModuleSlidersVisibility);
-  document.getElementById("nodeTooltipToggleButton").addEventListener("click", toggleNodeGraphTooltipWindow);
+  document.getElementById("nodeTooltipToggleButton")?.addEventListener("click", toggleNodeGraphTooltipWindow);
   document.getElementById("nodePreviousSavedPatchButton").addEventListener("click", () => loadAdjacentNodeGraphSavedPatch(-1));
   document.getElementById("nodeNextSavedPatchButton").addEventListener("click", () => loadAdjacentNodeGraphSavedPatch(1));
   document.getElementById("nodePatchInitButton").addEventListener("click", confirmAndInitNodeGraphPatchFromDefault);
@@ -257,14 +257,16 @@ function bindNodeGraphHeaderControlEvents() {
   document.getElementById("nodeUserUiSettingsClose").addEventListener("click", () => setNodeUserUiSettingsVisible(false));
   document
     .getElementById("nodeUserUiSettingsDragHandle")
-    .addEventListener("pointerdown", beginNodeUserUiSettingsDrag);
+    ?.addEventListener("pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "uiSettings"));
   document
     .getElementById("nodeUserUiSettingsHeading")
-    .addEventListener("pointerdown", beginNodeUserUiSettingsDrag);
+    ?.addEventListener("pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "uiSettings"));
+  if (typeof bindNodeGraphFloatingWindowResizeHandle === "function") {
+    bindNodeGraphFloatingWindowResizeHandle("uiSettings");
+  }
   document.getElementById("nodeSliderAmountToggleButton").addEventListener("click", toggleNodeGraphSliderAmount);
   document.getElementById("nodeSliderPositionToggleButton").addEventListener("click", toggleNodeGraphSliderPosition);
   document.getElementById("nodeKeyboardDebugToggleButton").addEventListener("click", toggleNodeGraphKeyboardDebugVisibility);
-  document.getElementById("nodeTooltipEmbedToggleButton")?.addEventListener("click", toggleNodeGraphTooltipEmbed);
   document
     .getElementById("nodeZoomOutButton")
     .addEventListener("click", (event) => zoomNodeGraphBy(-1, event));

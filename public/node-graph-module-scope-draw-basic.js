@@ -583,10 +583,28 @@ function drawNodeGraphValueOscilloscopeTrail(item, pixelRatio, geometry, setting
   }
   const bg = nodeGraphFacePlateBackground(settings);
   nodeGraphFacePlateApplyCss(screenElement, bg);
-  nodeGraphOneDimensionalBurnFadeTrail(context, canvas, settings);
+  const trail = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
+    ? PhosphorResidual.migrateTrail(settings, 0.88)
+    : clampNodeSliderValue(
+      Number(settings?.trail ?? (Number.isFinite(Number(settings?.decay))
+        ? 1 - Number(settings.decay)
+        : 0.88)) || 0,
+      0,
+      1,
+    );
+  const ghost = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateGhost
+    ? PhosphorResidual.migrateGhost(settings, 0.45)
+    : clampNodeSliderValue(Number(settings?.ghost ?? settings?.burn) || 0, 0, 1);
+  const residualWanted = trail > 0.001 || ghost > 0.001;
+  const frozen = typeof nodeGraphModuleScopePhosphorFrozen === "function"
+    && nodeGraphModuleScopePhosphorFrozen();
+  // Hold residual when frozen (no fade / no new deposit).
+  if (!frozen) {
+    nodeGraphOneDimensionalBurnFadeTrail(context, canvas, settings);
+  }
   // Ensure plate under fade holes / first frames.
   nodeGraphFacePlateFillUnder(context, canvas, bg);
-  if (!geometry) {
+  if (!geometry || frozen || !residualWanted) {
     return;
   }
   const screenRect = item?.screenRect;
@@ -599,59 +617,61 @@ function drawNodeGraphValueOscilloscopeTrail(item, pixelRatio, geometry, setting
     x: ((x - screenRect.left) / screenRect.width) * canvas.width,
     y: ((y - screenRect.top) / screenRect.height) * canvas.height,
   });
-  const samples = nodeGraphValueOscilloscopeTrailSamples(item?.buffer);
-  if (!samples.length) {
+  // One deposit per frame at the current value Y. Prior positions live only as
+  // faded residual on this canvas — never re-stroke the whole capture window.
+  const y = Number.isFinite(Number(geometry.y))
+    ? Number(geometry.y)
+    : (() => {
+      const samples = nodeGraphValueOscilloscopeTrailSamples(item?.buffer);
+      if (!samples.length) {
+        return null;
+      }
+      const amp = nodeGraphDisplaySettingsAmplitudeScale(settings);
+      const v = clampNodeSliderValue(samples[0] * amp, -1, 1);
+      return geometry.squareTop + geometry.squareHeight * 0.5 - v * geometry.squareHeight * 0.44;
+    })();
+  if (!Number.isFinite(y)) {
     return;
   }
-  const amp = nodeGraphDisplaySettingsAmplitudeScale(settings);
-  const sampleLines = samples.map((sample) => {
-    const v = clampNodeSliderValue(sample * amp, -1, 1);
-    const y = geometry.squareTop + geometry.squareHeight * 0.5 - v * geometry.squareHeight * 0.44;
-    return {
-      end: toCanvas(geometry.x2, y),
-      start: toCanvas(geometry.x1, y),
-    };
-  });
   const lineBase = Math.max(1, Math.min(canvas.width, canvas.height));
   const sizeMap = typeof nodeGraphScopeSize01ToDiameterPx === "function"
     ? nodeGraphScopeSize01ToDiameterPx
     : (side, t) => Math.max(1, Math.pow(Math.max(1, side), clampNodeSliderValue(t, 0, 1)));
   const innerThickness = sizeMap(lineBase, settings.dot1Size);
   const capThickness = sizeMap(lineBase, settings.capSize);
-  // Brightness only (decay fades residual above).
-  const trailIntensity = 0.12 / Math.max(1, Math.sqrt(sampleLines.length));
-  if (settings.dot1Enabled !== false) {
-    for (const line of sampleLines) {
-      drawNodeGraphValueOscilloscopeCanvasLine(
-        context,
-        { x1: line.start.x, y1: line.start.y, x2: line.end.x, y2: line.end.y },
-        nodeGraphScopeHexColorToRgb(settings.color),
-        settings.brightness * trailIntensity,
-        innerThickness,
-        settings.lineThickness,
-      );
-    }
+  // Ghost = residual deposit strength; Trail = hang (via fade above).
+  const trailIntensity = 0.1 + ghost * 0.55;
+  const start = toCanvas(geometry.x1, y);
+  const end = toCanvas(geometry.x2, y);
+  const color = nodeGraphScopeHexColorToRgb(settings.color);
+  const brightness = (Number(settings.brightness) || 0) * trailIntensity;
+  if (settings.dot1Enabled !== false && brightness > 0 && innerThickness > 0) {
+    drawNodeGraphValueOscilloscopeCanvasLine(
+      context,
+      { x1: start.x, y1: start.y, x2: end.x, y2: end.y },
+      color,
+      brightness,
+      innerThickness,
+      settings.lineThickness,
+    );
   }
   if (settings.capEnabled === false || !(geometry.capLength > 0) || !(capThickness > 0)) {
     return;
   }
-  for (const sample of samples) {
-    const v = clampNodeSliderValue(sample * amp, -1, 1);
-    const y = geometry.squareTop + geometry.squareHeight * 0.5 - v * geometry.squareHeight * 0.44;
-    for (const capX of [geometry.x1, geometry.x2]) {
-      const capStart = toCanvas(capX, y - geometry.capLength);
-      const capEnd = toCanvas(capX, y + geometry.capLength);
-      if (settings.dot1Enabled !== false) {
-        drawNodeGraphValueOscilloscopeCanvasLine(
-          context,
-          { x1: capStart.x, y1: capStart.y, x2: capEnd.x, y2: capEnd.y },
-          nodeGraphScopeHexColorToRgb(settings.color),
-          settings.brightness * trailIntensity,
-          capThickness,
-          settings.lineThickness,
-        );
-      }
-    }
+  if (settings.dot1Enabled === false || !(brightness > 0)) {
+    return;
+  }
+  for (const capX of [geometry.x1, geometry.x2]) {
+    const capStart = toCanvas(capX, y - geometry.capLength);
+    const capEnd = toCanvas(capX, y + geometry.capLength);
+    drawNodeGraphValueOscilloscopeCanvasLine(
+      context,
+      { x1: capStart.x, y1: capStart.y, x2: capEnd.x, y2: capEnd.y },
+      color,
+      brightness,
+      capThickness,
+      settings.lineThickness,
+    );
   }
 }
 

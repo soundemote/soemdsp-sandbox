@@ -476,6 +476,61 @@ function scheduleNodeGraphWireRedrawAfterLayout() {
   });
 }
 
+/**
+ * Chrome that sits above the modular workspace (embedded tips, resource
+ * meters, etc.) changes #nodeGraphWorkspace's box. Wire SVG viewBox is derived
+ * from that box; without a redraw paths stretch against fixed --node-x/y ports
+ * and look broken/offset. Call after any chrome that reflows the workspace.
+ */
+function notifyNodeGraphChromeLayoutChanged() {
+  ensureNodeGraphWorkspaceWireLayoutObserver();
+  scheduleNodeGraphWireRedrawAfterLayout();
+}
+
+let nodeGraphWorkspaceWireLayoutObserver = null;
+let nodeGraphWorkspaceWireLayoutLastBox = "";
+
+function ensureNodeGraphWorkspaceWireLayoutObserver() {
+  if (nodeGraphWorkspaceWireLayoutObserver || typeof ResizeObserver !== "function") {
+    if (nodeGraphWorkspaceWireLayoutObserver) {
+      const workspace = document.getElementById("nodeGraphWorkspace");
+      if (workspace) {
+        try {
+          nodeGraphWorkspaceWireLayoutObserver.observe(workspace);
+        } catch (_error) {
+          // already observing
+        }
+      }
+    }
+    return;
+  }
+  nodeGraphWorkspaceWireLayoutObserver = new ResizeObserver((entries) => {
+    let changed = false;
+    for (const entry of entries) {
+      const box = entry?.contentRect
+        ? `${Math.round(entry.contentRect.width)}x${Math.round(entry.contentRect.height)}`
+        : "";
+      if (box && box !== nodeGraphWorkspaceWireLayoutLastBox) {
+        nodeGraphWorkspaceWireLayoutLastBox = box;
+        changed = true;
+      }
+    }
+    if (changed) {
+      scheduleNodeGraphWireRedrawAfterLayout();
+    }
+  });
+  const workspace = document.getElementById("nodeGraphWorkspace");
+  if (workspace) {
+    try {
+      const rect = workspace.getBoundingClientRect();
+      nodeGraphWorkspaceWireLayoutLastBox = `${Math.round(rect.width)}x${Math.round(rect.height)}`;
+      nodeGraphWorkspaceWireLayoutObserver.observe(workspace);
+    } catch (_error) {
+      // ignore
+    }
+  }
+}
+
 function renderNodeGraphConnectionList() {
   const plan = compileNodeGraphExecutionPlan();
   const validation = {

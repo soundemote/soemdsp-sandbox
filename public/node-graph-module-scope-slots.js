@@ -50,9 +50,6 @@ function nodeGraphModuleScopeSlotDisplayVisible(slot) {
   if (!slot?.element?.isConnected || slot.element.hidden || !slot.scopeElement) {
     return false;
   }
-  if (nodeGraphMvp?.moduleOscilloscopesVisible === false) {
-    return false;
-  }
   const patchNode = typeof nodeGraphPatchNode === "function"
     ? nodeGraphPatchNode(slot.nodeId)
     : null;
@@ -63,15 +60,18 @@ function nodeGraphModuleScopeSlotDisplayVisible(slot) {
   ) {
     return false;
   }
-  if (
-    patchNode &&
-    typeof nodeGraphModuleDisplayVisibleForUi === "function" &&
-    !nodeGraphModuleDisplayVisibleForUi(patchNode.type, patchNode.ui)
-  ) {
+  // Use DisplayVisibleForUi so custom faces (Number Readout, Knob, LED, …)
+  // stay live when the global "Show displays" toggle is off. That flag only
+  // hides analyzer scopes — not always-on module plates.
+  const type = patchNode?.type || slot.type || "";
+  if (typeof nodeGraphModuleDisplayVisibleForUi === "function") {
+    return nodeGraphModuleDisplayVisibleForUi(type, patchNode?.ui || {});
+  }
+  if (nodeGraphMvp?.moduleOscilloscopesVisible === false) {
     return false;
   }
   const normalizedUi = patchNode?.ui && typeof nodeGraphEffectivePatchNodeUi === "function"
-    ? nodeGraphEffectivePatchNodeUi(patchNode.ui)
+    ? nodeGraphEffectivePatchNodeUi(patchNode.ui, type)
     : (patchNode?.ui || {});
   return normalizedUi?.oscilloscopeHidden !== true;
 }

@@ -142,9 +142,11 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   }),
   numberReadout: Object.freeze({
     // Decimals first; digit color = shared phosphor gradient (energy→color);
-    // backgroundColor = LCD back plate; ghostColor = unlit segment ink (no ghost slider).
+    // Ghost/Trail = residual of previous digits (shared phosphor model);
+    // backgroundColor = LCD back plate; ghostColor = unlit segment ink.
     fields: Object.freeze([
       "decimals",
+      "ghost",
       "trail",
       "dot1Brightness",
     ]),
@@ -308,9 +310,9 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
-  // Knob face: macro dial colors + readout (per-module; not global macro bank).
+  // Knob face: macro dial look + image layers + rotation (Display Settings only).
   knobFace: Object.freeze({
-    fields: Object.freeze(["decimals"]),
+    fields: Object.freeze(["decimals", "rotationDegrees", "rotationOffsetDegrees"]),
     colors: Object.freeze(["backgroundColor", "arcFill", "arcTrack"]),
     toggles: Object.freeze(["showLabel", "showReadout"]),
     choices: Object.freeze([]),
@@ -386,6 +388,8 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
     // Stamp size/blur/bright live only under the Dot/Stamp section.
     fields: Object.freeze([
       "decimals",
+      "rotationDegrees",
+      "rotationOffsetDegrees",
       "sweepSeconds",
       "ghost",
       "trail",
@@ -401,9 +405,15 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "hue",
       "rounding",
     ]),
-    // Face plate (+ number readout ghost ink) lives with Trace section.
-    colors: Object.freeze(["backgroundColor", "ghostColor"]),
-    toggles: Object.freeze(["sourceSync", "skipDiscontinuities", "fullDotEconomy"]),
+    // Face plate (+ number readout ghost ink) + Knob arc colors.
+    colors: Object.freeze(["backgroundColor", "ghostColor", "arcFill", "arcTrack"]),
+    toggles: Object.freeze([
+      "sourceSync",
+      "skipDiscontinuities",
+      "fullDotEconomy",
+      "showLabel",
+      "showReadout",
+    ]),
     // window/overlap/freqOverlap/freqScale = spectrogram; syncChannel/stereoBlend = Output.
     // cornerShape = LED.
     choices: Object.freeze([
@@ -536,6 +546,18 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     inputmode: "numeric",
     id: "nodeTraceDisplayDecimals",
     title: "Digits after the decimal point (0–8).",
+  }),
+  rotationDegrees: Object.freeze({
+    label: "Span °",
+    inputmode: "numeric",
+    id: "nodeTraceDisplayKnobSpan",
+    title: "How many degrees image layers rotate across Bias 0…1 (0–1440).",
+  }),
+  rotationOffsetDegrees: Object.freeze({
+    label: "Offset °",
+    inputmode: "numeric",
+    id: "nodeTraceDisplayKnobOffset",
+    title: "Starting angle for rotating image layers (−720…720).",
   }),
   hue: Object.freeze({
     label: "Hue",

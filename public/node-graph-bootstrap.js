@@ -94,6 +94,9 @@ async function initNodeGraphMvp() {
     applyNodeGraphTooltipEmbed();
   }
   renderNodeGraphTooltipWindowToggle();
+  if (typeof ensureNodeGraphWorkspaceWireLayoutObserver === "function") {
+    ensureNodeGraphWorkspaceWireLayoutObserver();
+  }
   loadNodeMetadataKindTemplates();
   refreshNodeGraphLiveInputDevices();
   refreshNodeGraphLiveMicrophonePermissionState();

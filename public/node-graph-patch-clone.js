@@ -86,7 +86,7 @@ function nodeGraphEffectivePatchNodeUi(ui = {}, type = "") {
     ...normalizedUi,
     buttonsHidden: !nodeGraphPatchNodeSectionVisible(
       normalizedUi.buttonsHidden,
-      typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp.moduleButtonsVisible : true,
+      typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp.moduleButtonsVisible : false,
     ),
     oscilloscopeHidden: !nodeGraphPatchNodeSectionVisible(
       normalizedUi.oscilloscopeHidden,

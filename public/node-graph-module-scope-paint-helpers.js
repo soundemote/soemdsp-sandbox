@@ -19,8 +19,24 @@ function nodeGraphOneDimensionalBurnFadeTrail(context, canvas, settings) {
   if (!context || !canvas?.width || !canvas?.height) {
     return;
   }
-  const decay = clampNodeSliderValue(Number(settings?.decay) || 0, 0, 1);
-  if (decay <= 0) {
+  // Ghost/Trail are UI truth on most faces; decay is the legacy mirror (1 − trail).
+  // Value/0D settings historically omitted decay, so fade never ran and residual
+  // stacked forever while full-buffer re-stamps nuked the rAF budget.
+  let decay = Number(settings?.decay);
+  if (!Number.isFinite(decay)) {
+    const trail = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
+      ? PhosphorResidual.migrateTrail(settings, 0.88)
+      : clampNodeSliderValue(
+        Number(settings?.trail ?? (Number.isFinite(Number(settings?.decay))
+          ? 1 - Number(settings.decay)
+          : 0.88)) || 0,
+        0,
+        1,
+      );
+    decay = 1 - trail;
+  }
+  decay = clampNodeSliderValue(decay, 0, 1);
+  if (decay <= 0.0001) {
     return;
   }
   // Decay only — no burn term (burn is not a second brightness/gain).

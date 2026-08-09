@@ -1535,7 +1535,11 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Phosphor LCD readout (DSEG7 Classic): energy residual + gradient colormap, soft trails, hard plate/live digits. Shows the latest input value.",
     label: "Number Readout",
     notes: [
+      "value",
+      "value display",
+      "latest value",
       "numeric display",
+      "numeric value",
       "digital readout",
       "DSEG7 Classic",
       "seven-segment",
@@ -1544,7 +1548,6 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "brightness",
       "decay",
       "LCD plate",
-      "latest value",
     ],
   },
   lineBurnOscilloscope: {
@@ -2561,6 +2564,9 @@ function nodeGraphModuleStoreSearchRank(entry, query) {
   }
   const label = String(entry?.label || "").toLowerCase();
   const type = String(entry?.type || "").toLowerCase();
+  const notes = (Array.isArray(entry?.notes) ? entry.notes : [])
+    .map((note) => String(note || "").toLowerCase().trim())
+    .filter(Boolean);
   const tokens = needle.split(/\s+/).filter(Boolean);
   if (!tokens.length) {
     return 0;
@@ -2572,6 +2578,17 @@ function nodeGraphModuleStoreSearchRank(entry, query) {
   // Label starts with full query ("eq" → "eq filter")
   if (label.startsWith(needle) || type.startsWith(needle)) {
     return -80;
+  }
+  // Catalog notes used as search aliases (e.g. "value" → Number Readout).
+  // Prefer an exact note match over a loose description substring.
+  if (tokens.every((t) => notes.some((n) => n === t))) {
+    return -70;
+  }
+  if (tokens.every((t) => notes.some((n) => {
+    const words = n.split(/[^a-z0-9]+/).filter(Boolean);
+    return words.some((w) => w === t || w.startsWith(t));
+  }))) {
+    return -65;
   }
   // Every token is a word-start in the label (e.g. "eq" in "EQ Filter")
   const labelWords = label.split(/[^a-z0-9]+/).filter(Boolean);

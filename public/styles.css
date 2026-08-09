@@ -1474,36 +1474,7 @@ html.soemdsp-hide-ui .status-strip {
   flex: 0 0 auto;
 }
 
-/* Resize grip is chrome on the outer corner only — never a content inset.
-   Content goes to the dock edge; the grip paints on top as a pure hit target. */
-.node-standalone-midi-keyboard-dock .scene-context-resize-handle {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  z-index: 5;
-  width: 14px;
-  min-width: 14px;
-  height: 14px;
-  min-height: 14px;
-  max-width: 14px;
-  max-height: 14px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0 0 9px 0;
-  background:
-    linear-gradient(135deg, transparent 0 42%, rgba(241, 184, 75, 0.42) 48% 54%, transparent 60%),
-    linear-gradient(135deg, transparent 0 60%, rgba(241, 184, 75, 0.62) 64% 70%, transparent 74%);
-  cursor: nwse-resize;
-  touch-action: none;
-}
-
-.node-standalone-midi-keyboard-dock .scene-context-resize-handle:hover,
-.node-standalone-midi-keyboard-dock .scene-context-resize-handle.dragging {
-  background:
-    linear-gradient(135deg, transparent 0 42%, rgba(241, 184, 75, 0.58) 48% 54%, transparent 60%),
-    linear-gradient(135deg, transparent 0 60%, rgba(241, 184, 75, 0.82) 64% 70%, transparent 74%);
-}
+/* Standalone keyboard: shared .scene-context-resize-handle (SE corner). */
 
 /* Body flush to dock chrome — no inset “wall” for the resize grip.
    Keys / signal values use the real window edge as the boundary.
@@ -1923,7 +1894,7 @@ html.soemdsp-hide-ui .status-strip {
 }
 
 /* Shared macro dial (bank, keyboard dock, Knob module):
-   title above the dial · value on the dial (default top) · circle centered in dial.
+   title above the dial · value in the center of the circle · arc centered in dial.
    Angle drag uses the circle center, not the full button (see view-controls). */
 .node-macro-knob {
   position: relative;
@@ -2005,14 +1976,14 @@ body[data-macro-knob-label-position="bottom"] .node-macro-knob > span:not(.node-
   min-height: 42px;
 }
 
-/* Value default = top of dial (old title slot). */
+/* Value default = center of the dial / circle. */
 .node-macro-knob-dial .node-macro-knob-value,
 .node-macro-knob-dial > strong,
 .node-macro-knob-dial > [data-macro-value],
 .node-macro-knob-dial > [data-knob-face-readout] {
   position: absolute;
   left: 50%;
-  top: 2px;
+  top: 50%;
   bottom: auto;
   z-index: 2;
   max-width: calc(100% - 6px);
@@ -2022,15 +1993,17 @@ body[data-macro-knob-label-position="bottom"] .node-macro-knob > span:not(.node-
   padding: 1px 3px;
   color: var(--text);
   font-size: 0.62rem;
-  transform: translateX(-50%);
+  text-align: center;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
 }
 
-body[data-macro-knob-value-position="mid"] .node-macro-knob-dial .node-macro-knob-value,
-body[data-macro-knob-value-position="mid"] .node-macro-knob-dial > strong,
-body[data-macro-knob-value-position="mid"] .node-macro-knob-dial > [data-macro-value],
-body[data-macro-knob-value-position="mid"] .node-macro-knob-dial > [data-knob-face-readout] {
-  top: 50%;
-  transform: translate(-50%, -50%);
+body[data-macro-knob-value-position="top"] .node-macro-knob-dial .node-macro-knob-value,
+body[data-macro-knob-value-position="top"] .node-macro-knob-dial > strong,
+body[data-macro-knob-value-position="top"] .node-macro-knob-dial > [data-macro-value],
+body[data-macro-knob-value-position="top"] .node-macro-knob-dial > [data-knob-face-readout] {
+  top: 2px;
+  transform: translateX(-50%);
 }
 
 body[data-macro-knob-value-position="bottom"] .node-macro-knob-dial .node-macro-knob-value,
@@ -2042,10 +2015,20 @@ body[data-macro-knob-value-position="bottom"] .node-macro-knob-dial > [data-knob
   transform: translateX(-50%);
 }
 
+/* mid is the default (center); keep attribute for explicit UIDEV selection */
+body[data-macro-knob-value-position="mid"] .node-macro-knob-dial .node-macro-knob-value,
+body[data-macro-knob-value-position="mid"] .node-macro-knob-dial > strong,
+body[data-macro-knob-value-position="mid"] .node-macro-knob-dial > [data-macro-value],
+body[data-macro-knob-value-position="mid"] .node-macro-knob-dial > [data-knob-face-readout] {
+  top: 50%;
+  bottom: auto;
+  transform: translate(-50%, -50%);
+}
+
 .node-macro-knob-edit-input {
   position: absolute;
   left: 50%;
-  top: 2px;
+  top: 50%;
   bottom: auto;
   z-index: 3;
   width: calc(100% - 8px);
@@ -2059,18 +2042,24 @@ body[data-macro-knob-value-position="bottom"] .node-macro-knob-dial > [data-knob
   font-size: 0.62rem;
   text-align: center;
   cursor: text;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
 }
 
-body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
-  top: 50%;
-  transform: translate(-50%, -50%);
+body[data-macro-knob-value-position="top"] .node-macro-knob-edit-input {
+  top: 2px;
+  transform: translateX(-50%);
 }
 
 body[data-macro-knob-value-position="bottom"] .node-macro-knob-edit-input {
   top: auto;
   bottom: 2px;
   transform: translateX(-50%);
+}
+
+body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
+  top: 50%;
+  bottom: auto;
+  transform: translate(-50%, -50%);
 }
 
 /* Hollow arc — centered in the dial cell only (not the title row). */
@@ -2502,12 +2491,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: none;
 }
 
+/* Legacy class kept for any external refs; explorer uses .node-patch-explorer-meta. */
 .node-patch-header-fields {
-  display: grid;
-  grid-template-rows: repeat(3, minmax(0, 1fr));
-  align-self: stretch;
-  min-width: 0;
-  gap: 1px;
+  display: none;
 }
 
 .node-patch-community-control {
@@ -2575,89 +2561,272 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   color: var(--node-front-button-hover-color);
 }
 
+/* Patch Explorer: single metadata input style (name / category / tags). */
 .node-patch-header-field {
+  box-sizing: border-box;
   width: 100%;
   min-width: 0;
+  height: 100%;
   min-height: 0;
-  padding: 0 7px;
-  border: 1px solid transparent;
-  border-radius: 3px;
-  background: rgba(3, 8, 9, 0.28);
+  margin: 0;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 0;
+  background: rgba(2, 5, 8, 0.82);
   color: var(--text);
-  font: inherit;
+  font: 0.74rem/1.2 var(--mono);
   letter-spacing: 0;
-  text-overflow: clip;
 }
 
 .node-patch-header-field.name {
   color: var(--text);
-  font-size: clamp(0.82rem, 1.25vw, 1.02rem);
   font-weight: 650;
 }
 
 .node-patch-header-field.bank {
-  color: rgba(127, 199, 217, 0.92);
-  font-size: 0.76rem;
+  color: rgba(160, 214, 228, 0.96);
   font-weight: 600;
 }
 
 .node-patch-header-field.tags {
-  color: var(--muted);
-  font-size: 0.72rem;
+  color: rgba(243, 241, 236, 0.82);
   font-weight: 400;
+}
+
+.node-patch-header-field::placeholder {
+  color: rgba(160, 167, 176, 0.48);
 }
 
 .node-patch-header-field:focus {
   outline: none;
-  border-color: rgba(127, 199, 217, 0.58);
-  background: rgba(17, 20, 24, 0.62);
+  background: rgba(12, 18, 22, 0.92);
+  box-shadow: inset 0 0 0 1px rgba(127, 199, 217, 0.42);
 }
 
+/* Toolbar: nav | main actions | clipboard — even, compact segments. */
 .node-patch-explorer-toolbar {
-  display: flex;
-  flex-wrap: wrap;
+  --node-patch-explorer-control-height: 26px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: stretch;
-  gap: 4px;
-  min-height: 0;
-  padding: 4px 6px;
-  border-bottom: 1px solid rgba(127, 199, 217, 0.12);
+  gap: 0;
+  flex: 0 0 auto;
+  min-height: var(--node-patch-explorer-control-height);
+  border-bottom: 1px solid rgba(127, 199, 217, 0.14);
+  background: rgba(5, 8, 10, 0.72);
 }
 
-.node-patch-explorer-toolbar-divider {
-  align-self: stretch;
-  width: 1px;
-  min-height: 0;
-  margin: 2px 2px;
-  background: rgba(127, 199, 217, 0.16);
+.node-patch-explorer-toolbar-group {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  align-items: stretch;
+  min-width: 0;
+  border-right: 1px solid rgba(127, 199, 217, 0.12);
+}
+
+.node-patch-explorer-toolbar-group:last-child {
+  border-right: 0;
+}
+
+.node-patch-explorer-toolbar-main {
+  grid-auto-columns: minmax(0, 1fr);
 }
 
 .node-patch-explorer-nav-button,
 .node-patch-explorer-action-button {
-  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
   min-width: 0;
-  min-height: 0;
-  padding: 3px 9px;
-  border: 1px solid rgba(127, 199, 217, 0.16);
-  border-radius: 4px;
-  background: rgba(9, 13, 16, 0.78);
+  height: var(--node-patch-explorer-control-height, 26px);
+  min-height: var(--node-patch-explorer-control-height, 26px);
+  margin: 0;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 0;
+  border-right: 1px solid rgba(127, 199, 217, 0.1);
+  background: rgba(14, 18, 22, 0.92);
   color: rgba(243, 241, 236, 0.9);
-  font: 750 0.72rem/1.4 var(--mono);
+  font: 700 0.7rem/1 var(--mono);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.node-patch-explorer-toolbar-group > :last-child {
+  border-right: 0;
 }
 
 .node-patch-explorer-nav-button {
-  padding: 3px 8px;
-  color: rgba(127, 199, 217, 0.92);
+  min-width: 32px;
+  color: rgba(127, 199, 217, 0.95);
+  font-size: 0.92rem;
   font-weight: 800;
-  font-size: 0.86rem;
 }
 
 .node-patch-explorer-nav-button:hover,
 .node-patch-explorer-nav-button:focus-visible,
 .node-patch-explorer-action-button:hover,
 .node-patch-explorer-action-button:focus-visible {
-  background: rgba(127, 199, 217, 0.16);
+  outline: none;
+  background: rgba(127, 199, 217, 0.14);
   color: var(--text);
+}
+
+.node-patch-explorer-action-button.confirming-default {
+  background: rgba(226, 168, 109, 0.18);
+  color: rgba(243, 214, 168, 0.98);
+  font-size: 0.62rem;
+}
+
+/* Name / Category / Tags — label left, field right, one row each. */
+.node-patch-explorer-meta {
+  display: grid;
+  gap: 0;
+  flex: 0 0 auto;
+  min-width: 0;
+  border-bottom: 1px solid rgba(127, 199, 217, 0.12);
+  background: rgba(3, 6, 8, 0.55);
+}
+
+.node-patch-explorer-field {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-items: stretch;
+  min-width: 0;
+  min-height: 26px;
+  border-bottom: 1px solid rgba(127, 199, 217, 0.08);
+}
+
+.node-patch-explorer-field:last-child {
+  border-bottom: 0;
+}
+
+.node-patch-explorer-field > span {
+  display: grid;
+  align-items: center;
+  padding: 0 8px;
+  color: rgba(127, 199, 217, 0.78);
+  font: 700 0.64rem/1 var(--mono);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  background: rgba(8, 12, 15, 0.72);
+  border-right: 1px solid rgba(127, 199, 217, 0.1);
+  user-select: none;
+}
+
+/* Factory / User library paths — compact fixed-height rows (do not grow with window). */
+.node-patch-explorer-paths {
+  --node-patch-path-height: 22px;
+  display: grid;
+  grid-template-rows: var(--node-patch-path-height) var(--node-patch-path-height);
+  gap: 0;
+  flex: 0 0 auto;
+  align-self: start;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: calc(var(--node-patch-path-height) * 2);
+  max-height: calc(var(--node-patch-path-height) * 2);
+  overflow: hidden;
+  border-bottom: 1px solid rgba(127, 199, 217, 0.12);
+  background: rgba(3, 6, 8, 0.45);
+}
+
+.node-patch-explorer-path-row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: stretch;
+  box-sizing: border-box;
+  height: var(--node-patch-path-height);
+  min-height: var(--node-patch-path-height);
+  max-height: var(--node-patch-path-height);
+  overflow: hidden;
+  border-bottom: 1px solid rgba(127, 199, 217, 0.08);
+}
+
+.node-patch-explorer-path-row:last-child {
+  border-bottom: 0;
+}
+
+.node-patch-explorer-path-label {
+  display: grid;
+  align-items: center;
+  padding: 0 6px;
+  overflow: hidden;
+  color: rgba(127, 199, 217, 0.78);
+  font: 700 0.6rem/1 var(--mono);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  background: rgba(8, 12, 15, 0.72);
+  border-right: 1px solid rgba(127, 199, 217, 0.1);
+  user-select: none;
+}
+
+.node-patch-explorer-path-loader {
+  display: grid;
+  grid-template-columns: var(--node-patch-path-height) minmax(0, 1fr);
+  align-items: stretch;
+  min-width: 0;
+  height: var(--node-patch-path-height);
+  max-height: var(--node-patch-path-height);
+  overflow: hidden;
+}
+
+.node-patch-explorer-path-button {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: var(--node-patch-path-height);
+  min-width: var(--node-patch-path-height);
+  max-width: var(--node-patch-path-height);
+  height: var(--node-patch-path-height);
+  min-height: var(--node-patch-path-height);
+  max-height: var(--node-patch-path-height);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 0.72rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.node-patch-explorer-path-button:hover,
+.node-patch-explorer-path-button:focus-visible {
+  outline: none;
+  background: rgba(127, 199, 217, 0.12);
+}
+
+.node-patch-explorer-path-input {
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+  height: var(--node-patch-path-height);
+  min-height: var(--node-patch-path-height);
+  max-height: var(--node-patch-path-height);
+  margin: 0;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 0;
+  background: rgba(2, 5, 8, 0.82);
+  color: var(--text);
+  font: 0.64rem/1 var(--mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.node-patch-explorer-path-input::placeholder {
+  color: rgba(160, 167, 176, 0.42);
+}
+
+.node-patch-explorer-path-input:focus {
+  outline: none;
+  background: rgba(12, 18, 22, 0.92);
+  box-shadow: inset 0 0 0 1px rgba(127, 199, 217, 0.36);
 }
 
 .node-patch-clipboard-controls {
@@ -3364,52 +3533,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   white-space: nowrap;
 }
 
-/* The tooltip toggles share one bounded row. Give the hotkey-bearing button
-   slightly more room, but never let either button's intrinsic text width
-   expand the row past the visibility window. */
-.node-visibility-menu-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
-  height: var(--node-floating-window-button-height);
-  min-height: var(--node-floating-window-button-height);
-  max-height: var(--node-floating-window-button-height);
-  min-width: 0;
-  align-items: stretch;
-}
-
-.node-visibility-menu-row .scene-context-window-button-label {
-  padding-inline: 2px;
-  overflow: hidden;
-  text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* The second button in a row IS :last-child of its wrapper, so the rule below
-   would strip its bottom border and leave the row underlined on one half
-   only. Put it back, and separate the pair with a vertical rule. */
-.node-visibility-menu-row button:last-child {
-  border-bottom: 1px solid rgba(226, 168, 109, 0.24);
-}
-
-.node-visibility-menu-row button + button {
-  border-left: 1px solid rgba(226, 168, 109, 0.24);
-}
-
-/* One segmented control, not two loose pills: only the outer corners round,
-   and the pair butts together on the shared edge.
-   Scoped through .node-visibility-menu-list on purpose -- the plain
-   `.node-visibility-menu-row button:first-child` form loses to
-   `.node-visibility-menu-list .scene-context-window-button:first-child`
-   (further down this file), which rounds all four corners. */
-.node-visibility-menu-list .node-visibility-menu-row button:first-child {
-  border-radius: 5px 0 0 5px;
-}
-
-.node-visibility-menu-list .node-visibility-menu-row button:last-child {
-  border-radius: 0 5px 5px 0;
-}
-
 .node-visibility-menu-list button:last-child {
   border-bottom: 0;
 }
@@ -3510,7 +3633,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 /* Same chrome as the command center (.node-scene-context-menu) and the other
    floating windows: identical border, radius, gradient, shadow and mono
-   font. Only the fixed size/position is specific to this panel. */
+   font. Size driven by shared SE grip / floating-window size vars. */
 .node-user-ui-settings-panel {
   position: fixed;
   z-index: 96;
@@ -3522,9 +3645,13 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   flex-direction: column;
   align-items: stretch;
   justify-content: flex-start;
-  width: min(360px, calc(100vw - 32px));
-  height: min(620px, calc(100vh - 124px));
-  max-height: calc(100vh - 124px);
+  box-sizing: border-box;
+  width: var(--node-user-ui-settings-width, min(360px, calc(100vw - 32px)));
+  height: var(--node-user-ui-settings-height, min(620px, calc(100vh - 124px)));
+  min-width: var(--node-user-ui-settings-min-width, 280px);
+  min-height: var(--node-user-ui-settings-min-height, 240px);
+  max-width: var(--node-user-ui-settings-max-width, none);
+  max-height: var(--node-user-ui-settings-max-height, calc(100vh - 24px));
   overflow: hidden;
   border: 1px solid rgba(127, 199, 217, 0.42);
   border-radius: 8px;
@@ -3659,7 +3786,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
-  padding: 9px;
+  /* Bottom room for the shared SE resize grip (18px). */
+  padding: 9px 9px 22px;
 }
 
 .node-user-ui-settings-section {
@@ -3924,21 +4052,24 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
    inside this window too. The row's generic `button` rule would otherwise
    repaint the folder button with padding and a border, so the loader's own
    look is restored explicitly. */
-.node-phosphor-waveform-loader-slot {
+.node-phosphor-waveform-loader-slot,
+.node-phosphor-waveform-phase-slot {
   --node-sample-control-height: 22px;
   --node-sample-control-line: rgba(0, 2, 4, 0.82);
   flex: 1 1 190px;
   min-width: 0;
 }
 
-.node-phosphor-waveform-loader-slot .node-sample-path-button {
+.node-phosphor-waveform-loader-slot .node-sample-path-button,
+.node-phosphor-waveform-phase-slot .node-sample-copy-phase-button {
   padding: 0;
   border: 0;
   border-radius: 0;
   background: rgba(255, 255, 255, 0.06);
 }
 
-.node-phosphor-waveform-load-row > span:first-child {
+.node-phosphor-waveform-load-row > span:first-child,
+.node-phosphor-waveform-phase-row > span:first-child {
   flex: 0 0 auto;
 }
 
@@ -4216,34 +4347,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   color: rgba(210, 236, 218, 0.9);
 }
 
-.node-tooltip-window .scene-context-resize-handle {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  z-index: 4;
-  width: 18px;
-  min-width: 18px;
-  height: 18px;
-  min-height: 18px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 4px 0 6px 0;
-  background:
-    linear-gradient(135deg, transparent 0 48%, rgba(127, 199, 217, 0.36) 50% 56%, transparent 58%),
-    linear-gradient(135deg, transparent 0 64%, rgba(127, 199, 217, 0.58) 66% 72%, transparent 74%),
-    rgba(7, 10, 13, 0.72);
-  cursor: nwse-resize;
-  touch-action: none;
-}
-
-.node-tooltip-window .scene-context-resize-handle:hover,
-.node-tooltip-window .scene-context-resize-handle.dragging {
-  background:
-    linear-gradient(135deg, transparent 0 48%, rgba(127, 199, 217, 0.5) 50% 56%, transparent 58%),
-    linear-gradient(135deg, transparent 0 64%, rgba(127, 199, 217, 0.78) 66% 72%, transparent 74%),
-    rgba(7, 10, 13, 0.72);
-}
+/* Tips window uses shared .scene-context-resize-handle (SE corner). */
 
 /* No border/background/box-shadow of its own -- .node-tooltip-window
    already provides chrome. Fills leftover window height (flex: 1 + min-height: 0).
@@ -7173,28 +7277,32 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   position: fixed;
   z-index: 78;
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr);
+  /* heading · toolbar · meta · paths (fixed) · list (fills) */
+  grid-template-rows: auto auto auto max-content minmax(0, 1fr);
   gap: 0;
   width: clamp(
-    var(--node-saved-patches-min-width, 80px),
-    var(--node-saved-patches-width, 420px),
+    var(--node-saved-patches-min-width, 280px),
+    var(--node-saved-patches-width, 380px),
     min(var(--node-saved-patches-max-width, 720px), calc(100vw - 20px))
   );
   height: clamp(
-    var(--node-saved-patches-min-height, 96px),
+    var(--node-saved-patches-min-height, 280px),
     var(--node-saved-patches-height, 620px),
     min(var(--node-saved-patches-max-height, 760px), calc(100vh - 20px))
   );
-  min-width: var(--node-saved-patches-min-width, 80px);
-  min-height: var(--node-saved-patches-min-height, 96px);
+  min-width: var(--node-saved-patches-min-width, 280px);
+  min-height: var(--node-saved-patches-min-height, 280px);
   max-width: min(var(--node-saved-patches-max-width, 720px), calc(100vw - 20px));
   max-height: min(var(--node-saved-patches-max-height, 760px), calc(100vh - 20px));
   overflow: hidden;
   padding: 0;
-  border: 1px solid rgba(127, 199, 217, 0.18);
+  border: 1px solid rgba(127, 199, 217, 0.22);
   border-radius: 8px;
-  background: rgba(3, 8, 9, 0.94);
-  box-shadow: 0 16px 28px rgba(0, 0, 0, 0.24);
+  background:
+    linear-gradient(180deg, rgba(18, 22, 26, 0.98), rgba(6, 9, 11, 0.98)),
+    rgba(8, 11, 14, 0.98);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.32);
+  font-family: var(--mono);
 }
 
 .node-saved-patches-window[hidden] {
@@ -7367,16 +7475,17 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 /*
- * Single floating-window corner resize grip.
+ * Single floating-window SE corner resize grip (shared truth).
+ * Every floating inspector uses this class only — no per-window look forks.
  * Position: absolute bottom-right on the window surface.
- * z-index must beat scroll bodies / form widgets (Display Settings, Parameter
- * Settings) so SE drag still works when a control sits under the grip.
+ * z-index must beat scroll bodies / form widgets so SE drag still works when
+ * a control sits under the grip.
  */
 .scene-context-resize-handle {
   position: absolute;
   right: 0;
   bottom: 0;
-  z-index: 80;
+  z-index: 90;
   box-sizing: border-box;
   width: 18px;
   height: 18px;
@@ -7387,6 +7496,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   min-height: 18px !important;
   min-inline-size: 18px !important;
   min-block-size: 18px !important;
+  max-width: 18px;
+  max-height: 18px;
   max-inline-size: 18px;
   max-block-size: 18px;
   margin: 0;
@@ -7421,7 +7532,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 /* Scrollable inspector bodies stay below the SE grip in the stacking order. */
 .node-parameter-metadata-popover > .metadata-popover-grid,
 .node-trace-display-settings-popover > .metadata-popover-grid,
-.node-trace-display-settings-popover > .node-trace-display-settings-grid {
+.node-trace-display-settings-popover > .node-trace-display-settings-grid,
+.node-user-ui-settings-panel > .node-user-ui-settings-controls,
+.node-ui-dev-helper > .node-ui-dev-helper-body {
   position: relative;
   z-index: 0;
   /* Keep last form rows out from under the 18px corner grip. */
@@ -7429,7 +7542,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 .node-parameter-metadata-popover > .scene-context-resize-handle,
-.node-trace-display-settings-popover > .scene-context-resize-handle {
+.node-trace-display-settings-popover > .scene-context-resize-handle,
+.node-user-ui-settings-panel > .scene-context-resize-handle,
+.node-ui-dev-helper > .scene-context-resize-handle {
   z-index: 90;
   pointer-events: auto;
 }
@@ -7741,7 +7856,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-right: 0;
+  padding: 0 0 20px;
+  background: rgba(2, 4, 6, 0.35);
 }
 
 .node-saved-patch-window-list {
@@ -8928,7 +9044,15 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   z-index: 60;
   top: max(18px, env(safe-area-inset-top));
   right: max(18px, env(safe-area-inset-right));
-  width: min(360px, calc(100vw - 36px));
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: var(--node-ui-dev-helper-width, min(360px, calc(100vw - 36px)));
+  height: var(--node-ui-dev-helper-height, min(520px, calc(100vh - 36px)));
+  min-width: var(--node-ui-dev-helper-min-width, 280px);
+  min-height: var(--node-ui-dev-helper-min-height, 200px);
+  max-width: var(--node-ui-dev-helper-max-width, none);
+  max-height: var(--node-ui-dev-helper-max-height, calc(100vh - 24px));
   border: 1px solid rgba(127, 199, 217, 0.32);
   border-radius: 6px;
   background:
@@ -8946,9 +9070,11 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-ui-dev-helper-body {
   display: grid;
   gap: 7px;
-  max-height: calc(100vh - 88px);
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
-  padding: 9px;
+  /* Bottom room for the shared SE resize grip. */
+  padding: 9px 9px 22px;
   color: rgba(243, 241, 236, 0.78);
   font-size: 0.82rem;
   line-height: 1.35;
@@ -10041,6 +10167,20 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   stroke: color-mix(in srgb, var(--node-module-drag-stroke) 62%, transparent);
 }
 
+/* Knob / plugin shelf faces: no orange drag-stroke flash while moving the module.
+   Keep the idle dim rim, or the selection rim if selected. */
+.dsp-node.slider-widget-layout.dragging {
+  --node-module-drag-stroke: transparent;
+}
+
+.dsp-node.slider-widget-layout.dragging:not(.selected):not(.knob-face-has-image) > .node-module-frame .node-module-frame-path {
+  stroke: rgba(243, 241, 236, 0.2) !important;
+}
+
+.dsp-node.slider-widget-layout.dragging.selected:not(.knob-face-has-image) > .node-module-frame .node-module-frame-path {
+  stroke: var(--node-module-selected-stroke, #e2a86d) !important;
+}
+
 .dsp-node.selected .node-module-frame-path {
   stroke: var(--node-module-selected-stroke);
   stroke-width: 1px;
@@ -10257,9 +10397,17 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   user-select: none;
 }
 
-/* Knob module: same shared macro layout, fill plate; no global size-scale. */
+/* Knob module: same shared macro layout, fill plate; no global size-scale.
+   Must reassert display:flex — plain .node-knob-face { display:block } wins
+   over .node-macro-knob later in the sheet (same specificity), which collapses
+   the dial (min-height:0 + absolutely positioned arc/value). */
 .dsp-node.slider-widget-layout .node-knob-face.node-knob-module-macro.node-macro-knob,
 .node-knob-face.node-knob-module-macro.node-macro-knob {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1px;
   min-height: 0;
   height: 100%;
   width: 100%;
@@ -10271,7 +10419,10 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 
 .dsp-node.slider-widget-layout .node-knob-face.node-knob-module-macro .node-macro-knob-dial,
 .node-knob-face.node-knob-module-macro .node-macro-knob-dial {
+  flex: 1 1 auto;
+  align-self: stretch;
   min-height: 0;
+  position: relative;
 }
 
 /* Dial scales with face (not fixed 42px bank size). */
@@ -10554,15 +10705,17 @@ body.room-dimmer-on .node-room-dimmer-canvas,
     0 1px 3px rgba(0, 0, 0, 0.95);
 }
 
-/* Module settings: load | clear | rotate | filename (no Image# labels). */
-.node-knob-face-controls .node-knob-face-layer-stack {
+/* Knob image layers: Display Settings (and legacy Module Settings markup). */
+.node-knob-face-controls .node-knob-face-layer-stack,
+.node-knob-face-display-layers .node-knob-face-layer-stack {
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-width: 0;
 }
 
-.node-knob-face-controls .node-knob-face-layer-row {
+.node-knob-face-controls .node-knob-face-layer-row,
+.node-knob-face-display-layers .node-knob-face-layer-row {
   display: grid;
   grid-template-columns: auto auto auto minmax(0, 1fr);
   align-items: center;
@@ -10573,7 +10726,8 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   border-bottom: 1px solid rgba(128, 224, 224, 0.1);
 }
 
-.node-knob-face-controls .node-knob-face-layer-row:last-of-type {
+.node-knob-face-controls .node-knob-face-layer-row:last-of-type,
+.node-knob-face-display-layers .node-knob-face-layer-row:last-of-type {
   border-bottom: 0;
 }
 
@@ -10581,14 +10735,16 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   display: none;
 }
 
-.node-knob-face-controls .node-knob-face-layer-row button {
+.node-knob-face-controls .node-knob-face-layer-row button,
+.node-knob-face-display-layers .node-knob-face-layer-row button {
   margin: 0;
   padding: 2px 7px;
   font: 600 0.66rem/1.2 var(--node-mono-font);
   min-height: 0;
 }
 
-.node-knob-face-controls .node-knob-face-filename {
+.node-knob-face-controls .node-knob-face-filename,
+.node-knob-face-display-layers .node-knob-face-filename {
   margin: 0;
   min-width: 0;
   color: var(--muted);
@@ -10598,12 +10754,21 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   white-space: nowrap;
 }
 
-.node-knob-face-controls .node-knob-face-check {
+.node-knob-face-controls .node-knob-face-check,
+.node-knob-face-display-layers .node-knob-face-check {
   display: flex;
   align-items: center;
   gap: 4px;
   margin: 0;
   white-space: nowrap;
+  font: 600 0.64rem/1.2 var(--node-mono-font);
+  color: var(--muted);
+}
+
+.node-knob-face-display-hint {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font: 0.66rem/1.3 var(--mono);
 }
 
 .node-knob-face-controls .node-knob-face-rotate-inline {
@@ -12829,23 +12994,11 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   display: none;
 }
 
-/* "Hide buttons" also covers the sample/Music Player body's two button-ish
-   controls: the copy-phase button and the whole path-loader row (folder
-   button + path box). Neither lives in .node-header-actions, so they need
-   their own rules. The phase row drops to a single column when the copy
-   button goes, so the number keeps the full width instead of leaving a
-   22px hole. */
-.dsp-node.buttons-hidden .node-sample-copy-phase-button,
-.node-graph-workspace.module-buttons-hidden .dsp-node .node-sample-copy-phase-button,
-.dsp-node.buttons-hidden .node-sample-path-loader,
-.node-graph-workspace.module-buttons-hidden .dsp-node .node-sample-path-loader {
-  display: none;
-}
-
-.dsp-node.buttons-hidden .node-sample-phase-readout,
-.node-graph-workspace.module-buttons-hidden .dsp-node .node-sample-phase-readout {
-  grid-template-columns: minmax(0, 1fr);
-}
+/* Music Player path + phase widgets are control-surface chrome (text boxes and
+   emoji buttons on the module face), not header action buttons. They hide with
+   the sample body under module-interface-controls-hidden / interface-controls-
+   hidden, not with "Hide module buttons". Waveform display settings keep their
+   own phase/path copies for when the surface is off. */
 
 .dsp-node.title-hidden .node-header-title-row {
   display: none;

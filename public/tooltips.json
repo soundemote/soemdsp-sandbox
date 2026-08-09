@@ -40,7 +40,10 @@
     "sliderPositionShow": "show slider position marker",
     "sliderPositionHide": "hide slider position marker",
     "tipsEmbed": "move the tips in-flow, beside the resource meters",
-    "tipsFloat": "move the tips back into their own floating window"
+    "tipsFloat": "move the tips back into their own floating window",
+    "tipsCycleEmbed": "show tips embedded beside the resource meters | press again to float, then off (T)",
+    "tipsCycleFloat": "move tips to a floating window | press again to hide (T)",
+    "tipsCycleOff": "hide the tips | press again to embed (T)"
   },
   "history": {
     "undo": "undo patch edit",

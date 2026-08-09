@@ -57,6 +57,15 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
       syncNodeGraphRgbPictureDisplaySettingsControls(host);
     }
   }
+  // Knob: image layers + rotate flags (span/offset/readout are form fields).
+  if (type === "knobFace") {
+    if (typeof bindNodeGraphKnobFaceDisplaySettingsEvents === "function") {
+      bindNodeGraphKnobFaceDisplaySettingsEvents(host);
+    }
+    if (typeof syncNodeGraphKnobFaceDisplaySettingsControls === "function") {
+      syncNodeGraphKnobFaceDisplaySettingsControls(host);
+    }
+  }
   // XY Pad: action row for clearing the phosphor residual buffer.
   if (type === "xyPad") {
     host.insertAdjacentHTML(
@@ -616,6 +625,7 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
     }
     return;
   }
+
   if (
     formType === "matrixFace"
     || formType === "matrixWaterfallFace"
@@ -680,6 +690,9 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
   syncNodeGraphTraceDisplayColorWidgets(
     document.getElementById("nodeTraceDisplaySettingsPopover"),
   );
+  if (formType === "knobFace" && typeof syncNodeGraphKnobFaceDisplaySettingsControls === "function") {
+    syncNodeGraphKnobFaceDisplaySettingsControls(root);
+  }
 }
 
 /**

@@ -666,6 +666,33 @@ function normalizeNodeGraphTraceDisplaySettings(settings = {}) {
 function normalizeNodeGraphValueOscilloscopeSettings(settings = {}) {
   const source = settings && typeof settings === "object" ? settings : {};
   const defaults = nodeGraphValueOscilloscopeSettingsDefaults;
+  const defaultTrail = Number.isFinite(Number(defaults.trail))
+    ? Number(defaults.trail)
+    : (Number.isFinite(Number(defaults.decay)) ? 1 - Number(defaults.decay) : 0.88);
+  const defaultGhost = Number.isFinite(Number(defaults.ghost))
+    ? Number(defaults.ghost)
+    : (Number.isFinite(Number(defaults.burn)) ? Number(defaults.burn) : 0.45);
+  const trail = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
+    ? PhosphorResidual.migrateTrail(source, defaultTrail)
+    : normalizeNodeGraphTraceDisplayNumber(
+      source.trail != null
+        ? source.trail
+        : (Number.isFinite(Number(source.decay)) ? 1 - Number(source.decay) : defaultTrail),
+      defaultTrail,
+      0,
+      1,
+    );
+  const ghost = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateGhost
+    ? PhosphorResidual.migrateGhost(source, defaultGhost)
+    : normalizeNodeGraphTraceDisplayNumber(
+      source.ghost != null ? source.ghost : source.burn,
+      defaultGhost,
+      0,
+      1,
+    );
+  // burn/decay are mirrors only (fade trail uses decay = 1 − trail).
+  const burn = ghost;
+  const decay = normalizeNodeGraphTraceDisplayNumber(1 - trail, 0.12, 0, 1);
   return {
     background: normalizeNodeGraphTraceDisplayColor(
       source.background ?? source.backgroundColor,
@@ -675,14 +702,14 @@ function normalizeNodeGraphValueOscilloscopeSettings(settings = {}) {
       source.brightness ?? source.dot1Brightness,
       defaults.brightness,
     ),
+    burn,
+    decay,
     capEnabled: source.capEnabled !== false,
     capLength: normalizeNodeGraphTraceDisplayNumber(source.capLength, defaults.capLength, 0, 1),
     capSize: normalizeNodeGraphTraceDisplayNumber(source.capSize, defaults.capSize, 0, 1),
-    ghost: normalizeNodeGraphTraceDisplayNumber(source.ghost ?? source.burn, defaults.ghost ?? defaults.burn, 0, 1),
+    ghost,
     color: normalizeNodeGraphTraceDisplayColor(source.color ?? source.dot1Color, defaults.color),
-    trail: (typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
-      ? PhosphorResidual.migrateTrail(source, defaults.trail ?? (Number.isFinite(defaults.decay) ? 1 - defaults.decay : 0.88))
-      : normalizeNodeGraphTraceDisplayNumber(source.trail ?? (Number.isFinite(Number(source.decay)) ? 1 - Number(source.decay) : defaults.trail), defaults.trail ?? 0.88, 0, 1)),
+    trail,
     dot1Enabled: true,
     dot1Size: normalizeNodeGraphTraceDisplayNumber(source.dot1Size, defaults.dot1Size, 0, 1),
     lineLength: normalizeNodeGraphTraceDisplayNumber(source.lineLength, defaults.lineLength, 0, 1),
@@ -761,10 +788,14 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}) {
     ),
     // Digits = gradient at Bright energy; unlit segments use ghostColor as-is.
     color: peak,
-    // Residual hold of previous number (0 = none, 1 = long). Legacy decay was same polarity.
+    // Residual of previous digits: Ghost = dim hang, Trail = hot path length.
+    // Legacy `decay` on number readout was already high=long (no invert).
+    ghost: (typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateGhost
+      ? PhosphorResidual.migrateGhost(source, defaults.ghost ?? 0.45)
+      : normalizeNodeGraphTraceDisplayNumber(source.ghost ?? source.burn, defaults.ghost ?? 0.45, 0, 1)),
     trail: (typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
-      ? PhosphorResidual.migrateTrail(source, defaults.trail ?? 0.45, { invertLegacyDecay: false })
-      : normalizeNodeGraphTraceDisplayNumber(source.trail ?? source.decay, defaults.trail ?? 0.45, 0, 1)),
+      ? PhosphorResidual.migrateTrail(source, defaults.trail ?? 0.88, { invertLegacyDecay: false })
+      : normalizeNodeGraphTraceDisplayNumber(source.trail ?? source.decay, defaults.trail ?? 0.88, 0, 1)),
     decimals: normalizeNodeGraphTraceDisplayNumber(source.decimals, defaults.decimals, 0, 8, true),
     ghostColor: normalizeNodeGraphTraceDisplayColor(
       source.ghostColor,
@@ -806,6 +837,20 @@ function normalizeNodeGraphKnobFaceDisplaySettings(settings = {}) {
     arcTrack: parseColor(source.arcTrack ?? source.secondaryColor, defaults.arcTrack),
     showLabel: source.showLabel !== false && source.showLabel !== "false",
     showReadout: source.showReadout !== false && source.showReadout !== "false",
+    rotationDegrees: normalizeNodeGraphTraceDisplayNumber(
+      source.rotationDegrees,
+      defaults.rotationDegrees,
+      0,
+      1440,
+      true,
+    ),
+    rotationOffsetDegrees: normalizeNodeGraphTraceDisplayNumber(
+      source.rotationOffsetDegrees,
+      defaults.rotationOffsetDegrees,
+      -720,
+      720,
+      true,
+    ),
   };
 }
 
@@ -814,7 +859,8 @@ function nodeGraphKnobFaceDisplaySettingsForNode(node) {
   if (!node) {
     return normalizeNodeGraphKnobFaceDisplaySettings();
   }
-  // Prefer display-settings bucket; fall back to face blob if an older path wrote there.
+  // Prefer display-settings bucket for colors/decimals; face blob supplies
+  // image-layer rotation span/offset when display has not written them yet.
   const fromDisplay = node.traceDisplaySettings;
   const fromFace = node.knobFace;
   const merged = {

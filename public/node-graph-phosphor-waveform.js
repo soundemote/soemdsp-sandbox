@@ -57,7 +57,7 @@ const nodeGraphPhosphorWaveformDefaultSettings = Object.freeze({
   // round whatever size the module is, and the value means the same thing to
   // both corner shapes so switching between them shows the curve difference
   // rather than a size difference.
-  cornerShape: "square",
+  cornerShape: "squircle",
   cornerRadius: 0,
   edgeSpacing: 0.05,
   // Zoom % / speed labels: CSS px inset from the canvas corner (no arc math).
@@ -109,7 +109,8 @@ function normalizeNodeGraphPhosphorWaveformSettings(settings = {}) {
     backgroundBrightness: Number.isFinite(backgroundBrightness)
       ? Math.max(0, Math.min(1, backgroundBrightness))
       : nodeGraphPhosphorWaveformDefaultSettings.backgroundBrightness,
-    cornerShape: source.cornerShape === "squircle" ? "squircle" : "square",
+    // Default squircle; only an explicit "square" (pill) opt-out sticks.
+    cornerShape: source.cornerShape === "square" ? "square" : "squircle",
     cornerRadius: Number.isFinite(cornerRadius)
       ? Math.max(0, Math.min(100, cornerRadius))
       : nodeGraphPhosphorWaveformDefaultSettings.cornerRadius,
@@ -194,12 +195,12 @@ function nodeGraphPhosphorWaveformSyncTimeWindowFromView(nodeId, windowFrames, s
 // metadata/module-actions/trace-display-settings use to auto-close each
 // other -- opening this must never close anything else, and nothing else
 // should close it either.
-// The 📂 + path box in this window is the very same widget the Music Player
-// carries on its face -- built by createNodeGraphSamplePathLoader so there is
-// one implementation of "load a sample into this node", not two that drift.
-// Rebuilt only when the window switches to a different node (its listeners
-// close over the node id), so re-rendering on every settings change does not
-// wipe out a path you are halfway through typing.
+// The 📂 + path box and the 📋 + phase readout in this window are the same
+// widgets the Music Player carries on its face -- built by the shared sample
+// factories so hiding the module control surface still leaves load + phase
+// available here. Rebuilt only when the window switches to a different node
+// (listeners close over the node id), so re-rendering on every settings change
+// does not wipe out a path you are halfway through typing.
 function renderNodeGraphPhosphorWaveformSampleLoader(nodeId) {
   const slot = document.getElementById("nodePhosphorWaveformSampleLoaderSlot");
   if (!slot || typeof createNodeGraphSamplePathLoader !== "function") {
@@ -214,6 +215,24 @@ function renderNodeGraphPhosphorWaveformSampleLoader(nodeId) {
   slot.append(loader.fileInput, loader.pathShell);
 }
 
+function renderNodeGraphPhosphorWaveformPhaseReadout(nodeId) {
+  const slot = document.getElementById("nodePhosphorWaveformPhaseSlot");
+  if (!slot || typeof createNodeGraphSamplePhaseReadout !== "function") {
+    return;
+  }
+  if (slot.dataset.node === nodeId && slot.firstElementChild) {
+    // Keep the live phase number in sync without rebuilding the copy button.
+    if (typeof syncNodeGraphSampleDisplayForNode === "function") {
+      syncNodeGraphSampleDisplayForNode(nodeId);
+    }
+    return;
+  }
+  slot.dataset.node = nodeId;
+  slot.textContent = "";
+  const { phase } = createNodeGraphSamplePhaseReadout(nodeId);
+  slot.append(phase);
+}
+
 function renderNodeGraphPhosphorWaveformSettingsWindow() {
   const nodeId = nodeGraphMvp.phosphorWaveformSettingsTargetNode;
   const win = document.getElementById("nodePhosphorWaveformSettingsWindow");
@@ -221,6 +240,7 @@ function renderNodeGraphPhosphorWaveformSettingsWindow() {
     return;
   }
   renderNodeGraphPhosphorWaveformSampleLoader(nodeId);
+  renderNodeGraphPhosphorWaveformPhaseReadout(nodeId);
   const settings = nodeGraphPhosphorWaveformSettingsForNode(nodeId);
   const setValueUnlessFocused = (id, value) => {
     const el = document.getElementById(id);

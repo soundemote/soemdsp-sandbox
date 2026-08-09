@@ -5,10 +5,18 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null) {
   const meta = nodeGraphDisplaySettingsFieldMeta[key] || { label: key, inputmode: "decimal" };
   let label = meta.label;
   let title = meta.title;
-  // Knob display settings: explicit "Num decimals" for the face readout.
+  // Knob display settings labels.
   if (key === "decimals" && formType === "knobFace") {
     label = "Num decimals";
     title = "Digits after the decimal on the Knob face readout (0–8).";
+  }
+  if (key === "rotationDegrees" && formType === "knobFace") {
+    label = "Span °";
+    title = "Degrees image layers rotate across Bias 0…1.";
+  }
+  if (key === "rotationOffsetDegrees" && formType === "knobFace") {
+    label = "Offset °";
+    title = "Starting angle for rotating image layers.";
   }
   const titleAttr = title
     ? ` title="${nodeGraphDisplaySettingsEscapeHtml(title)}"`
@@ -89,7 +97,7 @@ function nodeGraphDisplaySettingsColorRowMeta(key, formType = null) {
   // Never a side "Color |" column — one contiguous widget row app-wide.
   let aria = base.aria || key;
   if (formType === "numberReadout" && key === "ghostColor") {
-    aria = "LCD ghost segment color";
+    aria = "Residual digit color (previous reading fade ink)";
   } else if (formType === "numberReadout" && key === "backgroundColor") {
     aria = "LCD back plate color";
   } else if (formType === "knobFace" && key === "backgroundColor") {
@@ -306,6 +314,11 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
       rows.push(nodeGraphDisplaySettingsBuildColorRowHtml(key, type));
     }
     parts.push(`<div class="metadata-field-section node-trace-display-${section}-section">${rows.join("")}</div>`);
+  }
+
+  // Knob image layers + rotate flags live only in Display Settings.
+  if (type === "knobFace" && typeof buildNodeGraphKnobFaceLayersDisplaySettingsHtml === "function") {
+    parts.push(buildNodeGraphKnobFaceLayersDisplaySettingsHtml());
   }
 
   return parts.join("\n");

@@ -448,9 +448,13 @@ function nodeGraphSampleNameElementForNode(nodeId) {
     .find((element) => element.dataset.sampleNameForNode === nodeId) || null;
 }
 
-function nodeGraphSamplePhaseElementForNode(nodeId) {
+function nodeGraphSamplePhaseElementsForNode(nodeId) {
   return [...document.querySelectorAll("[data-sample-phase-for-node]")]
-    .find((element) => element.dataset.samplePhaseForNode === nodeId) || null;
+    .filter((element) => element.dataset.samplePhaseForNode === nodeId);
+}
+
+function nodeGraphSamplePhaseElementForNode(nodeId) {
+  return nodeGraphSamplePhaseElementsForNode(nodeId)[0] || null;
 }
 
 function nodeGraphSamplePhaseForNode(nodeId) {
@@ -646,9 +650,12 @@ function syncNodeGraphAudioPlayerRuntimeStatus(message = {}) {
 
 function syncNodeGraphSampleDisplayForNode(nodeId) {
   applyNodeGraphSampleTextRow(nodeGraphSampleNameElementForNode(nodeId), nodeGraphSampleNameForNode(nodeId));
-  const phaseElement = nodeGraphSamplePhaseElementForNode(nodeId);
-  if (phaseElement) {
-    phaseElement.textContent = nodeGraphSamplePhaseForNode(nodeId).toFixed(4);
+  // Module body and waveform display settings each host a phase readout;
+  // update every live copy so hiding the control surface still leaves a
+  // correct number in settings.
+  const phaseText = nodeGraphSamplePhaseForNode(nodeId).toFixed(4);
+  for (const phaseElement of nodeGraphSamplePhaseElementsForNode(nodeId)) {
+    phaseElement.textContent = phaseText;
   }
   setNodeGraphSampleStatus(nodeId, nodeGraphSampleStatusForNode(nodeId));
 }
@@ -1012,6 +1019,35 @@ async function loadNodeGraphSampleDataUrlForNode(nodeId, dataUrl, name = "Sample
   scheduleNodeGraphLivePlanSync("plan");
 }
 
+// Phase readout + 📋 copy button. Shared by the Music Player body and the
+// Waveform display options window so hiding the module control surface does
+// not strand phase without a copy path.
+function createNodeGraphSamplePhaseReadout(nodeId) {
+  const phase = document.createElement("div");
+  phase.className = "node-sample-phase-readout";
+  const phaseValue = document.createElement("strong");
+  phaseValue.dataset.samplePhaseForNode = nodeId;
+  phaseValue.textContent = nodeGraphSamplePhaseForNode(nodeId).toFixed(4);
+  const copyPhaseButton = document.createElement("button");
+  copyPhaseButton.className = "node-sample-copy-phase-button";
+  copyPhaseButton.type = "button";
+  copyPhaseButton.textContent = "📋";
+  copyPhaseButton.setAttribute("aria-label", "Copy the current phase as a full precision number");
+  copyPhaseButton.title = "Copy the current phase as a full precision number";
+  protectNodeGraphSampleControl(copyPhaseButton);
+  copyPhaseButton.addEventListener("click", () => {
+    copyNodeGraphSamplePhaseForNode(nodeId).catch((error) => {
+      const message = String(error?.message || error || "copy phase failed");
+      setNodeInteractionHelp(message);
+      setNodeGraphSampleStatus(nodeId, message);
+    });
+  });
+  // Icon buttons sit on the LEFT of the thing they act on, matching the
+  // folder button on the path row.
+  phase.append(copyPhaseButton, phaseValue);
+  return { phase, phaseValue, copyPhaseButton };
+}
+
 // The 📂-button-plus-path-box loader, built once here so every place that
 // offers "load a sample into this node" is the same widget with the same
 // gestures (double-click the box to type, Enter loads, empty box + button
@@ -1123,28 +1159,7 @@ function createNodeGraphSampleModuleBody(nodeOrId) {
   status.className = "node-sample-status";
   status.dataset.sampleStatusForNode = nodeId;
   applyNodeGraphSampleTextRow(status, nodeGraphSampleStatusForNode(nodeId));
-  const phase = document.createElement("div");
-  phase.className = "node-sample-phase-readout";
-  const phaseValue = document.createElement("strong");
-  phaseValue.dataset.samplePhaseForNode = nodeId;
-  phaseValue.textContent = nodeGraphSamplePhaseForNode(nodeId).toFixed(4);
-  const copyPhaseButton = document.createElement("button");
-  copyPhaseButton.className = "node-sample-copy-phase-button";
-  copyPhaseButton.type = "button";
-  copyPhaseButton.textContent = "📋";
-  copyPhaseButton.setAttribute("aria-label", "Copy the current phase as a full precision number");
-  copyPhaseButton.title = "Copy the current phase as a full precision number";
-  protectNodeGraphSampleControl(copyPhaseButton);
-  copyPhaseButton.addEventListener("click", () => {
-    copyNodeGraphSamplePhaseForNode(nodeId).catch((error) => {
-      const message = String(error?.message || error || "copy phase failed");
-      setNodeInteractionHelp(message);
-      setNodeGraphSampleStatus(nodeId, message);
-    });
-  });
-  // Icon buttons sit on the LEFT of the thing they act on, matching the
-  // folder button on the path row below.
-  phase.append(copyPhaseButton, phaseValue);
+  const { phase } = createNodeGraphSamplePhaseReadout(nodeId);
   const { fileInput: input, pathShell } = createNodeGraphSamplePathLoader(nodeId);
   const inputId = input.id;
   const picker = document.createElement("label");

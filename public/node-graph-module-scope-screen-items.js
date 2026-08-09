@@ -289,15 +289,17 @@ const NODE_GRAPH_BEAM_SIZE_TO_RADIUS = 0.34;
 // drawNodeGraphOscilloscopeBeam → node-graph-module-scope-draw-basic.js
 // drawNodeGraphDotOscilloscopeItem → node-graph-module-scope-draw-basic.js
 // drawNodeGraphValueOscilloscopeCanvasLine → node-graph-module-scope-draw-basic.js
+/**
+ * 0D Value residual deposits the latest sample only.
+ * Replaying the full capture buffer each frame was O(n) canvas strokes and
+ * routinely blew the rAF budget (Chrome "[Violation] requestAnimationFrame").
+ */
 function nodeGraphValueOscilloscopeTrailSamples(buffer) {
   if (!buffer?.length) {
     return [];
   }
-  const samples = [];
-  for (let index = 0; index < buffer.length; index += 1) {
-    samples.push(clampNodeSliderValue(Number(buffer[index]) || 0, -1, 1));
-  }
-  return samples;
+  const last = Number(buffer[buffer.length - 1]);
+  return [clampNodeSliderValue(Number.isFinite(last) ? last : 0, -1, 1)];
 }
 
 // drawNodeGraphValueOscilloscopeTrail → node-graph-module-scope-draw-basic.js
