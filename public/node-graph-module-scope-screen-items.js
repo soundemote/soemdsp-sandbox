@@ -376,7 +376,7 @@ function nodeGraphScope2dEnergyBurnExposure(bright01) {
 // nodeGraphPhosphorSampleGradient → node-graph-module-scope-phosphor.js
 /**
  * Map grayscale energy canvas → colored RGBA into colorCanvas (same size).
- * Energy luma is max(R,G,B)/255. Output alpha tracks energy for lighter blit.
+ * Energy luma is max(R,G,B)/255. Output is premultiplied for source-over blit.
  */
 // nodeGraphPhosphorMapEnergyToColorCanvas → node-graph-module-scope-phosphor.js
 // ─────────────────────────────────────────────────────────────────────────────

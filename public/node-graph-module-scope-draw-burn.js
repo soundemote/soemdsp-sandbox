@@ -826,7 +826,8 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
   nodeGraphFacePlateFillCanvas(context, canvas, bgHex);
   if (nodeGraphPhosphorEnergyGlPresent(energyGl, 1, { exposure })) {
     context.save();
-    context.globalCompositeOperation = "lighter";
+    // Energy is already additive mono; LUT paints color (incl. dark peaks).
+    context.globalCompositeOperation = "source-over";
     // Smooth when density ≥ 1 (supersample); nearest when intentionally chunky.
     const dens = Number(sync.density);
     context.imageSmoothingEnabled = Number.isFinite(dens) ? dens >= 0.999 : true;

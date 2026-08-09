@@ -209,7 +209,8 @@ function nodeGraphPhosphorMapEnergyToColorCanvas(energyCanvas, colorCanvas, stop
   const d = out.data;
   const gradient = stops || nodeGraphPhosphorBuildGradientStops([120, 255, 170]);
   for (let i = 0; i < s.length; i += 4) {
-    // Mild gamma so mid-energy soft edges stay soft instead of posterizing bright.
+    // Mild gamma so mid-energy soft edges stay soft instead of posterizing hot.
+    // energy is the gradient coordinate; color may be dark or light at the peak.
     const raw = Math.max(s[i], s[i + 1], s[i + 2]) / 255;
     const energy = Math.pow(raw, 1.15);
     if (energy < 0.006) {
@@ -220,10 +221,13 @@ function nodeGraphPhosphorMapEnergyToColorCanvas(energyCanvas, colorCanvas, stop
       continue;
     }
     const c = nodeGraphPhosphorSampleGradient(energy, gradient);
-    d[i] = c.r;
-    d[i + 1] = c.g;
-    d[i + 2] = c.b;
-    d[i + 3] = Math.min(255, Math.round(energy * 230));
+    // Premultiplied for source-over blit (not additive "lighter").
+    const a = Math.min(255, Math.round(energy * 230));
+    const af = a / 255;
+    d[i] = Math.round(c.r * af);
+    d[i + 1] = Math.round(c.g * af);
+    d[i + 2] = Math.round(c.b * af);
+    d[i + 3] = a;
   }
   cctx.putImageData(out, 0, 0);
   return true;

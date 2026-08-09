@@ -33,7 +33,8 @@ const NODE_GRAPH_BYPASS_AUDIO_OUT = new Set([
  */
 const NODE_GRAPH_BYPASS_OUT_ALIASES = Object.freeze({
   Out: ["In", "Mono"],
-  Thru: ["In", "Mono"],
+  // Displays may thru primary In / In1 / X / A (XY and dual-channel scopes).
+  Thru: ["In", "Mono", "In1", "X", "A"],
   Delayed: ["In", "Mono"],
   Mono: ["Mono", "In"],
   Left: ["Left", "L", "In", "Mono"],

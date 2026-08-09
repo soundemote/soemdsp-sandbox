@@ -173,6 +173,7 @@ function showBlankNodeGraphTraceDisplaySettingsContent() {
   bindNodeGraphTraceDisplaySettingsEvents(popover);
   commitOpenNodeGraphTraceDisplaySettings();
   nodeGraphMvp.traceDisplaySettingsTargetNode = null;
+  setNodeGraphTraceDisplaySettingsMultiTargets(null);
   nodeGraphMvp.sharedInspectorActive = "traceDisplaySettings";
   setNodeGraphTraceDisplaySettingsHeader("DISPLAY", "Settings", "");
   // Clear body so we don't keep editing a previous module under the empty state.
@@ -194,6 +195,94 @@ function nodeGraphTraceDisplaySettingsTargetLabel(node) {
   return typeof nodeGraphPatchNodeTitle === "function"
     ? nodeGraphPatchNodeTitle(node)
     : (nodeGraphNodeLabels?.[node.type] || "Module");
+}
+
+/**
+ * When multi-select includes `primaryNodeId` and every selected module shares
+ * the same display-settings schema (and can open Display Settings), return all
+ * selected ids (primary first). Otherwise just [primary].
+ */
+function nodeGraphTraceDisplaySettingsResolveMultiTargetIds(primaryNodeId = "") {
+  const primaryId = String(primaryNodeId || "").trim();
+  const primary = primaryId ? nodeGraphPatchNode(primaryId) : null;
+  if (!primary || typeof nodeGraphNodeCanOpenDisplaySettings !== "function") {
+    return primaryId ? [primaryId] : [];
+  }
+  if (!nodeGraphNodeCanOpenDisplaySettings(primary)) {
+    return [];
+  }
+  const schema = typeof nodeGraphModuleDisplaySettingsSchemaForNode === "function"
+    ? nodeGraphModuleDisplaySettingsSchemaForNode(primary)
+    : "";
+  if (!schema) {
+    return [primaryId];
+  }
+  const selectedIds = typeof nodeGraphSelectedNodeIds === "function"
+    ? [...nodeGraphSelectedNodeIds()]
+    : [];
+  if (selectedIds.length < 2 || !selectedIds.includes(primaryId)) {
+    return [primaryId];
+  }
+  const selectedNodes = selectedIds
+    .map((id) => nodeGraphPatchNode(id))
+    .filter(Boolean);
+  if (!selectedNodes.length || selectedNodes.length !== selectedIds.length) {
+    return [primaryId];
+  }
+  // All selected must open display settings and share this schema.
+  for (const node of selectedNodes) {
+    if (!nodeGraphNodeCanOpenDisplaySettings(node)) {
+      return [primaryId];
+    }
+    const nodeSchema = nodeGraphModuleDisplaySettingsSchemaForNode(node);
+    if (nodeSchema !== schema) {
+      return [primaryId];
+    }
+  }
+  // Primary first (form seeds from its current settings).
+  return [primaryId, ...selectedIds.filter((id) => id !== primaryId)];
+}
+
+function nodeGraphTraceDisplaySettingsActiveTargetIds() {
+  const multi = nodeGraphMvp?.traceDisplaySettingsTargetNodes;
+  if (Array.isArray(multi) && multi.length) {
+    return multi.map((id) => String(id || "").trim()).filter(Boolean);
+  }
+  const one = typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
+    ? nodeGraphTraceDisplaySettingsTargetNodeId()
+    : String(nodeGraphMvp?.traceDisplaySettingsTargetNode || "").trim();
+  return one ? [one] : [];
+}
+
+function nodeGraphTraceDisplaySettingsMultiTargetLabel(nodeIds = []) {
+  const nodes = (Array.isArray(nodeIds) ? nodeIds : [])
+    .map((id) => nodeGraphPatchNode(id))
+    .filter(Boolean);
+  if (!nodes.length) {
+    return "";
+  }
+  if (nodes.length === 1) {
+    return nodeGraphTraceDisplaySettingsTargetLabel(nodes[0]);
+  }
+  const sameType = nodes.every((n) => n.type === nodes[0].type);
+  if (sameType) {
+    const typeLabel = typeof nodeGraphNodeLabels !== "undefined" && nodeGraphNodeLabels?.[nodes[0].type]
+      ? nodeGraphNodeLabels[nodes[0].type]
+      : (nodes[0].type || "Module");
+    return `${typeLabel} × ${nodes.length}`;
+  }
+  return `${nodes.length} modules`;
+}
+
+function setNodeGraphTraceDisplaySettingsMultiTargets(nodeIds = []) {
+  const ids = (Array.isArray(nodeIds) ? nodeIds : [])
+    .map((id) => String(id || "").trim())
+    .filter(Boolean);
+  nodeGraphMvp.traceDisplaySettingsTargetNodes = ids.length ? ids : null;
+  const popover = document.getElementById("nodeTraceDisplaySettingsPopover");
+  if (popover) {
+    popover.dataset.displaySettingsTargetNodes = ids.join(",");
+  }
 }
 
 /** @deprecated Mode dropdown removed — one face per module. Kept as no-op for callers. */
@@ -295,6 +384,7 @@ function finishCloseNodeGraphTraceDisplaySettings() {
   destroyNodeGraphTraceDisplayColorWidgets();
   rememberNodeGraphTraceDisplaySettingsWindowState({ open: false }, { status: false });
   nodeGraphMvp.traceDisplaySettingsTargetNode = null;
+  setNodeGraphTraceDisplaySettingsMultiTargets(null);
   scheduleNodeGraphModuleScopeDraw();
 }
 
@@ -306,6 +396,7 @@ function hideNodeGraphTraceDisplaySettingsForInspectorReplacement() {
   }
   rememberNodeGraphTraceDisplaySettingsWindowState({ open: false }, { status: false });
   nodeGraphMvp.traceDisplaySettingsTargetNode = null;
+  setNodeGraphTraceDisplaySettingsMultiTargets(null);
 }
 
 function nodeGraphTraceDisplaySettingsVisibleRect() {
@@ -625,12 +716,18 @@ function openNodeGraphTraceDisplaySettings(nodeId, event = {}) {
   if (!nodeGraphNodeCanOpenDisplaySettings(node)) {
     return false;
   }
+  // Multi-select: if every selected module shares this display schema, edit all.
+  const multiTargetIds = nodeGraphTraceDisplaySettingsResolveMultiTargetIds(node.id);
+  const multiKey = multiTargetIds.join(",");
   const existingPopover = document.getElementById("nodeTraceDisplaySettingsPopover");
+  const existingMulti = Array.isArray(nodeGraphMvp.traceDisplaySettingsTargetNodes)
+    ? nodeGraphMvp.traceDisplaySettingsTargetNodes.join(",")
+    : String(nodeGraphMvp.traceDisplaySettingsTargetNode || "");
   if (
     existingPopover &&
     !existingPopover.hidden &&
     nodeGraphMvp.sharedInspectorActive === "traceDisplaySettings" &&
-    nodeGraphMvp.traceDisplaySettingsTargetNode === node.id
+    existingMulti === multiKey
     && existingPopover.dataset.inspectorBlank !== "true"
   ) {
     if (typeof pulseNodeGraphFloatingWindowAttention === "function") {
@@ -655,11 +752,12 @@ function openNodeGraphTraceDisplaySettings(nodeId, event = {}) {
   const popover = nodeGraphTraceDisplaySettingsElement();
   bindNodeGraphTraceDisplaySettingsEvents(popover);
   nodeGraphMvp.traceDisplaySettingsTargetNode = node.id;
+  setNodeGraphTraceDisplaySettingsMultiTargets(multiTargetIds);
   nodeGraphMvp.sharedInspectorActive = "traceDisplaySettings";
   setNodeGraphTraceDisplaySettingsHeader(
     "DISPLAY",
-    "Settings",
-    nodeGraphTraceDisplaySettingsTargetLabel(node),
+    multiTargetIds.length > 1 ? "Settings (multi)" : "Settings",
+    nodeGraphTraceDisplaySettingsMultiTargetLabel(multiTargetIds),
   );
   setNodeGraphTraceDisplaySettingsFormType(node);
   writeNodeGraphTraceDisplaySettingsForm(nodeGraphTraceDisplayCurrentSettingsForFormType());

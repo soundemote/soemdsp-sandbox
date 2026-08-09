@@ -91,7 +91,7 @@ const nodeGraphNodeLabels = Object.freeze({
   softClipper: "Soft Clipper",
   airClipper: "AirClipper",
   rotate3dTo2d: "Rotation 3D to 2D",
-  vectorscopeTransform: "Vectorscope Transform",
+  vectorscopeTransform: "Vectorscope Rotation",
   knob: "Knob",
   pluginSlider: "Slider",
   toggleButton: "Toggle",
@@ -409,7 +409,9 @@ const nodeGraphModuleDefinitions = (
     displayType: "customDisplay",
     inputs: ["In1"],
     layout: "traceDisplay",
-    outputs: [],
+    // Dry passthrough so the face can sit in-line (In1 → face + Thru).
+    outputs: ["Thru"],
+    outputLabels: { Thru: "→" },
     parameters: [],
     visualInputs: [
       { key: "customDisplayIn1", label: "In1", port: "In1" },
@@ -3293,12 +3295,13 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0", key: "rotateZ", kind: "phase", label: "Rotate Z", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "0.01", unit: "cycle", wraparound: true },
     ],
   },
-  // Stereo L/R (as X/Y) → goniometer axes for any X/Y scope. Fixed 45° rotation.
+  // Stereo L/R → goniometer axes for any X/Y scope. Fixed 45° rotation.
   vectorscopeTransform: {
     planRole: "processor",
-    inputs: ["X", "Y"],
-    inputLabels: { X: "X / L", Y: "Y / R" },
-    inputAliases: { L: "X", R: "Y", Left: "X", Right: "Y" },
+    inputs: ["L", "R"],
+    inputLabels: { L: "L", R: "R" },
+    // Legacy X/Y port names (and full Left/Right) still wire in.
+    inputAliases: { X: "L", Y: "R", Left: "L", Right: "R" },
     outputs: ["X", "Y"],
     parameters: [],
   },
@@ -7853,7 +7856,8 @@ const nodeGraphModuleDefinitions = (
     inputLabels: { In: "Mono" },
     inputs: ["In", "X", "Y"],
     layout: "visualScope",
-    outputs: ["RGBA"],
+    // Dry X/Y thrus so multi-mode Display can sit in-line on XY patches.
+    outputs: ["X", "Y", "RGBA"],
     parameters: [],
     visualInputs: [
       { key: "visualOscilloscope", label: "Mono", port: "In" },
@@ -7868,7 +7872,9 @@ const nodeGraphModuleDefinitions = (
     displayType: "trace",
     inputs: ["In"],
     layout: "traceDisplay",
-    outputs: [],
+    // Dry passthrough so the face can sit in-line (In → face + Thru).
+    outputs: ["Thru"],
+    outputLabels: { Thru: "→" },
     parameters: [],
     visualInputs: [
       { key: "traceDisplay", label: "In", port: "In" },
@@ -7881,7 +7887,9 @@ const nodeGraphModuleDefinitions = (
     displayType: "dot",
     inputs: ["In"],
     layout: "traceDisplay",
-    outputs: [],
+    // Dry passthrough so the face can sit in-line (In → face + Thru).
+    outputs: ["Thru"],
+    outputLabels: { Thru: "→" },
     parameters: [],
     visualInputs: [
       { key: "dotOscilloscope", label: "In", port: "In" },
@@ -7903,7 +7911,9 @@ const nodeGraphModuleDefinitions = (
     displayType: "videoscopeBurn",
     inputs: ["A", "B"],
     layout: "traceDisplay",
-    outputs: [],
+    // Dry passthrough of primary channel A so the face can sit in-line.
+    outputs: ["Thru"],
+    outputLabels: { Thru: "→" },
     parameters: [
       { key: "triggerLevel", label: "Trigger Level", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "any" },
       {
@@ -7980,6 +7990,7 @@ const nodeGraphModuleDefinitions = (
     layout: "traceDisplay",
     // Dry passthrough so the analyzer can sit in-line (In → face + Thru).
     outputs: ["Thru"],
+    outputLabels: { Thru: "→" },
     // Face knobs: levels + view band + scroll window.
     // Analysis look (FFT / window / overlap / freq scale / gradient) stays in Display Settings.
     parameters: [
@@ -8165,7 +8176,9 @@ const nodeGraphModuleDefinitions = (
     displayType: "matrixDisplayFace",
     inputs: ["In", "Char", "Trigger", "Reset"],
     layout: "matrixPlate",
-    outputs: [],
+    // Dry passthrough so the face can sit in-line (In → face + Thru).
+    outputs: ["Thru"],
+    outputLabels: { Thru: "→" },
     parameters: [
       {
         choices: ["Info", "Serial"],
@@ -8299,7 +8312,8 @@ const nodeGraphModuleDefinitions = (
     displayType: "selfPaintFace",
     inputs: ["X", "Y"],
     layout: "matrixDisplay",
-    outputs: [],
+    // Dry X/Y thrus so the face can sit in-line on XY patches.
+    outputs: ["X", "Y"],
     parameters: [
       {
         constraint: "gpu",
@@ -8385,7 +8399,9 @@ const nodeGraphModuleDefinitions = (
     displayType: "value",
     inputs: ["In"],
     layout: "traceDisplay",
-    outputs: [],
+    // Dry passthrough so the face can sit in-line (In → face + Thru).
+    outputs: ["Thru"],
+    outputLabels: { Thru: "→" },
     parameters: [],
     visualInputs: [
       { key: "valueOscilloscope", label: "In", port: "In" },
@@ -8399,7 +8415,9 @@ const nodeGraphModuleDefinitions = (
     displayType: "lineBurn",
     inputs: ["In", "Reset"],
     layout: "traceDisplay",
-    outputs: [],
+    // Dry passthrough so the face can sit in-line (In → face + Thru).
+    outputs: ["Thru"],
+    outputLabels: { Thru: "→" },
     parameters: [],
     visualInputs: [
       { key: "lineBurnOscilloscope", label: "In", port: "In" },
@@ -8414,7 +8432,8 @@ const nodeGraphModuleDefinitions = (
     displayType: "scope2d",
     inputs: ["X", "Y"],
     layout: "traceDisplay",
-    outputs: [],
+    // Dry X/Y thrus so the face can sit in-line on XY patches.
+    outputs: ["X", "Y"],
     parameters: [],
     visualInputs: [
       { key: "scope2dX", label: "X", port: "X" },
@@ -8431,7 +8450,8 @@ const nodeGraphModuleDefinitions = (
     displayType: "scope2d",
     inputs: ["X", "Y"],
     layout: "traceDisplay",
-    outputs: [],
+    // Dry X/Y thrus so the face can sit in-line on XY patches.
+    outputs: ["X", "Y"],
     parameters: [],
     visualInputs: [
       { key: "scope2dX", label: "X", port: "X" },
@@ -8446,7 +8466,8 @@ const nodeGraphModuleDefinitions = (
     displayType: "scope2dTrace",
     inputs: ["X", "Y"],
     layout: "traceDisplay",
-    outputs: [],
+    // Dry X/Y thrus so the face can sit in-line on XY patches.
+    outputs: ["X", "Y"],
     parameters: [],
     visualInputs: [
       { key: "scope2dTraceX", label: "X", port: "X" },

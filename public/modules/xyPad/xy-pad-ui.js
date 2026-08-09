@@ -630,7 +630,8 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
     }
     face._xyPadPresentedIdle = !liveDeposit;
     ctx.save();
-    ctx.globalCompositeOperation = "lighter";
+    // Energy is already additive mono; LUT paints color (incl. dark peaks).
+    ctx.globalCompositeOperation = "source-over";
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(face.canvas, 0, 0, width, height);
     ctx.restore();
@@ -642,7 +643,7 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
       width,
       height,
       smooth: true,
-      composite: "lighter",
+      composite: "source-over",
     });
     face._xyPadPresentedIdle = !liveDeposit;
     return ok;

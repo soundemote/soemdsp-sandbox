@@ -1,9 +1,10 @@
 // Room light — full-UI screenspace dim veil with rect light punches.
 //
-// 💡 drag = room dim (0 = full light / no veil, 1 = pure black outside holes).
+// Lightbulb control drag = room dim (0 = full light / no veil, 1 = pure black
+// outside holes). Button icons crossfade lightbulb-on → lightbulb-off with dim.
 // Covers the whole app chrome (top toolbar + bottom resource bar + workspace).
-// At 100% everything is blacked out EXCEPT the dimmer button (always punched
-// and stacked above the veil so you can still drag dim back down).
+// At 100% the room is blacked out; painted displays stay lit (rect punches) and
+// the dimmer button stays punched/stacked above the veil so you can drag back.
 //
 // Simple light sim only:
 //   - black veil alpha = dim (true 0…1)
@@ -506,15 +507,23 @@ void main() {
     const dim = clampDim(state.dim);
     const on = dim > 0.0005;
     const pct = Math.round(dim * 100);
+    // Drives CSS crossfade: on opacity = 1−dim, off opacity = dim.
     btn.style.setProperty("--room-dim", String(dim));
     btn.setAttribute("aria-pressed", on ? "true" : "false");
     btn.setAttribute("aria-valuenow", String(pct));
     btn.setAttribute("aria-valuemin", "0");
     btn.setAttribute("aria-valuemax", "100");
-    btn.setAttribute("aria-valuetext", `Room dim ${pct} percent`);
+    btn.setAttribute(
+      "aria-valuetext",
+      pct <= 0
+        ? "Room light full on"
+        : pct >= 100
+          ? "Room dark; displays stay lit"
+          : `Room ${pct} percent dark; displays stay lit`,
+    );
     btn.title = on
-      ? `Room ${pct}% dark · drag (0 = full light, 100 = pure black; this control stays lit)`
-      : "Room light · drag: 0 = full light, 100 = pure black (screens + this control stay lit)";
+      ? `Room ${pct}% dark · drag (displays stay lit)`
+      : "Room light · drag up to darken the room (displays stay lit)";
   }
 
   function setDim(value, options = {}) {

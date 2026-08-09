@@ -682,10 +682,11 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   vectorscopeTransform: {
     category: "dynamics",
     description:
-      "Goniometer / vectorscope transform: rotate stereo L/R (X/Y) by 45° so mono is vertical and anti-phase is horizontal. Wire into any X/Y scope.",
-    label: "Vectorscope Transform",
+      "Goniometer / vectorscope rotation: rotate stereo L/R by 45° so mono is vertical and anti-phase is horizontal. Wire outs into any X/Y scope.",
+    label: "Vectorscope Rotation",
     notes: [
       "vectorscope",
+      "vectorscope rotation",
       "goniometer",
       "phase scope",
       "stereo image",

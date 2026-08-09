@@ -208,7 +208,10 @@
   }
 
   /**
-   * Present energy×LUT into dest 2D context (lighter composite).
+   * Present energy×LUT into dest 2D context.
+   * Default composite is source-over: mono energy is already additive; the LUT
+   * paints face color (any gradient, including white→black). "lighter" would
+   * only add RGB and make dark peaks invisible.
    */
   function presentTo(face, destCtx, options = {}) {
     if (!face || !destCtx || typeof global.nodeGraphPhosphorEnergyGlPresent !== "function") {
@@ -231,7 +234,7 @@
       return false;
     }
     destCtx.save();
-    destCtx.globalCompositeOperation = options.composite || "lighter";
+    destCtx.globalCompositeOperation = options.composite || "source-over";
     destCtx.imageSmoothingEnabled = options.smooth !== false;
     destCtx.drawImage(face.canvas, 0, 0, width, height);
     destCtx.restore();

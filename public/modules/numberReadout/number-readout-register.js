@@ -1,5 +1,5 @@
 // Number Readout — solid-module layout (same shell family as XY Pad):
-// short input on the left, LCD face in the center, no outputs.
+// short input on the left, LCD face in the center, → thru on the right.
 // Scope/draw path stays in node-graph-module-scopes.js (displayType numberReadout).
 
 registerNodeGraphChromelessModule("numberReadout", {
@@ -15,7 +15,9 @@ registerNodeGraphChromelessModule("numberReadout", {
       In: "In",
     },
     inputs: ["In"],
-    outputs: [],
+    // Dry passthrough so the face can sit in-line (In → face + Thru).
+    outputs: ["Thru"],
+    outputLabels: { Thru: "→" },
     parameters: [],
     visualInputs: [
       { key: "numberReadout", label: "In", port: "In" },
@@ -24,7 +26,7 @@ registerNodeGraphChromelessModule("numberReadout", {
   },
   catalog: {
     category: "multimeter",
-    description: "Solid LCD number face: hard DSEG digits with residual ghosts of previous values. Side-mounted input, no header chrome. Search: value, numeric display, LCD.",
+    description: "Solid LCD number face: hard DSEG digits with residual ghosts of previous values. Side-mounted input, → thru for chaining. Search: value, numeric display, LCD.",
     notes: [
       "value",
       "value display",

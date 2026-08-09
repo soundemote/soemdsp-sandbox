@@ -253,14 +253,32 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
   if (nodeGraphTraceDisplaySettingsEditingTraceDefaults()) {
     nodeGraphMvp.traceSettings = normalizeNodeGraphTraceDisplaySettings(settings);
   } else {
-    const node = nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId());
-    if (!nodeGraphNodeCanOpenDisplaySettings(node)) {
+    // Multi-adjust: same display schema across selection → write all targets.
+    const targetIds = typeof nodeGraphTraceDisplaySettingsActiveTargetIds === "function"
+      ? nodeGraphTraceDisplaySettingsActiveTargetIds()
+      : [nodeGraphTraceDisplaySettingsTargetNodeId()].filter(Boolean);
+    if (!targetIds.length) {
       return null;
     }
-    const settingsSchema = nodeGraphModuleDisplaySettingsSchemaForNode(node);
-    assignNodeGraphTypedDisplaySettingsEverywhere(node, settingsSchema, settings);
+    let anyApplied = false;
+    let needsParamSync = false;
+    for (const targetId of targetIds) {
+      const node = nodeGraphPatchNode(targetId);
+      if (!nodeGraphNodeCanOpenDisplaySettings(node)) {
+        continue;
+      }
+      const settingsSchema = nodeGraphModuleDisplaySettingsSchemaForNode(node);
+      assignNodeGraphTypedDisplaySettingsEverywhere(node, settingsSchema, settings);
+      anyApplied = true;
+      if (settingsSchema === "spectrogramBurn") {
+        needsParamSync = true;
+      }
+    }
+    if (!anyApplied) {
+      return null;
+    }
     // Spectrogram bins ride params for the worklet — push a param sync.
-    if (settingsSchema === "spectrogramBurn" && typeof scheduleNodeGraphLiveParameterSync === "function") {
+    if (needsParamSync && typeof scheduleNodeGraphLiveParameterSync === "function") {
       scheduleNodeGraphLiveParameterSync();
     }
   }
@@ -288,33 +306,39 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
   if (typeof refreshNodeGraphKnobFaces === "function") {
     refreshNodeGraphKnobFaces();
   }
-  // LED face applies CSS vars immediately (rounding / pill / squircle).
-  // Cosmetic — works with the audio engine stopped.
+  // Face cosmetics for every multi-adjust target (LED / RGB / FBM …).
   if (!nodeGraphTraceDisplaySettingsEditingTraceDefaults()) {
-    const ledNodeId = nodeGraphTraceDisplaySettingsTargetNodeId();
-    const ledNode = ledNodeId ? nodeGraphPatchNode(ledNodeId) : null;
-    if (ledNode?.type === "led") {
-      if (typeof scheduleNodeGraphLedFaceRefresh === "function") {
-        scheduleNodeGraphLedFaceRefresh(ledNodeId);
-      } else if (typeof refreshNodeGraphLedFaceForNode === "function") {
-        refreshNodeGraphLedFaceForNode(ledNodeId);
+    const targetIds = typeof nodeGraphTraceDisplaySettingsActiveTargetIds === "function"
+      ? nodeGraphTraceDisplaySettingsActiveTargetIds()
+      : [nodeGraphTraceDisplaySettingsTargetNodeId()].filter(Boolean);
+    for (const faceNodeId of targetIds) {
+      const faceNode = faceNodeId ? nodeGraphPatchNode(faceNodeId) : null;
+      if (!faceNode) {
+        continue;
       }
-    }
-    if (ledNode?.type === "rgbShape" && typeof paintNodeGraphRgbShapeFaceForNode === "function") {
-      paintNodeGraphRgbShapeFaceForNode(ledNodeId);
-      requestAnimationFrame(() => paintNodeGraphRgbShapeFaceForNode(ledNodeId));
-    }
-    if (ledNode?.type === "rgbPicture" && typeof paintNodeGraphRgbPictureFaceForNode === "function") {
-      paintNodeGraphRgbPictureFaceForNode(ledNodeId);
-      requestAnimationFrame(() => paintNodeGraphRgbPictureFaceForNode(ledNodeId));
-    }
-    if (ledNode?.type === "rgbFractal" && typeof paintNodeGraphRgbFractalFaceForNode === "function") {
-      paintNodeGraphRgbFractalFaceForNode(ledNodeId, { force: true, dt: 0 });
-      requestAnimationFrame(() => paintNodeGraphRgbFractalFaceForNode(ledNodeId, { force: true, dt: 0 }));
-    }
-    if (ledNode?.type === "fbmField" && typeof paintNodeGraphFbmFieldFaceForNode === "function") {
-      paintNodeGraphFbmFieldFaceForNode(ledNodeId, { force: true, dt: 0 });
-      requestAnimationFrame(() => paintNodeGraphFbmFieldFaceForNode(ledNodeId, { force: true, dt: 0 }));
+      if (faceNode.type === "led") {
+        if (typeof scheduleNodeGraphLedFaceRefresh === "function") {
+          scheduleNodeGraphLedFaceRefresh(faceNodeId);
+        } else if (typeof refreshNodeGraphLedFaceForNode === "function") {
+          refreshNodeGraphLedFaceForNode(faceNodeId);
+        }
+      }
+      if (faceNode.type === "rgbShape" && typeof paintNodeGraphRgbShapeFaceForNode === "function") {
+        paintNodeGraphRgbShapeFaceForNode(faceNodeId);
+        requestAnimationFrame(() => paintNodeGraphRgbShapeFaceForNode(faceNodeId));
+      }
+      if (faceNode.type === "rgbPicture" && typeof paintNodeGraphRgbPictureFaceForNode === "function") {
+        paintNodeGraphRgbPictureFaceForNode(faceNodeId);
+        requestAnimationFrame(() => paintNodeGraphRgbPictureFaceForNode(faceNodeId));
+      }
+      if (faceNode.type === "rgbFractal" && typeof paintNodeGraphRgbFractalFaceForNode === "function") {
+        paintNodeGraphRgbFractalFaceForNode(faceNodeId, { force: true, dt: 0 });
+        requestAnimationFrame(() => paintNodeGraphRgbFractalFaceForNode(faceNodeId, { force: true, dt: 0 }));
+      }
+      if (faceNode.type === "fbmField" && typeof paintNodeGraphFbmFieldFaceForNode === "function") {
+        paintNodeGraphFbmFieldFaceForNode(faceNodeId, { force: true, dt: 0 });
+        requestAnimationFrame(() => paintNodeGraphFbmFieldFaceForNode(faceNodeId, { force: true, dt: 0 }));
+      }
     }
   }
   return settings;

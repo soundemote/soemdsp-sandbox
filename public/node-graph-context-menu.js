@@ -2115,7 +2115,11 @@ function openNodeXyPadContextMenu(event) {
   event.stopImmediatePropagation?.();
   // Prefer phosphor Display Settings (color / background / reset canvas).
   if (typeof openNodeGraphTraceDisplaySettings === "function") {
-    if (typeof setNodeGraphSelection === "function") {
+    // Keep multi-select when the face is already part of the selection so
+    // same-display multi-adjust can apply. Collapse only when not selected.
+    const alreadySelected = typeof nodeGraphSelectedNodeIds === "function"
+      && nodeGraphSelectedNodeIds().has(nodeId);
+    if (!alreadySelected && typeof setNodeGraphSelection === "function") {
       setNodeGraphSelection({ type: "node", id: nodeId });
     }
     nodeGraphMvp.sceneContextTargetNode = nodeId;

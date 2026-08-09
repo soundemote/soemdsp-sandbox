@@ -530,7 +530,8 @@ function drawNodeGraphDotOscilloscopeItem(renderer, item, pixelRatio) {
     if (typeof nodeGraphPhosphorEnergyGlPresent === "function"
       && nodeGraphPhosphorEnergyGlPresent(energyGl, 1, { exposure })) {
       context.save();
-      context.globalCompositeOperation = "lighter";
+      // Energy is already additive mono; LUT paints color (incl. dark peaks).
+      context.globalCompositeOperation = "source-over";
       context.imageSmoothingEnabled = true;
       context.drawImage(energyGl.canvas, 0, 0, width, height);
       context.restore();

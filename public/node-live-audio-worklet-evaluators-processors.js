@@ -1082,9 +1082,9 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           this.readEffectiveParameter(node, "rotateY", 0, frame, frames, frameValues),
           this.readEffectiveParameter(node, "rotateZ", 0, frame, frames, frameValues),
         ),
-      // Stereo L/R (X/Y) → goniometer axes. Math: vectorscope-transform-math.js.,
+      // Stereo L/R → goniometer X/Y axes. Math: vectorscope-transform-math.js.
       vectorscopeTransform: (node, nodeId, frame, frames, frameValues, mixInput) =>
-        this.vectorscopeTransformSample(mixInput(nodeId, "X"), mixInput(nodeId, "Y")),
+        this.vectorscopeTransformSample(mixInput(nodeId, "L"), mixInput(nodeId, "R")),
       // |Δsample| speed + sat inertia. Math: speed-color-inertia-math.js.
       speedColorInertia: (node, nodeId, frame, frames, frameValues, mixInput) => {
         if (!this.speedColorInertiaStates) {
@@ -1102,6 +1102,51 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
       },
       // Spectrogram: face analyzes buffered In; Thru is dry passthrough.
       spectrogram: (node, nodeId, frame, frames, frameValues, mixInput) => ({
+        Thru: this.safeFilterNumber(mixInput(nodeId, "In"), null),
+      }),
+      // Signal-path displays: dry Thru (→ jack) so faces can sit in-line.
+      customDisplay: (node, nodeId, frame, frames, frameValues, mixInput) => ({
+        Thru: this.safeFilterNumber(mixInput(nodeId, "In1"), null),
+      }),
+      traceDisplay: (node, nodeId, frame, frames, frameValues, mixInput) => ({
+        Thru: this.safeFilterNumber(mixInput(nodeId, "In"), null),
+      }),
+      dotOscilloscope: (node, nodeId, frame, frames, frameValues, mixInput) => ({
+        Thru: this.safeFilterNumber(mixInput(nodeId, "In"), null),
+      }),
+      videoscope: (node, nodeId, frame, frames, frameValues, mixInput) => ({
+        Thru: this.safeFilterNumber(mixInput(nodeId, "A"), null),
+      }),
+      matrixDisplay: (node, nodeId, frame, frames, frameValues, mixInput) => ({
+        Thru: this.safeFilterNumber(mixInput(nodeId, "In"), null),
+      }),
+      asciiscope: (node, nodeId, frame, frames, frameValues, mixInput) => ({
+        X: this.safeFilterNumber(mixInput(nodeId, "X"), null),
+        Y: this.safeFilterNumber(mixInput(nodeId, "Y"), null),
+      }),
+      valueOscilloscope: (node, nodeId, frame, frames, frameValues, mixInput) => ({
+        Thru: this.safeFilterNumber(mixInput(nodeId, "In"), null),
+      }),
+      lineBurnOscilloscope: (node, nodeId, frame, frames, frameValues, mixInput) => ({
+        Thru: this.safeFilterNumber(mixInput(nodeId, "In"), null),
+      }),
+      scope2d: (node, nodeId, frame, frames, frameValues, mixInput) => ({
+        X: this.safeFilterNumber(mixInput(nodeId, "X"), null),
+        Y: this.safeFilterNumber(mixInput(nodeId, "Y"), null),
+      }),
+      phosphorLight: (node, nodeId, frame, frames, frameValues, mixInput) => ({
+        X: this.safeFilterNumber(mixInput(nodeId, "X"), null),
+        Y: this.safeFilterNumber(mixInput(nodeId, "Y"), null),
+      }),
+      scope2dTrace: (node, nodeId, frame, frames, frameValues, mixInput) => ({
+        X: this.safeFilterNumber(mixInput(nodeId, "X"), null),
+        Y: this.safeFilterNumber(mixInput(nodeId, "Y"), null),
+      }),
+      visualOscilloscope: (node, nodeId, frame, frames, frameValues, mixInput) => ({
+        X: this.safeFilterNumber(mixInput(nodeId, "X"), null),
+        Y: this.safeFilterNumber(mixInput(nodeId, "Y"), null),
+      }),
+      numberReadout: (node, nodeId, frame, frames, frameValues, mixInput) => ({
         Thru: this.safeFilterNumber(mixInput(nodeId, "In"), null),
       }),
       mix: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {

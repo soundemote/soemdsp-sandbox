@@ -303,19 +303,19 @@ function nodeGraphPortPairMeta(port) {
     "left out": { group: "stereo-xy-lr", role: 0, siblings: ["Right Out", "Right", "R", "Y", "Wet R", "Dry R", "Mix R"] },
     "right out": { group: "stereo-xy-lr", role: 1, siblings: ["Left Out", "Left", "L", "X", "Wet L", "Dry L", "Mix L"] },
     // Crossover legacy Low/High L·R (spaced) — maps to LFL/LFR/HFL/HFR on module
-    "low l": { group: "stereo-xy-lr", role: 0, siblings: ["Low R", "LFR", "High R", "HFR", "R", "Right"] },
-    "low r": { group: "stereo-xy-lr", role: 1, siblings: ["Low L", "LFL", "High L", "HFL", "L", "Left"] },
-    "high l": { group: "stereo-xy-lr", role: 0, siblings: ["High R", "HFR", "Low R", "LFR", "R", "Right"] },
-    "high r": { group: "stereo-xy-lr", role: 1, siblings: ["High L", "HFL", "Low L", "LFL", "L", "Left"] },
-    // Crossover low/high frequency outs (LFL/LFR/HFL/HFR)
-    lfl: { group: "stereo-xy-lr", role: 0, siblings: ["LFR", "HFR", "Low R", "High R", "R", "Right"] },
-    lfr: { group: "stereo-xy-lr", role: 1, siblings: ["LFL", "HFL", "Low L", "High L", "L", "Left"] },
-    hfl: { group: "stereo-xy-lr", role: 0, siblings: ["HFR", "LFR", "High R", "Low R", "R", "Right"] },
-    hfr: { group: "stereo-xy-lr", role: 1, siblings: ["HFL", "LFL", "High L", "Low L", "L", "Left"] },
+    "low l": { group: "stereo-xy-lr", role: 0, siblings: ["Low R", "LFR", "R", "Right"] },
+    "low r": { group: "stereo-xy-lr", role: 1, siblings: ["Low L", "LFL", "L", "Left"] },
+    "high l": { group: "stereo-xy-lr", role: 0, siblings: ["High R", "HFR", "R", "Right"] },
+    "high r": { group: "stereo-xy-lr", role: 1, siblings: ["High L", "HFL", "L", "Left"] },
+    // Crossover low/high frequency outs — true pair first, then generic Left/Right
+    lfl: { group: "stereo-xy-lr", role: 0, siblings: ["LFR", "Low R", "R", "Right"] },
+    lfr: { group: "stereo-xy-lr", role: 1, siblings: ["LFL", "Low L", "L", "Left"] },
+    hfl: { group: "stereo-xy-lr", role: 0, siblings: ["HFR", "High R", "R", "Right"] },
+    hfr: { group: "stereo-xy-lr", role: 1, siblings: ["HFL", "High L", "L", "Left"] },
     // 3-way mid: ML / MR
     ml: { group: "stereo-xy-lr", role: 0, siblings: ["MR", "Mid R", "R1", "R", "Right"] },
     mr: { group: "stereo-xy-lr", role: 1, siblings: ["ML", "Mid L", "L1", "L", "Left"] },
-    // Short stereo tags (module In L/R)
+    // Short stereo tags (module In L/R) — only exact single-letter L/R, not L2/HFL.
     l: { group: "stereo-xy-lr", role: 0, siblings: ["R", "Right", "Y", "Mix R", "Dry R", "Wet R"] },
     r: { group: "stereo-xy-lr", role: 1, siblings: ["L", "Left", "X", "Mix L", "Dry L", "Wet L"] },
   };
@@ -323,14 +323,15 @@ function nodeGraphPortPairMeta(port) {
     return table[key];
   }
 
-  // Crossover mid-bands: L1/R1, L2/R2, … (case-insensitive match, preserve digit)
+  // Crossover mid-bands: L1/R1 … L4/R4 (and higher). True pair first so L2→Left
+  // also wires R2→Right (not a different band's R).
   const lNum = key.match(/^l(\d+)$/);
   if (lNum) {
     const n = lNum[1];
     return {
       group: "stereo-xy-lr",
       role: 0,
-      siblings: [`R${n}`, `R ${n}`, `${n} R`, `${n} Right`, "R", "Right"],
+      siblings: [`R${n}`, `R ${n}`, `${n} R`, `${n} Right`, "Right", "R"],
     };
   }
   const rNum = key.match(/^r(\d+)$/);
@@ -339,7 +340,7 @@ function nodeGraphPortPairMeta(port) {
     return {
       group: "stereo-xy-lr",
       role: 1,
-      siblings: [`L${n}`, `L ${n}`, `${n} L`, `${n} Left`, "L", "Left"],
+      siblings: [`L${n}`, `L ${n}`, `${n} L`, `${n} Left`, "Left", "L"],
     };
   }
 
@@ -380,16 +381,60 @@ function nodeGraphEquivalentStereoPortName(port) {
   return meta.role === 0 ? "left-x" : "right-y";
 }
 
-/** First sibling name that exists on the given port list (exact match). */
+/**
+ * Natural stereo partner for crossover-style names (LFL↔LFR, HFL↔HFR, L2↔R2, …).
+ * Used before generic Left/Right fallbacks so band outs pair correctly.
+ */
+function nodeGraphPortPairNaturalSiblingName(port) {
+  const original = String(port || "").trim();
+  if (!original) {
+    return "";
+  }
+  const low = original.toLowerCase();
+  if (low === "lfl") return "LFR";
+  if (low === "lfr") return "LFL";
+  if (low === "hfl") return "HFR";
+  if (low === "hfr") return "HFL";
+  if (low === "ml") return "MR";
+  if (low === "mr") return "ML";
+  const lNum = low.match(/^l(\d+)$/);
+  if (lNum) {
+    return `R${lNum[1]}`;
+  }
+  const rNum = low.match(/^r(\d+)$/);
+  if (rNum) {
+    return `L${rNum[1]}`;
+  }
+  return "";
+}
+
+/** First sibling name that exists on the given port list (case-insensitive). */
 function nodeGraphPortPairSiblingOnModule(port, availablePorts = []) {
   const meta = nodeGraphPortPairMeta(port);
   if (!meta) {
     return "";
   }
   const ports = Array.isArray(availablePorts) ? availablePorts : [];
+  // Map lower-case → original spelling so we wire the real port id.
+  const byLower = new Map();
+  for (const p of ports) {
+    const name = String(p || "").trim();
+    if (name && !byLower.has(name.toLowerCase())) {
+      byLower.set(name.toLowerCase(), name);
+    }
+  }
+  // Prefer the natural band pair (HFL↔HFR, L2↔R2) before generic L/R.
+  const natural = nodeGraphPortPairNaturalSiblingName(port);
+  if (natural) {
+    const hit = byLower.get(natural.toLowerCase());
+    if (hit) {
+      return hit;
+    }
+  }
   for (const candidate of meta.siblings) {
-    if (ports.includes(candidate)) {
-      return candidate;
+    const hit = byLower.get(String(candidate || "").toLowerCase());
+    if (hit) {
+      return hit;
     }
   }
   return "";
@@ -405,6 +450,34 @@ function nodeGraphStereoPairSiblingPort(port) {
  * When connecting one side of a dual port pair, also wire the sibling if both
  * modules have it. Works for either side (Left or Right / X or Y / A or B).
  */
+/**
+ * Signal I/O port names for auto-pair (definition outputs / inputs only —
+ * exclude param keys that nodeGraphModuleOutputPorts may append).
+ */
+function nodeGraphAutoPairAvailablePorts(nodeId, side = "output") {
+  const patchNode = typeof nodeGraphPatchNode === "function"
+    ? nodeGraphPatchNode(nodeId)
+    : null;
+  const type = patchNode?.type;
+  const definition = typeof nodeGraphModuleDefinition === "function"
+    ? nodeGraphModuleDefinition(type)
+    : (typeof nodeGraphModuleDefinitions !== "undefined" ? nodeGraphModuleDefinitions[type] : null);
+  if (side === "input") {
+    if (typeof nodeGraphPatchNodeInputPorts === "function") {
+      return nodeGraphPatchNodeInputPorts(nodeId) || [];
+    }
+    return definition?.inputs || [];
+  }
+  // Prefer pure signal outs (not param keys) so L2 pairs with R2, not a param named R.
+  if (Array.isArray(definition?.outputs) && definition.outputs.length) {
+    return definition.outputs.map((p) => String(p || "").trim()).filter(Boolean);
+  }
+  if (typeof nodeGraphPatchNodeOutputPorts === "function") {
+    return nodeGraphPatchNodeOutputPorts(nodeId) || [];
+  }
+  return [];
+}
+
 function nodeGraphAutoPairPortConnections(patch, sourceNode, sourcePort, destinationNode, destinationPort, wireData = {}) {
   if (!patch) {
     return 0;
@@ -415,15 +488,15 @@ function nodeGraphAutoPairPortConnections(patch, sourceNode, sourcePort, destina
   if (!srcMeta || !dstMeta || srcMeta.group !== dstMeta.group || srcMeta.role !== dstMeta.role) {
     return 0;
   }
-  const sourcePorts = typeof nodeGraphPatchNodeOutputPorts === "function"
-    ? nodeGraphPatchNodeOutputPorts(sourceNode)
-    : [];
-  const destinationPorts = typeof nodeGraphPatchNodeInputPorts === "function"
-    ? nodeGraphPatchNodeInputPorts(destinationNode)
-    : [];
+  const sourcePorts = nodeGraphAutoPairAvailablePorts(sourceNode, "output");
+  const destinationPorts = nodeGraphAutoPairAvailablePorts(destinationNode, "input");
   const nextSourcePort = nodeGraphPortPairSiblingOnModule(sourcePort, sourcePorts);
   const nextDestinationPort = nodeGraphPortPairSiblingOnModule(destinationPort, destinationPorts);
   if (!nextSourcePort || !nextDestinationPort) {
+    return 0;
+  }
+  // Never auto-pair a port to itself (e.g. broken L matching L).
+  if (nextSourcePort === sourcePort || nextDestinationPort === destinationPort) {
     return 0;
   }
   const duplicate = patch.connections.some(

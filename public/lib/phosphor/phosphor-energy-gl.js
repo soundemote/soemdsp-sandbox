@@ -3,8 +3,10 @@
 //
 // Architecture:
 //   energy  ──fade + optional bleed──►  energy'
-//   energy' ──+ GPU soft/hard dots (additive)──►  energy''
-//   present: color = LUT(energy) with HDR film curve
+//   energy' ──+ GPU soft/hard dots (additive mono deposit)──►  energy''
+//   present: tone-map energy → e∈[0,1], color = LUT(e)  (any gradient, incl. white→black)
+//   blit:    source-over onto plate (plate = gradient floor). Do NOT re-add as light —
+//            additive already happened in energy space; lighter would kill dark LUT peaks.
 //   resize:  reallocate FBOs + copy residual (do NOT clear on zoom)
 //
 // Blur UX: 0 = hard disc (~1px AA), 1 = full soft gaussian bleed.
@@ -127,10 +129,12 @@
     }
   `;
 
-  // HDR present: never clamp energy before the film curve. Clamping to 1 first
-  // turns slow burn into a flat plateau with a hard pixel edge at the isosurface.
-  // Soft film (1-exp) compresses bright cores and leaves dim skirts glowing.
-  // Low-end lift keeps tiny residual energy visible so low burn is dim, not dead.
+  // Present = deposit amount → gradient color (not "emit light").
+  //   1) Tone-map HDR mono energy to e∈[0,1] (film curve keeps soft skirts).
+  //   2) Sample multi-stop LUT at e (stop0 = cold / plate floor, stop1 = hot peak).
+  //   3) Premultiplied RGBA for source-over blit onto the face plate.
+  // Additive accumulation already happened in the energy FBO — do not use
+  // canvas "lighter" after this or dark LUT peaks (e.g. white→black) vanish.
   const PRESENT_FRAG = `
     precision highp float;
     varying vec2 vUv;
@@ -140,8 +144,8 @@
     uniform float uExposure;
     void main() {
       float raw = max(texture2D(uEnergy, vUv).r, 0.0);
-      // Lift sub-threshold residual so 8-bit/near-zero energy still glows dimly
-      // (avoids a hard "off" band when burn is low under decay).
+      // Lift sub-threshold residual so near-zero energy still maps into the LUT
+      // (avoids a hard empty band when burn is low under decay).
       float lifted = raw + 0.045 * pow(raw, 0.42);
       float e;
       if (uExposure > 0.001) {
@@ -151,7 +155,10 @@
         e = lifted / (1.0 + lifted);
         e = pow(clamp(e, 0.0, 1.0), 0.88);
       }
+      // e is the gradient coordinate. c is the face color at that deposit level.
       vec3 c = texture2D(uLut, vec2(clamp(e, 0.0, 1.0), 0.5)).rgb;
+      // Coverage from deposit amount (soft skirts); color is independent of
+      // whether the LUT peak is light or dark.
       float a = clamp(e * uTrailGain, 0.0, 1.0);
       gl_FragColor = vec4(c * a, a);
     }
@@ -1543,6 +1550,7 @@
 
   /**
    * Present energy×LUT into shared canvas (premultiplied RGBA), sized to this scope.
+   * Caller should source-over this onto the face plate (gradient floor / background).
    * options.exposure: optional soft film curve before LUT (scope2d / Lorenz beauty).
    */
   function present(renderer, trailGain = 0.85, options = {}) {

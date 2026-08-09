@@ -3238,7 +3238,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 /* Room dimmer: fill the gap between Speed Limit strip and Download.
    z-index above the full-UI veil (z:50) so the control stays interactive
-   and fully visible even at 100% room black — the veil also punches its rect. */
+   and fully visible even at 100% room black — the veil also punches its rect.
+   Icons: stacked on/off bulbs crossfade with --room-dim (0 = full light / on,
+   1 = room dark / off). Displays stay punched through the veil. */
 #nodeRoomDimmerButton,
 .node-room-dimmer-button {
   --room-dim: 0;
@@ -3273,9 +3275,39 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   transition: none;
 }
 
-#nodeRoomDimmerButton .node-modular-view-icon {
+#nodeRoomDimmerButton .node-room-dimmer-icons {
   position: relative;
   z-index: 1;
+  display: inline-grid;
+  place-items: center;
+  width: 1.15em;
+  height: 1.55em;
+  vertical-align: middle;
+  pointer-events: none;
+}
+
+#nodeRoomDimmerButton .node-room-dimmer-icon {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+  transition: opacity 40ms linear;
+}
+
+#nodeRoomDimmerButton.room-dimmer-dragging .node-room-dimmer-icon {
+  transition: none;
+}
+
+/* dim 0 = full room light → on bulb; dim 1 = room dark → off bulb */
+#nodeRoomDimmerButton .node-room-dimmer-icon-on {
+  opacity: calc(1 - var(--room-dim));
+}
+
+#nodeRoomDimmerButton .node-room-dimmer-icon-off {
+  opacity: var(--room-dim);
 }
 
 #nodeRoomDimmerButton[aria-pressed="true"],

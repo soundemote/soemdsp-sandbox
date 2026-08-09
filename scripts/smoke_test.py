@@ -355,6 +355,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-stdlib/node-graph-sinc-kernel.js",
     "./public/node-graph-live-frame-evaluator.js",
     "./public/modules/spectrogram/spectrogram-live-evaluator.js",
+    "./public/modules/_shared/display-thru-live-evaluators.js",
     "./public/modules/logisticMap/logistic-map-math.js",
     "./public/modules/logisticMap/logistic-map-live-evaluator.js",
     "./public/modules/turingMachine/turing-machine-live-evaluator.js",
@@ -12816,18 +12817,35 @@ def require_node_graph_mvp_contract() -> None:
         and "nodeGraphNativeModuleRefIsUnderConstruction(message)" in script_sources["./public/node-graph-live-runtime.js"],
         "Under-construction modules must not load native stubs or report module-diagnostics errors",
     )
-    for oscilloscope_type in ["dotOscilloscope", "valueOscilloscope", "numberReadout", "lineBurnOscilloscope", "scope2d", "scope2dTrace"]:
+    for oscilloscope_type in ["dotOscilloscope", "valueOscilloscope", "lineBurnOscilloscope", "traceDisplay"]:
         require(f"{oscilloscope_type}: {{" in module_definitions_source, f"{oscilloscope_type} should have a spawnable module definition")
+        osc_chunk_start = module_definitions_source.index(f"{oscilloscope_type}: {{")
+        osc_chunk = module_definitions_source[osc_chunk_start:osc_chunk_start + 700]
+        require(
+            'outputs: ["Thru"]' in osc_chunk and 'outputLabels: { Thru: "→" }' in osc_chunk,
+            f"{oscilloscope_type} should expose → Thru dry passthrough",
+        )
+    for xy_type in ["scope2d", "scope2dTrace", "phosphorLight", "asciiscope"]:
+        require(f"{xy_type}: {{" in module_definitions_source, f"{xy_type} should have a spawnable module definition")
+        xy_chunk_start = module_definitions_source.index(f"{xy_type}: {{")
+        xy_chunk = module_definitions_source[xy_chunk_start:xy_chunk_start + 700]
+        require(
+            'outputs: ["X", "Y"]' in xy_chunk,
+            f"{xy_type} should expose dry X/Y thrus",
+        )
     require('displayType: "dot"' in module_definitions_source, "0D Burn oscilloscope should declare dot display type")
     require('displayType: "value"' in module_definitions_source, "0D Value oscilloscope should declare value display type")
     require('displayType: "lineBurn"' in module_definitions_source, "1D Burn oscilloscope should declare lineBurn display type")
     require('displayType: "scope2d"' in module_definitions_source, "2D Burn should declare scope2d display type")
     require('displayType: "scope2dTrace"' in module_definitions_source, "2D Trace should declare scope2dTrace display type")
-    require('displayType: "numberReadout"' in module_definitions_source, "Number Readout should declare its own numberReadout display type")
+    number_readout_register_source = script_sources["./public/modules/numberReadout/number-readout-register.js"]
+    require('displayType: "numberReadout"' in number_readout_register_source, "Number Readout should declare its own numberReadout display type")
     require(
-        'numberReadout: {\n    bufferedInputs: ["In"],\n    displayHeightGu: 1,\n    displayType: "numberReadout",' in module_definitions_source
-        and 'outputs: []' in module_definitions_source,
-        "Number Readout should be its own module type, not a variant of 0D Value, with no audio outputs and a 1gu minimum height",
+        'displayType: "numberReadout"' in number_readout_register_source
+        and 'outputs: ["Thru"]' in number_readout_register_source
+        and 'outputLabels: { Thru: "→" }' in number_readout_register_source
+        and 'displayHeightGu: 2' in number_readout_register_source,
+        "Number Readout should be its own module type with → Thru passthrough for in-line chaining",
     )
     number_readout_defaults_start = node_graph_source.index("const nodeGraphNumberReadoutSettingsDefaults")
     number_readout_defaults_end = node_graph_source.index("const nodeGraphScope2dSettingsDefaults", number_readout_defaults_start)
