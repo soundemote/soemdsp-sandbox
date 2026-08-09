@@ -3489,7 +3489,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-visibility-menu-list button {
   display: flex;
   align-items: center;
-  justify-content: center;
+  /* Emoji + label flush left (⬜/⬛ then name). */
+  justify-content: flex-start;
   gap: 6px;
   box-sizing: border-box;
   width: 100%;
@@ -3499,14 +3500,30 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   max-height: var(--node-floating-window-button-height);
   overflow: hidden;
   margin: 0;
-  padding: 0 6px;
+  padding: 0 8px;
   border: 0;
   border-bottom: 1px solid rgba(226, 168, 109, 0.24);
   border-radius: 0;
   background: rgb(16, 22, 26);
   font-size: 0.72rem;
   line-height: 1;
-  text-align: center;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Keep hotkey badge on the right; label/emoji stay left. */
+.node-visibility-menu-list button:has(kbd) {
+  justify-content: space-between;
+}
+
+.node-visibility-menu-list button > span,
+.node-visibility-menu-list button > .node-visibility-toggle-label,
+.node-visibility-menu-list button > .node-tooltip-mode-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -10293,11 +10310,17 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   max-height: 26px;
 }
 
-.dsp-node.graph-node-layout .dsp-node-io-section,
-.dsp-node.graph-node-layout.io-hidden .dsp-node-io-section {
+.dsp-node.graph-node-layout .dsp-node-io-section {
   min-height: 26px;
   height: 26px;
   max-height: 26px;
+}
+
+.dsp-node.graph-node-layout.io-hidden .dsp-node-io-section {
+  display: none !important;
+  min-height: 0 !important;
+  height: 0 !important;
+  max-height: 0 !important;
 }
 
 .dsp-node.filter-curve-layout {
@@ -11220,39 +11243,20 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 /*
- * LayoutB hide in/out: only hide port labels. Jacks stay; side columns shrink
- * to the jack band so the face expands into the space labels used to occupy.
- * (LayoutA still swaps to the slim proxy strip under the face.)
+ * LayoutB labels-only collapse (columns with .labels-hidden, not full io-hidden).
+ * Full Hide In/Out (.io-hidden) collapses columns entirely — see app-wide rule above.
  */
-.dsp-node.chrome-layout-b.io-hidden .node-solid-module-shell > .node-io-column .node-io-label,
-.dsp-node.chrome-layout-b.io-hidden .node-module-chrome-layout-b-shell > .node-io-column .node-io-label {
-  display: none;
-}
-
-/*
- * Layout B jack band (no labels) — match Layout A half-jacks:
- *  - band width = half-jack width (radius of the port circle)
- *  - flat edge flush with the module outer edge (absolute left/right: 0)
- *  - no column padding (global .node-io-column padding would shove jacks out)
- *  - shell clips to module bounds so the crescent never floats outside
- */
-.dsp-node.chrome-layout-b.io-hidden .node-solid-module-shell > .node-io-column,
-.dsp-node.chrome-layout-b.io-hidden .node-module-chrome-layout-b-shell > .node-io-column,
-.dsp-node.chrome-layout-b .node-solid-module-shell > .node-io-column.labels-hidden,
-.dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell > .node-io-column.labels-hidden,
-.dsp-node.solid-module-layout .node-solid-module-shell > .node-io-column.labels-hidden {
+.dsp-node.chrome-layout-b .node-solid-module-shell > .node-io-column.labels-hidden:not(.node-layout-b-io-empty),
+.dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell > .node-io-column.labels-hidden:not(.node-layout-b-io-empty),
+.dsp-node.solid-module-layout .node-solid-module-shell > .node-io-column.labels-hidden:not(.node-layout-b-io-empty) {
   width: var(--node-signal-port-width);
   min-width: var(--node-signal-port-width);
   max-width: var(--node-signal-port-width);
   padding: 0 !important;
-  /* Visible so jack glow/hit aren’t clipped to a razor-thin column; shell
-     still owns module bounds. z-index keeps jacks above the face. */
   overflow: visible;
   justify-items: stretch;
 }
 
-.dsp-node.chrome-layout-b.io-hidden .node-solid-module-shell > .node-io-column .node-io-row,
-.dsp-node.chrome-layout-b.io-hidden .node-module-chrome-layout-b-shell > .node-io-column .node-io-row,
 .dsp-node.chrome-layout-b .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row,
 .dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell > .node-io-column.labels-hidden .node-io-row,
 .dsp-node.solid-module-layout .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row {
@@ -11264,8 +11268,6 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 /* Absolute flush like Layout A — flat edge on the module perimeter. */
-.dsp-node.chrome-layout-b.io-hidden .node-solid-module-shell > .node-io-column .node-io-row .node-port,
-.dsp-node.chrome-layout-b.io-hidden .node-module-chrome-layout-b-shell > .node-io-column .node-io-row .node-port,
 .dsp-node.chrome-layout-b .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row .node-port,
 .dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell > .node-io-column.labels-hidden .node-io-row .node-port,
 .dsp-node.solid-module-layout .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row .node-port {
@@ -11280,8 +11282,6 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 
 .dsp-node.chrome-layout-b .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row.input .node-port,
 .dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell > .node-io-column.labels-hidden .node-io-row.input .node-port,
-.dsp-node.chrome-layout-b.io-hidden .node-solid-module-shell > .node-io-column .node-io-row.input .node-port,
-.dsp-node.chrome-layout-b.io-hidden .node-module-chrome-layout-b-shell > .node-io-column .node-io-row.input .node-port,
 .dsp-node.solid-module-layout .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row.input .node-port {
   left: 0;
   right: auto;
@@ -11289,8 +11289,6 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 
 .dsp-node.chrome-layout-b .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row.output .node-port,
 .dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell > .node-io-column.labels-hidden .node-io-row.output .node-port,
-.dsp-node.chrome-layout-b.io-hidden .node-solid-module-shell > .node-io-column .node-io-row.output .node-port,
-.dsp-node.chrome-layout-b.io-hidden .node-module-chrome-layout-b-shell > .node-io-column .node-io-row.output .node-port,
 .dsp-node.solid-module-layout .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row.output .node-port {
   right: 0;
   left: auto;
@@ -13291,26 +13289,32 @@ input.node-header-title:focus {
   display: none;
 }
 
+/*
+ * App-wide Hide In/Out: collapse the IO section for real (no proxy strip,
+ * no LayoutB jack band). Connected wires keep endpoint dots only — see
+ * nodeGraphPortCenter fallback + caps-only path in wire-rendering.
+ */
+.dsp-node.io-hidden .dsp-node-io-section,
+.dsp-node.io-hidden .node-io-proxy,
+.dsp-node.chrome-layout-b.io-hidden .node-solid-module-shell > .node-io-column,
+.dsp-node.chrome-layout-b.io-hidden .node-module-chrome-layout-b-shell > .node-io-column,
+.dsp-node.solid-module-layout.io-hidden .node-solid-module-shell > .node-io-column {
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
+
 .dsp-node.io-hidden .dsp-node-io-section {
-  align-items: center;
-  min-height: var(--node-io-section-min-height);
-}
-
-.dsp-node.io-hidden .dsp-node-io-section > .node-io-column,
-.dsp-node.io-hidden .dsp-node-io-section > div:not(.node-io-proxy) {
-  display: none;
-}
-
-.dsp-node.io-hidden .node-io-proxy {
-  display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns:
-    var(--node-port-column-width)
-    minmax(0, 1fr)
-    var(--node-port-column-width);
-  align-items: center;
-  min-width: 0;
-  min-height: var(--node-io-section-min-height);
+  align-items: stretch;
 }
 
 .node-io-proxy-port {

@@ -64,6 +64,61 @@ static inline double dsp_cos(double x) {
   return dsp_sin(x + kHalfPi);
 }
 
+// ---------------------------------------------------------------------------
+// Fast audio-rate trig (no wavetable). Prefer these when phase is already a
+// cycle fraction / when both sin and cos of the same angle are needed.
+//
+// dsp_sin_turns / dsp_cos_turns: argument in *turns* (1.0 = one cycle = 2π).
+//   Cheaper range-reduce (floor once into [0,1)) than radian-domain dsp_sin.
+// dsp_sin_cos / dsp_sin_cos_turns: one reduce + two poly evals (sin and cos).
+// ---------------------------------------------------------------------------
+
+// sin(2π · turns). Any real turns; reduced mod 1.
+static inline double dsp_sin_turns(double turns) {
+  double p = turns - dsp_floor(turns);
+  // p in [0, 1). Fold onto [0, 0.25] with sign for a single half-quadrant poly.
+  double sign = 1.0;
+  if (p >= 0.5) {
+    p -= 0.5;
+    sign = -1.0;
+  }
+  if (p > 0.25) {
+    p = 0.5 - p;
+  }
+  return sign * poly_sin_0_halfpi(p * kTwoPi);
+}
+
+// cos(2π · turns) = sin(2π · (turns + 1/4)).
+static inline double dsp_cos_turns(double turns) {
+  return dsp_sin_turns(turns + 0.25);
+}
+
+// Joint sin/cos of the same turn phase — one mod-1 reduce, two polys.
+// ~2× cheaper than separate dsp_sin_turns + dsp_cos_turns when both needed.
+static inline void dsp_sin_cos_turns(double turns, double* sOut, double* cOut) {
+  double p = turns - dsp_floor(turns);
+  // Four quadrants of length 0.25; r = offset inside the quadrant.
+  int q = (int)(p * 4.0);
+  if (q > 3) {
+    q = 3;
+  }
+  const double r = p - 0.25 * (double)q;
+  const double sx = poly_sin_0_halfpi(r * kTwoPi);                 // sin(2π r)
+  const double sy = poly_sin_0_halfpi((0.25 - r) * kTwoPi);        // cos(2π r)
+  switch (q) {
+    case 0:  *sOut =  sx; *cOut =  sy; break;
+    case 1:  *sOut =  sy; *cOut = -sx; break;
+    case 2:  *sOut = -sx; *cOut = -sy; break;
+    default: *sOut = -sy; *cOut =  sx; break;
+  }
+}
+
+// Joint sin/cos in radians — one 2π reduce, then turns joint on the unit interval.
+static inline void dsp_sin_cos(double x, double* sOut, double* cOut) {
+  const double turns = x * (1.0 / kTwoPi);
+  dsp_sin_cos_turns(turns, sOut, cOut);
+}
+
 // 2^f for f in [0,1), truncated Taylor series of e^(f*ln2) -- accurate to
 // better than 1e-5 relative error, which is far more precision than a
 // musical pitch-to-frequency conversion needs.

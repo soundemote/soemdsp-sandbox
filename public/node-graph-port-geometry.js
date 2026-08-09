@@ -36,25 +36,89 @@ function nodeGraphPortElementForWireEndpoint(node, port, io) {
   if (!surface) {
     return null;
   }
-  // LayoutA io-hidden uses a slim proxy strip. LayoutB keeps real jacks visible
-  // (labels only hide) so wire endpoints stay on the actual ports.
-  if ((io === "input" || io === "output") && nodeGraphNodeIoHidden(node)) {
-    const nodeElement = typeof nodeGraphNodeElement === "function"
-      ? nodeGraphNodeElement(node)
-      : null;
-    const isLayoutB = Boolean(
-      nodeElement?.classList.contains("chrome-layout-b")
-      || nodeElement?.dataset?.chromeLayout === "LayoutB",
-    );
-    if (!isLayoutB) {
-      const proxyPort = surface.querySelector(nodeGraphIoProxyPortSelector(node, io));
-      if (proxyPort) {
-        return proxyPort;
-      }
-    }
-  }
+  // Always resolve the real jack element. Hide In/Out collapses the section
+  // for real (no proxy strip); wire geometry then uses edge fallbacks.
   const canonicalPort = nodeGraphCanonicalPortForNode(node, port, io);
   return surface.querySelector(nodeGraphPortSelector(node, canonicalPort, io));
+}
+
+/**
+ * True when the module's signal IO chrome is collapsed (Hide In/Out).
+ * Param/modulation jacks are separate (slider rows).
+ */
+function nodeGraphNodeSignalIoCollapsed(nodeId) {
+  return Boolean(
+    typeof nodeGraphNodeIoHidden === "function"
+      ? nodeGraphNodeIoHidden(nodeId)
+      : nodeGraphNodeElement(nodeId)?.classList.contains("io-hidden"),
+  );
+}
+
+/**
+ * Synthetic jack center on the module perimeter when Hide In/Out collapses
+ * the real port DOM. Inputs stack on the left edge; outputs on the right.
+ * Used for wire *dots* only — cable paths are suppressed when either end
+ * is collapsed (same idea as hidden connected sliders).
+ */
+function nodeGraphIoHiddenPortFallbackCenter(nodeId, port, io) {
+  if (io !== "input" && io !== "output") {
+    return null;
+  }
+  const nodeEl = typeof nodeGraphNodeElement === "function"
+    ? nodeGraphNodeElement(nodeId)
+    : null;
+  if (!nodeEl) {
+    return null;
+  }
+  const rect = nodeEl.getBoundingClientRect();
+  if (!(rect.width > 0.5) || !(rect.height > 0.5)) {
+    return null;
+  }
+  const patchNode = typeof nodeGraphPatchNode === "function"
+    ? nodeGraphPatchNode(nodeId)
+    : null;
+  let ports = [];
+  if (io === "output" && typeof nodeGraphPatchNodeOutputPorts === "function") {
+    ports = nodeGraphPatchNodeOutputPorts(patchNode) || [];
+  } else if (io === "input" && typeof nodeGraphPatchNodeInputPorts === "function") {
+    ports = nodeGraphPatchNodeInputPorts(patchNode) || [];
+  }
+  const canonical = typeof nodeGraphCanonicalPortForNode === "function"
+    ? nodeGraphCanonicalPortForNode(nodeId, port, io)
+    : String(port || "").trim();
+  let index = ports.indexOf(canonical);
+  if (index < 0) {
+    index = 0;
+  }
+  const n = Math.max(1, ports.length || 1);
+  const yClient = rect.top + (rect.height * (index + 0.5)) / n;
+  const xClient = io === "output" ? rect.right : rect.left;
+  if (typeof nodeGraphClientToZoomSurfacePoint !== "function") {
+    return { x: xClient, y: yClient };
+  }
+  return nodeGraphClientToZoomSurfacePoint(xClient, yClient);
+}
+
+/** Layout jack is on-screen (not display:none / zero box). */
+function nodeGraphPortHasLayoutJack(nodeId, port, io) {
+  const el = nodeGraphPortElementForWireEndpoint(nodeId, port, io);
+  if (el?.classList?.contains("node-io-proxy-port")) {
+    return false;
+  }
+  return nodeGraphPortElementIsLayoutVisible(el);
+}
+
+/**
+ * True when a jack has non-zero layout (not display:none / collapsed).
+ * Hidden slider rows (sliders-hidden) zero out param ports — wire endpoints
+ * would otherwise resolve near (0,0) and stretch cables to infinity.
+ */
+function nodeGraphPortElementIsLayoutVisible(element) {
+  if (!(element instanceof Element)) {
+    return false;
+  }
+  const rect = element.getBoundingClientRect();
+  return rect.width > 0.5 && rect.height > 0.5;
 }
 
 function markNodeGraphPortConnected(node, port, io) {
@@ -75,24 +139,39 @@ function markNodeGraphGraphInputPortConnected(node, graphInput) {
 
 function nodeGraphPortCenter(node, port, io) {
   const element = nodeGraphPortElementForWireEndpoint(node, port, io);
-  return nodeGraphElementCenter(element, io);
+  const laidOut = nodeGraphElementCenter(element, io);
+  if (laidOut) {
+    return laidOut;
+  }
+  // Hide In/Out: section gone — edge anchor for wire dots only.
+  if (
+    (io === "input" || io === "output")
+    && nodeGraphNodeSignalIoCollapsed(node)
+  ) {
+    return nodeGraphIoHiddenPortFallbackCenter(node, port, io);
+  }
+  return null;
 }
 
 function nodeGraphModulationPortCenter(node, parameter) {
   const surface = nodeGraphZoomSurface();
-  const element = surface.querySelector(nodeGraphModulationPortSelector(node, parameter));
+  const element = surface?.querySelector(nodeGraphModulationPortSelector(node, parameter));
   return nodeGraphElementCenter(element, "modulation");
 }
 
 function nodeGraphGraphInputPortCenter(node, graphInput) {
   const surface = nodeGraphZoomSurface();
-  const element = surface.querySelector(nodeGraphGraphInputPortSelector(node, graphInput));
+  const element = surface?.querySelector(nodeGraphGraphInputPortSelector(node, graphInput));
   return nodeGraphElementCenter(element, "graph");
 }
 
+/**
+ * Zoom-surface center of a jack, or null when the element is missing / not laid out
+ * (e.g. parameter row hidden via sliders-hidden).
+ */
 function nodeGraphElementCenter(element, io = null) {
-  if (!element) {
-    return { x: 0, y: 0 };
+  if (!element || !nodeGraphPortElementIsLayoutVisible(element)) {
+    return null;
   }
   const anchor = nodeGraphElementPatchPointClientCenter(element, io);
   return nodeGraphClientToZoomSurfacePoint(anchor.x, anchor.y);

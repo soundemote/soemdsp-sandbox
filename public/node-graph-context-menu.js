@@ -1247,8 +1247,34 @@ function configureNodeSceneContextMenu(mode) {
   if (setDefaultButton) {
     setDefaultButton.hidden = !moduleMode || multiModuleMode;
   }
+  // Multi-select: visibility + enable + size (not copy/paste/default settings).
+  const multiCanButtons = multiModuleMode && selectedNodes.length > 0;
+  const multiCanDisplay = multiModuleMode && selectedNodes.some((node) =>
+    typeof nodeGraphPatchNodeHasHideableOscilloscope === "function"
+      ? nodeGraphPatchNodeHasHideableOscilloscope(node)
+      : false,
+  );
+  const multiCanDisplayHeight = multiModuleMode && selectedNodes.some((node) =>
+    typeof nodeGraphPatchNodeHasResizableDisplayArea === "function"
+      ? nodeGraphPatchNodeHasResizableDisplayArea(node)
+      : false,
+  );
+  const multiCanInterface = multiModuleMode && selectedNodes.some((node) =>
+    typeof nodeGraphModuleTypeHasInterfaceControls === "function"
+      && nodeGraphModuleTypeHasInterfaceControls(node.type),
+  );
+  const multiCanSliders = multiModuleMode && selectedNodes.some((node) =>
+    typeof nodeGraphModuleTypeHasHideableSliders === "function"
+      && nodeGraphModuleTypeHasHideableSliders(node.type),
+  );
+  const multiCanModuleHeight = multiModuleMode && selectedNodes.some((node) =>
+    ["custom", "textBox"].includes(nodeGraphModuleSizingCapabilities(node.type).moduleHeight),
+  );
+  const multiCanWidth = multiModuleMode && selectedNodes.some((node) =>
+    nodeGraphModuleSizingCapabilities(node.type).width,
+  );
   if (moduleVisibilitySection) {
-    moduleVisibilitySection.hidden = !moduleMode || multiModuleMode;
+    moduleVisibilitySection.hidden = !moduleMode;
   }
   if (moduleVisibilityActionGroup) {
     // Stack stays visible with the section; individual buttons still gate per capability.
@@ -1269,19 +1295,37 @@ function configureNodeSceneContextMenu(mode) {
   codeblockControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "codeblock");
   textBoxPortScriptControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "animatedTextBox");
   graphControls.hidden = !(moduleMode && !multiModuleMode && targetIsGraphType);
-  toggleModuleEnabledButton.hidden = !moduleMode || multiModuleMode;
+  toggleModuleEnabledButton.hidden = !moduleMode;
   if (nativeCodeGroup) {
     nativeCodeGroup.hidden = !moduleMode || multiModuleMode || !nativeCodeEntry;
   }
   if (nativeLibButton) {
     nativeLibButton.hidden = !nativeLibEntry;
   }
-  toggleButtonsButton.hidden = !moduleMode || multiModuleMode;
-  toggleOscilloscopeButton.hidden = !(moduleMode && !multiModuleMode && targetSupportsDisplayHeight);
-  toggleInterfaceControlsButton.hidden = !(moduleMode && !multiModuleMode && nodeGraphModuleTypeHasInterfaceControls(targetNode?.type));
-  toggleSlidersButton.hidden = !(moduleMode && !multiModuleMode && nodeGraphModuleTypeHasHideableSliders(targetNode?.type));
-  toggleIoButton.hidden = !moduleMode || multiModuleMode;
-  toggleTitleButton.hidden = !moduleMode || multiModuleMode;
+  toggleButtonsButton.hidden = !moduleMode || (multiModuleMode && !multiCanButtons);
+  toggleOscilloscopeButton.hidden = !(
+    moduleMode && (
+      multiModuleMode
+        ? multiCanDisplay
+        : targetSupportsDisplayHeight
+    )
+  );
+  toggleInterfaceControlsButton.hidden = !(
+    moduleMode && (
+      multiModuleMode
+        ? multiCanInterface
+        : nodeGraphModuleTypeHasInterfaceControls(targetNode?.type)
+    )
+  );
+  toggleSlidersButton.hidden = !(
+    moduleMode && (
+      multiModuleMode
+        ? multiCanSliders
+        : nodeGraphModuleTypeHasHideableSliders(targetNode?.type)
+    )
+  );
+  toggleIoButton.hidden = !moduleMode || (multiModuleMode && !multiCanButtons);
+  toggleTitleButton.hidden = !moduleMode || (multiModuleMode && !multiCanButtons);
   imageControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "image");
   // Image layers / span / offset / readout live in Display Settings, not Module Settings.
   if (knobFaceControls) {
@@ -1369,37 +1413,108 @@ function configureNodeSceneContextMenu(mode) {
     }
     deleteButton.disabled = !canDelete;
     deleteButton.title = canDelete
-      ? nodeGraphTooltipText("actions.deleteModule")
+      ? (multiModuleMode
+        ? `Delete ${selectedNodeIds.size} selected modules.`
+        : nodeGraphTooltipText("actions.deleteModule"))
       : targetNode
         ? nodeGraphTooltipText("actions.deleteUnavailableOutput")
         : nodeGraphTooltipText("actions.deleteUnavailableOneModule");
+    const multiWidthValues = multiModuleMode
+      ? selectedNodes
+        .filter((node) => nodeGraphModuleSizingCapabilities(node.type).width)
+        .map((node) => nodeGraphPatchNodeGridWidthUnits(node))
+      : [];
+    const multiWidthUniform = multiWidthValues.length > 0
+      && multiWidthValues.every((value) => value === multiWidthValues[0]);
+    const multiWidthCanDecrease = multiModuleMode && selectedNodes.some((node) => {
+      if (!nodeGraphModuleSizingCapabilities(node.type).width) {
+        return false;
+      }
+      const current = nodeGraphPatchNodeGridWidthUnits(node);
+      const limits = nodeGraphModuleWidthLimitsForType(node.type);
+      return current > limits.minGu;
+    });
+    const multiWidthCanIncrease = multiModuleMode && selectedNodes.some((node) => {
+      if (!nodeGraphModuleSizingCapabilities(node.type).width) {
+        return false;
+      }
+      const current = nodeGraphPatchNodeGridWidthUnits(node);
+      const limits = nodeGraphModuleWidthLimitsForType(node.type);
+      return current < limits.maxGu;
+    });
     configureNodeGraphModuleSettingsSizeRow({
       controls: widthControls,
       decreaseButton: widthDecrease,
       increaseButton: widthIncrease,
       valueElement: widthValue,
-      hidden: !moduleMode,
-      value: multiModuleMode ? `${selectedNodeIds.size} modules` : `${widthGu} gu`,
-      decreaseDisabled: multiModuleMode ? !selectedNodes.length : !targetNode || !targetSupportsWidth || widthGu <= widthLimits.minGu,
-      increaseDisabled: multiModuleMode ? !selectedNodes.length : !targetNode || !targetSupportsWidth || widthGu >= widthLimits.maxGu,
-      decreaseTitle: nodeGraphTooltipText("actions.widthDecrease"),
-      increaseTitle: nodeGraphTooltipText("actions.widthIncrease"),
+      hidden: !moduleMode || (multiModuleMode && !multiCanWidth),
+      value: multiModuleMode
+        ? (multiWidthUniform ? `${multiWidthValues[0]} gu` : "mixed")
+        : `${widthGu} gu`,
+      decreaseDisabled: multiModuleMode
+        ? !multiWidthCanDecrease
+        : !targetNode || !targetSupportsWidth || widthGu <= widthLimits.minGu,
+      increaseDisabled: multiModuleMode
+        ? !multiWidthCanIncrease
+        : !targetNode || !targetSupportsWidth || widthGu >= widthLimits.maxGu,
+      decreaseTitle: multiModuleMode
+        ? "Decrease width of selected modules."
+        : nodeGraphTooltipText("actions.widthDecrease"),
+      increaseTitle: multiModuleMode
+        ? "Increase width of selected modules."
+        : nodeGraphTooltipText("actions.widthIncrease"),
+    });
+    const multiDisplayHeights = multiModuleMode
+      ? selectedNodes
+        .filter((node) => nodeGraphPatchNodeHasResizableDisplayArea(node))
+        .map((node) => nodeGraphModuleConfiguredDisplayHeightUnits(node.type, node.ui))
+      : [];
+    const multiDisplayHeightUniform = multiDisplayHeights.length > 0
+      && multiDisplayHeights.every((value) => value === multiDisplayHeights[0]);
+    const multiDisplayCanDecrease = multiModuleMode && selectedNodes.some((node) => {
+      if (!nodeGraphPatchNodeHasResizableDisplayArea(node)) {
+        return false;
+      }
+      const current = nodeGraphModuleConfiguredDisplayHeightUnits(node.type, node.ui);
+      const minGu = typeof nodeGraphModuleDisplayHeightLimitsForType === "function"
+        ? nodeGraphModuleDisplayHeightLimitsForType(node.type).minGu
+        : nodeGraphModuleDisplayHeightLimits.minGu;
+      return current > minGu;
+    });
+    const multiDisplayCanIncrease = multiModuleMode && selectedNodes.some((node) => {
+      if (!nodeGraphPatchNodeHasResizableDisplayArea(node)) {
+        return false;
+      }
+      const current = nodeGraphModuleConfiguredDisplayHeightUnits(node.type, node.ui);
+      return current < nodeGraphModuleDisplayHeightLimits.maxGu;
     });
     configureNodeGraphModuleSettingsSizeRow({
       controls: displayHeightControls,
       decreaseButton: displayHeightDecrease,
       increaseButton: displayHeightIncrease,
       valueElement: displayHeightValue,
-      hidden: !(moduleMode && !multiModuleMode && targetSupportsDisplayHeight),
-      value: `${displayHeightGu} gu`,
-      decreaseDisabled: !targetNode || !targetSupportsDisplayHeight || displayHeightGu <= (
-        typeof nodeGraphModuleDisplayHeightLimitsForType === "function"
-          ? nodeGraphModuleDisplayHeightLimitsForType(targetNode?.type).minGu
-          : nodeGraphModuleDisplayHeightLimits.minGu
-      ),
-      increaseDisabled: !targetNode || !targetSupportsDisplayHeight || displayHeightGu >= nodeGraphModuleDisplayHeightLimits.maxGu,
-      decreaseTitle: "Decrease this module's display height.",
-      increaseTitle: "Increase this module's display height.",
+      hidden: !(moduleMode && (
+        multiModuleMode ? multiCanDisplayHeight : targetSupportsDisplayHeight
+      )),
+      value: multiModuleMode
+        ? (multiDisplayHeightUniform ? `${multiDisplayHeights[0]} gu` : "mixed")
+        : `${displayHeightGu} gu`,
+      decreaseDisabled: multiModuleMode
+        ? !multiDisplayCanDecrease
+        : !targetNode || !targetSupportsDisplayHeight || displayHeightGu <= (
+          typeof nodeGraphModuleDisplayHeightLimitsForType === "function"
+            ? nodeGraphModuleDisplayHeightLimitsForType(targetNode?.type).minGu
+            : nodeGraphModuleDisplayHeightLimits.minGu
+        ),
+      increaseDisabled: multiModuleMode
+        ? !multiDisplayCanIncrease
+        : !targetNode || !targetSupportsDisplayHeight || displayHeightGu >= nodeGraphModuleDisplayHeightLimits.maxGu,
+      decreaseTitle: multiModuleMode
+        ? "Decrease display height of selected modules."
+        : "Decrease this module's display height.",
+      increaseTitle: multiModuleMode
+        ? "Increase display height of selected modules."
+        : "Increase this module's display height.",
     });
     configureNodeGraphModuleSettingsSizeRow({
       controls: textBoxTextSizeControls,
@@ -1417,24 +1532,83 @@ function configureNodeSceneContextMenu(mode) {
     const moduleHeightLimits = targetSupportsTextBoxHeight
       ? nodeGraphTextBoxHeightLimits
       : nodeGraphModuleHeightLimitsForType(targetNode?.type);
+    const multiModuleHeights = multiModuleMode
+      ? selectedNodes
+        .filter((node) => ["custom", "textBox"].includes(nodeGraphModuleSizingCapabilities(node.type).moduleHeight))
+        .map((node) => nodeGraphPatchNodeGridHeightUnits(node))
+      : [];
+    const multiModuleHeightUniform = multiModuleHeights.length > 0
+      && multiModuleHeights.every((value) => value === multiModuleHeights[0]);
+    const multiModuleHeightCanDecrease = multiModuleMode && selectedNodes.some((node) => {
+      const capability = nodeGraphModuleSizingCapabilities(node.type).moduleHeight;
+      if (!["custom", "textBox"].includes(capability)) {
+        return false;
+      }
+      const current = nodeGraphPatchNodeGridHeightUnits(node);
+      const limits = capability === "textBox"
+        ? nodeGraphTextBoxHeightLimits
+        : nodeGraphModuleHeightLimitsForType(node.type);
+      return current > limits.minGu;
+    });
+    const multiModuleHeightCanIncrease = multiModuleMode && selectedNodes.some((node) => {
+      const capability = nodeGraphModuleSizingCapabilities(node.type).moduleHeight;
+      if (!["custom", "textBox"].includes(capability)) {
+        return false;
+      }
+      const current = nodeGraphPatchNodeGridHeightUnits(node);
+      const limits = capability === "textBox"
+        ? nodeGraphTextBoxHeightLimits
+        : nodeGraphModuleHeightLimitsForType(node.type);
+      return current < limits.maxGu;
+    });
     configureNodeGraphModuleSettingsSizeRow({
       controls: textBoxHeightControls,
       decreaseButton: textBoxHeightDecrease,
       increaseButton: textBoxHeightIncrease,
       valueElement: textBoxHeightValue,
-      hidden: !(moduleMode && !multiModuleMode && targetSupportsModuleHeight),
-      value: `${moduleHeightGu} gu`,
-      decreaseDisabled: !targetNode || !targetSupportsModuleHeight || moduleHeightGu <= moduleHeightLimits.minGu,
-      increaseDisabled: !targetNode || !targetSupportsModuleHeight || moduleHeightGu >= moduleHeightLimits.maxGu,
-      decreaseTitle: "Decrease this module's height.",
-      increaseTitle: "Increase this module's height.",
+      hidden: !(moduleMode && (
+        multiModuleMode ? multiCanModuleHeight : targetSupportsModuleHeight
+      )),
+      value: multiModuleMode
+        ? (multiModuleHeightUniform ? `${multiModuleHeights[0]} gu` : "mixed")
+        : `${moduleHeightGu} gu`,
+      decreaseDisabled: multiModuleMode
+        ? !multiModuleHeightCanDecrease
+        : !targetNode || !targetSupportsModuleHeight || moduleHeightGu <= moduleHeightLimits.minGu,
+      increaseDisabled: multiModuleMode
+        ? !multiModuleHeightCanIncrease
+        : !targetNode || !targetSupportsModuleHeight || moduleHeightGu >= moduleHeightLimits.maxGu,
+      decreaseTitle: multiModuleMode
+        ? "Decrease height of selected modules."
+        : "Decrease this module's height.",
+      increaseTitle: multiModuleMode
+        ? "Increase height of selected modules."
+        : "Increase this module's height.",
     });
-    toggleModuleEnabledButton.disabled = !targetNode;
-    toggleModuleEnabledButton.querySelector("span").textContent = targetNodeDisabled ? "Enable module" : "Disable module";
-    toggleModuleEnabledButton.setAttribute("aria-pressed", targetNodeDisabled ? "true" : "false");
-    toggleModuleEnabledButton.title = targetNodeDisabled
-      ? "Enable this module."
-      : "Disable this module.";
+    const multiAnyEnabled = multiModuleMode && selectedNodes.some((node) => {
+      if (node.id === "output") {
+        return Boolean(nodeGraphMvp.live.outputEnabled);
+      }
+      return !nodeGraphNodeDisplaysBypassed(node.id);
+    });
+    const multiAllDisabled = multiModuleMode && selectedNodes.length > 0 && !multiAnyEnabled;
+    toggleModuleEnabledButton.disabled = multiModuleMode ? !selectedNodes.length : !targetNode;
+    toggleModuleEnabledButton.querySelector("span").textContent = multiModuleMode
+      ? (multiAllDisabled ? "Enable modules" : "Disable modules")
+      : (targetNodeDisabled ? "Enable module" : "Disable module");
+    toggleModuleEnabledButton.setAttribute(
+      "aria-pressed",
+      multiModuleMode
+        ? (multiAllDisabled ? "true" : "false")
+        : (targetNodeDisabled ? "true" : "false"),
+    );
+    toggleModuleEnabledButton.title = multiModuleMode
+      ? (multiAllDisabled
+        ? `Enable ${selectedNodeIds.size} selected modules.`
+        : `Disable ${selectedNodeIds.size} selected modules.`)
+      : (targetNodeDisabled
+        ? "Enable this module."
+        : "Disable this module.");
     if (nativeCodeButton) {
       nativeCodeButton.disabled = !nativeCodeEntry;
       nativeCodeButton.querySelector("span").textContent = "Code";
@@ -1450,6 +1624,8 @@ function configureNodeSceneContextMenu(mode) {
         : "No third-party reference library for this module.";
     }
     // Visibility marks: ⬜ = visible/on, ⬛ = hidden/off (no Show/Hide words).
+    // Multi-select: button reflects “all hidden” vs “any visible”; click hides all if any
+    // visible, otherwise shows all (eligible modules only).
     const visOn = typeof nodeGraphVisibilityMarkOn === "string" ? nodeGraphVisibilityMarkOn : "⬜";
     const visOff = typeof nodeGraphVisibilityMarkOff === "string" ? nodeGraphVisibilityMarkOff : "⬛";
     const setVisLines = (button, hidden, name) => {
@@ -1460,32 +1636,100 @@ function configureNodeSceneContextMenu(mode) {
       button.setAttribute("aria-pressed", hidden ? "true" : "false");
       button.setAttribute("aria-label", `${name}, ${hidden ? "hidden" : "visible"}`);
     };
-    toggleButtonsButton.disabled = !targetNode;
-    setVisLines(toggleButtonsButton, buttonsHidden, "Buttons");
-    toggleButtonsButton.title = nodeGraphTooltipText(buttonsHidden ? "actions.showModuleButtons" : "actions.hideModuleButtons");
-    toggleOscilloscopeButton.disabled = !targetNode || !targetSupportsDisplayHeight;
-    setVisLines(toggleOscilloscopeButton, oscilloscopeHidden, visualFaceLabel || "Display");
-    toggleOscilloscopeButton.title = oscilloscopeHidden
-      ? `Show this module's built-in ${visualFaceLabel}.`
-      : `Hide this module's built-in ${visualFaceLabel}.`;
-    toggleInterfaceControlsButton.disabled = !targetNode || !nodeGraphModuleTypeHasInterfaceControls(targetNode.type);
-    setVisLines(toggleInterfaceControlsButton, interfaceControlsHidden, "Control surface");
-    toggleInterfaceControlsButton.title = interfaceControlsHidden
-      ? "Show this module's control surface."
-      : "Hide this module's control surface.";
-    toggleSlidersButton.disabled = !targetNode || !nodeGraphModuleTypeHasHideableSliders(targetNode.type);
-    setVisLines(toggleSlidersButton, slidersHidden, "Sliders");
-    toggleSlidersButton.title = slidersHidden
-      ? "Show this module's parameter sliders."
-      : "Hide this module's parameter sliders.";
-    toggleIoButton.disabled = !targetNode;
-    setVisLines(toggleIoButton, ioHidden, "In/Out");
-    toggleIoButton.title = ioHidden
-      ? "Show this module's input and output ports."
-      : "Hide this module's input and output ports.";
-    toggleTitleButton.disabled = !targetNode;
-    setVisLines(toggleTitleButton, titleHidden, "Title");
-    toggleTitleButton.title = nodeGraphTooltipText(titleHidden ? "actions.showModuleTitle" : "actions.hideModuleTitle");
+    const multiSectionAllHidden = (eligible, isHidden) => {
+      const nodes = selectedNodes.filter(eligible);
+      return nodes.length > 0 && nodes.every(isHidden);
+    };
+    const multiButtonsHidden = multiModuleMode
+      ? multiSectionAllHidden(
+        () => true,
+        (node) => nodeGraphEffectivePatchNodeUi(node.ui, node.type).buttonsHidden,
+      )
+      : buttonsHidden;
+    const multiOscilloscopeHidden = multiModuleMode
+      ? multiSectionAllHidden(
+        (node) => nodeGraphPatchNodeHasHideableOscilloscope(node),
+        (node) => nodeGraphEffectivePatchNodeUi(node.ui, node.type).oscilloscopeHidden,
+      )
+      : oscilloscopeHidden;
+    const multiInterfaceHidden = multiModuleMode
+      ? multiSectionAllHidden(
+        (node) => nodeGraphModuleTypeHasInterfaceControls(node.type),
+        (node) => nodeGraphEffectivePatchNodeUi(node.ui, node.type).interfaceControlsHidden,
+      )
+      : interfaceControlsHidden;
+    const multiSlidersHidden = multiModuleMode
+      ? multiSectionAllHidden(
+        (node) => nodeGraphModuleTypeHasHideableSliders(node.type),
+        (node) => nodeGraphEffectivePatchNodeUi(node.ui, node.type).slidersHidden,
+      )
+      : slidersHidden;
+    const multiIoHidden = multiModuleMode
+      ? multiSectionAllHidden(
+        () => true,
+        (node) => Boolean(normalizeNodeGraphPatchNodeUi(node.ui, node.type).ioHidden),
+      )
+      : ioHidden;
+    const multiTitleHidden = multiModuleMode
+      ? multiSectionAllHidden(
+        () => true,
+        (node) => Boolean(normalizeNodeGraphPatchNodeUi(node.ui, node.type).titleHidden),
+      )
+      : titleHidden;
+    toggleButtonsButton.disabled = multiModuleMode ? !selectedNodes.length : !targetNode;
+    setVisLines(toggleButtonsButton, multiButtonsHidden, "Buttons");
+    toggleButtonsButton.title = multiModuleMode
+      ? (multiButtonsHidden ? "Show buttons on selected modules." : "Hide buttons on selected modules.")
+      : nodeGraphTooltipText(buttonsHidden ? "actions.showModuleButtons" : "actions.hideModuleButtons");
+    toggleOscilloscopeButton.disabled = multiModuleMode
+      ? !multiCanDisplay
+      : !targetNode || !targetSupportsDisplayHeight;
+    setVisLines(toggleOscilloscopeButton, multiOscilloscopeHidden, visualFaceLabel || "Display");
+    toggleOscilloscopeButton.title = multiModuleMode
+      ? (multiOscilloscopeHidden
+        ? "Show displays on selected modules."
+        : "Hide displays on selected modules.")
+      : (oscilloscopeHidden
+        ? `Show this module's built-in ${visualFaceLabel}.`
+        : `Hide this module's built-in ${visualFaceLabel}.`);
+    toggleInterfaceControlsButton.disabled = multiModuleMode
+      ? !multiCanInterface
+      : !targetNode || !nodeGraphModuleTypeHasInterfaceControls(targetNode.type);
+    setVisLines(toggleInterfaceControlsButton, multiInterfaceHidden, "Control surface");
+    toggleInterfaceControlsButton.title = multiModuleMode
+      ? (multiInterfaceHidden
+        ? "Show control surfaces on selected modules."
+        : "Hide control surfaces on selected modules.")
+      : (interfaceControlsHidden
+        ? "Show this module's control surface."
+        : "Hide this module's control surface.");
+    toggleSlidersButton.disabled = multiModuleMode
+      ? !multiCanSliders
+      : !targetNode || !nodeGraphModuleTypeHasHideableSliders(targetNode.type);
+    setVisLines(toggleSlidersButton, multiSlidersHidden, "Sliders");
+    toggleSlidersButton.title = multiModuleMode
+      ? (multiSlidersHidden
+        ? "Show sliders on selected modules."
+        : "Hide sliders on selected modules.")
+      : (slidersHidden
+        ? "Show this module's parameter sliders."
+        : "Hide this module's parameter sliders.");
+    toggleIoButton.disabled = multiModuleMode ? !selectedNodes.length : !targetNode;
+    setVisLines(toggleIoButton, multiIoHidden, "In/Out");
+    toggleIoButton.title = multiModuleMode
+      ? (multiIoHidden
+        ? "Show In/Out on selected modules."
+        : "Hide In/Out on selected modules.")
+      : (ioHidden
+        ? "Show this module's input and output ports."
+        : "Hide this module's input and output ports.");
+    toggleTitleButton.disabled = multiModuleMode ? !selectedNodes.length : !targetNode;
+    setVisLines(toggleTitleButton, multiTitleHidden, "Title");
+    toggleTitleButton.title = multiModuleMode
+      ? (multiTitleHidden
+        ? "Show titles on selected modules."
+        : "Hide titles on selected modules.")
+      : nodeGraphTooltipText(titleHidden ? "actions.showModuleTitle" : "actions.hideModuleTitle");
     if (targetNode?.type === "image") {
       const imageLayout = normalizeNodeGraphImageLayout(targetNode.layout);
       imageSave.disabled = !imageLayout.dataUrl;

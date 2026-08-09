@@ -488,20 +488,30 @@ function drawNodeGraphDotOscilloscopeItem(renderer, item, pixelRatio) {
   // Opaque face plate (CSS mix-blend is normal; never screen-tint the module chrome).
   canvas.style.mixBlendMode = "normal";
   // Prefer shared energy phosphor path (same stamps as 2D Phosphor).
+  const deposit = brightness01 > 0.001 && settings.dot1Brightness > 0
+    ? (typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.depositGain
+      ? PhosphorDrawer.depositGain(settings.dot1Brightness * brightness01, size01)
+      : settings.dot1Brightness * brightness01 * 0.1)
+    : 0;
+  const existingEnergy = canvas._phosphorEnergyGl;
+  const energyIdle = !existingEnergy || existingEnergy.energyActive === false;
+  const frozen0d = typeof nodeGraphModuleScopePhosphorFrozen === "function"
+    && nodeGraphModuleScopePhosphorFrozen();
+  // Idle dark 0D face: no deposit and no residual → plate only (no GL).
+  if (!frozen0d && deposit <= 1e-8 && energyIdle) {
+    nodeGraphFacePlateFillCanvas(context, canvas, bg);
+    recordNodeGraphModuleScopeRenderMetrics(1, 0);
+    return;
+  }
   const energyGl = typeof nodeGraphPhosphorEnergyGlEnsure === "function"
     ? nodeGraphPhosphorEnergyGlEnsure(canvas, width, height, "_phosphorEnergyGl")
     : null;
   if (energyGl && typeof nodeGraphPhosphorEnergyGlStepBeams === "function") {
     nodeGraphPhosphorApplyGradientLut(energyGl, settings, "#75ebff");
-    const deposit = brightness01 > 0.001 && settings.dot1Brightness > 0
-      ? (typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.depositGain
-        ? PhosphorDrawer.depositGain(settings.dot1Brightness * brightness01, size01)
-        : settings.dot1Brightness * brightness01 * 0.1)
-      : 0;
     const cx = width * 0.5;
     const cy = height * 0.5;
     // Freeze = hold energy FBO: no deposit, no residual step, no bleed. Still present.
-    if (!nodeGraphModuleScopePhosphorFrozen()) {
+    if (!frozen0d) {
       nodeGraphPhosphorEnergyGlStepBeams(energyGl, {
         trail,
         ghost,

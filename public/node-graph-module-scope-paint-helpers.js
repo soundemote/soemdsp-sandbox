@@ -932,6 +932,12 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
   if (!slot || !buffer?.length || !screenElement) {
     return false;
   }
+  // Pause freeze: hold face pixels (same as phosphor). A force-draw after
+  // Clear-while-paused must NOT re-stroke the capture buffer onto a wiped plate.
+  if (typeof nodeGraphModuleScopePhosphorFrozen === "function"
+    && nodeGraphModuleScopePhosphorFrozen()) {
+    return true;
+  }
   const settings = nodeGraphTraceDisplaySettingsForSlot(slot);
   const canvas = nodeGraphModuleScopeLocalFallbackCanvas(slot);
   // VECTOR polyline into density-scaled face buffer (default 1 = current look).

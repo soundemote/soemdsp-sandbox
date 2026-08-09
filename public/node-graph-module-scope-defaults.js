@@ -133,27 +133,36 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
 });
 
 
+/**
+ * 1D phosphor (line burn) — from polyBlep face on Desktop/init.json.
+ * Applied to all 1D oscillators with a 1D oscilloscope (polyBlep, osc, blit, …).
+ */
 const nodeGraphLineBurnSettingsDefaults = Object.freeze({
-  // 1D phosphor — same stamp residual stack as 2D phosphor look defaults.
   background: "#000000",
   // Legacy mirrors (burn≡ghost, decay≡1−trail).
-  burn: nodeGraphScopePhosphorLookDefaults.ghost,
-  decay: 1 - nodeGraphScopePhosphorLookDefaults.trail,
-  ghost: nodeGraphScopePhosphorLookDefaults.ghost,
-  trail: nodeGraphScopePhosphorLookDefaults.trail,
-  scale: nodeGraphScopePhosphorLookDefaults.scale,
-  dot1Brightness: nodeGraphScopePhosphorLookDefaults.brightness,
+  burn: 0.3,
+  decay: 0.3,
+  ghost: 0.3,
+  trail: 0.7,
+  scale: 1,
+  // Bright stamps; Size 0 → 1px floor (crisp 1D pen).
+  dot1Brightness: 0.8,
   dot1Color: "#75ebff",
   dot1Enabled: true,
-  dot1Size: nodeGraphScopePhosphorLookDefaults.size,
-  lineThickness: nodeGraphScopePhosphorLookDefaults.blur,
-  pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
-  dotBudget: nodeGraphScopePhosphorLookDefaults.dotBudget,
-  fullDotEconomy: nodeGraphScopePhosphorLookDefaults.fullDotEconomy,
-  // Stamp only real sample hits (no path packing / connective lines).
+  dot1Size: 0,
+  lineThickness: 0.2,
+  pixelDensity: 1,
+  dotBudget: 1024,
+  fullDotEconomy: false,
   dotsOnly: false,
-  // Seconds for one full left→right pass (default 2 s).
-  sweepSeconds: 2,
+  // Fast sweep — matches polyBlep init preset (~one screen of high-freq detail).
+  sweepSeconds: 0.01,
+  gradientStops: Object.freeze([
+    Object.freeze({ t: 0, color: "#000000" }),
+    Object.freeze({ t: 0.18, color: "#214247" }),
+    Object.freeze({ t: 0.55, color: "#52a5b3" }),
+    Object.freeze({ t: 1, color: "#75ebff" }),
+  ]),
 });
 
 
@@ -259,42 +268,120 @@ const nodeGraphSpectrogramSettingsDefaults = Object.freeze({
 });
 
 
+/** Shared cyan energy LUT from Desktop/init.json phosphor faces. */
+const nodeGraphScope2dInitGradientStops = Object.freeze([
+  Object.freeze({ t: 0, color: "#000000" }),
+  Object.freeze({ t: 0.18, color: "#214247" }),
+  Object.freeze({ t: 0.55, color: "#52a5b3" }),
+  Object.freeze({ t: 1, color: "#75ebff" }),
+]);
+
 const nodeGraphScope2dSettingsDefaults = Object.freeze({
-  // 2D phosphor — shared look defaults (Bright/Size/Ghost/Trail/Scale/AA/Budget).
+  // 2D phosphor base — overridden per attractor / Jerobeam family below.
   background: "#000000",
-  // Ghost/Trail are the Display Settings knobs (UI truth).
-  // burn/decay are legacy mirrors (burn≡ghost, decay≡1−trail).
   ghost: nodeGraphScopePhosphorLookDefaults.ghost,
   trail: nodeGraphScopePhosphorLookDefaults.trail,
   burn: nodeGraphScopePhosphorLookDefaults.ghost,
   decay: 1 - nodeGraphScopePhosphorLookDefaults.trail,
   dot1Brightness: nodeGraphScopePhosphorLookDefaults.brightness,
-  // Peak color = last gradient stop (migration + puck/overlays).
   dot1Color: "#75ebff",
   dot1Enabled: true,
   dot1Size: nodeGraphScopePhosphorLookDefaults.size,
-  dotBudget: nodeGraphScopePhosphorLookDefaults.dotBudget,
-  fullDotEconomy: nodeGraphScopePhosphorLookDefaults.fullDotEconomy,
-  // Stamp only real sample hits — never path-pack chords (no connective lines).
+  dotBudget: 1024,
+  fullDotEconomy: false,
   dotsOnly: false,
-  // Multi-stop energy→color LUT (site cyan burn ramp).
-  gradientStops: Object.freeze([
-    Object.freeze({ t: 0, color: "#000000" }),
-    Object.freeze({ t: 0.18, color: "#0a2a33" }),
-    Object.freeze({ t: 0.55, color: "#3a9aab" }),
-    Object.freeze({ t: 1, color: "#75ebff" }),
-  ]),
+  gradientStops: nodeGraphScope2dInitGradientStops,
   lineThickness: nodeGraphScopePhosphorLookDefaults.blur,
-  pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
-  scale: nodeGraphScopePhosphorLookDefaults.scale,
+  pixelDensity: 1,
+  scale: 1,
 });
 
 /**
- * Per-module overrides for 2D Phosphor (scope2d) display defaults.
- * Only fields listed here differ from nodeGraphScope2dSettingsDefaults.
- * (Empty: Lorenz used to force a giant stamp; it inherits Size 0.01 now.)
+ * Per-module 2D Phosphor defaults from Desktop/init.json faces:
+ *   snowflake · lorenzAttractor · keplerBouwkamp (→ all Jerobeam)
+ *   nyquistShannon (exception)
  */
+const nodeGraphScope2dSnowflakeDisplayDefaults = Object.freeze({
+  ghost: 0.82,
+  trail: 0.88,
+  burn: 0.82,
+  decay: 0.12,
+  dot1Brightness: 0.0818,
+  dot1Size: 0.032,
+  dotBudget: 1024,
+  fullDotEconomy: true,
+  dotsOnly: true,
+  lineThickness: 0.225,
+  gradientStops: nodeGraphScope2dInitGradientStops,
+});
+
+const nodeGraphScope2dLorenzDisplayDefaults = Object.freeze({
+  ghost: 0.82,
+  trail: 0.88,
+  burn: 0.82,
+  decay: 0.12,
+  dot1Brightness: 0.3546,
+  dot1Size: 0.009,
+  dotBudget: 1024,
+  fullDotEconomy: false,
+  dotsOnly: false,
+  lineThickness: 0.35,
+  gradientStops: nodeGraphScope2dInitGradientStops,
+});
+
+const nodeGraphScope2dKeplerJerobeamDisplayDefaults = Object.freeze({
+  ghost: 0.37,
+  trail: 0.5845,
+  burn: 0.37,
+  decay: 0.4155,
+  dot1Brightness: 0.92,
+  dot1Size: 0.009,
+  dotBudget: 1024,
+  fullDotEconomy: false,
+  dotsOnly: false,
+  lineThickness: 0.35,
+  gradientStops: nodeGraphScope2dInitGradientStops,
+});
+
+const nodeGraphScope2dNyquistDisplayDefaults = Object.freeze({
+  ghost: 0.45,
+  trail: 0,
+  burn: 0.45,
+  decay: 1,
+  dot1Brightness: 0.8,
+  dot1Size: 0.02,
+  dotBudget: 1024,
+  fullDotEconomy: false,
+  dotsOnly: false,
+  lineThickness: 0,
+  gradientStops: Object.freeze([
+    Object.freeze({ t: 0, color: "#000000" }),
+    Object.freeze({ t: 0.18, color: "#214247" }),
+    Object.freeze({ t: 0.55, color: "#52a5b3" }),
+    Object.freeze({ t: 0.7704, color: "#52a5b3" }),
+    Object.freeze({ t: 1, color: "#75ebff" }),
+  ]),
+});
+
+/** Jerobeam family (all use keplerBouwkamp face except nyquistShannon). */
+const nodeGraphJerobeamScope2dModuleTypes = Object.freeze([
+  "blubb",
+  "boing",
+  "keplerBouwkamp",
+  "mushroom",
+  "radar",
+  "spiral",
+  "torus",
+  "wirdoSpiral",
+]);
+
 const nodeGraphModuleScope2dDisplayDefaultOverrides = Object.freeze({
+  snowflake: nodeGraphScope2dSnowflakeDisplayDefaults,
+  lorenzAttractor: nodeGraphScope2dLorenzDisplayDefaults,
+  nyquistShannon: nodeGraphScope2dNyquistDisplayDefaults,
+  ...Object.fromEntries(
+    nodeGraphJerobeamScope2dModuleTypes.map((type) => [type, nodeGraphScope2dKeplerJerobeamDisplayDefaults]),
+  ),
 });
 
 /** Full scope2d defaults for a module type (global + optional overrides). */

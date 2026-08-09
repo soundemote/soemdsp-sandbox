@@ -6,6 +6,9 @@ function createNodeGraphNyquistShannonState() {
     hasLastFphas: false,
     toneSmoothCurrent: 0,
     toneSmoothInit: false,
+    cachedFreqA: NaN,
+    cachedFreqToPitch: 0,
+    hasCachedFreqToPitch: false,
     resetWasHigh: false,
   };
 }
@@ -23,13 +26,22 @@ function nodeGraphNyquistShannonFreqToPitch(freq) {
   return 12 * Math.log2(freq / 440) + 69;
 }
 
-// Ported from soemdsp/include/soemdsp/oscillator/JerobeamNyquistShannon.{h,cpp}
-// (Jerobeam Fenderson's "Nyquist-Shannon" Gen~ patch). Mirrors
-// native_modules/jerobeam_nyquist_shannon exactly, though this JS fallback
-// uses exact Math.log2 where the native WASM path uses a fast bit-trick
-// approximation (no libm under -nostdlib) -- expect close but not
-// bit-identical agreement for the tone-mode-4+ paths that use it.
-// Offline/JS path only, the realtime worklet prefers native WASM.
+function nodeGraphNyquistShannonFreqToPitchCached(state, userFreqA) {
+  const absFreq = Math.abs(userFreqA);
+  if (state.hasCachedFreqToPitch && state.cachedFreqA === absFreq) {
+    return state.cachedFreqToPitch;
+  }
+  const value = nodeGraphNyquistShannonFreqToPitch(absFreq) - 48;
+  state.cachedFreqA = absFreq;
+  state.cachedFreqToPitch = value;
+  state.hasCachedFreqToPitch = true;
+  return value;
+}
+
+// Offline/JS path mirrors native_modules/jerobeam_nyquist_shannon:
+// turns-domain sin (via Math.sin(2π·t) — no giant table), Rate floor, skip
+// log2/smoother when the active tone mode does not need them.
+// Realtime worklet prefers native WASM (same math).
 function nodeGraphNyquistShannonSample(options = {}) {
   const state = options.state || createNodeGraphNyquistShannonState();
   const resetHigh = Number(options.reset) > 0.5;
@@ -38,13 +50,14 @@ function nodeGraphNyquistShannonSample(options = {}) {
     state.rotatorPhase = 0;
     state.hasLastFphas = false;
     state.toneSmoothInit = false;
+    state.hasCachedFreqToPitch = false;
   }
   state.resetWasHigh = resetHigh;
 
   const sampleRateValue = Math.max(1, Number(options.sampleRate) || 44100);
   const frequencyA = Number(options.frequencyA) || 0;
   const midiNoteRaw = Number(options.midiNoteRaw) || 0;
-  const rate = Number(options.rate) || 0;
+  const rateRaw = Number(options.rate) || 0;
   const sampleDots = Number(options.sampleDots) || 0;
   const phaseOffset = Number(options.phaseOffset) || 0;
   const frequencyB = Number(options.frequencyB) || 0;
@@ -60,66 +73,85 @@ function nodeGraphNyquistShannonSample(options = {}) {
   const userFreqA = frequencyA;
   const pitch = frequencyB;
   const phasorFreq = userFreqA * pitch;
-  const midiNote = midiNoteRaw - 48;
-  const sr = rate;
+  const sr = rateRaw < 1e-9 ? 1e-9 : rateRaw;
   const blend = 1 / (1 - sampleDots + 0.001);
   const tri = clampNodeSliderValue(1 - artifact, 0.001, 0.999);
-  const freqToPitch = nodeGraphNyquistShannonFreqToPitch(Math.abs(userFreqA)) - 48;
 
-  const toneMode = (enableToneModNote >= 0.5 ? 1 : 0) + (enableToneModPitch >= 0.5 ? 2 : 0) + (enableToneModFreq >= 0.5 ? 4 : 0);
+  const toneMode =
+    (enableToneModNote >= 0.5 ? 1 : 0)
+    + (enableToneModPitch >= 0.5 ? 2 : 0)
+    + (enableToneModFreq >= 0.5 ? 4 : 0);
 
   const mainPhas = nodeGraphNyquistShannonWrap01(state.phase + phaseOffset);
   const fphas = nodeGraphNyquistShannonTrisaw(mainPhas, tri);
 
-  const stair = Math.floor(fphas * sr) / sr;
-  const fmodFphasSr = (fphas * sr) - Math.floor(fphas * sr);
+  const fphasSr = fphas * sr;
+  const stairIndex = Math.floor(fphasSr);
+  const stair = stairIndex / sr;
+  const fmodFphasSr = fphasSr - stairIndex;
   const phas = clampNodeSliderValue(blend * fmodFphasSr, 0, 1) / sr + stair;
 
   const waveX = phas * 2 - 1;
-  let waveY = 0;
 
-  const smoothSamples = toneSmoothTime > 0 ? toneSmoothTime * sampleRateValue : 1;
-  const smoothStep = smoothSamples > 0 ? (1 / smoothSamples) : 1;
+  let actualTone = tone;
+  if (toneMode !== 0) {
+    const needsSmooth = (toneMode & 3) !== 0;
+    const needsFreqPitch = (toneMode & 4) !== 0;
+    let smoothPart = 0;
+    if (needsSmooth) {
+      const smoothSamples = toneSmoothTime > 0 ? toneSmoothTime * sampleRateValue : 1;
+      const smoothStep = smoothSamples > 0 ? (1 / smoothSamples) : 1;
+      const midiNote = midiNoteRaw - 48;
+      let target = 0;
+      switch (toneMode & 3) {
+        case 1: target = midiNote; break;
+        case 2: target = pitch - 1; break;
+        case 3: target = (pitch - 1) + midiNote; break;
+        default: break;
+      }
+      if (toneMode === 5) target = midiNote * 0.5;
+      else if (toneMode === 7) target = (pitch - 1) + midiNote * 0.5;
 
-  const runSmoother = (target) => {
-    if (!state.toneSmoothInit) {
-      state.toneSmoothCurrent = target;
-      state.toneSmoothInit = true;
-    } else if (state.toneSmoothCurrent < target) {
-      state.toneSmoothCurrent = target - state.toneSmoothCurrent > smoothStep
-        ? state.toneSmoothCurrent + smoothStep
-        : target;
-    } else if (state.toneSmoothCurrent > target) {
-      state.toneSmoothCurrent = state.toneSmoothCurrent - target > smoothStep
-        ? state.toneSmoothCurrent - smoothStep
-        : target;
+      if (!state.toneSmoothInit) {
+        state.toneSmoothCurrent = target;
+        state.toneSmoothInit = true;
+      } else if (state.toneSmoothCurrent < target) {
+        state.toneSmoothCurrent = target - state.toneSmoothCurrent > smoothStep
+          ? state.toneSmoothCurrent + smoothStep
+          : target;
+      } else if (state.toneSmoothCurrent > target) {
+        state.toneSmoothCurrent = state.toneSmoothCurrent - target > smoothStep
+          ? state.toneSmoothCurrent - smoothStep
+          : target;
+      }
+      smoothPart = state.toneSmoothCurrent;
     }
-    return state.toneSmoothCurrent;
-  };
-
-  let actualTone;
-  switch (toneMode) {
-    case 0: actualTone = tone; break;
-    case 1: actualTone = tone + runSmoother(midiNote); break;
-    case 2: actualTone = tone + runSmoother(pitch - 1); break;
-    case 3: actualTone = tone + runSmoother((pitch - 1) + midiNote); break;
-    case 4: actualTone = tone + freqToPitch; break;
-    case 5: actualTone = tone + runSmoother(midiNote * 0.5) + freqToPitch * 0.5; break;
-    case 6: actualTone = tone + runSmoother(pitch - 1) + freqToPitch; break;
-    default: actualTone = tone + runSmoother((pitch - 1) + midiNote * 0.5) + freqToPitch * 0.5; break;
+    let freqPart = 0;
+    if (needsFreqPitch) {
+      const ftp = nodeGraphNyquistShannonFreqToPitchCached(state, userFreqA);
+      freqPart = (toneMode === 5 || toneMode === 7) ? ftp * 0.5 : ftp;
+    }
+    actualTone = tone + smoothPart + freqPart;
   }
 
-  const psXPi = nodeGraphNyquistShannonWrap01(state.rotatorPhase - subPhase) * Math.PI * 2;
+  const rotTurns = nodeGraphNyquistShannonWrap01(state.rotatorPhase - subPhase);
+  const tau = Math.PI * 2;
 
   const wasFirstSample = !state.hasLastFphas;
-  const changed = wasFirstSample ? 0 : (state.lastFphas > fphas ? 1 : (state.lastFphas < fphas ? -1 : 0));
+  const changed = wasFirstSample
+    ? 0
+    : (state.lastFphas > fphas ? 1 : (state.lastFphas < fphas ? -1 : 0));
   state.lastFphas = fphas;
   state.hasLastFphas = true;
 
+  let waveY;
   if (changed === 1) {
-    waveY = Math.sin(actualTone * Math.PI * 2 * phas + psXPi);
+    waveY = Math.sin((actualTone * phas + rotTurns) * tau);
   } else {
-    waveY = -Math.sin(sr * Math.PI * phas + Math.PI / 2) * Math.sin(phas * (sr / 2 - actualTone) * Math.PI * 2 - psXPi);
+    // -cos(2π · sr·phas/2) · sin(2π · (phas·(sr/2 − tone) − rot))
+    const halfSrPhas = 0.5 * sr * phas;
+    const toneTurns = phas * (0.5 * sr - actualTone) - rotTurns;
+    waveY = -Math.cos(halfSrPhas * tau) * Math.sin(toneTurns * tau);
   }
 
   state.phase = nodeGraphNyquistShannonWrap01(state.phase + phasorFreq / sampleRateValue);

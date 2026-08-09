@@ -214,9 +214,9 @@ function nodeGraphModuleDisplayVisibleForUi(type, ui = {}) {
   if (!nodeGraphModuleTypeHasHideableOscilloscope(type)) {
     return false;
   }
-  if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp?.moduleOscilloscopesVisible === false) {
-    return false;
-  }
+  // Effective UI already resolves global Displays + local force-show /
+  // local hide. Do not short-circuit on the global flag alone — that left
+  // force-shown modules at 0 display gu (CSS face on, shell min 1gu).
   return !nodeGraphEffectivePatchNodeUi(ui, type).oscilloscopeHidden;
 }
 
@@ -511,13 +511,9 @@ function nodeGraphApplyModuleShellHeightCssVars(element, patchNode) {
 }
 
 function nodeGraphModuleHiddenIoSectionHeightGu(type) {
-  if (!nodeGraphModuleTypeHasIoPorts(type)) {
-    return 0;
-  }
-  if (nodeGraphModuleDefinitions[type]?.layout === "graph") {
-    return nodeGraphGraphLayoutIoSectionHeightGu();
-  }
-  return nodeGraphModuleLayout.ioSectionMinHeightGu;
+  // Hide In/Out for real — no proxy strip height residual.
+  void type;
+  return 0;
 }
 
 function nodeGraphModuleTypeHasInterfaceControls(type) {
@@ -579,7 +575,7 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
   const slidersVisible = nodeGraphModuleTypeHasHideableSliders(type) && !normalizedUi.slidersHidden;
   const displayVisible = nodeGraphModuleDisplayVisibleForUi(type, ui);
   const interfaceControlsVisible = nodeGraphModuleInterfaceControlsVisibleForUi(type, ui);
-  const ioVisible = !normalizedUi.ioHidden || nodeGraphModuleTypeHasIoPorts(type);
+  const ioVisible = !normalizedUi.ioHidden && nodeGraphModuleTypeHasIoPorts(type);
   const ioHeightGu = normalizedUi.ioHidden
     ? nodeGraphModuleHiddenIoSectionHeightGu(type)
     : nodeGraphModuleIoSectionHeightGu(type);

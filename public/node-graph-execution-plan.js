@@ -359,8 +359,23 @@ function nodeGraphVisualSinkActiveInPlan(node, options = {}) {
   return true;
 }
 
+/**
+ * True when the worklet should capture/buffer visual samples for this sink.
+ * Reachability for DSP still uses ActiveInPlan; capture is gated by face UI
+ * so oscilloscopeHidden / global “displays off” stop audio-thread writes.
+ */
+function nodeGraphVisualSinkNeedsAudioCapture(node, options = {}) {
+  if (!nodeGraphVisualSinkActiveInPlan(node, options)) {
+    return false;
+  }
+  if (typeof nodeGraphPatchNodeDisplayVisibleInPlan === "function") {
+    return nodeGraphPatchNodeDisplayVisibleInPlan(node, options);
+  }
+  return true;
+}
+
 function nodeGraphVisualSinkDisplayVisible(node, options = {}) {
-  return nodeGraphVisualSinkActiveInPlan(node, options);
+  return nodeGraphVisualSinkNeedsAudioCapture(node, options);
 }
 
 function nodeGraphPatchNodeDisplayVisibleInPlan(node, options = {}) {
@@ -656,13 +671,18 @@ function nodeGraphCompiledVisualSinks(graph, reachableNodes) {
     .filter((node) =>
       reachableNodes.has(node.id) &&
       !bypassedNodes.has(node.id) &&
-      nodeGraphVisualSinkActiveInPlan(node, { bypassedNodes })
+      // Only sinks whose face is currently shown — hidden scopes must not
+      // allocate rings or run per-sample visual writes on the audio thread.
+      nodeGraphVisualSinkNeedsAudioCapture(node, { bypassedNodes })
     )
     .map((node) => {
       const bufferedInputs = nodeGraphPatchNodeBufferedInputs(node);
       const bufferedSet = new Set(bufferedInputs);
       return {
         bufferSampleLimit: nodeGraphVisualSinkBufferSampleLimit(node),
+        // Target visual write rate (Hz). Worklet hops engine samples to this.
+        // ~12 kHz is enough for phosphor / scopes; full rate was starving audio.
+        visualWriteHz: nodeGraphVisualSinkWriteHz(node),
         bufferedInputs,
         hasParameters: (nodeGraphModuleDefinitions[node.type]?.parameters || []).length > 0,
         inputs: nodeGraphPatchNodeVisualInputs(node).map((input) => ({
@@ -688,8 +708,11 @@ function nodeGraphCompiledScopeCaptureNodeIds(graph, reachableNodes) {
         // Graph editor playhead reads "__GraphPhase" from scope buffers -- always
         // capture graph modules even when they have no separate oscilloscope face.
         nodeGraphModuleIsGraphType(node.type) ||
-        (typeof nodeGraphChromelessModuleUsesSolidShell === "function"
-          && nodeGraphChromelessModuleUsesSolidShell(node.type)) ||
+        (
+          typeof nodeGraphChromelessModuleUsesSolidShell === "function"
+          && nodeGraphChromelessModuleUsesSolidShell(node.type)
+          && nodeGraphPatchNodeDisplayVisibleInPlan(node, { bypassedNodes })
+        ) ||
         (
           nodeGraphModuleDisplayRendererForNode(node) !== "legacy" &&
           nodeGraphPatchNodeDisplayVisibleInPlan(node, { bypassedNodes })
@@ -699,13 +722,24 @@ function nodeGraphCompiledScopeCaptureNodeIds(graph, reachableNodes) {
     .map((node) => node.id);
 }
 
-const nodeGraphVisualSinkHistorySeconds = 10;
+// History length is for display windows, not full 10s of engine-rate audio.
+// CPU cost is write rate (decimated in worklet); capacity stays modest.
+const nodeGraphVisualSinkHistorySeconds = 1;
+
+/** Target samples/sec into visual rings (display quality, not audio fidelity). */
+function nodeGraphVisualSinkWriteHz(node) {
+  void node;
+  // Match legacy scope hop (~12 kHz): dense enough for 2D phosphor paths.
+  return 12000;
+}
 
 function nodeGraphVisualSinkBufferSampleLimit(node) {
-  const fallback = Math.max(1, Math.round(Number(nodeGraphBufferedInputSampleLimit) || 262144));
   const sampleRate = Math.max(1, Math.round(Number(nodeGraphMvp?.sampleRate) || 44100));
-  void node;
-  return Math.max(fallback, Math.ceil(sampleRate * nodeGraphVisualSinkHistorySeconds));
+  const writeHz = Math.max(1, Math.round(Number(nodeGraphVisualSinkWriteHz(node)) || 12000));
+  // Capacity in *written* samples (after hop), not engine-rate samples.
+  const historySamples = Math.ceil(writeHz * nodeGraphVisualSinkHistorySeconds);
+  const fallback = Math.max(1, Math.round(Number(nodeGraphBufferedInputSampleLimit) || 65536));
+  return Math.min(fallback, Math.max(4096, historySamples));
 }
 
 function nodeGraphNodeSignalOutputRequired(graph, nodeId) {

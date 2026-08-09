@@ -31,7 +31,10 @@ NodeLiveAudioProcessor.prototype.scopeScalarValue = function scopeScalarValue(va
 };
 
 NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModuleScopeFrame(frameValues = null, frame = 0, frames = 1) {
-    this.scopeSampleStride = Math.max(1, Math.floor((Number(this.engineSampleRate) || sampleRate || 44100) / 12000));
+    const engineRate = Math.max(1, Number(this.engineSampleRate) || sampleRate || 44100);
+    // Scope posts + visual ring writes: hop engine samples (~12 kHz), not full rate.
+    // Full-rate visual writes were starving the audio thread on multi-face patches.
+    this.scopeSampleStride = Math.max(1, Math.floor(engineRate / 12000));
     const captureDebugScope = (this.scopeCounter % this.scopeSampleStride) === 0;
     if (captureDebugScope) {
       const captureNodeIds = Array.isArray(this.scopeCaptureNodeIds)
@@ -44,22 +47,27 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModul
         this.captureModuleScopeOutput(nodeId, this.nodeOutputs.get(nodeId));
       }
     }
-    for (const sink of this.visualSinks || []) {
+    // No visual sinks planned (all faces hidden) → skip the whole loop.
+    const sinks = this.visualSinks || [];
+    if (!sinks.length) {
+      return;
+    }
+    for (const sink of sinks) {
       const nodeId = String(sink?.nodeId || "");
       if (!nodeId) {
         continue;
       }
-      if (
-        Array.isArray(this.scopeCaptureNodeIds) &&
-        !this.scopeCaptureNodeIds.includes(nodeId)
-      ) {
-        continue;
-      }
+      // Per-sink hop (plan may request different write rates later).
+      const writeHz = Math.max(1, Math.min(engineRate, Number(sink.visualWriteHz) || 12000));
+      const visualStride = Math.max(1, Math.floor(engineRate / writeHz));
+      const writeBufferedThisSample = (this.scopeCounter % visualStride) === 0;
       let value = 0;
+      let hasConnected = false;
       for (const input of sink.inputs || []) {
         if (!input?.connected) {
           continue;
         }
+        hasConnected = true;
         const inputValue = (input.connections || []).reduce(
           (connectionSum, connection) => connectionSum + this.readRuntimePortOutput(
             frameValues,
@@ -72,7 +80,8 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModul
         );
         value += inputValue;
         const inputPort = String(input.port || "").trim();
-        if (input?.buffered && inputPort) {
+        // Buffered rings: only at visual hop — not every engine sample.
+        if (input?.buffered && inputPort && writeBufferedThisSample) {
           this.writeVisualInputBufferSample(nodeId, inputPort, inputValue, sink.bufferSampleLimit);
         }
         if (captureDebugScope && inputPort && !input?.buffered) {
@@ -80,7 +89,7 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModul
           this.appendScopeBufferSample(portId, inputValue);
         }
       }
-      if (captureDebugScope) {
+      if (captureDebugScope && hasConnected) {
         this.appendScopeBufferSample(nodeId, value);
       }
     }

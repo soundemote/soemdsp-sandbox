@@ -19,7 +19,6 @@ namespace {
 using namespace soemdsp_maths;
 
 static const int kMaxInstances = 16;
-static const double kTau = 6.28318530717958647692;
 struct BlubbState {
   bool active;
   double phase;
@@ -79,19 +78,18 @@ extern "C" void soemdsp_jbblubb_sample(
     chX = bipolarTriangle(phase + 0.125);
     chY = bipolarTriangle(phase + 0.375);
   } else {
-    // CIRCLE
-    chX = dsp_sin(phase * kTau);
-    chY = dsp_cos(phase * kTau);
+    // CIRCLE — phase already in turns; joint sin/cos avoids two full reduces.
+    dsp_sin_cos_turns(phase, &chX, &chY);
   }
 
   // rotate() from the reference: a 2-axis rotation collapsed straight into
   // a zDepth-squished 2D render (it never carries a separate Z channel out).
-  const double sinRotX = dsp_sin(rotX * kTau);
-  const double cosRotX = dsp_cos(rotX * kTau);
+  // rotX/rotY are turn fractions (0..1), not radians.
+  double sinRotX, cosRotX, sinRotY, cosRotY;
+  dsp_sin_cos_turns(rotX, &sinRotX, &cosRotX);
+  dsp_sin_cos_turns(rotY, &sinRotY, &cosRotY);
   const double help11 = chX * cosRotX - chY * sinRotX;
   const double help12 = chX * sinRotX + chY * cosRotX;
-  const double sinRotY = dsp_sin(rotY * kTau);
-  const double cosRotY = dsp_cos(rotY * kTau);
   const double help21 = help11 * cosRotY;
   const double z = help11 * sinRotY;
 

@@ -18,7 +18,7 @@ static const char kMetadataJson[] =
     "\"inputs\":[\"Reset\"],"
     "\"outputs\":[\"X\",\"Y\",\"Z\"],"
     "\"parameters\":["
-      "{\"key\":\"speed\",\"label\":\"Speed\",\"defaultValue\":1,\"min\":0,\"mid\":1,\"max\":4,\"step\":\"any\"},"
+      "{\"key\":\"speed\",\"label\":\"Speed\",\"defaultValue\":1,\"min\":0,\"mid\":1,\"max\":1000,\"step\":\"any\"},"
       "{\"key\":\"sigma\",\"label\":\"Sigma\",\"defaultValue\":10,\"min\":0,\"mid\":10,\"max\":30,\"step\":\"any\"},"
       "{\"key\":\"rho\",\"label\":\"Rho\",\"defaultValue\":28,\"min\":-30,\"mid\":28,\"max\":60,\"step\":\"any\"},"
       "{\"key\":\"beta\",\"label\":\"Beta\",\"defaultValue\":2.6666666666666665,\"min\":0,\"mid\":2.6666666666666665,\"max\":10,\"step\":\"any\"},"

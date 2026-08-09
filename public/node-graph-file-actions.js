@@ -800,6 +800,139 @@ function handleNodeGraphPatchPresetSelectChange(event) {
   }
 }
 
+/**
+ * Build current patch JSON for export (header fields + live patch).
+ * Returns { text, filename, patch } or null if not ready.
+ */
+function nodeGraphPatchExportPayload() {
+  const script = document.getElementById("nodePatchScript");
+  if (script && document.activeElement !== script) {
+    try {
+      syncNodeGraphScriptView("script synced before save", true);
+    } catch (_error) {
+      // Best-effort.
+    }
+  }
+  if (typeof nodeGraphScriptReadyForGraphAction === "function"
+    && !nodeGraphScriptReadyForGraphAction("save")) {
+    return null;
+  }
+  const patchToSave = typeof nodeGraphPatchWithLiveHeaderInfo === "function"
+    ? nodeGraphPatchWithLiveHeaderInfo()
+    : nodeGraphMvp?.patch;
+  if (!patchToSave) {
+    return null;
+  }
+  const patchText = typeof serializeNodeGraphPatch === "function"
+    ? serializeNodeGraphPatch(patchToSave)
+    : JSON.stringify(patchToSave, null, 2);
+  const filename = typeof nodeGraphPatchFileName === "function"
+    ? nodeGraphPatchFileName()
+    : "soemdsp-patch.json";
+  return { text: patchText, filename, patch: patchToSave };
+}
+
+/**
+ * Fallback when File System Access API is unavailable: browser download dialog
+ * (location is usually Downloads; path cannot be forced to Desktop).
+ */
+function nodeGraphDownloadPatchTextFile(text, filename) {
+  const blob = new Blob([text], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename || "soemdsp-patch.json";
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+/**
+ * Native save dialog for the current patch (Ctrl+S).
+ * Uses showSaveFilePicker with startIn: "desktop" when supported; otherwise
+ * falls back to a download. Marks the patch saved on success.
+ */
+async function saveNodeGraphPatchWithNativeDialog() {
+  const payload = nodeGraphPatchExportPayload();
+  if (!payload) {
+    return false;
+  }
+  const { text, filename, patch } = payload;
+  try {
+    if (typeof window.showSaveFilePicker === "function") {
+      let handle;
+      try {
+        handle = await window.showSaveFilePicker({
+          suggestedName: filename,
+          // Well-known directory — Chrome/Edge open the Desktop when allowed.
+          startIn: "desktop",
+          types: [
+            {
+              description: "soemdsp patch JSON",
+              accept: { "application/json": [".json"] },
+            },
+          ],
+          excludeAcceptAllOption: false,
+        });
+      } catch (error) {
+        // User cancelled the picker.
+        if (error && (error.name === "AbortError" || error.name === "NotAllowedError")) {
+          if (typeof setNodeGraphScriptStatus === "function") {
+            setNodeGraphScriptStatus("save cancelled", true);
+          }
+          return false;
+        }
+        throw error;
+      }
+      const writable = await handle.createWritable();
+      await writable.write(text);
+      await writable.close();
+      const savedName = handle.name || filename;
+      if (typeof commitNodeGraphPatch === "function") {
+        commitNodeGraphPatch(patch, {
+          markPending: false,
+          patchDirtyState: "saved",
+          record: false,
+          status: `patch saved: ${savedName}`,
+        });
+      }
+      if (typeof setNodeGraphCurrentSavedPatch === "function") {
+        setNodeGraphCurrentSavedPatch(savedName);
+      }
+      if (typeof setNodeGraphScriptStatus === "function") {
+        setNodeGraphScriptStatus(`patch saved: ${savedName}`, true);
+      }
+      return true;
+    }
+
+    // No File System Access API — download (browser chooses location).
+    nodeGraphDownloadPatchTextFile(text, filename);
+    if (typeof commitNodeGraphPatch === "function") {
+      commitNodeGraphPatch(patch, {
+        markPending: false,
+        patchDirtyState: "saved",
+        record: false,
+        status: `patch downloaded: ${filename}`,
+      });
+    }
+    if (typeof setNodeGraphCurrentSavedPatch === "function") {
+      setNodeGraphCurrentSavedPatch(filename);
+    }
+    if (typeof setNodeGraphScriptStatus === "function") {
+      setNodeGraphScriptStatus(`patch downloaded: ${filename}`, true);
+    }
+    return true;
+  } catch (error) {
+    const message = String(error?.message || error || "save failed");
+    if (typeof setNodeGraphScriptStatus === "function") {
+      setNodeGraphScriptStatus(`patch save failed: ${message}`, false);
+    }
+    return false;
+  }
+}
+
 async function saveNodeGraphScript() {
   const script = document.getElementById("nodePatchScript");
   if (script && document.activeElement !== script) {

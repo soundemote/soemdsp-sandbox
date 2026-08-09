@@ -1204,7 +1204,7 @@ const nodeGraphModuleDefinitions = (
     inputs: ["Reset"],
     outputs: ["X", "Y", "Z"],
     parameters: [
-      { key: "speed", label: "Speed", defaultValue: "1", min: "0", mid: "1", max: "8", step: "0.01" },
+      { key: "speed", label: "Speed", defaultValue: "1", min: "0", mid: "1", max: "1000", step: "0.01" },
       { key: "sigma", label: "Sigma", defaultValue: "10", min: "0", mid: "10", max: "30", step: "0.01" },
       { key: "rho", label: "Rho", defaultValue: "28", min: "0", mid: "28", max: "60", step: "0.01" },
       { key: "beta", label: "Beta", defaultValue: "2.6667", min: "0", mid: "2.6667", max: "10", step: "0.0001" },

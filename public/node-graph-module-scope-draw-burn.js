@@ -703,6 +703,21 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
     absorbNodeGraphPhosphorDrawCursorOnCanvas(canvas, endFrame);
   }
 
+  const bgHex = nodeGraphFacePlateBackground(settings);
+  nodeGraphFacePlateApplyCss(screenElement, bgHex);
+  const frozen = typeof nodeGraphModuleScopePhosphorFrozen === "function"
+    && nodeGraphModuleScopePhosphorFrozen();
+  const hasPoints = points.length > 0;
+  // Idle dark face: no residual and no new stamps → plate only (no GL ensure/step).
+  // Avoids full energy-GL work every RAF on blank/settled faces.
+  const existingEnergy = canvas._phosphorEnergyGl;
+  const energyIdle = !existingEnergy || existingEnergy.energyActive === false;
+  if (!frozen && !hasPoints && energyIdle) {
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    nodeGraphFacePlateFillCanvas(context, canvas, bgHex);
+    return true;
+  }
+
   const energyGl = nodeGraphPhosphorEnergyGlEnsure(canvas, width, height, "_phosphorEnergyGl");
   if (!energyGl) {
     return false;
@@ -729,12 +744,9 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
   const layers = nodeGraphScope2dBurnLayers(settings, dotSpace);
   const layer = layers[0] || null;
   // Multi-stop energy→color LUT from shared gradient editor.
-  const bgHex = nodeGraphFacePlateBackground(settings);
-  nodeGraphFacePlateApplyCss(screenElement, bgHex);
   nodeGraphPhosphorApplyGradientLut(energyGl, settings, "#75ebff");
 
   // Engine speed 0 (and other pause paths): never step energy — hold FBO as-is.
-  const frozen = nodeGraphModuleScopePhosphorFrozen();
   if (frozen) {
     // Present only (below). No decay, no bleed, no deposit.
   } else if (layer) {
@@ -1127,6 +1139,11 @@ function drawNodeGraphScope2dTraceLayer(context, points, dotSpace, settings) {
 function drawNodeGraphScope2dTraceItem(renderer, item, pixelRatio) {
   const buffer = item?.buffer;
   if (!buffer?.nodeGraphScopeXy || !buffer.x?.length || !buffer.y?.length) {
+    return;
+  }
+  // Pause freeze: hold face pixels. Do not re-stroke history after Clear-while-paused.
+  if (typeof nodeGraphModuleScopePhosphorFrozen === "function"
+    && nodeGraphModuleScopePhosphorFrozen()) {
     return;
   }
   renderNodeGraphModuleScopeAnalyzer(item.slot, buffer);

@@ -94,8 +94,12 @@ extern "C" void soemdsp_sine_wavetable_sample(
   const double level = maxd(0.0, safe(amplitude)) * nyquist_fade_amplitude(safeFrequency, rate);
   const double samplePhase = s.phase + safe(phaseOffsetRadians);
 
-  s.outSin = dsp_sin(samplePhase) * level;
-  s.outCos = dsp_cos(samplePhase) * level;
+  // One range-reduce + two polys (joint), not two full dsp_sin paths.
+  double sn = 0.0;
+  double cn = 0.0;
+  dsp_sin_cos(samplePhase, &sn, &cn);
+  s.outSin = sn * level;
+  s.outCos = cn * level;
 
   const double phaseIncrement = safeFrequency / rate;
   double nextPhase = s.phase + kTwoPi * phaseIncrement;

@@ -1357,6 +1357,14 @@
     // Skip only when truly idle: no fade, no bleed, no ghost hang, no mask.
     const fullyFrozen = keepFast >= 0.9999 && ghostCap <= 0.0001;
     if (fullyFrozen && bleed < 0.0001 && !useMask) {
+      // Trail≈1: residual is frozen but still count quiet frames so we stop
+      // calling into GL every RAF after a short hold (energyActive → false).
+      if (renderer.energyActive !== false) {
+        renderer.quietFrames = (renderer.quietFrames || 0) + 1;
+        if (renderer.quietFrames > 90) {
+          renderer.energyActive = false;
+        }
+      }
       return true;
     }
     // No residual and nothing depositing — skip empty full-screen passes.
@@ -1420,15 +1428,23 @@
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.bindTexture(gl.TEXTURE_2D, null);
-    // Only count quiet toward sleep when energy is actually decaying. Bleed alone
-    // must not kill residual — a long dwell with Trail=1 should keep glowing.
-    // Ghost hang extends sleep budget (PhosphorResidual.residualSleepFrames).
-    if (fade > 0 || ghostCap > 0.0001) {
+    // Count quiet frames whenever nothing is depositing (mask gain 0).
+    // Trail≈1 freezes residual (fade≈0) but still must sleep after a dwell
+    // with no new stamps — otherwise every RAF keeps full-screen stepEnergy.
+    if (!useMask) {
       renderer.quietFrames = (renderer.quietFrames || 0) + 1;
       const Residual = global.PhosphorResidual;
-      const sleepBudget = Residual && typeof Residual.residualSleepFrames === "function"
-        ? Residual.residualSleepFrames(options.ghost || 0)
-        : 240;
+      // Frozen trail: short sleep (hold image via last present until next deposit).
+      // Ghost hang: long budget so scorch is not killed early.
+      let sleepBudget = 240;
+      if (fade <= 0.0001 && ghostCap <= 0.0001) {
+        sleepBudget = 90; // ~1.5s @60fps then stop stepping frozen residual
+      } else if (Residual && typeof Residual.residualSleepFrames === "function") {
+        const ghostArg = Number.isFinite(Number(options.ghost))
+          ? Number(options.ghost)
+          : (ghostCap > 0 ? 0.45 : 0);
+        sleepBudget = Residual.residualSleepFrames(ghostArg);
+      }
       if (renderer.quietFrames > sleepBudget) {
         renderer.energyActive = false;
       }

@@ -306,6 +306,25 @@ function handleNodeGraphKeydown(event) {
     }
     return;
   }
+  // Ctrl/Cmd+S → native save dialog for the current patch (Desktop when
+  // showSaveFilePicker supports startIn). Code Screen owns Ctrl+S when focus
+  // is inside it (draft apply / metadata).
+  if (
+    (event.ctrlKey || event.metaKey)
+    && !event.shiftKey
+    && !event.altKey
+    && event.key.toLowerCase() === "s"
+  ) {
+    if (event.target?.closest?.("#nodeCodeScreenView, .node-code-screen-view")) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof saveNodeGraphPatchWithNativeDialog === "function") {
+      void saveNodeGraphPatchWithNativeDialog();
+    }
+    return;
+  }
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z" && !event.shiftKey) {
     event.preventDefault();
     undoNodeGraphPatch();

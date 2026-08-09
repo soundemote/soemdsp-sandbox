@@ -431,7 +431,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 //
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets; huge patches should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=fast-sin-turns-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -1087,8 +1087,19 @@ function setNodeGraphLiveSpeed(speed) {
       }
     }
     absorbNodeGraphModuleScopePhosphorDrawCursors();
-  } else if (clamped > 0 && typeof scheduleNodeGraphModuleScopeDraw === "function") {
-    scheduleNodeGraphModuleScopeDraw();
+  } else if (clamped > 0) {
+    // Unpause after Clear-while-paused: Instant Trace can early-out on a stale
+    // draw signature (black face, unchanged sample count). Force a full paint.
+    if (typeof nodeGraphModuleScopeState === "object" && nodeGraphModuleScopeState) {
+      try {
+        nodeGraphModuleScopeState.traceDisplayDrawCache?.clear?.();
+      } catch (_error) {
+        // Best-effort.
+      }
+    }
+    if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
+      scheduleNodeGraphModuleScopeDraw({ force: true });
+    }
   }
 }
 
@@ -2648,7 +2659,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-live-audio-worklet-dsp-state.js?v=plan-d-split-8",
   "./public/node-live-audio-worklet-events.js?v=plan-d-split-8",
   "./public/node-live-audio-worklet-visual.js?v=plan-d-split-7",
-  "./public/node-live-audio-worklet-scope-io.js?v=plan-d-split-7",
+  "./public/node-live-audio-worklet-scope-io.js?v=visual-capture-cpu-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-evaluators-sources.js?v=sinepulse-24",
   "./public/node-live-audio-worklet-evaluators-processors.js?v=pixelgrid-uc-1",

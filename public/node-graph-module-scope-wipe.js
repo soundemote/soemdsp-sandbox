@@ -261,6 +261,19 @@ function clearNodeGraphDisplaySettingsPhosphor(nodeId) {
     }
   }
 
+  // Instant Trace skips redraw when the sample signature is unchanged. Clear
+  // blacks the face without new samples — without busting this cache, unpause
+  // after Clear-while-paused early-outs as "unchanged" until Stop+Play.
+  if (typeof nodeGraphModuleScopeState === "object" && nodeGraphModuleScopeState) {
+    try {
+      nodeGraphModuleScopeState.traceDisplayDrawCache?.delete?.(id);
+      nodeGraphModuleScopeState.traceDisplayScratch?.delete?.(id);
+      nodeGraphModuleScopeState.traceDisplaySyncLocks?.delete?.(id);
+    } catch (_error) {
+      // Best-effort.
+    }
+  }
+
   // Force a draw even while paused so energy re-binds and the plate stays black.
   // Without this, pause early-outs only absorb cursors and never re-ensure GL.
   if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
