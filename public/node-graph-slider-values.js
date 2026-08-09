@@ -139,7 +139,11 @@ function shortestNodeGraphWrapDelta(from, to, min, max) {
   return delta;
 }
 
-const nodeGraphSmootherConvergenceEpsilon = 1e-7;
+// Prefer shared constant from parameter-smoother-filters.js (1e-6).
+const nodeGraphSmootherConvergenceEpsilon =
+  typeof nodeGraphParameterSmootherConvergenceEpsilon === "number"
+    ? nodeGraphParameterSmootherConvergenceEpsilon
+    : 1e-6;
 
 // Mirrors soemdsp::filter::SmootherBase::needsSmoothing() -- a settled/
 // unmodulated parameter has outputBuffer already within epsilon of
@@ -156,8 +160,12 @@ function nodeGraphOnePoleParameterLowpassSample(state, input, frequency, rate) {
   const w = Math.min((Math.PI * 2) / safeRate, 0.000142475857) * frequencyValue;
   const a1 = Math.exp(-w);
   const b0 = 1 - a1;
-  state.outputBuffer = b0 * safeInput + a1 * (Number(state.outputBuffer) || 0);
-  return state.outputBuffer;
+  let out = b0 * safeInput + a1 * (Number(state.outputBuffer) || 0);
+  if (Math.abs(out - safeInput) <= nodeGraphSmootherConvergenceEpsilon) {
+    out = safeInput;
+  }
+  state.outputBuffer = out;
+  return out;
 }
 
 function normalizeNodeGraphSmootherSignal(value, metadata = {}) {
@@ -354,10 +362,17 @@ function nodeGraphStepParameterSmootherOneSample(smoother, frames) {
   const signal = typeof nodeGraphParameterSmootherFilterSample === "function"
     ? nodeGraphParameterSmootherFilterSample(smoother, smoother.targetSignal, cutoff, rate)
     : nodeGraphOnePoleParameterLowpassSample(smoother, smoother.targetSignal, cutoff, rate);
+  // Critical: when the filter lands inside epsilon, snap domain value to the
+  // exact target. Returning needsWork===false without settle left lastValue
+  // stuck at ~0.999… (Number Readout never showed 1.00).
+  if (!nodeGraphSmootherNeedsWork(smoother)) {
+    nodeGraphSettleParameterSmoother(smoother);
+    return false;
+  }
   const value = denormalizeNodeGraphSmootherSignal(signal, smoother.metadata);
   smoother.current = value;
   smoother.lastValue = value;
-  return nodeGraphSmootherNeedsWork(smoother);
+  return true;
 }
 
 /** soemdsp SmootherManager::run + clean for offline runtime. */

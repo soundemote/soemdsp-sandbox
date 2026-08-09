@@ -105,7 +105,11 @@ NodeLiveAudioProcessor.prototype.syncNestedAutoSmoothingSeconds = function syncN
 };
 
 NodeLiveAudioProcessor.prototype.smootherNeedsWork = function smootherNeedsWork(smoother) {
-    return Math.abs((smoother.outputBuffer ?? 0) - (smoother.targetSignal ?? 0)) > 1e-7;
+    // Shared floor with main-thread smoothers (filters.js). Fallback 1e-6.
+    const eps = typeof nodeGraphParameterSmootherConvergenceEpsilon === "number"
+      ? nodeGraphParameterSmootherConvergenceEpsilon
+      : 1e-6;
+    return Math.abs((smoother.outputBuffer ?? 0) - (smoother.targetSignal ?? 0)) > eps;
 };
 
 NodeLiveAudioProcessor.prototype.settleSmoother = function settleSmoother(smoother, { snapFilter = true } = {}) {
@@ -187,10 +191,17 @@ NodeLiveAudioProcessor.prototype.stepSmootherOneSample = function stepSmootherOn
     const signal = typeof nodeGraphParameterSmootherFilterSample === "function"
       ? nodeGraphParameterSmootherFilterSample(smoother, smoother.targetSignal, cutoff, sampleRate)
       : this.onePoleLowpassSample(smoother, smoother.targetSignal, cutoff, sampleRate);
+    // When the asymptotic filter lands inside epsilon, snap domain value to the
+    // exact target. Without this, lastValue stuck at ~0.999… and deactivation
+    // skipped settle (Number Readout never showed 1.00).
+    if (!this.smootherNeedsWork(smoother)) {
+      this.settleSmoother(smoother);
+      return false;
+    }
     const value = this.normalizedSignalToParameterValue(signal, smoother.metadata);
     smoother.current = value;
     smoother.lastValue = value;
-    return this.smootherNeedsWork(smoother);
+    return true;
 };
 
 NodeLiveAudioProcessor.prototype.runActiveSmoothers = function runActiveSmoothers(frames) {

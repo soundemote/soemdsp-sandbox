@@ -206,13 +206,14 @@ const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
 const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   background: nodeGraphScopePhosphorLookDefaults.background,
   brightness: nodeGraphScopePhosphorLookDefaults.brightness,
+  // Live digit “light” — single solid color (not the residual gradient).
   color: nodeGraphScopePhosphorLookDefaults.peakColor,
-  // Residual of previous digits (same Ghost/Trail model as other phosphor faces).
+  // Residual (ghost of previous reading): Trail = deposit brightness on change;
+  // Ghost = hang of that deposited energy. Ghost is colored by gradientStops.
   ghost: nodeGraphScopePhosphorLookDefaults.ghost,
   trail: nodeGraphScopePhosphorLookDefaults.trail,
   decimals: 2,
-  // Unlit LCD segment ink (plate grid) — not the Ghost residual knob.
-  ghostColor: "#8c2981",
+  // Residual energy → color LUT (ghost only; live digits ignore this).
   gradientStops: nodeGraphScopePhosphorLookDefaults.gradientStops,
 });
 

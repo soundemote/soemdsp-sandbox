@@ -890,9 +890,12 @@ function nodeGraphTraceDisplayColorWidgetLabel(field) {
     return "Bg";
   }
   if (field === "ghostColor") {
-    return "Ghost";
+    return "Ghost ink";
   }
   if (field === "dot1Color") {
+    if (nodeGraphTraceDisplaySettingsFormType() === "numberReadout") {
+      return "Light";
+    }
     const nodeType = nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type;
     const isStereo = typeof nodeGraphModuleUsesStereoTraceDisplay === "function"
       ? nodeGraphModuleUsesStereoTraceDisplay(nodeType)

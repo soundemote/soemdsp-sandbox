@@ -780,16 +780,18 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}) {
   );
   return {
     background,
-    // 0…1 energy for live digits + residual deposit (1 = gradient tip / full white).
-    // Legacy max was 2 with paint-time /2 — that made Bright 1 look half-grey.
+    // Live digit light strength 0…1 (solid color intensity, not residual energy).
     brightness: normalizeNodeGraphTraceDisplayBrightness(
       source.brightness ?? source.dot1Brightness,
       defaults.brightness,
     ),
-    // Digits = gradient at Bright energy; unlit segments use ghostColor as-is.
-    color: peak,
-    // Residual of previous digits: Ghost = dim hang, Trail = hot path length.
-    // Legacy `decay` on number readout was already high=long (no invert).
+    // Live digit solid “light” color (independent of residual gradient).
+    color: normalizeNodeGraphTraceDisplayColor(
+      source.color ?? source.dot1Color ?? peak,
+      defaults.color ?? peak,
+    ),
+    // Residual: Trail = deposit brightness on value change; Ghost = hang of energy.
+    // Ghost is colored by sampling gradientStops at residual energy.
     ghost: (typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateGhost
       ? PhosphorResidual.migrateGhost(source, defaults.ghost ?? 0.45)
       : normalizeNodeGraphTraceDisplayNumber(source.ghost ?? source.burn, defaults.ghost ?? 0.45, 0, 1)),
@@ -797,10 +799,6 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}) {
       ? PhosphorResidual.migrateTrail(source, defaults.trail ?? 0.88, { invertLegacyDecay: false })
       : normalizeNodeGraphTraceDisplayNumber(source.trail ?? source.decay, defaults.trail ?? 0.88, 0, 1)),
     decimals: normalizeNodeGraphTraceDisplayNumber(source.decimals, defaults.decimals, 0, 8, true),
-    ghostColor: normalizeNodeGraphTraceDisplayColor(
-      source.ghostColor,
-      defaults.ghostColor,
-    ),
     gradientStops,
   };
 }

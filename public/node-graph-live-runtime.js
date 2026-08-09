@@ -2626,11 +2626,11 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-graph-stdlib/node-graph-control-bus-helpers.js?v=control-bus-1",
   "./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=param-surface-4",
   "./public/node-graph-stdlib/node-graph-seeded-rng-helpers.js?v=softpop-1",
-  "./public/node-graph-parameter-smoother-filters.js?v=two-pole-smooth-1",
+  "./public/node-graph-parameter-smoother-filters.js?v=smooth-snap-1e6",
   "./public/node-live-audio-worklet-core.js?v=plan-d-split-8",
   // Phase D: class methods extracted from core (must follow class definition).
   "./public/node-live-audio-worklet-graph.js?v=plan-d-split-5",
-  "./public/node-live-audio-worklet-smoother.js?v=mod-clamp-1",
+  "./public/node-live-audio-worklet-smoother.js?v=smooth-snap-1e6",
   "./public/node-live-audio-worklet-param-map.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-destroy.js?v=plan-d-split-6",
   "./public/node-live-audio-worklet-analog.js?v=plan-d-split-7",

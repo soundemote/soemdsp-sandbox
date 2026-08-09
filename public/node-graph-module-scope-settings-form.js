@@ -96,8 +96,8 @@ function nodeGraphDisplaySettingsColorRowMeta(key, formType = null) {
   };
   // Never a side "Color |" column — one contiguous widget row app-wide.
   let aria = base.aria || key;
-  if (formType === "numberReadout" && key === "ghostColor") {
-    aria = "Residual digit color (previous reading fade ink)";
+  if (formType === "numberReadout" && key === "dot1Color") {
+    aria = "Live digit light color (solid; residual uses the gradient)";
   } else if (formType === "numberReadout" && key === "backgroundColor") {
     aria = "LCD back plate color";
   } else if (formType === "knobFace" && key === "backgroundColor") {

@@ -7,6 +7,12 @@
 // Types: linear (instant), onePole (1P), twoPole (2P), papoulis (Π / Optimum-L).
 // linear replaces the old linearSmoothing=false checkbox.
 
+// One-pole / multi-pole smoothers asymptote toward the target and never quite
+// land. When |out − target| is within this absolute band (normalized 0…1
+// signal space), snap exactly so knobs read 1.00 and Number Readout settles.
+// 1e-6 is enough for 5–6 decimal displays without hanging forever at long τ.
+const nodeGraphParameterSmootherConvergenceEpsilon = 1e-6;
+
 const nodeGraphParameterSmootherFilterTypes = Object.freeze([
   "linear",
   "onePole",
@@ -80,11 +86,21 @@ function nodeGraphParameterSmootherFilterSample(smoother, input, cutoffHz, sampl
   );
   const impl = nodeGraphParameterSmootherFilterImpl(type);
   const state = nodeGraphEnsureParameterSmootherFilterState(smoother, type);
+  const target = Number(input) || 0;
   if (!impl) {
-    smoother.outputBuffer = Number(input) || 0;
+    smoother.outputBuffer = target;
     return smoother.outputBuffer;
   }
-  const out = impl.process(state, Number(input) || 0, Number(cutoffHz) || 0, Number(sampleRate) || 44100);
+  let out = impl.process(state, target, Number(cutoffHz) || 0, Number(sampleRate) || 44100);
+  // Precision floor: non-linear filters never hit the target; snap when close.
+  if (Math.abs(out - target) <= nodeGraphParameterSmootherConvergenceEpsilon) {
+    if (impl.snap) {
+      impl.snap(state, target);
+    } else {
+      state.outputBuffer = target;
+    }
+    out = target;
+  }
   // Keep the legacy one-pole field in sync for needsWork / settle checks.
   smoother.outputBuffer = out;
   return out;

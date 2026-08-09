@@ -141,16 +141,17 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze([]),
   }),
   numberReadout: Object.freeze({
-    // Decimals first; digit color = shared phosphor gradient (energy→color);
-    // Ghost/Trail = residual of previous digits (shared phosphor model);
-    // backgroundColor = LCD back plate; ghostColor = unlit segment ink.
+    // Live digits = solid Light color × Bright (no gradient).
+    // On value change: Trail deposits residual energy on the previous reading;
+    // that energy samples the gradient for the ghost; Ghost = energy hang.
+    // backgroundColor = LCD plate; dot1Color = live light; gradient = ghost only.
     fields: Object.freeze([
       "decimals",
       "ghost",
       "trail",
       "dot1Brightness",
     ]),
-    colors: Object.freeze(["backgroundColor", "ghostColor"]),
+    colors: Object.freeze(["backgroundColor", "dot1Color"]),
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
@@ -477,13 +478,13 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Ghost",
     inputmode: "decimal",
     id: "nodeTraceDisplayGhost",
-    title: "Dim scorched residual hang (screen burn-in). 0 = none; 1 = long low ghost. Not peak light (Bright) or hot trail length (Trail).",
+    title: "Number Readout: hang of deposited residual energy (how long the gradient ghost lingers). Other faces: dim scorched residual hang. 0 = none; 1 = long hang.",
   }),
   trail: Object.freeze({
     label: "Trail",
     inputmode: "decimal",
     id: "nodeTraceDisplayTrail",
-    title: "Main residual length. 0 = dies immediately; 1 ≈ freeze-ish hot path. Dim scorched floor is Ghost.",
+    title: "Number Readout: residual energy deposit when the reading changes (ghost brightness / gradient energy). Other faces: main residual length. 0 = weak/quick; 1 = strong/long.",
   }),
   historySeconds: Object.freeze({
     label: "History (s)",
@@ -649,8 +650,8 @@ const nodeGraphDisplaySettingsColorMeta = Object.freeze({
   }),
   ghostColor: Object.freeze({
     label: "",
-    aria: "LCD unlit segment color",
-    defaultValue: "#1a4a55",
+    aria: "Residual digit color (previous reading fade ink)",
+    defaultValue: "#8c2981",
     id: "nodeTraceDisplayGhostColor",
   }),
   dot1Color: Object.freeze({
