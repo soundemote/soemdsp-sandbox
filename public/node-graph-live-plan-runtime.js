@@ -319,9 +319,11 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
   const comparatorStates = new Map();
   const speedColorInertiaStates = new Map();
   const inertialFilterStates = new Map();
+  const airClipperStates = new Map();
   const tiltFilterStates = new Map();
   const eqFilterStates = new Map();
   const aliasSineStates = new Map();
+  const robinSinusoidStates = new Map();
   const ladderFilterStates = new Map();
   const tb303FilterStates = new Map();
   const linearEnvelopeStates = new Map();
@@ -586,6 +588,9 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     if (node.type === "inertialFilter") {
       inertialFilterStates.set(node.id, createNodeGraphStereoInertialFilterState());
     }
+    if (node.type === "airClipper" && typeof createNodeGraphAirClipperState === "function") {
+      airClipperStates.set(node.id, createNodeGraphAirClipperState());
+    }
     if (node.type === "tiltFilter") {
       tiltFilterStates.set(node.id, createNodeGraphStereoTiltFilterState());
     }
@@ -597,6 +602,9 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     }
     if (node.type === "aliasSine") {
       aliasSineStates.set(node.id, createNodeGraphAliasSineState());
+    }
+    if (node.type === "robinSinusoid" && typeof createNodeGraphRobinSinusoidState === "function") {
+      robinSinusoidStates.set(node.id, createNodeGraphRobinSinusoidState());
     }
     if (node.type === "tb303Filter") {
       tb303FilterStates.set(node.id, createNodeGraphStereoFilterState(createNodeGraphTb303FilterState));
@@ -780,9 +788,11 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     comparatorStates,
     speedColorInertiaStates,
     inertialFilterStates,
+    airClipperStates,
     tiltFilterStates,
     eqFilterStates,
     aliasSineStates,
+    robinSinusoidStates,
     graphInputConnections,
     graphLfoStates,
     ladderFilterStates,
@@ -999,6 +1009,9 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   if (!runtime.inertialFilterStates) {
     runtime.inertialFilterStates = new Map();
   }
+  if (!runtime.airClipperStates) {
+    runtime.airClipperStates = new Map();
+  }
   if (!runtime.tiltFilterStates) {
     runtime.tiltFilterStates = new Map();
   }
@@ -1010,6 +1023,9 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   }
   if (!runtime.aliasSineStates) {
     runtime.aliasSineStates = new Map();
+  }
+  if (!runtime.robinSinusoidStates) {
+    runtime.robinSinusoidStates = new Map();
   }
   if (!runtime.tb303FilterStates) {
     runtime.tb303FilterStates = new Map();
@@ -1420,6 +1436,13 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     if (node.type === "inertialFilter" && !runtime.inertialFilterStates.has(node.id)) {
       runtime.inertialFilterStates.set(node.id, createNodeGraphStereoInertialFilterState());
     }
+    if (
+      node.type === "airClipper"
+      && typeof createNodeGraphAirClipperState === "function"
+      && !runtime.airClipperStates.has(node.id)
+    ) {
+      runtime.airClipperStates.set(node.id, createNodeGraphAirClipperState());
+    }
     if (node.type === "tiltFilter" && !runtime.tiltFilterStates.has(node.id)) {
       runtime.tiltFilterStates.set(node.id, createNodeGraphStereoTiltFilterState());
     }
@@ -1431,6 +1454,13 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
     }
     if (node.type === "aliasSine" && !runtime.aliasSineStates.has(node.id)) {
       runtime.aliasSineStates.set(node.id, createNodeGraphAliasSineState());
+    }
+    if (
+      node.type === "robinSinusoid"
+      && typeof createNodeGraphRobinSinusoidState === "function"
+      && !runtime.robinSinusoidStates.has(node.id)
+    ) {
+      runtime.robinSinusoidStates.set(node.id, createNodeGraphRobinSinusoidState());
     }
     if (node.type === "clock" && !runtime.clockStates.has(node.id)) {
       runtime.clockStates.set(node.id, createNodeGraphClockState());
@@ -1897,6 +1927,13 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
       }
     }
   }
+  if (runtime.airClipperStates) {
+    for (const id of [...runtime.airClipperStates.keys()]) {
+      if (!nodeIds.has(id)) {
+        runtime.airClipperStates.delete(id);
+      }
+    }
+  }
   if (runtime.tiltFilterStates) {
     for (const id of [...runtime.tiltFilterStates.keys()]) {
       if (!nodeIds.has(id)) {
@@ -1919,6 +1956,13 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   for (const id of [...runtime.aliasSineStates.keys()]) {
     if (!nodeIds.has(id)) {
       runtime.aliasSineStates.delete(id);
+    }
+  }
+  if (runtime.robinSinusoidStates) {
+    for (const id of [...runtime.robinSinusoidStates.keys()]) {
+      if (!nodeIds.has(id)) {
+        runtime.robinSinusoidStates.delete(id);
+      }
     }
   }
   for (const id of [...runtime.tb303FilterStates.keys()]) {

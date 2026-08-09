@@ -30,6 +30,8 @@ function renderNodeGraphVisibilityMenuButton() {
   }
   const hiddenCount = [
     nodeGraphMvp.gridVisible ? 0 : 1,
+    nodeGraphMvp.gridLightVisible === false ? 1 : 0,
+    nodeGraphMvp.wireLengthsVisible === false ? 1 : 0,
     nodeGraphMvp.moduleButtonsVisible === false ? 1 : 0,
     nodeGraphMvp.moduleInterfaceControlsVisible === false ? 1 : 0,
     nodeGraphMvp.moduleOscilloscopesVisible === false ? 1 : 0,
@@ -52,22 +54,45 @@ function renderNodeGraphVisibilityMenuButton() {
   button.removeAttribute("title");
 }
 
-/** Visibility menu mark: white square = on/visible, black square = off/hidden. */
+/** Visibility menu mark: white square = default on; black square = off/hidden. */
 const nodeGraphVisibilityMarkOn = "⬜";
 const nodeGraphVisibilityMarkOff = "⬛";
+
+/**
+ * Per-item “on” glyph for the Visibility menu (off stays ⬛).
+ * Amount/Position keep the default white square.
+ */
+const nodeGraphVisibilityOnMarks = Object.freeze({
+  grid: "🗺️",
+  gridLight: "💡",
+  wireLengths: "🧬",
+  wiresAbove: "⬆️",
+  moduleButtons: "🔘",
+  displays: "📺",
+  controlSurfaces: "🔢",
+  sliders: "📊",
+  amountSlider: "⬜",
+  positionSlider: "⬜",
+  debug: "🐞",
+  tooltipsOff: "⬛",
+  tooltipsFloating: "💬",
+  tooltipsEmbedded: "📌",
+});
 
 /**
  * Label a Visibility-menu toggle without the words Show/Hide.
  * @param {HTMLElement|null} button
  * @param {boolean} enabled  true = visible/on
  * @param {string} name  short noun phrase ("Grid", "Sliders", …)
- * @param {{ labelEl?: HTMLElement|null }} [options]
+ * @param {{ labelEl?: HTMLElement|null, onMark?: string, offMark?: string }} [options]
  */
 function setNodeGraphVisibilityToggleLabel(button, enabled, name, options = {}) {
   if (!button) {
     return;
   }
-  const mark = enabled ? nodeGraphVisibilityMarkOn : nodeGraphVisibilityMarkOff;
+  const onMark = options.onMark || nodeGraphVisibilityMarkOn;
+  const offMark = options.offMark || nodeGraphVisibilityMarkOff;
+  const mark = enabled ? onMark : offMark;
   const label = `${mark} ${name}`;
   const target = options.labelEl
     || button.querySelector(":scope > .node-visibility-toggle-label, :scope > span:not(kbd)")
@@ -96,9 +121,87 @@ function renderNodeGraphGridToggle() {
   const button = document.getElementById("nodeGridToggleButton");
   const visible = Boolean(nodeGraphMvp.gridVisible);
   workspace?.classList.toggle("grid-visible", visible);
-  setNodeGraphVisibilityToggleLabel(button, visible, "Grid");
+  setNodeGraphVisibilityToggleLabel(button, visible, "Grid", {
+    onMark: nodeGraphVisibilityOnMarks.grid,
+  });
   renderNodeGraphVisibilityMenuButton();
   syncNodeUserUiSettingsViewControls();
+}
+
+/** Module glow heatmap around nodes — off skips all O(modules) light rebuilds. */
+function renderNodeGraphGridLightToggle() {
+  const workspace = document.getElementById("nodeGraphWorkspace");
+  const button = document.getElementById("nodeGridLightToggleButton");
+  const visible = nodeGraphMvp.gridLightVisible !== false;
+  nodeGraphMvp.gridLightVisible = visible;
+  workspace?.classList.toggle("grid-light-visible", visible);
+  setNodeGraphVisibilityToggleLabel(button, visible, "Grid Light", {
+    onMark: nodeGraphVisibilityOnMarks.gridLight,
+  });
+  if (visible) {
+    if (typeof updateNodeGraphGridHeatmap === "function") {
+      updateNodeGraphGridHeatmap({ force: true });
+    }
+  } else {
+    const heatmap = document.getElementById("nodeGridHeatmap");
+    if (heatmap) {
+      heatmap.style.setProperty("--node-grid-heatmap", "none");
+      heatmap.style.setProperty(
+        "--node-grid-heatmap-mask",
+        "linear-gradient(transparent, transparent)",
+      );
+    }
+  }
+  renderNodeGraphVisibilityMenuButton();
+  if (typeof syncNodeUserUiSettingsViewControls === "function") {
+    syncNodeUserUiSettingsViewControls();
+  }
+}
+
+function toggleNodeGraphGridLightVisibility() {
+  nodeGraphMvp.gridLightVisible = !(nodeGraphMvp.gridLightVisible !== false);
+  renderNodeGraphGridLightToggle();
+  if (typeof setNodeInteractionHelp === "function") {
+    setNodeInteractionHelp(
+      nodeGraphMvp.gridLightVisible !== false
+        ? "Grid light on."
+        : "Grid light off (faster pan / less GPU style work).",
+    );
+  }
+}
+
+/**
+ * Cable stroke paths on/off. When off, only jack endpoint dots draw
+ * (hit targets stay so wires remain selectable).
+ */
+function renderNodeGraphWireLengthsToggle() {
+  const workspace = document.getElementById("nodeGraphWorkspace");
+  const button = document.getElementById("nodeWireLengthsToggleButton");
+  const visible = nodeGraphMvp.wireLengthsVisible !== false;
+  nodeGraphMvp.wireLengthsVisible = visible;
+  workspace?.classList.toggle("wire-lengths-hidden", !visible);
+  setNodeGraphVisibilityToggleLabel(button, visible, "Wire Lengths", {
+    onMark: nodeGraphVisibilityOnMarks.wireLengths,
+  });
+  if (typeof drawNodeGraphWires === "function") {
+    drawNodeGraphWires();
+  }
+  renderNodeGraphVisibilityMenuButton();
+  if (typeof syncNodeUserUiSettingsViewControls === "function") {
+    syncNodeUserUiSettingsViewControls();
+  }
+}
+
+function toggleNodeGraphWireLengthsVisibility() {
+  nodeGraphMvp.wireLengthsVisible = !(nodeGraphMvp.wireLengthsVisible !== false);
+  renderNodeGraphWireLengthsToggle();
+  if (typeof setNodeInteractionHelp === "function") {
+    setNodeInteractionHelp(
+      nodeGraphMvp.wireLengthsVisible !== false
+        ? "Wire lengths shown."
+        : "Wire lengths hidden (dots only).",
+    );
+  }
 }
 
 /** Cable strokes under modules (default) or above faces (Visibility toggle). */
@@ -107,13 +210,9 @@ function renderNodeGraphWiresAboveModulesToggle() {
   const button = document.getElementById("nodeWiresAboveModulesToggleButton");
   const above = Boolean(nodeGraphMvp.wiresAboveModules);
   workspace?.classList.toggle("wires-above-modules", above);
-  if (button) {
-    button.textContent = above ? "Wires Under Modules" : "Wires Above Modules";
-    button.setAttribute("aria-pressed", above ? "true" : "false");
-    button.title = above
-      ? "Cable strokes paint above module faces"
-      : "Cable strokes paint under modules (contact plugs stay on top)";
-  }
+  setNodeGraphVisibilityToggleLabel(button, above, "Wires Above Modules", {
+    onMark: nodeGraphVisibilityOnMarks.wiresAbove,
+  });
   if (typeof drawNodeGraphWires === "function") {
     drawNodeGraphWires();
   }
@@ -143,8 +242,12 @@ function renderNodeGraphSliderVisibilityToggles() {
   const positionVisible = Boolean(nodeGraphMvp.sliderPositionVisible);
   workspace?.classList.toggle("show-slider-amount", amountVisible);
   workspace?.classList.toggle("hide-slider-position", !positionVisible);
-  setNodeGraphVisibilityToggleLabel(amountButton, amountVisible, "Amount Slider");
-  setNodeGraphVisibilityToggleLabel(positionButton, positionVisible, "Position Slider");
+  setNodeGraphVisibilityToggleLabel(amountButton, amountVisible, "Amount Slider", {
+    onMark: nodeGraphVisibilityOnMarks.amountSlider,
+  });
+  setNodeGraphVisibilityToggleLabel(positionButton, positionVisible, "Position Slider", {
+    onMark: nodeGraphVisibilityOnMarks.positionSlider,
+  });
   renderNodeGraphVisibilityMenuButton();
   syncNodeUserUiSettingsViewControls();
 }
@@ -205,10 +308,18 @@ function renderNodeGraphModuleVisibilityToggles() {
       syncNodeGraphLayoutBNoParamsClass(element, patchNode.type, effectiveUi);
     }
   }
-  setNodeGraphVisibilityToggleLabel(buttonsButton, buttonsVisible, "Module Buttons");
-  setNodeGraphVisibilityToggleLabel(scopesButton, scopesVisible, "Displays");
-  setNodeGraphVisibilityToggleLabel(interfaceControlsButton, interfaceControlsVisible, "Control Surfaces");
-  setNodeGraphVisibilityToggleLabel(slidersButton, slidersVisible, "Sliders");
+  setNodeGraphVisibilityToggleLabel(buttonsButton, buttonsVisible, "Module Buttons", {
+    onMark: nodeGraphVisibilityOnMarks.moduleButtons,
+  });
+  setNodeGraphVisibilityToggleLabel(scopesButton, scopesVisible, "Displays", {
+    onMark: nodeGraphVisibilityOnMarks.displays,
+  });
+  setNodeGraphVisibilityToggleLabel(interfaceControlsButton, interfaceControlsVisible, "Control Surfaces", {
+    onMark: nodeGraphVisibilityOnMarks.controlSurfaces,
+  });
+  setNodeGraphVisibilityToggleLabel(slidersButton, slidersVisible, "Sliders", {
+    onMark: nodeGraphVisibilityOnMarks.sliders,
+  });
   if (!scopesVisible && typeof closeNodeScopeContextMenu === "function") {
     closeNodeScopeContextMenu();
   }
@@ -695,7 +806,9 @@ function renderNodeGraphKeyboardDebugToggle() {
       evidence.setAttribute("aria-pressed", "false");
     }
   }
-  setNodeGraphVisibilityToggleLabel(button, visible, "Debug");
+  setNodeGraphVisibilityToggleLabel(button, visible, "Debug", {
+    onMark: nodeGraphVisibilityOnMarks.debug,
+  });
   renderNodeGraphVisibilityMenuButton();
 }
 
@@ -715,7 +828,9 @@ function hideNodeGraphDebugChrome() {
       evidence.setAttribute("aria-pressed", "false");
     }
     const button = document.getElementById("nodeKeyboardDebugToggleButton");
-    setNodeGraphVisibilityToggleLabel(button, false, "Debug");
+    setNodeGraphVisibilityToggleLabel(button, false, "Debug", {
+      onMark: nodeGraphVisibilityOnMarks.debug,
+    });
   }
 }
 
@@ -723,8 +838,13 @@ function hideNodeGraphDebugChrome() {
 function setNodeGraphVisibilityMenuOpen(open) {
   const menu = document.getElementById("nodeVisibilityMenu");
   if (menu) {
+    // Already open: activation only — raise + glow. Never re-home.
     if (open && !menu.hidden) {
-      pulseNodeGraphFloatingWindowAttention(menu);
+      if (typeof pulseNodeGraphFloatingWindowAttention === "function") {
+        pulseNodeGraphFloatingWindowAttention(menu);
+      } else if (typeof raiseNodeGraphFloatingWindow === "function") {
+        raiseNodeGraphFloatingWindow(menu);
+      }
       if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
         noteNodeGraphUnifiedWindowOpened("visibilityMenu", menu);
       }
@@ -736,19 +856,23 @@ function setNodeGraphVisibilityMenuOpen(open) {
       applyNodeGraphVisibilityMenuSize(nodeGraphMvp.workspaceWindowStates?.visibilityMenu?.size);
       const pending = nodeGraphMvp._unifiedWindowPendingPosition;
       if (pending && Number.isFinite(Number(pending.left)) && Number.isFinite(Number(pending.top))) {
+        // Unified-nav seat handoff only (explicit shared geometry).
         if (typeof setNodeGraphFloatingWindowViewportPosition === "function") {
           setNodeGraphFloatingWindowViewportPosition(menu, pending.left, pending.top);
         } else {
           menu.style.left = `${Math.round(pending.left)}px`;
           menu.style.top = `${Math.round(pending.top)}px`;
+          menu.style.right = "auto";
+        }
+        if (typeof raiseNodeGraphFloatingWindow === "function") {
+          raiseNodeGraphFloatingWindow(menu);
         }
         if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
           rememberNodeGraphWorkspaceWindowState("visibilityMenu", menu, { open: true }, { status: false });
         }
       } else {
-        openNodeGraphFloatingWindowAtPosition("visibilityMenu", menu, () => {
-          positionNodeGraphVisibilityMenuNearButton(menu);
-        });
+        // Restore saved seat / lock CSS default — no spawn-at-button.
+        openNodeGraphFloatingWindowAtPosition("visibilityMenu", menu);
       }
       if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
         noteNodeGraphUnifiedWindowOpened("visibilityMenu", menu);
@@ -759,39 +883,6 @@ function setNodeGraphVisibilityMenuOpen(open) {
     rememberNodeGraphWorkspaceWindowState("visibilityMenu", menu, { open: Boolean(open) }, { status: false });
   }
   renderNodeGraphVisibilityMenuButton();
-}
-
-function positionNodeGraphVisibilityMenuNearButton(menu = document.getElementById("nodeVisibilityMenu")) {
-  const button = document.getElementById("nodeVisibilityMenuButton");
-  if (!menu) {
-    return;
-  }
-  if (!button) {
-    const menuRect = menu.getBoundingClientRect();
-    positionNodeGraphVisibilityMenu(
-      menu,
-      (window.innerWidth - menuRect.width) * 0.5,
-      (window.innerHeight - menuRect.height) * 0.25,
-    );
-    return;
-  }
-  const rect = button.getBoundingClientRect();
-  menu.hidden = false;
-  const menuRect = menu.getBoundingClientRect();
-  positionNodeGraphVisibilityMenu(menu, rect.right - menuRect.width, rect.bottom + 8);
-}
-
-function positionNodeGraphVisibilityMenu(menu, x, y) {
-  if (!menu) {
-    return;
-  }
-  menu.style.position = "fixed";
-  const rect = menu.getBoundingClientRect();
-  const { left, top } = nodeGraphFloatingWindowPosition(menu, x, y, {
-    visibleWidth: rect.width,
-    visibleHeight: rect.height,
-  });
-  setNodeGraphFloatingWindowViewportPosition(menu, left, top);
 }
 
 function nodeGraphVisibilityMenuMinimumSize(menu = document.getElementById("nodeVisibilityMenu")) {
@@ -1290,18 +1381,36 @@ function renderNodeGraphTooltipWindowToggle() {
   const button = document.getElementById("nodeTooltipToggleButton");
   const mode = nodeGraphTooltipMode();
   if (button) {
+    const mark = mode === "embedded"
+      ? nodeGraphVisibilityOnMarks.tooltipsEmbedded
+      : mode === "float"
+        ? nodeGraphVisibilityOnMarks.tooltipsFloating
+        : nodeGraphVisibilityOnMarks.tooltipsOff;
+    const name = mode === "embedded"
+      ? "Tooltips embedded"
+      : mode === "float"
+        ? "Tooltips floating"
+        : "Tooltips off";
+    const text = `${mark} ${name}`;
     const label =
       button.querySelector(".node-tooltip-mode-label") ||
       button.querySelector(".scene-context-window-button-label");
     if (label) {
-      label.textContent =
-        mode === "embedded" ? "Tooltips embedded" : mode === "float" ? "Tooltips floating" : "Tooltips off";
+      label.textContent = text;
     } else if (!button.querySelector("kbd") && button.childElementCount === 0) {
-      button.textContent =
-        mode === "embedded" ? "Tooltips embedded" : mode === "float" ? "Tooltips floating" : "Tooltips off";
+      button.textContent = text;
+    } else {
+      let span = button.querySelector(":scope > span:not(kbd)");
+      if (!span) {
+        span = document.createElement("span");
+        span.className = "node-tooltip-mode-label";
+        button.insertBefore(span, button.firstChild);
+      }
+      span.textContent = text;
     }
     button.dataset.tooltipMode = mode;
     button.setAttribute("aria-pressed", mode === "off" ? "false" : "true");
+    button.setAttribute("aria-label", name);
     button.removeAttribute("title");
   }
   renderNodeGraphVisibilityMenuButton();

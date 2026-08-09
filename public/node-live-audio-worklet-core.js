@@ -261,6 +261,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.sampleDelayStates = new Map();
     this.minMaxStates = new Map();
     this.aliasSineStates = new Map();
+    this.robinSinusoidStates = new Map();
     this.ladderFilterStates = new Map();
     this.tb303FilterStates = new Map();
     this.linearEnvelopeStates = new Map();
@@ -328,6 +329,7 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     // (Rate mode). Advanced once per evaluateFrame call.
     this.absoluteFrame = 0;
     this.slewLimiterStates = new Map();
+    this.airClipperStates = new Map();
     this.smoothers = new Map();
     // Dirty list (soemdsp SmootherManager::toSmooth_): only moving chases run.
     this.activeSmoothers = [];

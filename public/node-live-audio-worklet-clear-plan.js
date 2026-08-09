@@ -175,6 +175,7 @@ NodeLiveAudioProcessor.prototype.clearPlan = function clearPlan() {
       this.destroyMinMaxNativeState(state);
     }
     this.minMaxStates = new Map();
+    this.robinSinusoidStates = new Map();
     for (const state of this.aliasSineStates.values()) {
       this.destroyAliasSineNativeState(state);
     }
@@ -262,6 +263,7 @@ NodeLiveAudioProcessor.prototype.clearPlan = function clearPlan() {
       this.destroyStereoFilterNativeState(bundle, (s) => this.destroySlewLimiterNativeState(s));
     }
     this.slewLimiterStates = new Map();
+    this.airClipperStates = new Map();
     this.scopeBuffers = new Map();
     this.scopeCounter = 0;
     this.destroyAllPapoulisParameterSmootherNativeStates?.();

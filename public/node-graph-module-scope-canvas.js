@@ -2,7 +2,14 @@
 // Load after scopes.js (+ lifecycle). Extract-only.
 
 function nodeGraphModuleScopeBuffersCurrent() {
-  if (nodeGraphModuleScopeHasModelDisplay()) {
+  // Model displays used to report "current" with empty buffers so offline
+  // clocks/oscillators could animate without live capture. That kept the
+  // draw path alive after Stop. While paused/stopped, require real buffers
+  // (or force) — force is handled by callers that skip this check.
+  if (
+    nodeGraphModuleScopeHasModelDisplay()
+    && (typeof nodeGraphModuleScopePaused !== "function" || !nodeGraphModuleScopePaused())
+  ) {
     return true;
   }
   if (!nodeGraphModuleScopeState.buffers.size) {

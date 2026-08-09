@@ -123,6 +123,17 @@ function drawNodeGraphModuleScopes(options = {}) {
     markNodeGraphModuleScopeDebugSkip("no-drawable-slots");
     return;
   }
+  // Hard idle when transport/engine is paused or stopped — before canvas sync,
+  // setScopesEnabled, or getBoundingClientRect. HasModelDisplay used to keep
+  // offline clocks/oscillators drawing through Stop, which forced layout on
+  // every wire redraw / slot register and made stop-mode FPS collapse.
+  // force=true still runs (Clear / cold-plate rebind).
+  if (nodeGraphModuleScopePaused() && !force) {
+    absorbNodeGraphModuleScopePhosphorDrawCursors();
+    nodeGraphModuleScopeState.animationLastTime = (performance.now?.() || Date.now()) / 1000;
+    markNodeGraphModuleScopeDebugSkip("paused");
+    return;
+  }
   if (!canvas || !workspace || !nodeGraphModuleScopeBuffersCurrent()) {
     markNodeGraphModuleScopeDebugSkip(!canvas ? "no-canvas" : !workspace ? "no-workspace" : "stale-buffers");
     return;
@@ -163,16 +174,6 @@ function drawNodeGraphModuleScopes(options = {}) {
   }
   nodeGraphModuleScopeState.scopeTracesOffActive = false;
   const scopePaused = nodeGraphModuleScopePaused();
-  // force=true (Display Settings → Clear): still run a frame so faces re-ensure
-  // energy GL / cold plate. Individual phosphor draws stay frozen (no deposit).
-  if (scopePaused && !nodeGraphModuleScopeHasModelDisplay() && !force) {
-    // Phosphor freeze: hold face pixels, stop decay/deposit, absorb sample cursors
-    // so unpause does not stamp a backlog onto the frozen image.
-    absorbNodeGraphModuleScopePhosphorDrawCursors();
-    nodeGraphModuleScopeState.animationLastTime = (performance.now?.() || Date.now()) / 1000;
-    markNodeGraphModuleScopeDebugSkip("paused");
-    return;
-  }
   const animationTime = (performance.now?.() || Date.now()) / 1000;
   const previousAnimationTime = Number(nodeGraphModuleScopeState.animationLastTime) || animationTime;
   nodeGraphModuleScopeState.animationDeltaSeconds = clampNodeSliderValue(
@@ -317,6 +318,15 @@ function drawNodeGraphModuleScopes(options = {}) {
     scheduleNodeGraphModuleScopeDraw();
   } else {
     setNodeGraphModuleScopeDebugPhase("idle");
+    // Stop (engine off): kill the 100ms heartbeat after a forced Clear frame so
+    // Stop stays idle. Pause-with-live keeps heartbeat for phosphor absorb.
+    if (
+      scopePaused
+      && typeof nodeGraphModuleScopeCircuitRunning === "function"
+      && !nodeGraphModuleScopeCircuitRunning()
+    ) {
+      setNodeGraphModuleScopesEnabled(false);
+    }
   }
 }
 
@@ -333,10 +343,10 @@ function scheduleNodeGraphModuleScopeDraw(options = {}) {
     markNodeGraphModuleScopeDebugSkip("traces-off");
     return;
   }
-  // Pause normally only absorbs cursors (hold residual). Force=true after Clear
-  // so energy rebinds and the cold plate sticks even while frozen.
-  if (nodeGraphModuleScopePaused() && !nodeGraphModuleScopeHasModelDisplay() && !force) {
-    // Keep cursors current while frozen (no full redraw / no decay).
+  // Pause/stop: never queue a full draw. Force=true after Clear so energy
+  // rebinds and the cold plate sticks even while frozen. Model displays used
+  // to bypass this and keep RAF + layout thrashing after Stop.
+  if (nodeGraphModuleScopePaused() && !force) {
     absorbNodeGraphModuleScopePhosphorDrawCursors();
     return;
   }

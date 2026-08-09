@@ -242,6 +242,8 @@ function nodeGraphModuleFrameCollectGaps(nodeElement, width, height, nodeRect) {
 /**
  * Build the gapped frame path. `outset` > 0 places the stroke outside the
  * plate (breathing room outside the edge). Side edges open gaps at jacks.
+ * Corners: round the top edge only; bottom corners are always square
+ * (selected and unselected).
  */
 function nodeGraphModuleFrameBuildPath(width, height, radius, leftGaps, rightGaps, outset = 0) {
   // Integer layout box — must match the SVG viewBox exactly.
@@ -255,9 +257,10 @@ function nodeGraphModuleFrameBuildPath(width, height, radius, leftGaps, rightGap
   const bottom = h + s;
   const innerW = right - left;
   const innerH = bottom - top;
-  const r = Math.max(0, Math.min(Number(radius) || 0, innerW * 0.5, innerH * 0.5));
-  const edgeTop = top + r;
-  const edgeBottom = bottom - r;
+  // Top corners only — bottom stays square (rBottom = 0).
+  const rTop = Math.max(0, Math.min(Number(radius) || 0, innerW * 0.5, innerH * 0.5));
+  const edgeTop = top + rTop;
+  const edgeBottom = bottom;
   let d = "";
   // One decimal is enough; avoid float dust that walks the edge under zoom.
   const f = (n) => {
@@ -265,37 +268,35 @@ function nodeGraphModuleFrameBuildPath(width, height, radius, leftGaps, rightGap
     return Number.isInteger(v) ? String(v) : v.toFixed(1);
   };
 
-  // Top edge + top-right corner
-  d += `M ${f(left + r)} ${f(top)}`;
-  d += ` L ${f(right - r)} ${f(top)}`;
-  if (r > 0.01) {
-    d += ` A ${f(r)} ${f(r)} 0 0 1 ${f(right)} ${f(top + r)}`;
+  // Top edge + top-right corner (rounded)
+  d += `M ${f(left + rTop)} ${f(top)}`;
+  d += ` L ${f(right - rTop)} ${f(top)}`;
+  if (rTop > 0.01) {
+    d += ` A ${f(rTop)} ${f(rTop)} 0 0 1 ${f(right)} ${f(top + rTop)}`;
+  } else {
+    d += ` L ${f(right)} ${f(top)}`;
   }
 
-  // Right edge (top → bottom), gapped at output jacks
+  // Right edge (below top radius → bottom), gapped at output jacks
   for (const [y0, y1] of nodeGraphModuleFrameEdgeSegments(edgeTop, edgeBottom, rightGaps)) {
     d += ` M ${f(right)} ${f(y0)} L ${f(right)} ${f(y1)}`;
   }
 
-  // Bottom-right corner + bottom edge + bottom-left corner
-  d += ` M ${f(right)} ${f(bottom - r)}`;
-  if (r > 0.01) {
-    d += ` A ${f(r)} ${f(r)} 0 0 1 ${f(right - r)} ${f(bottom)}`;
-  }
-  d += ` L ${f(left + r)} ${f(bottom)}`;
-  if (r > 0.01) {
-    d += ` A ${f(r)} ${f(r)} 0 0 1 ${f(left)} ${f(bottom - r)}`;
-  }
+  // Bottom-right → bottom edge → bottom-left (square corners, no arcs)
+  d += ` M ${f(right)} ${f(bottom)}`;
+  d += ` L ${f(left)} ${f(bottom)}`;
 
   // Left edge
   for (const [y0, y1] of nodeGraphModuleFrameEdgeSegments(edgeTop, edgeBottom, leftGaps)) {
     d += ` M ${f(left)} ${f(y0)} L ${f(left)} ${f(y1)}`;
   }
 
-  // Top-left corner
-  d += ` M ${f(left)} ${f(top + r)}`;
-  if (r > 0.01) {
-    d += ` A ${f(r)} ${f(r)} 0 0 1 ${f(left + r)} ${f(top)}`;
+  // Top-left corner (rounded)
+  d += ` M ${f(left)} ${f(top + rTop)}`;
+  if (rTop > 0.01) {
+    d += ` A ${f(rTop)} ${f(rTop)} 0 0 1 ${f(left + rTop)} ${f(top)}`;
+  } else {
+    d += ` L ${f(left)} ${f(top)}`;
   }
 
   return d;
@@ -353,8 +354,8 @@ function nodeGraphModuleFrameGridSizePx(nodeElement) {
 }
 
 function nodeGraphModuleFrameRadiusPx(nodeElement) {
-  // Stroke-only corner radius (plate fill stays square via roundness-ratio).
-  // Selected modules use a dedicated rounded stroke radius.
+  // Stroke-only TOP corner radius (bottom corners are always square in the path).
+  // Selected modules use a dedicated rounded top-edge stroke radius.
   const cs = getComputedStyle(nodeElement);
   const grid = nodeGraphModuleFrameGridSizePx(nodeElement);
   const selected = nodeElement.classList?.contains("selected");
@@ -364,7 +365,7 @@ function nodeGraphModuleFrameRadiusPx(nodeElement) {
       cs.getPropertyValue("--node-module-selected-frame-radius"),
       grid * 0.5,
     );
-    // Always show clear rounding when selected (min ~8px at default grid).
+    // Always show clear top rounding when selected (min ~8px at default grid).
     return Math.max(selectedPx, grid * 0.35, 8);
   }
   const framePx = nodeGraphModuleFrameResolveCssPx(

@@ -551,6 +551,10 @@ function drawNodeGraphWires(options = {}) {
   if (options.skipHeatmap !== true && typeof updateNodeGraphGridHeatmap === "function") {
     updateNodeGraphGridHeatmap();
   }
+  // Batch jack geometry for this redraw (shared Map + one surface rect).
+  if (typeof nodeGraphPortCenterCacheBegin === "function") {
+    nodeGraphPortCenterCacheBegin();
+  }
   // Lite (gesture) path reuses a plan cache; full draws always recompile so
   // wire/feedback state stays correct after patch edits of the same size.
   let plan = null;
@@ -565,6 +569,9 @@ function drawNodeGraphWires(options = {}) {
       : null;
   }
   if (!plan) {
+    if (typeof nodeGraphPortCenterCacheEnd === "function") {
+      nodeGraphPortCenterCacheEnd();
+    }
     return;
   }
   const feedbackSets = nodeGraphFeedbackIdentitySets(plan);
@@ -669,8 +676,17 @@ function drawNodeGraphWires(options = {}) {
   if (!skipSelection && typeof renderNodeGraphSelection === "function") {
     renderNodeGraphSelection();
   }
-  if (!skipScopes && typeof scheduleNodeGraphModuleScopeDraw === "function") {
+  // Skip scope redraw while stopped/paused — wire geometry does not need a
+  // full module-scope pass (that path does getBoundingClientRect per face).
+  if (
+    !skipScopes
+    && typeof scheduleNodeGraphModuleScopeDraw === "function"
+    && (typeof nodeGraphModuleScopePaused !== "function" || !nodeGraphModuleScopePaused())
+  ) {
     scheduleNodeGraphModuleScopeDraw();
+  }
+  if (typeof nodeGraphPortCenterCacheEnd === "function") {
+    nodeGraphPortCenterCacheEnd();
   }
 }
 

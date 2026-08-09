@@ -274,7 +274,7 @@ function fitNodeGraphFloatingWindowsToViewport() {
     {
       id: "nodeParameterMetadataPopover",
       apply: typeof applyNodeMetadataPopoverSize === "function" ? applyNodeMetadataPopoverSize : null,
-      defaults: { minWidth: 140, minHeight: 120 },
+      defaults: { minWidth: 140, minHeight: 220 },
     },
     {
       id: "nodeTraceDisplaySettingsPopover",

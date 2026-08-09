@@ -46,7 +46,8 @@ const nodeGraphModuleHeightLimits = Object.freeze({
 });
 
 // App-wide display-area policy: resizable display 1…60 gu (LayoutA + LayoutB).
-// 1gu is the universal minimum for every module face / shell display height.
+// EVERY face (scopes, filter curves, LayoutB shells, custom UIs) must honor
+// minGu: 1 — never inflate CSS rows (e.g. no 1.5× scope height) past this floor.
 const nodeGraphModuleDisplayHeightLimits = Object.freeze({
   maxGu: 60,
   minGu: 1,
@@ -117,12 +118,18 @@ function nodeGraphModuleTypeHasCustomDisplayArea(type) {
   }
   const layout = definition?.layout;
   // LayoutA status faces (BADVAL, …) and LayoutB faces that own the display row.
+  // filterCurve / envelopeCurve / pulseCurve / wallRoomDisplay are control
+  // surfaces (crossover lines, filter magnitude, …) — not hideable scopes.
   return layout === "graph"
     || layout === "sliderWidget"
     || layout === "badvalMonitor"
     || layout === "pitchQuantizer"
     || layout === "asciiscope"
-    || layout === "macroControls";
+    || layout === "macroControls"
+    || layout === "filterCurve"
+    || layout === "envelopeCurve"
+    || layout === "pulseCurve"
+    || layout === "wallRoomDisplay";
 }
 
 function nodeGraphModuleTypeHasHideableOscilloscope(type) {
@@ -699,6 +706,8 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
     ];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "filterCurve") {
+    // LayoutA stack: header | face (display gu) | IO under | params.
+    // Crossovers stay LayoutA so many band outs do not inflate the face height.
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
       { id: "curve", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
@@ -773,7 +782,10 @@ function nodeGraphModuleGridHeightUnits(type) {
 }
 
 /**
- * Content height only (no clearance). LayoutB: optional title + shell + sliders + inset.
+ * Content height only (no clearance). LayoutB stack:
+ *   [header/title] + shell (face + side ports) + param rows + inset
+ * Shell already absorbs side-port column height — do NOT add a separate IO
+ * track under the face (that is LayoutA). Display and sliders each own space.
  * Clearance is applied via nodeGraphModuleHeightWithBottomClearance when params exist.
  */
 function nodeGraphLayoutBContentHeightGu(type, ui = {}, { compact = false } = {}) {
@@ -782,14 +794,10 @@ function nodeGraphLayoutBContentHeightGu(type, ui = {}, { compact = false } = {}
   const sliderGu = rows > 0
     ? rows * nodeGraphModuleLayout.sliderRowHeightGu
     : 0;
-  // Headerless LayoutB may still show a title bar when titleHidden is false.
-  const headerGu = (
-    typeof nodeGraphModuleIsHeaderlessLayoutB === "function"
-    && nodeGraphModuleIsHeaderlessLayoutB(type)
-  )
-    ? nodeGraphModuleHeaderHeightUnits(ui, type)
-    : 0;
-  // No slider band: content is shell only (no empty bottom lip / inset pad).
+  // Headered LayoutB (crossover, graph, …) and headerless-with-title both use
+  // the shared header height helper (0 when title/buttons fully hidden).
+  const headerGu = nodeGraphModuleHeaderHeightUnits(ui, type);
+  // No slider band: content is header + shell only (no empty bottom lip / inset).
   if (sliderGu <= 0) {
     return headerGu + shellGu;
   }
@@ -814,30 +822,29 @@ function nodeGraphLayoutBGridHeightUnits(type, ui = {}, { compact = false } = {}
 const nodeGraphSolidModuleGridHeightUnits = nodeGraphLayoutBGridHeightUnits;
 
 function nodeGraphModuleGridHeightUnitsForUi(type, ui = {}) {
-  // Chromeless: LayoutB uses shell+sliders; LayoutA uses the full header/face/IO/params stack
-  // (Soft Fractal multi-out). Do not size LayoutA chromeless as face-only — that stacks
-  // jacks and sliders into the display height and they overlap.
+  // Any LayoutB module (crossover filter-curve, graph, chromeless, knob, …):
+  // header + shell (face | ports) + sliders. Never use LayoutA's "face + IO under
+  // + params" stack — that under-allocates and overlaps display with sliders.
+  if (typeof nodeGraphModuleUsesLayoutB === "function" && nodeGraphModuleUsesLayoutB(type)) {
+    if (
+      nodeGraphChromelessModuleLayouts.has(nodeGraphModuleDefinitions[type]?.layout)
+      && nodeGraphChromelessModuleIsCompactTile(type)
+    ) {
+      return nodeGraphLayoutBGridHeightUnits(type, ui, { compact: true });
+    }
+    return nodeGraphLayoutBGridHeightUnits(type, ui);
+  }
+  // Chromeless LayoutA: full header/face/IO/params stack.
   if (nodeGraphChromelessModuleLayouts.has(nodeGraphModuleDefinitions[type]?.layout)) {
     if (nodeGraphChromelessModuleIsCompactTile(type)) {
-      if (typeof nodeGraphModuleUsesLayoutB === "function" && nodeGraphModuleUsesLayoutB(type)) {
-        return nodeGraphLayoutBGridHeightUnits(type, ui, { compact: true });
-      }
       return nodeGraphModuleSizingCapabilities(type).displayHeight
         ? nodeGraphModuleConfiguredDisplayHeightUnits(type, ui)
         : 1;
     }
-    if (typeof nodeGraphModuleUsesLayoutB === "function" && nodeGraphModuleUsesLayoutB(type)) {
-      return nodeGraphLayoutBGridHeightUnits(type, ui);
-    }
-    // LayoutA chromeless (ports under face + param rows): same math as ordinary LayoutA.
     const layoutAContentGu = nodeGraphModuleRequiredHeightUnitsForUi(type, ui);
     return nodeGraphModuleHeightWithBottomClearance(layoutAContentGu);
   }
-  // Headerless LayoutB (knob, etc.).
-  if (typeof nodeGraphModuleIsHeaderlessLayoutB === "function" && nodeGraphModuleIsHeaderlessLayoutB(type)) {
-    return nodeGraphLayoutBGridHeightUnits(type, ui);
-  }
-  // LayoutA + headered modules: content widgets only, then same clearance rule.
+  // LayoutA headered modules: content widgets only, then same clearance rule.
   const contentGu = nodeGraphModuleRequiredHeightUnitsForUi(type, ui);
   return nodeGraphModuleHeightWithBottomClearance(contentGu);
 }

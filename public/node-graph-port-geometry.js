@@ -137,10 +137,44 @@ function markNodeGraphGraphInputPortConnected(node, graphInput) {
     ?.classList.add("connected-port");
 }
 
+/**
+ * One-frame cache for jack centers during a full wire redraw. Each connection
+ * otherwise redoes querySelector + getBoundingClientRect (+ getComputedStyle
+ * for patch-point CSS) — O(wires × ports) layout thrash that made every pan
+ * settle / full wire pass feel proportional to module count.
+ */
+function nodeGraphPortCenterCacheBegin() {
+  if (typeof nodeGraphMvp !== "object" || !nodeGraphMvp) {
+    return;
+  }
+  nodeGraphMvp._portCenterFrameCache = new Map();
+  // Surface client rect shared for client→surface conversion this frame.
+  const surface = typeof nodeGraphZoomSurface === "function" ? nodeGraphZoomSurface() : null;
+  nodeGraphMvp._portCenterSurfaceRect = surface?.getBoundingClientRect?.() || null;
+  nodeGraphMvp._portCenterSurfaceScale = typeof nodeGraphZoomSurfaceClientScale === "function"
+    ? nodeGraphZoomSurfaceClientScale(surface)
+    : { x: 1, y: 1 };
+}
+
+function nodeGraphPortCenterCacheEnd() {
+  if (typeof nodeGraphMvp !== "object" || !nodeGraphMvp) {
+    return;
+  }
+  nodeGraphMvp._portCenterFrameCache = null;
+  nodeGraphMvp._portCenterSurfaceRect = null;
+  nodeGraphMvp._portCenterSurfaceScale = null;
+}
+
 function nodeGraphPortCenter(node, port, io) {
+  const cache = typeof nodeGraphMvp === "object" ? nodeGraphMvp?._portCenterFrameCache : null;
+  const cacheKey = cache ? `${node}\0${port}\0${io}` : "";
+  if (cache?.has(cacheKey)) {
+    return cache.get(cacheKey);
+  }
   const element = nodeGraphPortElementForWireEndpoint(node, port, io);
   const laidOut = nodeGraphElementCenter(element, io);
   if (laidOut) {
+    cache?.set(cacheKey, laidOut);
     return laidOut;
   }
   // Hide In/Out: section gone — edge anchor for wire dots only.
@@ -148,8 +182,11 @@ function nodeGraphPortCenter(node, port, io) {
     (io === "input" || io === "output")
     && nodeGraphNodeSignalIoCollapsed(node)
   ) {
-    return nodeGraphIoHiddenPortFallbackCenter(node, port, io);
+    const fallback = nodeGraphIoHiddenPortFallbackCenter(node, port, io);
+    cache?.set(cacheKey, fallback);
+    return fallback;
   }
+  cache?.set(cacheKey, null);
   return null;
 }
 
@@ -174,6 +211,15 @@ function nodeGraphElementCenter(element, io = null) {
     return null;
   }
   const anchor = nodeGraphElementPatchPointClientCenter(element, io);
+  // Prefer frame-cached surface transform (wire redraw batch).
+  const surfaceRect = typeof nodeGraphMvp === "object" ? nodeGraphMvp?._portCenterSurfaceRect : null;
+  const scale = typeof nodeGraphMvp === "object" ? nodeGraphMvp?._portCenterSurfaceScale : null;
+  if (surfaceRect && scale) {
+    return {
+      x: (anchor.x - surfaceRect.left) / Math.max(0.0001, scale.x),
+      y: (anchor.y - surfaceRect.top) / Math.max(0.0001, scale.y),
+    };
+  }
   return nodeGraphClientToZoomSurfacePoint(anchor.x, anchor.y);
 }
 

@@ -27,19 +27,70 @@ function nodeGraphViewportGestureActive() {
   );
 }
 
+/** Zoom-ish gesture kinds: hide wires + port jacks while active (CSS). */
+function nodeGraphViewportGestureIsZoom(kind = "") {
+  const k = String(kind || "").toLowerCase();
+  return k === "zoom" || k === "wheel" || k === "pinch" || k === "smooth-zoom" || k === "smoothzoom";
+}
+
 /** Mark an interactive viewport gesture (wheel / pan / pinch / smooth-zoom). */
 function markNodeGraphViewportGesture(kind = "gesture") {
+  nodeGraphViewportPerf.lastGestureKind = String(kind || "gesture");
+  const workspace = document.getElementById("nodeGraphWorkspace");
+  if (!workspace) {
+    return;
+  }
+  workspace.classList.add("viewport-gesturing");
+  // Hide inlet/outlet dots + wires only while zooming (not pan) for FPS/clarity.
+  if (
+    nodeGraphViewportGestureIsZoom(kind)
+    || nodeGraphMvp?.smoothZoomDragging
+    || nodeGraphMvp?.workspacePinchZooming
+  ) {
+    workspace.classList.add("viewport-zooming");
+  }
+  // Pan / drag-zoom: lights + wires stay frozen until pointerup (no settle timer
+  // mid-drag). Wheel has no mouse-up, so only wheel schedules a settle.
   if (kind === "wheel") {
     nodeGraphViewportPerf.wheelActiveUntil = (performance.now?.() || Date.now())
       + nodeGraphViewportPerf.wheelHoldMs;
+    scheduleNodeGraphViewportSettle();
   }
-  document.getElementById("nodeGraphWorkspace")?.classList.add("viewport-gesturing");
-  scheduleNodeGraphViewportHeavyChrome();
-  scheduleNodeGraphViewportSettle();
+}
+
+/**
+ * Pointer-up end of pan / pinch / smooth-zoom: one full lights+wires pass.
+ * No debounce timer — user asked for mouse-up only.
+ */
+function flushNodeGraphViewportOnPointerUp(options = {}) {
+  if (nodeGraphViewportPerf.heavyRaf) {
+    window.cancelAnimationFrame(nodeGraphViewportPerf.heavyRaf);
+    nodeGraphViewportPerf.heavyRaf = 0;
+  }
+  if (nodeGraphViewportPerf.settleTimer) {
+    window.clearTimeout(nodeGraphViewportPerf.settleTimer);
+    nodeGraphViewportPerf.settleTimer = 0;
+  }
+  nodeGraphViewportPerf.wheelActiveUntil = 0;
+  clearNodeGraphViewportGestureClass();
+  if (typeof applyNodeGraphViewportCssLight === "function") {
+    applyNodeGraphViewportCssLight({
+      zoom: options.zoom !== false,
+      pan: options.pan !== false,
+    });
+  }
+  flushNodeGraphViewportHeavyChrome({ full: true });
+  if (options.persist !== false) {
+    scheduleNodeGraphWorkspaceViewPersist();
+  }
 }
 
 function clearNodeGraphViewportGestureClass() {
-  document.getElementById("nodeGraphWorkspace")?.classList.remove("viewport-gesturing");
+  const workspace = document.getElementById("nodeGraphWorkspace");
+  if (!workspace) {
+    return;
+  }
+  workspace.classList.remove("viewport-gesturing", "viewport-zooming");
 }
 
 /**
@@ -132,40 +183,50 @@ function invalidateNodeGraphViewportWirePlanCache() {
 }
 
 /**
- * Heavy chrome: wires + heatmap. During a gesture, skip hit paths and scopes.
- * Full fidelity on settle.
+ * Heavy chrome: wires + module lights (heatmap).
+ * During pan/zoom the surface is CSS-transformed — do not redraw lights or
+ * wires mid-gesture. full:true only (pointer-up / wheel settle / immediate).
  */
 function flushNodeGraphViewportHeavyChrome(options = {}) {
-  const full = options.full === true || !nodeGraphViewportGestureActive();
-  if (typeof updateNodeGraphGridHeatmap === "function") {
+  const gesturing = nodeGraphViewportGestureActive();
+  const full = options.full === true || !gesturing;
+  if (!full) {
+    // Frozen mid-gesture: no lights, no wires.
+    return;
+  }
+  if (
+    typeof updateNodeGraphGridHeatmap === "function"
+    && nodeGraphMvp?.gridLightVisible !== false
+  ) {
     updateNodeGraphGridHeatmap();
   }
   if (typeof drawNodeGraphWires === "function") {
     drawNodeGraphWires({
-      lite: !full,
-      // Heatmap already updated above — avoid a second layout pass.
+      lite: false,
       skipHeatmap: true,
-      skipScopes: !full,
-      skipSelection: !full,
+      skipScopes: false,
+      skipSelection: false,
     });
   }
-  if (full) {
-    if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
-      scheduleNodeGraphModuleScopeDraw();
-    }
-    if (typeof scheduleNodeGraphModuleFramesUpdate === "function") {
-      scheduleNodeGraphModuleFramesUpdate({ force: false });
-    }
+  if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
+    scheduleNodeGraphModuleScopeDraw();
+  }
+  if (typeof scheduleNodeGraphModuleFramesUpdate === "function") {
+    scheduleNodeGraphModuleFramesUpdate({ force: false });
   }
 }
 
 function scheduleNodeGraphViewportHeavyChrome() {
+  // Kept for call sites. Never rebuild lights/wires while a gesture is active.
   if (nodeGraphViewportPerf.heavyRaf) {
     return;
   }
   nodeGraphViewportPerf.heavyRaf = window.requestAnimationFrame(() => {
     nodeGraphViewportPerf.heavyRaf = 0;
-    flushNodeGraphViewportHeavyChrome({ full: false });
+    if (nodeGraphViewportGestureActive()) {
+      return;
+    }
+    flushNodeGraphViewportHeavyChrome({ full: true });
   });
 }
 

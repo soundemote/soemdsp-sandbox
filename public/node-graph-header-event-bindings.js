@@ -139,6 +139,10 @@ function bindNodeGraphHeaderControlEvents() {
     .getElementById("nodePhosphorWaveformLabelInsetInput")
     ?.addEventListener("input", handleNodeGraphPhosphorWaveformLabelInsetChange);
   document.getElementById("nodeGridToggleButton").addEventListener("click", toggleNodeGraphGridVisibility);
+  document.getElementById("nodeGridLightToggleButton")
+    ?.addEventListener("click", toggleNodeGraphGridLightVisibility);
+  document.getElementById("nodeWireLengthsToggleButton")
+    ?.addEventListener("click", toggleNodeGraphWireLengthsVisibility);
   document.getElementById("nodeWiresAboveModulesToggleButton")
     ?.addEventListener("click", toggleNodeGraphWiresAboveModules);
   document.getElementById("nodeVideoViewButton")?.addEventListener("click", toggleNodeGraphVideoView);

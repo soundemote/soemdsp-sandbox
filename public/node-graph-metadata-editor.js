@@ -64,7 +64,8 @@ const nodeMetadataPopoverDefaultSize = Object.freeze({
   height: 620,
   minWidth: 24,
   maxWidth: 900,
-  minHeight: 120,
+  /* Tall enough for heading + a few fixed-height rows; shorter = scroll, never compress. */
+  minHeight: 220,
   maxHeight: 820,
 });
 
@@ -1770,8 +1771,6 @@ function nodeGraphSmoothingModeStatusText(mode, smoothingSamples) {
   switch (mode) {
     case "global":
       return `🌍 Global — ${globalSamples} samples.`;
-    case "blockSize":
-      return "📟 Block Size — under construction 🚧";
     case "internalGlobal":
       return `🙂🌍 Internal + Global — ${internalSamples} internal + ${globalSamples} global = ${internalSamples + globalSamples} samples.`;
     case "off":
@@ -1801,11 +1800,11 @@ function syncMetadataSmoothingModeButtons(metadata = {}) {
 function nodeGraphSmoothingTypeStatusText(type) {
   switch (normalizeNodeGraphMetadataSmoothingType(type)) {
     case "linear":
-      return "L Linear — no filter; value snaps instantly.";
+      return "Linear smoothing (lerp, low cost parameter smoothing)";
     case "twoPole":
-      return "2P Two-pole — cascaded one-poles; between 1P cost and Papoulis steepness.";
+      return "2P Two-pole - cascaded one poles (more smooth and less expensive than papoulis)";
     case "papoulis":
-      return "Π Papoulis — 3rd-order Optimum-L lowpass (monotonic, steeper than one-pole).";
+      return "Π Papoulis - 3rd-order Optimum-L lowpass (most smooth but higher cpu usage)";
     case "onePole":
     default:
       return "1P One-pole — classic exponential parameter chase.";

@@ -310,13 +310,17 @@ function nodeGraphCrossoverSample(state, mono, leftIn, rightIn, freqs, lrOrder, 
 }
 
 /**
- * Band labels for UI (display face): first = Low, last = High, middles = 1..N-2.
- * e.g. 2→Low/High, 3→Low/1/High, 4→Low/1/2/High
+ * Band labels for UI (display face): first = Low, last = High.
+ * 3-way mids = Mid; 4+ mids = 1..N-2.
+ * e.g. 2→Low/High, 3→Low/Mid/High, 4→Low/1/2/High
  */
 function nodeGraphCrossoverBandNames(bandCount) {
   const n = Math.max(2, Math.min(6, Math.round(Number(bandCount) || 2)));
   if (n === 2) {
     return ["Low", "High"];
+  }
+  if (n === 3) {
+    return ["Low", "Mid", "High"];
   }
   const names = ["Low"];
   for (let i = 1; i <= n - 2; i += 1) {
@@ -328,23 +332,27 @@ function nodeGraphCrossoverBandNames(bandCount) {
 
 /**
  * Stereo outlet names for band index i (0-based).
- * Low/High → "Low L"/"Low R"; mid bands → "L1"/"R1", "L2"/"R2", …
+ * Low/High → LFL/LFR, HFL/HFR; 3-way mid → ML/MR; 4+ mids → L1/R1, L2/R2, …
  * @returns {{ L: string, R: string }}
  */
 function nodeGraphCrossoverBandPortPair(bandCount, bandIndex) {
   const n = Math.max(2, Math.min(6, Math.round(Number(bandCount) || 2)));
   const i = Math.max(0, Math.min(n - 1, Math.round(Number(bandIndex) || 0)));
   if (i === 0) {
-    return { L: "Low L", R: "Low R" };
+    return { L: "LFL", R: "LFR" };
   }
   if (i === n - 1) {
-    return { L: "High L", R: "High R" };
+    return { L: "HFL", R: "HFR" };
   }
-  // Mid band 1..N-2 → L1/R1, L2/R2, …
+  // 3-way single mid band: ML / MR (not L1/R1).
+  if (n === 3) {
+    return { L: "ML", R: "MR" };
+  }
+  // 4+ mid bands 1..N-2 → L1/R1, L2/R2, …
   return { L: `L${i}`, R: `R${i}` };
 }
 
-/** Canonical stereo outs: "Low L", "Low R", "L1", "R1", …, "High L", "High R". */
+/** Canonical stereo outs: LFL, LFR, [ML/MR | L1 R1 …], HFL, HFR. */
 function nodeGraphCrossoverOutputPorts(bandCount) {
   const n = Math.max(2, Math.min(6, Math.round(Number(bandCount) || 2)));
   const outs = [];
@@ -355,7 +363,7 @@ function nodeGraphCrossoverOutputPorts(bandCount) {
   return outs;
 }
 
-/** Map legacy port names (Left/Right, Mid, Band N, "1 L", …) → current scheme. */
+/** Map legacy port names (Low L, High R, Mid, L1, Band N, "1 L", …) → current scheme. */
 function nodeGraphCrossoverOutputAliases(bandCount) {
   const n = Math.max(2, Math.min(6, Math.round(Number(bandCount) || 2)));
   const aliases = {};
@@ -378,7 +386,7 @@ function nodeGraphCrossoverOutputAliases(bandCount) {
     aliases[`${title} R`] = R;
     aliases[`Left ${title}`] = L;
     aliases[`Right ${title}`] = R;
-    // Numeric mid: "1 L" / "L 1" → L1
+    // Numeric mid: "1 L" / "L 1" → L1 (or ML for 3-way)
     if (i > 0 && i < n - 1) {
       aliases[`${i} L`] = L;
       aliases[`${i} R`] = R;
@@ -386,12 +394,44 @@ function nodeGraphCrossoverOutputAliases(bandCount) {
       aliases[`${i} Right`] = R;
       aliases[`L ${i}`] = L;
       aliases[`R ${i}`] = R;
+      // Pre-ML scheme used L1/R1 for 3-way mid.
+      aliases[`L${i}`] = L;
+      aliases[`R${i}`] = R;
     }
     // Already-canonical names map to themselves (idempotent).
     aliases[L] = L;
     aliases[R] = R;
   }
+  // Explicit previous Low/High L·R scheme (pre-LFL rename).
+  const low = nodeGraphCrossoverBandPortPair(n, 0);
+  const high = nodeGraphCrossoverBandPortPair(n, n - 1);
+  aliases["Low L"] = low.L;
+  aliases["Low R"] = low.R;
+  aliases["Low Left"] = low.L;
+  aliases["Low Right"] = low.R;
+  aliases["High L"] = high.L;
+  aliases["High R"] = high.R;
+  aliases["High Left"] = high.L;
+  aliases["High Right"] = high.R;
+  if (n === 3) {
+    const mid = nodeGraphCrossoverBandPortPair(n, 1);
+    aliases["L1"] = mid.L;
+    aliases["R1"] = mid.R;
+    aliases["Mid L"] = mid.L;
+    aliases["Mid R"] = mid.R;
+    aliases["Mid Left"] = mid.L;
+    aliases["Mid Right"] = mid.R;
+  }
   return aliases;
+}
+
+/**
+ * Slider label for split frequency k (1-based among N-1 splits).
+ * All crossovers: "Freq L1", "Freq L2", … (2-way single also "Freq L1").
+ */
+function nodeGraphCrossoverFrequencyLabel(splitIndex1Based) {
+  const i = Math.max(1, Math.round(Number(splitIndex1Based) || 1));
+  return `Freq L${i}`;
 }
 
 function nodeGraphCrossoverDefaultFreqs(bandCount) {

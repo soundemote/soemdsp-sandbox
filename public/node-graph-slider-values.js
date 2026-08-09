@@ -5,9 +5,13 @@ const nodeSliderMinSkewExponent = 0.25;
 const nodeSliderMaxSkewExponent = 4;
 const nodeGraphAutoSmoothingDefaultSeconds = 0.5;
 
-const nodeGraphSmoothingModes = Object.freeze(["global", "blockSize", "internal", "internalGlobal", "off"]);
+const nodeGraphSmoothingModes = Object.freeze(["global", "internal", "internalGlobal", "off"]);
 
 function nodeGraphSmoothingModeNormalize(value) {
+  // blockSize UI retired; map any saved value to global.
+  if (value === "blockSize") {
+    return "global";
+  }
   return nodeGraphSmoothingModes.includes(value) ? value : "global";
 }
 

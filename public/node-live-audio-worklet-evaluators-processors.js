@@ -493,6 +493,26 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           safeRate,
         );
       },
+      // RS-MET recursive free-running sine. Math: robin-sinusoid-math.js.
+      robinSinusoid: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+        if (!this.robinSinusoidStates) {
+          this.robinSinusoidStates = new Map();
+        }
+        const state = this.robinSinusoidStates.get(nodeId) || this.createRobinSinusoidState();
+        this.robinSinusoidStates.set(nodeId, state);
+        const fHz = this.readFInputHz(mixInput, nodeId);
+        const freqKnob = this.readEffectiveParameter(node, "frequency", 440, frame, frames, frameValues);
+        const frequency = fHz != null ? fHz : freqKnob;
+        const amp = this.readEffectiveParameter(node, "amplitude", 1, frame, frames, frameValues);
+        const phaseCycle = this.readEffectiveParameter(node, "phase", 0, frame, frames, frameValues);
+        const startPhase = (Number(phaseCycle) || 0) * Math.PI * 2;
+        const resetIn = Number(mixInput(nodeId, "Reset")) || 0;
+        const resetEdge = resetIn >= 0.5 && state.resetPrev < 0.5;
+        state.resetPrev = resetIn;
+        return {
+          Out: this.robinSinusoidSample(state, frequency, amp, safeRate, startPhase, resetEdge),
+        };
+      },
       delayEffect: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         const state = this.delayEffectStates.get(nodeId) || this.createStereoDelayEffectState();
         this.delayEffectStates.set(nodeId, state);
@@ -1032,6 +1052,25 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           Left: this.nativeSoftClipperSample(mixInput(nodeId, "Left") + softClipperMono, softClipperCenter, softClipperWidth),
           Right: this.nativeSoftClipperSample(mixInput(nodeId, "Right") + softClipperMono, softClipperCenter, softClipperWidth),
         };
+      },
+      // Airwindows Density3. Math: air-clipper-math.js.
+      airClipper: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+        if (!this.airClipperStates) {
+          this.airClipperStates = new Map();
+        }
+        const state = this.airClipperStates.get(nodeId) || this.createAirClipperState();
+        this.airClipperStates.set(nodeId, state);
+        return this.airClipperFrame(
+          state,
+          mixInput(nodeId),
+          mixInput(nodeId, "Left"),
+          mixInput(nodeId, "Right"),
+          this.readEffectiveParameter(node, "density", 0, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "highpass", 0, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "output", 1, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "wet", 1, frame, frames, frameValues),
+          safeRate,
+        );
       },
       // 3D rotation → XY. Math: rotate-3d-to-2d-math.js.,
       rotate3dTo2d: (node, nodeId, frame, frames, frameValues, mixInput) =>

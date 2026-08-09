@@ -329,7 +329,15 @@ function clearNodeGraphRenderedModuleScopeBuffers() {
   if (nodeGraphModuleScopeState.mode === "live") {
     return;
   }
-  if (nodeGraphModuleScopeHasModelDisplay()) {
+  // Never start a model-mode RAF loop when the engine is stopped/paused.
+  // Offline oscillator/clock "model displays" used to schedule continuous
+  // draws after Stop / offline render and thrash main-thread FPS.
+  if (
+    typeof nodeGraphModuleScopeHasModelDisplay === "function"
+    && nodeGraphModuleScopeHasModelDisplay()
+    && typeof nodeGraphModuleScopePaused === "function"
+    && !nodeGraphModuleScopePaused()
+  ) {
     nodeGraphModuleScopeState.buffers.clear();
     nodeGraphModuleScopeState.traceDisplayDrawCache.clear();
     nodeGraphModuleScopeState.traceDisplayScratch.clear();

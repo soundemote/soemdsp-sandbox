@@ -600,22 +600,16 @@ function renderNodeUserUiSettingsControls() {
   }
 }
 
-// Mounts everything that used to live in the User UI Settings panel (view
-// toggles, module display controls, slider layout) into the UI Dev helper
-// instead, reusing the same control-factory functions so behavior/
-// persistence (data-node-ui-view-setting) is unchanged -- only where they're
-// displayed moves. Guarded by a dataset flag so repeated helper opens don't
-// duplicate the section.
+// Mounts UI Dev–only view chrome (tuning + layout) into the helper.
+// Visibility on/off toggles (Grid, Grid Light, Wire Lengths, Wires Above,
+// Displays, Sliders, Buttons, Control Surfaces, Amount/Position slider, Debug)
+// live ONLY in the Visibility menu — never duplicated here.
+// Guarded by a dataset flag so repeated helper opens don't duplicate sections.
 function renderNodeUiDevHelperViewControls() {
   const helperBody = document.querySelector(".node-ui-dev-helper-body");
   if (!helperBody || helperBody.dataset.viewControlsMounted === "true") {
     return;
   }
-  const workspaceSection = createNodeUserUiSettingsSection("workspace view", [
-    createNodeUserUiSettingsViewControl(),
-    createNodeUserUiSettingsSliderAmountControl(),
-    createNodeUserUiSettingsSliderPositionControl(),
-  ]);
   const knobSection = createNodeUserUiSettingsSection("knob style", [
     createNodeUserUiSettingsMacroKnobArcThicknessControl(),
     createNodeUserUiSettingsMacroKnobArcGapBrightnessControl(),
@@ -624,17 +618,14 @@ function renderNodeUiDevHelperViewControls() {
     createNodeUserUiSettingsMacroKnobLabelPositionControl(),
     createNodeUserUiSettingsMacroKnobValuePositionControl(),
   ]);
+  // Tuning + layout only — not the same on/off flags as Visibility.
   const moduleSection = createNodeUserUiSettingsSection("modules and nodes view", [
-    createNodeUserUiSettingsModuleButtonsControl(),
-    createNodeUserUiSettingsModuleOscilloscopeControl(),
-    createNodeUserUiSettingsModuleInterfaceControlsControl(),
     createNodeUserUiSettingsModuleScopeBrightnessControl(),
     createNodeUserUiSettingsModuleScopeLineThicknessControl(),
     createNodeUserUiSettingsModuleScopeFramesPerSecondControl(),
-    createNodeUserUiSettingsModuleSlidersControl(),
     createNodeUserUiSettingsSliderLayoutControl(),
   ]);
-  for (const section of [workspaceSection, moduleSection, knobSection]) {
+  for (const section of [moduleSection, knobSection]) {
     if (section) {
       helperBody.append(section);
     }

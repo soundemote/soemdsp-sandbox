@@ -796,7 +796,9 @@ function createNodeGraphModuleElement(type, node) {
       outputPorts,
     );
   } else if (definition.layout === "filterCurve") {
-    if (!patchNodeUi.oscilloscopeHidden) {
+    // LayoutA: face is a custom display (always on — not a hideable scope).
+    // Must stay above the plate mask (z-index:1 on .node-filter-curve-display).
+    if (typeof createNodeGraphFilterCurveDisplay === "function") {
       article.append(createNodeGraphFilterCurveDisplay(node, type));
     }
     appendNodeGraphModuleIoSection(
@@ -807,7 +809,8 @@ function createNodeGraphModuleElement(type, node) {
       outputPorts,
     );
   } else if (definition.layout === "envelopeCurve") {
-    if (!patchNodeUi.oscilloscopeHidden && typeof createNodeGraphEnvelopeCurveDisplay === "function") {
+    // Always-on control face (not hideable with Displays toggle).
+    if (typeof createNodeGraphEnvelopeCurveDisplay === "function") {
       article.append(createNodeGraphEnvelopeCurveDisplay(node, type));
     }
     appendNodeGraphModuleIoSection(

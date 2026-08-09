@@ -19,7 +19,11 @@ function registerNodeGraphModuleScopeSlot(moduleElement, options = {}) {
     bindNodeGraphModuleScopeWindowEvents(scopeElement);
   }
   nodeGraphModuleScopeState.slots.set(nodeId, slot);
-  scheduleNodeGraphModuleScopeDraw();
+  // Patch load registers many slots; don't queue a full scope pass while
+  // stopped (each schedule used to reflow every face via HasModelDisplay).
+  if (typeof nodeGraphModuleScopePaused !== "function" || !nodeGraphModuleScopePaused()) {
+    scheduleNodeGraphModuleScopeDraw();
+  }
   return slot;
 }
 

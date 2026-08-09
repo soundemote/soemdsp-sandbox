@@ -25,11 +25,16 @@ function absorbNodeGraphModuleScopePhosphorDrawCursors() {
   if (typeof nodeGraphModuleScopeSlots !== "function") {
     return;
   }
+  // Stop / empty capture: nothing to absorb — avoid rebuilding display buffers
+  // (offline gain analyzers, scope2d capture) every heartbeat while idle.
+  const bufferMap = nodeGraphModuleScopeState?.buffers;
+  if (!bufferMap || bufferMap.size === 0) {
+    return;
+  }
   for (const slot of nodeGraphModuleScopeSlots() || []) {
-    const buffer = nodeGraphModuleScopeDisplayBuffer?.(
-      slot,
-      nodeGraphModuleScopeCapturedBufferForSlot?.(slot),
-    ) || nodeGraphModuleScopeCapturedBufferForSlot?.(slot);
+    // Prefer the raw capture map only — do not call DisplayBuffer (can run
+    // expensive offline synthesizers just to read absoluteFrame).
+    const buffer = nodeGraphModuleScopeCapturedBufferForSlot?.(slot);
     const endFrame = Number(buffer?.nodeGraphScopeAbsoluteFrame);
     if (!Number.isFinite(endFrame)) {
       continue;

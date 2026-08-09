@@ -329,15 +329,34 @@
 
       // Caps always on the endpoint overlay (visible mid-jack above faces).
       // Cable stroke: under modules by default; above when Visibility toggle on.
+      // Visibility → Wire Lengths off: skip the stroke, keep dots + hit targets.
       // When stroke + disc share a layer, paint discs first then stroke so the
       // join has no AA fringe (disc-over-stroke samples a third color at edge).
       const paintSvg = visualCableSvg(svg) || svg;
       const above = paintSvg !== svg;
+      const showLength = typeof nodeGraphMvp === "undefined"
+        || nodeGraphMvp?.wireLengthsVisible !== false;
       const [fromColor, toColor] = wireColors || [null, null];
       const capClass = [
         String(pathClass).includes("inactive-wire") ? "inactive-wire" : "",
         kind === "modulation" || kind === "graph" ? "modulation" : "",
       ].filter(Boolean).join(" ");
+
+      const drawCaps = () => {
+        drawEndpointCap(svg, from, "from", stroke, capClass, {
+          endColor: fromColor,
+          gradientId,
+        });
+        drawEndpointCap(svg, to, "to", stroke, capClass, {
+          endColor: toColor,
+          gradientId,
+        });
+      };
+
+      if (!showLength) {
+        drawCaps();
+        return;
+      }
 
       const renderedPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
       renderedPath.setAttribute(
@@ -359,25 +378,11 @@
       renderedPath.style.stroke = stroke;
 
       if (above) {
-        drawEndpointCap(svg, from, "from", stroke, capClass, {
-          endColor: fromColor,
-          gradientId,
-        });
-        drawEndpointCap(svg, to, "to", stroke, capClass, {
-          endColor: toColor,
-          gradientId,
-        });
+        drawCaps();
         paintSvg.append(renderedPath);
       } else {
         paintSvg.append(renderedPath);
-        drawEndpointCap(svg, from, "from", stroke, capClass, {
-          endColor: fromColor,
-          gradientId,
-        });
-        drawEndpointCap(svg, to, "to", stroke, capClass, {
-          endColor: toColor,
-          gradientId,
-        });
+        drawCaps();
       }
     }
 

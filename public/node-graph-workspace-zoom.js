@@ -362,6 +362,9 @@ function beginNodeGraphSmoothZoomDrag(event) {
     startZoom: nodeGraphZoom(),
   };
   workspace.classList.add("smooth-zooming");
+  if (typeof markNodeGraphViewportGesture === "function") {
+    markNodeGraphViewportGesture("smooth-zoom");
+  }
   workspace.setPointerCapture(event.pointerId);
   event.preventDefault();
   event.stopPropagation();
@@ -392,8 +395,9 @@ function endNodeGraphSmoothZoomDrag(event) {
   }
   workspace?.classList.remove("smooth-zooming");
   nodeGraphMvp.smoothZoomDragging = null;
-  if (typeof scheduleNodeGraphViewportSettle === "function") {
-    scheduleNodeGraphViewportSettle();
+  // Lights once on mouse-up — frozen during the drag (no settle timer).
+  if (typeof flushNodeGraphViewportOnPointerUp === "function") {
+    flushNodeGraphViewportOnPointerUp();
   } else if (typeof flushNodeGraphViewportImmediate === "function") {
     flushNodeGraphViewportImmediate();
   }

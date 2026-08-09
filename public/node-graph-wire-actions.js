@@ -265,84 +265,110 @@ function connectNodeGraphGraphInput(sourceNode, sourcePort, destinationNode, des
  *   ab            — A  ↔  B
  */
 function nodeGraphPortPairMeta(port) {
-  const key = String(port || "").trim().toLowerCase();
+  const original = String(port || "").trim();
+  const key = original.toLowerCase();
   if (!key) {
     return null;
   }
   // role 0 = left/X side; role 1 = right/Y side. siblings = opposite-side names
-  // preferred on the same module (first existing wins).
+  // preferred on the same module (first existing wins). Exact module port case.
   const table = {
-    x: { group: "stereo-xy-lr", role: 0, siblings: ["Y", "Right", "Wet R", "Dry R", "Right Out", "Bi Y", "Uni Y"] },
-    left: { group: "stereo-xy-lr", role: 0, siblings: ["Right", "Y", "Wet R", "Dry R", "Right Out", "Bi Y", "Uni Y"] },
-    y: { group: "stereo-xy-lr", role: 1, siblings: ["X", "Left", "Wet L", "Dry L", "Left Out", "Bi X", "Uni X"] },
-    right: { group: "stereo-xy-lr", role: 1, siblings: ["Left", "X", "Wet L", "Dry L", "Left Out", "Bi X", "Uni X"] },
+    x: { group: "stereo-xy-lr", role: 0, siblings: ["Y", "Right", "R", "Wet R", "Dry R", "Mix R", "Right Out", "Bi Y", "Uni Y"] },
+    left: { group: "stereo-xy-lr", role: 0, siblings: ["Right", "R", "Y", "Wet R", "Dry R", "Mix R", "Right Out", "Bi Y", "Uni Y"] },
+    y: { group: "stereo-xy-lr", role: 1, siblings: ["X", "Left", "L", "Wet L", "Dry L", "Mix L", "Left Out", "Bi X", "Uni X"] },
+    right: { group: "stereo-xy-lr", role: 1, siblings: ["Left", "L", "X", "Wet L", "Dry L", "Mix L", "Left Out", "Bi X", "Uni X"] },
     // RoundShape uni/bi quadrature pairs
-    "bi x": { group: "stereo-xy-lr", role: 0, siblings: ["Bi Y", "Y", "Right", "Uni Y"] },
-    "bi y": { group: "stereo-xy-lr", role: 1, siblings: ["Bi X", "X", "Left", "Uni X"] },
-    "uni x": { group: "stereo-xy-lr", role: 0, siblings: ["Uni Y", "Y", "Right", "Bi Y"] },
-    "uni y": { group: "stereo-xy-lr", role: 1, siblings: ["Uni X", "X", "Left", "Bi X"] },
+    "bi x": { group: "stereo-xy-lr", role: 0, siblings: ["Bi Y", "Y", "Right", "R", "Uni Y"] },
+    "bi y": { group: "stereo-xy-lr", role: 1, siblings: ["Bi X", "X", "Left", "L", "Uni X"] },
+    "uni x": { group: "stereo-xy-lr", role: 0, siblings: ["Uni Y", "Y", "Right", "R", "Bi Y"] },
+    "uni y": { group: "stereo-xy-lr", role: 1, siblings: ["Uni X", "X", "Left", "L", "Bi X"] },
     a: { group: "ab", role: 0, siblings: ["B"] },
     b: { group: "ab", role: 1, siblings: ["A"] },
     // Space FX dry pair (SoEm / Sabrina) — own pair first, then generic stereo
-    "dry l": { group: "stereo-xy-lr", role: 0, siblings: ["Dry R", "Right Dry", "Right", "Y", "Wet R"] },
-    "dry r": { group: "stereo-xy-lr", role: 1, siblings: ["Dry L", "Left Dry", "Left", "X", "Wet L"] },
-    "left dry": { group: "stereo-xy-lr", role: 0, siblings: ["Right Dry", "Dry R", "Right", "Y"] },
-    "right dry": { group: "stereo-xy-lr", role: 1, siblings: ["Left Dry", "Dry L", "Left", "X"] },
+    "dry l": { group: "stereo-xy-lr", role: 0, siblings: ["Dry R", "Right Dry", "Right", "R", "Y", "Wet R", "Mix R"] },
+    "dry r": { group: "stereo-xy-lr", role: 1, siblings: ["Dry L", "Left Dry", "Left", "L", "X", "Wet L", "Mix L"] },
+    "left dry": { group: "stereo-xy-lr", role: 0, siblings: ["Right Dry", "Dry R", "Right", "R", "Y"] },
+    "right dry": { group: "stereo-xy-lr", role: 1, siblings: ["Left Dry", "Dry L", "Left", "L", "X"] },
     // Space FX wet pair
-    "wet l": { group: "stereo-xy-lr", role: 0, siblings: ["Wet R", "Right Wet", "Right Mix", "Right", "Y", "Dry R"] },
-    "wet r": { group: "stereo-xy-lr", role: 1, siblings: ["Wet L", "Left Wet", "Left Mix", "Left", "X", "Dry L"] },
-    "left wet": { group: "stereo-xy-lr", role: 0, siblings: ["Right Wet", "Wet R", "Right Mix", "Right", "Y"] },
-    "right wet": { group: "stereo-xy-lr", role: 1, siblings: ["Left Wet", "Wet L", "Left Mix", "Left", "X"] },
-    // Legacy "Mix" = wet/mixed reverb outs
-    "left mix": { group: "stereo-xy-lr", role: 0, siblings: ["Right Mix", "Wet R", "Right Wet", "Right", "Y"] },
-    "right mix": { group: "stereo-xy-lr", role: 1, siblings: ["Left Mix", "Wet L", "Left Wet", "Left", "X"] },
-    "left out": { group: "stereo-xy-lr", role: 0, siblings: ["Right Out", "Right", "Y", "Wet R", "Dry R"] },
-    "right out": { group: "stereo-xy-lr", role: 1, siblings: ["Left Out", "Left", "X", "Wet L", "Dry L"] },
-    // Short stereo tags (crossover In/L/R and band outs "Low L", "1 R", …)
-    l: { group: "stereo-xy-lr", role: 0, siblings: ["R", "Right", "Y"] },
-    r: { group: "stereo-xy-lr", role: 1, siblings: ["L", "Left", "X"] },
+    "wet l": { group: "stereo-xy-lr", role: 0, siblings: ["Wet R", "Right Wet", "Right Mix", "Mix R", "Right", "R", "Y", "Dry R"] },
+    "wet r": { group: "stereo-xy-lr", role: 1, siblings: ["Wet L", "Left Wet", "Left Mix", "Mix L", "Left", "L", "X", "Dry L"] },
+    "left wet": { group: "stereo-xy-lr", role: 0, siblings: ["Right Wet", "Wet R", "Right Mix", "Mix R", "Right", "Y"] },
+    "right wet": { group: "stereo-xy-lr", role: 1, siblings: ["Left Wet", "Wet L", "Left Mix", "Mix L", "Left", "X"] },
+    // Reverb / delay wet-mixed outs ("Mix L" / "Mix R")
+    "mix l": { group: "stereo-xy-lr", role: 0, siblings: ["Mix R", "Right Mix", "Wet R", "Right Wet", "Right", "R", "Y"] },
+    "mix r": { group: "stereo-xy-lr", role: 1, siblings: ["Mix L", "Left Mix", "Wet L", "Left Wet", "Left", "L", "X"] },
+    // Legacy "Mix" word order
+    "left mix": { group: "stereo-xy-lr", role: 0, siblings: ["Right Mix", "Mix R", "Wet R", "Right Wet", "Right", "Y"] },
+    "right mix": { group: "stereo-xy-lr", role: 1, siblings: ["Left Mix", "Mix L", "Wet L", "Left Wet", "Left", "X"] },
+    "left out": { group: "stereo-xy-lr", role: 0, siblings: ["Right Out", "Right", "R", "Y", "Wet R", "Dry R", "Mix R"] },
+    "right out": { group: "stereo-xy-lr", role: 1, siblings: ["Left Out", "Left", "L", "X", "Wet L", "Dry L", "Mix L"] },
+    // Crossover legacy Low/High L·R (spaced) — maps to LFL/LFR/HFL/HFR on module
+    "low l": { group: "stereo-xy-lr", role: 0, siblings: ["Low R", "LFR", "High R", "HFR", "R", "Right"] },
+    "low r": { group: "stereo-xy-lr", role: 1, siblings: ["Low L", "LFL", "High L", "HFL", "L", "Left"] },
+    "high l": { group: "stereo-xy-lr", role: 0, siblings: ["High R", "HFR", "Low R", "LFR", "R", "Right"] },
+    "high r": { group: "stereo-xy-lr", role: 1, siblings: ["High L", "HFL", "Low L", "LFL", "L", "Left"] },
+    // Crossover low/high frequency outs (LFL/LFR/HFL/HFR)
+    lfl: { group: "stereo-xy-lr", role: 0, siblings: ["LFR", "HFR", "Low R", "High R", "R", "Right"] },
+    lfr: { group: "stereo-xy-lr", role: 1, siblings: ["LFL", "HFL", "Low L", "High L", "L", "Left"] },
+    hfl: { group: "stereo-xy-lr", role: 0, siblings: ["HFR", "LFR", "High R", "Low R", "R", "Right"] },
+    hfr: { group: "stereo-xy-lr", role: 1, siblings: ["HFL", "LFL", "High L", "Low L", "L", "Left"] },
+    // 3-way mid: ML / MR
+    ml: { group: "stereo-xy-lr", role: 0, siblings: ["MR", "Mid R", "R1", "R", "Right"] },
+    mr: { group: "stereo-xy-lr", role: 1, siblings: ["ML", "Mid L", "L1", "L", "Left"] },
+    // Short stereo tags (module In L/R)
+    l: { group: "stereo-xy-lr", role: 0, siblings: ["R", "Right", "Y", "Mix R", "Dry R", "Wet R"] },
+    r: { group: "stereo-xy-lr", role: 1, siblings: ["L", "Left", "X", "Mix L", "Dry L", "Wet L"] },
   };
-  // Trailing " L" / " R" (and " Left" / " Right") on band/bus names.
-  if (!table[key]) {
-    // Crossover mid-bands: L1/R1, L2/R2, …
-    const lNum = key.match(/^l(\d+)$/);
-    if (lNum) {
+  if (table[key]) {
+    return table[key];
+  }
+
+  // Crossover mid-bands: L1/R1, L2/R2, … (case-insensitive match, preserve digit)
+  const lNum = key.match(/^l(\d+)$/);
+  if (lNum) {
+    const n = lNum[1];
+    return {
+      group: "stereo-xy-lr",
+      role: 0,
+      siblings: [`R${n}`, `R ${n}`, `${n} R`, `${n} Right`, "R", "Right"],
+    };
+  }
+  const rNum = key.match(/^r(\d+)$/);
+  if (rNum) {
+    const n = rNum[1];
+    return {
+      group: "stereo-xy-lr",
+      role: 1,
+      siblings: [`L${n}`, `L ${n}`, `${n} L`, `${n} Left`, "L", "Left"],
+    };
+  }
+
+  // Trailing " L" / " R" / " Left" / " Right" on band/bus names.
+  // Preserve original case of the base (e.g. "Low L" → sibling "Low R", not "low R").
+  const spacedLeft = original.match(/^(.*?)(?:[ ]L|[ ]Left)$/i);
+  if (spacedLeft) {
+    const base = spacedLeft[1].trim();
+    if (base) {
       return {
         group: "stereo-xy-lr",
         role: 0,
-        siblings: [`R${lNum[1]}`, `R ${lNum[1]}`, `${lNum[1]} R`, "R", "Right"],
-      };
-    }
-    const rNum = key.match(/^r(\d+)$/);
-    if (rNum) {
-      return {
-        group: "stereo-xy-lr",
-        role: 1,
-        siblings: [`L${rNum[1]}`, `L ${rNum[1]}`, `${rNum[1]} L`, "L", "Left"],
-      };
-    }
-    if (/(?:^| )l$/.test(key) || key.endsWith(" left")) {
-      const base = key.replace(/(?:^| )l$/, "").replace(/ left$/, "").trim();
-      const rName = base ? `${base} R` : "R";
-      const rightName = base ? `${base} Right` : "Right";
-      return {
-        group: "stereo-xy-lr",
-        role: 0,
-        siblings: [rName, rightName, "R", "Right"],
-      };
-    }
-    if (/(?:^| )r$/.test(key) || key.endsWith(" right")) {
-      const base = key.replace(/(?:^| )r$/, "").replace(/ right$/, "").trim();
-      const lName = base ? `${base} L` : "L";
-      const leftName = base ? `${base} Left` : "Left";
-      return {
-        group: "stereo-xy-lr",
-        role: 1,
-        siblings: [lName, leftName, "L", "Left"],
+        siblings: [`${base} R`, `${base} Right`, "R", "Right", "Mix R", "Dry R", "Wet R"],
       };
     }
   }
-  return table[key] || null;
+  const spacedRight = original.match(/^(.*?)(?:[ ]R|[ ]Right)$/i);
+  if (spacedRight) {
+    const base = spacedRight[1].trim();
+    if (base) {
+      return {
+        group: "stereo-xy-lr",
+        role: 1,
+        siblings: [`${base} L`, `${base} Left`, "L", "Left", "Mix L", "Dry L", "Wet L"],
+      };
+    }
+  }
+
+  return null;
 }
 
 /** @deprecated use nodeGraphPortPairMeta — kept for any external callers */

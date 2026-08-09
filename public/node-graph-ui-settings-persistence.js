@@ -351,11 +351,11 @@ function saveNodeGraphWorkspaceWindowStatesToUserSettings(options = {}) {
 
 // App-wide floating-window open policy, in one place.
 //
-// A window spawns at the pointer ONCE. After that it has a remembered
-// position and every subsequent open restores it, so a window never jumps out
-// from under the user just because they re-opened it from a different spot.
-// Call this instead of positioning at the pointer directly: pass a
-// `spawnAtPointer` callback that does the first-time placement.
+// Activation is NOT a move. Order of placement:
+//   1) remembered workspace seat (user-dragged / saved)
+//   2) existing fixed left/top style already on the element
+//   3) current on-screen layout box (e.g. CSS top/right defaults) — lock it
+//   4) only then spawnAtPointer (true first placement with no seat at all)
 //
 // Requires `key` to be present in nodeGraphWorkspaceWindowElements -- a
 // window that is not registered there has nowhere to remember a position, and
@@ -376,6 +376,10 @@ function openNodeGraphFloatingWindowAtPosition(key, element, spawnAtPointer) {
   let restored = false;
   positionNodeGraphFloatingWindowWithAttention(element, () => {
     restored = positionNodeGraphWorkspaceWindowFromState(key, element);
+    if (!restored) {
+      // Keep an existing seat — never re-home just because the user activated.
+      restored = lockNodeGraphFloatingWindowExistingSeat(element);
+    }
     if (!restored && typeof spawnAtPointer === "function") {
       spawnAtPointer(element);
     }
@@ -388,6 +392,54 @@ function openNodeGraphFloatingWindowAtPosition(key, element, spawnAtPointer) {
     rememberNodeGraphWorkspaceWindowState(key, element, { open: true }, { status: false });
   }
   return restored;
+}
+
+/**
+ * If the element already has a fixed seat (inline left/top, or a real on-screen
+ * layout from CSS like top/right), convert/lock it to left/top and return true.
+ * Used so activation never jumps a window that already has a place.
+ */
+function lockNodeGraphFloatingWindowExistingSeat(element) {
+  if (!element) {
+    return false;
+  }
+  const styleLeft = Number.parseFloat(element.style.left);
+  const styleTop = Number.parseFloat(element.style.top);
+  let left = null;
+  let top = null;
+  if (Number.isFinite(styleLeft) && Number.isFinite(styleTop)) {
+    if (typeof nodeGraphFloatingWindowViewportPositionFromCss === "function") {
+      const fromCss = nodeGraphFloatingWindowViewportPositionFromCss(styleLeft, styleTop);
+      left = fromCss.left;
+      top = fromCss.top;
+    } else {
+      left = styleLeft;
+      top = styleTop;
+    }
+  } else {
+    // CSS-only placement (e.g. Visibility: top/right without inline left).
+    const rect = element.getBoundingClientRect?.();
+    if (rect && rect.width > 0 && rect.height > 0) {
+      left = rect.left;
+      top = rect.top;
+    }
+  }
+  if (
+    typeof nodeGraphFloatingWindowSavedPositionIsUsable === "function"
+      ? !nodeGraphFloatingWindowSavedPositionIsUsable({ left, top })
+      : !(Number.isFinite(left) && Number.isFinite(top))
+  ) {
+    return false;
+  }
+  if (typeof setNodeGraphFloatingWindowViewportPosition === "function") {
+    setNodeGraphFloatingWindowViewportPosition(element, left, top);
+  } else {
+    element.style.position = "fixed";
+    element.style.left = `${Math.round(left)}px`;
+    element.style.top = `${Math.round(top)}px`;
+    element.style.right = "auto";
+  }
+  return true;
 }
 
 function positionNodeGraphWorkspaceWindowFromState(key, element) {
@@ -618,6 +670,12 @@ function normalizeNodeUiDevSettings(settings = {}) {
     normalizedModuleDefaultOverrides[type] = snapshot;
   }
   const gridVisible = view.gridVisible ?? controls.gridVisible ?? controls.showGrid ?? nodeGraphMvp.gridVisible;
+  const gridLightVisible = view.gridLightVisible !== undefined
+    ? Boolean(view.gridLightVisible)
+    : (nodeGraphMvp.gridLightVisible !== false);
+  const wireLengthsVisible = view.wireLengthsVisible !== undefined
+    ? Boolean(view.wireLengthsVisible)
+    : (nodeGraphMvp.wireLengthsVisible !== false);
   const wiresAboveModules = Boolean(view.wiresAboveModules ?? nodeGraphMvp.wiresAboveModules);
   // Debug chrome is session-only — never default on, never restore from UI settings.
   const keyboardDebugInfoVisible = false;
@@ -798,6 +856,8 @@ function normalizeNodeUiDevSettings(settings = {}) {
     moduleDefaultOverrides: normalizedModuleDefaultOverrides,
     view: {
       gridVisible: Boolean(gridVisible),
+      gridLightVisible: Boolean(gridLightVisible),
+      wireLengthsVisible: Boolean(wireLengthsVisible),
       wiresAboveModules,
       keyboardDebugInfoVisible,
       tooltipEmbedded,
@@ -891,6 +951,8 @@ function readNodeUiDevSettingsFromControls(options = {}) {
     moduleDefaultOverrides: nodeGraphMvp.moduleDefaultOverrides,
     view: {
       gridVisible: Boolean(nodeGraphMvp.gridVisible),
+      gridLightVisible: nodeGraphMvp.gridLightVisible !== false,
+      wireLengthsVisible: nodeGraphMvp.wireLengthsVisible !== false,
       wiresAboveModules: Boolean(nodeGraphMvp.wiresAboveModules),
       // Never persist "show debug" — refresh / defaults always hide diagnostics.
       keyboardDebugInfoVisible: false,
@@ -1020,6 +1082,8 @@ function applyNodeUiDevSettings(settings) {
   }
   nodeGraphMvp.moduleDefaultOverrides = normalized.moduleDefaultOverrides;
   nodeGraphMvp.gridVisible = Boolean(normalized.view.gridVisible);
+  nodeGraphMvp.gridLightVisible = normalized.view.gridLightVisible !== false;
+  nodeGraphMvp.wireLengthsVisible = normalized.view.wireLengthsVisible !== false;
   nodeGraphMvp.wiresAboveModules = Boolean(normalized.view.wiresAboveModules);
   // Force-hide debug on every UI-settings apply / page load (not a saved
   // preference). Same for debug and release builds — Clear Startup / Save /
@@ -1162,6 +1226,12 @@ function applyNodeUiDevSettings(settings) {
     applyNodeGraphPan();
   }
   renderNodeGraphGridToggle();
+  if (typeof renderNodeGraphGridLightToggle === "function") {
+    renderNodeGraphGridLightToggle();
+  }
+  if (typeof renderNodeGraphWireLengthsToggle === "function") {
+    renderNodeGraphWireLengthsToggle();
+  }
   if (typeof renderNodeGraphWiresAboveModulesToggle === "function") {
     renderNodeGraphWiresAboveModulesToggle();
   }
@@ -1380,6 +1450,8 @@ function clearNodeUserStartupRuntimeState() {
   // Grid and the slider amount fill are in the same "visible unless
   // explicitly hidden" family.
   nodeGraphMvp.gridVisible = true;
+  nodeGraphMvp.gridLightVisible = true;
+  nodeGraphMvp.wireLengthsVisible = true;
   nodeGraphMvp.sliderAmountVisible = true;
   nodeGraphMvp.wiresAboveModules = false;
   // Clear Startup / reset view: never bake "Show Debug" into the next load.
@@ -1394,6 +1466,12 @@ function clearNodeUserStartupRuntimeState() {
   }
   if (typeof renderNodeGraphGridToggle === "function") {
     renderNodeGraphGridToggle();
+  }
+  if (typeof renderNodeGraphGridLightToggle === "function") {
+    renderNodeGraphGridLightToggle();
+  }
+  if (typeof renderNodeGraphWireLengthsToggle === "function") {
+    renderNodeGraphWireLengthsToggle();
   }
   if (typeof renderNodeGraphWiresAboveModulesToggle === "function") {
     renderNodeGraphWiresAboveModulesToggle();

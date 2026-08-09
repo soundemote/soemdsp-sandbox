@@ -101,11 +101,24 @@ function nodeGraphSizeDisplayCanvas(section, canvas) {
   if (!section || !canvas) {
     return null;
   }
-  const rect = section.getBoundingClientRect();
   const pixelRatio = window.devicePixelRatio || 1;
-  const zoom = Math.max(0.01, Number(nodeGraphMvp?.zoom) || 1);
-  const cssWidth = Math.max(1, Number(section.clientWidth || section.offsetWidth || 0) || rect.width / zoom);
-  const cssHeight = Math.max(1, Number(section.clientHeight || section.offsetHeight || 0) || rect.height / zoom);
+  // Prefer layout sizes (offset/client) so we do not force a layout reflow via
+  // getBoundingClientRect on every filter-curve / face paint. Workspace zoom is
+  // a CSS transform; face backing must stay on the unzoomed layout grid.
+  let cssWidth = Math.max(0, Number(section.clientWidth || section.offsetWidth || 0));
+  let cssHeight = Math.max(0, Number(section.clientHeight || section.offsetHeight || 0));
+  if (!(cssWidth > 0) || !(cssHeight > 0)) {
+    const rect = section.getBoundingClientRect();
+    const zoom = Math.max(0.01, Number(nodeGraphMvp?.zoom) || 1);
+    if (!(cssWidth > 0)) {
+      cssWidth = Math.max(1, rect.width / zoom);
+    }
+    if (!(cssHeight > 0)) {
+      cssHeight = Math.max(1, rect.height / zoom);
+    }
+  }
+  cssWidth = Math.max(1, cssWidth);
+  cssHeight = Math.max(1, cssHeight);
   const width = Math.max(1, Math.round(cssWidth * pixelRatio));
   const height = Math.max(1, Math.round(cssHeight * pixelRatio));
   if (canvas.width !== width) {

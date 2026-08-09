@@ -277,6 +277,13 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Alias Sine",
     notes: ["sine", "aliasing", "native"],
   },
+  robinSinusoid: {
+    category: "oscillator",
+    description:
+      "RS-MET recursive free-running sine (rosic::SineOscillator): y[n]=2·cos(ω)·y[n-1]−y[n-2]. No per-sample sin(). Cheap steady tones; Reset reseeds phase.",
+    label: "RobinSinusoid",
+    notes: ["RS-MET", "rosic", "recursive sine", "self-oscillating", "sinusoid"],
+  },
   additiveOsc: {
     category: "oscillator",
     description: "Additive-synthesis oscillator building a waveform from summed harmonics. Native C++/WASM.",
@@ -658,6 +665,13 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Native soft clipper with center bias and clipping width controls.",
     label: "Soft Clipper",
     notes: ["soft clipping", "tanh", "dynamics"],
+  },
+  airClipper: {
+    category: "dynamics",
+    description:
+      "Airwindows Density3: density soft-saturation / anti-density, optional highpass, output and dry/wet. MIT (airwindows).",
+    label: "AirClipper",
+    notes: ["airwindows", "Density3", "density", "soft clip", "highpass", "dynamics"],
   },
   rotate3dTo2d: {
     category: "dynamics",
@@ -1790,6 +1804,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/aliasSine/alias-sine-worklet-evaluator.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/aliasSine/alias-sine-worklet-evaluator.js",
   },
+  robinSinusoid: {
+    source: "public/modules/robinSinusoid/robin-sinusoid-math.js",
+    sourceUrl: "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rosic/generators/rosic_SineOscillator.h",
+  },
   allpass: {
     source: "public/modules/scientificIir/scientific-iir-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/scientificIir/scientific-iir-math.js",
@@ -2321,6 +2339,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   softClipper: {
     source: "public/modules/softClipper/soft-clipper-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/softClipper/soft-clipper-math.js",
+  },
+  airClipper: {
+    source: "public/modules/airClipper/air-clipper-math.js",
+    sourceUrl: "https://github.com/airwindows/airwindows/blob/master/plugins/WinVST/Density3/Density3Proc.cpp",
   },
   softpopOscillator: {
     source: "public/modules/softpopOscillator/softpop-oscillator-math.js",

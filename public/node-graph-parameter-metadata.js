@@ -25,14 +25,17 @@ function normalizeNodeGraphMetadataSmoothingSeconds(value) {
 // global          -- always use the global smoothing time (default: matches
 //                    this app's pre-existing behavior for parameters that
 //                    never set an explicit smoothingSeconds)
-// blockSize       -- always smooth over exactly one audio block
 // internal        -- this parameter's own smoothingSeconds sample count
 //                    (0 samples bypasses smoothing for this parameter only)
 // internalGlobal  -- internal samples PLUS the global smoothing time
 // off             -- always instant, ignoring both internal and global
-const nodeGraphMetadataSmoothingModes = Object.freeze(["global", "blockSize", "internal", "internalGlobal", "off"]);
+// (blockSize retired — was under construction; maps to global on load)
+const nodeGraphMetadataSmoothingModes = Object.freeze(["global", "internal", "internalGlobal", "off"]);
 
 function normalizeNodeGraphMetadataSmoothingMode(value) {
+  if (value === "blockSize") {
+    return "global";
+  }
   return nodeGraphMetadataSmoothingModes.includes(value) ? value : "global";
 }
 

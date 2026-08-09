@@ -38,8 +38,11 @@ function syncNodeGraphModuleScopeHeartbeat() {
       return;
     }
     if (nodeGraphModuleScopePaused()) {
-      // While frozen, only absorb phosphor sample cursors — never step energy.
-      absorbNodeGraphModuleScopePhosphorDrawCursors();
+      // While frozen/stopped, do not touch display buffers or energy.
+      // Absorb is a no-op when capture maps are empty (typical after Stop).
+      if (nodeGraphModuleScopeState.buffers?.size) {
+        absorbNodeGraphModuleScopePhosphorDrawCursors();
+      }
       return;
     }
     const pendingFrame = Number(nodeGraphModuleScopeState.drawFrame) || 0;

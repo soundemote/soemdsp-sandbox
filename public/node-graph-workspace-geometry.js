@@ -236,7 +236,7 @@ function nodeGraphWorkspaceFloatProperty(element, property, fallback = 0) {
   return Number.isFinite(value) ? value : fallback;
 }
 
-function updateNodeGraphGridHeatmap() {
+function updateNodeGraphGridHeatmap(options = {}) {
   const heatmap = document.getElementById("nodeGridHeatmap");
   const surface = nodeGraphZoomSurface();
   const workspace = document.getElementById("nodeGraphWorkspace");
@@ -244,9 +244,30 @@ function updateNodeGraphGridHeatmap() {
     return;
   }
 
-  const glowLayers = [];
-  const maskLayers = [];
-  const visibleNodes = [...surface.querySelectorAll(".dsp-node:not(.removed):not([hidden])")];
+  // Visibility → Grid Light off: skip all O(modules) gradient work.
+  if (nodeGraphMvp?.gridLightVisible === false && options?.force !== true) {
+    heatmap.style.setProperty("--node-grid-heatmap", "none");
+    heatmap.style.setProperty(
+      "--node-grid-heatmap-mask",
+      "linear-gradient(transparent, transparent)",
+    );
+    return;
+  }
+
+  // Never rebuild module lights mid pan/zoom — wait for pointer-up (or force).
+  if (
+    options?.force !== true
+    && options?.lite !== true
+    && typeof nodeGraphViewportGestureActive === "function"
+    && nodeGraphViewportGestureActive()
+  ) {
+    return;
+  }
+  // lite: intentionally a no-op (grid still tracks via CSS pan/zoom vars).
+  if (options?.lite === true) {
+    return;
+  }
+
   const zoom = nodeGraphZoom();
   const origin = nodeGraphRenderedOriginOffset();
   heatmap.style.setProperty("--node-grid-heatmap-grid-position", `${origin.x}px ${origin.y}px`);
@@ -254,6 +275,10 @@ function updateNodeGraphGridHeatmap() {
     "--node-grid-heatmap-grid-size",
     `${(nodeGraphGridWidth() * zoom).toFixed(2)}px ${(nodeGraphGridHeight() * zoom).toFixed(2)}px`,
   );
+
+  const glowLayers = [];
+  const maskLayers = [];
+  const visibleNodes = [...surface.querySelectorAll(".dsp-node:not(.removed):not([hidden])")];
   const spread = Math.max(
     0.4,
     Math.min(
@@ -294,8 +319,21 @@ function scheduleNodeGraphGridHeatmapUpdate() {
   if (nodeGraphMvp.mouseLightFrame) {
     return;
   }
+  if (nodeGraphMvp?.gridLightVisible === false) {
+    return;
+  }
+  // Do not queue a lights rebuild while panning/zooming (even via rAF).
+  if (typeof nodeGraphViewportGestureActive === "function" && nodeGraphViewportGestureActive()) {
+    return;
+  }
   nodeGraphMvp.mouseLightFrame = window.requestAnimationFrame(() => {
     nodeGraphMvp.mouseLightFrame = 0;
+    if (nodeGraphMvp?.gridLightVisible === false) {
+      return;
+    }
+    if (typeof nodeGraphViewportGestureActive === "function" && nodeGraphViewportGestureActive()) {
+      return;
+    }
     updateNodeGraphGridHeatmap();
   });
 }
@@ -305,17 +343,38 @@ function updateNodeGraphMouseLight(event) {
   if (!workspace) {
     return;
   }
-  const rect = workspace.getBoundingClientRect();
+  // Avoid getBoundingClientRect on every move when possible: workspace is the
+  // event target for canvas moves; still need rect for origin. Cache for 1 frame.
+  let rect = nodeGraphMvp._mouseLightWorkspaceRect;
+  const now = performance.now?.() || Date.now();
+  if (!rect || (now - (nodeGraphMvp._mouseLightWorkspaceRectAt || 0)) > 250) {
+    rect = workspace.getBoundingClientRect();
+    nodeGraphMvp._mouseLightWorkspaceRect = rect;
+    nodeGraphMvp._mouseLightWorkspaceRectAt = now;
+  }
   nodeGraphMvp.mouseLightPoint = {
     x: event.clientX - rect.left,
     y: event.clientY - rect.top,
   };
+  // Pan / snake select / grid-light-off — skip heatmap rebuild.
+  if (
+    nodeGraphMvp.gridLightVisible === false
+    || nodeGraphMvp.workspacePanning
+    || nodeGraphMvp.marqueeSelection
+    || nodeGraphMvp.smoothZoomDragging
+    || nodeGraphMvp.workspacePinchZooming
+    || (typeof nodeGraphViewportGestureActive === "function" && nodeGraphViewportGestureActive())
+  ) {
+    return;
+  }
   scheduleNodeGraphGridHeatmapUpdate();
 }
 
 function clearNodeGraphMouseLight() {
   nodeGraphMvp.mouseLightPoint = null;
-  updateNodeGraphGridHeatmap();
+  if (nodeGraphMvp?.gridLightVisible !== false) {
+    updateNodeGraphGridHeatmap();
+  }
 }
 
 function nodeGraphRectsIntersect(a, b) {

@@ -48,6 +48,12 @@ async function initNodeGraphMvp() {
   markNodeGraphRenderPending();
   applyNodeGraphZoom();
   renderNodeGraphGridToggle();
+  if (typeof renderNodeGraphGridLightToggle === "function") {
+    renderNodeGraphGridLightToggle();
+  }
+  if (typeof renderNodeGraphWireLengthsToggle === "function") {
+    renderNodeGraphWireLengthsToggle();
+  }
   if (typeof renderNodeGraphWiresAboveModulesToggle === "function") {
     renderNodeGraphWiresAboveModulesToggle();
   }

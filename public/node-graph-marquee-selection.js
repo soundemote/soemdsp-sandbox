@@ -4,10 +4,14 @@
 // Wires also use geometric path hits (isPointInStroke / length sampling) because
 // cable hit-paths live under modules and elementFromPoint alone misses them.
 
-const nodeGraphHitTrailMinStepPx = 1.25;
-const nodeGraphHitTrailMaxPoints = 6000;
-/** Layout-px step along a segment when sampling hits (finer = fewer misses). */
-const nodeGraphHitTrailSampleStepPx = 2.5;
+const nodeGraphHitTrailMinStepPx = 2;
+const nodeGraphHitTrailMaxPoints = 4000;
+/**
+ * Layout-px step along a segment when sampling hits.
+ * Larger steps + polyline wire cache (not isPointInStroke per path) keep
+ * snake select responsive on dense patches (crossovers, many ports).
+ */
+const nodeGraphHitTrailSampleStepPx = 14;
 /**
  * Extra half-width (surface layout px) around the snake for wire/module hits.
  * Matches ~snake visual thickness so grazing a cable still counts.
@@ -178,13 +182,67 @@ function nodeGraphHitTestSelectionStackAtClient(clientX, clientY) {
   return hits;
 }
 
+/**
+ * Build once per snake drag: surface AABBs without re-reading offsetWidth every
+ * sample (that forced layout thrash × module count).
+ */
+function nodeGraphHitTrailEnsureModuleBoundsCache(drag) {
+  if (drag?.moduleBoundsCache) {
+    return drag.moduleBoundsCache;
+  }
+  const cache = [];
+  for (const node of document.querySelectorAll(".dsp-node:not(.removed)")) {
+    const id = node.dataset?.node;
+    if (!id) {
+      continue;
+    }
+    const x = Number.parseFloat(node.style.getPropertyValue("--node-x")) || 0;
+    const y = Number.parseFloat(node.style.getPropertyValue("--node-y")) || 0;
+    // One layout read per module per drag, not per sample.
+    const w = Math.max(1, node.offsetWidth || 0);
+    const h = Math.max(1, node.offsetHeight || 0);
+    cache.push({
+      bottom: y + h,
+      id,
+      left: x,
+      right: x + w,
+      top: y,
+    });
+  }
+  if (drag) {
+    drag.moduleBoundsCache = cache;
+  }
+  return cache;
+}
+
 /** Geometric module hit in surface space (modules use pointer-events:none on the plate). */
-function nodeGraphModulesContainingSurfacePoint(point, padPx = 0) {
+function nodeGraphModulesContainingSurfacePoint(point, padPx = 0, boundsCache = null) {
   const hits = [];
-  if (!point || typeof nodeGraphNodeBounds !== "function") {
+  if (!point) {
     return hits;
   }
   const pad = Math.max(0, Number(padPx) || 0);
+  const list = boundsCache
+    || (typeof nodeGraphHitTrailEnsureModuleBoundsCache === "function"
+      ? nodeGraphHitTrailEnsureModuleBoundsCache(nodeGraphMvp?.marqueeSelection)
+      : null);
+  if (Array.isArray(list) && list.length) {
+    for (const b of list) {
+      if (
+        point.x >= b.left - pad
+        && point.x <= b.right + pad
+        && point.y >= b.top - pad
+        && point.y <= b.bottom + pad
+      ) {
+        hits.push({ kind: "module", id: b.id });
+      }
+    }
+    return hits;
+  }
+  // Fallback (no active drag cache).
+  if (typeof nodeGraphNodeBounds !== "function") {
+    return hits;
+  }
   for (const node of document.querySelectorAll(".dsp-node:not(.removed)")) {
     const id = node.dataset?.node;
     if (!id) {
@@ -244,14 +302,11 @@ function nodeGraphSurfacePointHitsSvgPath(pathEl, surfaceX, surfaceY, extraRadiu
       if (pathEl.isPointInStroke(pt)) {
         return true;
       }
-      // Expand hit with a few probes around the point (snake thickness).
+      // Expand hit with a small axis-aligned ring (snake thickness). 4 probes
+      // is enough; 8× paths × samples was a main-thread killer on busy patches.
       const r = Math.max(0, extraRadiusPx);
       if (r > 0) {
-        const ring = [
-          [r, 0], [-r, 0], [0, r], [0, -r],
-          [r * 0.7, r * 0.7], [-r * 0.7, r * 0.7],
-          [r * 0.7, -r * 0.7], [-r * 0.7, -r * 0.7],
-        ];
+        const ring = [[r, 0], [-r, 0], [0, r], [0, -r]];
         for (const [ox, oy] of ring) {
           pt.x = surfaceX + ox;
           pt.y = surfaceY + oy;
@@ -288,46 +343,143 @@ function nodeGraphSurfacePointHitsSvgPath(pathEl, surfaceX, surfaceY, extraRadiu
 }
 
 /**
- * Geometric wire hits in surface space — works even when cables paint under modules.
- * @returns {Array<{ kind: "wire", wireKind: string, index: number }>}
+ * Pre-sample wire geometry once per drag into polylines + bboxes.
+ * Runtime hits use pure JS segment distance — never isPointInStroke per move
+ * (that was the snake main-thread freeze on multiport modules).
  */
-function nodeGraphWiresNearSurfacePoint(point, radiusPx = nodeGraphHitTrailHitRadiusPx) {
-  const hits = [];
-  if (!point) {
-    return hits;
+function nodeGraphHitTrailEnsureWireGeomCache(drag) {
+  if (drag?.wireGeomCache) {
+    return drag.wireGeomCache;
   }
-  const seen = new Set();
-  const paths = document.querySelectorAll(".node-wire-hit-path, .node-wire-path:not(.temp)");
-  for (const pathEl of paths) {
+  const hitKeys = new Set();
+  const pathEls = [];
+  for (const pathEl of document.querySelectorAll(".node-wire-hit-path")) {
+    if (!(pathEl instanceof SVGGeometryElement) || pathEl.classList.contains("temp")) {
+      continue;
+    }
+    const idx = String(pathEl.dataset.connectionIndex ?? "");
+    const kind = String(pathEl.dataset.connectionKind || "signal");
+    if (idx) {
+      hitKeys.add(`${kind}:${idx}`);
+    }
+    pathEls.push(pathEl);
+  }
+  for (const pathEl of document.querySelectorAll(".node-wire-path:not(.temp)")) {
     if (!(pathEl instanceof SVGGeometryElement)) {
       continue;
     }
-    // Prefer dedicated hit paths; skip visual twin of the same wire when hit-path exists.
-    if (pathEl.classList.contains("node-wire-path")) {
-      const idx = String(pathEl.dataset.connectionIndex ?? "");
-      const kind = String(pathEl.dataset.connectionKind || "signal");
-      if (
-        idx
-        && document.querySelector(
-          `.node-wire-hit-path[data-connection-index="${idx}"][data-connection-kind="${kind}"]`,
-        )
-      ) {
-        continue;
-      }
-    }
-    if (!nodeGraphSurfacePointHitsSvgPath(pathEl, point.x, point.y, radiusPx)) {
+    const idx = String(pathEl.dataset.connectionIndex ?? "");
+    const kind = String(pathEl.dataset.connectionKind || "signal");
+    if (idx && hitKeys.has(`${kind}:${idx}`)) {
       continue;
     }
+    pathEls.push(pathEl);
+  }
+
+  const geoms = [];
+  for (const pathEl of pathEls) {
     const wireHit = nodeGraphWireHitFromElement(pathEl);
     if (!wireHit) {
       continue;
     }
-    const key = `${wireHit.wireKind}:${wireHit.index}`;
+    let total = 0;
+    try {
+      total = Number(pathEl.getTotalLength()) || 0;
+    } catch (_error) {
+      total = 0;
+    }
+    if (!(total > 0)) {
+      continue;
+    }
+    // ~24 samples per cable is enough for thick-stroke snake hits.
+    const count = Math.max(4, Math.min(28, Math.ceil(total / 18)));
+    const pts = [];
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (let i = 0; i <= count; i += 1) {
+      const p = pathEl.getPointAtLength((total * i) / count);
+      const x = Number(p.x) || 0;
+      const y = Number(p.y) || 0;
+      pts.push(x, y);
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+    geoms.push({
+      maxX,
+      maxY,
+      minX,
+      minY,
+      pts,
+      wireHit,
+    });
+  }
+  if (drag) {
+    drag.wireGeomCache = geoms;
+    drag.wirePathCache = pathEls;
+  }
+  return geoms;
+}
+
+/** @deprecated name kept; returns polyline geom cache. */
+function nodeGraphHitTrailEnsureWirePathCache(drag) {
+  return nodeGraphHitTrailEnsureWireGeomCache(drag);
+}
+
+/**
+ * Geometric wire hits in surface space via precomputed polylines.
+ * @returns {Array<{ kind: "wire", wireKind: string, index: number }>}
+ */
+function nodeGraphWiresNearSurfacePoint(point, radiusPx = nodeGraphHitTrailHitRadiusPx, geomCache = null) {
+  const hits = [];
+  if (!point) {
+    return hits;
+  }
+  const geoms = Array.isArray(geomCache)
+    ? geomCache
+    : nodeGraphHitTrailEnsureWireGeomCache(nodeGraphMvp?.marqueeSelection);
+  if (!Array.isArray(geoms) || !geoms.length) {
+    return hits;
+  }
+  const r = Math.max(0, Number(radiusPx) || 0);
+  const r2 = r * r;
+  const px = point.x;
+  const py = point.y;
+  const seen = new Set();
+  for (const g of geoms) {
+    if (!g?.pts?.length || !g.wireHit) {
+      continue;
+    }
+    // Cheap AABB reject (expanded by radius).
+    if (
+      px < g.minX - r
+      || px > g.maxX + r
+      || py < g.minY - r
+      || py > g.maxY + r
+    ) {
+      continue;
+    }
+    const pts = g.pts;
+    let hit = false;
+    for (let i = 0; i + 3 < pts.length; i += 2) {
+      const d = nodeGraphDistPointToSegment(px, py, pts[i], pts[i + 1], pts[i + 2], pts[i + 3]);
+      if (d * d <= r2) {
+        hit = true;
+        break;
+      }
+    }
+    if (!hit) {
+      continue;
+    }
+    const key = `${g.wireHit.wireKind}:${g.wireHit.index}`;
     if (seen.has(key)) {
       continue;
     }
     seen.add(key);
-    hits.push(wireHit);
+    hits.push(g.wireHit);
   }
   return hits;
 }
@@ -358,7 +510,8 @@ function nodeGraphHitTrailApplyHit(drag, hit) {
       return;
     }
     drag.hitNodeIds.add(hit.id);
-    setNodeGraphNodeSelection([...drag.hitNodeIds]);
+    // Defer DOM selection paint until end of sample segment (many hits / move).
+    drag.selectionDirty = true;
     return;
   }
 
@@ -375,17 +528,31 @@ function nodeGraphHitTrailApplyHit(drag, hit) {
   }
   drag.hitWireKeys.add(key);
   drag.hitWires.push({ kind: hit.wireKind, index: hit.index });
-  if (typeof setNodeGraphWireSelection === "function") {
-    setNodeGraphWireSelection(drag.hitWires);
-  } else {
-    setNodeGraphSelection({ type: "wire", kind: hit.wireKind, index: hit.index });
+  drag.selectionDirty = true;
+}
+
+function nodeGraphHitTrailFlushSelection(drag) {
+  if (!drag?.selectionDirty) {
+    return;
+  }
+  drag.selectionDirty = false;
+  if (drag.lockMode === "modules") {
+    setNodeGraphNodeSelection([...(drag.hitNodeIds || [])]);
+    return;
+  }
+  if (drag.lockMode === "wires") {
+    if (typeof setNodeGraphWireSelection === "function") {
+      setNodeGraphWireSelection(drag.hitWires || []);
+    } else if (drag.hitWires?.length) {
+      const last = drag.hitWires[drag.hitWires.length - 1];
+      setNodeGraphSelection({ type: "wire", kind: last.kind, index: last.index });
+    }
   }
 }
 
 /**
  * Sample the segment from → to in surface space with lerp, hit-testing each
- * step. Modules: AABB. Wires: geometric path stroke + full DOM stack under
- * point (wires under modules). Prevents skipping between pointermove events.
+ * step. Modules: cached AABB. Wires: precomputed polylines (no SVG stroke API).
  */
 function nodeGraphHitTrailSampleSegment(drag, fromSurface, toSurface) {
   if (!drag || !toSurface) {
@@ -396,15 +563,20 @@ function nodeGraphHitTrailSampleSegment(drag, fromSurface, toSurface) {
   const dy = toSurface.y - from.y;
   const dist = Math.hypot(dx, dy);
   const steps = Math.max(1, Math.ceil(dist / nodeGraphHitTrailSampleStepPx));
-  // Unit normal for side probes (snake width) — catches cables the centerline grazes.
+  const moduleBounds = nodeGraphHitTrailEnsureModuleBoundsCache(drag);
+  // Only build wire geom when we might need it (unlocked or wire-locked).
+  const mayHitWires = !drag.lockMode || drag.lockMode === "wires";
+  const wireGeoms = mayHitWires ? nodeGraphHitTrailEnsureWireGeomCache(drag) : null;
+  // Side probes only once locked to wires (or still unlocked on a short drag).
+  const needWireSides = drag.lockMode === "wires";
   let nx = 0;
   let ny = 0;
-  if (dist > 1e-6) {
+  if (needWireSides && dist > 1e-6) {
     nx = -dy / dist;
     ny = dx / dist;
   }
   const side = nodeGraphHitTrailHitRadiusPx * 0.55;
-  const offsets = dist > 1e-6
+  const wireOffsets = needWireSides && dist > 1e-6
     ? [
       { x: 0, y: 0 },
       { x: nx * side, y: ny * side },
@@ -416,23 +588,32 @@ function nodeGraphHitTrailSampleSegment(drag, fromSurface, toSurface) {
     const t = i / steps;
     const baseX = from.x + dx * t;
     const baseY = from.y + dy * t;
-    for (const off of offsets) {
-      const surfacePt = { x: baseX + off.x, y: baseY + off.y };
-      // Geometric plate hit (reliable even when module plate ignores pointer events).
-      for (const hit of nodeGraphModulesContainingSurfacePoint(surfacePt, 2)) {
+    const center = { x: baseX, y: baseY };
+
+    if (!drag.lockMode || drag.lockMode === "modules") {
+      for (const hit of nodeGraphModulesContainingSurfacePoint(center, 2, moduleBounds)) {
         nodeGraphHitTrailApplyHit(drag, hit);
       }
-      // Geometric wire hit (works under modules; thick stroke radius).
-      for (const hit of nodeGraphWiresNearSurfacePoint(surfacePt, nodeGraphHitTrailHitRadiusPx)) {
-        nodeGraphHitTrailApplyHit(drag, hit);
+      // Locked to modules: skip wire tests for the rest of this segment.
+      if (drag.lockMode === "modules") {
+        continue;
       }
-      // Full DOM stack: wires + modules that still receive pointer events.
-      const client = nodeGraphSurfacePointToClient(surfacePt);
-      for (const hit of nodeGraphHitTestSelectionStackAtClient(client.x, client.y)) {
-        nodeGraphHitTrailApplyHit(drag, hit);
+    }
+
+    if (!drag.lockMode || drag.lockMode === "wires") {
+      for (const off of wireOffsets) {
+        const surfacePt = { x: baseX + off.x, y: baseY + off.y };
+        for (const hit of nodeGraphWiresNearSurfacePoint(
+          surfacePt,
+          nodeGraphHitTrailHitRadiusPx,
+          wireGeoms,
+        )) {
+          nodeGraphHitTrailApplyHit(drag, hit);
+        }
       }
     }
   }
+  nodeGraphHitTrailFlushSelection(drag);
 }
 
 function updateNodeGraphMarqueeSelection(event = null) {
@@ -477,13 +658,20 @@ function startNodeGraphMarqueeSelection(event, workspace) {
     lastClient: { x: event.clientX, y: event.clientY },
     lastSampleSurface: { x: point.x, y: point.y },
     lockMode: null,
+    moduleBoundsCache: null,
     moved: false,
     pointerId: event.pointerId,
     points: [{ x: point.x, y: point.y }],
+    selectionDirty: false,
     start: point,
     startSelectedIds: [...nodeGraphSelectedNodeIds()],
     startSelectedWires,
+    wireGeomCache: null,
+    wirePathCache: null,
   };
+  // Pre-warm module AABBs once on pointerdown. Wire polylines are built lazily
+  // on first wire hunt (modules-only snakes never pay that cost).
+  nodeGraphHitTrailEnsureModuleBoundsCache(nodeGraphMvp.marqueeSelection);
   if (!additive) {
     setNodeGraphSelection(null);
   }
@@ -587,6 +775,7 @@ function endNodeGraphMarqueeSelection(event) {
 
   if (drag.moved) {
     updateNodeGraphMarqueeSelection(event);
+    nodeGraphHitTrailFlushSelection(drag);
   } else if (!drag.additive) {
     setNodeGraphSelection(null);
   }

@@ -57,6 +57,10 @@ var nodeGraphMvp = {
   // Grid on by default -- a fresh profile, and anything reset by Clear
   // Startup, should come up showing the workspace grid.
   gridVisible: true,
+  // Module glow heatmap around nodes (expensive O(modules) CSS). Off skips all rebuilds.
+  gridLightVisible: true,
+  // Cable stroke paths; when false only endpoint dots (jack plugs) draw.
+  wireLengthsVisible: true,
   // Cable strokes under modules by default; Visibility can raise them above.
   wiresAboveModules: false,
   macroControls: new Array(10).fill(0),

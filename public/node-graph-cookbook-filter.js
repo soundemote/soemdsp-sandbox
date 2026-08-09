@@ -630,12 +630,31 @@ function createNodeGraphFilterCurveDisplay(nodeId, type) {
   // the curve every frame (same path as bug button / XY pad).
   section.dataset.parameterVisual = "true";
   section.syncFromParameters = () => {
+    section._filterCurveForceDraw = true;
     drawNodeGraphFilterCurveDisplay(section);
   };
   const canvas = document.createElement("canvas");
   canvas.className = "node-filter-curve-canvas";
   section.append(canvas);
-  requestAnimationFrame(() => drawNodeGraphFilterCurveDisplay(section));
+  // Resize only: params bail via signature. Force redraw when the face gets a
+  // real layout size (first paint often runs at 0×0 and used to stick blank).
+  if (typeof ResizeObserver === "function") {
+    const ro = new ResizeObserver(() => {
+      section._filterCurveForceDraw = true;
+      section._filterCurveLaidOut = false;
+      if (typeof scheduleNodeGraphFilterCurveDraw === "function") {
+        scheduleNodeGraphFilterCurveDraw();
+      } else {
+        drawNodeGraphFilterCurveDisplay(section);
+      }
+    });
+    ro.observe(section);
+    section._filterCurveResizeObserver = ro;
+  }
+  // Double-rAF: wait for module layout so first paint is not 1×1.
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => drawNodeGraphFilterCurveDisplay(section));
+  });
   return section;
 }
 
@@ -648,6 +667,11 @@ function drawNodeGraphFilterCurveDisplay(section) {
       ? (error.message || error.name || String(error))
       : String(error);
     console.warn("[filter-curve] draw failed", detail, error);
+    // Allow a later layout/param pass to retry after a thrown paint.
+    if (section) {
+      section._filterCurveForceDraw = true;
+      section._filterCurveLaidOut = false;
+    }
   }
 }
 
@@ -657,16 +681,42 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
   if (!node || !canvas) {
     return;
   }
-  // Snapshot live params first (cheap). Bail before layout work if unchanged.
+  // Snapshot live params first (cheap). Only skip work when params are
+  // unchanged AND we already painted a real layout-sized face. Never treat a
+  // 1×1 pre-layout paint as final (that froze crossover faces blank).
   const view = nodeGraphFilterCurveView(node);
   const signature = JSON.stringify(view);
-  const cssW = Math.max(1, Number(section.clientWidth || section.offsetWidth) || 1);
-  const cssH = Math.max(1, Number(section.clientHeight || section.offsetHeight) || 1);
+  if (
+    section._filterCurveSignature === signature
+    && !section._filterCurveForceDraw
+    && section._filterCurveLaidOut === true
+  ) {
+    return;
+  }
+  // Layout size: offsetWidth avoids getBoundingClientRect (cheaper; zoom is
+  // applied via CSS transform on the workspace, not on face layout size).
+  const rawW = Number(section.clientWidth || section.offsetWidth) || 0;
+  const rawH = Number(section.clientHeight || section.offsetHeight) || 0;
+  if (rawW < 8 || rawH < 8) {
+    // Face not laid out yet — do not cache signature; retry next frame.
+    section._filterCurveLaidOut = false;
+    section._filterCurveForceDraw = true;
+    if (!section._filterCurveRetryFrame) {
+      section._filterCurveRetryFrame = requestAnimationFrame(() => {
+        section._filterCurveRetryFrame = 0;
+        drawNodeGraphFilterCurveDisplay(section);
+      });
+    }
+    return;
+  }
+  const cssW = Math.max(1, rawW);
+  const cssH = Math.max(1, rawH);
   if (
     section._filterCurveSignature === signature
     && section._filterCurveCssW === cssW
     && section._filterCurveCssH === cssH
     && !section._filterCurveForceDraw
+    && section._filterCurveLaidOut === true
   ) {
     return;
   }
@@ -675,6 +725,11 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
     return;
   }
   const { context, cssHeight: height, cssWidth: width, pixelRatio } = metrics;
+  if (!(width >= 8) || !(height >= 8)) {
+    section._filterCurveLaidOut = false;
+    section._filterCurveForceDraw = true;
+    return;
+  }
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   const sampleRate = Math.max(1, Number(nodeGraphMvp?.sampleRate) || 44100);
   const minFreq = 20;
@@ -685,18 +740,10 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
   section._filterCurveCssW = cssW;
   section._filterCurveCssH = cssH;
   section._filterCurveForceDraw = false;
+  section._filterCurveLaidOut = true;
   context.clearRect(0, 0, width, height);
   context.fillStyle = "rgba(2, 6, 9, 0.88)";
   context.fillRect(0, 0, width, height);
-  context.strokeStyle = "rgba(127, 199, 217, 0.18)";
-  context.lineWidth = 1;
-  for (let line = 0; line <= 4; line += 1) {
-    const y = (line / 4) * height;
-    context.beginPath();
-    context.moveTo(0, y);
-    context.lineTo(width, y);
-    context.stroke();
-  }
   const logMin = Math.log10(minFreq);
   const logRange = Math.log10(maxFreq) - logMin;
   const cutoffLineWidth = 1;
@@ -705,59 +752,26 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
   const cutoffs = nodeGraphFilterCurveCutoffFrequencies(node, view);
   const isCrossover = nodeGraphIsCrossoverType(node.type);
 
-  // Crossover: draw per-band magnitude guides (semi-transparent), then split markers.
-  if (isCrossover && Array.isArray(view?.frequencies)) {
-    const bandCount = Number(view.bandCount) || cutoffs.length + 1;
-    const order = Number(view.order) || 4;
-    const bandColors = [
-      "rgba(127, 199, 217, 0.85)",
-      "rgba(226, 168, 109, 0.85)",
-      "rgba(180, 140, 255, 0.85)",
-      "rgba(120, 220, 160, 0.85)",
-      "rgba(255, 150, 150, 0.85)",
-      "rgba(240, 220, 120, 0.85)",
-    ];
-    for (let b = 0; b < bandCount; b += 1) {
-      context.strokeStyle = bandColors[b % bandColors.length];
-      context.lineWidth = 1.25;
+  // Crossover faces: split lines + Hz only (no magnitude curves / band titles).
+  // Keeps 1gu display height readable and cheap to paint.
+  if (!isCrossover) {
+    context.strokeStyle = "rgba(127, 199, 217, 0.18)";
+    context.lineWidth = 1;
+    for (let line = 0; line <= 4; line += 1) {
+      const y = (line / 4) * height;
       context.beginPath();
-      let startedBand = false;
-      for (let x = 0; x < width; x += 1) {
-        const progress = width <= 1 ? 0 : x / (width - 1);
-        const hz = 10 ** (logMin + progress * logRange);
-        let magnitude = nodeGraphCrossoverBandMagnitudeAt(
-          hz,
-          view.frequencies,
-          b,
-          bandCount,
-          order,
-          sampleRate,
-        );
-        if (!Number.isFinite(magnitude) || magnitude <= 0) {
-          magnitude = 1e-6;
-        }
-        const db = clampNodeSliderValue(20 * Math.log10(Math.max(1e-6, magnitude)), minDb, maxDb);
-        const y = (1 - ((db - minDb) / (maxDb - minDb))) * height;
-        if (!Number.isFinite(y)) {
-          continue;
-        }
-        if (!startedBand) {
-          context.moveTo(x, y);
-          startedBand = true;
-        } else {
-          context.lineTo(x, y);
-        }
-      }
-      if (startedBand) {
-        context.stroke();
-      }
+      context.moveTo(0, y);
+      context.lineTo(width, y);
+      context.stroke();
     }
-  } else {
+    // Cap sample density for filter magnitude paths.
+    const maxSamples = 220;
+    const step = Math.max(1, Math.ceil(width / maxSamples));
     context.strokeStyle = "rgba(61, 224, 255, 0.95)";
     context.lineWidth = 1.5;
     context.beginPath();
     let started = false;
-    for (let x = 0; x < width; x += 1) {
+    for (let x = 0; x < width; x += step) {
       const progress = width <= 1 ? 0 : x / (width - 1);
       const hz = 10 ** (logMin + progress * logRange);
       let magnitude = nodeGraphFilterCurveResponseAt(node, hz, sampleRate, view);
@@ -776,17 +790,33 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
         context.lineTo(x, y);
       }
     }
+    if (started && (width - 1) % step !== 0) {
+      const x = width - 1;
+      const progress = width <= 1 ? 0 : x / (width - 1);
+      const hz = 10 ** (logMin + progress * logRange);
+      let magnitude = nodeGraphFilterCurveResponseAt(node, hz, sampleRate, view);
+      if (!Number.isFinite(magnitude) || magnitude <= 0) {
+        magnitude = 1e-6;
+      }
+      const db = clampNodeSliderValue(20 * Math.log10(Math.max(1e-6, magnitude)), minDb, maxDb);
+      const y = (1 - ((db - minDb) / (maxDb - minDb))) * height;
+      if (Number.isFinite(y)) {
+        context.lineTo(x, y);
+      }
+    }
     if (started) {
       context.stroke();
     }
   }
 
   // Vertical frequency markers (+ Hz labels for crossovers / multi-cutoff).
-  context.strokeStyle = "rgba(226, 168, 109, 0.72)";
+  context.strokeStyle = "rgba(226, 168, 109, 0.85)";
   context.lineWidth = cutoffLineWidth;
-  context.font = "600 9px system-ui, sans-serif";
-  context.textBaseline = "top";
-  const labelYs = [3, 14, 25];
+  // Fit labels on 1gu faces (~28px): single baseline, compact type.
+  const fontPx = height < 36 ? 8 : 9;
+  context.font = `600 ${fontPx}px system-ui, sans-serif`;
+  context.textBaseline = "middle";
+  const labelY = height * 0.5;
   cutoffs.forEach((frequency, index) => {
     // 0 Hz (and anything below the log axis floor) → left edge, not minFreq.
     const cutoffRatio = nodeGraphFilterCurveCutoffRatio(frequency, minFreq, maxFreq);
@@ -802,47 +832,28 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
       if (textX + textW > width - 2) {
         textX = Math.max(2, cutoffX - textW - 3);
       }
-      const textY = labelYs[index % labelYs.length];
-      context.fillStyle = "rgba(2, 6, 9, 0.72)";
-      context.fillRect(textX - 1, textY - 1, textW + 3, 11);
+      // Slight vertical stagger only when the face is tall enough.
+      const stagger = height >= 40 ? ((index % 3) - 1) * 10 : 0;
+      const textY = Math.max(fontPx * 0.55, Math.min(height - fontPx * 0.55, labelY + stagger));
+      context.fillStyle = "rgba(2, 6, 9, 0.75)";
+      context.fillRect(textX - 1, textY - fontPx * 0.55, textW + 3, fontPx + 2);
       context.fillStyle = "rgba(255, 220, 170, 0.95)";
       context.fillText(label, textX, textY);
     }
   });
 
-  // Crossover: band names centered in each frequency region (Low / 1 / High).
-  if (isCrossover) {
-    const bandCount = Number(view?.bandCount) || cutoffs.length + 1;
-    const names = Array.isArray(view?.bandNames) && view.bandNames.length === bandCount
-      ? view.bandNames
-      : (typeof nodeGraphCrossoverBandNames === "function"
-        ? nodeGraphCrossoverBandNames(bandCount)
-        : Array.from({ length: bandCount }, (_v, i) => String(i + 1)));
-    const edges = [0, ...cutoffs.map((f) => nodeGraphFilterCurveCutoffRatio(f, minFreq, maxFreq)), 1];
-    context.fillStyle = "rgba(200, 220, 230, 0.55)";
-    context.font = "600 9px system-ui, sans-serif";
-    context.textBaseline = "bottom";
-    context.textAlign = "center";
-    for (let b = 0; b < bandCount; b += 1) {
-      const left = edges[b] ?? 0;
-      const right = edges[b + 1] ?? 1;
-      const mid = (left + right) * 0.5;
-      const x = cutoffInset + mid * cutoffDrawableWidth;
-      context.fillText(String(names[b] ?? ""), x, height - 3);
-    }
-    context.textAlign = "left";
+  // Non-crossover filter title (crossovers stay markers-only).
+  if (!isCrossover) {
+    const title = nodeGraphFilterCurveLabel(node);
+    context.font = "600 10px system-ui, sans-serif";
+    context.textBaseline = "top";
+    const titleW = context.measureText(title).width;
+    const titleY = 3;
+    context.fillStyle = "rgba(2, 6, 9, 0.65)";
+    context.fillRect(6, titleY - 1, titleW + 4, 12);
+    context.fillStyle = "rgba(229, 238, 242, 0.82)";
+    context.fillText(title, 8, titleY);
   }
-
-  const title = nodeGraphFilterCurveLabel(node);
-  context.font = "600 10px system-ui, sans-serif";
-  context.textBaseline = "top";
-  const titleW = context.measureText(title).width;
-  // Keep title clear of staggered crossover Hz labels (y = 3 / 14 / 25).
-  const titleY = isCrossover ? Math.max(3, height - 28) : 3;
-  context.fillStyle = "rgba(2, 6, 9, 0.65)";
-  context.fillRect(6, titleY - 1, titleW + 4, 12);
-  context.fillStyle = "rgba(229, 238, 242, 0.82)";
-  context.fillText(title, 8, titleY);
 }
 
 function drawNodeGraphFilterCurveDisplays() {

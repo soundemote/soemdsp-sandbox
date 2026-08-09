@@ -782,6 +782,9 @@ function beginNodeGraphWorkspacePinchZoom(event) {
     startZoom: nodeGraphZoom(),
   };
   document.getElementById("nodeGraphWorkspace")?.classList.add("panning");
+  if (typeof markNodeGraphViewportGesture === "function") {
+    markNodeGraphViewportGesture("pinch");
+  }
   event.preventDefault();
   event.stopPropagation();
 }
@@ -824,8 +827,10 @@ function endNodeGraphWorkspacePinchZoom(event) {
     if (touchPoints.size === 1) {
       const [survivor] = touchPoints.values();
       beginNodeGraphWorkspacePanFrom(survivor.pointerId, survivor.clientX, survivor.clientY);
-    } else if (typeof scheduleNodeGraphViewportSettle === "function") {
-      scheduleNodeGraphViewportSettle();
+    } else if (typeof flushNodeGraphViewportOnPointerUp === "function") {
+      flushNodeGraphViewportOnPointerUp();
+    } else if (typeof flushNodeGraphViewportImmediate === "function") {
+      flushNodeGraphViewportImmediate();
     }
     event.preventDefault();
     event.stopPropagation();
@@ -911,10 +916,16 @@ function endNodeGraphWorkspacePan(event) {
   }
   workspace?.classList.remove("panning");
   nodeGraphMvp.workspacePanning = null;
-  if (typeof scheduleNodeGraphViewportSettle === "function") {
-    scheduleNodeGraphViewportSettle();
+  // Lights + wires once on mouse-up — not a settle timer mid/after drag.
+  if (typeof flushNodeGraphViewportOnPointerUp === "function") {
+    flushNodeGraphViewportOnPointerUp({ pan: true, zoom: true });
+  } else if (typeof flushNodeGraphViewportImmediate === "function") {
+    flushNodeGraphViewportImmediate({ pan: true, zoom: true });
   } else {
     drawNodeGraphWires();
+    if (typeof updateNodeGraphGridHeatmap === "function") {
+      updateNodeGraphGridHeatmap();
+    }
   }
   event.preventDefault();
   event.stopPropagation();

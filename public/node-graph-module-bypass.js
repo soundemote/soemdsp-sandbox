@@ -80,6 +80,7 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   additiveOsc: "silence",
   gpuAdditiveOsc: "silence",
   aliasSine: "silence",
+  robinSinusoid: "silence",
   sinepulse: "silence",
   surgeOscillator: "silence",
   softwaveOsc: "silence",
