@@ -182,13 +182,6 @@ function recenterNodeGraphViewAtWorldOrigin(event) {
   event?.preventDefault?.();
 }
 
-function handleNodeGraphWorldPositionReadoutKeydown(event) {
-  if (event.key !== "Enter" && event.key !== " ") {
-    return;
-  }
-  recenterNodeGraphViewAtWorldOrigin(event);
-}
-
 function setNodeGraphPan(x, y, options = {}) {
   nodeGraphMvp.pan = {
     x: Number.isFinite(Number(x)) ? Number(x) : 0,

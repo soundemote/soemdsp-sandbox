@@ -18,12 +18,24 @@ function bindNodeGraphWorkspaceInteractionEvents() {
   document.addEventListener("auxclick", preventNodeGraphMiddleMouseAuxClick, true);
   document.addEventListener("mousedown", preventNodeGraphMiddleMouseDefault, true);
   document.addEventListener("wheel", preventNodeGraphOuterWheelScroll, { passive: false, capture: true });
-  document
-    .getElementById("nodeWorldPositionReadout")
-    ?.addEventListener("click", recenterNodeGraphViewAtWorldOrigin);
-  document
-    .getElementById("nodeWorldPositionReadout")
-    ?.addEventListener("keydown", handleNodeGraphWorldPositionReadoutKeydown);
+  // X/Y readout: mouse click only. Never tab-stop or Space/Enter (keyboard
+  // must stay with the workspace / modules — not these status chips).
+  const worldPosReadout = document.getElementById("nodeWorldPositionReadout");
+  if (worldPosReadout) {
+    worldPosReadout.addEventListener("pointerdown", (event) => {
+      // Keep focus wherever it was (prevents accidental focus steal on click).
+      if (event.button === 0) {
+        event.preventDefault();
+      }
+    });
+    worldPosReadout.addEventListener("click", recenterNodeGraphViewAtWorldOrigin);
+  }
+  // W/H is display-only — no pointer focus steal either.
+  document.getElementById("nodeModularViewSizeReadout")?.addEventListener("pointerdown", (event) => {
+    if (event.button === 0) {
+      event.preventDefault();
+    }
+  });
   document
     .getElementById("nodeGraphWorkspace")
     .addEventListener("click", nodeGraphWireInteractions.handleWorkspaceClick);

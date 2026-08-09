@@ -218,12 +218,22 @@ function zoomNodeGraphAt(delta, clientX, clientY) {
 }
 
 function resetNodeGraphZoomToOne() {
-  const oldPan = nodeGraphMvp.pan || { x: 0, y: 0 };
-  nodeGraphMvp.zoom = 1;
-  syncNodeGraphPatchViewZoom(1);
+  // Zoom to 1× around the *viewport center*. Keeping the old pan at the new
+  // scale (previous behavior) left a huge offset after zooming in far —
+  // pan was sized for the high zoom, so at 1× the world jumped sideways.
+  const oldZoom = nodeGraphZoom();
+  if (Math.abs(oldZoom - 1) >= 0.001) {
+    // setNodeGraphZoom(null anchor) pins the content point under the center.
+    setNodeGraphZoom(1);
+  } else {
+    nodeGraphMvp.zoom = 1;
+    syncNodeGraphPatchViewZoom(1);
+  }
+  // Light grid snap at the new zoom (after re-anchor, not before).
+  const pan = nodeGraphMvp.pan || { x: 0, y: 0 };
   nodeGraphMvp.pan = {
-    x: snapNodeGraphPanValueToGrid(oldPan.x, nodeGraphGridWidth(), 1),
-    y: snapNodeGraphPanValueToGrid(oldPan.y, nodeGraphGridHeight(), 1),
+    x: snapNodeGraphPanValueToGrid(pan.x, nodeGraphGridWidth(), 1),
+    y: snapNodeGraphPanValueToGrid(pan.y, nodeGraphGridHeight(), 1),
   };
   applyNodeGraphZoom({ immediate: true, forceLayout: true });
   applyNodeGraphPan({ immediate: true });
@@ -254,7 +264,13 @@ function finishNodeGraphZoomInput(input, options = {}) {
   const zoom = shouldApply ? normalizeNodeGraphZoomInput(input.value) : null;
   button.dataset.editingZoom = "false";
   if (shouldApply && zoom !== null) {
+    // Center-anchored scale change (same as reset / wheel-without-cursor).
     setNodeGraphZoom(zoom);
+    applyNodeGraphZoom({ immediate: true, forceLayout: true });
+    applyNodeGraphPan({ immediate: true });
+    if (typeof scheduleNodeGraphWorkspaceViewPersist === "function") {
+      scheduleNodeGraphWorkspaceViewPersist();
+    }
   } else {
     applyNodeGraphZoom();
   }

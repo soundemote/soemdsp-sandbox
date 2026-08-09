@@ -2943,17 +2943,28 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   max-width: none;
 }
 
+/*
+ * Modular chrome strip (top toolbar + flush workspace + bottom controls).
+ * Shared surface tokens keep the three bands one continuous plate.
+ */
 .node-view-toolbar {
+  --node-toolbar-row-height: 2.8rem;
+  --node-toolbar-surface: rgba(32, 37, 42, var(--node-toolbar-button-bg-alpha, 0.62));
+  --node-toolbar-chip-bg: rgba(14, 17, 21, 0.88);
+  --node-toolbar-mono: Consolas, "Courier New", monospace;
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: stretch;
-  gap: 1px;
-  margin-top: 0;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  min-height: 0;
   overflow: visible;
   border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--line);
-  --node-toolbar-row-height: 2.8rem;
+  border-bottom: 0;
+  border-radius: 0;
+  background: var(--node-toolbar-surface);
   user-select: none;
   -webkit-user-select: none;
 }
@@ -2969,147 +2980,53 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-zoom-controls,
 .node-toolbar-hsl-control,
 .node-scope-master-brightness-control {
-  background-color: rgba(32, 37, 42, var(--node-toolbar-button-bg-alpha));
+  background-color: var(--node-toolbar-surface);
 }
 
+/* Two full-width rows (tabs + history). */
 .node-view-tabs,
 .node-history-controls {
   display: flex;
+  flex: 1 0 100%;
   flex-wrap: nowrap;
   align-items: stretch;
   gap: 0;
+  margin: 0;
+  padding: 0;
   min-width: 0;
   height: 3.25rem;
   min-height: 0;
   overflow: hidden;
-  background: var(--line);
-}
-
-.node-zoom-controls {
-  display: grid;
-  align-items: stretch;
-  gap: 0;
-  min-width: 0;
-  overflow: hidden;
   background: transparent;
 }
 
-.node-view-tabs {
-  flex: 1 0 100%;
-}
-
-.node-history-controls {
-  flex: 1 0 100%;
-}
-
-.node-view-toolbar {
-  position: relative;
-  min-height: 0;
-}
-
+/* Flush cells — no margins / borders / radius between siblings. */
 .node-view-tabs > *,
 .node-history-controls > * {
-  border-width: 0;
-  border-radius: 0;
+  margin: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
 }
 
-.node-view-tabs > * + *,
-.node-history-controls > * + * {
-  border-left: 0;
-}
-
-.node-history-controls > :first-child {
-  border-left: 0;
-}
-
-.node-modular-view-button-group {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0;
-  flex: 2 1 0;
-  align-self: stretch;
-  min-inline-size: 0;
-  min-height: var(--node-toolbar-row-height);
-  overflow: hidden;
-  background: rgba(127, 199, 217, 0.16);
-}
-
-.node-modular-view-button-group > button {
-  flex: none;
+.node-history-controls > * {
   min-height: 0;
-  height: 100%;
-  border: 0;
-  border-radius: 0;
 }
 
-.node-modular-view-button-group > button + button {
-  border-left: 0;
-}
-
-.node-zoom-controls {
-  flex: 2.8 1 0;
-  grid-template-rows: minmax(10px, 0.34fr) minmax(0, 1.66fr);
-  min-inline-size: 0;
-  border-width: 0 0 0 1px;
-  border-radius: 0;
-}
-
-.node-zoom-label {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted);
-  font-family: Consolas, "Courier New", monospace;
-  font-size: 0.62rem;
-  line-height: 1;
-}
-
-.node-zoom-buttons {
-  display: grid;
-  grid-template-columns: minmax(34px, 0.7fr) minmax(76px, 1.9fr) minmax(34px, 0.7fr) minmax(34px, 0.7fr);
-  position: relative;
-  min-height: 0;
-  overflow: hidden;
-  border-top: 1px solid var(--line);
-  background: rgba(32, 37, 42, var(--node-toolbar-button-bg-alpha));
-}
-
-.node-zoom-buttons button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 0;
-  width: 100%;
-  height: 100%;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.node-view-toolbar .node-zoom-buttons button {
+.node-history-controls > .node-patch-timing-controls {
+  margin: 0;
   padding: 0;
 }
 
-.node-zoom-buttons button + button {
-  border-left: 1px solid var(--line);
+.node-history-controls a {
+  color: inherit;
+  text-decoration: none;
 }
 
-.node-view-toolbar .node-zoom-buttons button:not(:disabled):not(.active):hover {
-  border-color: var(--node-front-button-hover-border);
-  background: var(--node-front-button-hover-bg);
-  box-shadow: none;
-  color: var(--node-front-button-hover-color);
+.node-history-controls button {
+  flex: 1 1 0;
 }
 
-.node-view-toolbar .node-zoom-buttons button:focus-visible {
-  outline: 1px solid rgba(127, 199, 217, 0.65);
-  outline-offset: -2px;
-}
-
+/* Shared cell chrome (buttons + status chips). */
 .node-view-tabs button,
 .node-history-controls button,
 .node-history-controls a,
@@ -3127,7 +3044,10 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   flex: 1 1 0;
   min-height: var(--node-toolbar-row-height);
   min-width: 0;
-  padding: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
   font-size: clamp(0.92rem, calc(var(--node-toolbar-row-height) * 0.36), 1.28rem);
   line-height: 1.12;
   text-align: center;
@@ -3136,27 +3056,93 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   word-break: normal;
 }
 
-.node-history-controls > * {
-  min-height: 0;
-}
-
-.node-history-controls > .node-patch-timing-controls {
+/* Zoom cluster */
+.node-zoom-controls {
+  display: grid;
+  flex: 2.8 1 0;
+  grid-template-rows: minmax(10px, 0.34fr) minmax(0, 1.66fr);
+  align-items: stretch;
+  gap: 0;
+  margin: 0;
   padding: 0;
+  min-width: 0;
+  min-inline-size: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
+.node-zoom-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  color: var(--muted);
+  font-family: var(--node-toolbar-mono);
+  font-size: clamp(0.48rem, 0.58vw, 0.62rem);
+  line-height: 1;
+}
+
+.node-zoom-buttons {
+  display: grid;
+  grid-template-columns: minmax(34px, 0.7fr) minmax(76px, 1.9fr) minmax(34px, 0.7fr) minmax(34px, 0.7fr);
+  position: relative;
+  gap: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 0;
+  background: var(--node-toolbar-surface);
+}
+
+.node-zoom-buttons button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent;
+  box-shadow: none;
+  font-size: clamp(1.28rem, 1.55vw, 1.68rem);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.node-view-toolbar .node-zoom-buttons button:not(:disabled):not(.active):hover {
+  border-color: var(--node-front-button-hover-border);
+  background: var(--node-front-button-hover-bg);
+  box-shadow: none;
+  color: var(--node-front-button-hover-color);
+}
+
+.node-view-toolbar .node-zoom-buttons button:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--accent) 65%, transparent);
+  outline-offset: -2px;
+}
+
+/* Status chips (X/Y · W/H · SEL) — never keyboard focus targets. */
 .node-world-position-readout,
 .node-modular-view-size-readout,
 .node-selection-count-readout {
   flex: 0.86 1 0;
   flex-direction: column;
   gap: 2px;
-  background-color: rgba(14, 17, 21, 0.88);
-  color: rgba(127, 199, 217, 0.92);
-  font-family: Consolas, "Courier New", monospace;
+  background-color: var(--node-toolbar-chip-bg);
+  color: color-mix(in srgb, var(--accent) 92%, transparent);
+  font-family: var(--node-toolbar-mono);
   font-size: clamp(0.9rem, 1.08vw, 1.18rem);
   font-weight: 700;
   letter-spacing: 0;
   text-transform: uppercase;
+  user-select: none;
+  -webkit-user-select: none;
+  outline: none;
 }
 
 .node-world-position-readout {
@@ -3165,30 +3151,35 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-modular-view-size-readout {
   flex: 0.72 1 0;
-  color: rgba(226, 168, 109, 0.9);
-}
-
-.node-world-position-readout:focus-visible {
-  outline: 1px solid rgba(127, 199, 217, 0.65);
-  outline-offset: -2px;
+  color: color-mix(in srgb, var(--accent-2) 90%, transparent);
+  cursor: default;
 }
 
 .node-selection-count-readout {
   flex: 0.58 1 0;
 }
 
+.node-world-position-readout span,
+.node-modular-view-size-readout span,
+.node-selection-count-readout span {
+  line-height: 1;
+}
+
+.node-selection-count-readout span {
+  pointer-events: none;
+}
+
+/* Build stamp — selectable text, stacked lines. */
 .node-build-number-readout {
   flex: 1.15 1 0;
-  /* Three stacked lines: version / build label / per-process stamp.
-     Override the shared toolbar-button padding so the text can stay large. */
   flex-direction: column;
   gap: 0;
   padding: 0 2px !important;
   min-width: 0;
   overflow: hidden;
   background: rgba(7, 11, 14, 0.94);
-  color: rgba(127, 199, 217, 0.98);
-  font-family: Consolas, "Courier New", monospace;
+  color: color-mix(in srgb, var(--accent) 98%, transparent);
+  font-family: var(--node-toolbar-mono);
   font-size: clamp(0.88rem, calc(var(--node-toolbar-row-height) * 0.30), 1.12rem) !important;
   font-weight: 900;
   letter-spacing: 0;
@@ -3199,7 +3190,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 .node-build-number-readout [data-build-token-value] {
-  color: rgba(226, 168, 109, 0.95);
+  color: color-mix(in srgb, var(--accent-2) 95%, transparent);
   letter-spacing: 0.08em;
 }
 
@@ -3210,34 +3201,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   text-overflow: clip;
   line-height: 1.05;
   white-space: nowrap;
-}
-
-.node-world-position-readout span,
-.node-modular-view-size-readout span,
-.node-selection-count-readout span,
-.node-build-number-readout span {
-  line-height: 1;
-}
-
-.node-selection-count-readout span {
-  pointer-events: none;
-}
-
-.node-build-number-readout span {
   pointer-events: auto;
   user-select: text;
   -webkit-user-select: text;
-}
-
-/* Keep W/H canvas size visible in modular-only view (was hidden). */
-
-.node-history-controls a {
-  color: inherit;
-  text-decoration: none;
-}
-
-.node-history-controls button {
-  flex: 1 1 0;
 }
 
 #nodeSettingsViewButton {
@@ -3255,11 +3221,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 #nodeRedoButton {
   flex: 0.72 1 0;
   font-size: clamp(0.92rem, calc(var(--node-toolbar-row-height) * 0.34), 1.22rem);
-}
-
-/* History row zeroes sibling borders; keep a seam so Undo | Redo stay distinct. */
-#nodeRedoButton {
-  border-left: 1px solid rgba(127, 199, 217, 0.28);
 }
 
 #nodeUserUiSettingsButton {
@@ -3568,25 +3529,10 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   color: var(--node-front-button-hover-color);
 }
 
-#nodeSettingsViewButton {
-  padding: 0.25rem;
-  font-size: clamp(1.35rem, 1.65vw, 1.7rem);
-  line-height: 1;
-}
-
-.node-zoom-label {
-  font-size: clamp(0.48rem, 0.58vw, 0.62rem);
-}
-
-.node-zoom-buttons button {
-  font-size: clamp(1.28rem, 1.55vw, 1.68rem);
-  line-height: 1;
-}
-
 #nodeZoomResetButton {
   align-items: center;
   justify-content: center;
-  font-family: Consolas, "Courier New", monospace;
+  font-family: var(--node-toolbar-mono, Consolas, "Courier New", monospace);
   font-size: clamp(0.98rem, 1.28vw, 1.28rem);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
@@ -3972,11 +3918,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: flex;
   flex-direction: column;
   justify-self: center;
-  width: var(--node-workspace-view-width, calc(100% - 6px));
+  width: 100%;
   max-width: none;
   min-width: 0;
-  gap: 4px;
-  margin: 3px auto 0;
+  gap: 0;
+  margin: 0;
+  padding: 0;
 }
 
 .node-help-stack > [hidden] {
@@ -4680,8 +4627,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 @media (max-width: 980px) {
+  /* Toolbar is flex (not grid) — allow horizontal scroll when cramped. */
   .node-view-toolbar {
-    grid-template-columns: repeat(15, minmax(72px, 1fr));
     overflow-x: auto;
   }
 
@@ -4808,14 +4755,15 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-bypass-off-bg: transparent;
   --node-move-symbol-size-ratio: 0.6;
   position: relative;
-  width: calc(100% - 6px);
+  /* Full-bleed plate between top toolbar and bottom public controls. */
+  width: 100%;
   height: max(560px, calc(100vh - 230px));
   min-width: calc(var(--node-grid-width) * 4);
   min-height: var(--node-grid-height);
-  margin: 3px auto 0;
+  margin: 0;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 0;
   background: var(--node-workspace-bg);
   touch-action: none;
   user-select: none;
@@ -12903,9 +12851,10 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   justify-items: stretch;
   min-width: 0;
   height: 100%;
+  margin: 0;
   padding: 0;
   gap: 0;
-  border-inline-end: 1px solid rgba(127, 199, 217, 0.08);
+  border: 0;
   color: rgba(199, 226, 226, 0.68);
   font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
   font-size: 100%;
@@ -18499,6 +18448,7 @@ body.node-slider-dragging .node-param-port {
   }
 }
 
+/* Bottom public controls (Input / Live / …) — flush under modular workspace. */
 .node-graph-controls {
   --node-public-control-height: 2.8rem;
   display: flex;
@@ -18506,7 +18456,8 @@ body.node-slider-dragging .node-param-port {
   align-items: flex-start;
   align-content: flex-start;
   gap: 0;
-  margin-top: 14px;
+  margin: 0;
+  padding: 0;
 }
 
 .node-graph-controls > :is(
@@ -19595,7 +19546,7 @@ body.keyboard-debug-hidden
   .node-wiring-panel:not(.modular-only-view):not(.camera-view-visible)
   > .node-graph-controls {
   flex: 0 0 auto;
-  margin-top: 3px;
+  margin-top: 0;
 }
 
 body.keyboard-debug-hidden .node-wiring-panel ~ .panel,
