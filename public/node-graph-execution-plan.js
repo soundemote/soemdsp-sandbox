@@ -57,9 +57,8 @@ function nodeGraphBuildDependencyMap(patch = nodeGraphMvp.patch) {
       issues.push(`connection destination port invalid: ${connection.destinationNode}.${connection.destinationPort}`);
       continue;
     }
-    if (bypassedNodes.has(connection.sourceNode) || bypassedNodes.has(connection.destinationNode)) {
-      continue;
-    }
+    // Signal wires still route through bypassed nodes (passthrough DSP at
+    // evaluate time). Dropping them used to mute the entire downstream chain.
     const canonicalConnection = { ...connection, sourcePort, destinationPort };
     const key = nodeGraphInputKey(connection.destinationNode, destinationPort);
     const connections = inputConnections.get(key) || [];
@@ -86,7 +85,9 @@ function nodeGraphBuildDependencyMap(patch = nodeGraphMvp.patch) {
       issues.push(`modulation destination parameter invalid: ${modulation.destinationNode}.${modulation.destinationParam}`);
       continue;
     }
-    if (bypassedNodes.has(modulation.sourceNode) || bypassedNodes.has(modulation.destinationNode)) {
+    // Bypassed destinations do not run DSP — skip modulations into them.
+    // Sources may still emit (silence or pass) so keep source-side mods.
+    if (bypassedNodes.has(modulation.destinationNode)) {
       continue;
     }
     const key = nodeGraphParameterKey(modulation.destinationNode, modulation.destinationParam);
@@ -112,9 +113,7 @@ function nodeGraphBuildDependencyMap(patch = nodeGraphMvp.patch) {
       issues.push(`graph connection destination invalid: ${graphConnection.destinationNode}.${graphConnection.destinationGraphInput}`);
       continue;
     }
-    if (bypassedNodes.has(graphConnection.sourceNode) || bypassedNodes.has(graphConnection.destinationNode)) {
-      continue;
-    }
+    // Graph wires also keep flowing through bypassed modules (passthrough).
     const key = nodeGraphGraphInputKey(graphConnection.destinationNode, graphConnection.destinationGraphInput);
     const connections = graphInputConnections.get(key) || [];
     connections.push({ ...graphConnection, sourcePort });

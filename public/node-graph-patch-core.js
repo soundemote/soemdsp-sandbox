@@ -1060,7 +1060,8 @@ function commitNodeGraphPatch(patch, options = {}) {
     nodeGraphMvp.patchDirtyState = "edited";
   }
   // Audio graph topology/params are unchanged by gx/gy or face cosmetics.
-  if (!isLayoutEdit && !isSoftDom) {
+  // Ghost module placement can skip live plan until drop (see skipLivePlan).
+  if (!isLayoutEdit && !isSoftDom && options.skipLivePlan !== true) {
     scheduleNodeGraphLivePlanSync();
   }
 
@@ -1104,7 +1105,9 @@ function commitNodeGraphPatch(patch, options = {}) {
     }
   };
 
-  if (isWireEdit || isLayoutEdit) {
+  // Wire/layout edits and ghost placement (deferUiPanels) keep the UI responsive:
+  // history/autosave/palette work runs after the current pointer/frame.
+  if (isWireEdit || isLayoutEdit || options.deferUiPanels) {
     window.requestAnimationFrame(() => {
       window.setTimeout(runDeferredUiPanels, 0);
     });

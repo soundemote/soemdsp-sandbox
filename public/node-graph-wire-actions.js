@@ -298,7 +298,50 @@ function nodeGraphPortPairMeta(port) {
     "right mix": { group: "stereo-xy-lr", role: 1, siblings: ["Left Mix", "Wet L", "Left Wet", "Left", "X"] },
     "left out": { group: "stereo-xy-lr", role: 0, siblings: ["Right Out", "Right", "Y", "Wet R", "Dry R"] },
     "right out": { group: "stereo-xy-lr", role: 1, siblings: ["Left Out", "Left", "X", "Wet L", "Dry L"] },
+    // Short stereo tags (crossover In/L/R and band outs "Low L", "1 R", …)
+    l: { group: "stereo-xy-lr", role: 0, siblings: ["R", "Right", "Y"] },
+    r: { group: "stereo-xy-lr", role: 1, siblings: ["L", "Left", "X"] },
   };
+  // Trailing " L" / " R" (and " Left" / " Right") on band/bus names.
+  if (!table[key]) {
+    // Crossover mid-bands: L1/R1, L2/R2, …
+    const lNum = key.match(/^l(\d+)$/);
+    if (lNum) {
+      return {
+        group: "stereo-xy-lr",
+        role: 0,
+        siblings: [`R${lNum[1]}`, `R ${lNum[1]}`, `${lNum[1]} R`, "R", "Right"],
+      };
+    }
+    const rNum = key.match(/^r(\d+)$/);
+    if (rNum) {
+      return {
+        group: "stereo-xy-lr",
+        role: 1,
+        siblings: [`L${rNum[1]}`, `L ${rNum[1]}`, `${rNum[1]} L`, "L", "Left"],
+      };
+    }
+    if (/(?:^| )l$/.test(key) || key.endsWith(" left")) {
+      const base = key.replace(/(?:^| )l$/, "").replace(/ left$/, "").trim();
+      const rName = base ? `${base} R` : "R";
+      const rightName = base ? `${base} Right` : "Right";
+      return {
+        group: "stereo-xy-lr",
+        role: 0,
+        siblings: [rName, rightName, "R", "Right"],
+      };
+    }
+    if (/(?:^| )r$/.test(key) || key.endsWith(" right")) {
+      const base = key.replace(/(?:^| )r$/, "").replace(/ right$/, "").trim();
+      const lName = base ? `${base} L` : "L";
+      const leftName = base ? `${base} Left` : "Left";
+      return {
+        group: "stereo-xy-lr",
+        role: 1,
+        siblings: [lName, leftName, "L", "Left"],
+      };
+    }
+  }
   return table[key] || null;
 }
 

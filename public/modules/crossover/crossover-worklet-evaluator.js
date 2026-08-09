@@ -54,8 +54,8 @@ NodeLiveAudioProcessor.prototype.crossoverEvaluator = function crossoverEvaluato
   return this.crossoverSample(
     state,
     mixInput(nodeId),
-    mixInput(nodeId, "Left"),
-    mixInput(nodeId, "Right"),
+    mixInput(nodeId, "L") + mixInput(nodeId, "Left"),
+    mixInput(nodeId, "R") + mixInput(nodeId, "Right"),
     freqs,
     lrOrder,
     safeRate,

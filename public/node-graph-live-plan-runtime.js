@@ -15,13 +15,14 @@ function nodeGraphBuildLivePlan() {
     .map((modulation) => ({ ...modulation }));
 
   const plan = {
+    bypassedNodes: [...(compiled.bypassedNodes || [])],
     connections: activeSignalConnections,
     feedbackConnections: compiled.feedbackConnections.map((connection) => ({ ...connection })),
     feedbackGraphConnections: (compiled.feedbackGraphConnections || []).map((connection) => ({ ...connection })),
     feedbackModulations: compiled.feedbackModulations.map((modulation) => ({ ...modulation })),
     graphConnections: activeGraphConnections,
     modulations: activeModulations,
-    nodes: nodeGraphBuildLiveParameterNodes(activeNodeIds),
+    nodes: nodeGraphBuildLiveParameterNodes(activeNodeIds, compiled.bypassedNodes),
     order: [...compiled.order],
     outputNode: compiled.outputNode,
     patchFingerprint: nodeGraphPatchFingerprint(),
@@ -50,13 +51,14 @@ function nodeGraphBuildLivePlanForPatch(patch) {
   }
   const activeNodeIds = nodeGraphActiveNodeIds(compiled);
   const plan = {
+    bypassedNodes: [...(compiled.bypassedNodes || [])],
     connections: nodeGraphActiveSignalConnections(compiled).map((connection) => ({ ...connection })),
     feedbackConnections: compiled.feedbackConnections.map((connection) => ({ ...connection })),
     feedbackGraphConnections: (compiled.feedbackGraphConnections || []).map((connection) => ({ ...connection })),
     feedbackModulations: compiled.feedbackModulations.map((modulation) => ({ ...modulation })),
     graphConnections: nodeGraphActiveGraphConnections(compiled).map((connection) => ({ ...connection })),
     modulations: nodeGraphActiveModulations(compiled).map((modulation) => ({ ...modulation })),
-    nodes: nodeGraphBuildLiveParameterNodesForPatch(normalizedPatch, activeNodeIds),
+    nodes: nodeGraphBuildLiveParameterNodesForPatch(normalizedPatch, activeNodeIds, compiled.bypassedNodes),
     order: [...compiled.order],
     outputNode: compiled.outputNode,
     patchFingerprint: nodeGraphPatchFingerprint(normalizedPatch),
@@ -109,8 +111,11 @@ function nodeGraphInjectSpectrogramWorkletParams(node, params) {
   params.maxFreq = Number(p.maxFreq ?? 20000) || 20000;
 }
 
-function nodeGraphBuildLiveParameterNodes(activeNodeIds = null) {
+function nodeGraphBuildLiveParameterNodes(activeNodeIds = null, bypassedNodes = null) {
   const activeIds = activeNodeIds instanceof Set ? activeNodeIds : null;
+  const bypassed = bypassedNodes instanceof Set
+    ? bypassedNodes
+    : new Set(Array.isArray(bypassedNodes) ? bypassedNodes : (nodeGraphMvp.patch.bypassedNodes || []));
   return nodeGraphMvp.patch.nodes
     .filter((node) => !activeIds || activeIds.has(node.id))
     .map((node) => {
@@ -131,6 +136,10 @@ function nodeGraphBuildLiveParameterNodes(activeNodeIds = null) {
         params,
         type: node.type,
       };
+      if (bypassed.has(node.id) && typeof nodeGraphModuleBypassSpec === "function") {
+        runtimeNode.bypassed = true;
+        runtimeNode.bypassSpec = nodeGraphModuleBypassSpec(node.type);
+      }
       if (node.type === "codeblock") {
         runtimeNode.codeblock = normalizeNodeGraphCodeblock(node.codeblock);
       }
@@ -156,8 +165,11 @@ function nodeGraphBuildLiveParameterNodes(activeNodeIds = null) {
     });
 }
 
-function nodeGraphBuildLiveParameterNodesForPatch(patch, activeNodeIds = null) {
+function nodeGraphBuildLiveParameterNodesForPatch(patch, activeNodeIds = null, bypassedNodes = null) {
   const activeIds = activeNodeIds instanceof Set ? activeNodeIds : null;
+  const bypassed = bypassedNodes instanceof Set
+    ? bypassedNodes
+    : new Set(Array.isArray(bypassedNodes) ? bypassedNodes : (patch.bypassedNodes || []));
   return (patch.nodes || [])
     .filter((node) => !activeIds || activeIds.has(node.id))
     .map((node) => {
@@ -182,6 +194,10 @@ function nodeGraphBuildLiveParameterNodesForPatch(patch, activeNodeIds = null) {
         params,
         type: node.type,
       };
+      if (bypassed.has(node.id) && typeof nodeGraphModuleBypassSpec === "function") {
+        runtimeNode.bypassed = true;
+        runtimeNode.bypassSpec = nodeGraphModuleBypassSpec(node.type);
+      }
       if (node.type === "codeblock") {
         runtimeNode.codeblock = normalizeNodeGraphCodeblock(node.codeblock);
       }

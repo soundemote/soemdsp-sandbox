@@ -160,9 +160,15 @@ function evaluateNodeGraphPlanFrame(runtime, sampleRate, frame, frames) {
     const node = runtime.nodes.get(nodeId);
     let value = 0;
 
-    const liveModuleEvaluator = node?.type ? nodeGraphLiveModuleEvaluators[node.type] : null;
-    if (liveModuleEvaluator) {
-      value = liveModuleEvaluator({ runtime, node, nodeId, frame, frames, frameValues, mixInput, hasInput, sampleRate, graphInputValue, graphOutputValue });
+    if (node?.bypassed) {
+      value = typeof nodeGraphEvaluateBypassFrame === "function"
+        ? nodeGraphEvaluateBypassFrame(node.bypassSpec || { mode: "silence" }, nodeId, mixInput)
+        : 0;
+    } else {
+      const liveModuleEvaluator = node?.type ? nodeGraphLiveModuleEvaluators[node.type] : null;
+      if (liveModuleEvaluator) {
+        value = liveModuleEvaluator({ runtime, node, nodeId, frame, frames, frameValues, mixInput, hasInput, sampleRate, graphInputValue, graphOutputValue });
+      }
     }
 
     frameValues.set(nodeId, value);

@@ -36,8 +36,8 @@ function nodeGraphCrossoverRegisterLive(bandCount) {
     const out = nodeGraphCrossoverSample(
       state,
       mixInput(nodeId),
-      mixInput(nodeId, "Left"),
-      mixInput(nodeId, "Right"),
+      mixInput(nodeId, "L") + mixInput(nodeId, "Left"),
+      mixInput(nodeId, "R") + mixInput(nodeId, "Right"),
       freqs,
       lrOrder,
       sampleRate,

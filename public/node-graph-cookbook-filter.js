@@ -302,9 +302,101 @@ function nodeGraphFilterCurveLiveParam(node, key, fallback = 0) {
   return base;
 }
 
+function nodeGraphIsCrossoverType(type) {
+  return /^crossover[2-6]$/.test(String(type || ""));
+}
+
+function nodeGraphCrossoverBandCountFromType(type) {
+  const match = String(type || "").match(/^crossover([2-6])$/);
+  return match ? Number(match[1]) : 0;
+}
+
+/** Param keys for the N-1 split frequencies on a crossover module. */
+function nodeGraphCrossoverSplitFreqKeys(bandCount) {
+  const splits = Math.max(1, (Number(bandCount) || 2) - 1);
+  if (splits === 1) {
+    return ["frequency"];
+  }
+  return Array.from({ length: splits }, (_v, index) => `frequency${index + 1}`);
+}
+
+function nodeGraphFilterCurveFormatHz(hz) {
+  const f = Number(hz);
+  if (!Number.isFinite(f) || f < 0) {
+    return "—";
+  }
+  if (f >= 10000) {
+    return `${Math.round(f / 1000)}k`;
+  }
+  if (f >= 1000) {
+    const k = f / 1000;
+    const text = k >= 10 ? String(Math.round(k)) : k.toFixed(1).replace(/\.0$/, "");
+    return `${text}k`;
+  }
+  if (f >= 100) {
+    return String(Math.round(f));
+  }
+  if (f >= 10) {
+    return f.toFixed(1).replace(/\.0$/, "");
+  }
+  return f.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+/**
+ * Approximate successive LR band magnitude (visual guide, not bit-identical DSP).
+ * stages ≈ LR order/2 one-pole sections (LR2→1, LR4→2, LR8→4).
+ */
+function nodeGraphCrossoverBandMagnitudeAt(hz, splits, bandIndex, bandCount, lrOrder, sampleRate) {
+  const order = Math.round(Number(lrOrder) || 4);
+  const stages = order <= 2 ? 1 : order >= 8 ? 4 : 2;
+  const n = Math.max(2, Number(bandCount) || 2);
+  const b = Math.max(0, Math.min(n - 1, Number(bandIndex) || 0));
+  const freqs = Array.isArray(splits) ? splits : [];
+  let mag = 1;
+  for (let i = 0; i < freqs.length; i += 1) {
+    const fc = Math.max(0, Number(freqs[i]) || 0);
+    for (let s = 0; s < stages; s += 1) {
+      if (b > i) {
+        mag *= nodeGraphOnePoleHighpassMagnitudeAt(fc, hz, sampleRate);
+      } else if (b === i && b < n - 1) {
+        mag *= nodeGraphOnePoleLowpassMagnitudeAt(fc, hz, sampleRate);
+      } else if (b < i) {
+        // Already extracted; not in this remaining path.
+      } else if (b === n - 1) {
+        mag *= nodeGraphOnePoleHighpassMagnitudeAt(fc, hz, sampleRate);
+      }
+    }
+  }
+  return Number.isFinite(mag) && mag > 0 ? mag : 1e-6;
+}
+
 function nodeGraphFilterCurveView(node) {
   if (!node) {
     return null;
+  }
+  if (nodeGraphIsCrossoverType(node.type)) {
+    const bandCount = nodeGraphCrossoverBandCountFromType(node.type);
+    const keys = nodeGraphCrossoverSplitFreqKeys(bandCount);
+    const defaults = typeof nodeGraphCrossoverDefaultFreqs === "function"
+      ? nodeGraphCrossoverDefaultFreqs(bandCount)
+      : keys.map(() => 1000);
+    const frequencies = keys.map((key, index) =>
+      nodeGraphFilterCurveLiveParam(node, key, defaults[index] ?? 1000));
+    // Enforce non-decreasing for display (same as DSP).
+    for (let i = 1; i < frequencies.length; i += 1) {
+      if (frequencies[i] < frequencies[i - 1]) {
+        frequencies[i] = frequencies[i - 1];
+      }
+    }
+    return {
+      type: node.type,
+      bandCount,
+      frequencies,
+      order: nodeGraphFilterCurveLiveParam(node, "order", 4),
+      bandNames: typeof nodeGraphCrossoverBandNames === "function"
+        ? nodeGraphCrossoverBandNames(bandCount)
+        : null,
+    };
   }
   if (node.type === "passiveFilter") {
     return {
@@ -384,6 +476,17 @@ function nodeGraphFilterCurveFiniteHz(value, fallback = 0) {
 
 function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null) {
   const v = view || nodeGraphFilterCurveView(node) || {};
+  if (nodeGraphIsCrossoverType(node.type) || v.bandCount) {
+    // Composite flat-ish sum of band magnitudes (visual check that bands cover spectrum).
+    const bandCount = Number(v.bandCount) || nodeGraphCrossoverBandCountFromType(node.type) || 2;
+    const splits = Array.isArray(v.frequencies) ? v.frequencies : [];
+    const order = Number(v.order) || 4;
+    let sum = 0;
+    for (let b = 0; b < bandCount; b += 1) {
+      sum += nodeGraphCrossoverBandMagnitudeAt(frequency, splits, b, bandCount, order, sampleRate);
+    }
+    return Number.isFinite(sum) && sum > 0 ? sum : 1e-6;
+  }
   if (node.type === "passiveFilter") {
     const mode = Math.round(Number(v.mode) || 0);
     if (mode === 1) {
@@ -442,6 +545,11 @@ function nodeGraphFilterCurveResponseAt(node, frequency, sampleRate, view = null
 
 function nodeGraphFilterCurveCutoffFrequencies(node, view = null) {
   const v = view || nodeGraphFilterCurveView(node) || {};
+  if (nodeGraphIsCrossoverType(node.type) || Array.isArray(v.frequencies)) {
+    return (Array.isArray(v.frequencies) ? v.frequencies : [])
+      .map((value) => nodeGraphFilterCurveFiniteHz(value, 0))
+      .filter((value) => Number.isFinite(value) && value >= 0);
+  }
   if (node.type === "passiveFilter") {
     const mode = Math.round(Number(v.mode) || 0);
     if (mode === 2) {
@@ -483,6 +591,11 @@ function nodeGraphFilterCurveCutoffRatio(frequencyHz, minFreq, maxFreq) {
 }
 
 function nodeGraphFilterCurveLabel(node) {
+  if (nodeGraphIsCrossoverType(node.type)) {
+    const n = nodeGraphCrossoverBandCountFromType(node.type);
+    const order = Math.round(Number(node.params?.order) || 4);
+    return `${n}-way LR${order}`;
+  }
   if (node.type === "passiveFilter") {
     const mode = Math.round(Number(node.params?.mode) || 0);
     return mode === 1 ? "BP6" : mode === 2 ? "HP6" : "LP6";
@@ -586,12 +699,95 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
   }
   const logMin = Math.log10(minFreq);
   const logRange = Math.log10(maxFreq) - logMin;
-  context.strokeStyle = "rgba(226, 168, 109, 0.5)";
   const cutoffLineWidth = 1;
   const cutoffInset = cutoffLineWidth * 0.5;
   const cutoffDrawableWidth = Math.max(1, width - cutoffLineWidth);
+  const cutoffs = nodeGraphFilterCurveCutoffFrequencies(node, view);
+  const isCrossover = nodeGraphIsCrossoverType(node.type);
+
+  // Crossover: draw per-band magnitude guides (semi-transparent), then split markers.
+  if (isCrossover && Array.isArray(view?.frequencies)) {
+    const bandCount = Number(view.bandCount) || cutoffs.length + 1;
+    const order = Number(view.order) || 4;
+    const bandColors = [
+      "rgba(127, 199, 217, 0.85)",
+      "rgba(226, 168, 109, 0.85)",
+      "rgba(180, 140, 255, 0.85)",
+      "rgba(120, 220, 160, 0.85)",
+      "rgba(255, 150, 150, 0.85)",
+      "rgba(240, 220, 120, 0.85)",
+    ];
+    for (let b = 0; b < bandCount; b += 1) {
+      context.strokeStyle = bandColors[b % bandColors.length];
+      context.lineWidth = 1.25;
+      context.beginPath();
+      let startedBand = false;
+      for (let x = 0; x < width; x += 1) {
+        const progress = width <= 1 ? 0 : x / (width - 1);
+        const hz = 10 ** (logMin + progress * logRange);
+        let magnitude = nodeGraphCrossoverBandMagnitudeAt(
+          hz,
+          view.frequencies,
+          b,
+          bandCount,
+          order,
+          sampleRate,
+        );
+        if (!Number.isFinite(magnitude) || magnitude <= 0) {
+          magnitude = 1e-6;
+        }
+        const db = clampNodeSliderValue(20 * Math.log10(Math.max(1e-6, magnitude)), minDb, maxDb);
+        const y = (1 - ((db - minDb) / (maxDb - minDb))) * height;
+        if (!Number.isFinite(y)) {
+          continue;
+        }
+        if (!startedBand) {
+          context.moveTo(x, y);
+          startedBand = true;
+        } else {
+          context.lineTo(x, y);
+        }
+      }
+      if (startedBand) {
+        context.stroke();
+      }
+    }
+  } else {
+    context.strokeStyle = "rgba(61, 224, 255, 0.95)";
+    context.lineWidth = 1.5;
+    context.beginPath();
+    let started = false;
+    for (let x = 0; x < width; x += 1) {
+      const progress = width <= 1 ? 0 : x / (width - 1);
+      const hz = 10 ** (logMin + progress * logRange);
+      let magnitude = nodeGraphFilterCurveResponseAt(node, hz, sampleRate, view);
+      if (!Number.isFinite(magnitude) || magnitude <= 0) {
+        magnitude = 1e-6;
+      }
+      const db = clampNodeSliderValue(20 * Math.log10(Math.max(1e-6, magnitude)), minDb, maxDb);
+      const y = (1 - ((db - minDb) / (maxDb - minDb))) * height;
+      if (!Number.isFinite(y)) {
+        continue;
+      }
+      if (!started) {
+        context.moveTo(x, y);
+        started = true;
+      } else {
+        context.lineTo(x, y);
+      }
+    }
+    if (started) {
+      context.stroke();
+    }
+  }
+
+  // Vertical frequency markers (+ Hz labels for crossovers / multi-cutoff).
+  context.strokeStyle = "rgba(226, 168, 109, 0.72)";
   context.lineWidth = cutoffLineWidth;
-  for (const frequency of nodeGraphFilterCurveCutoffFrequencies(node, view)) {
+  context.font = "600 9px system-ui, sans-serif";
+  context.textBaseline = "top";
+  const labelYs = [3, 14, 25];
+  cutoffs.forEach((frequency, index) => {
     // 0 Hz (and anything below the log axis floor) → left edge, not minFreq.
     const cutoffRatio = nodeGraphFilterCurveCutoffRatio(frequency, minFreq, maxFreq);
     const cutoffX = cutoffInset + cutoffRatio * cutoffDrawableWidth;
@@ -599,36 +795,54 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
     context.moveTo(cutoffX, 0);
     context.lineTo(cutoffX, height);
     context.stroke();
-  }
-  context.strokeStyle = "rgba(61, 224, 255, 0.95)";
-  context.lineWidth = 1.5;
-  context.beginPath();
-  let started = false;
-  for (let x = 0; x < width; x += 1) {
-    const progress = width <= 1 ? 0 : x / (width - 1);
-    const hz = 10 ** (logMin + progress * logRange);
-    let magnitude = nodeGraphFilterCurveResponseAt(node, hz, sampleRate, view);
-    if (!Number.isFinite(magnitude) || magnitude <= 0) {
-      magnitude = 1e-6;
+    if (isCrossover || cutoffs.length > 1) {
+      const label = nodeGraphFilterCurveFormatHz(frequency);
+      const textW = context.measureText(label).width;
+      let textX = cutoffX + 3;
+      if (textX + textW > width - 2) {
+        textX = Math.max(2, cutoffX - textW - 3);
+      }
+      const textY = labelYs[index % labelYs.length];
+      context.fillStyle = "rgba(2, 6, 9, 0.72)";
+      context.fillRect(textX - 1, textY - 1, textW + 3, 11);
+      context.fillStyle = "rgba(255, 220, 170, 0.95)";
+      context.fillText(label, textX, textY);
     }
-    const db = clampNodeSliderValue(20 * Math.log10(Math.max(1e-6, magnitude)), minDb, maxDb);
-    const y = (1 - ((db - minDb) / (maxDb - minDb))) * height;
-    if (!Number.isFinite(y)) {
-      continue;
+  });
+
+  // Crossover: band names centered in each frequency region (Low / 1 / High).
+  if (isCrossover) {
+    const bandCount = Number(view?.bandCount) || cutoffs.length + 1;
+    const names = Array.isArray(view?.bandNames) && view.bandNames.length === bandCount
+      ? view.bandNames
+      : (typeof nodeGraphCrossoverBandNames === "function"
+        ? nodeGraphCrossoverBandNames(bandCount)
+        : Array.from({ length: bandCount }, (_v, i) => String(i + 1)));
+    const edges = [0, ...cutoffs.map((f) => nodeGraphFilterCurveCutoffRatio(f, minFreq, maxFreq)), 1];
+    context.fillStyle = "rgba(200, 220, 230, 0.55)";
+    context.font = "600 9px system-ui, sans-serif";
+    context.textBaseline = "bottom";
+    context.textAlign = "center";
+    for (let b = 0; b < bandCount; b += 1) {
+      const left = edges[b] ?? 0;
+      const right = edges[b + 1] ?? 1;
+      const mid = (left + right) * 0.5;
+      const x = cutoffInset + mid * cutoffDrawableWidth;
+      context.fillText(String(names[b] ?? ""), x, height - 3);
     }
-    if (!started) {
-      context.moveTo(x, y);
-      started = true;
-    } else {
-      context.lineTo(x, y);
-    }
+    context.textAlign = "left";
   }
-  if (started) {
-    context.stroke();
-  }
-  context.fillStyle = "rgba(229, 238, 242, 0.74)";
+
+  const title = nodeGraphFilterCurveLabel(node);
   context.font = "600 10px system-ui, sans-serif";
-  context.fillText(nodeGraphFilterCurveLabel(node), 8, 14);
+  context.textBaseline = "top";
+  const titleW = context.measureText(title).width;
+  // Keep title clear of staggered crossover Hz labels (y = 3 / 14 / 25).
+  const titleY = isCrossover ? Math.max(3, height - 28) : 3;
+  context.fillStyle = "rgba(2, 6, 9, 0.65)";
+  context.fillRect(6, titleY - 1, titleW + 4, 12);
+  context.fillStyle = "rgba(229, 238, 242, 0.82)";
+  context.fillText(title, 8, titleY);
 }
 
 function drawNodeGraphFilterCurveDisplays() {

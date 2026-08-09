@@ -127,9 +127,20 @@ function createNodeGraphCrossoverSplitState() {
 
 function nodeGraphCrossoverEnsureSplit(state, fc, lrOrder, rate) {
   const order = nodeGraphCrossoverClampLrOrder(lrOrder);
-  const f = Math.max(0, Number(fc) || 0);
+  // Floor tiny / non-finite fc so filters stay stable (UI min is 20 Hz).
+  const f = Math.max(1e-3, Number.isFinite(Number(fc)) ? Number(fc) : 0);
   const sr = Math.max(1, Number(rate) || 44100);
-  if (state.lastFc === f && state.lastOrder === order && state.lastRate === sr) {
+  // Hysteresis: parameter smoothers can change fc every sample by micro-amounts.
+  // Redesigning LR cascades that often is far too expensive (especially N-way).
+  const prevF = Number(state.lastFc);
+  const sameOrder = state.lastOrder === order;
+  const sameRate = state.lastRate === sr;
+  if (
+    sameOrder
+    && sameRate
+    && Number.isFinite(prevF)
+    && Math.abs(prevF - f) <= Math.max(0.05, prevF * 1e-4)
+  ) {
     return;
   }
   state.lastFc = f;
@@ -289,23 +300,98 @@ function nodeGraphCrossoverSample(state, mono, leftIn, rightIn, freqs, lrOrder, 
   const bandsL = nodeGraphCrossoverProcessChannel(state.left, lIn, freqs, order, rate);
   const bandsR = nodeGraphCrossoverProcessChannel(state.right, rIn, freqs, order, rate);
 
-  const names = nodeGraphCrossoverBandNames(n);
   const out = {};
   for (let i = 0; i < n; i += 1) {
-    out[`${names[i]} Left`] = Number.isFinite(bandsL[i]) ? bandsL[i] : 0;
-    out[`${names[i]} Right`] = Number.isFinite(bandsR[i]) ? bandsR[i] : 0;
+    const { L, R } = nodeGraphCrossoverBandPortPair(n, i);
+    out[L] = Number.isFinite(bandsL[i]) ? bandsL[i] : 0;
+    out[R] = Number.isFinite(bandsR[i]) ? bandsR[i] : 0;
   }
   return out;
 }
 
+/**
+ * Band labels for UI (display face): first = Low, last = High, middles = 1..N-2.
+ * e.g. 2→Low/High, 3→Low/1/High, 4→Low/1/2/High
+ */
 function nodeGraphCrossoverBandNames(bandCount) {
   const n = Math.max(2, Math.min(6, Math.round(Number(bandCount) || 2)));
-  if (n === 2) return ["Low", "High"];
-  if (n === 3) return ["Low", "Mid", "High"];
-  if (n === 4) return ["Low", "Low-Mid", "High-Mid", "High"];
-  const names = [];
-  for (let i = 1; i <= n; i += 1) names.push(`Band ${i}`);
+  if (n === 2) {
+    return ["Low", "High"];
+  }
+  const names = ["Low"];
+  for (let i = 1; i <= n - 2; i += 1) {
+    names.push(String(i));
+  }
+  names.push("High");
   return names;
+}
+
+/**
+ * Stereo outlet names for band index i (0-based).
+ * Low/High → "Low L"/"Low R"; mid bands → "L1"/"R1", "L2"/"R2", …
+ * @returns {{ L: string, R: string }}
+ */
+function nodeGraphCrossoverBandPortPair(bandCount, bandIndex) {
+  const n = Math.max(2, Math.min(6, Math.round(Number(bandCount) || 2)));
+  const i = Math.max(0, Math.min(n - 1, Math.round(Number(bandIndex) || 0)));
+  if (i === 0) {
+    return { L: "Low L", R: "Low R" };
+  }
+  if (i === n - 1) {
+    return { L: "High L", R: "High R" };
+  }
+  // Mid band 1..N-2 → L1/R1, L2/R2, …
+  return { L: `L${i}`, R: `R${i}` };
+}
+
+/** Canonical stereo outs: "Low L", "Low R", "L1", "R1", …, "High L", "High R". */
+function nodeGraphCrossoverOutputPorts(bandCount) {
+  const n = Math.max(2, Math.min(6, Math.round(Number(bandCount) || 2)));
+  const outs = [];
+  for (let i = 0; i < n; i += 1) {
+    const pair = nodeGraphCrossoverBandPortPair(n, i);
+    outs.push(pair.L, pair.R);
+  }
+  return outs;
+}
+
+/** Map legacy port names (Left/Right, Mid, Band N, "1 L", …) → current scheme. */
+function nodeGraphCrossoverOutputAliases(bandCount) {
+  const n = Math.max(2, Math.min(6, Math.round(Number(bandCount) || 2)));
+  const aliases = {};
+  // Older title sets → current band index.
+  const legacyTitles = {
+    2: ["Low", "High"],
+    3: ["Low", "Mid", "High"],
+    4: ["Low", "Low-Mid", "High-Mid", "High"],
+    5: ["Band 1", "Band 2", "Band 3", "Band 4", "Band 5"],
+    6: ["Band 1", "Band 2", "Band 3", "Band 4", "Band 5", "Band 6"],
+  };
+  const titles = legacyTitles[n] || nodeGraphCrossoverBandNames(n);
+  for (let i = 0; i < n; i += 1) {
+    const { L, R } = nodeGraphCrossoverBandPortPair(n, i);
+    const title = titles[i] || String(i);
+    // Spaced forms: "Low L", "1 L", "Mid Left", …
+    aliases[`${title} Left`] = L;
+    aliases[`${title} Right`] = R;
+    aliases[`${title} L`] = L;
+    aliases[`${title} R`] = R;
+    aliases[`Left ${title}`] = L;
+    aliases[`Right ${title}`] = R;
+    // Numeric mid: "1 L" / "L 1" → L1
+    if (i > 0 && i < n - 1) {
+      aliases[`${i} L`] = L;
+      aliases[`${i} R`] = R;
+      aliases[`${i} Left`] = L;
+      aliases[`${i} Right`] = R;
+      aliases[`L ${i}`] = L;
+      aliases[`R ${i}`] = R;
+    }
+    // Already-canonical names map to themselves (idempotent).
+    aliases[L] = L;
+    aliases[R] = R;
+  }
+  return aliases;
 }
 
 function nodeGraphCrossoverDefaultFreqs(bandCount) {

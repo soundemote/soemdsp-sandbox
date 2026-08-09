@@ -26,6 +26,9 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
     const ids = new Set(nodes.map((node) => node.id));
     this.nodes = new Map(nodes.map((node) => [node.id, {
       id: node.id,
+      // Bypassed modules keep wiring but evaluate via bypassSpec (pass / avg / silence).
+      bypassSpec: node.bypassSpec && typeof node.bypassSpec === "object" ? node.bypassSpec : null,
+      bypassed: Boolean(node.bypassed),
       codeblock: this.normalizeCodeblock(node.codeblock),
       // Phosphillator open-path samples (packed float64 XY). Plan builder puts
       // drawnPath on runtime nodes; without this copy the worklet always saw

@@ -107,7 +107,15 @@ function showNodeGraphModule(node, point = null, options = {}) {
     gy: gridPoint.gy,
     ...(defaultAlias ? { alias: defaultAlias } : {}),
   }));
-  commitNodeGraphPatch(patch, { status: options.status || "module added" });
+  commitNodeGraphPatch(patch, {
+    status: options.status || "module added",
+    // Ghost drag-from-shop: keep pointer responsive (no history/autosave/live plan
+    // until drop). Heavy modules like multi-out crossovers were freezing on grab.
+    record: options.record,
+    autosaveWorkingPatch: options.autosaveWorkingPatch,
+    skipLivePlan: options.skipLivePlan,
+    deferUiPanels: options.deferUiPanels,
+  });
   return id;
 }
 
@@ -206,7 +214,14 @@ function cancelNodeGraphModulePlacement(status = "module placement cancelled") {
   );
   patch.bypassedNodes = (patch.bypassedNodes || []).filter((nodeId) => nodeId !== placement.nodeId);
   nodeGraphMvp.modulePlacement = null;
-  commitNodeGraphPatch(patch, { status });
+  // Ghost was never history/autosave/live-plan committed — keep cancel light too.
+  commitNodeGraphPatch(patch, {
+    status,
+    record: false,
+    autosaveWorkingPatch: false,
+    skipLivePlan: true,
+    deferUiPanels: true,
+  });
   clearNodeGraphSelection();
   return true;
 }
@@ -248,7 +263,13 @@ function beginNodeGraphModulePlacement(type, point = null) {
   }
 
   const cursorPoint = point || nodeGraphGridToPixel(defaultNodeGraphModuleGridPoint(type));
-  const id = showNodeGraphModule(type, cursorPoint, { status: "module ghost: release in modular view" });
+  const id = showNodeGraphModule(type, cursorPoint, {
+    status: "module ghost: release in modular view",
+    record: false,
+    autosaveWorkingPatch: false,
+    skipLivePlan: true,
+    deferUiPanels: true,
+  });
   if (!id) {
     return "";
   }
@@ -311,6 +332,7 @@ function finishNodeGraphModulePlacementAtCurrentPosition(status = "module placed
     patchNode.gy = gridPoint.gy;
   }
   nodeGraphMvp.modulePlacement = null;
+  // Full commit on drop: history + autosave + live plan (ghost create skipped these).
   commitNodeGraphPatch(patch, { status });
   clearNodeGraphSelection();
   return true;

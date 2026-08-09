@@ -139,20 +139,27 @@ NodeLiveAudioProcessor.prototype.evaluateFrame = function evaluateFrame(frame, f
     for (const nodeId of this.order) {
       const node = this.nodes.get(nodeId);
       let value = 0;
-      const liveModuleEvaluator = node?.type ? this.liveModuleEvaluators[node.type] : null;
-      if (liveModuleEvaluator) {
-        value = liveModuleEvaluator(node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame, graphInputValue, graphOutputValue);
-      } else if (node?.type === "audioInput") {
-        // Hardware process() buffers (not externalInput map) — same stereo math as helpers.
-        const input = inputs[0] || [];
-        const leftChannel = input[0] || input[1] || null;
-        const rightChannel = input[1] || input[0] || null;
-        const level = this.readEffectiveParameter(node, "level", 1, frame, frames, frameValues);
-        value = nodeGraphDspExternalStereoFrame(
-          { left: leftChannel, right: rightChannel },
-          inputFrame,
-          level,
-        );
+      if (node?.bypassed) {
+        // Soft bypass: pass / average / silence — no DSP while disabled.
+        value = typeof nodeGraphEvaluateBypassFrame === "function"
+          ? nodeGraphEvaluateBypassFrame(node.bypassSpec || { mode: "silence" }, nodeId, mixInput)
+          : 0;
+      } else {
+        const liveModuleEvaluator = node?.type ? this.liveModuleEvaluators[node.type] : null;
+        if (liveModuleEvaluator) {
+          value = liveModuleEvaluator(node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame, graphInputValue, graphOutputValue);
+        } else if (node?.type === "audioInput") {
+          // Hardware process() buffers (not externalInput map) — same stereo math as helpers.
+          const input = inputs[0] || [];
+          const leftChannel = input[0] || input[1] || null;
+          const rightChannel = input[1] || input[0] || null;
+          const level = this.readEffectiveParameter(node, "level", 1, frame, frames, frameValues);
+          value = nodeGraphDspExternalStereoFrame(
+            { left: leftChannel, right: rightChannel },
+            inputFrame,
+            level,
+          );
+        }
       }
       frameValues.set(nodeId, value);
       this.nodeOutputs.set(nodeId, value);
