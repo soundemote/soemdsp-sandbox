@@ -90,6 +90,10 @@ function setNodeUiDevHelperVisible(visible) {
   button.classList.toggle("active", visible);
   button.setAttribute("aria-pressed", String(visible));
   if (visible) {
+    // Always re-check: closed <details> leave only section titles visible.
+    if (typeof organizeNodeUiDevSections === "function") {
+      organizeNodeUiDevSections();
+    }
     if (typeof bindNodeGraphFloatingWindowResizeHandle === "function") {
       bindNodeGraphFloatingWindowResizeHandle("uiDev");
     }
@@ -200,33 +204,109 @@ function installNodeUiDevExposeControls() {
   }
 }
 
-function organizeNodeUiDevSections() {
-  const helperBody = document.querySelector(".node-ui-dev-helper-body");
-  if (!helperBody || helperBody.dataset.sectionsOrganized === "true") {
+/**
+ * Flatten any prior section/details wrappers so control rows sit back in the
+ * helper body (closed <details> hide everything but the title).
+ */
+function flattenNodeUiDevSections(helperBody) {
+  if (!helperBody) {
     return;
   }
-  const rowForId = (id) => document
-    .getElementById(id)
-    ?.closest(".node-ui-dev-control, .node-ui-dev-color-control, .node-ui-dev-check");
+  // Nested or top-level — unwrap completely.
+  for (const old of [...helperBody.querySelectorAll(".node-ui-dev-section, details.node-ui-dev-section")]) {
+    // Prefer body contents; if missing, move every non-heading child.
+    const body = old.querySelector(":scope > .node-ui-dev-section-body");
+    if (body) {
+      while (body.firstChild) {
+        old.before(body.firstChild);
+      }
+    }
+    for (const child of [...old.childNodes]) {
+      if (
+        child.nodeType === 1
+        && (
+          child.classList?.contains("node-ui-dev-section-heading")
+          || child.classList?.contains("node-ui-dev-section-body")
+          || child.tagName === "SUMMARY"
+        )
+      ) {
+        continue;
+      }
+      if (child.nodeType === 1 || (child.nodeType === 3 && child.textContent.trim())) {
+        old.before(child);
+      }
+    }
+    old.remove();
+  }
+  // Any leftover closed details in the helper (defensive).
+  for (const details of [...helperBody.querySelectorAll("details")]) {
+    details.open = true;
+    while (details.firstChild) {
+      const child = details.firstChild;
+      if (child.tagName === "SUMMARY") {
+        details.removeChild(child);
+        continue;
+      }
+      details.before(child);
+    }
+    details.remove();
+  }
+}
+
+/**
+ * Group UIDEV controls into always-visible section boxes (never <details>).
+ * Re-runs when leftover details are detected so options cannot stay hidden.
+ */
+function organizeNodeUiDevSections() {
+  const helperBody = document.querySelector("#nodeUiDevHelper .node-ui-dev-helper-body")
+    || document.querySelector(".node-ui-dev-helper-body");
+  if (!helperBody) {
+    return;
+  }
+  const organizerVersion = "section-v3-flat";
+  const hasHiddenDetails = Boolean(
+    helperBody.querySelector("details.node-ui-dev-section:not([open]), details:not([open])"),
+  );
+  const hasDetailsAtAll = Boolean(helperBody.querySelector("details"));
+  if (
+    helperBody.dataset.sectionsOrganized === organizerVersion
+    && !hasHiddenDetails
+    && !hasDetailsAtAll
+  ) {
+    return;
+  }
+
+  flattenNodeUiDevSections(helperBody);
+
+  const rowForId = (id) => {
+    const el = document.getElementById(id);
+    if (!el || !helperBody.contains(el)) {
+      return null;
+    }
+    return el.closest(".node-ui-dev-control, .node-ui-dev-color-control, .node-ui-dev-check");
+  };
+
   for (const section of nodeUiDevSettingSections) {
     const rows = section.ids.map(rowForId).filter(Boolean);
     if (!rows.length) {
       continue;
     }
-    const details = document.createElement("details");
-    details.className = "node-ui-dev-section";
-    details.open = true;
-    const summary = document.createElement("summary");
-    summary.textContent = section.title;
+    const box = document.createElement("section");
+    box.className = "node-ui-dev-section";
+    box.setAttribute("aria-label", section.title);
+    const heading = document.createElement("div");
+    heading.className = "node-ui-dev-section-heading";
+    heading.textContent = section.title;
     const body = document.createElement("div");
     body.className = "node-ui-dev-section-body";
-    rows[0].before(details);
-    details.append(summary, body);
+    rows[0].before(box);
+    box.append(heading, body);
     for (const row of rows) {
       body.append(row);
     }
   }
-  helperBody.dataset.sectionsOrganized = "true";
+
+  helperBody.dataset.sectionsOrganized = organizerVersion;
 }
 
 // Move / resize use the shared floating-window registry

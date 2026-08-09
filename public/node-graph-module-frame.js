@@ -2,8 +2,37 @@
 // stroke never paints over a port. DOM layout stays CSS; only the frame is SVG.
 
 const nodeGraphModuleFrameNs = "http://www.w3.org/2000/svg";
+/**
+ * Screen pixels of air for the frame stroke (outset + jack-gap pad).
+ * Converted to layout units via /zoom so it stays constant under CSS zoom.
+ */
+const nodeGraphModuleFrameBreathingScreenPx = 1;
 let nodeGraphModuleFrameRaf = 0;
 let nodeGraphModuleFrameObserver = null;
+
+/** Workspace zoom for layout↔screen conversion (matches stroke-width invert). */
+function nodeGraphModuleFrameZoom() {
+  if (typeof nodeGraphZoom === "function") {
+    const z = Number(nodeGraphZoom());
+    if (Number.isFinite(z) && z > 0) {
+      return z;
+    }
+  }
+  return 1;
+}
+
+/** Breathing room in layout CSS px = screen px / zoom. */
+function nodeGraphModuleFrameBreathingLayoutPx(nodeElement = null) {
+  let zoom = nodeGraphModuleFrameZoom();
+  if (nodeElement && zoom === 1) {
+    const raw = getComputedStyle(nodeElement).getPropertyValue("--node-graph-zoom");
+    const parsed = Number.parseFloat(raw);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      zoom = parsed;
+    }
+  }
+  return nodeGraphModuleFrameBreathingScreenPx / Math.max(0.0001, zoom);
+}
 
 function nodeGraphModuleFrameEnsureSvg(nodeElement) {
   if (!nodeElement) {
@@ -152,9 +181,8 @@ function nodeGraphModuleFrameCollectGaps(nodeElement, width, height, nodeRect) {
   if (!nodeElement || width < 2 || height < 2) {
     return { left, right };
   }
-  // Clear the jack diameter (+ a little) so the frame stroke never crosses
-  // the wire→inlet join (a dark hairline between wire end and half-jack).
-  const pad = 1.5;
+  // Gap past the jack face by 1 screen px of air (zoom-invariant).
+  const pad = nodeGraphModuleFrameBreathingLayoutPx(nodeElement);
   const ports = nodeElement.querySelectorAll(
     ".node-port.input, .node-port.output, .node-param-port.modulation-input, .node-param-port.graph-input, .node-param-port.parameter-output, .node-io-proxy-port.input, .node-io-proxy-port.output",
   );
@@ -175,6 +203,17 @@ function nodeGraphModuleFrameCollectGaps(nodeElement, width, height, nodeRect) {
     if (box) {
       cy = box.cy;
       half = nodeGraphModuleFramePortVisualHalfPx(port, nodeElement, box) + pad;
+      // If offset chain drifted vs screen geometry (zoom / nested grids), prefer rect.
+      if (nodeRect?.height > 0.5) {
+        const pr = port.getBoundingClientRect();
+        if (pr.height >= 0.5) {
+          const rectCy = ((pr.top + pr.height * 0.5) - nodeRect.top) * scaleY;
+          if (Math.abs(rectCy - cy) > 1.5) {
+            cy = rectCy;
+            half = nodeGraphModuleFramePortVisualHalfPx(port, nodeElement) + pad;
+          }
+        }
+      }
     } else if (nodeRect?.width) {
       const pr = port.getBoundingClientRect();
       if (pr.width < 0.5 || pr.height < 0.5) {
@@ -201,18 +240,24 @@ function nodeGraphModuleFrameCollectGaps(nodeElement, width, height, nodeRect) {
 }
 
 /**
- * Build the gapped frame path on the module's layout box (0…width × 0…height).
- * Stroke is centered on this path (half in / half out of the plate) so the
- * geometric edge of the module is always the stroke centerline — at every
- * workspace zoom (stroke-width is CSS-inverted; path geometry is not).
+ * Build the gapped frame path. `outset` > 0 places the stroke outside the
+ * plate (breathing room outside the edge). Side edges open gaps at jacks.
  */
-function nodeGraphModuleFrameBuildPath(width, height, radius, leftGaps, rightGaps) {
-  // Integer layout box — matches clientWidth/Height used for the SVG viewBox.
+function nodeGraphModuleFrameBuildPath(width, height, radius, leftGaps, rightGaps, outset = 0) {
+  // Integer layout box — must match the SVG viewBox exactly.
   const w = Math.max(1, Math.round(Number(width) || 0));
   const h = Math.max(1, Math.round(Number(height) || 0));
-  const r = Math.max(0, Math.min(Number(radius) || 0, w * 0.5, h * 0.5));
-  const edgeTop = r;
-  const edgeBottom = h - r;
+  // Outset: expand path beyond the plate (negative would be inset — wrong).
+  const s = Math.max(0, Number(outset) || 0);
+  const left = -s;
+  const top = -s;
+  const right = w + s;
+  const bottom = h + s;
+  const innerW = right - left;
+  const innerH = bottom - top;
+  const r = Math.max(0, Math.min(Number(radius) || 0, innerW * 0.5, innerH * 0.5));
+  const edgeTop = top + r;
+  const edgeBottom = bottom - r;
   let d = "";
   // One decimal is enough; avoid float dust that walks the edge under zoom.
   const f = (n) => {
@@ -220,56 +265,119 @@ function nodeGraphModuleFrameBuildPath(width, height, radius, leftGaps, rightGap
     return Number.isInteger(v) ? String(v) : v.toFixed(1);
   };
 
-  // Top edge + top-right corner (path sits on the plate edge).
-  d += `M ${f(r)} 0`;
-  d += ` L ${f(w - r)} 0`;
+  // Top edge + top-right corner
+  d += `M ${f(left + r)} ${f(top)}`;
+  d += ` L ${f(right - r)} ${f(top)}`;
   if (r > 0.01) {
-    d += ` A ${f(r)} ${f(r)} 0 0 1 ${f(w)} ${f(r)}`;
+    d += ` A ${f(r)} ${f(r)} 0 0 1 ${f(right)} ${f(top + r)}`;
   }
 
   // Right edge (top → bottom), gapped at output jacks
   for (const [y0, y1] of nodeGraphModuleFrameEdgeSegments(edgeTop, edgeBottom, rightGaps)) {
-    d += ` M ${f(w)} ${f(y0)} L ${f(w)} ${f(y1)}`;
+    d += ` M ${f(right)} ${f(y0)} L ${f(right)} ${f(y1)}`;
   }
 
   // Bottom-right corner + bottom edge + bottom-left corner
-  d += ` M ${f(w)} ${f(h - r)}`;
+  d += ` M ${f(right)} ${f(bottom - r)}`;
   if (r > 0.01) {
-    d += ` A ${f(r)} ${f(r)} 0 0 1 ${f(w - r)} ${f(h)}`;
+    d += ` A ${f(r)} ${f(r)} 0 0 1 ${f(right - r)} ${f(bottom)}`;
   }
-  d += ` L ${f(r)} ${f(h)}`;
+  d += ` L ${f(left + r)} ${f(bottom)}`;
   if (r > 0.01) {
-    d += ` A ${f(r)} ${f(r)} 0 0 1 0 ${f(h - r)}`;
+    d += ` A ${f(r)} ${f(r)} 0 0 1 ${f(left)} ${f(bottom - r)}`;
   }
 
   // Left edge
   for (const [y0, y1] of nodeGraphModuleFrameEdgeSegments(edgeTop, edgeBottom, leftGaps)) {
-    d += ` M 0 ${f(y0)} L 0 ${f(y1)}`;
+    d += ` M ${f(left)} ${f(y0)} L ${f(left)} ${f(y1)}`;
   }
 
   // Top-left corner
-  d += ` M 0 ${f(r)}`;
+  d += ` M ${f(left)} ${f(top + r)}`;
   if (r > 0.01) {
-    d += ` A ${f(r)} ${f(r)} 0 0 1 ${f(r)} 0`;
+    d += ` A ${f(r)} ${f(r)} 0 0 1 ${f(left + r)} ${f(top)}`;
   }
 
   return d;
 }
 
-function nodeGraphModuleFrameRadiusPx(nodeElement) {
-  // Stroke-only rounding: path corners use --node-module-frame-radius.
-  // The plate fill stays square (border-radius / roundness-ratio separate).
+/**
+ * Resolve a CSS length (incl. calc/var on custom props) to layout px.
+ * getPropertyValue("--foo") often returns unresolved "calc(...)" — parseFloat
+ * of that is NaN, which left frame radius at 0 (square stroke forever).
+ */
+function nodeGraphModuleFrameResolveCssPx(element, cssValue, fallback = 0) {
+  const raw = String(cssValue || "").trim();
+  if (!raw || !element) {
+    return fallback;
+  }
+  // Already a plain length: "12.6px" / "12.6"
+  if (/^-?[\d.]+(px)?$/i.test(raw)) {
+    const n = Number.parseFloat(raw);
+    return Number.isFinite(n) ? n : fallback;
+  }
+  const probe = document.createElement("div");
+  probe.setAttribute("aria-hidden", "true");
+  probe.style.cssText = [
+    "position:absolute",
+    "left:0",
+    "top:0",
+    "height:0",
+    "margin:0",
+    "padding:0",
+    "border:0",
+    "overflow:hidden",
+    "visibility:hidden",
+    "pointer-events:none",
+    `width:${raw}`,
+  ].join(";");
+  element.appendChild(probe);
+  // offsetWidth is layout px (not zoomed screen px).
+  const px = probe.offsetWidth;
+  probe.remove();
+  return Number.isFinite(px) && px > 0 ? px : fallback;
+}
+
+function nodeGraphModuleFrameGridSizePx(nodeElement) {
   const cs = getComputedStyle(nodeElement);
-  const frameRaw = cs.getPropertyValue("--node-module-frame-radius").trim();
-  const frameN = Number.parseFloat(frameRaw);
-  if (Number.isFinite(frameN) && frameN > 0) {
-    return frameN;
+  const fromVar = nodeGraphModuleFrameResolveCssPx(
+    nodeElement,
+    cs.getPropertyValue("--node-grid-size").trim() || "28px",
+    0,
+  );
+  if (fromVar > 0) {
+    return fromVar;
+  }
+  const fromHeight = Number.parseFloat(cs.getPropertyValue("--node-grid-height"));
+  return Number.isFinite(fromHeight) && fromHeight > 0 ? fromHeight : 28;
+}
+
+function nodeGraphModuleFrameRadiusPx(nodeElement) {
+  // Stroke-only corner radius (plate fill stays square via roundness-ratio).
+  // Selected modules use a dedicated rounded stroke radius.
+  const cs = getComputedStyle(nodeElement);
+  const grid = nodeGraphModuleFrameGridSizePx(nodeElement);
+  const selected = nodeElement.classList?.contains("selected");
+  if (selected) {
+    const selectedPx = nodeGraphModuleFrameResolveCssPx(
+      nodeElement,
+      cs.getPropertyValue("--node-module-selected-frame-radius"),
+      grid * 0.5,
+    );
+    // Always show clear rounding when selected (min ~8px at default grid).
+    return Math.max(selectedPx, grid * 0.35, 8);
+  }
+  const framePx = nodeGraphModuleFrameResolveCssPx(
+    nodeElement,
+    cs.getPropertyValue("--node-module-frame-radius"),
+    grid * 0.35,
+  );
+  if (framePx > 0.01) {
+    return framePx;
   }
   // Fallback: plate border-radius when frame radius is unset/0.
-  const raw = cs.borderRadius;
-  const first = String(raw || "").split(/\s+/)[0];
-  const n = Number.parseFloat(first);
-  return Number.isFinite(n) && n > 0 ? n : 0;
+  const first = String(cs.borderRadius || "").split(/\s+/)[0];
+  return nodeGraphModuleFrameResolveCssPx(nodeElement, first, 0);
 }
 
 /**
@@ -332,8 +440,8 @@ function updateNodeGraphModuleFrame(nodeElement) {
     return;
   }
   nodeGraphModuleFrameRestoreStrokeVars(nodeElement);
-  const w = nodeElement.clientWidth;
-  const h = nodeElement.clientHeight;
+  const w = Math.max(1, Math.round(nodeElement.clientWidth || 0));
+  const h = Math.max(1, Math.round(nodeElement.clientHeight || 0));
   if (w < 2 || h < 2) {
     return;
   }
@@ -341,10 +449,15 @@ function updateNodeGraphModuleFrame(nodeElement) {
   const nodeRect = nodeElement.getBoundingClientRect();
   const { left, right } = nodeGraphModuleFrameCollectGaps(nodeElement, w, h, nodeRect);
   const radius = nodeGraphModuleFrameRadiusPx(nodeElement);
+  // 1 screen px outside plate + past jacks, independent of workspace zoom.
+  const breath = nodeGraphModuleFrameBreathingLayoutPx(nodeElement);
+  const selected = nodeElement.classList.contains("selected") ? 1 : 0;
   const fingerprint = [
     w,
     h,
     radius.toFixed(2),
+    breath.toFixed(4),
+    selected,
     left.map((g) => `${g.cy.toFixed(2)}:${g.half.toFixed(2)}`).join(","),
     right.map((g) => `${g.cy.toFixed(2)}:${g.half.toFixed(2)}`).join(","),
   ].join("|");
@@ -358,6 +471,10 @@ function updateNodeGraphModuleFrame(nodeElement) {
   if (!svg || !path) {
     return;
   }
+  // Keep frame under jacks/content in DOM order (first child) + CSS z-index 0.
+  if (svg !== nodeElement.firstChild) {
+    nodeElement.insertBefore(svg, nodeElement.firstChild);
+  }
   // Re-show after a previous face-art hide.
   svg.removeAttribute("hidden");
   svg.style.display = "";
@@ -369,10 +486,15 @@ function updateNodeGraphModuleFrame(nodeElement) {
   // (those fight fractional CSS boxes under zoom and walk the stroke off-edge).
   svg.removeAttribute("width");
   svg.removeAttribute("height");
+  // viewBox matches the plate; path is outset past 0…w×0…h and paints via
+  // overflow:visible (do not expand viewBox — that would scale the ring in).
   svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
   svg.setAttribute("preserveAspectRatio", "none");
-  // Path on the true plate edge; stroke-width stays 1 screen px via CSS invert.
-  path.setAttribute("d", nodeGraphModuleFrameBuildPath(w, h, radius, left, right));
+  // 1 screen px outside the plate; side gaps open around jacks by the same.
+  path.setAttribute(
+    "d",
+    nodeGraphModuleFrameBuildPath(w, h, radius, left, right, breath),
+  );
 }
 
 function updateAllNodeGraphModuleFrames(options = {}) {
