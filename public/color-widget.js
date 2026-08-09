@@ -4,8 +4,28 @@ const DRAG_SCALE = {
   percent: 0.18,
 };
 
-/** Labels too generic to waste a title strip on. */
-const GENERIC_LABELS = new Set(["", "color", "colour", "dot color", "secondary color"]);
+/** Labels too generic to waste a title strip on (keep Stop/Level — gradient needs them). */
+const GENERIC_LABELS = new Set([
+  "",
+  "color",
+  "colour",
+  "dot color",
+  "secondary color",
+  "hue",
+  "light",
+]);
+
+/** App-wide hue spectrum — single source of truth (CSS + any host overrides). */
+const SCW_HUE_SPECTRUM = `linear-gradient(
+  90deg,
+  #ff0000 0%,
+  #ffff00 17%,
+  #00ff00 33%,
+  #00ffff 50%,
+  #0000ff 67%,
+  #ff00ff 83%,
+  #ff0000 100%
+)`;
 
 const css = `
   .scw-mount {
@@ -17,7 +37,8 @@ const css = `
     --color-widget-hex-ink: rgba(243, 240, 230, 0.82);
     --color-widget-toast-bg: rgba(18, 20, 15, 0.92);
     --color-widget-toast-ink: rgba(243, 240, 230, 0.92);
-    --color-widget-label-ink: rgba(243, 240, 230, 0.72);
+    --color-widget-label-ink: #ffffff;
+    --scw-hue-spectrum: ${SCW_HUE_SPECTRUM.replace(/\s+/g, " ").trim()};
     container-type: size;
     display: grid;
     min-height: 0;
@@ -34,16 +55,19 @@ const css = `
     user-select: none;
   }
 
-  /* Default: plane + hue + hex (no title). Title row only when data-has-title. */
+  /*
+   * Title strip = current color swatch (no dedicated hex row).
+   * Rows: title/color · plane · hue
+   */
   .scw-root {
     background: var(--color-widget-bg);
     border: 1px solid var(--color-widget-border);
     border-radius: min(18cqh, 6px);
     display: grid;
     grid-template-rows:
+      minmax(20px, 0.22fr)
       minmax(0, 1fr)
-      minmax(18px, 0.2fr)
-      minmax(18px, 0.22fr);
+      minmax(18px, 0.2fr);
     height: 100%;
     min-height: 0;
     min-width: 0;
@@ -53,46 +77,80 @@ const css = `
     gap: 2px;
   }
 
-  .scw-root[data-has-title="1"] {
-    grid-template-rows:
-      minmax(14px, 0.16fr)
-      minmax(0, 1fr)
-      minmax(18px, 0.18fr)
-      minmax(18px, 0.2fr);
-  }
-
   .scw-label {
     align-items: center;
+    background: var(--color-widget-hex-bg);
+    background-image:
+      linear-gradient(45deg, rgba(255, 255, 255, 0.18) 25%, transparent 25%),
+      linear-gradient(-45deg, rgba(255, 255, 255, 0.18) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, 0.18) 75%),
+      linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, 0.18) 75%);
+    background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+    background-size: 12px 12px, 12px 12px, 12px 12px, 12px 12px;
+    border: 0;
+    border-radius: min(12cqh, 4px);
     color: var(--color-widget-label-ink);
-    display: none;
+    cursor: pointer;
+    display: flex;
     font-family: system-ui, sans-serif;
+    height: 100%;
     justify-content: center;
     margin: 0;
+    min-height: 0;
     min-width: 0;
     overflow: hidden;
-    padding: 0 2px;
+    padding: 0;
+    position: relative;
     text-align: center;
+    width: 100%;
   }
 
-  .scw-root[data-has-title="1"] .scw-label {
-    display: flex;
+  .scw-label::before {
+    background: var(--scw-final-color, transparent);
+    content: "";
+    inset: 0;
+    position: absolute;
+    z-index: 0;
+  }
+
+  .scw-label:focus {
+    outline: 1px solid var(--color-widget-accent);
+    outline-offset: -1px;
+  }
+
+  .scw-label[data-copied="true"] {
+    outline: 2px solid var(--color-widget-accent);
+    outline-offset: -2px;
   }
 
   .scw-label-text {
-    display: flex;
     align-items: center;
-    justify-content: center;
-    width: 100%;
+    display: flex;
     height: 100%;
+    justify-content: center;
+    margin: 0;
     min-width: 0;
+    padding: 0 6px;
+    position: relative;
+    width: 100%;
+    z-index: 1;
   }
 
   .scw-label-glyph {
-    display: inline-flex;
-    font-size: 100px;
-    line-height: 1;
+    display: block;
+    color: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1.15;
+    max-width: 100%;
+    overflow: hidden;
+    text-align: center;
+    text-overflow: ellipsis;
+    /* Shadow flips with smart ink (--scw-label-shadow). */
+    text-shadow: var(--scw-label-shadow, 0 0 2px rgba(0, 0, 0, 0.75));
     transform: scale(var(--scw-label-scale, 1));
-    transform-origin: center;
+    transform-origin: center center;
     white-space: nowrap;
   }
 
@@ -125,39 +183,30 @@ const css = `
     outline-offset: -1px;
   }
 
-  .scw-alpha,
-  .scw-saturation,
-  .scw-brightness {
-    display: none !important;
-  }
-
-  .scw-hue {
-    background: linear-gradient(
-      90deg,
-      #ff0000 0%,
-      #ffff00 17%,
-      #00ff00 33%,
-      #00ffff 50%,
-      #0000ff 67%,
-      #ff00ff 83%,
-      #ff0000 100%
-    );
+  /* Hue spectrum SSOT — beat global/popover button panel backgrounds. */
+  .scw-hue,
+  button.scw-control.scw-hue,
+  .scw-mount button.scw-control.scw-hue {
+    background-color: transparent !important;
+    background-image: var(--scw-hue-spectrum) !important;
+    background-repeat: no-repeat !important;
+    background-size: 100% 100% !important;
     cursor: ew-resize;
   }
 
-  /* Current hue marker: 1px black stroke, unfilled rectangle (app-wide). */
+  /* Hue position: small white circle */
   .scw-hue-thumb {
     position: absolute;
-    top: 0;
-    bottom: 0;
+    top: 50%;
     left: var(--scw-hue-pos, 0%);
     width: 8px;
-    margin-left: -4px;
+    height: 8px;
+    margin: -4px 0 0 -4px;
     box-sizing: border-box;
-    border: 1px solid #000;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
+    border: 1px solid rgba(0, 0, 0, 0.55);
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
     pointer-events: none;
     z-index: 1;
   }
@@ -167,16 +216,16 @@ const css = `
     cursor: crosshair;
     min-height: 0;
   }
-
   .scw-plane-canvas {
     display: block;
     width: 100%;
     height: 100%;
     pointer-events: none;
   }
-
   .scw-plane-thumb {
     position: absolute;
+    left: var(--scw-plane-u, 50%);
+    top: var(--scw-plane-v, 50%);
     width: 10px;
     height: 10px;
     margin: -5px 0 0 -5px;
@@ -184,108 +233,49 @@ const css = `
     border-radius: 50%;
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.75), 0 0 6px rgba(0, 0, 0, 0.45);
     pointer-events: none;
-    left: var(--scw-plane-u, 50%);
-    top: var(--scw-plane-v, 50%);
     z-index: 1;
-  }
-
-  .scw-root[data-channels="bw"] .scw-hue {
-    display: none !important;
   }
 
   .scw-root[data-channels="bw"] {
     grid-template-rows:
-      minmax(0, 1fr)
-      minmax(18px, 0.22fr);
+      minmax(20px, 0.22fr)
+      minmax(0, 1fr);
+  }
+  .scw-root[data-channels="bw"] .scw-hue {
+    display: none;
   }
 
-  .scw-root[data-channels="bw"][data-has-title="1"] {
-    grid-template-rows:
-      minmax(14px, 0.16fr)
-      minmax(0, 1fr)
-      minmax(18px, 0.2fr);
+  /* Hue-only strip */
+  .scw-root[data-channels="hue"] {
+    grid-template-rows: minmax(18px, 1fr);
+    gap: 0;
   }
-
-  .scw-hex {
-    align-items: center;
-    background: var(--color-widget-hex-bg);
-    background-image:
-      linear-gradient(45deg, rgba(255, 255, 255, 0.18) 25%, transparent 25%),
-      linear-gradient(-45deg, rgba(255, 255, 255, 0.18) 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, 0.18) 75%),
-      linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, 0.18) 75%);
-    background-position: 0 0, 0 6px, 6px -6px, -6px 0;
-    background-size: 12px 12px, 12px 12px, 12px 12px, 12px 12px;
-    border: 0;
-    border-radius: min(12cqh, 4px);
-    color: var(--color-widget-hex-ink);
-    container-type: size;
-    display: flex;
-    font-family: "Cascadia Mono", Consolas, monospace;
+  .scw-root[data-channels="hue"] .scw-plane,
+  .scw-root[data-channels="hue"] .scw-label {
+    display: none;
+  }
+  .scw-root[data-channels="hue"] .scw-hue {
+    min-height: 18px;
     height: 100%;
-    justify-content: center;
-    overflow: hidden;
-    padding: 0;
-    position: relative;
-    width: 100%;
-  }
-
-  .scw-hex::before {
-    background: var(--scw-final-color, transparent);
-    content: "";
-    inset: 0;
-    position: absolute;
-    z-index: 0;
-  }
-
-  .scw-hex:focus {
-    outline: 1px solid var(--color-widget-accent);
-    outline-offset: -1px;
-  }
-
-  .scw-hex-text {
-    align-items: center;
-    display: flex;
-    height: 100%;
-    justify-content: center;
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    z-index: 1;
-  }
-
-  .scw-hex-glyph {
-    display: inline-flex;
-    font-size: min(70cqh, 24cqw);
-    line-height: 1;
-    transform: scale(var(--scw-hex-scale, 1));
-    transform-origin: center;
-    white-space: nowrap;
   }
 
   .scw-copy-toast {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
     align-items: center;
+    justify-content: center;
     background: var(--color-widget-toast-bg);
     border: 1px solid var(--color-widget-border);
     border-radius: min(20cqh, 6px);
     color: var(--color-widget-toast-ink);
-    display: flex;
     font-family: system-ui, sans-serif;
     font-size: min(72cqh, 12cqw);
-    inset: 0;
-    justify-content: center;
     opacity: 0;
     pointer-events: none;
-    position: absolute;
     transition: opacity 120ms ease;
-    z-index: 2;
   }
-
-  .scw-hex[data-copied="true"] {
-    outline: 2px solid var(--color-widget-accent);
-    outline-offset: -2px;
-  }
-
   .scw-copy-toast[data-visible="true"] {
     opacity: 1;
   }
@@ -380,6 +370,19 @@ function colorCss(color) {
   return `hsl(${color.h}, ${color.s}%, ${color.l}%)`;
 }
 
+/** Black/white ink for title on a solid color swatch (Rec. 709). */
+function contrastInkForColor(color) {
+  const rgb = hslToRgbBytes(color);
+  const y = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
+  return y > 0.55 ? "#000000" : "#ffffff";
+}
+
+function contrastShadowForInk(ink) {
+  return ink === "#000000"
+    ? "0 0 2px rgba(255, 255, 255, 0.55)"
+    : "0 0 2px rgba(0, 0, 0, 0.75), 0 1px 1px rgba(0, 0, 0, 0.55)";
+}
+
 function enrichedColor(color) {
   return {
     ...color,
@@ -418,13 +421,11 @@ function planeRgb(h, u, v) {
   };
 }
 
+/** Sample plane at (u,v) for bar hue h. Hue is always taken from the bar. */
 function planeColorHsl(h, u, v, keepH = h) {
   const rgb = planeRgb(h, u, v);
   const hsl = rgbBytesToHsl(rgb.r, rgb.g, rgb.b);
-  // Near greyscale, preserve the active hue from the hue bar.
-  if (hsl.s < 2) {
-    hsl.h = keepH;
-  }
+  hsl.h = ((Number(keepH) % 360) + 360) % 360;
   return hsl;
 }
 
@@ -455,11 +456,21 @@ export class SoundColorWidget {
     this.host = host;
     this.host.classList.add("scw-mount");
     this.label = options.label || "";
-    this.channels = options.channels === "bw" || options.mono === true ? "bw" : "full";
+    // channels: "full" (plane+hue) | "bw" (plane grey only) | "hue" (hue bar only)
+    if (options.channels === "bw" || options.mono === true) {
+      this.channels = "bw";
+    } else if (options.channels === "hue" || options.hueOnly === true) {
+      this.channels = "hue";
+    } else {
+      this.channels = "full";
+    }
     const rawColor = normalizeColor(options.color || options);
     this.color = this.channels === "bw"
       ? { h: 0, s: 0, l: rawColor.l, a: 1 }
-      : rawColor;
+      : this.channels === "hue"
+        // Pure hue stop (s=100, l=50) — Bright does grey→hue→white outside the widget.
+        ? { h: rawColor.h, s: 100, l: 50, a: 1 }
+        : rawColor;
     this.planeUV = findPlaneUV(this.color.h, this.color);
     this.drag = null;
     this.dragElement = null;
@@ -474,10 +485,8 @@ export class SoundColorWidget {
       this.paintPlane();
       this.fitFittedText();
     });
-    const hex = this.root.querySelector(".scw-hex");
     const label = this.root.querySelector(".scw-label-text");
     const plane = this.root.querySelector(".scw-plane");
-    if (hex) this.resizeObserver.observe(hex);
     if (label) this.resizeObserver.observe(label);
     if (plane) this.resizeObserver.observe(plane);
     this.root.addEventListener("pointerdown", this.handlePointerDown);
@@ -509,10 +518,12 @@ export class SoundColorWidget {
     let next = normalizeColor({ ...this.color, ...nextColor });
     if (this.channels === "bw") {
       next = { h: 0, s: 0, l: next.l, a: 1 };
+    } else if (this.channels === "hue") {
+      next = { h: next.h, s: 100, l: 50, a: 1 };
     }
     next.a = 1;
     this.color = next;
-    if (!options.preservePlaneUV) {
+    if (!options.preservePlaneUV && this.channels !== "hue") {
       this.planeUV = findPlaneUV(this.color.h, this.color);
     }
     this.render();
@@ -527,6 +538,10 @@ export class SoundColorWidget {
   }
 
   hasTitle() {
+    // Hue-only mode never shows a title strip (avoids giant "Hue" text box).
+    if (this.channels === "hue") {
+      return false;
+    }
     return !isGenericLabel(this.label);
   }
 
@@ -534,7 +549,10 @@ export class SoundColorWidget {
     if (!this.root) {
       this.host.innerHTML = `
         <div class="scw-root">
-          <span class="scw-label"><span class="scw-label-text"><span class="scw-label-glyph"></span></span></span>
+          <span class="scw-label" role="button" tabindex="0">
+            <span class="scw-label-text"><span class="scw-label-glyph"></span></span>
+            <span class="scw-copy-toast" aria-live="polite"></span>
+          </span>
           <button type="button" class="scw-control scw-plane" data-part="plane" aria-label="Color plane">
             <canvas class="scw-plane-canvas" aria-hidden="true"></canvas>
             <span class="scw-plane-thumb" aria-hidden="true"></span>
@@ -542,10 +560,6 @@ export class SoundColorWidget {
           <button type="button" class="scw-control scw-hue" data-part="hue" aria-label="Hue">
             <span class="scw-hue-thumb" aria-hidden="true"></span>
           </button>
-          <span class="scw-hex" role="button" tabindex="0">
-            <span class="scw-hex-text"><span class="scw-hex-glyph"></span></span>
-            <span class="scw-copy-toast" aria-live="polite"></span>
-          </span>
         </div>
       `;
       this.root = this.host.querySelector(".scw-root");
@@ -559,14 +573,21 @@ export class SoundColorWidget {
       glyph.textContent = titled ? this.label : "";
     }
     const hex = hslToHex(this.color);
-    const hexButton = this.root.querySelector(".scw-hex");
-    hexButton.querySelector(".scw-hex-glyph").textContent = "";
-    hexButton.dataset.hex = hex;
-    hexButton.style.setProperty("--scw-final-color", colorCss(this.color));
+    const titleStrip = this.root.querySelector(".scw-label");
+    if (titleStrip) {
+      const ink = contrastInkForColor(this.color);
+      titleStrip.dataset.hex = hex;
+      titleStrip.style.setProperty("--scw-final-color", colorCss(this.color));
+      titleStrip.style.setProperty("--color-widget-label-ink", ink);
+      titleStrip.style.setProperty("--scw-label-shadow", contrastShadowForInk(ink));
+      titleStrip.style.color = ink;
+      const ariaName = titled ? this.label : "Color";
+      titleStrip.setAttribute("aria-label", `Copy ${ariaName} hex ${hex}`);
+      titleStrip.title = `${ariaName}: ${hex} (click to copy)`;
+    }
     const ariaName = titled ? this.label : "Color";
-    hexButton.setAttribute("aria-label", `Copy ${ariaName} hex ${hex}`);
     const plane = this.root.querySelector(".scw-plane");
-    if (plane) {
+    if (plane && this.channels !== "hue") {
       plane.setAttribute("aria-label", `${ariaName} plane (grey / black / white / saturated)`);
       plane.style.setProperty("--scw-plane-u", `${(this.planeUV.u * 100).toFixed(2)}%`);
       // CSS top is from top; v is from bottom.
@@ -578,12 +599,20 @@ export class SoundColorWidget {
       const h = this.channels === "bw" ? 0 : Number(this.color.h) || 0;
       const pos = clamp(h / 360, 0, 1) * 100;
       hueBar.style.setProperty("--scw-hue-pos", `${pos.toFixed(3)}%`);
+      if (this.channels === "hue") {
+        hueBar.setAttribute("aria-label", `${ariaName} hue`);
+      }
     }
-    this.paintPlane();
+    if (this.channels !== "hue") {
+      this.paintPlane();
+    }
     requestAnimationFrame(() => this.fitFittedText());
   }
 
   paintPlane() {
+    if (this.channels === "hue") {
+      return;
+    }
     const canvas = this.root?.querySelector(".scw-plane-canvas");
     const plane = this.root?.querySelector(".scw-plane");
     if (!canvas || !plane) {
@@ -624,8 +653,7 @@ export class SoundColorWidget {
   }
 
   fitFittedText() {
-    this.fitTextToBox(".scw-hex", ".scw-hex-glyph", "--scw-hex-scale");
-    if (this.hasTitle()) {
+    if (this.hasTitle() && this.channels !== "hue") {
       this.fitTextToBox(".scw-label-text", ".scw-label-glyph", "--scw-label-scale");
     }
   }
@@ -650,8 +678,8 @@ export class SoundColorWidget {
     )}`);
   }
 
-  async copyHex(hexInput) {
-    const hex = hexInput.dataset.hex || hslToHex(this.color);
+  async copyHex(sourceEl) {
+    const hex = sourceEl?.dataset?.hex || hslToHex(this.color);
     try {
       await navigator.clipboard?.writeText(hex);
     } catch {
@@ -680,15 +708,15 @@ export class SoundColorWidget {
     }
     toast.textContent = message;
     toast.dataset.visible = "true";
-    const hexButton = this.root?.querySelector(".scw-hex");
-    if (hexButton) {
-      hexButton.dataset.copied = "true";
+    const titleStrip = this.root?.querySelector(".scw-label");
+    if (titleStrip) {
+      titleStrip.dataset.copied = "true";
     }
     clearTimeout(this.toastTimer);
     this.toastTimer = setTimeout(() => {
       toast.dataset.visible = "false";
-      if (hexButton) {
-        delete hexButton.dataset.copied;
+      if (titleStrip) {
+        delete titleStrip.dataset.copied;
       }
     }, 900);
   }
@@ -714,11 +742,11 @@ export class SoundColorWidget {
   }
 
   handlePointerDown(event) {
-    const hexInput = event.target.closest(".scw-hex");
-    if (hexInput) {
+    const titleStrip = event.target.closest(".scw-label");
+    if (titleStrip && this.root?.contains(titleStrip)) {
       event.preventDefault();
       event.stopPropagation();
-      this.copyHex(hexInput);
+      this.copyHex(titleStrip);
       return;
     }
 
@@ -743,7 +771,7 @@ export class SoundColorWidget {
       fine: event.shiftKey,
       startColor: { ...this.color },
     };
-    if (part === "plane") {
+    if (part === "plane" && this.channels !== "hue") {
       this.setPlaneFromClient(event.clientX, event.clientY);
     }
   }
@@ -767,14 +795,18 @@ export class SoundColorWidget {
     event.preventDefault();
     event.stopPropagation();
     window.getSelection?.()?.removeAllRanges();
-    if (this.drag.part === "plane") {
+    if (this.drag.part === "plane" && this.channels !== "hue") {
       this.setPlaneFromClient(event.clientX, event.clientY);
       return;
     }
     const delta = this.dragDelta(event);
     const start = this.drag.startColor;
-    if (this.drag.part === "hue") {
-      this.setColor({ h: Math.round((start.h + delta * DRAG_SCALE.hue + 360) % 360) });
+    if (this.drag.part === "hue" && this.channels !== "bw") {
+      // Hue bar → H only; plane UV stays put (re-sample s/l on the new hue).
+      const h = Math.round((start.h + delta * DRAG_SCALE.hue + 360) % 360);
+      const uv = this.planeUV || { u: 0.5, v: 0.5 };
+      const next = planeColorHsl(h, uv.u, uv.v, h);
+      this.setColor(next, true, { preservePlaneUV: true });
     }
   }
 

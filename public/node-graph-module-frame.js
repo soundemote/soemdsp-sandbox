@@ -196,9 +196,17 @@ function nodeGraphModuleFrameBuildPath(width, height, radius, leftGaps, rightGap
 }
 
 function nodeGraphModuleFrameRadiusPx(nodeElement) {
-  // Prefer computed border-radius (wired to --node-module-roundness-ratio).
-  // Default 0 = square chrome for LayoutA and LayoutB.
-  const raw = getComputedStyle(nodeElement).borderRadius;
+  // Stroke corner radius is independent of the module plate (which stays square).
+  // Prefer --node-module-frame-radius so the outline can stay rounded at all zooms
+  // while .dsp-node border-radius remains 0 (sharp front plate).
+  const cs = getComputedStyle(nodeElement);
+  const frameRaw = cs.getPropertyValue("--node-module-frame-radius").trim();
+  const frameN = Number.parseFloat(frameRaw);
+  if (Number.isFinite(frameN) && frameN > 0) {
+    return frameN;
+  }
+  // Fallback: computed border-radius (UI Dev module roundness / legacy).
+  const raw = cs.borderRadius;
   const first = String(raw || "").split(/\s+/)[0];
   const n = Number.parseFloat(first);
   return Number.isFinite(n) && n > 0 ? n : 0;

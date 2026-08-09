@@ -148,8 +148,132 @@ function preventNodeGraphTraceDisplayReadonlyFieldTextInteraction(event) {
   event.preventDefault();
 }
 
+/**
+ * App-wide 0…1 unit stepper drag (gradient Pos, etc.).
+ * Must run in CAPTURE on the display-settings popover: text-input protection
+ * stopPropagations before the event reaches the <input>, so per-input listeners never fire.
+ */
+function nodeGraphUnitStepperDragInputFromTarget(target) {
+  if (!(target instanceof Element)) {
+    return null;
+  }
+  const input = target.closest?.("input[data-unit-stepper-drag], input[data-sge-pos]");
+  if (!(input instanceof HTMLInputElement) || input.disabled || !input.readOnly) {
+    return null;
+  }
+  return input;
+}
+
+function beginNodeGraphUnitStepperDrag(event) {
+  if (event.button > 0 || event.detail > 1) {
+    return;
+  }
+  if (nodeGraphMvp?.traceDisplayFieldDragging || nodeGraphMvp?.unitStepperDragging) {
+    return;
+  }
+  const input = nodeGraphUnitStepperDragInputFromTarget(event.target);
+  if (!input) {
+    return;
+  }
+  if (typeof nodeGraphNumericModifierReserved === "function" && nodeGraphNumericModifierReserved(event)) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+  const min = Number(input.dataset.unitMin);
+  const max = Number(input.dataset.unitMax);
+  const startValue = Number(input.value);
+  nodeGraphMvp.unitStepperDragging = {
+    input,
+    pointerId: event.pointerId ?? null,
+    startValue: Number.isFinite(startValue) ? startValue : 0,
+    startX: event.clientX,
+    startY: event.clientY,
+    multiplier: typeof nodeGraphNumericDragMultiplier === "function"
+      ? nodeGraphNumericDragMultiplier(event)
+      : 1,
+    min: Number.isFinite(min) ? min : 0,
+    max: Number.isFinite(max) ? max : 1,
+  };
+  input.classList.add("value-dragging");
+  try {
+    input.setPointerCapture?.(event.pointerId);
+  } catch {
+    // ignore
+  }
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+function dragNodeGraphUnitStepper(event) {
+  const drag = nodeGraphMvp?.unitStepperDragging;
+  if (
+    !drag
+    || (drag.pointerId !== null && event.pointerId !== undefined && drag.pointerId !== event.pointerId)
+  ) {
+    return;
+  }
+  const mult = typeof nodeGraphNumericDragMultiplier === "function"
+    ? nodeGraphNumericDragMultiplier(event)
+    : 1;
+  if (mult !== drag.multiplier) {
+    const live = Number(drag.input.value);
+    drag.startValue = Number.isFinite(live) ? live : drag.startValue;
+    drag.startX = event.clientX;
+    drag.startY = event.clientY;
+    drag.multiplier = mult;
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+  const axes = typeof nodeGraphPointerDragScreenDelta === "function"
+    ? nodeGraphPointerDragScreenDelta(drag.startX, drag.startY, event.clientX, event.clientY)
+    : { combined: (event.clientX - drag.startX) + (drag.startY - event.clientY) };
+  const unitPx = typeof nodeGraphTraceDisplayUnitDragPixels === "number"
+    ? nodeGraphTraceDisplayUnitDragPixels
+    : 220;
+  let next = drag.startValue + (axes.combined / unitPx) * drag.multiplier;
+  next = Math.max(drag.min, Math.min(drag.max, next));
+  if (!Number.isFinite(next)) {
+    next = drag.startValue;
+  }
+  const formatted = typeof formatNodeGraphTraceDisplaySetting === "function"
+    ? formatNodeGraphTraceDisplaySetting(next)
+    : String(Number(next.toFixed(4)));
+  if (drag.input.value !== formatted) {
+    drag.input.value = formatted;
+    // Gradient editor (and other hosts) listen for this to apply clamped domain rules.
+    drag.input.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+function endNodeGraphUnitStepperDrag(event) {
+  const drag = nodeGraphMvp?.unitStepperDragging;
+  if (
+    !drag
+    || (drag.pointerId !== null && event.pointerId !== undefined && drag.pointerId !== event.pointerId)
+  ) {
+    return;
+  }
+  drag.input.classList.remove("value-dragging");
+  if (event.pointerId !== undefined && drag.input.hasPointerCapture?.(event.pointerId)) {
+    drag.input.releasePointerCapture(event.pointerId);
+  }
+  drag.input.dispatchEvent(new Event("change", { bubbles: true }));
+  nodeGraphMvp.unitStepperDragging = null;
+  event.preventDefault();
+  event.stopPropagation();
+}
+
 function beginNodeGraphTraceDisplayFieldDrag(event) {
   if (event.button > 0 || event.detail > 1) {
+    return;
+  }
+  // Unit steppers (gradient Pos, …) share this capture path.
+  if (nodeGraphUnitStepperDragInputFromTarget(event.target)) {
+    beginNodeGraphUnitStepperDrag(event);
     return;
   }
   const input = nodeGraphTraceDisplayFieldFromTarget(event.target);
@@ -165,15 +289,23 @@ function beginNodeGraphTraceDisplayFieldDrag(event) {
   if (key === "zoomSeconds") {
     setNodeGraphTraceDisplayZoomEditActive(true);
   }
+  const startValue = Number(input.value);
+  const unitDrag = typeof nodeGraphTraceDisplayUnitDragField === "function"
+    && nodeGraphTraceDisplayUnitDragField(key);
   nodeGraphMvp.traceDisplayFieldDragging = {
     input,
     key,
     pointerId: event.pointerId ?? null,
-    startValue: Number(input.value),
+    startValue: Number.isFinite(startValue) ? startValue : 0,
     startX: event.clientX,
     startY: event.clientY,
+    // Live-updated on move; re-anchor when Shift/Ctrl/Alt scale changes (RS-MET).
     multiplier: nodeGraphTraceDisplayNumberDragMultiplier(event),
-    quantum: nodeGraphTraceDisplayStepperQuantum(input),
+    // Unit 0…1 fields: fixed gain (px → value). Others: stepper quantum × /8.
+    unitDrag,
+    quantum: unitDrag
+      ? 1
+      : nodeGraphTraceDisplayStepperQuantum(input, startValue),
   };
   input.classList.add("value-dragging");
   input.setPointerCapture?.(event.pointerId);
@@ -189,14 +321,47 @@ function dragNodeGraphTraceDisplayField(event) {
   ) {
     return;
   }
+  // Re-anchor when fine/coarse modifiers change mid-drag so releasing Shift
+  // does not jump as if the whole drag used the new scale.
+  const currentMult = nodeGraphTraceDisplayNumberDragMultiplier(event);
+  if (currentMult !== drag.multiplier) {
+    const live = Number(drag.input.value);
+    drag.startValue = Number.isFinite(live) ? live : drag.startValue;
+    drag.startX = event.clientX;
+    drag.startY = event.clientY;
+    drag.multiplier = currentMult;
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
   const axes = typeof nodeGraphPointerDragScreenDelta === "function"
     ? nodeGraphPointerDragScreenDelta(drag.startX, drag.startY, event.clientX, event.clientY)
     : { combined: (event.clientX - drag.startX) + (drag.startY - event.clientY) };
   const startValue = Number.isFinite(drag.startValue)
     ? drag.startValue
     : nodeGraphDisplaySettingsDefaultValue(drag.key);
-  const controlDelta = (axes.combined / 8) * drag.quantum * drag.multiplier;
-  const rawValue = adjustNodeGraphTraceDisplaySettingByControlDelta(drag.key, startValue, controlDelta);
+  // Bright / Ghost Bright / Residual: same linear sensitivity (~220 px = full 0…1).
+  const unitPx = typeof nodeGraphTraceDisplayUnitDragPixels === "number"
+    ? nodeGraphTraceDisplayUnitDragPixels
+    : 220;
+  // Stamp Size (dot1/secondary): control-space drag with dedicated gain (exp map).
+  const sizeDrag = typeof nodeGraphTraceDisplaySizeControlField === "function"
+    && nodeGraphTraceDisplaySizeControlField(drag.key)
+    && !drag.unitDrag;
+  const sizePx = typeof nodeGraphTraceDisplaySizeDragPixels === "number"
+    ? nodeGraphTraceDisplaySizeDragPixels
+    : 520;
+  const controlDelta = drag.unitDrag
+    ? (axes.combined / unitPx) * drag.multiplier
+    : sizeDrag
+      ? (axes.combined / sizePx) * drag.multiplier
+      : (axes.combined / 8) * drag.quantum * drag.multiplier;
+  let rawValue = adjustNodeGraphTraceDisplaySettingByControlDelta(drag.key, startValue, controlDelta);
+  // Unit 0…1: hard clamp before format (never wrap / never NaN→1).
+  if (drag.unitDrag) {
+    const n = Number(rawValue);
+    rawValue = Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : startValue;
+  }
   const nextValue = normalizeNodeGraphTraceDisplaySettingValueForKey(drag.key, rawValue);
   drag.input.value = formatNodeGraphTraceDisplaySetting(nextValue);
   applyNodeGraphTraceDisplaySettingsForm({ persist: "debounce", record: false });
@@ -269,18 +434,23 @@ function stepNodeGraphTraceDisplaySetting(event) {
     nextValue = nodeGraphSpectrogramStepFftSize(baseValue, direction);
   } else if (key === "historySeconds" || key === "zoomSeconds") {
     // Exponential control-space steps (fine near short history, coarser at long).
-    const quantum = nodeGraphTraceDisplayStepperQuantum(input, baseValue);
+    const quantum = nodeGraphTraceDisplayStepperQuantum(input, baseValue, direction);
     nextValue = normalizeNodeGraphTraceDisplaySettingValueForKey(
       key,
       adjustNodeGraphTraceDisplaySettingByControlDelta(key, baseValue, direction * quantum),
     );
   } else {
-    // Magnitude-based −/+ (same as Parameter Settings): e.g. Span 270° → ±100°.
-    const quantum = nodeGraphTraceDisplayStepperQuantum(input, baseValue);
+    // Magnitude −/+ with down-from-boundary refinement (1→0.9, not 1→0).
+    // Pass direction so decade edges use the next finer quantum when decreasing.
+    const quantum = nodeGraphTraceDisplayStepperQuantum(input, baseValue, direction);
     let stepped = baseValue + direction * quantum;
     // Snap large whole-unit steps onto the quantum grid (270+100 → 370, not float dust).
+    // Skip snap for sub-unit quanta (0.1) so 1−0.1 stays 0.9.
     if (quantum >= 1 - 1e-12) {
       stepped = Math.round(stepped / quantum) * quantum;
+    } else {
+      // Keep one decimal clean for 0.1 steps (float dust).
+      stepped = Math.round(stepped * 10) / 10;
     }
     nextValue = normalizeNodeGraphTraceDisplaySettingValueForKey(key, stepped);
   }
@@ -288,24 +458,107 @@ function stepNodeGraphTraceDisplaySetting(event) {
   applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true });
 }
 
+/**
+ * Display Settings toggles:
+ *   - App latch buttons (packing row Full Dot Economy / Dots only)
+ *   - Legacy checkbox labels
+ *   - Clear action (wipe phosphor residual)
+ */
 function toggleNodeGraphTraceDisplaySettingRow(event) {
-  const toggleRow = event.target.closest("label, .metadata-section-title");
-  const input = toggleRow?.querySelector?.("[data-trace-display-toggle]");
+  if (event.pointerType === "mouse" && event.button !== 0) {
+    return;
+  }
+  // —— App latch button (Full Dot Economy / Dots only) ——
+  const latch = event.target.closest?.("[data-latch-button][data-trace-display-toggle]");
+  if (latch && !latch.disabled) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof event.stopImmediatePropagation === "function") {
+      event.stopImmediatePropagation();
+    }
+    if (typeof AppLatchButton !== "undefined") {
+      AppLatchButton.toggle(latch);
+    } else {
+      const next = latch.getAttribute("aria-pressed") !== "true";
+      latch.setAttribute("aria-pressed", next ? "true" : "false");
+      latch.dataset.latchOn = next ? "1" : "0";
+      latch.classList.toggle("is-on", next);
+      latch.classList.toggle("is-off", !next);
+    }
+    latch.dataset.traceDisplayToggleOwned = "1";
+    applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true });
+    window.setTimeout(() => {
+      delete latch.dataset.traceDisplayToggleOwned;
+    }, 0);
+    return;
+  }
+  // —— Clear phosphor residual (action, not a setting) ——
+  const clearBtn = event.target.closest?.(
+    "[data-trace-display-action='clearPhosphor'], [data-latch-action='clearPhosphor']",
+  );
+  if (clearBtn && !clearBtn.disabled) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof event.stopImmediatePropagation === "function") {
+      event.stopImmediatePropagation();
+    }
+    if (typeof clearNodeGraphDisplaySettingsPhosphor === "function") {
+      clearNodeGraphDisplaySettingsPhosphor(
+        nodeGraphTraceDisplaySettingsTargetNodeId?.()
+          || document.getElementById("nodeTraceDisplaySettingsPopover")
+            ?.dataset?.displaySettingsTargetNode
+          || "",
+      );
+    }
+    return;
+  }
+  // —— Legacy checkbox labels ——
+  const toggleRow = event.target.closest(
+    "label.metadata-checkbox-label, label[data-trace-display-control-row], .metadata-section-title",
+  );
+  const input = toggleRow?.querySelector?.("input[data-trace-display-toggle]");
   if (!input || input.disabled) {
+    return;
+  }
+  // Direct hits on the checkbox (if pointer-events restored) use change handler.
+  if (event.target === input || event.target?.closest?.("input[data-trace-display-toggle]")) {
     return;
   }
   event.preventDefault();
   event.stopPropagation();
+  if (typeof event.stopImmediatePropagation === "function") {
+    event.stopImmediatePropagation();
+  }
   input.checked = !input.checked;
+  // Guard against a late native click/change undoing the apply this gesture.
+  input.dataset.traceDisplayToggleOwned = "1";
   applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true });
+  window.setTimeout(() => {
+    delete input.dataset.traceDisplayToggleOwned;
+  }, 0);
 }
 
 function suppressNodeGraphTraceDisplaySettingRowClick(event) {
-  const toggleRow = event.target.closest("label, .metadata-section-title");
-  const input = toggleRow?.querySelector?.("[data-trace-display-toggle]");
+  // Latch buttons handle their own click; don't suppress so focus works.
+  if (event.target.closest?.("[data-latch-button]")) {
+    // Still prevent double-activate from label-like wrapping (none expected).
+    const latch = event.target.closest("[data-latch-button]");
+    if (latch?.dataset?.traceDisplayToggleOwned === "1") {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    return;
+  }
+  const toggleRow = event.target.closest(
+    "label.metadata-checkbox-label, label[data-trace-display-control-row], .metadata-section-title",
+  );
+  const input = toggleRow?.querySelector?.("input[data-trace-display-toggle]");
   if (!input || input.disabled) {
     return;
   }
   event.preventDefault();
   event.stopPropagation();
+  if (typeof event.stopImmediatePropagation === "function") {
+    event.stopImmediatePropagation();
+  }
 }

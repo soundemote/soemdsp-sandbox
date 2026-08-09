@@ -564,6 +564,8 @@ function bindNodeGraphTraceDisplaySettingsEvents(popover) {
   popover.addEventListener("focusin", preventNodeGraphTraceDisplayReadonlyFieldTextInteraction, true);
   popover.addEventListener("selectstart", preventNodeGraphTraceDisplayReadonlyFieldTextInteraction, true);
   popover.addEventListener("dragstart", preventNodeGraphTraceDisplayReadonlyFieldTextInteraction, true);
+  // Capture-phase drag: text-input protection stopPropagates before the <input>
+  // itself sees pointerdown, so unit steppers + display fields must bind here.
   popover.addEventListener("pointerdown", beginNodeGraphTraceDisplayFieldDrag, true);
   document.getElementById("nodeTraceDisplaySettingsDefaults")?.addEventListener("click", setNodeGraphTraceDisplaySettingsDefaults);
   document.getElementById("nodeTraceDisplaySettingsClose")?.addEventListener("click", closeNodeGraphTraceDisplaySettings);
@@ -589,8 +591,11 @@ function bindNodeGraphTraceDisplaySettingsEvents(popover) {
     beginNodeGraphTraceDisplaySettingsResize(event);
   });
   document.addEventListener("pointermove", dragNodeGraphTraceDisplayField, true);
+  document.addEventListener("pointermove", dragNodeGraphUnitStepper, true);
   document.addEventListener("pointerup", endNodeGraphTraceDisplayFieldDrag, true);
+  document.addEventListener("pointerup", endNodeGraphUnitStepperDrag, true);
   document.addEventListener("pointercancel", endNodeGraphTraceDisplayFieldDrag, true);
+  document.addEventListener("pointercancel", endNodeGraphUnitStepperDrag, true);
   // Window drag/resize: registry pointer bridge
   // Click outside the field (including outside the window) ends text edit.
   document.addEventListener("pointerdown", handleNodeGraphTraceDisplayFieldEditPointerDown, true);

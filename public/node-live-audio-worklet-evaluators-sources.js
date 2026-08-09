@@ -592,7 +592,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
           level,
         });
       },
-      // RS-MET-style L-system + turtle → stereo X/Y (Out = Y). Native WASM preferred.,
+      // RS-MET-style L-system + turtle → stereo X/Y. Native WASM preferred.
       snowflake: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput) => {
         if (!this.snowflakeStates) {
           this.snowflakeStates = new Map();
@@ -632,14 +632,18 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_sources = function bu
         const level = typeof nodeGraphParamSignalInAmplitude === "function"
           ? nodeGraphParamSignalInAmplitude(levelKnob, ampCv, hasAmp)
           : (hasAmp ? levelKnob * ampCv : levelKnob);
+        let direction = read("direction", null);
+        if (direction == null || !Number.isFinite(Number(direction))) {
+          const legacyReverse = read("reverse", 0);
+          direction = Number(legacyReverse) > 0.5 ? 0 : 1;
+        }
         return this.snowflakeSample(state, {
           frequencyHz: effectiveFrequency,
           sampleRate: safeRate,
           pattern: read("pattern", 1),
           iterations: read("iterations", 3),
           angle: read("angle", 60),
-          size: read("size", 1),
-          reverse: read("reverse", 0),
+          direction,
           spin: read("spin", 0),
           level,
           reset,

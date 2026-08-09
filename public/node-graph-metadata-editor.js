@@ -1660,32 +1660,45 @@ function toggleNodeMetadataAdvancedScript() {
 }
 
 /**
- * Parameter Settings −/+ step size from the current magnitude:
- *   |value| < 1     → 0.1   (includes 0)
- *   1…<10           → 1
- *   10…<100         → 10
- *   100…<1000       → 100
- *   ≥1000           → 1000  (max increment)
+ * Parameter Settings −/+ step size from current magnitude + direction.
+ * Same rules as nodeGraphMagnitudeStepperQuantum:
+ *   |value| < 1 → 0.1 · 1…<10 → 1 · 10…<100 → 10 · …
+ * Stepping DOWN from an exact decade (1, 10, 100, 1000) uses the next finer
+ * step so 1→0.9 (not 1→0), 10→9, etc.
  * Max digits always steps by 1.
+ *
+ * @param {HTMLInputElement|null} input
+ * @param {number} currentValue
+ * @param {number} [direction]  -1 = minus, +1 = plus
  */
-function metadataStepperQuantum(input, currentValue) {
+function metadataStepperQuantum(input, currentValue, direction = 0) {
   if (input?.id === "metadataMaxDigitsValue") {
     return 1;
   }
+  if (typeof nodeGraphMagnitudeStepperQuantum === "function") {
+    return nodeGraphMagnitudeStepperQuantum(currentValue, direction);
+  }
+  // Fallback if display-settings controls script not loaded yet.
   const abs = Math.abs(Number(currentValue));
-  if (!Number.isFinite(abs) || abs < 1) {
-    return 0.1;
+  let q;
+  if (!Number.isFinite(abs) || abs < 1 - 1e-12) {
+    q = 0.1;
+  } else if (abs < 10) {
+    q = 1;
+  } else if (abs < 100) {
+    q = 10;
+  } else if (abs < 1000) {
+    q = 100;
+  } else {
+    q = 1000;
   }
-  if (abs < 10) {
-    return 1;
+  if (direction < 0 && Number.isFinite(abs) && abs > 0 && Math.abs(abs - q) <= 1e-9) {
+    if (q === 1) q = 0.1;
+    else if (q === 10) q = 1;
+    else if (q === 100) q = 10;
+    else if (q >= 1000) q = 100;
   }
-  if (abs < 100) {
-    return 10;
-  }
-  if (abs < 1000) {
-    return 100;
-  }
-  return 1000;
+  return q;
 }
 
 function formatMetadataStepperValue(value, quantum) {
@@ -1720,8 +1733,12 @@ function stepNodeMetadataField(event) {
   const direction = Number(button.dataset.metadataStepDirection) < 0 ? -1 : 1;
   const current = Number(input.value);
   const base = Number.isFinite(current) ? current : 0;
-  const quantum = metadataStepperQuantum(input, base);
+  // Pass direction so 1 − → 0.9 (not 1 − → 0).
+  const quantum = metadataStepperQuantum(input, base, direction);
   let next = base + direction * quantum;
+  if (quantum < 1 - 1e-12) {
+    next = Math.round(next * 10) / 10;
+  }
   if (input.id === "metadataMaxDigitsValue") {
     // App-wide: maxDigits ≥ 1 (0 is invalid).
     next = Math.max(1, Math.min(12, Math.round(next)));

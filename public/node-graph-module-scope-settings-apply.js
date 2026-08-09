@@ -341,5 +341,16 @@ function commitNodeGraphTraceDisplaySettingsChange(event) {
   if (nodeGraphTraceDisplayFieldFromTarget(event?.target)) {
     return;
   }
+  // Skip change events from our owned pointerdown toggle (avoids double-apply /
+  // undoing Full Dot Economy when the label also fires a native change).
+  const toggle = event?.target?.closest?.("[data-trace-display-toggle], [data-latch-button]")
+    || (event?.target?.matches?.("[data-trace-display-toggle]") ? event.target : null);
+  if (toggle?.dataset?.traceDisplayToggleOwned === "1") {
+    return;
+  }
+  // Latch buttons apply on pointerdown — ignore stray change/input from them.
+  if (event?.target?.closest?.("[data-latch-button][data-trace-display-toggle]")) {
+    return;
+  }
   applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true, commit: true });
 }

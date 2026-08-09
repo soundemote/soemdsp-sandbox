@@ -95,6 +95,139 @@
     },
   ]);
 
+  // From prettyscope-revival/ColorMaps/*.xml (ARGB → #rrggbb, keep stop t).
+  const PRESETS_PRETTYSCOPE = Object.freeze([
+    {
+      id: "ps-analog-green",
+      label: "Analog Green",
+      colors: ["#000000", "#00ff00"],
+      stops: Object.freeze([
+        Object.freeze({ t: 0, color: "#000000" }),
+        Object.freeze({ t: 1, color: "#00ff00" }),
+      ]),
+    },
+    {
+      id: "ps-analog-red",
+      label: "Analog Red",
+      colors: ["#000000", "#ff0000"],
+      stops: Object.freeze([
+        Object.freeze({ t: 0, color: "#000000" }),
+        Object.freeze({ t: 1, color: "#ff0000" }),
+      ]),
+    },
+    {
+      id: "ps-blackout",
+      label: "Blackout",
+      colors: ["#000000", "#ffffff"],
+      stops: Object.freeze([
+        Object.freeze({ t: 0, color: "#000000" }),
+        Object.freeze({ t: 1, color: "#ffffff" }),
+      ]),
+    },
+    {
+      id: "ps-whiteout",
+      label: "Whiteout",
+      colors: ["#ffffff", "#000000"],
+      stops: Object.freeze([
+        Object.freeze({ t: 0, color: "#ffffff" }),
+        Object.freeze({ t: 1, color: "#000000" }),
+      ]),
+    },
+    {
+      id: "ps-blue-cream",
+      label: "Blue Cream",
+      colors: ["#000000", "#004a8a", "#0093b9", "#5fb59c", "#b3dc77", "#f3fa82", "#ffffff"],
+      stops: Object.freeze([
+        Object.freeze({ t: 0, color: "#000000" }),
+        Object.freeze({ t: 0.167, color: "#004a8a" }),
+        Object.freeze({ t: 0.333, color: "#0093b9" }),
+        Object.freeze({ t: 0.5, color: "#5fb59c" }),
+        Object.freeze({ t: 0.667, color: "#b3dc77" }),
+        Object.freeze({ t: 0.833, color: "#f3fa82" }),
+        Object.freeze({ t: 1, color: "#ffffff" }),
+      ]),
+    },
+    {
+      id: "ps-fire-ice",
+      label: "Fire Ice",
+      colors: ["#000000", "#ffff00", "#ff0000", "#0000ff", "#00ffff", "#ffffff"],
+      stops: Object.freeze([
+        Object.freeze({ t: 0, color: "#000000" }),
+        Object.freeze({ t: 0.167, color: "#ffff00" }),
+        Object.freeze({ t: 0.333, color: "#ff0000" }),
+        Object.freeze({ t: 0.667, color: "#0000ff" }),
+        Object.freeze({ t: 0.833, color: "#00ffff" }),
+        Object.freeze({ t: 1, color: "#ffffff" }),
+      ]),
+    },
+    {
+      id: "ps-hot",
+      label: "Hot CRT",
+      colors: [
+        "#000000",
+        "#7f0000",
+        "#b30000",
+        "#e63300",
+        "#f8782b",
+        "#ffc080",
+        "#ffe6cc",
+        "#ffffff",
+      ],
+      stops: Object.freeze([
+        Object.freeze({ t: 0, color: "#000000" }),
+        Object.freeze({ t: 0.143, color: "#7f0000" }),
+        Object.freeze({ t: 0.286, color: "#b30000" }),
+        Object.freeze({ t: 0.429, color: "#e63300" }),
+        Object.freeze({ t: 0.571, color: "#f8782b" }),
+        Object.freeze({ t: 0.714, color: "#ffc080" }),
+        Object.freeze({ t: 0.857, color: "#ffe6cc" }),
+        Object.freeze({ t: 1, color: "#ffffff" }),
+      ]),
+    },
+    {
+      id: "ps-light-blue",
+      label: "Light Blue",
+      colors: ["#ffffff", "#0000ff"],
+      stops: Object.freeze([
+        Object.freeze({ t: 0, color: "#ffffff" }),
+        Object.freeze({ t: 1, color: "#0000ff" }),
+      ]),
+    },
+    {
+      id: "ps-light-green",
+      label: "Light Green",
+      colors: ["#edfffc", "#11c311"],
+      stops: Object.freeze([
+        Object.freeze({ t: 0, color: "#edfffc" }),
+        Object.freeze({ t: 1, color: "#11c311" }),
+      ]),
+    },
+    {
+      id: "ps-pretty-pink",
+      label: "Pretty Pink",
+      colors: ["#000230", "#6500ad", "#ff00c8", "#ffc7e5"],
+      stops: Object.freeze([
+        Object.freeze({ t: 0, color: "#000230" }),
+        Object.freeze({ t: 0.3, color: "#6500ad" }),
+        Object.freeze({ t: 0.5, color: "#ff00c8" }),
+        Object.freeze({ t: 1, color: "#ffc7e5" }),
+      ]),
+    },
+    {
+      id: "ps-rainbow",
+      label: "Rainbow",
+      colors: ["#000000", "#0000ff", "#00ffff", "#00ff00", "#ffff00", "#ff0000"],
+      stops: Object.freeze([
+        Object.freeze({ t: 0, color: "#000000" }),
+        Object.freeze({ t: 0.2, color: "#0000ff" }),
+        Object.freeze({ t: 0.4, color: "#00ffff" }),
+        Object.freeze({ t: 0.6, color: "#00ff00" }),
+        Object.freeze({ t: 0.8, color: "#ffff00" }),
+        Object.freeze({ t: 1, color: "#ff0000" }),
+      ]),
+    },
+  ]);
+
   const PRESETS = Object.freeze([
     {
       id: "classic",
@@ -174,6 +307,8 @@
       ],
       stops: DEFAULT_SOFT_FRACTAL_STOPS,
     },
+    // PrettyScope CRT maps (prettyscope-revival/ColorMaps).
+    ...PRESETS_PRETTYSCOPE,
   ]);
 
   function ensureStyles() {
@@ -185,240 +320,211 @@
       style.id = STYLE_ID;
       document.head.appendChild(style);
     }
+    // Compact layout. !important only where popover button chrome wins.
     style.textContent = `
       .sge-root {
+        --sge-bar-h: 22px;
+        --sge-title-h: 20px;
+        --sge-plane-h: 56px;
+        --sge-hue-h: 18px;
+        --sge-stack-h: calc(var(--sge-title-h) + var(--sge-plane-h) + var(--sge-hue-h));
+        --sge-stack-bw-h: calc(var(--sge-title-h) + var(--sge-plane-h));
+        --sge-ink-dim: rgba(248, 252, 255, 0.62);
+        --sge-active: #f1b84b;
         display: grid;
-        gap: 8px;
+        gap: 0;
         min-width: 0;
         user-select: none;
       }
+
+      /* Defeat metadata-popover-grid button chrome on unstyled SGE cells. */
+      .sge-root button.sge-stop-cell,
+      .sge-root button.sge-preset,
+      .sge-color-widget-host .scw-control {
+        appearance: none !important;
+        -webkit-appearance: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        outline: none !important;
+      }
+      .sge-root button.sge-stop-cell:hover,
+      .sge-root button.sge-stop-cell:focus,
+      .sge-root button.sge-stop-cell:focus-visible,
+      .sge-root button.sge-preset:hover,
+      .sge-root button.sge-preset:focus,
+      .sge-root button.sge-preset:focus-visible {
+        border: none !important;
+        box-shadow: none !important;
+        outline: none !important;
+      }
+
+      /* Gradient bar + per-stop cells */
       .sge-bar-wrap {
         position: relative;
-        height: 22px;
-        border-radius: 4px;
+        height: var(--sge-bar-h);
         overflow: hidden;
-        cursor: crosshair;
-        box-shadow: inset 0 0 0 1px rgba(248, 252, 255, 0.12);
+        cursor: var(--node-dot-cursor, crosshair);
       }
-      .sge-bar {
-        position: absolute;
-        inset: 0;
-      }
+      .sge-bar { position: absolute; inset: 0; }
       .sge-stops {
         display: flex;
-        flex-direction: row;
-        align-items: stretch;
-        gap: 3px;
-        min-width: 0;
         width: 100%;
-      }
-      .sge-stop-cell {
-        flex: 1 1 0;
         min-width: 0;
+      }
+      .sge-root button.sge-stop-cell {
+        flex: 1 1 0;
         display: flex;
         flex-direction: column;
-        align-items: stretch;
-        gap: 3px;
-        padding: 0;
-        margin: 0;
-        border: none;
-        background: transparent;
+        width: auto !important;
+        height: auto !important;
+        min-width: 0;
+        min-height: 0 !important;
+        color: inherit !important;
         cursor: pointer;
-        appearance: none;
       }
       .sge-stop-swatch {
+        display: block;
         width: 100%;
-        height: 32px;
-        border-radius: 3px;
-        border: none;
-        box-shadow: none;
-        outline: none;
+        height: var(--sge-bar-h);
+        min-height: var(--sge-bar-h);
+        max-height: var(--sge-bar-h);
       }
       .sge-stop-cell[data-active="true"] .sge-stop-swatch {
-        outline: 2px solid #f1b84b;
-        outline-offset: 1px;
+        outline: 2px solid var(--sge-active);
+        outline-offset: -2px;
       }
       .sge-stop-pos {
-        font-size: 0.72rem;
-        color: rgba(248, 252, 255, 0.62);
-        line-height: 1.2;
-        min-height: 1.1em;
+        margin: 0;
+        padding: 0;
+        font-size: 0.68rem;
+        line-height: 1.15;
+        color: var(--sge-ink-dim);
         text-align: center;
-        max-width: 100%;
         overflow: hidden;
         text-overflow: ellipsis;
+        white-space: nowrap;
       }
+
+      /* Presets — flush 2-col tiles, black title on gradient */
       .sge-presets {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 6px;
+        gap: 0;
       }
-      .sge-preset {
+      .sge-root button.sge-preset {
         position: relative;
-        display: inline-flex;
+        display: inline-flex !important;
         align-items: center;
         justify-content: center;
-        width: 100%;
-        min-width: 0;
-        box-sizing: border-box;
+        width: 100% !important;
+        min-width: 0 !important;
+        height: auto !important;
+        min-height: 0 !important;
+        padding: 5px 6px !important;
+        color: #000 !important;
         font-size: 0.68rem;
-        padding: 6px 8px;
-        border: 1px solid rgba(248, 252, 255, 0.14);
-        border-radius: 6px;
-        /* Fallback plate under the gradient swatch */
-        background: rgba(0, 0, 0, 0.45);
-        color: #f8fcff;
-        text-shadow: 0 0 3px #000, 0 1px 2px rgba(0, 0, 0, 0.85);
         cursor: pointer;
         overflow: hidden;
+      }
+      .sge-root button.sge-preset:hover,
+      .sge-root button.sge-preset:focus-visible {
+        filter: brightness(1.06);
+        color: #000 !important;
+      }
+      .sge-root button.sge-preset[data-active="true"] {
+        filter: brightness(1.1);
+        color: #000 !important;
       }
       .sge-preset-swatch {
         position: absolute;
         inset: 0;
-        border-radius: inherit;
         pointer-events: none;
-        opacity: 0.92;
       }
       .sge-preset-label {
         position: relative;
         z-index: 1;
-        font-weight: 600;
+        font-weight: 700;
         letter-spacing: 0.01em;
+        color: #000;
+        text-shadow: 0 0 2px rgba(255, 255, 255, 0.55);
       }
-      .sge-preset:hover {
-        border-color: rgba(248, 252, 255, 0.32);
-        filter: brightness(1.08);
-      }
-      .sge-preset[data-active="true"] {
-        border-color: rgba(241, 184, 75, 0.85);
-        box-shadow: 0 0 0 1px rgba(241, 184, 75, 0.45);
-        color: #fff6d8;
-      }
-      .sge-section-label {
-        font-size: 0.68rem;
-        color: rgba(248, 252, 255, 0.55);
-        letter-spacing: 0.02em;
-      }
-      /*
-       * SoundColorWidget is sized with % grid rows + cqh. Inside the narrow
-       * settings popover that collapses unless we give fixed pixel rows.
-       * Also force hue/brightness gradients with hex stops (space-separated
-       * hsl() can fail to paint in some hosts).
-       */
+
+      /* Stop color widget (title · plane · hue) — fixed stack height */
       .sge-color-widget-host {
-        min-width: 0;
         width: 100%;
-        height: 78px;
-        min-height: 78px;
-        border: none !important;
-        box-shadow: none !important;
-        outline: none !important;
-        background: transparent;
-        overflow: visible;
+        min-width: 0;
+        min-height: var(--sge-stack-h);
+        overflow: hidden;
       }
       .sge-color-widget-host.scw-mount {
-        height: 78px;
-        min-height: 78px;
-        container-type: size;
+        display: grid;
+        place-items: stretch;
+        min-height: var(--sge-stack-h);
       }
       .sge-color-widget-host .scw-root {
+        height: auto !important;
+        min-height: var(--sge-stack-h) !important;
+        gap: 0 !important;
+        padding: 0 !important;
         border: none !important;
-        box-shadow: none !important;
-        outline: none !important;
+        border-radius: 0;
         background: rgba(0, 0, 0, 0.28);
-        border-radius: 4px;
-        height: 78px !important;
-        min-height: 78px !important;
-        /* Fixed rows: label | sliders only (hex readout hidden — list below) */
-        grid-template-rows: 18px 52px !important;
-        --color-widget-title-ratio: 18;
+        grid-template-rows: var(--sge-title-h) var(--sge-plane-h) var(--sge-hue-h) !important;
       }
-      .sge-color-widget-host .scw-controls {
-        border: none !important;
-        box-shadow: none !important;
-        outline: none !important;
-        min-height: 48px !important;
-        height: 48px !important;
-        gap: 4px !important;
-        padding: 2px 4px !important;
-        align-items: stretch;
-      }
-      .sge-color-widget-host .scw-control {
-        border: none !important;
-        box-shadow: none !important;
-        outline: none !important;
-        min-height: 40px !important;
-        height: 40px !important;
-        min-width: 0;
-      }
-      /* Hex-stop gradients so hue/brightness always paint */
-      .sge-color-widget-host .scw-hue {
-        background: linear-gradient(
-          90deg,
-          #ff0000 0%,
-          #ffff00 17%,
-          #00ff00 33%,
-          #00ffff 50%,
-          #0000ff 67%,
-          #ff00ff 83%,
-          #ff0000 100%
-        ) !important;
-      }
-      .sge-color-widget-host .scw-brightness {
-        background: linear-gradient(90deg, #000000, #ffffff) !important;
-      }
-      /* B/W channel mode: single brightness slider (Number Readout). */
-      .sge-color-widget-host[data-channels="bw"] .scw-root,
       .sge-color-widget-host .scw-root[data-channels="bw"] {
-        grid-template-rows: 18px 52px !important;
+        min-height: var(--sge-stack-bw-h) !important;
+        grid-template-rows: var(--sge-title-h) var(--sge-plane-h) 0 !important;
       }
-      .sge-color-widget-host[data-channels="bw"] .scw-controls,
-      .sge-color-widget-host .scw-root[data-channels="bw"] .scw-controls {
-        grid-template-columns: minmax(0, 1fr) !important;
-      }
-      /* Hex readout under sliders is redundant with Hex list — hide it. */
-      .sge-color-widget-host .scw-hex {
-        display: none !important;
-        height: 0 !important;
-        min-height: 0 !important;
+      .sge-color-widget-host .scw-label {
+        height: var(--sge-title-h) !important;
+        min-height: var(--sge-title-h) !important;
         margin: 0 !important;
         padding: 0 !important;
-        overflow: hidden !important;
-        border: none !important;
+        border-radius: 0;
       }
-      .sge-row {
-        display: grid;
-        grid-template-columns: auto 1fr auto;
-        gap: 6px;
-        align-items: center;
-        min-width: 0;
+      .sge-color-widget-host .scw-control {
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 0 !important;
       }
-      .sge-row span {
-        white-space: nowrap;
-        font-size: 0.72rem;
-        color: rgba(248, 252, 255, 0.72);
+      .sge-color-widget-host .scw-plane {
+        height: var(--sge-plane-h) !important;
+        min-height: var(--sge-plane-h) !important;
+        max-height: var(--sge-plane-h) !important;
       }
-      .sge-row input[type="text"] {
-        min-width: 0;
-        width: 100%;
-        font: inherit;
-        font-size: 0.72rem;
+      /* Hue spectrum from color-widget SSOT (--scw-hue-spectrum). */
+      .sge-color-widget-host .scw-hue,
+      .sge-color-widget-host button.scw-control.scw-hue {
+        height: var(--sge-hue-h) !important;
+        min-height: var(--sge-hue-h) !important;
+        max-height: var(--sge-hue-h) !important;
+        background-color: transparent !important;
+        background-image: var(--scw-hue-spectrum) !important;
+        background-size: 100% 100% !important;
       }
+
       .sge-actions {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 6px;
-        align-items: stretch;
-        min-width: 0;
+        gap: 0;
       }
-      .sge-actions button {
-        font-size: 0.72rem;
-        min-width: 0;
+      .sge-root .sge-actions button {
         width: 100%;
+        min-width: 0;
+        margin: 0;
+        border-radius: 0;
+        font-size: 0.72rem;
       }
       .sge-hex {
         width: 100%;
-        min-height: 2.4em;
+        min-height: 2.2em;
+        margin: 0;
+        padding: 2px 4px;
+        border-radius: 0;
         font: inherit;
         font-size: 0.68rem;
         font-family: var(--node-mono-font, ui-monospace, monospace);
@@ -603,10 +709,13 @@
       </div>
       <div class="sge-stops" data-sge-stops aria-label="Gradient stops"></div>
       <div class="sge-color-widget-host" data-sge-color-widget></div>
-      <div class="sge-row">
-        <span>Pos</span>
-        <input type="text" data-sge-pos inputmode="decimal" aria-label="Stop position 0–1">
-        <span style="font-size:0.66rem;opacity:0.6">0–1</span>
+      <div class="title-stepper" data-sge-pos-row title="Stop position 0–1 along the gradient">
+        <span class="title-stepper-title">Pos</span>
+        <span class="metadata-stepper-control">
+          <button type="button" data-sge-pos-step="-1" aria-label="Decrease stop position">-</button>
+          <input type="text" inputmode="decimal" data-sge-pos data-unit-stepper-drag data-unit-min="0" data-unit-max="1" readonly value="0" aria-label="Stop position 0–1" title="Stop position 0–1. Drag or −/+. Double-click to type.">
+          <button type="button" data-sge-pos-step="1" aria-label="Increase stop position">+</button>
+        </span>
       </div>
       <div class="sge-actions">
         <button type="button" data-sge-add aria-label="Add stop">+ Stop</button>
@@ -621,7 +730,10 @@
     const barWrap = root.querySelector("[data-sge-bar-wrap]");
     const bar = root.querySelector("[data-sge-bar]");
     const stopsRow = root.querySelector("[data-sge-stops]");
+    const posRow = root.querySelector("[data-sge-pos-row]");
     const posInput = root.querySelector("[data-sge-pos]");
+    const posStepMinus = root.querySelector('[data-sge-pos-step="-1"]');
+    const posStepPlus = root.querySelector('[data-sge-pos-step="1"]');
     const listArea = root.querySelector("[data-sge-list]");
     const presetsRow = root.querySelector("[data-sge-presets]");
     const colorHost = root.querySelector("[data-sge-color-widget]");
@@ -630,6 +742,43 @@
 
     const emit = () => {
       options.onChange?.(normalizeStops(stops));
+    };
+
+    const formatPos = (t) => {
+      const n = clamp01(t);
+      if (typeof formatNodeGraphTraceDisplaySetting === "function") {
+        return formatNodeGraphTraceDisplaySetting(n);
+      }
+      return String(Number(n.toFixed(4)));
+    };
+
+    /** Apply stop position (middle stops only); keep neighbors ordered. */
+    const applyPosValue = (rawT, { emitChange = true } = {}) => {
+      if (activeIndex <= 0 || activeIndex >= stops.length - 1) {
+        return false;
+      }
+      const minT = stops[activeIndex - 1].t + 0.001;
+      const maxT = stops[activeIndex + 1].t - 0.001;
+      const t = Math.max(minT, Math.min(maxT, clamp01(Number(rawT))));
+      if (!Number.isFinite(t)) {
+        return false;
+      }
+      stops[activeIndex].t = t;
+      const moved = stops[activeIndex];
+      stops.sort((a, b) => a.t - b.t);
+      activeIndex = stops.indexOf(moved);
+      if (activeIndex < 0) {
+        activeIndex = 1;
+      }
+      activePresetId = "";
+      if (posInput) {
+        posInput.value = formatPos(stops[activeIndex].t);
+      }
+      renderBar();
+      if (emitChange) {
+        emit();
+      }
+      return true;
     };
 
     const destroyColorWidget = () => {
@@ -655,7 +804,7 @@
         ? global.mountColorWidget
         : (typeof window !== "undefined" ? window.mountColorWidget : null);
       if (typeof mount !== "function") {
-        // Fallback: native color input if SoundColorWidget not loaded yet.
+        // Fallback until SoundColorWidget boots — keep a visible control, then remount.
         const input = document.createElement("input");
         input.type = "color";
         input.value = stop.color;
@@ -677,6 +826,7 @@
         return;
       }
       colorWidget = mount(colorHost, {
+        // Title strip = current stop color (smart B/W ink from color-widget).
         label: mono ? "Level" : "Stop",
         channels: mono ? "bw" : "full",
         mono,
@@ -769,8 +919,16 @@
     const renderControls = () => {
       activeIndex = Math.max(0, Math.min(stops.length - 1, activeIndex));
       const stop = stops[activeIndex];
-      posInput.value = String(Number(stop.t.toFixed(4)));
-      posInput.disabled = activeIndex === 0 || activeIndex === stops.length - 1;
+      const locked = activeIndex === 0 || activeIndex === stops.length - 1;
+      if (posInput) {
+        posInput.value = formatPos(stop.t);
+        posInput.disabled = locked;
+        posInput.readOnly = true;
+        posInput.classList.remove("trace-display-field-editing");
+      }
+      if (posStepMinus) posStepMinus.disabled = locked;
+      if (posStepPlus) posStepPlus.disabled = locked;
+      if (posRow) posRow.classList.toggle("is-disabled", locked);
       removeBtn.disabled = stops.length <= 2;
       listArea.value = stopsToHexList(stops);
       renderPresets();
@@ -791,29 +949,101 @@
       emit();
     });
 
-    posInput.addEventListener("change", () => {
-      if (activeIndex <= 0 || activeIndex >= stops.length - 1) return;
-      const t = clamp01(posInput.value);
-      const minT = stops[activeIndex - 1].t + 0.001;
-      const maxT2 = stops[activeIndex + 1].t - 0.001;
-      stops[activeIndex].t = Math.max(minT, Math.min(maxT2, t));
-      const moved = stops[activeIndex];
-      stops.sort((a, b) => a.t - b.t);
-      activeIndex = stops.indexOf(moved);
-      if (activeIndex < 0) activeIndex = 1;
-      activePresetId = "";
-      renderBar();
+    // −/+ step (app-wide 0…1 unit quantum 0.1).
+    root.addEventListener("click", (event) => {
+      const btn = event.target?.closest?.("[data-sge-pos-step]");
+      if (!btn || btn.disabled || !posInput || posInput.disabled) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      const direction = Number(btn.getAttribute("data-sge-pos-step")) < 0 ? -1 : 1;
+      const base = Number(posInput.value);
+      const baseValue = Number.isFinite(base) ? base : 0;
+      let quantum = 0.1;
+      if (typeof nodeGraphMagnitudeStepperQuantum === "function") {
+        quantum = nodeGraphMagnitudeStepperQuantum(baseValue, direction);
+      }
+      if (quantum >= 1 - 1e-12) {
+        quantum = 0.1;
+      }
+      let next = baseValue + direction * quantum;
+      next = Math.round(next * 10) / 10;
+      applyPosValue(next);
       renderControls();
-      emit();
     });
 
+    /*
+     * Drag is handled app-wide (capture on display-settings popover):
+     *   beginNodeGraphUnitStepperDrag → data-unit-stepper-drag / data-sge-pos
+     * Local pointerdown on the input never fires (text-protection stopPropagation).
+     * We only consume the value via input/change.
+     */
+    posInput?.addEventListener("input", () => {
+      if (!posInput || posInput.disabled) {
+        return;
+      }
+      applyPosValue(posInput.value, { emitChange: true });
+    });
+
+    // Double-click to type (app-wide stepper field pattern).
+    posInput?.addEventListener("dblclick", (event) => {
+      if (posInput.disabled) {
+        return;
+      }
+      posInput.readOnly = false;
+      posInput.classList.add("trace-display-field-editing");
+      posInput.focus();
+      posInput.select?.();
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    const commitPosEdit = () => {
+      if (!posInput || posInput.readOnly) {
+        return;
+      }
+      applyPosValue(posInput.value);
+      posInput.readOnly = true;
+      posInput.classList.remove("trace-display-field-editing");
+      renderControls();
+    };
+    posInput?.addEventListener("keydown", (event) => {
+      if (!posInput.readOnly && event.key === "Enter") {
+        event.preventDefault();
+        commitPosEdit();
+        posInput.blur();
+      } else if (!posInput.readOnly && event.key === "Escape") {
+        event.preventDefault();
+        posInput.readOnly = true;
+        posInput.classList.remove("trace-display-field-editing");
+        renderControls();
+        posInput.blur();
+      }
+    });
+    posInput?.addEventListener("change", commitPosEdit);
+    posInput?.addEventListener("blur", commitPosEdit);
+
     addBtn.addEventListener("click", () => {
-      const i = Math.min(activeIndex, stops.length - 2);
-      const a = stops[i];
-      const b = stops[i + 1];
+      // Always copy the *selected* stop color. Insert between that stop and its
+      // neighbor (after selection, or before when the last stop is selected).
+      const sel = Math.max(0, Math.min(stops.length - 1, activeIndex));
+      const selectedColor = stops[sel].color;
+      let leftIdx;
+      let rightIdx;
+      if (sel >= stops.length - 1) {
+        // Last stop: insert in the gap before it (cannot place past t=1).
+        leftIdx = Math.max(0, sel - 1);
+        rightIdx = sel;
+      } else {
+        // First / middle: insert in the gap after the selection.
+        leftIdx = sel;
+        rightIdx = sel + 1;
+      }
+      const a = stops[leftIdx];
+      const b = stops[rightIdx];
       const t = (a.t + b.t) * 0.5;
-      stops.splice(i + 1, 0, { t, color: a.color });
-      activeIndex = i + 1;
+      stops.splice(rightIdx, 0, { t, color: selectedColor });
+      activeIndex = rightIdx;
       activePresetId = "";
       renderBar();
       renderControls();
@@ -821,12 +1051,30 @@
     });
     removeBtn.addEventListener("click", () => {
       if (stops.length <= 2) return;
-      if (activeIndex <= 0 || activeIndex >= stops.length - 1) {
-        activeIndex = Math.min(stops.length - 2, Math.max(1, activeIndex));
+      const idx = Math.max(0, Math.min(stops.length - 1, activeIndex));
+      if (idx === stops.length - 1) {
+        // Remove end (t=1): leftward neighbor takes the 1.0 place and adopts
+        // the removed stop's color (e.g. white at 1.0 → previous becomes white @ 1).
+        const removed = stops[idx];
+        stops.splice(idx, 1);
+        const nextLast = stops[stops.length - 1];
+        nextLast.t = 1;
+        nextLast.color = removed.color;
+        activeIndex = stops.length - 1;
+      } else if (idx === 0) {
+        // Remove start (t=0): rightward neighbor takes the 0.0 place and adopts
+        // the removed stop's color.
+        const removed = stops[0];
+        stops.splice(0, 1);
+        const nextFirst = stops[0];
+        nextFirst.t = 0;
+        nextFirst.color = removed.color;
+        activeIndex = 0;
+      } else {
+        // Middle stop: delete only that stop; pin ends.
+        stops.splice(idx, 1);
+        activeIndex = Math.min(idx, stops.length - 1);
       }
-      if (activeIndex <= 0 || activeIndex >= stops.length - 1) return;
-      stops.splice(activeIndex, 1);
-      activeIndex = Math.min(activeIndex, stops.length - 1);
       stops[0].t = 0;
       stops[stops.length - 1].t = 1;
       activePresetId = "";

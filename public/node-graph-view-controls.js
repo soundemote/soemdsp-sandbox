@@ -1301,10 +1301,10 @@ function renderNodeGraphTooltipWindowToggle() {
       button.querySelector(".scene-context-window-button-label");
     if (label) {
       label.textContent =
-        mode === "embedded" ? "Tips Embedded" : mode === "float" ? "Tips Float" : "Tips Off";
+        mode === "embedded" ? "Tooltips embedded" : mode === "float" ? "Tooltips floating" : "Tooltips off";
     } else if (!button.querySelector("kbd") && button.childElementCount === 0) {
       button.textContent =
-        mode === "embedded" ? "Tips Embedded" : mode === "float" ? "Tips Float" : "Tips Off";
+        mode === "embedded" ? "Tooltips embedded" : mode === "float" ? "Tooltips floating" : "Tooltips off";
     }
     button.dataset.tooltipMode = mode;
     button.setAttribute("aria-pressed", mode === "off" ? "false" : "true");
@@ -1487,8 +1487,8 @@ function toggleNodeGraphTooltipEmbed() {
   applyNodeGraphTooltipEmbed({ shown: wasShown });
   setNodeInteractionHelp(
     nodeGraphMvp.tooltipEmbedded
-      ? "Tips embedded beside the resource meters."
-      : "Tips floating in their own window.",
+      ? "Tooltips embedded beside the resource meters."
+      : "Tooltips floating in their own window.",
   );
 }
 
@@ -1522,8 +1522,8 @@ function setNodeGraphTooltipMode(mode) {
   applyNodeGraphTooltipEmbed({ shown: true });
   setNodeInteractionHelp(
     next === "embedded"
-      ? "Tips embedded beside the resource meters."
-      : "Tips floating in their own window.",
+      ? "Tooltips embedded beside the resource meters."
+      : "Tooltips floating in their own window.",
   );
 }
 

@@ -344,6 +344,16 @@ function dragNodeGraphScopeNumber(event) {
   ) {
     return;
   }
+  // Re-anchor when Shift/Ctrl fine scale changes mid-drag (no jump).
+  const currentScale = nodeGraphScopeNumberDragScale(drag.input, event);
+  if (currentScale !== drag.scale) {
+    drag.startValue = Number(drag.input.value) || drag.startValue;
+    drag.startX = event.clientX;
+    drag.startY = event.clientY;
+    drag.scale = currentScale;
+    event.preventDefault();
+    return;
+  }
   const axes = typeof nodeGraphPointerDragScreenDelta === "function"
     ? nodeGraphPointerDragScreenDelta(drag.startX, drag.startY, event.clientX, event.clientY)
     : { combined: (event.clientX - drag.startX) + (drag.startY - event.clientY) };

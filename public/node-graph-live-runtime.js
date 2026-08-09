@@ -2431,6 +2431,7 @@ function beginNodeGraphGlobalSmoothingSecondsDrag(event) {
     startValue: nodeGraphGlobalSmoothingSeconds(),
     startX: event.clientX,
     startY: event.clientY,
+    fineScale: nodeGraphGlobalSmoothingDragMultiplier(event),
   };
   input.readOnly = true;
   input.classList.add("value-dragging");
@@ -2459,6 +2460,16 @@ function dragNodeGraphGlobalSmoothingSeconds(event) {
     drag.moved = true;
   }
   if (drag.resetToDefaultOnClick && !drag.moved) {
+    event.preventDefault();
+    return;
+  }
+  // Re-anchor when Shift/Ctrl fine scale changes mid-drag (no jump).
+  const currentScale = nodeGraphGlobalSmoothingDragMultiplier(event);
+  if (currentScale !== drag.fineScale) {
+    drag.startValue = nodeGraphGlobalSmoothingSeconds();
+    drag.startX = event.clientX;
+    drag.startY = event.clientY;
+    drag.fineScale = currentScale;
     event.preventDefault();
     return;
   }
@@ -2690,8 +2701,8 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/curveOsc/curve-osc-math.js?v=curve-osc-1",
   "./public/modules/curveOsc/curve-osc-worklet-evaluator.js?v=curve-osc-1",
   // RS-MET-style L-system turtle oscillator (pure JS).
-  "./public/modules/snowflake/snowflake-math.js?v=snowflake-1",
-  "./public/modules/snowflake/snowflake-worklet-evaluator.js?v=snowflake-1",
+  "./public/modules/snowflake/snowflake-math.js?v=snowflake-direction-1",
+  "./public/modules/snowflake/snowflake-worklet-evaluator.js?v=snowflake-direction-1",
   "./public/modules/textStream/text-stream-worklet-evaluator.js?v=text-stream-1",
   "./public/modules/dsfOscillator/dsf-oscillator-worklet-evaluator.js?v=native-core-1",
   "./public/modules/robinSupersaw/robin-supersaw-worklet-evaluator.js?v=native-no-fallback-1",

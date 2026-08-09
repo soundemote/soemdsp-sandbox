@@ -23,16 +23,16 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null) {
     title = "Arc hole size 0…1 (0 = solid, ~0.7 default ring, higher = thinner ring).";
   }
   if (formType === "numberReadout" && key === "dot1Brightness") {
-    label = "Bright";
-    title = "Live light strength and deposit energy 0…1. On value change, previous digits burn at this energy (gradient position = Bright).";
+    label = "LED";
+    title = "Live light grey→hue→white (0 = mid grey, 0.5 = full Hue, 1 = white; never black). Also scales deposit energy on digit change.";
   }
   if (formType === "numberReadout" && key === "ghostBrightness") {
-    label = "Ghost Bright";
-    title = "Constant 8-skeleton floor energy 0…1. Ghost Bright 0.2 → color at gradient stop 0.2. Independent of Residual hang; deposits decay on top of this floor.";
+    label = "Ghost";
+    title = "Constant 8-skeleton floor energy 0…1. Ghost 0.2 → color at gradient stop 0.2. Independent of Backlight hang; deposits decay on top of this floor.";
   }
   if (formType === "numberReadout" && key === "residual") {
-    label = "Residual";
-    title = "Deposit hang 0…1 (super-exponential). How long previous digits linger after a change. 0 = no deposit hang (8-floor from Ghost Bright still shows).";
+    label = "Backlight";
+    title = "Deposit hang 0…1 (super-exponential). How long previous digits linger after a change. 0 = no deposit hang (8-floor from Ghost still shows).";
   }
   const titleAttr = title
     ? ` title="${nodeGraphDisplaySettingsEscapeHtml(title)}"`
@@ -49,6 +49,65 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null) {
     </label>`;
 }
 
+/**
+ * App-wide hue-title stepper: one horizontal row
+ *   [ Title on pure-hue fill (drag = hue) ][ value ][ − ][ + ]
+ * Smart black/white title ink keeps the label readable on any hue.
+ *
+ * @param {{
+ *   title: string,
+ *   stepField: string,
+ *   colorField: string,
+ *   titleAttr?: string,
+ *   formType?: string,
+ *   defaultHueHex?: string,
+ * }} options
+ */
+function nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml(options = {}) {
+  const title = String(options.title || "Color");
+  const stepField = String(options.stepField || "dot1Brightness");
+  const colorField = String(options.colorField || "dot1Color");
+  const formType = options.formType || null;
+  const meta = nodeGraphDisplaySettingsFieldMeta[stepField] || { inputmode: "decimal" };
+  let titleTip = options.titleAttr || "";
+  if (!titleTip && formType === "numberReadout" && stepField === "dot1Brightness") {
+    titleTip = "LED amount 0…1 (0 grey, 0.5 full Hue, 1 white). Drag title strip to change hue.";
+  }
+  const tipAttr = titleTip
+    ? ` title="${nodeGraphDisplaySettingsEscapeHtml(titleTip)}"`
+    : "";
+  const idAttr = meta.id ? ` id="${nodeGraphDisplaySettingsEscapeHtml(meta.id)}"` : "";
+  const colorMeta = nodeGraphDisplaySettingsColorRowMeta(colorField, formType);
+  const colorIdAttr = colorMeta.id
+    ? ` id="${nodeGraphDisplaySettingsEscapeHtml(colorMeta.id)}"`
+    : "";
+  const defaultHex = nodeGraphDisplaySettingsEscapeHtml(
+    options.defaultHueHex || colorMeta.defaultValue || "#ff0000",
+  );
+  return `
+    <div
+      class="hue-title-stepper"
+      data-hue-title-stepper
+      data-trace-display-control-row
+      data-hue-title-step-field="${nodeGraphDisplaySettingsEscapeHtml(stepField)}"
+      data-hue-title-color-field="${nodeGraphDisplaySettingsEscapeHtml(colorField)}"${tipAttr}>
+      <button
+        type="button"
+        class="hue-title-stepper-title"
+        data-hue-title-swatch
+        aria-label="${nodeGraphDisplaySettingsEscapeHtml(`${title} hue — drag to change`)}"
+        title="Drag to change hue">
+        <span class="hue-title-stepper-label">${nodeGraphDisplaySettingsEscapeHtml(title)}</span>
+      </button>
+      <span class="metadata-stepper-control">
+        <button type="button" data-trace-display-step-target="${nodeGraphDisplaySettingsEscapeHtml(stepField)}" data-trace-display-step-direction="-1" aria-label="Decrease ${nodeGraphDisplaySettingsEscapeHtml(title)}">-</button>
+        <input type="text" inputmode="${meta.inputmode || "decimal"}" data-trace-display-field="${nodeGraphDisplaySettingsEscapeHtml(stepField)}"${idAttr} readonly value="0.5" aria-label="${nodeGraphDisplaySettingsEscapeHtml(title)} amount">
+        <button type="button" data-trace-display-step-target="${nodeGraphDisplaySettingsEscapeHtml(stepField)}" data-trace-display-step-direction="1" aria-label="Increase ${nodeGraphDisplaySettingsEscapeHtml(title)}">+</button>
+      </span>
+      <input type="hidden" data-trace-display-color="${nodeGraphDisplaySettingsEscapeHtml(colorField)}"${colorIdAttr} value="${defaultHex}">
+    </div>`;
+}
+
 
 function nodeGraphDisplaySettingsBuildToggleRowHtml(key) {
   const meta = nodeGraphDisplaySettingsToggleMeta[key] || { label: key };
@@ -63,23 +122,64 @@ function nodeGraphDisplaySettingsBuildToggleRowHtml(key) {
     </label>`;
 }
 
-/** Packing toggles share one horizontal row on 2D Phosphor (Full Dot Economy | Dots only). */
+/** Packing latches share one horizontal row on 2D Phosphor (+ Clear). */
 const NODE_GRAPH_DISPLAY_PACKING_TOGGLE_KEYS = Object.freeze(["fullDotEconomy", "dotsOnly"]);
 
+/**
+ * Full Dot Economy | Dots only | Clear — app-wide latch buttons (full cell,
+ * fit-to-box title, on=highlight / off=dim). Clear wipes phosphor residual.
+ */
 function nodeGraphDisplaySettingsBuildPackingToggleRowHtml(keys) {
-  const labels = keys.map((key) => {
+  const latch = typeof AppLatchButton !== "undefined" ? AppLatchButton : null;
+  const buttons = (keys || []).map((key) => {
     const meta = nodeGraphDisplaySettingsToggleMeta[key] || { label: key };
-    const idAttr = meta.id ? ` id="${nodeGraphDisplaySettingsEscapeHtml(meta.id)}"` : "";
-    const titleAttr = meta.title
-      ? ` title="${nodeGraphDisplaySettingsEscapeHtml(meta.title)}"`
-      : "";
-    return `
-    <label class="metadata-checkbox-label node-trace-display-packing-toggle"${titleAttr}>
-      <input type="checkbox" data-trace-display-toggle="${key}"${idAttr}${titleAttr}>
-      ${nodeGraphDisplaySettingsEscapeHtml(meta.label)}
-    </label>`;
+    return {
+      label: meta.label || key,
+      title: meta.title || "",
+      id: meta.id || "",
+      toggleKey: key,
+      on: false,
+      className: "node-trace-display-packing-latch",
+    };
+  });
+  // Clear is always last: restart pixel burn-in when Trail is frozen.
+  buttons.push({
+    label: "Clear",
+    title:
+      "Wipe this face’s phosphor residual (restart burn-in). Useful when Trail is frozen and you want a clean plate.",
+    id: "nodeTraceDisplayClearPhosphor",
+    action: "clearPhosphor",
+    className: "node-trace-display-packing-latch node-trace-display-clear-phosphor",
+  });
+  if (latch && typeof latch.buildRowHtml === "function") {
+    return latch.buildRowHtml(buttons, "node-trace-display-packing-toggles");
+  }
+  // Fallback if latch-button.js not loaded yet.
+  const cells = buttons.map((opts) => {
+    if (opts.action) {
+      return (
+        `<button type="button" class="app-latch-button node-trace-display-packing-latch"`
+        + ` data-latch-button="true" data-latch-mode="action" data-trace-display-action="${opts.action}"`
+        + ` title="${nodeGraphDisplaySettingsEscapeHtml(opts.title || "")}">`
+        + `<span class="app-latch-button-label">${nodeGraphDisplaySettingsEscapeHtml(opts.label)}</span>`
+        + `</button>`
+      );
+    }
+    return (
+      `<button type="button" class="app-latch-button node-trace-display-packing-latch is-off"`
+      + ` data-latch-button="true" data-latch-mode="latch" data-trace-display-toggle="${opts.toggleKey}"`
+      + ` aria-pressed="false" data-latch-on="0"`
+      + ` title="${nodeGraphDisplaySettingsEscapeHtml(opts.title || "")}"`
+      + (opts.id ? ` id="${nodeGraphDisplaySettingsEscapeHtml(opts.id)}"` : "")
+      + `>`
+      + `<span class="app-latch-button-label">${nodeGraphDisplaySettingsEscapeHtml(opts.label)}</span>`
+      + `</button>`
+    );
   }).join("");
-  return `<div class="node-trace-display-packing-toggles" data-trace-display-control-row>${labels}</div>`;
+  return (
+    `<div class="app-latch-button-row node-trace-display-packing-toggles"`
+    + ` data-latch-button-row data-trace-display-control-row>${cells}</div>`
+  );
 }
 
 
@@ -113,9 +213,9 @@ function nodeGraphDisplaySettingsColorRowMeta(key, formType = null) {
   // Never a side "Color |" column — one contiguous widget row app-wide.
   let aria = base.aria || key;
   if (formType === "numberReadout" && key === "dot1Color") {
-    aria = "Live digit light color (solid; residual uses the gradient)";
+    aria = "LED digit hue; LED amount maps grey → full hue → white";
   } else if (formType === "numberReadout" && key === "backgroundColor") {
-    aria = "LCD back plate color";
+    aria = "LCD background color";
   } else if (formType === "knobFace" && key === "backgroundColor") {
     aria = "Knob face background";
   } else if (formType === "knobFace" && key === "arcFill") {
@@ -208,8 +308,10 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
       if (!nodeGraphDisplaySettingsFormTypeUsesGradient(type)) {
         continue;
       }
-      parts.push(`<div class="metadata-section-title node-trace-display-gradient-title">Gradient</div>`);
-      // Single host for NodeGraphGradientSelector (all faces share this control).
+      // Number Readout: gradient sits inside the Readout section (no gap after Background).
+      if (type === "numberReadout") {
+        continue;
+      }
       parts.push(`
         <div class="metadata-field-section node-trace-display-gradient-section">
           <div
@@ -222,22 +324,37 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
       continue;
     }
 
+    // Number Readout: single Readout stack — no separate "Light" section title.
+    // Order: Decimals → LED(+hue) → Ghost → Backlight → blend → Background → Ghost Gradient.
+    if (type === "numberReadout" && section === "dot1") {
+      continue;
+    }
+
     const sectionControls = nodeGraphTraceDisplaySectionControls[section];
     if (!sectionControls) {
       continue;
     }
-    const fieldKeys = (sectionControls.fields || []).filter(
+    let fieldKeys = (sectionControls.fields || []).filter(
       (key) => activeFields.has(key) && allowKey("fields", key),
     );
-    const colorKeys = (sectionControls.colors || []).filter(
+    let colorKeys = (sectionControls.colors || []).filter(
       (key) => activeColors.has(key) && allowKey("colors", key),
     );
     const toggleKeys = (sectionControls.toggles || []).filter(
       (key) => activeToggles.has(key) && allowKey("toggles", key),
     );
-    const choiceKeys = (sectionControls.choices || []).filter(
+    let choiceKeys = (sectionControls.choices || []).filter(
       (key) => activeChoices.has(key) && allowKey("choices", key),
     );
+    if (type === "numberReadout" && section === "trace") {
+      // Decimals → LED(+square hue) → Ghost → Backlight. Hue is not a full-width row.
+      fieldKeys = ["decimals", "dot1Brightness", "ghostBrightness", "residual"]
+        .filter((key) => activeFields.has(key));
+      colorKeys = ["backgroundColor"]
+        .filter((key) => activeColors.has(key));
+      choiceKeys = ["lightBlend"]
+        .filter((key) => activeChoices.has(key));
+    }
     // syncChannel / stereoBlend live in activeChoices but are listed under
     // "trace" sectionChoices only for spectrogram historically — include
     // Output sync choices from active set even if not in section map.
@@ -266,7 +383,15 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
             : section === "caps"
               ? "Caps"
               : section;
-    if (section === "secondary") {
+    // Skip redundant section titles: NR chrome, phosphor "2D"/"Stamp"/"Burn" headers.
+    const isPhosphorForm = typeof nodeGraphDisplaySettingsIsPhosphorFormType === "function"
+      && nodeGraphDisplaySettingsIsPhosphorFormType(type);
+    const skipSectionTitle =
+      (type === "numberReadout" && section === "trace")
+      || (isPhosphorForm && (section === "trace" || section === "dot1"));
+    if (skipSectionTitle) {
+      // no title row
+    } else if (section === "secondary") {
       const enabledToggle = isStereoTraceNode && type === "trace" && activeToggles.has("secondaryEnabled")
         ? `<input id="nodeTraceDisplaySecondaryEnabled" type="checkbox" aria-label="${isStereoTraceNode ? "Right on" : "Secondary on"}" data-trace-display-toggle="secondaryEnabled">`
         : "";
@@ -276,25 +401,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
           ${enabledToggle}
         </div>`);
     } else if (section === "dot1") {
-      // Phosphor faces: stamp geometry/light (not a second "Dot" copy of Brightness/Blur).
-      const phosphorStamp =
-        type === "scope2d"
-        || type === "scope2dTrace"
-        || type === "phosphorLight"
-        || type === "lineBurn"
-        || type === "dot"
-        || type === "value"
-        || type === "videoscopeBurn"
-        || type === "oscilloscopeBankBurn"
-        || type === "hypersawBurn"
-        || type === "xyPad";
-      const dotTitle = type === "numberReadout"
-        ? "Light"
-        : type === "xyPad"
-          ? "Beam & puck"
-          : phosphorStamp
-            ? "Stamp"
-            : titleText;
+      const dotTitle = type === "xyPad" ? "Beam & puck" : titleText;
       parts.push(`
         <div class="metadata-section-title node-trace-display-dot1-title">
           <span id="nodeTraceDisplayDot1TitleLabel">${nodeGraphDisplaySettingsEscapeHtml(dotTitle)}</span>
@@ -304,32 +411,53 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     }
 
     const rows = [];
-    // Preferred order: choices (sync), toggles, fields, colors — matches prior UX.
+    // Packing toggles (Full Dot Economy | Dots only) sit *below* Dot Budget, not with other toggles.
+    const packingKeys = NODE_GRAPH_DISPLAY_PACKING_TOGGLE_KEYS.filter((key) => toggleKeys.includes(key));
+    const packingKeySet = new Set(packingKeys);
+    // Preferred order: choices → toggles (except packing) → fields → packing → colors.
     for (const key of choiceKeys) {
       rows.push(nodeGraphDisplaySettingsBuildChoiceRowHtml(key));
     }
-    // Group Full Dot Economy + Dots only on one horizontal row when both present.
-    const packingKeys = NODE_GRAPH_DISPLAY_PACKING_TOGGLE_KEYS.filter((key) => toggleKeys.includes(key));
-    const packingKeySet = new Set(packingKeys);
-    let packingRowEmitted = false;
     for (const key of toggleKeys) {
       if (section === "secondary" && key === "secondaryEnabled") {
         continue; // already in title
       }
       if (packingKeySet.has(key)) {
-        if (!packingRowEmitted && packingKeys.length) {
-          rows.push(nodeGraphDisplaySettingsBuildPackingToggleRowHtml(packingKeys));
-          packingRowEmitted = true;
-        }
-        continue;
+        continue; // after fields / Dot Budget
       }
       rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml(key));
     }
     for (const key of fieldKeys) {
+      if (type === "numberReadout" && key === "dot1Brightness" && activeColors.has("dot1Color")) {
+        rows.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
+          title: "LED",
+          stepField: "dot1Brightness",
+          colorField: "dot1Color",
+          formType: type,
+        }));
+        continue;
+      }
       rows.push(nodeGraphDisplaySettingsBuildStepperRowHtml(key, type));
+    }
+    // Full Dot Economy + Dots only — one row under Dot Budget (1D + 2D phosphor).
+    if (packingKeys.length) {
+      rows.push(nodeGraphDisplaySettingsBuildPackingToggleRowHtml(packingKeys));
     }
     for (const key of colorKeys) {
       rows.push(nodeGraphDisplaySettingsBuildColorRowHtml(key, type));
+    }
+    // Number Readout: Ghost Gradient flush under Background (same section, no gap).
+    if (type === "numberReadout" && section === "trace"
+      && typeof nodeGraphDisplaySettingsFormTypeUsesGradient === "function"
+      && nodeGraphDisplaySettingsFormTypeUsesGradient(type)) {
+      rows.push(`
+        <div class="metadata-section-title node-trace-display-gradient-title">Ghost Gradient</div>
+        <div
+          id="nodeTraceDisplayGradientSelectorHost"
+          class="node-gradient-selector-host node-shared-gradient-host node-spectrogram-gradient-host"
+          data-gradient-selector-host
+          data-shared-gradient-host
+          data-spectrogram-gradient-host></div>`);
     }
     parts.push(`<div class="metadata-field-section node-trace-display-${section}-section">${rows.join("")}</div>`);
   }

@@ -73,14 +73,20 @@ nodeGraphLiveModuleEvaluators.snowflake = ({
     ? nodeGraphParamSignalInAmplitude(levelKnob, ampCv, hasAmp)
     : (hasAmp ? levelKnob * ampCv : levelKnob);
 
+  // Direction −1…1 (trisaw); migrate legacy reverse if direction missing on patch.
+  let direction = read("direction", null);
+  if (direction == null || !Number.isFinite(Number(direction))) {
+    const legacyReverse = read("reverse", 0);
+    direction = Number(legacyReverse) > 0.5 ? 0 : 1;
+  }
+
   return nodeGraphSnowflakeSample(state, {
     frequencyHz: effectiveFrequency,
     sampleRate,
     pattern: read("pattern", 1),
     iterations: read("iterations", 3),
     angle: read("angle", 60),
-    size: read("size", 1),
-    reverse: read("reverse", 0),
+    direction,
     spin: read("spin", 0),
     level,
     reset,

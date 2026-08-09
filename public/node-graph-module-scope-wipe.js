@@ -123,6 +123,96 @@ function wipeNodeGraphModuleScopeScreensToColdBoot() {
   }
 }
 
+/**
+ * Wipe phosphor residual for one module face (Display Settings → Clear).
+ * Restarts pixel burn-in when Trail is frozen without resetting the whole graph.
+ */
+function clearNodeGraphDisplaySettingsPhosphor(nodeId) {
+  const id = String(nodeId || "").trim();
+  if (!id) {
+    return false;
+  }
+  const phosphorKeys = ["_phosphorEnergyGl", "_xyPadPhosphorEnergyGl"];
+  const canvases = new Set();
+
+  // Persistent scope face for this node.
+  if (typeof nodeGraphModuleScopePersistentCanvases !== "undefined"
+    && nodeGraphModuleScopePersistentCanvases?.get) {
+    const persistent = nodeGraphModuleScopePersistentCanvases.get(id);
+    if (persistent instanceof HTMLCanvasElement) {
+      canvases.add(persistent);
+    }
+  }
+
+  // Live DOM under the module shell (scope windows, XY pad, spectrogram).
+  const moduleEl = typeof document !== "undefined"
+    ? document.querySelector?.(`.dsp-node[data-node="${CSS.escape(id)}"]`)
+    : null;
+  if (moduleEl) {
+    for (const canvas of moduleEl.querySelectorAll("canvas")) {
+      if (canvas instanceof HTMLCanvasElement) {
+        canvases.add(canvas);
+      }
+    }
+  }
+
+  for (const canvas of canvases) {
+    for (const key of phosphorKeys) {
+      const face = canvas[key];
+      if (face && typeof nodeGraphPhosphorEnergyGlDestroy === "function") {
+        try {
+          nodeGraphPhosphorEnergyGlDestroy(face);
+        } catch (_error) {
+          // Best-effort.
+        }
+      }
+      canvas[key] = null;
+    }
+    // Drop draw-cursor so the next frame deposits cleanly without a resume dump.
+    delete canvas._nodeGraphScope2dLastDrawnFrame;
+    delete canvas._nodeGraphScope2dLastDrawnPoint;
+    delete canvas._nodeGraphOneDimensionalBurnLastDrawnFrame;
+    delete canvas._phosphorDrawCursorAbsFrame;
+    if (typeof disposeNodeGraphScope2dBurnRendererForCanvas === "function") {
+      try {
+        disposeNodeGraphScope2dBurnRendererForCanvas(canvas);
+      } catch (_error) {
+        // Best-effort.
+      }
+    }
+    const context = canvas.getContext?.("2d");
+    if (context && canvas.width > 0 && canvas.height > 0) {
+      const bg = typeof nodeGraphModuleScopePlateBackgroundForElement === "function"
+        ? nodeGraphModuleScopePlateBackgroundForElement(canvas)
+        : "#000000";
+      if (typeof nodeGraphFacePlateFillCanvas === "function") {
+        nodeGraphFacePlateFillCanvas(context, canvas, bg);
+      } else {
+        context.save();
+        context.setTransform(1, 0, 0, 1, 0, 0);
+        context.globalCompositeOperation = "source-over";
+        context.fillStyle = bg || "#000000";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.restore();
+      }
+    }
+  }
+
+  // XY Pad has its own residual path.
+  if (typeof nodeGraphXyPadResetCanvas === "function") {
+    try {
+      nodeGraphXyPadResetCanvas(id);
+    } catch (_error) {
+      // Best-effort.
+    }
+  }
+
+  if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
+    scheduleNodeGraphModuleScopeDraw();
+  }
+  return canvases.size > 0;
+}
+
 function clearNodeGraphModuleScopeBuffers(options = {}) {
   const preserveDisplay = options?.preserveDisplay === true;
   const preserveBuffers = options?.preserveBuffers === true;

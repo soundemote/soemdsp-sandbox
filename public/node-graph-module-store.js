@@ -460,7 +460,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   snowflake: {
     category: "oscillator",
     description:
-      "RS-MET-style fractal pattern synthesis: L-system rewrite (Koch, snowflake, Sierpinski, dragon, Gosper, tree) + turtle graphics polyline, walked at Frequency into stereo X/Y (Out = Y). Native C++/WASM (JS fallback). Iterations deepen self-similarity; Angle is the turtle turn; Reverse ping-pongs the path.",
+      "RS-MET-style fractal pattern synthesis: L-system rewrite (Koch, snowflake, Sierpinski, dragon, Gosper, tree) + turtle graphics polyline, walked at Frequency into stereo X/Y. Native C++/WASM (JS fallback). Iterations deepen self-similarity; Angle is the turtle turn; Direction (−1…1) morphs path walk with a basic trisaw (reverse / bidirectional / forward). Scale with Amplitude.",
     label: "Snowflake",
     notes: ["L-system", "turtle", "Koch", "fractal pattern synthesis", "RS-MET", "X/Y", "native", "wasm"],
   },

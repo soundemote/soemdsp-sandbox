@@ -73,12 +73,20 @@
   // Fade previous energy, optional soft neighborhood bleed, optional mask deposit.
   // Bleed is what makes a slow dwell "grow outward" instead of a hard saturated disc:
   // each frame a little energy seeps into neighbors (CRT phosphor charge diffusion).
+  //
+  // Dual residual (matches PhosphorResidual):
+  //   uKeepFast  — Trail hot path (1 = freeze)
+  //   uKeepSlow  — Ghost dim scorch hang (slower die)
+  //   uGhostCap  — Ghost floor ceiling (never full peak)
+  // When Ghost is 0, keepSlow/cap are 0 and only Trail erase runs.
   const STEP_FRAG = `
     precision highp float;
     varying vec2 vUv;
     uniform sampler2D uEnergy;
     uniform sampler2D uMask;
-    uniform float uKeep;
+    uniform float uKeepFast;
+    uniform float uKeepSlow;
+    uniform float uGhostCap;
     uniform float uGain;
     uniform float uUseMask;
     uniform vec2 uTexel;
@@ -86,7 +94,7 @@
     void main() {
       float e0 = texture2D(uEnergy, vUv).r;
       float bleed = clamp(uBleed, 0.0, 1.0);
-      float e = e0;
+      float eBase = e0;
       if (bleed > 0.0001) {
         // 3×3 gaussian-ish blur; mix with center so cores seep outward slowly.
         vec2 t = max(uTexel, vec2(1e-5));
@@ -99,9 +107,14 @@
         float e7 = texture2D(uEnergy, vUv + vec2( t.x, -t.y)).r;
         float e8 = texture2D(uEnergy, vUv + vec2(-t.x, -t.y)).r;
         float blur = (e0 * 4.0 + (e1 + e2 + e3 + e4) * 2.0 + (e5 + e6 + e7 + e8)) / 16.0;
-        e = mix(e0, blur, bleed);
+        eBase = mix(e0, blur, bleed);
       }
-      e *= uKeep;
+      // Trail hot path + optional Ghost dim floor (never full peak).
+      float eFast = eBase * uKeepFast;
+      float eGhost = (uGhostCap > 0.0001)
+        ? min(eBase * uKeepSlow, uGhostCap)
+        : 0.0;
+      float e = max(eFast, eGhost);
       if (uUseMask > 0.5) {
         vec4 m = texture2D(uMask, vUv);
         float ink = max(m.r, max(m.g, m.b)) * m.a;
@@ -555,7 +568,11 @@
       aPos: gl.getAttribLocation(stepProgram, "aPos"),
       uEnergy: gl.getUniformLocation(stepProgram, "uEnergy"),
       uMask: gl.getUniformLocation(stepProgram, "uMask"),
-      uKeep: gl.getUniformLocation(stepProgram, "uKeep"),
+      // Dual residual: Trail keepFast + Ghost keepSlow/cap (uKeep is legacy alias).
+      uKeepFast: gl.getUniformLocation(stepProgram, "uKeepFast"),
+      uKeepSlow: gl.getUniformLocation(stepProgram, "uKeepSlow"),
+      uGhostCap: gl.getUniformLocation(stepProgram, "uGhostCap"),
+      uKeep: gl.getUniformLocation(stepProgram, "uKeepFast"),
       uGain: gl.getUniformLocation(stepProgram, "uGain"),
       uUseMask: gl.getUniformLocation(stepProgram, "uUseMask"),
       uTexel: gl.getUniformLocation(stepProgram, "uTexel"),
@@ -1246,18 +1263,60 @@
    * options.bleed: 0–1 per-frame energy diffusion (default soft phosphor seep).
    * Even with decay=0, bleed still runs so long dwell expands outward.
    */
+  /**
+   * Resolve Trail/Ghost residual keeps for the energy step.
+   * Prefer explicit trail/ghost; fall back to legacy decay (high = faster die).
+   */
+  function residualKeeps(options = {}) {
+    const Residual = global.PhosphorResidual;
+    let trail;
+    let ghost;
+    if (options.trail != null && Number.isFinite(Number(options.trail))) {
+      trail = Math.max(0, Math.min(1, Number(options.trail)));
+    } else if (options.decay != null && Number.isFinite(Number(options.decay))) {
+      trail = Math.max(0, Math.min(1, 1 - Number(options.decay)));
+    } else {
+      trail = 0.88;
+    }
+    if (options.ghost != null && Number.isFinite(Number(options.ghost))) {
+      ghost = Math.max(0, Math.min(1, Number(options.ghost)));
+    } else if (options.burn != null && Number.isFinite(Number(options.burn))) {
+      // Legacy burn name = ghost hang, not deposit.
+      ghost = Math.max(0, Math.min(1, Number(options.burn)));
+    } else {
+      ghost = 0;
+    }
+    if (Residual && typeof Residual.trailKeep === "function") {
+      const keepFast = Residual.trailKeep(trail);
+      const keepSlow = Residual.ghostKeep(ghost, keepFast);
+      const ghostCap = Residual.ghostCap(ghost);
+      const fade = 1 - keepFast;
+      return { keepFast, keepSlow, ghostCap, fade, trail, ghost };
+    }
+    // No residual helper: Trail → fadeAmount(1-trail); Ghost ignored for keep.
+    const decay = Math.max(0, Math.min(1, 1 - trail));
+    const fade = fadeAmount(decay);
+    const keepFast = Math.max(0, 1 - fade);
+    return {
+      keepFast,
+      keepSlow: keepFast,
+      ghostCap: 0,
+      fade,
+      trail,
+      ghost,
+    };
+  }
+
   function stepEnergy(renderer, options = {}) {
     if (!isRendererLive(renderer)) {
       return false;
     }
     const {
-      decay = 0,
       depositGain = 0,
       maskCanvas = null,
     } = options;
     const { gl } = renderer;
-    const fade = fadeAmount(decay);
-    const keep = Math.max(0, 1 - fade);
+    const { keepFast, keepSlow, ghostCap, fade } = residualKeeps(options);
     const useMask = maskCanvas && depositGain > 0.0001 ? 1 : 0;
     // Default bleed: gentle CRT-like charge diffusion. Soft enough to not mush
     // the beam, strong enough that a slow burn grows a soft halo over time.
@@ -1266,12 +1325,13 @@
       ? Math.max(0, Math.min(1, bleedOpt))
       : 0.12;
 
-    // Skip only when truly idle: no fade, no bleed, no mask, nothing active.
-    if (keep >= 0.9999 && bleed < 0.0001 && !useMask) {
+    // Skip only when truly idle: no fade, no bleed, no ghost hang, no mask.
+    const fullyFrozen = keepFast >= 0.9999 && ghostCap <= 0.0001;
+    if (fullyFrozen && bleed < 0.0001 && !useMask) {
       return true;
     }
     // No residual and nothing depositing — skip empty full-screen passes.
-    if (!useMask && renderer.energyActive === false && keep >= 0.9999) {
+    if (!useMask && renderer.energyActive === false && fullyFrozen) {
       return true;
     }
 
@@ -1304,7 +1364,17 @@
     gl.bindTexture(gl.TEXTURE_2D, renderer.maskTexture);
     gl.uniform1i(renderer.step.uMask, 1);
 
-    gl.uniform1f(renderer.step.uKeep, keep);
+    if (renderer.step.uKeepFast) {
+      gl.uniform1f(renderer.step.uKeepFast, keepFast);
+    } else if (renderer.step.uKeep) {
+      gl.uniform1f(renderer.step.uKeep, keepFast);
+    }
+    if (renderer.step.uKeepSlow) {
+      gl.uniform1f(renderer.step.uKeepSlow, keepSlow);
+    }
+    if (renderer.step.uGhostCap) {
+      gl.uniform1f(renderer.step.uGhostCap, ghostCap);
+    }
     gl.uniform1f(renderer.step.uGain, useMask ? Math.max(0, Math.min(1.5, depositGain)) : 0);
     gl.uniform1f(renderer.step.uUseMask, useMask);
     const tw = Math.max(1, renderer.width);
@@ -1322,10 +1392,15 @@
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.bindTexture(gl.TEXTURE_2D, null);
     // Only count quiet toward sleep when energy is actually decaying. Bleed alone
-    // must not kill residual — a long dwell with decay=0 should keep glowing.
-    if (fade > 0) {
+    // must not kill residual — a long dwell with Trail=1 should keep glowing.
+    // Ghost hang extends sleep budget (PhosphorResidual.residualSleepFrames).
+    if (fade > 0 || ghostCap > 0.0001) {
       renderer.quietFrames = (renderer.quietFrames || 0) + 1;
-      if (renderer.quietFrames > 240) {
+      const Residual = global.PhosphorResidual;
+      const sleepBudget = Residual && typeof Residual.residualSleepFrames === "function"
+        ? Residual.residualSleepFrames(options.ghost || 0)
+        : 240;
+      if (renderer.quietFrames > sleepBudget) {
         renderer.energyActive = false;
       }
     }
@@ -1388,9 +1463,13 @@
       return true;
     }
 
-    // Fade + neighborhood bleed (even when decay is 0 — bleed is the slow halo).
+    // Fade + neighborhood bleed. Trail=1 freezes hot path; Ghost = dim scorch hang.
+    // Hard stamps pass bleed=0 so freeze-collect stays 1px crisp.
     stepEnergy(renderer, {
       decay,
+      trail: options.trail,
+      ghost: options.ghost,
+      burn: options.burn,
       depositGain: 0,
       maskCanvas: null,
       bleed: willDeposit || renderer.energyActive ? bleed : 0,

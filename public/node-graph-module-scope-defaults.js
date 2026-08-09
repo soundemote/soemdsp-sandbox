@@ -155,6 +155,8 @@ const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   dotBudget: nodeGraphScopePhosphorLookDefaults.dotBudget,
   // Site thrifty packing by default (explicit Full Dot Economy ON for dense).
   fullDotEconomy: false,
+  // Stamp only real sample hits (no path packing / connective lines).
+  dotsOnly: false,
   // Seconds for one full left→right pass (default 2 s).
   sweepSeconds: 2,
 });
@@ -205,7 +207,8 @@ const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
 
 const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   background: nodeGraphScopePhosphorLookDefaults.background,
-  brightness: nodeGraphScopePhosphorLookDefaults.brightness,
+  // Bright 0…1: 0 = mid grey, 0.5 = full Hue, 1 = white (never black).
+  brightness: 0.5,
   // Live digit “light” — single solid color (not the residual gradient).
   color: nodeGraphScopePhosphorLookDefaults.peakColor,
   // Deposit hang 0…1 (high = long super-exponential hang of previous digits).
@@ -335,6 +338,7 @@ const nodeGraphXyPadDisplaySettingsDefaults = Object.freeze({
   dotBudget: nodeGraphScopePhosphorLookDefaults.dotBudget,
   // Default ON: always spend dense packing up to Dot budget (hard solid trails).
   fullDotEconomy: nodeGraphScopePhosphorLookDefaults.fullDotEconomy,
+  dotsOnly: false,
   gradientStops: nodeGraphScopePhosphorLookDefaults.gradientStops,
   // Stamp blur 0–1: 0 hard disc, 1 full soft bleed.
   lineThickness: nodeGraphScopePhosphorLookDefaults.blur,

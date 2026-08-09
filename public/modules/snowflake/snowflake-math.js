@@ -232,6 +232,23 @@ function nodeGraphSnowflakePointAt(state, u01) {
   };
 }
 
+/**
+ * Direction −1…1 → path index via basic trisaw:
+ *   −1 reverse saw (1x reverse), 0 bidirectional triangle, +1 forward saw.
+ * Legacy `reverse` (0/1) migrates: off → forward (1), on → bidirectional (0).
+ */
+function nodeGraphSnowflakeResolveDirection(options = {}) {
+  if (options.direction != null && Number.isFinite(Number(options.direction))) {
+    const d = Number(options.direction);
+    return d < -1 ? -1 : d > 1 ? 1 : d;
+  }
+  // Legacy reverse checkbox: 0 = forward loop, 1 = ping-pong.
+  if (options.reverse != null && Number.isFinite(Number(options.reverse))) {
+    return Number(options.reverse) > 0.5 ? 0 : 1;
+  }
+  return 1;
+}
+
 function nodeGraphSnowflakeSample(state, options = {}) {
   const st = state || createNodeGraphSnowflakeState();
   const sampleRate = Math.max(1, Number(options.sampleRate) || 44100);
@@ -239,9 +256,9 @@ function nodeGraphSnowflakeSample(state, options = {}) {
   const pattern = options.pattern;
   const iterations = options.iterations;
   const angle = options.angle;
-  const size = Math.max(0, Number(options.size) || 1);
+  // Size removed — Amplitude / level scales the figure only.
   const level = Number.isFinite(Number(options.level)) ? Number(options.level) : 1;
-  const reverse = Number(options.reverse) > 0.5;
+  const direction = nodeGraphSnowflakeResolveDirection(options);
   const spin = Number(options.spin) || 0;
 
   if (options.reset > 0.5) {
@@ -254,16 +271,20 @@ function nodeGraphSnowflakeSample(state, options = {}) {
   const phase = nodeGraphSnowflakeWrap01(st.phase);
   st.phase = nodeGraphSnowflakeWrap01(st.phase + frequencyHz / sampleRate);
 
-  let u = phase;
-  if (reverse) {
-    // Ping-pong: 0→1→0 over two phase cycles of the same period.
-    const two = nodeGraphSnowflakeWrap01(phase * 0.5) * 2;
-    u = two <= 1 ? two : 2 - two;
-  }
+  // Direction morphs path walk with a basic trisaw (warp 0 reverse … 0.5 tri … 1 forward).
+  const warp = (direction + 1) * 0.5;
+  const u = typeof nodeGraphTrisaw === "function"
+    ? nodeGraphTrisaw(phase, warp)
+    : (() => {
+      // Inline trisaw if stdlib not loaded (offline safety).
+      const w = Math.max(0.001, Math.min(0.999, warp));
+      const p = phase;
+      return p < w ? p / w : (1 - p) / (1 - w);
+    })();
 
   const point = nodeGraphSnowflakePointAt(st, u);
-  let x = point.x * size;
-  let y = point.y * size;
+  let x = point.x;
+  let y = point.y;
 
   if (spin !== 0) {
     // Spin is cycles/sec; integrate with same sample clock via optional state field.
@@ -283,7 +304,6 @@ function nodeGraphSnowflakeSample(state, options = {}) {
   return {
     X: x * amp,
     Y: y * amp,
-    Out: y * amp,
   };
 }
 

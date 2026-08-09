@@ -35,7 +35,15 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
   // setNodeGraphTraceDisplaySettingsFormType only show/hides keys from these
   // lists — anything missing leaks onto every module (e.g. Output saw
   // Window / Overlap / Freq scale because those choices were unregistered).
-  toggles: ["sourceSync", "skipDiscontinuities", "bipolarBrightness", "secondaryEnabled", "capEnabled", "fullDotEconomy"],
+  toggles: [
+    "sourceSync",
+    "skipDiscontinuities",
+    "bipolarBrightness",
+    "secondaryEnabled",
+    "capEnabled",
+    "fullDotEconomy",
+    "dotsOnly",
+  ],
   choices: [
     "syncChannel",
     "stereoBlend",
@@ -98,7 +106,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       ]),
     ]),
     colors: Object.freeze([]),
-    toggles: Object.freeze(["fullDotEconomy"]),
+    // Below Dot Budget: Full Dot Economy | Dots only
+    toggles: Object.freeze(["fullDotEconomy", "dotsOnly"]),
     choices: Object.freeze([]),
   }),
   value: Object.freeze({
@@ -151,15 +160,13 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze([]),
   }),
   numberReadout: Object.freeze({
-    // Live digits = solid Light × Bright. Ghost Bright = constant 8-skeleton energy
-    // (gradient position). Value change deposits previous digits at Bright energy;
-    // Residual = deposit hang. lightBlend = how Light composites over residual.
-    // backgroundColor = LCD plate; gradient = ghost energy LUT.
+    // Live: Hue (bar only) × Bright grey→hue→white. Ghost Bright = 8-floor energy.
+    // Residual = deposit hang (after Ghost Bright). lightBlend / gradient = residual LUT.
     fields: Object.freeze([
       "decimals",
-      "residual",
       "dot1Brightness",
       "ghostBrightness",
+      "residual",
     ]),
     colors: Object.freeze(["backgroundColor", "dot1Color"]),
     toggles: Object.freeze([]),
@@ -248,7 +255,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "puckSize",
     ]),
     colors: Object.freeze([]),
-    toggles: Object.freeze(["fullDotEconomy"]),
+    toggles: Object.freeze(["fullDotEconomy", "dotsOnly"]),
     choices: Object.freeze([]),
   }),
   // Same controls as scope2d — leftover formType="phosphorLight".
@@ -264,7 +271,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dotBudget",
     ])),
     colors: Object.freeze([]),
-    toggles: Object.freeze(["fullDotEconomy"]),
+    toggles: Object.freeze(["fullDotEconomy", "dotsOnly"]),
     choices: Object.freeze([]),
   }),
   // Spectrogram: FFT + analysis choices. History / Min·Max Freq are module sliders.
@@ -291,7 +298,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dotBudget",
     ])),
     colors: Object.freeze([]),
-    toggles: Object.freeze([]),
+    toggles: Object.freeze(["fullDotEconomy", "dotsOnly"]),
     choices: Object.freeze([]),
   }),
   oscilloscopeBankBurn: Object.freeze({
@@ -305,7 +312,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dotBudget",
     ])),
     colors: Object.freeze([]),
-    toggles: Object.freeze([]),
+    toggles: Object.freeze(["fullDotEconomy", "dotsOnly"]),
     choices: Object.freeze([]),
   }),
   hypersawBurn: Object.freeze({
@@ -316,9 +323,10 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "ghost",
       "trail",
       "pixelDensity",
+      "dotBudget",
     ])),
     colors: Object.freeze([]),
-    toggles: Object.freeze([]),
+    toggles: Object.freeze(["fullDotEconomy", "dotsOnly"]),
     choices: Object.freeze([]),
   }),
   // Knob face: macro dial look + image layers + arc geometry (Display Settings only).
@@ -438,6 +446,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "sourceSync",
       "skipDiscontinuities",
       "fullDotEconomy",
+      "dotsOnly",
       "showLabel",
       "showReadout",
     ]),
@@ -488,9 +497,14 @@ function formatNodeGraphTraceDisplaySetting(value) {
   if (!Number.isFinite(number)) {
     return "0";
   }
-  return Number.isInteger(number)
-    ? String(number)
-    : number.toFixed(4).replace(/\.?0+$/g, "");
+  // Integers as bare digits; keep up to 4 decimals without float dust.
+  // Avoid regex that can turn near-1 values into ambiguous strings.
+  if (Number.isInteger(number)) {
+    return String(number);
+  }
+  const fixed = number.toFixed(4);
+  // Trim trailing zeros after decimal only (keep "0.5", never "" or "1.").
+  return fixed.replace(/(\.\d*?[1-9])0+$/g, "$1").replace(/\.0+$/g, "");
 }
 
 /** Open display-settings shell (singleton). All field queries should use this root. */
@@ -514,13 +528,13 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     title: "Main residual length. 0 = dies immediately; 1 ≈ freeze-ish hot path. Dim scorched floor is Ghost.",
   }),
   residual: Object.freeze({
-    label: "Residual",
+    label: "Backlight",
     inputmode: "decimal",
     id: "nodeTraceDisplayResidual",
-    title: "Number Readout deposit hang (0…1). How long previous digits linger after a change. 0 = no deposit hang; Ghost Bright 8-floor still shows. Deposit energy starts at Bright.",
+    title: "Number Readout deposit hang (0…1). How long previous digits linger after a change. 0 = no deposit hang; Ghost 8-floor still shows. Deposit energy starts at LED.",
   }),
   ghostBrightness: Object.freeze({
-    label: "Ghost Bright",
+    label: "Ghost",
     inputmode: "decimal",
     id: "nodeTraceDisplayGhostBrightness",
     title: "Constant 8-skeleton floor energy 0…1 (gradient position). 0.2 → color at stop 0.2. Deposits decay on top of this floor.",
@@ -623,7 +637,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Bright",
     inputmode: "decimal",
     id: "nodeTraceDisplayBrightness",
-    title: "Peak deposit / present light 0–1 exactly (1 = full energy / gradient tip). Not Ghost or Trail. Not a 0–2 scale.",
+    title: "Peak deposit / present light 0–1 (1 = full). Number Readout LED: live light grey→hue→white (never black); also deposit energy.",
   }),
   lineThickness: Object.freeze({ label: "Blur", inputmode: "decimal", id: "nodeTraceDisplayLineThickness" }),
   dot1Size: Object.freeze({
@@ -662,7 +676,7 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
   secondaryEnabled: Object.freeze({ label: "Secondary on", id: "nodeTraceDisplaySecondaryEnabled" }),
   capEnabled: Object.freeze({ label: "Caps on", id: "nodeTraceDisplayCapEnabled" }),
   fullDotEconomy: Object.freeze({
-    label: "Full dot economy",
+    label: "Full Dot Economy",
     id: "nodeTraceDisplayFullDotEconomy",
     title:
       "Off (default): pack soft stamps at fuse spacing (continuous trail, thrifty on Dot Budget). On: denser packing up to Dot Budget (brighter solid trails). Over budget: spacing widens evenly along the whole path — never truncates the head. Ignored when Dots only is on (except even sample skip under budget).",

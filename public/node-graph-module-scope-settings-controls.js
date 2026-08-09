@@ -3,18 +3,62 @@
 // Load after scope-settings-form.js, before scope-settings-ui.js.
 
 /**
- * −/+ step size for Display Settings (same magnitude policy as Parameter
- * Settings / metadataStepperQuantum):
- *   |value| < 1     → 0.1
- *   1…<10           → 1
- *   10…<100         → 10
- *   100…<1000       → 100
- *   ≥1000           → 1000
+ * App-wide −/+ magnitude quantum from current value + step direction.
  *
- * Special fields keep fixed quanta (decimals, FFT table, exp history, …).
- * Pass currentValue for magnitude-based steps (required for Span ° etc.).
+ * Base (by |value|):
+ *   <1 → 0.1 · 1…<10 → 1 · 10…<100 → 10 · 100…<1000 → 100 · ≥1000 → 1000
+ *
+ * When stepping DOWN from an exact decade boundary, use the next finer step
+ * so 1→0.9 (not 1→0), 10→9, 100→90, 1000→900.
+ *
+ * @param {number} currentValue
+ * @param {number} [direction]  -1 = minus, +1 = plus, 0 = base only
  */
-function nodeGraphTraceDisplayStepperQuantum(input, currentValue = null) {
+function nodeGraphMagnitudeStepperQuantum(currentValue, direction = 0) {
+  const abs = Math.abs(Number(currentValue));
+  let q;
+  if (!Number.isFinite(abs) || abs < 1 - 1e-12) {
+    q = 0.1;
+  } else if (abs < 10) {
+    q = 1;
+  } else if (abs < 100) {
+    q = 10;
+  } else if (abs < 1000) {
+    q = 100;
+  } else {
+    q = 1000;
+  }
+  // At exactly 1 / 10 / 100 / 1000, base quantum equals |value|, so − would
+  // jump a full decade (1→0). Use one decade finer when decreasing.
+  if (direction < 0 && Number.isFinite(abs) && abs > 0) {
+    const atDecade = Math.abs(abs - q) <= Math.max(1e-9, q * 1e-9);
+    if (atDecade) {
+      if (q <= 0.1) {
+        q = 0.1;
+      } else if (q === 1) {
+        q = 0.1;
+      } else if (q === 10) {
+        q = 1;
+      } else if (q === 100) {
+        q = 10;
+      } else {
+        q = 100;
+      }
+    }
+  }
+  return q;
+}
+
+/**
+ * −/+ step size for Display Settings.
+ * Special fields keep fixed quanta; 0…1 unit fields always 0.1;
+ * others use magnitude policy (with down-from-boundary refinement).
+ *
+ * @param {HTMLInputElement|null} input
+ * @param {number|null} currentValue
+ * @param {number} [direction]  -1 / +1 for steppers (affects decade boundary)
+ */
+function nodeGraphTraceDisplayStepperQuantum(input, currentValue = null, direction = 0) {
   if (!input) {
     return 0.1;
   }
@@ -42,23 +86,19 @@ function nodeGraphTraceDisplayStepperQuantum(input, currentValue = null) {
   if (key === "sweepSeconds" || key === "sweepHz") {
     return 0.05;
   }
-  // App-wide magnitude policy (Span °, freq band, large numbers, 0…1 units).
-  const abs = Math.abs(Number(
-    currentValue != null ? currentValue : input.value,
-  ));
-  if (!Number.isFinite(abs) || abs < 1) {
+  // Stamp Size: fixed control-space quantum (exp-mapped) — not magnitude 0.1.
+  if (typeof nodeGraphTraceDisplaySizeControlField === "function"
+    && nodeGraphTraceDisplaySizeControlField(key)
+    && key !== "capSize") {
+    return 0.04;
+  }
+  // 0…1 unit fields (Bright, Ghost Bright, Residual, …): always 0.1.
+  if (typeof nodeGraphTraceDisplayUnitDragField === "function"
+    && nodeGraphTraceDisplayUnitDragField(key)) {
     return 0.1;
   }
-  if (abs < 10) {
-    return 1;
-  }
-  if (abs < 100) {
-    return 10;
-  }
-  if (abs < 1000) {
-    return 100;
-  }
-  return 1000;
+  const value = currentValue != null ? currentValue : Number(input.value);
+  return nodeGraphMagnitudeStepperQuantum(value, direction);
 }
 
 function nodeGraphTraceDisplaySizeControlField(key) {
@@ -70,13 +110,44 @@ function nodeGraphTraceDisplayHistoryControlField(key) {
   return key === "historySeconds" || key === "zoomSeconds";
 }
 
-function nodeGraphTraceDisplaySensitiveControlField(key) {
-  return nodeGraphTraceDisplaySizeControlField(key) ||
-    nodeGraphTraceDisplayHistoryControlField(key) ||
-    key === "pixelDensity" ||
-    ["dot1Brightness", "secondaryBrightness", "ghostBrightness"].includes(key);
+/**
+ * 0…1 unit sliders (Bright, Ghost Bright, Residual, …).
+ * Linear drag — same pixel→value gain for all (no exp curve mismatch).
+ */
+function nodeGraphTraceDisplayUnitDragField(key) {
+  return [
+    "dot1Brightness",
+    "secondaryBrightness",
+    "ghostBrightness",
+    "residual",
+    "ghost",
+    "trail",
+    "dialSize",
+    "innerRadius",
+    "capLength",
+    "capSize",
+  ].includes(key);
 }
 
+/** Pixels of drag for a full 0→1 sweep on unit fields (higher = less sensitive). */
+const nodeGraphTraceDisplayUnitDragPixels = 220;
+
+/**
+ * Pixels for a full 0→1 *control-space* sweep on stamp Size (exp-mapped).
+ * Higher = less sensitive. Separate from unit fields: size sits in exp space
+ * so the old quantum×/8 gain made phosphor/trace Size feel far too hot.
+ */
+const nodeGraphTraceDisplaySizeDragPixels = 520;
+
+function nodeGraphTraceDisplaySensitiveControlField(key) {
+  // Brightness / residual are linear unit drags — not size-style exp maps.
+  // Exp remains for stamp size, pixel density, history windows only.
+  return nodeGraphTraceDisplaySizeControlField(key) ||
+    nodeGraphTraceDisplayHistoryControlField(key) ||
+    key === "pixelDensity";
+}
+
+/** Exp curve for stamp size — higher = more of the travel near small sizes. */
 const nodeGraphTraceDisplaySensitiveControlExponent = 3;
 /** History: stronger exp so most useful short windows sit near control 0. */
 const nodeGraphTraceDisplayHistoryControlExponent = 3.5;
@@ -155,6 +226,10 @@ function adjustNodeGraphTraceDisplaySettingByControlDelta(key, startValue, delta
       max,
     );
   }
+  // Linear 0…1 unit fields (Bright / Ghost Bright / Residual share one gain).
+  if (nodeGraphTraceDisplayUnitDragField(key)) {
+    return Number(startValue) + delta;
+  }
   if (!nodeGraphTraceDisplaySensitiveControlField(key)) {
     return startValue + delta;
   }
@@ -181,14 +256,21 @@ function nodeGraphTraceDisplayClampHistorySeconds(value) {
   return clampNodeSliderValue(n, 0, nodeGraphTraceDisplayMaxZoomSeconds);
 }
 
-/** Display Bright 0…1 (1 = full energy). Legacy 0…2 values halved once (same as normalize). */
+/**
+ * Display Bright / Ghost Bright 0…1.
+ * Interactive path: hard clamp only. Do NOT legacy-half here — that made values
+ * jump (e.g. overshoot 1.2 → 0.6) and NaN used to fall back to 1 (felt like wrap).
+ * Legacy 0…2 migration lives in normalizeNodeGraphTraceDisplayBrightness on load.
+ */
 function nodeGraphTraceDisplayClampBrightness(value) {
-  if (typeof normalizeNodeGraphTraceDisplayBrightness === "function") {
-    return normalizeNodeGraphTraceDisplayBrightness(value, 1);
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return 0;
   }
-  let n = Number(value);
-  if (!Number.isFinite(n)) n = 0;
-  if (n > 1 && n <= 2.0001) n *= 0.5;
+  // One-shot legacy: only when clearly still on the old 0…2 scale.
+  if (n > 1 && n <= 2.0001) {
+    return clampNodeSliderValue(n * 0.5, 0, 1);
+  }
   return clampNodeSliderValue(n, 0, 1);
 }
 

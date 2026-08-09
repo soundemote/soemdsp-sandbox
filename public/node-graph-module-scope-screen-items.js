@@ -325,34 +325,43 @@ function nodeGraphValueOscilloscopeTrailSamples(buffer) {
  */
 // nodeGraphPhosphorEnergyFadeAmount → node-graph-module-scope-phosphor.js
 /**
- * Online (soundemote) deposit: (burn, brightness, size01).
- * Legacy 2-arg (brightness, size01) uses default burn 0.45.
+ * Peak stamp energy from Bright (and Size). Ghost is residual hang — not ink.
+ *
+ *   depositGain(brightness, size01)
+ *   depositGain(_ignoredGhostOrBurn, brightness, size01)  // legacy 3-arg
  */
-function nodeGraphScope2dEnergyBurnDepositGain(burn, brightness, size01) {
-  if (arguments.length < 3 || size01 === undefined) {
-    return nodeGraphScope2dEnergyBurnDepositGain(0.45, burn, brightness);
-  }
+function nodeGraphScope2dEnergyBurnDepositGain(a, b, c) {
   if (typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.depositGain) {
-    return PhosphorDrawer.depositGain(burn, brightness, size01);
+    return arguments.length >= 3 && c !== undefined
+      ? PhosphorDrawer.depositGain(a, b, c)
+      : PhosphorDrawer.depositGain(a, b);
   }
-  const b = clampNodeSliderValue(Number(burn) || 0, 0, 1);
+  let brightness;
+  let size01;
+  if (arguments.length >= 3 && c !== undefined) {
+    brightness = b;
+    size01 = c;
+  } else {
+    brightness = a;
+    size01 = b;
+  }
   const br = Math.max(0, Number(brightness) || 0);
+  if (br <= 1e-8) {
+    return 0;
+  }
   const s = clampNodeSliderValue(Number(size01) || 0, 0, 1);
-  // Slight low-end lift (pow < 1) so scrubbing 0.02→0.08 feels continuous.
-  // Floor keeps a faint tip at burn 0; span covers strong dwell at burn 1.
-  const burnShape = Math.pow(b, 0.78);
-  const sizeFactor = 1.12 - s * 0.42;
-  return Math.max(0, br * (0.022 + burnShape * 0.10) * sizeFactor);
+  const sizeFactor = 1.12 - s * 0.32;
+  const shape = Math.pow(Math.min(br, 2), 0.88);
+  return Math.max(0, shape * 0.48 * sizeFactor);
 }
 
-/** Soft present exposure — burn gently opens film (online sandbox formula). */
-function nodeGraphScope2dEnergyBurnExposure(burn) {
+/** Soft present exposure — Bright opens the film (Ghost does not). */
+function nodeGraphScope2dEnergyBurnExposure(bright01) {
   if (typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.exposure) {
-    return PhosphorDrawer.exposure(burn);
+    return PhosphorDrawer.exposure(bright01);
   }
-  const b = clampNodeSliderValue(Number(burn) || 0, 0, 1);
-  // Base exposure keeps low residual visible; burn only gently opens the film.
-  return 1.85 + b * 2.1;
+  const b = clampNodeSliderValue(Number(bright01) || 0, 0, 1);
+  return 1.55 + b * 2.55;
 }
 
 // nodeGraphPhosphorEnergyFade → node-graph-module-scope-phosphor.js

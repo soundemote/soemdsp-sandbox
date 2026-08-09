@@ -1,6 +1,15 @@
 // Display/settings normalizers extracted from node-graph-module-scopes.js
 // (Phase D). Load after scope-defaults.js, before scopes.js.
 
+/** Shared packing/checkbox truthiness for phosphor display settings (scope2d SSOT). */
+function nodeGraphDisplaySettingsToggleIsOn(value) {
+  return value === true
+    || value === 1
+    || value === "1"
+    || value === "true"
+    || value === "on";
+}
+
 function nodeGraphSpectrogramSnapFftSize(value) {
   const raw = Number(value);
   if (!Number.isFinite(raw)) {
@@ -115,10 +124,15 @@ function nodeGraphPhosphorDefaultGradientStops(peakHex = "#75ebff", backgroundHe
 }
 
 
-function nodeGraphPhosphorGradientStopsFromSettings(settings = {}, peakFallback = "#75ebff") {
+function nodeGraphPhosphorGradientStopsFromSettings(settings = {}, peakFallback = "#75ebff", options = {}) {
   const source = settings && typeof settings === "object" ? settings : {};
+  // Existing stops are kept as-is. Default ramps may sample peak/bg.
+  // ignoreLiveColor: do not pull peak from LED/dot1 (Number Readout Ghost Gradient
+  // must stay independent of the LED hue title control).
   const peak = normalizeNodeGraphTraceDisplayColor(
-    source.dot1Color ?? source.color ?? peakFallback,
+    options.ignoreLiveColor
+      ? peakFallback
+      : (source.dot1Color ?? source.color ?? peakFallback),
     peakFallback,
   );
   const bg = normalizeNodeGraphTraceDisplayColor(
@@ -345,6 +359,8 @@ function normalizeNodeGraphXyPadDisplaySettings(settings = {}) {
     // Default ON when missing (devilish solid trails). Explicit false stays off.
     fullDotEconomy: source.fullDotEconomy !== false
       && source.useFullDotEconomy !== false,
+    dotsOnly: source.dotsOnly === true
+      || source.verticesOnly === true,
     gradientStops,
     lineThickness: nodeGraphTraceDisplayClampStampBlur(
       source.lineThickness ?? source.dot1Blur ?? defaults.lineThickness,
@@ -408,12 +424,11 @@ function normalizeNodeGraphTraceDisplayNumber(value, fallback, min, max, integer
 function normalizeNodeGraphTraceDisplayBrightness(value, fallback = 1) {
   let n = Number(value);
   if (!Number.isFinite(n)) {
-    n = Number(fallback);
+    // Prefer 0 over 1 for bad input so drag/form glitches do not snap to full.
+    const fb = Number(fallback);
+    n = Number.isFinite(fb) ? fb : 0;
   }
-  if (!Number.isFinite(n)) {
-    n = 1;
-  }
-  // Legacy 0…2 overdrive scale → 0…1.
+  // Legacy 0…2 overdrive scale → 0…1 (patch load only; interactive clamps stay 0…1).
   if (n > 1 && n <= 2.0001) {
     n = n * 0.5;
   }
@@ -516,9 +531,13 @@ function normalizeNodeGraphLineBurnSettings(settings = {}) {
         Number(source.dotBudget ?? defaults.dotBudget) || defaults.dotBudget || 2048,
       )),
     ),
-    // Explicit true only — thrifty path packing matches soundemote.io.
-    fullDotEconomy: source.fullDotEconomy === true
-      || source.useFullDotEconomy === true,
+    // Shared packing toggles (same SSOT as scope2d / 2D Phosphor).
+    fullDotEconomy: nodeGraphDisplaySettingsToggleIsOn(
+      source.fullDotEconomy ?? source.useFullDotEconomy,
+    ),
+    dotsOnly: nodeGraphDisplaySettingsToggleIsOn(
+      source.dotsOnly ?? source.verticesOnly,
+    ),
     gradientStops,
     lineThickness: nodeGraphTraceDisplayClampStampBlur(
       source.lineThickness ?? defaults.lineThickness,
@@ -770,9 +789,12 @@ function nodeGraphSampleGradientStopsRgb(stops, energyT, peakFallback = "#75ebff
 function normalizeNodeGraphNumberReadoutSettings(settings = {}) {
   const source = settings && typeof settings === "object" ? settings : {};
   const defaults = nodeGraphNumberReadoutSettingsDefaults;
-  // Digit energy→color LUT (shared phosphor multi-stop path).
-  const gradientStops = nodeGraphPhosphorGradientStopsFromSettings(source, defaults.color);
-  const peak = gradientStops[gradientStops.length - 1]?.color || defaults.color;
+  // Ghost Gradient LUT — ignore LED hue so stops never track the LED title control.
+  const gradientStops = nodeGraphPhosphorGradientStopsFromSettings(
+    source,
+    defaults.color,
+    { ignoreLiveColor: true },
+  );
   // LCD back plate is independent of gradient floor (own color widget).
   const background = normalizeNodeGraphTraceDisplayColor(
     source.background ?? source.backgroundColor,
@@ -803,10 +825,11 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}) {
       source.brightness ?? source.dot1Brightness,
       defaults.brightness,
     ),
-    // Live digit solid “light” color (independent of residual gradient).
+    // Live digit solid “light” hue (NEVER falls back to gradient peak — that
+    // coupled LED hue with the Background / Ghost Gradient color widgets).
     color: normalizeNodeGraphTraceDisplayColor(
-      source.color ?? source.dot1Color ?? peak,
-      defaults.color ?? peak,
+      source.color ?? source.dot1Color,
+      defaults.color,
     ),
     // Deposit hang 0…1 (high = long super-exponential hang of previous digits).
     residual: normalizeNodeGraphTraceDisplayNumber(residualRaw, residualDefault, 0, 1),
@@ -977,11 +1000,14 @@ function normalizeNodeGraphScope2dSettings(settings = {}, defaultsOverride = nul
         Number(source.dotBudget ?? defaults.dotBudget) || defaults.dotBudget,
       )),
     ),
-    // Full Dot Economy / Dots only: explicit true only (checkboxes work).
-    fullDotEconomy: source.fullDotEconomy === true
-      || source.useFullDotEconomy === true,
-    dotsOnly: source.dotsOnly === true
-      || source.verticesOnly === true,
+    // Full Dot Economy / Dots only — shared phosphor packing (scope2d SSOT).
+    // Accept bool true and common form/patch coercions (1 / "1" / "true" / "on").
+    fullDotEconomy: nodeGraphDisplaySettingsToggleIsOn(
+      source.fullDotEconomy ?? source.useFullDotEconomy,
+    ),
+    dotsOnly: nodeGraphDisplaySettingsToggleIsOn(
+      source.dotsOnly ?? source.verticesOnly,
+    ),
     gradientStops,
     lineThickness: nodeGraphTraceDisplayClampStampBlur(
       source.lineThickness ?? source.dot1Blur ?? defaults.lineThickness,

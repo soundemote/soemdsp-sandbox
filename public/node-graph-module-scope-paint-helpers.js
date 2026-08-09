@@ -1264,6 +1264,10 @@ function nodeGraphScope2dCanvasSettingsSignature(settings) {
     safeSettings.dot1Color,
     safeSettings.lineThickness,
     Number.isFinite(Number(safeSettings.pixelDensity)) ? Number(safeSettings.pixelDensity) : 1,
+    // Packing toggles (Full Dot Economy | Dots only) — must bust face cache.
+    safeSettings.fullDotEconomy ? 1 : 0,
+    safeSettings.dotsOnly ? 1 : 0,
+    Math.round(Number(safeSettings.dotBudget) || 2048),
   ].join("|");
 }
 

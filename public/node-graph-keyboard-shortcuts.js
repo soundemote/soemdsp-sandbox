@@ -366,31 +366,10 @@ function handleNodeGraphKeydown(event) {
     }
     return;
   }
-  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "m") {
-    event.preventDefault();
-    if (typeof toggleNodeGraphModularOnlyView === "function") {
-      toggleNodeGraphModularOnlyView();
-    }
-    return;
-  }
-  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "v") {
-    event.preventDefault();
-    if (typeof toggleNodeGraphViewButtonsVisibility === "function") {
-      toggleNodeGraphViewButtonsVisibility();
-    }
-    return;
-  }
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "d") {
     event.preventDefault();
     if (typeof toggleNodeGraphKeyboardDebugVisibility === "function") {
       toggleNodeGraphKeyboardDebugVisibility();
-    }
-    return;
-  }
-  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "t") {
-    event.preventDefault();
-    if (typeof toggleNodeGraphTooltipWindow === "function") {
-      toggleNodeGraphTooltipWindow();
     }
     return;
   }

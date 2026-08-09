@@ -854,11 +854,14 @@ function dragNodeSlider(event) {
   }
 
   // Fine/coarse scale from modifier keys — live per-event.
-  // Re-anchor startTravel when scale changes to prevent value jump (10x delta).
+  // Re-anchor travel AND pointer origin when scale changes so releasing Shift
+  // mid-drag does not apply the whole path at the new scale (RS-MET style).
   const currentFineScale = nodeSliderFineTuneScale(event);
   if (currentFineScale !== drag.fineScale) {
-    drag.startTravel = nodeSliderTravelFromValue(drag.slider, nodeSliderDomainForTravel(drag.slider));
+    reanchorNodeSliderDragAtPointer(drag, event);
     drag.fineScale = currentFineScale;
+    event.preventDefault();
+    return;
   }
 
   // Wrap pointer at screen edges to approximate infinite drag.

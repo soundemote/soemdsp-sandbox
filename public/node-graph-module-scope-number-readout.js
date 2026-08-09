@@ -97,24 +97,80 @@ function nodeGraphNumberReadoutBurnEraseAlpha(residualHang) {
   return clampNodeSliderValue(erase, 0.0015, 0.55);
 }
 
-/** Solid live-digit light RGB from settings.color (not the residual gradient). */
+/**
+ * Live digit light color: Hue (from settings.color) × Bright ramp.
+ *   Bright 0   → mid grey (never black)
+ *   Bright 0.5 → full pure hue (s=100, l=50)
+ *   Bright 1   → white
+ * Residual gradient is separate; blend mode composites light over ghost.
+ */
 function nodeGraphNumberReadoutLightRgb(settings) {
   const hex = settings?.color
     || nodeGraphNumberReadoutSettingsDefaults?.color
     || "#fcfdbf";
-  if (typeof nodeGraphSampleGradientStopsRgb === "function") {
-    return nodeGraphSampleGradientStopsRgb(
-      [{ t: 0, color: hex }, { t: 1, color: hex }],
-      1,
-      hex,
-    );
+  const bright = Number.isFinite(Number(settings?.brightness))
+    ? clampNodeSliderValue(Number(settings.brightness), 0, 1)
+    : 1;
+  // Extract hue from stored pure-hue (or legacy) hex.
+  let h = 50;
+  if (typeof nodeGraphTraceDisplayHexToHsl === "function") {
+    h = Number(nodeGraphTraceDisplayHexToHsl(hex).h) || 0;
+  } else {
+    const m = String(hex).match(/^#?([0-9a-f]{6})$/i);
+    if (m) {
+      const n = Number.parseInt(m[1], 16);
+      const r = ((n >> 16) & 255) / 255;
+      const g = ((n >> 8) & 255) / 255;
+      const b = (n & 255) / 255;
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      if (max !== min) {
+        const d = max - min;
+        let hh = 0;
+        if (max === r) hh = (g - b) / d + (g < b ? 6 : 0);
+        else if (max === g) hh = (b - r) / d + 2;
+        else hh = (r - g) / d + 4;
+        h = Math.round((hh / 6) * 360) % 360;
+      }
+    }
   }
-  const m = String(hex).match(/^#?([0-9a-f]{6})$/i);
-  if (m) {
-    const n = Number.parseInt(m[1], 16);
-    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  // Pure hue RGB at s=100%, l=50%.
+  const pure = (() => {
+    const s = 1;
+    const l = 0.5;
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const hp = (((h % 360) + 360) % 360) / 60;
+    const x = c * (1 - Math.abs((hp % 2) - 1));
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    if (hp >= 0 && hp < 1) [r, g, b] = [c, x, 0];
+    else if (hp < 2) [r, g, b] = [x, c, 0];
+    else if (hp < 3) [r, g, b] = [0, c, x];
+    else if (hp < 4) [r, g, b] = [0, x, c];
+    else if (hp < 5) [r, g, b] = [x, 0, c];
+    else [r, g, b] = [c, 0, x];
+    const m = l - c / 2;
+    return [
+      Math.round((r + m) * 255),
+      Math.round((g + m) * 255),
+      Math.round((b + m) * 255),
+    ];
+  })();
+  const grey = [128, 128, 128];
+  const white = [255, 255, 255];
+  const mix = (a, b, t) => {
+    const u = clampNodeSliderValue(t, 0, 1);
+    return [
+      Math.round(a[0] + (b[0] - a[0]) * u),
+      Math.round(a[1] + (b[1] - a[1]) * u),
+      Math.round(a[2] + (b[2] - a[2]) * u),
+    ];
+  };
+  if (bright <= 0.5) {
+    return mix(grey, pure, bright * 2);
   }
-  return [252, 253, 191];
+  return mix(pure, white, (bright - 0.5) * 2);
 }
 
 /**
@@ -766,10 +822,11 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     return;
   }
 
-  // Live = solid light color (not gradient).
+  // Live light RGB = grey→hue→white from Bright; full coverage (alpha 1).
+  // Bright still scales residual deposit energy separately.
   const rgb = nodeGraphNumberReadoutLightRgb(settings);
   const bg = nodeGraphFacePlateBackground(settings);
-  const alpha = bright;
+  const alpha = 1;
   if (canvas?.parentElement?.dataset) {
     canvas.parentElement.dataset.lightStrength = bright.toFixed(3);
   }

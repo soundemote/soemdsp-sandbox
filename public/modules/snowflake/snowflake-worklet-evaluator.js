@@ -36,14 +36,29 @@ NodeLiveAudioProcessor.prototype.snowflakeSample = function snowflakeSample(stat
       }
       if (st.nativeHandle) {
         const sampleRateValue = Math.max(1, Number(options.sampleRate) || 44100);
+        // Direction −1…1. Resolve legacy reverse if direction omitted.
+        let direction = Number(options.direction);
+        if (!Number.isFinite(direction)) {
+          direction = Number(options.reverse) > 0.5 ? 0 : 1;
+        }
+        direction = direction < -1 ? -1 : direction > 1 ? 1 : direction;
+        // Native ABI keeps (size, reverse) arity for wasm compatibility:
+        //   size ignored (always 1 — Amplitude scales)
+        //   reverse slot = direction (−1…1) when version ≥ 2 (trisaw morph)
+        //   version 1 treats reverse as bool (map direction → forward/ping-pong)
+        const nativeVer = Number(this.nativeSnowflake.soemdsp_snowflake_version?.() || 1);
+        const sizeArg = 1;
+        const reverseOrDirection = nativeVer >= 2
+          ? direction
+          : (direction < 0.5 ? 1 : 0);
         this.nativeSnowflake.soemdsp_snowflake_sample(
           st.nativeHandle,
           Math.max(0, Number(options.frequencyHz) || 0),
           Number(options.pattern) || 0,
           Number(options.iterations) || 0,
           Number(options.angle) || 60,
-          Math.max(0, Number(options.size) || 0),
-          Number(options.reverse) || 0,
+          sizeArg,
+          reverseOrDirection,
           Number(options.spin) || 0,
           Number.isFinite(Number(options.level)) ? Number(options.level) : 1,
           Number(options.reset) || 0,
@@ -52,7 +67,6 @@ NodeLiveAudioProcessor.prototype.snowflakeSample = function snowflakeSample(stat
         return {
           X: this.nativeSnowflake.soemdsp_snowflake_x(st.nativeHandle),
           Y: this.nativeSnowflake.soemdsp_snowflake_y(st.nativeHandle),
-          Out: this.nativeSnowflake.soemdsp_snowflake_out(st.nativeHandle),
         };
       }
     } catch (error) {
@@ -70,5 +84,5 @@ NodeLiveAudioProcessor.prototype.snowflakeSample = function snowflakeSample(stat
   if (typeof nodeGraphSnowflakeSample === "function") {
     return nodeGraphSnowflakeSample(st, options);
   }
-  return { X: 0, Y: 0, Out: 0 };
+  return { X: 0, Y: 0 };
 };

@@ -2077,12 +2077,11 @@ const nodeGraphModuleDefinitions = (
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
     ],
   },
-  // L-system turtle path walked at Frequency → X/Y (Out = Y). Native WASM preferred.
+  // L-system turtle path walked at Frequency → X/Y. Native WASM preferred.
   snowflake: {
     planRole: "source",
     displayType: "scope2d",
     displaySignals: [
-      { key: "Out", kind: "scalar" },
       { key: "X", kind: "scalar" },
       { key: "Y", kind: "scalar" },
       { key: "X/Y", kind: "xy" },
@@ -2090,7 +2089,6 @@ const nodeGraphModuleDefinitions = (
     displayModes: [
       { key: "xyBurn", label: "X/Y Phosphor", renderer: "scope2d", settingsSchema: "scope2d", source: { x: "X", y: "Y" } },
       { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "X", y: "Y" } },
-      { key: "trace", label: "Out Trace", renderer: "trace", settingsSchema: "trace", source: { value: "Out" } },
     ],
     defaultDisplayMode: "xyBurn",
     inputs: ["0.1V/Oct", "Amplitude", "Reset", "f"],
@@ -2100,7 +2098,7 @@ const nodeGraphModuleDefinitions = (
       Reset: "Reset",
       f: "f",
     },
-    outputs: ["Out", "X", "Y"],
+    outputs: ["X", "Y"],
     parameters: [
       {
         choices: [
@@ -2150,23 +2148,15 @@ const nodeGraphModuleDefinitions = (
         tooltip: "Turtle turn angle in degrees for +/− commands (overrides pattern catalog default at sample time).",
       },
       {
-        key: "size",
-        label: "Size",
+        key: "direction",
+        label: "Direction",
         defaultValue: "1",
-        min: "0",
-        mid: "1",
-        max: "4",
-        step: "0.01",
-      },
-      {
-        key: "reverse",
-        label: "Reverse",
-        defaultValue: "0",
-        min: "0",
-        mid: "0.5",
+        min: "-1",
+        mid: "0",
         max: "1",
-        step: "1",
-        tooltip: "When on, phase ping-pongs along the path (0→1→0) instead of looping one way.",
+        step: "0.01",
+        tooltip:
+          "Path walk morph (−1…1) via basic trisaw: −1 reverse at 1×, 0 bidirectional (triangle ping-pong), +1 forward loop. Continuous between those shapes.",
       },
       {
         key: "spin",

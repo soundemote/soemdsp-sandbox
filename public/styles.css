@@ -4736,8 +4736,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-io-section-min-height: 24px;
   --node-io-section-padding-block: 0;
   --node-module-grid-inset: calc(var(--node-grid-size) * 0.2142857);
-  /* 0 = square module chrome (LayoutA + LayoutB). UI Dev “module roundness” drives this. */
+  /* 0 = square module *plate* (LayoutA + LayoutB). UI Dev “module roundness” drives this. */
   --node-module-roundness-ratio: 0;
+  /* SVG frame stroke corner radius — rounded outline while the plate stays square. */
+  --node-module-frame-radius: calc(var(--node-grid-size) * 0.35);
+  /* Device-stable 1px outline (selected / idle / drag). */
+  --node-module-frame-stroke-width: 1px;
   --node-module-scope-height: calc(var(--node-grid-height) * var(--node-module-display-height-units, 2));
   --node-module-interface-controls-height: calc(var(--node-grid-height) * var(--node-module-interface-controls-height-units, 4));
   --node-scope-port-band-overlap: 0px;
@@ -10169,19 +10173,24 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 .node-module-frame-path {
   fill: none;
   stroke: color-mix(in srgb, var(--node-module-stroke) 16%, transparent);
-  stroke-width: 1px;
-  stroke-linecap: butt;
-  /* Miter matches square module corners (round softens even r=0 joins). */
-  stroke-linejoin: miter;
+  /* Always 1 screen px at every workspace zoom (not layout-scaled). */
+  stroke-width: var(--node-module-frame-stroke-width, 1px);
+  stroke-linecap: round;
+  /* Round joins + path corner arcs = rounded stroke; plate remains square. */
+  stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
 }
 
 .dsp-node.connected .node-module-frame-path {
   stroke: color-mix(in srgb, var(--node-module-stroke) 16%, transparent);
+  stroke-width: var(--node-module-frame-stroke-width, 1px);
+  vector-effect: non-scaling-stroke;
 }
 
 .dsp-node.dragging .node-module-frame-path {
   stroke: color-mix(in srgb, var(--node-module-drag-stroke) 62%, transparent);
+  stroke-width: var(--node-module-frame-stroke-width, 1px);
+  vector-effect: non-scaling-stroke;
 }
 
 /* Knob / plugin shelf faces: no module-frame stroke at all (idle / selected / drag). */
@@ -10201,7 +10210,10 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 
 .dsp-node.selected .node-module-frame-path {
   stroke: var(--node-module-selected-stroke);
-  stroke-width: 1px;
+  stroke-width: var(--node-module-frame-stroke-width, 1px);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
 }
 
 .dsp-node-header,
@@ -14722,7 +14734,33 @@ input.node-header-title:focus {
   font-size: 0.66rem;
 }
 
+/*
+ * App-wide label + −/+ value row (Display Settings, gradient Pos, macro face, …).
+ * Same grid rhythm as .metadata-popover-grid label so hosts outside the popover match.
+ */
+.node-trace-display-line-burn-row {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: 0 6px;
+  min-width: 0;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.62rem;
+}
+
+.node-trace-display-line-burn-row > span:first-child {
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
+.node-trace-display-line-burn-row.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
 .metadata-stepper-control {
+  --stepper-split: color-mix(in srgb, var(--accent) 18%, transparent);
   display: grid;
   grid-template-columns: minmax(0, 1fr) 15px 15px;
   min-width: 0;
@@ -14737,7 +14775,7 @@ input.node-header-title:focus {
   grid-row: 1;
   height: 28px;
   border: 0;
-  border-right: 1px solid rgba(127, 199, 217, 0.18);
+  border-right: 1px solid var(--stepper-split);
   border-radius: 0;
   text-align: center;
 }
@@ -14780,7 +14818,7 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 
 .metadata-stepper-control button:first-child {
   grid-column: 2;
-  border-right: 1px solid rgba(127, 199, 217, 0.18);
+  border-right: 1px solid var(--stepper-split, color-mix(in srgb, var(--accent) 18%, transparent));
 }
 
 .metadata-stepper-control button:last-child {
@@ -14792,10 +14830,10 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 .metadata-advanced-toggle {
   min-height: 30px;
   border: 0;
-  border-right: 1px solid rgba(127, 199, 217, 0.18);
+  border-right: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
   border-radius: 0;
   background: rgba(12, 18, 22, 0.86);
-  color: rgba(205, 214, 216, 0.86);
+  color: color-mix(in srgb, var(--text) 86%, transparent);
   text-align: center;
 }
 
@@ -14811,7 +14849,17 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
     0 0 12px color-mix(in srgb, #6cff9a 26%, transparent);
 }
 
+/*
+ * Display Settings shell chrome.
+ * Flex column lives above (shared with parameter metadata popover).
+ */
 .node-trace-display-settings-popover {
+  --ds-row-h: 28px;
+  --ds-latch-h: 30px;
+  --ds-color-host-h: 120px;
+  --ds-label-col: minmax(52px, 0.34fr);
+  --ds-hairline: color-mix(in srgb, var(--accent) 14%, transparent);
+  --ds-split: color-mix(in srgb, var(--accent) 18%, transparent);
   grid-template-rows: var(--node-floating-window-header-height) minmax(0, 1fr);
   gap: 0;
   overflow: hidden;
@@ -14836,182 +14884,8 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 .node-trace-display-settings-popover .metadata-popover-grid label,
 .node-trace-display-settings-popover .metadata-popover-grid .metadata-choices-label {
   gap: 0;
-  grid-template-columns: minmax(52px, 0.34fr) minmax(0, 1fr);
+  grid-template-columns: var(--ds-label-col) minmax(0, 1fr);
   padding: 0;
-}
-
-/*
- * Inline SoundColorWidget for Trace display colors.
- * Full-width contiguous row — no side "Color |" column.
- * Host needs a real width/height: the widget sizes via container queries.
- */
-.node-trace-display-settings-popover .node-trace-display-color-widget-row,
-.node-trace-display-settings-popover .node-trace-display-color-widget-row.no-side-label {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: stretch;
-  gap: 0;
-  min-height: 120px;
-  padding: 0;
-}
-
-.node-trace-display-settings-popover .node-trace-display-color-widget-row > span:first-child {
-  display: none;
-}
-
-.node-trace-display-settings-popover .node-trace-display-color-widget-row > input[type="hidden"] {
-  display: none;
-}
-
-.node-trace-display-settings-popover .node-trace-display-color-widget-host {
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  height: 120px;
-  min-height: 120px;
-  --color-widget-accent: rgba(127, 199, 217, 0.86);
-  --color-widget-bg: rgba(0, 5, 7, 0.42);
-  --color-widget-border: rgba(127, 199, 217, 0.2);
-  --color-widget-control-border: rgba(127, 199, 217, 0.22);
-  --color-widget-hex-bg: rgba(0, 5, 7, 0.68);
-  --color-widget-hex-ink: rgba(236, 251, 246, 0.9);
-  --color-widget-label-ink: rgba(156, 164, 166, 0.78);
-}
-
-.node-trace-display-settings-popover .node-trace-display-color-widget-host.scw-mount {
-  display: grid;
-  height: 120px;
-  min-height: 120px;
-  place-items: stretch;
-}
-
-.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-root {
-  height: 100%;
-  min-height: 0;
-  width: 100%;
-}
-
-/*
- * Global `button { min-height: 38px; padding; background: panel }` would
- * crush container-query strips and the 4-corner plane.
- */
-.node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control {
-  appearance: none !important;
-  -webkit-appearance: none !important;
-  box-sizing: border-box;
-  min-height: 0 !important;
-  height: 100% !important;
-  width: 100% !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: 1px solid var(--color-widget-control-border, rgba(127, 199, 217, 0.22)) !important;
-  border-radius: 4px !important;
-  color: transparent !important;
-  box-shadow: none !important;
-}
-
-.node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control.scw-hue {
-  cursor: ew-resize;
-}
-
-.node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control.scw-plane {
-  cursor: crosshair;
-}
-
-.node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control:hover {
-  border-color: var(--color-widget-accent, rgba(127, 199, 217, 0.86)) !important;
-}
-
-.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-plane {
-  min-height: 56px;
-}
-
-.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-hue {
-  min-height: 18px;
-  background: linear-gradient(
-    90deg,
-    hsl(0 100% 50%),
-    hsl(60 100% 50%),
-    hsl(120 100% 50%),
-    hsl(180 100% 50%),
-    hsl(240 100% 50%),
-    hsl(300 100% 50%),
-    hsl(360 100% 50%)
-  ) !important;
-}
-
-/* Hue position marker (unfilled 1px black rect) — keep visible in popover. */
-.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-hue-thumb {
-  border: 1px solid #000 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  color: transparent !important;
-}
-
-.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-hex {
-  min-height: 20px;
-}
-
-.node-trace-display-settings-popover .metadata-section-title {
-  display: grid;
-  grid-column: 1 / -1;
-  align-self: start;
-  box-sizing: border-box;
-  height: 28px;
-  max-height: 28px;
-  min-width: 0;
-  min-height: 28px;
-  place-items: center;
-  overflow: hidden;
-  padding: 0;
-  font-size: 0.78rem;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.node-trace-display-settings-target {
-  display: grid;
-  grid-column: 1 / -1;
-  place-items: center;
-  box-sizing: border-box;
-  min-width: 0;
-  min-height: 28px;
-  overflow: hidden;
-  padding: 0;
-  border-block-end: var(--node-hairline, 1px) solid rgba(127, 199, 217, 0.25);
-  color: rgba(226, 168, 109, 0.9);
-  font-family: var(--mono);
-  font-size: 0.78rem;
-  font-weight: 700;
-  line-height: 1;
-  text-align: center;
-  text-overflow: clip;
-  white-space: nowrap;
-}
-
-/* Dot's title has no toggle checkbox anymore (removed app-wide -- see
-   dot1Enabled in node-graph-module-scopes.js -- redundant with the
-   display's own show/hide), so it's a single centered-text column;
-   Secondary still has its own enabled checkbox and keeps the 2-column
-   layout that reserves room for it. */
-.node-trace-display-settings-popover .node-trace-display-dot1-title {
-  grid-template-columns: minmax(0, 1fr);
-  place-items: center stretch;
-}
-
-.node-trace-display-settings-popover .node-trace-display-secondary-title {
-  grid-template-columns: minmax(0, 1fr) 28px;
-  place-items: center stretch;
-}
-
-.node-trace-display-settings-popover .node-trace-display-dot1-title > span,
-.node-trace-display-settings-popover .node-trace-display-secondary-title > span {
-  justify-self: center;
-}
-
-.node-trace-display-settings-popover .node-trace-display-secondary-title > input {
-  justify-self: center;
-  margin: 0;
 }
 
 .node-trace-display-settings-popover .metadata-field-section {
@@ -15020,7 +14894,7 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   min-height: max-content;
 }
 
-/* Mode dropdown removed (one face per module). Hide any leftover Mode chrome. */
+/* Mode dropdown removed (one face per module). */
 .node-trace-display-settings-popover .node-trace-display-mode-title,
 .node-trace-display-settings-popover .node-trace-display-mode-section,
 .node-trace-display-settings-popover [data-trace-display-mode-select] {
@@ -15031,30 +14905,9 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   display: none !important;
 }
 
-.node-trace-display-settings-popover [data-trace-display-toggle] {
+/* Legacy checkbox toggles only — latch buttons need pointer hits. */
+.node-trace-display-settings-popover input[data-trace-display-toggle] {
   pointer-events: none;
-}
-
-/* Full Dot Economy | Dots only — one horizontal packing row on 2D Phosphor. */
-.node-trace-display-settings-popover .node-trace-display-packing-toggles {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem 1rem;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.node-trace-display-settings-popover .node-trace-display-packing-toggles .metadata-checkbox-label {
-  margin: 0;
-  flex: 0 1 auto;
-}
-
-.node-trace-display-settings-popover[data-display-settings-type="dot"] .node-trace-display-trace-title,
-.node-trace-display-settings-popover[data-display-settings-type="dot"] .node-trace-display-trace-section,
-.node-trace-display-settings-popover[data-display-settings-type="dot"] .node-trace-display-trace-thickness-row,
-.node-trace-display-settings-popover[data-display-settings-type="dot"] .node-trace-display-dot2-thickness-row {
-  display: none;
 }
 
 .node-trace-display-settings-popover .metadata-stepper-control button {
@@ -15088,17 +14941,397 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 .node-trace-display-settings-popover .metadata-popover-grid label > .metadata-icon-label {
   align-self: stretch;
   box-sizing: border-box;
+  width: 30px;
+  min-width: 0;
   font-size: 20px;
   line-height: 1;
-  min-width: 0;
   place-items: center;
-  width: 30px;
 }
 
 .node-trace-display-settings-popover :is(input, textarea, select) {
   user-select: text;
   -webkit-user-select: text;
   -webkit-user-drag: none;
+}
+
+/*
+ * Title steppers (title | value | − | +)
+ *  .title-stepper      — plain title (e.g. gradient Pos)
+ *  .hue-title-stepper  — pure-hue title fill (drag = hue), smart ink
+ */
+.title-stepper,
+.hue-title-stepper {
+  display: grid;
+  grid-template-columns: var(--ds-label-col, minmax(52px, 0.34fr)) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0;
+  min-width: 0;
+  min-height: var(--ds-row-h, 28px);
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--ds-hairline, color-mix(in srgb, var(--accent) 14%, transparent));
+  color: var(--muted);
+  font-size: 0.62rem;
+}
+
+.title-stepper > input[type="hidden"],
+.hue-title-stepper > input[type="hidden"] {
+  display: none;
+}
+
+.title-stepper > .metadata-stepper-control,
+.hue-title-stepper > .metadata-stepper-control {
+  min-width: 0;
+}
+
+.title-stepper.is-disabled,
+.hue-title-stepper.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.title-stepper-title {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: var(--ds-row-h, 28px);
+  margin: 0;
+  padding: 0 6px;
+  border-right: 1px solid var(--ds-split, color-mix(in srgb, var(--accent) 18%, transparent));
+  color: var(--muted);
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Defeat global button chrome for hue-title cells */
+.hue-title-stepper-title {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  box-sizing: border-box;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  height: var(--ds-row-h, 28px) !important;
+  min-height: var(--ds-row-h, 28px) !important;
+  max-height: var(--ds-row-h, 28px) !important;
+  margin: 0 !important;
+  padding: 0 6px !important;
+  border: 0 !important;
+  border-right: 1px solid var(--ds-split, color-mix(in srgb, var(--accent) 18%, transparent)) !important;
+  border-radius: 0 !important;
+  background: var(--hts-hue, #ff0000) !important;
+  background-image: none !important;
+  color: var(--hts-ink, #fff) !important;
+  box-shadow: none !important;
+  cursor: ew-resize;
+  font: inherit;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-align: center;
+  touch-action: none;
+  user-select: none;
+}
+
+.hue-title-stepper-title:hover,
+.hue-title-stepper-title:focus,
+.hue-title-stepper-title:active {
+  border-color: var(--ds-split, color-mix(in srgb, var(--accent) 18%, transparent)) !important;
+  background: var(--hts-hue, #ff0000) !important;
+  color: var(--hts-ink, #fff) !important;
+  filter: none;
+}
+
+.hue-title-stepper-title:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.hue-title-stepper-label {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  color: inherit;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.title-stepper input[data-sge-pos][readonly],
+.title-stepper input[data-unit-stepper-drag][readonly] {
+  cursor: var(--node-dot-cursor, ew-resize);
+  user-select: none;
+  caret-color: transparent;
+}
+
+/*
+ * Display Settings · full-width SoundColorWidget host.
+ * No side "Color |" column; plane/hue paint themselves (hue via --scw-hue-spectrum).
+ */
+.node-trace-display-settings-popover .node-trace-display-color-widget-row,
+.node-trace-display-settings-popover .node-trace-display-color-widget-row.no-side-label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0;
+  min-height: var(--ds-color-host-h);
+  padding: 0;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-row > span:first-child,
+.node-trace-display-settings-popover .node-trace-display-color-widget-row > input[type="hidden"] {
+  display: none;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-host {
+  --color-widget-accent: color-mix(in srgb, var(--accent) 86%, transparent);
+  --color-widget-bg: rgba(0, 5, 7, 0.42);
+  --color-widget-border: color-mix(in srgb, var(--accent) 20%, transparent);
+  --color-widget-control-border: color-mix(in srgb, var(--accent) 22%, transparent);
+  --color-widget-hex-bg: rgba(0, 5, 7, 0.68);
+  --color-widget-hex-ink: rgba(236, 251, 246, 0.9);
+  --color-widget-label-ink: rgba(156, 164, 166, 0.78);
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: var(--ds-color-host-h);
+  min-height: var(--ds-color-host-h);
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-host.scw-mount {
+  display: grid;
+  height: var(--ds-color-host-h);
+  min-height: var(--ds-color-host-h);
+  place-items: stretch;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-root {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  box-sizing: border-box;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1px solid var(--color-widget-control-border) !important;
+  border-radius: 4px !important;
+  color: transparent !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control.scw-hue {
+  background-color: transparent !important;
+  background-image: var(--scw-hue-spectrum) !important;
+  background-size: 100% 100% !important;
+  cursor: ew-resize;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control:hover {
+  border-color: var(--color-widget-accent) !important;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-plane {
+  min-height: 56px;
+  cursor: crosshair;
+  background: transparent !important;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-hue {
+  min-height: 18px;
+  cursor: ew-resize;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-label {
+  min-height: 22px;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-label-glyph {
+  color: inherit;
+}
+
+/* Number Readout · Ghost Gradient flush under Background */
+.node-trace-display-settings-popover .node-trace-display-trace-section .node-trace-display-gradient-title {
+  margin: 0;
+  border-top: 1px solid var(--ds-hairline);
+}
+
+.node-trace-display-settings-popover .node-trace-display-trace-section .node-gradient-selector-host {
+  margin: 0;
+  padding: 0;
+}
+
+/* Section / target headers */
+.node-trace-display-settings-popover .metadata-section-title {
+  display: grid;
+  grid-column: 1 / -1;
+  align-self: start;
+  box-sizing: border-box;
+  height: var(--ds-row-h);
+  max-height: var(--ds-row-h);
+  min-width: 0;
+  min-height: var(--ds-row-h);
+  place-items: center;
+  overflow: hidden;
+  padding: 0;
+  font-size: 0.78rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.node-trace-display-settings-target {
+  display: grid;
+  grid-column: 1 / -1;
+  place-items: center;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: var(--ds-row-h);
+  overflow: hidden;
+  padding: 0;
+  border-block-end: var(--node-hairline, 1px) solid color-mix(in srgb, var(--accent) 25%, transparent);
+  color: color-mix(in srgb, var(--accent-2) 90%, transparent);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+/* Dot title = text only; Secondary still has enable checkbox. */
+.node-trace-display-settings-popover .node-trace-display-dot1-title {
+  grid-template-columns: minmax(0, 1fr);
+  place-items: center stretch;
+}
+
+.node-trace-display-settings-popover .node-trace-display-secondary-title {
+  grid-template-columns: minmax(0, 1fr) var(--ds-row-h);
+  place-items: center stretch;
+}
+
+.node-trace-display-settings-popover .node-trace-display-dot1-title > span,
+.node-trace-display-settings-popover .node-trace-display-secondary-title > span {
+  justify-self: center;
+}
+
+.node-trace-display-settings-popover .node-trace-display-secondary-title > input {
+  justify-self: center;
+  margin: 0;
+}
+
+/* Zero-D dot face: no residual / packing section. */
+.node-trace-display-settings-popover[data-display-settings-type="dot"] .node-trace-display-trace-title,
+.node-trace-display-settings-popover[data-display-settings-type="dot"] .node-trace-display-trace-section,
+.node-trace-display-settings-popover[data-display-settings-type="dot"] .node-trace-display-trace-thickness-row,
+.node-trace-display-settings-popover[data-display-settings-type="dot"] .node-trace-display-dot2-thickness-row {
+  display: none;
+}
+
+/*
+ * App-wide latch button (Full Dot Economy | Dots only | Clear | …)
+ * Full cell, fit-to-box label (JS), on=highlight / off=dim / action=momentary.
+ */
+.app-latch-button-row,
+.node-trace-display-settings-popover .node-trace-display-packing-toggles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 0.35rem;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: var(--ds-latch-h, 30px);
+}
+
+.app-latch-button {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: var(--ds-latch-h, 30px);
+  margin: 0;
+  padding: 2px 5px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: rgba(5, 9, 11, 0.55);
+  color: color-mix(in srgb, var(--text) 48%, transparent);
+  font-family: Consolas, "Courier New", monospace;
+  font-weight: 600;
+  font-size: 0.72rem; /* floor; AppLatchButton.fitLabel sets size */
+  line-height: 1;
+  cursor: pointer;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background 80ms ease, color 80ms ease, box-shadow 80ms ease, opacity 80ms ease;
+}
+
+.app-latch-button:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+}
+
+.app-latch-button.is-off,
+.app-latch-button[aria-pressed="false"] {
+  opacity: 0.72;
+  background: rgba(5, 9, 11, 0.48);
+  color: color-mix(in srgb, var(--text) 42%, transparent);
+  box-shadow: none;
+}
+
+.app-latch-button.is-on,
+.app-latch-button[aria-pressed="true"] {
+  opacity: 1;
+  background: color-mix(in srgb, var(--accent) 32%, rgba(5, 9, 11, 0.62));
+  color: #fff;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 72%, transparent);
+}
+
+.app-latch-button[data-latch-mode="action"] {
+  opacity: 0.85;
+  color: color-mix(in srgb, var(--text) 78%, transparent);
+  background: rgba(8, 14, 18, 0.72);
+}
+
+.app-latch-button[data-latch-mode="action"]:hover {
+  opacity: 1;
+  color: #fff;
+  background: color-mix(in srgb, var(--accent) 18%, rgba(8, 14, 18, 0.85));
+}
+
+.app-latch-button[data-latch-mode="action"]:active {
+  color: #fff;
+  background: color-mix(in srgb, var(--accent) 36%, rgba(5, 9, 11, 0.7));
+}
+
+.app-latch-button-label {
+  display: block;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+  line-height: 1;
+  pointer-events: none;
+  text-align: center;
 }
 
 .node-parameter-metadata-popover :is(input, textarea, select),

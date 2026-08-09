@@ -645,6 +645,9 @@ function bindNodeGraphPhosphorWaveformNumberField(inputId, options = {}) {
       // Discrete travel accumulator (screen px along app diagonal policy).
       accum: 0,
       lastCombined: 0,
+      baseStep,
+      basePixelsPerStep: pixelsPerStep,
+      fineScale: mult,
       // Value jump per discrete tick (0.5 px fields, etc.).
       valueStep: baseStep * mult,
       pixelsPerStep: pixelsPerStep / Math.max(0.25, Math.min(4, mult)),
@@ -657,6 +660,22 @@ function bindNodeGraphPhosphorWaveformNumberField(inputId, options = {}) {
 
   input.addEventListener("pointermove", (event) => {
     if (!drag || (drag.pointerId !== null && event.pointerId !== undefined && drag.pointerId !== event.pointerId)) {
+      return;
+    }
+    // Re-anchor when Shift/Ctrl fine scale changes mid-drag (no jump).
+    const mult = typeof nodeGraphNumericDragMultiplier === "function"
+      ? nodeGraphNumericDragMultiplier(event)
+      : 1;
+    if (mult !== drag.fineScale) {
+      drag.startValue = Number(input.value) || drag.startValue;
+      drag.startX = event.clientX;
+      drag.startY = event.clientY;
+      drag.accum = 0;
+      drag.lastCombined = 0;
+      drag.fineScale = mult;
+      drag.valueStep = drag.baseStep * mult;
+      drag.pixelsPerStep = drag.basePixelsPerStep / Math.max(0.25, Math.min(4, mult));
+      event.preventDefault();
       return;
     }
     const axes = typeof nodeGraphPointerDragScreenDelta === "function"

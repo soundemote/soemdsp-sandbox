@@ -4,7 +4,7 @@
 // soemdsp-native-kind: oscillator
 //
 // RS-MET-style fractal pattern synthesis: L-system rewrite + turtle polyline,
-// walked at audio rate into X/Y (Out = Y). Port of public/modules/snowflake/snowflake-math.js.
+// walked at audio rate into X/Y. Port of public/modules/snowflake/snowflake-math.js.
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -22,14 +22,13 @@ static const char kMetadataJson[] =
     "\"label\":\"Snowflake\","
     "\"targetType\":\"snowflake\","
     "\"kind\":\"oscillator\","
-    "\"outputs\":[\"Out\",\"X\",\"Y\"],"
+    "\"outputs\":[\"X\",\"Y\"],"
     "\"parameters\":["
       "{\"key\":\"pattern\",\"label\":\"Pattern\",\"defaultValue\":1,\"min\":0,\"max\":6,\"step\":1},"
       "{\"key\":\"frequency\",\"label\":\"Frequency\",\"kind\":\"frequency\",\"defaultValue\":55,\"min\":0,\"mid\":110,\"max\":20000,\"step\":\"any\",\"unit\":\"Hz\"},"
       "{\"key\":\"iterations\",\"label\":\"Iterations\",\"defaultValue\":3,\"min\":0,\"max\":7,\"step\":1},"
       "{\"key\":\"angle\",\"label\":\"Angle\",\"defaultValue\":60,\"min\":1,\"max\":180,\"step\":\"any\"},"
-      "{\"key\":\"size\",\"label\":\"Size\",\"defaultValue\":1,\"min\":0,\"mid\":0.5,\"max\":2,\"step\":\"any\"},"
-      "{\"key\":\"reverse\",\"label\":\"Reverse\",\"defaultValue\":0,\"min\":0,\"max\":1,\"step\":1},"
+      "{\"key\":\"direction\",\"label\":\"Direction\",\"defaultValue\":1,\"min\":-1,\"mid\":0,\"max\":1,\"step\":\"any\"},"
       "{\"key\":\"spin\",\"label\":\"Spin\",\"kind\":\"frequency\",\"defaultValue\":0,\"min\":-20,\"mid\":0,\"max\":20,\"step\":\"any\",\"unit\":\"Hz\"},"
       "{\"key\":\"level\",\"label\":\"Level\",\"defaultValue\":1,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\"}"
     "]"
@@ -293,6 +292,15 @@ static void pointAt(SnowflakeState& s, double u01, double& ox, double& oy) {
   oy = a.y + (b.y - a.y) * t;
 }
 
+// Jerobeam trisaw: warp 0 ≈ reverse saw, 0.5 = triangle, 1 ≈ forward saw.
+static double snowflake_trisaw(double phase, double warp) {
+  const double wrapped = wrap01(phase);
+  const double safeWarp = clamp(warp, 0.001, 0.999);
+  return wrapped < safeWarp
+    ? wrapped / safeWarp
+    : (1.0 - wrapped) / (1.0 - safeWarp);
+}
+
 }  // namespace
 
 extern "C" int soemdsp_snowflake_create() {
@@ -324,14 +332,18 @@ extern "C" void soemdsp_snowflake_destroy(int handle) {
   gPool[handle - 1].hasPath = false;
 }
 
+// ABI (kept arity for existing call sites):
+//   sizeArg      ignored (Amplitude scales; legacy Size removed)
+//   directionArg −1…1 path morph via trisaw (v2+). Legacy callers may still
+//                pass 0/1 bool reverse; values outside [−1,1] are clamped.
 extern "C" void soemdsp_snowflake_sample(
   int handle,
   double frequencyHz,
   double pattern,
   double iterations,
   double angleDeg,
-  double size,
-  double reverse,
+  double /*sizeArg*/,
+  double directionArg,
   double spin,
   double level,
   double reset,
@@ -357,17 +369,13 @@ extern "C" void soemdsp_snowflake_sample(
   const double phase = wrap01(s.phase);
   s.phase = wrap01(s.phase + maxd(0.0, frequencyHz) / rate);
 
-  double u = phase;
-  if (reverse > 0.5) {
-    const double two = wrap01(phase * 0.5) * 2.0;
-    u = two <= 1.0 ? two : 2.0 - two;
-  }
+  // Direction −1 reverse … 0 bi … +1 forward → trisaw warp 0…1.
+  const double direction = clamp(safe(directionArg), -1.0, 1.0);
+  const double warp = (direction + 1.0) * 0.5;
+  const double u = snowflake_trisaw(phase, warp);
 
   double x = 0.0, y = 0.0;
   pointAt(s, u, x, y);
-  const double sz = maxd(0.0, size);
-  x *= sz;
-  y *= sz;
 
   const double spinHz = safe(spin);
   if (spinHz != 0.0) {
@@ -385,7 +393,7 @@ extern "C" void soemdsp_snowflake_sample(
   const double amp = safe(level);
   s.outX = x * amp;
   s.outY = y * amp;
-  s.out = s.outY;
+  s.out = s.outY; // legacy field; port removed — X/Y only
 }
 
 extern "C" double soemdsp_snowflake_x(int handle) {
@@ -403,8 +411,9 @@ extern "C" double soemdsp_snowflake_out(int handle) {
   return gPool[handle - 1].out;
 }
 
+// v2: direction trisaw (size ignored); same export arity as v1.
 extern "C" int soemdsp_snowflake_version() {
-  return 1;
+  return 2;
 }
 
 extern "C" const char* soemdsp_snowflake_metadata_json() {

@@ -672,16 +672,23 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
     return false;
   }
 
-  // Ghost/Trail UI → burn/decay for the site packing path (same math as soundemote.io).
-  // Trail high → long residual → low decay. Ghost high → stronger deposit (burn).
+  // Residual model (phosphor-residual.js / Display Settings):
+  //   Bright → peak deposit + present light
+  //   Trail  → hot residual length (1 ≈ freeze, no erase)
+  //   Ghost  → dim scorched floor hang (NOT deposit ink)
   const trail = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
     ? PhosphorResidual.migrateTrail(settings || {}, 0.88)
     : clampNodeSliderValue(Number(settings?.trail ?? (Number.isFinite(Number(settings?.decay)) ? 1 - Number(settings.decay) : 0.88)), 0, 1);
   const ghost = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateGhost
     ? PhosphorResidual.migrateGhost(settings || {}, 0.45)
     : clampNodeSliderValue(Number(settings?.ghost ?? settings?.burn) || 0, 0, 1);
-  const burn = ghost;
+  // Trail high → low decay (erase). Ghost must not be remapped into deposit.
   const decay = clampNodeSliderValue(1 - trail, 0, 1);
+  const bright = clampNodeSliderValue(
+    Number(settings?.dot1Brightness ?? settings?.brightness) || 0,
+    0,
+    1,
+  );
   const dotSpace = nodeGraphScope2dStrokeSpace(canvas);
   const layers = nodeGraphScope2dBurnLayers(settings, dotSpace);
   const layer = layers[0] || null;
@@ -697,30 +704,39 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
   } else if (layer) {
     // Soft circular hits only (dots). Pack so soft discs fuse under budget;
     // Full Dot Economy densifies further toward Dot Budget.
+    // Deposit = Bright only (Ghost is residual hang, not stamp gain).
     const size01 = clampNodeSliderValue(settings?.dot1Size, 0, 1);
+    const stampBlur = nodeGraphTraceDisplayClampStampBlur(layer.blur);
     const beamBrightness = nodeGraphScope2dEnergyBurnDepositGain(
-      burn,
-      layer.brightness,
+      layer.brightness > 0 ? layer.brightness : bright,
       size01,
     );
-    const fullEcoRaw = settings?.fullDotEconomy ?? settings?.useFullDotEconomy;
-    const fullDotEconomy = fullEcoRaw === true
-      || fullEcoRaw === 1
-      || fullEcoRaw === "1"
-      || fullEcoRaw === "true"
-      || fullEcoRaw === "on";
-    const dotsOnlyRaw = settings?.dotsOnly ?? settings?.verticesOnly;
-    const dotsOnly = dotsOnlyRaw === true
-      || dotsOnlyRaw === 1
-      || dotsOnlyRaw === "1"
-      || dotsOnlyRaw === "true"
-      || dotsOnlyRaw === "on";
+    // Packing flags from shared scope2d normalize (Snowflake / Lorenz / …).
+    const fullDotEconomy = typeof nodeGraphDisplaySettingsToggleIsOn === "function"
+      ? nodeGraphDisplaySettingsToggleIsOn(settings?.fullDotEconomy ?? settings?.useFullDotEconomy)
+      : (settings?.fullDotEconomy === true || settings?.useFullDotEconomy === true);
+    const dotsOnly = typeof nodeGraphDisplaySettingsToggleIsOn === "function"
+      ? nodeGraphDisplaySettingsToggleIsOn(settings?.dotsOnly ?? settings?.verticesOnly)
+      : (settings?.dotsOnly === true || settings?.verticesOnly === true);
+    // Hard stamps (Blur 0) must freeze crisp — never force thrifty seepage.
+    // Soft stamps may use gentle bleed (energy-gl default from blur when undefined).
+    let bleed;
+    if (stampBlur <= 0.001) {
+      bleed = 0;
+    } else if (fullDotEconomy && !dotsOnly) {
+      bleed = undefined; // soft default from blur
+    } else {
+      // Thrifty soft: tiny seep so gaps stay dots, not dim threads.
+      bleed = Math.min(0.035, 0.01 + stampBlur * 0.05);
+    }
     nodeGraphPhosphorEnergyGlStepBeams(energyGl, {
       decay,
+      trail,
+      ghost,
       pathPoints: points,
       radius: Math.max(0.35, layer.radius),
       brightness: beamBrightness,
-      blur: nodeGraphTraceDisplayClampStampBlur(layer.blur),
+      blur: stampBlur,
       mode: "dots",
       // User / face ceiling. Under load: even skips across full path (not head-only).
       maxDots: Math.max(
@@ -735,12 +751,17 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       // Sample hits only — no chord packing (no connective lines).
       dotsOnly,
       verticesOnly: dotsOnly,
-      // Less seepage when thrifty / dots-only so gaps don't grow dim threads.
-      bleed: (fullDotEconomy && !dotsOnly) ? undefined : 0.03,
+      bleed,
     });
   } else if (typeof nodeGraphPhosphorEnergyGlStep === "function") {
     // Fade + bleed when no drawable layer (trail still softens outward).
-    nodeGraphPhosphorEnergyGlStep(energyGl, { decay, depositGain: 0, bleed: 0.1 });
+    nodeGraphPhosphorEnergyGlStep(energyGl, {
+      decay,
+      trail,
+      ghost,
+      depositGain: 0,
+      bleed: ghost > 0.001 ? 0.06 : 0,
+    });
   }
 
   if (!frozen) {
@@ -750,9 +771,9 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
     }
   }
 
-  // Soft film exposure — stable base so low burn stays dim, not blank.
+  // Present film from Bright (peak light). Ghost does not open exposure.
   // Re-present while frozen so the face stays visible if something cleared the 2D canvas.
-  const exposure = nodeGraphScope2dEnergyBurnExposure(burn);
+  const exposure = nodeGraphScope2dEnergyBurnExposure(bright);
   context.setTransform(1, 0, 0, 1, 0, 0);
   nodeGraphFacePlateFillCanvas(context, canvas, bgHex);
   if (nodeGraphPhosphorEnergyGlPresent(energyGl, 1, { exposure })) {

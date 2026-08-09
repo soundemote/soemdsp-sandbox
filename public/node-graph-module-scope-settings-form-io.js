@@ -113,6 +113,49 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
   }
   applyNodeGraphTraceDisplaySettingsTooltips(popover);
   syncNodeGraphTraceDisplayColorWidgets(popover);
+  bindNodeGraphHueTitleSteppers(host);
+  syncNodeGraphHueTitleSteppers(host);
+  // Packing latches (Full Dot Economy | Dots only | Clear): fit labels to cells.
+  if (typeof AppLatchButton !== "undefined") {
+    AppLatchButton.observeAll(host);
+    AppLatchButton.scheduleFit(host);
+  }
+}
+
+/** Read a Display Settings toggle (checkbox or app latch button). */
+function nodeGraphDisplaySettingsReadToggleElement(el) {
+  if (!el) {
+    return undefined;
+  }
+  if (el.matches?.("input[type='checkbox']") || el.tagName === "INPUT") {
+    return Boolean(el.checked);
+  }
+  if (typeof AppLatchButton !== "undefined" && AppLatchButton.isLatchButton(el)) {
+    return AppLatchButton.isOn(el);
+  }
+  return el.getAttribute("aria-pressed") === "true" || el.dataset?.latchOn === "1";
+}
+
+/** Write a Display Settings toggle (checkbox or app latch button). */
+function nodeGraphDisplaySettingsWriteToggleElement(el, on) {
+  if (!el) {
+    return;
+  }
+  if (el.matches?.("input[type='checkbox']") || el.tagName === "INPUT") {
+    el.checked = Boolean(on);
+    return;
+  }
+  if (typeof AppLatchButton !== "undefined" && AppLatchButton.isLatchButton(el)) {
+    AppLatchButton.setOn(el, on);
+    AppLatchButton.fitLabel(el);
+    return;
+  }
+  el.setAttribute("aria-pressed", on ? "true" : "false");
+  if (el.dataset) {
+    el.dataset.latchOn = on ? "1" : "0";
+  }
+  el.classList?.toggle?.("is-on", Boolean(on));
+  el.classList?.toggle?.("is-off", !on);
 }
 
 function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDisplaySettingsFormType()) {
@@ -520,7 +563,7 @@ function readNodeGraphTraceDisplaySettingsForm() {
   for (const key of activeToggles) {
     const input = root?.querySelector?.(`[data-trace-display-toggle="${key}"]`);
     if (input) {
-      next[key] = input.checked;
+      next[key] = nodeGraphDisplaySettingsReadToggleElement(input);
     }
   }
   for (const key of activeChoices) {
@@ -668,8 +711,12 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
   for (const key of activeToggles) {
     const input = root?.querySelector?.(`[data-trace-display-toggle="${key}"]`);
     if (input) {
-      input.checked = Boolean(normalized[key]);
+      nodeGraphDisplaySettingsWriteToggleElement(input, Boolean(normalized[key]));
     }
+  }
+  // Refit packing latch labels after values land.
+  if (typeof AppLatchButton !== "undefined" && root) {
+    AppLatchButton.scheduleFit(root);
   }
   for (const key of activeChoices) {
     const input = root?.querySelector?.(`[data-trace-display-choice="${key}"]`);
@@ -690,9 +737,146 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
   syncNodeGraphTraceDisplayColorWidgets(
     document.getElementById("nodeTraceDisplaySettingsPopover"),
   );
+  syncNodeGraphHueTitleSteppers(root);
   if (formType === "knobFace" && typeof syncNodeGraphKnobFaceDisplaySettingsControls === "function") {
     syncNodeGraphKnobFaceDisplaySettingsControls(root);
   }
+}
+
+/** Smart title ink for pure-hue title cells (Rec. 709 luminance). */
+function nodeGraphHueTitleInkForHex(hex) {
+  const s = String(hex || "#ffffff").replace("#", "");
+  if (s.length < 6) {
+    return "#ffffff";
+  }
+  const r = parseInt(s.slice(0, 2), 16) / 255;
+  const g = parseInt(s.slice(2, 4), 16) / 255;
+  const b = parseInt(s.slice(4, 6), 16) / 255;
+  if (![r, g, b].every(Number.isFinite)) {
+    return "#ffffff";
+  }
+  const y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return y > 0.55 ? "#000000" : "#ffffff";
+}
+
+function nodeGraphHueTitleStepperApplySwatch(root, pureHex) {
+  if (!root) {
+    return;
+  }
+  const hex = typeof nodeGraphTraceDisplayPureHueHex === "function"
+    ? nodeGraphTraceDisplayPureHueHex(pureHex, "#ff0000")
+    : pureHex;
+  const ink = nodeGraphHueTitleInkForHex(hex);
+  const swatch = root.querySelector?.("[data-hue-title-swatch]");
+  if (swatch) {
+    // Set properties AND inline paint so global `button { background }` cannot win.
+    swatch.style.setProperty("--hts-hue", hex);
+    swatch.style.setProperty("--hts-ink", ink);
+    swatch.style.backgroundColor = hex;
+    swatch.style.color = ink;
+    swatch.style.backgroundImage = "none";
+  }
+}
+
+function syncNodeGraphHueTitleSteppers(host = nodeGraphTraceDisplaySettingsRoot()) {
+  if (!host) {
+    return;
+  }
+  for (const row of host.querySelectorAll("[data-hue-title-stepper]")) {
+    const colorField = row.getAttribute("data-hue-title-color-field") || "dot1Color";
+    const colorInput = row.querySelector(`[data-trace-display-color="${colorField}"]`)
+      || host.querySelector(`[data-trace-display-color="${colorField}"]`);
+    const raw = colorInput?.value || "#ff0000";
+    const pure = typeof nodeGraphTraceDisplayPureHueHex === "function"
+      ? nodeGraphTraceDisplayPureHueHex(raw, "#ff0000")
+      : raw;
+    if (colorInput && pure && colorInput.value !== pure) {
+      // Keep stored color as pure hue for NR LED path.
+      colorInput.value = pure;
+    }
+    nodeGraphHueTitleStepperApplySwatch(row, pure);
+  }
+}
+
+function bindNodeGraphHueTitleSteppers(host) {
+  if (!host || host.dataset.hueTitleSteppersBound === "true") {
+    return;
+  }
+  host.dataset.hueTitleSteppersBound = "true";
+  let drag = null;
+
+  const endDrag = (event) => {
+    if (!drag) {
+      return;
+    }
+    if (drag.pointerId !== null && event?.pointerId !== undefined
+      && drag.pointerId !== event.pointerId) {
+      return;
+    }
+    if (event?.pointerId !== undefined && drag.swatch?.hasPointerCapture?.(event.pointerId)) {
+      drag.swatch.releasePointerCapture(event.pointerId);
+    }
+    if (typeof applyNodeGraphTraceDisplaySettingsForm === "function") {
+      applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true });
+    }
+    drag = null;
+  };
+
+  host.addEventListener("pointerdown", (event) => {
+    const swatch = event.target?.closest?.("[data-hue-title-swatch]");
+    if (!swatch || !host.contains(swatch) || event.button > 0) {
+      return;
+    }
+    const row = swatch.closest("[data-hue-title-stepper]");
+    if (!row) {
+      return;
+    }
+    const colorField = row.getAttribute("data-hue-title-color-field") || "dot1Color";
+    const colorInput = row.querySelector(`[data-trace-display-color="${colorField}"]`);
+    if (!colorInput) {
+      return;
+    }
+    const hsl = typeof nodeGraphTraceDisplayHexToHsl === "function"
+      ? nodeGraphTraceDisplayHexToHsl(colorInput.value)
+      : { h: 0 };
+    drag = {
+      pointerId: event.pointerId ?? null,
+      swatch,
+      row,
+      colorInput,
+      startX: event.clientX,
+      startHue: Number(hsl.h) || 0,
+    };
+    swatch.setPointerCapture?.(event.pointerId);
+    event.preventDefault();
+    event.stopPropagation();
+  });
+
+  host.addEventListener("pointermove", (event) => {
+    if (!drag
+      || (drag.pointerId !== null && event.pointerId !== undefined
+        && drag.pointerId !== event.pointerId)) {
+      return;
+    }
+    // ~1.2° per screen px; Shift = fine.
+    const fine = event.shiftKey ? 0.15 : 1;
+    const delta = (event.clientX - drag.startX) * 1.2 * fine;
+    const nextH = ((drag.startHue + delta) % 360 + 360) % 360;
+    const pure = typeof nodeGraphTraceDisplayPureHueHex === "function"
+      ? nodeGraphTraceDisplayPureHueHex({ h: nextH }, "#ff0000")
+      : `hsl(${nextH} 100% 50%)`;
+    drag.colorInput.value = pure;
+    nodeGraphHueTitleStepperApplySwatch(drag.row, pure);
+    // Live-paint LED only — do NOT rewrite the whole form / re-sync Background
+    // color widgets (that was coupling LED hue with the plane widget).
+    if (typeof applyNodeGraphTraceDisplaySettingsForm === "function") {
+      applyNodeGraphTraceDisplaySettingsForm({ persist: "none", record: false });
+    }
+    event.preventDefault();
+  });
+
+  host.addEventListener("pointerup", endDrag);
+  host.addEventListener("pointercancel", endDrag);
 }
 
 /**
@@ -735,13 +919,13 @@ function nodeGraphTraceDisplayColorWidgetModuleUrl() {
   }
   const script = document.querySelector('script[src*="node-graph-module-scopes.js"]');
   if (script?.src) {
-    return new URL("color-widget.js?v=hue-marker-1", script.src).href;
+    return new URL("color-widget.js?v=hue-spectrum-ssot-1", script.src).href;
   }
   // Fallbacks: site root /public/, then document-relative public/
   try {
-    return new URL("/public/color-widget.js?v=hue-marker-1", window.location.origin).href;
+    return new URL("/public/color-widget.js?v=hue-spectrum-ssot-1", window.location.origin).href;
   } catch {
-    return new URL("public/color-widget.js?v=hue-marker-1", window.location.href).href;
+    return new URL("public/color-widget.js?v=hue-spectrum-ssot-1", window.location.href).href;
   }
 }
 
@@ -876,13 +1060,13 @@ function destroyNodeGraphTraceDisplayColorWidgets() {
 }
 
 function nodeGraphTraceDisplayColorWidgetLabel(field) {
-  // Only non-generic titles (Plate / Ghost / Left / Right). Never "Color".
+  // Only non-generic titles (Background / Ghost / Left / Right). Never "Color".
   if (field === "secondaryColor") {
     return "Right";
   }
   if (field === "backgroundColor") {
     if (nodeGraphTraceDisplaySettingsFormType() === "numberReadout") {
-      return "Plate";
+      return "Background";
     }
     if (nodeGraphTraceDisplaySettingsFormType() === "rgbFractalFace") {
       return "Bg";
@@ -893,8 +1077,9 @@ function nodeGraphTraceDisplayColorWidgetLabel(field) {
     return "Ghost ink";
   }
   if (field === "dot1Color") {
+    // Number Readout: no label / no title strip (hue bar only).
     if (nodeGraphTraceDisplaySettingsFormType() === "numberReadout") {
-      return "Light";
+      return "";
     }
     const nodeType = nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type;
     const isStereo = typeof nodeGraphModuleUsesStereoTraceDisplay === "function"
@@ -903,6 +1088,35 @@ function nodeGraphTraceDisplayColorWidgetLabel(field) {
     return isStereo ? "Left" : "";
   }
   return "";
+}
+
+/** Pure hue hex at s=100 l=50 (Number Readout Light stores hue only). */
+function nodeGraphTraceDisplayPureHueHex(hslOrHex, fallback = "#fcfdbf") {
+  let h = 50;
+  if (hslOrHex && typeof hslOrHex === "object" && Number.isFinite(Number(hslOrHex.h))) {
+    h = ((Number(hslOrHex.h) % 360) + 360) % 360;
+  } else {
+    const parsed = nodeGraphTraceDisplayHexToHsl(String(hslOrHex || fallback));
+    h = Number(parsed.h) || 0;
+  }
+  // HSL → RGB (s=1, l=0.5) → #rrggbb
+  const s = 1;
+  const l = 0.5;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const hp = h / 60;
+  const x = c * (1 - Math.abs((hp % 2) - 1));
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  if (hp >= 0 && hp < 1) [r, g, b] = [c, x, 0];
+  else if (hp < 2) [r, g, b] = [x, c, 0];
+  else if (hp < 3) [r, g, b] = [0, c, x];
+  else if (hp < 4) [r, g, b] = [0, x, c];
+  else if (hp < 5) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+  const m = l - c / 2;
+  const toHex = (v) => Math.round((v + m) * 255).toString(16).padStart(2, "0");
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
 function syncNodeGraphTraceDisplayColorWidgets(popover = document.getElementById("nodeTraceDisplaySettingsPopover")) {
@@ -962,18 +1176,48 @@ function syncNodeGraphTraceDisplayColorWidgets(popover = document.getElementById
       const hex = nodeGraphTraceDisplayNormalizeHexColor(input.value, "#ffffff");
       const hsl = nodeGraphTraceDisplayHexToHsl(hex);
       const label = nodeGraphTraceDisplayColorWidgetLabel(field);
+      // Number Readout Light: hue bar only (Bright does grey→hue→white).
+      const hueOnly = liveType === "numberReadout" && field === "dot1Color";
+      const mountHsl = hueOnly
+        ? { h: hsl.h, s: 100, l: 50, a: 1 }
+        : hsl;
       let widget = nodeGraphTraceDisplayColorWidgetState.widgets.get(field);
+      // Remount if channel mode must change (full ↔ hue).
+      if (widget && hueOnly && widget.channels !== "hue") {
+        try {
+          widget.destroy?.();
+        } catch {
+          // ignore
+        }
+        nodeGraphTraceDisplayColorWidgetState.widgets.delete(field);
+        host.replaceChildren();
+        widget = null;
+      }
+      if (widget && !hueOnly && widget.channels === "hue") {
+        try {
+          widget.destroy?.();
+        } catch {
+          // ignore
+        }
+        nodeGraphTraceDisplayColorWidgetState.widgets.delete(field);
+        host.replaceChildren();
+        widget = null;
+      }
       if (!widget) {
         try {
           host.replaceChildren();
           widget = mount(host, {
-            label,
-            ...hsl,
+            // Hue-only never shows a title (giant scaled "Hue" was a waste strip).
+            label: hueOnly ? "" : label,
+            ...mountHsl,
+            channels: hueOnly ? "hue" : "full",
             onChange: (color) => {
               if (nodeGraphTraceDisplayColorWidgetState.syncing) {
                 return;
               }
-              const nextHex = nodeGraphTraceDisplayNormalizeHexColor(color?.hex, hex);
+              const nextHex = hueOnly
+                ? nodeGraphTraceDisplayPureHueHex(color, hex)
+                : nodeGraphTraceDisplayNormalizeHexColor(color?.hex, hex);
               const colorInput = nodeGraphTraceDisplaySettingsRoot()?.querySelector?.(
                 `[data-trace-display-color="${field}"]`,
               );
@@ -1001,10 +1245,24 @@ function syncNodeGraphTraceDisplayColorWidgets(popover = document.getElementById
           );
         }
       } else {
+        // Only push color into this field's widget when the value actually changed.
+        // Avoids re-painting Background plane while the user drags LED hue.
+        const liveHex = nodeGraphTraceDisplayNormalizeHexColor(
+          widget.getColor?.()?.hex || "",
+          "",
+        );
+        const nextHex = nodeGraphTraceDisplayNormalizeHexColor(hex, "");
+        if (liveHex && nextHex && liveHex === nextHex) {
+          if (widget.label !== (hueOnly ? "" : label)) {
+            widget.label = hueOnly ? "" : label;
+            widget.render?.();
+          }
+          continue;
+        }
         nodeGraphTraceDisplayColorWidgetState.syncing = true;
         try {
-          widget.label = label;
-          widget.setColor(hsl, false);
+          widget.label = hueOnly ? "" : label;
+          widget.setColor(mountHsl, false);
         } finally {
           nodeGraphTraceDisplayColorWidgetState.syncing = false;
         }
