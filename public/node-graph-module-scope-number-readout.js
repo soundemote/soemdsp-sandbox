@@ -27,6 +27,8 @@ function invalidateNodeGraphNumberReadoutPaintCache(canvas) {
   canvas._numberReadoutResidualBornAt = 0;
   canvas._numberReadoutResidualBornEnergy = 0;
   canvas._numberReadoutResidualEnergy = 0;
+  // Multi-entry residual history (fast ramps leave a trail of previous readings).
+  canvas._numberReadoutResiduals = [];
   canvas._nodeGraphNumberReadoutText = null;
   canvas._nodeGraphNumberReadoutSettingsSig = null;
   canvas._nodeGraphNumberReadoutFontReady = null;
@@ -64,14 +66,25 @@ function invalidateNodeGraphNumberReadoutPaintCache(canvas) {
 }
 
 /**
+ * Max previous readings kept as gradient ghosts (AA-safe multi-draw, no burn plate).
+ * Each living entry costs one layout + ~N fillText glyphs per frame while residual
+ * is active — keep this modest (8 is enough trail; 28 was overkill).
+ */
+const nodeGraphNumberReadoutResidualHistoryMax = 8;
+
+/**
  * Trail → residual deposit brightness when the live reading changes (0…1).
  * High Trail = stronger ghost energy deposit.
+ * Bright scales the deposit so dim live digits leave a dimmer ghost (same energy scale).
  */
-function nodeGraphNumberReadoutResidualDepositEnergy(trail, ghost) {
+function nodeGraphNumberReadoutResidualDepositEnergy(trail, ghost, bright = 1) {
   const t = clampNodeSliderValue(Number(trail) || 0, 0, 1);
   const g = clampNodeSliderValue(Number(ghost) || 0, 0, 1);
-  // Trail is the deposit; Ghost adds a little scorch so Ghost-only still leaves a mark.
-  return clampNodeSliderValue(0.08 + t * 0.82 + g * 0.12, 0, 1);
+  const b = clampNodeSliderValue(Number(bright) || 0, 0, 1);
+  // Trail is the deposit shape; Ghost adds a little scorch; Bright is overall scale.
+  // Keep a solid floor at high Trail so small digit steps still leave a readable mark.
+  const base = 0.18 + t * 0.72 + g * 0.1;
+  return clampNodeSliderValue(base * b, 0, 1);
 }
 
 /**
@@ -87,10 +100,50 @@ function nodeGraphNumberReadoutResidualEnergyNow(bornEnergy, ageMs, trail, ghost
   const t = clampNodeSliderValue(Number(trail) || 0, 0, 1);
   const g = clampNodeSliderValue(Number(ghost) || 0, 0, 1);
   // Hang: Ghost is the long scorch; Trail adds hang with the deposit path.
-  const lifeMs = 90 + g * 3400 + t * 1600;
+  const lifeMs = 120 + g * 4200 + t * 2200;
   const age = Math.max(0, Number(ageMs) || 0);
   const life = Math.max(0, Math.min(1, 1 - age / lifeMs));
   return e0 * life;
+}
+
+function nodeGraphNumberReadoutResidualsList(canvas) {
+  if (!canvas) {
+    return [];
+  }
+  if (!Array.isArray(canvas._numberReadoutResiduals)) {
+    canvas._numberReadoutResiduals = [];
+  }
+  return canvas._numberReadoutResiduals;
+}
+
+/**
+ * Push a residual entry for a previous reading (history, not replace).
+ * Fast ramps deposit many values; a single previous-only model hides them under live digits.
+ */
+function nodeGraphNumberReadoutPushResidual(canvas, valueText, deposit, now) {
+  const list = nodeGraphNumberReadoutResidualsList(canvas);
+  const text = String(valueText || "");
+  if (!text || text.includes("!")) {
+    return;
+  }
+  const energy = clampNodeSliderValue(Number(deposit) || 0, 0, 1);
+  if (energy <= 0.01) {
+    return;
+  }
+  // Same text already at the tip: boost energy (don't reset age so it still dies).
+  const tip = list[list.length - 1];
+  if (tip && tip.text === text) {
+    tip.bornEnergy = Math.min(1, Math.max(Number(tip.bornEnergy) || 0, energy));
+    return;
+  }
+  list.push({
+    text,
+    bornEnergy: energy,
+    bornAt: Number(now) || (performance.now?.() || Date.now()),
+  });
+  while (list.length > nodeGraphNumberReadoutResidualHistoryMax) {
+    list.shift();
+  }
 }
 
 /** Solid live-digit light RGB from settings.color (not the residual gradient). */
@@ -540,10 +593,11 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     : (decimals > 0 ? ` !.${"!".repeat(decimals)}` : " !");
   const text = unit ? `${valueText} ${unit}` : valueText;
   // Explicit model:
-  //  1) Value change → deposit residual energy (Trail) on the previous reading.
-  //  2) That energy (decaying with Ghost hang) samples the gradient for ghost color.
+  //  1) Value change → deposit residual energy (Trail × Bright) for the previous reading
+  //     into a HISTORY list (not a single slot — fast ramps need many ghosts).
+  //  2) Each entry’s energy (Ghost hang) samples the gradient for that ghost.
   //  3) Live digits = solid Light color × Bright (no gradient).
-  //  4) One redraw per frame — no burn plate (preserves AA).
+  //  4) One redraw per frame of each living ghost — no burn plate (preserves AA).
   const trail = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
     ? PhosphorResidual.migrateTrail(settings, 0.88, { invertLegacyDecay: false })
     : clampNodeSliderValue(Number(settings.trail ?? settings.decay) || 0, 0, 1);
@@ -564,12 +618,12 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const now = performance.now?.() || Date.now();
   const previousValueText = String(canvas._numberReadoutLastValueText || "");
 
-  // Live light strength (solid color opacity / intensity).
+  // Live light strength (solid color opacity / intensity) — also scales residual deposit.
   const bright = Number.isFinite(Number(settings.brightness))
     ? clampNodeSliderValue(Number(settings.brightness), 0, 1)
     : 1;
 
-  // 1) On change: deposit residual energy from Trail onto the previous reading.
+  // 1) On change: deposit into residual HISTORY (keep trail of previous readings).
   if (
     residualWanted
     && textChanged
@@ -577,33 +631,47 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     && previousValueText !== valueText
     && !previousValueText.includes("!")
   ) {
-    canvas._numberReadoutResidualText = previousValueText;
-    canvas._numberReadoutResidualBornAt = now;
-    canvas._numberReadoutResidualBornEnergy = nodeGraphNumberReadoutResidualDepositEnergy(
-      trail,
-      ghost,
+    nodeGraphNumberReadoutPushResidual(
+      canvas,
+      previousValueText,
+      nodeGraphNumberReadoutResidualDepositEnergy(trail, ghost, bright),
+      now,
     );
     canvas._numberReadoutLastTextChangeAt = now;
   } else if (!residualWanted) {
-    canvas._numberReadoutResidualText = "";
-    canvas._numberReadoutResidualBornAt = 0;
-    canvas._numberReadoutResidualBornEnergy = 0;
+    canvas._numberReadoutResiduals = [];
   }
 
-  const residualText = String(canvas._numberReadoutResidualText || "");
-  const residualAge = now - (Number(canvas._numberReadoutResidualBornAt) || 0);
-  const bornEnergy = Number(canvas._numberReadoutResidualBornEnergy) || 0;
-  // 2) Residual energy decays over Ghost/Trail hang time.
-  const residualEnergy = residualText && residualWanted
-    ? (frozen
-      ? bornEnergy
-      : nodeGraphNumberReadoutResidualEnergyNow(bornEnergy, residualAge, trail, ghost))
-    : 0;
-  if (residualEnergy <= 0.01) {
-    canvas._numberReadoutResidualText = "";
-    canvas._numberReadoutResidualBornEnergy = 0;
+  // 2) Age residuals; drop dead entries. (No pixel burn — energy is scalar only.)
+  const residualList = nodeGraphNumberReadoutResidualsList(canvas);
+  const livingResiduals = [];
+  if (residualWanted) {
+    for (const entry of residualList) {
+      if (!entry?.text) {
+        continue;
+      }
+      const age = now - (Number(entry.bornAt) || now);
+      const energy = frozen
+        ? clampNodeSliderValue(Number(entry.bornEnergy) || 0, 0, 1)
+        : nodeGraphNumberReadoutResidualEnergyNow(
+          entry.bornEnergy,
+          age,
+          trail,
+          ghost,
+        );
+      if (energy > 0.012) {
+        livingResiduals.push({ text: entry.text, energy, bornAt: entry.bornAt, bornEnergy: entry.bornEnergy });
+      }
+    }
   }
-  const residualActive = residualWanted && residualEnergy > 0.01;
+  // Keep only living entries on the canvas list (preserve bornAt/bornEnergy).
+  canvas._numberReadoutResiduals = livingResiduals.map((r) => ({
+    text: r.text,
+    bornEnergy: r.bornEnergy,
+    bornAt: r.bornAt,
+  }));
+
+  const residualActive = livingResiduals.length > 0;
   const needsContinuous = !frozen && residualActive;
   if (!textChanged && !styleChanged && !needsContinuous) {
     return;
@@ -620,19 +688,11 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     : (settings.color || "#fcfdbf");
   // Live = solid light color (not gradient).
   const rgb = nodeGraphNumberReadoutLightRgb(settings);
-  // Ghost = gradient sampled at residual energy (energy = brightness of ghost).
-  const residualRgb = residualActive
-    ? nodeGraphNumberReadoutGhostRgbFromEnergy(residualEnergy, gradientStops, peakHex)
-    : rgb;
-  // Present ghost at full glyph alpha; color already dims via low-energy LUT samples.
-  // Slight overall alpha from energy so very dim energy still soft-exits.
-  const residualAlpha = residualActive
-    ? clampNodeSliderValue(0.35 + residualEnergy * 0.65, 0, 1)
-    : 0;
   const bg = nodeGraphFacePlateBackground(settings);
-  const alpha = bright > 0.001 ? 1 : 0;
+  // Bright = live digit alpha (0…1). Dim Bright → dim light and dimmer deposits.
+  const alpha = bright;
   if (canvas?.parentElement?.dataset) {
-    canvas.parentElement.dataset.lightStrength = "1";
+    canvas.parentElement.dataset.lightStrength = bright.toFixed(3);
   }
   const digitFontFamily = nodeGraphNumberReadoutDsegReady
     ? '"DSEG7 Classic", "Consolas", monospace'
@@ -662,29 +722,38 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   context.fillStyle = bg;
   context.fillRect(left, top, width, height);
 
-  // Ghost under live digits: previous reading, gradient × residual energy.
-  if (residualActive && residualText) {
-    const residualLayout = nodeGraphNumberReadoutComputeLayout(
-      context,
-      residualText,
-      digitFontFamily,
-      width,
-      height,
-      hasUnit,
-    );
-    nodeGraphNumberReadoutDrawDigits(context, {
-      text: residualText,
-      centerX: left + width * 0.5,
-      centerY: top + residualLayout.digitAreaH * 0.5,
-      fontFamily: digitFontFamily,
-      fontSize: residualLayout.fontSize,
-      cellW: residualLayout.cellW,
-      rgb: residualRgb,
-      alpha: residualAlpha,
-      softBlurPx: 0,
-      glow: 0,
-      plate: false,
-    });
+  // Ghosts under live digits: oldest first, each gradient-colored by its energy.
+  // Live digits cover overlapping segments; differing segments stay visible as trail.
+  if (residualActive) {
+    for (const entry of livingResiduals) {
+      const residualRgb = nodeGraphNumberReadoutGhostRgbFromEnergy(
+        entry.energy,
+        gradientStops,
+        peakHex,
+      );
+      const residualAlpha = clampNodeSliderValue(0.28 + entry.energy * 0.72, 0, 1);
+      const residualLayout = nodeGraphNumberReadoutComputeLayout(
+        context,
+        entry.text,
+        digitFontFamily,
+        width,
+        height,
+        hasUnit,
+      );
+      nodeGraphNumberReadoutDrawDigits(context, {
+        text: entry.text,
+        centerX: left + width * 0.5,
+        centerY: top + residualLayout.digitAreaH * 0.5,
+        fontFamily: digitFontFamily,
+        fontSize: residualLayout.fontSize,
+        cellW: residualLayout.cellW,
+        rgb: residualRgb,
+        alpha: residualAlpha,
+        softBlurPx: 0,
+        glow: 0,
+        plate: false,
+      });
+    }
   }
 
   // Live value — solid light color on top (covers ghost where digits overlap).
