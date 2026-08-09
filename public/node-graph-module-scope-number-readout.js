@@ -23,26 +23,16 @@ function invalidateNodeGraphNumberReadoutPaintCache(canvas) {
   }
   canvas._numberReadoutLastValueText = "";
   canvas._numberReadoutLastTextChangeAt = 0;
-  canvas._numberReadoutResidualText = "";
-  canvas._numberReadoutResidualBornAt = 0;
-  canvas._numberReadoutResidualBornEnergy = 0;
   canvas._numberReadoutResidualEnergy = 0;
-  // Multi-entry residual history (fast ramps leave a trail of previous readings).
-  canvas._numberReadoutResiduals = [];
+  canvas._numberReadoutResiduals = null;
   canvas._nodeGraphNumberReadoutText = null;
   canvas._nodeGraphNumberReadoutSettingsSig = null;
   canvas._nodeGraphNumberReadoutFontReady = null;
   canvas._nodeGraphNumberReadoutWidth = -1;
   canvas._nodeGraphNumberReadoutHeight = -1;
   canvas._nodeGraphNumberReadoutPaintAt = 0;
-  // Tear down any legacy residual layer / energy path (no burn plate anymore).
   canvas._numberReadoutEnergyMask = null;
-  if (canvas._numberReadoutResidualLayer) {
-    const layer = canvas._numberReadoutResidualLayer;
-    const rctx = layer.getContext?.("2d");
-    rctx?.clearRect?.(0, 0, layer.width || 0, layer.height || 0);
-    canvas._numberReadoutResidualLayer = null;
-  }
+  nodeGraphNumberReadoutClearBurnPlate(canvas);
   for (const key of ["_phosphorEnergyGl"]) {
     const face = canvas[key];
     if (face && typeof nodeGraphPhosphorEnergyGlDestroy === "function") {
@@ -54,96 +44,57 @@ function invalidateNodeGraphNumberReadoutPaintCache(canvas) {
     }
     canvas[key] = null;
   }
-  if (canvas._numberReadoutResidualPresent) {
-    const rctx = canvas._numberReadoutResidualPresent.getContext?.("2d");
-    rctx?.clearRect(
-      0,
-      0,
-      canvas._numberReadoutResidualPresent.width || 0,
-      canvas._numberReadoutResidualPresent.height || 0,
-    );
-  }
 }
 
 /**
- * Max previous readings kept as gradient ghosts (AA-safe multi-draw, no burn plate).
- * Each living entry costs one layout + ~N fillText glyphs per frame while residual
- * is active — keep this modest (8 is enough trail; 28 was overkill).
+ * Offscreen burn plate for residual digits (pixel burn, not tracked history).
+ * Stamps only on value change; fades each frame with super-exponential Residual hang.
  */
-const nodeGraphNumberReadoutResidualHistoryMax = 8;
-
-/**
- * Trail → residual deposit brightness when the live reading changes (0…1).
- * High Trail = stronger ghost energy deposit.
- * Bright scales the deposit so dim live digits leave a dimmer ghost (same energy scale).
- */
-function nodeGraphNumberReadoutResidualDepositEnergy(trail, ghost, bright = 1) {
-  const t = clampNodeSliderValue(Number(trail) || 0, 0, 1);
-  const g = clampNodeSliderValue(Number(ghost) || 0, 0, 1);
-  const b = clampNodeSliderValue(Number(bright) || 0, 0, 1);
-  // Trail is the deposit shape; Ghost adds a little scorch; Bright is overall scale.
-  // Keep a solid floor at high Trail so small digit steps still leave a readable mark.
-  const base = 0.18 + t * 0.72 + g * 0.1;
-  return clampNodeSliderValue(base * b, 0, 1);
-}
-
-/**
- * Residual energy after ageMs (no pixel burn — scalar only).
- * Ghost = hang of deposited energy; Trail also stretches hang a little.
- * energy drives gradient sample for the ghost digits.
- */
-function nodeGraphNumberReadoutResidualEnergyNow(bornEnergy, ageMs, trail, ghost) {
-  const e0 = clampNodeSliderValue(Number(bornEnergy) || 0, 0, 1);
-  if (e0 <= 0.001) {
-    return 0;
-  }
-  const t = clampNodeSliderValue(Number(trail) || 0, 0, 1);
-  const g = clampNodeSliderValue(Number(ghost) || 0, 0, 1);
-  // Hang: Ghost is the long scorch; Trail adds hang with the deposit path.
-  const lifeMs = 120 + g * 4200 + t * 2200;
-  const age = Math.max(0, Number(ageMs) || 0);
-  const life = Math.max(0, Math.min(1, 1 - age / lifeMs));
-  return e0 * life;
-}
-
-function nodeGraphNumberReadoutResidualsList(canvas) {
+function nodeGraphNumberReadoutEnsureBurnPlate(canvas) {
   if (!canvas) {
-    return [];
+    return null;
   }
-  if (!Array.isArray(canvas._numberReadoutResiduals)) {
-    canvas._numberReadoutResiduals = [];
+  let layer = canvas._numberReadoutBurnPlate;
+  if (!layer) {
+    layer = document.createElement("canvas");
+    canvas._numberReadoutBurnPlate = layer;
   }
-  return canvas._numberReadoutResiduals;
+  const w = Math.max(0, canvas.width | 0);
+  const h = Math.max(0, canvas.height | 0);
+  if (layer.width !== w || layer.height !== h) {
+    layer.width = w;
+    layer.height = h;
+    canvas._numberReadoutResidualEnergy = 0;
+  }
+  return layer;
+}
+
+function nodeGraphNumberReadoutClearBurnPlate(canvas) {
+  if (!canvas) {
+    return;
+  }
+  const layer = canvas._numberReadoutBurnPlate;
+  if (layer?.width && layer?.height) {
+    const rctx = layer.getContext?.("2d");
+    rctx?.setTransform?.(1, 0, 0, 1, 0, 0);
+    rctx?.clearRect?.(0, 0, layer.width, layer.height);
+  }
+  canvas._numberReadoutResidualEnergy = 0;
 }
 
 /**
- * Push a residual entry for a previous reading (history, not replace).
- * Fast ramps deposit many values; a single previous-only model hides them under live digits.
+ * Per-frame destination-out erase for the burn plate (previous-digit deposits).
+ * Residual 0…1 high = long hang → erase falls super-exponentially.
+ * Residual 0 = wipe deposits immediately (Ghost Bright 8-floor still shows).
  */
-function nodeGraphNumberReadoutPushResidual(canvas, valueText, deposit, now) {
-  const list = nodeGraphNumberReadoutResidualsList(canvas);
-  const text = String(valueText || "");
-  if (!text || text.includes("!")) {
-    return;
+function nodeGraphNumberReadoutBurnEraseAlpha(residualHang) {
+  const h = clampNodeSliderValue(Number(residualHang) || 0, 0, 1);
+  if (h <= 0.001) {
+    return 1;
   }
-  const energy = clampNodeSliderValue(Number(deposit) || 0, 0, 1);
-  if (energy <= 0.01) {
-    return;
-  }
-  // Same text already at the tip: boost energy (don't reset age so it still dies).
-  const tip = list[list.length - 1];
-  if (tip && tip.text === text) {
-    tip.bornEnergy = Math.min(1, Math.max(Number(tip.bornEnergy) || 0, energy));
-    return;
-  }
-  list.push({
-    text,
-    bornEnergy: energy,
-    bornAt: Number(now) || (performance.now?.() || Date.now()),
-  });
-  while (list.length > nodeGraphNumberReadoutResidualHistoryMax) {
-    list.shift();
-  }
+  // Super-exponential: hang near 1 → erase near floor; hang 0 → dies fast.
+  const erase = Math.exp(-9 * h) * 0.52;
+  return clampNodeSliderValue(erase, 0.0015, 0.55);
 }
 
 /** Solid live-digit light RGB from settings.color (not the residual gradient). */
@@ -167,15 +118,70 @@ function nodeGraphNumberReadoutLightRgb(settings) {
 }
 
 /**
- * Ghost color from residual energy via gradient LUT (phosphor-style present).
- * energy 1 → tip stop; energy 0 → floor stop.
+ * Energy → gradient color (present-time sample).
+ * energy is the brightness amount itself (0…1 stop): 0.2 energy → color at t=0.2.
+ * Never bake color into the burn plate.
  */
 function nodeGraphNumberReadoutGhostRgbFromEnergy(energy, gradientStops, peakHex) {
   const e = clampNodeSliderValue(Number(energy) || 0, 0, 1);
   if (typeof nodeGraphSampleGradientStopsRgb === "function") {
-    return nodeGraphSampleGradientStopsRgb(gradientStops, e, peakHex || "#fcfdbf");
+    const rgb = nodeGraphSampleGradientStopsRgb(gradientStops, e, peakHex || "#fcfdbf");
+    if (Array.isArray(rgb) && rgb.length >= 3) {
+      return rgb;
+    }
   }
   return [252, 253, 191];
+}
+
+/**
+ * Colorize a white energy burn plate with gradient RGB (alpha from plate).
+ * Plate is the alpha mask; solid gradient color is applied at present time.
+ * Pattern: draw mask → source-in solid color.
+ */
+function nodeGraphNumberReadoutPresentBurnPlate(
+  destCtx,
+  burnPlate,
+  rgb,
+  alpha = 1,
+) {
+  if (!destCtx || !burnPlate?.width || !burnPlate?.height) {
+    return;
+  }
+  const a = clampNodeSliderValue(Number(alpha) || 0, 0, 1);
+  if (a <= 0.001) {
+    return;
+  }
+  const r = Math.max(0, Math.min(255, Math.round(Number(rgb?.[0]) || 0)));
+  const g = Math.max(0, Math.min(255, Math.round(Number(rgb?.[1]) || 0)));
+  const b = Math.max(0, Math.min(255, Math.round(Number(rgb?.[2]) || 0)));
+  let tint = destCtx.canvas?._numberReadoutBurnTint;
+  if (!tint) {
+    tint = document.createElement("canvas");
+    if (destCtx.canvas) {
+      destCtx.canvas._numberReadoutBurnTint = tint;
+    }
+  }
+  if (tint.width !== burnPlate.width || tint.height !== burnPlate.height) {
+    tint.width = burnPlate.width;
+    tint.height = burnPlate.height;
+  }
+  const tctx = tint.getContext("2d");
+  if (!tctx) {
+    return;
+  }
+  tctx.setTransform(1, 0, 0, 1, 0, 0);
+  tctx.clearRect(0, 0, tint.width, tint.height);
+  tctx.globalCompositeOperation = "source-over";
+  tctx.globalAlpha = 1;
+  tctx.drawImage(burnPlate, 0, 0);
+  tctx.globalCompositeOperation = "source-in";
+  tctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+  tctx.fillRect(0, 0, tint.width, tint.height);
+  tctx.globalCompositeOperation = "source-over";
+  destCtx.save();
+  destCtx.globalAlpha = a;
+  destCtx.drawImage(tint, 0, 0);
+  destCtx.restore();
 }
 
 
@@ -343,10 +349,11 @@ function nodeGraphNumberReadoutSettingsSignature(settings) {
   return [
     settings.background,
     settings.brightness,
+    settings.ghostBrightness,
     settings.color,
-    settings.ghost,
-    settings.trail,
+    settings.residual,
     settings.decimals,
+    settings.lightBlend,
     stopsSig,
   ].join("|");
 }
@@ -458,12 +465,18 @@ function nodeGraphNumberReadoutDrawDigits(context, {
   plate = false,
   // energy: force white ink (luma) for the 0–1 energy buffer
   energy = false,
+  // Canvas composite for this draw (source-over default).
+  composite = "source-over",
 }) {
   const raw = String(text || "");
   const ink = energy ? [255, 255, 255] : rgb;
   context.save();
   // Identity geometry in canvas pixels — never scaleX ≠ scaleY for glyphs.
   context.setTransform(1, 0, 0, 1, 0, 0);
+  const op = String(composite || "source-over").trim() || "source-over";
+  if (op !== "source-over") {
+    context.globalCompositeOperation = op;
+  }
   context.font = `700 ${fontSize}px ${fontFamily}`;
   context.textAlign = "center";
   context.textBaseline = "middle";
@@ -592,18 +605,18 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     ? nodeGraphNumberReadoutFormatValue(nodeGraphOscilloscopeLatestSample(item.buffer, 0), decimals)
     : (decimals > 0 ? ` !.${"!".repeat(decimals)}` : " !");
   const text = unit ? `${valueText} ${unit}` : valueText;
-  // Explicit model:
-  //  1) Value change → deposit residual energy (Trail × Bright) for the previous reading
-  //     into a HISTORY list (not a single slot — fast ramps need many ghosts).
-  //  2) Each entry’s energy (Ghost hang) samples the gradient for that ghost.
-  //  3) Live digits = solid Light color × Bright (no gradient).
-  //  4) One redraw per frame of each living ghost — no burn plate (preserves AA).
-  const trail = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
-    ? PhosphorResidual.migrateTrail(settings, 0.88, { invertLegacyDecay: false })
-    : clampNodeSliderValue(Number(settings.trail ?? settings.decay) || 0, 0, 1);
-  const ghost = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateGhost
-    ? PhosphorResidual.migrateGhost(settings, 0.45)
-    : clampNodeSliderValue(Number(settings.ghost ?? settings.burn) || 0, 0, 1);
+  // Explicit energy model (brightness = gradient position):
+  //  • Ghost Bright G → constant "8" skeleton at energy G → color gradient(G).
+  //  • Bright B → live light strength; on change, deposit previous digits at energy B.
+  //  • Residual R → hang of deposits only (super-exp fade toward 0 on top of the 8 floor).
+  //  • Example: R=0, G=0.2 → only 8-ghost at gradient(0.2). R high, 4→3 → stamp "4"
+  //    at energy B decaying over the 8 floor.
+  //  • Live digits = solid Light color × Bright (no gradient).
+  const residualHang = clampNodeSliderValue(
+    Number(settings.residual) || 0,
+    0,
+    1,
+  );
   const settingsSig = nodeGraphNumberReadoutSettingsSignature(settings);
   const styleChanged =
     canvas._nodeGraphNumberReadoutSettingsSig !== settingsSig ||
@@ -614,90 +627,152 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const textChanged = canvas._nodeGraphNumberReadoutText == null
     || canvas._nodeGraphNumberReadoutText !== text;
   const frozen = nodeGraphModuleScopePhosphorFrozen();
-  const residualWanted = trail > 0.001 || ghost > 0.001;
   const now = performance.now?.() || Date.now();
   const previousValueText = String(canvas._numberReadoutLastValueText || "");
 
-  // Live light strength (solid color opacity / intensity) — also scales residual deposit.
+  // Bright B = deposit energy + live intensity (gradient position for deposits).
   const bright = Number.isFinite(Number(settings.brightness))
     ? clampNodeSliderValue(Number(settings.brightness), 0, 1)
     : 1;
+  // Ghost Bright G = constant 8-skeleton energy (gradient position for the floor).
+  const ghostBright = Number.isFinite(Number(settings.ghostBrightness))
+    ? clampNodeSliderValue(Number(settings.ghostBrightness), 0, 1)
+    : 0.2;
+  const ghostFloorOn = ghostBright > 0.001;
+  // Residual hang only governs deposit persistence (not the 8 floor).
+  const hangOn = residualHang > 0.001;
 
-  // 1) On change: deposit into residual HISTORY (keep trail of previous readings).
-  if (
-    residualWanted
-    && textChanged
-    && previousValueText
-    && previousValueText !== valueText
-    && !previousValueText.includes("!")
-  ) {
-    nodeGraphNumberReadoutPushResidual(
-      canvas,
-      previousValueText,
-      nodeGraphNumberReadoutResidualDepositEnergy(trail, ghost, bright),
-      now,
-    );
-    canvas._numberReadoutLastTextChangeAt = now;
-  } else if (!residualWanted) {
-    canvas._numberReadoutResiduals = [];
-  }
-
-  // 2) Age residuals; drop dead entries. (No pixel burn — energy is scalar only.)
-  const residualList = nodeGraphNumberReadoutResidualsList(canvas);
-  const livingResiduals = [];
-  if (residualWanted) {
-    for (const entry of residualList) {
-      if (!entry?.text) {
-        continue;
-      }
-      const age = now - (Number(entry.bornAt) || now);
-      const energy = frozen
-        ? clampNodeSliderValue(Number(entry.bornEnergy) || 0, 0, 1)
-        : nodeGraphNumberReadoutResidualEnergyNow(
-          entry.bornEnergy,
-          age,
-          trail,
-          ghost,
-        );
-      if (energy > 0.012) {
-        livingResiduals.push({ text: entry.text, energy, bornAt: entry.bornAt, bornEnergy: entry.bornEnergy });
-      }
-    }
-  }
-  // Keep only living entries on the canvas list (preserve bornAt/bornEnergy).
-  canvas._numberReadoutResiduals = livingResiduals.map((r) => ({
-    text: r.text,
-    bornEnergy: r.bornEnergy,
-    bornAt: r.bornAt,
-  }));
-
-  const residualActive = livingResiduals.length > 0;
-  const needsContinuous = !frozen && residualActive;
-  if (!textChanged && !styleChanged && !needsContinuous) {
-    return;
-  }
-
-  // Draw in full canvas buffer pixels (layout face × dpr — fixed under zoom).
   const left = 0;
   const top = 0;
   const width = canvas.width;
   const height = canvas.height;
-  const gradientStops = settings.gradientStops;
-  const peakHex = Array.isArray(gradientStops) && gradientStops.length
-    ? (gradientStops[gradientStops.length - 1]?.color || settings.color || "#fcfdbf")
-    : (settings.color || "#fcfdbf");
-  // Live = solid light color (not gradient).
-  const rgb = nodeGraphNumberReadoutLightRgb(settings);
-  const bg = nodeGraphFacePlateBackground(settings);
-  // Bright = live digit alpha (0…1). Dim Bright → dim light and dimmer deposits.
-  const alpha = bright;
-  if (canvas?.parentElement?.dataset) {
-    canvas.parentElement.dataset.lightStrength = bright.toFixed(3);
+  let gradientStops = Array.isArray(settings.gradientStops) && settings.gradientStops.length >= 2
+    ? settings.gradientStops
+    : null;
+  if (!gradientStops && typeof nodeGraphPhosphorGradientStopsFromSettings === "function") {
+    gradientStops = nodeGraphPhosphorGradientStopsFromSettings(
+      settings,
+      settings.color || nodeGraphNumberReadoutSettingsDefaults?.color || "#fcfdbf",
+    );
   }
+  if (!gradientStops && typeof nodeGraphPhosphorDefaultGradientStops === "function") {
+    gradientStops = nodeGraphPhosphorDefaultGradientStops(
+      settings.color || "#fcfdbf",
+      settings.background || "#000004",
+    );
+  }
+  const peakHex = Array.isArray(gradientStops) && gradientStops.length
+    ? (gradientStops[gradientStops.length - 1]?.color || "#fcfdbf")
+    : (settings.color || "#fcfdbf");
   const digitFontFamily = nodeGraphNumberReadoutDsegReady
     ? '"DSEG7 Classic", "Consolas", monospace'
     : '"Consolas", "Courier New", monospace';
   const hasUnit = Boolean(unit);
+
+  // Size change: burn plate geometry is stale.
+  if (
+    styleChanged
+    && (
+      canvas._nodeGraphNumberReadoutWidth !== canvas.width
+      || canvas._nodeGraphNumberReadoutHeight !== canvas.height
+      || canvas._nodeGraphNumberReadoutFontReady !== nodeGraphNumberReadoutDsegReady
+    )
+  ) {
+    nodeGraphNumberReadoutClearBurnPlate(canvas);
+  }
+  if (!hangOn) {
+    nodeGraphNumberReadoutClearBurnPlate(canvas);
+  }
+
+  const burnPlate = hangOn ? nodeGraphNumberReadoutEnsureBurnPlate(canvas) : null;
+  const burnCtx = burnPlate?.getContext?.("2d") || null;
+
+  // 1) Fade deposit plate (Residual hang). Energy scalar tracks Bright → 0.
+  if (burnCtx && hangOn && !frozen && burnPlate.width > 0) {
+    const erase = nodeGraphNumberReadoutBurnEraseAlpha(residualHang);
+    burnCtx.setTransform(1, 0, 0, 1, 0, 0);
+    burnCtx.save();
+    burnCtx.globalCompositeOperation = "destination-out";
+    burnCtx.fillStyle = `rgba(0, 0, 0, ${erase.toFixed(4)})`;
+    burnCtx.fillRect(0, 0, burnPlate.width, burnPlate.height);
+    burnCtx.restore();
+    const prevE = Number(canvas._numberReadoutResidualEnergy) || 0;
+    canvas._numberReadoutResidualEnergy = prevE * Math.max(0, 1 - erase);
+  }
+
+  // 2) On change: stamp ONLY digits that changed (per-cell deposit).
+  //    GhostDepositText: unchanged cells → "!" (skip draw); changed → previous glyph.
+  //    Layout uses previous full reading so columns stay aligned with the face.
+  if (
+    burnCtx
+    && hangOn
+    && textChanged
+    && previousValueText
+    && previousValueText !== valueText
+    && !previousValueText.includes("!")
+    && burnPlate.width > 0
+    && bright > 0.01
+  ) {
+    const depositText = nodeGraphNumberReadoutGhostDepositText(
+      previousValueText,
+      valueText,
+    );
+    if (depositText) {
+      // Layout from full previous string (same cell count/geometry as the face).
+      const residualLayout = nodeGraphNumberReadoutComputeLayout(
+        burnCtx,
+        previousValueText,
+        digitFontFamily,
+        width,
+        height,
+        hasUnit,
+      );
+      burnCtx.setTransform(1, 0, 0, 1, 0, 0);
+      burnCtx.save();
+      burnCtx.globalCompositeOperation = "source-over";
+      // White energy at alpha = Bright — only changed cells (drawDigits skips "!").
+      nodeGraphNumberReadoutDrawDigits(burnCtx, {
+        text: depositText,
+        centerX: left + width * 0.5,
+        centerY: top + residualLayout.digitAreaH * 0.5,
+        fontFamily: digitFontFamily,
+        fontSize: residualLayout.fontSize,
+        cellW: residualLayout.cellW,
+        rgb: [255, 255, 255],
+        alpha: bright,
+        softBlurPx: 0,
+        glow: 0,
+        plate: false,
+        energy: true,
+      });
+      burnCtx.restore();
+      // Deposit energy starts at Bright (not normalized life 1).
+      canvas._numberReadoutResidualEnergy = Math.max(
+        Number(canvas._numberReadoutResidualEnergy) || 0,
+        bright,
+      );
+      canvas._numberReadoutLastTextChangeAt = now;
+    }
+  }
+
+  const depositEnergy = Number(canvas._numberReadoutResidualEnergy) || 0;
+  if (depositEnergy <= 0.008) {
+    canvas._numberReadoutResidualEnergy = 0;
+  }
+  const depositActive = hangOn && depositEnergy > 0.008;
+  // Ghost floor and/or hanging deposits need continuous present.
+  const needsContinuous = !frozen && (ghostFloorOn || depositActive);
+  if (!textChanged && !styleChanged && !needsContinuous) {
+    return;
+  }
+
+  // Live = solid light color (not gradient).
+  const rgb = nodeGraphNumberReadoutLightRgb(settings);
+  const bg = nodeGraphFacePlateBackground(settings);
+  const alpha = bright;
+  if (canvas?.parentElement?.dataset) {
+    canvas.parentElement.dataset.lightStrength = bright.toFixed(3);
+  }
 
   context.setTransform(1, 0, 0, 1, 0, 0);
   const layout = nodeGraphNumberReadoutComputeLayout(
@@ -715,61 +790,106 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const digitX = left + width * 0.5;
   const digitY = top + digitAreaHeight * 0.5;
 
-  // ── Present (clear every frame — no residual pixel compounding) ──
+  // Energy → gradient color: G for 8-floor, depositEnergy for burned previous digits.
+  const floorRgb = ghostFloorOn
+    ? nodeGraphNumberReadoutGhostRgbFromEnergy(ghostBright, gradientStops, peakHex)
+    : null;
+  const depositRgb = depositActive
+    ? nodeGraphNumberReadoutGhostRgbFromEnergy(depositEnergy, gradientStops, peakHex)
+    : null;
+
+  // ── Present ──
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.save();
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.fillStyle = bg;
   context.fillRect(left, top, width, height);
 
-  // Ghosts under live digits: oldest first, each gradient-colored by its energy.
-  // Live digits cover overlapping segments; differing segments stay visible as trail.
-  if (residualActive) {
-    for (const entry of livingResiduals) {
-      const residualRgb = nodeGraphNumberReadoutGhostRgbFromEnergy(
-        entry.energy,
-        gradientStops,
-        peakHex,
-      );
-      const residualAlpha = clampNodeSliderValue(0.28 + entry.energy * 0.72, 0, 1);
-      const residualLayout = nodeGraphNumberReadoutComputeLayout(
-        context,
-        entry.text,
-        digitFontFamily,
-        width,
-        height,
-        hasUnit,
-      );
+  // 1) Ghost Bright floor: all-on "8" skeleton at energy G → gradient(G).
+  //    Constant minimum brightness under decaying digit deposits.
+  if (ghostFloorOn && floorRgb && !valueText.includes("!")) {
+    nodeGraphNumberReadoutDrawDigits(context, {
+      text: valueText,
+      centerX: digitX,
+      centerY: digitY,
+      fontFamily: digitFontFamily,
+      fontSize: digitFontSize,
+      cellW,
+      rgb: floorRgb,
+      alpha: 1,
+      softBlurPx: 0,
+      glow: 0,
+      plate: true,
+    });
+  }
+
+  // 2) Deposit plate: previous readings at energy Bright, decaying via Residual.
+  //    Color = gradient(depositEnergy). Sits on top of the 8 floor.
+  if (depositActive && burnPlate?.width > 0 && depositRgb) {
+    nodeGraphNumberReadoutPresentBurnPlate(context, burnPlate, depositRgb, 1);
+  }
+
+  // 3) Live light over residual — blend mode from Display Settings (Light blend).
+  //    occlude = plate underpaint then Over (no mix with ghost).
+  //    others = canvas globalCompositeOperation of light over residual.
+  if (alpha > 0.001 && !valueText.includes("!")) {
+    const lightBlend = String(settings.lightBlend || "occlude").trim().toLowerCase() || "occlude";
+    if (lightBlend === "occlude") {
+      const plateRgb = (() => {
+        const m = String(bg || "").match(/^#?([0-9a-f]{6})$/i);
+        if (m) {
+          const n = Number.parseInt(m[1], 16);
+          return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+        }
+        return [0, 0, 4];
+      })();
+      // Occlusion layer: full-opacity plate ink under live segments.
       nodeGraphNumberReadoutDrawDigits(context, {
-        text: entry.text,
-        centerX: left + width * 0.5,
-        centerY: top + residualLayout.digitAreaH * 0.5,
+        text: valueText,
+        centerX: digitX,
+        centerY: digitY,
         fontFamily: digitFontFamily,
-        fontSize: residualLayout.fontSize,
-        cellW: residualLayout.cellW,
-        rgb: residualRgb,
-        alpha: residualAlpha,
+        fontSize: digitFontSize,
+        cellW,
+        rgb: plateRgb,
+        alpha: 1,
         softBlurPx: 0,
         glow: 0,
         plate: false,
       });
+      // Light over plate only (not residual).
+      nodeGraphNumberReadoutDrawDigits(context, {
+        text: valueText,
+        centerX: digitX,
+        centerY: digitY,
+        fontFamily: digitFontFamily,
+        fontSize: digitFontSize,
+        cellW,
+        rgb,
+        alpha,
+        softBlurPx: 0,
+        glow: 0,
+        plate: false,
+        composite: "source-over",
+      });
+    } else {
+      // Blend live Light×Bright directly with residual gradient below.
+      nodeGraphNumberReadoutDrawDigits(context, {
+        text: valueText,
+        centerX: digitX,
+        centerY: digitY,
+        fontFamily: digitFontFamily,
+        fontSize: digitFontSize,
+        cellW,
+        rgb,
+        alpha,
+        softBlurPx: 0,
+        glow: 0,
+        plate: false,
+        composite: lightBlend,
+      });
     }
   }
-
-  // Live value — solid light color on top (covers ghost where digits overlap).
-  nodeGraphNumberReadoutDrawDigits(context, {
-    text: valueText,
-    centerX: digitX,
-    centerY: digitY,
-    fontFamily: digitFontFamily,
-    fontSize: digitFontSize,
-    cellW,
-    rgb,
-    alpha,
-    softBlurPx: 0,
-    glow: 0,
-    plate: false,
-  });
 
   if (hasUnit) {
     const labelFontSize = Math.max(1, Math.min(labelHeight * 0.7, width * 0.14, digitFontSize * 0.35));

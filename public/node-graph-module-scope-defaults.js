@@ -208,12 +208,14 @@ const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   brightness: nodeGraphScopePhosphorLookDefaults.brightness,
   // Live digit “light” — single solid color (not the residual gradient).
   color: nodeGraphScopePhosphorLookDefaults.peakColor,
-  // Residual (ghost of previous reading): Trail = deposit brightness on change;
-  // Ghost = hang of that deposited energy. Ghost is colored by gradientStops.
-  ghost: nodeGraphScopePhosphorLookDefaults.ghost,
-  trail: nodeGraphScopePhosphorLookDefaults.trail,
+  // Deposit hang 0…1 (high = long super-exponential hang of previous digits).
+  residual: 0.72,
+  // Constant 8-skeleton floor energy 0…1 (= gradient stop). Deposits sit on top.
+  ghostBrightness: 0.2,
   decimals: 2,
-  // Residual energy → color LUT (ghost only; live digits ignore this).
+  // How live Light composites over residual gradient (canvas blend / occlude).
+  lightBlend: "occlude",
+  // Energy → color LUT for ghost floor + deposits (live digits use solid Light).
   gradientStops: nodeGraphScopePhosphorLookDefaults.gradientStops,
 });
 
@@ -226,9 +228,12 @@ const nodeGraphKnobFaceDisplaySettingsDefaults = Object.freeze({
   arcTrack: "#3a3428",
   showLabel: true,
   showReadout: true,
-  // Image-layer rotation (shared across layers that have rotate on).
+  // Centered arc span (degrees Bias 0→1). Start is always −span/2 (no Offset).
   rotationDegrees: 270,
-  rotationOffsetDegrees: -135,
+  // Dial ring size 0…1 (1 = fill available dial cell; label/value unchanged).
+  dialSize: 1,
+  // Hole size 0…1 (0 = solid disk, ~0.7 default, 1 = thin outer ring).
+  innerRadius: 0.7,
 });
 
 

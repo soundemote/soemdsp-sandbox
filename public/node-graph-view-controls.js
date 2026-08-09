@@ -163,13 +163,17 @@ function renderNodeGraphModuleVisibilityToggles() {
       : null;
     if (!patchNode) continue;
     const effectiveUi = typeof nodeGraphEffectivePatchNodeUi === "function"
-      ? nodeGraphEffectivePatchNodeUi(patchNode.ui)
+      ? nodeGraphEffectivePatchNodeUi(patchNode.ui, patchNode.type)
       : null;
     if (!effectiveUi) continue;
     element.classList.toggle("buttons-hidden", effectiveUi.buttonsHidden);
+    element.classList.toggle("buttons-forced-visible", Boolean(effectiveUi.buttonsForceShow));
     element.classList.toggle("oscilloscope-hidden", effectiveUi.oscilloscopeHidden);
+    element.classList.toggle("oscilloscope-forced-visible", Boolean(effectiveUi.oscilloscopeForceShow));
     element.classList.toggle("interface-controls-hidden", effectiveUi.interfaceControlsHidden);
+    element.classList.toggle("interface-controls-forced-visible", Boolean(effectiveUi.interfaceControlsForceShow));
     element.classList.toggle("sliders-hidden", effectiveUi.slidersHidden);
+    element.classList.toggle("sliders-forced-visible", Boolean(effectiveUi.slidersForceShow));
     if (typeof syncNodeGraphLayoutBNoParamsClass === "function") {
       syncNodeGraphLayoutBNoParamsClass(element, patchNode.type, effectiveUi);
     }
@@ -364,26 +368,32 @@ function renderNodeGraphModuleScopeBrightnessControl() {
 
 function setNodeGraphModuleButtonsVisibility(visible, options = {}) {
   nodeGraphMvp.moduleButtonsVisible = Boolean(visible);
-  if (nodeGraphMvp.moduleButtonsVisible && options.clearNodeOverrides !== false) {
+  // Drop overrides that match the new global default (keep opposite overrides).
+  // Global shown → clear force-show. Global hidden → clear force-hide.
+  if (options.clearNodeOverrides !== false && nodeGraphMvp.patch) {
     const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
     let changed = false;
     for (const node of patch.nodes) {
       const ui = normalizeNodeGraphPatchNodeUi(node.ui, node.type);
-      if (!ui.buttonsHidden) {
+      let dirty = false;
+      if (visible && ui.buttonsForceShow) {
+        ui.buttonsForceShow = false;
+        dirty = true;
+      }
+      if (!visible && ui.buttonsHidden) {
+        ui.buttonsHidden = false;
+        dirty = true;
+      }
+      if (!dirty) {
         continue;
       }
-      ui.buttonsHidden = false;
-      if (ui.titleHidden) {
-        node.ui = ui;
-      } else {
-        delete node.ui;
-      }
+      applyNodeGraphPatchNodeUi(node, ui);
       changed = true;
     }
     if (changed) {
       commitNodeGraphPatch(patch, {
         markPending: false,
-        status: "module buttons shown",
+        status: visible ? "module buttons shown" : "module buttons hidden",
       });
     }
   }

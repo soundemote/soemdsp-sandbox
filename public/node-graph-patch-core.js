@@ -365,7 +365,20 @@ function validateNodeGraphPatch(patch) {
     if (ui.displayModeKey) {
       ui.displayModeKey = "";
     }
-    if (ui.buttonsHidden || ui.ioHidden || ui.interfaceControlsHidden || ui.movementLocked || ui.titleHidden || ui.oscilloscopeHidden || ui.slidersHidden || ui.displayHeightOffsetGu) {
+    if (
+      ui.buttonsHidden
+      || ui.buttonsForceShow
+      || ui.ioHidden
+      || ui.interfaceControlsHidden
+      || ui.interfaceControlsForceShow
+      || ui.movementLocked
+      || ui.titleHidden
+      || ui.oscilloscopeHidden
+      || ui.oscilloscopeForceShow
+      || ui.slidersHidden
+      || ui.slidersForceShow
+      || ui.displayHeightOffsetGu
+    ) {
       normalizedNode.ui = ui;
     }
     return normalizedNode;
@@ -845,11 +858,15 @@ function applyNodeGraphPatchToDom() {
       }
     }
     element.classList.toggle("buttons-hidden", patchNodeUi.buttonsHidden);
+    element.classList.toggle("buttons-forced-visible", Boolean(patchNodeUi.buttonsForceShow));
     element.classList.toggle("io-hidden", patchNodeUi.ioHidden);
     element.classList.toggle("interface-controls-hidden", patchNodeUi.interfaceControlsHidden);
+    element.classList.toggle("interface-controls-forced-visible", Boolean(patchNodeUi.interfaceControlsForceShow));
     element.classList.toggle("movement-locked", patchNodeUi.movementLocked);
     element.classList.toggle("oscilloscope-hidden", patchNodeUi.oscilloscopeHidden);
+    element.classList.toggle("oscilloscope-forced-visible", Boolean(patchNodeUi.oscilloscopeForceShow));
     element.classList.toggle("sliders-hidden", patchNodeUi.slidersHidden);
+    element.classList.toggle("sliders-forced-visible", Boolean(patchNodeUi.slidersForceShow));
     element.classList.toggle("title-hidden", patchNodeUi.titleHidden);
     if (typeof syncNodeGraphLayoutBNoParamsClass === "function") {
       syncNodeGraphLayoutBNoParamsClass(element, patchNode.type, patchNodeUi);

@@ -337,10 +337,16 @@ function nodeGraphModuleButtonsHiddenForNode(node) {
   if (!(node instanceof Element)) {
     return false;
   }
+  // Local force-show beats workspace global hide.
+  if (node.classList.contains("buttons-forced-visible")) {
+    return false;
+  }
   return (
-    nodeGraphMvp.moduleButtonsVisible === false ||
-    node.classList.contains("buttons-hidden") ||
-    node.closest(".node-graph-workspace")?.classList.contains("module-buttons-hidden")
+    node.classList.contains("buttons-hidden")
+    || (
+      node.closest(".node-graph-workspace")?.classList.contains("module-buttons-hidden")
+      && !node.classList.contains("buttons-forced-visible")
+    )
   );
 }
 
@@ -573,6 +579,10 @@ function createNodeGraphModuleElement(type, node) {
   article.style.setProperty("--node-module-interface-controls-height-units", String(nodeGraphPatchNodeInterfaceControlsHeightUnits(patchNode)));
   const patchNodeUi = nodeGraphEffectivePatchNodeUi(patchNode.ui, type);
   article.classList.toggle("buttons-hidden", patchNodeUi.buttonsHidden);
+  article.classList.toggle("buttons-forced-visible", Boolean(patchNodeUi.buttonsForceShow));
+  article.classList.toggle("oscilloscope-forced-visible", Boolean(patchNodeUi.oscilloscopeForceShow));
+  article.classList.toggle("interface-controls-forced-visible", Boolean(patchNodeUi.interfaceControlsForceShow));
+  article.classList.toggle("sliders-forced-visible", Boolean(patchNodeUi.slidersForceShow));
   article.classList.toggle("io-hidden", patchNodeUi.ioHidden);
   article.classList.toggle("interface-controls-hidden", patchNodeUi.interfaceControlsHidden);
   article.classList.toggle("oscilloscope-hidden", patchNodeUi.oscilloscopeHidden);

@@ -405,12 +405,16 @@
         font-size: 0.72rem;
       }
       .sge-actions {
-        display: flex;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
         gap: 6px;
+        align-items: stretch;
+        min-width: 0;
       }
       .sge-actions button {
         font-size: 0.72rem;
+        min-width: 0;
+        width: 100%;
       }
       .sge-hex {
         width: 100%;
@@ -419,11 +423,6 @@
         font-size: 0.68rem;
         font-family: var(--node-mono-font, ui-monospace, monospace);
         resize: vertical;
-      }
-      .sge-hint {
-        font-size: 0.66rem;
-        color: rgba(248, 252, 255, 0.5);
-        line-height: 1.3;
       }
     `;
   }
@@ -595,10 +594,6 @@
     let activePresetId = "";
     let colorWidget = null;
     const presetList = mono ? PRESETS_BW : PRESETS;
-    const hintText = options.hint
-      || (mono
-        ? "Black / white gradient · select a stop · brightness only"
-        : "Select a stop to edit · presets fill stops + hex list · live audition on the face");
 
     const root = document.createElement("div");
     root.className = "sge-root";
@@ -614,21 +609,14 @@
         <span style="font-size:0.66rem;opacity:0.6">0–1</span>
       </div>
       <div class="sge-actions">
-        <button type="button" data-sge-add>+ Stop</button>
-        <button type="button" data-sge-remove>− Stop</button>
+        <button type="button" data-sge-add aria-label="Add stop">+ Stop</button>
+        <button type="button" data-sge-remove aria-label="Remove stop">− Stop</button>
       </div>
-      <div class="sge-section-label">Hex list</div>
       <textarea class="sge-hex" data-sge-list rows="2" spellcheck="false"
         aria-label="Gradient as hex list"></textarea>
-      <div class="sge-section-label">Presets</div>
-      <div class="sge-presets" data-sge-presets></div>
-      <div class="sge-hint" data-sge-hint></div>
+      <div class="sge-presets" data-sge-presets aria-label="Gradient presets"></div>
     `;
     host.appendChild(root);
-    const hintEl = root.querySelector("[data-sge-hint]");
-    if (hintEl) {
-      hintEl.textContent = hintText;
-    }
 
     const barWrap = root.querySelector("[data-sge-bar-wrap]");
     const bar = root.querySelector("[data-sge-bar]");

@@ -178,6 +178,8 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
   ["bins", "Bins"],
   ["ghost", "Ghost"],
   ["trail", "Trail"],
+  ["residual", "Residual"],
+  ["ghostBrightness", "Ghost Bright"],
   ["pixelDensity", "Pixel density"],
   ["dotBudget", "Dot Budget"],
   ["padding", "Amp"],
@@ -185,6 +187,9 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
   ["decimals", "Decimals"],
   ["hue", "Hue"],
   ["rounding", "Rounding"],
+  ["innerRadius", "Inner radius"],
+  ["rotationDegrees", "Span °"],
+  ["dialSize", "Size"],
 
   ["dot1Size", "Size"],
   ["puckSize", "Puck size"],

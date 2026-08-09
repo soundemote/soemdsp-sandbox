@@ -778,9 +778,27 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}) {
     source.background ?? source.backgroundColor,
     defaults.background,
   );
+  // Single residual hang: prefer residual; migrate max(trail, ghost) from older patches.
+  let residualDefault = Number(defaults.residual);
+  if (!Number.isFinite(residualDefault)) {
+    residualDefault = 0.72;
+  }
+  let residualRaw = source.residual;
+  if (residualRaw == null || !Number.isFinite(Number(residualRaw))) {
+    const legacyTrail = source.trail != null ? Number(source.trail) : NaN;
+    const legacyGhost = source.ghost != null ? Number(source.ghost) : NaN;
+    if (Number.isFinite(legacyTrail) || Number.isFinite(legacyGhost)) {
+      residualRaw = Math.max(
+        Number.isFinite(legacyTrail) ? legacyTrail : 0,
+        Number.isFinite(legacyGhost) ? legacyGhost : 0,
+      );
+    } else {
+      residualRaw = residualDefault;
+    }
+  }
   return {
     background,
-    // Live digit light strength 0…1 (solid color intensity, not residual energy).
+    // Live digit light strength 0…1 (solid color intensity).
     brightness: normalizeNodeGraphTraceDisplayBrightness(
       source.brightness ?? source.dot1Brightness,
       defaults.brightness,
@@ -790,15 +808,40 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}) {
       source.color ?? source.dot1Color ?? peak,
       defaults.color ?? peak,
     ),
-    // Residual: Trail = deposit brightness on value change; Ghost = hang of energy.
-    // Ghost is colored by sampling gradientStops at residual energy.
-    ghost: (typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateGhost
-      ? PhosphorResidual.migrateGhost(source, defaults.ghost ?? 0.45)
-      : normalizeNodeGraphTraceDisplayNumber(source.ghost ?? source.burn, defaults.ghost ?? 0.45, 0, 1)),
-    trail: (typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
-      ? PhosphorResidual.migrateTrail(source, defaults.trail ?? 0.88, { invertLegacyDecay: false })
-      : normalizeNodeGraphTraceDisplayNumber(source.trail ?? source.decay, defaults.trail ?? 0.88, 0, 1)),
+    // Deposit hang 0…1 (high = long super-exponential hang of previous digits).
+    residual: normalizeNodeGraphTraceDisplayNumber(residualRaw, residualDefault, 0, 1),
+    // Constant 8-skeleton floor energy 0…1 (= gradient stop). Independent of Residual.
+    ghostBrightness: normalizeNodeGraphTraceDisplayNumber(
+      source.ghostBrightness ?? source.ghostBright,
+      defaults.ghostBrightness ?? 0.2,
+      0,
+      1,
+    ),
     decimals: normalizeNodeGraphTraceDisplayNumber(source.decimals, defaults.decimals, 0, 8, true),
+    // Live light × residual gradient composite (dropdown).
+    lightBlend: (() => {
+      const allowed = new Set([
+        "occlude",
+        "source-over",
+        "lighter",
+        "screen",
+        "multiply",
+        "overlay",
+        "soft-light",
+        "hard-light",
+        "color-dodge",
+        "color-burn",
+        "lighten",
+        "darken",
+        "difference",
+        "exclusion",
+        "source-atop",
+      ]);
+      const raw = String(source.lightBlend ?? source.lightBlendMode ?? defaults.lightBlend ?? "occlude")
+        .trim()
+        .toLowerCase();
+      return allowed.has(raw) ? raw : "occlude";
+    })(),
     gradientStops,
   };
 }
@@ -835,6 +878,7 @@ function normalizeNodeGraphKnobFaceDisplaySettings(settings = {}) {
     arcTrack: parseColor(source.arcTrack ?? source.secondaryColor, defaults.arcTrack),
     showLabel: source.showLabel !== false && source.showLabel !== "false",
     showReadout: source.showReadout !== false && source.showReadout !== "false",
+    // Centered span only (offset removed — start is always −span/2).
     rotationDegrees: normalizeNodeGraphTraceDisplayNumber(
       source.rotationDegrees,
       defaults.rotationDegrees,
@@ -842,12 +886,19 @@ function normalizeNodeGraphKnobFaceDisplaySettings(settings = {}) {
       1440,
       true,
     ),
-    rotationOffsetDegrees: normalizeNodeGraphTraceDisplayNumber(
-      source.rotationOffsetDegrees,
-      defaults.rotationOffsetDegrees,
-      -720,
-      720,
-      true,
+    // Dial ring size 0…1 (1 = fill dial cell; only scales the arc widget).
+    dialSize: normalizeNodeGraphTraceDisplayNumber(
+      source.dialSize ?? source.knobSize ?? source.size,
+      defaults.dialSize ?? 1,
+      0,
+      1,
+    ),
+    // Arc ring hole 0…1 (maps to 1 − thickness of the conic mask).
+    innerRadius: normalizeNodeGraphTraceDisplayNumber(
+      source.innerRadius ?? source.arcInnerRadius,
+      defaults.innerRadius ?? 0.7,
+      0,
+      0.95,
     ),
   };
 }
@@ -858,7 +909,7 @@ function nodeGraphKnobFaceDisplaySettingsForNode(node) {
     return normalizeNodeGraphKnobFaceDisplaySettings();
   }
   // Prefer display-settings bucket for colors/decimals; face blob supplies
-  // image-layer rotation span/offset when display has not written them yet.
+  // image-layer rotation span when display has not written it yet.
   const fromDisplay = node.traceDisplaySettings;
   const fromFace = node.knobFace;
   const merged = {

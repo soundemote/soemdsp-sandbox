@@ -36,7 +36,17 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
   // lists — anything missing leaks onto every module (e.g. Output saw
   // Window / Overlap / Freq scale because those choices were unregistered).
   toggles: ["sourceSync", "skipDiscontinuities", "bipolarBrightness", "secondaryEnabled", "capEnabled", "fullDotEconomy"],
-  choices: ["syncChannel", "stereoBlend", "window", "overlap", "freqOverlap", "freqScale", "cornerShape"],
+  choices: [
+    "syncChannel",
+    "stereoBlend",
+    "window",
+    "overlap",
+    "freqOverlap",
+    "freqScale",
+    "cornerShape",
+    "outerPlate",
+    "lightBlend",
+  ],
 });
 
 const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
@@ -141,19 +151,19 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze([]),
   }),
   numberReadout: Object.freeze({
-    // Live digits = solid Light color × Bright (no gradient).
-    // On value change: Trail deposits residual energy on the previous reading;
-    // that energy samples the gradient for the ghost; Ghost = energy hang.
-    // backgroundColor = LCD plate; dot1Color = live light; gradient = ghost only.
+    // Live digits = solid Light × Bright. Ghost Bright = constant 8-skeleton energy
+    // (gradient position). Value change deposits previous digits at Bright energy;
+    // Residual = deposit hang. lightBlend = how Light composites over residual.
+    // backgroundColor = LCD plate; gradient = ghost energy LUT.
     fields: Object.freeze([
       "decimals",
-      "ghost",
-      "trail",
+      "residual",
       "dot1Brightness",
+      "ghostBrightness",
     ]),
     colors: Object.freeze(["backgroundColor", "dot1Color"]),
     toggles: Object.freeze([]),
-    choices: Object.freeze([]),
+    choices: Object.freeze(["lightBlend"]),
   }),
   // LED lamp: same shared display inspector as other faces (not a separate window).
   ledLamp: Object.freeze({
@@ -311,9 +321,16 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
-  // Knob face: macro dial look + image layers + rotation (Display Settings only).
+  // Knob face: macro dial look + image layers + arc geometry (Display Settings only).
+  // Span is centered (no Offset) — left and right open together.
+  // dialSize 0…1 scales only the arc (1 = fill available space).
   knobFace: Object.freeze({
-    fields: Object.freeze(["decimals", "rotationDegrees", "rotationOffsetDegrees"]),
+    fields: Object.freeze([
+      "decimals",
+      "rotationDegrees",
+      "dialSize",
+      "innerRadius",
+    ]),
     colors: Object.freeze(["backgroundColor", "arcFill", "arcTrack"]),
     toggles: Object.freeze(["showLabel", "showReadout"]),
     choices: Object.freeze([]),
@@ -371,8 +388,15 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
     choices: Object.freeze([]),
   }),
   // Stamp geometry/light — order matches shared phosphor stack (Size → Blur → Bright).
+  // ghostBrightness sits next to Bright for Number Readout (min residual gradient stop).
   dot1: Object.freeze({
-    fields: Object.freeze(["dot1Size", "lineThickness", "dot1Brightness", "puckSize"]),
+    fields: Object.freeze([
+      "dot1Size",
+      "lineThickness",
+      "dot1Brightness",
+      "ghostBrightness",
+      "puckSize",
+    ]),
     colors: Object.freeze(["dot1Color"]),
     toggles: Object.freeze(["bipolarBrightness"]),
     choices: Object.freeze([]),
@@ -389,8 +413,10 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
     // Stamp size/blur/bright live only under the Dot/Stamp section.
     fields: Object.freeze([
       "decimals",
+      "residual",
       "rotationDegrees",
-      "rotationOffsetDegrees",
+      "dialSize",
+      "innerRadius",
       "sweepSeconds",
       "ghost",
       "trail",
@@ -419,6 +445,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
     // cornerShape = LED.
     choices: Object.freeze([
       "outerPlate",
+      "lightBlend",
       "window",
       "overlap",
       "freqOverlap",
@@ -478,13 +505,25 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Ghost",
     inputmode: "decimal",
     id: "nodeTraceDisplayGhost",
-    title: "Number Readout: hang of deposited residual energy (how long the gradient ghost lingers). Other faces: dim scorched residual hang. 0 = none; 1 = long hang.",
+    title: "Dim scorched residual hang (screen burn-in). 0 = none; 1 = long low ghost. Not peak light (Bright) or hot trail length (Trail).",
   }),
   trail: Object.freeze({
     label: "Trail",
     inputmode: "decimal",
     id: "nodeTraceDisplayTrail",
-    title: "Number Readout: residual energy deposit when the reading changes (ghost brightness / gradient energy). Other faces: main residual length. 0 = weak/quick; 1 = strong/long.",
+    title: "Main residual length. 0 = dies immediately; 1 ≈ freeze-ish hot path. Dim scorched floor is Ghost.",
+  }),
+  residual: Object.freeze({
+    label: "Residual",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayResidual",
+    title: "Number Readout deposit hang (0…1). How long previous digits linger after a change. 0 = no deposit hang; Ghost Bright 8-floor still shows. Deposit energy starts at Bright.",
+  }),
+  ghostBrightness: Object.freeze({
+    label: "Ghost Bright",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayGhostBrightness",
+    title: "Constant 8-skeleton floor energy 0…1 (gradient position). 0.2 → color at stop 0.2. Deposits decay on top of this floor.",
   }),
   historySeconds: Object.freeze({
     label: "History (s)",
@@ -552,13 +591,19 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Span °",
     inputmode: "numeric",
     id: "nodeTraceDisplayKnobSpan",
-    title: "How many degrees image layers rotate across Bias 0…1 (0–1440).",
+    title: "Centered arc sweep across Bias 0…1 (0–1440°). Opens left and right together (gap stays opposite center). Default 270°.",
   }),
-  rotationOffsetDegrees: Object.freeze({
-    label: "Offset °",
-    inputmode: "numeric",
-    id: "nodeTraceDisplayKnobOffset",
-    title: "Starting angle for rotating image layers (−720…720).",
+  dialSize: Object.freeze({
+    label: "Size",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayKnobDialSize",
+    title: "Dial ring size 0…1. 1 = fill available dial cell (no padding). Scales only the arc — label and value stay put.",
+  }),
+  innerRadius: Object.freeze({
+    label: "Inner radius",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayKnobInnerRadius",
+    title: "Arc hole size 0…1. 0 = solid disk; ~0.7 default ring; higher = thinner outer ring.",
   }),
   hue: Object.freeze({
     label: "Hue",
@@ -691,6 +736,30 @@ const nodeGraphDisplaySettingsChoiceMeta = Object.freeze({
     options: Object.freeze([
       Object.freeze({ value: "stop0", label: "Stop 0.00" }),
       Object.freeze({ value: "gradient", label: "Gradient" }),
+    ]),
+  }),
+  // Number Readout: how live Light composites over residual / ghost gradient.
+  lightBlend: Object.freeze({
+    label: "Light blend",
+    aria: "How live digit light blends over residual gradient",
+    id: "nodeTraceDisplayLightBlend",
+    title: "How the solid Light digits composite over residual/ghost. Occlude = plate underpaint (no mix). Others are canvas blend modes over the gradient.",
+    options: Object.freeze([
+      Object.freeze({ value: "occlude", label: "Occlude" }),
+      Object.freeze({ value: "source-over", label: "Over" }),
+      Object.freeze({ value: "lighter", label: "Add" }),
+      Object.freeze({ value: "screen", label: "Screen" }),
+      Object.freeze({ value: "multiply", label: "Multiply" }),
+      Object.freeze({ value: "overlay", label: "Overlay" }),
+      Object.freeze({ value: "soft-light", label: "Soft light" }),
+      Object.freeze({ value: "hard-light", label: "Hard light" }),
+      Object.freeze({ value: "color-dodge", label: "Color dodge" }),
+      Object.freeze({ value: "color-burn", label: "Color burn" }),
+      Object.freeze({ value: "lighten", label: "Lighten" }),
+      Object.freeze({ value: "darken", label: "Darken" }),
+      Object.freeze({ value: "difference", label: "Difference" }),
+      Object.freeze({ value: "exclusion", label: "Exclusion" }),
+      Object.freeze({ value: "source-atop", label: "Atop" }),
     ]),
   }),
   syncChannel: Object.freeze({

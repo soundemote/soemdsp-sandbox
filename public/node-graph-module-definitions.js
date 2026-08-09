@@ -3305,7 +3305,7 @@ const nodeGraphModuleDefinitions = (
   knob: {
     planRole: "source",
     chrome: NodeGraphModuleChromeLayout.LayoutB,
-    defaultWidthGu: 7,
+    defaultWidthGu: 5,
     displayHeightGu: 3,
     displayType: "knobFace",
     displayModes: [

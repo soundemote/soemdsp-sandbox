@@ -12,11 +12,27 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null) {
   }
   if (key === "rotationDegrees" && formType === "knobFace") {
     label = "Span °";
-    title = "Degrees image layers rotate across Bias 0…1.";
+    title = "Centered arc sweep across Bias 0…1 (degrees). Opens left and right together; gap stays opposite center.";
   }
-  if (key === "rotationOffsetDegrees" && formType === "knobFace") {
-    label = "Offset °";
-    title = "Starting angle for rotating image layers.";
+  if (key === "dialSize" && formType === "knobFace") {
+    label = "Size";
+    title = "Dial ring size 0…1. 1 = fill available space. Only scales the arc — label and value stay put.";
+  }
+  if (key === "innerRadius" && formType === "knobFace") {
+    label = "Inner radius";
+    title = "Arc hole size 0…1 (0 = solid, ~0.7 default ring, higher = thinner ring).";
+  }
+  if (formType === "numberReadout" && key === "dot1Brightness") {
+    label = "Bright";
+    title = "Live light strength and deposit energy 0…1. On value change, previous digits burn at this energy (gradient position = Bright).";
+  }
+  if (formType === "numberReadout" && key === "ghostBrightness") {
+    label = "Ghost Bright";
+    title = "Constant 8-skeleton floor energy 0…1. Ghost Bright 0.2 → color at gradient stop 0.2. Independent of Residual hang; deposits decay on top of this floor.";
+  }
+  if (formType === "numberReadout" && key === "residual") {
+    label = "Residual";
+    title = "Deposit hang 0…1 (super-exponential). How long previous digits linger after a change. 0 = no deposit hang (8-floor from Ghost Bright still shows).";
   }
   const titleAttr = title
     ? ` title="${nodeGraphDisplaySettingsEscapeHtml(title)}"`
@@ -272,11 +288,13 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
         || type === "oscilloscopeBankBurn"
         || type === "hypersawBurn"
         || type === "xyPad";
-      const dotTitle = type === "xyPad"
-        ? "Beam & puck"
-        : phosphorStamp
-          ? "Stamp"
-          : titleText;
+      const dotTitle = type === "numberReadout"
+        ? "Light"
+        : type === "xyPad"
+          ? "Beam & puck"
+          : phosphorStamp
+            ? "Stamp"
+            : titleText;
       parts.push(`
         <div class="metadata-section-title node-trace-display-dot1-title">
           <span id="nodeTraceDisplayDot1TitleLabel">${nodeGraphDisplaySettingsEscapeHtml(dotTitle)}</span>

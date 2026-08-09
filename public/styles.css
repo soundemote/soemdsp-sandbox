@@ -1665,14 +1665,14 @@ html.soemdsp-hide-ui .status-strip {
   min-height: 56px;
 }
 
-/* Sized for the dock strip without overflowing the top chrome. */
+/* Sized for the dock strip without overflowing the top chrome.
+   Size scale is on the arc only (not the whole knob / label / value). */
 .node-standalone-midi-keyboard-dock .node-macro-knob {
   min-height: 56px;
   height: 100%;
-  padding: 2px 0;
+  padding: 0;
   font-size: 0.72rem;
-  /* Avoid scale-up clipping into the title bar. */
-  transform: scale(min(1, var(--macro-knob-size-scale, 1)));
+  transform: none;
 }
 
 .node-standalone-midi-keyboard-dock .node-macro-knob strong {
@@ -1680,7 +1680,9 @@ html.soemdsp-hide-ui .status-strip {
 }
 
 .node-standalone-midi-keyboard-dock .node-macro-knob i {
-  width: min(48px, 78%);
+  width: min(100cqmin, 100%);
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .node-midi-keyboard-heading {
@@ -1895,7 +1897,8 @@ html.soemdsp-hide-ui .status-strip {
 
 /* Shared macro dial (bank, keyboard dock, Knob module):
    title above the dial · value in the center of the circle · arc centered in dial.
-   Angle drag uses the circle center, not the full button (see view-controls). */
+   Angle drag uses the circle center, not the full button (see view-controls).
+   Size scale applies ONLY to the arc widget — not label or value. */
 .node-macro-knob {
   position: relative;
   display: flex;
@@ -1906,7 +1909,7 @@ html.soemdsp-hide-ui .status-strip {
   box-sizing: border-box;
   min-width: 0;
   min-height: 86px;
-  padding: 3px 4px 4px;
+  padding: 0;
   overflow: hidden;
   border: none;
   border-radius: 0;
@@ -1916,8 +1919,7 @@ html.soemdsp-hide-ui .status-strip {
   touch-action: none;
   cursor: var(--node-move-cursor);
   user-select: none;
-  transform: scale(var(--macro-knob-size-scale, 1));
-  transform-origin: center center;
+  transform: none;
 }
 
 body.macro-knob-hitbox-outline .node-macro-knob-dial,
@@ -1930,7 +1932,7 @@ body.macro-knob-hitbox-outline .node-macro-knob i {
   min-height: 0;
   height: 100%;
   width: 100%;
-  padding: 1px 2px 2px;
+  padding: 0;
   box-sizing: border-box;
 }
 
@@ -1966,7 +1968,8 @@ body[data-macro-knob-label-position="bottom"] .node-macro-knob > span:not(.node-
   transform: translateX(-50%);
 }
 
-/* Dial cell: geometric home of the circle; value lives here too. */
+/* Dial cell: geometric home of the circle; value lives here too.
+   container-type so arc can fill available space at size scale 1. */
 .node-macro-knob-dial {
   position: relative;
   flex: 1 1 auto;
@@ -1974,6 +1977,8 @@ body[data-macro-knob-label-position="bottom"] .node-macro-knob > span:not(.node-
   width: 100%;
   min-width: 0;
   min-height: 42px;
+  container-type: size;
+  overflow: hidden;
 }
 
 /* Value default = center of the dial / circle. */
@@ -2062,7 +2067,10 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
   transform: translate(-50%, -50%);
 }
 
-/* Hollow arc — centered in the dial cell only (not the title row). */
+/* Hollow arc — centered in the dial cell only (not the title row).
+   Span is centered: start = −span/2 (Knob sets CSS vars; bank default 264°).
+   Size scale affects ONLY this arc — label/value stay unscaled.
+   Scale 1 = fill available dial space (no padding). */
 .node-macro-knob-dial i,
 .node-macro-knob-arc,
 .node-macro-knob i {
@@ -2070,19 +2078,28 @@ body[data-macro-knob-value-position="mid"] .node-macro-knob-edit-input {
   top: 50%;
   left: 50%;
   display: block;
-  width: min(42px, 80%);
+  /* Full available square at scale 1; scale shrinks/grows the ring only. */
+  width: min(100cqmin, 100%);
+  max-width: 100%;
+  max-height: 100%;
+  height: auto;
   aspect-ratio: 1 / 1;
   border-radius: 50%;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) scale(var(--macro-knob-size-scale, 1));
+  transform-origin: center center;
   background: conic-gradient(
-    from -132deg,
-    var(--macro-arc-fill, #f1b84b) calc(var(--macro-value, 0) * 264deg),
-    var(--macro-arc-track, #3a3428) calc(var(--macro-value, 0) * 264deg) 264deg,
-    color-mix(in srgb, var(--macro-arc-fill, #f1b84b) calc(var(--macro-knob-arc-gap-brightness, 0) * 100%), transparent) 264deg 360deg
+    from var(--macro-arc-start-deg, -132deg),
+    var(--macro-arc-fill, #f1b84b) calc(var(--macro-value, 0) * var(--macro-arc-span-deg, 264deg)),
+    var(--macro-arc-track, #3a3428) calc(var(--macro-value, 0) * var(--macro-arc-span-deg, 264deg)) var(--macro-arc-span-deg, 264deg),
+    color-mix(in srgb, var(--macro-arc-fill, #f1b84b) calc(var(--macro-knob-arc-gap-brightness, 0) * 100%), transparent) var(--macro-arc-span-deg, 264deg) 360deg
   );
   -webkit-mask-image: radial-gradient(closest-side, transparent calc(100% - var(--macro-knob-arc-thickness-percent, 0.3) * 100%), #000 calc(100% - var(--macro-knob-arc-thickness-percent, 0.3) * 100% + 1px));
   mask-image: radial-gradient(closest-side, transparent calc(100% - var(--macro-knob-arc-thickness-percent, 0.3) * 100%), #000 calc(100% - var(--macro-knob-arc-thickness-percent, 0.3) * 100% + 1px));
+  /* Soft glow only on bank/dock macros — Knob module overrides to none. */
   filter: drop-shadow(0 0 5px color-mix(in srgb, var(--macro-arc-fill, #f1b84b) 40%, transparent));
+  outline: none;
+  box-shadow: none;
+  border: none;
   pointer-events: none;
 }
 
@@ -9888,13 +9905,13 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 .node-graph-workspace.module-oscilloscopes-hidden
-  .dsp-node:not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout) {
+  .dsp-node:not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.oscilloscope-forced-visible) {
   --node-module-scope-height: 0px;
 }
 
 /* Hide only analyzer scopes — not always-on display plates that reuse the class. */
 .node-graph-workspace.module-oscilloscopes-hidden
-  .dsp-node:not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout)
+  .dsp-node:not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.oscilloscope-forced-visible)
   .node-module-scope-window:not(.node-knob-face):not(.node-number-readout-face):not(.node-ray-bouncer-face) {
   display: none;
 }
@@ -10167,18 +10184,19 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   stroke: color-mix(in srgb, var(--node-module-drag-stroke) 62%, transparent);
 }
 
-/* Knob / plugin shelf faces: no orange drag-stroke flash while moving the module.
-   Keep the idle dim rim, or the selection rim if selected. */
+/* Knob / plugin shelf faces: no module-frame stroke at all (idle / selected / drag). */
 .dsp-node.slider-widget-layout.dragging {
   --node-module-drag-stroke: transparent;
 }
 
-.dsp-node.slider-widget-layout.dragging:not(.selected):not(.knob-face-has-image) > .node-module-frame .node-module-frame-path {
-  stroke: rgba(243, 241, 236, 0.2) !important;
-}
-
-.dsp-node.slider-widget-layout.dragging.selected:not(.knob-face-has-image) > .node-module-frame .node-module-frame-path {
-  stroke: var(--node-module-selected-stroke, #e2a86d) !important;
+.dsp-node.slider-widget-layout > .node-module-frame .node-module-frame-path,
+.dsp-node.slider-widget-layout.dragging > .node-module-frame .node-module-frame-path,
+.dsp-node.slider-widget-layout.selected > .node-module-frame .node-module-frame-path,
+.dsp-node.slider-widget-layout.connected > .node-module-frame .node-module-frame-path {
+  stroke: transparent !important;
+  stroke-width: 0 !important;
+  stroke-opacity: 0 !important;
+  fill: none !important;
 }
 
 .dsp-node.selected .node-module-frame-path {
@@ -10384,7 +10402,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   height: 100%;
   min-width: 0;
   min-height: 0;
-  padding: 4px;
+  padding: 0;
   border: none;
   outline: none;
   box-shadow: none;
@@ -10411,10 +10429,20 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   min-height: 0;
   height: 100%;
   width: 100%;
+  padding: 0;
+  box-sizing: border-box;
   transform: none;
   transform-origin: center center;
   font: 700 0.68rem/1 "Cascadia Mono", Consolas, monospace;
   color: var(--muted);
+  overflow: hidden;
+}
+
+.dsp-node.slider-widget-layout .node-knob-face.node-knob-module-macro .node-macro-knob-label,
+.node-knob-face.node-knob-module-macro .node-macro-knob-label {
+  flex: 0 0 auto;
+  line-height: 1.05;
+  max-height: 1.15em;
 }
 
 .dsp-node.slider-widget-layout .node-knob-face.node-knob-module-macro .node-macro-knob-dial,
@@ -10423,13 +10451,29 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   align-self: stretch;
   min-height: 0;
   position: relative;
+  /* Size arc from dial cell so width-tall faces don't overflow height. */
+  container-type: size;
+  overflow: hidden;
 }
 
-/* Dial scales with face (not fixed 42px bank size). */
+/* Dial scales with face (not fixed 42px bank size).
+   Use container min side so the circle fits inside the dial (was width-only
+   and clipped the top on wide 5×3 faces). Soften drop-shadow bleed. */
+/* Knob module plate: dial Size 0…1 (--knob-dial-size) scales only the arc.
+   1 = fill available dial cell; label/value unscaled. No glow ring. */
 .dsp-node.slider-widget-layout .node-knob-face.node-knob-module-macro i,
 .node-knob-face.node-knob-module-macro i {
-  width: min(78%, 88px);
-  max-width: calc(100% - 12px);
+  width: min(100cqmin, 100%);
+  max-width: 100%;
+  max-height: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  transform: translate(-50%, -50%) scale(var(--knob-dial-size, 1));
+  transform-origin: center center;
+  filter: none;
+  outline: none;
+  box-shadow: none;
+  border: none;
 }
 
 /* Value readout a bit larger on the module plate. */
@@ -10466,8 +10510,9 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 .node-knob-face.node-knob-module-macro {
-  outline: none;
-  box-shadow: none;
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
 }
 
 /* With face art: no plate stroke. */
@@ -10477,13 +10522,11 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   box-shadow: none !important;
 }
 
-/* Focus: kill UA ring only — keep empty-face inset outline. */
+/* Focus / active / drag: never show a plate stroke on knob faces. */
 .node-knob-face:focus,
 .node-knob-face:focus-visible,
-.node-knob-face:active {
-  /* do not zero outline on empty faces — that is the dim plate stroke */
-}
-
+.node-knob-face:active,
+.node-knob-face.value-dragging,
 .node-knob-face.has-image:focus,
 .node-knob-face.has-image:focus-visible,
 .node-knob-face.has-image:active {
@@ -10492,14 +10535,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   outline: none !important;
 }
 
-.node-knob-face:not(.has-image):focus,
-.node-knob-face:not(.has-image):focus-visible,
-.node-knob-face:not(.has-image):active {
-  outline: 1px solid rgba(243, 241, 236, 0.26);
-  outline-offset: calc(-1 * var(--knob-empty-stroke-inset, 4px));
-}
-
-/* Empty Knob: force a visible (dim) module SVG outline. */
+/* Empty Knob: frame kept for hit layout only — never paint a stroke. */
 .dsp-node.slider-widget-layout:not(.knob-face-has-image) > .node-module-frame {
   display: block !important;
   visibility: visible !important;
@@ -10508,19 +10544,21 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 .dsp-node.slider-widget-layout:not(.knob-face-has-image) > .node-module-frame .node-module-frame-path {
-  stroke: rgba(243, 241, 236, 0.2) !important;
-  stroke-width: 1px !important;
-  stroke-opacity: 1 !important;
+  stroke: transparent !important;
+  stroke-width: 0 !important;
+  stroke-opacity: 0 !important;
   fill: none !important;
 }
 
 .dsp-node.slider-widget-layout:not(.knob-face-has-image).selected > .node-module-frame .node-module-frame-path {
-  stroke: var(--node-module-selected-stroke, #e2a86d) !important;
-  stroke-width: 1px !important;
+  stroke: transparent !important;
+  stroke-width: 0 !important;
 }
 
 .node-knob-face.value-dragging {
   cursor: var(--node-dot-cursor);
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 /*
@@ -12990,8 +13028,13 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   display: none;
 }
 
-.node-graph-workspace.module-buttons-hidden .dsp-node .node-header-actions {
+/* Global Visibility hide — skip modules that force-show locally. */
+.node-graph-workspace.module-buttons-hidden .dsp-node:not(.buttons-forced-visible) .node-header-actions {
   display: none;
+}
+
+.node-graph-workspace.module-buttons-hidden .dsp-node.buttons-forced-visible .node-header-actions {
+  display: flex;
 }
 
 /* Music Player path + phase widgets are control-surface chrome (text boxes and
@@ -13108,9 +13151,13 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   z-index: 3;
 }
 
-.node-graph-workspace.module-interface-controls-hidden .sample-module-layout .node-sample-module-body,
+.node-graph-workspace.module-interface-controls-hidden .sample-module-layout:not(.interface-controls-forced-visible) .node-sample-module-body,
 .sample-module-layout.interface-controls-hidden .node-sample-module-body {
   display: none;
+}
+
+.node-graph-workspace.module-interface-controls-hidden .sample-module-layout.interface-controls-forced-visible .node-sample-module-body {
+  display: grid;
 }
 
 .sample-module-layout .dsp-node-io-section {
@@ -13124,7 +13171,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   align-self: start;
 }
 
-.node-graph-workspace.module-buttons-hidden .dsp-node:not(.title-hidden),
+.node-graph-workspace.module-buttons-hidden .dsp-node:not(.title-hidden):not(.buttons-forced-visible),
 .dsp-node.buttons-hidden:not(.title-hidden) {
   --node-header-height: var(--node-header-title-row-height);
 }
@@ -13137,11 +13184,11 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   --node-header-height: 0px;
 }
 
-.node-graph-workspace.module-buttons-hidden .dsp-node.title-hidden {
+.node-graph-workspace.module-buttons-hidden .dsp-node.title-hidden:not(.buttons-forced-visible) {
   --node-header-height: 0px;
 }
 
-.node-graph-workspace.module-buttons-hidden .dsp-node:not(.title-hidden) .dsp-node-header,
+.node-graph-workspace.module-buttons-hidden .dsp-node:not(.title-hidden):not(.buttons-forced-visible) .dsp-node-header,
 .dsp-node.buttons-hidden:not(.title-hidden) .dsp-node-header {
   grid-template-rows: minmax(0, 1fr);
 }
@@ -13156,7 +13203,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   visibility: hidden;
 }
 
-.node-graph-workspace.module-buttons-hidden .dsp-node.title-hidden .dsp-node-header {
+.node-graph-workspace.module-buttons-hidden .dsp-node.title-hidden:not(.buttons-forced-visible) .dsp-node-header {
   overflow: hidden;
   padding: 0;
   visibility: hidden;
@@ -13171,11 +13218,16 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   --node-header-height: 0px;
 }
 
-.node-graph-workspace.module-sliders-hidden .dsp-node-body,
+.node-graph-workspace.module-sliders-hidden .dsp-node:not(.sliders-forced-visible) .dsp-node-body,
 .dsp-node.sliders-hidden .dsp-node-body,
-.node-graph-workspace.module-sliders-hidden .node-parameter-row,
+.node-graph-workspace.module-sliders-hidden .dsp-node:not(.sliders-forced-visible) .node-parameter-row,
 .dsp-node.sliders-hidden .node-parameter-row {
   display: none;
+}
+
+.node-graph-workspace.module-sliders-hidden .dsp-node.sliders-forced-visible .dsp-node-body,
+.node-graph-workspace.module-sliders-hidden .dsp-node.sliders-forced-visible .node-parameter-row {
+  display: grid;
 }
 
 .node-header-title-row {
@@ -13529,7 +13581,7 @@ input.node-header-title:focus {
 .node-display-settings-button[aria-pressed="false"],
 .node-metaparameter-button[aria-pressed="false"],
 .dsp-node.oscilloscope-hidden .node-display-settings-button,
-.node-graph-workspace.module-oscilloscopes-hidden .dsp-node .node-display-settings-button {
+.node-graph-workspace.module-oscilloscopes-hidden .dsp-node:not(.oscilloscope-forced-visible) .node-display-settings-button {
   background: rgba(0, 0, 0, 0.48);
   color: rgba(160, 167, 176, 0.42);
   opacity: 0.68;
@@ -14886,6 +14938,14 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
     hsl(300 100% 50%),
     hsl(360 100% 50%)
   ) !important;
+}
+
+/* Hue position marker (unfilled 1px black rect) — keep visible in popover. */
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-hue-thumb {
+  border: 1px solid #000 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: transparent !important;
 }
 
 .node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-hex {

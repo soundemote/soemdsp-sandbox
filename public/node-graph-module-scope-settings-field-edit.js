@@ -269,17 +269,20 @@ function stepNodeGraphTraceDisplaySetting(event) {
     nextValue = nodeGraphSpectrogramStepFftSize(baseValue, direction);
   } else if (key === "historySeconds" || key === "zoomSeconds") {
     // Exponential control-space steps (fine near short history, coarser at long).
-    const quantum = nodeGraphTraceDisplayStepperQuantum(input);
+    const quantum = nodeGraphTraceDisplayStepperQuantum(input, baseValue);
     nextValue = normalizeNodeGraphTraceDisplaySettingValueForKey(
       key,
       adjustNodeGraphTraceDisplaySettingByControlDelta(key, baseValue, direction * quantum),
     );
   } else {
-    const quantum = nodeGraphTraceDisplayStepperQuantum(input);
-    nextValue = normalizeNodeGraphTraceDisplaySettingValueForKey(
-      key,
-      adjustNodeGraphTraceDisplaySettingByControlDelta(key, baseValue, direction * quantum),
-    );
+    // Magnitude-based −/+ (same as Parameter Settings): e.g. Span 270° → ±100°.
+    const quantum = nodeGraphTraceDisplayStepperQuantum(input, baseValue);
+    let stepped = baseValue + direction * quantum;
+    // Snap large whole-unit steps onto the quantum grid (270+100 → 370, not float dust).
+    if (quantum >= 1 - 1e-12) {
+      stepped = Math.round(stepped / quantum) * quantum;
+    }
+    nextValue = normalizeNodeGraphTraceDisplaySettingValueForKey(key, stepped);
   }
   input.value = formatNodeGraphTraceDisplaySetting(nextValue);
   applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true });

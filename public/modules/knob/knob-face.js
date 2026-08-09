@@ -28,8 +28,8 @@ const nodeGraphKnobFaceDefaults = Object.freeze({
   layers: Object.freeze(
     nodeGraphKnobFaceLayerIds.map(() => Object.freeze(nodeGraphKnobFaceEmptyLayer())),
   ),
+  // Centered span (degrees). Start is always −span/2 — no separate offset.
   rotationDegrees: 270,
-  rotationOffsetDegrees: -135,
   showReadout: true,
   showLabel: true,
 });
@@ -50,7 +50,6 @@ function normalizeNodeGraphKnobFaceLayer(source = {}) {
 function normalizeNodeGraphKnobFace(source = {}) {
   const raw = source && typeof source === "object" ? source : {};
   const rotationDegrees = Number(raw.rotationDegrees);
-  const rotationOffsetDegrees = Number(raw.rotationOffsetDegrees);
 
   const layers = nodeGraphKnobFaceLayerIds.map(() => nodeGraphKnobFaceEmptyLayer());
 
@@ -95,9 +94,6 @@ function normalizeNodeGraphKnobFace(source = {}) {
     rotationDegrees: Number.isFinite(rotationDegrees)
       ? Math.max(0, Math.min(1440, rotationDegrees))
       : nodeGraphKnobFaceDefaults.rotationDegrees,
-    rotationOffsetDegrees: Number.isFinite(rotationOffsetDegrees)
-      ? Math.max(-720, Math.min(720, rotationOffsetDegrees))
-      : nodeGraphKnobFaceDefaults.rotationOffsetDegrees,
     showReadout: raw.showReadout !== false && raw.showReadout !== "false",
     showLabel: raw.showLabel !== false && raw.showLabel !== "false",
   };
@@ -119,8 +115,7 @@ function nodeGraphKnobFaceIsNonDefault(face) {
   }
   return !f.showReadout
     || !f.showLabel
-    || f.rotationDegrees !== defaults.rotationDegrees
-    || f.rotationOffsetDegrees !== defaults.rotationOffsetDegrees;
+    || f.rotationDegrees !== defaults.rotationDegrees;
 }
 
 /**
@@ -500,7 +495,7 @@ function nodeGraphKnobFaceUnitFromParams(patchNode) {
   return nodeGraphKnobFaceUnitFromValue(live, patchNode);
 }
 
-/** Apply per-node macro dial colors onto the face (local CSS vars only). */
+/** Apply per-node macro dial colors + arc geometry onto the face (local CSS vars only). */
 function nodeGraphKnobFaceApplyMacroStyle(face, settings) {
   if (!face) {
     return;
@@ -517,6 +512,28 @@ function nodeGraphKnobFaceApplyMacroStyle(face, settings) {
   face.style.setProperty("--macro-arc-track", track);
   face.style.setProperty("--knob-module-bg", bg);
   face.style.background = bg;
+
+  // Span = total arc sweep, centered (symmetric left/right). Gap sits opposite center.
+  // start = −span/2 so span 270° → −135°…+135° (classic pot gap at bottom).
+  const span = Number.isFinite(Number(s.rotationDegrees))
+    ? Math.max(0, Math.min(1440, Number(s.rotationDegrees)))
+    : 270;
+  const start = -span * 0.5;
+  face.style.setProperty("--macro-arc-start-deg", `${start}deg`);
+  face.style.setProperty("--macro-arc-span-deg", `${span}deg`);
+
+  // Dial Size 0…1: only the arc widget (1 = fill available dial cell).
+  const dialSize = Number.isFinite(Number(s.dialSize))
+    ? Math.max(0, Math.min(1, Number(s.dialSize)))
+    : 1;
+  face.style.setProperty("--knob-dial-size", String(dialSize));
+
+  // Inner radius 0…1 → hole size; thickness fraction of radius = 1 − inner.
+  const inner = Number.isFinite(Number(s.innerRadius))
+    ? Math.max(0, Math.min(0.95, Number(s.innerRadius)))
+    : 0.7;
+  const thicknessFrac = Math.max(0.04, 1 - inner);
+  face.style.setProperty("--macro-knob-arc-thickness-percent", String(thicknessFrac));
 }
 
 /**
@@ -612,10 +629,14 @@ function paintNodeGraphKnobFaceLive(face, nodeId, buffer = null) {
   nodeGraphKnobFaceSyncLightSource(face, true);
 }
 
-/** Degrees for Bias unit 0…1 (shared span/offset; applied only to layers with rotate). */
+/** Degrees for Bias unit 0…1 along centered span (applied only to layers with rotate). */
 function nodeGraphKnobFaceRotationDeg(face, unit01) {
   const u = Math.max(0, Math.min(1, Number(unit01) || 0));
-  return Number(face.rotationOffsetDegrees) + u * Number(face.rotationDegrees);
+  const span = Number.isFinite(Number(face?.rotationDegrees))
+    ? Math.max(0, Math.min(1440, Number(face.rotationDegrees)))
+    : 270;
+  // Centered: u=0 → −span/2, u=1 → +span/2 (same as arc start…start+span).
+  return -span * 0.5 + u * span;
 }
 
 function nodeGraphKnobFaceLayerIndex(layerId) {
@@ -985,7 +1006,6 @@ function nodeGraphKnobFaceToPatch(face) {
       rotate: Boolean(layer.rotate),
     })),
     rotationDegrees: f.rotationDegrees,
-    rotationOffsetDegrees: f.rotationOffsetDegrees,
     showReadout: f.showReadout,
     showLabel: f.showLabel,
   };
@@ -1313,19 +1333,9 @@ function setNodeGraphKnobFaceRotationDegreesFromContext({ record = true } = {}) 
   }, { record, status: "value slider rotation span updated" });
 }
 
-function setNodeGraphKnobFaceRotationOffsetFromContext({ record = true } = {}) {
-  const sourceNode = typeof nodeGraphPatchNode === "function"
-    ? nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId?.())
-    : null;
-  if (!sourceNode || sourceNode.type !== "knob") {
-    return;
-  }
-  const input = document.getElementById("nodeSceneKnobFaceRotationOffset");
-  const prev = nodeGraphKnobFaceForNode(sourceNode);
-  commitNodeGraphKnobFace({
-    ...prev,
-    rotationOffsetDegrees: Number(input?.value),
-  }, { record, status: "value slider rotation offset updated" });
+/** @deprecated Offset removed — span is always centered (−span/2 … +span/2). */
+function setNodeGraphKnobFaceRotationOffsetFromContext() {
+  // no-op (kept so old bindings do not throw)
 }
 
 function setNodeGraphKnobFaceShowReadoutFromContext({ record = true } = {}) {
@@ -1344,7 +1354,7 @@ function setNodeGraphKnobFaceShowReadoutFromContext({ record = true } = {}) {
 }
 
 /**
- * Image layers / span / offset / readout live in Display Settings now.
+ * Image layers / span / readout live in Display Settings now.
  * Module Settings must not resurface the old face controls block.
  */
 function syncNodeGraphKnobFaceControls(_targetNode) {
@@ -1451,7 +1461,7 @@ function syncNodeGraphKnobFaceDisplaySettingsControls(root) {
 }
 
 /**
- * Right-click on Knob face → Display Settings (image layers, colors, span/offset).
+ * Right-click on Knob face → Display Settings (image layers, colors, span).
  */
 function openNodeKnobFaceContextMenu(event) {
   const target = event?.target;

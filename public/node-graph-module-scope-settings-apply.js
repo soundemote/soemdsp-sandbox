@@ -41,19 +41,26 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
   if (displayType === "knobFace") {
     const normalized = normalizeNodeGraphKnobFaceDisplaySettings(settings);
     node.traceDisplaySettings = normalized;
-    // Mirror span/offset/readout/label into the face blob (image layers live there).
+    // Mirror span/readout/label into the face blob (image layers live there).
     if (typeof normalizeNodeGraphKnobFace === "function") {
       const face = normalizeNodeGraphKnobFace(node.knobFace);
       const nextFace = {
         ...face,
         rotationDegrees: normalized.rotationDegrees,
-        rotationOffsetDegrees: normalized.rotationOffsetDegrees,
+        // Keep face blob in sync for image-layer rotate math (centered span).
         showReadout: normalized.showReadout,
         showLabel: normalized.showLabel,
       };
       node.knobFace = typeof nodeGraphKnobFaceToPatch === "function"
         ? nodeGraphKnobFaceToPatch(nextFace)
         : nextFace;
+    }
+    // Live repaint so Span / Inner radius apply immediately.
+    if (typeof paintNodeGraphKnobFaceLive === "function" && node?.id) {
+      const el = document.querySelector?.(`.node-knob-face[data-node="${CSS.escape(String(node.id))}"]`);
+      if (el) {
+        paintNodeGraphKnobFaceLive(el, node.id, null);
+      }
     }
     return node.traceDisplaySettings;
   }

@@ -1973,20 +1973,22 @@ function toggleNodeGraphModuleButtonsFromContext() {
     return;
   }
 
-  const buttonsWereHidden = nodeGraphEffectivePatchNodeUi(sourceNode.ui).buttonsHidden;
-  if (buttonsWereHidden && nodeGraphMvp.moduleButtonsVisible === false) {
-    nodeGraphMvp.moduleButtonsVisible = true;
-  }
+  const wereHidden = nodeGraphEffectivePatchNodeUi(sourceNode.ui, sourceNode.type).buttonsHidden;
+  const wantHidden = !wereHidden;
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   const targetNode = patch.nodes.find((node) => node.id === sourceNode.id);
   if (!targetNode) {
     return;
   }
-  const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui, targetNode.type);
-  ui.buttonsHidden = !buttonsWereHidden;
+  const ui = nodeGraphPatchNodeUiSetSectionWantHidden(
+    normalizeNodeGraphPatchNodeUi(targetNode.ui, targetNode.type),
+    "buttons",
+    wantHidden,
+    nodeGraphMvp.moduleButtonsVisible,
+  );
   applyNodeGraphPatchNodeUi(targetNode, ui);
   commitNodeGraphPatch(patch, {
-    status: ui.buttonsHidden ? "module buttons hidden" : "module buttons shown",
+    status: wantHidden ? "module buttons hidden" : "module buttons shown",
   });
   renderNodeGraphModuleVisibilityToggles();
   configureNodeSceneContextMenu("module");
@@ -2047,20 +2049,22 @@ function toggleNodeGraphModuleOscilloscopeFromContext() {
     return;
   }
 
-  const displayWasHidden = nodeGraphEffectivePatchNodeUi(sourceNode.ui).oscilloscopeHidden;
-  if (displayWasHidden && nodeGraphMvp.moduleOscilloscopesVisible === false) {
-    nodeGraphMvp.moduleOscilloscopesVisible = true;
-  }
+  const wereHidden = nodeGraphEffectivePatchNodeUi(sourceNode.ui, sourceNode.type).oscilloscopeHidden;
+  const wantHidden = !wereHidden;
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   const targetNode = patch.nodes.find((node) => node.id === sourceNode.id);
   if (!targetNode || !nodeGraphPatchNodeHasHideableOscilloscope(targetNode)) {
     return;
   }
-  const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui, targetNode.type);
-  ui.oscilloscopeHidden = !displayWasHidden;
+  const ui = nodeGraphPatchNodeUiSetSectionWantHidden(
+    normalizeNodeGraphPatchNodeUi(targetNode.ui, targetNode.type),
+    "oscilloscope",
+    wantHidden,
+    nodeGraphMvp.moduleOscilloscopesVisible,
+  );
   applyNodeGraphPatchNodeUi(targetNode, ui);
   commitNodeGraphPatch(patch, {
-    status: ui.oscilloscopeHidden ? "module display hidden" : "module display shown",
+    status: wantHidden ? "module display hidden" : "module display shown",
   });
   renderNodeGraphModuleVisibilityToggles();
   configureNodeSceneContextMenu("module");
@@ -2071,13 +2075,17 @@ function applyNodeGraphPatchNodeUi(targetNode, ui) {
   // Persist ui only when a non-default flag is set. LayoutB titles default on
   // (titleHidden:false); Hide title persists via titleHidden:true.
   if (
-    normalizedUi.buttonsHidden ||
-    normalizedUi.ioHidden ||
-    normalizedUi.interfaceControlsHidden ||
-    normalizedUi.titleHidden ||
-    normalizedUi.oscilloscopeHidden ||
-    normalizedUi.slidersHidden ||
-    normalizedUi.displayHeightOffsetGu
+    normalizedUi.buttonsHidden
+    || normalizedUi.buttonsForceShow
+    || normalizedUi.ioHidden
+    || normalizedUi.interfaceControlsHidden
+    || normalizedUi.interfaceControlsForceShow
+    || normalizedUi.titleHidden
+    || normalizedUi.oscilloscopeHidden
+    || normalizedUi.oscilloscopeForceShow
+    || normalizedUi.slidersHidden
+    || normalizedUi.slidersForceShow
+    || normalizedUi.displayHeightOffsetGu
   ) {
     targetNode.ui = normalizedUi;
   } else {
@@ -2091,17 +2099,24 @@ function toggleNodeGraphModuleInterfaceControlsFromContext() {
     return;
   }
 
+  const wereHidden = nodeGraphEffectivePatchNodeUi(sourceNode.ui, sourceNode.type).interfaceControlsHidden;
+  const wantHidden = !wereHidden;
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   const targetNode = patch.nodes.find((node) => node.id === sourceNode.id);
   if (!targetNode || !nodeGraphModuleTypeHasInterfaceControls(targetNode.type)) {
     return;
   }
-  const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui, targetNode.type);
-  ui.interfaceControlsHidden = !ui.interfaceControlsHidden;
+  const ui = nodeGraphPatchNodeUiSetSectionWantHidden(
+    normalizeNodeGraphPatchNodeUi(targetNode.ui, targetNode.type),
+    "interfaceControls",
+    wantHidden,
+    nodeGraphMvp.moduleInterfaceControlsVisible,
+  );
   applyNodeGraphPatchNodeUi(targetNode, ui);
   commitNodeGraphPatch(patch, {
-    status: ui.interfaceControlsHidden ? "module control surface hidden" : "module control surface shown",
+    status: wantHidden ? "module control surface hidden" : "module control surface shown",
   });
+  renderNodeGraphModuleVisibilityToggles();
   configureNodeSceneContextMenu("module");
 }
 
@@ -2131,17 +2146,24 @@ function toggleNodeGraphModuleSlidersFromContext() {
     return;
   }
 
+  const wereHidden = nodeGraphEffectivePatchNodeUi(sourceNode.ui, sourceNode.type).slidersHidden;
+  const wantHidden = !wereHidden;
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   const targetNode = patch.nodes.find((node) => node.id === sourceNode.id);
   if (!targetNode || !nodeGraphModuleTypeHasHideableSliders(targetNode.type)) {
     return;
   }
-  const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui, targetNode.type);
-  ui.slidersHidden = !ui.slidersHidden;
+  const ui = nodeGraphPatchNodeUiSetSectionWantHidden(
+    normalizeNodeGraphPatchNodeUi(targetNode.ui, targetNode.type),
+    "sliders",
+    wantHidden,
+    nodeGraphMvp.moduleSlidersVisible,
+  );
   applyNodeGraphPatchNodeUi(targetNode, ui);
   commitNodeGraphPatch(patch, {
-    status: ui.slidersHidden ? "module sliders hidden" : "module sliders shown",
+    status: wantHidden ? "module sliders hidden" : "module sliders shown",
   });
+  renderNodeGraphModuleVisibilityToggles();
   configureNodeSceneContextMenu("module");
 }
 

@@ -186,7 +186,7 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "fbmFieldFace",
     // Macro Controls face: bg / arc colors / names (global bank).
     "macroControlsFace",
-    // Knob module: macro dial colors, image layers, span/offset, readout.
+    // Knob module: macro dial colors, image layers, centered span, readout.
     "knobFace",
   ].includes(displayType);
 }

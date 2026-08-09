@@ -2,46 +2,63 @@
 // Extracted from node-graph-module-scope-settings-ui.js (graphify community peel).
 // Load after scope-settings-form.js, before scope-settings-ui.js.
 
-function nodeGraphTraceDisplayStepperQuantum(input) {
+/**
+ * −/+ step size for Display Settings (same magnitude policy as Parameter
+ * Settings / metadataStepperQuantum):
+ *   |value| < 1     → 0.1
+ *   1…<10           → 1
+ *   10…<100         → 10
+ *   100…<1000       → 100
+ *   ≥1000           → 1000
+ *
+ * Special fields keep fixed quanta (decimals, FFT table, exp history, …).
+ * Pass currentValue for magnitude-based steps (required for Span ° etc.).
+ */
+function nodeGraphTraceDisplayStepperQuantum(input, currentValue = null) {
   if (!input) {
     return 0.1;
   }
-  if (["cycles", "decimals"].includes(input.dataset?.traceDisplayField)) {
+  const key = input.dataset?.traceDisplayField;
+  if (["cycles", "decimals"].includes(key)) {
     return 1;
   }
-  if (input.dataset?.traceDisplayField === "dotBudget") {
+  if (key === "dotBudget") {
     return 64;
   }
-  if (input.dataset?.traceDisplayField === "bins") {
+  if (key === "bins") {
     return 8;
   }
-  if (input.dataset?.traceDisplayField === "fftSize") {
+  if (key === "fftSize") {
     return 1; // stepped via table in stepNodeGraphTraceDisplaySetting
   }
-  // Spectrogram view band (Hz).
-  if (
-    input.dataset?.traceDisplayField === "minFreq"
-    || input.dataset?.traceDisplayField === "maxFreq"
-  ) {
-    return 10;
-  }
   // History (s): control-space step (exp map) — fine near short windows.
-  if (
-    input.dataset?.traceDisplayField === "historySeconds"
-    || input.dataset?.traceDisplayField === "zoomSeconds"
-  ) {
+  if (key === "historySeconds" || key === "zoomSeconds") {
     return 0.025;
   }
-  if (input.dataset?.traceDisplayField === "pixelDensity") {
+  // Fixed sub-unit fields that are not magnitude-stepped.
+  if (key === "pixelDensity") {
     return 0.05;
   }
-  if (input.dataset?.traceDisplayField === "sweepSeconds") {
+  if (key === "sweepSeconds" || key === "sweepHz") {
     return 0.05;
   }
-  if (input.dataset?.traceDisplayField === "sweepHz") {
-    return 0.05;
+  // App-wide magnitude policy (Span °, freq band, large numbers, 0…1 units).
+  const abs = Math.abs(Number(
+    currentValue != null ? currentValue : input.value,
+  ));
+  if (!Number.isFinite(abs) || abs < 1) {
+    return 0.1;
   }
-  return 0.1;
+  if (abs < 10) {
+    return 1;
+  }
+  if (abs < 100) {
+    return 10;
+  }
+  if (abs < 1000) {
+    return 100;
+  }
+  return 1000;
 }
 
 function nodeGraphTraceDisplaySizeControlField(key) {
@@ -57,7 +74,7 @@ function nodeGraphTraceDisplaySensitiveControlField(key) {
   return nodeGraphTraceDisplaySizeControlField(key) ||
     nodeGraphTraceDisplayHistoryControlField(key) ||
     key === "pixelDensity" ||
-    ["dot1Brightness", "secondaryBrightness"].includes(key);
+    ["dot1Brightness", "secondaryBrightness", "ghostBrightness"].includes(key);
 }
 
 const nodeGraphTraceDisplaySensitiveControlExponent = 3;
@@ -207,6 +224,11 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   capSize: nodeGraphTraceDisplayClampUnit,
   cycles: (value) => Math.max(1, Math.min(64, Math.round(Number(value) || 0))),
   trail: nodeGraphTraceDisplayClampUnit,
+  // Number Readout residual hang + Ghost Bright (min gradient stop).
+  residual: nodeGraphTraceDisplayClampUnit,
+  ghostBrightness: nodeGraphTraceDisplayClampBrightness,
+  // Knob dial ring size 0…1.
+  dialSize: nodeGraphTraceDisplayClampUnit,
   dotBudget: nodeGraphTraceDisplayClampDotBudget,
   decimals: (value) => Math.max(0, Math.min(8, Math.round(Number(value) || 0))),
   dot1Brightness: nodeGraphTraceDisplayClampBrightness,

@@ -57,7 +57,7 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
       syncNodeGraphRgbPictureDisplaySettingsControls(host);
     }
   }
-  // Knob: image layers + rotate flags (span/offset/readout are form fields).
+  // Knob: image layers + rotate flags (span/readout are form fields).
   if (type === "knobFace") {
     if (typeof bindNodeGraphKnobFaceDisplaySettingsEvents === "function") {
       bindNodeGraphKnobFaceDisplaySettingsEvents(host);
@@ -735,13 +735,13 @@ function nodeGraphTraceDisplayColorWidgetModuleUrl() {
   }
   const script = document.querySelector('script[src*="node-graph-module-scopes.js"]');
   if (script?.src) {
-    return new URL("color-widget.js?v=plane-4corner-1", script.src).href;
+    return new URL("color-widget.js?v=hue-marker-1", script.src).href;
   }
   // Fallbacks: site root /public/, then document-relative public/
   try {
-    return new URL("/public/color-widget.js?v=plane-4corner-1", window.location.origin).href;
+    return new URL("/public/color-widget.js?v=hue-marker-1", window.location.origin).href;
   } catch {
-    return new URL("public/color-widget.js?v=plane-4corner-1", window.location.href).href;
+    return new URL("public/color-widget.js?v=hue-marker-1", window.location.href).href;
   }
 }
 

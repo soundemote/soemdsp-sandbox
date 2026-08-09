@@ -145,6 +145,23 @@ const css = `
     cursor: ew-resize;
   }
 
+  /* Current hue marker: 1px black stroke, unfilled rectangle (app-wide). */
+  .scw-hue-thumb {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--scw-hue-pos, 0%);
+    width: 8px;
+    margin-left: -4px;
+    box-sizing: border-box;
+    border: 1px solid #000;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    pointer-events: none;
+    z-index: 1;
+  }
+
   /* 4-corner plane: UL grey · UR full sat · LL black · LR white */
   .scw-plane {
     cursor: crosshair;
@@ -522,7 +539,9 @@ export class SoundColorWidget {
             <canvas class="scw-plane-canvas" aria-hidden="true"></canvas>
             <span class="scw-plane-thumb" aria-hidden="true"></span>
           </button>
-          <button type="button" class="scw-control scw-hue" data-part="hue" aria-label="Hue"></button>
+          <button type="button" class="scw-control scw-hue" data-part="hue" aria-label="Hue">
+            <span class="scw-hue-thumb" aria-hidden="true"></span>
+          </button>
           <span class="scw-hex" role="button" tabindex="0">
             <span class="scw-hex-text"><span class="scw-hex-glyph"></span></span>
             <span class="scw-copy-toast" aria-live="polite"></span>
@@ -552,6 +571,13 @@ export class SoundColorWidget {
       plane.style.setProperty("--scw-plane-u", `${(this.planeUV.u * 100).toFixed(2)}%`);
       // CSS top is from top; v is from bottom.
       plane.style.setProperty("--scw-plane-v", `${((1 - this.planeUV.v) * 100).toFixed(2)}%`);
+    }
+    const hueBar = this.root.querySelector(".scw-hue");
+    if (hueBar) {
+      // Hue 0…360 maps left→right; marker is the unfilled black rect.
+      const h = this.channels === "bw" ? 0 : Number(this.color.h) || 0;
+      const pos = clamp(h / 360, 0, 1) * 100;
+      hueBar.style.setProperty("--scw-hue-pos", `${pos.toFixed(3)}%`);
     }
     this.paintPlane();
     requestAnimationFrame(() => this.fitFittedText());

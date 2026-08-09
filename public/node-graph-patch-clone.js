@@ -57,6 +57,8 @@ function normalizeNodeGraphPatchNodeUi(ui = {}, type = "") {
     : false;
   return {
     buttonsHidden: Boolean(source.buttonsHidden),
+    // Force-show override when Visibility has the section globally hidden.
+    buttonsForceShow: Boolean(source.buttonsForceShow || source.buttonsShown),
     displayHeightOffsetGu: type
       ? normalizeNodeGraphModuleDisplayHeightOffsetUnits(type, source.displayHeightOffsetGu)
       : normalizeNodeGraphModuleDisplayHeightOffsetUnits(source.displayHeightOffsetGu),
@@ -64,10 +66,17 @@ function normalizeNodeGraphPatchNodeUi(ui = {}, type = "") {
     displayModeKey: "",
     ioHidden: Boolean(source.ioHidden),
     interfaceControlsHidden: Boolean(source.interfaceControlsHidden),
+    interfaceControlsForceShow: Boolean(
+      source.interfaceControlsForceShow || source.interfaceControlsShown,
+    ),
     movementLocked: Boolean(source.movementLocked),
     oscilloscopeHidden: Boolean(source.oscilloscopeHidden),
+    oscilloscopeForceShow: Boolean(source.oscilloscopeForceShow || source.oscilloscopeShown),
     // LayoutA policy: definition.slidersAlwaysHidden forces param rows off.
     slidersHidden: alwaysHideSliders || Boolean(source.slidersHidden),
+    slidersForceShow: alwaysHideSliders
+      ? false
+      : Boolean(source.slidersForceShow || source.slidersShown),
     titleHidden,
   };
 }
@@ -77,34 +86,100 @@ function normalizeNodeGraphPatchNodeDisplayModeKey(_type, _value = "") {
   return "";
 }
 
+/**
+ * Global Visibility + local override:
+ * - global shown → modules follow; local *Hidden forces hide
+ * - global hidden → modules hide; local *ForceShow forces show
+ * Never flips the global flag when toggling one module.
+ */
+function nodeGraphPatchNodeSectionEffectivelyHidden(localHidden, localForceShow, globalVisible) {
+  if (localForceShow) {
+    return false;
+  }
+  if (localHidden) {
+    return true;
+  }
+  return globalVisible === false;
+}
+
 function nodeGraphEffectivePatchNodeUi(ui = {}, type = "") {
   const normalizedUi = normalizeNodeGraphPatchNodeUi(ui, type);
   const alwaysHideSliders = type
     && typeof nodeGraphModuleTypeSlidersAlwaysHidden === "function"
     && nodeGraphModuleTypeSlidersAlwaysHidden(type);
+  const globalButtons = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp.moduleButtonsVisible : false;
+  const globalScopes = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp.moduleOscilloscopesVisible : true;
+  const globalInterface = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp.moduleInterfaceControlsVisible : true;
+  const globalSliders = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp.moduleSlidersVisible : true;
+  const buttonsHidden = nodeGraphPatchNodeSectionEffectivelyHidden(
+    normalizedUi.buttonsHidden,
+    normalizedUi.buttonsForceShow,
+    globalButtons,
+  );
+  const oscilloscopeHidden = nodeGraphPatchNodeSectionEffectivelyHidden(
+    normalizedUi.oscilloscopeHidden,
+    normalizedUi.oscilloscopeForceShow,
+    globalScopes,
+  );
+  const interfaceControlsHidden = nodeGraphPatchNodeSectionEffectivelyHidden(
+    normalizedUi.interfaceControlsHidden,
+    normalizedUi.interfaceControlsForceShow,
+    globalInterface,
+  );
+  const slidersHidden = alwaysHideSliders || nodeGraphPatchNodeSectionEffectivelyHidden(
+    normalizedUi.slidersHidden,
+    normalizedUi.slidersForceShow,
+    globalSliders,
+  );
   return {
     ...normalizedUi,
-    buttonsHidden: !nodeGraphPatchNodeSectionVisible(
-      normalizedUi.buttonsHidden,
-      typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp.moduleButtonsVisible : false,
-    ),
-    oscilloscopeHidden: !nodeGraphPatchNodeSectionVisible(
-      normalizedUi.oscilloscopeHidden,
-      typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp.moduleOscilloscopesVisible : true,
-    ),
-    interfaceControlsHidden: !nodeGraphPatchNodeSectionVisible(
-      normalizedUi.interfaceControlsHidden,
-      typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp.moduleInterfaceControlsVisible : true,
-    ),
-    slidersHidden: alwaysHideSliders || !nodeGraphPatchNodeSectionVisible(
-      normalizedUi.slidersHidden,
-      typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp.moduleSlidersVisible : true,
-    ),
+    // Effective (resolved) hide flags for layout / menus.
+    buttonsHidden,
+    oscilloscopeHidden,
+    interfaceControlsHidden,
+    slidersHidden,
+    // Force-show only when local override is active and section is effectively visible.
+    buttonsForceShow: Boolean(normalizedUi.buttonsForceShow) && !buttonsHidden,
+    oscilloscopeForceShow: Boolean(normalizedUi.oscilloscopeForceShow) && !oscilloscopeHidden,
+    interfaceControlsForceShow: Boolean(normalizedUi.interfaceControlsForceShow) && !interfaceControlsHidden,
+    slidersForceShow: Boolean(normalizedUi.slidersForceShow) && !slidersHidden && !alwaysHideSliders,
   };
 }
 
+/** @deprecated use nodeGraphPatchNodeSectionEffectivelyHidden */
 function nodeGraphPatchNodeSectionVisible(localHidden, globalVisible) {
-  return !Boolean(localHidden) && globalVisible !== false;
+  return !nodeGraphPatchNodeSectionEffectivelyHidden(localHidden, false, globalVisible);
+}
+
+/**
+ * Set local override so the section ends up hidden/shown without changing global Visibility.
+ * wantHidden true → hide this module; false → show this module.
+ */
+function nodeGraphPatchNodeUiSetSectionWantHidden(ui, section, wantHidden, globalVisible) {
+  const next = ui && typeof ui === "object" ? { ...ui } : {};
+  const hiddenKey = `${section}Hidden`;
+  const showKey = `${section}ForceShow`;
+  const globalOn = globalVisible !== false;
+  if (wantHidden) {
+    // Want hide: if global already hides, clear override; else force hide.
+    if (!globalOn) {
+      next[hiddenKey] = false;
+      next[showKey] = false;
+    } else {
+      next[hiddenKey] = true;
+      next[showKey] = false;
+    }
+  } else {
+    // Want show: if global already shows, clear override; else force show.
+    if (globalOn) {
+      next[hiddenKey] = false;
+      next[showKey] = false;
+    } else {
+      next[hiddenKey] = false;
+      next[showKey] = true;
+    }
+  }
+  return next;
 }
 
 function normalizeNodeGraphPatchNodeAlias(alias) {
@@ -554,7 +629,7 @@ function cloneNodeGraphPatch(patch) {
           ? { portMeta: normalizeNodeGraphPatchPortMeta(node.portMeta) }
           : {}),
         params: { ...(node.params || {}) },
-        ...(ui.buttonsHidden || ui.ioHidden || ui.interfaceControlsHidden || ui.movementLocked || ui.titleHidden || ui.oscilloscopeHidden || ui.slidersHidden || ui.displayHeightOffsetGu ? { ui } : {}),
+        ...(ui.buttonsHidden || ui.buttonsForceShow || ui.ioHidden || ui.interfaceControlsHidden || ui.interfaceControlsForceShow || ui.movementLocked || ui.titleHidden || ui.oscilloscopeHidden || ui.oscilloscopeForceShow || ui.slidersHidden || ui.slidersForceShow || ui.displayHeightOffsetGu ? { ui } : {}),
       };
     }),
     requiredAssets: typeof nodeGraphRequiredAssetsForPatch === "function"
