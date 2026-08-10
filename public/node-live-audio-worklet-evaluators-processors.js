@@ -685,6 +685,45 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           Right: this.slewLimiterSample(state.right, mixInput(nodeId, "Right") + slewMono, slewUpTime, slewDownTime, safeRate),
         };
       },
+      // Stereo → Mid/Side (0.5 matrix). Math: mid-side-encode-math.js.
+      midSideEncode: (node, nodeId, frame, frames, frameValues, mixInput) =>
+        this.midSideEncodeSample(
+          mixInput(nodeId, "Left"),
+          mixInput(nodeId, "Right"),
+          this.readEffectiveParameter(node, "midGain", 1, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "sideGain", 1, frame, frames, frameValues),
+        ),
+      // IIR quadrature I/Q. Math: quadrature-math.js.
+      quadrature: (node, nodeId, frame, frames, frameValues, mixInput) => {
+        if (!this.quadratureStates) {
+          this.quadratureStates = new Map();
+        }
+        const state = this.quadratureStates.get(nodeId) || this.createQuadratureState();
+        this.quadratureStates.set(nodeId, state);
+        const sideIn = mixInput(nodeId, "Side") + mixInput(nodeId, "In");
+        const midIn = mixInput(nodeId, "Mid");
+        return this.quadratureFrame(state, sideIn, midIn);
+      },
+      // Look-ahead brickwall limiter (delay = LA, no host PDC). Math: lookahead-limiter-math.js.
+      lookaheadLimiter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+        if (!this.lookaheadLimiterStates) {
+          this.lookaheadLimiterStates = new Map();
+        }
+        const state = this.lookaheadLimiterStates.get(nodeId) || this.createLookaheadLimiterState();
+        this.lookaheadLimiterStates.set(nodeId, state);
+        const mono = mixInput(nodeId);
+        return this.lookaheadLimiterFrame(
+          state,
+          mixInput(nodeId, "Left") + mono,
+          mixInput(nodeId, "Right") + mono,
+          this.readEffectiveParameter(node, "ceiling", -0.3, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "lookaheadMs", 5, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "lookaheadSamples", 0, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "attack", 0.2, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "release", 100, frame, frames, frameValues),
+          safeRate,
+        );
+      },
       inertialFilter: (node, nodeId, frame, frames, frameValues, mixInput) => {
         if (!this.inertialFilterStates) {
           this.inertialFilterStates = new Map();

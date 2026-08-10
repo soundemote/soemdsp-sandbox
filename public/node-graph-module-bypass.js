@@ -18,6 +18,7 @@ const NODE_GRAPH_BYPASS_AUDIO_IN = new Set([
   "Dry", "Dry L", "Dry R", "Wet L", "Wet R",
   "In L", "In R", "In1", "In2", "In3", "In4", "In 1", "In 2", "In 3", "In 4",
   "X", "Y", "Z", "A", "B",
+  "Mid", "Side",
 ]);
 
 /** Outputs allowed to take a last-resort audio feed when no better map exists. */
@@ -26,6 +27,7 @@ const NODE_GRAPH_BYPASS_AUDIO_OUT = new Set([
   "Left Out", "Right Out", "Dry L", "Dry R", "Mix L", "Mix R", "Wet L", "Wet R",
   "Mod L", "Mod R", "Out X", "Out Y", "Out Z", "X", "Y", "Z",
   "Out1", "Out2", "Out3", "Out4",
+  "Mid", "Side", "I", "Q", "MidI", "SideQ", "Gain",
 ]);
 
 /**
@@ -63,6 +65,14 @@ const NODE_GRAPH_BYPASS_OUT_ALIASES = Object.freeze({
   "Out Y": ["Y", "R", "Right", "In"],
   "Out Z": ["Z", "In"],
   "0.1V/Oct": ["0.1V/Oct"],
+  // Mid/Side Encoder + Quadrature + limiter meter
+  Mid: ["Mid", "Left", "L", "In", "Mono"],
+  Side: ["Side", "Right", "R", "In", "Mono"],
+  I: ["In", "Side", "Mid", "Mono"],
+  Q: ["In", "Side", "Mid", "Mono"],
+  MidI: ["Mid", "In", "Mono"],
+  SideQ: ["Side", "In", "Mono"],
+  Gain: ["In", "Mono"],
 });
 
 /**
