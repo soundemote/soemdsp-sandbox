@@ -194,6 +194,18 @@
       "wasmAvailable": true
     },
     {
+      "name": "comb_resonator",
+      "label": "Comb Resonator",
+      "targetType": "combResonator",
+      "kind": "filter",
+      "source": "native_modules/comb_resonator/comb_resonator.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/comb_resonator/comb_resonator.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/comb_resonator/comb_resonator.wasm",
+      "wasmUrl": "native_modules/comb_resonator/comb_resonator.wasm",
+      "wasmAvailable": true
+    },
+    {
       "name": "comparator",
       "label": "Comparator",
       "targetType": "comparator",
@@ -203,6 +215,18 @@
       "libUrl": "",
       "wasm": "native_modules/comparator/comparator.wasm",
       "wasmUrl": "native_modules/comparator/comparator.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "crossover",
+      "label": "Crossover",
+      "targetType": "crossover2",
+      "kind": "filter",
+      "source": "native_modules/crossover/crossover.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/crossover/crossover.cpp",
+      "libUrl": "https://github.com/RobinSchmidt/RS-MET",
+      "wasm": "native_modules/crossover/crossover.wasm",
+      "wasmUrl": "native_modules/crossover/crossover.wasm",
       "wasmAvailable": true
     },
     {
@@ -599,6 +623,18 @@
       "libUrl": "",
       "wasm": "native_modules/min_max/min_max.wasm",
       "wasmUrl": "native_modules/min_max/min_max.wasm",
+      "wasmAvailable": true
+    },
+    {
+      "name": "mode_resonator",
+      "label": "Mode Resonator",
+      "targetType": "modeResonator",
+      "kind": "filter",
+      "source": "native_modules/mode_resonator/mode_resonator.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/mode_resonator/mode_resonator.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/mode_resonator/mode_resonator.wasm",
+      "wasmUrl": "native_modules/mode_resonator/mode_resonator.wasm",
       "wasmAvailable": true
     },
     {

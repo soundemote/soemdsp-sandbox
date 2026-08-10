@@ -247,6 +247,12 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.nativeChebyshevReady = false;
     this.nativeElliptic = null;
     this.nativeEllipticReady = false;
+    this.nativeCrossover = null;
+    this.nativeCrossoverReady = false;
+    this.nativeModeResonator = null;
+    this.nativeModeResonatorReady = false;
+    this.nativeCombResonator = null;
+    this.nativeCombResonatorReady = false;
     this.yellowjacketFilterStates = new Map();
     this.superloveFilterStates = new Map();
     this.chaoticPhaseLockingFilterStates = new Map();

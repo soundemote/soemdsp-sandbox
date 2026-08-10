@@ -108,7 +108,20 @@ $modules = @(
   @{ Name = "linkwitz_riley"; Simd = $false; Exports = @("soemdsp_linkwitz_riley_create", "soemdsp_linkwitz_riley_destroy", "soemdsp_linkwitz_riley_sample", "soemdsp_linkwitz_riley_version", "soemdsp_linkwitz_riley_metadata_json", "soemdsp_linkwitz_riley_metadata_json_size") },
   @{ Name = "bessel"; Simd = $false; Exports = @("soemdsp_bessel_create", "soemdsp_bessel_destroy", "soemdsp_bessel_sample", "soemdsp_bessel_version", "soemdsp_bessel_metadata_json", "soemdsp_bessel_metadata_json_size") },
   @{ Name = "chebyshev"; Simd = $false; Exports = @("soemdsp_chebyshev_create", "soemdsp_chebyshev_destroy", "soemdsp_chebyshev_sample", "soemdsp_chebyshev_version", "soemdsp_chebyshev_metadata_json", "soemdsp_chebyshev_metadata_json_size") },
-  @{ Name = "elliptic"; Simd = $false; Exports = @("soemdsp_elliptic_create", "soemdsp_elliptic_destroy", "soemdsp_elliptic_sample", "soemdsp_elliptic_version", "soemdsp_elliptic_metadata_json", "soemdsp_elliptic_metadata_json_size") }
+  @{ Name = "elliptic"; Simd = $false; Exports = @("soemdsp_elliptic_create", "soemdsp_elliptic_destroy", "soemdsp_elliptic_sample", "soemdsp_elliptic_version", "soemdsp_elliptic_metadata_json", "soemdsp_elliptic_metadata_json_size") },
+  @{ Name = "crossover"; Simd = $false; Exports = @(
+    "soemdsp_crossover_create", "soemdsp_crossover_destroy", "soemdsp_crossover_sample",
+    "soemdsp_crossover_band_l", "soemdsp_crossover_band_r", "soemdsp_crossover_band_count",
+    "soemdsp_crossover_version", "soemdsp_crossover_metadata_json", "soemdsp_crossover_metadata_json_size"
+  ) },
+  @{ Name = "mode_resonator"; Simd = $false; Exports = @(
+    "soemdsp_mode_resonator_create", "soemdsp_mode_resonator_destroy", "soemdsp_mode_resonator_sample",
+    "soemdsp_mode_resonator_version", "soemdsp_mode_resonator_metadata_json", "soemdsp_mode_resonator_metadata_json_size"
+  ) },
+  @{ Name = "comb_resonator"; Simd = $false; Exports = @(
+    "soemdsp_comb_resonator_create", "soemdsp_comb_resonator_destroy", "soemdsp_comb_resonator_sample",
+    "soemdsp_comb_resonator_version", "soemdsp_comb_resonator_metadata_json", "soemdsp_comb_resonator_metadata_json_size"
+  ) }
 )
 
 foreach ($module in $modules) {

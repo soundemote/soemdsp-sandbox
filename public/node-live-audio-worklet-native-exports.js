@@ -235,6 +235,78 @@ NodeLiveAudioProcessor.prototype.applyNativeModuleExports = function applyNative
         this.port.postMessage({ type: "nativeModuleStatus", name: "linkwitz_riley", status: this.nativeLinkwitzRileyReady ? "ready" : "missing exports" });
         return;
       }
+      if (
+        name === "crossover"
+        || targetType === "crossover2"
+        || targetType === "crossover3"
+        || targetType === "crossover4"
+        || targetType === "crossover5"
+        || targetType === "crossover6"
+      ) {
+        for (const mapName of ["crossover2States", "crossover3States", "crossover4States", "crossover5States", "crossover6States"]) {
+          const map = this[mapName];
+          if (!map) continue;
+          for (const state of map.values()) {
+            if (state?.nativeHandle && this.nativeCrossover?.soemdsp_crossover_destroy) {
+              try { this.nativeCrossover.soemdsp_crossover_destroy(state.nativeHandle); } catch (_) { /* ignore */ }
+            }
+            if (state) state.nativeHandle = 0;
+          }
+        }
+        this.nativeCrossover = exports;
+        this.nativeCrossoverReady = Boolean(
+          exports?.soemdsp_crossover_create
+          && exports?.soemdsp_crossover_sample
+          && exports?.soemdsp_crossover_band_l
+          && exports?.soemdsp_crossover_band_r,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "crossover",
+          status: this.nativeCrossoverReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "mode_resonator" || targetType === "modeResonator") {
+        if (this.modeResonatorStates) {
+          for (const state of this.modeResonatorStates.values()) {
+            if (state?.nativeHandle && this.nativeModeResonator?.soemdsp_mode_resonator_destroy) {
+              try { this.nativeModeResonator.soemdsp_mode_resonator_destroy(state.nativeHandle); } catch (_) { /* ignore */ }
+            }
+            if (state) state.nativeHandle = 0;
+          }
+        }
+        this.nativeModeResonator = exports;
+        this.nativeModeResonatorReady = Boolean(
+          exports?.soemdsp_mode_resonator_create && exports?.soemdsp_mode_resonator_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "mode_resonator",
+          status: this.nativeModeResonatorReady ? "ready" : "missing exports",
+        });
+        return;
+      }
+      if (name === "comb_resonator" || targetType === "combResonator") {
+        if (this.combResonatorStates) {
+          for (const state of this.combResonatorStates.values()) {
+            if (state?.nativeHandle && this.nativeCombResonator?.soemdsp_comb_resonator_destroy) {
+              try { this.nativeCombResonator.soemdsp_comb_resonator_destroy(state.nativeHandle); } catch (_) { /* ignore */ }
+            }
+            if (state) state.nativeHandle = 0;
+          }
+        }
+        this.nativeCombResonator = exports;
+        this.nativeCombResonatorReady = Boolean(
+          exports?.soemdsp_comb_resonator_create && exports?.soemdsp_comb_resonator_sample,
+        );
+        this.port.postMessage({
+          type: "nativeModuleStatus",
+          name: "comb_resonator",
+          status: this.nativeCombResonatorReady ? "ready" : "missing exports",
+        });
+        return;
+      }
       if (name === "bessel" || targetType === "bessel") {
         if (this.besselStates) {
           for (const state of this.besselStates.values()) {

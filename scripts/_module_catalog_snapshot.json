@@ -1,0 +1,997 @@
+[
+  {
+    "type": "polyBlep",
+    "label": "PolyBLEP",
+    "description": "Anti-aliased PolyBLEP oscillator for clean saw, ramp, square, triangle, sine, and noise waveform outputs."
+  },
+  {
+    "type": "blit",
+    "label": "BLIT",
+    "description": "Band-Limited Impulse Train oscillator (Stilson/Smith style) -- alias-suppressed saw, ramp, square, triangle, and sine, derived from a closed-form impulse train instead of PolyBLEP correction polynomials."
+  },
+  {
+    "type": "archimedes",
+    "label": "Archimedes",
+    "description": "A 2-cycle integer symplectic sine/cosine engine that also extracts pi from its own dithered clock -- a self-oscillating quadrature pair with a bonus pi-estimation output."
+  },
+  {
+    "type": "bradley2a",
+    "label": "Bradley 2A Jitter/Hit Synth",
+    "description": "Naive digitization of the Bradley Telcom Jitter and Hit Synthesizer: a test tone impaired by phase/amp jitter, frequency translation, harmonic distortion, single-frequency interference, and periodic gain/dropout/phase/impulse hits. Intentionally aliases -- character first, band-limiting later. Native C++/WASM."
+  },
+  {
+    "type": "antisaw",
+    "label": "Antisaw",
+    "description": "Additive resynthesis of only the aliased partials of an ideal sawtooth: keeps just the harmonics that would exceed Nyquist, computes exactly where each folds to, and resynthesizes each as a clean, controllable in-band sine there -- simulated aliasing, not real aliasing. Tilt reshapes the 1/n curve toward dark/low or harsh/high folded partials. Native C++/WASM."
+  },
+  {
+    "type": "sineWavetable",
+    "label": "SinCos",
+    "description": "Table-driven sine/cosine oscillator with pitch, frequency, Amp parameter, and Nyquist-edge fade. Native C++/WASM."
+  },
+  {
+    "type": "wavetable2d",
+    "label": "Wavetable2D",
+    "description": "Under construction. Wavetable2D \u2014 multi-frame 2D wavetable oscillator (frame morph / scan). Placeholder until the table engine lands."
+  },
+  {
+    "type": "wavetable3d",
+    "label": "Wavetable3D",
+    "description": "Under construction. Wavetable3D \u2014 volumetric / dual-axis morph wavetable oscillator. Placeholder until the table engine lands."
+  },
+  {
+    "type": "sinc",
+    "label": "Sinc",
+    "description": "Sinc (sin(x)/x) oscillator. Band Limit mode uses the Dirichlet kernel (periodic sinc) with its harmonic count clamped to Nyquist, so it cannot alias; Ideal mode draws the literal sin(x)/x window, which is the textbook shape but aliases as an oscillator. Useful as a modulation source and for resampling theory demos."
+  },
+  {
+    "type": "osc",
+    "label": "BasicShape",
+    "description": "Basic multi-waveform oscillator (saw, ramp, square, triangle, sine, noise) with 0.1V/Oct and increment CV inputs."
+  },
+  {
+    "type": "aliasSine",
+    "label": "Alias Sine",
+    "description": "Bare sine generator with a 0..1.5 normalized-frequency input (fraction of sample rate) that wraps naturally past Nyquist -- aliasing as an explicit, unhidden design choice rather than something to correct for."
+  },
+  {
+    "type": "robinSinusoid",
+    "label": "RobinSinusoid",
+    "description": "RS-MET recursive free-running sine (rosic::SineOscillator): y[n]=2\u00b7cos(\u03c9)\u00b7y[n-1]\u2212y[n-2]. No per-sample sin(). Cheap steady tones; Reset reseeds phase."
+  },
+  {
+    "type": "additiveOsc",
+    "label": "Additive Osc",
+    "description": "Additive-synthesis oscillator building a waveform from summed harmonics. Native C++/WASM."
+  },
+  {
+    "type": "gpuAdditiveOsc",
+    "label": "GPU Additive",
+    "description": "GPU-accelerated additive oscillator variant."
+  },
+  {
+    "type": "ellipsoid",
+    "label": "RoundShape",
+    "description": "RoundShape \u2014 sine\u2192square ellipse (getSineToSquare). Outs: Uni X/Y (0\u2026A) and Bi X/Y (\u2212A\u2026A). Limit AA always on. f + 0.1V/Oct. Native C++/WASM."
+  },
+  {
+    "type": "ellipsoidOsc",
+    "label": "Ellipsoid",
+    "description": "Full multi-param ellipsoid oscillator: Offset/Shape/Scale per axis + Frequency/Phase/Amplitude. Limit AA always on. X/Y face. Native C++/WASM."
+  },
+  {
+    "type": "clock",
+    "label": "Transport",
+    "description": "Timer pulse source. Emits a steady gate for triggering samplers, sequencers, and motion events."
+  },
+  {
+    "type": "transport",
+    "label": "Transport",
+    "description": "Project-synced beat clock source. Emits in-phase square waves derived from patch BPM."
+  },
+  {
+    "type": "clockDivider",
+    "label": "Min/Max",
+    "description": "Clock-aware divider. Count incoming clock edges and emit a slower gate for rhythmic subdivision."
+  },
+  {
+    "type": "delayedTrigger",
+    "label": "Min/Max",
+    "description": "One-shot timer. Catch a trigger, wait a precise delay, then emit a pulse for downstream events."
+  },
+  {
+    "type": "randomClock",
+    "label": "Min/Max",
+    "description": "Seeded random interval clock. Emits a short trigger and a duty-controlled gate between minimum and maximum seconds."
+  },
+  {
+    "type": "triggerCounter",
+    "label": "Min/Max",
+    "description": "Pulse counter. Count incoming triggers, emit a wrap pulse, and expose the count as modulation."
+  },
+  {
+    "type": "triggerDivider",
+    "label": "Min/Max",
+    "description": "Divides incoming trigger pulses into slower clocks for envelopes, sequencers, and rhythmic patches."
+  },
+  {
+    "type": "minMax",
+    "label": "Min/Max",
+    "description": "Port of the Doepfer A-172 Maximum/Minimum Selector. Four inputs, two continuous outputs: Max is the highest of whatever's patched, Min is the lowest. Unpatched inputs are ignored (not read as 0), matching the original's \"leave unused inputs open\" behavior -- patch in as few as 2 or as many as all 4."
+  },
+  {
+    "type": "comparator",
+    "label": "Comparator",
+    "description": "1-sample history edge detector. Up/Down/Change are 1-sample pulses on rise/fall/any change; Steady is high while unchanged; Sign is a continuous In>0 gate; Thru passes In through. First sample seeds history only."
+  },
+  {
+    "type": "sampleDelay",
+    "label": "Sample Delay",
+    "description": "Sample-accurate delay line. Thru is dry passthrough; Delayed is In delayed by Time (seconds) + Samples. Outlets dry (Thru) then wet (Delayed). Combined delay 0\u20264s, ring fully reserved so Time can be modulated without reallocation. Native C++/WASM."
+  },
+  {
+    "type": "bitConverter",
+    "label": "BitConverter",
+    "description": "Converts a raw full-scale integer (e.g. keyboardController's Held Keys bitmask) to and from normalized 0..1 (unipolar) and -1..1 (bipolar) CV, using 2^bits - 1 as the ceiling. Patch a digital wire's exact value into audio-rate CV, or reconstruct the original integer from a CV signal on the way back."
+  },
+  {
+    "type": "stepSequencer",
+    "label": "Chord Pad",
+    "description": "Eight-step trigger sequencer. Advance it with Clock and route stepped control values anywhere."
+  },
+  {
+    "type": "chordPad",
+    "label": "Chord Pad",
+    "description": "Pick a diatonic chord with seven pads (Key + Major/Minor). Scale is a 12-bit pitch-class mask for Pitch Quantizer; Root is 0.1V/Oct; Gate follows Level. Optional Select CV chooses the pad."
+  },
+  {
+    "type": "chordSequencer",
+    "label": "Chord Sequencer",
+    "description": "Clocked chord progressions \u2192 Scale mask + Root (0.1V/Oct). Extra progressions, Key transpose, Forward/Reverse/Ping-Pong, Step CV."
+  },
+  {
+    "type": "lutCell",
+    "label": "LUT Cell",
+    "description": "An FPGA logic slice, modeled directly: a 4-input lookup table (A/B/C/D) feeding a clocked D flip-flop. Truth Table is a 16-bit digital signal -- bit i is the cell's output for input combination i. Out is the combinational result, Q is the registered result that only updates on a Clock rising edge. Unwired Clock and A free-run at 220 Hz so a bare cell demonstrates itself immediately -- wire either one for real to take over."
+  },
+  {
+    "type": "metallicRatio",
+    "label": "Metallic Ratio",
+    "description": "A tribute to Robin Schmidt's RS-MET library: RAPT::rsRatioGenerator::metallic() ported directly. Ratio = (Index + sqrt(Index^2 + 4)) / 2 -- the metallic mean family. Index 0 = unity, 1 = the golden ratio, 2 = silver, 3 = bronze. Useful as an oscillator frequency ratio or a feedback-delay length, per the original library's own doc comment."
+  },
+  {
+    "type": "chordMemory",
+    "label": "Chord Memory",
+    "description": "Latches up to 4 notes from a mono Pitch input (Latch), Clear wipes, Advance walks active slots. Walk modes: Order, Shuffle Bag (no-repeat), Mutate \u2014 plus Leap / Leap Octaves. Trigger pulses on each Advance step; Note 1\u20134 still hold the stack."
+  },
+  {
+    "type": "turingMachine",
+    "label": "Turing Machine",
+    "description": "Mutating shift-register. CV/Scale/Gate as before; patch Scale+Root to get melodic Pitch (degree in scale). Trigger on each clock step."
+  },
+  {
+    "type": "pitchQuantizer",
+    "label": "Pitch Quantizer",
+    "description": "Snaps a 0.1V/Oct pitch signal to the nearest note in a scale. Toggle pitch classes on the one-octave keyboard (applies across every octave), pick a preset, or feed a 12-bit pitch-class mask into the Scale input."
+  },
+  {
+    "type": "degreeTuring",
+    "label": "Degree Turing",
+    "description": "Turing-style mutating register that picks scale degrees (not up/down arp). Wire Scale+Root from Chord Pad/Seq, Clock it, take 0.1V/Oct. Probability corrodes the loop; Length sets period."
+  },
+  {
+    "type": "gravityWalker",
+    "label": "Gravity Walker",
+    "description": "Mono degree walker with inertia (Gravity) and Leap chance/CV. Prefers stepwise motion in Scale+Root; leaps keep it from looping a tiny stair forever."
+  },
+  {
+    "type": "degreePhrase",
+    "label": "Degree Phrase",
+    "description": "Eight degree knobs + rest toggles as a phrase in Scale+Root. Mutate slowly corrodes steps. Not a classic arp \u2014 a looping phrase that ages."
+  },
+  {
+    "type": "noteGlide",
+    "label": "Note Glide",
+    "description": "Portamento / slew on 0.1V/Oct. Put after quantizers, walkers, or phrase engines."
+  },
+  {
+    "type": "noteTranspose",
+    "label": "Note Transpose",
+    "description": "Offset 0.1V/Oct by semitones and octaves."
+  },
+  {
+    "type": "surgeOscillator",
+    "label": "Surge Oscillator",
+    "description": "Anti-aliased Saw/Square/Tri/Sine oscillator with hard sync: a rising zero-crossing on the Sync input forces the phase back near 0, sub-sample-interpolated and PolyBLEP-corrected so the sync reset doesn't alias like a naive hard sync would. Native C++/WASM."
+  },
+  {
+    "type": "softwaveOsc",
+    "label": "Softwave Oscillator",
+    "description": "Softwave Oscillator \u2014 soft-shaped multi-wave voice (tanh / morph) ported from soemdsp DistortionOscillator. Waves: analog saw/square, perfect saw, tri, bow tri, soft bow tri, Walter wave, parabol sine. Morph drives softness; not a distortion FX module."
+  },
+  {
+    "type": "curveOsc",
+    "label": "Curve Oscillator",
+    "description": "Novel parametric math curves drawn in 2D (Lissajous, rose, hypotrochoid, butterfly, superformula, harmonograph, cubic). Phase walks the path \u2192 point (X,Y). Project collapses that point to mono Out (Y, X, Radius, Angle, or Dot along Dot Angle). X/Y outs keep the full plane for 2D scopes while Out is the 1D audio/mod signal."
+  },
+  {
+    "type": "snowflake",
+    "label": "Snowflake",
+    "description": "RS-MET-style fractal pattern synthesis: L-system rewrite (Koch, snowflake, Sierpinski, dragon, Gosper, tree) + turtle graphics polyline, walked at Frequency into stereo X/Y. Native C++/WASM (JS fallback). Iterations deepen self-similarity; Angle is the turtle turn; Direction (\u22121\u20261) morphs path walk with a basic trisaw (reverse / bidirectional / forward). Scale with Amplitude."
+  },
+  {
+    "type": "dsfOscillator",
+    "label": "DSF Oscillator",
+    "description": "The DSF starter kit: Sine, a bandlimited Saw built from pureSawEng (Walter H. Hackett, Extended DSF Oscillators.cxx), a PWM Square derived from two phase-offset Saws, Trimorph (a second leaky integration on the Square), and SquSaw (a Saw crossfaded with a fixed 50%-duty square, landing on a saw-to-triangle-like character). Alias-free by construction: the maximum harmonic count is always Nyquist/frequency. CV jacks: 0.1V/Oct (pitch), Phase (adds to Phase knob), Amplitude (scales Amplitude knob). Native C++/WASM."
+  },
+  {
+    "type": "robinSupersaw",
+    "label": "RobinSupersaw",
+    "description": "A proof-of-concept supersaw built on Robin Schmidt's pitch dithering technique (RobinSchmidt/RS-MET, rsPitchDitherOsc) -- see this repo's README for the full explanation. Instead of correcting or avoiding the aliasing edge, each voice dithers its own cycle length between 3 neighboring integer sample-counts so every individual cycle rendered is exactly periodic (alias-free), trading aliasing for a small amount of pitch-jitter noise. Stacks up to 9 independently-dithered, detuned voices (Detune spreads them symmetrically in cents around a centered anchor voice) and sums them into a classic wall-of-saws supersaw. Native C++/WASM."
+  },
+  {
+    "type": "hypersaw",
+    "label": "Hypersaw",
+    "description": "A proof-of-concept port of soundemote's own HypersawUnit/HypersawMaster (see docs/reference/Hypersaw.hpp) -- a bank of up to 32 bandlimited (PolyBLEP) sawtooths spread across the phase cycle. Each voice's phase is dispersed three ways: Spread (scales the voice's fixed even position i/N across the cycle), Random (a fixed per-voice random offset), and Drift (a slow, continuously wandering per-voice offset). Center voices sum to both channels; the rest alternate Left/Right. The display burns one vertical phosphor line per voice at its current phase position (0..1 across the width). Native C++/WASM."
+  },
+  {
+    "type": "spiral",
+    "label": "Jerobeam Spiral",
+    "description": "Jerobeam spiral engine. Emits X/Y/Z motion-signal for alien curves and audiovisual flight paths. Native C++/WASM."
+  },
+  {
+    "type": "fractalSpiral",
+    "label": "Fractal Spiral",
+    "description": "Self-affine Weierstrass-style fractal spiral: N rotating copies of itself, each spun faster and scaled down, summed into one curve with a real, tunable Hausdorff dimension. Native C++/WASM."
+  },
+  {
+    "type": "logSpiral",
+    "label": "Logarithmic Spiral",
+    "description": "Pure logarithmic (equiangular) spiral: the one curve that looks identical after any rotation+rescaling. Sweeps a constant per-turn growth ratio, no fractal texture layer. Native C++/WASM."
+  },
+  {
+    "type": "blubb",
+    "label": "Jerobeam Blubb",
+    "description": "Placeholder for the Jerobeam Blubb motion engine."
+  },
+  {
+    "type": "boing",
+    "label": "Jerobeam Boing",
+    "description": "Placeholder for the Jerobeam Boing motion engine."
+  },
+  {
+    "type": "keplerBouwkamp",
+    "label": "Jerobeam Kepler-Bouwkamp",
+    "description": "Jerobeam Kepler-Bouwkamp engine. Nested polygon spiral emitting X/Y motion signal."
+  },
+  {
+    "type": "mushroom",
+    "label": "Jerobeam Mushroom",
+    "description": "Placeholder for the Jerobeam Mushroom motion engine."
+  },
+  {
+    "type": "nyquistShannon",
+    "label": "Jerobeam NyquistShannon",
+    "description": "Placeholder for the Jerobeam Nyquist-Shannon motion engine."
+  },
+  {
+    "type": "radar",
+    "label": "Jerobeam Radar",
+    "description": "Placeholder for the Jerobeam Radar motion engine."
+  },
+  {
+    "type": "torus",
+    "label": "Jerobeam Torus",
+    "description": "Placeholder for the Jerobeam Torus motion engine."
+  },
+  {
+    "type": "wirdoSpiral",
+    "label": "Jerobeam WirdoSpiral",
+    "description": "Placeholder for the Jerobeam WirdoSpiral motion engine."
+  },
+  {
+    "type": "lorenzAttractor",
+    "label": "Lorenz Attractor",
+    "description": "Classic butterfly attractor motion for turbulent curls and folding trajectories. Native C++/WASM."
+  },
+  {
+    "type": "logisticMap",
+    "label": "Logistic Map",
+    "description": "Simplest possible chaotic system: x = R * x * (1 - x), repeated at a clocked Rate. Sweep R from steady to periodic to fully chaotic."
+  },
+  {
+    "type": "henonMap",
+    "label": "Henon Map",
+    "description": "Discrete 2D chaotic map: (x, y) = (1 - a*x^2 + y, b*x), stepped at a clocked Rate. More angular/digital-feeling than the continuous attractors."
+  },
+  {
+    "type": "chuaAttractor",
+    "label": "Chua Attractor",
+    "description": "Chua's Circuit double-scroll attractor: a classic chaotic circuit with a different lobe/scroll character than Lorenz."
+  },
+  {
+    "type": "noiseGenerator",
+    "label": "Pi Spigot Noise",
+    "description": "Stereo noise: Uniform (with continuous Uniform\u2192Gaussian shape), Gaussian, Brown, Pink, Crackle. Independent L/R seeds. Native C++/WASM."
+  },
+  {
+    "type": "randomWalk",
+    "label": "Pi Spigot Noise",
+    "description": "Flexible soemdsp-style random walk with white, filtered, random-step, and fixed-step motion modes. Native C++/WASM."
+  },
+  {
+    "type": "fractalBrownianNoise",
+    "label": "Pi Spigot Noise",
+    "description": "Three-axis layered fBm motion source with octave, persistence, scale, and seed controls for rough organic drift."
+  },
+  {
+    "type": "piSpigotNoise",
+    "label": "Pi Spigot Noise",
+    "description": "Stereo noise source built from real digits of pi (fetched once, embedded), read via an irrational playback-rate drift so a tiny buffer never sounds like a hard loop. Independent seed per channel, White/Pink/Brown/Blue/Violet color, and a 4-stage one-pole Gaussian-smoothing cascade. Native C++/WASM."
+  },
+  {
+    "type": "codeblock",
+    "label": "Smooth Graph",
+    "description": "Patch-local JavaScript signal processor with editable input and output ports."
+  },
+  {
+    "type": "customDisplay",
+    "label": "Smooth Graph",
+    "description": "Patch-local JavaScript display surface. Define inputs and draw custom visuals inside the module face."
+  },
+  {
+    "type": "graph2",
+    "label": "Smooth Graph",
+    "description": "Point-to-point graph: each control point\u2019s outgoing segment has a shape (linear / rational / exponential / log / hold) and contour. Input, LFO, or Phasor-driven readout with range mapping."
+  },
+  {
+    "type": "graphCopy",
+    "label": "Step Graph",
+    "description": "Point-to-point graph with optional step grid (Steps 0 = free X / no quantize). Global Shape + Curve Offset; per-node curve. Input, LFO, or Phasor timing."
+  },
+  {
+    "type": "gain",
+    "label": "Gain",
+    "description": "Scale then offset: out = in \u00d7 Amplitude + Offset. Replaces the old Gain Bias module (same math). Mono sums into L/R before scale."
+  },
+  {
+    "type": "gainBias",
+    "label": "Gain Bias",
+    "description": "Retired: use Gain (now has Offset). Load alias only."
+  },
+  {
+    "type": "mix",
+    "label": "Mix",
+    "description": "4-channel utility mixer with per-channel volume and bias, plus 3 bleed sends into output 1. Clean signal routing for multi-voice patches."
+  },
+  {
+    "type": "gainBiasMix",
+    "label": "Mix",
+    "description": "Retired name: use Mix. Load alias only."
+  },
+  {
+    "type": "bias",
+    "label": "Soft Clipper",
+    "description": "Offsets a signal away from center. Useful for steering modulation and shifting control lanes."
+  },
+  {
+    "type": "softClipper",
+    "label": "Soft Clipper",
+    "description": "Native soft clipper with center bias and clipping width controls."
+  },
+  {
+    "type": "airClipper",
+    "label": "AirClipper",
+    "description": "Airwindows Density3: density soft-saturation / anti-density, optional highpass, output and dry/wet. MIT (airwindows)."
+  },
+  {
+    "type": "rotate3dTo2d",
+    "label": "Rotation 3D to 2D",
+    "description": "Rotates an X/Y/Z signal point in 3D and projects the result back to X/Y."
+  },
+  {
+    "type": "vectorscopeTransform",
+    "label": "Vectorscope Rotation",
+    "description": "Goniometer / vectorscope rotation: rotate stereo L/R by 45\u00b0 so mono is vertical and anti-phase is horizontal. Wire outs into any X/Y scope."
+  },
+  {
+    "type": "output",
+    "label": "Output",
+    "description": "Stereo audio sink. Route Left and Right signals here to hear the patch."
+  },
+  {
+    "type": "audioInput",
+    "label": "Input",
+    "description": "Stereo audio source. Emits Left and Right signals from the live microphone/audio input device."
+  },
+  {
+    "type": "knob",
+    "label": "Knob",
+    "description": "Knob \u2014 module-first control. Face is control + display of live Bias (In + offset). Single Bias outlet. No body param row / param-out twin."
+  },
+  {
+    "type": "pluginSlider",
+    "label": "Slider",
+    "description": "Slider \u2014 module-first control. Face is control + display of live Bias (In + value). Single Bias outlet. No body param row / param-out twin."
+  },
+  {
+    "type": "toggleButton",
+    "label": "Toggle",
+    "description": "Toggle \u2014 press to latch Out to 1, press again for 0. Simple on/off control for patches."
+  },
+  {
+    "type": "momentaryButton",
+    "label": "Momentary",
+    "description": "Momentary \u2014 mouse/touch down = Out 1, up = 0. Gate-style button for patches."
+  },
+  {
+    "type": "pluginInput",
+    "label": "Plugin Input",
+    "description": "Plugin Audio Input \u2014 stereo audio in (Left/Right/Out), clear patch front-end boundary."
+  },
+  {
+    "type": "pluginOutput",
+    "label": "Plugin Output",
+    "description": "Plugin Audio Output \u2014 stereo audio out (Mono/Left/Right). Clear patch end-point alongside classic Output."
+  },
+  {
+    "type": "pluginMidiIn",
+    "label": "Plugin MIDI In",
+    "description": "Plugin MIDI In \u2014 keyboard/MIDI as Gate, MIDI note, velocity, and 0.1V/Oct."
+  },
+  {
+    "type": "pluginMidiOut",
+    "label": "Plugin MIDI Out",
+    "description": "Plugin MIDI Out \u2014 MIDI number / gate in; normalized + full-value outs for monitoring."
+  },
+  {
+    "type": "midiOut",
+    "label": "Button Events",
+    "description": "Manual MIDI-number source. Outputs the selected note as a normalized 0..1 signal and as the full 0..127 value."
+  },
+  {
+    "type": "midiNotePitch",
+    "label": "Button Events",
+    "description": "MIDI note converter. Applies octave and pitch offsets, then emits normalized pitch, full MIDI pitch, and frequency in Hz."
+  },
+  {
+    "type": "buttonEvents",
+    "label": "Button Events",
+    "description": "External page button event source. Emits short pulses for explicit click, hover, down, up, enter, and leave events sent into sandbox."
+  },
+  {
+    "type": "wireBreak",
+    "label": "Wire Break",
+    "description": "Universe-physics wire break event source. Emits a one-sample pulse and an animation-length gate when a wire breaks."
+  },
+  {
+    "type": "wireConnect",
+    "label": "Wire Connect",
+    "description": "Wire connect event source. Emits a one-sample pulse when a new wire connection happens."
+  },
+  {
+    "type": "wireDisconnect",
+    "label": "Wire Disconnect",
+    "description": "Wire disconnect event source. Emits a one-sample pulse when a normal wire disconnect happens."
+  },
+  {
+    "type": "windowReopen",
+    "label": "Window Reopen",
+    "description": "Window attention event source. Emits a pulse, animation gate, and glow-shaped sine when an already-open window is requested again."
+  },
+  {
+    "type": "shootingStarTail",
+    "label": "Shooting Star Tail",
+    "description": "Placeholder trigger for a shooting star tail event."
+  },
+  {
+    "type": "shootingStarExplosion",
+    "label": "Shooting Star Explosion",
+    "description": "Website shooting-star collision event source. Emits a one-sample pulse when a star hits the sandbox frame, scaled 0 to 1 by the incoming star's random speed mapped between Low Range and High Range."
+  },
+  {
+    "type": "nextPatch",
+    "label": "Next Patch",
+    "description": "Patch command receiver. A trigger edge loads the next saved patch from the library."
+  },
+  {
+    "type": "previousPatch",
+    "label": "Previous Patch",
+    "description": "Patch command receiver. A trigger edge loads the previous saved patch from the library."
+  },
+  {
+    "type": "keyboardController",
+    "label": "MIDI Keyboard",
+    "description": "Mouse-playable keyboard source. Emits sustained gate, one-sample gate, key index, quantized key, MIDI pitch, normalized double, phase increment, frequency, numeric pitch, and X/Y gesture values."
+  },
+  {
+    "type": "macroControls",
+    "label": "Macro Controls",
+    "description": "Eight macro knobs as the module display. Emits M1\u2013M8 as live 0..1 control signals (optional M* In / Reset)."
+  },
+  {
+    "type": "pitchModWheel",
+    "label": "Pitch / Mod Wheel",
+    "description": "Reads the separate pitch and mod wheel controls beside the keyboard. Pitch emits -1..1, while mod emits 0..1."
+  },
+  {
+    "type": "samplePlayer",
+    "label": "Sample Player",
+    "description": "Patch-local one-shot sample playback. Trigger starts from Start and plays to End with simple click ramps."
+  },
+  {
+    "type": "audioPlayer",
+    "label": "Music Player",
+    "description": "Patch-local music file player with stereo outputs and a phasor-driven scrub input for sample-accurate playback head control."
+  },
+  {
+    "type": "phosphillator",
+    "label": "Phosphillator",
+    "description": "Draw a shape freehand with the mouse (smoothed live with a Papoulis lowpass) and it becomes a closed-loop X/Y drawing you can play back."
+  },
+  {
+    "type": "sampleLooper",
+    "label": "Sample Looper",
+    "description": "Patch-local gated sample loop playback with loop bounds, pitch control, and seam crossfade."
+  },
+  {
+    "type": "passiveFilter",
+    "label": "Passive Filter",
+    "description": "Cheap 1-pole (~6 dB/oct) LP / HP / BP for gentle taming. HP Low Cut knocks rumble without a brick-wall. Not a tilt (see Tilt Filter) and not a steep EQ (see EQ Filter)."
+  },
+  {
+    "type": "tiltFilter",
+    "label": "Tilt Filter",
+    "description": "First-order spectral tilt around a pivot. +Amount brightens (cut lows / boost highs); \u2212Amount darkens. Gentle balance \u2014 not a hard HP. Formulas after Robin Schmidt (RS-MET) shelf BLT."
+  },
+  {
+    "type": "eqFilter",
+    "label": "EQ Filter",
+    "description": "Zero-latency ZDF state-variable EQ: LP, HP, BP, notch, allpass, peak, low/high shelf. Direct from Robin Schmidt's rsStateVariableFilter (RS-MET). Prefer this for single-band EQ; Multi Stage Filter cascades RBJ biquads for steeper slopes."
+  },
+  {
+    "type": "papoulisFilter",
+    "label": "Papoulis Filter",
+    "description": "3rd-order Papoulis (Optimum-L) lowpass: monotonic, ripple-free passband like Butterworth but with a faster roll-off for the same order."
+  },
+  {
+    "type": "cookbookFilter",
+    "label": "Multi Stage Filter",
+    "description": "RBJ cookbook biquad cascade (LP/HP/BP/shelf/peak/\u2026) with up to 5 stages for steeper slopes. For a single best-behaved EQ band prefer EQ Filter (Robin Schmidt ZDF SVF)."
+  },
+  {
+    "type": "activeFilter",
+    "label": "Active Filter",
+    "description": "Scientific multipole (RS-MET ladder core): LP/HP/BP slopes, Hz cutoff, Feedback Circuit (Off / Res / Clip / both), Gain Comp on/off. Digital-perfect multipole with optional drive \u2014 not a full analog ladder model."
+  },
+  {
+    "type": "ladderFilter",
+    "label": "Ladder Filter",
+    "description": "Lab-style RS-MET ladder surface: Flat / LP / HP / BP plus Stages 1\u20134. Same multipole family as Active Filter; Mode\u00d7Stages instead of named slopes. Prefer Active Filter for the defacto path."
+  },
+  {
+    "type": "butterworth",
+    "label": "Butterworth Filter",
+    "description": "Butterworth multipole \u2014 maximally flat passband. Accuracy: high (classic section-Q SOS + RBJ). Issue only when matching a specific lab/MATLAB prototype bit-for-bit. Best use: transparent LP/HP/BP/BR, teaching slopes, general clean filtering. Not a speaker crossover product (use dedicated Crossover modules when those land)."
+  },
+  {
+    "type": "linkwitzRiley",
+    "label": "Linkwitz-Riley Filter",
+    "description": "Linkwitz-Riley multipole (cascaded Butterworth halves). Accuracy: good for single-filter LR character. Accuracy issue: pairing this module\u2019s LP with another HP by hand is NOT a guaranteed flat-sum crossover \u2014 phase/order must match; use a dedicated Crossover module for that job. Best use: LR-shaped single path, soft steepness."
+  },
+  {
+    "type": "bessel",
+    "label": "Bessel Filter",
+    "description": "Bessel (Thomson) multipole \u2014 flat group-delay character, gentler roll-off. Accuracy: musical/table Qs (not full analog Bessel redesign). Issue only for matching published Bessel transfer functions or delay specs. Best use: soft filtering with less ring / time-smear."
+  },
+  {
+    "type": "chebyshev",
+    "label": "Chebyshev Filter",
+    "description": "Chebyshev-style multipole \u2014 steeper wall via Q lift + Ripple (dB). Accuracy: approximated (not exact equiripple poles). Issue when you need guaranteed passband ripple bounds or a scientific Cheby-I match. Best use: musical steeper LP/HP with a bit more edge than Butterworth."
+  },
+  {
+    "type": "elliptic",
+    "label": "Elliptic Filter",
+    "description": "Elliptic-named multipole \u2014 sharp SOS approx (elevated Q). Accuracy: low vs true Cauer (no Jacobi zeros). Issue whenever \u201ctrue elliptic / stopband zeros\u201d matter. Best use: aggressive multipole tone only; not for lab elliptic or anti-alias claims. Full elliptic would need PrototypeDesigner-class poles/zeros later."
+  },
+  {
+    "type": "bandpass",
+    "label": "Bandpass Filter",
+    "description": "True resonant 2-pole bandpass (EQ ZDF SVF Bandpass Peak, Robin Schmidt). Accuracy: high for constant-peak BP. Best use: pitched resonance, formant-ish peaks, Softpop\u2019s filter core. 0.1V/Oct + f for center."
+  },
+  {
+    "type": "allpass",
+    "label": "Allpass Filter",
+    "description": "True 2-pole allpass (EQ ZDF SVF Allpass, Robin Schmidt). Flat magnitude, frequency-dependent phase. Accuracy: high (same SVF core as EQ). Best use: phase correction, phaser building blocks, delay-ish phase lag without EQ. Not a time delay line (use Sample Delay / delay FX for echo)."
+  },
+  {
+    "type": "crossover2",
+    "label": "2-Crossover",
+    "description": "Stereo Linkwitz-Riley 2-way crossover (RS-MET-style successive LR splits + branch compensation allpass). Mono+L/R in; per-band L/R outs only (no mono out). Sum of bands is approximately flat/allpass of the input when slopes match. Best for multiband processing where recombination matters."
+  },
+  {
+    "type": "crossover3",
+    "label": "3-Crossover",
+    "description": "Stereo Linkwitz-Riley 3-way crossover (RS-MET-style successive LR splits + branch compensation allpass). Mono+L/R in; per-band L/R outs only (no mono out). Sum of bands is approximately flat/allpass of the input when slopes match. Best for multiband processing where recombination matters."
+  },
+  {
+    "type": "crossover4",
+    "label": "4-Crossover",
+    "description": "Stereo Linkwitz-Riley 4-way crossover (RS-MET-style successive LR splits + branch compensation allpass). Mono+L/R in; per-band L/R outs only (no mono out). Sum of bands is approximately flat/allpass of the input when slopes match. Best for multiband processing where recombination matters."
+  },
+  {
+    "type": "crossover5",
+    "label": "5-Crossover",
+    "description": "Stereo Linkwitz-Riley 5-way crossover (RS-MET-style successive LR splits + branch compensation allpass). Mono+L/R in; per-band L/R outs only (no mono out). Sum of bands is approximately flat/allpass of the input when slopes match. Best for multiband processing where recombination matters."
+  },
+  {
+    "type": "crossover6",
+    "label": "6-Crossover",
+    "description": "Stereo Linkwitz-Riley 6-way crossover (RS-MET-style successive LR splits + branch compensation allpass). Mono+L/R in; per-band L/R outs only (no mono out). Sum of bands is approximately flat/allpass of the input when slopes match. Best for multiband processing where recombination matters."
+  },
+  {
+    "type": "softpopOscillator",
+    "label": "Softpop Oscillator",
+    "description": "Softpop: Gaussian white / pink / brown through resonant Peak BP. 0.1V + f pitch, Q, Amplitude, Seed + Reset, Stereo|Mono width."
+  },
+  {
+    "type": "sinepulse",
+    "label": "Sinepulse",
+    "description": "Sine chirp / zap drum voice. Rate = sweep rate. LowFreq/HighFreq = pitch endpoints (capped by project Speed Limit). Shift collapses LowFreq toward HighFreq. Sweep = fill. FreqCurve/AmpCurve bipolar (\u22121\u2026+1). Antialias lo\u2192hi: Off, Soft Edge, Adaptive, Shaped, Noise, Fine (default). CV: f, Amp, Freq. Up/Down. 0.1V/Oct + f + Reset + Increment."
+  },
+  {
+    "type": "electroKick",
+    "label": "ElectroKick",
+    "description": "Under construction. Electro kick \u2014 classic electronic kick voice (placeholder until the synthesis design lands)."
+  },
+  {
+    "type": "electroSnare",
+    "label": "ElectroSnare",
+    "description": "Under construction. Electro snare \u2014 classic electronic snare voice (placeholder until the synthesis design lands)."
+  },
+  {
+    "type": "electroHat",
+    "label": "ElectroHat",
+    "description": "Under construction. Electro hat \u2014 classic electronic hi-hat voice (placeholder until the synthesis design lands)."
+  },
+  {
+    "type": "formantFilter",
+    "label": "Formant Filter",
+    "description": "Under construction. Formant / vocal-tract style filter bank (placeholder)."
+  },
+  {
+    "type": "binaryClock",
+    "label": "Binary Clock",
+    "description": "Under construction. Binary counter clock with bit outputs and gate (placeholder)."
+  },
+  {
+    "type": "theremin",
+    "label": "Theremin",
+    "description": "Under construction. Theremin \u2014 space-controlled pitch/volume controller (hand / proximity CV planned). Placeholder until the interaction and voice design land."
+  },
+  {
+    "type": "osc",
+    "label": "OSC",
+    "description": "Under construction. OSC \u2014 Open Sound Control send/receive bridge (network ports, address paths, float/int/blob CV planned). Placeholder until the protocol and routing UI land."
+  },
+  {
+    "type": "yellowjacketFilter",
+    "label": "Yellowjacket Filter",
+    "description": "A feedback-modulated ellipse-oscillator filter through a one-pole stage, with a resonance-vs-frequency curve shaping both the oscillator waveshape and feedback gain. Grindy, easily produces square-wave-like output."
+  },
+  {
+    "type": "superloveFilter",
+    "label": "SuperLove Filter",
+    "description": "A trisaw-oscillator feedback resonator through a multi-pole ladder tap. 4 modes: LP18, LP24, HP6, BP6. Warm, bass-heavy, stably self-oscillating."
+  },
+  {
+    "type": "chaoticPhaseLockingFilter",
+    "label": "Chaotic Phase Locking Filter",
+    "description": "A feedback ellipse-waveshaper resonator (no oscillator phasor) through a 12dB lowpass and a DC-blocking highpass. The chaos control drives the ellipse waveshape directly, producing phase-locked chaotic textures."
+  },
+  {
+    "type": "modeResonator",
+    "label": "Mode Resonator",
+    "description": "Complex 2-pole mode for predictable ping resonance: rings at Frequency, Decay in seconds (to 1/e), Hold = forever. Impulse-normalized gain. Digital accuracy / stability \u2014 not analog howl. Feed impulses or Trigger for metallic ring. Resonator Filter remains the character/chaos engine."
+  },
+  {
+    "type": "combResonator",
+    "label": "Comb Resonator",
+    "description": "Delay+feedback (or feedforward) comb: Frequency sets fractional delay D=fs/f (integer ring + Thiran allpass) so Feedback+ peaks at k\u00b7f. Decay in seconds, Hold, loop Damping (KS-style), Polarity +/\u2212, Feedforward Depth. Trigger or audio in. Scientific pitch comb \u2014 not a waveguide network, not Delay FX."
+  },
+  {
+    "type": "waveguide",
+    "label": "Waveguide",
+    "description": "Under construction. Planned digital waveguide (physical delay-loop model): Frequency + Decay, loop Loss, Dispersion \u2014 beyond Comb Resonator (termination filters, stiffness, later dual-rail). Currently mono dry passthrough so patches stay safe. Use Comb Resonator / Mode Resonator for working resonance now."
+  },
+  {
+    "type": "phaseDisperse",
+    "label": "Phase Disperse",
+    "description": "Cascaded 2nd-order allpass group-delay (Disperser class). Frequency = APF corner, Filters = cascade depth (1\u202664, CPU), Pinch = Q (concentrates delay). Flat magnitude \u2014 smears when frequencies arrive. Sibling of Allpass; not Bode, not STFT Blur."
+  },
+  {
+    "type": "phaser",
+    "label": "Phaser",
+    "description": "Under construction. Classic phaser: modulated all-pass stages + feedback + mix. Character modulation FX (not the scientific single Allpass or Phase Disperse stack)."
+  },
+  {
+    "type": "flanger",
+    "label": "Flanger",
+    "description": "Under construction. Classic flanger: short modulated delay + feedback + mix (comb-in-time). Lives with Delay / Space FX."
+  },
+  {
+    "type": "chorus",
+    "label": "Chorus",
+    "description": "Under construction. Classic chorus: multi-voice modulated delays + mix. Lives with Delay / Space FX."
+  },
+  {
+    "type": "bode",
+    "label": "Bode Shifter",
+    "description": "Bode frequency shifter (SSB via Hilbert FIR): shift spectrum by \u0394 Hz (through-zero), Fine, Feedback, Mix. Breaks harmonic ratios for metallic/bubbly spectra. Not pitch shift, not Phase Disperse."
+  },
+  {
+    "type": "stftBlur",
+    "label": "STFT Blur",
+    "description": "STFT spectral blur: smear magnitudes across frames (Blur Time) and/or neighboring bins (Blur Freq). Hann overlap-add, FFT Size 256\u20134096 (power of two). Mix dry/wet. Washes / clouds spectra \u2014 not Phase Disperse, not Bode."
+  },
+  {
+    "type": "resonatorFilter",
+    "label": "Resonator Filter",
+    "description": "A dual-phasor FM feedback resonator through a one-pole lowpass and a DC-blocking highpass. 3 modes: Sinusoid, Triangle, Sawtooth -- each a chaotic variation on its namesake waveform."
+  },
+  {
+    "type": "humanFilter",
+    "label": "Human Filter",
+    "description": "A dual-phasor feedback network shaped by a bell/peak filter in the feedback path, with a DC-blocking highpass on the output. 3 modes: BP6, LP6, LP12, differing only in which oscillator combination reaches the output."
+  },
+  {
+    "type": "flowerChildFilter",
+    "label": "Flower Child Filter",
+    "description": "Resonant self-oscillating filter built from a feedback-modulated phasor through two cascaded one-pole stages. 4 modes: Clean (sine oscillator), Dirty (reshaped oscillator, hotter output), Rev3 (ellipsoid oscillator with richer resonance shaping), Downsampled (Clean's architecture with a sample-and-hold aliasing stage)."
+  },
+  {
+    "type": "pulseExplosion",
+    "label": "Pulse Explosion",
+    "description": "On a rising-edge trigger, schedules a burst of single-sample pulses distributed over Start/Center/End Time, concentrated toward Center by Time Spread (0 = tight, 1 = wide). Each pulse gets its own randomized amplitude between Low and High Amplitude."
+  },
+  {
+    "type": "tb303Filter",
+    "label": "TB-303 Filter",
+    "description": "TB-303 style ladder (Robin Schmidt TeeBeeFilter / Open303): feedback highpass, resonance skew, drive, 15 LP/HP/BP taps. Strong character \u2014 not a transparent scientific EQ."
+  },
+  {
+    "type": "slewLimiter",
+    "label": "Up/Down Slew",
+    "description": "Up/Down Slew \u2014 hard rate limit. Caps how fast the signal may rise or fall (seconds for full-scale). Linear ramps to steps. Compare with Inertial Filter (exponential approach)."
+  },
+  {
+    "type": "inertialFilter",
+    "label": "Inertial Filter",
+    "description": "Inertial Filter \u2014 exponential approach with separate Attack/Release (0\u20261 mix per sample). Not a hard slew rate. Same family as Speed Color Inertia; put next to Up/Down Slew to hear the difference."
+  },
+  {
+    "type": "delayEffect",
+    "label": "Delay",
+    "description": "SOEMDSP-style modulated fractional delay with feedback, wet/dry mix, and diffuse mode. Native C++/WASM."
+  },
+  {
+    "type": "pingPongDelay",
+    "label": "Ping Pong Delay",
+    "description": "Tape-style stereo ping-pong. Tempo base Numer/Denom \u00d7 Sync; Offset = static R-tap skew (ms); LFO Amp = max L/R drift from independent Parabol/Random Walk/FBM LFOs; passive HPF/LPF + soft clip in feedback. Stereo Trace face shows Mod L/R (delay times, \u00b11 = full max delay)."
+  },
+  {
+    "type": "wallDelay",
+    "label": "Wall Delay",
+    "description": "Under construction. Geometric room delay / wall verb from a superellipsoid (Rays \u00d7 Bounces taps per ear). JS prototype only for now \u2014 native engine is a placeholder stub."
+  },
+  {
+    "type": "reverbEffect",
+    "label": "Sabrina Reverb",
+    "description": "Sabrina reverb: serial diffusion, cross-feedback, modulation, recycle, mix. "
+  },
+  {
+    "type": "soemReverb",
+    "label": "SoEmReverb",
+    "description": "SoEmReverb: soemdsp::delay::Reverb (ModulatedDelay diffusion + echo modes Post/Pre/Slapback), soft-clip feedback, LPF/HPF/peak, ducking. Echo base free or tempo-synced (one time for both echo L/R). Stereo Trace face (Wet L/R) like Output. Outlets Dry L/R then Wet L/R. Native C++/WASM."
+  },
+  {
+    "type": "pll",
+    "label": "PLL",
+    "description": "Phase-locked loop based on the Doepfer A-196. VCO tracks an incoming signal via a phase comparator (XOR, RS flip-flop, or PFD) and one-pole loop filter. Outputs VCO, PC, LPF CV, and lock gate."
+  },
+  {
+    "type": "helmholtzPitch",
+    "label": "Pitch Detector",
+    "description": "Monophonic pitch detector using the McLeod Pitch Method (normalized square difference function with parabolic interpolation). Outputs Frequency (Hz), Fidelity (0\u20261 clarity), and Gate (1 when locked above threshold, else 0)."
+  },
+  {
+    "type": "speedColorInertia",
+    "label": "Speed Color Inertia",
+    "description": "Signal speed \u2192 color inertia. Face is a solid color plate (Hue/Lightness + Inertia sat), not a trace. Smooth sines stay saturated; saw edges desaturate toward white. Outs: Raw, Speed, Inertia."
+  },
+  {
+    "type": "sampleHold",
+    "label": "Curve Envelope",
+    "description": "Captures an input value when a trigger rises and holds it until the next trigger."
+  },
+  {
+    "type": "expAdsr",
+    "label": "Curve Envelope",
+    "description": "Curve Envelope (full DADSR): delay, attack, decay, sustain, release, Attack/Fall curve shapes, loop. Prefer Attack Decay when you only need A/D + curve. Face shows the gated contour preview."
+  },
+  {
+    "type": "attackDecay",
+    "label": "Attack Decay",
+    "description": "Default easy envelope: Attack, Decay, Curve, Amplitude. Input Gate|Trigger; Cycle Off|Loop|LFO. One-pole vactrol-style slew + \u03b3 curve. Canvas face preview."
+  },
+  {
+    "type": "flowerChildEnvelopeFollower",
+    "label": "Envelope Follower",
+    "description": "FlowerChild-style rectified envelope follower with attack, hold, and decay slew behavior."
+  },
+  {
+    "type": "linearEnvelope",
+    "label": "Linear Envelope",
+    "description": "Straight-line envelope for predictable ramps, fades, gates, and simple motion. Native C++/WASM."
+  },
+  {
+    "type": "pluckEnvelope",
+    "label": "Pluck Envelope",
+    "description": "Fast feedback pluck contour for struck, picked, pinged, and percussive behaviors. Native C++/WASM."
+  },
+  {
+    "type": "vactrolEnvelopeSeries",
+    "label": "vactrolEnvelopeSeries",
+    "description": "Optical-style control shaper with a 10-way Part switch selecting PerkinElmer VTL5C-series datasheet timing and resistance figures (VTL5C1 through VTL5C10), from the classic fast VTL5C3 to the ~40x-slower VTL5C4. Native C++/WASM."
+  },
+  {
+    "type": "vactrolEnvelopeCustom",
+    "label": "vactrolEnvelopeCustom",
+    "description": "Optical-style control shaper with the same attack/release/curve/sensitivity/light offset/dark current knobs as the VTL5C module, but not tied to a named real part -- roll your own hypothetical vactrol. Native C++/WASM."
+  },
+  {
+    "type": "sandboxVisuals",
+    "label": "PixelGrid",
+    "description": "Sink module for routing patch signals into the screen view. Drive shake, dim, color, scope pause/shutoff, or patch X/Y for direct visual motion."
+  },
+  {
+    "type": "screenSpaceShader",
+    "label": "PixelGrid",
+    "description": "Scripted screen-space visual sink. Declare custom inputs and map them into screen shake, dim, color, scope pause, and offset controls."
+  },
+  {
+    "type": "bloomGlow",
+    "label": "PixelGrid",
+    "description": "Visual sink for routing patch signals into screen dimming, brightness, bloom, and glow response."
+  },
+  {
+    "type": "rgbaHsla",
+    "label": "PixelGrid",
+    "description": "Precise color sink with RGB channels, HSL channels, an HSL mix control, and alpha for the screen wash."
+  },
+  {
+    "type": "chromaColor",
+    "label": "PixelGrid",
+    "description": "Stylized color sink for chroma-driven screen washes with hue drift, spread, alpha, trace brightness, bloom, and glow."
+  },
+  {
+    "type": "image",
+    "label": "PixelGrid",
+    "description": "Patch-local image asset node. Route it into Screen Visuals Trace Image to texture phosphor trace dots."
+  },
+  {
+    "type": "canvas",
+    "label": "PixelGrid",
+    "description": "Layered RGBA compositor for images, scopes, shader passes, transforms, and future game-engine surfaces."
+  },
+  {
+    "type": "pixelGrid",
+    "label": "PixelGrid",
+    "description": "various pixel grid experiments such as splitting pixels via 1 black stroke, creating 3d pixel effects with bevels, etc."
+  },
+  {
+    "type": "visualOscilloscope",
+    "label": "Display",
+    "description": "Multi-mode Display sink. Modes: 2D Trace / 2D Phosphor (X/Y), 1D Trace / Phosphor Dot (Mono). Same face settings as the dedicated modules."
+  },
+  {
+    "type": "traceDisplay",
+    "label": "1D Trace",
+    "description": "1D Trace: focused waveform display. Patch any signal into In and inspect the current vector stroke (no phosphor persistence)."
+  },
+  {
+    "type": "dotOscilloscope",
+    "label": "Phosphor Dot",
+    "description": "Efficient single-dot phosphor: one soft stamp on the mono energy drawer. Intensity is averaged over the latest capture window (sub-frame brightness), not a single sample snap."
+  },
+  {
+    "type": "oscilloscopeBank",
+    "label": "Oscilloscope Bank",
+    "description": "Work in progress. Phase-vs-amplitude scope for voice-bank sources (Hypersaw today). Wire Phases/Amplitudes/Pans \u2014 not polished with the core face stack yet."
+  },
+  {
+    "type": "videoscope",
+    "label": "Videoscope",
+    "description": "A triggered oscilloscope for two audio-rate signals (A/B). Ring-buffers both channels, triggers on a configurable level crossing (source A or B, rising or falling), and captures a window around the trigger point. Dot and Line modes draw per-pixel-column min/max stems so brief spikes survive zoomed-out windows; XY mode plots A against B directly. Freeze holds the last captured window. Native C++/WASM."
+  },
+  {
+    "type": "matrixWaterfall",
+    "label": "Matrix Waterfall",
+    "description": "Self-running matrix rain. Parameter-only (no ports). Fall or Rise. Glyph table + gradient in Display Settings. Clean base for future matrix work."
+  },
+  {
+    "type": "matrixDisplay",
+    "label": "Matrix Display",
+    "description": "Matrix character plate: Info message and Serial Char+Trigger bins (Text Stream). LCD residual on change. No rain. Gradient in Display Settings."
+  },
+  {
+    "type": "textStream",
+    "label": "Text Stream",
+    "description": "Type a message, emit one character at a time. Char = Unicode code point (integer). Trigger pulses on each new char. Clock advances one char; free-run uses Rate (Hz). Filter Char if you want to mangle the stream."
+  },
+  {
+    "type": "asciiscope",
+    "label": "Asciiscope",
+    "description": "XY character-grid phosphor (standalone asciiscope instrument). Plots X/Y into a cell age map; glyph ramp string is the trail (cold\u2192hot). Decay and Burn are phosphor memory and write hardness."
+  },
+  {
+    "type": "spectrogram",
+    "label": "Spectrogram",
+    "description": "Regular STFT spectrogram with Thru passthrough (In \u2192 face + Thru). Module: Brightness, Min/Max Thresh, Min/Max Freq, History. Display: FFT size, Window, Time/Freq overlap, Freq Scale, gradient presets."
+  },
+  {
+    "type": "valueOscilloscope",
+    "label": "0D Value",
+    "description": "Single-value oscilloscope that draws the latest input as one horizontal line across the display."
+  },
+  {
+    "type": "numberReadout",
+    "label": "Value LED",
+    "description": "Value LED: lit DSEG digits with Ghost floor + Trail deposit hang (app-wide residual policy). Shows the latest input value."
+  },
+  {
+    "type": "valueLcd",
+    "label": "Value LCD",
+    "description": "Value LCD: grey reflective plate, dark ink DSEG digits, Ghost unlit segments + Trail hang. Cheap LCD look for multimeter patches."
+  },
+  {
+    "type": "lineBurnOscilloscope",
+    "label": "1D Phosphor",
+    "description": "1D Phosphor: heart-monitor energy trail. Pen takes Sweep (s) left\u2192right; rising-edge Reset (\u22650.5) snaps left. Soft dots fuse into a beam when budget allows."
+  },
+  {
+    "type": "scope2d",
+    "label": "2D Phosphor",
+    "description": "2D Phosphor: XY energy trail (mono energy + gradient LUT). Soft/hard stamps, brightness, Ghost/Trail/Burn residual \u2014 the path Lorenz and other attractors use."
+  },
+  {
+    "type": "phosphorLight",
+    "label": "2D Phosphor (legacy)",
+    "description": "Retired. Opens as 2D Phosphor (scope2d). Use the 2D Phosphor module for new patches."
+  },
+  {
+    "type": "scope2dTrace",
+    "label": "2D Trace",
+    "description": "Sample-history X/Y oscilloscope for inspecting deterministic 2D traces (instant RGB stroke, no phosphor persistence)."
+  },
+  {
+    "type": "badvalMonitor",
+    "label": "badvalMonitor",
+    "description": "Circuit sentinel. Watches for invalid values (NaN, inf, explode, denormal) and shows a warning on its face when they hit the In jack."
+  },
+  {
+    "type": "speakerProtection",
+    "label": "speakerProtection",
+    "description": "Hard safety fuse. Trips ear and speaker protection immediately if a wired sample exceeds absolute 1.0."
+  },
+  {
+    "type": "textBox",
+    "label": "textBox",
+    "description": "In-world label plate for prompts, lore, instructions, and electric annotations."
+  },
+  {
+    "type": "animatedTextBox",
+    "label": "animatedTextBox",
+    "description": "Text Box with data-plane Title/Text inputs and a Text Out -- wire it to another Animated Text Box instead of typing it by hand."
+  }
+]

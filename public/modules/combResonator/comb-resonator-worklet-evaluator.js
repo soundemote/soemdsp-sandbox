@@ -1,19 +1,18 @@
-// Comb Resonator — worklet.
+// Comb Resonator — worklet. Native-only (APP_POLICY §2/§5). Silence if WASM cold.
 
 NodeLiveAudioProcessor.prototype.createCombResonatorState = function createCombResonatorState() {
-  if (typeof createNodeGraphCombResonatorState === "function") {
-    return createNodeGraphCombResonatorState();
+  return { nativeHandle: 0, _lastTrig: 0 };
+};
+
+NodeLiveAudioProcessor.prototype.combResonatorTriggerEdge = function combResonatorTriggerEdge(state, trigger) {
+  if (typeof nodeGraphCombResonatorTriggerEdge === "function") {
+    return nodeGraphCombResonatorTriggerEdge(state, trigger);
   }
-  return {
-    buffer: null,
-    capacity: 0,
-    writeIndex: 0,
-    filled: 0,
-    lp: 0,
-    thiranX1: 0,
-    thiranY1: 0,
-    _lastTrig: 0,
-  };
+  const t = Number(trigger) || 0;
+  const on = t > 0.5;
+  const edge = on && !state._lastTrig ? 1 : 0;
+  state._lastTrig = on ? 1 : 0;
+  return edge;
 };
 
 NodeLiveAudioProcessor.prototype.combResonatorSample = function combResonatorSample(
@@ -29,20 +28,43 @@ NodeLiveAudioProcessor.prototype.combResonatorSample = function combResonatorSam
   amplitude,
   rate = sampleRate,
 ) {
-  if (typeof nodeGraphCombResonatorSample === "function") {
+  if (
+    !this.nativeCombResonatorReady
+    || !this.nativeCombResonator?.soemdsp_comb_resonator_create
+    || !this.nativeCombResonator?.soemdsp_comb_resonator_sample
+  ) {
+    return 0;
+  }
+  try {
+    if (!state.nativeHandle) {
+      state.nativeHandle = this.nativeCombResonator.soemdsp_comb_resonator_create();
+    }
+    if (!state.nativeHandle) return 0;
     return this.safeFilterNumber(
-      nodeGraphCombResonatorSample(
-        state, input, frequencyHz, decaySec, hold, damping, topology, invert, depth, amplitude, rate,
+      this.nativeCombResonator.soemdsp_comb_resonator_sample(
+        state.nativeHandle,
+        this.safeFilterNumber(input, null),
+        Math.max(0, Number(frequencyHz) || 0),
+        Math.max(0, Number(decaySec) || 0),
+        hold ? 1 : 0,
+        Number(damping) || 0,
+        Math.round(Number(topology) || 0),
+        Math.round(Number(invert) || 0),
+        Number(depth) || 0,
+        Number(amplitude) || 0,
+        Math.max(1, Number(rate) || sampleRate || 44100),
       ),
       null,
     );
+  } catch (error) {
+    this.nativeCombResonatorReady = false;
+    state.nativeHandle = 0;
+    this.port.postMessage({
+      type: "nativeModuleStatus",
+      name: "comb_resonator",
+      status: "disabled",
+      message: String(error?.message || error || "native comb resonator failed"),
+    });
+    return 0;
   }
-  return 0;
-};
-
-NodeLiveAudioProcessor.prototype.combResonatorTriggerEdge = function combResonatorTriggerEdge(state, trigger) {
-  if (typeof nodeGraphCombResonatorTriggerEdge === "function") {
-    return nodeGraphCombResonatorTriggerEdge(state, trigger);
-  }
-  return 0;
 };

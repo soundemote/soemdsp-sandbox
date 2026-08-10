@@ -17527,6 +17527,24 @@ def require_native_module_contract(base_url: str) -> None:
             "soemdsp_linkwitz_riley_destroy",
             "soemdsp_linkwitz_riley_sample",
         ],
+        "crossover": [
+            "soemdsp_crossover_create",
+            "soemdsp_crossover_destroy",
+            "soemdsp_crossover_sample",
+            "soemdsp_crossover_band_l",
+            "soemdsp_crossover_band_r",
+            "soemdsp_crossover_band_count",
+        ],
+        "mode_resonator": [
+            "soemdsp_mode_resonator_create",
+            "soemdsp_mode_resonator_destroy",
+            "soemdsp_mode_resonator_sample",
+        ],
+        "comb_resonator": [
+            "soemdsp_comb_resonator_create",
+            "soemdsp_comb_resonator_destroy",
+            "soemdsp_comb_resonator_sample",
+        ],
         "sinc": [
             "soemdsp_sinc_create",
             "soemdsp_sinc_destroy",

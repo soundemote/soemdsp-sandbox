@@ -380,6 +380,8 @@ async function fetchNodeGraphLiveNativeModuleBytes(entry) {
 const nodeGraphLiveNativeModuleTypeAliases = Object.freeze({
   vactrolEnvelopeSeries: ["vactrolEnvelopeCustom"],
   triggerDivider: ["clockDivider"],
+  // One native module serves crossover2…6 (bandCount at create).
+  crossover2: ["crossover3", "crossover4", "crossover5", "crossover6"],
 });
 
 function nodeGraphLiveActivePatchNativeTargetTypes(plan) {
@@ -2777,12 +2779,12 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/eqFilter/eq-filter-worklet-evaluator.js?v=eq-zero-hz-1",
   "./public/modules/scientificIir/scientific-iir-math.js?v=scientific-iir-1",
   "./public/modules/scientificIir/scientific-iir-worklet-evaluator.js?v=sequence-uc-1",
-  "./public/modules/crossover/crossover-math.js?v=xo-state-preserve-1",
-  "./public/modules/crossover/crossover-worklet-evaluator.js?v=xo-state-preserve-1",
-  "./public/modules/modeResonator/mode-resonator-math.js?v=mode-resonator-1",
-  "./public/modules/modeResonator/mode-resonator-worklet-evaluator.js?v=mode-resonator-1",
-  "./public/modules/combResonator/comb-resonator-math.js?v=comb-resonator-1",
-  "./public/modules/combResonator/comb-resonator-worklet-evaluator.js?v=comb-resonator-1",
+  "./public/modules/crossover/crossover-math.js?v=xo-native-1",
+  "./public/modules/crossover/crossover-worklet-evaluator.js?v=xo-native-1",
+  "./public/modules/modeResonator/mode-resonator-math.js?v=mode-resonator-native-1",
+  "./public/modules/modeResonator/mode-resonator-worklet-evaluator.js?v=mode-resonator-native-1",
+  "./public/modules/combResonator/comb-resonator-math.js?v=comb-resonator-native-1",
+  "./public/modules/combResonator/comb-resonator-worklet-evaluator.js?v=comb-resonator-native-1",
   "./public/modules/waveguide/waveguide-math.js?v=waveguide-stub-1",
   "./public/modules/waveguide/waveguide-worklet-evaluator.js?v=waveguide-stub-1",
   "./public/modules/classicFxStubs/classic-fx-stubs-worklet-evaluator.js?v=classic-fx-stubs-1",

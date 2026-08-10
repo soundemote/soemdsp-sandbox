@@ -1991,8 +1991,8 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/codeblock/codeblock-worklet-evaluator.js",
   },
   combResonator: {
-    source: "public/modules/combResonator/comb-resonator-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/combResonator/comb-resonator-math.js",
+    source: "native_modules/comb_resonator/comb_resonator.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/comb_resonator/comb_resonator.cpp",
   },
   comparator: {
     source: "public/modules/comparator/comparator-math.js",
@@ -2003,28 +2003,28 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/cookbookFilter/cookbook-filter-worklet-evaluator.js",
   },
   crossover: {
-    source: "public/modules/crossover/crossover-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/crossover/crossover-math.js",
+    source: "native_modules/crossover/crossover.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/crossover/crossover.cpp",
   },
   crossover2: {
-    source: "public/modules/crossover/crossover-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/crossover/crossover-math.js",
+    source: "native_modules/crossover/crossover.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/crossover/crossover.cpp",
   },
   crossover3: {
-    source: "public/modules/crossover/crossover-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/crossover/crossover-math.js",
+    source: "native_modules/crossover/crossover.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/crossover/crossover.cpp",
   },
   crossover4: {
-    source: "public/modules/crossover/crossover-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/crossover/crossover-math.js",
+    source: "native_modules/crossover/crossover.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/crossover/crossover.cpp",
   },
   crossover5: {
-    source: "public/modules/crossover/crossover-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/crossover/crossover-math.js",
+    source: "native_modules/crossover/crossover.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/crossover/crossover.cpp",
   },
   crossover6: {
-    source: "public/modules/crossover/crossover-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/crossover/crossover-math.js",
+    source: "native_modules/crossover/crossover.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/crossover/crossover.cpp",
   },
   curveOsc: {
     source: "public/modules/curveOsc/curve-osc-math.js",
@@ -2199,8 +2199,8 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/minMax/min-max-math.js",
   },
   modeResonator: {
-    source: "public/modules/modeResonator/mode-resonator-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/modeResonator/mode-resonator-math.js",
+    source: "native_modules/mode_resonator/mode_resonator.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/mode_resonator/mode_resonator.cpp",
   },
   moduleGroup: {
     source: "public/modules/moduleGroup/module-group-worklet-evaluator.js",

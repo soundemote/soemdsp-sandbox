@@ -1,4 +1,30 @@
-// Comb Resonator — offline/render.
+// Comb Resonator — offline/render. Same comb_resonator.wasm as worklet (APP_POLICY §5).
+
+const nodeGraphCombResonatorMainWasm = {
+  promise: null,
+  exports: null,
+  failed: false,
+};
+
+function nodeGraphCombResonatorLoadMainWasm() {
+  if (nodeGraphCombResonatorMainWasm.promise || nodeGraphCombResonatorMainWasm.failed) return;
+  if (typeof fetch !== "function" || typeof WebAssembly === "undefined") {
+    nodeGraphCombResonatorMainWasm.failed = true;
+    return;
+  }
+  nodeGraphCombResonatorMainWasm.promise = fetch("/native_modules/comb_resonator/comb_resonator.wasm")
+    .then((response) => {
+      if (!response.ok) throw new Error(`comb_resonator wasm HTTP ${response.status}`);
+      return response.arrayBuffer();
+    })
+    .then((bytes) => WebAssembly.instantiate(bytes, {}))
+    .then((result) => {
+      nodeGraphCombResonatorMainWasm.exports = result.instance.exports;
+    })
+    .catch(() => {
+      nodeGraphCombResonatorMainWasm.failed = true;
+    });
+}
 
 function nodeGraphCombResonatorResolveFrequencyHz(
   runtime, node, nodeId, frame, frames, frameValues, mixInput, hasInput,
@@ -33,11 +59,24 @@ nodeGraphLiveModuleEvaluators.combResonator = ({
   sampleRate,
   hasInput,
 }) => {
-  if (!runtime.combResonatorStates) runtime.combResonatorStates = new Map();
-  let state = runtime.combResonatorStates.get(nodeId);
-  if (!state) {
-    state = createNodeGraphCombResonatorState();
-    runtime.combResonatorStates.set(nodeId, state);
+  nodeGraphCombResonatorLoadMainWasm();
+  const wasm = nodeGraphCombResonatorMainWasm.exports;
+  if (!wasm?.soemdsp_comb_resonator_create || !wasm?.soemdsp_comb_resonator_sample) {
+    return 0;
+  }
+  if (!runtime.combResonatorMainNativeHandles) runtime.combResonatorMainNativeHandles = new Map();
+  let handle = runtime.combResonatorMainNativeHandles.get(nodeId) || 0;
+  if (!handle) {
+    handle = wasm.soemdsp_comb_resonator_create();
+    if (handle) runtime.combResonatorMainNativeHandles.set(nodeId, handle);
+  }
+  if (!handle) return 0;
+
+  if (!runtime.combResonatorTrigStates) runtime.combResonatorTrigStates = new Map();
+  let trigState = runtime.combResonatorTrigStates.get(nodeId);
+  if (!trigState) {
+    trigState = { _lastTrig: 0 };
+    runtime.combResonatorTrigStates.set(nodeId, trigState);
   }
 
   const freq = Math.max(0, nodeGraphCombResonatorResolveFrequencyHz(
@@ -52,11 +91,23 @@ nodeGraphLiveModuleEvaluators.combResonator = ({
   const amplitude = readNodeGraphLiveEffectiveParam(runtime, node, "amplitude", 1, frame, frames, frameValues);
 
   const audioIn = Number(mixInput(nodeId)) || 0;
-  const trig = nodeGraphCombResonatorTriggerEdge(state, mixInput(nodeId, "Trigger"));
+  const trig = typeof nodeGraphCombResonatorTriggerEdge === "function"
+    ? nodeGraphCombResonatorTriggerEdge(trigState, mixInput(nodeId, "Trigger"))
+    : 0;
   const x = audioIn + trig;
 
-  const y = nodeGraphCombResonatorSample(
-    state, x, freq, decay, hold, damping, topology, invert, depth, amplitude, sampleRate,
+  const y = wasm.soemdsp_comb_resonator_sample(
+    handle,
+    x,
+    freq,
+    decay,
+    hold ? 1 : 0,
+    damping,
+    topology,
+    invert,
+    depth,
+    amplitude,
+    Math.max(1, Number(sampleRate) || 44100),
   );
   return typeof nodeGraphSafeFilterNumber === "function"
     ? nodeGraphSafeFilterNumber(y, runtime, nodeId, null, "comb resonator")
