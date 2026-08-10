@@ -422,6 +422,14 @@ function clearNodeGraphDisplaySettingsPhosphor(nodeIdOrIds = null, options = {})
   return anyCanvas || ids.length > 0;
 }
 
+/**
+ * Clear capture rings / optionally wipe painted faces.
+ *
+ * App policy: only intentional Stop / full offline reset should set
+ * preserveDisplay:false (cold-boot wipe). Wire reconnects, plan re-arms,
+ * pause, and bypass must pass preserveDisplay:true so phosphor residual
+ * (Value LED / Pitch / 1D / 2D energy) is never killed.
+ */
 function clearNodeGraphModuleScopeBuffers(options = {}) {
   const preserveDisplay = options?.preserveDisplay === true;
   const preserveBuffers = options?.preserveBuffers === true;
@@ -451,10 +459,12 @@ function clearNodeGraphModuleScopeBuffers(options = {}) {
     nodeGraphModuleScopeState.patchFingerprint = "";
     nodeGraphModuleScopeState.sampleRate = 0;
   }
-  nodeGraphModuleScopeState.animationLastTime = 0;
-  nodeGraphModuleScopeState.animationTime = 0;
-  nodeGraphModuleScopeState.animationDeltaSeconds = 0;
+  // Keep animation clocks when holding display — a soft re-arm must not
+  // force a full residual resync burst that looks like a wipe.
   if (!preserveDisplay) {
+    nodeGraphModuleScopeState.animationLastTime = 0;
+    nodeGraphModuleScopeState.animationTime = 0;
+    nodeGraphModuleScopeState.animationDeltaSeconds = 0;
     setNodeGraphModuleScopesEnabled(false);
     clearNodeGraphModuleScopeCanvas();
     // Full cold-boot wipe: energy residual + painted face pixels + CSS lamps.
@@ -486,6 +496,11 @@ function clearNodeGraphRenderedModuleScopeBuffers() {
     nodeGraphModuleScopeState.patchFingerprint = nodeGraphPatchFingerprint();
     nodeGraphModuleScopeState.sampleRate = nodeGraphMvp.sampleRate || 44100;
     scheduleNodeGraphModuleScopeDraw();
+    return;
+  }
+  // Offline reset while paused: drop rings, keep painted residual until Stop.
+  if (typeof nodeGraphModuleScopePaused === "function" && nodeGraphModuleScopePaused()) {
+    clearNodeGraphModuleScopeBuffers({ preserveDisplay: true });
     return;
   }
   clearNodeGraphModuleScopeBuffers();

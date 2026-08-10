@@ -22,6 +22,7 @@ function invalidateNodeGraphNumberReadoutPaintCache(canvas) {
     return;
   }
   canvas._numberReadoutLastValueText = "";
+  canvas._numberReadoutLastGoodValueText = "";
   canvas._numberReadoutLastTextChangeAt = 0;
   canvas._numberReadoutResidualEnergy = 0;
   canvas._numberReadoutResiduals = null;
@@ -44,6 +45,49 @@ function invalidateNodeGraphNumberReadoutPaintCache(canvas) {
     }
     canvas[key] = null;
   }
+}
+
+/**
+ * True when valueText is a "no signal" placeholder, not a held reading.
+ * Placeholders must never replace a frozen/held phosphor face.
+ */
+function nodeGraphNumberReadoutIsEmptyPlaceholder(text) {
+  const s = String(text || "").trim();
+  if (!s) {
+    return true;
+  }
+  // DSEG all-off, dashes, em-dash, or pure ! / . skeletons.
+  if (/^[!.\s—–-]+$/.test(s)) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Prefer live sample; if missing (pause / bypass / wire re-arm glitch), hold the
+ * last good reading so Ghost/Trail never get wiped to empty "!" plates.
+ */
+function nodeGraphNumberReadoutResolveHeldValueText(canvas, liveText, { frozen = false } = {}) {
+  const live = String(liveText || "");
+  if (!nodeGraphNumberReadoutIsEmptyPlaceholder(live)) {
+    return live;
+  }
+  const held = String(canvas?._numberReadoutLastGoodValueText || "");
+  if (held && !nodeGraphNumberReadoutIsEmptyPlaceholder(held)) {
+    return held;
+  }
+  // Never invent empty "!" while frozen — caller should leave the face alone.
+  if (frozen) {
+    return "";
+  }
+  return live;
+}
+
+function nodeGraphNumberReadoutRememberGoodValue(canvas, valueText) {
+  if (!canvas || nodeGraphNumberReadoutIsEmptyPlaceholder(valueText)) {
+    return;
+  }
+  canvas._numberReadoutLastGoodValueText = String(valueText);
 }
 
 /**
@@ -1416,6 +1460,8 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const unit = nodeGraphNumberReadoutUnitForSlot(slot);
   // Honor Display Settings → Decimals (including Pitch Detector Frequency LCD).
   const decimals = nodeGraphNumberReadoutSafeDecimals(settings.decimals);
+  const frozen = typeof nodeGraphModuleScopePhosphorFrozen === "function"
+    && nodeGraphModuleScopePhosphorFrozen();
   // Pitch Detector: unit toggle Hz → 8ve (MIDI #) → M (note name).
   const pitchFace = slot?.type === "helmholtzPitch"
     ? (screenElement?.closest?.(".node-pitch-detector-face")
@@ -1426,11 +1472,11 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const pitchMode = pitchFace && typeof nodeGraphPitchDetectorFaceMode === "function"
     ? nodeGraphPitchDetectorFaceMode(pitchFace)
     : "hz";
-  // No input: DSEG all-off ("!") placeholders.
+  // Live format (may be empty/placeholder when paused, bypassed, or capture re-armed).
   // https://github.com/keshikan/DSEG#usage
-  let valueText;
+  let liveValueText;
   if (slot?.type === "helmholtzPitch" && typeof nodeGraphPitchDetectorFormatDisplay === "function") {
-    valueText = hasSample
+    liveValueText = hasSample
       ? nodeGraphPitchDetectorFormatDisplay(
         nodeGraphOscilloscopeLatestSample(item.buffer, 0),
         pitchMode,
@@ -1440,9 +1486,16 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
         ? " —"
         : (decimals > 0 && pitchMode === "hz" ? ` !.${"!".repeat(decimals)}` : " !"));
   } else {
-    valueText = hasSample
+    liveValueText = hasSample
       ? nodeGraphNumberReadoutFormatValue(nodeGraphOscilloscopeLatestSample(item.buffer, 0), decimals)
       : (decimals > 0 ? ` !.${"!".repeat(decimals)}` : " !");
+  }
+  // Hold last good reading — never paint empty "!" over a held phosphor face
+  // (pause + wire connect was clearing Pitch Detector ghosts).
+  let valueText = nodeGraphNumberReadoutResolveHeldValueText(canvas, liveValueText, { frozen });
+  if (!valueText) {
+    // Frozen with no held reading: leave pixels as-is (no kill).
+    return;
   }
   // Note names need letter glyphs (not DSEG-only).
   const pitchNameMode = slot?.type === "helmholtzPitch" && pitchMode === "name";
@@ -1469,6 +1522,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
       context.imageSmoothingQuality = "high";
     }
     drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, valueText, unit, slot);
+    nodeGraphNumberReadoutRememberGoodValue(canvas, valueText);
     return;
   }
 
@@ -1476,6 +1530,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   // App-wide residual policy (PhosphorResidual):
   //  • Bright B → live light + deposit energy on digit change.
   //  • Trail T / Ghost G → residual hang only (not brightness).
+  //  • Freeze (pause / engine off): hold burn plate + last digits — no wipe.
   const trailHang = clampNodeSliderValue(
     Number(settings.trail ?? settings.residual) || 0,
     0,
@@ -1495,7 +1550,6 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   // null cache (engine-stop wipe) always forces a full present.
   const textChanged = canvas._nodeGraphNumberReadoutText == null
     || canvas._nodeGraphNumberReadoutText !== text;
-  const frozen = nodeGraphModuleScopePhosphorFrozen();
   const now = performance.now?.() || Date.now();
   const previousValueText = String(canvas._numberReadoutLastValueText || "");
 
@@ -1570,13 +1624,16 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   // 2) On change: stamp ONLY digits that changed (per-cell deposit).
   //    Deposit energy = Bright only (Ghost/Trail never set deposit brightness).
   //    Layout uses previous full reading so columns stay aligned with the face.
+  //    Never stamp while frozen, and never treat held empty as a change.
   if (
     burnCtx
     && hangOn
+    && !frozen
     && textChanged
     && previousValueText
     && previousValueText !== valueText
-    && !previousValueText.includes("!")
+    && !nodeGraphNumberReadoutIsEmptyPlaceholder(previousValueText)
+    && !nodeGraphNumberReadoutIsEmptyPlaceholder(valueText)
     && burnPlate.width > 0
     && bright > 0.01
   ) {
@@ -1722,8 +1779,9 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   }
 
   // Max padding: one phosphor pixel of live light.
+  const drawLiveDigits = alpha > 0.001 && !nodeGraphNumberReadoutIsEmptyPlaceholder(valueText);
   if (layout.pixelPin) {
-    if (alpha > 0.001 && !valueText.includes("!")) {
+    if (drawLiveDigits) {
       nodeGraphNumberReadoutDrawPixelPin(
         context,
         layout,
@@ -1735,7 +1793,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
         alpha,
       );
     }
-  } else if (digitFontSize > 0.25 && alpha > 0.001 && !valueText.includes("!")) {
+  } else if (digitFontSize > 0.25 && drawLiveDigits) {
     // Live digits over residual.
     const lightBlend = String(settings.lightBlend || "occlude").trim().toLowerCase() || "occlude";
     if (lightBlend === "occlude") {
@@ -1813,6 +1871,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   context.restore();
 
   canvas._numberReadoutLastValueText = valueText;
+  nodeGraphNumberReadoutRememberGoodValue(canvas, valueText);
   canvas._nodeGraphNumberReadoutText = text;
   canvas._nodeGraphNumberReadoutSettingsSig = settingsSig;
   canvas._nodeGraphNumberReadoutFontReady = nodeGraphNumberReadoutDsegReady;

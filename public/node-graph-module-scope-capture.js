@@ -12,7 +12,8 @@ function beginNodeGraphRenderedScopeCapture(options = {}) {
   const monitors = nodeGraphModuleScopeCaptureMonitors(patch);
   const frames = Math.max(0, Math.floor(Number(options.frames) || 0));
   if (!monitors.length || frames <= 0) {
-    clearNodeGraphModuleScopeBuffers();
+    // Do not wipe painted phosphor faces on empty offline capture re-arms.
+    clearNodeGraphModuleScopeBuffers({ preserveDisplay: true });
     return null;
   }
 
@@ -86,7 +87,13 @@ function finishNodeGraphRenderedScopeCapture(capture) {
 
 function beginNodeGraphLiveModuleScopeCapture(plan = {}, options = {}) {
   if (!nodeGraphModuleScopeHasDrawableSlots() || nodeGraphModuleScopeTracesOff()) {
-    clearNodeGraphModuleScopeBuffers();
+    // Transient re-arm / no slots must never cold-boot wipe residual faces
+    // (pause + wire connect was killing Pitch Detector / Value LED ghosts).
+    // Keep painted plates; drop rings only when scopes are explicitly off.
+    clearNodeGraphModuleScopeBuffers({
+      preserveDisplay: true,
+      preserveBuffers: !nodeGraphModuleScopeTracesOff(),
+    });
     return;
   }
   const ids = Array.isArray(plan.order) && plan.order.length
