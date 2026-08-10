@@ -87,6 +87,10 @@ Copy-Item -LiteralPath (Join-Path $srcPublic "native-modules-catalog.json") -Des
 # .wasm too was leftover from before the combine step existed. $dst was just
 # wiped above, so there's nothing stale to sweep here anymore -- this just
 # creates native_modules/combined/ fresh and copies the one file in.
+#
+# IMPORTANT: load mode must be combined (or slim-with-combined-fallback).
+# ?wasmLoad=slim alone will 404 per-module URLs and silence native-only
+# modules (e.g. crossover) unless runtime falls back to this combined file.
 $dstNative = Join-Path $dst "native_modules"
 if (!(Test-Path -LiteralPath $dstNative)) { New-Item -ItemType Directory -Path $dstNative | Out-Null }
 

@@ -406,10 +406,11 @@ function nodeGraphLiveNativeModuleIsUsedByPatch(entry, activeTypes) {
   return Array.isArray(aliases) && aliases.some((type) => activeTypes.has(type));
 }
 
+/** @returns {Promise<boolean>} true when bytes were posted to the worklet */
 async function sendNodeGraphLiveNativeModule(liveNode, entry) {
   const bytes = await fetchNodeGraphLiveNativeModuleBytes(entry);
   if (!(bytes instanceof ArrayBuffer)) {
-    return;
+    return false;
   }
   const transferableBytes = bytes.slice(0);
   liveNode.port.postMessage(
@@ -421,6 +422,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
     },
     [transferableBytes],
   );
+  return true;
 }
 
 // Hands native-module wasm to the worklet.
@@ -431,8 +433,14 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 //   slim     â€” only wasm for types on the current plan. Prefer for player /
 //              embed / clapplayer (?wasmLoad=slim or embed-config).
 //
+// Site sync (scripts/sync_soundemote_site.ps1) ships ONLY the combined
+// binary, not per-module .wasm files. Slim without those files must fall
+// back to combined or native-only modules (APP_POLICY §2/§5) stay silent —
+// that was the release crossover silence on /patch/* (autostart → slim).
+//
 // Chrome caps wasm memories per process (~100); many standalone instances
-// hit that cap. Slim is for small used-sets; huge patches should use combined.
+// hit that cap. Slim is for small used-sets when per-module files exist;
+// huge patches / site deploys should use combined.
 const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=window-4096-1";
 
 /** @type {null|"slim"|"combined"} */
@@ -486,13 +494,15 @@ async function nodeGraphLiveResolveNativeWasmLoadMode() {
       if (fromQuery) {
         mode = fromQuery;
       } else {
-        // Player-style embeds (hide chrome / autoplay) default to slim unless
-        // explicitly set to combined above. Authoring sandbox stays combined.
+        // Player / autostart / hideui used to default to slim. Site sync only
+        // ships soemdsp_combined.wasm (no per-module .wasm), so that left
+        // native-only modules silent on /patch/* showcase. Default stays
+        // combined; opt into slim with ?wasmLoad=slim when per-module files exist.
         const hideUi = params.get("hideui") === "1" || params.get("hideUI") === "1";
         const autoStart = params.get("autostart") === "1";
         const playerHint = params.get("player") === "1" || params.get("clapplayer") === "1";
         if (hideUi || autoStart || playerHint) {
-          mode = "slim";
+          mode = "combined";
         }
       }
     } catch (_e) { /* ignore */ }
@@ -505,7 +515,8 @@ async function nodeGraphLiveResolveNativeWasmLoadMode() {
         if (fromConfig) {
           mode = fromConfig;
         } else if (config?.player === true || config?.mode === "player") {
-          mode = "slim";
+          // Prefer combined unless embed-config sets wasmLoad explicitly.
+          mode = "combined";
         }
       }
     } catch (_e) { /* ignore */ }
@@ -525,6 +536,10 @@ async function nodeGraphLiveResolveNativeWasmLoadMode() {
   return mode;
 }
 
+/**
+ * Slim path: fetch only wasm for types on this plan.
+ * @returns {Promise<{ needed: number, loaded: number, missing: string[] }>}
+ */
 async function sendNodeGraphLiveNativeModulesUsedOnly(liveNode, plan, eligibleEntries, sent) {
   const activeTargetTypes = nodeGraphLiveActivePatchNativeTargetTypes(plan);
   const neededEntries = [];
@@ -534,7 +549,6 @@ async function sendNodeGraphLiveNativeModulesUsedOnly(liveNode, plan, eligibleEn
       continue;
     }
     if (nodeGraphLiveNativeModuleIsUsedByPatch(entry, activeTargetTypes)) {
-      sent.add(key);
       neededEntries.push(entry);
     }
   }
@@ -544,15 +558,30 @@ async function sendNodeGraphLiveNativeModulesUsedOnly(liveNode, plan, eligibleEn
       neededEntries.map((e) => e.targetType || e.name).filter(Boolean),
     );
   }
-  await Promise.all(neededEntries.map((entry) => sendNodeGraphLiveNativeModule(liveNode, entry)));
+  const results = await Promise.all(
+    neededEntries.map(async (entry) => {
+      const key = String(entry.name || entry.targetType || "");
+      const ok = await sendNodeGraphLiveNativeModule(liveNode, entry);
+      if (ok) {
+        sent.add(key);
+      }
+      return { key, ok };
+    }),
+  );
+  const missing = results.filter((r) => !r.ok).map((r) => r.key);
+  const loaded = results.filter((r) => r.ok).length;
   if (neededEntries.length && typeof console !== "undefined" && console.debug) {
     const report = nodeGraphLiveNativeWasmFetchReport();
     console.debug("[native-wasm slim] totals", {
       uniqueUrls: report.uniqueUrls,
       totalKiB: report.totalKiB,
       mode: report.mode,
+      loaded,
+      needed: neededEntries.length,
+      missing,
     });
   }
+  return { needed: neededEntries.length, loaded, missing };
 }
 
 /** Force re-resolve load mode (e.g. after embed flips player flag). */
@@ -595,14 +624,25 @@ async function sendNodeGraphLiveNativeModules(liveNode, plan = null) {
   nodeGraphLiveNativeWasmFetchStats.mode = loadMode;
 
   // Phase E slim: only wasm for types on this plan (player / embed / clapplayer).
+  // If any required per-module .wasm is missing (site ships combined only),
+  // fall through to combined so native-only modules are not silent.
   if (loadMode === "slim") {
-    await sendNodeGraphLiveNativeModulesUsedOnly(liveNode, plan, eligibleEntries, sent);
-    nodeGraphLiveMaybeLogWasmFetchStats(loadMode);
-    return;
+    const slimResult = await sendNodeGraphLiveNativeModulesUsedOnly(liveNode, plan, eligibleEntries, sent);
+    if (slimResult.needed === 0 || (slimResult.loaded >= slimResult.needed && slimResult.missing.length === 0)) {
+      nodeGraphLiveMaybeLogWasmFetchStats(loadMode);
+      return;
+    }
+    if (typeof console !== "undefined" && console.warn) {
+      console.warn(
+        "[native-wasm slim] missing per-module wasm; falling back to combined",
+        slimResult.missing,
+      );
+    }
+    // Continue into combined path below.
   }
 
-  // Authoring default: ONE combined .wasm (all modules, one linear memory).
-  // Built by scripts/build_native_modules.ps1. On failure â†’ lazy used-modules.
+  // Authoring default / slim fallback: ONE combined .wasm (all modules, one memory).
+  // Built by scripts/build_native_modules.ps1. On failure → lazy used-modules.
   if (!liveNode.nodeGraphCombinedUnavailable && !sent.has("combined")) {
     const combinedBytes = await fetchNodeGraphLiveNativeModuleBytes({
       wasmUrl: nodeGraphLiveCombinedNativeModuleUrl,
