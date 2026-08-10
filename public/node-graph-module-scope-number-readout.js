@@ -871,25 +871,23 @@ function nodeGraphNumberReadoutFacePadding01(settings = null) {
 
 /**
  * Width-fit string for layout.
- * - decimalBudget on → fixed slots (stable size as values change).
- * - decimalBudget off → live valueText (resize to fill available space).
- * - facePadding ≈ 0 → always live value (budget must not leave empty plate air
- *   when the user asked for a flush fill).
+ * UI GROW maps to !decimalBudget (see form I/O):
+ * - GROW on  (decimalBudget false) → live valueText (resize as digits change)
+ * - GROW off (decimalBudget true)  → fixed Decimals-width template (stable size)
+ *
+ * Never bypass budget when GROW is off — even at facePadding 0 (old pad≈0
+ * shortcut always returned live text and ignored GROW off).
  */
 function nodeGraphNumberReadoutLayoutFitText(slot, valueText, decimals, settings = null) {
-  const pad01 = nodeGraphNumberReadoutFacePadding01(settings);
-  // Flush pad: size to the live reading so digits claim the plate.
-  if (pad01 <= 0.001) {
-    return valueText;
-  }
   const budgetOn = settings
     ? Boolean(settings.decimalBudget)
     : false;
+  // GROW on / no lock: fill plate to the live reading.
   if (!budgetOn) {
     return valueText;
   }
-  // Pitch: 4 integer slots (up to 9999 Hz) — 5 left huge side/vertical air on
-  // typical module faces when width-capped. Other readouts: 6.
+  // GROW off: lock font size to a fixed digit budget (sign + integer + decimals).
+  // Pitch: 4 integer slots (up to 9999 Hz). Other readouts: 6.
   const integerSlots = slot?.type === "helmholtzPitch" ? 4 : 6;
   return nodeGraphNumberReadoutBudgetFitText(decimals, integerSlots);
 }
@@ -1979,9 +1977,8 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   context.setTransform(1, 0, 0, 1, 0, 0);
   const largeUnit = hasUnit && String(unit || "").trim().toLowerCase() === "hz";
   const pad01 = nodeGraphNumberReadoutFacePadding01(settings);
-  // Decimal budget ON → fixed slots; OFF → resize to live value width.
-  // Pitch name (M): fit live compact name (C3 / C#3) so it centers and does not
-  // force zero-pad columns that left empty air at facePadding 0.
+  // GROW off → LayoutFitText returns fixed Decimals budget; GROW on → live width.
+  // Pitch name (M): always fit live compact name (no DSEG digit budget for letters).
   // Slight built-in pad so M glyphs don't slam the plate edge even at pad 0.
   let liveFitText = nodeGraphNumberReadoutLayoutFitText(slot, valueText, decimals, settings);
   let pitchLayoutPad01 = pad01;
@@ -1990,9 +1987,8 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     // Keep a little air around note names even when Display pad is 0.
     pitchLayoutPad01 = Math.max(pad01, 0.08);
   } else if (slot?.type === "helmholtzPitch") {
-    // Hz / 8ve: center the live string (no forced 4-digit budget side air).
-    liveFitText = String(valueText || "0");
-    // Mild inset so DSEG ink isn't edge-clipped at pad 0.
+    // Mild inset so DSEG ink isn't edge-clipped at pad 0 (do not override fitText —
+    // that used to force live-width grow and ignore GROW off).
     pitchLayoutPad01 = Math.max(pad01, 0.04);
   }
   const layout = nodeGraphNumberReadoutComputeLayout(

@@ -1235,7 +1235,7 @@ function nodeGraphNumberReadoutDefaultsForNode(node) {
     return {
       ...led,
       faceStyle: "led",
-      // Off: live Hz fills the plate at pad 0. User can lock width via Decimal budget.
+      // false = GROW on (digits resize to fill). User can turn GROW off for fixed width.
       decimalBudget: false,
     };
   }
