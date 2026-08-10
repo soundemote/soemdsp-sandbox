@@ -268,6 +268,7 @@ function nodeGraphModuleTypeHasCustomDisplayArea(type) {
     || layout === "asciiscope"
     || layout === "macroControls"
     || layout === "filterCurve"
+    || layout === "roundShape"
     || layout === "envelopeCurve"
     || layout === "pulseCurve"
     || layout === "wallRoomDisplay";
@@ -484,7 +485,10 @@ function nodeGraphDefaultModuleGridWidthUnits(type) {
   if (nodeGraphModuleDefinitions[type]?.layout === "graph") {
     return 14;
   }
-  if (nodeGraphModuleDefinitions[type]?.layout === "filterCurve") {
+  if (
+    nodeGraphModuleDefinitions[type]?.layout === "filterCurve"
+    || nodeGraphModuleDefinitions[type]?.layout === "roundShape"
+  ) {
     return 8;
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "envelopeCurve") {
@@ -902,9 +906,13 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
     ];
   }
-  if (nodeGraphModuleDefinitions[type]?.layout === "filterCurve") {
+  if (
+    nodeGraphModuleDefinitions[type]?.layout === "filterCurve"
+    || nodeGraphModuleDefinitions[type]?.layout === "roundShape"
+  ) {
     // LayoutA stack: header | face (display gu) | IO under | params.
     // Crossovers stay LayoutA so many band outs do not inflate the face height.
+    // RoundShape reuses the same stack (cheap static orbit face).
     return [
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
       { id: "curve", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },

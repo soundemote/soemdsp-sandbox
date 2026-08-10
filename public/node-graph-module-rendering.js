@@ -403,6 +403,7 @@ function nodeGraphModuleLayoutClassNames(type, definition, layout) {
   const layoutClasses = {
     filterCurve: "filter-curve-layout",
     envelopeCurve: "filter-curve-layout",
+    roundShape: "filter-curve-layout",
     graph: "graph-node-layout",
     image: "image-node-layout",
     keyboardController: "keyboard-controller-layout",
@@ -845,6 +846,18 @@ function createNodeGraphModuleElement(type, node) {
     // Must stay above the plate mask (z-index:1 on .node-filter-curve-display).
     if (typeof createNodeGraphFilterCurveDisplay === "function") {
       article.append(createNodeGraphFilterCurveDisplay(node, type));
+    }
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
+  } else if (definition.layout === "roundShape") {
+    // Cheap static sine→square orbit (not phosphor, not residual).
+    if (typeof createNodeGraphRoundShapeDisplay === "function") {
+      article.append(createNodeGraphRoundShapeDisplay(node, type));
     }
     appendNodeGraphModuleIoSection(
       article,

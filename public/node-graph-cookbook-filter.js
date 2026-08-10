@@ -888,7 +888,16 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
 }
 
 function drawNodeGraphFilterCurveDisplays() {
-  document.querySelectorAll(".node-filter-curve-display").forEach(drawNodeGraphFilterCurveDisplay);
+  document.querySelectorAll(".node-filter-curve-display").forEach((section) => {
+    // RoundShape reuses the filter-curve plate class but has its own drawer.
+    if (section.classList.contains("node-round-shape-display")) {
+      if (typeof drawNodeGraphRoundShapeDisplay === "function") {
+        drawNodeGraphRoundShapeDisplay(section);
+      }
+      return;
+    }
+    drawNodeGraphFilterCurveDisplay(section);
+  });
   if (typeof drawNodeGraphPulseCurveDisplay === "function") {
     document.querySelectorAll(".node-pulse-curve-display").forEach(drawNodeGraphPulseCurveDisplay);
   }

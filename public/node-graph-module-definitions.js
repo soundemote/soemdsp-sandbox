@@ -1058,20 +1058,13 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   // RoundShape — sine→square modulator (getSineToSquare). Separate from full Ellipsoid osc.
+  // Face: cheap static orbit outline (filter-curve family), not phosphor trace.
   ellipsoid: {
     planRole: "source",
-    displayType: "scope2dTrace",
-    displaySignals: [
-      { key: "Bi X", kind: "scalar" },
-      { key: "Bi Y", kind: "scalar" },
-      { key: "Uni X", kind: "scalar" },
-      { key: "Uni Y", kind: "scalar" },
-      { key: "X/Y", kind: "xy" },
-    ],
-    displayModes: [
-      { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "Bi X", y: "Bi Y" } },
-    ],
-    defaultDisplayMode: "xyTrace",
+    layout: "roundShape",
+    chrome: "LayoutA",
+    customDisplayArea: true,
+    displayHeightGu: 4,
     spectrumCompanion: false,
     inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
     inputLabels: {
