@@ -1541,15 +1541,19 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   // https://github.com/keshikan/DSEG#usage
   let liveValueText;
   if (slot?.type === "helmholtzPitch" && typeof nodeGraphPitchDetectorFormatDisplay === "function") {
+    // Always paint live pitch text (zeros when no pitch / no sample) — never
+    // dashes/placeholders that trip "hold last good" and freeze the plate.
     liveValueText = hasSample
       ? nodeGraphPitchDetectorFormatDisplay(
         nodeGraphOscilloscopeLatestSample(item.buffer, 0),
         pitchMode,
         decimals,
       )
-      : (pitchMode === "name"
-        ? " —"
-        : (decimals > 0 && pitchMode === "hz" ? ` !.${"!".repeat(decimals)}` : " !"));
+      : (typeof nodeGraphPitchDetectorZeroDisplay === "function"
+        ? nodeGraphPitchDetectorZeroDisplay(pitchMode, decimals)
+        : (typeof nodeGraphNumberReadoutFormatValue === "function"
+          ? nodeGraphNumberReadoutFormatValue(0, decimals)
+          : " 0"));
   } else {
     liveValueText = hasSample
       ? nodeGraphNumberReadoutFormatValue(

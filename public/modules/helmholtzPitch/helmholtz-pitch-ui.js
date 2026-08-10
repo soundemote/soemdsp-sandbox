@@ -58,19 +58,41 @@ function nodeGraphPitchDisplayModeLabel(mode) {
 }
 
 /**
+ * No-pitch / invalid Frequency plate text — zeros (not dashes), so the LED
+ * keeps updating instead of holding the last good reading.
+ */
+function nodeGraphPitchDetectorZeroDisplay(mode = "hz", decimals = 2) {
+  const m = nodeGraphPitchDisplayModeNormalize(mode);
+  if (m === "midi" || m === "name") {
+    // Name mode has no zero glyph pair — numeric 0 is still clearer than dashes.
+    return " 0";
+  }
+  if (typeof nodeGraphNumberReadoutFormatValue === "function") {
+    return nodeGraphNumberReadoutFormatValue(0, decimals);
+  }
+  const places = Math.max(0, Math.min(8, Math.round(Number(decimals) || 2)));
+  try {
+    return ` ${(0).toFixed(places)}`;
+  } catch {
+    return " 0.00";
+  }
+}
+
+/**
  * Format Frequency port sample for the plate under the active display mode.
  * Leading space keeps DSEG width stable for numeric modes.
+ * No pitch → zeros (never dashes / never hold last reading).
  */
 function nodeGraphPitchDetectorFormatDisplay(hz, mode = "hz", decimals = 2) {
   const m = nodeGraphPitchDisplayModeNormalize(mode);
   const f = Number(hz);
   if (!(f > 0) || !Number.isFinite(f)) {
-    return m === "name" ? " —" : " --";
+    return nodeGraphPitchDetectorZeroDisplay(m, decimals);
   }
   if (m === "midi") {
     const midi = nodeGraphFrequencyToMidi(f);
     if (!Number.isFinite(midi)) {
-      return " --";
+      return nodeGraphPitchDetectorZeroDisplay(m, decimals);
     }
     const n = Math.round(midi);
     return n < 0 ? String(n) : ` ${n}`;
@@ -78,7 +100,7 @@ function nodeGraphPitchDetectorFormatDisplay(hz, mode = "hz", decimals = 2) {
   if (m === "name") {
     const midi = nodeGraphFrequencyToMidi(f);
     if (!Number.isFinite(midi)) {
-      return " —";
+      return nodeGraphPitchDetectorZeroDisplay(m, decimals);
     }
     return ` ${nodeGraphMidiToNoteName(Math.round(midi))}`;
   }
