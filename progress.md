@@ -13,27 +13,20 @@ Branch: `master` @ `4d25266` **SPEED LIMIT FIX** (and later hygiene if present).
 - Do not run destructive commands, force pushes, production deploys, or database resets.
 - When editing sandbox source, restore `public/presets/useruisettings.json` and `useruisettings.js` from commit `4639c84` before running smoke tests (the test's UI settings update contract writes them back dirty).
 
-## Graphify (refreshed 2026-08-09)
+## Graphify
+
+Plan: **`docs/GRAPHIFY_WINS_PLAN.md`** (primary work queue).
 
 ```text
 graphify update . --force   # no LLM; AST re-extract
 # → graphify-out/GRAPH_REPORT.md  (gitignored)
-# 7759 nodes · 13571 edges · 1198 communities
 ```
 
 ### Where we are
-- **Modules are healthy communities** — Soft Fractal (`rgbFractal`) is a tight island. Good.
-- **Core gravity wells**: module-definitions, code-screen, module-store, view-controls, live-runtime; settings-ui peeled into satellites.
-- **God-nodes (leave alone)**: `bindNodeGraphSceneMenuEvents`, `bindNodeGraphHeaderControlEvents` — high betweenness shell wiring.
-- **Scopes**: settings peel landed; **paint-gate** owns live/pause/schedule (see `docs/SCOPE_PAINT_SIMPLIFICATION_PLAN.md`).
-- **Scope graph**: ~45 files, ~832 symbols; hubs paint-helpers / normalize / offline / energy-gl / draw-burn. **No AST path** worklet snapshot → main draw (postMessage) — freeze bugs lived in duplicated predicates.
-- **Import cycles**: none detected.
-
-### Suggested improvement tracks (graph-backed)
-1. **Scope paint gate** — `node-graph-module-scope-paint-gate.js` + plan doc (landed).
-2. **Leave event-binder god-nodes alone** unless a feature forces a split.
-3. **Dead CSS** — CORE_REDUCTION Phase C.
-4. **Product backlog** — `docs/FUTURE_PLANNING.md`.
+- **Track 1** Code Screen internal peel — slice 1.1 Code Box window **landed**
+- Scopes / Display Settings peels done; event-binder god-nodes stay fat
+- **Dead CSS** — CORE_REDUCTION Phase C (opportunistic)
+- **Product backlog** — `docs/FUTURE_PLANNING.md`
 
 ## Completed (selected)
 

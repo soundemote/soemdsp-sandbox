@@ -1,17 +1,48 @@
 // Code Screen satellite loader — docs/CORE_REDUCTION_PLAN.md
 // Always-on: this file + node-graph-code-screen-model.js (patch normalize).
-// On demand: node-graph-code-screen.js (~258KB) when Code Screen / Code Box is used.
+// On demand: ordered satellite scripts when Code Screen / Code Box is used
+// (docs/GRAPHIFY_WINS_PLAN.md Track 1 peels).
 //
 // Important: do not load the satellite from boot-time bindNodeGraphCodeScreenEvents().
-// That would re-pull 258KB on every session.
+// That would re-pull the UI on every session.
 
-const nodeGraphCodeScreenUiScriptSrc = "./public/node-graph-code-screen.js?v=core-reduction-1";
+// Main first (kinds + helpers), then peels that depend on them.
+const nodeGraphCodeScreenUiScriptSrcs = Object.freeze([
+  "./public/node-graph-code-screen.js?v=graphify-peel-1",
+  "./public/node-graph-code-box-window.js?v=graphify-peel-1",
+]);
 
 let nodeGraphCodeScreenUiLoadPromise = null;
 let nodeGraphCodeScreenEventsWanted = false;
 
 function nodeGraphCodeScreenUiIsLoaded() {
   return document.documentElement.dataset.codeScreenUiLoaded === "true";
+}
+
+function nodeGraphCodeScreenLoadScript(src) {
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[data-code-screen-ui-src="${src}"]`);
+    if (existing) {
+      if (existing.dataset.loaded === "true") {
+        resolve();
+        return;
+      }
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error(`Code Screen UI script failed: ${src}`)), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = false;
+    script.dataset.codeScreenUi = "true";
+    script.dataset.codeScreenUiSrc = src;
+    script.onload = () => {
+      script.dataset.loaded = "true";
+      resolve();
+    };
+    script.onerror = () => reject(new Error(`Failed to load ${src}`));
+    document.head.appendChild(script);
+  });
 }
 
 function ensureNodeGraphCodeScreenUiLoaded() {
@@ -21,9 +52,11 @@ function ensureNodeGraphCodeScreenUiLoaded() {
   if (nodeGraphCodeScreenUiLoadPromise) {
     return nodeGraphCodeScreenUiLoadPromise;
   }
-  nodeGraphCodeScreenUiLoadPromise = new Promise((resolve, reject) => {
-    const existing = document.querySelector('script[data-code-screen-ui="true"]');
-    const finish = () => {
+  nodeGraphCodeScreenUiLoadPromise = (async () => {
+    try {
+      for (const src of nodeGraphCodeScreenUiScriptSrcs) {
+        await nodeGraphCodeScreenLoadScript(src);
+      }
       document.documentElement.dataset.codeScreenUiLoaded = "true";
       // Full script defines bindNodeGraphCodeScreenEvents — run once if boot asked.
       if (nodeGraphCodeScreenEventsWanted && typeof globalThis.bindNodeGraphCodeScreenEvents === "function"
@@ -34,31 +67,12 @@ function ensureNodeGraphCodeScreenUiLoaded() {
           console.warn("[code-screen] bind after load", error);
         }
       }
-      resolve(true);
-    };
-    if (existing) {
-      if (nodeGraphCodeScreenUiIsLoaded()) {
-        finish();
-        return;
-      }
-      existing.addEventListener("load", finish, { once: true });
-      existing.addEventListener("error", () => {
-        nodeGraphCodeScreenUiLoadPromise = null;
-        reject(new Error("Code Screen UI script failed"));
-      }, { once: true });
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = nodeGraphCodeScreenUiScriptSrc;
-    script.async = false;
-    script.dataset.codeScreenUi = "true";
-    script.onload = finish;
-    script.onerror = () => {
+      return true;
+    } catch (error) {
       nodeGraphCodeScreenUiLoadPromise = null;
-      reject(new Error(`Failed to load ${nodeGraphCodeScreenUiScriptSrc}`));
-    };
-    document.head.appendChild(script);
-  });
+      throw error;
+    }
+  })();
   return nodeGraphCodeScreenUiLoadPromise;
 }
 
