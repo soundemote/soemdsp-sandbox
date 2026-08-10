@@ -98,6 +98,7 @@ function createNodeGraphIoColumn(node, type, ports, io) {
     column.append(row);
   }
   // CSS: .node-io-label min-width uses 1ch × this (monospace IO font).
+  // LayoutA section tracks also read --node-io-{input|output}-label-ch.
   column.style.setProperty("--node-io-label-min-ch", String(maxLabelChars));
   column.dataset.maxLabelChars = String(maxLabelChars);
   return column;

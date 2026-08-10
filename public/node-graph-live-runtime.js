@@ -1765,10 +1765,15 @@ function handleNodeGraphLiveWorkletMessage(event) {
     if (message.sessionId !== nodeGraphMvp.live.sessionId || !nodeGraphMvp.live.node) {
       return;
     }
-    pushNodeGraphLiveModuleScopeSnapshot(message.values || [], {
+    const scopeValues = message.values || [];
+    pushNodeGraphLiveModuleScopeSnapshot(scopeValues, {
       patchFingerprint: message.patchFingerprint || nodeGraphPatchFingerprint(),
       sampleRate: message.sampleRate || nodeGraphMvp.live.context?.sampleRate || nodeGraphMvp.sampleRate,
     });
+    // Pitch Detector: plain DOM Hz/Fid text (no Number Readout / canvas).
+    if (typeof updateNodeGraphPitchDetectorFacesFromScopeValues === "function") {
+      updateNodeGraphPitchDetectorFacesFromScopeValues(scopeValues);
+    }
     if (Array.isArray(message.dataPorts) && message.dataPorts.length) {
       for (const [nodeId, port, value] of message.dataPorts) {
         writeNodeGraphDataOutput(String(nodeId), port, value);

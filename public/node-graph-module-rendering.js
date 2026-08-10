@@ -421,6 +421,7 @@ function nodeGraphModuleLayoutClassNames(type, definition, layout) {
     screenSpaceShader: "screen-space-shader-layout",
     sliderWidget: "slider-widget-layout",
     badvalMonitor: "badval-monitor-layout",
+    pitchDetector: "pitch-detector-layout",
     speakerProtection: "speaker-protection-layout",
     textBox: "text-box-layout",
     traceDisplay: "trace-display-layout",
@@ -507,6 +508,16 @@ function createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts, op
   ioSection.className = options.className || "dsp-node-io-section";
   const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input");
   const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output");
+  // Drive section track widths from each column's longest label (LayoutA
+  // used to hard-cap sides at 2gu and clip Frequency / Fidelity / etc.).
+  const inCh = Number(inputColumn?.dataset?.maxLabelChars) || 0;
+  const outCh = Number(outputColumn?.dataset?.maxLabelChars) || 0;
+  if (inCh > 0) {
+    ioSection.style.setProperty("--node-io-input-label-ch", String(inCh));
+  }
+  if (outCh > 0) {
+    ioSection.style.setProperty("--node-io-output-label-ch", String(outCh));
+  }
   if (options.inputsOnly) {
     ioSection.append(inputColumn || document.createElement("div"));
     ioSection.append(document.createElement("div"));
@@ -799,6 +810,17 @@ function createNodeGraphModuleElement(type, node) {
   } else if (layout === "badvalMonitor") {
     if (typeof createNodeGraphBadvalMonitorBody === "function") {
       article.append(createNodeGraphBadvalMonitorBody(node));
+    }
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
+  } else if (layout === "pitchDetector") {
+    if (typeof createNodeGraphPitchDetectorBody === "function") {
+      article.append(createNodeGraphPitchDetectorBody(node));
     }
     appendNodeGraphModuleIoSection(
       article,

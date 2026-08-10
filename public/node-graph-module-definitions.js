@@ -7094,15 +7094,10 @@ const nodeGraphModuleDefinitions = (
   helmholtzPitch: {
     planRole: "monitor",
     planFreeRun: true,
-    displayType: "trace",
-    displayModes: [
-      { key: "trace", renderer: "trace", settingsSchema: "trace", source: { value: "Pitch View" } },
-    ],
-    displaySignals: [
-      { key: "Frequency", kind: "scalar" },
-      { key: "Fidelity", kind: "scalar" },
-      { key: "Pitch View", kind: "scalar" },
-    ],
+    // Cheap DOM text face (Hz + Fid) — not a phosphor Number Readout / trace.
+    layout: "pitchDetector",
+    chrome: "LayoutA",
+    displayHeightGu: 1,
     inputs: ["In"],
     // Like badvalMonitor: an analysis/monitor tool should keep running and
     // updating its outputs as soon as something is wired into "In", even if

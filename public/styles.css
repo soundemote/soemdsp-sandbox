@@ -10748,6 +10748,72 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   pointer-events: auto;
 }
 
+/* Pitch Detector: plain text face (cheapest live Hz / Fid readout). */
+.dsp-node.pitch-detector-layout {
+  grid-template-rows:
+    var(--node-header-height)
+    var(--node-module-scope-height)
+    minmax(var(--node-io-section-min-height), auto)
+    auto
+    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
+}
+
+.dsp-node.pitch-detector-layout > .node-pitch-detector-face {
+  grid-row: 2;
+  align-self: stretch;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  pointer-events: auto;
+}
+
+.node-pitch-detector-face {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.2em;
+  padding: 0.2em 0.45em;
+  min-width: 0;
+  overflow: hidden;
+  font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+  font-size: 0.78rem;
+  line-height: 1.15;
+  color: var(--text, #f3f1ec);
+  background:
+    linear-gradient(180deg, rgba(12, 16, 20, 0.96), rgba(6, 9, 12, 0.98));
+  border: 1px solid rgba(127, 199, 217, 0.14);
+  user-select: none;
+}
+
+.node-pitch-detector-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5em;
+  min-width: 0;
+}
+
+.node-pitch-detector-k {
+  flex: 0 0 auto;
+  color: var(--muted, rgba(160, 167, 176, 0.75));
+  font-size: 0.72em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.node-pitch-detector-v {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgba(160, 214, 228, 0.98);
+  white-space: nowrap;
+  text-overflow: clip;
+}
+
 /*
  * LED face paint only. Layout (In | face | Out, shell, height, ports) comes
  * from shared LayoutB solid-module rules — no LED shell/column overrides.
@@ -13064,10 +13130,22 @@ input.node-header-title:focus {
   position: relative;
   z-index: 2;
   display: grid;
+  /* Side tracks size to the longest port label (set as --node-io-*-label-ch on
+     the section). Old hard cap of 2gu clipped names like Frequency / Fidelity
+     on LayoutA modules. Center stays flexible. */
+  --node-io-side-pad: calc(var(--node-signal-port-width, 14px) + var(--node-io-label-gap, 4px));
+  --node-io-input-track: max(
+    calc(var(--node-grid-width) * 1.5),
+    calc(var(--node-io-side-pad) + var(--node-io-input-label-ch, 4) * 1ch)
+  );
+  --node-io-output-track: max(
+    calc(var(--node-grid-width) * 1.5),
+    calc(var(--node-io-side-pad) + var(--node-io-output-label-ch, 4) * 1ch)
+  );
   grid-template-columns:
-    minmax(0, min(50%, calc(var(--node-grid-width) * 2)))
+    minmax(0, var(--node-io-input-track))
     minmax(0, 1fr)
-    minmax(0, min(50%, calc(var(--node-grid-width) * 2)));
+    minmax(0, var(--node-io-output-track));
   align-items: stretch;
   min-width: 0;
   min-height: var(--node-io-section-min-height);

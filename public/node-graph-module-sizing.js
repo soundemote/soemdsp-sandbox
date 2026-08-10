@@ -83,6 +83,55 @@ const nodeGraphLayoutBMinGu = 2;
 /** LayoutC convenience thrus (Vectorscope, …): allow compact 2–3gu modules. */
 const nodeGraphLayoutCMinGu = 2;
 
+/**
+ * LayoutA min width so inlet/outlet labels (Frequency, Fidelity, …) are not
+ * clipped by a 4gu default shell. Estimates from longest port display names.
+ */
+function nodeGraphLayoutAMinWidthGuFromIoLabels(type) {
+  const definition = nodeGraphModuleDefinitions[type];
+  if (!definition) {
+    return nodeGraphModuleWidthLimits.minGu;
+  }
+  // Only LayoutA (ports under face). LayoutB/C size differently.
+  if (typeof nodeGraphModuleUsesLayoutB === "function" && nodeGraphModuleUsesLayoutB(type)) {
+    return 0;
+  }
+  if (typeof nodeGraphModuleUsesLayoutC === "function" && nodeGraphModuleUsesLayoutC(type)) {
+    return 0;
+  }
+  if (nodeGraphChromelessModuleIsCompactTile?.(type)) {
+    return 0;
+  }
+  const labelFor = (port, io) => {
+    const map = io === "input" ? definition.inputLabels : definition.outputLabels;
+    if (map && map[port] != null && String(map[port]).trim()) {
+      return String(map[port]).trim();
+    }
+    return String(port || "");
+  };
+  let inMax = 0;
+  let outMax = 0;
+  for (const port of definition.inputs || []) {
+    inMax = Math.max(inMax, labelFor(port, "input").length);
+  }
+  for (const port of definition.outputs || []) {
+    outMax = Math.max(outMax, labelFor(port, "output").length);
+  }
+  if (inMax <= 0 && outMax <= 0) {
+    return nodeGraphModuleWidthLimits.minGu;
+  }
+  // ~0.36 gu per monospace ch at default grid; jack + gap ≈ 0.85 gu per side.
+  const guPerCh = 0.36;
+  const jackGu = 0.85;
+  const leftGu = inMax > 0 ? jackGu + inMax * guPerCh : 0.5;
+  const rightGu = outMax > 0 ? jackGu + outMax * guPerCh : 0.5;
+  // Keep a little center face room.
+  return Math.max(
+    nodeGraphModuleWidthLimits.minGu,
+    Math.ceil(leftGu + rightGu + 1.25),
+  );
+}
+
 function nodeGraphModuleWidthLimitsForType(type) {
   if (nodeGraphChromelessModuleIsCompactTile(type)) {
     return { ...nodeGraphModuleWidthLimits, minGu: 1 };
@@ -96,6 +145,10 @@ function nodeGraphModuleWidthLimitsForType(type) {
   // MIDI Keyboard needs real horizontal room for white keys + labels.
   if (nodeGraphModuleDefinitions[type]?.layout === "keyboardController") {
     return { ...nodeGraphModuleWidthLimits, minGu: 14 };
+  }
+  const layoutAMin = nodeGraphLayoutAMinWidthGuFromIoLabels(type);
+  if (layoutAMin > nodeGraphModuleWidthLimits.minGu) {
+    return { ...nodeGraphModuleWidthLimits, minGu: layoutAMin };
   }
   return nodeGraphModuleWidthLimits;
 }
@@ -408,7 +461,8 @@ function nodeGraphPatchNodeCanvasScriptGridUnits(node) {
 function nodeGraphDefaultModuleGridWidthUnits(type) {
   const declaredWidthGu = Number(nodeGraphModuleDefinitions[type]?.defaultWidthGu);
   if (Number.isFinite(declaredWidthGu)) {
-    return Math.max(1, Math.round(declaredWidthGu));
+    const limits = nodeGraphModuleWidthLimitsForType(type);
+    return Math.max(limits.minGu, Math.round(declaredWidthGu));
   }
   if (nodeGraphChromelessModuleIsCompactTile(type)) {
     return 1;
@@ -451,7 +505,12 @@ function nodeGraphDefaultModuleGridWidthUnits(type) {
   if (nodeGraphModuleDefinitions[type]?.layout === "keyboardController") {
     return 18;
   }
-  return 7;
+  if (nodeGraphModuleDefinitions[type]?.layout === "pitchDetector") {
+    return Math.max(8, nodeGraphLayoutAMinWidthGuFromIoLabels(type) || 8);
+  }
+  // LayoutA: default at least wide enough for port labels (Frequency, …).
+  const layoutAMin = nodeGraphLayoutAMinWidthGuFromIoLabels(type);
+  return Math.max(7, layoutAMin || 0);
 }
 
 function normalizeNodeGraphModuleWidthUnits(type, widthGu) {
