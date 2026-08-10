@@ -3912,7 +3912,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Linkwitz-Riley single path (cascaded Butterworth halves). Not a multi-band crossover product — use a dedicated Crossover module when band outputs must sum flat.",
+        tooltip: "One Linkwitz–Riley-shaped path (LP or HP only). For a multi-band split with band outs that recombine flat, use 2-Crossover … 6-Crossover instead.",
       },
       {
         defaultValue: "1000",

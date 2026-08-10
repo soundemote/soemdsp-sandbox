@@ -556,12 +556,13 @@ function createNodeGraphModuleElement(type, node) {
   article.className = nodeGraphModuleLayoutClassNames(type, definition, layout);
   article.dataset.node = node;
   article.dataset.nodeType = type;
-  // Browser tooltip on module hover: store description (accuracy notes, best use, etc.)
+  // Browser tooltip on module hover: short use-case from module store catalog.
   const storeEntry = typeof nodeGraphModuleStoreCatalog === "object"
     ? nodeGraphModuleStoreCatalog[type]
     : null;
   if (storeEntry?.description) {
-    article.title = `${nodeGraphNodeLabels?.[type] || type}: ${storeEntry.description}`;
+    const name = nodeGraphNodeLabels?.[type] || storeEntry.label || type;
+    article.title = `${name}: ${storeEntry.description}`;
   }
   const chrome = typeof nodeGraphModuleChrome === "function"
     ? nodeGraphModuleChrome(type)
