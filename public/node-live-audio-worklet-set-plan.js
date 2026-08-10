@@ -10,10 +10,9 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
     this.gpuAdditiveUnderruns = 0;
     this.autoSmoothingSeconds = 0.016;
     this.hostSampleRate = Math.max(1, Number(message.sampleRate) || sampleRate || 44100);
-    const requestedRatio = Number(message.oversamplingRatio) ||
-      ((Number(message.engineSampleRate) || this.hostSampleRate) / this.hostSampleRate);
-    this.oversamplingRatio = Math.max(1, Math.min(4, Math.round(requestedRatio) || 1));
-    this.engineSampleRate = this.hostSampleRate * this.oversamplingRatio;
+    // App-wide: oversampling under construction — always ×1 (ignore plan/message).
+    this.oversamplingRatio = 1;
+    this.engineSampleRate = this.hostSampleRate;
     this.timing = this.normalizePatchTiming(plan?.timing);
     if (this.raptEllipticDecimatorRatio !== this.oversamplingRatio) {
       this.resetRaptEllipticDecimator();

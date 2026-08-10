@@ -6,10 +6,11 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
     const output = outputs[0] || [];
     const frames = output[0]?.length || 128;
     const input = inputs[0] || [];
-    const oversamplingRatio = Math.max(1, Math.min(4, Math.round(this.oversamplingRatio) || 1));
-    const rawEngineSampleRate = Math.max(1, this.engineSampleRate || sampleRate || 44100);
+    // App-wide: oversampling under construction — never multi-rate in process.
+    const oversamplingRatio = 1;
+    const rawEngineSampleRate = Math.max(1, this.hostSampleRate || this.engineSampleRate || sampleRate || 44100);
     const effectiveRate = Math.max(1, rawEngineSampleRate * Math.max(0, this.speedMultiplier ?? 1));
-    const engineFrames = frames * oversamplingRatio;
+    const engineFrames = frames;
     // Speed 0 = pause: fill silence and return immediately.
     if (this.speedMultiplier === 0) {
       for (const channel of output) {

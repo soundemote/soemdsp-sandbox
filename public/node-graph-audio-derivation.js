@@ -7,11 +7,21 @@ function nodeGraphTargetSampleRate(patch = nodeGraphMvp.patch) {
   return normalizeNodeGraphPatchAudio(patch?.audio).targetSampleRate;
 }
 
+/**
+ * App-wide policy: oversampling is UNDER CONSTRUCTION — always ×1.
+ * Kept so patches/UI can still store targetSampleRate without changing live cost.
+ */
+const nodeGraphOversamplingEnabled = false;
+
 const nodeGraphOversamplingPresets = Object.freeze([1, 2, 4]);
 
-function nodeGraphOversamplingMultiplier(baseRate, targetRate) {
-  const base = Number(baseRate);
-  const target = Number(targetRate);
+function nodeGraphOversamplingMultiplier(_baseRate, _targetRate) {
+  // Under construction: never run multi-rate live/render engine.
+  if (!nodeGraphOversamplingEnabled) {
+    return 1;
+  }
+  const base = Number(_baseRate);
+  const target = Number(_targetRate);
   if (!Number.isFinite(base) || base <= 0 || !Number.isFinite(target) || target <= 0) {
     return 1;
   }
@@ -19,6 +29,9 @@ function nodeGraphOversamplingMultiplier(baseRate, targetRate) {
 }
 
 function nodeGraphOversamplingPresetForRatio(ratio) {
+  if (!nodeGraphOversamplingEnabled) {
+    return "1";
+  }
   const value = Number(ratio);
   if (!Number.isFinite(value) || value <= 0) {
     return "1";
@@ -32,17 +45,27 @@ function nodeGraphOversamplingPresetForRatio(ratio) {
 }
 
 function nodeGraphTargetSampleRateForOversampling(multiplier, baseRate = nodeGraphBaseSampleRate()) {
+  const base = Number(baseRate);
+  const safeBase = Number.isFinite(base) && base > 0 ? base : 44100;
+  if (!nodeGraphOversamplingEnabled) {
+    return Math.round(safeBase);
+  }
   const preset = nodeGraphOversamplingPresets.includes(Number(multiplier))
     ? Number(multiplier)
     : 1;
-  const base = Number(baseRate);
-  return Math.round((Number.isFinite(base) && base > 0 ? base : 44100) * preset);
+  return Math.round(safeBase * preset);
 }
 
 function nodeGraphEffectiveSampleRate(baseRate, multiplier) {
   const base = Number(baseRate);
+  if (!Number.isFinite(base) || base <= 0) {
+    return base;
+  }
+  if (!nodeGraphOversamplingEnabled) {
+    return base;
+  }
   const factor = Number(multiplier);
-  if (!Number.isFinite(base) || base <= 0 || !Number.isFinite(factor) || factor <= 0) {
+  if (!Number.isFinite(factor) || factor <= 0) {
     return base;
   }
   return base * factor;
@@ -66,6 +89,7 @@ function nodeGraphFormatOversamplingRatio(ratio) {
 
 function nodeGraphAudioDerivation(patch = nodeGraphMvp.patch) {
   const currentSampleRate = nodeGraphBaseSampleRate();
+  // Keep patch target for future OS work; live/render engine always 1× while disabled.
   const targetSampleRate = nodeGraphTargetSampleRate(patch);
   const oversamplingRatio = nodeGraphOversamplingMultiplier(currentSampleRate, targetSampleRate);
   const clampedEngineSampleRate = nodeGraphEffectiveSampleRate(currentSampleRate, oversamplingRatio);
