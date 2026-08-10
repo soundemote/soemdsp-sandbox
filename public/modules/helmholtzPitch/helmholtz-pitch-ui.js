@@ -1,7 +1,7 @@
 // Pitch Detector face:
 //   • Frequency → Number Readout LCD (DSEG / residual path)
 //   • Fidelity  → cheapest plain DOM text strip
-// One black plate; LCD fills most of it; Fid sits on a thin footer.
+// One black plate; LCD fills it; Fid overlays the bottom (no fill/stroke).
 
 function createNodeGraphPitchDetectorBody(nodeId) {
   const id = String(nodeId || "");

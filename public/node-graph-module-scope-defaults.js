@@ -195,41 +195,84 @@ const nodeGraphZeroDBurnSettingsDefaults = Object.freeze({
 });
 
 
+// 0D Value — sharp WebGL beam (classic teal/blue + alpha). No face bitmap.
 const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
-  background: nodeGraphScopePhosphorLookDefaults.background,
-  brightness: nodeGraphScopePhosphorLookDefaults.brightness,
-  ghost: nodeGraphScopePhosphorLookDefaults.ghost,
+  background: "#000004",
+  // Beam intensity (alpha), not RGB premultiply.
+  brightness: 0.72,
   capEnabled: true,
   capLength: 0.16,
-  capSize: nodeGraphScopePhosphorLookDefaults.size,
-  color: nodeGraphScopePhosphorLookDefaults.peakColor,
-  trail: nodeGraphScopePhosphorLookDefaults.trail,
+  capSize: 0.1,
+  // Classic sharp teal/blue.
+  color: "#73ebff",
+  // Residual unused (vector redraw every frame).
+  ghost: 0,
+  trail: 0,
+  burn: 0,
+  decay: 1,
   dot1Enabled: true,
-  dot1Size: nodeGraphScopePhosphorLookDefaults.size,
-  lineLength: 0.88,
-  lineThickness: nodeGraphScopePhosphorLookDefaults.blur,
-  // 0 = 1×1 pixel … 1 layout×dpr … 4 AA.
-  pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
+  // Stroke diameter: 0 = 1px, 1 = face square min side.
+  dot1Size: 0.04,
+  lineLength: 1,
+  // Hard edge (beam blur forced 0 in draw).
+  lineThickness: 0,
+  pixelDensity: 1,
   // Amplitude zoom (Y).
-  scale: nodeGraphScopePhosphorLookDefaults.scale,
+  scale: 1,
 });
 
 
+// Value LED (numberReadout): phosphor / lit seven-segment face.
+// App-wide residual axes: Bright = light only; Trail/Ghost = hang only (no brightness).
 const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
+  faceStyle: "led",
   background: nodeGraphScopePhosphorLookDefaults.background,
   // Bright 0…1: 0 = mid grey, 0.5 = full Hue, 1 = white (never black).
   brightness: 0.5,
   // Live digit “light” — single solid color (not the residual gradient).
   color: nodeGraphScopePhosphorLookDefaults.peakColor,
-  // Deposit hang 0…1 (high = long super-exponential hang of previous digits).
-  residual: 0.72,
-  // Constant 8-skeleton floor energy 0…1 (= gradient stop). Deposits sit on top.
-  ghostBrightness: 0.2,
+  // Trail 0…1 — hot residual hang (PhosphorResidual.trail).
+  trail: 0.88,
+  // Ghost 0…1 — slow super-exp hang of residual energy (NOT brightness).
+  ghost: 0.45,
+  // Legacy aliases (normalize keeps these in sync).
+  residual: 0.88,
+  ghostBrightness: 0.45,
   decimals: 2,
   // How live Light composites over residual gradient (canvas blend / occlude).
   lightBlend: "occlude",
-  // Energy → color LUT for ghost floor + deposits (live digits use solid Light).
+  // Inset of digits from the plate edge 0…1 (0 = flush, 1 = deep margin).
+  facePadding: 0.06,
+  // Energy → color LUT for decaying deposits (live digits use solid Light).
   gradientStops: nodeGraphScopePhosphorLookDefaults.gradientStops,
+});
+
+// Value LCD — vector DSEG (no phosphor residual / Ghost / Trail hang).
+// FX: permanent dim “8” plate (unlit segments) + dialable glass inner shadow.
+const nodeGraphValueLcdSettingsDefaults = Object.freeze({
+  faceStyle: "lcd",
+  background: "#b0b5a6",
+  brightness: 1,
+  // Foreground (digit ink) — full color widget, same family as Background.
+  color: "#1a2216",
+  // Residual hang unused on LCD (kept 0 so old patches don’t re-enable burn path).
+  trail: 0,
+  ghost: 0,
+  residual: 0,
+  ghostBrightness: 0,
+  decimals: 2,
+  lightBlend: "source-over",
+  // Inset of digits from the plate edge 0…1 (0 = flush, 1 = deep margin).
+  facePadding: 0.06,
+  // Permanent unlit “8” skeleton amount 0…1 (multiply FG into plate).
+  unlitSegments: 0.28,
+  // Inner shadow (screen glass): Gaussian soft inset + CSS-like offset.
+  innerShadowDistance: 0.22,
+  innerShadowSharpness: 0.4,
+  // Offset −1…1 (0 = centered). Positive X/Y darkens left/top (light from +X/+Y).
+  innerShadowOffsetX: 0,
+  innerShadowOffsetY: 0.12,
+  gradientStops: Object.freeze([]),
 });
 
 

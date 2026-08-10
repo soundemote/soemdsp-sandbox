@@ -192,7 +192,7 @@ const nodeGraphNodeLabels = Object.freeze({
   matrixWaterfall: "Matrix Waterfall",
   textStream: "Text Stream",
   valueOscilloscope: "0D Value",
-  // numberReadout label lives in modules/numberReadout/*-register.js (chromeless).
+  // numberReadout (Value LED) + valueLcd labels live in modules/*-register.js (chromeless).
   lineBurnOscilloscope: "1D Phosphor",
   scope2d: "2D Phosphor",
   scope2dTrace: "2D Trace",
@@ -7112,6 +7112,7 @@ const nodeGraphModuleDefinitions = (
     displaySignals: [
       { key: "Frequency", kind: "scalar" },
       { key: "Fidelity", kind: "scalar" },
+      { key: "Gate", kind: "scalar" },
     ],
     inputs: ["In"],
     // Like badvalMonitor: an analysis/monitor tool should keep running and
@@ -7119,18 +7120,19 @@ const nodeGraphModuleDefinitions = (
     // nothing downstream routes to Output -- that's the whole point of a
     // meter you read directly off the node.
     monitorSink: true,
-    outputs: ["Frequency", "Fidelity"],
+    outputs: ["Frequency", "Fidelity", "Gate"],
     parameters: [
       {
         constraint: "cpu",
-        defaultValue: "512",
+        // 1024: at 48 kHz floor ≈ 94 Hz (covers 100 Hz test tones); 512 floor ≈ 188 Hz.
+        defaultValue: "1024",
         key: "windowSize",
         label: "Window",
         max: "1024",
         mid: "512",
         min: "128",
         step: "1",
-        tooltip: "Analysis window in samples. Larger windows track lower frequencies but update more slowly.",
+        tooltip: "Analysis window in samples. Larger windows track lower frequencies but update more slowly. Min pitch ≈ 2×sampleRate/window (e.g. 1024 @ 48 kHz ≈ 94 Hz).",
       },
       {
         defaultValue: "0.93",
@@ -7140,7 +7142,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.93",
         min: "0.5",
         step: "0.001",
-        tooltip: "Fidelity (clarity) threshold below which a frame is rejected as non-periodic and Frequency reports 0.",
+        tooltip: "Fidelity (clarity) threshold below which a frame is rejected as non-periodic and Frequency/Gate report 0.",
       },
     ],
   },
@@ -8491,7 +8493,7 @@ const nodeGraphModuleDefinitions = (
     ],
     visualSink: true,
   },
-  // numberReadout: solid chromeless registration (public/modules/numberReadout/*-register.js).
+  // numberReadout (Value LED) + valueLcd: solid chromeless registration.
   lineBurnOscilloscope: {
     planRole: "monitor",
     bufferedInputs: ["In", "Reset"],

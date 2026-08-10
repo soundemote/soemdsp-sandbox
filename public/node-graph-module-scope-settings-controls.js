@@ -122,11 +122,30 @@ function nodeGraphTraceDisplayUnitDragField(key) {
     "residual",
     "ghost",
     "trail",
+    "unlitSegments",
+    "facePadding",
+    "innerShadowDistance",
+    "innerShadowSharpness",
+    "innerShadowOffsetX",
+    "innerShadowOffsetY",
     "dialSize",
     "innerRadius",
     "capLength",
     "capSize",
   ].includes(key);
+}
+
+/** Drag/clamp range for unit-style fields (most are 0…1; shadow offset is bipolar). */
+function nodeGraphTraceDisplayUnitDragRange(key) {
+  if (key === "innerShadowOffsetX" || key === "innerShadowOffsetY") {
+    return { min: -1, max: 1 };
+  }
+  return { min: 0, max: 1 };
+}
+
+function nodeGraphTraceDisplayClampBipolarUnit(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? clampNodeSliderValue(n, -1, 1) : 0;
 }
 
 /** Pixels of drag for a full 0→1 sweep on unit fields (higher = less sensitive). */
@@ -309,6 +328,12 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   // Number Readout residual hang + Ghost Bright (min gradient stop).
   residual: nodeGraphTraceDisplayClampUnit,
   ghostBrightness: nodeGraphTraceDisplayClampBrightness,
+  unlitSegments: nodeGraphTraceDisplayClampUnit,
+  facePadding: nodeGraphTraceDisplayClampUnit,
+  innerShadowDistance: nodeGraphTraceDisplayClampUnit,
+  innerShadowSharpness: nodeGraphTraceDisplayClampUnit,
+  innerShadowOffsetX: nodeGraphTraceDisplayClampBipolarUnit,
+  innerShadowOffsetY: nodeGraphTraceDisplayClampBipolarUnit,
   // Knob dial ring size 0…1.
   dialSize: nodeGraphTraceDisplayClampUnit,
   dotBudget: nodeGraphTraceDisplayClampDotBudget,
@@ -374,7 +399,8 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
     hue: (value) => {
       const n = Number(value);
       if (!Number.isFinite(n)) return 0;
-      return ((n % 360) + 360) % 360;
+      // App-wide hue policy: no wrap — clamp to red edges (0…360).
+      return clampNodeSliderValue(n, 0, 360);
     },
     lineThickness: nodeGraphTraceDisplayClampUnit,
     rounding: (value) => clampNodeSliderValue(Number(value) || 0, 0, 100),

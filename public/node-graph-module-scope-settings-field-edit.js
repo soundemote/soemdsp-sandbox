@@ -360,10 +360,16 @@ function dragNodeGraphTraceDisplayField(event) {
       ? (axes.combined / sizePx) * drag.multiplier
       : (axes.combined / 8) * drag.quantum * drag.multiplier;
   let rawValue = adjustNodeGraphTraceDisplaySettingByControlDelta(drag.key, startValue, controlDelta);
-  // Unit 0…1: hard clamp before format (never wrap / never NaN→1).
+  // Unit fields: hard clamp before format (never wrap / never NaN→1).
+  // Most are 0…1; shadow offset X/Y are bipolar −1…1.
   if (drag.unitDrag) {
     const n = Number(rawValue);
-    rawValue = Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : startValue;
+    const range = typeof nodeGraphTraceDisplayUnitDragRange === "function"
+      ? nodeGraphTraceDisplayUnitDragRange(drag.key)
+      : { min: 0, max: 1 };
+    const lo = Number.isFinite(range?.min) ? range.min : 0;
+    const hi = Number.isFinite(range?.max) ? range.max : 1;
+    rawValue = Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : startValue;
   }
   const nextValue = normalizeNodeGraphTraceDisplaySettingValueForKey(drag.key, rawValue);
   drag.input.value = formatNodeGraphTraceDisplaySetting(nextValue);

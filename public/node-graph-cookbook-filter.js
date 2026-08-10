@@ -621,6 +621,30 @@ function nodeGraphFilterCurveLabel(node) {
   return nodeGraphCookbookFilterModes[Math.round(Number(node.params?.mode) || 0)] || "Filter";
 }
 
+/** Room dimmer punch strength for crossover faces (dimmer than full scopes). */
+const nodeGraphCrossoverDisplayLightStrength = 2 / 3;
+
+function nodeGraphFilterCurveApplyCrossoverLightCutout(section, canvas, type) {
+  if (!section || !nodeGraphIsCrossoverType(type || section.dataset?.nodeType)) {
+    return;
+  }
+  const s = nodeGraphCrossoverDisplayLightStrength;
+  const strength = s.toFixed(6);
+  section.classList.add("node-light-source");
+  section.dataset.lightSource = "screen";
+  section.dataset.lightStrength = strength;
+  if (canvas?.dataset) {
+    canvas.dataset.lightSource = "screen";
+    canvas.dataset.lightStrength = strength;
+  }
+  if (typeof setNodeGraphLightStrength === "function") {
+    setNodeGraphLightStrength(section, s);
+    if (canvas) {
+      setNodeGraphLightStrength(canvas, s);
+    }
+  }
+}
+
 function createNodeGraphFilterCurveDisplay(nodeId, type) {
   const section = document.createElement("section");
   section.className = "node-filter-curve-display";
@@ -636,6 +660,8 @@ function createNodeGraphFilterCurveDisplay(nodeId, type) {
   const canvas = document.createElement("canvas");
   canvas.className = "node-filter-curve-canvas";
   section.append(canvas);
+  // Crossovers: room-dimmer cutout at 2/3 (not as bright as full displays).
+  nodeGraphFilterCurveApplyCrossoverLightCutout(section, canvas, type);
   // Resize only: params bail via signature. Force redraw when the face gets a
   // real layout size (first paint often runs at 0×0 and used to stick blank).
   if (typeof ResizeObserver === "function") {
@@ -853,6 +879,11 @@ function drawNodeGraphFilterCurveDisplayInner(section) {
     context.fillRect(6, titleY - 1, titleW + 4, 12);
     context.fillStyle = "rgba(229, 238, 242, 0.82)";
     context.fillText(title, 8, titleY);
+  }
+
+  // Keep crossover dimmer cutout after paint (2/3 vs full-bright scopes).
+  if (isCrossover) {
+    nodeGraphFilterCurveApplyCrossoverLightCutout(section, canvas, node.type);
   }
 }
 

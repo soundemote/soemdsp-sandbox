@@ -9997,8 +9997,12 @@ body.room-dimmer-on .node-room-dimmer-canvas,
     var(--node-module-layout-b-shell-track)
     auto
     var(--node-module-bottom-gap-track, minmax(2px, 1fr));
-  /* Clip anything that still exceeds the outer gu box. */
-  overflow: hidden;
+  /*
+   * Match LayoutA: overflow visible so the gapped SVG selection/frame stroke
+   * (outset past the plate) is not clipped. Shell + body stay overflow:hidden
+   * so face/jack content cannot blow past gu tracks.
+   */
+  overflow: visible;
   /* Do not let min-content of children expand the plate past outer gu. */
   max-height: calc(
     (var(--node-grid-height) * var(--node-grid-height-units, 4))
@@ -10046,7 +10050,8 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   grid-template-rows:
     var(--node-header-height)
     minmax(0, 1fr);
-  overflow: hidden;
+  /* Keep frame stroke visible (Value LCD / Value LED / headerless LayoutB). */
+  overflow: visible;
 }
 
 .dsp-node.chrome-layout-b.layout-b-no-params > .dsp-node-body,
@@ -10764,8 +10769,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   grid-row: 2;
   align-self: stretch;
   box-sizing: border-box;
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  display: block;
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -10776,7 +10780,8 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 .node-pitch-detector-lcd {
-  position: relative;
+  position: absolute;
+  inset: 0;
   z-index: 1;
   min-width: 0;
   min-height: 0;
@@ -10795,19 +10800,26 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   pointer-events: none;
 }
 
+/* Fid sits on the black plate — no own fill or stroke. */
 .node-pitch-detector-fid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
   box-sizing: border-box;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 0.45em;
   min-width: 0;
-  padding: 0.12em 0.4em 0.18em;
-  border-top: 1px solid rgba(127, 199, 217, 0.12);
-  background: rgba(4, 8, 12, 0.98);
+  padding: 0.12em 0.4em 0.22em;
+  border: none;
+  background: transparent;
   font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
   font-size: 0.72rem;
   line-height: 1.1;
+  pointer-events: none;
   user-select: none;
 }
 
@@ -10915,9 +10927,11 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   box-shadow: none;
 }
 
-/* Number Readout / LED: face must not paint past the shell (shared no-params shell). */
+/* Value LED / Value LCD: face must not paint past the shell (shared no-params shell). */
 .dsp-node.number-readout-layout.layout-b-no-params > .node-solid-module-shell,
-.dsp-node.number-readout-layout .node-number-readout-face {
+.dsp-node.number-readout-layout .node-number-readout-face,
+.dsp-node.value-lcd-layout.layout-b-no-params > .node-solid-module-shell,
+.dsp-node.value-lcd-layout .node-number-readout-face {
   overflow: hidden;
 }
 
@@ -10926,12 +10940,20 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   display: none !important;
 }
 
-/* Number Readout solid face — LCD plate fills the shell center cell. */
+/* Value LED / Value LCD solid face — plate fills the shell center cell. */
 .dsp-node.number-readout-layout .node-number-readout-face,
-.dsp-node.number-readout-layout .node-module-scope-window {
+.dsp-node.number-readout-layout .node-module-scope-window,
+.dsp-node.value-lcd-layout .node-number-readout-face,
+.dsp-node.value-lcd-layout .node-module-scope-window {
   width: 100%;
   height: 100%;
   min-height: 0;
+}
+
+/* Value LCD shell: plate color comes from Display Settings (canvas). No fixed CSS bevel. */
+.dsp-node.value-lcd-layout .node-value-lcd-face,
+.node-number-readout-face.node-value-lcd-face {
+  background: #b0b5a6;
 }
 
 /* Ray Bouncer solid face — phosphor scope fills the shell center cell. */
@@ -11501,6 +11523,13 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   width: 100%;
   height: 100%;
   pointer-events: none;
+}
+
+/* Value LCD: buffer tracks on-screen pixels (sharp under zoom). Smooth AA, not
+   nearest-neighbor pixelation — text is redrawn each change at screen density. */
+.node-number-readout-canvas.node-number-readout-canvas-vector,
+.dsp-node.value-lcd-layout .node-number-readout-canvas {
+  image-rendering: auto;
 }
 
 .visual-scope-layout .node-module-square-scope-window {
@@ -15891,6 +15920,9 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   overflow: hidden;
   padding: 0;
   box-sizing: border-box;
+  /* Thin-window stacking for BPM/Beats/Unit and modular-view button rows. */
+  container-type: inline-size;
+  container-name: command-center;
 }
 
 /* Pack Command Center chrome flush — no phantom section padding. */
@@ -17179,6 +17211,26 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   border-top: 1px solid rgba(226, 168, 109, 0.24);
 }
 
+/* Thin Command Center: BPM / Beats / Unit stack as a column. */
+@container command-center (max-width: 300px) {
+  .scene-context-timing-controls .node-command-center-timing-row-tempo {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+  }
+
+  .scene-context-timing-controls .node-command-center-timing-row-tempo > .node-header-timing-field {
+    width: 100%;
+    height: var(--scene-context-timing-row-height);
+  }
+
+  .scene-context-timing-controls
+    .node-command-center-timing-row-tempo
+    > .node-header-timing-field
+    + .node-header-timing-field {
+    border-top: 1px solid rgba(226, 168, 109, 0.24);
+  }
+}
+
 .scene-context-timing-controls .node-header-timing-field {
   min-width: 0;
   height: var(--scene-context-timing-row-height);
@@ -17287,6 +17339,53 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 
 .scene-context-modular-view-controls .scene-context-window-button + .scene-context-window-button {
   border-left: 1px solid rgba(127, 199, 217, 0.16);
+}
+
+/* Thin Command Center: Modular View / View Buttons / Keyboard stack vertically. */
+@container command-center (max-width: 300px) {
+  .scene-context-modular-view-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .scene-context-modular-view-controls .scene-context-window-button + .scene-context-window-button {
+    border-left: 0;
+    border-top: 1px solid rgba(127, 199, 217, 0.16);
+  }
+}
+
+/* Disable modules — full-width row under Command Center transport. */
+#nodeSceneContextMenu .scene-context-disable-modules-button,
+.node-scene-context-menu .scene-context-disable-modules-button {
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--node-floating-window-button-height, 1.85rem);
+  margin: 0;
+  padding: 0 8px;
+  border: 1px solid rgba(226, 168, 109, 0.24);
+  border-top-width: 0;
+  border-radius: 0;
+  text-align: center;
+}
+
+#nodeSceneContextMenu .scene-context-disable-modules-button .scene-context-window-button-label,
+.node-scene-context-menu .scene-context-disable-modules-button .scene-context-window-button-label {
+  justify-items: center;
+  text-align: center;
+  width: 100%;
+}
+
+#nodeSceneContextMenu .scene-context-disable-modules-button:disabled,
+.node-scene-context-menu .scene-context-disable-modules-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+#nodeSceneContextMenu .scene-context-disable-modules-button[aria-pressed="true"],
+.node-scene-context-menu .scene-context-disable-modules-button[aria-pressed="true"] {
+  background: color-mix(in srgb, rgba(226, 168, 109, 0.16) 70%, transparent);
 }
 
 .scene-context-patch-actions {

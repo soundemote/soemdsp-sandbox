@@ -30,9 +30,26 @@ function nodeGraphScopeAvailableSampleCount(buffer) {
 }
 
 function nodeGraphScopeSampleRate(buffer) {
+  // Prefer the rate of *samples in the buffer* (after any visual/scope hop).
   const bufferRate = Number(buffer?.nodeGraphScopeSampleRate);
   if (Number.isFinite(bufferRate) && bufferRate > 0) {
+    // Safety: if metadata still claims engine rate but stride > 1, fix it.
+    // (Older worklets posted visual rings as engineRate + stride 1.)
+    const stride = Number(buffer?.nodeGraphScopeSampleStride);
+    const source = Number(buffer?.nodeGraphScopeSourceSampleRate);
+    if (
+      Number.isFinite(stride) && stride > 1.5
+      && Number.isFinite(source) && source > 0
+      && Math.abs(bufferRate - source) < 1
+    ) {
+      return source / stride;
+    }
     return bufferRate;
+  }
+  const source = Number(buffer?.nodeGraphScopeSourceSampleRate);
+  const stride = Number(buffer?.nodeGraphScopeSampleStride);
+  if (Number.isFinite(source) && source > 0 && Number.isFinite(stride) && stride > 0) {
+    return source / Math.max(1, stride);
   }
   const stateRate = Number(nodeGraphModuleScopeState.sampleRate);
   if (Number.isFinite(stateRate) && stateRate > 0) {

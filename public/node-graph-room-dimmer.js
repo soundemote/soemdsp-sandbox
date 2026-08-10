@@ -35,6 +35,7 @@
     "canvas.node-number-readout-canvas",
     "canvas.node-asciiscope-canvas",
     "canvas.node-matrix-display-canvas",
+    "canvas.node-filter-curve-canvas",
     ".node-led-lamp",
     ".node-module-scope-window",
     ".node-xy-pad",
@@ -42,6 +43,7 @@
     ".node-knob-face",
     ".node-ray-bouncer-face",
     ".node-phosphor-waveform-display",
+    ".node-filter-curve-display",
     ".node-asciiscope-stage",
     ".node-matrix-display-stage",
     "[data-light-source]",
@@ -302,16 +304,20 @@ void main() {
     if (el.matches?.("canvas.node-number-readout-canvas")) return el;
     if (el.matches?.("canvas.node-asciiscope-canvas")) return el;
     if (el.matches?.("canvas.node-matrix-display-canvas")) return el;
+    if (el.matches?.("canvas.node-filter-curve-canvas")) return el;
     if (el.matches?.(".node-led-lamp")) return el;
 
     // Outer shells: only if no painted canvas is already the target.
     const painted = el.querySelector?.(
-      "canvas.node-module-scope-local-fallback-canvas, canvas.node-phosphor-waveform-canvas, canvas.node-xy-pad-canvas, canvas.node-number-readout-canvas, canvas.node-asciiscope-canvas, canvas.node-matrix-display-canvas, .node-led-lamp",
+      "canvas.node-module-scope-local-fallback-canvas, canvas.node-phosphor-waveform-canvas, canvas.node-xy-pad-canvas, canvas.node-number-readout-canvas, canvas.node-asciiscope-canvas, canvas.node-matrix-display-canvas, canvas.node-filter-curve-canvas, .node-led-lamp",
     );
     if (painted) return painted;
 
     if (el.matches?.(".node-phosphor-waveform-display")) {
       return el.querySelector?.("canvas.node-phosphor-waveform-canvas") || el;
+    }
+    if (el.matches?.(".node-filter-curve-display")) {
+      return el.querySelector?.("canvas.node-filter-curve-canvas") || el;
     }
     return el;
   }

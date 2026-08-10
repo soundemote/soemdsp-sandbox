@@ -2,12 +2,23 @@
 // Load after core class, before registerProcessor.
 
 NodeLiveAudioProcessor.prototype.scopeScalarValue = function scopeScalarValue(value) {
+    // Sanitize non-finite values only. Do NOT clamp to ±1: analysis outs
+    // (Pitch Detector Frequency in Hz, transport BPM, etc.) are written
+    // through the same scope ring. Clamping made the LCD show only 0 or 1.
+    // Waveform faces re-clamp on draw when they need a bipolar audio range.
     const readNumber = (candidate) => {
       const number = Number(candidate);
       if (this.badValueReason(number)) {
         return null;
       }
-      return this.clampValue(number, -1, 1);
+      // Soft cap against pathological values flooding the postMessage path.
+      if (number > 1e8) {
+        return 1e8;
+      }
+      if (number < -1e8) {
+        return -1e8;
+      }
+      return number;
     };
     if (typeof value === "number") {
       return readNumber(value) ?? 0;
@@ -91,7 +102,17 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModul
         const inputPort = String(input.port || "").trim();
         // Buffered rings: only at visual hop — not every engine sample.
         if (input?.buffered && inputPort && writeBufferedThisSample) {
-          this.writeVisualInputBufferSample(nodeId, inputPort, inputValue, sink.bufferSampleLimit);
+          this.writeVisualInputBufferSample(
+            nodeId,
+            inputPort,
+            inputValue,
+            sink.bufferSampleLimit,
+            {
+              sampleStride: visualStride,
+              sourceSampleRate: engineRate,
+              writeSampleRate: engineRate / visualStride,
+            },
+          );
         }
         if (captureDebugScope && inputPort && !input?.buffered) {
           const portId = `${nodeId}:${inputPort}`;
@@ -132,6 +153,11 @@ NodeLiveAudioProcessor.prototype.createVisualInputBuffer = function createVisual
       length: 0,
       postedFrame: 0,
       writeIndex: 0,
+      // Write hop metadata — absoluteFrame counts *written* samples (after hop).
+      // sampleRate posted to the UI must be the effective write rate, not engine rate.
+      sampleStride: 1,
+      sourceSampleRate: 0,
+      writeSampleRate: 0,
     };
 };
 
@@ -158,6 +184,9 @@ NodeLiveAudioProcessor.prototype.resizeVisualInputBufferState = function resizeV
       next.writeIndex = copyCount % safeCapacity;
       next.absoluteFrame = Math.max(Number(state.absoluteFrame) || 0, copyCount);
       next.postedFrame = Math.min(Math.max(Number(state.postedFrame) || 0, 0), next.absoluteFrame);
+      next.sampleStride = Math.max(1, Math.round(Number(state.sampleStride) || 1));
+      next.sourceSampleRate = Math.max(0, Number(state.sourceSampleRate) || 0);
+      next.writeSampleRate = Math.max(0, Number(state.writeSampleRate) || 0);
       return next;
     }
     return state;
@@ -195,13 +224,35 @@ NodeLiveAudioProcessor.prototype.syncVisualInputBuffers = function syncVisualInp
     }
 };
 
-NodeLiveAudioProcessor.prototype.writeVisualInputBufferSample = function writeVisualInputBufferSample(nodeId, port, value, capacity = 262144) {
+NodeLiveAudioProcessor.prototype.writeVisualInputBufferSample = function writeVisualInputBufferSample(
+  nodeId,
+  port,
+  value,
+  capacity = 262144,
+  rateMeta = null,
+) {
     const key = `${nodeId}:${port}`;
     let buffer = this.visualInputBuffers.get(key);
     const safeCapacity = this.normalizeVisualInputBufferCapacity(capacity);
     if (!buffer || buffer.capacity !== safeCapacity) {
       buffer = this.resizeVisualInputBufferState(buffer, safeCapacity);
       this.visualInputBuffers.set(key, buffer);
+    }
+    // Tag hop so scope posts report the true samples/sec of this ring
+    // (not engine rate). 1D Phosphor Sweep(s) and Trace history depend on it.
+    if (rateMeta && typeof rateMeta === "object") {
+      const stride = Math.max(1, Math.round(Number(rateMeta.sampleStride) || 1));
+      const sourceRate = Math.max(1, Number(rateMeta.sourceSampleRate) || 0);
+      const writeRate = Math.max(1, Number(rateMeta.writeSampleRate) || 0);
+      buffer.sampleStride = stride;
+      if (sourceRate > 0) {
+        buffer.sourceSampleRate = sourceRate;
+      }
+      if (writeRate > 0) {
+        buffer.writeSampleRate = writeRate;
+      } else if (sourceRate > 0) {
+        buffer.writeSampleRate = sourceRate / stride;
+      }
     }
     buffer.buffer[buffer.writeIndex] = this.scopeScalarValue(value);
     buffer.writeIndex = (buffer.writeIndex + 1) % buffer.capacity;

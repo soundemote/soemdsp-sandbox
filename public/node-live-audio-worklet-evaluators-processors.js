@@ -666,7 +666,7 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           state,
           mixInput(nodeId, "In"),
           {
-            windowSize: read("windowSize", 512),
+            windowSize: read("windowSize", 1024),
             threshold: read("threshold", 0.93),
           },
           hasInput(nodeId, "In"),
@@ -1165,6 +1165,9 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         Y: this.safeFilterNumber(mixInput(nodeId, "Y"), null),
       }),
       numberReadout: (node, nodeId, frame, frames, frameValues, mixInput) => ({
+        Thru: this.safeFilterNumber(mixInput(nodeId, "In"), null),
+      }),
+      valueLcd: (node, nodeId, frame, frames, frameValues, mixInput) => ({
         Thru: this.safeFilterNumber(mixInput(nodeId, "In"), null),
       }),
       mix: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {

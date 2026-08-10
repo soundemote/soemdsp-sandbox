@@ -295,7 +295,7 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
     }
     return nodeGraphModuleScopeCapturedScope2dBuffer(slot, captureOpts);
   }
-  if (["traceDisplay", "dotOscilloscope", "valueOscilloscope", "numberReadout", "lineBurnOscilloscope"].includes(slot?.type)) {
+  if (["traceDisplay", "dotOscilloscope", "valueOscilloscope", "numberReadout", "valueLcd", "lineBurnOscilloscope"].includes(slot?.type)) {
     return nodeGraphModuleScopeState.buffers.get(`${nodeId}:In`) ||
       nodeGraphModuleScopeConnectedSourceBuffer(nodeId, "In") ||
       null;

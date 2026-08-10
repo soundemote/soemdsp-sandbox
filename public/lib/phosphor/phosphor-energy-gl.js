@@ -78,8 +78,8 @@
   //
   // Dual residual (matches PhosphorResidual):
   //   uKeepFast  — Trail hot path (1 = freeze)
-  //   uKeepSlow  — Ghost dim scorch hang (slower die)
-  //   uGhostCap  — Ghost floor ceiling (never full peak)
+  //   uKeepSlow  — Ghost slow hang (super-exp die; NOT brightness)
+  //   uGhostCap  — gates slow path (0 = off, 1 = on); not a brightness ceiling
   // When Ghost is 0, keepSlow/cap are 0 and only Trail erase runs.
   const STEP_FRAG = `
     precision highp float;
@@ -111,10 +111,10 @@
         float blur = (e0 * 4.0 + (e1 + e2 + e3 + e4) * 2.0 + (e5 + e6 + e7 + e8)) / 16.0;
         eBase = mix(e0, blur, bleed);
       }
-      // Trail hot path + optional Ghost dim floor (never full peak).
+      // Trail hot path + optional Ghost slow hang (pure keep; cap only enables path).
       float eFast = eBase * uKeepFast;
       float eGhost = (uGhostCap > 0.0001)
-        ? min(eBase * uKeepSlow, uGhostCap)
+        ? (eBase * uKeepSlow)
         : 0.0;
       float e = max(eFast, eGhost);
       if (uUseMask > 0.5) {
@@ -1333,7 +1333,7 @@
     } else if (options.decay != null && Number.isFinite(Number(options.decay))) {
       trail = Math.max(0, Math.min(1, 1 - Number(options.decay)));
     } else {
-      trail = 0.88;
+      trail = Residual?.DEFAULT_TRAIL ?? 0.5;
     }
     if (options.ghost != null && Number.isFinite(Number(options.ghost))) {
       ghost = Math.max(0, Math.min(1, Number(options.ghost)));
@@ -1343,12 +1343,29 @@
     } else {
       ghost = 0;
     }
-    if (Residual && typeof Residual.trailKeep === "function") {
-      const keepFast = Residual.trailKeep(trail);
-      const keepSlow = Residual.ghostKeep(ghost, keepFast);
-      const ghostCap = Residual.ghostCap(ghost);
-      const fade = 1 - keepFast;
-      return { keepFast, keepSlow, ghostCap, fade, trail, ghost };
+    // Preferred: shared Trail-blend model (pure Ghost → linear → freeze).
+    if (Residual && typeof Residual.residualKeeps === "function") {
+      const k = Residual.residualKeeps(trail, ghost);
+      return {
+        keepFast: Number(k.keepFast) || 0,
+        keepSlow: Number(k.keepSlow) || 0,
+        ghostCap: Number(k.ghostCap) || 0,
+        fade: Number(k.fade) || 0,
+        trail,
+        ghost,
+      };
+    }
+    if (Residual && typeof Residual.residualKeep === "function") {
+      const keep = Residual.residualKeep(trail, ghost);
+      const cap = Residual.ghostCap ? Residual.ghostCap(ghost) : (ghost > 0.001 ? 1 : 0);
+      return {
+        keepFast: keep,
+        keepSlow: keep,
+        ghostCap: cap,
+        fade: Math.max(0, 1 - keep),
+        trail,
+        ghost,
+      };
     }
     // No residual helper: Trail → fadeAmount(1-trail); Ghost ignored for keep.
     const decay = Math.max(0, Math.min(1, 1 - trail));
@@ -1382,8 +1399,8 @@
       ? Math.max(0, Math.min(1, bleedOpt))
       : 0.12;
 
-    // Skip only when truly idle: no fade, no bleed, no ghost hang, no mask.
-    const fullyFrozen = keepFast >= 0.9999 && ghostCap <= 0.0001;
+    // Skip only when truly idle: freeze / full keep, no bleed, no mask deposit.
+    const fullyFrozen = keepFast >= 0.9999 && keepSlow >= 0.9999;
     if (fullyFrozen && bleed < 0.0001 && !useMask) {
       // Trail≈1: residual is frozen but still count quiet frames so we stop
       // calling into GL every RAF after a short hold (energyActive → false).

@@ -105,10 +105,12 @@ const css = `
     width: 100%;
   }
 
+  /* Full-opaque color swatch; title text is semi-transparent B/W (see glyph). */
   .scw-label::before {
     background: var(--scw-final-color, transparent);
     content: "";
     inset: 0;
+    opacity: 1;
     position: absolute;
     z-index: 0;
   }
@@ -139,6 +141,8 @@ const css = `
   .scw-label-glyph {
     display: block;
     color: inherit;
+    /* B/W contrast ink at ~30% so the full-opaque swatch tints the label. */
+    opacity: var(--scw-label-opacity, 0.3);
     font-size: 13px;
     font-weight: 600;
     letter-spacing: 0.02em;
@@ -296,8 +300,9 @@ function clamp(value, min, max) {
 }
 
 function normalizeColor(color) {
+  // Hue is a linear 0…360 strip (red at both ends) — no wrap at the UI.
   return {
-    h: Math.round(clamp(Number(color.h) || 0, 0, 359)),
+    h: Math.round(clamp(Number(color.h) || 0, 0, 360)),
     s: Math.round(clamp(Number(color.s) || 0, 0, 100)),
     l: Math.round(clamp(Number(color.l) || 0, 0, 100)),
     a: 1,
@@ -575,11 +580,13 @@ export class SoundColorWidget {
     const hex = hslToHex(this.color);
     const titleStrip = this.root.querySelector(".scw-label");
     if (titleStrip) {
+      // Full-opaque swatch + smart B/W title at ~30% so the color shows through the label.
       const ink = contrastInkForColor(this.color);
       titleStrip.dataset.hex = hex;
       titleStrip.style.setProperty("--scw-final-color", colorCss(this.color));
       titleStrip.style.setProperty("--color-widget-label-ink", ink);
       titleStrip.style.setProperty("--scw-label-shadow", contrastShadowForInk(ink));
+      titleStrip.style.setProperty("--scw-label-opacity", "0.3");
       titleStrip.style.color = ink;
       const ariaName = titled ? this.label : "Color";
       titleStrip.setAttribute("aria-label", `Copy ${ariaName} hex ${hex}`);
@@ -803,7 +810,8 @@ export class SoundColorWidget {
     const start = this.drag.startColor;
     if (this.drag.part === "hue" && this.channels !== "bw") {
       // Hue bar → H only; plane UV stays put (re-sample s/l on the new hue).
-      const h = Math.round((start.h + delta * DRAG_SCALE.hue + 360) % 360);
+      // App-wide policy: no wrap — stop at the red edges (0 and 360).
+      const h = Math.round(clamp(start.h + delta * DRAG_SCALE.hue, 0, 360));
       const uv = this.planeUV || { u: 0.5, v: 0.5 };
       const next = planeColorHsl(h, uv.u, uv.v, h);
       this.setColor(next, true, { preservePlaneUV: true });

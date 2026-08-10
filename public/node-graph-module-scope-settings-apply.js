@@ -35,7 +35,16 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
   // Must not fall through to Trace normalize: that drops decimals and expands
   // a full Trace schema onto the multimeter (can thrash draw/history/persist).
   if (displayType === "numberReadout") {
-    node.traceDisplaySettings = normalizeNodeGraphNumberReadoutSettings(settings);
+    const defaults = typeof nodeGraphNumberReadoutDefaultsForNode === "function"
+      ? nodeGraphNumberReadoutDefaultsForNode(node)
+      : null;
+    const packed = {
+      ...(settings && typeof settings === "object" ? settings : {}),
+      faceStyle: typeof nodeGraphNumberReadoutFaceStyleForNode === "function"
+        ? nodeGraphNumberReadoutFaceStyleForNode(node)
+        : (node?.type === "valueLcd" ? "lcd" : "led"),
+    };
+    node.traceDisplaySettings = normalizeNodeGraphNumberReadoutSettings(packed, defaults);
     return node.traceDisplaySettings;
   }
   if (displayType === "knobFace") {

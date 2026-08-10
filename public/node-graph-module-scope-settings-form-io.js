@@ -199,7 +199,14 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
     return normalizeNodeGraphScope2dTraceSettings(typeDefaults, typeDefaults);
   }
   if (type === "numberReadout") {
-    return normalizeNodeGraphNumberReadoutSettings(nodeGraphNumberReadoutSettingsDefaults);
+    const targetNode = typeof nodeGraphPatchNode === "function"
+      && typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
+      ? nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())
+      : null;
+    const defaults = typeof nodeGraphNumberReadoutDefaultsForNode === "function"
+      ? nodeGraphNumberReadoutDefaultsForNode(targetNode)
+      : nodeGraphNumberReadoutSettingsDefaults;
+    return normalizeNodeGraphNumberReadoutSettings(defaults, defaults);
   }
   if (type === "knobFace") {
     return normalizeNodeGraphKnobFaceDisplaySettings(
@@ -292,7 +299,20 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
     return normalizeNodeGraphScope2dTraceSettings(settings, typeDefaults);
   }
   if (type === "numberReadout") {
-    return normalizeNodeGraphNumberReadoutSettings(settings);
+    const targetNode = typeof nodeGraphPatchNode === "function"
+      && typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
+      ? nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())
+      : null;
+    const defaults = typeof nodeGraphNumberReadoutDefaultsForNode === "function"
+      ? nodeGraphNumberReadoutDefaultsForNode(targetNode)
+      : null;
+    const packed = {
+      ...(settings && typeof settings === "object" ? settings : {}),
+      faceStyle: typeof nodeGraphNumberReadoutFaceStyleForNode === "function"
+        ? nodeGraphNumberReadoutFaceStyleForNode(targetNode)
+        : (targetNode?.type === "valueLcd" ? "lcd" : "led"),
+    };
+    return normalizeNodeGraphNumberReadoutSettings(packed, defaults);
   }
   if (type === "knobFace") {
     return normalizeNodeGraphKnobFaceDisplaySettings(settings);
@@ -398,7 +418,18 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
     return normalize(node.traceDisplaySettings);
   }
   if (settingsSchema === "numberReadout") {
-    return normalizeNodeGraphNumberReadoutSettings(node.traceDisplaySettings);
+    const defaults = typeof nodeGraphNumberReadoutDefaultsForNode === "function"
+      ? nodeGraphNumberReadoutDefaultsForNode(node)
+      : null;
+    const packed = {
+      ...(node?.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
+        ? node.traceDisplaySettings
+        : {}),
+      faceStyle: typeof nodeGraphNumberReadoutFaceStyleForNode === "function"
+        ? nodeGraphNumberReadoutFaceStyleForNode(node)
+        : (node?.type === "valueLcd" ? "lcd" : "led"),
+    };
+    return normalizeNodeGraphNumberReadoutSettings(packed, defaults);
   }
   if (settingsSchema === "knobFace") {
     return nodeGraphKnobFaceDisplaySettingsForNode(node);
@@ -544,6 +575,19 @@ function readNodeGraphTraceDisplaySettingsForm() {
       if (key === "dot1Brightness") {
         next.brightness = sanitizedValue;
       }
+      // Value LED/LCD: app-wide Trail/Ghost map onto hang + 8-floor aliases.
+      if (key === "trail") {
+        next.residual = sanitizedValue;
+      }
+      if (key === "residual") {
+        next.trail = sanitizedValue;
+      }
+      if (key === "ghost") {
+        next.ghostBrightness = sanitizedValue;
+      }
+      if (key === "ghostBrightness") {
+        next.ghost = sanitizedValue;
+      }
     }
   }
   for (const key of activeColors) {
@@ -623,6 +667,19 @@ function readNodeGraphTraceDisplaySettingsForm() {
 function nodeGraphDisplaySettingsFormValue(settings, key) {
   if (key === "dot1Brightness") {
     return settings.dot1Brightness ?? settings.brightness;
+  }
+  // Value LED/LCD: Trail hang + Ghost floor (legacy residual / ghostBrightness).
+  if (key === "trail") {
+    return settings.trail ?? settings.residual;
+  }
+  if (key === "residual") {
+    return settings.residual ?? settings.trail;
+  }
+  if (key === "ghost") {
+    return settings.ghost ?? settings.ghostBrightness;
+  }
+  if (key === "ghostBrightness") {
+    return settings.ghostBrightness ?? settings.ghost;
   }
   // LED blur reuses the Blur field key.
   if (key === "lineThickness" && nodeGraphTraceDisplaySettingsFormType() === "ledLamp") {
@@ -877,9 +934,10 @@ function bindNodeGraphHueTitleSteppers(host) {
       return;
     }
     // ~1.2° per screen px; Shift = fine.
+    // App-wide hue policy: no wrap — clamp to red edges (0…360).
     const fine = event.shiftKey ? 0.15 : 1;
     const delta = (event.clientX - drag.startX) * 1.2 * fine;
-    const nextH = ((drag.startHue + delta) % 360 + 360) % 360;
+    const nextH = Math.max(0, Math.min(360, drag.startHue + delta));
     const pure = typeof nodeGraphTraceDisplayPureHueHex === "function"
       ? nodeGraphTraceDisplayPureHueHex({ h: nextH }, "#ff0000")
       : `hsl(${nextH} 100% 50%)`;
@@ -1100,9 +1158,13 @@ function nodeGraphTraceDisplayColorWidgetLabel(field) {
     return "Ghost ink";
   }
   if (field === "dot1Color") {
-    // Number Readout: no label / no title strip (hue bar only).
+    // Value LCD: full foreground color widget (same chrome as Background).
+    // Value LED: no label (hue strip lives on the LED amount row).
     if (nodeGraphTraceDisplaySettingsFormType() === "numberReadout") {
-      return "";
+      const nodeType = typeof nodeGraphPatchNode === "function"
+        ? nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type
+        : null;
+      return nodeType === "valueLcd" ? "Foreground" : "";
     }
     const nodeType = nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type;
     const isStereo = typeof nodeGraphModuleUsesStereoTraceDisplay === "function"
@@ -1199,8 +1261,12 @@ function syncNodeGraphTraceDisplayColorWidgets(popover = document.getElementById
       const hex = nodeGraphTraceDisplayNormalizeHexColor(input.value, "#ffffff");
       const hsl = nodeGraphTraceDisplayHexToHsl(hex);
       const label = nodeGraphTraceDisplayColorWidgetLabel(field);
-      // Number Readout Light: hue bar only (Bright does grey→hue→white).
-      const hueOnly = liveType === "numberReadout" && field === "dot1Color";
+      // Value LED Light: hue bar only (Bright does grey→hue→white).
+      // Value LCD Foreground: full color widget (same as Background).
+      const lcdNode = liveType === "numberReadout"
+        && typeof nodeGraphPatchNode === "function"
+        && nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type === "valueLcd";
+      const hueOnly = liveType === "numberReadout" && field === "dot1Color" && !lcdNode;
       const mountHsl = hueOnly
         ? { h: hsl.h, s: 100, l: 50, a: 1 }
         : hsl;

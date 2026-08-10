@@ -555,197 +555,160 @@ function drawNodeGraphDotOscilloscopeItem(renderer, item, pixelRatio) {
 }
 
 
-function drawNodeGraphValueOscilloscopeCanvasLine(context, points, color, brightness, thickness, blur) {
-  if (!context || !points || !(brightness > 0) || !(thickness > 0)) {
-    return;
-  }
-  const rgb = nodeGraphScopeRgbFloatsToCanvasRgb(color);
-  const alpha = clampNodeSliderValue(Number(brightness) || 0, 0, 4);
-  context.save();
-  context.globalCompositeOperation = "lighter";
-  context.lineCap = "butt";
-  context.lineJoin = "round";
-  context.lineWidth = thickness;
-  context.strokeStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${Math.min(1, alpha).toFixed(4)})`;
-  // No shadowBlur glow — thickness/blur are stroke geometry only when needed.
-  context.shadowBlur = 0;
-  context.beginPath();
-  context.moveTo(points.x1, points.y1);
-  context.lineTo(points.x2, points.y2);
-  context.stroke();
-  context.restore();
-}
-
-
-function drawNodeGraphValueOscilloscopeTrail(item, pixelRatio, geometry, settings) {
-  const canvas = nodeGraphModuleScopeLocalFallbackCanvas(item?.slot);
-  const screenElement = item?.screenElement || item?.slot?.scopeElement;
-  if (!canvas || !syncNodeGraphModuleScopeLocalFallbackCanvas(
-    canvas,
-    screenElement,
-    pixelRatio,
-    settings?.pixelDensity,
-  )) {
-    return;
-  }
-  const context = canvas.getContext("2d");
-  if (!context) {
-    return;
-  }
-  const bg = nodeGraphFacePlateBackground(settings);
-  nodeGraphFacePlateApplyCss(screenElement, bg);
-  const trail = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
-    ? PhosphorResidual.migrateTrail(settings, 0.88)
-    : clampNodeSliderValue(
-      Number(settings?.trail ?? (Number.isFinite(Number(settings?.decay))
-        ? 1 - Number(settings.decay)
-        : 0.88)) || 0,
-      0,
-      1,
-    );
-  const ghost = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateGhost
-    ? PhosphorResidual.migrateGhost(settings, 0.45)
-    : clampNodeSliderValue(Number(settings?.ghost ?? settings?.burn) || 0, 0, 1);
-  const residualWanted = trail > 0.001 || ghost > 0.001;
-  const frozen = typeof nodeGraphModuleScopePhosphorFrozen === "function"
-    && nodeGraphModuleScopePhosphorFrozen();
-  // Hold residual when frozen (no fade / no new deposit).
-  if (!frozen) {
-    nodeGraphOneDimensionalBurnFadeTrail(context, canvas, settings);
-  }
-  // Ensure plate under fade holes / first frames.
-  nodeGraphFacePlateFillUnder(context, canvas, bg);
-  if (!geometry || frozen || !residualWanted) {
-    return;
-  }
-  const screenRect = item?.screenRect;
-  if (!screenRect || !(screenRect.width > 0) || !(screenRect.height > 0)) {
-    return;
-  }
-  // Map workspace/screen face coords → buffer pixels. Multiplying by dpr alone
-  // is wrong under zoom (screen rect grows, buffer stays layout×dpr).
-  const toCanvas = (x, y) => ({
-    x: ((x - screenRect.left) / screenRect.width) * canvas.width,
-    y: ((y - screenRect.top) / screenRect.height) * canvas.height,
-  });
-  // One deposit per frame at the current value Y. Prior positions live only as
-  // faded residual on this canvas — never re-stroke the whole capture window.
-  const y = Number.isFinite(Number(geometry.y))
-    ? Number(geometry.y)
-    : (() => {
-      const samples = nodeGraphValueOscilloscopeTrailSamples(item?.buffer);
-      if (!samples.length) {
-        return null;
-      }
-      const amp = nodeGraphDisplaySettingsAmplitudeScale(settings);
-      const v = clampNodeSliderValue(samples[0] * amp, -1, 1);
-      return geometry.squareTop + geometry.squareHeight * 0.5 - v * geometry.squareHeight * 0.44;
-    })();
-  if (!Number.isFinite(y)) {
-    return;
-  }
-  const lineBase = Math.max(1, Math.min(canvas.width, canvas.height));
-  const sizeMap = typeof nodeGraphScopeSize01ToDiameterPx === "function"
-    ? nodeGraphScopeSize01ToDiameterPx
-    : (side, t) => Math.max(1, Math.pow(Math.max(1, side), clampNodeSliderValue(t, 0, 1)));
-  const innerThickness = sizeMap(lineBase, settings.dot1Size);
-  const capThickness = sizeMap(lineBase, settings.capSize);
-  // Ghost = residual deposit strength; Trail = hang (via fade above).
-  const trailIntensity = 0.1 + ghost * 0.55;
-  const start = toCanvas(geometry.x1, y);
-  const end = toCanvas(geometry.x2, y);
-  const color = nodeGraphScopeHexColorToRgb(settings.color);
-  const brightness = (Number(settings.brightness) || 0) * trailIntensity;
-  if (settings.dot1Enabled !== false && brightness > 0 && innerThickness > 0) {
-    drawNodeGraphValueOscilloscopeCanvasLine(
-      context,
-      { x1: start.x, y1: start.y, x2: end.x, y2: end.y },
-      color,
-      brightness,
-      innerThickness,
-      settings.lineThickness,
-    );
-  }
-  if (settings.capEnabled === false || !(geometry.capLength > 0) || !(capThickness > 0)) {
-    return;
-  }
-  if (settings.dot1Enabled === false || !(brightness > 0)) {
-    return;
-  }
-  for (const capX of [geometry.x1, geometry.x2]) {
-    const capStart = toCanvas(capX, y - geometry.capLength);
-    const capEnd = toCanvas(capX, y + geometry.capLength);
-    drawNodeGraphValueOscilloscopeCanvasLine(
-      context,
-      { x1: capStart.x, y1: capStart.y, x2: capEnd.x, y2: capEnd.y },
-      color,
-      brightness,
-      capThickness,
-      settings.lineThickness,
-    );
-  }
-}
-
-
+/**
+ * 0D Value — classic sharp Trace-style beam on the shared workspace WebGL
+ * canvas (redraw every frame). No local face buffer, no pixelDensity grid —
+ * that path looked blocky under zoom because the face bitmap stays fixed size.
+ * Teal/blue ink with alpha via beam intensity (not RGB premultiply).
+ */
 function drawNodeGraphValueOscilloscopeItem(renderer, item, pixelRatio) {
   const rect = item?.scopeRect;
-  if (!rect) {
+  const slot = item?.slot;
+  if (!rect || !slot || !renderer?.gl) {
     return;
   }
-  renderNodeGraphModuleScopeAnalyzer(item.slot, item.buffer);
-  const node = nodeGraphModuleScopeNodeForSlot(item.slot);
-  const settings = nodeGraphTraceDisplaySettingsForNode(node);
-  const amp = nodeGraphDisplaySettingsAmplitudeScale(settings);
+  renderNodeGraphModuleScopeAnalyzer(slot, item.buffer);
+  // Drop any leftover face-local bitmap from the short-lived canvas path.
+  if (typeof clearNodeGraphModuleScopeLocalFallback === "function") {
+    clearNodeGraphModuleScopeLocalFallback(slot);
+  }
+
+  const node = nodeGraphModuleScopeNodeForSlot(slot);
+  const settings = typeof nodeGraphTraceDisplaySettingsForNode === "function"
+    ? nodeGraphTraceDisplaySettingsForNode(node)
+    : null;
+  const safeSettings = settings && typeof settings === "object"
+    ? settings
+    : (typeof normalizeNodeGraphValueOscilloscopeSettings === "function"
+      ? normalizeNodeGraphValueOscilloscopeSettings()
+      : {});
+
+  const screenElement = item?.screenElement || slot?.scopeElement;
+  const bg = typeof nodeGraphFacePlateBackground === "function"
+    ? nodeGraphFacePlateBackground(safeSettings)
+    : "#000004";
+  if (typeof nodeGraphFacePlateApplyCss === "function" && screenElement) {
+    nodeGraphFacePlateApplyCss(screenElement, bg);
+  }
+
+  const amp = typeof nodeGraphDisplaySettingsAmplitudeScale === "function"
+    ? nodeGraphDisplaySettingsAmplitudeScale(safeSettings)
+    : 1;
   const value = clampNodeSliderValue(
-    nodeGraphOscilloscopeLatestSample(item?.buffer, 0) * amp,
+    (typeof nodeGraphOscilloscopeLatestSample === "function"
+      ? nodeGraphOscilloscopeLatestSample(item?.buffer, 0)
+      : 0) * amp,
     -1,
     1,
   );
-  const lineLength = clampNodeSliderValue(settings.lineLength, 0, 1);
-  const square = nodeGraphModuleScopeCenteredSquareRect(rect);
+  const lineLength = clampNodeSliderValue(Number(safeSettings.lineLength) || 1, 0, 1);
+  const brightness = clampNodeSliderValue(
+    Number(safeSettings.brightness ?? safeSettings.dot1Brightness) || 0.72,
+    0,
+    1,
+  );
+  if (!(brightness > 0.001) || safeSettings.dot1Enabled === false) {
+    if (typeof recordNodeGraphModuleScopeRenderMetrics === "function") {
+      recordNodeGraphModuleScopeRenderMetrics(1, 0);
+    }
+    return;
+  }
+
+  // Workspace layout coords (same space as original 0D beam).
+  const square = typeof nodeGraphModuleScopeCenteredSquareRect === "function"
+    ? nodeGraphModuleScopeCenteredSquareRect(rect)
+    : rect;
   const displayLeft = Number(rect.left) || 0;
   const displayWidth = Math.max(1, Number(rect.width) || 1);
   const centerX = displayLeft + displayWidth * 0.5;
   const halfLine = displayWidth * 0.5 * lineLength;
   const x1 = centerX - halfLine;
   const x2 = centerX + halfLine;
-  const y = square.top + square.height * 0.5 - value * square.height * 0.44;
-  const span = Math.max(1, x2 - x1);
-  const lineBase = Math.max(1, Math.min(square.width, square.height));
-  const sizeMap = typeof nodeGraphScopeSize01ToDiameterPx === "function"
-    ? nodeGraphScopeSize01ToDiameterPx
-    : (side, t) => Math.max(1, Math.pow(Math.max(1, side), clampNodeSliderValue(t, 0, 1)));
-  const innerThickness = sizeMap(lineBase, settings.dot1Size);
-  const capLength = square.height * clampNodeSliderValue(settings.capLength, 0, 1) * 0.5;
-  const capThickness = sizeMap(lineBase, settings.capSize);
-  drawNodeGraphValueOscilloscopeTrail(item, pixelRatio, {
-    capLength,
-    squareTop: square.top,
-    squareHeight: square.height,
-    squareWidth: square.width,
-    x1,
-    x2,
-    y,
-  }, settings);
-  if (settings.dot1Enabled !== false && settings.brightness > 0 && innerThickness > 0) {
-    const options = {
-      blur: settings.lineThickness,
-      color: nodeGraphScopeHexColorToRgb(settings.color),
-      intensity: settings.brightness,
-      thicknessPx: innerThickness,
-    };
-    drawNodeGraphOscilloscopeBeam(renderer, item, pixelRatio, x1, y, x2, y, options);
+  const faceH = Number(square.height) || Number(rect.height) || 1;
+  const y = (Number(square.top) || Number(rect.top) || 0)
+    + faceH * 0.5
+    - value * faceH * 0.44;
+
+  // Classic sharp teal/blue; settings color still allowed (0…1 RGB for beam).
+  let color = [0.45, 0.92, 1];
+  const colorHex = safeSettings.color || safeSettings.dot1Color || "";
+  if (colorHex && typeof nodeGraphScopeHexColorToRgb === "function") {
+    const rgb = nodeGraphScopeHexColorToRgb(colorHex);
+    if (Array.isArray(rgb) && rgb.length >= 3) {
+      // Hex helper may return 0…1 or 0…255.
+      color = rgb[0] > 1.01
+        ? [rgb[0] / 255, rgb[1] / 255, rgb[2] / 255]
+        : [rgb[0], rgb[1], rgb[2]];
+    }
   }
-  if (settings.capEnabled !== false && capLength > 0 && capThickness > 0) {
-    if (settings.dot1Enabled !== false && settings.brightness > 0) {
-      const options = {
-        blur: settings.lineThickness,
-        color: nodeGraphScopeHexColorToRgb(settings.color),
-        intensity: settings.brightness,
-        thicknessPx: capThickness,
-      };
-      drawNodeGraphOscilloscopeBeam(renderer, item, pixelRatio, x1, y - capLength, x1, y + capLength, options);
-      drawNodeGraphOscilloscopeBeam(renderer, item, pixelRatio, x2, y - capLength, x2, y + capLength, options);
+
+  // Size 0…1 of the face square min side: 0 = 1 CSS px (min), 1 = full square.
+  // Beam path multiplies thicknessPx by pixelRatio for device pixels.
+  const faceMinSide = Math.max(
+    1,
+    Math.min(
+      Number(square.width) || displayWidth,
+      Number(square.height) || faceH,
+    ),
+  );
+  const size01ToPx = (size01) => {
+    const t = clampNodeSliderValue(Number(size01) || 0, 0, 1);
+    if (typeof nodeGraphScopeSize01ToDiameterPx === "function") {
+      return nodeGraphScopeSize01ToDiameterPx(faceMinSide, t);
+    }
+    if (typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.size01ToDiameterPx) {
+      return PhosphorDrawer.size01ToDiameterPx(faceMinSide, t);
+    }
+    // Linear: diameter = size * faceMinSide, floor 1px at size 0.
+    return Math.max(1, faceMinSide * t);
+  };
+  const size01 = clampNodeSliderValue(Number(safeSettings.dot1Size) || 0, 0, 1);
+  const thicknessPx = size01ToPx(size01);
+  const intensity = Math.max(0.05, Math.min(1.25, brightness * 0.95 + 0.05));
+
+  drawNodeGraphOscilloscopeBeam(renderer, item, pixelRatio, x1, y, x2, y, {
+    blur: 0,
+    color,
+    intensity,
+    thicknessPx,
+  });
+
+  if (safeSettings.capEnabled !== false) {
+    const capLen01 = clampNodeSliderValue(Number(safeSettings.capLength) || 0.16, 0, 1);
+    if (capLen01 > 0.001) {
+      const capHalf = faceH * capLen01 * 0.5;
+      const capSize01 = clampNodeSliderValue(
+        Number(safeSettings.capSize ?? safeSettings.dot1Size) || size01,
+        0,
+        1,
+      );
+      const capThickness = size01ToPx(capSize01);
+      // Cap stroke is centered on its path; offset centers inward so outer
+      // edges sit flush with the horizontal line ends (x1 / x2). Thickness
+      // grows from the line edge toward the middle of the bar.
+      const halfCapThick = capThickness * 0.5;
+      const leftCapX = x1 + halfCapThick;
+      const rightCapX = x2 - halfCapThick;
+      drawNodeGraphOscilloscopeBeam(
+        renderer,
+        item,
+        pixelRatio,
+        leftCapX,
+        y - capHalf,
+        leftCapX,
+        y + capHalf,
+        { blur: 0, color, intensity, thicknessPx: capThickness },
+      );
+      drawNodeGraphOscilloscopeBeam(
+        renderer,
+        item,
+        pixelRatio,
+        rightCapX,
+        y - capHalf,
+        rightCapX,
+        y + capHalf,
+        { blur: 0, color, intensity, thicknessPx: capThickness },
+      );
     }
   }
 }

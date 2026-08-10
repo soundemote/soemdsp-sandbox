@@ -1,9 +1,10 @@
-// Number Readout — solid-module layout (same shell family as XY Pad):
-// short input on the left, LCD face in the center, → thru on the right.
-// Scope/draw path stays in node-graph-module-scopes.js (displayType numberReadout).
+// Value LED — solid-module layout (same shell family as XY Pad):
+// short input on the left, lit seven-segment face in the center, → thru on the right.
+// Scope/draw path stays in node-graph-module-scope-number-readout.js (displayType numberReadout).
+// Internal type id remains numberReadout for patch compatibility.
 
 registerNodeGraphChromelessModule("numberReadout", {
-  label: "Number Readout",
+  label: "Value LED",
   customDisplayArea: true,
   solidModule: true,
   definition: {
@@ -26,17 +27,21 @@ registerNodeGraphChromelessModule("numberReadout", {
   },
   catalog: {
     category: "multimeter",
-    description: "Solid LCD number face: hard DSEG digits with residual ghosts of previous values. Side-mounted input, → thru for chaining. Search: value, numeric display, LCD.",
+    description: "Value LED: lit DSEG digits with Ghost floor + Trail deposit hang (app-wide residual policy). Side-mounted input, → thru for chaining. Search: value, LED, numeric display.",
     notes: [
       "value",
+      "value led",
+      "value readout",
+      "number readout",
       "value display",
       "latest value",
       "numeric display",
       "numeric value",
       "digital readout",
       "solid module",
-      "LCD readout",
-      "decay ghosts",
+      "LED readout",
+      "ghost",
+      "trail",
       "DSEG7",
       "multimeter",
     ],

@@ -110,18 +110,13 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze(["sourceSync", "fullDotEconomy", "dotsOnly"]),
     choices: Object.freeze([]),
   }),
+  // 0D Value: sharp WebGL beam (no face bitmap / pixelDensity / residual).
   value: Object.freeze({
     fields: Object.freeze([
       "lineLength",
-      ...nodeGraphPhosphorDisplayFieldsFor([
-        "dot1Size",
-        "lineThickness",
-        "dot1Brightness",
-        "ghost",
-        "trail",
-        "scale",
-        "pixelDensity",
-      ]),
+      "dot1Brightness",
+      "dot1Size",
+      "scale",
       "capSize",
       "capLength",
     ]),
@@ -160,13 +155,19 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze([]),
   }),
   numberReadout: Object.freeze({
-    // Live: Hue (bar only) × Bright grey→hue→white. Ghost Bright = 8-floor energy.
-    // Residual = deposit hang (after Ghost Bright). lightBlend / gradient = residual LUT.
+    // Value LED: Bright + Ghost/Trail residual hang.
+    // Value LCD (vector): decimals, unlit 8s, glass shadow — no residual hang.
     fields: Object.freeze([
       "decimals",
       "dot1Brightness",
-      "ghostBrightness",
-      "residual",
+      "ghost",
+      "trail",
+      "facePadding",
+      "unlitSegments",
+      "innerShadowDistance",
+      "innerShadowSharpness",
+      "innerShadowOffsetX",
+      "innerShadowOffsetY",
     ]),
     colors: Object.freeze(["backgroundColor", "dot1Color"]),
     toggles: Object.freeze([]),
@@ -428,6 +429,12 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "sweepSeconds",
       "ghost",
       "trail",
+      "facePadding",
+      "unlitSegments",
+      "innerShadowDistance",
+      "innerShadowSharpness",
+      "innerShadowOffsetX",
+      "innerShadowOffsetY",
       "zoomSeconds",
       "historySeconds",
       "scale",
@@ -519,25 +526,63 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Ghost",
     inputmode: "decimal",
     id: "nodeTraceDisplayGhost",
-    title: "Dim scorched residual hang (screen burn-in). 0 = none; 1 = long low ghost. Not peak light (Bright) or hot trail length (Trail).",
+    title: "Super-exp residual hang (not brightness). Trail 0 = pure Ghost. Alone: dim deposits can stick without a bright stamp.",
   }),
   trail: Object.freeze({
     label: "Trail",
     inputmode: "decimal",
     id: "nodeTraceDisplayTrail",
-    title: "Main residual length. 0 = dies immediately; 1 ≈ freeze-ish hot path. Dim scorched floor is Ghost.",
+    title: "Blends linear decay over Ghost, then freezes. 0 = pure Ghost hang; 0.5 = half linear / half Ghost; 0.75 = full linear; 1 = never decay pixels.",
   }),
   residual: Object.freeze({
-    label: "Backlight",
+    // Legacy key — Value LED/LCD forms use trail (same axis).
+    label: "Trail",
     inputmode: "decimal",
     id: "nodeTraceDisplayResidual",
-    title: "Number Readout deposit hang (0…1). How long previous digits linger after a change. 0 = no deposit hang; Ghost 8-floor still shows. Deposit energy starts at LED.",
+    title: "Hot residual hang 0…1 (app-wide Trail). Not brightness. Ghost is the slower hang.",
   }),
   ghostBrightness: Object.freeze({
+    // Legacy key — Value LED/LCD forms use ghost (same axis).
     label: "Ghost",
     inputmode: "decimal",
     id: "nodeTraceDisplayGhostBrightness",
-    title: "Constant 8-skeleton floor energy 0…1 (gradient position). 0.2 → color at stop 0.2. Deposits decay on top of this floor.",
+    title: "Slow residual hang 0…1 (app-wide Ghost). Not brightness — only decay/hang of deposited energy.",
+  }),
+  unlitSegments: Object.freeze({
+    label: "Unlit 8s",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayUnlitSegments",
+    title: "Value LCD: permanent dim all-8 segment plate (0 = off, 1 = strong). Multiplies foreground color into the background — not residual hang.",
+  }),
+  facePadding: Object.freeze({
+    label: "Padding",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayFacePadding",
+    title: "Value LED/LCD: inset digits from the plate edge (0 = flush, 1 = deep margin). Does not change plate size.",
+  }),
+  innerShadowDistance: Object.freeze({
+    label: "Shadow dist",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayInnerShadowDistance",
+    title: "Value LCD: how far the Gaussian inset glass shadow reaches from the edge (0 = none, 1 = deep). Not brightness.",
+  }),
+  innerShadowSharpness: Object.freeze({
+    label: "Shadow hard",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayInnerShadowSharpness",
+    title: "Value LCD: edge hardness 0…1. 0 = widest smooth Gaussian; 1 = hard rim (no blur). Mid values ease via smoothstep.",
+  }),
+  innerShadowOffsetX: Object.freeze({
+    label: "Shadow X",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayInnerShadowOffsetX",
+    title: "Value LCD: inset shadow horizontal offset −1…1 (0 = centered). Positive darkens the left edge (light from the right).",
+  }),
+  innerShadowOffsetY: Object.freeze({
+    label: "Shadow Y",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayInnerShadowOffsetY",
+    title: "Value LCD: inset shadow vertical offset −1…1 (0 = centered). Positive darkens the top edge (light from below).",
   }),
   historySeconds: Object.freeze({
     label: "History (s)",
@@ -644,7 +689,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Size",
     inputmode: "decimal",
     id: "nodeTraceDisplayDot1Size",
-    title: "Trace/dot thickness. 0 = 1px, 1 = full face min side. Exponential — fine control near 0 for sharp beams.",
+    title: "Stroke/dot diameter vs face square min side. 0 = 1px (min), 1 = full square. Linear ratio.",
   }),
   puckSize: Object.freeze({
     label: "Puck size",
@@ -871,7 +916,7 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   lineBurn: "Burn",
   scope2d: "2D",
   scope2dTrace: "Trace",
-  numberReadout: "Readout",
+  numberReadout: "Value",
   xyPad: "Phosphor",
   phosphorLight: "2D Phosphor",
   dot: "Phosphor Dot",

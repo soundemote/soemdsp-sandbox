@@ -542,12 +542,10 @@ function toggleNodeGraphModularOnlyControlsVisible() {
   setNodeGraphModularOnlyControlsVisible(nodeGraphMvp.modularOnlyControlsVisible === false);
 }
 
-// Named so both the Command Center button click and the "M" hotkey
-// (node-graph-keyboard-shortcuts.js) can share the exact same behavior.
+// Shared by laptop toolbar button path, scene Modular View control, and V hotkey.
 //
-// M = windowed modular view WITH chrome (back button + resize/drag handle).
-// View Buttons (V) can still hide that chrome for edge-to-edge; entering via M
-// always re-shows it so M never looks like plain "hide UI".
+// Windowed / infinite modular view WITH chrome (back button + resize/drag handle).
+// Entering this mode always re-shows chrome so it never looks like plain "hide UI".
 function toggleNodeGraphModularOnlyView() {
   const panel = document.getElementById("nodeWiringPanel");
   const modularOnlyActive = panel?.classList.contains("modular-only-view");
@@ -565,13 +563,10 @@ function toggleNodeGraphModularOnlyView() {
   setNodeGraphViewMode("modular-only");
 }
 
-// Named so both the Command Center button click and the "V" hotkey
-// (node-graph-keyboard-shortcuts.js) can share the exact same behavior --
-// "View Buttons" toggles module-button visibility, but if we're
-// currently off in settings/script/UI/mapping view it also needs to
-// bring us back to the modular workspace first -- otherwise there's
-// nothing on screen for the toggle to visibly affect. Preserves
-// modular-only mode if that's what we were already in.
+// "View Buttons" toggles modular chrome visibility. If we're currently off in
+// settings/script/UI/mapping view it also needs to bring us back to the modular
+// workspace first — otherwise there's nothing on screen for the toggle to
+// visibly affect. Preserves modular-only mode if that's what we were already in.
 function toggleNodeGraphViewButtonsVisibility() {
   if (document.getElementById("nodeGraphWorkspace")?.hidden) {
     const modularOnlyActive = document.getElementById("nodeWiringPanel")?.classList.contains("modular-only-view");

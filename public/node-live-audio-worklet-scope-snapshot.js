@@ -53,9 +53,23 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
       }
       const absoluteFrame = Math.max(0, Math.floor(Number(state.absoluteFrame) || 0));
       const postedFrame = Math.max(0, Math.floor(Number(state.postedFrame) || 0));
+      // Visual rings are hop-written (~12 kHz). absoluteFrame counts written
+      // samples — sampleRate MUST be the effective write rate or Sweep(s) /
+      // history windows run engineRate/writeRate too slow (e.g. 1 s → ~8 s @ 96k).
+      const sampleStride = Math.max(1, Math.round(Number(state.sampleStride) || 1));
+      const sourceSampleRate = Math.max(
+        1,
+        Number(state.sourceSampleRate) || engineSampleRate,
+      );
+      const writeSampleRate = Math.max(
+        1,
+        Number(state.writeSampleRate)
+          || (sourceSampleRate / sampleStride)
+          || (engineSampleRate / sampleStride),
+      );
       const freshCount = postedFrame > 0
         ? Math.max(0, absoluteFrame - postedFrame)
-        : Math.min(length, Math.ceil((Number(this.engineSampleRate) || sampleRate || 44100) / 30));
+        : Math.min(length, Math.ceil(writeSampleRate / 30));
       const count = Math.min(length, freshCount);
       if (count <= 0) {
         continue;
@@ -67,9 +81,9 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
       }
       values.push([key, ordered, {
         absoluteFrame,
-        sampleRate: engineSampleRate,
-        sampleStride: 1,
-        sourceSampleRate: engineSampleRate,
+        sampleRate: writeSampleRate,
+        sampleStride,
+        sourceSampleRate,
         startFrame: absoluteFrame - count,
       }]);
       state.postedFrame = absoluteFrame;

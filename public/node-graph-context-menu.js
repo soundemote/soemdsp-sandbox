@@ -1295,7 +1295,20 @@ function configureNodeSceneContextMenu(mode) {
   codeblockControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "codeblock");
   textBoxPortScriptControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "animatedTextBox");
   graphControls.hidden = !(moduleMode && !multiModuleMode && targetIsGraphType);
-  toggleModuleEnabledButton.hidden = !moduleMode;
+  // Always visible under Command Center transport; disabled until a module
+  // selection exists (supports multi-select Enable/Disable modules).
+  if (toggleModuleEnabledButton) {
+    toggleModuleEnabledButton.hidden = false;
+    if (!moduleMode) {
+      toggleModuleEnabledButton.disabled = true;
+      const label = toggleModuleEnabledButton.querySelector("span");
+      if (label) {
+        label.textContent = "Disable modules";
+      }
+      toggleModuleEnabledButton.setAttribute("aria-pressed", "false");
+      toggleModuleEnabledButton.title = "Select one or more modules to disable or enable.";
+    }
+  }
   if (nativeCodeGroup) {
     nativeCodeGroup.hidden = !moduleMode || multiModuleMode || !nativeCodeEntry;
   }
@@ -1589,23 +1602,28 @@ function configureNodeSceneContextMenu(mode) {
       return !nodeGraphNodeDisplaysBypassed(node.id);
     });
     const multiAllDisabled = multiModuleMode && selectedNodes.length > 0 && !multiAnyEnabled;
-    toggleModuleEnabledButton.disabled = multiModuleMode ? !selectedNodes.length : !targetNode;
-    toggleModuleEnabledButton.querySelector("span").textContent = multiModuleMode
-      ? (multiAllDisabled ? "Enable modules" : "Disable modules")
-      : (targetNodeDisabled ? "Enable module" : "Disable module");
-    toggleModuleEnabledButton.setAttribute(
-      "aria-pressed",
-      multiModuleMode
-        ? (multiAllDisabled ? "true" : "false")
-        : (targetNodeDisabled ? "true" : "false"),
-    );
-    toggleModuleEnabledButton.title = multiModuleMode
-      ? (multiAllDisabled
-        ? `Enable ${selectedNodeIds.size} selected modules.`
-        : `Disable ${selectedNodeIds.size} selected modules.`)
-      : (targetNodeDisabled
-        ? "Enable this module."
-        : "Disable this module.");
+    if (toggleModuleEnabledButton) {
+      toggleModuleEnabledButton.disabled = multiModuleMode ? !selectedNodes.length : !targetNode;
+      const enabledLabel = toggleModuleEnabledButton.querySelector("span");
+      if (enabledLabel) {
+        enabledLabel.textContent = multiModuleMode
+          ? (multiAllDisabled ? "Enable modules" : "Disable modules")
+          : (targetNodeDisabled ? "Enable module" : "Disable module");
+      }
+      toggleModuleEnabledButton.setAttribute(
+        "aria-pressed",
+        multiModuleMode
+          ? (multiAllDisabled ? "true" : "false")
+          : (targetNodeDisabled ? "true" : "false"),
+      );
+      toggleModuleEnabledButton.title = multiModuleMode
+        ? (multiAllDisabled
+          ? `Enable ${selectedNodeIds.size} selected modules.`
+          : `Disable ${selectedNodeIds.size} selected modules.`)
+        : (targetNodeDisabled
+          ? "Enable this module."
+          : "Disable this module.");
+    }
     if (nativeCodeButton) {
       nativeCodeButton.disabled = !nativeCodeEntry;
       nativeCodeButton.querySelector("span").textContent = "Code";
@@ -2078,7 +2096,7 @@ function openNodeXyPadContextMenu(event) {
 
 function openNodeScopeContextMenu(event) {
   const contextScope = event.target.closest?.(
-    ".node-module-scope-window, .node-led-face, .node-number-readout-face, .node-ray-bouncer-face, .node-asciiscope-face, .node-matrix-face",
+    ".node-module-scope-window, .node-led-face, .node-number-readout-face, .node-value-lcd-face, .node-ray-bouncer-face, .node-asciiscope-face, .node-matrix-face",
   );
   const nodeId = contextScope?.dataset?.node || "";
   if (!nodeId || !nodeGraphPatchNode(nodeId)) {

@@ -790,62 +790,90 @@ function nodeGraphSampleGradientStopsRgb(stops, energyT, peakFallback = "#75ebff
 }
 
 
-function normalizeNodeGraphNumberReadoutSettings(settings = {}) {
+/**
+ * Value LED / Value LCD display settings.
+ * App-wide residual policy (phosphor-residual.js):
+ *   Bright → live light / deposit energy only
+ *   Trail → hot residual hang (not brightness)
+ *   Ghost → slow super-exp residual hang (not brightness)
+ * Legacy residual / ghostBrightness aliases stay in sync for older patches.
+ *
+ * @param {object} [settings]
+ * @param {object} [defaultsOverride] LED vs LCD default packs
+ */
+function normalizeNodeGraphNumberReadoutSettings(settings = {}, defaultsOverride = null) {
   const source = settings && typeof settings === "object" ? settings : {};
-  const defaults = nodeGraphNumberReadoutSettingsDefaults;
-  // Ghost Gradient LUT — ignore LED hue so stops never track the LED title control.
-  const gradientStops = nodeGraphPhosphorGradientStopsFromSettings(
-    source,
-    defaults.color,
-    { ignoreLiveColor: true },
-  );
-  // LCD back plate is independent of gradient floor (own color widget).
+  const faceHint = String(
+    source.faceStyle
+    || defaultsOverride?.faceStyle
+    || "",
+  ).toLowerCase();
+  const defaults = defaultsOverride
+    || (faceHint === "lcd" && typeof nodeGraphValueLcdSettingsDefaults !== "undefined"
+      ? nodeGraphValueLcdSettingsDefaults
+      : nodeGraphNumberReadoutSettingsDefaults);
+  const faceStyle = faceHint === "lcd" || defaults.faceStyle === "lcd" ? "lcd" : "led";
+  // LED: Ghost Gradient LUT (ignore LED hue so stops never track Light control).
+  // LCD: no gradient — solid foreground / background only.
+  const gradientStops = faceStyle === "lcd"
+    ? []
+    : nodeGraphPhosphorGradientStopsFromSettings(
+      source,
+      defaults.color,
+      { ignoreLiveColor: true },
+    );
+  // Plate background (own color widget).
   const background = normalizeNodeGraphTraceDisplayColor(
     source.background ?? source.backgroundColor,
     defaults.background,
   );
-  // Single residual hang: prefer residual; migrate max(trail, ghost) from older patches.
-  let residualDefault = Number(defaults.residual);
-  if (!Number.isFinite(residualDefault)) {
-    residualDefault = 0.72;
+  // Trail = deposit hang. Prefer trail; migrate residual (old Number Readout hang).
+  // Do NOT merge ghost into trail (that broke independent Ghost control).
+  const trailDefault = Number.isFinite(Number(defaults.trail))
+    ? Number(defaults.trail)
+    : (Number.isFinite(Number(defaults.residual)) ? Number(defaults.residual) : 0.88);
+  let trailRaw = source.trail;
+  if (trailRaw == null || !Number.isFinite(Number(trailRaw))) {
+    trailRaw = source.residual;
   }
-  let residualRaw = source.residual;
-  if (residualRaw == null || !Number.isFinite(Number(residualRaw))) {
-    const legacyTrail = source.trail != null ? Number(source.trail) : NaN;
-    const legacyGhost = source.ghost != null ? Number(source.ghost) : NaN;
-    if (Number.isFinite(legacyTrail) || Number.isFinite(legacyGhost)) {
-      residualRaw = Math.max(
-        Number.isFinite(legacyTrail) ? legacyTrail : 0,
-        Number.isFinite(legacyGhost) ? legacyGhost : 0,
-      );
-    } else {
-      residualRaw = residualDefault;
-    }
+  if (trailRaw == null || !Number.isFinite(Number(trailRaw))) {
+    trailRaw = trailDefault;
   }
+  const trail = normalizeNodeGraphTraceDisplayNumber(trailRaw, trailDefault, 0, 1);
+
+  // Ghost = slow residual hang only (not brightness). Prefer ghost; migrate ghostBrightness.
+  const ghostDefault = Number.isFinite(Number(defaults.ghost))
+    ? Number(defaults.ghost)
+    : (Number.isFinite(Number(defaults.ghostBrightness)) ? Number(defaults.ghostBrightness) : 0.45);
+  let ghostRaw = source.ghost;
+  if (ghostRaw == null || !Number.isFinite(Number(ghostRaw))) {
+    ghostRaw = source.ghostBrightness ?? source.ghostBright;
+  }
+  if (ghostRaw == null || !Number.isFinite(Number(ghostRaw))) {
+    ghostRaw = ghostDefault;
+  }
+  const ghost = normalizeNodeGraphTraceDisplayNumber(ghostRaw, ghostDefault, 0, 1);
+
   return {
+    faceStyle,
     background,
-    // Live digit light strength 0…1 (solid color intensity).
+    // Live digit light / ink strength 0…1.
     brightness: normalizeNodeGraphTraceDisplayBrightness(
       source.brightness ?? source.dot1Brightness,
       defaults.brightness,
     ),
-    // Live digit solid “light” hue (NEVER falls back to gradient peak — that
-    // coupled LED hue with the Background / Ghost Gradient color widgets).
+    // Live digit solid color (LED hue or LCD ink).
     color: normalizeNodeGraphTraceDisplayColor(
       source.color ?? source.dot1Color,
       defaults.color,
     ),
-    // Deposit hang 0…1 (high = long super-exponential hang of previous digits).
-    residual: normalizeNodeGraphTraceDisplayNumber(residualRaw, residualDefault, 0, 1),
-    // Constant 8-skeleton floor energy 0…1 (= gradient stop). Independent of Residual.
-    ghostBrightness: normalizeNodeGraphTraceDisplayNumber(
-      source.ghostBrightness ?? source.ghostBright,
-      defaults.ghostBrightness ?? 0.2,
-      0,
-      1,
-    ),
+    // App-wide residual axes (+ legacy aliases kept equal).
+    trail,
+    ghost,
+    residual: trail,
+    ghostBrightness: ghost,
     decimals: normalizeNodeGraphTraceDisplayNumber(source.decimals, defaults.decimals, 0, 8, true),
-    // Live light × residual gradient composite (dropdown).
+    // Live light × residual gradient composite (dropdown). LCD defaults to source-over.
     lightBlend: (() => {
       const allowed = new Set([
         "occlude",
@@ -864,11 +892,51 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}) {
         "exclusion",
         "source-atop",
       ]);
-      const raw = String(source.lightBlend ?? source.lightBlendMode ?? defaults.lightBlend ?? "occlude")
+      const fallback = faceStyle === "lcd" ? "source-over" : "occlude";
+      const raw = String(source.lightBlend ?? source.lightBlendMode ?? defaults.lightBlend ?? fallback)
         .trim()
         .toLowerCase();
-      return allowed.has(raw) ? raw : "occlude";
+      return allowed.has(raw) ? raw : fallback;
     })(),
+    // LCD only: permanent dim “8” plate amount (not residual hang).
+    unlitSegments: normalizeNodeGraphTraceDisplayNumber(
+      source.unlitSegments ?? source.segmentFloor ?? source.plateGhost,
+      defaults.unlitSegments ?? 0.28,
+      0,
+      1,
+    ),
+    // LED + LCD: digit inset from plate edge (not Amp / scope padding).
+    facePadding: normalizeNodeGraphTraceDisplayNumber(
+      source.facePadding ?? source.readoutPadding ?? source.digitPadding,
+      defaults.facePadding ?? 0.06,
+      0,
+      1,
+    ),
+    // LCD glass: Gaussian inset shadow distance / sharpness / offset (ignored on LED).
+    innerShadowDistance: normalizeNodeGraphTraceDisplayNumber(
+      source.innerShadowDistance ?? source.insetDistance ?? source.shadowDistance,
+      defaults.innerShadowDistance ?? 0.22,
+      0,
+      1,
+    ),
+    innerShadowSharpness: normalizeNodeGraphTraceDisplayNumber(
+      source.innerShadowSharpness ?? source.insetSharpness ?? source.shadowSharpness,
+      defaults.innerShadowSharpness ?? 0.4,
+      0,
+      1,
+    ),
+    innerShadowOffsetX: normalizeNodeGraphTraceDisplayNumber(
+      source.innerShadowOffsetX ?? source.insetOffsetX ?? source.shadowOffsetX,
+      defaults.innerShadowOffsetX ?? 0,
+      -1,
+      1,
+    ),
+    innerShadowOffsetY: normalizeNodeGraphTraceDisplayNumber(
+      source.innerShadowOffsetY ?? source.insetOffsetY ?? source.shadowOffsetY,
+      defaults.innerShadowOffsetY ?? 0.12,
+      -1,
+      1,
+    ),
     gradientStops,
   };
 }
@@ -1093,11 +1161,38 @@ function nodeGraphLineBurnSettingsForNode(node) {
 }
 
 
-function nodeGraphNumberReadoutSettingsForNode(node) {
-  if (!node) {
-    return normalizeNodeGraphNumberReadoutSettings();
+function nodeGraphNumberReadoutFaceStyleForNode(node) {
+  const type = String(node?.type || "");
+  if (type === "valueLcd") {
+    return "lcd";
   }
-  return normalizeNodeGraphNumberReadoutSettings(node.traceDisplaySettings);
+  const fromSettings = String(node?.traceDisplaySettings?.faceStyle || "").toLowerCase();
+  if (fromSettings === "lcd") {
+    return "lcd";
+  }
+  return "led";
+}
+
+function nodeGraphNumberReadoutDefaultsForNode(node) {
+  if (nodeGraphNumberReadoutFaceStyleForNode(node) === "lcd"
+    && typeof nodeGraphValueLcdSettingsDefaults !== "undefined") {
+    return nodeGraphValueLcdSettingsDefaults;
+  }
+  return nodeGraphNumberReadoutSettingsDefaults;
+}
+
+function nodeGraphNumberReadoutSettingsForNode(node) {
+  const defaults = nodeGraphNumberReadoutDefaultsForNode(node);
+  if (!node) {
+    return normalizeNodeGraphNumberReadoutSettings({}, defaults);
+  }
+  const packed = {
+    ...(node.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
+      ? node.traceDisplaySettings
+      : {}),
+    faceStyle: nodeGraphNumberReadoutFaceStyleForNode(node),
+  };
+  return normalizeNodeGraphNumberReadoutSettings(packed, defaults);
 }
 
 

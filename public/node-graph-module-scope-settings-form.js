@@ -23,16 +23,49 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null) {
     title = "Arc hole size 0…1 (0 = solid, ~0.7 default ring, higher = thinner ring).";
   }
   if (formType === "numberReadout" && key === "dot1Brightness") {
-    label = "LED";
-    title = "Live light grey→hue→white (0 = mid grey, 0.5 = full Hue, 1 = white; never black). Also scales deposit energy on digit change.";
+    const nodeType = typeof nodeGraphPatchNode === "function"
+      && typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
+      ? nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type
+      : null;
+    if (nodeType === "valueLcd") {
+      label = "Ink";
+      title = "LCD ink strength 0…1 (how hard the dark digits print on the plate). Also scales deposit energy on digit change.";
+    } else {
+      label = "LED";
+      title = "Live light grey→hue→white (0 = mid grey, 0.5 = full Hue, 1 = white; never black). Also scales deposit energy on digit change.";
+    }
   }
-  if (formType === "numberReadout" && key === "ghostBrightness") {
+  if (formType === "numberReadout" && (key === "ghost" || key === "ghostBrightness")) {
     label = "Ghost";
-    title = "Constant 8-skeleton floor energy 0…1. Ghost 0.2 → color at gradient stop 0.2. Independent of Backlight hang; deposits decay on top of this floor.";
+    title = "Super-exp residual hang 0…1 (not brightness). With Trail at 0 this is the full hang algorithm. Bright only sets deposit light.";
   }
-  if (formType === "numberReadout" && key === "residual") {
-    label = "Backlight";
-    title = "Deposit hang 0…1 (super-exponential). How long previous digits linger after a change. 0 = no deposit hang (8-floor from Ghost still shows).";
+  if (formType === "numberReadout" && (key === "trail" || key === "residual")) {
+    label = "Trail";
+    title = "Blends linear decay over Ghost, then freezes. 0 = pure Ghost; 0.5 = half linear / half Ghost; 0.75 = full linear; 1 = never decay pixels.";
+  }
+  if (formType === "numberReadout" && key === "unlitSegments") {
+    label = "Unlit 8s";
+    title = "Permanent dim all-8 segment plate 0…1. Multiplies foreground color into the background (classic LCD unlit segments). Not residual hang.";
+  }
+  if (formType === "numberReadout" && key === "facePadding") {
+    label = "Padding";
+    title = "Inset digits from the plate edge (0 = flush, 1 = deep margin). Same control on Value LED and Value LCD.";
+  }
+  if (formType === "numberReadout" && key === "innerShadowDistance") {
+    label = "Shadow dist";
+    title = "How far the Gaussian inset glass shadow reaches from the plate edge (0 = none, 1 = deep). Dial the “behind a screen” depth.";
+  }
+  if (formType === "numberReadout" && key === "innerShadowSharpness") {
+    label = "Shadow hard";
+    title = "Edge hardness 0…1. 0 = widest smooth Gaussian; 1 = hard rim (no blur).";
+  }
+  if (formType === "numberReadout" && key === "innerShadowOffsetX") {
+    label = "Shadow X";
+    title = "Inset shadow horizontal offset −1…1 (0 = centered). Positive darkens the left edge.";
+  }
+  if (formType === "numberReadout" && key === "innerShadowOffsetY") {
+    label = "Shadow Y";
+    title = "Inset shadow vertical offset −1…1 (0 = centered). Positive darkens the top edge.";
   }
   const titleAttr = title
     ? ` title="${nodeGraphDisplaySettingsEscapeHtml(title)}"`
@@ -219,9 +252,15 @@ function nodeGraphDisplaySettingsColorRowMeta(key, formType = null) {
   // Never a side "Color |" column — one contiguous widget row app-wide.
   let aria = base.aria || key;
   if (formType === "numberReadout" && key === "dot1Color") {
-    aria = "LED digit hue; LED amount maps grey → full hue → white";
+    const nodeType = typeof nodeGraphPatchNode === "function"
+      && typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
+      ? nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type
+      : null;
+    aria = nodeType === "valueLcd"
+      ? "Value LCD foreground (digit ink) color"
+      : "LED digit hue; LED amount maps grey → full hue → white";
   } else if (formType === "numberReadout" && key === "backgroundColor") {
-    aria = "LCD background color";
+    aria = "Value face background color";
   } else if (formType === "knobFace" && key === "backgroundColor") {
     aria = "Knob face background";
   } else if (formType === "knobFace" && key === "arcFill") {
@@ -330,8 +369,8 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
       continue;
     }
 
-    // Number Readout: single Readout stack — no separate "Light" section title.
-    // Order: Decimals → LED(+hue) → Ghost → Backlight → blend → Background → Ghost Gradient.
+    // Value LED / Value LCD: single Readout stack — no separate "Light" section title.
+    // Order: Decimals → LED|Ink → Ghost → Trail → blend → Background → Ghost Gradient.
     if (type === "numberReadout" && section === "dot1") {
       continue;
     }
@@ -353,13 +392,34 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
       (key) => activeChoices.has(key) && allowKey("choices", key),
     );
     if (type === "numberReadout" && section === "trace") {
-      // Decimals → LED(+square hue) → Ghost → Backlight. Hue is not a full-width row.
-      fieldKeys = ["decimals", "dot1Brightness", "ghostBrightness", "residual"]
-        .filter((key) => activeFields.has(key));
-      colorKeys = ["backgroundColor"]
-        .filter((key) => activeColors.has(key));
-      choiceKeys = ["lightBlend"]
-        .filter((key) => activeChoices.has(key));
+      const nrNodeType = node?.type
+        || (typeof nodeGraphPatchNode === "function"
+          && typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
+          ? nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type
+          : null);
+      if (nrNodeType === "valueLcd") {
+        // Value LCD (vector): Foreground + Background, padding, unlit 8s, glass shadow — no residual hang.
+        fieldKeys = [
+          "decimals",
+          "facePadding",
+          "unlitSegments",
+          "innerShadowDistance",
+          "innerShadowSharpness",
+          "innerShadowOffsetX",
+          "innerShadowOffsetY",
+        ].filter((key) => activeFields.has(key));
+        colorKeys = ["dot1Color", "backgroundColor"]
+          .filter((key) => activeColors.has(key));
+        choiceKeys = [];
+      } else {
+        // Value LED: Decimals → LED → Ghost → Trail → Padding → blend → Background → Ghost Gradient.
+        fieldKeys = ["decimals", "dot1Brightness", "ghost", "trail", "facePadding"]
+          .filter((key) => activeFields.has(key));
+        colorKeys = ["backgroundColor"]
+          .filter((key) => activeColors.has(key));
+        choiceKeys = ["lightBlend"]
+          .filter((key) => activeChoices.has(key));
+      }
     }
     // syncChannel / stereoBlend live in activeChoices but are listed under
     // "trace" sectionChoices only for spectrogram historically — include
@@ -443,6 +503,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     }
     for (const key of fieldKeys) {
       if (type === "numberReadout" && key === "dot1Brightness" && activeColors.has("dot1Color")) {
+        // Value LED only (LCD has no Bright field in its stack).
         rows.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
           title: "LED",
           stepField: "dot1Brightness",
@@ -460,11 +521,16 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     for (const key of colorKeys) {
       rows.push(nodeGraphDisplaySettingsBuildColorRowHtml(key, type));
     }
-    // Number Readout: Ghost Gradient flush under Background (same section, no gap).
+    // Value LED: Ghost Gradient under Background. Value LCD skips (reflective ink model).
     if (type === "numberReadout" && section === "trace"
       && typeof nodeGraphDisplaySettingsFormTypeUsesGradient === "function"
       && nodeGraphDisplaySettingsFormTypeUsesGradient(type)) {
-      rows.push(`
+      const nrNodeType = typeof nodeGraphPatchNode === "function"
+        && typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
+        ? nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type
+        : null;
+      if (nrNodeType !== "valueLcd") {
+        rows.push(`
         <div class="metadata-section-title node-trace-display-gradient-title">Ghost Gradient</div>
         <div
           id="nodeTraceDisplayGradientSelectorHost"
@@ -472,6 +538,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
           data-gradient-selector-host
           data-shared-gradient-host
           data-spectrogram-gradient-host></div>`);
+      }
     }
     parts.push(`<div class="metadata-field-section node-trace-display-${section}-section">${rows.join("")}</div>`);
   }

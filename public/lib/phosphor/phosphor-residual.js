@@ -3,21 +3,28 @@
 // Display Settings order (shared faces, including Lorenz):
 //   Bright → Size → Blur → Ghost → Trail → Scale → Pixel density → Dot Budget
 //
-// Axes (all 0..1, high = more of the named quality):
-//   Bright     → peak deposit / present light
-//   Trail      → main residual length (1 ≈ freeze-ish hot path)
-//   Ghost      → dim scorched floor hang (screen burn-in, still dies)
+// Axes (all 0..1):
+//   Bright  → peak deposit / present light (ONLY brightness control)
+//   Ghost   → super-exp residual hang (NOT brightness). Perfect alone when Trail=0.
+//   Trail   → blend linear decay ON TOP of Ghost, then freeze:
+//     0.00 → pure Ghost algorithm (100% super-exp hang)
+//     0.50 → 50% linear + 50% Ghost exponential
+//     0.75 → 100% linear decay
+//     1.00 → freeze (never decay residual pixels)
 //
 // Legacy patches:
 //   decay  (old: high = faster die) → trail = 1 - decay   [phosphor faces]
 //   burn   (old name for ghost)     → ghost = burn
 //   number-readout decay was already high=long → trail = decay (no invert)
 //
-// Used by energy-GL, drawer, matrix, asciiscope.
+// Used by energy-GL, drawer, matrix, asciiscope, value LED, 1D Phosphor.
 
 (function initPhosphorResidual(global) {
-  const DEFAULT_TRAIL = 0.88; // was decay 0.12
-  const DEFAULT_GHOST = 0.45; // was burn 0.45
+  // Balanced default: half linear / half ghost (see resolveTrailBlend).
+  const DEFAULT_TRAIL = 0.5;
+  const DEFAULT_GHOST = 0.45;
+  // Full-strength linear path keep (when Trail ≈ 0.75): mild per-frame die.
+  const LINEAR_KEEP_FULL = 0.94;
 
   function clamp01(value, fallback = 0) {
     const n = Number(value);
@@ -28,67 +35,163 @@
   }
 
   /**
-   * Per-frame erase amount from Trail (high trail = low erase).
-   * Matches former fadeAmount(1 - trail) curve.
+   * Trail → blend weights.
+   *  0    pure ghost
+   *  0.5  50% linear / 50% ghost
+   *  0.75 pure linear
+   *  1    freeze (no decay)
    */
-  function trailFadeAmount(trail) {
-    const t = clamp01(trail, DEFAULT_TRAIL);
-    // Invert to old decay domain, then same quadratic fade map.
-    const d = 1 - t;
-    if (d <= 0.001) {
+  function resolveTrailBlend(trail) {
+    const t = clamp01(trail, 0);
+    if (t <= 0.5) {
+      const u = t / 0.5; // 0…1
+      const linearWeight = 0.5 * u; // 0…0.5
+      return {
+        ghostWeight: 1 - linearWeight,
+        linearWeight,
+        freeze: 0,
+      };
+    }
+    if (t <= 0.75) {
+      const u = (t - 0.5) / 0.25; // 0…1
+      const linearWeight = 0.5 + 0.5 * u; // 0.5…1
+      return {
+        ghostWeight: 1 - linearWeight,
+        linearWeight,
+        freeze: 0,
+      };
+    }
+    // 0.75 → full linear; 1 → freeze residual completely.
+    const u = (t - 0.75) / 0.25; // 0…1
+    return {
+      ghostWeight: 0,
+      linearWeight: 1 - u,
+      freeze: u,
+    };
+  }
+
+  /**
+   * Pure Ghost super-exp keep (independent of Trail).
+   * Ghost 0 → no hang (keep 0 = wipe residual unless linear path holds it).
+   */
+  function pureGhostKeep(ghost) {
+    const g = clamp01(ghost, 0);
+    if (g <= 0.001) {
       return 0;
     }
-    return Math.max(0.006, Math.min(0.55, 0.006 + d * 0.11 + d * d * 0.32));
-  }
-
-  /** keepFast from Trail (hot path). */
-  function trailKeep(trail) {
-    return Math.max(0, 1 - trailFadeAmount(trail));
-  }
-
-  /**
-   * keepSlow for Ghost floor. Mid ghost already multi-10s hang @60fps.
-   */
-  function ghostKeep(ghost, baseKeep) {
-    const g = clamp01(ghost, 0);
-    const k = clamp01(baseKeep, 0);
-    if (g <= 0.001) {
-      return k;
-    }
+    // Super-exponential hang: near g=1 → almost freeze residual energy.
     const fade = Math.pow(1 - g, 2.8) * 0.012;
     const slow = 1 - Math.max(0.00025, fade);
-    return Math.min(0.99975, Math.max(k, slow));
-  }
-
-  /** Dim floor ceiling (readable scorch, never full peak). */
-  function ghostCap(ghost) {
-    const g = clamp01(ghost, 0);
-    return g * 0.12 + g * g * 0.38;
+    return Math.min(0.99975, slow);
   }
 
   /**
-   * One-frame residual: Trail hot path + Ghost dim floor.
+   * Linear residual keep. strength 0…1 scales how hard linear is applied
+   * when this path is fully selected (Trail ≥ 0.75 before freeze zone).
+   */
+  function linearKeep(strength = 1) {
+    const s = clamp01(strength, 1);
+    if (s <= 0.001) {
+      return 1;
+    }
+    // Interpolate: strength 0 → keep 1 (no linear die); 1 → LINEAR_KEEP_FULL.
+    return 1 - (1 - LINEAR_KEEP_FULL) * s;
+  }
+
+  /**
+   * Combined keep for one residual step (0…1, high = more hang).
+   * Trail blends linear over Ghost; freeze near Trail=1.
+   */
+  function residualKeep(trail, ghost = 0) {
+    const blend = resolveTrailBlend(trail);
+    if (blend.freeze >= 0.999) {
+      return 1;
+    }
+    const gKeep = pureGhostKeep(ghost);
+    // When linear weight is partial, still use full-strength linear base keep
+    // and weight the *result* (see applyResidual). For a single keep factor:
+    const lKeep = linearKeep(1);
+    const mixed = blend.ghostWeight * gKeep + blend.linearWeight * lKeep;
+    // freeze mixes toward keep=1
+    return Math.min(1, blend.freeze + (1 - blend.freeze) * mixed);
+  }
+
+  /**
+   * Per-frame erase amount (destination-out / energy fade). High trail → low erase.
+   */
+  function trailFadeAmount(trail, ghost = 0) {
+    return Math.max(0, 1 - residualKeep(trail, ghost));
+  }
+
+  /** @deprecated alias — keepFast is the blended keep now (not pure trail). */
+  function trailKeep(trail, ghost = 0) {
+    return residualKeep(trail, ghost);
+  }
+
+  /**
+   * Ghost keep for dual-path callers (energy-GL). Pure ghost hang only.
+   * baseKeep ignored — Ghost no longer rides Trail's keep floor.
+   */
+  function ghostKeep(ghost, _baseKeep = 0) {
+    return pureGhostKeep(ghost);
+  }
+
+  /**
+   * Ghost enable flag for dual residual paths (0 = off).
+   * NOT a brightness ceiling.
+   */
+  function ghostCap(ghost) {
+    return clamp01(ghost, 0) > 0.001 ? 1 : 0;
+  }
+
+  /**
+   * One-frame residual energy step.
+   * Pure multiplicative hang; Ghost never injects brightness.
    */
   function applyResidual(energy01, trail, ghost = 0) {
     const e = Math.max(0, Number(energy01) || 0);
-    const keepFast = trailKeep(trail);
-    const g = clamp01(ghost, 0);
-    if (g <= 0.001) {
-      return e * keepFast;
+    const blend = resolveTrailBlend(trail);
+    if (blend.freeze >= 0.999) {
+      return e;
     }
-    const keepSlow = ghostKeep(g, keepFast);
-    const eFast = e * keepFast;
-    const eGhost = Math.min(e * keepSlow, ghostCap(g));
-    return Math.max(eFast, eGhost);
+    const gKeep = pureGhostKeep(ghost);
+    const lKeep = linearKeep(1);
+    const faded = e * (blend.ghostWeight * gKeep + blend.linearWeight * lKeep);
+    if (blend.freeze > 0.001) {
+      return e * blend.freeze + faded * (1 - blend.freeze);
+    }
+    return faded;
   }
 
   /**
-   * Migrate patch fields → trail 0..1 (high = long).
+   * Dual-path keeps for energy-GL / shader.
+   * Shader does max(e*keepFast, e*keepSlow). Weighted Trail blend is already
+   * folded into a single keep — set both paths equal so max ≡ blend (not
+   * “ghost always wins”).
+   */
+  function residualKeeps(trail, ghost = 0) {
+    const blend = resolveTrailBlend(trail);
+    const g = clamp01(ghost, 0);
+    const keep = residualKeep(trail, ghost);
+    return {
+      keepFast: keep,
+      keepSlow: keep,
+      ghostCap: g > 0.001 || blend.freeze > 0.001 || keep > 0.001 ? 1 : 0,
+      fade: Math.max(0, 1 - keep),
+      keep,
+      freeze: blend.freeze,
+      ghostWeight: blend.ghostWeight,
+      linearWeight: blend.linearWeight,
+      trail: clamp01(trail, 0),
+      ghost: g,
+    };
+  }
+
+  /**
+   * Migrate patch fields → trail 0..1 (high = more linear / freeze).
    * @param {object} source
    * @param {number} fallback
    * @param {{ invertLegacyDecay?: boolean }} [options]
-   *   invertLegacyDecay true (default for phosphor): trail = 1 - decay
-   *   invertLegacyDecay false (number readout): trail = decay (already high=long)
    */
   function migrateTrail(source = {}, fallback = DEFAULT_TRAIL, options = {}) {
     const invert = options.invertLegacyDecay !== false;
@@ -103,8 +206,7 @@
   }
 
   /**
-   * Migrate patch fields → ghost 0..1 (high = more scorch hang).
-   * Accepts ghost or legacy burn.
+   * Migrate patch fields → ghost 0..1 (high = more super-exp hang).
    */
   function migrateGhost(source = {}, fallback = DEFAULT_GHOST) {
     if (source && source.ghost != null && Number.isFinite(Number(source.ghost))) {
@@ -128,12 +230,18 @@
   const api = {
     DEFAULT_TRAIL,
     DEFAULT_GHOST,
+    LINEAR_KEEP_FULL,
     clamp01,
+    resolveTrailBlend,
+    pureGhostKeep,
+    linearKeep,
     trailFadeAmount,
     trailKeep,
     ghostKeep,
     ghostCap,
     applyResidual,
+    residualKeep,
+    residualKeeps,
     migrateTrail,
     migrateGhost,
     residualSleepFrames,

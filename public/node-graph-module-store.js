@@ -1352,9 +1352,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   helmholtzPitch: {
     category: "multimeter",
-    description: "Monophonic pitch detector using the McLeod Pitch Method (normalized square difference function with parabolic interpolation). Outputs detected frequency and a fidelity score; rejects noisy/non-periodic frames.",
+    description: "Monophonic pitch detector using the McLeod Pitch Method (normalized square difference function with parabolic interpolation). Outputs Frequency (Hz), Fidelity (0…1 clarity), and Gate (1 when locked above threshold, else 0).",
     label: "Pitch Detector",
-    notes: ["pitch tracking", "pitch detector", "mcleod", "autocorrelation", "frequency follower"],
+    notes: ["pitch tracking", "pitch detector", "mcleod", "autocorrelation", "frequency follower", "gate"],
   },
   speedColorInertia: {
     category: "multimeter",
@@ -1556,10 +1556,13 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   numberReadout: {
     category: "multimeter",
-    description: "Phosphor LCD readout (DSEG7 Classic): energy residual + gradient colormap, soft trails, hard plate/live digits. Shows the latest input value.",
-    label: "Number Readout",
+    description: "Value LED: lit DSEG digits with Ghost floor + Trail deposit hang (app-wide residual policy). Shows the latest input value.",
+    label: "Value LED",
     notes: [
       "value",
+      "value led",
+      "value readout",
+      "number readout",
       "value display",
       "latest value",
       "numeric display",
@@ -1568,10 +1571,28 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "DSEG7 Classic",
       "seven-segment",
       "energy phosphor",
-      "gradient map",
-      "brightness",
-      "decay",
-      "LCD plate",
+      "ghost",
+      "trail",
+      "LED",
+    ],
+  },
+  valueLcd: {
+    category: "multimeter",
+    description: "Value LCD: grey reflective plate, dark ink DSEG digits, Ghost unlit segments + Trail hang. Cheap LCD look for multimeter patches.",
+    label: "Value LCD",
+    notes: [
+      "value",
+      "value lcd",
+      "lcd",
+      "value display",
+      "numeric display",
+      "digital readout",
+      "DSEG7",
+      "seven-segment",
+      "ghost",
+      "trail",
+      "reflective",
+      "multimeter",
     ],
   },
   lineBurnOscilloscope: {
@@ -2164,6 +2185,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   numberReadout: {
     source: "public/modules/numberReadout/number-readout-register.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/numberReadout/number-readout-register.js",
+  },
+  valueLcd: {
+    source: "public/modules/valueLcd/value-lcd-register.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/valueLcd/value-lcd-register.js",
   },
   nyquistShannon: {
     source: "public/modules/nyquistShannon/nyquist-shannon-worklet-evaluator.js",

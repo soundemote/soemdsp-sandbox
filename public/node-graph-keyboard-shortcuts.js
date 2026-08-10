@@ -378,19 +378,13 @@ function handleNodeGraphKeydown(event) {
     }
     return;
   }
-  // M → windowed modular view (resizable workspace + drag handle). Escape returns.
-  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "m") {
+  // V → modular-only / infinite view (same as laptop button on the view toolbar).
+  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "v") {
     event.preventDefault();
     if (typeof toggleNodeGraphModularOnlyView === "function") {
       toggleNodeGraphModularOnlyView();
-    }
-    return;
-  }
-  // V → View Buttons (show/hide modular chrome: toolbar bits, resize handle).
-  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "v") {
-    event.preventDefault();
-    if (typeof toggleNodeGraphViewButtonsVisibility === "function") {
-      toggleNodeGraphViewButtonsVisibility();
+    } else if (typeof setNodeGraphViewMode === "function") {
+      setNodeGraphViewMode("modular-only");
     }
     return;
   }

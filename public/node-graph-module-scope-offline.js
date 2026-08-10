@@ -371,13 +371,11 @@ function nodeGraphTraceDisplayRenderPointBudget() {
 
 // nodeGraphZeroDBurnSettingsDefaults → node-graph-module-scope-defaults.js
 // nodeGraphValueOscilloscopeSettingsDefaults → node-graph-module-scope-defaults.js
-// numberReadout: independent schema. Residual is previous-digit ghosts only.
-// "trail" UI = how long the last number's residual remains (0 = off, 1 = long).
-// Digit color shares 2D phosphor: multi-stop gradient as energy→color LUT.
-// Bright is 0…1 energy exactly (1 = full gradient tip / full deposit).
-// background = LCD back plate color (separate widget; not gradient floor).
-// Unlit plate = ghostColor only (pick dim/bright there — no ghost-amount slider).
-// nodeGraphNumberReadoutSettingsDefaults → node-graph-module-scope-defaults.js
+// Value LED / Value LCD (numberReadout schema): app-wide Trail + Ghost residual.
+// Trail = previous-digit deposit hang (PhosphorResidual.trailFadeAmount).
+// Ghost = unlit 8-segment floor intensity (segment ghost).
+// LED = lit digits + Ghost Gradient; LCD = dark ink on grey plate.
+// nodeGraphNumberReadoutSettingsDefaults / nodeGraphValueLcdSettingsDefaults → defaults.js
 /** Knob face display settings (readout precision only). */
 // nodeGraphKnobFaceDisplaySettingsDefaults → node-graph-module-scope-defaults.js
 // Spectrogram display settings (not module params).
@@ -521,7 +519,7 @@ function nodeGraphModuleDisplayTypeForSlot(slot) {
 }
 
 function nodeGraphModuleScopeSlotUsesWiredInputs(slot) {
-  return ["traceDisplay", "dotOscilloscope", "valueOscilloscope", "lineBurnOscilloscope", "scope2d", "scope2dTrace", "phosphorLight", "visualOscilloscope", "numberReadout"].includes(slot?.type);
+  return ["traceDisplay", "dotOscilloscope", "valueOscilloscope", "lineBurnOscilloscope", "scope2d", "scope2dTrace", "phosphorLight", "visualOscilloscope", "numberReadout", "valueLcd"].includes(slot?.type);
 }
 
 function nodeGraphModuleDisplaySourceForSlot(slot) {

@@ -30,18 +30,19 @@ NodeLiveAudioProcessor.prototype.reportHelmholtzStatus = function reportHelmholt
   };
 
 NodeLiveAudioProcessor.prototype.helmholtzSample = function helmholtzSample(state, input, params, inputConnected = true, rateHz = sampleRate) {
+    const silent = { Frequency: 0, Fidelity: 0, Gate: 0, "Pitch View": -1 };
     if (!inputConnected) {
       this.destroyHelmholtzState(state);
       state.nativeSampleRate = 0;
       state.nativeParamKey = "";
-      return { Frequency: 0, Fidelity: 0, "Pitch View": -1 };
+      return silent;
     }
     const native = this.nativeHelmholtz;
     if (!this.nativeHelmholtzReady || !native?.soemdsp_helmholtz_create || !native?.soemdsp_helmholtz_process) {
       if (native) {
         this.reportHelmholtzStatus("disabled", "native Helmholtz exports missing; analyzer outputs zero");
       }
-      return { Frequency: 0, Fidelity: 0, "Pitch View": -1 };
+      return silent;
     }
     try {
       const safeRate = Math.max(1, Number(rateHz) || sampleRate || 44100);
@@ -55,9 +56,9 @@ NodeLiveAudioProcessor.prototype.helmholtzSample = function helmholtzSample(stat
       }
       if (!state.nativeHandle) {
         this.reportHelmholtzStatus("disabled", "native Helmholtz handle creation failed; analyzer outputs zero");
-        return { Frequency: 0, Fidelity: 0, "Pitch View": -1 };
+        return silent;
       }
-      const windowSize = Math.max(128, Math.min(1024, Math.round(this.safeFilterNumber(params.windowSize, null) ?? 512)));
+      const windowSize = Math.max(128, Math.min(1024, Math.round(this.safeFilterNumber(params.windowSize, null) ?? 1024)));
       const threshold = this.clampValue(this.safeFilterNumber(params.threshold, null) ?? 0.93, 0.5, 0.999);
       const paramKey = `${windowSize}:${Math.round(threshold * 1000)}`;
       if (paramKey !== state.nativeParamKey && native.soemdsp_helmholtz_set_params) {
@@ -67,9 +68,13 @@ NodeLiveAudioProcessor.prototype.helmholtzSample = function helmholtzSample(stat
       const safeIn = this.safeFilterNumber(input, null) ?? 0;
       native.soemdsp_helmholtz_process(state.nativeHandle, safeIn);
       const frequency = this.safeFilterNumber(native.soemdsp_helmholtz_frequency?.(state.nativeHandle), null) ?? 0;
+      const fidelity = this.safeFilterNumber(native.soemdsp_helmholtz_fidelity?.(state.nativeHandle), null) ?? 0;
+      // Gate high when a pitch is locked (Frequency set only if fidelity ≥ threshold).
+      const gate = frequency > 0 ? 1 : 0;
       return {
         Frequency: frequency,
-        Fidelity: this.safeFilterNumber(native.soemdsp_helmholtz_fidelity?.(state.nativeHandle), null) ?? 0,
+        Fidelity: fidelity,
+        Gate: gate,
         "Pitch View": this.helmholtzPitchView(frequency),
       };
     } catch (error) {
@@ -79,7 +84,7 @@ NodeLiveAudioProcessor.prototype.helmholtzSample = function helmholtzSample(stat
         "disabled",
         `native Helmholtz failed; analyzer outputs zero: ${String(error?.message || error || "unknown error")}`,
       );
-      return { Frequency: 0, Fidelity: 0, "Pitch View": -1 };
+      return silent;
     }
   };
 

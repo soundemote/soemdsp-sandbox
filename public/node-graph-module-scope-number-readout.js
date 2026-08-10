@@ -84,17 +84,188 @@ function nodeGraphNumberReadoutClearBurnPlate(canvas) {
 
 /**
  * Per-frame destination-out erase for the burn plate (previous-digit deposits).
- * Residual 0…1 high = long hang → erase falls super-exponentially.
- * Residual 0 = wipe deposits immediately (Ghost Bright 8-floor still shows).
+ * App-wide Trail + Ghost residual policy (PhosphorResidual): pure hang/decay.
+ * Ghost does NOT set brightness — only how long deposited energy sticks.
+ * Trail 0 + Ghost 0 = wipe deposits immediately.
  */
-function nodeGraphNumberReadoutBurnEraseAlpha(residualHang) {
-  const h = clampNodeSliderValue(Number(residualHang) || 0, 0, 1);
-  if (h <= 0.001) {
+function nodeGraphNumberReadoutBurnEraseAlpha(trailHang, ghostHang = 0) {
+  const trail = clampNodeSliderValue(Number(trailHang) || 0, 0, 1);
+  const ghost = clampNodeSliderValue(Number(ghostHang) || 0, 0, 1);
+  if (trail <= 0.001 && ghost <= 0.001) {
     return 1;
   }
-  // Super-exponential: hang near 1 → erase near floor; hang 0 → dies fast.
-  const erase = Math.exp(-9 * h) * 0.52;
+  const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
+  if (Residual && typeof Residual.residualKeep === "function") {
+    const keep = Number(Residual.residualKeep(trail, ghost));
+    if (Number.isFinite(keep)) {
+      // Near-freeze (keep≈1) → near-zero erase; low keep → strong erase.
+      return clampNodeSliderValue(1 - keep, 0, 1);
+    }
+  }
+  if (Residual && typeof Residual.trailFadeAmount === "function") {
+    const fade = Number(Residual.trailFadeAmount(trail));
+    if (Number.isFinite(fade)) {
+      return clampNodeSliderValue(fade, 0, 1);
+    }
+  }
+  // Fallback if residual helper not loaded yet.
+  const erase = Math.exp(-9 * Math.max(trail, ghost)) * 0.52;
   return clampNodeSliderValue(erase, 0.0015, 0.55);
+}
+
+/** LED (phosphor light) vs LCD (reflective ink) face style for a slot/node. */
+function nodeGraphNumberReadoutFaceStyleForSlot(slot, node = null) {
+  const type = String(slot?.type || node?.type || "");
+  if (type === "valueLcd") {
+    return "lcd";
+  }
+  if (typeof nodeGraphNumberReadoutFaceStyleForNode === "function") {
+    return nodeGraphNumberReadoutFaceStyleForNode(node || { type, traceDisplaySettings: null });
+  }
+  return "led";
+}
+
+/**
+ * LCD foreground (digit ink) RGB — solid color widget only (no Bright ramp).
+ */
+function nodeGraphNumberReadoutLcdInkRgb(settings) {
+  const hex = settings?.color
+    || (typeof nodeGraphValueLcdSettingsDefaults !== "undefined"
+      ? nodeGraphValueLcdSettingsDefaults.color
+      : "#1a2216");
+  const m = String(hex).match(/^#?([0-9a-f]{6})$/i);
+  if (m) {
+    const n = Number.parseInt(m[1], 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  return [26, 34, 22];
+}
+
+/**
+ * LCD background plate RGB from the Background color widget.
+ */
+function nodeGraphNumberReadoutLcdBgRgb(settings) {
+  const hex = settings?.background
+    || (typeof nodeGraphValueLcdSettingsDefaults !== "undefined"
+      ? nodeGraphValueLcdSettingsDefaults.background
+      : "#b0b5a6");
+  const m = String(hex).match(/^#?([0-9a-f]{6})$/i);
+  if (m) {
+    const n = Number.parseInt(m[1], 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  return [176, 181, 166];
+}
+
+/**
+ * Hermite smoothstep 0…1 → 0…1 (S-curve). Used to map hardness → blur
+ * so soft mid-range stays usable and hardness 1 collapses to a hard rim.
+ */
+function nodeGraphNumberReadoutSmoothstep01(t) {
+  const x = clampNodeSliderValue(Number(t) || 0, 0, 1);
+  return x * x * (3 - 2 * x);
+}
+
+/**
+ * Value LCD inset glass shadow — true Gaussian falloff (canvas filter blur),
+ * not box/linear edge ramps. Drawn last so digits read as “behind the screen.”
+ *
+ * @param {number} distance01  0…1 reach / depth of the inset band
+ * @param {number} sharpness01 0 = widest soft Gaussian, 1 = hard rim (no blur)
+ * @param {number} offsetX01   −1…1 CSS-like inset offset X (positive → darker left)
+ * @param {number} offsetY01   −1…1 CSS-like inset offset Y (positive → darker top)
+ */
+function nodeGraphNumberReadoutDrawLcdInnerShadow(
+  context,
+  left,
+  top,
+  width,
+  height,
+  distance01,
+  sharpness01,
+  offsetX01 = 0,
+  offsetY01 = 0,
+) {
+  if (!context || !(width > 2) || !(height > 2)) {
+    return;
+  }
+  const dist = clampNodeSliderValue(Number(distance01) || 0, 0, 1);
+  if (dist <= 0.001) {
+    return;
+  }
+  const sharp = clampNodeSliderValue(Number(sharpness01) || 0, 0, 1);
+  const ox01 = clampNodeSliderValue(Number(offsetX01) || 0, -1, 1);
+  const oy01 = clampNodeSliderValue(Number(offsetY01) || 0, -1, 1);
+  const minSide = Math.min(width, height);
+  // Reach of the shadow band from the rim (px) — also scales max offset.
+  const reach = Math.max(1, dist * minSide * 0.42);
+  // Hardness 0 → softFrac 1 (widest blur); hardness 1 → softFrac 0 (hard edge).
+  // smoothstep then square so the soft end stays smooth and the hard end
+  // actually reaches zero blur (old code floored soft≥0.06 / blur≥0.75px).
+  const hardEase = nodeGraphNumberReadoutSmoothstep01(sharp);
+  const softFrac = (1 - hardEase) * (1 - hardEase);
+  const maxBlurPx = reach * 1.35;
+  const blurPx = maxBlurPx * softFrac;
+  const alpha = Math.min(1, 0.28 + hardEase * 0.42 + dist * 0.12);
+  // Offset: move the punched “light” hole so shadow piles on the opposite side.
+  const maxOff = reach * 0.9;
+  const offX = ox01 * maxOff;
+  const offY = oy01 * maxOff;
+
+  const w = Math.max(1, Math.ceil(width));
+  const h = Math.max(1, Math.ceil(height));
+  // Padding so the blurred mask does not clip its soft edge.
+  const pad = Math.ceil(Math.max(blurPx * 2, 2) + Math.max(Math.abs(offX), Math.abs(offY)) + 2);
+  const ow = w + pad * 2;
+  const oh = h + pad * 2;
+
+  // Pool offscreen mask on the host canvas (face size changes under zoom).
+  const host = context.canvas;
+  let off = host && host._nodeGraphLcdShadowCanvas;
+  if (!off || off.width < ow || off.height < oh) {
+    off = document.createElement("canvas");
+    off.width = ow;
+    off.height = oh;
+    if (host) {
+      host._nodeGraphLcdShadowCanvas = off;
+    }
+  }
+  const octx = off.getContext("2d");
+  if (!octx) {
+    return;
+  }
+  octx.setTransform(1, 0, 0, 1, 0, 0);
+  octx.globalCompositeOperation = "source-over";
+  octx.globalAlpha = 1;
+  octx.filter = "none";
+  octx.clearRect(0, 0, off.width, off.height);
+
+  // Hard mask: solid black frame with an offset hole = unshadowed interior.
+  // Blurring this mask yields a Gaussian soft inset (not linear box ramps).
+  octx.fillStyle = "#000000";
+  octx.fillRect(0, 0, ow, oh);
+  octx.globalCompositeOperation = "destination-out";
+  octx.fillRect(pad + offX, pad + offY, w, h);
+  octx.globalCompositeOperation = "source-over";
+
+  context.save();
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.globalCompositeOperation = "source-over";
+  context.globalAlpha = alpha;
+  // Keep blur bleed inside the plate.
+  context.beginPath();
+  context.rect(left, top, width, height);
+  context.clip();
+  // Hardness 1: draw the hard mask with no blur (true sharp rim).
+  if (blurPx > 0.35) {
+    context.filter = `blur(${blurPx.toFixed(2)}px)`;
+  } else {
+    context.filter = "none";
+  }
+  context.drawImage(off, 0, 0, ow, oh, left - pad, top - pad, ow, oh);
+  context.filter = "none";
+  context.globalAlpha = 1;
+  context.restore();
 }
 
 /**
@@ -249,7 +420,11 @@ function paintNodeGraphNumberReadoutColdBoot(canvas, screenElement, node = null)
   invalidateNodeGraphNumberReadoutPaintCache(canvas);
   const pixelRatio = Number(nodeGraphModuleScopeState?.backingPixelRatio)
     || Math.max(1, window.devicePixelRatio || 1);
-  if (!syncNodeGraphNumberReadoutCanvas(canvas, screenElement, pixelRatio)) {
+  const isLcd = typeof nodeGraphNumberReadoutFaceStyleForNode === "function"
+    && nodeGraphNumberReadoutFaceStyleForNode(node) === "lcd";
+  if (!syncNodeGraphNumberReadoutCanvas(canvas, screenElement, pixelRatio, {
+    screenSharp: isLcd,
+  })) {
     return false;
   }
   const context = canvas.getContext("2d");
@@ -280,7 +455,9 @@ function wipeNodeGraphNumberReadoutScreensToColdBoot() {
   if (typeof document === "undefined") {
     return;
   }
-  for (const face of document.querySelectorAll(".node-number-readout-face, .dsp-node.number-readout-layout .node-module-scope-window")) {
+  for (const face of document.querySelectorAll(
+    ".node-number-readout-face, .dsp-node.number-readout-layout .node-module-scope-window, .dsp-node.value-lcd-layout .node-module-scope-window",
+  )) {
     let canvas = face.querySelector?.(":scope > .node-number-readout-canvas")
       || face.querySelector?.(".node-number-readout-canvas");
     if (!canvas) {
@@ -298,24 +475,58 @@ function wipeNodeGraphNumberReadoutScreensToColdBoot() {
 }
 
 
-function syncNodeGraphNumberReadoutCanvas(canvas, screenElement, pixelRatio) {
+/**
+ * Sync number-readout face canvas size.
+ * @param {{ screenSharp?: boolean }} [options]
+ *   screenSharp (Value LCD): buffer matches on-screen pixels so workspace
+ *   zoom stays sharp (cheap vector text — not a phosphor energy FBO).
+ *   Default false keeps layout×dpr fixed grid (Value LED residual path).
+ */
+function syncNodeGraphNumberReadoutCanvas(canvas, screenElement, pixelRatio, options = {}) {
   if (!canvas || !screenElement) {
     return false;
   }
-  // Fixed layout pixel grid (clientWidth × dpr). Do NOT use getBoundingClientRect
-  // — that is screen-space and grows with workspace zoom (FPS death on energy
-  // FBOs). CSS width/height:100% rides the zoom transform; pixelated-canvas-zoom
-  // keeps the grid crisp. Never set style.width from a screen rect.
-  const size = nodeGraphModuleScopeFaceBackingSize(screenElement, pixelRatio);
-  if (!size) {
-    return false;
+  const screenSharp = Boolean(options?.screenSharp);
+  let width;
+  let height;
+  if (screenSharp) {
+    // On-screen size × devicePixelRatio — grows with workspace zoom so
+    // DSEG stays sharp (same idea as 0D redraw, face-local text).
+    const rect = typeof screenElement.getBoundingClientRect === "function"
+      ? screenElement.getBoundingClientRect()
+      : { width: 0, height: 0 };
+    const dpr = Math.max(
+      1,
+      Number(window.devicePixelRatio)
+        || Number(pixelRatio)
+        || 1,
+    );
+    let w = Math.max(1, Math.round((Number(rect.width) || 1) * dpr));
+    let h = Math.max(1, Math.round((Number(rect.height) || 1) * dpr));
+    const maxDim = 4096;
+    if (w > maxDim || h > maxDim) {
+      const s = maxDim / Math.max(w, h);
+      w = Math.max(1, Math.round(w * s));
+      h = Math.max(1, Math.round(h * s));
+    }
+    width = w;
+    height = h;
+    canvas.classList.add("node-number-readout-canvas-vector");
+    canvas.style.imageRendering = "auto";
+  } else {
+    // Fixed layout×dpr grid for Value LED residual (no zoom balloon on energy).
+    const size = nodeGraphModuleScopeFaceBackingSize(screenElement, pixelRatio);
+    if (!size) {
+      return false;
+    }
+    width = size.width;
+    height = size.height;
+    canvas.classList.remove("node-number-readout-canvas-vector");
+    canvas.style.imageRendering = "";
   }
-  const { width, height } = size;
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
     canvas.height = height;
-    // Soft deposit mask is one-frame only. Energy residual survives real face
-    // resizes via nodeGraphPhosphorEnergyGlEnsure resize+copy.
     canvas._numberReadoutEnergyMask = null;
   }
   if (canvas.style.width || canvas.style.height) {
@@ -407,28 +618,52 @@ function nodeGraphNumberReadoutSettingsSignature(settings) {
     ? settings.gradientStops.map((s) => `${s.t}:${s.color}`).join(",")
     : "";
   return [
+    settings.faceStyle || "led",
     settings.background,
     settings.brightness,
-    settings.ghostBrightness,
+    settings.ghost ?? settings.ghostBrightness,
     settings.color,
-    settings.residual,
+    settings.trail ?? settings.residual,
     settings.decimals,
     settings.lightBlend,
+    settings.facePadding,
+    settings.unlitSegments,
+    settings.innerShadowDistance,
+    settings.innerShadowSharpness,
+    settings.innerShadowOffsetX,
+    settings.innerShadowOffsetY,
     stopsSig,
   ].join("|");
 }
 
 
-function nodeGraphNumberReadoutComputeLayout(context, valueText, fontFamily, faceW, faceH, hasUnit) {
-  const labelH = hasUnit ? Math.max(0, faceH * 0.18) : 0;
-  const digitAreaH = Math.max(1, faceH - labelH);
+/**
+ * @param {boolean|object} [hasUnitOrOpts] true, or
+ *   { hasUnit, largeUnit, padding01 }
+ *   largeUnit: taller unit band (Pitch Detector “Hz”).
+ *   padding01: 0…1 inset of content from plate edge.
+ */
+function nodeGraphNumberReadoutComputeLayout(context, valueText, fontFamily, faceW, faceH, hasUnitOrOpts) {
+  const opts = hasUnitOrOpts && typeof hasUnitOrOpts === "object"
+    ? hasUnitOrOpts
+    : { hasUnit: Boolean(hasUnitOrOpts) };
+  const hasUnit = Boolean(opts.hasUnit);
+  const largeUnit = Boolean(opts.largeUnit);
+  const pad01 = clampNodeSliderValue(Number(opts.padding01) || 0, 0, 1);
+  // 0 = flush; 1 ≈ 28% of min side per edge.
+  const padPx = pad01 * Math.min(faceW, faceH) * 0.28;
+  const contentW = Math.max(1, faceW - padPx * 2);
+  const contentH = Math.max(1, faceH - padPx * 2);
+  // Default unit strip ~18% of content; Pitch Hz needs more room to read.
+  const labelH = hasUnit ? Math.max(0, contentH * (largeUnit ? 0.30 : 0.18)) : 0;
+  const digitAreaH = Math.max(1, contentH - labelH);
   // Designed em height — original DSEG proportions, not stretched to width.
   let fontSize = Math.max(1, digitAreaH * 0.78);
   context.font = `700 ${fontSize}px ${fontFamily}`;
   let cellW = Math.max(1, context.measureText("8").width);
   const cells = nodeGraphNumberReadoutDsegWidthChars(valueText);
   let totalW = cells * cellW;
-  const maxW = Math.max(1, faceW * 0.94);
+  const maxW = Math.max(1, contentW * 0.94);
   if (totalW > maxW) {
     const scale = maxW / totalW;
     fontSize = Math.max(1, fontSize * scale);
@@ -439,11 +674,26 @@ function nodeGraphNumberReadoutComputeLayout(context, valueText, fontFamily, fac
   return {
     cellW,
     cells,
+    contentH,
+    contentW,
     digitAreaH,
     fontSize,
     labelH,
+    largeUnit,
+    padPx,
     totalW,
   };
+}
+
+/** Unit label font size for the number plate (boosted for Pitch Detector Hz). */
+function nodeGraphNumberReadoutUnitFontSize(labelHeight, width, digitFontSize, largeUnit = false) {
+  if (largeUnit) {
+    return Math.max(
+      1,
+      Math.min(labelHeight * 0.88, width * 0.32, digitFontSize * 0.72),
+    );
+  }
+  return Math.max(1, Math.min(labelHeight * 0.7, width * 0.14, digitFontSize * 0.35));
 }
 
 
@@ -638,6 +888,151 @@ function nodeGraphNumberReadoutDrawInnerShadow(context, left, top, width, height
 }
 
 
+/**
+ * Value LCD — vector DSEG (no phosphor residual hang).
+ * Background + multiply unlit “8”s + solid FG digits + glass inner shadow.
+ */
+function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, valueText, unit) {
+  if (!canvas || !context) {
+    return;
+  }
+  const now = performance.now?.() || Date.now();
+  const left = 0;
+  const top = 0;
+  const width = canvas.width;
+  const height = canvas.height;
+  const bg = typeof nodeGraphFacePlateBackground === "function"
+    ? nodeGraphFacePlateBackground(settings)
+    : (settings?.background || "#b0b5a6");
+  if (typeof nodeGraphFacePlateApplyCss === "function" && screenElement) {
+    nodeGraphFacePlateApplyCss(screenElement, bg);
+  }
+  if (canvas?.parentElement?.dataset) {
+    canvas.parentElement.dataset.lightStrength = "0";
+    canvas.parentElement.dataset.valueFaceStyle = "lcd";
+  }
+  const inkRgb = nodeGraphNumberReadoutLcdInkRgb(settings);
+  const hasUnit = Boolean(unit);
+  // Pitch Detector “Hz” (and any unit labeled Hz) gets a larger unit band.
+  const largeUnit = hasUnit && String(unit).trim().toLowerCase() === "hz";
+  const pad01 = clampNodeSliderValue(Number(settings?.facePadding) || 0, 0, 1);
+  const digitFontFamily = nodeGraphNumberReadoutDsegReady
+    ? '"DSEG7 Classic", "Consolas", monospace'
+    : '"Consolas", "Courier New", monospace';
+  const layout = nodeGraphNumberReadoutComputeLayout(
+    context,
+    valueText,
+    digitFontFamily,
+    width,
+    height,
+    { hasUnit, largeUnit, padding01: pad01 },
+  );
+  const digitFontSize = layout.fontSize;
+  const cellW = layout.cellW;
+  const labelHeight = layout.labelH;
+  const digitAreaHeight = layout.digitAreaH;
+  const padPx = layout.padPx || 0;
+  const digitX = left + padPx + layout.contentW * 0.5;
+  const digitY = top + padPx + digitAreaHeight * 0.5;
+  const unlitAmount = clampNodeSliderValue(Number(settings?.unlitSegments) || 0, 0, 1);
+  const shadowDist = clampNodeSliderValue(Number(settings?.innerShadowDistance) || 0, 0, 1);
+  const shadowSharp = clampNodeSliderValue(Number(settings?.innerShadowSharpness) || 0, 0, 1);
+  const shadowOffX = clampNodeSliderValue(Number(settings?.innerShadowOffsetX) || 0, -1, 1);
+  const shadowOffY = clampNodeSliderValue(Number(settings?.innerShadowOffsetY) || 0, -1, 1);
+  const text = unit ? `${valueText} ${unit}` : valueText;
+
+  // Full clear each frame — no residual burn plate.
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.clearRect(0, 0, width, height);
+  context.save();
+  context.fillStyle = bg;
+  context.fillRect(left, top, width, height);
+
+  // Permanent unlit “8” skeleton: multiply FG color into the plate.
+  if (unlitAmount > 0.001 && !String(valueText || "").includes("!")) {
+    const plateText = typeof nodeGraphNumberReadoutGhostPlateText === "function"
+      ? nodeGraphNumberReadoutGhostPlateText(valueText)
+      : String(valueText || "").replace(/[0-9!]/g, "8");
+    nodeGraphNumberReadoutDrawDigits(context, {
+      text: plateText,
+      centerX: digitX,
+      centerY: digitY,
+      fontFamily: digitFontFamily,
+      fontSize: digitFontSize,
+      cellW,
+      rgb: inkRgb,
+      alpha: Math.min(1, 0.12 + unlitAmount * 0.88),
+      softBlurPx: 0,
+      glow: 0,
+      plate: true,
+      composite: "multiply",
+    });
+  }
+
+  // Live value — solid foreground ink.
+  if (!String(valueText || "").includes("!")) {
+    nodeGraphNumberReadoutDrawDigits(context, {
+      text: valueText,
+      centerX: digitX,
+      centerY: digitY,
+      fontFamily: digitFontFamily,
+      fontSize: digitFontSize,
+      cellW,
+      rgb: inkRgb,
+      alpha: 1,
+      softBlurPx: 0,
+      glow: 0,
+      plate: false,
+      composite: "source-over",
+    });
+  }
+
+  if (hasUnit) {
+    const labelFontSize = nodeGraphNumberReadoutUnitFontSize(
+      labelHeight,
+      layout.contentW || width,
+      digitFontSize,
+      largeUnit,
+    );
+    context.globalCompositeOperation = "source-over";
+    context.font = `700 ${labelFontSize}px "Consolas", "Courier New", monospace`;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillStyle = `rgba(${inkRgb[0]}, ${inkRgb[1]}, ${inkRgb[2]}, ${largeUnit ? 0.78 : 0.55})`;
+    context.fillText(
+      unit,
+      left + padPx + layout.contentW * 0.5,
+      top + padPx + digitAreaHeight + labelHeight * 0.5,
+    );
+  }
+
+  if (shadowDist > 0.001) {
+    nodeGraphNumberReadoutDrawLcdInnerShadow(
+      context,
+      left,
+      top,
+      width,
+      height,
+      shadowDist,
+      shadowSharp,
+      shadowOffX,
+      shadowOffY,
+    );
+  }
+  context.restore();
+
+  canvas._numberReadoutLastValueText = valueText;
+  canvas._nodeGraphNumberReadoutText = text;
+  canvas._nodeGraphNumberReadoutSettingsSig = nodeGraphNumberReadoutSettingsSignature(settings);
+  canvas._nodeGraphNumberReadoutFontReady = nodeGraphNumberReadoutDsegReady;
+  canvas._nodeGraphNumberReadoutWidth = width;
+  canvas._nodeGraphNumberReadoutHeight = height;
+  canvas._nodeGraphNumberReadoutPaintAt = now;
+  canvas._numberReadoutResidualEnergy = 0;
+  nodeGraphNumberReadoutClearBurnPlate(canvas);
+}
+
+
 function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const rect = item?.scopeRect;
   const slot = item?.slot;
@@ -647,17 +1042,23 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   renderNodeGraphModuleScopeAnalyzer(slot, item.buffer);
   const screenElement = item?.screenElement || slot?.scopeElement;
   const canvas = nodeGraphNumberReadoutCanvasForSlot(slot);
-  if (!canvas || !syncNodeGraphNumberReadoutCanvas(canvas, screenElement, pixelRatio)) {
+  const node = nodeGraphModuleScopeNodeForSlot(slot);
+  const settings = nodeGraphNumberReadoutSettingsForNode(node);
+  const faceStyle = nodeGraphNumberReadoutFaceStyleForSlot(slot, node);
+  const isLcd = faceStyle === "lcd";
+  // Value LCD: screen-sharp buffer (tracks zoom). Value LED: fixed layout grid.
+  if (!canvas || !syncNodeGraphNumberReadoutCanvas(canvas, screenElement, pixelRatio, {
+    screenSharp: isLcd,
+  })) {
     return;
   }
   const context = canvas.getContext("2d");
   if (!context) {
     return;
   }
-  const node = nodeGraphModuleScopeNodeForSlot(slot);
-  const settings = nodeGraphNumberReadoutSettingsForNode(node);
   const hasSample = item?.buffer?.length > 0 && !item.buffer?.nodeGraphScopeXy;
   const unit = nodeGraphNumberReadoutUnitForSlot(slot);
+  // Honor Display Settings → Decimals (including Pitch Detector Frequency LCD).
   const decimals = nodeGraphNumberReadoutSafeDecimals(settings.decimals);
   // No input: DSEG all-off ("!") placeholders.
   // https://github.com/keshikan/DSEG#usage
@@ -665,15 +1066,39 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     ? nodeGraphNumberReadoutFormatValue(nodeGraphOscilloscopeLatestSample(item.buffer, 0), decimals)
     : (decimals > 0 ? ` !.${"!".repeat(decimals)}` : " !");
   const text = unit ? `${valueText} ${unit}` : valueText;
-  // Explicit energy model (brightness = gradient position):
-  //  • Ghost Bright G → constant "8" skeleton at energy G → color gradient(G).
-  //  • Bright B → live light strength; on change, deposit previous digits at energy B.
-  //  • Residual R → hang of deposits only (super-exp fade toward 0 on top of the 8 floor).
-  //  • Example: R=0, G=0.2 → only 8-ghost at gradient(0.2). R high, 4→3 → stamp "4"
-  //    at energy B decaying over the 8 floor.
-  //  • Live digits = solid Light color × Bright (no gradient).
-  const residualHang = clampNodeSliderValue(
-    Number(settings.residual) || 0,
+  // Value LCD: dedicated vector path (no residual hang / burn plate).
+  if (isLcd) {
+    const settingsSig = nodeGraphNumberReadoutSettingsSignature(settings);
+    const styleChanged =
+      canvas._nodeGraphNumberReadoutSettingsSig !== settingsSig ||
+      canvas._nodeGraphNumberReadoutFontReady !== nodeGraphNumberReadoutDsegReady ||
+      canvas._nodeGraphNumberReadoutWidth !== canvas.width ||
+      canvas._nodeGraphNumberReadoutHeight !== canvas.height;
+    const textChanged = canvas._nodeGraphNumberReadoutText == null
+      || canvas._nodeGraphNumberReadoutText !== text;
+    if (!textChanged && !styleChanged) {
+      return;
+    }
+    // High-quality glyph AA at the on-screen pixel grid.
+    context.imageSmoothingEnabled = true;
+    if ("imageSmoothingQuality" in context) {
+      context.imageSmoothingQuality = "high";
+    }
+    drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, valueText, unit);
+    return;
+  }
+
+  // ── Value LED / phosphor residual path ──
+  // App-wide residual policy (PhosphorResidual):
+  //  • Bright B → live light + deposit energy on digit change.
+  //  • Trail T / Ghost G → residual hang only (not brightness).
+  const trailHang = clampNodeSliderValue(
+    Number(settings.trail ?? settings.residual) || 0,
+    0,
+    1,
+  );
+  const ghostHang = clampNodeSliderValue(
+    Number(settings.ghost ?? settings.ghostBrightness) || 0,
     0,
     1,
   );
@@ -690,22 +1115,18 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const now = performance.now?.() || Date.now();
   const previousValueText = String(canvas._numberReadoutLastValueText || "");
 
-  // Bright B = deposit energy + live intensity (gradient position for deposits).
+  // Bright B = deposit energy + live intensity.
   const bright = Number.isFinite(Number(settings.brightness))
     ? clampNodeSliderValue(Number(settings.brightness), 0, 1)
     : 1;
-  // Ghost Bright G = constant 8-skeleton energy (gradient position for the floor).
-  const ghostBright = Number.isFinite(Number(settings.ghostBrightness))
-    ? clampNodeSliderValue(Number(settings.ghostBrightness), 0, 1)
-    : 0.2;
-  const ghostFloorOn = ghostBright > 0.001;
-  // Residual hang only governs deposit persistence (not the 8 floor).
-  const hangOn = residualHang > 0.001;
+  // Hang active when either residual axis is on.
+  const hangOn = trailHang > 0.001 || ghostHang > 0.001;
 
   const left = 0;
   const top = 0;
   const width = canvas.width;
   const height = canvas.height;
+  // LED residual uses Ghost Gradient for deposit color.
   let gradientStops = Array.isArray(settings.gradientStops) && settings.gradientStops.length >= 2
     ? settings.gradientStops
     : null;
@@ -747,21 +1168,28 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const burnPlate = hangOn ? nodeGraphNumberReadoutEnsureBurnPlate(canvas) : null;
   const burnCtx = burnPlate?.getContext?.("2d") || null;
 
-  // 1) Fade deposit plate (Residual hang). Energy scalar tracks Bright → 0.
+  // 1) Fade deposit plate (Trail + Ghost hang — pure decay, no brightness inject).
   if (burnCtx && hangOn && !frozen && burnPlate.width > 0) {
-    const erase = nodeGraphNumberReadoutBurnEraseAlpha(residualHang);
-    burnCtx.setTransform(1, 0, 0, 1, 0, 0);
-    burnCtx.save();
-    burnCtx.globalCompositeOperation = "destination-out";
-    burnCtx.fillStyle = `rgba(0, 0, 0, ${erase.toFixed(4)})`;
-    burnCtx.fillRect(0, 0, burnPlate.width, burnPlate.height);
-    burnCtx.restore();
+    const erase = nodeGraphNumberReadoutBurnEraseAlpha(trailHang, ghostHang);
+    if (erase > 0.00005) {
+      burnCtx.setTransform(1, 0, 0, 1, 0, 0);
+      burnCtx.save();
+      burnCtx.globalCompositeOperation = "destination-out";
+      burnCtx.fillStyle = `rgba(0, 0, 0, ${erase.toFixed(4)})`;
+      burnCtx.fillRect(0, 0, burnPlate.width, burnPlate.height);
+      burnCtx.restore();
+    }
     const prevE = Number(canvas._numberReadoutResidualEnergy) || 0;
-    canvas._numberReadoutResidualEnergy = prevE * Math.max(0, 1 - erase);
+    const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
+    if (Residual && typeof Residual.applyResidual === "function") {
+      canvas._numberReadoutResidualEnergy = Residual.applyResidual(prevE, trailHang, ghostHang);
+    } else {
+      canvas._numberReadoutResidualEnergy = prevE * Math.max(0, 1 - erase);
+    }
   }
 
   // 2) On change: stamp ONLY digits that changed (per-cell deposit).
-  //    GhostDepositText: unchanged cells → "!" (skip draw); changed → previous glyph.
+  //    Deposit energy = Bright only (Ghost/Trail never set deposit brightness).
   //    Layout uses previous full reading so columns stay aligned with the face.
   if (
     burnCtx
@@ -779,22 +1207,25 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     );
     if (depositText) {
       // Layout from full previous string (same cell count/geometry as the face).
+      const residualLargeUnit = hasUnit && String(unit || "").trim().toLowerCase() === "hz";
+      const residualPad01 = clampNodeSliderValue(Number(settings?.facePadding) || 0, 0, 1);
       const residualLayout = nodeGraphNumberReadoutComputeLayout(
         burnCtx,
         previousValueText,
         digitFontFamily,
         width,
         height,
-        hasUnit,
+        { hasUnit, largeUnit: residualLargeUnit, padding01: residualPad01 },
       );
+      const residualPad = residualLayout.padPx || 0;
       burnCtx.setTransform(1, 0, 0, 1, 0, 0);
       burnCtx.save();
       burnCtx.globalCompositeOperation = "source-over";
       // White energy at alpha = Bright — only changed cells (drawDigits skips "!").
       nodeGraphNumberReadoutDrawDigits(burnCtx, {
         text: depositText,
-        centerX: left + width * 0.5,
-        centerY: top + residualLayout.digitAreaH * 0.5,
+        centerX: left + residualPad + residualLayout.contentW * 0.5,
+        centerY: top + residualPad + residualLayout.digitAreaH * 0.5,
         fontFamily: digitFontFamily,
         fontSize: residualLayout.fontSize,
         cellW: residualLayout.cellW,
@@ -806,7 +1237,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
         energy: true,
       });
       burnCtx.restore();
-      // Deposit energy starts at Bright (not normalized life 1).
+      // Deposit energy starts at Bright (Ghost only keeps it alive while decaying).
       canvas._numberReadoutResidualEnergy = Math.max(
         Number(canvas._numberReadoutResidualEnergy) || 0,
         bright,
@@ -820,79 +1251,57 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     canvas._numberReadoutResidualEnergy = 0;
   }
   const depositActive = hangOn && depositEnergy > 0.008;
-  // Ghost floor and/or hanging deposits need continuous present.
-  const needsContinuous = !frozen && (ghostFloorOn || depositActive);
+  // Hanging deposits need continuous present (no static Ghost floor).
+  const needsContinuous = !frozen && depositActive;
   if (!textChanged && !styleChanged && !needsContinuous) {
     return;
   }
 
-  // Live light RGB = grey→hue→white from Bright; full coverage (alpha 1).
-  // Bright still scales residual deposit energy separately.
+  // Live LED light RGB (grey→hue→white from Bright).
   const rgb = nodeGraphNumberReadoutLightRgb(settings);
   const bg = nodeGraphFacePlateBackground(settings);
   const alpha = 1;
   if (canvas?.parentElement?.dataset) {
     canvas.parentElement.dataset.lightStrength = bright.toFixed(3);
+    canvas.parentElement.dataset.valueFaceStyle = "led";
   }
 
   context.setTransform(1, 0, 0, 1, 0, 0);
+  const largeUnit = hasUnit && String(unit || "").trim().toLowerCase() === "hz";
+  const pad01 = clampNodeSliderValue(Number(settings?.facePadding) || 0, 0, 1);
   const layout = nodeGraphNumberReadoutComputeLayout(
     context,
     valueText,
     digitFontFamily,
     width,
     height,
-    hasUnit,
+    { hasUnit, largeUnit, padding01: pad01 },
   );
   const digitFontSize = layout.fontSize;
   const cellW = layout.cellW;
   const labelHeight = layout.labelH;
   const digitAreaHeight = layout.digitAreaH;
-  const digitX = left + width * 0.5;
-  const digitY = top + digitAreaHeight * 0.5;
+  const padPx = layout.padPx || 0;
+  const digitX = left + padPx + layout.contentW * 0.5;
+  const digitY = top + padPx + digitAreaHeight * 0.5;
 
-  // Energy → gradient color: G for 8-floor, depositEnergy for burned previous digits.
-  const floorRgb = ghostFloorOn
-    ? nodeGraphNumberReadoutGhostRgbFromEnergy(ghostBright, gradientStops, peakHex)
-    : null;
   const depositRgb = depositActive
     ? nodeGraphNumberReadoutGhostRgbFromEnergy(depositEnergy, gradientStops, peakHex)
     : null;
 
-  // ── Present ──
+  // ── Present (Value LED) ──
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.save();
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.fillStyle = bg;
   context.fillRect(left, top, width, height);
 
-  // 1) Ghost Bright floor: all-on "8" skeleton at energy G → gradient(G).
-  //    Constant minimum brightness under decaying digit deposits.
-  if (ghostFloorOn && floorRgb && !valueText.includes("!")) {
-    nodeGraphNumberReadoutDrawDigits(context, {
-      text: valueText,
-      centerX: digitX,
-      centerY: digitY,
-      fontFamily: digitFontFamily,
-      fontSize: digitFontSize,
-      cellW,
-      rgb: floorRgb,
-      alpha: 1,
-      softBlurPx: 0,
-      glow: 0,
-      plate: true,
-    });
-  }
-
-  // 2) Deposit plate: previous readings at energy Bright, decaying via Residual.
-  //    Color = gradient(depositEnergy). Sits on top of the 8 floor.
+  // Deposit plate: previous readings; energy decays via Trail + Ghost hang.
   if (depositActive && burnPlate?.width > 0 && depositRgb) {
     nodeGraphNumberReadoutPresentBurnPlate(context, burnPlate, depositRgb, 1);
   }
 
-  // 3) Live light over residual — blend mode from Display Settings (Light blend).
-  //    occlude = plate underpaint then Over (no mix with ghost).
-  //    others = canvas globalCompositeOperation of light over residual.
+  // Live digits over residual.
   if (alpha > 0.001 && !valueText.includes("!")) {
     const lightBlend = String(settings.lightBlend || "occlude").trim().toLowerCase() || "occlude";
     if (lightBlend === "occlude") {
@@ -904,7 +1313,6 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
         }
         return [0, 0, 4];
       })();
-      // Occlusion layer: full-opacity plate ink under live segments.
       nodeGraphNumberReadoutDrawDigits(context, {
         text: valueText,
         centerX: digitX,
@@ -918,7 +1326,6 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
         glow: 0,
         plate: false,
       });
-      // Light over plate only (not residual).
       nodeGraphNumberReadoutDrawDigits(context, {
         text: valueText,
         centerX: digitX,
@@ -934,7 +1341,6 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
         composite: "source-over",
       });
     } else {
-      // Blend live Light×Bright directly with residual gradient below.
       nodeGraphNumberReadoutDrawDigits(context, {
         text: valueText,
         centerX: digitX,
@@ -953,12 +1359,21 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   }
 
   if (hasUnit) {
-    const labelFontSize = Math.max(1, Math.min(labelHeight * 0.7, width * 0.14, digitFontSize * 0.35));
-    context.font = `${labelFontSize}px "Consolas", "Courier New", monospace`;
+    const labelFontSize = nodeGraphNumberReadoutUnitFontSize(
+      labelHeight,
+      layout.contentW || width,
+      digitFontSize,
+      largeUnit,
+    );
+    context.font = `700 ${labelFontSize}px "Consolas", "Courier New", monospace`;
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${(alpha * 0.55).toFixed(4)})`;
-    context.fillText(unit, left + width * 0.5, top + digitAreaHeight + labelHeight * 0.5);
+    context.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${(alpha * (largeUnit ? 0.85 : 0.55)).toFixed(4)})`;
+    context.fillText(
+      unit,
+      left + padPx + layout.contentW * 0.5,
+      top + padPx + digitAreaHeight + labelHeight * 0.5,
+    );
   }
 
   context.restore();

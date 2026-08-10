@@ -19,31 +19,31 @@ function nodeGraphOneDimensionalBurnFadeTrail(context, canvas, settings) {
   if (!context || !canvas?.width || !canvas?.height) {
     return;
   }
-  // Ghost/Trail are UI truth on most faces; decay is the legacy mirror (1 − trail).
-  // Value/0D settings historically omitted decay, so fade never ran and residual
-  // stacked forever while full-buffer re-stamps nuked the rAF budget.
-  let decay = Number(settings?.decay);
-  if (!Number.isFinite(decay)) {
-    const trail = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
-      ? PhosphorResidual.migrateTrail(settings, 0.88)
-      : clampNodeSliderValue(
-        Number(settings?.trail ?? (Number.isFinite(Number(settings?.decay))
-          ? 1 - Number(settings.decay)
-          : 0.88)) || 0,
-        0,
-        1,
-      );
-    decay = 1 - trail;
+  // App-wide residual: Ghost = super-exp hang; Trail blends linear → freeze.
+  // Trail 0 = pure Ghost; 0.75 = pure linear; 1 = freeze (no erase).
+  const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
+  const trail = Residual && typeof Residual.migrateTrail === "function"
+    ? Residual.migrateTrail(settings, Residual.DEFAULT_TRAIL ?? 0.5)
+    : clampNodeSliderValue(Number(settings?.trail) || 0, 0, 1);
+  const ghost = Residual && typeof Residual.migrateGhost === "function"
+    ? Residual.migrateGhost(settings, Residual.DEFAULT_GHOST ?? 0.45)
+    : clampNodeSliderValue(Number(settings?.ghost ?? settings?.burn) || 0, 0, 1);
+  let erase = 0;
+  if (Residual && typeof Residual.trailFadeAmount === "function") {
+    erase = Number(Residual.trailFadeAmount(trail, ghost));
+  } else if (Residual && typeof Residual.residualKeep === "function") {
+    erase = 1 - Number(Residual.residualKeep(trail, ghost));
+  } else {
+    // Fallback: simple inverse trail (legacy).
+    erase = clampNodeSliderValue(1 - trail, 0, 1) * 0.12;
   }
-  decay = clampNodeSliderValue(decay, 0, 1);
-  if (decay <= 0.0001) {
+  erase = clampNodeSliderValue(erase, 0, 1);
+  if (erase <= 0.00005) {
     return;
   }
-  // Decay only — no burn term (burn is not a second brightness/gain).
-  const fadeAlpha = clampNodeSliderValue(0.012 + decay * 0.3, 0.002, 0.34);
   context.save();
   context.globalCompositeOperation = "destination-out";
-  context.fillStyle = `rgba(0, 0, 0, ${fadeAlpha.toFixed(4)})`;
+  context.fillStyle = `rgba(0, 0, 0, ${erase.toFixed(4)})`;
   context.fillRect(0, 0, canvas.width, canvas.height);
   context.restore();
 }
