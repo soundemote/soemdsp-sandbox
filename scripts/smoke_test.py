@@ -562,6 +562,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/codeblock/codeblock-live-evaluator.js",
     "./public/modules/sineWavetable/sine-wavetable-live-evaluator.js",
     "./public/modules/ellipsoid/ellipsoid-live-evaluator.js",
+    "./public/modules/ellipsoid/ellipsoid-display.js",
     "./public/modules/additiveOsc/additive-osc-live-evaluator.js",
     "./public/modules/graph/graph-live-evaluator.js",
     "./public/modules/polyBlep/poly-blep-live-evaluator.js",

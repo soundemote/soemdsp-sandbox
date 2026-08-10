@@ -214,7 +214,7 @@ const nodeGraphNodeLabels = Object.freeze({
   // Chromeless / fully-custom-UI modules (stepGrid, led, ...) register
   // their own label instead of it being hardcoded here -- see
   // node-graph-chromeless-module-registry.js.
-  ...nodeGraphChromelessModuleLabelEntries()
+  ...nodeGraphChromelessModuleLabelEntries(),
 });
 
 const nodeGraphLadderFilterModes = Object.freeze(["Flat", "LP", "HP", "BP"]);
@@ -9160,7 +9160,7 @@ const nodeGraphModuleDefinitions = (
   // their own definition instead of it being hardcoded here -- see
   // node-graph-chromeless-module-registry.js. Each entry is sealed with
   // explicit chrome (LayoutB if solidModule, else LayoutA).
-  ...nodeGraphChromelessModuleDefinitionEntries()
+  ...nodeGraphChromelessModuleDefinitionEntries(),
 });
 
 // Text Box and Animated Text Box share the exact same body/title rendering

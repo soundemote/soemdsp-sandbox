@@ -50,6 +50,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%REPO%..\launch_soundemote_
 if errorlevel 1 (
     echo.
     echo ERROR: pipeline failed -- see errors above. Not starting any servers.
+    echo.
+    echo Tip: re-run from a kept-open terminal:
+    echo   cd /d "%REPO%"
+    echo   start_sandbox_release.cmd
+    echo Or skip build/smoke for a quick launch:
+    echo   start_sandbox_release.cmd -SkipNativeBuild -SkipSmoke
+    echo.
+    pause
     exit /b 1
 )
 echo.
