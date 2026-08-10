@@ -245,17 +245,19 @@ function matrixDecayEnergy(state, params, dtSec = 1 / 60) {
     ? matrixPhosphorKillFloor(t)
     : 0.015;
   const e = state.energy;
-  const burn = Number(params.ghost);
-  const ghostAmt = Number.isFinite(burn) ? Math.max(0, Math.min(1, burn)) : 0;
-  // Lower kill when burn is high so dim ghosts aren't wiped early.
-  const killFloor = kill * (1 - ghostAmt * 0.85);
+  const ghostAmt = Math.max(0, Math.min(1, Number(params.ghost) || 0));
+  const burnAmt = Math.max(0, Math.min(1, Number(params.burn) || 0));
+  // Lower kill when Ghost/Burn hang so dim residual isn't wiped early.
+  const killFloor = burnAmt >= 0.999
+    ? 0
+    : kill * (1 - Math.max(ghostAmt, burnAmt) * 0.85);
   const applyHang = typeof matrixPhosphorApplyGhostHang === "function"
     ? matrixPhosphorApplyGhostHang
     : (energy, keep) => energy * keep;
   for (let i = 0; i < e.length; i += 1) {
     if (e[i] <= 0) continue;
-    e[i] = applyHang(e[i], baseKeep, ghostAmt);
-    if (e[i] < killFloor) {
+    e[i] = applyHang(e[i], baseKeep, ghostAmt, burnAmt, t);
+    if (killFloor > 0 && e[i] < killFloor && !(burnAmt > 0.001 && e[i] >= burnAmt * 0.999)) {
       e[i] = 0;
       if (state.residual) state.residual[i] = " ";
     }

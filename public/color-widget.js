@@ -5,11 +5,14 @@ const DRAG_SCALE = {
 };
 
 /**
- * Horizontal inset for the hue spectrum + sample thumb (fraction of bar width).
- * Spectrum paint and drag-dot track share this pad so neither clips the chrome.
+ * Hue drag-dot diameter (matches .scw-hue-thumb).
+ * Track pad = half diameter so the *center* can sit on spectrum ends without
+ * the disc clipping into overflow:hidden chrome.
  */
-const HUE_TRACK_PAD = 0.08;
-const HUE_TRACK_PAD_PCT = `${(HUE_TRACK_PAD * 100).toFixed(2)}%`;
+const HUE_THUMB_SIZE_PX = 10;
+const HUE_TRACK_PAD_PX = HUE_THUMB_SIZE_PX / 2;
+const HUE_THUMB_SIZE_CSS = `${HUE_THUMB_SIZE_PX}px`;
+const HUE_TRACK_PAD_CSS = `${HUE_TRACK_PAD_PX}px`;
 
 /** Labels too generic to waste a title strip on (keep Stop/Level — gradient needs them). */
 const GENERIC_LABELS = new Set([
@@ -45,18 +48,67 @@ function hueSpectrumCss(originDeg = 0) {
 /** Default spectrum (origin 0 / red-left) — CSS var fallback. */
 const SCW_HUE_SPECTRUM = hueSpectrumCss(0);
 
-/** Map sample t 0…1 → thumb center as % of bar (padded track). */
-function hueSampleTToThumbPercent(t) {
-  const u = clamp(Number(t) || 0, 0, 1);
-  return (HUE_TRACK_PAD + u * (1 - 2 * HUE_TRACK_PAD)) * 100;
+/**
+ * Hue track metrics in content-box space (inside border).
+ * Spectrum paint, thumb center, and pointer map all share pad = half thumb.
+ *
+ * @param {Element|null|undefined} hueBar
+ * @returns {{ contentW: number, pad: number, usable: number, originX: number }}
+ */
+function hueTrackMetrics(hueBar) {
+  const rect = hueBar?.getBoundingClientRect?.();
+  if (!rect || !(rect.width > 0)) {
+    return {
+      contentW: 0,
+      pad: HUE_TRACK_PAD_PX,
+      usable: 1e-6,
+      originX: 0,
+    };
+  }
+  let borderL = 0;
+  let borderR = 0;
+  try {
+    const cs = globalThis.getComputedStyle?.(hueBar);
+    if (cs) {
+      borderL = Math.max(0, parseFloat(cs.borderLeftWidth) || 0);
+      borderR = Math.max(0, parseFloat(cs.borderRightWidth) || 0);
+    }
+  } catch {
+    /* ignore */
+  }
+  // Absolute children + % backgrounds resolve against the padding box.
+  const contentW = Math.max(1e-6, rect.width - borderL - borderR);
+  const pad = Math.min(HUE_TRACK_PAD_PX, contentW * 0.5);
+  const usable = Math.max(1e-6, contentW - 2 * pad);
+  return {
+    contentW,
+    pad,
+    usable,
+    originX: rect.left + borderL,
+  };
 }
 
-/** Map client X on hue bar → sample t 0…1 (clamped; no wrap). */
-function hueClientXToSampleT(clientX, rect) {
+/** Map sample t 0…1 → unitless --scw-hue-t (0…1). Thumb left via CSS calc + pad. */
+function hueSampleTClamp(t) {
+  return clamp(Number(t) || 0, 0, 1);
+}
+
+/** Map client X on hue bar → sample t 0…1 (clamped to padded track; no wrap). */
+function hueClientXToSampleT(clientX, hueBarOrRect) {
+  // Prefer element metrics (accounts for border + fixed px pad).
+  if (hueBarOrRect && typeof hueBarOrRect.getBoundingClientRect === "function") {
+    const m = hueTrackMetrics(hueBarOrRect);
+    if (!(m.contentW > 0)) {
+      return 0;
+    }
+    const x = clamp(clientX - m.originX, m.pad, m.contentW - m.pad);
+    return (x - m.pad) / m.usable;
+  }
+  const rect = hueBarOrRect;
   if (!rect || !(rect.width > 0)) {
     return 0;
   }
-  const padPx = HUE_TRACK_PAD * rect.width;
+  const padPx = Math.min(HUE_TRACK_PAD_PX, rect.width * 0.5);
   const usable = Math.max(1e-6, rect.width - 2 * padPx);
   const x = clamp(clientX - rect.left, padPx, rect.width - padPx);
   return (x - padPx) / usable;
@@ -84,7 +136,10 @@ const css = `
     --color-widget-toast-ink: rgba(243, 240, 230, 0.92);
     --color-widget-label-ink: #ffffff;
     --scw-hue-spectrum: ${SCW_HUE_SPECTRUM.replace(/\s+/g, " ").trim()};
-    --scw-hue-pad: ${HUE_TRACK_PAD_PCT};
+    /* Fixed px pad = half drag-dot so ends never clip the disc. */
+    --scw-hue-thumb: ${HUE_THUMB_SIZE_CSS};
+    --scw-hue-pad: ${HUE_TRACK_PAD_CSS};
+    --scw-hue-t: 0;
     container-type: size;
     display: grid;
     min-height: 0;
@@ -234,8 +289,9 @@ const css = `
   }
 
   /*
-   * Hue spectrum + thumb share --scw-hue-pad inset from the control chrome.
-   * Spectrum is only painted in the padded band (not full-bleed).
+   * Hue spectrum + drag-dot share --scw-hue-pad (half thumb size, px).
+   * Spectrum paints only in the padded band; thumb center rides that band so
+   * t=0 / t=1 place the disc flush with the spectrum ends (no wall clip).
    * Origin shifts via --scw-hue-spectrum (track drag).
    */
   .scw-hue,
@@ -244,9 +300,12 @@ const css = `
     background-color: transparent !important;
     background-image: var(--scw-hue-spectrum) !important;
     background-repeat: no-repeat !important;
-    /* Inset rainbow: same pad as the sample-dot track. */
-    background-size: calc(100% - 2 * var(--scw-hue-pad, 8%)) 100% !important;
-    background-position: var(--scw-hue-pad, 8%) 0 !important;
+    /* Padding box = same space absolute thumb uses (ignore border). */
+    background-origin: padding-box !important;
+    background-clip: padding-box !important;
+    /* Inset rainbow by half-dot so ends align with thumb center range. */
+    background-size: calc(100% - 2 * var(--scw-hue-pad, ${HUE_TRACK_PAD_CSS})) 100% !important;
+    background-position: var(--scw-hue-pad, ${HUE_TRACK_PAD_CSS}) 0 !important;
     /* Track drag shifts spectrum origin (reference hue at left). */
     cursor: grab;
     overflow: hidden;
@@ -257,16 +316,20 @@ const css = `
   }
 
   /*
-   * Sample thumb rides the same padded track as the spectrum ends.
-   * pointer-events on so thumb drag moves the 0…360 sample point only.
+   * Sample thumb: center on padded track.
+   * left = pad + t * (100% − 2·pad)  with --scw-hue-t unitless 0…1.
    */
   .scw-hue-thumb {
     position: absolute;
     top: 50%;
-    left: var(--scw-hue-pos, 8%);
-    width: 10px;
-    height: 10px;
-    margin: -5px 0 0 -5px;
+    left: calc(
+      var(--scw-hue-pad, ${HUE_TRACK_PAD_CSS})
+      + var(--scw-hue-t, 0) * (100% - 2 * var(--scw-hue-pad, ${HUE_TRACK_PAD_CSS}))
+    );
+    width: var(--scw-hue-thumb, ${HUE_THUMB_SIZE_CSS});
+    height: var(--scw-hue-thumb, ${HUE_THUMB_SIZE_CSS});
+    margin-top: calc(var(--scw-hue-thumb, ${HUE_THUMB_SIZE_CSS}) / -2);
+    margin-left: calc(var(--scw-hue-thumb, ${HUE_THUMB_SIZE_CSS}) / -2);
     box-sizing: border-box;
     border: 1px solid rgba(0, 0, 0, 0.55);
     border-radius: 50%;
@@ -699,14 +762,16 @@ export class SoundColorWidget {
     }
     const hueBar = this.root.querySelector(".scw-hue");
     if (hueBar) {
-      // Spectrum origin + shared pad for rainbow strip and sample thumb.
+      // Spectrum origin + shared px pad (half thumb) for rainbow + drag-dot.
       const origin = this.channels === "bw" ? 0 : Number(this.hueOrigin) || 0;
       const sampleT = this.channels === "bw"
         ? 0
-        : clamp(Number(this.hueSampleT) || 0, 0, 1);
-      hueBar.style.setProperty("--scw-hue-pad", HUE_TRACK_PAD_PCT);
+        : hueSampleTClamp(this.hueSampleT);
+      hueBar.style.setProperty("--scw-hue-thumb", HUE_THUMB_SIZE_CSS);
+      hueBar.style.setProperty("--scw-hue-pad", HUE_TRACK_PAD_CSS);
       hueBar.style.setProperty("--scw-hue-spectrum", hueSpectrumCss(origin));
-      hueBar.style.setProperty("--scw-hue-pos", `${hueSampleTToThumbPercent(sampleT).toFixed(3)}%`);
+      // Unitless 0…1 — CSS left calc places center on the padded track.
+      hueBar.style.setProperty("--scw-hue-t", String(sampleT));
       const thumb = hueBar.querySelector(".scw-hue-thumb");
       if (thumb) {
         const absH = Math.round(absoluteHueFromOriginSample(origin, sampleT));
@@ -899,9 +964,8 @@ export class SoundColorWidget {
     // Thumb: jump sample to press point (still clamped to padded track).
     if (part === "hue-thumb" && this.channels !== "bw") {
       const hueBar = this.root?.querySelector(".scw-hue");
-      const rect = hueBar?.getBoundingClientRect?.();
-      if (rect) {
-        this.hueSampleT = hueClientXToSampleT(event.clientX, rect);
+      if (hueBar) {
+        this.hueSampleT = hueClientXToSampleT(event.clientX, hueBar);
         this.drag.startHueSampleT = this.hueSampleT;
         this.applyHueFromSampleAndOrigin(true);
       }
@@ -935,17 +999,17 @@ export class SoundColorWidget {
       return;
     }
     const hueBar = this.root?.querySelector(".scw-hue");
-    const rect = hueBar?.getBoundingClientRect?.();
+    const track = hueBar ? hueTrackMetrics(hueBar) : null;
 
     // Thumb drag → move sample point along 0…360 (no wrap; clamp at padded ends).
     if (this.drag.part === "hue-thumb") {
-      if (rect) {
-        this.hueSampleT = hueClientXToSampleT(event.clientX, rect);
+      if (hueBar) {
+        this.hueSampleT = hueClientXToSampleT(event.clientX, hueBar);
       } else {
         const delta = this.dragDelta(event);
-        const track = Math.max(1, rect?.width || 120) * (1 - 2 * HUE_TRACK_PAD);
+        const trackW = Math.max(1, 120 - 2 * HUE_TRACK_PAD_PX);
         this.hueSampleT = clamp(
-          this.drag.startHueSampleT + (delta / track),
+          this.drag.startHueSampleT + (delta / trackW),
           0,
           1,
         );
@@ -957,7 +1021,7 @@ export class SoundColorWidget {
     // Track drag → shift spectrum origin (reference hue at left; e.g. 0° becomes green).
     // Thumb stays fixed on screen; color under the thumb updates with the shift.
     if (this.drag.part === "hue") {
-      const trackW = Math.max(1, (rect?.width || 120) * (1 - 2 * HUE_TRACK_PAD));
+      const trackW = Math.max(1, track?.usable || (120 - 2 * HUE_TRACK_PAD_PX));
       const fine = this.drag.fine || event.shiftKey ? 0.15 : 1;
       const dx = (event.clientX - this.drag.startX) * fine;
       // Drag spectrum with the pointer (content follows finger).

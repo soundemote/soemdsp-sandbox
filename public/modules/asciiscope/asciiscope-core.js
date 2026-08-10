@@ -172,32 +172,51 @@ function matrixPhosphorBaseKeep(trail, dtSec = 1 / 60) {
 }
 
 /**
- * One-frame residual after Decay + Burn (same idea as energy-GL step).
- * Trail/Decay → hot path keep. Burn → dim floor (screen burn-in), not permanent.
+ * One-frame residual after Trail/Ghost/Burn (same idea as energy-GL step).
+ * Ghost → extreme analog (super-exp) hang. Trail encoded as baseKeep when
+ * PhosphorResidual is unavailable. Burn → sticky residual floor (0 = off).
  * Returns next energy (not just a keep factor) so the floor is enforced.
+ *
+ * @param {number} energy01
+ * @param {number} baseKeep trail-derived keep when Residual helper is missing
+ * @param {number} ghost
+ * @param {number} [burn=0]
+ * @param {number} [trail] optional Trail 0…1 for full Residual path
  */
-function matrixPhosphorApplyGhostHang(energy01, baseKeep, ghost = 0) {
+function matrixPhosphorApplyGhostHang(energy01, baseKeep, ghost = 0, burn = 0, trail = null) {
   const e = Math.max(0, Number(energy01) || 0);
-  const bk = Math.max(0, Math.min(1, Number(baseKeep) || 0));
-  const b = Math.max(0, Math.min(1, Number(ghost) || 0));
-  if (b <= 0.001) {
-    return e * bk;
+  const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
+  if (Residual && typeof Residual.applyResidual === "function" && trail != null) {
+    return Residual.applyResidual(e, trail, ghost, burn);
   }
-  // Match energy-GL: mid burn already multi-10s hang; still reaches black.
-  const fade = Math.pow(1 - b, 2.8) * 0.012;
-  const keepSlow = Math.min(0.99975, Math.max(bk, 1 - Math.max(0.00025, fade)));
-  const eFast = e * bk;
-  const burnCap = b * 0.12 + b * b * 0.38;
-  const eGhost = Math.min(e * keepSlow, burnCap);
-  return Math.max(eFast, eGhost);
+  const bk = Math.max(0, Math.min(1, Number(baseKeep) || 0));
+  const g = Math.max(0, Math.min(1, Number(ghost) || 0));
+  const b = Math.max(0, Math.min(1, Number(burn) || 0));
+  let faded;
+  if (g <= 0.001) {
+    faded = e * bk;
+  } else {
+    // Super-exp hang blended with trail base keep (legacy dual-path).
+    const fade = Math.pow(1 - g, 2.8) * 0.012;
+    const keepSlow = Math.min(0.99975, Math.max(bk, 1 - Math.max(0.00025, fade)));
+    const eFast = e * bk;
+    const eGhost = e * keepSlow;
+    faded = Math.max(eFast, eGhost);
+  }
+  if (Residual && typeof Residual.applyBurnFloor === "function") {
+    return Residual.applyBurnFloor(e, faded, b);
+  }
+  if (b >= 0.999) return e;
+  if (b > 0.001 && e >= b) return Math.max(faded, b);
+  return faded;
 }
 
 /**
  * Per-cell keep factor (compat). Prefer matrixPhosphorApplyGhostHang for accuracy.
  */
-function matrixPhosphorCellKeep(baseKeep, energy01, ghost = 0) {
+function matrixPhosphorCellKeep(baseKeep, energy01, ghost = 0, burn = 0, trail = null) {
   const e = Math.max(1e-6, Number(energy01) || 0);
-  const next = matrixPhosphorApplyGhostHang(e, baseKeep, burn);
+  const next = matrixPhosphorApplyGhostHang(e, baseKeep, ghost, burn, trail);
   return Math.max(0, Math.min(1, next / e));
 }
 
@@ -577,11 +596,12 @@ function matrixWaterfallParamsFromNode(node) {
     speed: num("speed", 1.35),
     // Glyph flips per bin of travel (1 = once per bin; 0 = fixed for stream).
     charSpeed: Math.max(0, num("charSpeed", 1)),
-    // Trail 0 = no afterglow, 1 = multi-second main residual (not brightness).
+    // Trail 0 = pure Ghost path weight; 1 ≈ freeze (linear/freeze blend).
     trail: Math.max(0, num("trail", 0.82)),
-    // Burn-in hang: long-lived dim residual on top of Trail (not peak brightness).
-    burn: Math.max(0, Math.min(1, num("ghost", num("burn", 0.35)))),
-    ghost: Math.max(0, Math.min(1, num("ghost", num("burn", 0.35)))),
+    // Ghost = extreme analog (super-exp) hang (not peak brightness).
+    ghost: Math.max(0, Math.min(1, num("ghost", 0.35))),
+    // Burn = sticky residual floor (0 = off). Not previously a face param (ghost was hang).
+    burn: Math.max(0, Math.min(1, num("burn", 0))),
     spawn,
     streamDeath,
     // Present + deposit light axis — not residual lifetime.
@@ -615,7 +635,9 @@ function matrixPlateParamsFromNode(node) {
     bufRows: grid.bufRows,
     // No hard max 0.98 — high trail is real multi-second persistence.
     trail: Number.isFinite(trailRaw) ? Math.max(0, trailRaw) : 0.82,
-    ghost: Math.max(0, Math.min(1, Number(p.ghost ?? p.burn) || 0.35)),
+    ghost: Math.max(0, Math.min(1, Number(p.ghost) || 0.35)),
+    // Burn sticky floor (new face param; default off).
+    burn: Math.max(0, Math.min(1, Number.isFinite(Number(p.burn)) ? Number(p.burn) : 0)),
     brightness: (() => {
       const b = Number(p.brightness);
       return Number.isFinite(b) ? Math.max(0, b) : 1;

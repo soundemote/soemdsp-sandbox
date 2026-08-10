@@ -734,14 +734,23 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
 
   // Residual model (phosphor-residual.js / Display Settings):
   //   Bright → peak deposit + present light
-  //   Trail  → hot residual length (1 ≈ freeze, no erase)
-  //   Ghost  → dim scorched floor hang (NOT deposit ink)
+  //   Ghost  → extreme analog (super-exp) hang (NOT deposit ink)
+  //   Trail  → linear residual blend (1 ≈ freeze, no erase)
+  //   Burn   → sticky residual floor (0 = off)
   const trail = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateTrail
     ? PhosphorResidual.migrateTrail(settings || {}, 0.88)
     : clampNodeSliderValue(Number(settings?.trail ?? (Number.isFinite(Number(settings?.decay)) ? 1 - Number(settings.decay) : 0.88)), 0, 1);
   const ghost = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateGhost
     ? PhosphorResidual.migrateGhost(settings || {}, 0.45)
-    : clampNodeSliderValue(Number(settings?.ghost ?? settings?.burn) || 0, 0, 1);
+    : clampNodeSliderValue(Number(settings?.ghost) || 0, 0, 1);
+  const burn = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateBurn
+    ? PhosphorResidual.migrateBurn(settings || {}, 0)
+    : (
+      Number(settings?.residualSchema) >= 2
+        ? clampNodeSliderValue(Number(settings?.burn) || 0, 0, 1)
+        : 0
+    );
+  const residualSchema = (typeof PhosphorResidual !== "undefined" && PhosphorResidual.RESIDUAL_SCHEMA) || 2;
   // Trail high → low decay (erase). Ghost must not be remapped into deposit.
   const decay = clampNodeSliderValue(1 - trail, 0, 1);
   const bright = clampNodeSliderValue(
@@ -790,6 +799,8 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       decay,
       trail,
       ghost,
+      burn,
+      residualSchema,
       pathPoints: points,
       radius: Math.max(0.35, layer.radius),
       brightness: beamBrightness,
@@ -816,8 +827,10 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
       decay,
       trail,
       ghost,
+      burn,
+      residualSchema,
       depositGain: 0,
-      bleed: ghost > 0.001 ? 0.06 : 0,
+      bleed: ghost > 0.001 || burn > 0.001 ? 0.06 : 0,
     });
   }
 

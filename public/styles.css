@@ -10851,7 +10851,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   pointer-events: auto;
 }
 
-/* Pitch Detector: phosphor LED plate + dedicated meta row (no absolute overlap). */
+/* Pitch Detector: one continuous LED plate; tight Hz/Fid labels at bottom (no bar). */
 .dsp-node.pitch-detector-layout {
   grid-template-rows:
     var(--node-header-height)
@@ -10867,9 +10867,9 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   grid-row: 2;
   align-self: stretch;
   box-sizing: border-box;
-  /* Column: digits flex-fill, meta strip natural height — no clipping. */
-  display: flex;
-  flex-direction: column;
+  /* One continuous plate: LED above, tight Hz/Fid strip below (no second panel). */
+  --pitch-meta-h: 1.12em;
+  display: block;
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -10879,16 +10879,23 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   border: 1px solid rgba(127, 199, 217, 0.16);
 }
 
-/* Phosphor LED plate (class name historical) — fills space above meta only. */
+/* Phosphor LED plate — all space above the tight meta strip. */
 .node-pitch-detector-lcd {
-  position: relative;
-  flex: 1 1 auto;
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  bottom: var(--pitch-meta-h);
   z-index: 1;
   min-width: 0;
   min-height: 0;
-  width: 100%;
+  width: auto;
+  height: auto;
   overflow: hidden;
-  background: #000004;
+  /* Same continuous plate — never a second background/panel. */
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 .node-pitch-detector-lcd > .node-number-readout-canvas {
@@ -10900,27 +10907,36 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   pointer-events: none;
 }
 
-/* Meta strip: own flex track under the plate (never under digits). */
+/*
+ * Hz + Fid: own tight track at the bottom of the face.
+ * No background, no stroke — sits on the same plate as the LED.
+ */
 .node-pitch-detector-fid {
-  position: relative;
-  flex: 0 0 auto;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 5;
   box-sizing: border-box;
   display: grid;
   /* Left: unit; right: Fid + 4-decimal value. */
-  grid-template-columns: minmax(2.6em, 30%) minmax(0, 1fr);
+  grid-template-columns: minmax(2.4em, 28%) minmax(0, 1fr);
   align-items: center;
-  column-gap: 0.45em;
+  column-gap: 0.35em;
   min-width: 0;
-  /* Natural height + breathing room so glyphs aren't clipped. */
-  min-height: 1.55em;
-  padding: 0.22em 0.5em 0.28em;
+  height: var(--pitch-meta-h, 1.12em);
+  min-height: 0;
+  padding: 0 0.4em;
+  margin: 0;
   border: none;
-  border-top: 1px solid rgba(127, 199, 217, 0.12);
-  background: #000004;
+  border-top: none;
+  outline: none;
+  box-shadow: none;
+  /* Never a second plate / bar under the digits. */
+  background: transparent;
   font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
-  font-size: 0.72rem;
-  line-height: 1.25;
+  font-size: 0.68rem;
+  line-height: 1;
   pointer-events: none;
   user-select: none;
 }
@@ -10931,19 +10947,21 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   min-width: 0;
   max-width: 100%;
   margin: 0;
-  padding: 0.05em 0;
+  padding: 0;
   border: 0;
   background: transparent;
-  color: rgba(160, 167, 176, 0.88);
+  color: rgba(160, 167, 176, 0.9);
   font: inherit;
   font-size: 0.95em;
   font-weight: 700;
   letter-spacing: 0.04em;
-  line-height: 1.25;
+  line-height: 1.15;
   text-align: left;
   overflow: hidden;
   text-overflow: clip;
   white-space: nowrap;
+  /* Soft lift so type reads on phosphor without a plate. */
+  text-shadow: 0 0 0.35em rgba(0, 0, 0, 0.85), 0 1px 0 rgba(0, 0, 0, 0.55);
   pointer-events: auto;
   cursor: pointer;
   appearance: none;
@@ -10962,19 +10980,20 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   grid-template-columns: auto minmax(5.75ch, 6.75ch);
   align-items: center;
   justify-content: end;
-  column-gap: 0.4em;
+  column-gap: 0.35em;
   min-width: 0;
   width: 100%;
 }
 
 .node-pitch-detector-fid .node-pitch-detector-k {
   justify-self: end;
-  color: rgba(160, 167, 176, 0.8);
+  color: rgba(160, 167, 176, 0.82);
   font-size: 0.78em;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   white-space: nowrap;
-  line-height: 1.25;
+  line-height: 1.15;
+  text-shadow: 0 0 0.35em rgba(0, 0, 0, 0.85), 0 1px 0 rgba(0, 0, 0, 0.55);
 }
 
 .node-pitch-detector-fid .node-pitch-detector-v {
@@ -10986,7 +11005,8 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   font-variant-numeric: tabular-nums;
   color: rgba(160, 214, 228, 0.98);
   white-space: nowrap;
-  line-height: 1.25;
+  line-height: 1.15;
+  text-shadow: 0 0 0.35em rgba(0, 0, 0, 0.85), 0 1px 0 rgba(0, 0, 0, 0.55);
 }
 
 /*
@@ -15434,8 +15454,14 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 .node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control.scw-hue {
   background-color: transparent !important;
   background-image: var(--scw-hue-spectrum) !important;
-  background-size: 100% 100% !important;
+  /* Match color-widget SSOT: spectrum inset by half drag-dot (no full-bleed). */
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  background-size: calc(100% - 2 * var(--scw-hue-pad, 5px)) 100% !important;
+  background-position: var(--scw-hue-pad, 5px) 0 !important;
+  background-repeat: no-repeat !important;
   cursor: ew-resize;
+  overflow: hidden;
 }
 
 .node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control:hover {

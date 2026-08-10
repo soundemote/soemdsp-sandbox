@@ -1,6 +1,6 @@
-// Boot SoundColorWidget onto window so classic scripts (module-scopes, etc.)
+﻿// Boot SoundColorWidget onto window so classic scripts (module-scopes, etc.)
 // can mount it without document-relative dynamic import path bugs.
-import { SoundColorWidget, hslToHex, mountColorWidget } from "./color-widget.js?v=hue-pad-spectrum-1";
+import { SoundColorWidget, hslToHex, mountColorWidget } from "./color-widget.js?v=hue-thumb-pad-px-1";
 
 if (typeof window !== "undefined") {
   window.SoundColorWidget = SoundColorWidget;

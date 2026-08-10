@@ -164,6 +164,7 @@ function nodeGraphNumberReadoutClearBurnPlate(canvas) {
  * App-wide Trail + Ghost residual policy (PhosphorResidual): pure hang/decay.
  * Ghost does NOT set brightness — only how long deposited energy sticks.
  * Trail 0 + Ghost 0 = wipe deposits immediately.
+ * Burn sticky floor is applied separately (per-pixel) when Burn > 0.
  */
 function nodeGraphNumberReadoutBurnEraseAlpha(trailHang, ghostHang = 0) {
   const trail = clampNodeSliderValue(Number(trailHang) || 0, 0, 1);
@@ -180,7 +181,7 @@ function nodeGraphNumberReadoutBurnEraseAlpha(trailHang, ghostHang = 0) {
     }
   }
   if (Residual && typeof Residual.trailFadeAmount === "function") {
-    const fade = Number(Residual.trailFadeAmount(trail));
+    const fade = Number(Residual.trailFadeAmount(trail, ghost));
     if (Number.isFinite(fade)) {
       return clampNodeSliderValue(fade, 0, 1);
     }
@@ -188,6 +189,44 @@ function nodeGraphNumberReadoutBurnEraseAlpha(trailHang, ghostHang = 0) {
   // Fallback if residual helper not loaded yet.
   const erase = Math.exp(-9 * Math.max(trail, ghost)) * 0.52;
   return clampNodeSliderValue(erase, 0.0015, 0.55);
+}
+
+/**
+ * Per-pixel residual step on the LED burn plate (Trail/Ghost/Burn).
+ * Used when Burn > 0 so sticky floors are not wiped by uniform destination-out.
+ */
+function nodeGraphNumberReadoutApplyResidualPlate(burnCtx, width, height, trailHang, ghostHang, burnHang) {
+  if (!burnCtx || width <= 0 || height <= 0) {
+    return;
+  }
+  const trail = clampNodeSliderValue(Number(trailHang) || 0, 0, 1);
+  const ghost = clampNodeSliderValue(Number(ghostHang) || 0, 0, 1);
+  const burn = clampNodeSliderValue(Number(burnHang) || 0, 0, 1);
+  const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
+  if (!Residual || typeof Residual.applyResidual !== "function") {
+    return;
+  }
+  const img = burnCtx.getImageData(0, 0, width, height);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const a = d[i + 3] / 255;
+    if (a <= 0.0005) continue;
+    // White energy stamps: energy lives in alpha (rgb stays 255).
+    const next = Residual.applyResidual(a, trail, ghost, burn);
+    const na = Math.max(0, Math.min(1, next));
+    if (na <= 0.0005) {
+      d[i] = 0;
+      d[i + 1] = 0;
+      d[i + 2] = 0;
+      d[i + 3] = 0;
+    } else {
+      d[i] = 255;
+      d[i + 1] = 255;
+      d[i + 2] = 255;
+      d[i + 3] = Math.max(0, Math.min(255, Math.round(na * 255)));
+    }
+  }
+  burnCtx.putImageData(img, 0, 0);
 }
 
 /** LED (phosphor light) vs LCD (reflective ink) face style for a slot/node. */
@@ -733,17 +772,42 @@ function nodeGraphNumberReadoutSafeDecimals(decimals) {
 }
 
 
-function nodeGraphNumberReadoutFormatValue(sample, decimals) {
+/**
+ * Format a sample for Value LED / Value LCD digits.
+ * @param {number} sample
+ * @param {number} decimals display places (Decimal budget)
+ * @param {{ guardExtraPlace?: boolean }} [options]
+ *   guardExtraPlace (LCD): round with one offscreen place (decimals+1) first so
+ *   the displayed value (and sign) is not wildly flipped by sub-display noise.
+ *   Also collapses signed zero ("-0.00") to unsigned zero after that round.
+ */
+function nodeGraphNumberReadoutFormatValue(sample, decimals, options = null) {
   const value = Number(sample);
   if (!Number.isFinite(value)) {
     return "--";
   }
   const places = nodeGraphNumberReadoutSafeDecimals(decimals);
+  // LCD: one extra place of rounding before the visible budget (offscreen).
+  const guardExtra = Boolean(options && options.guardExtraPlace);
+  const guardPlaces = guardExtra
+    ? Math.min(8, places + 1)
+    : places;
+  let valueForFormat = value;
+  if (guardPlaces > places) {
+    const scale = 10 ** guardPlaces;
+    // Math.round keeps sign of half-away-from-zero; fine for display settle.
+    valueForFormat = Math.round(value * scale) / scale;
+  }
   let fixed;
   try {
-    fixed = value.toFixed(places);
+    fixed = valueForFormat.toFixed(places);
   } catch {
-    fixed = value.toFixed(2);
+    fixed = valueForFormat.toFixed(2);
+  }
+  // After guard + toFixed, tiny negatives can still print as "-0.00".
+  // Treat exact display-zero as unsigned so the sign column stays calm.
+  if (fixed.startsWith("-") && Number(fixed) === 0) {
+    fixed = (0).toFixed(places);
   }
   // Reserve a sign column so width stays stable across zero (DSEG space =
   // colon advance — keshikan/DSEG usage notes).
@@ -823,6 +887,7 @@ function nodeGraphNumberReadoutSettingsSignature(settings) {
     settings.ghost ?? settings.ghostBrightness,
     settings.color,
     settings.trail ?? settings.residual,
+    settings.burn,
     settings.decimals,
     settings.decimalBudget ? 1 : 0,
     settings.lightBlend,
@@ -1487,7 +1552,12 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
         : (decimals > 0 && pitchMode === "hz" ? ` !.${"!".repeat(decimals)}` : " !"));
   } else {
     liveValueText = hasSample
-      ? nodeGraphNumberReadoutFormatValue(nodeGraphOscilloscopeLatestSample(item.buffer, 0), decimals)
+      ? nodeGraphNumberReadoutFormatValue(
+        nodeGraphOscilloscopeLatestSample(item.buffer, 0),
+        decimals,
+        // Value LCD: settle on decimals+1 before visible budget (sign stability).
+        isLcd ? { guardExtraPlace: true } : null,
+      )
       : (decimals > 0 ? ` !.${"!".repeat(decimals)}` : " !");
   }
   // Hold last good reading — never paint empty "!" over a held phosphor face
@@ -1529,7 +1599,9 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   // ── Value LED / phosphor residual path ──
   // App-wide residual policy (PhosphorResidual):
   //  • Bright B → live light + deposit energy on digit change.
-  //  • Trail T / Ghost G → residual hang only (not brightness).
+  //  • Ghost G → extreme analog (super-exp) hang (not brightness).
+  //  • Trail T → linear residual blend (not brightness).
+  //  • Burn K → sticky residual floor (0 = off).
   //  • Freeze (pause / engine off): hold burn plate + last digits — no wipe.
   const trailHang = clampNodeSliderValue(
     Number(settings.trail ?? settings.residual) || 0,
@@ -1541,6 +1613,13 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     0,
     1,
   );
+  const burnHang = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateBurn
+    ? PhosphorResidual.migrateBurn(settings, 0)
+    : (
+      Number(settings.residualSchema) >= 2
+        ? clampNodeSliderValue(Number(settings.burn) || 0, 0, 1)
+        : 0
+    );
   const settingsSig = nodeGraphNumberReadoutSettingsSignature(settings);
   const styleChanged =
     canvas._nodeGraphNumberReadoutSettingsSig !== settingsSig ||
@@ -1557,8 +1636,8 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const bright = Number.isFinite(Number(settings.brightness))
     ? clampNodeSliderValue(Number(settings.brightness), 0, 1)
     : 1;
-  // Hang active when either residual axis is on.
-  const hangOn = trailHang > 0.001 || ghostHang > 0.001;
+  // Hang active when any residual axis is on (Burn alone can hold a sticky plate).
+  const hangOn = trailHang > 0.001 || ghostHang > 0.001 || burnHang > 0.001;
 
   const left = 0;
   const top = 0;
@@ -1601,22 +1680,40 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const burnPlate = hangOn ? nodeGraphNumberReadoutEnsureBurnPlate(canvas) : null;
   const burnCtx = burnPlate?.getContext?.("2d") || null;
 
-  // 1) Fade deposit plate (Trail + Ghost hang — pure decay, no brightness inject).
+  // 1) Fade deposit plate (Trail + Ghost + Burn — pure decay, sticky floor when Burn > 0).
   if (burnCtx && hangOn && !frozen && burnPlate.width > 0) {
-    const erase = nodeGraphNumberReadoutBurnEraseAlpha(trailHang, ghostHang);
-    if (erase > 0.00005) {
-      burnCtx.setTransform(1, 0, 0, 1, 0, 0);
-      burnCtx.save();
-      burnCtx.globalCompositeOperation = "destination-out";
-      burnCtx.fillStyle = `rgba(0, 0, 0, ${erase.toFixed(4)})`;
-      burnCtx.fillRect(0, 0, burnPlate.width, burnPlate.height);
-      burnCtx.restore();
+    burnCtx.setTransform(1, 0, 0, 1, 0, 0);
+    if (burnHang > 0.001) {
+      // Per-pixel residual so sticky Burn floors survive.
+      nodeGraphNumberReadoutApplyResidualPlate(
+        burnCtx,
+        burnPlate.width,
+        burnPlate.height,
+        trailHang,
+        ghostHang,
+        burnHang,
+      );
+    } else {
+      const erase = nodeGraphNumberReadoutBurnEraseAlpha(trailHang, ghostHang);
+      if (erase > 0.00005) {
+        burnCtx.save();
+        burnCtx.globalCompositeOperation = "destination-out";
+        burnCtx.fillStyle = `rgba(0, 0, 0, ${erase.toFixed(4)})`;
+        burnCtx.fillRect(0, 0, burnPlate.width, burnPlate.height);
+        burnCtx.restore();
+      }
     }
     const prevE = Number(canvas._numberReadoutResidualEnergy) || 0;
     const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
     if (Residual && typeof Residual.applyResidual === "function") {
-      canvas._numberReadoutResidualEnergy = Residual.applyResidual(prevE, trailHang, ghostHang);
+      canvas._numberReadoutResidualEnergy = Residual.applyResidual(
+        prevE,
+        trailHang,
+        ghostHang,
+        burnHang,
+      );
     } else {
+      const erase = nodeGraphNumberReadoutBurnEraseAlpha(trailHang, ghostHang);
       canvas._numberReadoutResidualEnergy = prevE * Math.max(0, 1 - erase);
     }
   }

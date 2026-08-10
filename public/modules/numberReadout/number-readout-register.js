@@ -27,7 +27,7 @@ registerNodeGraphChromelessModule("numberReadout", {
   },
   catalog: {
     category: "multimeter",
-    description: "Value LED: lit DSEG digits with Ghost floor + Trail deposit hang (app-wide residual policy). Side-mounted input, → thru for chaining. Search: value, LED, numeric display.",
+    description: "Value LED: lit DSEG digits with Ghost/Trail residual hang + Burn sticky floor (app-wide residual policy). Side-mounted input, → thru for chaining. Search: value, LED, numeric display.",
     notes: [
       "value",
       "value led",
@@ -42,6 +42,7 @@ registerNodeGraphChromelessModule("numberReadout", {
       "LED readout",
       "ghost",
       "trail",
+      "burn",
       "DSEG7",
       "multimeter",
     ],

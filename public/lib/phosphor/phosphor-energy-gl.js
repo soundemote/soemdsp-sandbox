@@ -76,11 +76,12 @@
   // Bleed is what makes a slow dwell "grow outward" instead of a hard saturated disc:
   // each frame a little energy seeps into neighbors (CRT phosphor charge diffusion).
   //
-  // Dual residual (matches PhosphorResidual):
-  //   uKeepFast  — Trail hot path (1 = freeze)
-  //   uKeepSlow  — Ghost slow hang (super-exp die; NOT brightness)
+  // Residual (matches PhosphorResidual):
+  //   uKeepFast  — Trail+Ghost blended keep (1 = freeze)
+  //   uKeepSlow  — same keep (dual path max ≡ single blend)
   //   uGhostCap  — gates slow path (0 = off, 1 = on); not a brightness ceiling
-  // When Ghost is 0, keepSlow/cap are 0 and only Trail erase runs.
+  //   uBurn      — sticky floor 0…1 (0 = off; 1 = freeze all residual)
+  // When Ghost is 0, keepSlow/cap are 0 and only Trail erase runs (unless Burn).
   const STEP_FRAG = `
     precision highp float;
     varying vec2 vUv;
@@ -89,6 +90,7 @@
     uniform float uKeepFast;
     uniform float uKeepSlow;
     uniform float uGhostCap;
+    uniform float uBurn;
     uniform float uGain;
     uniform float uUseMask;
     uniform vec2 uTexel;
@@ -111,12 +113,18 @@
         float blur = (e0 * 4.0 + (e1 + e2 + e3 + e4) * 2.0 + (e5 + e6 + e7 + e8)) / 16.0;
         eBase = mix(e0, blur, bleed);
       }
-      // Trail hot path + optional Ghost slow hang (pure keep; cap only enables path).
+      // Trail + Ghost keep, then sticky Burn floor.
       float eFast = eBase * uKeepFast;
       float eGhost = (uGhostCap > 0.0001)
         ? (eBase * uKeepSlow)
         : 0.0;
       float e = max(eFast, eGhost);
+      float burn = clamp(uBurn, 0.0, 1.0);
+      if (burn >= 0.999) {
+        e = eBase;
+      } else if (burn > 0.001 && eBase >= burn) {
+        e = max(e, burn);
+      }
       if (uUseMask > 0.5) {
         vec4 m = texture2D(uMask, vUv);
         float ink = max(m.r, max(m.g, m.b)) * m.a;
@@ -575,10 +583,11 @@
       aPos: gl.getAttribLocation(stepProgram, "aPos"),
       uEnergy: gl.getUniformLocation(stepProgram, "uEnergy"),
       uMask: gl.getUniformLocation(stepProgram, "uMask"),
-      // Dual residual: Trail keepFast + Ghost keepSlow/cap (uKeep is legacy alias).
+      // Trail+Ghost keep + sticky Burn floor (uKeep is legacy alias for keepFast).
       uKeepFast: gl.getUniformLocation(stepProgram, "uKeepFast"),
       uKeepSlow: gl.getUniformLocation(stepProgram, "uKeepSlow"),
       uGhostCap: gl.getUniformLocation(stepProgram, "uGhostCap"),
+      uBurn: gl.getUniformLocation(stepProgram, "uBurn"),
       uKeep: gl.getUniformLocation(stepProgram, "uKeepFast"),
       uGain: gl.getUniformLocation(stepProgram, "uGain"),
       uUseMask: gl.getUniformLocation(stepProgram, "uUseMask"),
@@ -1321,13 +1330,15 @@
    * Even with decay=0, bleed still runs so long dwell expands outward.
    */
   /**
-   * Resolve Trail/Ghost residual keeps for the energy step.
-   * Prefer explicit trail/ghost; fall back to legacy decay (high = faster die).
+   * Resolve Trail/Ghost/Burn residual keeps for the energy step.
+   * Prefer explicit trail/ghost/burn; fall back to legacy decay (high = faster die).
+   * Legacy: burn-without-ghost = ghost hang. Schema ≥2 / explicit ghost: burn = sticky floor.
    */
   function residualKeeps(options = {}) {
     const Residual = global.PhosphorResidual;
     let trail;
     let ghost;
+    let burn;
     if (options.trail != null && Number.isFinite(Number(options.trail))) {
       trail = Math.max(0, Math.min(1, Number(options.trail)));
     } else if (options.decay != null && Number.isFinite(Number(options.decay))) {
@@ -1337,20 +1348,38 @@
     }
     if (options.ghost != null && Number.isFinite(Number(options.ghost))) {
       ghost = Math.max(0, Math.min(1, Number(options.ghost)));
-    } else if (options.burn != null && Number.isFinite(Number(options.burn))) {
-      // Legacy burn name = ghost hang, not deposit.
+    } else if (
+      options.burn != null
+      && Number.isFinite(Number(options.burn))
+      && !(Number(options.residualSchema) >= (Residual?.RESIDUAL_SCHEMA || 2))
+    ) {
+      // Legacy burn name = ghost hang (only when ghost absent and pre-schema).
       ghost = Math.max(0, Math.min(1, Number(options.burn)));
     } else {
       ghost = 0;
     }
-    // Preferred: shared Trail-blend model (pure Ghost → linear → freeze).
+    if (options.burn != null && Number.isFinite(Number(options.burn))) {
+      // Sticky Burn when ghost is explicit or residualSchema ≥ 2; else legacy → 0.
+      if (
+        options.ghost != null && Number.isFinite(Number(options.ghost))
+        || Number(options.residualSchema) >= (Residual?.RESIDUAL_SCHEMA || 2)
+      ) {
+        burn = Math.max(0, Math.min(1, Number(options.burn)));
+      } else {
+        burn = 0;
+      }
+    } else {
+      burn = 0;
+    }
+    // Preferred: shared Trail-blend model + sticky Burn.
     if (Residual && typeof Residual.residualKeeps === "function") {
-      const k = Residual.residualKeeps(trail, ghost);
+      const k = Residual.residualKeeps(trail, ghost, burn);
       return {
         keepFast: Number(k.keepFast) || 0,
         keepSlow: Number(k.keepSlow) || 0,
         ghostCap: Number(k.ghostCap) || 0,
         fade: Number(k.fade) || 0,
+        burn: Number(k.burn) || burn,
         trail,
         ghost,
       };
@@ -1363,6 +1392,7 @@
         keepSlow: keep,
         ghostCap: cap,
         fade: Math.max(0, 1 - keep),
+        burn,
         trail,
         ghost,
       };
@@ -1376,6 +1406,7 @@
       keepSlow: keepFast,
       ghostCap: 0,
       fade,
+      burn,
       trail,
       ghost,
     };
@@ -1390,7 +1421,8 @@
       maskCanvas = null,
     } = options;
     const { gl } = renderer;
-    const { keepFast, keepSlow, ghostCap, fade } = residualKeeps(options);
+    const { keepFast, keepSlow, ghostCap, fade, burn } = residualKeeps(options);
+    const burnAmt = Math.max(0, Math.min(1, Number(burn) || 0));
     const useMask = maskCanvas && depositGain > 0.0001 ? 1 : 0;
     // Default bleed: gentle CRT-like charge diffusion. Soft enough to not mush
     // the beam, strong enough that a slow burn grows a soft halo over time.
@@ -1399,8 +1431,8 @@
       ? Math.max(0, Math.min(1, bleedOpt))
       : 0.12;
 
-    // Skip only when truly idle: freeze / full keep, no bleed, no mask deposit.
-    const fullyFrozen = keepFast >= 0.9999 && keepSlow >= 0.9999;
+    // Skip only when truly idle: freeze / full keep / full Burn, no bleed, no mask deposit.
+    const fullyFrozen = (keepFast >= 0.9999 && keepSlow >= 0.9999) || burnAmt >= 0.999;
     if (fullyFrozen && bleed < 0.0001 && !useMask) {
       // Trail≈1: residual is frozen but still count quiet frames so we stop
       // calling into GL every RAF after a short hold (energyActive → false).
@@ -1458,6 +1490,9 @@
     if (renderer.step.uGhostCap) {
       gl.uniform1f(renderer.step.uGhostCap, ghostCap);
     }
+    if (renderer.step.uBurn) {
+      gl.uniform1f(renderer.step.uBurn, burnAmt);
+    }
     gl.uniform1f(renderer.step.uGain, useMask ? Math.max(0, Math.min(1.5, depositGain)) : 0);
     gl.uniform1f(renderer.step.uUseMask, useMask);
     const tw = Math.max(1, renderer.width);
@@ -1483,13 +1518,13 @@
       // Frozen trail: short sleep (hold image via last present until next deposit).
       // Ghost hang: long budget so scorch is not killed early.
       let sleepBudget = 240;
-      if (fade <= 0.0001 && ghostCap <= 0.0001) {
+      if (fade <= 0.0001 && ghostCap <= 0.0001 && burnAmt <= 0.001) {
         sleepBudget = 90; // ~1.5s @60fps then stop stepping frozen residual
       } else if (Residual && typeof Residual.residualSleepFrames === "function") {
         const ghostArg = Number.isFinite(Number(options.ghost))
           ? Number(options.ghost)
           : (ghostCap > 0 ? 0.45 : 0);
-        sleepBudget = Residual.residualSleepFrames(ghostArg);
+        sleepBudget = Residual.residualSleepFrames(ghostArg, burnAmt);
       }
       if (renderer.quietFrames > sleepBudget) {
         renderer.energyActive = false;
@@ -1561,6 +1596,7 @@
       trail: options.trail,
       ghost: options.ghost,
       burn: options.burn,
+      residualSchema: options.residualSchema,
       depositGain: 0,
       maskCanvas: null,
       bleed: willDeposit || renderer.energyActive ? bleed : 0,

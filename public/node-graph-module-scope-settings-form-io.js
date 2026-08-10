@@ -588,7 +588,16 @@ function readNodeGraphTraceDisplaySettingsForm() {
       if (key === "ghostBrightness") {
         next.ghost = sanitizedValue;
       }
+      // Sticky Burn (residualSchema ≥ 2). Stamp schema so migrateBurn accepts burn.
+      if (key === "burn") {
+        next.residualSchema = 2;
+      }
     }
+  }
+  // Any Ghost/Trail/Burn edit on phosphor faces writes residualSchema ≥ 2
+  // so Burn is sticky floor (not the legacy burn≡ghost mirror).
+  if (activeFields.has("burn") || activeFields.has("ghost") || activeFields.has("trail")) {
+    next.residualSchema = 2;
   }
   for (const key of activeColors) {
     const input = root?.querySelector?.(`[data-trace-display-color="${key}"]`);

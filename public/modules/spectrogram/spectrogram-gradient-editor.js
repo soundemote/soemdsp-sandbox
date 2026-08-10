@@ -507,7 +507,7 @@
         min-height: var(--sge-plane-h) !important;
         max-height: var(--sge-plane-h) !important;
       }
-      /* Hue spectrum from color-widget SSOT (--scw-hue-spectrum). */
+      /* Hue spectrum from color-widget SSOT (padded track = half drag-dot). */
       .sge-color-widget-host .scw-hue,
       .sge-color-widget-host button.scw-control.scw-hue {
         height: var(--sge-hue-h) !important;
@@ -515,7 +515,12 @@
         max-height: var(--sge-hue-h) !important;
         background-color: transparent !important;
         background-image: var(--scw-hue-spectrum) !important;
-        background-size: 100% 100% !important;
+        background-origin: padding-box !important;
+        background-clip: padding-box !important;
+        background-size: calc(100% - 2 * var(--scw-hue-pad, 5px)) 100% !important;
+        background-position: var(--scw-hue-pad, 5px) 0 !important;
+        background-repeat: no-repeat !important;
+        overflow: hidden;
       }
 
       .sge-actions {

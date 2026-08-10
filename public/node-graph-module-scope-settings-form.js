@@ -37,11 +37,15 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null) {
   }
   if (formType === "numberReadout" && (key === "ghost" || key === "ghostBrightness")) {
     label = "Ghost";
-    title = "Super-exp residual hang 0…1 (not brightness). With Trail at 0 this is the full hang algorithm. Bright only sets deposit light.";
+    title = "Extreme analog (super-exp) residual hang 0…1 (not brightness). With Trail at 0 this is the full hang algorithm. Bright only sets deposit light.";
   }
   if (formType === "numberReadout" && (key === "trail" || key === "residual")) {
     label = "Trail";
-    title = "Blends linear decay over Ghost, then freezes. 0 = pure Ghost; 0.5 = half linear / half Ghost; 0.75 = full linear; 1 = never decay pixels.";
+    title = "Adds linear decay over Ghost, then freezes. 0 = pure Ghost; 0.5 = half linear / half Ghost; 0.75 = full linear; 1 = never decay pixels.";
+  }
+  if (formType === "numberReadout" && key === "burn") {
+    label = "Burn";
+    title = "Sticky residual floor 0…1. 0 = no pixels stick; 0.5 = once energy ≥ 0.5 the pixel freezes at that floor; 1 = all residual freezes. Off by default.";
   }
   if (formType === "numberReadout" && key === "unlitSegments") {
     label = "Ghost";
@@ -414,8 +418,8 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
           .filter((key) => activeColors.has(key));
         choiceKeys = [];
       } else {
-        // Value LED: Decimals → Padding → Bright → Ghost → Trail (last) → blend → Background → Ghost Gradient.
-        fieldKeys = ["decimals", "facePadding", "dot1Brightness", "ghost", "trail"]
+        // Value LED: Decimals → Padding → Bright → Ghost → Trail → Burn (last) → blend → Background → Ghost Gradient.
+        fieldKeys = ["decimals", "facePadding", "dot1Brightness", "ghost", "trail", "burn"]
           .filter((key) => activeFields.has(key));
         colorKeys = ["backgroundColor"]
           .filter((key) => activeColors.has(key));

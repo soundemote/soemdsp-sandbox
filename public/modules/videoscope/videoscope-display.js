@@ -83,16 +83,29 @@ function drawNodeGraphVideoscopeItem(renderer, item, pixelRatio) {
     ? nodeGraphScopePhosphorLookDefaults
     : null;
   const defaultSize = look?.size ?? 0.0385;
+  const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
   const settings = {
     background: face.background || look?.background || "#000004",
-    ghost: Number.isFinite(Number(face.ghost))
-      ? Number(face.ghost)
-      : (look?.ghost ?? 0.55),
-    trail: Number.isFinite(Number(face.trail))
-      ? Number(face.trail)
-      : (Number.isFinite(Number(face.decay))
-        ? 1 - Number(face.decay)
-        : (look?.trail ?? 0.5175)),
+    ghost: Residual && typeof Residual.migrateGhost === "function"
+      ? Residual.migrateGhost(face, look?.ghost ?? 0.55)
+      : (Number.isFinite(Number(face.ghost))
+        ? Number(face.ghost)
+        : (look?.ghost ?? 0.55)),
+    trail: Residual && typeof Residual.migrateTrail === "function"
+      ? Residual.migrateTrail(face, look?.trail ?? 0.5175)
+      : (Number.isFinite(Number(face.trail))
+        ? Number(face.trail)
+        : (Number.isFinite(Number(face.decay))
+          ? 1 - Number(face.decay)
+          : (look?.trail ?? 0.5175))),
+    burn: Residual && typeof Residual.migrateBurn === "function"
+      ? Residual.migrateBurn(face, 0)
+      : (
+        Number(face.residualSchema) >= 2
+          ? Math.max(0, Math.min(1, Number(face.burn) || 0))
+          : 0
+      ),
+    residualSchema: Residual?.RESIDUAL_SCHEMA || 2,
     // Brightness only for deposit (no burn gain coupling).
     dot1Brightness: Number.isFinite(Number(face.dot1Brightness))
       ? Number(face.dot1Brightness) * (paramBrightness / 1)

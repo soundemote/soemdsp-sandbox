@@ -483,7 +483,15 @@ function drawNodeGraphDotOscilloscopeItem(renderer, item, pixelRatio) {
     : clampNodeSliderValue(Number(settings.trail ?? (Number.isFinite(Number(settings.decay)) ? 1 - Number(settings.decay) : 0.78)), 0, 1);
   const ghost = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateGhost
     ? PhosphorResidual.migrateGhost(settings, 0.4)
-    : clampNodeSliderValue(Number(settings.ghost ?? settings.burn) || 0, 0, 1);
+    : clampNodeSliderValue(Number(settings.ghost) || 0, 0, 1);
+  const burn = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateBurn
+    ? PhosphorResidual.migrateBurn(settings, 0)
+    : (
+      Number(settings.residualSchema) >= 2
+        ? clampNodeSliderValue(Number(settings.burn) || 0, 0, 1)
+        : 0
+    );
+  const residualSchema = (typeof PhosphorResidual !== "undefined" && PhosphorResidual.RESIDUAL_SCHEMA) || 2;
 
   // Opaque face plate (CSS mix-blend is normal; never screen-tint the module chrome).
   canvas.style.mixBlendMode = "normal";
@@ -515,6 +523,8 @@ function drawNodeGraphDotOscilloscopeItem(renderer, item, pixelRatio) {
       nodeGraphPhosphorEnergyGlStepBeams(energyGl, {
         trail,
         ghost,
+        burn,
+        residualSchema,
         pathPoints: deposit > 1e-8 ? [{ x: cx, y: cy }] : [],
         radius,
         brightness: deposit,

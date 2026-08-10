@@ -178,6 +178,7 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
   ["bins", "Bins"],
   ["ghost", "Ghost"],
   ["trail", "Trail"],
+  ["burn", "Burn"],
   ["residual", "Residual"],
   ["ghostBrightness", "Ghost Bright"],
   ["pixelDensity", "Pixel density"],
@@ -206,7 +207,7 @@ const nodeGraphTraceDisplaySettingFields = Object.freeze([
 /**
  * Shared phosphor Display Settings order (app-wide, including Lorenz).
  * Faces pick a subset; builders keep this relative order.
- * Bright → Size → Blur → Ghost → Trail → Scale → Pixel density → Dot Budget
+ * Bright → Size → Blur → Ghost → Trail → Burn → Scale → Pixel density → Dot Budget
  */
 const nodeGraphPhosphorDisplayFieldOrder = Object.freeze([
   "dot1Brightness",
@@ -214,6 +215,7 @@ const nodeGraphPhosphorDisplayFieldOrder = Object.freeze([
   "lineThickness",
   "ghost",
   "trail",
+  "burn",
   "scale",
   "pixelDensity",
   "dotBudget",

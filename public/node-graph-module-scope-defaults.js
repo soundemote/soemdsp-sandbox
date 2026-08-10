@@ -62,7 +62,7 @@ const nodeGraphModuleScopeUnipolarTypes = new Set([
 /**
  * Shared phosphor stamp defaults for all 1D + 2D phosphor faces
  * (line burn, scope2d, XY pad, value, attractors, …).
- * Bright / Size / Ghost / Trail / Scale / Pixel density / Dot budget.
+ * Bright / Size / Ghost / Trail / Burn / Scale / Pixel density / Dot budget.
  */
 const nodeGraphScopePhosphorLookDefaults = Object.freeze({
   // Face / gradient floor (stop 0).
@@ -80,9 +80,11 @@ const nodeGraphScopePhosphorLookDefaults = Object.freeze({
   ]),
   // Bright 0…1 (deposit / tip).
   brightness: 0.08,
-  // Ghost = dim scorched floor; Trail = hot residual length (0 = no trail).
+  // Ghost = extreme analog (super-exp) hang; Trail = linear blend; Burn = sticky floor (off).
   ghost: 0.45,
   trail: 0,
+  burn: 0,
+  residualSchema: 2,
   // Size 0…1 diameter map (0 → 1px floor, 1 → full face min side).
   size: 0.02,
   // Stamp blur 0 hard … 1 soft.
@@ -143,8 +145,9 @@ const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
  */
 const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   background: "#000000",
-  // Legacy mirrors (burn≡ghost, decay≡1−trail).
-  burn: 0.3,
+  // Sticky Burn off; decay is legacy 1−trail only.
+  burn: 0,
+  residualSchema: 2,
   decay: 0.3,
   ghost: 0.3,
   trail: 0.7,
@@ -180,6 +183,8 @@ const nodeGraphZeroDBurnSettingsDefaults = Object.freeze({
   bipolarBrightness: false,
   ghost: nodeGraphScopePhosphorLookDefaults.ghost,
   trail: nodeGraphScopePhosphorLookDefaults.trail,
+  burn: 0,
+  residualSchema: 2,
   dot1Brightness: nodeGraphScopePhosphorLookDefaults.brightness,
   dot1Color: nodeGraphScopePhosphorLookDefaults.peakColor,
   dot1Enabled: true,
@@ -211,6 +216,7 @@ const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
   ghost: 0,
   trail: 0,
   burn: 0,
+  residualSchema: 2,
   decay: 1,
   dot1Enabled: true,
   // Stroke diameter: 0 = 1px, 1 = face square min side.
@@ -225,7 +231,7 @@ const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
 
 
 // Value LED (numberReadout): phosphor / lit seven-segment face.
-// App-wide residual axes: Bright = light only; Trail/Ghost = hang only (no brightness).
+// App-wide residual axes: Bright = light only; Ghost/Trail/Burn = hang only (no brightness).
 const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   faceStyle: "led",
   background: nodeGraphScopePhosphorLookDefaults.background,
@@ -233,11 +239,14 @@ const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   brightness: 0.5,
   // Live digit “light” — single solid color (not the residual gradient).
   color: nodeGraphScopePhosphorLookDefaults.peakColor,
-  // Trail 0…1 — hot residual hang (PhosphorResidual.trail).
+  // Trail 0…1 — linear residual blend (PhosphorResidual.trail).
   trail: 0.88,
-  // Ghost 0…1 — slow super-exp hang of residual energy (NOT brightness).
+  // Ghost 0…1 — extreme analog (super-exp) hang (NOT brightness).
   ghost: 0.45,
-  // Legacy aliases (normalize keeps these in sync).
+  // Burn 0…1 — sticky residual floor (0 = off).
+  burn: 0,
+  residualSchema: 2,
+  // Legacy aliases (normalize keeps trail/ghost aliases in sync).
   residual: 0.88,
   ghostBrightness: 0.45,
   decimals: 2,
@@ -264,6 +273,8 @@ const nodeGraphValueLcdSettingsDefaults = Object.freeze({
   // Residual hang unused on LCD (kept 0 so old patches don’t re-enable burn path).
   trail: 0,
   ghost: 0,
+  burn: 0,
+  residualSchema: 2,
   residual: 0,
   ghostBrightness: 0,
   decimals: 2,
@@ -275,11 +286,12 @@ const nodeGraphValueLcdSettingsDefaults = Object.freeze({
   // LCD Ghost: permanent “8” skeleton amount 0…1 (soft fade from 0).
   unlitSegments: 0.28,
   // Inner shadow (screen glass): Gaussian soft inset + CSS-like offset.
-  innerShadowDistance: 0.22,
-  innerShadowSharpness: 0.4,
+  // LCD glass inset shadow defaults.
+  innerShadowDistance: 1,
+  innerShadowSharpness: 0.732,
   // Offset −1…1 (0 = centered). Positive X/Y darkens left/top (light from +X/+Y).
   innerShadowOffsetX: 0,
-  innerShadowOffsetY: 0.12,
+  innerShadowOffsetY: 0.135,
   gradientStops: Object.freeze([]),
 });
 
@@ -338,7 +350,8 @@ const nodeGraphScope2dSettingsDefaults = Object.freeze({
   background: "#000000",
   ghost: nodeGraphScopePhosphorLookDefaults.ghost,
   trail: nodeGraphScopePhosphorLookDefaults.trail,
-  burn: nodeGraphScopePhosphorLookDefaults.ghost,
+  burn: 0,
+  residualSchema: 2,
   decay: 1 - nodeGraphScopePhosphorLookDefaults.trail,
   dot1Brightness: nodeGraphScopePhosphorLookDefaults.brightness,
   dot1Color: "#75ebff",
@@ -362,7 +375,8 @@ const nodeGraphScope2dSettingsDefaults = Object.freeze({
 const nodeGraphScope2dSnowflakeDisplayDefaults = Object.freeze({
   ghost: 0.82,
   trail: 0.88,
-  burn: 0.82,
+  burn: 0,
+  residualSchema: 2,
   decay: 0.12,
   dot1Brightness: 0.0818,
   dot1Size: 0.032,
@@ -376,7 +390,8 @@ const nodeGraphScope2dSnowflakeDisplayDefaults = Object.freeze({
 const nodeGraphScope2dLorenzDisplayDefaults = Object.freeze({
   ghost: 0.82,
   trail: 0.88,
-  burn: 0.82,
+  burn: 0,
+  residualSchema: 2,
   decay: 0.12,
   dot1Brightness: 0.3546,
   dot1Size: 0.009,
@@ -390,7 +405,8 @@ const nodeGraphScope2dLorenzDisplayDefaults = Object.freeze({
 const nodeGraphScope2dKeplerJerobeamDisplayDefaults = Object.freeze({
   ghost: 0.37,
   trail: 0.5845,
-  burn: 0.37,
+  burn: 0,
+  residualSchema: 2,
   decay: 0.4155,
   dot1Brightness: 0.92,
   dot1Size: 0.009,
@@ -404,7 +420,8 @@ const nodeGraphScope2dKeplerJerobeamDisplayDefaults = Object.freeze({
 const nodeGraphScope2dNyquistDisplayDefaults = Object.freeze({
   ghost: 0.45,
   trail: 0,
-  burn: 0.45,
+  burn: 0,
+  residualSchema: 2,
   decay: 1,
   dot1Brightness: 0.8,
   dot1Size: 0.02,
@@ -459,9 +476,11 @@ function nodeGraphScope2dSettingsDefaultsForModuleType(type) {
 
 const nodeGraphXyPadDisplaySettingsDefaults = Object.freeze({
   background: nodeGraphScopePhosphorLookDefaults.background,
-  // Ghost = dim scorched floor; Trail = main residual (1 ≈ freeze).
+  // Ghost = super-exp hang; Trail = linear blend; Burn = sticky floor (off).
   ghost: nodeGraphScopePhosphorLookDefaults.ghost,
   trail: nodeGraphScopePhosphorLookDefaults.trail,
+  burn: 0,
+  residualSchema: 2,
   // Phosphor beam brightness 0..1.
   dot1Brightness: nodeGraphScopePhosphorLookDefaults.brightness,
   // Peak = last gradient stop (UI overlay tints from this).

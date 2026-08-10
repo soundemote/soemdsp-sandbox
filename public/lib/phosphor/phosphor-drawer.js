@@ -174,6 +174,8 @@
       decay: options.decay != null ? clamp01(options.decay, DEFAULT_DECAY) : undefined,
       trail: options.trail,
       ghost: options.ghost,
+      burn: options.burn,
+      residualSchema: options.residualSchema,
       pathPoints: options.pathPoints || null,
       vertices: options.vertices || null,
       radius: Math.max(0.35, radius),
@@ -200,7 +202,11 @@
       return false;
     }
     return global.nodeGraphPhosphorEnergyGlStep(face, {
-      decay: clamp01(options.decay, DEFAULT_DECAY),
+      decay: options.decay != null ? clamp01(options.decay, DEFAULT_DECAY) : undefined,
+      trail: options.trail,
+      ghost: options.ghost,
+      burn: options.burn,
+      residualSchema: options.residualSchema,
       depositGain: 0,
       maskCanvas: null,
       bleed: Number.isFinite(Number(options.bleed)) ? Number(options.bleed) : 0.1,

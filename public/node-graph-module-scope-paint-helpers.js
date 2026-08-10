@@ -19,7 +19,7 @@ function nodeGraphOneDimensionalBurnFadeTrail(context, canvas, settings) {
   if (!context || !canvas?.width || !canvas?.height) {
     return;
   }
-  // App-wide residual: Ghost = super-exp hang; Trail blends linear → freeze.
+  // App-wide residual: Ghost = super-exp; Trail = linear blend; Burn = sticky floor.
   // Trail 0 = pure Ghost; 0.75 = pure linear; 1 = freeze (no erase).
   const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
   const trail = Residual && typeof Residual.migrateTrail === "function"
@@ -27,7 +27,46 @@ function nodeGraphOneDimensionalBurnFadeTrail(context, canvas, settings) {
     : clampNodeSliderValue(Number(settings?.trail) || 0, 0, 1);
   const ghost = Residual && typeof Residual.migrateGhost === "function"
     ? Residual.migrateGhost(settings, Residual.DEFAULT_GHOST ?? 0.45)
-    : clampNodeSliderValue(Number(settings?.ghost ?? settings?.burn) || 0, 0, 1);
+    : clampNodeSliderValue(Number(settings?.ghost) || 0, 0, 1);
+  const burn = Residual && typeof Residual.migrateBurn === "function"
+    ? Residual.migrateBurn(settings, Residual.DEFAULT_BURN ?? 0)
+    : (
+      Number(settings?.residualSchema) >= 2
+        ? clampNodeSliderValue(Number(settings?.burn) || 0, 0, 1)
+        : 0
+    );
+  // Burn > 0 needs per-pixel floor; uniform destination-out cannot stick floors.
+  if (burn > 0.001 && Residual && typeof Residual.applyResidual === "function") {
+    const w = canvas.width | 0;
+    const h = canvas.height | 0;
+    if (w > 0 && h > 0) {
+      const img = context.getImageData(0, 0, w, h);
+      const d = img.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const a = d[i + 3] / 255;
+        if (a <= 0.0005) continue;
+        // Premultiplied-ish energy from max channel × alpha.
+        const e = Math.max(d[i], d[i + 1], d[i + 2]) / 255 * a;
+        const next = Residual.applyResidual(e, trail, ghost, burn);
+        const na = Math.max(0, Math.min(1, next));
+        if (na <= 0.0005) {
+          d[i] = 0;
+          d[i + 1] = 0;
+          d[i + 2] = 0;
+          d[i + 3] = 0;
+        } else {
+          // Preserve hue of residual ink; scale alpha to next energy.
+          const scale = a > 1e-6 ? na / a : na;
+          d[i] = Math.max(0, Math.min(255, Math.round(d[i] * scale)));
+          d[i + 1] = Math.max(0, Math.min(255, Math.round(d[i + 1] * scale)));
+          d[i + 2] = Math.max(0, Math.min(255, Math.round(d[i + 2] * scale)));
+          d[i + 3] = Math.max(0, Math.min(255, Math.round(na * 255)));
+        }
+      }
+      context.putImageData(img, 0, 0);
+    }
+    return;
+  }
   let erase = 0;
   if (Residual && typeof Residual.trailFadeAmount === "function") {
     erase = Number(Residual.trailFadeAmount(trail, ghost));
@@ -1391,6 +1430,7 @@ function nodeGraphScope2dCanvasSettingsSignature(settings) {
     safeSettings.background,
     safeSettings.ghost,
     safeSettings.trail,
+    safeSettings.burn,
     safeSettings.dot1Enabled ? 1 : 0,
     safeSettings.dot1Size,
     safeSettings.dot1Brightness,

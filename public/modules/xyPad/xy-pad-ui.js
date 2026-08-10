@@ -522,8 +522,21 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
     face._xyPadLutKey = lutKey;
   }
 
-  const trail = Math.max(0, Math.min(1, Number(options.trail) ?? (Number.isFinite(Number(options.decay)) ? 1 - Number(options.decay) : 0.88)));
-  const ghost = Math.max(0, Math.min(1, Number(options.ghost) ?? Number(options.burn) ?? 0.45));
+  const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
+  const trail = Residual && typeof Residual.migrateTrail === "function"
+    ? Residual.migrateTrail(options, 0.88)
+    : Math.max(0, Math.min(1, Number(options.trail) ?? (Number.isFinite(Number(options.decay)) ? 1 - Number(options.decay) : 0.88)));
+  const ghost = Residual && typeof Residual.migrateGhost === "function"
+    ? Residual.migrateGhost(options, 0.45)
+    : Math.max(0, Math.min(1, Number(options.ghost) || 0));
+  const burn = Residual && typeof Residual.migrateBurn === "function"
+    ? Residual.migrateBurn(options, 0)
+    : (
+      Number(options.residualSchema) >= 2
+        ? Math.max(0, Math.min(1, Number(options.burn) || 0))
+        : 0
+    );
+  const residualSchema = Residual?.RESIDUAL_SCHEMA || 2;
   const brightness01 = Math.max(0, Number(options.brightness) || 0.78);
   const minSide = Math.max(1, Math.min(width, height));
   // Full 0–1 size range (was capped at 0.2 — blocked large hard discs).
@@ -567,6 +580,8 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
       nodeGraphPhosphorEnergyGlStepBeams(face, {
         trail,
         ghost,
+        burn,
+        residualSchema,
         pathPoints,
         radius,
         brightness: deposit,
@@ -580,6 +595,8 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
       drawer.stepDots(face, {
         trail,
         ghost,
+        burn,
+        residualSchema,
         pathPoints,
         radius,
         brightness: deposit,
@@ -591,6 +608,8 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
       drawer.stepBeams(face, {
         trail,
         ghost,
+        burn,
+        residualSchema,
         pathPoints,
         radius,
         brightness: deposit,
@@ -604,6 +623,8 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
       drawer.stepDots(face, {
         trail,
         ghost,
+        burn,
+        residualSchema,
         pathPoints,
         radius,
         brightness: deposit,
@@ -719,8 +740,21 @@ function drawNodeGraphXyPad(pad, options = {}) {
     || "#7fc7d9";
   // Face = phosphor of Out X/Y (same idea as wiring Out → scope2d) + vector UI.
   const brightness = Math.max(0, Number(display.dot1Brightness) || 0.78);
-  const trailUx = Math.max(0, Math.min(1, Number(display.trail) ?? (Number.isFinite(Number(display.decay)) ? 1 - Number(display.decay) : 0.65)));
-  const ghostUx = Math.max(0, Math.min(1, Number(display.ghost) ?? Number(display.burn) ?? 0.45));
+  const ResidualUx = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
+  const trailUx = ResidualUx && typeof ResidualUx.migrateTrail === "function"
+    ? ResidualUx.migrateTrail(display, 0.65)
+    : Math.max(0, Math.min(1, Number(display.trail) ?? (Number.isFinite(Number(display.decay)) ? 1 - Number(display.decay) : 0.65)));
+  const ghostUx = ResidualUx && typeof ResidualUx.migrateGhost === "function"
+    ? ResidualUx.migrateGhost(display, 0.45)
+    : Math.max(0, Math.min(1, Number(display.ghost) || 0));
+  const burnUx = ResidualUx && typeof ResidualUx.migrateBurn === "function"
+    ? ResidualUx.migrateBurn(display, 0)
+    : (
+      Number(display.residualSchema) >= 2
+        ? Math.max(0, Math.min(1, Number(display.burn) || 0))
+        : 0
+    );
+  const residualSchemaUx = ResidualUx?.RESIDUAL_SCHEMA || 2;
   // Phosphor beam stamp size (unit face); not multiplied by a global scale.
   const beamSize01 = Math.max(0.005, Math.min(1, Number(display.dot1Size) || 0.07));
   const blur = typeof nodeGraphTraceDisplayClampStampBlur === "function"
@@ -805,9 +839,11 @@ function drawNodeGraphXyPad(pad, options = {}) {
     phosphorColor: phosphorHex,
     background: bgHex,
     gradientStops,
-    // Prefer trail/ghost (display settings UX); step helper also accepts legacy decay/burn.
+    // Prefer trail/ghost/burn (display settings UX); step helper migrates legacy.
     trail: trailUx,
     ghost: ghostUx,
+    burn: burnUx,
+    residualSchema: residualSchemaUx,
     brightness,
     blur,
     size01: beamSize01,

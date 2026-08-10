@@ -85,6 +85,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
       "ghost",
       "trail",
+      "burn",
       "pixelDensity",
     ])),
     colors: Object.freeze([]),
@@ -101,6 +102,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
         "dot1Brightness",
         "ghost",
         "trail",
+        "burn",
         "scale",
         "pixelDensity",
         "dotBudget",
@@ -127,7 +129,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze(["capEnabled"]),
     choices: Object.freeze([]),
   }),
-  // 2D Phosphor (Lorenz + friends): Bright → Size → Blur → Ghost → Trail → Scale → AA → Dot Budget
+  // 2D Phosphor (Lorenz + friends): Bright → Size → Blur → Ghost → Trail → Burn → Scale → AA → Dot Budget
   scope2d: Object.freeze({
     fields: Object.freeze(nodeGraphPhosphorDisplayFieldsFor([
       "dot1Brightness",
@@ -135,6 +137,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "lineThickness",
       "ghost",
       "trail",
+      "burn",
       "scale",
       "pixelDensity",
       "dotBudget",
@@ -158,7 +161,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze([]),
   }),
   numberReadout: Object.freeze({
-    // Value LED: Decimals → Padding → Bright → Ghost → Trail (last residual).
+    // Value LED: Decimals → Padding → Bright → Ghost → Trail → Burn (last residual).
     // Value LCD (vector): decimals, padding, Ghost plate, glass shadow — no residual hang.
     fields: Object.freeze([
       "decimals",
@@ -166,6 +169,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
       "ghost",
       "trail",
+      "burn",
       "unlitSegments",
       "innerShadowDistance",
       "innerShadowSharpness",
@@ -254,6 +258,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
         "dot1Brightness",
         "ghost",
         "trail",
+        "burn",
         "pixelDensity",
         "dotBudget",
       ]),
@@ -271,6 +276,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
       "ghost",
       "trail",
+      "burn",
       "scale",
       "pixelDensity",
       "dotBudget",
@@ -298,6 +304,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "lineThickness",
       "ghost",
       "trail",
+      "burn",
       "scale",
       "pixelDensity",
       "dotBudget",
@@ -313,6 +320,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
       "ghost",
       "trail",
+      "burn",
       "pixelDensity",
       "dotBudget",
     ])),
@@ -327,6 +335,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
       "ghost",
       "trail",
+      "burn",
       "pixelDensity",
       "dotBudget",
     ])),
@@ -422,7 +431,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
   }),
   trace: Object.freeze({
     // Residual + framing. Ghost once only (was listed twice → double "Ghost" rows).
-    // Phosphor residual order: Ghost → Trail → Scale → Pixel density → Dot Budget.
+    // Phosphor residual order: Ghost → Trail → Burn → Scale → Pixel density → Dot Budget.
     // Stamp size/blur/bright live only under the Dot/Stamp section.
     fields: Object.freeze([
       "decimals",
@@ -433,6 +442,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "sweepSeconds",
       "ghost",
       "trail",
+      "burn",
       "facePadding",
       "unlitSegments",
       "innerShadowDistance",
@@ -525,33 +535,39 @@ function nodeGraphTraceDisplaySettingsRoot() {
 }
 
 // Field labels / input modes for schema-exclusive body builders.
-// Phosphor labels: Bright, Size, Blur, Ghost, Trail, Scale, Pixel density, Dot Budget.
+// Phosphor labels: Bright, Size, Blur, Ghost, Trail, Burn, Scale, Pixel density, Dot Budget.
 const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
   ghost: Object.freeze({
     label: "Ghost",
     inputmode: "decimal",
     id: "nodeTraceDisplayGhost",
-    title: "Super-exp residual hang (not brightness). Trail 0 = pure Ghost. Alone: dim deposits can stick without a bright stamp.",
+    title: "Extreme analog (super-exp) residual hang — not brightness. Trail 0 = pure Ghost. Alone: dim deposits can hang without a bright stamp.",
   }),
   trail: Object.freeze({
     label: "Trail",
     inputmode: "decimal",
     id: "nodeTraceDisplayTrail",
-    title: "Blends linear decay over Ghost, then freezes. 0 = pure Ghost hang; 0.5 = half linear / half Ghost; 0.75 = full linear; 1 = never decay pixels.",
+    title: "Adds linear decay over Ghost, then freezes. 0 = pure Ghost hang; 0.5 = half linear / half Ghost; 0.75 = full linear; 1 = never decay pixels.",
+  }),
+  burn: Object.freeze({
+    label: "Burn",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayBurn",
+    title: "Sticky residual floor 0…1 (brightness where pixels stop decaying). 0 = none stick; 0.5 = once energy ≥ 0.5 the pixel freezes at that floor; 1 = all residual freezes. Off by default.",
   }),
   residual: Object.freeze({
     // Legacy key — Value LED/LCD forms use trail (same axis).
     label: "Trail",
     inputmode: "decimal",
     id: "nodeTraceDisplayResidual",
-    title: "Hot residual hang 0…1 (app-wide Trail). Not brightness. Ghost is the slower hang.",
+    title: "Linear residual hang 0…1 (app-wide Trail). Not brightness. Ghost is the analog hang; Burn is the sticky floor.",
   }),
   ghostBrightness: Object.freeze({
     // Legacy key — Value LED/LCD forms use ghost (same axis).
     label: "Ghost",
     inputmode: "decimal",
     id: "nodeTraceDisplayGhostBrightness",
-    title: "Slow residual hang 0…1 (app-wide Ghost). Not brightness — only decay/hang of deposited energy.",
+    title: "Extreme analog residual hang 0…1 (app-wide Ghost). Not brightness — only decay/hang of deposited energy.",
   }),
   unlitSegments: Object.freeze({
     label: "Ghost",
