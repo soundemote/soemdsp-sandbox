@@ -44,33 +44,40 @@ function nodeGraphSurfacePointToClient(point, surface = typeof nodeGraphZoomSurf
 }
 
 /**
- * One Chaikin corner-cut pass for snake *display* only (hits stay on raw points).
- * Softens 1-step jitter without losing the trail shape.
+ * Catmull–Rom → cubic Bézier for snake *display* only (hits stay on raw points).
+ * Cheap C1 corners so the trail doesn't look like a polyline of hard elbows.
+ * Tension 0.5 = standard centripetal-ish midpoint handles (1/6 chord rule).
  */
-function nodeGraphHitTrailSmoothedDisplayPoints(points) {
-  if (!points || points.length < 3) {
-    return points || [];
+function nodeGraphHitTrailSmoothPathD(points) {
+  if (!points || !points.length) {
+    return "";
   }
-  const out = [{ x: Number(points[0].x) || 0, y: Number(points[0].y) || 0 }];
-  for (let i = 0; i < points.length - 1; i += 1) {
-    const a = points[i];
-    const b = points[i + 1];
-    const ax = Number(a.x) || 0;
-    const ay = Number(a.y) || 0;
-    const bx = Number(b.x) || 0;
-    const by = Number(b.y) || 0;
-    out.push({
-      x: ax * 0.75 + bx * 0.25,
-      y: ay * 0.75 + by * 0.25,
-    });
-    out.push({
-      x: ax * 0.25 + bx * 0.75,
-      y: ay * 0.25 + by * 0.75,
-    });
+  const pts = points.map((p) => ({
+    x: Number(p.x) || 0,
+    y: Number(p.y) || 0,
+  }));
+  if (pts.length === 1) {
+    // A lone M does not paint a stroke — fake a tiny segment so the tip is visible.
+    return `M ${pts[0].x} ${pts[0].y} l 0.5 0`;
   }
-  const last = points[points.length - 1];
-  out.push({ x: Number(last.x) || 0, y: Number(last.y) || 0 });
-  return out;
+  if (pts.length === 2) {
+    return `M ${pts[0].x} ${pts[0].y} L ${pts[1].x} ${pts[1].y}`;
+  }
+  // Cubic Hermite/Catmull–Rom with endpoint doubling (open curve).
+  let d = `M ${pts[0].x} ${pts[0].y}`;
+  for (let i = 0; i < pts.length - 1; i += 1) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    // Control points: p1 + (p2−p0)/6 , p2 − (p3−p1)/6
+    const c1x = p1.x + (p2.x - p0.x) / 6;
+    const c1y = p1.y + (p2.y - p0.y) / 6;
+    const c2x = p2.x - (p3.x - p1.x) / 6;
+    const c2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C ${c1x} ${c1y} ${c2x} ${c2y} ${p2.x} ${p2.y}`;
+  }
+  return d;
 }
 
 function renderNodeGraphMarqueeSelection() {
@@ -105,20 +112,8 @@ function renderNodeGraphMarqueeSelection() {
   svg.style.opacity = "1";
   svg.style.pointerEvents = "none";
 
-  // Visual only — one Chaikin pass. Hit sampling still uses drag.points raw.
-  const points = nodeGraphHitTrailSmoothedDisplayPoints(drag.points);
-  let d;
-  if (points.length === 1) {
-    // A lone M does not paint a stroke — fake a tiny segment so the tip is visible.
-    const p = points[0];
-    d = `M ${p.x} ${p.y} l 0.5 0`;
-  } else {
-    d = `M ${points[0].x} ${points[0].y}`;
-    for (let i = 1; i < points.length; i += 1) {
-      d += ` L ${points[i].x} ${points[i].y}`;
-    }
-  }
-  path.setAttribute("d", d);
+  // Visual only — cubic Catmull–Rom stroke. Hit sampling still uses drag.points raw.
+  path.setAttribute("d", nodeGraphHitTrailSmoothPathD(drag.points));
   // Keep ~6 screen-px thick dashes stable under workspace CSS zoom.
   const zoom = nodeGraphHitTrailZoom();
   path.setAttribute("stroke", "var(--accent, #7fc7d9)");
