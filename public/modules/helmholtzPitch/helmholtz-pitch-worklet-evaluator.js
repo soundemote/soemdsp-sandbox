@@ -11,6 +11,29 @@ NodeLiveAudioProcessor.prototype.helmholtzPitchView = function helmholtzPitchVie
     return norm * 2 - 1;
   };
 
+/**
+ * Detune vs equal temperament, −1…+1.
+ * 0 = exact nearest pitch; ±1 = half-semitone away (midpoint between notes).
+ * Crossing the midpoint wraps −1 → +1 (flat of upper becomes sharp of lower).
+ * Concert A4 = 440 Hz (same as face MIDI conversion).
+ */
+NodeLiveAudioProcessor.prototype.helmholtzDetune = function helmholtzDetune(frequencyHz, a4Hz = 440) {
+    const f = Number(frequencyHz);
+    if (!(f > 0) || !Number.isFinite(f)) {
+      return 0;
+    }
+    const a4 = Number(a4Hz) > 0 ? Number(a4Hz) : 440;
+    const midi = 69 + 12 * Math.log2(f / a4);
+    if (!Number.isFinite(midi)) {
+      return 0;
+    }
+    // Nearest ET pitch; cents in (−50, +50].
+    const nearest = Math.round(midi);
+    const cents = (midi - nearest) * 100;
+    // Map ±50¢ → ±1. At exact midpoint cents is ±50 → ±1; next sample wraps.
+    return Math.max(-1, Math.min(1, cents / 50));
+  };
+
 NodeLiveAudioProcessor.prototype.destroyHelmholtzState = function destroyHelmholtzState(state) {
     if (!state?.nativeHandle || !this.nativeHelmholtz?.soemdsp_helmholtz_destroy) return;
     this.nativeHelmholtz.soemdsp_helmholtz_destroy(state.nativeHandle);
@@ -30,7 +53,7 @@ NodeLiveAudioProcessor.prototype.reportHelmholtzStatus = function reportHelmholt
   };
 
 NodeLiveAudioProcessor.prototype.helmholtzSample = function helmholtzSample(state, input, params, inputConnected = true, rateHz = sampleRate) {
-    const silent = { Frequency: 0, Fidelity: 0, Gate: 0, "Pitch View": -1 };
+    const silent = { Frequency: 0, Fidelity: 0, Gate: 0, Detune: 0, "Pitch View": -1 };
     if (!inputConnected) {
       this.destroyHelmholtzState(state);
       state.nativeSampleRate = 0;
@@ -59,11 +82,13 @@ NodeLiveAudioProcessor.prototype.helmholtzSample = function helmholtzSample(stat
         return silent;
       }
       const windowSize = Math.max(128, Math.min(4096, Math.round(this.safeFilterNumber(params.windowSize, null) ?? 1024)));
-      const threshold = this.clampValue(this.safeFilterNumber(params.threshold, null) ?? 0.93, 0.5, 0.999);
-      const paramKey = `${windowSize}:${Math.round(threshold * 1000)}`;
+      // UI range 0…1; native still gets a safe clamp (0 → very permissive).
+      const threshold = this.clampValue(this.safeFilterNumber(params.threshold, null) ?? 0.93, 0, 1);
+      const nativeThreshold = Math.max(0, Math.min(0.999, threshold));
+      const paramKey = `${windowSize}:${Math.round(nativeThreshold * 1000)}`;
       if (paramKey !== state.nativeParamKey && native.soemdsp_helmholtz_set_params) {
         state.nativeParamKey = paramKey;
-        native.soemdsp_helmholtz_set_params(state.nativeHandle, safeRate, windowSize, threshold);
+        native.soemdsp_helmholtz_set_params(state.nativeHandle, safeRate, windowSize, nativeThreshold);
       }
       const safeIn = this.safeFilterNumber(input, null) ?? 0;
       native.soemdsp_helmholtz_process(state.nativeHandle, safeIn);
@@ -75,6 +100,7 @@ NodeLiveAudioProcessor.prototype.helmholtzSample = function helmholtzSample(stat
         Frequency: frequency,
         Fidelity: fidelity,
         Gate: gate,
+        Detune: this.helmholtzDetune(frequency),
         "Pitch View": this.helmholtzPitchView(frequency),
       };
     } catch (error) {
@@ -87,4 +113,3 @@ NodeLiveAudioProcessor.prototype.helmholtzSample = function helmholtzSample(stat
       return silent;
     }
   };
-

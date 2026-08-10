@@ -1,5 +1,5 @@
 // Pitch Detector face:
-//   • Frequency → Number Readout plate (Hz / 8ve MIDI # / M note name)
+//   • Frequency → Number Readout plate (Hz / 8ve MIDI # / M note name + cents)
 //   • Bottom row: unit toggle + Fid value (plain DOM, not digit layout)
 
 /** Concert A4 (Hz). Single tuning constant for Hz↔MIDI conversions. */
@@ -20,6 +20,30 @@ function nodeGraphFrequencyToMidi(hz, a4Hz = nodeGraphPitchA4Hz) {
   }
   const a4 = Number(a4Hz) > 0 ? Number(a4Hz) : nodeGraphPitchA4Hz;
   return 69 + 12 * Math.log2(f / a4);
+}
+
+/**
+ * Cents off the nearest equal-temperament pitch (−50…+50].
+ * Same wrap idea as elan tone gen: past ±50¢ you're closer to the neighbor.
+ */
+function nodeGraphFrequencyToCentsOff(hz, a4Hz = nodeGraphPitchA4Hz) {
+  const midi = nodeGraphFrequencyToMidi(hz, a4Hz);
+  if (!Number.isFinite(midi)) {
+    return Number.NaN;
+  }
+  const nearest = Math.round(midi);
+  return (midi - nearest) * 100;
+}
+
+/**
+ * Detune CV −1…+1 (0 = in tune, ±1 ≈ half-semitone / midpoint wrap).
+ */
+function nodeGraphFrequencyToDetune(hz, a4Hz = nodeGraphPitchA4Hz) {
+  const cents = nodeGraphFrequencyToCentsOff(hz, a4Hz);
+  if (!Number.isFinite(cents)) {
+    return 0;
+  }
+  return Math.max(-1, Math.min(1, cents / 50));
 }
 
 /**
@@ -48,26 +72,21 @@ const nodeGraphMidiNoteNameParts = Object.freeze([
 const nodeGraphMidiFlatSymbol = "\u266D";
 
 /**
- * Octave field (2 mono cells), glued to accidental with no gap after # / ♭.
- *   positive: "3 "  →  C#3  /  C 3
- *   negative: "-2"  →  C#-2 /  C -2
+ * Octave field: compact (no trailing pad). Negative keeps leading minus.
+ *   3 | -1 | 0
  */
-function nodeGraphMidiOctaveFixedField(octave) {
+function nodeGraphMidiOctaveField(octave) {
   const o = Math.trunc(Number(octave) || 0);
   if (o < 0) {
-    // -1, -2 (exactly 2 chars in MIDI range)
-    return String(o).slice(0, 2).padEnd(2, " ");
+    return String(o);
   }
-  // Digit then pad — so "#" sits flush against the octave digit (C#3 not C# 3).
-  return `${Math.min(9, Math.max(0, o))} `;
+  return String(Math.min(9, Math.max(0, o)));
 }
 
 /**
- * MIDI note number → fixed-width name for monospace LED readout.
- * Format always 4 cells: letter + accidental + octave(2).
- *   C 3 | C#3 | D 3 | … | A#4 | B 3
- * Naturals use a space in the accidental column so # / ♭ never shift the octave.
- * No blank between accidental and octave (C#3, not C# 3).
+ * MIDI note number → compact name for monospace LED readout (centered, no
+ * zero-fill padding that ate plate width at facePadding 0).
+ *   C3 | C#3 | D3 | A#4 | B-1
  *
  * @param {number} midi
  * @param {{ preferFlats?: boolean }} [options]
@@ -90,13 +109,15 @@ function nodeGraphMidiToNoteName(midi, options = null) {
     letter = flatOf[letter] || letter;
     accidental = nodeGraphMidiFlatSymbol;
   }
+  // Naturals: omit blank accidental so the plate centers tight (C3 not "C 3").
+  const acc = accidental === " " ? "" : accidental;
   const octave = Math.floor(n / 12) - 2;
-  return `${letter}${accidental}${nodeGraphMidiOctaveFixedField(octave)}`;
+  return `${letter}${acc}${nodeGraphMidiOctaveField(octave)}`;
 }
 
-/** Empty / no-pitch name plate — same width as a real name (4 mono cells). */
+/** Empty / no-pitch name plate — dash (not zeros). */
 function nodeGraphMidiToNoteNameZero() {
-  return `C ${nodeGraphMidiOctaveFixedField(0)}`;
+  return "—";
 }
 
 function nodeGraphPitchDisplayModeNormalize(mode) {
@@ -122,35 +143,19 @@ function nodeGraphPitchDisplayModeLabel(mode) {
 }
 
 /**
- * No-pitch / invalid Frequency plate text — zeros (not dashes), so the LED
- * keeps updating instead of holding the last good reading.
+ * No-pitch plate: dash (not zeros) so low-fidelity / below-threshold frames
+ * read as "no lock" instead of 0.00 Hz.
  */
 function nodeGraphPitchDetectorZeroDisplay(mode = "hz", decimals = 2) {
-  const m = nodeGraphPitchDisplayModeNormalize(mode);
-  if (m === "name") {
-    // Same monospace width as live names (letter + acc + octave2).
-    return ` ${typeof nodeGraphMidiToNoteNameZero === "function"
-      ? nodeGraphMidiToNoteNameZero()
-      : "C  0"}`;
-  }
-  if (m === "midi") {
-    return " 0";
-  }
-  if (typeof nodeGraphNumberReadoutFormatValue === "function") {
-    return nodeGraphNumberReadoutFormatValue(0, decimals);
-  }
-  const places = Math.max(0, Math.min(8, Math.round(Number(decimals) || 2)));
-  try {
-    return ` ${(0).toFixed(places)}`;
-  } catch {
-    return " 0.00";
-  }
+  void mode;
+  void decimals;
+  return "—";
 }
 
 /**
  * Format Frequency port sample for the plate under the active display mode.
- * Leading space keeps DSEG width stable for numeric modes.
- * No pitch → zeros (never dashes / never hold last reading).
+ * Positive Hz/MIDI are unpadded so the LED centers (no forced sign column).
+ * No pitch → dash.
  */
 function nodeGraphPitchDetectorFormatDisplay(hz, mode = "hz", decimals = 2) {
   const m = nodeGraphPitchDisplayModeNormalize(mode);
@@ -163,27 +168,46 @@ function nodeGraphPitchDetectorFormatDisplay(hz, mode = "hz", decimals = 2) {
     if (!Number.isFinite(midi)) {
       return nodeGraphPitchDetectorZeroDisplay(m, decimals);
     }
-    const n = Math.round(midi);
-    return n < 0 ? String(n) : ` ${n}`;
+    // Integer MIDI number, no leading pad — center on the plate.
+    return String(Math.round(midi));
   }
   if (m === "name") {
     const midi = nodeGraphFrequencyToMidi(f);
     if (!Number.isFinite(midi)) {
       return nodeGraphPitchDetectorZeroDisplay(m, decimals);
     }
-    // Leading space = sign column (matches Hz/MIDI plate); name is fixed width.
-    return ` ${nodeGraphMidiToNoteName(Math.round(midi))}`;
+    // Compact note name only; cents live on the meta strip.
+    return nodeGraphMidiToNoteName(Math.round(midi));
   }
+  // Hz: no forced leading space (that left-biased the centered plate).
   if (typeof nodeGraphNumberReadoutFormatValue === "function") {
-    return nodeGraphNumberReadoutFormatValue(f, decimals);
+    const formatted = nodeGraphNumberReadoutFormatValue(f, decimals);
+    // Strip a single leading space used as DSEG sign column on other modules.
+    return String(formatted || "").replace(/^\s+/, "") || "0";
   }
   const places = Math.max(0, Math.min(8, Math.round(Number(decimals) || 2)));
   try {
-    const fixed = f.toFixed(places);
-    return fixed.startsWith("-") ? fixed : ` ${fixed}`;
+    return f.toFixed(places);
   } catch {
-    return ` ${f.toFixed(2)}`;
+    return f.toFixed(2);
   }
+}
+
+/** Format cents for the M-page strip: "+12¢" / "−3¢" / "0¢". */
+function nodeGraphPitchDetectorFormatCents(cents) {
+  const n = Number(cents);
+  if (!Number.isFinite(n)) {
+    return "—";
+  }
+  const rounded = Math.round(n);
+  if (rounded > 0) {
+    return `+${rounded}¢`;
+  }
+  if (rounded < 0) {
+    // U+2212 minus for typography when available; ASCII fallback ok.
+    return `${rounded}¢`.replace("-", "\u2212");
+  }
+  return "0¢";
 }
 
 function nodeGraphPitchDetectorFaceMode(faceOrNodeId) {
@@ -214,7 +238,12 @@ function nodeGraphPitchDetectorCycleDisplayMode(face) {
       "aria-label",
       `Display mode ${nodeGraphPitchDisplayModeLabel(next)}. Click to cycle Hz, 8ve, M.`,
     );
-    unit.title = "Click to cycle: Hz (frequency) → 8ve (MIDI number) → M (note name)";
+    unit.title = "Click to cycle: Hz (frequency) → 8ve (MIDI number) → M (note name + cents)";
+  }
+  // Show cents strip only on M (note name) page.
+  const centsEl = face.querySelector?.("[data-pitch-value='cents']");
+  if (centsEl) {
+    centsEl.hidden = next !== "name";
   }
   // Force Number Readout repaint (invalidate text cache on face canvas).
   const canvas = face.querySelector?.(".node-number-readout-canvas");
@@ -249,14 +278,14 @@ function createNodeGraphPitchDetectorBody(nodeId) {
   lcd.dataset.lightStrength = "1";
   lcd.setAttribute("aria-hidden", "true");
 
-  // Decorations under the LED plate: unit toggle + fidelity.
+  // Decorations under the LED plate: unit toggle + cents (M page) + fidelity.
   const meta = document.createElement("div");
   meta.className = "node-pitch-detector-fid";
   const hz = document.createElement("button");
   hz.type = "button";
   hz.className = "node-pitch-detector-hz";
   hz.textContent = "Hz";
-  hz.title = "Click to cycle: Hz (frequency) → 8ve (MIDI number) → M (note name)";
+  hz.title = "Click to cycle: Hz (frequency) → 8ve (MIDI number) → M (note name + cents)";
   hz.setAttribute("aria-label", "Display mode Hz. Click to cycle Hz, 8ve, M.");
   hz.addEventListener("click", (event) => {
     event.preventDefault();
@@ -267,6 +296,14 @@ function createNodeGraphPitchDetectorBody(nodeId) {
     // Keep module selection / marquee from stealing the unit toggle.
     event.stopPropagation();
   });
+
+  const centsVal = document.createElement("strong");
+  centsVal.className = "node-pitch-detector-cents";
+  centsVal.dataset.pitchValue = "cents";
+  centsVal.textContent = "—";
+  centsVal.title = "Cents off equal temperament (M page)";
+  centsVal.hidden = true;
+
   const fidKey = document.createElement("span");
   fidKey.className = "node-pitch-detector-k";
   fidKey.textContent = "Fid";
@@ -276,7 +313,7 @@ function createNodeGraphPitchDetectorBody(nodeId) {
   fidVal.textContent = "—";
   const fidGroup = document.createElement("span");
   fidGroup.className = "node-pitch-detector-fid-group";
-  fidGroup.append(fidKey, fidVal);
+  fidGroup.append(centsVal, fidKey, fidVal);
   meta.append(hz, fidGroup);
 
   body.append(lcd, meta);
@@ -292,14 +329,15 @@ function nodeGraphPitchDetectorFormatFid(value) {
 }
 
 /**
- * Update fidelity strip from live scope payload
- * (entries [id, samples] where id is "nodeId:Fidelity").
- * Frequency is painted by the Number Readout path.
+ * Update fidelity + cents strip from live scope payload
+ * (entries [id, samples] where id is "nodeId:Fidelity" or "nodeId:Frequency").
  */
 function updateNodeGraphPitchDetectorFacesFromScopeValues(values) {
   if (!values || !values.length) {
     return;
   }
+  // Collect last sample per nodeId:port so we can update Fid and cents together.
+  const lastByKey = new Map();
   for (const entry of values) {
     if (!entry) {
       continue;
@@ -307,15 +345,6 @@ function updateNodeGraphPitchDetectorFacesFromScopeValues(values) {
     const key = String(entry[0] || "");
     const samples = entry[1];
     if (!key || !samples) {
-      continue;
-    }
-    const colon = key.indexOf(":");
-    if (colon <= 0) {
-      continue;
-    }
-    const nodeId = key.slice(0, colon);
-    const port = key.slice(colon + 1);
-    if (port !== "Fidelity") {
       continue;
     }
     const length = samples instanceof Float32Array
@@ -328,10 +357,41 @@ function updateNodeGraphPitchDetectorFacesFromScopeValues(values) {
     if (!Number.isFinite(last)) {
       continue;
     }
-    const body = document.querySelector(`.node-pitch-detector-face[data-node="${nodeId}"]`);
-    const fidEl = body?.querySelector?.('[data-pitch-value="fidelity"]');
-    if (fidEl) {
-      fidEl.textContent = nodeGraphPitchDetectorFormatFid(last);
+    lastByKey.set(key, last);
+  }
+
+  const touchedNodes = new Set();
+  for (const key of lastByKey.keys()) {
+    const colon = key.indexOf(":");
+    if (colon > 0) {
+      touchedNodes.add(key.slice(0, colon));
+    }
+  }
+
+  for (const nodeId of touchedNodes) {
+    const body = document.querySelector(`.node-pitch-detector-face[data-node="${CSS.escape(nodeId)}"]`);
+    if (!body) {
+      continue;
+    }
+    const fid = lastByKey.get(`${nodeId}:Fidelity`);
+    const fidEl = body.querySelector?.('[data-pitch-value="fidelity"]');
+    if (fidEl && fid != null) {
+      fidEl.textContent = nodeGraphPitchDetectorFormatFid(fid);
+    }
+    const freq = lastByKey.get(`${nodeId}:Frequency`);
+    const centsEl = body.querySelector?.('[data-pitch-value="cents"]');
+    if (centsEl) {
+      const mode = nodeGraphPitchDisplayModeNormalize(body.dataset.pitchDisplayMode);
+      centsEl.hidden = mode !== "name";
+      if (mode === "name") {
+        if (freq != null && freq > 0) {
+          centsEl.textContent = nodeGraphPitchDetectorFormatCents(
+            nodeGraphFrequencyToCentsOff(freq),
+          );
+        } else {
+          centsEl.textContent = "—";
+        }
+      }
     }
   }
 }

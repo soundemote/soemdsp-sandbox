@@ -7424,6 +7424,7 @@ const nodeGraphModuleDefinitions = (
       { key: "Frequency", kind: "scalar" },
       { key: "Fidelity", kind: "scalar" },
       { key: "Gate", kind: "scalar" },
+      { key: "Detune", kind: "scalar" },
     ],
     inputs: ["In"],
     // Like badvalMonitor: an analysis/monitor tool should keep running and
@@ -7431,7 +7432,7 @@ const nodeGraphModuleDefinitions = (
     // nothing downstream routes to Output -- that's the whole point of a
     // meter you read directly off the node.
     monitorSink: true,
-    outputs: ["Frequency", "Fidelity", "Gate"],
+    outputs: ["Frequency", "Fidelity", "Gate", "Detune"],
     parameters: [
       {
         constraint: "cpu",
@@ -7449,11 +7450,12 @@ const nodeGraphModuleDefinitions = (
         defaultValue: "0.93",
         key: "threshold",
         label: "Threshold",
-        max: "0.999",
-        mid: "0.93",
-        min: "0.5",
+        max: "1",
+        mid: "0.5",
+        min: "0",
         step: "0.001",
-        tooltip: "Fidelity (clarity) threshold below which a frame is rejected as non-periodic and Frequency/Gate report 0.",
+        nonlinearSlider: false,
+        tooltip: "Fidelity (clarity) threshold 0…1. Below threshold Frequency/Gate report 0 (display shows —). 0 = accept everything; 1 = nearly never lock.",
       },
     ],
   },

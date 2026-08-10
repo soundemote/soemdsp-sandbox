@@ -1088,6 +1088,264 @@ audio {
   background: rgba(127, 199, 217, 0.10);
 }
 
+/* ── Music Player face: waveform ↔ playlist (pl) ───────────────────────── */
+.node-phosphor-waveform-display {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.node-music-player-face-bar {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 3;
+  display: flex;
+  gap: 3px;
+  pointer-events: auto;
+}
+.node-music-player-face-btn {
+  min-width: 22px;
+  height: 18px;
+  padding: 0 6px;
+  border: 1px solid rgba(120, 200, 220, 0.35);
+  border-radius: 3px;
+  background: rgba(0, 8, 12, 0.72);
+  color: rgba(180, 230, 245, 0.92);
+  font: 700 0.68rem/1 "Cascadia Mono", Consolas, monospace;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.node-music-player-face-btn:hover,
+.node-music-player-face-btn:focus-visible {
+  border-color: rgba(140, 220, 240, 0.7);
+  background: rgba(10, 40, 50, 0.88);
+  outline: none;
+}
+.node-music-player-face-btn.is-active {
+  border-color: rgba(100, 220, 180, 0.75);
+  color: rgba(160, 255, 210, 0.98);
+}
+.node-music-player-page {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.node-music-player-page-wave {
+  position: relative;
+  min-height: 0;
+}
+.node-music-player-page-wave .node-phosphor-waveform-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.node-music-player-page-pl {
+  gap: 4px;
+  padding: 4px 6px 6px;
+  background: rgba(0, 4, 8, 0.92);
+  color: rgba(190, 220, 230, 0.95);
+  font: 600 0.72rem/1.25 "Cascadia Mono", Consolas, monospace;
+}
+.node-music-player-pl-head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 6px;
+  min-height: 20px;
+}
+.node-music-player-pl-title {
+  opacity: 0.85;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.65rem;
+}
+.node-music-player-pl-ram {
+  justify-self: end;
+  max-width: 55%;
+  margin: 0;
+  padding: 1px 5px;
+  border: 1px solid rgba(180, 120, 60, 0.35);
+  border-radius: 3px;
+  background: rgba(20, 10, 0, 0.45);
+  color: rgba(255, 200, 140, 0.92);
+  font: 600 0.62rem/1.2 "Cascadia Mono", Consolas, monospace;
+  opacity: 0.9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.node-music-player-pl-ram:hover,
+.node-music-player-pl-ram:focus-visible {
+  border-color: rgba(220, 160, 80, 0.7);
+  outline: none;
+}
+.node-music-player-pl-ram.is-hog {
+  border-color: rgba(255, 100, 80, 0.75);
+  color: rgba(255, 160, 120, 0.98);
+  background: rgba(40, 8, 0, 0.65);
+}
+.node-music-player-pl-ram-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 42%;
+  min-height: 0;
+  padding: 4px 5px;
+  border: 1px solid rgba(180, 120, 60, 0.4);
+  border-radius: 3px;
+  background: rgba(12, 6, 0, 0.88);
+  overflow: hidden;
+}
+.node-music-player-pl-ram-panel[hidden] {
+  display: none !important;
+}
+.node-music-player-pl-ram-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.85;
+  color: rgba(255, 200, 140, 0.95);
+}
+.node-music-player-pl-ram-body {
+  min-height: 0;
+  overflow: auto;
+  font-size: 0.62rem;
+}
+.node-music-player-pl-ram-summary {
+  margin-bottom: 3px;
+  opacity: 0.9;
+}
+.node-music-player-pl-ram-summary .is-hog {
+  color: rgba(255, 130, 100, 0.98);
+  font-weight: 700;
+}
+.node-music-player-pl-ram-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.node-music-player-pl-ram-table th,
+.node-music-player-pl-ram-table td {
+  padding: 2px 4px;
+  border-bottom: 1px solid rgba(80, 60, 40, 0.35);
+  text-align: left;
+  white-space: nowrap;
+}
+.node-music-player-pl-ram-table th {
+  opacity: 0.65;
+  font-weight: 600;
+}
+.node-music-player-pl-ram-name {
+  max-width: 8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.node-music-player-pl-ram-table tr[data-active="true"] {
+  background: rgba(30, 100, 80, 0.28);
+}
+.node-music-player-pl-ram-table tr.is-heavy {
+  color: rgba(255, 180, 120, 0.98);
+}
+.node-music-player-pl-ram-empty {
+  opacity: 0.6;
+  text-align: center;
+}
+.node-music-player-pl-ram-tip {
+  margin-top: 4px;
+  opacity: 0.55;
+  font-size: 0.58rem;
+  line-height: 1.3;
+  white-space: normal;
+}
+.node-music-player-pl-list {
+  flex: 1 1 auto;
+  min-height: 48px;
+  max-height: 100%;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border: 1px solid rgba(80, 120, 140, 0.35);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.35);
+}
+.node-music-player-pl-empty {
+  padding: 10px 8px;
+  opacity: 0.65;
+  text-align: center;
+}
+.node-music-player-pl-row {
+  display: grid;
+  grid-template-columns: 1.6rem minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  width: 100%;
+  margin: 0;
+  padding: 4px 6px;
+  border: 0;
+  border-bottom: 1px solid rgba(60, 90, 110, 0.25);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.node-music-player-pl-row:hover,
+.node-music-player-pl-row:focus-visible {
+  background: rgba(40, 90, 110, 0.35);
+  outline: none;
+}
+.node-music-player-pl-row[data-active="true"] {
+  background: rgba(30, 100, 80, 0.4);
+  color: rgba(180, 255, 220, 0.98);
+}
+.node-music-player-pl-num {
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+}
+.node-music-player-pl-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.node-music-player-pl-meta {
+  opacity: 0.55;
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+}
+.node-music-player-pl-scrub {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 3.4rem;
+  gap: 6px;
+  align-items: center;
+  min-height: 22px;
+}
+.node-music-player-pl-scrub-label {
+  opacity: 0.7;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.node-music-player-pl-scrub-input {
+  width: 100%;
+  margin: 0;
+  accent-color: rgba(100, 210, 180, 0.95);
+  cursor: pointer;
+}
+.node-music-player-pl-scrub-value {
+  justify-self: end;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  opacity: 0.9;
+}
+
 .node-wiring-panel {
   --node-toolbar-button-bg-alpha: 0.62;
   --node-tooltip-text-size: 64px; /* max font for tip fit-to-box (not a fixed size) */
@@ -10921,17 +11179,16 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   z-index: 5;
   box-sizing: border-box;
   display: grid;
-  /* Left: unit; right: Fid + 4-decimal value. */
-  grid-template-columns: minmax(2.2em, 28%) minmax(0, 1fr);
+  /* Left: unit; right: cents (M) + Fid + 4-decimal value. */
+  grid-template-columns: minmax(2.4em, 26%) minmax(0, 1fr);
   align-items: center;
-  column-gap: 0.3em;
+  column-gap: 0.35em;
   min-width: 0;
-  /* Content-sized: no fixed height / min-height strip. */
+  /* Content-sized, slightly taller for readability. */
   height: auto;
-  min-height: 0;
+  min-height: 1.15em;
   max-height: none;
-  /* ~1–2px above/below the cap height of 0.625rem type. */
-  padding: 1px 0.35em 2px;
+  padding: 3px 0.4em 4px;
   margin: 0;
   border: none;
   border-top: none;
@@ -10939,8 +11196,8 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   box-shadow: none;
   background: transparent;
   font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
-  font-size: 0.625rem;
-  line-height: 1;
+  font-size: 0.78rem;
+  line-height: 1.15;
   pointer-events: none;
   user-select: none;
 }
@@ -10983,14 +11240,29 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 .node-pitch-detector-fid .node-pitch-detector-fid-group {
   grid-column: 2;
   display: grid;
-  /* "Fid" + fixed-width cell for 0.0000 … 1.0000 */
-  grid-template-columns: auto minmax(5.5ch, 6.5ch);
+  /* cents (M page) + "Fid" + fixed-width cell for 0.0000 … 1.0000 */
+  grid-template-columns: auto auto minmax(5.5ch, 6.8ch);
   align-items: center;
   justify-content: end;
-  column-gap: 0.28em;
+  column-gap: 0.35em;
   min-width: 0;
   width: 100%;
-  line-height: 1;
+  line-height: 1.15;
+}
+
+.node-pitch-detector-fid .node-pitch-detector-cents {
+  justify-self: end;
+  min-width: 3.6ch;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 210, 140, 0.95);
+  white-space: nowrap;
+  line-height: 1.15;
+  text-shadow: 0 0 0.35em rgba(0, 0, 0, 0.85), 0 1px 0 rgba(0, 0, 0, 0.55);
+}
+
+.node-pitch-detector-fid .node-pitch-detector-cents[hidden] {
+  display: none !important;
 }
 
 .node-pitch-detector-fid .node-pitch-detector-k {

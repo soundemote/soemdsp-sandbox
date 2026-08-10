@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>soemdsp-sandbox</title>
-  <link rel="stylesheet" href="./public/styles.css?v=visbility-annoyance-1">
+  <link rel="stylesheet" href="./public/styles.css?v=pitch-display-1">
   <link rel="stylesheet" href="./public/modules/stepGrid/step-grid.css?v=module-bottom-inset-half-1">
   <link rel="stylesheet" href="./public/modules/pitchQuantizer/pitch-quantizer-ui.css?v=chord-pad-1">
   <link rel="stylesheet" href="./public/modules/chordPad/chord-pad-ui.css?v=chord-pad-1">
@@ -26,7 +26,7 @@
         <span id="nodeBootLoadingBarFill" style="width: 4%;"></span>
       </div>
       <div class="node-boot-loading-meta">
-        <span class="node-boot-build-number">v{{SANDBOX_VERSION}} &nbsp;·&nbsp; build {{BUILD_NUMBER}} &nbsp;·&nbsp; {{BUILD_TOKEN}}</span>
+        <span class="node-boot-build-number">v{{SANDBOX_VERSION}} &nbsp;Â·&nbsp; build {{BUILD_NUMBER}} &nbsp;Â·&nbsp; {{BUILD_TOKEN}}</span>
         <span id="nodeBootSysinfo" class="node-boot-sysinfo"></span>
       </div>
       <div id="nodeBootLoadingMessages" class="node-boot-loading-messages" aria-live="polite"></div>
@@ -166,7 +166,7 @@
             type="button"
             aria-label="Patch page"
             aria-pressed="false"
-            title="Patch metadata, bank, and grid"><span class="node-modular-view-icon" aria-hidden="true">📖</span></button>
+            title="Patch metadata, bank, and grid"><span class="node-modular-view-icon" aria-hidden="true">ðŸ“–</span></button>
           <button
             id="nodeSettingsSaveScriptButton"
             class="node-toolbar-stack-label"
@@ -201,22 +201,22 @@
           <button
             id="nodeCommandCenterButton"
             type="button"
-            aria-label="Command Center"><span class="node-modular-view-icon" aria-hidden="true">🚀</span></button>
+            aria-label="Command Center"><span class="node-modular-view-icon" aria-hidden="true">ðŸš€</span></button>
           <button
             id="nodeModuleShopButton"
             type="button"
             aria-label="Module Browser"
-            aria-pressed="false"><span class="node-modular-view-icon" aria-hidden="true">🎛️</span></button>
+            aria-pressed="false"><span class="node-modular-view-icon" aria-hidden="true">ðŸŽ›ï¸</span></button>
           <button
             id="nodeStandaloneMidiKeyboardButton"
             type="button"
             aria-label="MIDI Keyboard"
-            aria-pressed="false"><span class="node-modular-view-icon" aria-hidden="true">🎹</span></button>
+            aria-pressed="false"><span class="node-modular-view-icon" aria-hidden="true">ðŸŽ¹</span></button>
           <button
             id="nodeModularOnlyViewButton"
             type="button"
             aria-label="Modular view"
-            aria-pressed="false"><span class="node-modular-view-icon" aria-hidden="true">💻</span></button>
+            aria-pressed="false"><span class="node-modular-view-icon" aria-hidden="true">ðŸ’»</span></button>
           <span
             id="nodeWorldPositionReadout"
             class="node-world-position-readout"
@@ -257,8 +257,8 @@
             class="node-room-dimmer-button"
             type="button"
             aria-pressed="false"
-            aria-label="Room light. Drag up or down to darken the room (0–100%); displays stay lit."
-            title="Room light · drag up/down · off darkens the room (displays stay lit)"
+            aria-label="Room light. Drag up or down to darken the room (0â€“100%); displays stay lit."
+            title="Room light Â· drag up/down Â· off darkens the room (displays stay lit)"
           ><span class="node-room-dimmer-fill" aria-hidden="true"></span><span class="node-room-dimmer-icons" aria-hidden="true"><img class="node-room-dimmer-icon node-room-dimmer-icon-on" src="./public/resources/icons/lightbulb-on.svg" alt="" draggable="false" width="24" height="35"><img class="node-room-dimmer-icon node-room-dimmer-icon-off" src="./public/resources/icons/lightbulb-off.svg" alt="" draggable="false" width="24" height="35"></span></button>
           <button
             id="nodeDonateFiveButton"
@@ -280,7 +280,7 @@
             id="nodeBuildNumberReadout"
             class="node-build-number-readout"
             aria-label="Version v{{SANDBOX_VERSION}}, build {{BUILD_NUMBER}}, stamp {{BUILD_TOKEN}}"
-            title="Version v{{SANDBOX_VERSION}} · build {{BUILD_NUMBER}} · {{BUILD_TOKEN}}"
+            title="Version v{{SANDBOX_VERSION}} Â· build {{BUILD_NUMBER}} Â· {{BUILD_TOKEN}}"
             data-build-mode-value="{{BUILD_MODE}}">
             <span data-sandbox-version>v{{SANDBOX_VERSION}}</span>
             <span data-build-number-value>{{BUILD_NUMBER}}</span>
@@ -309,19 +309,19 @@
           </div>
           <div class="node-visibility-menu-list">
             <button id="nodeTooltipToggleButton" type="button" role="menuitem" aria-pressed="false" data-tooltip-mode="off">
-              <span class="node-tooltip-mode-label">⬛ Tooltips off</span>
+              <span class="node-tooltip-mode-label">â¬› Tooltips off</span>
             </button>
-            <button id="nodeGridToggleButton" type="button" role="menuitem" aria-pressed="false">⬛ Grid</button>
-            <button id="nodeGridLightToggleButton" type="button" role="menuitem" aria-pressed="true">💡 Grid Light</button>
-            <button id="nodeWireLengthsToggleButton" type="button" role="menuitem" aria-pressed="true">🧬 Wire Lengths</button>
-            <button id="nodeWiresAboveModulesToggleButton" type="button" role="menuitem" aria-pressed="false">⬛ Wires Above Modules</button>
-            <button id="nodeModuleButtonsToggleButton" type="button" role="menuitem" aria-pressed="false">⬛ Module Buttons</button>
-            <button id="nodeOscilloscopeToggleButton" type="button" role="menuitem" aria-pressed="false">⬛ Displays</button>
-            <button id="nodeModuleInterfaceControlsToggleButton" type="button" role="menuitem" aria-pressed="true">🔢 Control Surfaces</button>
-            <button id="nodeModuleSlidersToggleButton" type="button" role="menuitem" aria-pressed="true">📊 Sliders</button>
-            <button id="nodeSliderAmountToggleButton" type="button" role="menuitem" aria-pressed="false">⬛ Amount Slider</button>
-            <button id="nodeSliderPositionToggleButton" type="button" role="menuitem" aria-pressed="true">⬜ Position Slider</button>
-            <button id="nodeKeyboardDebugToggleButton" type="button" role="menuitem" aria-pressed="false"><span>⬛ Debug</span></button>
+            <button id="nodeGridToggleButton" type="button" role="menuitem" aria-pressed="false">â¬› Grid</button>
+            <button id="nodeGridLightToggleButton" type="button" role="menuitem" aria-pressed="true">ðŸ’¡ Grid Light</button>
+            <button id="nodeWireLengthsToggleButton" type="button" role="menuitem" aria-pressed="true">ðŸ§¬ Wire Lengths</button>
+            <button id="nodeWiresAboveModulesToggleButton" type="button" role="menuitem" aria-pressed="false">â¬› Wires Above Modules</button>
+            <button id="nodeModuleButtonsToggleButton" type="button" role="menuitem" aria-pressed="false">â¬› Module Buttons</button>
+            <button id="nodeOscilloscopeToggleButton" type="button" role="menuitem" aria-pressed="false">â¬› Displays</button>
+            <button id="nodeModuleInterfaceControlsToggleButton" type="button" role="menuitem" aria-pressed="true">ðŸ”¢ Control Surfaces</button>
+            <button id="nodeModuleSlidersToggleButton" type="button" role="menuitem" aria-pressed="true">ðŸ“Š Sliders</button>
+            <button id="nodeSliderAmountToggleButton" type="button" role="menuitem" aria-pressed="false">â¬› Amount Slider</button>
+            <button id="nodeSliderPositionToggleButton" type="button" role="menuitem" aria-pressed="true">â¬œ Position Slider</button>
+            <button id="nodeKeyboardDebugToggleButton" type="button" role="menuitem" aria-pressed="false"><span>â¬› Debug</span></button>
           </div>
           <button
             id="nodeVisibilityMenuResizeHandle"
@@ -412,12 +412,12 @@
         </div>
         <div class="node-phosphor-waveform-settings-row" role="group" aria-label="Scroll line thickness">
           <span>Scroll Line</span>
-          <input id="nodePhosphorWaveformLineWidthInput" type="number" inputmode="decimal" step="0.5" min="0" max="8" autocomplete="off" readonly title="Drag to adjust · double-click to type (0 = hidden)">
+          <input id="nodePhosphorWaveformLineWidthInput" type="number" inputmode="decimal" step="0.5" min="0" max="8" autocomplete="off" readonly title="Drag to adjust Â· double-click to type (0 = hidden)">
           <span>px</span>
         </div>
         <div class="node-phosphor-waveform-settings-row" role="group" aria-label="Trace thickness">
           <span>Trace</span>
-          <input id="nodePhosphorWaveformTraceWidthInput" type="number" inputmode="decimal" step="0.5" min="0.5" max="5" autocomplete="off" readonly title="Drag to adjust · double-click to type (0.5–5 CSS px)">
+          <input id="nodePhosphorWaveformTraceWidthInput" type="number" inputmode="decimal" step="0.5" min="0.5" max="5" autocomplete="off" readonly title="Drag to adjust Â· double-click to type (0.5â€“5 CSS px)">
           <span>px</span>
         </div>
         <label class="node-phosphor-waveform-settings-row">
@@ -832,7 +832,7 @@
             title="Back to modular view"><span>&larr;</span></button>
           <div class="node-patch-page-heading">
             <span class="node-patch-page-kicker">Patch</span>
-            <strong class="node-patch-page-title">Identity · bank · grid</strong>
+            <strong class="node-patch-page-title">Identity Â· bank Â· grid</strong>
           </div>
           <div class="node-patch-page-top-actions" role="group" aria-label="Patch tools">
             <button id="updateDefaultPresetButton" type="button" data-tooltip-key="script.updateDefault" title="Save as init patch">Init</button>
@@ -873,7 +873,7 @@
               </label>
               <label class="node-patch-field node-patch-field-span-2 node-patch-field-stack">
                 <span>Description</span>
-                <textarea id="patchDescriptionValue" spellcheck="true" data-patch-info-field rows="4" placeholder="What this patch is for…"></textarea>
+                <textarea id="patchDescriptionValue" spellcheck="true" data-patch-info-field rows="4" placeholder="What this patch is forâ€¦"></textarea>
               </label>
             </div>
           </section>
@@ -1884,31 +1884,31 @@
           <div id="nodeSceneModuleVisibilityActionGroup" class="scene-context-visibility-stack" role="group" aria-label="Module visibility">
             <div class="scene-context-button-group scene-context-button-group-2" role="group" aria-label="Display and title">
               <button id="nodeSceneToggleOscilloscope" type="button" role="menuitem" hidden>
-                <span class="scene-context-button-lines"><span>⬜</span><span>Display</span></span>
+                <span class="scene-context-button-lines"><span>â¬œ</span><span>Display</span></span>
               </button>
               <button id="nodeSceneToggleTitle" type="button" role="menuitem" hidden>
-                <span class="scene-context-button-lines"><span>⬜</span><span>Title</span></span>
+                <span class="scene-context-button-lines"><span>â¬œ</span><span>Title</span></span>
               </button>
             </div>
             <div class="scene-context-button-group scene-context-button-group-3" role="group" aria-label="Chrome">
               <button id="nodeSceneToggleButtons" type="button" role="menuitem" hidden>
-                <span class="scene-context-button-lines"><span>⬜</span><span>Buttons</span></span>
+                <span class="scene-context-button-lines"><span>â¬œ</span><span>Buttons</span></span>
               </button>
               <button id="nodeSceneToggleIo" type="button" role="menuitem" hidden>
-                <span class="scene-context-button-lines"><span>⬜</span><span>In/Out</span></span>
+                <span class="scene-context-button-lines"><span>â¬œ</span><span>In/Out</span></span>
               </button>
               <button id="nodeSceneToggleSliders" type="button" role="menuitem" hidden>
-                <span class="scene-context-button-lines"><span>⬜</span><span>Sliders</span></span>
+                <span class="scene-context-button-lines"><span>â¬œ</span><span>Sliders</span></span>
               </button>
             </div>
             <div class="scene-context-button-group scene-context-button-group-1" role="group" aria-label="Control surface">
               <button id="nodeSceneToggleInterfaceControls" type="button" role="menuitem" hidden>
-                <span class="scene-context-button-lines"><span>⬜</span><span>Control surface</span></span>
+                <span class="scene-context-button-lines"><span>â¬œ</span><span>Control surface</span></span>
               </button>
             </div>
             <div class="scene-context-button-group scene-context-button-group-1" role="group" aria-label="Hide unused ports">
               <button id="nodeSceneToggleHideUnused" type="button" role="menuitem" hidden>
-                <span class="scene-context-button-lines"><span>⬜</span><span>Hide unused</span></span>
+                <span class="scene-context-button-lines"><span>â¬œ</span><span>Hide unused</span></span>
               </button>
             </div>
             <div class="scene-context-button-group scene-context-button-group-1" role="group" aria-label="Disable module">
@@ -1946,15 +1946,15 @@
             <div id="nodeSceneTimingControls" class="scene-context-timing-controls" role="group" aria-label="Patch timing"></div>
             <div class="scene-context-modular-view-controls" role="group" aria-label="Modular view">
               <button id="nodeSceneToggleModularOnlyView" class="scene-context-window-button" type="button" aria-label="Modular View" aria-pressed="false">
-                <span class="scene-context-window-button-icon" aria-hidden="true">💻</span>
+                <span class="scene-context-window-button-icon" aria-hidden="true">ðŸ’»</span>
                 <kbd>M</kbd>
               </button>
               <button id="nodeSceneToggleModularOnlyControls" class="scene-context-window-button" type="button" aria-label="View Buttons" aria-pressed="false">
-                <span class="scene-context-window-button-icon" aria-hidden="true">🗺️</span>
+                <span class="scene-context-window-button-icon" aria-hidden="true">ðŸ—ºï¸</span>
                 <kbd>V</kbd>
               </button>
               <button id="nodeSceneToggleStandaloneMidiKeyboard" class="scene-context-window-button" type="button" aria-label="Show Keyboard" aria-pressed="false">
-                <span class="scene-context-window-button-icon" aria-hidden="true">🎹</span>
+                <span class="scene-context-window-button-icon" aria-hidden="true">ðŸŽ¹</span>
               </button>
             </div>
             <div
@@ -1962,11 +1962,11 @@
               id="nodeSceneTransportGroup"
               role="group"
               aria-label="Transport controls">
-              <button type="button" data-transport-action="restart" title="Restart simulation (full cold boot)" aria-label="Restart simulation">⏮</button>
-              <button class="node-transport-stop is-stopped" type="button" data-transport-action="stop" title="Stopped (engine off)" aria-label="Stopped" data-transport-state="stopped">⏹</button>
-              <button class="node-transport-play" type="button" data-transport-action="play" title="Play" aria-label="Play" data-transport-play data-transport-state="stopped">▶</button>
-              <button type="button" data-transport-action="record" title="Record (under construction)" aria-label="Record (under construction)" disabled class="under-construction">⏺</button>
-              <button type="button" data-transport-action="forward" title="Forward (under construction)" aria-label="Forward (under construction)" disabled class="under-construction">⏭</button>
+              <button type="button" data-transport-action="restart" title="Restart simulation (full cold boot)" aria-label="Restart simulation">â®</button>
+              <button class="node-transport-stop is-stopped" type="button" data-transport-action="stop" title="Stopped (engine off)" aria-label="Stopped" data-transport-state="stopped">â¹</button>
+              <button class="node-transport-play" type="button" data-transport-action="play" title="Play" aria-label="Play" data-transport-play data-transport-state="stopped">â–¶</button>
+              <button type="button" data-transport-action="record" title="Record (under construction)" aria-label="Record (under construction)" disabled class="under-construction">âº</button>
+              <button type="button" data-transport-action="forward" title="Forward (under construction)" aria-label="Forward (under construction)" disabled class="under-construction">â­</button>
             </div>
           </div>
         </div>
@@ -2099,7 +2099,7 @@
               inputmode="decimal"
               autocomplete="off">
           </label>
-          <!-- Node rows: # | x | y | [curve | shape] | ✕ ; [+] under last node. -->
+          <!-- Node rows: # | x | y | [curve | shape] | âœ• ; [+] under last node. -->
           <div
             id="nodeSceneGraphNodeList"
             class="scene-context-graph-node-list"
@@ -2141,7 +2141,7 @@
                 <input id="nodeSceneKnobFaceRotate1" type="checkbox">
                 <span>rotate</span>
               </label>
-              <p id="nodeSceneKnobFaceFileName1" class="node-knob-face-filename" title="">—</p>
+              <p id="nodeSceneKnobFaceFileName1" class="node-knob-face-filename" title="">â€”</p>
             </div>
             <div class="node-knob-face-layer-row" data-face-layer="image2">
               <button id="nodeSceneKnobFaceLoad2" type="button">load</button>
@@ -2150,7 +2150,7 @@
                 <input id="nodeSceneKnobFaceRotate2" type="checkbox">
                 <span>rotate</span>
               </label>
-              <p id="nodeSceneKnobFaceFileName2" class="node-knob-face-filename" title="">—</p>
+              <p id="nodeSceneKnobFaceFileName2" class="node-knob-face-filename" title="">â€”</p>
             </div>
             <div class="node-knob-face-layer-row" data-face-layer="image3">
               <button id="nodeSceneKnobFaceLoad3" type="button">load</button>
@@ -2159,7 +2159,7 @@
                 <input id="nodeSceneKnobFaceRotate3" type="checkbox">
                 <span>rotate</span>
               </label>
-              <p id="nodeSceneKnobFaceFileName3" class="node-knob-face-filename" title="">—</p>
+              <p id="nodeSceneKnobFaceFileName3" class="node-knob-face-filename" title="">â€”</p>
             </div>
             <div class="node-knob-face-layer-row" data-face-layer="image4">
               <button id="nodeSceneKnobFaceLoad4" type="button">load</button>
@@ -2168,7 +2168,7 @@
                 <input id="nodeSceneKnobFaceRotate4" type="checkbox">
                 <span>rotate</span>
               </label>
-              <p id="nodeSceneKnobFaceFileName4" class="node-knob-face-filename" title="">—</p>
+              <p id="nodeSceneKnobFaceFileName4" class="node-knob-face-filename" title="">â€”</p>
             </div>
             <div class="node-knob-face-layer-row" data-face-layer="image5">
               <button id="nodeSceneKnobFaceLoad5" type="button">load</button>
@@ -2177,7 +2177,7 @@
                 <input id="nodeSceneKnobFaceRotate5" type="checkbox">
                 <span>rotate</span>
               </label>
-              <p id="nodeSceneKnobFaceFileName5" class="node-knob-face-filename" title="">—</p>
+              <p id="nodeSceneKnobFaceFileName5" class="node-knob-face-filename" title="">â€”</p>
             </div>
             <div class="node-knob-face-layer-row" data-face-layer="image6">
               <button id="nodeSceneKnobFaceLoad6" type="button">load</button>
@@ -2186,11 +2186,11 @@
                 <input id="nodeSceneKnobFaceRotate6" type="checkbox">
                 <span>rotate</span>
               </label>
-              <p id="nodeSceneKnobFaceFileName6" class="node-knob-face-filename" title="">—</p>
+              <p id="nodeSceneKnobFaceFileName6" class="node-knob-face-filename" title="">â€”</p>
             </div>
             <div class="node-knob-face-shared-row">
               <label class="node-knob-face-num-field" title="Centered arc sweep (left and right open together)">
-                <span>span °</span>
+                <span>span Â°</span>
                 <input id="nodeSceneKnobFaceRotationDegrees" type="number" min="0" max="1440" step="1" value="270">
               </label>
               <label class="node-knob-face-check node-knob-face-readout-toggle" title="Show numeric value on the face">
@@ -2222,7 +2222,7 @@
             autocomplete="off"
             spellcheck="false"
             maxlength="8"
-            placeholder="🐞">
+            placeholder="ðŸž">
         </label>
         <div id="nodeSceneTextBoxControls" class="scene-context-text-box-controls" hidden>
           <span>text box style</span>
@@ -2259,7 +2259,7 @@
           </button>
         </div>
         <button id="nodeSceneDeleteModule" class="scene-context-danger" type="button" role="menuitem" hidden>
-          <span>🗑️ Delete</span>
+          <span>ðŸ—‘ï¸ Delete</span>
         </button>
         <button
           id="nodeSceneContextResizeHandle"
@@ -2527,7 +2527,7 @@
             <span>(Off)</span>
           </button>
           <label class="node-volume-control node-live-input-volume" title="Input module amplitude (mirrored)">
-            <span aria-hidden="true">🔊</span>
+            <span aria-hidden="true">ðŸ”Š</span>
             <input
               id="nodeLiveInputVolume"
               type="range"
@@ -2539,7 +2539,7 @@
             <output id="nodeLiveInputVolumeValue" for="nodeLiveInputVolume">100%</output>
           </label>
           <label class="node-volume-control node-live-output-volume" title="Output module volume (mirrored)">
-            <span aria-hidden="true">🔊</span>
+            <span aria-hidden="true">ðŸ”Š</span>
             <input
               id="nodeLiveOutputVolume"
               type="range"
@@ -2568,11 +2568,11 @@
           </button>
         </div>
         <div class="node-transport-group" id="nodeTransportGroup" aria-label="Transport controls">
-          <button id="nodeTransportPrev" type="button" data-transport-action="restart" title="Restart simulation (full cold boot)" aria-label="Restart simulation">⏮</button>
-          <button id="nodeTransportStop" class="node-transport-stop is-stopped" type="button" data-transport-action="stop" title="Stopped (engine off)" aria-label="Stopped" data-transport-state="stopped">⏹</button>
-          <button id="nodeTransportPlay" class="node-transport-play" type="button" data-transport-action="play" data-transport-play title="Play" aria-label="Play" data-transport-state="stopped">▶</button>
-          <button id="nodeTransportRecord" type="button" data-transport-action="record" title="Record (under construction)" aria-label="Record (under construction)" disabled class="under-construction">⏺</button>
-          <button id="nodeTransportNext" type="button" data-transport-action="forward" title="Forward (under construction)" aria-label="Forward (under construction)" disabled class="under-construction">⏭</button>
+          <button id="nodeTransportPrev" type="button" data-transport-action="restart" title="Restart simulation (full cold boot)" aria-label="Restart simulation">â®</button>
+          <button id="nodeTransportStop" class="node-transport-stop is-stopped" type="button" data-transport-action="stop" title="Stopped (engine off)" aria-label="Stopped" data-transport-state="stopped">â¹</button>
+          <button id="nodeTransportPlay" class="node-transport-play" type="button" data-transport-action="play" data-transport-play title="Play" aria-label="Play" data-transport-state="stopped">â–¶</button>
+          <button id="nodeTransportRecord" type="button" data-transport-action="record" title="Record (under construction)" aria-label="Record (under construction)" disabled class="under-construction">âº</button>
+          <button id="nodeTransportNext" type="button" data-transport-action="forward" title="Forward (under construction)" aria-label="Forward (under construction)" disabled class="under-construction">â­</button>
         </div>
         <div class="node-render-duration-control" id="nodeRenderDurationControl">
           <button id="nodeRenderButton" type="button"><span>Render</span><span>Sample</span></button>
@@ -2584,7 +2584,7 @@
                inspired by the Music Player module. -->
           <audio id="audioPlayer" preload="metadata"></audio>
           <div class="node-rendered-player empty" id="nodeRenderedPlayer" aria-label="Rendered sample player">
-            <button id="nodeRenderedPlayerPlay" class="node-transport-play" type="button" aria-label="Play rendered sample" aria-pressed="false" data-transport-state="stopped" disabled>▶</button>
+            <button id="nodeRenderedPlayerPlay" class="node-transport-play" type="button" aria-label="Play rendered sample" aria-pressed="false" data-transport-state="stopped" disabled>â–¶</button>
             <div class="node-rendered-player-wave" id="nodeRenderedPlayerWave" title="Click or drag to seek">
               <canvas id="nodeRenderedPlayerCanvas" aria-hidden="true"></canvas>
               <div class="node-rendered-player-playhead" id="nodeRenderedPlayerPlayhead" aria-hidden="true"></div>
@@ -2592,7 +2592,7 @@
             </div>
             <span class="node-rendered-player-time" id="nodeRenderedPlayerTime">0:00 / 0:00</span>
             <label class="node-volume-control" title="Rendered sample playback level">
-              <span aria-hidden="true">🔊</span>
+              <span aria-hidden="true">ðŸ”Š</span>
               <input
                 id="nodeRenderedPlayerVolume"
                 type="range"
@@ -2753,25 +2753,25 @@
                 data-smoothing-mode="global"
                 class="metadata-smoothing-mode-button"
                 data-tooltip-key="parameterSettings.smoothingModeGlobal"
-                aria-label="Global smoothing">🌍</button>
+                aria-label="Global smoothing">ðŸŒ</button>
               <button
                 type="button"
                 data-smoothing-mode="internal"
                 class="metadata-smoothing-mode-button"
                 data-tooltip-key="parameterSettings.smoothingModeInternal"
-                aria-label="Internal smoothing">🙂</button>
+                aria-label="Internal smoothing">ðŸ™‚</button>
               <button
                 type="button"
                 data-smoothing-mode="internalGlobal"
                 class="metadata-smoothing-mode-button"
                 data-tooltip-key="parameterSettings.smoothingModeInternalGlobal"
-                aria-label="Internal plus global smoothing">🙂🌍</button>
+                aria-label="Internal plus global smoothing">ðŸ™‚ðŸŒ</button>
               <button
                 type="button"
                 data-smoothing-mode="off"
                 class="metadata-smoothing-mode-button"
                 data-tooltip-key="parameterSettings.smoothingModeOff"
-                aria-label="Smoothing off">❌</button>
+                aria-label="Smoothing off">âŒ</button>
             </div>
             <p id="metadataSmoothingModeStatus" class="metadata-smoothing-mode-status"></p>
           </div>
@@ -2783,7 +2783,7 @@
                 data-smoothing-type="linear"
                 class="metadata-smoothing-mode-button"
                 data-tooltip-key="parameterSettings.smoothingTypeLinear"
-                aria-label="L Linear smoothing — constant-rate lerp over the smoothing time">L</button>
+                aria-label="L Linear smoothing â€” constant-rate lerp over the smoothing time">L</button>
               <button
                 type="button"
                 data-smoothing-type="onePole"
@@ -2801,7 +2801,7 @@
                 data-smoothing-type="papoulis"
                 class="metadata-smoothing-mode-button"
                 data-tooltip-key="parameterSettings.smoothingTypePapoulis"
-                aria-label="Π Papoulis - 3rd-order Optimum-L lowpass (most smooth but higher cpu usage)">Π</button>
+                aria-label="Î  Papoulis - 3rd-order Optimum-L lowpass (most smooth but higher cpu usage)">Î </button>
             </div>
             <p id="metadataSmoothingTypeStatus" class="metadata-smoothing-mode-status"></p>
           </div>
@@ -3381,7 +3381,7 @@
   <script src="./public/modules/stepGrid/step-grid-register.js?v=stepgrid-variable-steps-20260715"></script>
   <script src="./public/modules/groupInput/group-input-register.js?v=chromeless-portals-1"></script>
   <script src="./public/modules/groupOutput/group-output-register.js?v=chromeless-portals-1"></script>
-  <script src="./public/node-graph-module-definitions.js?v=ms-quad-lim-1"></script>
+  <script src="./public/node-graph-module-definitions.js?v=pitch-display-1"></script>
   <script src="./public/node-graph-plan-roles.js?v=plan-roles-b0"></script>
   <script src="./public/node-graph-module-controls.js?v=speed-limit-runtime-only-1"></script>
   <script src="./public/node-graph-data-bus.js?v=data-plane-merge-20260711"></script>
@@ -3395,8 +3395,9 @@
   <script src="./public/node-graph-port-script.js?v=nuke-scriptbox-20260719"></script>
   <script src="./public/node-graph-image-utils.js?v=pre-formula-restore-1"></script>
   <script src="./public/node-graph-graph-utils.js?v=graph-settings-list-1"></script>
-  <script src="./public/node-graph-samples.js?v=music-player-phase-persist-1"></script>
-  <script src="./public/node-graph-phosphor-waveform.js?v=time-window-light-1"></script>
+  <script src="./public/node-graph-samples.js?v=music-pl-2"></script>
+  <script src="./public/modules/audioPlayer/audio-player-playlist.js?v=music-pl-2"></script>
+  <script src="./public/node-graph-phosphor-waveform.js?v=music-pl-2"></script>
   <script src="./public/node-graph-stdlib/node-graph-phasor-helpers.js?v=phasor-helpers-1"></script>
   <script src="./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=skew-custom-1"></script>
   <script src="./public/node-graph-musical-engines.js?v=musical-engines-1"></script>
@@ -3423,7 +3424,7 @@
   <script src="./public/node-graph-workspace-zoom.js?v=zoom-hide-io-1"></script>
   <script src="./public/node-graph-workspace-view.js?v=zoom-hide-io-1"></script>
   <script src="./public/node-graph-camera-view.js?v=hitpoint-select-1"></script>
-  <script src="./public/node-graph-marquee-selection.js?v=snake-smooth-1"></script>
+  <script src="./public/node-graph-marquee-selection.js?v=snake-select-1"></script>
   <script src="./public/node-graph-node-dragging.js?v=layout-edit-light-1"></script>
   <script src="./public/node-graph-context-menu.js?v=cc-disable-modules-1"></script>
   <script src="./public/node-graph-module-actions.js?v=title-edit-session-1"></script>
@@ -3443,14 +3444,14 @@
   <script src="./public/latch-button.js?v=latch-1"></script>
   <script src="./public/node-graph-module-scope-settings-form.js?v=lcd-padding-fix-1"></script>
   <script src="./public/node-graph-module-scope-settings-controls.js?v=burn-sticky-1"></script>
-  <!-- Display Settings peel: form-io → field-edit → apply → window → thin ui anchor -->
+  <!-- Display Settings peel: form-io â†’ field-edit â†’ apply â†’ window â†’ thin ui anchor -->
   <script src="./public/node-graph-module-scope-settings-form-io.js?v=grow-label-1"></script>
   <script src="./public/node-graph-module-scope-settings-field-edit.js?v=lcd-gauss-shadow-1"></script>
   <script src="./public/node-graph-module-scope-settings-apply.js?v=output-cold-plate-1"></script>
   <script src="./public/node-graph-module-scope-settings-window.js?v=display-settings-multi-sync-1"></script>
   <script src="./public/node-graph-module-scope-settings-ui.js?v=one-face-1"></script>
   <script src="./public/node-graph-module-scope-capture.js?v=fuse-pack-1"></script>
-  <script src="./public/node-graph-module-scope-number-readout.js?v=window-4096-name-tight-2"></script>
+  <script src="./public/node-graph-module-scope-number-readout.js?v=pitch-display-1"></script>
   <script src="./public/node-graph-module-scope-draw-basic.js?v=burn-sticky-1"></script>
   <script src="./public/node-graph-module-scope-draw-burn.js?v=burn-sticky-1"></script>
   <script src="./public/node-graph-module-scopes.js?v=clear-pause-bright-1"></script>
@@ -3569,7 +3570,7 @@
   <script src="./public/node-graph-external-ui-events.js?v=xy-pad-impulse-1"></script>
   <script src="./public/node-graph-patch-migrations.js?v=sincos-no-amp-in-1"></script>
   <script src="./public/node-graph-patch-core.js?v=placement-light-1"></script>
-  <script src="./public/node-graph-live-plan-runtime.js?v=delay-modstyle-1"></script>
+  <script src="./public/node-graph-live-plan-runtime.js?v=music-pl-2"></script>
   <script src="./public/node-graph-live-parameter-runtime.js?v=mod-clamp-1"></script>
   <script src="./public/node-graph-oscillator-runtime.js?v=0150-native-core"></script>
   <script src="./public/node-graph-gpu-additive-backend.js?v=external-graph-inputs-1780816800000"></script>
@@ -3694,7 +3695,7 @@
   <script src="./public/modules/reverbEffect/reverb-effect-live-evaluator.js?v=port-pair-expand-1"></script>
   <script src="./public/modules/soemReverb/soem-reverb-live-evaluator.js?v=5-ping-pong"></script>
   <script src="./public/modules/pll/pll-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/helmholtzPitch/helmholtz-pitch-live-evaluator.js?v=window-4096-name-tight-2"></script>
+  <script src="./public/modules/helmholtzPitch/helmholtz-pitch-live-evaluator.js?v=pitch-display-1"></script>
   <script src="./public/modules/slewLimiter/slew-limiter-math.js?v=slew-1"></script>
   <script src="./public/modules/slewLimiter/slew-limiter-live-evaluator.js?v=slew-1"></script>
   <script src="./public/modules/midSideEncode/mid-side-encode-math.js?v=ms-quad-lim-1"></script>
@@ -3815,13 +3816,13 @@
   <script src="./public/modules/chromaColor/chroma-color-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/badvalMonitor/badval-monitor-ui.js?v=badval-face-1"></script>
   <script src="./public/modules/badvalMonitor/badval-monitor-live-evaluator.js?v=badval-face-1"></script>
-  <script src="./public/modules/helmholtzPitch/helmholtz-pitch-ui.js?v=window-4096-name-tight-2"></script>
+  <script src="./public/modules/helmholtzPitch/helmholtz-pitch-ui.js?v=pitch-display-1"></script>
   <script src="./public/modules/speakerProtection/speaker-protection-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/groupOutput/group-output-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/output/output-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/groupInput/group-input-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/audioInput/audio-input-live-evaluator.js?v=per-module-dispatch-20260711"></script>
-  <script src="./public/modules/audioPlayer/audio-player-live-evaluator.js?v=per-module-dispatch-20260711"></script>
+  <script src="./public/modules/audioPlayer/audio-player-live-evaluator.js?v=music-pl-2"></script>
   <script src="./public/modules/moduleGroup/module-group-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/codeblock/codeblock-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/sineWavetable/sine-wavetable-live-evaluator.js?v=sincos-no-amp-in-1"></script>

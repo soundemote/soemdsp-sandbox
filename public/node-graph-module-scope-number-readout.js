@@ -1620,9 +1620,8 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   // https://github.com/keshikan/DSEG#usage
   let liveValueText;
   if (slot?.type === "helmholtzPitch" && typeof nodeGraphPitchDetectorFormatDisplay === "function") {
-    // Live: zeros when no pitch / no sample (not dashes).
-    // Frozen (speed 0): never invent zeros — hold last good so deselect/no-buffer
-    // cannot wipe the plate (zeros are not "empty placeholders").
+    // Live: dash (—) when no pitch / below threshold (not zeros).
+    // Frozen (speed 0): hold last good — never invent a wipe over a locked reading.
     if (frozen && !hasSample) {
       liveValueText = " !"; // placeholder → ResolveHeld keeps last good / no paint
     } else if (hasSample) {
@@ -1631,7 +1630,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
         pitchMode,
         decimals,
       );
-      // While frozen, zero = no detection this sample; do not paint over held Hz.
+      // While frozen, dash = no detection this sample; do not paint over held Hz.
       if (frozen && typeof nodeGraphPitchDetectorZeroDisplay === "function") {
         const zeroText = nodeGraphPitchDetectorZeroDisplay(pitchMode, decimals);
         if (String(liveValueText) === String(zeroText)) {
@@ -1641,9 +1640,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     } else {
       liveValueText = typeof nodeGraphPitchDetectorZeroDisplay === "function"
         ? nodeGraphPitchDetectorZeroDisplay(pitchMode, decimals)
-        : (typeof nodeGraphNumberReadoutFormatValue === "function"
-          ? nodeGraphNumberReadoutFormatValue(0, decimals)
-          : " 0");
+        : "—";
     }
   } else {
     liveValueText = hasSample
@@ -1657,7 +1654,18 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   }
   // Hold last good reading — never paint empty "!" over a held phosphor face
   // (pause + wire connect / deselect was clearing Pitch Detector ghosts).
-  let valueText = nodeGraphNumberReadoutResolveHeldValueText(canvas, liveValueText, { frozen });
+  // Pitch Detector live dash (—) is a real "no lock" glyph: paint it, don't hold.
+  let valueText;
+  if (
+    slot?.type === "helmholtzPitch"
+    && !frozen
+    && typeof nodeGraphPitchDetectorZeroDisplay === "function"
+    && String(liveValueText) === String(nodeGraphPitchDetectorZeroDisplay(pitchMode, decimals))
+  ) {
+    valueText = liveValueText;
+  } else {
+    valueText = nodeGraphNumberReadoutResolveHeldValueText(canvas, liveValueText, { frozen });
+  }
   if (!valueText) {
     // Frozen with no held reading: leave pixels as-is (no kill).
     return;
@@ -1770,9 +1778,9 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const peakHex = Array.isArray(gradientStops) && gradientStops.length
     ? (gradientStops[gradientStops.length - 1]?.color || "#fcfdbf")
     : (settings.color || "#fcfdbf");
-  // Note names: monospace letter + accidental column (# / ♭ / space) + octave.
-  // Fixed width so naturals and sharps/flats do not jitter. DSEG for Hz/MIDI #.
-  const digitFontFamily = pitchNameMode
+  // Note names: monospace (compact C3 / C#3). DSEG for Hz / MIDI #. Dash uses mono.
+  const pitchDash = String(valueText || "").includes("—") || String(valueText || "").trim() === "-";
+  const digitFontFamily = (pitchNameMode || (slot?.type === "helmholtzPitch" && pitchDash))
     ? '"Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace'
     : (nodeGraphNumberReadoutDsegReady
       ? '"DSEG7 Classic", "Consolas", monospace'
@@ -1941,12 +1949,20 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const largeUnit = hasUnit && String(unit || "").trim().toLowerCase() === "hz";
   const pad01 = nodeGraphNumberReadoutFacePadding01(settings);
   // Decimal budget ON → fixed slots; OFF → resize to live value width.
-  // Pitch name mode: always fit a fixed-width template (letter+acc+#oct) so
-  // naturals and sharps/flats share one size.
+  // Pitch name (M): fit live compact name (C3 / C#3) so it centers and does not
+  // force zero-pad columns that left empty air at facePadding 0.
+  // Slight built-in pad so M glyphs don't slam the plate edge even at pad 0.
   let liveFitText = nodeGraphNumberReadoutLayoutFitText(slot, valueText, decimals, settings);
+  let pitchLayoutPad01 = pad01;
   if (pitchNameMode) {
-    // Leading space + "C#8 " style (4 mono cells: letter+acc+#oct pad) — no gap after #.
-    liveFitText = " C#8 ";
+    liveFitText = String(valueText || "C#3");
+    // Keep a little air around note names even when Display pad is 0.
+    pitchLayoutPad01 = Math.max(pad01, 0.08);
+  } else if (slot?.type === "helmholtzPitch") {
+    // Hz / 8ve: center the live string (no forced 4-digit budget side air).
+    liveFitText = String(valueText || "0");
+    // Mild inset so DSEG ink isn't edge-clipped at pad 0.
+    pitchLayoutPad01 = Math.max(pad01, 0.04);
   }
   const layout = nodeGraphNumberReadoutComputeLayout(
     context,
@@ -1957,12 +1973,12 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     {
       hasUnit,
       largeUnit,
-      padding01: pad01,
+      padding01: pitchLayoutPad01,
       faceStyle: "led",
       pixelRatio,
       zoom: nodeGraphNumberReadoutWorkspaceZoom(),
       fitText: liveFitText,
-      monoProbe: pitchNameMode,
+      monoProbe: pitchNameMode || (slot?.type === "helmholtzPitch" && pitchDash),
     },
   );
   const digitFontSize = layout.fontSize;
@@ -1992,7 +2008,12 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   }
 
   // Max padding: one phosphor pixel of live light.
-  const drawLiveDigits = alpha > 0.001 && !nodeGraphNumberReadoutIsEmptyPlaceholder(valueText);
+  // Pitch "—" no-lock glyph is intentional ink (IsEmptyPlaceholder would skip it).
+  const pitchNoLockGlyph = slot?.type === "helmholtzPitch"
+    && typeof nodeGraphPitchDetectorZeroDisplay === "function"
+    && String(valueText) === String(nodeGraphPitchDetectorZeroDisplay(pitchMode, decimals));
+  const drawLiveDigits = alpha > 0.001
+    && (pitchNoLockGlyph || !nodeGraphNumberReadoutIsEmptyPlaceholder(valueText));
   if (layout.pixelPin) {
     if (drawLiveDigits) {
       nodeGraphNumberReadoutDrawPixelPin(
