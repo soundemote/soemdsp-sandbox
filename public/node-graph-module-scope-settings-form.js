@@ -48,8 +48,8 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null) {
     title = "Sticky residual floor 0…1. 0 = no stick; 0.5 = once energy ≥ 0.5 the pixel freezes at that floor; 1 = freeze all residual. Off by default.";
   }
   if (formType === "numberReadout" && key === "burnAmount") {
-    label = "Burn Amt";
-    title = "Residual deposit gain vs LED Bright (default 1). Deposit peak = Bright × Burn Amt. 0.5 = half deposit; 2 = double. Live LED light is unchanged.";
+    label = "Burn \u2A2F";
+    title = "Residual deposit gain vs LED Bright (default 1). Deposit peak = Bright \u00d7 this control. 0.5 = half deposit; 2 = double. Live LED light is unchanged.";
   }
   if (formType === "numberReadout" && key === "unlitSegments") {
     label = "Ghost";
@@ -422,8 +422,8 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
           .filter((key) => activeColors.has(key));
         choiceKeys = [];
       } else {
-        // Value LED: Decimals → Padding → Bright → Ghost → Trail → Burn → Burn Amt → blend → Background → Ghost Gradient.
-        fieldKeys = ["decimals", "facePadding", "dot1Brightness", "ghost", "trail", "burn","burnAmount", "burnAmount"]
+        // Value LED: Decimals → Padding → Bright → Ghost → Trail → Burn → Burn ⨉ → blend → Background → Ghost Gradient.
+        fieldKeys = ["decimals", "facePadding", "dot1Brightness", "ghost", "trail", "burn", "burnAmount"]
           .filter((key) => activeFields.has(key));
         colorKeys = ["backgroundColor"]
           .filter((key) => activeColors.has(key));

@@ -566,10 +566,10 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     title: "Sticky residual floor 0…1. 0 = none stick; 0.5 = once energy ≥ 0.5 freezes there; 1 = freeze all residual. Off by default.",
   }),
   burnAmount: Object.freeze({
-    label: "Burn Amt",
+    label: "Burn \u2A2F",
     inputmode: "decimal",
     id: "nodeTraceDisplayBurnAmount",
-    title: "Residual deposit gain vs Bright (default 1). Deposit = Bright × Burn Amt. Live light unchanged. 0.5 = dim ghost deposit; 2 = hot deposit.",
+    title: "Residual deposit gain vs Bright (default 1). Deposit = Bright \u00d7 this control. Live light unchanged. 0.5 = dim ghost deposit; 2 = hot deposit.",
   }),
   residual: Object.freeze({
     // Legacy key — Value LED/LCD forms use trail (same axis).
