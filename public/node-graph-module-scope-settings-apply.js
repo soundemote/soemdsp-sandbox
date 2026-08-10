@@ -247,13 +247,135 @@ function persistNodeGraphTraceDisplaySettingsSoon(persistMode = "debounce") {
 }
 
 
+/**
+ * Dirty keys for Display Settings multi-apply.
+ * Selection changes commit the open form — without this, primary colors were
+ * pushed onto every multi-target even when the user never edited color.
+ */
+function markNodeGraphTraceDisplaySettingsDirty(keys = null) {
+  if (!nodeGraphMvp.traceDisplaySettingsDirtyKeys) {
+    nodeGraphMvp.traceDisplaySettingsDirtyKeys = new Set();
+  }
+  const bag = nodeGraphMvp.traceDisplaySettingsDirtyKeys;
+  if (keys == null || keys === "*") {
+    bag.add("*");
+    return;
+  }
+  if (Array.isArray(keys)) {
+    for (const key of keys) {
+      if (key) {
+        bag.add(String(key));
+      }
+    }
+    return;
+  }
+  if (keys) {
+    bag.add(String(keys));
+  }
+}
+
+function clearNodeGraphTraceDisplaySettingsDirty() {
+  nodeGraphMvp.traceDisplaySettingsDirtyKeys = new Set();
+}
+
+function nodeGraphTraceDisplaySettingsIsDirty() {
+  return (nodeGraphMvp.traceDisplaySettingsDirtyKeys?.size || 0) > 0;
+}
+
+/**
+ * Multi-select apply: only write keys the user actually edited so unrelated
+ * look (gradient/colors) stays per-module. Single-target still applies full form.
+ */
+function nodeGraphMergeDisplaySettingsDirty(existing, form, dirtyKeys) {
+  const formObj = form && typeof form === "object" ? form : {};
+  if (!dirtyKeys || dirtyKeys.size === 0) {
+    return null;
+  }
+  if (dirtyKeys.has("*")) {
+    return formObj;
+  }
+  const base = existing && typeof existing === "object" ? { ...existing } : {};
+  for (const key of dirtyKeys) {
+    if (key === "*") {
+      continue;
+    }
+    if (Object.prototype.hasOwnProperty.call(formObj, key)) {
+      base[key] = formObj[key];
+    }
+  }
+  // Coupled mirrors the form/normalize layer uses.
+  if (dirtyKeys.has("dot1Brightness") && formObj.brightness !== undefined) {
+    base.brightness = formObj.brightness;
+  }
+  if (dirtyKeys.has("dot1Color") && formObj.color !== undefined) {
+    base.color = formObj.color;
+  }
+  if (dirtyKeys.has("backgroundColor") && formObj.background !== undefined) {
+    base.background = formObj.background;
+  }
+  if (dirtyKeys.has("gradientStops") || dirtyKeys.has("gradient")) {
+    if (formObj.gradientStops != null) {
+      base.gradientStops = formObj.gradientStops;
+    }
+    if (formObj.gradient != null) {
+      base.gradient = formObj.gradient;
+    }
+    // Floor follows gradient when stops change.
+    if (Array.isArray(formObj.gradientStops) && formObj.gradientStops[0]?.color) {
+      base.background = formObj.gradientStops[0].color;
+      base.backgroundColor = formObj.gradientStops[0].color;
+    }
+  }
+  if (dirtyKeys.has("sourceSync") && formObj.syncChannel !== undefined) {
+    base.syncChannel = formObj.syncChannel;
+  }
+  return base;
+}
+
+function nodeGraphTraceDisplayExistingSettingsForNode(node, settingsSchema) {
+  if (!node) {
+    return {};
+  }
+  if (typeof nodeGraphTraceDisplayCurrentSettingsForFormType === "function") {
+    // Temporarily not available per-node — read typed bags.
+  }
+  if (settingsSchema === "lineBurn" || settingsSchema === "value" || settingsSchema === "trace"
+    || settingsSchema === "scope2d" || settingsSchema === "scope2dTrace"
+    || settingsSchema === "numberReadout" || settingsSchema === "knobFace"
+    || settingsSchema === "phosphorLight") {
+    return node.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
+      ? { ...node.traceDisplaySettings }
+      : {};
+  }
+  if (settingsSchema === "dot") {
+    return node.zeroDBurnSettings && typeof node.zeroDBurnSettings === "object"
+      ? { ...node.zeroDBurnSettings }
+      : {};
+  }
+  if (settingsSchema === "ledLamp") {
+    return node.led && typeof node.led === "object" ? { ...node.led } : {};
+  }
+  return node.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
+    ? { ...node.traceDisplaySettings }
+    : {};
+}
+
 function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
   const settings = readNodeGraphTraceDisplaySettingsForm();
   const commit = Boolean(options.record || options.commit);
+  const forceAll = Boolean(options.forceAll);
+  const dirtyKeys = nodeGraphMvp.traceDisplaySettingsDirtyKeys;
+  const isDirty = forceAll || (dirtyKeys && dirtyKeys.size > 0);
+
+  // Selection-follow / reopen commits without edits must not rewrite targets.
+  if (!isDirty && !nodeGraphTraceDisplaySettingsEditingTraceDefaults()) {
+    return null;
+  }
+
   if (nodeGraphTraceDisplaySettingsEditingTraceDefaults()) {
     nodeGraphMvp.traceSettings = normalizeNodeGraphTraceDisplaySettings(settings);
   } else {
-    // Multi-adjust: same display schema across selection → write all targets.
+    // Multi-adjust: same display schema across selection → write targets.
     const targetIds = typeof nodeGraphTraceDisplaySettingsActiveTargetIds === "function"
       ? nodeGraphTraceDisplaySettingsActiveTargetIds()
       : [nodeGraphTraceDisplaySettingsTargetNodeId()].filter(Boolean);
@@ -262,13 +384,22 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
     }
     let anyApplied = false;
     let needsParamSync = false;
+    const multi = targetIds.length > 1;
     for (const targetId of targetIds) {
       const node = nodeGraphPatchNode(targetId);
       if (!nodeGraphNodeCanOpenDisplaySettings(node)) {
         continue;
       }
       const settingsSchema = nodeGraphModuleDisplaySettingsSchemaForNode(node);
-      assignNodeGraphTypedDisplaySettingsEverywhere(node, settingsSchema, settings);
+      let toApply = settings;
+      if (multi && !forceAll && dirtyKeys && !dirtyKeys.has("*")) {
+        const existing = nodeGraphTraceDisplayExistingSettingsForNode(node, settingsSchema);
+        toApply = nodeGraphMergeDisplaySettingsDirty(existing, settings, dirtyKeys);
+        if (!toApply) {
+          continue;
+        }
+      }
+      assignNodeGraphTypedDisplaySettingsEverywhere(node, settingsSchema, toApply);
       anyApplied = true;
       if (settingsSchema === "spectrogramBurn") {
         needsParamSync = true;
@@ -297,7 +428,13 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
       renderNodeGraphHistoryControls();
     }
   }
-  scheduleNodeGraphModuleScopeDraw();
+  // Force so background/color sticks while Stopped (paused schedule would
+  // otherwise skip the full path; cold plates still run, but force refreshes
+  // energy faces too after Clear-while-paused style freezes).
+  scheduleNodeGraphModuleScopeDraw({ force: true });
+  if (typeof paintNodeGraphModuleScopeColdPlatesOnly === "function") {
+    paintNodeGraphModuleScopeColdPlatesOnly();
+  }
   // XY Pad face is not a scope slot — repaint pads when display settings change.
   if (typeof nodeGraphXyPadRedrawAll === "function") {
     nodeGraphXyPadRedrawAll();
@@ -349,15 +486,98 @@ function commitOpenNodeGraphTraceDisplaySettings() {
   if (!popover || popover.hidden || nodeGraphMvp.sharedInspectorActive !== "traceDisplaySettings") {
     return null;
   }
-  return applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true, commit: true });
+  // No user edits since last seed → do not push primary colors onto multi-targets.
+  if (!nodeGraphTraceDisplaySettingsIsDirty()) {
+    return null;
+  }
+  const applied = applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true, commit: true });
+  clearNodeGraphTraceDisplaySettingsDirty();
+  return applied;
 }
+
+/**
+ * Color / gradient keys kept when pressing Defaults on phosphor (and other
+ * gradient) faces — reset numbers only; leave look (stops + solid colors).
+ */
+const NODE_GRAPH_DISPLAY_SETTINGS_PRESERVE_LOOK_KEYS = Object.freeze([
+  "gradientStops",
+  "gradient",
+  "background",
+  "backgroundColor",
+  "color",
+  "peakColor",
+  "dot1Color",
+  "secondaryColor",
+  "meetColor",
+  "ghostColor",
+  "arcFill",
+  "arcTrack",
+]);
 
 function setNodeGraphTraceDisplaySettingsDefaults() {
-  writeNodeGraphTraceDisplaySettingsForm(nodeGraphDisplaySettingsDefaultsForFormType());
-  applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true });
+  const formType = typeof nodeGraphTraceDisplaySettingsFormType === "function"
+    ? nodeGraphTraceDisplaySettingsFormType()
+    : "";
+  const defaults = typeof nodeGraphDisplaySettingsDefaultsForFormType === "function"
+    ? nodeGraphDisplaySettingsDefaultsForFormType(formType)
+    : {};
+  // Preserve live look from the open form (or current node settings).
+  const current = typeof readNodeGraphTraceDisplaySettingsForm === "function"
+    ? readNodeGraphTraceDisplaySettingsForm()
+    : null;
+  const merged = { ...(defaults && typeof defaults === "object" ? defaults : {}) };
+  if (current && typeof current === "object") {
+    for (const key of NODE_GRAPH_DISPLAY_SETTINGS_PRESERVE_LOOK_KEYS) {
+      if (current[key] != null) {
+        merged[key] = current[key];
+      }
+    }
+  }
+  writeNodeGraphTraceDisplaySettingsForm(merged);
+  // Defaults is an explicit edit of numeric fields (look preserved in merge).
+  markNodeGraphTraceDisplaySettingsDirty("*");
+  applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true, forceAll: true });
+  clearNodeGraphTraceDisplaySettingsDirty();
 }
 
-function updateNodeGraphTraceDisplaySettingsLive() {
+function nodeGraphTraceDisplaySettingsDirtyKeysFromEvent(event) {
+  const t = event?.target;
+  if (!t || !t.closest) {
+    return ["*"];
+  }
+  const field = t.closest?.("[data-trace-display-field]")
+    || (t.matches?.("[data-trace-display-field]") ? t : null);
+  if (field) {
+    return [field.getAttribute("data-trace-display-field") || field.dataset?.traceDisplayField].filter(Boolean);
+  }
+  const color = t.closest?.("[data-trace-display-color]")
+    || (t.matches?.("[data-trace-display-color]") ? t : null);
+  if (color) {
+    return [color.getAttribute("data-trace-display-color") || color.dataset?.traceDisplayColor].filter(Boolean);
+  }
+  const toggle = t.closest?.("[data-trace-display-toggle]")
+    || (t.matches?.("[data-trace-display-toggle]") ? t : null);
+  if (toggle) {
+    return [toggle.getAttribute("data-trace-display-toggle") || toggle.dataset?.traceDisplayToggle].filter(Boolean);
+  }
+  const choice = t.closest?.("[data-trace-display-choice]")
+    || (t.matches?.("[data-trace-display-choice]") ? t : null);
+  if (choice) {
+    return [choice.getAttribute("data-trace-display-choice") || choice.dataset?.traceDisplayChoice].filter(Boolean);
+  }
+  const latch = t.closest?.("[data-latch-button][data-trace-display-toggle]");
+  if (latch) {
+    return [latch.getAttribute("data-trace-display-toggle") || latch.dataset?.traceDisplayToggle].filter(Boolean);
+  }
+  // Gradient editor / hue title / unknown control — treat as full form dirty.
+  if (t.closest?.("[data-shared-gradient-editor], [data-hue-title-stepper], .node-shared-gradient-editor")) {
+    return ["gradientStops", "background", "backgroundColor"];
+  }
+  return ["*"];
+}
+
+function updateNodeGraphTraceDisplaySettingsLive(event) {
+  markNodeGraphTraceDisplaySettingsDirty(nodeGraphTraceDisplaySettingsDirtyKeysFromEvent(event));
   applyNodeGraphTraceDisplaySettingsForm({ persist: "none", record: false });
 }
 
@@ -366,7 +586,7 @@ function commitNodeGraphTraceDisplaySettingsChange(event) {
     return;
   }
   // Skip change events from our owned pointerdown toggle (avoids double-apply /
-  // undoing Full Dot Economy when the label also fires a native change).
+  // undoing Full Dots when the label also fires a native change).
   const toggle = event?.target?.closest?.("[data-trace-display-toggle], [data-latch-button]")
     || (event?.target?.matches?.("[data-trace-display-toggle]") ? event.target : null);
   if (toggle?.dataset?.traceDisplayToggleOwned === "1") {
@@ -376,5 +596,6 @@ function commitNodeGraphTraceDisplaySettingsChange(event) {
   if (event?.target?.closest?.("[data-latch-button][data-trace-display-toggle]")) {
     return;
   }
+  markNodeGraphTraceDisplaySettingsDirty(nodeGraphTraceDisplaySettingsDirtyKeysFromEvent(event));
   applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true, commit: true });
 }

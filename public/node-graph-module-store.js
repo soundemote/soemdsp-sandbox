@@ -241,7 +241,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   sineWavetable: {
     category: "oscillator",
-    description: "Table-driven sine/cosine oscillator with pitch, frequency, amplitude, and Nyquist-edge fade. Native C++/WASM.",
+    description: "Table-driven sine/cosine oscillator with pitch, frequency, Amp parameter, and Nyquist-edge fade. Native C++/WASM.",
     label: "SinCos",
     notes: ["implemented", "wavetable", "sin/cos", "native"],
   },

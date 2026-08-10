@@ -20,16 +20,29 @@ NodeLiveAudioProcessor.prototype.postModuleScopeSnapshot = function postModuleSc
         for (let index = 0; index < length; index += 1) {
           ordered[index] = samples[(start + index) % samples.length] || 0;
         }
+        // Monotonic absoluteFrame so main-thread Instant Trace / 1D Phosphor
+        // undrawn windows advance every post (not only when visual-input rings
+        // attach absoluteFrame).
+        const totalPosted = (Number(samples.nodeGraphScopeTotalPosted) || 0) + length;
+        samples.nodeGraphScopeTotalPosted = totalPosted;
         values.push([nodeId, ordered, {
+          absoluteFrame: totalPosted,
           sampleRate: decimatedScopeSampleRate,
           sampleStride: scopeSampleStride,
           sourceSampleRate: engineSampleRate,
+          startFrame: Math.max(0, totalPosted - length),
         }]);
       } else {
+        const totalPosted = (Number(samples?.nodeGraphScopeTotalPosted) || 0) + length;
+        if (samples && typeof samples === "object") {
+          samples.nodeGraphScopeTotalPosted = totalPosted;
+        }
         values.push([nodeId, samples, {
+          absoluteFrame: totalPosted,
           sampleRate: decimatedScopeSampleRate,
           sampleStride: scopeSampleStride,
           sourceSampleRate: engineSampleRate,
+          startFrame: Math.max(0, totalPosted - length),
         }]);
       }
     }

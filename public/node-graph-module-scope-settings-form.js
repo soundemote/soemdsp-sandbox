@@ -122,11 +122,15 @@ function nodeGraphDisplaySettingsBuildToggleRowHtml(key) {
     </label>`;
 }
 
-/** Packing latches share one horizontal row on 2D Phosphor (+ Clear). */
-const NODE_GRAPH_DISPLAY_PACKING_TOGGLE_KEYS = Object.freeze(["fullDotEconomy", "dotsOnly"]);
+/** Packing latches share one horizontal row on phosphor faces (+ Clear). */
+const NODE_GRAPH_DISPLAY_PACKING_TOGGLE_KEYS = Object.freeze([
+  "sourceSync",
+  "fullDotEconomy",
+  "dotsOnly",
+]);
 
 /**
- * Full Dot Economy | Dots only | Clear — app-wide latch buttons (full cell,
+ * Sync | Full Dots | Dots only | Clear — app-wide latch buttons (full cell,
  * fit-to-box title, on=highlight / off=dim). Clear wipes phosphor residual.
  */
 function nodeGraphDisplaySettingsBuildPackingToggleRowHtml(keys) {
@@ -411,8 +415,16 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     }
 
     const rows = [];
-    // Packing toggles (Full Dot Economy | Dots only) sit *below* Dot Budget, not with other toggles.
-    const packingKeys = NODE_GRAPH_DISPLAY_PACKING_TOGGLE_KEYS.filter((key) => toggleKeys.includes(key));
+    // Packing toggles (Sync | Full Dots | Dots only) sit *below* Dot Budget.
+    // Sync only rides this row when a phosphor packing toggle is also active
+    // (otherwise Trace keeps the ordinary Sync checkbox).
+    const packingCandidates = NODE_GRAPH_DISPLAY_PACKING_TOGGLE_KEYS.filter((key) => toggleKeys.includes(key));
+    const hasPhosphorPacking = packingCandidates.some(
+      (key) => key === "fullDotEconomy" || key === "dotsOnly",
+    );
+    const packingKeys = hasPhosphorPacking
+      ? packingCandidates
+      : packingCandidates.filter((key) => key !== "sourceSync");
     const packingKeySet = new Set(packingKeys);
     // Preferred order: choices → toggles (except packing) → fields → packing → colors.
     for (const key of choiceKeys) {
@@ -439,7 +451,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
       }
       rows.push(nodeGraphDisplaySettingsBuildStepperRowHtml(key, type));
     }
-    // Full Dot Economy + Dots only — one row under Dot Budget (1D + 2D phosphor).
+    // Sync | Full Dots | Dots only | Clear — one row under Dot Budget (1D + 2D phosphor).
     if (packingKeys.length) {
       rows.push(nodeGraphDisplaySettingsBuildPackingToggleRowHtml(packingKeys));
     }

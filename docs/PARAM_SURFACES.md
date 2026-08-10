@@ -58,8 +58,8 @@ snowflake, polyBlep/osc/blit, additive, sineWavetable, sinc, ellipsoid, surge,
 hypersaw, robin — live + worklet peels/map aligned (incl. additive/ellipsoid/
 sineWavetable worklet peels).
 
-**Phase / Amp helpers:** softwave, dsf, curveOsc, snowflake Amp, sinc Phase,
-sineWavetable Amplitude (**additive** via `nodeGraphParamSignalInAdditive`).
+**Phase / Amp helpers:** softwave, dsf, curveOsc, snowflake Amp, sinc Phase.
+sineWavetable (SinCos) uses the **Amp** parameter only (no Amplitude CV jack).
 
 **Pitch processors** (pitchQuantizer, noteGlide, …): pass `0.1V/Oct` as CV —
 do **not** force osc Hz resolve.

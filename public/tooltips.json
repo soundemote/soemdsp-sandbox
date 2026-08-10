@@ -77,15 +77,15 @@
     "smoothingModeGlobal": "🌍 Global: ignore this parameter's own smoothing time, use the app-wide global time",
     "smoothingModeInternal": "🙂 Internal: use only this parameter's own smoothing time | 0 is instant",
     "smoothingModeInternalGlobal": "🙂🌍 Internal + Global: add this parameter's own time to the global time",
-    "smoothingModeOff": "❌ Off: always instant, ignoring this parameter's time and the global time",
-    "smoothingTypeLinear": "Linear smoothing (lerp, low cost parameter smoothing)",
+    "smoothingModeOff": "❌ Off: no smoothing — parameter snaps instantly (ignores this parameter's time and the global time)",
+    "smoothingTypeLinear": "L Linear: constant-rate lerp over the smoothing time (low cost). Not the same as ❌ Off.",
     "smoothingTypeOnePole": "1P One-pole: classic exponential parameter chase",
     "smoothingTypeTwoPole": "2P Two-pole - cascaded one poles (more smooth and less expensive than papoulis)",
     "smoothingTypePapoulis": "Π Papoulis - 3rd-order Optimum-L lowpass (most smooth but higher cpu usage)",
     "showSign": "always show a plus or minus sign for this parameter",
     "wraparound": "let the parameter wrap from max to min and min to max",
-    "displayChoices": "show choice labels instead of only numbers",
-    "divideChoices": "draw visible separators between choice regions"
+    "displayChoices": "show choice labels instead of only numbers | independent of Divide choices visibly",
+    "divideChoices": "draw visible separators between choice regions | independent of Display choices | separators only paint while Display choices is also on"
   },
   "script": {
     "apply": "validate and apply the current patch script",

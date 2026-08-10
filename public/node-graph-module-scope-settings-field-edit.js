@@ -63,6 +63,9 @@ function commitNodeGraphTraceDisplayFieldEdit(input) {
     return;
   }
   setNodeGraphTraceDisplayFieldEditing(input, false);
+  if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
+    markNodeGraphTraceDisplaySettingsDirty(input.dataset?.traceDisplayField || input.getAttribute("data-trace-display-field"));
+  }
   applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true });
   if (input.dataset.traceDisplayField === "zoomSeconds") {
     setNodeGraphTraceDisplayZoomEditActive(false);
@@ -364,6 +367,9 @@ function dragNodeGraphTraceDisplayField(event) {
   }
   const nextValue = normalizeNodeGraphTraceDisplaySettingValueForKey(drag.key, rawValue);
   drag.input.value = formatNodeGraphTraceDisplaySetting(nextValue);
+  if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
+    markNodeGraphTraceDisplaySettingsDirty(drag.key);
+  }
   applyNodeGraphTraceDisplaySettingsForm({ persist: "debounce", record: false });
   event.preventDefault();
   event.stopPropagation();
@@ -395,6 +401,9 @@ function endNodeGraphTraceDisplayFieldDrag(event) {
   }
   if (drag.key === "zoomSeconds") {
     setNodeGraphTraceDisplayZoomEditActive(false);
+  }
+  if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
+    markNodeGraphTraceDisplaySettingsDirty(drag.key);
   }
   applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true });
   nodeGraphMvp.traceDisplayFieldDragging = null;
@@ -455,6 +464,9 @@ function stepNodeGraphTraceDisplaySetting(event) {
     nextValue = normalizeNodeGraphTraceDisplaySettingValueForKey(key, stepped);
   }
   input.value = formatNodeGraphTraceDisplaySetting(nextValue);
+  if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
+    markNodeGraphTraceDisplaySettingsDirty(key);
+  }
   applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true });
 }
 
@@ -486,6 +498,11 @@ function toggleNodeGraphTraceDisplaySettingRow(event) {
       latch.classList.toggle("is-off", !next);
     }
     latch.dataset.traceDisplayToggleOwned = "1";
+    if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
+      markNodeGraphTraceDisplaySettingsDirty(
+        latch.getAttribute("data-trace-display-toggle") || latch.dataset?.traceDisplayToggle,
+      );
+    }
     applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true });
     window.setTimeout(() => {
       delete latch.dataset.traceDisplayToggleOwned;
@@ -532,6 +549,11 @@ function toggleNodeGraphTraceDisplaySettingRow(event) {
   input.checked = !input.checked;
   // Guard against a late native click/change undoing the apply this gesture.
   input.dataset.traceDisplayToggleOwned = "1";
+  if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
+    markNodeGraphTraceDisplaySettingsDirty(
+      input.getAttribute("data-trace-display-toggle") || input.dataset?.traceDisplayToggle,
+    );
+  }
   applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true });
   window.setTimeout(() => {
     delete input.dataset.traceDisplayToggleOwned;

@@ -161,10 +161,17 @@ function nodeGraphModuleScopeHasModelDisplay() {
       (["traceDisplay", "dotOscilloscope", "valueOscilloscope", "lineBurnOscilloscope"].includes(slot.type) &&
         nodeGraphModuleScopeConnectionsTo(slot.nodeId, "In").length > 0) ||
       (["scope2d", "scope2dTrace", "phosphorLight"].includes(renderer) && (
-        (outputs.includes("X") && outputs.includes("Y")) ||
+        // Prefer live X/Y wires. Do NOT treat dry Thru ports alone as a model:
+        // pure 2D Phosphor faces now always declare outputs ["X","Y"] for thrus,
+        // which used to make hasModelDisplay true with empty capture buffers.
         (
           nodeGraphModuleScopeConnectionsTo(slot.nodeId, "X").length > 0 &&
           nodeGraphModuleScopeConnectionsTo(slot.nodeId, "Y").length > 0
+        ) || (
+          // Generators (Lorenz, Chua, …): X/Y are real outs, not dry thrus.
+          outputs.includes("X")
+          && outputs.includes("Y")
+          && nodeGraphModuleDefinitions[slot.type]?.visualSink !== true
         )
       )) ||
       (slot.type === "gain" && nodeGraphModuleScopeConnectionsTo(slot.nodeId, "In").length > 0) ||

@@ -175,7 +175,8 @@ function evaluateNodeGraphPlanFrame(runtime, sampleRate, frame, frames) {
     runtime.nodeOutputs?.set(nodeId, value);
   }
 
-  const outputNode = runtime.nodes.get(runtime.outputNode || "output");
+  const outputNodeId = runtime.outputNode || "output";
+  const outputNode = runtime.nodes.get(outputNodeId);
   const outputVolume = outputNode
     ? readNodeGraphLiveEffectiveParam(
       runtime,
@@ -188,10 +189,20 @@ function evaluateNodeGraphPlanFrame(runtime, sampleRate, frame, frames) {
     )
     : 1;
 
-  const outputMono = mixInput(runtime.outputNode || "output", "Mono");
+  const outputMono = mixInput(outputNodeId, "Mono");
+  const left = (outputMono + mixInput(outputNodeId, "Left")) * outputVolume;
+  const right = (outputMono + mixInput(outputNodeId, "Right")) * outputVolume;
+  // Same as worklet evaluateFrame: publish speaker bus into nodeOutputs so
+  // captureNodeGraphLiveModuleScopeFrame can feed Output stereo Trace.
+  runtime.nodeOutputs?.set(outputNodeId, {
+    Left: left,
+    Mono: outputMono * outputVolume,
+    Out: (left + right) * 0.5,
+    Right: right,
+  });
   return {
     frameValues,
-    left: (outputMono + mixInput(runtime.outputNode || "output", "Left")) * outputVolume,
-    right: (outputMono + mixInput(runtime.outputNode || "output", "Right")) * outputVolume,
+    left,
+    right,
   };
 }

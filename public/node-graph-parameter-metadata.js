@@ -40,15 +40,16 @@ function normalizeNodeGraphMetadataSmoothingMode(value) {
 }
 
 // Smoothing TYPE = filter kernel:
-//   linear   — instant (L); replaces old linearSmoothing=false
+//   linear   — constant-rate linear ramp (UI L / lerp)
 //   onePole  — classic exponential chase (1P)
 //   twoPole  — cascaded one-poles (2P); between 1P and Papoulis
 //   papoulis — Optimum-L order-3 (Π)
+//   none     — instant snap (legacy linearSmoothing=false)
 // Distinct from smoothing SOURCE (global/internal/off — the time constant).
 const nodeGraphMetadataSmoothingTypes = Object.freeze(
   typeof nodeGraphParameterSmootherFilterTypes !== "undefined"
     ? nodeGraphParameterSmootherFilterTypes
-    : ["linear", "onePole", "twoPole", "papoulis"],
+    : ["linear", "onePole", "twoPole", "papoulis", "none"],
 );
 
 function normalizeNodeGraphMetadataSmoothingType(value) {
@@ -56,7 +57,10 @@ function normalizeNodeGraphMetadataSmoothingType(value) {
     return normalizeNodeGraphParameterSmootherFilterType(value);
   }
   const key = String(value || "").trim();
-  if (key === "L" || key === "l" || key === "none" || key === "off" || key === "instant") {
+  if (key === "none" || key === "off" || key === "instant" || key === "0") {
+    return "none";
+  }
+  if (key === "L" || key === "l" || key === "linear" || key === "lerp") {
     return "linear";
   }
   if (key === "2P" || key === "2p" || key === "twoPole" || key === "two-pole" || key === "2pole") {
@@ -70,7 +74,7 @@ function normalizeNodeGraphMetadataSmoothingType(value) {
 
 /** linearSmoothing flag kept for older scripts; derived from smoothingType. */
 function nodeGraphMetadataLinearSmoothingFromType(smoothingType) {
-  return normalizeNodeGraphMetadataSmoothingType(smoothingType) !== "linear";
+  return normalizeNodeGraphMetadataSmoothingType(smoothingType) !== "none";
 }
 
 function nodeGraphDefaultParamsForType(type) {
@@ -397,7 +401,8 @@ function nodeGraphParameterDefinitionMetadata(parameter) {
   if (Object.hasOwn(parameter, "smoothingType") && parameter.smoothingType != null && String(parameter.smoothingType).trim() !== "") {
     smoothingType = normalizeNodeGraphMetadataSmoothingType(parameter.smoothingType);
   } else if (parameter.linearSmoothing === false) {
-    smoothingType = "linear";
+    // Legacy checkbox: false meant instant snaps, not linear ramps.
+    smoothingType = "none";
   }
   return {
     choices: normalizeNodeGraphMetadataChoices(parameter.choices || []),
@@ -405,6 +410,8 @@ function nodeGraphParameterDefinitionMetadata(parameter) {
     curveAmount: normalizeNodeSliderCurveAmount(parameter.curveAmount),
     def: clampNodeSliderValue(Number.isFinite(def) ? def : safeMin, safeMin, safeMax),
     displayChoices: Boolean(parameter.displayChoices),
+    // Independent of displayChoices. Default true only when the definition
+    // omitted the key and there are choices (legacy modules).
     divideChoicesVisibly: Object.hasOwn(parameter, "divideChoicesVisibly")
       ? Boolean(parameter.divideChoicesVisibly)
       : Boolean(parameter.choices?.length),
@@ -454,6 +461,8 @@ function normalizeNodeMetadataKindTemplate(template = {}, kind = "decimal") {
     ...template,
     choices,
     curveAmount: normalizeNodeSliderCurveAmount(template.curveAmount),
+    displayChoices: Boolean(template.displayChoices),
+    // Independent of displayChoices (labels vs separators).
     divideChoicesVisibly: Object.hasOwn(template, "divideChoicesVisibly")
       ? Boolean(template.divideChoicesVisibly)
       : Boolean(choices.length),
@@ -540,12 +549,14 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
       fallback.curveAmount,
     ),
     def: clampNodeSliderValue(Number.isFinite(def) ? def : fallback.def, min, max),
+    // Independent flags: display = choice labels; divide = visible separators.
+    // Never derive one from the other (that coupled the two checkboxes in UI).
     displayChoices: Object.hasOwn(source, "displayChoices")
       ? Boolean(source.displayChoices)
-      : fallback.displayChoices,
+      : Boolean(fallback.displayChoices),
     divideChoicesVisibly: Object.hasOwn(source, "divideChoicesVisibly")
       ? Boolean(source.divideChoicesVisibly)
-      : Boolean(fallback.divideChoicesVisibly || (choices.length && fallback.displayChoices)),
+      : Boolean(fallback.divideChoicesVisibly),
     kind,
     bipolar: Object.hasOwn(source, "bipolar")
       ? Boolean(source.bipolar)
@@ -575,9 +586,10 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
       if (Object.hasOwn(source, "smoothingType") && source.smoothingType != null && String(source.smoothingType).trim() !== "") {
         return normalizeNodeGraphMetadataSmoothingType(source.smoothingType);
       }
-      // Migrate legacy linearSmoothing=false → type linear.
+      // Migrate legacy linearSmoothing=false → instant type (not UI L).
+      // Continuous “no smooth” is SMOOTHING SOURCE ❌ (mode off), not type L.
       if (Object.hasOwn(source, "linearSmoothing") && source.linearSmoothing === false) {
-        return "linear";
+        return "none";
       }
       if (Object.hasOwn(source, "linearSmoothing") && source.linearSmoothing === true) {
         return normalizeNodeGraphMetadataSmoothingType(fallback.smoothingType || "onePole");

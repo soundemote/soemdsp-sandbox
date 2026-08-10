@@ -53,18 +53,70 @@ function createNodeGraphPatchNode(type, options = {}) {
       }
     }
   }
-  if (Object.hasOwn(opts, "widthGu")) {
-    node.widthGu = normalizeNodeGraphModuleWidthUnits(resolvedType, opts.widthGu);
+  // Explicit opts.alias wins. Else definition.defaultAlias (e.g. Vectorscope → "90°").
+  let aliasSource = opts.alias;
+  if (!Object.hasOwn(opts, "alias")) {
+    const defAlias = nodeGraphModuleDefinitions[resolvedType]?.defaultAlias;
+    if (defAlias != null && String(defAlias).trim()) {
+      aliasSource = defAlias;
+    }
   }
-  const alias = normalizeNodeGraphPatchNodeAlias(opts.alias);
+  const alias = normalizeNodeGraphPatchNodeAlias(aliasSource);
   if (alias) {
     node.alias = alias;
   }
-  const ui = nodeGraphModuleDefinitions[resolvedType]?.layout === "textBox" && !Object.hasOwn(opts, "ui")
-    ? { buttonsHidden: true }
-    : normalizeNodeGraphPatchNodeUi(opts.ui, resolvedType);
-  if (ui.buttonsHidden || ui.titleHidden) {
+  // Explicit opts.ui wins. Else module definition.defaultUi (e.g. Vectorscope
+  // Rotation). textBox still defaults buttons off when nothing else is set.
+  let uiSource = opts.ui;
+  if (!Object.hasOwn(opts, "ui")) {
+    const defUi = nodeGraphModuleDefinitions[resolvedType]?.defaultUi;
+    if (defUi && typeof defUi === "object") {
+      uiSource = defUi;
+    } else if (nodeGraphModuleDefinitions[resolvedType]?.layout === "textBox") {
+      uiSource = { buttonsHidden: true };
+    }
+  }
+  const ui = normalizeNodeGraphPatchNodeUi(uiSource, resolvedType);
+  if (
+    ui.buttonsHidden
+    || ui.titleHidden
+    || ui.oscilloscopeHidden
+    || ui.ioHidden
+    || ui.slidersHidden
+    || ui.interfaceControlsHidden
+    || ui.movementLocked
+  ) {
     node.ui = ui;
+  }
+  if (Object.hasOwn(opts, "widthGu")) {
+    node.widthGu = normalizeNodeGraphModuleWidthUnits(resolvedType, opts.widthGu);
+  } else if (
+    typeof nodeGraphModuleUsesLayoutC === "function"
+    && nodeGraphModuleUsesLayoutC(resolvedType)
+  ) {
+    // LayoutC: defaultWidthGu is the spawn width (e.g. Vectorscope 3gu).
+    const defW = Number(nodeGraphModuleDefinitions[resolvedType]?.defaultWidthGu);
+    if (Number.isFinite(defW)) {
+      node.widthGu = normalizeNodeGraphModuleWidthUnits(resolvedType, defW);
+    }
+  }
+  if (Object.hasOwn(opts, "heightGu")) {
+    node.heightGu = typeof nodeGraphLayoutCGridHeightUnits === "function"
+      && typeof nodeGraphModuleUsesLayoutC === "function"
+      && nodeGraphModuleUsesLayoutC(resolvedType)
+      ? nodeGraphLayoutCGridHeightUnits(resolvedType, ui, opts.heightGu)
+      : normalizeNodeGraphModuleHeightUnits(resolvedType, opts.heightGu, ui);
+  } else if (
+    typeof nodeGraphModuleUsesLayoutC === "function"
+    && nodeGraphModuleUsesLayoutC(resolvedType)
+  ) {
+    // LayoutC: freehand height is the module bounds (defaultHeightGu, e.g. 3).
+    const defH = Number(nodeGraphModuleDefinitions[resolvedType]?.defaultHeightGu);
+    if (Number.isFinite(defH)) {
+      node.heightGu = typeof nodeGraphLayoutCGridHeightUnits === "function"
+        ? nodeGraphLayoutCGridHeightUnits(resolvedType, ui, defH)
+        : Math.max(2, Math.round(defH));
+    }
   }
   if (nodeGraphModuleDefinitions[resolvedType]?.layout === "textBox") {
     node.layout = normalizeNodeGraphTextBoxLayout(opts.layout);

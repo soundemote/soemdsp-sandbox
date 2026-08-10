@@ -1330,6 +1330,25 @@ function applyNodeMetadataScriptPortAliases(slider, portAliases = []) {
   patchNode.portMeta = normalizeNodeGraphPatchPortMeta(nextPortMeta);
 }
 
+function syncNodeMetadataChoiceToggleAvailability() {
+  // Divide is independent storage, but separators only paint when labels are on.
+  // Keep the checkbox enabled so users can set divide before turning display on.
+  const displayInput = document.getElementById("metadataDisplayChoicesValue");
+  const divideInput = document.getElementById("metadataDivideChoicesValue");
+  const divideLabel = divideInput?.closest?.("label");
+  if (!displayInput || !divideInput) {
+    return;
+  }
+  const displayOn = Boolean(displayInput.checked);
+  divideInput.disabled = false;
+  if (divideLabel) {
+    divideLabel.classList.toggle("is-choice-divide-idle", !displayOn);
+    divideLabel.title = displayOn
+      ? ""
+      : "Separators only show while Display choices is on (this flag is still saved).";
+  }
+}
+
 function writeNodeMetadataEditorValues(metadata) {
   document.getElementById("metadataAliasValue").value = metadata.alias || "";
   document.getElementById("metadataTooltipValue").value = metadata.tooltip || "";
@@ -1345,8 +1364,15 @@ function writeNodeMetadataEditorValues(metadata) {
   document.getElementById("metadataUnitValue").value = metadata.unit;
   document.getElementById("metadataChoicesValue").value =
     formatNodeMetadataChoices(metadata.choices);
-  document.getElementById("metadataDisplayChoicesValue").checked = metadata.displayChoices;
-  document.getElementById("metadataDivideChoicesValue").checked = metadata.divideChoicesVisibly;
+  // Independent booleans — never assign one from the other.
+  const displayChoicesInput = document.getElementById("metadataDisplayChoicesValue");
+  const divideChoicesInput = document.getElementById("metadataDivideChoicesValue");
+  if (displayChoicesInput) {
+    displayChoicesInput.checked = Boolean(metadata.displayChoices);
+  }
+  if (divideChoicesInput) {
+    divideChoicesInput.checked = Boolean(metadata.divideChoicesVisibly);
+  }
   const bipolarCheckbox = document.getElementById("metadataBipolarValue");
   if (bipolarCheckbox) {
     bipolarCheckbox.checked = Boolean(metadata.bipolar);
@@ -1363,6 +1389,7 @@ function writeNodeMetadataEditorValues(metadata) {
   document.getElementById("metadataShowSignValue").checked = metadata.showSign;
   document.getElementById("metadataWraparoundValue").checked = metadata.wraparound;
   syncNodeMetadataMidVisibility();
+  syncNodeMetadataChoiceToggleAvailability();
 }
 
 /**
@@ -1800,7 +1827,10 @@ function syncMetadataSmoothingModeButtons(metadata = {}) {
 function nodeGraphSmoothingTypeStatusText(type) {
   switch (normalizeNodeGraphMetadataSmoothingType(type)) {
     case "linear":
-      return "Linear smoothing (lerp, low cost parameter smoothing)";
+      return "L Linear — constant-rate lerp over the smoothing time.";
+    case "none":
+      // Discrete / legacy instant. User-facing “no smooth” is SOURCE ❌.
+      return "Instant (no filter). For continuous params use SOURCE ❌ Off.";
     case "twoPole":
       return "2P Two-pole - cascaded one poles (more smooth and less expensive than papoulis)";
     case "papoulis":
@@ -2185,11 +2215,12 @@ function readNodeMetadataEditorValues(slider) {
     min,
     choices: parseNodeMetadataChoices(document.getElementById("metadataChoicesValue").value),
     bipolar: Boolean(document.getElementById("metadataBipolarValue")?.checked),
-    displayChoices: document.getElementById("metadataDisplayChoicesValue").checked,
-    divideChoicesVisibly: document.getElementById("metadataDivideChoicesValue").checked,
+    // Keep these independent — do not force divide from display or vice versa.
+    displayChoices: Boolean(document.getElementById("metadataDisplayChoicesValue")?.checked),
+    divideChoicesVisibly: Boolean(document.getElementById("metadataDivideChoicesValue")?.checked),
     linearSmoothing: typeof nodeGraphMetadataLinearSmoothingFromType === "function"
       ? nodeGraphMetadataLinearSmoothingFromType(smoothingType)
-      : smoothingType !== "linear",
+      : smoothingType !== "none",
     nonlinearSlider: document.getElementById("metadataSliderCurveValue").value !== "linear",
     smoothingMode: normalizeNodeGraphMetadataSmoothingMode(
       document.getElementById("metadataSmoothingModeGroup")?.dataset.mode,
@@ -2334,16 +2365,23 @@ function setNodeMetadataDefaultsFromKind() {
   document.getElementById("metadataMaxDigitsValue").value =
     String(normalizeNodeGraphMetadataMaxDigits(template.maxDigits, kind));
   document.getElementById("metadataChoicesValue").value = formatNodeMetadataChoices(choices);
-  document.getElementById("metadataDisplayChoicesValue").checked = Boolean(template.displayChoices);
-  document.getElementById("metadataDivideChoicesValue").checked = Boolean(template.divideChoicesVisibly);
+  const displayChoicesInput = document.getElementById("metadataDisplayChoicesValue");
+  const divideChoicesInput = document.getElementById("metadataDivideChoicesValue");
+  if (displayChoicesInput) {
+    displayChoicesInput.checked = Boolean(template.displayChoices);
+  }
+  if (divideChoicesInput) {
+    divideChoicesInput.checked = Boolean(template.divideChoicesVisibly);
+  }
+  syncNodeMetadataChoiceToggleAvailability();
   const bipolarCheckbox = document.getElementById("metadataBipolarValue");
   if (bipolarCheckbox) {
     bipolarCheckbox.checked = Boolean(template.bipolar);
   }
   document.getElementById("metadataNonlinearSliderValue").checked = Boolean(template.nonlinearSlider);
-  // Smoothing type buttons: migrate linearSmoothing=false → L.
+  // Smoothing type buttons: migrate linearSmoothing=false → none (instant).
   const restoreType = template.linearSmoothing === false
-    ? "linear"
+    ? "none"
     : normalizeNodeGraphMetadataSmoothingType(template.smoothingType || "onePole");
   syncMetadataSmoothingTypeButtons({ smoothingType: restoreType });
   document.getElementById("metadataSmoothingSecondsValue").value =
@@ -2413,8 +2451,34 @@ function handleNodeMetadataEditorInput(event) {
     syncNodeMetadataScriptDiagnostics();
     return;
   }
+  // Checkboxes fire both "input" and "change". Applying twice is wasteful and
+  // used to re-read mid-toggle form state in some browsers. Prefer change only.
+  const target = event?.target;
+  if (
+    target
+    && target.type === "checkbox"
+    && event.type === "input"
+  ) {
+    return;
+  }
   syncNodeMetadataMidVisibility();
+  syncNodeMetadataChoiceToggleAvailability();
   setNodeMetadataFieldsDirty(true);
   applyNodeMetadataEditor({ keepDirty: true });
+  // Re-assert independent choice flags from the slider we just wrote so a
+  // stray form rewrite cannot couple Display ↔ Divide.
+  const slider = document.getElementById(nodeGraphMvp.metadataEditorTarget);
+  if (slider) {
+    const live = nodeSliderMetadata(slider);
+    const displayInput = document.getElementById("metadataDisplayChoicesValue");
+    const divideInput = document.getElementById("metadataDivideChoicesValue");
+    if (displayInput) {
+      displayInput.checked = Boolean(live.displayChoices);
+    }
+    if (divideInput) {
+      divideInput.checked = Boolean(live.divideChoicesVisibly);
+    }
+    syncNodeMetadataChoiceToggleAvailability();
+  }
   syncNodeMetadataScriptFromFields({ force: true });
 }

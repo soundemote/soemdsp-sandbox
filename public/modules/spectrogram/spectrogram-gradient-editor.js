@@ -1433,6 +1433,14 @@
       channels: channels === "bw" ? "bw" : "full",
       hint: profile.hint,
       onChange() {
+        if (typeof global.markNodeGraphTraceDisplaySettingsDirty === "function") {
+          global.markNodeGraphTraceDisplaySettingsDirty([
+            "gradientStops",
+            "gradient",
+            "background",
+            "backgroundColor",
+          ]);
+        }
         if (typeof global.applyNodeGraphTraceDisplaySettingsForm === "function") {
           global.applyNodeGraphTraceDisplaySettingsForm({ persist: "debounce", record: false });
         }

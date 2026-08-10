@@ -767,11 +767,11 @@ const nodeGraphModuleDefinitions = (
   sineWavetable: {
     planRole: "source",
     displayType: "trace",
-    inputs: ["0.1V/Oct", "Freq", "Amplitude", "f"],
+    // Amp is the parameter slider only (no Amplitude CV jack).
+    inputs: ["0.1V/Oct", "Freq", "f"],
     inputAliases: {
       "0.1V": "0.1V/Oct",
       "0.1v": "0.1V/Oct",
-      amplitude: "Amplitude",
       freq: "Freq",
     },
     inputLabels: {
@@ -2529,7 +2529,7 @@ const nodeGraphModuleDefinitions = (
         label: "Seed",
         linearSmoothing: false,
         max: "99999",
-        maxDigits: 5,
+        maxDigits: 1,
         mid: "1",
         min: "0",
         nonlinearSlider: false,
@@ -3296,14 +3296,24 @@ const nodeGraphModuleDefinitions = (
     ],
   },
   // Stereo L/R → goniometer axes for any X/Y scope. Fixed 45° rotation.
+  // LayoutC: compact title + I/O only (no face, no sliders). Spawns 3×3 gu.
   vectorscopeTransform: {
     planRole: "processor",
+    chrome: NodeGraphModuleChromeLayout.LayoutC,
     inputs: ["L", "R"],
     inputLabels: { L: "L", R: "R" },
     // Legacy X/Y port names (and full Left/Right) still wire in.
     inputAliases: { X: "L", Y: "R", Left: "L", Right: "R" },
     outputs: ["X", "Y"],
     parameters: [],
+    defaultWidthGu: 3,
+    defaultHeightGu: 3,
+    // Title shows the spawn alias (90°); action buttons off by default.
+    defaultAlias: "90°",
+    defaultUi: {
+      buttonsHidden: true,
+      titleHidden: false,
+    },
   },
   // |Δsample| speed → desaturation target + attack/release inertia (multimeter).
   // Sine → high Inertia (rich color); saw edges → Speed spike → Inertia drops (white).
@@ -8517,6 +8527,14 @@ const nodeGraphModuleDefinitions = (
   output: {
     planRole: "sink",
     displayType: "trace",
+    // Capture Left/Right/Mono for stereo Trace (scope rings). Without this the
+    // worklet only stored a scalar 0 for the speaker sink and the face stayed blank.
+    visualSink: true,
+    visualInputs: [
+      { key: "outputMono", label: "Mono", port: "Mono" },
+      { key: "outputLeft", label: "Left", port: "Left" },
+      { key: "outputRight", label: "Right", port: "Right" },
+    ],
     // Single fixed face — no Trace/Spectrum Mode dropdown in Display Settings.
     spectrumCompanion: false,
     displayModes: [
@@ -8632,8 +8650,11 @@ const nodeGraphModuleLayout = Object.freeze({
      and that var is 0 (styles.css) -- the old 4px here was phantom height. */
   ioPaddingYGu: 0,
   ioRowGapGu: 1 / 28,
-  /* Match .node-io-row min-height (~jack + 3px, ~0.78rem labels). */
-  ioRowHeightGu: 14 / 28,
+  /* Match LayoutA .node-io-row min-height: max(1em, port-diameter).
+     Port diameter = 0.5 × grid gu at default --node-port-size-ratio 0.50.
+     Use 16/28 (not 14/28) so dense strips (8-out crossover) keep a few px of
+     cushion vs font metrics / subpixel — under-reserve lets HFR clip into params. */
+  ioRowHeightGu: 16 / 28,
   ioSectionMinHeightGu: 24 / 28,
   moduleGridInsetGu: 6 / 28,
   moduleScopeHeightGu: 2,

@@ -240,7 +240,7 @@ function createNodeGraphParameterSmoother(initialValue, metadata = {}) {
     : "onePole";
   const usesFilter = typeof nodeGraphParameterSmootherUsesFilter === "function"
     ? nodeGraphParameterSmootherUsesFilter(smoothingType)
-    : (smoothingType !== "linear" && metadata.linearSmoothing !== false);
+    : (smoothingType !== "none" && metadata.linearSmoothing !== false);
   const smoother = {
     current: safeValue,
     linearSmoothing: usesFilter,
@@ -426,7 +426,7 @@ function updateNodeGraphParameterSmoother(smoother, targetValue, metadata = {}, 
   }
   smoother.linearSmoothing = typeof nodeGraphParameterSmootherUsesFilter === "function"
     ? nodeGraphParameterSmootherUsesFilter(nextType)
-    : (nextType !== "linear" && metadata.linearSmoothing !== false);
+    : (nextType !== "none" && metadata.linearSmoothing !== false);
   smoother.targetSignal = normalizeNodeGraphSmootherSignal(smoother.target, metadata);
   smoother.wraparound = Boolean(metadata.wraparound);
   const key = smootherKey || smoother._activeKey || null;
@@ -802,6 +802,7 @@ function setNodeSliderMetadata(slider, metadata) {
   slider.dataset.unit = metadata.unit ?? "";
   slider.dataset.tooltip = metadata.tooltip ?? "";
   slider.dataset.choices = formatNodeMetadataChoices(metadata.choices || []);
+  // Independent flags (labels vs separators) — never mirror one onto the other.
   slider.dataset.displayChoices = metadata.displayChoices ? "true" : "false";
   slider.dataset.divideChoicesVisibly = metadata.divideChoicesVisibly ? "true" : "false";
   const smoothingType = typeof normalizeNodeGraphMetadataSmoothingType === "function"
@@ -809,7 +810,7 @@ function setNodeSliderMetadata(slider, metadata) {
     : "onePole";
   const linearSmoothing = typeof nodeGraphMetadataLinearSmoothingFromType === "function"
     ? nodeGraphMetadataLinearSmoothingFromType(smoothingType)
-    : (metadata.linearSmoothing !== false && smoothingType !== "linear");
+    : (metadata.linearSmoothing !== false && smoothingType !== "none");
   slider.dataset.linearSmoothing = linearSmoothing ? "true" : "false";
   slider.dataset.smoothingMode = nodeGraphSmoothingModeNormalize(metadata.smoothingMode);
   slider.dataset.smoothingType = smoothingType;

@@ -3212,6 +3212,23 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   line-height: 1;
 }
 
+/* Load / Save Patch — after settings cog; two-line labels like UI Settings. */
+#loadNodeGraphScriptButton,
+#nodeSettingsSaveScriptButton {
+  flex: 0.9 1 0;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 1px;
+  white-space: normal;
+  font-size: clamp(0.72rem, calc(var(--node-toolbar-row-height) * 0.28), 0.95rem);
+  line-height: 1.05;
+}
+
+#loadNodeGraphScriptButton > span,
+#nodeSettingsSaveScriptButton > span {
+  display: block;
+}
+
 #nodeGlobalScopeMenuButton {
   flex: 1.75 1 0;
   min-inline-size: 0;
@@ -9970,6 +9987,14 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: none;
 }
 
+/* Music Player waveform is not a .node-module-scope-window — hide it with the
+   global Displays toggle the same way as analyzer faces. */
+.node-graph-workspace.module-oscilloscopes-hidden
+  .dsp-node.phosphor-waveform-layout:not(.oscilloscope-forced-visible)
+  .node-phosphor-waveform-display {
+  display: none;
+}
+
 /* Room dimmer veil — full UI (top/bottom bars + workspace). Fixed viewport.
    z-index below floating windows (~60+) so Command Center etc. stay usable. */
 .node-room-dimmer-canvas {
@@ -10215,11 +10240,17 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   left: var(--node-x);
   top: var(--node-y);
   display: grid;
+  /* LayoutA: reserve I/O strip height from --node-module-io-height-units so
+     multi-out modules (crossovers) never crush outlets into the param track. */
+  --node-module-io-track-min: max(
+    var(--node-io-section-min-height),
+    calc(var(--node-grid-height) * var(--node-module-io-height-units, 0))
+  );
   /* LayoutA content rows + shared bottom gap track (same as LayoutB solid). */
   grid-template-rows:
     var(--node-header-height)
     var(--node-module-scope-height)
-    minmax(var(--node-io-section-min-height), auto)
+    minmax(var(--node-module-io-track-min), auto)
     auto
     var(--node-module-bottom-gap-track, minmax(2px, 1fr));
   align-content: stretch;
@@ -10279,9 +10310,11 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 /* Module content stacks above the frame + plate mask.
-   LayoutA faces (filter curve, envelope, …) are direct children — they MUST
-   share z-index:1 or they paint under ::after and look blank (LayoutB put
-   the face inside the shell, which already had z-index:1). */
+   LayoutA faces (filter curve, envelope, Music Player waveform, …) are direct
+   children — they MUST share z-index:1 or they paint under ::after and look
+   blank (LayoutB put the face inside the shell, which already had z-index:1).
+   Music Player waveform was missing here → solid module fill hid the entire
+   phosphor face on the init patch. */
 .dsp-node > .dsp-node-header,
 .dsp-node > .dsp-node-body,
 .dsp-node > .dsp-node-io-section,
@@ -10291,7 +10324,12 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 .dsp-node > .node-filter-curve-display,
 .dsp-node > .node-envelope-curve-display,
 .dsp-node > .node-wall-room-display,
-.dsp-node > .node-pulse-curve-display {
+.dsp-node > .node-pulse-curve-display,
+.dsp-node > .node-phosphor-waveform-display,
+.dsp-node > .node-phosphillator-draw-display,
+.dsp-node > .node-module-scope-window,
+.dsp-node > .node-module-graph-display,
+.dsp-node > .node-module-filter-curve-display {
   position: relative;
   z-index: 1;
 }
@@ -10486,14 +10524,63 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 /* LayoutA filter curve: header | face (1…60gu display policy) | IO | params | gap.
-   Face height is exactly --node-module-scope-height (no 1.5× inflate). */
+   Face height is exactly --node-module-scope-height (no 1.5× inflate).
+   IO min uses reserved --node-module-io-track-min (see .dsp-node) so dense
+   band outs (HFR on 4-Crossover, …) do not compress into the slider row. */
 .dsp-node.filter-curve-layout:not(.chrome-layout-b) {
   grid-template-rows:
     var(--node-header-height)
     var(--node-module-scope-height)
-    minmax(var(--node-io-section-min-height), auto)
+    minmax(var(--node-module-io-track-min), auto)
     auto
     var(--node-module-bottom-gap-track, minmax(2px, 1fr));
+}
+
+/*
+ * LayoutC — compact convenience thrus (Vectorscope Rotation, …):
+ *   title | I/O (fills remaining height) | optional bottom lip
+ * No display face, no param stack. Port rows 1fr so small modules still have
+ * tall hit bands for L/R / X/Y.
+ */
+.dsp-node.chrome-layout-c {
+  grid-template-rows:
+    var(--node-header-height)
+    minmax(0, 1fr)
+    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
+}
+
+.dsp-node.chrome-layout-c > .dsp-node-header {
+  grid-row: 1;
+}
+
+.dsp-node.chrome-layout-c > .dsp-node-io-section {
+  grid-row: 2;
+  min-height: 0;
+  height: 100%;
+  align-self: stretch;
+  /* Two equal columns for in / out; full height for hit targets. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0) minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.dsp-node.chrome-layout-c > .dsp-node-io-section .node-io-column {
+  height: 100%;
+  min-height: 0;
+  align-content: stretch;
+  /* Equal-height jack bands — easy hits even at 3×3 gu. */
+  grid-auto-rows: 1fr;
+  gap: 0;
+}
+
+.dsp-node.chrome-layout-c > .dsp-node-io-section .node-io-row {
+  min-height: 0;
+  height: 100%;
+  max-height: none;
+  overflow: hidden;
+}
+
+.dsp-node.chrome-layout-c > .dsp-node-body {
+  display: none !important;
 }
 
 /*
@@ -12036,6 +12123,8 @@ body.room-dimmer-on .node-room-dimmer-canvas,
      the BG Hue setting. The fallback is the hue-140 default. */
   --phosphor-waveform-border-color: hsl(140 100% 68% / 0.16);
   position: relative;
+  /* Above .dsp-node::after plate mask (same contract as .node-module-scope-window). */
+  z-index: 1;
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
@@ -13569,13 +13658,14 @@ input.node-header-title:focus {
 
 .node-io-column.input {
   grid-column: 1;
-  justify-items: start;
+  /* Stretch every row to the column track (widest label) so hitboxes match. */
+  justify-items: stretch;
   padding-right: var(--node-io-column-padding);
 }
 
 .node-io-column.output {
   grid-column: 3;
-  justify-items: end;
+  justify-items: stretch;
   padding-left: var(--node-io-column-padding);
 }
 
@@ -13589,7 +13679,9 @@ input.node-header-title:focus {
      container instead pins the label's end edge, so overflow always grows
      away from the port, never past it.
      HARD RULE: row is the IO cell. min-height ≥ jack diameter; overflow
-     hidden so a jack can never paint into the next row. */
+     hidden so a jack can never paint into the next row.
+     Horizontal: every row fills the column (sized by longest label in that
+     column via --node-io-label-min-ch) so inlet/outlet hit widths are uniform. */
   position: relative;
   display: flex;
   align-items: center;
@@ -13609,13 +13701,13 @@ input.node-header-title:focus {
 }
 
 .node-io-row.input {
-  justify-self: start;
+  justify-self: stretch;
   justify-content: flex-start;
   padding-left: calc(var(--node-signal-port-width) + var(--node-io-label-gap));
 }
 
 .node-io-row.output {
-  justify-self: end;
+  justify-self: stretch;
   justify-content: flex-end;
   padding-right: calc(var(--node-signal-port-width) + var(--node-io-label-gap));
 }
@@ -13654,10 +13746,21 @@ input.node-header-title:focus {
 .node-io-label {
   display: block;
   flex: 0 0 auto;
+  /* Column sets --node-io-label-min-ch = longest label char count (inlets and
+     outlets separately). Monospace ch ≈ equal hit reach for short names. */
+  min-width: calc(var(--node-io-label-min-ch, 1) * 1ch);
   max-width: none;
   overflow: visible;
   white-space: nowrap;
   pointer-events: none;
+}
+
+.node-io-row.input .node-io-label {
+  text-align: left;
+}
+
+.node-io-row.output .node-io-label {
+  text-align: right;
 }
 
 /* Jack label highlight only when the geometric hitbox is active (patch-point-
@@ -15049,6 +15152,11 @@ input.node-header-title:focus {
   accent-color: var(--accent);
 }
 
+.metadata-popover-grid label.is-choice-divide-idle {
+  opacity: 0.72;
+}
+
+
 .metadata-popover-grid button {
   align-self: end;
   font-family: inherit;
@@ -15568,14 +15676,16 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
 
 /*
  * App-wide latch button (Full Dot Economy | Dots only | Clear | …)
+ * Flush segmented row: no gaps/padding between cells; shared borders.
  * Full cell, fit-to-box label (JS), on=highlight / off=dim / action=momentary.
  */
 .app-latch-button-row,
 .node-trace-display-settings-popover .node-trace-display-packing-toggles {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* Sync | Full Dots | Dots only | Clear (4). Fewer keys still share the row. */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: stretch;
-  gap: 0.35rem;
+  gap: 0;
   width: 100%;
   box-sizing: border-box;
   min-height: var(--ds-latch-h, 30px);
@@ -15591,9 +15701,9 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   min-width: 0;
   min-height: var(--ds-latch-h, 30px);
   margin: 0;
-  padding: 2px 5px;
+  padding: 0;
   border: 1px solid var(--line);
-  border-radius: 3px;
+  border-radius: 0;
   background: rgba(5, 9, 11, 0.55);
   color: color-mix(in srgb, var(--text) 48%, transparent);
   font-family: Consolas, "Courier New", monospace;
@@ -15605,6 +15715,22 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   user-select: none;
   -webkit-user-select: none;
   transition: background 80ms ease, color 80ms ease, box-shadow 80ms ease, opacity 80ms ease;
+}
+
+/* Segmented strip: outer corners only; collapse shared edges between cells. */
+.app-latch-button-row > .app-latch-button:first-child,
+.node-trace-display-packing-toggles > .app-latch-button:first-child {
+  border-radius: 3px 0 0 3px;
+}
+
+.app-latch-button-row > .app-latch-button:last-child,
+.node-trace-display-packing-toggles > .app-latch-button:last-child {
+  border-radius: 0 3px 3px 0;
+}
+
+.app-latch-button-row > .app-latch-button + .app-latch-button,
+.node-trace-display-packing-toggles > .app-latch-button + .app-latch-button {
+  border-left-width: 0;
 }
 
 .app-latch-button:hover {

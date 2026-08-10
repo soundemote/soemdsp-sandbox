@@ -109,6 +109,71 @@ function nodeGraphModuleScopeMarkScreenLit(screenElement, strength = 1) {
   }
 }
 
+/**
+ * Keep the RAF paint loop alive while the circuit is live.
+ * Several early-outs (trace signature skip, transient layout, etc.) used to
+ * return without rescheduling — then scopes only updated on zoom/pan/events.
+ * Init Music Player + Output is all Trace faces, so the signature skip was a
+ * hard stall for the whole default patch.
+ */
+function nodeGraphModuleScopeKeepDrawLoopAlive(scopePaused = false) {
+  if (scopePaused) {
+    return;
+  }
+  if (typeof scopePaintKeepLoopAlive === "function") {
+    scopePaintKeepLoopAlive();
+    return;
+  }
+  if (typeof scopePaintShouldKeepLoop === "function") {
+    if (!scopePaintShouldKeepLoop()) {
+      return;
+    }
+  } else if (typeof nodeGraphModuleScopeLivePaintActive === "function") {
+    if (!nodeGraphModuleScopeLivePaintActive()) {
+      return;
+    }
+  } else if (typeof nodeGraphModuleScopePaused === "function" && nodeGraphModuleScopePaused()) {
+    return;
+  }
+  if (!nodeGraphModuleScopeHasDrawableSlots()) {
+    return;
+  }
+  scheduleNodeGraphModuleScopeDraw();
+}
+
+/**
+ * Idle plate for Trace/Output faces without a full live capture pass.
+ * Used while paused (so Display Settings background still updates) and when
+ * capture rings are empty (so faces are never pure black under the dimmer).
+ */
+function paintNodeGraphModuleScopeColdPlatesOnly(pixelRatio = window.devicePixelRatio || 1) {
+  if (typeof nodeGraphVisibleModuleScopeSlots !== "function") {
+    return;
+  }
+  if (typeof paintNodeGraphTraceDisplayColdPlate !== "function") {
+    return;
+  }
+  for (const slot of nodeGraphVisibleModuleScopeSlots()) {
+    const renderer = typeof nodeGraphModuleDisplayRendererForSlot === "function"
+      ? nodeGraphModuleDisplayRendererForSlot(slot)
+      : "";
+    if (
+      renderer !== "trace"
+      && renderer !== "dot"
+      && renderer !== "value"
+      && renderer !== "lineBurn"
+      && slot?.type !== "output"
+      && slot?.type !== "pluginOutput"
+    ) {
+      continue;
+    }
+    paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio);
+    if (slot?.scopeElement && typeof nodeGraphModuleScopeMarkScreenLit === "function") {
+      nodeGraphModuleScopeMarkScreenLit(slot.scopeElement, 1);
+    }
+  }
+}
+
 function drawNodeGraphModuleScopes(options = {}) {
   const force = options?.force === true;
   const debug = setNodeGraphModuleScopeDebugPhase("enter", {
@@ -128,14 +193,25 @@ function drawNodeGraphModuleScopes(options = {}) {
   // offline clocks/oscillators drawing through Stop, which forced layout on
   // every wire redraw / slot register and made stop-mode FPS collapse.
   // force=true still runs (Clear / cold-plate rebind).
-  if (nodeGraphModuleScopePaused() && !force) {
+  // Still paint Trace/Output idle plates so Display Settings (background color)
+  // are not stuck on a wiped black face under the room dimmer.
+  // Paint gate: single live/pause policy (see node-graph-module-scope-paint-gate.js).
+  const enterLivePaint = typeof scopePaintShouldFullDraw === "function"
+    ? scopePaintShouldFullDraw(force)
+    : (typeof nodeGraphModuleScopeLivePaintActive === "function"
+      ? nodeGraphModuleScopeLivePaintActive() || force
+      : !nodeGraphModuleScopePaused() || force);
+  if (!enterLivePaint) {
     absorbNodeGraphModuleScopePhosphorDrawCursors();
     nodeGraphModuleScopeState.animationLastTime = (performance.now?.() || Date.now()) / 1000;
+    paintNodeGraphModuleScopeColdPlatesOnly();
     markNodeGraphModuleScopeDebugSkip("paused");
     return;
   }
   if (!canvas || !workspace || !nodeGraphModuleScopeBuffersCurrent()) {
     markNodeGraphModuleScopeDebugSkip(!canvas ? "no-canvas" : !workspace ? "no-workspace" : "stale-buffers");
+    // Live but capture/layout not ready yet — keep ticking until rings exist.
+    nodeGraphModuleScopeKeepDrawLoopAlive(false);
     return;
   }
   debug.canvasWidth = canvas.width;
@@ -145,14 +221,17 @@ function drawNodeGraphModuleScopes(options = {}) {
   setNodeGraphModuleScopeDebugPhase("sync-canvas");
   if (!syncNodeGraphModuleScopeCanvas()) {
     markNodeGraphModuleScopeDebugSkip("canvas-sync");
+    nodeGraphModuleScopeKeepDrawLoopAlive(false);
     return;
   }
   debug.canvasWidth = canvas.width;
   debug.canvasHeight = canvas.height;
   const renderer = nodeGraphModuleScopeRenderer(canvas);
   if (!renderer) {
-    setNodeGraphModuleScopesEnabled(false);
+    // Do not permanently disable: WebGL can fail once and recover after a
+    // resize/context restore. Heartbeat + reschedule keep trying.
     markNodeGraphModuleScopeDebugSkip("no-renderer");
+    nodeGraphModuleScopeKeepDrawLoopAlive(false);
     return;
   }
   setNodeGraphModuleScopeDebugPhase("ready");
@@ -173,7 +252,9 @@ function drawNodeGraphModuleScopes(options = {}) {
     return;
   }
   nodeGraphModuleScopeState.scopeTracesOffActive = false;
-  const scopePaused = nodeGraphModuleScopePaused();
+  const scopePaused = typeof scopePaintIsPaused === "function"
+    ? scopePaintIsPaused()
+    : nodeGraphModuleScopePaused();
   const animationTime = (performance.now?.() || Date.now()) / 1000;
   const previousAnimationTime = Number(nodeGraphModuleScopeState.animationLastTime) || animationTime;
   nodeGraphModuleScopeState.animationDeltaSeconds = clampNodeSliderValue(
@@ -196,10 +277,15 @@ function drawNodeGraphModuleScopes(options = {}) {
   debug.visibleItems = visibleItems.length;
   // Engine-stop wipe sets data-light-strength=0 on all screens. Only LED /
   // Number Readout re-wrote it, so Output + other scopes stayed under the
-  // room veil forever. Re-mark every visible painted face each frame.
+  // room veil forever. Re-mark every *drawable* face each frame — not only
+  // items with a live buffer (Output with no capture yet was light=0 → pure
+  // black under the dimmer, and Display Settings colors never showed).
   // Knob: image face only — empty plate text/stroke stay under dimmer.
-  for (const item of visibleItems) {
-    const face = item?.screenElement || item?.slot?.scopeElement;
+  const litSlots = typeof nodeGraphVisibleModuleScopeSlots === "function"
+    ? nodeGraphVisibleModuleScopeSlots()
+    : visibleItems.map((item) => item?.slot).filter(Boolean);
+  for (const slot of litSlots) {
+    const face = slot?.scopeElement;
     if (!face) {
       continue;
     }
@@ -218,9 +304,14 @@ function drawNodeGraphModuleScopes(options = {}) {
   }
   const firstVisibleSlot = visibleItems[0]?.slot;
   flushNodeSliderReadoutUpdates();
-  if (!force && !scopePaused && nodeGraphModuleScopeTraceDisplayFrameUnchanged(visibleItems)) {
+  // Instant Trace skip only when paint gate says idle (never while live).
+  const allowTraceSkip = typeof scopePaintShouldSkipUnchangedTrace === "function"
+    ? scopePaintShouldSkipUnchangedTrace()
+    : scopePaused;
+  if (!force && allowTraceSkip && nodeGraphModuleScopeTraceDisplayFrameUnchanged(visibleItems)) {
     setNodeGraphModuleScopeDebugPhase("trace-unchanged");
     commitNodeGraphModuleScopeRenderMetricsFrame(animationTime);
+    nodeGraphModuleScopeKeepDrawLoopAlive(scopePaused);
     return;
   }
   // force (Clear) must not wait on the phosphor FPS clock — that dropped
@@ -313,7 +404,16 @@ function drawNodeGraphModuleScopes(options = {}) {
   gl.viewport(0, 0, canvas.width, canvas.height);
   setNodeGraphModuleScopeDebugPhase("commit");
   commitNodeGraphModuleScopeRenderMetricsFrame(animationTime);
-  if (!scopePaused && (visibleItems.length || nodeGraphModuleScopeHasModelDisplay())) {
+  // Keep RAF alive while the paint gate says live and faces exist.
+  const keepDrawing = (typeof scopePaintShouldKeepLoop === "function"
+    ? scopePaintShouldKeepLoop()
+    : !scopePaused && nodeGraphModuleScopeHasDrawableSlots())
+    && (
+      visibleItems.length
+      || nodeGraphModuleScopeHasModelDisplay()
+      || nodeGraphModuleScopeHasDrawableSlots()
+    );
+  if (keepDrawing) {
     setNodeGraphModuleScopeDebugPhase("schedule-next");
     scheduleNodeGraphModuleScopeDraw();
   } else {
@@ -343,12 +443,30 @@ function scheduleNodeGraphModuleScopeDraw(options = {}) {
     markNodeGraphModuleScopeDebugSkip("traces-off");
     return;
   }
-  // Pause/stop: never queue a full draw. Force=true after Clear so energy
-  // rebinds and the cold plate sticks even while frozen. Model displays used
-  // to bypass this and keep RAF + layout thrashing after Stop.
-  if (nodeGraphModuleScopePaused() && !force) {
-    absorbNodeGraphModuleScopePhosphorDrawCursors();
-    return;
+  // Arm heartbeat as soon as we intend to draw — do not wait for a successful
+  // full paint (that left faces event-only until zoom/pan).
+  if (!nodeGraphModuleScopesEnabled()) {
+    setNodeGraphModuleScopesEnabled(true);
+  }
+  // Pause/stop: do not queue a full live RAF loop. Force=true after Clear so
+  // energy rebinds and the cold plate sticks even while frozen. Still run one
+  // cold-plate paint so Display Settings (background) update while Stopped —
+  // otherwise Output stays wiped black under the dimmer until Play.
+  if (typeof scopePaintShouldFullDraw === "function") {
+    if (!scopePaintShouldFullDraw(force)) {
+      absorbNodeGraphModuleScopePhosphorDrawCursors();
+      paintNodeGraphModuleScopeColdPlatesOnly();
+      return;
+    }
+  } else {
+    const livePaintActive = typeof nodeGraphModuleScopeLivePaintActive === "function"
+      ? nodeGraphModuleScopeLivePaintActive()
+      : !nodeGraphModuleScopePaused();
+    if (!livePaintActive && !force) {
+      absorbNodeGraphModuleScopePhosphorDrawCursors();
+      paintNodeGraphModuleScopeColdPlatesOnly();
+      return;
+    }
   }
   if (nodeGraphModuleScopeState.drawFrame) {
     const now = (performance.now?.() || Date.now());

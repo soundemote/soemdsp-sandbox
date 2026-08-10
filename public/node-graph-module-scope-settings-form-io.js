@@ -641,6 +641,10 @@ function nodeGraphDisplaySettingsFormValue(settings, key) {
 }
 
 function writeNodeGraphTraceDisplaySettingsForm(settings) {
+  // Seeding the form from a node (or multi primary) is not a user edit.
+  if (typeof clearNodeGraphTraceDisplaySettingsDirty === "function") {
+    clearNodeGraphTraceDisplaySettingsDirty();
+  }
   const formType = nodeGraphTraceDisplaySettingsFormType();
   const root = nodeGraphTraceDisplaySettingsRoot();
   const normalized = normalizeNodeGraphDisplaySettingsForFormType(settings, formType);
@@ -816,6 +820,11 @@ function bindNodeGraphHueTitleSteppers(host) {
     if (event?.pointerId !== undefined && drag.swatch?.hasPointerCapture?.(event.pointerId)) {
       drag.swatch.releasePointerCapture(event.pointerId);
     }
+    if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
+      markNodeGraphTraceDisplaySettingsDirty(
+        drag?.row?.getAttribute("data-hue-title-color-field") || "dot1Color",
+      );
+    }
     if (typeof applyNodeGraphTraceDisplaySettingsForm === "function") {
       applyNodeGraphTraceDisplaySettingsForm({ persist: "immediate", record: true });
     }
@@ -869,6 +878,11 @@ function bindNodeGraphHueTitleSteppers(host) {
     nodeGraphHueTitleStepperApplySwatch(drag.row, pure);
     // Live-paint LED only — do NOT rewrite the whole form / re-sync Background
     // color widgets (that was coupling LED hue with the plane widget).
+    if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
+      markNodeGraphTraceDisplaySettingsDirty(
+        drag.row?.getAttribute("data-hue-title-color-field") || "dot1Color",
+      );
+    }
     if (typeof applyNodeGraphTraceDisplaySettingsForm === "function") {
       applyNodeGraphTraceDisplaySettingsForm({ persist: "none", record: false });
     }
@@ -1225,6 +1239,9 @@ function syncNodeGraphTraceDisplayColorWidgets(popover = document.getElementById
                 colorInput.value = nextHex;
               }
               // Live paint while dragging strips.
+              if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
+                markNodeGraphTraceDisplaySettingsDirty(field);
+              }
               applyNodeGraphTraceDisplaySettingsForm({ persist: "none", record: false });
             },
           });

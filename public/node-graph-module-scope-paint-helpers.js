@@ -263,12 +263,31 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
     phasor = 0;
   }
   let resetWasHigh = canvas._lineBurnResetWasHigh === true;
+  // Auto-sync (Display Settings → Sync): rising edge of In snaps pen like Reset.
+  const autoSync = typeof nodeGraphDisplaySettingsToggleIsOn === "function"
+    ? nodeGraphDisplaySettingsToggleIsOn(settings?.sourceSync ?? settings?.sync)
+    : Boolean(settings?.sourceSync);
+  let signalWasHigh = canvas._lineBurnSignalWasHigh === true;
+  const syncThreshold = Number.isFinite(Number(nodeGraphLineBurnResetThreshold))
+    ? Number(nodeGraphLineBurnResetThreshold)
+    : 0.5;
 
-  const stepPhasorAndReset = (resetSample) => {
-    const resetHigh = Number(resetSample) >= nodeGraphLineBurnResetThreshold;
-    const snapped = resetHigh && !resetWasHigh;
+  const snapPen = () => {
+    phasor = 0;
+  };
+
+  const stepPhasorAndReset = (resetSample, signalSample) => {
+    const resetHigh = Number(resetSample) >= syncThreshold;
+    let snapped = resetHigh && !resetWasHigh;
+    if (autoSync) {
+      const signalHigh = Number(signalSample) >= 0;
+      if (signalHigh && !signalWasHigh) {
+        snapped = true;
+      }
+      signalWasHigh = signalHigh;
+    }
     if (snapped) {
-      phasor = 0;
+      snapPen();
     }
     resetWasHigh = resetHigh;
     phasor += phaseInc;
@@ -283,20 +302,32 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
 
   // Samples already consumed still update phasor + Reset so edges are not missed.
   for (let index = 0; index < drawStartIndex; index += 1) {
-    stepPhasorAndReset(nodeGraphOneDimensionalBurnResetSample(resetBuffer, index, count));
+    stepPhasorAndReset(
+      nodeGraphOneDimensionalBurnResetSample(resetBuffer, index, count),
+      buffer[start + index],
+    );
   }
 
   const points = [];
   let hadPoint = false;
   for (let index = drawStartIndex; index < count; index += 1) {
+    const sample = buffer[start + index];
     const resetSample = nodeGraphOneDimensionalBurnResetSample(resetBuffer, index, count);
-    const resetHigh = Number(resetSample) >= nodeGraphLineBurnResetThreshold;
-    if (resetHigh && !resetWasHigh) {
-      // Rising edge Reset: snap to left edge for this sample.
+    const resetHigh = Number(resetSample) >= syncThreshold;
+    let snapped = resetHigh && !resetWasHigh;
+    if (autoSync) {
+      const signalHigh = Number(sample) >= 0;
+      if (signalHigh && !signalWasHigh) {
+        snapped = true;
+      }
+      signalWasHigh = signalHigh;
+    }
+    if (snapped) {
+      // Rising edge Reset and/or Sync: snap to left edge for this sample.
       if (hadPoint) {
         nodeGraphOneDimensionalBurnBreakPath(points);
       }
-      phasor = 0;
+      snapPen();
       hadPoint = false;
     }
     resetWasHigh = resetHigh;
@@ -304,7 +335,7 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
     // Draw at current phasor, then advance — so changing Sweep keeps X.
     points.push({
       x: phasor * width,
-      y: nodeGraphOneDimensionalBurnSampleToY(buffer[start + index], height, settings),
+      y: nodeGraphOneDimensionalBurnSampleToY(sample, height, settings),
     });
     hadPoint = true;
 
@@ -322,6 +353,7 @@ function nodeGraphOneDimensionalBurnFramePoints(canvas, buffer, settings, resetB
 
   canvas._lineBurnPhasor = phasor;
   canvas._lineBurnResetWasHigh = resetWasHigh;
+  canvas._lineBurnSignalWasHigh = signalWasHigh;
   delete canvas._lineBurnSweepOriginFrame;
   return points;
 }
@@ -925,12 +957,75 @@ function nodeGraphTraceDisplayPrimaryLayer(settings, color) {
   };
 }
 
+/**
+ * Paint Output / Trace face plate from Display Settings when there is no live
+ * capture yet (or audio is silent). Applies --node-scope-background so color
+ * changes are visible without waiting for scope samples.
+ */
+function paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio = window.devicePixelRatio || 1) {
+  const screenElement = slot?.scopeElement;
+  if (!slot || !screenElement) {
+    return false;
+  }
+  const settings = typeof nodeGraphTraceDisplaySettingsForSlot === "function"
+    ? nodeGraphTraceDisplaySettingsForSlot(slot)
+    : (typeof nodeGraphTraceDisplaySettingsDefaults !== "undefined"
+      ? nodeGraphTraceDisplaySettingsDefaults
+      : {});
+  const canvas = typeof nodeGraphModuleScopeLocalFallbackCanvas === "function"
+    ? nodeGraphModuleScopeLocalFallbackCanvas(slot)
+    : null;
+  const density = typeof nodeGraphFacePlateDensity === "function"
+    ? nodeGraphFacePlateDensity(settings, 1)
+    : 1;
+  if (!canvas || typeof syncNodeGraphModuleScopeLocalFallbackCanvas !== "function") {
+    const bg = typeof nodeGraphFacePlateBackground === "function"
+      ? nodeGraphFacePlateBackground(settings)
+      : "#000000";
+    if (typeof nodeGraphFacePlateApplyCss === "function") {
+      nodeGraphFacePlateApplyCss(screenElement, bg);
+    }
+    return false;
+  }
+  if (!syncNodeGraphModuleScopeLocalFallbackCanvas(canvas, screenElement, pixelRatio, density)) {
+    return false;
+  }
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return false;
+  }
+  const bg = typeof nodeGraphFacePlateBackground === "function"
+    ? nodeGraphFacePlateBackground(settings)
+    : "#000000";
+  if (typeof nodeGraphFacePlateApplyCss === "function") {
+    nodeGraphFacePlateApplyCss(screenElement, bg);
+  }
+  if (typeof nodeGraphFacePlateFillCanvas === "function") {
+    nodeGraphFacePlateFillCanvas(context, canvas, bg);
+  } else {
+    context.save();
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.globalCompositeOperation = "source-over";
+    context.fillStyle = bg || "#000000";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.restore();
+  }
+  canvas.classList.add("node-module-scope-vector-trace");
+  if (typeof nodeGraphModuleScopeMarkScreenLit === "function") {
+    nodeGraphModuleScopeMarkScreenLit(screenElement, 1);
+  }
+  return true;
+}
+
 function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
   const slot = item?.slot;
   const buffer = item?.buffer;
   const screenElement = item?.screenElement || slot?.scopeElement;
-  if (!slot || !buffer?.length || !screenElement) {
+  if (!slot || !screenElement) {
     return false;
+  }
+  if (!buffer?.length) {
+    return paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio);
   }
   // Pause freeze: hold face pixels (same as phosphor). A force-draw after
   // Clear-while-paused must NOT re-stroke the capture buffer onto a wiped plate.
@@ -981,13 +1076,32 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
     const views = nodeGraphTraceDisplayStereoBufferViews(leftBuffer, rightBuffer, slot);
     const leftPoints = buildNodeGraphTraceDisplayCanvasPoints(leftBuffer, canvas, slot, views.left);
     const rightPoints = buildNodeGraphTraceDisplayCanvasPoints(rightBuffer, canvas, slot, views.right);
-    const leftColor = settings.color || settings.dot1Color || "#ff0000";
-    const rightColor = settings.secondaryColor || "#0000ff";
-    const leftLayer = nodeGraphTraceDisplayPrimaryLayer(settings, leftColor);
+    // Form stores Left as dot1Color (also mirrored to color) and Right as secondaryColor.
+    const leftColor = settings.color || settings.dot1Color || "#ff3333";
+    const rightColor = settings.secondaryColor || "#3366ff";
+    const leftBright = Number.isFinite(Number(settings.brightness))
+      ? Number(settings.brightness)
+      : (Number(settings.dot1Brightness) || 0.95);
+    const rightBright = Number.isFinite(Number(settings.secondaryBrightness))
+      ? Number(settings.secondaryBrightness)
+      : leftBright;
+    const leftSize = Number.isFinite(Number(settings.dot1Size))
+      ? Number(settings.dot1Size)
+      : (Number(settings.size) || 0.035);
+    const rightSize = Number.isFinite(Number(settings.secondarySize))
+      ? Number(settings.secondarySize)
+      : leftSize;
+    const leftLayer = {
+      enabled: settings.dot1Enabled !== false,
+      size: leftSize,
+      brightness: leftBright,
+      blur: 0,
+      color: leftColor,
+    };
     const rightLayer = {
       enabled: settings.secondaryEnabled !== false,
-      size: settings.secondarySize,
-      brightness: settings.secondaryBrightness,
+      size: rightSize,
+      brightness: rightBright,
       blur: 0,
       color: rightColor,
     };
@@ -1062,7 +1176,20 @@ function drawNodeGraphTraceDisplayCanvasItem(item, pixelRatio) {
   const prepared = prepareNodeGraphTraceDisplayBuffer(buffer, settings);
   fillTraceBackground();
   const points = buildNodeGraphTraceDisplayCanvasPoints(prepared || buffer, canvas, slot);
-  const layer = nodeGraphTraceDisplayPrimaryLayer(settings, settings.color);
+  const monoColor = settings.color || settings.dot1Color || "#ff3333";
+  const monoBright = Number.isFinite(Number(settings.brightness))
+    ? Number(settings.brightness)
+    : (Number(settings.dot1Brightness) || 0.95);
+  const monoSize = Number.isFinite(Number(settings.dot1Size))
+    ? Number(settings.dot1Size)
+    : 0.035;
+  const layer = {
+    enabled: settings.dot1Enabled !== false,
+    size: monoSize,
+    brightness: monoBright,
+    blur: 0,
+    color: monoColor,
+  };
   drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas, { glow: false });
   recordNodeGraphModuleScopeRenderMetrics(points.length, points.length);
   rememberNodeGraphTraceDisplaySignature(slot, item, buffer, settings);

@@ -23,12 +23,12 @@ static const char kMetadataJson[] =
     "\"label\":\"SinCos\","
     "\"targetType\":\"sineWavetable\","
     "\"kind\":\"oscillator\","
-    "\"inputs\":[\"0.1V/Oct\",\"Freq\",\"Amplitude\"],"
+    "\"inputs\":[\"0.1V/Oct\",\"Freq\"],"
     "\"outputs\":[\"sin\",\"cos\"],"
     "\"parameters\":["
       "{\"key\":\"phase\",\"label\":\"Phase\",\"kind\":\"phase\",\"defaultValue\":0,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":0.01,\"unit\":\"cycle\"},"
       "{\"key\":\"freq\",\"label\":\"Freq\",\"kind\":\"frequency\",\"defaultValue\":100,\"min\":0,\"mid\":220,\"max\":20000,\"step\":\"any\",\"unit\":\"Hz\"},"
-      "{\"key\":\"amp\",\"label\":\"Amplitude\",\"defaultValue\":1,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\"}"
+      "{\"key\":\"amp\",\"label\":\"Amp\",\"defaultValue\":1,\"min\":0,\"mid\":0.5,\"max\":1,\"step\":\"any\"}"
     "]"
   "}";
 

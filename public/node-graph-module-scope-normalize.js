@@ -538,6 +538,10 @@ function normalizeNodeGraphLineBurnSettings(settings = {}) {
     dotsOnly: nodeGraphDisplaySettingsToggleIsOn(
       source.dotsOnly ?? source.verticesOnly,
     ),
+    // Auto-trigger: rising edge of In snaps pen left (Reset jack still works).
+    sourceSync: nodeGraphDisplaySettingsToggleIsOn(
+      source.sourceSync ?? source.sync,
+    ),
     gradientStops,
     lineThickness: nodeGraphTraceDisplayClampStampBlur(
       source.lineThickness ?? defaults.lineThickness,
@@ -1000,13 +1004,17 @@ function normalizeNodeGraphScope2dSettings(settings = {}, defaultsOverride = nul
         Number(source.dotBudget ?? defaults.dotBudget) || defaults.dotBudget,
       )),
     ),
-    // Full Dot Economy / Dots only — shared phosphor packing (scope2d SSOT).
+    // Full Dots / Dots only — shared phosphor packing (scope2d SSOT).
     // Accept bool true and common form/patch coercions (1 / "1" / "true" / "on").
     fullDotEconomy: nodeGraphDisplaySettingsToggleIsOn(
       source.fullDotEconomy ?? source.useFullDotEconomy,
     ),
     dotsOnly: nodeGraphDisplaySettingsToggleIsOn(
       source.dotsOnly ?? source.verticesOnly,
+    ),
+    // Latch present for packing-row UI consistency; 2D deposit path freeruns.
+    sourceSync: nodeGraphDisplaySettingsToggleIsOn(
+      source.sourceSync ?? source.sync,
     ),
     gradientStops,
     lineThickness: nodeGraphTraceDisplayClampStampBlur(

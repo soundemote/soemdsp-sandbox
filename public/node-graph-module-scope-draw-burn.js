@@ -697,29 +697,38 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
   const height = canvas.height;
   const points = Array.isArray(pathPoints) ? pathPoints : [];
   const endFrame = Number(options.endFrame);
-  // Always absorb sample cursor when an endFrame is known (including freeze)
-  // so pause does not bank up stamps for a resume dump.
-  if (Number.isFinite(endFrame)) {
-    absorbNodeGraphPhosphorDrawCursorOnCanvas(canvas, endFrame);
-  }
-
   const bgHex = nodeGraphFacePlateBackground(settings);
   nodeGraphFacePlateApplyCss(screenElement, bgHex);
   const frozen = typeof nodeGraphModuleScopePhosphorFrozen === "function"
     && nodeGraphModuleScopePhosphorFrozen();
   const hasPoints = points.length > 0;
-  // Idle dark face: no residual and no new stamps → plate only (no GL ensure/step).
-  // Avoids full energy-GL work every RAF on blank/settled faces.
+  // Absorb cursor only after a successful paint (or when truly idle / frozen).
+  // Absorbing *before* deposit used to burn undrawn samples when GL ensure or
+  // present failed — faces stayed black until Stop+Play rebuilt the path.
+  const absorbCursor = () => {
+    if (Number.isFinite(endFrame)) {
+      absorbNodeGraphPhosphorDrawCursorOnCanvas(canvas, endFrame);
+    }
+  };
+  // No new stamps this frame: do NOT wipe the face. Filling the plate here
+  // erased 1D Phosphor residual between scope posts (~30Hz), so the trail
+  // looked frozen/dead until a Settings change force-painted. Hold pixels when
+  // energy is idle; fall through to present-only when residual is still live.
   const existingEnergy = canvas._phosphorEnergyGl;
   const energyIdle = !existingEnergy || existingEnergy.energyActive === false;
   if (!frozen && !hasPoints && energyIdle) {
-    context.setTransform(1, 0, 0, 1, 0, 0);
-    nodeGraphFacePlateFillCanvas(context, canvas, bgHex);
+    // Still advance the sample cursor so we do not re-deposit a backlog later.
+    absorbCursor();
     return true;
+  }
+  // Freeze still advances the sample cursor so unpause does not dump a backlog.
+  if (frozen) {
+    absorbCursor();
   }
 
   const energyGl = nodeGraphPhosphorEnergyGlEnsure(canvas, width, height, "_phosphorEnergyGl");
   if (!energyGl) {
+    // Do not absorb — retry these samples next frame when GL is ready.
     return false;
   }
 
@@ -824,6 +833,7 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
   const exposure = nodeGraphScope2dEnergyBurnExposure(bright);
   context.setTransform(1, 0, 0, 1, 0, 0);
   nodeGraphFacePlateFillCanvas(context, canvas, bgHex);
+  let presented = false;
   if (nodeGraphPhosphorEnergyGlPresent(energyGl, 1, { exposure })) {
     context.save();
     // Energy is already additive mono; LUT paints color (incl. dark peaks).
@@ -833,6 +843,19 @@ function drawNodeGraphScope2dEnergyBurnPath(item, pixelRatio, pathPoints, settin
     context.imageSmoothingEnabled = Number.isFinite(dens) ? dens >= 0.999 : true;
     context.drawImage(energyGl.canvas, 0, 0, width, height);
     context.restore();
+    presented = true;
+  }
+  // Only consume the undrawn window after a real paint attempt completed
+  // (present hit, freeze hold, or idle plate). Failed present keeps samples.
+  if (presented || frozen || (!hasPoints && energyIdle)) {
+    absorbCursor();
+  } else if (hasPoints && !frozen) {
+    // Deposit ran but present skipped (energyActive false): still advance
+    // cursor when the GL face is live — residual will show next present.
+    // Prefer retry if energy is completely idle so the next RAF can re-stamp.
+    if (energyGl.energyActive !== false) {
+      absorbCursor();
+    }
   }
   return true;
 }

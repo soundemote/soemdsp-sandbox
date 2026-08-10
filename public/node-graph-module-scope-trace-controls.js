@@ -106,8 +106,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       ]),
     ]),
     colors: Object.freeze([]),
-    // Below Dot Budget: Full Dot Economy | Dots only
-    toggles: Object.freeze(["fullDotEconomy", "dotsOnly"]),
+    // Packing row: Sync | Full Dots | Dots only | Clear
+    toggles: Object.freeze(["sourceSync", "fullDotEconomy", "dotsOnly"]),
     choices: Object.freeze([]),
   }),
   value: Object.freeze({
@@ -142,8 +142,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dotBudget",
     ])),
     colors: Object.freeze([]),
-    // Same horizontal packing row: Full Dot Economy | Dots only
-    toggles: Object.freeze(["fullDotEconomy", "dotsOnly"]),
+    // Packing row: Sync | Full Dots | Dots only | Clear
+    toggles: Object.freeze(["sourceSync", "fullDotEconomy", "dotsOnly"]),
     choices: Object.freeze([]),
   }),
   // 2D Trace = VECTOR path; density = face buffer lo-fi/AA only.
@@ -670,22 +670,27 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
 });
 
 const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
-  sourceSync: Object.freeze({ label: "Sync", id: "nodeTraceDisplaySourceSync" }),
+  sourceSync: Object.freeze({
+    label: "Sync",
+    id: "nodeTraceDisplaySourceSync",
+    title:
+      "1D Phosphor: when on, rising edges of the input snap the pen to the left (auto-trigger) without a Reset wire. Off = free-run Sweep only (Reset jack still works). 1D Trace: edge-lock the visible window.",
+  }),
   skipDiscontinuities: Object.freeze({ label: "Skip discontinuities", id: "nodeTraceDisplaySkipDiscontinuities" }),
   bipolarBrightness: Object.freeze({ label: "Bipolar", id: "nodeTraceDisplayBipolarBrightness" }),
   secondaryEnabled: Object.freeze({ label: "Secondary on", id: "nodeTraceDisplaySecondaryEnabled" }),
   capEnabled: Object.freeze({ label: "Caps on", id: "nodeTraceDisplayCapEnabled" }),
   fullDotEconomy: Object.freeze({
-    label: "Full Dot Economy",
+    label: "Full Dots",
     id: "nodeTraceDisplayFullDotEconomy",
     title:
-      "Off (default): pack soft stamps at fuse spacing (continuous trail, thrifty on Dot Budget). On: denser packing up to Dot Budget (brighter solid trails). Over budget: spacing widens evenly along the whole path — never truncates the head. Ignored when Dots only is on (except even sample skip under budget).",
+      "How densely stamps are packed along the path. Off (default): thrifty fuse spacing so soft dots blend into a continuous trail without burning the Dot Budget. On: pack as many stamps as Dot Budget allows (brighter, more solid trails). If the path still needs more stamps than budget, spacing widens evenly over the whole path — the head is never cut off. When Dots only is on, this mainly controls even sample skipping under budget.",
   }),
   dotsOnly: Object.freeze({
     label: "Dots only",
     id: "nodeTraceDisplayDotsOnly",
     title:
-      "Stamp only real sample hits — no path packing between samples. Completely avoids connective lines / chord fill. Dense samples still fuse visually; sparse samples stay discrete dots.",
+      "Stamp only real sample hits — no extra packing between samples. Avoids connective lines / chord fill. Dense samples can still fuse; sparse samples stay discrete dots.",
   }),
   showLabel: Object.freeze({
     label: "Show label",

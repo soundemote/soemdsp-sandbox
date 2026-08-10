@@ -55,6 +55,16 @@ function nodeGraphModuleScopeTracesOff() {
 function nodeGraphModuleScopeCircuitRunning() {
   const live = nodeGraphMvp?.live || {};
   const contextState = String(live.context?.state || "");
+  // Prefer engine transport over AudioContext.state alone — "suspended" can
+  // lag a resume and used to freeze Instant Trace (only force paints from
+  // Display Settings / Unpause advanced the face).
+  const speed = Number(live.speedMultiplier);
+  if (Number.isFinite(speed) && speed > 0 && live.node && live.outputEnabled) {
+    if (contextState === "closed") {
+      return false;
+    }
+    return true;
+  }
   return Boolean(
     live.outputEnabled &&
     live.node &&
@@ -64,38 +74,37 @@ function nodeGraphModuleScopeCircuitRunning() {
   );
 }
 
-/**
- * Simulation / transport pause: live speedMultiplier === 0 (Play/Pause, no
- * separate "scope pause" clock). That is the only dedicated freeze signal we
- * use for holding phosphor; visualControls.scopePaused is an optional patch
- * overlay on top.
- */
-function nodeGraphModuleScopeEnginePaused() {
-  const speed = Number(nodeGraphMvp?.live?.speedMultiplier);
-  return Number.isFinite(speed) && speed <= 0;
-}
+// Live / pause / freeze / schedule policy:
+//   node-graph-module-scope-paint-gate.js  (scopePaintIsLive, …)
+// Compatibility shims (enginePaused / livePaintActive / phosphorFrozen) live there.
+// nodeGraphModuleScopePaused keeps the extra “no drawable slots” idle case.
 
+/**
+ * True when full live draw should idle (cold plate only unless force).
+ * Paint gate owns engine/visual pause; this adds “nothing to draw” idle.
+ */
 function nodeGraphModuleScopePaused() {
-  // Engine speed 0 = simulation paused (transport Play/Pause).
-  if (nodeGraphModuleScopeEnginePaused()) {
-    return true;
-  }
-  const visualPause = Number(nodeGraphMvp?.visualControls?.scopePaused) || 0;
-  if (visualPause > 0.5) {
-    return true;
-  }
-  if (!nodeGraphModuleScopeCircuitRunning()) {
-    return true;
+  if (typeof scopePaintIsPaused === "function") {
+    if (scopePaintIsPaused()) {
+      return true;
+    }
+  } else if (typeof scopePaintIsLive === "function") {
+    if (!scopePaintIsLive()) {
+      return true;
+    }
+  } else {
+    // Fallback if paint-gate script failed to load.
+    const speed = Number(nodeGraphMvp?.live?.speedMultiplier);
+    if (Number.isFinite(speed) && speed <= 0) {
+      return true;
+    }
+    if (!nodeGraphModuleScopeCircuitRunning()) {
+      return true;
+    }
   }
   return !nodeGraphModuleScopeHasModelDisplay() && !nodeGraphModuleScopeHasRenderableSlots();
 }
 
-/**
- * Phosphor freeze: no new deposits, no decay/bleed step, hold the last face pixels.
- * Primary signal is engine speed 0. While frozen we still advance per-canvas
- * sample cursors so unpause does not dump a backlog of stamps.
- */
-// nodeGraphModuleScopePhosphorFrozen → node-graph-module-scope-phosphor.js
 // absorbNodeGraphPhosphorDrawCursorOnCanvas → node-graph-module-scope-phosphor.js
 // absorbNodeGraphModuleScopePhosphorDrawCursors → node-graph-module-scope-phosphor.js
 function nodeGraphModuleScopeBackingPixelRatio(rect, requestedPixelRatio = window.devicePixelRatio || 1) {
@@ -140,16 +149,45 @@ function nodeGraphModuleScopeFaceBackingSize(screenElement, requestedPixelRatio 
     ) || 1,
   );
   // Layout (pre-transform) CSS pixels — stable under workspace zoom.
-  const cssWidth = Math.max(
-    1,
-    Number(screenElement.clientWidth || screenElement.offsetWidth || 0)
-      || (Number(rect.width) || 1) / zoom,
-  );
-  const cssHeight = Math.max(
-    1,
-    Number(screenElement.clientHeight || screenElement.offsetHeight || 0)
-      || (Number(rect.height) || 1) / zoom,
-  );
+  // Prefer client/offset; if layout has not resolved yet (0×0 common before
+  // first reflow), fall back to CSS display-height vars so faces still get a
+  // real buffer instead of a 1×1 plate that never looks painted.
+  let cssWidth = Number(screenElement.clientWidth || screenElement.offsetWidth || 0);
+  let cssHeight = Number(screenElement.clientHeight || screenElement.offsetHeight || 0);
+  if (!(cssWidth > 0) || !(cssHeight > 0)) {
+    const host = screenElement.closest?.(".dsp-node") || screenElement;
+    let gridPx = 28;
+    try {
+      const style = getComputedStyle(host);
+      const raw = Number.parseFloat(style.getPropertyValue("--node-grid-height") || style.getPropertyValue("--node-grid-size") || "");
+      if (Number.isFinite(raw) && raw > 0) {
+        gridPx = raw;
+      }
+      if (!(cssHeight > 0)) {
+        const displayGu = Number.parseFloat(style.getPropertyValue("--node-module-display-height-units") || "");
+        if (Number.isFinite(displayGu) && displayGu > 0) {
+          cssHeight = displayGu * gridPx;
+        }
+      }
+      if (!(cssWidth > 0)) {
+        const widthGu = Number.parseFloat(style.getPropertyValue("--node-grid-width-units") || "");
+        if (Number.isFinite(widthGu) && widthGu > 0) {
+          const gw = Number.parseFloat(style.getPropertyValue("--node-grid-width") || style.getPropertyValue("--node-grid-size") || "");
+          cssWidth = widthGu * (Number.isFinite(gw) && gw > 0 ? gw : gridPx);
+        }
+      }
+    } catch (_error) {
+      // Best-effort CSS var fallback.
+    }
+  }
+  if (!(cssWidth > 0)) {
+    cssWidth = (Number(rect.width) || 1) / zoom;
+  }
+  if (!(cssHeight > 0)) {
+    cssHeight = (Number(rect.height) || 1) / zoom;
+  }
+  cssWidth = Math.max(1, cssWidth);
+  cssHeight = Math.max(1, cssHeight);
   // Face buffers use devicePixelRatio only (capped by max store vs layout size).
   // Do not inherit a workspace-rect-derived ratio that shrank for the whole
   // graph, and never scale by workspace zoom.

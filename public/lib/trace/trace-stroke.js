@@ -460,9 +460,14 @@
     leftCtx.fillRect(0, 0, w, h);
     rightCtx.fillRect(0, 0, w, h);
 
+    // Mask must be drawn at full ink. Brightness used to multiply the white
+    // mask (default Instant Trace brightness 0.08 from phosphor look defaults)
+    // which crushed Meet recolor to ~8% of the chosen Left/Right colors — the
+    // plate showed through and strokes looked black / “not taking color”.
     const leftCount = draw(leftCtx, leftPoints, {
       ...leftOptions,
       blur: 0,
+      brightness: 1,
       color: "#ffffff",
       rgb: [255, 255, 255],
       faceMinSide: face,
@@ -471,17 +476,24 @@
     const rightCount = draw(rightCtx, rightPoints, {
       ...rightOptions,
       blur: 0,
+      brightness: 1,
       color: "#ffffff",
       rgb: [255, 255, 255],
       faceMinSide: face,
       composite: "lighter",
     });
 
-    const cL = parseRgb01(stereo.leftColor ?? leftOptions.color ?? leftOptions.rgb, [1, 0, 0]);
-    const cR = parseRgb01(stereo.rightColor ?? rightOptions.color ?? rightOptions.rgb, [0, 0, 1]);
-    const cM = stereo.meetColor != null && stereo.meetColor !== "" && stereo.meetColor !== "auto"
-      ? parseRgb01(stereo.meetColor, meetColorFromPair(cL, cR))
-      : meetColorFromPair(cL, cR);
+    const gainL = clamp01(leftOptions.brightness, 1);
+    const gainR = clamp01(rightOptions.brightness, 1);
+    const cLraw = parseRgb01(stereo.leftColor ?? leftOptions.color ?? leftOptions.rgb, [1, 0, 0]);
+    const cRraw = parseRgb01(stereo.rightColor ?? rightOptions.color ?? rightOptions.rgb, [0, 0, 1]);
+    const cL = [cLraw[0] * gainL, cLraw[1] * gainL, cLraw[2] * gainL];
+    const cR = [cRraw[0] * gainR, cRraw[1] * gainR, cRraw[2] * gainR];
+    const meetGain = Math.max(gainL, gainR);
+    const cMraw = stereo.meetColor != null && stereo.meetColor !== "" && stereo.meetColor !== "auto"
+      ? parseRgb01(stereo.meetColor, meetColorFromPair(cLraw, cRraw))
+      : meetColorFromPair(cLraw, cRraw);
+    const cM = [cMraw[0] * meetGain, cMraw[1] * meetGain, cMraw[2] * meetGain];
 
     const leftData = leftCtx.getImageData(0, 0, w, h);
     const rightData = rightCtx.getImageData(0, 0, w, h);

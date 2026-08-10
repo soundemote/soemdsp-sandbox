@@ -17,7 +17,10 @@ NodeLiveAudioProcessor.prototype.smoothingTypeFromMetadata = function smoothingT
         return normalizeNodeGraphParameterSmootherFilterType(raw);
       }
       const key = String(raw).trim();
-      if (key === "linear" || key === "L" || key === "l") {
+      if (key === "none" || key === "off" || key === "instant") {
+        return "none";
+      }
+      if (key === "linear" || key === "L" || key === "l" || key === "lerp") {
         return "linear";
       }
       if (key === "twoPole" || key === "2P" || key === "2p" || key === "two-pole" || key === "2pole") {
@@ -25,9 +28,9 @@ NodeLiveAudioProcessor.prototype.smoothingTypeFromMetadata = function smoothingT
       }
       return key === "papoulis" ? "papoulis" : "onePole";
     }
-    // Legacy: linearSmoothing=false → type linear (instant).
+    // Legacy: linearSmoothing=false → instant snaps (not linear ramps).
     if (metadata?.linearSmoothing === false) {
-      return "linear";
+      return "none";
     }
     return "onePole";
 };
@@ -59,7 +62,7 @@ NodeLiveAudioProcessor.prototype.createSmoother = function createSmoother(initia
     const smoothingType = this.smoothingTypeFromMetadata(metadata);
     const usesFilter = typeof nodeGraphParameterSmootherUsesFilter === "function"
       ? nodeGraphParameterSmootherUsesFilter(smoothingType)
-      : (smoothingType !== "linear" && metadata?.linearSmoothing !== false);
+      : (smoothingType !== "none" && metadata?.linearSmoothing !== false);
     const smoother = {
       current: safeValue,
       linearSmoothing: usesFilter,
@@ -247,7 +250,7 @@ NodeLiveAudioProcessor.prototype.updateSmoother = function updateSmoother(smooth
     }
     smoother.linearSmoothing = typeof nodeGraphParameterSmootherUsesFilter === "function"
       ? nodeGraphParameterSmootherUsesFilter(nextType)
-      : (nextType !== "linear" && metadata?.linearSmoothing !== false);
+      : (nextType !== "none" && metadata?.linearSmoothing !== false);
     smoother.targetSignal = this.parameterValueToNormalizedSignal(smoother.target, metadata);
     smoother.wraparound = Boolean(metadata?.wraparound);
     const key = smootherKey || smoother._activeKey || null;

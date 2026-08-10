@@ -61,6 +61,9 @@ function createNodeGraphIoColumn(node, type, ports, io) {
 
   const column = document.createElement("div");
   column.className = `node-io-column ${io}`;
+  // Longest label (char count) drives min width for every row in this column so
+  // inlet hitboxes match each other and outlet hitboxes match each other.
+  let maxLabelChars = 1;
   for (const port of ports) {
     const row = document.createElement("div");
     row.className = `node-io-row ${io}`;
@@ -78,6 +81,7 @@ function createNodeGraphIoColumn(node, type, ports, io) {
       row.dataset.digitalSignal = io;
     }
     const portLabel = nodeGraphPatchNodePortDisplayLabel(node, type, port, io);
+    maxLabelChars = Math.max(maxLabelChars, String(portLabel || "").length);
     row.setAttribute(
       "aria-label",
       `${nodeGraphNodeLabels[type]} ${io} port ${portLabel} interaction area`,
@@ -93,6 +97,9 @@ function createNodeGraphIoColumn(node, type, ports, io) {
     }
     column.append(row);
   }
+  // CSS: .node-io-label min-width uses 1ch × this (monospace IO font).
+  column.style.setProperty("--node-io-label-min-ch", String(maxLabelChars));
+  column.dataset.maxLabelChars = String(maxLabelChars);
   return column;
 }
 

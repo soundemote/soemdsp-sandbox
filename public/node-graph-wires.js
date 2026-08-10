@@ -459,16 +459,12 @@
           || row?.closest?.(".io-hidden")
           || jack?.closest?.(".io-hidden"),
         );
-        // Labels visible: allow a short reach onto the name (still on the row).
-        // Labels hidden: do NOT extend under the face — that lit the jack while
-        // clicks landed on the face. Jack columns are z-index above the face.
+        // Labels visible: full row width (column sized by longest label → equal
+        // hitboxes for every inlet / every outlet). Labels hidden: jack band only.
         if (!labelsHidden && row) {
-          const labelReach = Math.max(diameter * 0.9, 18);
-          if (endpoint?.io === "input" || endpoint?.io === "modulation" || endpoint?.io === "graph") {
-            right = Math.max(right, center.x + labelReach);
-          } else if (endpoint?.io === "output") {
-            left = Math.min(left, center.x - labelReach);
-          }
+          const rowRect = row.getBoundingClientRect();
+          left = Math.min(left, rowRect.left);
+          right = Math.max(right, rowRect.right);
         } else if (labelsHidden && column) {
           // Keep hits inside the jack band (where the port element actually is).
           const colRect = column.getBoundingClientRect();
@@ -486,9 +482,18 @@
         }
       } else if (row) {
         const rowRect = row.getBoundingClientRect();
-        // Compact LayoutA rows: whole row is the hit (and glow) band.
+        // LayoutA compact rows + LayoutC (title+I/O only): whole row is the hit
+        // band. LayoutC rows stretch 1fr tall on small shells — always use full
+        // row so L/R and X/Y stay easy to grab at 3×3 gu.
+        const isLayoutC = Boolean(
+          row.closest?.(".chrome-layout-c")
+          || row.closest?.("[data-chrome-layout='LayoutC']"),
+        );
         const maxBand = diameter * 2.4;
-        if (rowRect.height > 0 && rowRect.height <= maxBand) {
+        if (
+          rowRect.height > 0
+          && (isLayoutC || rowRect.height <= maxBand)
+        ) {
           left = Math.min(left, rowRect.left);
           right = Math.max(right, rowRect.right);
           top = Math.min(top, rowRect.top);

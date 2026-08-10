@@ -165,15 +165,28 @@ NodeLiveAudioProcessor.prototype.evaluateFrame = function evaluateFrame(frame, f
       this.nodeOutputs.set(nodeId, value);
     }
 
-    const outputNode = this.nodes.get(this.outputNode || "output");
+    const outputNodeId = this.outputNode || "output";
+    const outputNode = this.nodes.get(outputNodeId);
     const outputVolume = outputNode
       ? this.readEffectiveParameter(outputNode, "volume", 0.1, frame, frames, frameValues)
       : 1;
 
-    const outputMono = mixInput(this.outputNode || "output", "Mono");
+    const outputMono = mixInput(outputNodeId, "Mono");
+    const left = (outputMono + mixInput(outputNodeId, "Left")) * outputVolume;
+    const right = (outputMono + mixInput(outputNodeId, "Right")) * outputVolume;
+    // Output is a speaker sink with no DSP evaluator — the order loop above
+    // only stored scalar 0. Scope capture reads nodeOutputs for stereo Trace
+    // (output:Left / output:Right); publish the real bus so the face is not
+    // stuck as a blank / flat-zero plate.
+    this.nodeOutputs.set(outputNodeId, {
+      Left: left,
+      Mono: outputMono * outputVolume,
+      Out: (left + right) * 0.5,
+      Right: right,
+    });
     this.currentFrameValues = frameValues;
     return {
-      left: (outputMono + mixInput(this.outputNode || "output", "Left")) * outputVolume,
-      right: (outputMono + mixInput(this.outputNode || "output", "Right")) * outputVolume,
+      left,
+      right,
     };
 };

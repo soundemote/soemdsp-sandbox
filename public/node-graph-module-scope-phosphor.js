@@ -1,9 +1,8 @@
 // Phosphor energy / draw helpers extracted from node-graph-module-scopes.js
 // (Phase D). Load after scope-normalize, before scopes.js.
 
-function nodeGraphModuleScopePhosphorFrozen() {
-  return nodeGraphModuleScopePaused();
-}
+// nodeGraphModuleScopePhosphorFrozen → node-graph-module-scope-paint-gate.js
+// (scopePaintIsFrozen / shim). Do not re-define freeze policy here.
 
 
 function absorbNodeGraphPhosphorDrawCursorOnCanvas(canvas, endFrame) {

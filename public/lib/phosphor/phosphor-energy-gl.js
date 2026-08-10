@@ -718,6 +718,8 @@
       alive: true,
       // Skip full-screen present when nothing changed (idle dark trail).
       energyActive: false,
+      // Set true when stamps land this frame so present cannot race quiet-sleep.
+      energyDirty: false,
       quietFrames: 0,
     };
   }
@@ -742,6 +744,7 @@
     renderer.maskTexture = null;
     renderer.alive = false;
     renderer.energyActive = false;
+    renderer.energyDirty = false;
     renderer.quietFrames = 0;
   }
 
@@ -768,6 +771,7 @@
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     // Empty residual: present may skip (caller fills the 2D plate).
     renderer.energyActive = false;
+    renderer.energyDirty = false;
     renderer.quietFrames = 0;
     return true;
   }
@@ -1011,6 +1015,7 @@
       renderer.segmentScratch.subarray(0, vertices.length),
       gl.STREAM_DRAW,
     );
+    disableAllVertexAttribs(gl);
     const stride = 5 * 4;
     gl.enableVertexAttribArray(renderer.beam.aStart);
     gl.vertexAttribPointer(renderer.beam.aStart, 2, gl.FLOAT, false, stride, 0);
@@ -1069,6 +1074,7 @@
       renderer.segmentScratch.subarray(0, vertices.length),
       gl.STREAM_DRAW,
     );
+    disableAllVertexAttribs(gl);
     const stride = 3 * 4;
     gl.enableVertexAttribArray(renderer.dot.aCenter);
     gl.vertexAttribPointer(renderer.dot.aCenter, 2, gl.FLOAT, false, stride, 0);
@@ -1166,8 +1172,23 @@
     return true;
   }
 
+  /**
+   * Disable every enabled vertex attrib so leftover beam/dot arrays do not
+   * poison full-screen or other mesh draws on the shared GL device.
+   */
+  function disableAllVertexAttribs(gl) {
+    if (!gl) {
+      return;
+    }
+    const max = Math.min(16, Number(gl.getParameter(gl.MAX_VERTEX_ATTRIBS)) || 8);
+    for (let i = 0; i < max; i += 1) {
+      gl.disableVertexAttribArray(i);
+    }
+  }
+
   function drawFullScreen(renderer, programLoc) {
     const { gl, quad } = renderer;
+    disableAllVertexAttribs(gl);
     gl.bindBuffer(gl.ARRAY_BUFFER, quad);
     gl.enableVertexAttribArray(programLoc.aPos);
     gl.vertexAttribPointer(programLoc.aPos, 2, gl.FLOAT, false, 0, 0);
@@ -1392,6 +1413,7 @@
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
       gl.bindTexture(gl.TEXTURE_2D, null);
       renderer.energyActive = true;
+      renderer.energyDirty = true;
       renderer.quietFrames = 0;
     }
 
@@ -1542,6 +1564,7 @@
         });
       if (count > 0) {
         renderer.energyActive = true;
+        renderer.energyDirty = true;
         renderer.quietFrames = 0;
       }
     }
@@ -1558,7 +1581,8 @@
       return false;
     }
     // Idle dark: skip present GPU pass (caller still draws solid background).
-    if (renderer.energyActive === false) {
+    // energyDirty forces one present after a deposit even if quiet-sleep raced.
+    if (renderer.energyActive === false && renderer.energyDirty !== true) {
       return false;
     }
     const { gl, canvas } = renderer;
@@ -1586,7 +1610,10 @@
     gl.bindTexture(gl.TEXTURE_2D, renderer.lutTexture);
     gl.uniform1i(renderer.present.uLut, 1);
 
-    gl.uniform1f(renderer.present.uTrailGain, Math.max(0, Math.min(2, Number(trailGain) || 0.85)));
+    // Number(0) is falsy — do not collapse intentional 0 gain to 0.85.
+    const gainRaw = Number(trailGain);
+    const gain = Number.isFinite(gainRaw) ? gainRaw : 0.85;
+    gl.uniform1f(renderer.present.uTrailGain, Math.max(0, Math.min(2, gain)));
     const exposure = Number(options?.exposure);
     gl.uniform1f(
       renderer.present.uExposure,
@@ -1594,6 +1621,7 @@
     );
     drawFullScreen(renderer, renderer.present);
     gl.bindTexture(gl.TEXTURE_2D, null);
+    renderer.energyDirty = false;
     return true;
   }
 

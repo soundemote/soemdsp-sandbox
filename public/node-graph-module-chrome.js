@@ -1,16 +1,21 @@
 // Module chrome — one place every module uses for port placement.
 //
-//   LayoutA  — original (ports under the face)
-//   LayoutB  — new (ports beside the face)
+//   LayoutA  — ports under the face (display + optional params)
+//   LayoutB  — ports beside the face (display + optional params)
+//   LayoutC  — title + I/O only (no display, no param sliders) — compact thrus
 //
-// Face content (graph, scope, knobs, …) is still definition.layout.
-// This file only answers: LayoutA or LayoutB?
+// Face content (graph, scope, knobs, …) is still definition.layout for A/B.
+// LayoutC has no face: definition still may list ports only.
 //
 // LayoutA display policy (sizing lives in node-graph-module-sizing.js):
 //   - Display row height is --node-module-display-height-units (1…60gu).
 //   - definition.customDisplayArea / layout faces (e.g. badvalMonitor) use the
 //     same height control as oscilloscopes, but the face cannot be hidden.
 //   - definition.slidersAlwaysHidden keeps param rows off (status modules).
+//
+// LayoutC sizing (same sizing file):
+//   - gu width/height are the module bounds (no phantom face row).
+//   - Minimum height follows inlet/outlet row count + title.
 //
 // Authority: definition.chrome (default LayoutA).
 // Call nodeGraphModuleChromeLayoutForType() / nodeGraphModuleChrome().
@@ -19,10 +24,12 @@
 const NodeGraphModuleChromeLayout = Object.freeze({
   LayoutA: "LayoutA",
   LayoutB: "LayoutB",
+  LayoutC: "LayoutC",
 });
 
 const nodeGraphModuleChromeLayoutA = NodeGraphModuleChromeLayout.LayoutA;
 const nodeGraphModuleChromeLayoutB = NodeGraphModuleChromeLayout.LayoutB;
+const nodeGraphModuleChromeLayoutC = NodeGraphModuleChromeLayout.LayoutC;
 
 /** @deprecated use NodeGraphModuleChromeLayout */
 const nodeGraphModuleChromeLayouts = NodeGraphModuleChromeLayout;
@@ -30,6 +37,7 @@ const nodeGraphModuleChromeLayouts = NodeGraphModuleChromeLayout;
 const nodeGraphModuleChromeLayoutCssByLayout = Object.freeze({
   [NodeGraphModuleChromeLayout.LayoutA]: "chrome-layout-a",
   [NodeGraphModuleChromeLayout.LayoutB]: "chrome-layout-b",
+  [NodeGraphModuleChromeLayout.LayoutC]: "chrome-layout-c",
 });
 
 function nodeGraphModuleChromeLayoutIs(value, layout) {
@@ -44,21 +52,33 @@ function nodeGraphModuleChromeLayoutIsB(value) {
   return value === NodeGraphModuleChromeLayout.LayoutB;
 }
 
+function nodeGraphModuleChromeLayoutIsC(value) {
+  return value === NodeGraphModuleChromeLayout.LayoutC;
+}
+
 function nodeGraphModuleChromeLayoutCssClass(layout) {
   return nodeGraphModuleChromeLayoutCssByLayout[layout]
     || nodeGraphModuleChromeLayoutCssByLayout[NodeGraphModuleChromeLayout.LayoutA];
 }
 
-/** @returns {"LayoutA"|"LayoutB"|null} */
+/** @returns {"LayoutA"|"LayoutB"|"LayoutC"|null} */
 function normalizeNodeGraphModuleChromeLayout(value) {
-  if (value === NodeGraphModuleChromeLayout.LayoutA || value === NodeGraphModuleChromeLayout.LayoutB) {
+  if (
+    value === NodeGraphModuleChromeLayout.LayoutA
+    || value === NodeGraphModuleChromeLayout.LayoutB
+    || value === NodeGraphModuleChromeLayout.LayoutC
+  ) {
     return value;
   }
   const raw = String(value || "").trim();
   if (!raw) {
     return null;
   }
-  if (raw === NodeGraphModuleChromeLayout.LayoutA || raw === NodeGraphModuleChromeLayout.LayoutB) {
+  if (
+    raw === NodeGraphModuleChromeLayout.LayoutA
+    || raw === NodeGraphModuleChromeLayout.LayoutB
+    || raw === NodeGraphModuleChromeLayout.LayoutC
+  ) {
     return raw;
   }
   const key = raw.toLowerCase();
@@ -68,11 +88,14 @@ function normalizeNodeGraphModuleChromeLayout(value) {
   if (key === "layoutb" || key === "b") {
     return NodeGraphModuleChromeLayout.LayoutB;
   }
+  if (key === "layoutc" || key === "c") {
+    return NodeGraphModuleChromeLayout.LayoutC;
+  }
   return null;
 }
 
 /**
- * Resolve LayoutA vs LayoutB for a module type.
+ * Resolve LayoutA / LayoutB / LayoutC for a module type.
  * Only definition.chrome — every sealed definition must set chrome (see
  * finalizeNodeGraphModuleDefinitionsChrome). Missing → LayoutA.
  */
@@ -89,13 +112,13 @@ function nodeGraphModuleChromeLayoutForType(type) {
 }
 
 /**
- * Seal every module definition with an explicit chrome: LayoutA | LayoutB.
+ * Seal every module definition with an explicit chrome: LayoutA | LayoutB | LayoutC.
  * Call once when building nodeGraphModuleDefinitions so no type relies on an
  * implicit default at read time (inventory / debugging stays honest).
  *
  * Face content (scope, graph, filter curve, chromeless body, …) is still
- * definition.layout / customDisplayArea — chrome only places ports under
- * (A) or beside (B) that face.
+ * definition.layout / customDisplayArea for A/B — chrome places ports under
+ * (A), beside (B), or title+I/O only (C).
  *
  * @param {Record<string, object>} entries
  * @returns {Readonly<Record<string, object>>}
@@ -118,6 +141,10 @@ function nodeGraphModuleUsesLayoutA(type) {
 
 function nodeGraphModuleUsesLayoutB(type) {
   return nodeGraphModuleChromeLayoutIsB(nodeGraphModuleChromeLayoutForType(type));
+}
+
+function nodeGraphModuleUsesLayoutC(type) {
+  return nodeGraphModuleChromeLayoutIsC(nodeGraphModuleChromeLayoutForType(type));
 }
 
 /**
@@ -150,21 +177,25 @@ function nodeGraphModuleIsHeaderlessLayoutB(type) {
 
 /**
  * @returns {{
- *   layout: "LayoutA"|"LayoutB",
+ *   layout: "LayoutA"|"LayoutB"|"LayoutC",
  *   portsBeside: boolean,
  *   portsUnder: boolean,
  *   headerless: boolean,
+ *   titleIoOnly: boolean,
  *   cssLayoutClass: string,
  * }}
  */
 function nodeGraphModuleChrome(type) {
   const layout = nodeGraphModuleChromeLayoutForType(type);
   const portsBeside = nodeGraphModuleChromeLayoutIsB(layout);
+  const titleIoOnly = nodeGraphModuleChromeLayoutIsC(layout);
   return Object.freeze({
     layout,
     portsBeside,
+    // LayoutC still stacks I/O under the title (not beside a face).
     portsUnder: !portsBeside,
     headerless: nodeGraphModuleIsHeaderlessLayoutB(type),
+    titleIoOnly,
     cssLayoutClass: nodeGraphModuleChromeLayoutCssClass(layout),
   });
 }

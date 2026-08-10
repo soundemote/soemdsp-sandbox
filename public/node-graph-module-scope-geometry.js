@@ -271,6 +271,31 @@ function nodeGraphModuleScopeRectIntersection(rect, bounds) {
 }
 
 function nodeGraphModuleScopeVisibleDrawGeometry(screenRect, drawRect, viewportRect, zoomScale = nodeGraphModuleScopeZoomScale()) {
+  const screenW = Number(screenRect?.width) || 0;
+  const screenH = Number(screenRect?.height) || 0;
+  // 0×0 layout rects (pre-reflow) used to fail intersection and skip the face.
+  // Treat tiny/unknown sizes as fully visible so phosphor still deposits.
+  if (!(screenW > 0.5) || !(screenH > 0.5)) {
+    const fallbackDraw = drawRect && Number(drawRect.width) > 0 && Number(drawRect.height) > 0
+      ? drawRect
+      : screenRect;
+    const fw = Math.max(1, Number(fallbackDraw?.width) || 1);
+    const fh = Math.max(1, Number(fallbackDraw?.height) || 1);
+    const fl = Number(fallbackDraw?.left) || 0;
+    const ft = Number(fallbackDraw?.top) || 0;
+    return {
+      visibleDrawRect: { left: fl, top: ft, width: fw, height: fh },
+      visibleProgressRange: [0, 1],
+      visibleScopeRect: {
+        height: fh,
+        left: fl,
+        sampleHeight: nodeGraphModuleScopeUnzoomedLength(fh, zoomScale),
+        sampleWidth: nodeGraphModuleScopeUnzoomedLength(fw, zoomScale),
+        top: ft,
+        width: fw,
+      },
+    };
+  }
   if (
     !nodeGraphModuleScopeRectIntersection(screenRect, viewportRect) ||
     !Number.isFinite(Number(drawRect?.width)) ||

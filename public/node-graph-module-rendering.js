@@ -560,8 +560,12 @@ function createNodeGraphModuleElement(type, node) {
       cssLayoutClass: "chrome-layout-a",
     };
   article.dataset.chromeLayout = chrome.layout;
-  article.classList.toggle("chrome-layout-a", Boolean(chrome.portsUnder ?? !chrome.portsBeside));
+  const isLayoutC = Boolean(chrome.titleIoOnly)
+    || chrome.layout === "LayoutC"
+    || chrome.layout === (NodeGraphModuleChromeLayout?.LayoutC);
+  article.classList.toggle("chrome-layout-a", Boolean(!isLayoutC && (chrome.portsUnder ?? !chrome.portsBeside)));
   article.classList.toggle("chrome-layout-b", Boolean(chrome.portsBeside));
+  article.classList.toggle("chrome-layout-c", isLayoutC);
   // Headerless LayoutB (XY Pad contract): shell + params + 1gu bottom clearance.
   // Legacy class name solid-module-layout kept for existing CSS.
   article.classList.toggle("solid-module-layout", Boolean(chrome.headerless));
@@ -690,9 +694,17 @@ function createNodeGraphModuleElement(type, node) {
     scopeSection.classList.add("node-module-trace-display-window");
     article.append(scopeSection);
     registerNodeGraphModuleScopeSlot(article, { nodeId: node, type, scopeElement: scopeSection });
+    // Show both I/O columns when the face declares thrus (Thru →, X/Y, …).
+    // Previously inputsOnly hid 1D/2D Phosphor and Trace dry-outs entirely.
     appendNodeGraphModuleIoSection(
       article,
-      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts, { inputsOnly: true }),
+      createNodeGraphLayoutAIoSection(
+        node,
+        type,
+        inputPorts,
+        outputPorts,
+        outputPorts.length ? {} : { inputsOnly: true },
+      ),
       node,
       inputPorts,
       outputPorts,
@@ -951,6 +963,15 @@ function createNodeGraphModuleElement(type, node) {
       inputPorts,
       outputPorts,
     );
+  } else if (isLayoutC) {
+    // LayoutC: title (above) + I/O only. No face, no param rows.
+    appendNodeGraphModuleIoSection(
+      article,
+      createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
+      node,
+      inputPorts,
+      outputPorts,
+    );
   } else {
     let scopeSection = null;
     // Chromeless LayoutB modules already mounted above — don't add a second face.
@@ -983,9 +1004,11 @@ function createNodeGraphModuleElement(type, node) {
 
   // Chromeless LayoutB always had params under the shell; LayoutA chromeless
   // (e.g. Soft Fractal multi-out) also needs the param rows.
+  // LayoutC never mounts param sliders (title + I/O only).
   if (
-    definition.parameters?.length &&
-    (!nodeGraphChromelessModuleLayouts.has(layout) || chrome.portsBeside || chrome.portsUnder)
+    !isLayoutC
+    && definition.parameters?.length
+    && (!nodeGraphChromelessModuleLayouts.has(layout) || chrome.portsBeside || chrome.portsUnder)
   ) {
     const body = document.createElement("div");
     body.className = "dsp-node-body";

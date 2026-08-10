@@ -189,7 +189,10 @@ var nodeGraphMvp = {
   moduleDefaultOverrides: {},
   moduleSettingsClipboard: null,
   moduleInterfaceControlsVisible: true,
-  moduleOscilloscopesVisible: false,
+  // Default ON — matches Clear Startup / useruisettings policy. false here
+  // hid every face (Output Trace + Music Player waveform) until settings
+  // rehydrated, which looked like "scopes totally broken" on a fresh load.
+  moduleOscilloscopesVisible: true,
   modulePlacement: null,
   moduleShopDragging: null,
   moduleSlidersVisible: true,

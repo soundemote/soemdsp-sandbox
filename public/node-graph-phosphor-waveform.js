@@ -337,20 +337,74 @@ function closeNodeGraphPhosphorWaveformSettings() {
   nodeGraphMvp.phosphorWaveformSettingsTargetNode = null;
 }
 
+// Debounced working-patch autosave for display-option drags. Full
+// commitNodeGraphPatch on every Time Window step rebuilt the whole modular
+// DOM + live plan and tanked frames; Shift+wheel zoom never did that.
+let nodeGraphPhosphorWaveformSettingsPersistTimer = 0;
+
+function scheduleNodeGraphPhosphorWaveformSettingsPersist() {
+  if (nodeGraphPhosphorWaveformSettingsPersistTimer) {
+    window.clearTimeout(nodeGraphPhosphorWaveformSettingsPersistTimer);
+  }
+  nodeGraphPhosphorWaveformSettingsPersistTimer = window.setTimeout(() => {
+    nodeGraphPhosphorWaveformSettingsPersistTimer = 0;
+    if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp) {
+      nodeGraphMvp.patchDirtyState = "edited";
+    }
+    if (typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
+      saveNodeGraphWorkingPatchToUserSettings();
+    } else if (typeof syncNodeGraphCurrentSavedPatchHeader === "function") {
+      syncNodeGraphCurrentSavedPatchHeader();
+    }
+  }, 280);
+}
+
+/**
+ * Apply waveform display options without a full patch commit.
+ * Same in-place mutation path as Shift+wheel zoom (SyncTimeWindowFromView).
+ */
 function updateNodeGraphPhosphorWaveformSettings(patch) {
   const nodeId = nodeGraphMvp.phosphorWaveformSettingsTargetNode;
   if (!nodeId) {
     return;
   }
-  const clonedPatch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-  const targetNode = clonedPatch.nodes.find((node) => node.id === nodeId);
+  const targetNode = typeof nodeGraphPatchNode === "function"
+    ? nodeGraphPatchNode(nodeId)
+    : (Array.isArray(nodeGraphMvp?.patch?.nodes)
+      ? nodeGraphMvp.patch.nodes.find((node) => node.id === nodeId)
+      : null);
   if (!targetNode) {
     return;
   }
   const current = normalizeNodeGraphPhosphorWaveformSettings(targetNode.phosphorWaveformSettings);
-  targetNode.phosphorWaveformSettings = normalizeNodeGraphPhosphorWaveformSettings({ ...current, ...patch });
-  commitNodeGraphPatch(clonedPatch, { status: "waveform display options changed" });
+  targetNode.phosphorWaveformSettings = normalizeNodeGraphPhosphorWaveformSettings({
+    ...current,
+    ...patch,
+  });
+  // Keep signature tracking aligned so the next draw re-applies Time Window /
+  // scroll-line (same as SyncTimeWindowFromView).
+  if (
+    Object.prototype.hasOwnProperty.call(patch, "timeWindowSeconds")
+    || Object.prototype.hasOwnProperty.call(patch, "scrollLinePosition")
+  ) {
+    // Drop last-applied so draw treats this as a real settings change even if
+    // auto-scroll was holding a matching signature from a prior gesture.
+    nodeGraphPhosphorWaveformLastAppliedTimeWindow.delete(nodeId);
+  }
+  scheduleNodeGraphPhosphorWaveformSettingsPersist();
   renderNodeGraphPhosphorWaveformSettingsWindow();
+  // Immediate paint — do not wait on the FPS gate (zoom does this too).
+  const section = document.querySelector?.(
+    `.node-phosphor-waveform-display[data-node="${String(nodeId).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"]`,
+  );
+  if (section) {
+    if (typeof nodeGraphPhosphorWaveformResyncFrameClock === "function") {
+      nodeGraphPhosphorWaveformResyncFrameClock(nodeId);
+    }
+    if (typeof drawNodeGraphPhosphorWaveformDisplay === "function") {
+      drawNodeGraphPhosphorWaveformDisplay(section);
+    }
+  }
 }
 
 function handleNodeGraphPhosphorWaveformTimeWindowChange(event) {
@@ -1387,15 +1441,19 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   const crisp = (value) => Math.round(value) + 0.5;
 
   context.clearRect(0, 0, width, height);
-  // Powered: tinted field from BG Hue/Brightness. Off: pure black (not green).
+  // Always paint a readable plate (not pure void). When the circuit is off
+  // or the AudioContext is still suspended, keep a cold dark field so the
+  // Music Player face is visibly "there" — pure #000 under the room dimmer
+  // looked identical to a dead/missing display.
+  const entry = nodeGraphPhosphorWaveformSampleEntry(nodeId);
   context.fillStyle = circuitRunning
     ? nodeGraphPhosphorWaveformBackgroundColor(settings)
-    : "#000000";
+    : (entry ? "hsl(140, 20%, 4%)" : "#050805");
   context.fillRect(0, 0, width, height);
 
-  // Room dimmer: on = full hole (1), off = no hole (0). Dim amount is only uDim.
-  // Strength lives on the painted canvas (punch target), not the padded outer cell.
-  const strength = circuitRunning ? "1" : "0";
+  // Room dimmer: punch a hole for any painted face so the waveform is not
+  // swallowed by the veil (strength 0 made the whole panel look missing).
+  const strength = "1";
   if (section.dataset) {
     section.dataset.lightStrength = strength;
   }
@@ -1404,15 +1462,20 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
     canvas.dataset.lightSource = "screen";
   }
 
-  if (!circuitRunning) {
+  if (!entry) {
+    drawNodeGraphPhosphorWaveformPlaceholder(
+      context,
+      width,
+      height,
+      circuitRunning ? "No sample loaded" : "Load a sample",
+      pixelRatio,
+      settings,
+    );
     return;
   }
 
-  const entry = nodeGraphPhosphorWaveformSampleEntry(nodeId);
-  if (!entry) {
-    drawNodeGraphPhosphorWaveformPlaceholder(context, width, height, "No sample loaded", pixelRatio, settings);
-    return;
-  }
+  // Offline / suspended: still draw the static sample so the face is never blank.
+  // Live auto-scroll + playhead only when the circuit is actually running.
 
   const state = nodeGraphPhosphorWaveformViewState(nodeId, entry.frames);
   const phase = typeof nodeGraphSamplePhaseForNode === "function" ? nodeGraphSamplePhaseForNode(nodeId) : 0;
@@ -1431,8 +1494,11 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   // manual browsing), so an unpaused page-jump mid-gesture would be an
   // unwanted interruption there.
   const lastInteraction = nodeGraphPhosphorWaveformLastInteraction.get(nodeId) || 0;
-  const autoScrollPaused = settings.scrollMode === "snap" &&
-    Date.now() - lastInteraction < nodeGraphPhosphorWaveformAutoScrollPauseMs;
+  // Offline: hold a static window (manual zoom/pan still works). Live auto-
+  // scroll only when the circuit is actually running.
+  const autoScrollPaused = !circuitRunning
+    || (settings.scrollMode === "snap"
+      && Date.now() - lastInteraction < nodeGraphPhosphorWaveformAutoScrollPauseMs);
   // Desired window length in samples. Manual Shift+wheel zoom keeps the live
   // span; Time Window / scroll-line setting only re-applies when those change
   // (never when canvas pixel width changes from modular zoom).
@@ -1485,6 +1551,12 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
       }
     }
   } else {
+    // First offline paint / after settings change: seed a sensible window.
+    if (settingsJustChanged || !(Math.abs(state.endFrame - state.startFrame) > 1)) {
+      state.startFrame = 0;
+      state.endFrame = Math.min(entry.frames, settingsWindowFrames);
+      nodeGraphPhosphorWaveformLastAppliedTimeWindow.set(nodeId, appliedSignature);
+    }
     nodeGraphPhosphorWaveformClampWindow(state);
   }
   const viewStart = state.startFrame;
@@ -1569,11 +1641,17 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   }
 
   // Playhead — plain line at scroll line width (default 2.5 CSS px). 0 = hidden.
+  // Offline: no playhead (static sample preview only).
   const rawScrollW = Number(settings.scrollLineWidth);
   const scrollCss = Number.isFinite(rawScrollW)
     ? Math.max(0, Math.min(8, Math.round(rawScrollW * 2) / 2))
     : nodeGraphPhosphorWaveformDefaultSettings.scrollLineWidth;
-  if (scrollCss > 0 && playheadFrame >= viewStart && playheadFrame <= viewEnd) {
+  if (
+    circuitRunning
+    && scrollCss > 0
+    && playheadFrame >= viewStart
+    && playheadFrame <= viewEnd
+  ) {
     const x = frameToX(playheadFrame);
     context.shadowBlur = 0;
     context.strokeStyle = "rgba(255, 255, 255, 0.9)";

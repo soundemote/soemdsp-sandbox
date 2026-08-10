@@ -177,8 +177,30 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
               screenElement: slot.scopeElement,
               buffer: null,
             }, 1);
+          } else if (
+            selfPaint === "trace"
+            || selfPaint === "dot"
+            || selfPaint === "value"
+            || selfPaint === "lineBurn"
+            || slot?.type === "output"
+            || slot?.type === "pluginOutput"
+          ) {
+            // Idle plate with Display Settings background — never clearRect to
+            // transparent (that left Output pure black under the room dimmer,
+            // and background color changes never appeared because paint never ran).
+            if (typeof paintNodeGraphTraceDisplayColdPlate === "function") {
+              paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio);
+            }
           } else {
-            clearNodeGraphModuleScopeLocalFallback(slot);
+            // Do NOT wipe phosphor/local faces every no-buffer frame — that
+            // blanked scopes until a zoom/layout event re-drew them.
+            // Only clear pure vector/trace fallbacks that are not energy faces.
+            const faceCanvas = slot?.scopeElement?.querySelector?.(
+              ":scope > .node-module-scope-local-fallback-canvas",
+            );
+            if (faceCanvas && !faceCanvas._phosphorEnergyGl) {
+              clearNodeGraphModuleScopeLocalFallback(slot);
+            }
           }
         }
         // Number Readout: keep an idle LCD plate when there is no live sample
@@ -193,6 +215,10 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
               nodeGraphModuleScopeNodeForSlot(slot),
             );
           }
+        }
+        // Still punch the room dimmer so the face is not a black hole.
+        if (slot?.scopeElement && typeof nodeGraphModuleScopeMarkScreenLit === "function") {
+          nodeGraphModuleScopeMarkScreenLit(slot.scopeElement, 1);
         }
         return null;
       }
@@ -212,7 +238,9 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
         entry.skip = "offscreen";
         slotDebug.push(entry);
         renderNodeGraphModuleScopeAnalyzer(slot, null);
-        clearNodeGraphModuleScopeLocalFallback(slot);
+        // Keep last painted phosphor/local face while offscreen or while
+        // visibility geometry is temporarily wrong (0-size before layout).
+        // Wiping here made scopes look dead until zoom forced a reflow/draw.
         return null;
       }
       entry.skip = "";
@@ -249,6 +277,16 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
 }
 
 function nodeGraphModuleScopeTraceDisplayFrameUnchanged(visibleItems) {
+  // Paint gate: never skip Instant Trace while live (see paint-gate.js).
+  if (typeof scopePaintShouldSkipUnchangedTrace === "function") {
+    if (!scopePaintShouldSkipUnchangedTrace()) {
+      return false;
+    }
+  } else if (typeof scopePaintIsLive === "function" && scopePaintIsLive()) {
+    return false;
+  } else if (typeof nodeGraphModuleScopeLivePaintActive === "function" && nodeGraphModuleScopeLivePaintActive()) {
+    return false;
+  }
   if (!Array.isArray(visibleItems) || !visibleItems.length) {
     return false;
   }

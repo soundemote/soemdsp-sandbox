@@ -30,23 +30,19 @@ nodeGraphLiveModuleEvaluators.sineWavetable = ({ runtime, node, nodeId, frame, f
     null,
     "sin/cos freq input",
   );
-  // Amplitude jack is additive CV on the amp knob (historical sineWavetable contract).
-  const ampKnob = readNodeGraphLiveEffectiveParam(
-    runtime,
-    node,
-    "amp",
-    1,
-    frame,
-    frames,
-    frameValues,
+  // Amp parameter only (Amplitude CV jack removed).
+  const amplitude = Math.max(
+    0,
+    readNodeGraphLiveEffectiveParam(
+      runtime,
+      node,
+      "amp",
+      1,
+      frame,
+      frames,
+      frameValues,
+    ),
   );
-  const ampCv = hasInput?.(nodeId, "Amplitude")
-    ? nodeGraphSafeFilterNumber(mixInput(nodeId, "Amplitude"), runtime, nodeId, 0, "sin/cos amplitude")
-    : 0;
-  const amplitudeRaw = typeof nodeGraphParamSignalInAdditive === "function"
-    ? nodeGraphParamSignalInAdditive(ampKnob, ampCv)
-    : ampKnob + ampCv;
-  const amplitude = Math.max(0, amplitudeRaw);
   const referenceVoltage = normalizeNodeGraphPatchAudio(nodeGraphMvp.patch.audio).pitchReferenceMidiNote / 120;
   const hasPitch = hasInput(nodeId, "0.1V/Oct");
   const pitchCv = hasPitch

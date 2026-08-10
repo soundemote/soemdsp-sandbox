@@ -146,12 +146,26 @@ function pushNodeGraphLiveModuleScopeSamples(nodeId, values, metadata = null) {
     if (Number.isFinite(sampleStride) && sampleStride > 0) {
       buffer.nodeGraphScopeSampleStride = sampleStride;
     }
-  } else {
-    delete buffer.nodeGraphScopeAbsoluteFrame;
-    delete buffer.nodeGraphScopeStartFrame;
+  }
+  // Scope-ring posts (Output Instant Trace) often omit absoluteFrame. Drive a
+  // monotonic cursor from totalSampleCount so 1D Phosphor undrawn-window and
+  // Instant Trace never stall on a missing/stale abs frame.
+  const totalSamples = Math.max(0, Math.floor(Number(buffer.nodeGraphScopeTotalSampleCount) || 0));
+  if (totalSamples > 0) {
+    const prevAbs = Number(buffer.nodeGraphScopeAbsoluteFrame);
+    if (!Number.isFinite(prevAbs) || totalSamples > prevAbs) {
+      buffer.nodeGraphScopeAbsoluteFrame = totalSamples;
+      buffer.nodeGraphScopeStartFrame = Math.max(0, totalSamples - count);
+    }
   }
   nodeGraphModuleScopeState.versionSerial = (Number(nodeGraphModuleScopeState.versionSerial) || 0) + 1;
   buffer.nodeGraphScopeVersion = nodeGraphModuleScopeState.versionSerial;
+  // Invalidate Instant Trace draw cache for this node so the next RAF paints
+  // new ring samples (Output stereo keys are "id:Left" / "id:Right").
+  const baseId = id.includes(":") ? id.split(":")[0] : id;
+  if (baseId && nodeGraphModuleScopeState.traceDisplayDrawCache) {
+    nodeGraphModuleScopeState.traceDisplayDrawCache.delete(baseId);
+  }
 }
 
 function pushNodeGraphLiveModuleScopeSnapshot(values, options = {}) {
@@ -193,7 +207,12 @@ function pushNodeGraphLiveModuleScopeSnapshot(values, options = {}) {
     pushNodeGraphLiveModuleScopeSamples(entry[0], entry[1], metadata);
   }
   notifyNodeGraphModuleScopeSnapshotListeners();
-  scheduleNodeGraphModuleScopeDraw();
+  // Single gate owns force-on-sample + arm continuous RAF (see paint-gate.js).
+  if (typeof scopePaintOnSampleSnapshot === "function") {
+    scopePaintOnSampleSnapshot();
+  } else if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
+    scheduleNodeGraphModuleScopeDraw({ force: true });
+  }
 }
 
 // captureNodeGraphLiveModuleScopeFrame → node-graph-module-scope-capture.js

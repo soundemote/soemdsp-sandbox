@@ -48,12 +48,54 @@ function nodeGraphTraceDisplayTimingObject(slot) {
   };
 }
 
+function nodeGraphTraceDisplayBufferContentFingerprint(buffer) {
+  if (!buffer?.length) {
+    return "0";
+  }
+  // Cheap content probe so a full ring that keeps rewriting samples still
+  // invalidates the draw cache even if retained count plateaus at capacity.
+  const n = buffer.length;
+  const i0 = Math.max(0, n - 1);
+  const i1 = Math.max(0, n - 2);
+  const i2 = Math.max(0, Math.floor(n * 0.5));
+  const i3 = 0;
+  const q = (i) => Math.round((Number(buffer[i]) || 0) * 1e4);
+  return `${q(i0)}:${q(i1)}:${q(i2)}:${q(i3)}`;
+}
+
 function nodeGraphTraceDisplayDrawSignature(slot, item, buffer, settings) {
+  const nodeId = String(slot?.nodeId || "");
+  // Output / stereo faces paint from port rings — include those versions so the
+  // cache cannot freeze on a stale mono key while L/R keep advancing.
+  let stereoSig = "";
+  if (
+    nodeId
+    && typeof nodeGraphModuleUsesStereoTraceDisplay === "function"
+    && nodeGraphModuleUsesStereoTraceDisplay(slot?.type)
+    && typeof nodeGraphModuleScopeState !== "undefined"
+    && nodeGraphModuleScopeState?.buffers
+  ) {
+    const ports = typeof nodeGraphModuleStereoTracePorts === "function"
+      ? nodeGraphModuleStereoTracePorts(slot?.type)
+      : { left: "Left", right: "Right" };
+    const left = ports ? nodeGraphModuleScopeState.buffers.get(`${nodeId}:${ports.left}`) : null;
+    const right = ports ? nodeGraphModuleScopeState.buffers.get(`${nodeId}:${ports.right}`) : null;
+    stereoSig = [
+      Number(left?.nodeGraphScopeVersion) || 0,
+      Math.floor(Number(left?.nodeGraphScopeTotalSampleCount) || 0),
+      nodeGraphTraceDisplayBufferContentFingerprint(left),
+      Number(right?.nodeGraphScopeVersion) || 0,
+      Math.floor(Number(right?.nodeGraphScopeTotalSampleCount) || 0),
+      nodeGraphTraceDisplayBufferContentFingerprint(right),
+    ].join(",");
+  }
   return [
     Number(buffer?.nodeGraphScopeVersion) || 0,
     nodeGraphScopeAvailableSampleCount(buffer),
     // Strip chart advances on absolute sample count, not just retained length.
     Math.floor(Number(buffer?.nodeGraphScopeTotalSampleCount) || 0),
+    nodeGraphTraceDisplayBufferContentFingerprint(buffer),
+    stereoSig,
     Math.round(Number(item?.scopeRect?.left) || 0),
     Math.round(Number(item?.scopeRect?.top) || 0),
     Math.round(Number(item?.scopeRect?.width) || 0),

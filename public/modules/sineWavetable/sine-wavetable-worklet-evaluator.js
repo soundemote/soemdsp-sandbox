@@ -77,15 +77,10 @@ NodeLiveAudioProcessor.prototype.sineWavetableWorkletEvaluate = function sineWav
     frameValues,
   );
   const freqInput = this.safeFilterNumber(mixInput(nodeId, "Freq"), null);
-  const ampKnob = this.readEffectiveParameter(node, "amp", 1, frame, frames, frameValues);
-  // Additive Amplitude jack (same contract as live evaluator), not multiply.
-  const hasAmp = this.inputConnections.has(this.inputKey(nodeId, "Amplitude"));
-  const ampCv = hasAmp ? this.safeFilterNumber(mixInput(nodeId, "Amplitude"), 0) : 0;
+  // Amp parameter only (Amplitude CV jack removed).
   const amplitude = Math.max(
     0,
-    typeof nodeGraphParamSignalInAdditive === "function"
-      ? nodeGraphParamSignalInAdditive(ampKnob, ampCv)
-      : ampKnob + ampCv,
+    this.readEffectiveParameter(node, "amp", 1, frame, frames, frameValues),
   );
   const referenceMidiNote = Number.isFinite(this.pitchReferenceMidiNote) ? this.pitchReferenceMidiNote : 48;
   const referenceVoltage = referenceMidiNote / 120;

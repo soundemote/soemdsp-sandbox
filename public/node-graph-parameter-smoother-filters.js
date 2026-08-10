@@ -4,8 +4,15 @@
 // Smoothing TYPE chooses the filter that chases the target over that time.
 //
 // Register new types with nodeGraphRegisterParameterSmootherFilter(...).
-// Types: linear (instant), onePole (1P), twoPole (2P), papoulis (Π / Optimum-L).
-// linear replaces the old linearSmoothing=false checkbox.
+// Types:
+//   linear   — constant-rate linear ramp (L / lerp) over the smoothing time
+//   onePole  — exponential chase (1P)
+//   twoPole  — cascaded one-poles (2P)
+//   papoulis — Optimum-L order-3 (Π)
+//   none     — instant snap (legacy linearSmoothing=false; not a UI L button)
+//
+// Smoothing SOURCE (global / internal / off) still chooses the time constant.
+// SOURCE=off or seconds=0 always snaps regardless of type.
 
 // One-pole / multi-pole smoothers asymptote toward the target and never quite
 // land. When |out − target| is within this absolute band (normalized 0…1
@@ -18,11 +25,17 @@ const nodeGraphParameterSmootherFilterTypes = Object.freeze([
   "onePole",
   "twoPole",
   "papoulis",
+  "none",
 ]);
 
 function normalizeNodeGraphParameterSmootherFilterType(value) {
   const key = String(value || "").trim();
-  if (key === "L" || key === "l" || key === "none" || key === "off" || key === "instant") {
+  // Instant / no filter (discrete params, legacy linearSmoothing=false).
+  if (key === "none" || key === "off" || key === "instant" || key === "0") {
+    return "none";
+  }
+  // Linear ramp (UI "L") — real lerp, not instant.
+  if (key === "L" || key === "l" || key === "linear" || key === "lerp") {
     return "linear";
   }
   if (key === "2P" || key === "2p" || key === "twoPole" || key === "two-pole" || key === "2pole") {
@@ -39,7 +52,7 @@ function nodeGraphParameterSmootherUsesFilter(typeOrMetadata) {
   const type = typeof typeOrMetadata === "object" && typeOrMetadata
     ? normalizeNodeGraphParameterSmootherFilterType(typeOrMetadata.smoothingType)
     : normalizeNodeGraphParameterSmootherFilterType(typeOrMetadata);
-  return type !== "linear";
+  return type !== "none";
 }
 
 // Legacy alias used in some metadata paths.
@@ -121,9 +134,42 @@ function nodeGraphParameterSmootherFilterSnap(smoother, targetSignal) {
   smoother.outputBuffer = target;
 }
 
-// ── linear (instant; no filter — was linearSmoothing=false) ──────────────
+// ── linear (constant-rate ramp / lerp over smoothing time) ────────────────
+// Host passes frequency = 1/seconds (same mapping as 1P). A full unit-range
+// move finishes in ~seconds; shorter distances finish sooner. Cheap and exact.
 
 nodeGraphRegisterParameterSmootherFilter("linear", {
+  createState(initial = 0) {
+    return { outputBuffer: Number(initial) || 0 };
+  },
+  process(state, input, frequency, rate) {
+    const prev = Number(state.outputBuffer) || 0;
+    const target = Number.isFinite(Number(input)) ? Number(input) : prev;
+    const safeRate = Math.max(1, Number(rate) || 44100);
+    const freq = Math.max(0, Number(frequency) || 0);
+    if (freq <= 0) {
+      state.outputBuffer = target;
+      return target;
+    }
+    // Unit distance in 1/freq seconds → step per sample in normalized space.
+    const maxStep = freq / safeRate;
+    const delta = target - prev;
+    if (Math.abs(delta) <= maxStep) {
+      state.outputBuffer = target;
+      return target;
+    }
+    const out = prev + (delta < 0 ? -maxStep : maxStep);
+    state.outputBuffer = out;
+    return out;
+  },
+  snap(state, target) {
+    state.outputBuffer = Number(target) || 0;
+  },
+});
+
+// ── none (instant snap — was linearSmoothing=false / mislabeled “linear”) ─
+
+nodeGraphRegisterParameterSmootherFilter("none", {
   createState(initial = 0) {
     return { outputBuffer: Number(initial) || 0 };
   },

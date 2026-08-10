@@ -24,7 +24,8 @@ const NODE_GRAPH_BYPASS_AUDIO_IN = new Set([
 const NODE_GRAPH_BYPASS_AUDIO_OUT = new Set([
   "Out", "Mono", "Left", "Right", "L", "R", "Thru", "Delayed", "Mix", "Dry",
   "Left Out", "Right Out", "Dry L", "Dry R", "Mix L", "Mix R", "Wet L", "Wet R",
-  "Mod L", "Mod R", "Out X", "Out Y", "Out Z", "Out1", "Out2", "Out3", "Out4",
+  "Mod L", "Mod R", "Out X", "Out Y", "Out Z", "X", "Y", "Z",
+  "Out1", "Out2", "Out3", "Out4",
 ]);
 
 /**
@@ -54,8 +55,12 @@ const NODE_GRAPH_BYPASS_OUT_ALIASES = Object.freeze({
   Dry: ["In", "Mono", "Left", "L"],
   "Mod L": ["Left", "L", "In", "Mono"],
   "Mod R": ["Right", "R", "In", "Mono"],
-  "Out X": ["X", "In"],
-  "Out Y": ["Y", "In"],
+  // XY outs: same-name first, then stereo L/R (Vectorscope Rotation L→X, R→Y).
+  X: ["X", "L", "Left", "In", "Mono"],
+  Y: ["Y", "R", "Right", "In", "Mono"],
+  Z: ["Z", "In"],
+  "Out X": ["X", "L", "Left", "In"],
+  "Out Y": ["Y", "R", "Right", "In"],
   "Out Z": ["Z", "In"],
   "0.1V/Oct": ["0.1V/Oct"],
 });

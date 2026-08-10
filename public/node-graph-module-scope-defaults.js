@@ -99,31 +99,35 @@ const nodeGraphScopePhosphorLookDefaults = Object.freeze({
 
 
 const nodeGraphTraceDisplaySettingsDefaults = Object.freeze({
-  // Face plate under the stroke (same family as 2D Trace / Phosphor).
-  background: nodeGraphScopePhosphorLookDefaults.background,
-  brightness: nodeGraphScopePhosphorLookDefaults.brightness,
-  // Mono / primary stroke peak (stereo Output still uses L/R identity colors).
-  color: nodeGraphScopePhosphorLookDefaults.peakColor,
+  // Instant Trace is a VECTOR stroke, not phosphor energy — do NOT inherit the
+  // phosphor look brightness (0.08) / size (0.02). Those made Output Meet
+  // strokes nearly invisible so only the plate color seemed to work.
+  background: "#000000",
+  // Full-ish ink so Left/Right colors read as chosen (Brightness still 0…1).
+  brightness: 0.95,
+  // Mono / primary stroke (Output Left).
+  color: "#ff3333",
   dot1Enabled: true,
-  dot1Size: nodeGraphScopePhosphorLookDefaults.size,
+  // ~2–3 CSS px on typical faces (size 0 still floors at 1 device px).
+  dot1Size: 0.035,
   // Output stereo: combine (Meet) | lighter | screen | source-over | multiply | …
   stereoBlend: "combine",
   // Meet always auto from Left/Right (complement + soft screen lift).
   meetColor: "auto",
-  secondaryBrightness: nodeGraphScopePhosphorLookDefaults.brightness,
-  secondaryColor: "#0000ff",
+  secondaryBrightness: 0.95,
+  secondaryColor: "#3366ff",
   secondaryEnabled: true,
-  secondarySize: nodeGraphScopePhosphorLookDefaults.size,
-  secondaryLineThickness: nodeGraphScopePhosphorLookDefaults.blur,
+  secondarySize: 0.035,
+  secondaryLineThickness: 0,
   cycles: 2,
-  // Instant Trace: blur continuum (0 hard … 1 soft).
-  lineThickness: nodeGraphScopePhosphorLookDefaults.blur,
+  // Instant Trace: hard stroke (blur ignored on canvas path).
+  lineThickness: 0,
   // Vector stroke into a density-scaled face buffer (lo-fi look when < 1).
   // Not a phosphor energy grid — still one polyline; density only sets buffer size.
-  pixelDensity: nodeGraphScopePhosphorLookDefaults.pixelDensity,
+  pixelDensity: 1,
   padding: 0,
   // Amplitude zoom for quieter signals (1 = full-scale ±1 fills the face).
-  scale: nodeGraphScopePhosphorLookDefaults.scale,
+  scale: 1,
   skipDiscontinuities: false,
   // off | left | right | mono — Output stereo chooses which channel triggers the shared window.
   // Non-output single traces treat any non-off as "sync on" for that buffer.
@@ -155,6 +159,8 @@ const nodeGraphLineBurnSettingsDefaults = Object.freeze({
   dotBudget: 1024,
   fullDotEconomy: false,
   dotsOnly: false,
+  // Rising-edge auto-trigger on In (snaps pen left). Off = free-run + Reset jack.
+  sourceSync: false,
   // Fast sweep — matches polyBlep init preset (~one screen of high-freq detail).
   sweepSeconds: 0.01,
   gradientStops: Object.freeze([
@@ -290,6 +296,7 @@ const nodeGraphScope2dSettingsDefaults = Object.freeze({
   dotBudget: 1024,
   fullDotEconomy: false,
   dotsOnly: false,
+  sourceSync: false,
   gradientStops: nodeGraphScope2dInitGradientStops,
   lineThickness: nodeGraphScopePhosphorLookDefaults.blur,
   pixelDensity: 1,

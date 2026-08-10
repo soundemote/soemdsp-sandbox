@@ -37,7 +37,12 @@ function syncNodeGraphModuleScopeHeartbeat() {
     if (!nodeGraphModuleScopeHasDrawableSlots()) {
       return;
     }
-    if (nodeGraphModuleScopePaused()) {
+    const livePaint = typeof scopePaintIsLive === "function"
+      ? scopePaintIsLive()
+      : (typeof nodeGraphModuleScopeLivePaintActive === "function"
+        ? nodeGraphModuleScopeLivePaintActive()
+        : !nodeGraphModuleScopePaused());
+    if (!livePaint) {
       // While frozen/stopped, do not touch display buffers or energy.
       // Absorb is a no-op when capture maps are empty (typical after Stop).
       if (nodeGraphModuleScopeState.buffers?.size) {

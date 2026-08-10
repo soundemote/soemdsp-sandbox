@@ -40,11 +40,20 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModul
       const captureNodeIds = Array.isArray(this.scopeCaptureNodeIds)
         ? this.scopeCaptureNodeIds
         : this.order;
+      const captured = new Set();
       for (const nodeId of captureNodeIds) {
         if (!this.nodeOutputs.has(nodeId)) {
           continue;
         }
         this.captureModuleScopeOutput(nodeId, this.nodeOutputs.get(nodeId));
+        captured.add(String(nodeId));
+      }
+      // Speaker Output publishes {Left,Right,Mono} after evaluateFrame — always
+      // capture it when present so the Output Trace face is not stuck on a cold
+      // plate waiting for a plan that omitted the sink from scopeCaptureNodeIds.
+      const outId = String(this.outputNode || "output");
+      if (!captured.has(outId) && this.nodes.has(outId) && this.nodeOutputs.has(outId)) {
+        this.captureModuleScopeOutput(outId, this.nodeOutputs.get(outId));
       }
     }
     // No visual sinks planned (all faces hidden) → skip the whole loop.
