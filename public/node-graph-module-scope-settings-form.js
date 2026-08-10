@@ -44,8 +44,9 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null) {
     title = "Blends linear decay over Ghost, then freezes. 0 = pure Ghost; 0.5 = half linear / half Ghost; 0.75 = full linear; 1 = never decay pixels.";
   }
   if (formType === "numberReadout" && key === "unlitSegments") {
-    label = "Unlit 8s";
-    title = "Permanent dim all-8 segment plate 0…1. Multiplies foreground color into the background (classic LCD unlit segments). Not residual hang.";
+    label = "Ghost";
+    title =
+      "LCD Ghost: permanent dim all-8 segment plate 0…1. Soft fade from 0 (no hard pop). Not residual hang (LED Trail/Ghost).";
   }
   if (formType === "numberReadout" && key === "facePadding") {
     label = "Padding";
@@ -398,7 +399,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
           ? nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type
           : null);
       if (nrNodeType === "valueLcd") {
-        // Value LCD (vector): Foreground + Background, padding, unlit 8s, glass shadow — no residual hang.
+        // Value LCD (vector): Foreground + Background, padding, Ghost plate, glass shadow — no residual hang.
         fieldKeys = [
           "decimals",
           "facePadding",

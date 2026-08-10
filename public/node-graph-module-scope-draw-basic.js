@@ -665,9 +665,17 @@ function drawNodeGraphValueOscilloscopeItem(renderer, item, pixelRatio) {
   const size01 = clampNodeSliderValue(Number(safeSettings.dot1Size) || 0, 0, 1);
   const thicknessPx = size01ToPx(size01);
   const intensity = Math.max(0.05, Math.min(1.25, brightness * 0.95 + 0.05));
+  // lineThickness = Blur 0…1 (smoothstep edge). Hard 0 stair-steps; a light
+  // floor keeps ~1px of AA so thin lines/caps don't look aliased.
+  const blur01 = clampNodeSliderValue(
+    Number(safeSettings.lineThickness) || 0,
+    0,
+    1,
+  );
+  const beamBlur = Math.max(0.12, blur01);
 
   drawNodeGraphOscilloscopeBeam(renderer, item, pixelRatio, x1, y, x2, y, {
-    blur: 0,
+    blur: beamBlur,
     color,
     intensity,
     thicknessPx,
@@ -712,7 +720,7 @@ function drawNodeGraphValueOscilloscopeItem(renderer, item, pixelRatio) {
         y - capHalf,
         leftCapX,
         y + capHalf,
-        { blur: 0, color, intensity, thicknessPx: capThickness },
+        { blur: beamBlur, color, intensity, thicknessPx: capThickness },
       );
       drawNodeGraphOscilloscopeBeam(
         renderer,
@@ -722,7 +730,7 @@ function drawNodeGraphValueOscilloscopeItem(renderer, item, pixelRatio) {
         y - capHalf,
         rightCapX,
         y + capHalf,
-        { blur: 0, color, intensity, thicknessPx: capThickness },
+        { blur: beamBlur, color, intensity, thicknessPx: capThickness },
       );
     }
   }

@@ -113,9 +113,12 @@ function createNodeGraphModuleScopeWebGlRenderer(canvas) {
       if (normalizedDistance > 5.4) {
         discard;
       }
-      float distanceSquared = normalizedDistance * normalizedDistance;
       float blur = clamp(uBlur, 0.0, 1.0);
-      float edgeWidth = mix(0.01, 1.0, blur);
+      // Soft edge from Blur, plus a ~0.85 device-px floor so thin beams AA
+      // instead of stair-stepping when uBlur is near 0.
+      float edgeFromBlur = mix(0.01, 1.0, blur);
+      float edgeFromPixel = 0.85 / max(radius, 0.5);
+      float edgeWidth = max(edgeFromBlur, min(0.55, edgeFromPixel));
       float alpha = clamp((1.0 - smoothstep(1.0 - edgeWidth, 1.0 + edgeWidth, normalizedDistance)) * uIntensity, 0.0, 1.0);
       gl_FragColor = vec4(uColor * alpha, alpha);
     }

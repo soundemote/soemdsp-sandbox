@@ -195,7 +195,7 @@ const nodeGraphZeroDBurnSettingsDefaults = Object.freeze({
 });
 
 
-// 0D Value — sharp WebGL beam (classic teal/blue + alpha). No face bitmap.
+// 0D Value — WebGL beam (classic teal/blue + alpha). No face bitmap.
 const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
   background: "#000004",
   // Beam intensity (alpha), not RGB premultiply.
@@ -216,8 +216,8 @@ const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
   // Stroke diameter: 0 = 1px, 1 = face square min side.
   dot1Size: 0.04,
   lineLength: 1,
-  // Hard edge (beam blur forced 0 in draw).
-  lineThickness: 0,
+  // Edge soft (beam uBlur). Mild default = AA without a big glow; draw floors ~0.12.
+  lineThickness: 0.18,
   pixelDensity: 1,
   // Amplitude zoom (Y).
   scale: 1,
@@ -266,7 +266,7 @@ const nodeGraphValueLcdSettingsDefaults = Object.freeze({
   lightBlend: "source-over",
   // Digit inset 0…1 linear vs face square min side (0 = flush fill, 1 = one pin pixel).
   facePadding: 0,
-  // Permanent unlit “8” skeleton amount 0…1 (multiply FG into plate).
+  // LCD Ghost: permanent “8” skeleton amount 0…1 (soft fade from 0).
   unlitSegments: 0.28,
   // Inner shadow (screen glass): Gaussian soft inset + CSS-like offset.
   innerShadowDistance: 0.22,

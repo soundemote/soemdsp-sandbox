@@ -110,12 +110,13 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze(["sourceSync", "fullDotEconomy", "dotsOnly"]),
     choices: Object.freeze([]),
   }),
-  // 0D Value: sharp WebGL beam (no face bitmap / pixelDensity / residual).
+  // 0D Value: WebGL beam (no face bitmap / pixelDensity / residual).
   value: Object.freeze({
     fields: Object.freeze([
       "lineLength",
       "dot1Brightness",
       "dot1Size",
+      "lineThickness",
       "scale",
       "capSize",
       "capLength",
@@ -550,10 +551,11 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     title: "Slow residual hang 0…1 (app-wide Ghost). Not brightness — only decay/hang of deposited energy.",
   }),
   unlitSegments: Object.freeze({
-    label: "Unlit 8s",
+    label: "Ghost",
     inputmode: "decimal",
     id: "nodeTraceDisplayUnlitSegments",
-    title: "Value LCD: permanent dim all-8 segment plate (0 = off, 1 = strong). Multiplies foreground color into the background — not residual hang.",
+    title:
+      "Value LCD Ghost: permanent dim all-8 segment plate (0 = off, 1 = strong). Soft fade near 0 — not residual hang (LED Trail/Ghost).",
   }),
   facePadding: Object.freeze({
     label: "Padding",
@@ -686,7 +688,13 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     id: "nodeTraceDisplayBrightness",
     title: "Peak deposit / present light 0–1 (1 = full). Number Readout LED: live light grey→hue→white (never black); also deposit energy.",
   }),
-  lineThickness: Object.freeze({ label: "Blur", inputmode: "decimal", id: "nodeTraceDisplayLineThickness" }),
+  lineThickness: Object.freeze({
+    label: "Blur",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayLineThickness",
+    title:
+      "Edge soft 0…1 (beam smoothstep). Phosphor stamps: soft radius. 0D Value: line + cap edge AA (draw floors ~0.12 so thin strokes stay anti-aliased).",
+  }),
   dot1Size: Object.freeze({
     label: "Size",
     inputmode: "decimal",

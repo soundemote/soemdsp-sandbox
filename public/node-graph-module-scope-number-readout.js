@@ -1105,6 +1105,12 @@ function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, val
   const digitX = left + padPx + layout.contentW * 0.5;
   const digitY = top + padPxY + digitAreaHeight * 0.5;
   const unlitAmount = clampNodeSliderValue(Number(settings?.unlitSegments) || 0, 0, 1);
+  // Ghost plate alpha: continuous from 0 (no 0.12 pedestal — that made the
+  // first slider tick a hard on/off pop). pow < 1 = more sensitivity near 0
+  // so ~0.06 is a faint wash that eases in, not a binary flash.
+  const ghostPlateAlpha = unlitAmount <= 0
+    ? 0
+    : Math.min(0.92, Math.pow(unlitAmount, 0.58));
   const shadowDist = clampNodeSliderValue(Number(settings?.innerShadowDistance) || 0, 0, 1);
   const shadowSharp = clampNodeSliderValue(Number(settings?.innerShadowSharpness) || 0, 0, 1);
   const shadowOffX = clampNodeSliderValue(Number(settings?.innerShadowOffsetX) || 0, -1, 1);
@@ -1133,8 +1139,8 @@ function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, val
       );
     }
   } else {
-    // Permanent unlit “8” skeleton (LCD ghost): greyscale only — no hue.
-    if (digitFontSize > 0.25 && unlitAmount > 0.001 && !String(valueText || "").includes("!")) {
+    // Permanent “8” skeleton (LCD Ghost): greyscale only — no hue.
+    if (digitFontSize > 0.25 && ghostPlateAlpha > 0.0005 && !String(valueText || "").includes("!")) {
       const plateText = typeof nodeGraphNumberReadoutGhostPlateText === "function"
         ? nodeGraphNumberReadoutGhostPlateText(valueText)
         : String(valueText || "").replace(/[0-9!]/g, "8");
@@ -1146,11 +1152,12 @@ function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, val
         fontSize: digitFontSize,
         cellW,
         rgb: ghostRgb,
-        alpha: Math.min(1, 0.12 + unlitAmount * 0.88),
+        alpha: ghostPlateAlpha,
         softBlurPx: 0,
         glow: 0,
         plate: true,
-        composite: "multiply",
+        // source-over + greyscale alpha fades smoothly; multiply was a hard lip near 0.
+        composite: "source-over",
       });
     }
 
