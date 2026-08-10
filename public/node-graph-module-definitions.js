@@ -7094,10 +7094,25 @@ const nodeGraphModuleDefinitions = (
   helmholtzPitch: {
     planRole: "monitor",
     planFreeRun: true,
-    // Cheap DOM text face (Hz + Fid) — not a phosphor Number Readout / trace.
+    // Hybrid face: Frequency = Number Readout LCD; Fidelity = plain text strip.
     layout: "pitchDetector",
     chrome: "LayoutA",
-    displayHeightGu: 1,
+    customDisplayArea: true,
+    displayHeightGu: 2,
+    displayType: "numberReadout",
+    displayModes: [
+      {
+        key: "numberReadout",
+        renderer: "numberReadout",
+        settingsSchema: "numberReadout",
+        // Own Frequency out → LCD buffer (see capture buffer resolution).
+        source: { value: "Frequency" },
+      },
+    ],
+    displaySignals: [
+      { key: "Frequency", kind: "scalar" },
+      { key: "Fidelity", kind: "scalar" },
+    ],
     inputs: ["In"],
     // Like badvalMonitor: an analysis/monitor tool should keep running and
     // updating its outputs as soon as something is wired into "In", even if

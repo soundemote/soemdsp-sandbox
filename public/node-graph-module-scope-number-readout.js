@@ -386,6 +386,10 @@ function nodeGraphNumberReadoutGhostPlateText(valueText) {
 
 
 function nodeGraphNumberReadoutUnitForSlot(slot) {
+  // Pitch Detector face LCD always shows Frequency in Hz.
+  if (slot?.type === "helmholtzPitch") {
+    return "Hz";
+  }
   const connection = nodeGraphModuleScopeConnectionsTo(slot?.nodeId, "In")
     .find((candidate) => candidate?.sourceNode && candidate?.sourcePort);
   if (!connection) {

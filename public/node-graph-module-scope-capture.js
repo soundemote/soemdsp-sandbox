@@ -300,6 +300,12 @@ function nodeGraphModuleScopeCapturedBufferForSlot(slot) {
       nodeGraphModuleScopeConnectedSourceBuffer(nodeId, "In") ||
       null;
   }
+  // Pitch Detector LCD: own Frequency out (not an external In wire).
+  if (slot?.type === "helmholtzPitch") {
+    return nodeGraphModuleScopeState.buffers.get(`${nodeId}:Frequency`) ||
+      nodeGraphModuleScopeState.buffers.get(nodeId) ||
+      null;
+  }
   // Multi-mode Display (visualOscilloscope): mono modes feed from In.
   if (slot?.type === "visualOscilloscope" && (renderer === "trace" || renderer === "dot")) {
     return nodeGraphModuleScopeState.buffers.get(`${nodeId}:In`) ||

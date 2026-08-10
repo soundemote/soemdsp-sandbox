@@ -263,6 +263,7 @@ function nodeGraphModuleTypeHasCustomDisplayArea(type) {
   return layout === "graph"
     || layout === "sliderWidget"
     || layout === "badvalMonitor"
+    || layout === "pitchDetector"
     || layout === "pitchQuantizer"
     || layout === "asciiscope"
     || layout === "macroControls"

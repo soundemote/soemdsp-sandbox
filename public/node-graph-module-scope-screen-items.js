@@ -205,7 +205,11 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
         }
         // Number Readout: keep an idle LCD plate when there is no live sample
         // (stop / unwired) instead of leaving a wiped blank face.
-        if (slot?.type === "numberReadout" || nodeGraphModuleDisplayRendererForSlot(slot) === "numberReadout") {
+        if (
+          slot?.type === "numberReadout"
+          || slot?.type === "helmholtzPitch"
+          || nodeGraphModuleDisplayRendererForSlot(slot) === "numberReadout"
+        ) {
           const face = slot.scopeElement;
           const numberCanvas = nodeGraphNumberReadoutCanvasForSlot(slot);
           if (numberCanvas && face) {

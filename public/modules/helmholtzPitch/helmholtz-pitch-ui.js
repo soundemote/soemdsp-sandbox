@@ -1,29 +1,29 @@
-// Pitch Detector face: plain DOM text (cheapest possible live readout).
-// No canvas, no phosphor, no Number Readout face — just two monospace lines
-// updated from scope port samples (~30 Hz).
+// Pitch Detector face:
+//   • Frequency → Number Readout LCD (DSEG / residual path)
+//   • Fidelity  → cheapest plain DOM text strip
+// One black plate; LCD fills most of it; Fid sits on a thin footer.
 
 function createNodeGraphPitchDetectorBody(nodeId) {
+  const id = String(nodeId || "");
   const body = document.createElement("div");
-  body.className = "node-pitch-detector-face";
-  body.dataset.node = String(nodeId || "");
+  body.className = "node-pitch-detector-face node-light-source";
+  body.dataset.node = id;
+  body.dataset.nodeType = "helmholtzPitch";
   body.dataset.pitchDetectorFace = "true";
-  body.setAttribute("aria-label", "Pitch detector frequency and fidelity");
+  body.dataset.lightSource = "screen";
+  body.setAttribute("aria-label", "Pitch detector frequency LCD and fidelity");
 
-  const freqRow = document.createElement("div");
-  freqRow.className = "node-pitch-detector-row";
-  freqRow.dataset.pitchMetric = "frequency";
-  const freqKey = document.createElement("span");
-  freqKey.className = "node-pitch-detector-k";
-  freqKey.textContent = "Hz";
-  const freqVal = document.createElement("strong");
-  freqVal.className = "node-pitch-detector-v";
-  freqVal.dataset.pitchValue = "frequency";
-  freqVal.textContent = "—";
-  freqRow.append(freqKey, freqVal);
+  // LCD plate — registered as the scope surface for numberReadout paint.
+  const lcd = document.createElement("div");
+  lcd.className = "node-pitch-detector-lcd node-module-scope-window node-number-readout-face";
+  lcd.dataset.node = id;
+  lcd.dataset.nodeType = "helmholtzPitch";
+  lcd.dataset.lightSource = "screen";
+  lcd.setAttribute("aria-hidden", "true");
 
-  const fidRow = document.createElement("div");
-  fidRow.className = "node-pitch-detector-row";
-  fidRow.dataset.pitchMetric = "fidelity";
+  // Cheap fidelity strip (no canvas).
+  const fid = document.createElement("div");
+  fid.className = "node-pitch-detector-fid";
   const fidKey = document.createElement("span");
   fidKey.className = "node-pitch-detector-k";
   fidKey.textContent = "Fid";
@@ -31,24 +31,10 @@ function createNodeGraphPitchDetectorBody(nodeId) {
   fidVal.className = "node-pitch-detector-v";
   fidVal.dataset.pitchValue = "fidelity";
   fidVal.textContent = "—";
-  fidRow.append(fidKey, fidVal);
+  fid.append(fidKey, fidVal);
 
-  body.append(freqRow, fidRow);
+  body.append(lcd, fid);
   return body;
-}
-
-function nodeGraphPitchDetectorFormatHz(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n) || n <= 0) {
-    return "—";
-  }
-  if (n >= 1000) {
-    return n.toFixed(0);
-  }
-  if (n >= 100) {
-    return n.toFixed(1);
-  }
-  return n.toFixed(2);
 }
 
 function nodeGraphPitchDetectorFormatFid(value) {
@@ -59,29 +45,15 @@ function nodeGraphPitchDetectorFormatFid(value) {
   return Math.max(0, Math.min(1, n)).toFixed(2);
 }
 
-function renderNodeGraphPitchDetectorFace(body, frequencyHz, fidelity) {
-  if (!body) {
-    return;
-  }
-  const freqEl = body.querySelector('[data-pitch-value="frequency"]');
-  const fidEl = body.querySelector('[data-pitch-value="fidelity"]');
-  if (freqEl) {
-    freqEl.textContent = nodeGraphPitchDetectorFormatHz(frequencyHz);
-  }
-  if (fidEl) {
-    fidEl.textContent = nodeGraphPitchDetectorFormatFid(fidelity);
-  }
-}
-
 /**
- * Update pitch-detector faces from a live scope snapshot payload
- * (array of [id, samples, meta] where id may be "nodeId" or "nodeId:Port").
+ * Update fidelity strip from live scope payload
+ * (entries [id, samples] where id is "nodeId:Fidelity").
+ * Frequency is painted by the Number Readout LCD path.
  */
 function updateNodeGraphPitchDetectorFacesFromScopeValues(values) {
   if (!values || !values.length) {
     return;
   }
-  const byNode = new Map();
   for (const entry of values) {
     if (!entry) {
       continue;
@@ -97,7 +69,7 @@ function updateNodeGraphPitchDetectorFacesFromScopeValues(values) {
     }
     const nodeId = key.slice(0, colon);
     const port = key.slice(colon + 1);
-    if (port !== "Frequency" && port !== "Fidelity") {
+    if (port !== "Fidelity") {
       continue;
     }
     const length = samples instanceof Float32Array
@@ -110,34 +82,48 @@ function updateNodeGraphPitchDetectorFacesFromScopeValues(values) {
     if (!Number.isFinite(last)) {
       continue;
     }
-    let pack = byNode.get(nodeId);
-    if (!pack) {
-      pack = { frequency: null, fidelity: null };
-      byNode.set(nodeId, pack);
-    }
-    if (port === "Frequency") {
-      pack.frequency = last;
-    } else {
-      pack.fidelity = last;
+    const body = document.querySelector(`.node-pitch-detector-face[data-node="${nodeId}"]`);
+    const fidEl = body?.querySelector?.('[data-pitch-value="fidelity"]');
+    if (fidEl) {
+      fidEl.textContent = nodeGraphPitchDetectorFormatFid(last);
     }
   }
-  if (!byNode.size) {
+}
+
+/**
+ * After module mount: register LCD for Number Readout paint + cold plate so
+ * the black face is never invisible.
+ */
+function mountNodeGraphPitchDetectorFace(article, body, nodeId) {
+  if (!article || !body) {
     return;
   }
-  for (const [nodeId, pack] of byNode) {
-    // Avoid CSS.escape for older engines; node ids are sandbox-safe tokens.
-    const body = document.querySelector(`.node-pitch-detector-face[data-node="${nodeId}"]`);
-    if (!body) {
-      continue;
+  const lcd = body.querySelector(".node-pitch-detector-lcd") || body;
+  if (typeof registerNodeGraphModuleScopeSlot === "function") {
+    registerNodeGraphModuleScopeSlot(article, {
+      nodeId: String(nodeId || body.dataset.node || ""),
+      scopeElement: lcd,
+      type: "helmholtzPitch",
+      viewDrag: false,
+    });
+  }
+  // Immediate cold LCD so the plate shows before the first scope post.
+  if (typeof paintNodeGraphNumberReadoutColdBoot === "function"
+    && typeof nodeGraphNumberReadoutCanvasForSlot === "function") {
+    const slot = typeof nodeGraphModuleScopeState !== "undefined"
+      ? nodeGraphModuleScopeState?.slots?.get?.(String(nodeId || body.dataset.node || ""))
+      : null;
+    if (slot) {
+      const canvas = nodeGraphNumberReadoutCanvasForSlot(slot);
+      const node = typeof nodeGraphPatchNode === "function"
+        ? nodeGraphPatchNode(nodeId)
+        : null;
+      if (canvas && lcd) {
+        paintNodeGraphNumberReadoutColdBoot(canvas, lcd, node);
+      }
     }
-    // Only rewrite fields we received this frame (avoid flicker to —).
-    const freqEl = body.querySelector('[data-pitch-value="frequency"]');
-    const fidEl = body.querySelector('[data-pitch-value="fidelity"]');
-    if (pack.frequency != null && freqEl) {
-      freqEl.textContent = nodeGraphPitchDetectorFormatHz(pack.frequency);
-    }
-    if (pack.fidelity != null && fidEl) {
-      fidEl.textContent = nodeGraphPitchDetectorFormatFid(pack.fidelity);
-    }
+  }
+  if (typeof nodeGraphModuleScopeMarkScreenLit === "function") {
+    nodeGraphModuleScopeMarkScreenLit(lcd, 1);
   }
 }

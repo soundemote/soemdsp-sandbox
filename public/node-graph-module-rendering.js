@@ -819,8 +819,14 @@ function createNodeGraphModuleElement(type, node) {
       outputPorts,
     );
   } else if (layout === "pitchDetector") {
-    if (typeof createNodeGraphPitchDetectorBody === "function") {
-      article.append(createNodeGraphPitchDetectorBody(node));
+    const pitchFace = typeof createNodeGraphPitchDetectorBody === "function"
+      ? createNodeGraphPitchDetectorBody(node)
+      : null;
+    if (pitchFace) {
+      article.append(pitchFace);
+      if (typeof mountNodeGraphPitchDetectorFace === "function") {
+        mountNodeGraphPitchDetectorFace(article, pitchFace, node);
+      }
     }
     appendNodeGraphModuleIoSection(
       article,
