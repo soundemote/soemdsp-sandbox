@@ -856,38 +856,18 @@ function setNodeGraphVisibilityMenuOpen(open) {
       } else if (typeof raiseNodeGraphFloatingWindow === "function") {
         raiseNodeGraphFloatingWindow(menu);
       }
-      if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
-        noteNodeGraphUnifiedWindowOpened("visibilityMenu", menu);
-      }
       renderNodeGraphVisibilityMenuButton();
       return;
     }
     menu.hidden = !open;
     if (open) {
+      // Standalone window: own workspaceWindowStates.visibilityMenu seat/size.
+      // Do not share unified Command Center / Module Browser geometry.
       applyNodeGraphVisibilityMenuSize(nodeGraphMvp.workspaceWindowStates?.visibilityMenu?.size);
-      const pending = nodeGraphMvp._unifiedWindowPendingPosition;
-      if (pending && Number.isFinite(Number(pending.left)) && Number.isFinite(Number(pending.top))) {
-        // Unified-nav seat handoff only (explicit shared geometry).
-        if (typeof setNodeGraphFloatingWindowViewportPosition === "function") {
-          setNodeGraphFloatingWindowViewportPosition(menu, pending.left, pending.top);
-        } else {
-          menu.style.left = `${Math.round(pending.left)}px`;
-          menu.style.top = `${Math.round(pending.top)}px`;
-          menu.style.right = "auto";
-        }
-        if (typeof raiseNodeGraphFloatingWindow === "function") {
-          raiseNodeGraphFloatingWindow(menu);
-        }
-        if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
-          rememberNodeGraphWorkspaceWindowState("visibilityMenu", menu, { open: true }, { status: false });
-        }
-      } else {
-        // Restore saved seat / lock CSS default — no spawn-at-button.
-        openNodeGraphFloatingWindowAtPosition("visibilityMenu", menu);
-      }
-      if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
-        noteNodeGraphUnifiedWindowOpened("visibilityMenu", menu);
-      }
+      openNodeGraphFloatingWindowAtPosition("visibilityMenu", menu);
+      // Strip any leftover unified-nav host (Visibility is not a unified page).
+      menu.querySelectorAll?.(".node-unified-window-nav-host, .node-unified-window-nav")
+        ?.forEach?.((el) => el.remove());
     }
   }
   if (typeof rememberNodeGraphWorkspaceWindowState === "function") {

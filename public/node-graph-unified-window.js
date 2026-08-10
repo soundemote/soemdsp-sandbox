@@ -48,14 +48,8 @@ const nodeGraphUnifiedWindowPages = Object.freeze({
     icon: "🧩",
     showInNav: true,
   }),
-  visibilityMenu: Object.freeze({
-    key: "visibilityMenu",
-    elementId: "nodeVisibilityMenu",
-    workspaceKey: "visibilityMenu",
-    label: "Visibility",
-    icon: "👁️",
-    showInNav: true,
-  }),
+  // Visibility is a standalone floating window (own seat / size) — not a
+  // unified page. Opening it must never re-seat Command Center / Modules.
   traceDisplaySettings: Object.freeze({
     key: "traceDisplaySettings",
     elementId: "nodeTraceDisplaySettingsPopover",
@@ -83,7 +77,6 @@ const nodeGraphUnifiedWindowPageOrder = Object.freeze([
   "traceDisplaySettings",
   "metaparameters",
   "uiSettings",
-  "visibilityMenu",
 ]);
 
 function nodeGraphUnifiedWindowPageConfig(page = "") {
@@ -285,8 +278,6 @@ function applyNodeGraphUnifiedWindowSize(element, pageKey = "", size = null) {
     applyNodeGraphModuleShopWindowSize(box);
   } else if (key === "moduleActions" && typeof applyNodeModuleActionsWindowSize === "function") {
     applyNodeModuleActionsWindowSize(box);
-  } else if (key === "visibilityMenu" && typeof applyNodeGraphVisibilityMenuSize === "function") {
-    applyNodeGraphVisibilityMenuSize(box);
   } else if (key === "metaparameters" && typeof applyNodeMetadataPopoverSize === "function") {
     applyNodeMetadataPopoverSize(box);
   } else if (key === "traceDisplaySettings" && typeof applyNodeGraphTraceDisplaySettingsWindowSize === "function") {
@@ -377,11 +368,6 @@ function closeNodeGraphUnifiedWindowPage(page = "", options = {}) {
       case "uiSettings":
         if (typeof setNodeUserUiSettingsVisible === "function") {
           setNodeUserUiSettingsVisible(false);
-        }
-        break;
-      case "visibilityMenu":
-        if (typeof setNodeGraphVisibilityMenuOpen === "function") {
-          setNodeGraphVisibilityMenuOpen(false);
         }
         break;
       case "metaparameters":
@@ -477,6 +463,15 @@ function focusNodeGraphUnifiedWindowPage(page = "") {
  */
 function openNodeGraphUnifiedWindowPage(page = "", options = {}) {
   const key = String(page || "").trim();
+  // Visibility is a standalone floating window with its own saved seat/size.
+  // Never fold it into the shared Command Center / Modules geometry.
+  if (key === "visibilityMenu") {
+    if (typeof setNodeGraphVisibilityMenuOpen === "function") {
+      setNodeGraphVisibilityMenuOpen(true);
+      return true;
+    }
+    return false;
+  }
   const config = nodeGraphUnifiedWindowPageConfig(key);
   if (!config) {
     return false;
@@ -554,11 +549,6 @@ function openNodeGraphUnifiedWindowPage(page = "", options = {}) {
       case "uiSettings":
         if (typeof setNodeUserUiSettingsVisible === "function") {
           setNodeUserUiSettingsVisible(true);
-        }
-        break;
-      case "visibilityMenu":
-        if (typeof setNodeGraphVisibilityMenuOpen === "function") {
-          setNodeGraphVisibilityMenuOpen(true);
         }
         break;
       case "metaparameters":
@@ -791,13 +781,6 @@ function syncNodeGraphUnifiedWindowNavBars() {
     {
       elementId: "nodeUserUiSettingsPanel",
       page: "uiSettings",
-      prepare(element) {
-        return ensureNodeGraphUnifiedWindowNavHost(element);
-      },
-    },
-    {
-      elementId: "nodeVisibilityMenu",
-      page: "visibilityMenu",
       prepare(element) {
         return ensureNodeGraphUnifiedWindowNavHost(element);
       },

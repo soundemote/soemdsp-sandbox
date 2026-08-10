@@ -9995,11 +9995,19 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   opacity: 1;
 }
 
+/* Title bar + title sit above the bypass veil (z:40). */
+.dsp-node.bypassed > .dsp-node-header,
+.dsp-node.bypassed .dsp-node-header {
+  position: relative;
+  z-index: 50;
+  filter: none;
+  opacity: 1;
+}
+
 /* Dim painted faces under the veil so they read as inactive, not “still live”. */
 .dsp-node.bypassed > .node-solid-module-shell,
 .dsp-node.bypassed > .node-module-chrome-layout-b-shell,
 .dsp-node.bypassed > .dsp-node-body,
-.dsp-node.bypassed > .dsp-node-header,
 .dsp-node.bypassed > .dsp-node-io-section,
 .dsp-node.bypassed > .node-module-scope-window,
 .dsp-node.bypassed > .node-pitch-detector-face,
@@ -10867,9 +10875,9 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   grid-row: 2;
   align-self: stretch;
   box-sizing: border-box;
-  /* One continuous plate: LED above, tight Hz/Fid strip below (no second panel). */
-  --pitch-meta-h: 1.12em;
-  display: block;
+  /* LED flex-fills; Hz/Fid is content-height (text px + tiny pad). */
+  display: flex;
+  flex-direction: column;
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -10879,18 +10887,14 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   border: 1px solid rgba(127, 199, 217, 0.16);
 }
 
-/* Phosphor LED plate — all space above the tight meta strip. */
+/* Phosphor LED plate — all remaining space above the content-sized meta row. */
 .node-pitch-detector-lcd {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  bottom: var(--pitch-meta-h);
+  position: relative;
+  flex: 1 1 auto;
   z-index: 1;
   min-width: 0;
   min-height: 0;
-  width: auto;
-  height: auto;
+  width: 100%;
   overflow: hidden;
   /* Same continuous plate — never a second background/panel. */
   background: transparent;
@@ -10908,34 +10912,34 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 /*
- * Hz + Fid: own tight track at the bottom of the face.
+ * Hz + Fid: height = line box of the type + a few px pad (not a fixed em strip).
  * No background, no stroke — sits on the same plate as the LED.
  */
 .node-pitch-detector-fid {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  position: relative;
+  flex: 0 0 auto;
   z-index: 5;
   box-sizing: border-box;
   display: grid;
   /* Left: unit; right: Fid + 4-decimal value. */
-  grid-template-columns: minmax(2.4em, 28%) minmax(0, 1fr);
+  grid-template-columns: minmax(2.2em, 28%) minmax(0, 1fr);
   align-items: center;
-  column-gap: 0.35em;
+  column-gap: 0.3em;
   min-width: 0;
-  height: var(--pitch-meta-h, 1.12em);
+  /* Content-sized: no fixed height / min-height strip. */
+  height: auto;
   min-height: 0;
-  padding: 0 0.4em;
+  max-height: none;
+  /* ~1–2px above/below the cap height of 0.625rem type. */
+  padding: 1px 0.35em 2px;
   margin: 0;
   border: none;
   border-top: none;
   outline: none;
   box-shadow: none;
-  /* Never a second plate / bar under the digits. */
   background: transparent;
   font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
-  font-size: 0.68rem;
+  font-size: 0.625rem;
   line-height: 1;
   pointer-events: none;
   user-select: none;
@@ -10944,18 +10948,21 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 .node-pitch-detector-fid .node-pitch-detector-hz {
   grid-column: 1;
   justify-self: start;
+  align-self: center;
   min-width: 0;
   max-width: 100%;
   margin: 0;
   padding: 0;
   border: 0;
+  min-height: 0;
+  height: auto;
+  line-height: 1;
   background: transparent;
   color: rgba(160, 167, 176, 0.9);
   font: inherit;
-  font-size: 0.95em;
+  font-size: 1em;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  line-height: 1.15;
+  letter-spacing: 0.03em;
   text-align: left;
   overflow: hidden;
   text-overflow: clip;
@@ -10977,22 +10984,23 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   grid-column: 2;
   display: grid;
   /* "Fid" + fixed-width cell for 0.0000 … 1.0000 */
-  grid-template-columns: auto minmax(5.75ch, 6.75ch);
+  grid-template-columns: auto minmax(5.5ch, 6.5ch);
   align-items: center;
   justify-content: end;
-  column-gap: 0.35em;
+  column-gap: 0.28em;
   min-width: 0;
   width: 100%;
+  line-height: 1;
 }
 
 .node-pitch-detector-fid .node-pitch-detector-k {
   justify-self: end;
   color: rgba(160, 167, 176, 0.82);
-  font-size: 0.78em;
-  letter-spacing: 0.05em;
+  font-size: 0.92em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   white-space: nowrap;
-  line-height: 1.15;
+  line-height: 1;
   text-shadow: 0 0 0.35em rgba(0, 0, 0, 0.85), 0 1px 0 rgba(0, 0, 0, 0.55);
 }
 
@@ -11005,7 +11013,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   font-variant-numeric: tabular-nums;
   color: rgba(160, 214, 228, 0.98);
   white-space: nowrap;
-  line-height: 1.15;
+  line-height: 1;
   text-shadow: 0 0 0.35em rgba(0, 0, 0, 0.85), 0 1px 0 rgba(0, 0, 0, 0.55);
 }
 

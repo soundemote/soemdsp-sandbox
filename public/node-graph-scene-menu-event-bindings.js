@@ -109,10 +109,7 @@ function bindNodeGraphSceneMenuEvents() {
     document.getElementById("nodeRoomDimmerButton")?.focus?.();
   });
   bindNodeGraphSceneElementEvent("nodeSceneOpenVisibility", "click", () => {
-    if (typeof openNodeGraphUnifiedWindowPage === "function") {
-      openNodeGraphUnifiedWindowPage("visibilityMenu");
-      return;
-    }
+    // Standalone Visibility window (own seat) — never unified seat handoff.
     setNodeGraphVisibilityMenuOpen(true);
   });
   bindNodeGraphSceneElementEvent("nodeSceneGlobalSmoothingSeconds", "change", handleNodeGraphGlobalSmoothingSecondsChange);
