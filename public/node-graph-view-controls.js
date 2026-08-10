@@ -544,9 +544,25 @@ function toggleNodeGraphModularOnlyControlsVisible() {
 
 // Named so both the Command Center button click and the "M" hotkey
 // (node-graph-keyboard-shortcuts.js) can share the exact same behavior.
+//
+// M = windowed modular view WITH chrome (back button + resize/drag handle).
+// View Buttons (V) can still hide that chrome for edge-to-edge; entering via M
+// always re-shows it so M never looks like plain "hide UI".
 function toggleNodeGraphModularOnlyView() {
-  const modularOnlyActive = document.getElementById("nodeWiringPanel")?.classList.contains("modular-only-view");
-  setNodeGraphViewMode(modularOnlyActive ? "modular" : "modular-only");
+  const panel = document.getElementById("nodeWiringPanel");
+  const modularOnlyActive = panel?.classList.contains("modular-only-view");
+  if (modularOnlyActive) {
+    setNodeGraphViewMode("modular");
+    return;
+  }
+  // Ensure resize handle + back button are visible in the windowed frame.
+  if (typeof setNodeGraphModularOnlyControlsVisible === "function") {
+    setNodeGraphModularOnlyControlsVisible(true);
+  } else {
+    nodeGraphMvp.modularOnlyControlsVisible = true;
+    panel?.classList.remove("modular-only-controls-hidden");
+  }
+  setNodeGraphViewMode("modular-only");
 }
 
 // Named so both the Command Center button click and the "V" hotkey
@@ -3525,15 +3541,18 @@ function setNodeGraphViewMode(mode) {
   if (typeof syncNodeGraphRegisteredFloatingWindowSurfaces === "function") {
     syncNodeGraphRegisteredFloatingWindowSurfaces();
   }
-  if (mode !== "script") {
+  // Legacy "script" view removed — map to settings so old call sites stay safe.
+  if (mode === "script") {
+    mode = "settings";
+  }
+  if (typeof flushNodeGraphScriptCommit === "function") {
     flushNodeGraphScriptCommit();
   }
   const settingsMode = mode === "settings";
-  const scriptMode = mode === "script";
   const codeMode = mode === "code";
   const mappingMode = mode === "mapping";
   const modularOnlyMode = mode === "modular-only";
-  const modularMode = modularOnlyMode || (!settingsMode && !scriptMode && !codeMode && !mappingMode);
+  const modularMode = modularOnlyMode || (!settingsMode && !codeMode && !mappingMode);
   const workspaceMode = modularMode;
   const wiringPanel = document.getElementById("nodeWiringPanel");
   wiringPanel?.classList.toggle("modular-only-view", modularOnlyMode);
@@ -3542,32 +3561,36 @@ function setNodeGraphViewMode(mode) {
   document
     .getElementById("nodeModularOnlyBackButton")
     .setAttribute("aria-label", "Return to full modular view");
-  document.getElementById("nodeScriptView").hidden = !scriptMode;
+  const scriptView = document.getElementById("nodeScriptView");
+  if (scriptView) {
+    scriptView.hidden = true;
+  }
   document.getElementById("nodeCodeScreenView").hidden = !codeMode;
   document.getElementById("nodeMappingView").hidden = !mappingMode;
   document.getElementById("nodeSettingsView").hidden = !settingsMode;
   renderNodeGraphKeyboardControllerModules();
   renderNodeGraphMacroControls();
   renderNodeGraphVideoViewToggle();
-  document.getElementById("nodeSettingsViewButton").classList.toggle("active", settingsMode);
-  document.getElementById("nodeModularOnlyViewButton").classList.toggle("active", modularOnlyMode);
+  const settingsBtn = document.getElementById("nodeSettingsViewButton");
+  settingsBtn?.classList.toggle("active", settingsMode);
+  settingsBtn?.setAttribute("aria-pressed", String(settingsMode));
+  document.getElementById("nodeModularOnlyViewButton")?.classList.toggle("active", modularOnlyMode);
   document.getElementById("nodeSceneToggleModularOnlyView")?.classList.toggle("active", modularOnlyMode);
   document.getElementById("nodeMappingViewButton")?.classList.toggle("active", mappingMode);
-  document.getElementById("nodeCodeScreenViewButton").classList.toggle("active", codeMode);
-  document.getElementById("nodeSettingsScriptViewButton").classList.toggle("active", scriptMode);
-  document.getElementById("nodeSettingsViewButton").setAttribute("aria-pressed", String(settingsMode));
-  document.getElementById("nodeModularOnlyViewButton").setAttribute("aria-pressed", String(modularOnlyMode));
+  document.getElementById("nodeCodeScreenViewButton")?.classList.toggle("active", codeMode);
+  document.getElementById("nodeModularOnlyViewButton")?.setAttribute("aria-pressed", String(modularOnlyMode));
   document.getElementById("nodeSceneToggleModularOnlyView")?.setAttribute("aria-pressed", String(modularOnlyMode));
   document.getElementById("nodeMappingViewButton")?.setAttribute("aria-pressed", String(mappingMode));
-  document.getElementById("nodeCodeScreenViewButton").setAttribute("aria-pressed", String(codeMode));
-  document.getElementById("nodeSettingsScriptViewButton").setAttribute("aria-pressed", String(scriptMode));
-  if (scriptMode) {
-    syncNodeGraphScriptView();
-  } else if (codeMode) {
+  document.getElementById("nodeCodeScreenViewButton")?.setAttribute("aria-pressed", String(codeMode));
+  // Header/footer chrome always stay put; pin footer on content modes.
+  document.getElementById("nodeWiringPanel")?.classList.toggle("content-view-mode", settingsMode || codeMode || mappingMode);
+  if (codeMode) {
     renderNodeGraphCodeScreen();
   } else if (settingsMode) {
     syncNodeGraphSettingsView();
-    scheduleNodeSettingsHeaderTextFit();
+    if (typeof scheduleNodeSettingsHeaderTextFit === "function") {
+      scheduleNodeSettingsHeaderTextFit();
+    }
   } else if (mappingMode) {
     renderNodeGraphMappingView();
   } else {

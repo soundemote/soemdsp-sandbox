@@ -61,6 +61,24 @@ async function bindNodeGraphUiDevSettingsEvents() {
   document
     .getElementById("nodeUiDevGridColor")
     .addEventListener("change", syncNodeUiDevSettingsHeaderControls);
+  // Patch grid unit size (px/gu) — lives on the patch, edited in UIDEV.
+  const applyPatchGrid = () => {
+    if (typeof applyNodeUiDevPatchGridFromFields === "function") {
+      applyNodeUiDevPatchGridFromFields({ record: false });
+    }
+  };
+  const commitPatchGrid = () => {
+    if (typeof applyNodeUiDevPatchGridFromFields === "function") {
+      applyNodeUiDevPatchGridFromFields({ record: true });
+    }
+  };
+  document.getElementById("nodeUiDevPatchGridWidthPx")?.addEventListener("input", applyPatchGrid);
+  document.getElementById("nodeUiDevPatchGridWidthPx")?.addEventListener("change", commitPatchGrid);
+  document.getElementById("nodeUiDevPatchGridHeightPx")?.addEventListener("input", applyPatchGrid);
+  document.getElementById("nodeUiDevPatchGridHeightPx")?.addEventListener("change", commitPatchGrid);
+  if (typeof syncNodeUiDevPatchGridFields === "function") {
+    syncNodeUiDevPatchGridFields();
+  }
   document
     .getElementById("nodeUiDevWorkspaceBackgroundColor")
     .addEventListener("input", syncNodeUiDevSettingsHeaderControls);

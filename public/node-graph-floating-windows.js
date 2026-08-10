@@ -839,15 +839,6 @@ const nodeGraphFloatingWindowRegistryEntries = Object.freeze([
     sizeAxes: Object.freeze({ width: true, height: true }),
   }),
   Object.freeze({
-    workspaceKey: "patchExplorer",
-    elementId: "nodeSavedPatchesWindow",
-    dragStateKey: "savedPatchesWindowDragging",
-    resizeStateKey: "savedPatchesWindowResizing",
-    applySizeName: "applyNodeGraphSavedPatchesWindowSize",
-    sizeAxes: Object.freeze({ width: true, height: true }),
-    headingDragClass: true,
-  }),
-  Object.freeze({
     workspaceKey: "visibilityMenu",
     elementId: "nodeVisibilityMenu",
     dragStateKey: "visibilityMenuDragging",
@@ -937,11 +928,38 @@ function nodeGraphFloatingWindowRegistryEntryByElement(element) {
   }) || null;
 }
 
+/**
+ * Resolve a page's applySize and wrap it so every registry window gets the
+ * same post-apply behavior: pin inline width/height (and clear max caps)
+ * when the page resizes both axes. Prevents page-specific helpers that only
+ * write CSS vars from going inert after unified seating sets inline size.
+ */
 function nodeGraphFloatingWindowRegistryApplySize(entry) {
   if (!entry?.applySizeName || typeof globalThis[entry.applySizeName] !== "function") {
     return null;
   }
-  return globalThis[entry.applySizeName];
+  const apply = globalThis[entry.applySizeName];
+  const axes = entry.sizeAxes || { width: true, height: true };
+  // Width-only (Visibility) and similar keep their own apply path.
+  if (axes.width === false || axes.height === false) {
+    return apply;
+  }
+  return function nodeGraphFloatingWindowRegistryApplySizeWrapped(size, element) {
+    const el = element || (entry.elementId ? document.getElementById(entry.elementId) : null);
+    const result = apply.length >= 2 ? apply(size, el) : apply(size);
+    const box = result && typeof result === "object" ? result : size;
+    if (el && typeof syncNodeGraphFloatingWindowInlineBox === "function") {
+      const width = Number(box?.width);
+      const height = Number(box?.height);
+      if (width > 40 || height > 40) {
+        syncNodeGraphFloatingWindowInlineBox(el, {
+          width: width > 40 ? width : undefined,
+          height: height > 40 ? height : undefined,
+        });
+      }
+    }
+    return result;
+  };
 }
 
 /** @deprecated prefer nodeGraphFloatingWindowRegistry — same data for keyboard nudge */

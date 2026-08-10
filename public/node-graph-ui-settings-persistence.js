@@ -7,7 +7,6 @@ const nodeGraphWorkspaceWindowStateKeys = Object.freeze([
   "moduleActions",
   "metaparameters",
   "oscilloscopeSettings",
-  "patchExplorer",
   "moduleBrowser",
   "visibilityMenu",
   "uiSettings",
@@ -24,7 +23,6 @@ const nodeGraphWorkspaceWindowElements = Object.freeze({
   moduleActions: "nodeModuleActionsWindow",
   metaparameters: "nodeParameterMetadataPopover",
   oscilloscopeSettings: "nodeGlobalScopeMenu",
-  patchExplorer: "nodeSavedPatchesWindow",
   moduleBrowser: "nodeModuleShopView",
   visibilityMenu: "nodeVisibilityMenu",
   uiSettings: "nodeUserUiSettingsPanel",
@@ -525,9 +523,6 @@ function applyNodeGraphWorkspaceWindowStateToElement(key) {
   if (key === "codeBox" && typeof applyNodeGraphCodeBoxWindowSize === "function") {
     applyNodeGraphCodeBoxWindowSize(state.size);
   }
-  if (key === "patchExplorer" && typeof applyNodeGraphSavedPatchesWindowSize === "function") {
-    applyNodeGraphSavedPatchesWindowSize(state.size);
-  }
   if (key === "moduleBrowser" && typeof applyNodeGraphModuleShopWindowSize === "function") {
     applyNodeGraphModuleShopWindowSize(state.size);
   }
@@ -600,17 +595,6 @@ function applyNodeGraphWorkspaceWindowStates() {
   document
     .getElementById("nodeUiDevButton")
     ?.classList.toggle("active", !document.getElementById("nodeUiDevHelper")?.hidden);
-  document
-    .getElementById("nodeSavedPatchesWindowButton")
-    ?.classList.toggle("active", !document.getElementById("nodeSavedPatchesWindow")?.hidden);
-  if (!document.getElementById("nodeSavedPatchesWindow")?.hidden) {
-    if (typeof syncNodeGraphSavedPatchGridColumns === "function") {
-      syncNodeGraphSavedPatchGridColumns();
-    }
-    if (typeof renderNodeGraphDemoPatchList === "function") {
-      renderNodeGraphDemoPatchList();
-    }
-  }
   if (!document.getElementById("nodeModuleShopView")?.hidden) {
     if (typeof renderNodeGraphModuleStoreCatalog === "function") {
       renderNodeGraphModuleStoreCatalog();
@@ -834,7 +818,6 @@ function normalizeNodeUiDevSettings(settings = {}) {
   const savedPatchUserPath = String(
     view.savedPatchUserPath ?? nodeGraphMvp.savedPatchUserPath ?? "",
   ).trim();
-  const savedPatchExplorerView = view.savedPatchExplorerView === "patches" ? "patches" : "banks";
   return {
     format: {
       kind: "soemdsp-sandbox-user-ui-settings",
@@ -902,7 +885,6 @@ function normalizeNodeUiDevSettings(settings = {}) {
       savedPatchFactoryPath,
       savedPatchUserPath,
       savedPatchGridColumns,
-      savedPatchExplorerView,
       workingPatch,
       currentSavedPatchFilename,
       patchDirtyState,
@@ -1020,7 +1002,6 @@ function readNodeUiDevSettingsFromControls(options = {}) {
       savedPatchGridColumns: typeof normalizeNodeGraphSavedPatchGridColumns === "function"
         ? normalizeNodeGraphSavedPatchGridColumns(nodeGraphMvp.savedPatchGridColumns)
         : Math.max(1, Math.min(16, Math.round(Number(nodeGraphMvp.savedPatchGridColumns) || 3))),
-      savedPatchExplorerView: nodeGraphMvp.savedPatchExplorerView === "patches" ? "patches" : "banks",
       workingPatch: workingPatchForSettings,
       currentSavedPatchFilename: includeWorkingPatch ? (nodeGraphMvp.currentSavedPatchFilename || "") : "",
       patchDirtyState: !includeWorkingPatch
@@ -1201,10 +1182,6 @@ function applyNodeUiDevSettings(settings) {
   nodeGraphMvp.savedPatchGridColumns = typeof normalizeNodeGraphSavedPatchGridColumns === "function"
     ? normalizeNodeGraphSavedPatchGridColumns(normalized.view.savedPatchGridColumns)
     : Math.max(1, Math.min(16, Math.round(Number(normalized.view.savedPatchGridColumns) || 3)));
-  nodeGraphMvp.savedPatchExplorerView = normalized.view.savedPatchExplorerView === "patches" ? "patches" : "banks";
-  if (typeof syncNodeGraphPatchLibraryPathFields === "function") {
-    syncNodeGraphPatchLibraryPathFields();
-  }
   nodeGraphMvp.workingPatch = normalized.view.workingPatch
     ? cloneNodeGraphPatch(normalized.view.workingPatch)
     : null;
@@ -1435,7 +1412,6 @@ function clearNodeUserStartupRuntimeState() {
   nodeGraphMvp.moduleStoreDepartment = "";
   nodeGraphMvp.moduleStoreDepartmentAnchor = "";
   nodeGraphMvp.moduleScopeSettings = {};
-  nodeGraphMvp.savedPatchExplorerView = "banks";
   // These view toggles are read straight from nodeGraphMvp when the cleared
   // state gets re-serialized just below in clearNodeUserStartupState --
   // without resetting them here, whatever the user had changed stayed put

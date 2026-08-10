@@ -1081,11 +1081,45 @@ audio {
   --node-toolbar-button-bg-alpha: 0.62;
   --node-tooltip-text-size: 64px; /* max font for tip fit-to-box (not a fixed size) */
   --node-min-grid-brightness-alpha: 0.045;
+  display: flex;
+  flex-direction: column;
+  /* Fill remaining viewport under any page chrome so the transport footer
+     can pin to the bottom (header toolbar + footer controls always stay). */
+  min-height: calc(100dvh - 3.5rem);
   margin-top: 0;
   padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
+}
+
+/* Header (toolbar) + main content + footer (transport / I-O) layout. */
+.node-wiring-panel > .node-view-toolbar {
+  flex: 0 0 auto;
+  z-index: 5;
+}
+
+.node-wiring-panel > .node-graph-workspace {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.node-wiring-panel > .node-graph-controls {
+  flex: 0 0 auto;
+  margin-top: auto;
+  z-index: 5;
+  /* Sit on the page background so content doesn't show through. */
+  background: rgba(8, 10, 12, 0.96);
+  border-top: 1px solid rgba(127, 199, 217, 0.12);
+}
+
+/* Patch / code / mapping pages: scrollable middle, footer stays put. */
+.node-wiring-panel.content-view-mode > .node-settings-view:not([hidden]),
+.node-wiring-panel.content-view-mode > .node-code-screen-view:not([hidden]),
+.node-wiring-panel.content-view-mode > .node-mapping-view:not([hidden]) {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
 }
 
 .node-wiring-panel.modular-only-view {
@@ -2508,11 +2542,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: none;
 }
 
-/* Legacy class kept for any external refs; explorer uses .node-patch-explorer-meta. */
-.node-patch-header-fields {
-  display: none;
-}
-
 .node-patch-community-control {
   display: grid;
   grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
@@ -2576,274 +2605,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   background: var(--node-front-construction-hover-bg);
   box-shadow: none;
   color: var(--node-front-button-hover-color);
-}
-
-/* Patch Explorer: single metadata input style (name / category / tags). */
-.node-patch-header-field {
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  height: 100%;
-  min-height: 0;
-  margin: 0;
-  padding: 0 8px;
-  border: 0;
-  border-radius: 0;
-  background: rgba(2, 5, 8, 0.82);
-  color: var(--text);
-  font: 0.74rem/1.2 var(--mono);
-  letter-spacing: 0;
-}
-
-.node-patch-header-field.name {
-  color: var(--text);
-  font-weight: 650;
-}
-
-.node-patch-header-field.bank {
-  color: rgba(160, 214, 228, 0.96);
-  font-weight: 600;
-}
-
-.node-patch-header-field.tags {
-  color: rgba(243, 241, 236, 0.82);
-  font-weight: 400;
-}
-
-.node-patch-header-field::placeholder {
-  color: rgba(160, 167, 176, 0.48);
-}
-
-.node-patch-header-field:focus {
-  outline: none;
-  background: rgba(12, 18, 22, 0.92);
-  box-shadow: inset 0 0 0 1px rgba(127, 199, 217, 0.42);
-}
-
-/* Toolbar: nav | main actions | clipboard — even, compact segments. */
-.node-patch-explorer-toolbar {
-  --node-patch-explorer-control-height: 26px;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: stretch;
-  gap: 0;
-  flex: 0 0 auto;
-  min-height: var(--node-patch-explorer-control-height);
-  border-bottom: 1px solid rgba(127, 199, 217, 0.14);
-  background: rgba(5, 8, 10, 0.72);
-}
-
-.node-patch-explorer-toolbar-group {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
-  align-items: stretch;
-  min-width: 0;
-  border-right: 1px solid rgba(127, 199, 217, 0.12);
-}
-
-.node-patch-explorer-toolbar-group:last-child {
-  border-right: 0;
-}
-
-.node-patch-explorer-toolbar-main {
-  grid-auto-columns: minmax(0, 1fr);
-}
-
-.node-patch-explorer-nav-button,
-.node-patch-explorer-action-button {
-  display: grid;
-  place-items: center;
-  box-sizing: border-box;
-  min-width: 0;
-  height: var(--node-patch-explorer-control-height, 26px);
-  min-height: var(--node-patch-explorer-control-height, 26px);
-  margin: 0;
-  padding: 0 8px;
-  border: 0;
-  border-radius: 0;
-  border-right: 1px solid rgba(127, 199, 217, 0.1);
-  background: rgba(14, 18, 22, 0.92);
-  color: rgba(243, 241, 236, 0.9);
-  font: 700 0.7rem/1 var(--mono);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.node-patch-explorer-toolbar-group > :last-child {
-  border-right: 0;
-}
-
-.node-patch-explorer-nav-button {
-  min-width: 32px;
-  color: rgba(127, 199, 217, 0.95);
-  font-size: 0.92rem;
-  font-weight: 800;
-}
-
-.node-patch-explorer-nav-button:hover,
-.node-patch-explorer-nav-button:focus-visible,
-.node-patch-explorer-action-button:hover,
-.node-patch-explorer-action-button:focus-visible {
-  outline: none;
-  background: rgba(127, 199, 217, 0.14);
-  color: var(--text);
-}
-
-.node-patch-explorer-action-button.confirming-default {
-  background: rgba(226, 168, 109, 0.18);
-  color: rgba(243, 214, 168, 0.98);
-  font-size: 0.62rem;
-}
-
-/* Name / Category / Tags — label left, field right, one row each. */
-.node-patch-explorer-meta {
-  display: grid;
-  gap: 0;
-  flex: 0 0 auto;
-  min-width: 0;
-  border-bottom: 1px solid rgba(127, 199, 217, 0.12);
-  background: rgba(3, 6, 8, 0.55);
-}
-
-.node-patch-explorer-field {
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
-  align-items: stretch;
-  min-width: 0;
-  min-height: 26px;
-  border-bottom: 1px solid rgba(127, 199, 217, 0.08);
-}
-
-.node-patch-explorer-field:last-child {
-  border-bottom: 0;
-}
-
-.node-patch-explorer-field > span {
-  display: grid;
-  align-items: center;
-  padding: 0 8px;
-  color: rgba(127, 199, 217, 0.78);
-  font: 700 0.64rem/1 var(--mono);
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  background: rgba(8, 12, 15, 0.72);
-  border-right: 1px solid rgba(127, 199, 217, 0.1);
-  user-select: none;
-}
-
-/* Factory / User library paths — compact fixed-height rows (do not grow with window). */
-.node-patch-explorer-paths {
-  --node-patch-path-height: 22px;
-  display: grid;
-  grid-template-rows: var(--node-patch-path-height) var(--node-patch-path-height);
-  gap: 0;
-  flex: 0 0 auto;
-  align-self: start;
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  height: calc(var(--node-patch-path-height) * 2);
-  max-height: calc(var(--node-patch-path-height) * 2);
-  overflow: hidden;
-  border-bottom: 1px solid rgba(127, 199, 217, 0.12);
-  background: rgba(3, 6, 8, 0.45);
-}
-
-.node-patch-explorer-path-row {
-  display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
-  align-items: stretch;
-  box-sizing: border-box;
-  height: var(--node-patch-path-height);
-  min-height: var(--node-patch-path-height);
-  max-height: var(--node-patch-path-height);
-  overflow: hidden;
-  border-bottom: 1px solid rgba(127, 199, 217, 0.08);
-}
-
-.node-patch-explorer-path-row:last-child {
-  border-bottom: 0;
-}
-
-.node-patch-explorer-path-label {
-  display: grid;
-  align-items: center;
-  padding: 0 6px;
-  overflow: hidden;
-  color: rgba(127, 199, 217, 0.78);
-  font: 700 0.6rem/1 var(--mono);
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  background: rgba(8, 12, 15, 0.72);
-  border-right: 1px solid rgba(127, 199, 217, 0.1);
-  user-select: none;
-}
-
-.node-patch-explorer-path-loader {
-  display: grid;
-  grid-template-columns: var(--node-patch-path-height) minmax(0, 1fr);
-  align-items: stretch;
-  min-width: 0;
-  height: var(--node-patch-path-height);
-  max-height: var(--node-patch-path-height);
-  overflow: hidden;
-}
-
-.node-patch-explorer-path-button {
-  display: grid;
-  place-items: center;
-  box-sizing: border-box;
-  width: var(--node-patch-path-height);
-  min-width: var(--node-patch-path-height);
-  max-width: var(--node-patch-path-height);
-  height: var(--node-patch-path-height);
-  min-height: var(--node-patch-path-height);
-  max-height: var(--node-patch-path-height);
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: rgba(255, 255, 255, 0.05);
-  font-size: 0.72rem;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.node-patch-explorer-path-button:hover,
-.node-patch-explorer-path-button:focus-visible {
-  outline: none;
-  background: rgba(127, 199, 217, 0.12);
-}
-
-.node-patch-explorer-path-input {
-  box-sizing: border-box;
-  min-width: 0;
-  width: 100%;
-  height: var(--node-patch-path-height);
-  min-height: var(--node-patch-path-height);
-  max-height: var(--node-patch-path-height);
-  margin: 0;
-  padding: 0 6px;
-  border: 0;
-  border-radius: 0;
-  background: rgba(2, 5, 8, 0.82);
-  color: var(--text);
-  font: 0.64rem/1 var(--mono);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.node-patch-explorer-path-input::placeholder {
-  color: rgba(160, 167, 176, 0.42);
-}
-
-.node-patch-explorer-path-input:focus {
-  outline: none;
-  background: rgba(12, 18, 22, 0.92);
-  box-shadow: inset 0 0 0 1px rgba(127, 199, 217, 0.36);
 }
 
 .node-patch-clipboard-controls {
@@ -3206,19 +2967,25 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   -webkit-user-select: text;
 }
 
+/* Patch page (book) — same icon tile as Modules / Modular view. */
 #nodeSettingsViewButton {
-  flex: 0.7 1 0;
-  font-size: clamp(1.25rem, calc(var(--node-toolbar-row-height) * 0.54), 1.9rem);
+  display: grid;
+  place-items: center;
+  flex: 0.9 1 0;
+  padding: 3px;
   line-height: 1;
 }
 
 /*
- * Save / Load Patch / UI Settings — stacked two-line labels that fill the
- * toolbar cell height (same idea as Render Sample: equal rows, big type).
- * Order in HTML: Save → Load → UI Settings.
+ * Toolbar two-line stack labels (Save/Load/Copy/Paste Patch, UI Settings).
+ * Equal rows, big type — same contract as Render Sample stack cells.
+ * Prefer .node-toolbar-stack-label over growing ID lists.
  */
+.node-view-tabs > .node-toolbar-stack-label,
 #nodeSettingsSaveScriptButton,
 #loadNodeGraphScriptButton,
+#nodeToolbarCopyPatchButton,
+#nodeToolbarPastePatchButton,
 #nodeUserUiSettingsButton {
   flex: 1.35 1 0;
   min-inline-size: 0;
@@ -3237,8 +3004,11 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   overflow: hidden;
 }
 
+.node-view-tabs > .node-toolbar-stack-label > span,
 #nodeSettingsSaveScriptButton > span,
 #loadNodeGraphScriptButton > span,
+#nodeToolbarCopyPatchButton > span,
+#nodeToolbarPastePatchButton > span,
 #nodeUserUiSettingsButton > span {
   display: grid;
   align-items: center;
@@ -3268,12 +3038,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   letter-spacing: 0.03em;
 }
 
-#nodeSavedPatchesWindowButton {
-  flex: 1.05 1 0;
-  flex-direction: column;
-  gap: 2px;
-  min-inline-size: 0;
-}
 
 /* Room dimmer: fill the gap between Speed Limit strip and Download.
    z-index above the full-UI veil (z:50) so the control stays interactive
@@ -3426,7 +3190,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 #nodeModularOnlyViewButton,
 #nodeModuleShopButton,
-#nodeSavedPatchesWindowButton {
+#nodeSettingsViewButton {
   display: grid;
   place-items: center;
   padding: 3px;
@@ -3493,15 +3257,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   #nodeSceneContextMenu,
   #nodeModuleActionsWindow,
   #nodeModuleShopView,
-  #nodeSavedPatchesWindow,
   #nodeVisibilityMenu,
   #nodeParameterMetadataPopover,
   #nodeUiDevHelper,
   #nodeUserUiSettingsPanel,
   #nodeGlobalScopeMenu,
   .node-module-shop-section,
-  .node-demo-patch-list,
-  .node-saved-patch-window-list,
   .node-module-actions-window-body,
   .node-trace-display-settings-grid,
   .node-visibility-menu-list,
@@ -7363,42 +7124,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   min-width: 0;
 }
 
-.node-saved-patches-window {
-  --node-saved-patches-row-height: 24px;
-  position: fixed;
-  z-index: 78;
-  display: grid;
-  /* heading · toolbar · meta · paths (fixed) · list (fills) */
-  grid-template-rows: auto auto auto max-content minmax(0, 1fr);
-  gap: 0;
-  width: clamp(
-    var(--node-saved-patches-min-width, 280px),
-    var(--node-saved-patches-width, 380px),
-    min(var(--node-saved-patches-max-width, 720px), calc(100vw - 20px))
-  );
-  height: clamp(
-    var(--node-saved-patches-min-height, 280px),
-    var(--node-saved-patches-height, 620px),
-    min(var(--node-saved-patches-max-height, 760px), calc(100vh - 20px))
-  );
-  min-width: var(--node-saved-patches-min-width, 280px);
-  min-height: var(--node-saved-patches-min-height, 280px);
-  max-width: min(var(--node-saved-patches-max-width, 720px), calc(100vw - 20px));
-  max-height: min(var(--node-saved-patches-max-height, 760px), calc(100vh - 20px));
-  overflow: hidden;
-  padding: 0;
-  border: 1px solid rgba(127, 199, 217, 0.22);
-  border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgba(18, 22, 26, 0.98), rgba(6, 9, 11, 0.98)),
-    rgba(8, 11, 14, 0.98);
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.32);
-  font-family: var(--mono);
-}
 
-.node-saved-patches-window[hidden] {
-  display: none;
-}
+/* SE grip always on top of the patch list (same contract as other inspectors). */
+
 
 /*
  * Single window / page title chrome.
@@ -7544,7 +7272,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 
-
 .scene-context-heading > .panel-close-button {
   grid-column: 3;
   z-index: 3;
@@ -7640,507 +7367,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   pointer-events: auto;
 }
 
-.node-saved-patches-clipboard-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  min-height: 24px;
-  border-bottom: 1px solid rgba(127, 199, 217, 0.12);
-  background: rgba(5, 9, 11, 0.64);
-}
-
-.node-saved-patches-clipboard-row button {
-  min-width: 0;
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  border-right: 1px solid rgba(127, 199, 217, 0.12);
-  border-radius: 0;
-  background: rgba(13, 18, 21, 0.86);
-  color: rgba(243, 241, 236, 0.92);
-  font: 700 0.68rem/1 var(--mono);
-}
-
-.node-saved-patches-clipboard-row button:last-child {
-  border-right: 0;
-}
-
-.node-saved-patches-clipboard-row button:hover,
-.node-saved-patches-clipboard-row button:focus-visible {
-  background: rgba(28, 39, 44, 0.96);
-  color: var(--accent);
-}
-
-.node-saved-patches-header-tools {
-  display: grid;
-  grid-template-columns: 72px minmax(66px, auto);
-  align-items: stretch;
-  gap: 0;
-  block-size: var(--node-saved-patches-row-height);
-  min-block-size: var(--node-saved-patches-row-height);
-}
-
-.node-saved-patches-step-controls {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-self: stretch;
-  min-width: 0;
-}
-
-.node-saved-patches-step-controls button {
-  min-width: 0;
-  min-height: 0;
-  padding: 0;
-  border: 1px solid rgba(127, 199, 217, 0.2);
-  border-radius: 0;
-  background: rgba(17, 20, 24, 0.72);
-  color: rgba(127, 199, 217, 0.92);
-  font: 800 0.95rem/1 var(--mono);
-}
-
-.node-saved-patches-step-controls button:first-child {
-  border-radius: 0;
-}
-
-.node-saved-patches-step-controls button:last-child {
-  border-left: 0;
-  border-radius: 0;
-}
-
-.node-saved-patches-step-controls button + button {
-  border-left-width: 0;
-}
-
-.node-saved-patches-step-controls button:hover,
-.node-saved-patches-step-controls button:focus-visible {
-  background: rgba(127, 199, 217, 0.16);
-  color: var(--text);
-}
-
-.node-saved-patches-actions {
-  display: grid;
-  grid-template-columns: minmax(98px, 1fr) repeat(2, minmax(76px, 0.7fr));
-  align-items: stretch;
-  gap: 0;
-  block-size: var(--node-saved-patches-row-height);
-  min-block-size: var(--node-saved-patches-row-height);
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid rgba(127, 199, 217, 0.18);
-  border-radius: 0;
-  background: rgba(10, 14, 17, 0.72);
-}
-
-.node-saved-patches-actions button {
-  min-width: 0;
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  border-left: 1px solid rgba(127, 199, 217, 0.16);
-  border-radius: 0;
-  background: rgba(14, 18, 22, 0.78);
-  color: rgba(243, 241, 236, 0.88);
-  font-size: 0.66rem;
-  font-weight: 750;
-  line-height: 1;
-  overflow: hidden;
-  text-overflow: clip;
-  white-space: nowrap;
-}
-
-.node-saved-patches-actions button:hover,
-.node-saved-patches-actions button:focus-visible {
-  border-color: rgba(127, 199, 217, 0.48);
-  background: rgba(127, 199, 217, 0.14);
-  color: var(--text);
-}
-
-.node-saved-patches-slot-editor {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
-  gap: 0;
-  min-width: 0;
-  border: 1px solid rgba(127, 199, 217, 0.16);
-  border-radius: 0;
-  background: rgba(10, 14, 17, 0.72);
-}
-
-.node-saved-patches-slot-editor label {
-  display: grid;
-  grid-template-rows: 1fr 1fr;
-  min-width: 0;
-  min-height: 0;
-  border-left: 1px solid rgba(127, 199, 217, 0.12);
-}
-
-.node-saved-patches-slot-editor label:first-child {
-  border-left: 0;
-}
-
-.node-saved-patches-slot-editor span {
-  min-width: 0;
-  padding: 0 4px;
-  color: rgba(127, 199, 217, 0.86);
-  font: 700 0.56rem/1.3 var(--mono);
-  overflow: hidden;
-  text-overflow: clip;
-  white-space: nowrap;
-}
-
-.node-saved-patches-slot-editor input {
-  min-width: 0;
-  padding: 0 4px;
-  border: 0;
-  background: rgba(4, 8, 10, 0.54);
-  color: var(--text);
-  font: 0.68rem/1 var(--mono);
-}
-
-.node-saved-patches-bank-control {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 4.5ch;
-  align-items: center;
-  gap: 0;
-  block-size: 100%;
-  min-height: 0;
-  padding: 0;
-  border: 1px solid rgba(127, 199, 217, 0.14);
-  border-radius: 0;
-  background: rgba(17, 20, 24, 0.62);
-}
-
-.node-saved-patches-actions .node-saved-patches-bank-control {
-  border: 0;
-  border-radius: 0;
-  background: rgba(17, 20, 24, 0.68);
-}
-
-.node-saved-patches-bank-control span {
-  color: rgba(127, 199, 217, 0.86);
-  font-size: 0.66rem;
-}
-
-.node-saved-patches-bank-control input {
-  width: 3.5ch;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--text);
-  font: 0.76rem/1 var(--mono);
-  text-align: center;
-}
-
-.node-saved-patches-tag-filter {
-  display: grid;
-  gap: 0;
-  min-width: 0;
-}
-
-.node-saved-patches-tag-filter label {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 0;
-  block-size: var(--node-saved-patches-row-height);
-  min-block-size: var(--node-saved-patches-row-height);
-  min-width: 0;
-  padding: 0;
-  border: 1px solid rgba(127, 199, 217, 0.12);
-  border-radius: 0;
-  background: rgba(17, 20, 24, 0.52);
-}
-
-.node-saved-patches-tag-filter label span {
-  color: rgba(127, 199, 217, 0.86);
-  font-size: 0.66rem;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.node-saved-patches-tag-filter input {
-  min-width: 0;
-  border: 0;
-  background: transparent;
-  color: var(--text);
-  font: 0.78rem/1.1 var(--mono);
-}
-
-.node-saved-patches-tag-filter input:focus {
-  outline: none;
-}
-
-.node-saved-patches-tag-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0;
-  min-height: 0;
-}
-
-.node-saved-patches-command-row {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 0;
-  block-size: var(--node-saved-patches-row-height);
-  min-block-size: var(--node-saved-patches-row-height);
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid rgba(127, 199, 217, 0.18);
-  border-radius: 0;
-  background: rgba(10, 14, 17, 0.72);
-}
-
-.node-saved-patches-command-row button {
-  display: grid;
-  place-items: center;
-  min-width: 0;
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: rgba(14, 18, 22, 0.78);
-  color: rgba(243, 241, 236, 0.88);
-  font-size: 0.66rem;
-  font-weight: 750;
-  line-height: 1;
-  overflow: hidden;
-  text-overflow: clip;
-  white-space: nowrap;
-}
-
-.node-saved-patches-command-row button + button {
-  border-left: 1px solid rgba(127, 199, 217, 0.16);
-}
-
-.node-saved-patches-command-row button:hover,
-.node-saved-patches-command-row button:focus-visible {
-  border-color: rgba(127, 199, 217, 0.48);
-  background: rgba(127, 199, 217, 0.14);
-  color: var(--text);
-}
-
-.node-saved-patches-command-row button.confirming-default {
-  font-size: 0.72rem;
-  text-overflow: clip;
-}
-
-.node-saved-patches-tag-chip {
-  min-height: 0;
-  padding: 0;
-  border-color: rgba(226, 168, 109, 0.24);
-  border-radius: 0;
-  background: rgba(226, 168, 109, 0.12);
-  color: rgba(243, 241, 236, 0.86);
-  font: 0.68rem/1 var(--mono);
-}
-
-.node-demo-patch-list {
-  container-type: inline-size;
-  position: relative;
-  z-index: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  grid-auto-rows: auto;
-  align-content: start;
-  gap: 0;
-  min-height: 0;
-  max-height: none;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 0 0 20px;
-  background: rgba(2, 4, 6, 0.35);
-}
-
-.node-saved-patch-window-list {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.node-demo-patch-row {
-  box-sizing: border-box;
-  display: grid;
-  grid-template-columns: minmax(7ch, 0.34fr) minmax(0, 1fr);
-  align-items: center;
-  gap: 0;
-  width: 100%;
-  height: auto;
-  aspect-ratio: auto;
-  min-width: 0;
-  min-height: 34px;
-  overflow: hidden;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-bottom-width: 0;
-  border-radius: 0;
-  background: rgba(17, 21, 24, 0.78);
-  color: var(--text);
-  text-align: left;
-}
-
-.node-saved-patch-bank-row,
-.node-saved-patch-bank-back {
-  box-sizing: border-box;
-  display: grid;
-  align-items: center;
-  width: 100%;
-  min-height: 34px;
-  min-width: 0;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-bottom-width: 0;
-  border-radius: 0;
-  background: rgba(17, 21, 24, 0.78);
-  color: var(--text);
-}
-
-.node-saved-patch-bank-row {
-  grid-template-columns: minmax(0, 1fr) 4ch;
-  text-align: left;
-}
-
-.node-saved-patch-bank-row:last-child,
-.node-saved-patch-bank-back:last-child {
-  border-bottom-width: 1px;
-}
-
-.node-saved-patch-bank-row:hover,
-.node-saved-patch-bank-back:hover {
-  border-color: rgba(127, 199, 217, 0.45);
-  background: rgba(32, 47, 52, 0.82);
-}
-
-.node-saved-patch-bank-row strong {
-  min-width: 0;
-  padding: 0 8px;
-  overflow: hidden;
-  color: rgba(127, 199, 217, 0.95);
-  font-size: 0.84rem;
-  font-weight: 900;
-  line-height: 1;
-  text-overflow: clip;
-  white-space: nowrap;
-}
-
-.node-saved-patch-bank-row span {
-  align-self: stretch;
-  display: grid;
-  align-items: center;
-  justify-items: center;
-  border-left: 1px solid rgba(127, 199, 217, 0.14);
-  color: rgba(226, 168, 109, 0.95);
-  font-size: 0.74rem;
-  font-weight: 900;
-  line-height: 1;
-}
-
-.node-saved-patch-bank-back {
-  justify-items: center;
-  text-align: center;
-}
-
-.node-demo-patch-status {
-  grid-column: 1 / -1;
-  aspect-ratio: auto;
-  min-height: 42px;
-  align-items: center;
-}
-
-.node-demo-patch-row:last-child {
-  border-bottom-width: 1px;
-}
-
-.node-demo-patch-row:not(button) {
-  color: var(--muted);
-}
-
-.node-demo-patch-row.error {
-  color: #ff9a9a;
-}
-
-.node-demo-patch-row button,
-.node-demo-patch-row strong,
-.node-demo-patch-bank,
-.node-demo-patch-row small {
-  min-width: 0;
-}
-
-.node-demo-patch-row:hover {
-  border-color: rgba(127, 199, 217, 0.45);
-  background: rgba(32, 47, 52, 0.82);
-}
-
-.node-demo-patch-row.active {
-  border-color: rgba(127, 199, 217, 0.74);
-  background:
-    linear-gradient(180deg, rgba(127, 199, 217, 0.14), rgba(18, 26, 29, 0.78));
-}
-
-.node-demo-patch-row.selected:not(.active) {
-  border-color: rgba(226, 168, 109, 0.7);
-  background:
-    linear-gradient(180deg, rgba(226, 168, 109, 0.16), rgba(18, 26, 29, 0.78));
-}
-
-.node-demo-patch-row.selected.active {
-  border-color: rgba(226, 168, 109, 0.82);
-  background:
-    linear-gradient(180deg, rgba(226, 168, 109, 0.18), rgba(127, 199, 217, 0.1) 42%, rgba(18, 26, 29, 0.78));
-  box-shadow: none;
-}
-
-.node-demo-patch-row.empty {
-  color: rgba(180, 191, 194, 0.48);
-  background: rgba(9, 13, 15, 0.54);
-}
-
-.node-demo-patch-bank {
-  align-self: stretch;
-  display: grid;
-  align-items: center;
-  min-height: 0;
-  padding: 0 6px;
-  border-right: 1px solid rgba(127, 199, 217, 0.14);
-  color: rgba(127, 199, 217, 0.9);
-  font-size: 0.7rem;
-  font-weight: 900;
-  line-height: 1;
-  overflow: hidden;
-  text-overflow: clip;
-  white-space: nowrap;
-}
-
-.node-demo-patch-row strong,
-.node-demo-patch-row small {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: clip;
-}
-
-.node-demo-patch-row strong {
-  align-self: center;
-  justify-self: stretch;
-  display: -webkit-box;
-  padding: 0 8px;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  font-size: 0.84rem;
-  line-height: 1.05;
-  overflow-wrap: anywhere;
-}
-
-.node-demo-patch-row small {
-  color: var(--muted);
-  font-size: 0.72rem;
-  white-space: nowrap;
-}
 
 @media (max-width: 780px) {
   .node-preset-controls {
     grid-template-columns: 1fr 1fr;
   }
 
-  .node-saved-patches-actions {
-    flex-wrap: wrap;
-  }
 }
 
 .node-settings-view {
@@ -8149,15 +7381,240 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-settings-knob-text-ratio: 1;
   --node-settings-knob-top-ratio: 0.62;
   --node-settings-knob-extra-padding: 2px;
-  margin-top: 16px;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #111418;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background:
+    linear-gradient(180deg, rgba(14, 18, 22, 0.98), rgba(8, 10, 13, 0.99));
 }
 
 .node-settings-view[hidden] {
-  display: none;
+  display: none !important;
+}
+
+/* ── Full Patch page (former cogwheel settings) ─────────────────────────── */
+.node-patch-page-topbar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(127, 199, 217, 0.16);
+  background: rgba(6, 9, 12, 0.92);
+}
+
+.node-patch-page-back {
+  width: 2.4rem;
+  min-width: 2.4rem;
+  height: 2.4rem;
+  min-height: 2.4rem;
+  padding: 0;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.node-patch-page-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.node-patch-page-kicker {
+  color: rgba(127, 199, 217, 0.78);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.node-patch-page-title {
+  color: rgba(243, 241, 236, 0.92);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.node-patch-page-top-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.node-patch-page-top-actions button {
+  min-height: 2rem;
+  padding: 0 10px;
+  border: 1px solid rgba(127, 199, 217, 0.22);
+  border-radius: 4px;
+  background: rgba(16, 22, 26, 0.92);
+  color: rgba(230, 240, 236, 0.88);
+  font-size: 0.78rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.node-patch-page-top-actions button:hover,
+.node-patch-page-top-actions button:focus-visible {
+  border-color: rgba(180, 230, 220, 0.45);
+  background: rgba(24, 34, 40, 0.96);
+}
+
+.node-patch-page-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 16px 28px;
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  max-width: 920px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.node-patch-card {
+  box-sizing: border-box;
+  padding: 14px 16px 16px;
+  border: 1px solid rgba(127, 199, 217, 0.16);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(18, 24, 28, 0.96), rgba(10, 13, 16, 0.98));
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+}
+
+.node-patch-card-muted {
+  background: rgba(10, 12, 15, 0.72);
+  box-shadow: none;
+}
+
+.node-patch-card-title {
+  margin: 0 0 10px;
+  color: rgba(127, 199, 217, 0.9);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.node-patch-card-hint {
+  margin: -4px 0 12px;
+  color: rgba(180, 200, 196, 0.62);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.node-patch-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 14px;
+}
+
+.node-patch-card-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 420px;
+}
+
+.node-patch-field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  color: rgba(200, 220, 216, 0.72);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.node-patch-field > span {
+  line-height: 1.1;
+}
+
+.node-patch-field-span-2 {
+  grid-column: 1 / -1;
+}
+
+.node-patch-field input,
+.node-patch-field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(127, 199, 217, 0.2);
+  border-radius: 6px;
+  background: rgba(4, 7, 10, 0.88);
+  color: rgba(243, 241, 236, 0.94);
+  font: 650 0.9rem/1.3 var(--mono, Consolas, "Courier New", monospace);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.node-patch-field textarea {
+  min-height: 5.5rem;
+  resize: vertical;
+}
+
+.node-patch-field input:focus,
+.node-patch-field textarea:focus {
+  outline: none;
+  border-color: rgba(127, 199, 217, 0.55);
+  box-shadow: 0 0 0 2px rgba(127, 199, 217, 0.12);
+}
+
+.node-patch-page-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.node-patch-page-links button,
+.node-patch-page-links a {
+  min-height: 2rem;
+  padding: 0 10px;
+  border: 1px solid rgba(127, 199, 217, 0.16);
+  border-radius: 4px;
+  background: rgba(14, 18, 22, 0.9);
+  color: rgba(210, 224, 220, 0.82);
+  font-size: 0.78rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.node-patch-page-links button[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.node-patch-page-links a:hover {
+  border-color: rgba(180, 230, 220, 0.4);
+  color: #fff;
+}
+
+/* Floating browser: name + description only */
+
+@media (max-width: 640px) {
+  .node-patch-page-topbar {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .node-patch-page-top-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+  .node-patch-card-grid {
+    grid-template-columns: 1fr;
+  }
+  .node-patch-field-span-2 {
+    grid-column: auto;
+  }
 }
 
 /* Always fixed: must never participate in #nodeWiringPanel flow layout
@@ -12127,7 +11584,6 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 
-
 .node-module-shop-body {
   box-sizing: border-box;
   display: grid;
@@ -12381,7 +11837,6 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   color: var(--text);
   font: 700 0.62rem/1 var(--node-mono-font);
 }
-
 
 
 /* Step Grid's CSS lives in public/modules/stepGrid/step-grid.css now,
@@ -19103,17 +18558,19 @@ body.node-slider-dragging .node-param-port {
   grid-template-rows: minmax(0, 1fr);
   align-items: stretch;
   gap: 0;
-  border-right: none; /* remove divider between MIDI and Render Sample */
+  border-right: none;
   min-width: 0;
-  padding-right: 10px;
+  /* Flush to transport (no gap after MIDI Off). */
+  padding-right: 0;
 }
 
 .node-transport-group {
   display: inline-flex;
   align-items: stretch;
   flex: 0 0 auto;
-  gap: 2px;
-  padding-right: 10px;
+  /* Square transport tiles butt together; no gap before Render Sample. */
+  gap: 0;
+  padding-right: 0;
 }
 
 /* Command Center copy: full-width row under the window control buttons. */
@@ -19206,31 +18663,37 @@ body.node-slider-dragging .node-param-port {
   clip-path: inset(50%);
 }
 
-/* Square buttons sized from an explicit length rather than
-   `aspect-ratio: 1/1; height: 100%`. Under the old rule the group's
-   intrinsic (shrink-to-fit) width was measured from the glyphs, because the
-   100% height is indefinite at intrinsic-sizing time; the buttons then grew
-   to the stretched row height at layout and spilled out of that too-narrow
-   box, so Render Sample -- laid out against the box, not the spill -- sat on
-   top of the Record/Next buttons. */
-.node-transport-group button {
+/*
+ * Bottom-bar transport tiles: square (width = row height).
+ * Scoped to .node-graph-controls so Command Center transport stays flex-row.
+ * Fixed length (not aspect-ratio + height:100%) so shrink-to-fit width matches
+ * the laid-out height and Render Sample does not overlap the group.
+ */
+.node-graph-controls .node-transport-group button {
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 2.4rem;
-  min-width: 2.4rem;
+  width: var(--node-public-control-height, 2.8rem);
+  min-width: var(--node-public-control-height, 2.8rem);
+  max-width: var(--node-public-control-height, 2.8rem);
   height: 100%;
+  min-height: 0;
   padding: 0;
   border: 1px solid var(--line);
-  border-radius: 3px;
+  border-radius: 0;
   background: rgba(17, 20, 24, 0.62);
   color: var(--muted);
   font-size: 0.75rem;
   line-height: 1;
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Shared edges: avoid double-thick seams between adjacent squares. */
+.node-graph-controls .node-transport-group button + button {
+  border-left-width: 0;
 }
 
 .node-transport-group button:hover {

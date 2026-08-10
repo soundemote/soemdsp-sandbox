@@ -831,13 +831,13 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   nextPatch: {
     category: "gametrigger",
-    description: "Patch command receiver. A trigger edge loads the next saved patch through the main UI patch explorer path.",
+    description: "Patch command receiver. A trigger edge loads the next saved patch from the library.",
     label: "Next Patch",
     notes: ["patch navigation", "trigger input", "music player"],
   },
   previousPatch: {
     category: "gametrigger",
-    description: "Patch command receiver. A trigger edge loads the previous saved patch through the main UI patch explorer path.",
+    description: "Patch command receiver. A trigger edge loads the previous saved patch from the library.",
     label: "Previous Patch",
     notes: ["patch navigation", "trigger input", "music player"],
   },

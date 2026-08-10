@@ -13,21 +13,26 @@ function nodeGraphPatchFileName() {
 
 function nodeGraphPatchWithLiveHeaderInfo(patch = nodeGraphMvp.patch) {
   const nextPatch = cloneNodeGraphPatch(patch);
-  const headerBankName = document.getElementById("nodePatchBankNameHeader");
-  const headerName = document.getElementById("nodePatchNameHeader");
-  const headerTags = document.getElementById("nodePatchTagsHeader");
-  const explorerName = document.getElementById("nodeSavedPatchesPatchNameInput");
-  const explorerTags = document.getElementById("nodeSavedPatchesPatchTagsInput");
-  const explorerBankName = document.getElementById("nodeSavedPatchesBankNameInput");
-  const bank = normalizeNodeGraphSavedPatchBankIndex(nodeGraphMvp.savedPatchBankIndex);
-  const program = normalizeNodeGraphSavedPatchProgramIndex(nodeGraphMvp.selectedSavedPatchProgram);
+  const pageName = document.getElementById("patchNameValue");
+  const pageDescription = document.getElementById("patchDescriptionValue");
+  const bank = normalizeNodeGraphSavedPatchBankIndex(
+    document.getElementById("patchBankValue")?.value ?? nodeGraphMvp.savedPatchBankIndex,
+  );
+  const program = normalizeNodeGraphSavedPatchProgramIndex(
+    document.getElementById("patchProgramValue")?.value ?? nodeGraphMvp.selectedSavedPatchProgram,
+  );
+  const bankName = document.getElementById("patchBankNameValue")?.value
+    ?? nodeGraphMvp.savedPatchBankName
+    ?? nextPatch.info?.bankName;
   nextPatch.info = normalizeNodeGraphPatchInfo({
     ...nextPatch.info,
     bank,
-    bankName: explorerBankName ? explorerBankName.value : headerBankName ? headerBankName.value : nodeGraphMvp.savedPatchBankName,
-    name: explorerName ? explorerName.value : headerName ? headerName.value : nextPatch.info?.name,
+    bankName,
+    description: pageDescription ? pageDescription.value : nextPatch.info?.description,
+    name: pageName ? pageName.value : nextPatch.info?.name,
     program,
-    tags: explorerTags ? explorerTags.value : headerTags ? headerTags.value : nextPatch.info?.tags,
+    tags: document.getElementById("patchTagsValue")?.value ?? nextPatch.info?.tags,
+    author: document.getElementById("patchAuthorValue")?.value ?? nextPatch.info?.author,
   });
   return nextPatch;
 }
@@ -35,58 +40,12 @@ function nodeGraphPatchWithLiveHeaderInfo(patch = nodeGraphMvp.patch) {
 const nodeGraphPatchPresetStorageKey = "soemdsp-sandbox.patchPresets.v1";
 const nodeGraphSavedPatchBankSlotCount = 128;
 const nodeGraphSavedPatchBankMaxProgram = nodeGraphSavedPatchBankSlotCount - 1;
-const nodeGraphSavedPatchesWindowDefaultSize = Object.freeze({
-  width: 380,
-  height: 620,
-  minWidth: 280,
-  maxWidth: 720,
-  minHeight: 280,
-  maxHeight: 760,
-});
-
 function nodeGraphSavedPatchDisplayName(filename) {
   return String(filename || "")
     .replace(/\.json$/i, "")
     .replace(/^\d{8}-\d{6}-\d{3}-/, "")
     .replace(/[-_]+/g, " ")
     .trim();
-}
-
-function normalizeNodeGraphSavedPatchesWindowSize(size = {}) {
-  if (typeof normalizeNodeGraphFloatingWindowSize === "function") {
-    return normalizeNodeGraphFloatingWindowSize(size, nodeGraphSavedPatchesWindowDefaultSize);
-  }
-  const source = size && typeof size === "object" ? size : {};
-  return {
-    width: Math.max(
-      nodeGraphSavedPatchesWindowDefaultSize.minWidth,
-      Math.min(
-        nodeGraphSavedPatchesWindowDefaultSize.maxWidth,
-        Math.round(Number(source.width) || nodeGraphSavedPatchesWindowDefaultSize.width),
-      ),
-    ),
-    height: Math.max(
-      nodeGraphSavedPatchesWindowDefaultSize.minHeight,
-      Math.min(
-        nodeGraphSavedPatchesWindowDefaultSize.maxHeight,
-        Math.round(Number(source.height) || nodeGraphSavedPatchesWindowDefaultSize.height),
-      ),
-    ),
-  };
-}
-
-function applyNodeGraphSavedPatchesWindowSize(size = {}) {
-  const panel = document.getElementById("nodeSavedPatchesWindow");
-  const normalized = normalizeNodeGraphSavedPatchesWindowSize(size);
-  if (panel) {
-    if (typeof applyNodeGraphFloatingWindowSizeVars === "function") {
-      applyNodeGraphFloatingWindowSizeVars(panel, "node-saved-patches", nodeGraphSavedPatchesWindowDefaultSize, normalized);
-    } else {
-      panel.style.setProperty("--node-saved-patches-width", `${normalized.width}px`);
-      panel.style.setProperty("--node-saved-patches-height", `${normalized.height}px`);
-    }
-  }
-  return normalized;
 }
 
 function setNodeGraphCurrentSavedPatch(filename = "") {
@@ -98,9 +57,7 @@ function setNodeGraphCurrentSavedPatch(filename = "") {
       nodeGraphMvp.selectedSavedPatchProgram = normalizeNodeGraphSavedPatchProgramIndex(entry.program);
     }
   }
-  syncNodeGraphSelectedSavedPatchEditor();
   syncNodeGraphCurrentSavedPatchHeader();
-  syncNodeGraphSavedPatchRowSelection();
   if (nodeGraphMvp.workingPatch && typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
     saveNodeGraphWorkingPatchToUserSettings();
   }
@@ -112,8 +69,6 @@ function selectNodeGraphSavedPatch(filename = "", program = null) {
   if (program !== null) {
     nodeGraphMvp.selectedSavedPatchProgram = normalizeNodeGraphSavedPatchProgramIndex(program);
   }
-  syncNodeGraphSelectedSavedPatchEditor();
-  syncNodeGraphSavedPatchRowSelection();
   const slot = String(nodeGraphMvp.selectedSavedPatchProgram).padStart(3, "0");
   setNodeGraphScriptStatus(safeFilename ? `patch slot ${slot} selected: ${safeFilename}` : `empty patch slot ${slot} selected`, true);
 }
@@ -263,23 +218,6 @@ function syncNodeGraphCurrentSavedPatchHeader() {
   button.dataset.patchDirtyState = dirtyState;
 }
 
-function syncNodeGraphSavedPatchRowSelection() {
-  const activeFilename = nodeGraphMvp.currentSavedPatchFilename || "";
-  const selectedFilename = nodeGraphMvp.selectedSavedPatchFilename || activeFilename;
-  const selectedProgram = normalizeNodeGraphSavedPatchProgramIndex(nodeGraphMvp.selectedSavedPatchProgram);
-  for (const row of document.querySelectorAll("[data-patch-filename]")) {
-    const active = Boolean(activeFilename && row.dataset.patchFilename === activeFilename);
-    const program = normalizeNodeGraphSavedPatchProgramIndex(row.dataset.patchProgram);
-    const selected = selectedFilename
-      ? row.dataset.patchFilename === selectedFilename
-      : program === selectedProgram;
-    row.classList.toggle("active", active);
-    row.classList.toggle("selected", selected);
-    row.setAttribute("aria-current", active ? "true" : "false");
-    row.setAttribute("aria-selected", selected ? "true" : "false");
-  }
-}
-
 function normalizeNodeGraphSavedPatchTag(tag) {
   return String(tag || "")
     .trim()
@@ -361,40 +299,6 @@ function nodeGraphSavedPatchBankGroups(patches = []) {
   return [...groups.values()].sort((a, b) => a.bank - b.bank);
 }
 
-function setNodeGraphSavedPatchExplorerView(view = "banks") {
-  nodeGraphMvp.savedPatchExplorerView = view === "patches" ? "patches" : "banks";
-  if (typeof saveNodeGraphWorkspaceWindowStatesToUserSettings === "function") {
-    saveNodeGraphWorkspaceWindowStatesToUserSettings({ status: false });
-  }
-}
-
-function openNodeGraphSavedPatchBank(bank) {
-  nodeGraphMvp.savedPatchBankIndex = normalizeNodeGraphSavedPatchBankIndex(bank);
-  setNodeGraphSavedPatchExplorerView("patches");
-  renderNodeGraphDemoPatchRows(nodeGraphMvp.savedPatchEntries);
-}
-
-function showNodeGraphSavedPatchBanks() {
-  setNodeGraphSavedPatchExplorerView("banks");
-  renderNodeGraphDemoPatchRows(nodeGraphMvp.savedPatchEntries);
-}
-
-function nodeGraphSavedPatchMatchesTagFilters(patch = {}) {
-  const filters = Array.isArray(nodeGraphMvp.savedPatchTagFilters)
-    ? nodeGraphMvp.savedPatchTagFilters
-    : [];
-  if (!filters.length) {
-    return true;
-  }
-  const patchTags = nodeGraphSavedPatchTagSet(patch);
-  return filters.every((tag) => patchTags.has(tag));
-}
-
-function filteredNodeGraphSavedPatchEntries(patches = nodeGraphMvp.savedPatchEntries) {
-  const safePatches = Array.isArray(patches) ? patches : [];
-  return safePatches.filter(nodeGraphSavedPatchMatchesTagFilters);
-}
-
 function nodeGraphSavedPatchEntryByFilename(filename) {
   const safeFilename = String(filename || "");
   return (Array.isArray(nodeGraphMvp.savedPatchEntries) ? nodeGraphMvp.savedPatchEntries : [])
@@ -403,89 +307,6 @@ function nodeGraphSavedPatchEntryByFilename(filename) {
     name: nodeGraphSavedPatchDisplayName(safeFilename) || safeFilename,
     tags: "",
   };
-}
-
-function syncNodeGraphSavedPatchTagChips() {
-  const chips = document.getElementById("nodeSavedPatchesTagChips");
-  const input = document.getElementById("nodeSavedPatchesTagInput");
-  if (!chips) {
-    return;
-  }
-  chips.replaceChildren();
-  const filters = Array.isArray(nodeGraphMvp.savedPatchTagFilters)
-    ? nodeGraphMvp.savedPatchTagFilters
-    : [];
-  for (const tag of filters) {
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "node-saved-patches-tag-chip";
-    chip.dataset.patchTagFilter = tag;
-    chip.textContent = `#${tag} x`;
-    chip.setAttribute("aria-label", `Remove tag filter ${tag}`);
-    chip.addEventListener("click", () => removeNodeGraphSavedPatchTagFilter(tag));
-    chips.append(chip);
-  }
-  if (input && filters.length) {
-    input.placeholder = "search another tag";
-  } else if (input) {
-    input.placeholder = "search tag";
-  }
-}
-
-function addNodeGraphSavedPatchTagFilter(tag) {
-  const normalized = normalizeNodeGraphSavedPatchTag(tag);
-  if (!normalized) {
-    return;
-  }
-  const filters = Array.isArray(nodeGraphMvp.savedPatchTagFilters)
-    ? nodeGraphMvp.savedPatchTagFilters
-    : [];
-  if (!filters.includes(normalized)) {
-    nodeGraphMvp.savedPatchTagFilters = [...filters, normalized];
-  }
-  syncNodeGraphSavedPatchTagChips();
-  renderNodeGraphDemoPatchRows(filteredNodeGraphSavedPatchEntries());
-}
-
-function removeNodeGraphSavedPatchTagFilter(tag) {
-  const normalized = normalizeNodeGraphSavedPatchTag(tag);
-  nodeGraphMvp.savedPatchTagFilters = (nodeGraphMvp.savedPatchTagFilters || [])
-    .filter((candidate) => candidate !== normalized);
-  syncNodeGraphSavedPatchTagChips();
-  renderNodeGraphDemoPatchRows(filteredNodeGraphSavedPatchEntries());
-}
-
-function clearNodeGraphSavedPatchTagFilters() {
-  nodeGraphMvp.savedPatchTagFilters = [];
-  const input = document.getElementById("nodeSavedPatchesTagInput");
-  if (input) {
-    input.value = "";
-  }
-  syncNodeGraphSavedPatchTagChips();
-}
-
-function handleNodeGraphSavedPatchTagInput(event) {
-  const input = event.currentTarget;
-  const value = String(input?.value || "");
-  if (event.type === "input" && !/[,#\s]$/.test(value)) {
-    return;
-  }
-  if (event.type === "keydown" && event.key !== "Enter") {
-    return;
-  }
-  if (event.type === "keydown") {
-    event.preventDefault();
-  }
-  const tags = value
-    .split(/[,\s#]+/g)
-    .map(normalizeNodeGraphSavedPatchTag)
-    .filter(Boolean);
-  for (const tag of tags) {
-    addNodeGraphSavedPatchTagFilter(tag);
-  }
-  if (input) {
-    input.value = "";
-  }
 }
 
 function normalizeNodeGraphSavedPatchBankIndex(value) {
@@ -502,153 +323,11 @@ function nodeGraphSelectedSavedPatchEntry() {
   return nodeGraphSavedPatchEntryAtProgram(nodeGraphMvp.selectedSavedPatchProgram);
 }
 
-function syncNodeGraphSelectedSavedPatchEditor() {
-  const bankNameInput = document.getElementById("nodeSavedPatchesBankNameInput");
-  const headerBankNameInput = document.getElementById("nodePatchBankNameHeader");
-  const nameInput = document.getElementById("nodeSavedPatchesPatchNameInput");
-  const headerNameInput = document.getElementById("nodePatchNameHeader");
-  const tagsInput = document.getElementById("nodeSavedPatchesPatchTagsInput");
-  const headerTagsInput = document.getElementById("nodePatchTagsHeader");
-  const entry = nodeGraphSelectedSavedPatchEntry();
-  const patchInfo = normalizeNodeGraphPatchInfo(nodeGraphMvp.patch.info);
-  const bankName = nodeGraphMvp.savedPatchBankName || entry?.bankName || patchInfo.bankName || "";
-  const name = entry?.name || patchInfo.name || "";
-  const tags = entry?.tags || patchInfo.tags || "";
-  nodeGraphMvp.savedPatchBankName = bankName;
-  if (bankNameInput && document.activeElement !== bankNameInput) {
-    bankNameInput.value = bankName;
-  }
-  if (headerBankNameInput && document.activeElement !== headerBankNameInput) {
-    headerBankNameInput.value = bankName;
-  }
-  if (nameInput && document.activeElement !== nameInput) {
-    nameInput.value = name;
-  }
-  if (headerNameInput && document.activeElement !== headerNameInput) {
-    headerNameInput.value = name;
-  }
-  if (tagsInput && document.activeElement !== tagsInput) {
-    tagsInput.value = tags;
-  }
-  if (headerTagsInput && document.activeElement !== headerTagsInput) {
-    headerTagsInput.value = tags;
-  }
-  if (typeof syncNodeGraphPatchLibraryPathFields === "function") {
-    syncNodeGraphPatchLibraryPathFields();
-  }
-}
-
-function nodeGraphPatchLibraryPathDefaults() {
-  return {
-    factory: String(nodeGraphMvp.savedPatchFactoryPath || "").trim(),
-    user: String(nodeGraphMvp.savedPatchUserPath || "").trim(),
-  };
-}
-
-function syncNodeGraphPatchLibraryPathFields() {
-  const paths = nodeGraphPatchLibraryPathDefaults();
-  for (const kind of ["factory", "user"]) {
-    const input = document.querySelector(`[data-patch-library-path="${kind}"]`);
-    if (input && document.activeElement !== input) {
-      input.value = paths[kind] || "";
-    }
-  }
-}
-
-function handleNodeGraphPatchLibraryPathInput(event) {
-  const kind = String(event.currentTarget?.dataset?.patchLibraryPath || "").trim();
-  const value = String(event.currentTarget?.value || "").trim();
-  if (kind === "factory") {
-    nodeGraphMvp.savedPatchFactoryPath = value;
-  } else if (kind === "user") {
-    nodeGraphMvp.savedPatchUserPath = value;
-  } else {
-    return;
-  }
-  if (typeof saveNodeGraphWorkspaceWindowStatesToUserSettings === "function") {
-    saveNodeGraphWorkspaceWindowStatesToUserSettings({ status: false });
-  } else if (typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
-    saveNodeGraphWorkingPatchToUserSettings({ immediateFile: false });
-  }
-}
-
-function handleNodeGraphPatchLibraryPathButtonClick(event) {
-  const kind = event.currentTarget?.id === "nodePatchFactoryPathButton" ? "factory" : "user";
-  const input = document.querySelector(`[data-patch-library-path="${kind}"]`);
-  if (!input) {
-    return;
-  }
-  // Exposed for setup: focus + select so the user can type/paste a path.
-  // Folder pickers can land here later without changing the chrome.
-  input.focus();
-  try {
-    input.select();
-  } catch (_) { /* ignore */ }
-  if (typeof setNodeInteractionHelp === "function") {
-    setNodeInteractionHelp(
-      kind === "factory"
-        ? "Type or paste the factory patches folder path."
-        : "Type or paste the user patches folder path.",
-    );
-  }
-}
-
-function syncNodeGraphSavedPatchBankControls(patches = null) {
-  const input = document.getElementById("nodeSavedPatchesBankInput");
-  const status = document.getElementById("nodeSavedPatchesBankStatus");
-  const bank = normalizeNodeGraphSavedPatchBankIndex(nodeGraphMvp.savedPatchBankIndex);
-  nodeGraphMvp.savedPatchBankIndex = bank;
-  if (input) {
-    input.value = String(bank);
-  }
-  if (status && Array.isArray(patches)) {
-    const savedCount = Math.min(nodeGraphSavedPatchBankSlotCount, patches.filter((patch) => patch?.filename).length);
-    status.textContent = `${savedCount}/${nodeGraphSavedPatchBankSlotCount} patches`;
-    status.title = `Bank ${bank}: programs 0-${nodeGraphSavedPatchBankMaxProgram}`;
-  }
-  syncNodeGraphSelectedSavedPatchEditor();
-}
-
-function handleNodeGraphSavedPatchBankInput(event) {
-  nodeGraphMvp.savedPatchBankIndex = normalizeNodeGraphSavedPatchBankIndex(event.currentTarget?.value);
-  syncNodeGraphSavedPatchBankControls();
-  renderNodeGraphDemoPatchList();
-  if (typeof saveNodeGraphWorkspaceWindowStatesToUserSettings === "function") {
-    saveNodeGraphWorkspaceWindowStatesToUserSettings({ status: false });
-  }
-}
-
 function handleNodeGraphSavedPatchBankNameInput(event) {
   nodeGraphMvp.savedPatchBankName = nodeGraphOneLineText(event.currentTarget?.value);
   if (typeof saveNodeGraphWorkspaceWindowStatesToUserSettings === "function") {
     saveNodeGraphWorkspaceWindowStatesToUserSettings({ status: false });
   }
-}
-
-function handleNodeGraphSavedPatchInfoInput(event) {
-  const field = event.currentTarget?.dataset?.patchInfoField;
-  if (!["name", "tags"].includes(field)) {
-    return;
-  }
-  const value = nodeGraphOneLineText(event.currentTarget?.value);
-  const header = document.getElementById(field === "name" ? "nodePatchNameHeader" : "nodePatchTagsHeader");
-  if (header && document.activeElement !== header) {
-    header.value = value;
-  }
-  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-  patch.info = normalizeNodeGraphPatchInfo({
-    ...patch.info,
-    bank: normalizeNodeGraphSavedPatchBankIndex(nodeGraphMvp.savedPatchBankIndex),
-    bankName: nodeGraphMvp.savedPatchBankName,
-    program: normalizeNodeGraphSavedPatchProgramIndex(nodeGraphMvp.selectedSavedPatchProgram),
-    [field]: value,
-  });
-  commitNodeGraphPatch(patch, {
-    markPending: false,
-    record: false,
-    status: "patch metadata synced",
-  });
-  syncNodeGraphCurrentSavedPatchHeader();
 }
 
 function nodeGraphPatchPresetDefaultName() {
@@ -1062,15 +741,18 @@ function saveNodeGraphScriptEditor() {
 }
 
 async function copyNodeGraphScriptToClipboard() {
-  const script = document.getElementById("nodePatchScript");
-  const text = script?.value || serializeNodeGraphPatch();
+  if (typeof nodeGraphScriptReadyForGraphAction === "function"
+    && !nodeGraphScriptReadyForGraphAction("copy")) {
+    return;
+  }
+  const text = typeof serializeNodeGraphPatch === "function"
+    ? serializeNodeGraphPatch()
+    : JSON.stringify(nodeGraphMvp?.patch || {}, null, 2);
   try {
     await navigator.clipboard.writeText(text);
-    setNodeGraphScriptStatus("script copied", true);
+    setNodeGraphScriptStatus("patch copied", true);
   } catch {
-    script?.focus();
-    script?.select();
-    setNodeGraphScriptStatus("copy blocked: select text manually", false);
+    setNodeGraphScriptStatus("copy blocked: clipboard permission denied", false);
   }
 }
 
@@ -1102,15 +784,17 @@ function nodeGraphDownloadTextFile(filename, text, type = "application/json") {
 }
 
 async function pasteNodeGraphScriptFromClipboard() {
-  const script = document.getElementById("nodePatchScript");
   try {
     const text = await navigator.clipboard.readText();
-    if (script) {
-      script.value = text;
+    if (!text || !String(text).trim()) {
+      setNodeGraphScriptStatus("paste empty: clipboard has no text", false);
+      return;
     }
-    commitNodeGraphScript(text);
+    if (typeof commitNodeGraphScript === "function") {
+      commitNodeGraphScript(text);
+    }
   } catch {
-    setNodeGraphScriptStatus("paste blocked: use keyboard paste", false);
+    setNodeGraphScriptStatus("paste blocked: clipboard permission denied", false);
   }
 }
 
@@ -1211,84 +895,9 @@ async function handleNodeGraphSavedPatchBankFileLoad(event) {
   }
 }
 
-function renderNodeGraphDemoPatchRows(patches = [], listId = "nodeSavedPatchWindowList") {
-  const list = document.getElementById(listId);
-  if (!list) {
-    return;
-  }
-  list.replaceChildren();
-  const safePatches = Array.isArray(patches)
-    ? patches.filter((patch) => patch?.filename)
-    : [];
-  syncNodeGraphSavedPatchGridColumns(safePatches.length);
-  syncNodeGraphSavedPatchBankControls(safePatches);
-  if (!safePatches.length) {
-    syncNodeGraphSavedPatchRowSelection();
-    syncNodeGraphSelectedSavedPatchEditor();
-    return;
-  }
-  if (nodeGraphMvp.savedPatchExplorerView !== "patches") {
-    for (const group of nodeGraphSavedPatchBankGroups(safePatches)) {
-      const row = document.createElement("button");
-      row.className = "node-saved-patch-bank-row";
-      row.type = "button";
-      row.dataset.patchBank = String(group.bank);
-      row.addEventListener("click", () => openNodeGraphSavedPatchBank(group.bank));
-      const name = document.createElement("strong");
-      name.textContent = group.label || `Bank ${group.bank}`;
-      const count = document.createElement("span");
-      count.textContent = String(group.count);
-      row.append(name, count);
-      list.append(row);
-    }
-    syncNodeGraphSavedPatchRowSelection();
-    syncNodeGraphSelectedSavedPatchEditor();
-    return;
-  }
-  const bank = normalizeNodeGraphSavedPatchBankIndex(nodeGraphMvp.savedPatchBankIndex);
-  const back = document.createElement("button");
-  back.className = "node-saved-patch-bank-back";
-  back.type = "button";
-  back.textContent = "Back";
-  back.addEventListener("click", showNodeGraphSavedPatchBanks);
-  list.append(back);
-  const bankPatches = safePatches.filter((patch) => nodeGraphSavedPatchBankIndex(patch) === bank);
-  bankPatches.forEach((patch, index) => {
-    const program = normalizeNodeGraphSavedPatchProgramIndex(patch.program ?? index);
-    const row = document.createElement("button");
-    row.className = "node-demo-patch-row";
-    row.type = "button";
-    row.dataset.patchFilename = patch.filename || "";
-    row.dataset.patchProgram = String(program);
-    row.classList.toggle("active", patch.filename === nodeGraphMvp.currentSavedPatchFilename);
-    row.classList.toggle("selected", patch.filename === nodeGraphMvp.selectedSavedPatchFilename);
-    row.setAttribute("aria-current", patch.filename === nodeGraphMvp.currentSavedPatchFilename ? "true" : "false");
-    row.setAttribute("aria-selected", patch.filename === nodeGraphMvp.selectedSavedPatchFilename ? "true" : "false");
-    row.addEventListener("click", () => selectNodeGraphSavedPatch(patch.filename, program));
-    row.addEventListener("dblclick", () => {
-      selectNodeGraphSavedPatch(patch.filename, program);
-      loadNodeGraphDemoPatch(patch.filename);
-    });
-    const bank = document.createElement("span");
-    bank.className = "node-demo-patch-bank";
-    bank.textContent = nodeGraphSavedPatchBankLabel(patch);
-    const name = document.createElement("strong");
-    name.textContent = patch.name || nodeGraphSavedPatchDisplayName(patch.filename) || "Patch";
-    row.append(bank, name);
-    list.append(row);
-  });
-  syncNodeGraphSavedPatchRowSelection();
-  syncNodeGraphSelectedSavedPatchEditor();
-}
-
 function normalizeNodeGraphSavedPatchGridColumns(value) {
   const columns = Math.round(Number(value));
   return Number.isFinite(columns) ? Math.max(1, Math.min(16, columns)) : 3;
-}
-
-function syncNodeGraphSavedPatchGridColumns() {
-  const requestedColumns = normalizeNodeGraphSavedPatchGridColumns(nodeGraphMvp.savedPatchGridColumns);
-  nodeGraphMvp.savedPatchGridColumns = requestedColumns;
 }
 
 async function loadNodeGraphDemoPatchEntries() {
@@ -1300,29 +909,14 @@ async function loadNodeGraphDemoPatchEntries() {
   return result.patches || [];
 }
 
-async function renderNodeGraphDemoPatchList(listId = "nodeSavedPatchWindowList") {
-  const list = document.getElementById(listId);
-  if (!list) {
-    return [];
-  }
-  list.replaceChildren();
-  const loading = document.createElement("div");
-  loading.className = "node-demo-patch-row node-demo-patch-status";
-  loading.textContent = "Loading patch explorer...";
-  list.append(loading);
-  syncNodeGraphSavedPatchGridColumns();
-  syncNodeGraphSavedPatchTagChips();
+/** Refresh in-memory saved-patch index (no UI — explorer removed). */
+async function renderNodeGraphDemoPatchList() {
   try {
     nodeGraphMvp.savedPatchEntries = await loadNodeGraphDemoPatchEntries();
-    renderNodeGraphDemoPatchRows(nodeGraphMvp.savedPatchEntries, listId);
     return nodeGraphMvp.savedPatchEntries;
   } catch (error) {
-    list.replaceChildren();
-    const row = document.createElement("div");
-    row.className = "node-demo-patch-row node-demo-patch-status error";
-    row.textContent = `Patch list unavailable: ${error?.message || error}`;
-    list.append(row);
-    syncNodeGraphSavedPatchGridColumns();
+    nodeGraphMvp.savedPatchEntries = [];
+    setNodeGraphScriptStatus(`patch list unavailable: ${error?.message || error}`, false);
     return [];
   }
 }
@@ -1393,172 +987,6 @@ async function loadAdjacentNodeGraphSavedPatch(direction) {
   const startIndex = currentIndex >= 0 ? currentIndex : (step > 0 ? -1 : 0);
   const nextIndex = (startIndex + step + entries.length) % entries.length;
   await loadNodeGraphDemoPatch(entries[nextIndex].filename);
-}
-
-function positionNodeGraphSavedPatchesWindowNearButton() {
-  const panel = document.getElementById("nodeSavedPatchesWindow");
-  if (!panel) {
-    return;
-  }
-  const anchor =
-    document.getElementById("nodeSceneOpenSavedPatches") ||
-    document.getElementById("nodePatchSaveButton");
-  const rect = anchor?.getBoundingClientRect?.() || {
-    left: nodeGraphMvp.sceneContextPoint?.x ?? window.innerWidth * 0.5,
-    bottom: nodeGraphMvp.sceneContextPoint?.y ?? window.innerHeight * 0.25,
-  };
-  panel.hidden = false;
-  const { left, top } = nodeGraphFloatingWindowPosition(panel, rect.left, rect.bottom + 8);
-  positionNodeGraphSavedPatchesWindow(left, top);
-}
-
-function positionNodeGraphSavedPatchesWindow(x, y) {
-  const panel = document.getElementById("nodeSavedPatchesWindow");
-  if (!panel) {
-    return;
-  }
-  const { left, top } = nodeGraphFloatingWindowPosition(panel, x, y);
-  panel.style.position = "fixed";
-  if (typeof setNodeGraphFloatingWindowViewportPosition === "function") {
-    setNodeGraphFloatingWindowViewportPosition(panel, left, top);
-  } else {
-    panel.style.left = `${left}px`;
-    panel.style.top = `${top}px`;
-    panel.style.right = "auto";
-  }
-  if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
-    rememberNodeGraphWorkspaceWindowState(
-      "patchExplorer",
-      panel,
-      { open: !panel.hidden, position: { left, top } },
-      { persist: false },
-    );
-  }
-}
-
-function nodeGraphSavedPatchesWindowSizeFromElement(panel = document.getElementById("nodeSavedPatchesWindow")) {
-  const rect = panel?.getBoundingClientRect?.();
-  return normalizeNodeGraphSavedPatchesWindowSize({
-    width: rect?.width,
-    height: rect?.height,
-  });
-}
-
-function saveNodeGraphSavedPatchesWindowSizeToUserSettings() {
-  const panel = document.getElementById("nodeSavedPatchesWindow");
-  if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
-    rememberNodeGraphWorkspaceWindowState(
-      "patchExplorer",
-      panel,
-      { open: !panel?.hidden, size: nodeGraphSavedPatchesWindowSizeFromElement(panel) },
-      { status: false },
-    );
-  }
-}
-
-function beginNodeGraphSavedPatchesWindowResize(event) {
-  const panel = document.getElementById("nodeSavedPatchesWindow");
-  beginNodeGraphFloatingWindowResize(event, panel, "savedPatchesWindowResizing");
-}
-
-function dragNodeGraphSavedPatchesWindowResize(event) {
-  dragNodeGraphFloatingWindowResize(event, "savedPatchesWindowResizing", applyNodeGraphSavedPatchesWindowSize);
-}
-
-function endNodeGraphSavedPatchesWindowResize(event) {
-  endNodeGraphFloatingWindowResize(event, "savedPatchesWindowResizing", saveNodeGraphSavedPatchesWindowSizeToUserSettings);
-}
-
-function beginNodeGraphSavedPatchesWindowDrag(event) {
-  const panel = document.getElementById("nodeSavedPatchesWindow");
-  if (!panel || panel.hidden) {
-    return;
-  }
-  const heading = document.getElementById("nodeSavedPatchesWindowHeading");
-  const drag = beginNodeGraphFloatingWindowDrag(event, panel, "savedPatchesWindowDragging");
-  if (drag) {
-    drag.heading = heading;
-    heading?.classList.add("dragging");
-  }
-}
-
-function dragNodeGraphSavedPatchesWindow(event) {
-  dragNodeGraphFloatingWindow(
-    event,
-    "savedPatchesWindowDragging",
-    document.getElementById("nodeSavedPatchesWindow"),
-    (next) => {
-      if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
-        rememberNodeGraphWorkspaceWindowState(
-          "patchExplorer",
-          document.getElementById("nodeSavedPatchesWindow"),
-          { open: true, position: next },
-          { persist: false },
-        );
-      }
-    },
-  );
-}
-
-function endNodeGraphSavedPatchesWindowDrag(event) {
-  const drag = nodeGraphMvp.savedPatchesWindowDragging;
-  endNodeGraphFloatingWindowDrag(event, "savedPatchesWindowDragging", () => {
-    drag?.heading?.classList.remove("dragging");
-    if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
-      rememberNodeGraphWorkspaceWindowState(
-        "patchExplorer",
-        document.getElementById("nodeSavedPatchesWindow"),
-        { open: true },
-        { status: false },
-      );
-    }
-  });
-}
-
-function setNodeGraphSavedPatchesWindowVisible(visible) {
-  const panel = document.getElementById("nodeSavedPatchesWindow");
-  const button = document.getElementById("nodeSavedPatchesWindowButton");
-  if (!panel) {
-    return;
-  }
-  if (visible && !panel.hidden) {
-    pulseNodeGraphFloatingWindowAttention(panel);
-    return;
-  }
-  panel.hidden = !visible;
-  button?.classList.toggle("active", visible);
-  button?.setAttribute("aria-pressed", String(visible));
-  if (visible) {
-    applyNodeGraphSavedPatchesWindowSize(nodeGraphMvp.workspaceWindowStates?.patchExplorer?.size);
-    const pending = nodeGraphMvp._unifiedWindowPendingPosition;
-    if (pending && Number.isFinite(Number(pending.left)) && Number.isFinite(Number(pending.top))) {
-      if (typeof setNodeGraphFloatingWindowViewportPosition === "function") {
-        setNodeGraphFloatingWindowViewportPosition(panel, pending.left, pending.top);
-      } else {
-        panel.style.left = `${Math.round(pending.left)}px`;
-        panel.style.top = `${Math.round(pending.top)}px`;
-      }
-    } else {
-      openNodeGraphFloatingWindowAtPosition("patchExplorer", panel, () => {
-        positionNodeGraphSavedPatchesWindowNearButton();
-      });
-    }
-    syncNodeGraphSavedPatchGridColumns();
-    syncNodeGraphSelectedSavedPatchEditor();
-    syncNodeGraphPatchLibraryPathFields();
-    renderNodeGraphDemoPatchList();
-    if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
-      noteNodeGraphUnifiedWindowOpened("patchExplorer", panel);
-    }
-  }
-  if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
-    rememberNodeGraphWorkspaceWindowState("patchExplorer", panel, { open: visible }, { status: false });
-  }
-}
-
-function toggleNodeGraphSavedPatchesWindow() {
-  const panel = document.getElementById("nodeSavedPatchesWindow");
-  setNodeGraphSavedPatchesWindowVisible(Boolean(panel?.hidden));
 }
 
 async function updateDefaultNodeGraphPreset() {

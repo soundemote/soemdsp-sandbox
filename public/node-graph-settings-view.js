@@ -7,106 +7,118 @@ function renderNodeGraphVisualSettings() {
   const uiBackground = document.getElementById("nodeUiDevWorkspaceBackgroundColor")?.value;
   workspace.style.setProperty(
     "--node-workspace-bg",
-    uiBackground ? normalizeNodeUiDevColor(uiBackground, nodeGraphWorkspaceBackgroundCss(visual.background)) : nodeGraphWorkspaceBackgroundCss(visual.background),
+    uiBackground
+      ? normalizeNodeUiDevColor(uiBackground, nodeGraphWorkspaceBackgroundCss(visual.background))
+      : nodeGraphWorkspaceBackgroundCss(visual.background),
   );
 }
 
 function syncNodeGraphSettingsView() {
   const info = normalizeNodeGraphPatchInfo(nodeGraphMvp.patch.info);
-  setNodeGraphSettingsField("nodePatchNameHeader", info.name);
-  setNodeGraphSettingsField("nodePatchTagsHeader", info.tags);
   if (typeof syncNodeGraphCurrentSavedPatchHeader === "function") {
     syncNodeGraphCurrentSavedPatchHeader();
   }
   setNodeGraphSettingsField("patchNameValue", info.name);
+  setNodeGraphSettingsField("patchBankValue", info.bank);
+  setNodeGraphSettingsField("patchProgramValue", info.program);
+  setNodeGraphSettingsField("patchBankNameValue", info.bankName);
   setNodeGraphSettingsField("patchAuthorValue", info.author);
   setNodeGraphSettingsField("patchTagsValue", info.tags);
   setNodeGraphSettingsField("patchDescriptionValue", info.description);
-  const audio = nodeGraphAudioDerivation(nodeGraphMvp.patch);
-  setNodeGraphSettingsField("patchCurrentSampleRateValue", nodeGraphFormatSampleRate(audio.currentSampleRate));
-  setNodeGraphSettingsField("patchOversamplingValue", nodeGraphOversamplingPresetForRatio(audio.oversamplingRatio));
-  setNodeGraphSettingsField("patchTargetSampleRateValue", audio.targetSampleRate);
-  setNodeGraphSettingsField("patchResultingSampleRateValue", nodeGraphFormatSampleRate(audio.resultingSampleRate));
-  setNodeGraphSettingsField("patchResultingOversamplingValue", nodeGraphFormatOversamplingRatio(audio.oversamplingRatio));
-  setNodeGraphSettingsField("patchOutputSampleRateValue", nodeGraphFormatSampleRate(audio.outputSampleRate));
-  const pitchReference = normalizeNodeGraphPatchAudio(nodeGraphMvp.patch.audio);
-  setNodeGraphSettingsField("patchPitchReferenceMidiNoteValue", pitchReference.pitchReferenceMidiNote);
-  setNodeGraphSettingsField("patchPitchReferenceHzValue", pitchReference.pitchReferenceHz);
-  setNodeGraphSettingsField("patchSpeedLimitHzValue", pitchReference.speedLimitHz);
-  const grid = normalizeNodeGraphPatchGrid(nodeGraphMvp.patch.grid);
-  setNodeGraphSettingsField("patchGridWidthPxValue", grid.widthPx);
-  setNodeGraphSettingsField("patchGridHeightPxValue", grid.heightPx);
-  setNodeGraphSettingsField("nodeScriptGridWidthPxValue", grid.widthPx);
-  setNodeGraphSettingsField("nodeScriptGridHeightPxValue", grid.heightPx);
-  const visual = normalizeNodeGraphPatchVisual(nodeGraphMvp.patch.visual);
-  setNodeGraphSettingsField("patchWorkspaceHueValue", visual.background.h);
-  setNodeGraphSettingsField("patchWorkspaceSaturationValue", visual.background.s);
-  setNodeGraphSettingsField("patchWorkspaceLightnessValue", visual.background.l);
-  setNodeGraphSettingsField("patchVisualModeValue", visual.mode);
-  setNodeGraphSettingsField("patchVisualScaleValue", visual.scale);
-  setNodeGraphSettingsField("patchVisualStyleValue", visual.style);
-  setNodeGraphSettingsField("patchVisualThemeValue", visual.theme);
-  setNodeGraphSettingsField("patchVisualTrailValue", visual.trail);
+  // Grid unit px is edited in UIDEV.
+  if (typeof syncNodeUiDevPatchGridFields === "function") {
+    syncNodeUiDevPatchGridFields();
+  }
 }
 
 function readNodeGraphSettingsView() {
   return normalizeNodeGraphPatchInfo({
     author: document.getElementById("patchAuthorValue")?.value,
+    bank: document.getElementById("patchBankValue")?.value,
+    bankName: document.getElementById("patchBankNameValue")?.value,
     description: document.getElementById("patchDescriptionValue")?.value,
     name: document.getElementById("patchNameValue")?.value,
+    program: document.getElementById("patchProgramValue")?.value,
     tags: document.getElementById("patchTagsValue")?.value,
   });
 }
 
+/** Visual chrome is not edited on the patch page (UIDEV + patch.visual defaults). */
 function readNodeGraphVisualSettingsView() {
-  return normalizeNodeGraphPatchVisual({
-    background: {
-      h: nodeGraphSyncedFieldValue(["patchWorkspaceHueValue"]),
-      s: nodeGraphSyncedFieldValue(["patchWorkspaceSaturationValue"]),
-      l: nodeGraphSyncedFieldValue(["patchWorkspaceLightnessValue"]),
-    },
-    mode: document.getElementById("patchVisualModeValue")?.value,
-    scale: document.getElementById("patchVisualScaleValue")?.value,
-    style: document.getElementById("patchVisualStyleValue")?.value,
-    theme: document.getElementById("patchVisualThemeValue")?.value,
-    trail: document.getElementById("patchVisualTrailValue")?.value,
-  });
+  return normalizeNodeGraphPatchVisual(nodeGraphMvp?.patch?.visual);
 }
 
+/** Audio sample-rate UI removed; keep patch.audio intact. */
 function readNodeGraphAudioSettingsView() {
-  const pitchReferenceMidiNote = document.getElementById("patchPitchReferenceMidiNoteValue")?.value;
-  const pitchReferenceHz = document.getElementById("patchPitchReferenceHzValue")?.value;
-  const speedLimitHz = document.getElementById("patchSpeedLimitHzValue")?.value;
-  const oversampling = document.getElementById("patchOversamplingValue")?.value;
-  if (nodeGraphOversamplingPresets.map(String).includes(oversampling)) {
-    return normalizeNodeGraphPatchAudio({
-      targetSampleRate: nodeGraphTargetSampleRateForOversampling(Number(oversampling)),
-      pitchReferenceMidiNote,
-      pitchReferenceHz,
-      speedLimitHz,
-    });
-  }
-  return normalizeNodeGraphPatchAudio({
-    targetSampleRate: document.getElementById("patchTargetSampleRateValue")?.value,
-    pitchReferenceMidiNote,
-    pitchReferenceHz,
-    speedLimitHz,
-  });
+  return normalizeNodeGraphPatchAudio(nodeGraphMvp?.patch?.audio);
 }
 
 function readNodeGraphGridSettingsView() {
-  return normalizeNodeGraphPatchGrid({
-    heightPx: nodeGraphSyncedFieldValue(["patchGridHeightPxValue", "nodeScriptGridHeightPxValue"]),
-    widthPx: nodeGraphSyncedFieldValue(["patchGridWidthPxValue", "nodeScriptGridWidthPxValue"]),
+  // Prefer UIDEV patch-grid fields; otherwise keep current patch.grid.
+  const fromUi = {
+    heightPx: nodeGraphSyncedFieldValue(["nodeUiDevPatchGridHeightPx"]),
+    widthPx: nodeGraphSyncedFieldValue(["nodeUiDevPatchGridWidthPx"]),
+  };
+  if (Number.isFinite(Number(fromUi.widthPx)) || Number.isFinite(Number(fromUi.heightPx))) {
+    return normalizeNodeGraphPatchGrid({
+      ...normalizeNodeGraphPatchGrid(nodeGraphMvp?.patch?.grid),
+      ...fromUi,
+    });
+  }
+  return normalizeNodeGraphPatchGrid(nodeGraphMvp?.patch?.grid);
+}
+
+/** Sync UIDEV grid unit fields from patch.grid (and show px outputs). */
+function syncNodeUiDevPatchGridFields() {
+  const grid = normalizeNodeGraphPatchGrid(nodeGraphMvp?.patch?.grid);
+  const w = document.getElementById("nodeUiDevPatchGridWidthPx");
+  const h = document.getElementById("nodeUiDevPatchGridHeightPx");
+  const wOut = document.getElementById("nodeUiDevPatchGridWidthPxValue");
+  const hOut = document.getElementById("nodeUiDevPatchGridHeightPxValue");
+  if (w && document.activeElement !== w) {
+    w.value = String(grid.widthPx);
+  }
+  if (h && document.activeElement !== h) {
+    h.value = String(grid.heightPx);
+  }
+  if (wOut) {
+    wOut.textContent = `${grid.widthPx}px`;
+  }
+  if (hOut) {
+    hOut.textContent = `${grid.heightPx}px`;
+  }
+}
+
+/**
+ * Apply grid unit px from UIDEV → patch.grid and refresh modular layout.
+ */
+function applyNodeUiDevPatchGridFromFields(options = {}) {
+  const widthPx = Number(document.getElementById("nodeUiDevPatchGridWidthPx")?.value);
+  const heightPx = Number(document.getElementById("nodeUiDevPatchGridHeightPx")?.value);
+  if (!Number.isFinite(widthPx) && !Number.isFinite(heightPx)) {
+    return;
+  }
+  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+  patch.grid = normalizeNodeGraphPatchGrid({
+    ...patch.grid,
+    ...(Number.isFinite(widthPx) ? { widthPx } : {}),
+    ...(Number.isFinite(heightPx) ? { heightPx } : {}),
   });
+  commitNodeGraphPatch(patch, {
+    markPending: false,
+    record: options.record === true,
+    status: "grid unit size changed",
+  });
+  syncNodeUiDevPatchGridFields();
+  if (typeof applyNodeGraphWorkspaceView === "function") {
+    applyNodeGraphWorkspaceView();
+  }
 }
 
 function handleNodeGraphSettingsInput(event) {
-  if (event?.currentTarget?.hasAttribute?.("data-patch-info-field") && typeof setNodeGraphCurrentSavedPatch === "function") {
+  if (event?.currentTarget?.hasAttribute?.("data-patch-info-field")
+    && typeof setNodeGraphCurrentSavedPatch === "function") {
     setNodeGraphCurrentSavedPatch("");
-  }
-  if (event?.currentTarget?.id === "patchTargetSampleRateValue") {
-    setNodeGraphSettingsField("patchOversamplingValue", "custom");
   }
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   patch.audio = readNodeGraphAudioSettingsView();
@@ -116,33 +128,16 @@ function handleNodeGraphSettingsInput(event) {
   commitNodeGraphPatch(patch, {
     markPending: false,
     record: false,
-    status: "settings synced",
+    status: "patch settings synced",
   });
-  drawNodeRenderedVisualOutput();
+  if (typeof drawNodeRenderedVisualOutput === "function") {
+    drawNodeRenderedVisualOutput();
+  }
 }
 
 function commitNodeGraphSettingsHistory() {
   recordNodeGraphHistory();
-  const scriptStatus = nodeGraphPatchScriptStatus("settings saved", true);
+  const scriptStatus = nodeGraphPatchScriptStatus("patch settings saved", true);
   syncNodeGraphScriptView(scriptStatus.message, scriptStatus.ok);
 }
 
-function handleNodeGraphHeaderInfoInput(event) {
-  const field = event.currentTarget?.dataset?.patchHeaderInfoField;
-  if (!["name", "tags"].includes(field)) {
-    return;
-  }
-  if (typeof setNodeGraphCurrentSavedPatch === "function") {
-    setNodeGraphCurrentSavedPatch("");
-  }
-  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-  patch.info = normalizeNodeGraphPatchInfo({
-    ...patch.info,
-    [field]: event.currentTarget.value,
-  });
-  commitNodeGraphPatch(patch, {
-    markPending: false,
-    record: false,
-    status: "settings synced",
-  });
-}

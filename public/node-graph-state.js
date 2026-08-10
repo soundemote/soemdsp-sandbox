@@ -162,7 +162,7 @@ var nodeGraphMvp = {
   sharedInspectorActive: "",
   sharedInspectorWindowState: {},
   // Unified floating window: one active page at a time (command center,
-  // modules, patch explorer, module/display/parameter settings).
+  // modules, module/display/parameter settings).
   unifiedWindowPage: "",
   unifiedWindowPosition: null,
   unifiedWindowSize: null,
@@ -334,11 +334,9 @@ var nodeGraphMvp = {
   savedPatchFactoryPath: "",
   savedPatchUserPath: "",
   savedPatchGridColumns: 3,
-  savedPatchExplorerView: "banks",
   selectedSavedPatchProgram: 0,
   savedPatchTagFilters: [],
   savedPatchEntries: [],
-  savedPatchesWindowDragging: null,
   scopeContextDragging: null,
   scopeContextTargetNode: null,
   scopeContextWindowPosition: null,

@@ -96,16 +96,7 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeCodeBoxSource", "scroll", updateNodeGraphCodeBoxWindowEditorChrome);
   bindNodeGraphSceneElementEvent("nodeSceneUndoButton", "click", undoNodeGraphPatch);
   bindNodeGraphSceneElementEvent("nodeSceneRedoButton", "click", redoNodeGraphPatch);
-  bindNodeGraphSceneElementEvent("nodeSceneOpenSavedPatches", "click", () => {
-    if (typeof openNodeGraphUnifiedWindowPage === "function") {
-      openNodeGraphUnifiedWindowPage("patchExplorer");
-      return;
-    }
-    setNodeGraphSavedPatchesWindowVisible(true);
-  });
   bindNodeGraphSceneElementEvent("nodeSceneToggleStandaloneMidiKeyboard", "click", toggleNodeGraphStandaloneMidiKeyboard);
-  bindNodeGraphSceneElementEvent("nodeSceneCopyPatch", "click", copyNodeGraphScriptToClipboard);
-  bindNodeGraphSceneElementEvent("nodeScenePastePatch", "click", pasteNodeGraphScriptFromClipboard);
   bindNodeGraphSceneElementEvent("nodeSceneOpenUiSettings", "click", () => {
     if (typeof openNodeGraphUnifiedWindowPage === "function") {
       openNodeGraphUnifiedWindowPage("uiSettings");

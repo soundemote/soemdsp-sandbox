@@ -94,6 +94,9 @@ function setNodeUiDevHelperVisible(visible) {
     if (typeof organizeNodeUiDevSections === "function") {
       organizeNodeUiDevSections();
     }
+    if (typeof syncNodeUiDevPatchGridFields === "function") {
+      syncNodeUiDevPatchGridFields();
+    }
     if (typeof bindNodeGraphFloatingWindowResizeHandle === "function") {
       bindNodeGraphFloatingWindowResizeHandle("uiDev");
     }

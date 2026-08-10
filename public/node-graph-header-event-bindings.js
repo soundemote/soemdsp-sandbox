@@ -24,7 +24,6 @@ function bindNodeGraphHeaderControlEvents() {
     ?.addEventListener("pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowResize(event, "visibilityMenu"));
   // Move/up: nodeGraphFloatingWindowRegistryPointerBridge (floating-windows.js)
   document.getElementById("nodeVisibilityMenuButton").addEventListener("click", toggleNodeGraphVisibilityMenu);
-  document.getElementById("nodeSavedPatchesWindowButton")?.addEventListener("click", toggleNodeGraphSavedPatchesWindow);
   document.getElementById("nodeStandaloneMidiKeyboardButton")?.addEventListener("click", toggleNodeGraphStandaloneMidiKeyboard);
   document.getElementById("nodeStandaloneMidiKeyboardCloseButton")?.addEventListener("click", closeNodeGraphStandaloneMidiKeyboard);
   document
@@ -230,19 +229,6 @@ function bindNodeGraphHeaderControlEvents() {
     .addEventListener("change", handleNodeGraphSceneScopeOptionInput);
   document.getElementById("nodeModuleSlidersToggleButton").addEventListener("click", toggleNodeGraphModuleSlidersVisibility);
   document.getElementById("nodeTooltipToggleButton")?.addEventListener("click", toggleNodeGraphTooltipWindow);
-  document.getElementById("nodePreviousSavedPatchButton").addEventListener("click", () => loadAdjacentNodeGraphSavedPatch(-1));
-  document.getElementById("nodeNextSavedPatchButton").addEventListener("click", () => loadAdjacentNodeGraphSavedPatch(1));
-  document.getElementById("nodePatchInitButton").addEventListener("click", confirmAndInitNodeGraphPatchFromDefault);
-  document.getElementById("nodePatchSaveButton").addEventListener("click", confirmAndSaveNodeGraphScript);
-  document.getElementById("nodePatchShareLinkButton").addEventListener("click", copyNodeGraphShareLinkToClipboard);
-  document.getElementById("nodeSavedPatchesWindowHeading")?.addEventListener("pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "patchExplorer"));
-  document.getElementById("nodeSavedPatchesDragHandle")?.addEventListener("pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "patchExplorer"));
-  document.getElementById("nodeSavedPatchesResizeHandle")?.addEventListener("pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowResize(event, "patchExplorer"));
-  document.getElementById("nodePatchEditButton").addEventListener("click", () => setNodeGraphViewMode("settings"));
-  document.getElementById("nodePatchCopyButton").addEventListener("click", copyNodeGraphScriptToClipboard);
-  document.getElementById("nodePatchPasteButton").addEventListener("click", pasteNodeGraphScriptFromClipboard);
-  // Move/up: registry pointer bridge
-  document.getElementById("nodeSavedPatchesCloseButton").addEventListener("click", () => setNodeGraphSavedPatchesWindowVisible(false));
   document
     .getElementById("nodeUserUiSettingsSaveDefault")
     .addEventListener("click", handleSaveNodeUserUiSettingsDefaultClick);
@@ -353,18 +339,19 @@ function bindNodeGraphHeaderControlEvents() {
   document
     .getElementById("nodeModularOnlyBackButton")
     .addEventListener("click", () => setNodeGraphViewMode("modular"));
-  document
-    .getElementById("nodeSettingsScriptViewButton")
-    .addEventListener("click", () => setNodeGraphViewMode("script"));
-  document.getElementById("nodePatchScript").addEventListener("input", handleNodePatchScriptInput);
-  document.getElementById("saveNodeGraphScriptEditorButton")?.addEventListener("click", saveNodeGraphScriptEditor);
-  document.getElementById("downloadNodeGraphScriptButton").addEventListener("click", saveNodeGraphScript);
-  document.getElementById("nodePatchPresetSaveButton").addEventListener("click", saveCurrentNodeGraphPatchPreset);
-  document.getElementById("nodePatchPresetLoadButton").addEventListener("click", loadSelectedNodeGraphPatchPreset);
-  document.getElementById("nodePatchPresetDeleteButton").addEventListener("click", deleteSelectedNodeGraphPatchPreset);
-  document.getElementById("nodePatchPresetSelect").addEventListener("change", handleNodeGraphPatchPresetSelectChange);
-  document.getElementById("updateDefaultPresetButton").addEventListener("click", handleUpdateDefaultNodeGraphPresetClick);
+  document.getElementById("updateDefaultPresetButton")?.addEventListener("click", handleUpdateDefaultNodeGraphPresetClick);
   document.getElementById("loadNodeGraphScriptButton").addEventListener("click", loadNodeGraphScript);
-  document.getElementById("nodeSettingsSaveScriptButton").addEventListener("click", saveNodeGraphScript);
-  renderNodeGraphPatchPresetControls();
+  // Native save dialog (File System Access API) — same as Ctrl+S.
+  document.getElementById("nodeSettingsSaveScriptButton").addEventListener("click", () => {
+    if (typeof saveNodeGraphPatchWithNativeDialog === "function") {
+      void saveNodeGraphPatchWithNativeDialog();
+      return;
+    }
+    if (typeof saveNodeGraphScript === "function") {
+      void saveNodeGraphScript();
+    }
+  });
+  // Copy / Paste patch: toolbar only (not Command Center).
+  document.getElementById("nodeToolbarCopyPatchButton")?.addEventListener("click", copyNodeGraphScriptToClipboard);
+  document.getElementById("nodeToolbarPastePatchButton")?.addEventListener("click", pasteNodeGraphScriptFromClipboard);
 }

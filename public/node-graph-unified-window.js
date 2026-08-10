@@ -32,14 +32,6 @@ const nodeGraphUnifiedWindowPages = Object.freeze({
     icon: "🎛️",
     showInNav: true,
   }),
-  patchExplorer: Object.freeze({
-    key: "patchExplorer",
-    elementId: "nodeSavedPatchesWindow",
-    workspaceKey: "patchExplorer",
-    label: "Patch Explorer",
-    icon: "📖",
-    showInNav: true,
-  }),
   moduleActions: Object.freeze({
     key: "moduleActions",
     elementId: "nodeModuleActionsWindow",
@@ -82,12 +74,11 @@ const nodeGraphUnifiedWindowPages = Object.freeze({
   }),
 });
 
-// Module / Display / Parameter settings sit right after Patch Explorer in the
-// shared header nav (Command Center floating chrome).
+// Module / Display / Parameter settings sit after Modules in the shared
+// header nav (Command Center floating chrome).
 const nodeGraphUnifiedWindowPageOrder = Object.freeze([
   "commandCenter",
   "moduleBrowser",
-  "patchExplorer",
   "moduleActions",
   "traceDisplaySettings",
   "metaparameters",
@@ -294,8 +285,6 @@ function applyNodeGraphUnifiedWindowSize(element, pageKey = "", size = null) {
     applyNodeGraphModuleShopWindowSize(box);
   } else if (key === "moduleActions" && typeof applyNodeModuleActionsWindowSize === "function") {
     applyNodeModuleActionsWindowSize(box);
-  } else if (key === "patchExplorer" && typeof applyNodeGraphSavedPatchesWindowSize === "function") {
-    applyNodeGraphSavedPatchesWindowSize(box);
   } else if (key === "visibilityMenu" && typeof applyNodeGraphVisibilityMenuSize === "function") {
     applyNodeGraphVisibilityMenuSize(box);
   } else if (key === "metaparameters" && typeof applyNodeMetadataPopoverSize === "function") {
@@ -378,11 +367,6 @@ function closeNodeGraphUnifiedWindowPage(page = "", options = {}) {
       case "moduleBrowser":
         if (typeof closeNodeGraphModuleShop === "function") {
           closeNodeGraphModuleShop();
-        }
-        break;
-      case "patchExplorer":
-        if (typeof setNodeGraphSavedPatchesWindowVisible === "function") {
-          setNodeGraphSavedPatchesWindowVisible(false);
         }
         break;
       case "moduleActions":
@@ -558,11 +542,6 @@ function openNodeGraphUnifiedWindowPage(page = "", options = {}) {
               ? { x: seat.left, y: seat.top }
               : (options.windowPoint || null),
           );
-        }
-        break;
-      case "patchExplorer":
-        if (typeof setNodeGraphSavedPatchesWindowVisible === "function") {
-          setNodeGraphSavedPatchesWindowVisible(true);
         }
         break;
       case "moduleActions":
@@ -803,13 +782,6 @@ function syncNodeGraphUnifiedWindowNavBars() {
     {
       elementId: "nodeTraceDisplaySettingsPopover",
       page: "traceDisplaySettings",
-      prepare(element) {
-        return ensureNodeGraphUnifiedWindowNavHost(element);
-      },
-    },
-    {
-      elementId: "nodeSavedPatchesWindow",
-      page: "patchExplorer",
       prepare(element) {
         return ensureNodeGraphUnifiedWindowNavHost(element);
       },

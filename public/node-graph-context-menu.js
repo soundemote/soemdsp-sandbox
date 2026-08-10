@@ -2128,7 +2128,7 @@ function openNodePhosphorWaveformContextMenu(event) {
 // Module Settings, never the Module Browser.
 const nodeGraphWorkspaceFloatingUiSelector =
   "#nodeSceneContextMenu, #nodeParameterMetadataPopover, #nodeGlobalScopeMenu, " +
-  "#nodeModuleActionsWindow, #nodeCodeBoxWindow, #nodeCanvasScriptDialog, #nodeSavedPatchesWindow, " +
+  "#nodeModuleActionsWindow, #nodeCodeBoxWindow, #nodeCanvasScriptDialog, " +
   "#nodePhosphorWaveformSettingsWindow, #nodeModuleShopView, " +
   "#nodeTraceDisplaySettingsPopover";
 // Legacy alias: includes form fields for empty-canvas / marquee checks only.

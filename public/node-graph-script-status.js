@@ -1,18 +1,18 @@
 function setNodeGraphScriptStatus(message, ok = true) {
   const status = document.getElementById("nodeScriptStatus");
-  if (!status) {
-    return;
+  if (status) {
+    status.textContent = message;
+    status.className = `pill ${ok ? "good" : "warn"}`;
   }
-  status.textContent = message;
-  status.className = `pill ${ok ? "good" : "warn"}`;
+  // View Script page removed — surface status on the interaction help strip.
+  if (typeof setNodeInteractionHelp === "function" && message) {
+    setNodeInteractionHelp(String(message));
+  }
 }
 
+/** @deprecated View Script page removed; kept as a no-op status helper. */
 function syncNodeGraphScriptView(message = "script synced", ok = true) {
-  const script = document.getElementById("nodePatchScript");
-  if (script && document.activeElement !== script) {
-    script.value = serializeNodeGraphPatch();
-    nodeGraphMvp.scriptDirty = false;
-  }
+  nodeGraphMvp.scriptDirty = false;
   setNodeGraphScriptStatus(message, ok);
 }
 
@@ -63,9 +63,10 @@ function flushNodeGraphScriptCommit() {
   if (!nodeGraphMvp.scriptCommitTimer) {
     return !nodeGraphMvp.scriptDirty;
   }
-  const script = document.getElementById("nodePatchScript");
   clearNodeGraphScriptCommitTimer();
-  return commitNodeGraphScript(script?.value || "");
+  // No live textarea editor — pending timer commits already ran or are cancelled.
+  nodeGraphMvp.scriptDirty = false;
+  return true;
 }
 
 function nodeGraphScriptReadyForGraphAction(action = "graph action") {

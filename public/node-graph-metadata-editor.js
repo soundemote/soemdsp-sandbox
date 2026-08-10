@@ -92,18 +92,27 @@ function normalizeNodeMetadataPopoverSize(size = {}) {
   };
 }
 
-function applyNodeMetadataPopoverSize(size = {}) {
-  const popover = document.getElementById("nodeParameterMetadataPopover");
+function applyNodeMetadataPopoverSize(size = {}, element = null) {
+  const popover = element || document.getElementById("nodeParameterMetadataPopover");
   const normalized = normalizeNodeMetadataPopoverSize(size);
+  const stored = {
+    width: normalized.width,
+    ...(Number.isFinite(normalized.height) ? { height: normalized.height } : {}),
+  };
   if (popover) {
     if (typeof applyNodeGraphFloatingWindowSizeVars === "function") {
       applyNodeGraphFloatingWindowSizeVars(popover, "metadata-popover", nodeMetadataPopoverDefaultSize, normalized);
     } else {
-      popover.style.setProperty("--metadata-popover-width", `${normalized.width}px`);
-      popover.style.setProperty("--metadata-popover-height", `${normalized.height}px`);
+      popover.style.setProperty("--metadata-popover-width", `${stored.width}px`);
+      if (Number.isFinite(stored.height)) {
+        popover.style.setProperty("--metadata-popover-height", `${stored.height}px`);
+      }
+    }
+    if (typeof syncNodeGraphFloatingWindowInlineBox === "function") {
+      syncNodeGraphFloatingWindowInlineBox(popover, stored);
     }
   }
-  return normalized;
+  return stored;
 }
 
 function nodeMetadataPopoverSizeFromElement(popover = document.getElementById("nodeParameterMetadataPopover")) {

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>soemdsp-sandbox</title>
-  <link rel="stylesheet" href="./public/styles.css?v=graph-settings-list-1">
+  <link rel="stylesheet" href="./public/styles.css?v=patch-page-2">
   <link rel="stylesheet" href="./public/modules/stepGrid/step-grid.css?v=stepgrid-own-folder-20260715">
   <link rel="stylesheet" href="./public/modules/pitchQuantizer/pitch-quantizer-ui.css?v=chord-pad-1">
   <link rel="stylesheet" href="./public/modules/chordPad/chord-pad-ui.css?v=chord-pad-1">
@@ -164,20 +164,38 @@
           <button
             id="nodeSettingsViewButton"
             type="button"
-            aria-label="Patch settings"
-            aria-pressed="false">&#9881;</button>
+            aria-label="Patch page"
+            aria-pressed="false"
+            title="Patch metadata, bank, and grid"><span class="node-modular-view-icon" aria-hidden="true">📖</span></button>
           <button
             id="nodeSettingsSaveScriptButton"
+            class="node-toolbar-stack-label"
             type="button"
             aria-label="Save patch"
             data-tooltip-key="script.save"><span>Save</span><span>Patch</span></button>
           <button
             id="loadNodeGraphScriptButton"
+            class="node-toolbar-stack-label"
             type="button"
             aria-label="Load patch"
             data-tooltip-key="script.load"><span>Load</span><span>Patch</span></button>
           <button
+            id="nodeToolbarCopyPatchButton"
+            class="node-toolbar-stack-label"
+            type="button"
+            aria-label="Copy patch"
+            data-tooltip-key="actions.copyPatch"
+            title="Copy patch JSON to clipboard"><span>Copy</span><span>Patch</span></button>
+          <button
+            id="nodeToolbarPastePatchButton"
+            class="node-toolbar-stack-label"
+            type="button"
+            aria-label="Paste patch"
+            data-tooltip-key="actions.pastePatch"
+            title="Paste patch JSON from clipboard"><span>Paste</span><span>Patch</span></button>
+          <button
             id="nodeUserUiSettingsButton"
+            class="node-toolbar-stack-label"
             type="button"
             aria-pressed="false"><span>UI</span><span>Settings</span></button>
           <button
@@ -189,11 +207,6 @@
             type="button"
             aria-label="Module Browser"
             aria-pressed="false"><span class="node-modular-view-icon" aria-hidden="true">🎛️</span></button>
-          <button
-            id="nodeSavedPatchesWindowButton"
-            type="button"
-            aria-label="Patch Browser"
-            aria-pressed="false"><span class="node-modular-view-icon" aria-hidden="true">📖</span></button>
           <button
             id="nodeStandaloneMidiKeyboardButton"
             type="button"
@@ -316,135 +329,6 @@
             type="button"
             aria-label="Resize visibility menu"></button>
         </div>
-        <section
-          id="nodeSavedPatchesWindow"
-          class="node-saved-patches-window"
-          aria-label="Patch explorer"
-          hidden>
-          <div id="nodeSavedPatchesWindowHeading" class="scene-context-heading">
-            <button
-              id="nodeSavedPatchesDragHandle"
-              class="scene-context-drag-handle node-drag-handle"
-              type="button"
-              aria-label="Move patch explorer">&#x2725;</button>
-            <div class="scene-context-title">
-              <span>Patch Explorer</span>
-              <small>browse · save · share</small>
-            </div>
-            <button id="nodeSavedPatchesCloseButton" class="panel-close-button" type="button" aria-label="Close patch explorer">
-              <span aria-hidden="true">&times;</span>
-            </button>
-          </div>
-
-          <div class="node-patch-explorer-toolbar" role="toolbar" aria-label="Patch navigation and actions">
-            <div class="node-patch-explorer-toolbar-group" role="group" aria-label="Navigate patches">
-              <button id="nodePreviousSavedPatchButton" class="node-patch-explorer-nav-button" type="button" aria-label="Previous patch" title="Previous patch">&larr;</button>
-              <button id="nodeNextSavedPatchButton" class="node-patch-explorer-nav-button" type="button" aria-label="Next patch" title="Next patch">&rarr;</button>
-            </div>
-            <div class="node-patch-explorer-toolbar-group node-patch-explorer-toolbar-main" role="group" aria-label="Patch actions">
-              <button id="nodePatchInitButton" class="node-patch-explorer-action-button" type="button" title="Initialize to default patch">Init</button>
-              <button id="nodePatchSaveButton" class="node-patch-explorer-action-button" type="button" title="Save current patch">Save</button>
-              <button id="nodePatchShareLinkButton" class="node-patch-explorer-action-button" type="button" title="Copy share link">Share</button>
-              <button id="nodePatchEditButton" class="node-patch-explorer-action-button" type="button" title="Open settings / edit">Edit</button>
-            </div>
-            <div class="node-patch-explorer-toolbar-group" role="group" aria-label="Clipboard">
-              <button id="nodePatchCopyButton" class="node-patch-explorer-action-button" type="button" aria-label="Copy patch" title="Copy patch JSON">Copy</button>
-              <button id="nodePatchPasteButton" class="node-patch-explorer-action-button" type="button" aria-label="Paste patch" title="Paste patch JSON">Paste</button>
-            </div>
-          </div>
-
-          <div class="node-patch-explorer-meta" aria-label="Current patch metadata">
-            <label class="node-patch-explorer-field" for="nodePatchNameHeader">
-              <span>Name</span>
-              <input
-                id="nodePatchNameHeader"
-                class="node-patch-header-field name"
-                type="text"
-                autocomplete="off"
-                spellcheck="false"
-                placeholder="Patch name"
-                aria-label="Patch name"
-                data-patch-header-info-field="name">
-            </label>
-            <label class="node-patch-explorer-field" for="nodePatchBankNameHeader">
-              <span>Bank</span>
-              <input
-                id="nodePatchBankNameHeader"
-                class="node-patch-header-field bank"
-                type="text"
-                autocomplete="off"
-                spellcheck="false"
-                placeholder="Bank name"
-                aria-label="Patch bank"
-                data-patch-bank-name-field>
-            </label>
-            <label class="node-patch-explorer-field" for="nodePatchTagsHeader">
-              <span>Tags</span>
-              <input
-                id="nodePatchTagsHeader"
-                class="node-patch-header-field tags"
-                type="text"
-                autocomplete="off"
-                spellcheck="false"
-                placeholder="tag1, tag2"
-                aria-label="Patch tags"
-                data-patch-header-info-field="tags">
-            </label>
-          </div>
-
-          <div class="node-patch-explorer-paths" aria-label="Patch folder paths">
-            <div class="node-patch-explorer-path-row">
-              <span class="node-patch-explorer-path-label">Factory</span>
-              <div class="node-patch-explorer-path-loader">
-                <button
-                  id="nodePatchFactoryPathButton"
-                  class="node-patch-explorer-path-button"
-                  type="button"
-                  aria-label="Browse factory patches folder"
-                  title="Factory patches folder (exposed for setup)">📂</button>
-                <input
-                  id="nodePatchFactoryPathInput"
-                  class="node-patch-explorer-path-input"
-                  type="text"
-                  autocomplete="off"
-                  spellcheck="false"
-                  placeholder="C:\path\to\factory\patches"
-                  aria-label="Factory patches path"
-                  data-patch-library-path="factory">
-              </div>
-            </div>
-            <div class="node-patch-explorer-path-row">
-              <span class="node-patch-explorer-path-label">User</span>
-              <div class="node-patch-explorer-path-loader">
-                <button
-                  id="nodePatchUserPathButton"
-                  class="node-patch-explorer-path-button"
-                  type="button"
-                  aria-label="Browse user patches folder"
-                  title="User patches folder (exposed for setup)">📂</button>
-                <input
-                  id="nodePatchUserPathInput"
-                  class="node-patch-explorer-path-input"
-                  type="text"
-                  autocomplete="off"
-                  spellcheck="false"
-                  placeholder="C:\path\to\user\patches"
-                  aria-label="User patches path"
-                  data-patch-library-path="user">
-              </div>
-            </div>
-          </div>
-
-          <div
-            id="nodeSavedPatchWindowList"
-            class="node-demo-patch-list node-saved-patch-window-list"
-            aria-live="polite"></div>
-          <button
-            id="nodeSavedPatchesResizeHandle"
-            class="scene-context-resize-handle"
-            type="button"
-            aria-label="Resize patch explorer"></button>
-        </section>
       </div>
 
       <div
@@ -864,63 +748,6 @@
           aria-label="Resize module browser"></button>
       </div>
 
-      <div id="nodeScriptView" class="node-script-view" hidden>
-        <div class="scene-context-heading scene-context-heading-static">
-          <div class="scene-context-title">
-            <span>Patch Utility</span>
-            <small>Patch Script · raw JSON for load, save, init, and recovery</small>
-          </div>
-        </div>
-        <div class="node-script-actions" aria-label="Patch script editor actions">
-          <button
-            id="downloadNodeGraphScriptButton"
-            type="button"
-            data-tooltip-key="script.save">Save Patch</button>
-          <output id="nodeScriptStatus" class="pill" aria-live="polite">script ready</output>
-        </div>
-        <div class="node-preset-controls" aria-label="Browser patch presets">
-          <label>
-            <span>Preset</span>
-            <input
-              id="nodePatchPresetName"
-              type="text"
-              autocomplete="off"
-              spellcheck="false"
-              placeholder="preset name">
-          </label>
-          <select id="nodePatchPresetSelect" aria-label="Saved browser patch presets">
-            <option value="">No saved presets</option>
-          </select>
-          <button id="nodePatchPresetSaveButton" type="button">Save Preset</button>
-          <button id="nodePatchPresetLoadButton" type="button">Load Preset</button>
-          <button id="nodePatchPresetDeleteButton" type="button">Delete Preset</button>
-        </div>
-        <div class="node-script-grid-settings" aria-label="Grid unit pixel settings">
-          <label>Grid Unit W PX
-            <input
-              id="nodeScriptGridWidthPxValue"
-              type="number"
-              min="8"
-              max="96"
-              step="1"
-              data-patch-grid-field>
-          </label>
-          <label>Grid Unit H PX
-            <input
-              id="nodeScriptGridHeightPxValue"
-              type="number"
-              min="8"
-              max="96"
-              step="1"
-              data-patch-grid-field>
-          </label>
-        </div>
-        <textarea
-          id="nodePatchScript"
-          spellcheck="false"
-          aria-label="Node graph patch script"></textarea>
-      </div>
-
       <section
         id="nodeCodeScreenView"
         class="node-code-screen-view"
@@ -995,258 +822,72 @@
         </div>
       </section>
 
-      <div id="nodeSettingsView" class="node-settings-view" hidden>
-        <div class="node-settings-actions" aria-label="Patch script actions">
+      <div id="nodeSettingsView" class="node-settings-view node-patch-page" hidden>
+        <header class="node-patch-page-topbar" aria-label="Patch page">
           <button
             id="nodeSettingsBackButton"
-            class="node-settings-back-button"
+            class="node-settings-back-button node-patch-page-back"
             type="button"
             aria-label="Back to modular view"
             title="Back to modular view"><span>&larr;</span></button>
-          <div class="node-settings-script-action-group" role="group" aria-label="Script actions">
-            <button
-              id="nodeSettingsScriptViewButton"
-              type="button"
-              aria-pressed="false"
-              data-tooltip-key="script.view"><span>View</span><span>Script</span></button>
-            <button
-              id="updateDefaultPresetButton"
-              type="button"
-              data-tooltip-key="script.updateDefault"><span>Save</span><span>Init</span></button>
+          <div class="node-patch-page-heading">
+            <span class="node-patch-page-kicker">Patch</span>
+            <strong class="node-patch-page-title">Identity · bank · grid</strong>
           </div>
-          <div class="node-settings-view-action-group" role="group" aria-label="Developer views">
-            <button
-              id="nodeCodeScreenViewButton"
-              type="button"
-              aria-pressed="false"><span>Code</span><span>Screen</span></button>
-            <button
-              id="nodeUiDevButton"
-              type="button"
-              aria-pressed="false"
-              data-tooltip-key="settings.uiDevOpen"><span>UIDEV</span></button>
-            <button
-              id="nodeCheckAllModulesButton"
-              type="button"
-              data-tooltip-key="settings.checkAllModules"><span>Check All</span><span>Modules</span></button>
+          <div class="node-patch-page-top-actions" role="group" aria-label="Patch tools">
+            <button id="updateDefaultPresetButton" type="button" data-tooltip-key="script.updateDefault" title="Save as init patch">Init</button>
+            <button id="nodeCodeScreenViewButton" type="button" aria-pressed="false">Code</button>
+            <button id="nodeUiDevButton" type="button" aria-pressed="false" data-tooltip-key="settings.uiDevOpen">UIDEV</button>
+            <button id="nodeCheckAllModulesButton" type="button" data-tooltip-key="settings.checkAllModules">Check</button>
           </div>
-          <div class="node-settings-dev-action-group" role="group" aria-label="In-development build actions">
-            <button
-              id="makePluginButton"
-              class="node-settings-disabled-action"
-              type="button"
-              aria-disabled="true"
-              data-tooltip-key="settings.makePlugin"><span>Make Plugin</span><span>(in development)</span></button>
-            <button
-              id="makeModuleButton"
-              class="node-settings-disabled-action"
-              type="button"
-              aria-disabled="true"
-              data-tooltip-key="settings.makeModule"><span>Make Module</span><span>(in development)</span></button>
-            <button
-              id="makeWidgetButton"
-              class="node-settings-disabled-action"
-              type="button"
-              aria-disabled="true"
-              data-tooltip-key="settings.makeWidget"><span>Make Widget</span><span>(in development)</span></button>
-          </div>
-          <div class="node-settings-feedback-action-group" role="group" aria-label="Feedback actions">
-          <a
-            class="node-settings-link-action node-settings-feature-action"
-            href="https://github.com/soundemote/soemdsp-sandbox/discussions/categories/feature-requests"
-            target="_blank"
-            rel="noreferrer"
-            data-tooltip-key="settings.requestFeature"><span>Request &nearr;</span><span>Feature</span></a>
-          <a
-            class="node-settings-link-action node-settings-bug-action"
-            href="https://github.com/soundemote/soemdsp-sandbox/issues/new"
-            target="_blank"
-            rel="noreferrer"
-            data-tooltip-key="settings.reportBug"><span>Report &nearr;</span><span>Bug</span></a>
-          </div>
-          <input
-            id="nodePatchScriptFileInput"
-            type="file"
-            accept="application/json,.json"
-            hidden>
-        </div>
-        <div class="node-settings-grid">
-          <label>Patch Name
-            <input id="patchNameValue" type="text" autocomplete="off" data-patch-info-field>
-          </label>
-          <label>Patch Tags
-            <input id="patchTagsValue" type="text" autocomplete="off" data-patch-info-field>
-          </label>
-          <label>Patch Author
-            <input id="patchAuthorValue" type="text" autocomplete="off" data-patch-info-field>
-          </label>
-          <label class="node-settings-description">Patch Description
-            <textarea id="patchDescriptionValue" spellcheck="true" data-patch-info-field></textarea>
-          </label>
-          <div class="node-settings-sample-rate-row">
-            <label>Current Sample Rate
-              <input id="patchCurrentSampleRateValue" type="text" readonly>
-            </label>
-            <label>Oversampling
-              <select id="patchOversamplingValue" data-patch-audio-field>
-                <option value="1">x1</option>
-                <option value="2">x2</option>
-                <option value="4">x4</option>
-                <option value="custom">Custom</option>
-              </select>
-            </label>
-            <label>Target Sample Rate
-              <input
-                id="patchTargetSampleRateValue"
-                type="number"
-                min="8000"
-                max="768000"
-                step="any"
-                data-patch-audio-field>
-            </label>
-            <label>Engine Sample Rate
-              <input id="patchResultingSampleRateValue" type="text" readonly>
-            </label>
-            <label>Resulting Oversampling
-              <input id="patchResultingOversamplingValue" type="text" readonly>
-            </label>
-            <label>Output Sample Rate
-              <input id="patchOutputSampleRateValue" type="text" readonly>
-            </label>
-          </div>
-          <div class="node-settings-sample-rate-row">
-            <label>Pitch Reference Note (MIDI, 0.1V/Oct)
-              <input
-                id="patchPitchReferenceMidiNoteValue"
-                type="number"
-                min="0"
-                max="127"
-                step="1"
-                list="patchPitchReferenceMidiNotePresets"
-                data-patch-audio-field>
-              <datalist id="patchPitchReferenceMidiNotePresets">
-                <option value="21" label="A0"></option>
-                <option value="36" label="C2"></option>
-                <option value="48" label="C3 (default)"></option>
-                <option value="60" label="C4 / Middle C"></option>
-                <option value="69" label="A4"></option>
-                <option value="72" label="C5"></option>
-              </datalist>
-            </label>
-            <label>Pitch Reference Frequency
-              <input
-                id="patchPitchReferenceHzValue"
-                type="number"
-                min="0.01"
-                max="20000"
-                step="any"
-                list="patchPitchReferenceHzPresets"
-                data-patch-audio-field>
-              <datalist id="patchPitchReferenceHzPresets">
-                <option value="100" label="100Hz (default)"></option>
-                <option value="440" label="440Hz / concert A"></option>
-              </datalist>
-            </label>
-            <label title="Project runtime maximum frequency (Hz) for pitch / f jacks / DSP resolve. Does not change frequency knob min/max. No minimum frequency on signals. Default 20000.">
-              Speed Limit (Hz)
-              <input
-                id="patchSpeedLimitHzValue"
-                type="number"
-                min="1"
-                max="192000"
-                step="any"
-                data-patch-audio-field>
-            </label>
-          </div>
-          <div class="node-settings-grid-unit-row">
-            <label>Grid Unit Width PX
-              <input
-                id="patchGridWidthPxValue"
-                type="number"
-                min="8"
-                max="96"
-                step="1"
-                data-patch-grid-field>
-            </label>
-            <label>Grid Unit Height PX
-              <input
-                id="patchGridHeightPxValue"
-                type="number"
-                min="8"
-                max="96"
-                step="1"
-                data-patch-grid-field>
-            </label>
-          </div>
-          <label>Visual Output Mode
-            <select id="patchVisualModeValue" data-patch-visual-field>
-              <option value="auto">Auto</option>
-              <option value="stereo-xy">Stereo XY</option>
-              <option value="mono-lag-xy">Mono Lag XY</option>
-            </select>
-          </label>
-          <label>Visual Output Style
-            <select id="patchVisualStyleValue" data-patch-visual-field>
-              <option value="glow">Glow Trace</option>
-              <option value="trace">Trace</option>
-              <option value="points">Points</option>
-            </select>
-          </label>
-          <label>Visual Output Theme
-            <select id="patchVisualThemeValue" data-patch-visual-field>
-              <option value="cyan-violet">Cyan Violet</option>
-              <option value="ember-gold">Ember Gold</option>
-              <option value="signal-green">Signal Green</option>
-            </select>
-          </label>
-          <label>Visual Output Scale
-            <input
-              id="patchVisualScaleValue"
-              type="number"
-              min="0.1"
-              max="4"
-              step="0.05"
-              value="1"
-              data-patch-visual-field>
-          </label>
-          <label>Visual Output Trail
-            <input
-              id="patchVisualTrailValue"
-              type="number"
-              min="0"
-              max="1"
-              step="0.05"
-              value="0.35"
-              data-patch-visual-field>
-          </label>
-          <div class="node-settings-hsl-row">
-            <label>Modular Background H
-              <input
-                id="patchWorkspaceHueValue"
-                type="number"
-                min="0"
-                max="360"
-                step="1"
-                data-patch-visual-field>
-            </label>
-            <label>S
-              <input
-                id="patchWorkspaceSaturationValue"
-                type="number"
-                min="0"
-                max="100"
-                step="1"
-                data-patch-visual-field>
-            </label>
-            <label>L
-              <input
-                id="patchWorkspaceLightnessValue"
-                type="number"
-                min="0"
-                max="100"
-                step="1"
-                data-patch-visual-field>
-            </label>
-          </div>
+          <input id="nodePatchScriptFileInput" type="file" accept="application/json,.json" hidden>
+        </header>
+
+        <div class="node-patch-page-scroll">
+          <section class="node-patch-card" aria-label="Patch identity">
+            <h3 class="node-patch-card-title">Identity</h3>
+            <div class="node-patch-card-grid">
+              <label class="node-patch-field node-patch-field-span-2">
+                <span>Name</span>
+                <input id="patchNameValue" type="text" autocomplete="off" spellcheck="false" data-patch-info-field placeholder="Untitled patch">
+              </label>
+              <label class="node-patch-field">
+                <span>Bank #</span>
+                <input id="patchBankValue" type="number" min="0" max="127" step="1" data-patch-info-field inputmode="numeric">
+              </label>
+              <label class="node-patch-field">
+                <span>Program #</span>
+                <input id="patchProgramValue" type="number" min="0" max="127" step="1" data-patch-info-field inputmode="numeric">
+              </label>
+              <label class="node-patch-field node-patch-field-span-2">
+                <span>Bank name</span>
+                <input id="patchBankNameValue" type="text" autocomplete="off" spellcheck="false" data-patch-info-field placeholder="Bank name">
+              </label>
+              <label class="node-patch-field node-patch-field-span-2">
+                <span>Tags</span>
+                <input id="patchTagsValue" type="text" autocomplete="off" spellcheck="false" data-patch-info-field placeholder="tag1, tag2">
+              </label>
+              <label class="node-patch-field node-patch-field-span-2">
+                <span>Author</span>
+                <input id="patchAuthorValue" type="text" autocomplete="off" spellcheck="false" data-patch-info-field placeholder="Author">
+              </label>
+              <label class="node-patch-field node-patch-field-span-2 node-patch-field-stack">
+                <span>Description</span>
+                <textarea id="patchDescriptionValue" spellcheck="true" data-patch-info-field rows="4" placeholder="What this patch is for…"></textarea>
+              </label>
+            </div>
+          </section>
+
+          <section class="node-patch-card node-patch-card-muted" aria-label="Developer links">
+            <h3 class="node-patch-card-title">More</h3>
+            <div class="node-patch-page-links">
+              <button id="makePluginButton" class="node-settings-disabled-action" type="button" aria-disabled="true" data-tooltip-key="settings.makePlugin">Make Plugin <small>(soon)</small></button>
+              <button id="makeModuleButton" class="node-settings-disabled-action" type="button" aria-disabled="true" data-tooltip-key="settings.makeModule">Make Module <small>(soon)</small></button>
+              <button id="makeWidgetButton" class="node-settings-disabled-action" type="button" aria-disabled="true" data-tooltip-key="settings.makeWidget">Make Widget <small>(soon)</small></button>
+              <a class="node-settings-link-action" href="https://github.com/soundemote/soemdsp-sandbox/discussions/categories/feature-requests" target="_blank" rel="noreferrer" data-tooltip-key="settings.requestFeature">Request feature</a>
+              <a class="node-settings-link-action" href="https://github.com/soundemote/soemdsp-sandbox/issues/new" target="_blank" rel="noreferrer" data-tooltip-key="settings.reportBug">Report bug</a>
+            </div>
+          </section>
         </div>
       </div>
 
@@ -1491,6 +1132,34 @@
             <span>grid color</span>
             <input id="nodeUiDevGridColor" type="color" value="#ffffff">
             <output id="nodeUiDevGridColorValue" for="nodeUiDevGridColor">#ffffff</output>
+          </label>
+          <label class="node-ui-dev-control">
+            <span>patch grid unit width (px / gu)</span>
+            <div class="node-ui-dev-control-row">
+              <input
+                id="nodeUiDevPatchGridWidthPx"
+                type="number"
+                min="8"
+                max="96"
+                step="1"
+                value="28"
+                data-patch-grid-field>
+              <output id="nodeUiDevPatchGridWidthPxValue" for="nodeUiDevPatchGridWidthPx">28px</output>
+            </div>
+          </label>
+          <label class="node-ui-dev-control">
+            <span>patch grid unit height (px / gu)</span>
+            <div class="node-ui-dev-control-row">
+              <input
+                id="nodeUiDevPatchGridHeightPx"
+                type="number"
+                min="8"
+                max="96"
+                step="1"
+                value="28"
+                data-patch-grid-field>
+              <output id="nodeUiDevPatchGridHeightPxValue" for="nodeUiDevPatchGridHeightPx">28px</output>
+            </div>
           </label>
           <label class="node-ui-dev-color-control">
             <span>modular background color</span>
@@ -2169,10 +1838,6 @@
         </div>
         <div id="nodeSceneWindowControls" class="scene-context-text-box-controls scene-context-window-controls">
           <div>
-            <div class="scene-context-patch-actions" role="group" aria-label="Patch actions">
-              <button id="nodeSceneCopyPatch" class="scene-context-patch-action-button" type="button" data-tooltip-key="actions.copyPatch">Copy</button>
-              <button id="nodeScenePastePatch" class="scene-context-patch-action-button" type="button" data-tooltip-key="actions.pastePatch">Paste</button>
-            </div>
             <div class="scene-context-history-controls" role="group" aria-label="Patch history">
               <button id="nodeSceneUndoButton" class="scene-context-window-button" type="button" disabled>
                 <span class="scene-context-window-button-label">Undo</span>
@@ -3604,9 +3269,9 @@
   <script src="./public/manifest-view.js?v=manifest-view-refactor-1780360800000"></script>
   <script src="./public/manifest-loader.js?v=manifest-loader-refactor-1780389600000"></script>
   <script src="./public/node-graph-wires.js?v=layout-c-1"></script>
-  <script src="./public/node-graph-floating-windows.js?v=meta-no-height-compress-1"></script>
-  <script src="./public/node-graph-unified-window.js?v=view-max-1"></script>
-  <script src="./public/node-graph-file-actions.js?v=patch-load-fault-1"></script>
+  <script src="./public/node-graph-floating-windows.js?v=floating-resize-ssot-1"></script>
+  <script src="./public/node-graph-unified-window.js?v=patch-page-1"></script>
+  <script src="./public/node-graph-file-actions.js?v=patch-page-1"></script>
   <script src="./public/node-graph-default-buttons.js?v=patch-save-refresh-1"></script>
   <script src="./public/node-graph-cookbook-filter.js?v=xo-lines-only-1"></script>
   <script src="./public/node-graph-papoulis-filter.js?v=mouse-smooth-1"></script>
@@ -3660,11 +3325,11 @@
   <script src="./public/node-graph-code-screen-loader.js?v=core-reduction-1"></script>
   <script src="./public/node-graph-patch-serialization.js?v=share-link-1"></script>
   <script src="./public/node-graph-settings-fields.js?v=slider-unit-color-1780307400000"></script>
-  <script src="./public/node-graph-settings-view.js?v=speed-limit-project-1"></script>
+  <script src="./public/node-graph-settings-view.js?v=grid-uidev-save-1"></script>
   <script src="./public/node-graph-settings-text-fit.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-default-preset.js?v=embed-config-20260701"></script>
-  <script src="./public/node-graph-script-status.js?v=slider-unit-color-1780307400000"></script>
-  <script src="./public/node-graph-view-controls.js?v=vis-deadcode-1"></script>
+  <script src="./public/node-graph-script-status.js?v=toolbar-copy-paste-1"></script>
+  <script src="./public/node-graph-view-controls.js?v=patch-page-1"></script>
   <script src="./public/node-graph-workspace-geometry.js?v=vis-wires-light-1"></script>
   <script src="./public/node-graph-viewport-perf.js?v=zoom-hide-io-1"></script>
   <script src="./public/node-graph-workspace-zoom.js?v=zoom-hide-io-1"></script>
@@ -3694,7 +3359,7 @@
   <script src="./public/node-graph-module-scope-settings-form-io.js?v=clear-multi-1"></script>
   <script src="./public/node-graph-module-scope-settings-field-edit.js?v=clear-multi-2"></script>
   <script src="./public/node-graph-module-scope-settings-apply.js?v=output-cold-plate-1"></script>
-  <script src="./public/node-graph-module-scope-settings-window.js?v=clear-multi-2"></script>
+  <script src="./public/node-graph-module-scope-settings-window.js?v=floating-resize-ssot-1"></script>
   <script src="./public/node-graph-module-scope-settings-ui.js?v=one-face-1"></script>
   <script src="./public/node-graph-module-scope-capture.js?v=fuse-pack-1"></script>
   <script src="./public/node-graph-module-scope-number-readout.js?v=nr-hue-bright-1"></script>
@@ -3774,7 +3439,7 @@
   <script src="./public/node-graph-slider-readout-controls.js?v=bug-button-settings-edit-20260723"></script>
   <script src="./public/node-graph-ghost-sliders.js?v=unbounded-speed-1"></script>
   <script src="./public/node-code-settings-editor.js?v=code-settings-shell-1"></script>
-  <script src="./public/node-graph-metadata-editor.js?v=choice-toggles-1"></script>
+  <script src="./public/node-graph-metadata-editor.js?v=floating-resize-ssot-1"></script>
   <script src="./public/node-graph-render-settings.js?v=cleanup-20260725-slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-ear-protection.js?v=ear-protection-copy-1"></script>
   <script src="./public/node-graph-patch-load-fault.js?v=patch-load-fault-1"></script>
@@ -3796,15 +3461,15 @@
   <script src="./public/node-graph-execution-debug-api.js?v=noise-generator-stereo-20260630"></script>
   <script src="./public/node-graph-execution-debug-view.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-tooltips.js?v=linear-lerp-1"></script>
-  <script src="./public/node-graph-interaction-help.js?v=tips-3state-1"></script>
+  <script src="./public/node-graph-interaction-help.js?v=patch-page-1"></script>
   <script src="./public/presets/useruisettings.js?v=expose-empty-1"></script>
   <script src="./public/node-graph-ui-settings-definitions.js?v=module-square-corners-1"></script>
   <script src="./public/node-graph-ui-settings-utils.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-user-ui-settings-controls.js?v=uidev-no-vis-dup-1"></script>
-  <script src="./public/node-graph-ui-settings-panels.js?v=uidev-unwrap-v3"></script>
+  <script src="./public/node-graph-ui-settings-panels.js?v=grid-uidev-save-1"></script>
   <script src="./public/node-graph-ui-settings-persistence.js?v=vis-deadcode-1"></script>
   <script src="./public/node-graph-ui-settings-sync.js?v=module-square-corners-1"></script>
-  <script src="./public/node-graph-keyboard-shortcuts.js?v=no-debug-d-1"></script>
+  <script src="./public/node-graph-keyboard-shortcuts.js?v=hotkey-m-windowed-1"></script>
   <script src="./public/node-graph-live-status-text.js?v=live-plan-preserve-20260634"></script>
   <script src="./public/node-graph-live-status-controls.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-live-meter-controls.js?v=audio-overrun-meter-2"></script>
@@ -4074,10 +3739,10 @@
   <script src="./public/node-graph-wire-controller-bootstrap.js?v=wire-break-trigger-0129"></script>
   <script src="./public/node-graph-workspace-event-bindings.js?v=readout-no-kb-1"></script>
   <script src="./public/node-graph-render-live-event-bindings.js?v=midi-toggle-20260725"></script>
-  <script src="./public/node-graph-header-event-bindings.js?v=vis-wires-light-1"></script>
+  <script src="./public/node-graph-header-event-bindings.js?v=grid-uidev-save-1"></script>
   <script src="./public/node-graph-help-event-bindings.js?v=remove-workspace-view-0002"></script>
-  <script src="./public/node-graph-scene-menu-event-bindings.js?v=graph-settings-list-1"></script>
-  <script src="./public/node-graph-uidev-event-bindings.js?v=uidev-unwrap-v3"></script>
+  <script src="./public/node-graph-scene-menu-event-bindings.js?v=toolbar-copy-paste-1"></script>
+  <script src="./public/node-graph-uidev-event-bindings.js?v=grid-uidev-save-1"></script>
   <script src="./public/node-graph-settings-event-bindings.js?v=dblclick-header-fields-20260722"></script>
   <script src="./public/node-graph-slider-event-bindings.js?v=node-graph-slider-event-bindings-refactor-1780369200000"></script>
   <script src="./public/node-graph-event-bindings.js?v=remove-dead-uiview-bind-20260724"></script>

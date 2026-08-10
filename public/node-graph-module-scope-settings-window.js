@@ -334,19 +334,30 @@ function nodeGraphTraceDisplaySettingsTargetNodeId() {
   );
 }
 
-function applyNodeGraphTraceDisplaySettingsWindowSize(size = {}) {
-  const popover = document.getElementById("nodeTraceDisplaySettingsPopover");
+function applyNodeGraphTraceDisplaySettingsWindowSize(size = {}, element = null) {
+  const popover = element || document.getElementById("nodeTraceDisplaySettingsPopover");
   if (!popover) {
     return null;
   }
-  const normalized = normalizeNodeGraphFloatingWindowSize(size, nodeGraphTraceDisplaySettingsWindowSize);
+  const normalized = normalizeNodeGraphFloatingWindowSize(
+    size,
+    nodeGraphTraceDisplaySettingsWindowSize,
+    { element: popover },
+  );
+  const stored = {
+    width: normalized.width,
+    ...(Number.isFinite(normalized.height) ? { height: normalized.height } : {}),
+  };
   applyNodeGraphFloatingWindowSizeVars(
     popover,
     "metadata-popover",
     nodeGraphTraceDisplaySettingsWindowSize,
-    normalized,
+    { ...stored, _maxWidth: normalized._maxWidth, _maxHeight: normalized._maxHeight },
   );
-  return normalized;
+  if (typeof syncNodeGraphFloatingWindowInlineBox === "function") {
+    syncNodeGraphFloatingWindowInlineBox(popover, stored);
+  }
+  return stored;
 }
 
 function nodeGraphTraceDisplaySettingsWindowSizeFromElement(popover = document.getElementById("nodeTraceDisplaySettingsPopover")) {
