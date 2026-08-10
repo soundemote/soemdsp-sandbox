@@ -142,6 +142,18 @@ function nodeGraphNumberReadoutLcdInkRgb(settings) {
 }
 
 /**
+ * LCD “ghost” / unlit-segment RGB — hard policy: greyscale only (no hue).
+ * Uses Rec.709 luma of the FG ink so ghost weight tracks ink darkness.
+ */
+function nodeGraphNumberReadoutLcdGhostRgb(inkRgb) {
+  const r = Number(inkRgb?.[0]) || 0;
+  const g = Number(inkRgb?.[1]) || 0;
+  const b = Number(inkRgb?.[2]) || 0;
+  const y = Math.max(0, Math.min(255, Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b)));
+  return [y, y, y];
+}
+
+/**
  * LCD background plate RGB from the Background color widget.
  */
 function nodeGraphNumberReadoutLcdBgRgb(settings) {
@@ -637,27 +649,42 @@ function nodeGraphNumberReadoutSettingsSignature(settings) {
 }
 
 
+/** Workspace zoom used by Value LED/LCD pin sizing (1.00 = identity). */
+function nodeGraphNumberReadoutWorkspaceZoom() {
+  return Math.max(
+    0.01,
+    Number(
+      typeof nodeGraphZoom === "function"
+        ? nodeGraphZoom()
+        : (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp && nodeGraphMvp.zoom),
+    ) || 1,
+  );
+}
+
 /**
  * Single “display pixel” size in face/canvas units when padding = 1.
- * LCD: screen-sharp buffer → 1 device pixel.
- * LED: fixed layout×dpr phosphor grid → ~1 CSS px (chunkier under zoom/dpr).
+ * LCD (screen-sharp buffer, 1 canvas px ≈ 1 device px):
+ *   size = round(zoom) → 1 monitor pixel at zoom 1.00; scales with zoom.
+ * LED (layout×dpr buffer, CSS-scaled under zoom):
+ *   ~1 CSS px of phosphor at zoom 1 (round dpr canvas px).
  */
-function nodeGraphNumberReadoutPinSizePx(faceStyle, pixelRatio) {
-  const dpr = Math.max(1, Number(pixelRatio) || 1);
+function nodeGraphNumberReadoutPinSizePx(faceStyle, pixelRatio, zoom = 1) {
   const style = String(faceStyle || "led").toLowerCase();
+  const z = Math.max(0.01, Number(zoom) || 1);
   if (style === "lcd") {
-    return 1;
+    // Hard square on the device pixel grid; grows with workspace zoom.
+    return Math.max(1, Math.round(z));
   }
-  // Phosphor residual path is layout×dpr; one CSS pixel of “on” phosphor.
+  const dpr = Math.max(1, Number(pixelRatio) || 1);
   return Math.max(1, Math.round(dpr));
 }
 
 /**
  * @param {boolean|object} [hasUnitOrOpts] true, or
- *   { hasUnit, largeUnit, padding01, faceStyle, pixelRatio }
+ *   { hasUnit, largeUnit, padding01, faceStyle, pixelRatio, zoom }
  *   largeUnit: taller unit band (Pitch Detector “Hz”).
  *   padding01: linear 0…1 vs face square min side.
- *     0 = flush (digits hit plate edge);
+ *     0 = flush (digits fill the plate content box);
  *     1 = one pin pixel of display remains (zoom-scaled; LED vs LCD pin size).
  */
 function nodeGraphNumberReadoutComputeLayout(context, valueText, fontFamily, faceW, faceH, hasUnitOrOpts) {
@@ -670,7 +697,7 @@ function nodeGraphNumberReadoutComputeLayout(context, valueText, fontFamily, fac
   const minSide = Math.max(0, Math.min(faceW, faceH));
   const pin = Math.min(
     minSide,
-    nodeGraphNumberReadoutPinSizePx(opts.faceStyle, opts.pixelRatio),
+    nodeGraphNumberReadoutPinSizePx(opts.faceStyle, opts.pixelRatio, opts.zoom),
   );
   // Linear pad: t=0 → full face; t=1 → content collapses to pin×pin (not zero).
   const maxPad = Math.max(0, (minSide - pin) * 0.5);
@@ -701,10 +728,14 @@ function nodeGraphNumberReadoutComputeLayout(context, valueText, fontFamily, fac
   // Default unit strip ~18% of content; Pitch Hz needs more room to read.
   const labelH = hasUnit ? Math.max(0, contentH * (largeUnit ? 0.30 : 0.18)) : 0;
   const digitAreaH = Math.max(0, contentH - labelH);
-  // Designed em height — original DSEG proportions, not stretched to width.
-  // At pad 0, use full content (digits can meet the plate edge).
-  let fontSize = Math.max(0, digitAreaH * 0.78);
-  if (!(fontSize > 0.25) || !(contentW > 0.25)) {
+  // facePadding owns the air — digits must fill the content box at pad 0.
+  // DSEG Classic Bold ink is ~80–86% of the em square; browsers often report
+  // actualBoundingBox ≈ full em (including empty), which would leave a ring of
+  // plate around the segments. Oversize the em so ink reaches the content edge,
+  // then shrink only if measured ink still overflows.
+  const DSEG_INK_OF_EM = 0.82;
+  let fontSize = Math.max(0, digitAreaH / DSEG_INK_OF_EM);
+  if (!(fontSize > 0.25) || !(contentW > 0.25) || !(digitAreaH > 0.25)) {
     // Fall through to pin rather than blank.
     const side = Math.max(1, pin);
     return {
@@ -724,6 +755,17 @@ function nodeGraphNumberReadoutComputeLayout(context, valueText, fontFamily, fac
     };
   }
   context.font = `700 ${fontSize}px ${fontFamily}`;
+  const probe = context.measureText("8");
+  const ascent = Number(probe.actualBoundingBoxAscent);
+  const descent = Number(probe.actualBoundingBoxDescent);
+  const glyphH = Number.isFinite(ascent) && Number.isFinite(descent) && (ascent + descent) > 0.25
+    ? (ascent + descent)
+    : 0;
+  // Only shrink when ink truly overflows the content box (never re-introduce pad).
+  if (glyphH > digitAreaH + 0.5) {
+    fontSize = Math.max(0, fontSize * (digitAreaH / glyphH));
+    context.font = `700 ${fontSize}px ${fontFamily}`;
+  }
   let cellW = Math.max(0, context.measureText("8").width);
   const cells = nodeGraphNumberReadoutDsegWidthChars(valueText);
   let totalW = cells * cellW;
@@ -773,6 +815,7 @@ function nodeGraphNumberReadoutComputeLayout(context, valueText, fontFamily, fac
 
 /**
  * Draw the max-padding “one pixel of display” pin (LED light or LCD ink).
+ * Integer canvas rect → hard edge on the monitor pixel grid (scales with pinPx).
  */
 function nodeGraphNumberReadoutDrawPixelPin(context, layout, faceLeft, faceTop, faceW, faceH, rgb, alpha = 1) {
   if (!context || !layout?.pixelPin) {
@@ -789,7 +832,8 @@ function nodeGraphNumberReadoutDrawPixelPin(context, layout, faceLeft, faceTop, 
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.globalCompositeOperation = "source-over";
   context.globalAlpha = a;
-  // Snap to integer canvas pixels so the pin stays a crisp square under zoom/dpr.
+  context.imageSmoothingEnabled = false;
+  // Snap to integer canvas pixels so the pin is a crisp device-pixel square.
   const ix = Math.round(x);
   const iy = Math.round(y);
   const is = Math.max(1, Math.round(side));
@@ -1025,6 +1069,8 @@ function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, val
     canvas.parentElement.dataset.valueFaceStyle = "lcd";
   }
   const inkRgb = nodeGraphNumberReadoutLcdInkRgb(settings);
+  // App-wide LCD policy: ghost/unlit segments are greyscale only (no hue).
+  const ghostRgb = nodeGraphNumberReadoutLcdGhostRgb(inkRgb);
   const hasUnit = Boolean(unit);
   // Pitch Detector “Hz” (and any unit labeled Hz) gets a larger unit band.
   const largeUnit = hasUnit && String(unit).trim().toLowerCase() === "hz";
@@ -1034,6 +1080,7 @@ function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, val
     : '"Consolas", "Courier New", monospace';
   const lcdPixelRatio = Number(nodeGraphModuleScopeState?.backingPixelRatio)
     || Math.max(1, window.devicePixelRatio || 1);
+  const lcdZoom = nodeGraphNumberReadoutWorkspaceZoom();
   const layout = nodeGraphNumberReadoutComputeLayout(
     context,
     valueText,
@@ -1046,6 +1093,7 @@ function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, val
       padding01: pad01,
       faceStyle: "lcd",
       pixelRatio: lcdPixelRatio,
+      zoom: lcdZoom,
     },
   );
   const digitFontSize = layout.fontSize;
@@ -1085,7 +1133,7 @@ function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, val
       );
     }
   } else {
-    // Permanent unlit “8” skeleton: multiply FG color into the plate.
+    // Permanent unlit “8” skeleton (LCD ghost): greyscale only — no hue.
     if (digitFontSize > 0.25 && unlitAmount > 0.001 && !String(valueText || "").includes("!")) {
       const plateText = typeof nodeGraphNumberReadoutGhostPlateText === "function"
         ? nodeGraphNumberReadoutGhostPlateText(valueText)
@@ -1097,7 +1145,7 @@ function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, val
         fontFamily: digitFontFamily,
         fontSize: digitFontSize,
         cellW,
-        rgb: inkRgb,
+        rgb: ghostRgb,
         alpha: Math.min(1, 0.12 + unlitAmount * 0.88),
         softBlurPx: 0,
         glow: 0,
@@ -1165,6 +1213,7 @@ function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, val
   canvas._nodeGraphNumberReadoutFontReady = nodeGraphNumberReadoutDsegReady;
   canvas._nodeGraphNumberReadoutWidth = width;
   canvas._nodeGraphNumberReadoutHeight = height;
+  canvas._nodeGraphNumberReadoutZoom = lcdZoom;
   canvas._nodeGraphNumberReadoutPaintAt = now;
   canvas._numberReadoutResidualEnergy = 0;
   nodeGraphNumberReadoutClearBurnPlate(canvas);
@@ -1207,11 +1256,14 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   // Value LCD: dedicated vector path (no residual hang / burn plate).
   if (isLcd) {
     const settingsSig = nodeGraphNumberReadoutSettingsSignature(settings);
+    const lcdZoomNow = nodeGraphNumberReadoutWorkspaceZoom();
     const styleChanged =
       canvas._nodeGraphNumberReadoutSettingsSig !== settingsSig ||
       canvas._nodeGraphNumberReadoutFontReady !== nodeGraphNumberReadoutDsegReady ||
       canvas._nodeGraphNumberReadoutWidth !== canvas.width ||
-      canvas._nodeGraphNumberReadoutHeight !== canvas.height;
+      canvas._nodeGraphNumberReadoutHeight !== canvas.height ||
+      // Pin size is round(zoom); repaint when that step changes even if buffer size stalls.
+      Math.round(Number(canvas._nodeGraphNumberReadoutZoom) || 1) !== Math.round(lcdZoomNow);
     const textChanged = canvas._nodeGraphNumberReadoutText == null
       || canvas._nodeGraphNumberReadoutText !== text;
     if (!textChanged && !styleChanged) {
@@ -1359,6 +1411,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
           padding01: residualPad01,
           faceStyle: "led",
           pixelRatio,
+          zoom: nodeGraphNumberReadoutWorkspaceZoom(),
         },
       );
       const residualPad = residualLayout.padPx || 0;
@@ -1440,6 +1493,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
       padding01: pad01,
       faceStyle: "led",
       pixelRatio,
+      zoom: nodeGraphNumberReadoutWorkspaceZoom(),
     },
   );
   const digitFontSize = layout.fontSize;

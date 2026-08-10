@@ -202,6 +202,8 @@ const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
   brightness: 0.72,
   capEnabled: true,
   capLength: 0.16,
+  // 0 = outer edges flush with the horizontal line tips; 1 = caps meet at center.
+  capPadding: 0,
   capSize: 0.1,
   // Classic sharp teal/blue.
   color: "#73ebff",
@@ -241,8 +243,8 @@ const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   decimals: 2,
   // How live Light composites over residual gradient (canvas blend / occlude).
   lightBlend: "occlude",
-  // Digit inset 0…1 linear vs face square min side (0 = edge, 1 = one pin pixel).
-  facePadding: 0.06,
+  // Digit inset 0…1 linear vs face square min side (0 = flush fill, 1 = one pin pixel).
+  facePadding: 0,
   // Energy → color LUT for decaying deposits (live digits use solid Light).
   gradientStops: nodeGraphScopePhosphorLookDefaults.gradientStops,
 });
@@ -262,8 +264,8 @@ const nodeGraphValueLcdSettingsDefaults = Object.freeze({
   ghostBrightness: 0,
   decimals: 2,
   lightBlend: "source-over",
-  // Digit inset 0…1 linear vs face square min side (0 = edge, 1 = one pin pixel).
-  facePadding: 0.06,
+  // Digit inset 0…1 linear vs face square min side (0 = flush fill, 1 = one pin pixel).
+  facePadding: 0,
   // Permanent unlit “8” skeleton amount 0…1 (multiply FG into plate).
   unlitSegments: 0.28,
   // Inner shadow (screen glass): Gaussian soft inset + CSS-like offset.

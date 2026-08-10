@@ -683,12 +683,27 @@ function drawNodeGraphValueOscilloscopeItem(renderer, item, pixelRatio) {
         1,
       );
       const capThickness = size01ToPx(capSize01);
-      // Cap stroke is centered on its path; offset centers inward so outer
-      // edges sit flush with the horizontal line ends (x1 / x2). Thickness
-      // grows from the line edge toward the middle of the bar.
-      const halfCapThick = capThickness * 0.5;
-      const leftCapX = x1 + halfCapThick;
-      const rightCapX = x2 - halfCapThick;
+      // Beam hard core radius = uSize * NODE_GRAPH_BEAM_SIZE_TO_RADIUS (not ½ diameter).
+      // Horizontal line round ends sit lineCoreR past x1/x2; vertical caps extend
+      // capCoreR from their center. Place centers so outer edges match those tips,
+      // then optional capPadding (0…1 of half-line) pulls both caps toward middle.
+      const sizeToR = typeof NODE_GRAPH_BEAM_SIZE_TO_RADIUS === "number"
+        ? NODE_GRAPH_BEAM_SIZE_TO_RADIUS
+        : 0.34;
+      const lineCoreR = Math.max(0, thicknessPx) * sizeToR;
+      const capCoreR = Math.max(0, capThickness) * sizeToR;
+      const edgeAlign = capCoreR - lineCoreR;
+      const capPad01 = clampNodeSliderValue(Number(safeSettings.capPadding) || 0, 0, 1);
+      const padPx = halfLine * capPad01;
+      const midX = (x1 + x2) * 0.5;
+      let leftCapX = x1 + edgeAlign + padPx;
+      let rightCapX = x2 - edgeAlign - padPx;
+      if (leftCapX > midX) {
+        leftCapX = midX;
+      }
+      if (rightCapX < midX) {
+        rightCapX = midX;
+      }
       drawNodeGraphOscilloscopeBeam(
         renderer,
         item,

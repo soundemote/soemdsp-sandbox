@@ -729,6 +729,7 @@ function normalizeNodeGraphValueOscilloscopeSettings(settings = {}) {
     decay,
     capEnabled: source.capEnabled !== false,
     capLength: normalizeNodeGraphTraceDisplayNumber(source.capLength, defaults.capLength, 0, 1),
+    capPadding: normalizeNodeGraphTraceDisplayNumber(source.capPadding, defaults.capPadding ?? 0, 0, 1),
     capSize: normalizeNodeGraphTraceDisplayNumber(source.capSize, defaults.capSize, 0, 1),
     ghost,
     color: normalizeNodeGraphTraceDisplayColor(source.color ?? source.dot1Color, defaults.color),
@@ -814,7 +815,7 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}, defaultsOverride
       : nodeGraphNumberReadoutSettingsDefaults);
   const faceStyle = faceHint === "lcd" || defaults.faceStyle === "lcd" ? "lcd" : "led";
   // LED: Ghost Gradient LUT (ignore LED hue so stops never track Light control).
-  // LCD: no gradient — solid foreground / background only.
+  // LCD: no Ghost Gradient — unlit/ghost segments are hard-coded greyscale only.
   const gradientStops = faceStyle === "lcd"
     ? []
     : nodeGraphPhosphorGradientStopsFromSettings(
@@ -908,7 +909,7 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}, defaultsOverride
     // LED + LCD: digit inset from plate edge (not Amp / scope padding).
     facePadding: normalizeNodeGraphTraceDisplayNumber(
       source.facePadding ?? source.readoutPadding ?? source.digitPadding,
-      defaults.facePadding ?? 0.06,
+      defaults.facePadding ?? 0,
       0,
       1,
     ),

@@ -8,7 +8,7 @@ Cursor assets for the modular WebUI live here.
 
 Explicit styles still win: `pointer`, `text`, `grab` / `grabbing`, `ew-resize` / `ns-resize`, `help`, etc.
 
-**Module move** uses the OS arrow (`--node-module-move-cursor: default`) for familiarity — only module drag handles / active `.dsp-node.dragging`. Floating-window drag still uses `move` (`--node-move-cursor`).
+**Module move** uses the OS arrow (`--node-module-move-cursor: default`) whenever a module-move surface is hovered (drag handle, title row, solid shell, empty IO-row band, parameter chrome, etc.) and while `.dsp-node.dragging`. Jacks keep the tiny `+`; sliders / pads / graph face keep their own cursors. Floating-window drag still uses `move` (`--node-move-cursor`).
 
 ## Assets
 

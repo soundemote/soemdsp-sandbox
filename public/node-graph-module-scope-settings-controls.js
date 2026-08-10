@@ -131,6 +131,7 @@ function nodeGraphTraceDisplayUnitDragField(key) {
     "dialSize",
     "innerRadius",
     "capLength",
+    "capPadding",
     "capSize",
   ].includes(key);
 }
@@ -322,6 +323,7 @@ function nodeGraphTraceDisplayClampDotBudget(value) {
 const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   ghost: nodeGraphTraceDisplayClampUnit,
   capLength: nodeGraphTraceDisplayClampUnit,
+  capPadding: nodeGraphTraceDisplayClampUnit,
   capSize: nodeGraphTraceDisplayClampUnit,
   cycles: (value) => Math.max(1, Math.min(64, Math.round(Number(value) || 0))),
   trail: nodeGraphTraceDisplayClampUnit,

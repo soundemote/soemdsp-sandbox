@@ -975,8 +975,9 @@ audio {
   background: rgba(2, 5, 8, 0.52);
   color: var(--muted);
   font: 0.62rem/1 var(--mono);
-  /* Doubles as the module's drag handle (attachNodeGraphNodeEvents). */
-  cursor: var(--node-module-move-cursor);
+  /* Doubles as the module's drag handle (attachNodeGraphNodeEvents).
+     Arrow only when move is available — see :not(.movement-locked) block. */
+  cursor: var(--node-default-cursor);
 }
 
 .node-sample-phase-readout strong {
@@ -11127,6 +11128,23 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   z-index: 1;
 }
 
+/*
+ * Value LED / Value LCD: the custom-ui node IS the plate — no 1px shell air.
+ * Match on face classes (same element as custom-ui) so layout class is not required.
+ * After base custom-ui rule so this always wins.
+ */
+.node-solid-module-custom-ui.node-number-readout-face,
+.node-solid-module-custom-ui.node-value-lcd-face,
+.node-solid-module-custom-ui.node-value-led-face,
+.dsp-node.number-readout-layout .node-solid-module-custom-ui,
+.dsp-node.value-lcd-layout .node-solid-module-custom-ui {
+  margin: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+}
+
 .node-bug-button-face {
   position: relative;
   box-sizing: border-box;
@@ -13168,8 +13186,7 @@ input.node-header-title {
   margin: 0;
   box-shadow: none;
   outline: none;
-  /* Chrome title is the module type name (read-only). Alias is edited under
-     Module Settings; a text cursor would falsely advertise rename here. */
+  /* Title is read-only type name; arrow when move is available (see move block). */
   cursor: var(--node-default-cursor);
 }
 
@@ -13303,7 +13320,8 @@ input.node-header-title:focus {
   font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
   font-size: 0.84rem;
   line-height: 1;
-  cursor: var(--node-dot-cursor);
+  /* Empty band is a module-move surface when unlocked; + only on jack / patch-point-hover. */
+  cursor: var(--node-default-cursor);
   user-select: none;
 }
 
@@ -13427,7 +13445,8 @@ input.node-header-title:focus {
   font-size: 0.86rem;
   font-weight: 700;
   line-height: 1;
-  cursor: var(--node-module-move-cursor);
+  /* Arrow when move is available — see :not(.movement-locked) move block. */
+  cursor: var(--node-default-cursor);
   user-select: none;
   -webkit-user-select: none;
 }
@@ -13507,7 +13526,61 @@ input.node-header-title:focus {
 
 .node-drag-handle {
   font-size: clamp(1rem, calc(var(--node-header-height) * var(--node-move-symbol-size-ratio, 0.6) * 0.47), 2rem);
+}
+
+/*
+ * Module move affordances: OS arrow on hover (not the app-wide +).
+ * Matches beginNodeGraphNodeDrag hit surfaces (excluding jacks / knobs / graph face).
+ * Child controls re-assert their own cursors below — do not use `cursor: revert`
+ * (it drops author rules and leaves ports/sliders on the UA default).
+ */
+.dsp-node:not(.movement-locked) .node-drag-handle,
+.dsp-node:not(.movement-locked) .node-execution-order-badge,
+.dsp-node:not(.movement-locked) .node-header-title-row,
+.dsp-node:not(.movement-locked) input.node-header-title,
+.dsp-node:not(.movement-locked) .node-sample-phase-readout,
+.dsp-node:not(.movement-locked) .node-solid-module-shell,
+.dsp-node:not(.movement-locked) .node-solid-module-custom-ui,
+.dsp-node:not(.movement-locked) .node-module-chrome-layout-b-shell,
+.dsp-node:not(.movement-locked) .node-led-face,
+.dsp-node:not(.movement-locked) .node-group-input-face,
+.dsp-node:not(.movement-locked) .node-group-output-face,
+.dsp-node:not(.movement-locked) .node-knob-widget-body,
+.dsp-node:not(.movement-locked) .dsp-node-io-section,
+.dsp-node:not(.movement-locked) .node-io-row,
+.dsp-node:not(.movement-locked) .node-parameter-row {
   cursor: var(--node-module-move-cursor);
+}
+
+/* Jacks / patch rows: keep the app + when the port hitbox is live. */
+.dsp-node:not(.movement-locked) .node-port,
+.dsp-node:not(.movement-locked) .node-param-port,
+.dsp-node:not(.movement-locked) .node-io-row.patch-point-hover,
+.dsp-node:not(.movement-locked) .dsp-node-io-section .node-io-row:hover:has(.node-port:hover) {
+  cursor: var(--node-dot-cursor);
+}
+
+/* Bias / graph / pad / knob face: keep specialized cursors over move chrome. */
+.dsp-node:not(.movement-locked) .node-slider-readout:not([data-control="number"]),
+.dsp-node:not(.movement-locked) .node-xy-pad-canvas,
+.dsp-node:not(.movement-locked) .node-knob-face,
+.dsp-node:not(.movement-locked) .node-knob-face * {
+  cursor: var(--node-dot-cursor);
+}
+
+.dsp-node:not(.movement-locked) .node-module-graph-display,
+.dsp-node:not(.movement-locked) .node-module-graph-display * {
+  cursor: var(--node-default-cursor);
+}
+
+.dsp-node:not(.movement-locked) button:not(.node-drag-handle) {
+  cursor: pointer;
+}
+
+.dsp-node:not(.movement-locked) input:not(.node-header-title):not(.node-header-title-input):not([readonly]),
+.dsp-node:not(.movement-locked) textarea,
+.dsp-node:not(.movement-locked) select {
+  cursor: text;
 }
 
 /* While dragging a module, keep the familiar OS arrow (not grab/move/+). */

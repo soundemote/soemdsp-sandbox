@@ -119,6 +119,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "scale",
       "capSize",
       "capLength",
+      "capPadding",
     ]),
     colors: Object.freeze(["dot1Color", "backgroundColor"]),
     toggles: Object.freeze(["capEnabled"]),
@@ -391,7 +392,7 @@ function nodeGraphTraceDisplayActiveControlSet(kind, type = nodeGraphTraceDispla
 
 const nodeGraphTraceDisplaySectionControls = Object.freeze({
   caps: Object.freeze({
-    fields: Object.freeze(["capSize", "capLength"]),
+    fields: Object.freeze(["capSize", "capLength", "capPadding"]),
     colors: Object.freeze([]),
     toggles: Object.freeze(["capEnabled"]),
     choices: Object.freeze([]),
@@ -558,7 +559,8 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Padding",
     inputmode: "decimal",
     id: "nodeTraceDisplayFacePadding",
-    title: "Value LED/LCD: linear 0…1 vs face square min side. 0 = digits hit the plate edge; 1 = one pin pixel of display remains (LED phosphor CSS-px / LCD screen-px).",
+    title:
+      "Value LED/LCD: linear 0…1 vs face square min side. 0 = digits fill the plate (no shell air); 1 = one pin pixel remains (LED ~1 CSS-px phosphor; LCD = 1 monitor px at zoom 1.00, scales with zoom).",
   }),
   innerShadowDistance: Object.freeze({
     label: "Shadow dist",
@@ -712,6 +714,13 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     title: "Cap stroke thickness. 0 = 1px, 1 = full face min side (exponential).",
   }),
   capLength: Object.freeze({ label: "Length", inputmode: "decimal", id: "nodeTraceDisplayCapLength" }),
+  capPadding: Object.freeze({
+    label: "Padding",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayCapPadding",
+    title:
+      "Pull end caps inward from the horizontal line tips toward the middle. 0 = outer edges flush with the line caps; 1 = both caps meet at the center.",
+  }),
 });
 
 const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
