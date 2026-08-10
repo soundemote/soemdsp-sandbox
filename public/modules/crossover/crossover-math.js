@@ -2,10 +2,11 @@
 // Inspired by Robin Schmidt / RS-MET rsLinkwitzRileyCrossOver + CrossOver4Way tree.
 //
 // 2-way core: matched LR LP/HP (Butterworth cascaded twice). Mag sum ~ flat.
-// N-way: successive low-band extraction with compensation allpass on already
-// extracted bands (sum of that stage’s LR LP+HP) so later splits stay phase-aligned.
+// N-way: binary tree of LR splits (exactly N-1 splits/channel) — same idea as
+// RS-MET’s nested CrossOverNWay, not successive-extract + O(N²) allpass comps.
 //
 // I/O contract: Mono+Left+Right in; per-band Left/Right out only (no mono out).
+// Hot path: no per-sample object/array alloc; mono-identical L/R processes once.
 
 const nodeGraphCrossoverLrOrders = Object.freeze([2, 4, 8]); // LR2 / LR4 / LR8
 
@@ -77,10 +78,11 @@ function nodeGraphCrossoverDesignBiquadHp(f0, Q, rate) {
 }
 
 function nodeGraphCrossoverBiquadProcess(s, x) {
+  // Transposed direct form II — tight hot path (crossover runs many of these/sample).
   const y = s.b0 * x + s.z1;
   s.z1 = s.b1 * x - s.a1 * y + s.z2;
   s.z2 = s.b2 * x - s.a2 * y;
-  return Number.isFinite(y) ? y : 0;
+  return y;
 }
 
 function nodeGraphCrossoverOnePoleLpCoeff(f0, rate) {
@@ -220,30 +222,70 @@ function nodeGraphCrossoverProcessCascade(sections, x) {
 }
 
 /**
- * LR split: low + high. Mag sum ≈ flat (true LR pair).
- * @returns {{ low: number, high: number }}
+ * LR split into state._low / state._high (no per-sample object alloc).
+ * Mag sum ≈ flat (true LR pair).
  */
-function nodeGraphCrossoverLrSplit(state, x, fc, lrOrder, rate) {
+function nodeGraphCrossoverLrSplitInto(state, x, fc, lrOrder, rate) {
   nodeGraphCrossoverEnsureSplit(state, fc, lrOrder, rate);
-  const xin = Number(x) || 0;
+  const xin = +x || 0;
   if (state.lastOrder === 2) {
     let low = nodeGraphCrossoverOnePoleLpProcess(state.lpPole1, xin);
     low = nodeGraphCrossoverOnePoleLpProcess(state.lpPole2, low);
     let high = nodeGraphCrossoverOnePoleHpProcess(state.hpPole1, xin);
     high = nodeGraphCrossoverOnePoleHpProcess(state.hpPole2, high);
-    return { low, high };
+    state._low = low;
+    state._high = high;
+    return;
   }
-  let low = nodeGraphCrossoverProcessCascade(state.lpA, xin);
-  low = nodeGraphCrossoverProcessCascade(state.lpB, low);
-  let high = nodeGraphCrossoverProcessCascade(state.hpA, xin);
-  high = nodeGraphCrossoverProcessCascade(state.hpB, high);
-  return { low, high };
+  // LR4/LR8: dual identical Butterworth cascades (inline DF2 biquad — no calls).
+  let low = xin;
+  let secs = state.lpA;
+  for (let i = 0, n = secs.length; i < n; i += 1) {
+    const s = secs[i];
+    const y = s.b0 * low + s.z1;
+    s.z1 = s.b1 * low - s.a1 * y + s.z2;
+    s.z2 = s.b2 * low - s.a2 * y;
+    low = y;
+  }
+  secs = state.lpB;
+  for (let i = 0, n = secs.length; i < n; i += 1) {
+    const s = secs[i];
+    const y = s.b0 * low + s.z1;
+    s.z1 = s.b1 * low - s.a1 * y + s.z2;
+    s.z2 = s.b2 * low - s.a2 * y;
+    low = y;
+  }
+  let high = xin;
+  secs = state.hpA;
+  for (let i = 0, n = secs.length; i < n; i += 1) {
+    const s = secs[i];
+    const y = s.b0 * high + s.z1;
+    s.z1 = s.b1 * high - s.a1 * y + s.z2;
+    s.z2 = s.b2 * high - s.a2 * y;
+    high = y;
+  }
+  secs = state.hpB;
+  for (let i = 0, n = secs.length; i < n; i += 1) {
+    const s = secs[i];
+    const y = s.b0 * high + s.z1;
+    s.z1 = s.b1 * high - s.a1 * y + s.z2;
+    s.z2 = s.b2 * high - s.a2 * y;
+    high = y;
+  }
+  state._low = low;
+  state._high = high;
+}
+
+/** @deprecated Prefer nodeGraphCrossoverLrSplitInto — kept for any external callers. */
+function nodeGraphCrossoverLrSplit(state, x, fc, lrOrder, rate) {
+  nodeGraphCrossoverLrSplitInto(state, x, fc, lrOrder, rate);
+  return { low: state._low, high: state._high };
 }
 
 /** Compensation allpass ≈ LP+HP of an LR stage (RS-MET branch compensation). */
 function nodeGraphCrossoverLrAllpass(state, x, fc, lrOrder, rate) {
-  const { low, high } = nodeGraphCrossoverLrSplit(state, x, fc, lrOrder, rate);
-  return low + high;
+  nodeGraphCrossoverLrSplitInto(state, x, fc, lrOrder, rate);
+  return state._low + state._high;
 }
 
 /**
@@ -265,55 +307,135 @@ function createNodeGraphCrossoverChannelState(bandCount) {
       comps[p][i] = i > p ? createNodeGraphCrossoverSplitState() : null;
     }
   }
-  return { bandCount: n, splits, comps };
+  return {
+    bandCount: n,
+    splits,
+    comps,
+    // Scratch (reused every sample — do not allocate in the audio hot path).
+    bands: new Array(n),
+    sortedFreqs: new Array(splitCount),
+  };
 }
 
 function createNodeGraphCrossoverStereoState(bandCount) {
+  const n = Math.max(2, Math.min(6, Math.round(Number(bandCount) || 2)));
+  const portPairs = [];
+  for (let i = 0; i < n; i += 1) {
+    portPairs.push(nodeGraphCrossoverBandPortPair(n, i));
+  }
   return {
-    left: createNodeGraphCrossoverChannelState(bandCount),
-    right: createNodeGraphCrossoverChannelState(bandCount),
+    left: createNodeGraphCrossoverChannelState(n),
+    right: createNodeGraphCrossoverChannelState(n),
+    // Reused port map object (mutated in place each sample).
+    out: Object.create(null),
+    portPairs,
+    bandCount: n,
   };
+}
+
+/** Write non-decreasing freqs into `dest` (length count). No alloc. */
+function nodeGraphCrossoverFillSortedFreqs(dest, freqs, count) {
+  const n = Math.max(0, count);
+  for (let i = 0; i < n; i += 1) {
+    dest[i] = Math.max(0, Number(freqs[i]) || 0);
+  }
+  for (let i = 1; i < n; i += 1) {
+    if (dest[i] < dest[i - 1]) dest[i] = dest[i - 1];
+  }
+  return dest;
 }
 
 function nodeGraphCrossoverSortedFreqs(freqs, count) {
   const n = Math.max(0, count);
-  const out = [];
-  for (let i = 0; i < n; i += 1) {
-    const f = Math.max(0, Number(freqs[i]) || 0);
-    out.push(f);
-  }
-  // Enforce non-decreasing splits (same fc ok → thin mid band)
-  for (let i = 1; i < out.length; i += 1) {
-    if (out[i] < out[i - 1]) out[i] = out[i - 1];
-  }
+  const out = new Array(n);
+  nodeGraphCrossoverFillSortedFreqs(out, freqs, n);
   return out;
 }
 
 /**
- * Process one channel into bandCount bands (low → high).
- * @returns {number[]} length bandCount
+ * Process one channel into ch.bands (low → high). Returns ch.bands.
+ *
+ * Tree topology (RS-MET CrossOverNWay style): N-way uses exactly N-1 LR splits.
+ * Older successive-extract + compensation-allpass was O(N²) LR passes and could
+ * blow the audio budget on 4-way LR8 even for a single sine (see interrupted
+ * audio patch). Tree keeps flat magnitude sum with far less CPU.
  */
 function nodeGraphCrossoverProcessChannel(ch, x, freqs, lrOrder, rate) {
   const n = ch.bandCount;
   const splitCount = n - 1;
-  const f = nodeGraphCrossoverSortedFreqs(freqs, splitCount);
-  const order = nodeGraphCrossoverClampLrOrder(lrOrder);
-  const bands = new Array(n);
-  let remaining = Number(x) || 0;
-
-  for (let i = 0; i < splitCount; i += 1) {
-    const { low, high } = nodeGraphCrossoverLrSplit(ch.splits[i], remaining, f[i], order, rate);
-    bands[i] = low;
-    remaining = high;
-    // Compensate already-extracted lower bands for this stage (RS-MET idea).
-    for (let p = 0; p < i; p += 1) {
-      const comp = ch.comps[p][i];
-      if (comp) {
-        bands[p] = nodeGraphCrossoverLrAllpass(comp, bands[p], f[i], order, rate);
-      }
-    }
+  if (!ch.bands || ch.bands.length !== n) {
+    ch.bands = new Array(n);
   }
-  bands[splitCount] = remaining;
+  if (!ch.sortedFreqs || ch.sortedFreqs.length !== splitCount) {
+    ch.sortedFreqs = new Array(splitCount);
+  }
+  const f = nodeGraphCrossoverFillSortedFreqs(ch.sortedFreqs, freqs, splitCount);
+  const order = nodeGraphCrossoverClampLrOrder(lrOrder);
+  const bands = ch.bands;
+  const splits = ch.splits;
+  const xin = Number(x) || 0;
+
+  if (n === 2) {
+    nodeGraphCrossoverLrSplitInto(splits[0], xin, f[0], order, rate);
+    bands[0] = splits[0]._low;
+    bands[1] = splits[0]._high;
+    return bands;
+  }
+
+  if (n === 3) {
+    // low | mid | high
+    nodeGraphCrossoverLrSplitInto(splits[0], xin, f[0], order, rate);
+    bands[0] = splits[0]._low;
+    nodeGraphCrossoverLrSplitInto(splits[1], splits[0]._high, f[1], order, rate);
+    bands[1] = splits[1]._low;
+    bands[2] = splits[1]._high;
+    return bands;
+  }
+
+  if (n === 4) {
+    // Balanced tree: mid split f1, then f0 on low half, f2 on high half.
+    nodeGraphCrossoverLrSplitInto(splits[1], xin, f[1], order, rate);
+    const midLow = splits[1]._low;
+    const midHigh = splits[1]._high;
+    nodeGraphCrossoverLrSplitInto(splits[0], midLow, f[0], order, rate);
+    bands[0] = splits[0]._low;
+    bands[1] = splits[0]._high;
+    nodeGraphCrossoverLrSplitInto(splits[2], midHigh, f[2], order, rate);
+    bands[2] = splits[2]._low;
+    bands[3] = splits[2]._high;
+    return bands;
+  }
+
+  if (n === 5) {
+    // Root at f2; low half → f0/f1 chain; high half → f3.
+    nodeGraphCrossoverLrSplitInto(splits[2], xin, f[2], order, rate);
+    const lowHalf = splits[2]._low;
+    const highHalf = splits[2]._high;
+    nodeGraphCrossoverLrSplitInto(splits[0], lowHalf, f[0], order, rate);
+    bands[0] = splits[0]._low;
+    nodeGraphCrossoverLrSplitInto(splits[1], splits[0]._high, f[1], order, rate);
+    bands[1] = splits[1]._low;
+    bands[2] = splits[1]._high;
+    nodeGraphCrossoverLrSplitInto(splits[3], highHalf, f[3], order, rate);
+    bands[3] = splits[3]._low;
+    bands[4] = splits[3]._high;
+    return bands;
+  }
+
+  // n === 6: root f2; each half is a 3-way (f0,f1) / (f3,f4).
+  nodeGraphCrossoverLrSplitInto(splits[2], xin, f[2], order, rate);
+  const lowHalf6 = splits[2]._low;
+  const highHalf6 = splits[2]._high;
+  nodeGraphCrossoverLrSplitInto(splits[0], lowHalf6, f[0], order, rate);
+  bands[0] = splits[0]._low;
+  nodeGraphCrossoverLrSplitInto(splits[1], splits[0]._high, f[1], order, rate);
+  bands[1] = splits[1]._low;
+  bands[2] = splits[1]._high;
+  nodeGraphCrossoverLrSplitInto(splits[3], highHalf6, f[3], order, rate);
+  bands[3] = splits[3]._low;
+  nodeGraphCrossoverLrSplitInto(splits[4], splits[3]._high, f[4], order, rate);
+  bands[4] = splits[4]._low;
+  bands[5] = splits[4]._high;
   return bands;
 }
 
@@ -326,11 +448,11 @@ function nodeGraphCrossoverProcessChannel(ch, x, freqs, lrOrder, rate) {
  * @param {number[]} freqs length bandCount-1
  * @param {number} lrOrder 2|4|8
  * @param {number} sampleRate
- * @returns {Record<string, number>} port map
+ * @returns {Record<string, number>} port map (reused object — read immediately)
  */
 function nodeGraphCrossoverSample(state, mono, leftIn, rightIn, freqs, lrOrder, sampleRate, bandCount) {
   const n = Math.max(2, Math.min(6, Math.round(Number(bandCount) || 2)));
-  if (!state.left || state.left.bandCount !== n) {
+  if (!state.left || state.left.bandCount !== n || !state.out || !state.portPairs) {
     Object.assign(state, createNodeGraphCrossoverStereoState(n));
   }
   const m = Number(mono) || 0;
@@ -338,14 +460,28 @@ function nodeGraphCrossoverSample(state, mono, leftIn, rightIn, freqs, lrOrder, 
   const rIn = (Number(rightIn) || 0) + m;
   const order = nodeGraphCrossoverClampLrOrder(lrOrder);
   const rate = Math.max(1, Number(sampleRate) || 44100);
+  const out = state.out;
+  const portPairs = state.portPairs;
+
+  // Mono (or identical L/R): process one channel and mirror — halves CPU for the
+  // common mono-In wiring pattern without changing the stereo algorithm.
+  if (lIn === rIn) {
+    const bands = nodeGraphCrossoverProcessChannel(state.left, lIn, freqs, order, rate);
+    for (let i = 0; i < n; i += 1) {
+      const pair = portPairs[i];
+      const v = Number.isFinite(bands[i]) ? bands[i] : 0;
+      out[pair.L] = v;
+      out[pair.R] = v;
+    }
+    return out;
+  }
+
   const bandsL = nodeGraphCrossoverProcessChannel(state.left, lIn, freqs, order, rate);
   const bandsR = nodeGraphCrossoverProcessChannel(state.right, rIn, freqs, order, rate);
-
-  const out = {};
   for (let i = 0; i < n; i += 1) {
-    const { L, R } = nodeGraphCrossoverBandPortPair(n, i);
-    out[L] = Number.isFinite(bandsL[i]) ? bandsL[i] : 0;
-    out[R] = Number.isFinite(bandsR[i]) ? bandsR[i] : 0;
+    const pair = portPairs[i];
+    out[pair.L] = Number.isFinite(bandsL[i]) ? bandsL[i] : 0;
+    out[pair.R] = Number.isFinite(bandsR[i]) ? bandsR[i] : 0;
   }
   return out;
 }
