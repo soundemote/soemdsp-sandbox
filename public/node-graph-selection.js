@@ -1,4 +1,27 @@
 function setNodeGraphSelection(selection) {
+  // Finish any in-progress title/alias edit against the *current* target before
+  // retargeting selection. Otherwise a focused Command Center alias (or header
+  // title) keeps receiving keystrokes while lastModuleActionTarget jumps to the
+  // newly clicked module — renaming modules that were never put into edit mode.
+  const active = document.activeElement;
+  if (active instanceof HTMLElement) {
+    if (active.id === "nodeSceneAliasInput") {
+      try {
+        active.blur();
+      } catch {
+        // ignore
+      }
+    } else if (
+      active.classList?.contains("node-header-title")
+      && active.dataset?.titleEditing === "1"
+    ) {
+      try {
+        active.blur();
+      } catch {
+        // ignore
+      }
+    }
+  }
   nodeGraphMvp.selected = selection;
   const selectedNode = nodeGraphSingleSelectedNodeId(selection);
   if (selectedNode && nodeGraphPatchNode(selectedNode)) {

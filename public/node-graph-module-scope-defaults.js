@@ -241,6 +241,10 @@ const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   residual: 0.88,
   ghostBrightness: 0.45,
   decimals: 2,
+  // When true: lock digit size to a fixed Decimals budget (stable width).
+  // When false: resize digits to fill available space for the live value.
+  // Default OFF for Value LED/LCD; Pitch Detector defaults ON via DefaultsForNode.
+  decimalBudget: false,
   // How live Light composites over residual gradient (canvas blend / occlude).
   lightBlend: "occlude",
   // Digit inset 0…1 linear vs face square min side (0 = flush fill, 1 = one pin pixel).
@@ -263,6 +267,8 @@ const nodeGraphValueLcdSettingsDefaults = Object.freeze({
   residual: 0,
   ghostBrightness: 0,
   decimals: 2,
+  // Same budget policy as Value LED (OFF by default; Pitch Detector ON).
+  decimalBudget: false,
   lightBlend: "source-over",
   // Digit inset 0…1 linear vs face square min side (0 = flush fill, 1 = one pin pixel).
   facePadding: 0,

@@ -224,11 +224,11 @@ function pushNodeGraphLiveModuleScopeSnapshot(values, options = {}) {
     pushNodeGraphLiveModuleScopeSamples(entry[0], entry[1], metadata);
   }
   notifyNodeGraphModuleScopeSnapshotListeners();
-  // Single gate owns force-on-sample + arm continuous RAF (see paint-gate.js).
+  // Soft schedule only — force bypasses display FPS (see paint-gate.js).
   if (typeof scopePaintOnSampleSnapshot === "function") {
     scopePaintOnSampleSnapshot();
   } else if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
-    scheduleNodeGraphModuleScopeDraw({ force: true });
+    scheduleNodeGraphModuleScopeDraw();
   }
 }
 

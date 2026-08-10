@@ -369,6 +369,7 @@ function validateNodeGraphPatch(patch) {
       ui.buttonsHidden
       || ui.buttonsForceShow
       || ui.ioHidden
+      || ui.hideUnused
       || ui.interfaceControlsHidden
       || ui.interfaceControlsForceShow
       || ui.movementLocked
@@ -860,6 +861,10 @@ function applyNodeGraphPatchToDom() {
     element.classList.toggle("buttons-hidden", patchNodeUi.buttonsHidden);
     element.classList.toggle("buttons-forced-visible", Boolean(patchNodeUi.buttonsForceShow));
     element.classList.toggle("io-hidden", patchNodeUi.ioHidden);
+    element.classList.toggle(
+      "unused-hidden",
+      Boolean(normalizeNodeGraphPatchNodeUi(patchNode.ui, patchNode.type).hideUnused),
+    );
     element.classList.toggle("interface-controls-hidden", patchNodeUi.interfaceControlsHidden);
     element.classList.toggle("interface-controls-forced-visible", Boolean(patchNodeUi.interfaceControlsForceShow));
     element.classList.toggle("movement-locked", patchNodeUi.movementLocked);

@@ -823,7 +823,8 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
       { id: "canvas", heightGu: nodeGraphModuleDefaultDisplayHeightUnits(type), visible: true },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
-      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: true },
+      /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
+      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
     ];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "visualScope") {
@@ -839,7 +840,8 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "trace", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: true },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
-      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: true },
+      /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
+      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
     ];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "graph") {
@@ -850,7 +852,7 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "header", heightGu: headerGu, visible: headerGu > 0 },
       { id: "shell", heightGu: nodeGraphLayoutBShellHeightGu(type, ui), visible: true },
       { id: "params", heightGu: paramsGu, visible: paramsGu > 0 },
-      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: paramsGu > 0 },
+      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: paramsGu > 0 },
     ];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "sliderWidget") {
@@ -861,7 +863,7 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "header", heightGu: headerGu, visible: headerGu > 0 },
       { id: "shell", heightGu: nodeGraphLayoutBShellHeightGu(type, ui), visible: true },
       { id: "params", heightGu: paramsGu, visible: paramsGu > 0 },
-      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: paramsGu > 0 },
+      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: paramsGu > 0 },
     ];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "keyboardController") {
@@ -896,7 +898,8 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "face", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: true },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
-      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: true },
+      /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
+      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
     ];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "filterCurve") {
@@ -907,7 +910,8 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "curve", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
-      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: true },
+      /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
+      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
     ];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "envelopeCurve") {
@@ -916,7 +920,8 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "curve", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
-      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: true },
+      /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
+      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
     ];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "pitchQuantizer") {
@@ -925,7 +930,8 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "face", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: true },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
-      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: true },
+      /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
+      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
     ];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "asciiscope") {
@@ -934,7 +940,8 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "face", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: true },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
-      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: true },
+      /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
+      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
     ];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "wallRoomDisplay") {
@@ -943,7 +950,8 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "room", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
-      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: true },
+      /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
+      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
     ];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "pulseCurve") {
@@ -952,7 +960,8 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
       { id: "curve", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
       { id: "io", heightGu: ioHeightGu, visible: ioVisible },
       { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
-      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: true },
+      /* Vertical plate: top full + bottom half (CSS --node-module-grid-inset-y-total). */
+      { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
     ];
   }
   return [
@@ -961,7 +970,7 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
     { id: "interfaceControls", heightGu: nodeGraphModuleInterfaceControlsHeightGu(type, ui), visible: interfaceControlsVisible },
     { id: "io", heightGu: ioHeightGu, visible: ioVisible },
     { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
-    { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 2, visible: true },
+    { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
   ];
 }
 
@@ -992,8 +1001,8 @@ function nodeGraphLayoutBContentHeightGu(type, ui = {}, { compact = false } = {}
   if (compact) {
     return headerGu + shellGu + sliderGu;
   }
-  // Plate inset compensates for CSS height = gridUnits*px − 2*inset.
-  return headerGu + shellGu + sliderGu + nodeGraphModuleLayout.moduleGridInsetGu * 2;
+  // Plate inset: top full + bottom half (CSS --node-module-grid-inset-y-total).
+  return headerGu + shellGu + sliderGu + nodeGraphModuleLayout.moduleGridInsetGu * 1.5;
 }
 
 /**

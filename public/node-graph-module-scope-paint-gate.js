@@ -97,17 +97,19 @@ function scopePaintShouldSkipUnchangedTrace() {
 }
 
 /**
- * Arm continuous draw after worklet samples land. Always force so soft schedule
- * cannot be dropped while policy briefly disagrees.
+ * Arm continuous draw after worklet samples land.
+ *
+ * Soft schedule only — `{ force: true }` skips the display FPS clock
+ * (`nodeGraphModuleScopePhosphorFrameReady`), so every sample batch was painting
+ * at audio/rAF rate and ignoring Simulation FPS (phosphor, LCD, LED, 0D, …).
+ * Clear / Settings / wipe still pass force when an immediate paint is required.
+ * The live RAF loop is kept alive by scopePaintKeepLoopAlive after each frame.
  */
 function scopePaintOnSampleSnapshot() {
   if (typeof scheduleNodeGraphModuleScopeDraw !== "function") {
     return;
   }
-  scheduleNodeGraphModuleScopeDraw({ force: true });
-  if (scopePaintIsLive()) {
-    scheduleNodeGraphModuleScopeDraw();
-  }
+  scheduleNodeGraphModuleScopeDraw();
 }
 
 /**

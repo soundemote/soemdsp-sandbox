@@ -43,6 +43,7 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
     "capEnabled",
     "fullDotEconomy",
     "dotsOnly",
+    "decimalBudget",
   ],
   choices: [
     "syncChannel",
@@ -157,14 +158,14 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze([]),
   }),
   numberReadout: Object.freeze({
-    // Value LED: Bright + Ghost/Trail residual hang.
-    // Value LCD (vector): decimals, unlit 8s, glass shadow — no residual hang.
+    // Value LED: Decimals → Padding → Bright → Ghost → Trail (last residual).
+    // Value LCD (vector): decimals, padding, Ghost plate, glass shadow — no residual hang.
     fields: Object.freeze([
       "decimals",
+      "facePadding",
       "dot1Brightness",
       "ghost",
       "trail",
-      "facePadding",
       "unlitSegments",
       "innerShadowDistance",
       "innerShadowSharpness",
@@ -172,7 +173,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "innerShadowOffsetY",
     ]),
     colors: Object.freeze(["backgroundColor", "dot1Color"]),
-    toggles: Object.freeze([]),
+    // Decimal budget: fixed digit slots vs live resize (Pitch Detector defaults ON).
+    toggles: Object.freeze(["decimalBudget"]),
     choices: Object.freeze(["lightBlend"]),
   }),
   // LED lamp: same shared display inspector as other faces (not a separate window).
@@ -458,6 +460,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "dotsOnly",
       "showLabel",
       "showReadout",
+      "decimalBudget",
     ]),
     // window/overlap/freqOverlap/freqScale = spectrogram; syncChannel/stereoBlend = Output.
     // cornerShape = LED.
@@ -574,7 +577,8 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Shadow hard",
     inputmode: "decimal",
     id: "nodeTraceDisplayInnerShadowSharpness",
-    title: "Value LCD: edge hardness 0…1. 0 = widest smooth Gaussian; 1 = hard rim (no blur). Mid values ease via smoothstep.",
+    title:
+      "Value LCD shadow hardness 0…1. Soft = wide translucent Gaussian; harder = less blur and more black. Full hardness = solid black hard rim.",
   }),
   innerShadowOffsetX: Object.freeze({
     label: "Shadow X",
@@ -763,6 +767,12 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
     label: "Show value",
     id: "nodeTraceDisplayShowReadout",
     title: "Show the live Bias readout on the Knob module face.",
+  }),
+  decimalBudget: Object.freeze({
+    label: "Decimal budget",
+    id: "nodeTraceDisplayDecimalBudget",
+    title:
+      "When on, digit size locks to a fixed Decimals budget (stable width as values change). When off, digits resize to fill available space for the live value.",
   }),
 });
 

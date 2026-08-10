@@ -43,6 +43,36 @@ function nodeGraphSurfacePointToClient(point, surface = typeof nodeGraphZoomSurf
   };
 }
 
+/**
+ * One Chaikin corner-cut pass for snake *display* only (hits stay on raw points).
+ * Softens 1-step jitter without losing the trail shape.
+ */
+function nodeGraphHitTrailSmoothedDisplayPoints(points) {
+  if (!points || points.length < 3) {
+    return points || [];
+  }
+  const out = [{ x: Number(points[0].x) || 0, y: Number(points[0].y) || 0 }];
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const a = points[i];
+    const b = points[i + 1];
+    const ax = Number(a.x) || 0;
+    const ay = Number(a.y) || 0;
+    const bx = Number(b.x) || 0;
+    const by = Number(b.y) || 0;
+    out.push({
+      x: ax * 0.75 + bx * 0.25,
+      y: ay * 0.75 + by * 0.25,
+    });
+    out.push({
+      x: ax * 0.25 + bx * 0.75,
+      y: ay * 0.25 + by * 0.75,
+    });
+  }
+  const last = points[points.length - 1];
+  out.push({ x: Number(last.x) || 0, y: Number(last.y) || 0 });
+  return out;
+}
+
 function renderNodeGraphMarqueeSelection() {
   // Legacy name kept for call sites. Renders the hit trail snake.
   const svg = nodeGraphHitTrailSvg();
@@ -75,7 +105,8 @@ function renderNodeGraphMarqueeSelection() {
   svg.style.opacity = "1";
   svg.style.pointerEvents = "none";
 
-  const points = drag.points;
+  // Visual only — one Chaikin pass. Hit sampling still uses drag.points raw.
+  const points = nodeGraphHitTrailSmoothedDisplayPoints(drag.points);
   let d;
   if (points.length === 1) {
     // A lone M does not paint a stroke — fake a tiny segment so the tip is visible.
@@ -105,15 +136,20 @@ function nodeGraphHitTrailAppendPoint(drag, point) {
     return true;
   }
   const last = drag.points[drag.points.length - 1];
-  const dx = point.x - last.x;
-  const dy = point.y - last.y;
+  // Light 1-frame EMA on the tip (~0.65 toward cursor) — one step smoother
+  // than raw pointer without lagging the snake.
+  const smooth = 0.65;
+  const sx = last.x + (point.x - last.x) * smooth;
+  const sy = last.y + (point.y - last.y) * smooth;
+  const dx = sx - last.x;
+  const dy = sy - last.y;
   if ((dx * dx) + (dy * dy) < nodeGraphHitTrailMinStepPx * nodeGraphHitTrailMinStepPx) {
     // Still update tip so the line tracks the cursor tightly.
-    last.x = point.x;
-    last.y = point.y;
+    last.x = sx;
+    last.y = sy;
     return false;
   }
-  drag.points.push({ x: point.x, y: point.y });
+  drag.points.push({ x: sx, y: sy });
   if (drag.points.length > nodeGraphHitTrailMaxPoints) {
     drag.points.splice(0, drag.points.length - nodeGraphHitTrailMaxPoints);
   }

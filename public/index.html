@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>soemdsp-sandbox</title>
-  <link rel="stylesheet" href="./public/styles.css?v=lcd-face-flush-2">
-  <link rel="stylesheet" href="./public/modules/stepGrid/step-grid.css?v=stepgrid-own-folder-20260715">
+  <link rel="stylesheet" href="./public/styles.css?v=pitch-hz-fid-row-1">
+  <link rel="stylesheet" href="./public/modules/stepGrid/step-grid.css?v=module-bottom-inset-half-1">
   <link rel="stylesheet" href="./public/modules/pitchQuantizer/pitch-quantizer-ui.css?v=chord-pad-1">
   <link rel="stylesheet" href="./public/modules/chordPad/chord-pad-ui.css?v=chord-pad-1">
   <link rel="stylesheet" href="./public/modules/asciiscope/asciiscope-ui.css?v=matrix-sharp-pixel-1">
@@ -988,11 +988,75 @@
           </label>
           <label class="node-ui-dev-check">
             <input
-              id="nodeUiDevHoverModuleDimmerCutout"
+              id="nodeUiDevDimmerCutoutSlider"
               type="checkbox"
               checked
-              title="When room dimmer is on, hovering a module punches a full-module light cutout">
-            <span>hover module dimmer cutout</span>
+              title="When room dimmer is on: full-width light strip over the hovered slider / parameter row">
+            <span>dimmer cutout for slider</span>
+          </label>
+          <label class="node-ui-dev-check">
+            <input
+              id="nodeUiDevDimmerCutoutModule"
+              type="checkbox"
+              title="When room dimmer is on: punch the entire hovered module plate">
+            <span>dimmer cutout for module</span>
+          </label>
+          <label class="node-ui-dev-check">
+            <input
+              id="nodeUiDevDimmerCutoutTitle"
+              type="checkbox"
+              checked
+              title="When room dimmer is on: punch a light box over the module title row while hovering the header/title">
+            <span>dimmer cutout for title</span>
+          </label>
+          <label class="node-ui-dev-check">
+            <input
+              id="nodeUiDevDimmerCutoutMouse"
+              type="checkbox"
+              title="When room dimmer is on: cutout under the pointer">
+            <span>dimmer cutout for mouse</span>
+          </label>
+          <label class="node-ui-dev-control">
+            <span>mouse dimmer size</span>
+            <div class="node-ui-dev-control-row">
+              <input
+                id="nodeUiDevDimmerMouseSize"
+                type="range"
+                min="8"
+                max="240"
+                step="1"
+                value="56"
+                title="Pointer cutout diameter in CSS pixels">
+              <output id="nodeUiDevDimmerMouseSizeValue" for="nodeUiDevDimmerMouseSize">56px</output>
+            </div>
+          </label>
+          <label class="node-ui-dev-control">
+            <span>mouse dimmer softness</span>
+            <div class="node-ui-dev-control-row">
+              <input
+                id="nodeUiDevDimmerMouseSoftness"
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value="25"
+                title="Feather the mouse cutout edge (0 = hard, 100 = soft)">
+              <output id="nodeUiDevDimmerMouseSoftnessValue" for="nodeUiDevDimmerMouseSoftness">25%</output>
+            </div>
+          </label>
+          <label class="node-ui-dev-control">
+            <span>mouse dimmer shape</span>
+            <div class="node-ui-dev-control-row">
+              <input
+                id="nodeUiDevDimmerMouseShape"
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value="0"
+                title="0 = square, mid = squircle, 100 = circle">
+              <output id="nodeUiDevDimmerMouseShapeValue" for="nodeUiDevDimmerMouseShape">square</output>
+            </div>
           </label>
           <label class="node-ui-dev-check">
             <input
@@ -1842,6 +1906,24 @@
                 <span class="scene-context-button-lines"><span>⬜</span><span>Control surface</span></span>
               </button>
             </div>
+            <div class="scene-context-button-group scene-context-button-group-1" role="group" aria-label="Hide unused ports">
+              <button id="nodeSceneToggleHideUnused" type="button" role="menuitem" hidden>
+                <span class="scene-context-button-lines"><span>⬜</span><span>Hide unused</span></span>
+              </button>
+            </div>
+            <div class="scene-context-button-group scene-context-button-group-1" role="group" aria-label="Disable module">
+              <button
+                id="nodeSceneToggleModuleEnabled"
+                class="scene-context-window-button scene-context-disable-modules-button"
+                type="button"
+                role="menuitem"
+                hidden
+                disabled
+                aria-pressed="false"
+                title="Select one or more modules to disable or enable.">
+                <span class="scene-context-window-button-label">Disable module</span>
+              </button>
+            </div>
           </div>
         </div>
         <div id="nodeSceneWindowControls" class="scene-context-text-box-controls scene-context-window-controls">
@@ -1886,16 +1968,6 @@
               <button type="button" data-transport-action="record" title="Record (under construction)" aria-label="Record (under construction)" disabled class="under-construction">⏺</button>
               <button type="button" data-transport-action="forward" title="Forward (under construction)" aria-label="Forward (under construction)" disabled class="under-construction">⏭</button>
             </div>
-            <button
-              id="nodeSceneToggleModuleEnabled"
-              class="scene-context-window-button scene-context-disable-modules-button"
-              type="button"
-              role="menuitem"
-              disabled
-              aria-pressed="false"
-              title="Select one or more modules to disable or enable.">
-              <span class="scene-context-window-button-label">Disable modules</span>
-            </button>
           </div>
         </div>
         <div id="nodeSceneSelectedModule" class="scene-context-selected-module" hidden>
@@ -3309,12 +3381,12 @@
   <script src="./public/modules/stepGrid/step-grid-register.js?v=stepgrid-variable-steps-20260715"></script>
   <script src="./public/modules/groupInput/group-input-register.js?v=chromeless-portals-1"></script>
   <script src="./public/modules/groupOutput/group-output-register.js?v=chromeless-portals-1"></script>
-  <script src="./public/node-graph-module-definitions.js?v=pitch-gate-1"></script>
+  <script src="./public/node-graph-module-definitions.js?v=module-bottom-inset-half-1"></script>
   <script src="./public/node-graph-plan-roles.js?v=plan-roles-b0"></script>
   <script src="./public/node-graph-module-controls.js?v=speed-limit-runtime-only-1"></script>
   <script src="./public/node-graph-data-bus.js?v=data-plane-merge-20260711"></script>
   <script src="./public/node-graph-module-store.js?v=pitch-gate-1"></script>
-  <script src="./public/node-graph-module-sizing.js?v=height-ssot-2"></script>
+  <script src="./public/node-graph-module-sizing.js?v=module-bottom-inset-half-1"></script>
   <script src="./public/node-graph-metadata-kinds.js?v=param-meta-ui-1"></script>
   <script src="./public/node-graph-parameter-smoother-filters.js?v=linear-lerp-1"></script>
   <script src="./public/node-graph-parameter-metadata.js?v=choice-toggles-1"></script>
@@ -3351,10 +3423,10 @@
   <script src="./public/node-graph-workspace-zoom.js?v=zoom-hide-io-1"></script>
   <script src="./public/node-graph-workspace-view.js?v=zoom-hide-io-1"></script>
   <script src="./public/node-graph-camera-view.js?v=hitpoint-select-1"></script>
-  <script src="./public/node-graph-marquee-selection.js?v=snake-poly-1"></script>
+  <script src="./public/node-graph-marquee-selection.js?v=snake-smooth-1"></script>
   <script src="./public/node-graph-node-dragging.js?v=layout-edit-light-1"></script>
   <script src="./public/node-graph-context-menu.js?v=cc-disable-modules-1"></script>
-  <script src="./public/node-graph-module-actions.js?v=graph-settings-list-1"></script>
+  <script src="./public/node-graph-module-actions.js?v=title-edit-session-1"></script>
   <!-- node-graph-code-screen.js loaded by node-graph-code-screen-loader.js on demand -->
   <script src="./public/lib/phosphor/phosphor-residual.js?v=trail-blend-1"></script>
   <script src="./public/lib/phosphor/phosphor-energy-gl.js?v=trail-blend-1"></script>
@@ -3369,7 +3441,7 @@
   <script src="./public/node-graph-module-scope-display-mode.js?v=one-face-1"></script>
   <script src="./public/node-graph-module-scope-phosphor.js?v=paint-gate-1"></script>
   <script src="./public/latch-button.js?v=latch-1"></script>
-  <script src="./public/node-graph-module-scope-settings-form.js?v=lcd-ghost-fade-1"></script>
+  <script src="./public/node-graph-module-scope-settings-form.js?v=led-pad-under-decimals-1"></script>
   <script src="./public/node-graph-module-scope-settings-controls.js?v=0d-cap-pad-1"></script>
   <!-- Display Settings peel: form-io → field-edit → apply → window → thin ui anchor -->
   <script src="./public/node-graph-module-scope-settings-form-io.js?v=hue-no-wrap-1"></script>
@@ -3378,7 +3450,7 @@
   <script src="./public/node-graph-module-scope-settings-window.js?v=display-settings-multi-sync-1"></script>
   <script src="./public/node-graph-module-scope-settings-ui.js?v=one-face-1"></script>
   <script src="./public/node-graph-module-scope-capture.js?v=fuse-pack-1"></script>
-  <script src="./public/node-graph-module-scope-number-readout.js?v=lcd-ghost-fade-1"></script>
+  <script src="./public/node-graph-module-scope-number-readout.js?v=pitch-fixed-digit-size-1"></script>
   <script src="./public/node-graph-module-scope-draw-basic.js?v=0d-soft-edge-1"></script>
   <script src="./public/node-graph-module-scope-draw-burn.js?v=no-idle-wipe-1"></script>
   <script src="./public/node-graph-module-scopes.js?v=clear-pause-bright-1"></script>
@@ -3396,7 +3468,7 @@
   <script src="./public/node-graph-module-scope-monitors.js?v=scope-monitors-1"></script>
   <script src="./public/node-graph-module-scope-scene-controls.js?v=drag-reanchor-1"></script>
   <script src="./public/node-graph-module-scope-shader-settings.js?v=scope-shader-settings-1"></script>
-  <script src="./public/node-graph-module-scope-trace-controls.js?v=lcd-ghost-fade-1"></script>
+  <script src="./public/node-graph-module-scope-trace-controls.js?v=led-pad-under-decimals-1"></script>
   <script src="./public/node-graph-module-scope-wipe.js?v=clear-multi-2"></script>
   <script src="./public/node-graph-module-scope-graph-query.js?v=scope-graph-query-1"></script>
   <script src="./public/node-graph-module-scope-settings.js?v=scope-settings-1"></script>
@@ -3410,7 +3482,7 @@
   <script src="./public/modules/videoscope/videoscope-display.js?v=room-dimmer-full-ui-90-1"></script>
   <script src="./public/modules/spectrogram/spectrogram-display.js?v=spec-zoom-smooth-1"></script>
   <script src="./public/modules/transport/transport-display.js?v=transport-bpm-20260714"></script>
-  <script src="./public/node-graph-room-dimmer.js?v=hover-module-cutout-1"></script>
+  <script src="./public/node-graph-room-dimmer.js?v=title-light-box-1"></script>
   <script src="./public/node-graph-canvas-script.js?v=floating-chrome-unify-1"></script>
   <script src="./public/node-graph-module-factories.js?v=io-label-hitbox-1"></script>
   <script src="./public/modules/led/led-ui.js?v=led-fill-images-1"></script>
@@ -3437,7 +3509,7 @@
   <script src="./public/modules/stepGrid/step-grid-ui.js?v=stepgrid-variable-steps-20260715"></script>
   <script src="./public/modules/groupInput/group-input-ui.js?v=chromeless-portals-1"></script>
   <script src="./public/modules/groupOutput/group-output-ui.js?v=chromeless-portals-1"></script>
-  <script src="./public/node-graph-module-header-rendering.js?v=speed-limit-runtime-only-1"></script>
+  <script src="./public/node-graph-module-header-rendering.js?v=title-edit-session-1"></script>
   <script src="./public/node-graph-module-rendering.js?v=height-ssot-2"></script>
   <script src="./public/node-graph-module-frame.js?v=top-round-bottom-square-1"></script>
   <script src="./public/node-graph-history.js?v=slider-unit-color-1780307400000"></script>
@@ -3447,7 +3519,7 @@
   <script src="./public/node-graph-slider-values.js?v=choice-toggles-1"></script>
   <script src="./public/node-graph-slider-dragging.js?v=drag-reanchor-1"></script>
   <script src="./public/node-graph-node-accessors.js?v=cleanup-20260725-smoothing-time-20260701"></script>
-  <script src="./public/node-graph-selection.js?v=display-settings-multi-sync-1"></script>
+  <script src="./public/node-graph-selection.js?v=title-edit-session-1"></script>
   <script src="./public/node-graph-port-geometry.js?v=port-center-cache-1"></script>
   <script src="./public/node-graph-slider-readout.js?v=param-alias-label-1"></script>
   <script src="./public/modules/knob/knob-face.js?v=display-multi-2"></script>
@@ -3479,13 +3551,13 @@
   <script src="./public/node-graph-tooltips.js?v=linear-lerp-1"></script>
   <script src="./public/node-graph-interaction-help.js?v=patch-page-1"></script>
   <script src="./public/presets/useruisettings.js?v=expose-empty-1"></script>
-  <script src="./public/node-graph-ui-settings-definitions.js?v=hover-module-cutout-1"></script>
+  <script src="./public/node-graph-ui-settings-definitions.js?v=title-light-box-1"></script>
   <script src="./public/node-graph-ui-settings-utils.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-user-ui-settings-controls.js?v=uidev-no-vis-dup-1"></script>
   <script src="./public/node-graph-ui-settings-panels.js?v=grid-uidev-save-1"></script>
   <script src="./public/node-graph-ui-settings-persistence.js?v=vis-deadcode-1"></script>
-  <script src="./public/node-graph-ui-settings-sync.js?v=hover-module-cutout-1"></script>
-  <script src="./public/node-graph-keyboard-shortcuts.js?v=hotkey-v-modular-1"></script>
+  <script src="./public/node-graph-ui-settings-sync.js?v=title-light-box-1"></script>
+  <script src="./public/node-graph-keyboard-shortcuts.js?v=title-edit-session-1"></script>
   <script src="./public/node-graph-live-status-text.js?v=live-plan-preserve-20260634"></script>
   <script src="./public/node-graph-live-status-controls.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-live-meter-controls.js?v=audio-overrun-meter-2"></script>
@@ -3493,7 +3565,7 @@
   <script src="./public/node-graph-live-evidence.js?v=badval-face-1"></script>
   <script src="./public/node-graph-live-control-rendering.js?v=transport-states-8"></script>
   <script src="./public/node-graph-default-patch.js?v=layout-c-1"></script>
-  <script src="./public/node-graph-state.js?v=hover-module-cutout-1"></script>
+  <script src="./public/node-graph-state.js?v=title-light-box-1"></script>
   <script src="./public/node-graph-external-ui-events.js?v=xy-pad-impulse-1"></script>
   <script src="./public/node-graph-patch-migrations.js?v=sincos-no-amp-in-1"></script>
   <script src="./public/node-graph-patch-core.js?v=placement-light-1"></script>
@@ -3737,7 +3809,7 @@
   <script src="./public/modules/chromaColor/chroma-color-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/badvalMonitor/badval-monitor-ui.js?v=badval-face-1"></script>
   <script src="./public/modules/badvalMonitor/badval-monitor-live-evaluator.js?v=badval-face-1"></script>
-  <script src="./public/modules/helmholtzPitch/helmholtz-pitch-ui.js?v=pitch-fid-overlay-1"></script>
+  <script src="./public/modules/helmholtzPitch/helmholtz-pitch-ui.js?v=pitch-hz-fid-row-1"></script>
   <script src="./public/modules/speakerProtection/speaker-protection-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/groupOutput/group-output-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/output/output-live-evaluator.js?v=per-module-dispatch-20260711"></script>
@@ -3759,7 +3831,7 @@
   <script src="./public/node-graph-header-event-bindings.js?v=grid-uidev-save-1"></script>
   <script src="./public/node-graph-help-event-bindings.js?v=remove-workspace-view-0002"></script>
   <script src="./public/node-graph-scene-menu-event-bindings.js?v=toolbar-copy-paste-1"></script>
-  <script src="./public/node-graph-uidev-event-bindings.js?v=hover-module-cutout-1"></script>
+  <script src="./public/node-graph-uidev-event-bindings.js?v=title-light-box-1"></script>
   <script src="./public/node-graph-settings-event-bindings.js?v=dblclick-header-fields-20260722"></script>
   <script src="./public/node-graph-slider-event-bindings.js?v=node-graph-slider-event-bindings-refactor-1780369200000"></script>
   <script src="./public/node-graph-event-bindings.js?v=remove-dead-uiview-bind-20260724"></script>

@@ -300,6 +300,15 @@ function drawNodeGraphModuleScopes(options = {}) {
       }
       continue;
     }
+    // Reflective LCD plates: less-dim punch (2/3), not full phosphor hole.
+    if (typeof nodeGraphNumberReadoutIsLcdFaceElement === "function"
+      && nodeGraphNumberReadoutIsLcdFaceElement(face)) {
+      const lcdS = typeof nodeGraphLcdDisplayLightStrength === "number"
+        ? nodeGraphLcdDisplayLightStrength
+        : 2 / 3;
+      nodeGraphModuleScopeMarkScreenLit(face, lcdS);
+      continue;
+    }
     nodeGraphModuleScopeMarkScreenLit(face, 1);
   }
   const firstVisibleSlot = visibleItems[0]?.slot;

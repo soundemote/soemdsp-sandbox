@@ -65,6 +65,8 @@ function normalizeNodeGraphPatchNodeUi(ui = {}, type = "") {
     // Multi-mode faces removed — displayModeKey is no longer stored or used.
     displayModeKey: "",
     ioHidden: Boolean(source.ioHidden),
+    // Hide unconnected I/O jacks (and mute unused param ports) on this module.
+    hideUnused: Boolean(source.hideUnused || source.unusedHidden),
     interfaceControlsHidden: Boolean(source.interfaceControlsHidden),
     interfaceControlsForceShow: Boolean(
       source.interfaceControlsForceShow || source.interfaceControlsShown,
@@ -629,7 +631,7 @@ function cloneNodeGraphPatch(patch) {
           ? { portMeta: normalizeNodeGraphPatchPortMeta(node.portMeta) }
           : {}),
         params: { ...(node.params || {}) },
-        ...(ui.buttonsHidden || ui.buttonsForceShow || ui.ioHidden || ui.interfaceControlsHidden || ui.interfaceControlsForceShow || ui.movementLocked || ui.titleHidden || ui.oscilloscopeHidden || ui.oscilloscopeForceShow || ui.slidersHidden || ui.slidersForceShow || ui.displayHeightOffsetGu ? { ui } : {}),
+        ...(ui.buttonsHidden || ui.buttonsForceShow || ui.ioHidden || ui.hideUnused || ui.interfaceControlsHidden || ui.interfaceControlsForceShow || ui.movementLocked || ui.titleHidden || ui.oscilloscopeHidden || ui.oscilloscopeForceShow || ui.slidersHidden || ui.slidersForceShow || ui.displayHeightOffsetGu ? { ui } : {}),
       };
     }),
     requiredAssets: typeof nodeGraphRequiredAssetsForPatch === "function"

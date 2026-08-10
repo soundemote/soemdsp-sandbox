@@ -49,6 +49,8 @@ function invalidateNodeGraphNumberReadoutPaintCache(canvas) {
 /**
  * Offscreen burn plate for residual digits (pixel burn, not tracked history).
  * Stamps only on value change; fades each frame with super-exponential Residual hang.
+ * On resize: scale-preserve previous ink — never blank the residual (zoom/layout
+ * flicker used to wipe Ghost/Trail every time the host canvas dim hopped 1px).
  */
 function nodeGraphNumberReadoutEnsureBurnPlate(canvas) {
   if (!canvas) {
@@ -61,11 +63,42 @@ function nodeGraphNumberReadoutEnsureBurnPlate(canvas) {
   }
   const w = Math.max(0, canvas.width | 0);
   const h = Math.max(0, canvas.height | 0);
-  if (layer.width !== w || layer.height !== h) {
-    layer.width = w;
-    layer.height = h;
-    canvas._numberReadoutResidualEnergy = 0;
+  if (w < 1 || h < 1) {
+    return layer;
   }
+  if (layer.width === w && layer.height === h) {
+    return layer;
+  }
+  const prevW = layer.width | 0;
+  const prevH = layer.height | 0;
+  if (prevW > 0 && prevH > 0) {
+    let scratch = canvas._numberReadoutBurnResizeScratch;
+    if (!scratch) {
+      scratch = document.createElement("canvas");
+      canvas._numberReadoutBurnResizeScratch = scratch;
+    }
+    if (scratch.width !== prevW || scratch.height !== prevH) {
+      scratch.width = prevW;
+      scratch.height = prevH;
+    }
+    const sctx = scratch.getContext("2d");
+    const lctx = layer.getContext("2d");
+    if (sctx && lctx) {
+      sctx.setTransform(1, 0, 0, 1, 0, 0);
+      sctx.clearRect(0, 0, prevW, prevH);
+      sctx.drawImage(layer, 0, 0);
+      layer.width = w;
+      layer.height = h;
+      lctx.setTransform(1, 0, 0, 1, 0, 0);
+      lctx.clearRect(0, 0, w, h);
+      lctx.imageSmoothingEnabled = true;
+      lctx.drawImage(scratch, 0, 0, prevW, prevH, 0, 0, w, h);
+      // Keep residual energy — geometry changed, deposits still live.
+      return layer;
+    }
+  }
+  layer.width = w;
+  layer.height = h;
   return layer;
 }
 
@@ -116,13 +149,58 @@ function nodeGraphNumberReadoutBurnEraseAlpha(trailHang, ghostHang = 0) {
 /** LED (phosphor light) vs LCD (reflective ink) face style for a slot/node. */
 function nodeGraphNumberReadoutFaceStyleForSlot(slot, node = null) {
   const type = String(slot?.type || node?.type || "");
-  if (type === "valueLcd") {
+  if (type === "valueLcd" || type === "helmholtzPitch") {
     return "lcd";
   }
   if (typeof nodeGraphNumberReadoutFaceStyleForNode === "function") {
     return nodeGraphNumberReadoutFaceStyleForNode(node || { type, traceDisplaySettings: null });
   }
   return "led";
+}
+
+/**
+ * Room-dimmer cutout for reflective LCD plates: partial hole (same 2/3
+ * “less dim” as crossover curve faces), not full-bright phosphor (1) and not
+ * fully under the veil (0).
+ */
+const nodeGraphLcdDisplayLightStrength =
+  typeof nodeGraphCrossoverDisplayLightStrength === "number"
+    ? nodeGraphCrossoverDisplayLightStrength
+    : 2 / 3;
+
+function nodeGraphNumberReadoutIsLcdFaceElement(el) {
+  if (!el) {
+    return false;
+  }
+  if (el.classList?.contains("node-value-lcd-face")) {
+    return true;
+  }
+  if (el.classList?.contains("node-pitch-detector-lcd")) {
+    return true;
+  }
+  if (String(el.dataset?.valueFaceStyle || "").toLowerCase() === "lcd") {
+    return true;
+  }
+  return false;
+}
+
+/** Apply LCD less-dim punch to face (+ optional canvas). */
+function nodeGraphNumberReadoutApplyLcdLightCutout(face, canvas = null) {
+  const s = nodeGraphLcdDisplayLightStrength;
+  const strength = Number.isFinite(s) ? Math.max(0, Math.min(1, s)) : 2 / 3;
+  const text = strength.toFixed(6);
+  const targets = [face, canvas].filter(Boolean);
+  for (const el of targets) {
+    el.classList?.add?.("node-light-source");
+    if (el.dataset) {
+      el.dataset.lightSource = "screen";
+      el.dataset.lightStrength = text;
+    }
+    if (typeof setNodeGraphLightStrength === "function") {
+      setNodeGraphLightStrength(el, strength);
+    }
+  }
+  return strength;
 }
 
 /**
@@ -183,7 +261,7 @@ function nodeGraphNumberReadoutSmoothstep01(t) {
  * not box/linear edge ramps. Drawn last so digits read as “behind the screen.”
  *
  * @param {number} distance01  0…1 reach / depth of the inset band
- * @param {number} sharpness01 0 = widest soft Gaussian, 1 = hard rim (no blur)
+ * @param {number} sharpness01 0 = soft translucent Gaussian, 1 = hard full-black rim
  * @param {number} offsetX01   −1…1 CSS-like inset offset X (positive → darker left)
  * @param {number} offsetY01   −1…1 CSS-like inset offset Y (positive → darker top)
  */
@@ -218,7 +296,10 @@ function nodeGraphNumberReadoutDrawLcdInnerShadow(
   const softFrac = (1 - hardEase) * (1 - hardEase);
   const maxBlurPx = reach * 1.35;
   const blurPx = maxBlurPx * softFrac;
-  const alpha = Math.min(1, 0.28 + hardEase * 0.42 + dist * 0.12);
+  // Shadow-like opacity: soft = translucent veil; hard → solid black (α=1).
+  // softBase grows a little with distance so deep soft shadows still read.
+  const softBase = Math.min(0.55, 0.18 + dist * 0.28);
+  const alpha = softBase + (1 - softBase) * hardEase;
   // Offset: move the punched “light” hole so shadow piles on the opposite side.
   const maxOff = reach * 0.9;
   const offX = ox01 * maxOff;
@@ -445,8 +526,10 @@ function paintNodeGraphNumberReadoutColdBoot(canvas, screenElement, node = null)
   }
   const settings = nodeGraphNumberReadoutSettingsForNode(node);
   const bg = nodeGraphFacePlateBackground(settings);
-  if (screenElement.dataset) {
-    // Full hole when the LCD plate is present (0…1 dimmer is the only gain).
+  if (isLcd) {
+    nodeGraphNumberReadoutApplyLcdLightCutout(screenElement, canvas);
+  } else if (screenElement.dataset) {
+    // LED: full hole when the plate is present (0…1 dimmer is the only gain).
     screenElement.dataset.lightStrength = "1";
   }
   nodeGraphFacePlateApplyCss(screenElement, bg);
@@ -533,10 +616,30 @@ function syncNodeGraphNumberReadoutCanvas(canvas, screenElement, pixelRatio, opt
     }
     width = size.width;
     height = size.height;
+    // Transient 0×0 / 1×1 layout (reflow, zoom frame) must not shrink the
+    // residual buffer — keep the last good size so Ghost/Trail ink survives.
+    if (
+      (width < 2 || height < 2)
+      && canvas.width >= 2
+      && canvas.height >= 2
+    ) {
+      width = canvas.width;
+      height = canvas.height;
+    } else if (canvas.width >= 2 && canvas.height >= 2) {
+      // 1px hysteresis: subpixel clientWidth round-trips were wiping residual.
+      const dw = Math.abs(width - canvas.width);
+      const dh = Math.abs(height - canvas.height);
+      if (dw <= 1 && dh <= 1) {
+        width = canvas.width;
+        height = canvas.height;
+      }
+    }
     canvas.classList.remove("node-number-readout-canvas-vector");
     canvas.style.imageRendering = "";
   }
   if (canvas.width !== width || canvas.height !== height) {
+    // Resizing the host canvas clears its pixels (browser). Burn plate is
+    // preserved separately in EnsureBurnPlate — do not clear residual here.
     canvas.width = width;
     canvas.height = height;
     canvas._numberReadoutEnergyMask = null;
@@ -602,6 +705,39 @@ function nodeGraphNumberReadoutDsegWidthChars(text) {
   return Math.max(1, String(text || "").replace(/\./g, "").length);
 }
 
+/**
+ * Fixed DSEG fit template when Decimal budget is on.
+ * Font size stays locked to this slot count (face/padding/decimals only) —
+ * live value is still drawn and centered with that cell size.
+ * (DSEG period is zero-width; "8"/"!" measure full cells.)
+ *
+ * @param {number} decimals
+ * @param {number} integerSlots integer digit columns (pitch Hz uses 5)
+ */
+function nodeGraphNumberReadoutBudgetFitText(decimals, integerSlots = 6) {
+  const d = nodeGraphNumberReadoutSafeDecimals(decimals);
+  const ints = Math.max(1, Math.min(12, Math.round(Number(integerSlots) || 6)));
+  const frac = d > 0 ? `.${"!".repeat(d)}` : "";
+  return ` ${"8".repeat(ints)}${frac}`;
+}
+
+/**
+ * Width-fit string for layout.
+ * - decimalBudget on → fixed slots (stable size; Pitch Detector default).
+ * - decimalBudget off → live valueText (resize when space is available).
+ */
+function nodeGraphNumberReadoutLayoutFitText(slot, valueText, decimals, settings = null) {
+  const budgetOn = settings
+    ? Boolean(settings.decimalBudget)
+    : (slot?.type === "helmholtzPitch");
+  if (!budgetOn) {
+    return valueText;
+  }
+  // Pitch: 5 integer slots (up to 99999 Hz). Other readouts: 6.
+  const integerSlots = slot?.type === "helmholtzPitch" ? 5 : 6;
+  return nodeGraphNumberReadoutBudgetFitText(decimals, integerSlots);
+}
+
 
 function nodeGraphNumberReadoutGhostPlateText(valueText) {
   return String(valueText || "").replace(/[0-9!]/g, "8");
@@ -609,15 +745,16 @@ function nodeGraphNumberReadoutGhostPlateText(valueText) {
 
 
 function nodeGraphNumberReadoutUnitForSlot(slot) {
-  // Pitch Detector face LCD always shows Frequency in Hz.
+  // Pitch Detector: "Hz" is a fixed DOM decoration on the Fid row (not LCD unit band).
   if (slot?.type === "helmholtzPitch") {
-    return "Hz";
+    return "";
   }
   const connection = nodeGraphModuleScopeConnectionsTo(slot?.nodeId, "In")
     .find((candidate) => candidate?.sourceNode && candidate?.sourcePort);
   if (!connection) {
     return "";
   }
+  // Standalone Value LED/LCD reading Pitch Frequency may still show Hz under digits.
   const sourceNode = nodeGraphPatchNode(connection.sourceNode);
   return sourceNode?.type === "helmholtzPitch" && connection.sourcePort === "Frequency"
     ? "Hz"
@@ -637,6 +774,7 @@ function nodeGraphNumberReadoutSettingsSignature(settings) {
     settings.color,
     settings.trail ?? settings.residual,
     settings.decimals,
+    settings.decimalBudget ? 1 : 0,
     settings.lightBlend,
     settings.facePadding,
     settings.unlitSegments,
@@ -681,8 +819,11 @@ function nodeGraphNumberReadoutPinSizePx(faceStyle, pixelRatio, zoom = 1) {
 
 /**
  * @param {boolean|object} [hasUnitOrOpts] true, or
- *   { hasUnit, largeUnit, padding01, faceStyle, pixelRatio, zoom }
- *   largeUnit: taller unit band (Pitch Detector “Hz”).
+ *   { hasUnit, largeUnit, padding01, faceStyle, pixelRatio, zoom, fitText }
+ *   largeUnit: taller unit band (legacy unit strip).
+ *   fitText: optional fixed template for width fit (e.g. pitch: sign+5+decimals).
+ *     When set, font size does not change with the live value digit count —
+ *     actual valueText is still centered with that fixed cell size.
  *   padding01: linear 0…1 vs face square min side.
  *     0 = flush (digits fill the plate content box);
  *     1 = one pin pixel of display remains (zoom-scaled; LED vs LCD pin size).
@@ -694,6 +835,7 @@ function nodeGraphNumberReadoutComputeLayout(context, valueText, fontFamily, fac
   const hasUnit = Boolean(opts.hasUnit);
   const largeUnit = Boolean(opts.largeUnit);
   const pad01 = clampNodeSliderValue(Number(opts.padding01) || 0, 0, 1);
+  const fitText = opts.fitText != null ? String(opts.fitText) : String(valueText || "");
   const minSide = Math.max(0, Math.min(faceW, faceH));
   const pin = Math.min(
     minSide,
@@ -767,16 +909,18 @@ function nodeGraphNumberReadoutComputeLayout(context, valueText, fontFamily, fac
     context.font = `700 ${fontSize}px ${fontFamily}`;
   }
   let cellW = Math.max(0, context.measureText("8").width);
+  // Width fit uses fitText (fixed slots for pitch); draw width uses live value.
+  const fitCells = nodeGraphNumberReadoutDsegWidthChars(fitText);
   const cells = nodeGraphNumberReadoutDsegWidthChars(valueText);
-  let totalW = cells * cellW;
+  let fitW = fitCells * cellW;
   const maxW = contentW;
-  if (totalW > maxW && totalW > 0) {
-    const scale = maxW / totalW;
+  if (fitW > maxW && fitW > 0) {
+    const scale = maxW / fitW;
     fontSize = Math.max(0, fontSize * scale);
     if (fontSize > 0.25) {
       context.font = `700 ${fontSize}px ${fontFamily}`;
       cellW = Math.max(0, context.measureText("8").width);
-      totalW = cells * cellW;
+      fitW = fitCells * cellW;
     } else {
       const side = Math.max(1, pin);
       return {
@@ -796,6 +940,7 @@ function nodeGraphNumberReadoutComputeLayout(context, valueText, fontFamily, fac
       };
     }
   }
+  const totalW = cells * cellW;
   return {
     cellW,
     cells,
@@ -1049,7 +1194,7 @@ function nodeGraphNumberReadoutDrawInnerShadow(context, left, top, width, height
  * Value LCD — vector DSEG (no phosphor residual hang).
  * Background + multiply unlit “8”s + solid FG digits + glass inner shadow.
  */
-function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, valueText, unit) {
+function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, valueText, unit, slot = null) {
   if (!canvas || !context) {
     return;
   }
@@ -1065,9 +1210,13 @@ function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, val
     nodeGraphFacePlateApplyCss(screenElement, bg);
   }
   if (canvas?.parentElement?.dataset) {
-    canvas.parentElement.dataset.lightStrength = "0";
     canvas.parentElement.dataset.valueFaceStyle = "lcd";
   }
+  // Reflective LCD: less-dim room punch (2/3), not full phosphor hole / not 0.
+  nodeGraphNumberReadoutApplyLcdLightCutout(
+    screenElement || canvas?.parentElement,
+    canvas,
+  );
   const inkRgb = nodeGraphNumberReadoutLcdInkRgb(settings);
   // App-wide LCD policy: ghost/unlit segments are greyscale only (no hue).
   const ghostRgb = nodeGraphNumberReadoutLcdGhostRgb(inkRgb);
@@ -1075,12 +1224,18 @@ function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, val
   // Pitch Detector “Hz” (and any unit labeled Hz) gets a larger unit band.
   const largeUnit = hasUnit && String(unit).trim().toLowerCase() === "hz";
   const pad01 = clampNodeSliderValue(Number(settings?.facePadding) || 0, 0, 1);
-  const digitFontFamily = nodeGraphNumberReadoutDsegReady
-    ? '"DSEG7 Classic", "Consolas", monospace'
-    : '"Consolas", "Courier New", monospace';
+  // Note names (C3 / C#3) need letter glyphs — DSEG digits only for Hz / MIDI #.
+  const useNameFont = /[A-Ga-g#♭]/.test(String(valueText || ""));
+  const digitFontFamily = useNameFont
+    ? '"Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace'
+    : (nodeGraphNumberReadoutDsegReady
+      ? '"DSEG7 Classic", "Consolas", monospace'
+      : '"Consolas", "Courier New", monospace');
   const lcdPixelRatio = Number(nodeGraphModuleScopeState?.backingPixelRatio)
     || Math.max(1, window.devicePixelRatio || 1);
   const lcdZoom = nodeGraphNumberReadoutWorkspaceZoom();
+  const decimals = nodeGraphNumberReadoutSafeDecimals(settings?.decimals);
+  const lcdFitText = nodeGraphNumberReadoutLayoutFitText(slot, valueText, decimals, settings);
   const layout = nodeGraphNumberReadoutComputeLayout(
     context,
     valueText,
@@ -1094,6 +1249,7 @@ function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, val
       faceStyle: "lcd",
       pixelRatio: lcdPixelRatio,
       zoom: lcdZoom,
+      fitText: lcdFitText,
     },
   );
   const digitFontSize = layout.fontSize;
@@ -1254,12 +1410,37 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const unit = nodeGraphNumberReadoutUnitForSlot(slot);
   // Honor Display Settings → Decimals (including Pitch Detector Frequency LCD).
   const decimals = nodeGraphNumberReadoutSafeDecimals(settings.decimals);
+  // Pitch Detector: unit toggle Hz → 8ve (MIDI #) → M (note name).
+  const pitchFace = slot?.type === "helmholtzPitch"
+    ? (screenElement?.closest?.(".node-pitch-detector-face")
+      || document.querySelector?.(
+        `.node-pitch-detector-face[data-node="${CSS.escape(String(slot.nodeId || ""))}"]`,
+      ))
+    : null;
+  const pitchMode = pitchFace && typeof nodeGraphPitchDetectorFaceMode === "function"
+    ? nodeGraphPitchDetectorFaceMode(pitchFace)
+    : "hz";
   // No input: DSEG all-off ("!") placeholders.
   // https://github.com/keshikan/DSEG#usage
-  const valueText = hasSample
-    ? nodeGraphNumberReadoutFormatValue(nodeGraphOscilloscopeLatestSample(item.buffer, 0), decimals)
-    : (decimals > 0 ? ` !.${"!".repeat(decimals)}` : " !");
-  const text = unit ? `${valueText} ${unit}` : valueText;
+  let valueText;
+  if (slot?.type === "helmholtzPitch" && typeof nodeGraphPitchDetectorFormatDisplay === "function") {
+    valueText = hasSample
+      ? nodeGraphPitchDetectorFormatDisplay(
+        nodeGraphOscilloscopeLatestSample(item.buffer, 0),
+        pitchMode,
+        decimals,
+      )
+      : (pitchMode === "name"
+        ? " —"
+        : (decimals > 0 && pitchMode === "hz" ? ` !.${"!".repeat(decimals)}` : " !"));
+  } else {
+    valueText = hasSample
+      ? nodeGraphNumberReadoutFormatValue(nodeGraphOscilloscopeLatestSample(item.buffer, 0), decimals)
+      : (decimals > 0 ? ` !.${"!".repeat(decimals)}` : " !");
+  }
+  // Note names need letter glyphs (not DSEG-only).
+  const pitchNameMode = slot?.type === "helmholtzPitch" && pitchMode === "name";
+  const text = `${valueText}${unit ? ` ${unit}` : ""}${pitchMode !== "hz" ? `|${pitchMode}` : ""}`;
   // Value LCD: dedicated vector path (no residual hang / burn plate).
   if (isLcd) {
     const settingsSig = nodeGraphNumberReadoutSettingsSignature(settings);
@@ -1281,7 +1462,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     if ("imageSmoothingQuality" in context) {
       context.imageSmoothingQuality = "high";
     }
-    drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, valueText, unit);
+    drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, valueText, unit, slot);
     return;
   }
 
@@ -1342,22 +1523,17 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const peakHex = Array.isArray(gradientStops) && gradientStops.length
     ? (gradientStops[gradientStops.length - 1]?.color || "#fcfdbf")
     : (settings.color || "#fcfdbf");
-  const digitFontFamily = nodeGraphNumberReadoutDsegReady
-    ? '"DSEG7 Classic", "Consolas", monospace'
-    : '"Consolas", "Courier New", monospace';
+  // Note names need letter glyphs (C3 / C#3); DSEG for Hz + MIDI number.
+  const digitFontFamily = pitchNameMode
+    ? '"Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace'
+    : (nodeGraphNumberReadoutDsegReady
+      ? '"DSEG7 Classic", "Consolas", monospace'
+      : '"Consolas", "Courier New", monospace');
   const hasUnit = Boolean(unit);
 
-  // Size change: burn plate geometry is stale.
-  if (
-    styleChanged
-    && (
-      canvas._nodeGraphNumberReadoutWidth !== canvas.width
-      || canvas._nodeGraphNumberReadoutHeight !== canvas.height
-      || canvas._nodeGraphNumberReadoutFontReady !== nodeGraphNumberReadoutDsegReady
-    )
-  ) {
-    nodeGraphNumberReadoutClearBurnPlate(canvas);
-  }
+  // Hang off → no residual. Size/font changes must NOT wipe the burn plate:
+  // zoom/layout used to flip canvas dims by 1px and clear Ghost/Trail ink.
+  // EnsureBurnPlate scale-preserves deposits across real resizes.
   if (!hangOn) {
     nodeGraphNumberReadoutClearBurnPlate(canvas);
   }
@@ -1406,6 +1582,12 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
       // Layout from full previous string (same cell count/geometry as the face).
       const residualLargeUnit = hasUnit && String(unit || "").trim().toLowerCase() === "hz";
       const residualPad01 = clampNodeSliderValue(Number(settings?.facePadding) || 0, 0, 1);
+      const residualFitText = nodeGraphNumberReadoutLayoutFitText(
+        slot,
+        previousValueText,
+        decimals,
+        settings,
+      );
       const residualLayout = nodeGraphNumberReadoutComputeLayout(
         burnCtx,
         previousValueText,
@@ -1419,6 +1601,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
           faceStyle: "led",
           pixelRatio,
           zoom: nodeGraphNumberReadoutWorkspaceZoom(),
+          fitText: residualFitText,
         },
       );
       const residualPad = residualLayout.padPx || 0;
@@ -1488,6 +1671,8 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   context.setTransform(1, 0, 0, 1, 0, 0);
   const largeUnit = hasUnit && String(unit || "").trim().toLowerCase() === "hz";
   const pad01 = clampNodeSliderValue(Number(settings?.facePadding) || 0, 0, 1);
+  // Decimal budget ON → fixed slots; OFF → resize to live value width.
+  const liveFitText = nodeGraphNumberReadoutLayoutFitText(slot, valueText, decimals, settings);
   const layout = nodeGraphNumberReadoutComputeLayout(
     context,
     valueText,
@@ -1501,6 +1686,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
       faceStyle: "led",
       pixelRatio,
       zoom: nodeGraphNumberReadoutWorkspaceZoom(),
+      fitText: liveFitText,
     },
   );
   const digitFontSize = layout.fontSize;
@@ -1509,6 +1695,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const digitAreaHeight = layout.digitAreaH;
   const padPx = layout.padPx || 0;
   const padPxY = layout.padPxY != null ? layout.padPxY : padPx;
+  // Center the live digit string in the content box (fixed cell size).
   const digitX = left + padPx + layout.contentW * 0.5;
   const digitY = top + padPxY + digitAreaHeight * 0.5;
 

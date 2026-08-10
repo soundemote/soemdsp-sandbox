@@ -8,13 +8,21 @@ function createNodeGraphNumberReadoutBody(node, type) {
     "node-module-scope-window",
     "node-number-readout-face",
     isLcd ? "node-value-lcd-face" : "node-value-led-face",
-    isLcd ? "" : "node-light-source",
+    "node-light-source",
   ].filter(Boolean).join(" ");
   face.dataset.node = node;
   face.dataset.nodeType = type;
   face.dataset.valueFaceStyle = isLcd ? "lcd" : "led";
-  if (!isLcd) {
-    face.dataset.lightSource = "screen";
+  face.dataset.lightSource = "screen";
+  if (isLcd) {
+    // Partial dimmer cutout (same less-dim 2/3 as crossover faces).
+    if (typeof nodeGraphNumberReadoutApplyLcdLightCutout === "function") {
+      nodeGraphNumberReadoutApplyLcdLightCutout(face);
+    } else {
+      face.dataset.lightStrength = String(2 / 3);
+    }
+  } else {
+    face.dataset.lightStrength = "1";
   }
   const label = typeof nodeGraphNodeDisplayName === "function"
     ? nodeGraphNodeDisplayName(node)

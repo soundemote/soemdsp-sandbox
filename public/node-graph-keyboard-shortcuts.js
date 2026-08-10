@@ -58,7 +58,9 @@ function nodeGraphBlurActiveTextEditableIfOutside(eventTarget) {
     if (label && (label.contains(active) || label.control === active)) {
       return false;
     }
-    // Moving into another text field — let the browser handle focus.
+    // Moving into another *writable* text field — let the browser handle focus.
+    // Read-only header titles (rename locked) must not block blur of an active
+    // alias/title editor when the user clicks another module.
     if (nodeGraphEventTargetIsTextEditable(eventTarget)) {
       return false;
     }
@@ -378,13 +380,14 @@ function handleNodeGraphKeydown(event) {
     }
     return;
   }
-  // V → modular-only / infinite view (same as laptop button on the view toolbar).
+  // V → infinite modular canvas (View Buttons / hide chrome), not the enclosed
+  // modular-only box with back/resize drag widgets (that is Modular View / M).
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "v") {
     event.preventDefault();
-    if (typeof toggleNodeGraphModularOnlyView === "function") {
-      toggleNodeGraphModularOnlyView();
-    } else if (typeof setNodeGraphViewMode === "function") {
-      setNodeGraphViewMode("modular-only");
+    if (typeof toggleNodeGraphViewButtonsVisibility === "function") {
+      toggleNodeGraphViewButtonsVisibility();
+    } else if (typeof toggleNodeGraphModularOnlyControlsVisible === "function") {
+      toggleNodeGraphModularOnlyControlsVisible();
     }
     return;
   }

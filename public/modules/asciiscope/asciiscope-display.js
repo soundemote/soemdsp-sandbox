@@ -1115,7 +1115,13 @@ function asciiscopeSchedulePump() {
     matrixRaf = 0;
     const faces = document.querySelectorAll(".node-asciiscope-face");
     if (!faces.length) return;
-    for (const face of faces) matrixTickFace(face);
+    // Respect Simulation FPS (same clock as scopes / phosphor / LCD / LED).
+    const frameReady = typeof nodeGraphDisplayFrameReady === "function"
+      ? nodeGraphDisplayFrameReady("asciiscope")
+      : true;
+    if (frameReady) {
+      for (const face of faces) matrixTickFace(face);
+    }
     asciiscopeSchedulePump();
   });
 }

@@ -874,6 +874,17 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}, defaultsOverride
     residual: trail,
     ghostBrightness: ghost,
     decimals: normalizeNodeGraphTraceDisplayNumber(source.decimals, defaults.decimals, 0, 8, true),
+    // Fixed digit-slot budget vs live resize (see LayoutFitText).
+    decimalBudget: (() => {
+      const raw = source.decimalBudget ?? source.digitBudget ?? source.fixedDigitSlots;
+      if (raw === true || raw === "true" || raw === 1 || raw === "1") {
+        return true;
+      }
+      if (raw === false || raw === "false" || raw === 0 || raw === "0") {
+        return false;
+      }
+      return Boolean(defaults.decimalBudget);
+    })(),
     // Live light × residual gradient composite (dropdown). LCD defaults to source-over.
     lightBlend: (() => {
       const allowed = new Set([
@@ -1164,7 +1175,8 @@ function nodeGraphLineBurnSettingsForNode(node) {
 
 function nodeGraphNumberReadoutFaceStyleForNode(node) {
   const type = String(node?.type || "");
-  if (type === "valueLcd") {
+  // Pitch Detector plate is an LCD face (Hz / 8ve / M modes).
+  if (type === "valueLcd" || type === "helmholtzPitch") {
     return "lcd";
   }
   const fromSettings = String(node?.traceDisplaySettings?.faceStyle || "").toLowerCase();
@@ -1175,11 +1187,16 @@ function nodeGraphNumberReadoutFaceStyleForNode(node) {
 }
 
 function nodeGraphNumberReadoutDefaultsForNode(node) {
-  if (nodeGraphNumberReadoutFaceStyleForNode(node) === "lcd"
-    && typeof nodeGraphValueLcdSettingsDefaults !== "undefined") {
-    return nodeGraphValueLcdSettingsDefaults;
+  const base = nodeGraphNumberReadoutFaceStyleForNode(node) === "lcd"
+    && typeof nodeGraphValueLcdSettingsDefaults !== "undefined"
+    ? nodeGraphValueLcdSettingsDefaults
+    : nodeGraphNumberReadoutSettingsDefaults;
+  // Pitch Detector: Decimal budget ON by default (stable Hz digit width).
+  // Value LED/LCD: OFF so digits resize when space is available.
+  if (String(node?.type || "") === "helmholtzPitch") {
+    return { ...base, decimalBudget: true };
   }
-  return nodeGraphNumberReadoutSettingsDefaults;
+  return base;
 }
 
 function nodeGraphNumberReadoutSettingsForNode(node) {

@@ -620,8 +620,21 @@ function normalizeNodeUiDevSettings(settings = {}) {
     throw new Error("UI settings must be a JSON object");
   }
   const controls = settings.controls && typeof settings.controls === "object"
-    ? settings.controls
+    ? { ...settings.controls }
     : {};
+  // Migrate legacy combined hover dimmer cutout keys → split toggles.
+  if (controls.dimmerCutoutSliderEnabled === undefined
+    && typeof controls.hoverModuleDimmerCutoutEnabled === "boolean") {
+    controls.dimmerCutoutSliderEnabled = controls.hoverModuleDimmerCutoutEnabled;
+  }
+  if (controls.dimmerCutoutMouseEnabled === undefined
+    && typeof controls.hoverModuleDimmerCutoutEnabled === "boolean") {
+    controls.dimmerCutoutMouseEnabled = controls.hoverModuleDimmerCutoutEnabled;
+  }
+  if (controls.dimmerCutoutTitleEnabled === undefined
+    && typeof controls.hoverModuleTitleDimmerCutoutEnabled === "boolean") {
+    controls.dimmerCutoutTitleEnabled = controls.hoverModuleTitleDimmerCutoutEnabled;
+  }
   const exposedControls = settings.exposedControls && typeof settings.exposedControls === "object"
     ? settings.exposedControls
     : {};

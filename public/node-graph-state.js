@@ -208,8 +208,17 @@ var nodeGraphMvp = {
   moduleScopeSettings: {},
   traceSettings: normalizeNodeGraphTraceDisplaySettings(),
   scopeBloomEnabled: false,
-  // Room dimmer: full-module light punch while the pointer hovers a .dsp-node.
+  // Room dimmer hover cutouts (UI Dev).
+  dimmerCutoutSliderEnabled: true,
+  dimmerCutoutModuleEnabled: false,
+  dimmerCutoutTitleEnabled: true,
+  dimmerCutoutMouseEnabled: false,
+  dimmerMouseSize: 56,
+  dimmerMouseSoftness: 25,
+  dimmerMouseShape: 0,
+  // Legacy mirrors (combined mouse+slider / title) for older presets.
   hoverModuleDimmerCutoutEnabled: true,
+  hoverModuleTitleDimmerCutoutEnabled: true,
   moduleStoreDepartment: "",
   // The last category the user actually CLICKED, as opposed to whatever page
   // the browser happens to be showing (a search shows results across every

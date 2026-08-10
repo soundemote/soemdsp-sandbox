@@ -5,8 +5,14 @@
   display: block;
   width: calc((var(--node-grid-width) * var(--node-grid-width-units, 1)) - (var(--node-module-grid-inset) * 2));
   min-width: calc((var(--node-grid-width) * var(--node-grid-width-units, 1)) - (var(--node-module-grid-inset) * 2));
-  height: calc((var(--node-grid-height) * var(--node-grid-height-units, 1)) - (var(--node-module-grid-inset) * 2));
-  min-height: calc((var(--node-grid-height) * var(--node-grid-height-units, 1)) - (var(--node-module-grid-inset) * 2));
+  height: calc(
+    (var(--node-grid-height) * var(--node-grid-height-units, 1))
+    - var(--node-module-grid-inset-y-total)
+  );
+  min-height: calc(
+    (var(--node-grid-height) * var(--node-grid-height-units, 1))
+    - var(--node-module-grid-inset-y-total)
+  );
   border-radius: 3px;
   background: rgba(2, 4, 7, 0.9);
   /* No outline-color override here -- see the matching comment on

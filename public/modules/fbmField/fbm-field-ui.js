@@ -159,12 +159,18 @@ function nodeGraphFbmFieldStartLoop(face, nodeId) {
       nodeGraphFbmFieldStopLoop(face);
       return;
     }
-    const last = face._fbmFieldLastTs || ts;
-    let dt = Math.min(0.05, Math.max(0, (ts - last) / 1000));
-    if (!face._fbmFieldLastTs) dt = 0;
-    face._fbmFieldLastTs = ts;
-    if (typeof paintNodeGraphFbmFieldFaceForNode === "function") {
-      paintNodeGraphFbmFieldFaceForNode(nodeId, { dt, face });
+    // Respect Simulation FPS (force paints on param scrub still bypass this).
+    const frameReady = typeof nodeGraphDisplayFrameReady === "function"
+      ? nodeGraphDisplayFrameReady(`fbmField:${nodeId}`)
+      : true;
+    if (frameReady) {
+      const last = face._fbmFieldLastTs || ts;
+      let dt = Math.min(0.05, Math.max(0, (ts - last) / 1000));
+      if (!face._fbmFieldLastTs) dt = 0;
+      face._fbmFieldLastTs = ts;
+      if (typeof paintNodeGraphFbmFieldFaceForNode === "function") {
+        paintNodeGraphFbmFieldFaceForNode(nodeId, { dt, face });
+      }
     }
     // paint may have stopped the loop (engine off); only reschedule if still live.
     if (face._fbmFieldRunning) {

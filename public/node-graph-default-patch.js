@@ -82,6 +82,7 @@ function createNodeGraphPatchNode(type, options = {}) {
     || ui.titleHidden
     || ui.oscilloscopeHidden
     || ui.ioHidden
+    || ui.hideUnused
     || ui.slidersHidden
     || ui.interfaceControlsHidden
     || ui.movementLocked

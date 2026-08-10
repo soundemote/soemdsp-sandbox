@@ -4543,7 +4543,14 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-io-label-gap: calc(var(--node-grid-size) * 0.1071429);
   --node-io-section-min-height: 24px;
   --node-io-section-padding-block: 0;
+  /* Side + top plate air vs grid cell (UI Dev can override in px). */
   --node-module-grid-inset: calc(var(--node-grid-size) * 0.2142857);
+  /* Bottom air is half of side/top → plate bottom sits halfway closer to the grid line. */
+  --node-module-grid-inset-bottom: calc(var(--node-module-grid-inset) * 0.5);
+  /* Vertical shrink of outer gu box: top full + bottom half. */
+  --node-module-grid-inset-y-total: calc(
+    var(--node-module-grid-inset) + var(--node-module-grid-inset-bottom)
+  );
   /* 0 = square module *plate* (LayoutA + LayoutB). UI Dev “module roundness” drives this. */
   --node-module-roundness-ratio: 0;
   /* Stroke-only TOP corner radius (bottom corners stay square in the SVG path).
@@ -9747,8 +9754,14 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   gap: 0;
   width: calc((var(--node-grid-width) * var(--node-grid-width-units, 7)) - (var(--node-module-grid-inset) * 2));
   min-width: calc((var(--node-grid-width) * var(--node-grid-width-units, 7)) - (var(--node-module-grid-inset) * 2));
-  height: calc((var(--node-grid-height) * var(--node-grid-height-units, 4)) - (var(--node-module-grid-inset) * 2));
-  min-height: calc((var(--node-grid-height) * var(--node-grid-height-units, 4)) - (var(--node-module-grid-inset) * 2));
+  height: calc(
+    (var(--node-grid-height) * var(--node-grid-height-units, 4))
+    - var(--node-module-grid-inset-y-total)
+  );
+  min-height: calc(
+    (var(--node-grid-height) * var(--node-grid-height-units, 4))
+    - var(--node-module-grid-inset-y-total)
+  );
   padding: 0;
   /* Shared LayoutA + LayoutB chrome: square by default (roundness-ratio 0). */
   border-radius: calc(var(--node-grid-size) * 2 * var(--node-module-roundness-ratio, 0));
@@ -9917,16 +9930,22 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.32);
 }
 
+/*
+ * Disabled (bypassed) modules: full-module construction veil (not only the
+ * bottom slider gap). ::before sits above faces (z:40) with pointer-events:none
+ * so chrome stays clickable; faces are greyscaled underneath.
+ */
 .dsp-node.bypassed {
   background:
     repeating-linear-gradient(
       -45deg,
-      rgba(243, 241, 236, 0.035) 0,
-      rgba(243, 241, 236, 0.035) 6px,
-      transparent 6px,
-      transparent 12px
+      rgba(226, 168, 109, 0.1) 0 8px,
+      transparent 8px 16px
     ),
-    rgba(27, 30, 34, 0.72);
+    rgba(14, 12, 10, 0.94);
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.34),
+    inset 0 0 0 2px rgba(226, 168, 109, 0.42);
 }
 
 /* Plate mask (::after) must match bypassed fill or stripes vanish under it. */
@@ -9934,12 +9953,80 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   background:
     repeating-linear-gradient(
       -45deg,
-      rgba(243, 241, 236, 0.035) 0,
-      rgba(243, 241, 236, 0.035) 6px,
-      transparent 6px,
-      transparent 12px
+      rgba(226, 168, 109, 0.1) 0 8px,
+      transparent 8px 16px
     ),
-    rgba(27, 30, 34, 0.72);
+    rgba(14, 12, 10, 0.94);
+}
+
+/* Full-module construction overlay over faces/chrome (cheap, no extra DOM). */
+.dsp-node.bypassed::before {
+  content: "OFF";
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  border-radius: inherit;
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(12, 10, 8, 0.28) 0%,
+      rgba(12, 10, 8, 0.42) 100%
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(226, 168, 109, 0.28) 0 9px,
+      rgba(0, 0, 0, 0.38) 9px 18px
+    );
+  box-shadow:
+    inset 0 0 0 2px rgba(226, 168, 109, 0.5),
+    inset 0 0 28px rgba(0, 0, 0, 0.35);
+  color: rgba(255, 214, 170, 0.82);
+  font-family: var(--node-ui-font, system-ui, sans-serif);
+  font-size: clamp(0.7rem, 18%, 1.15rem);
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-indent: 0.18em;
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.85),
+    0 0 12px rgba(0, 0, 0, 0.55);
+  opacity: 1;
+}
+
+/* Dim painted faces under the veil so they read as inactive, not “still live”. */
+.dsp-node.bypassed > .node-solid-module-shell,
+.dsp-node.bypassed > .node-module-chrome-layout-b-shell,
+.dsp-node.bypassed > .dsp-node-body,
+.dsp-node.bypassed > .dsp-node-header,
+.dsp-node.bypassed > .dsp-node-io-section,
+.dsp-node.bypassed > .node-module-scope-window,
+.dsp-node.bypassed > .node-pitch-detector-face,
+.dsp-node.bypassed > .node-filter-curve-display,
+.dsp-node.bypassed > .node-envelope-curve-display,
+.dsp-node.bypassed > .node-phosphor-waveform-display,
+.dsp-node.bypassed > .node-phosphillator-draw-display,
+.dsp-node.bypassed > .node-pulse-curve-display,
+.dsp-node.bypassed > .node-wall-room-display,
+.dsp-node.bypassed .node-module-scope-window,
+.dsp-node.bypassed .node-number-readout-face,
+.dsp-node.bypassed .node-led-face,
+.dsp-node.bypassed .node-knob-face,
+.dsp-node.bypassed .node-param-row {
+  filter: grayscale(0.72) brightness(0.58) saturate(0.35);
+  opacity: 0.88;
+}
+
+/* Hide unused: unconnected signal jacks (rows) + mute unused param ports. */
+.dsp-node.unused-hidden .node-io-row:not(:has(.connected-port)),
+.dsp-node.unused-hidden .node-io-row:not(:has(.node-port.connected-port)) {
+  display: none !important;
+}
+
+.dsp-node.unused-hidden .node-param-port:not(.connected-port) {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .dsp-node.removed {
@@ -10017,7 +10104,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   /* Do not let min-content of children expand the plate past outer gu. */
   max-height: calc(
     (var(--node-grid-height) * var(--node-grid-height-units, 4))
-    - (var(--node-module-grid-inset) * 2)
+    - var(--node-module-grid-inset-y-total)
   );
 }
 
@@ -10764,7 +10851,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   pointer-events: auto;
 }
 
-/* Pitch Detector: LCD (Number Readout) + cheap Fid strip on one black plate. */
+/* Pitch Detector: LCD digits above; fixed Hz + Fid decoration row under (not in LCD). */
 .dsp-node.pitch-detector-layout {
   grid-template-rows:
     var(--node-header-height)
@@ -10775,6 +10862,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 .dsp-node.pitch-detector-layout > .node-pitch-detector-face {
+  --node-pitch-detector-meta-height: 1.35em;
   position: relative;
   z-index: 2; /* above plate mask */
   grid-row: 2;
@@ -10790,14 +10878,18 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   border: 1px solid rgba(127, 199, 217, 0.16);
 }
 
+/* Digits own the plate above the meta row — not shared with Hz. */
 .node-pitch-detector-lcd {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: var(--node-pitch-detector-meta-height, 1.35em);
+  left: 0;
   z-index: 1;
   min-width: 0;
   min-height: 0;
-  width: 100%;
-  height: 100%;
+  width: auto;
+  height: auto;
   overflow: hidden;
   background: #000004;
 }
@@ -10811,7 +10903,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   pointer-events: none;
 }
 
-/* Fid sits on the black plate — no own fill or stroke. */
+/* Bottom decoration strip: Hz (unit) + Fid value — plain DOM, not LCD layout. */
 .node-pitch-detector-fid {
   position: absolute;
   left: 0;
@@ -10822,16 +10914,50 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.45em;
+  gap: 0.55em;
   min-width: 0;
-  padding: 0.12em 0.4em 0.22em;
+  height: var(--node-pitch-detector-meta-height, 1.35em);
+  padding: 0.1em 0.4em 0.18em;
   border: none;
   background: transparent;
   font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
   font-size: 0.72rem;
   line-height: 1.1;
+  /* Strip is decorative; only the unit toggle receives clicks. */
   pointer-events: none;
   user-select: none;
+}
+
+.node-pitch-detector-fid .node-pitch-detector-hz {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(160, 167, 176, 0.78);
+  font: inherit;
+  font-size: 0.92em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: inherit;
+  pointer-events: auto;
+  cursor: pointer;
+  appearance: none;
+}
+
+.node-pitch-detector-fid .node-pitch-detector-hz:hover,
+.node-pitch-detector-fid .node-pitch-detector-hz:focus-visible {
+  color: rgba(200, 214, 224, 0.95);
+  outline: none;
+}
+
+.node-pitch-detector-fid .node-pitch-detector-fid-group {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 0.4em;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .node-pitch-detector-fid .node-pitch-detector-k {
@@ -10843,7 +10969,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 .node-pitch-detector-fid .node-pitch-detector-v {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-align: right;
@@ -10929,8 +11055,14 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 .dsp-node.bug-button-layout {
   width: calc((var(--node-grid-width) * var(--node-grid-width-units, 1)) - (var(--node-module-grid-inset) * 2));
   min-width: calc((var(--node-grid-width) * var(--node-grid-width-units, 1)) - (var(--node-module-grid-inset) * 2));
-  height: calc((var(--node-grid-height) * var(--node-grid-height-units, 1)) - (var(--node-module-grid-inset) * 2));
-  min-height: calc((var(--node-grid-height) * var(--node-grid-height-units, 1)) - (var(--node-module-grid-inset) * 2));
+  height: calc(
+    (var(--node-grid-height) * var(--node-grid-height-units, 1))
+    - var(--node-module-grid-inset-y-total)
+  );
+  min-height: calc(
+    (var(--node-grid-height) * var(--node-grid-height-units, 1))
+    - var(--node-module-grid-inset-y-total)
+  );
   border-radius: 3px;
   background:
     radial-gradient(circle at 50% 50%, rgba(243, 241, 236, 0.08), transparent 58%),
@@ -11383,8 +11515,14 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   display: block;
   width: calc((var(--node-grid-width) * var(--node-grid-width-units, 1)) - (var(--node-module-grid-inset) * 2));
   min-width: calc((var(--node-grid-width) * var(--node-grid-width-units, 1)) - (var(--node-module-grid-inset) * 2));
-  height: calc((var(--node-grid-height) * var(--node-grid-height-units, 1)) - (var(--node-module-grid-inset) * 2));
-  min-height: calc((var(--node-grid-height) * var(--node-grid-height-units, 1)) - (var(--node-module-grid-inset) * 2));
+  height: calc(
+    (var(--node-grid-height) * var(--node-grid-height-units, 1))
+    - var(--node-module-grid-inset-y-total)
+  );
+  min-height: calc(
+    (var(--node-grid-height) * var(--node-grid-height-units, 1))
+    - var(--node-module-grid-inset-y-total)
+  );
   border-radius: 3px;
   background:
     radial-gradient(circle at 50% 50%, rgba(127, 199, 217, 0.16), transparent 62%),
@@ -17472,7 +17610,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   }
 }
 
-/* Disable modules — full-width row under Command Center transport. */
+/* Disable module — full-width row under Visibility → Hide unused. */
 #nodeSceneContextMenu .scene-context-disable-modules-button,
 .node-scene-context-menu .scene-context-disable-modules-button {
   display: flex;
@@ -17483,10 +17621,14 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   min-height: var(--node-floating-window-button-height, 1.85rem);
   margin: 0;
   padding: 0 8px;
-  border: 1px solid rgba(226, 168, 109, 0.24);
-  border-top-width: 0;
+  border: 0;
   border-radius: 0;
   text-align: center;
+}
+
+.scene-context-visibility-stack .scene-context-disable-modules-button {
+  min-height: calc(var(--node-floating-window-button-height, 1.85rem) + 0.15rem);
+  font-weight: 650;
 }
 
 #nodeSceneContextMenu .scene-context-disable-modules-button .scene-context-window-button-label,

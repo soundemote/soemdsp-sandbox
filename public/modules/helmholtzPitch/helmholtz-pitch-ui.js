@@ -1,7 +1,140 @@
 // Pitch Detector face:
-//   • Frequency → Number Readout LCD (DSEG / residual path)
-//   • Fidelity  → cheapest plain DOM text strip
-// One black plate; LCD fills it; Fid overlays the bottom (no fill/stroke).
+//   • Frequency → Number Readout plate (Hz / 8ve MIDI # / M note name)
+//   • Bottom row: unit toggle + Fid value (plain DOM, not digit layout)
+
+/** Concert A4 (Hz). Single tuning constant for Hz↔MIDI conversions. */
+const nodeGraphPitchA4Hz = 440;
+
+/** Display modes for the unit toggle: frequency → MIDI number → note name. */
+const nodeGraphPitchDisplayModes = Object.freeze(["hz", "midi", "name"]);
+
+/**
+ * Hz → continuous MIDI (69 = A4). NaN when frequency is non-positive.
+ * @param {number} hz
+ * @param {number} [a4Hz=440]
+ */
+function nodeGraphFrequencyToMidi(hz, a4Hz = nodeGraphPitchA4Hz) {
+  const f = Number(hz);
+  if (!(f > 0) || !Number.isFinite(f)) {
+    return Number.NaN;
+  }
+  const a4 = Number(a4Hz) > 0 ? Number(a4Hz) : nodeGraphPitchA4Hz;
+  return 69 + 12 * Math.log2(f / a4);
+}
+
+/**
+ * MIDI note number → name (Roland octave: MIDI 60 = C3).
+ * Reuses the app-wide keyboard label helper when present.
+ */
+function nodeGraphMidiToNoteName(midi) {
+  if (typeof nodeGraphMidiKeyboardPitchLabel === "function") {
+    return nodeGraphMidiKeyboardPitchLabel(midi);
+  }
+  const names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  const n = Math.round(Number(midi) || 0);
+  return `${names[((n % 12) + 12) % 12]}${Math.floor(n / 12) - 2}`;
+}
+
+function nodeGraphPitchDisplayModeNormalize(mode) {
+  const key = String(mode || "hz").toLowerCase();
+  if (key === "midi" || key === "8ve" || key === "note") {
+    return "midi";
+  }
+  if (key === "name" || key === "m" || key === "notename") {
+    return "name";
+  }
+  return "hz";
+}
+
+function nodeGraphPitchDisplayModeLabel(mode) {
+  const m = nodeGraphPitchDisplayModeNormalize(mode);
+  if (m === "midi") {
+    return "8ve";
+  }
+  if (m === "name") {
+    return "M";
+  }
+  return "Hz";
+}
+
+/**
+ * Format Frequency port sample for the plate under the active display mode.
+ * Leading space keeps DSEG width stable for numeric modes.
+ */
+function nodeGraphPitchDetectorFormatDisplay(hz, mode = "hz", decimals = 2) {
+  const m = nodeGraphPitchDisplayModeNormalize(mode);
+  const f = Number(hz);
+  if (!(f > 0) || !Number.isFinite(f)) {
+    return m === "name" ? " —" : " --";
+  }
+  if (m === "midi") {
+    const midi = nodeGraphFrequencyToMidi(f);
+    if (!Number.isFinite(midi)) {
+      return " --";
+    }
+    const n = Math.round(midi);
+    return n < 0 ? String(n) : ` ${n}`;
+  }
+  if (m === "name") {
+    const midi = nodeGraphFrequencyToMidi(f);
+    if (!Number.isFinite(midi)) {
+      return " —";
+    }
+    return ` ${nodeGraphMidiToNoteName(Math.round(midi))}`;
+  }
+  if (typeof nodeGraphNumberReadoutFormatValue === "function") {
+    return nodeGraphNumberReadoutFormatValue(f, decimals);
+  }
+  const places = Math.max(0, Math.min(8, Math.round(Number(decimals) || 2)));
+  try {
+    const fixed = f.toFixed(places);
+    return fixed.startsWith("-") ? fixed : ` ${fixed}`;
+  } catch {
+    return ` ${f.toFixed(2)}`;
+  }
+}
+
+function nodeGraphPitchDetectorFaceMode(faceOrNodeId) {
+  if (faceOrNodeId && faceOrNodeId.dataset) {
+    return nodeGraphPitchDisplayModeNormalize(faceOrNodeId.dataset.pitchDisplayMode);
+  }
+  const id = String(faceOrNodeId || "");
+  if (!id) {
+    return "hz";
+  }
+  const face = document.querySelector(`.node-pitch-detector-face[data-node="${CSS.escape(id)}"]`);
+  return nodeGraphPitchDisplayModeNormalize(face?.dataset?.pitchDisplayMode);
+}
+
+function nodeGraphPitchDetectorCycleDisplayMode(face) {
+  if (!face?.dataset) {
+    return "hz";
+  }
+  const modes = nodeGraphPitchDisplayModes;
+  const cur = nodeGraphPitchDisplayModeNormalize(face.dataset.pitchDisplayMode);
+  const idx = Math.max(0, modes.indexOf(cur));
+  const next = modes[(idx + 1) % modes.length];
+  face.dataset.pitchDisplayMode = next;
+  const unit = face.querySelector?.(".node-pitch-detector-hz");
+  if (unit) {
+    unit.textContent = nodeGraphPitchDisplayModeLabel(next);
+    unit.setAttribute(
+      "aria-label",
+      `Display mode ${nodeGraphPitchDisplayModeLabel(next)}. Click to cycle Hz, 8ve, M.`,
+    );
+    unit.title = "Click to cycle: Hz (frequency) → 8ve (MIDI number) → M (note name)";
+  }
+  // Force Number Readout repaint (invalidate text cache on face canvas).
+  const canvas = face.querySelector?.(".node-number-readout-canvas");
+  if (canvas) {
+    canvas._nodeGraphNumberReadoutText = null;
+    canvas._numberReadoutLastValueText = "";
+  }
+  if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
+    scheduleNodeGraphModuleScopeDraw({ force: true });
+  }
+  return next;
+}
 
 function createNodeGraphPitchDetectorBody(nodeId) {
   const id = String(nodeId || "");
@@ -10,20 +143,43 @@ function createNodeGraphPitchDetectorBody(nodeId) {
   body.dataset.node = id;
   body.dataset.nodeType = "helmholtzPitch";
   body.dataset.pitchDetectorFace = "true";
+  body.dataset.pitchDisplayMode = "hz";
   body.dataset.lightSource = "screen";
   body.setAttribute("aria-label", "Pitch detector frequency LCD and fidelity");
 
   // LCD plate — registered as the scope surface for numberReadout paint.
   const lcd = document.createElement("div");
-  lcd.className = "node-pitch-detector-lcd node-module-scope-window node-number-readout-face";
+  lcd.className = "node-pitch-detector-lcd node-module-scope-window node-number-readout-face node-light-source";
   lcd.dataset.node = id;
   lcd.dataset.nodeType = "helmholtzPitch";
+  lcd.dataset.valueFaceStyle = "lcd";
   lcd.dataset.lightSource = "screen";
+  // Less-dim room punch (2/3), same family as Value LCD / crossover faces.
+  if (typeof nodeGraphNumberReadoutApplyLcdLightCutout === "function") {
+    nodeGraphNumberReadoutApplyLcdLightCutout(lcd);
+  } else {
+    lcd.dataset.lightStrength = String(2 / 3);
+  }
   lcd.setAttribute("aria-hidden", "true");
 
-  // Cheap fidelity strip (no canvas).
-  const fid = document.createElement("div");
-  fid.className = "node-pitch-detector-fid";
+  // Decorations under the LCD: unit toggle + fidelity.
+  const meta = document.createElement("div");
+  meta.className = "node-pitch-detector-fid";
+  const hz = document.createElement("button");
+  hz.type = "button";
+  hz.className = "node-pitch-detector-hz";
+  hz.textContent = "Hz";
+  hz.title = "Click to cycle: Hz (frequency) → 8ve (MIDI number) → M (note name)";
+  hz.setAttribute("aria-label", "Display mode Hz. Click to cycle Hz, 8ve, M.");
+  hz.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    nodeGraphPitchDetectorCycleDisplayMode(body);
+  });
+  hz.addEventListener("pointerdown", (event) => {
+    // Keep module selection / marquee from stealing the unit toggle.
+    event.stopPropagation();
+  });
   const fidKey = document.createElement("span");
   fidKey.className = "node-pitch-detector-k";
   fidKey.textContent = "Fid";
@@ -31,9 +187,12 @@ function createNodeGraphPitchDetectorBody(nodeId) {
   fidVal.className = "node-pitch-detector-v";
   fidVal.dataset.pitchValue = "fidelity";
   fidVal.textContent = "—";
-  fid.append(fidKey, fidVal);
+  const fidGroup = document.createElement("span");
+  fidGroup.className = "node-pitch-detector-fid-group";
+  fidGroup.append(fidKey, fidVal);
+  meta.append(hz, fidGroup);
 
-  body.append(lcd, fid);
+  body.append(lcd, meta);
   return body;
 }
 
@@ -48,7 +207,7 @@ function nodeGraphPitchDetectorFormatFid(value) {
 /**
  * Update fidelity strip from live scope payload
  * (entries [id, samples] where id is "nodeId:Fidelity").
- * Frequency is painted by the Number Readout LCD path.
+ * Frequency is painted by the Number Readout path.
  */
 function updateNodeGraphPitchDetectorFacesFromScopeValues(values) {
   if (!values || !values.length) {
@@ -123,7 +282,9 @@ function mountNodeGraphPitchDetectorFace(article, body, nodeId) {
       }
     }
   }
-  if (typeof nodeGraphModuleScopeMarkScreenLit === "function") {
-    nodeGraphModuleScopeMarkScreenLit(lcd, 1);
+  if (typeof nodeGraphNumberReadoutApplyLcdLightCutout === "function") {
+    nodeGraphNumberReadoutApplyLcdLightCutout(lcd);
+  } else if (typeof nodeGraphModuleScopeMarkScreenLit === "function") {
+    nodeGraphModuleScopeMarkScreenLit(lcd, 2 / 3);
   }
 }

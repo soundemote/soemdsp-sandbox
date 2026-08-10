@@ -299,9 +299,19 @@ function updateNodeGraphGridHeatmap(options = {}) {
       `radial-gradient(ellipse ${radiusX.toFixed(2)}px ${radiusY.toFixed(2)}px at ${centerX.toFixed(2)}px ${centerY.toFixed(2)}px, black 0%, rgb(0 0 0 / 0.95) 22%, rgb(0 0 0 / 0.72) 48%, rgb(0 0 0 / 0.28) 74%, transparent 94%)`,
     );
   }
-  const mouseAmount = Math.max(0, Math.min(2, nodeGraphWorkspaceFloatProperty(workspace, "--node-mouse-light-amount")));
+  let mouseAmount = Math.max(0, Math.min(2, nodeGraphWorkspaceFloatProperty(workspace, "--node-mouse-light-amount")));
   const mouseSpread = Math.max(0, Math.min(2, nodeGraphWorkspaceFloatProperty(workspace, "--node-mouse-light-spread")));
   const mousePoint = nodeGraphMvp.mouseLightPoint;
+  // Without a mouse dimmer cutout, fade the mouse light with room dim so it
+  // doesn't stay full-bright under the veil. With cutout on, keep full amount
+  // (the hole reveals it at design strength).
+  if (mouseAmount > 0 && nodeGraphMvp?.dimmerCutoutMouseEnabled !== true
+    && typeof nodeGraphRoomDim === "function") {
+    const roomDim = Math.max(0, Math.min(1, Number(nodeGraphRoomDim()) || 0));
+    if (roomDim > 0.0005) {
+      mouseAmount *= Math.max(0, 1 - roomDim);
+    }
+  }
   if (mouseAmount > 0 && mouseSpread > 0 && mousePoint) {
     const radius = Math.max(nodeGraphGridWidth(), nodeGraphGridHeight()) * (3 + 10.5 * mouseSpread) * zoom;
     maskLayers.push(

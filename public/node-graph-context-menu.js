@@ -796,7 +796,7 @@ const nodeGraphModuleActionControlIds = [
   "nodeSceneTextBoxControls",
   "nodeSceneTextBoxHorizontalAlignControls",
   "nodeSceneTextBoxVerticalAlignControls",
-  "nodeSceneToggleModuleEnabled",
+  // Disable lives inside Visibility (under Hide unused) — not a top-level control.
   "nodeSceneCodeGroup",
   "nodeSceneDeleteModule",
 ];
@@ -1079,6 +1079,7 @@ function configureNodeSceneContextMenu(mode) {
   const toggleInterfaceControlsButton = document.getElementById("nodeSceneToggleInterfaceControls");
   const toggleSlidersButton = document.getElementById("nodeSceneToggleSliders");
   const toggleIoButton = document.getElementById("nodeSceneToggleIo");
+  const toggleHideUnusedButton = document.getElementById("nodeSceneToggleHideUnused");
   const toggleTitleButton = document.getElementById("nodeSceneToggleTitle");
   const imageControls = document.getElementById("nodeSceneImageControls");
   const imageSave = document.getElementById("nodeSceneImageSave");
@@ -1178,6 +1179,7 @@ function configureNodeSceneContextMenu(mode) {
   const visualFaceLabel = "display";
   const slidersHidden = effectiveTargetNodeUi.slidersHidden;
   const ioHidden = targetNodeUi.ioHidden;
+  const hideUnused = Boolean(targetNodeUi.hideUnused);
   const titleHidden = targetNodeUi.titleHidden;
   const textBoxLayout = normalizeNodeGraphTextBoxLayout(targetNode?.layout);
   const textBoxMode = textBoxLayout.textMode;
@@ -1295,15 +1297,15 @@ function configureNodeSceneContextMenu(mode) {
   codeblockControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "codeblock");
   textBoxPortScriptControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "animatedTextBox");
   graphControls.hidden = !(moduleMode && !multiModuleMode && targetIsGraphType);
-  // Always visible under Command Center transport; disabled until a module
-  // selection exists (supports multi-select Enable/Disable modules).
+  // Disable lives under Visibility → Hide unused (multi-select aware).
   if (toggleModuleEnabledButton) {
-    toggleModuleEnabledButton.hidden = false;
+    toggleModuleEnabledButton.hidden = !moduleMode;
     if (!moduleMode) {
       toggleModuleEnabledButton.disabled = true;
-      const label = toggleModuleEnabledButton.querySelector("span");
+      const label = toggleModuleEnabledButton.querySelector(".scene-context-window-button-label")
+        || toggleModuleEnabledButton.querySelector("span");
       if (label) {
-        label.textContent = "Disable modules";
+        label.textContent = "Disable module";
       }
       toggleModuleEnabledButton.setAttribute("aria-pressed", "false");
       toggleModuleEnabledButton.title = "Select one or more modules to disable or enable.";
@@ -1338,6 +1340,9 @@ function configureNodeSceneContextMenu(mode) {
     )
   );
   toggleIoButton.hidden = !moduleMode || (multiModuleMode && !multiCanButtons);
+  if (toggleHideUnusedButton) {
+    toggleHideUnusedButton.hidden = !moduleMode || (multiModuleMode && !selectedNodes.length);
+  }
   toggleTitleButton.hidden = !moduleMode || (multiModuleMode && !multiCanButtons);
   imageControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "image");
   // Image layers / span / offset / readout live in Display Settings, not Module Settings.
@@ -1604,7 +1609,8 @@ function configureNodeSceneContextMenu(mode) {
     const multiAllDisabled = multiModuleMode && selectedNodes.length > 0 && !multiAnyEnabled;
     if (toggleModuleEnabledButton) {
       toggleModuleEnabledButton.disabled = multiModuleMode ? !selectedNodes.length : !targetNode;
-      const enabledLabel = toggleModuleEnabledButton.querySelector("span");
+      const enabledLabel = toggleModuleEnabledButton.querySelector(".scene-context-window-button-label")
+        || toggleModuleEnabledButton.querySelector("span");
       if (enabledLabel) {
         enabledLabel.textContent = multiModuleMode
           ? (multiAllDisabled ? "Enable modules" : "Disable modules")
@@ -1685,6 +1691,12 @@ function configureNodeSceneContextMenu(mode) {
         (node) => Boolean(normalizeNodeGraphPatchNodeUi(node.ui, node.type).ioHidden),
       )
       : ioHidden;
+    const multiHideUnused = multiModuleMode
+      ? multiSectionAllHidden(
+        () => true,
+        (node) => Boolean(normalizeNodeGraphPatchNodeUi(node.ui, node.type).hideUnused),
+      )
+      : hideUnused;
     const multiTitleHidden = multiModuleMode
       ? multiSectionAllHidden(
         () => true,
@@ -1738,6 +1750,17 @@ function configureNodeSceneContextMenu(mode) {
       : (ioHidden
         ? "Show this module's input and output ports."
         : "Hide this module's input and output ports.");
+    if (toggleHideUnusedButton) {
+      toggleHideUnusedButton.disabled = multiModuleMode ? !selectedNodes.length : !targetNode;
+      setVisLines(toggleHideUnusedButton, multiHideUnused, "Hide unused");
+      toggleHideUnusedButton.title = multiModuleMode
+        ? (multiHideUnused
+          ? "Show unused ports on selected modules."
+          : "Hide unused (unconnected) ports on selected modules.")
+        : (hideUnused
+          ? "Show unused ports on this module."
+          : "Hide unused (unconnected) ports on this module.");
+    }
     toggleTitleButton.disabled = multiModuleMode ? !selectedNodes.length : !targetNode;
     setVisLines(toggleTitleButton, multiTitleHidden, "Title");
     toggleTitleButton.title = multiModuleMode
@@ -1895,6 +1918,9 @@ function configureNodeSceneContextMenu(mode) {
     textBoxVerticalAlign.disabled = true;
     toggleButtonsButton.disabled = true;
     toggleOscilloscopeButton.disabled = true;
+    if (toggleHideUnusedButton) {
+      toggleHideUnusedButton.disabled = true;
+    }
     toggleTitleButton.disabled = true;
     imageSave.disabled = true;
     imageRefresh.disabled = true;
@@ -1941,6 +1967,9 @@ function configureNodeSceneContextMenu(mode) {
     textBoxVerticalAlign.disabled = true;
     toggleButtonsButton.disabled = true;
     toggleOscilloscopeButton.disabled = true;
+    if (toggleHideUnusedButton) {
+      toggleHideUnusedButton.disabled = true;
+    }
     toggleTitleButton.disabled = true;
     imageSave.disabled = true;
     imageRefresh.disabled = true;

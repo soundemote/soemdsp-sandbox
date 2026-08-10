@@ -600,6 +600,10 @@ function createNodeGraphModuleElement(type, node) {
   article.classList.toggle("interface-controls-forced-visible", Boolean(patchNodeUi.interfaceControlsForceShow));
   article.classList.toggle("sliders-forced-visible", Boolean(patchNodeUi.slidersForceShow));
   article.classList.toggle("io-hidden", patchNodeUi.ioHidden);
+  article.classList.toggle(
+    "unused-hidden",
+    Boolean(normalizeNodeGraphPatchNodeUi(patchNode.ui, type).hideUnused),
+  );
   article.classList.toggle("interface-controls-hidden", patchNodeUi.interfaceControlsHidden);
   article.classList.toggle("oscilloscope-hidden", patchNodeUi.oscilloscopeHidden);
   article.classList.toggle("sliders-hidden", patchNodeUi.slidersHidden);

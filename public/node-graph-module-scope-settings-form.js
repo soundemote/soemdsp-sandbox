@@ -58,7 +58,8 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null) {
   }
   if (formType === "numberReadout" && key === "innerShadowSharpness") {
     label = "Shadow hard";
-    title = "Edge hardness 0…1. 0 = widest smooth Gaussian; 1 = hard rim (no blur).";
+    title =
+      "Shadow hardness 0…1. Soft = wide translucent Gaussian; harder = darker. Full hardness = solid black hard rim.";
   }
   if (formType === "numberReadout" && key === "innerShadowOffsetX") {
     label = "Shadow X";
@@ -413,8 +414,8 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
           .filter((key) => activeColors.has(key));
         choiceKeys = [];
       } else {
-        // Value LED: Decimals → LED → Ghost → Trail → Padding → blend → Background → Ghost Gradient.
-        fieldKeys = ["decimals", "dot1Brightness", "ghost", "trail", "facePadding"]
+        // Value LED: Decimals → Padding → Bright → Ghost → Trail (last) → blend → Background → Ghost Gradient.
+        fieldKeys = ["decimals", "facePadding", "dot1Brightness", "ghost", "trail"]
           .filter((key) => activeFields.has(key));
         colorKeys = ["backgroundColor"]
           .filter((key) => activeColors.has(key));

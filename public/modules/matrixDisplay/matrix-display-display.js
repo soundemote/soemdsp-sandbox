@@ -292,8 +292,14 @@ function matrixDisplaySchedulePump() {
     matrixDisplayRaf = 0;
     const faces = document.querySelectorAll(".node-matrix-display-face");
     if (!faces.length) return;
-    for (const face of faces) {
-      matrixDisplayTickFace(face);
+    // Respect Simulation FPS (same clock as scopes / phosphor / LCD / LED).
+    const frameReady = typeof nodeGraphDisplayFrameReady === "function"
+      ? nodeGraphDisplayFrameReady("matrixDisplay")
+      : true;
+    if (frameReady) {
+      for (const face of faces) {
+        matrixDisplayTickFace(face);
+      }
     }
     matrixDisplaySchedulePump();
   });

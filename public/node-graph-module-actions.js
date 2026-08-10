@@ -955,26 +955,157 @@ function adjustNodeGraphModuleHeightFromContext(delta) {
   configureNodeSceneContextMenu("module");
 }
 
+/**
+ * Header titles are readOnly until an explicit rename session (triple-click).
+ * Multi-select may rename several modules at once; selection changes must not
+ * silently retarget a focused alias/title field onto a non-editing module.
+ */
+function nodeGraphModuleTitleInputIsEditing(input) {
+  return Boolean(input?.dataset?.titleEditing === "1");
+}
+
+function nodeGraphModuleTitleInputsEditing() {
+  return [...document.querySelectorAll("input.node-header-title[data-title-editing='1']")];
+}
+
+function nodeGraphModuleTitleInputForNodeId(nodeId) {
+  const id = String(nodeId || "");
+  if (!id) {
+    return null;
+  }
+  return document.querySelector(
+    `.dsp-node[data-node="${CSS.escape(id)}"] input.node-header-title`,
+  );
+}
+
+/** End any open header-title rename sessions (commit or revert). */
+function endAllNodeGraphModuleTitleEdits({ commit = true, revert = false } = {}) {
+  const editing = nodeGraphModuleTitleInputsEditing();
+  if (!editing.length) {
+    return;
+  }
+  const primary = editing.find((el) => document.activeElement === el) || editing[0];
+  const value = primary?.value;
+  const ids = editing.map((el) => el.dataset.node).filter(Boolean);
+  for (const input of editing) {
+    if (revert && input.dataset.node) {
+      const patchNode = typeof nodeGraphPatchNode === "function"
+        ? nodeGraphPatchNode(input.dataset.node)
+        : null;
+      input.value = typeof nodeGraphPatchNodeTitle === "function"
+        ? nodeGraphPatchNodeTitle(patchNode || { id: input.dataset.node })
+        : input.value;
+    }
+    input.readOnly = true;
+    input.tabIndex = -1;
+    delete input.dataset.titleEditing;
+  }
+  if (commit && !revert && ids.length) {
+    commitNodeGraphModuleTitleFromHeaderInput(ids[0], value, { multiIds: ids });
+  }
+}
+
+/**
+ * Begin rename on primaryInput. If that module is multi-selected, open a
+ * rename session on every selected module (same alias applied on commit).
+ */
+function startNodeGraphModuleTitleEdit(primaryInput) {
+  if (!(primaryInput instanceof HTMLInputElement)) {
+    return;
+  }
+  const primaryId = String(primaryInput.dataset.node || "");
+  if (!primaryId) {
+    return;
+  }
+  let ids = [primaryId];
+  if (typeof nodeGraphSelectedNodeIds === "function") {
+    const selected = [...nodeGraphSelectedNodeIds()];
+    if (selected.includes(primaryId) && selected.length > 1) {
+      ids = selected;
+    }
+  }
+  // Close any other title sessions first (commit their value).
+  const already = nodeGraphModuleTitleInputsEditing();
+  const alreadyIds = new Set(already.map((el) => el.dataset.node));
+  if (already.length && ![...alreadyIds].every((id) => ids.includes(id))) {
+    endAllNodeGraphModuleTitleEdits({ commit: true });
+  }
+  for (const id of ids) {
+    const input = id === primaryId
+      ? primaryInput
+      : nodeGraphModuleTitleInputForNodeId(id);
+    if (!(input instanceof HTMLInputElement)) {
+      continue;
+    }
+    input.readOnly = false;
+    input.tabIndex = 0;
+    input.dataset.titleEditing = "1";
+  }
+  try {
+    primaryInput.focus({ preventScroll: true });
+    primaryInput.select();
+  } catch {
+    primaryInput.focus();
+    primaryInput.select();
+  }
+}
+
+/** Sync sibling multi-edit title fields while typing. */
+function syncNodeGraphModuleTitleEditPeers(sourceInput) {
+  if (!nodeGraphModuleTitleInputIsEditing(sourceInput)) {
+    return;
+  }
+  const value = sourceInput.value;
+  for (const input of nodeGraphModuleTitleInputsEditing()) {
+    if (input !== sourceInput && input.value !== value) {
+      input.value = value;
+    }
+  }
+}
+
 // Commits an inline edit made directly in a module's header title field
 // (see createNodeGraphModuleHeader) to node.alias -- same normalize/commit
 // as the context-menu alias field (setNodeGraphModuleAliasFromContext),
 // just addressed by node id instead of reading the currently-targeted
 // context-menu node, since the header input can be edited without the
 // context menu open at all.
-function commitNodeGraphModuleTitleFromHeaderInput(nodeId, value) {
-  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-  const targetNode = patch.nodes.find((node) => node.id === nodeId);
-  if (!targetNode) {
+// multiIds: optional list for multi-select rename (one undo step).
+function commitNodeGraphModuleTitleFromHeaderInput(nodeId, value, { multiIds = null } = {}) {
+  const ids = [...new Set(
+    (Array.isArray(multiIds) && multiIds.length ? multiIds : [nodeId])
+      .map((id) => String(id || ""))
+      .filter(Boolean),
+  )];
+  if (!ids.length) {
     return;
   }
+  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   const alias = normalizeNodeGraphPatchNodeAlias(value);
-  if (alias) {
-    targetNode.alias = alias;
-  } else {
-    delete targetNode.alias;
+  let changed = 0;
+  for (const id of ids) {
+    const targetNode = patch.nodes.find((node) => node.id === id);
+    if (!targetNode) {
+      continue;
+    }
+    const prev = normalizeNodeGraphPatchNodeAlias(targetNode.alias) || "";
+    const next = alias || "";
+    if (prev === next && Boolean(targetNode.alias) === Boolean(alias)) {
+      continue;
+    }
+    if (alias) {
+      targetNode.alias = alias;
+    } else {
+      delete targetNode.alias;
+    }
+    changed += 1;
+  }
+  if (!changed) {
+    return;
   }
   commitNodeGraphPatch(patch, {
-    status: alias ? "module title changed" : "module title cleared",
+    status: changed > 1
+      ? (alias ? "module titles changed" : "module titles cleared")
+      : (alias ? "module title changed" : "module title cleared"),
   });
 }
 
@@ -2091,6 +2222,7 @@ function applyNodeGraphPatchNodeUi(targetNode, ui) {
     normalizedUi.buttonsHidden
     || normalizedUi.buttonsForceShow
     || normalizedUi.ioHidden
+    || normalizedUi.hideUnused
     || normalizedUi.interfaceControlsHidden
     || normalizedUi.interfaceControlsForceShow
     || normalizedUi.titleHidden
@@ -2104,6 +2236,50 @@ function applyNodeGraphPatchNodeUi(targetNode, ui) {
   } else {
     delete targetNode.ui;
   }
+}
+
+/** Hide unconnected jacks on selected modules (multi-select aware). */
+function toggleNodeGraphModuleHideUnusedFromContext() {
+  const targetNodeIds = nodeGraphModuleActionTargetNodeIds();
+  if (!targetNodeIds.length) {
+    return;
+  }
+  const sources = targetNodeIds
+    .map((id) => nodeGraphPatchNode(id))
+    .filter(Boolean);
+  if (!sources.length) {
+    return;
+  }
+  const wantHidden = nodeGraphModuleActionMultiWantHidden(
+    sources,
+    (node) => Boolean(normalizeNodeGraphPatchNodeUi(node.ui, node.type).hideUnused),
+  );
+  if (wantHidden === null) {
+    return;
+  }
+
+  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+  let changedCount = 0;
+  for (const targetNode of patch.nodes) {
+    if (!targetNodeIds.includes(targetNode.id)) {
+      continue;
+    }
+    const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui, targetNode.type);
+    if (Boolean(ui.hideUnused) === wantHidden) {
+      continue;
+    }
+    ui.hideUnused = wantHidden;
+    applyNodeGraphPatchNodeUi(targetNode, ui);
+    changedCount += 1;
+  }
+  if (changedCount) {
+    commitNodeGraphPatch(patch, {
+      status: wantHidden
+        ? (changedCount > 1 ? "unused ports hidden" : "unused ports hidden")
+        : (changedCount > 1 ? "unused ports shown" : "unused ports shown"),
+    });
+  }
+  configureNodeSceneContextMenu("module");
 }
 
 function toggleNodeGraphModuleInterfaceControlsFromContext() {

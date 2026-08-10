@@ -8731,6 +8731,7 @@ const nodeGraphModuleLayout = Object.freeze({
      cushion vs font metrics / subpixel — under-reserve lets HFR clip into params. */
   ioRowHeightGu: 16 / 28,
   ioSectionMinHeightGu: 24 / 28,
+  /* Side/top plate air vs grid (CSS --node-module-grid-inset). Bottom is half. */
   moduleGridInsetGu: 6 / 28,
   moduleScopeHeightGu: 2,
   sliderRowHeightGu: 30 / 28,

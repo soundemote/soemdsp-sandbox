@@ -11,6 +11,42 @@ function nodeGraphModuleScopeNodeParam(node, key, fallback) {
   return nodeGraphNodeParamNumber(node, key, fallback);
 }
 
+/**
+ * Shared display FPS gate for independent face pumps (matrix, asciiscope, …)
+ * that do not go through the scope compositor. Uses the same fixed-frame clock
+ * as phosphor / scopes so all animated displays share Simulation FPS.
+ * Returns true when a paint step should run; advances the clock only then.
+ * FPS ≤ 0 freezes (matches AdvanceFixedFrameClock).
+ */
+const nodeGraphDisplayFrameClockStates = new Map();
+
+function nodeGraphDisplayFrameReady(clockKey = "__default") {
+  const fps = typeof normalizeNodeGraphModuleScopeFramesPerSecond === "function"
+    ? normalizeNodeGraphModuleScopeFramesPerSecond(nodeGraphMvp?.moduleScopeFramesPerSecond ?? 60)
+    : Math.max(0, Math.round(Number(nodeGraphMvp?.moduleScopeFramesPerSecond) || 60));
+  if (!(fps > 0) || typeof nodeGraphModuleScopeAdvanceFixedFrameClock !== "function") {
+    return false;
+  }
+  const now = (typeof performance !== "undefined" && performance.now
+    ? performance.now()
+    : Date.now()) / 1000;
+  const key = String(clockKey || "__default");
+  let state = nodeGraphDisplayFrameClockStates.get(key);
+  if (!state) {
+    state = { lastUpdate: now, time: now };
+    nodeGraphDisplayFrameClockStates.set(key, state);
+    return true;
+  }
+  const tick = nodeGraphModuleScopeAdvanceFixedFrameClock(state, now, fps);
+  if (!tick.ready) {
+    return false;
+  }
+  state.lastUpdate = tick.lastUpdate;
+  state.time = tick.time;
+  nodeGraphDisplayFrameClockStates.set(key, state);
+  return true;
+}
+
 function nodeGraphModuleScopeAdvanceFixedFrameClock(state, now, fps) {
   const normalizedFps = normalizeNodeGraphModuleScopeFramesPerSecond(fps);
   if (normalizedFps <= 0) {

@@ -37,9 +37,22 @@ async function bindNodeGraphUiDevSettingsEvents() {
   document
     .getElementById("nodeUiDevMouseLightEnabled")
     .addEventListener("change", syncNodeUiDevSettingsHeaderControls);
-  document
-    .getElementById("nodeUiDevHoverModuleDimmerCutout")
-    ?.addEventListener("change", syncNodeUiDevSettingsHeaderControls);
+  for (const id of [
+    "nodeUiDevDimmerCutoutSlider",
+    "nodeUiDevDimmerCutoutModule",
+    "nodeUiDevDimmerCutoutTitle",
+    "nodeUiDevDimmerCutoutMouse",
+  ]) {
+    document.getElementById(id)?.addEventListener("change", syncNodeUiDevSettingsHeaderControls);
+  }
+  for (const id of [
+    "nodeUiDevDimmerMouseSize",
+    "nodeUiDevDimmerMouseSoftness",
+    "nodeUiDevDimmerMouseShape",
+  ]) {
+    document.getElementById(id)?.addEventListener("input", syncNodeUiDevSettingsHeaderControls);
+    document.getElementById(id)?.addEventListener("change", syncNodeUiDevSettingsHeaderControls);
+  }
   document
     .getElementById("nodeUiDevShowOriginMarker")
     .addEventListener("change", syncNodeUiDevSettingsHeaderControls);
