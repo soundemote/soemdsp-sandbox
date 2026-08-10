@@ -36,8 +36,8 @@ function nodeGraphModuleTypeHasHideableSliders(type) {
 
 const nodeGraphModuleWidthLimits = Object.freeze({
   maxGu: 60,
-  // LayoutA / generic modules.
-  minGu: 4,
+  // App-wide LayoutA / generic floor (gu).
+  minGu: 2,
 });
 
 const nodeGraphModuleHeightLimits = Object.freeze({
@@ -77,59 +77,18 @@ const nodeGraphModuleDisplayHeightLimits = Object.freeze({
   stepGu: 1,
 });
 
-/** LayoutB module width floor. */
-const nodeGraphLayoutBMinGu = 2;
+/** LayoutB module width floor (app-wide policy: 1 gu). */
+const nodeGraphLayoutBMinGu = 1;
 
 /** LayoutC convenience thrus (Vectorscope, …): allow compact 2–3gu modules. */
 const nodeGraphLayoutCMinGu = 2;
 
 /**
- * LayoutA min width so inlet/outlet labels (Frequency, Fidelity, …) are not
- * clipped by a 4gu default shell. Estimates from longest port display names.
+ * LayoutA min width = app-wide floor only (no per-label inflation).
+ * Kept as a named helper so call sites stay readable.
  */
-function nodeGraphLayoutAMinWidthGuFromIoLabels(type) {
-  const definition = nodeGraphModuleDefinitions[type];
-  if (!definition) {
-    return nodeGraphModuleWidthLimits.minGu;
-  }
-  // Only LayoutA (ports under face). LayoutB/C size differently.
-  if (typeof nodeGraphModuleUsesLayoutB === "function" && nodeGraphModuleUsesLayoutB(type)) {
-    return 0;
-  }
-  if (typeof nodeGraphModuleUsesLayoutC === "function" && nodeGraphModuleUsesLayoutC(type)) {
-    return 0;
-  }
-  if (nodeGraphChromelessModuleIsCompactTile?.(type)) {
-    return 0;
-  }
-  const labelFor = (port, io) => {
-    const map = io === "input" ? definition.inputLabels : definition.outputLabels;
-    if (map && map[port] != null && String(map[port]).trim()) {
-      return String(map[port]).trim();
-    }
-    return String(port || "");
-  };
-  let inMax = 0;
-  let outMax = 0;
-  for (const port of definition.inputs || []) {
-    inMax = Math.max(inMax, labelFor(port, "input").length);
-  }
-  for (const port of definition.outputs || []) {
-    outMax = Math.max(outMax, labelFor(port, "output").length);
-  }
-  if (inMax <= 0 && outMax <= 0) {
-    return nodeGraphModuleWidthLimits.minGu;
-  }
-  // ~0.36 gu per monospace ch at default grid; jack + gap ≈ 0.85 gu per side.
-  const guPerCh = 0.36;
-  const jackGu = 0.85;
-  const leftGu = inMax > 0 ? jackGu + inMax * guPerCh : 0.5;
-  const rightGu = outMax > 0 ? jackGu + outMax * guPerCh : 0.5;
-  // Keep a little center face room.
-  return Math.max(
-    nodeGraphModuleWidthLimits.minGu,
-    Math.ceil(leftGu + rightGu + 1.25),
-  );
+function nodeGraphLayoutAMinWidthGuFromIoLabels(_type) {
+  return nodeGraphModuleWidthLimits.minGu;
 }
 
 function nodeGraphModuleWidthLimitsForType(type) {
@@ -146,10 +105,7 @@ function nodeGraphModuleWidthLimitsForType(type) {
   if (nodeGraphModuleDefinitions[type]?.layout === "keyboardController") {
     return { ...nodeGraphModuleWidthLimits, minGu: 14 };
   }
-  const layoutAMin = nodeGraphLayoutAMinWidthGuFromIoLabels(type);
-  if (layoutAMin > nodeGraphModuleWidthLimits.minGu) {
-    return { ...nodeGraphModuleWidthLimits, minGu: layoutAMin };
-  }
+  // LayoutA / generic: fixed app-wide min (2 gu).
   return nodeGraphModuleWidthLimits;
 }
 
@@ -194,7 +150,12 @@ function nodeGraphModuleDisplayHeightLimitsForType(_type = null) {
   return nodeGraphModuleDisplayHeightLimits;
 }
 
-/** True when the module has a resizable face (scopes, graph, XY Pad, …). */
+/**
+ * True when the module has a resizable display face (scopes, graph, XY Pad,
+ * Pitch LED, RoundShape, filter curves, …). SSOT for “has a display”.
+ * LayoutC / chromeless compact tiles have no face.
+ * Must not call HasHideable* (that depends on this).
+ */
 function nodeGraphModuleHasFace(type) {
   const normalizedType = String(type || "").trim();
   if (!normalizedType) {
@@ -203,9 +164,35 @@ function nodeGraphModuleHasFace(type) {
   if (typeof nodeGraphModuleUsesLayoutC === "function" && nodeGraphModuleUsesLayoutC(normalizedType)) {
     return false;
   }
-  return nodeGraphModuleTypeHasHideableOscilloscope(normalizedType)
-    || nodeGraphModuleTypeHasCustomDisplayArea(normalizedType)
-    || nodeGraphModuleDefinitions[normalizedType]?.layout === "graph";
+  if (nodeGraphChromelessModuleIsCompactTile?.(normalizedType)) {
+    return false;
+  }
+  const definition = nodeGraphModuleDefinitions[normalizedType];
+  if (!definition) {
+    return false;
+  }
+  // Custom / status / control faces (Pitch, RoundShape, graph, XY, …).
+  if (nodeGraphModuleTypeHasCustomDisplayArea(normalizedType)) {
+    return true;
+  }
+  const layout = definition.layout;
+  // Shells with no display face row.
+  if ([
+    "canvas",
+    "image",
+    "keyboardController",
+    "pitchModWheel",
+    "screenSpaceShader",
+    "speakerProtection",
+    "textBox",
+  ].includes(layout)) {
+    return false;
+  }
+  // Analyzer scopes and anything else with a module layout/face.
+  if (definition.displayType || (Array.isArray(definition.displayModes) && definition.displayModes.length)) {
+    return true;
+  }
+  return Boolean(layout);
 }
 
 /**
@@ -242,13 +229,10 @@ function nodeGraphPatchNodeLayout(node) {
   return fallback;
 }
 
-// Types whose CUSTOM UI occupies the display area instead of an
-// oscilloscope (e.g. xyPad's interactive pad, graph2's dot editor). They
-// participate in the display-height sizing system exactly like a scope --
-// same resize controls, same height contribution -- but the area can't be
-// hidden (hiding the module's own control surface would make it useless).
-// Graph (headered LayoutB) is not chromeless-registered — listed by layout so
-// it still gets display-height resize like XY Pad / scopes (1…60gu).
+// Types whose CUSTOM UI occupies the display area instead of a classic
+// analyzer scope (xyPad pad, graph editor, Pitch LED, RoundShape, …).
+// They still use display-height sizing. App-wide policy: ALL faces/displays
+// honor show/hide via nodeGraphModuleDisplayVisibleForUi — no exemptions.
 function nodeGraphModuleTypeHasCustomDisplayArea(type) {
   if (typeof nodeGraphChromelessModuleHasCustomDisplayArea === "function"
     && nodeGraphChromelessModuleHasCustomDisplayArea(type)) {
@@ -274,40 +258,19 @@ function nodeGraphModuleTypeHasCustomDisplayArea(type) {
     || layout === "wallRoomDisplay";
 }
 
+/**
+ * App-wide SSOT: any module with a face/display can be shown/hidden.
+ * (Legacy name "oscilloscope" = the display face row, not only analyzer scopes.)
+ */
 function nodeGraphModuleTypeHasHideableOscilloscope(type) {
-  const layout = nodeGraphModuleDefinitions[type]?.layout;
-  if (nodeGraphChromelessModuleIsCompactTile(type)) {
+  if (nodeGraphChromelessModuleIsCompactTile?.(type)) {
     return false;
   }
-  // Custom-display-area types never render a scope section, so there is no
-  // oscilloscope to show/hide (their display HEIGHT still resizes -- see
-  // nodeGraphModuleSizingCapabilities).
-  if (nodeGraphModuleTypeHasCustomDisplayArea(type)) {
-    return false;
-  }
-  return Boolean(nodeGraphModuleDefinitions[type]) && ![
-    "canvas",
-    "graph",
-    "image",
-    "keyboardController",
-    "macroControls",
-    "pitchModWheel",
-    "screenSpaceShader",
-    // badvalMonitor is customDisplayArea (height via display-height policy), not a hideable scope.
-    "badvalMonitor",
-    "sliderWidget",
-    "speakerProtection",
-    "textBox",
-    "visualScope",
-  ].includes(layout);
+  return nodeGraphModuleHasFace(type);
 }
 
 function nodeGraphPatchNodeHasHideableOscilloscope(node) {
   const patchNode = typeof node === "string" ? nodeGraphPatchNode(node) : node;
-  const layout = nodeGraphPatchNodeLayout(patchNode);
-  if (layout && layout !== nodeGraphModuleDefinitions[patchNode?.type]?.layout) {
-    return false;
-  }
   return nodeGraphModuleTypeHasHideableOscilloscope(patchNode?.type);
 }
 
@@ -358,19 +321,21 @@ function nodeGraphModuleSizingCapabilities(type) {
   });
 }
 
+/**
+ * App-wide SSOT for “is this module’s display face shown?”
+ * Uses effective UI (local hide + force-show + global Displays toggle).
+ * No layout/type is exempt — if it has a face, it can be hidden.
+ */
 function nodeGraphModuleDisplayVisibleForUi(type, ui = {}) {
-  // A custom display area is always "visible" -- it's the module's own
-  // control surface, exempt from the oscilloscope show/hide flags.
-  if (nodeGraphModuleTypeHasCustomDisplayArea(type)) {
-    return true;
-  }
-  if (!nodeGraphModuleTypeHasHideableOscilloscope(type)) {
+  if (!nodeGraphModuleHasFace(type)) {
     return false;
   }
-  // Effective UI already resolves global Displays + local force-show /
-  // local hide. Do not short-circuit on the global flag alone — that left
-  // force-shown modules at 0 display gu (CSS face on, shell min 1gu).
   return !nodeGraphEffectivePatchNodeUi(ui, type).oscilloscopeHidden;
+}
+
+/** Mount-time gate: only create/attach display faces when visible. */
+function nodeGraphModuleShouldMountDisplayFace(type, ui = {}) {
+  return nodeGraphModuleDisplayVisibleForUi(type, ui);
 }
 
 function normalizeNodeGraphModuleDisplayHeightUnits(heightGu, type = null) {

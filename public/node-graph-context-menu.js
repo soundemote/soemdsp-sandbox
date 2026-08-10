@@ -1751,15 +1751,11 @@ function configureNodeSceneContextMenu(mode) {
         ? "Show this module's input and output ports."
         : "Hide this module's input and output ports.");
     if (toggleHideUnusedButton) {
-      toggleHideUnusedButton.disabled = multiModuleMode ? !selectedNodes.length : !targetNode;
-      setVisLines(toggleHideUnusedButton, multiHideUnused, "Hide unused");
-      toggleHideUnusedButton.title = multiModuleMode
-        ? (multiHideUnused
-          ? "Show unused ports on selected modules."
-          : "Hide unused (unconnected) ports on selected modules.")
-        : (hideUnused
-          ? "Show unused ports on this module."
-          : "Hide unused (unconnected) ports on this module.");
+      // Under construction — not reliable yet; leave disabled app-wide.
+      toggleHideUnusedButton.disabled = true;
+      toggleHideUnusedButton.setAttribute("aria-disabled", "true");
+      setVisLines(toggleHideUnusedButton, false, "Hide unused");
+      toggleHideUnusedButton.title = "Hide unused — under construction (disabled).";
     }
     toggleTitleButton.disabled = multiModuleMode ? !selectedNodes.length : !targetNode;
     setVisLines(toggleTitleButton, multiTitleHidden, "Title");

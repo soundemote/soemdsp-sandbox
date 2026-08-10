@@ -323,13 +323,36 @@ NodeLiveAudioProcessor.prototype.applyParameterBounds = function applyParameterB
       : this.clampValue(value, min, max);
 };
 
-/** DOMAIN + MOD → effective domain (Phase F: nodeGraphParamApplyMod). */
+/** DOMAIN + MOD → effective domain (linear unit / absolute hybrid via nodeGraphParamApplyMod). */
 NodeLiveAudioProcessor.prototype.applyParameterModulation = function applyParameterModulation(base, modulationSignal, metadata = {}) {
     if (typeof nodeGraphParamApplyMod === "function") {
       return nodeGraphParamApplyMod(base, modulationSignal, metadata);
     }
-    // Fallback mirrors nodeGraphParamApplyMod (modClamp default false except constraints).
-    const mod = Number(modulationSignal) || 0;
+    // Fallback mirrors nodeGraphParamApplyMod (linear unit, no skew).
+    const baseN = Number(base);
+    const b = Number.isFinite(baseN) ? baseN : 0;
+    let mod = Number(modulationSignal);
+    if (!Number.isFinite(mod)) {
+      mod = 0;
+    }
+    const bipolar = metadata && Object.hasOwn(metadata, "bipolar")
+      ? Boolean(metadata.bipolar)
+      : (Number(metadata?.min) < 0 && Number(metadata?.max) > 0);
+    if (!bipolar) {
+      mod = Math.max(0, mod);
+    }
+    const min = Number(metadata.min);
+    const max = Number(metadata.max);
+    const range = max - min;
+    if (Number.isFinite(range) && range > 0 && Math.abs(mod) <= 1 + 1e-9) {
+      const unit = ((b - min) / range) + mod;
+      const result = min + unit * range;
+      return Number.isFinite(result) ? result : 0;
+    }
+    let result = b + mod;
+    if (!Number.isFinite(result)) {
+      return 0;
+    }
     let shouldClamp = false;
     if (Object.hasOwn(metadata, "modClamp")) {
       shouldClamp = Boolean(metadata.modClamp);
@@ -338,30 +361,6 @@ NodeLiveAudioProcessor.prototype.applyParameterModulation = function applyParame
     } else {
       const c = String(metadata.constraint || "").toLowerCase();
       shouldClamp = c === "cpu" || c === "gpu" || c === "ram" || c === "memory";
-    }
-    let result;
-    if (String(metadata?.kind || "").toLowerCase() === "frequency") {
-      const b = Number(base);
-      const baseFrequency = Number.isFinite(b) ? b : 0;
-      result = Math.abs(baseFrequency) < 1e-18 ? 0 : baseFrequency * (2 ** (mod / 0.1));
-    } else {
-      const min = Number(metadata.min);
-      const max = Number(metadata.max);
-      const range = max - min;
-      const baseSignal = this.parameterValueToNormalizedSignal(base, metadata);
-      const unit = baseSignal + mod;
-      if (!Number.isFinite(range) || range <= 0) {
-        result = Number.isFinite(min) ? min : 0;
-      } else if (metadata.wraparound) {
-        return this.normalizedSignalToParameterValue(unit, metadata);
-      } else {
-        const exp = this.parameterSkewExponent(metadata);
-        const nv = (unit >= 0 && unit <= 1) ? (unit ** exp) : unit;
-        result = min + range * nv;
-      }
-    }
-    if (!Number.isFinite(result)) {
-      return 0;
     }
     return shouldClamp ? this.applyParameterBounds(result, metadata) : result;
 };
@@ -389,9 +388,6 @@ NodeLiveAudioProcessor.prototype.readEffectiveParameter = function readEffective
       return base;
     }
     const metadata = node?.paramMeta?.[key] || {};
-    const min = Number(metadata.min);
-    const max = Number(metadata.max);
-    const hasMetadataRange = Number.isFinite(min) && Number.isFinite(max) && max > min;
     const modulationSignal = modulations.reduce(
       (sum, modulation) => sum + this.normalizeParameterModulationInput(this.readRuntimePortOutput(
         frameValues,
@@ -402,9 +398,6 @@ NodeLiveAudioProcessor.prototype.readEffectiveParameter = function readEffective
       ), metadata),
       0,
     );
-    if (!hasMetadataRange) {
-      return base + modulationSignal;
-    }
     return this.applyParameterModulation(base, modulationSignal, metadata);
 };
 

@@ -26,12 +26,9 @@ nodeGraphLiveModuleEvaluators.aliasSine = ({ runtime, node, nodeId, frame, frame
   runtime.aliasSineStates.set(nodeId, state);
   // normFreq is cycles/sample. When universal `f` is wired (absolute Hz),
   // convert via f / sampleRate; otherwise keep the Norm Freq knob.
-  const fHz = typeof nodeGraphReadFInputHz === "function"
-    ? nodeGraphReadFInputHz(mixInput, hasInput, nodeId)
-    : null;
   const normFromKnob = readNodeGraphLiveEffectiveParam(runtime, node, "normFreq", 0.1, frame, frames, frameValues);
   const safeRate = Math.max(1, Number(sampleRate) || 44100);
-  const normFreq = fHz != null ? fHz / safeRate : normFromKnob;
+  const normFreq = normFromKnob;
   return nodeGraphAliasSineSample(
     state,
     normFreq,

@@ -82,22 +82,17 @@ NodeLiveAudioProcessor.prototype.additiveOscWorkletEvaluate = function additiveO
   const pitchCv = hasPitch
     ? this.clampValue(this.safeFilterNumber(mixInput(nodeId, "0.1V/Oct"), null), -1, 1)
     : referenceVoltage;
-  const fHz = this.readFInputHz(mixInput, nodeId);
   const effectiveFrequency = typeof nodeGraphParamResolveOscPitchHz === "function"
     ? nodeGraphParamResolveOscPitchHz({
       baseHz: frequency,
       hasPitchCv: hasPitch,
       pitchCv,
       referenceVoltage,
-      fHz,
     })
-    : this.resolveFrequencyHz(
-      (typeof nodeGraphPitchedFrequency === "function"
+    : (typeof nodeGraphPitchedFrequency === "function"
         ? nodeGraphPitchedFrequency(frequency, pitchCv, referenceVoltage)
-        : frequency * (2 ** ((pitchCv - referenceVoltage) / 0.1))),
-      fHz,
-    );
-  const incrementInput = this.safeFilterNumber(mixInput(nodeId, "Increment"), null);
+        : frequency * (2 ** ((pitchCv - referenceVoltage) / 0.1)));
+  const incrementInput = this.safeFilterNumber(mixInput(nodeId, "Increment"));
   const phaseIncrement = (effectiveFrequency / safeRate) + incrementInput;
   const hasGraphInput = (
     (this.graphInputConnections.get(this.graphInputKey(nodeId, "Damping Graph")) || []).length > 0 ||

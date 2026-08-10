@@ -182,7 +182,12 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
       },
       knob: (node, nodeId, frame, frames, frameValues, mixInput) => {
         const offset = this.readEffectiveParameter(node, "offset", 0, frame, frames, frameValues);
-        return nodeGraphDspBiasFromIn(offset, mixInput?.(nodeId, "In"));
+        const rangeMax = this.readEffectiveParameter(node, "rangeMax", 1, frame, frames, frameValues);
+        const polarity = this.readEffectiveParameter(node, "polarity", 0, frame, frames, frameValues);
+        const range = typeof nodeGraphDspKnobBiasRange === "function"
+          ? nodeGraphDspKnobBiasRange(rangeMax, polarity)
+          : { min: 0, max: 1 };
+        return nodeGraphDspBiasFromIn(offset, mixInput?.(nodeId, "In"), range.min, range.max);
       },
       pluginSlider: (node, nodeId, frame, frames, frameValues, mixInput) =>
         nodeGraphDspBiasFromIn(

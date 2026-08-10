@@ -214,7 +214,7 @@ const nodeGraphNodeLabels = Object.freeze({
   // Chromeless / fully-custom-UI modules (stepGrid, led, ...) register
   // their own label instead of it being hardcoded here -- see
   // node-graph-chromeless-module-registry.js.
-  ...nodeGraphChromelessModuleLabelEntries(),
+  ...nodeGraphChromelessModuleLabelEntries()
 });
 
 const nodeGraphLadderFilterModes = Object.freeze(["Flat", "LP", "HP", "BP"]);
@@ -315,7 +315,7 @@ const nodeGraphActiveFilterDefinition = {
       min: "0",
       nonlinearSlider: false,
       step: "1",
-      tooltip: "Response / slope. No Flat/bypass — use graph bypass if needed.",
+      tooltip: "Response / slope. No Flat/bypass — use graph bypass if needed."
     },
     {
       defaultValue: "1000",
@@ -328,7 +328,7 @@ const nodeGraphActiveFilterDefinition = {
       min: "0",
       step: "any",
       unit: "Hz",
-      tooltip: "Cutoff in Hz (scientific). 0 = frozen. Musical range via metaparameters.",
+      tooltip: "Cutoff in Hz (scientific). 0 = frozen. Musical range via metaparameters."
     },
     {
       defaultValue: "0.2",
@@ -339,7 +339,7 @@ const nodeGraphActiveFilterDefinition = {
       min: "0",
       nonlinearSlider: false,
       step: "any",
-      tooltip: "Feedback 0…1 when Feedback Circuit includes resonance. Max 1.0.",
+      tooltip: "Feedback 0…1 when Feedback Circuit includes resonance. Max 1.0."
     },
     {
       choices: ["Off", "Resonance only", "Clipping only", "Res + Clip"],
@@ -354,7 +354,7 @@ const nodeGraphActiveFilterDefinition = {
       min: "0",
       nonlinearSlider: false,
       step: "1",
-      tooltip: "Off = clean multipole. Resonance only = feedback. Clipping only = input tanh. Res + Clip = both.",
+      tooltip: "Off = clean multipole. Resonance only = feedback. Clipping only = input tanh. Res + Clip = both."
     },
     {
       choices: ["Off", "On"],
@@ -368,9 +368,9 @@ const nodeGraphActiveFilterDefinition = {
       min: "0",
       nonlinearSlider: false,
       step: "1",
-      tooltip: "On = classic gain-compensated ladder (g scales with res). Off = g = 1.",
+      tooltip: "On = classic gain-compensated ladder (g scales with res). Off = g = 1."
     },
-  ],
+  ]
 };
 
 const nodeGraphModuleDefinitions = (
@@ -390,7 +390,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "0.01",
-        modClamp: false,
+        modClamp: false
       },
       {
         defaultValue: "1",
@@ -401,16 +401,16 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
-    ],
+    ]
   },
   codeblock: {
     planRole: "processor",
     planFreeRun: true,
     inputs: ["In1"],
     outputs: ["Out1"],
-    parameters: [],
+    parameters: []
   },
   customDisplay: {
     planRole: "monitor",
@@ -426,7 +426,7 @@ const nodeGraphModuleDefinitions = (
     visualInputs: [
       { key: "customDisplayIn1", label: "In1", port: "In1" },
     ],
-    visualSink: true,
+    visualSink: true
   },
   graph2: {
     planRole: "processor",
@@ -456,7 +456,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       {
         defaultValue: "1",
@@ -466,7 +466,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
-        step: "0.01",
+        step: "0.01"
       },
       { choices: ["Off", "On"], defaultValue: "0", displayChoices: true, divideChoicesVisibly: true, key: "lockEndpointY", label: "Lock Ends", linearSmoothing: false, max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "1" },
       { defaultValue: "1", key: "rate", kind: "frequency", label: "Rate", max: "40", maxDigits: 5, mid: "1", min: "0", step: "any", unit: "Hz" },
@@ -475,7 +475,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "1", key: "inputMax", label: "In Max", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
       { defaultValue: "0", key: "outputMin", label: "Out Min", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
       { defaultValue: "1", key: "outputMax", label: "Out Max", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
-    ],
+    ]
   },
   // Point-to-point segments + step grid. Shape is global; per-node curve (`c`)
   // is still individual, with curveOffset added as a global bias.
@@ -503,7 +503,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       {
         defaultValue: "0",
@@ -513,7 +513,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "-1",
         nonlinearSlider: false,
-        step: "0.01",
+        step: "0.01"
       },
       { choices: ["Off", "On"], defaultValue: "0", displayChoices: true, divideChoicesVisibly: true, key: "lockEndpointY", label: "Lock Ends", linearSmoothing: false, max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "1" },
       {
@@ -526,7 +526,7 @@ const nodeGraphModuleDefinitions = (
         mid: "8",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       { defaultValue: "1", key: "rate", kind: "frequency", label: "Rate", max: "40", maxDigits: 5, mid: "1", min: "0", step: "any", unit: "Hz" },
       { defaultValue: "0", key: "phase", kind: "phase", label: "Phase", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "0.01", unit: "cycle", wraparound: true },
@@ -534,13 +534,13 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "1", key: "inputMax", label: "In Max", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
       { defaultValue: "0", key: "outputMin", label: "Out Min", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
       { defaultValue: "1", key: "outputMax", label: "Out Max", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
-    ],
+    ]
   },
   moduleGroup: {
     planRole: "source",
     inputs: [],
     outputs: [],
-    parameters: [],
+    parameters: []
   },
   osc: {
     planRole: "source",
@@ -550,20 +550,17 @@ const nodeGraphModuleDefinitions = (
     ],
     displaySignals: [
       { key: "Wave Out", kind: "scalar" },
-    ],
-    // f = universal linear frequency jack (absolute Hz 0..Speed Limit).
-    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+    ],    inputs: ["Reset", "0.1V/Oct", "Increment"],
     inputLabels: {
       "0.1V/Oct": "0.1V",
-      Increment: "Inc.",
-      f: "f",
+      Increment: "Inc."
     },
     outputAliases: {
       Out: "Wave Out",
-      Noise: "Wave Out",
+      Noise: "Wave Out"
     },
     outputLabels: {
-      "Wave Out": "Wave",
+      "Wave Out": "Wave"
     },
     outputs: ["Saw", "Ramp", "Square", "Tri", "Sine", "Wave Out"],
     parameters: [
@@ -579,7 +576,7 @@ const nodeGraphModuleDefinitions = (
         max: "5",
         mid: "2",
         min: "0",
-        step: "1",
+        step: "1"
       },
       {
         defaultValue: "100",
@@ -592,7 +589,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         tooltip:
-          "Default slider 0…20 kHz. Pitch MOD can run down through 0. Signed/reverse-phase: wire f or widen Min in parameter settings (domain is not hard-clamped).",
+          "Default slider 0…20 kHz. Pitch MOD can run down through 0. Thru-zero: enable Bipolar on Frequency (domain-add MOD). Domain min/max are slider guides."
       },
       {
         defaultValue: "0",
@@ -604,7 +601,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "0.01",
         unit: "cycle",
-        wraparound: true,
+        wraparound: true
       },
       {
         defaultValue: "1",
@@ -615,9 +612,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        modClamp: false,
+        modClamp: false
       },
-    ],
+    ]
   },
   // Reference oscillator for port layout:
   //   inputs[]     = left jacks only (Reset / 0.1V / Increment)
@@ -634,18 +631,17 @@ const nodeGraphModuleDefinitions = (
     displaySignals: [
       { key: "Wave Out", kind: "scalar" },
     ],
-    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+    inputs: ["Reset", "0.1V/Oct", "Increment"],
     inputLabels: {
       "0.1V/Oct": "0.1V",
-      Increment: "Inc.",
-      f: "f",
+      Increment: "Inc."
     },
     outputAliases: {
       Out: "Wave Out",
-      Noise: "Wave Out",
+      Noise: "Wave Out"
     },
     outputLabels: {
-      "Wave Out": "Wave",
+      "Wave Out": "Wave"
     },
     outputs: ["Saw", "Ramp", "Square", "Tri", "Sine", "Wave Out"],
     parameters: [
@@ -661,7 +657,7 @@ const nodeGraphModuleDefinitions = (
         max: "5",
         mid: "2",
         min: "0",
-        step: "1",
+        step: "1"
       },
       {
         defaultValue: "100",
@@ -674,7 +670,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         tooltip:
-          "Default slider 0…20 kHz. Pitch MOD can run down through 0. Signed/reverse-phase: wire f or widen Min in parameter settings (domain is not hard-clamped).",
+          "Default slider 0…20 kHz. Pitch MOD can run down through 0. Thru-zero: enable Bipolar on Frequency (domain-add MOD). Domain min/max are slider guides."
       },
       {
         defaultValue: "0",
@@ -686,7 +682,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "0.01",
         unit: "cycle",
-        wraparound: true,
+        wraparound: true
       },
       {
         defaultValue: "1",
@@ -701,9 +697,9 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         modClamp: false,
         tooltip:
-          "Output level. Slider 0…1 = full-scale bipolar wave. Min/max are guides only — type large values for gain past unity (domain not hard-clamped).",
+          "Output level. Slider 0…1 = full-scale bipolar wave. Min/max are guides only — type large values for gain past unity (domain not hard-clamped)."
       },
-    ],
+    ]
   },
   blit: {
     planRole: "source",
@@ -714,17 +710,16 @@ const nodeGraphModuleDefinitions = (
     displaySignals: [
       { key: "Wave Out", kind: "scalar" },
     ],
-    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+    inputs: ["Reset", "0.1V/Oct", "Increment"],
     inputLabels: {
       "0.1V/Oct": "0.1V",
-      Increment: "Inc.",
-      f: "f",
+      Increment: "Inc."
     },
     outputAliases: {
-      Out: "Wave Out",
+      Out: "Wave Out"
     },
     outputLabels: {
-      "Wave Out": "Wave",
+      "Wave Out": "Wave"
     },
     outputs: ["Saw", "Ramp", "Square", "Tri", "Sine", "Wave Out"],
     parameters: [
@@ -740,7 +735,7 @@ const nodeGraphModuleDefinitions = (
         max: "4",
         mid: "2",
         min: "0",
-        step: "1",
+        step: "1"
       },
       {
         defaultValue: "100",
@@ -753,7 +748,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         tooltip:
-          "Default slider 0…20 kHz. Pitch MOD can run down through 0. Signed/reverse-phase: wire f or widen Min in parameter settings (domain is not hard-clamped).",
+          "Default slider 0…20 kHz. Pitch MOD can run down through 0. Thru-zero: enable Bipolar on Frequency (domain-add MOD). Domain min/max are slider guides."
       },
       {
         defaultValue: "0",
@@ -765,7 +760,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "0.01",
         unit: "cycle",
-        wraparound: true,
+        wraparound: true
       },
       {
         defaultValue: "1",
@@ -776,27 +771,26 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        modClamp: false,
+        modClamp: false
       },
-    ],
+    ]
   },
   sineWavetable: {
     planRole: "source",
     displayType: "trace",
     // Amp is the parameter slider only (no Amplitude CV jack).
-    inputs: ["0.1V/Oct", "Freq", "f"],
+    inputs: ["0.1V/Oct", "Freq"],
     inputAliases: {
       "0.1V": "0.1V/Oct",
       "0.1v": "0.1V/Oct",
-      freq: "Freq",
+      freq: "Freq"
     },
     inputLabels: {
-      "0.1V/Oct": "0.1V",
-      f: "f",
+      "0.1V/Oct": "0.1V"
     },
     outputAliases: {
       Cos: "cos",
-      Sin: "sin",
+      Sin: "sin"
     },
     outputs: ["sin", "cos"],
     parameters: [
@@ -810,9 +804,12 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "0.01",
         unit: "cycle",
-        wraparound: true,
+        wraparound: true
       },
       {
+        // Domain-add MOD: effective = base + Σ(CV). Base 0 + Pitch Detector Hz tracks exactly.
+        // Bipolar (param settings): signed MOD for thru-zero FM.
+        bipolar: false,
         defaultValue: "100",
         key: "freq",
         kind: "frequency",
@@ -821,6 +818,8 @@ const nodeGraphModuleDefinitions = (
         mid: "440",
         min: "0",
         step: "any",
+        tooltip:
+          "Hz. Parameter MOD is domain-add (base + CV). Set base 0 and wire Pitch Detector / Knob Bias for absolute Hz. Enable Bipolar in param settings for thru-zero FM (negative Hz = reverse phase).",
         unit: "Hz",
       },
       {
@@ -831,16 +830,16 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
-        step: "any",
+        step: "any"
       },
-    ],
+    ]
   },
   archimedes: {
     planRole: "source",
     displayType: "trace",
     inputs: ["Reset", "0.1V/Oct"],
     inputLabels: {
-      "0.1V/Oct": "0.1V",
+      "0.1V/Oct": "0.1V"
     },
     outputs: ["Sine", "Cosine", "Pi", "Noise Below", "Noise Above"],
     parameters: [
@@ -851,7 +850,7 @@ const nodeGraphModuleDefinitions = (
         max: "24",
         mid: "14",
         min: "4",
-        step: "1",
+        step: "1"
       },
       {
         defaultValue: "100",
@@ -864,7 +863,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         tooltip:
-          "Default slider 0…20 kHz. Pitch MOD can run down through 0. Signed/reverse-phase: wire f or widen Min in parameter settings (domain is not hard-clamped).",
+          "Default slider 0…20 kHz. Pitch MOD can run down through 0. Thru-zero: enable Bipolar on Frequency (domain-add MOD). Domain min/max are slider guides."
       },
       {
         defaultValue: "3",
@@ -873,7 +872,7 @@ const nodeGraphModuleDefinitions = (
         max: "63",
         mid: "16",
         min: "0",
-        step: "1",
+        step: "1"
       },
       {
         defaultValue: "1",
@@ -884,25 +883,25 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        modClamp: false,
+        modClamp: false
       },
-    ],
+    ]
   },
   aliasSine: {
     planRole: "source",
-    inputs: ["f"],
-    inputLabels: { f: "f" },
+    inputs: [],
+    inputLabels: { },
     outputs: ["Out"],
     parameters: [
       { defaultValue: "0.1", key: "normFreq", label: "Norm Freq", max: "1.5", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "1", key: "amplitude", label: "Amplitude", max: "1", mid: "1", min: "0", nonlinearSlider: false, step: "any" , modClamp: false },
-    ],
+    ]
   },
   // RS-MET rosic::SineOscillator — free-running 2nd-order recursive sine (no sin() per sample).
   robinSinusoid: {
     planRole: "source",
-    inputs: ["f", "Reset"],
-    inputLabels: { f: "f", Reset: "Reset" },
+    inputs: ["Reset"],
+    inputLabels: { Reset: "Reset" },
     outputs: ["Out"],
     parameters: [
       {
@@ -915,7 +914,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Oscillator frequency in Hz. Wire f for absolute Hz CV. Recursive free-running sine (RS-MET).",
+        tooltip: "Oscillator frequency in Hz. Domain-add MOD on Frequency (set base 0 for absolute Hz sources). Recursive free-running sine (RS-MET)."
       },
       {
         defaultValue: "1",
@@ -926,7 +925,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        modClamp: false,
+        modClamp: false
       },
       {
         defaultValue: "0",
@@ -939,18 +938,17 @@ const nodeGraphModuleDefinitions = (
         step: "0.01",
         unit: "cycle",
         wraparound: true,
-        tooltip: "Phase used when Reset is triggered (or on first sample).",
+        tooltip: "Phase used when Reset is triggered (or on first sample)."
       },
-    ],
+    ]
   },
   additiveOsc: {
     planRole: "source",
     graphInputs: ["Damping Graph", "Phase Graph"],
-    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+    inputs: ["Reset", "0.1V/Oct", "Increment"],
     inputLabels: {
       "0.1V/Oct": "0.1V",
-      Increment: "Inc.",
-      f: "f",
+      Increment: "Inc."
     },
     outputs: ["Out"],
     parameters: [
@@ -965,7 +963,7 @@ const nodeGraphModuleDefinitions = (
         max: "7",
         mid: "3",
         min: "0",
-        step: "1",
+        step: "1"
       },
       {
         defaultValue: "100",
@@ -978,7 +976,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         tooltip:
-          "Default slider 0…20 kHz. Pitch MOD can run down through 0. Signed/reverse-phase: wire f or widen Min in parameter settings (domain is not hard-clamped).",
+          "Default slider 0…20 kHz. Pitch MOD can run down through 0. Thru-zero: enable Bipolar on Frequency (domain-add MOD). Domain min/max are slider guides."
       },
       {
         defaultValue: "0",
@@ -990,7 +988,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "0.01",
         unit: "cycle",
-        wraparound: true,
+        wraparound: true
       },
       { defaultValue: "0.5", key: "modA", label: "Mod A", max: "1", mid: "0.5", min: "0", step: "any" },
       { defaultValue: "0", key: "harmonicPhaseAdd", kind: "phase", label: "Phase Add", max: "1", mid: "0.5", min: "0", step: "any", unit: "cycle" },
@@ -998,16 +996,15 @@ const nodeGraphModuleDefinitions = (
       { constraint: "cpu", defaultValue: "32", key: "harmonics", label: "Harmonics", max: "1024", mid: "32", min: "1", step: "1" },
       { defaultValue: "20000", key: "dampingFilterFrequency", kind: "frequency", label: "Filter Frequency", max: "20000", mid: "2000", min: "20", step: "any", unit: "Hz" },
       { defaultValue: "0.35", key: "amplitude", label: "Amplitude", max: "1", mid: "1", min: "0", nonlinearSlider: false, step: "any" , modClamp: false },
-    ],
+    ]
   },
   gpuAdditiveOsc: {
     planRole: "source",
     graphInputs: ["Damping Graph", "Phase Graph"],
-    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+    inputs: ["Reset", "0.1V/Oct", "Increment"],
     inputLabels: {
       "0.1V/Oct": "0.1V",
-      Increment: "Inc.",
-      f: "f",
+      Increment: "Inc."
     },
     outputs: ["Out"],
     parameters: [
@@ -1022,7 +1019,7 @@ const nodeGraphModuleDefinitions = (
         max: "7",
         mid: "3",
         min: "0",
-        step: "1",
+        step: "1"
       },
       {
         defaultValue: "100",
@@ -1035,7 +1032,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         tooltip:
-          "Default slider 0…20 kHz. Pitch MOD can run down through 0. Signed/reverse-phase: wire f or widen Min in parameter settings (domain is not hard-clamped).",
+          "Default slider 0…20 kHz. Pitch MOD can run down through 0. Thru-zero: enable Bipolar on Frequency (domain-add MOD). Domain min/max are slider guides."
       },
       {
         defaultValue: "0",
@@ -1047,7 +1044,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "0.01",
         unit: "cycle",
-        wraparound: true,
+        wraparound: true
       },
       { defaultValue: "0.5", key: "modA", label: "Mod A", max: "1", mid: "0.5", min: "0", step: "any" },
       { defaultValue: "0", key: "harmonicPhaseAdd", kind: "phase", label: "Phase Add", max: "1", mid: "0.5", min: "0", step: "any", unit: "cycle" },
@@ -1055,7 +1052,7 @@ const nodeGraphModuleDefinitions = (
       { constraint: "gpu", defaultValue: "256", key: "harmonics", label: "Harmonics", max: "4096", mid: "256", min: "1", step: "1" },
       { defaultValue: "20000", key: "dampingFilterFrequency", kind: "frequency", label: "Filter Frequency", max: "20000", mid: "2000", min: "20", step: "any", unit: "Hz" },
       { defaultValue: "0.35", key: "amplitude", label: "Amplitude", max: "1", mid: "1", min: "0", nonlinearSlider: false, step: "any" , modClamp: false },
-    ],
+    ]
   },
   // RoundShape — sine→square modulator (getSineToSquare). Separate from full Ellipsoid osc.
   // Face: cheap static orbit outline (filter-curve family), not phosphor trace.
@@ -1066,11 +1063,10 @@ const nodeGraphModuleDefinitions = (
     customDisplayArea: true,
     displayHeightGu: 4,
     spectrumCompanion: false,
-    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+    inputs: ["Reset", "0.1V/Oct", "Increment"],
     inputLabels: {
       "0.1V/Oct": "0.1V",
-      Increment: "Inc.",
-      f: "f",
+      Increment: "Inc."
     },
     // Legacy Mono/X/Y/Out → bipolar outs.
     outputAliases: {
@@ -1079,13 +1075,13 @@ const nodeGraphModuleDefinitions = (
       Wave: "Bi X",
       "Wave Out": "Bi X",
       X: "Bi X",
-      Y: "Bi Y",
+      Y: "Bi Y"
     },
     outputLabels: {
       "Uni X": "Uni X",
       "Uni Y": "Uni Y",
       "Bi X": "Bi X",
-      "Bi Y": "Bi Y",
+      "Bi Y": "Bi Y"
     },
     // Uni 0..1, Bi −1..1 (quadrature pair). No Mono.
     outputs: ["Uni X", "Uni Y", "Bi X", "Bi Y"],
@@ -1100,7 +1096,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "0.01",
-        tooltip: "soemdsp Ellipsoid::getSineToSquare. 0 = sine, 1 = square. Limit AA always on (edge floor by f/sr).",
+        tooltip: "soemdsp Ellipsoid::getSineToSquare. 0 = sine, 1 = square. Limit AA always on (edge floor by f/sr)."
       },
       {
         defaultValue: "1",
@@ -1111,9 +1107,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: true,
         step: "any",
-        tooltip: "Output scale. Domain min/max are slider guides only (type large values for absolute-Hz CV).",
+        tooltip: "Output scale. Domain min/max are slider guides only (type large values for absolute-Hz CV)."
       },
-    ],
+    ]
   },
   // Full multi-param ellipsoid oscillator (offset/shape/scale per axis).
   ellipsoidOsc: {
@@ -1130,16 +1126,15 @@ const nodeGraphModuleDefinitions = (
       { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "X", y: "Y" } },
     ],
     defaultDisplayMode: "xyBurn",
-    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+    inputs: ["Reset", "0.1V/Oct", "Increment"],
     inputLabels: {
       "0.1V/Oct": "0.1V",
-      Increment: "Inc.",
-      f: "f",
+      Increment: "Inc."
     },
     outputAliases: {
       Out: "Mono",
       Wave: "Mono",
-      "Wave Out": "Mono",
+      "Wave Out": "Mono"
     },
     outputs: ["Mono", "X", "Y"],
     parameters: [
@@ -1160,9 +1155,9 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         nonlinearSlider: true,
-        step: "any",
+        step: "any"
       },
-    ],
+    ]
   },
   spiral: {
     planRole: "source",
@@ -1193,7 +1188,7 @@ const nodeGraphModuleDefinitions = (
       { key: "zDepth", label: "Z Depth", defaultValue: "0", min: "0", mid: "0", max: "1", step: "0.01" },
       { key: "zAmount", label: "Z Amount", defaultValue: "0", min: "0", mid: "0", max: "1", step: "0.01" },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
-    ],
+    ]
   },
   fractalSpiral: {
     planRole: "source",
@@ -1220,7 +1215,7 @@ const nodeGraphModuleDefinitions = (
       { key: "twist", label: "Golden Twist", defaultValue: "0.381966", min: "0", mid: "0.5", max: "1", step: "0.000001", kind: "phase", wraparound: true },
       { key: "spin", label: "Spin", defaultValue: "0.05", min: "-4", mid: "0", max: "4", step: "0.001" },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
-    ],
+    ]
   },
   logSpiral: {
     planRole: "source",
@@ -1244,7 +1239,7 @@ const nodeGraphModuleDefinitions = (
       { key: "growth", label: "Growth", defaultValue: "3", min: "-12", mid: "0", max: "12", step: "0.01" },
       { key: "spin", label: "Spin", defaultValue: "0.05", min: "-4", mid: "0", max: "4", step: "0.001" },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
-    ],
+    ]
   },
   lorenzAttractor: {
     planRole: "source",
@@ -1271,7 +1266,7 @@ const nodeGraphModuleDefinitions = (
       { key: "rotate", label: "Rotate", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01", kind: "phase", unit: "cycle", wraparound: true },
       { key: "zDepth", label: "Z Depth", defaultValue: "0.4", min: "0", mid: "0.4", max: "1", step: "0.01" },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
-    ],
+    ]
   },
   logisticMap: {
     planRole: "source",
@@ -1290,7 +1285,7 @@ const nodeGraphModuleDefinitions = (
       { key: "r", label: "R", defaultValue: "3.9", min: "0", mid: "2", max: "4", step: "0.0001" },
       { key: "seed", label: "Seed", defaultValue: "0.5", min: "0.0001", mid: "0.5", max: "0.9999", step: "0.0001" },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
-    ],
+    ]
   },
   antisaw: {
     planRole: "source",
@@ -1300,7 +1295,7 @@ const nodeGraphModuleDefinitions = (
       { key: "reflections", label: "Reflections", defaultValue: "64", min: "1", mid: "128", max: "256", step: "1" },
       { key: "tilt", label: "Tilt", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "any" },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "any" , modClamp: false },
-    ],
+    ]
   },
   bradley2a: {
     planRole: "source",
@@ -1322,7 +1317,7 @@ const nodeGraphModuleDefinitions = (
       { key: "hitPhase", label: "Phase Hit", defaultValue: "0", min: "-3.141592653589793", mid: "0", max: "3.141592653589793", step: "any" },
       { key: "impulseLevel", label: "Impulse", defaultValue: "0", min: "0", mid: "0.25", max: "1", step: "any" },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "any" , modClamp: false },
-    ],
+    ]
   },
   henonMap: {
     planRole: "source",
@@ -1346,7 +1341,7 @@ const nodeGraphModuleDefinitions = (
       { key: "seedX", label: "Seed X", defaultValue: "0.1", min: "-1", mid: "0", max: "1", step: "0.0001" },
       { key: "seedY", label: "Seed Y", defaultValue: "0.1", min: "-1", mid: "0", max: "1", step: "0.0001" },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
-    ],
+    ]
   },
   // rayBouncer: solid chromeless registration (public/modules/rayBouncer/*-register.js).
   wirdoSpiral: {
@@ -1379,7 +1374,7 @@ const nodeGraphModuleDefinitions = (
       { key: "splashSpeed", label: "Splash Speed", defaultValue: "0", min: "-20", mid: "0", max: "20", step: "0.01" },
       { key: "syncCut", label: "Sync Cut", defaultValue: "1", min: "0", mid: "0.5", max: "1", step: "0.01" },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
-    ],
+    ]
   },
   blubb: {
     planRole: "source",
@@ -1403,7 +1398,7 @@ const nodeGraphModuleDefinitions = (
       { key: "rotY", label: "Rot Y", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "0.01" },
       { key: "zDepth", label: "Z Depth", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01" },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
-    ],
+    ]
   },
   mushroom: {
     planRole: "source",
@@ -1439,7 +1434,7 @@ const nodeGraphModuleDefinitions = (
       { key: "apart", label: "Apart", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01" },
       { key: "capStemTransition", label: "Cap/Stem Transition", defaultValue: "0.1", min: "0", mid: "0.5", max: "1", step: "0.01" },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
-    ],
+    ]
   },
   boing: {
     planRole: "source",
@@ -1472,7 +1467,7 @@ const nodeGraphModuleDefinitions = (
       { key: "volume", label: "Volume", defaultValue: "1", min: "0", mid: "1", max: "2", step: "0.01" },
       { key: "volumePreJump", label: "Volume Pre-Jump", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "1" },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
-    ],
+    ]
   },
   torus: {
     planRole: "source",
@@ -1509,7 +1504,7 @@ const nodeGraphModuleDefinitions = (
       { key: "zAngleY", label: "Z Angle Y", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "0.01" },
       { key: "zDepth", label: "Z Depth", defaultValue: "0", min: "0", mid: "1", max: "2", step: "0.01" },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
-    ],
+    ]
   },
   keplerBouwkamp: {
     planRole: "source",
@@ -1535,7 +1530,7 @@ const nodeGraphModuleDefinitions = (
       { key: "rotation", label: "Rotation", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "0.01" },
       { key: "tri", label: "Tri", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01" },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
-    ],
+    ]
   },
   nyquistShannon: {
     planRole: "source",
@@ -1568,7 +1563,7 @@ const nodeGraphModuleDefinitions = (
       { key: "enableToneModFreq", label: "Tone Mod: Freq", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "1" },
       { key: "enableToneModNote", label: "Tone Mod: Note", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "1" },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
-    ],
+    ]
   },
   radar: {
     planRole: "source",
@@ -1611,7 +1606,7 @@ const nodeGraphModuleDefinitions = (
       { key: "x", label: "X", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "0.01" },
       { key: "y", label: "Y", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "0.01" },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
-    ],
+    ]
   },
   chuaAttractor: {
     planRole: "source",
@@ -1636,7 +1631,7 @@ const nodeGraphModuleDefinitions = (
       { key: "m0", label: "M0", defaultValue: "-1.143", min: "-4", mid: "-1.143", max: "4", step: "0.001" },
       { key: "m1", label: "M1", defaultValue: "-0.714", min: "-4", mid: "-0.714", max: "4", step: "0.001" },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
-    ],
+    ]
   },
   chordMemory: {
     planRole: "source",
@@ -1656,12 +1651,12 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "How Advance walks latched notes: order, no-repeat shuffle bag, or mostly-order with random jumps.",
+        tooltip: "How Advance walks latched notes: order, no-repeat shuffle bag, or mostly-order with random jumps."
       },
       { key: "leap", label: "Leap", defaultValue: "0.15", min: "0", mid: "0.25", max: "1", step: "0.01", tooltip: "Chance to jump instead of taking the next slot." },
       { key: "mutate", label: "Mutate", defaultValue: "0.2", min: "0", mid: "0.25", max: "1", step: "0.01", tooltip: "In Mutate walk: extra chance to pick a random active slot." },
       { key: "octaves", label: "Leap Octaves", defaultValue: "0", min: "0", mid: "1", max: "3", nonlinearSlider: false, step: "1", tooltip: "On leap, chance to shift Arp by ±octaves." },
-    ],
+    ]
   },
   turingMachine: {
     planRole: "source",
@@ -1682,7 +1677,7 @@ const nodeGraphModuleDefinitions = (
       { key: "probability", label: "Probability", defaultValue: "0.25", min: "0", mid: "0.25", max: "1", step: "any" },
       { key: "octaves", label: "Octaves", defaultValue: "1", min: "0", mid: "1", max: "4", nonlinearSlider: false, step: "1", tooltip: "Pitch range in octaves when Scale is patched (degree span)." },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
-    ],
+    ]
   },
   degreeTuring: {
     planRole: "processor",
@@ -1715,9 +1710,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Used when Scale jack is empty.",
+        tooltip: "Used when Scale jack is empty."
       },
-    ],
+    ]
   },
   gravityWalker: {
     planRole: "processor",
@@ -1749,9 +1744,9 @@ const nodeGraphModuleDefinitions = (
         mid: "2",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
-    ],
+    ]
   },
   degreePhrase: {
     planRole: "processor",
@@ -1783,7 +1778,7 @@ const nodeGraphModuleDefinitions = (
         mid: "2",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       { key: "step1", label: "Deg 1", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "any" },
       { key: "step2", label: "Deg 2", defaultValue: "0.25", min: "0", mid: "0.5", max: "1", step: "any" },
@@ -1801,7 +1796,7 @@ const nodeGraphModuleDefinitions = (
       { key: "rest6", label: "Rest 6", defaultValue: "0", min: "0", mid: "0.5", max: "1", nonlinearSlider: false, step: "1" },
       { key: "rest7", label: "Rest 7", defaultValue: "1", min: "0", mid: "0.5", max: "1", nonlinearSlider: false, step: "1" },
       { key: "rest8", label: "Rest 8", defaultValue: "0", min: "0", mid: "0.5", max: "1", nonlinearSlider: false, step: "1" },
-    ],
+    ]
   },
   noteGlide: {
     planRole: "processor",
@@ -1810,7 +1805,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["0.1V/Oct"],
     parameters: [
       { key: "time", label: "Time", kind: "time", defaultValue: "0.05", min: "0", mid: "0.1", max: "2", maxDigits: 5, step: "any", unit: "s", tooltip: "Portamento time toward the input pitch." },
-    ],
+    ]
   },
   noteTranspose: {
     planRole: "processor",
@@ -1820,7 +1815,7 @@ const nodeGraphModuleDefinitions = (
     parameters: [
       { key: "semitones", label: "Semitones", defaultValue: "0", min: "-24", mid: "0", max: "24", nonlinearSlider: false, step: "1" },
       { key: "octaves", label: "Octaves", defaultValue: "0", min: "-4", mid: "0", max: "4", nonlinearSlider: false, step: "1" },
-    ],
+    ]
   },
   pitchQuantizer: {
     planRole: "processor",
@@ -1845,7 +1840,7 @@ const nodeGraphModuleDefinitions = (
         mid: "3",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       // Source of truth for quantization when Scale jack is empty.
       // Edited by the face keyboard; presets write this value too.
@@ -1859,9 +1854,9 @@ const nodeGraphModuleDefinitions = (
         mid: "2048",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
-    ],
+    ]
   },
   // Manual diatonic chord picker. Scale → Pitch Quantizer; Root → bass/voice.
   chordPad: {
@@ -1886,7 +1881,7 @@ const nodeGraphModuleDefinitions = (
         mid: "5",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       {
         choices: ["Major", "Minor"],
@@ -1900,7 +1895,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       {
         choices: ["I", "ii", "iii", "IV", "V", "vi", "vii"],
@@ -1914,15 +1909,15 @@ const nodeGraphModuleDefinitions = (
         mid: "3",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       { key: "level", label: "Level", defaultValue: "1", min: "0", mid: "0.5", max: "1", step: "0.01" },
-    ],
+    ]
   },
   surgeOscillator: {
     planRole: "source",
-    inputs: ["0.1V/Oct", "Sync", "f"],
-    inputLabels: { "0.1V/Oct": "0.1V", f: "f" },
+    inputs: ["0.1V/Oct", "Sync"],
+    inputLabels: { "0.1V/Oct": "0.1V" },
     outputs: ["Out", "Saw", "Square", "Tri", "Sine", "Synced", "Internal Sync"],
     parameters: [
       {
@@ -1937,23 +1932,22 @@ const nodeGraphModuleDefinitions = (
         mid: "1.5",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
-      { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "0", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Default slider 0…20 kHz. Pitch MOD can run down through 0. Signed/reverse-phase: wire f or widen Min in parameter settings (domain is not hard-clamped)." },
+      { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "0", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Default slider 0…20 kHz. Pitch MOD can run down through 0. Thru-zero: enable Bipolar on Frequency (domain-add MOD). Domain min/max are slider guides." },
       { key: "syncFrequency", label: "Sync Freq", kind: "frequency", defaultValue: "50", min: "0", mid: "50", max: "20000", step: "any", unit: "Hz" },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
-    ],
+    ]
   },
   // Port of soemdsp DistortionOscillator — soft-shaped multi-wave (Softwave).
   softwaveOsc: {
     planRole: "source",
-    inputs: ["0.1V/Oct", "Morph", "Phase", "Amplitude", "f"],
+    inputs: ["0.1V/Oct", "Morph", "Phase", "Amplitude"],
     inputLabels: {
       "0.1V/Oct": "0.1V",
       Morph: "Morph",
       Phase: "Phase",
-      Amplitude: "Amp",
-      f: "f",
+      Amplitude: "Amp"
     },
     outputs: ["Out"],
     parameters: [
@@ -1980,9 +1974,9 @@ const nodeGraphModuleDefinitions = (
         mid: "4",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
-      { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "0", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Default slider 0…20 kHz. Pitch MOD can run down through 0. Signed/reverse-phase: wire f or widen Min in parameter settings (domain is not hard-clamped)." },
+      { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "0", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Default slider 0…20 kHz. Pitch MOD can run down through 0. Thru-zero: enable Bipolar on Frequency (domain-add MOD). Domain min/max are slider guides." },
       {
         key: "morph",
         label: "Morph",
@@ -1992,7 +1986,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "0.001",
         // Optimum-L order-3 (Π) — default smoother for shape morph.
-        smoothingType: "papoulis",
+        smoothingType: "papoulis"
       },
       {
         defaultValue: "0",
@@ -2004,11 +1998,11 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "0.01",
         unit: "cycle",
-        wraparound: true,
+        wraparound: true
       },
       { key: "antialias", label: "AA", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01" },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
-    ],
+    ]
   },
   // Parametric 2D math curves → mono Out via Project; X/Y always available for scopes.
   curveOsc: {
@@ -2026,13 +2020,12 @@ const nodeGraphModuleDefinitions = (
       { key: "trace", label: "Out Trace", renderer: "trace", settingsSchema: "trace", source: { value: "Out" } },
     ],
     defaultDisplayMode: "xyBurn",
-    inputs: ["0.1V/Oct", "Phase", "Amplitude", "Reset", "f"],
+    inputs: ["0.1V/Oct", "Phase", "Amplitude", "Reset"],
     inputLabels: {
       "0.1V/Oct": "0.1V",
       Phase: "Phase",
       Amplitude: "Amp",
-      Reset: "Reset",
-      f: "f",
+      Reset: "Reset"
     },
     outputs: ["Out", "X", "Y"],
     parameters: [
@@ -2058,7 +2051,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Parametric family: phase θ walks a 2D path (X,Y). Out is not the curve itself — Project collapses that point to one number each sample.",
+          "Parametric family: phase θ walks a 2D path (X,Y). Out is not the curve itself — Project collapses that point to one number each sample."
       },
       { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "110", min: "0", mid: "220", max: "20000", step: "any", unit: "Hz" },
       {
@@ -2071,7 +2064,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "0.01",
         unit: "cycle",
-        wraparound: true,
+        wraparound: true
       },
       {
         key: "a",
@@ -2081,7 +2074,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         max: "1",
         step: "0.001",
-        tooltip: "Shape parameter A (meaning depends on Curve: ratio, petal count, roll radius, etc.).",
+        tooltip: "Shape parameter A (meaning depends on Curve: ratio, petal count, roll radius, etc.)."
       },
       {
         key: "b",
@@ -2091,7 +2084,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         max: "1",
         step: "0.001",
-        tooltip: "Shape parameter B (second ratio, draw radius, superformula exponent, etc.).",
+        tooltip: "Shape parameter B (second ratio, draw radius, superformula exponent, etc.)."
       },
       {
         key: "morph",
@@ -2101,7 +2094,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         max: "1",
         step: "0.001",
-        tooltip: "Extra curve morph (phase offset, blend, petal fill, second system mix — per family).",
+        tooltip: "Extra curve morph (phase offset, blend, petal fill, second system mix — per family)."
       },
       {
         choices: ["Y", "X", "Radius", "Angle", "Dot"],
@@ -2117,7 +2110,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "2D→1D: each sample the curve is a point (X,Y). Project picks the mono Out from that point — Y or X (axis), Radius (distance from origin), Angle (atan2/π), or Dot (shadow along a direction). X and Y outs still carry the full plane for scopes.",
+          "2D→1D: each sample the curve is a point (X,Y). Project picks the mono Out from that point — Y or X (axis), Radius (distance from origin), Angle (atan2/π), or Dot (shadow along a direction). X and Y outs still carry the full plane for scopes."
       },
       {
         defaultValue: "0",
@@ -2131,10 +2124,10 @@ const nodeGraphModuleDefinitions = (
         unit: "cycle",
         wraparound: true,
         tooltip:
-          "Only for Project = Dot: direction of the projection line (0…1 cycles). Out = X·cosθ + Y·sinθ — the shadow of the 2D path onto that axis.",
+          "Only for Project = Dot: direction of the projection line (0…1 cycles). Out = X·cosθ + Y·sinθ — the shadow of the 2D path onto that axis."
       },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
-    ],
+    ]
   },
   // L-system turtle path walked at Frequency → X/Y. Native WASM preferred.
   snowflake: {
@@ -2150,12 +2143,11 @@ const nodeGraphModuleDefinitions = (
       { key: "xyTrace", label: "X/Y Trace", renderer: "scope2dTrace", settingsSchema: "scope2dTrace", source: { x: "X", y: "Y" } },
     ],
     defaultDisplayMode: "xyBurn",
-    inputs: ["0.1V/Oct", "Amplitude", "Reset", "f"],
+    inputs: ["0.1V/Oct", "Amplitude", "Reset"],
     inputLabels: {
       "0.1V/Oct": "0.1V",
       Amplitude: "Amp",
-      Reset: "Reset",
-      f: "f",
+      Reset: "Reset"
     },
     outputs: ["X", "Y"],
     parameters: [
@@ -2181,7 +2173,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "L-system axiom + rewrite rules. Path is rebuilt when Pattern, Iterations, or Angle change; Frequency walks arc length along the polyline.",
+          "L-system axiom + rewrite rules. Path is rebuilt when Pattern, Iterations, or Angle change; Frequency walks arc length along the polyline."
       },
       { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "55", min: "0", mid: "220", max: "20000", step: "any", unit: "Hz" },
       {
@@ -2193,7 +2185,7 @@ const nodeGraphModuleDefinitions = (
         mid: "3",
         max: "7",
         step: "1",
-        tooltip: "L-system rewrite depth (0–7). Higher = denser self-similar path; cost grows fast.",
+        tooltip: "L-system rewrite depth (0–7). Higher = denser self-similar path; cost grows fast."
       },
       {
         key: "angle",
@@ -2204,7 +2196,7 @@ const nodeGraphModuleDefinitions = (
         max: "180",
         step: "0.1",
         unit: "°",
-        tooltip: "Turtle turn angle in degrees for +/− commands (overrides pattern catalog default at sample time).",
+        tooltip: "Turtle turn angle in degrees for +/− commands (overrides pattern catalog default at sample time)."
       },
       {
         key: "direction",
@@ -2215,7 +2207,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "0.01",
         tooltip:
-          "Path walk morph (−1…1) via basic trisaw: −1 reverse at 1×, 0 bidirectional (triangle ping-pong), +1 forward loop. Continuous between those shapes.",
+          "Path walk morph (−1…1) via basic trisaw: −1 reverse at 1×, 0 bidirectional (triangle ping-pong), +1 forward loop. Continuous between those shapes."
       },
       {
         key: "spin",
@@ -2226,10 +2218,10 @@ const nodeGraphModuleDefinitions = (
         max: "8",
         step: "0.01",
         unit: "Hz",
-        tooltip: "Rotate the whole figure continuously (cycles per second).",
+        tooltip: "Rotate the whole figure continuously (cycles per second)."
       },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
-    ],
+    ]
   },
   dsfOscillator: {
     planRole: "source",
@@ -2240,12 +2232,11 @@ const nodeGraphModuleDefinitions = (
     // First attempt only put phase/level in parameters[] — user looking at
     // the left IO column correctly saw only 0.1V. See MODULE_PATTERN_REFERENCE
     // "Three control surfaces".
-    inputs: ["0.1V/Oct", "Phase", "Amplitude", "f"],
+    inputs: ["0.1V/Oct", "Phase", "Amplitude"],
     inputLabels: {
       "0.1V/Oct": "0.1V",
       Phase: "Phase",
-      Amplitude: "Amp",
-      f: "f",
+      Amplitude: "Amp"
     },
     outputs: ["Out"],
     parameters: [
@@ -2261,9 +2252,9 @@ const nodeGraphModuleDefinitions = (
         mid: "2",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
-      { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "0", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Default slider 0…20 kHz. Pitch MOD can run down through 0. Signed/reverse-phase: wire f or widen Min in parameter settings (domain is not hard-clamped)." },
+      { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "0", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Default slider 0…20 kHz. Pitch MOD can run down through 0. Thru-zero: enable Bipolar on Frequency (domain-add MOD). Domain min/max are slider guides." },
       {
         defaultValue: "0",
         key: "phase",
@@ -2274,7 +2265,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "0.01",
         unit: "cycle",
-        wraparound: true,
+        wraparound: true
       },
       {
         key: "morph",
@@ -2287,7 +2278,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         step: "0.001",
         tooltip:
-          "DSF harmonic richness. Nonlinear slider: more sensitivity near 0 (where most of the useful range is).",
+          "DSF harmonic richness. Nonlinear slider: more sensitivity near 0 (where most of the useful range is)."
       },
       { key: "pulseWidth", label: "PWM", defaultValue: "0.5", min: "0.01", mid: "0.5", max: "0.99", step: "0.01" },
       { key: "blend", label: "SquSaw", defaultValue: "0.5", min: "0", mid: "0.5", max: "1", step: "0.01" },
@@ -2300,14 +2291,14 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        modClamp: false,
+        modClamp: false
       },
-    ],
+    ]
   },
   robinSupersaw: {
     planRole: "source",
-    inputs: ["0.1V/Oct", "f"],
-    inputLabels: { "0.1V/Oct": "0.1V", f: "f" },
+    inputs: ["0.1V/Oct"],
+    inputLabels: { "0.1V/Oct": "0.1V" },
     outputs: ["Mono", "Left", "Right"],
     parameters: [
       // "Frequency" is the pitch heard at the sandbox-wide "Pitch
@@ -2317,11 +2308,11 @@ const nodeGraphModuleDefinitions = (
       // keyboard is automatically in tune; doubling it transposes the
       // whole instrument up exactly one octave. See
       // node-graph-patch-normalizers.js for the full explanation.
-      { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "0", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Default slider 0…20 kHz. Pitch MOD can run down through 0. Signed/reverse-phase: wire f or widen Min in parameter settings (domain is not hard-clamped)." },
+      { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "0", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Default slider 0…20 kHz. Pitch MOD can run down through 0. Thru-zero: enable Bipolar on Frequency (domain-add MOD). Domain min/max are slider guides." },
       { key: "detuneCents", label: "Detune", defaultValue: "30", min: "0", mid: "50", max: "100", step: "0.1", unit: "cents" },
       { constraint: "cpu", key: "voices", label: "Voices", defaultValue: "7", min: "1", mid: "5", max: "9", step: "1" },
       { key: "amplitude", label: "Amplitude", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
-    ],
+    ]
   },
   hypersaw: {
     planRole: "source",
@@ -2332,19 +2323,19 @@ const nodeGraphModuleDefinitions = (
     displaySignals: [
       { key: "Left", kind: "scalar" },
     ],
-    inputs: ["Reset", "0.1V/Oct", "f"],
-    inputLabels: { "0.1V/Oct": "0.1V", f: "f" },
+    inputs: ["Reset", "0.1V/Oct"],
+    inputLabels: { "0.1V/Oct": "0.1V" },
     outputs: ["Left", "Right"],
     dataOutputs: ["Phases", "Amplitudes", "Pans"],
     parameters: [
       { constraint: "cpu", key: "voices", label: "Num Sawtooths", defaultValue: "8", min: "1", mid: "8", max: "32", step: "1" },
       { key: "phase", label: "Phase", kind: "phase", defaultValue: "0", min: "0", mid: "0.5", max: "1", step: "0.01", unit: "cycle", wraparound: true },
-      { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "0", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Default slider 0…20 kHz. Pitch MOD can run down through 0. Signed/reverse-phase: wire f or widen Min in parameter settings (domain is not hard-clamped)." },
+      { key: "frequency", label: "Frequency", kind: "frequency", defaultValue: "100", min: "0", mid: "220", max: "20000", step: "any", unit: "Hz", tooltip: "Default slider 0…20 kHz. Pitch MOD can run down through 0. Thru-zero: enable Bipolar on Frequency (domain-add MOD). Domain min/max are slider guides." },
       { key: "spread", label: "Spread", defaultValue: "1", min: "0", mid: "0.5", max: "1", step: "0.01" },
       { key: "random", label: "Random", defaultValue: "0.15", min: "0", mid: "0.5", max: "1", step: "0.01" },
       { key: "drift", label: "Drift", defaultValue: "0.1", min: "0", mid: "0.5", max: "1", step: "0.01" },
       { key: "amplitude", label: "Amplitude", defaultValue: "0.35", min: "0", mid: "1", max: "1", step: "0.01" , modClamp: false },
-    ],
+    ]
   },
   chordSequencer: {
     planRole: "processor",
@@ -2367,7 +2358,7 @@ const nodeGraphModuleDefinitions = (
         mid: "5",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       {
         choices: ["Forward", "Reverse", "Ping-Pong"],
@@ -2381,7 +2372,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       {
         choices: ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"],
@@ -2395,10 +2386,10 @@ const nodeGraphModuleDefinitions = (
         mid: "5",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       { key: "level", label: "Level", defaultValue: "1", min: "0", mid: "0.5", max: "1", step: "0.01" },
-    ],
+    ]
   },
   lutCell: {
     planRole: "source",
@@ -2406,14 +2397,14 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Out", "Q"],
     parameters: [
       { key: "truthTable", label: "Truth Table", defaultValue: "27030", min: "0", mid: "32767.5", max: "65535", step: "1" },
-    ],
+    ]
   },
   metallicRatio: {
     planRole: "source",
     outputs: ["Ratio"],
     parameters: [
       { key: "index", label: "Index", defaultValue: "1", min: "0", mid: "4", max: "8", step: "any" },
-    ],
+    ]
   },
   noiseGenerator: {
     planRole: "source",
@@ -2432,7 +2423,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Uniform uses Shape (even ↔ Gaussian). Gaussian is pure normal. Brown/Pink/Crackle are spectral colors.",
+        tooltip: "Uniform uses Shape (even ↔ Gaussian). Gaussian is pure normal. Brown/Pink/Crackle are spectral colors."
       },
       {
         defaultValue: "0",
@@ -2443,7 +2434,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "White (Uniform mode) only: 0 = even bipolar, 1 = Gaussian (normal). Smoothstep-blended full-range morph. Use for phase/amp noise (e.g. Softwave-style PM).",
+        tooltip: "White (Uniform mode) only: 0 = even bipolar, 1 = Gaussian (normal). Smoothstep-blended full-range morph. Use for phase/amp noise (e.g. Softwave-style PM)."
       },
       {
         defaultValue: "0",
@@ -2453,7 +2444,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "-1",
         nonlinearSlider: false,
-        step: "any",
+        step: "any"
       },
       {
         defaultValue: "0.5",
@@ -2463,7 +2454,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
-        step: "any",
+        step: "any"
       },
       {
         defaultValue: "1",
@@ -2475,7 +2466,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       {
         defaultValue: "1",
@@ -2486,9 +2477,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        modClamp: false,
+        modClamp: false
       },
-    ],
+    ]
   },
   randomWalk: {
     planRole: "source",
@@ -2506,7 +2497,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       {
         defaultValue: "2",
@@ -2518,7 +2509,7 @@ const nodeGraphModuleDefinitions = (
         mid: "2",
         min: "0",
         step: "any",
-        unit: "Hz",
+        unit: "Hz"
       },
       {
         defaultValue: "0.25",
@@ -2530,7 +2521,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.25",
         min: "0",
         step: "any",
-        unit: "Hz",
+        unit: "Hz"
       },
       {
         defaultValue: "1",
@@ -2542,7 +2533,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       {
         defaultValue: "1",
@@ -2553,9 +2544,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        modClamp: false,
+        modClamp: false
       },
-    ],
+    ]
   },
   piSpigotNoise: {
     planRole: "source",
@@ -2570,7 +2561,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
-        step: "any",
+        step: "any"
       },
       {
         defaultValue: "0.5",
@@ -2581,7 +2572,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
-        step: "any",
+        step: "any"
       },
       {
         choices: ["White", "Pink", "Brown", "Blue", "Violet"],
@@ -2595,7 +2586,7 @@ const nodeGraphModuleDefinitions = (
         mid: "2",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       {
         defaultValue: "0",
@@ -2605,7 +2596,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
-        step: "any",
+        step: "any"
       },
       {
         defaultValue: "1",
@@ -2616,9 +2607,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        modClamp: false,
+        modClamp: false
       },
-    ],
+    ]
   },
   fractalBrownianNoise: {
     planRole: "source",
@@ -2652,7 +2643,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        unit: "Hz",
+        unit: "Hz"
       },
       {
         defaultValue: "4",
@@ -2662,7 +2653,7 @@ const nodeGraphModuleDefinitions = (
         mid: "4",
         min: "1",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       {
         defaultValue: "0.5",
@@ -2672,7 +2663,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
-        step: "any",
+        step: "any"
       },
       {
         defaultValue: "1",
@@ -2681,7 +2672,7 @@ const nodeGraphModuleDefinitions = (
         max: "10",
         mid: "1",
         min: "0.1",
-        step: "any",
+        step: "any"
       },
       {
         defaultValue: "1",
@@ -2693,7 +2684,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       {
         defaultValue: "1",
@@ -2704,9 +2695,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        modClamp: false,
+        modClamp: false
       },
-    ],
+    ]
   },
   clock: {
     planRole: "source",
@@ -2714,11 +2705,11 @@ const nodeGraphModuleDefinitions = (
     displayRenderer: "pulseDot",
     inputs: ["Reset"],
     outputAliases: {
-      Out: "Digital Out",
+      Out: "Digital Out"
     },
     outputLabels: {
       "Analog Out": "\u223F",
-      "Digital Out": "\u25AE",
+      "Digital Out": "\u25AE"
     },
     outputs: ["Digital Out", "Analog Out", "Pulse"],
     parameters: [
@@ -2732,7 +2723,7 @@ const nodeGraphModuleDefinitions = (
         mid: "2",
         min: "0",
         step: "any",
-        unit: "Hz",
+        unit: "Hz"
       },
       {
         defaultValue: "0",
@@ -2745,7 +2736,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         unit: "cycle",
-        wraparound: true,
+        wraparound: true
       },
       {
         defaultValue: "0.5",
@@ -2757,7 +2748,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: true,
         sliderCurve: "edges",
         curveAmount: "0.3",
-        step: "any",
+        step: "any"
       },
       {
         defaultValue: "1",
@@ -2768,9 +2759,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        modClamp: false,
+        modClamp: false
       },
-    ],
+    ]
   },
   transport: {
     planRole: "source",
@@ -2786,7 +2777,7 @@ const nodeGraphModuleDefinitions = (
     outputLabels: {
       "-1..1": "-1..1",
       "0..1": "0..1",
-      Trigger: "Trigger",
+      Trigger: "Trigger"
     },
     outputs: ["0..1", "-1..1", "Trigger"],
     parameters: [
@@ -2800,7 +2791,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        modClamp: false,
+        modClamp: false
       },
       {
         defaultValue: "0",
@@ -2811,7 +2802,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "-31",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       {
         defaultValue: "120",
@@ -2822,9 +2813,9 @@ const nodeGraphModuleDefinitions = (
         mid: "160",
         min: "1",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
-    ],
+    ]
   },
   randomClock: {
     planRole: "processor",
@@ -2842,7 +2833,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "1", key: "level", label: "Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "1", key: "seed", label: "Seed", linearSmoothing: false, max: "99999", maxDigits: 5, mid: "1", min: "0", nonlinearSlider: false, step: "1" },
       { defaultValue: "0", key: "threshold", label: "Reset Threshold", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
-    ],
+    ]
   },
   clockDivider: {
     planRole: "processor",
@@ -2857,7 +2848,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "2", key: "division", label: "Division", max: "64", maxDigits: 3, mid: "2", min: "1", nonlinearSlider: false, step: "1" },
       { defaultValue: "0.5", key: "duty", label: "Duty", max: "1", mid: "0.5", min: "0.01", nonlinearSlider: true, sliderCurve: "edges", curveAmount: "0.3", step: "any" },
       { defaultValue: "1", key: "level", label: "Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
-    ],
+    ]
   },
   delayedTrigger: {
     planRole: "processor",
@@ -2872,42 +2863,42 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0.1", key: "delay", kind: "time", label: "Delay", max: "5", maxDigits: 5, mid: "0.1", min: "0", step: "any", unit: "s" },
       { defaultValue: "0.01", key: "pulseTime", kind: "time", label: "Pulse", max: "1", maxDigits: 5, mid: "0.01", min: "0", step: "any", unit: "s" },
       { defaultValue: "1", key: "level", label: "Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
-    ],
+    ]
   },
   buttonEvents: {
     planRole: "source",
     outputs: ["Click", "Hover", "Down", "Up", "Enter", "Leave"],
-    parameters: [],
+    parameters: []
   },
   wireBreak: {
     planRole: "source",
     inputs: [],
     outputs: ["Pulse", "Gate"],
-    parameters: [],
+    parameters: []
   },
   wireConnect: {
     planRole: "source",
     inputs: [],
     outputs: ["Pulse"],
-    parameters: [],
+    parameters: []
   },
   wireDisconnect: {
     planRole: "source",
     inputs: [],
     outputs: ["Pulse"],
-    parameters: [],
+    parameters: []
   },
   windowReopen: {
     planRole: "source",
     inputs: [],
     outputs: ["Pulse", "Gate", "Sine"],
-    parameters: [],
+    parameters: []
   },
   shootingStarTail: {
     planRole: "source",
     inputs: [],
     outputs: ["Pulse"],
-    parameters: [],
+    parameters: []
   },
   shootingStarExplosion: {
     planRole: "source",
@@ -2916,7 +2907,7 @@ const nodeGraphModuleDefinitions = (
     parameters: [
       { defaultValue: "0", key: "lowRange", label: "Low Range", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any", tooltip: "Minimum explosion pulse amplitude (0-1 speed sends this)." },
       { defaultValue: "1", key: "highRange", label: "High Range", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any", tooltip: "Maximum explosion pulse amplitude (1 speed, or no speed data, sends this)." },
-    ],
+    ]
   },
   nextPatch: {
     planRole: "processor",
@@ -2925,7 +2916,7 @@ const nodeGraphModuleDefinitions = (
     outputs: [],
     parameters: [
       { defaultValue: "0", key: "threshold", label: "Threshold", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
-    ],
+    ]
   },
   previousPatch: {
     planRole: "processor",
@@ -2934,7 +2925,7 @@ const nodeGraphModuleDefinitions = (
     outputs: [],
     parameters: [
       { defaultValue: "0", key: "threshold", label: "Threshold", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
-    ],
+    ]
   },
   triggerCounter: {
     planRole: "processor",
@@ -2950,7 +2941,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "1", key: "increment", label: "Increment", max: "16", maxDigits: 3, mid: "1", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0.01", key: "pulseTime", kind: "time", label: "Pulse", max: "1", maxDigits: 5, mid: "0.01", min: "0", step: "any", unit: "s" },
       { defaultValue: "1", key: "level", label: "Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
-    ],
+    ]
   },
   stepSequencer: {
     planRole: "processor",
@@ -2966,7 +2957,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "-1",
         nonlinearSlider: false,
-        step: "any",
+        step: "any"
       },
       {
         defaultValue: "8",
@@ -2976,7 +2967,7 @@ const nodeGraphModuleDefinitions = (
         mid: "8",
         min: "1",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       {
         defaultValue: "1",
@@ -2986,7 +2977,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
-        step: "any",
+        step: "any"
       },
       { defaultValue: "0", key: "step1", label: "Step 1", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
       { defaultValue: "0.25", key: "step2", label: "Step 2", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
@@ -2996,7 +2987,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0.75", key: "step6", label: "Step 6", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
       { defaultValue: "0.5", key: "step7", label: "Step 7", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
       { defaultValue: "0.25", key: "step8", label: "Step 8", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
-    ],
+    ]
   },
   // stepGrid registers its own definition from public/modules/stepGrid/
   // step-grid-register.js -- see node-graph-chromeless-module-registry.js.
@@ -3013,13 +3004,13 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "2", key: "division", label: "Division", max: "64", maxDigits: 3, mid: "2", min: "1", nonlinearSlider: false, step: "1" },
       { defaultValue: "0.01", key: "pulseTime", kind: "time", label: "Pulse", max: "1", maxDigits: 5, mid: "0.01", min: "0", step: "any", unit: "s" },
       { defaultValue: "1", key: "level", label: "Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
-    ],
+    ]
   },
   minMax: {
     planRole: "processor",
     inputs: ["In 1", "In 2", "In 3", "In 4"],
     outputs: ["Max", "Min"],
-    parameters: [],
+    parameters: []
   },
   comparator: {
     planRole: "processor",
@@ -3029,7 +3020,7 @@ const nodeGraphModuleDefinitions = (
     digitalOutputs: ["Up", "Down", "Change", "Steady", "Sign"],
     inputs: ["In"],
     outputs: ["Up", "Down", "Change", "Steady", "Sign", "Thru"],
-    parameters: [],
+    parameters: []
   },
   sampleDelay: {
     planRole: "processor",
@@ -3049,7 +3040,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.1",
         min: "0",
         step: "any",
-        unit: "s",
+        unit: "s"
       },
       {
         defaultValue: "0",
@@ -3059,9 +3050,9 @@ const nodeGraphModuleDefinitions = (
         mid: "64",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
-    ],
+    ]
   },
   bitConverter: {
     planRole: "processor",
@@ -3084,9 +3075,9 @@ const nodeGraphModuleDefinitions = (
         mid: "27",
         min: "1",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
-    ],
+    ]
   },
   gain: {
     planRole: "processor",
@@ -3106,7 +3097,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Scale: out = in × Amplitude + Offset.",
+        tooltip: "Scale: out = in × Amplitude + Offset."
       },
       {
         defaultValue: "0",
@@ -3117,9 +3108,9 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "DC offset after scale (same as former Gain Bias).",
+        tooltip: "DC offset after scale (same as former Gain Bias)."
       },
-    ],
+    ]
   },
   // Shop-hidden legacy alias of gain (offset included there now).
   gainBias: {
@@ -3139,7 +3130,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         nonlinearSlider: false,
-        step: "any",
+        step: "any"
       },
       {
         defaultValue: "0",
@@ -3149,9 +3140,9 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "-1",
         nonlinearSlider: false,
-        step: "any",
+        step: "any"
       },
-    ],
+    ]
   },
   mix: {
     planRole: "processor",
@@ -3169,7 +3160,7 @@ const nodeGraphModuleDefinitions = (
       { key: "bias2", label: "Bias 2", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "0.01", maxDigits: 4 },
       { key: "bias3", label: "Bias 3", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "0.01", maxDigits: 4 },
       { key: "bias4", label: "Bias 4", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "0.01", maxDigits: 4 },
-    ],
+    ]
   },
   // Legacy type id → same as mix (load alias until patches re-save).
   gainBiasMix: {
@@ -3188,7 +3179,7 @@ const nodeGraphModuleDefinitions = (
       { key: "bias2", label: "Bias 2", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "0.01", maxDigits: 4 },
       { key: "bias3", label: "Bias 3", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "0.01", maxDigits: 4 },
       { key: "bias4", label: "Bias 4", defaultValue: "0", min: "-1", mid: "0", max: "1", step: "0.01", maxDigits: 4 },
-    ],
+    ]
   },
   bias: {
     planRole: "processor",
@@ -3207,9 +3198,9 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "-1",
         nonlinearSlider: false,
-        step: "any",
+        step: "any"
       },
-    ],
+    ]
   },
   softClipper: {
     planRole: "processor",
@@ -3228,7 +3219,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "-1",
         nonlinearSlider: false,
-        step: "any",
+        step: "any"
       },
       {
         defaultValue: "2",
@@ -3238,9 +3229,9 @@ const nodeGraphModuleDefinitions = (
         mid: "2",
         min: "0.0001",
         nonlinearSlider: true,
-        step: "any",
+        step: "any"
       },
-    ],
+    ]
   },
   // Airwindows Density3 — density soft-clip / anti-density + highpass + wet.
   airClipper: {
@@ -3260,7 +3251,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.2",
         min: "0",
         nonlinearSlider: false,
-        step: "any",
+        step: "any"
       },
       {
         defaultValue: "0",
@@ -3270,7 +3261,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         nonlinearSlider: true,
-        step: "any",
+        step: "any"
       },
       {
         defaultValue: "1",
@@ -3280,7 +3271,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
-        step: "any",
+        step: "any"
       },
       {
         defaultValue: "1",
@@ -3290,9 +3281,9 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
-        step: "any",
+        step: "any"
       },
-    ],
+    ]
   },
   rotate3dTo2d: {
     planRole: "processor",
@@ -3302,7 +3293,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0", key: "rotateX", kind: "phase", label: "Rotate X", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "0.01", unit: "cycle", wraparound: true },
       { defaultValue: "0", key: "rotateY", kind: "phase", label: "Rotate Y", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "0.01", unit: "cycle", wraparound: true },
       { defaultValue: "0", key: "rotateZ", kind: "phase", label: "Rotate Z", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "0.01", unit: "cycle", wraparound: true },
-    ],
+    ]
   },
   // Stereo L/R → goniometer axes for any X/Y scope. Fixed 45° rotation.
   // LayoutC: compact title + I/O only (no face, no sliders). Spawns 3×3 gu.
@@ -3321,8 +3312,8 @@ const nodeGraphModuleDefinitions = (
     defaultAlias: "90°",
     defaultUi: {
       buttonsHidden: true,
-      titleHidden: false,
-    },
+      titleHidden: false
+    }
   },
   // |Δsample| speed → desaturation target + attack/release inertia (multimeter).
   // Sine → high Inertia (rich color); saw edges → Speed spike → Inertia drops (white).
@@ -3339,7 +3330,7 @@ const nodeGraphModuleDefinitions = (
         key: "face",
         label: "Color",
         renderer: "speedColorInertiaFace",
-        source: { value: "Inertia" },
+        source: { value: "Inertia" }
       },
     ],
     visualInputs: [
@@ -3353,7 +3344,7 @@ const nodeGraphModuleDefinitions = (
     outputLabels: {
       Raw: "Raw",
       Speed: "Speed",
-      Inertia: "Inertia",
+      Inertia: "Inertia"
     },
     parameters: [
       {
@@ -3365,7 +3356,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: true,
         step: "any",
-        tooltip: "Sensitivity of |Δsample| → Speed. Higher turns Inertia white faster on edges.",
+        tooltip: "Sensitivity of |Δsample| → Speed. Higher turns Inertia white faster on edges."
       },
       {
         defaultValue: "1",
@@ -3375,7 +3366,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "How fast Inertia drops toward white when speed rises (1 = instant).",
+        tooltip: "How fast Inertia drops toward white when speed rises (1 = instant)."
       },
       {
         defaultValue: "0.005",
@@ -3385,7 +3376,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.05",
         min: "0",
         step: "any",
-        tooltip: "How fast Inertia recovers toward full color when the wave is smooth.",
+        tooltip: "How fast Inertia recovers toward full color when the wave is smooth."
       },
       {
         defaultValue: "0.667",
@@ -3398,7 +3389,7 @@ const nodeGraphModuleDefinitions = (
         step: "0.01",
         unit: "cycle",
         wraparound: true,
-        tooltip: "Base hue of the solid color face (0=red … ~0.67=blue). Not mixed into Speed/Inertia signal math.",
+        tooltip: "Base hue of the solid color face (0=red … ~0.67=blue). Not mixed into Speed/Inertia signal math."
       },
       {
         defaultValue: "0.5",
@@ -3408,9 +3399,9 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Base lightness of the solid color face 0…1. Not mixed into Speed/Inertia signal math.",
+        tooltip: "Base lightness of the solid color face 0…1. Not mixed into Speed/Inertia signal math."
       },
-    ],
+    ]
   },
   // Plugin Knob (type id knob kept for patch compatibility).
   // Module-first: macro-dial face + Bias out; offset is hidden state.
@@ -3426,32 +3417,59 @@ const nodeGraphModuleDefinitions = (
         label: "Face",
         renderer: "knobFace",
         settingsSchema: "knobFace",
-        source: { value: "Bias" },
+        source: { value: "Bias" }
       },
     ],
     defaultDisplayMode: "face",
     layout: "sliderWidget",
     inputs: ["In"],
     inputLabels: {
-      In: "In",
+      In: "In"
     },
     outputs: ["Bias"],
     outputLabels: {
-      Bias: "Bias",
+      Bias: "Bias"
     },
     parameters: [
       {
-        bipolar: true,
+        bipolar: false,
         defaultValue: "0",
         // Hidden control state — face is the only UI; no param-out twin of Bias.
+        // Domain range follows Max + Polarity (synced at runtime).
         hidden: true,
         key: "offset",
         label: "Offset",
         max: "1",
-        mid: "0",
-        min: "-1",
+        mid: "0.5",
+        min: "0",
         nonlinearSlider: false,
         step: "any",
+      },
+      {
+        defaultValue: "1",
+        key: "rangeMax",
+        label: "Max",
+        max: "1000000",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: true,
+        step: "any",
+        tooltip:
+          "Bias range extent in domain units. Unipolar: 0…Max. Bipolar: −Max…+Max. Wire Bias into Freq (base 0) for absolute control.",
+      },
+      {
+        choices: ["Unipolar", "Bipolar"],
+        defaultValue: "0",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "polarity",
+        label: "Polarity",
+        linearSmoothing: false,
+        max: "1",
+        mid: "0",
+        min: "0",
+        step: "1",
+        tooltip: "Unipolar Bias 0…Max. Bipolar Bias −Max…+Max (thru-zero capable sources).",
       },
     ],
   },
@@ -3468,7 +3486,7 @@ const nodeGraphModuleDefinitions = (
         label: "Face",
         renderer: "pluginSliderFace",
         settingsSchema: "pluginSliderFace",
-        source: { value: "Bias" },
+        source: { value: "Bias" }
       },
     ],
     defaultDisplayMode: "face",
@@ -3490,9 +3508,9 @@ const nodeGraphModuleDefinitions = (
         min: "-1",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Manual Bias offset (hidden). Face is the control; Bias out = In + value.",
+        tooltip: "Manual Bias offset (hidden). Face is the control; Bias out = In + value."
       },
-    ],
+    ]
   },
   toggleButton: {
     planRole: "source",
@@ -3506,7 +3524,7 @@ const nodeGraphModuleDefinitions = (
         label: "Face",
         renderer: "toggleButtonFace",
         settingsSchema: "toggleButtonFace",
-        source: { value: "Out" },
+        source: { value: "Out" }
       },
     ],
     defaultDisplayMode: "face",
@@ -3524,9 +3542,9 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         choices: ["Off", "On"],
-        displayChoices: true,
+        displayChoices: true
       },
-    ],
+    ]
   },
   momentaryButton: {
     planRole: "source",
@@ -3540,7 +3558,7 @@ const nodeGraphModuleDefinitions = (
         label: "Face",
         renderer: "momentaryButtonFace",
         settingsSchema: "momentaryButtonFace",
-        source: { value: "Out" },
+        source: { value: "Out" }
       },
     ],
     defaultDisplayMode: "face",
@@ -3557,9 +3575,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        hidden: true,
+        hidden: true
       },
-    ],
+    ]
   },
   pluginInput: {
     planRole: "source",
@@ -3574,9 +3592,9 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "0.01",
-        modClamp: false,
+        modClamp: false
       },
-    ],
+    ]
   },
   pluginOutput: {
     planRole: "sink",
@@ -3597,15 +3615,15 @@ const nodeGraphModuleDefinitions = (
         mid: "0.1",
         min: "0",
         nonlinearSlider: false,
-        step: "any",
+        step: "any"
       },
-    ],
+    ]
   },
   pluginMidiIn: {
     planRole: "source",
     outputs: ["Gate", "MIDI", "Velocity", "0.1V/Oct", "Frequency"],
     outputLabels: {
-      "0.1V/Oct": "0.1V",
+      "0.1V/Oct": "0.1V"
     },
     parameters: [
       {
@@ -3617,9 +3635,9 @@ const nodeGraphModuleDefinitions = (
         mid: "60",
         min: "0",
         step: "1",
-        tooltip: "Note used when no live MIDI is active (sandbox preview).",
+        tooltip: "Note used when no live MIDI is active (sandbox preview)."
       },
-    ],
+    ]
   },
   pluginMidiOut: {
     planRole: "source",
@@ -3635,9 +3653,9 @@ const nodeGraphModuleDefinitions = (
         mid: "64",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
-    ],
+    ]
   },
   passiveFilter: {
     planRole: "processor",
@@ -3661,7 +3679,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "1-pole (~6 dB/oct). HP6 tames lows gently; LP6 softens highs; BP6 chains both.",
+        tooltip: "1-pole (~6 dB/oct). HP6 tames lows gently; LP6 softens highs; BP6 chains both."
       },
       {
         defaultValue: "200",
@@ -3674,7 +3692,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Highpass cutoff (~6 dB/oct). Used in HP and BP. Good rumble tame: 20–120 Hz.",
+        tooltip: "Highpass cutoff (~6 dB/oct). Used in HP and BP. Good rumble tame: 20–120 Hz."
       },
       {
         defaultValue: "1000",
@@ -3687,9 +3705,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Lowpass cutoff (~6 dB/oct). Used in LP and BP.",
+        tooltip: "Lowpass cutoff (~6 dB/oct). Used in LP and BP."
       },
-    ],
+    ]
   },
   // First-order spectral tilt (not a 1-pole HP). Credit: Robin Schmidt / RS-MET shelf BLT.
   tiltFilter: {
@@ -3712,7 +3730,7 @@ const nodeGraphModuleDefinitions = (
         showSign: true,
         step: "any",
         unit: "dB",
-        tooltip: "Spectral tilt. +dB = cut lows / boost highs; −dB = darker. Span is low↔high difference.",
+        tooltip: "Spectral tilt. +dB = cut lows / boost highs; −dB = darker. Span is low↔high difference."
       },
       {
         defaultValue: "1000",
@@ -3725,9 +3743,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Frequency the tilt balances around. 0 allowed; circuit floors tiny values for stability only.",
+        tooltip: "Frequency the tilt balances around. 0 allowed; circuit floors tiny values for stability only."
       },
-    ],
+    ]
   },
   // ZDF SVF multi-mode EQ. Credit: Robin Schmidt / RS-MET rsStateVariableFilter.
   eqFilter: {
@@ -3765,7 +3783,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "ZDF state-variable EQ (Robin Schmidt / RS-MET). 2-pole modes use compact labels (HP12, LP12, …). Order: Bypass, HP12, LP12, then the rest. Min-phase, zero latency.",
+        tooltip: "ZDF state-variable EQ (Robin Schmidt / RS-MET). 2-pole modes use compact labels (HP12, LP12, …). Order: Bypass, HP12, LP12, then the rest. Min-phase, zero latency."
       },
       {
         // Metaparam defaults: full audio band 0…20 kHz (not 0…1 unit).
@@ -3780,7 +3798,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         tooltip:
-          "Cutoff / center in Hz. Metaparam default range 0…20000. 0 allowed (frozen). DSP only guards crash cases.",
+          "Cutoff / center in Hz. Metaparam default range 0…20000. 0 allowed (frozen). DSP only guards crash cases."
       },
       {
         defaultValue: "0.707",
@@ -3791,7 +3809,7 @@ const nodeGraphModuleDefinitions = (
         min: "0.05",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Resonance / bandwidth. ~0.707 is Butterworth-like for LP/HP.",
+        tooltip: "Resonance / bandwidth. ~0.707 is Butterworth-like for LP/HP."
       },
       {
         defaultValue: "0",
@@ -3804,9 +3822,9 @@ const nodeGraphModuleDefinitions = (
         showSign: true,
         step: "any",
         unit: "dB",
-        tooltip: "Used by Peak, LS12, and HS12 modes.",
+        tooltip: "Used by Peak, LS12, and HS12 modes."
       },
-    ],
+    ]
   },
   papoulisFilter: {
     planRole: "processor",
@@ -3825,9 +3843,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "0 allowed. DSP floors tiny values only when coefficients would blow up.",
+        tooltip: "0 allowed. DSP floors tiny values only when coefficients would blow up."
       },
-    ],
+    ]
   },
   // Classical multipoles — shared scientific_iir cascade (native + JS).
   butterworth: {
@@ -3852,7 +3870,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Butterworth multipole (maximally flat). Fine for tone or a simple two-way LP+HP split; for 3+ bands use 3–6 Crossover.",
+        tooltip: "Butterworth multipole (maximally flat). Fine for tone or a simple two-way LP+HP split; for 3+ bands use 3–6 Crossover."
       },
       {
         constraint: "cpu",
@@ -3864,7 +3882,7 @@ const nodeGraphModuleDefinitions = (
         min: "2",
         nonlinearSlider: false,
         step: "2",
-        tooltip: "Even order 2…8 (cascade of biquads).",
+        tooltip: "Even order 2…8 (cascade of biquads)."
       },
       {
         defaultValue: "1000",
@@ -3877,7 +3895,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Cutoff / center. 0 allowed (frozen).",
+        tooltip: "Cutoff / center. 0 allowed (frozen)."
       },
       {
         defaultValue: "1",
@@ -3889,9 +3907,9 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         unit: "oct",
-        tooltip: "BP/BR width in octaves.",
+        tooltip: "BP/BR width in octaves."
       },
-    ],
+    ]
   },
   linkwitzRiley: {
     planRole: "processor",
@@ -3915,7 +3933,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "One Linkwitz–Riley-shaped LP or HP path—good for a manual two-way split. For 3+ bands with matched band outs, use 3–6 Crossover.",
+        tooltip: "One Linkwitz–Riley-shaped LP or HP path—good for a manual two-way split. For 3+ bands with matched band outs, use 3–6 Crossover."
       },
       {
         defaultValue: "1000",
@@ -3927,7 +3945,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1000",
         min: "0",
         step: "any",
-        unit: "Hz",
+        unit: "Hz"
       },
       {
         constraint: "cpu",
@@ -3939,7 +3957,7 @@ const nodeGraphModuleDefinitions = (
         min: "2",
         nonlinearSlider: false,
         step: "2",
-        tooltip: "Total even order (two Butterworth of order/2).",
+        tooltip: "Total even order (two Butterworth of order/2)."
       },
       {
         defaultValue: "1",
@@ -3950,9 +3968,9 @@ const nodeGraphModuleDefinitions = (
         min: "0.05",
         nonlinearSlider: false,
         step: "any",
-        unit: "oct",
+        unit: "oct"
       },
-    ],
+    ]
   },
   bessel: {
     planRole: "processor",
@@ -3976,7 +3994,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Bessel multipole — maximally flat group delay.",
+        tooltip: "Bessel multipole — maximally flat group delay."
       },
       {
         defaultValue: "1000",
@@ -3988,7 +4006,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1000",
         min: "0",
         step: "any",
-        unit: "Hz",
+        unit: "Hz"
       },
       {
         constraint: "cpu",
@@ -3999,7 +4017,7 @@ const nodeGraphModuleDefinitions = (
         mid: "4",
         min: "2",
         nonlinearSlider: false,
-        step: "2",
+        step: "2"
       },
       {
         defaultValue: "1",
@@ -4010,9 +4028,9 @@ const nodeGraphModuleDefinitions = (
         min: "0.05",
         nonlinearSlider: false,
         step: "any",
-        unit: "oct",
+        unit: "oct"
       },
-    ],
+    ]
   },
   chebyshev: {
     planRole: "processor",
@@ -4036,7 +4054,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Chebyshev Type I — equiripple passband, steeper roll-off.",
+        tooltip: "Chebyshev Type I — equiripple passband, steeper roll-off."
       },
       {
         defaultValue: "1000",
@@ -4048,7 +4066,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1000",
         min: "0",
         step: "any",
-        unit: "Hz",
+        unit: "Hz"
       },
       {
         constraint: "cpu",
@@ -4059,7 +4077,7 @@ const nodeGraphModuleDefinitions = (
         mid: "4",
         min: "2",
         nonlinearSlider: false,
-        step: "2",
+        step: "2"
       },
       {
         defaultValue: "1",
@@ -4070,7 +4088,7 @@ const nodeGraphModuleDefinitions = (
         min: "0.05",
         nonlinearSlider: false,
         step: "any",
-        unit: "oct",
+        unit: "oct"
       },
       {
         defaultValue: "1",
@@ -4082,9 +4100,9 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         unit: "dB",
-        tooltip: "Passband ripple in dB.",
+        tooltip: "Passband ripple in dB."
       },
-    ],
+    ]
   },
   elliptic: {
     planRole: "processor",
@@ -4108,7 +4126,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Elliptic (Cauer) — sharpest transition for a given order (freestanding SOS approx).",
+        tooltip: "Elliptic (Cauer) — sharpest transition for a given order (freestanding SOS approx)."
       },
       {
         defaultValue: "1000",
@@ -4120,7 +4138,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1000",
         min: "0",
         step: "any",
-        unit: "Hz",
+        unit: "Hz"
       },
       {
         constraint: "cpu",
@@ -4131,7 +4149,7 @@ const nodeGraphModuleDefinitions = (
         mid: "4",
         min: "2",
         nonlinearSlider: false,
-        step: "2",
+        step: "2"
       },
       {
         defaultValue: "1",
@@ -4142,7 +4160,7 @@ const nodeGraphModuleDefinitions = (
         min: "0.05",
         nonlinearSlider: false,
         step: "any",
-        unit: "oct",
+        unit: "oct"
       },
       {
         defaultValue: "1",
@@ -4154,16 +4172,16 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         unit: "dB",
-        tooltip: "Passband ripple in dB (elliptic approx).",
+        tooltip: "Passband ripple in dB (elliptic approx)."
       },
-    ],
+    ]
   },
   // True resonant 2nd-order BP — reuses EQ ZDF SVF Bandpass Peak (Robin Schmidt).
   bandpass: {
     planRole: "processor",
     inputAliases: { Mono: "In" },
-    inputLabels: { In: "Mono", "0.1V/Oct": "0.1V", f: "f" },
-    inputs: ["In", "Left", "Right", "0.1V/Oct", "f"],
+    inputLabels: { In: "Mono", "0.1V/Oct": "0.1V" },
+    inputs: ["In", "Left", "Right", "0.1V/Oct"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
@@ -4180,7 +4198,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Center. Tracked by 0.1V/Oct. When f is wired: Hz = f × Frequency.",
+        tooltip: "Center. Tracked by 0.1V/Oct. When f is wired: Hz = f × Frequency."
       },
       {
         defaultValue: "1",
@@ -4191,16 +4209,16 @@ const nodeGraphModuleDefinitions = (
         min: "0.05",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Resonance. True 2-pole constant-peak bandpass (EQ SVF Bandpass Peak).",
+        tooltip: "Resonance. True 2-pole constant-peak bandpass (EQ SVF Bandpass Peak)."
       },
-    ],
+    ]
   },
   // True 2-pole allpass — EQ ZDF SVF Allpass (Robin Schmidt). Phase tool, not a delay line.
   allpass: {
     planRole: "processor",
     inputAliases: { Mono: "In" },
-    inputLabels: { In: "Mono", "0.1V/Oct": "0.1V", f: "f" },
-    inputs: ["In", "Left", "Right", "0.1V/Oct", "f"],
+    inputLabels: { In: "Mono", "0.1V/Oct": "0.1V" },
+    inputs: ["In", "Left", "Right", "0.1V/Oct"],
     layout: "filterCurve",
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
@@ -4217,7 +4235,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Allpass transition frequency (phase curve center). 0.1V/Oct + f track like Bandpass.",
+        tooltip: "Allpass transition frequency (phase curve center). 0.1V/Oct + f track like Bandpass."
       },
       {
         defaultValue: "0.707",
@@ -4228,9 +4246,9 @@ const nodeGraphModuleDefinitions = (
         min: "0.05",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Phase slope sharpness around Frequency. Flat magnitude always.",
+        tooltip: "Phase slope sharpness around Frequency. Flat magnitude always."
       },
-    ],
+    ]
   },
   // Softpop: Gaussian white / pink / brown → resonant Peak BP. Oscillator-dept noise voice.
   crossover2: {
@@ -4289,7 +4307,7 @@ const nodeGraphModuleDefinitions = (
         linearSmoothing: false,
         smoothingType: "none",
         step: "2",
-        tooltip: "Linkwitz-Riley order: 2 / 4 / 8 (about 12 / 24 / 48 dB/oct). LR4 is the usual default. LR8 is heavier CPU.",
+        tooltip: "Linkwitz-Riley order: 2 / 4 / 8 (about 12 / 24 / 48 dB/oct). LR4 is the usual default. LR8 is heavier CPU."
       },
       {
         defaultValue: "1000",
@@ -4302,9 +4320,9 @@ const nodeGraphModuleDefinitions = (
         min: "20",
         step: "any",
         unit: "Hz",
-        tooltip: "Crossover split frequency (wide range; splits stay non-decreasing).",
+        tooltip: "Crossover split frequency (wide range; splits stay non-decreasing)."
       },
-    ],
+    ]
   },
   crossover3: {
     planRole: "processor",
@@ -4378,7 +4396,7 @@ const nodeGraphModuleDefinitions = (
         linearSmoothing: false,
         smoothingType: "none",
         step: "2",
-        tooltip: "Linkwitz-Riley order: 2 / 4 / 8 (about 12 / 24 / 48 dB/oct). LR4 is the usual default. LR8 is heavier CPU.",
+        tooltip: "Linkwitz-Riley order: 2 / 4 / 8 (about 12 / 24 / 48 dB/oct). LR4 is the usual default. LR8 is heavier CPU."
       },
       {
         defaultValue: "300",
@@ -4391,7 +4409,7 @@ const nodeGraphModuleDefinitions = (
         min: "20",
         step: "any",
         unit: "Hz",
-        tooltip: "Lower split (Low | mid). Wide 20 Hz–20 kHz range; non-decreasing with Frequency 2.",
+        tooltip: "Lower split (Low | mid). Wide 20 Hz–20 kHz range; non-decreasing with Frequency 2."
       },
       {
         defaultValue: "3000",
@@ -4404,9 +4422,9 @@ const nodeGraphModuleDefinitions = (
         min: "20",
         step: "any",
         unit: "Hz",
-        tooltip: "Upper split (mid | High). Wide 20 Hz–20 kHz range; non-decreasing with Frequency 1.",
+        tooltip: "Upper split (mid | High). Wide 20 Hz–20 kHz range; non-decreasing with Frequency 1."
       },
-    ],
+    ]
   },
   crossover4: {
     planRole: "processor",
@@ -4492,7 +4510,7 @@ const nodeGraphModuleDefinitions = (
         linearSmoothing: false,
         smoothingType: "none",
         step: "2",
-        tooltip: "Linkwitz-Riley order: 2 / 4 / 8 (about 12 / 24 / 48 dB/oct). LR4 is the usual default. LR8 is heavier CPU.",
+        tooltip: "Linkwitz-Riley order: 2 / 4 / 8 (about 12 / 24 / 48 dB/oct). LR4 is the usual default. LR8 is heavier CPU."
       },
       {
         defaultValue: "200",
@@ -4505,7 +4523,7 @@ const nodeGraphModuleDefinitions = (
         min: "20",
         step: "any",
         unit: "Hz",
-        tooltip: "Split Low | 1. Wide 20 Hz–20 kHz; non-decreasing across splits.",
+        tooltip: "Split Low | 1. Wide 20 Hz–20 kHz; non-decreasing across splits."
       },
       {
         defaultValue: "1000",
@@ -4518,7 +4536,7 @@ const nodeGraphModuleDefinitions = (
         min: "20",
         step: "any",
         unit: "Hz",
-        tooltip: "Split 1 | 2. Wide 20 Hz–20 kHz; non-decreasing across splits.",
+        tooltip: "Split 1 | 2. Wide 20 Hz–20 kHz; non-decreasing across splits."
       },
       {
         defaultValue: "5000",
@@ -4531,9 +4549,9 @@ const nodeGraphModuleDefinitions = (
         min: "20",
         step: "any",
         unit: "Hz",
-        tooltip: "Split 2 | High. Wide 20 Hz–20 kHz; non-decreasing across splits.",
+        tooltip: "Split 2 | High. Wide 20 Hz–20 kHz; non-decreasing across splits."
       },
-    ],
+    ]
   },
   crossover5: {
     planRole: "processor",
@@ -4641,7 +4659,7 @@ const nodeGraphModuleDefinitions = (
         linearSmoothing: false,
         smoothingType: "none",
         step: "2",
-        tooltip: "Linkwitz-Riley order: 2 / 4 / 8 (about 12 / 24 / 48 dB/oct). LR4 is the usual default. LR8 is heavier CPU.",
+        tooltip: "Linkwitz-Riley order: 2 / 4 / 8 (about 12 / 24 / 48 dB/oct). LR4 is the usual default. LR8 is heavier CPU."
       },
       {
         defaultValue: "150",
@@ -4654,7 +4672,7 @@ const nodeGraphModuleDefinitions = (
         min: "20",
         step: "any",
         unit: "Hz",
-        tooltip: "Split Low | 1. Wide 20 Hz–20 kHz; non-decreasing across splits.",
+        tooltip: "Split Low | 1. Wide 20 Hz–20 kHz; non-decreasing across splits."
       },
       {
         defaultValue: "500",
@@ -4667,7 +4685,7 @@ const nodeGraphModuleDefinitions = (
         min: "20",
         step: "any",
         unit: "Hz",
-        tooltip: "Split 1 | 2. Wide 20 Hz–20 kHz; non-decreasing across splits.",
+        tooltip: "Split 1 | 2. Wide 20 Hz–20 kHz; non-decreasing across splits."
       },
       {
         defaultValue: "2000",
@@ -4680,7 +4698,7 @@ const nodeGraphModuleDefinitions = (
         min: "20",
         step: "any",
         unit: "Hz",
-        tooltip: "Split 2 | 3. Wide 20 Hz–20 kHz; non-decreasing across splits.",
+        tooltip: "Split 2 | 3. Wide 20 Hz–20 kHz; non-decreasing across splits."
       },
       {
         defaultValue: "8000",
@@ -4693,9 +4711,9 @@ const nodeGraphModuleDefinitions = (
         min: "20",
         step: "any",
         unit: "Hz",
-        tooltip: "Split 3 | High. Wide 20 Hz–20 kHz; non-decreasing across splits.",
+        tooltip: "Split 3 | High. Wide 20 Hz–20 kHz; non-decreasing across splits."
       },
-    ],
+    ]
   },
   crossover6: {
     planRole: "processor",
@@ -4817,7 +4835,7 @@ const nodeGraphModuleDefinitions = (
         linearSmoothing: false,
         smoothingType: "none",
         step: "2",
-        tooltip: "Linkwitz-Riley order: 2 / 4 / 8 (about 12 / 24 / 48 dB/oct). LR4 is the usual default. LR8 is heavier CPU.",
+        tooltip: "Linkwitz-Riley order: 2 / 4 / 8 (about 12 / 24 / 48 dB/oct). LR4 is the usual default. LR8 is heavier CPU."
       },
       {
         defaultValue: "100",
@@ -4830,7 +4848,7 @@ const nodeGraphModuleDefinitions = (
         min: "20",
         step: "any",
         unit: "Hz",
-        tooltip: "Split Low | 1. Wide 20 Hz–20 kHz; non-decreasing across splits.",
+        tooltip: "Split Low | 1. Wide 20 Hz–20 kHz; non-decreasing across splits."
       },
       {
         defaultValue: "300",
@@ -4843,7 +4861,7 @@ const nodeGraphModuleDefinitions = (
         min: "20",
         step: "any",
         unit: "Hz",
-        tooltip: "Split 1 | 2. Wide 20 Hz–20 kHz; non-decreasing across splits.",
+        tooltip: "Split 1 | 2. Wide 20 Hz–20 kHz; non-decreasing across splits."
       },
       {
         defaultValue: "1000",
@@ -4856,7 +4874,7 @@ const nodeGraphModuleDefinitions = (
         min: "20",
         step: "any",
         unit: "Hz",
-        tooltip: "Split 2 | 3. Wide 20 Hz–20 kHz; non-decreasing across splits.",
+        tooltip: "Split 2 | 3. Wide 20 Hz–20 kHz; non-decreasing across splits."
       },
       {
         defaultValue: "3000",
@@ -4869,7 +4887,7 @@ const nodeGraphModuleDefinitions = (
         min: "20",
         step: "any",
         unit: "Hz",
-        tooltip: "Split 3 | 4. Wide 20 Hz–20 kHz; non-decreasing across splits.",
+        tooltip: "Split 3 | 4. Wide 20 Hz–20 kHz; non-decreasing across splits."
       },
       {
         defaultValue: "10000",
@@ -4882,14 +4900,14 @@ const nodeGraphModuleDefinitions = (
         min: "20",
         step: "any",
         unit: "Hz",
-        tooltip: "Split 4 | High. Wide 20 Hz–20 kHz; non-decreasing across splits.",
+        tooltip: "Split 4 | High. Wide 20 Hz–20 kHz; non-decreasing across splits."
       },
-    ],
+    ]
   },
   softpopOscillator: {
     planRole: "source",
-    inputs: ["Reset", "0.1V/Oct", "f"],
-    inputLabels: { "0.1V/Oct": "0.1V", f: "f" },
+    inputs: ["Reset", "0.1V/Oct"],
+    inputLabels: { "0.1V/Oct": "0.1V" },
     outputs: ["Left", "Right", "Out"],
     outputLabels: { Out: "Mono" },
     parameters: [
@@ -4906,7 +4924,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "White = Gaussian. Pink / Brown spectral colors, then resonant bandpass.",
+        tooltip: "White = Gaussian. Pink / Brown spectral colors, then resonant bandpass."
       },
       {
         choices: ["Stereo", "Mono"],
@@ -4921,7 +4939,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Stereo = independent L/R noise (width). Mono = one noise path to both channels.",
+        tooltip: "Stereo = independent L/R noise (width). Mono = one noise path to both channels."
       },
       {
         defaultValue: "1000",
@@ -4934,7 +4952,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Band center. 0.1V/Oct tracks pitch. When f is wired: Hz = f × Frequency.",
+        tooltip: "Band center. 0.1V/Oct tracks pitch. When f is wired: Hz = f × Frequency."
       },
       {
         defaultValue: "4",
@@ -4945,7 +4963,7 @@ const nodeGraphModuleDefinitions = (
         min: "0.05",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Bandpass tightness (constant-peak 2-pole SVF). Mod via the Q slider’s CV port.",
+        tooltip: "Bandpass tightness (constant-peak 2-pole SVF). Mod via the Q slider’s CV port."
       },
       {
         defaultValue: "1",
@@ -4956,7 +4974,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        modClamp: false,
+        modClamp: false
       },
       {
         defaultValue: "1",
@@ -4970,9 +4988,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Deterministic noise sequence. Reset jack restarts from this seed. (Seed widget UI: kind=seed hook for dedicated control later.)",
+        tooltip: "Deterministic noise sequence. Reset jack restarts from this seed. (Seed widget UI: kind=seed hook for dedicated control later.)"
       },
-    ],
+    ]
   },
   // Period-reset sine chirp: Frequency = rate; High/Low + Together; FreqCurve/AmpCurve bipolar.
   sinepulse: {
@@ -4984,19 +5002,17 @@ const nodeGraphModuleDefinitions = (
     displaySignals: [
       { key: "Out", kind: "scalar" },
     ],
-    inputs: ["Reset", "0.1V/Oct", "Increment", "f"],
+    inputs: ["Reset", "0.1V/Oct", "Increment"],
     inputLabels: {
       "0.1V/Oct": "0.1V",
-      Increment: "Inc.",
-      f: "f",
+      Increment: "Inc."
     },
     // Out = audio; f = instant Hz; Amp/Freq = 0..1 curves for driving other modules.
     outputs: ["Out", "f", "Amp", "Freq"],
     outputLabels: {
       Out: "Out",
-      f: "f",
       Amp: "Amp",
-      Freq: "Freq",
+      Freq: "Freq"
     },
     parameters: [
       {
@@ -5011,7 +5027,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         tooltip:
-          "Master sweep rate: chirps per second (period = 1/Rate). Domain max = project Speed Limit. Pitch MOD / f as usual. Legacy key: frequency.",
+          "Master sweep rate: chirps per second (period = 1/Rate). Domain max = project Speed Limit. Pitch MOD / f as usual. Legacy key: frequency."
       },
       {
         defaultValue: "0",
@@ -5025,7 +5041,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         tooltip:
-          "Lower end of the chirp (Hz). Up starts here; Down ends here. Max = project Speed Limit. Shift collapses LowFreq toward HighFreq. Legacy key: frequencyLow.",
+          "Lower end of the chirp (Hz). Up starts here; Down ends here. Max = project Speed Limit. Shift collapses LowFreq toward HighFreq. Legacy key: frequencyLow."
       },
       {
         defaultValue: "20000",
@@ -5039,7 +5055,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         tooltip:
-          "Upper end of the chirp (Hz). Up ends here; Down starts here. Max = project Speed Limit (never exceeded by Shift). Legacy key: frequencyHigh.",
+          "Upper end of the chirp (Hz). Up ends here; Down starts here. Max = project Speed Limit (never exceeded by Shift). Legacy key: frequencyHigh."
       },
       {
         defaultValue: "0",
@@ -5051,7 +5067,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         tooltip:
-          "Range bias 0…1. 0 = full LowFreq…HighFreq span. 1 = LowFreq rises to meet HighFreq (single tone at HighFreq). Only shrinks the gap — never past HighFreq or project Speed Limit.",
+          "Range bias 0…1. 0 = full LowFreq…HighFreq span. 1 = LowFreq rises to meet HighFreq (single tone at HighFreq). Only shrinks the gap — never past HighFreq or project Speed Limit."
       },
       {
         defaultValue: "1",
@@ -5063,7 +5079,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         tooltip:
-          "Active fraction of each Rate period. 0 = click; 1 = full HighFreq↔LowFreq. Rest is silence.",
+          "Active fraction of each Rate period. 0 = click; 1 = full HighFreq↔LowFreq. Rest is silence."
       },
       {
         choices: ["Up", "Down"],
@@ -5079,7 +5095,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Up = LowFreq → HighFreq. Down = HighFreq → LowFreq. Flipping mid-sweep reflects progress so pitch continues the other way without a jump.",
+          "Up = LowFreq → HighFreq. Down = HighFreq → LowFreq. Flipping mid-sweep reflects progress so pitch continues the other way without a jump."
       },
       {
         defaultValue: "0.5",
@@ -5091,7 +5107,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         tooltip:
-          "Frequency path shape (−1…+1): −1 super-log, −0.5 log, 0 linear, +0.5 exponential, +1 super-exponential.",
+          "Frequency path shape (−1…+1): −1 super-log, −0.5 log, 0 linear, +0.5 exponential, +1 super-exponential."
       },
       {
         defaultValue: "0",
@@ -5103,7 +5119,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         tooltip:
-          "Amplitude envelope shape (−1…+1), same map as FreqCurve: −1 super-log … 0 linear … +1 super-exponential. Independent of FreqCurve.",
+          "Amplitude envelope shape (−1…+1), same map as FreqCurve: −1 super-log … 0 linear … +1 super-exponential. Independent of FreqCurve."
       },
       {
         choices: ["Off", "On"],
@@ -5119,7 +5135,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "On = zero the sine phase at each tooth (and Reset jack edge) for a sharper attack. Off = continuous phase across teeth.",
+          "On = zero the sine phase at each tooth (and Reset jack edge) for a sharper attack. Off = continuous phase across teeth."
       },
       {
         defaultValue: "0",
@@ -5131,7 +5147,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "0.01",
         unit: "cycle",
-        wraparound: true,
+        wraparound: true
       },
       {
         defaultValue: "1",
@@ -5142,7 +5158,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        modClamp: false,
+        modClamp: false
       },
       {
         // Lo-fi → hi-fi (less high-frequency timing jitter). Default = Fine.
@@ -5159,9 +5175,9 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Rate-period AA, ordered lo-fi → hi-fi. Off = continuous Rate, no period AA. Soft Edge = continuous + PolyBLEP on tooth wrap / hard-reset (Cont+BLEP). Adaptive = Noise when periods are long, continuous when short (Noise+Blend). Shaped = noise-shaped integer lengths (Noise+Shape). Noise = classic Robin ±1-sample pitch dither. Fine (default) = same at half-sample resolution (Noise+½).",
+          "Rate-period AA, ordered lo-fi → hi-fi. Off = continuous Rate, no period AA. Soft Edge = continuous + PolyBLEP on tooth wrap / hard-reset (Cont+BLEP). Adaptive = Noise when periods are long, continuous when short (Noise+Blend). Shaped = noise-shaped integer lengths (Noise+Shape). Noise = classic Robin ±1-sample pitch dither. Fine (default) = same at half-sample resolution (Noise+½)."
       },
-    ],
+    ]
   },
   // Under construction: electro drum voice suite (Drum shelf).
   electroKick: {
@@ -5177,7 +5193,7 @@ const nodeGraphModuleDefinitions = (
     inputs: ["Trigger", "Accent"],
     inputLabels: {
       Trigger: "Trig",
-      Accent: "Acc",
+      Accent: "Acc"
     },
     outputs: ["Out"],
     parameters: [
@@ -5192,7 +5208,7 @@ const nodeGraphModuleDefinitions = (
         min: "10",
         step: "any",
         unit: "Hz",
-        tooltip: "Under construction — kick fundamental / start pitch.",
+        tooltip: "Under construction — kick fundamental / start pitch."
       },
       {
         defaultValue: "0.35",
@@ -5203,7 +5219,7 @@ const nodeGraphModuleDefinitions = (
         min: "0.01",
         step: "any",
         unit: "s",
-        tooltip: "Under construction — body decay time.",
+        tooltip: "Under construction — body decay time."
       },
       {
         defaultValue: "0.5",
@@ -5213,7 +5229,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Under construction — click / attack amount.",
+        tooltip: "Under construction — click / attack amount."
       },
       {
         defaultValue: "1",
@@ -5223,9 +5239,9 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "any",
-        tooltip: "Under construction — output level.",
+        tooltip: "Under construction — output level."
       },
-    ],
+    ]
   },
   electroSnare: {
     planRole: "source",
@@ -5240,7 +5256,7 @@ const nodeGraphModuleDefinitions = (
     inputs: ["Trigger", "Accent"],
     inputLabels: {
       Trigger: "Trig",
-      Accent: "Acc",
+      Accent: "Acc"
     },
     outputs: ["Out"],
     parameters: [
@@ -5255,7 +5271,7 @@ const nodeGraphModuleDefinitions = (
         min: "40",
         step: "any",
         unit: "Hz",
-        tooltip: "Under construction — snare body / tone pitch.",
+        tooltip: "Under construction — snare body / tone pitch."
       },
       {
         defaultValue: "0.2",
@@ -5266,7 +5282,7 @@ const nodeGraphModuleDefinitions = (
         min: "0.01",
         step: "any",
         unit: "s",
-        tooltip: "Under construction — snare decay time.",
+        tooltip: "Under construction — snare decay time."
       },
       {
         defaultValue: "0.65",
@@ -5276,7 +5292,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.65",
         min: "0",
         step: "any",
-        tooltip: "Under construction — noise / snare-wire amount.",
+        tooltip: "Under construction — noise / snare-wire amount."
       },
       {
         defaultValue: "1",
@@ -5286,9 +5302,9 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "any",
-        tooltip: "Under construction — output level.",
+        tooltip: "Under construction — output level."
       },
-    ],
+    ]
   },
   electroHat: {
     planRole: "source",
@@ -5303,7 +5319,7 @@ const nodeGraphModuleDefinitions = (
     inputs: ["Trigger", "Accent"],
     inputLabels: {
       Trigger: "Trig",
-      Accent: "Acc",
+      Accent: "Acc"
     },
     outputs: ["Out"],
     parameters: [
@@ -5316,7 +5332,7 @@ const nodeGraphModuleDefinitions = (
         min: "0.005",
         step: "any",
         unit: "s",
-        tooltip: "Under construction — hat decay (closed short / open longer).",
+        tooltip: "Under construction — hat decay (closed short / open longer)."
       },
       {
         defaultValue: "0.7",
@@ -5326,7 +5342,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.7",
         min: "0",
         step: "any",
-        tooltip: "Under construction — brightness / metal tone.",
+        tooltip: "Under construction — brightness / metal tone."
       },
       {
         defaultValue: "0",
@@ -5336,7 +5352,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Under construction — closed (0) ↔ open (1) character.",
+        tooltip: "Under construction — closed (0) ↔ open (1) character."
       },
       {
         defaultValue: "1",
@@ -5346,9 +5362,9 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "any",
-        tooltip: "Under construction — output level.",
+        tooltip: "Under construction — output level."
       },
-    ],
+    ]
   },
   // Under construction
   formantFilter: {
@@ -5370,9 +5386,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Under construction — formant center (placeholder).",
+        tooltip: "Under construction — formant center (placeholder)."
       },
-    ],
+    ]
   },
   binaryClock: {
     planRole: "source",
@@ -5388,7 +5404,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         unit: "Hz",
-        tooltip: "Under construction — binary counter clock rate.",
+        tooltip: "Under construction — binary counter clock rate."
       },
       {
         defaultValue: "4",
@@ -5399,9 +5415,9 @@ const nodeGraphModuleDefinitions = (
         min: "1",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Under construction — number of bit outputs.",
+        tooltip: "Under construction — number of bit outputs."
       },
-    ],
+    ]
   },
   // Under construction: space-controlled controller (Controller shelf).
   theremin: {
@@ -5419,7 +5435,7 @@ const nodeGraphModuleDefinitions = (
     inputLabels: {
       X: "X",
       Y: "Y",
-      Gate: "Gate",
+      Gate: "Gate"
     },
     outputs: ["Out", "Pitch", "Volume"],
     parameters: [
@@ -5434,7 +5450,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Under construction — base pitch / center of the theremin range.",
+        tooltip: "Under construction — base pitch / center of the theremin range."
       },
       {
         defaultValue: "1",
@@ -5445,7 +5461,7 @@ const nodeGraphModuleDefinitions = (
         min: "0.1",
         step: "any",
         unit: "oct",
-        tooltip: "Under construction — playable pitch span in octaves.",
+        tooltip: "Under construction — playable pitch span in octaves."
       },
       {
         defaultValue: "0.8",
@@ -5456,9 +5472,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Under construction — output level (later driven by proximity / Y).",
+        tooltip: "Under construction — output level (later driven by proximity / Y)."
       },
-    ],
+    ]
   },
   // Under construction: Open Sound Control bridge (Controller shelf).
   osc: {
@@ -5475,7 +5491,7 @@ const nodeGraphModuleDefinitions = (
     inputs: ["In", "Gate"],
     inputLabels: {
       In: "In",
-      Gate: "Gate",
+      Gate: "Gate"
     },
     outputs: ["Out", "X", "Y", "Gate"],
     parameters: [
@@ -5487,7 +5503,7 @@ const nodeGraphModuleDefinitions = (
         mid: "9000",
         min: "1",
         step: "1",
-        tooltip: "Under construction — UDP port for OSC send/receive.",
+        tooltip: "Under construction — UDP port for OSC send/receive."
       },
       {
         defaultValue: "0",
@@ -5497,7 +5513,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "1",
-        tooltip: "Under construction — destination host index / local bind mode (placeholder).",
+        tooltip: "Under construction — destination host index / local bind mode (placeholder)."
       },
       {
         defaultValue: "0.5",
@@ -5508,19 +5524,18 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Under construction — manual float for send tests until network routing lands.",
+        tooltip: "Under construction — manual float for send tests until network routing lands."
       },
-    ],
+    ]
   },
   // Under construction: multi-frame wavetable oscillators (Oscillator shelf).
   wavetable2d: {
     planRole: "source",
     planFreeRun: true,
     displayType: "trace",
-    inputs: ["0.1V/Oct", "Freq", "Position", "f"],
+    inputs: ["0.1V/Oct", "Freq", "Position"],
     inputLabels: {
-      "0.1V/Oct": "0.1V",
-      f: "f",
+      "0.1V/Oct": "0.1V"
     },
     outputs: ["Out"],
     parameters: [
@@ -5534,7 +5549,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Under construction — wavetable playback frequency.",
+        tooltip: "Under construction — wavetable playback frequency."
       },
       {
         defaultValue: "0",
@@ -5545,7 +5560,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Under construction — morph position across the 2D wavetable (frame / scan).",
+        tooltip: "Under construction — morph position across the 2D wavetable (frame / scan)."
       },
       {
         defaultValue: "1",
@@ -5556,18 +5571,17 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Under construction — output level.",
+        tooltip: "Under construction — output level."
       },
-    ],
+    ]
   },
   wavetable3d: {
     planRole: "source",
     planFreeRun: true,
     displayType: "trace",
-    inputs: ["0.1V/Oct", "Freq", "X", "Y", "f"],
+    inputs: ["0.1V/Oct", "Freq", "X", "Y"],
     inputLabels: {
-      "0.1V/Oct": "0.1V",
-      f: "f",
+      "0.1V/Oct": "0.1V"
     },
     outputs: ["Out"],
     parameters: [
@@ -5581,7 +5595,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Under construction — 3D wavetable playback frequency.",
+        tooltip: "Under construction — 3D wavetable playback frequency."
       },
       {
         defaultValue: "0",
@@ -5592,7 +5606,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Under construction — X morph across the 3D wavetable volume.",
+        tooltip: "Under construction — X morph across the 3D wavetable volume."
       },
       {
         defaultValue: "0",
@@ -5603,7 +5617,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Under construction — Y morph across the 3D wavetable volume.",
+        tooltip: "Under construction — Y morph across the 3D wavetable volume."
       },
       {
         defaultValue: "1",
@@ -5614,9 +5628,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Under construction — output level.",
+        tooltip: "Under construction — output level."
       },
-    ],
+    ]
   },
   // Under construction: RGB pixel-grid experiments (shelf card only for now).
   pixelGrid: {
@@ -5624,7 +5638,7 @@ const nodeGraphModuleDefinitions = (
     visualSink: true,
     inputs: [],
     outputs: [],
-    parameters: [],
+    parameters: []
   },
   // Under construction: flexible multi-point control grid (Modulator shelf).
   flexGrid: {
@@ -5651,7 +5665,7 @@ const nodeGraphModuleDefinitions = (
         min: "1",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Under construction — planned grid columns for multi-point control.",
+        tooltip: "Under construction — planned grid columns for multi-point control."
       },
       {
         defaultValue: "4",
@@ -5662,7 +5676,7 @@ const nodeGraphModuleDefinitions = (
         min: "1",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Under construction — planned grid rows for multi-point control.",
+        tooltip: "Under construction — planned grid rows for multi-point control."
       },
       {
         defaultValue: "1",
@@ -5674,9 +5688,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Under construction — planned scan / morph rate across the flex grid.",
+        tooltip: "Under construction — planned scan / morph rate across the flex grid."
       },
-    ],
+    ]
   },
   // Under construction: Chaosfly attractor (Chaos shelf).
   chaosfly: {
@@ -5703,7 +5717,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "any",
-        tooltip: "Under construction — planned Chaosfly integration / fly speed.",
+        tooltip: "Under construction — planned Chaosfly integration / fly speed."
       },
       {
         defaultValue: "0.5",
@@ -5714,7 +5728,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Under construction — planned Chaosfly chaos / wing-spread amount.",
+        tooltip: "Under construction — planned Chaosfly chaos / wing-spread amount."
       },
       {
         defaultValue: "1",
@@ -5726,9 +5740,9 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         modClamp: false,
-        tooltip: "Under construction — output scale.",
+        tooltip: "Under construction — output scale."
       },
-    ],
+    ]
   },
   // Under construction: Drummer (Sequence shelf).
   drummer: {
@@ -5757,7 +5771,7 @@ const nodeGraphModuleDefinitions = (
         min: "20",
         step: "any",
         unit: "BPM",
-        tooltip: "Under construction — planned Drummer tempo (BPM).",
+        tooltip: "Under construction — planned Drummer tempo (BPM)."
       },
       {
         defaultValue: "0.5",
@@ -5768,7 +5782,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Under construction — planned groove / swing amount.",
+        tooltip: "Under construction — planned groove / swing amount."
       },
       {
         defaultValue: "1",
@@ -5779,9 +5793,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Under construction — planned hit density / fill amount.",
+        tooltip: "Under construction — planned hit density / fill amount."
       },
-    ],
+    ]
   },
   // Under construction: Arp (Musical shelf).
   arp: {
@@ -5812,7 +5826,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Under construction — planned arpeggiator pattern mode.",
+        tooltip: "Under construction — planned arpeggiator pattern mode."
       },
       {
         defaultValue: "8",
@@ -5823,7 +5837,7 @@ const nodeGraphModuleDefinitions = (
         min: "0.25",
         step: "any",
         unit: "Hz",
-        tooltip: "Under construction — planned arp step rate (or clock divide).",
+        tooltip: "Under construction — planned arp step rate (or clock divide)."
       },
       {
         defaultValue: "1",
@@ -5834,9 +5848,9 @@ const nodeGraphModuleDefinitions = (
         min: "1",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Under construction — planned octave range of the arpeggio.",
+        tooltip: "Under construction — planned octave range of the arpeggio."
       },
-    ],
+    ]
   },
   // Under construction: GM Electric Piano 1 = program 5 (Sample Player).
   ePiano: {
@@ -5861,7 +5875,7 @@ const nodeGraphModuleDefinitions = (
         min: "1",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Under construction — GM program (5 = Electric Piano 1).",
+        tooltip: "Under construction — GM program (5 = Electric Piano 1)."
       },
       {
         defaultValue: "1",
@@ -5873,9 +5887,9 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         modClamp: false,
-        tooltip: "Under construction — output level.",
+        tooltip: "Under construction — output level."
       },
-    ],
+    ]
   },
   // Under construction: GM percussion = channel 10 (Sample Player).
   percussion: {
@@ -5900,7 +5914,7 @@ const nodeGraphModuleDefinitions = (
         min: "1",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Under construction — GM MIDI channel (10 = percussion / drum kit).",
+        tooltip: "Under construction — GM MIDI channel (10 = percussion / drum kit)."
       },
       {
         defaultValue: "1",
@@ -5911,7 +5925,7 @@ const nodeGraphModuleDefinitions = (
         min: "1",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Under construction — drum kit program on the percussion channel (1 = Standard Kit).",
+        tooltip: "Under construction — drum kit program on the percussion channel (1 = Standard Kit)."
       },
       {
         defaultValue: "1",
@@ -5923,9 +5937,9 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         modClamp: false,
-        tooltip: "Under construction — output level.",
+        tooltip: "Under construction — output level."
       },
-    ],
+    ]
   },
   cookbookFilter: {
     planRole: "processor",
@@ -5949,7 +5963,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       {
         defaultValue: "1000",
@@ -5962,7 +5976,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "0 allowed. Circuit floors tiny values for coefficient stability only.",
+        tooltip: "0 allowed. Circuit floors tiny values for coefficient stability only."
       },
       {
         constraint: "cpu",
@@ -5973,7 +5987,7 @@ const nodeGraphModuleDefinitions = (
         mid: "2",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       {
         defaultValue: "1",
@@ -5983,7 +5997,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0.1",
         nonlinearSlider: false,
-        step: "any",
+        step: "any"
       },
       {
         defaultValue: "0",
@@ -5995,9 +6009,9 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         showSign: true,
         step: "any",
-        unit: "dB",
+        unit: "dB"
       },
-    ],
+    ]
   },
   // Defacto active ladder (Robin Schmidt RS-MET). Real Hz cutoff — no FMD 0–1 map.
   activeFilter: nodeGraphActiveFilterDefinition,
@@ -6013,7 +6027,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0.5", key: "frequency", label: "Frequency", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0.2", key: "resonance", label: "Resonance", max: "1", mid: "0.2", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0", key: "chaos", label: "Chaos", max: "1", mid: "0.1", min: "0", nonlinearSlider: false, step: "any" },
-    ],
+    ]
   },
   superloveFilter: {
     planRole: "processor",
@@ -6036,12 +6050,12 @@ const nodeGraphModuleDefinitions = (
         mid: "1.5",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       { defaultValue: "0.5", key: "frequency", label: "Frequency", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0.2", key: "resonance", label: "Resonance", max: "1", mid: "0.2", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0.5", key: "chaos", label: "Chaos", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
-    ],
+    ]
   },
   chaoticPhaseLockingFilter: {
     planRole: "processor",
@@ -6055,13 +6069,13 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0.5", key: "frequency", label: "Frequency", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0.2", key: "resonance", label: "Resonance", max: "1", mid: "0.2", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "1", key: "chaos", label: "Chaos", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
-    ],
+    ]
   },
   // Complex 2-pole ring: ping-stable, decay in seconds, rings at Frequency. Not the character Resonator Filter.
   modeResonator: {
     planRole: "processor",
-    inputs: ["In", "Trigger", "0.1V/Oct", "f"],
-    inputLabels: { "0.1V/Oct": "0.1V", f: "f" },
+    inputs: ["In", "Trigger", "0.1V/Oct"],
+    inputLabels: { "0.1V/Oct": "0.1V" },
     outputs: ["Out"],
     parameters: [
       {
@@ -6076,7 +6090,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         tooltip:
-          "Rings at this frequency: complex poles at r·e^{±jω} with ω = 2πf/fs. After a ping you hear a pure tone at f (not a filter cutoff that only emphasizes audio).",
+          "Rings at this frequency: complex poles at r·e^{±jω} with ω = 2πf/fs. After a ping you hear a pure tone at f (not a filter cutoff that only emphasizes audio)."
       },
       {
         defaultValue: "1",
@@ -6090,7 +6104,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "s",
         tooltip:
-          "Time in seconds for the ring envelope to fall to 1/e (~37%). Meaningful seconds: 0.1 = short pluck, 1 = long metallic, 10 = very long. Hold forces undamped (r = 1).",
+          "Time in seconds for the ring envelope to fall to 1/e (~37%). Meaningful seconds: 0.1 = short pluck, 1 = long metallic, 10 = very long. Hold forces undamped (r = 1)."
       },
       {
         choices: ["Off", "On"],
@@ -6105,7 +6119,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "On = undamped ring (r = 1): after excitation the mode holds a pure sinusoid forever.",
+        tooltip: "On = undamped ring (r = 1): after excitation the mode holds a pure sinusoid forever."
       },
       {
         defaultValue: "1",
@@ -6117,15 +6131,15 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         modClamp: false,
-        tooltip: "Impulse-normalized level: peak ring envelope stays roughly constant across Frequency × Decay.",
+        tooltip: "Impulse-normalized level: peak ring envelope stays roughly constant across Frequency × Decay."
       },
-    ],
+    ]
   },
   // Delay+feedback comb: pitch from delay D=fs/f0. Sibling of Mode Resonator (poles vs delay loop).
   combResonator: {
     planRole: "processor",
-    inputs: ["In", "Trigger", "0.1V/Oct", "f"],
-    inputLabels: { "0.1V/Oct": "0.1V", f: "f" },
+    inputs: ["In", "Trigger", "0.1V/Oct"],
+    inputLabels: { "0.1V/Oct": "0.1V" },
     outputs: ["Out"],
     parameters: [
       {
@@ -6140,7 +6154,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         tooltip:
-          "Pitch of the comb: delay D = fs/f (fractional). Integer delay line + 1st-order Thiran allpass for sub-sample accuracy (|H|=1, so Decay stays honest). Feedback+ peaks at k·f; Feedback− at (k+½)·f. Track with 0.1V/Oct + f.",
+          "Pitch of the comb: delay D = fs/f (fractional). Integer delay line + 1st-order Thiran allpass for sub-sample accuracy (|H|=1, so Decay stays honest). Feedback+ peaks at k·f; Feedback− at (k+½)·f. Track with 0.1V/Oct + f."
       },
       {
         defaultValue: "1",
@@ -6154,7 +6168,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "s",
         tooltip:
-          "Feedback only: wall-clock seconds for the loop envelope to fall to 1/e. g = exp(−D/(τ·fs)) with D = fs/f. Hold ≈ undamped. Unused in Feedforward.",
+          "Feedback only: wall-clock seconds for the loop envelope to fall to 1/e. g = exp(−D/(τ·fs)) with D = fs/f. Hold ≈ undamped. Unused in Feedforward."
       },
       {
         choices: ["Off", "On"],
@@ -6169,7 +6183,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Feedback only: g ≈ 1 (sustained loop). No loop DC block (keeps Decay accurate). Positive polarity + DC input can accumulate — HP after if needed.",
+        tooltip: "Feedback only: g ≈ 1 (sustained loop). No loop DC block (keeps Decay accurate). Positive polarity + DC input can accumulate — HP after if needed."
       },
       {
         defaultValue: "0",
@@ -6181,7 +6195,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         tooltip:
-          "Feedback only: one-pole lowpass in the loop (Karplus–Strong style). 0 = bright pure comb, 1 = dark / faster high-partial loss.",
+          "Feedback only: one-pole lowpass in the loop (Karplus–Strong style). 0 = bright pure comb, 1 = dark / faster high-partial loss."
       },
       {
         choices: ["Feedback", "Feedforward"],
@@ -6197,7 +6211,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Feedback = recursive comb (resonates / can sustain). Feedforward = FIR color only (notches/peaks, no self-resonance).",
+          "Feedback = recursive comb (resonates / can sustain). Feedforward = FIR color only (notches/peaks, no self-resonance)."
       },
       {
         choices: ["+", "−"],
@@ -6212,7 +6226,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "+ = delayed term added (peaks at k·f). − = subtracted (peaks at odd half-multiples).",
+        tooltip: "+ = delayed term added (peaks at k·f). − = subtracted (peaks at odd half-multiples)."
       },
       {
         defaultValue: "1",
@@ -6223,7 +6237,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Feedforward only: amount of delayed input mixed in (0 = dry, 1 = full comb color). Ignored in Feedback.",
+        tooltip: "Feedforward only: amount of delayed input mixed in (0 = dry, 1 = full comb color). Ignored in Feedback."
       },
       {
         defaultValue: "1",
@@ -6235,9 +6249,9 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         modClamp: false,
-        tooltip: "Input scale before the comb (impulse / audio / Trigger).",
+        tooltip: "Input scale before the comb (impulse / audio / Trigger)."
       },
-    ],
+    ]
   },
   // Under construction: classic modulation / spectral FX shells (dry passthrough).
   phaser: {
@@ -6254,7 +6268,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Under construction. Planned: LFO rate for all-pass notch sweep.",
+        tooltip: "Under construction. Planned: LFO rate for all-pass notch sweep."
       },
       {
         defaultValue: "0.5",
@@ -6264,7 +6278,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Under construction. Planned: modulation depth of center frequency.",
+        tooltip: "Under construction. Planned: modulation depth of center frequency."
       },
       {
         constraint: "cpu",
@@ -6275,7 +6289,7 @@ const nodeGraphModuleDefinitions = (
         mid: "4",
         min: "1",
         step: "1",
-        tooltip: "Under construction. Planned: number of all-pass stages.",
+        tooltip: "Under construction. Planned: number of all-pass stages."
       },
       {
         defaultValue: "0.5",
@@ -6285,7 +6299,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Under construction. Planned: regenerative feedback.",
+        tooltip: "Under construction. Planned: regenerative feedback."
       },
       {
         defaultValue: "0.5",
@@ -6295,9 +6309,9 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Under construction. Planned: dry/wet.",
+        tooltip: "Under construction. Planned: dry/wet."
       },
-    ],
+    ]
   },
   flanger: {
     planRole: "processor",
@@ -6313,7 +6327,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Under construction. Planned: LFO rate for delay modulation.",
+        tooltip: "Under construction. Planned: LFO rate for delay modulation."
       },
       {
         defaultValue: "0.5",
@@ -6323,7 +6337,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Under construction. Planned: delay-time modulation amount.",
+        tooltip: "Under construction. Planned: delay-time modulation amount."
       },
       {
         defaultValue: "0.005",
@@ -6335,7 +6349,7 @@ const nodeGraphModuleDefinitions = (
         min: "0.0001",
         step: "any",
         unit: "s",
-        tooltip: "Under construction. Planned: base delay (short comb region).",
+        tooltip: "Under construction. Planned: base delay (short comb region)."
       },
       {
         defaultValue: "0.5",
@@ -6345,7 +6359,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Under construction. Planned: regenerative feedback.",
+        tooltip: "Under construction. Planned: regenerative feedback."
       },
       {
         defaultValue: "0.5",
@@ -6355,9 +6369,9 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Under construction. Planned: dry/wet.",
+        tooltip: "Under construction. Planned: dry/wet."
       },
-    ],
+    ]
   },
   chorus: {
     planRole: "processor",
@@ -6373,7 +6387,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "Under construction. Planned: LFO rate.",
+        tooltip: "Under construction. Planned: LFO rate."
       },
       {
         defaultValue: "0.4",
@@ -6383,7 +6397,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.4",
         min: "0",
         step: "any",
-        tooltip: "Under construction. Planned: delay modulation depth.",
+        tooltip: "Under construction. Planned: delay modulation depth."
       },
       {
         constraint: "cpu",
@@ -6394,7 +6408,7 @@ const nodeGraphModuleDefinitions = (
         mid: "2",
         min: "1",
         step: "1",
-        tooltip: "Under construction. Planned: parallel modulated delay voices.",
+        tooltip: "Under construction. Planned: parallel modulated delay voices."
       },
       {
         defaultValue: "0.5",
@@ -6404,9 +6418,9 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Under construction. Planned: dry/wet.",
+        tooltip: "Under construction. Planned: dry/wet."
       },
-    ],
+    ]
   },
   bode: {
     planRole: "processor",
@@ -6422,7 +6436,7 @@ const nodeGraphModuleDefinitions = (
         min: "-5000",
         step: "any",
         unit: "Hz",
-        tooltip: "Frequency shift Δf in Hz (through-zero). Adds Δ to every partial — breaks harmonic ratios (not pitch shift).",
+        tooltip: "Frequency shift Δf in Hz (through-zero). Adds Δ to every partial — breaks harmonic ratios (not pitch shift)."
       },
       {
         defaultValue: "0",
@@ -6433,7 +6447,7 @@ const nodeGraphModuleDefinitions = (
         min: "-50",
         step: "any",
         unit: "Hz",
-        tooltip: "Fine shift offset in Hz, added to Shift.",
+        tooltip: "Fine shift offset in Hz, added to Shift."
       },
       {
         defaultValue: "0",
@@ -6443,7 +6457,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "any",
-        tooltip: "Regenerative feedback of the shifted signal into the input (classic Bode spice).",
+        tooltip: "Regenerative feedback of the shifted signal into the input (classic Bode spice)."
       },
       {
         defaultValue: "1",
@@ -6453,9 +6467,9 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Dry/wet blend. 1 = fully shifted.",
+        tooltip: "Dry/wet blend. 1 = fully shifted."
       },
-    ],
+    ]
   },
   phaseDisperse: {
     planRole: "processor",
@@ -6474,7 +6488,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "Hz",
         tooltip:
-          "Allpass corner (group-delay focus). Default slider 0…20 kHz — not hard-clamped; widen range in parameter settings if you want.",
+          "Allpass corner (group-delay focus). Default slider 0…20 kHz — not hard-clamped; widen range in parameter settings if you want."
       },
       {
         // Cascade depth: each step is one 2nd-order allpass (biquad). Cost is
@@ -6488,7 +6502,7 @@ const nodeGraphModuleDefinitions = (
         min: "1",
         step: "1",
         tooltip:
-          "Number of cascaded 2nd-order allpass stages (1…64). More filters = deeper group-delay smear, higher CPU. Legacy patches with Amount 0…1 are remapped here.",
+          "Number of cascaded 2nd-order allpass stages (1…64). More filters = deeper group-delay smear, higher CPU. Legacy patches with Amount 0…1 are remapped here."
       },
       {
         defaultValue: "0.5",
@@ -6498,9 +6512,9 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Q of each allpass: high Pinch concentrates group delay in a narrow band around Frequency.",
+        tooltip: "Q of each allpass: high Pinch concentrates group delay in a narrow band around Frequency."
       },
-    ],
+    ]
   },
   stftBlur: {
     planRole: "processor",
@@ -6515,7 +6529,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Temporal spectral smear: holds magnitudes across STFT frames (0 = instant, 1 = long wash / freeze-ish).",
+        tooltip: "Temporal spectral smear: holds magnitudes across STFT frames (0 = instant, 1 = long wash / freeze-ish)."
       },
       {
         defaultValue: "0",
@@ -6525,7 +6539,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         step: "any",
-        tooltip: "Smear energy across neighboring FFT bins (0 = sharp spectrum, 1 = wide frequency wash).",
+        tooltip: "Smear energy across neighboring FFT bins (0 = sharp spectrum, 1 = wide frequency wash)."
       },
       {
         constraint: "cpu",
@@ -6536,7 +6550,7 @@ const nodeGraphModuleDefinitions = (
         mid: "2048",
         min: "256",
         step: "1",
-        tooltip: "STFT window length (snapped to power of two, 256–4096). Larger = finer freq, more latency/CPU.",
+        tooltip: "STFT window length (snapped to power of two, 256–4096). Larger = finer freq, more latency/CPU."
       },
       {
         defaultValue: "1",
@@ -6546,15 +6560,15 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Dry/wet. Dry is delayed to match STFT latency so the blend stays time-aligned.",
+        tooltip: "Dry/wet. Dry is delayed to match STFT latency so the blend stays time-aligned."
       },
-    ],
+    ]
   },
   // Under construction: physical waveguide model (beyond Comb). Passthrough until implemented.
   waveguide: {
     planRole: "processor",
-    inputs: ["In", "Trigger", "0.1V/Oct", "f"],
-    inputLabels: { "0.1V/Oct": "0.1V", f: "f" },
+    inputs: ["In", "Trigger", "0.1V/Oct"],
+    inputLabels: { "0.1V/Oct": "0.1V" },
     outputs: ["Out"],
     parameters: [
       {
@@ -6568,7 +6582,7 @@ const nodeGraphModuleDefinitions = (
         min: "10",
         step: "any",
         unit: "Hz",
-        tooltip: "Under construction. Planned: waveguide pitch from loop delay (like Comb, with physical loss/dispersion).",
+        tooltip: "Under construction. Planned: waveguide pitch from loop delay (like Comb, with physical loss/dispersion)."
       },
       {
         defaultValue: "1",
@@ -6581,7 +6595,7 @@ const nodeGraphModuleDefinitions = (
         min: "0.001",
         step: "any",
         unit: "s",
-        tooltip: "Under construction. Planned: wall-clock seconds to 1/e of the waveguide loop envelope.",
+        tooltip: "Under construction. Planned: wall-clock seconds to 1/e of the waveguide loop envelope."
       },
       {
         defaultValue: "0.25",
@@ -6592,7 +6606,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Under construction. Planned: termination / loop lowpass loss (brightness vs sustain).",
+        tooltip: "Under construction. Planned: termination / loop lowpass loss (brightness vs sustain)."
       },
       {
         defaultValue: "0",
@@ -6603,7 +6617,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Under construction. Planned: stiffness / allpass dispersion (inharmonic partials, bars/stiff strings).",
+        tooltip: "Under construction. Planned: stiffness / allpass dispersion (inharmonic partials, bars/stiff strings)."
       },
       {
         defaultValue: "1",
@@ -6615,9 +6629,9 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         modClamp: false,
-        tooltip: "Under construction. Currently scales dry passthrough only.",
+        tooltip: "Under construction. Currently scales dry passthrough only."
       },
-    ],
+    ]
   },
   resonatorFilter: {
     planRole: "processor",
@@ -6640,12 +6654,12 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       { defaultValue: "0.5", key: "frequency", label: "Frequency", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0.2", key: "resonance", label: "Resonance", max: "1", mid: "0.2", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0", key: "chaos", label: "Chaos", max: "1", mid: "0.1", min: "0", nonlinearSlider: false, step: "any" },
-    ],
+    ]
   },
   humanFilter: {
     planRole: "processor",
@@ -6668,12 +6682,12 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       { defaultValue: "0.5", key: "frequency", label: "Frequency", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0.2", key: "resonance", label: "Resonance", max: "1", mid: "0.2", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0", key: "chaos", label: "Chaos", max: "1", mid: "0.1", min: "0", nonlinearSlider: false, step: "any" },
-    ],
+    ]
   },
   pulseExplosion: {
     planRole: "processor",
@@ -6689,7 +6703,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0.3", key: "lowAmplitude", label: "Low Amplitude", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "1", key: "highAmplitude", label: "High Amplitude", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0", key: "seed", label: "Seed", max: "999999", mid: "1", min: "0", nonlinearSlider: false, step: "1" },
-    ],
+    ]
   },
   flowerChildFilter: {
     planRole: "processor",
@@ -6712,7 +6726,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1.5",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       {
         defaultValue: "0.5",
@@ -6722,7 +6736,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
-        step: "any",
+        step: "any"
       },
       {
         defaultValue: "0.2",
@@ -6732,7 +6746,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.2",
         min: "0",
         nonlinearSlider: false,
-        step: "any",
+        step: "any"
       },
       {
         defaultValue: "0",
@@ -6742,9 +6756,9 @@ const nodeGraphModuleDefinitions = (
         mid: "0.1",
         min: "0",
         nonlinearSlider: false,
-        step: "any",
+        step: "any"
       },
-    ],
+    ]
   },
   ladderFilter: {
     planRole: "processor",
@@ -6768,7 +6782,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       {
         defaultValue: "1000",
@@ -6780,7 +6794,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1000",
         min: "0",
         step: "any",
-        unit: "Hz",
+        unit: "Hz"
       },
       {
         defaultValue: "0.2",
@@ -6791,7 +6805,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.2",
         min: "0",
         nonlinearSlider: false,
-        step: "any",
+        step: "any"
       },
       {
         constraint: "cpu",
@@ -6802,9 +6816,9 @@ const nodeGraphModuleDefinitions = (
         mid: "4",
         min: "1",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
-    ],
+    ]
   },
   tb303Filter: {
     planRole: "processor",
@@ -6828,7 +6842,7 @@ const nodeGraphModuleDefinitions = (
         mid: "4",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       {
         defaultValue: "1000",
@@ -6841,7 +6855,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "0 allowed (frozen). No hardware 200 Hz floor — musical range is metaparameters.",
+        tooltip: "0 allowed (frozen). No hardware 200 Hz floor — musical range is metaparameters."
       },
       {
         defaultValue: "0",
@@ -6853,7 +6867,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        unit: "%",
+        unit: "%"
       },
       {
         defaultValue: "0",
@@ -6866,9 +6880,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        unit: "dB",
+        unit: "dB"
       },
-    ],
+    ]
   },
   delayEffect: {
     planRole: "processor",
@@ -6881,12 +6895,12 @@ const nodeGraphModuleDefinitions = (
       Mono: "Mix",
       Out: "Mix",
       Wet: "Mix",
-      Dry: "Mix",
+      Dry: "Mix"
     },
     outputLabels: {
       Mix: "Mix M",
       Left: "Mix L",
-      Right: "Mix R",
+      Right: "Mix R"
     },
     outputs: ["Mix", "Left", "Right"],
     parameters: [
@@ -6900,7 +6914,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Regen into the delay line. Range 0–1 (clamped in DSP so tails stay stable).",
+        tooltip: "Regen into the delay line. Range 0–1 (clamped in DSP so tails stay stable)."
       },
       { defaultValue: "0.35", key: "mix", label: "Mix", max: "1", mid: "0.35", min: "0", nonlinearSlider: false, step: "any" },
       {
@@ -6917,7 +6931,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Delay-time modulator shape (same family as Ping Pong / SoEmReverb). Parabol = smooth cyclic wow. Random Walk = filtered stepped drift. FBM = fractal Brownian organic flutter.",
+          "Delay-time modulator shape (same family as Ping Pong / SoEmReverb). Parabol = smooth cyclic wow. Random Walk = filtered stepped drift. FBM = fractal Brownian organic flutter."
       },
       { defaultValue: "0.02", key: "modAmount", label: "Mod", max: "0.5", maxDigits: 5, mid: "0.02", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0.1", key: "modRate", kind: "frequency", label: "Mod Rate", max: "90", maxDigits: 5, mid: "0.1", min: "0", step: "any", unit: "Hz" },
@@ -6936,7 +6950,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Delay-line fractional read. Linear is cheapest; Hermite (Catmull-Rom) is smoother under modulation / pitch bend.",
+          "Delay-line fractional read. Linear is cheapest; Hermite (Catmull-Rom) is smoother under modulation / pitch bend."
       },
       {
         defaultValue: "1",
@@ -6947,7 +6961,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Gain into the delay (before the delay line / feedback loop).",
+        tooltip: "Gain into the delay (before the delay line / feedback loop)."
       },
       {
         defaultValue: "1",
@@ -6958,9 +6972,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Output gain after dry/wet mix (Mix M / Mix L / Mix R). Legacy patches with Level map here.",
+        tooltip: "Output gain after dry/wet mix (Mix M / Mix L / Mix R). Legacy patches with Level map here."
       },
-    ],
+    ]
   },
   pingPongDelay: {
     planRole: "processor",
@@ -6980,7 +6994,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Left", "Right", "Mod L", "Mod R"],
     outputLabels: {
       "Mod L": "Mod L",
-      "Mod R": "Mod R",
+      "Mod R": "Mod R"
     },
     parameters: [
       // Tap = Numer/Denom × whole note (4 beats). Numer=1 Denom=16 → 1/16 note.
@@ -6998,7 +7012,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Numerator of Numer/Denom × whole note. Numer=0 → no delay. Examples with Denom: 1/4 note = 1÷4, 1/8 = 1÷8, 1/16 = 1÷16, 1/32 = 1÷32.",
+          "Numerator of Numer/Denom × whole note. Numer=0 → no delay. Examples with Denom: 1/4 note = 1÷4, 1/8 = 1÷8, 1/16 = 1÷16, 1/32 = 1÷32."
       },
       {
         control: "number",
@@ -7013,7 +7027,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Denominator of Numer/Denom × whole note. Denom=0 is treated as 1 in DSP. At Numer=1: Denom 4=¼, 8=⅛, 16=1/16, 32=1/32, 64=1/64.",
+          "Denominator of Numer/Denom × whole note. Denom=0 is treated as 1 in DSP. At Numer=1: Denom 4=¼, 8=⅛, 16=1/16, 32=1/32, 64=1/64."
       },
       {
         choices: ["Normal", "Dotted", "Triplet"],
@@ -7029,7 +7043,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Normal = Numer/Denom as written. Dotted = 1.5× that length. Triplet = 2/3× (three fit in two normals).",
+          "Normal = Numer/Denom as written. Dotted = 1.5× that length. Triplet = 2/3× (three fit in two normals)."
       },
       {
         defaultValue: "0",
@@ -7046,7 +7060,7 @@ const nodeGraphModuleDefinitions = (
         unit: "ms",
         tooltip:
           "Static stereo offset (ms): adds to the Right tap relative to the tempo base (Left stays on base + LFO). "
-          + "0 = L/R share the same base time. Nonlinear near 0 for fine control.",
+          + "0 = L/R share the same base time. Nonlinear near 0 for fine control."
       },
       {
         defaultValue: "0",
@@ -7061,7 +7075,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "ms",
         tooltip:
-          "LFO depth: max L/R delay drift (ms) around each side’s base (base + Offset on R). Independent LFO on each side swings −amp…+amp. 0 = no LFO motion.",
+          "LFO depth: max L/R delay drift (ms) around each side’s base (base + Offset on R). Independent LFO on each side swings −amp…+amp. 0 = no LFO motion."
       },
       {
         choices: ["Parabol", "Random Walk", "FBM"],
@@ -7077,7 +7091,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Independent L and R delay-time modulators. Parabol = smooth cyclic wow. Random Walk = filtered stepped drift. FBM = fractal Brownian organic flutter.",
+          "Independent L and R delay-time modulators. Parabol = smooth cyclic wow. Random Walk = filtered stepped drift. FBM = fractal Brownian organic flutter."
       },
       {
         defaultValue: "0.35",
@@ -7089,7 +7103,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "Hz",
-        tooltip: "How fast each side’s delay drifts within Offset. 0 freezes current L/R times.",
+        tooltip: "How fast each side’s delay drifts within Offset. 0 freezes current L/R times."
       },
       {
         defaultValue: "0.25",
@@ -7099,7 +7113,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.25",
         min: "0",
         step: "any",
-        tooltip: "Detunes L vs R LFO rates so the two delays don’t lock together.",
+        tooltip: "Detunes L vs R LFO rates so the two delays don’t lock together."
       },
       {
         defaultValue: "1",
@@ -7110,7 +7124,7 @@ const nodeGraphModuleDefinitions = (
         min: "0.01",
         step: "any",
         tooltip:
-          "SoEm-style soft clip in the feedback path (tape grunge). Lower = harder saturation; higher = cleaner.",
+          "SoEm-style soft clip in the feedback path (tape grunge). Lower = harder saturation; higher = cleaner."
       },
       {
         defaultValue: "8000",
@@ -7122,7 +7136,7 @@ const nodeGraphModuleDefinitions = (
         min: "20",
         step: "any",
         unit: "Hz",
-        tooltip: "Passive one-pole lowpass in the feedback loop (darkens repeats).",
+        tooltip: "Passive one-pole lowpass in the feedback loop (darkens repeats)."
       },
       {
         defaultValue: "20",
@@ -7134,7 +7148,7 @@ const nodeGraphModuleDefinitions = (
         min: "1",
         step: "any",
         unit: "Hz",
-        tooltip: "Passive one-pole highpass in the feedback loop (thins mud / DC).",
+        tooltip: "Passive one-pole highpass in the feedback loop (thins mud / DC)."
       },
       // No code clamp below this — soft clip (Saturate) is the limiter. >1 = self-osc / tape cook.
       {
@@ -7147,7 +7161,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         tooltip:
-          "Feedback amount into the saturated tape loop. Not hard-capped in DSP — Saturate soft-clips the path. >1 can self-oscillate.",
+          "Feedback amount into the saturated tape loop. Not hard-capped in DSP — Saturate soft-clips the path. >1 can self-oscillate."
       },
       { defaultValue: "0.35", key: "mix", label: "Mix", max: "1", mid: "0.35", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "1", key: "level", label: "Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
@@ -7165,9 +7179,9 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "1",
         tooltip:
-          "Delay-line fractional read. Linear is cheapest; Hermite (Catmull-Rom) is smoother under LFO drift / pitch bend.",
+          "Delay-line fractional read. Linear is cheapest; Hermite (Catmull-Rom) is smoother under LFO drift / pitch bend."
       },
-    ],
+    ]
   },
   wallDelay: {
     planRole: "processor",
@@ -7187,7 +7201,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0.6", key: "reflectivity", label: "Reflectivity", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any", tooltip: "1 = mirror-like: each bounce reflects off the room's real surface normal, stays coherent, and loses little energy. 0 = rough/absorptive: each bounce scatters into a random direction and energy drops fast -- reads as more diffusion. Also sets the shared diffusion cascade's feedback (1 - Reflectivity)." },
       { defaultValue: "0.5", key: "mix", label: "Mix", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "1", key: "level", label: "Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
-    ],
+    ]
   },
   reverbEffect: {
     planRole: "processor",
@@ -7205,7 +7219,7 @@ const nodeGraphModuleDefinitions = (
       "Mono Mix": "Mix L",
       "Left Dry": "Dry L",
       "Right Dry": "Dry R",
-      "Mono Dry": "Dry L",
+      "Mono Dry": "Dry L"
     },
     // Dry before Mix (space FX outlet order).
     outputs: ["Dry L", "Dry R", "Mix L", "Mix R"],
@@ -7219,7 +7233,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0.83", key: "lfoBaseSpeed", label: "LFO Speed", max: "1", mid: "0.83", min: "0", nonlinearSlider: false, step: "any", tooltip: "Base speed of delay modulation." },
       { defaultValue: "0.001", key: "lfoVariation", label: "LFO Var", max: "1", mid: "0.001", min: "0", nonlinearSlider: false, step: "any", tooltip: "Randomized variation in delay modulation." },
       { control: "number", defaultValue: "0", key: "seed", label: "Seed", linearSmoothing: false, max: "99999", maxDigits: 1, mid: "1", min: "0", nonlinearSlider: false, step: "1", tooltip: "Randomizes the delay line pattern. Same seed always reproduces the same reverb character." },
-    ],
+    ]
   },
   soemReverb: {
     planRole: "processor",
@@ -7242,7 +7256,7 @@ const nodeGraphModuleDefinitions = (
       "Mono Mix": "Mix L",
       "Left Dry": "Dry L",
       "Right Dry": "Dry R",
-      "Mono Dry": "Dry L",
+      "Mono Dry": "Dry L"
     },
     outputs: ["Dry L", "Dry R", "Mix L", "Mix R"],
     parameters: [
@@ -7259,7 +7273,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         min: "0",
         step: "1",
-        tooltip: "Off = free Echo Time in seconds. On = one beat-derived echo base for both echo L/R (X/Y × Normal|Dotted|Triplet + offset). Diffusion stays free-time.",
+        tooltip: "Off = free Echo Time in seconds. On = one beat-derived echo base for both echo L/R (X/Y × Normal|Dotted|Triplet + offset). Diffusion stays free-time."
       },
       {
         defaultValue: "0.35",
@@ -7270,7 +7284,7 @@ const nodeGraphModuleDefinitions = (
         min: "0.0001",
         step: "any",
         unit: "s",
-        tooltip: "Free-time echo base (seconds). Ignored when Tempo Sync is On.",
+        tooltip: "Free-time echo base (seconds). Ignored when Tempo Sync is On."
       },
       {
         control: "number",
@@ -7283,7 +7297,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "1",
-        tooltip: "Numerator of the tempo-synced echo fraction (X/Y of a whole note). Used when Tempo Sync is On.",
+        tooltip: "Numerator of the tempo-synced echo fraction (X/Y of a whole note). Used when Tempo Sync is On."
       },
       {
         control: "number",
@@ -7296,7 +7310,7 @@ const nodeGraphModuleDefinitions = (
         mid: "4",
         min: "0",
         step: "1",
-        tooltip: "Denominator of the tempo-synced echo fraction. X/0 is treated as X/1.",
+        tooltip: "Denominator of the tempo-synced echo fraction. X/0 is treated as X/1."
       },
       {
         choices: ["Normal", "Dotted", "Triplet"],
@@ -7309,7 +7323,7 @@ const nodeGraphModuleDefinitions = (
         max: "2",
         min: "0",
         step: "1",
-        tooltip: "Normal = X/Y. Dotted = 1.5×. Triplet = 2/3×. Used when Tempo Sync is On.",
+        tooltip: "Normal = X/Y. Dotted = 1.5×. Triplet = 2/3×. Used when Tempo Sync is On."
       },
       {
         defaultValue: "0",
@@ -7321,7 +7335,7 @@ const nodeGraphModuleDefinitions = (
         min: "-500",
         step: "any",
         unit: "ms",
-        tooltip: "Added on top of free or tempo-synced echo base (ms). Good LFO target for push/pull around the beat.",
+        tooltip: "Added on top of free or tempo-synced echo base (ms). Good LFO target for push/pull around the beat."
       },
       { defaultValue: "0.5", key: "recycle", label: "Recycle", max: "2", mid: "0.5", min: "0", step: "any" },
       { constraint: "cpu", control: "number", defaultValue: "10", key: "numDelays", label: "Num Delays", max: "12", min: "0", step: "1" },
@@ -7342,7 +7356,7 @@ const nodeGraphModuleDefinitions = (
         max: "2",
         min: "0",
         step: "1",
-        tooltip: "Delay-time modulator shape. Parabol = smooth cyclic pitch bend. Random Walk = filtered stepped drift. FBM = fractal Brownian motion (organic wow).",
+        tooltip: "Delay-time modulator shape. Parabol = smooth cyclic pitch bend. Random Walk = filtered stepped drift. FBM = fractal Brownian motion (organic wow)."
       },
       { choices: ["PostDelay", "PreDelay", "Slapback"], defaultValue: "0", displayChoices: true, key: "echoMode", label: "Delay Mode", max: "2", min: "0", step: "1" },
       {
@@ -7356,7 +7370,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         min: "0",
         step: "1",
-        tooltip: "Off = parallel echo L/R (same side). On = cross-feed delayed tails (L→R→L bounce). Same echo base time on both sides.",
+        tooltip: "Off = parallel echo L/R (same side). On = cross-feed delayed tails (L→R→L bounce). Same echo base time on both sides."
       },
       { choices: ["Mod Off", "Mod On"], defaultValue: "1", displayChoices: true, key: "doModulateEcho", label: "Mod Echo", max: "1", min: "0", step: "1" },
       { defaultValue: "1", key: "saturate", label: "Saturate", max: "4", mid: "1", min: "0.01", step: "any" },
@@ -7369,7 +7383,7 @@ const nodeGraphModuleDefinitions = (
       { constraint: "cpu", defaultValue: "2", key: "bandStages", label: "Band Stages", max: "5", min: "0", step: "1" },
       { defaultValue: "1", key: "duckLimit", label: "Ducking", max: "1", mid: "1", min: "0.01", step: "any" },
       { defaultValue: "0.04", key: "duckRelease", label: "Duck Rel", max: "2", mid: "0.04", min: "0.001", step: "any", unit: "s" },
-    ],
+    ]
   },
   pll: {
     planRole: "processor",
@@ -7393,7 +7407,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "5", key: "offset", label: "Offset", max: "10", mid: "5", min: "0", nonlinearSlider: false, step: "0.01" },
       { choices: ["XOR", "RS Flip", "PFD"], defaultValue: "1", displayChoices: true, divideChoicesVisibly: true, key: "type", label: "PC Type", linearSmoothing: false, max: "2", mid: "1", min: "0", nonlinearSlider: false, step: "1" },
       { defaultValue: "10", key: "frequ", kind: "frequency", label: "LPF Cutoff", max: "200", mid: "10", min: "0.1", step: "any", unit: "Hz" },
-    ],
+    ]
   },
   helmholtzPitch: {
     planRole: "monitor",
@@ -7410,7 +7424,7 @@ const nodeGraphModuleDefinitions = (
         renderer: "numberReadout",
         settingsSchema: "numberReadout",
         // Own Frequency out → LCD buffer (see capture buffer resolution).
-        source: { value: "Frequency" },
+        source: { value: "Frequency" }
       },
     ],
     displaySignals: [
@@ -7437,7 +7451,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1024",
         min: "128",
         step: "1",
-        tooltip: "Analysis window in samples (128–4096). Larger windows track lower frequencies but update more slowly. Min pitch ≈ 2×sampleRate/window (e.g. 1024 @ 48 kHz ≈ 94 Hz; 4096 ≈ 23 Hz).",
+        tooltip: "Analysis window in samples (128–4096). Larger windows track lower frequencies but update more slowly. Min pitch ≈ 2×sampleRate/window (e.g. 1024 @ 48 kHz ≈ 94 Hz; 4096 ≈ 23 Hz)."
       },
       {
         defaultValue: "0.93",
@@ -7448,9 +7462,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "0.001",
         nonlinearSlider: false,
-        tooltip: "Fidelity (clarity) threshold 0…1. Below threshold Frequency/Gate report 0 (display shows —). 0 = accept everything; 1 = nearly never lock.",
+        tooltip: "Fidelity (clarity) threshold 0…1. Below threshold Frequency/Gate report 0 (display shows —). 0 = accept everything; 1 = nearly never lock."
       },
-    ],
+    ]
   },
   // Hard rate limit: max |Δ| per sample from up/down times in seconds.
   slewLimiter: {
@@ -7473,7 +7487,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "Seconds to climb full scale (+1). 0 = unlimited rise rate.",
+        tooltip: "Seconds to climb full scale (+1). 0 = unlimited rise rate."
       },
       {
         defaultValue: "0.20",
@@ -7486,9 +7500,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "Seconds to fall full scale (−1). 0 = unlimited fall rate.",
+        tooltip: "Seconds to fall full scale (−1). 0 = unlimited fall rate."
       },
-    ],
+    ]
   },
   // Mid/Side matrix (0.5 convention): M=(L+R)/2, S=(L−R)/2.
   midSideEncode: {
@@ -7506,7 +7520,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Linear gain on Mid after encode (default 1 = unity Mid for correlated L=R).",
+        tooltip: "Linear gain on Mid after encode (default 1 = unity Mid for correlated L=R)."
       },
       {
         defaultValue: "1",
@@ -7517,9 +7531,9 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Linear gain on Side after encode (default 1).",
+        tooltip: "Linear gain on Side after encode (default 1)."
       },
-    ],
+    ]
   },
   // IIR quadrature: I reference, Q ≈ +90°. Dual bus Mid → MidI, Side/In → SideQ / I / Q.
   // ~1 sample delay — not host-compensated.
@@ -7528,7 +7542,7 @@ const nodeGraphModuleDefinitions = (
     inputLabels: { In: "In", Mid: "Mid", Side: "Side" },
     inputs: ["In", "Mid", "Side"],
     outputs: ["I", "Q", "MidI", "SideQ"],
-    parameters: [],
+    parameters: []
   },
   // Look-ahead brickwall limiter. Look-ahead is an explicit delay
   // (ms + samples, modulatable) — no host delay compensation.
@@ -7551,7 +7565,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         unit: "dB",
-        tooltip: "Brickwall ceiling in dBFS. Peaks are held to this level (after look-ahead gain).",
+        tooltip: "Brickwall ceiling in dBFS. Peaks are held to this level (after look-ahead gain)."
       },
       {
         defaultValue: "5",
@@ -7565,7 +7579,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "ms",
         tooltip:
-          "Look-ahead delay in milliseconds (modulatable). Audio is delayed by this amount so gain can fall before peaks — not host-compensated. 0 = instantaneous limiting.",
+          "Look-ahead delay in milliseconds (modulatable). Audio is delayed by this amount so gain can fall before peaks — not host-compensated. 0 = instantaneous limiting."
       },
       {
         defaultValue: "0",
@@ -7576,7 +7590,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Extra look-ahead in samples (added to Look-ahead ms). Same idea as Sample Delay samples.",
+        tooltip: "Extra look-ahead in samples (added to Look-ahead ms). Same idea as Sample Delay samples."
       },
       {
         defaultValue: "0.2",
@@ -7589,7 +7603,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "ms",
-        tooltip: "How fast gain reduces when over ceiling (0 = instant).",
+        tooltip: "How fast gain reduces when over ceiling (0 = instant)."
       },
       {
         defaultValue: "100",
@@ -7602,9 +7616,9 @@ const nodeGraphModuleDefinitions = (
         min: "1",
         step: "any",
         unit: "ms",
-        tooltip: "How fast gain returns to unity after a peak (slow enough not to pump bass).",
+        tooltip: "How fast gain returns to unity after a peak (slow enough not to pump bass)."
       },
-    ],
+    ]
   },
   // Exponential approach: out += (in − out) * k with separate rise/fall k (0…1).
   // Same family as Speed Color Inertia; compare with Up/Down Slew for hard ramps.
@@ -7625,7 +7639,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        tooltip: "Rise coeff 0…1: fraction of remaining error closed each sample when going up. 1 = instant.",
+        tooltip: "Rise coeff 0…1: fraction of remaining error closed each sample when going up. 1 = instant."
       },
       {
         defaultValue: "0.005",
@@ -7635,9 +7649,9 @@ const nodeGraphModuleDefinitions = (
         mid: "0.05",
         min: "0",
         step: "any",
-        tooltip: "Fall coeff 0…1 when going down. Small = slow settle (inertia).",
+        tooltip: "Fall coeff 0…1 when going down. Small = slow settle (inertia)."
       },
-    ],
+    ]
   },
   sampleHold: {
     planRole: "processor",
@@ -7656,7 +7670,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "-1",
         nonlinearSlider: false,
-        step: "any",
+        step: "any"
       },
       {
         defaultValue: "0",
@@ -7668,9 +7682,9 @@ const nodeGraphModuleDefinitions = (
         mid: "10",
         min: "0",
         step: "any",
-        unit: "Hz",
+        unit: "Hz"
       },
-    ],
+    ]
   },
   midiOut: {
     planRole: "source",
@@ -7686,9 +7700,9 @@ const nodeGraphModuleDefinitions = (
         mid: "64",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
-    ],
+    ]
   },
   midiNotePitch: {
     planRole: "processor",
@@ -7696,10 +7710,10 @@ const nodeGraphModuleDefinitions = (
     inputAliases: {
       Note: "MIDI Note",
       "Midi Note": "MIDI Note",
-      "Semitone Offset": "Pitch Offset",
+      "Semitone Offset": "Pitch Offset"
     },
     outputs: ["Pitch 0-1", "Pitch 0-127", "Frequency"],
-    parameters: [],
+    parameters: []
   },
   keyboardController: {
     planRole: "source",
@@ -7710,10 +7724,10 @@ const nodeGraphModuleDefinitions = (
     layout: "keyboardController",
     outputLabels: {
       "0.1V/Oct": "0.1V",
-      Increment: "Inc.",
+      Increment: "Inc."
     },
     outputs: ["Gate", "1 Sample Gate", "Key", "Q", "MIDI", "Double", "0.1V/Oct", "Increment", "Frequency", "Pitch", "X", "Y", "Held Keys"],
-    parameters: [],
+    parameters: []
   },
   samplePlayer: {
     planRole: "processor",
@@ -7728,7 +7742,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0.002", key: "attack", kind: "time", label: "Attack", max: "1", maxDigits: 5, mid: "0.002", min: "0", step: "any", unit: "s" },
       { defaultValue: "0.01", key: "release", kind: "time", label: "Release", max: "1", maxDigits: 5, mid: "0.01", min: "0", step: "any", unit: "s" },
       { choices: ["Off", "On"], defaultValue: "1", displayChoices: true, divideChoicesVisibly: true, key: "oneShot", label: "One Shot", linearSmoothing: false, max: "1", mid: "1", min: "0", nonlinearSlider: false, step: "1" },
-    ],
+    ]
   },
   sampleLooper: {
     planRole: "processor",
@@ -7744,7 +7758,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "1", key: "loopEnd", label: "Loop End", max: "1", mid: "1", min: "0", step: "any" },
       { defaultValue: "0.005", key: "crossfade", kind: "time", label: "Crossfade", max: "0.25", maxDigits: 5, mid: "0.005", min: "0", step: "any", unit: "s" },
       { choices: ["Forward", "One Shot"], defaultValue: "0", displayChoices: true, divideChoicesVisibly: true, key: "mode", label: "Mode", linearSmoothing: false, max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "1" },
-    ],
+    ]
   },
   phosphillator: {
     planRole: "source",
@@ -7763,10 +7777,10 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "0.01",
-        tooltip: "Path scan morph: 0% reverse-saw (end→start jump), 50% triangle (forward then reverse), 100% forward-saw (start→end jump).",
+        tooltip: "Path scan morph: 0% reverse-saw (end→start jump), 50% triangle (forward then reverse), 100% forward-saw (start→end jump)."
       },
       { defaultValue: "0.5", key: "smoothing", label: "Smoothing", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
-    ],
+    ]
   },
   audioPlayer: {
     planRole: "source",
@@ -7793,10 +7807,10 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "cycle",
         wraparound: true,
-        tooltip: "Relative playhead offset (−1…+1, wrap). Shift+drag the waveform to scrub without stopping playback. −1 and +1 are the same.",
+        tooltip: "Relative playhead offset (−1…+1, wrap). Shift+drag the waveform to scrub without stopping playback. −1 and +1 are the same."
       },
       { choices: ["Off (reset)", "Stop", "Pause", "Loop", "Play"], defaultValue: "4", displayChoices: true, divideChoicesVisibly: true, key: "transport", label: "Play Mode", linearSmoothing: false, max: "4", mid: "2", min: "0", nonlinearSlider: false, step: "1" },
-    ],
+    ]
   },
   macroControls: {
     planRole: "source",
@@ -7809,21 +7823,21 @@ const nodeGraphModuleDefinitions = (
         key: "face",
         label: "Face",
         renderer: "macroControlsFace",
-        settingsSchema: "macroControlsFace",
+        settingsSchema: "macroControlsFace"
       },
     ],
     defaultDisplayMode: "face",
     inputs: ["M1 In", "M2 In", "M3 In", "M4 In", "M5 In", "M6 In", "M7 In", "M8 In", "Reset"],
     layout: "macroControls",
     outputs: ["M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8"],
-    parameters: [],
+    parameters: []
   },
   pitchModWheel: {
     planRole: "source",
     inputs: ["Pitch", "Mod", "Reset"],
     layout: "pitchModWheel",
     outputs: ["Pitch Wheel", "Mod Wheel"],
-    parameters: [],
+    parameters: []
   },
   // Full shapeable DADSR — formerly "Exponential Envelope" / Exp ADSR.
   // For simple Attack/Decay only, use Attack Decay.
@@ -7843,7 +7857,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.25",
         min: "0",
         step: "any",
-        unit: "s",
+        unit: "s"
       },
       {
         defaultValue: "0.08",
@@ -7855,7 +7869,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        unit: "s",
+        unit: "s"
       },
       {
         defaultValue: "0.22",
@@ -7867,7 +7881,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        unit: "s",
+        unit: "s"
       },
       {
         defaultValue: "0.55",
@@ -7877,7 +7891,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
-        step: "any",
+        step: "any"
       },
       {
         defaultValue: "0.45",
@@ -7889,7 +7903,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         step: "any",
-        unit: "s",
+        unit: "s"
       },
       {
         defaultValue: "0.3",
@@ -7900,7 +7914,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.3",
         min: "0.0001",
         step: "any",
-        tooltip: "Target-ratio shape for the attack segment. For simple A/D only, use Attack Decay.",
+        tooltip: "Target-ratio shape for the attack segment. For simple A/D only, use Attack Decay."
       },
       {
         defaultValue: "0.0001",
@@ -7911,7 +7925,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.0001",
         min: "0.0001",
         step: "any",
-        tooltip: "Target-ratio shape for decay/release segments. Prefer Attack Decay for easy envelopes.",
+        tooltip: "Target-ratio shape for decay/release segments. Prefer Attack Decay for easy envelopes."
       },
       {
         choices: ["Off", "On"],
@@ -7925,7 +7939,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       {
         defaultValue: "1",
@@ -7935,9 +7949,9 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
-        step: "any",
+        step: "any"
       },
-    ],
+    ]
   },
   // Easy gate envelope: vactrol-style asymmetric one-pole A/D + curve.
   attackDecay: {
@@ -7959,7 +7973,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Gate = follow high/low (vactrol AR). Trigger = rising edge fires one Attack→Decay.",
+        tooltip: "Gate = follow high/low (vactrol AR). Trigger = rising edge fires one Attack→Decay."
       },
       {
         choices: ["Off", "Loop", "LFO"],
@@ -7974,7 +7988,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Off = one-shot (Trigger) or follow (Gate). Loop = auto-repeat AD. LFO = free-run AD; Gate rising edge hard-syncs.",
+        tooltip: "Off = one-shot (Trigger) or follow (Gate). Loop = auto-repeat AD. LFO = free-run AD; Gate rising edge hard-syncs."
       },
       {
         defaultValue: "0.01",
@@ -7987,7 +8001,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "Rise time constant. ~63% of the way toward peak in this time.",
+        tooltip: "Rise time constant. ~63% of the way toward peak in this time."
       },
       {
         defaultValue: "0.25",
@@ -8000,7 +8014,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "any",
         unit: "s",
-        tooltip: "Fall time constant. Same family as vactrol release / photoconductive lag.",
+        tooltip: "Fall time constant. Same family as vactrol release / photoconductive lag."
       },
       {
         defaultValue: "1",
@@ -8011,7 +8025,7 @@ const nodeGraphModuleDefinitions = (
         min: "0.001",
         nonlinearSlider: false,
         step: "any",
-        tooltip: "Power-law after the one-pole (raw^Curve). 1 = linear; >1 digs in (vactrol gamma); <1 expands the middle.",
+        tooltip: "Power-law after the one-pole (raw^Curve). 1 = linear; >1 digs in (vactrol gamma); <1 expands the middle."
       },
       {
         defaultValue: "1",
@@ -8023,9 +8037,9 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         modClamp: false,
-        tooltip: "Output scale after shape.",
+        tooltip: "Output scale after shape."
       },
-    ],
+    ]
   },
   linearEnvelope: {
     planRole: "processor",
@@ -8040,7 +8054,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0.45", key: "release", kind: "time", label: "Release", max: "10", maxDigits: 5, mid: "0.5", min: "0", step: "any", unit: "s" },
       { choices: ["Off", "On"], defaultValue: "0", displayChoices: true, divideChoicesVisibly: true, key: "loop", label: "Loop", linearSmoothing: false, max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "1" },
       { defaultValue: "1", key: "level", label: "Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
-    ],
+    ]
   },
   pluckEnvelope: {
     planRole: "processor",
@@ -8061,7 +8075,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "1", key: "velocity", label: "Velocity", max: "1", mid: "1", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0", key: "velocitySensitivity", label: "Velocity Sens", max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "1", key: "level", label: "Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
-    ],
+    ]
   },
   // Knobs stay normalized 0..1 (or their existing native ranges) for patching/automation;
   // displayTransform only changes the readout text, mapping to real-world vactrol/LDR
@@ -8086,19 +8100,19 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Selects which real VTL5C-series datasheet timing/resistance figures drive this envelope.",
+        tooltip: "Selects which real VTL5C-series datasheet timing/resistance figures drive this envelope."
       },
       {
         defaultValue: "1", key: "curve", label: "Curve", max: "8", maxDigits: 5, mid: "1", min: "0.001", step: "any",
-        displayTransform: (value) => ({ maxDigits: 3, unit: "γ (LDR gamma)", value }),
+        displayTransform: (value) => ({ maxDigits: 3, unit: "γ (LDR gamma)", value })
       },
       {
         defaultValue: "1", key: "sensitivity", label: "Sensitivity", max: "4", maxDigits: 5, mid: "1", min: "0", nonlinearSlider: false, step: "any",
-        displayTransform: (value) => ({ maxDigits: 1, unit: "lux full-drive", value: 1000 / Math.max(value, 0.001) }),
+        displayTransform: (value) => ({ maxDigits: 1, unit: "lux full-drive", value: 1000 / Math.max(value, 0.001) })
       },
       {
         defaultValue: "0", key: "lightOffset", label: "Light Offset", max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "any",
-        displayTransform: (value) => ({ maxDigits: 1, unit: "lux bias", value: value * 1000 }),
+        displayTransform: (value) => ({ maxDigits: 1, unit: "lux bias", value: value * 1000 })
       },
       {
         defaultValue: "0", key: "darkCurrent", label: "Dark Current", max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "any",
@@ -8106,9 +8120,9 @@ const nodeGraphModuleDefinitions = (
           const spec = nodeGraphVactrolSeriesSpec(nodeGraphParameterSiblingValue(slider, "part"));
           const leak = Math.max(0, Math.min(1, value));
           return { maxDigits: 1, unit: "kΩ dark R", value: spec.litKohm * Math.pow(spec.darkKohm / spec.litKohm, 1 - leak) };
-        },
+        }
       },
-    ],
+    ]
   },
   // Same knobs as VTL5C Series (minus the part switch), same DSP, but not modeling
   // one named real part -- a blank-slate vactrol for dialing in your own attack/
@@ -8123,23 +8137,23 @@ const nodeGraphModuleDefinitions = (
     parameters: [
       {
         defaultValue: "0.01", key: "attack", kind: "time", label: "Attack", max: "2", maxDigits: 5, mid: "0.01", min: "0", step: "any", unit: "s",
-        displayTransform: (value) => ({ maxDigits: 1, unit: "ms", value: value * 1000 }),
+        displayTransform: (value) => ({ maxDigits: 1, unit: "ms", value: value * 1000 })
       },
       {
         defaultValue: "0.1", key: "release", kind: "time", label: "Release", max: "5", maxDigits: 5, mid: "0.1", min: "0", step: "any", unit: "s",
-        displayTransform: (value) => ({ maxDigits: 1, unit: "ms", value: value * 1000 }),
+        displayTransform: (value) => ({ maxDigits: 1, unit: "ms", value: value * 1000 })
       },
       {
         defaultValue: "1", key: "curve", label: "Curve", max: "8", maxDigits: 5, mid: "1", min: "0.001", step: "any",
-        displayTransform: (value) => ({ maxDigits: 3, unit: "γ (LDR gamma)", value }),
+        displayTransform: (value) => ({ maxDigits: 3, unit: "γ (LDR gamma)", value })
       },
       {
         defaultValue: "1", key: "sensitivity", label: "Sensitivity", max: "4", maxDigits: 5, mid: "1", min: "0", nonlinearSlider: false, step: "any",
-        displayTransform: (value) => ({ maxDigits: 1, unit: "lux full-drive", value: 1000 / Math.max(value, 0.001) }),
+        displayTransform: (value) => ({ maxDigits: 1, unit: "lux full-drive", value: 1000 / Math.max(value, 0.001) })
       },
       {
         defaultValue: "0", key: "lightOffset", label: "Light Offset", max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "any",
-        displayTransform: (value) => ({ maxDigits: 1, unit: "lux bias", value: value * 1000 }),
+        displayTransform: (value) => ({ maxDigits: 1, unit: "lux bias", value: value * 1000 })
       },
       {
         defaultValue: "0", key: "darkCurrent", label: "Dark Current", max: "1", mid: "0", min: "0", nonlinearSlider: false, step: "any",
@@ -8148,9 +8162,9 @@ const nodeGraphModuleDefinitions = (
           const darkKohm = 1000;
           const leak = Math.max(0, Math.min(1, value));
           return { maxDigits: 1, unit: "kΩ dark R", value: litKohm * Math.pow(darkKohm / litKohm, 1 - leak) };
-        },
+        }
       },
-    ],
+    ]
   },
   flowerChildEnvelopeFollower: {
     planRole: "processor",
@@ -8161,7 +8175,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0.001", key: "attack", kind: "time", label: "Attack", max: "2", maxDigits: 5, mid: "0.001", min: "0", step: "any", unit: "s" },
       { defaultValue: "0.001", key: "hold", kind: "time", label: "Hold", max: "2", maxDigits: 5, mid: "0.001", min: "0", step: "any", unit: "s" },
       { defaultValue: "0.001", key: "decay", kind: "time", label: "Decay", max: "5", maxDigits: 5, mid: "0.001", min: "0", step: "any", unit: "s" },
-    ],
+    ]
   },
   sandboxVisuals: {
     planRole: "monitor",
@@ -8173,7 +8187,7 @@ const nodeGraphModuleDefinitions = (
       "Screen Dim": "Dim",
       "Turn Off Display Traces": "Scope Off",
       "Pause Displays": "Pause",
-      "Trace Texture": "Trace Image",
+      "Trace Texture": "Trace Image"
     },
     outputs: [],
     parameters: [],
@@ -8181,55 +8195,55 @@ const nodeGraphModuleDefinitions = (
       {
         key: "screenShake",
         label: "Shake",
-        port: "Shake",
+        port: "Shake"
       },
       {
         key: "x",
         label: "X",
-        port: "X",
+        port: "X"
       },
       {
         key: "y",
         label: "Y",
-        port: "Y",
+        port: "Y"
       },
       {
         key: "screenDim",
         label: "Dim",
-        port: "Dim",
+        port: "Dim"
       },
       {
         key: "red",
         label: "Red",
-        port: "Red",
+        port: "Red"
       },
       {
         key: "green",
         label: "Green",
-        port: "Green",
+        port: "Green"
       },
       {
         key: "blue",
         label: "Blue",
-        port: "Blue",
+        port: "Blue"
       },
       {
         key: "scopeTracesOff",
         label: "Scope Off",
-        port: "Scope Off",
+        port: "Scope Off"
       },
       {
         key: "scopePaused",
         label: "Pause",
-        port: "Pause",
+        port: "Pause"
       },
       {
         key: "traceImage",
         label: "Trace Image",
-        port: "Trace Image",
+        port: "Trace Image"
       },
     ],
-    visualSink: true,
+    visualSink: true
   },
   screenSpaceShader: {
     planRole: "monitor",
@@ -8237,7 +8251,7 @@ const nodeGraphModuleDefinitions = (
     layout: "screenSpaceShader",
     outputs: [],
     parameters: [],
-    visualSink: true,
+    visualSink: true
   },
   bloomGlow: {
     planRole: "monitor",
@@ -8249,7 +8263,7 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0.45", key: "visualBloom", label: "Bloom", max: "1", mid: "0.45", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0.60", key: "visualGlow", label: "Glow", max: "1", mid: "0.6", min: "0", nonlinearSlider: false, step: "any" },
     ],
-    visualSink: true,
+    visualSink: true
   },
   rgbaHsla: {
     planRole: "monitor",
@@ -8264,7 +8278,7 @@ const nodeGraphModuleDefinitions = (
       S: "Saturation",
       L: "Lightness",
       A: "Alpha",
-      "Screen Alpha": "Alpha",
+      "Screen Alpha": "Alpha"
     },
     outputs: [],
     parameters: [],
@@ -8278,7 +8292,7 @@ const nodeGraphModuleDefinitions = (
       { key: "hslMix", label: "HSL Mix", port: "HSL Mix" },
       { key: "screenDim", label: "Alpha", port: "Alpha" },
     ],
-    visualSink: true,
+    visualSink: true
   },
   chromaColor: {
     planRole: "monitor",
@@ -8295,16 +8309,16 @@ const nodeGraphModuleDefinitions = (
       { defaultValue: "0.45", key: "visualBloom", label: "Bloom", max: "1", mid: "0.45", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "0.60", key: "visualGlow", label: "Glow", max: "1", mid: "0.6", min: "0", nonlinearSlider: false, step: "any" },
     ],
-    visualSink: true,
+    visualSink: true
   },
   image: {
     planRole: "source",
     layout: "image",
     outputAliases: {
-      Image: "RGBA",
+      Image: "RGBA"
     },
     outputs: ["RGBA"],
-    parameters: [],
+    parameters: []
   },
   canvas: {
     planRole: "monitor",
@@ -8318,7 +8332,7 @@ const nodeGraphModuleDefinitions = (
       { key: "canvasABuffer", label: "a_buffer", port: "a_buffer" },
       { key: "canvasANotBuffer", label: "a not buffer", port: "a not buffer" },
     ],
-    visualSink: true,
+    visualSink: true
   },
   // led registers its own definition from public/modules/led/led-register.js
   // -- see node-graph-chromeless-module-registry.js.
@@ -8335,28 +8349,28 @@ const nodeGraphModuleDefinitions = (
         label: "2D Trace",
         renderer: "scope2dTrace",
         settingsSchema: "scope2dTrace",
-        source: { x: "X", y: "Y" },
+        source: { x: "X", y: "Y" }
       },
       {
         key: "xyBurn",
         label: "2D Phosphor",
         renderer: "scope2d",
         settingsSchema: "scope2d",
-        source: { x: "X", y: "Y" },
+        source: { x: "X", y: "Y" }
       },
       {
         key: "monoTrace",
         label: "1D Trace",
         renderer: "trace",
         settingsSchema: "trace",
-        source: { value: "In" },
+        source: { value: "In" }
       },
       {
         key: "monoDot",
         label: "Phosphor Dot",
         renderer: "dot",
         settingsSchema: "dot",
-        source: { value: "In" },
+        source: { value: "In" }
       },
     ],
     inputAliases: { Mono: "In" },
@@ -8371,7 +8385,7 @@ const nodeGraphModuleDefinitions = (
       { key: "visualOscilloscopeX", label: "X", port: "X" },
       { key: "visualOscilloscopeY", label: "Y", port: "Y" },
     ],
-    visualSink: true,
+    visualSink: true
   },
   traceDisplay: {
     planRole: "monitor",
@@ -8386,7 +8400,7 @@ const nodeGraphModuleDefinitions = (
     visualInputs: [
       { key: "traceDisplay", label: "In", port: "In" },
     ],
-    visualSink: true,
+    visualSink: true
   },
   dotOscilloscope: {
     planRole: "monitor",
@@ -8401,7 +8415,7 @@ const nodeGraphModuleDefinitions = (
     visualInputs: [
       { key: "dotOscilloscope", label: "In", port: "In" },
     ],
-    visualSink: true,
+    visualSink: true
   },
   oscilloscopeBank: {
     planRole: "monitor",
@@ -8410,7 +8424,7 @@ const nodeGraphModuleDefinitions = (
     layout: "traceDisplay",
     outputs: [],
     parameters: [],
-    visualSink: true,
+    visualSink: true
   },
   videoscope: {
     planRole: "processor",
@@ -8435,7 +8449,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       {
         choices: ["Rising", "Falling"],
@@ -8449,7 +8463,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       { constraint: "ram", key: "timeDivSamples", label: "Window Size", defaultValue: "512", min: "8", mid: "512", max: "8192", step: "1" },
       {
@@ -8464,7 +8478,7 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       {
         choices: ["Dot", "Line", "XY"],
@@ -8478,7 +8492,7 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
       { key: "columns", label: "Columns", defaultValue: "200", min: "16", mid: "200", max: "512", step: "1" },
       { key: "brightness", label: "Brightness", defaultValue: "1", min: "0", mid: "1", max: "1", step: "0.01", maxDigits: 4 },
@@ -8487,7 +8501,7 @@ const nodeGraphModuleDefinitions = (
       { key: "videoscopeA", label: "A", port: "A" },
       { key: "videoscopeB", label: "B", port: "B" },
     ],
-    visualSink: true,
+    visualSink: true
   },
   spectrogram: {
     planRole: "monitor",
@@ -8515,7 +8529,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         maxDigits: 5,
         unit: "Hz",
-        tooltip: "Lowest frequency at the bottom of the face. Zoom with Max Freq to spend vertical pixels on a band.",
+        tooltip: "Lowest frequency at the bottom of the face. Zoom with Max Freq to spend vertical pixels on a band."
       },
       {
         key: "maxFreq",
@@ -8528,7 +8542,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         maxDigits: 5,
         unit: "Hz",
-        tooltip: "Highest frequency at the top of the face (must stay above Min Freq).",
+        tooltip: "Highest frequency at the top of the face (must stay above Min Freq)."
       },
       {
         key: "historySeconds",
@@ -8540,13 +8554,13 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         maxDigits: 4,
         unit: "s",
-        tooltip: "Seconds of audio across the face width. Longer = slower waterfall scroll.",
+        tooltip: "Seconds of audio across the face width. Longer = slower waterfall scroll."
       },
     ],
     visualInputs: [
       { key: "spectrogram", label: "In", port: "In" },
     ],
-    visualSink: true,
+    visualSink: true
   },
   // Matrix Waterfall — pure parameter rain (Fall / Rise). No ports, no plate modes.
   // Glyph table + gradient live in Display Settings. Clean base for future work.
@@ -8572,7 +8586,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         maxDigits: 4,
         modClamp: false,
-        tooltip: "Glyph field density. Low = bigger characters (fewer cells); high = smaller (more cells). One character per cell. Changing density remaps phosphor — does not wipe trails.",
+        tooltip: "Glyph field density. Low = bigger characters (fewer cells); high = smaller (more cells). One character per cell. Changing density remaps phosphor — does not wipe trails."
       },
       {
         key: "brightness",
@@ -8583,7 +8597,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "Peak light / present gain 0–1 (1 = full). Does not set residual hang (use Burn) or main trail length (use Trail).",
+        tooltip: "Peak light / present gain 0–1 (1 = full). Does not set residual hang (use Burn) or main trail length (use Trail)."
       },
       {
         bipolar: true,
@@ -8595,7 +8609,7 @@ const nodeGraphModuleDefinitions = (
         min: "-8",
         step: "any",
         maxDigits: 4,
-        tooltip: "Signed rain rate. +Fall down, −Rise up, 0 idle.",
+        tooltip: "Signed rain rate. +Fall down, −Rise up, 0 idle."
       },
       {
         key: "charSpeed",
@@ -8606,7 +8620,7 @@ const nodeGraphModuleDefinitions = (
         max: "8",
         step: "any",
         maxDigits: 4,
-        tooltip: "Glyph flips per bin of travel. 0 = fixed char for the stream; 1 = change every bin; 2 = twice per bin; fractional (e.g. 1.5) free-runs vs bin edges.",
+        tooltip: "Glyph flips per bin of travel. 0 = fixed char for the stream; 1 = change every bin; 2 = twice per bin; fractional (e.g. 1.5) free-runs vs bin edges."
       },
       {
         key: "trail",
@@ -8617,7 +8631,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "Adds linear decay over Ghost, then freezes. 0 = pure Ghost hang; 0.75 = full linear; 1 = freeze. Sticky floor is Burn.",
+        tooltip: "Adds linear decay over Ghost, then freezes. 0 = pure Ghost hang; 0.75 = full linear; 1 = freeze. Sticky floor is Burn."
       },
       {
         key: "ghost",
@@ -8628,7 +8642,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "Extreme analog (super-exp) residual hang. Not brightness — only how long deposited energy hangs. Sticky floor is Burn.",
+        tooltip: "Extreme analog (super-exp) residual hang. Not brightness — only how long deposited energy hangs. Sticky floor is Burn."
       },
       {
         key: "burn",
@@ -8639,7 +8653,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "Sticky residual floor 0…1. 0 = none stick; 0.5 = once energy ≥ 0.5 the pixel freezes at that floor; 1 = all residual freezes. Off by default.",
+        tooltip: "Sticky residual floor 0…1. 0 = none stick; 0.5 = once energy ≥ 0.5 the pixel freezes at that floor; 1 = all residual freezes. Off by default."
       },
       {
         key: "spawn",
@@ -8651,7 +8665,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         maxDigits: 4,
         modClamp: false,
-        tooltip: "How often new rain streams appear. Independent of glyph size (Density).",
+        tooltip: "How often new rain streams appear. Independent of glyph size (Density)."
       },
       {
         key: "streamDeath",
@@ -8664,7 +8678,7 @@ const nodeGraphModuleDefinitions = (
         maxDigits: 4,
         modClamp: false,
         tooltip:
-          "Chance streams end early. 0 = never die (streams wrap forever). 0.5 = original death rate. 1 = no spawn (empty rain).",
+          "Chance streams end early. 0 = never die (streams wrap forever). 0.5 = original death rate. 1 = no spawn (empty rain)."
       },
       {
         choices: ["Off", "On"],
@@ -8678,9 +8692,9 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
-    ],
+    ]
   },
   // Matrix Display — Info plate + Serial Char+Trigger bins. No rain.
   // Message + gradient in Display Settings. In sample for Info value row.
@@ -8711,7 +8725,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Info: message plate (+ optional In value). Serial: Char+Trigger bins (Text Stream).",
+        tooltip: "Info: message plate (+ optional In value). Serial: Char+Trigger bins (Text Stream)."
       },
       {
         constraint: "gpu",
@@ -8723,7 +8737,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "Glyph field density. Low = bigger characters; high = smaller. One character per cell. Density change remaps phosphor (does not wipe).",
+        tooltip: "Glyph field density. Low = bigger characters; high = smaller. One character per cell. Density change remaps phosphor (does not wipe)."
       },
       {
         key: "brightness",
@@ -8734,7 +8748,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "Peak light / present gain 0–1 (1 = full). Residual hang is Ghost/Trail; sticky floor is Burn.",
+        tooltip: "Peak light / present gain 0–1 (1 = full). Residual hang is Ghost/Trail; sticky floor is Burn."
       },
       {
         key: "trail",
@@ -8745,7 +8759,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "Adds linear decay over Ghost, then freezes. High = longer hot afterglow. Sticky floor is Burn.",
+        tooltip: "Adds linear decay over Ghost, then freezes. High = longer hot afterglow. Sticky floor is Burn."
       },
       {
         key: "ghost",
@@ -8756,7 +8770,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "Extreme analog (super-exp) residual hang. Not brightness. Sticky floor is Burn.",
+        tooltip: "Extreme analog (super-exp) residual hang. Not brightness. Sticky floor is Burn."
       },
       {
         key: "burn",
@@ -8767,7 +8781,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "Sticky residual floor 0…1. 0 = none stick; 0.5 = once energy ≥ 0.5 freezes at that floor; 1 = all residual freezes. Off by default.",
+        tooltip: "Sticky residual floor 0…1. 0 = none stick; 0.5 = once energy ≥ 0.5 freezes at that floor; 1 = all residual freezes. Off by default."
       },
       {
         choices: ["Off", "On"],
@@ -8781,13 +8795,13 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
     ],
     visualInputs: [
       { key: "matrixDisplay", label: "In", port: "In" },
     ],
-    visualSink: true,
+    visualSink: true
   },
   // Text Stream — type text, emit one character at a time (digital Char + Trigger).
   textStream: {
@@ -8811,7 +8825,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         maxDigits: 4,
         unit: "Hz",
-        tooltip: "Free-run characters per second when Clock is unpatched. Ignored if Clock is wired.",
+        tooltip: "Free-run characters per second when Clock is unpatched. Ignored if Clock is wired."
       },
       {
         choices: ["Off", "On"],
@@ -8825,9 +8839,9 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
-    ],
+    ]
   },
   // Asciiscope — XY character-grid phosphor (standalone asciiscope console plot/fade).
   // Glyph ramp = phosphor tail; Decay / Burn = age memory. Layout id "matrixDisplay" is historical.
@@ -8854,7 +8868,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "Glyph field density. Low = bigger characters; high = smaller. One character per cell. Density change remaps ages (does not wipe).",
+        tooltip: "Glyph field density. Low = bigger characters; high = smaller. One character per cell. Density change remaps ages (does not wipe)."
       },
       {
         key: "trail",
@@ -8865,7 +8879,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "Adds linear decay over Ghost, then freezes. 0 = pure Ghost; 1 ≈ freeze. Sticky floor is Burn.",
+        tooltip: "Adds linear decay over Ghost, then freezes. 0 = pure Ghost; 1 ≈ freeze. Sticky floor is Burn."
       },
       {
         key: "ghost",
@@ -8876,7 +8890,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "Extreme analog (super-exp) residual hang. Not brightness. Sticky floor is Burn.",
+        tooltip: "Extreme analog (super-exp) residual hang. Not brightness. Sticky floor is Burn."
       },
       {
         key: "burn",
@@ -8887,7 +8901,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "Sticky residual floor 0…1. 0 = none stick; 0.5 = once energy ≥ 0.5 freezes at that floor; 1 = all residual freezes. Off by default.",
+        tooltip: "Sticky residual floor 0…1. 0 = none stick; 0.5 = once energy ≥ 0.5 freezes at that floor; 1 = all residual freezes. Off by default."
       },
       {
         key: "brightness",
@@ -8898,7 +8912,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "Deposit + present gain 0–1 (1 = full). Residual hang is Ghost/Trail; sticky floor is Burn.",
+        tooltip: "Deposit + present gain 0–1 (1 = full). Residual hang is Ghost/Trail; sticky floor is Burn."
       },
       {
         key: "blackFloor",
@@ -8909,7 +8923,7 @@ const nodeGraphModuleDefinitions = (
         max: "8",
         nonlinearSlider: false,
         step: "1",
-        tooltip: "Ages at or below this draw blank (hides cold trail dust).",
+        tooltip: "Ages at or below this draw blank (hides cold trail dust)."
       },
       {
         choices: ["Off", "On"],
@@ -8923,14 +8937,14 @@ const nodeGraphModuleDefinitions = (
         mid: "0.5",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
     ],
     visualInputs: [
       { key: "asciiX", label: "X", port: "X" },
       { key: "asciiY", label: "Y", port: "Y" },
     ],
-    visualSink: true,
+    visualSink: true
   },
   valueOscilloscope: {
     planRole: "monitor",
@@ -8946,7 +8960,7 @@ const nodeGraphModuleDefinitions = (
     visualInputs: [
       { key: "valueOscilloscope", label: "In", port: "In" },
     ],
-    visualSink: true,
+    visualSink: true
   },
   // numberReadout (Value LED) + valueLcd: solid chromeless registration.
   lineBurnOscilloscope: {
@@ -8963,7 +8977,7 @@ const nodeGraphModuleDefinitions = (
       { key: "lineBurnOscilloscope", label: "In", port: "In" },
       { key: "lineBurnReset", label: "Reset", port: "Reset" },
     ],
-    visualSink: true,
+    visualSink: true
   },
   scope2d: {
     planRole: "monitor",
@@ -8979,7 +8993,7 @@ const nodeGraphModuleDefinitions = (
       { key: "scope2dX", label: "X", port: "X" },
       { key: "scope2dY", label: "Y", port: "Y" },
     ],
-    visualSink: true,
+    visualSink: true
   },
   // Legacy alias of scope2d (2D Phosphor). Hidden from shop; patches migrate
   // to type "scope2d" on load. Kept so mid-session / odd loaders still resolve.
@@ -8997,7 +9011,7 @@ const nodeGraphModuleDefinitions = (
       { key: "scope2dX", label: "X", port: "X" },
       { key: "scope2dY", label: "Y", port: "Y" },
     ],
-    visualSink: true,
+    visualSink: true
   },
   scope2dTrace: {
     planRole: "monitor",
@@ -9013,7 +9027,7 @@ const nodeGraphModuleDefinitions = (
       { key: "scope2dTraceX", label: "X", port: "X" },
       { key: "scope2dTraceY", label: "Y", port: "Y" },
     ],
-    visualSink: true,
+    visualSink: true
   },
   badvalMonitor: {
     planRole: "monitor",
@@ -9027,7 +9041,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Out"],
     // LayoutA status face: no param rows (even if parameters are added later).
     parameters: [],
-    slidersAlwaysHidden: true,
+    slidersAlwaysHidden: true
   },
   speakerProtection: {
     planRole: "processor",
@@ -9038,13 +9052,13 @@ const nodeGraphModuleDefinitions = (
     outputAliases: { Mono: "Out" },
     outputLabels: { Out: "Mono" },
     outputs: ["Out", "Left", "Right"],
-    parameters: [],
+    parameters: []
   },
   textBox: {
     planRole: "processor",
     layout: "textBox",
     layoutOnly: true,
-    parameters: [],
+    parameters: []
   },
   animatedTextBox: {
     planRole: "processor",
@@ -9052,7 +9066,7 @@ const nodeGraphModuleDefinitions = (
     layoutOnly: true,
     dataInputs: ["Title", "Text"],
     dataOutputs: ["Text Out"],
-    parameters: [],
+    parameters: []
   },
   output: {
     planRole: "sink",
@@ -9082,16 +9096,16 @@ const nodeGraphModuleDefinitions = (
         mid: "0.1",
         min: "0",
         nonlinearSlider: false,
-        step: "any",
+        step: "any"
       },
-    ],
+    ]
   },
   sinc: {
     planRole: "processor",
     displayType: "trace",
-    inputs: ["0.1V/Oct", "Freq", "Phase", "f"],
+    inputs: ["0.1V/Oct", "Freq", "Phase"],
     inputAliases: { "0.1V": "0.1V/Oct", freq: "Freq", phase: "Phase" },
-    inputLabels: { "0.1V/Oct": "0.1V", f: "f" },
+    inputLabels: { "0.1V/Oct": "0.1V" },
     outputs: ["Out"],
     parameters: [
       {
@@ -9103,7 +9117,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         step: "0.01",
         unit: "cycle",
-        wraparound: true,
+        wraparound: true
       },
       {
         defaultValue: "100",
@@ -9115,7 +9129,7 @@ const nodeGraphModuleDefinitions = (
         min: "0",
         nonlinearSlider: false,
         step: "any",
-        unit: "Hz",
+        unit: "Hz"
       },
       {
         defaultValue: "4",
@@ -9124,7 +9138,7 @@ const nodeGraphModuleDefinitions = (
         label: "Lobes",
         max: "16",
         min: "1",
-        step: "1",
+        step: "1"
       },
       {
         choices: ["Ideal", "Band Limit"],
@@ -9138,15 +9152,15 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         nonlinearSlider: false,
-        step: "1",
+        step: "1"
       },
-    ],
+    ]
   },
   // Chromeless / fully-custom-UI modules (stepGrid, led, ...) register
   // their own definition instead of it being hardcoded here -- see
   // node-graph-chromeless-module-registry.js. Each entry is sealed with
   // explicit chrome (LayoutB if solidModule, else LayoutA).
-  ...nodeGraphChromelessModuleDefinitionEntries(),
+  ...nodeGraphChromelessModuleDefinitionEntries()
 });
 
 // Text Box and Animated Text Box share the exact same body/title rendering
@@ -9168,7 +9182,7 @@ const nodeGraphPiOver4 = Math.PI / 4;
 const nodeGraphGrid = Object.freeze({
   heightPx: 28,
   sizePx: 28,
-  widthPx: 28,
+  widthPx: 28
 });
 
 const nodeGraphModuleLayout = Object.freeze({
@@ -9190,12 +9204,12 @@ const nodeGraphModuleLayout = Object.freeze({
   moduleGridInsetGu: 6 / 28,
   moduleScopeHeightGu: 2,
   sliderRowHeightGu: 30 / 28,
-  textBoxBodyMinGu: 4,
+  textBoxBodyMinGu: 4
 });
 
 const nodeGraphPatchFormat = Object.freeze({
   kind: "soemdsp-sandbox-node-patch",
-  version: 2,
+  version: 2
 });
 
 function nodeGraphModuleVisualInputs(type) {
@@ -9209,7 +9223,7 @@ function nodeGraphPatchNodeVisualInputs(node) {
     return nodeGraphPatchNodeInputPorts(patchNode).map((port) => ({
       key: `canvas:${port}`,
       label: port,
-      port,
+      port
     }));
   }
   if (patchNode?.type === "screenSpaceShader") {

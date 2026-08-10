@@ -2238,8 +2238,12 @@ function applyNodeGraphPatchNodeUi(targetNode, ui) {
   }
 }
 
-/** Hide unconnected jacks on selected modules (multi-select aware). */
+/** Hide unconnected jacks — under construction; no-op until re-enabled. */
 function toggleNodeGraphModuleHideUnusedFromContext() {
+  if (typeof setNodeInteractionHelp === "function") {
+    setNodeInteractionHelp("Hide unused is under construction.");
+  }
+  return;
   const targetNodeIds = nodeGraphModuleActionTargetNodeIds();
   if (!targetNodeIds.length) {
     return;

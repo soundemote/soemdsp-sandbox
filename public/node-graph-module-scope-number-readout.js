@@ -942,7 +942,9 @@ function nodeGraphNumberReadoutBudgetFitText(decimals, digits = 8) {
 }
 
 /**
- * Face padding 0…1 from settings (finite-safe; 0 is valid).
+ * Face padding −0.5…1 from settings (finite-safe; 0 is valid).
+ * 0 = no inset (content box = plate). Positive = inset toward pin.
+ * Negative = enlarge digit fit box (numbers grow toward / past walls; plate clips).
  * Prefer facePadding; accept legacy readout/digit padding aliases.
  */
 function nodeGraphNumberReadoutFacePadding01(settings = null) {
@@ -957,7 +959,7 @@ function nodeGraphNumberReadoutFacePadding01(settings = null) {
   if (!Number.isFinite(raw)) {
     return 0;
   }
-  return clampNodeSliderValue(raw, 0, 1);
+  return clampNodeSliderValue(raw, -0.5, 1);
 }
 
 /**
@@ -1076,9 +1078,10 @@ function nodeGraphNumberReadoutPinSizePx(faceStyle, pixelRatio, zoom = 1) {
  *     When set, font size does not change with the live value digit count —
  *     actual valueText is still centered with that fixed cell size.
  *   monoProbe: when true, cell width is measured from "M" (true monospace pitch names).
- *   padding01: linear 0…1 vs face square min side.
- *     0 = flush (digits fill the plate content box);
- *     1 = one pin pixel of display remains (zoom-scaled; LED vs LCD pin size).
+ *   padding01: linear −0.5…1 vs half of each axis.
+ *     0 = no inset (content box = full plate);
+ *     +1 = one pin pixel remains;
+ *     negative = enlarge fit box (digits grow toward walls; plate clips).
  */
 function nodeGraphNumberReadoutComputeLayout(context, valueText, fontFamily, faceW, faceH, hasUnitOrOpts) {
   const opts = hasUnitOrOpts && typeof hasUnitOrOpts === "object"
@@ -1089,7 +1092,7 @@ function nodeGraphNumberReadoutComputeLayout(context, valueText, fontFamily, fac
   const monoProbe = Boolean(opts.monoProbe);
   const padRaw = Number(opts.padding01);
   const pad01 = Number.isFinite(padRaw)
-    ? clampNodeSliderValue(padRaw, 0, 1)
+    ? clampNodeSliderValue(padRaw, -0.5, 1)
     : 0;
   const fitText = opts.fitText != null ? String(opts.fitText) : String(valueText || "");
   // Pitch note names: always measure cells from a full mono advance (not DSEG "8").
@@ -1099,17 +1102,16 @@ function nodeGraphNumberReadoutComputeLayout(context, valueText, fontFamily, fac
     minSide,
     nodeGraphNumberReadoutPinSizePx(opts.faceStyle, opts.pixelRatio, opts.zoom),
   );
-  // Linear pad 0…1: inset each axis by pad01 × half of that axis (minus pin floor).
-  // (Previously both axes used min-side only — wide LCD faces barely moved horizontally.)
+  // Linear pad only: inset = pad01 × half-axis. Negative enlarges content for fit.
   const maxPadX = Math.max(0, (faceW - pin) * 0.5);
   const maxPadY = Math.max(0, (faceH - pin) * 0.5);
   const padPx = pad01 * maxPadX;
   const padPxY = pad01 * maxPadY;
   const contentW = Math.max(pin, faceW - padPx * 2);
   const contentH = Math.max(pin, faceH - padPxY * 2);
-  // Near-max padding: single pin pixel mode (no DSEG fit).
+  // Near-max *positive* padding only: single pin pixel mode (no DSEG fit).
   const pixelPin = pad01 >= 0.999
-    || (contentW <= pin * 1.01 && contentH <= pin * 1.01);
+    || (pad01 > 0 && contentW <= pin * 1.01 && contentH <= pin * 1.01);
   if (pixelPin) {
     const side = Math.max(1, pin);
     return {
@@ -1131,13 +1133,10 @@ function nodeGraphNumberReadoutComputeLayout(context, valueText, fontFamily, fac
   // Default unit strip ~18% of content; Pitch Hz needs more room to read.
   const labelH = hasUnit ? Math.max(0, contentH * (largeUnit ? 0.30 : 0.18)) : 0;
   const digitAreaH = Math.max(0, contentH - labelH);
-  // facePadding owns the air — digits must fill the content box at pad 0.
-  // DSEG Classic Bold ink is ~80–86% of the em square; browsers often report
-  // actualBoundingBox ≈ full em (including empty), which would leave a ring of
-  // plate around the segments. Oversize the em so ink reaches the content edge,
-  // then shrink only if measured ink still overflows.
-  // At pad 0 push harder so Pitch/LED plates don't look letterboxed.
-  const DSEG_INK_OF_EM = pad01 <= 0.001 ? 0.72 : 0.82;
+  // Contain-fit only (no cover/explode). Padding is a pure linear inset/outset
+  // of the content box; digits/decimals/GROW only choose fitText width.
+  // Mild DSEG ink-of-em oversize (~80%) — not a special pad=0 path.
+  const DSEG_INK_OF_EM = 0.80;
   const fitCells = nodeGraphNumberReadoutDsegWidthChars(fitText);
   const cells = nodeGraphNumberReadoutDsegWidthChars(valueText);
   if (!(contentW > 0.25) || !(digitAreaH > 0.25) || fitCells < 1) {
@@ -1161,8 +1160,6 @@ function nodeGraphNumberReadoutComputeLayout(context, valueText, fontFamily, fac
   }
 
   // Contain-fit: max font that fits BOTH height and width of the fit string.
-  // (Height-first then width-shrink left tall empty air when width capped hard —
-  // e.g. Pitch decimal-budget 5-slot lock on a tall face.)
   const REF = 100;
   context.font = `700 ${REF}px ${fontFamily}`;
   const probe0 = context.measureText(cellProbeGlyph);
@@ -1202,7 +1199,7 @@ function nodeGraphNumberReadoutComputeLayout(context, valueText, fontFamily, fac
   const glyphH = Number.isFinite(ascent) && Number.isFinite(descent) && (ascent + descent) > 0.25
     ? (ascent + descent)
     : 0;
-  // Only shrink when ink truly overflows the content box (never re-introduce pad).
+  // Only shrink when ink truly overflows the content box.
   if (glyphH > digitAreaH + 0.5) {
     fontSize = Math.max(0, fontSize * (digitAreaH / glyphH));
     context.font = `700 ${fontSize}px ${fontFamily}`;
@@ -1684,6 +1681,15 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const slot = item?.slot;
   if (!rect || !slot) {
     return;
+  }
+  // Display-hide SSOT: skip paint when face is hidden (local or global Displays off).
+  if (typeof nodeGraphModuleDisplayVisibleForUi === "function"
+    && typeof nodeGraphPatchNode === "function"
+    && slot.nodeId) {
+    const hostNode = nodeGraphPatchNode(slot.nodeId);
+    if (hostNode && !nodeGraphModuleDisplayVisibleForUi(hostNode.type, hostNode.ui)) {
+      return;
+    }
   }
   renderNodeGraphModuleScopeAnalyzer(slot, item.buffer);
   const screenElement = item?.screenElement || slot?.scopeElement;

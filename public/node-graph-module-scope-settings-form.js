@@ -58,7 +58,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null) {
   }
   if (formType === "numberReadout" && key === "facePadding") {
     label = "Padding";
-    title = "Linear 0…1 inset on each axis (half-width and half-height). 0 = digits hit the plate edge; 1 = one pin pixel of display (LED phosphor / LCD screen).";
+    title = "Linear inset on each axis (half-width / half-height). 0 = no inset; +1 = pin pixel; negative grows digits toward the walls (dial in how close ink meets the plate).";
   }
   if (formType === "numberReadout" && key === "innerShadowDistance") {
     label = "Shadow dist";

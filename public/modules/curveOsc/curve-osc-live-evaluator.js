@@ -51,16 +51,12 @@ nodeGraphLiveModuleEvaluators.curveOsc = ({
       1,
     )
     : referenceVoltage;
-  const fHz = typeof nodeGraphReadFInputHz === "function"
-    ? nodeGraphReadFInputHz(mixInput, hasInput, nodeId)
-    : null;
   const effectiveFrequency = typeof nodeGraphParamResolveOscPitchHz === "function"
     ? nodeGraphParamResolveOscPitchHz({
       baseHz: baseFrequency,
       hasPitchCv: hasPitch,
       pitchCv,
       referenceVoltage,
-      fHz,
     })
     : (typeof nodeGraphPitchedFrequency === "function"
       ? nodeGraphPitchedFrequency(baseFrequency, pitchCv, referenceVoltage)

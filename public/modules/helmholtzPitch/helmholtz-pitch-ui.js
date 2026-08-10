@@ -133,11 +133,12 @@ function nodeGraphPitchDisplayModeNormalize(mode) {
 
 function nodeGraphPitchDisplayModeLabel(mode) {
   const m = nodeGraphPitchDisplayModeNormalize(mode);
+  // Labels swapped vs internal keys: M = MIDI number, 8ve = note name (+ cents).
   if (m === "midi") {
-    return "8ve";
+    return "M";
   }
   if (m === "name") {
-    return "M";
+    return "8ve";
   }
   return "Hz";
 }
@@ -200,21 +201,30 @@ function nodeGraphPitchDetectorFormatDisplay(hz, mode = "hz", decimals = 2, opti
   }
 }
 
-/** Format cents for the M-page strip: "+12¢" / "−3¢" / "0¢". */
+/**
+ * Fixed-width cents for the 8ve (note name) strip — no layout jitter.
+ * Sign column always present: + / − / space, then two digits (e.g. "+12" "−05" " 00").
+ */
 function nodeGraphPitchDetectorFormatCents(cents) {
   const n = Number(cents);
   if (!Number.isFinite(n)) {
-    return "—";
+    return "\u00A0\u00A0\u00A0"; // three nbsp — same ch width as "+00"
   }
-  const rounded = Math.round(n);
+  // Keep in half-semitone band for display; pad always 2 digits.
+  let rounded = Math.round(n);
+  if (rounded > 99) {
+    rounded = 99;
+  } else if (rounded < -99) {
+    rounded = -99;
+  }
+  const abs = String(Math.abs(rounded)).padStart(2, "0");
   if (rounded > 0) {
-    return `+${rounded}¢`;
+    return `+${abs}`;
   }
   if (rounded < 0) {
-    // U+2212 minus for typography when available; ASCII fallback ok.
-    return `${rounded}¢`.replace("-", "\u2212");
+    return `\u2212${abs}`; // U+2212 minus (same advance as + in mono)
   }
-  return "0¢";
+  return `\u00A0${abs}`; // space + digits when dead-on
 }
 
 function nodeGraphPitchDetectorFaceMode(faceOrNodeId) {
@@ -243,11 +253,11 @@ function nodeGraphPitchDetectorCycleDisplayMode(face) {
     unit.textContent = nodeGraphPitchDisplayModeLabel(next);
     unit.setAttribute(
       "aria-label",
-      `Display mode ${nodeGraphPitchDisplayModeLabel(next)}. Click to cycle Hz, 8ve, M.`,
+      `Display mode ${nodeGraphPitchDisplayModeLabel(next)}. Click to cycle Hz, M, 8ve.`,
     );
-    unit.title = "Click to cycle: Hz (frequency) → 8ve (MIDI number) → M (note name + cents)";
+    unit.title = "Click to cycle: Hz (frequency) → M (MIDI number) → 8ve (note name + cents)";
   }
-  // Show cents strip only on M (note name) page.
+  // Cents on 8ve page (internal mode "name") only; Fid always visible.
   const centsEl = face.querySelector?.("[data-pitch-value='cents']");
   if (centsEl) {
     centsEl.hidden = next !== "name";
@@ -285,15 +295,15 @@ function createNodeGraphPitchDetectorBody(nodeId) {
   lcd.dataset.lightStrength = "1";
   lcd.setAttribute("aria-hidden", "true");
 
-  // Decorations under the LED plate: unit toggle + cents (M page) + fidelity.
+  // Meta strip: mode (left) | cents (center, 8ve page) | Fid + value (right, all pages).
   const meta = document.createElement("div");
   meta.className = "node-pitch-detector-fid";
   const hz = document.createElement("button");
   hz.type = "button";
   hz.className = "node-pitch-detector-hz";
   hz.textContent = "Hz";
-  hz.title = "Click to cycle: Hz (frequency) → 8ve (MIDI number) → M (note name + cents)";
-  hz.setAttribute("aria-label", "Display mode Hz. Click to cycle Hz, 8ve, M.");
+  hz.title = "Click to cycle: Hz (frequency) → M (MIDI number) → 8ve (note name + cents)";
+  hz.setAttribute("aria-label", "Display mode Hz. Click to cycle Hz, M, 8ve.");
   hz.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -307,8 +317,8 @@ function createNodeGraphPitchDetectorBody(nodeId) {
   const centsVal = document.createElement("strong");
   centsVal.className = "node-pitch-detector-cents";
   centsVal.dataset.pitchValue = "cents";
-  centsVal.textContent = "—";
-  centsVal.title = "Cents off equal temperament (M page)";
+  centsVal.textContent = "\u00A0\u00A0\u00A0";
+  centsVal.title = "Cents off equal temperament (8ve / note-name page)";
   centsVal.hidden = true;
 
   const fidKey = document.createElement("span");
@@ -317,11 +327,12 @@ function createNodeGraphPitchDetectorBody(nodeId) {
   const fidVal = document.createElement("strong");
   fidVal.className = "node-pitch-detector-v";
   fidVal.dataset.pitchValue = "fidelity";
-  fidVal.textContent = "—";
+  fidVal.textContent = "0.0000";
   const fidGroup = document.createElement("span");
   fidGroup.className = "node-pitch-detector-fid-group";
-  fidGroup.append(centsVal, fidKey, fidVal);
-  meta.append(hz, fidGroup);
+  // Fid label + fixed-width value only (cents sit in the center column).
+  fidGroup.append(fidKey, fidVal);
+  meta.append(hz, centsVal, fidGroup);
 
   body.append(lcd, meta);
   return body;
@@ -330,8 +341,9 @@ function createNodeGraphPitchDetectorBody(nodeId) {
 function nodeGraphPitchDetectorFormatFid(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) {
-    return "—";
+    return "0.0000";
   }
+  // Always 4 decimals — fixed width so Fid never jitters the strip.
   return Math.max(0, Math.min(1, n)).toFixed(4);
 }
 
@@ -380,23 +392,37 @@ function updateNodeGraphPitchDetectorFacesFromScopeValues(values) {
     if (!body) {
       continue;
     }
+    // Skip DOM when display is hidden (cuts thrash under audio load).
+    if (typeof nodeGraphModuleDisplayVisibleForUi === "function"
+      && typeof nodeGraphPatchNode === "function") {
+      const node = nodeGraphPatchNode(nodeId);
+      if (node && !nodeGraphModuleDisplayVisibleForUi(node.type, node.ui)) {
+        continue;
+      }
+    }
     const fid = lastByKey.get(`${nodeId}:Fidelity`);
     const fidEl = body.querySelector?.('[data-pitch-value="fidelity"]');
     if (fidEl && fid != null) {
-      fidEl.textContent = nodeGraphPitchDetectorFormatFid(fid);
+      const nextFid = nodeGraphPitchDetectorFormatFid(fid);
+      if (fidEl.textContent !== nextFid) {
+        fidEl.textContent = nextFid;
+      }
     }
     const freq = lastByKey.get(`${nodeId}:Frequency`);
     const centsEl = body.querySelector?.('[data-pitch-value="cents"]');
     if (centsEl) {
       const mode = nodeGraphPitchDisplayModeNormalize(body.dataset.pitchDisplayMode);
-      centsEl.hidden = mode !== "name";
-      if (mode === "name") {
-        if (freq != null && freq > 0) {
-          centsEl.textContent = nodeGraphPitchDetectorFormatCents(
-            nodeGraphFrequencyToCentsOff(freq),
-          );
-        } else {
-          centsEl.textContent = "—";
+      // Cents on 8ve page (internal mode "name").
+      const showCents = mode === "name";
+      if (centsEl.hidden === showCents) {
+        centsEl.hidden = !showCents;
+      }
+      if (showCents) {
+        const nextCents = (freq != null && freq > 0)
+          ? nodeGraphPitchDetectorFormatCents(nodeGraphFrequencyToCentsOff(freq))
+          : "\u00A0\u00A0\u00A0";
+        if (centsEl.textContent !== nextCents) {
+          centsEl.textContent = nextCents;
         }
       }
     }

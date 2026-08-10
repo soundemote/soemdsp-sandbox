@@ -140,20 +140,17 @@ NodeLiveAudioProcessor.prototype.polyBlepOscillatorWorkletEvaluate = function po
   const pitchCv = hasPitch
     ? this.clampValue(this.safeFilterNumber(mixInput(nodeId, "0.1V/Oct"), null), -1, 1)
     : referenceVoltage;
-  const fHz = this.readFInputHz(mixInput, nodeId);
   const effectiveFrequency = typeof nodeGraphParamResolveOscPitchHz === "function"
     ? nodeGraphParamResolveOscPitchHz({
       baseHz: frequency,
       hasPitchCv: hasPitch,
       pitchCv,
       referenceVoltage,
-      fHz,
     })
     : this.resolveFrequencyHz(
       (typeof nodeGraphPitchedFrequency === "function"
         ? nodeGraphPitchedFrequency(frequency, pitchCv, referenceVoltage)
         : frequency * (2 ** ((pitchCv - referenceVoltage) / 0.1))),
-      fHz,
     );
   const phaseIncrement = (effectiveFrequency / safeRate) + incrementInput;
   const level = this.readEffectiveParameter(node, "amplitude", 1, frame, frames, frameValues);

@@ -11,16 +11,12 @@ function nodeGraphSoftpopResolveFrequencyHz(runtime, node, nodeId, frame, frames
   const pitchCv = hasPitch
     ? Math.max(-1, Math.min(1, Number(mixInput(nodeId, "0.1V/Oct")) || 0))
     : referenceVoltage;
-  const fHz = typeof nodeGraphReadFInputHz === "function"
-    ? nodeGraphReadFInputHz(mixInput, hasInput, nodeId)
-    : null;
   if (typeof nodeGraphParamResolveOscPitchHz === "function") {
     return nodeGraphParamResolveOscPitchHz({
       baseHz: frequency,
       hasPitchCv: hasPitch,
       pitchCv,
       referenceVoltage,
-      fHz,
     });
   }
   if (typeof nodeGraphPitchedFrequency === "function") {

@@ -9729,25 +9729,38 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: block;
 }
 
-/* Zero scope height only for real hideable scopes — never filter/envelope faces. */
+/*
+ * App-wide display hide SSOT (CSS half):
+ * Global Displays off → every face collapses. No layout exemptions.
+ * Local force-show (.oscilloscope-forced-visible) can keep a face up.
+ */
 .node-graph-workspace.module-oscilloscopes-hidden
-  .dsp-node:not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.filter-curve-layout):not(.wall-room-display-layout):not(.pulse-curve-layout):not(.oscilloscope-forced-visible) {
+  .dsp-node:not(.oscilloscope-forced-visible) {
   --node-module-scope-height: 0px;
 }
 
-/* Hide only analyzer scopes — not always-on display plates that reuse the class. */
 .node-graph-workspace.module-oscilloscopes-hidden
-  .dsp-node:not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.filter-curve-layout):not(.wall-room-display-layout):not(.pulse-curve-layout):not(.oscilloscope-forced-visible)
-  .node-module-scope-window:not(.node-knob-face):not(.node-number-readout-face):not(.node-ray-bouncer-face) {
-  display: none;
-}
-
-/* Music Player waveform is not a .node-module-scope-window — hide it with the
-   global Displays toggle the same way as analyzer faces. */
+  .dsp-node:not(.oscilloscope-forced-visible)
+  .node-module-scope-window,
 .node-graph-workspace.module-oscilloscopes-hidden
-  .dsp-node.phosphor-waveform-layout:not(.oscilloscope-forced-visible)
-  .node-phosphor-waveform-display {
-  display: none;
+  .dsp-node:not(.oscilloscope-forced-visible)
+  .node-pitch-detector-face,
+.node-graph-workspace.module-oscilloscopes-hidden
+  .dsp-node:not(.oscilloscope-forced-visible)
+  .node-filter-curve-display,
+.node-graph-workspace.module-oscilloscopes-hidden
+  .dsp-node:not(.oscilloscope-forced-visible)
+  .node-round-shape-display,
+.node-graph-workspace.module-oscilloscopes-hidden
+  .dsp-node:not(.oscilloscope-forced-visible)
+  .node-wall-room-display,
+.node-graph-workspace.module-oscilloscopes-hidden
+  .dsp-node:not(.oscilloscope-forced-visible)
+  .node-phosphor-waveform-display,
+.node-graph-workspace.module-oscilloscopes-hidden
+  .dsp-node:not(.oscilloscope-forced-visible)
+  .node-solid-module-custom-ui {
+  display: none !important;
 }
 
 /* Room dimmer veil — full UI (top/bottom bars + workspace). Fixed viewport.
@@ -11175,9 +11188,8 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 /*
- * Hz + Fid: height = line box of the type + a few px pad (not a fixed em strip).
- * No background, no stroke — sits on the same plate as the LED.
- * Square corners so 8ve / Fid are never clipped by display rounding.
+ * Meta strip: mode (left) | cents (center, 8ve page) | Fid + value (right, all pages).
+ * Fixed ch widths so cents / Fid never jitter the layout.
  */
 .node-pitch-detector-fid {
   position: relative;
@@ -11185,12 +11197,11 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   z-index: 5;
   box-sizing: border-box;
   display: grid;
-  /* Left: unit; right: cents (M) + Fid + 4-decimal value. */
-  grid-template-columns: minmax(2.4em, 26%) minmax(0, 1fr);
+  /* Left mode · center cents · right Fid (right-aligned cluster). */
+  grid-template-columns: minmax(2.2em, 22%) minmax(0, 1fr) auto;
   align-items: center;
-  column-gap: 0.35em;
+  column-gap: 0.25em;
   min-width: 0;
-  /* Content-sized, slightly taller for readability. */
   height: auto;
   min-height: 1.15em;
   max-height: none;
@@ -11232,7 +11243,6 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   overflow: hidden;
   text-overflow: clip;
   white-space: nowrap;
-  /* Soft lift so type reads on phosphor without a plate. */
   text-shadow: 0 0 0.35em rgba(0, 0, 0, 0.85), 0 1px 0 rgba(0, 0, 0, 0.55);
   pointer-events: auto;
   cursor: pointer;
@@ -11245,22 +11255,14 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   outline: none;
 }
 
-.node-pitch-detector-fid .node-pitch-detector-fid-group {
-  grid-column: 2;
-  display: grid;
-  /* cents (M page) + "Fid" + fixed-width cell for 0.0000 … 1.0000 */
-  grid-template-columns: auto auto minmax(5.5ch, 6.8ch);
-  align-items: center;
-  justify-content: end;
-  column-gap: 0.35em;
-  min-width: 0;
-  width: 100%;
-  line-height: 1.15;
-}
-
+/* Centered between mode and Fid (8ve / note-name page). */
 .node-pitch-detector-fid .node-pitch-detector-cents {
-  justify-self: end;
-  min-width: 3.6ch;
+  grid-column: 2;
+  justify-self: center;
+  /* Sign + 2 digits — fixed 3 mono cells (no ¢). */
+  min-width: 3ch;
+  width: 3ch;
+  text-align: center;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: rgba(255, 210, 140, 0.95);
@@ -11270,7 +11272,22 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 .node-pitch-detector-fid .node-pitch-detector-cents[hidden] {
-  display: none !important;
+  /* Keep grid cell so Fid does not jump when cents hide. */
+  visibility: hidden;
+  display: block !important;
+}
+
+/* Fid + value — right-aligned on every page. */
+.node-pitch-detector-fid .node-pitch-detector-fid-group {
+  grid-column: 3;
+  display: grid;
+  grid-template-columns: auto 6ch;
+  align-items: center;
+  justify-content: end;
+  justify-self: end;
+  column-gap: 0.35em;
+  min-width: 0;
+  line-height: 1.15;
 }
 
 .node-pitch-detector-fid .node-pitch-detector-k {
@@ -11286,7 +11303,8 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 
 .node-pitch-detector-fid .node-pitch-detector-v {
   justify-self: stretch;
-  min-width: 0;
+  min-width: 6ch;
+  width: 6ch;
   overflow: hidden;
   text-align: right;
   font-weight: 700;
@@ -13415,23 +13433,19 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   display: none;
 }
 
-.dsp-node.oscilloscope-hidden:not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.filter-curve-layout):not(.wall-room-display-layout):not(.pulse-curve-layout) {
+/* Per-module display hide — same SSOT as global: no layout exemptions. */
+.dsp-node.oscilloscope-hidden {
   --node-module-scope-height: 0px;
 }
 
-.dsp-node.oscilloscope-hidden:not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.filter-curve-layout):not(.wall-room-display-layout):not(.pulse-curve-layout) .node-module-scope-window {
-  display: none;
-}
-
-/* Filter/envelope/crossover faces are control surfaces, not hideable scopes.
-   Never collapse or display:none them with the oscilloscope toggle. */
-
-.dsp-node.wall-room-display-layout.oscilloscope-hidden .node-wall-room-display {
-  display: none;
-}
-
-.dsp-node.phosphor-waveform-layout.oscilloscope-hidden .node-phosphor-waveform-display {
-  display: none;
+.dsp-node.oscilloscope-hidden .node-module-scope-window,
+.dsp-node.oscilloscope-hidden .node-pitch-detector-face,
+.dsp-node.oscilloscope-hidden .node-filter-curve-display,
+.dsp-node.oscilloscope-hidden .node-round-shape-display,
+.dsp-node.oscilloscope-hidden .node-wall-room-display,
+.dsp-node.oscilloscope-hidden .node-phosphor-waveform-display,
+.dsp-node.oscilloscope-hidden .node-solid-module-custom-ui {
+  display: none !important;
 }
 
 /* Music Player also carries .sample-module-layout (shared with
@@ -13478,14 +13492,23 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   grid-row: 6;
 }
 
-/* filter-curve-layout keeps its face track always (see LayoutA filter-curve rows). */
-
-.node-graph-workspace.module-oscilloscopes-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.filter-curve-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.phosphillator-draw-layout):not(.wall-room-display-layout):not(.pulse-curve-layout),
-.dsp-node.oscilloscope-hidden:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.filter-curve-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.phosphillator-draw-layout):not(.wall-room-display-layout):not(.pulse-curve-layout) {
+/* When display is hidden, collapse the face row out of the grid. */
+.node-graph-workspace.module-oscilloscopes-hidden .dsp-node:not(.oscilloscope-forced-visible):not(.sample-module-layout),
+.dsp-node.oscilloscope-hidden:not(.sample-module-layout) {
   grid-template-rows:
     var(--node-header-height)
     minmax(var(--node-io-section-min-height), auto)
-    auto;
+    auto
+    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
+}
+
+.dsp-node.pitch-detector-layout.oscilloscope-hidden,
+.dsp-node.filter-curve-layout.oscilloscope-hidden {
+  grid-template-rows:
+    var(--node-header-height)
+    minmax(var(--node-io-section-min-height), auto)
+    auto
+    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
 }
 
 .dsp-node.sample-module-layout,

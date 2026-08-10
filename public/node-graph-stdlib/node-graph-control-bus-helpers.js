@@ -18,11 +18,30 @@ function nodeGraphDspMidiNoteToHz(midi) {
 }
 
 /**
+ * Knob Bias domain range from Max + Polarity (0=Unipolar, 1=Bipolar).
+ * Unipolar → [0, max]. Bipolar → [−max, +max].
+ */
+function nodeGraphDspKnobBiasRange(rangeMax, polarity) {
+  const raw = Math.abs(Number(rangeMax));
+  const hi = Number.isFinite(raw) && raw > 0 ? raw : 1;
+  const bipolar = Math.round(Number(polarity) || 0) >= 1;
+  return {
+    bipolar,
+    max: hi,
+    min: bipolar ? -hi : 0,
+  };
+}
+
+/**
  * Bias/offset control: Out = In + offset (unwired In treated as 0).
  * Returns Bias, Out, and both offset/value aliases for knob vs slider param keys.
+ * Optional min/max clamps the dial offset only (In can still push Bias outside).
  */
-function nodeGraphDspBiasFromIn(offset, inSample) {
-  const off = Number(offset) || 0;
+function nodeGraphDspBiasFromIn(offset, inSample, rangeMin = null, rangeMax = null) {
+  let off = Number(offset) || 0;
+  if (Number.isFinite(Number(rangeMin)) && Number.isFinite(Number(rangeMax))) {
+    off = nodeGraphDspClamp(off, Number(rangeMin), Number(rangeMax));
+  }
   const input = Number(inSample) || 0;
   const value = input + off;
   return { Bias: value, Out: value, offset: off, value: off };

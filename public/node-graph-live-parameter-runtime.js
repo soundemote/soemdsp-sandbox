@@ -69,13 +69,13 @@ function normalizeNodeGraphParameterOutputValue(value, metadata = {}) {
   return nodeGraphParameterValueToNormalizedSignal(value, metadata);
 }
 
-/** MOD surface: raw sample → bipolar unit [−1, 1]. */
+/** MOD surface: raw sample in domain units (no unit clamp). */
 function normalizeNodeGraphParameterModulationInput(value, metadata = {}) {
   if (typeof nodeGraphParamNormalizeModInput === "function") {
     return nodeGraphParamNormalizeModInput(value, metadata);
   }
-  const number = Number(value) || 0;
-  return clampNodeSliderValue(number, -1, 1);
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
 }
 
 function nodeGraphParameterSkewExponent(metadata = {}) {
@@ -134,13 +134,37 @@ function nodeGraphNormalizedSignalToParameterValue(signal, metadata = {}) {
   return nodeGraphApplyParameterBounds(min + range * normalizedValue, metadata);
 }
 
-/** DOMAIN + MOD → effective domain value. */
+/** DOMAIN + MOD → effective domain (linear unit map / absolute hybrid SSOT). */
 function nodeGraphApplyParameterModulation(base, modulationSignal, metadata = {}) {
   if (typeof nodeGraphParamApplyMod === "function") {
     return nodeGraphParamApplyMod(base, modulationSignal, metadata);
   }
-  // Fallback mirrors nodeGraphParamApplyMod (modClamp default false except constraints).
-  const mod = Number(modulationSignal) || 0;
+  // Fallback mirrors nodeGraphParamApplyMod (linear unit, no skew).
+  const baseN = Number(base);
+  const b = Number.isFinite(baseN) ? baseN : 0;
+  let mod = Number(modulationSignal);
+  if (!Number.isFinite(mod)) {
+    mod = 0;
+  }
+  const bipolar = metadata && Object.hasOwn(metadata, "bipolar")
+    ? Boolean(metadata.bipolar)
+    : (Number(metadata?.min) < 0 && Number(metadata?.max) > 0);
+  if (!bipolar) {
+    mod = Math.max(0, mod);
+  }
+  const min = Number(metadata.min);
+  const max = Number(metadata.max);
+  const range = max - min;
+  if (Number.isFinite(range) && range > 0 && Math.abs(mod) <= 1 + 1e-9) {
+    const baseUnit = (b - min) / range;
+    const unit = baseUnit + mod;
+    const result = min + unit * range;
+    return Number.isFinite(result) ? result : 0;
+  }
+  let result = b + mod;
+  if (!Number.isFinite(result)) {
+    return 0;
+  }
   let shouldClamp = false;
   if (Object.hasOwn(metadata, "modClamp")) {
     shouldClamp = Boolean(metadata.modClamp);
@@ -149,31 +173,6 @@ function nodeGraphApplyParameterModulation(base, modulationSignal, metadata = {}
   } else {
     const c = String(metadata.constraint || "").toLowerCase();
     shouldClamp = c === "cpu" || c === "gpu" || c === "ram" || c === "memory";
-  }
-  let result;
-  if (String(metadata?.kind || "").toLowerCase() === "frequency") {
-    // Through-zero: keep sign of base; 0 base stays 0 under V/Oct.
-    const b = Number(base);
-    const baseFrequency = Number.isFinite(b) ? b : 0;
-    result = Math.abs(baseFrequency) < 1e-18 ? 0 : baseFrequency * (2 ** (mod / 0.1));
-  } else {
-    const min = Number(metadata.min);
-    const max = Number(metadata.max);
-    const range = max - min;
-    const baseSignal = nodeGraphParameterValueToNormalizedSignal(base, metadata);
-    const unit = baseSignal + mod;
-    if (!Number.isFinite(range) || range <= 0) {
-      result = Number.isFinite(min) ? min : 0;
-    } else if (metadata.wraparound) {
-      return nodeGraphNormalizedSignalToParameterValue(unit, metadata);
-    } else {
-      const exp = nodeGraphParameterSkewExponent(metadata);
-      const nv = (unit >= 0 && unit <= 1) ? (unit ** exp) : unit;
-      result = min + range * nv;
-    }
-  }
-  if (!Number.isFinite(result)) {
-    return 0;
   }
   return shouldClamp ? nodeGraphApplyParameterBounds(result, metadata) : result;
 }

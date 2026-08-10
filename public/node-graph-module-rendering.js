@@ -626,14 +626,26 @@ function createNodeGraphModuleElement(type, node) {
     if (!chrome.headerless && !chrome.portsBeside && !patchNodeUi.titleHidden) {
       article.append(createNodeGraphModuleHeader(type, node, definition));
     }
-    const chromelessBody = chromelessRegistration.createBody(node, type);
+    const mountFace = typeof nodeGraphModuleShouldMountDisplayFace === "function"
+      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+      : !patchNodeUi.oscilloscopeHidden;
+    const chromelessBody = mountFace
+      ? chromelessRegistration.createBody(node, type)
+      : document.createElement("div");
+    if (!mountFace && chromelessBody) {
+      chromelessBody.className = "node-module-display-placeholder";
+      chromelessBody.hidden = true;
+      chromelessBody.setAttribute("aria-hidden", "true");
+    }
     // LayoutB → ports beside face. LayoutA → face then ports under (labeled I/O strip).
     if (chrome.portsBeside) {
       article.append(
         createNodeGraphLayoutBShell(node, type, chromelessBody, chromelessRegistration, inputPorts, outputPorts),
       );
     } else {
-      article.append(chromelessBody);
+      if (mountFace) {
+        article.append(chromelessBody);
+      }
       appendNodeGraphModuleIoSection(
         article,
         createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
@@ -642,7 +654,9 @@ function createNodeGraphModuleElement(type, node) {
         outputPorts,
       );
     }
-    chromelessRegistration.afterMount?.(article, chromelessBody, node, type);
+    if (mountFace) {
+      chromelessRegistration.afterMount?.(article, chromelessBody, node, type);
+    }
   } else if (chrome.headerless) {
     // Headerless LayoutB (e.g. knob): title + face + side ports.
     if (!patchNodeUi.titleHidden) {
@@ -814,7 +828,10 @@ function createNodeGraphModuleElement(type, node) {
       outputPorts,
     );
   } else if (layout === "badvalMonitor") {
-    if (typeof createNodeGraphBadvalMonitorBody === "function") {
+    if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
+      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+      : !patchNodeUi.oscilloscopeHidden)
+      && typeof createNodeGraphBadvalMonitorBody === "function") {
       article.append(createNodeGraphBadvalMonitorBody(node));
     }
     appendNodeGraphModuleIoSection(
@@ -825,13 +842,17 @@ function createNodeGraphModuleElement(type, node) {
       outputPorts,
     );
   } else if (layout === "pitchDetector") {
-    const pitchFace = typeof createNodeGraphPitchDetectorBody === "function"
-      ? createNodeGraphPitchDetectorBody(node)
-      : null;
-    if (pitchFace) {
-      article.append(pitchFace);
-      if (typeof mountNodeGraphPitchDetectorFace === "function") {
-        mountNodeGraphPitchDetectorFace(article, pitchFace, node);
+    if (typeof nodeGraphModuleShouldMountDisplayFace === "function"
+      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+      : !patchNodeUi.oscilloscopeHidden) {
+      const pitchFace = typeof createNodeGraphPitchDetectorBody === "function"
+        ? createNodeGraphPitchDetectorBody(node)
+        : null;
+      if (pitchFace) {
+        article.append(pitchFace);
+        if (typeof mountNodeGraphPitchDetectorFace === "function") {
+          mountNodeGraphPitchDetectorFace(article, pitchFace, node);
+        }
       }
     }
     appendNodeGraphModuleIoSection(
@@ -842,9 +863,11 @@ function createNodeGraphModuleElement(type, node) {
       outputPorts,
     );
   } else if (definition.layout === "filterCurve") {
-    // LayoutA: face is a custom display (always on — not a hideable scope).
-    // Must stay above the plate mask (z-index:1 on .node-filter-curve-display).
-    if (typeof createNodeGraphFilterCurveDisplay === "function") {
+    // LayoutA filter face — same display hide policy as every other face.
+    if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
+      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+      : !patchNodeUi.oscilloscopeHidden)
+      && typeof createNodeGraphFilterCurveDisplay === "function") {
       article.append(createNodeGraphFilterCurveDisplay(node, type));
     }
     appendNodeGraphModuleIoSection(
@@ -855,8 +878,11 @@ function createNodeGraphModuleElement(type, node) {
       outputPorts,
     );
   } else if (definition.layout === "roundShape") {
-    // Cheap static sine→square orbit (not phosphor, not residual).
-    if (typeof createNodeGraphRoundShapeDisplay === "function") {
+    // Cheap static sine→square orbit — hideable like every display.
+    if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
+      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+      : !patchNodeUi.oscilloscopeHidden)
+      && typeof createNodeGraphRoundShapeDisplay === "function") {
       article.append(createNodeGraphRoundShapeDisplay(node, type));
     }
     appendNodeGraphModuleIoSection(
@@ -867,8 +893,10 @@ function createNodeGraphModuleElement(type, node) {
       outputPorts,
     );
   } else if (definition.layout === "envelopeCurve") {
-    // Always-on control face (not hideable with Displays toggle).
-    if (typeof createNodeGraphEnvelopeCurveDisplay === "function") {
+    if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
+      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+      : !patchNodeUi.oscilloscopeHidden)
+      && typeof createNodeGraphEnvelopeCurveDisplay === "function") {
       article.append(createNodeGraphEnvelopeCurveDisplay(node, type));
     }
     appendNodeGraphModuleIoSection(
@@ -879,11 +907,17 @@ function createNodeGraphModuleElement(type, node) {
       outputPorts,
     );
   } else if (definition.layout === "pitchQuantizer") {
-    if (typeof createNodeGraphPitchQuantizerFace === "function") {
+    if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
+      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+      : !patchNodeUi.oscilloscopeHidden)
+      && typeof createNodeGraphPitchQuantizerFace === "function") {
       article.append(createNodeGraphPitchQuantizerFace(node));
     }
   } else if (definition.layout === "chordPad") {
-    if (typeof createNodeGraphChordPadFace === "function") {
+    if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
+      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+      : !patchNodeUi.oscilloscopeHidden)
+      && typeof createNodeGraphChordPadFace === "function") {
       article.append(createNodeGraphChordPadFace(node));
     }
     appendNodeGraphModuleIoSection(
@@ -951,11 +985,14 @@ function createNodeGraphModuleElement(type, node) {
       outputPorts,
     );
   } else if (definition.layout === "textStream") {
-    const textFace = typeof createNodeGraphTextStreamFace === "function"
-      ? createNodeGraphTextStreamFace(node)
-      : null;
-    if (textFace) {
-      article.append(textFace);
+    if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
+      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+      : !patchNodeUi.oscilloscopeHidden)
+      && typeof createNodeGraphTextStreamFace === "function") {
+      const textFace = createNodeGraphTextStreamFace(node);
+      if (textFace) {
+        article.append(textFace);
+      }
     }
     appendNodeGraphModuleIoSection(
       article,
@@ -965,7 +1002,10 @@ function createNodeGraphModuleElement(type, node) {
       outputPorts,
     );
   } else if (definition.layout === "wallRoomDisplay") {
-    if (!patchNodeUi.oscilloscopeHidden && typeof createNodeGraphWallRoomDisplay === "function") {
+    if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
+      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+      : !patchNodeUi.oscilloscopeHidden)
+      && typeof createNodeGraphWallRoomDisplay === "function") {
       article.append(createNodeGraphWallRoomDisplay(node, type));
     }
     appendNodeGraphModuleIoSection(
@@ -976,7 +1016,12 @@ function createNodeGraphModuleElement(type, node) {
       outputPorts,
     );
   } else if (definition.layout === "phosphillatorDraw") {
-    article.append(createNodeGraphPhosphillatorDrawDisplay(node, type));
+    if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
+      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+      : !patchNodeUi.oscilloscopeHidden)
+      && typeof createNodeGraphPhosphillatorDrawDisplay === "function") {
+      article.append(createNodeGraphPhosphillatorDrawDisplay(node, type));
+    }
     appendNodeGraphModuleIoSection(
       article,
       createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts),
@@ -988,7 +1033,10 @@ function createNodeGraphModuleElement(type, node) {
     if (typeof createNodeGraphSampleModuleBody === "function") {
       article.append(createNodeGraphSampleModuleBody(node));
     }
-    if (!patchNodeUi.oscilloscopeHidden) {
+    if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
+      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+      : !patchNodeUi.oscilloscopeHidden)
+      && typeof createNodeGraphPhosphorWaveformDisplay === "function") {
       article.append(createNodeGraphPhosphorWaveformDisplay(node, type));
     }
     appendNodeGraphModuleIoSection(
@@ -999,7 +1047,10 @@ function createNodeGraphModuleElement(type, node) {
       outputPorts,
     );
   } else if (definition.layout === "pulseCurve") {
-    if (!patchNodeUi.oscilloscopeHidden) {
+    if ((typeof nodeGraphModuleShouldMountDisplayFace === "function"
+      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+      : !patchNodeUi.oscilloscopeHidden)
+      && typeof createNodeGraphPulseCurveDisplay === "function") {
       article.append(createNodeGraphPulseCurveDisplay(node, type));
     }
     appendNodeGraphModuleIoSection(
@@ -1021,7 +1072,9 @@ function createNodeGraphModuleElement(type, node) {
   } else {
     let scopeSection = null;
     // Chromeless LayoutB modules already mounted above — don't add a second face.
-    if (!patchNodeUi.oscilloscopeHidden) {
+    if (typeof nodeGraphModuleShouldMountDisplayFace === "function"
+      ? nodeGraphModuleShouldMountDisplayFace(type, patchNode.ui)
+      : !patchNodeUi.oscilloscopeHidden) {
       scopeSection = createNodeGraphModuleScopeSection(node, type);
       article.append(scopeSection);
     }

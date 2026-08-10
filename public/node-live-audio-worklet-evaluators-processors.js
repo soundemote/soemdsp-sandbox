@@ -483,9 +483,8 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const state = this.aliasSineStates.get(nodeId) || this.createAliasSineState();
         this.aliasSineStates.set(nodeId, state);
         // When universal `f` is wired (absolute Hz), convert to cycles/sample.
-        const fHz = this.readFInputHz(mixInput, nodeId);
         const normFromKnob = this.readEffectiveParameter(node, "normFreq", 0.1, frame, frames, frameValues);
-        const normFreq = fHz != null ? fHz / Math.max(1, safeRate) : normFromKnob;
+        const normFreq = normFromKnob;
         return this.aliasSineSample(
           state,
           normFreq,
@@ -500,9 +499,8 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         }
         const state = this.robinSinusoidStates.get(nodeId) || this.createRobinSinusoidState();
         this.robinSinusoidStates.set(nodeId, state);
-        const fHz = this.readFInputHz(mixInput, nodeId);
         const freqKnob = this.readEffectiveParameter(node, "frequency", 440, frame, frames, frameValues);
-        const frequency = fHz != null ? fHz : freqKnob;
+        const frequency = freqKnob;
         const amp = this.readEffectiveParameter(node, "amplitude", 1, frame, frames, frameValues);
         const phaseCycle = this.readEffectiveParameter(node, "phase", 0, frame, frames, frameValues);
         const startPhase = (Number(phaseCycle) || 0) * Math.PI * 2;

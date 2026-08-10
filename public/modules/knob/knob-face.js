@@ -470,24 +470,77 @@ function nodeGraphKnobFaceLiveOffset(nodeId) {
   return inputSum + slider;
 }
 
+/** Live Max + Polarity → Bias domain [min, max] for dial mapping. */
+function nodeGraphKnobFaceBiasRange(patchNode) {
+  const id = patchNode?.id;
+  let rangeMax = 1;
+  let polarity = 0;
+  if (id && typeof nodeGraphReadNodeNumber === "function") {
+    const rm = nodeGraphReadNodeNumber(id, "rangeMax");
+    const pol = nodeGraphReadNodeNumber(id, "polarity");
+    if (Number.isFinite(rm)) rangeMax = rm;
+    if (Number.isFinite(pol)) polarity = pol;
+  } else {
+    const rm = Number(patchNode?.params?.rangeMax);
+    const pol = Number(patchNode?.params?.polarity);
+    if (Number.isFinite(rm)) rangeMax = rm;
+    if (Number.isFinite(pol)) polarity = pol;
+  }
+  if (typeof nodeGraphDspKnobBiasRange === "function") {
+    return nodeGraphDspKnobBiasRange(rangeMax, polarity);
+  }
+  const hi = Math.abs(rangeMax) > 0 ? Math.abs(rangeMax) : 1;
+  const bipolar = Math.round(polarity) >= 1;
+  return { min: bipolar ? -hi : 0, max: hi, bipolar };
+}
+
 function nodeGraphKnobFaceUnitFromValue(value, patchNode) {
-  const slider = typeof document !== "undefined"
-    ? document.getElementById(`node-${patchNode?.id}-offset`)
-    : null;
-  const lo = Number.isFinite(Number(slider?.min))
-    ? Number(slider.min)
-    : (Number.isFinite(Number(patchNode?.paramMeta?.offset?.min))
-      ? Number(patchNode.paramMeta.offset.min)
-      : -1);
-  const hi = Number.isFinite(Number(slider?.max))
-    ? Number(slider.max)
-    : (Number.isFinite(Number(patchNode?.paramMeta?.offset?.max))
-      ? Number(patchNode.paramMeta.offset.max)
-      : 1);
-  if (hi === lo) {
+  const range = nodeGraphKnobFaceBiasRange(patchNode);
+  const lo = range.min;
+  const hi = range.max;
+  if (!(hi > lo)) {
     return 0.5;
   }
   return Math.max(0, Math.min(1, (Number(value) - lo) / (hi - lo)));
+}
+
+/** Keep hidden offset slider + face ARIA in sync with Max / Polarity. */
+function nodeGraphKnobFaceSyncOffsetDomain(patchNode) {
+  if (!patchNode?.id) {
+    return null;
+  }
+  const range = nodeGraphKnobFaceBiasRange(patchNode);
+  const slider = typeof document !== "undefined"
+    ? document.getElementById(`node-${patchNode.id}-offset`)
+    : null;
+  if (slider) {
+    slider.min = String(range.min);
+    slider.max = String(range.max);
+    if (slider.dataset) {
+      slider.dataset.min = String(range.min);
+      slider.dataset.max = String(range.max);
+    }
+  }
+  if (patchNode.paramMeta && typeof patchNode.paramMeta === "object") {
+    const meta = patchNode.paramMeta.offset && typeof patchNode.paramMeta.offset === "object"
+      ? patchNode.paramMeta.offset
+      : {};
+    patchNode.paramMeta.offset = {
+      ...meta,
+      bipolar: Boolean(range.bipolar),
+      min: range.min,
+      max: range.max,
+      mid: range.bipolar ? 0 : range.max * 0.5,
+    };
+  }
+  const face = typeof document !== "undefined"
+    ? document.querySelector(`.node-knob-face[data-node="${CSS.escape(String(patchNode.id))}"]`)
+    : null;
+  if (face) {
+    face.setAttribute("aria-valuemin", String(range.min));
+    face.setAttribute("aria-valuemax", String(range.max));
+  }
+  return range;
 }
 
 function nodeGraphKnobFaceUnitFromParams(patchNode) {
@@ -546,6 +599,9 @@ function paintNodeGraphKnobFaceLive(face, nodeId, buffer = null) {
     return;
   }
   const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  if (patchNode && typeof nodeGraphKnobFaceSyncOffsetDomain === "function") {
+    nodeGraphKnobFaceSyncOffsetDomain(patchNode);
+  }
   const faceData = nodeGraphKnobFaceForNode(patchNode || { knobFace: null });
   const hasImage = nodeGraphKnobFaceHasAnyImage(faceData);
   const display = typeof nodeGraphKnobFaceDisplaySettingsForNode === "function"

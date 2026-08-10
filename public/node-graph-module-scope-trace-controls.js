@@ -598,7 +598,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     inputmode: "decimal",
     id: "nodeTraceDisplayFacePadding",
     title:
-      "Value LED/LCD: linear 0…1 inset on each axis (half-width / half-height). 0 = digits fill the plate; 1 = one pin pixel remains (LED ~1 CSS-px phosphor; LCD = 1 monitor px at zoom 1.00, scales with zoom).",
+      "Value LED/LCD: linear inset on each axis (half-width / half-height). 0 = no inset; positive pulls digits in (1 = pin pixel); negative grows digits toward the plate walls so you can dial wall contact.",
   }),
   innerShadowDistance: Object.freeze({
     label: "Shadow dist",

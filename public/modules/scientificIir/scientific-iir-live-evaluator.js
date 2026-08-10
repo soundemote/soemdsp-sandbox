@@ -57,16 +57,12 @@ nodeGraphLiveModuleEvaluators.bandpass = ({
   const pitchCv = hasPitch
     ? Math.max(-1, Math.min(1, Number(mixInput(nodeId, "0.1V/Oct")) || 0))
     : referenceVoltage;
-  const fHz = typeof nodeGraphReadFInputHz === "function"
-    ? nodeGraphReadFInputHz(mixInput, hasInput, nodeId)
-    : null;
   const frequency = typeof nodeGraphParamResolveOscPitchHz === "function"
     ? Math.max(0, nodeGraphParamResolveOscPitchHz({
       baseHz: baseFreq,
       hasPitchCv: hasPitch,
       pitchCv,
       referenceVoltage,
-      fHz,
     }))
     : Math.max(0, baseFreq);
   const mono = mixInput(nodeId);
@@ -106,16 +102,12 @@ nodeGraphLiveModuleEvaluators.allpass = ({
   const pitchCv = hasPitch
     ? Math.max(-1, Math.min(1, Number(mixInput(nodeId, "0.1V/Oct")) || 0))
     : referenceVoltage;
-  const fHz = typeof nodeGraphReadFInputHz === "function"
-    ? nodeGraphReadFInputHz(mixInput, hasInput, nodeId)
-    : null;
   const frequency = typeof nodeGraphParamResolveOscPitchHz === "function"
     ? Math.max(0, nodeGraphParamResolveOscPitchHz({
       baseHz: baseFreq,
       hasPitchCv: hasPitch,
       pitchCv,
       referenceVoltage,
-      fHz,
     }))
     : Math.max(0, baseFreq);
   const mono = mixInput(nodeId);

@@ -1,27 +1,24 @@
-// Explicit parameter surfaces (Phase F).
+// Explicit parameter surfaces (Phase F — metaparam MOD SSOT).
 //
 // Three different ways a control is driven — three different contracts:
 //
 //   DOMAIN   — the knob/slider value in real units (Hz, −1…1, …).
 //              Source of truth for the parameter store / readout.
-//              min/max define the *slider* range (and unit mapping for MOD),
-//              not a hard clip on stored/effective values — unless the param
-//              is wraparound, has constraint cpu|gpu|ram, or hardClamp:true.
+//              min/max define the *slider* range (and DOMAIN↔unit for UI).
+//              UI domain↔unit may use mid/custom skew; MOD never uses skew.
 //
-//   MOD      — param-row modulation CV. Always interpreted as a bipolar
-//              unit signal in [−1, 1]. Applied with nodeGraphParamApplyMod:
-//                • kind "frequency" → 0.1V/Oct style: baseHz * 2^(mod / 0.1)
-//                • everything else  → unit-space add, then map back to domain
-//                  (with mid/custom skew when sliderCurve is skew/custom).
-//              After MOD, hard clamp only when wraparound / resource constraint
-//              / hardClamp / explicit modClamp:true (default: do not re-clamp).
+//   MOD      — param-row modulation CV. One SSOT in nodeGraphParamApplyMod:
+//              • |Σmod| ≤ 1  → linear unit map across [min, max] (NO skew):
+//                  unit = linearDomainToUnit(base) + mod
+//                  effective = min + unit * (max − min)
+//                Unipolar Uni X 0…1 + base at min → full range sweep.
+//              • |Σmod| > 1  → domain-add absolute (Pitch Detector Hz, etc.):
+//                  effective = base + mod
+//              Unipolar: clip mod contribution ≥ 0. Bipolar: signed (TZFM).
+//              Pitch exponential is NOT on MOD — use 0.1V/Oct jack.
 //
 //   SIGNAL IN — named input jacks (In, 0.1V/Oct, Phase, Amplitude, …).
-//              NOT the same as MOD. Handled by module evaluators:
-//                • additive In:     nodeGraphDspBiasFromIn / In + domain
-//                • pitch 0.1V/Oct:  nodeGraphPitchedFrequency
-//                • Phase jack:      usually domain + CV (cycles)
-//                • Amplitude jack:  usually domain * CV
+//              NOT the same as MOD. Handled by module evaluators.
 //
 // Pure: no DOM, no nodeGraphMvp. Safe for main thread + AudioWorklet Blob.
 
@@ -54,9 +51,22 @@ function nodeGraphParamKind(metadata = {}) {
   return String(metadata?.kind || "").trim().toLowerCase();
 }
 
-/** True when this param should use 0.1V/Oct-style mod (not unit-space add). */
-function nodeGraphParamUsesPitchMod(metadata = {}) {
-  return nodeGraphParamKind(metadata) === "frequency";
+/**
+ * True when MOD may be signed (thru-zero / bipolar domain).
+ * Explicit metadata.bipolar wins; else infer from min < 0 < max.
+ */
+function nodeGraphParamIsBipolar(metadata = {}) {
+  if (metadata && Object.hasOwn(metadata, "bipolar")) {
+    return Boolean(metadata.bipolar);
+  }
+  const min = Number(metadata?.min);
+  const max = Number(metadata?.max);
+  return Number.isFinite(min) && min < 0 && Number.isFinite(max) && max > 0;
+}
+
+/** @deprecated Pitch exponential is 0.1V/Oct jack only — never param MOD. */
+function nodeGraphParamUsesPitchMod(_metadata = {}) {
+  return false;
 }
 
 /**
@@ -160,7 +170,7 @@ function nodeGraphParamSkewExponent(metadata = {}) {
 }
 
 /**
- * DOMAIN → unit [0, 1] (for mod math on non-frequency params).
+ * DOMAIN → unit [0, 1] for UI / display (may apply mid/custom skew).
  */
 function nodeGraphParamDomainToUnit(value, metadata = {}) {
   const min = Number(metadata.min);
@@ -178,7 +188,7 @@ function nodeGraphParamDomainToUnit(value, metadata = {}) {
 }
 
 /**
- * Unit [0, 1] → DOMAIN (inverse of domainToUnit).
+ * Unit [0, 1] → DOMAIN for UI (inverse of skewed domainToUnit).
  */
 function nodeGraphParamUnitToDomain(unit, metadata = {}) {
   const min = Number(metadata.min);
@@ -196,63 +206,116 @@ function nodeGraphParamUnitToDomain(unit, metadata = {}) {
 }
 
 /**
- * MOD surface: raw bus sample → bipolar unit [−1, 1].
- * Always bipolar so LFOs through-zero work on any param (not only frequency).
+ * Linear DOMAIN → unit (MOD path only). Never applies slider skew.
+ * Unclamped result so base outside [min,max] still offsets correctly.
  */
-function nodeGraphParamNormalizeModInput(value, _metadata = {}) {
-  return nodeGraphParamClamp(Number(value) || 0, -1, 1);
+function nodeGraphParamDomainToUnitLinear(value, metadata = {}) {
+  const min = Number(metadata.min);
+  const max = Number(metadata.max);
+  const range = max - min;
+  if (!Number.isFinite(range) || range <= 0) {
+    return 0;
+  }
+  const n = Number(value);
+  const v = Number.isFinite(n) ? n : 0;
+  if (metadata.wraparound) {
+    return (nodeGraphParamWrap(v, min, max) - min) / range;
+  }
+  return (v - min) / range;
 }
 
 /**
- * Apply summed MOD (already normalized, may be outside [−1,1] if multi-source)
- * onto a DOMAIN base value.
- * Hard re-clamp after MOD only when nodeGraphParamModClamp says so
- * (wraparound / resource constraint / hardClamp / explicit modClamp:true).
+ * Linear unit → DOMAIN (MOD path only). Never applies slider skew.
  */
-function nodeGraphParamApplyMod(base, modSum, metadata = {}) {
-  const mod = Number(modSum) || 0;
-  const shouldClamp = nodeGraphParamModClamp(metadata);
-  let result;
-  if (nodeGraphParamUsesPitchMod(metadata)) {
-    // 0.1V/Oct: mod of +0.1 → +1 octave. Through-zero: keep sign of base.
-    const baseFrequency = Number(base);
-    const b = Number.isFinite(baseFrequency) ? baseFrequency : 0;
-    if (Math.abs(b) < 1e-18) {
-      result = 0;
-    } else {
-      result = b * (2 ** (mod / 0.1));
-    }
-  } else {
-    const min = Number(metadata.min);
-    const max = Number(metadata.max);
-    const range = max - min;
-    const baseUnit = nodeGraphParamDomainToUnit(base, metadata);
-    const unit = baseUnit + mod;
-    if (!Number.isFinite(range) || range <= 0) {
-      result = Number.isFinite(min) ? min : 0;
-    } else if (metadata.wraparound) {
-      // Wraparound params always stay in range (toroidal domain).
-      result = nodeGraphParamUnitToDomain(unit, metadata);
-      return result;
-    } else {
-      const exp = nodeGraphParamSkewExponent(metadata);
-      // Inside [0,1]: mid/custom power skew. Outside: linear unit so MOD can open.
-      const nv = (unit >= 0 && unit <= 1) ? (unit ** exp) : unit;
-      result = min + range * nv;
-    }
+function nodeGraphParamUnitToDomainLinear(unit, metadata = {}) {
+  const min = Number(metadata.min);
+  const max = Number(metadata.max);
+  const range = max - min;
+  if (!Number.isFinite(range) || range <= 0) {
+    return Number.isFinite(min) ? min : 0;
   }
+  let u = Number(unit);
+  if (!Number.isFinite(u)) {
+    u = 0;
+  }
+  if (metadata.wraparound) {
+    u = nodeGraphParamWrap(u, 0, 1);
+  }
+  const result = min + u * range;
   if (!Number.isFinite(result)) {
     return 0;
   }
-  return shouldClamp ? nodeGraphParamApplyDomainBounds(result, metadata) : result;
+  return nodeGraphParamModClamp(metadata)
+    ? nodeGraphParamApplyDomainBounds(result, metadata)
+    : result;
 }
 
 /**
- * DOMAIN value as a unit signal for *output* (parameter ports used as sources).
- * Same as domainToUnit — named for the "parameter output → bus" direction.
+ * MOD surface: raw bus sample as-is (Uni 0…1, Bi −1…1, or absolute Hz).
+ */
+function nodeGraphParamNormalizeModInput(value, _metadata = {}) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * |mod| ≤ this → treat as unit CV across [min,max] (linear, no skew).
+ * |mod| above → domain-add absolute (Pitch Detector Hz, large Knob Bias, …).
+ */
+const NODE_GRAPH_PARAM_MOD_UNIT_BAND = 1 + 1e-9;
+
+/**
+ * Apply summed MOD onto DOMAIN base. Single SSOT for live + worklet.
+ *
+ * Unit-band (|mod| ≤ 1): linear map across param min…max, bypassing skew.
+ *   Uni 0…1 + base at min → full range (e.g. Freq 1…20000).
+ * Absolute (|mod| > 1): domain-add base + mod (exact Hz sources).
+ *
+ * Unipolar: mod contribution ≥ 0. Bipolar: signed (thru-zero capable).
+ */
+function nodeGraphParamApplyMod(base, modSum, metadata = {}) {
+  const baseN = Number(base);
+  const b = Number.isFinite(baseN) ? baseN : 0;
+  let mod = Number(modSum);
+  if (!Number.isFinite(mod)) {
+    mod = 0;
+  }
+  const bipolar = nodeGraphParamIsBipolar(metadata);
+  if (!bipolar) {
+    mod = Math.max(0, mod);
+  }
+
+  const min = Number(metadata.min);
+  const max = Number(metadata.max);
+  const range = max - min;
+  const absMod = Math.abs(mod);
+
+  // Unit CV path: linear min…max, never skew (even if slider is log-ish).
+  if (Number.isFinite(range) && range > 0 && absMod <= NODE_GRAPH_PARAM_MOD_UNIT_BAND) {
+    const baseUnit = nodeGraphParamDomainToUnitLinear(b, metadata);
+    const unit = baseUnit + mod;
+    return nodeGraphParamUnitToDomainLinear(unit, metadata);
+  }
+
+  // Absolute domain-add (Pitch Detector Hz, Bias ≫ 1, …).
+  let result = b + mod;
+  if (!Number.isFinite(result)) {
+    return 0;
+  }
+  if (metadata.wraparound) {
+    return nodeGraphParamApplyDomainBounds(result, metadata);
+  }
+  return nodeGraphParamModClamp(metadata)
+    ? nodeGraphParamApplyDomainBounds(result, metadata)
+    : result;
+}
+
+/**
+ * Parameter port as MOD source: emit linear unit 0…1 of its domain (no skew)
+ * so chaining stays unit-compatible with Uni/Bi style CVs.
  */
 function nodeGraphParamDomainToModOutput(value, metadata = {}) {
-  return nodeGraphParamDomainToUnit(value, metadata);
+  return nodeGraphParamDomainToUnitLinear(value, metadata);
 }
 
 /**
@@ -294,9 +357,10 @@ function nodeGraphParamSignalInAmplitude(domainLevel, ampSample, hasAmp) {
 }
 
 /**
- * Resolve osc pitch from domain frequency + optional 0.1V/Oct + optional f jack.
- * Through-zero: signed Hz (negative reverses phase). When f is wired:
- * hz = f × Frequency (signed). 0.1V/Oct scales magnitude, keeps base sign.
+ * Resolve osc pitch from domain frequency + optional 0.1V/Oct jack.
+ * Domain Freq already includes parameter MOD (domain-add). f jack removed —
+ * use Freq MOD with domain-unit sources (Pitch Detector, Knob, …).
+ * Through-zero: signed base Hz (negative reverses phase via bipolar Freq).
  */
 function nodeGraphParamResolveOscPitchHz(options = {}) {
   const rawBase = Number(options.baseHz);
@@ -305,18 +369,13 @@ function nodeGraphParamResolveOscPitchHz(options = {}) {
   const referenceVoltage = Number(options.referenceVoltage);
   const ref = Number.isFinite(referenceVoltage) ? referenceVoltage : 0;
   const hasPitch = options.hasPitchCv === true;
-  const fHz = options.fHz;
-  // f wired: Frequency multiplies f (signed TZ); pitch CV not applied here.
-  if (fHz != null && Number.isFinite(Number(fHz))) {
-    if (typeof nodeGraphResolveFrequencyHz === "function") {
-      return nodeGraphResolveFrequencyHz(baseHz, Number(fHz));
-    }
-    const hz = Number(fHz) * baseHz;
-    return Number.isFinite(hz) ? hz : 0;
-  }
+  // Legacy options.fHz ignored (absolute-Hz f jack retired).
   const cv = hasPitch ? pitchCv : ref;
   if (typeof nodeGraphPitchedFrequency === "function") {
     return nodeGraphPitchedFrequency(baseHz, cv, ref);
+  }
+  if (!hasPitch) {
+    return baseHz;
   }
   const c = Number(cv);
   const pitch = Number.isFinite(c) ? c : 0;

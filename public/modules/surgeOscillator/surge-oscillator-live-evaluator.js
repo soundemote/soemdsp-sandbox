@@ -18,16 +18,12 @@ nodeGraphLiveModuleEvaluators.surgeOscillator = ({ runtime, node, nodeId, frame,
       "hard sync oscillator 0.1v input",
     ), -1, 1)
     : referenceVoltage;
-  const fHz = typeof nodeGraphReadFInputHz === "function"
-    ? nodeGraphReadFInputHz(mixInput, hasInput, nodeId)
-    : null;
   const effectiveFrequency = typeof nodeGraphParamResolveOscPitchHz === "function"
     ? nodeGraphParamResolveOscPitchHz({
       baseHz: baseFrequency,
       hasPitchCv: hasPitch,
       pitchCv,
       referenceVoltage,
-      fHz,
     })
     : (typeof nodeGraphPitchedFrequency === "function"
       ? nodeGraphPitchedFrequency(baseFrequency, pitchCv, referenceVoltage)

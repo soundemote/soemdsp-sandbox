@@ -88,7 +88,6 @@ NodeLiveAudioProcessor.prototype.sineWavetableWorkletEvaluate = function sineWav
   const pitchCv = hasPitchInput
     ? this.clampValue(this.safeFilterNumber(mixInput(nodeId, "0.1V/Oct"), null), -1, 1)
     : referenceVoltage;
-  const fHz = this.readFInputHz(mixInput, nodeId);
   const baseWithFreqJack = baseFrequency + freqInput;
   const effectiveFrequency = typeof nodeGraphParamResolveOscPitchHz === "function"
     ? nodeGraphParamResolveOscPitchHz({
@@ -96,13 +95,11 @@ NodeLiveAudioProcessor.prototype.sineWavetableWorkletEvaluate = function sineWav
       hasPitchCv: hasPitchInput,
       pitchCv,
       referenceVoltage,
-      fHz,
     })
     : this.resolveFrequencyHz(
       (typeof nodeGraphPitchedFrequency === "function"
         ? nodeGraphPitchedFrequency(baseWithFreqJack, pitchCv, referenceVoltage)
         : Math.max(0, baseWithFreqJack * (2 ** ((pitchCv - referenceVoltage) / 0.1)))),
-      fHz,
     );
   let value;
   if (

@@ -44,16 +44,12 @@ function nodeGraphAdditiveOscLiveEvaluator({ runtime, node, nodeId, frame, frame
       "additive osc 0.1v/oct input",
     ), -1, 1)
     : referenceVoltage;
-  const fHz = typeof nodeGraphReadFInputHz === "function"
-    ? nodeGraphReadFInputHz(mixInput, hasInput, nodeId)
-    : null;
   const effectiveFrequency = typeof nodeGraphParamResolveOscPitchHz === "function"
     ? nodeGraphParamResolveOscPitchHz({
       baseHz: frequency,
       hasPitchCv: hasPitch,
       pitchCv,
       referenceVoltage,
-      fHz,
     })
     : (typeof nodeGraphPitchedFrequency === "function"
       ? nodeGraphPitchedFrequency(frequency, pitchCv, referenceVoltage)

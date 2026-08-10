@@ -12,12 +12,13 @@ NodeLiveAudioProcessor.prototype.normalizeParameterOutputValue = function normal
   return this.parameterValueToNormalizedSignal(value, metadata);
 };
 
-/** MOD surface: always bipolar unit [−1, 1]. */
+/** MOD surface: raw domain sample (Hz, level, …) — no unit clamp. */
 NodeLiveAudioProcessor.prototype.normalizeParameterModulationInput = function normalizeParameterModulationInput(value, metadata = {}) {
   if (typeof nodeGraphParamNormalizeModInput === "function") {
     return nodeGraphParamNormalizeModInput(value, metadata);
   }
-  return this.clampValue(Number(value) || 0, -1, 1);
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
 };
 
 NodeLiveAudioProcessor.prototype.parameterSkewExponent = function parameterSkewExponent(metadata = {}) {

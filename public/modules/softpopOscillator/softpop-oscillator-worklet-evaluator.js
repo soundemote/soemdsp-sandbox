@@ -58,14 +58,12 @@ NodeLiveAudioProcessor.prototype.resolveSoftpopOrBandpassHz = function resolveSo
   const pitchCv = hasPitch
     ? this.clampValue(this.safeFilterNumber(mixInput(nodeId, "0.1V/Oct"), null), -1, 1)
     : referenceVoltage;
-  const fHz = this.readFInputHz(mixInput, nodeId);
   if (typeof nodeGraphParamResolveOscPitchHz === "function") {
     return Math.max(0, nodeGraphParamResolveOscPitchHz({
       baseHz,
       hasPitchCv: hasPitch,
       pitchCv,
       referenceVoltage,
-      fHz,
     }));
   }
   return Math.max(0, Number(baseHz) || 0);

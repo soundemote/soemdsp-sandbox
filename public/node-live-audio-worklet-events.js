@@ -21,35 +21,24 @@ NodeLiveAudioProcessor.prototype.speedLimitHz = function speedLimitHz() {
     return Number.isFinite(value) && value > 0 ? value : 20000;
 };
 
-// Raw f jack sample (Hz scale). Speed Limit applied after Frequency mult.
-NodeLiveAudioProcessor.prototype.readFInputHz = function readFInputHz(mixInput, nodeId, port = "f") {
-    if (!this.inputConnections.has(this.inputKey(nodeId, port))) {
-      return null;
-    }
-    const raw = Number(mixInput(nodeId, port));
-    if (!Number.isFinite(raw)) {
-      return 0;
-    }
-    return raw;
+/**
+ * @deprecated Absolute-Hz f jack retired — use domain-add MOD on Frequency.
+ * Still returns null (unwired) so any leftover call sites stay silent.
+ */
+NodeLiveAudioProcessor.prototype.readFInputHz = function readFInputHz(_mixInput, _nodeId, _port = "f") {
+    return null;
 };
 
-// Through-zero: signed Hz. f wired → f × Frequency; else baseHz. Clamp ±Speed Limit.
-NodeLiveAudioProcessor.prototype.resolveFrequencyHz = function resolveFrequencyHz(baseHz, fHzOrNull) {
+/**
+ * Clamp signed Hz to ±Speed Limit. Second arg ignored (legacy f mult removed).
+ */
+NodeLiveAudioProcessor.prototype.resolveFrequencyHz = function resolveFrequencyHz(baseHz, _fHzOrNull) {
     const maxHz = this.speedLimitHz();
-    const clampSigned = (hz) => {
-      if (!Number.isFinite(hz)) return 0;
-      if (hz > maxHz) return maxHz;
-      if (hz < -maxHz) return -maxHz;
-      return hz;
-    };
-    if (fHzOrNull != null && Number.isFinite(Number(fHzOrNull))) {
-      const mult = Number(baseHz);
-      const m = Number.isFinite(mult) ? mult : 0;
-      return clampSigned(Number(fHzOrNull) * m);
-    }
     const base = Number(baseHz);
     if (!Number.isFinite(base)) return 0;
-    return clampSigned(base);
+    if (base > maxHz) return maxHz;
+    if (base < -maxHz) return -maxHz;
+    return base;
 };
 
 NodeLiveAudioProcessor.prototype.effectiveSampleRate = function effectiveSampleRate() {

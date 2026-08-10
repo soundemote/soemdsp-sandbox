@@ -143,6 +143,10 @@ function nodeGraphTraceDisplayUnitDragRange(key) {
   if (key === "innerShadowOffsetX" || key === "innerShadowOffsetY") {
     return { min: -1, max: 1 };
   }
+  // Value LED/LCD padding: negative grows digits toward plate walls.
+  if (key === "facePadding") {
+    return { min: -0.5, max: 1 };
+  }
   if (key === "burnAmount") {
     const max = (typeof PhosphorResidual !== "undefined" && PhosphorResidual.BURN_AMOUNT_MAX) || 4;
     return { min: 0, max };
@@ -348,7 +352,10 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   residual: nodeGraphTraceDisplayClampUnit,
   ghostBrightness: nodeGraphTraceDisplayClampBrightness,
   unlitSegments: nodeGraphTraceDisplayClampUnit,
-  facePadding: nodeGraphTraceDisplayClampUnit,
+  facePadding: (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? clampNodeSliderValue(n, -0.5, 1) : 0;
+  },
   innerShadowDistance: nodeGraphTraceDisplayClampUnit,
   innerShadowSharpness: nodeGraphTraceDisplayClampUnit,
   innerShadowOffsetX: nodeGraphTraceDisplayClampBipolarUnit,

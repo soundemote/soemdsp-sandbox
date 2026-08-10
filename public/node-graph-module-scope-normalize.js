@@ -989,11 +989,12 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}, defaultsOverride
       0,
       1,
     ),
-    // LED + LCD: digit inset from plate edge (not Amp / scope padding).
+    // LED + LCD: linear inset/outset from plate edge (−0.5…1; not Amp / scope padding).
+    // Negative = grow digits toward walls; 0 = no inset; 1 = pin pixel.
     facePadding: normalizeNodeGraphTraceDisplayNumber(
       source.facePadding ?? source.readoutPadding ?? source.digitPadding ?? source.padding,
       defaults.facePadding ?? 0,
-      0,
+      -0.5,
       1,
     ),
     // LCD glass: Gaussian inset shadow distance / sharpness / offset (ignored on LED).
