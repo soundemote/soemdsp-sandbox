@@ -565,8 +565,8 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
     const mode = options.mode === "dots" ? "dots" : "segments";
     if (typeof nodeGraphPhosphorEnergyGlStepBeams === "function") {
       nodeGraphPhosphorEnergyGlStepBeams(face, {
-        decay,
-        burn,
+        trail,
+        ghost,
         pathPoints,
         radius,
         brightness: deposit,
@@ -578,8 +578,8 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
       });
     } else if (mode === "dots" && drawer?.stepDots) {
       drawer.stepDots(face, {
-        decay,
-        burn,
+        trail,
+        ghost,
         pathPoints,
         radius,
         brightness: deposit,
@@ -589,8 +589,8 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
       });
     } else if (drawer?.stepBeams) {
       drawer.stepBeams(face, {
-        decay,
-        burn,
+        trail,
+        ghost,
         pathPoints,
         radius,
         brightness: deposit,
@@ -602,8 +602,8 @@ function nodeGraphXyPadStepPhosphor(pad, canvas, ctx, width, height, options = {
       });
     } else if (drawer?.stepDots) {
       drawer.stepDots(face, {
-        decay,
-        burn,
+        trail,
+        ghost,
         pathPoints,
         radius,
         brightness: deposit,
