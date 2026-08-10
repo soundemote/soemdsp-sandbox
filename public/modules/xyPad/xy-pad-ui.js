@@ -805,8 +805,9 @@ function drawNodeGraphXyPad(pad, options = {}) {
     phosphorColor: phosphorHex,
     background: bgHex,
     gradientStops,
-    decay: decayUx,
-    burn: burnUx,
+    // Prefer trail/ghost (display settings UX); step helper also accepts legacy decay/burn.
+    trail: trailUx,
+    ghost: ghostUx,
     brightness,
     blur,
     size01: beamSize01,
