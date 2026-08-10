@@ -207,7 +207,10 @@ function nodeGraphNumberReadoutApplyResidualPlate(burnCtx, width, height, trailH
   }
   const trail = clampNodeSliderValue(Number(trailHang) || 0, 0, 1);
   const ghost = clampNodeSliderValue(Number(ghostHang) || 0, 0, 1);
-  const burn = clampNodeSliderValue(Number(burnHang) || 0, 0, 1);
+  // Sticky Burn floor 0…1 only.
+  const burn = typeof PhosphorResidual !== "undefined" && PhosphorResidual.clampBurn
+    ? PhosphorResidual.clampBurn(burnHang, 0)
+    : clampNodeSliderValue(Number(burnHang) || 0, 0, 1);
   const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
   if (!Residual || typeof Residual.applyResidual !== "function") {
     return;
@@ -927,6 +930,7 @@ function nodeGraphNumberReadoutSettingsSignature(settings) {
     settings.color,
     settings.trail ?? settings.residual,
     settings.burn,
+    settings.burnAmount,
     settings.decimals,
     settings.decimalBudget ? 1 : 0,
     settings.lightBlend,
@@ -1722,7 +1726,8 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   //  • Bright B → live light + deposit energy on digit change.
   //  • Ghost G → extreme analog (super-exp) hang (not brightness).
   //  • Trail T → linear residual blend (not brightness).
-  //  • Burn K → sticky residual floor (0 = off).
+  //  • Burn K → sticky residual floor 0…1 (0 = off).
+  //  • Burn Amount → multiplies Bright for residual deposits (default 1).
   //  • Freeze (pause / engine off): hold burn plate + last digits — no wipe.
   const trailHang = clampNodeSliderValue(
     Number(settings.trail ?? settings.residual) || 0,
@@ -1741,6 +1746,9 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
         ? clampNodeSliderValue(Number(settings.burn) || 0, 0, 1)
         : 0
     );
+  const burnAmountHang = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateBurnAmount
+    ? PhosphorResidual.migrateBurnAmount(settings, 1)
+    : Math.max(0, Math.min(4, Number(settings.burnAmount) || 1));
   const settingsSig = nodeGraphNumberReadoutSettingsSignature(settings);
   const styleChanged =
     canvas._nodeGraphNumberReadoutSettingsSig !== settingsSig ||
@@ -1753,11 +1761,11 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const now = performance.now?.() || Date.now();
   const previousValueText = String(canvas._numberReadoutLastValueText || "");
 
-  // Bright B = deposit energy + live intensity.
+  // Bright B = live intensity; residual deposit = Bright × Burn Amount.
   const bright = Number.isFinite(Number(settings.brightness))
     ? clampNodeSliderValue(Number(settings.brightness), 0, 1)
     : 1;
-  // Hang active when any residual axis is on (Burn alone can hold a sticky plate).
+  // Hang when Ghost/Trail on, or sticky Burn alone.
   const hangOn = trailHang > 0.001 || ghostHang > 0.001 || burnHang > 0.001;
 
   const left = 0;
@@ -1841,9 +1849,15 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   }
 
   // 2) On change: stamp ONLY digits that changed (per-cell deposit).
-  //    Deposit energy = Bright only (Ghost/Trail never set deposit brightness).
-  //    Layout uses previous full reading so columns stay aligned with the face.
+  //    Deposit energy = Bright × Burn Amount (live LED still uses full Bright).
+  //    Ghost/Trail only set hang. Layout uses previous full reading for columns.
   //    Never stamp while frozen, and never treat held empty as a change.
+  const ResidualApi = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
+  const depositPeak = ResidualApi && typeof ResidualApi.depositBrightness === "function"
+    ? ResidualApi.depositBrightness(bright, burnAmountHang)
+    : bright * Math.max(0, Number(burnAmountHang) || 1);
+  // Canvas alpha maxes at 1; peak energy can track >1 for gradient sampling.
+  const depositBright = Math.min(1, depositPeak);
   if (
     burnCtx
     && hangOn
@@ -1854,7 +1868,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     && !nodeGraphNumberReadoutIsEmptyPlaceholder(previousValueText)
     && !nodeGraphNumberReadoutIsEmptyPlaceholder(valueText)
     && burnPlate.width > 0
-    && bright > 0.01
+    && depositBright > 0.005
   ) {
     const depositText = nodeGraphNumberReadoutGhostDepositText(
       previousValueText,
@@ -1891,7 +1905,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
       burnCtx.setTransform(1, 0, 0, 1, 0, 0);
       burnCtx.save();
       burnCtx.globalCompositeOperation = "source-over";
-      // White energy at alpha = Bright — only changed cells (drawDigits skips "!").
+      // White energy at alpha = depositBright (Bright × Burn Amount, capped at 1).
       // Pin mode: one phosphor pixel of deposit energy.
       if (residualLayout.pixelPin) {
         nodeGraphNumberReadoutDrawPixelPin(
@@ -1902,7 +1916,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
           width,
           height,
           [255, 255, 255],
-          bright,
+          depositBright,
         );
       } else {
         nodeGraphNumberReadoutDrawDigits(burnCtx, {
@@ -1913,7 +1927,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
           fontSize: residualLayout.fontSize,
           cellW: residualLayout.cellW,
           rgb: [255, 255, 255],
-          alpha: bright,
+          alpha: depositBright,
           softBlurPx: 0,
           glow: 0,
           plate: false,
@@ -1921,10 +1935,10 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
         });
       }
       burnCtx.restore();
-      // Deposit energy starts at Bright (Ghost only keeps it alive while decaying).
+      // Peak residual energy follows Bright × Burn Amount (may exceed 1 for LUT).
       canvas._numberReadoutResidualEnergy = Math.max(
         Number(canvas._numberReadoutResidualEnergy) || 0,
-        bright,
+        Math.min(4, depositPeak),
       );
       canvas._numberReadoutLastTextChangeAt = now;
     }

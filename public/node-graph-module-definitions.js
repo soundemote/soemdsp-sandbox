@@ -8639,6 +8639,7 @@ const nodeGraphModuleDefinitions = (
       },
       {
         key: "burn",
+        "burnAmount",
         label: "Burn",
         defaultValue: "0",
         min: "0",
@@ -8767,6 +8768,7 @@ const nodeGraphModuleDefinitions = (
       },
       {
         key: "burn",
+        "burnAmount",
         label: "Burn",
         defaultValue: "0",
         min: "0",
@@ -8887,6 +8889,7 @@ const nodeGraphModuleDefinitions = (
       },
       {
         key: "burn",
+        "burnAmount",
         label: "Burn",
         defaultValue: "0",
         min: "0",

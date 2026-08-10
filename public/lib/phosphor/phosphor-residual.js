@@ -1,27 +1,26 @@
 // Shared phosphor residual model (app-wide).
 //
 // Display Settings order (shared faces, including Lorenz):
-//   Bright → Size → Blur → Ghost → Trail → Burn → Scale → Pixel density → Dot Budget
+//   Bright → Size → Blur → Ghost → Trail → Burn → Burn Amount → Scale → …
 //
-// Axes (all 0..1):
-//   Bright  → peak deposit / present light (ONLY brightness control)
-//   Ghost   → extreme analog (super-exp) residual hang. Perfect alone when Trail=0.
-//   Trail   → blend linear decay ON TOP of Ghost, then freeze:
+// Axes:
+//   Bright      → live light (LED) / tip intensity 0…1
+//   Ghost       → extreme analog (super-exp) residual hang. Perfect alone when Trail=0.
+//   Trail       → blend linear decay ON TOP of Ghost, then freeze:
 //     0.00 → pure Ghost algorithm (100% super-exp hang)
 //     0.50 → 50% linear + 50% Ghost exponential
 //     0.75 → 100% linear decay
 //     1.00 → freeze (never decay residual pixels)
-//   Burn    → sticky residual floor (brightness where pixels stop decaying):
-//     0.00 → no pixels ever stick (off by default)
-//     0.50 → once energy ≥ 0.5, pixel freezes at that floor forever
-//     1.00 → all residual energy freezes (everything sticks)
+//   Burn        → sticky residual floor 0…1 (0 = off; 1 = freeze all residual)
+//   Burn Amount → multiplies Bright for residual *deposits* only (default 1):
+//     0.5 → half deposit peak; 1 → 1× Bright; 2 → 2× Bright (clamped for stamps)
 //
 // Legacy patches (residualSchema < 2):
 //   decay  (old: high = faster die) → trail = 1 - decay   [phosphor faces]
 //   burn   (old name / mirror for ghost) → ghost = burn; sticky Burn = 0
 //   number-readout decay was already high=long → trail = decay (no invert)
 //
-// residualSchema ≥ 2: burn is sticky Burn (not ghost).
+// residualSchema ≥ 2: burn is sticky Burn (not ghost). residualSchema ≥ 3 adds burnAmount.
 //
 // Used by energy-GL, drawer, matrix, asciiscope, value LED, 1D Phosphor.
 
@@ -31,8 +30,12 @@
   const DEFAULT_GHOST = 0.45;
   // Sticky Burn off by default.
   const DEFAULT_BURN = 0;
+  // Residual deposit gain vs Bright (1 = deposit at LED Bright).
+  const DEFAULT_BURN_AMOUNT = 1;
+  const BURN_AMOUNT_MAX = 4;
   // Patches written with sticky Burn axis (not burn≡ghost mirror).
-  const RESIDUAL_SCHEMA = 2;
+  // Schema 3: burnAmount separate from sticky burn.
+  const RESIDUAL_SCHEMA = 3;
   // Full-strength linear path keep (when Trail ≈ 0.75): mild per-frame die.
   const LINEAR_KEEP_FULL = 0.94;
 
@@ -141,6 +144,37 @@
     return Math.min(1, blend.freeze + (1 - blend.freeze) * mixed);
   }
 
+  /** Sticky Burn floor 0…1. */
+  function clampBurn(value, fallback = DEFAULT_BURN) {
+    return clamp01(value, fallback);
+  }
+
+  /** @deprecated alias — sticky floor is just clampBurn (0…1). */
+  function stickyBurnAmount(burn = 0) {
+    return clampBurn(burn, 0);
+  }
+
+  /**
+   * Burn Amount 0…BURN_AMOUNT_MAX (default 1).
+   * Multiplies Bright for residual deposits only (live LED uses Bright alone).
+   */
+  function clampBurnAmount(value, fallback = DEFAULT_BURN_AMOUNT) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) {
+      return Math.max(0, Math.min(BURN_AMOUNT_MAX, Number(fallback) || DEFAULT_BURN_AMOUNT));
+    }
+    return Math.max(0, Math.min(BURN_AMOUNT_MAX, n));
+  }
+
+  /**
+   * Residual deposit peak = Bright × Burn Amount.
+   * Live face light is unchanged; only ghost/trail stamps use this.
+   */
+  function depositBrightness(brightness, burnAmount = DEFAULT_BURN_AMOUNT) {
+    const br = Math.max(0, Number(brightness) || 0);
+    return br * clampBurnAmount(burnAmount, DEFAULT_BURN_AMOUNT);
+  }
+
   /**
    * Sticky Burn floor after a decay step.
    * Burn 0 → no stick. Burn 1 → freeze all residual energy.
@@ -151,7 +185,7 @@
    * @param {number} burn         sticky threshold 0…1
    */
   function applyBurnFloor(energyBefore, energyAfter, burn = 0) {
-    const b = clamp01(burn, 0);
+    const b = clampBurn(burn, 0);
     if (b <= 0.001) {
       return Math.max(0, Number(energyAfter) || 0);
     }
@@ -225,10 +259,11 @@
    * Weighted Trail blend is already folded into a single keep — set both paths
    * equal so max ≡ blend (not “ghost always wins”).
    */
-  function residualKeeps(trail, ghost = 0, burn = 0) {
+  function residualKeeps(trail, ghost = 0, burn = 0, burnAmount = DEFAULT_BURN_AMOUNT) {
     const blend = resolveTrailBlend(trail);
     const g = clamp01(ghost, 0);
-    const b = clamp01(burn, 0);
+    const b = clampBurn(burn, 0);
+    const ba = clampBurnAmount(burnAmount, DEFAULT_BURN_AMOUNT);
     const keep = residualKeep(trail, ghost);
     return {
       keepFast: keep,
@@ -242,6 +277,7 @@
       trail: clamp01(trail, 0),
       ghost: g,
       burn: b,
+      burnAmount: ba,
     };
   }
 
@@ -285,26 +321,47 @@
   }
 
   /**
-   * Migrate patch fields → sticky Burn 0..1 (default off).
-   * residualSchema ≥ 2: burn is sticky Burn.
+   * Migrate patch fields → sticky Burn 0…1 (default off).
+   * residualSchema ≥ 2: burn is sticky floor.
    * Older patches: burn mirrored ghost — sticky defaults to 0 (off).
+   * Negative legacy bipolar values are clamped to 0 (use burnAmount for dim).
    */
   function migrateBurn(source = {}, fallback = DEFAULT_BURN) {
     const schema = Number(source && source.residualSchema);
-    if (Number.isFinite(schema) && schema >= RESIDUAL_SCHEMA) {
+    if (Number.isFinite(schema) && schema >= 2) {
       if (source && source.burn != null && Number.isFinite(Number(source.burn))) {
-        return clamp01(Number(source.burn), fallback);
+        // Discard negative bipolar experiment values.
+        return clampBurn(Math.max(0, Number(source.burn)), fallback);
       }
-      return clamp01(fallback, DEFAULT_BURN);
+      return clampBurn(fallback, DEFAULT_BURN);
     }
     // Pre-schema patches: burn was ghost alias/mirror — sticky off.
-    return clamp01(fallback, DEFAULT_BURN);
+    return clampBurn(fallback, DEFAULT_BURN);
+  }
+
+  /**
+   * Migrate Burn Amount (deposit gain vs Bright). Default 1.
+   * Missing → 1. Negative legacy burn was deposit dim — not migrated here
+   * (sticky burn and burnAmount are independent).
+   */
+  function migrateBurnAmount(source = {}, fallback = DEFAULT_BURN_AMOUNT) {
+    if (source && source.burnAmount != null && Number.isFinite(Number(source.burnAmount))) {
+      return clampBurnAmount(Number(source.burnAmount), fallback);
+    }
+    // Aliases
+    if (source && source.depositGain != null && Number.isFinite(Number(source.depositGain))) {
+      return clampBurnAmount(Number(source.depositGain), fallback);
+    }
+    if (source && source.burnGain != null && Number.isFinite(Number(source.burnGain))) {
+      return clampBurnAmount(Number(source.burnGain), fallback);
+    }
+    return clampBurnAmount(fallback, DEFAULT_BURN_AMOUNT);
   }
 
   /** Sleep frame budget so ghost hang / burn stick is not killed early. */
   function residualSleepFrames(ghost, burn = 0) {
     const g = clamp01(ghost, 0);
-    const b = clamp01(burn, 0);
+    const b = clampBurn(burn, 0);
     if (b >= 0.999) {
       // Full freeze: short sleep (hold via last present, like Trail freeze).
       return 90;
@@ -323,9 +380,15 @@
     DEFAULT_TRAIL,
     DEFAULT_GHOST,
     DEFAULT_BURN,
+    DEFAULT_BURN_AMOUNT,
+    BURN_AMOUNT_MAX,
     RESIDUAL_SCHEMA,
     LINEAR_KEEP_FULL,
     clamp01,
+    clampBurn,
+    stickyBurnAmount,
+    clampBurnAmount,
+    depositBrightness,
     resolveTrailBlend,
     pureGhostKeep,
     linearKeep,
@@ -340,6 +403,7 @@
     migrateTrail,
     migrateGhost,
     migrateBurn,
+    migrateBurnAmount,
     residualSleepFrames,
   };
 

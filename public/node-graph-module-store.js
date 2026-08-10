@@ -1612,6 +1612,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "ghost",
       "trail",
       "burn",
+      "burnAmount",
       "LED",
     ],
   },

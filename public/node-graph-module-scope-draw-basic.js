@@ -491,15 +491,19 @@ function drawNodeGraphDotOscilloscopeItem(renderer, item, pixelRatio) {
         ? clampNodeSliderValue(Number(settings.burn) || 0, 0, 1)
         : 0
     );
-  const residualSchema = (typeof PhosphorResidual !== "undefined" && PhosphorResidual.RESIDUAL_SCHEMA) || 2;
+  const burnAmount = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateBurnAmount
+    ? PhosphorResidual.migrateBurnAmount(settings, 1)
+    : Math.max(0, Math.min(4, Number(settings.burnAmount) || 1));
+  const residualSchema = (typeof PhosphorResidual !== "undefined" && PhosphorResidual.RESIDUAL_SCHEMA) || 3;
 
   // Opaque face plate (CSS mix-blend is normal; never screen-tint the module chrome).
   canvas.style.mixBlendMode = "normal";
   // Prefer shared energy phosphor path (same stamps as 2D Phosphor).
+  // Burn Amount multiplies residual deposit vs Bright.
   const deposit = brightness01 > 0.001 && settings.dot1Brightness > 0
     ? (typeof PhosphorDrawer !== "undefined" && PhosphorDrawer.depositGain
-      ? PhosphorDrawer.depositGain(settings.dot1Brightness * brightness01, size01)
-      : settings.dot1Brightness * brightness01 * 0.1)
+      ? PhosphorDrawer.depositGain(settings.dot1Brightness * brightness01 * burnAmount, size01)
+      : settings.dot1Brightness * brightness01 * burnAmount * 0.1)
     : 0;
   const existingEnergy = canvas._phosphorEnergyGl;
   const energyIdle = !existingEnergy || existingEnergy.energyActive === false;
@@ -524,6 +528,7 @@ function drawNodeGraphDotOscilloscopeItem(renderer, item, pixelRatio) {
         trail,
         ghost,
         burn,
+        burnAmount,
         residualSchema,
         pathPoints: deposit > 1e-8 ? [{ x: cx, y: cy }] : [],
         radius,

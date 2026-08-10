@@ -1333,12 +1333,14 @@
    * Resolve Trail/Ghost/Burn residual keeps for the energy step.
    * Prefer explicit trail/ghost/burn; fall back to legacy decay (high = faster die).
    * Legacy: burn-without-ghost = ghost hang. Schema ≥2 / explicit ghost: burn = sticky floor.
+   * burnAmount multiplies deposit gain (default 1).
    */
   function residualKeeps(options = {}) {
     const Residual = global.PhosphorResidual;
     let trail;
     let ghost;
     let burn;
+    let burnAmount;
     if (options.trail != null && Number.isFinite(Number(options.trail))) {
       trail = Math.max(0, Math.min(1, Number(options.trail)));
     } else if (options.decay != null && Number.isFinite(Number(options.decay))) {
@@ -1351,7 +1353,7 @@
     } else if (
       options.burn != null
       && Number.isFinite(Number(options.burn))
-      && !(Number(options.residualSchema) >= (Residual?.RESIDUAL_SCHEMA || 2))
+      && !(Number(options.residualSchema) >= 2)
     ) {
       // Legacy burn name = ghost hang (only when ghost absent and pre-schema).
       ghost = Math.max(0, Math.min(1, Number(options.burn)));
@@ -1362,24 +1364,30 @@
       // Sticky Burn when ghost is explicit or residualSchema ≥ 2; else legacy → 0.
       if (
         options.ghost != null && Number.isFinite(Number(options.ghost))
-        || Number(options.residualSchema) >= (Residual?.RESIDUAL_SCHEMA || 2)
+        || Number(options.residualSchema) >= 2
       ) {
-        burn = Math.max(0, Math.min(1, Number(options.burn)));
+        burn = Residual?.clampBurn
+          ? Residual.clampBurn(options.burn, 0)
+          : Math.max(0, Math.min(1, Number(options.burn)));
       } else {
         burn = 0;
       }
     } else {
       burn = 0;
     }
+    burnAmount = Residual?.clampBurnAmount
+      ? Residual.clampBurnAmount(options.burnAmount, Residual.DEFAULT_BURN_AMOUNT ?? 1)
+      : Math.max(0, Math.min(4, Number(options.burnAmount) || 1));
     // Preferred: shared Trail-blend model + sticky Burn.
     if (Residual && typeof Residual.residualKeeps === "function") {
-      const k = Residual.residualKeeps(trail, ghost, burn);
+      const k = Residual.residualKeeps(trail, ghost, burn, burnAmount);
       return {
         keepFast: Number(k.keepFast) || 0,
         keepSlow: Number(k.keepSlow) || 0,
         ghostCap: Number(k.ghostCap) || 0,
         fade: Number(k.fade) || 0,
         burn: Number(k.burn) || burn,
+        burnAmount: Number(k.burnAmount) || burnAmount,
         trail,
         ghost,
       };
@@ -1393,6 +1401,7 @@
         ghostCap: cap,
         fade: Math.max(0, 1 - keep),
         burn,
+        burnAmount,
         trail,
         ghost,
       };
@@ -1407,6 +1416,7 @@
       ghostCap: 0,
       fade,
       burn,
+      burnAmount,
       trail,
       ghost,
     };
@@ -1421,9 +1431,17 @@
       maskCanvas = null,
     } = options;
     const { gl } = renderer;
-    const { keepFast, keepSlow, ghostCap, fade, burn } = residualKeeps(options);
-    const burnAmt = Math.max(0, Math.min(1, Number(burn) || 0));
-    const useMask = maskCanvas && depositGain > 0.0001 ? 1 : 0;
+    const Residual = global.PhosphorResidual;
+    const { keepFast, keepSlow, ghostCap, fade, burn, burnAmount } = residualKeeps(options);
+    // Sticky floor 0…1. Deposit gain multiplies by Burn Amount (default 1).
+    const burnAmt = Residual?.clampBurn
+      ? Residual.clampBurn(burn, 0)
+      : Math.max(0, Math.min(1, Number(burn) || 0));
+    const burnAmountScale = Residual?.clampBurnAmount
+      ? Residual.clampBurnAmount(burnAmount, 1)
+      : Math.max(0, Math.min(4, Number(burnAmount) || 1));
+    const scaledDepositGain = Math.max(0, Number(depositGain) || 0) * burnAmountScale;
+    const useMask = maskCanvas && scaledDepositGain > 0.0001 ? 1 : 0;
     // Default bleed: gentle CRT-like charge diffusion. Soft enough to not mush
     // the beam, strong enough that a slow burn grows a soft halo over time.
     const bleedOpt = Number(options.bleed);
@@ -1493,7 +1511,8 @@
     if (renderer.step.uBurn) {
       gl.uniform1f(renderer.step.uBurn, burnAmt);
     }
-    gl.uniform1f(renderer.step.uGain, useMask ? Math.max(0, Math.min(1.5, depositGain)) : 0);
+    // Cap GL deposit a bit above 1 so Burn Amount > 1 can still hot-write.
+    gl.uniform1f(renderer.step.uGain, useMask ? Math.max(0, Math.min(2.5, scaledDepositGain)) : 0);
     gl.uniform1f(renderer.step.uUseMask, useMask);
     const tw = Math.max(1, renderer.width);
     const th = Math.max(1, renderer.height);
@@ -1596,23 +1615,30 @@
       trail: options.trail,
       ghost: options.ghost,
       burn: options.burn,
+      burnAmount: options.burnAmount,
       residualSchema: options.residualSchema,
       depositGain: 0,
       maskCanvas: null,
       bleed: willDeposit || renderer.energyActive ? bleed : 0,
     });
     if (willDeposit) {
+      // Burn Amount multiplies deposit ink vs Bright (live present still uses Bright).
+      const Residual = global.PhosphorResidual;
+      const burnAmtScale = Residual?.clampBurnAmount
+        ? Residual.clampBurnAmount(options.burnAmount, Residual.DEFAULT_BURN_AMOUNT ?? 1)
+        : Math.max(0, Math.min(4, Number(options.burnAmount) || 1));
+      const depositBright = Math.max(0, Number(brightness) || 0) * burnAmtScale;
       const count = dotsMode
         ? depositDots(renderer, {
           vertices: depositVertices,
           radius,
-          brightness,
+          brightness: depositBright,
           blur,
         })
         : depositBeamSegments(renderer, {
           vertices: depositVertices,
           radius,
-          brightness,
+          brightness: depositBright,
           blur,
         });
       if (count > 0) {

@@ -43,6 +43,7 @@ registerNodeGraphChromelessModule("numberReadout", {
       "ghost",
       "trail",
       "burn",
+      "burnAmount",
       "DSEG7",
       "multimeter",
     ],

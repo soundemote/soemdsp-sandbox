@@ -123,6 +123,8 @@ function nodeGraphTraceDisplayUnitDragField(key) {
     "ghost",
     "trail",
     "burn",
+   "burnAmount",
+    "burnAmount",
     "unlitSegments",
     "facePadding",
     "innerShadowDistance",
@@ -137,10 +139,14 @@ function nodeGraphTraceDisplayUnitDragField(key) {
   ].includes(key);
 }
 
-/** Drag/clamp range for unit-style fields (most are 0…1; shadow offset is bipolar). */
+/** Drag/clamp range for unit-style fields (most are 0…1; shadow offset bipolar). */
 function nodeGraphTraceDisplayUnitDragRange(key) {
   if (key === "innerShadowOffsetX" || key === "innerShadowOffsetY") {
     return { min: -1, max: 1 };
+  }
+  if (key === "burnAmount") {
+    const max = (typeof PhosphorResidual !== "undefined" && PhosphorResidual.BURN_AMOUNT_MAX) || 4;
+    return { min: 0, max };
   }
   return { min: 0, max: 1 };
 }
@@ -328,6 +334,17 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   capSize: nodeGraphTraceDisplayClampUnit,
   cycles: (value) => Math.max(1, Math.min(64, Math.round(Number(value) || 0))),
   trail: nodeGraphTraceDisplayClampUnit,
+  // Sticky residual floor 0…1.
+  burn: nodeGraphTraceDisplayClampUnit,
+  // Deposit gain vs Bright (0…4, default 1).
+  burnAmount: (value) => {
+    const max = (typeof PhosphorResidual !== "undefined" && PhosphorResidual.BURN_AMOUNT_MAX) || 4;
+    const n = Number(value);
+    if (!Number.isFinite(n)) {
+      return 1;
+    }
+    return clampNodeSliderValue(n, 0, max);
+  },
   // Number Readout residual hang + Ghost Bright (min gradient stop).
   residual: nodeGraphTraceDisplayClampUnit,
   ghostBrightness: nodeGraphTraceDisplayClampBrightness,

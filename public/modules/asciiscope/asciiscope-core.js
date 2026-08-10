@@ -601,7 +601,7 @@ function matrixWaterfallParamsFromNode(node) {
     // Ghost = extreme analog (super-exp) hang (not peak brightness).
     ghost: Math.max(0, Math.min(1, num("ghost", 0.35))),
     // Burn = sticky residual floor (0 = off). Not previously a face param (ghost was hang).
-    burn: Math.max(0, Math.min(1, num("burn", 0))),
+    burn: Math.max(0, Math.min(1, num("burn", "burnAmount", 0))),
     spawn,
     streamDeath,
     // Present + deposit light axis — not residual lifetime.
