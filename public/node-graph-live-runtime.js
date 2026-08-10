@@ -2313,7 +2313,7 @@ function formatNodeGraphGlobalSmoothingSeconds(seconds) {
   return value.toFixed(4).replace(/0$/, "");
 }
 
-// Scene-context widget + header "Smooth" field next to Speed Limit.
+// Scene-context widget + header "Smooth Time" field next to Speed Limit.
 function nodeGraphGlobalSmoothingInputElements() {
   return Array.from(document.querySelectorAll(
     "#nodeSceneGlobalSmoothingSeconds, [data-global-smoothing-seconds='true']",
@@ -2345,7 +2345,7 @@ function setNodeGraphGlobalSmoothingSeconds(seconds, options = {}) {
   }
 }
 
-// Log-space drag for Smooth: much finer near 0 (sample / sub-ms), still
+// Log-space drag for Smooth Time: much finer near 0 (sample / sub-ms), still
 // reaches multi-second values without endless linear scrubbing.
 // Value ≈ exp(log(start + ε) + pixels · rate) − ε
 const nodeGraphGlobalSmoothingDragLogEps = 1e-4; // ~0.1 ms floor for log map

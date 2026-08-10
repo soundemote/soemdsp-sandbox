@@ -353,7 +353,7 @@ function createNodeGraphHeaderSmoothingTimeField() {
 
   const caption = document.createElement("span");
   caption.className = "node-header-timing-caption";
-  caption.textContent = "Smooth";
+  caption.textContent = "Smooth Time";
   field.append(caption);
 
   const input = document.createElement("input");
