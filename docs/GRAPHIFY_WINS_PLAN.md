@@ -55,9 +55,9 @@ Local AST map of the repo. Use it to:
 | 2 | **Lookup / helpers / snippets** | Lookup shelf, helper/snippet insert, save+pin | `node-graph-code-screen-lookup.js` | **landed** |
 | 3 | **Registry** | Draft cards, save all, duplicate, registry config | `node-graph-code-screen-registry.js` | **landed** |
 | 4 | **Workspace script + autocomplete** | Apply/run/reset script, autocomplete index | `node-graph-code-screen-workspace.js` | **landed** (with 1.6) |
-| 5 | **Render sections** | `renderNodeGraphCodeScreen*` list/landing/watches / codeblocks | `node-graph-code-screen-render.js` | pending |
+| 5 | **Render sections** | `renderNodeGraphCodeScreen*` list/landing/watches / codeblocks | `node-graph-code-screen-render.js` | **landed** |
 | 6 | **Run history** | History add/load/run/restore | folded into `…-workspace.js` | **landed** |
-| 7 | **Events shell** | `bindNodeGraphCodeScreenEvents`, `handleNodeGraphCodeScreenClick` | keep last in thin `node-graph-code-screen.js` | pending |
+| 7 | **Events shell** | `bindNodeGraphCodeScreenEvents`, `handleNodeGraphCodeScreenClick` + workspace script APIs | thin `node-graph-code-screen.js` | **done enough** (shell ~1.8k) |
 
 **Per-slice checklist**
 
@@ -155,3 +155,4 @@ Local AST map of the repo. Use it to:
 | 2026-08-09 | Track 1.2 Lookup/helpers/snippets peel landed (~87 fns → `node-graph-code-screen-lookup.js`; main ~4.5k lines) |
 | 2026-08-09 | Track 1.3 Registry peel landed (~30 fns → `node-graph-code-screen-registry.js`; main ~3.9k lines) |
 | 2026-08-09 | Track 1.4+1.6 Workspace/autocomplete/run-history → `node-graph-code-screen-workspace.js`; main ~3.1k lines |
+| 2026-08-09 | Track 1.5 Render/codeblocks/watches → `node-graph-code-screen-render.js` (~69 fns); main shell ~1.8k lines |
