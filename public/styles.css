@@ -12617,7 +12617,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 .node-header-timing-widgets {
   box-sizing: border-box;
   display: grid;
-  /* Tap | BPM | Beats | Unit | FPS | Speed | Speed Limit | Smooth (+ Start/End moved out) */
+  /* Tap | BPM | Beats | Unit | FPS | Speed | Speed Limit | Smooth Time (+ Start/End moved out) */
   grid-template-columns: minmax(0, 0.74fr) repeat(7, minmax(0, 1fr));
   min-width: 0;
   width: 100%;

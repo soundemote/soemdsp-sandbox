@@ -23,7 +23,7 @@ function syncNodeGraphHeaderTimingWidgets() {
       input.value = String(audio[audioKey]);
     }
   }
-  // Header Smooth field mirrors Command Center global smoothing.
+  // Header Smooth Time field mirrors Command Center global smoothing.
   if (typeof syncNodeGraphGlobalSmoothingControl === "function") {
     syncNodeGraphGlobalSmoothingControl();
   }
@@ -590,7 +590,7 @@ function renderNodeGraphPatchTimingControls() {
     syncNodeGraphHeaderTimingWidgets();
     return;
   }
-  // Rebuild if missing the widget group or the Smooth field (added next to Speed Limit).
+  // Rebuild if missing the widget group or the Smooth Time field (added next to Speed Limit).
   if (
     !host.querySelector(".node-header-timing-widgets")
     || !host.querySelector("#nodeHeaderGlobalSmoothingSeconds")
