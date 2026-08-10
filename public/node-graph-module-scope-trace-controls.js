@@ -177,7 +177,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "innerShadowOffsetY",
     ]),
     colors: Object.freeze(["backgroundColor", "dot1Color"]),
-    // Decimal budget: fixed digit slots vs live resize (Pitch Detector defaults ON).
+    // Decimal budget: fixed digit slots vs live resize (off = fill plate).
     toggles: Object.freeze(["decimalBudget"]),
     choices: Object.freeze(["lightBlend"]),
   }),
@@ -581,7 +581,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     inputmode: "decimal",
     id: "nodeTraceDisplayFacePadding",
     title:
-      "Value LED/LCD: linear 0…1 vs face square min side. 0 = digits fill the plate (no shell air); 1 = one pin pixel remains (LED ~1 CSS-px phosphor; LCD = 1 monitor px at zoom 1.00, scales with zoom).",
+      "Value LED/LCD: linear 0…1 inset on each axis (half-width / half-height). 0 = digits fill the plate; 1 = one pin pixel remains (LED ~1 CSS-px phosphor; LCD = 1 monitor px at zoom 1.00, scales with zoom).",
   }),
   innerShadowDistance: Object.freeze({
     label: "Shadow dist",
@@ -785,10 +785,12 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
     title: "Show the live Bias readout on the Knob module face.",
   }),
   decimalBudget: Object.freeze({
-    label: "Decimal budget",
+    // UI label GROW = digits resize to fill the plate. Stored as !decimalBudget
+    // (decimalBudget true still means fixed Decimals width — inverted in form I/O).
+    label: "GROW",
     id: "nodeTraceDisplayDecimalBudget",
     title:
-      "When on, digit size locks to a fixed Decimals budget (stable width as values change). When off, digits resize to fill available space for the live value.",
+      "When on, digits resize (grow) to fill the plate as the value changes. When off, digit size locks to a fixed Decimals width.",
   }),
 });
 

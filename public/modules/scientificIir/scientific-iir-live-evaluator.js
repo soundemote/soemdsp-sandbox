@@ -170,3 +170,25 @@ nodeGraphLiveModuleEvaluators.wavetable3d = () => ({ Out: 0 });
 
 // Under construction: RGB pixel-grid experiments — silent placeholder
 nodeGraphLiveModuleEvaluators.pixelGrid = () => ({});
+
+// Under construction: Flex Grid — silent multi-out placeholder (Modulator)
+nodeGraphLiveModuleEvaluators.flexGrid = () => ({ Out: 0, X: 0, Y: 0 });
+
+// Under construction: Chaosfly — silent chaos placeholder
+nodeGraphLiveModuleEvaluators.chaosfly = () => ({ Out: 0, X: 0, Y: 0, Z: 0 });
+
+// Under construction: Drummer — silent Sequence placeholder
+nodeGraphLiveModuleEvaluators.drummer = () => ({
+  Out: 0,
+  Kick: 0,
+  Snare: 0,
+  Hat: 0,
+  Gate: 0,
+});
+
+// Under construction: Arp — silent Musical placeholder
+nodeGraphLiveModuleEvaluators.arp = () => ({ Out: 0, Pitch: 0, Gate: 0 });
+
+// Under construction: GM E.Piano (5) / Percussion (10) — silent Sample Player
+nodeGraphLiveModuleEvaluators.ePiano = () => ({ Out: 0 });
+nodeGraphLiveModuleEvaluators.percussion = () => ({ Out: 0 });

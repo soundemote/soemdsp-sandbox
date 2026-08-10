@@ -625,7 +625,12 @@ function readNodeGraphTraceDisplaySettingsForm() {
   for (const key of activeToggles) {
     const input = root?.querySelector?.(`[data-trace-display-toggle="${key}"]`);
     if (input) {
-      next[key] = nodeGraphDisplaySettingsReadToggleElement(input);
+      let on = nodeGraphDisplaySettingsReadToggleElement(input);
+      // GROW UI: checked = digits grow/fill → stored decimalBudget is the inverse (fixed width).
+      if (key === "decimalBudget") {
+        on = !on;
+      }
+      next[key] = on;
     }
   }
   for (const key of activeChoices) {
@@ -790,7 +795,12 @@ function writeNodeGraphTraceDisplaySettingsForm(settings) {
   for (const key of activeToggles) {
     const input = root?.querySelector?.(`[data-trace-display-toggle="${key}"]`);
     if (input) {
-      nodeGraphDisplaySettingsWriteToggleElement(input, Boolean(normalized[key]));
+      let on = Boolean(normalized[key]);
+      // GROW UI: show on when digits grow/fill (decimalBudget false).
+      if (key === "decimalBudget") {
+        on = !on;
+      }
+      nodeGraphDisplaySettingsWriteToggleElement(input, on);
     }
   }
   // Refit packing latch labels after values land.

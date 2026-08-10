@@ -56,6 +56,18 @@ const nodeGraphModuleStoreUnderConstructionTypes = Object.freeze(new Set([
   "electroKick",
   "electroSnare",
   "electroHat",
+  // Flexible multi-point control grid (Modulator shelf) — placeholder.
+  "flexGrid",
+  // Chaosfly attractor / fly-like chaos (Chaos shelf) — placeholder.
+  "chaosfly",
+  // Sequence shelf: pattern drummer engine — placeholder.
+  "drummer",
+  // Musical shelf: arpeggiator — placeholder.
+  "arp",
+  // Sample Player: GM soundfont voices — placeholders until player/font lands.
+  // GM program 5 = Electric Piano 1; GM channel 10 = percussion/drums.
+  "ePiano",
+  "percussion",
 ]));
 
 function nodeGraphModuleTypeIsUnderConstruction(type) {
@@ -112,9 +124,9 @@ const nodeGraphModuleStoreDepartments = Object.freeze([
   { id: "analogFilter",     emoji: "🎛️", label: "Analog Filter",     symbol: "≈",  title: "Analog Filter",     pitch: "Named character circuits. Timbre first — 303, Flower Child, SuperLove, and other engines with personality." },
   { id: "space",        emoji: "⛪", label: "Space",        symbol: "FX",  title: "Delay",     pitch: "Delay, reverb, distortion, and performance processors for shaping finished sound." },
   { id: "digital",      emoji: "🔬", label: "Digital",      symbol: "{ }", title: "Digital",   pitch: "Patch-local code surfaces, exact value conversion, and digital/visual programming tools inside the sandbox." },
-  { id: "clock",        emoji: "⌚", label: "Clock",        symbol: "♪",   title: "Clock",     pitch: "Clocks, dividers, counters, and trigger timing -- everything that decides WHEN the rest of the patch fires." },
+  { id: "clock",        emoji: "⌚", label: "Sequence",     symbol: "♪",   title: "Sequence",  pitch: "Clocks, sequencers, dividers, counters, and trigger timing — everything that decides WHEN the rest of the patch fires." },
   // Pitch, scale, chord — not sample playback (that's Sample Player) and not
-  // "when" (that's Clock). G-clef mark keeps Musical distinct from 🎶 Sample Player.
+  // "when" (that's Sequence). G-clef mark keeps Musical distinct from 🎶 Sample Player.
   { id: "musical",      emoji: "🎼", label: "Musical",      symbol: "𝄞",  title: "Musical",  pitch: "Pitch, scale, and harmony tools: quantizers, chord pickers, progressions, and other note-theory building blocks." },
   { id: "modulator",    emoji: "♾️", label: "Modulator",    symbol: "⇄",   title: "Modulator", pitch: "Motion sources for pitch, amplitude, time, and texture. Small control engines that make patches move." },
   { id: "oscillator",   emoji: "⚪", label: "Oscillator",   symbol: "∿",   title: "Oscillator", pitch: "Start with a voice. Tone generators, phase motion, and the raw signal that everything else learns to orbit." },
@@ -200,10 +212,13 @@ const nodeGraphModuleStoreDepartmentAliasToId = Object.freeze({
   Samples:           "sample",
   samples:           "sample",
   Sequence:          "clock",
+  sequence:          "clock",
   Sequencer:         "clock",
+  Clock:             "clock",
+  clock:             "clock",
   Time:              "clock",
-  // Category id renamed 2026-07-25; keeps stored settings and old catalog
-  // strings resolving instead of silently falling back to "no department".
+  // Category id stays "clock" (persistence); shelf label is Sequence.
+  // Renamed 2026-07-25 from Time; label Clock→Sequence 2026-08.
   time:              "clock",
   Visual:            "digital",
 });
@@ -577,6 +592,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Chua Attractor",
     notes: ["double scroll", "circuit chaos", "3D attractor"],
   },
+  chaosfly: {
+    category: "chaos",
+    description: "Placeholder Chaosfly attractor—fly-like chaotic X/Y/Z motion (under construction).",
+    label: "Chaosfly",
+    notes: ["under construction", "chaos", "attractor", "fly", "X/Y/Z", "modulation"],
+  },
   noiseGenerator: {
     category: "noise",
     description: "Stereo noise colors (white/pink/brown/etc.) for texture, percussion, and dither.",
@@ -619,6 +640,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Stepped or free control graph when you want quantized X and shared curve tools.",
     label: "Step Graph",
     notes: ["step grid (0 = free)", "global shape", "per-node curve", "Input · LFO · Phasor"],
+  },
+  flexGrid: {
+    category: "modulator",
+    description: "Placeholder flexible multi-point control grid for morphing CV shapes (under construction).",
+    label: "Flex Grid",
+    notes: ["under construction", "modulator", "grid", "multi-point", "control surface", "morph"],
   },
   gain: {
     category: "dynamics",
@@ -941,15 +968,15 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   butterworth: {
     category: "scientificFilter",
-    description: "Clean multipole LP/HP/BP/BR for tone shaping—not a multi-band crossover (use 2–6 Crossover for that).",
+    description: "Clean multipole LP/HP/BP/BR. Fine for a simple two-way split (pair LP+HP yourself); for 3+ bands use 3–6 Crossover.",
     label: "Butterworth Filter",
-    notes: ["butterworth", "multipole", "flat passband", "scientific", "high accuracy", "classical", "approximated digital SOS"],
+    notes: ["butterworth", "multipole", "flat passband", "scientific", "two-way ok", "use Crossover for 3+ bands"],
   },
   linkwitzRiley: {
     category: "scientificFilter",
-    description: "One LR-shaped filter path (one LP or HP). For a real split with band outs that recombine, use 2–6 Crossover instead.",
+    description: "One LR-shaped LP or HP path—good for a manual two-way split. For 3+ bands with matched band outs, use 3–6 Crossover.",
     label: "Linkwitz-Riley Filter",
-    notes: ["linkwitz-riley", "single path", "scientific", "use dedicated Crossover modules for multi-band"],
+    notes: ["linkwitz-riley", "single path", "scientific", "two-way ok", "use Crossover for 3+ bands"],
   },
   bessel: {
     category: "scientificFilter",
@@ -983,31 +1010,31 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   crossover2: {
     category: "scientificFilter",
-    description: "True 2-way Linkwitz–Riley crossover: low + high band outs that recombine flat. Use this for multiband, not LR Filter alone.",
+    description: "Dedicated 2-way Linkwitz–Riley split (low/high outs that recombine flat). LR/Butterworth alone also work for a simple two-way; prefer this for matched band outs.",
     label: "2-Crossover",
     notes: ["crossover", "linkwitz-riley", "2-way", "stereo", "scientific", "RS-MET"],
   },
   crossover3: {
     category: "scientificFilter",
-    description: "True 3-way Linkwitz–Riley crossover: low/mid/high bands that recombine flat for multiband dynamics/FX.",
+    description: "Dedicated 3-way Linkwitz–Riley multiband split—use this (not hand-wired filters) for three or more bands.",
     label: "3-Crossover",
     notes: ["crossover", "linkwitz-riley", "3-way", "stereo", "scientific", "RS-MET"],
   },
   crossover4: {
     category: "scientificFilter",
-    description: "True 4-way Linkwitz–Riley crossover with per-band stereo outs that recombine flat.",
+    description: "Dedicated 4-way Linkwitz–Riley multiband split—use the Crossover modules for anything beyond a simple two-way.",
     label: "4-Crossover",
     notes: ["crossover", "linkwitz-riley", "4-way", "stereo", "scientific", "RS-MET"],
   },
   crossover5: {
     category: "scientificFilter",
-    description: "True 5-way Linkwitz–Riley crossover with per-band stereo outs that recombine flat.",
+    description: "Dedicated 5-way Linkwitz–Riley multiband split—prefer Crossover over stacking LR/Butterworth for multi-way work.",
     label: "5-Crossover",
     notes: ["crossover", "linkwitz-riley", "5-way", "stereo", "scientific", "RS-MET"],
   },
   crossover6: {
     category: "scientificFilter",
-    description: "True 6-way Linkwitz–Riley crossover with per-band stereo outs that recombine flat.",
+    description: "Dedicated 6-way Linkwitz–Riley multiband split—the full multi-band path when two-way LR/Butterworth is not enough.",
     label: "6-Crossover",
     notes: ["crossover", "linkwitz-riley", "6-way", "stereo", "scientific", "RS-MET"],
   },
@@ -1078,7 +1105,31 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     category: "clock",
     description: "Placeholder binary counter with bit outs.",
     label: "Binary Clock",
-    notes: ["under construction", "binary", "counter", "clock", "bits"],
+    notes: ["under construction", "binary", "counter", "clock", "sequence", "bits"],
+  },
+  drummer: {
+    category: "clock",
+    description: "Placeholder Drummer — pattern/rhythm engine for the Sequence shelf (under construction).",
+    label: "Drummer",
+    notes: ["under construction", "drummer", "sequence", "pattern", "drums", "rhythm", "groove"],
+  },
+  arp: {
+    category: "musical",
+    description: "Placeholder Arp — classic note arpeggiator for held chords / pitch CV (under construction).",
+    label: "Arp",
+    notes: ["under construction", "arp", "arpeggiator", "musical", "sequence", "pitch", "hold"],
+  },
+  ePiano: {
+    category: "sample",
+    description: "Placeholder GM Electric Piano 1 (program 5) sample/MIDI voice (under construction).",
+    label: "E.Piano (5)",
+    notes: ["under construction", "sample", "e.piano", "electric piano", "GM", "program 5", "midi", "soundfont"],
+  },
+  percussion: {
+    category: "sample",
+    description: "Placeholder GM percussion / drum kit on channel 10 (under construction).",
+    label: "Percussion (10)",
+    notes: ["under construction", "sample", "percussion", "drums", "GM", "channel 10", "midi", "soundfont"],
   },
   theremin: {
     category: "controller",

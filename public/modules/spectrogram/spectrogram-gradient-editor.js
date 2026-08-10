@@ -606,22 +606,81 @@
     return `linear-gradient(90deg, ${parts.join(", ")})`;
   }
 
+  /**
+   * Export stops for copy/paste into art tools (Photoshop Location 0–100%).
+   * Always includes position so uneven gradients round-trip:
+   *   #0a0a0a 0%, #00ff88 42%, #ffffff 100%
+   * (Legacy color-only lists still parse — see parseHexList.)
+   */
   function stopsToHexList(stops) {
-    return normalizeStops(stops).map((s) => s.color).join(", ");
+    return normalizeStops(stops)
+      .map((s) => {
+        const pct = clamp01(s.t) * 100;
+        const pos = Math.abs(pct - Math.round(pct)) < 0.05
+          ? `${Math.round(pct)}%`
+          : `${pct.toFixed(1).replace(/\.0$/, "")}%`;
+        return `${s.color} ${pos}`;
+      })
+      .join(", ");
   }
 
+  /**
+   * Parse gradient list. Accepts:
+   *   #rrggbb, #rrggbb, …                 → even spacing (legacy)
+   *   #rrggbb 0%, #rrggbb 42%, …          → explicit % (Photoshop-style Location)
+   *   #rrggbb 0, #rrggbb 0.42, #rrggbb 1  → 0–1 floats
+   *   #rrggbb@0.42  /  #rrggbb:42%        → compact forms
+   */
   function parseHexList(text) {
-    const tokens = String(text || "")
-      .split(/[\s,;|]+/)
+    const raw = String(text || "").trim();
+    if (!raw) return null;
+
+    // Comma / semicolon / newline chunks keep "hex + pos" together.
+    // Fall back to whitespace-split only when there are no separators
+    // (legacy "#a #b #c" even-spacing lists).
+    const hasChunkSep = /[,;\n|]/.test(raw);
+    const chunks = (hasChunkSep
+      ? raw.split(/[,;\n|]+/)
+      : raw.split(/\s+/))
       .map((t) => t.trim())
       .filter(Boolean);
-    const colors = [];
-    for (const token of tokens) {
-      const hex = normalizeHex(token.startsWith("#") ? token : `#${token}`, null);
-      if (hex) colors.push(hex);
+
+    const parsed = [];
+    for (const chunk of chunks) {
+      // Prefer 6-digit, then 3-digit; allow missing leading #.
+      const hexMatch = chunk.match(/#?(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/);
+      if (!hexMatch) continue;
+      const token = hexMatch[0].startsWith("#") ? hexMatch[0] : `#${hexMatch[0]}`;
+      const hex = normalizeHex(token, null);
+      if (!hex) continue;
+
+      const after = chunk.slice(chunk.indexOf(hexMatch[0]) + hexMatch[0].length);
+      // Position: optional @/: then number, optional %
+      const posMatch = after.match(/[@:]?\s*([-+]?\d*\.?\d+)\s*(%)?/);
+      let t = null;
+      if (posMatch) {
+        let v = Number(posMatch[1]);
+        if (!Number.isFinite(v)) {
+          t = null;
+        } else if (posMatch[2] || v > 1) {
+          // Percent (or bare 0–100 when >1): Location-style.
+          t = clamp01(v / 100);
+        } else {
+          t = clamp01(v);
+        }
+      }
+      parsed.push({ color: hex, t });
     }
-    if (colors.length < 2) return null;
-    return colorsToStops(colors);
+
+    if (parsed.length < 2) return null;
+
+    const allHaveT = parsed.every((p) => p.t != null && Number.isFinite(p.t));
+    if (allHaveT) {
+      return normalizeStops(parsed.map((p) => ({ t: p.t, color: p.color })));
+    }
+
+    // No positions (or partial) → even spacing on colors only (legacy).
+    return colorsToStops(parsed.map((p) => p.color));
   }
 
   function hexToHsl(hex) {
@@ -738,7 +797,9 @@
         <button type="button" data-sge-remove aria-label="Remove stop">− Stop</button>
       </div>
       <textarea class="sge-hex" data-sge-list rows="2" spellcheck="false"
-        aria-label="Gradient as hex list"></textarea>
+        aria-label="Gradient stops as hex and position percent"
+        title="Copy for art tools (Photoshop Location 0–100%). Format: #hex 0%, #hex 42%, #hex 100%. Color-only lists still import with even spacing."
+        placeholder="#000000 0%, #00ff88 42%, #ffffff 100%"></textarea>
       <div class="sge-presets" data-sge-presets aria-label="Gradient presets"></div>
     `;
     host.appendChild(root);

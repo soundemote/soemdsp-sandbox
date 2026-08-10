@@ -431,7 +431,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 //
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets; huge patches should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=fast-sin-turns-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=window-4096-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -2770,7 +2770,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/eqFilter/eq-filter-math.js?v=eq-zero-hz-1",
   "./public/modules/eqFilter/eq-filter-worklet-evaluator.js?v=eq-zero-hz-1",
   "./public/modules/scientificIir/scientific-iir-math.js?v=scientific-iir-1",
-  "./public/modules/scientificIir/scientific-iir-worklet-evaluator.js?v=osc-uc-1",
+  "./public/modules/scientificIir/scientific-iir-worklet-evaluator.js?v=sequence-uc-1",
   "./public/modules/crossover/crossover-math.js?v=xo-state-preserve-1",
   "./public/modules/crossover/crossover-worklet-evaluator.js?v=xo-state-preserve-1",
   "./public/modules/modeResonator/mode-resonator-math.js?v=mode-resonator-1",

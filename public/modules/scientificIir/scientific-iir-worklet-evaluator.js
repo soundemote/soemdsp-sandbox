@@ -181,3 +181,32 @@ NodeLiveAudioProcessor.prototype.wavetable3dSample = function wavetable3dSample(
 NodeLiveAudioProcessor.prototype.pixelGridSample = function pixelGridSample() {
   return {};
 };
+
+// UC Flex Grid (silent multi-out placeholder)
+NodeLiveAudioProcessor.prototype.flexGridSample = function flexGridSample() {
+  return { Out: 0, X: 0, Y: 0 };
+};
+
+// UC Chaosfly (silent chaos placeholder)
+NodeLiveAudioProcessor.prototype.chaosflySample = function chaosflySample() {
+  return { Out: 0, X: 0, Y: 0, Z: 0 };
+};
+
+// UC Drummer (silent Sequence placeholder)
+NodeLiveAudioProcessor.prototype.drummerSample = function drummerSample() {
+  return { Out: 0, Kick: 0, Snare: 0, Hat: 0, Gate: 0 };
+};
+
+// UC Arp (silent Musical placeholder)
+NodeLiveAudioProcessor.prototype.arpSample = function arpSample() {
+  return { Out: 0, Pitch: 0, Gate: 0 };
+};
+
+// UC GM sample voices (silent Sample Player placeholders)
+NodeLiveAudioProcessor.prototype.ePianoSample = function ePianoSample() {
+  return { Out: 0 };
+};
+
+NodeLiveAudioProcessor.prototype.percussionSample = function percussionSample() {
+  return { Out: 0 };
+};

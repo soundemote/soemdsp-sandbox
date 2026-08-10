@@ -58,7 +58,7 @@ NodeLiveAudioProcessor.prototype.helmholtzSample = function helmholtzSample(stat
         this.reportHelmholtzStatus("disabled", "native Helmholtz handle creation failed; analyzer outputs zero");
         return silent;
       }
-      const windowSize = Math.max(128, Math.min(1024, Math.round(this.safeFilterNumber(params.windowSize, null) ?? 1024)));
+      const windowSize = Math.max(128, Math.min(4096, Math.round(this.safeFilterNumber(params.windowSize, null) ?? 1024)));
       const threshold = this.clampValue(this.safeFilterNumber(params.threshold, null) ?? 0.93, 0.5, 0.999);
       const paramKey = `${windowSize}:${Math.round(threshold * 1000)}`;
       if (paramKey !== state.nativeParamKey && native.soemdsp_helmholtz_set_params) {

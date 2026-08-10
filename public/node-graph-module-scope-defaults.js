@@ -277,14 +277,14 @@ const nodeGraphValueLcdSettingsDefaults = Object.freeze({
   residualSchema: 2,
   residual: 0,
   ghostBrightness: 0,
-  decimals: 2,
+  decimals: 3,
   // Same budget policy as Value LED (OFF by default; Pitch Detector ON).
   decimalBudget: false,
   lightBlend: "source-over",
-  // Digit inset 0…1 linear vs face square min side (0 = flush fill, 1 = one pin pixel).
-  facePadding: 0,
+  // Digit inset 0…1 vs each axis half (0 = flush, 1 = pin).
+  facePadding: 0.268,
   // LCD Ghost: permanent “8” skeleton amount 0…1 (soft fade from 0).
-  unlitSegments: 0.28,
+  unlitSegments: 0.01,
   // Inner shadow (screen glass): Gaussian soft inset + CSS-like offset.
   // LCD glass inset shadow defaults.
   innerShadowDistance: 1,

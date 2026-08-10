@@ -23,16 +23,80 @@ function nodeGraphFrequencyToMidi(hz, a4Hz = nodeGraphPitchA4Hz) {
 }
 
 /**
- * MIDI note number → name (Roland octave: MIDI 60 = C3).
- * Reuses the app-wide keyboard label helper when present.
+ * Pitch-class table for fixed-width names.
+ * Accidental column is always present: space | # | ♭ (U+266D).
+ * Black keys use sharps by default (efficient MIDI class index); the reserved
+ * column keeps layout from jittering when naturals and accidentals alternate.
+ * Roland octave: MIDI 60 = C3.
  */
-function nodeGraphMidiToNoteName(midi) {
-  if (typeof nodeGraphMidiKeyboardPitchLabel === "function") {
-    return nodeGraphMidiKeyboardPitchLabel(midi);
+const nodeGraphMidiNoteNameParts = Object.freeze([
+  Object.freeze({ letter: "C", accidental: " " }),
+  Object.freeze({ letter: "C", accidental: "#" }),
+  Object.freeze({ letter: "D", accidental: " " }),
+  Object.freeze({ letter: "D", accidental: "#" }),
+  Object.freeze({ letter: "E", accidental: " " }),
+  Object.freeze({ letter: "F", accidental: " " }),
+  Object.freeze({ letter: "F", accidental: "#" }),
+  Object.freeze({ letter: "G", accidental: " " }),
+  Object.freeze({ letter: "G", accidental: "#" }),
+  Object.freeze({ letter: "A", accidental: " " }),
+  Object.freeze({ letter: "A", accidental: "#" }),
+  Object.freeze({ letter: "B", accidental: " " }),
+]);
+
+/** UTF-8 music flat (U+266D) — available for enharmonic display if needed. */
+const nodeGraphMidiFlatSymbol = "\u266D";
+
+/**
+ * Octave field (2 mono cells), glued to accidental with no gap after # / ♭.
+ *   positive: "3 "  →  C#3  /  C 3
+ *   negative: "-2"  →  C#-2 /  C -2
+ */
+function nodeGraphMidiOctaveFixedField(octave) {
+  const o = Math.trunc(Number(octave) || 0);
+  if (o < 0) {
+    // -1, -2 (exactly 2 chars in MIDI range)
+    return String(o).slice(0, 2).padEnd(2, " ");
   }
-  const names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  // Digit then pad — so "#" sits flush against the octave digit (C#3 not C# 3).
+  return `${Math.min(9, Math.max(0, o))} `;
+}
+
+/**
+ * MIDI note number → fixed-width name for monospace LED readout.
+ * Format always 4 cells: letter + accidental + octave(2).
+ *   C 3 | C#3 | D 3 | … | A#4 | B 3
+ * Naturals use a space in the accidental column so # / ♭ never shift the octave.
+ * No blank between accidental and octave (C#3, not C# 3).
+ *
+ * @param {number} midi
+ * @param {{ preferFlats?: boolean }} [options]
+ */
+function nodeGraphMidiToNoteName(midi, options = null) {
   const n = Math.round(Number(midi) || 0);
-  return `${names[((n % 12) + 12) % 12]}${Math.floor(n / 12) - 2}`;
+  const pc = ((n % 12) + 12) % 12;
+  const preferFlats = Boolean(options && options.preferFlats);
+  let letter = nodeGraphMidiNoteNameParts[pc].letter;
+  let accidental = nodeGraphMidiNoteNameParts[pc].accidental;
+  // Optional enharmonic flats for black keys (C#→D♭, D#→E♭, …).
+  if (preferFlats && accidental === "#") {
+    const flatOf = Object.freeze({
+      C: "D",
+      D: "E",
+      F: "G",
+      G: "A",
+      A: "B",
+    });
+    letter = flatOf[letter] || letter;
+    accidental = nodeGraphMidiFlatSymbol;
+  }
+  const octave = Math.floor(n / 12) - 2;
+  return `${letter}${accidental}${nodeGraphMidiOctaveFixedField(octave)}`;
+}
+
+/** Empty / no-pitch name plate — same width as a real name (4 mono cells). */
+function nodeGraphMidiToNoteNameZero() {
+  return `C ${nodeGraphMidiOctaveFixedField(0)}`;
 }
 
 function nodeGraphPitchDisplayModeNormalize(mode) {
@@ -63,8 +127,13 @@ function nodeGraphPitchDisplayModeLabel(mode) {
  */
 function nodeGraphPitchDetectorZeroDisplay(mode = "hz", decimals = 2) {
   const m = nodeGraphPitchDisplayModeNormalize(mode);
-  if (m === "midi" || m === "name") {
-    // Name mode has no zero glyph pair — numeric 0 is still clearer than dashes.
+  if (m === "name") {
+    // Same monospace width as live names (letter + acc + octave2).
+    return ` ${typeof nodeGraphMidiToNoteNameZero === "function"
+      ? nodeGraphMidiToNoteNameZero()
+      : "C  0"}`;
+  }
+  if (m === "midi") {
     return " 0";
   }
   if (typeof nodeGraphNumberReadoutFormatValue === "function") {
@@ -102,6 +171,7 @@ function nodeGraphPitchDetectorFormatDisplay(hz, mode = "hz", decimals = 2) {
     if (!Number.isFinite(midi)) {
       return nodeGraphPitchDetectorZeroDisplay(m, decimals);
     }
+    // Leading space = sign column (matches Hz/MIDI plate); name is fixed width.
     return ` ${nodeGraphMidiToNoteName(Math.round(midi))}`;
   }
   if (typeof nodeGraphNumberReadoutFormatValue === "function") {

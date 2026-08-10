@@ -942,13 +942,13 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}, defaultsOverride
     // LCD only: permanent dim “8” plate amount (not residual hang).
     unlitSegments: normalizeNodeGraphTraceDisplayNumber(
       source.unlitSegments ?? source.segmentFloor ?? source.plateGhost,
-      defaults.unlitSegments ?? 0.28,
+      defaults.unlitSegments ?? 0.01,
       0,
       1,
     ),
     // LED + LCD: digit inset from plate edge (not Amp / scope padding).
     facePadding: normalizeNodeGraphTraceDisplayNumber(
-      source.facePadding ?? source.readoutPadding ?? source.digitPadding,
+      source.facePadding ?? source.readoutPadding ?? source.digitPadding ?? source.padding,
       defaults.facePadding ?? 0,
       0,
       1,
@@ -1201,8 +1201,8 @@ function nodeGraphNumberReadoutDefaultsForNode(node) {
     return {
       ...led,
       faceStyle: "led",
-      // Stable digit width for Hz; user can turn off in Display Settings.
-      decimalBudget: true,
+      // Off: live Hz fills the plate at pad 0. User can lock width via Decimal budget.
+      decimalBudget: false,
     };
   }
   const base = nodeGraphNumberReadoutFaceStyleForNode(node) === "lcd"

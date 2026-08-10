@@ -13,7 +13,7 @@ namespace {
 using namespace soemdsp_maths;
 
 constexpr int kMaxInstances = 4;
-constexpr int kMaxWindow = 1024;
+constexpr int kMaxWindow = 4096;
 constexpr int kMinWindow = 128;
 constexpr int kDefaultWindow = 512;
 constexpr double kAnalysisRateHz = 20.0;
