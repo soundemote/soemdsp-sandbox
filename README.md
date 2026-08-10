@@ -50,16 +50,16 @@ Optional: if a local sibling `soemdsp` build is available, you can resync native
 
 ## Related forks
 
-| Fork | Focus |
+| Project | Focus |
 |---|---|
-| [Aliasing Wars](https://github.com/elanhickler/soemdsp-sandbox-aliasing-wars) | Anti-aliased hard-sync / PolyBLEP |
-| [Vactrols](https://github.com/elanhickler/soemdsp-sandbox-vactrols) | Photoconductor-based envelopes |
-| [Digital Signals](https://github.com/elanhickler/soemdsp-sandbox-digital-signals-audio) | Bit-oriented patch wires / LUT cell |
-| [Phosphor](https://github.com/elanhickler/soemdsp-sandbox-phosphor) | CRT-style scope decay |
-| [Analog Filters](https://github.com/elanhickler/soemdsp-sandbox-analog-filters) | Circuit-style filter models (Flower Child family, etc.) |
-| [SIMD](https://github.com/elanhickler/soemdsp-simd) | WASM SIMD128 + block-processing boundary |
-| [Creatures](https://github.com/elanhickler/soemdsp-sandbox-creatures) | Patchable virtual pet |
-| [Digital Efficient Patch System](https://github.com/elanhickler/soemdsp-sandbox-digital-efficient-patch-system) | Multiplayer / performance experiments |
+| [Aliasing Wars](https://soundemote.io/aliasingwars) | Anti-aliased hard-sync / PolyBLEP |
+| [Vactrols](https://soundemote.io/vactrols) | Photoconductor-based envelopes |
+| [White Wire](https://soundemote.io/whitewire) | Bit-oriented patch wires / LUT cell |
+| [Phosphor](https://soundemote.io/phosphor) | CRT-style scope decay |
+| [Analog Filters](https://soundemote.io/analogfilters) | Circuit-style filter models (Flower Child family, etc.) |
+| [SIMD](https://soundemote.io/simd) | WASM SIMD128 + block-processing boundary |
+| [Creatures](https://soundemote.io/creatures) | Patchable virtual pet |
+| [Efficient Patch System](https://soundemote.io/efficientpatchsystem) | Multiplayer / performance experiments |
 
 ---
 
