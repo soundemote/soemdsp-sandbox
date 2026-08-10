@@ -178,7 +178,12 @@ function nodeGraphNumberReadoutBurnEraseAlpha(trailHang, ghostHang = 0) {
     const keep = Number(Residual.residualKeep(trail, ghost));
     if (Number.isFinite(keep)) {
       // Near-freeze (keep≈1) → near-zero erase; low keep → strong erase.
-      return clampNodeSliderValue(1 - keep, 0, 1);
+      // Floor erase slightly when Trail is on so the last 8-bit ink dies.
+      const erase = clampNodeSliderValue(1 - keep, 0, 1);
+      if (trail > 0.001 && erase > 0 && erase < 0.02) {
+        return Math.max(erase, 0.02);
+      }
+      return erase;
     }
   }
   if (Residual && typeof Residual.trailFadeAmount === "function") {
@@ -1926,8 +1931,13 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   }
 
   const depositEnergy = Number(canvas._numberReadoutResidualEnergy) || 0;
+  // Finish residual fully — don't leave a stuck last crumb of energy/ink.
   if (depositEnergy <= 0.008) {
     canvas._numberReadoutResidualEnergy = 0;
+    if (depositEnergy > 0 && hangOn && burnCtx && burnPlate?.width > 0 && !frozen) {
+      burnCtx.setTransform(1, 0, 0, 1, 0, 0);
+      burnCtx.clearRect(0, 0, burnPlate.width, burnPlate.height);
+    }
   }
   const depositActive = hangOn && depositEnergy > 0.008;
   // Hanging deposits need continuous present (no static Ghost floor).
@@ -2029,7 +2039,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     }
   } else if (digitFontSize > 0.25 && drawLiveDigits) {
     // Live digits over residual.
-    const lightBlend = String(settings.lightBlend || "occlude").trim().toLowerCase() || "occlude";
+    const lightBlend = String(settings.lightBlend || "lighten").trim().toLowerCase() || "lighten";
     if (lightBlend === "occlude") {
       const plateRgb = (() => {
         const m = String(bg || "").match(/^#?([0-9a-f]{6})$/i);

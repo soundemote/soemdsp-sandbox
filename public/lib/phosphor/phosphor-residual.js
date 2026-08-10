@@ -83,16 +83,25 @@
   /**
    * Pure Ghost super-exp keep (independent of Trail).
    * Ghost 0 → no hang (keep 0 = wipe residual unless linear path holds it).
+   *
+   * Important: keep must be continuous near 0. The old formula capped fade at
+   * ~1.2%/frame for any ghost > 0.001, so a tiny ghost (0.0027) froze residual
+   * and Trail could not finish the wipe. Low ghost must actually die; high
+   * ghost stays sticky/analog.
    */
   function pureGhostKeep(ghost) {
     const g = clamp01(ghost, 0);
-    if (g <= 0.001) {
+    if (g <= 0.0005) {
       return 0;
     }
-    // Super-exponential hang: near g=1 → almost freeze residual energy.
-    const fade = Math.pow(1 - g, 2.8) * 0.012;
-    const slow = 1 - Math.max(0.00025, fade);
-    return Math.min(0.99975, slow);
+    // Aggressive die at low g (g=0.0027 → keep ≈ 0.03…0.05).
+    const aggressive = Math.pow(g, 0.55);
+    // Legacy sticky hang for mid/high ghost (almost freeze near 1).
+    const sticky = 1 - Math.pow(1 - g, 2.8) * 0.012;
+    // Weight sticky only when Ghost is meaningfully on (g²).
+    const w = g * g;
+    const keep = aggressive * (1 - w) + sticky * w;
+    return Math.max(0, Math.min(0.99975, keep));
   }
 
   /**
@@ -119,10 +128,16 @@
       return 1;
     }
     const gKeep = pureGhostKeep(ghost);
-    // When linear weight is partial, still use full-strength linear base keep
-    // and weight the *result* (see applyResidual). For a single keep factor:
     const lKeep = linearKeep(1);
-    const mixed = blend.ghostWeight * gKeep + blend.linearWeight * lKeep;
+    // Weighted average (Trail 0 = pure Ghost, 0.75 = pure linear).
+    let mixed = blend.ghostWeight * gKeep + blend.linearWeight * lKeep;
+    // Trail "on top" of Ghost: any linear weight also guarantees a minimum die
+    // so small Trail values can finish residual that pure Ghost would leave.
+    // Without this, Trail 0.1 barely moved keep when Ghost hang was high.
+    if (blend.linearWeight > 0.001) {
+      const linearPull = 1 - (1 - lKeep) * Math.min(1, blend.linearWeight * 2.5);
+      mixed = Math.min(mixed, linearPull);
+    }
     // freeze mixes toward keep=1
     return Math.min(1, blend.freeze + (1 - blend.freeze) * mixed);
   }
@@ -191,17 +206,14 @@
    */
   function applyResidual(energy01, trail, ghost = 0, burn = 0) {
     const e = Math.max(0, Number(energy01) || 0);
-    const blend = resolveTrailBlend(trail);
-    let faded;
-    if (blend.freeze >= 0.999) {
-      faded = e;
-    } else {
-      const gKeep = pureGhostKeep(ghost);
-      const lKeep = linearKeep(1);
-      faded = e * (blend.ghostWeight * gKeep + blend.linearWeight * lKeep);
-      if (blend.freeze > 0.001) {
-        faded = e * blend.freeze + faded * (1 - blend.freeze);
-      }
+    if (e <= 0.0005) {
+      return 0;
+    }
+    const keep = residualKeep(trail, ghost);
+    let faded = e * keep;
+    // Kill the last bit so 8-bit canvas / energy buffers don't floor forever.
+    if (faded < 0.004 && keep < 0.999) {
+      faded = 0;
     }
     return applyBurnFloor(e, faded, burn);
   }

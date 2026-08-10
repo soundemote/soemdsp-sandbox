@@ -933,7 +933,8 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}, defaultsOverride
         "exclusion",
         "source-atop",
       ]);
-      const fallback = faceStyle === "lcd" ? "source-over" : "occlude";
+      // Value LED default is lighten (live segments brighten residual).
+      const fallback = faceStyle === "lcd" ? "source-over" : "lighten";
       const raw = String(source.lightBlend ?? source.lightBlendMode ?? defaults.lightBlend ?? fallback)
         .trim()
         .toLowerCase();

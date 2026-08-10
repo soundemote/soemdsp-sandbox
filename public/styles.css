@@ -11139,6 +11139,9 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   width: 100%;
   height: 100%;
   min-height: 0;
+  /* Square corners — bottom rounding was clipping the Hz/8ve/M meta row. */
+  border-radius: 0 !important;
+  corner-shape: square;
   overflow: hidden;
   pointer-events: auto;
   background: #000004;
@@ -11157,6 +11160,8 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   /* Same continuous plate — never a second background/panel. */
   background: transparent;
   border: none;
+  border-radius: 0 !important;
+  corner-shape: square;
   box-shadow: none;
 }
 
@@ -11172,6 +11177,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 /*
  * Hz + Fid: height = line box of the type + a few px pad (not a fixed em strip).
  * No background, no stroke — sits on the same plate as the LED.
+ * Square corners so 8ve / Fid are never clipped by display rounding.
  */
 .node-pitch-detector-fid {
   position: relative;
@@ -11192,6 +11198,8 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   margin: 0;
   border: none;
   border-top: none;
+  border-radius: 0 !important;
+  corner-shape: square;
   outline: none;
   box-shadow: none;
   background: transparent;

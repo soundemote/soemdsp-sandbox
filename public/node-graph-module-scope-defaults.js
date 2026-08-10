@@ -255,7 +255,8 @@ const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   // Default OFF for Value LED/LCD; Pitch Detector defaults ON via DefaultsForNode.
   decimalBudget: false,
   // How live Light composites over residual gradient (canvas blend / occlude).
-  lightBlend: "occlude",
+  // lighten: live segments brighten residual ink (default for Value LED / Pitch).
+  lightBlend: "lighten",
   // Digit inset 0…1 linear vs face square min side (0 = flush fill, 1 = one pin pixel).
   facePadding: 0,
   // Energy → color LUT for decaying deposits (live digits use solid Light).
