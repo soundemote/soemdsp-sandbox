@@ -6,15 +6,23 @@ registerNodeGraphChromelessModule("xyPad", {
     planRole: "source",
     displayHeightGu: 4,
     displayType: "xyPad",
+    // LayoutB side-band labels (jack + short text; not labels-hidden).
+    layoutBPortLabels: true,
     inputAliases: {
       "X In": "X",
       "Y In": "Y",
     },
     inputs: ["X", "Y"],
+    inputLabels: {
+      X: "X",
+      Y: "Y",
+    },
     outputs: ["X", "Y", "Gate", "Spike"],
     outputLabels: {
+      X: "X",
+      Y: "Y",
       Gate: "G",
-      Spike: "P",
+      Spike: "T",
     },
     parameters: [
       // Instant UI targets (no param smoother). Audio: mouse+CV → Papoulis ↔ lattice.

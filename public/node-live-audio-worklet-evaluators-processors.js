@@ -517,29 +517,47 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         const state = this.delayEffectStates.get(nodeId) || this.createStereoDelayEffectState();
         this.delayEffectStates.set(nodeId, state);
         const read = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        const legacyLevel = read("level", 1);
+        const outLevelRead = read("outLevel", Number.NaN);
         const delayParams = {
           feedback: read("feedback", 0.25),
-          level: read("level", 1),
+          inLevel: read("inLevel", 1),
+          // Prefer outLevel; fall back to legacy Level for old patches.
+          outLevel: Number.isFinite(outLevelRead) ? outLevelRead : legacyLevel,
           mix: read("mix", 0.35),
-          mode: read("mode", 0),
           modAmount: read("modAmount", 0.02),
           modRate: read("modRate", 0.1),
+          modStyle: read("modStyle", 0),
           modVariation: read("modVariation", 0),
           time: read("time", 0.18),
           // 0 = linear, 1 = hermite (default hermite).
           interpolation: read("interpolation", 1),
         };
+        // Mono In sums into both sides (not a third independent delay line).
+        // Mix M = (Mix L + Mix R) * 0.5 — house mono-sum convention.
         const delayMono = mixInput(nodeId);
-        const monoResult = this.delayEffectSample(state.mono, delayMono, delayParams, safeRate, `${nodeId}:mono`);
-        const leftResult = this.delayEffectSample(state.left, mixInput(nodeId, "Left") + delayMono, delayParams, safeRate, `${nodeId}:left`);
-        const rightResult = this.delayEffectSample(state.right, mixInput(nodeId, "Right") + delayMono, delayParams, safeRate, `${nodeId}:right`);
-        // Dry = pure input; Mix = dry/wet blend. No wet-only jack.
+        const leftResult = this.delayEffectSample(
+          state.left,
+          mixInput(nodeId, "Left") + delayMono,
+          delayParams,
+          safeRate,
+          `${nodeId}:left`,
+        );
+        const rightResult = this.delayEffectSample(
+          state.right,
+          mixInput(nodeId, "Right") + delayMono,
+          delayParams,
+          safeRate,
+          `${nodeId}:right`,
+        );
+        const mixL = leftResult.Mix ?? leftResult.Out ?? 0;
+        const mixR = rightResult.Mix ?? rightResult.Out ?? 0;
+        const mixM = (mixL + mixR) * 0.5;
         return {
-          Dry: monoResult.Dry,
-          Mix: monoResult.Mix ?? monoResult.Out,
-          Out: monoResult.Mix ?? monoResult.Out,
-          Left: leftResult.Mix ?? leftResult.Out,
-          Right: rightResult.Mix ?? rightResult.Out,
+          Mix: mixM,
+          Out: mixM,
+          Left: mixL,
+          Right: mixR,
         };
       },
       pingPongDelay: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {

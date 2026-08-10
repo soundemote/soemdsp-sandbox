@@ -7,15 +7,12 @@
 // Face content (graph, scope, knobs, …) is still definition.layout for A/B.
 // LayoutC has no face: definition still may list ports only.
 //
-// LayoutA display policy (sizing lives in node-graph-module-sizing.js):
-//   - Display row height is --node-module-display-height-units (1…60gu).
-//   - definition.customDisplayArea / layout faces (e.g. badvalMonitor) use the
-//     same height control as oscilloscopes, but the face cannot be hidden.
-//   - definition.slidersAlwaysHidden keeps param rows off (status modules).
-//
-// LayoutC sizing (same sizing file):
-//   - gu width/height are the module bounds (no phantom face row).
-//   - Minimum height follows inlet/outlet row count + title.
+// Height policy (SSOT: node-graph-module-sizing.js):
+//   - FACE 1…60gu → --node-module-display-height-units / LayoutB shell track.
+//   - OUTER grid cells → --node-grid-height-units (Module Settings Height).
+//   - Min outer for face modules is when face = 1gu.
+//   - LayoutB shell = face; side jacks share face height (never inflate shell).
+//   - LayoutC: freehand heightGu, no face (title + I/O only).
 //
 // Authority: definition.chrome (default LayoutA).
 // Call nodeGraphModuleChromeLayoutForType() / nodeGraphModuleChrome().
@@ -148,11 +145,10 @@ function nodeGraphModuleUsesLayoutC(type) {
 }
 
 /**
- * Headerless LayoutB modules use the XY Pad grid: title + shell + params
- * (class solid-module-layout / chrome-layout-b). Title is shown by default;
- * "Hide title" removes the header. I/O hide only removes port labels and
- * expands the face toward the jacks (ports stay).
- * Graph is LayoutB *with* a permanent header — different CSS.
+ * Headerless LayoutB: solid-module-layout class (optional title + shell + params).
+ * Headered LayoutB (graph, LayoutB filter-curve): same article grid via
+ * chrome-layout-b; title bar is permanent unless ui.titleHidden.
+ * All LayoutB modules share one CSS grid contract (shell @ display 1…60gu).
  */
 function nodeGraphModuleIsHeaderlessLayoutB(type) {
   if (!nodeGraphModuleUsesLayoutB(type)) {
@@ -162,6 +158,7 @@ function nodeGraphModuleIsHeaderlessLayoutB(type) {
     ? nodeGraphModuleDefinitions[type]
     : null;
   const face = String(definition?.layout || "").trim();
+  // Graph keeps a normal header (not the headerless solid-module chrome class).
   if (face === "graph") {
     return false;
   }

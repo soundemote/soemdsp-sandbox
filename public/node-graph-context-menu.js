@@ -780,13 +780,14 @@ const nodeGraphModuleActionControlIds = [
   "nodeSceneAddToUi",
   "nodeSceneWireTypeControl",
   "nodeSceneAddToGroup",
+  // Width + Height (display gu) stay paired — app-wide policy for every module.
   "nodeSceneWidthControls",
+  "nodeSceneDisplayHeightControls",
   "nodeSceneTextBoxTextSizeControls",
   "nodeSceneTextBoxHeightControls",
   "nodeSceneTextBoxTextControls",
   "nodeSceneCodeblockControls",
   "nodeSceneGraphControls",
-  "nodeSceneDisplayHeightControls",
   "nodeSceneImageControls",
   "nodeSceneKnobFaceControls",
   "nodeSceneCanvasControls",
@@ -1068,15 +1069,7 @@ function configureNodeSceneContextMenu(mode) {
   const textBoxTextScriptStatus = document.getElementById("nodeSceneTextBoxTextScriptStatus");
   const graphControls = document.getElementById("nodeSceneGraphControls");
   const graphCursorX = document.getElementById("nodeSceneGraphCursorX");
-  const graphNodeIndex = document.getElementById("nodeSceneGraphNodeIndex");
-  const graphPreviousNode = document.getElementById("nodeSceneGraphPreviousNode");
-  const graphNextNode = document.getElementById("nodeSceneGraphNextNode");
-  const graphNodeX = document.getElementById("nodeSceneGraphNodeX");
-  const graphNodeY = document.getElementById("nodeSceneGraphNodeY");
-  const graphNodeContour = document.getElementById("nodeSceneGraphNodeContour");
-  const graphNodeShape = document.getElementById("nodeSceneGraphNodeShape");
   const graphNodeList = document.getElementById("nodeSceneGraphNodeList");
-  const graphRemoveNode = document.getElementById("nodeSceneGraphRemoveNode");
   const toggleButtonsButton = document.getElementById("nodeSceneToggleButtons");
   const toggleModuleEnabledButton = document.getElementById("nodeSceneToggleModuleEnabled");
   const nativeCodeGroup = document.getElementById("nodeSceneCodeGroup");
@@ -1173,7 +1166,14 @@ function configureNodeSceneContextMenu(mode) {
   const buttonsHidden = effectiveTargetNodeUi.buttonsHidden;
   const oscilloscopeHidden = effectiveTargetNodeUi.oscilloscopeHidden;
   const interfaceControlsHidden = effectiveTargetNodeUi.interfaceControlsHidden;
-  const displayHeightGu = targetNode ? nodeGraphModuleConfiguredDisplayHeightUnits(targetNode.type, targetNode.ui) : 0;
+  // Height readout = OUTER module grid height (not face-only). Face min is 1gu.
+  const outerHeightGu = targetNode && typeof nodeGraphPatchNodeGridHeightUnits === "function"
+    ? nodeGraphPatchNodeGridHeightUnits(targetNode)
+    : 0;
+  const faceHeightGu = targetNode && typeof nodeGraphModuleConfiguredDisplayHeightUnits === "function"
+    ? nodeGraphModuleConfiguredDisplayHeightUnits(targetNode.type, targetNode.ui)
+    : 0;
+  const displayHeightGu = outerHeightGu;
   const targetNodeLayout = nodeGraphPatchNodeLayout(targetNode);
   const visualFaceLabel = "display";
   const slidersHidden = effectiveTargetNodeUi.slidersHidden;
@@ -1464,10 +1464,11 @@ function configureNodeSceneContextMenu(mode) {
         ? "Increase width of selected modules."
         : nodeGraphTooltipText("actions.widthIncrease"),
     });
+    // Height = OUTER module gu. Face modules shrink until face is 1gu (min outer).
     const multiDisplayHeights = multiModuleMode
       ? selectedNodes
         .filter((node) => nodeGraphPatchNodeHasResizableDisplayArea(node))
-        .map((node) => nodeGraphModuleConfiguredDisplayHeightUnits(node.type, node.ui))
+        .map((node) => nodeGraphPatchNodeGridHeightUnits(node))
       : [];
     const multiDisplayHeightUniform = multiDisplayHeights.length > 0
       && multiDisplayHeights.every((value) => value === multiDisplayHeights[0]);
@@ -1475,19 +1476,19 @@ function configureNodeSceneContextMenu(mode) {
       if (!nodeGraphPatchNodeHasResizableDisplayArea(node)) {
         return false;
       }
-      const current = nodeGraphModuleConfiguredDisplayHeightUnits(node.type, node.ui);
-      const minGu = typeof nodeGraphModuleDisplayHeightLimitsForType === "function"
-        ? nodeGraphModuleDisplayHeightLimitsForType(node.type).minGu
-        : nodeGraphModuleDisplayHeightLimits.minGu;
-      return current > minGu;
+      const face = nodeGraphModuleConfiguredDisplayHeightUnits(node.type, node.ui);
+      const minFace = nodeGraphModuleDisplayHeightLimits.minGu;
+      return face > minFace;
     });
     const multiDisplayCanIncrease = multiModuleMode && selectedNodes.some((node) => {
       if (!nodeGraphPatchNodeHasResizableDisplayArea(node)) {
         return false;
       }
-      const current = nodeGraphModuleConfiguredDisplayHeightUnits(node.type, node.ui);
-      return current < nodeGraphModuleDisplayHeightLimits.maxGu;
+      const face = nodeGraphModuleConfiguredDisplayHeightUnits(node.type, node.ui);
+      return face < nodeGraphModuleDisplayHeightLimits.maxGu;
     });
+    const faceMin = nodeGraphModuleDisplayHeightLimits.minGu;
+    const faceMax = nodeGraphModuleDisplayHeightLimits.maxGu;
     configureNodeGraphModuleSettingsSizeRow({
       controls: displayHeightControls,
       decreaseButton: displayHeightDecrease,
@@ -1498,23 +1499,19 @@ function configureNodeSceneContextMenu(mode) {
       )),
       value: multiModuleMode
         ? (multiDisplayHeightUniform ? `${multiDisplayHeights[0]} gu` : "mixed")
-        : `${displayHeightGu} gu`,
+        : `${outerHeightGu} gu`,
       decreaseDisabled: multiModuleMode
         ? !multiDisplayCanDecrease
-        : !targetNode || !targetSupportsDisplayHeight || displayHeightGu <= (
-          typeof nodeGraphModuleDisplayHeightLimitsForType === "function"
-            ? nodeGraphModuleDisplayHeightLimitsForType(targetNode?.type).minGu
-            : nodeGraphModuleDisplayHeightLimits.minGu
-        ),
+        : !targetNode || !targetSupportsDisplayHeight || faceHeightGu <= faceMin,
       increaseDisabled: multiModuleMode
         ? !multiDisplayCanIncrease
-        : !targetNode || !targetSupportsDisplayHeight || displayHeightGu >= nodeGraphModuleDisplayHeightLimits.maxGu,
+        : !targetNode || !targetSupportsDisplayHeight || faceHeightGu >= faceMax,
       decreaseTitle: multiModuleMode
-        ? "Decrease display height of selected modules."
-        : "Decrease this module's display height.",
+        ? "Decrease module height (shrinks face; min when face is 1gu)."
+        : "Decrease module height (grid cells). Face floor is 1gu.",
       increaseTitle: multiModuleMode
-        ? "Increase display height of selected modules."
-        : "Increase this module's display height.",
+        ? "Increase module height (grows face; max face 60gu)."
+        : "Increase module height (grid cells). Face max is 60gu.",
     });
     configureNodeGraphModuleSettingsSizeRow({
       controls: textBoxTextSizeControls,
@@ -1805,51 +1802,17 @@ function configureNodeSceneContextMenu(mode) {
       textBoxTextScriptStatus.textContent = "";
     }
     if (targetIsGraphType) {
-      const usesPerNodeContour = typeof nodeGraphGraphUsesPerNodeContour === "function"
-        ? nodeGraphGraphUsesPerNodeContour(targetNode.type)
-        : targetNode.type === "graphCopy";
-      const usesPerNodeShapeSelect = typeof nodeGraphGraphUsesPerNodeShapeSelect === "function"
-        ? nodeGraphGraphUsesPerNodeShapeSelect(targetNode.type)
-        : false;
       syncNodeGraphGraphControls(nodeGraphGraphForNode(targetNode));
-      graphCursorX.disabled = false;
-      graphNodeIndex.disabled = false;
-      graphPreviousNode.disabled = false;
-      graphNextNode.disabled = false;
-      graphNodeX.disabled = false;
-      graphNodeY.disabled = false;
-      // Step Graph: per-node curve; Shape is a module parameter.
-      graphNodeContour.disabled = !usesPerNodeContour;
-      graphNodeShape.disabled = !usesPerNodeShapeSelect;
-      const contourLabel = document.getElementById("nodeSceneGraphNodeContourLabel");
-      const shapeLabel = document.getElementById("nodeSceneGraphNodeShapeLabel");
-      if (contourLabel) contourLabel.hidden = !usesPerNodeContour;
-      if (shapeLabel) shapeLabel.hidden = !usesPerNodeShapeSelect;
-      graphCursorX.title = "Move the vertical graph cursor.";
-      graphNodeIndex.title = "Choose the graph node to edit.";
-      graphPreviousNode.title = "Select the previous graph node.";
-      graphNextNode.title = "Select the next graph node.";
-      graphNodeX.title = "Set the selected node's x position.";
-      graphNodeY.title = "Set the selected node's y value.";
-      graphNodeContour.title = "Bend the selected node's outgoing segment (plus global Curve Offset).";
-      graphNodeShape.title = "Shape is a Step Graph module parameter (global).";
+      if (graphCursorX) {
+        graphCursorX.disabled = false;
+        graphCursorX.title = "Move the vertical graph cursor.";
+      }
     } else {
-      graphCursorX.value = "";
-      graphNodeIndex.replaceChildren();
-      graphNodeList.replaceChildren();
-      graphNodeX.value = "";
-      graphNodeY.value = "";
-      graphNodeContour.value = "";
-      graphNodeShape.value = "rational";
-      graphCursorX.disabled = true;
-      graphNodeIndex.disabled = true;
-      graphPreviousNode.disabled = true;
-      graphNextNode.disabled = true;
-      graphNodeX.disabled = true;
-      graphNodeY.disabled = true;
-      graphNodeContour.disabled = true;
-      graphNodeShape.disabled = true;
-      graphRemoveNode.disabled = true;
+      if (graphCursorX) {
+        graphCursorX.value = "";
+        graphCursorX.disabled = true;
+      }
+      graphNodeList?.replaceChildren();
     }
     textBoxAlignLeft.setAttribute("aria-pressed", textBoxLayout.horizontalAlign === "left" ? "true" : "false");
     textBoxAlignCenter.setAttribute("aria-pressed", textBoxLayout.horizontalAlign === "center" ? "true" : "false");
@@ -1904,20 +1867,11 @@ function configureNodeSceneContextMenu(mode) {
     textBoxTextScript.value = "";
     textBoxTitleScriptStatus.textContent = "";
     textBoxTextScriptStatus.textContent = "";
-    graphCursorX.value = "";
-    graphNodeIndex.replaceChildren();
-    graphNodeList.replaceChildren();
-    graphNodeX.value = "";
-    graphNodeY.value = "";
-    graphNodeContour.value = "";
-    graphNodeShape.value = "rational";
-    graphCursorX.disabled = true;
-    graphNodeIndex.disabled = true;
-    graphNodeX.disabled = true;
-    graphNodeY.disabled = true;
-    graphNodeContour.disabled = true;
-    graphNodeShape.disabled = true;
-    graphRemoveNode.disabled = true;
+    if (graphCursorX) {
+      graphCursorX.value = "";
+      graphCursorX.disabled = true;
+    }
+    graphNodeList?.replaceChildren();
     textBoxVerticalAlign.value = "50";
     textBoxVerticalAlignValue.textContent = "";
     textBoxVerticalAlign.disabled = true;
@@ -1959,20 +1913,11 @@ function configureNodeSceneContextMenu(mode) {
     textBoxTextScript.value = "";
     textBoxTitleScriptStatus.textContent = "";
     textBoxTextScriptStatus.textContent = "";
-    graphCursorX.value = "";
-    graphNodeIndex.replaceChildren();
-    graphNodeList.replaceChildren();
-    graphNodeX.value = "";
-    graphNodeY.value = "";
-    graphNodeContour.value = "";
-    graphNodeShape.value = "rational";
-    graphCursorX.disabled = true;
-    graphNodeIndex.disabled = true;
-    graphNodeX.disabled = true;
-    graphNodeY.disabled = true;
-    graphNodeContour.disabled = true;
-    graphNodeShape.disabled = true;
-    graphRemoveNode.disabled = true;
+    if (graphCursorX) {
+      graphCursorX.value = "";
+      graphCursorX.disabled = true;
+    }
+    graphNodeList?.replaceChildren();
     textBoxVerticalAlign.value = "50";
     textBoxVerticalAlignValue.textContent = "";
     textBoxVerticalAlign.disabled = true;

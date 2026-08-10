@@ -36,11 +36,13 @@ const nodeGraphGraph2SmoothingModeLegacySix = Object.freeze([
   "catmull",
 ]);
 
+// Default curve: high → low (y=1 at x=0 → y=0 at x=1). Matches typical
+// envelope/decay intuition when the face is used as a modulator.
 const nodeGraphDefaultGraphData = Object.freeze({
   cursorX: 0.5,
   nodes: Object.freeze([
-    Object.freeze({ c: 0, shape: "linear", x: 0, y: 0 }),
-    Object.freeze({ c: 0, shape: "rational", x: 1, y: 1 }),
+    Object.freeze({ c: 0, shape: "linear", x: 0, y: 1 }),
+    Object.freeze({ c: 0, shape: "rational", x: 1, y: 0 }),
   ]),
 });
 
@@ -55,11 +57,12 @@ const nodeGraphGraphPresets = Object.freeze({
       Object.freeze({ c: -0.35, shape: "exponential", x: 1, y: 0 }),
     ]),
   }),
+  // Falling ramp (high → low) — same direction as the module default.
   ramp: Object.freeze({
     cursorX: 0,
     nodes: Object.freeze([
-      Object.freeze({ c: 0, shape: "linear", x: 0, y: 0 }),
-      Object.freeze({ c: 0, shape: "linear", x: 1, y: 1 }),
+      Object.freeze({ c: 0, shape: "linear", x: 0, y: 1 }),
+      Object.freeze({ c: 0, shape: "linear", x: 1, y: 0 }),
     ]),
   }),
   sine: Object.freeze({
@@ -337,14 +340,18 @@ function nodeGraphGraphUsesPerNodeShapes(type) {
   return type === "graphCopy" || type === "graph";
 }
 
-/** Per-node contour (`c`) UI — Step Graph only (shape is global there). */
+/** Per-node contour (`c`) UI — Step Graph (and legacy graph). */
 function nodeGraphGraphUsesPerNodeContour(type) {
   return type === "graphCopy" || type === "graph";
 }
 
-/** Per-node shape select — retired for Step Graph (global Shape param). */
+/**
+ * Per-node shape select in the node list (same row as curve).
+ * Step Graph + legacy graph. Smooth Graph uses a global Curve param instead.
+ * Module Shape param still seeds new nodes / acts as eval fallback.
+ */
 function nodeGraphGraphUsesPerNodeShapeSelect(type) {
-  return type === "graph";
+  return type === "graphCopy" || type === "graph";
 }
 
 function nodeGraphGraphUsesGlobalSmoothing(type) {
@@ -1001,9 +1008,12 @@ function nodeGraphGraphLegacySegmentShape(p, right, options = {}) {
   const offset = normalizeNodeGraphGraphNumber(options.curveOffset, 0, -1, 1);
   // Per-node c + global Curve Offset, clamped to ±1 (extremes = hard step).
   const contour = nodeGraphGraphNormalizeContour((Number(right?.c) || 0) + offset, 0);
-  const shape = options.segmentShape != null && options.segmentShape !== ""
-    ? normalizeNodeGraphGraphShape(options.segmentShape)
-    : normalizeNodeGraphGraphShape(right?.shape);
+  // Prefer per-node shape (list UI); fall back to global Shape module param.
+  const shape = right?.shape != null && String(right.shape).trim() !== ""
+    ? normalizeNodeGraphGraphShape(right.shape)
+    : (options.segmentShape != null && options.segmentShape !== ""
+      ? normalizeNodeGraphGraphShape(options.segmentShape)
+      : "linear");
   if (shape === "exponential") {
     return nodeGraphGraphExponentialCurve(p, contour);
   }

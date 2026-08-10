@@ -81,12 +81,21 @@ function mountNodeGraphDisplaySettingsBody(popover, formType, node = null) {
       resetButton.dataset.bound = "true";
       resetButton.addEventListener("click", (event) => {
         event.preventDefault();
-        const nodeId = popover.dataset.displaySettingsTargetNode
+        // Multi-select: reset every XY Pad targeted by this Display Settings panel.
+        const multiIds = typeof nodeGraphTraceDisplaySettingsActiveTargetIds === "function"
+          ? nodeGraphTraceDisplaySettingsActiveTargetIds()
+          : [];
+        const fallbackId = popover.dataset.displaySettingsTargetNode
           || nodeGraphMvp?.traceDisplaySettingsTargetNode
           || node?.id
           || "";
+        const ids = multiIds.length
+          ? multiIds
+          : (fallbackId ? [String(fallbackId)] : []);
         if (typeof nodeGraphXyPadResetCanvas === "function") {
-          nodeGraphXyPadResetCanvas(nodeId);
+          for (const id of ids) {
+            if (id) nodeGraphXyPadResetCanvas(id);
+          }
         }
       });
     }

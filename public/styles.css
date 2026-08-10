@@ -3212,21 +3212,45 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   line-height: 1;
 }
 
-/* Load / Save Patch — after settings cog; two-line labels like UI Settings. */
+/*
+ * Save / Load Patch / UI Settings — stacked two-line labels that fill the
+ * toolbar cell height (same idea as Render Sample: equal rows, big type).
+ * Order in HTML: Save → Load → UI Settings.
+ */
+#nodeSettingsSaveScriptButton,
 #loadNodeGraphScriptButton,
-#nodeSettingsSaveScriptButton {
-  flex: 0.9 1 0;
+#nodeUserUiSettingsButton {
+  flex: 1.35 1 0;
   min-inline-size: 0;
-  flex-direction: column;
-  gap: 1px;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
+  justify-items: stretch;
+  gap: 0;
+  padding: 0 6px;
   white-space: normal;
-  font-size: clamp(0.72rem, calc(var(--node-toolbar-row-height) * 0.28), 0.95rem);
-  line-height: 1.05;
+  font-size: clamp(0.95rem, calc(var(--node-toolbar-row-height) * 0.40), 1.35rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-transform: none;
+  overflow: hidden;
 }
 
+#nodeSettingsSaveScriptButton > span,
 #loadNodeGraphScriptButton > span,
-#nodeSettingsSaveScriptButton > span {
-  display: block;
+#nodeUserUiSettingsButton > span {
+  display: grid;
+  align-items: center;
+  justify-items: center;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
 #nodeGlobalScopeMenuButton {
@@ -3234,16 +3258,14 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   min-inline-size: 0;
 }
 
+/* Undo / Redo — grow into spare history-row width; large single-line type. */
 #nodeUndoButton,
 #nodeRedoButton {
-  flex: 0.72 1 0;
-  font-size: clamp(0.92rem, calc(var(--node-toolbar-row-height) * 0.34), 1.22rem);
-}
-
-#nodeUserUiSettingsButton {
-  flex: 0.95 1 0;
+  flex: 1.25 1 0;
   min-inline-size: 0;
-  font-size: clamp(0.92rem, calc(var(--node-toolbar-row-height) * 0.32), 1.2rem);
+  font-size: clamp(1.05rem, calc(var(--node-toolbar-row-height) * 0.46), 1.55rem);
+  font-weight: 700;
+  letter-spacing: 0.03em;
 }
 
 #nodeSavedPatchesWindowButton {
@@ -10493,40 +10515,103 @@ body.room-dimmer-on .node-room-dimmer-canvas,
     var(--node-module-bottom-gap-track, minmax(2px, 1fr));
 }
 
-/* Smooth Graph / Step Graph (layout: graph): I/O section is always 26px. */
-.dsp-node.graph-node-layout {
-  --node-io-section-min-height: 26px;
-  --node-port-area-size: 26px;
+/*
+ * LayoutB module article grid (chrome-layout-b + solid-module-layout):
+ *   header | shell = EXACT face gu | params (auto) | bottom gap
+ *
+ * Shell track is a definite length — NEVER minmax(…, auto) or 1fr when params
+ * exist. minmax(auto) let the face grow past face height (Smooth Graph face
+ * painted ~3gu while Height said 1gu; sliders sat outside the plate).
+ *
+ * Outer box height comes from --node-grid-height-units (JS SSOT).
+ * Face units: --node-module-shell-height-units (= face, min 1gu).
+ */
+.dsp-node.chrome-layout-b,
+.dsp-node.solid-module-layout {
+  --node-module-layout-b-shell-track: calc(
+    var(--node-grid-height) * var(
+      --node-module-shell-height-units,
+      var(--node-module-display-height-units, 1)
+    )
+  );
+  display: grid;
   grid-template-rows:
     var(--node-header-height)
-    minmax(0, 1fr)
-    minmax(26px, 26px)
+    var(--node-module-layout-b-shell-track)
+    auto
     var(--node-module-bottom-gap-track, minmax(2px, 1fr));
+  /* Clip anything that still exceeds the outer gu box. */
+  overflow: hidden;
+  /* Do not let min-content of children expand the plate past outer gu. */
+  max-height: calc(
+    (var(--node-grid-height) * var(--node-grid-height-units, 4))
+    - (var(--node-module-grid-inset) * 2)
+  );
 }
 
-.dsp-node.graph-node-layout .node-solid-module-shell > .node-io-column .node-io-row {
-  height: 26px;
-  min-height: 26px;
-  max-height: 26px;
+.dsp-node.chrome-layout-b > .dsp-node-header,
+.dsp-node.solid-module-layout > .dsp-node-header {
+  grid-row: 1;
+  min-height: 0;
+  max-height: var(--node-header-height);
+  overflow: hidden;
 }
 
-.dsp-node.graph-node-layout .dsp-node-io-section {
-  min-height: 26px;
-  height: 26px;
-  max-height: 26px;
+.dsp-node.chrome-layout-b > .node-solid-module-shell,
+.dsp-node.chrome-layout-b > .node-module-chrome-layout-b-shell,
+.dsp-node.solid-module-layout > .node-solid-module-shell {
+  grid-row: 2;
+  align-self: stretch;
+  box-sizing: border-box;
+  width: 100%;
+  /* Exact face track — never grow with jack min-content. */
+  height: var(--node-module-layout-b-shell-track);
+  min-height: 0;
+  max-height: var(--node-module-layout-b-shell-track);
+  overflow: hidden;
 }
 
-.dsp-node.graph-node-layout.io-hidden .dsp-node-io-section {
+.dsp-node.chrome-layout-b > .dsp-node-body,
+.dsp-node.solid-module-layout > .dsp-node-body {
+  grid-row: 3;
+  align-self: start;
+  min-height: 0;
+  /* Params size to content; outer gu already reserved them in JS. */
+  overflow: hidden;
+}
+
+/*
+ * No params: shell fills remaining height. minmax min must be 0 — a gu-based
+ * min made the track taller than the inset article box (Number Readout, LED).
+ */
+.dsp-node.chrome-layout-b.layout-b-no-params,
+.dsp-node.solid-module-layout.layout-b-no-params {
+  grid-template-rows:
+    var(--node-header-height)
+    minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.dsp-node.chrome-layout-b.layout-b-no-params > .dsp-node-body,
+.dsp-node.solid-module-layout.layout-b-no-params > .dsp-node-body {
   display: none !important;
-  min-height: 0 !important;
-  height: 0 !important;
-  max-height: 0 !important;
 }
 
-/* LayoutA filter curve: header | face (1…60gu display policy) | IO | params | gap.
-   Face height is exactly --node-module-scope-height (no 1.5× inflate).
-   IO min uses reserved --node-module-io-track-min (see .dsp-node) so dense
-   band outs (HFR on 4-Crossover, …) do not compress into the slider row. */
+.dsp-node.chrome-layout-b.layout-b-no-params > .node-solid-module-shell,
+.dsp-node.chrome-layout-b.layout-b-no-params > .node-module-chrome-layout-b-shell,
+.dsp-node.solid-module-layout.layout-b-no-params > .node-solid-module-shell {
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+/* LayoutB ports live in the shell — never a separate under-face IO strip. */
+.dsp-node.chrome-layout-b > .dsp-node-io-section {
+  display: none !important;
+}
+
+/* LayoutA filter curve: header | face | IO under | params | gap. */
 .dsp-node.filter-curve-layout:not(.chrome-layout-b) {
   grid-template-rows:
     var(--node-header-height)
@@ -10583,76 +10668,12 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   display: none !important;
 }
 
-/*
- * LayoutB filter curve (crossovers): header | shell (ports beside face) | params | gap.
- * Display and sliders each get their own row — never share/collapse into the face track.
- */
-.dsp-node.filter-curve-layout.chrome-layout-b {
-  display: grid;
-  grid-template-rows:
-    var(--node-header-height)
-    minmax(
-      calc(
-        var(--node-grid-height) * var(
-          --node-module-shell-height-units,
-          var(--node-module-display-height-units, 2)
-        )
-      ),
-      auto
-    )
-    auto
-    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
-}
-
-.dsp-node.filter-curve-layout.chrome-layout-b > .dsp-node-header {
-  grid-row: 1;
-}
-
-.dsp-node.filter-curve-layout.chrome-layout-b > .node-module-chrome-layout-b-shell,
-.dsp-node.filter-curve-layout.chrome-layout-b > .node-solid-module-shell {
-  grid-row: 2;
-  align-self: stretch;
-  height: auto;
-  min-height: calc(
-    var(--node-grid-height) * var(
-      --node-module-shell-height-units,
-      var(--node-module-display-height-units, 2)
-    )
-  );
-}
-
-.dsp-node.filter-curve-layout.chrome-layout-b > .dsp-node-body {
-  grid-row: 3;
-  align-self: start;
-  min-height: 0;
-}
-
-.dsp-node.filter-curve-layout.chrome-layout-b.layout-b-no-params {
-  grid-template-rows:
-    var(--node-header-height)
-    minmax(0, 1fr);
-}
-
-.dsp-node.filter-curve-layout.chrome-layout-b.layout-b-no-params > .dsp-node-body {
-  display: none !important;
-}
-
-.dsp-node.filter-curve-layout.chrome-layout-b.layout-b-no-params > .node-module-chrome-layout-b-shell,
-.dsp-node.filter-curve-layout.chrome-layout-b.layout-b-no-params > .node-solid-module-shell {
+/* Knob shell height follows shared LayoutB shell units. */
+.dsp-node.slider-widget-layout .node-knob-shell {
+  /* Shell track already sets exact face height; fill the cell. */
   height: 100%;
   min-height: 0;
   max-height: 100%;
-}
-
-/* Knob uses solid-module-layout rows (shell + params + shared bottom gap). */
-
-.dsp-node.slider-widget-layout .node-knob-shell {
-  min-height: calc(
-    var(--node-grid-height) * var(
-      --node-module-shell-height-units,
-      var(--node-module-display-height-units, 3)
-    )
-  );
 }
 
 /*
@@ -11355,81 +11376,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   box-shadow: none;
 }
 
-/* Headerless LayoutB (XY Pad, Knob, …): optional title + shell + params +
-   shared bottom gap. Title uses --node-header-height (0 when no title / title-hidden).
-   Same clearance rule + same trailing track as LayoutA (.dsp-node). */
-.dsp-node.solid-module-layout,
-.dsp-node.chrome-layout-b.solid-module-layout {
-  display: grid;
-  grid-template-rows:
-    var(--node-header-height)
-    minmax(
-      calc(
-        var(--node-grid-height) * var(
-          --node-module-shell-height-units,
-          var(--node-module-display-height-units, 2)
-        )
-      ),
-      auto
-    )
-    auto
-    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
-}
-
-/*
- * No sliders / params: no empty body track, no bottom lip. Shell (display)
- * fills remaining height. minmax min must be 0 — using shell gu as min made
- * the track taller than the module box (height subtracts grid inset) so the
- * face spilled past the bottom edge (Number Readout, LED, …).
- */
-.dsp-node.solid-module-layout.layout-b-no-params,
-.dsp-node.chrome-layout-b.solid-module-layout.layout-b-no-params,
-.dsp-node.chrome-layout-b.layout-b-no-params.solid-module-layout {
-  grid-template-rows:
-    var(--node-header-height)
-    minmax(0, 1fr);
-  overflow: hidden;
-}
-
-.dsp-node.solid-module-layout.layout-b-no-params > .dsp-node-body,
-.dsp-node.chrome-layout-b.solid-module-layout.layout-b-no-params > .dsp-node-body,
-.dsp-node.chrome-layout-b.layout-b-no-params > .dsp-node-body {
-  display: none !important;
-}
-
-.dsp-node.solid-module-layout > .dsp-node-header,
-.dsp-node.chrome-layout-b.solid-module-layout > .dsp-node-header {
-  grid-row: 1;
-}
-
-.dsp-node.solid-module-layout > .dsp-node-body,
-.dsp-node.chrome-layout-b.solid-module-layout > .dsp-node-body {
-  grid-row: 3;
-  align-self: start;
-}
-
-.dsp-node.solid-module-layout > .node-solid-module-shell,
-.dsp-node.chrome-layout-b.solid-module-layout > .node-solid-module-shell {
-  grid-row: 2;
-  align-self: stretch;
-  height: auto;
-  min-height: calc(
-    var(--node-grid-height) * var(
-      --node-module-shell-height-units,
-      var(--node-module-display-height-units, 2)
-    )
-  );
-}
-
-.dsp-node.solid-module-layout.layout-b-no-params > .node-solid-module-shell,
-.dsp-node.chrome-layout-b.solid-module-layout.layout-b-no-params > .node-solid-module-shell {
-  /* Fill module interior exactly — never taller than the article box. */
-  height: 100%;
-  min-height: 0;
-  max-height: 100%;
-  overflow: hidden;
-}
-
+/* Number Readout / LED: face must not paint past the shell (shared no-params shell). */
 .dsp-node.number-readout-layout.layout-b-no-params > .node-solid-module-shell,
 .dsp-node.number-readout-layout .node-number-readout-face {
   overflow: hidden;
@@ -11456,64 +11403,49 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   min-height: 0;
 }
 
-/* LayoutB / solid shell — ports beside face + equal 1fr jack bands.
-   Bottom gap: shared --node-module-bottom-gap-track (same as LayoutA). */
-.node-solid-module-shell,
-.node-module-chrome-layout-b-shell {
+/*
+ * LayoutB shell: ports beside face + equal 1fr jack bands.
+ * Element always has both class names (legacy dual naming).
+ */
+:is(.node-solid-module-shell, .node-module-chrome-layout-b-shell) {
   display: grid;
-  /* Side columns size to chrome (←/→ are equal); empty side still collapses. */
   grid-template-columns:
     minmax(0, max-content)
     minmax(0, 1fr)
     minmax(0, max-content);
   min-width: 0;
-  min-height: calc(
-    var(--node-grid-height) * var(
-      --node-module-shell-height-units,
-      var(--node-module-display-height-units, 2)
-    )
-  );
+  /*
+   * Height is owned by the article shell track (exact face gu).
+   * Never min-height: calc(face) here — that fought the track and grew the face.
+   */
+  min-height: 0;
   height: 100%;
+  max-height: 100%;
   overflow: hidden;
   pointer-events: auto;
 }
 
-.node-solid-module-shell > .node-io-column,
-.node-module-chrome-layout-b-shell > .node-io-column {
+:is(.node-solid-module-shell, .node-module-chrome-layout-b-shell) > .node-io-column {
   display: grid;
-  /* Equal vertical share per jack → border-bottom is mid between jacks. */
-  grid-auto-rows: 1fr;
+  /* Equal share of the face height — ports shrink when face is 1gu with many jacks. */
+  grid-auto-rows: minmax(0, 1fr);
   align-self: stretch;
   align-content: stretch;
   justify-content: stretch;
   justify-items: stretch;
   gap: 0;
-  /* Kill LayoutA column padding — solid shell jacks sit flush to the edge. */
   padding: 0 !important;
   min-height: 0;
-  /* Above the face so jack hits/glow are not stolen by the center custom-ui. */
+  max-height: 100%;
+  height: 100%;
   position: relative;
   z-index: 4;
-  /* Gaps between jacks fall through to the shell (module drag/select). */
   pointer-events: none;
 }
 
-/*
- * Empty side (no inputs or no outputs): collapse fully — display takes the space
- * (custom-ui keeps 1px margin each side = 2px total air). Must beat the
- * .labels-hidden jack-band width rules below (empty placeholders also get
- * labels-hidden in createNodeGraphLayoutBShell).
- */
-.node-solid-module-shell > .node-io-column.node-layout-b-io-empty,
-.node-module-chrome-layout-b-shell > .node-io-column.node-layout-b-io-empty,
-.dsp-node.chrome-layout-b .node-solid-module-shell > .node-io-column.node-layout-b-io-empty,
-.dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell > .node-io-column.node-layout-b-io-empty,
-.dsp-node.chrome-layout-b .node-solid-module-shell > .node-io-column.labels-hidden.node-layout-b-io-empty,
-.dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell > .node-io-column.labels-hidden.node-layout-b-io-empty,
-.dsp-node.solid-module-layout .node-solid-module-shell > .node-io-column.node-layout-b-io-empty,
-.dsp-node.solid-module-layout .node-solid-module-shell > .node-io-column.labels-hidden.node-layout-b-io-empty,
-.dsp-node.chrome-layout-b.io-hidden .node-solid-module-shell > .node-io-column.node-layout-b-io-empty,
-.dsp-node.chrome-layout-b.io-hidden .node-module-chrome-layout-b-shell > .node-io-column.node-layout-b-io-empty {
+/* Empty side collapses — face claims the space (custom-ui keeps 1px air each side). */
+:is(.node-solid-module-shell, .node-module-chrome-layout-b-shell)
+  > .node-io-column.node-layout-b-io-empty {
   width: 0 !important;
   min-width: 0 !important;
   max-width: 0 !important;
@@ -11524,69 +11456,56 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   pointer-events: none !important;
 }
 
-.node-solid-module-shell > .node-io-column .node-io-row,
-.node-module-chrome-layout-b-shell > .node-io-column .node-io-row {
-  /* One band per jack (min 1gu slot); stretch taller when shell > N×1gu. */
+:is(.node-solid-module-shell, .node-module-chrome-layout-b-shell) > .node-io-column .node-io-row {
   box-sizing: border-box;
+  /* Share face height; do not force min 1gu per jack (that inflated shell past face). */
   height: auto;
-  min-height: var(--node-port-area-size);
+  min-height: 0;
   max-height: none;
-  /* Clip jacks to this cell — never paint into the neighbor band. */
   overflow: hidden;
   pointer-events: auto;
   border-bottom: 1px solid rgba(127, 199, 217, 0.1);
-  /* Port/label layout comes from shared .node-io-row (padding + absolute jack). */
 }
 
-.node-solid-module-shell > .node-io-column .node-io-label,
-.node-module-chrome-layout-b-shell > .node-io-column .node-io-label {
-  /* Pre–Layout B solid: only clip long names; type inherits .node-io-row (0.84rem). */
+:is(.node-solid-module-shell, .node-module-chrome-layout-b-shell) > .node-io-column .node-io-label {
   max-width: 100%;
   overflow: hidden;
   text-align: center;
 }
 
-.node-solid-module-shell > .node-io-column .node-io-row:last-child,
-.node-module-chrome-layout-b-shell > .node-io-column .node-io-row:last-child {
+:is(.node-solid-module-shell, .node-module-chrome-layout-b-shell)
+  > .node-io-column .node-io-row:last-child {
   border-bottom: 0;
 }
 
-.node-solid-module-shell > .node-io-column.labels-hidden .node-io-label,
-.node-module-chrome-layout-b-shell > .node-io-column.labels-hidden .node-io-label {
+:is(.node-solid-module-shell, .node-module-chrome-layout-b-shell)
+  > .node-io-column.labels-hidden .node-io-label {
   display: none;
 }
 
-/*
- * LayoutB labels-only collapse (columns with .labels-hidden, not full io-hidden).
- * Full Hide In/Out (.io-hidden) collapses columns entirely — see app-wide rule above.
- */
-.dsp-node.chrome-layout-b .node-solid-module-shell > .node-io-column.labels-hidden:not(.node-layout-b-io-empty),
-.dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell > .node-io-column.labels-hidden:not(.node-layout-b-io-empty),
-.dsp-node.solid-module-layout .node-solid-module-shell > .node-io-column.labels-hidden:not(.node-layout-b-io-empty) {
+/* Jack-only band (no labels): fixed half-jack width, absolute flush ports. */
+:is(.node-solid-module-shell, .node-module-chrome-layout-b-shell)
+  > .node-io-column.labels-hidden:not(.node-layout-b-io-empty) {
   width: var(--node-signal-port-width);
   min-width: var(--node-signal-port-width);
   max-width: var(--node-signal-port-width);
   padding: 0 !important;
-  /* Column may clip horizontally; row still owns vertical clip. */
   overflow: hidden;
   justify-items: stretch;
 }
 
-.dsp-node.chrome-layout-b .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row,
-.dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell > .node-io-column.labels-hidden .node-io-row,
-.dsp-node.solid-module-layout .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row {
+:is(.node-solid-module-shell, .node-module-chrome-layout-b-shell)
+  > .node-io-column.labels-hidden .node-io-row {
   position: relative;
   width: 100%;
   padding: 0 !important;
-  /* Slot ≥ jack; never smaller than the port box. */
-  min-height: max(var(--node-port-area-size), var(--node-signal-port-height));
+  /* min-height 0 so N jacks fit in a 1gu face; jack diameter still capped by slot. */
+  min-height: 0;
   overflow: hidden;
 }
 
-/* Absolute flush like Layout A — flat edge on the module perimeter. */
-.dsp-node.chrome-layout-b .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row .node-port,
-.dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell > .node-io-column.labels-hidden .node-io-row .node-port,
-.dsp-node.solid-module-layout .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row .node-port {
+:is(.node-solid-module-shell, .node-module-chrome-layout-b-shell)
+  > .node-io-column.labels-hidden .node-io-row .node-port {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
@@ -11599,33 +11518,22 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   max-height: 100%;
 }
 
-.dsp-node.chrome-layout-b .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row.input .node-port,
-.dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell > .node-io-column.labels-hidden .node-io-row.input .node-port,
-.dsp-node.solid-module-layout .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row.input .node-port {
+:is(.node-solid-module-shell, .node-module-chrome-layout-b-shell)
+  > .node-io-column.labels-hidden .node-io-row.input .node-port {
   left: 0;
   right: auto;
 }
 
-.dsp-node.chrome-layout-b .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row.output .node-port,
-.dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell > .node-io-column.labels-hidden .node-io-row.output .node-port,
-.dsp-node.solid-module-layout .node-solid-module-shell > .node-io-column.labels-hidden .node-io-row.output .node-port {
+:is(.node-solid-module-shell, .node-module-chrome-layout-b-shell)
+  > .node-io-column.labels-hidden .node-io-row.output .node-port {
   right: 0;
   left: auto;
-}
-
-/* Keep shell clipped to the module chrome so jacks stay flush, not outside. */
-.dsp-node.chrome-layout-b .node-solid-module-shell,
-.dsp-node.chrome-layout-b .node-module-chrome-layout-b-shell,
-.dsp-node.solid-module-layout .node-solid-module-shell {
-  overflow: hidden;
 }
 
 .dsp-node.chrome-layout-b .node-solid-module-custom-ui,
 .dsp-node.solid-module-layout .node-solid-module-custom-ui {
   overflow: hidden;
 }
-
-/* Empty LayoutB side already collapses always (see .node-layout-b-io-empty above). */
 
 .node-solid-module-custom-ui {
   grid-column: 2;
@@ -12479,24 +12387,103 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 /* Step Grid's CSS lives in public/modules/stepGrid/step-grid.css now,
    loaded via its own <link> tag -- not here. */
 
-/* Graph / Graph 2 now use the same side-by-side shell as XY Pad and Bug
-   Button (createNodeGraphSolidModuleShell): inputs left, dot editor center,
-   outputs right. Graph still keeps its normal header/title bar though (it
-   isn't chromeless-registered), so instead of adopting the headerless
-   modules' 2-row ".solid-module-layout" grid, this pins the shell to rows
-   2-3 of the standard 4-row .dsp-node grid (header / scope / io / params)
-   -- the space display+IO used to occupy separately, now shared by the
-   shell as one taller area. */
-.node-graph-solid-shell {
-  grid-row: 2 / 4;
+/*
+ * LayoutB labeled side columns (.layout-b-port-labels):
+ * jack flush outer edge, short label toward face — not under the half-jack.
+ */
+:is(.node-solid-module-shell, .node-module-chrome-layout-b-shell).layout-b-port-labels
+  > .node-io-column:not(.labels-hidden):not(.node-layout-b-io-empty) {
+  min-width: calc(
+    var(--node-signal-port-width)
+    + 3px
+    + (var(--node-io-label-min-ch, 1) * 0.95ch)
+    + 4px
+  );
+  width: max-content;
+  max-width: none;
+  overflow: visible;
+  justify-items: stretch;
+}
+
+:is(.node-solid-module-shell, .node-module-chrome-layout-b-shell).layout-b-port-labels
+  > .node-io-column:not(.labels-hidden) .node-io-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  width: 100%;
+  min-height: max(var(--node-port-area-size), var(--node-signal-port-height));
+  overflow-x: visible;
+  overflow-y: hidden;
+  padding: 0 !important;
+  box-sizing: border-box;
+}
+
+:is(.node-solid-module-shell, .node-module-chrome-layout-b-shell).layout-b-port-labels
+  > .node-io-column.input:not(.labels-hidden) .node-io-row {
+  flex-direction: row;
+  justify-content: flex-start;
+}
+
+:is(.node-solid-module-shell, .node-module-chrome-layout-b-shell).layout-b-port-labels
+  > .node-io-column.output:not(.labels-hidden) .node-io-row {
+  flex-direction: row;
+  justify-content: flex-end;
+}
+
+:is(.node-solid-module-shell, .node-module-chrome-layout-b-shell).layout-b-port-labels
+  > .node-io-column:not(.labels-hidden) .node-port {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  transform: none !important;
+  flex: 0 0 var(--node-signal-port-width);
+  width: var(--node-signal-port-width);
+  min-width: var(--node-signal-port-width);
+  max-width: var(--node-signal-port-width);
+  height: var(--node-signal-port-height);
+  min-height: 0;
+  max-height: 100%;
+}
+
+:is(.node-solid-module-shell, .node-module-chrome-layout-b-shell).layout-b-port-labels
+  > .node-io-column:not(.labels-hidden) .node-io-label {
+  display: block;
+  flex: 0 1 auto;
+  min-width: 0.85ch !important;
+  max-width: none;
+  overflow: visible;
+  white-space: nowrap;
+  text-overflow: clip;
+  font-size: clamp(0.72rem, 0.9vw, 0.92rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: color-mix(in srgb, var(--text) 78%, var(--accent));
+  pointer-events: none;
+  opacity: 0.95;
+}
+
+:is(.node-solid-module-shell, .node-module-chrome-layout-b-shell).layout-b-port-labels
+  > .node-io-column.input:not(.labels-hidden) .node-io-label {
+  text-align: left;
+  padding-right: 1px;
+}
+
+:is(.node-solid-module-shell, .node-module-chrome-layout-b-shell).layout-b-port-labels
+  > .node-io-column.output:not(.labels-hidden) .node-io-label {
+  text-align: right;
+  padding-left: 1px;
 }
 
 .node-module-graph-display {
   position: relative;
   box-sizing: border-box;
   width: 100%;
+  height: 100%;
   min-width: 0;
   min-height: 0;
+  max-height: 100%;
   overflow: hidden;
   border-top: 1px solid rgba(128, 224, 224, 0.16);
   border-bottom: 1px solid rgba(128, 224, 224, 0.16);
@@ -12707,40 +12694,44 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 .scene-context-graph-node-list {
   display: grid;
   gap: 4px;
-  max-height: 168px;
+  max-height: 220px;
   overflow: auto;
   padding: 5px;
   border: 1px solid rgba(137, 220, 220, 0.16);
   background: rgba(1, 4, 7, 0.38);
 }
 
-.scene-context-graph-node-picker {
-  display: grid;
-  grid-template-columns: minmax(48px, 0.5fr) minmax(0, 1fr) minmax(48px, 0.5fr);
-  gap: 6px;
-  align-items: end;
-}
-
-.scene-context-graph-node-picker label {
-  margin: 0;
-}
-
-.scene-context-graph-node-picker button {
-  min-width: 0;
-  min-height: 34px;
-  padding: 0 8px;
-}
-
+/* Step Graph: # | x | y | curve | shape | ✕  (curve + shape same row) */
 .scene-context-graph-node-row {
   display: grid;
-  grid-template-columns: minmax(28px, 0.45fr) repeat(3, minmax(0, 1fr)) minmax(72px, 1.35fr);
+  grid-template-columns:
+    minmax(28px, 0.4fr)
+    minmax(0, 1fr)
+    minmax(0, 1fr)
+    minmax(0, 1fr)
+    minmax(72px, 1.2fr)
+    28px;
   gap: 4px;
   align-items: center;
 }
 
-/* Graph (graph2): points-only list — node, x, y */
+/* Step Graph without shape select (legacy path): # x y curve ✕ */
+.scene-context-graph-node-list[data-graph-list-mode="curve"] .scene-context-graph-node-row {
+  grid-template-columns:
+    minmax(28px, 0.4fr)
+    minmax(0, 1fr)
+    minmax(0, 1fr)
+    minmax(0, 1fr)
+    28px;
+}
+
+/* Smooth Graph: # | x | y | ✕ */
 .scene-context-graph-node-list[data-graph-list-mode="points"] .scene-context-graph-node-row {
-  grid-template-columns: minmax(28px, 0.45fr) repeat(2, minmax(0, 1fr));
+  grid-template-columns:
+    minmax(28px, 0.4fr)
+    minmax(0, 1fr)
+    minmax(0, 1fr)
+    28px;
 }
 
 .scene-context-graph-node-row-header {
@@ -12759,9 +12750,33 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   color: rgba(222, 244, 238, 0.82);
 }
 
-.scene-context-graph-node-row[data-selected="true"] button {
+.scene-context-graph-node-row[data-selected="true"] button[data-graph-node-select] {
   border-color: rgba(255, 236, 181, 0.54);
   color: rgba(255, 247, 198, 0.96);
+}
+
+.scene-context-graph-node-row .scene-context-graph-node-remove {
+  width: 28px;
+  min-width: 28px;
+  max-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+  line-height: 1;
+  font-size: 0.85rem;
+  border-color: rgba(220, 120, 120, 0.28);
+  color: rgba(255, 180, 180, 0.88);
+  background: rgba(28, 10, 12, 0.72);
+}
+
+.scene-context-graph-node-row .scene-context-graph-node-remove:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.scene-context-graph-node-row .scene-context-graph-node-remove:not(:disabled):hover {
+  border-color: rgba(255, 140, 140, 0.55);
+  color: rgba(255, 210, 210, 0.98);
 }
 
 .scene-context-graph-node-row input,
@@ -12771,9 +12786,38 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   box-sizing: border-box;
 }
 
+/* [+] under last node */
+.scene-context-graph-node-add-row {
+  display: flex;
+  justify-content: center;
+  padding-top: 2px;
+}
+
+.scene-context-graph-node-add {
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  line-height: 1;
+  font-size: 1.15rem;
+  font-weight: 700;
+  border: 1px solid rgba(133, 223, 217, 0.28);
+  border-radius: 2px;
+  background: rgba(7, 16, 20, 0.9);
+  color: rgba(222, 244, 238, 0.9);
+  cursor: pointer;
+}
+
+.scene-context-graph-node-add:hover {
+  border-color: rgba(180, 240, 230, 0.55);
+  color: rgba(255, 255, 255, 0.98);
+}
+
 .scene-context-graph-node-actions {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
 }
 
@@ -12790,29 +12834,6 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 .scene-context-graph-preset-controls button {
-  min-width: 0;
-  min-height: 30px;
-  padding: 0 6px;
-  border: 1px solid rgba(133, 223, 217, 0.18);
-  background: rgba(7, 16, 20, 0.82);
-  color: rgba(222, 244, 238, 0.78);
-}
-
-.scene-context-graph-range-controls {
-  display: grid;
-  grid-template-columns: minmax(62px, 0.8fr) repeat(3, minmax(0, 1fr));
-  gap: 6px;
-  align-items: center;
-}
-
-.scene-context-graph-range-controls span {
-  color: rgba(198, 230, 224, 0.62);
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0;
-}
-
-.scene-context-graph-range-controls button {
   min-width: 0;
   min-height: 30px;
   padding: 0 6px;
@@ -13616,8 +13637,7 @@ input.node-header-title:focus {
  */
 .dsp-node.io-hidden .dsp-node-io-section,
 .dsp-node.io-hidden .node-io-proxy,
-.dsp-node.chrome-layout-b.io-hidden .node-solid-module-shell > .node-io-column,
-.dsp-node.chrome-layout-b.io-hidden .node-module-chrome-layout-b-shell > .node-io-column,
+.dsp-node.chrome-layout-b.io-hidden :is(.node-solid-module-shell, .node-module-chrome-layout-b-shell) > .node-io-column,
 .dsp-node.solid-module-layout.io-hidden .node-solid-module-shell > .node-io-column {
   display: none !important;
   width: 0 !important;
@@ -16360,32 +16380,31 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   overflow: hidden;
 }
 
-/* Command Center family: never show scrollbars (top nav replaces the old long list). */
+/*
+ * Command Center chrome: hide chrome-level scrollbars (top nav is short).
+ * Module Settings / Display / Parameter / UI Settings bodies may scroll —
+ * do NOT apply * descendant rules that kill their scrollbar tracks.
+ */
 #nodeSceneContextMenu,
-#nodeSceneContextMenu *,
-#nodeModuleActionsWindow,
-#nodeModuleActionsWindow *,
-.node-module-actions-window-body,
-.node-parameter-metadata-popover,
-.node-trace-display-settings-popover,
-.node-user-ui-settings-panel,
-.node-visibility-menu {
+#nodeVisibilityMenu {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 
 #nodeSceneContextMenu::-webkit-scrollbar,
-#nodeSceneContextMenu *::-webkit-scrollbar,
-#nodeModuleActionsWindow::-webkit-scrollbar,
-#nodeModuleActionsWindow *::-webkit-scrollbar,
-.node-module-actions-window-body::-webkit-scrollbar,
-.node-parameter-metadata-popover::-webkit-scrollbar,
-.node-trace-display-settings-popover::-webkit-scrollbar,
-.node-user-ui-settings-panel::-webkit-scrollbar,
-.node-visibility-menu::-webkit-scrollbar {
+#nodeVisibilityMenu::-webkit-scrollbar {
   width: 0 !important;
   height: 0 !important;
   display: none !important;
+}
+
+/* Settings inspectors: thin visible scrollbar on the scroll body only. */
+.node-module-actions-window-body,
+.node-parameter-metadata-popover > .metadata-popover-grid,
+.node-trace-display-settings-popover > .node-trace-display-settings-grid,
+.node-user-ui-settings-panel > .node-user-ui-settings-controls {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(127, 199, 217, 0.45) transparent;
 }
 
 #nodeSceneContextMenu .scene-context-heading {
@@ -16488,6 +16507,10 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   min-width: 0;
 }
 
+/*
+ * Module Settings body: scroll when content exceeds the window.
+ * App-wide inspector policy — never clip settings (graph editor, long param lists).
+ */
 .node-module-actions-window-body {
   display: flex;
   flex: 1 1 auto;
@@ -16499,29 +16522,36 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   min-height: 0;
   min-inline-size: 0;
   max-width: 100%;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   padding: 0;
+  /* Keep last rows clear of the SE resize grip. */
+  padding-bottom: 22px;
   box-sizing: border-box;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
 }
 
-.node-parameter-metadata-popover,
-.node-module-actions-window-body,
-.node-trace-display-settings-grid {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+.node-module-actions-window-body::-webkit-scrollbar {
+  width: 8px;
 }
 
-.node-parameter-metadata-popover::-webkit-scrollbar,
-.node-module-actions-window-body::-webkit-scrollbar,
-.node-trace-display-settings-grid::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;
+.node-module-actions-window-body::-webkit-scrollbar-thumb {
+  background: rgba(127, 199, 217, 0.35);
+  border-radius: 4px;
 }
 
 .node-module-actions-window-body > * {
   flex: 0 0 auto;
   margin-block: 0;
+}
+
+/* Display Settings / Parameter Settings: keep wheel-scroll bodies (scrollbars optional). */
+.node-parameter-metadata-popover > .metadata-popover-grid,
+.node-trace-display-settings-popover > .node-trace-display-settings-grid {
+  scrollbar-width: thin;
 }
 
 /* Title chrome: shared .scene-context-heading only — no page-local overrides. */
@@ -18344,12 +18374,6 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   line-height: 1.25;
 }
 
-.scene-context-graph-node-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
-  gap: 6px;
-}
-
 .scene-context-codeblock-controls textarea {
   resize: vertical;
 }
@@ -18918,19 +18942,53 @@ body.node-slider-dragging .node-param-port {
   filter: brightness(1.08);
 }
 
-/* Wired jacks: hover brightens fill only — still no crescent stroke. */
+/*
+ * Wired jacks: keep the crescent stroke on hover (was transparent — stroke
+ * vanished whenever a connected inlet/outlet was hovered). Brighten fill +
+ * type-colored arc + soft glow, same dual-layer paint as idle connected.
+ */
 .node-port.connected-port:hover,
 .node-port.connected-port.patch-point-hover,
 .node-io-row.patch-point-hover .node-port.connected-port {
-  --node-port-crescent-stroke: transparent;
-  --node-port-crescent-stroke-width: 0px;
   border: 0;
-  background: radial-gradient(
-    circle farthest-side at var(--node-port-crescent-at),
-    var(--node-port-crescent-fill) 0%,
-    var(--node-port-crescent-fill) 100%
-  );
+  border-color: transparent;
+  /* Reassert dual-layer fill + stroke so hover paint cannot collapse to fill-only. */
+  background:
+    radial-gradient(
+      circle farthest-side at var(--node-port-crescent-at),
+      var(--node-port-crescent-fill) 0%,
+      var(--node-port-crescent-fill) calc(100% - var(--node-port-crescent-stroke-width, 1.25px) - 0.6px),
+      transparent calc(100% - var(--node-port-crescent-stroke-width, 1.25px) + 0.35px)
+    ),
+    radial-gradient(
+      circle farthest-side at var(--node-port-crescent-at),
+      var(--node-port-crescent-stroke) 0%,
+      var(--node-port-crescent-stroke) 100%
+    );
+  box-shadow:
+    0 0 var(--node-hover-glow-size) var(--node-hover-glow-spread)
+      color-mix(in srgb, var(--node-patch-point-color, var(--node-port-hover-fill)) 34%, transparent);
   filter: brightness(1.08);
+}
+
+/* Param jacks paint on ::before — keep their connected crescent on hover too. */
+.node-param-port.connected-port:hover::before,
+.node-param-port.connected-port.patch-point-hover::before {
+  background:
+    radial-gradient(
+      circle farthest-side at var(--node-port-crescent-at),
+      var(--node-port-crescent-fill) 0%,
+      var(--node-port-crescent-fill) calc(100% - var(--node-port-crescent-stroke-width, 1.25px) - 0.6px),
+      transparent calc(100% - var(--node-port-crescent-stroke-width, 1.25px) + 0.35px)
+    ),
+    radial-gradient(
+      circle farthest-side at var(--node-port-crescent-at),
+      var(--node-port-crescent-stroke) 0%,
+      var(--node-port-crescent-stroke) 100%
+    );
+  box-shadow:
+    0 0 var(--node-hover-glow-size) var(--node-hover-glow-spread)
+      color-mix(in srgb, var(--node-patch-point-color, var(--node-param-hover-color, var(--node-port-hover-fill))) 34%, transparent);
 }
 
 /* Defeat global `button:hover { border-color: var(--accent) }` on jacks. */

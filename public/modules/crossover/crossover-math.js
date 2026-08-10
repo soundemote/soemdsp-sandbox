@@ -125,13 +125,39 @@ function createNodeGraphCrossoverSplitState() {
   };
 }
 
+/**
+ * Rebuild LR coeffs for a new fc/order/rate, preserving delay state when the
+ * topology is unchanged. Zeroing z on every smoother micro-step was the main
+ * zipper/click when Freq was modulated or auto-smoothed.
+ */
+function nodeGraphCrossoverPreserveOnePole(prev, a) {
+  return {
+    a,
+    z: Number.isFinite(Number(prev?.z)) ? Number(prev.z) : 0,
+    x1: Number.isFinite(Number(prev?.x1)) ? Number(prev.x1) : 0,
+  };
+}
+
+function nodeGraphCrossoverPreserveBiquad(prev, next) {
+  return {
+    ...next,
+    z1: Number.isFinite(Number(prev?.z1)) ? Number(prev.z1) : 0,
+    z2: Number.isFinite(Number(prev?.z2)) ? Number(prev.z2) : 0,
+  };
+}
+
+function nodeGraphCrossoverRemapCascade(prevSections, qs, designFn, f, sr) {
+  const prev = Array.isArray(prevSections) ? prevSections : [];
+  return qs.map((Q, i) => nodeGraphCrossoverPreserveBiquad(prev[i], designFn(f, Q, sr)));
+}
+
 function nodeGraphCrossoverEnsureSplit(state, fc, lrOrder, rate) {
   const order = nodeGraphCrossoverClampLrOrder(lrOrder);
   // Floor tiny / non-finite fc so filters stay stable (UI min is 20 Hz).
   const f = Math.max(1e-3, Number.isFinite(Number(fc)) ? Number(fc) : 0);
   const sr = Math.max(1, Number(rate) || 44100);
-  // Hysteresis: parameter smoothers can change fc every sample by micro-amounts.
-  // Redesigning LR cascades that often is far too expensive (especially N-way).
+  // Hysteresis: skip redesign for sub-threshold fc noise (CPU). Smoothed /
+  // modulated fc still steps past this regularly — that path MUST keep z.
   const prevF = Number(state.lastFc);
   const sameOrder = state.lastOrder === order;
   const sameRate = state.lastRate === sr;
@@ -143,6 +169,7 @@ function nodeGraphCrossoverEnsureSplit(state, fc, lrOrder, rate) {
   ) {
     return;
   }
+  const keepState = sameOrder && sameRate;
   state.lastFc = f;
   state.lastOrder = order;
   state.lastRate = sr;
@@ -150,10 +177,17 @@ function nodeGraphCrossoverEnsureSplit(state, fc, lrOrder, rate) {
   if (order === 2) {
     const c1 = nodeGraphCrossoverOnePoleLpCoeff(f, sr);
     const c2 = nodeGraphCrossoverOnePoleLpCoeff(f, sr);
-    state.lpPole1 = { a: c1.a, z: 0 };
-    state.lpPole2 = { a: c2.a, z: 0 };
-    state.hpPole1 = { a: c1.a, z: 0, x1: 0 };
-    state.hpPole2 = { a: c2.a, z: 0, x1: 0 };
+    if (keepState) {
+      state.lpPole1 = nodeGraphCrossoverPreserveOnePole(state.lpPole1, c1.a);
+      state.lpPole2 = nodeGraphCrossoverPreserveOnePole(state.lpPole2, c2.a);
+      state.hpPole1 = nodeGraphCrossoverPreserveOnePole(state.hpPole1, c1.a);
+      state.hpPole2 = nodeGraphCrossoverPreserveOnePole(state.hpPole2, c2.a);
+    } else {
+      state.lpPole1 = { a: c1.a, z: 0 };
+      state.lpPole2 = { a: c2.a, z: 0 };
+      state.hpPole1 = { a: c1.a, z: 0, x1: 0 };
+      state.hpPole2 = { a: c2.a, z: 0, x1: 0 };
+    }
     state.lpA = [];
     state.lpB = [];
     state.hpA = [];
@@ -164,10 +198,17 @@ function nodeGraphCrossoverEnsureSplit(state, fc, lrOrder, rate) {
   const butterOrder = order / 2; // 2 or 4
   const qs = nodeGraphCrossoverButterworthQs(butterOrder);
   state.lpPole1 = state.lpPole2 = state.hpPole1 = state.hpPole2 = null;
-  state.lpA = qs.map((Q) => nodeGraphCrossoverDesignBiquadLp(f, Q, sr));
-  state.lpB = qs.map((Q) => nodeGraphCrossoverDesignBiquadLp(f, Q, sr));
-  state.hpA = qs.map((Q) => nodeGraphCrossoverDesignBiquadHp(f, Q, sr));
-  state.hpB = qs.map((Q) => nodeGraphCrossoverDesignBiquadHp(f, Q, sr));
+  if (keepState) {
+    state.lpA = nodeGraphCrossoverRemapCascade(state.lpA, qs, nodeGraphCrossoverDesignBiquadLp, f, sr);
+    state.lpB = nodeGraphCrossoverRemapCascade(state.lpB, qs, nodeGraphCrossoverDesignBiquadLp, f, sr);
+    state.hpA = nodeGraphCrossoverRemapCascade(state.hpA, qs, nodeGraphCrossoverDesignBiquadHp, f, sr);
+    state.hpB = nodeGraphCrossoverRemapCascade(state.hpB, qs, nodeGraphCrossoverDesignBiquadHp, f, sr);
+  } else {
+    state.lpA = qs.map((Q) => nodeGraphCrossoverDesignBiquadLp(f, Q, sr));
+    state.lpB = qs.map((Q) => nodeGraphCrossoverDesignBiquadLp(f, Q, sr));
+    state.hpA = qs.map((Q) => nodeGraphCrossoverDesignBiquadHp(f, Q, sr));
+    state.hpB = qs.map((Q) => nodeGraphCrossoverDesignBiquadHp(f, Q, sr));
+  }
 }
 
 function nodeGraphCrossoverProcessCascade(sections, x) {

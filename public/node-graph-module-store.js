@@ -614,13 +614,13 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["custom draw", "JavaScript display", "visual sink"],
   },
   graph2: {
-    category: "controller",
+    category: "modulator",
     description: "Point-to-point graph: each control point’s outgoing segment has a shape (linear / rational / exponential / log / hold) and contour. Input, LFO, or Phasor-driven readout with range mapping.",
     label: "Smooth Graph",
     notes: ["per-point shape", "contour", "Input · LFO · Phasor", "rate without jumps in Phasor"],
   },
   graphCopy: {
-    category: "controller",
+    category: "modulator",
     description: "Point-to-point graph with optional step grid (Steps 0 = free X / no quantize). Global Shape + Curve Offset; per-node curve. Input, LFO, or Phasor timing.",
     label: "Step Graph",
     notes: ["step grid (0 = free)", "global shape", "per-node curve", "Input · LFO · Phasor"],

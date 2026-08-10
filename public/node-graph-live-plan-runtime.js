@@ -622,7 +622,12 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
       delayedTriggerStates.set(node.id, createNodeGraphDelayedTriggerState());
     }
     if (node.type === "delayEffect") {
-      delayEffectStates.set(node.id, createNodeGraphDelayEffectState());
+      delayEffectStates.set(
+        node.id,
+        typeof createNodeGraphStereoDelayEffectState === "function"
+          ? createNodeGraphStereoDelayEffectState()
+          : createNodeGraphDelayEffectState(),
+      );
     }
     if (node.type === "pingPongDelay") {
       pingPongDelayStates.set(node.id, createNodeGraphPingPongDelayState());
@@ -1475,7 +1480,12 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
       runtime.delayedTriggerStates.set(node.id, createNodeGraphDelayedTriggerState());
     }
     if (node.type === "delayEffect" && !runtime.delayEffectStates.has(node.id)) {
-      runtime.delayEffectStates.set(node.id, createNodeGraphDelayEffectState());
+      runtime.delayEffectStates.set(
+        node.id,
+        typeof createNodeGraphStereoDelayEffectState === "function"
+          ? createNodeGraphStereoDelayEffectState()
+          : createNodeGraphDelayEffectState(),
+      );
     }
     if (node.type === "pingPongDelay" && !runtime.pingPongDelayStates.has(node.id)) {
       runtime.pingPongDelayStates.set(node.id, createNodeGraphPingPongDelayState());

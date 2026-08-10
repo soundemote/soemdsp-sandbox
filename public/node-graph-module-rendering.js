@@ -464,16 +464,17 @@ function createNodeGraphLayoutBShell(node, type, customBody, registration, input
     || createNodeGraphLayoutBIoColumnPlaceholder("input");
   const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output")
     || createNodeGraphLayoutBIoColumnPlaceholder("output");
-  // Layout B: no In/Out text chrome — jacks only; face expands into that space.
-  // (solidPortLabels:false was the old per-module opt-out; now it's the default.)
-  // Only real jack columns get labels-hidden (jack-band width). Empty placeholders
-  // must stay node-layout-b-io-empty so the face claims that side (minus 1px pad).
-  if (hasInputs) {
+  // Layout B default: jacks only (labels-hidden). Modules with layoutBPortLabels
+  // keep short labels (←/→, X/Y, G/T, …) in the side band beside each jack.
+  // Empty placeholders stay node-layout-b-io-empty so the face claims that side.
+  const showPortLabels = Boolean(nodeGraphModuleDefinitions[type]?.layoutBPortLabels);
+  if (hasInputs && !showPortLabels) {
     inputColumn.classList.add("labels-hidden");
   }
-  if (hasOutputs) {
+  if (hasOutputs && !showPortLabels) {
     outputColumn.classList.add("labels-hidden");
   }
+  shell.classList.toggle("layout-b-port-labels", showPortLabels);
   shell.classList.toggle("layout-b-no-inputs", !hasInputs);
   shell.classList.toggle("layout-b-no-outputs", !hasOutputs);
   customBody.classList.add("node-solid-module-custom-ui");
@@ -724,7 +725,6 @@ function createNodeGraphModuleElement(type, node) {
       tension: Number(patchNode?.params?.tension) ?? 1,
     });
     const graphShell = createNodeGraphLayoutBShell(node, type, graphSection, null, inputPorts, outputPorts);
-    graphShell.classList.add("node-graph-solid-shell");
     article.append(graphShell);
   } else if (definition.layout === "sliderWidget") {
     // LayoutB (XY Pad contract): slim I/O beside a large face; Bias/control under.

@@ -226,35 +226,15 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeSceneTextBoxTextScript", "change", () => setNodeGraphTextBoxPortScriptFromContext("Text", { record: true }));
   bindNodeGraphSceneElementEvent("nodeSceneGraphCursorX", "input", () => setNodeGraphGraphCursorFromContext({ record: false }));
   bindNodeGraphSceneElementEvent("nodeSceneGraphCursorX", "change", () => setNodeGraphGraphCursorFromContext({ record: true }));
-  bindNodeGraphSceneElementEvent("nodeSceneGraphNodeIndex", "change", selectNodeGraphGraphNodeFromContext);
-  bindNodeGraphSceneElementEvent("nodeSceneGraphNodeX", "input", () => setNodeGraphGraphNodeFromContext({ record: false }));
-  bindNodeGraphSceneElementEvent("nodeSceneGraphNodeX", "change", () => setNodeGraphGraphNodeFromContext({ record: true }));
-  bindNodeGraphSceneElementEvent("nodeSceneGraphNodeY", "input", () => setNodeGraphGraphNodeFromContext({ record: false }));
-  bindNodeGraphSceneElementEvent("nodeSceneGraphNodeY", "change", () => setNodeGraphGraphNodeFromContext({ record: true }));
-  bindNodeGraphSceneElementEvent("nodeSceneGraphNodeContour", "input", () => setNodeGraphGraphNodeFromContext({ record: false }));
-  bindNodeGraphSceneElementEvent("nodeSceneGraphNodeContour", "change", () => setNodeGraphGraphNodeFromContext({ record: true }));
-  bindNodeGraphSceneElementEvent("nodeSceneGraphNodeShape", "change", () => setNodeGraphGraphNodeFromContext({ record: true }));
+  // List owns node edit / select / remove / add ([+] under last row, ✕ per row).
   bindNodeGraphSceneElementEvent("nodeSceneGraphNodeList", "click", handleNodeGraphGraphNodeListClick);
   bindNodeGraphSceneElementEvent("nodeSceneGraphNodeList", "input", handleNodeGraphGraphNodeListInput);
   bindNodeGraphSceneElementEvent("nodeSceneGraphNodeList", "change", handleNodeGraphGraphNodeListChange);
-  bindNodeGraphSceneElementEvent("nodeSceneGraphPreviousNode", "click", () => selectNodeGraphGraphNodeOffsetFromContext(-1));
-  bindNodeGraphSceneElementEvent("nodeSceneGraphNextNode", "click", () => selectNodeGraphGraphNodeOffsetFromContext(1));
-  bindNodeGraphSceneElementEvent("nodeSceneGraphAddNode", "click", addNodeGraphGraphNodeFromContext);
-  bindNodeGraphSceneElementEvent("nodeSceneGraphDuplicateNode", "click", duplicateNodeGraphGraphNodeFromContext);
-  bindNodeGraphSceneElementEvent("nodeSceneGraphRemoveNode", "click", removeNodeGraphGraphNodeFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneGraphReset", "click", resetNodeGraphGraphFromContext);
   document
     .querySelectorAll("#nodeSceneGraphPresetControls [data-graph-preset]")
     .forEach((button) => {
       button.addEventListener("click", () => setNodeGraphGraphPresetFromContext(button.dataset.graphPreset));
-    });
-  document
-    .querySelectorAll("#nodeSceneGraphRangeControls [data-graph-range-min][data-graph-range-max]")
-    .forEach((button) => {
-      button.addEventListener("click", () => setNodeGraphGraphOutputRangeFromContext(
-        button.dataset.graphRangeMin,
-        button.dataset.graphRangeMax,
-      ));
     });
   document
     .querySelectorAll("#nodeSceneGraphTransformControls [data-graph-transform]")

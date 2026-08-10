@@ -147,10 +147,12 @@ function nodeGraphDisplaySettingsBuildPackingToggleRowHtml(keys) {
     };
   });
   // Clear is always last: restart pixel burn-in when Trail is frozen.
+  // Multi-select: wipes every display currently targeted by this panel.
   buttons.push({
     label: "Clear",
     title:
-      "Wipe this face’s phosphor residual (restart burn-in). Useful when Trail is frozen and you want a clean plate.",
+      "Wipe phosphor residual on the selected face(s) (restart burn-in). "
+      + "When several modules share this Display Settings panel, clears all of them.",
     id: "nodeTraceDisplayClearPhosphor",
     action: "clearPhosphor",
     className: "node-trace-display-packing-latch node-trace-display-clear-phosphor",

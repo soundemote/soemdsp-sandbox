@@ -510,6 +510,7 @@ function toggleNodeGraphTraceDisplaySettingRow(event) {
     return;
   }
   // —— Clear phosphor residual (action, not a setting) ——
+  // Multi-select Display Settings: wipe every active target that shares this panel.
   const clearBtn = event.target.closest?.(
     "[data-trace-display-action='clearPhosphor'], [data-latch-action='clearPhosphor']",
   );
@@ -520,12 +521,8 @@ function toggleNodeGraphTraceDisplaySettingRow(event) {
       event.stopImmediatePropagation();
     }
     if (typeof clearNodeGraphDisplaySettingsPhosphor === "function") {
-      clearNodeGraphDisplaySettingsPhosphor(
-        nodeGraphTraceDisplaySettingsTargetNodeId?.()
-          || document.getElementById("nodeTraceDisplaySettingsPopover")
-            ?.dataset?.displaySettingsTargetNode
-          || "",
-      );
+      // Resolve multi-select at click time (ActiveTargetIds + selection re-resolve).
+      clearNodeGraphDisplaySettingsPhosphor(null, { scheduleDraw: true });
     }
     return;
   }

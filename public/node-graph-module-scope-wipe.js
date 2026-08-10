@@ -154,19 +154,47 @@ function nodeGraphDropScopeFaceCanvas(canvas, nodeId = "") {
 }
 
 /**
- * Wipe phosphor residual for one module face (Display Settings → Clear).
- * Works while paused: clears energy FBOs in place (no destroy), resets draw
- * cursors, paints a cold plate, and forces a draw so unpause can deposit again.
+ * Resolve node ids for Display Settings → Clear (multi-select safe).
+ * Prefer the open panel's multi-target list; if only one id is stored, re-resolve
+ * from the current selection so multi-select after open still clears every face.
  */
-function clearNodeGraphDisplaySettingsPhosphor(nodeId) {
-  const id = String(nodeId || "").trim();
-  if (!id) {
-    return false;
+function nodeGraphTraceDisplaySettingsIdsForClearAction(explicitIds = null) {
+  if (Array.isArray(explicitIds) && explicitIds.length) {
+    return explicitIds.map((id) => String(id || "").trim()).filter(Boolean);
   }
-  const phosphorKeys = ["_phosphorEnergyGl", "_xyPadPhosphorEnergyGl"];
-  const canvases = new Set();
+  const active = typeof nodeGraphTraceDisplaySettingsActiveTargetIds === "function"
+    ? nodeGraphTraceDisplaySettingsActiveTargetIds()
+    : [];
+  const primary = (typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
+    ? nodeGraphTraceDisplaySettingsTargetNodeId()
+    : "")
+    || active[0]
+    || document.getElementById("nodeTraceDisplaySettingsPopover")
+      ?.dataset?.displaySettingsTargetNode
+    || "";
+  // Always re-resolve from selection when multi-select is live so Clear cannot
+  // silently fall back to the primary face only.
+  if (typeof nodeGraphTraceDisplaySettingsResolveMultiTargetIds === "function" && primary) {
+    const resolved = nodeGraphTraceDisplaySettingsResolveMultiTargetIds(primary);
+    if (resolved.length > 1) {
+      return resolved;
+    }
+  }
+  if (active.length) {
+    return active;
+  }
+  return primary ? [String(primary)] : [];
+}
 
-  // Persistent scope face for this node.
+/** Collect every face canvas that may hold phosphor residual for a node. */
+function nodeGraphClearCollectFaceCanvasesForNode(nodeId) {
+  const id = String(nodeId || "").trim();
+  const canvases = new Set();
+  if (!id) {
+    return canvases;
+  }
+
+  // Persistent burn face (1D/2D phosphor).
   if (typeof nodeGraphModuleScopePersistentCanvases !== "undefined"
     && nodeGraphModuleScopePersistentCanvases?.get) {
     const persistent = nodeGraphModuleScopePersistentCanvases.get(id);
@@ -175,7 +203,7 @@ function clearNodeGraphDisplaySettingsPhosphor(nodeId) {
     }
   }
 
-  // Live DOM under the module shell (scope windows, XY pad, spectrogram).
+  // Live DOM under the module shell (scope windows, XY pad, spectrogram, …).
   const moduleEl = typeof document !== "undefined"
     ? document.querySelector?.(`.dsp-node[data-node="${CSS.escape(id)}"]`)
     : null;
@@ -187,101 +215,211 @@ function clearNodeGraphDisplaySettingsPhosphor(nodeId) {
     }
   }
 
-  for (const canvas of canvases) {
-    // Prefer in-place energy wipe — destroy + re-ensure while paused left
-    // faces stuck (energyActive false / dead canvas until Stop+Play).
-    for (const key of phosphorKeys) {
-      const face = canvas[key];
-      if (!face) {
+  // Scope slots → burn / fallback canvases (covers detached-then-reattached faces).
+  if (typeof nodeGraphModuleScopeSlots === "function") {
+    for (const slot of nodeGraphModuleScopeSlots() || []) {
+      if (String(slot?.nodeId || "") !== id) {
         continue;
       }
-      let cleared = false;
-      if (typeof nodeGraphPhosphorEnergyGlClear === "function") {
+      if (typeof nodeGraphScope2dBurnCanvasForSlot === "function") {
         try {
-          cleared = Boolean(nodeGraphPhosphorEnergyGlClear(face));
-        } catch (_error) {
-          cleared = false;
-        }
-      }
-      if (!cleared && typeof nodeGraphPhosphorEnergyGlDestroy === "function") {
-        try {
-          nodeGraphPhosphorEnergyGlDestroy(face);
+          const burn = nodeGraphScope2dBurnCanvasForSlot(slot);
+          if (burn instanceof HTMLCanvasElement) {
+            canvases.add(burn);
+          }
         } catch (_error) {
           // Best-effort.
         }
-        canvas[key] = null;
+      }
+      if (typeof nodeGraphModuleScopeLocalFallbackCanvas === "function") {
+        try {
+          const local = nodeGraphModuleScopeLocalFallbackCanvas(slot);
+          if (local instanceof HTMLCanvasElement) {
+            canvases.add(local);
+          }
+        } catch (_error) {
+          // Best-effort.
+        }
       }
     }
-    // Drop draw-cursor so the next live frame deposits fresh samples without
-    // a resume dump, and so a rewound absolute frame cannot stick lastFrame ahead.
-    delete canvas._nodeGraphScope2dLastDrawnFrame;
-    delete canvas._nodeGraphScope2dLastDrawnPoint;
-    delete canvas._nodeGraphOneDimensionalBurnLastDrawnFrame;
-    delete canvas._phosphorDrawCursorAbsFrame;
-    delete canvas._phosphorScope2dLastFrame;
-    if (canvas._nodeGraphScope2dBurnRenderer) {
-      canvas._nodeGraphScope2dBurnRenderer.lastFrame = NaN;
-      canvas._nodeGraphScope2dBurnRenderer._nodeGraphScope2dLastDrawnFrame = undefined;
+  }
+
+  return canvases;
+}
+
+/** Latest absolute frame for this node's scope capture buffers (for cursor pin). */
+function nodeGraphClearAbsoluteFrameForNode(nodeId) {
+  const id = String(nodeId || "").trim();
+  let endFrame = NaN;
+  const consider = (frame) => {
+    const f = Number(frame);
+    if (!Number.isFinite(f)) {
+      return;
     }
-    // Do NOT dispose legacy WebGL-on-face burn here — that permanently poisons
-    // the canvas so getContext("2d") fails and the face never draws again.
-    let context = null;
-    try {
-      context = canvas.getContext?.("2d") || null;
-    } catch (_error) {
-      context = null;
+    endFrame = Number.isFinite(endFrame) ? Math.max(endFrame, f) : f;
+  };
+  const buffers = typeof nodeGraphModuleScopeState === "object"
+    ? nodeGraphModuleScopeState?.buffers
+    : null;
+  if (buffers?.forEach) {
+    buffers.forEach((buf, key) => {
+      const k = String(key || "");
+      if (k === id || k.startsWith(`${id}:`)) {
+        consider(buf?.nodeGraphScopeAbsoluteFrame);
+      }
+    });
+  }
+  if (typeof nodeGraphModuleScopeSlots === "function") {
+    for (const slot of nodeGraphModuleScopeSlots() || []) {
+      if (String(slot?.nodeId || "") !== id) {
+        continue;
+      }
+      const buffer = typeof nodeGraphModuleScopeCapturedBufferForSlot === "function"
+        ? nodeGraphModuleScopeCapturedBufferForSlot(slot)
+        : null;
+      consider(buffer?.nodeGraphScopeAbsoluteFrame);
     }
-    if (!context) {
-      nodeGraphDropScopeFaceCanvas(canvas, id);
-      continue;
+  }
+  return endFrame;
+}
+
+/**
+ * Wipe phosphor residual for one module face (or many when multi-select).
+ * Display Settings → Clear. Works while paused: clears energy FBOs in place
+ * (no destroy), pins draw cursors (so force-draw does not re-stamp history),
+ * paints a cold plate, and forces a draw so unpause can deposit again.
+ *
+ * @param {string|string[]|null} nodeIdOrIds  One id, multi ids, or null → resolve.
+ * @param {{ scheduleDraw?: boolean }} [options]
+ *   scheduleDraw (default true) — one force draw after the batch.
+ */
+function clearNodeGraphDisplaySettingsPhosphor(nodeIdOrIds = null, options = {}) {
+  const ids = nodeGraphTraceDisplaySettingsIdsForClearAction(nodeIdOrIds);
+  if (!ids.length) {
+    return false;
+  }
+  const scheduleDraw = options?.scheduleDraw !== false;
+  const phosphorKeys = ["_phosphorEnergyGl", "_xyPadPhosphorEnergyGl"];
+  let anyCanvas = false;
+
+  for (const id of ids) {
+    const canvases = nodeGraphClearCollectFaceCanvasesForNode(id);
+    if (canvases.size) {
+      anyCanvas = true;
     }
-    if (canvas.width > 0 && canvas.height > 0) {
-      const bg = typeof nodeGraphModuleScopePlateBackgroundForElement === "function"
-        ? nodeGraphModuleScopePlateBackgroundForElement(canvas)
-        : "#000000";
-      if (typeof nodeGraphFacePlateFillCanvas === "function") {
-        nodeGraphFacePlateFillCanvas(context, canvas, bg);
+
+    for (const canvas of canvases) {
+      // Prefer in-place energy wipe — destroy + re-ensure while paused left
+      // faces stuck (energyActive false / dead canvas until Stop+Play).
+      for (const key of phosphorKeys) {
+        const face = canvas[key];
+        if (!face) {
+          continue;
+        }
+        let cleared = false;
+        if (typeof nodeGraphPhosphorEnergyGlClear === "function") {
+          try {
+            cleared = Boolean(nodeGraphPhosphorEnergyGlClear(face));
+          } catch (_error) {
+            cleared = false;
+          }
+        }
+        if (!cleared && typeof nodeGraphPhosphorEnergyGlDestroy === "function") {
+          try {
+            nodeGraphPhosphorEnergyGlDestroy(face);
+          } catch (_error) {
+            // Best-effort.
+          }
+          canvas[key] = null;
+        }
+      }
+      // Drop last-point bridge only (not the frame cursor — see absorb below).
+      delete canvas._nodeGraphScope2dLastDrawnPoint;
+      // Do NOT dispose legacy WebGL-on-face burn here — that permanently poisons
+      // the canvas so getContext("2d") fails and the face never draws again.
+      let context = null;
+      try {
+        context = canvas.getContext?.("2d") || null;
+      } catch (_error) {
+        context = null;
+      }
+      if (!context) {
+        nodeGraphDropScopeFaceCanvas(canvas, id);
+        continue;
+      }
+      if (canvas.width > 0 && canvas.height > 0) {
+        const bg = typeof nodeGraphModuleScopePlateBackgroundForElement === "function"
+          ? nodeGraphModuleScopePlateBackgroundForElement(canvas)
+          : "#000000";
+        if (typeof nodeGraphFacePlateFillCanvas === "function") {
+          nodeGraphFacePlateFillCanvas(context, canvas, bg);
+        } else {
+          context.save();
+          context.setTransform(1, 0, 0, 1, 0, 0);
+          context.globalCompositeOperation = "source-over";
+          context.fillStyle = bg || "#000000";
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          context.restore();
+        }
+      }
+    }
+
+    // Pin undrawn-window cursor to "now" so the following force draw does not
+    // re-stamp the whole capture buffer (looked like Clear only hit one face).
+    const endFrame = nodeGraphClearAbsoluteFrameForNode(id);
+    if (Number.isFinite(endFrame)) {
+      if (typeof absorbNodeGraphPhosphorDrawCursorOnCanvas === "function") {
+        for (const canvas of canvases) {
+          absorbNodeGraphPhosphorDrawCursorOnCanvas(canvas, endFrame);
+        }
       } else {
-        context.save();
-        context.setTransform(1, 0, 0, 1, 0, 0);
-        context.globalCompositeOperation = "source-over";
-        context.fillStyle = bg || "#000000";
-        context.fillRect(0, 0, canvas.width, canvas.height);
-        context.restore();
+        for (const canvas of canvases) {
+          canvas._nodeGraphScope2dLastDrawnFrame = endFrame;
+          canvas._nodeGraphOneDimensionalBurnLastDrawnFrame = endFrame;
+          canvas._phosphorScope2dLastFrame = endFrame;
+          canvas._phosphorDrawCursorAbsFrame = endFrame;
+          if (canvas._nodeGraphScope2dBurnRenderer) {
+            canvas._nodeGraphScope2dBurnRenderer.lastFrame = endFrame;
+            canvas._nodeGraphScope2dBurnRenderer._nodeGraphScope2dLastDrawnFrame = endFrame;
+          }
+        }
       }
     }
-  }
 
-  // XY Pad has its own residual path.
-  if (typeof nodeGraphXyPadResetCanvas === "function") {
-    try {
-      nodeGraphXyPadResetCanvas(id);
-    } catch (_error) {
-      // Best-effort.
+    // XY Pad has its own residual path.
+    if (typeof nodeGraphXyPadResetCanvas === "function") {
+      try {
+        nodeGraphXyPadResetCanvas(id);
+      } catch (_error) {
+        // Best-effort.
+      }
     }
-  }
 
-  // Instant Trace skips redraw when the sample signature is unchanged. Clear
-  // blacks the face without new samples — without busting this cache, unpause
-  // after Clear-while-paused early-outs as "unchanged" until Stop+Play.
-  if (typeof nodeGraphModuleScopeState === "object" && nodeGraphModuleScopeState) {
-    try {
-      nodeGraphModuleScopeState.traceDisplayDrawCache?.delete?.(id);
-      nodeGraphModuleScopeState.traceDisplayScratch?.delete?.(id);
-      nodeGraphModuleScopeState.traceDisplaySyncLocks?.delete?.(id);
-    } catch (_error) {
-      // Best-effort.
+    // Instant Trace skips redraw when the sample signature is unchanged. Clear
+    // blacks the face without new samples — without busting this cache, unpause
+    // after Clear-while-paused early-outs as "unchanged" until Stop+Play.
+    if (typeof nodeGraphModuleScopeState === "object" && nodeGraphModuleScopeState) {
+      try {
+        nodeGraphModuleScopeState.traceDisplayDrawCache?.delete?.(id);
+        nodeGraphModuleScopeState.traceDisplayScratch?.delete?.(id);
+        nodeGraphModuleScopeState.traceDisplaySyncLocks?.delete?.(id);
+      } catch (_error) {
+        // Best-effort.
+      }
     }
   }
 
   // Force a draw even while paused so energy re-binds and the plate stays black.
   // Without this, pause early-outs only absorb cursors and never re-ensure GL.
-  if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
-    scheduleNodeGraphModuleScopeDraw({ force: true });
-  } else if (typeof runNodeGraphModuleScopeDrawFrame === "function") {
-    runNodeGraphModuleScopeDrawFrame("phosphor-clear", { force: true });
+  // One schedule for the whole multi-select batch.
+  if (scheduleDraw) {
+    if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
+      scheduleNodeGraphModuleScopeDraw({ force: true });
+    } else if (typeof runNodeGraphModuleScopeDrawFrame === "function") {
+      runNodeGraphModuleScopeDrawFrame("phosphor-clear", { force: true });
+    }
   }
-  return canvases.size > 0;
+  return anyCanvas || ids.length > 0;
 }
 
 function clearNodeGraphModuleScopeBuffers(options = {}) {

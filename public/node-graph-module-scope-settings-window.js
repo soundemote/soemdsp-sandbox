@@ -198,9 +198,10 @@ function nodeGraphTraceDisplaySettingsTargetLabel(node) {
 }
 
 /**
- * When multi-select includes `primaryNodeId` and every selected module shares
- * the same display-settings schema (and can open Display Settings), return all
- * selected ids (primary first). Otherwise just [primary].
+ * When multi-select includes `primaryNodeId`, return every selected module that
+ * can open Display Settings and shares the primary's schema (primary first).
+ * Other selected types (no face / different schema) are skipped — they used to
+ * collapse the whole multi list to [primary] only, so Clear hit one scope.
  */
 function nodeGraphTraceDisplaySettingsResolveMultiTargetIds(primaryNodeId = "") {
   const primaryId = String(primaryNodeId || "").trim();
@@ -223,24 +224,25 @@ function nodeGraphTraceDisplaySettingsResolveMultiTargetIds(primaryNodeId = "") 
   if (selectedIds.length < 2 || !selectedIds.includes(primaryId)) {
     return [primaryId];
   }
-  const selectedNodes = selectedIds
-    .map((id) => nodeGraphPatchNode(id))
-    .filter(Boolean);
-  if (!selectedNodes.length || selectedNodes.length !== selectedIds.length) {
+  const matching = [];
+  for (const id of selectedIds) {
+    const node = nodeGraphPatchNode(id);
+    if (!node || !nodeGraphNodeCanOpenDisplaySettings(node)) {
+      continue;
+    }
+    const nodeSchema = typeof nodeGraphModuleDisplaySettingsSchemaForNode === "function"
+      ? nodeGraphModuleDisplaySettingsSchemaForNode(node)
+      : "";
+    if (nodeSchema !== schema) {
+      continue;
+    }
+    matching.push(String(node.id));
+  }
+  if (matching.length < 2 || !matching.includes(primaryId)) {
     return [primaryId];
   }
-  // All selected must open display settings and share this schema.
-  for (const node of selectedNodes) {
-    if (!nodeGraphNodeCanOpenDisplaySettings(node)) {
-      return [primaryId];
-    }
-    const nodeSchema = nodeGraphModuleDisplaySettingsSchemaForNode(node);
-    if (nodeSchema !== schema) {
-      return [primaryId];
-    }
-  }
   // Primary first (form seeds from its current settings).
-  return [primaryId, ...selectedIds.filter((id) => id !== primaryId)];
+  return [primaryId, ...matching.filter((id) => id !== primaryId)];
 }
 
 function nodeGraphTraceDisplaySettingsActiveTargetIds() {
