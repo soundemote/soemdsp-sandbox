@@ -145,24 +145,19 @@ function createNodeGraphPitchDetectorBody(nodeId) {
   body.dataset.pitchDetectorFace = "true";
   body.dataset.pitchDisplayMode = "hz";
   body.dataset.lightSource = "screen";
-  body.setAttribute("aria-label", "Pitch detector frequency LCD and fidelity");
+  body.setAttribute("aria-label", "Pitch detector frequency LED and fidelity");
 
-  // LCD plate — registered as the scope surface for numberReadout paint.
+  // Phosphor Value LED plate (layout class keeps meta strip below digits).
   const lcd = document.createElement("div");
-  lcd.className = "node-pitch-detector-lcd node-module-scope-window node-number-readout-face node-light-source";
+  lcd.className = "node-pitch-detector-lcd node-module-scope-window node-number-readout-face node-value-led-face node-light-source";
   lcd.dataset.node = id;
   lcd.dataset.nodeType = "helmholtzPitch";
-  lcd.dataset.valueFaceStyle = "lcd";
+  lcd.dataset.valueFaceStyle = "led";
   lcd.dataset.lightSource = "screen";
-  // Less-dim room punch (2/3), same family as Value LCD / crossover faces.
-  if (typeof nodeGraphNumberReadoutApplyLcdLightCutout === "function") {
-    nodeGraphNumberReadoutApplyLcdLightCutout(lcd);
-  } else {
-    lcd.dataset.lightStrength = String(2 / 3);
-  }
+  lcd.dataset.lightStrength = "1";
   lcd.setAttribute("aria-hidden", "true");
 
-  // Decorations under the LCD: unit toggle + fidelity.
+  // Decorations under the LED plate: unit toggle + fidelity.
   const meta = document.createElement("div");
   meta.className = "node-pitch-detector-fid";
   const hz = document.createElement("button");
@@ -201,7 +196,7 @@ function nodeGraphPitchDetectorFormatFid(value) {
   if (!Number.isFinite(n)) {
     return "—";
   }
-  return Math.max(0, Math.min(1, n)).toFixed(2);
+  return Math.max(0, Math.min(1, n)).toFixed(4);
 }
 
 /**
@@ -282,9 +277,13 @@ function mountNodeGraphPitchDetectorFace(article, body, nodeId) {
       }
     }
   }
-  if (typeof nodeGraphNumberReadoutApplyLcdLightCutout === "function") {
-    nodeGraphNumberReadoutApplyLcdLightCutout(lcd);
-  } else if (typeof nodeGraphModuleScopeMarkScreenLit === "function") {
-    nodeGraphModuleScopeMarkScreenLit(lcd, 2 / 3);
+  // Full phosphor LED punch (not LCD less-dim).
+  if (lcd.dataset) {
+    lcd.dataset.valueFaceStyle = "led";
+    lcd.dataset.lightSource = "screen";
+    lcd.dataset.lightStrength = "1";
+  }
+  if (typeof nodeGraphModuleScopeMarkScreenLit === "function") {
+    nodeGraphModuleScopeMarkScreenLit(lcd, 1);
   }
 }

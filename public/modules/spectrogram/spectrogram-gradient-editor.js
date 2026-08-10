@@ -71,26 +71,26 @@
     { t: 1, color: "#ffffff" },
   ]);
 
-  // Black/white channel presets only (no hue/RGB ramps).
+  // Black/white channel presets only (no hue/RGB ramps). Labels are lowercase.
   const PRESETS_BW = Object.freeze([
     {
       id: "bw-basic",
-      label: "B/W",
+      label: "b/w",
       colors: ["#000000", "#ffffff"],
     },
     {
       id: "grayscale",
-      label: "Gray",
+      label: "gray",
       colors: ["#000000", "#404040", "#a0a0a0", "#ffffff"],
     },
     {
       id: "soft",
-      label: "Soft",
+      label: "soft",
       colors: ["#000000", "#1a1a1a", "#666666", "#e0e0e0", "#ffffff"],
     },
     {
       id: "lcd",
-      label: "LCD",
+      label: "lcd",
       colors: ["#0a0a0a", "#2a2a2a", "#c8c8c8", "#f5f5f5"],
     },
   ]);
@@ -99,7 +99,7 @@
   const PRESETS_PRETTYSCOPE = Object.freeze([
     {
       id: "ps-analog-green",
-      label: "Analog Green",
+      label: "analog green",
       colors: ["#000000", "#00ff00"],
       stops: Object.freeze([
         Object.freeze({ t: 0, color: "#000000" }),
@@ -108,7 +108,7 @@
     },
     {
       id: "ps-analog-red",
-      label: "Analog Red",
+      label: "analog red",
       colors: ["#000000", "#ff0000"],
       stops: Object.freeze([
         Object.freeze({ t: 0, color: "#000000" }),
@@ -117,7 +117,7 @@
     },
     {
       id: "ps-blackout",
-      label: "Blackout",
+      label: "blackout",
       colors: ["#000000", "#ffffff"],
       stops: Object.freeze([
         Object.freeze({ t: 0, color: "#000000" }),
@@ -126,7 +126,7 @@
     },
     {
       id: "ps-whiteout",
-      label: "Whiteout",
+      label: "whiteout",
       colors: ["#ffffff", "#000000"],
       stops: Object.freeze([
         Object.freeze({ t: 0, color: "#ffffff" }),
@@ -135,7 +135,7 @@
     },
     {
       id: "ps-blue-cream",
-      label: "Blue Cream",
+      label: "blue cream",
       colors: ["#000000", "#004a8a", "#0093b9", "#5fb59c", "#b3dc77", "#f3fa82", "#ffffff"],
       stops: Object.freeze([
         Object.freeze({ t: 0, color: "#000000" }),
@@ -149,7 +149,7 @@
     },
     {
       id: "ps-fire-ice",
-      label: "Fire Ice",
+      label: "fire ice",
       colors: ["#000000", "#ffff00", "#ff0000", "#0000ff", "#00ffff", "#ffffff"],
       stops: Object.freeze([
         Object.freeze({ t: 0, color: "#000000" }),
@@ -162,7 +162,7 @@
     },
     {
       id: "ps-hot",
-      label: "Hot CRT",
+      label: "hot crt",
       colors: [
         "#000000",
         "#7f0000",
@@ -186,7 +186,7 @@
     },
     {
       id: "ps-light-blue",
-      label: "Light Blue",
+      label: "light blue",
       colors: ["#ffffff", "#0000ff"],
       stops: Object.freeze([
         Object.freeze({ t: 0, color: "#ffffff" }),
@@ -195,7 +195,7 @@
     },
     {
       id: "ps-light-green",
-      label: "Light Green",
+      label: "light green",
       colors: ["#edfffc", "#11c311"],
       stops: Object.freeze([
         Object.freeze({ t: 0, color: "#edfffc" }),
@@ -204,7 +204,7 @@
     },
     {
       id: "ps-pretty-pink",
-      label: "Pretty Pink",
+      label: "pretty pink",
       colors: ["#000230", "#6500ad", "#ff00c8", "#ffc7e5"],
       stops: Object.freeze([
         Object.freeze({ t: 0, color: "#000230" }),
@@ -215,7 +215,7 @@
     },
     {
       id: "ps-rainbow",
-      label: "Rainbow",
+      label: "rainbow",
       colors: ["#000000", "#0000ff", "#00ffff", "#00ff00", "#ffff00", "#ff0000"],
       stops: Object.freeze([
         Object.freeze({ t: 0, color: "#000000" }),
@@ -231,69 +231,69 @@
   const PRESETS = Object.freeze([
     {
       id: "classic",
-      label: "Classic",
+      label: "classic",
       colors: ["#000000", "#000080", "#00c0ff", "#ffff00", "#ffffff"],
     },
     {
       id: "grayscale",
-      label: "Gray",
+      label: "gray",
       colors: ["#000000", "#404040", "#a0a0a0", "#ffffff"],
     },
     {
       id: "hot",
-      label: "Hot",
+      label: "hot",
       colors: ["#000000", "#7f0000", "#ff0000", "#ffff00", "#ffffff"],
     },
     {
       id: "inferno",
-      label: "Inferno",
+      label: "inferno",
       colors: ["#000004", "#420a68", "#932667", "#dd513a", "#fca50a", "#fcffa4"],
     },
     {
       id: "magma",
-      label: "Magma",
+      label: "magma",
       colors: ["#000004", "#3b0f70", "#8c2981", "#de4968", "#fe9f6d", "#fcfdbf"],
     },
     {
       id: "viridis",
-      label: "Viridis",
+      label: "viridis",
       colors: ["#440154", "#3b528b", "#21918c", "#5ec962", "#fde725"],
     },
     {
       id: "ice",
-      label: "Ice",
+      label: "ice",
       colors: ["#000000", "#001a4d", "#0066cc", "#66ccff", "#ffffff"],
     },
     {
       id: "bone",
-      label: "Bone",
+      label: "bone",
       colors: ["#000000", "#2b2b4d", "#7a7a9a", "#d0c8c0", "#ffffff"],
     },
     {
       id: "phosphor",
-      label: "Phosphor",
+      label: "phosphor",
       colors: ["#000000", "#0a2a33", "#3a9aab", "#75ebff"],
     },
     {
       id: "amber",
-      label: "Amber",
+      label: "amber",
       colors: ["#000000", "#3a2000", "#c07010", "#ffc040"],
     },
     {
       id: "green",
-      label: "P1 Green",
+      label: "p1 green",
       colors: ["#000000", "#0a2810", "#2a8840", "#80ff90"],
     },
     {
       // App-wide digital-rain ramp (not Matrix-only) — black → green → white tip.
       id: "matrix",
-      label: "Matrix",
+      label: "matrix",
       colors: ["#000000", "#001a08", "#0a5c20", "#1ecf55", "#7dff9a", "#ffffff"],
     },
     {
       // Soft Fractal module default (uneven stop positions — use `stops` not even colors).
       id: "softFractal",
-      label: "Soft Fractal",
+      label: "soft fractal",
       colors: [
         "#050018",
         "#12083a",
@@ -306,6 +306,17 @@
         "#ffffff",
       ],
       stops: DEFAULT_SOFT_FRACTAL_STOPS,
+    },
+    {
+      id: "midnight",
+      label: "midnight",
+      colors: ["#000230", "#1927e6", "#b05cff", "#ffc7e5"],
+      stops: Object.freeze([
+        Object.freeze({ t: 0, color: "#000230" }),
+        Object.freeze({ t: 0.43, color: "#1927e6" }),
+        Object.freeze({ t: 0.88, color: "#b05cff" }),
+        Object.freeze({ t: 1, color: "#ffc7e5" }),
+      ]),
     },
     // PrettyScope CRT maps (prettyscope-revival/ColorMaps).
     ...PRESETS_PRETTYSCOPE,

@@ -10851,7 +10851,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   pointer-events: auto;
 }
 
-/* Pitch Detector: LCD digits above; fixed Hz + Fid decoration row under (not in LCD). */
+/* Pitch Detector: phosphor LED plate + dedicated meta row (no absolute overlap). */
 .dsp-node.pitch-detector-layout {
   grid-template-rows:
     var(--node-header-height)
@@ -10862,13 +10862,14 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 .dsp-node.pitch-detector-layout > .node-pitch-detector-face {
-  --node-pitch-detector-meta-height: 1.35em;
   position: relative;
   z-index: 2; /* above plate mask */
   grid-row: 2;
   align-self: stretch;
   box-sizing: border-box;
-  display: block;
+  /* Column: digits flex-fill, meta strip natural height — no clipping. */
+  display: flex;
+  flex-direction: column;
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -10878,18 +10879,14 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   border: 1px solid rgba(127, 199, 217, 0.16);
 }
 
-/* Digits own the plate above the meta row — not shared with Hz. */
+/* Phosphor LED plate (class name historical) — fills space above meta only. */
 .node-pitch-detector-lcd {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: var(--node-pitch-detector-meta-height, 1.35em);
-  left: 0;
+  position: relative;
+  flex: 1 1 auto;
   z-index: 1;
   min-width: 0;
   min-height: 0;
-  width: auto;
-  height: auto;
+  width: 100%;
   overflow: hidden;
   background: #000004;
 }
@@ -10903,43 +10900,50 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   pointer-events: none;
 }
 
-/* Bottom decoration strip: Hz (unit) + Fid value — plain DOM, not LCD layout. */
+/* Meta strip: own flex track under the plate (never under digits). */
 .node-pitch-detector-fid {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 2;
+  position: relative;
+  flex: 0 0 auto;
+  z-index: 5;
   box-sizing: border-box;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.55em;
+  display: grid;
+  /* Left: unit; right: Fid + 4-decimal value. */
+  grid-template-columns: minmax(2.6em, 30%) minmax(0, 1fr);
+  align-items: center;
+  column-gap: 0.45em;
   min-width: 0;
-  height: var(--node-pitch-detector-meta-height, 1.35em);
-  padding: 0.1em 0.4em 0.18em;
+  /* Natural height + breathing room so glyphs aren't clipped. */
+  min-height: 1.55em;
+  padding: 0.22em 0.5em 0.28em;
   border: none;
-  background: transparent;
+  border-top: 1px solid rgba(127, 199, 217, 0.12);
+  background: #000004;
   font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
   font-size: 0.72rem;
-  line-height: 1.1;
-  /* Strip is decorative; only the unit toggle receives clicks. */
+  line-height: 1.25;
   pointer-events: none;
   user-select: none;
 }
 
 .node-pitch-detector-fid .node-pitch-detector-hz {
-  flex: 0 0 auto;
+  grid-column: 1;
+  justify-self: start;
+  min-width: 0;
+  max-width: 100%;
   margin: 0;
-  padding: 0;
+  padding: 0.05em 0;
   border: 0;
   background: transparent;
-  color: rgba(160, 167, 176, 0.78);
+  color: rgba(160, 167, 176, 0.88);
   font: inherit;
-  font-size: 0.92em;
+  font-size: 0.95em;
   font-weight: 700;
   letter-spacing: 0.04em;
-  line-height: inherit;
+  line-height: 1.25;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
   pointer-events: auto;
   cursor: pointer;
   appearance: none;
@@ -10947,36 +10951,42 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 
 .node-pitch-detector-fid .node-pitch-detector-hz:hover,
 .node-pitch-detector-fid .node-pitch-detector-hz:focus-visible {
-  color: rgba(200, 214, 224, 0.95);
+  color: rgba(220, 230, 238, 0.98);
   outline: none;
 }
 
 .node-pitch-detector-fid .node-pitch-detector-fid-group {
-  display: inline-flex;
-  align-items: baseline;
-  justify-content: flex-end;
-  gap: 0.4em;
+  grid-column: 2;
+  display: grid;
+  /* "Fid" + fixed-width cell for 0.0000 … 1.0000 */
+  grid-template-columns: auto minmax(5.75ch, 6.75ch);
+  align-items: center;
+  justify-content: end;
+  column-gap: 0.4em;
   min-width: 0;
-  flex: 1 1 auto;
+  width: 100%;
 }
 
 .node-pitch-detector-fid .node-pitch-detector-k {
-  flex: 0 0 auto;
-  color: rgba(160, 167, 176, 0.72);
+  justify-self: end;
+  color: rgba(160, 167, 176, 0.8);
   font-size: 0.78em;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+  white-space: nowrap;
+  line-height: 1.25;
 }
 
 .node-pitch-detector-fid .node-pitch-detector-v {
-  flex: 0 1 auto;
+  justify-self: stretch;
   min-width: 0;
   overflow: hidden;
   text-align: right;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: rgba(160, 214, 228, 0.95);
+  color: rgba(160, 214, 228, 0.98);
   white-space: nowrap;
+  line-height: 1.25;
 }
 
 /*

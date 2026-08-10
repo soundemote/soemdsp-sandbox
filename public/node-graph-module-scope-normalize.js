@@ -1175,9 +1175,12 @@ function nodeGraphLineBurnSettingsForNode(node) {
 
 function nodeGraphNumberReadoutFaceStyleForNode(node) {
   const type = String(node?.type || "");
-  // Pitch Detector plate is an LCD face (Hz / 8ve / M modes).
-  if (type === "valueLcd" || type === "helmholtzPitch") {
+  // Pitch Detector uses phosphor Value LED readout (not reflective LCD).
+  if (type === "valueLcd") {
     return "lcd";
+  }
+  if (type === "helmholtzPitch") {
+    return "led";
   }
   const fromSettings = String(node?.traceDisplaySettings?.faceStyle || "").toLowerCase();
   if (fromSettings === "lcd") {
@@ -1187,15 +1190,22 @@ function nodeGraphNumberReadoutFaceStyleForNode(node) {
 }
 
 function nodeGraphNumberReadoutDefaultsForNode(node) {
+  // Pitch always uses LED phosphor defaults (trail/ghost residual), never LCD pack.
+  if (String(node?.type || "") === "helmholtzPitch") {
+    const led = typeof nodeGraphNumberReadoutSettingsDefaults !== "undefined"
+      ? nodeGraphNumberReadoutSettingsDefaults
+      : {};
+    return {
+      ...led,
+      faceStyle: "led",
+      // Stable digit width for Hz; user can turn off in Display Settings.
+      decimalBudget: true,
+    };
+  }
   const base = nodeGraphNumberReadoutFaceStyleForNode(node) === "lcd"
     && typeof nodeGraphValueLcdSettingsDefaults !== "undefined"
     ? nodeGraphValueLcdSettingsDefaults
     : nodeGraphNumberReadoutSettingsDefaults;
-  // Pitch Detector: Decimal budget ON by default (stable Hz digit width).
-  // Value LED/LCD: OFF so digits resize when space is available.
-  if (String(node?.type || "") === "helmholtzPitch") {
-    return { ...base, decimalBudget: true };
-  }
   return base;
 }
 

@@ -149,7 +149,11 @@ function nodeGraphNumberReadoutBurnEraseAlpha(trailHang, ghostHang = 0) {
 /** LED (phosphor light) vs LCD (reflective ink) face style for a slot/node. */
 function nodeGraphNumberReadoutFaceStyleForSlot(slot, node = null) {
   const type = String(slot?.type || node?.type || "");
-  if (type === "valueLcd" || type === "helmholtzPitch") {
+  // Pitch Detector = phosphor LED Value readout (not LCD vector plate).
+  if (type === "helmholtzPitch") {
+    return "led";
+  }
+  if (type === "valueLcd") {
     return "lcd";
   }
   if (typeof nodeGraphNumberReadoutFaceStyleForNode === "function") {
@@ -172,10 +176,12 @@ function nodeGraphNumberReadoutIsLcdFaceElement(el) {
   if (!el) {
     return false;
   }
-  if (el.classList?.contains("node-value-lcd-face")) {
-    return true;
+  // Pitch plate class is layout-only; paint style is LED phosphor.
+  if (el.classList?.contains("node-pitch-detector-lcd")
+    || el.closest?.(".node-pitch-detector-face")) {
+    return false;
   }
-  if (el.classList?.contains("node-pitch-detector-lcd")) {
+  if (el.classList?.contains("node-value-lcd-face")) {
     return true;
   }
   if (String(el.dataset?.valueFaceStyle || "").toLowerCase() === "lcd") {
