@@ -84,24 +84,19 @@
    * Pure Ghost super-exp keep (independent of Trail).
    * Ghost 0 → no hang (keep 0 = wipe residual unless linear path holds it).
    *
-   * Important: keep must be continuous near 0. The old formula capped fade at
-   * ~1.2%/frame for any ghost > 0.001, so a tiny ghost (0.0027) froze residual
-   * and Trail could not finish the wipe. Low ghost must actually die; high
-   * ghost stays sticky/analog.
+   * This is the classic sticky analog hang (e.g. Ghost 0.52 → keep ≈ 0.998).
+   * Trail=0 must use ONLY this path — do not water it down for low-ghost
+   * “finish wipe” cases; those are handled when Trail > 0 via residualKeep.
    */
   function pureGhostKeep(ghost) {
     const g = clamp01(ghost, 0);
-    if (g <= 0.0005) {
+    if (g <= 0.001) {
       return 0;
     }
-    // Aggressive die at low g (g=0.0027 → keep ≈ 0.03…0.05).
-    const aggressive = Math.pow(g, 0.55);
-    // Legacy sticky hang for mid/high ghost (almost freeze near 1).
-    const sticky = 1 - Math.pow(1 - g, 2.8) * 0.012;
-    // Weight sticky only when Ghost is meaningfully on (g²).
-    const w = g * g;
-    const keep = aggressive * (1 - w) + sticky * w;
-    return Math.max(0, Math.min(0.99975, keep));
+    // Super-exponential hang: near g=1 → almost freeze residual energy.
+    const fade = Math.pow(1 - g, 2.8) * 0.012;
+    const slow = 1 - Math.max(0.00025, fade);
+    return Math.min(0.99975, slow);
   }
 
   /**
@@ -128,12 +123,16 @@
       return 1;
     }
     const gKeep = pureGhostKeep(ghost);
+    // Trail 0 → pure Ghost only (identical to pureGhostKeep). No linear pull.
+    if (blend.linearWeight <= 0.001 && blend.freeze <= 0.001) {
+      return gKeep;
+    }
     const lKeep = linearKeep(1);
-    // Weighted average (Trail 0 = pure Ghost, 0.75 = pure linear).
+    // Weighted average (Trail rises → more linear, less pure Ghost).
     let mixed = blend.ghostWeight * gKeep + blend.linearWeight * lKeep;
-    // Trail "on top" of Ghost: any linear weight also guarantees a minimum die
-    // so small Trail values can finish residual that pure Ghost would leave.
-    // Without this, Trail 0.1 barely moved keep when Ghost hang was high.
+    // When Trail is on: guarantee a floor of linear death so residual can
+    // finish dying (tiny Ghost + sticky hang used to ignore small Trail).
+    // Never applied at Trail 0.
     if (blend.linearWeight > 0.001) {
       const linearPull = 1 - (1 - lKeep) * Math.min(1, blend.linearWeight * 2.5);
       mixed = Math.min(mixed, linearPull);
@@ -211,8 +210,10 @@
     }
     const keep = residualKeep(trail, ghost);
     let faded = e * keep;
-    // Kill the last bit so 8-bit canvas / energy buffers don't floor forever.
-    if (faded < 0.004 && keep < 0.999) {
+    // Only force-kill the last crumb when Trail is contributing linear die.
+    // Pure Ghost (Trail 0) must keep its long sticky analog tail intact.
+    const trailOn = clamp01(trail, 0) > 0.001;
+    if (trailOn && faded < 0.004 && keep < 0.999) {
       faded = 0;
     }
     return applyBurnFloor(e, faded, burn);

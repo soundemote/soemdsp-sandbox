@@ -1931,10 +1931,18 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   }
 
   const depositEnergy = Number(canvas._numberReadoutResidualEnergy) || 0;
-  // Finish residual fully — don't leave a stuck last crumb of energy/ink.
   if (depositEnergy <= 0.008) {
     canvas._numberReadoutResidualEnergy = 0;
-    if (depositEnergy > 0 && hangOn && burnCtx && burnPlate?.width > 0 && !frozen) {
+    // Only hard-clear plate crumbs when Trail is on. Pure Ghost (Trail 0)
+    // keeps the long sticky analog tail — do not wipe the last ink early.
+    if (
+      depositEnergy > 0
+      && hangOn
+      && trailHang > 0.001
+      && burnCtx
+      && burnPlate?.width > 0
+      && !frozen
+    ) {
       burnCtx.setTransform(1, 0, 0, 1, 0, 0);
       burnCtx.clearRect(0, 0, burnPlate.width, burnPlate.height);
     }
