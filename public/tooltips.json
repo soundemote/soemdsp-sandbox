@@ -78,7 +78,7 @@
     "smoothingModeInternal": "🙂 Internal: use only this parameter's own smoothing time | 0 is instant",
     "smoothingModeInternalGlobal": "🙂🌍 Internal + Global: add this parameter's own time to the global time",
     "smoothingModeOff": "❌ Off: no smoothing — parameter snaps instantly (ignores this parameter's time and the global time)",
-    "smoothingTypeLinear": "L Linear: lerps from the current value to the new target over the full smoothing time (low cost). Not the same as ❌ Off.",
+    "smoothingTypeLinear": "L Linear: lerps from the current value to the new target over the full smoothing time (low cost).",
     "smoothingTypeOnePole": "1P One-pole: classic exponential parameter chase",
     "smoothingTypeTwoPole": "2P Two-pole - cascaded one poles (more smooth and less expensive than papoulis)",
     "smoothingTypePapoulis": "Π Papoulis - 3rd-order Optimum-L lowpass (most smooth but higher cpu usage)",

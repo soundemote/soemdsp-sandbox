@@ -1836,7 +1836,7 @@ function syncMetadataSmoothingModeButtons(metadata = {}) {
 function nodeGraphSmoothingTypeStatusText(type) {
   switch (normalizeNodeGraphMetadataSmoothingType(type)) {
     case "linear":
-      return "L Linear — reaches the new target in the full smoothing time.";
+      return "L Linear — constant-rate lerp over the smoothing time.";
     case "none":
       // Discrete / legacy instant. User-facing “no smooth” is SOURCE ❌.
       return "Instant (no filter). For continuous params use SOURCE ❌ Off.";
