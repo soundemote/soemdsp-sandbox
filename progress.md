@@ -23,7 +23,7 @@ graphify update . --force   # no LLM; AST re-extract
 ```
 
 ### Where we are
-- **Track 1** Code Screen internal peel — 1.1 Code Box + **1.2 Lookup/helpers/snippets** landed
+- **Track 1** Code Screen peel — 1.1 Code Box, 1.2 Lookup, **1.3 Registry** landed (main ~3.9k lines)
 - Scopes / Display Settings peels done; event-binder god-nodes stay fat
 - **Dead CSS** — CORE_REDUCTION Phase C (opportunistic)
 - **Product backlog** — `docs/FUTURE_PLANNING.md`
