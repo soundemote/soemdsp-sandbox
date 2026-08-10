@@ -657,6 +657,9 @@ function beginNodeGraphFloatingWindowDrag(event, element, stateKey) {
     currentTop: current.top,
     locked: nodeGraphFloatingWindowLocked(element),
   };
+  if (typeof nodeGraphMvp === "undefined" || !nodeGraphMvp) {
+    return null;
+  }
   nodeGraphMvp[stateKey] = drag;
   event.currentTarget.classList.add("dragging");
   event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -666,6 +669,9 @@ function beginNodeGraphFloatingWindowDrag(event, element, stateKey) {
 }
 
 function dragNodeGraphFloatingWindow(event, stateKey, element, onMove = null) {
+  if (typeof nodeGraphMvp === "undefined" || !nodeGraphMvp) {
+    return false;
+  }
   const drag = nodeGraphMvp[stateKey];
   if (
     !drag ||
@@ -695,6 +701,9 @@ function dragNodeGraphFloatingWindow(event, stateKey, element, onMove = null) {
 }
 
 function endNodeGraphFloatingWindowDrag(event, stateKey, onEnd = null) {
+  if (typeof nodeGraphMvp === "undefined" || !nodeGraphMvp) {
+    return false;
+  }
   const drag = nodeGraphMvp[stateKey];
   if (
     !drag ||
@@ -715,6 +724,9 @@ function endNodeGraphFloatingWindowDrag(event, stateKey, onEnd = null) {
 
 function beginNodeGraphFloatingWindowResize(event, element, stateKey) {
   if (event.button > 0 || !element || element.hidden || !stateKey) {
+    return null;
+  }
+  if (typeof nodeGraphMvp === "undefined" || !nodeGraphMvp) {
     return null;
   }
   raiseNodeGraphFloatingWindow(element);
@@ -742,6 +754,9 @@ function beginNodeGraphFloatingWindowResize(event, element, stateKey) {
 }
 
 function dragNodeGraphFloatingWindowResize(event, stateKey, applySize, axes = {}) {
+  if (typeof nodeGraphMvp === "undefined" || !nodeGraphMvp) {
+    return false;
+  }
   const drag = nodeGraphMvp[stateKey];
   if (
     !drag ||
@@ -780,6 +795,9 @@ function dragNodeGraphFloatingWindowResize(event, stateKey, applySize, axes = {}
 }
 
 function endNodeGraphFloatingWindowResize(event, stateKey, onEnd = null) {
+  if (typeof nodeGraphMvp === "undefined" || !nodeGraphMvp) {
+    return false;
+  }
   const drag = nodeGraphMvp[stateKey];
   if (
     !drag ||
@@ -975,6 +993,10 @@ function nodeGraphFloatingWindowKeyboardTargets() {
 }
 
 function nodeGraphActiveFloatingWindowKeyboardTarget() {
+  // floating-windows.js loads before node-graph-state.js; never assume mvp exists.
+  if (typeof nodeGraphMvp === "undefined" || !nodeGraphMvp) {
+    return null;
+  }
   for (const entry of nodeGraphFloatingWindowRegistryEntries) {
     const element = document.getElementById(entry.elementId);
     if (!element || element.hidden) {
@@ -1050,6 +1072,11 @@ function beginNodeGraphRegisteredFloatingWindowResize(event, workspaceKey) {
 }
 
 function nodeGraphFloatingWindowRegistryPointerMove(event) {
+  // Bridge installs on DOMContentLoaded while this file loads before state.js.
+  // pointermove can fire before (or if) nodeGraphMvp is missing — never throw.
+  if (typeof nodeGraphMvp === "undefined" || !nodeGraphMvp) {
+    return;
+  }
   for (const entry of nodeGraphFloatingWindowRegistryEntries) {
     if (entry.dragStateKey && nodeGraphMvp[entry.dragStateKey]) {
       const element = document.getElementById(entry.elementId);
@@ -1087,6 +1114,9 @@ function nodeGraphFloatingWindowRegistryPointerMove(event) {
 }
 
 function nodeGraphFloatingWindowRegistryPointerEnd(event) {
+  if (typeof nodeGraphMvp === "undefined" || !nodeGraphMvp) {
+    return;
+  }
   for (const entry of nodeGraphFloatingWindowRegistryEntries) {
     if (entry.dragStateKey && nodeGraphMvp[entry.dragStateKey]) {
       const drag = nodeGraphMvp[entry.dragStateKey];
