@@ -54,9 +54,9 @@ Local AST map of the repo. Use it to:
 | 1 | **Code Box window** | Floating Code Box size/chrome/draft/apply/ports/source + widget highlight | `node-graph-code-box-window.js` | **landed** |
 | 2 | **Lookup / helpers / snippets** | Lookup shelf, helper/snippet insert, save+pin | `node-graph-code-screen-lookup.js` | **landed** |
 | 3 | **Registry** | Draft cards, save all, duplicate, registry config | `node-graph-code-screen-registry.js` | **landed** |
-| 4 | **Workspace script + autocomplete** | Apply/run/reset script, autocomplete index | `node-graph-code-screen-workspace.js` | pending |
-| 5 | **Render sections** | `renderNodeGraphCodeScreen*` list/landing/watches | `node-graph-code-screen-render.js` | pending |
-| 6 | **Run history** | History add/load/run/restore | fold into workspace or small `…-run-history.js` | pending |
+| 4 | **Workspace script + autocomplete** | Apply/run/reset script, autocomplete index | `node-graph-code-screen-workspace.js` | **landed** (with 1.6) |
+| 5 | **Render sections** | `renderNodeGraphCodeScreen*` list/landing/watches / codeblocks | `node-graph-code-screen-render.js` | pending |
+| 6 | **Run history** | History add/load/run/restore | folded into `…-workspace.js` | **landed** |
 | 7 | **Events shell** | `bindNodeGraphCodeScreenEvents`, `handleNodeGraphCodeScreenClick` | keep last in thin `node-graph-code-screen.js` | pending |
 
 **Per-slice checklist**
@@ -154,3 +154,4 @@ Local AST map of the repo. Use it to:
 | 2026-08-09 | Track 1.1 Code Box window peel landed (~483 lines → `node-graph-code-box-window.js`; loader multi-script) |
 | 2026-08-09 | Track 1.2 Lookup/helpers/snippets peel landed (~87 fns → `node-graph-code-screen-lookup.js`; main ~4.5k lines) |
 | 2026-08-09 | Track 1.3 Registry peel landed (~30 fns → `node-graph-code-screen-registry.js`; main ~3.9k lines) |
+| 2026-08-09 | Track 1.4+1.6 Workspace/autocomplete/run-history → `node-graph-code-screen-workspace.js`; main ~3.1k lines |
