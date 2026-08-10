@@ -380,14 +380,21 @@ function handleNodeGraphKeydown(event) {
     }
     return;
   }
-  // V → infinite modular canvas (View Buttons / hide chrome), not the enclosed
-  // modular-only box with back/resize drag widgets (that is Modular View / M).
+  // V → 💻 hide/show top+bottom bars (independent).
+  // M → 📱 condensed modular frame with resize (independent).
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "v") {
     event.preventDefault();
-    if (typeof toggleNodeGraphViewButtonsVisibility === "function") {
-      toggleNodeGraphViewButtonsVisibility();
-    } else if (typeof toggleNodeGraphModularOnlyControlsVisible === "function") {
-      toggleNodeGraphModularOnlyControlsVisible();
+    if (typeof toggleNodeGraphAppChromeBarsVisibility === "function") {
+      toggleNodeGraphAppChromeBarsVisibility();
+    } else if (typeof toggleNodeGraphModularInfiniteView === "function") {
+      toggleNodeGraphModularInfiniteView();
+    }
+    return;
+  }
+  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "m") {
+    event.preventDefault();
+    if (typeof toggleNodeGraphModularWindowedView === "function") {
+      toggleNodeGraphModularWindowedView();
     }
     return;
   }

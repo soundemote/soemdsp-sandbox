@@ -155,6 +155,12 @@ function nodeGraphModuleDisplayHeightLimitsForType(_type = null) {
  * Pitch LED, RoundShape, filter curves, …). SSOT for “has a display”.
  * LayoutC / chromeless compact tiles have no face.
  * Must not call HasHideable* (that depends on this).
+ *
+ * Policy is opt-out (same as pre–DISPLAY HIDE SSOT HasHideableOscilloscope):
+ * any defined LayoutA processor gets a default scope face even with no
+ * displayType/layout field. Requiring displayType/layout only stripped faces
+ * from Vactrols, linear envelopes, pluck, and other plain defs.
+ * Hide still applies via nodeGraphModuleDisplayVisibleForUi when HasFace.
  */
 function nodeGraphModuleHasFace(type) {
   const normalizedType = String(type || "").trim();
@@ -176,11 +182,12 @@ function nodeGraphModuleHasFace(type) {
     return true;
   }
   const layout = definition.layout;
-  // Shells with no display face row.
+  // Shells with no display face row (opt-out list).
   if ([
     "canvas",
     "image",
     "keyboardController",
+    "macroControls",
     "pitchModWheel",
     "screenSpaceShader",
     "speakerProtection",
@@ -188,11 +195,13 @@ function nodeGraphModuleHasFace(type) {
   ].includes(layout)) {
     return false;
   }
-  // Analyzer scopes and anything else with a module layout/face.
+  // Explicit analyzer / multi-mode faces.
   if (definition.displayType || (Array.isArray(definition.displayModes) && definition.displayModes.length)) {
     return true;
   }
-  return Boolean(layout);
+  // Named layout that owns a face row, OR default LayoutA (no layout) DSP —
+  // both get a face. Plain envelopes/filters rely on the no-layout path.
+  return true;
 }
 
 /**
@@ -674,6 +683,15 @@ function nodeGraphApplyModuleShellHeightCssVars(element, patchNode) {
       ? nodeGraphModuleIoSectionHeightGu(type)
       : 0);
   element.style.setProperty("--node-module-io-height-units", String(ioGu));
+  // LayoutA grid needs a collapsed face track when face height is 0 even if
+  // the module was never marked oscilloscope-hidden (HasFace false / cold).
+  // Without this, I/O + params auto-place into the reserved face row and
+  // overlap while the real params track stays empty (visible gap).
+  if (!isLayoutB) {
+    element.classList.toggle("face-row-collapsed", !(faceGu > 0));
+  } else {
+    element.classList.remove("face-row-collapsed");
+  }
 }
 
 function nodeGraphModuleHiddenIoSectionHeightGu(type) {
@@ -938,11 +956,12 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
     ];
   }
   return [
-    { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui), visible: true },
+    { id: "header", heightGu: nodeGraphModuleHeaderHeightUnits(ui, type), visible: true },
     { id: "scope", heightGu: nodeGraphModuleDisplayHeightUnits(type, ui), visible: displayVisible },
     { id: "interfaceControls", heightGu: nodeGraphModuleInterfaceControlsHeightGu(type, ui), visible: interfaceControlsVisible },
     { id: "io", heightGu: ioHeightGu, visible: ioVisible },
-    { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type), visible: slidersVisible },
+    // Pass ui so sliders-hidden / effective UI matches the outer height SSOT.
+    { id: "params", heightGu: nodeGraphModuleSliderBodyHeightGu(type, ui), visible: slidersVisible },
     { id: "inset", heightGu: nodeGraphModuleLayout.moduleGridInsetGu * 1.5, visible: true },
   ];
 }

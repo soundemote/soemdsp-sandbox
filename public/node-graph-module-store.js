@@ -3075,7 +3075,7 @@ function watchNodeGraphModuleStoreDemo(entry) {
 
 function editNodeGraphModuleStoreDemo(entry) {
   withNodeGraphModuleStoreDemoPatch(entry, () => {
-    setNodeGraphViewMode("modular-only");
+    setNodeGraphViewMode("modular-windowed");
   });
 }
 

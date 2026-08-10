@@ -133,8 +133,13 @@ function nodeInteractionMouseHint(element) {
   if (element.id === "nodeSettingsViewButton") {
     return nodeGraphTooltipText("view.patchSettings") || "Open the Patch page (name, bank, grid).";
   }
-  if (element.id === "nodeModularOnlyViewButton") {
-    return nodeGraphTooltipText("view.switchView");
+  if (element.id === "nodeModularInfiniteViewButton") {
+    return nodeGraphTooltipText("view.infiniteModular")
+      || "Hide top and bottom bars for a bigger canvas (V).";
+  }
+  if (element.id === "nodeModularWindowedViewButton") {
+    return nodeGraphTooltipText("view.windowedModular")
+      || "Condensed modular frame with resize handle (M).";
   }
   if (element.id === "nodeUndoButton" || element.id === "nodeRedoButton") {
     return nodeGraphTooltipText("history.help");

@@ -1,6 +1,12 @@
 // Worklet: crossover2 … crossover6 — native LR tree only (APP_POLICY §2/§5).
 // Silence until crossover.wasm / combined exports are ready.
 
+/** Per-node native handle shell (setPlan / moduleGroup pre-create). */
+NodeLiveAudioProcessor.prototype.createCrossoverStereoState = function createCrossoverStereoState(bandCount) {
+  const n = Math.max(2, Math.min(6, Math.round(Number(bandCount) || 2)));
+  return { nativeHandle: 0, nativeBandCount: n, out: Object.create(null) };
+};
+
 NodeLiveAudioProcessor.prototype.crossoverSilentPorts = function crossoverSilentPorts(bandCount) {
   const n = Math.max(2, Math.min(6, Math.round(Number(bandCount) || 2)));
   const out = Object.create(null);
@@ -117,7 +123,7 @@ NodeLiveAudioProcessor.prototype.crossoverEvaluator = function crossoverEvaluato
   let state = this[mapName].get(nodeId);
   if (!state || state.nativeBandCount !== bandCount) {
     if (state) this.crossoverDestroyNative(state);
-    state = { nativeHandle: 0, nativeBandCount: bandCount, out: Object.create(null) };
+    state = this.createCrossoverStereoState(bandCount);
     this[mapName].set(nodeId, state);
   }
   const lrOrder = this.readEffectiveParameter(node, "order", 4, frame, frames, frameValues);

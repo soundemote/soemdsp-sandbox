@@ -681,6 +681,9 @@ function normalizeNodeUiDevSettings(settings = {}) {
     ? normalizeNodeGraphTooltipEmbedHeight(view.tooltipEmbedHeight ?? nodeGraphMvp.tooltipEmbedHeight ?? 46)
     : Math.max(32, Math.min(320, Math.round(Number(view.tooltipEmbedHeight ?? nodeGraphMvp.tooltipEmbedHeight) || 46)));
   const moduleButtonsVisible = Boolean(view.moduleButtonsVisible ?? nodeGraphMvp.moduleButtonsVisible);
+  const appChromeBarsVisible = view.appChromeBarsVisible === undefined
+    ? (nodeGraphMvp.appChromeBarsVisible !== false)
+    : Boolean(view.appChromeBarsVisible);
   const moduleInterfaceControlsVisible = Boolean(view.moduleInterfaceControlsVisible ?? nodeGraphMvp.moduleInterfaceControlsVisible);
   const moduleOscilloscopesVisible = Boolean(view.moduleOscilloscopesVisible ?? nodeGraphMvp.moduleOscilloscopesVisible);
   const moduleSlidersVisible = Boolean(view.moduleSlidersVisible ?? nodeGraphMvp.moduleSlidersVisible);
@@ -859,6 +862,7 @@ function normalizeNodeUiDevSettings(settings = {}) {
       tooltipEmbedded,
       tooltipEmbedHeight,
       moduleButtonsVisible,
+      appChromeBarsVisible,
       moduleInterfaceControlsVisible,
       moduleOscilloscopesVisible,
       moduleSlidersVisible,
@@ -956,6 +960,7 @@ function readNodeUiDevSettingsFromControls(options = {}) {
         ? normalizeNodeGraphTooltipEmbedHeight(nodeGraphMvp.tooltipEmbedHeight ?? 46)
         : Math.max(32, Math.min(320, Math.round(Number(nodeGraphMvp.tooltipEmbedHeight) || 46))),
       moduleButtonsVisible: Boolean(nodeGraphMvp.moduleButtonsVisible),
+      appChromeBarsVisible: nodeGraphMvp.appChromeBarsVisible !== false,
       moduleInterfaceControlsVisible: Boolean(nodeGraphMvp.moduleInterfaceControlsVisible),
       moduleOscilloscopesVisible: Boolean(nodeGraphMvp.moduleOscilloscopesVisible),
       moduleSlidersVisible: Boolean(nodeGraphMvp.moduleSlidersVisible),
@@ -1095,6 +1100,12 @@ function applyNodeUiDevSettings(settings) {
     applyNodeGraphTooltipEmbedHeight(nodeGraphMvp.tooltipEmbedHeight);
   }
   nodeGraphMvp.moduleButtonsVisible = Boolean(normalized.view.moduleButtonsVisible);
+  nodeGraphMvp.appChromeBarsVisible = normalized.view.appChromeBarsVisible === undefined
+    ? true
+    : Boolean(normalized.view.appChromeBarsVisible);
+  if (typeof setNodeGraphAppChromeBarsVisible === "function") {
+    setNodeGraphAppChromeBarsVisible(nodeGraphMvp.appChromeBarsVisible, { help: false });
+  }
   nodeGraphMvp.moduleInterfaceControlsVisible = Boolean(normalized.view.moduleInterfaceControlsVisible);
   nodeGraphMvp.moduleOscilloscopesVisible = Boolean(normalized.view.moduleOscilloscopesVisible);
   nodeGraphMvp.moduleSlidersVisible = Boolean(normalized.view.moduleSlidersVisible);
@@ -1433,6 +1444,10 @@ function clearNodeUserStartupRuntimeState() {
   // header buttons stay hidden by default; control surfaces, displays, and
   // sliders come back on.
   nodeGraphMvp.moduleButtonsVisible = false;
+  nodeGraphMvp.appChromeBarsVisible = true;
+  if (typeof setNodeGraphAppChromeBarsVisible === "function") {
+    setNodeGraphAppChromeBarsVisible(true, { help: false });
+  }
   nodeGraphMvp.moduleInterfaceControlsVisible = true;
   nodeGraphMvp.moduleOscilloscopesVisible = true;
   nodeGraphMvp.moduleSlidersVisible = true;

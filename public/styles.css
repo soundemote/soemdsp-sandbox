@@ -1402,11 +1402,32 @@ audio {
   position: relative;
 }
 
-/* "View Buttons" off in the Command Center: hide the back button and resize
-   handle, and let the workspace fill the viewport edge-to-edge instead of
-   being contained to its saved grid size. */
+/* Infinite modular view (💻 / V): hide back + resize, fill viewport edge-to-edge. */
 .node-wiring-panel.modular-only-view.modular-only-controls-hidden {
   --node-modular-only-inset: 0px;
+}
+
+/* 💻 / V: hide top toolbar + bottom transport — bigger canvas, same modular mode. */
+.node-wiring-panel.app-chrome-bars-hidden > .node-view-toolbar,
+.node-wiring-panel.app-chrome-bars-hidden > .node-graph-controls {
+  display: none !important;
+}
+
+/* When bars are hidden and M is off, fill the viewport. Must cancel any leftover
+   inline width/height from a prior modular-windowed (M) resize, or the canvas
+   stays stuck at the condensed frame size. */
+.node-wiring-panel.app-chrome-bars-hidden:not(.modular-only-view) {
+  min-height: 100dvh;
+  height: 100dvh;
+}
+
+.node-wiring-panel.app-chrome-bars-hidden:not(.modular-only-view) > .node-graph-workspace {
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  max-width: none !important;
+  height: auto !important;
+  min-height: 0 !important;
+  margin: 0 !important;
 }
 
 .node-wiring-panel.modular-only-controls-hidden .node-modular-only-back-button,
@@ -1427,22 +1448,12 @@ audio {
   box-shadow: none !important;
 }
 
-/* View Buttons off in the REGULAR (non-modular-only) view: the rule above
-   already drops the border/shadow, but the workspace itself was still
-   pinned to its saved (often manually-resized-smaller) width via inline
-   style -- modular-only-view's edge-to-edge treatment above only fires
-   alongside .modular-only-view, so plain View Buttons off did nothing
-   here. Re-assert the workspace's own natural "fill available space"
-   WIDTH (same calc() the base rule already uses) with !important to
-   cancel that inline override -- stays in normal document flow next to
-   whatever else is on the page. Height is deliberately left untouched:
-   overriding it too made the workspace jump to a much taller size the
-   instant View Buttons toggled off, a jarring reflow ("jitter") rather
-   than a clean expand. Whatever height the workspace already had before
-   the toggle stays exactly as-is after it. */
+/* Legacy class: same fill as V when not in M frame (kept for old embeds). */
 .node-wiring-panel.modular-only-controls-hidden:not(.modular-only-view) .node-graph-workspace {
-  width: calc(100% - 6px) !important;
-  max-width: calc(100% - 6px);
+  width: 100% !important;
+  max-width: none !important;
+  height: auto !important;
+  min-height: 0 !important;
 }
 
 /* Full-screen "no nonsense" embed (?hideui=1): kill remaining chrome. */
@@ -3448,7 +3459,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   gap: 4px;
 }
 
-#nodeModularOnlyViewButton,
 #nodeModuleShopButton,
 #nodeGlobalScopeMenuButton {
   flex-direction: column;
@@ -3457,7 +3467,6 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   overflow-wrap: normal;
 }
 
-#nodeModularOnlyViewButton,
 #nodeModuleShopButton,
 #nodeSettingsViewButton {
   display: grid;
@@ -13494,12 +13503,53 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 
 /* When display is hidden, collapse the face row out of the grid. */
 .node-graph-workspace.module-oscilloscopes-hidden .dsp-node:not(.oscilloscope-forced-visible):not(.sample-module-layout),
-.dsp-node.oscilloscope-hidden:not(.sample-module-layout) {
+.dsp-node.oscilloscope-hidden:not(.sample-module-layout),
+.dsp-node.face-row-collapsed:not(.sample-module-layout):not(.chrome-layout-b):not(.solid-module-layout) {
   grid-template-rows:
     var(--node-header-height)
-    minmax(var(--node-io-section-min-height), auto)
+    minmax(var(--node-module-io-track-min, var(--node-io-section-min-height)), auto)
     auto
     var(--node-module-bottom-gap-track, minmax(2px, 1fr));
+}
+
+/*
+ * LayoutA explicit row placement (Gain, envelopes, plain processors, …).
+ * Auto-placement alone breaks when the face row is reserved in
+ * grid-template-rows but the scope element is missing (or height vars lag):
+ * I/O lands in the face track, params in the I/O track, and the real params
+ * track stays empty — looks like “sliders on I/O + dead gap”.
+ * Explicit rows match the height SSOT: header | face | I/O | params | gap.
+ */
+.dsp-node.chrome-layout-a:not(.chrome-layout-b):not(.chrome-layout-c):not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout) > .dsp-node-header {
+  grid-row: 1;
+}
+
+.dsp-node.chrome-layout-a:not(.chrome-layout-b):not(.chrome-layout-c):not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout):not(.oscilloscope-hidden):not(.face-row-collapsed) > .node-module-scope-window,
+.dsp-node.chrome-layout-a:not(.chrome-layout-b):not(.chrome-layout-c):not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout):not(.oscilloscope-hidden):not(.face-row-collapsed) > .node-pitch-detector-face,
+.dsp-node.chrome-layout-a:not(.chrome-layout-b):not(.chrome-layout-c):not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout):not(.oscilloscope-hidden):not(.face-row-collapsed) > .node-filter-curve-display,
+.dsp-node.chrome-layout-a:not(.chrome-layout-b):not(.chrome-layout-c):not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout):not(.oscilloscope-hidden):not(.face-row-collapsed) > .node-envelope-curve-display,
+.dsp-node.chrome-layout-a:not(.chrome-layout-b):not(.chrome-layout-c):not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout):not(.oscilloscope-hidden):not(.face-row-collapsed) > .node-round-shape-display,
+.dsp-node.chrome-layout-a:not(.chrome-layout-b):not(.chrome-layout-c):not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout):not(.oscilloscope-hidden):not(.face-row-collapsed) > .node-wall-room-display,
+.dsp-node.chrome-layout-a:not(.chrome-layout-b):not(.chrome-layout-c):not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout):not(.oscilloscope-hidden):not(.face-row-collapsed) > .node-pulse-curve-display {
+  grid-row: 2;
+}
+
+.dsp-node.chrome-layout-a:not(.chrome-layout-b):not(.chrome-layout-c):not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout):not(.oscilloscope-hidden):not(.face-row-collapsed) > .dsp-node-io-section {
+  grid-row: 3;
+}
+
+.dsp-node.chrome-layout-a:not(.chrome-layout-b):not(.chrome-layout-c):not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout):not(.oscilloscope-hidden):not(.face-row-collapsed) > .dsp-node-body {
+  grid-row: 4;
+}
+
+.dsp-node.chrome-layout-a.oscilloscope-hidden:not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout) > .dsp-node-io-section,
+.dsp-node.chrome-layout-a.face-row-collapsed:not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout) > .dsp-node-io-section {
+  grid-row: 2;
+}
+
+.dsp-node.chrome-layout-a.oscilloscope-hidden:not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout) > .dsp-node-body,
+.dsp-node.chrome-layout-a.face-row-collapsed:not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout) > .dsp-node-body {
+  grid-row: 3;
 }
 
 .dsp-node.pitch-detector-layout.oscilloscope-hidden,

@@ -184,7 +184,12 @@ var nodeGraphMvp = {
   // Embedded tips band height (px). User-draggable between tips and modular view.
   tooltipEmbedHeight: 46,
   tooltipEmbedResizing: null,
-  modularOnlyControlsVisible: false,
+  // modular | modular-windowed (📱/M condensed + resize). V is bars, not a mode.
+  viewMode: "modular",
+  // Windowed frame always keeps back + resize when M is on.
+  modularOnlyControlsVisible: true,
+  // Top toolbar + bottom transport (💻/V). Independent of M.
+  appChromeBarsVisible: true,
   moduleButtonsVisible: false,
   moduleDefaultOverrides: {},
   moduleSettingsClipboard: null,

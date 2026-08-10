@@ -330,9 +330,22 @@ function bindNodeGraphHeaderControlEvents() {
         openNodeGraphModuleShop(null);
       }
     });
+  // 💻 / V — hide/show top + bottom bars (not a canvas mode switch).
   document
-    .getElementById("nodeModularOnlyViewButton")
-    .addEventListener("click", () => setNodeGraphViewMode("modular-only"));
+    .getElementById("nodeModularInfiniteViewButton")
+    ?.addEventListener("click", () => {
+      if (typeof toggleNodeGraphAppChromeBarsVisibility === "function") {
+        toggleNodeGraphAppChromeBarsVisibility();
+      }
+    });
+  // 📱 / M — condensed modular frame (resize + back), independent of V.
+  document
+    .getElementById("nodeModularWindowedViewButton")
+    ?.addEventListener("click", () => {
+      if (typeof toggleNodeGraphModularWindowedView === "function") {
+        toggleNodeGraphModularWindowedView();
+      }
+    });
   document
     .getElementById("nodeSnapGridViewButton")
     .addEventListener("click", handleNodeGraphSnapGridButtonClick);

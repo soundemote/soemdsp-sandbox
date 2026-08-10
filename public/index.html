@@ -213,10 +213,17 @@
             aria-label="MIDI Keyboard"
             aria-pressed="false"><span class="node-modular-view-icon" aria-hidden="true">🎹</span></button>
           <button
-            id="nodeModularOnlyViewButton"
+            id="nodeModularInfiniteViewButton"
             type="button"
-            aria-label="Modular view"
+            aria-label="Hide top and bottom bars"
+            title="Hide top and bottom bars for a bigger canvas (V)"
             aria-pressed="false"><span class="node-modular-view-icon" aria-hidden="true">💻</span></button>
+          <button
+            id="nodeModularWindowedViewButton"
+            type="button"
+            aria-label="Windowed modular view"
+            title="Condensed modular frame with resize (M)"
+            aria-pressed="false"><span class="node-modular-view-icon" aria-hidden="true">📱</span></button>
           <span
             id="nodeWorldPositionReadout"
             class="node-world-position-readout"
@@ -1953,14 +1960,16 @@
             </div>
             <div id="nodeSceneTimingControls" class="scene-context-timing-controls" role="group" aria-label="Patch timing"></div>
             <div class="scene-context-modular-view-controls" role="group" aria-label="Modular view">
-              <button id="nodeSceneToggleModularOnlyView" class="scene-context-window-button" type="button" aria-label="Modular View" aria-pressed="false">
+              <button id="nodeSceneToggleModularInfiniteView" class="scene-context-window-button" type="button" aria-label="Hide top and bottom bars" aria-pressed="false" title="Hide top and bottom bars (V)">
                 <span class="scene-context-window-button-icon" aria-hidden="true">💻</span>
-                <kbd>M</kbd>
-              </button>
-              <button id="nodeSceneToggleModularOnlyControls" class="scene-context-window-button" type="button" aria-label="View Buttons" aria-pressed="false">
-                <span class="scene-context-window-button-icon" aria-hidden="true">🗺️</span>
                 <kbd>V</kbd>
               </button>
+              <button id="nodeSceneToggleModularWindowedView" class="scene-context-window-button" type="button" aria-label="Windowed modular view" aria-pressed="false" title="Condensed modular frame (M)">
+                <span class="scene-context-window-button-icon" aria-hidden="true">📱</span>
+                <kbd>M</kbd>
+              </button>
+              <button id="nodeSceneToggleModularOnlyView" class="scene-context-window-button" type="button" hidden aria-hidden="true" tabindex="-1"></button>
+              <button id="nodeSceneToggleModularOnlyControls" class="scene-context-window-button" type="button" hidden aria-hidden="true" tabindex="-1"></button>
               <button id="nodeSceneToggleStandaloneMidiKeyboard" class="scene-context-window-button" type="button" aria-label="Show Keyboard" aria-pressed="false">
                 <span class="scene-context-window-button-icon" aria-hidden="true">🎹</span>
               </button>
@@ -3404,6 +3413,7 @@
   <script src="./public/node-graph-image-utils.js?v=pre-formula-restore-1"></script>
   <script src="./public/node-graph-graph-utils.js?v=graph-settings-list-1"></script>
   <script src="./public/node-graph-samples.js?v=music-player-phase-persist-1"></script>
+  <script src="./public/modules/audioPlayer/audio-player-playlist.js?v=music-pl-1"></script>
   <script src="./public/node-graph-phosphor-waveform.js?v=time-window-light-1"></script>
   <script src="./public/node-graph-stdlib/node-graph-phasor-helpers.js?v=phasor-helpers-1"></script>
   <script src="./public/node-graph-stdlib/node-graph-param-surface-helpers.js?v=unit-mod-linear-1"></script>

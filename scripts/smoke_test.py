@@ -136,6 +136,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-image-utils.js",
     "./public/node-graph-graph-utils.js",
     "./public/node-graph-samples.js",
+    "./public/modules/audioPlayer/audio-player-playlist.js",
     "./public/node-graph-phosphor-waveform.js",
     "./public/node-graph-stdlib/node-graph-phasor-helpers.js",
     "./public/node-graph-stdlib/node-graph-param-surface-helpers.js",
@@ -6291,7 +6292,8 @@ def require_node_graph_mvp_contract() -> None:
         "BADVAL Monitor",
         "Trip Ear Protection",
         "nodeInteractionHelp",
-        "nodeModularOnlyViewButton",
+        "nodeModularInfiniteViewButton",
+        "nodeModularWindowedViewButton",
         "nodeUserUiSettingsButton",
         "nodeSettingsViewButton",
         "nodeSettingsView",
@@ -15277,22 +15279,25 @@ def require_node_graph_mvp_contract() -> None:
     )
 
     require(
-        'id="nodeSceneToggleModularOnlyView" class="scene-context-window-button" type="button" aria-label="Modular View" aria-pressed="false">' in index_source
-        and '<span class="scene-context-window-button-icon" aria-hidden="true">💻</span>' in index_source
-        and 'id="nodeSceneToggleModularOnlyControls" class="scene-context-window-button" type="button" aria-label="View Buttons" aria-pressed="false">' in index_source
-        and '<span class="scene-context-window-button-icon" aria-hidden="true">🗺️</span>' in index_source
-        and 'bindNodeGraphSceneElementEvent("nodeSceneToggleModularOnlyView", "click", toggleNodeGraphModularOnlyView)' in node_graph_source
-        and 'bindNodeGraphSceneElementEvent("nodeSceneToggleModularOnlyControls", "click", toggleNodeGraphViewButtonsVisibility)' in node_graph_source
-        and "function toggleNodeGraphModularOnlyView()" in node_graph_source
-        and "function toggleNodeGraphViewButtonsVisibility()" in node_graph_source
-        and "function setNodeGraphModularOnlyControlsVisible(visible)" in node_graph_source
-        and "function toggleNodeGraphModularOnlyControlsVisible()" in node_graph_source
-        and "modularOnlyControlsVisible: false," in script_sources["./public/node-graph-state.js"]
-        and "const modularOnlyExpanded = nodeGraphMvp.modularOnlyControlsVisible === false" in node_graph_source
-        and ".node-wiring-panel.modular-only-view.modular-only-controls-hidden {\n  --node-modular-only-inset: 0px;" in style_source
-        and ".node-wiring-panel.modular-only-controls-hidden .node-modular-only-back-button,\n.node-wiring-panel.modular-only-controls-hidden .node-graph-resize-handle {\n  display: none !important;" in style_source
-        and ".scene-context-modular-view-controls {" in style_source,
-        "Command Center should have a Modular View toggle and a View Buttons on/off toggle that hides the back button/resize handle and expands the modular workspace edge-to-edge",
+        'id="nodeModularInfiniteViewButton"' in index_source
+        and 'id="nodeModularWindowedViewButton"' in index_source
+        and 'aria-hidden="true">💻</span></button>' in index_source
+        and 'aria-hidden="true">📱</span></button>' in index_source
+        and "nodeAppChromeBarsToggleButton" not in index_source
+        and 'id="nodeSceneToggleModularInfiniteView"' in index_source
+        and 'id="nodeSceneToggleModularWindowedView"' in index_source
+        and 'bindNodeGraphSceneElementEvent("nodeSceneToggleModularInfiniteView", "click", toggleNodeGraphAppChromeBarsVisibility)' in node_graph_source
+        and 'bindNodeGraphSceneElementEvent("nodeSceneToggleModularWindowedView", "click", toggleNodeGraphModularWindowedView)' in node_graph_source
+        and "function toggleNodeGraphAppChromeBarsVisibility()" in node_graph_source
+        and "function toggleNodeGraphModularWindowedView()" in node_graph_source
+        and "function setNodeGraphModularWindowedActive" in node_graph_source
+        and "appChromeBarsVisible: true," in script_sources["./public/node-graph-state.js"]
+        and ".node-wiring-panel.app-chrome-bars-hidden > .node-view-toolbar," in style_source
+        and ".scene-context-modular-view-controls {" in style_source
+        and "toggleNodeGraphAppChromeBarsVisibility" in script_sources["./public/node-graph-keyboard-shortcuts.js"]
+        and "toggleNodeGraphModularWindowedView" in script_sources["./public/node-graph-keyboard-shortcuts.js"]
+        and 'event.key.toLowerCase() === "b"' not in script_sources["./public/node-graph-keyboard-shortcuts.js"],
+        "Modular chrome SSOT: 💻/V toggles top+bottom bars; 📱/M toggles condensed resize frame (independent)",
     )
 
     require(

@@ -16,18 +16,22 @@ function applyNodeGraphWorkspaceView() {
   workspace.style.setProperty("--node-grid-height", `${nodeGraphGridHeight()}px`);
   workspace.style.setProperty("--node-grid-size", `${nodeGraphGridSize()}px`);
   workspace.style.setProperty("--node-grid-width", `${nodeGraphGridWidth()}px`);
-  // "View Buttons" off: let the modular-only workspace fill the viewport
-  // edge-to-edge instead of clamping it to the patch's saved grid size.
-  const modularOnlyExpanded = nodeGraphMvp.modularOnlyControlsVisible === false
-    && Boolean(workspace.closest(".node-wiring-panel.modular-only-view"));
-  const view = normalizeNodeGraphPatchView(nodeGraphMvp.patch.view);
+  // SSOT for canvas box size:
+  //   📱/M on  → fixed frame from patch.view (resize handle owns the size)
+  //   M off    → clear fixed width/height so the workspace fills the panel
+  //              (💻/V only hides bars; must NOT keep the condensed frame size)
+  const modularWindowed = Boolean(workspace.closest(".node-wiring-panel.modular-only-view"));
+  const view = normalizeNodeGraphPatchView(nodeGraphMvp.patch?.view);
   const visibleView = view.widthGu > 0 && view.heightGu > 0
     ? clampNodeGraphWorkspaceGridSizeToViewport(view, workspace)
     : view;
-  const widthCss = !modularOnlyExpanded && visibleView.widthGu > 0
+  const useFixedFrameSize = modularWindowed
+    && visibleView.widthGu > 0
+    && visibleView.heightGu > 0;
+  const widthCss = useFixedFrameSize
     ? nodeGraphWorkspaceWidthCss(visibleView.widthGu * nodeGraphGridWidth())
     : null;
-  const heightCss = !modularOnlyExpanded && visibleView.heightGu > 0
+  const heightCss = useFixedFrameSize
     ? nodeGraphWorkspaceHeightCss(visibleView.heightGu * nodeGraphGridHeight())
     : null;
   applyNodeGraphWorkspaceSizeCss(workspace, widthCss, heightCss);

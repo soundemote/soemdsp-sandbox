@@ -525,54 +525,159 @@ function setNodeGraphModuleButtonsVisibility(visible, options = {}) {
   }
 }
 
-function setNodeGraphModularOnlyControlsVisible(visible) {
+/**
+ * Modular chrome SSOT (two independent toggles)
+ * ─────────────────────────────────────────────
+ *  💻 / V  — hide top toolbar + bottom transport (bigger canvas; always same
+ *            modular workspace, just bars off). State: appChromeBarsVisible.
+ *  📱 / M  — condensed modular frame with back + resize drag widget.
+ *            State: modular-only-view class / modularWindowedActive.
+ *
+ * These stack: V then M → condensed frame with bars still hidden; V again
+ * restores bars while M stays on; M again leaves condensed mode.
+ * Legacy name "modular-only" = windowed (M on).
+ */
+
+function nodeGraphIsModularWindowedView() {
+  return Boolean(document.getElementById("nodeWiringPanel")?.classList.contains("modular-only-view"));
+}
+
+function nodeGraphNormalizeModularViewMode(mode) {
+  const raw = String(mode || "").trim().toLowerCase();
+  // Old "infinite" URL/mode → normal modular with bars hidden (V), not a frame.
+  if (raw === "modular-infinite" || raw === "infinite") {
+    return "modular";
+  }
+  if (
+    raw === "modular-windowed"
+    || raw === "modular-only"
+    || raw === "modularonly"
+    || raw === "windowed"
+    || raw === "condensed"
+  ) {
+    return "modular-windowed";
+  }
+  if (raw === "modular" || raw === "full") {
+    return "modular";
+  }
+  return null;
+}
+
+/** Windowed frame always keeps back + resize visible (M owns the frame). */
+function setNodeGraphModularOnlyControlsVisible(visible, options = {}) {
   nodeGraphMvp.modularOnlyControlsVisible = Boolean(visible);
   if (nodeGraphMvp.patch) {
     nodeGraphMvp.patch.modularOnlyControlsVisible = nodeGraphMvp.modularOnlyControlsVisible;
   }
-  const hidden = nodeGraphMvp.modularOnlyControlsVisible === false;
-  document.getElementById("nodeWiringPanel")?.classList.toggle("modular-only-controls-hidden", hidden);
-  document.getElementById("nodeSceneToggleModularOnlyControls")?.classList.toggle("active", hidden);
-  document.getElementById("nodeSceneToggleModularOnlyControls")?.setAttribute("aria-pressed", String(hidden));
-  applyNodeGraphWorkspaceView();
-  setNodeInteractionHelp(hidden ? "Modular view controls hidden." : "Modular view controls shown.");
+  // Never use controls-hidden for "infinite" — V is app bars only.
+  document.getElementById("nodeWiringPanel")?.classList.remove("modular-only-controls-hidden");
+  if (typeof applyNodeGraphWorkspaceView === "function") {
+    applyNodeGraphWorkspaceView();
+  }
+  if (options.help !== false) {
+    setNodeInteractionHelp(
+      nodeGraphMvp.modularOnlyControlsVisible
+        ? "Windowed modular controls shown."
+        : "Windowed modular controls state updated.",
+    );
+  }
 }
 
 function toggleNodeGraphModularOnlyControlsVisible() {
   setNodeGraphModularOnlyControlsVisible(nodeGraphMvp.modularOnlyControlsVisible === false);
 }
 
-// Shared by laptop toolbar button path, scene Modular View control, and V hotkey.
-//
-// Windowed / infinite modular view WITH chrome (back button + resize/drag handle).
-// Entering this mode always re-shows chrome so it never looks like plain "hide UI".
-function toggleNodeGraphModularOnlyView() {
+/**
+ * 💻 / V — toggle top + bottom app bars (not a separate canvas mode).
+ * Bars hidden = more workspace (the "infinite" look on normal modular).
+ */
+function setNodeGraphAppChromeBarsVisible(visible, options = {}) {
+  nodeGraphMvp.appChromeBarsVisible = visible !== false;
   const panel = document.getElementById("nodeWiringPanel");
-  const modularOnlyActive = panel?.classList.contains("modular-only-view");
-  if (modularOnlyActive) {
-    setNodeGraphViewMode("modular");
-    return;
+  panel?.classList.toggle("app-chrome-bars-hidden", nodeGraphMvp.appChromeBarsVisible === false);
+  if (typeof renderNodeGraphModularViewModeButtons === "function") {
+    renderNodeGraphModularViewModeButtons();
   }
-  // Ensure resize handle + back button are visible in the windowed frame.
-  if (typeof setNodeGraphModularOnlyControlsVisible === "function") {
-    setNodeGraphModularOnlyControlsVisible(true);
-  } else {
-    nodeGraphMvp.modularOnlyControlsVisible = true;
-    panel?.classList.remove("modular-only-controls-hidden");
+  if (typeof renderNodeGraphVisibilityMenuButton === "function") {
+    renderNodeGraphVisibilityMenuButton();
   }
-  setNodeGraphViewMode("modular-only");
+  // Re-apply workspace size: clearing bars must drop any fixed frame size when
+  // M is off so the canvas can fill the panel (see applyNodeGraphWorkspaceView).
+  if (typeof applyNodeGraphWorkspaceView === "function") {
+    applyNodeGraphWorkspaceView();
+  }
+  if (options.help !== false && typeof setNodeInteractionHelp === "function") {
+    setNodeInteractionHelp(
+      nodeGraphMvp.appChromeBarsVisible === false
+        ? "Top and bottom bars hidden (V)."
+        : "Top and bottom bars shown (V).",
+    );
+  }
 }
 
-// "View Buttons" toggles modular chrome visibility. If we're currently off in
-// settings/script/UI/mapping view it also needs to bring us back to the modular
-// workspace first — otherwise there's nothing on screen for the toggle to
-// visibly affect. Preserves modular-only mode if that's what we were already in.
-function toggleNodeGraphViewButtonsVisibility() {
-  if (document.getElementById("nodeGraphWorkspace")?.hidden) {
-    const modularOnlyActive = document.getElementById("nodeWiringPanel")?.classList.contains("modular-only-view");
-    setNodeGraphViewMode(modularOnlyActive ? "modular-only" : "modular");
+function toggleNodeGraphAppChromeBarsVisibility() {
+  setNodeGraphAppChromeBarsVisible(nodeGraphMvp.appChromeBarsVisible === false);
+}
+
+/** 💻 / V */
+function toggleNodeGraphModularInfiniteView() {
+  toggleNodeGraphAppChromeBarsVisibility();
+}
+
+/** 📱 / M — condensed modular frame with resize + back. Independent of V. */
+function setNodeGraphModularWindowedActive(active, options = {}) {
+  const on = Boolean(active);
+  if (on) {
+    // Windowed frame always shows back + resize (not controls-hidden).
+    nodeGraphMvp.modularOnlyControlsVisible = true;
+    if (nodeGraphMvp.patch) {
+      nodeGraphMvp.patch.modularOnlyControlsVisible = true;
+    }
+    setNodeGraphViewMode("modular-windowed");
+  } else {
+    // Leave condensed; keep V bar state as-is.
+    setNodeGraphViewMode("modular");
   }
-  toggleNodeGraphModularOnlyControlsVisible();
+  if (options.help !== false && typeof setNodeInteractionHelp === "function") {
+    setNodeInteractionHelp(
+      on
+        ? "Windowed modular view (M / 📱) — drag the corner to resize."
+        : "Windowed modular view off.",
+    );
+  }
+}
+
+function toggleNodeGraphModularWindowedView() {
+  setNodeGraphModularWindowedActive(!nodeGraphIsModularWindowedView());
+}
+
+/** @deprecated alias — M path */
+function toggleNodeGraphModularOnlyView() {
+  toggleNodeGraphModularWindowedView();
+}
+
+/** @deprecated alias — V path (bars) */
+function toggleNodeGraphViewButtonsVisibility() {
+  toggleNodeGraphAppChromeBarsVisibility();
+}
+
+function renderNodeGraphModularViewModeButtons() {
+  const barsHidden = nodeGraphMvp.appChromeBarsVisible === false;
+  const windowed = nodeGraphIsModularWindowedView();
+  const vBtn = document.getElementById("nodeModularInfiniteViewButton");
+  const mBtn = document.getElementById("nodeModularWindowedViewButton");
+  // V pressed (active) when bars are hidden.
+  vBtn?.classList.toggle("active", barsHidden);
+  vBtn?.setAttribute("aria-pressed", String(barsHidden));
+  mBtn?.classList.toggle("active", windowed);
+  mBtn?.setAttribute("aria-pressed", String(windowed));
+  const sceneV = document.getElementById("nodeSceneToggleModularInfiniteView");
+  sceneV?.classList.toggle("active", barsHidden);
+  sceneV?.setAttribute("aria-pressed", String(barsHidden));
+  const sceneM = document.getElementById("nodeSceneToggleModularWindowedView")
+    || document.getElementById("nodeSceneToggleModularOnlyView");
+  sceneM?.classList.toggle("active", windowed);
+  sceneM?.setAttribute("aria-pressed", String(windowed));
 }
 
 function setNodeGraphModuleScopeFramesPerSecond(value) {
@@ -1007,12 +1112,16 @@ function nodeGraphStartupViewModeFromUrl() {
     const raw = String(params.get(name) || "").trim().toLowerCase();
     return raw === "1" || raw === "true" || raw === "yes" || raw === "only";
   };
-  // `hideui` (full-screen no-chrome) and `modular` both force modular-only view.
+  // hideui → normal modular with bars hidden (V), applied after mode set.
+  if (truthy("hideui")) {
+    nodeGraphMvp._startupHideAppChromeBars = true;
+  }
   if (
-    value === "modular-only" || value === "modularonly" || value === "modular-only-view" ||
-    truthy("modular") || truthy("hideui")
+    value === "modular-only" || value === "modularonly" || value === "modular-only-view"
+    || value === "modular-windowed" || value === "windowed"
+    || truthy("modular")
   ) {
-    return "modular-only";
+    return "modular-windowed";
   }
   return "modular";
 }
@@ -1022,6 +1131,12 @@ function resetNodeGraphStartupView() {
   nodeGraphMvp.moduleStoreDepartmentAnchor = "";
   nodeGraphMvp.sceneContextPoint = null;
   setNodeGraphViewMode(nodeGraphStartupViewModeFromUrl());
+  if (nodeGraphMvp._startupHideAppChromeBars) {
+    nodeGraphMvp._startupHideAppChromeBars = false;
+    setNodeGraphAppChromeBarsVisible(false, { help: false });
+  } else if (typeof setNodeGraphAppChromeBarsVisible === "function") {
+    setNodeGraphAppChromeBarsVisible(nodeGraphMvp.appChromeBarsVisible !== false, { help: false });
+  }
 }
 
 // Docked (not floating/draggable) performance surface, toggled on/off,
@@ -3526,16 +3641,37 @@ function setNodeGraphViewMode(mode) {
   const settingsMode = mode === "settings";
   const codeMode = mode === "code";
   const mappingMode = mode === "mapping";
-  const modularOnlyMode = mode === "modular-only";
-  const modularMode = modularOnlyMode || (!settingsMode && !codeMode && !mappingMode);
-  const workspaceMode = modularMode;
+  const modularKind = nodeGraphNormalizeModularViewMode(mode);
+  // M on = modular-windowed (condensed frame). V is independent (app bars).
+  const modularWindowed = modularKind === "modular-windowed";
+  const isModularWorkspace = modularWindowed
+    || modularKind === "modular"
+    || (!settingsMode && !codeMode && !mappingMode);
+  const workspaceMode = isModularWorkspace;
+  if (isModularWorkspace && !modularWindowed) {
+    mode = "modular";
+  }
+  nodeGraphMvp.viewMode = settingsMode || codeMode || mappingMode
+    ? mode
+    : (modularWindowed ? "modular-windowed" : "modular");
+
   const wiringPanel = document.getElementById("nodeWiringPanel");
-  wiringPanel?.classList.toggle("modular-only-view", modularOnlyMode);
+  wiringPanel?.classList.toggle("modular-only-view", modularWindowed);
+  // Windowed always shows back + resize; never use controls-hidden for V.
+  wiringPanel?.classList.remove("modular-only-controls-hidden");
+  if (modularWindowed) {
+    nodeGraphMvp.modularOnlyControlsVisible = true;
+    if (nodeGraphMvp.patch) {
+      nodeGraphMvp.patch.modularOnlyControlsVisible = true;
+    }
+  }
+
   document.getElementById("nodeGraphWorkspace").hidden = !workspaceMode;
-  document.getElementById("nodeModularOnlyBackButton").textContent = "←";
-  document
-    .getElementById("nodeModularOnlyBackButton")
-    .setAttribute("aria-label", "Return to full modular view");
+  const backBtn = document.getElementById("nodeModularOnlyBackButton");
+  if (backBtn) {
+    backBtn.textContent = "←";
+    backBtn.setAttribute("aria-label", "Return to full modular view");
+  }
   const scriptView = document.getElementById("nodeScriptView");
   if (scriptView) {
     scriptView.hidden = true;
@@ -3549,15 +3685,15 @@ function setNodeGraphViewMode(mode) {
   const settingsBtn = document.getElementById("nodeSettingsViewButton");
   settingsBtn?.classList.toggle("active", settingsMode);
   settingsBtn?.setAttribute("aria-pressed", String(settingsMode));
-  document.getElementById("nodeModularOnlyViewButton")?.classList.toggle("active", modularOnlyMode);
-  document.getElementById("nodeSceneToggleModularOnlyView")?.classList.toggle("active", modularOnlyMode);
   document.getElementById("nodeMappingViewButton")?.classList.toggle("active", mappingMode);
   document.getElementById("nodeCodeScreenViewButton")?.classList.toggle("active", codeMode);
-  document.getElementById("nodeModularOnlyViewButton")?.setAttribute("aria-pressed", String(modularOnlyMode));
-  document.getElementById("nodeSceneToggleModularOnlyView")?.setAttribute("aria-pressed", String(modularOnlyMode));
   document.getElementById("nodeMappingViewButton")?.setAttribute("aria-pressed", String(mappingMode));
   document.getElementById("nodeCodeScreenViewButton")?.setAttribute("aria-pressed", String(codeMode));
-  // Header/footer chrome always stay put; pin footer on content modes.
+  if (typeof renderNodeGraphModularViewModeButtons === "function") {
+    renderNodeGraphModularViewModeButtons();
+  }
+  // Apply V bar state (independent of M).
+  wiringPanel?.classList.toggle("app-chrome-bars-hidden", nodeGraphMvp.appChromeBarsVisible === false);
   document.getElementById("nodeWiringPanel")?.classList.toggle("content-view-mode", settingsMode || codeMode || mappingMode);
   if (codeMode) {
     renderNodeGraphCodeScreen();
