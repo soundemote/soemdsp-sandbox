@@ -352,6 +352,9 @@ function validateNodeGraphPatch(patch) {
         normalizedNode.samplePhase = Math.max(0, Math.min(1, samplePhase));
       }
     }
+    if (type === "audioPlayer" && Object.hasOwn(node, "playlist") && typeof nodeGraphAudioPlayerPlaylistNormalize === "function") {
+      normalizedNode.playlist = nodeGraphAudioPlayerPlaylistNormalize(node.playlist);
+    }
     if (type === "phosphillator") {
       const drawnPath = normalizeNodeGraphPhosphillatorDrawnPath(node.drawnPath);
       if (drawnPath) {

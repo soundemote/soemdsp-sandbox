@@ -934,8 +934,18 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}, defaultsOverride
     residualSchema,
     residual: trail,
     ghostBrightness: ghost,
+    // Total digit budget (whole + fractional) for limit_decimals / fixed bins.
+    // Accept legacy maxDigits / digitSlots aliases from older patches.
+    digits: normalizeNodeGraphTraceDisplayNumber(
+      source.digits ?? source.maxDigits ?? source.digitSlots ?? source.integerSlots,
+      defaults.digits ?? 8,
+      1,
+      12,
+      true,
+    ),
     decimals: normalizeNodeGraphTraceDisplayNumber(source.decimals, defaults.decimals, 0, 8, true),
     // Fixed digit-slot budget vs live resize (see LayoutFitText).
+    // GROW UI inverts this: GROW on ⇒ decimalBudget false.
     decimalBudget: (() => {
       const raw = source.decimalBudget ?? source.digitBudget ?? source.fixedDigitSlots;
       if (raw === true || raw === "true" || raw === 1 || raw === "1") {
@@ -1235,7 +1245,9 @@ function nodeGraphNumberReadoutDefaultsForNode(node) {
     return {
       ...led,
       faceStyle: "led",
-      // false = GROW on (digits resize to fill). User can turn GROW off for fixed width.
+      // Pitch Hz: ~4 integer + 2 decimal slots → total digit budget 6.
+      digits: 6,
+      // false = GROW on (digits resize to fill). User can turn GROW off for fixed bins.
       decimalBudget: false,
     };
   }

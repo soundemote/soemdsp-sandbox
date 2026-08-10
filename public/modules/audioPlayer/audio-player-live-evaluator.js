@@ -82,11 +82,22 @@ function nodeGraphAudioPlayerSample(runtime, node, nodeId, readInput, readParam,
   const transportMode = Math.max(0, Math.min(4, Math.round(readParam("transport", transportFallback))));
   const transportReset = transportMode <= 0;
   const transportStopped = transportMode === 1;
-  const transportPlayOnce = transportMode === 3;
-  const transportLooping = transportMode >= 4;
+  // Match module labels + worklet: Loop=3, Play (once)=4
+  const transportLooping = transportMode === 3;
+  const transportPlayOnce = transportMode >= 4;
   if (state.transportMode !== transportMode) {
     state.completed = false;
     state.transportMode = transportMode;
+  }
+  // Absolute seek token from playlist scrub / track change.
+  const seekToken = Number(node?.samplePhaseSeek) || 0;
+  if (seekToken && seekToken !== state.seekToken) {
+    const seekPhase = Number(node?.samplePhase);
+    if (Number.isFinite(seekPhase)) {
+      state.phase = clampNodeSliderValue(seekPhase, startPhase, endPhase);
+      state.completed = false;
+    }
+    state.seekToken = seekToken;
   }
   const reset = readInput("Reset");
   const resetEdge = state.lastReset <= 0 && reset > 0;

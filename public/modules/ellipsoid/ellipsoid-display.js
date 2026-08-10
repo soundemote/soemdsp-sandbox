@@ -1,6 +1,7 @@
 // RoundShape face — cheapest static representation of sine→square X/Y orbit.
 // Not phosphor / not residual / not WebGL. Same family as unanimated filter curves:
-// black plate + one green stroke, redrawn only when shape (or layout) changes.
+// black plate + 2px green stroke, redrawn only when shape (or layout) changes.
+// No title text; amplitude does not affect face size.
 
 function createNodeGraphRoundShapeDisplay(nodeId, type = "ellipsoid") {
   const section = document.createElement("section");
@@ -65,14 +66,11 @@ function drawNodeGraphRoundShapeDisplayInner(section) {
   if (!node || !canvas) {
     return;
   }
-  // Preview uses shape only (amp scales stroke view; frequency not needed for outline).
+  // Preview uses shape only — amplitude must not change orbit size on the face.
   const shape = Math.max(0, Math.min(1,
     Number(nodeGraphRoundShapeLiveParam(node, "shape", 0)) || 0,
   ));
-  const amplitude = Math.max(0, Math.min(2,
-    Number(nodeGraphRoundShapeLiveParam(node, "amplitude", 1)) || 0,
-  ));
-  const signature = `${shape.toFixed(4)}:${amplitude.toFixed(4)}`;
+  const signature = shape.toFixed(4);
   if (
     section._roundShapeSignature === signature
     && !section._roundShapeForceDraw
@@ -136,14 +134,14 @@ function drawNodeGraphRoundShapeDisplayInner(section) {
 
   // Sample closed Bi X / Bi Y orbit — fixed sample count, no live audio.
   // frequencyHz 0 → no Limit-AA floor so shape 0 stays circular on the face.
+  // Amplitude is ignored: face size is fixed to the plate (unit amplitude only).
   const samples = 96;
   const sampleRate = 44100;
   const cx = width * 0.5;
   const cy = height * 0.5;
   const pad = Math.max(6, Math.min(width, height) * 0.12);
   const half = Math.max(4, Math.min(width, height) * 0.5 - pad);
-  // Fit amp into view without blowing past the plate.
-  const viewScale = half / Math.max(0.15, Math.min(1.25, amplitude || 1));
+  const viewScale = half;
 
   context.beginPath();
   let started = false;
@@ -156,8 +154,8 @@ function drawNodeGraphRoundShapeDisplayInner(section) {
         frequencyHz: 0,
         sampleRate,
       });
-      const x = cx + (Number(v["Bi X"]) || 0) * viewScale * Math.max(0.15, amplitude);
-      const y = cy - (Number(v["Bi Y"]) || 0) * viewScale * Math.max(0.15, amplitude);
+      const x = cx + (Number(v["Bi X"]) || 0) * viewScale;
+      const y = cy - (Number(v["Bi Y"]) || 0) * viewScale;
       if (!started) {
         context.moveTo(x, y);
         started = true;
@@ -170,21 +168,12 @@ function drawNodeGraphRoundShapeDisplayInner(section) {
     context.arc(cx, cy, half * 0.85, 0, Math.PI * 2);
   }
 
+  // Fixed 2 CSS-px stroke (less jagged than 1px hairline on DPR canvases).
   context.strokeStyle = "rgba(120, 220, 200, 0.92)";
-  context.lineWidth = Math.max(1, 1.25 / Math.max(1, pixelRatio));
+  context.lineWidth = 2;
   context.lineJoin = "round";
   context.lineCap = "round";
   context.stroke();
-
-  // Tiny label (matches filter-curve title density).
-  context.font = "600 10px system-ui, sans-serif";
-  context.textBaseline = "top";
-  const title = "RoundShape";
-  const titleW = context.measureText(title).width;
-  context.fillStyle = "rgba(2, 6, 9, 0.65)";
-  context.fillRect(6, 2, titleW + 4, 12);
-  context.fillStyle = "rgba(229, 238, 242, 0.75)";
-  context.fillText(title, 8, 3);
 }
 
 function drawNodeGraphRoundShapeDisplays() {

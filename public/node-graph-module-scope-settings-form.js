@@ -408,8 +408,9 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
           ? nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type
           : null);
       if (nrNodeType === "valueLcd") {
-        // Value LCD (vector): Foreground + Background, padding, Ghost plate, glass shadow — no residual hang.
+        // Value LCD (vector): Digits/Decimals + padding, Ghost plate, glass shadow — no residual hang.
         fieldKeys = [
+          "digits",
           "decimals",
           "facePadding",
           "unlitSegments",
@@ -422,9 +423,17 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
           .filter((key) => activeColors.has(key));
         choiceKeys = [];
       } else {
-        // Value LED: Decimals → Padding → Bright → Ghost → Trail → Burn → Burn ⨉ → blend → Background → Ghost Gradient.
-        fieldKeys = ["decimals", "facePadding", "dot1Brightness", "ghost", "trail", "burn", "burnAmount"]
-          .filter((key) => activeFields.has(key));
+        // Value LED: Digits → Decimals → Padding → Bright → Ghost → Trail → Burn → Burn ⨉.
+        fieldKeys = [
+          "digits",
+          "decimals",
+          "facePadding",
+          "dot1Brightness",
+          "ghost",
+          "trail",
+          "burn",
+          "burnAmount",
+        ].filter((key) => activeFields.has(key));
         colorKeys = ["backgroundColor"]
           .filter((key) => activeColors.has(key));
         choiceKeys = ["lightBlend"]

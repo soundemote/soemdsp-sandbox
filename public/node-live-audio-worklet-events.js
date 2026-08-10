@@ -158,6 +158,9 @@ NodeLiveAudioProcessor.prototype.setParams = function setParams(nodes, message =
       if (Object.hasOwn(node, "samplePhase") && Number.isFinite(Number(node.samplePhase))) {
         current.samplePhase = Number(node.samplePhase);
       }
+      if (Object.hasOwn(node, "samplePhaseSeek") && Number.isFinite(Number(node.samplePhaseSeek))) {
+        current.samplePhaseSeek = Math.max(0, Math.round(Number(node.samplePhaseSeek)) || 0);
+      }
       parameterCount += Object.keys(current.params || {}).length;
       for (const [key, value] of Object.entries(current.params || {})) {
         const smootherKey = this.parameterKey(node.id, key);

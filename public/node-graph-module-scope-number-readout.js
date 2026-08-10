@@ -24,6 +24,7 @@ function invalidateNodeGraphNumberReadoutPaintCache(canvas) {
   canvas._numberReadoutLastValueText = "";
   canvas._numberReadoutLastGoodValueText = "";
   canvas._numberReadoutLastTextChangeAt = 0;
+  canvas._numberReadoutLastDigitLayout = null;
   canvas._numberReadoutResidualEnergy = 0;
   canvas._numberReadoutResiduals = null;
   canvas._nodeGraphNumberReadoutText = null;
@@ -786,15 +787,69 @@ function nodeGraphNumberReadoutSafeDecimals(decimals) {
   return Math.max(0, Math.min(8, n));
 }
 
+/**
+ * Total digit budget (whole + fractional) for limit_decimals / fixed bins.
+ * Matches normalize / form clamp: 1…12.
+ */
+function nodeGraphNumberReadoutSafeDigits(digits) {
+  const n = Math.round(Number(digits));
+  if (!Number.isFinite(n)) {
+    return 8;
+  }
+  return Math.max(1, Math.min(12, n));
+}
+
+
+/**
+ * Plain decimal string for limit_decimals (never scientific notation).
+ * limit_decimals only parses whole.fraction — "1e-7" would become "1".
+ */
+function nodeGraphNumberReadoutPlainDecimalSource(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return "0";
+  }
+  if (n === 0) {
+    return "0";
+  }
+  const raw = String(n);
+  if (!/[eE]/.test(raw)) {
+    return raw;
+  }
+  try {
+    return n.toLocaleString("en-US", {
+      useGrouping: false,
+      maximumFractionDigits: 20,
+    });
+  } catch {
+    // Last resort: enough fractional places for a 12-digit budget.
+    try {
+      return n.toFixed(20).replace(/0+$/, "").replace(/\.$/, "") || "0";
+    } catch {
+      return "0";
+    }
+  }
+}
 
 /**
  * Format a sample for Value LED / Value LCD digits.
+ * Uses limit_decimals for digit/decimal economy (max digits, min/max places).
+ *
  * @param {number} sample
- * @param {number} decimals display places (Decimal budget)
- * @param {{ guardExtraPlace?: boolean }} [options]
+ * @param {number} decimals max (and min when fixed) fractional places
+ * @param {{
+ *   guardExtraPlace?: boolean,
+ *   digits?: number,
+ *   maxDigits?: number,
+ *   minDecimals?: number,
+ *   maxDecimals?: number,
+ *   removeTrailingZeros?: boolean,
+ *   reserveSignSpace?: boolean,
+ * }} [options]
  *   guardExtraPlace (LCD): round with one offscreen place (decimals+1) first so
  *   the displayed value (and sign) is not wildly flipped by sub-display noise.
  *   Also collapses signed zero ("-0.00") to unsigned zero after that round.
+ *   digits / maxDigits: total digit budget for limit_decimals (default 8).
  */
 function nodeGraphNumberReadoutFormatValue(sample, decimals, options = null) {
   const value = Number(sample);
@@ -802,10 +857,20 @@ function nodeGraphNumberReadoutFormatValue(sample, decimals, options = null) {
     return "--";
   }
   const places = nodeGraphNumberReadoutSafeDecimals(decimals);
+  const maxDigits = nodeGraphNumberReadoutSafeDigits(
+    options?.digits ?? options?.maxDigits ?? 8,
+  );
+  const minDecimals = options?.minDecimals != null
+    ? nodeGraphNumberReadoutSafeDecimals(options.minDecimals)
+    : places;
+  const maxDecimals = options?.maxDecimals != null
+    ? nodeGraphNumberReadoutSafeDecimals(options.maxDecimals)
+    : places;
+  const removeTrailingZeros = Boolean(options?.removeTrailingZeros);
   // LCD: one extra place of rounding before the visible budget (offscreen).
   const guardExtra = Boolean(options && options.guardExtraPlace);
   const guardPlaces = guardExtra
-    ? Math.min(8, places + 1)
+    ? Math.min(8, Math.max(places, maxDecimals) + 1)
     : places;
   let valueForFormat = value;
   if (guardPlaces > places) {
@@ -814,18 +879,44 @@ function nodeGraphNumberReadoutFormatValue(sample, decimals, options = null) {
     valueForFormat = Math.round(value * scale) / scale;
   }
   let fixed;
-  try {
-    fixed = valueForFormat.toFixed(places);
-  } catch {
-    fixed = valueForFormat.toFixed(2);
+  if (typeof limit_decimals === "function") {
+    // Specialized economy: maxDigits total, min/max decimal places in one pass.
+    const source = nodeGraphNumberReadoutPlainDecimalSource(valueForFormat);
+    try {
+      fixed = limit_decimals(
+        source,
+        maxDigits,
+        minDecimals,
+        maxDecimals,
+        removeTrailingZeros,
+        false,
+      );
+    } catch {
+      fixed = null;
+    }
   }
-  // After guard + toFixed, tiny negatives can still print as "-0.00".
+  if (fixed == null || fixed === "") {
+    try {
+      fixed = valueForFormat.toFixed(places);
+    } catch {
+      fixed = valueForFormat.toFixed(2);
+    }
+  }
+  // After guard + format, tiny negatives can still print as "-0.00".
   // Treat exact display-zero as unsigned so the sign column stays calm.
   if (fixed.startsWith("-") && Number(fixed) === 0) {
-    fixed = (0).toFixed(places);
+    if (typeof limit_decimals === "function") {
+      fixed = limit_decimals("0", maxDigits, minDecimals, maxDecimals, removeTrailingZeros, false)
+        || (0).toFixed(places);
+    } else {
+      fixed = (0).toFixed(places);
+    }
   }
   // Reserve a sign column so width stays stable across zero (DSEG space =
-  // colon advance — keshikan/DSEG usage notes).
+  // colon advance — keshikan/DSEG usage notes). Opt out with reserveSignSpace:false.
+  if (options && options.reserveSignSpace === false) {
+    return fixed;
+  }
   return fixed.startsWith("-") ? fixed : ` ${fixed}`;
 }
 
@@ -835,17 +926,17 @@ function nodeGraphNumberReadoutDsegWidthChars(text) {
 }
 
 /**
- * Fixed DSEG fit template when Decimal budget is on.
- * Font size stays locked to this slot count (face/padding/decimals only) —
- * live value is still drawn and centered with that cell size.
- * (DSEG period is zero-width; "8"/"!" measure full cells.)
+ * Fixed DSEG fit template when GROW is off (decimalBudget true).
+ * Font size locks to Digits+Decimals bins — live value still drawn centered
+ * at that cell size. (DSEG period is zero-width; "8"/"!" measure full cells.)
  *
- * @param {number} decimals
- * @param {number} integerSlots integer digit columns (pitch Hz uses 5)
+ * @param {number} decimals fractional places
+ * @param {number} digits total digit budget (whole + fractional)
  */
-function nodeGraphNumberReadoutBudgetFitText(decimals, integerSlots = 6) {
-  const d = nodeGraphNumberReadoutSafeDecimals(decimals);
-  const ints = Math.max(1, Math.min(12, Math.round(Number(integerSlots) || 6)));
+function nodeGraphNumberReadoutBudgetFitText(decimals, digits = 8) {
+  const total = nodeGraphNumberReadoutSafeDigits(digits);
+  const d = Math.min(nodeGraphNumberReadoutSafeDecimals(decimals), Math.max(0, total - 1));
+  const ints = Math.max(1, total - d);
   const frac = d > 0 ? `.${"!".repeat(d)}` : "";
   return ` ${"8".repeat(ints)}${frac}`;
 }
@@ -873,7 +964,7 @@ function nodeGraphNumberReadoutFacePadding01(settings = null) {
  * Width-fit string for layout.
  * UI GROW maps to !decimalBudget (see form I/O):
  * - GROW on  (decimalBudget false) → live valueText (resize as digits change)
- * - GROW off (decimalBudget true)  → fixed Decimals-width template (stable size)
+ * - GROW off (decimalBudget true)  → fixed Digits+Decimals bin template
  *
  * Never bypass budget when GROW is off — even at facePadding 0 (old pad≈0
  * shortcut always returned live text and ignored GROW off).
@@ -886,10 +977,13 @@ function nodeGraphNumberReadoutLayoutFitText(slot, valueText, decimals, settings
   if (!budgetOn) {
     return valueText;
   }
-  // GROW off: lock font size to a fixed digit budget (sign + integer + decimals).
-  // Pitch: 4 integer slots (up to 9999 Hz). Other readouts: 6.
-  const integerSlots = slot?.type === "helmholtzPitch" ? 4 : 6;
-  return nodeGraphNumberReadoutBudgetFitText(decimals, integerSlots);
+  // GROW off: lock font size to Digits + Decimals bins (limit_decimals economy).
+  const digits = nodeGraphNumberReadoutSafeDigits(
+    settings?.digits
+    ?? settings?.maxDigits
+    ?? (slot?.type === "helmholtzPitch" ? 6 : 8),
+  );
+  return nodeGraphNumberReadoutBudgetFitText(decimals, digits);
 }
 
 
@@ -929,6 +1023,7 @@ function nodeGraphNumberReadoutSettingsSignature(settings) {
     settings.trail ?? settings.residual,
     settings.burn,
     settings.burnAmount,
+    settings.digits,
     settings.decimals,
     settings.decimalBudget ? 1 : 0,
     settings.lightBlend,
@@ -1609,8 +1704,17 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   }
   const hasSample = item?.buffer?.length > 0 && !item.buffer?.nodeGraphScopeXy;
   const unit = nodeGraphNumberReadoutUnitForSlot(slot);
-  // Honor Display Settings → Decimals (including Pitch Detector Frequency LCD).
+  // Honor Display Settings → Digits + Decimals (Pitch Detector Frequency LED too).
   const decimals = nodeGraphNumberReadoutSafeDecimals(settings.decimals);
+  const digits = nodeGraphNumberReadoutSafeDigits(settings.digits);
+  const formatOptions = {
+    digits,
+    // Fixed bins: pad fractional places (removeTrailingZeros false).
+    // GROW does not change the number string economy — only layout fit.
+    removeTrailingZeros: false,
+    // Value LCD: settle on decimals+1 before visible budget (sign stability).
+    ...(isLcd ? { guardExtraPlace: true } : null),
+  };
   const frozen = typeof nodeGraphModuleScopePhosphorFrozen === "function"
     && nodeGraphModuleScopePhosphorFrozen();
   // Pitch Detector: unit toggle Hz → 8ve (MIDI #) → M (note name).
@@ -1636,6 +1740,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
         nodeGraphOscilloscopeLatestSample(item.buffer, 0),
         pitchMode,
         decimals,
+        { digits },
       );
       // While frozen, dash = no detection this sample; do not paint over held Hz.
       if (frozen && typeof nodeGraphPitchDetectorZeroDisplay === "function") {
@@ -1654,8 +1759,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
       ? nodeGraphNumberReadoutFormatValue(
         nodeGraphOscilloscopeLatestSample(item.buffer, 0),
         decimals,
-        // Value LCD: settle on decimals+1 before visible budget (sign stability).
-        isLcd ? { guardExtraPlace: true } : null,
+        formatOptions,
       )
       : (decimals > 0 ? ` !.${"!".repeat(decimals)}` : " !");
   }
@@ -1847,8 +1951,12 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
 
   // 2) On change: stamp ONLY digits that changed (per-cell deposit).
   //    Deposit energy = Bright × Burn Amount (live LED still uses full Bright).
-  //    Ghost/Trail only set hang. Layout uses previous full reading for columns.
-  //    Never stamp while frozen, and never treat held empty as a change.
+  //    Ghost/Trail only set hang.
+  //    MUST deposit when the reading is fully removed (empty / no-lock dash /
+  //    threshold drop) — not only digit-to-digit edits. Without that, Pitch
+  //    in/out of lock blinks live ink with no residual stamp.
+  //    Geometry: prefer the last live layout snapshot so ghost matches the
+  //    LED pixels 1:1 (recomputing pad/fit can be 1px larger).
   const ResidualApi = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
   const depositPeak = ResidualApi && typeof ResidualApi.depositBrightness === "function"
     ? ResidualApi.depositBrightness(bright, burnAmountHang)
@@ -1863,51 +1971,34 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     && previousValueText
     && previousValueText !== valueText
     && !nodeGraphNumberReadoutIsEmptyPlaceholder(previousValueText)
-    && !nodeGraphNumberReadoutIsEmptyPlaceholder(valueText)
     && burnPlate.width > 0
     && depositBright > 0.005
   ) {
+    // Empty / dash / skeleton current → deposit the whole previous reading.
+    // GhostDepositText already returns prev when curr is empty or width shifts.
     const depositText = nodeGraphNumberReadoutGhostDepositText(
       previousValueText,
-      valueText,
+      // Treat no-lock / empty targets as full removal for deposit purposes.
+      nodeGraphNumberReadoutIsEmptyPlaceholder(valueText) ? "" : valueText,
     );
     if (depositText) {
-      // Layout from full previous string (same cell count/geometry as the face).
-      const residualLargeUnit = hasUnit && String(unit || "").trim().toLowerCase() === "hz";
-      const residualPad01 = nodeGraphNumberReadoutFacePadding01(settings);
-      const residualFitText = nodeGraphNumberReadoutLayoutFitText(
-        slot,
-        previousValueText,
-        decimals,
-        settings,
-      );
-      const residualLayout = nodeGraphNumberReadoutComputeLayout(
-        burnCtx,
-        previousValueText,
-        digitFontFamily,
-        width,
-        height,
-        {
-          hasUnit,
-          largeUnit: residualLargeUnit,
-          padding01: residualPad01,
-          faceStyle: "led",
-          pixelRatio,
-          zoom: nodeGraphNumberReadoutWorkspaceZoom(),
-          fitText: residualFitText,
-        },
-      );
-      const residualPad = residualLayout.padPx || 0;
-      const residualPadY = residualLayout.padPxY != null ? residualLayout.padPxY : residualPad;
+      const snap = canvas._numberReadoutLastDigitLayout;
+      const snapOk = snap
+        && snap.width === width
+        && snap.height === height
+        && Number(snap.fontSize) > 0.25
+        && Number(snap.cellW) > 0;
       burnCtx.setTransform(1, 0, 0, 1, 0, 0);
       burnCtx.save();
       burnCtx.globalCompositeOperation = "source-over";
       // White energy at alpha = depositBright (Bright × Burn Amount, capped at 1).
-      // Pin mode: one phosphor pixel of deposit energy.
-      if (residualLayout.pixelPin) {
+      if (snapOk && snap.pixelPin) {
         nodeGraphNumberReadoutDrawPixelPin(
           burnCtx,
-          residualLayout,
+          {
+            pixelPin: true,
+            pinPx: snap.pinPx || snap.cellW,
+          },
           left,
           top,
           width,
@@ -1915,14 +2006,15 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
           [255, 255, 255],
           depositBright,
         );
-      } else {
+      } else if (snapOk) {
+        // Pixel-match the previous live LED draw (same font/cell/center).
         nodeGraphNumberReadoutDrawDigits(burnCtx, {
           text: depositText,
-          centerX: left + residualPad + residualLayout.contentW * 0.5,
-          centerY: top + residualPadY + residualLayout.digitAreaH * 0.5,
-          fontFamily: digitFontFamily,
-          fontSize: residualLayout.fontSize,
-          cellW: residualLayout.cellW,
+          centerX: snap.digitX,
+          centerY: snap.digitY,
+          fontFamily: snap.fontFamily || digitFontFamily,
+          fontSize: snap.fontSize,
+          cellW: snap.cellW,
           rgb: [255, 255, 255],
           alpha: depositBright,
           softBlurPx: 0,
@@ -1930,6 +2022,62 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
           plate: false,
           energy: true,
         });
+      } else {
+        // Cold first change: recompute with the same pad policy as live (no forced inset).
+        const residualLargeUnit = hasUnit && String(unit || "").trim().toLowerCase() === "hz";
+        const residualPad01 = nodeGraphNumberReadoutFacePadding01(settings);
+        const residualFitText = nodeGraphNumberReadoutLayoutFitText(
+          slot,
+          previousValueText,
+          decimals,
+          settings,
+        );
+        const residualLayout = nodeGraphNumberReadoutComputeLayout(
+          burnCtx,
+          previousValueText,
+          digitFontFamily,
+          width,
+          height,
+          {
+            hasUnit,
+            largeUnit: residualLargeUnit,
+            padding01: residualPad01,
+            faceStyle: "led",
+            pixelRatio,
+            zoom: nodeGraphNumberReadoutWorkspaceZoom(),
+            fitText: residualFitText,
+            monoProbe: pitchNameMode,
+          },
+        );
+        const residualPad = residualLayout.padPx || 0;
+        const residualPadY = residualLayout.padPxY != null ? residualLayout.padPxY : residualPad;
+        if (residualLayout.pixelPin) {
+          nodeGraphNumberReadoutDrawPixelPin(
+            burnCtx,
+            residualLayout,
+            left,
+            top,
+            width,
+            height,
+            [255, 255, 255],
+            depositBright,
+          );
+        } else {
+          nodeGraphNumberReadoutDrawDigits(burnCtx, {
+            text: depositText,
+            centerX: left + residualPad + residualLayout.contentW * 0.5,
+            centerY: top + residualPadY + residualLayout.digitAreaH * 0.5,
+            fontFamily: digitFontFamily,
+            fontSize: residualLayout.fontSize,
+            cellW: residualLayout.cellW,
+            rgb: [255, 255, 255],
+            alpha: depositBright,
+            softBlurPx: 0,
+            glow: 0,
+            plate: false,
+            energy: true,
+          });
+        }
       }
       burnCtx.restore();
       // Peak residual energy follows Bright × Burn Amount (may exceed 1 for LUT).
@@ -1976,20 +2124,13 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
 
   context.setTransform(1, 0, 0, 1, 0, 0);
   const largeUnit = hasUnit && String(unit || "").trim().toLowerCase() === "hz";
+  // User Padding 0 = flush to plate walls (no forced pitch/LCD inset).
   const pad01 = nodeGraphNumberReadoutFacePadding01(settings);
-  // GROW off → LayoutFitText returns fixed Decimals budget; GROW on → live width.
+  // GROW off → LayoutFitText returns fixed Digits+Decimals bins; GROW on → live width.
   // Pitch name (M): always fit live compact name (no DSEG digit budget for letters).
-  // Slight built-in pad so M glyphs don't slam the plate edge even at pad 0.
   let liveFitText = nodeGraphNumberReadoutLayoutFitText(slot, valueText, decimals, settings);
-  let pitchLayoutPad01 = pad01;
   if (pitchNameMode) {
     liveFitText = String(valueText || "C#3");
-    // Keep a little air around note names even when Display pad is 0.
-    pitchLayoutPad01 = Math.max(pad01, 0.08);
-  } else if (slot?.type === "helmholtzPitch") {
-    // Mild inset so DSEG ink isn't edge-clipped at pad 0 (do not override fitText —
-    // that used to force live-width grow and ignore GROW off).
-    pitchLayoutPad01 = Math.max(pad01, 0.04);
   }
   const layout = nodeGraphNumberReadoutComputeLayout(
     context,
@@ -2000,7 +2141,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     {
       hasUnit,
       largeUnit,
-      padding01: pitchLayoutPad01,
+      padding01: pad01,
       faceStyle: "led",
       pixelRatio,
       zoom: nodeGraphNumberReadoutWorkspaceZoom(),
@@ -2017,6 +2158,22 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   // Center the live digit string in the content box (fixed cell size).
   const digitX = left + padPx + layout.contentW * 0.5;
   const digitY = top + padPxY + digitAreaHeight * 0.5;
+  // Snapshot for next-frame residual deposit (must match these live pixels).
+  canvas._numberReadoutLastDigitLayout = {
+    width,
+    height,
+    digitX,
+    digitY,
+    fontSize: digitFontSize,
+    cellW,
+    fontFamily: digitFontFamily,
+    padPx,
+    padPxY,
+    contentW: layout.contentW,
+    digitAreaH: digitAreaHeight,
+    pixelPin: Boolean(layout.pixelPin),
+    pinPx: layout.pinPx || cellW,
+  };
 
   const depositRgb = depositActive
     ? nodeGraphNumberReadoutGhostRgbFromEnergy(depositEnergy, gradientStops, peakHex)

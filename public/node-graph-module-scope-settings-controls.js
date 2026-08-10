@@ -356,6 +356,13 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
   // Knob dial ring size 0…1.
   dialSize: nodeGraphTraceDisplayClampUnit,
   dotBudget: nodeGraphTraceDisplayClampDotBudget,
+  digits: (value) => {
+    const n = Math.round(Number(value));
+    if (!Number.isFinite(n)) {
+      return 8;
+    }
+    return Math.max(1, Math.min(12, n));
+  },
   decimals: (value) => Math.max(0, Math.min(8, Math.round(Number(value) || 0))),
   dot1Brightness: nodeGraphTraceDisplayClampBrightness,
   dot1Size: nodeGraphTraceDisplayClampUnit,

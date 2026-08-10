@@ -646,6 +646,10 @@ function syncNodeGraphAudioPlayerRuntimeStatus(message = {}) {
   for (const nodeId of new Set([...nodeIds, primaryNodeId].filter(Boolean))) {
     syncNodeGraphSampleDisplayForNode(nodeId);
   }
+  // Music Player playlist: auto-advance on complete + live scrubber value.
+  if (primaryNodeId && typeof nodeGraphAudioPlayerPlaylistOnRuntimeStatus === "function") {
+    nodeGraphAudioPlayerPlaylistOnRuntimeStatus(primaryNodeId, reason);
+  }
 }
 
 function syncNodeGraphSampleDisplayForNode(nodeId) {
@@ -867,6 +871,68 @@ async function loadNodeGraphSamplePathForNode(nodeId, path) {
   }
   setNodeGraphSampleStatus(nodeId, "loading local path...");
   nodeGraphMvp.sampleLoadErrors?.delete?.(nodeId);
+  const patchNode = nodeGraphPatchNode(nodeId);
+  const isMusicPlayer = patchNode?.type === "audioPlayer";
+
+  // Folder → list audio files and load into playlist (Music Player).
+  if (isMusicPlayer) {
+    try {
+      const listResponse = await fetch("/api/audio-file/list", {
+        body: JSON.stringify({ path: sourcePath }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const listPayload = await listResponse.json().catch(() => ({}));
+      if (listResponse.ok && listPayload?.ok && listPayload?.kind === "dir" && Array.isArray(listPayload.files)) {
+        if (!listPayload.files.length) {
+          throw new Error("folder has no supported audio files");
+        }
+        setNodeGraphSampleStatus(nodeId, `loading ${listPayload.files.length} files...`);
+        for (const file of listPayload.files) {
+          const filePath = String(file.path || "").trim();
+          if (!filePath) {
+            continue;
+          }
+          const response = await fetch("/api/audio-file/data-url", {
+            body: JSON.stringify({ path: filePath }),
+            headers: { "Content-Type": "application/json" },
+            method: "POST",
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok || !payload?.ok || !payload?.dataUrl) {
+            continue;
+          }
+          await loadNodeGraphSampleDataUrlForNode(
+            nodeId,
+            payload.dataUrl,
+            payload.name || file.name || "Sample",
+            {
+              sourceName: payload.name || file.name || "Sample",
+              sourcePath: filePath,
+            },
+          );
+          if (typeof nodeGraphAudioPlayerPlaylistAppendSample === "function") {
+            const node = nodeGraphPatchNode(nodeId);
+            nodeGraphAudioPlayerPlaylistAppendSample(nodeId, {
+              id: node?.sample?.id,
+              name: payload.name || file.name,
+            });
+          }
+        }
+        setNodeGraphSampleStatus(nodeId, `playlist ${listPayload.files.length} from folder`);
+        if (typeof nodeGraphAudioPlayerPlaylistSetFace === "function") {
+          nodeGraphAudioPlayerPlaylistSetFace(nodeId, "pl");
+        }
+        return;
+      }
+    } catch (error) {
+      // Fall through to single-file load if list is unavailable / not a dir.
+      if (String(error?.message || "").includes("folder has no")) {
+        throw error;
+      }
+    }
+  }
+
   const response = await fetch("/api/audio-file/data-url", {
     body: JSON.stringify({ path: sourcePath }),
     headers: { "Content-Type": "application/json" },
@@ -885,6 +951,13 @@ async function loadNodeGraphSamplePathForNode(nodeId, path) {
       sourcePath,
     },
   );
+  if (isMusicPlayer && typeof nodeGraphAudioPlayerPlaylistAppendSample === "function") {
+    const node = nodeGraphPatchNode(nodeId);
+    nodeGraphAudioPlayerPlaylistAppendSample(nodeId, {
+      id: node?.sample?.id,
+      name: payload.name || sourcePath.split(/[\\/]/).pop(),
+    });
+  }
 }
 
 async function nodeGraphDataUrlForSampleReference(reference = {}) {
@@ -1064,24 +1137,52 @@ function createNodeGraphSamplePathLoader(nodeId, { instance = "" } = {}) {
   input.className = "node-sample-file-input";
   input.type = "file";
   input.accept = "audio/*,.wav,.wave,.mp3,.ogg,.oga,.opus,.flac,.m4a,.aac";
-  input.title = isMusicPlayer ? "Load music file" : "Load sample file";
+  if (isMusicPlayer) {
+    // Multi-select builds the playlist in one gesture.
+    input.multiple = true;
+  }
+  input.title = isMusicPlayer ? "Load music file(s) into playlist" : "Load sample file";
   protectNodeGraphSampleControl(input);
   input.addEventListener("click", () => {
     setNodeGraphSampleStatus(nodeId, "file picker opened");
   });
   input.addEventListener("change", () => {
     setNodeGraphSampleStatus(nodeId, "file selection changed");
-    const file = input.files?.[0];
-    if (!file) {
+    const files = [...(input.files || [])];
+    if (!files.length) {
       setNodeGraphSampleStatus(nodeId, "no file selected");
       return;
     }
-    loadNodeGraphSampleForNode(nodeId, file).catch((error) => {
-      const message = String(error?.message || error || "load failed");
-      nodeGraphMvp.sampleLoadErrors?.set?.(nodeId, message);
-      setNodeGraphSampleStatus(nodeId, message);
-      setNodeInteractionHelp(`Sample load failed: ${message}`);
-    });
+    const loadOne = async (file) => {
+      await loadNodeGraphSampleForNode(nodeId, file);
+      if (isMusicPlayer && typeof nodeGraphAudioPlayerPlaylistAppendSample === "function") {
+        const node = nodeGraphPatchNode(nodeId);
+        nodeGraphAudioPlayerPlaylistAppendSample(nodeId, {
+          id: node?.sample?.id,
+          name: file.name || node?.sample?.name,
+        });
+      }
+    };
+    (async () => {
+      try {
+        for (const file of files) {
+          await loadOne(file);
+        }
+        if (isMusicPlayer && files.length > 1) {
+          if (typeof setNodeGraphSampleStatus === "function") {
+            setNodeGraphSampleStatus(nodeId, `playlist +${files.length} files`);
+          }
+          if (typeof nodeGraphAudioPlayerPlaylistSetFace === "function") {
+            nodeGraphAudioPlayerPlaylistSetFace(nodeId, "pl");
+          }
+        }
+      } catch (error) {
+        const message = String(error?.message || error || "load failed");
+        nodeGraphMvp.sampleLoadErrors?.set?.(nodeId, message);
+        setNodeGraphSampleStatus(nodeId, message);
+        setNodeInteractionHelp(`Sample load failed: ${message}`);
+      }
+    })();
   });
 
   const pathShell = document.createElement("div");

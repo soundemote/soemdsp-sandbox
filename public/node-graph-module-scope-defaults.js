@@ -257,10 +257,13 @@ const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   // Legacy aliases (normalize keeps trail/ghost aliases in sync).
   residual: 0.88,
   ghostBrightness: 0.45,
+  // Total digit budget (whole + fractional) for limit_decimals / GROW-off bins.
+  // Default 8 ≈ former hard-coded 6 integer slots + 2 decimals.
+  digits: 8,
   decimals: 2,
-  // When true: lock digit size to a fixed Decimals budget (stable width).
-  // When false: resize digits to fill available space for the live value.
-  // Default OFF for Value LED/LCD; Pitch Detector defaults ON via DefaultsForNode.
+  // When true: lock digit size to fixed Digits+Decimals bins (stable width).
+  // When false (GROW): resize digits to fill available space for the live value.
+  // Default OFF for Value LED/LCD; Pitch Detector defaults OFF via DefaultsForNode.
   decimalBudget: false,
   // How live Light composites over residual gradient (canvas blend / occlude).
   // lighten: live segments brighten residual ink (default for Value LED / Pitch).
@@ -287,8 +290,10 @@ const nodeGraphValueLcdSettingsDefaults = Object.freeze({
   residualSchema: 3,
   residual: 0,
   ghostBrightness: 0,
+  // Total digit budget (whole + fractional). Default 9 ≈ 6 int + 3 decimals.
+  digits: 9,
   decimals: 3,
-  // Same budget policy as Value LED (OFF by default; Pitch Detector ON).
+  // Same budget policy as Value LED (OFF by default = GROW on).
   decimalBudget: false,
   lightBlend: "source-over",
   // Digit inset 0…1 vs each axis half (0 = flush, 1 = pin).

@@ -164,9 +164,10 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze([]),
   }),
   numberReadout: Object.freeze({
-    // Value LED: Decimals → Padding → Bright → Ghost → Trail → Burn (last residual).
-    // Value LCD (vector): decimals, padding, Ghost plate, glass shadow — no residual hang.
+    // Value LED: Digits → Decimals → Padding → Bright → Ghost → Trail → Burn.
+    // Value LCD (vector): digits, decimals, padding, Ghost plate, glass shadow.
     fields: Object.freeze([
+      "digits",
       "decimals",
       "facePadding",
       "dot1Brightness",
@@ -181,7 +182,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "innerShadowOffsetY",
     ]),
     colors: Object.freeze(["backgroundColor", "dot1Color"]),
-    // Decimal budget: fixed digit slots vs live resize (off = fill plate).
+    // GROW: live resize vs fixed Digits+Decimals bins (stored as !decimalBudget).
     toggles: Object.freeze(["decimalBudget"]),
     choices: Object.freeze(["lightBlend"]),
   }),
@@ -680,11 +681,19 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     title: "Seconds for one left→right pass (0.01–10). 0 clamps to 0.01 (fastest), not back to the 2 s default.",
   }),
   cycles: Object.freeze({ label: "Cycles", inputmode: "decimal", id: "nodeTraceDisplayCycles" }),
+  digits: Object.freeze({
+    label: "Digits",
+    inputmode: "numeric",
+    id: "nodeTraceDisplayDigits",
+    title:
+      "Total digit budget (1–12): whole + fractional places. With Decimals, defines the exact bins for limit_decimals economy and GROW-off fixed width.",
+  }),
   decimals: Object.freeze({
     label: "Decimals",
     inputmode: "numeric",
     id: "nodeTraceDisplayDecimals",
-    title: "Digits after the decimal point (0–8).",
+    title:
+      "Digits after the decimal point (0–8). Capped by Digits budget via limit_decimals (min/max decimal economy).",
   }),
   rotationDegrees: Object.freeze({
     label: "Span °",
@@ -802,11 +811,11 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
   }),
   decimalBudget: Object.freeze({
     // UI label GROW = digits resize to fill the plate. Stored as !decimalBudget
-    // (decimalBudget true still means fixed Decimals width — inverted in form I/O).
+    // (decimalBudget true = fixed Digits+Decimals bins — inverted in form I/O).
     label: "GROW",
     id: "nodeTraceDisplayDecimalBudget",
     title:
-      "When on, digits resize (grow) to fill the plate as the value changes. When off, digit size locks to a fixed Decimals width.",
+      "When on, digit size resizes to fill the plate for the live value. When off, digit size locks to the fixed bins from Digits + Decimals (limit_decimals economy).",
   }),
 });
 

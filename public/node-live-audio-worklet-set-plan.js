@@ -41,6 +41,9 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
       params: node.params || {},
       sample: node.sample || null,
       samplePhase: Number.isFinite(Number(node.samplePhase)) ? Number(node.samplePhase) : null,
+      samplePhaseSeek: Number.isFinite(Number(node.samplePhaseSeek))
+        ? Math.max(0, Math.round(Number(node.samplePhaseSeek)) || 0)
+        : 0,
       type: node.type,
     }]));
     this.samples = new Map((Array.isArray(plan?.samples) ? plan.samples : []).map((sample) => [

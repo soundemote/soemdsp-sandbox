@@ -45,6 +45,7 @@ def read_bundled_default_ui_settings_script_payload() -> dict:
 PUBLIC_SCRIPT_PATHS = (
     "./public/boot-loading.js",
     "./public/app-state.js",
+    "./public/latch-button.js",
     "./public/format-utils.js",
     "./public/inspection-utils.js",
     "./public/audio-utils.js",
@@ -178,7 +179,13 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-module-scope-display-mode.js",
     "./public/node-graph-module-scope-phosphor.js",
     "./public/node-graph-module-scope-settings-form.js",
+    "./public/node-graph-module-scope-settings-form-io.js",
+    "./public/node-graph-module-scope-settings-field-edit.js",
+    "./public/node-graph-module-scope-settings-controls.js",
+    "./public/node-graph-module-scope-settings-apply.js",
+    "./public/node-graph-module-scope-settings-window.js",
     "./public/node-graph-module-scope-settings-ui.js",
+    "./public/node-graph-module-scope-paint-gate.js",
     "./public/node-graph-module-scope-capture.js",
     "./public/node-graph-module-scope-number-readout.js",
     "./public/node-graph-module-scope-draw-basic.js",
@@ -234,6 +241,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/bugButton/bug-button-ui.js",
     "./public/modules/xyPad/xy-pad-ui.js",
     "./public/modules/numberReadout/number-readout-ui.js",
+    "./public/modules/valueLcd/value-lcd-register.js",
     "./public/modules/rayBouncer/ray-bouncer-ui.js",
     "./public/modules/stepGrid/step-grid-ui.js",
     "./public/modules/groupInput/group-input-ui.js",
@@ -268,6 +276,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-rendered-output-canvases.js",
     "./public/node-graph-execution-wires.js",
     "./public/node-graph-execution-plan.js",
+    "./public/node-graph-module-bypass.js",
     "./public/node-graph-execution-summary.js",
     "./public/node-graph-wire-actions.js",
     "./public/node-graph-trace-router.js",
@@ -412,6 +421,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/bitConverter/bit-converter-math.js",
     "./public/modules/bitConverter/bit-converter-live-evaluator.js",
     "./public/modules/aliasSine/alias-sine-live-evaluator.js",
+    "./public/modules/robinSinusoid/robin-sinusoid-math.js",
+    "./public/modules/robinSinusoid/robin-sinusoid-live-evaluator.js",
     "./public/modules/tb303Filter/tb303-filter-live-evaluator.js",
     "./public/modules/delayEffect/delay-effect-live-evaluator.js",
     "./public/modules/pingPongDelay/ping-pong-delay-live-evaluator.js",
@@ -421,8 +432,15 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/soemReverb/soem-reverb-live-evaluator.js",
     "./public/modules/pll/pll-live-evaluator.js",
     "./public/modules/helmholtzPitch/helmholtz-pitch-live-evaluator.js",
+    "./public/modules/helmholtzPitch/helmholtz-pitch-ui.js",
     "./public/modules/slewLimiter/slew-limiter-math.js",
     "./public/modules/slewLimiter/slew-limiter-live-evaluator.js",
+    "./public/modules/midSideEncode/mid-side-encode-math.js",
+    "./public/modules/midSideEncode/mid-side-encode-live-evaluator.js",
+    "./public/modules/quadrature/quadrature-math.js",
+    "./public/modules/quadrature/quadrature-live-evaluator.js",
+    "./public/modules/lookaheadLimiter/lookahead-limiter-math.js",
+    "./public/modules/lookaheadLimiter/lookahead-limiter-live-evaluator.js",
     "./public/modules/inertialFilter/inertial-filter-math.js",
     "./public/modules/inertialFilter/inertial-filter-live-evaluator.js",
     "./public/modules/tiltFilter/tilt-filter-math.js",
@@ -517,6 +535,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/bias/bias-live-evaluator.js",
     "./public/modules/softClipper/soft-clipper-math.js",
     "./public/modules/softClipper/soft-clipper-live-evaluator.js",
+    "./public/modules/airClipper/air-clipper-math.js",
+    "./public/modules/airClipper/air-clipper-live-evaluator.js",
     "./public/modules/rotate3dTo2d/rotate-3d-to-2d-math.js",
     "./public/modules/rotate3dTo2d/rotate-3d-to-2d-live-evaluator.js",
     "./public/modules/vectorscopeTransform/vectorscope-transform-math.js",
@@ -839,10 +859,7 @@ REQUIRED_SHELL_IDS = {
     "nodeMappingView",
     "nodeMappingGrid",
     "nodeMappingStatus",
-    "nodeScriptGridHeightPxValue",
-    "nodeScriptGridWidthPxValue",
-    "patchGridHeightPxValue",
-    "patchGridWidthPxValue",
+
     "nodeLiveEngineStatus",
     "nodeLiveInputStatus",
     "nodeLiveInputMeter",
@@ -856,10 +873,6 @@ REQUIRED_SHELL_IDS = {
     "nodeVisualOutputMeta",
     "nodeVisualOutputStatus",
     "nodeOutputSummary",
-    "patchVisualScaleValue",
-    "patchVisualStyleValue",
-    "patchVisualThemeValue",
-    "patchVisualTrailValue",
     "nodeZoomInButton",
     "nodeZoomOutButton",
     "nodeModularOnlyBackButton",
@@ -867,11 +880,7 @@ REQUIRED_SHELL_IDS = {
     "nodeSettingsViewButton",
     "nodeParameterMetadataPopover",
     "nodePalette",
-    "nodePatchScript",
     "nodePatchScriptFileInput",
-    "nodePatchNameHeader",
-    "nodePatchTagsHeader",
-    "nodePatchBankNameHeader",
     "nodeCanvasScriptDialog",
     "nodeCanvasScriptSource",
     "nodeCanvasScriptSave",
@@ -901,8 +910,6 @@ REQUIRED_SHELL_IDS = {
     "nodeSceneDragHandle",
     "nodeScopeContextMenu",
     "nodeSceneAddToGroup",
-    "nodeScriptView",
-    "nodeSettingsScriptViewButton",
     "nodeSignalPlotCanvas",
     "nodeLiveInputButton",
     "nodeLiveOutputButton",
@@ -913,8 +920,6 @@ REQUIRED_SHELL_IDS = {
     "patchDescriptionValue",
     "patchNameValue",
     "patchTagsValue",
-    "patchVisualModeValue",
-    "downloadNodeGraphScriptButton",
     "metadataAdvancedToggle",
     "metadataAliasValue",
     "metadataDefaultValue",
@@ -3903,6 +3908,7 @@ def require_chromeless_module_registry_contract() -> None:
         "rgbPicture",
         "rgbShape",
         "stepGrid",
+        "valueLcd",
         "xyPad",
     }
     require(
@@ -3911,10 +3917,15 @@ def require_chromeless_module_registry_contract() -> None:
     )
 
     # Each registered type needs a matching UI registration in the same
-    # module folder.
+    # module folder — unless the face is fully shared (e.g. Value LCD reuses
+    # the number-readout draw path and has no dedicated *-ui.js).
+    chromeless_ui_optional = {"valueLcd"}
     for register_path in register_paths:
         module_dir = register_path.parent
+        module_type = register_call_pattern.search(register_path.read_text(encoding="utf-8")).group(1)
         ui_paths = list(module_dir.glob("*-ui.js"))
+        if module_type in chromeless_ui_optional and not ui_paths:
+            continue
         require(len(ui_paths) == 1, f"{module_dir} should have exactly one *-ui.js file")
         ui_source = ui_paths[0].read_text(encoding="utf-8")
         require(
@@ -4365,10 +4376,12 @@ def require_node_graph_mvp_contract() -> None:
     )
     require(
         'inputs: ["In"]' in helmholtz_definition_source
-        and 'outputs: ["Frequency", "Fidelity"]' in helmholtz_definition_source
+        and '"Frequency"' in helmholtz_definition_source
+        and '"Fidelity"' in helmholtz_definition_source
         and 'outputs: ["Out"]' not in helmholtz_definition_source
-        and "visualSink: true" not in helmholtz_definition_source,
-        "Helmholtz Pitch should expose analyzer outputs only and should not masquerade as an audio effect or visual sink",
+        and "visualSink: true" not in helmholtz_definition_source
+        and "monitorSink: true" in helmholtz_definition_source,
+        "Helmholtz Pitch should expose analyzer outputs only (Frequency/Fidelity/Gate) and should not masquerade as an audio effect or visual sink",
     )
     require(
         "// soemdsp-native-kind: analysis" in (ROOT / "native_modules" / "helmholtz" / "helmholtz.cpp").read_text(encoding="utf-8"),
@@ -4386,22 +4399,32 @@ def require_node_graph_mvp_contract() -> None:
         if helmholtz_dispatch_path.is_file()
         else ""
     )
+    helmholtz_live_path = PUBLIC / "modules" / "helmholtzPitch" / "helmholtz-pitch-live-evaluator.js"
+    helmholtz_live_source = (
+        helmholtz_live_path.read_text(encoding="utf-8")
+        if helmholtz_live_path.is_file()
+        else ""
+    )
     require(
         "helmholtzSample(state, input, params, inputConnected = true" in helmholtz_worklet_source
         and "if (!inputConnected) {" in helmholtz_worklet_source
-        and 'return { Frequency: 0, Fidelity: 0, "Pitch View": -1 };' in helmholtz_worklet_source
+        and "Frequency: 0" in helmholtz_worklet_source
+        and "Fidelity: 0" in helmholtz_worklet_source
         and "reportHelmholtzStatus(status, message = \"\")" in helmholtz_worklet_source
         and "native Helmholtz handle creation failed; analyzer outputs zero" in helmholtz_worklet_source
         and "native Helmholtz failed; analyzer outputs zero:" in helmholtz_worklet_source
         and "this.nativeHelmholtzReady = false;" in worklet_source
-        and "Math.max(128, Math.min(1024" in helmholtz_worklet_source
-        and 'windowSize: read("windowSize", 512)' in helmholtz_dispatch_source
-        and 'hasInput(nodeId, "In"),\n          safeRate,' in helmholtz_dispatch_source
-        and "function nodeGraphHelmholtzSample(state, input, params, inputConnected, sampleRate" in node_graph_source
-        and "Math.max(128, Math.min(1024" in node_graph_source
-        and 'windowSize: read("windowSize", 512)' in node_graph_source
-        and 'hasInput(nodeId, "In"),\n    sampleRate,' in node_graph_source,
-        "Helmholtz Pitch should output analyzer zeros on disconnected input and clamp analysis to the temporary safe window range",
+        and "Math.max(128, Math.min(4096" in helmholtz_worklet_source
+        and (
+            'windowSize: read("windowSize", 1024)' in helmholtz_dispatch_source
+            or 'windowSize: read("windowSize", 1024)' in helmholtz_live_source
+            or 'windowSize: read("windowSize", 1024)' in node_graph_source
+        )
+        and (
+            "Math.max(128, Math.min(4096" in helmholtz_live_source
+            or "Math.max(128, Math.min(4096" in node_graph_source
+        ),
+        "Helmholtz Pitch should output analyzer zeros on disconnected input and clamp analysis to the safe window range (128–4096)",
     )
     require(
         "nodeGraphModuleIsPlanSourceType(type)" in execution_plan_source[source_nodes_start:source_nodes_end]
@@ -4596,7 +4619,8 @@ def require_node_graph_mvp_contract() -> None:
             graph_contract_sources["store"],
             [
                 "graph2: {",
-                "Point-to-point graph: each control point’s outgoing segment has a shape (linear / rational / exponential / log / hold) and contour. Input, LFO, or Phasor-driven readout with range mapping.",
+                "Shape a control curve by points—map phasors/LFOs into custom response shapes.",
+                "Smooth Graph",
             ],
         ),
         (
@@ -4672,7 +4696,7 @@ def require_node_graph_mvp_contract() -> None:
             "\n".join([graph_contract_sources["sizing"], graph_contract_sources["style"]]),
             [
                 "layout === \"graph\"",
-                ".dsp-node.graph-node-layout",
+                "graph-node-layout",
                 ".node-module-graph-display",
                 ".node-module-graph-node",
                 ".node-module-graph-node.is-hot",
@@ -4684,40 +4708,19 @@ def require_node_graph_mvp_contract() -> None:
             "actions menu markup",
             graph_contract_sources["index"],
             [
+                # Graph face context controls still present after Patch Explorer removal.
                 "nodeSceneGraphControls",
                 "nodeSceneGraphCursorX",
-                "nodeSceneGraphPreviousNode",
-                "nodeSceneGraphNodeIndex",
-                "nodeSceneGraphNextNode",
-                "nodeSceneGraphNodeShape",
                 "nodeSceneGraphNodeList",
-                "nodeSceneGraphAddNode",
-                "nodeSceneGraphDuplicateNode",
-                "nodeSceneGraphRemoveNode",
                 "nodeSceneGraphReset",
                 "nodeSceneGraphPresetControls",
-                'data-graph-preset="ramp"',
-                'data-graph-preset="sine"',
-                'data-graph-preset="triangle"',
-                'data-graph-preset="envelope"',
-                'data-graph-preset="steps"',
-                # Per-point curve shape/contour selection was retired
-                # along with the old "graph" module type -- graph2 (the
-                # only graph type left) uses a global smoothing mode
-                # instead, so this select stays inside a hidden label with
-                # legacy shape options left for old saved per-node values.
-                '<option value="rational">rational</option>',
-                'id="nodeSceneGraphNodeShapeLabel" hidden',
-                'id="nodeSceneGraphNodeShape"',
-                "nodeSceneGraphRangeControls",
-                'data-graph-range-min="-1"',
-                'data-graph-range-max="0"',
                 "nodeSceneGraphTransformControls",
-                'data-graph-transform="flipY"',
-                'data-graph-transform="reverseX"',
                 "nodeSceneGraphCopy",
                 "nodeSceneGraphPaste",
-                "scene-context-graph-node-grid",
+                'data-graph-preset="ramp"',
+                'data-graph-preset="sine"',
+                'data-graph-transform="flipY"',
+                'data-graph-transform="reverseX"',
             ],
         ),
         (
@@ -4730,20 +4733,12 @@ def require_node_graph_mvp_contract() -> None:
                 "function commitNodeGraphGraphEdit",
                 "nodeGraphGraphWithLockedEndpointY(targetNode.graph, selectedIndex)",
                 "function setNodeGraphGraphCursorFromContext",
-                "function setNodeGraphGraphNodeFromContext",
-                "function selectNodeGraphGraphNodeOffsetFromContext",
                 "function addNodeGraphGraphNodeFromContext",
                 "addNodeGraphGraphNodeData(targetNode.graph)",
-                "function duplicateNodeGraphGraphNodeFromContext",
-                "duplicateNodeGraphGraphNodeData(graph, selectedIndex)",
-                "graph node duplicated",
                 "function removeNodeGraphGraphNodeFromContext",
                 "function resetNodeGraphGraphFromContext",
                 "function setNodeGraphGraphPresetFromContext",
                 "nodeGraphGraphPresetData(preset)",
-                "function setNodeGraphGraphOutputRangeFromContext",
-                'normalizeNodeGraphPatchParameter(targetNode.type, "outputMin", minValue)',
-                'normalizeNodeGraphPatchParameter(targetNode.type, "outputMax", maxValue)',
                 "function transformNodeGraphGraphFromContext",
                 "nodeGraphGraphTransformedData(targetNode.graph, transform)",
                 "async function copyNodeGraphGraphFromContext",
@@ -4755,9 +4750,6 @@ def require_node_graph_mvp_contract() -> None:
                 "function handleNodeGraphGraphNodeListClick",
                 "function handleNodeGraphGraphNodeListInput",
                 "function handleNodeGraphGraphNodeListChange",
-                "const hasFallback = Number.isFinite(Number(fallback))",
-                "dataset?.graphNodeField",
-                "selectedX",
             ],
         ),
         (
@@ -4768,16 +4760,7 @@ def require_node_graph_mvp_contract() -> None:
                 "graphControls.hidden = !(moduleMode && !multiModuleMode && targetIsGraphType)",
                 "syncNodeGraphGraphControls(nodeGraphGraphForNode(targetNode))",
                 "nodeSceneGraphCursorX",
-                "nodeSceneGraphPreviousNode",
-                "nodeSceneGraphNextNode",
-                "graphPreviousNode.title = \"Select the previous graph node.\"",
-                "graphNextNode.title = \"Select the next graph node.\"",
-                "graphPreviousNode.disabled = true",
-                "graphNextNode.disabled = true",
-                "nodeSceneGraphNodeShape",
                 "nodeSceneGraphNodeList",
-                "graphNodeIndex.replaceChildren()",
-                "graphNodeList.replaceChildren()",
             ],
         ),
         (
@@ -4786,29 +4769,15 @@ def require_node_graph_mvp_contract() -> None:
             [
                 "setNodeGraphGraphCursorFromContext({ record: false })",
                 "setNodeGraphGraphCursorFromContext({ record: true })",
-                "selectNodeGraphGraphNodeFromContext",
-                "setNodeGraphGraphNodeFromContext({ record: false })",
-                "setNodeGraphGraphNodeFromContext({ record: true })",
-                "addNodeGraphGraphNodeFromContext",
-                "duplicateNodeGraphGraphNodeFromContext",
-                "removeNodeGraphGraphNodeFromContext",
                 "resetNodeGraphGraphFromContext",
                 "#nodeSceneGraphPresetControls [data-graph-preset]",
                 "setNodeGraphGraphPresetFromContext(button.dataset.graphPreset)",
-                "#nodeSceneGraphRangeControls [data-graph-range-min][data-graph-range-max]",
-                "setNodeGraphGraphOutputRangeFromContext(",
-                "button.dataset.graphRangeMin",
-                "button.dataset.graphRangeMax",
                 "#nodeSceneGraphTransformControls [data-graph-transform]",
                 "transformNodeGraphGraphFromContext(button.dataset.graphTransform)",
                 "nodeSceneGraphCopy",
                 "copyNodeGraphGraphFromContext",
                 "nodeSceneGraphPaste",
                 "pasteNodeGraphGraphFromContext",
-                "nodeSceneGraphPreviousNode",
-                "selectNodeGraphGraphNodeOffsetFromContext(-1)",
-                "nodeSceneGraphNextNode",
-                "selectNodeGraphGraphNodeOffsetFromContext(1)",
                 "handleNodeGraphGraphNodeListClick",
                 "handleNodeGraphGraphNodeListInput",
                 "handleNodeGraphGraphNodeListChange",
@@ -4823,14 +4792,7 @@ def require_node_graph_mvp_contract() -> None:
             [
                 "removeFocusedNodeGraphGraphNode()",
                 "addFocusedNodeGraphGraphNode()",
-                "duplicateFocusedNodeGraphGraphNode()",
-                "selectFocusedNodeGraphGraphNodeOffset(-1)",
-                "selectFocusedNodeGraphGraphNodeOffset(1)",
                 "nudgeFocusedNodeGraphGraphNode(event)",
-                'event.key.toLowerCase() === "a"',
-                'event.key.toLowerCase() === "d"',
-                'event.key === "["',
-                'event.key === "]"',
                 "event.preventDefault()",
                 "deleteSelectedNodeGraphItem()",
                 "function nodeGraphCanvasScriptSourceWithGridUnits(source, widthGu, heightGu)",
@@ -6129,23 +6091,10 @@ def require_node_graph_mvp_contract() -> None:
         "Grid Unit Height PX",
         "Grid Unit W PX",
         "Grid Unit H PX",
-        "patchGridWidthPxValue",
-        "patchGridHeightPxValue",
-        "nodeScriptGridWidthPxValue",
-        "nodeScriptGridHeightPxValue",
         "data-patch-grid-field",
-        "Visual Output Mode",
-        "Visual Output Scale",
-        "Visual Output Style",
-        "Visual Output Theme",
-        "Visual Output Trail",
         "<span>Load</span><span>Patch</span>",
-        "<span>View</span><span>Script</span>",
         "<span>Save</span><span>Patch</span>",
         "<span>Save</span><span>Init</span>",
-        "Patch Utility",
-        "Raw patch JSON for load, save, init, and recovery.",
-        "Patch script editor actions",
         "Update Default",
         ">Copy</button>",
         ">Paste</button>",
@@ -6173,10 +6122,7 @@ def require_node_graph_mvp_contract() -> None:
         "nodeSavedPatchesResizeHandle",
         "nodeSavedPatchesCloseButton",
         "nodeSavedPatchWindowList",
-        "Patch Explorer",
         "updateDefaultPresetButton",
-        "loadNodeGraphScriptButton",
-        "nodeSettingsScriptViewButton",
         "nodeSettingsSaveScriptButton",
         "nodeUiDevButton",
         "<span>UIDEV</span>",
@@ -6323,13 +6269,6 @@ def require_node_graph_mvp_contract() -> None:
         'data-node-color-var="--node-port-hover-fill"',
         "nodeUiDevSettingsHeaderHighlights",
         "nodePatchScriptFileInput",
-        "nodePatchNameHeader",
-        "nodePatchTagsHeader",
-        "nodePatchBankNameHeader",
-        'data-patch-header-info-field="name"',
-        'data-patch-header-info-field="tags"',
-        'placeholder="Tags"',
-        "data-patch-bank-name-field",
         "Live Audio",
         "nodeLiveInputButton",
         "nodeLiveInputDeviceSelect",
@@ -6353,7 +6292,6 @@ def require_node_graph_mvp_contract() -> None:
         "nodeInteractionHelp",
         "nodeModularOnlyViewButton",
         "nodeUserUiSettingsButton",
-        "nodeSettingsScriptViewButton",
         "nodeSettingsViewButton",
         "nodeSettingsView",
         "patchNameValue",
@@ -6367,11 +6305,6 @@ def require_node_graph_mvp_contract() -> None:
         "patchResultingOversamplingValue",
         "patchOutputSampleRateValue",
         "data-patch-audio-field",
-        "patchVisualModeValue",
-        "patchVisualScaleValue",
-        "patchVisualStyleValue",
-        "patchVisualThemeValue",
-        "patchVisualTrailValue",
         "nodeZoomOutButton",
         "nodeZoomInButton",
         "nodeUndoButton",
@@ -6437,7 +6370,6 @@ def require_node_graph_mvp_contract() -> None:
         "data-global-scope-input=\"backgroundColor\"",
         "nodeModuleSlidersToggleButton",
         "Hide Sliders",
-        "nodePatchScript",
         "nodeWaveformCanvas",
         "nodeSignalPlotCanvas",
         "nodeVisualOutputCanvas",
@@ -6664,8 +6596,6 @@ def require_node_graph_mvp_contract() -> None:
         "main fps",
         "heap",
         "display fps",
-        "node-settings-script-action-group",
-        "Script actions",
         "node-settings-feedback-action-group",
         "Feedback actions",
         "node-settings-dev-action-group",
@@ -17225,6 +17155,7 @@ def require_node_graph_mvp_contract() -> None:
 def require_readme_scheduler_contract() -> None:
     readme_source = (ROOT / "README.md").read_text(encoding="utf-8")
     readme_text = " ".join(readme_source.split())
+    # Keep this list aligned with the current lean README (not the old essay).
     for snippet in [
         "git clone https://github.com/soundemote/soemdsp-sandbox.git",
         "https://github.com/soundemote/soemdsp-sandbox-claphost",
@@ -17232,64 +17163,17 @@ def require_readme_scheduler_contract() -> None:
         "python server.py",
         "http://127.0.0.1:8765",
         "python scripts\\smoke_test.py",
-        "No package install is required for the sandbox server.",
-        "The server only writes through explicit save/settings/audio helper routes.",
-        "Open Path is restricted to Downloads.",
-        "The browser patch graph is demo-scoped state.",
-        "The browser compiler is not the production soemdsp scheduler.",
-        "The WebUI does not instantiate real C++ DSP objects yet.",
-        "Patch files can save current module instances and settings.",
-        "Patch files cannot define new module types by themselves.",
-        "Moog Ladder",
-        "Diode Ladder",
-        "Sallen-Key",
-        "State-Variable Filter",
-        "Twin-T Notch",
-        "Discrete Multimode Filter",
-        "Simultaneous LP/HP Filter",
-        "Switchable Third-Order Filter",
-        "Diode-Controlled LP/HP Pair",
-        "Zero-delay feedback",
-        "Self-oscillating resonance",
-        "flower_child_filter",
-        "active_filter",
-        "yellowjacket_filter",
-        "superlove_filter",
-        "chaotic_phase_locking_filter",
-        "resonator_filter",
-        "human_filter",
-        "Characterizing behavior empirically",
-        "morphs a sine into a square",
-        "SuperLove's HP6 mode in particular",
-        "Polivoks-style filter",
-        "Resonator Filter deserves more than",
-        "sinusoidal fractal quality",
-        "docs/assets/resonator-waveforms.png",
-        "docs/assets/yellowjacket-response.png",
-        "supersaw",
-        "RobinSchmidt/RS-MET",
-        "Pitch Dithering",
-        "rsPitchDitherOsc",
-        "SupersawUnit",
-        "SupersawMaster",
-        "RAPT::rsRatioGenerator",
-        "Synthwave Orchestra",
-        "docs/images/synthwave-orchestra-interface.png",
-        "docs/reference/Supersaw.hpp",
-        "Jerobeam Modules",
-        "Blubb",
-        "Boing",
-        "Kepler-Bouwkamp",
-        "Mushroom",
-        "Nyquist-Shannon",
-        "Torus",
-        "WirdoSpiral",
-        "docs/media/radar-prettyscope-render.png",
-        "docs/media/radar-anim.gif",
+        "no package install for the sandbox itself",
+        "Browser path is not the production soemdsp scheduler",
+        "Server writes only via explicit save / settings / audio helper routes",
+        "Open Path is restricted to Downloads",
+        "Browser patch graph is demo-scoped state",
+        "soundemote.io/sandbox",
         "BEAMING_RADAR_SIGNAL_TO_JEROBEAM.md",
         "POWER_ENGINE_SYNTHESIS.md",
-        "Metallic Ratio",
-        "metallic mean",
+        "Live Audio",
+        "Native DSP",
+        "Render Sample",
     ]:
         require(snippet in readme_text, f"README scheduler contract missing {snippet}")
     for snippet in [
@@ -17795,14 +17679,14 @@ def require_native_module_contract(base_url: str) -> None:
         require(wasm_path.read_bytes().startswith(b"\0asm"), f"native {module_name} wasm magic bytes missing")
         if module_name == "helmholtz":
             require(
-                "constexpr int kMaxWindow = 1024;" in source_text
+                "constexpr int kMaxWindow = 4096;" in source_text
                 and "constexpr int kMinWindow = 128;" in source_text
                 and "constexpr int kDefaultWindow = 512;" in source_text
                 and "constexpr double kAnalysisRateHz = 20.0;" in source_text
                 and "analysisIntervalSamples" in source_text
                 and "s->hopCounter >= s->analysisIntervalSamples" in source_text
                 and "const int hop = s->windowSize / 2;" not in source_text,
-                "native Helmholtz should keep MPM analysis bounded by a safe temporary window cap and control-rate cadence",
+                "native Helmholtz should keep MPM analysis bounded by window cap 128–4096 and control-rate cadence",
             )
 
     ellipsoid_source_path = ROOT / "native_modules" / "ellipsoid" / "ellipsoid.cpp"

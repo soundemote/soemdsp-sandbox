@@ -17,15 +17,32 @@ NodeLiveAudioProcessor.prototype.audioPlayerSample = function audioPlayerSample(
     const span = Math.max(0.000001, endPhase - startPhase);
     const rangeKey = `${startPhase}:${endPhase}`;
     if (state.sampleId !== sampleId) {
-      state.phase = startPhase;
+      // Cold start / first bind: restore patch-remembered phase. Sample swap: start.
+      const restored = Number(node?.samplePhase);
+      if (!state.sampleId && Number.isFinite(restored)) {
+        state.phase = this.clampValue(restored, startPhase, endPhase);
+      } else {
+        state.phase = startPhase;
+      }
       state.completed = false;
       state.sampleId = sampleId;
+      state.seekToken = Number(node?.samplePhaseSeek) || 0;
     } else if (state.rangeKey !== rangeKey) {
       const currentPhase = Number(state.phase);
       if (!Number.isFinite(currentPhase) || currentPhase < startPhase || currentPhase > endPhase) {
         state.phase = startPhase;
       }
       state.completed = false;
+    }
+    // Absolute seek from main thread (playlist scrub / track change) without full plan rebuild.
+    const seekToken = Number(node?.samplePhaseSeek) || 0;
+    if (seekToken && seekToken !== state.seekToken) {
+      const seekPhase = Number(node?.samplePhase);
+      if (Number.isFinite(seekPhase)) {
+        state.phase = this.clampValue(seekPhase, startPhase, endPhase);
+        state.completed = false;
+      }
+      state.seekToken = seekToken;
     }
     if (state.rangeKey !== rangeKey) {
       state.rangeKey = rangeKey;
@@ -37,6 +54,7 @@ NodeLiveAudioProcessor.prototype.audioPlayerSample = function audioPlayerSample(
     const transportReset = transportMode <= 0;
     const transportStopped = transportMode === 1;
     const transportPaused = transportMode === 2;
+    // Match module labels: Loop=3, Play (once)=4
     const transportLooping = transportMode === 3;
     const transportPlayOnce = transportMode >= 4;
     if (state.transportMode !== transportMode) {
@@ -56,12 +74,13 @@ NodeLiveAudioProcessor.prototype.audioPlayerSample = function audioPlayerSample(
     const speed = readParam("speed", 1) + readInput("Speed");
     const sampleRateRatio = (Number(sample.sampleRate) || rate || 44100) / Math.max(1, rate || 44100);
     const increment = (speed * sampleRateRatio) / frames;
-    const phase = phaseConnected
+    const basePhase = phaseConnected
       ? this.clampValue(readInput("Phase"), 0, 1)
       : this.clampValue(state.phase, 0, 1);
-    const boundedPhase = phase < startPhase || phase > endPhase
-      ? startPhase
-      : phase;
+    // Relative offset (−1…+1 wrap; ±1 ≡ 0). Same path as Phase Offset param / playlist scrubber.
+    const phaseOffsetCycles = ((Number(readParam("phaseOffset", 0)) % 1) + 1) % 1;
+    const phaseWithOffset = basePhase + phaseOffsetCycles;
+    const boundedPhase = startPhase + this.wrapValue((phaseWithOffset - startPhase) / span, 0, 1) * span;
     const stereo = this.sampleStereoAt(sample, boundedPhase * (frames - 1));
     const level = readParam("level", 1);
     const outputActive = state.playing;
@@ -87,7 +106,7 @@ NodeLiveAudioProcessor.prototype.audioPlayerSample = function audioPlayerSample(
     this.audioPlayerMeterSamples += 1;
     let done = 0;
     if (!phaseConnected && state.playing) {
-      const nextPhase = boundedPhase + increment;
+      const nextPhase = basePhase + increment;
       if (transportLooping) {
         const normalizedNext = (nextPhase - startPhase) / span;
         done = normalizedNext < 0 || normalizedNext >= 1 ? 1 : 0;
@@ -107,8 +126,8 @@ NodeLiveAudioProcessor.prototype.audioPlayerSample = function audioPlayerSample(
       }
     } else if (!phaseConnected && (transportReset || transportStopped)) {
       state.phase = startPhase;
-    } else {
-      state.phase = boundedPhase;
+    } else if (phaseConnected) {
+      state.phase = this.clampValue(readInput("Phase"), 0, 1);
     }
     return {
       Left: left,
@@ -119,4 +138,3 @@ NodeLiveAudioProcessor.prototype.audioPlayerSample = function audioPlayerSample(
       Trigger: done,
     };
   };
-

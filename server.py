@@ -411,6 +411,9 @@ class SandboxServer(BaseHTTPRequestHandler):
         if parsed.path == "/api/audio-file/find":
             self.audio_file_find()
             return
+        if parsed.path == "/api/audio-file/list":
+            self.audio_file_list()
+            return
         if parsed.path == "/api/audio-file/transcode-data-url":
             self.audio_file_transcode_data_url()
             return
@@ -1049,6 +1052,76 @@ class SandboxServer(BaseHTTPRequestHandler):
                 "name": target.name,
                 "path": str(target),
                 "size": size,
+            },
+        )
+
+    def audio_file_list(self) -> None:
+        """List supported audio files in a folder (or report a single file).
+
+        Used by Music Player playlist: paste a folder path → add all tracks.
+        Non-recursive by default; stays inside the user home folder.
+        """
+        payload = self.read_json_payload(
+            "audio file list",
+            max_bytes=16 * 1024,
+        )
+        if payload is None:
+            return
+
+        source_path = payload.get("path")
+        if not isinstance(source_path, str) or not source_path.strip():
+            self.send_json({"ok": False, "error": "path is required"}, status=400)
+            return
+
+        try:
+            target = Path(source_path).expanduser().resolve()
+        except OSError as exc:
+            self.send_json({"ok": False, "error": f"path resolve failed: {exc}"}, status=400)
+            return
+
+        home = Path.home().resolve()
+        if not target.is_relative_to(home):
+            self.send_json({"ok": False, "error": "path must stay inside the user home folder"}, status=403)
+            return
+        if not target.exists():
+            self.send_json({"ok": False, "error": "path does not exist", "path": str(target)}, status=404)
+            return
+
+        if target.is_file():
+            if target.suffix.lower() not in SUPPORTED_AUDIO_FILE_SUFFIXES:
+                self.send_json({"ok": False, "error": "unsupported audio file extension"}, status=400)
+                return
+            self.send_json(
+                {
+                    "ok": True,
+                    "kind": "file",
+                    "path": str(target),
+                    "files": [{"path": str(target), "name": target.name}],
+                },
+            )
+            return
+
+        files = []
+        try:
+            for candidate in sorted(target.iterdir(), key=lambda p: p.name.lower()):
+                if not candidate.is_file():
+                    continue
+                if candidate.suffix.lower() not in SUPPORTED_AUDIO_FILE_SUFFIXES:
+                    continue
+                files.append({"path": str(candidate.resolve()), "name": candidate.name})
+                if len(files) >= 500:
+                    break
+        except OSError as exc:
+            self.send_json({"ok": False, "error": f"folder list failed: {exc}"}, status=500)
+            return
+
+        self.send_json(
+            {
+                "ok": True,
+                "kind": "dir",
+                "path": str(target),
+                "files": files,
+                "count": len(files),
             },
         )
 

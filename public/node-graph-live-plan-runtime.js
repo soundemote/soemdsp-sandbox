@@ -155,6 +155,9 @@ function nodeGraphBuildLiveParameterNodes(activeNodeIds = null, bypassedNodes = 
       if (node.type === "audioPlayer" && Number.isFinite(Number(node.samplePhase))) {
         runtimeNode.samplePhase = Math.max(0, Math.min(1, Number(node.samplePhase)));
       }
+      if (node.type === "audioPlayer" && Number.isFinite(Number(node.samplePhaseSeek))) {
+        runtimeNode.samplePhaseSeek = Math.max(0, Math.round(Number(node.samplePhaseSeek)) || 0);
+      }
       if (node.type === "phosphillator" && Array.isArray(node.drawnPath?.points)) {
         runtimeNode.drawnPath = { points: node.drawnPath.points };
       }
@@ -212,6 +215,9 @@ function nodeGraphBuildLiveParameterNodesForPatch(patch, activeNodeIds = null, b
       }
       if (node.type === "audioPlayer" && Number.isFinite(Number(node.samplePhase))) {
         runtimeNode.samplePhase = Math.max(0, Math.min(1, Number(node.samplePhase)));
+      }
+      if (node.type === "audioPlayer" && Number.isFinite(Number(node.samplePhaseSeek))) {
+        runtimeNode.samplePhaseSeek = Math.max(0, Math.round(Number(node.samplePhaseSeek)) || 0);
       }
       if (node.type === "phosphillator" && Array.isArray(node.drawnPath?.points)) {
         runtimeNode.drawnPath = { points: node.drawnPath.points };

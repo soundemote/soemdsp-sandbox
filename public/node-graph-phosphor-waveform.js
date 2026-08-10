@@ -1179,6 +1179,13 @@ function createNodeGraphPhosphorWaveformDisplay(nodeId, type) {
   canvas.dataset.lightStrength = "1";
   section.append(canvas);
   bindNodeGraphPhosphorWaveformInteractions(section, canvas);
+  // Music Player: face bar + playlist page (pl) over the waveform.
+  if (type === "audioPlayer" && typeof nodeGraphAudioPlayerPlaylistEnhanceDisplay === "function") {
+    nodeGraphAudioPlayerPlaylistEnhanceDisplay(section, nodeId);
+    if (typeof window.__nodeGraphAudioPlayerPlaylistWrapRuntime === "function") {
+      window.__nodeGraphAudioPlayerPlaylistWrapRuntime();
+    }
+  }
   window.requestAnimationFrame(() => scheduleNodeGraphPhosphorWaveformFrame(section));
   return section;
 }
@@ -1397,6 +1404,13 @@ function drawNodeGraphPhosphorWaveformDisplay(section) {
   const node = nodeGraphPatchNode(nodeId);
   const canvas = section?.querySelector?.(".node-phosphor-waveform-canvas");
   if (!node || !canvas) {
+    return;
+  }
+  // Playlist face: skip phosphor paint (list/scrubber own the display).
+  if (section.dataset.musicPlayerFace === "pl") {
+    if (typeof nodeGraphAudioPlayerPlaylistSyncScrubber === "function") {
+      nodeGraphAudioPlayerPlaylistSyncScrubber(nodeId);
+    }
     return;
   }
   const settings = nodeGraphPhosphorWaveformSettingsForNode(nodeId);

@@ -156,8 +156,12 @@ function nodeGraphPitchDetectorZeroDisplay(mode = "hz", decimals = 2) {
  * Format Frequency port sample for the plate under the active display mode.
  * Positive Hz/MIDI are unpadded so the LED centers (no forced sign column).
  * No pitch → dash.
+ * @param {number} hz
+ * @param {string} [mode]
+ * @param {number} [decimals]
+ * @param {{ digits?: number, maxDigits?: number }} [options] digit budget for limit_decimals
  */
-function nodeGraphPitchDetectorFormatDisplay(hz, mode = "hz", decimals = 2) {
+function nodeGraphPitchDetectorFormatDisplay(hz, mode = "hz", decimals = 2, options = null) {
   const m = nodeGraphPitchDisplayModeNormalize(mode);
   const f = Number(hz);
   if (!(f > 0) || !Number.isFinite(f)) {
@@ -179,10 +183,13 @@ function nodeGraphPitchDetectorFormatDisplay(hz, mode = "hz", decimals = 2) {
     // Compact note name only; cents live on the meta strip.
     return nodeGraphMidiToNoteName(Math.round(midi));
   }
-  // Hz: no forced leading space (that left-biased the centered plate).
+  // Hz: limit_decimals economy via shared FormatValue; strip sign column for center.
   if (typeof nodeGraphNumberReadoutFormatValue === "function") {
-    const formatted = nodeGraphNumberReadoutFormatValue(f, decimals);
-    // Strip a single leading space used as DSEG sign column on other modules.
+    const formatted = nodeGraphNumberReadoutFormatValue(f, decimals, {
+      digits: options?.digits ?? options?.maxDigits ?? 6,
+      removeTrailingZeros: false,
+      reserveSignSpace: false,
+    });
     return String(formatted || "").replace(/^\s+/, "") || "0";
   }
   const places = Math.max(0, Math.min(8, Math.round(Number(decimals) || 2)));
