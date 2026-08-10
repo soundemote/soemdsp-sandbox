@@ -245,6 +245,46 @@ function nodeGraphTraceDisplaySettingsResolveMultiTargetIds(primaryNodeId = "") 
   return [primaryId, ...matching.filter((id) => id !== primaryId)];
 }
 
+/**
+ * Pick Display Settings primary from current graph selection.
+ * Prefers the previously pinned target if still selected + eligible; else first
+ * eligible selected module. Works for single and multi-select.
+ */
+function nodeGraphTraceDisplaySettingsPrimaryFromSelection() {
+  const selectedIds = typeof nodeGraphSelectedNodeIds === "function"
+    ? [...nodeGraphSelectedNodeIds()]
+    : [];
+  if (!selectedIds.length) {
+    return "";
+  }
+  const canOpen = (id) => {
+    const node = nodeGraphPatchNode(id);
+    return Boolean(
+      node
+      && typeof nodeGraphNodeCanOpenDisplaySettings === "function"
+      && nodeGraphNodeCanOpenDisplaySettings(node),
+    );
+  };
+  const prev = String(nodeGraphMvp?.traceDisplaySettingsTargetNode || "").trim();
+  if (prev && prev !== "__globalTraceSettings" && selectedIds.includes(prev) && canOpen(prev)) {
+    return prev;
+  }
+  for (const id of selectedIds) {
+    if (canOpen(id)) {
+      return String(id);
+    }
+  }
+  return "";
+}
+
+/** Stable key for current multi/single target list (order: primary first). */
+function nodeGraphTraceDisplaySettingsTargetKey(nodeIds = []) {
+  return (Array.isArray(nodeIds) ? nodeIds : [])
+    .map((id) => String(id || "").trim())
+    .filter(Boolean)
+    .join(",");
+}
+
 function nodeGraphTraceDisplaySettingsActiveTargetIds() {
   const multi = nodeGraphMvp?.traceDisplaySettingsTargetNodes;
   if (Array.isArray(multi) && multi.length) {
@@ -307,19 +347,23 @@ function setNodeGraphTraceDisplaySettingsFormType(node = null) {
     : "";
   // Global defaults editor uses plain Trace schema when node is null.
   const formType = settingsSchema || "trace";
-  // Schema-exclusive body: rebuild so only this form type's controls exist.
-  // Avoid remount when already mounted for same type+node (write cycles would thrash color widgets).
+  // Schema-exclusive body: rebuild when form type or primary node changes
+  // (LCD↔LED / module A→B). Multi-select cohort only updates dataset + form write.
   const nodeId = node?.id ? String(node.id) : "";
+  const multiKey = nodeGraphTraceDisplaySettingsTargetKey(
+    nodeGraphTraceDisplaySettingsActiveTargetIds(),
+  );
   const alreadyMounted =
-    popover.dataset.displaySettingsBodyType === formType &&
-    popover.dataset.displaySettingsTargetNode === nodeId &&
-    popover.querySelector("[data-display-settings-body]")?.childElementCount > 0;
+    popover.dataset.displaySettingsBodyType === formType
+    && popover.dataset.displaySettingsTargetNode === nodeId
+    && popover.querySelector("[data-display-settings-body]")?.childElementCount > 0;
   if (!alreadyMounted) {
     mountNodeGraphDisplaySettingsBody(popover, formType, node);
   } else {
     popover.dataset.displaySettingsType = formType;
     popover.dataset.displaySettingsTargetNode = nodeId;
   }
+  popover.dataset.displaySettingsTargetNodes = multiKey;
 }
 
 function nodeGraphTraceDisplaySettingsFormType() {
@@ -482,6 +526,7 @@ function restoreNodeGraphTraceDisplaySettingsWindowFromState(state = {}) {
   nodeGraphMvp.sharedInspectorActive = "traceDisplaySettings";
   if (nodeId === "__globalTraceSettings") {
     nodeGraphMvp.traceDisplaySettingsTargetNode = "__globalTraceSettings";
+    setNodeGraphTraceDisplaySettingsMultiTargets(null);
     setNodeGraphTraceDisplaySettingsHeader("DISPLAY", "Settings", "Global");
     setNodeGraphTraceDisplaySettingsFormType(null);
     writeNodeGraphTraceDisplaySettingsForm(nodeGraphGlobalTraceSettings());
@@ -492,13 +537,29 @@ function restoreNodeGraphTraceDisplaySettingsWindowFromState(state = {}) {
     showBlankNodeGraphTraceDisplaySettingsContent();
     return;
   }
+  // Resolve multi from current selection (same schema as primary).
+  const multiTargetIds = nodeGraphTraceDisplaySettingsResolveMultiTargetIds(node.id);
   nodeGraphMvp.traceDisplaySettingsTargetNode = node.id;
-  setNodeGraphTraceDisplaySettingsHeader("DISPLAY", "Settings", nodeGraphTraceDisplaySettingsTargetLabel(node));
+  setNodeGraphTraceDisplaySettingsMultiTargets(multiTargetIds);
+  setNodeGraphTraceDisplaySettingsHeader(
+    "DISPLAY",
+    multiTargetIds.length > 1 ? "Settings (multi)" : "Settings",
+    nodeGraphTraceDisplaySettingsMultiTargetLabel(multiTargetIds),
+  );
   setNodeGraphTraceDisplaySettingsFormType(node);
   writeNodeGraphTraceDisplaySettingsForm(nodeGraphTraceDisplayCurrentSettingsForFormType());
   setNodeGraphTraceDisplaySettingsBlankState(false);
+  // Color widgets may need remount after body type/target switch.
+  if (typeof syncNodeGraphTraceDisplayColorWidgets === "function") {
+    syncNodeGraphTraceDisplayColorWidgets(popover);
+  }
 }
 
+/**
+ * Rebind open Display Settings to a primary node (and multi cohort if selected).
+ * Always refreshes multi targets / header / form when the target set changes —
+ * not only when the primary id changes (multi-select bug).
+ */
 function syncOpenNodeGraphTraceDisplaySettingsToNode(nodeId) {
   const popover = document.getElementById("nodeTraceDisplaySettingsPopover");
   if (
@@ -519,10 +580,15 @@ function syncOpenNodeGraphTraceDisplaySettingsToNode(nodeId) {
     );
     return true;
   }
-  if (
-    nodeGraphMvp.traceDisplaySettingsTargetNode === node.id
-    && popover.dataset.inspectorBlank !== "true"
-  ) {
+  const multiTargetIds = nodeGraphTraceDisplaySettingsResolveMultiTargetIds(node.id);
+  const nextKey = nodeGraphTraceDisplaySettingsTargetKey(multiTargetIds);
+  const prevKey = nodeGraphTraceDisplaySettingsTargetKey(
+    nodeGraphTraceDisplaySettingsActiveTargetIds(),
+  );
+  const sameTargets = nextKey === prevKey
+    && String(nodeGraphMvp.traceDisplaySettingsTargetNode || "") === String(node.id)
+    && popover.dataset.inspectorBlank !== "true";
+  if (sameTargets) {
     return true;
   }
   commitOpenNodeGraphTraceDisplaySettings();
@@ -532,6 +598,29 @@ function syncOpenNodeGraphTraceDisplaySettingsToNode(nodeId) {
     { status: false },
   );
   return true;
+}
+
+/**
+ * Follow graph selection while Display Settings is open (single or multi).
+ * Call on every selection render so LCD↔LED / multi cohort switches update
+ * the shared inspector (Command Center page + floating window).
+ */
+function syncOpenNodeGraphTraceDisplaySettingsToSelection() {
+  const popover = document.getElementById("nodeTraceDisplaySettingsPopover");
+  if (
+    !popover
+    || popover.hidden
+    || nodeGraphMvp.sharedInspectorActive !== "traceDisplaySettings"
+    || nodeGraphMvp.traceDisplaySettingsTargetNode === "__globalTraceSettings"
+  ) {
+    return false;
+  }
+  const primaryId = nodeGraphTraceDisplaySettingsPrimaryFromSelection();
+  if (!primaryId) {
+    // Empty / non-display selection: keep pinned form (don't wipe mid-edit).
+    return false;
+  }
+  return syncOpenNodeGraphTraceDisplaySettingsToNode(primaryId);
 }
 
 function openNodeGraphGlobalTraceSettings(event = {}) {

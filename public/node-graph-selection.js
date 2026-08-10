@@ -249,19 +249,22 @@ function syncNodeGraphModuleActionTargetFromSelection() {
 }
 
 function syncNodeGraphSharedInspectorTargetFromSelection() {
-  const selectedNode = nodeGraphSingleSelectedNodeId();
-  const hasNode = Boolean(selectedNode && nodeGraphPatchNode(selectedNode));
-
-  // Display Settings: when the user selects a (single) module, follow it.
-  // When selection is cleared, KEEP the pinned target so gradient / color
-  // edits in the open window are not wiped mid-interaction.
+  // Display Settings: follow single- or multi-select of display modules.
+  // Uses schema-matched multi cohort when several faces share a form type.
+  // When selection is cleared / non-display only, KEEP the pinned target so
+  // gradient / color edits in the open window are not wiped mid-interaction.
   if (nodeGraphMvp.sharedInspectorActive === "traceDisplaySettings") {
     const popover = document.getElementById("nodeTraceDisplaySettingsPopover");
     if (popover && !popover.hidden) {
-      if (hasNode && typeof syncOpenNodeGraphTraceDisplaySettingsToNode === "function") {
-        syncOpenNodeGraphTraceDisplaySettingsToNode(selectedNode);
+      if (typeof syncOpenNodeGraphTraceDisplaySettingsToSelection === "function") {
+        syncOpenNodeGraphTraceDisplaySettingsToSelection();
+      } else if (typeof syncOpenNodeGraphTraceDisplaySettingsToNode === "function") {
+        // Fallback: single-select only (legacy).
+        const selectedNode = nodeGraphSingleSelectedNodeId();
+        if (selectedNode && nodeGraphPatchNode(selectedNode)) {
+          syncOpenNodeGraphTraceDisplaySettingsToNode(selectedNode);
+        }
       }
-      // else: leave current traceDisplaySettingsTargetNode / form as-is
     }
   }
 

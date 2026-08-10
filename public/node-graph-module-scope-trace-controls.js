@@ -558,7 +558,7 @@ const nodeGraphDisplaySettingsFieldMeta = Object.freeze({
     label: "Padding",
     inputmode: "decimal",
     id: "nodeTraceDisplayFacePadding",
-    title: "Value LED/LCD: inset digits from the plate edge (0 = flush, 1 = deep margin). Does not change plate size.",
+    title: "Value LED/LCD: linear 0…1 vs face square min side. 0 = digits hit the plate edge; 1 = one pin pixel of display remains (LED phosphor CSS-px / LCD screen-px).",
   }),
   innerShadowDistance: Object.freeze({
     label: "Shadow dist",

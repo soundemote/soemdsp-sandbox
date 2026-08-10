@@ -638,10 +638,27 @@ function nodeGraphNumberReadoutSettingsSignature(settings) {
 
 
 /**
+ * Single “display pixel” size in face/canvas units when padding = 1.
+ * LCD: screen-sharp buffer → 1 device pixel.
+ * LED: fixed layout×dpr phosphor grid → ~1 CSS px (chunkier under zoom/dpr).
+ */
+function nodeGraphNumberReadoutPinSizePx(faceStyle, pixelRatio) {
+  const dpr = Math.max(1, Number(pixelRatio) || 1);
+  const style = String(faceStyle || "led").toLowerCase();
+  if (style === "lcd") {
+    return 1;
+  }
+  // Phosphor residual path is layout×dpr; one CSS pixel of “on” phosphor.
+  return Math.max(1, Math.round(dpr));
+}
+
+/**
  * @param {boolean|object} [hasUnitOrOpts] true, or
- *   { hasUnit, largeUnit, padding01 }
+ *   { hasUnit, largeUnit, padding01, faceStyle, pixelRatio }
  *   largeUnit: taller unit band (Pitch Detector “Hz”).
- *   padding01: 0…1 inset of content from plate edge.
+ *   padding01: linear 0…1 vs face square min side.
+ *     0 = flush (digits hit plate edge);
+ *     1 = one pin pixel of display remains (zoom-scaled; LED vs LCD pin size).
  */
 function nodeGraphNumberReadoutComputeLayout(context, valueText, fontFamily, faceW, faceH, hasUnitOrOpts) {
   const opts = hasUnitOrOpts && typeof hasUnitOrOpts === "object"
@@ -650,26 +667,92 @@ function nodeGraphNumberReadoutComputeLayout(context, valueText, fontFamily, fac
   const hasUnit = Boolean(opts.hasUnit);
   const largeUnit = Boolean(opts.largeUnit);
   const pad01 = clampNodeSliderValue(Number(opts.padding01) || 0, 0, 1);
-  // 0 = flush; 1 ≈ 28% of min side per edge.
-  const padPx = pad01 * Math.min(faceW, faceH) * 0.28;
-  const contentW = Math.max(1, faceW - padPx * 2);
-  const contentH = Math.max(1, faceH - padPx * 2);
+  const minSide = Math.max(0, Math.min(faceW, faceH));
+  const pin = Math.min(
+    minSide,
+    nodeGraphNumberReadoutPinSizePx(opts.faceStyle, opts.pixelRatio),
+  );
+  // Linear pad: t=0 → full face; t=1 → content collapses to pin×pin (not zero).
+  const maxPad = Math.max(0, (minSide - pin) * 0.5);
+  const padPx = pad01 * maxPad;
+  const contentW = Math.max(pin, faceW - padPx * 2);
+  const contentH = Math.max(pin, faceH - padPx * 2);
+  // Near-max padding: single pin pixel mode (no DSEG fit).
+  const pixelPin = pad01 >= 0.999
+    || (contentW <= pin * 1.01 && contentH <= pin * 1.01);
+  if (pixelPin) {
+    const side = Math.max(1, pin);
+    return {
+      cellW: side,
+      cells: 1,
+      contentH: side,
+      contentW: side,
+      digitAreaH: side,
+      fontSize: 0,
+      labelH: 0,
+      largeUnit,
+      padPx: Math.max(0, (faceW - side) * 0.5),
+      padPxY: Math.max(0, (faceH - side) * 0.5),
+      pinPx: side,
+      pixelPin: true,
+      totalW: side,
+    };
+  }
   // Default unit strip ~18% of content; Pitch Hz needs more room to read.
   const labelH = hasUnit ? Math.max(0, contentH * (largeUnit ? 0.30 : 0.18)) : 0;
-  const digitAreaH = Math.max(1, contentH - labelH);
+  const digitAreaH = Math.max(0, contentH - labelH);
   // Designed em height — original DSEG proportions, not stretched to width.
-  let fontSize = Math.max(1, digitAreaH * 0.78);
+  // At pad 0, use full content (digits can meet the plate edge).
+  let fontSize = Math.max(0, digitAreaH * 0.78);
+  if (!(fontSize > 0.25) || !(contentW > 0.25)) {
+    // Fall through to pin rather than blank.
+    const side = Math.max(1, pin);
+    return {
+      cellW: side,
+      cells: 1,
+      contentH: side,
+      contentW: side,
+      digitAreaH: side,
+      fontSize: 0,
+      labelH: 0,
+      largeUnit,
+      padPx: Math.max(0, (faceW - side) * 0.5),
+      padPxY: Math.max(0, (faceH - side) * 0.5),
+      pinPx: side,
+      pixelPin: true,
+      totalW: side,
+    };
+  }
   context.font = `700 ${fontSize}px ${fontFamily}`;
-  let cellW = Math.max(1, context.measureText("8").width);
+  let cellW = Math.max(0, context.measureText("8").width);
   const cells = nodeGraphNumberReadoutDsegWidthChars(valueText);
   let totalW = cells * cellW;
-  const maxW = Math.max(1, contentW * 0.94);
-  if (totalW > maxW) {
+  const maxW = contentW;
+  if (totalW > maxW && totalW > 0) {
     const scale = maxW / totalW;
-    fontSize = Math.max(1, fontSize * scale);
-    context.font = `700 ${fontSize}px ${fontFamily}`;
-    cellW = Math.max(1, context.measureText("8").width);
-    totalW = cells * cellW;
+    fontSize = Math.max(0, fontSize * scale);
+    if (fontSize > 0.25) {
+      context.font = `700 ${fontSize}px ${fontFamily}`;
+      cellW = Math.max(0, context.measureText("8").width);
+      totalW = cells * cellW;
+    } else {
+      const side = Math.max(1, pin);
+      return {
+        cellW: side,
+        cells: 1,
+        contentH: side,
+        contentW: side,
+        digitAreaH: side,
+        fontSize: 0,
+        labelH: 0,
+        largeUnit,
+        padPx: Math.max(0, (faceW - side) * 0.5),
+        padPxY: Math.max(0, (faceH - side) * 0.5),
+        pinPx: side,
+        pixelPin: true,
+        totalW: side,
+      };
+    }
   }
   return {
     cellW,
@@ -681,8 +764,38 @@ function nodeGraphNumberReadoutComputeLayout(context, valueText, fontFamily, fac
     labelH,
     largeUnit,
     padPx,
+    padPxY: padPx,
+    pinPx: pin,
+    pixelPin: false,
     totalW,
   };
+}
+
+/**
+ * Draw the max-padding “one pixel of display” pin (LED light or LCD ink).
+ */
+function nodeGraphNumberReadoutDrawPixelPin(context, layout, faceLeft, faceTop, faceW, faceH, rgb, alpha = 1) {
+  if (!context || !layout?.pixelPin) {
+    return;
+  }
+  const side = Math.max(1, Number(layout.pinPx) || 1);
+  const x = faceLeft + Math.max(0, (faceW - side) * 0.5);
+  const y = faceTop + Math.max(0, (faceH - side) * 0.5);
+  const a = clampNodeSliderValue(Number(alpha) || 0, 0, 1);
+  const r = Number(rgb?.[0]) || 0;
+  const g = Number(rgb?.[1]) || 0;
+  const b = Number(rgb?.[2]) || 0;
+  context.save();
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.globalCompositeOperation = "source-over";
+  context.globalAlpha = a;
+  // Snap to integer canvas pixels so the pin stays a crisp square under zoom/dpr.
+  const ix = Math.round(x);
+  const iy = Math.round(y);
+  const is = Math.max(1, Math.round(side));
+  context.fillStyle = `rgb(${r}, ${g}, ${b})`;
+  context.fillRect(ix, iy, is, is);
+  context.restore();
 }
 
 /** Unit label font size for the number plate (boosted for Pitch Detector Hz). */
@@ -919,21 +1032,30 @@ function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, val
   const digitFontFamily = nodeGraphNumberReadoutDsegReady
     ? '"DSEG7 Classic", "Consolas", monospace'
     : '"Consolas", "Courier New", monospace';
+  const lcdPixelRatio = Number(nodeGraphModuleScopeState?.backingPixelRatio)
+    || Math.max(1, window.devicePixelRatio || 1);
   const layout = nodeGraphNumberReadoutComputeLayout(
     context,
     valueText,
     digitFontFamily,
     width,
     height,
-    { hasUnit, largeUnit, padding01: pad01 },
+    {
+      hasUnit,
+      largeUnit,
+      padding01: pad01,
+      faceStyle: "lcd",
+      pixelRatio: lcdPixelRatio,
+    },
   );
   const digitFontSize = layout.fontSize;
   const cellW = layout.cellW;
   const labelHeight = layout.labelH;
   const digitAreaHeight = layout.digitAreaH;
   const padPx = layout.padPx || 0;
+  const padPxY = layout.padPxY != null ? layout.padPxY : padPx;
   const digitX = left + padPx + layout.contentW * 0.5;
-  const digitY = top + padPx + digitAreaHeight * 0.5;
+  const digitY = top + padPxY + digitAreaHeight * 0.5;
   const unlitAmount = clampNodeSliderValue(Number(settings?.unlitSegments) || 0, 0, 1);
   const shadowDist = clampNodeSliderValue(Number(settings?.innerShadowDistance) || 0, 0, 1);
   const shadowSharp = clampNodeSliderValue(Number(settings?.innerShadowSharpness) || 0, 0, 1);
@@ -948,62 +1070,78 @@ function drawNodeGraphValueLcdFace(canvas, context, screenElement, settings, val
   context.fillStyle = bg;
   context.fillRect(left, top, width, height);
 
-  // Permanent unlit “8” skeleton: multiply FG color into the plate.
-  if (unlitAmount > 0.001 && !String(valueText || "").includes("!")) {
-    const plateText = typeof nodeGraphNumberReadoutGhostPlateText === "function"
-      ? nodeGraphNumberReadoutGhostPlateText(valueText)
-      : String(valueText || "").replace(/[0-9!]/g, "8");
-    nodeGraphNumberReadoutDrawDigits(context, {
-      text: plateText,
-      centerX: digitX,
-      centerY: digitY,
-      fontFamily: digitFontFamily,
-      fontSize: digitFontSize,
-      cellW,
-      rgb: inkRgb,
-      alpha: Math.min(1, 0.12 + unlitAmount * 0.88),
-      softBlurPx: 0,
-      glow: 0,
-      plate: true,
-      composite: "multiply",
-    });
-  }
+  // Max padding: one screen pixel of LCD “on” (no DSEG at pin size).
+  if (layout.pixelPin) {
+    if (!String(valueText || "").includes("!")) {
+      nodeGraphNumberReadoutDrawPixelPin(
+        context,
+        layout,
+        left,
+        top,
+        width,
+        height,
+        inkRgb,
+        1,
+      );
+    }
+  } else {
+    // Permanent unlit “8” skeleton: multiply FG color into the plate.
+    if (digitFontSize > 0.25 && unlitAmount > 0.001 && !String(valueText || "").includes("!")) {
+      const plateText = typeof nodeGraphNumberReadoutGhostPlateText === "function"
+        ? nodeGraphNumberReadoutGhostPlateText(valueText)
+        : String(valueText || "").replace(/[0-9!]/g, "8");
+      nodeGraphNumberReadoutDrawDigits(context, {
+        text: plateText,
+        centerX: digitX,
+        centerY: digitY,
+        fontFamily: digitFontFamily,
+        fontSize: digitFontSize,
+        cellW,
+        rgb: inkRgb,
+        alpha: Math.min(1, 0.12 + unlitAmount * 0.88),
+        softBlurPx: 0,
+        glow: 0,
+        plate: true,
+        composite: "multiply",
+      });
+    }
 
-  // Live value — solid foreground ink.
-  if (!String(valueText || "").includes("!")) {
-    nodeGraphNumberReadoutDrawDigits(context, {
-      text: valueText,
-      centerX: digitX,
-      centerY: digitY,
-      fontFamily: digitFontFamily,
-      fontSize: digitFontSize,
-      cellW,
-      rgb: inkRgb,
-      alpha: 1,
-      softBlurPx: 0,
-      glow: 0,
-      plate: false,
-      composite: "source-over",
-    });
-  }
+    // Live value — solid foreground ink.
+    if (digitFontSize > 0.25 && !String(valueText || "").includes("!")) {
+      nodeGraphNumberReadoutDrawDigits(context, {
+        text: valueText,
+        centerX: digitX,
+        centerY: digitY,
+        fontFamily: digitFontFamily,
+        fontSize: digitFontSize,
+        cellW,
+        rgb: inkRgb,
+        alpha: 1,
+        softBlurPx: 0,
+        glow: 0,
+        plate: false,
+        composite: "source-over",
+      });
+    }
 
-  if (hasUnit) {
-    const labelFontSize = nodeGraphNumberReadoutUnitFontSize(
-      labelHeight,
-      layout.contentW || width,
-      digitFontSize,
-      largeUnit,
-    );
-    context.globalCompositeOperation = "source-over";
-    context.font = `700 ${labelFontSize}px "Consolas", "Courier New", monospace`;
-    context.textAlign = "center";
-    context.textBaseline = "middle";
-    context.fillStyle = `rgba(${inkRgb[0]}, ${inkRgb[1]}, ${inkRgb[2]}, ${largeUnit ? 0.78 : 0.55})`;
-    context.fillText(
-      unit,
-      left + padPx + layout.contentW * 0.5,
-      top + padPx + digitAreaHeight + labelHeight * 0.5,
-    );
+    if (hasUnit && labelHeight > 0.25 && digitFontSize > 0.25) {
+      const labelFontSize = nodeGraphNumberReadoutUnitFontSize(
+        labelHeight,
+        layout.contentW || width,
+        digitFontSize,
+        largeUnit,
+      );
+      context.globalCompositeOperation = "source-over";
+      context.font = `700 ${labelFontSize}px "Consolas", "Courier New", monospace`;
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillStyle = `rgba(${inkRgb[0]}, ${inkRgb[1]}, ${inkRgb[2]}, ${largeUnit ? 0.78 : 0.55})`;
+      context.fillText(
+        unit,
+        left + padPx + layout.contentW * 0.5,
+        top + padPxY + digitAreaHeight + labelHeight * 0.5,
+      );
+    }
   }
 
   if (shadowDist > 0.001) {
@@ -1215,27 +1353,48 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
         digitFontFamily,
         width,
         height,
-        { hasUnit, largeUnit: residualLargeUnit, padding01: residualPad01 },
+        {
+          hasUnit,
+          largeUnit: residualLargeUnit,
+          padding01: residualPad01,
+          faceStyle: "led",
+          pixelRatio,
+        },
       );
       const residualPad = residualLayout.padPx || 0;
+      const residualPadY = residualLayout.padPxY != null ? residualLayout.padPxY : residualPad;
       burnCtx.setTransform(1, 0, 0, 1, 0, 0);
       burnCtx.save();
       burnCtx.globalCompositeOperation = "source-over";
       // White energy at alpha = Bright — only changed cells (drawDigits skips "!").
-      nodeGraphNumberReadoutDrawDigits(burnCtx, {
-        text: depositText,
-        centerX: left + residualPad + residualLayout.contentW * 0.5,
-        centerY: top + residualPad + residualLayout.digitAreaH * 0.5,
-        fontFamily: digitFontFamily,
-        fontSize: residualLayout.fontSize,
-        cellW: residualLayout.cellW,
-        rgb: [255, 255, 255],
-        alpha: bright,
-        softBlurPx: 0,
-        glow: 0,
-        plate: false,
-        energy: true,
-      });
+      // Pin mode: one phosphor pixel of deposit energy.
+      if (residualLayout.pixelPin) {
+        nodeGraphNumberReadoutDrawPixelPin(
+          burnCtx,
+          residualLayout,
+          left,
+          top,
+          width,
+          height,
+          [255, 255, 255],
+          bright,
+        );
+      } else {
+        nodeGraphNumberReadoutDrawDigits(burnCtx, {
+          text: depositText,
+          centerX: left + residualPad + residualLayout.contentW * 0.5,
+          centerY: top + residualPadY + residualLayout.digitAreaH * 0.5,
+          fontFamily: digitFontFamily,
+          fontSize: residualLayout.fontSize,
+          cellW: residualLayout.cellW,
+          rgb: [255, 255, 255],
+          alpha: bright,
+          softBlurPx: 0,
+          glow: 0,
+          plate: false,
+          energy: true,
+        });
+      }
       burnCtx.restore();
       // Deposit energy starts at Bright (Ghost only keeps it alive while decaying).
       canvas._numberReadoutResidualEnergy = Math.max(
@@ -1275,15 +1434,22 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     digitFontFamily,
     width,
     height,
-    { hasUnit, largeUnit, padding01: pad01 },
+    {
+      hasUnit,
+      largeUnit,
+      padding01: pad01,
+      faceStyle: "led",
+      pixelRatio,
+    },
   );
   const digitFontSize = layout.fontSize;
   const cellW = layout.cellW;
   const labelHeight = layout.labelH;
   const digitAreaHeight = layout.digitAreaH;
   const padPx = layout.padPx || 0;
+  const padPxY = layout.padPxY != null ? layout.padPxY : padPx;
   const digitX = left + padPx + layout.contentW * 0.5;
-  const digitY = top + padPx + digitAreaHeight * 0.5;
+  const digitY = top + padPxY + digitAreaHeight * 0.5;
 
   const depositRgb = depositActive
     ? nodeGraphNumberReadoutGhostRgbFromEnergy(depositEnergy, gradientStops, peakHex)
@@ -1301,8 +1467,22 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     nodeGraphNumberReadoutPresentBurnPlate(context, burnPlate, depositRgb, 1);
   }
 
-  // Live digits over residual.
-  if (alpha > 0.001 && !valueText.includes("!")) {
+  // Max padding: one phosphor pixel of live light.
+  if (layout.pixelPin) {
+    if (alpha > 0.001 && !valueText.includes("!")) {
+      nodeGraphNumberReadoutDrawPixelPin(
+        context,
+        layout,
+        left,
+        top,
+        width,
+        height,
+        rgb,
+        alpha,
+      );
+    }
+  } else if (digitFontSize > 0.25 && alpha > 0.001 && !valueText.includes("!")) {
+    // Live digits over residual.
     const lightBlend = String(settings.lightBlend || "occlude").trim().toLowerCase() || "occlude";
     if (lightBlend === "occlude") {
       const plateRgb = (() => {
@@ -1358,7 +1538,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     }
   }
 
-  if (hasUnit) {
+  if (hasUnit && labelHeight > 0.25 && digitFontSize > 0.25) {
     const labelFontSize = nodeGraphNumberReadoutUnitFontSize(
       labelHeight,
       layout.contentW || width,

@@ -28,6 +28,7 @@
   const PUNCH_INSET_CSS = 1.25;
 
   // Prefer painted canvases first; shells only if no canvas child.
+  // Hovered modules punch as whole .dsp-node rects (see room-dimmer-hover-cutout).
   const LIGHT_SELECTOR = [
     "canvas.node-phosphor-waveform-canvas",
     "canvas.node-module-scope-local-fallback-canvas",
@@ -37,6 +38,7 @@
     "canvas.node-matrix-display-canvas",
     "canvas.node-filter-curve-canvas",
     ".node-led-lamp",
+    ".dsp-node.room-dimmer-hover-cutout",
     ".node-module-scope-window",
     ".node-xy-pad",
     ".node-number-readout-face",
@@ -298,6 +300,8 @@ void main() {
    */
   function resolvePunchElement(el) {
     if (!el) return null;
+    // Full-module hover cutout: punch the whole .dsp-node, not a face child.
+    if (el.matches?.(".dsp-node.room-dimmer-hover-cutout")) return el;
     if (el.matches?.("canvas.node-phosphor-waveform-canvas")) return el;
     if (el.matches?.("canvas.node-module-scope-local-fallback-canvas")) return el;
     if (el.matches?.("canvas.node-xy-pad-canvas")) return el;
@@ -600,10 +604,111 @@ void main() {
     });
   }
 
+  /** UI Dev: full-module cutout while pointer hovers a module (default on). */
+  let hoverCutoutEnabled = true;
+  let hoverCutoutModule = null;
+
+  function isHoverCutoutEnabled() {
+    if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp
+      && typeof nodeGraphMvp.hoverModuleDimmerCutoutEnabled === "boolean") {
+      return nodeGraphMvp.hoverModuleDimmerCutoutEnabled;
+    }
+    return hoverCutoutEnabled;
+  }
+
+  function clearHoverCutoutClass(el) {
+    if (!el?.classList) return;
+    el.classList.remove("room-dimmer-hover-cutout");
+    if (el.dataset?.roomDimmerHover === "1") {
+      delete el.dataset.roomDimmerHover;
+      // Only clear strength if we set it for hover (don't clobber painted faces).
+      if (el.dataset.lightStrength === "1" && el.dataset.roomDimmerHoverStrength === "1") {
+        delete el.dataset.lightStrength;
+        delete el.dataset.roomDimmerHoverStrength;
+      } else {
+        delete el.dataset.roomDimmerHoverStrength;
+      }
+    }
+  }
+
+  function clearAllHoverCutouts() {
+    document.querySelectorAll(".dsp-node.room-dimmer-hover-cutout").forEach(clearHoverCutoutClass);
+    hoverCutoutModule = null;
+  }
+
+  function setHoverCutoutModule(moduleEl) {
+    if (!isHoverCutoutEnabled()) {
+      if (hoverCutoutModule) {
+        clearHoverCutoutClass(hoverCutoutModule);
+        hoverCutoutModule = null;
+        scheduleDraw();
+      }
+      return;
+    }
+    if (moduleEl === hoverCutoutModule) return;
+    if (hoverCutoutModule) {
+      clearHoverCutoutClass(hoverCutoutModule);
+    }
+    hoverCutoutModule = moduleEl || null;
+    if (hoverCutoutModule) {
+      hoverCutoutModule.classList.add("room-dimmer-hover-cutout");
+      hoverCutoutModule.dataset.roomDimmerHover = "1";
+      hoverCutoutModule.dataset.roomDimmerHoverStrength = "1";
+      hoverCutoutModule.dataset.lightStrength = "1";
+    }
+    scheduleDraw();
+  }
+
+  function bindHoverCutout() {
+    const ws = document.getElementById("nodeGraphWorkspace");
+    if (!ws || ws.dataset.roomDimmerHoverBound === "1") return;
+    ws.dataset.roomDimmerHoverBound = "1";
+    ws.addEventListener("pointerover", (event) => {
+      if (!isHoverCutoutEnabled()) return;
+      const moduleEl = event.target?.closest?.(".dsp-node");
+      if (moduleEl && ws.contains(moduleEl)) {
+        setHoverCutoutModule(moduleEl);
+      }
+    });
+    ws.addEventListener("pointerout", (event) => {
+      if (!hoverCutoutModule) return;
+      const related = event.relatedTarget;
+      // Still inside the same module (or a child that left into a non-module).
+      if (related && hoverCutoutModule.contains(related)) return;
+      if (related?.closest?.(".dsp-node") === hoverCutoutModule) return;
+      // Moving to another module is handled by pointerover on that module.
+      const nextModule = related?.closest?.(".dsp-node");
+      if (nextModule && ws.contains(nextModule)) {
+        setHoverCutoutModule(nextModule);
+        return;
+      }
+      setHoverCutoutModule(null);
+    });
+    ws.addEventListener("pointerleave", () => {
+      setHoverCutoutModule(null);
+    });
+  }
+
+  function setHoverModuleDimmerCutoutEnabled(on) {
+    hoverCutoutEnabled = Boolean(on);
+    if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp) {
+      nodeGraphMvp.hoverModuleDimmerCutoutEnabled = hoverCutoutEnabled;
+    }
+    if (!hoverCutoutEnabled) {
+      clearAllHoverCutouts();
+      scheduleDraw();
+    }
+  }
+
   function bind() {
     load();
     bindButton();
+    bindHoverCutout();
     syncButton();
+    if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp
+      && typeof nodeGraphMvp.hoverModuleDimmerCutoutEnabled === "boolean") {
+      hoverCutoutEnabled = nodeGraphMvp.hoverModuleDimmerCutoutEnabled;
+    }
     if (state.dim > 0.0005) scheduleDraw();
     window.addEventListener("resize", () => {
       if (state.dim > 0.0005) scheduleDraw();
@@ -620,6 +725,8 @@ void main() {
   window.nodeGraphRoomDimMax = () => 1;
   window.bindNodeGraphRoomDimmer = bind;
   window.setNodeGraphLightStrength = setLightStrength;
+  window.scheduleNodeGraphRoomDimmerDraw = scheduleDraw;
+  window.setNodeGraphHoverModuleDimmerCutoutEnabled = setHoverModuleDimmerCutoutEnabled;
 
   window.setNodeGraphShaderScriptEnabled = (on) => {
     if (!on) setDim(0);

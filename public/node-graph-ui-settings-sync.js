@@ -85,6 +85,7 @@ function syncNodeUiDevSettingsHeaderControls() {
   syncNodeUiDevSliderFillColorControls();
   const settingsView = document.getElementById("nodeSettingsView");
   const mouseLightEnabledInput = document.getElementById("nodeUiDevMouseLightEnabled");
+  const hoverModuleDimmerCutoutInput = document.getElementById("nodeUiDevHoverModuleDimmerCutout");
   const showOriginMarkerInput = document.getElementById("nodeUiDevShowOriginMarker");
   const scopeBloomEnabledInput = document.getElementById("nodeUiDevScopeBloomEnabled");
   const textSizeInput = document.getElementById("nodeUiDevSettingsHeaderTextSize");
@@ -183,6 +184,7 @@ function syncNodeUiDevSettingsHeaderControls() {
   if (
     !settingsView ||
     !mouseLightEnabledInput ||
+    !hoverModuleDimmerCutoutInput ||
     !showOriginMarkerInput ||
     !scopeBloomEnabledInput ||
     !textSizeInput ||
@@ -283,6 +285,7 @@ function syncNodeUiDevSettingsHeaderControls() {
   }
 
   const mouseLightEnabled = Boolean(mouseLightEnabledInput.checked);
+  const hoverModuleDimmerCutoutEnabled = Boolean(hoverModuleDimmerCutoutInput.checked);
   const showOriginMarker = Boolean(showOriginMarkerInput.checked);
   const scopeBloomEnabled = Boolean(scopeBloomEnabledInput.checked);
   const textPercent = Math.max(0, Math.min(100, Number(textSizeInput.value) || 0));
@@ -388,9 +391,16 @@ function syncNodeUiDevSettingsHeaderControls() {
   if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp) {
     const previousScopeBloomEnabled = Boolean(nodeGraphMvp.scopeBloomEnabled);
     nodeGraphMvp.scopeBloomEnabled = scopeBloomEnabled;
+    nodeGraphMvp.hoverModuleDimmerCutoutEnabled = hoverModuleDimmerCutoutEnabled;
     document
       .getElementById("nodeGraphWorkspace")
       ?.classList.toggle("scope-bloom-enabled", scopeBloomEnabled);
+    document
+      .getElementById("nodeGraphWorkspace")
+      ?.classList.toggle("hover-module-dimmer-cutout-enabled", hoverModuleDimmerCutoutEnabled);
+    if (typeof setNodeGraphHoverModuleDimmerCutoutEnabled === "function") {
+      setNodeGraphHoverModuleDimmerCutoutEnabled(hoverModuleDimmerCutoutEnabled);
+    }
     if (previousScopeBloomEnabled !== scopeBloomEnabled && typeof scheduleNodeGraphModuleScopeDraw === "function") {
       scheduleNodeGraphModuleScopeDraw();
     }

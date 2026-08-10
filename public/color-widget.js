@@ -4,6 +4,13 @@ const DRAG_SCALE = {
   percent: 0.18,
 };
 
+/**
+ * Horizontal inset for the hue spectrum + sample thumb (fraction of bar width).
+ * Spectrum paint and drag-dot track share this pad so neither clips the chrome.
+ */
+const HUE_TRACK_PAD = 0.08;
+const HUE_TRACK_PAD_PCT = `${(HUE_TRACK_PAD * 100).toFixed(2)}%`;
+
 /** Labels too generic to waste a title strip on (keep Stop/Level — gradient needs them). */
 const GENERIC_LABELS = new Set([
   "",
@@ -15,17 +22,55 @@ const GENERIC_LABELS = new Set([
   "light",
 ]);
 
-/** App-wide hue spectrum — single source of truth (CSS + any host overrides). */
-const SCW_HUE_SPECTRUM = `linear-gradient(
-  90deg,
-  #ff0000 0%,
-  #ffff00 17%,
-  #00ff00 33%,
-  #00ffff 50%,
-  #0000ff 67%,
-  #ff00ff 83%,
-  #ff0000 100%
-)`;
+/** Wrap hue degrees into [0, 360). Used for spectrum origin / absolute color math. */
+function wrapHueDeg(h) {
+  const n = Number(h) || 0;
+  return ((n % 360) + 360) % 360;
+}
+
+/**
+ * App-wide hue spectrum for a given left-edge origin (degrees).
+ * origin 0 → classic red…red; origin 120 → green at left, etc.
+ */
+function hueSpectrumCss(originDeg = 0) {
+  const o = wrapHueDeg(originDeg);
+  const stops = [];
+  for (let i = 0; i <= 6; i += 1) {
+    const deg = wrapHueDeg(o + i * 60);
+    stops.push(`hsl(${deg} 100% 50%) ${((i / 6) * 100).toFixed(3)}%`);
+  }
+  return `linear-gradient(90deg, ${stops.join(", ")})`;
+}
+
+/** Default spectrum (origin 0 / red-left) — CSS var fallback. */
+const SCW_HUE_SPECTRUM = hueSpectrumCss(0);
+
+/** Map sample t 0…1 → thumb center as % of bar (padded track). */
+function hueSampleTToThumbPercent(t) {
+  const u = clamp(Number(t) || 0, 0, 1);
+  return (HUE_TRACK_PAD + u * (1 - 2 * HUE_TRACK_PAD)) * 100;
+}
+
+/** Map client X on hue bar → sample t 0…1 (clamped; no wrap). */
+function hueClientXToSampleT(clientX, rect) {
+  if (!rect || !(rect.width > 0)) {
+    return 0;
+  }
+  const padPx = HUE_TRACK_PAD * rect.width;
+  const usable = Math.max(1e-6, rect.width - 2 * padPx);
+  const x = clamp(clientX - rect.left, padPx, rect.width - padPx);
+  return (x - padPx) / usable;
+}
+
+/** Absolute hue 0…360 from spectrum origin + sample t. */
+function absoluteHueFromOriginSample(originDeg, sampleT) {
+  return wrapHueDeg(wrapHueDeg(originDeg) + clamp(Number(sampleT) || 0, 0, 1) * 360);
+}
+
+/** Sample t 0…1 for absolute hue on a spectrum with the given origin. */
+function sampleTFromAbsoluteHue(originDeg, absoluteH) {
+  return wrapHueDeg(wrapHueDeg(absoluteH) - wrapHueDeg(originDeg)) / 360;
+}
 
 const css = `
   .scw-mount {
@@ -39,6 +84,7 @@ const css = `
     --color-widget-toast-ink: rgba(243, 240, 230, 0.92);
     --color-widget-label-ink: #ffffff;
     --scw-hue-spectrum: ${SCW_HUE_SPECTRUM.replace(/\s+/g, " ").trim()};
+    --scw-hue-pad: ${HUE_TRACK_PAD_PCT};
     container-type: size;
     display: grid;
     min-height: 0;
@@ -187,32 +233,55 @@ const css = `
     outline-offset: -1px;
   }
 
-  /* Hue spectrum SSOT — beat global/popover button panel backgrounds. */
+  /*
+   * Hue spectrum + thumb share --scw-hue-pad inset from the control chrome.
+   * Spectrum is only painted in the padded band (not full-bleed).
+   * Origin shifts via --scw-hue-spectrum (track drag).
+   */
   .scw-hue,
   button.scw-control.scw-hue,
   .scw-mount button.scw-control.scw-hue {
     background-color: transparent !important;
     background-image: var(--scw-hue-spectrum) !important;
     background-repeat: no-repeat !important;
-    background-size: 100% 100% !important;
-    cursor: ew-resize;
+    /* Inset rainbow: same pad as the sample-dot track. */
+    background-size: calc(100% - 2 * var(--scw-hue-pad, 8%)) 100% !important;
+    background-position: var(--scw-hue-pad, 8%) 0 !important;
+    /* Track drag shifts spectrum origin (reference hue at left). */
+    cursor: grab;
+    overflow: hidden;
+  }
+  .scw-hue:active,
+  button.scw-control.scw-hue:active {
+    cursor: grabbing;
   }
 
-  /* Hue position: small white circle */
+  /*
+   * Sample thumb rides the same padded track as the spectrum ends.
+   * pointer-events on so thumb drag moves the 0…360 sample point only.
+   */
   .scw-hue-thumb {
     position: absolute;
     top: 50%;
-    left: var(--scw-hue-pos, 0%);
-    width: 8px;
-    height: 8px;
-    margin: -4px 0 0 -4px;
+    left: var(--scw-hue-pos, 8%);
+    width: 10px;
+    height: 10px;
+    margin: -5px 0 0 -5px;
     box-sizing: border-box;
     border: 1px solid rgba(0, 0, 0, 0.55);
     border-radius: 50%;
     background: #fff;
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
-    pointer-events: none;
-    z-index: 1;
+    cursor: ew-resize;
+    pointer-events: auto;
+    touch-action: none;
+    z-index: 2;
+  }
+  /* Expand hit target without growing the visible disc. */
+  .scw-hue-thumb::before {
+    content: "";
+    position: absolute;
+    inset: -10px;
   }
 
   /* 4-corner plane: UL grey · UR full sat · LL black · LR white */
@@ -476,6 +545,10 @@ export class SoundColorWidget {
         // Pure hue stop (s=100, l=50) — Bright does grey→hue→white outside the widget.
         ? { h: rawColor.h, s: 100, l: 50, a: 1 }
         : rawColor;
+    // Spectrum left-edge origin (degrees). Track drag rotates this reference.
+    this.hueOrigin = 0;
+    // Sample position along the current spectrum 0…1 (thumb; no wrap — clamps).
+    this.hueSampleT = sampleTFromAbsoluteHue(this.hueOrigin, this.color.h);
     this.planeUV = findPlaneUV(this.color.h, this.color);
     this.drag = null;
     this.dragElement = null;
@@ -528,6 +601,10 @@ export class SoundColorWidget {
     }
     next.a = 1;
     this.color = next;
+    // Keep spectrum origin; move sample thumb to match absolute hue (unless caller owns it).
+    if (!options.preserveHueSample && this.channels !== "bw") {
+      this.hueSampleT = sampleTFromAbsoluteHue(this.hueOrigin, this.color.h);
+    }
     if (!options.preservePlaneUV && this.channels !== "hue") {
       this.planeUV = findPlaneUV(this.color.h, this.color);
     }
@@ -540,6 +617,26 @@ export class SoundColorWidget {
       }));
       this.onChange?.(detail);
     }
+  }
+
+  /** Apply absolute hue from current origin + sample t (thumb / origin drag). */
+  applyHueFromSampleAndOrigin(emitChange = true) {
+    const h = absoluteHueFromOriginSample(this.hueOrigin, this.hueSampleT);
+    // normalizeColor clamps 0…360; store wrapped 0…360 for plane/CSS.
+    const abs = wrapHueDeg(h);
+    const uv = this.planeUV || { u: 0.5, v: 0.5 };
+    if (this.channels === "hue") {
+      this.setColor({ h: abs, s: 100, l: 50 }, emitChange, {
+        preserveHueSample: true,
+        preservePlaneUV: true,
+      });
+      return;
+    }
+    const next = planeColorHsl(abs, uv.u, uv.v, abs);
+    this.setColor(next, emitChange, {
+      preserveHueSample: true,
+      preservePlaneUV: true,
+    });
   }
 
   hasTitle() {
@@ -562,8 +659,8 @@ export class SoundColorWidget {
             <canvas class="scw-plane-canvas" aria-hidden="true"></canvas>
             <span class="scw-plane-thumb" aria-hidden="true"></span>
           </button>
-          <button type="button" class="scw-control scw-hue" data-part="hue" aria-label="Hue">
-            <span class="scw-hue-thumb" aria-hidden="true"></span>
+          <button type="button" class="scw-control scw-hue" data-part="hue" aria-label="Hue spectrum (drag to shift reference)">
+            <span class="scw-hue-thumb" data-part="hue-thumb" role="slider" aria-label="Hue sample" aria-valuemin="0" aria-valuemax="360"></span>
           </button>
         </div>
       `;
@@ -602,12 +699,25 @@ export class SoundColorWidget {
     }
     const hueBar = this.root.querySelector(".scw-hue");
     if (hueBar) {
-      // Hue 0…360 maps left→right; marker is the unfilled black rect.
-      const h = this.channels === "bw" ? 0 : Number(this.color.h) || 0;
-      const pos = clamp(h / 360, 0, 1) * 100;
-      hueBar.style.setProperty("--scw-hue-pos", `${pos.toFixed(3)}%`);
+      // Spectrum origin + shared pad for rainbow strip and sample thumb.
+      const origin = this.channels === "bw" ? 0 : Number(this.hueOrigin) || 0;
+      const sampleT = this.channels === "bw"
+        ? 0
+        : clamp(Number(this.hueSampleT) || 0, 0, 1);
+      hueBar.style.setProperty("--scw-hue-pad", HUE_TRACK_PAD_PCT);
+      hueBar.style.setProperty("--scw-hue-spectrum", hueSpectrumCss(origin));
+      hueBar.style.setProperty("--scw-hue-pos", `${hueSampleTToThumbPercent(sampleT).toFixed(3)}%`);
+      const thumb = hueBar.querySelector(".scw-hue-thumb");
+      if (thumb) {
+        const absH = Math.round(absoluteHueFromOriginSample(origin, sampleT));
+        thumb.setAttribute("aria-valuenow", String(absH));
+        thumb.title = `Hue ${absH}° (drag sample · drag bar to shift spectrum)`;
+      }
       if (this.channels === "hue") {
-        hueBar.setAttribute("aria-label", `${ariaName} hue`);
+        hueBar.setAttribute(
+          "aria-label",
+          `${ariaName} hue — drag bar to shift reference, drag dot to sample`,
+        );
       }
     }
     if (this.channels !== "hue") {
@@ -767,7 +877,10 @@ export class SoundColorWidget {
     event.preventDefault();
     event.stopPropagation();
     window.getSelection?.()?.removeAllRanges();
-    const captureElement = partElement || this.root;
+    // Capture on the hue bar (or plane) so thumb + track share one surface.
+    const captureElement = part === "hue-thumb"
+      ? (partElement.closest?.(".scw-hue") || partElement)
+      : (partElement || this.root);
     captureElement.setPointerCapture?.(event.pointerId);
     this.dragElement = captureElement;
     this.drag = {
@@ -777,9 +890,21 @@ export class SoundColorWidget {
       startY: event.clientY,
       fine: event.shiftKey,
       startColor: { ...this.color },
+      startHueOrigin: Number(this.hueOrigin) || 0,
+      startHueSampleT: clamp(Number(this.hueSampleT) || 0, 0, 1),
     };
     if (part === "plane" && this.channels !== "hue") {
       this.setPlaneFromClient(event.clientX, event.clientY);
+    }
+    // Thumb: jump sample to press point (still clamped to padded track).
+    if (part === "hue-thumb" && this.channels !== "bw") {
+      const hueBar = this.root?.querySelector(".scw-hue");
+      const rect = hueBar?.getBoundingClientRect?.();
+      if (rect) {
+        this.hueSampleT = hueClientXToSampleT(event.clientX, rect);
+        this.drag.startHueSampleT = this.hueSampleT;
+        this.applyHueFromSampleAndOrigin(true);
+      }
     }
   }
 
@@ -806,15 +931,39 @@ export class SoundColorWidget {
       this.setPlaneFromClient(event.clientX, event.clientY);
       return;
     }
-    const delta = this.dragDelta(event);
-    const start = this.drag.startColor;
-    if (this.drag.part === "hue" && this.channels !== "bw") {
-      // Hue bar → H only; plane UV stays put (re-sample s/l on the new hue).
-      // App-wide policy: no wrap — stop at the red edges (0 and 360).
-      const h = Math.round(clamp(start.h + delta * DRAG_SCALE.hue, 0, 360));
-      const uv = this.planeUV || { u: 0.5, v: 0.5 };
-      const next = planeColorHsl(h, uv.u, uv.v, h);
-      this.setColor(next, true, { preservePlaneUV: true });
+    if (this.channels === "bw") {
+      return;
+    }
+    const hueBar = this.root?.querySelector(".scw-hue");
+    const rect = hueBar?.getBoundingClientRect?.();
+
+    // Thumb drag → move sample point along 0…360 (no wrap; clamp at padded ends).
+    if (this.drag.part === "hue-thumb") {
+      if (rect) {
+        this.hueSampleT = hueClientXToSampleT(event.clientX, rect);
+      } else {
+        const delta = this.dragDelta(event);
+        const track = Math.max(1, rect?.width || 120) * (1 - 2 * HUE_TRACK_PAD);
+        this.hueSampleT = clamp(
+          this.drag.startHueSampleT + (delta / track),
+          0,
+          1,
+        );
+      }
+      this.applyHueFromSampleAndOrigin(true);
+      return;
+    }
+
+    // Track drag → shift spectrum origin (reference hue at left; e.g. 0° becomes green).
+    // Thumb stays fixed on screen; color under the thumb updates with the shift.
+    if (this.drag.part === "hue") {
+      const trackW = Math.max(1, (rect?.width || 120) * (1 - 2 * HUE_TRACK_PAD));
+      const fine = this.drag.fine || event.shiftKey ? 0.15 : 1;
+      const dx = (event.clientX - this.drag.startX) * fine;
+      // Drag spectrum with the pointer (content follows finger).
+      const deltaDeg = -(dx / trackW) * 360;
+      this.hueOrigin = wrapHueDeg(this.drag.startHueOrigin + deltaDeg);
+      this.applyHueFromSampleAndOrigin(true);
     }
   }
 

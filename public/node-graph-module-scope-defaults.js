@@ -241,7 +241,7 @@ const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   decimals: 2,
   // How live Light composites over residual gradient (canvas blend / occlude).
   lightBlend: "occlude",
-  // Inset of digits from the plate edge 0…1 (0 = flush, 1 = deep margin).
+  // Digit inset 0…1 linear vs face square min side (0 = edge, 1 = one pin pixel).
   facePadding: 0.06,
   // Energy → color LUT for decaying deposits (live digits use solid Light).
   gradientStops: nodeGraphScopePhosphorLookDefaults.gradientStops,
@@ -262,7 +262,7 @@ const nodeGraphValueLcdSettingsDefaults = Object.freeze({
   ghostBrightness: 0,
   decimals: 2,
   lightBlend: "source-over",
-  // Inset of digits from the plate edge 0…1 (0 = flush, 1 = deep margin).
+  // Digit inset 0…1 linear vs face square min side (0 = edge, 1 = one pin pixel).
   facePadding: 0.06,
   // Permanent unlit “8” skeleton amount 0…1 (multiply FG into plate).
   unlitSegments: 0.28,

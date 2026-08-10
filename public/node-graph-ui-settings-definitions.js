@@ -33,6 +33,12 @@ const nodeUiDevFontFamilyOptions = Object.freeze([
 
 const nodeUiDevSettingControls = Object.freeze([
   { defaultValue: true, id: "nodeUiDevMouseLightEnabled", key: "mouseLightEnabled", type: "boolean" },
+  {
+    defaultValue: true,
+    id: "nodeUiDevHoverModuleDimmerCutout",
+    key: "hoverModuleDimmerCutoutEnabled",
+    type: "boolean",
+  },
   { defaultValue: false, id: "nodeUiDevShowOriginMarker", key: "showOriginMarker", type: "boolean" },
   { defaultValue: false, id: "nodeUiDevScopeBloomEnabled", key: "scopeBloomEnabled", type: "boolean" },
   { defaultValue: 100, id: "nodeUiDevSettingsHeaderTextSize", key: "settingsHeaderTextSize", max: 100, min: 0, type: "number" },
@@ -119,6 +125,7 @@ const nodeUiDevSettingSections = Object.freeze([
     title: "workspace",
     ids: [
       "nodeUiDevMouseLightEnabled",
+      "nodeUiDevHoverModuleDimmerCutout",
       "nodeUiDevShowOriginMarker",
       "nodeUiDevScopeBloomEnabled",
       "nodeUiDevModularHeaderButtonBackground",

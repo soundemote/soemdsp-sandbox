@@ -29,6 +29,14 @@
   --node-constraint-cpu: #f0b35f;
   --node-constraint-ram: #5fc7ee;
   --node-constraint-gpu: #c083ff;
+  /*
+   * App-wide default cursor: tiny white + (hotspot center).
+   * Explicit cursors (pointer, text, grab, resize, move, …) still win where set.
+   */
+  --node-dot-cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 13 13'%3E%3Cpath d='M2.5 6.5h8M6.5 2.5v8' fill='none' stroke='%23ffffff' stroke-width='1' stroke-linecap='square'/%3E%3C/svg%3E") 6 6, crosshair;
+  --node-default-cursor: var(--node-dot-cursor);
+  /* Module drag only — OS arrow for familiarity (not the app + / not “move”). */
+  --node-module-move-cursor: default;
 }
 
 * {
@@ -39,6 +47,7 @@ html {
   background: #000000;
   overflow-y: auto;
   scrollbar-gutter: stable both-edges;
+  cursor: var(--node-default-cursor);
 }
 
 body {
@@ -49,6 +58,7 @@ body {
   font-family: "Segoe UI", Arial, sans-serif;
   user-select: none;
   -webkit-user-select: none;
+  cursor: var(--node-default-cursor);
 }
 
 :is(input, textarea, select, [contenteditable="true"], .node-text-selectable),
@@ -966,7 +976,7 @@ audio {
   color: var(--muted);
   font: 0.62rem/1 var(--mono);
   /* Doubles as the module's drag handle (attachNodeGraphNodeEvents). */
-  cursor: var(--node-move-cursor);
+  cursor: var(--node-module-move-cursor);
 }
 
 .node-sample-phase-readout strong {
@@ -1951,7 +1961,7 @@ html.soemdsp-hide-ui .status-strip {
   color: var(--muted);
   font: 700 0.62rem/1 "Cascadia Mono", Consolas, monospace;
   touch-action: none;
-  cursor: var(--node-move-cursor);
+  cursor: grab;
   user-select: none;
   transform: none;
 }
@@ -2913,7 +2923,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 .node-modular-view-size-readout {
   flex: 0.72 1 0;
   color: color-mix(in srgb, var(--accent-2) 90%, transparent);
-  cursor: default;
+  cursor: var(--node-default-cursor);
 }
 
 .node-selection-count-readout {
@@ -4607,7 +4617,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   --node-port-idle-stroke: #f3f1ec;
   --node-port-hover-fill: #f3f1ec;
   --node-port-hover-stroke: #f3f1ec;
-  --node-dot-cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 13 13'%3E%3Cpath d='M2.5 6.5h8M6.5 2.5v8' fill='none' stroke='%23ffffff' stroke-width='1' stroke-linecap='square'/%3E%3C/svg%3E") 6 6, crosshair;
+  /* --node-dot-cursor / --node-default-cursor live on :root (app-wide SSOT). */
   --node-move-cursor: move;
   --node-hover-glow-size-ratio: 0.5;
   --node-hover-glow-size: calc(var(--node-port-diameter) * var(--node-hover-glow-size-ratio));
@@ -11218,7 +11228,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 
 .node-rendered-player button:disabled {
   opacity: 0.35;
-  cursor: default;
+  cursor: var(--node-default-cursor);
 }
 
 .node-rendered-player-wave {
@@ -12054,14 +12064,13 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   border-top: 1px solid rgba(128, 224, 224, 0.16);
   border-bottom: 1px solid rgba(128, 224, 224, 0.16);
   background: #020609;
-  /* Keep the default arrow on the graph face (no grab/hand/move from the
-     solid-shell drag chrome or workspace pan cursors). */
-  cursor: default;
+  /* App default tiny + (no grab/hand/move from shell drag / workspace pan). */
+  cursor: var(--node-default-cursor);
 }
 
 .node-module-graph-display,
 .node-module-graph-display * {
-  cursor: default !important;
+  cursor: var(--node-default-cursor) !important;
 }
 
 .node-module-graph-display:focus-visible {
@@ -13161,14 +13170,14 @@ input.node-header-title {
   outline: none;
   /* Chrome title is the module type name (read-only). Alias is edited under
      Module Settings; a text cursor would falsely advertise rename here. */
-  cursor: default;
+  cursor: var(--node-default-cursor);
 }
 
 input.node-header-title:focus {
   /* Read-only type name — no edit chrome. */
   background: transparent;
   outline: none;
-  cursor: default;
+  cursor: var(--node-default-cursor);
 }
 
 .dsp-node-io-section {
@@ -13370,6 +13379,37 @@ input.node-header-title:focus {
   color: color-mix(in srgb, var(--text) 88%, var(--accent));
 }
 
+/*
+ * Port hover glow uses box-shadow; overflow:hidden on the row clips it hard.
+ * Lift overflow + z-index only while the jack is actually hot so neighbors
+ * stay isolated when idle.
+ */
+.node-io-row:has(.node-port:hover),
+.node-io-row:has(.node-param-port:hover),
+.node-io-row.patch-point-hover,
+.dsp-node-io-section .node-io-row:hover:has(.node-port:hover) {
+  overflow: visible;
+  z-index: 8;
+}
+
+:is(.node-solid-module-shell, .node-module-chrome-layout-b-shell)
+  > .node-io-column
+  .node-io-row:has(.node-port:hover),
+:is(.node-solid-module-shell, .node-module-chrome-layout-b-shell)
+  > .node-io-column
+  .node-io-row.patch-point-hover {
+  overflow: visible;
+  z-index: 8;
+}
+
+/* Parent columns must not re-clip the elevated hover glow. */
+.node-io-column:has(.node-io-row:has(.node-port:hover)),
+.node-io-column:has(.node-io-row.patch-point-hover),
+.dsp-node-io-section:has(.node-port:hover),
+.dsp-node-io-section:has(.node-io-row.patch-point-hover) {
+  overflow: visible;
+}
+
 .node-execution-order-badge {
   display: inline-flex;
   align-items: center;
@@ -13387,7 +13427,7 @@ input.node-header-title:focus {
   font-size: 0.86rem;
   font-weight: 700;
   line-height: 1;
-  cursor: var(--node-move-cursor);
+  cursor: var(--node-module-move-cursor);
   user-select: none;
   -webkit-user-select: none;
 }
@@ -13467,7 +13507,13 @@ input.node-header-title:focus {
 
 .node-drag-handle {
   font-size: clamp(1rem, calc(var(--node-header-height) * var(--node-move-symbol-size-ratio, 0.6) * 0.47), 2rem);
-  cursor: var(--node-move-cursor);
+  cursor: var(--node-module-move-cursor);
+}
+
+/* While dragging a module, keep the familiar OS arrow (not grab/move/+). */
+.dsp-node.dragging,
+.dsp-node.dragging * {
+  cursor: var(--node-module-move-cursor) !important;
 }
 
 .node-bypass-button {

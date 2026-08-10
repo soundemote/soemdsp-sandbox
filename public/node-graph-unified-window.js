@@ -570,14 +570,16 @@ function openNodeGraphUnifiedWindowPage(page = "", options = {}) {
         }
         break;
       case "traceDisplaySettings": {
-        // Selected module with a display face → show its settings.
+        // Selected display face(s) → open settings (multi-select aware).
         // Otherwise blank page: "Right-click on a display".
-        const selectedId = typeof nodeGraphSingleSelectedNodeId === "function"
-          ? nodeGraphSingleSelectedNodeId()
-          : "";
+        const fromSelection = typeof nodeGraphTraceDisplaySettingsPrimaryFromSelection === "function"
+          ? nodeGraphTraceDisplaySettingsPrimaryFromSelection()
+          : (typeof nodeGraphSingleSelectedNodeId === "function"
+            ? nodeGraphSingleSelectedNodeId()
+            : "");
         const nodeId = String(
           options.nodeId
-          || selectedId
+          || fromSelection
           || nodeGraphMvp.sceneContextTargetNode
           || "",
         ).trim();

@@ -49,7 +49,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null) {
   }
   if (formType === "numberReadout" && key === "facePadding") {
     label = "Padding";
-    title = "Inset digits from the plate edge (0 = flush, 1 = deep margin). Same control on Value LED and Value LCD.";
+    title = "Linear 0…1 vs face square min side. 0 = digits hit the plate edge; 1 = one pin pixel of display (LED phosphor / LCD screen).";
   }
   if (formType === "numberReadout" && key === "innerShadowDistance") {
     label = "Shadow dist";
