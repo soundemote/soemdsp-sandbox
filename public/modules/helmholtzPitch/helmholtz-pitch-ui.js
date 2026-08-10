@@ -115,9 +115,9 @@ function nodeGraphMidiToNoteName(midi, options = null) {
   return `${letter}${acc}${nodeGraphMidiOctaveField(octave)}`;
 }
 
-/** Empty / no-pitch name plate — dash (not zeros). */
+/** Empty / no-pitch name plate — single DSEG-style dash (not zeros). */
 function nodeGraphMidiToNoteNameZero() {
-  return "—";
+  return "-";
 }
 
 function nodeGraphPitchDisplayModeNormalize(mode) {
@@ -143,13 +143,13 @@ function nodeGraphPitchDisplayModeLabel(mode) {
 }
 
 /**
- * No-pitch plate: dash (not zeros) so low-fidelity / below-threshold frames
- * read as "no lock" instead of 0.00 Hz.
+ * No-pitch plate: one LCD/DSEG dash (ASCII "-") so low-fidelity / below-threshold
+ * frames read as "no lock" instead of 0.00 — not an em dash (no DSEG glyph).
  */
 function nodeGraphPitchDetectorZeroDisplay(mode = "hz", decimals = 2) {
   void mode;
   void decimals;
-  return "—";
+  return "-";
 }
 
 /**

@@ -1629,7 +1629,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   // https://github.com/keshikan/DSEG#usage
   let liveValueText;
   if (slot?.type === "helmholtzPitch" && typeof nodeGraphPitchDetectorFormatDisplay === "function") {
-    // Live: dash (—) when no pitch / below threshold (not zeros).
+    // Live: single DSEG "-" when no pitch / below threshold (not zeros / not em dash).
     // Frozen (speed 0): hold last good — never invent a wipe over a locked reading.
     if (frozen && !hasSample) {
       liveValueText = " !"; // placeholder → ResolveHeld keeps last good / no paint
@@ -1649,7 +1649,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
     } else {
       liveValueText = typeof nodeGraphPitchDetectorZeroDisplay === "function"
         ? nodeGraphPitchDetectorZeroDisplay(pitchMode, decimals)
-        : "—";
+        : "-";
     }
   } else {
     liveValueText = hasSample
@@ -1663,7 +1663,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   }
   // Hold last good reading — never paint empty "!" over a held phosphor face
   // (pause + wire connect / deselect was clearing Pitch Detector ghosts).
-  // Pitch Detector live dash (—) is a real "no lock" glyph: paint it, don't hold.
+  // Pitch Detector live DSEG "-" is a real "no lock" glyph: paint it, don't hold.
   let valueText;
   if (
     slot?.type === "helmholtzPitch"
@@ -1791,9 +1791,8 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const peakHex = Array.isArray(gradientStops) && gradientStops.length
     ? (gradientStops[gradientStops.length - 1]?.color || "#fcfdbf")
     : (settings.color || "#fcfdbf");
-  // Note names: monospace (compact C3 / C#3). DSEG for Hz / MIDI #. Dash uses mono.
-  const pitchDash = String(valueText || "").includes("—") || String(valueText || "").trim() === "-";
-  const digitFontFamily = (pitchNameMode || (slot?.type === "helmholtzPitch" && pitchDash))
+  // Note names: monospace (compact C3 / C#3). Hz / MIDI # / no-lock "-" use DSEG.
+  const digitFontFamily = pitchNameMode
     ? '"Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace'
     : (nodeGraphNumberReadoutDsegReady
       ? '"DSEG7 Classic", "Consolas", monospace'
@@ -2010,7 +2009,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
       pixelRatio,
       zoom: nodeGraphNumberReadoutWorkspaceZoom(),
       fitText: liveFitText,
-      monoProbe: pitchNameMode || (slot?.type === "helmholtzPitch" && pitchDash),
+      monoProbe: pitchNameMode,
     },
   );
   const digitFontSize = layout.fontSize;
@@ -2040,7 +2039,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   }
 
   // Max padding: one phosphor pixel of live light.
-  // Pitch "—" no-lock glyph is intentional ink (IsEmptyPlaceholder would skip it).
+  // Pitch DSEG "-" no-lock glyph is intentional ink (IsEmptyPlaceholder would skip it).
   const pitchNoLockGlyph = slot?.type === "helmholtzPitch"
     && typeof nodeGraphPitchDetectorZeroDisplay === "function"
     && String(valueText) === String(nodeGraphPitchDetectorZeroDisplay(pitchMode, decimals));
