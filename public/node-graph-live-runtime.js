@@ -1,4 +1,4 @@
-﻿function setNodeGraphLiveProcessorError(message = "AudioWorklet processor error") {
+function setNodeGraphLiveProcessorError(message = "AudioWorklet processor error") {
   nodeGraphClearGpuAdditivePrime();
   setNodeGraphLiveOutputMuted(true);
   nodeGraphMvp.live.runtime = null;
