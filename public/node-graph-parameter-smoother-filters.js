@@ -5,7 +5,7 @@
 //
 // Register new types with nodeGraphRegisterParameterSmootherFilter(...).
 // Types:
-//   linear   — constant-rate linear ramp (L / lerp) over the smoothing time
+//   linear   — time-based linear lerp (L): always takes the full smoothing time
 //   onePole  — exponential chase (1P)
 //   twoPole  — cascaded one-poles (2P)
 //   papoulis — Optimum-L order-3 (Π)
@@ -134,13 +134,22 @@ function nodeGraphParameterSmootherFilterSnap(smoother, targetSignal) {
   smoother.outputBuffer = target;
 }
 
-// ── linear (constant-rate ramp / lerp over smoothing time) ────────────────
-// Host passes frequency = 1/seconds (same mapping as 1P). A full unit-range
-// move finishes in ~seconds; shorter distances finish sooner. Cheap and exact.
+// ── linear (time-based lerp over smoothing time) ─────────────────────────
+// Host passes frequency = 1/seconds (same mapping as 1P). When the target
+// changes, the value lerps from the current output to that target over
+// exactly `seconds` — independent of distance (0.01-range and full-range
+// moves both take the full smoothing time). Cheap and exact.
 
 nodeGraphRegisterParameterSmootherFilter("linear", {
   createState(initial = 0) {
-    return { outputBuffer: Number(initial) || 0 };
+    const v = Number(initial) || 0;
+    return {
+      outputBuffer: v,
+      rampFrom: v,
+      rampTo: v,
+      rampSamples: 0,
+      rampDuration: 0,
+    };
   },
   process(state, input, frequency, rate) {
     const prev = Number(state.outputBuffer) || 0;
@@ -149,21 +158,57 @@ nodeGraphRegisterParameterSmootherFilter("linear", {
     const freq = Math.max(0, Number(frequency) || 0);
     if (freq <= 0) {
       state.outputBuffer = target;
+      state.rampFrom = target;
+      state.rampTo = target;
+      state.rampSamples = 0;
+      state.rampDuration = 0;
       return target;
     }
-    // Unit distance in 1/freq seconds → step per sample in normalized space.
-    const maxStep = freq / safeRate;
-    const delta = target - prev;
-    if (Math.abs(delta) <= maxStep) {
+    // seconds = 1/freq → sample count for a complete move.
+    const durationSamples = Math.max(1, Math.round(safeRate / freq));
+    const prevTarget = Number(state.rampTo);
+    const targetChanged = !Number.isFinite(prevTarget) || Math.abs(prevTarget - target) > 1e-15;
+    if (targetChanged) {
+      state.rampFrom = prev;
+      state.rampTo = target;
+      state.rampSamples = 0;
+      state.rampDuration = durationSamples;
+    } else if ((Number(state.rampDuration) || 0) !== durationSamples) {
+      // Smooth Time changed mid-ramp: keep progress ratio, retarget length.
+      const oldDur = Math.max(1, Number(state.rampDuration) || durationSamples);
+      const progress = Math.min(1, (Number(state.rampSamples) || 0) / oldDur);
+      state.rampDuration = durationSamples;
+      state.rampSamples = Math.floor(progress * durationSamples);
+    }
+
+    // Already at target (e.g. after settle).
+    if (Math.abs(prev - target) <= nodeGraphParameterSmootherConvergenceEpsilon
+      && (Number(state.rampSamples) || 0) >= (Number(state.rampDuration) || 0)) {
       state.outputBuffer = target;
       return target;
     }
-    const out = prev + (delta < 0 ? -maxStep : maxStep);
+
+    state.rampSamples = (Number(state.rampSamples) || 0) + 1;
+    const duration = Math.max(1, Number(state.rampDuration) || durationSamples);
+    if (state.rampSamples >= duration) {
+      state.outputBuffer = target;
+      state.rampFrom = target;
+      state.rampTo = target;
+      return target;
+    }
+    const t = state.rampSamples / duration;
+    const from = Number.isFinite(Number(state.rampFrom)) ? Number(state.rampFrom) : prev;
+    const out = from + (target - from) * t;
     state.outputBuffer = out;
     return out;
   },
   snap(state, target) {
-    state.outputBuffer = Number(target) || 0;
+    const v = Number(target) || 0;
+    state.outputBuffer = v;
+    state.rampFrom = v;
+    state.rampTo = v;
+    state.rampSamples = 0;
+    state.rampDuration = 0;
   },
 });
 

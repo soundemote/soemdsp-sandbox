@@ -40,7 +40,7 @@ function normalizeNodeGraphMetadataSmoothingMode(value) {
 }
 
 // Smoothing TYPE = filter kernel:
-//   linear   — constant-rate linear ramp (UI L / lerp)
+//   linear   — time-based linear lerp (UI L): full smoothing time to target
 //   onePole  — classic exponential chase (1P)
 //   twoPole  — cascaded one-poles (2P); between 1P and Papoulis
 //   papoulis — Optimum-L order-3 (Π)
