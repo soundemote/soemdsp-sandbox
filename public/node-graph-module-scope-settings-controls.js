@@ -123,7 +123,6 @@ function nodeGraphTraceDisplayUnitDragField(key) {
     "ghost",
     "trail",
     "burn",
-   "burnAmount",
     "burnAmount",
     "unlitSegments",
     "facePadding",
