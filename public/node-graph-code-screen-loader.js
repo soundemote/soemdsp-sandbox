@@ -6,10 +6,11 @@
 // Important: do not load the satellite from boot-time bindNodeGraphCodeScreenEvents().
 // That would re-pull the UI on every session.
 
-// Main first (kinds + helpers), then peels that depend on them.
+// Main first (kinds + core UI), then peels that depend on them.
 const nodeGraphCodeScreenUiScriptSrcs = Object.freeze([
-  "./public/node-graph-code-screen.js?v=graphify-peel-1",
-  "./public/node-graph-code-box-window.js?v=graphify-peel-1",
+  "./public/node-graph-code-screen.js?v=graphify-peel-2",
+  "./public/node-graph-code-box-window.js?v=graphify-peel-2",
+  "./public/node-graph-code-screen-lookup.js?v=graphify-peel-2",
 ]);
 
 let nodeGraphCodeScreenUiLoadPromise = null;
