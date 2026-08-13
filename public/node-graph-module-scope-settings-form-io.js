@@ -326,6 +326,21 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
       ? normalizeNodeGraphFbmFieldSettings()
       : { background: "#05060a", gradientStops: [] };
   }
+  if (type === "vectorRgbFace") {
+    return typeof normalizeNodeGraphVectorRgbSettings === "function"
+      ? normalizeNodeGraphVectorRgbSettings()
+      : { background: "#000000" };
+  }
+  if (type === "rasterRgbFace") {
+    return typeof normalizeNodeGraphRasterRgbSettings === "function"
+      ? normalizeNodeGraphRasterRgbSettings()
+      : { background: "#000000" };
+  }
+  if (type === "gradientVectorscopeFace") {
+    return typeof normalizeNodeGraphGradientVectorscopeSettings === "function"
+      ? normalizeNodeGraphGradientVectorscopeSettings()
+      : { background: "#000004", rotate90: false };
+  }
   if (type === "matrixFace" || type === "matrixWaterfallFace" || type === "matrixDisplayFace") {
     return typeof normalizeNodeGraphMatrixFaceSettings === "function"
       ? normalizeNodeGraphMatrixFaceSettings(null, type)
@@ -395,6 +410,21 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
   }
   if (type === "patchFace") {
     return normalizeNodeGraphPatchFaceDisplaySettings(settings);
+  }
+  if (type === "vectorRgbFace") {
+    return typeof normalizeNodeGraphVectorRgbSettings === "function"
+      ? normalizeNodeGraphVectorRgbSettings(settings)
+      : (settings || {});
+  }
+  if (type === "rasterRgbFace") {
+    return typeof normalizeNodeGraphRasterRgbSettings === "function"
+      ? normalizeNodeGraphRasterRgbSettings(settings)
+      : (settings || {});
+  }
+  if (type === "gradientVectorscopeFace") {
+    return typeof normalizeNodeGraphGradientVectorscopeSettings === "function"
+      ? normalizeNodeGraphGradientVectorscopeSettings(settings)
+      : (settings || {});
   }
   if (type === "xyPad") {
     return normalizeNodeGraphXyPadDisplaySettings(settings);

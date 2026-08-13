@@ -1702,6 +1702,24 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "2D Trace",
     notes: ["xy trace", "sample history", "2D oscilloscope"],
   },
+  vectorRgb: {
+    category: "oscilloscope",
+    description: "X/Y phosphor path colored by analog R/G/B — three-channel beam, no brightness LUT.",
+    label: "Vector RGB",
+    notes: ["xy", "rgb", "phosphor", "beam", "blank"],
+  },
+  rasterRgb: {
+    category: "rgb",
+    description: "Rolling analog R/G/B framebuffer. One sample is one pixel; nearest-neighbor face blit.",
+    label: "Raster RGB",
+    notes: ["raster", "framebuffer", "rgb", "pixel"],
+  },
+  gradientVectorscope: {
+    category: "oscilloscope",
+    description: "2D trace with color along path length (not phosphor brightness). Optional 90° mid/side rotation.",
+    label: "Gradient Vectorscope",
+    notes: ["vectorscope", "gradient", "xy trace", "90"],
+  },
   badvalMonitor: {
     category: "debug",
     description: "Watch for NaN/inf/explosions—show when the circuit goes invalid.",

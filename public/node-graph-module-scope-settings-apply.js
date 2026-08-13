@@ -156,6 +156,24 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
       : (settings || {});
     return node.traceDisplaySettings;
   }
+  if (displayType === "vectorRgbFace") {
+    node.traceDisplaySettings = typeof normalizeNodeGraphVectorRgbSettings === "function"
+      ? normalizeNodeGraphVectorRgbSettings(settings)
+      : (settings || {});
+    return node.traceDisplaySettings;
+  }
+  if (displayType === "rasterRgbFace") {
+    node.traceDisplaySettings = typeof normalizeNodeGraphRasterRgbSettings === "function"
+      ? normalizeNodeGraphRasterRgbSettings(settings)
+      : (settings || {});
+    return node.traceDisplaySettings;
+  }
+  if (displayType === "gradientVectorscopeFace") {
+    node.traceDisplaySettings = typeof normalizeNodeGraphGradientVectorscopeSettings === "function"
+      ? normalizeNodeGraphGradientVectorscopeSettings(settings)
+      : (settings || {});
+    return node.traceDisplaySettings;
+  }
   if (
     displayType === "matrixFace"
     || displayType === "matrixWaterfallFace"

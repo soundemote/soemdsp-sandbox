@@ -173,6 +173,36 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
   }),
+  vectorRgbFace: Object.freeze({
+    fields: Object.freeze([
+      "dot1Brightness",
+      "dot1Size",
+      "trail",
+      "scale",
+      "pixelDensity",
+    ]),
+    colors: Object.freeze(["backgroundColor"]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
+  rasterRgbFace: Object.freeze({
+    fields: Object.freeze([]),
+    colors: Object.freeze(["backgroundColor"]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
+  gradientVectorscopeFace: Object.freeze({
+    fields: Object.freeze([
+      "historySeconds",
+      "scale",
+      "pixelDensity",
+      "dot1Size",
+      "dot1Brightness",
+    ]),
+    colors: Object.freeze(["backgroundColor"]),
+    toggles: Object.freeze(["rotate90"]),
+    choices: Object.freeze([]),
+  }),
   numberReadout: Object.freeze({
     // Value LED: Digits → Decimals → Padding → Bright → Ghost → Trail → Burn.
     // Value LCD (vector): digits, decimals, padding, Ghost plate, glass shadow.
@@ -440,7 +470,7 @@ function nodeGraphTraceDisplayActiveControlsForType(type = nodeGraphTraceDisplay
   // Energy / *Burn faces → scope2d controls. Never default unknown types to
   // "trace" (Output stereo page) — that leaked syncChannel/stereoBlend onto
   // Videoscope and friends.
-  if (key.endsWith("Burn") || key === "transportBpm" || key === "clock" || key === "phoneToneFace") {
+  if (key.endsWith("Burn") || key === "transportBpm" || key === "clock" || key === "phoneToneFace" || key === "vectorRgbFace" || key === "rasterRgbFace" || key === "gradientVectorscopeFace") {
     return nodeGraphTraceDisplayActiveControlsByType.scope2d;
   }
   return nodeGraphTraceDisplayActiveControlsByType.trace;
@@ -864,6 +894,11 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
     title:
       "How densely stamps are packed along the path. Off (default): thrifty fuse spacing so soft dots blend into a continuous trail without burning the Dot Budget. On: pack as many stamps as Dot Budget allows (brighter, more solid trails). If the path still needs more stamps than budget, spacing widens evenly over the whole path — the head is never cut off. When Dots only is on, this mainly controls even sample skipping under budget.",
   }),
+  rotate90: Object.freeze({
+    label: "90°",
+    id: "nodeTraceDisplayRotate90",
+    title: "Audio vectorscope rotation: (X−Y, X+Y)/√2 so mono is vertical. Off = raw X/Y.",
+  }),
   dotsOnly: Object.freeze({
     label: "Dots only",
     id: "nodeTraceDisplayDotsOnly",
@@ -1166,6 +1201,9 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   lineBurn: "Burn",
   scope2d: "2D",
   scope2dTrace: "Trace",
+  vectorRgbFace: "Vector RGB",
+  rasterRgbFace: "Raster RGB",
+  gradientVectorscopeFace: "Vectorscope",
   numberReadout: "Value",
   xyPad: "Phosphor",
   phosphorLight: "2D Phosphor",

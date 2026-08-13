@@ -153,6 +153,15 @@ function nodeGraphModuleScopeDisplayBuffer(slot, capturedBuffer = null) {
     buffer = nodeGraphModuleScopeTransportBpmBuffer(slot);
   } else if (renderer === "phoneToneFace" || slot?.type === "phoneTone") {
     buffer = { length: 1 };
+  } else if (
+    renderer === "vectorRgbFace"
+    || renderer === "rasterRgbFace"
+    || renderer === "gradientVectorscopeFace"
+    || slot?.type === "vectorRgb"
+    || slot?.type === "rasterRgb"
+    || slot?.type === "gradientVectorscope"
+  ) {
+    buffer = { length: 1 };
   } else if (renderer === "dot") {
     buffer = nodeGraphModuleScopeDotOscilloscopeLightBuffer(capturedBuffer);
   } else if (slot?.type === "lineBurnOscilloscope") {

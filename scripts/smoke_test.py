@@ -130,6 +130,10 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/numberGate/number-gate-math.js",
     "./public/modules/numberGate/number-gate-live-evaluator.js",
     "./public/modules/numberGate/number-gate-worklet-evaluator.js",
+    "./public/modules/vectorRgb/vector-rgb-display.js",
+    "./public/modules/rasterRgb/raster-rgb-display.js",
+    "./public/modules/gradientVectorscope/gradient-vectorscope-display.js",
+    "./public/modules/rgbDisplays/rgb-display-worklet-evaluator.js",
     "./public/modules/groupInput/group-input-register.js",
     "./public/modules/groupOutput/group-output-register.js",
     "./public/node-graph-module-definitions.js",
@@ -4569,6 +4573,18 @@ def require_node_graph_mvp_contract() -> None:
             script_sources["./public/node-graph-module-definitions.js"].index("pluginInput: {")
         ],
         "Momentary should spawn 4gu wide with a 2gu face (3gu outer with title)",
+    )
+    require(
+        'vectorRgb: "Vector RGB"' in script_sources["./public/node-graph-module-definitions.js"]
+        and 'rasterRgb: "Raster RGB"' in script_sources["./public/node-graph-module-definitions.js"]
+        and 'gradientVectorscope: "Gradient Vectorscope"' in script_sources["./public/node-graph-module-definitions.js"]
+        and "drawNodeGraphVectorRgbFaceItem" in script_sources["./public/modules/vectorRgb/vector-rgb-display.js"]
+        and "drawNodeGraphRasterRgbFaceItem" in script_sources["./public/modules/rasterRgb/raster-rgb-display.js"]
+        and "drawNodeGraphGradientVectorscopeFaceItem" in script_sources["./public/modules/gradientVectorscope/gradient-vectorscope-display.js"]
+        and 'label: "Vector RGB"' in script_sources["./public/node-graph-module-store.js"]
+        and 'label: "Raster RGB"' in script_sources["./public/node-graph-module-store.js"]
+        and 'label: "Gradient Vectorscope"' in script_sources["./public/node-graph-module-store.js"],
+        "RGB display trio (Vector / Raster / Gradient Vectorscope) should be registered",
     )
     require(
         "nodeGraphModuleIsPlanSourceType(type)" in execution_plan_source[source_nodes_start:source_nodes_end]

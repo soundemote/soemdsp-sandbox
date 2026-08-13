@@ -1335,6 +1335,11 @@
       hint: "Full-plate fractal energy → color · Speed/Color/Seed on the module",
     }),
     // Fractal Brownian Field: mono field energy → multi-stop gradient.
+    gradientVectorscopeFace: Object.freeze({
+      channels: "color",
+      defaultStops: "phosphor",
+      hint: "Color along path length — oldest at the first stop, newest at the last",
+    }),
     fbmFieldFace: Object.freeze({
       channels: "color",
       defaultStops: "phosphor",

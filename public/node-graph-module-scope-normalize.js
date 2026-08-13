@@ -265,6 +265,7 @@ function nodeGraphDisplaySettingsFormTypeUsesGradient(type) {
     "rgbFractalFace",
     "evolveFieldFace",
     "fbmFieldFace",
+    "gradientVectorscopeFace",
     "matrixFace",
     "matrixWaterfallFace",
     "matrixDisplayFace",

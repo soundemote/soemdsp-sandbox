@@ -46,4 +46,18 @@
   nodeGraphLiveModuleEvaluators.phosphorLight = xyThru("phosphorLight X", "phosphorLight Y");
   nodeGraphLiveModuleEvaluators.scope2dTrace = xyThru("scope2dTrace X", "scope2dTrace Y");
   nodeGraphLiveModuleEvaluators.visualOscilloscope = xyThru("visualOscilloscope X", "visualOscilloscope Y");
+  nodeGraphLiveModuleEvaluators.gradientVectorscope = xyThru("gradientVectorscope X", "gradientVectorscope Y");
+  nodeGraphLiveModuleEvaluators.vectorRgb = ({ runtime, nodeId, mixInput }) => ({
+    X: nodeGraphSafeFilterNumber(mixInput(nodeId, "X"), runtime, nodeId, null, "vectorRgb X"),
+    Y: nodeGraphSafeFilterNumber(mixInput(nodeId, "Y"), runtime, nodeId, null, "vectorRgb Y"),
+    R: nodeGraphSafeFilterNumber(mixInput(nodeId, "R"), runtime, nodeId, null, "vectorRgb R"),
+    G: nodeGraphSafeFilterNumber(mixInput(nodeId, "G"), runtime, nodeId, null, "vectorRgb G"),
+    B: nodeGraphSafeFilterNumber(mixInput(nodeId, "B"), runtime, nodeId, null, "vectorRgb B"),
+    Blank: nodeGraphSafeFilterNumber(mixInput(nodeId, "Blank"), runtime, nodeId, null, "vectorRgb Blank"),
+  });
+  nodeGraphLiveModuleEvaluators.rasterRgb = ({ runtime, nodeId, mixInput }) => ({
+    R: nodeGraphSafeFilterNumber(mixInput(nodeId, "R"), runtime, nodeId, null, "rasterRgb R"),
+    G: nodeGraphSafeFilterNumber(mixInput(nodeId, "G"), runtime, nodeId, null, "rasterRgb G"),
+    B: nodeGraphSafeFilterNumber(mixInput(nodeId, "B"), runtime, nodeId, null, "rasterRgb B"),
+  });
 })();

@@ -2950,6 +2950,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/keypad/keypad-worklet-evaluator.js?v=keypad-layout-b-1",
   "./public/modules/numberGate/number-gate-math.js?v=number-gate-1",
   "./public/modules/numberGate/number-gate-worklet-evaluator.js?v=number-gate-1",
+  "./public/modules/rgbDisplays/rgb-display-worklet-evaluator.js?v=rgb-1",
   "./public/modules/phoneTone/phone-tone-math.js?v=phone-tone-layoutb-1",
   "./public/modules/phoneTone/phone-tone-worklet-evaluator.js?v=phone-tone-layoutb-1",
   "./public/modules/xyPad/xy-pad-dsp.js?v=xy-pad-center-q-1",

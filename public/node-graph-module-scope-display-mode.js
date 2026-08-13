@@ -82,7 +82,7 @@ function normalizeNodeGraphDisplayMode(mode, type = "", index = 0) {
 
 
 function nodeGraphModuleImplicitDisplayModeSource(type, renderer) {
-  if (["scope2d", "scope2dTrace"].includes(renderer)) {
+  if (["scope2d", "scope2dTrace", "vectorRgbFace", "gradientVectorscopeFace"].includes(renderer)) {
     return nodeGraphModuleDefaultXyDisplaySource(type) || { value: nodeGraphModuleDefaultScalarDisplayPort(type) };
   }
   return { value: nodeGraphModuleDefaultScalarDisplayPort(type) };
@@ -194,6 +194,9 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "textBoxFace",
     // Patch identity plate — not Trace.
     "patchFace",
+    "vectorRgbFace",
+    "rasterRgbFace",
+    "gradientVectorscopeFace",
   ].includes(displayType);
 }
 

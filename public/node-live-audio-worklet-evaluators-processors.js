@@ -1105,6 +1105,12 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           hasAnalog: hasInput(nodeId, "Analog"),
           hasDigital: hasInput(nodeId, "Digital"),
         }),
+      vectorRgb: (node, nodeId, frame, frames, frameValues, mixInput) =>
+        this.vectorRgbSample(mixInput, nodeId),
+      rasterRgb: (node, nodeId, frame, frames, frameValues, mixInput) =>
+        this.rasterRgbSample(mixInput, nodeId),
+      gradientVectorscope: (node, nodeId, frame, frames, frameValues, mixInput) =>
+        this.gradientVectorscopeSample(mixInput, nodeId),
       stepGrid: (node, nodeId, frame, frames, frameValues, mixInput) => {
         const state = this.stepGridStates.get(nodeId) || this.createStepGridState();
         this.stepGridStates.set(nodeId, state);
