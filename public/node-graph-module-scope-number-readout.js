@@ -2304,8 +2304,7 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   const depositEnergy = Number(canvas._numberReadoutResidualEnergy) || 0;
   if (depositEnergy <= 0.008) {
     canvas._numberReadoutResidualEnergy = 0;
-    // Only hard-clear plate crumbs when Trail is on. Pure Ghost (Trail 0)
-    // keeps the long sticky analog tail — do not wipe the last ink early.
+    // Hard-clear plate crumbs when residual energy is gone (Trail 0 wipes).
     if (
       depositEnergy > 0
       && hangOn

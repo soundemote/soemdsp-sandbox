@@ -6,8 +6,8 @@
 // Axes:
 //   Bright      → live light (LED) / tip intensity 0…1
 //   Ghost       → extreme analog (super-exp) residual hang. Perfect alone when Trail=0.
-//   Trail       → blend linear decay ON TOP of Ghost, then freeze:
-//     0.00 → pure Ghost algorithm (100% super-exp hang)
+//   Trail       → how much residual hangs (0 = none, 1 = freeze):
+//     0.00 → no trail (wipe residual every frame)
 //     0.50 → 50% linear + 50% Ghost exponential
 //     0.75 → 100% linear decay
 //     1.00 → freeze (never decay residual pixels)
@@ -49,20 +49,29 @@
 
   /**
    * Trail → blend weights.
-   *  0    pure ghost
+   *  0    wipe (no trail)
    *  0.5  50% linear / 50% ghost
    *  0.75 pure linear
    *  1    freeze (no decay)
    */
   function resolveTrailBlend(trail) {
     const t = clamp01(trail, 0);
+    if (t <= 0.001) {
+      return {
+        ghostWeight: 0,
+        linearWeight: 0,
+        freeze: 0,
+        wipe: 1,
+      };
+    }
     if (t <= 0.5) {
       const u = t / 0.5; // 0…1
-      const linearWeight = 0.5 * u; // 0…0.5
+      // Ramp from wipe → 50/50. Do not start at full Ghost (that made Trail 0 infinite).
       return {
-        ghostWeight: 1 - linearWeight,
-        linearWeight,
+        ghostWeight: 0.5 * u,
+        linearWeight: 0.5 * u,
         freeze: 0,
+        wipe: 1 - u,
       };
     }
     if (t <= 0.75) {
@@ -72,6 +81,7 @@
         ghostWeight: 1 - linearWeight,
         linearWeight,
         freeze: 0,
+        wipe: 0,
       };
     }
     // 0.75 → full linear; 1 → freeze residual completely.
@@ -80,6 +90,7 @@
       ghostWeight: 0,
       linearWeight: 1 - u,
       freeze: u,
+      wipe: 0,
     };
   }
 
@@ -117,31 +128,26 @@
 
   /**
    * Combined keep for one residual step (0…1, high = more hang).
-   * Trail blends linear over Ghost; freeze near Trail=1.
+   * Trail 0 = wipe. Trail 1 = freeze. Ghost mixes in between.
    * Burn is applied separately via applyBurnFloor (not a keep factor).
    */
   function residualKeep(trail, ghost = 0) {
     const blend = resolveTrailBlend(trail);
+    if ((blend.wipe || 0) >= 0.999) {
+      return 0;
+    }
     if (blend.freeze >= 0.999) {
       return 1;
     }
     const gKeep = pureGhostKeep(ghost);
-    // Trail 0 → pure Ghost only (identical to pureGhostKeep). No linear pull.
-    if (blend.linearWeight <= 0.001 && blend.freeze <= 0.001) {
-      return gKeep;
-    }
     const lKeep = linearKeep(1);
-    // Weighted average (Trail rises → more linear, less pure Ghost).
     let mixed = blend.ghostWeight * gKeep + blend.linearWeight * lKeep;
-    // When Trail is on: guarantee a floor of linear death so residual can
-    // finish dying (tiny Ghost + sticky hang used to ignore small Trail).
-    // Never applied at Trail 0.
     if (blend.linearWeight > 0.001) {
       const linearPull = 1 - (1 - lKeep) * Math.min(1, blend.linearWeight * 2.5);
       mixed = Math.min(mixed, linearPull);
     }
-    // freeze mixes toward keep=1
-    return Math.min(1, blend.freeze + (1 - blend.freeze) * mixed);
+    mixed = blend.freeze + (1 - blend.freeze) * mixed;
+    return Math.max(0, Math.min(1, (1 - (blend.wipe || 0)) * mixed));
   }
 
   /** Sticky Burn floor 0…1. */
@@ -244,8 +250,7 @@
     }
     const keep = residualKeep(trail, ghost);
     let faded = e * keep;
-    // Only force-kill the last crumb when Trail is contributing linear die.
-    // Pure Ghost (Trail 0) must keep its long sticky analog tail intact.
+    // Kill the last crumb whenever residual is dying (Trail 0 wipes fully).
     const trailOn = clamp01(trail, 0) > 0.001;
     if (trailOn && faded < 0.004 && keep < 0.999) {
       faded = 0;
@@ -268,7 +273,9 @@
     return {
       keepFast: keep,
       keepSlow: keep,
-      ghostCap: g > 0.001 || blend.freeze > 0.001 || keep > 0.001 || b > 0.001 ? 1 : 0,
+      ghostCap: (blend.wipe || 0) >= 0.999
+        ? 0
+        : (g > 0.001 || blend.freeze > 0.001 || keep > 0.001 || b > 0.001 ? 1 : 0),
       fade: Math.max(0, 1 - keep),
       keep,
       freeze: blend.freeze,

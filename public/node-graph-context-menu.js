@@ -1831,7 +1831,9 @@ function configureNodeSceneContextMenu(mode) {
         || "Fill — multiline text grows or shrinks to use the available face";
     }
     textBoxTextInput.disabled = !targetNode || !targetSupportsTextBoxHeight;
-    textBoxTextInput.value = targetSupportsTextBoxHeight ? textBoxLayout.text : "";
+    if (document.activeElement !== textBoxTextInput) {
+      textBoxTextInput.value = targetSupportsTextBoxHeight ? textBoxLayout.text : "";
+    }
     textBoxTextInput.title = nodeGraphTooltipText("actions.textBoxContent");
     if (targetNode?.type === "codeblock") {
       const codeblock = normalizeNodeGraphCodeblock(targetNode.codeblock);

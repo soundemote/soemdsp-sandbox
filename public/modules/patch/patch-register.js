@@ -10,6 +10,10 @@ registerNodeGraphChromelessModule("patch", {
     defaultWidthGu: 10,
     displayHeightGu: 12,
     defaultAlias: "PATCH",
+    // Always spawn with header buttons locally forced on (survives global Buttons off).
+    defaultUi: {
+      buttonsForceShow: true,
+    },
     inputs: [],
     outputs: [],
     parameters: [],

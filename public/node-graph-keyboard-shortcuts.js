@@ -14,6 +14,12 @@ function nodeGraphEventTargetIsTextEditable(target) {
   if (target.closest?.("[contenteditable='true']")) {
     return true;
   }
+  if (typeof nodeGraphTextBoxIsTypingElement === "function" && nodeGraphTextBoxIsTypingElement(target)) {
+    return true;
+  }
+  if (target.closest?.(".node-text-box-input, #nodeSceneTextBoxTextInput, #nodeSceneAliasInput")) {
+    return true;
+  }
   const field = target.closest?.("textarea, select, input");
   if (!field) {
     return false;
@@ -270,6 +276,16 @@ function resizeSelectedNodeGraphModulesOnGrid(axis, delta) {
 }
 
 function handleNodeGraphKeydown(event) {
+  // Title + area Text Box share this gate. Check before window-nudge / H-V-M.
+  if (
+    !event.ctrlKey
+    && !event.metaKey
+    && !event.altKey
+    && typeof nodeGraphTextBoxIsTyping === "function"
+    && nodeGraphTextBoxIsTyping(event)
+  ) {
+    return;
+  }
   if (handleNodeGraphFloatingWindowKeyboardNudge(event)) {
     return;
   }

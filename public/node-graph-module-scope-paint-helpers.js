@@ -20,7 +20,7 @@ function nodeGraphOneDimensionalBurnFadeTrail(context, canvas, settings) {
     return;
   }
   // App-wide residual: Ghost = super-exp; Trail = linear blend; Burn = sticky floor.
-  // Trail 0 = pure Ghost; 0.75 = pure linear; 1 = freeze (no erase).
+  // Trail 0 = no trail (wipe); 0.75 = pure linear; 1 = freeze (no erase).
   const Residual = typeof PhosphorResidual !== "undefined" ? PhosphorResidual : null;
   const trail = Residual && typeof Residual.migrateTrail === "function"
     ? Residual.migrateTrail(settings, Residual.DEFAULT_TRAIL ?? 0.5)

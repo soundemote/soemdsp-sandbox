@@ -543,6 +543,12 @@ function nodeGraphModuleHeightWithBottomClearance(contentGu) {
 
 /** Title visible, everything else hidden — no extra lip / empty chrome. */
 function nodeGraphModuleIsTitleOnlyUi(type, ui = {}) {
+  // Text Box is opted out of "display face" (not an oscilloscope). Without
+  // this exception, default buttons-off + no I/O + no sliders collapses the
+  // module to the header only and hides the body.
+  if (nodeGraphModuleDefinitions[type]?.layout === "textBox") {
+    return false;
+  }
   const effective = typeof nodeGraphEffectivePatchNodeUi === "function"
     ? nodeGraphEffectivePatchNodeUi(ui, type)
     : ui;
@@ -567,6 +573,9 @@ function nodeGraphModuleIsTitleOnlyUi(type, ui = {}) {
 
 /** Display + title + buttons + I/O + sliders all hidden. */
 function nodeGraphModuleIsCollapsedUi(type, ui = {}) {
+  if (nodeGraphModuleDefinitions[type]?.layout === "textBox") {
+    return false;
+  }
   const effective = typeof nodeGraphEffectivePatchNodeUi === "function"
     ? nodeGraphEffectivePatchNodeUi(ui, type)
     : ui;

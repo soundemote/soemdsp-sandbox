@@ -2027,11 +2027,14 @@ function setNodeGraphTextBoxModeFromContext(textMode) {
     ...(targetNode.layout || {}),
     textMode,
   });
-  commitNodeGraphPatch(patch, { status: "text box mode changed" });
+  commitNodeGraphPatch(patch, { softDom: true, skipLivePlan: true, status: "text box mode changed" });
+  const live = nodeGraphPatchNode(sourceNode.id);
+  const el = typeof nodeGraphNodeElement === "function" ? nodeGraphNodeElement(sourceNode.id) : null;
+  if (el && live && typeof syncNodeGraphTextBoxElement === "function") {
+    syncNodeGraphTextBoxElement(el, live);
+  }
   configureNodeSceneContextMenu("module");
 }
-
-let nodeGraphTextBoxTextCommitTimer = 0;
 
 function setNodeGraphTextBoxTextFromContext({ record = true } = {}) {
   const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
@@ -2039,51 +2042,12 @@ function setNodeGraphTextBoxTextFromContext({ record = true } = {}) {
     return;
   }
   const input = document.getElementById("nodeSceneTextBoxTextInput");
-  const live = nodeGraphPatchNode(sourceNode.id);
-  if (live?.layout && input) {
-    live.layout = normalizeNodeGraphTextBoxLayout({
-      ...normalizeNodeGraphTextBoxLayout(live.layout),
-      text: input.value ?? "",
-    });
-    const el = document.querySelector(`.dsp-node[data-node="${CSS.escape(sourceNode.id)}"]`);
-    if (el && typeof syncNodeGraphTextBoxElement === "function") {
-      syncNodeGraphTextBoxElement(el, live);
-    }
-  }
-  if (nodeGraphTextBoxTextCommitTimer) {
-    window.clearTimeout(nodeGraphTextBoxTextCommitTimer);
-    nodeGraphTextBoxTextCommitTimer = 0;
-  }
-  const runCommit = () => {
-    nodeGraphTextBoxTextCommitTimer = 0;
-    const node = nodeGraphPatchNode(sourceNode.id);
-    if (!node || !nodeGraphNodeTypeHasTextBoxLayout(node.type)) {
-      return;
-    }
-    const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-    const targetNode = patch.nodes.find((n) => n.id === node.id);
-    if (!targetNode) {
-      return;
-    }
-    const field = document.getElementById("nodeSceneTextBoxTextInput");
-    const currentLayout = normalizeNodeGraphTextBoxLayout(targetNode.layout);
-    targetNode.layout = normalizeNodeGraphTextBoxLayout({
-      ...currentLayout,
-      text: field?.value ?? input?.value ?? "",
-    });
-    commitNodeGraphPatch(patch, {
-      record,
-      status: "text box text changed",
-    });
-    if (document.activeElement === field) {
-      field.focus();
-    }
-  };
-  if (record) {
-    runCommit();
+  const text = input?.value ?? "";
+  if (typeof nodeGraphTextBoxHostApplySceneText === "function") {
+    nodeGraphTextBoxHostApplySceneText(sourceNode.id, text, { commit: record === true });
     return;
   }
-  nodeGraphTextBoxTextCommitTimer = window.setTimeout(runCommit, 160);
+  nodeGraphTextBoxHostWriteLiveText?.(sourceNode.id, text);
 }
 
 function setNodeGraphTextBoxHorizontalAlignFromContext(value) {
@@ -2102,7 +2066,12 @@ function setNodeGraphTextBoxHorizontalAlignFromContext(value) {
     ...currentLayout,
     horizontalAlign: value,
   });
-  commitNodeGraphPatch(patch, { status: "text box alignment changed" });
+  commitNodeGraphPatch(patch, { softDom: true, skipLivePlan: true, status: "text box alignment changed" });
+  const live = nodeGraphPatchNode(sourceNode.id);
+  const el = typeof nodeGraphNodeElement === "function" ? nodeGraphNodeElement(sourceNode.id) : null;
+  if (el && live && typeof syncNodeGraphTextBoxElement === "function") {
+    syncNodeGraphTextBoxElement(el, live);
+  }
   configureNodeSceneContextMenu("module");
 }
 
@@ -2125,8 +2094,15 @@ function setNodeGraphTextBoxVerticalAlignFromContext({ record = true } = {}) {
   });
   commitNodeGraphPatch(patch, {
     record,
+    softDom: true,
+    skipLivePlan: true,
     status: "text box vertical position changed",
   });
+  const live = nodeGraphPatchNode(sourceNode.id);
+  const el = typeof nodeGraphNodeElement === "function" ? nodeGraphNodeElement(sourceNode.id) : null;
+  if (el && live && typeof syncNodeGraphTextBoxElement === "function") {
+    syncNodeGraphTextBoxElement(el, live);
+  }
   document.getElementById("nodeSceneTextBoxVerticalAlignValue").textContent = `${verticalAlignPercent}%`;
   if (document.activeElement === input) {
     input.focus();

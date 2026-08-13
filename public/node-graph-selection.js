@@ -5,7 +5,9 @@ function setNodeGraphSelection(selection) {
   // newly clicked module — renaming modules that were never put into edit mode.
   const active = document.activeElement;
   if (active instanceof HTMLElement) {
-    if (active.id === "nodeSceneAliasInput") {
+    if (typeof nodeGraphTextBoxIsTypingElement === "function" && nodeGraphTextBoxIsTypingElement(active)) {
+      // Title / area editors stay put — window chrome is not a focus target.
+    } else if (active.id === "nodeSceneAliasInput") {
       try {
         active.blur();
       } catch {

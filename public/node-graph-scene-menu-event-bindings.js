@@ -222,6 +222,14 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeSceneTextBoxFill", "click", () => setNodeGraphTextBoxModeFromContext("fill"));
   bindNodeGraphSceneElementEvent("nodeSceneTextBoxTextInput", "input", () => setNodeGraphTextBoxTextFromContext({ record: false }));
   bindNodeGraphSceneElementEvent("nodeSceneTextBoxTextInput", "change", () => setNodeGraphTextBoxTextFromContext({ record: true }));
+  if (typeof nodeGraphTextBoxBindFloatingFieldSteals === "function") {
+    nodeGraphTextBoxBindFloatingFieldSteals();
+  } else {
+    bindNodeGraphSceneElementEvent("nodeSceneTextBoxTextInput", "keydown", (event) => event.stopPropagation());
+    bindNodeGraphSceneElementEvent("nodeSceneTextBoxTextInput", "keyup", (event) => event.stopPropagation());
+    bindNodeGraphSceneElementEvent("nodeSceneAliasInput", "keydown", (event) => event.stopPropagation());
+    bindNodeGraphSceneElementEvent("nodeSceneAliasInput", "keyup", (event) => event.stopPropagation());
+  }
   bindNodeGraphSceneElementEvent("nodeSceneCodeblockApplyPorts", "click", applyNodeGraphCodeblockPortsFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneCodeblockOpenCodeScreen", "click", () => openNodeGraphCodeBoxWindowForNode());
   bindNodeGraphSceneElementEvent("nodeSceneCodeblockSource", "input", () => setNodeGraphCodeblockSourceFromContext({ record: false }));

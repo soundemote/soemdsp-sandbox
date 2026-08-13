@@ -8776,7 +8776,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "Adds linear decay over Ghost, then freezes. 0 = pure Ghost hang; 0.75 = full linear; 1 = freeze. Sticky floor is Burn."
+        tooltip: "How long residual hangs. 0 = no trail (wipe); 0.75 = full linear; 1 = freeze. Sticky floor is Burn."
       },
       {
         key: "ghost",
@@ -9024,7 +9024,7 @@ const nodeGraphModuleDefinitions = (
         max: "1",
         step: "any",
         maxDigits: 4,
-        tooltip: "Adds linear decay over Ghost, then freezes. 0 = pure Ghost; 1 ≈ freeze. Sticky floor is Burn."
+        tooltip: "How long residual hangs. 0 = no trail (wipe); 1 ≈ freeze. Sticky floor is Burn."
       },
       {
         key: "ghost",
@@ -9312,11 +9312,8 @@ const nodeGraphModuleDefinitions = (
   ...nodeGraphChromelessModuleDefinitionEntries(),
 });
 
-// Text Box and Animated Text Box share the exact same body/title rendering
-// (see node-graph-text-box-rendering.js) and layout/sizing rules -- the
-// only difference is Animated Text Box also has data-plane ports (Title,
-// Text, Text Out). Anything about the shared textBox layout (not the
-// wiring feature) should check this instead of hardcoding one type name.
+// Text Box and Animated Text Box share the isolated widget (modules/textBox)
+// and layout/sizing rules. Animated Text Box only adds Title/Text/Text Out.
 function nodeGraphNodeTypeHasTextBoxLayout(type) {
   return nodeGraphModuleDefinitions[type]?.layout === "textBox";
 }

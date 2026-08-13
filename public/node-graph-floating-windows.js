@@ -566,6 +566,8 @@ function pulseNodeGraphFloatingWindowAttention(element) {
   if (!element) {
     return false;
   }
+  // Attention is a CSS glow only. Never steal caret/focus from an editor.
+  const keep = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   raiseNodeGraphFloatingWindow(element);
   if (typeof triggerNodeGraphWindowReopenEvent === "function") {
     triggerNodeGraphWindowReopenEvent(element.id || element.dataset?.windowKey || "floating-window");
@@ -578,6 +580,18 @@ function pulseNodeGraphFloatingWindowAttention(element) {
   window.setTimeout(() => {
     element.classList.remove("node-floating-window-attention");
   }, 1050);
+  if (
+    keep
+    && document.contains(keep)
+    && document.activeElement !== keep
+    && typeof keep.focus === "function"
+  ) {
+    try {
+      keep.focus({ preventScroll: true });
+    } catch {
+      try { keep.focus(); } catch { /* ignore */ }
+    }
+  }
   return true;
 }
 

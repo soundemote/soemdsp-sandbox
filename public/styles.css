@@ -13239,7 +13239,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   outline: 0;
   background: rgba(2, 4, 7, 0.78);
   color: var(--node-module-primary-text-color);
-  caret-color: transparent;
+  caret-color: var(--node-module-primary-text-color);
   font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
   font-size: calc(
     clamp(0.82rem, calc(var(--node-grid-size) * 0.45), 1.1rem)

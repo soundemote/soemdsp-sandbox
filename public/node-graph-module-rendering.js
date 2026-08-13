@@ -98,7 +98,18 @@ function attachNodeGraphNodeEvents(node) {
   node.querySelector(".node-drag-handle")?.addEventListener("dblclick", toggleNodeGraphNodeMovementLock);
   node.querySelector(".node-execution-order-badge")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
   node.querySelector(".node-header-title-row")?.addEventListener("pointerdown", beginNodeGraphNodeDrag);
-  node.querySelector(".node-header-title-row")?.addEventListener("dblclick", openNodeModuleActionMenu);
+  node.querySelector(".node-header-title-row")?.addEventListener("dblclick", (event) => {
+    const type = node.dataset?.nodeType;
+    if (
+      typeof nodeGraphTextBoxOpenFloatingEditor === "function"
+      && typeof nodeGraphNodeTypeHasTextBoxLayout === "function"
+      && nodeGraphNodeTypeHasTextBoxLayout(type)
+    ) {
+      nodeGraphTextBoxOpenFloatingEditor(node.dataset?.node, "title", event);
+      return;
+    }
+    openNodeModuleActionMenu(event);
+  });
   // Right-click anywhere on the module shell opens Module Settings (shared
   // path with document contextmenu). Slider readouts / display faces stop
   // propagation for their own settings first.

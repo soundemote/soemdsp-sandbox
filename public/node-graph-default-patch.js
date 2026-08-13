@@ -79,12 +79,16 @@ function createNodeGraphPatchNode(type, options = {}) {
   const ui = normalizeNodeGraphPatchNodeUi(uiSource, resolvedType);
   if (
     ui.buttonsHidden
+    || ui.buttonsForceShow
     || ui.titleHidden
     || ui.oscilloscopeHidden
+    || ui.oscilloscopeForceShow
     || ui.ioHidden
     || ui.hideUnused
     || ui.slidersHidden
+    || ui.slidersForceShow
     || ui.interfaceControlsHidden
+    || ui.interfaceControlsForceShow
     || ui.movementLocked
   ) {
     node.ui = ui;
