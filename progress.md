@@ -13,6 +13,10 @@ Branch: `master` @ `4d25266` **SPEED LIMIT FIX** (and later hygiene if present).
 - Do not run destructive commands, force pushes, production deploys, or database resets.
 - When editing sandbox source, restore `public/presets/useruisettings.json` and `useruisettings.js` from commit `4639c84` before running smoke tests (the test's UI settings update contract writes them back dirty).
 
+## Bugs
+
+Plan: **`docs/BUG_PLAN.md`** — numbered inventory (B-001…). User reports go in that file’s Inbox; do not start a second list.
+
 ## Graphify
 
 Plan: **`docs/GRAPHIFY_WINS_PLAN.md`** (primary work queue).

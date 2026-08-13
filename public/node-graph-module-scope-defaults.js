@@ -270,6 +270,9 @@ const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   lightBlend: "lighten",
   // Digit inset 0…1 linear vs face square min side (0 = flush fill, 1 = one pin pixel).
   facePadding: 0,
+  // bipolar: reserve/show minus. unipolar: no sign, centered.
+  polarity: "bipolar",
+  removeTrailingZeros: false,
   // Energy → color LUT for decaying deposits (live digits use solid Light).
   gradientStops: nodeGraphScopePhosphorLookDefaults.gradientStops,
 });
@@ -298,6 +301,8 @@ const nodeGraphValueLcdSettingsDefaults = Object.freeze({
   lightBlend: "source-over",
   // Digit inset 0…1 vs each axis half (0 = flush, 1 = pin).
   facePadding: 0.268,
+  polarity: "bipolar",
+  removeTrailingZeros: false,
   // LCD Ghost: permanent “8” skeleton amount 0…1 (soft fade from 0).
   unlitSegments: 0.01,
   // Inner shadow (screen glass): Gaussian soft inset + CSS-like offset.

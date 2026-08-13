@@ -205,7 +205,9 @@ NodeLiveAudioProcessor.prototype.createGraphLfoState = function createGraphLfoSt
 
 NodeLiveAudioProcessor.prototype.createSamplePlaybackState = function createSamplePlaybackState() {
     return {
+      lastGate: 0,
       lastReset: 0,
+      lastTrigger: 0,
       phase: 0,
       playing: false,
       rangeKey: "",

@@ -944,6 +944,22 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}, defaultsOverride
       true,
     ),
     decimals: normalizeNodeGraphTraceDisplayNumber(source.decimals, defaults.decimals, 0, 8, true),
+    polarity: (() => {
+      const raw = String(source.polarity ?? source.signMode ?? defaults.polarity ?? "bipolar")
+        .trim()
+        .toLowerCase();
+      return raw === "unipolar" || raw === "uni" || raw === "unsigned" ? "unipolar" : "bipolar";
+    })(),
+    removeTrailingZeros: (() => {
+      const raw = source.removeTrailingZeros ?? source.stripTrailingZeros ?? defaults.removeTrailingZeros;
+      if (raw === true || raw === "true" || raw === 1 || raw === "1") {
+        return true;
+      }
+      if (raw === false || raw === "false" || raw === 0 || raw === "0") {
+        return false;
+      }
+      return Boolean(defaults.removeTrailingZeros);
+    })(),
     // Fixed digit-slot budget vs live resize (see LayoutFitText).
     // GROW UI inverts this: GROW on ⇒ decimalBudget false.
     decimalBudget: (() => {
@@ -1207,9 +1223,19 @@ function nodeGraphTraceDisplaySettingsForNode(node) {
     return normalizeNodeGraphTraceDisplaySettings();
   }
   const settingsSchema = nodeGraphModuleDisplaySettingsSchemaForNode(node);
-  return settingsSchema === "value"
-    ? normalizeNodeGraphValueOscilloscopeSettings(node.traceDisplaySettings)
-    : normalizeNodeGraphTraceDisplaySettings(node.traceDisplaySettings);
+  if (settingsSchema === "value") {
+    return normalizeNodeGraphValueOscilloscopeSettings(node.traceDisplaySettings);
+  }
+  // Instant Trace: seed from the global bucket until this module is edited.
+  if (settingsSchema === "trace") {
+    const local = node.traceDisplaySettings;
+    const hasLocal = Boolean(local && typeof local === "object" && Object.keys(local).length);
+    if (!hasLocal) {
+      return nodeGraphGlobalTraceSettings();
+    }
+    return normalizeNodeGraphTraceDisplaySettings(local);
+  }
+  return normalizeNodeGraphTraceDisplaySettings(node.traceDisplaySettings);
 }
 
 
@@ -1311,16 +1337,14 @@ function nodeGraphTraceDisplaySettingsEditingTraceDefaults() {
     return true;
   }
   const node = nodeGraphPatchNode(nodeGraphMvp?.traceDisplaySettingsTargetNode);
-  // Plain Trace nodes share one global look (nodeGraphMvp.traceSettings).
-  // Per-node Trace faces (Output stereo, Display, stereoTracePorts modules)
-  // must edit node.traceDisplaySettings — otherwise the form shows node
-  // values, apply writes global, and draw reads node (settings never stick).
+  // Instant Trace is per-module. Only the explicit Global page writes
+  // nodeGraphMvp.traceSettings (a seed for unedited faces).
   if (nodeGraphModuleDisplaySettingsSchemaForNode(node) !== "trace") {
     return false;
   }
   if (typeof nodeGraphModuleKeepsPerNodeTraceDisplaySettings === "function") {
     return !nodeGraphModuleKeepsPerNodeTraceDisplaySettings(node?.type);
   }
-  return node?.type !== "output";
+  return false;
 }
 

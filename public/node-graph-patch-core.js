@@ -522,6 +522,9 @@ function validateNodeGraphPatch(patch) {
     const sourceType = sourcePatchNode?.type;
     const destinationType = destinationPatchNode?.type;
     if (!sourceType || !destinationType) {
+      if (retiredNodeIds.has(sourceNode) || retiredNodeIds.has(destinationNode)) {
+        return [];
+      }
       throw new Error("graph connection references missing node");
     }
     sourcePort = nodeGraphCanonicalOutputPort(sourceType, sourcePort);

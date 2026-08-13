@@ -144,6 +144,13 @@ function nodeGraphScientificIirDesign(kind, mode, order, freqHz, bandwidthOct, r
   const rate = Math.max(1, Number(sampleRate) || 44100);
   const freq = Math.max(0, Number(freqHz) || 0);
   // Linkwitz-Riley: two identical Butterworth of half order
+  if (kind === 1 && Number(order) <= 2) {
+    const a = Math.exp(-Math.min(2.8, (2 * Math.PI * Math.max(1e-6, freq)) / rate));
+    const sec = safeMode === 1
+      ? { b0: 0.5 * (1 + a), b1: -0.5 * (1 + a), b2: 0, a1: -a, a2: 0, z1: 0, z2: 0 }
+      : { b0: 1 - a, b1: 0, b2: 0, a1: -a, a2: 0, z1: 0, z2: 0 };
+    return [{ ...sec }, { ...sec }];
+  }
   if (kind === 1) {
     let half = nodeGraphScientificIirClampOrder(order) / 2;
     if (half < 2) half = 2;
@@ -190,11 +197,19 @@ function nodeGraphScientificIirEnsure(state, kind, mode, order, freqHz, bandwidt
     || state.lastOrder !== safeOrder
     || !state.sections
     || state.sections.length === 0;
+  const prev = Array.isArray(state.sections) ? state.sections : [];
   state.sections = nodeGraphScientificIirDesign(safeKind, safeMode, safeOrder, freq, bw, ripple, rate);
   if (hard) {
     for (let i = 0; i < state.sections.length; i += 1) {
       state.sections[i].z1 = 0;
       state.sections[i].z2 = 0;
+    }
+  } else {
+    for (let i = 0; i < state.sections.length; i += 1) {
+      if (prev[i]) {
+        state.sections[i].z1 = prev[i].z1;
+        state.sections[i].z2 = prev[i].z2;
+      }
     }
   }
   state.lastKind = safeKind;

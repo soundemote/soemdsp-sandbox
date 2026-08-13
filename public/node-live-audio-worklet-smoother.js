@@ -3,7 +3,15 @@
 
 NodeLiveAudioProcessor.prototype.smoothingSecondsFromMetadata = function smoothingSecondsFromMetadata(metadata = {}) {
     const value = Number(metadata?.smoothingSeconds);
-    return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+    if (!Number.isFinite(value) || value <= 0) {
+      return 0;
+    }
+    // Values in (0, 1) are seconds (e.g. 0.05); ≥ 1 are sample counts.
+    if (value > 0 && value < 1) {
+      const rate = Math.max(1, Number(this.engineSampleRate || sampleRate) || 44100);
+      return Math.max(1, Math.round(value * rate));
+    }
+    return Math.max(0, Math.round(value));
 };
 
 NodeLiveAudioProcessor.prototype.smoothingModeFromMetadata = function smoothingModeFromMetadata(metadata = {}) {
@@ -388,16 +396,16 @@ NodeLiveAudioProcessor.prototype.readEffectiveParameter = function readEffective
       return base;
     }
     const metadata = node?.paramMeta?.[key] || {};
-    const modulationSignal = modulations.reduce(
-      (sum, modulation) => sum + this.normalizeParameterModulationInput(this.readRuntimePortOutput(
-        frameValues,
-        modulation.sourceNode,
-        modulation.sourcePort,
-        frame,
-        frames,
-      ), metadata),
-      0,
-    );
-    return this.applyParameterModulation(base, modulationSignal, metadata);
+    const sources = modulations.map((modulation) => this.normalizeParameterModulationInput(this.readRuntimePortOutput(
+      frameValues,
+      modulation.sourceNode,
+      modulation.sourcePort,
+      frame,
+      frames,
+    ), metadata));
+    if (typeof nodeGraphParamFoldModSources === "function") {
+      return nodeGraphParamFoldModSources(base, sources, metadata);
+    }
+    return this.applyParameterModulation(base, sources.reduce((a, b) => a + b, 0), metadata);
 };
 

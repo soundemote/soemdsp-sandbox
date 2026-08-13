@@ -628,7 +628,7 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
   // that leaves a node like this (e.g. a reverb's only input) gets silently
   // rejected and the previous, still-connected live audio plan keeps
   // running instead, making the disconnect appear to do nothing.
-  const softMissingInputIssue = /^missing .+ (input|gate|trigger|light|clock)$/;
+  const softMissingInputIssue = /^missing .+ (input|gate|trigger|light|clock|signal)$/;
   const blockingIssues = uniqueIssues.filter((issue) => (
     issue !== "output node missing" &&
     issue !== "missing Output speaker input" &&

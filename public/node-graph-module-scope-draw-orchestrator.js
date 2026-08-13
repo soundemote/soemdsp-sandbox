@@ -146,7 +146,18 @@ function nodeGraphModuleScopeKeepDrawLoopAlive(scopePaused = false) {
  * Used while paused (so Display Settings background still updates) and when
  * capture rings are empty (so faces are never pure black under the dimmer).
  */
-function paintNodeGraphModuleScopeColdPlatesOnly(pixelRatio = window.devicePixelRatio || 1) {
+function paintNodeGraphModuleScopeColdPlatesOnly(pixelRatio = window.devicePixelRatio || 1, options = {}) {
+  const force = options?.force === true;
+  // Pause/freeze: held face pixels (LCD / trace / phosphor) must survive
+  // incidental draws from module move/resize/wire redraw. Only an explicit
+  // force (Clear, Display Settings) may overwrite the plate.
+  const frozen = typeof scopePaintIsFrozen === "function"
+    ? scopePaintIsFrozen()
+    : (typeof nodeGraphModuleScopePhosphorFrozen === "function"
+      && nodeGraphModuleScopePhosphorFrozen());
+  if (frozen && !force) {
+    return;
+  }
   if (typeof nodeGraphVisibleModuleScopeSlots !== "function") {
     return;
   }
@@ -167,7 +178,7 @@ function paintNodeGraphModuleScopeColdPlatesOnly(pixelRatio = window.devicePixel
     ) {
       continue;
     }
-    paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio);
+    paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio, { force });
     if (slot?.scopeElement && typeof nodeGraphModuleScopeMarkScreenLit === "function") {
       nodeGraphModuleScopeMarkScreenLit(slot.scopeElement, 1);
     }
@@ -204,12 +215,24 @@ function drawNodeGraphModuleScopes(options = {}) {
   if (!enterLivePaint) {
     absorbNodeGraphModuleScopePhosphorDrawCursors();
     nodeGraphModuleScopeState.animationLastTime = (performance.now?.() || Date.now()) / 1000;
-    paintNodeGraphModuleScopeColdPlatesOnly();
+    if (force) {
+      paintNodeGraphModuleScopeColdPlatesOnly(undefined, { force: true });
+    }
     markNodeGraphModuleScopeDebugSkip("paused");
     return;
   }
   if (!canvas || !workspace || !nodeGraphModuleScopeBuffersCurrent()) {
     markNodeGraphModuleScopeDebugSkip(!canvas ? "no-canvas" : !workspace ? "no-workspace" : "stale-buffers");
+    // Pause→stop→play: rings may be empty for a few frames while the worklet
+    // arms. Still repaint Value LCD/LED/lamp faces so they do not stay wiped
+    // black under the room dimmer until a full shared-canvas pass succeeds.
+    if (typeof paintNodeGraphValueFacesNow === "function") {
+      try {
+        paintNodeGraphValueFacesNow(window.devicePixelRatio || 1);
+      } catch (_error) {
+        // Best-effort.
+      }
+    }
     // Live but capture/layout not ready yet — keep ticking until rings exist.
     nodeGraphModuleScopeKeepDrawLoopAlive(false);
     return;
@@ -464,7 +487,10 @@ function scheduleNodeGraphModuleScopeDraw(options = {}) {
   if (typeof scopePaintShouldFullDraw === "function") {
     if (!scopePaintShouldFullDraw(force)) {
       absorbNodeGraphModuleScopePhosphorDrawCursors();
-      paintNodeGraphModuleScopeColdPlatesOnly();
+      // Never fill idle plates over a frozen face (move/resize used to wipe LCD).
+      if (force) {
+        paintNodeGraphModuleScopeColdPlatesOnly(undefined, { force: true });
+      }
       return;
     }
   } else {
@@ -473,7 +499,6 @@ function scheduleNodeGraphModuleScopeDraw(options = {}) {
       : !nodeGraphModuleScopePaused();
     if (!livePaintActive && !force) {
       absorbNodeGraphModuleScopePhosphorDrawCursors();
-      paintNodeGraphModuleScopeColdPlatesOnly();
       return;
     }
   }

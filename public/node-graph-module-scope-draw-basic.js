@@ -219,8 +219,7 @@ function drawNodeGraphModuleScopeCanvasDotPath(context, points, proxyCanvas, pix
 
   context.save();
   context.globalCompositeOperation = "lighter";
-  context.imageSmoothingEnabled = true;
-  context.imageSmoothingQuality = "high";
+  context.imageSmoothingEnabled = false;
 
   const drawConnectedStroke = (lineWidth, _shadowBlurIgnored, rgb, alpha) => {
     context.beginPath();
@@ -231,7 +230,6 @@ function drawNodeGraphModuleScopeCanvasDotPath(context, points, proxyCanvas, pix
     context.shadowBlur = 0;
     context.strokeStyle = nodeGraphModuleScopeCanvasRgba(rgb, alpha);
     let pathOpen = false;
-    let localSkipThroughSegment = -1;
     for (let index = 0; index + 3 < pixelPoints.length; index += 2) {
       const segmentIndex = index / 2;
       if (skippedPoints?.[segmentIndex] || skippedPoints?.[segmentIndex + 1]) {
@@ -246,12 +244,9 @@ function drawNodeGraphModuleScopeCanvasDotPath(context, points, proxyCanvas, pix
           Number.isFinite(currentRaw) &&
           Math.abs(currentRaw - previousRaw) > nodeGraphModuleScopeDiscontinuityThreshold
         ) {
-          localSkipThroughSegment = Math.max(localSkipThroughSegment, segmentIndex + skipSamples - 1);
+          pathOpen = false;
+          continue;
         }
-      }
-      if (segmentIndex <= localSkipThroughSegment) {
-        pathOpen = false;
-        continue;
       }
       const x1 = pixelPoints[index];
       const y1 = pixelPoints[index + 1];

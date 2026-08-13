@@ -139,6 +139,109 @@
     return html;
   }
 
+  function isJsonIdentChar(ch) {
+    return Boolean(ch) && /[A-Za-z0-9_]/.test(ch);
+  }
+
+  function jsonHighlightHtml(text = "") {
+    const source = String(text || "");
+    if (!source) {
+      return "&nbsp;";
+    }
+    let html = "";
+    let i = 0;
+    const n = source.length;
+    while (i < n) {
+      const ch = source[i];
+      if (ch === " " || ch === "\t" || ch === "\r") {
+        const start = i;
+        i += 1;
+        while (i < n && (source[i] === " " || source[i] === "\t" || source[i] === "\r")) {
+          i += 1;
+        }
+        html += escapeHtml(source.slice(start, i));
+        continue;
+      }
+      if (ch === "\n") {
+        html += "\n";
+        i += 1;
+        continue;
+      }
+      if (ch === "\"") {
+        let j = i + 1;
+        while (j < n) {
+          if (source[j] === "\\") {
+            j += 2;
+            continue;
+          }
+          if (source[j] === "\"") {
+            j += 1;
+            break;
+          }
+          j += 1;
+        }
+        const raw = source.slice(i, j);
+        i = j;
+        let peek = i;
+        while (peek < n && /[\s]/.test(source[peek])) {
+          peek += 1;
+        }
+        const className = source[peek] === ":" ? "json-token-key" : "json-token-string";
+        html += `<span class="${className}">${escapeHtml(raw)}</span>`;
+        continue;
+      }
+      if (ch === "-" || (ch >= "0" && ch <= "9")) {
+        const start = i;
+        if (ch === "-") {
+          i += 1;
+        }
+        while (i < n && source[i] >= "0" && source[i] <= "9") {
+          i += 1;
+        }
+        if (source[i] === ".") {
+          i += 1;
+          while (i < n && source[i] >= "0" && source[i] <= "9") {
+            i += 1;
+          }
+        }
+        if (source[i] === "e" || source[i] === "E") {
+          i += 1;
+          if (source[i] === "+" || source[i] === "-") {
+            i += 1;
+          }
+          while (i < n && source[i] >= "0" && source[i] <= "9") {
+            i += 1;
+          }
+        }
+        html += `<span class="json-token-number">${escapeHtml(source.slice(start, i))}</span>`;
+        continue;
+      }
+      if (source.startsWith("true", i) && !isJsonIdentChar(source[i + 4])) {
+        html += `<span class="json-token-keyword">true</span>`;
+        i += 4;
+        continue;
+      }
+      if (source.startsWith("false", i) && !isJsonIdentChar(source[i + 5])) {
+        html += `<span class="json-token-keyword">false</span>`;
+        i += 5;
+        continue;
+      }
+      if (source.startsWith("null", i) && !isJsonIdentChar(source[i + 4])) {
+        html += `<span class="json-token-keyword">null</span>`;
+        i += 4;
+        continue;
+      }
+      if ("{}[],:".includes(ch)) {
+        html += `<span class="json-token-punct">${escapeHtml(ch)}</span>`;
+        i += 1;
+        continue;
+      }
+      html += escapeHtml(ch);
+      i += 1;
+    }
+    return html;
+  }
+
   function highlightHtml(text = "", options = {}) {
     const ignoredLines = options.ignoredLines instanceof Set
       ? options.ignoredLines
@@ -204,6 +307,7 @@
     escapeHtml,
     findTokenAt,
     highlightHtml,
+    jsonHighlightHtml,
     referenceContextHtml,
     referenceHtml,
     referenceOptionHtml,

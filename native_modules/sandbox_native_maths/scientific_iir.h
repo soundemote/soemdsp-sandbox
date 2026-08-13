@@ -260,6 +260,26 @@ static inline void cascade_design(
   double sampleRate
 ) {
   // Linkwitz-Riley: cascade two identical Butterworth of order n/2
+  if (kind == kLinkwitzRiley && order <= 2) {
+    const double sr = sampleRate < 1.0 ? 44100.0 : sampleRate;
+    const double f = freqHz < 1e-6 ? 1e-6 : freqHz;
+    double w = (2.0 * 3.14159265358979323846 * f) / sr;
+    if (w > 2.8) w = 2.8;
+    const double a = dsp_exp_narrow(-w);
+    c->n = 0;
+    for (int pass = 0; pass < 2 && c->n < kMaxSections; pass++) {
+      if (mode == kHighpass) {
+        const double b0 = 0.5 * (1.0 + a);
+        set_section(c, c->n, b0, -b0, 0.0, -a, 0.0);
+      } else {
+        set_section(c, c->n, 1.0 - a, 0.0, 0.0, -a, 0.0);
+      }
+      c->sec[c->n].z1 = 0.0;
+      c->sec[c->n].z2 = 0.0;
+      c->n++;
+    }
+    return;
+  }
   if (kind == kLinkwitzRiley) {
     int half = clamp_order(order) / 2;
     if (half < 2) half = 2;
@@ -304,8 +324,25 @@ static inline void cascade_ensure(
   }
   const bool hard =
     c->lastKind != kind || c->lastMode != mode || c->lastOrder != order || c->n == 0;
+  double keepZ1[kMaxSections];
+  double keepZ2[kMaxSections];
+  const int keepN = c->n;
+  if (!hard) {
+    for (int i = 0; i < keepN && i < kMaxSections; i++) {
+      keepZ1[i] = c->sec[i].z1;
+      keepZ2[i] = c->sec[i].z2;
+    }
+  }
   cascade_design(c, kind, mode, order, freqHz, bandwidthOct, rippleDb, rate);
-  if (hard) cascade_reset(c);
+  if (hard) {
+    cascade_reset(c);
+  } else {
+    const int n = c->n < keepN ? c->n : keepN;
+    for (int i = 0; i < n; i++) {
+      c->sec[i].z1 = keepZ1[i];
+      c->sec[i].z2 = keepZ2[i];
+    }
+  }
   c->lastKind = kind;
   c->lastMode = mode;
   c->lastOrder = order;

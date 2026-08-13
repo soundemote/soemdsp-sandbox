@@ -4,7 +4,7 @@ NodeLiveAudioProcessor.prototype.createPassiveFilterState = function createPassi
 
 NodeLiveAudioProcessor.prototype.passiveFilterSample = function passiveFilterSample(state, input, mode, lowFrequency, highFrequency, rate) {
     if (!this.nativePassiveFilterReady) {
-      throw new Error("native Passive Filter not ready");
+      return 0;
     }
     if (!state.nativeHandle) {
       state.nativeHandle = this.nativePassiveFilter.soemdsp_passive_filter_create();

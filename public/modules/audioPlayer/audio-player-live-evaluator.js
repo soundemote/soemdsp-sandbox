@@ -18,7 +18,9 @@ function nodeGraphSampleChannelAt(sample, channelIndex, frameIndex) {
 
 function createNodeGraphSamplePlaybackState() {
   return {
+    lastGate: 0,
     lastReset: 0,
+    lastTrigger: 0,
     phase: 0,
     playing: false,
     rangeKey: "",
@@ -163,6 +165,203 @@ function nodeGraphAudioPlayerSample(runtime, node, nodeId, readInput, readParam,
 // Registers the offline/render-time dispatch handler for audioPlayer into
 // nodeGraphLiveModuleEvaluators (declared in node-graph-live-frame-evaluator.js).
 // Extracted from the inline if/else-if branch that used to live in that file.
+function nodeGraphSampleLibrarySample(runtime, node, nodeId, readInput, readParam, sampleRate) {
+  const state = runtime.samplePlaybackStates.get(nodeId) || createNodeGraphSamplePlaybackState();
+  runtime.samplePlaybackStates.set(nodeId, state);
+  const sampleId = normalizeNodeGraphSampleId(node.sample?.id);
+  const sample = runtime.samples?.get?.(sampleId);
+  const frames = Math.max(0, Number(sample?.frames) || sample?.samples?.length || sample?.channelData?.[0]?.length || 0);
+  if (!sample || frames <= 1) {
+    return { Left: 0, Out: 0, Right: 0 };
+  }
+  const start = clampNodeSliderValue(readParam("start", 0), 0, 1);
+  const end = clampNodeSliderValue(readParam("end", 1), 0, 1);
+  const startPhase = Math.min(start, end);
+  const endPhase = Math.max(start, end);
+  const span = Math.max(0.000001, endPhase - startPhase);
+  const trigger = readInput("Trigger");
+  const reset = readInput("Reset");
+  const triggerEdge = (state.lastTrigger || 0) <= 0 && trigger > 0;
+  const resetEdge = (state.lastReset || 0) <= 0 && reset > 0;
+  if (resetEdge) {
+    state.phase = startPhase;
+    state.playing = false;
+    state.completed = false;
+  }
+  if (triggerEdge) {
+    state.phase = startPhase;
+    state.playing = true;
+    state.completed = false;
+  }
+  state.lastTrigger = trigger;
+  state.lastReset = reset;
+  const oneShot = readParam("oneShot", 1) >= 0.5;
+  const pitch = readParam("pitch", 0);
+  const level = readParam("level", 1);
+  const ratio = (Number(sample.sampleRate) || sampleRate || 44100) / Math.max(1, sampleRate || 44100);
+  const increment = (Math.pow(2, pitch) * ratio) / frames;
+  if (state.playing) {
+    state.phase = Number(state.phase) || startPhase;
+    state.phase += increment;
+    if (state.phase >= endPhase) {
+      if (oneShot) {
+        state.phase = endPhase;
+        state.playing = false;
+        state.completed = true;
+      } else {
+        state.phase = startPhase + ((state.phase - startPhase) % span);
+      }
+    }
+  }
+  const phase = clampNodeSliderValue(Number(state.phase) || startPhase, startPhase, endPhase);
+  const stereo = nodeGraphSampleStereoAt(sample, phase * (frames - 1));
+  const active = state.playing || (!oneShot && !state.completed);
+  const gain = active ? level : 0;
+  return {
+    Left: stereo.Left * gain,
+    Out: stereo.Out * gain,
+    Right: stereo.Right * gain,
+  };
+}
+
+function nodeGraphSampleLooperMixStereo(a, b, fadeIn) {
+  const t = fadeIn <= 0 ? 0 : fadeIn >= 1 ? 1 : fadeIn;
+  const w = t * t * (3 - 2 * t);
+  const ow = 1 - w;
+  return {
+    Left: (Number(a?.Left) || 0) * ow + (Number(b?.Left) || 0) * w,
+    Out: (Number(a?.Out) || 0) * ow + (Number(b?.Out) || 0) * w,
+    Right: (Number(a?.Right) || 0) * ow + (Number(b?.Right) || 0) * w,
+  };
+}
+
+function nodeGraphSampleLooperSample(runtime, node, nodeId, readInput, readParam, sampleRate) {
+  const state = runtime.samplePlaybackStates.get(nodeId) || createNodeGraphSamplePlaybackState();
+  runtime.samplePlaybackStates.set(nodeId, state);
+  const sampleId = normalizeNodeGraphSampleId(node.sample?.id);
+  const sample = runtime.samples?.get?.(sampleId);
+  const frames = Math.max(0, Number(sample?.frames) || sample?.samples?.length || sample?.channelData?.[0]?.length || 0);
+  if (!sample || frames <= 1) {
+    return { Left: 0, Out: 0, Phase: 0, Right: 0 };
+  }
+  const start = clampNodeSliderValue((readParam("start", 0) || 0) + (readInput("Start") || 0), 0, 1);
+  const end = clampNodeSliderValue((readParam("end", 1) || 0) + (readInput("End") || 0), 0, 1);
+  const startPhase = Math.min(start, end);
+  const endPhase = Math.max(start, end);
+  const regionSpan = Math.max(0.000001, endPhase - startPhase);
+  let loopA = clampNodeSliderValue((readParam("loopStart", 0) || 0) + (readInput("Loop Start") || 0), startPhase, endPhase);
+  let loopB = clampNodeSliderValue((readParam("loopEnd", 1) || 0) + (readInput("Loop End") || 0), startPhase, endPhase);
+  if (loopA > loopB) {
+    const swap = loopA;
+    loopA = loopB;
+    loopB = swap;
+  }
+  const loopSpan = Math.max(0.000001, loopB - loopA);
+  const gate = readInput("Gate");
+  const reset = readInput("Reset");
+  const gateOn = gate > 0;
+  const gateEdge = (state.lastGate || 0) <= 0 && gateOn;
+  const resetEdge = (state.lastReset || 0) <= 0 && reset > 0;
+  const oneShot = readParam("mode", 0) >= 0.5;
+  if (resetEdge) {
+    state.phase = startPhase;
+    state.playing = gateOn;
+    state.completed = false;
+  }
+  if (gateEdge) {
+    state.phase = startPhase;
+    state.playing = true;
+    state.completed = false;
+  } else if (!gateOn) {
+    state.playing = false;
+  }
+  state.lastGate = gate;
+  state.lastReset = reset;
+  if (state.sampleId !== sampleId) {
+    state.sampleId = sampleId;
+    state.phase = startPhase;
+    state.playing = gateOn;
+    state.completed = false;
+  }
+  const pitch = (readParam("pitch", 0) || 0) + (readInput("Pitch") || 0);
+  const level = readParam("level", 1);
+  const ratio = (Number(sample.sampleRate) || sampleRate || 44100) / Math.max(1, sampleRate || 44100);
+  const increment = (Math.pow(2, pitch) * ratio) / frames;
+  if (state.playing) {
+    state.phase = Number(state.phase) || startPhase;
+    state.phase += increment;
+    if (oneShot) {
+      if (state.phase >= endPhase) {
+        state.phase = endPhase;
+        state.playing = false;
+        state.completed = true;
+      }
+    } else if (state.phase >= loopB) {
+      state.phase = loopA + ((state.phase - loopB) % loopSpan);
+    } else if (state.phase < loopA && state.phase > startPhase + increment) {
+      state.phase = loopA;
+    }
+  }
+  const phase = clampNodeSliderValue(Number(state.phase) || startPhase, startPhase, endPhase);
+  let stereo = nodeGraphSampleStereoAt(sample, phase * (frames - 1));
+  const xfSeconds = Math.max(0, Number(readParam("crossfade", 0.005)) || 0);
+  const xfPhase = Math.min(loopSpan * 0.45, (xfSeconds * (Number(sample.sampleRate) || sampleRate || 44100)) / frames);
+  if (!oneShot && state.playing && xfPhase > 1e-9) {
+    const intoLoop = phase - loopA;
+    if (intoLoop >= 0 && intoLoop < xfPhase) {
+      const tail = nodeGraphSampleStereoAt(sample, (loopB - xfPhase + intoLoop) * (frames - 1));
+      stereo = nodeGraphSampleLooperMixStereo(tail, stereo, intoLoop / xfPhase);
+    }
+  }
+  const gain = state.playing ? level : 0;
+  return {
+    Left: stereo.Left * gain,
+    Out: stereo.Out * gain,
+    Phase: (phase - startPhase) / regionSpan,
+    Right: stereo.Right * gain,
+  };
+}
+
+nodeGraphLiveModuleEvaluators.samplePlayer = ({ runtime, node, nodeId, frame, frames, frameValues, mixInput, sampleRate }) => {
+  const readParam = (key, fallback) => readNodeGraphLiveEffectiveParam(
+    runtime,
+    node,
+    key,
+    fallback,
+    frame,
+    frames,
+    frameValues,
+  );
+  return nodeGraphSampleLibrarySample(
+    runtime,
+    node,
+    nodeId,
+    (port) => mixInput(nodeId, port),
+    readParam,
+    sampleRate,
+  );
+};
+
+nodeGraphLiveModuleEvaluators.sampleLooper = ({ runtime, node, nodeId, frame, frames, frameValues, mixInput, sampleRate }) => {
+  const readParam = (key, fallback) => readNodeGraphLiveEffectiveParam(
+    runtime,
+    node,
+    key,
+    fallback,
+    frame,
+    frames,
+    frameValues,
+  );
+  return nodeGraphSampleLooperSample(
+    runtime,
+    node,
+    nodeId,
+    (port) => mixInput(nodeId, port),
+    readParam,
+    sampleRate,
+  );
+};
+
 nodeGraphLiveModuleEvaluators.audioPlayer = ({ runtime, node, nodeId, frame, frames, frameValues, mixInput, sampleRate }) => {
   const readParam = (key, fallback) => readNodeGraphLiveEffectiveParam(
     runtime,

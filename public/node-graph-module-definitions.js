@@ -168,7 +168,7 @@ const nodeGraphNodeLabels = Object.freeze({
   inertialFilter: "Inertial Filter",
   midSideEncode: "Mid/Side Encoder",
   quadrature: "Quadrature",
-  lookaheadLimiter: "Look-ahead Limiter",
+  lookaheadLimiter: "Limiter",
   sampleHold: "Sample & Hold",
   midiOut: "Midi Out",
   midiNotePitch: "Midi Note Pitch",
@@ -194,6 +194,7 @@ const nodeGraphNodeLabels = Object.freeze({
   canvas: "Canvas",
   visualOscilloscope: "Display",
   traceDisplay: "1D Trace",
+  traceDisplayStereo: "1D Trace Stereo",
   dotOscilloscope: "Phosphor Dot",
   oscilloscopeBank: "Oscilloscope Bank",
   videoscope: "Videoscope",
@@ -900,6 +901,7 @@ const nodeGraphModuleDefinitions = (
   // RS-MET rosic::SineOscillator — free-running 2nd-order recursive sine (no sin() per sample).
   robinSinusoid: {
     planRole: "source",
+    displayType: "trace",
     inputs: ["Reset"],
     inputLabels: { Reset: "Reset" },
     outputs: ["Out"],
@@ -1061,6 +1063,7 @@ const nodeGraphModuleDefinitions = (
     layout: "roundShape",
     chrome: "LayoutA",
     customDisplayArea: true,
+    displayType: "scope2dTrace",
     displayHeightGu: 4,
     spectrumCompanion: false,
     inputs: ["Reset", "0.1V/Oct", "Increment"],
@@ -7467,6 +7470,7 @@ const nodeGraphModuleDefinitions = (
     ]
   },
   // Hard rate limit: max |Δ| per sample from up/down times in seconds.
+  // Shape: Lin (constant rate) / Log (fast start) / Exp (slow start) / Smooth (ease both ends).
   slewLimiter: {
     planRole: "processor",
     inputAliases: { Mono: "In" },
@@ -7501,6 +7505,22 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "s",
         tooltip: "Seconds to fall full scale (−1). 0 = unlimited fall rate."
+      },
+      {
+        choices: ["Lin", "Log", "Exp", "Smooth"],
+        defaultValue: "0",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "shape",
+        label: "Shape",
+        linearSmoothing: false,
+        max: "3",
+        mid: "0",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip:
+          "Lin = constant rate. Log = fast start, eases in. Exp = slow start, finishes quickly. Smooth = slow start and end."
       },
     ]
   },
@@ -7544,8 +7564,7 @@ const nodeGraphModuleDefinitions = (
     outputs: ["I", "Q", "MidI", "SideQ"],
     parameters: []
   },
-  // Look-ahead brickwall limiter. Look-ahead is an explicit delay
-  // (ms + samples, modulatable) — no host delay compensation.
+  // Brickwall limiter. Look-ahead is optional (explicit delay, no host PDC).
   lookaheadLimiter: {
     planRole: "processor",
     inputAliases: { Mono: "In" },
@@ -7556,22 +7575,38 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Out", "Left", "Right", "Gain"],
     parameters: [
       {
-        defaultValue: "-0.3",
+        defaultValue: "-1",
         key: "ceiling",
         label: "Ceiling",
         max: "0",
-        mid: "-0.3",
+        mid: "-1",
         min: "-24",
         nonlinearSlider: false,
         step: "any",
         unit: "dB",
-        tooltip: "Brickwall ceiling in dBFS. Peaks are held to this level (after look-ahead gain)."
+        tooltip: "Brickwall ceiling in dBFS. Peaks are held to this level."
+      },
+      {
+        choices: ["Off", "On"],
+        defaultValue: "1",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "lookaheadEnabled",
+        label: "Look-ahead",
+        linearSmoothing: false,
+        max: "1",
+        mid: "1",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip:
+          "On = delay audio by Look-ahead so gain can fall before peaks. Off = instantaneous limiting (no delay)."
       },
       {
         defaultValue: "5",
         key: "lookaheadMs",
         kind: "time",
-        label: "Look-ahead",
+        label: "LA Time",
         max: "50",
         maxDigits: 5,
         mid: "5",
@@ -7579,7 +7614,7 @@ const nodeGraphModuleDefinitions = (
         step: "any",
         unit: "ms",
         tooltip:
-          "Look-ahead delay in milliseconds (modulatable). Audio is delayed by this amount so gain can fall before peaks — not host-compensated. 0 = instantaneous limiting."
+          "Look-ahead delay in milliseconds (modulatable). Used only when Look-ahead is On. Audio is delayed by this amount so gain can fall before peaks — not host-compensated."
       },
       {
         defaultValue: "0",
@@ -7731,8 +7766,16 @@ const nodeGraphModuleDefinitions = (
   },
   samplePlayer: {
     planRole: "processor",
+    displayType: "trace",
+    spectrumCompanion: false,
+    displayModes: [
+      { key: "trace", label: "Trace", renderer: "trace", settingsSchema: "trace" },
+    ],
+    defaultDisplayMode: "trace",
+    stereoTracePorts: { left: "Left", right: "Right" },
     inputs: ["Trigger", "Reset", "Pitch", "Start", "End"],
-    outputs: ["Out"],
+    outputAliases: { Mono: "Out" },
+    outputs: ["Out", "Left", "Right"],
     parameters: [
       { defaultValue: "0", key: "sample", label: "Sample", linearSmoothing: false, max: "4096", mid: "0", min: "0", step: "1" },
       { defaultValue: "1", key: "level", label: "Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
@@ -7746,8 +7789,16 @@ const nodeGraphModuleDefinitions = (
   },
   sampleLooper: {
     planRole: "processor",
+    displayType: "trace",
+    spectrumCompanion: false,
+    displayModes: [
+      { key: "trace", label: "Trace", renderer: "trace", settingsSchema: "trace" },
+    ],
+    defaultDisplayMode: "trace",
+    stereoTracePorts: { left: "Left", right: "Right" },
     inputs: ["Gate", "Reset", "Pitch", "Start", "End", "Loop Start", "Loop End"],
-    outputs: ["Out", "Phase"],
+    outputAliases: { Mono: "Out" },
+    outputs: ["Out", "Left", "Right", "Phase"],
     parameters: [
       { defaultValue: "0", key: "sample", label: "Sample", linearSmoothing: false, max: "4096", mid: "0", min: "0", step: "1" },
       { defaultValue: "1", key: "level", label: "Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
@@ -8399,6 +8450,29 @@ const nodeGraphModuleDefinitions = (
     parameters: [],
     visualInputs: [
       { key: "traceDisplay", label: "In", port: "In" },
+    ],
+    visualSink: true
+  },
+  // Same stereo Instant Trace face as Output (L/R colors, Meet blend, sync).
+  traceDisplayStereo: {
+    planRole: "monitor",
+    bufferedInputs: ["Left", "Right"],
+    displayType: "trace",
+    spectrumCompanion: false,
+    displayModes: [
+      { key: "trace", label: "Trace", renderer: "trace", settingsSchema: "trace" },
+    ],
+    defaultDisplayMode: "trace",
+    stereoTracePorts: { left: "Left", right: "Right" },
+    inputAliases: { L: "Left", R: "Right", Mono: "Left" },
+    inputs: ["Left", "Right"],
+    layout: "traceDisplay",
+    // Dry L/R thrus so the face can sit in-line on a stereo path.
+    outputs: ["Left", "Right"],
+    parameters: [],
+    visualInputs: [
+      { key: "traceDisplayStereoLeft", label: "Left", port: "Left" },
+      { key: "traceDisplayStereoRight", label: "Right", port: "Right" },
     ],
     visualSink: true
   },

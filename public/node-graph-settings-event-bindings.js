@@ -38,6 +38,27 @@ function bindNodeGraphSettingsFormEvents() {
     field.addEventListener("input", handleNodeGraphSettingsInput);
     field.addEventListener("change", commitNodeGraphSettingsHistory);
   }
+  const raw = document.getElementById("nodePatchRawText");
+  if (raw) {
+    const refreshHighlight = () => {
+      if (typeof syncNodePatchRawTextHighlight === "function") {
+        syncNodePatchRawTextHighlight();
+      }
+    };
+    raw.addEventListener("input", () => {
+      refreshHighlight();
+      if (typeof scheduleNodeGraphScriptCommit === "function") {
+        scheduleNodeGraphScriptCommit(raw.value);
+      }
+    });
+    raw.addEventListener("change", () => {
+      refreshHighlight();
+      if (typeof commitNodeGraphScript === "function") {
+        commitNodeGraphScript(raw.value);
+      }
+    });
+    raw.addEventListener("scroll", refreshHighlight);
+  }
   for (const field of document.querySelectorAll("[data-patch-bank-name-field]")) {
     field.addEventListener("input", handleNodeGraphSavedPatchBankNameInput);
     field.addEventListener("change", commitNodeGraphSettingsHistory);

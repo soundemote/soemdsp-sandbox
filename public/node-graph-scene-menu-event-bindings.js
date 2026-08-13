@@ -59,6 +59,7 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeSceneCopyModuleSettings", "click", copyNodeGraphModuleSettingsFromContext);
   bindNodeGraphSceneElementEvent("nodeScenePasteModuleSettings", "click", pasteNodeGraphModuleSettingsFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneSetModuleSettingsAsDefault", "click", setNodeGraphModuleSettingsAsDefaultFromButton);
+  bindNodeGraphSceneElementEvent("nodeSceneBroomBatch", "click", applyNodeGraphPatchDefaultsFromCurrentSelection);
   bindNodeGraphSceneElementEvent("nodeSceneToggleModularInfiniteView", "click", toggleNodeGraphAppChromeBarsVisibility);
   bindNodeGraphSceneElementEvent("nodeSceneToggleModularWindowedView", "click", toggleNodeGraphModularWindowedView);
   // Legacy ids (hidden).
@@ -173,6 +174,7 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeSceneToggleSliders", "click", toggleNodeGraphModuleSlidersFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneToggleIo", "click", toggleNodeGraphModuleIoFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneToggleHideUnused", "click", toggleNodeGraphModuleHideUnusedFromContext);
+  bindNodeGraphSceneElementEvent("nodeSceneToggleCollapsed", "click", toggleNodeGraphModuleCollapsedFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneToggleTitle", "click", toggleNodeGraphModuleTitleFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneImageSave", "click", saveNodeGraphImageFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneImageRefresh", "click", refreshNodeGraphImageFromContext);

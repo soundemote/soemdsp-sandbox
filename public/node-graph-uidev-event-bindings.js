@@ -69,6 +69,9 @@ async function bindNodeGraphUiDevSettingsEvents() {
     .getElementById("nodeUiDevModuleGridInset")
     .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
   document
+    .getElementById("nodeUiDevPortFillInset")
+    ?.addEventListener("input", syncNodeUiDevSettingsHeaderControls);
+  document
     .getElementById("nodeUiDevModuleRoundness")
     .addEventListener("input", syncNodeUiDevSettingsHeaderControls);
   document

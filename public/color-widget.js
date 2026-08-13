@@ -304,8 +304,9 @@ const css = `
     background-origin: padding-box !important;
     background-clip: padding-box !important;
     /* Inset rainbow by half-dot so ends align with thumb center range. */
-    background-size: calc(100% - 2 * var(--scw-hue-pad, ${HUE_TRACK_PAD_CSS})) 100% !important;
-    background-position: var(--scw-hue-pad, ${HUE_TRACK_PAD_CSS}) 0 !important;
+    /* Full-width spectrum — inset paint left black end-caps on the track. */
+    background-size: 100% 100% !important;
+    background-position: 0 0 !important;
     /* Track drag shifts spectrum origin (reference hue at left). */
     cursor: grab;
     overflow: hidden;
@@ -318,8 +319,11 @@ const css = `
   /*
    * Sample thumb: center on padded track.
    * left = pad + t * (100% − 2·pad)  with --scw-hue-t unitless 0…1.
+   * Cursor is one value for every mouse state (hover / active / drag).
+   * Drag captures the hue bar, so html.scw-hue-thumb-dragging keeps it.
    */
   .scw-hue-thumb {
+    --scw-hue-thumb-cursor: default;
     position: absolute;
     top: 50%;
     left: calc(
@@ -335,16 +339,33 @@ const css = `
     border-radius: 50%;
     background: #fff;
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
-    cursor: ew-resize;
+    cursor: var(--scw-hue-thumb-cursor);
     pointer-events: auto;
     touch-action: none;
     z-index: 2;
+  }
+  .scw-hue-thumb:hover,
+  .scw-hue-thumb:focus,
+  .scw-hue-thumb:active,
+  .scw-hue-thumb:focus-visible {
+    cursor: var(--scw-hue-thumb-cursor);
   }
   /* Expand hit target without growing the visible disc. */
   .scw-hue-thumb::before {
     content: "";
     position: absolute;
     inset: -10px;
+    cursor: inherit;
+  }
+  html.scw-hue-thumb-dragging,
+  html.scw-hue-thumb-dragging *,
+  .scw-root[data-dragging="hue-thumb"],
+  .scw-root[data-dragging="hue-thumb"] *,
+  .scw-root[data-dragging="hue-thumb"] .scw-hue,
+  .scw-root[data-dragging="hue-thumb"] .scw-hue:active,
+  .scw-root[data-dragging="hue-thumb"] button.scw-control.scw-hue,
+  .scw-root[data-dragging="hue-thumb"] button.scw-control.scw-hue:active {
+    cursor: default !important;
   }
 
   /* 4-corner plane: UL grey · UR full sat · LL black · LR white */
@@ -638,7 +659,18 @@ export class SoundColorWidget {
     window.addEventListener("pointercancel", this.handlePointerUp);
   }
 
+  setHueThumbDragging(on) {
+    if (on) {
+      this.root?.setAttribute("data-dragging", "hue-thumb");
+      document.documentElement.classList.add("scw-hue-thumb-dragging");
+    } else {
+      this.root?.removeAttribute("data-dragging");
+      document.documentElement.classList.remove("scw-hue-thumb-dragging");
+    }
+  }
+
   destroy() {
+    this.setHueThumbDragging(false);
     this.root?.removeEventListener("pointerdown", this.handlePointerDown);
     this.root?.removeEventListener("selectstart", this.preventSelection);
     this.root?.removeEventListener("dragstart", this.preventSelection);
@@ -942,6 +974,23 @@ export class SoundColorWidget {
     event.preventDefault();
     event.stopPropagation();
     window.getSelection?.()?.removeAllRanges();
+    const resetClick = (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey;
+    if (resetClick && (part === "hue" || part === "hue-thumb") && this.channels !== "bw") {
+      this.hueOrigin = 0;
+      this.hueSampleT = 0;
+      this.applyHueFromSampleAndOrigin(true);
+      return;
+    }
+    if (resetClick && part === "plane" && this.channels !== "hue") {
+      this.planeUV = { u: 1, v: 1 };
+      if (this.channels === "bw") {
+        this.setColor({ h: 0, s: 0, l: 100 }, true, { preservePlaneUV: true });
+      } else {
+        const next = planeColorHsl(this.color.h, 1, 1, this.color.h);
+        this.setColor(next, true, { preservePlaneUV: true });
+      }
+      return;
+    }
     // Capture on the hue bar (or plane) so thumb + track share one surface.
     const captureElement = part === "hue-thumb"
       ? (partElement.closest?.(".scw-hue") || partElement)
@@ -963,6 +1012,7 @@ export class SoundColorWidget {
     }
     // Thumb: jump sample to press point (still clamped to padded track).
     if (part === "hue-thumb" && this.channels !== "bw") {
+      this.setHueThumbDragging(true);
       const hueBar = this.root?.querySelector(".scw-hue");
       if (hueBar) {
         this.hueSampleT = hueClientXToSampleT(event.clientX, hueBar);
@@ -1035,6 +1085,7 @@ export class SoundColorWidget {
     if (this.dragElement && this.drag?.pointerId !== undefined) {
       this.dragElement.releasePointerCapture?.(this.drag.pointerId);
     }
+    this.setHueThumbDragging(false);
     this.drag = null;
     this.dragElement = null;
     event?.stopPropagation?.();

@@ -44,6 +44,7 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
     "fullDotEconomy",
     "dotsOnly",
     "decimalBudget",
+    "removeTrailingZeros",
   ],
   choices: [
     "syncChannel",
@@ -55,6 +56,7 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
     "cornerShape",
     "outerPlate",
     "lightBlend",
+    "polarity",
   ],
 });
 
@@ -183,8 +185,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     ]),
     colors: Object.freeze(["backgroundColor", "dot1Color"]),
     // GROW: live resize vs fixed Digits+Decimals bins (stored as !decimalBudget).
-    toggles: Object.freeze(["decimalBudget"]),
-    choices: Object.freeze(["lightBlend"]),
+    toggles: Object.freeze(["decimalBudget", "removeTrailingZeros"]),
+    choices: Object.freeze(["lightBlend", "polarity"]),
   }),
   // LED lamp: same shared display inspector as other faces (not a separate window).
   ledLamp: Object.freeze({
@@ -482,6 +484,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "showLabel",
       "showReadout",
       "decimalBudget",
+      "removeTrailingZeros",
     ]),
     // window/overlap/freqOverlap/freqScale = spectrogram; syncChannel/stereoBlend = Output.
     // cornerShape = LED.
@@ -495,6 +498,7 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "syncChannel",
       "stereoBlend",
       "cornerShape",
+      "polarity",
     ]),
   }),
   value: Object.freeze({
@@ -817,6 +821,11 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
     title:
       "When on, digit size resizes to fill the plate for the live value. When off, digit size locks to the fixed bins from Digits + Decimals (limit_decimals economy).",
   }),
+  removeTrailingZeros: Object.freeze({
+    label: "No pad 0",
+    id: "nodeTraceDisplayRemoveTrailingZeros",
+    title: "When on, do not zero-pad the fractional part (1.5 stays 1.5, not 1.50).",
+  }),
 });
 
 // No side-column "Color" labels — the widget is self-evident; full-width row only.
@@ -870,6 +879,16 @@ const nodeGraphDisplaySettingsChoiceMeta = Object.freeze({
     options: Object.freeze([
       Object.freeze({ value: "stop0", label: "Stop 0.00" }),
       Object.freeze({ value: "gradient", label: "Gradient" }),
+    ]),
+  }),
+  polarity: Object.freeze({
+    label: "Polarity",
+    aria: "Unipolar or bipolar number sign",
+    id: "nodeTraceDisplayPolarity",
+    title: "Bipolar shows − and reserves sign space. Unipolar hides the minus and centers the digits.",
+    options: Object.freeze([
+      Object.freeze({ value: "bipolar", label: "Bipolar" }),
+      Object.freeze({ value: "unipolar", label: "Unipolar" }),
     ]),
   }),
   // Number Readout: how live Light composites over residual / ghost gradient.

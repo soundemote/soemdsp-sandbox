@@ -465,7 +465,7 @@ function nodeGraphCrossoverSample(state, mono, leftIn, rightIn, freqs, lrOrder, 
 
   // Mono (or identical L/R): process one channel and mirror — halves CPU for the
   // common mono-In wiring pattern without changing the stereo algorithm.
-  if (lIn === rIn) {
+  if (false && lIn === rIn) {
     const bands = nodeGraphCrossoverProcessChannel(state.left, lIn, freqs, order, rate);
     for (let i = 0; i < n; i += 1) {
       const pair = portPairs[i];

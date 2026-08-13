@@ -145,6 +145,9 @@ function applyNodeGraphViewportCssLight(options = {}) {
       syncNodeGraphOriginMarker();
     }
   }
+  if (typeof scheduleNodeGraphRoomDimmerDraw === "function") {
+    scheduleNodeGraphRoomDimmerDraw();
+  }
 }
 
 function nodeGraphWirePlanCacheKey() {
@@ -189,6 +192,9 @@ function invalidateNodeGraphViewportWirePlanCache() {
  */
 function flushNodeGraphViewportHeavyChrome(options = {}) {
   const gesturing = nodeGraphViewportGestureActive();
+  if (typeof scheduleNodeGraphRoomDimmerDraw === "function") {
+    scheduleNodeGraphRoomDimmerDraw();
+  }
   const full = options.full === true || !gesturing;
   if (!full) {
     // Frozen mid-gesture: no lights, no wires.

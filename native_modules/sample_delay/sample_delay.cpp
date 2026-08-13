@@ -11,7 +11,8 @@
 //   In → Delayed (fractional read, linear interp) + Thru is handled in JS
 //        as a pure passthrough of In (no native state needed).
 //
-// Delay of 0 returns the current input on Delayed (no one-sample lag).
+// Delay of 0 (and any 0…1 fractional tap) mixes the current input on Delayed.
+// Write first, then read. Speaker protection owns unsafe levels — no min-delay floor.
 
 #include "../sandbox_native_maths/sandbox_native_maths.h"
 
@@ -72,46 +73,33 @@ extern "C" double soemdsp_sample_delay_sample(
 
   const double rate = maxd(1.0, safe(sampleRate));
   const double raw = safe(input);
-  const double timePart = maxd(0.0, safe(timeSeconds)) * rate;
-  const double samplePart = maxd(0.0, safe(samplesParam));
+  const double timePart = safe(timeSeconds) * rate;
+  const double samplePart = safe(samplesParam);
   double delaySamples = timePart + samplePart;
+  if (!(delaySamples >= 0.0)) {
+    delaySamples = 0.0;
+  }
+  // Stay inside the already-allocated ring (memory bound, not a user clamp).
   if (delaySamples > (double)(kMaxDelaySamples - 1)) {
     delaySamples = (double)(kMaxDelaySamples - 1);
   }
-  if (delaySamples < 0.0) {
-    delaySamples = 0.0;
-  }
 
-  double delayed = raw;
-  if (delaySamples < 1e-9) {
-    // Zero delay: Delayed == In (no lag).
-    delayed = raw;
-  } else {
-    // Fractional read behind the write head (before writing this sample).
-    const double readPos = (double)s.writeIndex - delaySamples;
-    // Floor / frac for linear interpolation.
-    int i0 = (int)dsp_floor(readPos);
-    double frac = readPos - (double)i0;
-    // Wrap i0 into [0, capacity).
-    i0 %= kMaxDelaySamples;
-    if (i0 < 0) i0 += kMaxDelaySamples;
-    int i1 = i0 + 1;
-    if (i1 >= kMaxDelaySamples) i1 = 0;
-    const double a = (double)s.buffer[i0];
-    const double b = (double)s.buffer[i1];
-    delayed = a + (b - a) * frac;
-    // Until the ring has enough history, fade toward 0 (silence pad).
-    if (s.filled < (int)dsp_ceil(delaySamples)) {
-      // Still filling: prefer the interpolated value when available,
-      // else 0. filled counts written samples; for delay D we need D samples.
-      if (s.filled <= 0) {
-        delayed = 0.0;
-      }
-    }
-  }
+  const int write = s.writeIndex;
+  s.buffer[write] = (float)raw;
 
-  s.buffer[s.writeIndex] = (float)raw;
-  s.writeIndex += 1;
+  const double readPos = (double)write - delaySamples;
+  int i0 = (int)dsp_floor(readPos);
+  const double frac = readPos - (double)i0;
+  i0 %= kMaxDelaySamples;
+  if (i0 < 0) i0 += kMaxDelaySamples;
+  int i1 = i0 + 1;
+  if (i1 >= kMaxDelaySamples) i1 = 0;
+  // Write tap is this sample — mix it in, never the stale wrap-around cell.
+  const double a = (i0 == write) ? raw : (double)s.buffer[i0];
+  const double b = (i1 == write) ? raw : (double)s.buffer[i1];
+  const double delayed = a + (b - a) * frac;
+
+  s.writeIndex = write + 1;
   if (s.writeIndex >= kMaxDelaySamples) {
     s.writeIndex = 0;
   }
@@ -131,5 +119,5 @@ extern "C" double soemdsp_sample_delay_max_seconds() {
 }
 
 extern "C" int soemdsp_sample_delay_version() {
-  return 1;
+  return 2;
 }

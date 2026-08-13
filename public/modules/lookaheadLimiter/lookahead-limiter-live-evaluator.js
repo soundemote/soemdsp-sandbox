@@ -16,7 +16,8 @@ nodeGraphLiveModuleEvaluators.lookaheadLimiter = ({
   const state = runtime.lookaheadLimiterStates.get(nodeId) || createNodeGraphLookaheadLimiterState();
   runtime.lookaheadLimiterStates.set(nodeId, state);
 
-  const ceilingDb = readNodeGraphLiveEffectiveParam(runtime, node, "ceiling", -0.3, frame, frames, frameValues);
+  const ceilingDb = readNodeGraphLiveEffectiveParam(runtime, node, "ceiling", -1, frame, frames, frameValues);
+  const lookaheadEnabled = readNodeGraphLiveEffectiveParam(runtime, node, "lookaheadEnabled", 1, frame, frames, frameValues);
   const lookaheadMs = readNodeGraphLiveEffectiveParam(runtime, node, "lookaheadMs", 5, frame, frames, frameValues);
   const lookaheadSamples = readNodeGraphLiveEffectiveParam(runtime, node, "lookaheadSamples", 0, frame, frames, frameValues);
   const attackMs = readNodeGraphLiveEffectiveParam(runtime, node, "attack", 0.2, frame, frames, frameValues);
@@ -36,6 +37,7 @@ nodeGraphLiveModuleEvaluators.lookaheadLimiter = ({
     attackMs,
     releaseMs,
     sampleRate,
+    lookaheadEnabled,
   );
   return {
     Out: nodeGraphSafeFilterNumber(out.Out, runtime, nodeId, state, "limiter out"),

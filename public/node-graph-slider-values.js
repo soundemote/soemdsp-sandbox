@@ -821,6 +821,7 @@ function setNodeSliderMetadata(slider, metadata) {
   slider.dataset.curveAmount = String(normalizeNodeSliderCurveAmount(metadata.curveAmount));
   slider.dataset.nonlinearSlider = slider.dataset.sliderCurve === "linear" ? "false" : "true";
   slider.dataset.showSign = metadata.showSign ? "true" : "false";
+  slider.dataset.removeTrailingZeros = metadata.removeTrailingZeros ? "true" : "false";
   slider.dataset.bipolar = metadata.bipolar ? "true" : "false";
   // Clear legacy overshoot keys if present (older sessions).
   if (slider.dataset.unboundedMax != null) delete slider.dataset.unboundedMax;

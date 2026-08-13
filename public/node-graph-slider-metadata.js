@@ -107,7 +107,7 @@ function formatNodeSliderNumber(value, options = {}) {
   const number = Number(value);
   const maxDigits = normalizeNodeGraphMetadataMaxDigits(options.maxDigits, options.kind);
   const text = Number.isFinite(number)
-    ? limit_decimals(String(number), maxDigits, maxDigits, maxDigits, false)
+    ? limit_decimals(String(number), maxDigits, maxDigits, maxDigits, Boolean(options.removeTrailingZeros))
     : "";
   if (options.showSign && number >= 0) {
     return `+${text}`;

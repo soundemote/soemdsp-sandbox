@@ -206,18 +206,6 @@ function nodeGraphNodeCanOpenDisplaySettings(node) {
 
 
 function nodeGraphTraceDisplaySettingsForSlot(slot) {
-  // Plain Trace nodes share one global look (see editingTraceDefaults).
-  // Per-node Trace faces (Output / Display / stereoTracePorts) must read
-  // node.traceDisplaySettings — global here made Sync/colors never stick.
-  if (nodeGraphModuleDisplaySettingsSchemaForSlot(slot) === "trace") {
-    const nodeType = nodeGraphModuleScopeNodeForSlot(slot)?.type;
-    const perNode = typeof nodeGraphModuleKeepsPerNodeTraceDisplaySettings === "function"
-      ? nodeGraphModuleKeepsPerNodeTraceDisplaySettings(nodeType)
-      : (nodeType === "output" || nodeType === "visualOscilloscope");
-    if (!perNode) {
-      return nodeGraphGlobalTraceSettings();
-    }
-  }
   return nodeGraphTraceDisplaySettingsForNode(nodeGraphModuleScopeNodeForSlot(slot));
 }
 

@@ -22,8 +22,17 @@
     Y: nodeGraphSafeFilterNumber(mixInput(nodeId, "Y"), runtime, nodeId, null, tagY),
   });
 
+  const stereoThru = (tagL, tagR) => ({ runtime, nodeId, mixInput }) => ({
+    Left: nodeGraphSafeFilterNumber(mixInput(nodeId, "Left"), runtime, nodeId, null, tagL),
+    Right: nodeGraphSafeFilterNumber(mixInput(nodeId, "Right"), runtime, nodeId, null, tagR),
+  });
+
   // Mono / primary In → Thru
   nodeGraphLiveModuleEvaluators.traceDisplay = thruFrom("In", "traceDisplay in");
+  nodeGraphLiveModuleEvaluators.traceDisplayStereo = stereoThru(
+    "traceDisplayStereo left",
+    "traceDisplayStereo right",
+  );
   nodeGraphLiveModuleEvaluators.dotOscilloscope = thruFrom("In", "dotOscilloscope in");
   nodeGraphLiveModuleEvaluators.valueOscilloscope = thruFrom("In", "valueOscilloscope in");
   nodeGraphLiveModuleEvaluators.lineBurnOscilloscope = thruFrom("In", "lineBurnOscilloscope in");

@@ -36,6 +36,7 @@ function nodeGraphLookaheadLimiterDbToGain(db) {
  * @param {number} attackMs  gain attack toward reduction (0 = instant)
  * @param {number} releaseMs gain release (default 100)
  * @param {number} sampleRate
+ * @param {number} [lookaheadEnabled]  >0.5 = use look-ahead delay; else delay is 0
  * @returns {{ Out: number, Left: number, Right: number, Gain: number }}
  */
 function nodeGraphLookaheadLimiterFrame(
@@ -48,6 +49,7 @@ function nodeGraphLookaheadLimiterFrame(
   attackMs,
   releaseMs,
   sampleRate,
+  lookaheadEnabled,
 ) {
   if (!state || !state.delayL) {
     const x = Number(left) || 0;
@@ -60,8 +62,9 @@ function nodeGraphLookaheadLimiterFrame(
   const rIn = Number(right) || 0;
   const ceiling = Math.max(1e-6, nodeGraphLookaheadLimiterDbToGain(ceilingDb));
 
-  const laFromMs = Math.max(0, Number(lookaheadMs) || 0) * 0.001 * rate;
-  const laFromSamples = Math.max(0, Number(lookaheadSamples) || 0);
+  const laOn = lookaheadEnabled == null ? true : Number(lookaheadEnabled) > 0.5;
+  const laFromMs = laOn ? Math.max(0, Number(lookaheadMs) || 0) * 0.001 * rate : 0;
+  const laFromSamples = laOn ? Math.max(0, Number(lookaheadSamples) || 0) : 0;
   let la = Math.round(laFromMs + laFromSamples);
   if (!Number.isFinite(la) || la < 0) la = 0;
   if (la > state.cap - 1) la = state.cap - 1;

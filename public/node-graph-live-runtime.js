@@ -983,20 +983,16 @@ async function setNodeGraphLiveOutputEnabled(enabled) {
   renderNodeGraphExecutionPlanDebug();
 
   if (!outputEnabled) {
-    // Full stop (same as transport â¹): tear down audio, wipe screens, clear
-    // transport pause so the next start is live â€” never "still paused".
+    // Full stop (same as transport ⏹): tear down audio, wipe screens.
+    // Do NOT touch simulation speed — pause leaves speed at 0; Play unpauses.
     await stopNodeGraphLiveAudio();
     renderNodeGraphExecutionPlanDebug();
     return;
   }
 
-  // Starting output is never "resume paused" â€” clear transport pause so Play
-  // means live simulation until the user pauses again.
-  if ((nodeGraphMvp.live.speedMultiplier ?? 1) <= 0) {
-    const resume = Number(nodeGraphMvp.live.lastPlaySpeed);
-    nodeGraphMvp.live.speedMultiplier = Number.isFinite(resume) && resume > 0 ? resume : 1;
-  }
-
+  // Stop does not change speed. Play always rearms: unpause if speed is 0 and
+  // force Value LCD/LED paint even when speed is already non-zero (user may
+  // have unpaused before stop — pause→play→stop still poisons hold state).
   if (nodeGraphMvp.live.node || nodeGraphMvp.live.context) {
     await stopNodeGraphLiveAudio();
   }
@@ -1006,7 +1002,10 @@ async function setNodeGraphLiveOutputEnabled(enabled) {
   renderNodeGraphLiveControls();
   renderNodeGraphExecutionPlanDebug();
   await startNodeGraphLiveAudio(serial);
-  if (serial === nodeGraphMvp.live.outputToggleSerial) {
+  if (serial === nodeGraphMvp.live.outputToggleSerial && nodeGraphMvp.live.node) {
+    if (typeof nodeGraphLiveRearmDisplaysAfterEngineStart === "function") {
+      nodeGraphLiveRearmDisplaysAfterEngineStart();
+    }
     renderNodeGraphExecutionPlanDebug();
   }
 }
@@ -1034,11 +1033,9 @@ async function restartNodeGraphLiveSimulation() {
   nodeGraphMvp.live.outputToggleSerial = serial;
   nodeGraphMvp.live.outputEnabled = true;
 
-  // Cold boot is never "still paused" â€” restore last play speed (or 1).
-  const resume = Number(nodeGraphMvp.live.lastPlaySpeed);
-  nodeGraphMvp.live.speedMultiplier = Number.isFinite(resume) && resume > 0 ? resume : 1;
+  // Restart always wants a live sim. Stop does not mutate speed; start/rearm does.
   if (!(Number(nodeGraphMvp.live.lastPlaySpeed) > 0)) {
-    nodeGraphMvp.live.lastPlaySpeed = nodeGraphMvp.live.speedMultiplier;
+    nodeGraphMvp.live.lastPlaySpeed = 1;
   }
 
   try {
@@ -1061,6 +1058,12 @@ async function restartNodeGraphLiveSimulation() {
 
   if (typeof startNodeGraphLiveAudio === "function") {
     await startNodeGraphLiveAudio(serial);
+  }
+
+  // start already rearms; call again if a mid-start race skipped it.
+  if (serial === nodeGraphMvp.live.outputToggleSerial && nodeGraphMvp.live.node
+    && typeof nodeGraphLiveRearmDisplaysAfterEngineStart === "function") {
+    nodeGraphLiveRearmDisplaysAfterEngineStart();
   }
 
   // If start cancelled itself without a node, do not leave UI looking "live".
@@ -1094,10 +1097,79 @@ function toggleNodeGraphLiveOutput() {
   setNodeGraphLiveOutputEnabled(true);
 }
 
-function setNodeGraphLiveSpeed(speed) {
+/**
+ * Resolve the speed Play should use (never 0). Stop leaves pause (0) alone;
+ * Play must always unpause to a positive speed.
+ */
+function nodeGraphLiveResumePlaySpeed() {
+  const resume = Number(nodeGraphMvp?.live?.lastPlaySpeed);
+  return Number.isFinite(resume) && resume > 0 ? resume : 1;
+}
+
+/**
+ * After a cold engine start, make Value LCD/LED + scopes live again.
+ * Pause cancels RAF and freezes hold state; Stop wipes plates. Play must
+ * both unpause transport AND rearm paint — especially pause→stop→play,
+ * where speed may already be non-zero (user unpaused before stop) so a
+ * plain 0→1 edge never fires.
+ */
+function nodeGraphLiveRearmDisplaysAfterEngineStart() {
+  if (!nodeGraphMvp?.live?.node) {
+    return;
+  }
+  // Play never starts the sim frozen at speed 0.
+  const current = Number(nodeGraphMvp.live.speedMultiplier);
+  const target = nodeGraphLiveResumePlaySpeed();
+  if (!(current > 0)) {
+    if (typeof setNodeGraphLiveSpeed === "function") {
+      setNodeGraphLiveSpeed(target, { force: true });
+    } else {
+      nodeGraphMvp.live.speedMultiplier = target;
+      if (typeof sendNodeGraphLiveSpeed === "function") {
+        sendNodeGraphLiveSpeed();
+      }
+    }
+  } else if (typeof sendNodeGraphLiveSpeed === "function") {
+    sendNodeGraphLiveSpeed();
+  }
+  // Mark so the next few scope snapshots also force-paint value faces (rings
+  // may still be empty on this call).
+  nodeGraphMvp.live.needsValueFaceRearm = true;
+  nodeGraphMvp.live.valueFaceRearmUntil = (performance.now?.() || Date.now()) + 2500;
+  if (typeof nodeGraphNumberReadoutRearmAllFacesAfterLiveStart === "function") {
+    nodeGraphNumberReadoutRearmAllFacesAfterLiveStart();
+  }
+  if (typeof nodeGraphModuleScopeState === "object" && nodeGraphModuleScopeState) {
+    try {
+      nodeGraphModuleScopeState.traceDisplayDrawCache?.clear?.();
+    } catch (_error) {
+      // Best-effort.
+    }
+  }
+  if (typeof setNodeGraphModuleScopesEnabled === "function") {
+    setNodeGraphModuleScopesEnabled(true);
+  }
+  // Direct face paint (does not need shared scope canvas / buffer gate).
+  if (typeof paintNodeGraphValueFacesNow === "function") {
+    try {
+      paintNodeGraphValueFacesNow(window.devicePixelRatio || 1);
+    } catch (_error) {
+      // Best-effort.
+    }
+  }
+  if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
+    scheduleNodeGraphModuleScopeDraw({ force: true });
+  }
+  if (typeof renderNodeGraphLiveControls === "function") {
+    renderNodeGraphLiveControls(true);
+  }
+}
+
+function setNodeGraphLiveSpeed(speed, options = {}) {
   const value = Number(speed);
   const clamped = Number.isFinite(value) ? Math.max(0, value) : 1;
-  if (nodeGraphMvp.live.speedMultiplier === clamped) {
+  const force = options?.force === true;
+  if (nodeGraphMvp.live.speedMultiplier === clamped && !force) {
     return;
   }
   if (clamped > 0) {
@@ -1130,8 +1202,11 @@ function setNodeGraphLiveSpeed(speed) {
     }
     absorbNodeGraphModuleScopePhosphorDrawCursors();
   } else if (clamped > 0) {
-    // Unpause after Clear-while-paused: Instant Trace can early-out on a stale
-    // draw signature (black face, unchanged sample count). Force a full paint.
+    // Unpause / force rearm: Instant Trace can early-out on a stale draw
+    // signature (black face, unchanged sample count). Force a full paint.
+    if (typeof nodeGraphNumberReadoutRearmAllFacesAfterLiveStart === "function") {
+      nodeGraphNumberReadoutRearmAllFacesAfterLiveStart();
+    }
     if (typeof nodeGraphModuleScopeState === "object" && nodeGraphModuleScopeState) {
       try {
         nodeGraphModuleScopeState.traceDisplayDrawCache?.clear?.();
@@ -1812,6 +1887,29 @@ function handleNodeGraphLiveWorkletMessage(event) {
       patchFingerprint: message.patchFingerprint || nodeGraphPatchFingerprint(),
       sampleRate: message.sampleRate || nodeGraphMvp.live.context?.sampleRate || nodeGraphMvp.sampleRate,
     });
+    // After pause→stop→play, force-paint Value LCD/LED until rings + RAF catch up.
+    const rearmUntil = Number(nodeGraphMvp.live.valueFaceRearmUntil) || 0;
+    const nowMs = performance.now?.() || Date.now();
+    if (
+      nodeGraphMvp.live.needsValueFaceRearm
+      || (rearmUntil > 0 && nowMs < rearmUntil)
+    ) {
+      if (typeof paintNodeGraphValueFacesNow === "function") {
+        try {
+          const n = paintNodeGraphValueFacesNow(window.devicePixelRatio || 1);
+          // Clear sticky flag once we painted something with live rings.
+          if (n > 0 && nodeGraphModuleScopeState?.buffers?.size > 0) {
+            nodeGraphMvp.live.needsValueFaceRearm = false;
+          }
+        } catch (_error) {
+          // Best-effort.
+        }
+      }
+      if (rearmUntil > 0 && nowMs >= rearmUntil) {
+        nodeGraphMvp.live.needsValueFaceRearm = false;
+        nodeGraphMvp.live.valueFaceRearmUntil = 0;
+      }
+    }
     // Pitch Detector: plain DOM Hz/Fid text (no Number Readout / canvas).
     if (typeof updateNodeGraphPitchDetectorFacesFromScopeValues === "function") {
       updateNodeGraphPitchDetectorFacesFromScopeValues(scopeValues);
@@ -1996,6 +2094,11 @@ function nodeGraphLiveConnectionUpdatePayload(plan = {}, audio = {}) {
     graphConnections: Array.isArray(plan.graphConnections) ? plan.graphConnections : [],
     graphData: Object.keys(graphData).length > 0 ? graphData : undefined,
     modulations: Array.isArray(plan.modulations) ? plan.modulations : [],
+    autoSmoothingSeconds: Number(nodeGraphMvp.live?.autoSmoothingSeconds)
+      || Number(nodeGraphMvp.patch?.audio?.smoothingSeconds)
+      || undefined,
+    bypassedNodes: Array.isArray(plan.bypassedNodes) ? plan.bypassedNodes : [],
+    nodes: Array.isArray(plan.nodes) ? plan.nodes : [],
     outputNode: plan.outputNode || "output",
     oversamplingRatio: audio.oversamplingRatio,
     patchFingerprint: plan.patchFingerprint,
@@ -2005,6 +2108,7 @@ function nodeGraphLiveConnectionUpdatePayload(plan = {}, audio = {}) {
     sampleRate: nodeGraphMvp.live.context?.sampleRate || nodeGraphMvp.sampleRate,
     scopeCaptureNodeIds: Array.isArray(plan.scopeCaptureNodeIds) ? plan.scopeCaptureNodeIds : [],
     sessionId: nodeGraphMvp.live.sessionId,
+    timing: plan.timing || null,
     type: "setConnections",
     visualSinks: Array.isArray(plan.visualSinks) ? plan.visualSinks : [],
   };
@@ -2028,8 +2132,13 @@ async function sendNodeGraphLivePlan() {
 
   try {
     const plan = nodeGraphBuildLivePlan();
+    nodeGraphMvp.live.planSendGen = (Number(nodeGraphMvp.live.planSendGen) || 0) + 1;
+    const planSendGen = nodeGraphMvp.live.planSendGen;
     if (typeof nodeGraphEnsureLiveSamplesForPlan === "function") {
       await nodeGraphEnsureLiveSamplesForPlan(plan, nodeGraphMvp.patch);
+    }
+    if (planSendGen !== nodeGraphMvp.live.planSendGen) {
+      return true;
     }
     const audio = nodeGraphAudioDerivation(nodeGraphMvp.patch);
     const planShapeSignature = nodeGraphLivePlanShapeSignature(plan);
@@ -2061,6 +2170,9 @@ async function sendNodeGraphLivePlan() {
         {
           const pitchReference = normalizeNodeGraphPatchAudio(nodeGraphMvp.patch.audio);
           nodeGraphMvp.live.node?.port?.postMessage({
+            autoSmoothingSeconds: Number(nodeGraphMvp.live?.autoSmoothingSeconds)
+              || Number(nodeGraphMvp.patch?.audio?.smoothingSeconds)
+              || undefined,
             engineSampleRate: audio.clampedEngineSampleRate,
             oversamplingRatio: audio.oversamplingRatio,
             plan,
@@ -2630,14 +2742,14 @@ async function stopNodeGraphLiveAudio() {
   nodeGraphMvp.live.sessionId += 1;
   nodeGraphMvp.live.syncMode = "";
   nodeGraphMvp.live.usesWorklet = false;
-  // Stop clears transport pause. Without a timeline, halt = cold engine, not
-  // "still paused" â€” next Output/Play starts live (speed 0 stuck forever).
-  // (Do not clear outputEnabled here â€” start path stops-then-restarts and
+  // Stop does NOT change simulation speed. Pause leaves speed at 0; Stop only
+  // tears down the engine. Play/start restores via setNodeGraphLiveSpeed so
+  // Value LCD / Pitch Detector / scopes see a real 0 → resume edge.
+  // (Do not clear outputEnabled here — start path stops-then-restarts and
   // still needs outputEnabled true after this teardown.)
-  if ((nodeGraphMvp.live.speedMultiplier ?? 1) <= 0) {
-    const resume = Number(nodeGraphMvp.live.lastPlaySpeed);
-    nodeGraphMvp.live.speedMultiplier = Number.isFinite(resume) && resume > 0 ? resume : 1;
-  }
+  // Next Play must force-paint value faces (pause→stop leaves them wiped).
+  nodeGraphMvp.live.needsValueFaceRearm = true;
+  nodeGraphMvp.live.valueFaceRearmUntil = 0;
   nodeGraphStopGpuAdditiveProducer();
   // Full simulation restart on live output off: wipe scope history, phosphor
   // residual, and display state so the next start is a clean cold boot (not
@@ -2705,14 +2817,14 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-live-audio-worklet-param-map.js?v=domain-mod-1",
   "./public/node-live-audio-worklet-destroy.js?v=plan-d-split-6",
   "./public/node-live-audio-worklet-analog.js?v=plan-d-split-7",
-  "./public/node-live-audio-worklet-dsp-state.js?v=plan-d-split-8",
+  "./public/node-live-audio-worklet-dsp-state.js?v=sample-stereo-1",
   "./public/node-live-audio-worklet-events.js?v=domain-mod-1",
   "./public/node-live-audio-worklet-visual.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-scope-io.js?v=visual-rate-meta-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-evaluators-sources.js?v=domain-mod-1",
-  "./public/node-live-audio-worklet-evaluators-processors.js?v=domain-mod-1",
-  "./public/node-live-audio-worklet-evaluators-utility.js?v=domain-mod-1",
+  "./public/node-live-audio-worklet-evaluators-processors.js?v=stereo-1d-trace-1",
+  "./public/node-live-audio-worklet-evaluators-utility.js?v=sample-stereo-1",
   "./public/node-live-audio-worklet-evaluators.js?v=evaluators-split-1",
   "./public/node-live-audio-worklet-native-exports.js?v=plan-d-split-2",
   "./public/node-live-audio-worklet-set-plan.js?v=os-disabled-1",
@@ -2803,14 +2915,14 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/soemReverb/soem-reverb-worklet-evaluator.js?v=5-ping-pong",
   "./public/modules/pll/pll-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/helmholtzPitch/helmholtz-pitch-worklet-evaluator.js?v=pitch-display-1",
-  "./public/modules/slewLimiter/slew-limiter-math.js?v=slew-1",
-  "./public/modules/slewLimiter/slew-limiter-worklet-evaluator.js?v=slew-1",
+  "./public/modules/slewLimiter/slew-limiter-math.js?v=slew-shape-1",
+  "./public/modules/slewLimiter/slew-limiter-worklet-evaluator.js?v=slew-shape-1",
   "./public/modules/midSideEncode/mid-side-encode-math.js?v=ms-quad-lim-1",
   "./public/modules/midSideEncode/mid-side-encode-worklet-evaluator.js?v=ms-quad-lim-1",
   "./public/modules/quadrature/quadrature-math.js?v=ms-quad-lim-1",
   "./public/modules/quadrature/quadrature-worklet-evaluator.js?v=ms-quad-lim-1",
-  "./public/modules/lookaheadLimiter/lookahead-limiter-math.js?v=ms-quad-lim-1",
-  "./public/modules/lookaheadLimiter/lookahead-limiter-worklet-evaluator.js?v=ms-quad-lim-1",
+  "./public/modules/lookaheadLimiter/lookahead-limiter-math.js?v=limiter-la-switch-1",
+  "./public/modules/lookaheadLimiter/lookahead-limiter-worklet-evaluator.js?v=limiter-la-switch-1",
   "./public/modules/inertialFilter/inertial-filter-math.js?v=inertial-filter-1",
   "./public/modules/inertialFilter/inertial-filter-worklet-evaluator.js?v=inertial-filter-1",
   "./public/modules/tiltFilter/tilt-filter-math.js?v=tilt-eq-1",
@@ -2885,7 +2997,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/speakerProtection/speaker-protection-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/badvalMonitor/badval-monitor-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/radar/radar-worklet-evaluator.js?v=phasor-stdlib-1",
-  "./public/modules/audioPlayer/audio-player-worklet-evaluator.js?v=music-pl-2",
+  "./public/modules/audioPlayer/audio-player-worklet-evaluator.js?v=sample-stereo-1",
   "./public/modules/gainBiasMix/gain-bias-mix-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/gain/gain-math.js?v=gain-offset-1",
   "./public/modules/gain/gain-worklet-evaluator.js?v=gain-offset-1",
@@ -3266,7 +3378,18 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     }
     sendNodeGraphLiveMacroControls();
     sendNodeGraphLivePitchModWheelSignal();
-    // Ensure worklet has the current transport speed (esp. after â® restart).
+    // Play must never hand the worklet speed 0. Stop leaves pause (0) alone;
+    // starting live audio is always "run" — unpause on main before the first
+    // setSpeed post so process() produces scope samples for Value LCD/LED.
+    if ((Number(nodeGraphMvp.live.speedMultiplier) || 0) <= 0) {
+      const resume = typeof nodeGraphLiveResumePlaySpeed === "function"
+        ? nodeGraphLiveResumePlaySpeed()
+        : 1;
+      nodeGraphMvp.live.speedMultiplier = resume;
+      if (!(Number(nodeGraphMvp.live.lastPlaySpeed) > 0)) {
+        nodeGraphMvp.live.lastPlaySpeed = resume;
+      }
+    }
     if (typeof sendNodeGraphLiveSpeed === "function") {
       sendNodeGraphLiveSpeed();
     }
@@ -3290,11 +3413,21 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     // Keep the arming flag honest once the worklet is up.
     nodeGraphMvp.live.outputEnabled = true;
     setNodeGraphLiveOutputMuted(false);
-    renderNodeGraphLiveControls(true);
-    // One more frame after layout/status pills settle â€” guarantee green Live.
+    // Pause→stop wipes faces and kills RAF; pause also freezes hold state.
+    // Always rearm LCD/LED paint after a successful cold start.
+    if (typeof nodeGraphLiveRearmDisplaysAfterEngineStart === "function") {
+      nodeGraphLiveRearmDisplaysAfterEngineStart();
+    } else {
+      renderNodeGraphLiveControls(true);
+    }
+    // One more frame after layout/status pills settle — guarantee green Live.
     window.requestAnimationFrame(() => {
       if (nodeGraphMvp.live.node && nodeGraphMvp.live.outputEnabled) {
-        renderNodeGraphLiveControls(true);
+        if (typeof nodeGraphLiveRearmDisplaysAfterEngineStart === "function") {
+          nodeGraphLiveRearmDisplaysAfterEngineStart();
+        } else {
+          renderNodeGraphLiveControls(true);
+        }
       }
     });
   } catch (error) {

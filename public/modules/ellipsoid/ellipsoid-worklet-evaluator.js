@@ -148,7 +148,7 @@ NodeLiveAudioProcessor.prototype.ellipsoidWorkletEvaluate = function ellipsoidWo
   const referenceVoltage = referenceMidiNote / 120;
   const hasPitch = this.inputConnections.has(this.inputKey(nodeId, "0.1V/Oct"));
   const pitchCv = hasPitch
-    ? this.clampValue(this.safeFilterNumber(mixInput(nodeId, "0.1V/Oct"), null), -1, 1)
+    ? this.safeFilterNumber(mixInput(nodeId, "0.1V/Oct"), null)
     : referenceVoltage;
   const pitchedFrequency = typeof nodeGraphParamResolveOscPitchHz === "function"
     ? nodeGraphParamResolveOscPitchHz({

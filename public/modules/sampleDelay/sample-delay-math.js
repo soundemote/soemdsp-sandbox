@@ -1,5 +1,5 @@
 // Sample Delay — pure ring-buffer math (main thread + worklet JS path).
-// Fixed max ~4s at engine rate; delay = timeSeconds * rate + samplesParam.
+// Write first, then read. Delay 0 (and 0…1) mixes the current input.
 
 function createNodeGraphSampleDelayState() {
   return {
@@ -28,32 +28,28 @@ function nodeGraphSampleDelayEnsureBuffer(state, sampleRate) {
 function nodeGraphSampleDelayRingSample(state, input, timeSeconds, samplesParam, sampleRate) {
   const raw = Number(input) || 0;
   const { capacity, rate } = nodeGraphSampleDelayEnsureBuffer(state, sampleRate);
-  let delaySamples = Math.max(0, Number(timeSeconds) || 0) * rate + Math.max(0, Number(samplesParam) || 0);
+  let delaySamples = (Number(timeSeconds) || 0) * rate + (Number(samplesParam) || 0);
+  if (!(delaySamples >= 0)) {
+    delaySamples = 0;
+  }
   if (delaySamples > capacity - 1) {
     delaySamples = capacity - 1;
   }
-  if (delaySamples < 0) {
-    delaySamples = 0;
-  }
 
-  let delayed = raw;
-  if (delaySamples >= 1e-9) {
-    const readPos = state.writeIndex - delaySamples;
-    let i0 = Math.floor(readPos);
-    const frac = readPos - i0;
-    i0 %= capacity;
-    if (i0 < 0) i0 += capacity;
-    const i1 = i0 + 1 >= capacity ? 0 : i0 + 1;
-    const a = state.buffer[i0] || 0;
-    const b = state.buffer[i1] || 0;
-    delayed = a + (b - a) * frac;
-    if (state.filled <= 0) {
-      delayed = 0;
-    }
-  }
+  const write = state.writeIndex;
+  state.buffer[write] = raw;
 
-  state.buffer[state.writeIndex] = raw;
-  state.writeIndex = (state.writeIndex + 1) % capacity;
+  const readPos = write - delaySamples;
+  let i0 = Math.floor(readPos);
+  const frac = readPos - i0;
+  i0 %= capacity;
+  if (i0 < 0) i0 += capacity;
+  const i1 = i0 + 1 >= capacity ? 0 : i0 + 1;
+  const a = i0 === write ? raw : (state.buffer[i0] || 0);
+  const b = i1 === write ? raw : (state.buffer[i1] || 0);
+  const delayed = a + (b - a) * frac;
+
+  state.writeIndex = (write + 1) % capacity;
   if (state.filled < capacity) {
     state.filled += 1;
   }

@@ -386,7 +386,6 @@ function nodeGraphModuleScopeBeamVertices(points, canvas) {
     ? points.nodeGraphScopeSkippedPoints
     : null;
   const skipSamples = nodeGraphModuleScopeDiscontinuitySkipSamplesForPoints(points);
-  let skipThroughSegment = -1;
   for (let index = 0; index + 3 < pixelPoints.length; index += 2) {
     const segmentIndex = index / 2;
     if (skippedPoints?.[segmentIndex] || skippedPoints?.[segmentIndex + 1]) {
@@ -400,11 +399,9 @@ function nodeGraphModuleScopeBeamVertices(points, canvas) {
         Number.isFinite(currentRaw) &&
         Math.abs(currentRaw - previousRaw) > nodeGraphModuleScopeDiscontinuityThreshold
       ) {
-        skipThroughSegment = Math.max(skipThroughSegment, segmentIndex + skipSamples - 1);
+        // Skip only this wrap segment. Do not drop the following vertices.
+        continue;
       }
-    }
-    if (segmentIndex <= skipThroughSegment) {
-      continue;
     }
     const x1 = pixelPoints[index];
     const y1 = pixelPoints[index + 1];

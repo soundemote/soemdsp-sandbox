@@ -16,6 +16,9 @@ static inline double mind(double a, double b) { return a < b ? a : b; }
 
 // floor()/ceil() without libm (freestanding wasm32 has no libc).
 static inline double dsp_floor(double x) {
+  if (!(x * 0.0 == 0.0)) return 0.0;
+  // Doubles above 2^53 are already integers; casting to long long is UB past 2^63.
+  if (x >= 9007199254740992.0 || x <= -9007199254740992.0) return x;
   double xi = (double)(long long)x;
   return (x < xi) ? xi - 1.0 : xi;
 }

@@ -15518,13 +15518,15 @@ def require_node_graph_mvp_contract() -> None:
         "hiding module buttons globally should not switch modules to auto height",
     )
     require(
-        ".dsp-node.filter-curve-layout.oscilloscope-hidden .node-filter-curve-display" in style_source
-        and ".node-graph-workspace.module-oscilloscopes-hidden .dsp-node.filter-curve-layout,\n.dsp-node.filter-curve-layout.oscilloscope-hidden" in style_source
-        and "grid-template-rows:\n    var(--node-header-height)\n    minmax(var(--node-io-section-min-height), auto)\n    auto;" in style_source
-        and ".node-graph-workspace.module-oscilloscopes-hidden\n  .dsp-node:not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout) {\n  --node-module-scope-height: 0px;" in style_source
-        and ".node-graph-workspace.module-oscilloscopes-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.filter-curve-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.phosphillator-draw-layout)" in style_source
-        and "grid-template-rows:\n    var(--node-header-height)\n    minmax(var(--node-io-section-min-height), auto)\n    auto;" in style_source,
-        "hiding displays globally should collapse only hideable display rows and keep normal modules on a no-display IO/body grid",
+        "function applyNodeGraphModuleLayout(article, patchNodeOrBands)" in script_sources["./public/node-graph-module-sizing.js"]
+        and "function nodeGraphModuleLayoutBands(type, ui = {})" in script_sources["./public/node-graph-module-sizing.js"]
+        and "applyNodeGraphModuleLayout(article, patchNode)" in script_sources["./public/node-graph-module-rendering.js"]
+        and "grid-template-rows: var(--node-module-stack-rows" in style_source
+        and ".dsp-node.module-stack" in style_source
+        and "--node-module-scope-height: 0px;" not in style_source
+        and "face-row-collapsed" not in style_source
+        and ".dsp-node.oscilloscope-hidden .node-module-face" in style_source,
+        "hiding displays omits the face band via applyNodeGraphModuleLayout, not a 0px CSS track",
     )
     hideable_scope_source = script_sources["./public/node-graph-module-sizing.js"][
         script_sources["./public/node-graph-module-sizing.js"].index("function nodeGraphModuleTypeHasHideableOscilloscope"):

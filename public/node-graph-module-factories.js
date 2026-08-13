@@ -237,7 +237,10 @@ function createNodeGraphInputSection(node, type) {
 
 function createNodeGraphModuleScopeSection(node, type) {
   const section = document.createElement("div");
-  section.className = "node-module-scope-window node-light-source";
+  section.className = "node-module-scope-window node-module-face node-light-source";
+  if (typeof tagNodeGraphModuleBand === "function") {
+    tagNodeGraphModuleBand(section, "face");
+  }
   section.dataset.node = node;
   section.dataset.nodeType = type;
   // Layer A app dimmer: all screen displays produce light (modular view shader punches here).
@@ -690,6 +693,7 @@ function createNodeGraphParameter(node, type, parameter) {
   input.dataset.curveAmount = String(normalizeNodeSliderCurveAmount(metadata?.curveAmount));
   input.dataset.nonlinearSlider = metadata?.nonlinearSlider ? "true" : "false";
   input.dataset.showSign = metadata?.showSign ? "true" : "false";
+  input.dataset.removeTrailingZeros = metadata?.removeTrailingZeros ? "true" : "false";
   input.dataset.wraparound = metadata?.wraparound ? "true" : "false";
   // Domain hard-clamp policy (slider-values): only constraint / hardClamp clip.
   if (metadata?.constraint || parameter.constraint) {

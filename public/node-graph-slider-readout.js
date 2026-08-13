@@ -364,6 +364,7 @@ function syncNodeSliderReadout(slider) {
     maxDigits: formattedMaxDigits,
     reserveSignSpace: true,
     showSign: nodeSliderShouldShowSign(slider),
+    removeTrailingZeros: slider.dataset.removeTrailingZeros === "true",
   });
   unitText.textContent = unit;
   unitText.classList.toggle("is-empty", !unit);

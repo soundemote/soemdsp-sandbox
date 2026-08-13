@@ -131,8 +131,21 @@ function applyNodeGraphLedFaceAppearance(face, settings, level) {
   );
 
   // Room-light: on → full hole (1), off → 0. Dim amount is only the room gain.
+  // Set on lamp AND face so a wiped child strength does not veil a lit lamp.
+  const punch = drive > 0.001 ? "1" : "0";
   if (lamp.dataset) {
-    lamp.dataset.lightStrength = drive > 0.001 ? "1" : "0";
+    lamp.dataset.lightSource = "screen";
+    lamp.dataset.lightStrength = punch;
+  }
+  if (root?.dataset) {
+    root.dataset.lightSource = "screen";
+    root.dataset.lightStrength = punch;
+  }
+  if (typeof setNodeGraphLightStrength === "function") {
+    setNodeGraphLightStrength(lamp, drive > 0.001 ? 1 : 0);
+    if (root && root !== lamp) {
+      setNodeGraphLightStrength(root, drive > 0.001 ? 1 : 0);
+    }
   }
 }
 
@@ -194,9 +207,24 @@ function drawNodeGraphLedLampItem(renderer, item, pixelRatio) {
   clearNodeGraphModuleScopeLocalFallback(item.slot);
   const node = nodeGraphModuleScopeNodeForSlot(item.slot);
   const settings = normalizeNodeGraphLedLayout(node?.led);
-  const level = buffer
-    ? clampNodeSliderValue(Number(buffer.nodeGraphScopeLightTarget) || 0, 0, 1)
-    : Number(face.dataset.ledLevel) || 0;
+  let level = 0;
+  if (buffer?.length) {
+    level = Number(buffer.nodeGraphScopeLightTarget);
+    if (!Number.isFinite(level)) {
+      // Live rings often omit lightTarget metadata — use peak |sample|.
+      let peak = 0;
+      const n = Math.min(buffer.length, 64);
+      for (let i = Math.max(0, buffer.length - n); i < buffer.length; i += 1) {
+        const s = Math.abs(Number(buffer[i]) || 0);
+        if (s > peak) peak = s;
+      }
+      level = peak;
+      buffer.nodeGraphScopeLightTarget = peak;
+    }
+    level = clampNodeSliderValue(level, 0, 1);
+  } else {
+    level = Number(face.dataset.ledLevel) || 0;
+  }
   applyNodeGraphLedFaceAppearance(face, settings, level);
 }
 

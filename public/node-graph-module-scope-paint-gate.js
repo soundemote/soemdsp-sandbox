@@ -47,12 +47,23 @@ function scopePaintIsLive() {
 /**
  * Phosphor residual hold: no new deposits / no Instant Trace rewrite.
  * Intentional pause only — never "AudioContext suspended" or missing circuit flag.
+ *
+ * Full Stop (no live worklet node) is NOT freeze. Stop must cold-boot LCD/LED
+ * idle plates. Treating stopped as frozen made play→pause→stop leave faces
+ * stuck in the paused residual frame forever (cold boot early-out).
  */
 function scopePaintIsFrozen() {
-  if (!scopePaintIsEnginePlaying()) {
+  // Display Settings freeze always holds residual (audio may still run).
+  if (scopePaintIsVisualPaused()) {
     return true;
   }
-  return scopePaintIsVisualPaused();
+  const live = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live : null;
+  // Engine fully down → cold-boot / idle territory, not residual hold.
+  if (!live?.node) {
+    return false;
+  }
+  // Worklet still up but transport speed 0 → pause: hold residual.
+  return !scopePaintIsEnginePlaying();
 }
 
 /**

@@ -160,6 +160,7 @@ function renderNodeGraphGridLightToggle() {
 
 function toggleNodeGraphGridLightVisibility() {
   nodeGraphMvp.gridLightVisible = !(nodeGraphMvp.gridLightVisible !== false);
+  persistNodeGraphPatchVisibilityView();
   renderNodeGraphGridLightToggle();
   if (typeof setNodeInteractionHelp === "function") {
     setNodeInteractionHelp(
@@ -192,8 +193,52 @@ function renderNodeGraphWireLengthsToggle() {
   }
 }
 
+function persistNodeGraphPatchVisibilityView() {
+  if (!nodeGraphMvp?.patch) {
+    return;
+  }
+  const view = typeof normalizeNodeGraphPatchView === "function"
+    ? normalizeNodeGraphPatchView(nodeGraphMvp.patch.view)
+    : { ...(nodeGraphMvp.patch.view || {}) };
+  view.gridVisible = nodeGraphMvp.gridVisible !== false;
+  view.gridLightVisible = nodeGraphMvp.gridLightVisible !== false;
+  view.wireLengthsVisible = nodeGraphMvp.wireLengthsVisible !== false;
+  view.wiresAboveModules = Boolean(nodeGraphMvp.wiresAboveModules);
+  view.moduleButtonsVisible = nodeGraphMvp.moduleButtonsVisible !== false;
+  view.moduleOscilloscopesVisible = nodeGraphMvp.moduleOscilloscopesVisible !== false;
+  view.moduleInterfaceControlsVisible = nodeGraphMvp.moduleInterfaceControlsVisible !== false;
+  view.moduleSlidersVisible = nodeGraphMvp.moduleSlidersVisible !== false;
+  view.sliderAmountVisible = nodeGraphMvp.sliderAmountVisible !== false;
+  view.sliderPositionVisible = nodeGraphMvp.sliderPositionVisible !== false;
+  nodeGraphMvp.patch.view = view;
+}
+
+function applyNodeGraphPatchVisibilityView() {
+  const view = nodeGraphMvp?.patch?.view;
+  if (!view || typeof view !== "object") {
+    return;
+  }
+  if (Object.hasOwn(view, "gridVisible")) nodeGraphMvp.gridVisible = Boolean(view.gridVisible);
+  if (Object.hasOwn(view, "gridLightVisible")) nodeGraphMvp.gridLightVisible = view.gridLightVisible !== false;
+  if (Object.hasOwn(view, "wireLengthsVisible")) nodeGraphMvp.wireLengthsVisible = view.wireLengthsVisible !== false;
+  if (Object.hasOwn(view, "wiresAboveModules")) nodeGraphMvp.wiresAboveModules = Boolean(view.wiresAboveModules);
+  if (Object.hasOwn(view, "moduleButtonsVisible")) nodeGraphMvp.moduleButtonsVisible = view.moduleButtonsVisible !== false;
+  if (Object.hasOwn(view, "moduleOscilloscopesVisible")) nodeGraphMvp.moduleOscilloscopesVisible = view.moduleOscilloscopesVisible !== false;
+  if (Object.hasOwn(view, "moduleInterfaceControlsVisible")) nodeGraphMvp.moduleInterfaceControlsVisible = view.moduleInterfaceControlsVisible !== false;
+  if (Object.hasOwn(view, "moduleSlidersVisible")) nodeGraphMvp.moduleSlidersVisible = view.moduleSlidersVisible !== false;
+  if (Object.hasOwn(view, "sliderAmountVisible")) nodeGraphMvp.sliderAmountVisible = view.sliderAmountVisible !== false;
+  if (Object.hasOwn(view, "sliderPositionVisible")) nodeGraphMvp.sliderPositionVisible = view.sliderPositionVisible !== false;
+  if (typeof renderNodeGraphWireLengthsToggle === "function") renderNodeGraphWireLengthsToggle();
+  if (typeof renderNodeGraphWiresAboveModulesToggle === "function") renderNodeGraphWiresAboveModulesToggle();
+  if (typeof renderNodeGraphGridToggle === "function") renderNodeGraphGridToggle();
+  if (typeof renderNodeGraphGridLightToggle === "function") renderNodeGraphGridLightToggle();
+  if (typeof renderNodeGraphModuleVisibilityToggles === "function") renderNodeGraphModuleVisibilityToggles();
+  if (typeof renderNodeGraphSliderVisibilityToggles === "function") renderNodeGraphSliderVisibilityToggles();
+}
+
 function toggleNodeGraphWireLengthsVisibility() {
   nodeGraphMvp.wireLengthsVisible = !(nodeGraphMvp.wireLengthsVisible !== false);
+  persistNodeGraphPatchVisibilityView();
   renderNodeGraphWireLengthsToggle();
   if (typeof setNodeInteractionHelp === "function") {
     setNodeInteractionHelp(
@@ -224,6 +269,7 @@ function renderNodeGraphWiresAboveModulesToggle() {
 
 function toggleNodeGraphWiresAboveModules() {
   nodeGraphMvp.wiresAboveModules = !nodeGraphMvp.wiresAboveModules;
+  persistNodeGraphPatchVisibilityView();
   renderNodeGraphWiresAboveModulesToggle();
   if (typeof setNodeInteractionHelp === "function") {
     setNodeInteractionHelp(
@@ -490,6 +536,9 @@ function renderNodeGraphModuleScopeBrightnessControl() {
 
 function setNodeGraphModuleButtonsVisibility(visible, options = {}) {
   nodeGraphMvp.moduleButtonsVisible = Boolean(visible);
+  if (typeof persistNodeGraphPatchVisibilityView === "function") {
+    persistNodeGraphPatchVisibilityView();
+  }
   // Drop overrides that match the new global default (keep opposite overrides).
   // Global shown → clear force-show. Global hidden → clear force-hide.
   if (options.clearNodeOverrides !== false && nodeGraphMvp.patch) {
@@ -3493,6 +3542,7 @@ function toggleNodeGraphVideoView() {
 
 function toggleNodeGraphGridVisibility() {
   nodeGraphMvp.gridVisible = !nodeGraphMvp.gridVisible;
+  persistNodeGraphPatchVisibilityView();
   renderNodeGraphGridToggle();
 }
 
@@ -3502,6 +3552,7 @@ function toggleNodeGraphModuleButtonsVisibility() {
 
 function toggleNodeGraphOscilloscopeVisibility() {
   nodeGraphMvp.moduleOscilloscopesVisible = nodeGraphMvp.moduleOscilloscopesVisible === false;
+  persistNodeGraphPatchVisibilityView();
   renderNodeGraphModuleVisibilityToggles();
   if (typeof scheduleNodeGraphLivePlanSync === "function") {
     scheduleNodeGraphLivePlanSync();
@@ -3518,12 +3569,14 @@ function toggleNodeGraphOscilloscopeVisibility() {
 
 function toggleNodeGraphModuleSlidersVisibility() {
   nodeGraphMvp.moduleSlidersVisible = nodeGraphMvp.moduleSlidersVisible === false;
+  persistNodeGraphPatchVisibilityView();
   renderNodeGraphModuleVisibilityToggles();
   setNodeInteractionHelp(nodeGraphMvp.moduleSlidersVisible ? "Module sliders shown." : "Module sliders hidden.");
 }
 
 function toggleNodeGraphModuleInterfaceControlsVisibility() {
   nodeGraphMvp.moduleInterfaceControlsVisible = nodeGraphMvp.moduleInterfaceControlsVisible === false;
+  persistNodeGraphPatchVisibilityView();
   renderNodeGraphModuleVisibilityToggles();
   setNodeInteractionHelp(nodeGraphMvp.moduleInterfaceControlsVisible ? "Module control surfaces shown." : "Module control surfaces hidden.");
 }
@@ -3543,11 +3596,13 @@ function toggleNodeGraphKeyboardDebugVisibility() {
 
 function toggleNodeGraphSliderAmount() {
   nodeGraphMvp.sliderAmountVisible = !nodeGraphMvp.sliderAmountVisible;
+  persistNodeGraphPatchVisibilityView();
   renderNodeGraphSliderVisibilityToggles();
 }
 
 function toggleNodeGraphSliderPosition() {
   nodeGraphMvp.sliderPositionVisible = !nodeGraphMvp.sliderPositionVisible;
+  persistNodeGraphPatchVisibilityView();
   renderNodeGraphSliderVisibilityToggles();
 }
 

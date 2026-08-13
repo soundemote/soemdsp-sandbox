@@ -97,6 +97,7 @@ function nudgeSelectedNodeGraphModulesOnGrid(axis, direction) {
   }
 
   commitNodeGraphPatch(patch, {
+    layoutEdit: true,
     status: movedCount === 1 ? "module moved" : "modules moved",
   });
   return true;
@@ -260,6 +261,8 @@ function resizeSelectedNodeGraphModulesOnGrid(axis, delta) {
     return false;
   }
   commitNodeGraphPatch(patch, {
+    markPending: false,
+    skipLivePlan: true,
     status: axis === "height" ? "module height changed" : "module width changed",
   });
   configureNodeSceneContextMenu("module");

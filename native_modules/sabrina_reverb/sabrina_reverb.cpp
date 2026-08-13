@@ -576,6 +576,7 @@ extern "C" void soemdsp_sabrina_reverb_set_params(
   if (seedInt != state->seed) {
     reseedDelays(*state, seedInt);
   }
+  applyDelayGeometry(*state);
 }
 
 extern "C" void soemdsp_sabrina_reverb_process(int handle, double leftInput, double rightInput) {

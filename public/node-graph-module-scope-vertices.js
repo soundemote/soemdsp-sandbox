@@ -616,8 +616,21 @@ function syncNodeGraphModuleScopeLocalFallbackCanvas(canvas, screenElement, pixe
   // 0 is valid (1×1 pixel). Never use `|| 1` — that snaps density 0 up to full res.
   const densityRaw = Number(resolved.effective);
   const density = Number.isFinite(densityRaw) ? Math.max(0, densityRaw) : 1;
-  const width = Math.max(1, Math.round(size.width * density));
-  const height = Math.max(1, Math.round(size.height * density));
+  let width = Math.max(1, Math.round(size.width * density));
+  let height = Math.max(1, Math.round(size.height * density));
+  // Subpixel hops while paused must not assign canvas.width (browser wipe).
+  const frozen = typeof scopePaintIsFrozen === "function"
+    ? scopePaintIsFrozen()
+    : (typeof nodeGraphModuleScopePhosphorFrozen === "function"
+      && nodeGraphModuleScopePhosphorFrozen());
+  if (frozen && canvas.width >= 2 && canvas.height >= 2) {
+    const dw = Math.abs(width - canvas.width);
+    const dh = Math.abs(height - canvas.height);
+    if (dw <= 1 && dh <= 1) {
+      width = canvas.width;
+      height = canvas.height;
+    }
+  }
   if (canvas.width !== width || canvas.height !== height) {
     const previousWidth = canvas.width;
     const previousHeight = canvas.height;

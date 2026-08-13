@@ -271,34 +271,49 @@ const NODE_GRAPH_PARAM_MOD_UNIT_BAND = 1 + 1e-9;
  *   Uni 0…1 + base at min → full range (e.g. Freq 1…20000).
  * Absolute (|mod| > 1): domain-add base + mod (exact Hz sources).
  *
- * Unipolar: mod contribution ≥ 0. Bipolar: signed (thru-zero capable).
+ * Signed MOD on every dest (negative LFO moves toward min). Only clip
+ * negatives when metadata.unipolarMod === true (explicit).
+ * Callers that have several sources should fold unit vs absolute per source
+ * via nodeGraphParamFoldModSources, not by summing first (avoids the |Σ| > 1 cliff).
  */
 function nodeGraphParamApplyMod(base, modSum, metadata = {}) {
+  const folded = nodeGraphParamFoldModSources(base, [modSum], metadata);
+  return folded;
+}
+
+/**
+ * Combine one or more MOD samples onto DOMAIN base.
+ * Each source: |mod| ≤ 1 → unit-map contribution; |mod| > 1 → domain-add.
+ */
+function nodeGraphParamFoldModSources(base, sources, metadata = {}) {
   const baseN = Number(base);
   const b = Number.isFinite(baseN) ? baseN : 0;
-  let mod = Number(modSum);
-  if (!Number.isFinite(mod)) {
-    mod = 0;
-  }
-  const bipolar = nodeGraphParamIsBipolar(metadata);
-  if (!bipolar) {
-    mod = Math.max(0, mod);
-  }
-
   const min = Number(metadata.min);
   const max = Number(metadata.max);
   const range = max - min;
-  const absMod = Math.abs(mod);
-
-  // Unit CV path: linear min…max, never skew (even if slider is log-ish).
-  if (Number.isFinite(range) && range > 0 && absMod <= NODE_GRAPH_PARAM_MOD_UNIT_BAND) {
-    const baseUnit = nodeGraphParamDomainToUnitLinear(b, metadata);
-    const unit = baseUnit + mod;
-    return nodeGraphParamUnitToDomainLinear(unit, metadata);
+  const clipNeg = metadata && metadata.unipolarMod === true;
+  let unitAdd = 0;
+  let domainAdd = 0;
+  const list = Array.isArray(sources) ? sources : [sources];
+  for (const raw of list) {
+    let mod = Number(raw);
+    if (!Number.isFinite(mod)) {
+      mod = 0;
+    }
+    if (clipNeg) {
+      mod = Math.max(0, mod);
+    }
+    if (Number.isFinite(range) && range > 0 && Math.abs(mod) <= NODE_GRAPH_PARAM_MOD_UNIT_BAND) {
+      unitAdd += mod;
+    } else {
+      domainAdd += mod;
+    }
   }
-
-  // Absolute domain-add (Pitch Detector Hz, Bias ≫ 1, …).
-  let result = b + mod;
+  let result = b + domainAdd;
+  if (Number.isFinite(range) && range > 0 && unitAdd !== 0) {
+    const baseUnit = nodeGraphParamDomainToUnitLinear(b, metadata);
+    result = nodeGraphParamUnitToDomainLinear(baseUnit + unitAdd, metadata) + domainAdd;
+  }
   if (!Number.isFinite(result)) {
     return 0;
   }

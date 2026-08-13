@@ -56,7 +56,7 @@ function beginNodeGraphNodeDrag(event) {
     return;
   }
   const handle = event.currentTarget.closest(
-    ".node-drag-handle, .node-execution-order-badge, .node-header-title-row, .node-led-face, .node-group-input-face, .node-group-output-face, .node-solid-module-shell, .node-solid-module-custom-ui, .node-knob-widget-body, .dsp-node-io-section, .node-parameter-row, .node-sample-phase-readout",
+    ".node-drag-handle, .node-execution-order-badge, .node-header-title-row, .node-led-face, .node-group-input-face, .node-group-output-face, .node-solid-module-shell, .node-solid-module-custom-ui, .node-knob-widget-body, .dsp-node-io-section, .node-parameter-row, .node-sample-phase-readout, .dsp-node.module-collapsed",
   );
   if (!handle) {
     return;
@@ -163,7 +163,15 @@ function dragNodeGraphNode(event) {
     }, { clamp: false });
   }
   drawNodeGraphWires();
-  scheduleNodeGraphModuleScopeDraw();
+  // Frozen faces live on the module DOM and move with it. Scheduling a
+  // paused draw used to paint cold plates over LCD / trace residual.
+  const frozen = typeof scopePaintIsFrozen === "function"
+    ? scopePaintIsFrozen()
+    : (typeof nodeGraphModuleScopePhosphorFrozen === "function"
+      && nodeGraphModuleScopePhosphorFrozen());
+  if (!frozen && typeof scheduleNodeGraphModuleScopeDraw === "function") {
+    scheduleNodeGraphModuleScopeDraw();
+  }
 }
 
 function endNodeGraphNodeDrag(event) {

@@ -94,6 +94,7 @@ const nodeUiDevSettingControls = Object.freeze([
   { defaultValue: 78, id: "nodeUiDevModuleLightSpread", key: "moduleLightSpread", max: 220, min: 40, type: "number" },
   { defaultValue: 18, id: "nodeUiDevTextGlowLevel", key: "textGlowLevel", max: 100, min: 0, type: "number" },
   { defaultValue: 6, id: "nodeUiDevModuleGridInset", key: "moduleGridInset", max: 20, min: 0, type: "number" },
+  { defaultValue: 0, id: "nodeUiDevPortFillInset", key: "portFillInset", max: 12, min: 0, type: "number" },
   { defaultValue: 0, id: "nodeUiDevModuleRoundness", key: "moduleRoundness", max: 100, min: 0, type: "number" },
   { defaultValue: "#ffffff", id: "nodeUiDevGridColor", key: "gridColor", type: "color" },
   {
@@ -183,6 +184,7 @@ const nodeUiDevSettingSections = Object.freeze([
       "nodeUiDevModuleLightSpread",
       "nodeUiDevTextGlowLevel",
       "nodeUiDevModuleGridInset",
+      "nodeUiDevPortFillInset",
       "nodeUiDevModuleRoundness",
       "nodeUiDevGridColor",
       "nodeUiDevWorkspaceBackgroundColor",

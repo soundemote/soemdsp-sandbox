@@ -86,7 +86,7 @@ NodeLiveAudioProcessor.prototype.sineWavetableWorkletEvaluate = function sineWav
   const referenceVoltage = referenceMidiNote / 120;
   const hasPitchInput = this.inputConnections.has(this.inputKey(nodeId, "0.1V/Oct"));
   const pitchCv = hasPitchInput
-    ? this.clampValue(this.safeFilterNumber(mixInput(nodeId, "0.1V/Oct"), null), -1, 1)
+    ? this.safeFilterNumber(mixInput(nodeId, "0.1V/Oct"), null)
     : referenceVoltage;
   const baseWithFreqJack = baseFrequency + freqInput;
   const effectiveFrequency = typeof nodeGraphParamResolveOscPitchHz === "function"

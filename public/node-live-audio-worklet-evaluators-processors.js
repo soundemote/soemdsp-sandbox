@@ -676,11 +676,12 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
         this.slewLimiterStates.set(nodeId, state);
         const slewUpTime = this.readEffectiveParameter(node, "upTime", 0.05, frame, frames, frameValues);
         const slewDownTime = this.readEffectiveParameter(node, "downTime", 0.20, frame, frames, frameValues);
+        const slewShape = this.readEffectiveParameter(node, "shape", 0, frame, frames, frameValues);
         const slewMono = mixInput(nodeId);
         return {
-          Out: this.slewLimiterSample(state.mono, slewMono, slewUpTime, slewDownTime, safeRate),
-          Left: this.slewLimiterSample(state.left, mixInput(nodeId, "Left") + slewMono, slewUpTime, slewDownTime, safeRate),
-          Right: this.slewLimiterSample(state.right, mixInput(nodeId, "Right") + slewMono, slewUpTime, slewDownTime, safeRate),
+          Out: this.slewLimiterSample(state.mono, slewMono, slewUpTime, slewDownTime, safeRate, slewShape),
+          Left: this.slewLimiterSample(state.left, mixInput(nodeId, "Left") + slewMono, slewUpTime, slewDownTime, safeRate, slewShape),
+          Right: this.slewLimiterSample(state.right, mixInput(nodeId, "Right") + slewMono, slewUpTime, slewDownTime, safeRate, slewShape),
         };
       },
       // Stereo → Mid/Side (0.5 matrix). Math: mid-side-encode-math.js.
@@ -714,12 +715,13 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           state,
           mixInput(nodeId, "Left") + mono,
           mixInput(nodeId, "Right") + mono,
-          this.readEffectiveParameter(node, "ceiling", -0.3, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "ceiling", -1, frame, frames, frameValues),
           this.readEffectiveParameter(node, "lookaheadMs", 5, frame, frames, frameValues),
           this.readEffectiveParameter(node, "lookaheadSamples", 0, frame, frames, frameValues),
           this.readEffectiveParameter(node, "attack", 0.2, frame, frames, frameValues),
           this.readEffectiveParameter(node, "release", 100, frame, frames, frameValues),
           safeRate,
+          this.readEffectiveParameter(node, "lookaheadEnabled", 1, frame, frames, frameValues),
         );
       },
       inertialFilter: (node, nodeId, frame, frames, frameValues, mixInput) => {
@@ -1165,6 +1167,10 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
       }),
       traceDisplay: (node, nodeId, frame, frames, frameValues, mixInput) => ({
         Thru: this.safeFilterNumber(mixInput(nodeId, "In"), null),
+      }),
+      traceDisplayStereo: (node, nodeId, frame, frames, frameValues, mixInput) => ({
+        Left: this.safeFilterNumber(mixInput(nodeId, "Left"), null),
+        Right: this.safeFilterNumber(mixInput(nodeId, "Right"), null),
       }),
       dotOscilloscope: (node, nodeId, frame, frames, frameValues, mixInput) => ({
         Thru: this.safeFilterNumber(mixInput(nodeId, "In"), null),

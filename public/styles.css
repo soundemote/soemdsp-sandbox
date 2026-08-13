@@ -1089,52 +1089,72 @@ audio {
 }
 
 /* ── Music Player face: waveform ↔ playlist (pl) ───────────────────────── */
+/* Display cell size is fixed by the module grid. Wave and playlist pages are
+   absolute overlays of that cell (not flex siblings that re-split height).
+   Author `display:flex` must NOT beat the HTML hidden attribute or both
+   pages stay visible and slowly steal space from the waveform. */
 .node-phosphor-waveform-display {
   position: relative;
-  display: flex;
-  flex-direction: column;
+  display: block;
   min-height: 0;
+  overflow: hidden;
 }
 .node-music-player-face-bar {
   position: absolute;
   top: 4px;
   right: 4px;
-  z-index: 3;
+  z-index: 4;
   display: flex;
   gap: 3px;
   pointer-events: auto;
 }
+/* Hide face-bar PL control while playlist page is open (back is enough). */
+.node-phosphor-waveform-display[data-music-player-face="pl"] .node-music-player-face-bar {
+  display: none;
+}
 .node-music-player-face-btn {
   min-width: 22px;
-  height: 18px;
-  padding: 0 6px;
-  border: 1px solid rgba(120, 200, 220, 0.35);
-  border-radius: 3px;
-  background: rgba(0, 8, 12, 0.72);
-  color: rgba(180, 230, 245, 0.92);
-  font: 700 0.68rem/1 "Cascadia Mono", Consolas, monospace;
-  letter-spacing: 0.04em;
+  height: 16px;
+  padding: 0 5px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: rgba(160, 220, 200, 0.72);
+  font: 600 0.62rem/1 "Cascadia Mono", Consolas, "DSEG7 Classic", monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   cursor: pointer;
+  text-shadow: 0 0 6px rgba(80, 180, 160, 0.35);
 }
 .node-music-player-face-btn:hover,
 .node-music-player-face-btn:focus-visible {
-  border-color: rgba(140, 220, 240, 0.7);
-  background: rgba(10, 40, 50, 0.88);
+  color: rgba(200, 255, 230, 0.95);
+  background: rgba(0, 20, 16, 0.35);
   outline: none;
 }
 .node-music-player-face-btn.is-active {
-  border-color: rgba(100, 220, 180, 0.75);
-  color: rgba(160, 255, 210, 0.98);
+  color: rgba(180, 255, 220, 0.98);
 }
+/* Fill the display content box (inside --phosphor-waveform-inset padding).
+   Absolute children ignore parent padding, so match the inset explicitly —
+   same box the canvas used when it was a flow child. */
 .node-music-player-page {
-  flex: 1 1 auto;
+  position: absolute;
+  top: var(--phosphor-waveform-inset, 2px);
+  right: var(--phosphor-waveform-inset, 2px);
+  bottom: var(--phosphor-waveform-inset, 2px);
+  left: var(--phosphor-waveform-inset, 2px);
   min-height: 0;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
+}
+/* Critical: class `display:flex` would otherwise override [hidden]. */
+.node-music-player-page[hidden] {
+  display: none !important;
 }
 .node-music-player-page-wave {
-  position: relative;
-  min-height: 0;
+  z-index: 1;
 }
 .node-music-player-page-wave .node-phosphor-waveform-canvas {
   width: 100%;
@@ -1142,13 +1162,16 @@ audio {
   display: block;
 }
 .node-music-player-page-pl {
+  z-index: 2;
   gap: 4px;
   padding: 4px 6px 6px;
-  background: rgba(0, 4, 8, 0.92);
+  background: rgba(0, 4, 8, 0.96);
   color: rgba(190, 220, 230, 0.95);
   font: 600 0.72rem/1.25 "Cascadia Mono", Consolas, monospace;
+  overflow: hidden;
 }
 .node-music-player-pl-head {
+  flex: 0 0 auto;
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
@@ -1161,6 +1184,7 @@ audio {
   text-transform: uppercase;
   font-size: 0.65rem;
 }
+/* RAM / "GB" toggle — also closes the debug panel (no extra ×). */
 .node-music-player-pl-ram {
   justify-self: end;
   max-width: 55%;
@@ -1187,11 +1211,16 @@ audio {
   color: rgba(255, 160, 120, 0.98);
   background: rgba(40, 8, 0, 0.65);
 }
+.node-music-player-pl-ram[aria-pressed="true"] {
+  border-color: rgba(220, 160, 80, 0.85);
+  background: rgba(40, 18, 0, 0.75);
+}
 .node-music-player-pl-ram-panel {
+  flex: 0 1 auto;
   display: flex;
   flex-direction: column;
   gap: 3px;
-  max-height: 42%;
+  max-height: 38%;
   min-height: 0;
   padding: 4px 5px;
   border: 1px solid rgba(180, 120, 60, 0.4);
@@ -1203,9 +1232,9 @@ audio {
   display: none !important;
 }
 .node-music-player-pl-ram-head {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 6px;
   font-size: 0.62rem;
   letter-spacing: 0.06em;
@@ -1264,17 +1293,17 @@ audio {
   line-height: 1.3;
   white-space: normal;
 }
+/* List fills leftover page height; rows keep natural size; overflow scrolls. */
 .node-music-player-pl-list {
   flex: 1 1 auto;
-  min-height: 48px;
-  max-height: 100%;
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: block;
   border: 1px solid rgba(80, 120, 140, 0.35);
   border-radius: 3px;
   background: rgba(0, 0, 0, 0.35);
+  overscroll-behavior: contain;
 }
 .node-music-player-pl-empty {
   padding: 10px 8px;
@@ -1296,6 +1325,8 @@ audio {
   font: inherit;
   text-align: left;
   cursor: pointer;
+  flex: none;
+  box-sizing: border-box;
 }
 .node-music-player-pl-row:hover,
 .node-music-player-pl-row:focus-visible {
@@ -1321,6 +1352,7 @@ audio {
   font-variant-numeric: tabular-nums;
 }
 .node-music-player-pl-scrub {
+  flex: 0 0 auto;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) 3.4rem;
   gap: 6px;
@@ -1382,8 +1414,23 @@ audio {
   border-top: 1px solid rgba(127, 199, 217, 0.12);
 }
 
-/* Patch / code / mapping pages: scrollable middle, footer stays put. */
-.node-wiring-panel.content-view-mode > .node-settings-view:not([hidden]),
+/* Patch / code / mapping pages: fill the column between toolbar and footer. */
+.node-wiring-panel.content-view-mode:not(.modular-only-view):not(.camera-view-visible) {
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
+}
+
+.node-wiring-panel.content-view-mode > .node-graph-controls {
+  margin-top: 0;
+}
+
+.node-wiring-panel.content-view-mode > .node-settings-view:not([hidden]) {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .node-wiring-panel.content-view-mode > .node-code-screen-view:not([hidden]),
 .node-wiring-panel.content-view-mode > .node-mapping-view:not([hidden]) {
   flex: 1 1 auto;
@@ -4981,6 +5028,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   max-width: calc(100% - (var(--node-modular-only-inset) * 2));
   max-height: calc(100dvh - (var(--node-modular-only-inset) * 2));
   margin: auto;
+  justify-self: center;
+  align-self: center;
+  overflow: hidden;
 }
 
 .node-modular-only-back-button {
@@ -7754,13 +7804,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
-  padding: 16px 16px 28px;
-  display: grid;
-  gap: 14px;
-  align-content: start;
-  max-width: 920px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   width: 100%;
-  margin: 0 auto;
+  margin: 0;
   box-sizing: border-box;
 }
 
@@ -7775,6 +7824,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 .node-patch-card-muted {
+  flex: 0 0 auto;
   background: rgba(10, 12, 15, 0.72);
   box-shadow: none;
 }
@@ -7971,7 +8021,8 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 
 .node-module-shop-column {
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr);
+  /* nav, controls, category title, scroll list, saved groups */
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
   align-content: stretch;
   gap: 0;
   width: 100%;
@@ -8317,19 +8368,35 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   gap: 0;
 }
 
-/* Scroll chevrons: absolute so they never become grid/flex items (sticky
-   ::before on display:grid left a blank band under the category title). */
-.node-module-shop-section::before,
-.node-module-shop-section::after {
+/* Scroll chevrons live on a non-scrolling frame around the list so they
+   stay pinned to the visible top/bottom edges. Putting them on the
+   overflow:auto section made them float over the shop (abspos + scrollport). */
+.node-module-shop-scroll-frame {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  grid-row: 4;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.node-module-shop-scroll-frame > .node-module-shop-section {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.node-module-shop-scroll-frame::before,
+.node-module-shop-scroll-frame::after {
   position: absolute;
   left: 0;
   right: 0;
   display: grid;
   place-items: center;
-  height: 1.1rem;
+  height: 1.15rem;
   margin: 0;
   padding: 0;
-  color: rgba(243, 241, 236, 0.88);
+  color: rgba(243, 241, 236, 0.92);
   font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
   font-size: 0.88rem;
   font-weight: 850;
@@ -8343,18 +8410,20 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   z-index: 4;
 }
 
-.node-module-shop-section::before {
+.node-module-shop-scroll-frame::before {
   content: "▲";
-  top: 2px;
+  top: 0;
+  background: linear-gradient(180deg, rgba(17, 20, 24, 0.92), rgba(17, 20, 24, 0));
 }
 
-.node-module-shop-section::after {
+.node-module-shop-scroll-frame::after {
   content: "▼";
-  bottom: 2px;
+  bottom: 0;
+  background: linear-gradient(0deg, rgba(17, 20, 24, 0.92), rgba(17, 20, 24, 0));
 }
 
-.node-module-shop-section:hover.can-scroll-up::before,
-.node-module-shop-section:hover.can-scroll-down::after {
+.node-module-shop-scroll-frame.can-scroll-up::before,
+.node-module-shop-scroll-frame.can-scroll-down::after {
   opacity: 1;
 }
 
@@ -9738,37 +9807,12 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: block;
 }
 
-/*
- * App-wide display hide SSOT (CSS half):
- * Global Displays off → every face collapses. No layout exemptions.
- * Local force-show (.oscilloscope-forced-visible) can keep a face up.
- */
-.node-graph-workspace.module-oscilloscopes-hidden
-  .dsp-node:not(.oscilloscope-forced-visible) {
-  --node-module-scope-height: 0px;
-}
-
+/* Face paint hide (LayoutB keeps a shell track for side jacks).
+   Article tracks omit the face band in applyNodeGraphModuleLayout. */
 .node-graph-workspace.module-oscilloscopes-hidden
   .dsp-node:not(.oscilloscope-forced-visible)
-  .node-module-scope-window,
-.node-graph-workspace.module-oscilloscopes-hidden
-  .dsp-node:not(.oscilloscope-forced-visible)
-  .node-pitch-detector-face,
-.node-graph-workspace.module-oscilloscopes-hidden
-  .dsp-node:not(.oscilloscope-forced-visible)
-  .node-filter-curve-display,
-.node-graph-workspace.module-oscilloscopes-hidden
-  .dsp-node:not(.oscilloscope-forced-visible)
-  .node-round-shape-display,
-.node-graph-workspace.module-oscilloscopes-hidden
-  .dsp-node:not(.oscilloscope-forced-visible)
-  .node-wall-room-display,
-.node-graph-workspace.module-oscilloscopes-hidden
-  .dsp-node:not(.oscilloscope-forced-visible)
-  .node-phosphor-waveform-display,
-.node-graph-workspace.module-oscilloscopes-hidden
-  .dsp-node:not(.oscilloscope-forced-visible)
-  .node-solid-module-custom-ui {
+  .node-module-face,
+.dsp-node.oscilloscope-hidden .node-module-face {
   display: none !important;
 }
 
@@ -10023,13 +10067,9 @@ body.room-dimmer-on .node-room-dimmer-canvas,
     var(--node-io-section-min-height),
     calc(var(--node-grid-height) * var(--node-module-io-height-units, 0))
   );
-  /* LayoutA content rows + shared bottom gap track (same as LayoutB solid). */
-  grid-template-rows:
-    var(--node-header-height)
-    var(--node-module-scope-height)
-    minmax(var(--node-module-io-track-min), auto)
-    auto
-    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
+  /* Article tracks come from applyNodeGraphModuleLayout (inline + this var).
+     Hidden bands are omitted — do not reserve a 0px face hole. */
+  grid-template-rows: var(--node-module-stack-rows, var(--node-header-height) auto);
   align-content: stretch;
   gap: 0;
   width: calc((var(--node-grid-width) * var(--node-grid-width-units, 7)) - (var(--node-module-grid-inset) * 2));
@@ -10052,6 +10092,15 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.26);
   overflow: visible;
   pointer-events: none;
+}
+
+.dsp-node.module-stack {
+  grid-template-rows: var(--node-module-stack-rows, var(--node-header-height) auto);
+}
+
+.dsp-node > .node-module-face {
+  min-width: 0;
+  min-height: 0;
 }
 
 /* Gapped module chrome — always under the plate mask + content.
@@ -10329,34 +10378,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   --node-grid-width-units: 6;
 }
 
-.dsp-node.text-box-layout {
-  grid-template-rows: var(--node-header-height) minmax(0, 1fr);
-}
-
-.dsp-node.image-node-layout {
-  grid-template-rows:
-    var(--node-header-height)
-    minmax(0, 1fr)
-    minmax(var(--node-io-section-min-height), auto)
-    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
-}
-
-.dsp-node.visual-scope-layout {
-  grid-template-rows:
-    var(--node-header-height)
-    minmax(0, 1fr)
-    minmax(var(--node-io-section-min-height), auto)
-    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
-}
-
-.dsp-node.trace-display-layout {
-  grid-template-rows:
-    var(--node-header-height)
-    var(--node-module-scope-height)
-    minmax(var(--node-io-section-min-height), auto)
-    auto
-    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
-}
+/* Article row templates for text/image/scope/trace come from applyNodeGraphModuleLayout. */
 
 /*
  * LayoutB module article grid (chrome-layout-b + solid-module-layout):
@@ -10378,11 +10400,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
     )
   );
   display: grid;
-  grid-template-rows:
-    var(--node-header-height)
-    var(--node-module-layout-b-shell-track)
-    auto
-    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
+  /* Article rows from applyNodeGraphModuleLayout. */
   /*
    * Match LayoutA: overflow visible so the gapped SVG selection/frame stroke
    * (outset past the plate) is not clipped. Shell + body stay overflow:hidden
@@ -10398,7 +10416,6 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 
 .dsp-node.chrome-layout-b > .dsp-node-header,
 .dsp-node.solid-module-layout > .dsp-node-header {
-  grid-row: 1;
   min-height: 0;
   max-height: var(--node-header-height);
   overflow: hidden;
@@ -10407,7 +10424,6 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 .dsp-node.chrome-layout-b > .node-solid-module-shell,
 .dsp-node.chrome-layout-b > .node-module-chrome-layout-b-shell,
 .dsp-node.solid-module-layout > .node-solid-module-shell {
-  grid-row: 2;
   align-self: stretch;
   box-sizing: border-box;
   width: 100%;
@@ -10420,7 +10436,6 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 
 .dsp-node.chrome-layout-b > .dsp-node-body,
 .dsp-node.solid-module-layout > .dsp-node-body {
-  grid-row: 3;
   align-self: start;
   min-height: 0;
   /* Params size to content; outer gu already reserved them in JS. */
@@ -10433,9 +10448,6 @@ body.room-dimmer-on .node-room-dimmer-canvas,
  */
 .dsp-node.chrome-layout-b.layout-b-no-params,
 .dsp-node.solid-module-layout.layout-b-no-params {
-  grid-template-rows:
-    var(--node-header-height)
-    minmax(0, 1fr);
   /* Keep frame stroke visible (Value LCD / Value LED / headerless LayoutB). */
   overflow: visible;
 }
@@ -10459,15 +10471,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   display: none !important;
 }
 
-/* LayoutA filter curve: header | face | IO under | params | gap. */
-.dsp-node.filter-curve-layout:not(.chrome-layout-b) {
-  grid-template-rows:
-    var(--node-header-height)
-    var(--node-module-scope-height)
-    minmax(var(--node-module-io-track-min), auto)
-    auto
-    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
-}
+/* LayoutA filter-curve article rows come from applyNodeGraphModuleLayout. */
 
 /*
  * LayoutC — compact convenience thrus (Vectorscope Rotation, …):
@@ -10475,19 +10479,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
  * No display face, no param stack. Port rows 1fr so small modules still have
  * tall hit bands for L/R / X/Y.
  */
-.dsp-node.chrome-layout-c {
-  grid-template-rows:
-    var(--node-header-height)
-    minmax(0, 1fr)
-    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
-}
-
-.dsp-node.chrome-layout-c > .dsp-node-header {
-  grid-row: 1;
-}
-
 .dsp-node.chrome-layout-c > .dsp-node-io-section {
-  grid-row: 2;
   min-height: 0;
   height: 100%;
   align-self: stretch;
@@ -11060,15 +11052,6 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   white-space: nowrap;
 }
 
-.dsp-node.patch-command-layout {
-  grid-template-rows:
-    var(--node-header-height)
-    minmax(0, 1fr)
-    minmax(var(--node-io-section-min-height), auto)
-    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
-}
-
-
 .node-patch-command-body {
   display: grid;
   place-items: center;
@@ -11092,23 +11075,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   font: 650 0.58rem/1 var(--mono);
 }
 
-.dsp-node.keyboard-controller-layout,
-.dsp-node.pitch-mod-wheel-layout,
-.dsp-node.speaker-protection-layout,
-.dsp-node.screen-space-shader-layout {
-  grid-template-rows: var(--node-header-height) minmax(0, 1fr) minmax(var(--node-io-section-min-height), auto);
-}
-
-/* Macro Controls: header | knob display face | I/O — face height from display-height units. */
-.dsp-node.macro-controls-layout {
-  grid-template-rows:
-    var(--node-header-height)
-    var(--node-module-scope-height)
-    minmax(var(--node-io-section-min-height), auto);
-}
-
 .dsp-node.macro-controls-layout > .node-macro-controls-module {
-  grid-row: 2;
   align-self: stretch;
   width: 100%;
   height: 100%;
@@ -11119,19 +11086,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   background: var(--macro-controls-bg, #000000);
 }
 
-/* LayoutA BADVAL face: same display-height row as default LayoutA scopes
-   (--node-module-scope-height ← --node-module-display-height-units). */
-.dsp-node.badval-monitor-layout {
-  grid-template-rows:
-    var(--node-header-height)
-    var(--node-module-scope-height)
-    minmax(var(--node-io-section-min-height), auto)
-    auto
-    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
-}
-
 .dsp-node.badval-monitor-layout > .node-badval-monitor-body {
-  grid-row: 2;
   align-self: stretch;
   width: 100%;
   height: 100%;
@@ -11140,19 +11095,9 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 }
 
 /* Pitch Detector: one continuous LED plate; tight Hz/Fid labels at bottom (no bar). */
-.dsp-node.pitch-detector-layout {
-  grid-template-rows:
-    var(--node-header-height)
-    var(--node-module-scope-height)
-    minmax(var(--node-io-section-min-height), auto)
-    auto
-    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
-}
-
 .dsp-node.pitch-detector-layout > .node-pitch-detector-face {
   position: relative;
   z-index: 2; /* above plate mask */
-  grid-row: 2;
   align-self: stretch;
   box-sizing: border-box;
   /* LED flex-fills; Hz/Fid is content-height (text px + tiny pad). */
@@ -11943,33 +11888,12 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   grid-auto-rows: var(--node-body-row-height);
   gap: var(--node-body-row-gap);
   padding: 0;
+  overflow: hidden;
 }
 
-/*
- * LayoutA only: when module buttons are hidden, retarget the default module
- * grid (header | scope | IO under | params). Must NOT apply to LayoutB
- * (crossovers / filter-curve shell, solid shells, etc.) — that overwrote
- * "header | shell | params" with a short scope row and crushed the face/sliders.
- */
-.node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.solid-module-layout):not(.chrome-layout-b),
-.dsp-node.buttons-hidden:not(.text-box-layout):not(.image-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.solid-module-layout):not(.chrome-layout-b) {
-  grid-template-rows:
-    var(--node-header-height)
-    var(--node-module-scope-height)
-    minmax(var(--node-io-section-min-height), auto)
-    auto
-    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
-}
-
-.node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.solid-module-layout):not(.chrome-layout-b)::after,
-.dsp-node.buttons-hidden:not(.text-box-layout):not(.image-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.solid-module-layout):not(.chrome-layout-b)::after {
-  content: "";
-  display: block;
-  min-height: 0;
-}
-
-.node-graph-workspace.module-buttons-hidden .dsp-node:not(.text-box-layout):not(.image-node-layout):not(.canvas-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.solid-module-layout):not(.chrome-layout-b) .dsp-node-body,
-.dsp-node.buttons-hidden:not(.text-box-layout):not(.image-node-layout):not(.visual-scope-layout):not(.trace-display-layout):not(.graph-node-layout):not(.slider-widget-layout):not(.sample-module-layout):not(.screen-space-shader-layout):not(.solid-module-layout):not(.chrome-layout-b) .dsp-node-body {
+/* Buttons-hidden used to rewrite article grid-template-rows. Stack is now
+   applyNodeGraphModuleLayout; only header-height vars change. */
+.dsp-node.buttons-hidden .dsp-node-body {
   align-content: start;
   grid-auto-rows: var(--node-body-row-height);
 }
@@ -13442,143 +13366,10 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   display: none;
 }
 
-/* Per-module display hide — same SSOT as global: no layout exemptions. */
-.dsp-node.oscilloscope-hidden {
-  --node-module-scope-height: 0px;
-}
-
-.dsp-node.oscilloscope-hidden .node-module-scope-window,
-.dsp-node.oscilloscope-hidden .node-pitch-detector-face,
-.dsp-node.oscilloscope-hidden .node-filter-curve-display,
-.dsp-node.oscilloscope-hidden .node-round-shape-display,
-.dsp-node.oscilloscope-hidden .node-wall-room-display,
-.dsp-node.oscilloscope-hidden .node-phosphor-waveform-display,
-.dsp-node.oscilloscope-hidden .node-solid-module-custom-ui {
-  display: none !important;
-}
-
-/* Music Player also carries .sample-module-layout (shared with
-   samplePlayer/sampleLooper), whose grid-template-rows/explicit grid-row
-   assignments have no slot for the waveform display -- it was landing
-   auto-placed into the unused scope row (row 2, since audioPlayer has no
-   .node-module-scope-window), rendering ABOVE the load-path/sample body
-   at row 3 regardless of DOM order. Inserts a dedicated row right after
-   the sample body and shifts io-section/body down one row accordingly;
-   scoped to .phosphor-waveform-layout specifically so
-   samplePlayer/sampleLooper's shared rows are untouched. Row 2 collapses
-   to 0 since nothing occupies it here. */
-.dsp-node.phosphor-waveform-layout.sample-module-layout {
-  grid-template-rows:
-    var(--node-header-height)
-    0px
-    /* Controls row takes only the height its content needs (it used to be a
-       flat 4gu, which left dead space once the empty "No sample"/"no audio
-       loaded" lines stopped rendering)... */
-    auto
-    /* ...and the waveform absorbs whatever is left over, never dropping below
-       its configured display height. The node's overall height is unchanged;
-       the space is just redistributed. drawNodeGraphPhosphorWaveformDisplay
-       re-measures section.clientHeight every frame, so the canvas follows. */
-    minmax(var(--node-module-scope-height), 1fr)
-    minmax(var(--node-io-section-min-height), auto)
-    auto
-    /* Bottom clearance. Without a track of its own this space would be eaten by
-       the 1fr waveform row above and the slider stack would sit flush against
-       the module's bottom edge. nodeGraphModuleHeightWidgetUnits adds the
-       matching grid unit to the module's height. */
-    var(--node-grid-height);
-}
-
-.phosphor-waveform-layout.sample-module-layout .node-phosphor-waveform-display {
-  grid-row: 4;
-}
-
-.phosphor-waveform-layout.sample-module-layout .dsp-node-io-section {
-  grid-row: 5;
-}
-
-.phosphor-waveform-layout.sample-module-layout .dsp-node-body {
-  grid-row: 6;
-}
-
-/* When display is hidden, collapse the face row out of the grid. */
-.node-graph-workspace.module-oscilloscopes-hidden .dsp-node:not(.oscilloscope-forced-visible):not(.sample-module-layout),
-.dsp-node.oscilloscope-hidden:not(.sample-module-layout),
-.dsp-node.face-row-collapsed:not(.sample-module-layout):not(.chrome-layout-b):not(.solid-module-layout) {
-  grid-template-rows:
-    var(--node-header-height)
-    minmax(var(--node-module-io-track-min, var(--node-io-section-min-height)), auto)
-    auto
-    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
-}
-
-/*
- * LayoutA explicit row placement (Gain, envelopes, plain processors, …).
- * Auto-placement alone breaks when the face row is reserved in
- * grid-template-rows but the scope element is missing (or height vars lag):
- * I/O lands in the face track, params in the I/O track, and the real params
- * track stays empty — looks like “sliders on I/O + dead gap”.
- * Explicit rows match the height SSOT: header | face | I/O | params | gap.
- */
-.dsp-node.chrome-layout-a:not(.chrome-layout-b):not(.chrome-layout-c):not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout) > .dsp-node-header {
-  grid-row: 1;
-}
-
-.dsp-node.chrome-layout-a:not(.chrome-layout-b):not(.chrome-layout-c):not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout):not(.oscilloscope-hidden):not(.face-row-collapsed) > .node-module-scope-window,
-.dsp-node.chrome-layout-a:not(.chrome-layout-b):not(.chrome-layout-c):not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout):not(.oscilloscope-hidden):not(.face-row-collapsed) > .node-pitch-detector-face,
-.dsp-node.chrome-layout-a:not(.chrome-layout-b):not(.chrome-layout-c):not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout):not(.oscilloscope-hidden):not(.face-row-collapsed) > .node-filter-curve-display,
-.dsp-node.chrome-layout-a:not(.chrome-layout-b):not(.chrome-layout-c):not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout):not(.oscilloscope-hidden):not(.face-row-collapsed) > .node-envelope-curve-display,
-.dsp-node.chrome-layout-a:not(.chrome-layout-b):not(.chrome-layout-c):not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout):not(.oscilloscope-hidden):not(.face-row-collapsed) > .node-round-shape-display,
-.dsp-node.chrome-layout-a:not(.chrome-layout-b):not(.chrome-layout-c):not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout):not(.oscilloscope-hidden):not(.face-row-collapsed) > .node-wall-room-display,
-.dsp-node.chrome-layout-a:not(.chrome-layout-b):not(.chrome-layout-c):not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout):not(.oscilloscope-hidden):not(.face-row-collapsed) > .node-pulse-curve-display {
-  grid-row: 2;
-}
-
-.dsp-node.chrome-layout-a:not(.chrome-layout-b):not(.chrome-layout-c):not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout):not(.oscilloscope-hidden):not(.face-row-collapsed) > .dsp-node-io-section {
-  grid-row: 3;
-}
-
-.dsp-node.chrome-layout-a:not(.chrome-layout-b):not(.chrome-layout-c):not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout):not(.oscilloscope-hidden):not(.face-row-collapsed) > .dsp-node-body {
-  grid-row: 4;
-}
-
-.dsp-node.chrome-layout-a.oscilloscope-hidden:not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout) > .dsp-node-io-section,
-.dsp-node.chrome-layout-a.face-row-collapsed:not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout) > .dsp-node-io-section {
-  grid-row: 2;
-}
-
-.dsp-node.chrome-layout-a.oscilloscope-hidden:not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout) > .dsp-node-body,
-.dsp-node.chrome-layout-a.face-row-collapsed:not(.sample-module-layout):not(.solid-module-layout):not(.phosphor-waveform-layout) > .dsp-node-body {
-  grid-row: 3;
-}
-
-.dsp-node.pitch-detector-layout.oscilloscope-hidden,
-.dsp-node.filter-curve-layout.oscilloscope-hidden {
-  grid-template-rows:
-    var(--node-header-height)
-    minmax(var(--node-io-section-min-height), auto)
-    auto
-    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
-}
-
-.dsp-node.sample-module-layout,
-.dsp-node.sample-module-layout.oscilloscope-hidden {
-  grid-template-rows:
-    var(--node-header-height)
-    var(--node-module-scope-height)
-    var(--node-module-interface-controls-height)
-    minmax(var(--node-io-section-min-height), auto)
-    auto
-    var(--node-module-bottom-gap-track, minmax(2px, 1fr));
-  align-content: stretch;
-}
-
-.sample-module-layout .node-module-scope-window {
-  grid-row: 2;
-}
+/* Display hide is applyNodeGraphModuleLayout omitting the face band.
+   Do not zero --node-module-scope-height or rematch grid-row here. */
 
 .sample-module-layout .node-sample-module-body {
-  grid-row: 3;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
@@ -13594,12 +13385,7 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   display: grid;
 }
 
-.sample-module-layout .dsp-node-io-section {
-  grid-row: 4;
-}
-
 .sample-module-layout .dsp-node-body {
-  grid-row: 5;
   align-content: start;
   grid-auto-rows: var(--node-body-row-height);
   align-self: start;
@@ -13616,6 +13402,26 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 
 .dsp-node.buttons-hidden.title-hidden {
   --node-header-height: 0px;
+}
+
+.dsp-node.title-only {
+  --node-header-height: var(--node-header-title-row-height);
+  --node-module-bottom-gap-track: 0px;
+}
+
+.dsp-node.title-only .dsp-node-header {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.dsp-node.module-collapsed {
+  --node-header-height: 0px;
+  --node-module-bottom-gap-track: 0px;
+  pointer-events: auto;
+  cursor: var(--node-dot-cursor, grab);
+}
+
+.dsp-node.module-collapsed > * {
+  pointer-events: none;
 }
 
 .node-graph-workspace.module-buttons-hidden .dsp-node.title-hidden:not(.buttons-forced-visible) {
@@ -15823,6 +15629,15 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   background-repeat: no-repeat !important;
   cursor: ew-resize;
   overflow: hidden;
+}
+
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-hue-thumb,
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-hue-thumb:hover,
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-hue-thumb:active,
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-root[data-dragging="hue-thumb"],
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-root[data-dragging="hue-thumb"] .scw-hue,
+.node-trace-display-settings-popover .node-trace-display-color-widget-host .scw-root[data-dragging="hue-thumb"] button.scw-control.scw-hue {
+  cursor: default !important;
 }
 
 .node-trace-display-settings-popover .node-trace-display-color-widget-host button.scw-control:hover {
@@ -18827,6 +18642,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
    * stops under workspace zoom were the main jagged rim source.
    */
   --node-port-crescent-stroke-width: 1.25px;
+  --node-port-fill-inset: var(--node-port-fill-inset-px, 0px);
   --node-port-crescent-at: left center;
   display: block;
   box-sizing: border-box;
@@ -18852,8 +18668,8 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
     radial-gradient(
       circle farthest-side at var(--node-port-crescent-at),
       var(--node-port-crescent-fill) 0%,
-      var(--node-port-crescent-fill) calc(100% - var(--node-port-crescent-stroke-width) - 0.6px),
-      transparent calc(100% - var(--node-port-crescent-stroke-width) + 0.35px)
+      var(--node-port-crescent-fill) calc(100% - var(--node-port-crescent-stroke-width) - var(--node-port-fill-inset, 0px) - 0.6px),
+      transparent calc(100% - var(--node-port-crescent-stroke-width) - var(--node-port-fill-inset, 0px) + 0.35px)
     ),
     radial-gradient(
       circle farthest-side at var(--node-port-crescent-at),
@@ -19794,8 +19610,112 @@ button[data-transport-action="stop"]:disabled {
 }
 
 .node-render-duration-control button {
-  border-radius: 5px 0 0 5px;
+  border-radius: 0;
 }
+
+.node-render-duration-control {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+
+#nodeDownloadSampleButton {
+  min-width: 6.2rem;
+  height: 100%;
+  border-radius: 0;
+  cursor: grab;
+}
+
+#nodeDownloadSampleButton:active {
+  cursor: grabbing;
+}
+
+.node-sample-drag-ghost {
+  position: fixed;
+  z-index: 400;
+  pointer-events: none;
+  padding: 8px 12px;
+  border: 1px solid rgba(226, 168, 109, 0.8);
+  background: rgba(18, 20, 15, 0.94);
+  color: rgba(243, 240, 230, 0.92);
+  font: 12px/1.2 Consolas, "Courier New", monospace;
+}
+
+.node-plugin-patch-info {
+  padding: 10px 12px 8px;
+  overflow: auto;
+  flex: 0 0 auto;
+  max-height: 46%;
+  border-bottom: 1px solid rgba(243, 240, 230, 0.1);
+}
+
+.node-patch-raw-card {
+  flex: 1 1 auto;
+  min-height: 12rem;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.node-patch-raw-editor {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  background: #05090b;
+}
+
+.node-patch-raw-highlight,
+.node-patch-raw-text {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 12px 14px;
+  border: 0;
+  background: transparent;
+  font-family: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: 0;
+  tab-size: 2;
+  white-space: pre;
+  scrollbar-gutter: stable;
+}
+
+.node-patch-raw-highlight {
+  color: rgba(205, 214, 216, 0.9);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.node-patch-raw-text {
+  display: block;
+  resize: none;
+  overflow: auto;
+  color: transparent;
+  caret-color: rgba(255, 255, 255, 0.96);
+  -webkit-text-fill-color: transparent;
+}
+
+.node-patch-raw-text:focus {
+  outline: none;
+}
+
+.node-patch-raw-editor:focus-within {
+  box-shadow: inset 0 0 0 1px rgba(127, 199, 217, 0.42);
+}
+
+.json-token-key { color: rgba(127, 199, 217, 0.96); }
+.json-token-string { color: rgba(214, 176, 130, 0.96); }
+.json-token-number { color: rgba(169, 205, 166, 0.96); }
+.json-token-keyword { color: rgba(211, 160, 112, 0.96); }
+.json-token-punct { color: rgba(156, 172, 176, 0.72); }
 
 /* "Render / Sample" stacked on two lines, styled to match the Input/Output/
    MIDI live toggles beside it: same two-row grid, same casing (none), same
@@ -20426,12 +20346,10 @@ body.keyboard-debug-hidden .node-debug-only {
   display: none;
 }
 
-/* With diagnostics removed, let the normal modular workspace consume the
-   reclaimed viewport instead of retaining its old fixed 230px allowance.
-   Floating windows are fixed-position and therefore do not occupy this flex
-   column; the public control strip naturally lands against the bottom edge. */
+/* With diagnostics removed, the wiring column fills the viewport so the
+   public control strip stays on the bottom edge in modular and content views. */
 body.keyboard-debug-hidden
-  .node-wiring-panel:not(.modular-only-view):not(.camera-view-visible):has(> #nodeGraphWorkspace:not([hidden])) {
+  .node-wiring-panel:not(.modular-only-view):not(.camera-view-visible) {
   display: flex;
   flex-direction: column;
   width: 100%;

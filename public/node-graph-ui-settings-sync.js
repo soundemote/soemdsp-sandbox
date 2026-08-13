@@ -394,6 +394,10 @@ function syncNodeUiDevSettingsHeaderControls() {
   const moduleLightSpreadPercent = Math.max(40, Math.min(220, Number(moduleLightSpreadInput.value) || 78));
   const textGlowLevelPercent = Math.max(0, Math.min(100, Number(textGlowLevelInput.value) || 0));
   const moduleGridInsetPx = Math.max(0, Math.min(20, Number(moduleGridInsetInput.value) || 0));
+  const portFillInsetPx = Math.max(
+    0,
+    Math.min(12, Number(document.getElementById("nodeUiDevPortFillInset")?.value) || 0),
+  );
   const moduleRoundnessPercent = Math.max(0, Math.min(100, Number(moduleRoundnessInput.value) || 0));
   const gridColor = normalizeNodeUiDevColor(gridColorInput.value, "#ffffff");
   const workspaceBackgroundColor = normalizeNodeUiDevColor(workspaceBackgroundColorInput.value, "#0d0d0d");
@@ -506,6 +510,9 @@ function syncNodeUiDevSettingsHeaderControls() {
   document
     .getElementById("nodeGraphWorkspace")
     ?.style.setProperty("--node-module-grid-inset", `${moduleGridInsetPx}px`);
+  document
+    .getElementById("nodeGraphWorkspace")
+    ?.style.setProperty("--node-port-fill-inset-px", `${portFillInsetPx}px`);
   document
     .getElementById("nodeGraphWorkspace")
     ?.style.setProperty("--node-module-roundness-ratio", String(moduleRoundnessPercent / 100));
@@ -632,6 +639,10 @@ function syncNodeUiDevSettingsHeaderControls() {
   moduleLightSpreadValue.textContent = `${moduleLightSpreadPercent}%`;
   textGlowLevelValue.textContent = `${textGlowLevelPercent}%`;
   moduleGridInsetValue.textContent = `${moduleGridInsetPx}px`;
+  const portFillInsetValue = document.getElementById("nodeUiDevPortFillInsetValue");
+  if (portFillInsetValue) {
+    portFillInsetValue.textContent = `${portFillInsetPx}px`;
+  }
   moduleRoundnessValue.textContent = `${moduleRoundnessPercent}%`;
   gridColorValue.textContent = gridColor;
   workspaceBackgroundColorValue.textContent = workspaceBackgroundColor;

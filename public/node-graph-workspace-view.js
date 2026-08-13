@@ -433,11 +433,14 @@ function snapNodeGraphWorkspaceEdgesToGrid(zoom = nodeGraphZoom()) {
     renderedGridHeight,
     nodeGraphWorkspaceViewLimits.minHeightGu,
   );
-  withNodeGraphWorkspaceContentAnchored(workspace, () => {
-    const widthCss = nodeGraphWorkspaceWidthCss(snappedContentWidth);
-    const heightCss = nodeGraphWorkspaceHeightCss(snappedContentHeight);
-    applyNodeGraphWorkspaceSizeCss(workspace, widthCss, heightCss);
-  });
+  applyNodeGraphWorkspaceSizeCss(
+    workspace,
+    nodeGraphWorkspaceWidthCss(snappedContentWidth),
+    nodeGraphWorkspaceHeightCss(snappedContentHeight),
+  );
+  if (typeof applyNodeGraphPan === "function") {
+    applyNodeGraphPan({ persist: false, skipHeavy: true });
+  }
   drawNodeGraphWires();
 }
 
@@ -571,15 +574,18 @@ function nodeGraphWorkspaceResizeDeltaGu(pixelDelta, gridSize, stepGu = 1) {
 function setNodeGraphWorkspacePreviewSize(widthGu, heightGu) {
   const workspace = document.getElementById("nodeGraphWorkspace");
   const visibleSize = clampNodeGraphWorkspaceGridSizeToViewport({ widthGu, heightGu }, workspace);
-  withNodeGraphWorkspaceContentAnchored(workspace, () => {
-    applyNodeGraphWorkspaceSizeCss(
-      workspace,
-      nodeGraphWorkspaceWidthCss(visibleSize.widthGu * nodeGraphGridWidth()),
-      nodeGraphWorkspaceHeightCss(visibleSize.heightGu * nodeGraphGridHeight()),
-    );
-  });
+  // Size only. Do not rewrite pan or module positions — origin stays the
+  // workspace center, so a centered frame clips both sides in place.
+  applyNodeGraphWorkspaceSizeCss(
+    workspace,
+    nodeGraphWorkspaceWidthCss(visibleSize.widthGu * nodeGraphGridWidth()),
+    nodeGraphWorkspaceHeightCss(visibleSize.heightGu * nodeGraphGridHeight()),
+  );
   workspace.dataset.widthGu = String(visibleSize.widthGu);
   workspace.dataset.heightGu = String(visibleSize.heightGu);
+  if (typeof applyNodeGraphPan === "function") {
+    applyNodeGraphPan({ persist: false, skipHeavy: true });
+  }
   syncNodeGraphModularViewSizeReadout(visibleSize);
   drawNodeGraphWires();
   syncNodeGraphWorkspaceResizeHandlePosition();

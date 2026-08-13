@@ -180,12 +180,10 @@
     }
 
     context.save();
-    // Vector default: source-over, opaque, GPU antialias (not pixel stamps).
+    // Stroke in buffer pixels. Smoothing here only hurts when the face
+    // bitmap is later scaled — leave AA to the path rasterizer.
     context.globalCompositeOperation = options.composite || "source-over";
-    context.imageSmoothingEnabled = true;
-    if ("imageSmoothingQuality" in context) {
-      context.imageSmoothingQuality = "high";
-    }
+    context.imageSmoothingEnabled = false;
     context.lineCap = "round";
     context.lineJoin = "round";
     context.miterLimit = 2;

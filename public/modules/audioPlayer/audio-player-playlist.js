@@ -185,6 +185,31 @@ function nodeGraphAudioPlayerPlaylistSetFace(nodeId, face) {
   nodeGraphAudioPlayerPlaylistPersist(nodeId, { status: false });
 }
 
+/**
+ * Return to the waveform face for the sample currently loaded in the player
+ * (re-syncs playlist index if the list selection had drifted).
+ */
+function nodeGraphAudioPlayerPlaylistGoToWave(nodeId) {
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  if (!node || node.type !== "audioPlayer") {
+    return;
+  }
+  const pl = nodeGraphAudioPlayerPlaylistForNode(nodeId);
+  const sid = normalizeNodeGraphSampleId
+    ? normalizeNodeGraphSampleId(node.sample?.id)
+    : String(node.sample?.id || "").trim();
+  if (sid) {
+    const i = pl.items.findIndex((item) => item.sampleId === sid);
+    if (i >= 0) {
+      pl.index = i;
+    }
+  }
+  pl.face = "wave";
+  node.playlist = pl;
+  nodeGraphAudioPlayerPlaylistApplyFace(nodeId);
+  nodeGraphAudioPlayerPlaylistPersist(nodeId, { status: false });
+}
+
 function nodeGraphAudioPlayerPlaylistApplyFace(nodeId) {
   const section = document.querySelector(
     `.node-phosphor-waveform-display[data-node="${CSS.escape(String(nodeId || ""))}"]`,
@@ -207,6 +232,10 @@ function nodeGraphAudioPlayerPlaylistApplyFace(nodeId) {
     const on = btn.dataset.musicPlayerFace === (isPl ? "pl" : "wave");
     btn.classList.toggle("is-active", on);
     btn.setAttribute("aria-pressed", on ? "true" : "false");
+  }
+  const ramBtn = section.querySelector("[data-music-player-ram]");
+  if (ramBtn) {
+    ramBtn.setAttribute("aria-pressed", pl.ramOpen ? "true" : "false");
   }
   if (isPl) {
     nodeGraphAudioPlayerPlaylistRefreshUi(nodeId);
@@ -396,7 +425,15 @@ function nodeGraphAudioPlayerPlaylistPlayNext(nodeId) {
   if (!pl.items.length) {
     return;
   }
-  const next = pl.index + 1;
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  const sid = typeof normalizeNodeGraphSampleId === "function"
+    ? normalizeNodeGraphSampleId(node?.sample?.id)
+    : String(node?.sample?.id || "").trim();
+  const playing = sid
+    ? pl.items.findIndex((item) => item.sampleId === sid)
+    : pl.index;
+  const from = playing >= 0 ? playing : pl.index;
+  const next = from + 1;
   if (next >= pl.items.length) {
     // End of list: stop (transport Stop).
     const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
@@ -532,7 +569,7 @@ function nodeGraphAudioPlayerPlaylistRefreshUi(nodeId) {
         row.type = "button";
         row.className = "node-music-player-pl-row";
         row.dataset.playlistIndex = String(index);
-        row.dataset.active = index === pl.index ? "true" : "false";
+        row.dataset.active = index === (Number.isInteger(pl.selectedIndex) ? pl.selectedIndex : pl.index) ? "true" : "false";
         row.title = "Double-click to play";
         const num = document.createElement("span");
         num.className = "node-music-player-pl-num";
@@ -548,18 +585,37 @@ function nodeGraphAudioPlayerPlaylistRefreshUi(nodeId) {
         row.addEventListener("dblclick", (event) => {
           event.preventDefault();
           event.stopPropagation();
+          const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+          const cur = nodeGraphAudioPlayerPlaylistForNode(nodeId);
+          const sid = normalizeNodeGraphSampleId
+            ? normalizeNodeGraphSampleId(node?.sample?.id)
+            : String(node?.sample?.id || "").trim();
+          // Already the loaded/playing track → just return to its waveform (no restart).
+          if (item.sampleId && sid && item.sampleId === sid) {
+            nodeGraphAudioPlayerPlaylistGoToWave(nodeId);
+            return;
+          }
+          if (index === cur.index && sid && item.sampleId === sid) {
+            nodeGraphAudioPlayerPlaylistGoToWave(nodeId);
+            return;
+          }
           nodeGraphAudioPlayerPlaylistPlayIndex(nodeId, index, { autoplay: true });
         });
         row.addEventListener("click", (event) => {
           event.preventDefault();
           event.stopPropagation();
-          // Single click selects without forcing play.
           const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-          if (node) {
-            const cur = nodeGraphAudioPlayerPlaylistForNode(nodeId);
-            cur.index = index;
-            node.playlist = cur;
-            nodeGraphAudioPlayerPlaylistRefreshUi(nodeId);
+          if (!node) {
+            return;
+          }
+          const cur = nodeGraphAudioPlayerPlaylistForNode(nodeId);
+          cur.selectedIndex = index;
+          node.playlist = cur;
+          const listEl = section.querySelector("[data-music-player-list]");
+          if (listEl) {
+            listEl.querySelectorAll(".node-music-player-pl-row").forEach((el) => {
+              el.dataset.active = el.dataset.playlistIndex === String(index) ? "true" : "false";
+            });
           }
         });
         row.addEventListener("pointerdown", (event) => {
@@ -586,9 +642,12 @@ function nodeGraphAudioPlayerPlaylistRefreshRamDebug(nodeId) {
   if (ramEl) {
     ramEl.textContent = ram.label;
     ramEl.classList.toggle("is-hog", ram.hog);
-    ramEl.title = ram.hog
-      ? `RAM hog warning: ${ram.label} decoded Float32 in sampleBuffers`
-      : "Decoded sample RAM (Float32) for this playlist — click for debug tab";
+    ramEl.setAttribute("aria-pressed", pl.ramOpen ? "true" : "false");
+    ramEl.title = pl.ramOpen
+      ? `RAM debug open — click again to close (${ram.label})`
+      : ram.hog
+        ? `RAM hog warning: ${ram.label} decoded Float32 in sampleBuffers — click for debug`
+        : "Decoded sample RAM (Float32) — click to toggle debug";
   }
   const panel = section.querySelector("[data-music-player-ram-panel]");
   if (!panel) {
@@ -626,15 +685,25 @@ function nodeGraphAudioPlayerPlaylistRefreshRamDebug(nodeId) {
       if ((est.bytes || item.bytes || 0) >= 32 * 1024 * 1024) {
         tr.classList.add("is-heavy");
       }
-      tr.innerHTML = [
-        `<td>${String(index + 1).padStart(2, "0")}</td>`,
-        `<td class="node-music-player-pl-ram-name" title="${String(item.name).replace(/"/g, "&quot;")}">${item.name}</td>`,
-        `<td>${nodeGraphAudioPlayerPlaylistFormatBytes(est.bytes || item.bytes || 0)}</td>`,
-        `<td>${(est.frames || item.frames || 0).toLocaleString()}</td>`,
-        `<td>${est.channels || item.channels || "—"}</td>`,
-        `<td>${est.sampleRate || item.sampleRate || "—"}</td>`,
-        `<td>${est.loaded ? "RAM" : "—"}</td>`,
-      ].join("");
+      const td = (text, className) => {
+        const cell = document.createElement("td");
+        if (className) cell.className = className;
+        cell.textContent = text;
+        return cell;
+      };
+      tr.append(
+        td(String(index + 1).padStart(2, "0")),
+        (() => {
+          const cell = td(String(item.name || ""), "node-music-player-pl-ram-name");
+          cell.title = String(item.name || "");
+          return cell;
+        })(),
+        td(nodeGraphAudioPlayerPlaylistFormatBytes(est.bytes || item.bytes || 0)),
+        td((est.frames || item.frames || 0).toLocaleString()),
+        td(String(est.channels || item.channels || "—")),
+        td(String(est.sampleRate || item.sampleRate || "—")),
+        td(est.loaded ? "RAM" : "—"),
+      );
       tbody.append(tr);
     });
   }
@@ -725,13 +794,14 @@ function nodeGraphAudioPlayerPlaylistEnhanceDisplay(section, nodeId) {
   back.type = "button";
   back.className = "node-music-player-face-btn";
   back.dataset.musicPlayerFace = "wave";
+  back.dataset.musicPlayerBack = "true";
   back.textContent = "←";
-  back.title = "Back to waveform";
-  back.setAttribute("aria-label", "Back to waveform");
+  back.title = "Back to currently playing waveform";
+  back.setAttribute("aria-label", "Back to currently playing waveform");
   back.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    nodeGraphAudioPlayerPlaylistSetFace(nodeId, "wave");
+    nodeGraphAudioPlayerPlaylistGoToWave(nodeId);
   });
   back.addEventListener("pointerdown", (event) => event.stopPropagation());
   const title = document.createElement("span");
@@ -741,9 +811,10 @@ function nodeGraphAudioPlayerPlaylistEnhanceDisplay(section, nodeId) {
   ram.type = "button";
   ram.className = "node-music-player-pl-ram";
   ram.dataset.musicPlayerRam = "true";
-  ram.title = "Decoded sample RAM (Float32) — click to open RAM debug tab";
+  ram.title = "Decoded sample RAM (Float32) — click to toggle debug";
   ram.textContent = "0 B · 0 tracks";
-  ram.setAttribute("aria-label", "Playlist RAM debug");
+  ram.setAttribute("aria-label", "Toggle playlist RAM debug");
+  ram.setAttribute("aria-pressed", "false");
   ram.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -752,7 +823,7 @@ function nodeGraphAudioPlayerPlaylistEnhanceDisplay(section, nodeId) {
   ram.addEventListener("pointerdown", (event) => event.stopPropagation());
   plHead.append(back, title, ram);
 
-  // RAM debug tab (per-track decoded buffer sizes).
+  // RAM debug panel (per-track decoded buffer sizes). Closed via the RAM/GB button only.
   const ramPanel = document.createElement("div");
   ramPanel.className = "node-music-player-pl-ram-panel";
   ramPanel.dataset.musicPlayerRamPanel = "true";
@@ -761,18 +832,7 @@ function nodeGraphAudioPlayerPlaylistEnhanceDisplay(section, nodeId) {
   ramHead.className = "node-music-player-pl-ram-head";
   const ramTitle = document.createElement("span");
   ramTitle.textContent = "RAM debug";
-  const ramClose = document.createElement("button");
-  ramClose.type = "button";
-  ramClose.className = "node-music-player-face-btn";
-  ramClose.textContent = "×";
-  ramClose.title = "Close RAM debug";
-  ramClose.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    nodeGraphAudioPlayerPlaylistToggleRamDebug(nodeId);
-  });
-  ramClose.addEventListener("pointerdown", (event) => event.stopPropagation());
-  ramHead.append(ramTitle, ramClose);
+  ramHead.append(ramTitle);
   const ramBody = document.createElement("div");
   ramBody.className = "node-music-player-pl-ram-body";
   ramBody.dataset.musicPlayerRamBody = "true";
@@ -808,22 +868,22 @@ function nodeGraphAudioPlayerPlaylistEnhanceDisplay(section, nodeId) {
 
   plPage.append(plHead, ramPanel, list, scrubRow);
 
+  // PL lives on the waveform face (top-right) so you can open the playlist from
+  // the single-track view. Hidden via CSS while playlist page is open.
   const faceBar = document.createElement("div");
   faceBar.className = "node-music-player-face-bar";
   const plBtn = document.createElement("button");
   plBtn.type = "button";
   plBtn.className = "node-music-player-face-btn";
   plBtn.dataset.musicPlayerFace = "pl";
-  plBtn.textContent = "pl";
-  plBtn.title = "Playlist";
-  plBtn.setAttribute("aria-label", "Playlist page");
+  plBtn.textContent = "PL";
+  plBtn.title = "Open playlist";
+  plBtn.setAttribute("aria-label", "Open playlist");
   plBtn.setAttribute("aria-pressed", "false");
   plBtn.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    const cur = nodeGraphAudioPlayerPlaylistForNode(nodeId);
-    // Toggle: pl when on wave, back to wave when already on pl.
-    nodeGraphAudioPlayerPlaylistSetFace(nodeId, cur.face === "pl" ? "wave" : "pl");
+    nodeGraphAudioPlayerPlaylistSetFace(nodeId, "pl");
   });
   plBtn.addEventListener("pointerdown", (event) => event.stopPropagation());
   faceBar.append(plBtn);

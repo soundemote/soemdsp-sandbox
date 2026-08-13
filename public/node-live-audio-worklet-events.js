@@ -42,7 +42,9 @@ NodeLiveAudioProcessor.prototype.resolveFrequencyHz = function resolveFrequencyH
 };
 
 NodeLiveAudioProcessor.prototype.effectiveSampleRate = function effectiveSampleRate() {
-    return (this.engineSampleRate || sampleRate || 44100) * Math.max(0, this.speedMultiplier ?? 1);
+    const speedMul = Math.max(0, this.speedMultiplier ?? 1);
+    const host = this.engineSampleRate || sampleRate || 44100;
+    return speedMul > 0 ? host / speedMul : 0;
 };
 
 NodeLiveAudioProcessor.prototype.createImpulseButtonState = function createImpulseButtonState() {
@@ -103,6 +105,35 @@ NodeLiveAudioProcessor.prototype.setConnections = function setConnections(plan, 
       inputs: (Array.isArray(sink?.inputs) ? sink.inputs : []).map((input) => ({ ...input })),
     }));
     this.syncVisualInputBuffers();
+    if (plan?.timing && typeof this.normalizePatchTiming === "function") {
+      this.timing = this.normalizePatchTiming(plan.timing);
+    }
+    if (Number.isFinite(Number(message.pitchReferenceMidiNote))) {
+      this.pitchReferenceMidiNote = Number(message.pitchReferenceMidiNote);
+    }
+    if (Number.isFinite(Number(message.pitchReferenceHz))) {
+      this.pitchReferenceHz = Number(message.pitchReferenceHz);
+    }
+    if (Number.isFinite(Number(message.autoSmoothingSeconds)) && typeof this.clampAutoSmoothingSeconds === "function") {
+      this.autoSmoothingSeconds = this.clampAutoSmoothingSeconds(message.autoSmoothingSeconds);
+    }
+    const bypassed = new Set(Array.isArray(plan?.bypassedNodes) ? plan.bypassedNodes : []);
+    if (Array.isArray(plan?.nodes)) {
+      for (const node of plan.nodes) {
+        const current = this.nodes.get(node.id);
+        if (!current) {
+          continue;
+        }
+        current.bypassed = Boolean(node.bypassed) || bypassed.has(node.id);
+        if (node.bypassSpec && typeof node.bypassSpec === "object") {
+          current.bypassSpec = node.bypassSpec;
+        }
+      }
+    } else {
+      for (const [id, current] of this.nodes) {
+        current.bypassed = bypassed.has(id);
+      }
+    }
     const ids = new Set([...this.nodes.keys()]);
     this.inputConnections = this.buildInputConnectionMap(plan?.connections, ids);
     this.graphInputConnections = this.buildGraphInputConnectionMap(plan?.graphConnections, ids);

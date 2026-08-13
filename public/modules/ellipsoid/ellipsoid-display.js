@@ -70,9 +70,24 @@ function drawNodeGraphRoundShapeDisplayInner(section) {
   const shape = Math.max(0, Math.min(1,
     Number(nodeGraphRoundShapeLiveParam(node, "shape", 0)) || 0,
   ));
-  const signature = shape.toFixed(4);
+  const face = node.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
+    ? node.traceDisplaySettings
+    : {};
+  const strokeColor = String(face.dot1Color || face.color || "rgba(120, 220, 200, 0.92)");
+  const plateBg = String(face.background || face.backgroundColor || "#020609");
+  const strokeW = Math.max(0.5, Number(face.lineThickness) || 2);
+  const signature = [
+    shape.toFixed(4),
+    strokeColor,
+    plateBg,
+    strokeW.toFixed(2),
+  ].join("|");
+  const livePlaying = typeof nodeGraphMvp !== "undefined"
+    && nodeGraphMvp?.live?.node
+    && Number(nodeGraphMvp.live.speedMultiplier) > 0;
   if (
-    section._roundShapeSignature === signature
+    !livePlaying
+    && section._roundShapeSignature === signature
     && !section._roundShapeForceDraw
     && section._roundShapeLaidOut === true
   ) {
@@ -129,7 +144,7 @@ function drawNodeGraphRoundShapeDisplayInner(section) {
   // Black plate (same cheap language as filter curves).
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   context.clearRect(0, 0, width, height);
-  context.fillStyle = "#020609";
+  context.fillStyle = plateBg;
   context.fillRect(0, 0, width, height);
 
   // Sample closed Bi X / Bi Y orbit — fixed sample count, no live audio.
@@ -140,7 +155,7 @@ function drawNodeGraphRoundShapeDisplayInner(section) {
   const cx = width * 0.5;
   const cy = height * 0.5;
   const pad = Math.max(6, Math.min(width, height) * 0.12);
-  const half = Math.max(4, Math.min(width, height) * 0.5 - pad);
+  const half = Math.max(4, Math.min(width, height) * 0.5 - pad - strokeW);
   const viewScale = half;
 
   context.beginPath();
@@ -169,11 +184,47 @@ function drawNodeGraphRoundShapeDisplayInner(section) {
   }
 
   // Fixed 2 CSS-px stroke (less jagged than 1px hairline on DPR canvases).
-  context.strokeStyle = "rgba(120, 220, 200, 0.92)";
-  context.lineWidth = 2;
-  context.lineJoin = "round";
-  context.lineCap = "round";
+  context.strokeStyle = strokeColor;
+  context.lineWidth = strokeW;
+  context.lineJoin = "miter";
+  context.lineCap = "butt";
   context.stroke();
+
+  // Playhead: current Bi X/Y (scope latest or last live output).
+  let px = null;
+  let py = null;
+  const liveOut = typeof nodeGraphMvp !== "undefined"
+    ? nodeGraphMvp?.live?.runtime?.nodeOutputs?.get?.(nodeId)
+    : null;
+  if (liveOut && typeof liveOut === "object") {
+    px = Number(liveOut["Bi X"]);
+    py = Number(liveOut["Bi Y"]);
+  }
+  if (!Number.isFinite(px) || !Number.isFinite(py)) {
+    const slotBuf = typeof nodeGraphModuleScopeLatestBufferForNode === "function"
+      ? nodeGraphModuleScopeLatestBufferForNode(nodeId)
+      : null;
+    if (slotBuf && slotBuf.length) {
+      const last = Number(slotBuf[slotBuf.length - 1]);
+      if (Number.isFinite(last)) {
+        px = last;
+        py = 0;
+      }
+    }
+  }
+  if (Number.isFinite(px) && Number.isFinite(py)) {
+    context.beginPath();
+    context.fillStyle = strokeColor;
+    context.arc(cx + px * viewScale, cy - py * viewScale, Math.max(2.5, strokeW * 1.1), 0, Math.PI * 2);
+    context.fill();
+  }
+  if (livePlaying && !section._roundShapePlayheadRaf) {
+    section._roundShapePlayheadRaf = requestAnimationFrame(() => {
+      section._roundShapePlayheadRaf = 0;
+      section._roundShapeForceDraw = true;
+      drawNodeGraphRoundShapeDisplay(section);
+    });
+  }
 }
 
 function drawNodeGraphRoundShapeDisplays() {

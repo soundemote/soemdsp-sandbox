@@ -5,6 +5,7 @@ nodeGraphLiveModuleEvaluators.slewLimiter = ({ runtime, node, nodeId, frame, fra
   runtime.slewLimiterStates.set(nodeId, state);
   const slewUpTime = readNodeGraphLiveEffectiveParam(runtime, node, "upTime", 0.05, frame, frames, frameValues);
   const slewDownTime = readNodeGraphLiveEffectiveParam(runtime, node, "downTime", 0.20, frame, frames, frameValues);
+  const slewShape = readNodeGraphLiveEffectiveParam(runtime, node, "shape", 0, frame, frames, frameValues);
   const slewMono = mixInput(nodeId);
   const rate = sampleRate;
   const monoIn = nodeGraphSafeFilterNumber(slewMono, runtime, nodeId, state.mono, "slew input");
@@ -24,21 +25,21 @@ nodeGraphLiveModuleEvaluators.slewLimiter = ({ runtime, node, nodeId, frame, fra
   );
   return {
     Out: nodeGraphSafeFilterNumber(
-      nodeGraphSlewLimiterSample(state.mono, monoIn, slewUpTime, slewDownTime, rate),
+      nodeGraphSlewLimiterSample(state.mono, monoIn, slewUpTime, slewDownTime, rate, slewShape),
       runtime,
       nodeId,
       state.mono,
       "slew output",
     ),
     Left: nodeGraphSafeFilterNumber(
-      nodeGraphSlewLimiterSample(state.left, leftIn, slewUpTime, slewDownTime, rate),
+      nodeGraphSlewLimiterSample(state.left, leftIn, slewUpTime, slewDownTime, rate, slewShape),
       runtime,
       nodeId,
       state.left,
       "slew output",
     ),
     Right: nodeGraphSafeFilterNumber(
-      nodeGraphSlewLimiterSample(state.right, rightIn, slewUpTime, slewDownTime, rate),
+      nodeGraphSlewLimiterSample(state.right, rightIn, slewUpTime, slewDownTime, rate, slewShape),
       runtime,
       nodeId,
       state.right,

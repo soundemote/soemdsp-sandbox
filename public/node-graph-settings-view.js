@@ -13,11 +13,30 @@ function renderNodeGraphVisualSettings() {
   );
 }
 
+function syncNodePatchRawTextHighlight() {
+  const raw = document.getElementById("nodePatchRawText");
+  const highlight = document.getElementById("nodePatchRawHighlight");
+  if (!raw || !highlight) {
+    return;
+  }
+  const highlighter = window.nodeCodeSettingsEditor?.jsonHighlightHtml;
+  highlight.innerHTML = typeof highlighter === "function"
+    ? highlighter(raw.value)
+    : (window.nodeCodeSettingsEditor?.escapeHtml?.(raw.value) || raw.value);
+  highlight.scrollTop = raw.scrollTop;
+  highlight.scrollLeft = raw.scrollLeft;
+}
+
 function syncNodeGraphSettingsView() {
   const info = normalizeNodeGraphPatchInfo(nodeGraphMvp.patch.info);
   if (typeof syncNodeGraphCurrentSavedPatchHeader === "function") {
     syncNodeGraphCurrentSavedPatchHeader();
   }
+  const raw = document.getElementById("nodePatchRawText");
+  if (raw && document.activeElement !== raw && typeof serializeNodeGraphPatch === "function") {
+    raw.value = serializeNodeGraphPatch();
+  }
+  syncNodePatchRawTextHighlight();
   setNodeGraphSettingsField("patchNameValue", info.name);
   setNodeGraphSettingsField("patchBankValue", info.bank);
   setNodeGraphSettingsField("patchProgramValue", info.program);

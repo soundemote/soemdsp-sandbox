@@ -61,6 +61,9 @@ function syncNodeGraphRuntimeFromPatch() {
   if (typeof setNodeGraphModularOnlyControlsVisible === "function") {
     setNodeGraphModularOnlyControlsVisible(Boolean(nodeGraphMvp.patch.modularOnlyControlsVisible));
   }
+  if (typeof applyNodeGraphPatchVisibilityView === "function") {
+    applyNodeGraphPatchVisibilityView();
+  }
   // Project Speed Limit lives on patch.audio and drives live + worklet clamps.
   if (typeof syncNodeGraphProjectSpeedLimitFromPatch === "function") {
     syncNodeGraphProjectSpeedLimitFromPatch();

@@ -211,17 +211,18 @@ function readNodeGraphLiveEffectiveParam(
     return base;
   }
   const metadata = node?.paramMeta?.[key] || {};
-  const modulationSignal = modulations.reduce(
-    (sum, modulation) =>
-      sum + normalizeNodeGraphParameterModulationInput(readNodeGraphRuntimePortOutput(
-        runtime,
-        frameValues,
-        modulation.sourceNode,
-        modulation.sourcePort,
-        frame,
-        frames,
-      ), metadata),
-    0,
+  const sources = modulations.map((modulation) =>
+    normalizeNodeGraphParameterModulationInput(readNodeGraphRuntimePortOutput(
+      runtime,
+      frameValues,
+      modulation.sourceNode,
+      modulation.sourcePort,
+      frame,
+      frames,
+    ), metadata),
   );
-  return nodeGraphApplyParameterModulation(base, modulationSignal, metadata);
+  if (typeof nodeGraphParamFoldModSources === "function") {
+    return nodeGraphParamFoldModSources(base, sources, metadata);
+  }
+  return nodeGraphApplyParameterModulation(base, sources.reduce((a, b) => a + b, 0), metadata);
 }

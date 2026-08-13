@@ -419,9 +419,11 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
           "innerShadowOffsetX",
           "innerShadowOffsetY",
         ].filter((key) => activeFields.has(key));
+        choiceKeys = ["polarity"].filter((key) => activeChoices.has(key));
+        toggleKeys.push?.();
         colorKeys = ["dot1Color", "backgroundColor"]
           .filter((key) => activeColors.has(key));
-        choiceKeys = [];
+        choiceKeys = ["polarity"].filter((key) => activeChoices.has(key));
       } else {
         // Value LED: Digits → Decimals → Padding → Bright → Ghost → Trail → Burn → Burn ⨉.
         fieldKeys = [
@@ -436,7 +438,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
         ].filter((key) => activeFields.has(key));
         colorKeys = ["backgroundColor"]
           .filter((key) => activeColors.has(key));
-        choiceKeys = ["lightBlend"]
+        choiceKeys = ["lightBlend", "polarity"]
           .filter((key) => activeChoices.has(key));
       }
     }
@@ -476,6 +478,12 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
       || (isPhosphorForm && (section === "trace" || section === "dot1"));
     if (skipSectionTitle) {
       // no title row
+    } else if (section === "trace" && isStereoTraceNode && type === "trace") {
+      parts.push(`
+        <div class="metadata-section-title">
+          <span>${nodeGraphDisplaySettingsEscapeHtml(titleText)}</span>
+          <button type="button" id="nodeTraceDisplaySwapStereoLook" class="node-trace-display-swap-lr">Swap L/R look</button>
+        </div>`);
     } else if (section === "secondary") {
       const enabledToggle = isStereoTraceNode && type === "trace" && activeToggles.has("secondaryEnabled")
         ? `<input id="nodeTraceDisplaySecondaryEnabled" type="checkbox" aria-label="${isStereoTraceNode ? "Right on" : "Secondary on"}" data-trace-display-toggle="secondaryEnabled">`

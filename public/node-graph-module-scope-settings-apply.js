@@ -225,6 +225,42 @@ function changeNodeGraphTraceDisplayMode(_event) {
   return false;
 }
 
+/** Swap Left/Right look (color, thickness, brightness) on Output / stereo Trace. */
+function swapNodeGraphOutputTraceLook() {
+  const nodeId = typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
+    ? nodeGraphTraceDisplaySettingsTargetNodeId()
+    : "";
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  if (!node) {
+    return;
+  }
+  const s = { ...(node.traceDisplaySettings || {}) };
+  const swap = (a, b) => {
+    const tmp = s[a];
+    s[a] = s[b];
+    s[b] = tmp;
+  };
+  swap("dot1Color", "secondaryColor");
+  swap("dot1Size", "secondarySize");
+  swap("dot1Brightness", "secondaryBrightness");
+  swap("lineThickness", "secondaryLineThickness");
+  node.traceDisplaySettings = s;
+  if (typeof commitNodeGraphPatch === "function") {
+    const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+    const dest = patch.nodes.find((n) => n.id === node.id);
+    if (dest) {
+      dest.traceDisplaySettings = { ...s };
+      commitNodeGraphPatch(patch, { status: "swapped L/R look" });
+    }
+  }
+  if (typeof fillNodeGraphTraceDisplaySettingsForm === "function") {
+    fillNodeGraphTraceDisplaySettingsForm();
+  }
+  if (typeof scheduleNodeGraphModuleScopeDraw === "function") {
+    scheduleNodeGraphModuleScopeDraw({ force: true });
+  }
+}
+
 let nodeGraphTraceDisplaySettingsPersistTimer = 0;
 
 function persistNodeGraphTraceDisplaySettingsSoon(persistMode = "debounce") {
@@ -442,7 +478,7 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
   // energy faces too after Clear-while-paused style freezes).
   scheduleNodeGraphModuleScopeDraw({ force: true });
   if (typeof paintNodeGraphModuleScopeColdPlatesOnly === "function") {
-    paintNodeGraphModuleScopeColdPlatesOnly();
+    paintNodeGraphModuleScopeColdPlatesOnly(undefined, { force: true });
   }
   // XY Pad face is not a scope slot — repaint pads when display settings change.
   if (typeof nodeGraphXyPadRedrawAll === "function") {

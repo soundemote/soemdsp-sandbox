@@ -431,6 +431,7 @@ function nodeGraphParameterDefinitionMetadata(parameter) {
       ? Boolean(parameter.nonlinearSlider)
       : midInsideRange && Math.abs(safeMid - (safeMin + safeMax) / 2) > Number.EPSILON),
     showSign: Boolean(parameter.showSign),
+    removeTrailingZeros: Boolean(parameter.removeTrailingZeros),
     smoothingMode: normalizeNodeGraphMetadataSmoothingMode(parameter.smoothingMode),
     smoothingSeconds: normalizeNodeGraphMetadataSmoothingSeconds(parameter.smoothingSeconds),
     smoothingType,
@@ -576,6 +577,9 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
       Object.hasOwn(source, "nonlinearSlider") ? Boolean(source.nonlinearSlider) : fallback.nonlinearSlider,
     ),
     showSign: Object.hasOwn(source, "showSign") ? Boolean(source.showSign) : fallback.showSign,
+    removeTrailingZeros: Object.hasOwn(source, "removeTrailingZeros")
+      ? Boolean(source.removeTrailingZeros)
+      : Boolean(fallback.removeTrailingZeros),
     smoothingMode: normalizeNodeGraphMetadataSmoothingMode(
       Object.hasOwn(source, "smoothingMode") ? source.smoothingMode : fallback.smoothingMode,
     ),

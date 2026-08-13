@@ -203,11 +203,12 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
             }
           }
         }
-        // Number Readout / Pitch LED: idle plate only when not frozen.
+        // Number Readout / Value LCD / Pitch LED: idle plate when not frozen.
         // Cold-boot invalidates Ghost/Trail + held digits — that wiped Pitch
         // Detector on deselect while Simulation speed was 0 (no-buffer frame).
         if (
           slot?.type === "numberReadout"
+          || slot?.type === "valueLcd"
           || slot?.type === "helmholtzPitch"
           || nodeGraphModuleDisplayRendererForSlot(slot) === "numberReadout"
         ) {
@@ -225,6 +226,18 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
             );
           }
           // frozen: leave canvas + burn plate pixels as-is (no kill).
+        } else if (
+          slot?.type === "led"
+          || nodeGraphModuleDisplayRendererForSlot(slot) === "ledLamp"
+        ) {
+          // Keep lamp cosmetics (radius/fill) while capture is empty.
+          if (typeof drawNodeGraphLedLampItem === "function") {
+            drawNodeGraphLedLampItem(null, {
+              buffer: null,
+              screenElement: slot.scopeElement,
+              slot,
+            }, pixelRatio);
+          }
         }
         // Still punch the room dimmer so the face is not a black hole.
         if (slot?.scopeElement && typeof nodeGraphModuleScopeMarkScreenLit === "function") {

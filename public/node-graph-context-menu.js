@@ -1080,6 +1080,7 @@ function configureNodeSceneContextMenu(mode) {
   const toggleSlidersButton = document.getElementById("nodeSceneToggleSliders");
   const toggleIoButton = document.getElementById("nodeSceneToggleIo");
   const toggleHideUnusedButton = document.getElementById("nodeSceneToggleHideUnused");
+  const toggleCollapsedButton = document.getElementById("nodeSceneToggleCollapsed");
   const toggleTitleButton = document.getElementById("nodeSceneToggleTitle");
   const imageControls = document.getElementById("nodeSceneImageControls");
   const imageSave = document.getElementById("nodeSceneImageSave");
@@ -1342,6 +1343,9 @@ function configureNodeSceneContextMenu(mode) {
   toggleIoButton.hidden = !moduleMode || (multiModuleMode && !multiCanButtons);
   if (toggleHideUnusedButton) {
     toggleHideUnusedButton.hidden = !moduleMode || (multiModuleMode && !selectedNodes.length);
+  }
+  if (toggleCollapsedButton) {
+    toggleCollapsedButton.hidden = !moduleMode || (multiModuleMode && !selectedNodes.length);
   }
   toggleTitleButton.hidden = !moduleMode || (multiModuleMode && !multiCanButtons);
   imageControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "image");
@@ -1757,6 +1761,20 @@ function configureNodeSceneContextMenu(mode) {
       setVisLines(toggleHideUnusedButton, false, "Hide unused");
       toggleHideUnusedButton.title = "Hide unused — under construction (disabled).";
     }
+    if (toggleCollapsedButton) {
+      const collapsedNow = multiModuleMode
+        ? selectedNodes.every((node) => typeof nodeGraphModuleIsCollapsedUi === "function"
+          && nodeGraphModuleIsCollapsedUi(node.type, node.ui))
+        : (targetNode
+          && typeof nodeGraphModuleIsCollapsedUi === "function"
+          && nodeGraphModuleIsCollapsedUi(targetNode.type, targetNode.ui));
+      toggleCollapsedButton.disabled = multiModuleMode ? !selectedNodes.length : !targetNode;
+      toggleCollapsedButton.removeAttribute("aria-disabled");
+      setVisLines(toggleCollapsedButton, collapsedNow, "Collapsed");
+      toggleCollapsedButton.title = collapsedNow
+        ? "Expand this module (show title, display, buttons, I/O, sliders)."
+        : "Collapse this module (hide display, title, buttons, I/O, sliders).";
+    }
     toggleTitleButton.disabled = multiModuleMode ? !selectedNodes.length : !targetNode;
     setVisLines(toggleTitleButton, multiTitleHidden, "Title");
     toggleTitleButton.title = multiModuleMode
@@ -1917,6 +1935,9 @@ function configureNodeSceneContextMenu(mode) {
     if (toggleHideUnusedButton) {
       toggleHideUnusedButton.disabled = true;
     }
+    if (toggleCollapsedButton) {
+      toggleCollapsedButton.disabled = true;
+    }
     toggleTitleButton.disabled = true;
     imageSave.disabled = true;
     imageRefresh.disabled = true;
@@ -1965,6 +1986,9 @@ function configureNodeSceneContextMenu(mode) {
     toggleOscilloscopeButton.disabled = true;
     if (toggleHideUnusedButton) {
       toggleHideUnusedButton.disabled = true;
+    }
+    if (toggleCollapsedButton) {
+      toggleCollapsedButton.disabled = true;
     }
     toggleTitleButton.disabled = true;
     imageSave.disabled = true;

@@ -73,8 +73,10 @@ function nodeGraphDspExternalStereoFrame(externalInput, frame, level) {
   const input = externalInput || {};
   const leftChannel = input.left || input.right || null;
   const rightChannel = input.right || input.left || null;
-  const left = Number(leftChannel?.[frame]) || 0;
-  const right = Number(rightChannel?.[frame]) || left;
+  const rawL = Number(leftChannel?.[frame]);
+  const rawR = Number(rightChannel?.[frame]);
+  const left = Number.isFinite(rawL) ? rawL : 0;
+  const right = Number.isFinite(rawR) ? rawR : left;
   const ampRaw = Number(level);
   const amp = Number.isFinite(ampRaw) ? ampRaw : 1;
   return {

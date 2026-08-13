@@ -9,7 +9,10 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
     // App-wide: oversampling under construction — never multi-rate in process.
     const oversamplingRatio = 1;
     const rawEngineSampleRate = Math.max(1, this.hostSampleRate || this.engineSampleRate || sampleRate || 44100);
-    const effectiveRate = Math.max(1, rawEngineSampleRate * Math.max(0, this.speedMultiplier ?? 1));
+    const speedMul = Math.max(0, this.speedMultiplier ?? 1);
+    const effectiveRate = speedMul > 0
+      ? Math.max(1, rawEngineSampleRate / speedMul)
+      : 1;
     const engineFrames = frames;
     // Speed 0 = pause: fill silence and return immediately.
     if (this.speedMultiplier === 0) {
@@ -26,8 +29,10 @@ NodeLiveAudioProcessor.prototype.process = function process(inputs, outputs) {
     }
 
     for (let frame = 0; frame < frames; frame += 1) {
-      const inputLeft = Number(input[0]?.[frame]) || 0;
-      const inputRight = Number(input[1]?.[frame]) || inputLeft;
+      const rawLeft = Number(input[0]?.[frame]);
+      const rawRight = Number(input[1]?.[frame]);
+      const inputLeft = Number.isFinite(rawLeft) ? rawLeft : 0;
+      const inputRight = Number.isFinite(rawRight) ? rawRight : inputLeft;
       this.inputMeterPeak = Math.max(this.inputMeterPeak, Math.abs(inputLeft), Math.abs(inputRight));
       this.inputMeterSquareSum += (inputLeft * inputLeft + inputRight * inputRight) * 0.5;
       this.inputMeterSamples += 1;

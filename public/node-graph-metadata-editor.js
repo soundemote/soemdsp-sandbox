@@ -1396,6 +1396,10 @@ function writeNodeMetadataEditorValues(metadata) {
   document.getElementById("metadataSliderCurveValue").value = normalizeNodeSliderCurve(metadata.sliderCurve, metadata.nonlinearSlider);
   document.getElementById("metadataCurveSensitivityValue").value = formatNodeSliderCompactNumber(metadata.curveAmount);
   document.getElementById("metadataShowSignValue").checked = metadata.showSign;
+  const trailEl = document.getElementById("metadataRemoveTrailingZerosValue");
+  if (trailEl) {
+    trailEl.checked = Boolean(metadata.removeTrailingZeros);
+  }
   document.getElementById("metadataWraparoundValue").checked = metadata.wraparound;
   syncNodeMetadataMidVisibility();
   syncNodeMetadataChoiceToggleAvailability();
@@ -2239,6 +2243,7 @@ function readNodeMetadataEditorValues(slider) {
     sliderCurve: normalizeNodeSliderCurve(document.getElementById("metadataSliderCurveValue").value),
     step: Math.max(0, parseNodeMetadataNumber(stepInput, current.step)),
     showSign: document.getElementById("metadataShowSignValue").checked,
+    removeTrailingZeros: Boolean(document.getElementById("metadataRemoveTrailingZerosValue")?.checked),
     wraparound: document.getElementById("metadataWraparoundValue").checked,
     unit: document.getElementById("metadataUnitValue").value.trim(),
   };

@@ -14,8 +14,12 @@ NodeLiveAudioProcessor.prototype.createStereoSlewLimiterState = function createS
     };
   };
 
-NodeLiveAudioProcessor.prototype.slewLimiterSample = function slewLimiterSample(state, input, upTime, downTime, rate = sampleRate) {
-    if (this.nativeSlewLimiterReady) {
+NodeLiveAudioProcessor.prototype.slewLimiterSample = function slewLimiterSample(state, input, upTime, downTime, rate = sampleRate, shape = 0) {
+    const mode = typeof nodeGraphSlewLimiterNormalizeShape === "function"
+      ? nodeGraphSlewLimiterNormalizeShape(shape)
+      : (Math.round(Number(shape)) || 0);
+    // Native wasm is linear-only. Shaped ramps stay on the JS math path.
+    if (this.nativeSlewLimiterReady && mode === 0) {
       try {
         if (!state.nativeHandle) {
           state.nativeHandle = this.nativeSlewLimiter.soemdsp_slew_limiter_create();
@@ -53,6 +57,7 @@ NodeLiveAudioProcessor.prototype.slewLimiterSample = function slewLimiterSample(
           upTime,
           downTime,
           rate,
+          mode,
         ),
         state,
       );

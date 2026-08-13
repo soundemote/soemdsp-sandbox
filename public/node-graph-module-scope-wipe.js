@@ -16,19 +16,47 @@ function wipeNodeGraphModuleScopeScreensToColdBoot() {
   // LEDs are CSS lamps (no canvas) — force unlit + no glow.
   for (const face of document.querySelectorAll(".node-led-face")) {
     const shell = face.closest(".dsp-node") || face;
+    const lamp = face.querySelector?.(".node-led-lamp") || face;
     shell.style?.setProperty?.("--node-led-face-color", "rgb(0, 0, 0)");
     shell.style?.setProperty?.("--node-led-face-glow", "none");
     if (face.dataset) {
       face.dataset.lightStrength = "0";
+      face.dataset.ledLevel = "0";
       delete face.dataset.ledAppearance;
     }
-  }
-  // Room-light emitters go dark with the simulation. Number Readout LCD keeps
-  // a full hole; Knob only re-lights when face art is present (paint).
-  for (const el of document.querySelectorAll("[data-light-strength], [data-light-source]")) {
-    if (el.dataset && !el.classList?.contains("node-number-readout-face")) {
-      el.dataset.lightStrength = "0";
+    if (lamp?.dataset) {
+      lamp.dataset.lightStrength = "0";
+      lamp.dataset.ledLevel = "0";
     }
+    if (lamp?.style) {
+      lamp.style.background = "rgb(0, 0, 0)";
+      lamp.style.boxShadow = "none";
+    }
+  }
+  // Room-light emitters go dark with the simulation. Number Readout / Value LCD
+  // / Value LED faces AND their canvases keep their hole — stop wipe used to
+  // zero the canvas only, then the room dimmer punched strength 0 and the
+  // digits stayed invisible even after live paint (pause→stop death).
+  // Knob only re-lights when face art is present (paint). LED lamps go dark
+  // above (intentional unlit).
+  for (const el of document.querySelectorAll("[data-light-strength], [data-light-source]")) {
+    if (!el.dataset) {
+      continue;
+    }
+    if (
+      el.classList?.contains("node-number-readout-face")
+      || el.classList?.contains("node-value-lcd-face")
+      || el.classList?.contains("node-value-led-face")
+      || el.classList?.contains("node-pitch-detector-lcd")
+      || el.classList?.contains("node-number-readout-canvas")
+      || el.closest?.(".node-number-readout-face")
+      || el.closest?.(".node-value-lcd-face")
+      || el.closest?.(".node-value-led-face")
+      || el.closest?.(".node-pitch-detector-lcd")
+    ) {
+      continue;
+    }
+    el.dataset.lightStrength = "0";
   }
   const phosphorKeys = ["_phosphorEnergyGl", "_xyPadPhosphorEnergyGl"];
   const canvases = new Set();
@@ -386,6 +414,26 @@ function clearNodeGraphDisplaySettingsPhosphor(nodeIdOrIds = null, options = {})
       }
     }
 
+    if (typeof clearNodeGraphSpectrogramHistoryForNode === "function") {
+      try {
+        clearNodeGraphSpectrogramHistoryForNode(id);
+      } catch (_error) {
+        // Best-effort.
+      }
+    }
+    if (typeof invalidateNodeGraphNumberReadoutPaintCache === "function") {
+      try {
+        invalidateNodeGraphNumberReadoutPaintCache(id);
+      } catch (_error) {
+        // Best-effort.
+      }
+    } else {
+      for (const canvas of canvases) {
+        canvas._nodeGraphNumberReadoutFrozenHoldSig = null;
+        canvas._nodeGraphNumberReadoutText = null;
+      }
+    }
+
     // XY Pad has its own residual path.
     if (typeof nodeGraphXyPadResetCanvas === "function") {
       try {
@@ -498,9 +546,10 @@ function clearNodeGraphRenderedModuleScopeBuffers() {
     scheduleNodeGraphModuleScopeDraw();
     return;
   }
-  // Offline reset while paused: drop rings, keep painted residual until Stop.
+  // Offline reset while paused: keep painted residual. Also keep rings —
+  // move/resize used to hit this via render-pending and blank LCD/trace.
   if (typeof nodeGraphModuleScopePaused === "function" && nodeGraphModuleScopePaused()) {
-    clearNodeGraphModuleScopeBuffers({ preserveDisplay: true });
+    clearNodeGraphModuleScopeBuffers({ preserveDisplay: true, preserveBuffers: true });
     return;
   }
   clearNodeGraphModuleScopeBuffers();

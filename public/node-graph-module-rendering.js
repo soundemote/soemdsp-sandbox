@@ -132,6 +132,9 @@ function attachNodeGraphNodeEvents(node) {
   node.querySelector(".node-display-settings-button")?.addEventListener("contextmenu", openNodeModuleDisplaySettings);
   node.querySelector(".node-action-button")?.addEventListener("click", openNodeModuleActionMenu);
   node.querySelector(".node-metaparameter-button")?.addEventListener("click", openNodeModuleMetaparameters);
+  if (node.classList.contains("module-collapsed")) {
+    node.addEventListener("pointerdown", beginNodeGraphNodeDrag);
+  }
   node.addEventListener("lostpointercapture", endNodeGraphNodeDrag);
   for (const port of node.querySelectorAll(".node-port")) {
     port.addEventListener("pointerdown", nodeGraphWireInteractions.handlePortPointerDown);
@@ -460,6 +463,9 @@ function createNodeGraphLayoutBShell(node, type, customBody, registration, input
   const shell = document.createElement("div");
   // node-solid-module-shell: legacy class name still used by CSS / hit-testing.
   shell.className = "node-solid-module-shell node-module-chrome-layout-b-shell";
+  if (typeof tagNodeGraphModuleBand === "function") {
+    tagNodeGraphModuleBand(shell, "shell");
+  }
   const hasInputs = Array.isArray(inputPorts) && inputPorts.length > 0;
   const hasOutputs = Array.isArray(outputPorts) && outputPorts.length > 0;
   const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input")
@@ -479,7 +485,7 @@ function createNodeGraphLayoutBShell(node, type, customBody, registration, input
   shell.classList.toggle("layout-b-port-labels", showPortLabels);
   shell.classList.toggle("layout-b-no-inputs", !hasInputs);
   shell.classList.toggle("layout-b-no-outputs", !hasOutputs);
-  customBody.classList.add("node-solid-module-custom-ui");
+  customBody.classList.add("node-solid-module-custom-ui", "node-module-face");
   shell.append(inputColumn, customBody, outputColumn);
   return shell;
 }
@@ -507,6 +513,9 @@ function syncNodeGraphLayoutBNoParamsClass(element, type, ui = null) {
 function createNodeGraphLayoutAIoSection(node, type, inputPorts, outputPorts, options = {}) {
   const ioSection = document.createElement("div");
   ioSection.className = options.className || "dsp-node-io-section";
+  if (typeof tagNodeGraphModuleBand === "function") {
+    tagNodeGraphModuleBand(ioSection, "io");
+  }
   const inputColumn = createNodeGraphIoColumn(node, type, inputPorts, "input");
   const outputColumn = createNodeGraphIoColumn(node, type, outputPorts, "output");
   // Drive section track widths from each column's longest label (LayoutA
@@ -610,6 +619,16 @@ function createNodeGraphModuleElement(type, node) {
   article.classList.toggle("oscilloscope-hidden", patchNodeUi.oscilloscopeHidden);
   article.classList.toggle("sliders-hidden", patchNodeUi.slidersHidden);
   article.classList.toggle("title-hidden", patchNodeUi.titleHidden);
+  article.classList.toggle(
+    "title-only",
+    typeof nodeGraphModuleIsTitleOnlyUi === "function"
+      && nodeGraphModuleIsTitleOnlyUi(type, patchNode.ui),
+  );
+  article.classList.toggle(
+    "module-collapsed",
+    typeof nodeGraphModuleIsCollapsedUi === "function"
+      && nodeGraphModuleIsCollapsedUi(type, patchNode.ui),
+  );
   if (typeof syncNodeGraphLayoutBNoParamsClass === "function") {
     syncNodeGraphLayoutBNoParamsClass(article, type, patchNodeUi);
   }
@@ -1111,6 +1130,9 @@ function createNodeGraphModuleElement(type, node) {
   ) {
     const body = document.createElement("div");
     body.className = "dsp-node-body";
+    if (typeof tagNodeGraphModuleBand === "function") {
+      tagNodeGraphModuleBand(body, "params");
+    }
     const graphInputSection = createNodeGraphInputSection(node, type);
     if (graphInputSection) {
       body.append(graphInputSection);
@@ -1120,6 +1142,10 @@ function createNodeGraphModuleElement(type, node) {
       body.append(createNodeGraphParameter(node, type, parameter));
     }
     article.append(body);
+  }
+
+  if (typeof applyNodeGraphModuleLayout === "function") {
+    applyNodeGraphModuleLayout(article, patchNode);
   }
 
   attachNodeGraphNodeEvents(article);

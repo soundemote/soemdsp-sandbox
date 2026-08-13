@@ -796,24 +796,34 @@ function buildNodeGraphTraceDisplaySamples(buffer, slot, pointCount, progressFn,
     : visibleSamples / Math.max(1, pointCount - 1);
   const skipSamples = nodeGraphModuleScopeDiscontinuitySkipSamplesForSlot(slot, buffer);
   const samples = [];
-  let previousRaw = null;
-  let skipThroughIndex = -1;
+  let previousIndex = NaN;
   for (let index = 0; index < pointCount; index += 1) {
     const progress = progressFn(index, pointCount);
     const samplePosition = view.start + progress * Math.max(0, visibleSamples - 1);
     const sampleInfo = nodeGraphTraceDisplaySampleInfo(buffer, samplePosition, spPt);
     const raw = Number.isFinite(Number(sampleInfo.value)) ? Number(sampleInfo.value) : 0;
     const value = clampNodeSliderValue((raw * view.gain) + view.offset, -1, 1);
-    if (skipSamples > 0 && previousRaw !== null) {
-      if (sampleInfo.discontinuity) {
-        skipThroughIndex = Math.max(skipThroughIndex, index + skipSamples);
-      }
-      if (Math.abs(raw - previousRaw) > nodeGraphModuleScopeDiscontinuityThreshold) {
-        skipThroughIndex = Math.max(skipThroughIndex, index + skipSamples - 1);
+    // Break the polyline once at a true adjacent-sample wrap. Keep this
+    // point — do not drop the next N vertices (that made the line vanish).
+    let breakBefore = false;
+    if (skipSamples > 0 && Number.isFinite(previousIndex)) {
+      const from = Math.floor(previousIndex);
+      const to = Math.floor(samplePosition);
+      if (to > from) {
+        for (let i = from; i < to; i += 1) {
+          const a = Number(buffer[i]) || 0;
+          const b = Number(buffer[Math.min(buffer.length - 1, i + 1)]) || 0;
+          if (Math.abs(b - a) > nodeGraphModuleScopeDiscontinuityThreshold) {
+            breakBefore = true;
+            break;
+          }
+        }
+      } else if (sampleInfo.discontinuity) {
+        breakBefore = true;
       }
     }
-    samples.push({ progress, samplePosition, raw, value, breakBefore: index <= skipThroughIndex });
-    previousRaw = raw;
+    samples.push({ progress, samplePosition, raw, value, breakBefore });
+    previousIndex = samplePosition;
   }
   return samples;
 }
@@ -823,8 +833,22 @@ function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot, viewOverri
     return [];
   }
   const width = Math.max(1, canvas.width);
-  // VECTOR: continuous sample window → continuous face coords (no pixel lock / column snap).
-  const view = viewOverride || nodeGraphTraceDisplayBufferView(buffer, slot);
+  let view = viewOverride || nodeGraphTraceDisplayBufferView(buffer, slot);
+  const settings = typeof nodeGraphTraceDisplaySettingsForSlot === "function"
+    ? nodeGraphTraceDisplaySettingsForSlot(slot)
+    : null;
+  const syncChannel = typeof nodeGraphTraceDisplaySyncChannel === "function"
+    ? nodeGraphTraceDisplaySyncChannel(settings)
+    : "off";
+  // Freerun: lock the window to whole pixels so the stroke does not crawl
+  // under the pixel grid (subpixel shimmer). Triggered sync stays sample-locked.
+  if (
+    syncChannel === "off"
+    && !viewOverride
+    && typeof nodeGraphTraceDisplayPixelLockedView === "function"
+  ) {
+    view = nodeGraphTraceDisplayPixelLockedView(view, width);
+  }
   const halfHeight = canvas.height * nodeGraphModuleScopeTraceHalfHeightRatio(slot, buffer, { height: canvas.height });
   if (!view || view.end <= view.start) {
     const sample = nodeGraphModuleScopeInterpolatedSample(buffer, Math.max(0, buffer.length - 1));
@@ -838,11 +862,9 @@ function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot, viewOverri
     }];
   }
   const visibleSamples = Math.max(1, view.end - view.start);
-  // Control-point budget is sample/CPU limited — NOT min(canvas.width) (that is a pixel paradigm).
-  const budget = typeof TraceStroke !== "undefined" && TraceStroke.pointBudget
-    ? TraceStroke.pointBudget(canvas.width, canvas.height, nodeGraphTraceDisplayRenderPointBudget())
-    : Math.max(256, Math.min(4096, nodeGraphTraceDisplayRenderPointBudget()));
-  const pointCount = Math.max(2, Math.min(visibleSamples, budget));
+  // One vertex per sample, or one per canvas column — never a coarser
+  // budget that slides a decimated lattice under the pixel grid.
+  const pointCount = Math.max(2, Math.min(visibleSamples, Math.floor(width)));
   const midY = canvas.height * 0.5;
   const samplesPerPoint = visibleSamples / Math.max(1, pointCount - 1);
   const progressFn = (index, count) => count <= 1 ? 0 : index / (count - 1);
@@ -908,7 +930,7 @@ function drawNodeGraphTraceDisplayCanvasLayer(context, points, layer, canvas, op
     : Math.max(1, face * size);
   context.save();
   context.globalCompositeOperation = "source-over";
-  context.imageSmoothingEnabled = true;
+  context.imageSmoothingEnabled = false;
   context.lineCap = "round";
   context.lineJoin = "round";
   context.lineWidth = lineWidth;
@@ -947,23 +969,16 @@ function nodeGraphModuleUsesStereoTraceDisplay(type) {
 }
 
 /**
- * Trace faces that store look/sync on the node (not the shared global Trace
- * bucket). Must stay aligned across form load, form save, and draw:
- * editingTraceDefaults / CurrentSettingsForFormType / SettingsForSlot.
+ * Instant Trace look (history, colors, sync) is per module/display.
+ * The global Trace bucket is only a seed for modules that have never been
+ * customized — editing one Sample & Hold must not rewrite every other 1D
+ * Trace face.
  *
- * - output / pluginOutput: stereo bus sinks
- * - visualOscilloscope: multi-mode Display with its own Trace page
- * - stereoTracePorts modules (Ping Pong, Sabrina, …): dual-channel Trace faces
+ * Must stay aligned across form load, form save, and draw:
+ * editingTraceDefaults / CurrentSettingsForFormType / SettingsForSlot.
  */
 function nodeGraphModuleKeepsPerNodeTraceDisplaySettings(type) {
-  const t = String(type || "").trim();
-  if (!t) {
-    return false;
-  }
-  if (t === "output" || t === "pluginOutput" || t === "visualOscilloscope") {
-    return true;
-  }
-  return nodeGraphModuleUsesStereoTraceDisplay(t);
+  return Boolean(String(type || "").trim());
 }
 
 function nodeGraphStereoTraceBuffers(nodeId, type) {
@@ -972,8 +987,16 @@ function nodeGraphStereoTraceBuffers(nodeId, type) {
   if (!id || !ports) {
     return null;
   }
-  const left = nodeGraphModuleScopeState.buffers.get(`${id}:${ports.left}`);
-  const right = nodeGraphModuleScopeState.buffers.get(`${id}:${ports.right}`);
+  let left = nodeGraphModuleScopeState.buffers.get(`${id}:${ports.left}`);
+  let right = nodeGraphModuleScopeState.buffers.get(`${id}:${ports.right}`);
+  if (typeof nodeGraphModuleScopeConnectedSourceBuffer === "function") {
+    if (!left?.length) {
+      left = nodeGraphModuleScopeConnectedSourceBuffer(id, ports.left);
+    }
+    if (!right?.length) {
+      right = nodeGraphModuleScopeConnectedSourceBuffer(id, ports.right);
+    }
+  }
   if (!left?.length || !right?.length) {
     return null;
   }
@@ -1001,11 +1024,16 @@ function nodeGraphTraceDisplayPrimaryLayer(settings, color) {
  * capture yet (or audio is silent). Applies --node-scope-background so color
  * changes are visible without waiting for scope samples.
  */
-function paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio = window.devicePixelRatio || 1) {
+function paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio = window.devicePixelRatio || 1, options = {}) {
   const screenElement = slot?.scopeElement;
   if (!slot || !screenElement) {
     return false;
   }
+  const force = options?.force === true;
+  const frozen = typeof scopePaintIsFrozen === "function"
+    ? scopePaintIsFrozen()
+    : (typeof nodeGraphModuleScopePhosphorFrozen === "function"
+      && nodeGraphModuleScopePhosphorFrozen());
   const settings = typeof nodeGraphTraceDisplaySettingsForSlot === "function"
     ? nodeGraphTraceDisplaySettingsForSlot(slot)
     : (typeof nodeGraphTraceDisplaySettingsDefaults !== "undefined"
@@ -1032,6 +1060,17 @@ function paintNodeGraphTraceDisplayColdPlate(slot, pixelRatio = window.devicePix
   const context = canvas.getContext("2d");
   if (!context) {
     return false;
+  }
+  // Frozen + already-backed face: CSS plate only. fillRect here is what
+  // made pause+drag look like the capture buffer had been cleared.
+  if (frozen && !force && canvas.width > 1 && canvas.height > 1) {
+    const holdBg = typeof nodeGraphFacePlateBackground === "function"
+      ? nodeGraphFacePlateBackground(settings)
+      : "#000000";
+    if (typeof nodeGraphFacePlateApplyCss === "function") {
+      nodeGraphFacePlateApplyCss(screenElement, holdBg);
+    }
+    return true;
   }
   const bg = typeof nodeGraphFacePlateBackground === "function"
     ? nodeGraphFacePlateBackground(settings)

@@ -496,14 +496,7 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
   ) {
     return normalizeNodeGraphScope2dSettings(node.traceDisplaySettings);
   }
-  // Per-node Trace schema: Output stereo, Display, stereoTracePorts modules.
-  // Plain Trace modules use the shared global bucket (editingTraceDefaults).
-  if (
-    settingsSchema === "trace" &&
-    (typeof nodeGraphModuleKeepsPerNodeTraceDisplaySettings === "function"
-      ? nodeGraphModuleKeepsPerNodeTraceDisplaySettings(node?.type)
-      : (node?.type === "output" || node?.type === "visualOscilloscope"))
-  ) {
+  if (settingsSchema === "trace") {
     return nodeGraphTraceDisplaySettingsForNode(node);
   }
   return nodeGraphGlobalTraceSettings();
@@ -1023,13 +1016,13 @@ function nodeGraphTraceDisplayColorWidgetModuleUrl() {
   }
   const script = document.querySelector('script[src*="node-graph-module-scopes.js"]');
   if (script?.src) {
-    return new URL("color-widget.js?v=hue-spectrum-ssot-1", script.src).href;
+    return new URL("color-widget.js?v=hue-thumb-cursor-2", script.src).href;
   }
   // Fallbacks: site root /public/, then document-relative public/
   try {
-    return new URL("/public/color-widget.js?v=hue-spectrum-ssot-1", window.location.origin).href;
+    return new URL("/public/color-widget.js?v=hue-thumb-cursor-2", window.location.origin).href;
   } catch {
-    return new URL("public/color-widget.js?v=hue-spectrum-ssot-1", window.location.href).href;
+    return new URL("public/color-widget.js?v=hue-thumb-cursor-2", window.location.href).href;
   }
 }
 

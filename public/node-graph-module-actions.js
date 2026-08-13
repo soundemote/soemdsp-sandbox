@@ -683,6 +683,11 @@ function copyNodeGraphModule(sourceNode) {
       : {}),
     paramMeta: cloneNodeGraphParamMeta(sourceNode.paramMeta),
     params: { ...(sourceNode.params || {}) },
+    ...(typeof cloneNodeGraphTypedDisplaySettings === "function"
+      ? cloneNodeGraphTypedDisplaySettings(sourceNode)
+      : (sourceNode.traceDisplaySettings
+        ? { traceDisplaySettings: { ...sourceNode.traceDisplaySettings } }
+        : {})),
   });
   commitNodeGraphPatch(patch, { status: "module copied" });
   return id;
@@ -720,6 +725,7 @@ const nodeGraphModuleSettingsFields = Object.freeze([
   "scopeShader",
   "paramMeta",
   "params",
+  "traceDisplaySettings",
 ]);
 
 function nodeGraphModuleSettingsSnapshot(node) {
@@ -748,6 +754,63 @@ function applyNodeGraphModuleSettingsSnapshot(targetNode, snapshot) {
       delete targetNode[field];
     }
   }
+}
+
+/**
+ * Batch: for each selected module, set every param's metadata default (def)
+ * to the current value. Next "reset to default" / new instances of this
+ * snapshot use those values.
+ */
+function applyNodeGraphPatchDefaultsFromCurrentSelection() {
+  const ids = typeof nodeGraphSelectedNodeIds === "function"
+    ? nodeGraphSelectedNodeIds()
+    : [...(nodeGraphMvp?.selectedNodes || [])];
+  const targetIds = ids.length
+    ? ids
+    : (typeof nodeGraphModuleActionTargetNodeId === "function"
+      ? [nodeGraphModuleActionTargetNodeId()].filter(Boolean)
+      : []);
+  if (!targetIds.length) {
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp("Select one or more modules to write current values as defaults.");
+    }
+    return 0;
+  }
+  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+  let changed = 0;
+  for (const id of targetIds) {
+    const node = patch.nodes.find((n) => n.id === id);
+    if (!node) {
+      continue;
+    }
+    const keys = Object.keys(node.params || {});
+    if (!keys.length) {
+      continue;
+    }
+    node.paramMeta = cloneNodeGraphParamMeta(node.paramMeta || {});
+    for (const key of keys) {
+      const cur = Number(node.params[key]);
+      if (!Number.isFinite(cur)) {
+        continue;
+      }
+      const prev = node.paramMeta[key] && typeof node.paramMeta[key] === "object"
+        ? node.paramMeta[key]
+        : {};
+      node.paramMeta[key] = { ...prev, def: cur, defaultValue: cur };
+      changed += 1;
+    }
+  }
+  if (changed) {
+    commitNodeGraphPatch(patch, { status: "patch defaults from current values" });
+  }
+  if (typeof setNodeInteractionHelp === "function") {
+    setNodeInteractionHelp(
+      changed
+        ? `Wrote ${changed} parameter default${changed === 1 ? "" : "s"} from current values.`
+        : "No numeric parameters to write as defaults.",
+    );
+  }
+  return changed;
 }
 
 function copyNodeGraphModuleSettingsFromContext() {
@@ -847,7 +910,11 @@ function adjustNodeGraphModuleWidthFromContext(delta) {
     changedCount += 1;
   }
   if (changedCount) {
-    commitNodeGraphPatch(patch, { status: changedCount > 1 ? "module widths changed" : "module width changed" });
+    commitNodeGraphPatch(patch, {
+      markPending: false,
+      skipLivePlan: true,
+      status: changedCount > 1 ? "module widths changed" : "module width changed",
+    });
   }
   configureNodeSceneContextMenu("module");
 }
@@ -883,6 +950,8 @@ function adjustNodeGraphModuleDisplayHeightFromContext(delta) {
   }
   if (changedCount) {
     commitNodeGraphPatch(patch, {
+      markPending: false,
+      skipLivePlan: true,
       status: changedCount > 1 ? "module display heights changed" : "module display height changed",
     });
   }
@@ -1794,29 +1863,59 @@ function setNodeGraphTextBoxModeFromContext(textMode) {
   configureNodeSceneContextMenu("module");
 }
 
+let nodeGraphTextBoxTextCommitTimer = 0;
+
 function setNodeGraphTextBoxTextFromContext({ record = true } = {}) {
   const sourceNode = nodeGraphPatchNode(nodeGraphModuleActionTargetNodeId());
   if (!sourceNode || !nodeGraphNodeTypeHasTextBoxLayout(sourceNode.type)) {
     return;
   }
   const input = document.getElementById("nodeSceneTextBoxTextInput");
-  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
-  const targetNode = patch.nodes.find((node) => node.id === sourceNode.id);
-  if (!targetNode) {
+  const live = nodeGraphPatchNode(sourceNode.id);
+  if (live?.layout && input) {
+    live.layout = normalizeNodeGraphTextBoxLayout({
+      ...normalizeNodeGraphTextBoxLayout(live.layout),
+      text: input.value ?? "",
+    });
+    const el = document.querySelector(`.dsp-node[data-node="${CSS.escape(sourceNode.id)}"]`);
+    if (el && typeof syncNodeGraphTextBoxElement === "function") {
+      syncNodeGraphTextBoxElement(el, live);
+    }
+  }
+  if (nodeGraphTextBoxTextCommitTimer) {
+    window.clearTimeout(nodeGraphTextBoxTextCommitTimer);
+    nodeGraphTextBoxTextCommitTimer = 0;
+  }
+  const runCommit = () => {
+    nodeGraphTextBoxTextCommitTimer = 0;
+    const node = nodeGraphPatchNode(sourceNode.id);
+    if (!node || !nodeGraphNodeTypeHasTextBoxLayout(node.type)) {
+      return;
+    }
+    const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+    const targetNode = patch.nodes.find((n) => n.id === node.id);
+    if (!targetNode) {
+      return;
+    }
+    const field = document.getElementById("nodeSceneTextBoxTextInput");
+    const currentLayout = normalizeNodeGraphTextBoxLayout(targetNode.layout);
+    targetNode.layout = normalizeNodeGraphTextBoxLayout({
+      ...currentLayout,
+      text: field?.value ?? input?.value ?? "",
+    });
+    commitNodeGraphPatch(patch, {
+      record,
+      status: "text box text changed",
+    });
+    if (document.activeElement === field) {
+      field.focus();
+    }
+  };
+  if (record) {
+    runCommit();
     return;
   }
-  const currentLayout = normalizeNodeGraphTextBoxLayout(targetNode.layout);
-  targetNode.layout = normalizeNodeGraphTextBoxLayout({
-    ...currentLayout,
-    text: input?.value ?? "",
-  });
-  commitNodeGraphPatch(patch, {
-    record,
-    status: "text box text changed",
-  });
-  if (document.activeElement === input) {
-    input.focus();
-  }
+  nodeGraphTextBoxTextCommitTimer = window.setTimeout(runCommit, 160);
 }
 
 function setNodeGraphTextBoxHorizontalAlignFromContext(value) {
@@ -2236,6 +2335,75 @@ function applyNodeGraphPatchNodeUi(targetNode, ui) {
   } else {
     delete targetNode.ui;
   }
+}
+
+function toggleNodeGraphModuleCollapsedFromContext() {
+  const targetNodeIds = nodeGraphModuleActionTargetNodeIds();
+  if (!targetNodeIds.length) {
+    return;
+  }
+  const sources = targetNodeIds
+    .map((id) => nodeGraphPatchNode(id))
+    .filter(Boolean);
+  if (!sources.length) {
+    return;
+  }
+  const wantCollapsed = nodeGraphModuleActionMultiWantHidden(
+    sources,
+    (node) => typeof nodeGraphModuleIsCollapsedUi === "function"
+      && nodeGraphModuleIsCollapsedUi(node.type, node.ui),
+  );
+  if (wantCollapsed === null) {
+    return;
+  }
+
+  const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+  let changedCount = 0;
+  for (const targetNode of patch.nodes) {
+    if (!targetNodeIds.includes(targetNode.id)) {
+      continue;
+    }
+    const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui, targetNode.type);
+    const already = typeof nodeGraphModuleIsCollapsedUi === "function"
+      && nodeGraphModuleIsCollapsedUi(targetNode.type, ui);
+    if (already === wantCollapsed) {
+      continue;
+    }
+    ui.titleHidden = wantCollapsed;
+    ui.buttonsHidden = wantCollapsed;
+    ui.ioHidden = wantCollapsed;
+    if (typeof nodeGraphModuleTypeHasHideableSliders === "function"
+      && nodeGraphModuleTypeHasHideableSliders(targetNode.type)) {
+      ui.slidersHidden = wantCollapsed;
+    }
+    if (typeof nodeGraphPatchNodeHasHideableOscilloscope === "function"
+      && nodeGraphPatchNodeHasHideableOscilloscope(targetNode)) {
+      const next = typeof nodeGraphPatchNodeUiSetSectionWantHidden === "function"
+        ? nodeGraphPatchNodeUiSetSectionWantHidden(
+          ui,
+          "oscilloscope",
+          wantCollapsed,
+          nodeGraphMvp.moduleOscilloscopesVisible,
+        )
+        : ui;
+      next.oscilloscopeHidden = wantCollapsed;
+      applyNodeGraphPatchNodeUi(targetNode, next);
+    } else {
+      applyNodeGraphPatchNodeUi(targetNode, ui);
+    }
+    changedCount += 1;
+  }
+  if (changedCount) {
+    commitNodeGraphPatch(patch, {
+      status: wantCollapsed
+        ? (changedCount > 1 ? "modules collapsed" : "module collapsed")
+        : (changedCount > 1 ? "modules expanded" : "module expanded"),
+    });
+  }
+  if (typeof renderNodeGraphModuleVisibilityToggles === "function") {
+    renderNodeGraphModuleVisibilityToggles();
+  }
+  configureNodeSceneContextMenu("module");
 }
 
 /** Hide unconnected jacks — under construction; no-op until re-enabled. */

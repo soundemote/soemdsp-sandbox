@@ -129,7 +129,7 @@ const nodeGraphModuleStoreDepartments = Object.freeze([
   // "when" (that's Sequence). G-clef mark keeps Musical distinct from 🎶 Sample Player.
   { id: "musical",      emoji: "🎼", label: "Musical",      symbol: "𝄞",  title: "Musical",  pitch: "Pitch, scale, and harmony tools: quantizers, chord pickers, progressions, and other note-theory building blocks." },
   { id: "modulator",    emoji: "♾️", label: "Modulator",    symbol: "⇄",   title: "Modulator", pitch: "Motion sources for pitch, amplitude, time, and texture. Small control engines that make patches move." },
-  { id: "oscillator",   emoji: "⚪", label: "Oscillator",   symbol: "∿",   title: "Oscillator", pitch: "Start with a voice. Tone generators, phase motion, and the raw signal that everything else learns to orbit." },
+  { id: "additive",     emoji: "📊", label: "Additive",     symbol: "∑",   title: "Additive",   pitch: "Additive voices and oscillators: harmonic stacks, table tones, and the raw signal that everything else learns to orbit." },
   { id: "chaos",        emoji: "🌌", label: "Chaos",        symbol: "∞",   title: "Chaos",     pitch: "All the various attractors and strange motion systems. The wild shelf where math starts looking back." },
   { id: "jerobeam",     emoji: "♻️", label: "Jerobeam",     symbol: "JRB", title: "Jerobeam",  pitch: "Jerobeam spiral and orbit motion systems. Spiral Generator lives here." },
   { id: "noise",        emoji: "🌧️", label: "Noise",        symbol: "✦",   title: "Noise",     pitch: "Noise, dust, instability, sparks, and all the useful mess a clean machine secretly needs." },
@@ -200,7 +200,10 @@ const nodeGraphModuleStoreDepartmentAliasToId = Object.freeze({
   music:             "sample",
   Musical:           "musical",
   Noise:             "noise",
-  Oscillator:        "oscillator",
+  Additive:          "additive",
+  additive:          "additive",
+  Oscillator:        "additive",
+  oscillator:        "additive",
   Oscilloscope:      "oscilloscope",
   Other:             "digital",
   Portals:           "portal",
@@ -225,85 +228,85 @@ const nodeGraphModuleStoreDepartmentAliasToId = Object.freeze({
 
 const nodeGraphModuleStoreCatalog = Object.freeze({
   polyBlep: {
-    category: "oscillator",
+    category: "additive",
     description: "Clean multi-wave oscillator when you want saw/square/tri/sine without harsh aliasing.",
     label: "PolyBLEP",
     notes: ["anti-aliasing", "polyblep", "realtime oscillator"],
   },
   blit: {
-    category: "oscillator",
+    category: "additive",
     description: "Band-limited impulse-train tones for classic digital waves that stay sharp but controlled.",
     label: "BLIT",
     notes: ["anti-aliasing", "blit", "realtime oscillator"],
   },
   archimedes: {
-    category: "oscillator",
+    category: "additive",
     description: "Cheap quadrature sine/cosine pair (and a novelty π readout) for modulation and math demos.",
     label: "Archimedes",
     notes: ["quadrature", "fixed-point", "realtime oscillator"],
   },
   bradley2a: {
-    category: "oscillator",
+    category: "object",
     description: "Broken-line test tone: add jitter, hits, dropouts, and interference for character and stress tests.",
     label: "Bradley 2A Jitter/Hit Synth",
     notes: ["test-tone impairment", "jitter", "frequency translation", "native"],
   },
   antisaw: {
-    category: "oscillator",
+    category: "additive",
     description: "Cooked “aliasing on purpose” saw color—fold Nyquist junk into musical in-band grit.",
     label: "Antisaw",
     notes: ["simulated aliasing", "additive resynthesis", "reflections", "native"],
   },
   sineWavetable: {
-    category: "oscillator",
+    category: "additive",
     description: "Straightforward pitchable sin/cos voice when you need a clean table sine with amplitude control.",
     label: "SinCos",
     notes: ["implemented", "wavetable", "sin/cos", "native"],
   },
   wavetable2d: {
-    category: "oscillator",
+    category: "additive",
     description: "Placeholder: multi-frame 2D wavetable morph—use later for evolving table tones.",
     label: "Wavetable2D",
     notes: ["under construction", "wavetable", "2d", "morph", "oscillator", "frame"],
   },
   wavetable3d: {
-    category: "oscillator",
+    category: "additive",
     description: "Placeholder: dual-axis morph wavetable—use later for deep table morphs.",
     label: "Wavetable3D",
     notes: ["under construction", "wavetable", "3d", "morph", "volume", "oscillator"],
   },
   sinc: {
-    category: "oscillator",
+    category: "additive",
     description: "Impulse-like sinc tones for modulation sources or teaching resampling / band-limit ideas.",
     label: "Sinc",
     notes: ["sinc", "sin(x)/x", "impulse", "oscillator"],
   },
   osc: {
-    category: "modulator",
+    category: "additive",
     description: "Everyday multi-wave starter oscillator with pitch CV—default voice for quick patches.",
     label: "BasicShape",
     notes: ["BasicShape", "multi-waveform", "cv input", "LFO"],
   },
   aliasSine: {
-    category: "oscillator",
+    category: "additive",
     description: "Raw sine that intentionally wraps past Nyquist—hear aliasing as a feature, not a bug.",
     label: "Alias Sine",
     notes: ["sine", "aliasing", "native"],
   },
   robinSinusoid: {
-    category: "oscillator",
+    category: "additive",
     description: "Ultra-cheap recursive sine when you want steady tone with almost no CPU cost.",
     label: "RobinSinusoid",
     notes: ["RS-MET", "rosic", "recursive sine", "self-oscillating", "sinusoid"],
   },
   additiveOsc: {
-    category: "oscillator",
+    category: "additive",
     description: "Build timbres from harmonics—use for organ-ish, bell-ish, or carefully voiced spectra.",
     label: "Additive Osc",
     notes: ["additive synthesis", "harmonics", "native"],
   },
   gpuAdditiveOsc: {
-    category: "oscillator",
+    category: "additive",
     description: "GPU additive voice when you want heavy harmonic stacks without maxing the audio thread.",
     label: "GPU Additive",
     notes: ["additive synthesis", "gpu"],
@@ -315,7 +318,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["RoundShape", "getSineToSquare", "Uni X", "Uni Y", "Bi X", "Bi Y", "Limit AA", "f", "native"],
   },
   ellipsoidOsc: {
-    category: "source",
+    category: "additive",
     description: "Full parametric ellipsoid path for rich 2D-scope-friendly oscillators.",
     label: "Ellipsoid",
     notes: ["ellipsoid", "offset", "shape", "scale", "Limit AA", "X/Y", "native"],
@@ -460,43 +463,43 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["transpose", "octave", "semitone"],
   },
   surgeOscillator: {
-    category: "oscillator",
+    category: "additive",
     description: "Hard-sync multi-wave oscillator for aggressive locked-tone leads and bass.",
     label: "Surge Oscillator",
     notes: ["oscillator", "hard sync", "polyblep", "anti-aliasing", "native"],
   },
   softwaveOsc: {
-    category: "oscillator",
+    category: "additive",
     description: "Soft-shaped multi-wave voice when you want warm morphing waves, not a distortion box.",
     label: "Softwave Oscillator",
     notes: ["softwave", "tube", "tanh", "morph", "analog waves", "walter"],
   },
   curveOsc: {
-    category: "oscillator",
+    category: "additive",
     description: "Play math curves (rose, Lissajous, etc.) as mono audio or X/Y scope art.",
     label: "Curve Oscillator",
     notes: ["2d to 1d", "project", "lissajous", "rose", "butterfly", "superformula", "parametric", "xy"],
   },
   snowflake: {
-    category: "oscillator",
+    category: "additive",
     description: "Fractal turtle paths as stereo X/Y—ornamental motion and strange stereo voices.",
     label: "Snowflake",
     notes: ["L-system", "turtle", "Koch", "fractal pattern synthesis", "RS-MET", "X/Y", "native", "wasm"],
   },
   dsfOscillator: {
-    category: "oscillator",
+    category: "additive",
     description: "Alias-free DSF kit (sine/saw/PWM/etc.) for clean digital tones with classic PWM tools.",
     label: "DSF Oscillator",
     notes: ["oscillator", "dsf", "discrete summation formula", "anti-aliasing", "0.1V/Oct", "phase CV", "amplitude CV", "native"],
   },
   robinSupersaw: {
-    category: "oscillator",
+    category: "additive",
     description: "Detuned multi-saw wall with pitch dither—huge pads and trance supersaws.",
     label: "RobinSupersaw",
     notes: ["oscillator", "supersaw", "pitch dithering", "anti-aliasing", "native"],
   },
   hypersaw: {
-    category: "oscillator",
+    category: "additive",
     description: "Massive phase-spread saw bank for dense stereo supersaw beds and visual phase columns.",
     label: "Hypersaw",
     notes: ["oscillator", "supersaw", "polyblep", "anti-aliasing", "native", "phosphor display"],
@@ -871,9 +874,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   samplePlayer: {
     category: "sample",
-    description: "One-shot samples on trigger—hits, stabs, and short clips.",
+    description: "One-shot stereo samples on trigger—hits, stabs, and short clips.",
     label: "Sample Player",
-    notes: ["sample playback", "one shot", "audio source"],
+    notes: ["sample playback", "one shot", "audio source", "stereo"],
   },
   audioPlayer: {
     category: "sample",
@@ -882,16 +885,16 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["music playback", "scrubbable", "phasor", "audio source"],
   },
   phosphillator: {
-    category: "oscillator",
+    category: "additive",
     description: "Draw a closed shape with the mouse and play it back as X/Y motion.",
     label: "Phosphillator",
     notes: ["freehand draw", "phosphor", "xy oscillator", "papoulis smoothing"],
   },
   sampleLooper: {
     category: "sample",
-    description: "Gated looping sample player with bounds, pitch, and seam crossfade.",
+    description: "Gated stereo looping sample player with bounds, pitch, and seam crossfade.",
     label: "Sample Looper",
-    notes: ["sample playback", "loop", "audio source"],
+    notes: ["sample playback", "loop", "audio source", "stereo"],
   },
   // --- Scientific Filter: textbook / predictable spectral tools ---
   passiveFilter: {
@@ -1039,7 +1042,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["crossover", "linkwitz-riley", "6-way", "stereo", "scientific", "RS-MET"],
   },
   softpopOscillator: {
-    category: "oscillator",
+    category: "additive",
     description: "Noise through a resonant peak BP—softpop-style pitchable noise voice.",
     label: "Softpop Oscillator",
     notes: [
@@ -1278,9 +1281,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   // Rate limiters live with Dynamics (not spectral filters).
   slewLimiter: {
     category: "dynamics",
-    description: "Hard up/down rate limit—linear ramps to steps and CV glides.",
+    description: "Hard up/down rate limit with Lin / Log / Exp / Smooth curves for steps and CV glides.",
     label: "Up/Down Slew",
-    notes: ["up time", "down time", "asymmetric glide", "rate limit", "slew", "portamento", "dynamics"],
+    notes: ["up time", "down time", "asymmetric glide", "rate limit", "slew", "portamento", "dynamics", "log", "exp", "smooth"],
   },
   midSideEncode: {
     category: "dynamics",
@@ -1318,8 +1321,8 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   lookaheadLimiter: {
     category: "dynamics",
     description:
-      "Look-ahead brickwall limiter: delay is the look-ahead (modulatable). No host delay compensation.",
-    label: "Look-ahead Limiter",
+      "Brickwall limiter with optional look-ahead delay (modulatable). No host delay compensation.",
+    label: "Limiter",
     notes: [
       "limiter",
       "look-ahead",
@@ -1328,6 +1331,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "ceiling",
       "dynamics",
       "peak",
+      "compressor",
     ],
   },
   inertialFilter: {
@@ -1537,6 +1541,21 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     description: "Clean 1D vector waveform—see the signal shape without phosphor hang.",
     label: "1D Trace",
     notes: ["1D Trace", "waveform", "display testbed", "input trace"],
+  },
+  traceDisplayStereo: {
+    category: "oscilloscope",
+    description: "Output-style stereo 1D Trace—Left/Right colors, Meet blend, and sync on their own face.",
+    label: "1D Trace Stereo",
+    notes: [
+      "1D Trace",
+      "stereo",
+      "left",
+      "right",
+      "meet",
+      "output display",
+      "waveform",
+      "display testbed",
+    ],
   },
   dotOscilloscope: {
     category: "oscilloscope",
@@ -3261,15 +3280,20 @@ function renderNodeGraphModuleGroupCatalog() {
   shell.hidden = names.length === 0;
 }
 
+function nodeGraphModuleStoreScrollFrame(available = document.getElementById("nodeModuleDepartmentList")) {
+  return available?.closest?.(".node-module-shop-scroll-frame") || available || null;
+}
+
 function updateNodeGraphModuleStoreScrollAffordance() {
   const available = document.getElementById("nodeModuleDepartmentList");
-  if (!available) {
+  const frame = nodeGraphModuleStoreScrollFrame(available);
+  if (!available || !frame) {
     return;
   }
   const maxScrollTop = Math.max(0, available.scrollHeight - available.clientHeight);
   const scrollTop = Math.max(0, available.scrollTop);
-  available.classList.toggle("can-scroll-up", scrollTop > 1);
-  available.classList.toggle("can-scroll-down", scrollTop < maxScrollTop - 1);
+  frame.classList.toggle("can-scroll-up", scrollTop > 1);
+  frame.classList.toggle("can-scroll-down", scrollTop < maxScrollTop - 1);
 }
 
 function bindNodeGraphModuleStoreScrollAffordance() {

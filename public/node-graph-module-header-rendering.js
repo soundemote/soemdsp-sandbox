@@ -626,6 +626,9 @@ function moveNodeGraphRenderRangeToDurationControl() {
 function createNodeGraphModuleHeader(type, node, definition) {
   const header = document.createElement("div");
   header.className = "dsp-node-header";
+  if (typeof tagNodeGraphModuleBand === "function") {
+    tagNodeGraphModuleBand(header, "header");
+  }
   const titleRow = document.createElement("div");
   titleRow.className = "node-header-title-row";
   nodeGraphApplyTooltip(titleRow, "module.titleMove", {}, { title: false });

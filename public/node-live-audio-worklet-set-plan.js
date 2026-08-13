@@ -8,7 +8,15 @@ NodeLiveAudioProcessor.prototype.setPlan = function setPlan(plan, message = {}) 
     this.sessionId = message.sessionId || 0;
     this.gpuAdditiveQueues = new Map();
     this.gpuAdditiveUnderruns = 0;
-    this.autoSmoothingSeconds = 0.016;
+    if (Number.isFinite(Number(message.autoSmoothingSeconds)) && typeof this.clampAutoSmoothingSeconds === "function") {
+      this.autoSmoothingSeconds = this.clampAutoSmoothingSeconds(message.autoSmoothingSeconds);
+    }
+    if (Number.isFinite(Number(message.pitchReferenceMidiNote))) {
+      this.pitchReferenceMidiNote = Number(message.pitchReferenceMidiNote);
+    }
+    if (Number.isFinite(Number(message.pitchReferenceHz))) {
+      this.pitchReferenceHz = Number(message.pitchReferenceHz);
+    }
     this.hostSampleRate = Math.max(1, Number(message.sampleRate) || sampleRate || 44100);
     // App-wide: oversampling under construction — always ×1 (ignore plan/message).
     this.oversamplingRatio = 1;

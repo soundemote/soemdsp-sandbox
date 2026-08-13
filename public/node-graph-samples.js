@@ -1252,6 +1252,9 @@ function createNodeGraphSampleModuleBody(nodeOrId) {
   const isMusicPlayer = patchNode?.type === "audioPlayer";
   const body = document.createElement("div");
   body.className = "node-module-interface-controls node-sample-module-body";
+  if (typeof tagNodeGraphModuleBand === "function") {
+    tagNodeGraphModuleBand(body, "controls");
+  }
   const name = document.createElement("div");
   name.className = "node-sample-name";
   name.dataset.sampleNameForNode = nodeId;

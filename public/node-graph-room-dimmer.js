@@ -22,7 +22,7 @@
   "use strict";
 
   const STORAGE_KEY = "soemdsp-sandbox.roomDimmer.v1";
-  const MAX_RECTS = 48;
+  const MAX_RECTS = 128;
   const SHADER_REV = 10;
   // Inset punch by this many CSS px so 1px borders / AA don't open chrome.
   const PUNCH_INSET_CSS = 1.25;
@@ -290,15 +290,28 @@ void main() {
   }
 
   function lightStrength(el) {
-    // Walk up for strength (canvas children inherit from face / lamp).
+    // Walk up for strength. Prefer the first *positive* strength so a wiped
+    // child canvas with data-light-strength="0" does not permanently veil a
+    // still-lit Value LCD/LED face (pause→stop zeroed the canvas only;
+    // digits painted but room dimmer punched strength 0 = invisible).
     let node = el;
-    for (let i = 0; i < 4 && node; i += 1) {
+    let zeroSeen = false;
+    for (let i = 0; i < 6 && node; i += 1) {
       const raw = node.dataset?.lightStrength;
       if (raw != null && raw !== "") {
         const n = Number(raw);
-        if (Number.isFinite(n)) return clamp01(n);
+        if (Number.isFinite(n)) {
+          if (n > 0.001) {
+            return clamp01(n);
+          }
+          zeroSeen = true;
+        }
       }
       node = node.parentElement;
+    }
+    // Explicit 0 with no lit ancestor (e.g. unlit LED lamp) stays closed.
+    if (zeroSeen) {
+      return 0;
     }
     // Unset painted screens default to full hole.
     return 1;

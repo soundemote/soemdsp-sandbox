@@ -850,6 +850,10 @@ function normalizeNodeGraphPatchViewZoom(value) {
 function normalizeNodeGraphPatchView(view = {}) {
   const widthGu = Math.round(Number(view?.widthGu));
   const heightGu = Math.round(Number(view?.heightGu));
+  const source = view && typeof view === "object" ? view : {};
+  const flag = (key, fallback) => (
+    Object.hasOwn(source, key) ? Boolean(source[key]) : fallback
+  );
   return {
     heightGu: Number.isFinite(heightGu)
       ? Math.max(0, heightGu)
@@ -858,6 +862,16 @@ function normalizeNodeGraphPatchView(view = {}) {
       ? Math.max(0, widthGu)
       : 0,
     zoom: normalizeNodeGraphPatchViewZoom(view?.zoom),
+    gridVisible: flag("gridVisible", true),
+    gridLightVisible: flag("gridLightVisible", true),
+    wireLengthsVisible: flag("wireLengthsVisible", true),
+    wiresAboveModules: flag("wiresAboveModules", false),
+    moduleButtonsVisible: flag("moduleButtonsVisible", true),
+    moduleOscilloscopesVisible: flag("moduleOscilloscopesVisible", true),
+    moduleInterfaceControlsVisible: flag("moduleInterfaceControlsVisible", true),
+    moduleSlidersVisible: flag("moduleSlidersVisible", true),
+    sliderAmountVisible: flag("sliderAmountVisible", true),
+    sliderPositionVisible: flag("sliderPositionVisible", true),
   };
 }
 

@@ -64,7 +64,10 @@ function flushNodeGraphScriptCommit() {
     return !nodeGraphMvp.scriptDirty;
   }
   clearNodeGraphScriptCommitTimer();
-  // No live textarea editor — pending timer commits already ran or are cancelled.
+  const raw = document.getElementById("nodePatchRawText");
+  if (raw && nodeGraphMvp.scriptDirty) {
+    return commitNodeGraphScript(raw.value);
+  }
   nodeGraphMvp.scriptDirty = false;
   return true;
 }

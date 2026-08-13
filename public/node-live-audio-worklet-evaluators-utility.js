@@ -440,6 +440,26 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_utility = function bu
           safeRate,
         );
       },
+      samplePlayer: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+        const readParam = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        return this.sampleLibrarySample(
+          node,
+          nodeId,
+          (port) => mixInput(nodeId, port),
+          readParam,
+          safeRate,
+        );
+      },
+      sampleLooper: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
+        const readParam = (key, fallback) => this.readEffectiveParameter(node, key, fallback, frame, frames, frameValues);
+        return this.sampleLooperSample(
+          node,
+          nodeId,
+          (port) => mixInput(nodeId, port),
+          readParam,
+          safeRate,
+        );
+      },
       moduleGroup: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame) => this.evaluateModuleGroup(node, mixInput, frame, frames, safeRate, inputFrame),
       codeblock: (node, nodeId, frame, frames, frameValues, mixInput, safeRate, hasInput, inputFrame) => this.evaluateCodeblock(node, mixInput, frame, frames, safeRate, inputFrame),
   };

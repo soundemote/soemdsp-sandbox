@@ -29,6 +29,9 @@ function nodeGraphBuildLivePlan() {
     scopeCaptureNodeIds: [...(compiled.scopeCaptureNodeIds || [])],
     speakerOutputActive: Boolean(compiled.speakerOutputActive),
     sourceNodes: [...compiled.sourceNodes],
+    timing: typeof normalizeNodeGraphPatchTiming === "function"
+      ? normalizeNodeGraphPatchTiming(compiled.timing)
+      : compiled.timing || null,
     visualSinks: (compiled.visualSinks || []).map((sink) => ({
       ...sink,
       bufferedInputs: [...(sink.bufferedInputs || [])],
@@ -146,7 +149,11 @@ function nodeGraphBuildLiveParameterNodes(activeNodeIds = null, bypassedNodes = 
       if (node.type === "moduleGroup") {
         runtimeNode.moduleGroup = normalizeNodeGraphModuleGroup(node.moduleGroup);
         if (runtimeNode.moduleGroup.sourcePatch) {
-          runtimeNode.moduleGroupPlan = nodeGraphBuildLivePlanForPatch(runtimeNode.moduleGroup.sourcePatch);
+          try {
+            runtimeNode.moduleGroupPlan = nodeGraphBuildLivePlanForPatch(runtimeNode.moduleGroup.sourcePatch);
+          } catch (_error) {
+            runtimeNode.moduleGroupPlan = null;
+          }
         }
       }
       if (node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer") {
@@ -207,7 +214,11 @@ function nodeGraphBuildLiveParameterNodesForPatch(patch, activeNodeIds = null, b
       if (node.type === "moduleGroup") {
         runtimeNode.moduleGroup = normalizeNodeGraphModuleGroup(node.moduleGroup);
         if (runtimeNode.moduleGroup.sourcePatch) {
-          runtimeNode.moduleGroupPlan = nodeGraphBuildLivePlanForPatch(runtimeNode.moduleGroup.sourcePatch);
+          try {
+            runtimeNode.moduleGroupPlan = nodeGraphBuildLivePlanForPatch(runtimeNode.moduleGroup.sourcePatch);
+          } catch (_error) {
+            runtimeNode.moduleGroupPlan = null;
+          }
         }
       }
       if (node.type === "samplePlayer" || node.type === "sampleLooper" || node.type === "audioPlayer") {

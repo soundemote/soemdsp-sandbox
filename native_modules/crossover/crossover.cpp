@@ -409,15 +409,6 @@ extern "C" void soemdsp_crossover_sample(
   const double rate = maxd(1.0, sampleRate);
   double freqs[kMaxSplits] = { f0, f1, f2, f3, f4 };
 
-  if (lIn == rIn) {
-    process_channel(&s.left, lIn, freqs, order, rate);
-    for (int i = 0; i < n; i++) {
-      const double v = safe(s.left.bands[i]);
-      s.outL[i] = v;
-      s.outR[i] = v;
-    }
-    return;
-  }
   process_channel(&s.left, lIn, freqs, order, rate);
   process_channel(&s.right, rIn, freqs, order, rate);
   for (int i = 0; i < n; i++) {

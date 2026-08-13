@@ -750,6 +750,15 @@ function bindNodeGraphTraceDisplaySettingsEvents(popover) {
   popover.addEventListener("input", updateNodeGraphTraceDisplaySettingsLive);
   popover.addEventListener("change", commitNodeGraphTraceDisplaySettingsChange);
   popover.addEventListener("click", stepNodeGraphTraceDisplaySetting);
+  popover.addEventListener("click", (event) => {
+    if (event.target?.id === "nodeTraceDisplaySwapStereoLook") {
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof swapNodeGraphOutputTraceLook === "function") {
+        swapNodeGraphOutputTraceLook();
+      }
+    }
+  });
   popover.addEventListener("dblclick", beginNodeGraphTraceDisplayFieldEdit, true);
   // focusout bubbles; blur does not — parent never saw Enter→blur before.
   popover.addEventListener("focusout", finishNodeGraphTraceDisplayFieldEdit, true);
