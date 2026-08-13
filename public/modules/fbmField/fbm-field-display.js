@@ -4,11 +4,11 @@
 
 const nodeGraphFbmFieldSettingsDefaults = Object.freeze({
   background: "#05060a",
+  // Late black→white ramp (ellipsoid-circleghj FBM face).
   gradientStops: Object.freeze([
     Object.freeze({ t: 0, color: "#000000" }),
-    Object.freeze({ t: 0.25, color: "#1a2744" }),
-    Object.freeze({ t: 0.5, color: "#3d7ea6" }),
-    Object.freeze({ t: 0.75, color: "#c4e0a8" }),
+    Object.freeze({ t: 0.396, color: "#000000" }),
+    Object.freeze({ t: 0.999, color: "#ffffff" }),
     Object.freeze({ t: 1, color: "#ffffff" }),
   ]),
 });

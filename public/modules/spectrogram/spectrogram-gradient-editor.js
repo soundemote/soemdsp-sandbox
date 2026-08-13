@@ -1342,8 +1342,8 @@
     }),
     fbmFieldFace: Object.freeze({
       channels: "color",
-      defaultStops: "phosphor",
-      hint: "Field energy (black→white) → color · same gradient as scopes/LED",
+      defaultStops: "fbmField",
+      hint: "Field energy → color · late black-to-white ramp (face default)",
     }),
     // Matrix faces: cell energy (black→white underlying) → multi-stop LUT.
     // defaultStops "matrix" = digital-rain ramp (green body, white tip).
@@ -1370,6 +1370,13 @@
     Object.freeze({ t: 1, color: "#e8e8e8" }),
   ]);
 
+  const DEFAULT_FBM_FIELD_STOPS = Object.freeze([
+    Object.freeze({ t: 0, color: "#000000" }),
+    Object.freeze({ t: 0.396, color: "#000000" }),
+    Object.freeze({ t: 0.999, color: "#ffffff" }),
+    Object.freeze({ t: 1, color: "#ffffff" }),
+  ]);
+
   function defaultStopsForKind(kind) {
     if (kind === "bw") {
       return DEFAULT_BW_STOPS.map((s) => ({ t: s.t, color: s.color }));
@@ -1382,6 +1389,9 @@
     }
     if (kind === "softFractal") {
       return DEFAULT_SOFT_FRACTAL_STOPS.map((s) => ({ t: s.t, color: s.color }));
+    }
+    if (kind === "fbmField") {
+      return DEFAULT_FBM_FIELD_STOPS.map((s) => ({ t: s.t, color: s.color }));
     }
     // phosphor / color energy faces (including numberReadout LCD)
     return DEFAULT_PHOSPHOR_STOPS.map((s) => ({ t: s.t, color: s.color }));
