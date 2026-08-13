@@ -134,8 +134,8 @@ function nodeGraphModuleScopeDisplayBuffer(slot, capturedBuffer = null) {
     // Value LCD / Value LED must only ever show real captured input — never an
     // offline model guess. No fallback chain here on purpose.
     buffer = capturedBuffer;
-  } else if (slot?.type === "led" || renderer === "ledLamp") {
-    // Lamp LED: derive light target from the capture ring when metadata is absent.
+  } else if (renderer === "ledLamp") {
+    // Legacy CSS lamp: derive light target from the capture ring when metadata is absent.
     buffer = capturedBuffer;
     if (buffer?.length && !Number.isFinite(Number(buffer.nodeGraphScopeLightTarget))) {
       let peak = 0;

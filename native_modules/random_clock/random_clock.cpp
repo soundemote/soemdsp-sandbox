@@ -22,6 +22,9 @@ static const int kMaxInstances = 32;
 struct RandomClockState {
   bool active;
   double intervalSamples;
+  double intervalUnit;
+  double lastMinSeconds;
+  double lastMaxSeconds;
   double lastReset;
   double phaseSamples;
   unsigned int rngState;
@@ -41,11 +44,16 @@ static double next_unit(unsigned int& seed) {
   return (double)lcg_next(seed) / 4294967296.0;
 }
 
-static double choose_interval_samples(RandomClockState& s, double minSeconds, double maxSeconds, double rate) {
+static double interval_from_unit(double unit, double minSeconds, double maxSeconds, double rate) {
   const double low = mind(minSeconds, maxSeconds);
   const double high = maxd(minSeconds, maxSeconds);
-  const double random = next_unit(s.rngState);
-  return maxd(1.0, dsp_floor((low + (high - low) * random) * rate + 0.5));
+  const double t = clamp(unit, 0.0, 1.0);
+  return maxd(1.0, dsp_floor((low + (high - low) * t) * rate + 0.5));
+}
+
+static double choose_interval_samples(RandomClockState& s, double minSeconds, double maxSeconds, double rate) {
+  s.intervalUnit = next_unit(s.rngState);
+  return interval_from_unit(s.intervalUnit, minSeconds, maxSeconds, rate);
 }
 
 }  // namespace
@@ -55,6 +63,9 @@ extern "C" int soemdsp_random_clock_create() {
     if (!gPool[i].active) {
       RandomClockState& s = gPool[i];
       s.intervalSamples = 0.0;
+      s.intervalUnit = 0.0;
+      s.lastMinSeconds = -1.0;
+      s.lastMaxSeconds = -1.0;
       s.lastReset = 0.0;
       s.phaseSamples = 0.0;
       s.rngState = 1U;
@@ -93,6 +104,9 @@ extern "C" double soemdsp_random_clock_sample(
     s.rngState = (unsigned int)seedKey;
     if (s.rngState == 0U) s.rngState = 1U;
     s.intervalSamples = 0.0;
+    s.intervalUnit = 0.0;
+    s.lastMinSeconds = -1.0;
+    s.lastMaxSeconds = -1.0;
     s.phaseSamples = 0.0;
     s.remainingTriggerSamples = 0.0;
   }
@@ -107,11 +121,22 @@ extern "C" double soemdsp_random_clock_sample(
   const double safeLevel = safe(level);
 
   const bool resetEdge = s.lastReset <= safeThreshold && safeReset > safeThreshold;
+  const bool rangeChanged = s.lastMinSeconds != safeMin || s.lastMaxSeconds != safeMax;
+  s.lastMinSeconds = safeMin;
+  s.lastMaxSeconds = safeMax;
 
   if (resetEdge || s.intervalSamples <= 0.0) {
     s.intervalSamples = choose_interval_samples(s, safeMin, safeMax, rate);
     s.phaseSamples = 0.0;
     s.remainingTriggerSamples = maxd(1.0, dsp_floor(safeTriggerTime * rate + 0.5));
+  } else if (rangeChanged) {
+    // Remap this cycle's random draw onto the new Min/Max immediately.
+    s.intervalSamples = interval_from_unit(s.intervalUnit, safeMin, safeMax, rate);
+    if (s.phaseSamples >= s.intervalSamples) {
+      s.intervalSamples = choose_interval_samples(s, safeMin, safeMax, rate);
+      s.phaseSamples = 0.0;
+      s.remainingTriggerSamples = maxd(1.0, dsp_floor(safeTriggerTime * rate + 0.5));
+    }
   } else if (s.phaseSamples >= s.intervalSamples) {
     s.intervalSamples = choose_interval_samples(s, safeMin, safeMax, rate);
     s.phaseSamples = 0.0;

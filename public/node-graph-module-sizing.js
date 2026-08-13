@@ -792,6 +792,32 @@ function nodeGraphModuleLayoutBands(type, ui = {}) {
       ? [{ id: "header", heightGu: headerGu, visible: true, grow: false }]
       : [];
   }
+  // LayoutB article is header + shell(face+side ports) + params — never an
+  // under-face I/O track. LED / Value LED / XY Pad all share this recipe.
+  // Mapping leftover "face" widgets as the only track hid the shell (jacks
+  // crushed, lamp display:none via apply).
+  if (typeof nodeGraphModuleUsesLayoutB === "function" && nodeGraphModuleUsesLayoutB(type)) {
+    const headerGu = nodeGraphModuleHeaderHeightUnits(ui, type);
+    const shellGu = typeof nodeGraphLayoutBShellHeightGu === "function"
+      ? nodeGraphLayoutBShellHeightGu(type, ui)
+      : nodeGraphModuleDisplayHeightUnits(type, ui);
+    const paramsGu = nodeGraphModuleSliderBodyHeightGu(type, ui);
+    const bands = [];
+    if (headerGu > 0) {
+      bands.push({ id: "header", heightGu: headerGu, visible: true, grow: false });
+    }
+    bands.push({
+      id: "shell",
+      heightGu: Math.max(1, Number(shellGu) || 1),
+      visible: true,
+      grow: paramsGu <= 0,
+    });
+    if (paramsGu > 0) {
+      bands.push({ id: "params", heightGu: paramsGu, visible: true, grow: false });
+      bands.push({ id: "lip", heightGu: 0, visible: true, grow: true });
+    }
+    return bands;
+  }
   const widgets = nodeGraphModuleHeightWidgetUnits(type, ui);
   const byId = new Map();
   for (const widget of widgets) {
@@ -825,7 +851,7 @@ function nodeGraphModuleLayoutBands(type, ui = {}) {
   const layout = nodeGraphModuleDefinitions[type]?.layout;
   const paramsVisible = Boolean(byId.get("params")?.visible);
   const bands = order.map((id) => ({ ...byId.get(id) }));
-  if (type === "audioPlayer" || layout === "textBox" || layout === "led") {
+  if (type === "audioPlayer" || layout === "textBox") {
     const face = bands.find((band) => band.id === "face");
     if (face?.visible) {
       face.grow = true;
@@ -1083,7 +1109,11 @@ function nodeGraphModuleHeightWidgetUnits(type, ui = {}) {
     ];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "led") {
-    return [{ id: "face", heightGu: 1, visible: true }];
+    const headerGu = nodeGraphModuleHeaderHeightUnits(ui, type);
+    return [
+      { id: "header", heightGu: headerGu, visible: headerGu > 0 },
+      { id: "shell", heightGu: nodeGraphLayoutBShellHeightGu(type, ui), visible: true },
+    ];
   }
   if (nodeGraphModuleDefinitions[type]?.layout === "textBox") {
     return [

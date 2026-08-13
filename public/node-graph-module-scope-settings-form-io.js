@@ -213,6 +213,13 @@ function nodeGraphDisplaySettingsDefaultsForFormType(type = nodeGraphTraceDispla
       nodeGraphKnobFaceDisplaySettingsDefaults,
     );
   }
+  if (type === "patchFace") {
+    return normalizeNodeGraphPatchFaceDisplaySettings(
+      typeof nodeGraphPatchFaceDisplaySettingsDefaults !== "undefined"
+        ? nodeGraphPatchFaceDisplaySettingsDefaults
+        : {},
+    );
+  }
   if (type === "xyPad") {
     return normalizeNodeGraphXyPadDisplaySettings(nodeGraphXyPadDisplaySettingsDefaults);
   }
@@ -316,6 +323,9 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
   }
   if (type === "knobFace") {
     return normalizeNodeGraphKnobFaceDisplaySettings(settings);
+  }
+  if (type === "patchFace") {
+    return normalizeNodeGraphPatchFaceDisplaySettings(settings);
   }
   if (type === "xyPad") {
     return normalizeNodeGraphXyPadDisplaySettings(settings);
@@ -433,6 +443,11 @@ function nodeGraphTraceDisplayCurrentSettingsForFormType(formType = nodeGraphTra
   }
   if (settingsSchema === "knobFace") {
     return nodeGraphKnobFaceDisplaySettingsForNode(node);
+  }
+  if (settingsSchema === "patchFace") {
+    return typeof nodeGraphPatchFaceDisplaySettingsForNode === "function"
+      ? nodeGraphPatchFaceDisplaySettingsForNode(node)
+      : normalizeNodeGraphPatchFaceDisplaySettings(node?.traceDisplaySettings);
   }
   if (settingsSchema === "xyPad") {
     return normalizeNodeGraphXyPadDisplaySettings(node.traceDisplaySettings);
@@ -1016,13 +1031,13 @@ function nodeGraphTraceDisplayColorWidgetModuleUrl() {
   }
   const script = document.querySelector('script[src*="node-graph-module-scopes.js"]');
   if (script?.src) {
-    return new URL("color-widget.js?v=hue-thumb-cursor-2", script.src).href;
+    return new URL("color-widget.js?v=hue-crop-reset-1", script.src).href;
   }
   // Fallbacks: site root /public/, then document-relative public/
   try {
-    return new URL("/public/color-widget.js?v=hue-thumb-cursor-2", window.location.origin).href;
+    return new URL("/public/color-widget.js?v=hue-crop-reset-1", window.location.origin).href;
   } catch {
-    return new URL("public/color-widget.js?v=hue-thumb-cursor-2", window.location.href).href;
+    return new URL("public/color-widget.js?v=hue-crop-reset-1", window.location.href).href;
   }
 }
 
@@ -1174,6 +1189,9 @@ function nodeGraphTraceDisplayColorWidgetLabel(field) {
     return "Ghost ink";
   }
   if (field === "dot1Color") {
+    if (nodeGraphTraceDisplaySettingsFormType() === "patchFace") {
+      return "Ink";
+    }
     // Value LCD: full foreground color widget (same chrome as Background).
     // Value LED: no label (hue strip lives on the LED amount row).
     if (nodeGraphTraceDisplaySettingsFormType() === "numberReadout") {

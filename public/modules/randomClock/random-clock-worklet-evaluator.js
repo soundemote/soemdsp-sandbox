@@ -1,6 +1,9 @@
 NodeLiveAudioProcessor.prototype.createRandomClockState = function createRandomClockState() {
     return {
       intervalSamples: 0,
+      intervalUnit: 0,
+      lastMaxSeconds: NaN,
+      lastMinSeconds: NaN,
       lastReset: 0,
       phaseSamples: 0,
       randomState: 0,
@@ -17,6 +20,9 @@ NodeLiveAudioProcessor.prototype.randomClockNextUnit = function randomClockNextU
       state.seedKey = seedKey;
       state.randomState = this.stableSeed(seedKey);
       state.intervalSamples = 0;
+      state.intervalUnit = 0;
+      state.lastMinSeconds = NaN;
+      state.lastMaxSeconds = NaN;
       state.phaseSamples = 0;
       state.remainingTriggerSamples = 0;
     }

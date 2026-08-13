@@ -106,6 +106,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-phosphor-draw-sample.js",
     "./public/node-graph-color-standards.js",
     "./public/node-graph-chromeless-module-registry.js",
+    "./public/modules/patch/patch-register.js",
     "./public/node-graph-module-chrome.js",
     "./public/modules/led/led-register.js",
     "./public/modules/rgbShape/rgb-shape-register.js",
@@ -172,6 +173,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/lib/phosphor/phosphor-drawer.js",
     "./public/node-graph-phosphor-energy-gl.js",
     "./public/lib/trace/trace-stroke.js",
+    "./public/lib/trace/trace-waveform.js",
     "./public/node-graph-phosphor-gaussian-drawer.js",
     "./public/color-widget-boot.js",
     "./public/modules/spectrogram/spectrogram-gradient-editor.js",
@@ -214,6 +216,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/node-graph-module-scope-canvas.js",
     "./public/node-graph-module-scope-paint-helpers.js",
     "./public/node-graph-module-scope-draw-orchestrator.js",
+    "./public/modules/patch/patch-ui.js",
     "./public/modules/phosphorLight/phosphor-light-display.js",
     "./public/modules/oscilloscopeBank/oscilloscope-bank-display.js",
     "./public/modules/videoscope/videoscope-display.js",
@@ -536,6 +539,8 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/bias/bias-live-evaluator.js",
     "./public/modules/softClipper/soft-clipper-math.js",
     "./public/modules/softClipper/soft-clipper-live-evaluator.js",
+    "./public/modules/clipperLimiter/clipper-limiter-math.js",
+    "./public/modules/clipperLimiter/clipper-limiter-live-evaluator.js",
     "./public/modules/airClipper/air-clipper-math.js",
     "./public/modules/airClipper/air-clipper-live-evaluator.js",
     "./public/modules/rotate3dTo2d/rotate-3d-to-2d-math.js",
@@ -918,10 +923,6 @@ REQUIRED_SHELL_IDS = {
     "nodeUndoButton",
     "nodeWaveformCanvas",
     "nodeWireSvg",
-    "patchAuthorValue",
-    "patchDescriptionValue",
-    "patchNameValue",
-    "patchTagsValue",
     "metadataAdvancedToggle",
     "metadataAliasValue",
     "metadataDefaultValue",
@@ -1342,6 +1343,7 @@ def require_shell_contract(html: str) -> None:
             "./public/modules/asciiscope/asciiscope-ui.css",
             "./public/modules/chordPad/chord-pad-ui.css",
             "./public/modules/matrixDisplay/matrix-display-ui.css",
+            "./public/modules/patch/patch-ui.css",
             "./public/modules/pitchQuantizer/pitch-quantizer-ui.css",
             "./public/modules/stepGrid/step-grid.css",
             "./public/modules/textStream/text-stream-ui.css",
@@ -3881,6 +3883,7 @@ def require_chromeless_module_registry_contract() -> None:
         "function nodeGraphChromelessModuleLabelEntries()",
         "function nodeGraphChromelessModuleCatalogEntries()",
         "function nodeGraphChromelessModuleUsesSolidShell(type)",
+        "function nodeGraphModuleTypeIsUniqueInPatch(type)",
         "const nodeGraphChromelessModuleLayouts = Object.freeze({",
     ]:
         require(snippet in registry_source, f"chromeless module registry missing {snippet}")
@@ -3912,6 +3915,7 @@ def require_chromeless_module_registry_contract() -> None:
         "stepGrid",
         "valueLcd",
         "xyPad",
+        "patch",
     }
     require(
         discovered_types == expected_types,
@@ -6297,10 +6301,6 @@ def require_node_graph_mvp_contract() -> None:
         "nodeUserUiSettingsButton",
         "nodeSettingsViewButton",
         "nodeSettingsView",
-        "patchNameValue",
-        "patchAuthorValue",
-        "patchTagsValue",
-        "patchDescriptionValue",
         "patchCurrentSampleRateValue",
         "patchOversamplingValue",
         "patchTargetSampleRateValue",
@@ -6657,11 +6657,11 @@ def require_node_graph_mvp_contract() -> None:
         index_source.index('id="nodeSceneDisplayHeightControls"') <
         index_source.index('id="nodeSceneToggleOscilloscope"') <
         index_source.index('id="nodeSceneToggleTitle"') <
-        index_source.index('id="nodeSceneToggleButtons"') <
         index_source.index('id="nodeSceneToggleInterfaceControls"') <
+        index_source.index('id="nodeSceneToggleButtons"') <
         index_source.index('id="nodeSceneToggleIo"') <
         index_source.index('id="nodeSceneToggleSliders"'),
-        "module action visibility controls should be ordered display height, display, title, buttons, control surface, in/out, sliders",
+        "module action visibility controls should be ordered display height, display, title, control surface, buttons, in/out, sliders",
     )
     require(
         'id="nodeSceneToggleModuleEnabled"' in index_source and "Disable module" in index_source,
@@ -7074,13 +7074,19 @@ def require_node_graph_mvp_contract() -> None:
     ]:
         require(snippet not in index_source, f"static patch header should be absent: {snippet}")
 
+    patch_module_source = (PUBLIC / "modules" / "patch" / "patch-ui.js").read_text(encoding="utf-8")
     settings_order = [
-        index_source.index("patchNameValue"),
-        index_source.index("patchTagsValue"),
-        index_source.index("patchAuthorValue"),
-        index_source.index("patchDescriptionValue"),
+        patch_module_source.index("patchNameValue"),
+        patch_module_source.index("patchTagsValue"),
+        patch_module_source.index("patchAuthorValue"),
+        patch_module_source.index("patchDescriptionValue"),
     ]
-    require(settings_order == sorted(settings_order), "settings fields should be ordered name, tags, author, description")
+    require(settings_order == sorted(settings_order), "Patch module fields should be ordered name, tags, author, description")
+    require(
+        'data-patch-info-field="category"' in patch_module_source
+        and 'displayType: "patchFace"' in (PUBLIC / "modules" / "patch" / "patch-register.js").read_text(encoding="utf-8"),
+        "Patch module should expose category and use patchFace display settings, not Trace",
+    )
 
     workspace_index = index_source.index("nodeGraphWorkspace")
     require("nodeGraphEmptyModuleButton" in index_source, "empty workspace module browser button missing")
@@ -7591,7 +7597,7 @@ def require_node_graph_mvp_contract() -> None:
         "passiveFilter: \"Passive Filter\"",
         "passiveFilter: {",
         'choices: ["LP", "BP", "HP"]',
-        "slewLimiter: \"Up/Down Slew\"",
+        "slewLimiter: \"Slew\"",
         "slewLimiter: {",
         "key: \"upTime\"",
         "key: \"downTime\"",
@@ -12650,6 +12656,16 @@ def require_node_graph_mvp_contract() -> None:
         and 'defaultValue: "2"' in soft_clipper_definition,
         "Soft Clipper should expose stereo Mono/Left/Right ports plus Center and Width controls",
     )
+    require("clipperLimiter: \"Clipper Limiter\"" in module_definitions_source, "Clipper Limiter label should be registered")
+    require("clipperLimiter: {" in module_store_source, "Clipper Limiter should be listed in the module browser type registry")
+    require(
+        'key: "minDb"' in module_definitions_source
+        and 'key: "maxDb"' in module_definitions_source
+        and 'key: "gainDb"' in module_definitions_source
+        and "nodeGraphClipperLimiterSample" in "\n".join(script_sources.values())
+        and "nodeGraphSoftClipperSample(excess, 0, 2 * span)" in "\n".join(script_sources.values()),
+        "Clipper Limiter should map Min/Max dB onto the original Soft Clipper tanh",
+    )
     require(
         'softClipper: {' in module_store_source
         and 'label: "Soft Clipper"' in module_store_source
@@ -14133,10 +14149,18 @@ def require_node_graph_mvp_contract() -> None:
     ]
     require(
         "Math.ceil(visualWidth * 2)" in trace_display_geometry_source
-        and "const pointCount = nodeGraphTraceDisplayVisualPointCount(metricRect, buffer)" in trace_display_geometry_source
+        and "TraceWaveform.buildPoints" in trace_display_geometry_source
         and "visibleSampleWidth" not in trace_display_geometry_source
         and "minPointSpacingPx" not in trace_display_geometry_source,
-        "Trace Display point density should stay screen-space stable across zoom",
+        "Trace Display should pin x to sample time via TraceWaveform, not a sliding i/(n-1) lattice",
+    )
+    require(
+        "function buildPoints(options)" in node_graph_source
+        and "x = (i - viewStart) / span * width" in node_graph_source
+        and "global.TraceWaveform = {" in node_graph_source
+        and "return TraceWaveform.buildPoints({" in node_graph_source
+        and "Math.floor(options.forceStart)" not in node_graph_source,
+        "Instant Trace waveform drawer should exist and keep fractional stereo starts",
     )
     visual_sink_capacity_source = execution_plan_source[
         execution_plan_source.index("function nodeGraphVisualSinkBufferSampleLimit(node)"):
@@ -14385,12 +14409,12 @@ def require_node_graph_mvp_contract() -> None:
         # checks instead of a literal-presence check here.
         'bufferedInputs: ["In"]',
         'displayType: "dot"',
+        'source: { value: "In" }',
         'outputs: ["Out"]',
         'visualInputs: [\n      { key: "led", label: "In", port: "In" },\n    ]',
         "visualSink: true",
         '"led"',
         "customDisplayArea: true",
-        'displayType: "ledLamp"',
         "nodeGraphModuleScopeCustomRenderers.ledLamp = drawNodeGraphLedLampItem",
         "function nodeGraphLedEmittedRgb(hue, level, brightness = 1)",
         "function openNodeGraphLedSettings(nodeId, event)",

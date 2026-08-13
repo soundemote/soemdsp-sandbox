@@ -724,19 +724,19 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           this.readEffectiveParameter(node, "lookaheadEnabled", 1, frame, frames, frameValues),
         );
       },
-      inertialFilter: (node, nodeId, frame, frames, frameValues, mixInput) => {
+      inertialFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         if (!this.inertialFilterStates) {
           this.inertialFilterStates = new Map();
         }
         const state = this.inertialFilterStates.get(nodeId) || this.createStereoInertialFilterState();
         this.inertialFilterStates.set(nodeId, state);
-        const attack = this.readEffectiveParameter(node, "attack", 1, frame, frames, frameValues);
-        const release = this.readEffectiveParameter(node, "release", 0.005, frame, frames, frameValues);
+        const attackHz = this.readEffectiveParameter(node, "attack", 20000, frame, frames, frameValues);
+        const releaseHz = this.readEffectiveParameter(node, "release", 20, frame, frames, frameValues);
         const mono = mixInput(nodeId);
         return {
-          Out: this.inertialFilterSample(state.mono, mono, attack, release),
-          Left: this.inertialFilterSample(state.left, mixInput(nodeId, "Left") + mono, attack, release),
-          Right: this.inertialFilterSample(state.right, mixInput(nodeId, "Right") + mono, attack, release),
+          Out: this.inertialFilterSample(state.mono, mono, attackHz, releaseHz, safeRate),
+          Left: this.inertialFilterSample(state.left, mixInput(nodeId, "Left") + mono, attackHz, releaseHz, safeRate),
+          Right: this.inertialFilterSample(state.right, mixInput(nodeId, "Right") + mono, attackHz, releaseHz, safeRate),
         };
       },
       tiltFilter: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
@@ -1110,6 +1110,15 @@ NodeLiveAudioProcessor.prototype.buildLiveModuleEvaluators_processors = function
           Right: this.nativeSoftClipperSample(mixInput(nodeId, "Right") + softClipperMono, softClipperCenter, softClipperWidth),
         };
       },
+      clipperLimiter: (node, nodeId, frame, frames, frameValues, mixInput) =>
+        this.clipperLimiterFrame(
+          mixInput(nodeId),
+          mixInput(nodeId, "Left"),
+          mixInput(nodeId, "Right"),
+          this.readEffectiveParameter(node, "minDb", -12, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "maxDb", 0, frame, frames, frameValues),
+          this.readEffectiveParameter(node, "gainDb", 0, frame, frames, frameValues),
+        ),
       // Airwindows Density3. Math: air-clipper-math.js.
       airClipper: (node, nodeId, frame, frames, frameValues, mixInput, safeRate) => {
         if (!this.airClipperStates) {

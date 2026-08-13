@@ -13,6 +13,12 @@
 //   • Nav re-clicks on the already-active page only pulse attention — no re-seat
 //     (re-seating is what made the window crawl a few pixels every click).
 //
+// Chrome SSOT (do not invent per-page title bars or nav CSS):
+//   • .scene-context-heading = move | title | close
+//   • .node-unified-window-nav-host immediately under the heading
+//   • JS tags the page root with .node-unified-window
+//   • Shell does not scroll. Body under the nav is the only scroller.
+//
 // Screen Shader is intentionally NOT in this set.
 
 const nodeGraphUnifiedWindowPages = Object.freeze({
@@ -66,6 +72,14 @@ const nodeGraphUnifiedWindowPages = Object.freeze({
     icon: "🎚️",
     showInNav: true,
   }),
+  patchDefaults: Object.freeze({
+    key: "patchDefaults",
+    elementId: "nodePatchDefaultsPanel",
+    workspaceKey: "patchDefaults",
+    label: "Defaults",
+    icon: "🧹",
+    showInNav: true,
+  }),
 });
 
 // Module / Display / Parameter settings sit after Modules in the shared
@@ -76,6 +90,7 @@ const nodeGraphUnifiedWindowPageOrder = Object.freeze([
   "moduleActions",
   "traceDisplaySettings",
   "metaparameters",
+  "patchDefaults",
   "uiSettings",
 ]);
 
@@ -282,6 +297,8 @@ function applyNodeGraphUnifiedWindowSize(element, pageKey = "", size = null) {
     applyNodeMetadataPopoverSize(box);
   } else if (key === "traceDisplaySettings" && typeof applyNodeGraphTraceDisplaySettingsWindowSize === "function") {
     applyNodeGraphTraceDisplaySettingsWindowSize(box);
+  } else if (key === "patchDefaults" && typeof applyNodeGraphPatchDefaultsWindowSize === "function") {
+    applyNodeGraphPatchDefaultsWindowSize(box);
   }
 
   // Inline box wins over per-page default CSS so the seat never reflows.
@@ -382,6 +399,11 @@ function closeNodeGraphUnifiedWindowPage(page = "", options = {}) {
           closeNodeGraphTraceDisplaySettings();
         }
         break;
+      case "patchDefaults":
+        if (typeof setNodeGraphPatchDefaultsVisible === "function") {
+          setNodeGraphPatchDefaultsVisible(false);
+        }
+        break;
       default:
         break;
     }
@@ -395,6 +417,12 @@ function closeNodeGraphUnifiedWindowPage(page = "", options = {}) {
 
   if (!quiet && nodeGraphMvp.unifiedWindowPage === key) {
     nodeGraphMvp.unifiedWindowPage = "";
+  }
+  if (key === "commandCenter" && !quiet && !nodeGraphMvp._unifiedWindowSwitching) {
+    nodeGraphMvp.unifiedWindowPresentation = "closed";
+    if (typeof restoreNodeGraphUnifiedWindowFromDock === "function") {
+      restoreNodeGraphUnifiedWindowFromDock();
+    }
   }
   return true;
 }
@@ -586,6 +614,11 @@ function openNodeGraphUnifiedWindowPage(page = "", options = {}) {
         }
         break;
       }
+      case "patchDefaults":
+        if (typeof setNodeGraphPatchDefaultsVisible === "function") {
+          setNodeGraphPatchDefaultsVisible(true);
+        }
+        break;
       default:
         break;
     }
@@ -606,6 +639,9 @@ function openNodeGraphUnifiedWindowPage(page = "", options = {}) {
   }
   assertOnlyNodeGraphUnifiedWindowPageVisible(key);
   markNodeGraphUnifiedWindowPage(key);
+  if (typeof applyNodeGraphUnifiedWindowPresentation === "function") {
+    applyNodeGraphUnifiedWindowPresentation();
+  }
   return Boolean(element && !element.hidden);
 }
 
@@ -636,6 +672,105 @@ function noteNodeGraphUnifiedWindowOpened(page = "", element = null) {
   }
   assertOnlyNodeGraphUnifiedWindowPageVisible(key);
   markNodeGraphUnifiedWindowPage(key);
+}
+
+// ─── Command Center presentation (C) ────────────────────────────────────────
+// closed → open → embed left → embed right → float → closed
+
+const nodeGraphCommandCenterPresentationOrder = Object.freeze([
+  "open",
+  "embedLeft",
+  "embedRight",
+  "float",
+  "closed",
+]);
+
+function nodeGraphCommandCenterIsOpen() {
+  const element = document.getElementById("nodeSceneContextMenu");
+  return Boolean(element && !element.hidden);
+}
+
+function restoreNodeGraphUnifiedWindowFromDock() {
+  const dock = document.getElementById("nodeCommandCenterDock");
+  const home = document.getElementById("nodeWiringPanel");
+  const panel = document.getElementById("nodeWiringPanel");
+  panel?.classList.remove("command-center-embed-left", "command-center-embed-right");
+  if (!dock || !home) {
+    return;
+  }
+  const mainRow = document.getElementById("nodeGraphMainRow");
+  for (const child of [...dock.children]) {
+    home.insertBefore(child, mainRow || dock);
+    child.classList.remove("is-embedded-dock");
+  }
+  dock.hidden = true;
+}
+
+function applyNodeGraphUnifiedWindowPresentation() {
+  const mode = String(nodeGraphMvp.unifiedWindowPresentation || "closed");
+  const panel = document.getElementById("nodeWiringPanel");
+  const dock = document.getElementById("nodeCommandCenterDock");
+  const pageKey = nodeGraphUnifiedWindowActivePage() || "commandCenter";
+  const element = nodeGraphUnifiedWindowElement(pageKey);
+  const embed = mode === "embedLeft" || mode === "embedRight";
+  panel?.classList.toggle("command-center-embed-left", mode === "embedLeft");
+  panel?.classList.toggle("command-center-embed-right", mode === "embedRight");
+  if (embed && dock && element) {
+    dock.hidden = false;
+    dock.append(element);
+    element.hidden = false;
+    element.classList.add("is-embedded-dock");
+    element.style.position = "relative";
+    element.style.left = "0";
+    element.style.top = "0";
+    element.style.right = "auto";
+    element.style.bottom = "auto";
+    element.style.width = "100%";
+    element.style.height = "100%";
+    element.style.maxWidth = "none";
+    element.style.maxHeight = "none";
+    return;
+  }
+  restoreNodeGraphUnifiedWindowFromDock();
+  if ((mode === "open" || mode === "float") && element && !element.hidden) {
+    seatNodeGraphUnifiedWindow(element, pageKey);
+  }
+}
+
+function setNodeGraphCommandCenterPresentation(mode, options = {}) {
+  const next = String(mode || "closed").trim();
+  nodeGraphMvp.unifiedWindowPresentation = next;
+  if (next === "closed") {
+    restoreNodeGraphUnifiedWindowFromDock();
+    if (typeof closeNodeGraphUnifiedWindowPage === "function") {
+      closeNodeGraphUnifiedWindowPage("commandCenter", { quiet: true });
+    }
+    nodeGraphMvp.unifiedWindowPage = "";
+    nodeGraphMvp.unifiedWindowPresentation = "closed";
+    return;
+  }
+  if (!nodeGraphCommandCenterIsOpen()) {
+    if (typeof openNodeGraphUnifiedWindowPage === "function") {
+      openNodeGraphUnifiedWindowPage("commandCenter", options);
+    } else if (typeof openNodeGraphCommandCenter === "function") {
+      openNodeGraphCommandCenter(options.x, options.y);
+    }
+  }
+  applyNodeGraphUnifiedWindowPresentation();
+}
+
+function cycleNodeGraphCommandCenterPresentation(options = {}) {
+  if (!nodeGraphCommandCenterIsOpen()) {
+    setNodeGraphCommandCenterPresentation("open", options);
+    return "open";
+  }
+  const current = String(nodeGraphMvp.unifiedWindowPresentation || "open");
+  const index = nodeGraphCommandCenterPresentationOrder.indexOf(current);
+  const next = nodeGraphCommandCenterPresentationOrder[
+    (index < 0 ? 0 : index + 1) % nodeGraphCommandCenterPresentationOrder.length
+  ];
+  setNodeGraphCommandCenterPresentation(next, options);
+  return next;
 }
 
 // ─── Nav chrome ─────────────────────────────────────────────────────────────
@@ -682,10 +817,17 @@ function buildNodeGraphUnifiedWindowNav(activePage = "") {
   return nav;
 }
 
+function markNodeGraphUnifiedWindowChrome(element) {
+  if (element?.classList) {
+    element.classList.add("node-unified-window");
+  }
+}
+
 function ensureNodeGraphUnifiedWindowNavHost(element, options = {}) {
   if (!element) {
     return null;
   }
+  markNodeGraphUnifiedWindowChrome(element);
   let host = element.querySelector(":scope > .node-unified-window-nav-host, :scope > .node-module-shop-column > .node-unified-window-nav-host");
   if (host) {
     // Keep host immediately under the title chrome so empty states / body
@@ -785,12 +927,24 @@ function syncNodeGraphUnifiedWindowNavBars() {
         return ensureNodeGraphUnifiedWindowNavHost(element);
       },
     },
+    {
+      elementId: "nodePatchDefaultsPanel",
+      page: "patchDefaults",
+      prepare(element) {
+        const existing = element.querySelector("#nodePatchDefaultsUnifiedNavHost, :scope > .node-unified-window-nav-host");
+        if (existing) {
+          return existing;
+        }
+        return ensureNodeGraphUnifiedWindowNavHost(element);
+      },
+    },
   ];
   for (const mount of mounts) {
     const element = document.getElementById(mount.elementId);
     if (!element) {
       continue;
     }
+    markNodeGraphUnifiedWindowChrome(element);
     const host = mount.prepare(element);
     if (!host) {
       continue;

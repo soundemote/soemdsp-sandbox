@@ -96,6 +96,7 @@ function nodeGraphEventTargetIsFloatingWindow(target) {
     "#nodeVisibilityMenu",
     "#nodeModuleShopView",
     "#nodeUserUiSettingsPanel",
+    "#nodePatchDefaultsPanel",
     "#nodeUiDevHelper",
     "#nodePhosphorWaveformSettingsWindow",
     "#nodeCodeBoxWindow",

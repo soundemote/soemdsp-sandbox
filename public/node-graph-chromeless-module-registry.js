@@ -67,6 +67,7 @@ function nodeGraphChromelessModuleDefinitionEntries() {
       layout: type,
       ...fromDef,
       chrome,
+      uniqueInPatch: Boolean(config.uniqueInPatch || fromDef.uniqueInPatch),
     };
   }
   return entries;
@@ -107,6 +108,32 @@ function nodeGraphChromelessModuleHasCustomDisplayArea(type) {
 // for registration-time checks (e.g. always-evaluate interactive faces).
 function nodeGraphChromelessModuleUsesSolidShell(type) {
   return Boolean(nodeGraphChromelessModuleRegistrations.get(type)?.solidModule);
+}
+
+/** True when the shop/drop path must keep only one instance of this type. */
+function nodeGraphModuleTypeIsUniqueInPatch(type) {
+  const t = String(type || "").trim();
+  if (!t) {
+    return false;
+  }
+  if (nodeGraphModuleDefinitions?.[t]?.uniqueInPatch) {
+    return true;
+  }
+  return Boolean(nodeGraphChromelessModuleRegistrations.get(t)?.uniqueInPatch);
+}
+
+function nodeGraphFindExistingModuleOfType(type, nodes = null) {
+  const t = String(type || "").trim();
+  if (!t) {
+    return null;
+  }
+  const list = Array.isArray(nodes)
+    ? nodes
+    : (typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.patch?.nodes : null);
+  if (!Array.isArray(list)) {
+    return null;
+  }
+  return list.find((node) => node && node.type === t) || null;
 }
 
 // CSS layout class for a registered chromeless module -- always the

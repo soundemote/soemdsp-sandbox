@@ -79,7 +79,8 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze(["syncChannel", "stereoBlend"]),
   }),
   // Phosphor energy faces: color via shared Gradient editor (not single swatches).
-  // Field order = nodeGraphPhosphorDisplayFieldOrder (Bright…Dot Budget).
+  // Field order = nodeGraphPhosphorDisplayFieldOrder (Bright…residual…Pixel density).
+  // Ghost/Trail/Burn are the pixel fade hang — same residual stack as 2D Phosphor.
   dot: Object.freeze({
     fields: Object.freeze(nodeGraphPhosphorDisplayFieldsFor([
       "dot1Size",
@@ -385,6 +386,22 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     fields: Object.freeze([]),
     colors: Object.freeze([]),
     toggles: Object.freeze([]),
+    choices: Object.freeze([]),
+  }),
+  // Patch identity plate: which info rows to show + plate colors.
+  patchFace: Object.freeze({
+    fields: Object.freeze([]),
+    colors: Object.freeze(["backgroundColor", "dot1Color"]),
+    toggles: Object.freeze([
+      "showName",
+      "showBank",
+      "showProgram",
+      "showBankName",
+      "showCategory",
+      "showTags",
+      "showAuthor",
+      "showDescription",
+    ]),
     choices: Object.freeze([]),
   }),
   // Custom body (colors + 8 name fields) — see macro-controls-settings.js.
@@ -813,6 +830,46 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
     id: "nodeTraceDisplayShowReadout",
     title: "Show the live Bias readout on the Knob module face.",
   }),
+  showName: Object.freeze({
+    label: "Name",
+    id: "nodeTraceDisplayShowPatchName",
+    title: "Show the patch name field on the Patch plate.",
+  }),
+  showBank: Object.freeze({
+    label: "Bank #",
+    id: "nodeTraceDisplayShowPatchBank",
+    title: "Show the bank number on the Patch plate.",
+  }),
+  showProgram: Object.freeze({
+    label: "Program #",
+    id: "nodeTraceDisplayShowPatchProgram",
+    title: "Show the program number on the Patch plate.",
+  }),
+  showBankName: Object.freeze({
+    label: "Bank name",
+    id: "nodeTraceDisplayShowPatchBankName",
+    title: "Show the bank name on the Patch plate.",
+  }),
+  showCategory: Object.freeze({
+    label: "Category",
+    id: "nodeTraceDisplayShowPatchCategory",
+    title: "Show the patch category on the Patch plate.",
+  }),
+  showTags: Object.freeze({
+    label: "Tags",
+    id: "nodeTraceDisplayShowPatchTags",
+    title: "Show tags on the Patch plate.",
+  }),
+  showAuthor: Object.freeze({
+    label: "Author",
+    id: "nodeTraceDisplayShowPatchAuthor",
+    title: "Show the author on the Patch plate.",
+  }),
+  showDescription: Object.freeze({
+    label: "Description",
+    id: "nodeTraceDisplayShowPatchDescription",
+    title: "Show the description on the Patch plate.",
+  }),
   decimalBudget: Object.freeze({
     // UI label GROW = digits resize to fill the plate. Stored as !decimalBudget
     // (decimalBudget true = fixed Digits+Decimals bins — inverted in form I/O).
@@ -1029,6 +1086,7 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   macroControlsFace: "Macro Controls",
   toggleButtonFace: "Toggle",
   momentaryButtonFace: "Momentary",
+  patchFace: "Patch",
 });
 
 const nodeGraphDisplaySettingsSectionOrder = Object.freeze([

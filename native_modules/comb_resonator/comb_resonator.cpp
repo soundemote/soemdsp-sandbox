@@ -192,22 +192,23 @@ extern "C" double soemdsp_comb_resonator_sample(
     const double delayed = read_frac(&s, delaySamples);
     const double amt = clamp(depth, 0.0, 1.0);
     y = x + sign * amt * delayed;
-    s.buffer[s.writeIndex] = (float)x;
   } else {
     const double delayed = read_frac(&s, delaySamples);
     const double fb = loop_filter(&s, delayed, damping);
     const double g = feedback_gain(decaySec, delaySamples, rate, hold);
     y = x + sign * g * fb;
-    y = safe(y);
-    if (y > -1e-30 && y < 1e-30) y = 0.0;
-    s.buffer[s.writeIndex] = (float)y;
   }
+
+  y = clamp(safe(y), -1.0, 1.0);
+  if (y > -1e-30 && y < 1e-30) y = 0.0;
+
+  // Feedback writes the clipped output so the loop cannot explode.
+  // Feedforward writes the (unclipped) input history.
+  s.buffer[s.writeIndex] = isFf ? (float)x : (float)y;
 
   s.writeIndex = (s.writeIndex + 1) % capacity;
   if (s.filled < capacity) s.filled += 1;
 
-  y = safe(y);
-  if (y > -1e-30 && y < 1e-30) y = 0.0;
   return y;
 }
 

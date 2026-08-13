@@ -125,7 +125,7 @@ extern "C" double soemdsp_mode_resonator_sample(
   ensure(&s, frequencyHz, decaySec, hold, amplitude, sampleRate);
   const double x = safe(input);
   double y = s.g * x + s.a1 * s.y1 + s.a2 * s.y2;
-  y = safe(y);
+  y = clamp(safe(y), -1.0, 1.0);
   if (y > -1e-30 && y < 1e-30) y = 0.0;
   s.y2 = s.y1;
   s.y1 = y;

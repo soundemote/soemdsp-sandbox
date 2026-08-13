@@ -12,7 +12,7 @@ function nodeGraphCombResonatorLoadMainWasm() {
     nodeGraphCombResonatorMainWasm.failed = true;
     return;
   }
-  nodeGraphCombResonatorMainWasm.promise = fetch("/native_modules/comb_resonator/comb_resonator.wasm")
+  nodeGraphCombResonatorMainWasm.promise = fetch("/native_modules/comb_resonator/comb_resonator.wasm?v=resonator-clip-1")
     .then((response) => {
       if (!response.ok) throw new Error(`comb_resonator wasm HTTP ${response.status}`);
       return response.arrayBuffer();

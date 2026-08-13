@@ -920,6 +920,17 @@ const nodeGraphFloatingWindowRegistryEntries = Object.freeze([
     resizeAriaLabel: "Resize UI settings",
   }),
   Object.freeze({
+    workspaceKey: "patchDefaults",
+    elementId: "nodePatchDefaultsPanel",
+    dragStateKey: "patchDefaultsDragging",
+    resizeStateKey: "patchDefaultsResizing",
+    applySizeName: "applyNodeGraphPatchDefaultsWindowSize",
+    sizeAxes: Object.freeze({ width: true, height: true }),
+    headingDragClass: true,
+    resizeHandleId: "nodePatchDefaultsResizeHandle",
+    resizeAriaLabel: "Resize defaults",
+  }),
+  Object.freeze({
     workspaceKey: "uiDev",
     elementId: "nodeUiDevHelper",
     dragStateKey: "uiDevHelperDragging",

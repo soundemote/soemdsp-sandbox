@@ -12,7 +12,8 @@ const nodeGraphModuleScopeDefaultSettings = Object.freeze({
   offset: 0,
   oscillatorTraceMode: "frequencyReset",
   pan: 0,
-  sync: true,
+  // App-wide: oscilloscope trigger sync is off unless the user turns it on.
+  sync: false,
   timeMs: 20,
 });
 

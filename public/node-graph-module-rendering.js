@@ -210,7 +210,7 @@ function openNodeModuleDisplaySettings(event) {
   event.stopPropagation();
   const nodeId = event.currentTarget?.dataset?.node;
   // Shared display inspector for most faces. Music Player phosphor still owns
-  // its own window; LED uses the shared form (ledLamp schema).
+  // its own window; LED uses the shared Phosphor Dot (dot) schema.
   if (nodeId && typeof openNodeGraphPhosphorWaveformSettings === "function" && openNodeGraphPhosphorWaveformSettings(nodeId, event)) {
     return;
   }
@@ -245,9 +245,14 @@ function toggleNodeModuleDisplayVisibility(event) {
   const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui, targetNode.type);
   ui.oscilloscopeHidden = !ui.oscilloscopeHidden;
   applyNodeGraphPatchNodeUi(targetNode, ui);
-  commitNodeGraphPatch(patch, {
-    status: ui.oscilloscopeHidden ? "module display hidden" : "module display shown",
-  });
+  commitNodeGraphPatch(patch, typeof nodeGraphChromeCommitOptions === "function"
+    ? nodeGraphChromeCommitOptions([sourceNode.id], {
+      deferLivePlan: true,
+      status: ui.oscilloscopeHidden ? "module display hidden" : "module display shown",
+    })
+    : {
+      status: ui.oscilloscopeHidden ? "module display hidden" : "module display shown",
+    });
   if (typeof configureNodeSceneContextMenu === "function") {
     configureNodeSceneContextMenu("module");
   }
@@ -284,9 +289,13 @@ function toggleNodeModuleSlidersVisibility(event) {
   const ui = normalizeNodeGraphPatchNodeUi(targetNode.ui, targetNode.type);
   ui.slidersHidden = !ui.slidersHidden;
   applyNodeGraphPatchNodeUi(targetNode, ui);
-  commitNodeGraphPatch(patch, {
-    status: ui.slidersHidden ? "module sliders hidden" : "module sliders shown",
-  });
+  commitNodeGraphPatch(patch, typeof nodeGraphChromeCommitOptions === "function"
+    ? nodeGraphChromeCommitOptions([sourceNode.id], {
+      status: ui.slidersHidden ? "module sliders hidden" : "module sliders shown",
+    })
+    : {
+      status: ui.slidersHidden ? "module sliders hidden" : "module sliders shown",
+    });
   if (typeof configureNodeSceneContextMenu === "function") {
     configureNodeSceneContextMenu("module");
   }
@@ -592,7 +601,9 @@ function createNodeGraphModuleElement(type, node) {
   // Headerless LayoutB (XY Pad contract): shell + params + 1gu bottom clearance.
   // Legacy class name solid-module-layout kept for existing CSS.
   article.classList.toggle("solid-module-layout", Boolean(chrome.headerless));
-  article.dataset.portSignature = `${inputPorts.join(",")}=>${outputPorts.join(",")}`;
+  article.dataset.portSignature = typeof nodeGraphModulePortSignature === "function"
+    ? nodeGraphModulePortSignature(patchNode)
+    : `${inputPorts.join(",")}=>${outputPorts.join(",")}`;
   article.dataset.gridWidthGu = String(widthGu);
   article.dataset.gridHeightGu = String(heightGu);
   article.style.setProperty("--node-grid-width-units", String(widthGu));

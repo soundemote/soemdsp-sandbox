@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>soemdsp-sandbox</title>
-  <link rel="stylesheet" href="./public/styles.css?v=hue-thumb-cursor-2">
+  <link rel="stylesheet" href="./public/styles.css?v=port-hitbox-1">
+  <link rel="stylesheet" href="./public/modules/patch/patch-ui.css?v=patch-face-1">
   <link rel="stylesheet" href="./public/modules/stepGrid/step-grid.css?v=module-bottom-inset-half-1">
   <link rel="stylesheet" href="./public/modules/pitchQuantizer/pitch-quantizer-ui.css?v=chord-pad-1">
   <link rel="stylesheet" href="./public/modules/chordPad/chord-pad-ui.css?v=chord-pad-1">
@@ -215,14 +216,14 @@
           <button
             id="nodeModularInfiniteViewButton"
             type="button"
-            aria-label="Hide top and bottom bars"
-            title="Hide top and bottom bars for a bigger canvas (V)"
+            aria-label="Computer view"
+            title="Computer view — infinite canvas, no crop or resize widget (V)"
             aria-pressed="false"><span class="node-modular-view-icon" aria-hidden="true">💻</span></button>
           <button
             id="nodeModularWindowedViewButton"
             type="button"
-            aria-label="Windowed modular view"
-            title="Condensed modular frame with resize (M)"
+            aria-label="Phone view"
+            title="Phone view — condensed frame with resize widget (V)"
             aria-pressed="false"><span class="node-modular-view-icon" aria-hidden="true">📱</span></button>
           <span
             id="nodeWorldPositionReadout"
@@ -521,6 +522,8 @@
         </div>
       </div>
 
+      <div id="nodeGraphMainRow" class="node-graph-main-row">
+      <div id="nodeCommandCenterDock" class="node-command-center-dock" hidden></div>
       <div
         id="nodeGraphWorkspace"
         class="node-graph-workspace"
@@ -586,6 +589,7 @@
           type="button"
           aria-label="Resize modular workspace"
           data-tooltip-key="workspace.resizeTitle"></button>
+      </div>
       </div>
 
       <div
@@ -1788,39 +1792,6 @@
             <span aria-hidden="true">&times;</span>
           </button>
         </div>
-        <section class="node-plugin-patch-info" aria-label="Patch info">
-          <h3 class="node-patch-card-title">Plugin · patch info</h3>
-          <div class="node-patch-card-grid">
-            <label class="node-patch-field node-patch-field-span-2">
-              <span>Name</span>
-              <input id="patchNameValue" type="text" autocomplete="off" spellcheck="false" data-patch-info-field placeholder="Untitled patch">
-            </label>
-            <label class="node-patch-field">
-              <span>Bank #</span>
-              <input id="patchBankValue" type="number" min="0" max="127" step="1" data-patch-info-field inputmode="numeric">
-            </label>
-            <label class="node-patch-field">
-              <span>Program #</span>
-              <input id="patchProgramValue" type="number" min="0" max="127" step="1" data-patch-info-field inputmode="numeric">
-            </label>
-            <label class="node-patch-field node-patch-field-span-2">
-              <span>Bank name</span>
-              <input id="patchBankNameValue" type="text" autocomplete="off" spellcheck="false" data-patch-info-field placeholder="Bank name">
-            </label>
-            <label class="node-patch-field node-patch-field-span-2">
-              <span>Tags</span>
-              <input id="patchTagsValue" type="text" autocomplete="off" spellcheck="false" data-patch-info-field placeholder="tag1, tag2">
-            </label>
-            <label class="node-patch-field node-patch-field-span-2">
-              <span>Author</span>
-              <input id="patchAuthorValue" type="text" autocomplete="off" spellcheck="false" data-patch-info-field placeholder="Author">
-            </label>
-            <label class="node-patch-field node-patch-field-span-2 node-patch-field-stack">
-              <span>Description</span>
-              <textarea id="patchDescriptionValue" spellcheck="true" data-patch-info-field rows="4" placeholder="What this patch is for…"></textarea>
-            </label>
-          </div>
-        </section>
         <div
           class="node-user-ui-settings-actions"
           aria-label="user UI settings actions">
@@ -1856,7 +1827,7 @@
 
       <div
         id="nodeSceneContextMenu"
-        class="node-scene-context-menu"
+        class="node-scene-context-menu node-unified-window"
         hidden
         role="menu"
         aria-label="Add module">
@@ -1872,20 +1843,11 @@
             <small>Center</small>
           </div>
           <button
-            id="nodeSceneBroomBatch"
-            class="panel-close-button"
-            type="button"
-            role="menuitem"
-            title="Batch: set each selected parameter default to its current value"
-            aria-label="Batch parameter defaults">
-            <span aria-hidden="true">🧹</span>
-          </button>
-          <button
             id="nodeSceneCloseMenu"
             class="panel-close-button"
             type="button"
             role="menuitem"
-            aria-label="Close module actions">
+            aria-label="Close command center">
             <span aria-hidden="true">&times;</span>
           </button>
         </div>
@@ -1924,12 +1886,15 @@
         <div id="nodeSceneModuleVisibilitySection" class="scene-context-module-section" hidden>
           <div class="scene-context-module-section-title">Visibility</div>
           <div id="nodeSceneModuleVisibilityActionGroup" class="scene-context-visibility-stack" role="group" aria-label="Module visibility">
-            <div class="scene-context-button-group scene-context-button-group-2" role="group" aria-label="Display and title">
+            <div class="scene-context-button-group scene-context-button-group-display-title" role="group" aria-label="Display, title, and control surface">
               <button id="nodeSceneToggleOscilloscope" type="button" role="menuitem" hidden>
                 <span class="scene-context-button-lines"><span>⬜</span><span>Display</span></span>
               </button>
               <button id="nodeSceneToggleTitle" type="button" role="menuitem" hidden>
                 <span class="scene-context-button-lines"><span>⬜</span><span>Title</span></span>
+              </button>
+              <button id="nodeSceneToggleInterfaceControls" type="button" role="menuitem" hidden>
+                <span class="scene-context-button-lines"><span>⬜</span><span>Control surface</span></span>
               </button>
             </div>
             <div class="scene-context-button-group scene-context-button-group-3" role="group" aria-label="Chrome">
@@ -1941,11 +1906,6 @@
               </button>
               <button id="nodeSceneToggleSliders" type="button" role="menuitem" hidden>
                 <span class="scene-context-button-lines"><span>⬜</span><span>Sliders</span></span>
-              </button>
-            </div>
-            <div class="scene-context-button-group scene-context-button-group-1" role="group" aria-label="Control surface">
-              <button id="nodeSceneToggleInterfaceControls" type="button" role="menuitem" hidden>
-                <span class="scene-context-button-lines"><span>⬜</span><span>Control surface</span></span>
               </button>
             </div>
             <div class="scene-context-button-group scene-context-button-group-2" role="group" aria-label="Hide unused and collapse">
@@ -2003,13 +1963,13 @@
             </div>
             <div id="nodeSceneTimingControls" class="scene-context-timing-controls" role="group" aria-label="Patch timing"></div>
             <div class="scene-context-modular-view-controls" role="group" aria-label="Modular view">
-              <button id="nodeSceneToggleModularInfiniteView" class="scene-context-window-button" type="button" aria-label="Hide top and bottom bars" aria-pressed="false" title="Hide top and bottom bars (V)">
+              <button id="nodeSceneToggleModularInfiniteView" class="scene-context-window-button" type="button" aria-label="Computer view" aria-pressed="false" title="Computer view — infinite canvas (V)">
                 <span class="scene-context-window-button-icon" aria-hidden="true">💻</span>
                 <kbd>V</kbd>
               </button>
-              <button id="nodeSceneToggleModularWindowedView" class="scene-context-window-button" type="button" aria-label="Windowed modular view" aria-pressed="false" title="Condensed modular frame (M)">
+              <button id="nodeSceneToggleModularWindowedView" class="scene-context-window-button" type="button" aria-label="Phone view" aria-pressed="false" title="Phone view — condensed frame (V)">
                 <span class="scene-context-window-button-icon" aria-hidden="true">📱</span>
-                <kbd>M</kbd>
+                <kbd>V</kbd>
               </button>
               <button id="nodeSceneToggleModularOnlyView" class="scene-context-window-button" type="button" hidden aria-hidden="true" tabindex="-1"></button>
               <button id="nodeSceneToggleModularOnlyControls" class="scene-context-window-button" type="button" hidden aria-hidden="true" tabindex="-1"></button>
@@ -2033,16 +1993,16 @@
         <div id="nodeSceneSelectedModule" class="scene-context-selected-module" hidden>
           <span class="scene-context-selected-module-label" hidden></span>
           <strong>none</strong>
+          <label id="nodeSceneAliasControl" class="scene-context-alias-control" hidden>
+            <input
+              id="nodeSceneAliasInput"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              aria-label="Module alias"
+              placeholder="display alias (Knob / module label, wires)">
+          </label>
         </div>
-        <label id="nodeSceneAliasControl" class="scene-context-alias-control" hidden>
-          <span>ALIAS</span>
-          <input
-            id="nodeSceneAliasInput"
-            type="text"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="display alias (Knob / module label, wires)">
-        </label>
         <button id="nodeSceneAddToGroup" type="button" role="menuitem" hidden disabled title="Add to group under construction. Module grouping is under construction.">
           <span>Add to group</span>
         </button>
@@ -2329,8 +2289,54 @@
       </div>
 
       <div
+        id="nodePatchDefaultsPanel"
+        class="node-scene-context-menu node-unified-window node-patch-defaults-panel"
+        hidden
+        role="dialog"
+        aria-label="Defaults">
+        <div id="nodePatchDefaultsHeading" class="scene-context-heading">
+          <button
+            id="nodePatchDefaultsDragHandle"
+            class="scene-context-drag-handle"
+            type="button"
+            aria-label="Move defaults">&#x2725;</button>
+          <div class="scene-context-title">
+            <span>DEFAULTS</span>
+            <small>from current values</small>
+          </div>
+          <button
+            id="nodePatchDefaultsClose"
+            class="panel-close-button"
+            type="button"
+            aria-label="Close defaults">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div id="nodePatchDefaultsUnifiedNavHost" class="node-unified-window-nav-host" aria-label="Floating window pages"></div>
+        <div class="node-patch-defaults-body">
+          <p class="node-patch-defaults-copy">
+            Write the current slider values of the selected module(s) as their parameter defaults.
+          </p>
+          <button
+            id="nodeSceneBroomBatch"
+            class="scene-context-window-button"
+            type="button"
+            title="Set each selected parameter default to its current value"
+            aria-label="Write defaults from current values">
+            <span class="scene-context-window-button-label">Write defaults from current values</span>
+          </button>
+          <output id="nodePatchDefaultsStatus" class="node-patch-defaults-status" aria-live="polite"></output>
+        </div>
+        <button
+          id="nodePatchDefaultsResizeHandle"
+          class="scene-context-resize-handle"
+          type="button"
+          aria-label="Resize defaults"></button>
+      </div>
+
+      <div
         id="nodeModuleActionsWindow"
-        class="node-scene-context-menu node-module-actions-window"
+        class="node-scene-context-menu node-unified-window node-module-actions-window"
         hidden
         role="dialog"
         aria-label="Module settings">
@@ -2528,7 +2534,7 @@
                 data-tooltip-key="displaySettings.localCycles"
                 value="2">
             </label>
-            <button id="nodeSceneScopeSync" type="button" data-scope-control="sync" data-tooltip-key="displaySettings.localSync" aria-pressed="true">sync</button>
+            <button id="nodeSceneScopeSync" type="button" data-scope-control="sync" data-tooltip-key="displaySettings.localSync" aria-pressed="false">free</button>
             <button
               id="nodeSceneScopeOscillatorTraceMode"
               type="button"
@@ -3420,18 +3426,18 @@
   <script src="./public/waveform-interactions.js?v=waveform-interactions-refactor-1780375200000"></script>
   <script src="./public/manifest-view.js?v=manifest-view-refactor-1780360800000"></script>
   <script src="./public/manifest-loader.js?v=manifest-loader-refactor-1780389600000"></script>
-  <script src="./public/node-graph-wires.js?v=layout-c-1"></script>
-  <script src="./public/node-graph-floating-windows.js?v=mvp-guard-1"></script>
-  <script src="./public/node-graph-unified-window.js?v=visbility-annoyance-1"></script>
-  <script src="./public/node-graph-file-actions.js?v=patch-page-1"></script>
+  <script src="./public/node-graph-wires.js?v=port-label-hit-1"></script>
+  <script src="./public/node-graph-floating-windows.js?v=defaults-page-1"></script>
+  <script src="./public/node-graph-unified-window.js?v=cc-embed-side-1"></script>
+  <script src="./public/node-graph-file-actions.js?v=patch-face-1"></script>
   <script src="./public/node-graph-default-buttons.js?v=patch-save-refresh-1"></script>
   <script src="./public/node-graph-cookbook-filter.js?v=round-shape-face-1"></script>
   <script src="./public/node-graph-papoulis-filter.js?v=mouse-smooth-1"></script>
   <script src="./public/node-graph-phosphor-draw-sample.js?v=phosphor-draw-sample-1"></script>
   <script src="./public/node-graph-color-standards.js?v=color-standards-1"></script>
-  <script src="./public/node-graph-chromeless-module-registry.js?v=chrome-seal-all-1"></script>
+  <script src="./public/node-graph-chromeless-module-registry.js?v=unique-in-patch-1"></script>
   <script src="./public/node-graph-module-chrome.js?v=height-ssot-2"></script>
-  <script src="./public/modules/led/led-register.js?v=layoutb-min-2x2-1"></script>
+  <script src="./public/modules/led/led-register.js?v=phosphor-dot-1"></script>
   <script src="./public/modules/rgbShape/rgb-shape-register.js?v=rgb-shape-1"></script>
   <script src="./public/modules/rgbPicture/rgb-picture-register.js?v=rgb-picture-1"></script>
   <script src="./public/modules/rgbFractal/rgb-fractal-register.js?v=soft-structure-1"></script>
@@ -3446,15 +3452,16 @@
   <script src="./public/modules/stepGrid/step-grid-register.js?v=stepgrid-variable-steps-20260715"></script>
   <script src="./public/modules/groupInput/group-input-register.js?v=chromeless-portals-1"></script>
   <script src="./public/modules/groupOutput/group-output-register.js?v=chromeless-portals-1"></script>
-  <script src="./public/node-graph-module-definitions.js?v=sample-stereo-1"></script>
+  <script src="./public/modules/patch/patch-register.js?v=patch-face-1"></script>
+  <script src="./public/node-graph-module-definitions.js?v=io-volume-linear-0333-1"></script>
   <script src="./public/node-graph-plan-roles.js?v=plan-roles-b0"></script>
   <script src="./public/node-graph-module-controls.js?v=speed-limit-runtime-only-1"></script>
   <script src="./public/node-graph-data-bus.js?v=data-plane-merge-20260711"></script>
-  <script src="./public/node-graph-module-store.js?v=sample-stereo-1"></script>
-  <script src="./public/node-graph-module-sizing.js?v=module-stack-1"></script>
+  <script src="./public/node-graph-module-store.js?v=clipper-limiter-1"></script>
+  <script src="./public/node-graph-module-sizing.js?v=led-layoutb-shell-1"></script>
   <script src="./public/node-graph-metadata-kinds.js?v=param-meta-ui-1"></script>
   <script src="./public/node-graph-parameter-smoother-filters.js?v=linear-lerp-1"></script>
-  <script src="./public/node-graph-parameter-metadata.js?v=choice-toggles-1"></script>
+  <script src="./public/node-graph-parameter-metadata.js?v=io-volume-linear-0333-1"></script>
   <script src="./public/node-graph-metadata-defaults.js?v=decimal-template-1"></script>
   <script src="./public/node-graph-text-box-utils.js?v=text-fill-depth-1"></script>
   <script src="./public/node-graph-port-script.js?v=nuke-scriptbox-20260719"></script>
@@ -3470,7 +3477,7 @@
   <script src="./public/node-graph-embed-config.js?v=embed-config-20260701"></script>
   <script src="./public/node-graph-resources.js?v=embed-config-20260701"></script>
   <script src="./public/node-graph-text-box-rendering.js?v=text-fill-depth-1"></script>
-  <script src="./public/node-graph-patch-normalizers.js?v=speed-limit-project-1"></script>
+  <script src="./public/node-graph-patch-normalizers.js?v=patch-face-1"></script>
   <script src="./public/node-graph-audio-derivation.js?v=os-disabled-1"></script>
   <script src="./public/node-graph-grid-utils.js?v=center-origin-view-1"></script>
   <script src="./public/node-graph-patch-runtime.js?v=speed-limit-project-1"></script>
@@ -3479,69 +3486,70 @@
   <script src="./public/node-graph-code-screen-loader.js?v=core-reduction-1"></script>
   <script src="./public/node-graph-patch-serialization.js?v=share-link-1"></script>
   <script src="./public/node-graph-settings-fields.js?v=slider-unit-color-1780307400000"></script>
-  <script src="./public/node-graph-settings-view.js?v=patch-json-highlight-1"></script>
+  <script src="./public/node-graph-settings-view.js?v=patch-face-1"></script>
   <script src="./public/node-graph-settings-text-fit.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-default-preset.js?v=embed-config-20260701"></script>
   <script src="./public/node-graph-script-status.js?v=toolbar-copy-paste-1"></script>
-  <script src="./public/node-graph-view-controls.js?v=visbility-annoyance-1"></script>
+  <script src="./public/node-graph-view-controls.js?v=computer-view-fill-1"></script>
   <script src="./public/node-graph-workspace-geometry.js?v=vis-wires-light-1"></script>
   <script src="./public/node-graph-viewport-perf.js?v=zoom-hide-io-1"></script>
   <script src="./public/node-graph-workspace-zoom.js?v=zoom-hide-io-1"></script>
-  <script src="./public/node-graph-workspace-view.js?v=zoom-hide-io-1"></script>
+  <script src="./public/node-graph-workspace-view.js?v=defaults-page-1"></script>
   <script src="./public/node-graph-camera-view.js?v=hitpoint-select-1"></script>
   <script src="./public/node-graph-marquee-selection.js?v=snake-select-1"></script>
   <script src="./public/node-graph-node-dragging.js?v=pause-move-hold-1"></script>
-  <script src="./public/node-graph-context-menu.js?v=display-hide-ssot-1"></script>
-  <script src="./public/node-graph-module-actions.js?v=pause-move-hold-1"></script>
+  <script src="./public/node-graph-context-menu.js?v=view-cc-cycle-1"></script>
+  <script src="./public/node-graph-module-actions.js?v=unique-in-patch-1"></script>
   <!-- node-graph-code-screen.js loaded by node-graph-code-screen-loader.js on demand -->
   <script src="./public/lib/phosphor/phosphor-residual.js?v=burn-amount-1"></script>
   <script src="./public/lib/phosphor/phosphor-energy-gl.js?v=burn-amount-1"></script>
   <script src="./public/lib/phosphor/phosphor-drawer.js?v=burn-sticky-1"></script>
   <script src="./public/node-graph-phosphor-energy-gl.js?v=burn-sticky-1"></script>
   <script src="./public/lib/trace/trace-stroke.js?v=meet-bright-1"></script>
+  <script src="./public/lib/trace/trace-waveform.js?v=trace-time-axis-1"></script>
   <script src="./public/node-graph-phosphor-gaussian-drawer.js?v=gaussian-beam-continuous-1"></script>
-  <script type="module" src="./public/color-widget-boot.js?v=hue-thumb-cursor-2"></script>
-  <script src="./public/modules/spectrogram/spectrogram-gradient-editor.js?v=hex-pos-list-1"></script>
-  <script src="./public/node-graph-module-scope-defaults.js?v=digits-budget-1"></script>
+  <script type="module" src="./public/color-widget-boot.js?v=hue-crop-reset-1"></script>
+  <script src="./public/modules/spectrogram/spectrogram-gradient-editor.js?v=hue-crop-reset-1"></script>
+  <script src="./public/node-graph-module-scope-defaults.js?v=scope-sync-off-1"></script>
   <script src="./public/node-graph-module-scope-normalize.js?v=per-trace-history-1"></script>
-  <script src="./public/node-graph-module-scope-display-mode.js?v=per-trace-history-1"></script>
+  <script src="./public/node-graph-module-scope-display-mode.js?v=patch-face-1"></script>
   <script src="./public/node-graph-module-scope-phosphor.js?v=paint-gate-1"></script>
   <script src="./public/latch-button.js?v=latch-1"></script>
   <script src="./public/node-graph-module-scope-settings-form.js?v=pad-linear-neg-1"></script>
   <script src="./public/node-graph-module-scope-settings-controls.js?v=pad-linear-neg-1"></script>
   <!-- Display Settings peel: form-io → field-edit → apply → window → thin ui anchor -->
-  <script src="./public/node-graph-module-scope-settings-form-io.js?v=hue-thumb-cursor-2"></script>
+  <script src="./public/node-graph-module-scope-settings-form-io.js?v=patch-face-1"></script>
   <script src="./public/node-graph-module-scope-settings-field-edit.js?v=lcd-gauss-shadow-1"></script>
-  <script src="./public/node-graph-module-scope-settings-apply.js?v=pause-move-hold-1"></script>
+  <script src="./public/node-graph-module-scope-settings-apply.js?v=patch-face-1"></script>
   <script src="./public/node-graph-module-scope-settings-window.js?v=display-settings-multi-sync-1"></script>
   <script src="./public/node-graph-module-scope-settings-ui.js?v=one-face-1"></script>
-  <script src="./public/node-graph-module-scope-capture.js?v=fuse-pack-1"></script>
-  <script src="./public/node-graph-module-scope-number-readout.js?v=pause-move-hold-1"></script>
+  <script src="./public/node-graph-module-scope-capture.js?v=led-phosphor-dot-1"></script>
+  <script src="./public/node-graph-module-scope-number-readout.js?v=led-phosphor-dot-1"></script>
   <script src="./public/node-graph-module-scope-draw-basic.js?v=burn-amount-1"></script>
   <script src="./public/node-graph-module-scope-draw-burn.js?v=burn-amount-1"></script>
   <script src="./public/node-graph-module-scopes.js?v=clear-pause-bright-1"></script>
-  <script src="./public/node-graph-module-scope-spectrum.js?v=value-face-rearm-2"></script>
+  <script src="./public/node-graph-module-scope-spectrum.js?v=led-phosphor-dot-1"></script>
   <script src="./public/node-graph-module-scope-buffer-io.js?v=visual-rate-meta-1"></script>
-  <script src="./public/node-graph-module-scope-sync.js?v=scope-sync-lock-1"></script>
+  <script src="./public/node-graph-module-scope-sync.js?v=trace-time-axis-1"></script>
   <script src="./public/node-graph-module-scope-metrics.js?v=live-trace-loop-1"></script>
   <script src="./public/node-graph-module-scope-geometry.js?v=scope-paint-loop-1"></script>
   <script src="./public/node-graph-module-scope-webgl.js?v=0d-soft-edge-1"></script>
-  <script src="./public/node-graph-module-scope-vertices.js?v=pause-move-hold-1"></script>
-  <script src="./public/node-graph-module-scope-offline.js?v=stereo-1d-trace-1"></script>
-  <script src="./public/node-graph-module-scope-screen-items.js?v=value-face-rearm-2"></script>
+  <script src="./public/node-graph-module-scope-vertices.js?v=trace-time-axis-1"></script>
+  <script src="./public/node-graph-module-scope-offline.js?v=patch-face-1"></script>
+  <script src="./public/node-graph-module-scope-screen-items.js?v=led-phosphor-dot-1"></script>
   <script src="./public/node-graph-module-scope-slots.js?v=phosphor-blank-fix-1"></script>
-  <script src="./public/node-graph-module-scope-buffer-view.js?v=scope-sync-lock-1"></script>
+  <script src="./public/node-graph-module-scope-buffer-view.js?v=trace-time-axis-1"></script>
   <script src="./public/node-graph-module-scope-monitors.js?v=scope-monitors-1"></script>
   <script src="./public/node-graph-module-scope-scene-controls.js?v=drag-reanchor-1"></script>
   <script src="./public/node-graph-module-scope-shader-settings.js?v=scope-shader-settings-1"></script>
-  <script src="./public/node-graph-module-scope-trace-controls.js?v=pad-linear-neg-1"></script>
+  <script src="./public/node-graph-module-scope-trace-controls.js?v=patch-face-1"></script>
   <script src="./public/node-graph-module-scope-wipe.js?v=pause-move-hold-1"></script>
   <script src="./public/node-graph-module-scope-graph-query.js?v=scope-graph-query-1"></script>
-  <script src="./public/node-graph-module-scope-settings.js?v=scope-settings-1"></script>
+  <script src="./public/node-graph-module-scope-settings.js?v=scope-sync-off-1"></script>
   <script src="./public/node-graph-module-scope-lifecycle.js?v=paint-gate-1"></script>
   <script src="./public/node-graph-module-scope-paint-gate.js?v=stop-unfreeze-1"></script>
   <script src="./public/node-graph-module-scope-canvas.js?v=paint-gate-1"></script>
-  <script src="./public/node-graph-module-scope-paint-helpers.js?v=stereo-1d-trace-1"></script>
+  <script src="./public/node-graph-module-scope-paint-helpers.js?v=trace-time-axis-1"></script>
   <script src="./public/node-graph-module-scope-draw-orchestrator.js?v=pause-move-hold-1"></script>
   <script src="./public/modules/phosphorLight/phosphor-light-display.js?v=alias-only-1"></script>
   <script src="./public/modules/oscilloscopeBank/oscilloscope-bank-display.js?v=burn-sticky-1"></script>
@@ -3551,7 +3559,7 @@
   <script src="./public/node-graph-room-dimmer.js?v=dimmer-punch-fix-2"></script>
   <script src="./public/node-graph-canvas-script.js?v=floating-chrome-unify-1"></script>
   <script src="./public/node-graph-module-factories.js?v=module-stack-1"></script>
-  <script src="./public/modules/led/led-ui.js?v=led-fill-images-1"></script>
+  <script src="./public/modules/led/led-ui.js?v=phosphor-dot-1"></script>
   <script src="./public/modules/led/led-settings.js?v=led-gradient-lut-1"></script>
   <script src="./public/modules/led/led-display.js?v=dimmer-punch-fix-2"></script>
   <script src="./public/modules/rgbShape/rgb-shape-ui.js?v=rgb-shape-1"></script>
@@ -3574,18 +3582,19 @@
   <script src="./public/modules/rayBouncer/ray-bouncer-ui.js?v=ray-bouncer-solid-1"></script>
   <script src="./public/modules/stepGrid/step-grid-ui.js?v=stepgrid-variable-steps-20260715"></script>
   <script src="./public/modules/groupInput/group-input-ui.js?v=chromeless-portals-1"></script>
+  <script src="./public/modules/patch/patch-ui.js?v=patch-face-1"></script>
   <script src="./public/modules/groupOutput/group-output-ui.js?v=chromeless-portals-1"></script>
   <script src="./public/node-graph-module-header-rendering.js?v=module-stack-1"></script>
-  <script src="./public/node-graph-module-rendering.js?v=module-stack-1"></script>
+  <script src="./public/node-graph-module-rendering.js?v=led-phosphor-dot-1"></script>
   <script src="./public/node-graph-module-frame.js?v=top-round-bottom-square-1"></script>
   <script src="./public/node-graph-history.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-visual-utils.js?v=stop-idle-fps-1"></script>
-  <script src="./public/node-graph-patch-clone.js?v=vis-override-1"></script>
+  <script src="./public/node-graph-patch-clone.js?v=patch-face-1"></script>
   <script src="./public/node-graph-slider-metadata.js?v=maxdigits-1"></script>
-  <script src="./public/node-graph-slider-values.js?v=choice-toggles-1"></script>
+  <script src="./public/node-graph-slider-values.js?v=io-volume-linear-0333-1"></script>
   <script src="./public/node-graph-slider-dragging.js?v=drag-reanchor-1"></script>
   <script src="./public/node-graph-node-accessors.js?v=cleanup-20260725-smoothing-time-20260701"></script>
-  <script src="./public/node-graph-selection.js?v=title-edit-session-1"></script>
+  <script src="./public/node-graph-selection.js?v=defaults-page-1"></script>
   <script src="./public/node-graph-port-geometry.js?v=port-center-cache-1"></script>
   <script src="./public/node-graph-slider-readout.js?v=param-alias-label-1"></script>
   <script src="./public/modules/knob/knob-face.js?v=domain-mod-1"></script>
@@ -3605,7 +3614,7 @@
   <script src="./public/node-graph-rendered-output-canvases.js?v=beta-polish-1"></script>
   <script src="./public/node-graph-execution-wires.js?v=external-graph-inputs-1780816800000"></script>
   <script src="./public/node-graph-module-bypass.js?v=ms-quad-lim-1"></script>
-  <script src="./public/node-graph-execution-plan.js?v=ms-quad-lim-1"></script>
+  <script src="./public/node-graph-execution-plan.js?v=clipper-limiter-1"></script>
   <script src="./public/node-graph-execution-summary.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-wire-actions.js?v=xo-stereo-pair-1"></script>
   <script src="./public/node-graph-trace-router.js?v=no-self-burst-1780321400000"></script>
@@ -3615,15 +3624,15 @@
   <script src="./public/node-graph-execution-debug-api.js?v=noise-generator-stereo-20260630"></script>
   <script src="./public/node-graph-execution-debug-view.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-tooltips.js?v=linear-lerp-1"></script>
-  <script src="./public/node-graph-interaction-help.js?v=patch-page-1"></script>
-  <script src="./public/presets/useruisettings.js?v=expose-empty-1"></script>
+  <script src="./public/node-graph-interaction-help.js?v=view-cc-cycle-1"></script>
+  <script src="./public/presets/useruisettings.js?v=clipper-limiter-1"></script>
   <script src="./public/node-graph-ui-settings-definitions.js?v=title-light-box-1"></script>
   <script src="./public/node-graph-ui-settings-utils.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-user-ui-settings-controls.js?v=uidev-no-vis-dup-1"></script>
   <script src="./public/node-graph-ui-settings-panels.js?v=grid-uidev-save-1"></script>
-  <script src="./public/node-graph-ui-settings-persistence.js?v=vis-deadcode-1"></script>
+  <script src="./public/node-graph-ui-settings-persistence.js?v=defaults-page-1"></script>
   <script src="./public/node-graph-ui-settings-sync.js?v=title-light-box-1"></script>
-  <script src="./public/node-graph-keyboard-shortcuts.js?v=pause-move-hold-1"></script>
+  <script src="./public/node-graph-keyboard-shortcuts.js?v=view-cc-cycle-1"></script>
   <script src="./public/node-graph-live-status-text.js?v=live-plan-preserve-20260634"></script>
   <script src="./public/node-graph-live-status-controls.js?v=slider-unit-color-1780307400000"></script>
   <script src="./public/node-graph-live-meter-controls.js?v=audio-overrun-meter-2"></script>
@@ -3634,7 +3643,7 @@
   <script src="./public/node-graph-state.js?v=title-light-box-1"></script>
   <script src="./public/node-graph-external-ui-events.js?v=xy-pad-impulse-1"></script>
   <script src="./public/node-graph-patch-migrations.js?v=sincos-no-amp-in-1"></script>
-  <script src="./public/node-graph-patch-core.js?v=placement-light-1"></script>
+  <script src="./public/node-graph-patch-core.js?v=unique-in-patch-1"></script>
   <script src="./public/node-graph-live-plan-runtime.js?v=delay-modstyle-1"></script>
   <script src="./public/node-graph-live-parameter-runtime.js?v=unit-mod-linear-1"></script>
   <script src="./public/node-graph-oscillator-runtime.js?v=0150-native-core"></script>
@@ -3769,8 +3778,8 @@
   <script src="./public/modules/quadrature/quadrature-live-evaluator.js?v=ms-quad-lim-1"></script>
   <script src="./public/modules/lookaheadLimiter/lookahead-limiter-math.js?v=limiter-la-switch-1"></script>
   <script src="./public/modules/lookaheadLimiter/lookahead-limiter-live-evaluator.js?v=limiter-la-switch-1"></script>
-  <script src="./public/modules/inertialFilter/inertial-filter-math.js?v=inertial-filter-1"></script>
-  <script src="./public/modules/inertialFilter/inertial-filter-live-evaluator.js?v=inertial-filter-1"></script>
+  <script src="./public/modules/inertialFilter/inertial-filter-math.js?v=inertial-hz-1"></script>
+  <script src="./public/modules/inertialFilter/inertial-filter-live-evaluator.js?v=inertial-hz-1"></script>
   <script src="./public/modules/tiltFilter/tilt-filter-math.js?v=tilt-eq-1"></script>
   <script src="./public/modules/tiltFilter/tilt-filter-live-evaluator.js?v=tilt-eq-1"></script>
   <script src="./public/modules/eqFilter/eq-filter-math.js?v=eq-zero-hz-1"></script>
@@ -3779,10 +3788,10 @@
   <script src="./public/modules/scientificIir/scientific-iir-live-evaluator.js?v=sequence-uc-1"></script>
   <script src="./public/modules/crossover/crossover-math.js?v=xo-native-1"></script>
   <script src="./public/modules/crossover/crossover-live-evaluator.js?v=xo-native-1"></script>
-  <script src="./public/modules/modeResonator/mode-resonator-math.js?v=mode-resonator-native-1"></script>
-  <script src="./public/modules/modeResonator/mode-resonator-live-evaluator.js?v=mode-resonator-native-1"></script>
-  <script src="./public/modules/combResonator/comb-resonator-math.js?v=comb-resonator-native-1"></script>
-  <script src="./public/modules/combResonator/comb-resonator-live-evaluator.js?v=comb-resonator-native-1"></script>
+  <script src="./public/modules/modeResonator/mode-resonator-math.js?v=mode-resonator-clip-1"></script>
+  <script src="./public/modules/modeResonator/mode-resonator-live-evaluator.js?v=mode-resonator-clip-1"></script>
+  <script src="./public/modules/combResonator/comb-resonator-math.js?v=comb-resonator-clip-1"></script>
+  <script src="./public/modules/combResonator/comb-resonator-live-evaluator.js?v=comb-resonator-clip-1"></script>
   <script src="./public/modules/waveguide/waveguide-math.js?v=waveguide-stub-1"></script>
   <script src="./public/modules/waveguide/waveguide-live-evaluator.js?v=waveguide-stub-1"></script>
   <script src="./public/modules/classicFxStubs/classic-fx-stubs-live-evaluator.js?v=classic-fx-stubs-1"></script>
@@ -3826,8 +3835,8 @@
   <script src="./public/modules/clock/clock-live-evaluator.js?v=clock-1"></script>
   <script src="./public/modules/transport/transport-math.js?v=transport-1"></script>
   <script src="./public/modules/transport/transport-live-evaluator.js?v=transport-1"></script>
-  <script src="./public/modules/randomClock/random-clock-math.js?v=random-clock-1"></script>
-  <script src="./public/modules/randomClock/random-clock-live-evaluator.js?v=random-clock-1"></script>
+  <script src="./public/modules/randomClock/random-clock-math.js?v=random-clock-range-1"></script>
+  <script src="./public/modules/randomClock/random-clock-live-evaluator.js?v=random-clock-range-1"></script>
   <script src="./public/modules/clockDivider/clock-divider-live-evaluator.js?v=per-module-dispatch-20260711"></script>
   <script src="./public/modules/delayedTrigger/delayed-trigger-math.js?v=delayed-trigger-1"></script>
   <script src="./public/modules/delayedTrigger/delayed-trigger-live-evaluator.js?v=delayed-trigger-1"></script>
@@ -3864,6 +3873,8 @@
   <script src="./public/modules/bias/bias-live-evaluator.js?v=bias-1"></script>
   <script src="./public/modules/softClipper/soft-clipper-math.js?v=soft-clipper-1"></script>
   <script src="./public/modules/softClipper/soft-clipper-live-evaluator.js?v=soft-clipper-1"></script>
+  <script src="./public/modules/clipperLimiter/clipper-limiter-math.js?v=clipper-limiter-nolimit-1"></script>
+  <script src="./public/modules/clipperLimiter/clipper-limiter-live-evaluator.js?v=clipper-limiter-gain-1"></script>
   <script src="./public/modules/airClipper/air-clipper-math.js?v=air-clipper-1"></script>
   <script src="./public/modules/airClipper/air-clipper-live-evaluator.js?v=air-clipper-1"></script>
   <script src="./public/modules/rotate3dTo2d/rotate-3d-to-2d-math.js?v=rotate-3d-to-2d-1"></script>
@@ -3897,13 +3908,13 @@
   <script src="./public/modules/graph/graph-live-evaluator.js?v=retire-graph-type-20260724"></script>
   <script src="./public/modules/polyBlep/poly-blep-live-evaluator.js?v=one-core-native-20260803"></script>
   <script src="./public/node-graph-pulse-explosion-display.js?v=shared-canvas-sizing-20260725"></script>
-  <script src="./public/node-graph-live-runtime.js?v=sample-stereo-1"></script>
+  <script src="./public/node-graph-live-runtime.js?v=resonator-clip-1"></script>
   <script src="./public/node-graph-wire-controller-bootstrap.js?v=wire-break-trigger-0129"></script>
   <script src="./public/node-graph-workspace-event-bindings.js?v=readout-no-kb-1"></script>
   <script src="./public/node-graph-render-live-event-bindings.js?v=midi-toggle-20260725"></script>
-  <script src="./public/node-graph-header-event-bindings.js?v=grid-uidev-save-1"></script>
+  <script src="./public/node-graph-header-event-bindings.js?v=view-cc-cycle-1"></script>
   <script src="./public/node-graph-help-event-bindings.js?v=remove-workspace-view-0002"></script>
-  <script src="./public/node-graph-scene-menu-event-bindings.js?v=visbility-annoyance-1"></script>
+  <script src="./public/node-graph-scene-menu-event-bindings.js?v=view-cc-cycle-1"></script>
   <script src="./public/node-graph-uidev-event-bindings.js?v=title-light-box-1"></script>
   <script src="./public/node-graph-settings-event-bindings.js?v=patch-json-highlight-1"></script>
   <script src="./public/node-graph-slider-event-bindings.js?v=node-graph-slider-event-bindings-refactor-1780369200000"></script>

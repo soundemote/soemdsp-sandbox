@@ -33,6 +33,7 @@ function nodeGraphPatchWithLiveHeaderInfo(patch = nodeGraphMvp.patch) {
     program,
     tags: document.getElementById("patchTagsValue")?.value ?? nextPatch.info?.tags,
     author: document.getElementById("patchAuthorValue")?.value ?? nextPatch.info?.author,
+    category: document.getElementById("patchCategoryValue")?.value ?? nextPatch.info?.category,
   });
   return nextPatch;
 }

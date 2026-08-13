@@ -226,10 +226,7 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
             );
           }
           // frozen: leave canvas + burn plate pixels as-is (no kill).
-        } else if (
-          slot?.type === "led"
-          || nodeGraphModuleDisplayRendererForSlot(slot) === "ledLamp"
-        ) {
+        } else if (nodeGraphModuleDisplayRendererForSlot(slot) === "ledLamp") {
           // Keep lamp cosmetics (radius/fill) while capture is empty.
           if (typeof drawNodeGraphLedLampItem === "function") {
             drawNodeGraphLedLampItem(null, {

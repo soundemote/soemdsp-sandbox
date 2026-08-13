@@ -312,7 +312,12 @@ function bindNodeGraphHeaderControlEvents() {
       // pointer -- every later open restores the remembered position, same
       // as every other floating window. Unified open closes Modules / etc.
       const rect = event.currentTarget.getBoundingClientRect();
-      if (typeof openNodeGraphUnifiedWindowPage === "function") {
+      if (typeof cycleNodeGraphCommandCenterPresentation === "function") {
+        cycleNodeGraphCommandCenterPresentation({
+          x: rect.left,
+          y: rect.bottom,
+        });
+      } else if (typeof openNodeGraphUnifiedWindowPage === "function") {
         openNodeGraphUnifiedWindowPage("commandCenter", {
           x: rect.left,
           y: rect.bottom,
@@ -330,20 +335,20 @@ function bindNodeGraphHeaderControlEvents() {
         openNodeGraphModuleShop(null);
       }
     });
-  // 💻 / V — hide/show top + bottom bars (not a canvas mode switch).
+  // 💻 — computer / infinite canvas (no crop, no resize widget).
   document
     .getElementById("nodeModularInfiniteViewButton")
     ?.addEventListener("click", () => {
-      if (typeof toggleNodeGraphAppChromeBarsVisibility === "function") {
-        toggleNodeGraphAppChromeBarsVisibility();
+      if (typeof setNodeGraphModularWindowedActive === "function") {
+        setNodeGraphModularWindowedActive(false);
       }
     });
-  // 📱 / M — condensed modular frame (resize + back), independent of V.
+  // 📱 — phone / condensed frame with resize widget.
   document
     .getElementById("nodeModularWindowedViewButton")
     ?.addEventListener("click", () => {
-      if (typeof toggleNodeGraphModularWindowedView === "function") {
-        toggleNodeGraphModularWindowedView();
+      if (typeof setNodeGraphModularWindowedActive === "function") {
+        setNodeGraphModularWindowedActive(true);
       }
     });
   document

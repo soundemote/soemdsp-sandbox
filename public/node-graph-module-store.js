@@ -689,6 +689,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Soft Clipper",
     notes: ["soft clipping", "tanh", "dynamics"],
   },
+  clipperLimiter: {
+    category: "dynamics",
+    description: "Soft-clip limiter: below Min dB is dry; Min→Max is the original tanh knee (wider span = more gradual).",
+    label: "Clipper Limiter",
+    notes: ["soft clip", "limiter", "dB", "tanh", "dynamics"],
+  },
   airClipper: {
     category: "dynamics",
     description: "Airwindows Density-style thickness—soft saturate or anti-density for body.",
@@ -730,7 +736,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     notes: ["audio source", "left right outputs", "live input"],
   },
   knob: {
-    category: "plugin",
+    category: "controller",
     description: "Macro face control for one Bias value you want always visible and tweakable.",
     label: "Knob",
     notes: [
@@ -749,43 +755,43 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     ],
   },
   pluginSlider: {
-    category: "plugin",
+    category: "controller",
     description: "Vertical Bias control on the face—performance levels and slow rides.",
     label: "Slider",
     notes: ["plugin", "fader", "slider", "bias", "display", "control"],
   },
   toggleButton: {
-    category: "plugin",
+    category: "controller",
     description: "Latching on/off for mutes, mode switches, and held gates.",
     label: "Toggle",
     notes: ["plugin", "toggle", "latch", "button", "switch"],
   },
   momentaryButton: {
-    category: "plugin",
+    category: "controller",
     description: "Press-and-hold gate for triggers, rolls, and temporary enables.",
     label: "Momentary",
     notes: ["plugin", "momentary", "gate", "button"],
   },
   pluginInput: {
-    category: "plugin",
+    category: "portal",
     description: "Clear stereo audio entry point when designing a plugin-style front end.",
     label: "Plugin Input",
     notes: ["plugin", "audio input", "stereo"],
   },
   pluginOutput: {
-    category: "plugin",
+    category: "portal",
     description: "Clear stereo exit next to classic Output for host/plugin boundaries.",
     label: "Plugin Output",
     notes: ["plugin", "audio output", "stereo"],
   },
   pluginMidiIn: {
-    category: "plugin",
+    category: "portal",
     description: "Keyboard/MIDI → gate, note, velocity, and 0.1V/oct for playable patches.",
     label: "Plugin MIDI In",
     notes: ["plugin", "midi input", "note", "gate"],
   },
   pluginMidiOut: {
-    category: "plugin",
+    category: "portal",
     description: "Send/monitor MIDI note+gate for external gear or host MIDI outs.",
     label: "Plugin MIDI Out",
     notes: ["plugin", "midi output"],
@@ -1282,7 +1288,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   slewLimiter: {
     category: "dynamics",
     description: "Hard up/down rate limit with Lin / Log / Exp / Smooth curves for steps and CV glides.",
-    label: "Up/Down Slew",
+    label: "Slew",
     notes: ["up time", "down time", "asymmetric glide", "rate limit", "slew", "portamento", "dynamics", "log", "exp", "smooth"],
   },
   midSideEncode: {
@@ -1336,12 +1342,14 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   inertialFilter: {
     category: "dynamics",
-    description: "Exponential attack/release approach—smooth catch-up without hard slew corners.",
+    description: "Exponential attack/release approach in Hz—smooth catch-up without hard slew corners.",
     label: "Inertial Filter",
     notes: [
       "inertia",
       "attack",
       "release",
+      "frequency",
+      "Hz",
       "exponential",
       "one pole",
       "asymmetric",
@@ -2425,6 +2433,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "public/modules/softClipper/soft-clipper-math.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/softClipper/soft-clipper-math.js",
   },
+  clipperLimiter: {
+    source: "public/modules/clipperLimiter/clipper-limiter-math.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/clipperLimiter/clipper-limiter-math.js",
+  },
   airClipper: {
     source: "public/modules/airClipper/air-clipper-math.js",
     sourceUrl: "https://github.com/airwindows/airwindows/blob/master/plugins/WinVST/Density3/Density3Proc.cpp",
@@ -2770,6 +2782,7 @@ function nodeGraphModuleStorePublicEntriesByDepartment(entries = []) {
       groups.get(departmentId).push(entry);
     });
   return [...groups.entries()]
+    .filter(([, departmentEntries]) => departmentEntries.length > 0)
     .map(([departmentId, departmentEntries]) => [
       departmentId,
       departmentEntries.sort((a, b) => a.label.localeCompare(b.label)),

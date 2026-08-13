@@ -8,6 +8,13 @@ function closeNodeSceneContextMenu(options = {}) {
   }
   const menu = document.getElementById("nodeSceneContextMenu");
   menu.hidden = true;
+  if (!nodeGraphMvp._unifiedWindowSwitching) {
+    nodeGraphMvp.unifiedWindowPresentation = "closed";
+    nodeGraphMvp.unifiedWindowPage = "";
+    if (typeof restoreNodeGraphUnifiedWindowFromDock === "function") {
+      restoreNodeGraphUnifiedWindowFromDock();
+    }
+  }
   clearNodeSceneContextMenuDragState();
   if (nodeGraphMvp.sceneContextResizing?.handle) {
     nodeGraphMvp.sceneContextResizing.handle.classList.remove("dragging");
@@ -776,7 +783,6 @@ const nodeGraphModuleActionControlIds = [
   "nodeSceneModuleSettingsActionGroup",
   // Show/Hide chrome toggles — immediately under copy/settings row.
   "nodeSceneModuleVisibilitySection",
-  "nodeSceneAliasControl",
   "nodeSceneAddToUi",
   "nodeSceneWireTypeControl",
   "nodeSceneAddToGroup",
@@ -1354,7 +1360,8 @@ function configureNodeSceneContextMenu(mode) {
     knobFaceControls.hidden = true;
   }
   canvasControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "canvas");
-  ledControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "led");
+  // Phosphor Dot settings live in Display Settings, not the Module Settings color swatch.
+  ledControls.hidden = true;
   bugButtonControls.hidden = !(moduleMode && !multiModuleMode && targetNode?.type === "bugButton");
   textBoxControls.hidden = !(moduleMode && !multiModuleMode && targetSupportsTextBoxHeight);
   textBoxHorizontalAlignControls.hidden = !(moduleMode && !multiModuleMode && targetSupportsTextBoxHeight);

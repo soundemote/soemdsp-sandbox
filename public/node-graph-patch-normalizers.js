@@ -5,6 +5,7 @@ function normalizeNodeGraphPatchInfo(info = {}) {
     author: nodeGraphOneLineText(info.author),
     bank: Number.isFinite(bank) ? Math.max(0, Math.min(127, bank)) : 0,
     bankName: nodeGraphOneLineText(info.bankName),
+    category: nodeGraphOneLineText(info.category),
     description: String(info.description ?? "").trim(),
     name: nodeGraphOneLineText(info.name),
     program: Number.isFinite(program) ? Math.max(0, Math.min(127, program)) : 0,

@@ -26,6 +26,7 @@ const nodeGraphWorkspaceWindowElements = Object.freeze({
   moduleBrowser: "nodeModuleShopView",
   visibilityMenu: "nodeVisibilityMenu",
   uiSettings: "nodeUserUiSettingsPanel",
+  patchDefaults: "nodePatchDefaultsPanel",
   uiDev: "nodeUiDevHelper",
   traceDisplaySettings: "nodeTraceDisplaySettingsPopover",
   standaloneMidiKeyboard: "nodeStandaloneMidiKeyboardDock",

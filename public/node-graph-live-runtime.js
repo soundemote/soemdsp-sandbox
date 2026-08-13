@@ -441,7 +441,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=window-4096-1";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=resonator-clip-1";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -2823,7 +2823,7 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/node-live-audio-worklet-scope-io.js?v=visual-rate-meta-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-evaluators-sources.js?v=domain-mod-1",
-  "./public/node-live-audio-worklet-evaluators-processors.js?v=stereo-1d-trace-1",
+  "./public/node-live-audio-worklet-evaluators-processors.js?v=clipper-limiter-gain-1",
   "./public/node-live-audio-worklet-evaluators-utility.js?v=sample-stereo-1",
   "./public/node-live-audio-worklet-evaluators.js?v=evaluators-split-1",
   "./public/node-live-audio-worklet-native-exports.js?v=plan-d-split-2",
@@ -2923,8 +2923,8 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/quadrature/quadrature-worklet-evaluator.js?v=ms-quad-lim-1",
   "./public/modules/lookaheadLimiter/lookahead-limiter-math.js?v=limiter-la-switch-1",
   "./public/modules/lookaheadLimiter/lookahead-limiter-worklet-evaluator.js?v=limiter-la-switch-1",
-  "./public/modules/inertialFilter/inertial-filter-math.js?v=inertial-filter-1",
-  "./public/modules/inertialFilter/inertial-filter-worklet-evaluator.js?v=inertial-filter-1",
+  "./public/modules/inertialFilter/inertial-filter-math.js?v=inertial-hz-1",
+  "./public/modules/inertialFilter/inertial-filter-worklet-evaluator.js?v=inertial-hz-1",
   "./public/modules/tiltFilter/tilt-filter-math.js?v=tilt-eq-1",
   "./public/modules/tiltFilter/tilt-filter-worklet-evaluator.js?v=tilt-eq-1",
   "./public/modules/eqFilter/eq-filter-math.js?v=eq-zero-hz-1",
@@ -2933,9 +2933,9 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/scientificIir/scientific-iir-worklet-evaluator.js?v=sequence-uc-1",
   "./public/modules/crossover/crossover-math.js?v=xo-native-1",
   "./public/modules/crossover/crossover-worklet-evaluator.js?v=xo-native-create-1",
-  "./public/modules/modeResonator/mode-resonator-math.js?v=mode-resonator-native-1",
+  "./public/modules/modeResonator/mode-resonator-math.js?v=mode-resonator-clip-1",
   "./public/modules/modeResonator/mode-resonator-worklet-evaluator.js?v=mode-resonator-native-1",
-  "./public/modules/combResonator/comb-resonator-math.js?v=comb-resonator-native-1",
+  "./public/modules/combResonator/comb-resonator-math.js?v=comb-resonator-clip-1",
   "./public/modules/combResonator/comb-resonator-worklet-evaluator.js?v=comb-resonator-native-1",
   "./public/modules/waveguide/waveguide-math.js?v=waveguide-stub-1",
   "./public/modules/waveguide/waveguide-worklet-evaluator.js?v=waveguide-stub-1",
@@ -2974,8 +2974,8 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/clock/clock-worklet-evaluator.js?v=clock-1",
   "./public/modules/transport/transport-math.js?v=transport-1",
   "./public/modules/transport/transport-worklet-evaluator.js?v=transport-1",
-  "./public/modules/randomClock/random-clock-math.js?v=random-clock-1",
-  "./public/modules/randomClock/random-clock-worklet-evaluator.js?v=random-clock-1",
+  "./public/modules/randomClock/random-clock-math.js?v=random-clock-range-1",
+  "./public/modules/randomClock/random-clock-worklet-evaluator.js?v=random-clock-range-1",
   "./public/modules/triggerDivider/trigger-divider-math.js?v=trigger-divider-1",
   "./public/modules/triggerDivider/trigger-divider-worklet-evaluator.js?v=trigger-divider-1",
   "./public/modules/delayedTrigger/delayed-trigger-math.js?v=delayed-trigger-1",
@@ -2988,6 +2988,8 @@ const nodeGraphLiveWorkletSourceFiles = [
   "./public/modules/nextPatch/next-patch-worklet-evaluator.js?v=native-strip-1",
   "./public/modules/softClipper/soft-clipper-math.js?v=soft-clipper-1",
   "./public/modules/softClipper/soft-clipper-worklet-evaluator.js?v=soft-clipper-js-fallback-1",
+  "./public/modules/clipperLimiter/clipper-limiter-math.js?v=clipper-limiter-nolimit-1",
+  "./public/modules/clipperLimiter/clipper-limiter-worklet-evaluator.js?v=clipper-limiter-gain-1",
   "./public/modules/airClipper/air-clipper-math.js?v=air-clipper-1",
   "./public/modules/airClipper/air-clipper-worklet-evaluator.js?v=air-clipper-1",
   "./public/modules/rgbaHsla/rgba-hsla-worklet-evaluator.js?v=native-strip-1",

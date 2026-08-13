@@ -109,6 +109,8 @@ function nodeGraphModeResonatorSample(
   // y = g x + a1 y1 + a2 y2   with a2 = −r² already
   let y = state.g * x + state.a1 * state.y1 + state.a2 * state.y2;
   if (!Number.isFinite(y)) y = 0;
+  if (y > 1) y = 1;
+  else if (y < -1) y = -1;
   // Kill denormals
   if (y > -1e-30 && y < 1e-30) y = 0;
 

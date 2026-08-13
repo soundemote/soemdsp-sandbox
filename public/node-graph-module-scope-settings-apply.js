@@ -73,6 +73,16 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     }
     return node.traceDisplaySettings;
   }
+  if (displayType === "patchFace") {
+    node.traceDisplaySettings = typeof normalizeNodeGraphPatchFaceDisplaySettings === "function"
+      ? normalizeNodeGraphPatchFaceDisplaySettings(settings)
+      : (settings || {});
+    if (typeof applyNodeGraphPatchFaceDisplay === "function" && node?.id) {
+      const el = document.querySelector?.(`.node-patch-face[data-node="${CSS.escape(String(node.id))}"]`);
+      applyNodeGraphPatchFaceDisplay(el, node);
+    }
+    return node.traceDisplaySettings;
+  }
   if (displayType === "ledLamp") {
     node.led = typeof normalizeNodeGraphLedLayout === "function"
       ? normalizeNodeGraphLedLayout({

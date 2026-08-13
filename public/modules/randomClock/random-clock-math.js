@@ -3,6 +3,9 @@
 function createNodeGraphRandomClockState() {
   return {
     intervalSamples: 0,
+    intervalUnit: 0,
+    lastMaxSeconds: NaN,
+    lastMinSeconds: NaN,
     lastReset: 0,
     phaseSamples: 0,
     randomState: 0,
@@ -30,6 +33,9 @@ function nodeGraphRandomClockNextUnit(state, nodeId, seed) {
     state.seedKey = seedKey;
     state.randomState = nodeGraphRandomClockStableSeed(seedKey);
     state.intervalSamples = 0;
+    state.intervalUnit = 0;
+    state.lastMinSeconds = NaN;
+    state.lastMaxSeconds = NaN;
     state.phaseSamples = 0;
     state.remainingTriggerSamples = 0;
   }
@@ -37,14 +43,22 @@ function nodeGraphRandomClockNextUnit(state, nodeId, seed) {
   return state.randomState / 4294967296;
 }
 
-function nodeGraphRandomClockChooseIntervalSamples(state, params, sampleRate, nodeId) {
+function nodeGraphRandomClockIntervalFromUnit(unit, minSeconds, maxSeconds, sampleRate) {
   const rate = Math.max(1, Number(sampleRate) || 44100);
-  const minSeconds = Math.max(0, Number(params?.minSeconds) || 0);
-  const maxSeconds = Math.max(0, Number(params?.maxSeconds) || 0);
-  const low = Math.min(minSeconds, maxSeconds);
-  const high = Math.max(minSeconds, maxSeconds);
-  const random = nodeGraphRandomClockNextUnit(state, nodeId, params?.seed);
-  return Math.max(1, Math.round((low + (high - low) * random) * rate));
+  const low = Math.min(Math.max(0, Number(minSeconds) || 0), Math.max(0, Number(maxSeconds) || 0));
+  const high = Math.max(Math.max(0, Number(minSeconds) || 0), Math.max(0, Number(maxSeconds) || 0));
+  const t = Math.max(0, Math.min(1, Number(unit) || 0));
+  return Math.max(1, Math.round((low + (high - low) * t) * rate));
+}
+
+function nodeGraphRandomClockChooseIntervalSamples(state, params, sampleRate, nodeId) {
+  state.intervalUnit = nodeGraphRandomClockNextUnit(state, nodeId, params?.seed);
+  return nodeGraphRandomClockIntervalFromUnit(
+    state.intervalUnit,
+    params?.minSeconds,
+    params?.maxSeconds,
+    sampleRate,
+  );
 }
 
 /**
@@ -58,15 +72,34 @@ function nodeGraphRandomClockCore(state, reset, params, sampleRate, nodeId) {
   const triggerTime = Math.max(0, Number(params?.triggerTime) || 0);
   const level = Number(params?.level) || 0;
   const resetEdge = state.lastReset <= threshold && safeReset > threshold;
+  const minSeconds = Math.max(0, Number(params?.minSeconds) || 0);
+  const maxSeconds = Math.max(0, Number(params?.maxSeconds) || 0);
+  const rangeChanged = state.lastMinSeconds !== minSeconds || state.lastMaxSeconds !== maxSeconds;
+  state.lastMinSeconds = minSeconds;
+  state.lastMaxSeconds = maxSeconds;
+
+  const beginCycle = () => {
+    state.intervalSamples = nodeGraphRandomClockChooseIntervalSamples(state, params, rate, nodeId);
+    state.phaseSamples = 0;
+    state.remainingTriggerSamples = Math.max(1, Math.round(triggerTime * rate));
+  };
 
   if (resetEdge || state.intervalSamples <= 0) {
-    state.intervalSamples = nodeGraphRandomClockChooseIntervalSamples(state, params, rate, nodeId);
-    state.phaseSamples = 0;
-    state.remainingTriggerSamples = Math.max(1, Math.round(triggerTime * rate));
+    beginCycle();
+  } else if (rangeChanged) {
+    // Keep this cycle's random draw; remap it onto the new Min/Max so the
+    // remaining wait updates immediately (do not wait for the old interval).
+    state.intervalSamples = nodeGraphRandomClockIntervalFromUnit(
+      state.intervalUnit,
+      minSeconds,
+      maxSeconds,
+      rate,
+    );
+    if (state.phaseSamples >= state.intervalSamples) {
+      beginCycle();
+    }
   } else if (state.phaseSamples >= state.intervalSamples) {
-    state.intervalSamples = nodeGraphRandomClockChooseIntervalSamples(state, params, rate, nodeId);
-    state.phaseSamples = 0;
-    state.remainingTriggerSamples = Math.max(1, Math.round(triggerTime * rate));
+    beginCycle();
   }
 
   const gateSamples = Math.round(state.intervalSamples * duty);

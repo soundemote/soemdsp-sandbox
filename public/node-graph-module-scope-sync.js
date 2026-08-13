@@ -318,7 +318,7 @@ function nodeGraphTraceDisplayVisibleSamples(buffer, settings) {
   if (!Number.isFinite(requestedSamples)) {
     return 0;
   }
-  return Math.max(0, Math.min(buffer.length, Math.round(requestedSamples)));
+  return Math.max(0, Math.min(buffer.length, requestedSamples));
 }
 
 /**

@@ -85,12 +85,11 @@ function buildNodeGraphTraceDisplayVertices(buffer, rect, canvas, pixelRatio, sl
       vertexFloatCount: vertexOffset,
     };
   }
-  const visibleSamples = Math.max(1, view.end - view.start);
   const midY = rect.top + rect.height * 0.5;
   const halfHeight = rect.height * nodeGraphModuleScopeTraceHalfHeightRatio(slot, buffer, rect);
   const metricRect = nodeGraphModuleScopeVisibleMetricRect(rect, options);
-  const pointCount = nodeGraphTraceDisplayVisualPointCount(metricRect, buffer);
-  const scratch = nodeGraphTraceDisplayScratchForSlot(slot, Math.max(0, pointCount - 1) * 36);
+  const pointCountHint = nodeGraphTraceDisplayVisualPointCount(metricRect, buffer);
+  const scratch = nodeGraphTraceDisplayScratchForSlot(slot, Math.max(0, pointCountHint - 1) * 36);
   const vertices = scratch.vertices;
   const pointGenerationStartMs = timing ? nodeGraphModuleScopeNowMs() : 0;
   let previousX = 0;
@@ -98,15 +97,53 @@ function buildNodeGraphTraceDisplayVertices(buffer, rect, canvas, pixelRatio, sl
   let hasPrevious = false;
   let vertexOffset = 0;
   let segmentCount = 0;
-  const samplesPerPoint = (visibleSamples * drawSpan) / Math.max(1, pointCount);
-  const progressFn = (index, count) => start + ((index + 0.5) / count) * drawSpan;
-  const traceSamples = buildNodeGraphTraceDisplaySamples(buffer, slot, pointCount, progressFn, samplesPerPoint);
-  for (let pointIndex = 0; pointIndex < (traceSamples?.length ?? 0); pointIndex += 1) {
-    const s = traceSamples[pointIndex];
-    const x = rect.left + s.progress * rect.width;
-    const y = midY - s.value * halfHeight;
-    if (hasPrevious && !s.breakBefore) {
-      const segmentIndex = pointIndex - 1;
+  const skipSamples = typeof nodeGraphModuleScopeDiscontinuitySkipSamplesForSlot === "function"
+    ? nodeGraphModuleScopeDiscontinuitySkipSamplesForSlot(slot, buffer)
+    : 0;
+  const pathPoints = typeof TraceWaveform !== "undefined" && typeof TraceWaveform.buildPoints === "function"
+    ? TraceWaveform.buildPoints({
+      buffer,
+      start: view.start + start * Math.max(0, view.end - view.start),
+      end: view.start + end * Math.max(0, view.end - view.start),
+      width: rect.width,
+      height: rect.height,
+      midY,
+      halfHeight,
+      gain: view.gain,
+      offset: view.offset,
+      skipDiscontinuities: skipSamples > 0,
+      discontinuityThreshold: typeof nodeGraphModuleScopeDiscontinuityThreshold === "number"
+        ? nodeGraphModuleScopeDiscontinuityThreshold
+        : 0.85,
+    })
+    : [];
+  const usable = pathPoints.length
+    ? pathPoints
+    : (buildNodeGraphTraceDisplaySamples(
+      buffer,
+      slot,
+      pointCountHint,
+      (index, count) => start + ((index + 0.5) / count) * drawSpan,
+      ((view.end - view.start) * drawSpan) / Math.max(1, pointCountHint),
+    ) || []).map((s) => (
+      s.breakBefore
+        ? null
+        : {
+          x: rect.left + s.progress * rect.width,
+          y: midY - s.value * halfHeight,
+        }
+    ));
+  const pointCount = usable.filter((p) => p).length;
+  for (let pointIndex = 0; pointIndex < usable.length; pointIndex += 1) {
+    const p = usable[pointIndex];
+    if (!p) {
+      hasPrevious = false;
+      continue;
+    }
+    const x = (p.x || 0) + (pathPoints.length ? rect.left : 0);
+    const y = p.y;
+    if (hasPrevious) {
+      const segmentIndex = Math.max(0, segmentCount);
       const x1 = previousX * pixelRatio;
       const y1 = previousY * pixelRatio;
       const x2 = x * pixelRatio;

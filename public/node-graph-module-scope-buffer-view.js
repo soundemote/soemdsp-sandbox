@@ -98,7 +98,7 @@ function nodeGraphTraceDisplayBufferView(buffer, slot, options = {}) {
     }
   }
   if (Number.isFinite(options.forceStart)) {
-    start = Math.max(validStart, Math.min(validEnd - visibleSamples, Math.floor(options.forceStart)));
+    start = Math.max(validStart, Math.min(validEnd - visibleSamples, Number(options.forceStart)));
   }
   const ampScale = Number(settings?.scale);
   return {

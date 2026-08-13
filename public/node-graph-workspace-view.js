@@ -954,6 +954,7 @@ const nodeGraphFloatingWindowSelector = [
   "#nodeTraceDisplaySettingsPopover",
   "#nodeUiDevHelper",
   "#nodeUserUiSettingsPanel",
+  "#nodePatchDefaultsPanel",
   "#nodeGlobalScopeMenu",
 ].join(",");
 

@@ -767,7 +767,7 @@
   {
     "type": "inertialFilter",
     "label": "Inertial Filter",
-    "description": "Inertial Filter \u2014 exponential approach with separate Attack/Release (0\u20261 mix per sample). Not a hard slew rate. Same family as Speed Color Inertia; put next to Up/Down Slew to hear the difference."
+    "description": "Inertial Filter \u2014 exponential approach with separate Attack/Release in Hz. Not a hard slew rate. Same family as Speed Color Inertia; put next to Up/Down Slew to hear the difference."
   },
   {
     "type": "delayEffect",

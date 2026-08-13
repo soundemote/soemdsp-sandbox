@@ -89,6 +89,7 @@ const nodeGraphNodeLabels = Object.freeze({
   gainBiasMix: "Mix",
   bias: "Bias",
   softClipper: "Soft Clipper",
+  clipperLimiter: "Clipper Limiter",
   airClipper: "AirClipper",
   rotate3dTo2d: "Rotation 3D to 2D",
   vectorscopeTransform: "Vectorscope Rotation",
@@ -164,7 +165,7 @@ const nodeGraphNodeLabels = Object.freeze({
   pll: "PLL",
   helmholtzPitch: "Pitch Detector",
   speedColorInertia: "Speed Color Inertia",
-  slewLimiter: "Up/Down Slew",
+  slewLimiter: "Slew",
   inertialFilter: "Inertial Filter",
   midSideEncode: "Mid/Side Encoder",
   quadrature: "Quadrature",
@@ -391,6 +392,10 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "0.01",
+        linearSmoothing: true,
+        smoothingType: "linear",
+        smoothingMode: "internal",
+        smoothingSeconds: 0.0333,
         modClamp: false
       },
       {
@@ -2829,13 +2834,13 @@ const nodeGraphModuleDefinitions = (
     inputs: ["Reset"],
     outputs: ["Trigger", "Gate"],
     parameters: [
-      { defaultValue: "0.25", key: "minSeconds", kind: "time", label: "Min", max: "60", maxDigits: 5, mid: "0.25", min: "0", step: "any", unit: "s" },
-      { defaultValue: "1", key: "maxSeconds", kind: "time", label: "Max", max: "60", maxDigits: 5, mid: "1", min: "0", step: "any", unit: "s" },
+      { defaultValue: "0.25", key: "minSeconds", kind: "time", label: "Min", max: "60", maxDigits: 5, mid: "0.25", min: "0", step: "any", unit: "s", tooltip: "Shortest wait between random triggers." },
+      { defaultValue: "1", key: "maxSeconds", kind: "time", label: "Max", max: "60", maxDigits: 5, mid: "1", min: "0", step: "any", unit: "s", tooltip: "Longest wait between random triggers. Changing Min/Max remaps the current wait immediately." },
       { defaultValue: "0.5", key: "duty", label: "Duty", max: "1", mid: "0.5", min: "0", nonlinearSlider: true, sliderCurve: "edges", curveAmount: "0.3", step: "any" },
-      { defaultValue: "0.01", key: "triggerTime", kind: "time", label: "Trigger", max: "1", maxDigits: 5, mid: "0.01", min: "0", step: "any", unit: "s" },
+      { defaultValue: "0.01", key: "triggerTime", kind: "time", label: "Trigger", max: "1", maxDigits: 5, mid: "0.01", min: "0", step: "any", unit: "s", tooltip: "How long the Trigger output stays high. Gate length is Duty × this interval." },
       { defaultValue: "1", key: "level", label: "Level", max: "1", mid: "0.5", min: "0", nonlinearSlider: false, step: "any" },
       { defaultValue: "1", key: "seed", label: "Seed", linearSmoothing: false, max: "99999", maxDigits: 5, mid: "1", min: "0", nonlinearSlider: false, step: "1" },
-      { defaultValue: "0", key: "threshold", label: "Reset Threshold", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any" },
+      { defaultValue: "0", key: "threshold", label: "Reset Threshold", max: "1", mid: "0", min: "-1", nonlinearSlider: false, step: "any", tooltip: "Reset input rising-edge trip. When Reset crosses above this, a new interval is drawn and Trigger fires." },
     ]
   },
   clockDivider: {
@@ -3236,6 +3241,56 @@ const nodeGraphModuleDefinitions = (
       },
     ]
   },
+  clipperLimiter: {
+    planRole: "processor",
+    inputAliases: { Mono: "In" },
+    inputLabels: { In: "Mono" },
+    inputs: ["In", "Left", "Right"],
+    outputAliases: { Mono: "Out" },
+    outputLabels: { Out: "Mono" },
+    outputs: ["Out", "Left", "Right"],
+    parameters: [
+      {
+        defaultValue: "-12",
+        key: "minDb",
+        kind: "decibels",
+        label: "Min dB",
+        max: "60",
+        mid: "-12",
+        min: "-120",
+        nonlinearSlider: false,
+        step: "any",
+        unit: "dB",
+        tooltip: "Level where the original soft clipper starts. Below this the signal is unchanged."
+      },
+      {
+        defaultValue: "0",
+        key: "maxDb",
+        kind: "decibels",
+        label: "Max dB",
+        max: "60",
+        mid: "0",
+        min: "-120",
+        nonlinearSlider: false,
+        step: "any",
+        unit: "dB",
+        tooltip: "Ceiling the tanh curve approaches. A wider Min→Max span makes a more gradual clip."
+      },
+      {
+        defaultValue: "0",
+        key: "gainDb",
+        kind: "decibels",
+        label: "Gain",
+        max: "60",
+        mid: "12",
+        min: "0",
+        nonlinearSlider: false,
+        step: "any",
+        unit: "dB",
+        tooltip: "Input gain into the clipper. Raise this to drive the signal into the Min/Max knee."
+      },
+    ]
+  },
   // Airwindows Density3 — density soft-clip / anti-density + highpass + wet.
   airClipper: {
     planRole: "processor",
@@ -3595,6 +3650,10 @@ const nodeGraphModuleDefinitions = (
         mid: "1",
         min: "0",
         step: "0.01",
+        linearSmoothing: true,
+        smoothingType: "linear",
+        smoothingMode: "internal",
+        smoothingSeconds: 0.0333,
         modClamp: false
       },
     ]
@@ -3618,6 +3677,10 @@ const nodeGraphModuleDefinitions = (
         mid: "0.1",
         min: "0",
         nonlinearSlider: false,
+        linearSmoothing: true,
+        smoothingType: "linear",
+        smoothingMode: "internal",
+        smoothingSeconds: 0.0333,
         step: "any"
       },
     ]
@@ -7667,24 +7730,30 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Out", "Left", "Right"],
     parameters: [
       {
-        defaultValue: "1",
+        defaultValue: "20000",
         key: "attack",
+        kind: "frequency",
         label: "Attack",
-        max: "1",
-        mid: "0.5",
+        max: "20000",
+        maxDigits: 5,
+        mid: "1000",
         min: "0",
         step: "any",
-        tooltip: "Rise coeff 0…1: fraction of remaining error closed each sample when going up. 1 = instant."
+        unit: "Hz",
+        tooltip: "Rise cutoff in Hz. 0 = freeze going up. 20 kHz = jump to target this sample."
       },
       {
-        defaultValue: "0.005",
+        defaultValue: "20",
         key: "release",
+        kind: "frequency",
         label: "Release",
-        max: "1",
-        mid: "0.05",
+        max: "20000",
+        maxDigits: 5,
+        mid: "1000",
         min: "0",
         step: "any",
-        tooltip: "Fall coeff 0…1 when going down. Small = slow settle (inertia)."
+        unit: "Hz",
+        tooltip: "Fall cutoff in Hz. 0 = freeze going down. Lower = more inertia."
       },
     ]
   },
@@ -7775,6 +7844,7 @@ const nodeGraphModuleDefinitions = (
     stereoTracePorts: { left: "Left", right: "Right" },
     inputs: ["Trigger", "Reset", "Pitch", "Start", "End"],
     outputAliases: { Mono: "Out" },
+    outputLabels: { Out: "M", Left: "L", Right: "R" },
     outputs: ["Out", "Left", "Right"],
     parameters: [
       { defaultValue: "0", key: "sample", label: "Sample", linearSmoothing: false, max: "4096", mid: "0", min: "0", step: "1" },
@@ -7798,6 +7868,7 @@ const nodeGraphModuleDefinitions = (
     stereoTracePorts: { left: "Left", right: "Right" },
     inputs: ["Gate", "Reset", "Pitch", "Start", "End", "Loop Start", "Loop End"],
     outputAliases: { Mono: "Out" },
+    outputLabels: { Out: "M", Left: "L", Right: "R" },
     outputs: ["Out", "Left", "Right", "Phase"],
     parameters: [
       { defaultValue: "0", key: "sample", label: "Sample", linearSmoothing: false, max: "4096", mid: "0", min: "0", step: "1" },
@@ -9170,6 +9241,10 @@ const nodeGraphModuleDefinitions = (
         mid: "0.1",
         min: "0",
         nonlinearSlider: false,
+        linearSmoothing: true,
+        smoothingType: "linear",
+        smoothingMode: "internal",
+        smoothingSeconds: 0.0333,
         step: "any"
       },
     ]

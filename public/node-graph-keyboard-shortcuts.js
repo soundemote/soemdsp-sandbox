@@ -376,21 +376,28 @@ function handleNodeGraphKeydown(event) {
   }
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "c") {
     event.preventDefault();
-    if (typeof openNodeGraphUnifiedWindowPage === "function") {
+    if (typeof cycleNodeGraphCommandCenterPresentation === "function") {
+      cycleNodeGraphCommandCenterPresentation();
+    } else if (typeof openNodeGraphUnifiedWindowPage === "function") {
       openNodeGraphUnifiedWindowPage("commandCenter");
     } else if (typeof openNodeGraphCommandCenter === "function") {
       openNodeGraphCommandCenter();
     }
     return;
   }
-  // V → 💻 hide/show top+bottom bars (independent).
-  // M → 📱 condensed modular frame with resize (independent).
+  // V → 💻 / 📱 computer vs phone canvas.
+  // H → hide/show top + bottom bars.
   if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "v") {
+    event.preventDefault();
+    if (typeof toggleNodeGraphModularWindowedView === "function") {
+      toggleNodeGraphModularWindowedView();
+    }
+    return;
+  }
+  if (!event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "h") {
     event.preventDefault();
     if (typeof toggleNodeGraphAppChromeBarsVisibility === "function") {
       toggleNodeGraphAppChromeBarsVisibility();
-    } else if (typeof toggleNodeGraphModularInfiniteView === "function") {
-      toggleNodeGraphModularInfiniteView();
     }
     return;
   }

@@ -840,13 +840,9 @@ function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot, viewOverri
   const syncChannel = typeof nodeGraphTraceDisplaySyncChannel === "function"
     ? nodeGraphTraceDisplaySyncChannel(settings)
     : "off";
-  // Freerun: lock the window to whole pixels so the stroke does not crawl
-  // under the pixel grid (subpixel shimmer). Triggered sync stays sample-locked.
-  if (
-    syncChannel === "off"
-    && !viewOverride
-    && typeof nodeGraphTraceDisplayPixelLockedView === "function"
-  ) {
+  // Freerun only: snap the window to whole pixels. Triggered sync stays
+  // on the fractional crossing — pixel-lock would undo sub-sample lock.
+  if (syncChannel === "off" && typeof nodeGraphTraceDisplayPixelLockedView === "function") {
     view = nodeGraphTraceDisplayPixelLockedView(view, width);
   }
   const halfHeight = canvas.height * nodeGraphModuleScopeTraceHalfHeightRatio(slot, buffer, { height: canvas.height });
@@ -861,37 +857,39 @@ function buildNodeGraphTraceDisplayCanvasPoints(buffer, canvas, slot, viewOverri
       y: (canvas.height * 0.5) - value * halfHeight,
     }];
   }
-  const visibleSamples = Math.max(1, view.end - view.start);
-  // One vertex per sample, or one per canvas column — never a coarser
-  // budget that slides a decimated lattice under the pixel grid.
-  const pointCount = Math.max(2, Math.min(visibleSamples, Math.floor(width)));
   const midY = canvas.height * 0.5;
-  const samplesPerPoint = visibleSamples / Math.max(1, pointCount - 1);
-  const progressFn = (index, count) => count <= 1 ? 0 : index / (count - 1);
-  const samples = buildNodeGraphTraceDisplaySamples(
-    buffer,
-    slot,
-    pointCount,
-    progressFn,
-    samplesPerPoint,
-    view,
-  );
-  if (!samples) {
-    return [];
+  if (typeof TraceWaveform !== "undefined" && typeof TraceWaveform.buildPoints === "function") {
+    const skipSamples = typeof nodeGraphModuleScopeDiscontinuitySkipSamplesForSlot === "function"
+      ? nodeGraphModuleScopeDiscontinuitySkipSamplesForSlot(slot, buffer)
+      : 0;
+    return TraceWaveform.buildPoints({
+      buffer,
+      start: view.start,
+      end: view.end,
+      width,
+      height: canvas.height,
+      midY,
+      halfHeight,
+      gain: view.gain,
+      offset: view.offset,
+      skipDiscontinuities: skipSamples > 0,
+      discontinuityThreshold: typeof nodeGraphModuleScopeDiscontinuityThreshold === "number"
+        ? nodeGraphModuleScopeDiscontinuityThreshold
+        : 0.85,
+    });
   }
+  // Fallback: sample-accurate polyline (still no i/(n-1) remap).
+  const first = Math.max(0, Math.floor(view.start));
+  const last = Math.min(buffer.length - 1, Math.ceil(view.end) - 1);
+  const span = Math.max(1e-9, view.end - view.start);
   const points = [];
-  for (const s of samples) {
-    if (s.breakBefore) {
-      if (points.length > 0 && points[points.length - 1] !== null) {
-        points.push(null);
-      }
-    } else {
-      // Continuous face coordinates — GPU/canvas antialiases the stroke.
-      points.push({
-        x: s.progress * width,
-        y: midY - s.value * halfHeight,
-      });
-    }
+  for (let i = first; i <= last; i += 1) {
+    const raw = Number(buffer[i]) || 0;
+    const value = clampNodeSliderValue((raw * view.gain) + view.offset, -1, 1);
+    points.push({
+      x: ((i - view.start) / span) * width,
+      y: midY - value * halfHeight,
+    });
   }
   return points;
 }

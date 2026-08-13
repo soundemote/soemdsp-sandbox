@@ -326,7 +326,9 @@ body.node-ear-protection-tripped .node-ear-protection-fault {
 }
 
 .node-ear-protection-fault-email {
-  display: block;
+  display: inline-block;
+  width: fit-content;
+  max-inline-size: 100%;
   margin-top: 8px;
   color: rgba(140, 220, 255, 0.98);
   font-size: 1.22rem;
@@ -1400,9 +1402,64 @@ audio {
   z-index: 5;
 }
 
-.node-wiring-panel > .node-graph-workspace {
+.node-wiring-panel > .node-graph-workspace,
+.node-wiring-panel > .node-graph-main-row {
   flex: 1 1 auto;
   min-height: 0;
+}
+
+.node-graph-main-row {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.node-graph-main-row > .node-graph-workspace {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Computer view (not phone): fill the row. No leftover crop box. */
+.node-wiring-panel:not(.modular-only-view) .node-graph-main-row > .node-graph-workspace {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+}
+
+.node-command-center-dock {
+  display: none;
+  flex: 0 0 min(320px, 38vw);
+  min-width: 196px;
+  max-width: 42vw;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.node-wiring-panel.command-center-embed-left .node-command-center-dock,
+.node-wiring-panel.command-center-embed-right .node-command-center-dock {
+  display: block;
+}
+
+.node-wiring-panel.command-center-embed-right .node-graph-main-row {
+  flex-direction: row-reverse;
+}
+
+.node-command-center-dock > .node-unified-window,
+.node-command-center-dock > .node-scene-context-menu {
+  position: relative !important;
+  inset: auto !important;
+  left: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  border-radius: 0;
 }
 
 .node-wiring-panel > .node-graph-controls {
@@ -1449,6 +1506,11 @@ audio {
   position: relative;
 }
 
+.node-wiring-panel.modular-only-view.command-center-embed-left,
+.node-wiring-panel.modular-only-view.command-center-embed-right {
+  place-items: stretch;
+}
+
 /* Infinite modular view (💻 / V): hide back + resize, fill viewport edge-to-edge. */
 .node-wiring-panel.modular-only-view.modular-only-controls-hidden {
   --node-modular-only-inset: 0px;
@@ -1468,7 +1530,8 @@ audio {
   height: 100dvh;
 }
 
-.node-wiring-panel.app-chrome-bars-hidden:not(.modular-only-view) > .node-graph-workspace {
+.node-wiring-panel.app-chrome-bars-hidden:not(.modular-only-view) > .node-graph-workspace,
+.node-wiring-panel.app-chrome-bars-hidden:not(.modular-only-view) > .node-graph-main-row {
   flex: 1 1 auto !important;
   width: 100% !important;
   max-width: none !important;
@@ -1537,7 +1600,7 @@ html.soemdsp-hide-ui .status-strip {
   display: none;
 }
 
-.node-wiring-panel.modular-only-view > :not(.node-graph-workspace):not(.node-view-toolbar):not(.node-floating-window-surface) {
+.node-wiring-panel.modular-only-view > :not(.node-graph-workspace):not(.node-graph-main-row):not(.node-view-toolbar):not(.node-floating-window-surface):not(.node-command-center-dock) {
   display: none;
 }
 
@@ -3809,6 +3872,43 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   display: none;
 }
 
+.node-patch-defaults-panel[hidden] {
+  display: none !important;
+}
+
+.node-patch-defaults-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 12px 10px 14px;
+  overflow: auto;
+}
+
+.node-patch-defaults-copy {
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--font);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.node-patch-defaults-body .scene-context-window-button {
+  width: 100%;
+  min-height: var(--node-floating-window-button-height);
+  justify-content: center;
+}
+
+.node-patch-defaults-status {
+  display: block;
+  min-height: 1.2em;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
 /* Heading, title group, drag handle and close button all come from the
    shared floating-window rules (search .scene-context-heading) -- this panel
    is now just another member of those selector lists, so nothing bespoke is
@@ -5125,6 +5225,7 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
 }
 
 .node-graph-resize-handle {
+  display: none;
   position: absolute;
   right: 10px;
   bottom: 10px;
@@ -5138,6 +5239,10 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   border-radius: 2px;
   background: rgba(17, 20, 24, 0.88);
   touch-action: none;
+}
+
+.node-wiring-panel.modular-only-view .node-graph-resize-handle {
+  display: block;
 }
 
 .node-graph-resize-handle::before,
@@ -8032,6 +8137,27 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   padding: 0;
 }
 
+/*
+ * Unified window chrome SSOT.
+ * New Command Center pages: heading + nav host + body. Do not restyle the
+ * title bar or let the shell scroll — .node-scene-context-menu { overflow:auto }
+ * is the old menu, not a page shell.
+ */
+.node-unified-window > .scene-context-heading,
+.node-unified-window > .node-unified-window-nav-host {
+  flex: 0 0 auto;
+}
+
+.node-scene-context-menu.node-unified-window {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 /* Unified floating-window page nav: fixed square emoji buttons.
    Wrap when the floating window is narrow (responsive width).
    One class set — no per-window ID stacks. */
@@ -8040,6 +8166,9 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar > span:not(:has([data-
   box-sizing: border-box;
   flex: 0 0 auto;
   grid-row: auto;
+  position: sticky;
+  top: var(--node-floating-window-header-height);
+  z-index: 5;
   min-width: 0;
   width: 100%;
   padding: 2px 3px;
@@ -10050,7 +10179,6 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   stroke-linejoin: round;
   stroke-dasharray: 14 11;
   opacity: 0.95;
-  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--accent, #7fc7d9) 65%, transparent));
   pointer-events: none !important;
 }
 
@@ -10324,11 +10452,14 @@ body.room-dimmer-on .node-room-dimmer-canvas,
   opacity: 1;
 }
 
-/* Title bar + title sit above the bypass veil (z:40). */
+/* Overlay covers the whole plate (including the title band). Title chrome
+   sits above it with a clear fill so stripes show in title-only / collapsed. */
 .dsp-node.bypassed > .dsp-node-header,
-.dsp-node.bypassed .dsp-node-header {
+.dsp-node.bypassed .dsp-node-header,
+.dsp-node.bypassed .node-header-title-row {
   position: relative;
   z-index: 50;
+  background: transparent !important;
   filter: none;
   opacity: 1;
 }
@@ -11288,14 +11419,18 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 .dsp-node.led-layout .node-led-face {
   position: relative;
   box-sizing: border-box;
-  display: grid;
-  place-items: center;
+  display: block;
   width: 100%;
   height: 100%;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: transparent;
+  background: var(--node-scope-background, #000);
+}
+
+/* Legacy selector: ports live in the LayoutB side bands, not inside the face. */
+.dsp-node.led-layout .node-led-face .node-port.input {
+  pointer-events: auto;
 }
 
 .dsp-node.led-layout .node-led-lamp {
@@ -11558,8 +11693,10 @@ body.room-dimmer-on .node-room-dimmer-canvas,
 .node-solid-module-custom-ui.node-number-readout-face,
 .node-solid-module-custom-ui.node-value-lcd-face,
 .node-solid-module-custom-ui.node-value-led-face,
+.node-solid-module-custom-ui.node-led-face,
 .dsp-node.number-readout-layout .node-solid-module-custom-ui,
-.dsp-node.value-lcd-layout .node-solid-module-custom-ui {
+.dsp-node.value-lcd-layout .node-solid-module-custom-ui,
+.dsp-node.led-layout .node-solid-module-custom-ui {
   margin: 0 !important;
   width: 100% !important;
   max-width: 100% !important;
@@ -15733,9 +15870,8 @@ input[data-global-scope-number-drag="true"]:not([readonly]):focus,
   margin: 0;
 }
 
-/* Zero-D dot face: no residual / packing section. */
-.node-trace-display-settings-popover[data-display-settings-type="dot"] .node-trace-display-trace-title,
-.node-trace-display-settings-popover[data-display-settings-type="dot"] .node-trace-display-trace-section,
+/* Phosphor Dot: keep Ghost / Trail / Burn / Pixel density (energy residual).
+   Only hide leftover 1D-trace thickness rows that do not apply to a 0D stamp. */
 .node-trace-display-settings-popover[data-display-settings-type="dot"] .node-trace-display-trace-thickness-row,
 .node-trace-display-settings-popover[data-display-settings-type="dot"] .node-trace-display-dot2-thickness-row {
   display: none;
@@ -16646,12 +16782,12 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 .node-module-actions-window .scene-context-selected-module {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  align-items: center;
-  gap: 0;
+  align-items: stretch;
+  gap: 4px;
   min-height: 32px;
   min-width: 0;
   margin: 0;
-  padding: 6px 8px 4px;
+  padding: 6px 8px 6px;
   overflow: hidden;
   border-radius: 0;
   border-inline: 0;
@@ -16706,19 +16842,12 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 }
 
 .node-module-actions-window .scene-context-alias-control {
+  display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-auto-rows: minmax(var(--node-floating-window-button-height), auto);
   align-items: stretch;
-}
-
-.node-module-actions-window .scene-context-alias-control > span {
-  display: grid;
-  place-items: center;
-  min-height: calc(var(--node-floating-window-button-height) * 0.85);
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: #cfdde5;
+  border: 0;
+  background: transparent;
 }
 
 .node-module-actions-window .scene-context-alias-control input {
@@ -17086,7 +17215,7 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
   text-transform: uppercase;
 }
 
-/* Module visibility: Display|Title, Buttons|In/Out|Sliders, Control surface. */
+/* Module visibility: Display|Title|Control surface, Buttons|In/Out|Sliders. */
 .scene-context-visibility-stack {
   display: flex;
   flex-direction: column;
@@ -17114,6 +17243,26 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 .scene-context-visibility-stack .scene-context-button-group button {
   border-radius: 0;
   font-weight: 650;
+}
+
+/* Display / Title / Control surface share one row; hidden buttons drop out. */
+.scene-context-visibility-stack > .scene-context-button-group-display-title {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+}
+
+.scene-context-visibility-stack > .scene-context-button-group-display-title > button[hidden] {
+  display: none !important;
+}
+
+.scene-context-visibility-stack > .scene-context-button-group-display-title > button {
+  flex: unset;
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.scene-context-visibility-stack > .scene-context-button-group-display-title > button:not([hidden]) + button:not([hidden]) {
+  border-inline-start: 1px solid var(--node-scene-context-menu-divider, rgba(243, 241, 236, 0.14));
 }
 
 .scene-context-button-group-1 {
@@ -17309,11 +17458,11 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 
 .scene-context-alias-control {
   display: grid;
-  gap: 5px;
-  padding: 7px 8px;
-  border: 1px solid rgba(127, 199, 217, 0.18);
-  border-radius: 5px;
-  background: rgba(7, 10, 13, 0.55);
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   font-family: Consolas, "Courier New", monospace;
 }
 
@@ -19045,9 +19194,7 @@ body.node-slider-dragging .node-param-port {
 }
 
 .node-port:not(.node-param-port):not(.connected-port):hover,
-.node-port:not(.node-param-port):not(.connected-port).patch-point-hover,
-/* Glow only from jack :hover or geometric hitbox class — not bare row :hover. */
-.node-io-row.patch-point-hover .node-port:not(.node-param-port):not(.connected-port) {
+.node-port:not(.node-param-port):not(.connected-port).patch-point-hover {
   --node-port-stroke-mask-color: color-mix(in srgb, var(--node-port-hover-color, var(--node-port-hover-fill)) 16%, transparent);
   --node-port-crescent-fill: var(--node-port-stroke-mask-color);
   --node-port-crescent-stroke: color-mix(in srgb, var(--node-port-hover-color, var(--node-port-hover-stroke)) 68%, transparent);
@@ -19070,8 +19217,7 @@ body.node-slider-dragging .node-param-port {
  * type-colored arc + soft glow, same dual-layer paint as idle connected.
  */
 .node-port.connected-port:hover,
-.node-port.connected-port.patch-point-hover,
-.node-io-row.patch-point-hover .node-port.connected-port {
+.node-port.connected-port.patch-point-hover {
   border: 0;
   border-color: transparent;
   /* Reassert dual-layer fill + stroke so hover paint cannot collapse to fill-only. */
@@ -19723,7 +19869,8 @@ button[data-transport-action="stop"]:disabled {
    fitNodeLiveToggleText (node-graph-settings-text-fit.js) measures these
    spans along with the live toggles and writes an inline font-size, so the
    UI Dev "live toggle text size" setting drives both. */
-.node-render-duration-control #nodeRenderButton {
+.node-render-duration-control #nodeRenderButton,
+.node-render-duration-control #nodeDownloadSampleButton {
   display: grid;
   grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   align-items: stretch;
@@ -19739,7 +19886,8 @@ button[data-transport-action="stop"]:disabled {
 }
 
 /* Mirrors .node-live-toggle-palette .node-live-toggle span exactly. */
-.node-render-duration-control #nodeRenderButton span {
+.node-render-duration-control #nodeRenderButton span,
+.node-render-duration-control #nodeDownloadSampleButton span {
   display: grid;
   align-items: center;
   justify-items: center;
@@ -20360,6 +20508,7 @@ body.keyboard-debug-hidden
 
 body.keyboard-debug-hidden
   .node-wiring-panel:not(.modular-only-view):not(.camera-view-visible)
+  > .node-graph-main-row,
   > #nodeGraphWorkspace:not([hidden]) {
   flex: 1 1 auto;
   height: auto !important;

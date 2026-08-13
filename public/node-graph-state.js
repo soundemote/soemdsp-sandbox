@@ -166,6 +166,8 @@ var nodeGraphMvp = {
   unifiedWindowPage: "",
   unifiedWindowPosition: null,
   unifiedWindowSize: null,
+  // closed | open | embedLeft | embedRight | float
+  unifiedWindowPresentation: "closed",
   _unifiedWindowSwitching: false,
   _unifiedWindowPendingPosition: null,
   moduleActionDragging: null,
@@ -184,11 +186,11 @@ var nodeGraphMvp = {
   // Embedded tips band height (px). User-draggable between tips and modular view.
   tooltipEmbedHeight: 46,
   tooltipEmbedResizing: null,
-  // modular | modular-windowed (📱/M condensed + resize). V is bars, not a mode.
+  // modular | modular-windowed (📱 condensed + resize). 💻 is infinite canvas.
   viewMode: "modular",
-  // Windowed frame always keeps back + resize when M is on.
+  // Windowed frame always keeps back + resize when phone view is on.
   modularOnlyControlsVisible: true,
-  // Top toolbar + bottom transport (💻/V). Independent of M.
+  // Top toolbar + bottom transport (H).
   appChromeBarsVisible: true,
   moduleButtonsVisible: false,
   moduleDefaultOverrides: {},

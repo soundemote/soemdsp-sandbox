@@ -60,8 +60,20 @@ function bindNodeGraphSceneMenuEvents() {
   bindNodeGraphSceneElementEvent("nodeScenePasteModuleSettings", "click", pasteNodeGraphModuleSettingsFromContext);
   bindNodeGraphSceneElementEvent("nodeSceneSetModuleSettingsAsDefault", "click", setNodeGraphModuleSettingsAsDefaultFromButton);
   bindNodeGraphSceneElementEvent("nodeSceneBroomBatch", "click", applyNodeGraphPatchDefaultsFromCurrentSelection);
-  bindNodeGraphSceneElementEvent("nodeSceneToggleModularInfiniteView", "click", toggleNodeGraphAppChromeBarsVisibility);
-  bindNodeGraphSceneElementEvent("nodeSceneToggleModularWindowedView", "click", toggleNodeGraphModularWindowedView);
+  bindNodeGraphSceneElementEvent("nodePatchDefaultsClose", "click", () => setNodeGraphPatchDefaultsVisible(false));
+  bindNodeGraphSceneElementEvent("nodePatchDefaultsHeading", "pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "patchDefaults"));
+  bindNodeGraphSceneElementEvent("nodePatchDefaultsDragHandle", "pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowDrag(event, "patchDefaults"));
+  bindNodeGraphSceneElementEvent("nodePatchDefaultsResizeHandle", "pointerdown", (event) => beginNodeGraphRegisteredFloatingWindowResize(event, "patchDefaults"));
+  bindNodeGraphSceneElementEvent("nodeSceneToggleModularInfiniteView", "click", () => {
+    if (typeof setNodeGraphModularWindowedActive === "function") {
+      setNodeGraphModularWindowedActive(false);
+    }
+  });
+  bindNodeGraphSceneElementEvent("nodeSceneToggleModularWindowedView", "click", () => {
+    if (typeof setNodeGraphModularWindowedActive === "function") {
+      setNodeGraphModularWindowedActive(true);
+    }
+  });
   // Legacy ids (hidden).
   bindNodeGraphSceneElementEvent("nodeSceneToggleModularOnlyView", "click", toggleNodeGraphModularWindowedView);
   bindNodeGraphSceneElementEvent("nodeSceneToggleModularOnlyControls", "click", toggleNodeGraphAppChromeBarsVisibility);

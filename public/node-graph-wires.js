@@ -403,104 +403,76 @@
       return null;
     }
 
-    function endpointHitboxClientRect(endpoint, hitboxElement = null) {
-      // Hitbox must match the glowing jack (screen px), not a larger "near
-      // face" zone that only lights the jack while clicks hit the face above.
-      // - Solid shells: jack box + glow pad; optional label reach only when
-      //   labels are visible (pointer can land on the row, not the face).
-      // - Headered stacked IO: tight rows use the full row; tall rows stay
-      //   jack-local + glow.
+    function endpointJackElement(endpoint, hitboxElement = null) {
       const row = hitboxElement?.classList?.contains("node-io-row")
         ? hitboxElement
         : hitboxElement?.closest?.(".node-io-row") || null;
-      const solidShell = Boolean(
-        row?.closest?.(".node-solid-module-shell")
-        || row?.closest?.(".node-module-chrome-layout-b-shell")
-        || hitboxElement?.closest?.(".node-solid-module-shell")
-        || hitboxElement?.closest?.(".node-module-chrome-layout-b-shell"),
-      );
-      const jack = row?.querySelector?.(".node-port")
+      return row?.querySelector?.(".node-port")
         || (hitboxElement?.classList?.contains("node-port") ? hitboxElement : null)
         || (hitboxElement?.classList?.contains("node-param-port") ? hitboxElement : null)
         || elementForEndpoint(endpoint);
-      if (!jack && !row) {
+    }
+
+    function endpointIoRow(hitboxElement = null) {
+      if (hitboxElement?.classList?.contains("node-io-row")) {
+        return hitboxElement;
+      }
+      return hitboxElement?.closest?.(".node-io-row") || null;
+    }
+
+    function endpointRowIncludesLabelHit(row, jackRect) {
+      if (!row) {
+        return false;
+      }
+      const column = row.closest?.(".node-io-column");
+      const labelsHidden = Boolean(
+        column?.classList?.contains("labels-hidden")
+        || row.closest?.(".io-hidden")
+      );
+      if (labelsHidden) {
+        return false;
+      }
+      const solidShell = Boolean(
+        row.closest?.(".node-solid-module-shell")
+        || row.closest?.(".node-module-chrome-layout-b-shell"),
+      );
+      const isLayoutC = Boolean(
+        row.closest?.(".chrome-layout-c")
+        || row.closest?.("[data-chrome-layout='LayoutC']"),
+      );
+      const rowRect = row.getBoundingClientRect();
+      const diameter = Math.max(jackRect.height, jackRect.width * 2, 8);
+      // Tall empty bands stay module-drag; compact / labeled / LayoutC rows
+      // share one hitbox between jack and label.
+      if (solidShell || isLayoutC) {
+        return rowRect.height > 0;
+      }
+      return rowRect.height > 0 && rowRect.height <= diameter * 2.4;
+    }
+
+    function endpointHitboxClientRect(endpoint, hitboxElement = null) {
+      // Shared hover + click region: the jack, plus the label cell when that
+      // row is a compact/labeled IO band. Never the face or a glow pad.
+      const jack = endpointJackElement(endpoint, hitboxElement);
+      if (!jack) {
         return null;
       }
-      const jackRect = (jack || row).getBoundingClientRect();
+      const jackRect = jack.getBoundingClientRect();
       if (jackRect.width <= 0 || jackRect.height <= 0) {
         return null;
       }
-      // Screen-space diameter: half-jacks are width≈radius, height≈diameter.
-      const diameter = Math.max(jackRect.height, jackRect.width * 2, 8);
-      // Match CSS glow halo around the jack (size 0.5×d + spread ≈ 0.21×d).
-      const glowPad = diameter * 0.72;
-
-      const center = typeof nodeGraphElementPatchPointClientCenter === "function"
-        ? nodeGraphElementPatchPointClientCenter(jack || row, endpoint?.io)
-        : {
-          x: endpoint?.io === "output"
-            ? jackRect.right
-            : (endpoint?.io === "input" || endpoint?.io === "modulation" || endpoint?.io === "graph"
-              ? jackRect.left
-              : jackRect.left + jackRect.width * 0.5),
-          y: jackRect.top + jackRect.height * 0.5,
-        };
-
-      // Jack box + glow pad — the luminous hover region users aim at.
-      let left = jackRect.left - glowPad;
-      let right = jackRect.right + glowPad;
-      let top = jackRect.top - glowPad;
-      let bottom = jackRect.bottom + glowPad;
-
-      if (solidShell) {
-        const column = row?.closest?.(".node-io-column") || jack?.closest?.(".node-io-column");
-        const labelsHidden = Boolean(
-          column?.classList?.contains("labels-hidden")
-          || row?.closest?.(".io-hidden")
-          || jack?.closest?.(".io-hidden"),
-        );
-        // Labels visible: full row width (column sized by longest label → equal
-        // hitboxes for every inlet / every outlet). Labels hidden: jack band only.
-        if (!labelsHidden && row) {
-          const rowRect = row.getBoundingClientRect();
-          left = Math.min(left, rowRect.left);
-          right = Math.max(right, rowRect.right);
-        } else if (labelsHidden && column) {
-          // Keep hits inside the jack band (where the port element actually is).
-          const colRect = column.getBoundingClientRect();
-          left = Math.max(left, colRect.left);
-          right = Math.min(right, colRect.right);
-          // Still cover the jack fully.
-          left = Math.min(left, jackRect.left);
-          right = Math.max(right, jackRect.right);
-        }
-        // Vertical: stay inside the port band so inter-jack gaps stay drag.
-        if (row) {
-          const rowRect = row.getBoundingClientRect();
-          top = Math.max(top, rowRect.top);
-          bottom = Math.min(bottom, rowRect.bottom);
-        }
-      } else if (row) {
+      let left = jackRect.left;
+      let right = jackRect.right;
+      let top = jackRect.top;
+      let bottom = jackRect.bottom;
+      const row = endpointIoRow(hitboxElement) || jack.closest?.(".node-io-row");
+      if (endpointRowIncludesLabelHit(row, jackRect)) {
         const rowRect = row.getBoundingClientRect();
-        // LayoutA compact rows + LayoutC (title+I/O only): whole row is the hit
-        // band. LayoutC rows stretch 1fr tall on small shells — always use full
-        // row so L/R and X/Y stay easy to grab at 3×3 gu.
-        const isLayoutC = Boolean(
-          row.closest?.(".chrome-layout-c")
-          || row.closest?.("[data-chrome-layout='LayoutC']"),
-        );
-        const maxBand = diameter * 2.4;
-        if (
-          rowRect.height > 0
-          && (isLayoutC || rowRect.height <= maxBand)
-        ) {
-          left = Math.min(left, rowRect.left);
-          right = Math.max(right, rowRect.right);
-          top = Math.min(top, rowRect.top);
-          bottom = Math.max(bottom, rowRect.bottom);
-        }
+        left = Math.min(left, rowRect.left);
+        right = Math.max(right, rowRect.right);
+        top = Math.min(top, rowRect.top);
+        bottom = Math.max(bottom, rowRect.bottom);
       }
-
       return {
         bottom,
         height: Math.max(0, bottom - top),
@@ -511,12 +483,48 @@
       };
     }
 
+    function pointInJackCrescent(jack, endpoint, clientX, clientY) {
+      const rect = jack?.getBoundingClientRect?.();
+      if (!rect || rect.width <= 0 || rect.height <= 0) {
+        return false;
+      }
+      const center = typeof nodeGraphElementPatchPointClientCenter === "function"
+        ? nodeGraphElementPatchPointClientCenter(jack, endpoint?.io)
+        : {
+          x: endpoint?.io === "output"
+            ? rect.right
+            : (endpoint?.io === "input" || endpoint?.io === "modulation" || endpoint?.io === "graph"
+              ? rect.left
+              : rect.left + rect.width * 0.5),
+          y: rect.top + rect.height * 0.5,
+        };
+      const radius = Math.max(rect.height, rect.width * 2, 8) * 0.5;
+      const dx = clientX - center.x;
+      const dy = clientY - center.y;
+      if ((dx * dx) + (dy * dy) > radius * radius) {
+        return false;
+      }
+      const io = String(endpoint?.io || "");
+      if (io === "output") {
+        return clientX <= center.x + 0.5;
+      }
+      if (io === "input" || io === "modulation" || io === "graph") {
+        return clientX >= center.x - 0.5;
+      }
+      return true;
+    }
+
     function pointInEndpointHitbox(endpoint, clientX, clientY, hitboxElement = null) {
+      const jack = endpointJackElement(endpoint, hitboxElement);
+      if (pointInJackCrescent(jack, endpoint, clientX, clientY)) {
+        return true;
+      }
       const rect = endpointHitboxClientRect(endpoint, hitboxElement);
       if (!rect) {
         return false;
       }
-      return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+      return clientX >= rect.left && clientX <= rect.right
+        && clientY >= rect.top && clientY <= rect.bottom;
     }
 
     function patchPointTargetFromPoint(clientX, clientY) {
@@ -524,16 +532,12 @@
       let bestDistance = Infinity;
       for (const target of document.querySelectorAll(".node-port, .node-io-row, .node-param-port.modulation-input, .node-param-port.graph-input")) {
         const endpoint = endpointFromElement(target);
-        const rect = endpointHitboxClientRect(endpoint, target);
         const visualElement = visualEndpointElement(target);
         const elementRect = visualElement?.getBoundingClientRect();
         if (
-          !rect ||
-          !elementRect ||
-          clientX < rect.left ||
-          clientX > rect.right ||
-          clientY < rect.top ||
-          clientY > rect.bottom
+          !endpoint
+          || !elementRect
+          || !pointInEndpointHitbox(endpoint, clientX, clientY, target)
         ) {
           continue;
         }
@@ -717,11 +721,16 @@
     let hoveredPatchPoint = null;
 
     function setHoveredPatchPoint(target) {
-      if (hoveredPatchPoint === target) {
+      const jack = !target
+        ? null
+        : (target.classList?.contains("node-port") || target.classList?.contains("node-param-port")
+          ? target
+          : (target.querySelector?.(".node-port") || target));
+      if (hoveredPatchPoint === jack) {
         return;
       }
       hoveredPatchPoint?.classList.remove("patch-point-hover");
-      hoveredPatchPoint = target || null;
+      hoveredPatchPoint = jack || null;
       hoveredPatchPoint?.classList.add("patch-point-hover");
     }
 

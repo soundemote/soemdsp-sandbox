@@ -207,7 +207,15 @@ function nodeGraphParameterSmoothingSecondsFromMetadata(metadata = {}) {
     return null;
   }
   const value = Number(metadata.smoothingSeconds);
-  return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+  if (!Number.isFinite(value) || value <= 0) {
+    return 0;
+  }
+  // Values in (0, 1) are seconds (e.g. 0.0333); ≥ 1 are sample counts.
+  if (value > 0 && value < 1) {
+    const rate = Math.max(1, Number(nodeGraphMvp?.sampleRate) || 44100);
+    return Math.max(1, Math.round(value * rate));
+  }
+  return Math.max(0, Math.round(value));
 }
 
 // See resolveSmoothingSecondsForMode() in node-live-audio-worklet-core.js for the

@@ -175,22 +175,25 @@ function nodeGraphCombResonatorSample(
     const delayed = nodeGraphCombResonatorReadFrac(state, delaySamples);
     const amt = Math.max(0, Math.min(1, Number(depth) || 0));
     y = x + sign * amt * delayed;
-    state.buffer[state.writeIndex] = x;
   } else {
     const delayed = nodeGraphCombResonatorReadFrac(state, delaySamples);
     const fb = nodeGraphCombResonatorLoopFilter(state, delayed, damping);
     const g = nodeGraphCombResonatorFeedbackGain(decaySec, delaySamples, rate, hold);
     y = x + sign * g * fb;
-    if (!Number.isFinite(y)) y = 0;
-    if (y > -1e-30 && y < 1e-30) y = 0;
-    state.buffer[state.writeIndex] = y;
   }
+
+  if (!Number.isFinite(y)) y = 0;
+  if (y > 1) y = 1;
+  else if (y < -1) y = -1;
+  if (y > -1e-30 && y < 1e-30) y = 0;
+
+  // Feedback writes the clipped output so the loop cannot explode.
+  // Feedforward writes the (unclipped) input history.
+  state.buffer[state.writeIndex] = isFf ? x : y;
 
   state.writeIndex = (state.writeIndex + 1) % capacity;
   if (state.filled < capacity) state.filled += 1;
 
-  if (!Number.isFinite(y)) y = 0;
-  if (y > -1e-30 && y < 1e-30) y = 0;
   return y;
 }
 

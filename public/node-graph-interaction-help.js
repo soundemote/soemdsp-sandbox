@@ -135,11 +135,11 @@ function nodeInteractionMouseHint(element) {
   }
   if (element.id === "nodeModularInfiniteViewButton") {
     return nodeGraphTooltipText("view.infiniteModular")
-      || "Hide top and bottom bars for a bigger canvas (V).";
+      || "Computer view — infinite canvas, no crop (V).";
   }
   if (element.id === "nodeModularWindowedViewButton") {
     return nodeGraphTooltipText("view.windowedModular")
-      || "Condensed modular frame with resize handle (M).";
+      || "Phone view — condensed frame with resize widget (V).";
   }
   if (element.id === "nodeUndoButton" || element.id === "nodeRedoButton") {
     return nodeGraphTooltipText("history.help");

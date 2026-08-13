@@ -141,6 +141,7 @@ function validateNodeGraphPatch(patch) {
       .filter(Boolean),
   );
   const ids = new Set();
+  const uniqueTypesSeen = new Set();
   const nodes = patch.nodes
     .filter((node) => !retiredNodeTypes.has(String(node.type || "").trim()))
     // phosphorLight → scope2d also runs inside migrateNodeGraphPatchToCurrent;
@@ -150,6 +151,19 @@ function validateNodeGraphPatch(patch) {
         ? migrateNodeGraphPhosphorLightToScope2d(rawNode)
         : rawNode
     ))
+    .filter((node) => {
+      const type = typeof nodeGraphResolveModuleTypeAlias === "function"
+        ? nodeGraphResolveModuleTypeAlias(node.type)
+        : String(node.type || "").trim();
+      if (typeof nodeGraphModuleTypeIsUniqueInPatch === "function"
+        && nodeGraphModuleTypeIsUniqueInPatch(type)) {
+        if (uniqueTypesSeen.has(type)) {
+          return false;
+        }
+        uniqueTypesSeen.add(type);
+      }
+      return true;
+    })
     .map((node) => {
     const id = String(node.id || "").trim();
     const type = typeof nodeGraphResolveModuleTypeAlias === "function"
@@ -215,6 +229,26 @@ function validateNodeGraphPatch(patch) {
       // Smooth Graph Curve: collapse old 6-choice layout (Linear/Smooth/Bezier/
       // Quadratic/Cubic/Catmull) where Smooth/Bezier/Catmull were one path.
       // Detect old layout via saved max≥5 or orphan indices 4–5.
+      // Inertial Filter: Attack/Release used to be 0…1 mix/sample. Now Hz.
+      if (
+        type === "inertialFilter"
+        && (parameter.key === "attack" || parameter.key === "release")
+      ) {
+        const sourceMax = Number(rawParamMeta[parameter.key]?.max);
+        const n = Number(value);
+        const legacyUnit = Number.isFinite(sourceMax) && sourceMax <= 1 && sourceMax > 0;
+        const legacyDefault = !Number.isFinite(sourceMax)
+          && Number.isFinite(n)
+          && (
+            (parameter.key === "attack" && n === 1)
+            || (parameter.key === "release" && Math.abs(n - 0.005) < 1e-9)
+          );
+        if ((legacyUnit || legacyDefault) && Number.isFinite(n) && n >= 0 && n <= 1) {
+          value = n >= 1
+            ? 20000
+            : (n <= 0 ? 0 : -44100 * Math.log(1 - n) / (2 * Math.PI));
+        }
+      }
       if (type === "graph2" && parameter.key === "smoothingMode") {
         const sourceMax = Number(node.paramMeta?.[parameter.key]?.max);
         const n = Math.round(Number(value));
@@ -785,6 +819,232 @@ function nodeGraphPatchNodeIsVisible(nodeId) {
   );
 }
 
+function nodeGraphModuleStructuralUiSignature(patchNode) {
+  const patchNodeUi = typeof nodeGraphEffectivePatchNodeUi === "function"
+    ? nodeGraphEffectivePatchNodeUi(patchNode?.ui, patchNode?.type)
+    : (patchNode?.ui || {});
+  return [
+    patchNodeUi.oscilloscopeHidden ? "scope-hidden" : "scope-visible",
+    patchNodeUi.titleHidden ? "title-hidden" : "title-visible",
+  ].join("|");
+}
+
+function nodeGraphModulePortSignature(patchNode) {
+  const outputPorts = nodeGraphPatchNodeOutputPorts(patchNode).filter(
+    (port) => !(nodeGraphModuleDefinitions[patchNode.type]?.parameters || []).some((parameter) => parameter.key === port),
+  );
+  return `${nodeGraphPatchNodeInputPorts(patchNode).join(",")}=>${outputPorts.join(",")}=>${nodeGraphModuleGraphInputs(patchNode.type).join(",")}`;
+}
+
+function syncNodeGraphModuleChromeElement(element, patchNode) {
+  const patchNodeUi = nodeGraphEffectivePatchNodeUi(patchNode.ui, patchNode.type);
+  const structuralUiSignature = nodeGraphModuleStructuralUiSignature(patchNode);
+  element.style.setProperty("--node-grid-width-units", String(nodeGraphPatchNodeGridWidthUnits(patchNode)));
+  element.style.setProperty("--node-grid-height-units", String(nodeGraphPatchNodeGridHeightUnits(patchNode)));
+  if (typeof nodeGraphApplyModuleShellHeightCssVars === "function") {
+    nodeGraphApplyModuleShellHeightCssVars(element, patchNode);
+  } else {
+    element.style.setProperty("--node-module-display-height-units", String(nodeGraphPatchNodeDisplayHeightUnits(patchNode)));
+  }
+  element.style.setProperty("--node-module-interface-controls-height-units", String(nodeGraphPatchNodeInterfaceControlsHeightUnits(patchNode)));
+  const point = nodeGraphGridToPixel(patchNode);
+  positionNodeGraphNode(element, point, { clamp: false, snap: false });
+  element.hidden = !nodeGraphModuleShouldBeVisible(patchNode);
+  element.dataset.gridX = String(patchNode.gx);
+  element.dataset.gridY = String(patchNode.gy);
+  element.dataset.gridWidthGu = String(nodeGraphPatchNodeGridWidthUnits(patchNode));
+  element.dataset.gridHeightGu = String(nodeGraphPatchNodeGridHeightUnits(patchNode));
+  element.dataset.portSignature = nodeGraphModulePortSignature(patchNode);
+  element.dataset.structuralUiSignature = structuralUiSignature;
+  const titleText = element.querySelector(".node-header-title");
+  if (titleText) {
+    const chromeTitle = typeof nodeGraphPatchNodeTitle === "function"
+      ? nodeGraphPatchNodeTitle(patchNode)
+      : (typeof nodeGraphModuleChromeTitle === "function"
+        ? nodeGraphModuleChromeTitle(patchNode)
+        : nodeGraphDefaultNodeTitle(patchNode.type, patchNode.id));
+    if (titleText.tagName === "INPUT") {
+      if (document.activeElement !== titleText) {
+        titleText.value = chromeTitle;
+      }
+    } else {
+      titleText.textContent = chromeTitle;
+    }
+  }
+  element.classList.toggle("buttons-hidden", patchNodeUi.buttonsHidden);
+  element.classList.toggle("buttons-forced-visible", Boolean(patchNodeUi.buttonsForceShow));
+  element.classList.toggle("io-hidden", patchNodeUi.ioHidden);
+  element.classList.toggle(
+    "unused-hidden",
+    Boolean(normalizeNodeGraphPatchNodeUi(patchNode.ui, patchNode.type).hideUnused),
+  );
+  element.classList.toggle("interface-controls-hidden", patchNodeUi.interfaceControlsHidden);
+  element.classList.toggle("interface-controls-forced-visible", Boolean(patchNodeUi.interfaceControlsForceShow));
+  element.classList.toggle("movement-locked", patchNodeUi.movementLocked);
+  element.classList.toggle("oscilloscope-hidden", patchNodeUi.oscilloscopeHidden);
+  element.classList.toggle("oscilloscope-forced-visible", Boolean(patchNodeUi.oscilloscopeForceShow));
+  element.classList.toggle("sliders-hidden", patchNodeUi.slidersHidden);
+  element.classList.toggle("sliders-forced-visible", Boolean(patchNodeUi.slidersForceShow));
+  element.classList.toggle("title-hidden", patchNodeUi.titleHidden);
+  element.classList.toggle(
+    "title-only",
+    typeof nodeGraphModuleIsTitleOnlyUi === "function"
+      && nodeGraphModuleIsTitleOnlyUi(patchNode.type, patchNode.ui),
+  );
+  element.classList.toggle(
+    "module-collapsed",
+    typeof nodeGraphModuleIsCollapsedUi === "function"
+      && nodeGraphModuleIsCollapsedUi(patchNode.type, patchNode.ui),
+  );
+  if (typeof syncNodeGraphLayoutBNoParamsClass === "function") {
+    syncNodeGraphLayoutBNoParamsClass(element, patchNode.type, patchNodeUi);
+  }
+  const dragHandle = element.querySelector(".node-drag-handle");
+  if (dragHandle) {
+    dragHandle.textContent = patchNodeUi.movementLocked ? "\uD83D\uDD12" : "\u2725";
+    dragHandle.setAttribute(
+      "aria-label",
+      patchNodeUi.movementLocked
+        ? `Unlock ${nodeGraphNodeDisplayName(patchNode.id)} module movement`
+        : `Move ${nodeGraphNodeDisplayName(patchNode.id)} module`,
+    );
+    dragHandle.classList.toggle("node-drag-handle-locked", patchNodeUi.movementLocked);
+  }
+  const displayButton = element.querySelector(".node-display-settings-button");
+  if (displayButton) {
+    displayButton.setAttribute("aria-pressed", patchNodeUi.oscilloscopeHidden ? "false" : "true");
+  }
+  const metaparameterButton = element.querySelector(".node-metaparameter-button");
+  if (metaparameterButton) {
+    metaparameterButton.setAttribute("aria-pressed", patchNodeUi.slidersHidden ? "false" : "true");
+  }
+  const bypassed = nodeGraphNodeDisplaysBypassed(patchNode.id);
+  element.classList.toggle("bypassed", bypassed);
+  const bypassButton = element.querySelector(".node-bypass-button");
+  if (bypassButton) {
+    bypassButton.setAttribute("aria-pressed", bypassed ? "true" : "false");
+    bypassButton.textContent = nodeGraphBypassGlyph(bypassed);
+    nodeGraphApplyTooltip(
+      bypassButton,
+      patchNode.id === "output"
+        ? (bypassed ? "module.outputOn" : "module.outputOff")
+        : (bypassed ? "module.include" : "module.bypass"),
+      {},
+      { title: false },
+    );
+  }
+}
+
+function syncNodeGraphModuleParamElement(element, patchNode) {
+  for (const parameter of nodeGraphModuleDefinitions[patchNode.type]?.parameters || []) {
+    const input = element.querySelector(`input[data-param="${CSS.escape(parameter.key)}"]`);
+    if (!input) {
+      continue;
+    }
+    setNodeSliderMetadata(
+      input,
+      patchNode.paramMeta?.[parameter.key] ||
+      nodeGraphParameterDefinitionMetadata(parameter),
+    );
+    const value = patchNode.params?.[parameter.key] ??
+      nodeGraphParameterFallback(patchNode.type, parameter.key);
+    if (typeof applyNodeGraphInputUnboundedValue === "function") {
+      applyNodeGraphInputUnboundedValue(input, value);
+    } else {
+      const n = Number(value);
+      if (Number.isFinite(n)) {
+        input.dataset.domainValue = String(n);
+      }
+      input.value = String(value);
+    }
+    syncNodeSliderReadout(input);
+  }
+  if (typeof syncNodeGraphParameterVisualsForNodeElement === "function") {
+    syncNodeGraphParameterVisualsForNodeElement(element);
+  } else {
+    for (const visual of element.querySelectorAll("[data-parameter-visual]")) {
+      visual.syncFromParameters?.();
+    }
+  }
+  if (typeof syncNodeGraphModulePortLabels === "function") {
+    syncNodeGraphModulePortLabels(element, patchNode);
+  }
+  if (nodeGraphModuleDefinitions[patchNode.type]?.layout === "textBox") {
+    syncNodeGraphTextBoxElement(element, patchNode);
+  } else if (nodeGraphModuleDefinitions[patchNode.type]?.layout === "graph") {
+    syncNodeGraphGraphElement(element, patchNode);
+  } else if (
+    patchNode.type === "knob"
+    && typeof renderNodeGraphKnobFace === "function"
+  ) {
+    renderNodeGraphKnobFace(patchNode.id);
+  }
+}
+
+function applyNodeGraphModuleElementFromPatch(patchNode, options = {}) {
+  const container = document.getElementById("nodeGraphNodes");
+  if (!container || !patchNode) {
+    return null;
+  }
+  let element = nodeGraphNodeElement(patchNode.id);
+  const portSignature = nodeGraphModulePortSignature(patchNode);
+  const structuralUiSignature = nodeGraphModuleStructuralUiSignature(patchNode);
+  if (
+    element &&
+    (
+      element.dataset.nodeType !== patchNode.type ||
+      element.dataset.portSignature !== portSignature ||
+      element.dataset.structuralUiSignature !== structuralUiSignature
+    )
+  ) {
+    element.remove();
+    element = null;
+  }
+  if (!element) {
+    element = createNodeGraphModuleElement(patchNode.type, patchNode.id);
+    container.append(element);
+    if (typeof nodeGraphModuleFrameObserve === "function") {
+      nodeGraphModuleFrameObserve(element);
+    }
+  }
+  syncNodeGraphModuleChromeElement(element, patchNode);
+  if (options.paramSync !== false) {
+    syncNodeGraphModuleParamElement(element, patchNode);
+  } else if (nodeGraphModuleDefinitions[patchNode.type]?.layout === "textBox") {
+    syncNodeGraphTextBoxElement(element, patchNode);
+  }
+  return element;
+}
+
+function applyNodeGraphChromeNodesToDom(nodeIds = []) {
+  const ids = Array.isArray(nodeIds) && nodeIds.length
+    ? nodeIds
+    : (nodeGraphMvp.patch.nodes || []).map((node) => node.id);
+  const elements = [];
+  for (const id of ids) {
+    const patchNode = nodeGraphPatchNode(id);
+    if (!patchNode) {
+      continue;
+    }
+    const element = applyNodeGraphModuleElementFromPatch(patchNode, { paramSync: false });
+    if (element) {
+      elements.push(element);
+    }
+  }
+  if (typeof updateNodeGraphGridHeatmap === "function") {
+    updateNodeGraphGridHeatmap();
+  }
+  if (typeof scheduleNodeGraphWireRedrawAfterLayout === "function") {
+    scheduleNodeGraphWireRedrawAfterLayout();
+  }
+  if (typeof scheduleNodeGraphModuleFramesUpdate === "function") {
+    for (const element of elements) {
+      scheduleNodeGraphModuleFramesUpdate({ force: true, nodeElement: element });
+    }
+  }
+  return elements;
+}
+
 function applyNodeGraphPatchToDom() {
   const container = document.getElementById("nodeGraphNodes");
   if (!container) {
@@ -807,162 +1067,7 @@ function applyNodeGraphPatchToDom() {
   }
 
   for (const patchNode of nodeGraphMvp.patch.nodes) {
-    let element = nodeGraphNodeElement(patchNode.id);
-    const outputPorts = nodeGraphPatchNodeOutputPorts(patchNode).filter(
-      (port) => !(nodeGraphModuleDefinitions[patchNode.type]?.parameters || []).some((parameter) => parameter.key === port),
-    );
-    const portSignature = `${nodeGraphPatchNodeInputPorts(patchNode).join(",")}=>${outputPorts.join(",")}=>${nodeGraphModuleGraphInputs(patchNode.type).join(",")}`;
-    const patchNodeUi = nodeGraphEffectivePatchNodeUi(patchNode.ui, patchNode.type);
-    // Headerless LayoutB mounts/unmounts the title bar with titleHidden — rebuild
-    // when that changes (scope-hidden already forces a rebuild for LayoutA displays).
-    const structuralUiSignature = [
-      patchNodeUi.oscilloscopeHidden ? "scope-hidden" : "scope-visible",
-      patchNodeUi.titleHidden ? "title-hidden" : "title-visible",
-    ].join("|");
-    if (
-      element &&
-      (
-        element.dataset.nodeType !== patchNode.type ||
-        element.dataset.portSignature !== portSignature ||
-        element.dataset.structuralUiSignature !== structuralUiSignature
-      )
-    ) {
-      element.remove();
-      element = null;
-    }
-    if (!element) {
-      element = createNodeGraphModuleElement(patchNode.type, patchNode.id);
-      container.append(element);
-    }
-    element.style.setProperty("--node-grid-width-units", String(nodeGraphPatchNodeGridWidthUnits(patchNode)));
-    element.style.setProperty("--node-grid-height-units", String(nodeGraphPatchNodeGridHeightUnits(patchNode)));
-    if (typeof nodeGraphApplyModuleShellHeightCssVars === "function") {
-      nodeGraphApplyModuleShellHeightCssVars(element, patchNode);
-    } else {
-      element.style.setProperty("--node-module-display-height-units", String(nodeGraphPatchNodeDisplayHeightUnits(patchNode)));
-    }
-    element.style.setProperty("--node-module-interface-controls-height-units", String(nodeGraphPatchNodeInterfaceControlsHeightUnits(patchNode)));
-    const point = nodeGraphGridToPixel(patchNode);
-    positionNodeGraphNode(element, point, { clamp: false, snap: false });
-    element.hidden = !nodeGraphModuleShouldBeVisible(patchNode);
-    element.dataset.gridX = String(patchNode.gx);
-    element.dataset.gridY = String(patchNode.gy);
-    element.dataset.structuralUiSignature = structuralUiSignature;
-    const titleText = element.querySelector(".node-header-title");
-    if (titleText) {
-      // Chrome bar shows alias when set, else type/plugin name.
-      const chromeTitle = typeof nodeGraphPatchNodeTitle === "function"
-        ? nodeGraphPatchNodeTitle(patchNode)
-        : (typeof nodeGraphModuleChromeTitle === "function"
-          ? nodeGraphModuleChromeTitle(patchNode)
-          : nodeGraphDefaultNodeTitle(patchNode.type, patchNode.id));
-      if (titleText.tagName === "INPUT") {
-        if (document.activeElement !== titleText) {
-          titleText.value = chromeTitle;
-        }
-      } else {
-        titleText.textContent = chromeTitle;
-      }
-    }
-    element.classList.toggle("buttons-hidden", patchNodeUi.buttonsHidden);
-    element.classList.toggle("buttons-forced-visible", Boolean(patchNodeUi.buttonsForceShow));
-    element.classList.toggle("io-hidden", patchNodeUi.ioHidden);
-    element.classList.toggle(
-      "unused-hidden",
-      Boolean(normalizeNodeGraphPatchNodeUi(patchNode.ui, patchNode.type).hideUnused),
-    );
-    element.classList.toggle("interface-controls-hidden", patchNodeUi.interfaceControlsHidden);
-    element.classList.toggle("interface-controls-forced-visible", Boolean(patchNodeUi.interfaceControlsForceShow));
-    element.classList.toggle("movement-locked", patchNodeUi.movementLocked);
-    element.classList.toggle("oscilloscope-hidden", patchNodeUi.oscilloscopeHidden);
-    element.classList.toggle("oscilloscope-forced-visible", Boolean(patchNodeUi.oscilloscopeForceShow));
-    element.classList.toggle("sliders-hidden", patchNodeUi.slidersHidden);
-    element.classList.toggle("sliders-forced-visible", Boolean(patchNodeUi.slidersForceShow));
-    element.classList.toggle("title-hidden", patchNodeUi.titleHidden);
-    if (typeof syncNodeGraphLayoutBNoParamsClass === "function") {
-      syncNodeGraphLayoutBNoParamsClass(element, patchNode.type, patchNodeUi);
-    }
-    const dragHandle = element.querySelector(".node-drag-handle");
-    if (dragHandle) {
-      dragHandle.textContent = patchNodeUi.movementLocked ? "\uD83D\uDD12" : "\u2725";
-      dragHandle.setAttribute(
-        "aria-label",
-        patchNodeUi.movementLocked
-          ? `Unlock ${nodeGraphNodeDisplayName(patchNode.id)} module movement`
-          : `Move ${nodeGraphNodeDisplayName(patchNode.id)} module`,
-      );
-      dragHandle.classList.toggle("node-drag-handle-locked", patchNodeUi.movementLocked);
-    }
-    const displayButton = element.querySelector(".node-display-settings-button");
-    if (displayButton) {
-      displayButton.setAttribute("aria-pressed", patchNodeUi.oscilloscopeHidden ? "false" : "true");
-    }
-    const metaparameterButton = element.querySelector(".node-metaparameter-button");
-    if (metaparameterButton) {
-      metaparameterButton.setAttribute("aria-pressed", patchNodeUi.slidersHidden ? "false" : "true");
-    }
-    const bypassed = nodeGraphNodeDisplaysBypassed(patchNode.id);
-    element.classList.toggle("bypassed", bypassed);
-    const bypassButton = element.querySelector(".node-bypass-button");
-    if (bypassButton) {
-      bypassButton.setAttribute("aria-pressed", bypassed ? "true" : "false");
-      bypassButton.textContent = nodeGraphBypassGlyph(bypassed);
-      nodeGraphApplyTooltip(
-        bypassButton,
-        patchNode.id === "output"
-          ? (bypassed ? "module.outputOn" : "module.outputOff")
-          : (bypassed ? "module.include" : "module.bypass"),
-        {},
-        { title: false },
-      );
-    }
-    for (const parameter of nodeGraphModuleDefinitions[patchNode.type]?.parameters || []) {
-      const input = element.querySelector(`input[data-param="${CSS.escape(parameter.key)}"]`);
-      if (!input) {
-        continue;
-      }
-      setNodeSliderMetadata(
-        input,
-        patchNode.paramMeta?.[parameter.key] ||
-        nodeGraphParameterDefinitionMetadata(parameter),
-      );
-      const value = patchNode.params?.[parameter.key] ??
-        nodeGraphParameterFallback(patchNode.type, parameter.key);
-      // Keep domainValue + thumb in lockstep with the patch. Readouts prefer
-      // dataset.domainValue; if only input.value is set, the displayed value
-      // can stay stuck at factory default until the user jiggles the slider.
-      if (typeof applyNodeGraphInputUnboundedValue === "function") {
-        applyNodeGraphInputUnboundedValue(input, value);
-      } else {
-        const n = Number(value);
-        if (Number.isFinite(n)) {
-          input.dataset.domainValue = String(n);
-        }
-        input.value = String(value);
-      }
-      syncNodeSliderReadout(input);
-    }
-    if (typeof syncNodeGraphParameterVisualsForNodeElement === "function") {
-      syncNodeGraphParameterVisualsForNodeElement(element);
-    } else {
-      for (const visual of element.querySelectorAll("[data-parameter-visual]")) {
-        visual.syncFromParameters?.();
-      }
-    }
-    if (typeof syncNodeGraphModulePortLabels === "function") {
-      syncNodeGraphModulePortLabels(element, patchNode);
-    }
-    if (nodeGraphModuleDefinitions[patchNode.type]?.layout === "textBox") {
-      syncNodeGraphTextBoxElement(element, patchNode);
-    } else if (nodeGraphModuleDefinitions[patchNode.type]?.layout === "graph") {
-      syncNodeGraphGraphElement(element, patchNode);
-    } else if (
-      patchNode.type === "knob"
-      && typeof renderNodeGraphKnobFace === "function"
-    ) {
-      // Keep face art / frame-hide in sync after patch DOM apply.
-      renderNodeGraphKnobFace(patchNode.id);
-    }
+    applyNodeGraphModuleElementFromPatch(patchNode, { paramSync: true });
   }
   syncNodeGraphInputModuleLiveState();
   if (typeof bindNodeGraphMacroControlModuleEvents === "function") {
@@ -1023,10 +1128,32 @@ function applyNodeGraphLayoutPositionsToDom(patch = nodeGraphMvp.patch) {
   }
 }
 
+let nodeGraphChromeHistoryTimer = 0;
+
+function scheduleNodeGraphChromeHistoryAndAutosave(options = {}) {
+  if (options.record === false && options.autosaveWorkingPatch === false) {
+    return;
+  }
+  if (nodeGraphChromeHistoryTimer) {
+    window.clearTimeout(nodeGraphChromeHistoryTimer);
+  }
+  nodeGraphChromeHistoryTimer = window.setTimeout(() => {
+    nodeGraphChromeHistoryTimer = 0;
+    if (options.record !== false && typeof recordNodeGraphHistory === "function") {
+      recordNodeGraphHistory();
+    }
+    if (options.autosaveWorkingPatch !== false && typeof saveNodeGraphWorkingPatchToUserSettings === "function") {
+      saveNodeGraphWorkingPatchToUserSettings();
+    }
+  }, 160);
+}
+
 function commitNodeGraphPatch(patch, options = {}) {
   const isWireEdit = Boolean(options.wireEdit);
   // layoutEdit: module move / snap only — skip DOM rebuild + audio plan + render pending.
   const isLayoutEdit = Boolean(options.layoutEdit);
+  // chromeEdit: size / show-hide — touch only named modules, defer history/serialize.
+  const isChromeEdit = Boolean(options.chromeEdit);
   // softDom: cosmetic module face / label-only edits — keep existing module DOM
   // (avoids image reload flash on Knob readout/rotate toggles).
   const isSoftDom = Boolean(options.softDom || options.faceEdit);
@@ -1050,6 +1177,8 @@ function commitNodeGraphPatch(patch, options = {}) {
   syncNodeGraphRuntimeFromPatch();
   if (isLayoutEdit) {
     applyNodeGraphLayoutPositionsToDom(nodeGraphMvp.patch);
+  } else if (isChromeEdit) {
+    applyNodeGraphChromeNodesToDom(options.chromeNodeIds);
   } else if (!isWireEdit && !isSoftDom) {
     applyNodeGraphPatchToDom();
     if (typeof applyNodeGraphZoom === "function") {
@@ -1058,8 +1187,8 @@ function commitNodeGraphPatch(patch, options = {}) {
     syncNodeGraphMonitorIndicators();
     pruneNodeGraphSelectionAfterPatch();
   }
-  // Positions / face cosmetics do not change offline render output.
-  if (options.markPending !== false && !isLayoutEdit && !isSoftDom) {
+  // Positions / face cosmetics / chrome size do not change offline render output.
+  if (options.markPending !== false && !isLayoutEdit && !isSoftDom && !isChromeEdit) {
     markNodeGraphRenderPending();
   }
   if (typeof scheduleNodeGraphWireRedrawAfterLayout === "function" && !isSoftDom) {
@@ -1070,13 +1199,28 @@ function commitNodeGraphPatch(patch, options = {}) {
   } else if (options.autosaveWorkingPatch !== false) {
     nodeGraphMvp.patchDirtyState = "edited";
   }
-  // Audio graph topology/params are unchanged by gx/gy or face cosmetics.
-  // Ghost module placement can skip live plan until drop (see skipLivePlan).
-  if (!isLayoutEdit && !isSoftDom && options.skipLivePlan !== true) {
+  // Audio graph topology/params are unchanged by gx/gy, size, or most chrome.
+  // Hide-display may defer a plan sync so the click stays responsive.
+  if (isChromeEdit && options.deferLivePlan) {
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        if (typeof scheduleNodeGraphLivePlanSync === "function") {
+          scheduleNodeGraphLivePlanSync();
+        }
+      }, 0);
+    });
+  } else if (!isLayoutEdit && !isSoftDom && !isChromeEdit && options.skipLivePlan !== true) {
     scheduleNodeGraphLivePlanSync();
   }
 
   const runDeferredUiPanels = () => {
+    if (isChromeEdit) {
+      if (typeof syncNodeGraphCurrentSavedPatchHeader === "function") {
+        syncNodeGraphCurrentSavedPatchHeader();
+      }
+      scheduleNodeGraphChromeHistoryAndAutosave(options);
+      return;
+    }
     if (isSoftDom) {
       // Face-only: skip palette/connection/scope rewrites (those flash modules).
       if (typeof syncNodeGraphCurrentSavedPatchHeader === "function") {
@@ -1116,9 +1260,9 @@ function commitNodeGraphPatch(patch, options = {}) {
     }
   };
 
-  // Wire/layout edits and ghost placement (deferUiPanels) keep the UI responsive:
-  // history/autosave/palette work runs after the current pointer/frame.
-  if (isWireEdit || isLayoutEdit || options.deferUiPanels) {
+  // Wire/layout/chrome edits keep the UI responsive: history/autosave/palette
+  // work runs after the current pointer/frame.
+  if (isWireEdit || isLayoutEdit || isChromeEdit || options.deferUiPanels) {
     window.requestAnimationFrame(() => {
       window.setTimeout(runDeferredUiPanels, 0);
     });

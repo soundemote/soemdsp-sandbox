@@ -19,7 +19,14 @@ function normalizeNodeGraphMetadataSmoothingSeconds(value) {
     return null;
   }
   const number = Number(value);
-  return Number.isFinite(number) && number >= 0 ? Math.round(number) : 0;
+  if (!Number.isFinite(number) || number < 0) {
+    return 0;
+  }
+  // (0, 1) = seconds (e.g. 0.0333). ≥ 1 = sample count. Matches the worklet.
+  if (number > 0 && number < 1) {
+    return number;
+  }
+  return Math.round(number);
 }
 
 // global          -- always use the global smoothing time (default: matches
@@ -638,5 +645,34 @@ function normalizeNodeGraphPatchParameterMetadata(type, key, metadata = {}) {
     normalized.smoothingMode = "off";
     normalized.smoothingSeconds = 0;
   }
+  // Input / Output volume: always 0.0333s linear. Saved paramMeta cannot change it.
+  if (nodeGraphIsHardcodedIoVolumeParam(type, key)) {
+    nodeGraphApplyHardcodedIoVolumeSmoothing(normalized);
+  }
+  return normalized;
+}
+
+const NODE_GRAPH_IO_VOLUME_SMOOTHING_SECONDS = 0.0333;
+
+function nodeGraphIsHardcodedIoVolumeParam(type, key) {
+  const t = String(type || "");
+  const k = String(key || "");
+  if ((t === "output" || t === "pluginOutput") && k === "volume") {
+    return true;
+  }
+  if ((t === "audioInput" || t === "pluginInput") && (k === "amplitude" || k === "level")) {
+    return true;
+  }
+  return false;
+}
+
+function nodeGraphApplyHardcodedIoVolumeSmoothing(normalized) {
+  if (!normalized || typeof normalized !== "object") {
+    return normalized;
+  }
+  normalized.smoothingType = "linear";
+  normalized.linearSmoothing = true;
+  normalized.smoothingMode = "internal";
+  normalized.smoothingSeconds = NODE_GRAPH_IO_VOLUME_SMOOTHING_SECONDS;
   return normalized;
 }

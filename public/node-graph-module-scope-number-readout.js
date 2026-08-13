@@ -116,7 +116,7 @@ function paintNodeGraphValueFacesNow(pixelRatio = window.devicePixelRatio || 1) 
       || type === "numberReadout"
       || type === "valueLcd"
       || type === "helmholtzPitch";
-    const isLedLamp = renderer === "ledLamp" || type === "led";
+    const isLedLamp = renderer === "ledLamp";
     if (!isNumberFace && !isLedLamp) {
       continue;
     }

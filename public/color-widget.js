@@ -303,10 +303,10 @@ const css = `
     /* Padding box = same space absolute thumb uses (ignore border). */
     background-origin: padding-box !important;
     background-clip: padding-box !important;
-    /* Inset rainbow by half-dot so ends align with thumb center range. */
-    /* Full-width spectrum — inset paint left black end-caps on the track. */
-    background-size: 100% 100% !important;
-    background-position: 0 0 !important;
+    /* Inset rainbow by half-dot so t=0/1 = hue edges = thumb center.
+     * Caps stay transparent (no black frame) — host/popover shows through. */
+    background-size: calc(100% - 2 * var(--scw-hue-pad, ${HUE_TRACK_PAD_CSS})) 100% !important;
+    background-position: var(--scw-hue-pad, ${HUE_TRACK_PAD_CSS}) 0 !important;
     /* Track drag shifts spectrum origin (reference hue at left). */
     cursor: grab;
     overflow: hidden;
@@ -629,6 +629,8 @@ export class SoundColorWidget {
         // Pure hue stop (s=100, l=50) — Bright does grey→hue→white outside the widget.
         ? { h: rawColor.h, s: 100, l: 50, a: 1 }
         : rawColor;
+    // Ctrl+click snaps hue here without moving the drag-dot.
+    this.defaultHue = wrapHueDeg(this.color.h);
     // Spectrum left-edge origin (degrees). Track drag rotates this reference.
     this.hueOrigin = 0;
     // Sample position along the current spectrum 0…1 (thumb; no wrap — clamps).
@@ -976,8 +978,10 @@ export class SoundColorWidget {
     window.getSelection?.()?.removeAllRanges();
     const resetClick = (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey;
     if (resetClick && (part === "hue" || part === "hue-thumb") && this.channels !== "bw") {
-      this.hueOrigin = 0;
-      this.hueSampleT = 0;
+      // Reset hue to default; keep the drag-dot where it is. Slide the
+      // spectrum so the current sample t lands on defaultH.
+      const t = hueSampleTClamp(this.hueSampleT);
+      this.hueOrigin = wrapHueDeg(this.defaultHue - t * 360);
       this.applyHueFromSampleAndOrigin(true);
       return;
     }

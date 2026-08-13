@@ -11,15 +11,17 @@ NodeLiveAudioProcessor.prototype.createStereoInertialFilterState = function crea
 NodeLiveAudioProcessor.prototype.inertialFilterSample = function inertialFilterSample(
   state,
   input,
-  attack,
-  release,
+  attackHz,
+  releaseHz,
+  rate = sampleRate,
 ) {
   return this.safeFilterNumber(
-    nodeGraphInertialFilterSample(
+    nodeGraphInertialFilterSampleHz(
       state,
       this.safeFilterNumber(input, state),
-      attack,
-      release,
+      attackHz,
+      releaseHz,
+      rate,
     ),
     state,
   );

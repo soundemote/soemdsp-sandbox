@@ -41,9 +41,13 @@ function syncNodeGraphSettingsView() {
   setNodeGraphSettingsField("patchBankValue", info.bank);
   setNodeGraphSettingsField("patchProgramValue", info.program);
   setNodeGraphSettingsField("patchBankNameValue", info.bankName);
+  setNodeGraphSettingsField("patchCategoryValue", info.category);
   setNodeGraphSettingsField("patchAuthorValue", info.author);
   setNodeGraphSettingsField("patchTagsValue", info.tags);
   setNodeGraphSettingsField("patchDescriptionValue", info.description);
+  if (typeof applyNodeGraphPatchFaceDisplay === "function") {
+    applyNodeGraphPatchFaceDisplay();
+  }
   // Grid unit px is edited in UIDEV.
   if (typeof syncNodeUiDevPatchGridFields === "function") {
     syncNodeUiDevPatchGridFields();
@@ -55,6 +59,7 @@ function readNodeGraphSettingsView() {
     author: document.getElementById("patchAuthorValue")?.value,
     bank: document.getElementById("patchBankValue")?.value,
     bankName: document.getElementById("patchBankNameValue")?.value,
+    category: document.getElementById("patchCategoryValue")?.value,
     description: document.getElementById("patchDescriptionValue")?.value,
     name: document.getElementById("patchNameValue")?.value,
     program: document.getElementById("patchProgramValue")?.value,
@@ -135,7 +140,7 @@ function applyNodeUiDevPatchGridFromFields(options = {}) {
 }
 
 function handleNodeGraphSettingsInput(event) {
-  if (event?.currentTarget?.hasAttribute?.("data-patch-info-field")
+  if (event?.target?.closest?.("[data-patch-info-field]")
     && typeof setNodeGraphCurrentSavedPatch === "function") {
     setNodeGraphCurrentSavedPatch("");
   }
@@ -147,6 +152,7 @@ function handleNodeGraphSettingsInput(event) {
   commitNodeGraphPatch(patch, {
     markPending: false,
     record: false,
+    softDom: true,
     status: "patch settings synced",
   });
   if (typeof drawNodeRenderedVisualOutput === "function") {

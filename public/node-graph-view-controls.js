@@ -218,6 +218,10 @@ function applyNodeGraphPatchVisibilityView() {
   if (!view || typeof view !== "object") {
     return;
   }
+  const prevModuleButtons = nodeGraphMvp.moduleButtonsVisible;
+  const prevModuleScopes = nodeGraphMvp.moduleOscilloscopesVisible;
+  const prevModuleInterface = nodeGraphMvp.moduleInterfaceControlsVisible;
+  const prevModuleSliders = nodeGraphMvp.moduleSlidersVisible;
   if (Object.hasOwn(view, "gridVisible")) nodeGraphMvp.gridVisible = Boolean(view.gridVisible);
   if (Object.hasOwn(view, "gridLightVisible")) nodeGraphMvp.gridLightVisible = view.gridLightVisible !== false;
   if (Object.hasOwn(view, "wireLengthsVisible")) nodeGraphMvp.wireLengthsVisible = view.wireLengthsVisible !== false;
@@ -232,8 +236,16 @@ function applyNodeGraphPatchVisibilityView() {
   if (typeof renderNodeGraphWiresAboveModulesToggle === "function") renderNodeGraphWiresAboveModulesToggle();
   if (typeof renderNodeGraphGridToggle === "function") renderNodeGraphGridToggle();
   if (typeof renderNodeGraphGridLightToggle === "function") renderNodeGraphGridLightToggle();
-  if (typeof renderNodeGraphModuleVisibilityToggles === "function") renderNodeGraphModuleVisibilityToggles();
-  if (typeof renderNodeGraphSliderVisibilityToggles === "function") renderNodeGraphSliderVisibilityToggles();
+  const moduleVisChanged = prevModuleButtons !== nodeGraphMvp.moduleButtonsVisible
+    || prevModuleScopes !== nodeGraphMvp.moduleOscilloscopesVisible
+    || prevModuleInterface !== nodeGraphMvp.moduleInterfaceControlsVisible
+    || prevModuleSliders !== nodeGraphMvp.moduleSlidersVisible;
+  if (typeof renderNodeGraphModuleVisibilityToggles === "function") {
+    renderNodeGraphModuleVisibilityToggles(moduleVisChanged ? {} : { skipModuleSync: true });
+  }
+  if (typeof renderNodeGraphSliderVisibilityToggles === "function") {
+    renderNodeGraphSliderVisibilityToggles();
+  }
 }
 
 function toggleNodeGraphWireLengthsVisibility() {
@@ -316,7 +328,7 @@ function syncNodeGraphVisibleModuleGridHeights() {
   }
 }
 
-function renderNodeGraphModuleVisibilityToggles() {
+function renderNodeGraphModuleVisibilityToggles(options = {}) {
   const workspace = document.getElementById("nodeGraphWorkspace");
   const buttonsButton = document.getElementById("nodeModuleButtonsToggleButton");
   const scopesButton = document.getElementById("nodeOscilloscopeToggleButton");
@@ -330,6 +342,25 @@ function renderNodeGraphModuleVisibilityToggles() {
   workspace?.classList.toggle("module-oscilloscopes-hidden", !scopesVisible);
   workspace?.classList.toggle("module-interface-controls-hidden", !interfaceControlsVisible);
   workspace?.classList.toggle("module-sliders-hidden", !slidersVisible);
+  if (options.skipModuleSync) {
+    setNodeGraphVisibilityToggleLabel(buttonsButton, buttonsVisible, "Module Buttons", {
+      onMark: nodeGraphVisibilityOnMarks.moduleButtons,
+    });
+    setNodeGraphVisibilityToggleLabel(scopesButton, scopesVisible, "Displays", {
+      onMark: nodeGraphVisibilityOnMarks.displays,
+    });
+    setNodeGraphVisibilityToggleLabel(interfaceControlsButton, interfaceControlsVisible, "Control Surfaces", {
+      onMark: nodeGraphVisibilityOnMarks.controlSurfaces,
+    });
+    setNodeGraphVisibilityToggleLabel(slidersButton, slidersVisible, "Sliders", {
+      onMark: nodeGraphVisibilityOnMarks.sliders,
+    });
+    renderNodeGraphVisibilityMenuButton();
+    if (typeof syncNodeUserUiSettingsViewControls === "function") {
+      syncNodeUserUiSettingsViewControls();
+    }
+    return;
+  }
   syncNodeGraphVisibleModuleGridHeights();
   // Refresh per-node visibility classes so unhiding works immediately
   // without needing a full patch commit.
@@ -575,16 +606,13 @@ function setNodeGraphModuleButtonsVisibility(visible, options = {}) {
 }
 
 /**
- * Modular chrome SSOT (two independent toggles)
- * ─────────────────────────────────────────────
- *  💻 / V  — hide top toolbar + bottom transport (bigger canvas; always same
- *            modular workspace, just bars off). State: appChromeBarsVisible.
- *  📱 / M  — condensed modular frame with back + resize drag widget.
- *            State: modular-only-view class / modularWindowedActive.
+ * Modular chrome SSOT
+ * ───────────────────
+ *  💻 / V  — computer view: infinite canvas, no crop, no resize widget.
+ *  📱 / V  — phone view: condensed frame + drag-resize widget.
+ *  H       — hide/show top toolbar + bottom transport (appChromeBarsVisible).
  *
- * These stack: V then M → condensed frame with bars still hidden; V again
- * restores bars while M stays on; M again leaves condensed mode.
- * Legacy name "modular-only" = windowed (M on).
+ * Laptop and phone are mutually exclusive canvas modes.
  */
 
 function nodeGraphIsModularWindowedView() {
@@ -637,8 +665,7 @@ function toggleNodeGraphModularOnlyControlsVisible() {
 }
 
 /**
- * 💻 / V — toggle top + bottom app bars (not a separate canvas mode).
- * Bars hidden = more workspace (the "infinite" look on normal modular).
+ * H — toggle top + bottom app bars.
  */
 function setNodeGraphAppChromeBarsVisible(visible, options = {}) {
   nodeGraphMvp.appChromeBarsVisible = visible !== false;
@@ -658,8 +685,8 @@ function setNodeGraphAppChromeBarsVisible(visible, options = {}) {
   if (options.help !== false && typeof setNodeInteractionHelp === "function") {
     setNodeInteractionHelp(
       nodeGraphMvp.appChromeBarsVisible === false
-        ? "Top and bottom bars hidden (V)."
-        : "Top and bottom bars shown (V).",
+        ? "Top and bottom bars hidden (H)."
+        : "Top and bottom bars shown (H).",
     );
   }
 }
@@ -668,12 +695,12 @@ function toggleNodeGraphAppChromeBarsVisibility() {
   setNodeGraphAppChromeBarsVisible(nodeGraphMvp.appChromeBarsVisible === false);
 }
 
-/** 💻 / V */
+/** 💻 — computer / infinite canvas (legacy name). */
 function toggleNodeGraphModularInfiniteView() {
-  toggleNodeGraphAppChromeBarsVisibility();
+  setNodeGraphModularWindowedActive(false);
 }
 
-/** 📱 / M — condensed modular frame with resize + back. Independent of V. */
+/** 📱 — phone / condensed frame with resize + back. */
 function setNodeGraphModularWindowedActive(active, options = {}) {
   const on = Boolean(active);
   if (on) {
@@ -690,8 +717,8 @@ function setNodeGraphModularWindowedActive(active, options = {}) {
   if (options.help !== false && typeof setNodeInteractionHelp === "function") {
     setNodeInteractionHelp(
       on
-        ? "Windowed modular view (M / 📱) — drag the corner to resize."
-        : "Windowed modular view off.",
+        ? "Phone view — condensed frame, drag the corner to resize."
+        : "Computer view — infinite canvas.",
     );
   }
 }
@@ -711,18 +738,16 @@ function toggleNodeGraphViewButtonsVisibility() {
 }
 
 function renderNodeGraphModularViewModeButtons() {
-  const barsHidden = nodeGraphMvp.appChromeBarsVisible === false;
   const windowed = nodeGraphIsModularWindowedView();
   const vBtn = document.getElementById("nodeModularInfiniteViewButton");
   const mBtn = document.getElementById("nodeModularWindowedViewButton");
-  // V pressed (active) when bars are hidden.
-  vBtn?.classList.toggle("active", barsHidden);
-  vBtn?.setAttribute("aria-pressed", String(barsHidden));
+  vBtn?.classList.toggle("active", !windowed);
+  vBtn?.setAttribute("aria-pressed", String(!windowed));
   mBtn?.classList.toggle("active", windowed);
   mBtn?.setAttribute("aria-pressed", String(windowed));
   const sceneV = document.getElementById("nodeSceneToggleModularInfiniteView");
-  sceneV?.classList.toggle("active", barsHidden);
-  sceneV?.setAttribute("aria-pressed", String(barsHidden));
+  sceneV?.classList.toggle("active", !windowed);
+  sceneV?.setAttribute("aria-pressed", String(!windowed));
   const sceneM = document.getElementById("nodeSceneToggleModularWindowedView")
     || document.getElementById("nodeSceneToggleModularOnlyView");
   sceneM?.classList.toggle("active", windowed);
@@ -3712,18 +3737,28 @@ function setNodeGraphViewMode(mode) {
 
   const wiringPanel = document.getElementById("nodeWiringPanel");
   wiringPanel?.classList.toggle("modular-only-view", modularWindowed);
-  // Windowed always shows back + resize; never use controls-hidden for V.
-  wiringPanel?.classList.remove("modular-only-controls-hidden");
+  // Phone view owns the crop + resize widget. Computer view must not keep them.
+  wiringPanel?.classList.toggle("modular-only-controls-hidden", !modularWindowed);
+  const resizeHandle = document.getElementById("nodeGraphResizeHandle");
+  if (resizeHandle) {
+    resizeHandle.hidden = !modularWindowed;
+  }
   if (modularWindowed) {
     nodeGraphMvp.modularOnlyControlsVisible = true;
     if (nodeGraphMvp.patch) {
       nodeGraphMvp.patch.modularOnlyControlsVisible = true;
+    }
+  } else if (typeof applyNodeGraphWorkspaceSizeCss === "function") {
+    const workspace = document.getElementById("nodeGraphWorkspace");
+    if (workspace) {
+      applyNodeGraphWorkspaceSizeCss(workspace, null, null);
     }
   }
 
   document.getElementById("nodeGraphWorkspace").hidden = !workspaceMode;
   const backBtn = document.getElementById("nodeModularOnlyBackButton");
   if (backBtn) {
+    backBtn.hidden = !modularWindowed;
     backBtn.textContent = "←";
     backBtn.setAttribute("aria-label", "Return to full modular view");
   }

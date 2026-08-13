@@ -12,7 +12,7 @@ function nodeGraphModeResonatorLoadMainWasm() {
     nodeGraphModeResonatorMainWasm.failed = true;
     return;
   }
-  nodeGraphModeResonatorMainWasm.promise = fetch("/native_modules/mode_resonator/mode_resonator.wasm")
+  nodeGraphModeResonatorMainWasm.promise = fetch("/native_modules/mode_resonator/mode_resonator.wasm?v=resonator-clip-1")
     .then((response) => {
       if (!response.ok) throw new Error(`mode_resonator wasm HTTP ${response.status}`);
       return response.arrayBuffer();

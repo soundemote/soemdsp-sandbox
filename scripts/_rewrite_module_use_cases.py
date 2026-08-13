@@ -165,7 +165,7 @@ USE_CASES: dict[str, str] = {
   "pulseExplosion": "On trigger, spray many micro-pulses over time—glitch rain and density hits.",
   "tb303Filter": "303-style acid ladder character for squelchy basses and leads.",
   "slewLimiter": "Hard up/down rate limit—linear ramps to steps and CV glides.",
-  "inertialFilter": "Exponential attack/release approach—smooth catch-up without hard slew corners.",
+  "inertialFilter": "Exponential attack/release approach in Hz—smooth catch-up without hard slew corners.",
   "delayEffect": "Modulated feedback delay for echoes, slap, and diffuse trails.",
   "pingPongDelay": "Stereo bouncing delay with tempo tools and independent L/R motion.",
   "wallDelay": "Placeholder geometric room/wall delay from superellipsoid rays.",

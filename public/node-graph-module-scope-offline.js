@@ -458,7 +458,7 @@ function nodeGraphTraceDisplayRenderPointBudget() {
 // nodeGraphGlobalTraceSettings → node-graph-module-scope-normalize.js
 // nodeGraphTraceDisplaySettingsEditingGlobal → node-graph-module-scope-normalize.js
 // nodeGraphTraceDisplaySettingsEditingTraceDefaults → node-graph-module-scope-normalize.js
-const nodeGraphDisplayModeRenderers = Object.freeze(["trace", "clock", "dot", "value", "lineBurn", "hypersawBurn", "oscilloscopeBankBurn", "videoscopeBurn", "spectrogramBurn", "transportBpm", "scope2d", "scope2dTrace", "phosphorLight", "numberReadout", "xyPad", "customDisplay", "spectrum", "ledLamp", "selfPaintFace", "matrixFace", "matrixWaterfallFace", "matrixDisplayFace", "knobFace", "pluginSliderFace", "toggleButtonFace", "momentaryButtonFace", "rgbShapeFace", "rgbPictureFace", "rgbFractalFace", "evolveFieldFace", "fbmFieldFace", "speedColorInertiaFace", "macroControlsFace"]);
+const nodeGraphDisplayModeRenderers = Object.freeze(["trace", "clock", "dot", "value", "lineBurn", "hypersawBurn", "oscilloscopeBankBurn", "videoscopeBurn", "spectrogramBurn", "transportBpm", "scope2d", "scope2dTrace", "phosphorLight", "numberReadout", "xyPad", "customDisplay", "spectrum", "ledLamp", "selfPaintFace", "matrixFace", "matrixWaterfallFace", "matrixDisplayFace", "knobFace", "pluginSliderFace", "toggleButtonFace", "momentaryButtonFace", "rgbShapeFace", "rgbPictureFace", "rgbFractalFace", "evolveFieldFace", "fbmFieldFace", "speedColorInertiaFace", "macroControlsFace", "patchFace"]);
 const nodeGraphDisplayModeSignalKinds = Object.freeze(["scalar", "xy", "buffer"]);
 
 // nodeGraphDisplayModeSettingsSchemaForRenderer → node-graph-module-scope-display-mode.js
@@ -519,7 +519,7 @@ function nodeGraphModuleDisplayTypeForSlot(slot) {
 }
 
 function nodeGraphModuleScopeSlotUsesWiredInputs(slot) {
-  return ["traceDisplay", "traceDisplayStereo", "dotOscilloscope", "valueOscilloscope", "lineBurnOscilloscope", "scope2d", "scope2dTrace", "phosphorLight", "visualOscilloscope", "numberReadout", "valueLcd"].includes(slot?.type);
+  return ["traceDisplay", "traceDisplayStereo", "dotOscilloscope", "valueOscilloscope", "lineBurnOscilloscope", "scope2d", "scope2dTrace", "phosphorLight", "visualOscilloscope", "numberReadout", "valueLcd", "led"].includes(slot?.type);
 }
 
 function nodeGraphModuleDisplaySourceForSlot(slot) {

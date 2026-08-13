@@ -83,6 +83,29 @@ function showNodeGraphModule(node, point = null, options = {}) {
     return "";
   }
 
+  if (typeof nodeGraphModuleTypeIsUniqueInPatch === "function" && nodeGraphModuleTypeIsUniqueInPatch(type)) {
+    const existing = typeof nodeGraphFindExistingModuleOfType === "function"
+      ? nodeGraphFindExistingModuleOfType(type)
+      : nodeGraphMvp.patch?.nodes?.find((candidate) => candidate.type === type);
+    if (existing) {
+      const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
+      const target = patch.nodes.find((candidate) => candidate.id === existing.id);
+      const gridPoint = point ? nodeGraphPixelToGrid(point) : defaultNodeGraphModuleGridPoint(type);
+      if (target) {
+        target.gx = gridPoint.gx;
+        target.gy = gridPoint.gy;
+      }
+      commitNodeGraphPatch(patch, {
+        status: options.status || "module moved",
+        record: options.record,
+        autosaveWorkingPatch: options.autosaveWorkingPatch,
+        skipLivePlan: options.skipLivePlan,
+        deferUiPanels: options.deferUiPanels,
+      });
+      return existing.id;
+    }
+  }
+
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   const counts = nextNodeGraphTypeCounts(patch.nodes);
   counts[type] = (counts[type] || 0) + 1;
@@ -204,6 +227,24 @@ function cancelNodeGraphModulePlacement(status = "module placement cancelled") {
     nodeGraphMvp.modulePlacement = null;
     return false;
   }
+  if (placement.teleport) {
+    const element = nodeGraphNodeElement(placement.nodeId);
+    element?.classList.remove("placing", "dragging");
+    const node = typeof nodeGraphPatchNode === "function"
+      ? nodeGraphPatchNode(placement.nodeId)
+      : nodeGraphMvp.patch?.nodes?.find((candidate) => candidate.id === placement.nodeId);
+    if (node && element && typeof positionNodeGraphNode === "function") {
+      const restore = typeof nodeGraphGridToPixel === "function"
+        ? nodeGraphGridToPixel({ gx: node.gx, gy: node.gy })
+        : { x: node.gx, y: node.gy };
+      positionNodeGraphNode(element, restore);
+    }
+    nodeGraphMvp.modulePlacement = null;
+    if (typeof drawNodeGraphWires === "function") {
+      drawNodeGraphWires();
+    }
+    return true;
+  }
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   patch.nodes = patch.nodes.filter((node) => node.id !== placement.nodeId);
   patch.connections = patch.connections.filter((connection) =>
@@ -263,6 +304,26 @@ function beginNodeGraphModulePlacement(type, point = null) {
   }
 
   const cursorPoint = point || nodeGraphGridToPixel(defaultNodeGraphModuleGridPoint(type));
+  const existingUnique = typeof nodeGraphModuleTypeIsUniqueInPatch === "function"
+    && nodeGraphModuleTypeIsUniqueInPatch(type)
+    && typeof nodeGraphFindExistingModuleOfType === "function"
+    ? nodeGraphFindExistingModuleOfType(type)
+    : null;
+  if (existingUnique) {
+    const element = nodeGraphNodeElement(existingUnique.id);
+    nodeGraphMvp.modulePlacement = {
+      cursorPoint,
+      nodeId: existingUnique.id,
+      point: cursorPoint,
+      pointerId: null,
+      teleport: true,
+      type,
+    };
+    element?.classList.add("placing", "dragging");
+    setNodeGraphNodeSelection([existingUnique.id]);
+    positionNodeGraphPendingModuleAtCursor(cursorPoint);
+    return existingUnique.id;
+  }
   const id = showNodeGraphModule(type, cursorPoint, {
     status: "module ghost: release in modular view",
     record: false,
@@ -591,6 +652,11 @@ function addNodeGraphModuleGroupFromBrowser(name) {
     : defaultNodeGraphModuleGridPoint(sourceNodes[0].type);
   const idMap = {};
   for (const sourceNode of sourceNodes) {
+    if (typeof nodeGraphModuleTypeIsUniqueInPatch === "function"
+      && nodeGraphModuleTypeIsUniqueInPatch(sourceNode.type)
+      && patch.nodes.some((node) => node.type === sourceNode.type)) {
+      continue;
+    }
     counts[sourceNode.type] = (counts[sourceNode.type] || 0) + 1;
     const id = `${sourceNode.type}-${counts[sourceNode.type]}`;
     idMap[sourceNode.id] = id;
@@ -638,6 +704,10 @@ function addNodeGraphModuleGroupFromBrowser(name) {
 }
 
 function copyNodeGraphModule(sourceNode) {
+  if (typeof nodeGraphModuleTypeIsUniqueInPatch === "function"
+    && nodeGraphModuleTypeIsUniqueInPatch(sourceNode?.type)) {
+    return;
+  }
   const patch = cloneNodeGraphPatch(nodeGraphMvp.patch);
   const counts = nextNodeGraphTypeCounts(patch.nodes);
   counts[sourceNode.type] = (counts[sourceNode.type] || 0) + 1;
@@ -761,6 +831,85 @@ function applyNodeGraphModuleSettingsSnapshot(targetNode, snapshot) {
  * to the current value. Next "reset to default" / new instances of this
  * snapshot use those values.
  */
+const nodeGraphPatchDefaultsWindowDefaultSize = Object.freeze({
+  width: 280,
+  height: 280,
+  minWidth: 160,
+  minHeight: 160,
+});
+
+function applyNodeGraphPatchDefaultsWindowSize(size = {}, element = null) {
+  const panel = element || document.getElementById("nodePatchDefaultsPanel");
+  if (!panel) {
+    return null;
+  }
+  const normalized = typeof normalizeNodeGraphFloatingWindowSize === "function"
+    ? normalizeNodeGraphFloatingWindowSize(size, nodeGraphPatchDefaultsWindowDefaultSize, { element: panel })
+    : {
+      width: Number(size?.width) || nodeGraphPatchDefaultsWindowDefaultSize.width,
+      height: Number(size?.height) || nodeGraphPatchDefaultsWindowDefaultSize.height,
+    };
+  if (typeof applyNodeGraphFloatingWindowSizeVars === "function") {
+    applyNodeGraphFloatingWindowSizeVars(panel, "--node-patch-defaults", nodeGraphPatchDefaultsWindowDefaultSize, normalized);
+  }
+  panel.style.width = `${normalized.width}px`;
+  panel.style.height = `${normalized.height}px`;
+  if (!nodeGraphMvp.workspaceWindowStates) {
+    nodeGraphMvp.workspaceWindowStates = {};
+  }
+  const prior = nodeGraphMvp.workspaceWindowStates.patchDefaults || {};
+  nodeGraphMvp.workspaceWindowStates.patchDefaults = {
+    ...prior,
+    size: { width: normalized.width, height: normalized.height },
+  };
+  return normalized;
+}
+
+function setNodeGraphPatchDefaultsVisible(visible) {
+  const panel = document.getElementById("nodePatchDefaultsPanel");
+  if (!panel) {
+    return;
+  }
+  if (visible && !panel.hidden) {
+    if (typeof pulseNodeGraphFloatingWindowAttention === "function") {
+      pulseNodeGraphFloatingWindowAttention(panel);
+    }
+    if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
+      noteNodeGraphUnifiedWindowOpened("patchDefaults", panel);
+    }
+    return;
+  }
+  panel.hidden = !visible;
+  if (visible) {
+    if (typeof bindNodeGraphFloatingWindowResizeHandle === "function") {
+      bindNodeGraphFloatingWindowResizeHandle("patchDefaults");
+    }
+    if (typeof markNodeGraphFloatingWindowSurface === "function") {
+      markNodeGraphFloatingWindowSurface(panel);
+    }
+    const savedSize = nodeGraphMvp.workspaceWindowStates?.patchDefaults?.size
+      || nodeGraphPatchDefaultsWindowDefaultSize;
+    applyNodeGraphPatchDefaultsWindowSize(savedSize, panel);
+    const pending = nodeGraphMvp._unifiedWindowPendingPosition;
+    if (pending && Number.isFinite(Number(pending.left)) && Number.isFinite(Number(pending.top))) {
+      if (typeof setNodeGraphFloatingWindowViewportPosition === "function") {
+        setNodeGraphFloatingWindowViewportPosition(panel, pending.left, pending.top);
+      } else {
+        panel.style.left = `${Math.round(pending.left)}px`;
+        panel.style.top = `${Math.round(pending.top)}px`;
+      }
+    } else if (typeof positionNodeGraphWorkspaceWindowFromState === "function") {
+      positionNodeGraphWorkspaceWindowFromState("patchDefaults", panel);
+    }
+    if (typeof noteNodeGraphUnifiedWindowOpened === "function") {
+      noteNodeGraphUnifiedWindowOpened("patchDefaults", panel);
+    }
+  }
+  if (typeof rememberNodeGraphWorkspaceWindowState === "function") {
+    rememberNodeGraphWorkspaceWindowState("patchDefaults", panel, { open: visible }, { status: false });
+  }
+}
+
 function applyNodeGraphPatchDefaultsFromCurrentSelection() {
   const ids = typeof nodeGraphSelectedNodeIds === "function"
     ? nodeGraphSelectedNodeIds()
@@ -771,8 +920,13 @@ function applyNodeGraphPatchDefaultsFromCurrentSelection() {
       ? [nodeGraphModuleActionTargetNodeId()].filter(Boolean)
       : []);
   if (!targetIds.length) {
+    const empty = "Select one or more modules to write current values as defaults.";
     if (typeof setNodeInteractionHelp === "function") {
-      setNodeInteractionHelp("Select one or more modules to write current values as defaults.");
+      setNodeInteractionHelp(empty);
+    }
+    const status = document.getElementById("nodePatchDefaultsStatus");
+    if (status) {
+      status.textContent = empty;
     }
     return 0;
   }
@@ -803,12 +957,17 @@ function applyNodeGraphPatchDefaultsFromCurrentSelection() {
   if (changed) {
     commitNodeGraphPatch(patch, { status: "patch defaults from current values" });
   }
+  const message = !targetIds.length
+    ? "Select one or more modules to write current values as defaults."
+    : changed
+      ? `Wrote ${changed} parameter default${changed === 1 ? "" : "s"} from current values.`
+      : "No numeric parameters to write as defaults.";
   if (typeof setNodeInteractionHelp === "function") {
-    setNodeInteractionHelp(
-      changed
-        ? `Wrote ${changed} parameter default${changed === 1 ? "" : "s"} from current values.`
-        : "No numeric parameters to write as defaults.",
-    );
+    setNodeInteractionHelp(message);
+  }
+  const status = document.getElementById("nodePatchDefaultsStatus");
+  if (status) {
+    status.textContent = message;
   }
   return changed;
 }
@@ -884,6 +1043,17 @@ function deleteNodeGraphSelectionFromContext() {
   }
 }
 
+function nodeGraphChromeCommitOptions(nodeIds, extra = {}) {
+  return {
+    chromeEdit: true,
+    chromeNodeIds: Array.isArray(nodeIds) ? [...nodeIds] : [],
+    markPending: false,
+    skipLivePlan: extra.skipLivePlan !== false,
+    deferUiPanels: true,
+    ...extra,
+  };
+}
+
 function adjustNodeGraphModuleWidthFromContext(delta) {
   const targetNodeIds = nodeGraphModuleActionTargetNodeIds();
   if (!targetNodeIds.length) {
@@ -910,11 +1080,9 @@ function adjustNodeGraphModuleWidthFromContext(delta) {
     changedCount += 1;
   }
   if (changedCount) {
-    commitNodeGraphPatch(patch, {
-      markPending: false,
-      skipLivePlan: true,
+    commitNodeGraphPatch(patch, nodeGraphChromeCommitOptions(targetNodeIds, {
       status: changedCount > 1 ? "module widths changed" : "module width changed",
-    });
+    }));
   }
   configureNodeSceneContextMenu("module");
 }
@@ -949,11 +1117,9 @@ function adjustNodeGraphModuleDisplayHeightFromContext(delta) {
     changedCount += 1;
   }
   if (changedCount) {
-    commitNodeGraphPatch(patch, {
-      markPending: false,
-      skipLivePlan: true,
+    commitNodeGraphPatch(patch, nodeGraphChromeCommitOptions(targetNodeIds, {
       status: changedCount > 1 ? "module display heights changed" : "module display height changed",
-    });
+    }));
   }
   configureNodeSceneContextMenu("module");
 }
@@ -981,7 +1147,9 @@ function adjustNodeGraphTextBoxTextSizeFromContext(delta) {
     ...currentLayout,
     textSizePercent: nextTextSizePercent,
   });
-  commitNodeGraphPatch(patch, { status: "text box text size changed" });
+  commitNodeGraphPatch(patch, nodeGraphChromeCommitOptions([sourceNode.id], {
+    status: "text box text size changed",
+  }));
   configureNodeSceneContextMenu("module");
 }
 
@@ -1017,9 +1185,9 @@ function adjustNodeGraphModuleHeightFromContext(delta) {
     changedCount += 1;
   }
   if (changedCount) {
-    commitNodeGraphPatch(patch, {
+    commitNodeGraphPatch(patch, nodeGraphChromeCommitOptions(targetNodeIds, {
       status: changedCount > 1 ? "module heights changed" : "module height changed",
-    });
+    }));
   }
   configureNodeSceneContextMenu("module");
 }
@@ -2149,13 +2317,13 @@ function toggleNodeGraphModuleButtonsFromContext() {
     changedCount += 1;
   }
   if (changedCount) {
-    commitNodeGraphPatch(patch, {
+    commitNodeGraphPatch(patch, nodeGraphChromeCommitOptions(targetNodeIds, {
       status: wantHidden
         ? (changedCount > 1 ? "module buttons hidden" : "module buttons hidden")
         : (changedCount > 1 ? "module buttons shown" : "module buttons shown"),
-    });
+    }));
   }
-  renderNodeGraphModuleVisibilityToggles();
+  renderNodeGraphModuleVisibilityToggles({ skipModuleSync: true });
   configureNodeSceneContextMenu("module");
 }
 
@@ -2258,11 +2426,11 @@ function toggleNodeGraphModuleTitleFromContext() {
     changedCount += 1;
   }
   if (changedCount) {
-    commitNodeGraphPatch(patch, {
+    commitNodeGraphPatch(patch, nodeGraphChromeCommitOptions(targetNodeIds, {
       status: wantHidden
         ? (changedCount > 1 ? "module titles hidden" : "module title hidden")
         : (changedCount > 1 ? "module titles shown" : "module title shown"),
-    });
+    }));
   }
   configureNodeSceneContextMenu("module");
 }
@@ -2303,13 +2471,14 @@ function toggleNodeGraphModuleOscilloscopeFromContext() {
     changedCount += 1;
   }
   if (changedCount) {
-    commitNodeGraphPatch(patch, {
+    commitNodeGraphPatch(patch, nodeGraphChromeCommitOptions(targetNodeIds, {
+      deferLivePlan: true,
       status: wantHidden
         ? (changedCount > 1 ? "module displays hidden" : "module display hidden")
         : (changedCount > 1 ? "module displays shown" : "module display shown"),
-    });
+    }));
   }
-  renderNodeGraphModuleVisibilityToggles();
+  renderNodeGraphModuleVisibilityToggles({ skipModuleSync: true });
   configureNodeSceneContextMenu("module");
 }
 
@@ -2394,14 +2563,15 @@ function toggleNodeGraphModuleCollapsedFromContext() {
     changedCount += 1;
   }
   if (changedCount) {
-    commitNodeGraphPatch(patch, {
+    commitNodeGraphPatch(patch, nodeGraphChromeCommitOptions(targetNodeIds, {
+      deferLivePlan: true,
       status: wantCollapsed
         ? (changedCount > 1 ? "modules collapsed" : "module collapsed")
         : (changedCount > 1 ? "modules expanded" : "module expanded"),
-    });
+    }));
   }
   if (typeof renderNodeGraphModuleVisibilityToggles === "function") {
-    renderNodeGraphModuleVisibilityToggles();
+    renderNodeGraphModuleVisibilityToggles({ skipModuleSync: true });
   }
   configureNodeSceneContextMenu("module");
 }
@@ -2490,13 +2660,13 @@ function toggleNodeGraphModuleInterfaceControlsFromContext() {
     changedCount += 1;
   }
   if (changedCount) {
-    commitNodeGraphPatch(patch, {
+    commitNodeGraphPatch(patch, nodeGraphChromeCommitOptions(targetNodeIds, {
       status: wantHidden
         ? (changedCount > 1 ? "module control surfaces hidden" : "module control surface hidden")
         : (changedCount > 1 ? "module control surfaces shown" : "module control surface shown"),
-    });
+    }));
   }
-  renderNodeGraphModuleVisibilityToggles();
+  renderNodeGraphModuleVisibilityToggles({ skipModuleSync: true });
   configureNodeSceneContextMenu("module");
 }
 
@@ -2534,11 +2704,11 @@ function toggleNodeGraphModuleIoFromContext() {
     changedCount += 1;
   }
   if (changedCount) {
-    commitNodeGraphPatch(patch, {
+    commitNodeGraphPatch(patch, nodeGraphChromeCommitOptions(targetNodeIds, {
       status: wantHidden
         ? (changedCount > 1 ? "module in/out hidden" : "module in/out hidden")
         : (changedCount > 1 ? "module in/out shown" : "module in/out shown"),
-    });
+    }));
   }
   configureNodeSceneContextMenu("module");
 }
@@ -2579,13 +2749,13 @@ function toggleNodeGraphModuleSlidersFromContext() {
     changedCount += 1;
   }
   if (changedCount) {
-    commitNodeGraphPatch(patch, {
+    commitNodeGraphPatch(patch, nodeGraphChromeCommitOptions(targetNodeIds, {
       status: wantHidden
         ? (changedCount > 1 ? "module sliders hidden" : "module sliders hidden")
         : (changedCount > 1 ? "module sliders shown" : "module sliders shown"),
-    });
+    }));
   }
-  renderNodeGraphModuleVisibilityToggles();
+  renderNodeGraphModuleVisibilityToggles({ skipModuleSync: true });
   configureNodeSceneContextMenu("module");
 }
 

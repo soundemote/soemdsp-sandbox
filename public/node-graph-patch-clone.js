@@ -504,6 +504,11 @@ function cloneNodeGraphTypedDisplaySettings(node) {
       traceDisplaySettings: normalizeNodeGraphFbmFieldSettings(migrate(node.traceDisplaySettings, false)),
     };
   }
+  if (displayType === "patchFace" && typeof normalizeNodeGraphPatchFaceDisplaySettings === "function") {
+    return {
+      traceDisplaySettings: normalizeNodeGraphPatchFaceDisplaySettings(migrate(node.traceDisplaySettings, false)),
+    };
+  }
   if (displayType === "trace" && Object.hasOwn(node, "traceDisplaySettings")) {
     return { traceDisplaySettings: normalizeNodeGraphTraceDisplaySettings(migrate(node.traceDisplaySettings, isOutput)) };
   }

@@ -20,7 +20,7 @@ function normalizeNodeGraphModuleScopeSetting(value = {}) {
     offset: Number.isFinite(offset) ? clampNodeSliderValue(offset, -1, 1) : nodeGraphModuleScopeDefaultSettings.offset,
     oscillatorTraceMode: source.oscillatorTraceMode === "window" ? "window" : "frequencyReset",
     pan: Number.isFinite(pan) ? clampNodeSliderValue(pan, -128, 128) : nodeGraphModuleScopeDefaultSettings.pan,
-    sync: source.sync !== false,
+    sync: source.sync === true,
     timeMs: Number.isFinite(timeMs) && timeMs >= 0
       ? clampNodeSliderValue(timeMs, 0, 10000)
       : nodeGraphModuleScopeDefaultSettings.timeMs,

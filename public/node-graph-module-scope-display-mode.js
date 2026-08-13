@@ -188,6 +188,8 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "macroControlsFace",
     // Knob module: macro dial colors, image layers, centered span, readout.
     "knobFace",
+    // Patch identity plate — not Trace.
+    "patchFace",
   ].includes(displayType);
 }
 
